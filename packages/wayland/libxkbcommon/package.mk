@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="wayland"
 PKG_SHORTDESC="xkbcommon: a library to handle keyboard descriptions"
 PKG_LONGDESC="xkbcommon is a library to handle keyboard descriptions, including loading them from disk, parsing them and handling their state. It's mainly meant for client toolkits, window systems, and other system applications; currently that includes Wayland, kmscon, GTK+, Qt, Clutter, and more. It is also used by some XCB applications for proper keyboard support."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 if [ "$DISPLAYSERVER" = "x11" ]; then

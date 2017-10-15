@@ -28,8 +28,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="compress"
 PKG_SHORTDESC="unzip: PKUNZIP compatible compression utility"
 PKG_LONGDESC="UnZip is an extraction utility for archives compressed in .zip format (also called "zipfiles"). Although highly compatible both with PKWARE's PKZIP and PKUNZIP utilities for MS-DOS and with Info-ZIP's own Zip program, the primary objectives have been portability and non-MSDOS functionality."
-PKG_IS_ADDON="no"
-
 PKG_AUTORECONF="no"
 
 make_target() {
@@ -42,4 +40,3 @@ makeinstall_target() {
     cp unzip $INSTALL/usr/bin
     $STRIP $INSTALL/usr/bin/unzip
 }
-

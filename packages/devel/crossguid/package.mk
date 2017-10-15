@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain util-linux"
 PKG_SECTION="devel"
 PKG_SHORTDESC="minimal, cross platform, C++ GUID library"
 PKG_LONGDESC="minimal, cross platform, C++ GUID library"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {

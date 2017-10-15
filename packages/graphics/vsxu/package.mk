@@ -26,10 +26,8 @@ PKG_SITE="http://www.vsxu.com"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain $OPENGL libX11 glew glfw zlib libpng libjpeg-turbo freetype"
 PKG_SECTION="multimedia"
-PKG_SHORTDESC="vsxu:"
-PKG_LONGDESC="vsxu:"
-
-PKG_IS_ADDON="no"
+PKG_SHORTDESC="an OpenGL-based programming environment to visualize music and create graphic effects"
+PKG_LONGDESC="an OpenGL-based programming environment to visualize music and create graphic effects"
 PKG_AUTORECONF="no"
 
 export LDFLAGS="$LDFLAGS -lX11"

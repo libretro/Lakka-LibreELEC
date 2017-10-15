@@ -28,8 +28,6 @@ PKG_SHORTDESC="Controls the LED lights on the Slice box using Kodi actions"
 PKG_LONGDESC="Controls the LED lights on the Slice box using Kodi actions"
 PKG_AUTORECONF="no"
 
-PKG_IS_ADDON="no"
-
 make_target() {
 (
   cd $ROOT

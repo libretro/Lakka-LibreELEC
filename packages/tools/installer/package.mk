@@ -26,8 +26,6 @@ PKG_DEPENDS_TARGET="toolchain busybox newt parted e2fsprogs syslinux grub"
 PKG_SECTION="tools"
 PKG_SHORTDESC="installer: LibreELEC.tv Install manager"
 PKG_LONGDESC="LibreELEC.tv Install manager to install the system on any disk"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {

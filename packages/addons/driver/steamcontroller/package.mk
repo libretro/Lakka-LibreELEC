@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -51,7 +51,7 @@ addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
     cp -a $PKG_BUILD/build/scripts-2.7/* $ADDON_BUILD/$PKG_ADDON_ID/bin/
 
-  mkdir	-p $ADDON_BUILD/$PKG_ADDON_ID/lib
+  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib
     cp -a $PKG_BUILD/build/lib.linux-*-2.7/* $ADDON_BUILD/$PKG_ADDON_ID/lib/
     cp -a $(get_build_dir python-libusb1)/build/lib/* $ADDON_BUILD/$PKG_ADDON_ID/lib/
     cp -a $(get_build_dir enum34)/build/lib/* $ADDON_BUILD/$PKG_ADDON_ID/lib/

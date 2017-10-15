@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain util-macros font-util:host"
 PKG_SECTION="x11/font"
 PKG_SHORTDESC="font-cursor-misc: X11 cursor fonts"
 PKG_LONGDESC="X11 cursor fonts."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--with-fontrootdir=/usr/share/fonts"

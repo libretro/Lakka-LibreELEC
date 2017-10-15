@@ -29,7 +29,6 @@ PKG_DEPENDS_TARGET="toolchain glib cairo freetype fontconfig libX11 libXft harfb
 PKG_SECTION="x11/toolkits"
 PKG_SHORTDESC="pango: Library for layout and rendering of internationalized text"
 PKG_LONGDESC="The goal of the Pango project is to provide an open-source framework for the layout and rendering of internationalized text. Pango is an offshoot of the GTK+ and GNOME projects, and the initial focus is operation in those environments, however there is nothing fundamentally GTK+ or GNOME specific about Pango. Pango uses Unicode for all of its encoding, and will eventually support output in all the worlds major languages."
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-doc-cross-references \

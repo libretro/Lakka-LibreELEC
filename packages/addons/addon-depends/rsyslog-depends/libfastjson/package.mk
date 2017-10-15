@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -27,9 +27,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="rsyslog"
 PKG_SHORTDESC="libfastjson"
 PKG_LONGDESC="libfastjson"
-
 PKG_AUTORECONF="no"
-PKG_IS_ADDON="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared \
                            ac_cv_func_malloc_0_nonnull=yes \

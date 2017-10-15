@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain util-macros zlib"
 PKG_SECTION="x11/lib"
 PKG_SHORTDESC="libpciaccess: X.org libpciaccess library"
 PKG_LONGDESC="X.org libpciaccess library."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 CFLAGS="$CFLAGS -D_LARGEFILE64_SOURCE"

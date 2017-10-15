@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2017 Team LibreELEC
+#      Copyright (C) 2017-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain popt"
 PKG_SECTION="system"
 PKG_SHORTDESC="GPT text-mode partitioning tools"
 PKG_LONGDESC="GPT text-mode partitioning tools"
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {

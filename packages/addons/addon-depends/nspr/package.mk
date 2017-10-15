@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain nss:host"
 PKG_SECTION="security"
 PKG_SHORTDESC="Netscape Portable Runtime (NSPR) provides a platform-neutral API for system level and libc like functions"
 PKG_LONGDESC="Netscape Portable Runtime (NSPR) provides a platform-neutral API for system level and libc like functions"
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 MAKEFLAGS=-j1
@@ -42,5 +41,5 @@ PKG_MAKEINSTALL_OPTS_TARGET="NSINSTALL=$TOOLCHAIN/bin/nsinstall"
 
 configure_target() {
   cd $(get_build_dir nss)/nspr
-  ./configure --with-pthreads $TARGET_USE_64 $TARGET_CONFIGURE_OPTS 
+  ./configure --with-pthreads $TARGET_USE_64 $TARGET_CONFIGURE_OPTS
 }

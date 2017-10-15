@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain util-macros"
 PKG_SECTION="x11/font"
 PKG_SHORTDESC="font-bitstream-type1: Bitstream font family"
 PKG_LONGDESC="Bitstream font family."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--with-fontrootdir=/usr/share/fonts"

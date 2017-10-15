@@ -27,8 +27,6 @@ PKG_DEPENDS_INIT="toolchain gcc:init libpng"
 PKG_SECTION="tools"
 PKG_SHORTDESC="plymouth-lite: Boot splash screen based on Fedora's Plymouth code"
 PKG_LONGDESC="Boot splash screen based on Fedora's Plymouth code"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 if [ "$UVESAFB_SUPPORT" = yes ]; then

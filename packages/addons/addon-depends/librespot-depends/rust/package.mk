@@ -25,8 +25,6 @@ PKG_URL=""
 PKG_DEPENDS="toolchain"
 PKG_SECTION="devel"
 PKG_LONGDESC="Rust is a systems programming language that runs blazingly fast, prevents segfaults, and guarantees thread safety."
-PKG_IS_ADDON="no"
-
 PKG_AUTORECONF="no"
 
 unpack() {

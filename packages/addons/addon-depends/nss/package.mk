@@ -29,7 +29,6 @@ PKG_DEPENDS_TARGET="toolchain nss:host nspr zlib"
 PKG_SECTION="security"
 PKG_SHORTDESC="The Network Security Services (NSS) package is a set of libraries designed to support cross-platform development of security-enabled client and server applications"
 PKG_LONGDESC="The Network Security Services (NSS) package is a set of libraries designed to support cross-platform development of security-enabled client and server applications"
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 MAKEFLAGS=-j1
@@ -39,7 +38,7 @@ make_host() {
 
   [ "$TARGET_ARCH" = "x86_64" ] && export USE_64=1
 
-  make -C coreconf/nsinstall  
+  make -C coreconf/nsinstall
 }
 
 makeinstall_host() {

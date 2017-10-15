@@ -27,6 +27,4 @@ PKG_DEPENDS_HOST="toolchain"
 PKG_SECTION="compress"
 PKG_SHORTDESC="cpio: A GNU archiving program"
 PKG_LONGDESC="This is GNU cpio, a program to manage archives of files. As of version 2.0, it supports the features of the System V release 4 cpio, including support for tar archives."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"

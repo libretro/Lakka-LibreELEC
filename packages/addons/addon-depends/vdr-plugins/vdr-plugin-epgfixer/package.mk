@@ -27,9 +27,6 @@ PKG_DEPENDS_TARGET="toolchain vdr pcre"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="vdr-plugin-epgfixer"
 PKG_LONGDESC="Plugin for modifying EPG data using regular expressions."
-
-PKG_IS_ADDON="no"
-
 PKG_AUTORECONF="no"
 
 make_target() {

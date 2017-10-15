@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain mesa"
 PKG_SECTION="graphics"
 PKG_SHORTDESC="A tiny C lib primarily for loading textures into OpenGL"
 PKG_LONGDESC="A tiny C lib primarily for loading textures into OpenGL"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 pre_make_target() {

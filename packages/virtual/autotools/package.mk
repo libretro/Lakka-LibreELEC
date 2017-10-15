@@ -25,8 +25,5 @@ PKG_URL=""
 PKG_DEPENDS_HOST="ccache:host autoconf:host automake:host libtool:host intltool:host autoconf-archive:host"
 PKG_SECTION="virtual"
 PKG_SHORTDESC="autotools: Metapackage"
-PKG_LONGDESC=""
-
-PKG_IS_ADDON="no"
+PKG_LONGDESC="autotools: Metapackage"
 PKG_AUTORECONF="no"
-

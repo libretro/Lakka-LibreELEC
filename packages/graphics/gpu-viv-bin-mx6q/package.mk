@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain gpu-viv-g2d"
 PKG_SECTION="graphics"
 PKG_SHORTDESC="gpu-viv-bin-mx6q: OpenGL-ES and VIVANTE driver for imx6q"
 PKG_LONGDESC="gpu-viv-bin-mx6q: OpenGL-ES and VIVANTE driver for imx6q"
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {

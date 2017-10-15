@@ -34,7 +34,6 @@ PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="LinuxServer.io Repository"
 PKG_ADDON_TYPE="xbmc.addon.repository"
 
-
 make_target() {
   $SED -e "s|@PKG_VERSION@|$PKG_VERSION|g" \
        -e "s|@PKG_REV@|$PKG_REV|g" \

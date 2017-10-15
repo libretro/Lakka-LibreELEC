@@ -29,8 +29,6 @@ PKG_DEPENDS_TARGET="toolchain libX11 libXfixes libXrender"
 PKG_SECTION="x11/lib"
 PKG_SHORTDESC="libXcursor: X Cursor Library"
 PKG_LONGDESC="X11 Cursor management library"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-shared --enable-static"

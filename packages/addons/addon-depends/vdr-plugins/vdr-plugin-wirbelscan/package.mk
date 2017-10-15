@@ -28,8 +28,6 @@ PKG_DEPENDS_TARGET="toolchain vdr"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="TV"
 PKG_LONGDESC="TV"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 pre_configure_target() {
@@ -48,4 +46,3 @@ make_target() {
 makeinstall_target() {
   : # installation not needed, done by create-addon script
 }
-

@@ -25,10 +25,8 @@ PKG_SITE="http://sourceforge.net/projects/ftgl/"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain freetype"
 PKG_SECTION="multimedia"
-PKG_SHORTDESC="ftgl:"
-PKG_LONGDESC="ftgl:"
-
-PKG_IS_ADDON="no"
+PKG_SHORTDESC="a free cross-platform Open Source C++ library that uses Freetype2 to simplify rendering fonts in OpenGL applications"
+PKG_LONGDESC="a free cross-platform Open Source C++ library that uses Freetype2 to simplify rendering fonts in OpenGL applications"
 PKG_AUTORECONF="no"
 
 PKG_CMAKE_OPTS_TARGET="-DOUTPUT_DIR=$SYSROOT_PREFIX/usr"

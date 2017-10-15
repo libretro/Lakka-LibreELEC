@@ -27,6 +27,4 @@ PKG_DEPENDS_TARGET="toolchain libX11 libxkbfile"
 PKG_SECTION="x11/app"
 PKG_SHORTDESC="setxkbmap: Sets the keyboard using the X Keyboard Extension"
 PKG_LONGDESC="Setxkbmap sets the keyboard using the X Keyboard Extension."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"

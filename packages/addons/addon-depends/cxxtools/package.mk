@@ -28,8 +28,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="python/web"
 PKG_SHORTDESC="cxxtools: a collection of general-purpose C++ classes"
 PKG_LONGDESC="Cxxtools is a collection of general-purpose C++ classes"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_HOST="--disable-demos --with-atomictype=pthread --disable-unittest"
@@ -40,7 +38,6 @@ pre_configure_target() {
   CXXFLAGS="$CXXFLAGS -fPIC"
   LDFLAGS="$LDFLAGS -fPIC"
 }
-
 
 post_makeinstall_host() {
   rm -rf $TOOLCHAIN/bin/cxxtools-config

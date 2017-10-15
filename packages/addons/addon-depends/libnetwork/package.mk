@@ -28,8 +28,6 @@ PKG_DEPENDS_TARGET="toolchain go:host"
 PKG_SECTION="system"
 PKG_SHORTDESC="Libnetwork provides a native Go implementation for connecting containers"
 PKG_LONGDESC="Libnetwork provides a native Go implementation for connecting containers"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 pre_make_target() {

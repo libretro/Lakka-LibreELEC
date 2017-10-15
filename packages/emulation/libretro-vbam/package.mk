@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -30,8 +30,6 @@ PKG_SHORTDESC="game.libretro.vbam: VBA-M for Kodi"
 PKG_LONGDESC="game.libretro.vbam: VBA-M for Kodi"
 PKG_AUTORECONF="no"
 PKG_USE_CMAKE="no"
-PKG_IS_ADDON="no"
-PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="vbam_libretro.so"
 PKG_LIBPATH="src/libretro/$PKG_LIBNAME"
@@ -52,4 +50,3 @@ makeinstall_target() {
   cp $PKG_LIBPATH $SYSROOT_PREFIX/usr/lib/$PKG_LIBNAME
   echo "set($PKG_LIBVAR $SYSROOT_PREFIX/usr/lib/$PKG_LIBNAME)" > $SYSROOT_PREFIX/usr/lib/cmake/$PKG_NAME/$PKG_NAME-config.cmake
 }
-

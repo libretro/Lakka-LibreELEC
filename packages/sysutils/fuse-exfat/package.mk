@@ -27,6 +27,4 @@ PKG_DEPENDS_TARGET="toolchain fuse"
 PKG_SECTION="system"
 PKG_SHORTDESC="fuse-exfat: aims to provide a full-featured exFAT file system implementation for GNU/Linux other Unix-like systems as a FUSE module."
 PKG_LONGDESC="This project aims to provide a full-featured exFAT file system implementation for GNU/Linux other Unix-like systems as a FUSE module."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"

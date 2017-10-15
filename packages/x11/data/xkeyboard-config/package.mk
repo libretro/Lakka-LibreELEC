@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain util-macros xkbcomp"
 PKG_SECTION="x11/data"
 PKG_SHORTDESC="xkeyboard-config: X keyboard extension data files"
 PKG_LONGDESC="X keyboard extension data files."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="XKBCOMP=/usr/bin/xkbcomp \

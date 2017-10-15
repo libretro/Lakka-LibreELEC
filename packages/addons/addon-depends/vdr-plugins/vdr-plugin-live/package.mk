@@ -28,8 +28,6 @@ PKG_DEPENDS_TARGET="toolchain vdr tntnet pcre:host pcre"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="vdr-live: the LIVE Interactive VDR Environment/"
 PKG_LONGDESC="vdr-live allows a comfortable operation of VDR and some of its plugins trough a web interface"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 pre_configure_target() {

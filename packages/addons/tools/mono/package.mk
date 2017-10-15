@@ -72,7 +72,7 @@ makeinstall_target() {
 
 addon() {
   mkdir -p "$ADDON_BUILD/$PKG_ADDON_ID"
-  
+
   cp -PR "$PKG_BUILD/.install_pkg/storage/.kodi/addons/$PKG_SECTION.$PKG_NAME"/* \
          "$ADDON_BUILD/$PKG_ADDON_ID/"
 

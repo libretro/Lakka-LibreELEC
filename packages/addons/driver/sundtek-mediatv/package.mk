@@ -48,13 +48,13 @@ make_target() {
       INSTALLER_URL="http://sundtek.de/media/netinst/arm64/installer.tar.gz"
       ;;
   esac
-  
+
   wget -O installer.tar.gz $INSTALLER_URL
-  
+
   tar -xzf installer.tar.gz
-  
+
   chmod -R 755 opt/ etc/
-  
+
   rm -f  opt/bin/getinput.sh
   rm -f  opt/bin/lirc.sh
   rm -fr opt/lib/pm/

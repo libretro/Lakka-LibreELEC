@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain dbus glib expat"
 PKG_SECTION="devel"
 PKG_SHORTDESC="dbus-glib: A message bus system"
 PKG_LONGDESC="D-BUS is a message bus, used for sending messages between applications. Conceptually, it fits somewhere in between raw sockets and CORBA in terms of complexity."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_have_abstract_sockets=yes \

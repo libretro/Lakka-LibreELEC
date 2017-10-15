@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain util-macros"
 PKG_SECTION="x11/proto"
 PKG_SHORTDESC="videoproto: KB extension headers"
 PKG_LONGDESC="Video extension headers"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 # package specific configure options

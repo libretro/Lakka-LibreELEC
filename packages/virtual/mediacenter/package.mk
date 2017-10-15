@@ -25,9 +25,7 @@ PKG_URL=""
 PKG_DEPENDS_TARGET="toolchain $MEDIACENTER"
 PKG_SECTION="virtual"
 PKG_SHORTDESC="Mediacenter: Metapackage"
-PKG_LONGDESC=""
-
-PKG_IS_ADDON="no"
+PKG_LONGDESC="Mediacenter: Metapackage"
 PKG_AUTORECONF="no"
 
 if [ "$MEDIACENTER" = "kodi" ]; then
@@ -36,7 +34,7 @@ if [ "$MEDIACENTER" = "kodi" ]; then
   for i in $SKINS; do
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $MEDIACENTER-theme-$i"
   done
-  
+
 # some python stuff needed for various addons
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET Pillow \
                                           simplejson \
@@ -44,7 +42,7 @@ if [ "$MEDIACENTER" = "kodi" ]; then
 # other packages
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET LibreELEC-settings \
                                           xmlstarlet"
-  
+
   if [ "$JOYSTICK_SUPPORT" = "yes" ]; then
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET peripheral.joystick"
   fi

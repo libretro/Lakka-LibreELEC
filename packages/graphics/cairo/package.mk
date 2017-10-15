@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain zlib freetype fontconfig libpng pixman"
 PKG_SECTION="graphics"
 PKG_SHORTDESC="cairo: Multi-platform 2D graphics library"
 PKG_LONGDESC="Cairo is a vector graphics library with cross-device output support. Currently supported output targets include the X Window System and in-memory image buffers. PostScript and PDF file output is planned. Cairo is designed to produce identical output on all output media while taking advantage of display hardware acceleration when available."
-PKG_IS_ADDON="no"
-
 PKG_AUTORECONF="no" # ToDo
 
 if [ "$DISPLAYSERVER" = "x11" ]; then
@@ -42,7 +40,6 @@ if [ "$DISPLAYSERVER" = "x11" ]; then
                     --disable-glesv2 \
                     --disable-egl \
                     --with-x"
-
 
 elif [ "$DISPLAYSERVER" = "weston" ]; then
   PKG_CAIRO_CONFIG="--disable-xlib \

@@ -27,9 +27,6 @@ PKG_DEPENDS_TARGET="toolchain util-macros libX11"
 PKG_SECTION="x11/app"
 PKG_SHORTDESC="xkbcomp: Compiles XKB keyboard description"
 PKG_LONGDESC="The xkbcomp keymap compiler converts a description of an XKB keymap into one of several output formats."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--with-xkb-config-root=$XORG_PATH_XKB"
-

@@ -39,7 +39,7 @@ PKG_CONFIGURE_OPTS_TARGET="vim_cv_getcwd_broken=no \
                            vim_cv_tty_mode=0620 \
                            ac_cv_sizeof_int=4 \
                            ac_cv_small_wchar_t=no \
-			   --enable-selinux=no \
+                           --enable-selinux=no \
                            --enable-gui=no \
                            --with-compiledby=LibreELEC \
                            --with-features=huge \
