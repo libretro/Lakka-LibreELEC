@@ -38,7 +38,6 @@ post_unpack() {
   cp -r $PKG_BUILD/* $PKG_BUILD/.$TARGET_NAME
 }
 
-
 make_host() {
   cd $PKG_BUILD/.$HOST_NAME
   make CC=$CC \

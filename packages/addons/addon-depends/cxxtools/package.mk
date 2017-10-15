@@ -39,7 +39,6 @@ pre_configure_target() {
   LDFLAGS="$LDFLAGS -fPIC"
 }
 
-
 post_makeinstall_host() {
   rm -rf $TOOLCHAIN/bin/cxxtools-config
 }

@@ -39,7 +39,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-dependency-tracking \
                            --disable-nls \
                            --disable-rst2man"
 
-
 post_makeinstall_target() {
   rm -rf $INSTALL/lib $INSTALL/var
   rm -rf $INSTALL/usr/share/alsa/speaker-test

@@ -16,7 +16,6 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-
 PKG_NAME="libretro-picodrive"
 PKG_VERSION="9ae88ef"
 PKG_SHA256="a54ddc7de8261c32e848c583dfb0fe4831d92684b9b67a25e2ccbff6a0f6978c"
@@ -80,4 +79,3 @@ makeinstall_target() {
   cp $PKG_LIBPATH $SYSROOT_PREFIX/usr/lib/$PKG_LIBNAME
   echo "set($PKG_LIBVAR $SYSROOT_PREFIX/usr/lib/$PKG_LIBNAME)" > $SYSROOT_PREFIX/usr/lib/cmake/$PKG_NAME/$PKG_NAME-config.cmake
 }
-

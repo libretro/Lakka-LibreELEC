@@ -74,8 +74,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-shared --enable-static \
                            --disable-rpath \
                            --disable-render-d3d"
 
-
-
 if [ "$DISPLAYSERVER" = "x11" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libX11 libXrandr"
 

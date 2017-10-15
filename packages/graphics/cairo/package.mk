@@ -41,7 +41,6 @@ if [ "$DISPLAYSERVER" = "x11" ]; then
                     --disable-egl \
                     --with-x"
 
-
 elif [ "$DISPLAYSERVER" = "weston" ]; then
   PKG_CAIRO_CONFIG="--disable-xlib \
                     --disable-xlib-xrender \
