@@ -32,9 +32,9 @@ elif [ "$UBOOT_VERSION" = "hardkernel" ]; then
   PKG_URL="https://github.com/hardkernel/u-boot/archive/$PKG_VERSION.tar.gz"
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gcc-linaro-aarch64-elf:host gcc-linaro-arm-eabi:host"
 elif [ "$UBOOT_VERSION" = "odroidxu3" ]; then
-  PKG_VERSION="2015.10"
-  PKG_SITE="http://www.denx.de/wiki/U-Boot/WebHome"
-  PKG_URL="ftp://ftp.denx.de/pub/u-boot/u-boot-$PKG_VERSION.tar.bz2"
+  PKG_VERSION="88af53fb"
+  PKG_SITE="https://github.com/hardkernel/u-boot/tree/odroidxu4-v2017.05"
+  PKG_URL="$LAKKA_MIRROR/u-boot-$PKG_VERSION.tar.xz"
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET dtc:host hk-bootloader"
 elif [ "$UBOOT_VERSION" = "odroidc" ]; then
   PKG_VERSION="86125f8"
@@ -99,7 +99,7 @@ make_target() {
       make CROSS_COMPILE="arm-eabi-" ARCH=arm mrproper
       make CROSS_COMPILE="arm-eabi-" ARCH=arm $UBOOT_TARGET
       make CROSS_COMPILE="arm-eabi-" ARCH=arm HOSTCC="$HOST_CC" HOSTSTRIP="true"
-    elif [ "$PROJECT" = "Allwinner" ]; then
+    elif [ "$PROJECT" = "Allwinner" -o "$PROJECT" = "OdroidXU3" ]; then
       make CROSS_COMPILE="$TARGET_PREFIX" ARCH=arm mrproper
       make CROSS_COMPILE="$TARGET_PREFIX" ARCH=arm $UBOOT_TARGET
       make CROSS_COMPILE="$TARGET_PREFIX" ARCH=arm HOSTCC="$HOST_CC" HOSTSTRIP="true" PYTHON=/usr/bin/python
