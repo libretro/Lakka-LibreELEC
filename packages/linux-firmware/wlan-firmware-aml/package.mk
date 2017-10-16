@@ -36,6 +36,11 @@ make_target() {
 makeinstall_target() {
   mkdir -p $INSTALL/$(get_full_firmware_dir)/brcm
 
+  # AP6210
+  cp -PR bcm_ampak/config/AP6210/Wi-Fi/fw_bcm40181a2*.bin $INSTALL/$(get_full_firmware_dir)/brcm
+  cp -P bcm_ampak/config/AP6210/Wi-Fi/nvram_ap6210.txt $INSTALL/$(get_full_firmware_dir)/brcm
+  cp -P bcm_ampak/config/AP6210/BT/bcm20710a1.hcd $INSTALL/$(get_full_firmware_dir)/brcm
+
   # AP6255
   cp -PR bcm_ampak/config/6255/fw_bcm43455c0_*.bin $INSTALL/$(get_full_firmware_dir)/brcm
   cp -P bcm_ampak/config/6255/nvram.txt $INSTALL/$(get_full_firmware_dir)/brcm/nvram_ap6255.txt
