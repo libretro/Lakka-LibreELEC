@@ -44,7 +44,7 @@ else
 fi
 
 # PulseAudio fails to build on aarch64 when NEON is enabled, so don't enable NEON for aarch64 until upstream supports it
-if echo "$TARGET_FPU" | grep -q '^neon'; then
+if [ "$TARGET_ARCH" = "arm" ] && target_has_feature neon; then
   PULSEAUDIO_NEON="--enable-neon-opt"
 else
   PULSEAUDIO_NEON="--disable-neon-opt"

@@ -42,7 +42,7 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --with-ogg=$SYSROOT_PREFIX/usr \
                            --with-gnu-ld"
 
-if [ $TARGET_ARCH = "x86_64" ]; then
+if target_has_feature sse; then
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-sse"
 else
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --disable-sse"

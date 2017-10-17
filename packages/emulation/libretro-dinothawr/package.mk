@@ -36,7 +36,7 @@ PKG_LIBPATH="$PKG_LIBNAME"
 PKG_LIBVAR="DINOTHAWR_LIB"
 
 pre_make_target() {
-  if echo "$TARGET_FPU" | grep -q '^neon'; then
+  if target_has_feature neon; then
     export HAVE_NEON=1
   fi
 }
