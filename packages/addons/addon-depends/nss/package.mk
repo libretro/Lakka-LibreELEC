@@ -36,9 +36,7 @@ MAKEFLAGS=-j1
 make_host() {
   cd $PKG_BUILD/nss
 
-  [ "$TARGET_ARCH" = "x86_64" ] && export USE_64=1
-
-  make -C coreconf/nsinstall
+  make USE_64=1 -C coreconf/nsinstall
 }
 
 makeinstall_host() {
