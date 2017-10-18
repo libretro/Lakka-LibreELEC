@@ -154,7 +154,7 @@ else
   KODI_SSH="-DENABLE_SSH=OFF"
 fi
 
-if echo "$TARGET_FPU" | grep -q '^neon' || [[ "$TARGET_ARCH" = "aarch64" ]]; then
+if target_has_feature neon; then
   KODI_NEON="-DENABLE_NEON=ON"
 else
   KODI_NEON="-DENABLE_NEON=OFF"

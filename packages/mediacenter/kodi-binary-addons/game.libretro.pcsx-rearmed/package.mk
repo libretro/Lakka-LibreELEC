@@ -34,7 +34,7 @@ PKG_AUTORECONF="no"
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.gameclient"
 
-if [ "$DEVICE" == "RPi" ]; then
-  echo "RPi doesn't support neon"
+if ! target_has_feature neon; then
+  echo "${DEVICE:-${PROJECT}} doesn't support neon"
   exit 0
 fi
