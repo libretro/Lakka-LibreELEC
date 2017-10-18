@@ -73,4 +73,7 @@ makeinstall_target() {
   mkdir -p $SYSROOT_PREFIX/usr/include/nss
   cp -RL dist/{public,private}/nss/* $SYSROOT_PREFIX/usr/include/nss
   cp -L dist/Linux*/lib/pkgconfig/nss.pc $SYSROOT_PREFIX/usr/lib/pkgconfig
+
+  mkdir -p .install_pkg/usr/lib
+    cp -PL dist/Linux*/lib/*.so .install_pkg/usr/lib
 }

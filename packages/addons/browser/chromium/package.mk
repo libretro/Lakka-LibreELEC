@@ -161,12 +161,6 @@ addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/gdk-pixbuf-modules
   cp -PL $(get_build_dir gdk-pixbuf)/.install_pkg/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders/* $ADDON_BUILD/$PKG_ADDON_ID/gdk-pixbuf-modules
 
-  # nss
-  cp -PL $(get_build_dir nss)/dist/Linux*OPT.OBJ/lib/*.so $ADDON_BUILD/$PKG_ADDON_ID/lib
-
-  # nspr
-  cp -PL $(get_build_dir nspr)/.install_pkg/usr/lib/*.so $ADDON_BUILD/$PKG_ADDON_ID/lib
-
   # libexif
   cp -PL $(get_build_dir libexif)/.install_pkg/usr/lib/* $ADDON_BUILD/$PKG_ADDON_ID/lib
 
