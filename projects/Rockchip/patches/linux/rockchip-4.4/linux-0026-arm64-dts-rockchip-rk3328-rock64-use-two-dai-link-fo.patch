@@ -1,0 +1,90 @@
+From 827fa0fc3746437c284d7633c9507ebbc624f759 Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Sun, 3 Sep 2017 11:19:19 +0200
+Subject: [PATCH 26/37] arm64: dts: rockchip: rk3328-rock64: use two dai-link
+ for i2s sound
+
+---
+ arch/arm64/boot/dts/rockchip/rk3328-rock64.dts | 28 ++++++++++++++++++++------
+ sound/soc/soc-utils.c                          | 10 +++++++++
+ 2 files changed, 32 insertions(+), 6 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3328-rock64.dts b/arch/arm64/boot/dts/rockchip/rk3328-rock64.dts
+index a54f83faf37d..e8446e17647a 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3328-rock64.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3328-rock64.dts
+@@ -84,6 +84,11 @@
+ 		};
+ 	};
+ 
++	dummy_codec: dummy-codec {
++		compatible = "linux,snd-soc-dummy";
++		#sound-dai-cells = <0>;
++	};
++
+ 	hdmi-sound {
+ 		compatible = "simple-audio-card";
+ 		simple-audio-card,format = "i2s";
+@@ -99,14 +104,25 @@
+ 
+ 	sound {
+ 		compatible = "simple-audio-card";
+-		simple-audio-card,format = "i2s";
+ 		simple-audio-card,mclk-fs = <256>;
+-		simple-audio-card,name = "ACODEC";
+-		simple-audio-card,cpu {
+-			sound-dai = <&i2s1>;
++		simple-audio-card,name = "I2S";
++		simple-audio-card,dai-link@0 {
++			format = "i2s";
++			cpu {
++				sound-dai = <&i2s1>;
++			};
++			codec {
++				sound-dai = <&codec>;
++			};
+ 		};
+-		simple-audio-card,codec {
+-			sound-dai = <&codec>;
++		simple-audio-card,dai-link@1 {
++			format = "i2s";
++			cpu {
++				sound-dai = <&i2s1>;
++			};
++			codec {
++				sound-dai = <&dummy_codec>;
++			};
+ 		};
+ 	};
+ 
+diff --git a/sound/soc/soc-utils.c b/sound/soc/soc-utils.c
+index 53dd085d3ee2..bf7ce34084a9 100644
+--- a/sound/soc/soc-utils.c
++++ b/sound/soc/soc-utils.c
+@@ -19,6 +19,7 @@
+ #include <sound/pcm.h>
+ #include <sound/pcm_params.h>
+ #include <sound/soc.h>
++#include <linux/module.h>
+ 
+ int snd_soc_calc_frame_size(int sample_size, int channels, int tdm_slots)
+ {
+@@ -160,9 +161,18 @@ static int snd_soc_dummy_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_OF
++static const struct of_device_id soc_dummy_ids[] = {
++	{ .compatible = "linux,snd-soc-dummy", },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, soc_dummy_ids);
++#endif
++
+ static struct platform_driver soc_dummy_driver = {
+ 	.driver = {
+ 		.name = "snd-soc-dummy",
++		.of_match_table = of_match_ptr(soc_dummy_ids),
+ 	},
+ 	.probe = snd_soc_dummy_probe,
+ 	.remove = snd_soc_dummy_remove,

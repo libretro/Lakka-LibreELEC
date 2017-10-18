@@ -1,14 +1,14 @@
-From 6af2cafca4953371a604dacb25cfc543f061fe8a Mon Sep 17 00:00:00 2001
+From 880f7246d9d26e984e345b6097fe688a4d15b0af Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Mon, 14 Aug 2017 00:14:05 +0200
-Subject: [PATCH 1/2] drm: dw-hdmi: change audio config
+Subject: [PATCH] drm: dw-hdmi: change audio config
 
 ---
  drivers/gpu/drm/bridge/dw-hdmi.c | 14 +++++---------
  1 file changed, 5 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/gpu/drm/bridge/dw-hdmi.c b/drivers/gpu/drm/bridge/dw-hdmi.c
-index 1ae50ac2da3d..31721ad994a2 100644
+index 7df9faa5e257..aa0b55b551cd 100644
 --- a/drivers/gpu/drm/bridge/dw-hdmi.c
 +++ b/drivers/gpu/drm/bridge/dw-hdmi.c
 @@ -605,18 +605,14 @@ static struct i2c_adapter *dw_hdmi_i2c_adapter(struct dw_hdmi *hdmi)
@@ -41,7 +41,7 @@ index 1ae50ac2da3d..31721ad994a2 100644
  	spin_unlock_irq(&hdmi->audio_lock);
  }
  
-@@ -3041,8 +3037,8 @@ int dw_hdmi_bind(struct device *dev, struct device *master,
+@@ -3052,8 +3048,8 @@ int dw_hdmi_bind(struct device *dev, struct device *master,
  		audio.read	= hdmi_readb;
  		audio.mod	= hdmi_modb;
  		audio.eld	= hdmi->connector.eld;
@@ -52,94 +52,3 @@ index 1ae50ac2da3d..31721ad994a2 100644
  
  		pdevinfo.name = "dw-hdmi-i2s-audio";
  		pdevinfo.data = &audio;
-
-From a902ce7db2d722f813a5156905ae9525b9b4e8e0 Mon Sep 17 00:00:00 2001
-From: Jonas Karlman <jonas@kwiboo.se>
-Date: Sun, 3 Sep 2017 11:19:19 +0200
-Subject: [PATCH 2/2] arm64: dts: rockchip: rk3328-rock64: use two dai-link for
- i2s sound
-
----
- arch/arm64/boot/dts/rockchip/rk3328-rock64.dts | 28 ++++++++++++++++++++------
- sound/soc/soc-utils.c                          | 10 +++++++++
- 2 files changed, 32 insertions(+), 6 deletions(-)
-
-diff --git a/arch/arm64/boot/dts/rockchip/rk3328-rock64.dts b/arch/arm64/boot/dts/rockchip/rk3328-rock64.dts
-index a54f83faf37d..e8446e17647a 100644
---- a/arch/arm64/boot/dts/rockchip/rk3328-rock64.dts
-+++ b/arch/arm64/boot/dts/rockchip/rk3328-rock64.dts
-@@ -84,6 +84,11 @@
- 		};
- 	};
- 
-+	dummy_codec: dummy-codec {
-+		compatible = "linux,snd-soc-dummy";
-+		#sound-dai-cells = <0>;
-+	};
-+
- 	hdmi-sound {
- 		compatible = "simple-audio-card";
- 		simple-audio-card,format = "i2s";
-@@ -99,14 +104,25 @@
- 
- 	sound {
- 		compatible = "simple-audio-card";
--		simple-audio-card,format = "i2s";
- 		simple-audio-card,mclk-fs = <256>;
--		simple-audio-card,name = "ACODEC";
--		simple-audio-card,cpu {
--			sound-dai = <&i2s1>;
-+		simple-audio-card,name = "I2S";
-+		simple-audio-card,dai-link@0 {
-+			format = "i2s";
-+			cpu {
-+				sound-dai = <&i2s1>;
-+			};
-+			codec {
-+				sound-dai = <&codec>;
-+			};
- 		};
--		simple-audio-card,codec {
--			sound-dai = <&codec>;
-+		simple-audio-card,dai-link@1 {
-+			format = "i2s";
-+			cpu {
-+				sound-dai = <&i2s1>;
-+			};
-+			codec {
-+				sound-dai = <&dummy_codec>;
-+			};
- 		};
- 	};
- 
-diff --git a/sound/soc/soc-utils.c b/sound/soc/soc-utils.c
-index 53dd085d3ee2..bf7ce34084a9 100644
---- a/sound/soc/soc-utils.c
-+++ b/sound/soc/soc-utils.c
-@@ -19,6 +19,7 @@
- #include <sound/pcm.h>
- #include <sound/pcm_params.h>
- #include <sound/soc.h>
-+#include <linux/module.h>
- 
- int snd_soc_calc_frame_size(int sample_size, int channels, int tdm_slots)
- {
-@@ -160,9 +161,18 @@ static int snd_soc_dummy_remove(struct platform_device *pdev)
- 	return 0;
- }
- 
-+#ifdef CONFIG_OF
-+static const struct of_device_id soc_dummy_ids[] = {
-+	{ .compatible = "linux,snd-soc-dummy", },
-+	{ }
-+};
-+MODULE_DEVICE_TABLE(of, soc_dummy_ids);
-+#endif
-+
- static struct platform_driver soc_dummy_driver = {
- 	.driver = {
- 		.name = "snd-soc-dummy",
-+		.of_match_table = of_match_ptr(soc_dummy_ids),
- 	},
- 	.probe = snd_soc_dummy_probe,
- 	.remove = snd_soc_dummy_remove,
