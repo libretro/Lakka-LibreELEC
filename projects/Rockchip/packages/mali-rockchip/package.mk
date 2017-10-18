@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="mali-rockchip"
-PKG_VERSION="f2e1b3f"
+PKG_VERSION="e47d4b9"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="nonfree"
 PKG_SITE="https://github.com/rockchip-linux/libmali"
@@ -37,7 +37,7 @@ elif [ "$TARGET_ARCH" = "aarch64" ]; then
 fi
 
 if [ "$TARGET_ARCH" = "arm" -a "$MALI_FAMILY" = "t760" ]; then
-  LIBMALI_FILE="libmali-midgard-r13p0-r0p0-gbm.so"
+  LIBMALI_FILE="libmali-midgard-t76x-r14p0-gbm.so"
 elif [ "$TARGET_ARCH" = "aarch64" -a "$MALI_FAMILY" = "t860" ]; then
   LIBMALI_FILE="libmali-midgard-4th-r13p0-gbm.so"
 elif [ "$MALI_FAMILY" = "450" ]; then
