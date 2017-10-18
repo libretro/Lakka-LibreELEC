@@ -97,7 +97,7 @@ case "$LINUX" in
     PKG_PATCH_DIRS="rockchip-4.4"
     ;;
   allwinner)
-    PKG_VERSION="4.13.7"
+    PKG_VERSION="4.13.8"
     PKG_URL="http://www.kernel.org/pub/linux/kernel/v4.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     ;;
   *)
