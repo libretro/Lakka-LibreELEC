@@ -30,5 +30,9 @@ PKG_LONGDESC="Firmware for Broadcom Bluetooth chips used in some Freescale iMX b
 PKG_AUTORECONF="no"
 
 makeinstall_target() {
-  DESTDIR=$INSTALL/$(get_kernel_overlay_dir) make install
+  mkdir -p $INSTALL/usr/bin
+    cp -av brcm_patchram_plus $INSTALL/usr/bin/
+
+  mkdir -p $INSTALL/$(get_kernel_overlay_dir)
+    cp -av firmware/brcm $INSTALL/$(get_kernel_overlay_dir)
 }
