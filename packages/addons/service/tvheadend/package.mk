@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016-present Team LibreELEC
+#      Copyright (C) 2017-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,22 +16,33 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="rpi_ws281x"
-PKG_VERSION="f580777"
+PKG_NAME="tvheadend"
+PKG_VERSION="1.0"
+PKG_REV="100"
 PKG_ARCH="any"
-PKG_LICENSE="BSD-3c"
-PKG_SITE="https://github.com/hyperion-project/rpi_ws281x"
-PKG_URL="https://github.com/hyperion-project/rpi_ws281x/archive/$PKG_VERSION.tar.gz"
+PKG_LICENSE="GPL"
+PKG_SITE=""
+PKG_URL=""
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION=""
-PKG_SHORTDESC="Userspace Raspberry Pi PWM library for WS281X LEDs"
-PKG_LONGDESC="Userspace Raspberry Pi PWM library for WS281X LEDs"
+PKG_SECTION="service"
+PKG_SHORTDESC="Add-on removed"
+PKG_LONGDESC="Add-on removed"
 PKG_AUTORECONF="no"
+
+PKG_ADDON_BROKEN="Tvheadend 4.0 is no longer maintained and has been superseded by Tvheadend 4.2."
+
+PKG_IS_ADDON="yes"
+PKG_ADDON_NAME="Tvheadend Server 4.0"
+PKG_ADDON_TYPE="xbmc.broken"
 
 make_target() {
   :
 }
 
 makeinstall_target() {
+  :
+}
+
+addon() {
   :
 }
