@@ -144,6 +144,14 @@ makeinstall_target() {
   BOOT_CFG="$PROJECT_DIR/$PROJECT/bootloader/boot.cfg"
   if [ -r "$BOOT_CFG" ]; then
     cp $BOOT_CFG boot.cfg
+    if [ "$PROJECT" == "Allwinner" ]; then
+      if [ "$SYSTEM" == "opipc" ]; then
+        DTB="sun8i-h3-orangepi-pc.dtb"
+      elif [ "$SYSTEM" == "Cubietruck" ]; then
+        DTB="sun7i-a20-cubietruck.dtb"
+      fi
+      sed "s%@DTB@%$DTB%" -i boot.cfg
+    fi
     mkimage -A "$TARGET_ARCH" \
             -O u-boot \
             -T script \
