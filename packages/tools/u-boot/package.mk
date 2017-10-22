@@ -117,12 +117,17 @@ make_target() {
         TARGET_NAME="matrix"
       elif [ "$UBOOT_TARGET" = "udoo_config" ]; then
         TARGET_NAME="udoo"
+      elif [ "$UBOOT_TARGET" = "orangepi_pc_defconfig" ]; then
+        TARGET_NAME="opipc"
+      elif [ "$UBOOT_TARGET" = "Cubietruck_defconfig" ]; then
+        TARGET_NAME="Cubietruck"
       else
         TARGET_NAME="undef"
       fi
 
       [ -f u-boot.img ] && mv u-boot.img u-boot-$TARGET_NAME.img || :
       [ -f u-boot.imx ] && mv u-boot.imx u-boot-$TARGET_NAME.imx || :
+      [ -f u-boot-sunxi-with-spl.bin ] && mv u-boot-sunxi-with-spl.bin uboot-sunxi-$TARGET_NAME.bin || :
       [ -f SPL ] && mv SPL SPL-$TARGET_NAME || :
     fi
   done
@@ -173,7 +178,6 @@ makeinstall_target() {
       ;;
     Allwinner)
       cp -PRv $PKG_DIR/scripts/update-allwinner.sh $INSTALL/usr/share/bootloader/update.sh
-      cp -PRv $PKG_BUILD/u-boot-sunxi-with-spl.bin $INSTALL/usr/share/bootloader
       ;;
   esac
 }
