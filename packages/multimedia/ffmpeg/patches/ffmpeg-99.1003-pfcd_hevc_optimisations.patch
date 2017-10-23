@@ -13043,7 +13043,7 @@ index c1b69a0199..455cdaea1c 100644
              sps->persistent_rice_adaptation_enabled_flag = get_bits1(gb);
  
 diff --git a/libavcodec/hevc_refs.c b/libavcodec/hevc_refs.c
-index df52e401ad..8869a4a602 100644
+index df52e401ad..992e994b1a 100644
 --- a/libavcodec/hevc_refs.c
 +++ b/libavcodec/hevc_refs.c
 @@ -23,7 +23,7 @@
@@ -13065,16 +13065,18 @@ index df52e401ad..8869a4a602 100644
              int pixel_shift = !!(desc->comp[0].depth > 8);
  
              ret = av_frame_ref(out, src);
-@@ -216,12 +217,29 @@ int ff_hevc_output_frame(HEVCContext *s, AVFrame *out, int flush)
+@@ -215,13 +216,31 @@ int ff_hevc_output_frame(HEVCContext *s, AVFrame *out, int flush)
+                 ff_hevc_unref_frame(s, frame, HEVC_FRAME_FLAG_OUTPUT);
              if (ret < 0)
                  return ret;
- 
+-
 -            for (i = 0; i < 3; i++) {
 -                int hshift = (i > 0) ? desc->log2_chroma_w : 0;
 -                int vshift = (i > 0) ? desc->log2_chroma_h : 0;
 -                int off = ((frame->window.left_offset >> hshift) << pixel_shift) +
 -                          (frame->window.top_offset   >> vshift) * dst->linesize[i];
 -                dst->data[i] += off;
++#ifdef RPI
 +            if (av_rpi_is_sand_format(fmt))
 +            {
 +                // Sand cannot be windowed by offset so add side data if we have an offset
@@ -13090,6 +13092,7 @@ index df52e401ad..8869a4a602 100644
 +                }
 +            }
 +            else
++#endif
 +            {
 +                for (i = 0; i < 3; i++) {
 +                    int hshift = (i > 0) ? desc->log2_chroma_w : 0;
@@ -13101,7 +13104,7 @@ index df52e401ad..8869a4a602 100644
              }
              av_log(s->avctx, AV_LOG_DEBUG,
                     "Output frame with POC %d.\n", frame->poc);
-@@ -426,8 +444,7 @@ static HEVCFrame *generate_missing_ref(HEVCContext *s, int poc)
+@@ -426,8 +445,7 @@ static HEVCFrame *generate_missing_ref(HEVCContext *s, int poc)
      frame->sequence = s->seq_decode;
      frame->flags    = 0;
  
@@ -14875,7 +14878,7 @@ index d36b68bfae..b526dc393d 100644
      { AV_PIX_FMT_RGB565LE,MKTAG( 3 ,  0 ,  0 ,  0 ) }, /* flipped RGB565LE */
      { AV_PIX_FMT_YUV444P, MKTAG('Y', 'V', '2', '4') }, /* YUV444P, swapped UV */
 diff --git a/libavcodec/rawenc.c b/libavcodec/rawenc.c
-index d83705645c..8dcdf66158 100644
+index d83705645c..4c746786ff 100644
 --- a/libavcodec/rawenc.c
 +++ b/libavcodec/rawenc.c
 @@ -31,6 +31,8 @@
@@ -14887,10 +14890,11 @@ index d83705645c..8dcdf66158 100644
  
  static av_cold int raw_encode_init(AVCodecContext *avctx)
  {
-@@ -47,6 +49,71 @@ FF_ENABLE_DEPRECATION_WARNINGS
+@@ -47,6 +49,73 @@ FF_ENABLE_DEPRECATION_WARNINGS
      return 0;
  }
  
++#ifdef RPI
 +static int raw_sand8_as_yuv420(AVCodecContext *avctx, AVPacket *pkt,
 +                      const AVFrame *frame)
 +{
@@ -14954,20 +14958,23 @@ index d83705645c..8dcdf66158 100644
 +                          frame->data[1], frame->linesize[1], av_rpi_sand_frame_stride2(frame), x0, y0 / 2, width, height / 2);
 +    return 0;
 +}
++#endif
 +
 +
  static int raw_encode(AVCodecContext *avctx, AVPacket *pkt,
                        const AVFrame *frame, int *got_packet)
  {
-@@ -56,6 +123,12 @@ static int raw_encode(AVCodecContext *avctx, AVPacket *pkt,
+@@ -56,6 +125,14 @@ static int raw_encode(AVCodecContext *avctx, AVPacket *pkt,
      if (ret < 0)
          return ret;
  
++#ifdef RPI
 +    if (av_rpi_is_sand_frame(frame)) {
 +        ret = av_rpi_is_sand8_frame(frame) ? raw_sand8_as_yuv420(avctx, pkt, frame) : raw_sand16_as_yuv420(avctx, pkt, frame);
 +        *got_packet = (ret == 0);
 +        return ret;
 +    }
++#endif
 +
      if ((ret = ff_alloc_packet2(avctx, pkt, ret, ret)) < 0)
          return ret;
@@ -28995,11 +29002,12 @@ index 0000000000..52d52a2a83
 +
 diff --git a/libavutil/rpi_sand_fns.c b/libavutil/rpi_sand_fns.c
 new file mode 100644
-index 0000000000..b8bfad915e
+index 0000000000..ec4cfadf8a
 --- /dev/null
 +++ b/libavutil/rpi_sand_fns.c
-@@ -0,0 +1,96 @@
+@@ -0,0 +1,99 @@
 +#include "config.h"
++#ifdef RPI
 +#include <stdint.h>
 +#include <string.h>
 +#include "rpi_sand_fns.h"
@@ -29095,14 +29103,17 @@ index 0000000000..b8bfad915e
 +    }
 +}
 +
++#endif  // RPI
++
 diff --git a/libavutil/rpi_sand_fns.h b/libavutil/rpi_sand_fns.h
 new file mode 100644
-index 0000000000..48948ecb47
+index 0000000000..aa880d0f63
 --- /dev/null
 +++ b/libavutil/rpi_sand_fns.h
-@@ -0,0 +1,127 @@
+@@ -0,0 +1,129 @@
 +#ifndef AVUTIL_RPI_SAND_FNS
 +#define AVUTIL_RPI_SAND_FNS
++#ifdef RPI
 +
 +#include "libavutil/frame.h"
 +
@@ -29226,6 +29237,7 @@ index 0000000000..48948ecb47
 +    return frame->data[1] + av_rpi_sand_frame_off_c(frame, x, y);
 +}
 +
++#endif
 +#endif
 +
 diff --git a/libswscale/input.c b/libswscale/input.c
