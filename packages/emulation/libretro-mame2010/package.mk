@@ -41,28 +41,21 @@ pre_make_target() {
 }
 
 make_target() {
-  case $PROJECT in
-    RPi)
-      case $DEVICE in
-        RPi)
-          make platform=armv6-hardfloat-arm1176jzf-s
-          ;;
-        RPi2)
-          make platform=armv7-neon-hardfloat-cortex-a7
-          ;;
-      esac
+  case $TARGET_CPU in
+    arm1176jzf-s)
+      make platform=armv6-hardfloat-$TARGET_CPU
       ;;
-    imx6)
-      make platform=armv7-neon-hardfloat-cortex-a9
+    cortex-a7|cortex-a9)
+      make platform=armv7-neon-hardfloat-$TARGET_CPU
       ;;
-    WeTek_Play|WeTek_Core|Odroid_C2|WeTek_Hub|WeTek_Play_2)
+    cortex-a53|cortex-a17)
       if [ "$TARGET_ARCH" = "aarch64" ]; then
         make platform=aarch64
       else
         make platform=armv7-neon-hardfloat-cortex-a9
       fi
       ;;
-    Generic)
+    x86-64)
       make
       ;;
   esac

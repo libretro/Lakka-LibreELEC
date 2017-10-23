@@ -40,28 +40,21 @@ pre_make_target() {
 
 make_target() {
   cd $PKG_BUILD
-  case $PROJECT in
-    RPi)
-      case $DEVICE in
-        RPi)
-          make -f Makefile.libretro platform=armv6-hardfloat-arm1176jzf-s
-          ;;
-        RPi2)
-          make -f Makefile.libretro platform=armv7-neon-hardfloat-cortex-a7
-          ;;
-      esac
+  
+  if target_has_feature neon; then
+    export HAVE_NEON=1
+   else
+    export HAVE_NEON=0
+  fi
+  
+  case $TARGET_ARCH in
+    aarch64)
+      make -f Makefile.libretro platform=aarch64
       ;;
-    imx6)
-      make -f Makefile.libretro platform=armv7-neon-hardfloat-cortex-a9
+    arm)
+      make -f Makefile.libretro USE_DYNAREC=1
       ;;
-    WeTek_Play|WeTek_Core|Odroid_C2|WeTek_Hub|WeTek_Play_2)
-      if [ "$TARGET_ARCH" = "aarch64" ]; then
-        make -f Makefile.libretro platform=aarch64
-      else
-        make -f Makefile.libretro platform=armv7-neon-hardfloat-cortex-a9
-      fi
-      ;;
-    Generic)
+    x86-64)
       make -f Makefile.libretro
       ;;
   esac
