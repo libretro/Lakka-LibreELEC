@@ -30,6 +30,7 @@ PKG_SECTION="devel"
 PKG_SHORTDESC="glib: C support library"
 PKG_LONGDESC="GLib is a library which includes support routines for C such as lists, trees, hashes, memory allocation, and many other things."
 PKG_AUTORECONF="yes"
+PKG_USE_MESON="no"
 
 PKG_CONFIGURE_OPTS_HOST="PCRE_LIBS=-l:libpcre.a \
                          --enable-static \
