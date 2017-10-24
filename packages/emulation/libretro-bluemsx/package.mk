@@ -28,7 +28,7 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.bluemsx: BlueMSX for Kodi"
 PKG_LONGDESC="game.libretro.bluemsx: BlueMSX for Kodi"
-PKG_USE_CMAKE="no"
+PKG_TOOLCHAIN="configure"
 
 PKG_LIBNAME="bluemsx_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"

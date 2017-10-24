@@ -28,7 +28,7 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="snes9x2010 for Kodi"
 PKG_LONGDESC="snes9x2010 for Kodi"
-PKG_USE_CMAKE="no"
+PKG_TOOLCHAIN="configure"
 
 PKG_LIBNAME="snes9x2010_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"

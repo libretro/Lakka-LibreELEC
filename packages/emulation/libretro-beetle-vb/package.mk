@@ -28,7 +28,7 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="Standalone port of Mednafen VB to libretro"
 PKG_LONGDESC="Standalone port of Mednafen VB to libretro"
-PKG_USE_CMAKE="no"
+PKG_TOOLCHAIN="configure"
 
 PKG_LIBNAME="mednafen_vb_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"

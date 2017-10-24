@@ -26,7 +26,7 @@ PKG_URL="http://www.nih.at/libzip/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SHORTDESC="libzip"
 PKG_LONGDESC="libzip"
-PKG_USE_CMAKE="no"
+PKG_TOOLCHAIN="configure"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-shared --enable-static"
 

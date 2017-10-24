@@ -28,7 +28,7 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="Standalone port of Mednafen PCFX to libretro"
 PKG_LONGDESC="Standalone port of Mednafen PCFX to libretro"
-PKG_USE_CMAKE="no"
+PKG_TOOLCHAIN="configure"
 
 PKG_LIBNAME="mednafen_pcfx_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"

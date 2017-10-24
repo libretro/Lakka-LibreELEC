@@ -28,7 +28,7 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.vbam: VBA-M for Kodi"
 PKG_LONGDESC="game.libretro.vbam: VBA-M for Kodi"
-PKG_USE_CMAKE="no"
+PKG_TOOLCHAIN="configure"
 
 PKG_LIBNAME="vbam_libretro.so"
 PKG_LIBPATH="src/libretro/$PKG_LIBNAME"

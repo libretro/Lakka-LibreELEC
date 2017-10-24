@@ -28,7 +28,7 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="Port of Virtual Jaguar to Libretro"
 PKG_LONGDESC="Port of Virtual Jaguar to Libretro"
-PKG_USE_CMAKE="no"
+PKG_TOOLCHAIN="configure"
 
 PKG_LIBNAME="virtualjaguar_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"

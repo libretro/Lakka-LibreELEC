@@ -29,7 +29,7 @@ PKG_DEPENDS_HOST="cyclone68000"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="Fast MegaDrive/MegaCD/32X emulator"
 PKG_LONGDESC="Fast MegaDrive/MegaCD/32X emulator"
-PKG_USE_CMAKE="no"
+PKG_TOOLCHAIN="configure"
 
 PKG_LIBNAME="picodrive_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"
