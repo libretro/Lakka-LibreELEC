@@ -10,6 +10,9 @@ DISTRO=Lakka PROJECT=Generic ARCH=i386 make image -j8
 DISTRO=Lakka PROJECT=RPi ARCH=arm make noobs -j8
 >&2 echo "RPi2.arm + noobs"
 DISTRO=Lakka PROJECT=RPi2 ARCH=arm make noobs -j8
+>&2 echo "Allwinner.arm"
+DISTRO=Lakka PROJECT=Allwinner SYSTEM=Cubietruck ARCH=arm make image -j8
+DISTRO=Lakka PROJECT=Allwinner SYSTEM=opipc ARCH=arm make image -j8
 >&2 echo "imx6.cuboxi.arm"
 DISTRO=Lakka PROJECT=imx6 SYSTEM=cuboxi ARCH=arm make image -j8
 >&2 echo "imx6.udoo.arm"
