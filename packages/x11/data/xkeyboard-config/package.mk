@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="xkeyboard-config"
-PKG_VERSION="2.20"
-PKG_SHA256="d1bfc72553c4e3ef1cd6f13eec0488cf940498b612ab8a0b362e7090c94bc134"
+PKG_VERSION="2.22"
+PKG_SHA256="deaec9989fbc443358b43864437b7b6d39caff07890a4a8055105ce9fcaa59bd"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
