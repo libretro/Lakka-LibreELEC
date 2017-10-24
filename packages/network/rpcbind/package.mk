@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain libtirpc systemd"
 PKG_SECTION="network"
 PKG_SHORTDESC="rpcbind: a server that converts RPC program numbers into universal addresses."
 PKG_LONGDESC="The rpcbind utility is a server that converts RPC program numbers into universal addresses."
-PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-warmstarts \
                            --disable-libwrap \

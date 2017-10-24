@@ -32,7 +32,6 @@ PKG_LONGDESC="Kodi skin Estouchy"
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Estouchy"
 PKG_ADDON_TYPE="xbmc.gui.skin"
-PKG_AUTORECONF="no"
 
 make_target() {
   : # already build with kodi

@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain mesa glu"
 PKG_SECTION="graphics"
 PKG_SHORTDESC="provides a simple API for creating windows, contexts and surfaces, receiving input and events"
 PKG_LONGDESC="provides a simple API for creating windows, contexts and surfaces, receiving input and events"
-PKG_AUTORECONF="no"
 
 if [ "$OPENGL" = "no" ] ; then
   exit 0

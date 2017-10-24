@@ -28,7 +28,7 @@ PKG_DEPENDS_HOST="toolchain e2fsprogs:host Python2:host"
 PKG_SECTION="devel"
 PKG_SHORTDESC="heimdal: Kerberos 5, PKIX, CMS, GSS-API, SPNEGO, NTLM, Digest-MD5 and, SASL implementation."
 PKG_LONGDESC="Heimdal is an implementation of Kerberos 5 (and some more stuff) largely written in Sweden (which was important when we started writing it, less so now). It is freely available under a three clause BSD style license. "
-PKG_AUTORECONF="yes"
+PKG_TOOLCHAIN="autotools"
 
 MAKEFLAGS="-j1"
 

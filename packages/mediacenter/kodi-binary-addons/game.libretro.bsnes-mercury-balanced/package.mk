@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-bsnes-mercury-balanced"
 PKG_SECTION=""
 PKG_SHORTDESC="game.libretro.bsnes-mercury-balanced: bSNES Mercury for Kodi"
 PKG_LONGDESC="game.libretro.bsnes-mercury-balanced: bSNES Mercury for Kodi"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.gameclient"

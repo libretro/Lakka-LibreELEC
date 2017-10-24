@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain libva libvdpau mesa"
 PKG_SECTION="graphics"
 PKG_SHORTDESC="VDPAU backend for VA API"
 PKG_LONGDESC="VDPAU backend for VA API"
-PKG_AUTORECONF="yes"
+PKG_TOOLCHAIN="autotools"
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/lib/va/s3g_drv_video.so

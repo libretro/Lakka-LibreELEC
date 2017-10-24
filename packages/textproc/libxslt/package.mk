@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain libxml2"
 PKG_SECTION="textproc"
 PKG_SHORTDESC="libxslt"
 PKG_LONGDESC="libxslt"
-PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_HOST="  ac_cv_header_ansidecl_h=no \
                            ac_cv_header_xlocale_h=no \

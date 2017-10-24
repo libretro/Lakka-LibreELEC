@@ -27,7 +27,6 @@ PKG_DEPENDS_HOST="ccache:host"
 PKG_SECTION="devel"
 PKG_SHORTDESC="intltool: Gnome international tools"
 PKG_LONGDESC="The Gnome international tools help to handle translation strings from various source files (.xml.in, .glade, .desktop.in, .server.in, .oaf.in)."
-PKG_AUTORECONF="no"
 
 post_makeinstall_host() {
   mkdir -p  $SYSROOT_PREFIX/usr/share/aclocal

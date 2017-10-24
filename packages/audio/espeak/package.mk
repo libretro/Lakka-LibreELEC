@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="audio"
 PKG_SHORTDESC="Text to Speech engine for English, with support for other languages"
 PKG_LONGDESC="Text to Speech engine for English, with support for other languages"
-PKG_AUTORECONF="no"
 
 pre_make_target() {
   cp src/portaudio19.h src/portaudio.h

@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain Python2 distutilscross:host"
 PKG_SECTION="python"
 PKG_SHORTDESC="Python library for the SI1145"
 PKG_LONGDESC="Python library for accessing the SI1145 temperature sensor on a Raspberry Pi"
-PKG_AUTORECONF="no"
 
 make_target() {
   : # nop

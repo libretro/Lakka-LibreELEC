@@ -26,7 +26,7 @@ PKG_URL="https://github.com/hishamhm/htop/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain ncurses"
 PKG_SECTION="tools"
 PKG_SHORTDESC="An interactive process viewer for Unix"
-PKG_AUTORECONF="yes"
+PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-unicode \
                            HTOP_NCURSES_CONFIG_SCRIPT=ncurses-config"

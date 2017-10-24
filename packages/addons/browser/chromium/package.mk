@@ -30,7 +30,6 @@ PKG_DEPENDS_TARGET="toolchain pciutils dbus libXcomposite libXcursor libXtst als
 PKG_SECTION="browser"
 PKG_SHORTDESC="Chromium Browser: the open-source web browser from Google"
 PKG_LONGDESC="Chromium Browser ($PKG_VERSION): the open-source web browser from Google"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Chromium"

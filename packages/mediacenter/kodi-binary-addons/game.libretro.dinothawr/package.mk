@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-dinothawr"
 PKG_SECTION=""
 PKG_SHORTDESC="game.libretro.dinothawr: dinothawr for Kodi"
 PKG_LONGDESC="game.libretro.dinothawr: dinothawr for Kodi"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.gameclient"

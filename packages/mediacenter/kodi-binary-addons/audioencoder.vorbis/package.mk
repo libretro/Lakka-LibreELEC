@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform libogg libvorbis"
 PKG_SECTION=""
 PKG_SHORTDESC="audioencoder.vorbis: A audioencoder addon for Kodi"
 PKG_LONGDESC="audioencoder.vorbis is a audioencoder addon for Kodi"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="xbmc.audioencoder"

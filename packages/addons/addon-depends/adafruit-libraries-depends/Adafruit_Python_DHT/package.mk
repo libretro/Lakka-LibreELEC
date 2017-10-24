@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain Python2 distutilscross:host"
 PKG_SECTION="python"
 PKG_SHORTDESC="Adafruit Python DHT Library"
 PKG_LONGDESC="Python library to read the DHT series of humidity and temperature sensors on a Raspberry Pi or Beaglebone Black."
-PKG_AUTORECONF="no"
 
 case "$PROJECT:$DEVICE" in
   "RPi:RPi")

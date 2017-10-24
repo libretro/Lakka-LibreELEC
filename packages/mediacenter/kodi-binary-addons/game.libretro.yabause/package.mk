@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-yabause"
 PKG_SECTION=""
 PKG_SHORTDESC="game.libretro.yabause: Yabause emulator for Kodi"
 PKG_LONGDESC="game.libretro.yabause: Yabause emulator for Kodi"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.gameclient"

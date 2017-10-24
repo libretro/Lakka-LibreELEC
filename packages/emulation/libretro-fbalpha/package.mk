@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.fba: fba for Kodi"
 PKG_LONGDESC="game.libretro.fba: fba for Kodi"
-PKG_AUTORECONF="no"
 PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="fbalpha_libretro.so"

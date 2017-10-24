@@ -27,7 +27,6 @@ PKG_DEPENDS_HOST="Python2:host setuptools:host"
 PKG_SECTION="python/devel"
 PKG_SHORTDESC="distutilscross: Cross Compile Python Extensions"
 PKG_LONGDESC="distutilscross enhances distutils to support Cross Compile of Python extensions"
-PKG_AUTORECONF="no"
 
 make_host() {
  : # nothing todo

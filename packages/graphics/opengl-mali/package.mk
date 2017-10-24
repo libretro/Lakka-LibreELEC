@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="graphics"
 PKG_SHORTDESC="opengl-mali: OpenGL-ES and Mali driver for Mali 400 GPUs"
 PKG_LONGDESC="opengl-mali: OpenGL-ES and Mali driver for Mali 400 GPUs"
-PKG_AUTORECONF="no"
 
 make_target() {
  : # nothing todo

@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain libusb"
 PKG_SECTION="tools"
 PKG_SHORTDESC="USB_ModeSwitch - Handling Mode-Switching USB Devices on Linux"
 PKG_LONGDESC="USB_ModeSwitch - Handling Mode-Switching USB Devices on Linux"
-PKG_AUTORECONF="no"
 
 makeinstall_target() {
   : # nop

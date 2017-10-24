@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-2048"
 PKG_SECTION=""
 PKG_SHORTDESC="game.libretro.2048: 2048 for Kodi"
 PKG_LONGDESC="game.libretro.2048: 2048 for Kodi"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.gameclient"

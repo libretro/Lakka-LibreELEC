@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain Python2 distutilscross:host"
 PKG_SECTION="python"
 PKG_SHORTDESC="Adafruit Python MCP4725 Library"
 PKG_LONGDESC="Python code to use the MCP4725 digital to analog converter with a Raspberry Pi or BeagleBone black."
-PKG_AUTORECONF="no"
 
 make_target() {
   : # nop

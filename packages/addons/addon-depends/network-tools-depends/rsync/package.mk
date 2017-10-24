@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="network/backup"
 PKG_SHORTDESC="rsync: A replacement for rcp that has many more features"
 PKG_LONGDESC="Rsync uses an own 'rsync' algorithm which provides a very fast method for bringing remote files into sync. It does this by sending just the differences in the files across the link, without requiring that both sets of files are present at one of the ends of the link beforehand. At first glance this may seem impossible because the calculation of diffs between two files normally requires local access to both files."
-PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-acl-support \
             --disable-xattr-support \

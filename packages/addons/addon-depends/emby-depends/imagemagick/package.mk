@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain libX11"
 PKG_SECTION="graphics"
 PKG_SHORTDESC="ImageMagick"
 PKG_LONGDESC="Software suite to create, edit, compose, or convert bitmap images"
-PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --enable-shared \

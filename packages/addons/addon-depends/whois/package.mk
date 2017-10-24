@@ -29,7 +29,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="system"
 PKG_SHORTDESC="whois is a client-side application which queries the whois directory service for information pertaining to a particular domain name."
 PKG_LONGDESC="whois is a client-side application which queries the whois directory service for information pertaining to a particular domain name."
-PKG_AUTORECONF="no"
 
 make_target() {
   make mkpasswd

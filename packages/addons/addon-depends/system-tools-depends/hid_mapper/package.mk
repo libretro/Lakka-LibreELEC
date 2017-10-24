@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="tools"
 PKG_SHORTDESC="generic HID mapper"
 PKG_LONGDESC="generic HID mapper"
-PKG_AUTORECONF="no"
 
 makeinstall_target() {
   : # nope

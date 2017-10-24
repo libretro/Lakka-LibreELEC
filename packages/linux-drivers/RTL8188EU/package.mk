@@ -30,7 +30,6 @@ PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_SECTION="driver"
 PKG_SHORTDESC="Realtek RTL81xxEU Linux 3.x driver"
 PKG_LONGDESC="Realtek RTL81xxEU Linux 3.x driver"
-PKG_AUTORECONF="no"
 PKG_IS_KERNEL_PKG="yes"
 
 pre_make_target() {

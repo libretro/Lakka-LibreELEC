@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain zlib libpng"
 PKG_SECTION="print"
 PKG_SHORTDESC="freetype: TrueType font rendering library"
 PKG_LONGDESC="The FreeType engine is a free and portable TrueType font rendering engine. It has been developed to provide TT support to a great variety of platforms and environments."
-PKG_AUTORECONF="no"
 PKG_USE_CMAKE="no"
 
 # package specific configure options

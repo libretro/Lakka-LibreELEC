@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain curl libcec pulseaudio ffmpeg systemd alsa-lib moo
 PKG_SECTION=""
 PKG_SHORTDESC="Gamestream client for embedded systems"
 PKG_LONGDESC="Moonlight Embedded is an open source implementation of NVIDIA's GameStream, as used by the NVIDIA Shield, but built for Linux"
-PKG_AUTORECONF="no"
 
 FREESCALE_V4L_INCLUDE=""
 if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then

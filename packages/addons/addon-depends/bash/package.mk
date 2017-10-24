@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain ncurses"
 PKG_SECTION="devel"
 PKG_SHORTDESC="The GNU Bourne Again shell"
 PKG_LONGDESC="The GNU Bourne Again shell"
-PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --disable-shared \

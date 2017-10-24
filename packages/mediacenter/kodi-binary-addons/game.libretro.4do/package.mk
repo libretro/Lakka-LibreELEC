@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-4do"
 PKG_SECTION=""
 PKG_SHORTDESC="game.libretro.4do: 4DO for Kodi"
 PKG_LONGDESC="game.libretro.4do: 4DO for Kodi"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.gameclient"

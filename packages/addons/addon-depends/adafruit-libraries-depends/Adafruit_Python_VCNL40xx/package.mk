@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain Python2 distutilscross:host"
 PKG_SECTION="python"
 PKG_SHORTDESC="Adafruit Python VCNL40xx Library"
 PKG_LONGDESC="Python code to use the VCNL4000 & VCNL4010 proximity sensors with the Raspberry Pi & BeagleBone Black."
-PKG_AUTORECONF="no"
 
 make_target() {
   : # nop

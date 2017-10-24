@@ -29,7 +29,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="system"
 PKG_SHORTDESC="v4l-utils: Linux V4L2 and DVB API utilities and v4l libraries (libv4l)."
 PKG_LONGDESC="Linux V4L2 and DVB API utilities and v4l libraries (libv4l)."
-PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--without-jpeg"
 

@@ -29,7 +29,6 @@ PKG_DEPENDS_TARGET="toolchain bitstream libev"
 PKG_SECTION="tools"
 PKG_SHORTDESC="DVBlast is a simple and powerful MPEG-2/TS demux and streaming application"
 PKG_LONGDESC="DVBlast is a simple and powerful MPEG-2/TS demux and streaming application"
-PKG_AUTORECONF="no"
 
 MAKEFLAGS="V=1"
 

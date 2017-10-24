@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain linux bash"
 PKG_SECTION="driver.remote"
 PKG_SHORTDESC="A Linux driver to add support for sapphire remotes"
 PKG_LONGDESC="A Linux driver to add support for sapphire remotes"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Sapphire Remote Driver"

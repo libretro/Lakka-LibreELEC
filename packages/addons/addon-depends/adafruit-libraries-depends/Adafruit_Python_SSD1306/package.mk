@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain Python2 distutilscross:host"
 PKG_SECTION="python"
 PKG_SHORTDESC="Adafruit Python SSD1306 Library"
 PKG_LONGDESC="SSD1306 oled driver library for 'monochrome' 128x64 and 128x32 OLEDs."
-PKG_AUTORECONF="no"
 
 make_target() {
   : # nop

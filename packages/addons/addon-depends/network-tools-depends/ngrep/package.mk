@@ -28,7 +28,6 @@ PKG_SECTION="network/analyzer"
 PKG_SHORTDESC="ngrep - network grep"
 PKG_LONGDESC="ngrep - network grep"
 PKG_DISCLAIMER="this is an unofficial addon. please don't ask for support in openelec forum / irc channel"
-PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--with-pcap-includes=$SYSROOT_PREFIX/usr/include --disable-dropprivs"
 

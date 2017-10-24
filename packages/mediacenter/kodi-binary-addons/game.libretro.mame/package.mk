@@ -29,7 +29,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-mame"
 PKG_SECTION=""
 PKG_SHORTDESC="game.libretro.mame: MAME emulator for Kodi"
 PKG_LONGDESC="game.libretro.mame: MAME emulator for Kodi"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.gameclient"

@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain evtest"
 PKG_SECTION="service/system"
 PKG_SHORTDESC="Touchscreen access library with ts_uinput_touch daemon."
 PKG_LONGDESC="Touchscreen access library with ts_uinput_touch daemon."
-PKG_AUTORECONF="yes"
+PKG_TOOLCHAIN="autotools"
 
 TSLIB_MODULES_ENABLED="linear dejitter variance pthres ucb1x00 tatung input galax dmc touchkit st1232 waveshare"
 TSLIB_MODULES_DISABLED="arctic2 corgi collie h3600 linear_h2200 mk712 cy8mrln_palmpre"

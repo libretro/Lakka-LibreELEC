@@ -25,7 +25,6 @@ PKG_URL="$SOURCEFORGE_SRC/boost/boost/1.65.1/${PKG_NAME}_${PKG_VERSION}.tar.bz2"
 PKG_SOURCE_DIR="${PKG_NAME}_${PKG_VERSION}"
 PKG_DEPENDS_TARGET="toolchain boost:host Python2 zlib bzip2"
 PKG_LONGDESC="boost: Peer-reviewed STL style libraries for C++"
-PKG_AUTORECONF="no"
 
 make_host() {
   cd tools/build/src/engine

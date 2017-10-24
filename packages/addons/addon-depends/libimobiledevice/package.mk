@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain libusbmuxd openssl"
 PKG_SECTION="libs"
 PKG_SHORTDESC="libimobiledevice is a cross-platform software library that talks the protocols to support iPhone®, iPod Touch®, iPad® and Apple TV® devices"
 PKG_LONGDESC="libimobiledevice is a cross-platform software library that talks the protocols to support iPhone®, iPod Touch®, iPad® and Apple TV® devices"
-PKG_AUTORECONF="yes"
+PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --disable-shared \

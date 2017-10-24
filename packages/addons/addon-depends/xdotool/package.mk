@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain libXinerama libXtst"
 PKG_SECTION="x11/app"
 PKG_SHORTDESC="This tool lets you simulate keyboard input and mouse activity, move and resize windows, etc."
 PKG_LONGDESC="This tool lets you simulate keyboard input and mouse activity, move and resize windows, etc."
-PKG_AUTORECONF="no"
 
 pre_configure_target() {
   LDFLAGS="$LDFLAGS -lXext"

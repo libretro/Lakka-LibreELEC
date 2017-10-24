@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain fontconfig freetype libcap libiconv libjpeg-turbo 
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="vdr: A powerful DVB TV application"
 PKG_LONGDESC="This project describes how to build your own digital satellite receiver and video disk recorder. It is based mainly on the DVB-S digital satellite receiver card, which used to be available from Fujitsu Siemens and the driver software developed by the LinuxTV project."
-PKG_AUTORECONF="no"
 
 post_unpack() {
   rm -rf $PKG_BUILD/PLUGINS/src/skincurses

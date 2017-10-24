@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain libgcrypt libgpg-error"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="libbdplus: A project to implement the BD+ System Specifications"
 PKG_LONGDESC="libbdplus is a research project to implement the BD+ System Specifications."
-PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-werror \
                            --disable-extra-warnings \

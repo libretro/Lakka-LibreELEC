@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="firmware"
 PKG_SHORTDESC="dvb-firmware: firmwares for various DVB drivers"
 PKG_LONGDESC="dvb-firmware: firmwares for various DVB drivers"
-PKG_AUTORECONF="no"
 
 make_target() {
   : # nothing todo

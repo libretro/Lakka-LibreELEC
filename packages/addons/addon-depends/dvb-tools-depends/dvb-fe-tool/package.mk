@@ -30,7 +30,7 @@ PKG_DEPENDS_TARGET="toolchain systemd"
 PKG_SECTION="tools"
 PKG_SHORTDESC="dvb-fe-tool: Linux V4L2 and DVB API utilities and v4l libraries (libv4l)."
 PKG_LONGDESC="Linux V4L2 and DVB API utilities and v4l libraries (libv4l)."
-PKG_AUTORECONF="yes"
+PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-nls \
             --disable-rpath \

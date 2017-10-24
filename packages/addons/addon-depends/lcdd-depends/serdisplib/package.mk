@@ -27,7 +27,6 @@ PKG_URL="$SOURCEFORGE_SRC/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libusb-compat"
 PKG_SHORTDESC="serdisplib: a lcd control library"
 PKG_LONGDESC="Library to drive serial/parallel/usb displays with built-in controllers"
-PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--prefix=$SYSROOT_PREFIX/usr \
                            --bindir=$SYSROOT_PREFIX/usr/bin \

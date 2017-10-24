@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="firmware"
 PKG_SHORTDESC="iwlwifi-firmware: firmwares for various Intel WLAN drivers"
 PKG_LONGDESC="iwlwifi-firmware: firmwares for various Intel WLAN drivers"
-PKG_AUTORECONF="no"
 
 make_target() {
   : # nothing todo

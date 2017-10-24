@@ -29,7 +29,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-ppsspp"
 PKG_SECTION=""
 PKG_SHORTDESC="game.libretro.ppsspp: ppsspp for Kodi"
 PKG_LONGDESC="game.libretro.ppsspp: ppsspp for Kodi"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.gameclient"

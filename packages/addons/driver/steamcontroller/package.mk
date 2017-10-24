@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain Python2 distutilscross:host python-libusb1 enum34 
 PKG_SECTION="driver"
 PKG_SHORTDESC="A standalone userland driver for the steam controller to be used where steam client can't be installed."
 PKG_LONGDESC="A standalone userland driver for the steam controller to be used where steam client can't be installed."
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Steam Controller Driver"

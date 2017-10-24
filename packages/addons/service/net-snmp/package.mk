@@ -28,7 +28,7 @@ PKG_DEPENDS_TARGET="toolchain libnl"
 PKG_SECTION="service"
 PKG_SHORTDESC="Simple Network Management Protocol utilities."
 PKG_LONGDESC="Simple Network Management Protocol (SNMP) is a widely used protocol for monitoring the health and welfare of network equipment."
-PKG_AUTORECONF="yes"
+PKG_TOOLCHAIN="autotools"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Net-SNMP"

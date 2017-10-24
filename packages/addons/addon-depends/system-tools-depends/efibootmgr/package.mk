@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain efivar pciutils zlib"
 PKG_SECTION="tools"
 PKG_SHORTDESC="EFI Boot Manager"
 PKG_LONGDESC="This is a Linux user-space application to modify the Intel Extensible Firmware Interface (EFI) Boot Manager configuration. This application can create and destroy boot entries, change the boot order, change the next running boot option, and more."
-PKG_AUTORECONF="no"
 
 pre_make_target() {
   strip_lto

@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform libsamplerate"
 PKG_SECTION=""
 PKG_SHORTDESC="adsp.basic"
 PKG_LONGDESC="adsp.basic"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.adsp"

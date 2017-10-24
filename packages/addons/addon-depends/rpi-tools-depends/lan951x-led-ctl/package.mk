@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain libusb"
 PKG_SECTION="rpi-tools"
 PKG_SHORTDESC="Control LEDs connected to LAN9512/LAN9514 ethernet USB controllers"
 PKG_LONGDESC="Control LEDs connected to LAN9512/LAN9514 ethernet USB controllers"
-PKG_AUTORECONF="no"
 
 make_target() {
   $CC -std=c11 -I./include -Wall -Wstrict-prototypes -Wconversion \

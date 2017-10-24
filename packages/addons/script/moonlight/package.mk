@@ -30,7 +30,6 @@ PKG_DEPENDS_TARGET="toolchain moonlight-embedded"
 PKG_SECTION="script"
 PKG_SHORTDESC="Moonlight: implementation of NVIDIA's GameStream protocol"
 PKG_LONGDESC="Moonlight ($PKG_VERSION_NUMBER): allows you to stream your collection of games from your PC (with NVIDIA Gamestream) to your device and play them remotely"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Moonlight"

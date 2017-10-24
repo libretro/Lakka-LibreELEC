@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain vdr libdvbcsa"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="TV"
 PKG_LONGDESC="TV"
-PKG_AUTORECONF="no"
 
 pre_make_target() {
   # dont build parallel

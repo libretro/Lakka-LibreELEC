@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain Python2 distutilscross:host"
 PKG_SECTION="python"
 PKG_SHORTDESC="Adafruit Python ADXL345 Library"
 PKG_LONGDESC="Python code to use the ADXL345 triple-axis accelerometer over I2C with a Raspberry Pi or BeagleBone Black."
-PKG_AUTORECONF="no"
 
 make_target() {
   : # nop

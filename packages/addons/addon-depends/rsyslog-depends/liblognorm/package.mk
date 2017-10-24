@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="rsyslog"
 PKG_SHORTDESC="liblognorm"
 PKG_LONGDESC="liblognorm"
-PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared \
                            ac_cv_func_malloc_0_nonnull=yes \

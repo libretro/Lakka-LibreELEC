@@ -31,7 +31,6 @@ PKG_LONGDESC="Install this to add support for iMon MCE remote controls."
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="iMON-MCE"
 PKG_ADDON_TYPE="xbmc.service"
-PKG_AUTORECONF="no"
 
 make_target() {
   : # nothing to do here

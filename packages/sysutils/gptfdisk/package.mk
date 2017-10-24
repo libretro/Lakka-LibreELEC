@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain popt"
 PKG_SECTION="system"
 PKG_SHORTDESC="GPT text-mode partitioning tools"
 PKG_LONGDESC="GPT text-mode partitioning tools"
-PKG_AUTORECONF="no"
 
 make_target() {
   make sgdisk "CC=$CC" "CXX=$CXX"

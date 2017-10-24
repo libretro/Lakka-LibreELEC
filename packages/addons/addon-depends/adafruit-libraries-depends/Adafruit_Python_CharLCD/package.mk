@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain Python2 distutilscross:host"
 PKG_SECTION="python"
 PKG_SHORTDESC="Adafruit Python CharLCD Library"
 PKG_LONGDESC="Python library for accessing Adafruit character LCDs from a Raspberry Pi or BeagleBone Black."
-PKG_AUTORECONF="no"
 
 make_target() {
   : # nop

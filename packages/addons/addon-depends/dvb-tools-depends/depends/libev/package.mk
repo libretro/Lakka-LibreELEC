@@ -27,6 +27,5 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="libev: a full-featured and high-performance event loop"
 PKG_LONGDESC="A full-featured and high-performance event loop that is loosely modelled after libevent, but without its limitations and bugs."
-PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-shared --enable-static"

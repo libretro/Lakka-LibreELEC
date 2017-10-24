@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain vdr"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="vdr dummydevice plugin"
 PKG_LONGDESC="vdr dummydevice plugin"
-PKG_AUTORECONF="no"
 
 make_target() {
   VDR_DIR=$(get_build_dir vdr)

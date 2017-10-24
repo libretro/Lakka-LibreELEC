@@ -31,7 +31,6 @@ PKG_LONGDESC="Install this to add support for Sundtek USB DVB devices."
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Sundtek MediaTV"
 PKG_ADDON_TYPE="xbmc.service"
-PKG_AUTORECONF="no"
 
 make_target() {
   mkdir -p $PKG_BUILD

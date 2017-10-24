@@ -29,7 +29,6 @@ PKG_DEPENDS_TARGET="toolchain libvncserver bcm2835-bootloader bcm2835-driver lib
 PKG_SECTION="service/system"
 PKG_SHORTDESC="Raspberry Pi VNC: a Virtual Network Computing server for Raspberry Pi"
 PKG_LONGDESC="Raspberry Pi VNC ($PKG_VERSION) is a Virtual Network Computing (VNC) server for Raspberry Pi using dispmanx"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Raspberry Pi VNC"

@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="tools"
 PKG_SHORTDESC="FDUPES is a program for identifying or deleting duplicate files residing within specified directories"
 PKG_LONGDESC="FDUPES is a program for identifying or deleting duplicate files residing within specified directories"
-PKG_AUTORECONF="no"
 
 makeinstall_target() {
   : # nop

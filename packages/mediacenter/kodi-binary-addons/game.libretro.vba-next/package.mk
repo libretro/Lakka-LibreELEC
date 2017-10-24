@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-vba-next"
 PKG_SECTION=""
 PKG_SHORTDESC="game.libretro.vba-next: VBA-Next emulator for Kodi"
 PKG_LONGDESC="game.libretro.vba-next: VBA-Next emulator for Kodi"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.gameclient"

@@ -28,7 +28,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="network"
 PKG_SHORTDESC="libshairplay: emulates AirPort Express"
 PKG_LONGDESC="libshairPlay emulates an AirPort Express for the purpose of streaming music from iTunes and compatible iPods."
-PKG_AUTORECONF="yes"
+PKG_TOOLCHAIN="autotools"
 
 post_makeinstall_target() {
   mkdir -p $INSTALL/etc/shairplay

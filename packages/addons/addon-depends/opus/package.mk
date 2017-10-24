@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="audio"
 PKG_SHORTDESC="Codec designed for interactive speech and audio transmission over the Internet"
 PKG_LONGDESC="Codec designed for interactive speech and audio transmission over the Internet"
-PKG_AUTORECONF="no"
 
 if [ "$TARGET_ARCH" = "arm" ]; then
   PKG_FIXED_POINT="--enable-fixed-point"

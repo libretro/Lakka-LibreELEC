@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="network"
 PKG_SHORTDESC="wireless-regdb: regulatory database"
 PKG_LONGDESC="wireless-regdb is a regulatory database"
-PKG_AUTORECONF="no"
 
 make_target() {
   : # nothing to do

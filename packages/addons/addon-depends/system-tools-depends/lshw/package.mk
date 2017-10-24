@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="tools"
 PKG_SHORTDESC="lshw (Hardware Lister)"
 PKG_LONGDESC="lshw (Hardware Lister) is a small tool to provide detailed information on the hardware configuration of the machine."
-PKG_AUTORECONF="no"
 
 make_target() {
   make CXX=$CXX -C src/

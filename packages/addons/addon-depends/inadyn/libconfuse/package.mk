@@ -24,6 +24,6 @@ PKG_SITE="https://github.com/martinh/libconfuse"
 PKG_URL="https://github.com/martinh/libconfuse/archive/v$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Small configuration file parser library for C"
-PKG_AUTORECONF="yes"
+PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"

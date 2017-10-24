@@ -32,7 +32,7 @@ PKG_LONGDESC="Boblight($PKG_VERSION) is an opensource AmbiLight implementation."
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Boblight"
 PKG_ADDON_TYPE="xbmc.service"
-PKG_AUTORECONF="yes"
+PKG_TOOLCHAIN="autotools"
 
 if [ "$DISPLAYSERVER" = "x11" ] ; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libX11 libXext libXrender"

@@ -28,7 +28,6 @@ PKG_DEPENDS_HOST="toolchain"
 PKG_SECTION="lang"
 PKG_SHORTDESC=""
 PKG_LONGDESC=""
-PKG_AUTORECONF="no"
 
 make_host() {
   :

@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="textproc"
 PKG_SHORTDESC="tinyxml: XML parser library"
 PKG_LONGDESC="TinyXML is a simple, small, C++ XML parser that can be easily integrating into other programs."
-PKG_AUTORECONF="yes"
+PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --with-pic"
 

@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-genplus"
 PKG_SECTION=""
 PKG_SHORTDESC="game.libretro.genplus: Genesis Plus GX emulator for Kodi"
 PKG_LONGDESC="game.libretro.genplus: Genesis Plus GX emulator for Kodi"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.gameclient"

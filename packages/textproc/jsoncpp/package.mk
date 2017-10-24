@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="jsoncpp"
 PKG_LONGDESC="jsoncpp"
-PKG_AUTORECONF="no"
 
 pre_configure_target() {
   export CFLAGS="$CFLAGS -fPIC"

@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="tools"
 PKG_SHORTDESC="szap-s2 is a simple zapping tool for the Linux DVB S2 API"
 PKG_LONGDESC="szap-s2 is a simple zapping tool for the Linux DVB S2 API"
-PKG_AUTORECONF="no"
 
 makeinstall_target() {
   :

@@ -28,7 +28,6 @@ PKG_DEPENDS_HOST="toolchain"
 PKG_SECTION="system"
 PKG_SHORTDESC="Go is an open source programming language that makes it easy to build simple, reliable, and efficient software."
 PKG_LONGDESC="Go is an open source programming language that makes it easy to build simple, reliable, and efficient software."
-PKG_AUTORECONF="no"
 
 ####################################################################
 # On Fedora `dnf install golang` will install go to /usr/lib/golang

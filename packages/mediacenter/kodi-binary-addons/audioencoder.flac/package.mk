@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform flac"
 PKG_SECTION=""
 PKG_SHORTDESC="audioencoder.flac: A audioencoder addon for Kodi"
 PKG_LONGDESC="audioencoder.flac is a audioencoder addon for Kodi"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="xbmc.audioencoder"

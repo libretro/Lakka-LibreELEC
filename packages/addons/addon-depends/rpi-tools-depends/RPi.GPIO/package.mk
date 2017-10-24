@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain Python2 distutilscross:host"
 PKG_SECTION="python"
 PKG_SHORTDESC="A module to control Raspberry Pi GPIO channels"
 PKG_LONGDESC="A module to control Raspberry Pi GPIO channels"
-PKG_AUTORECONF="no"
 
 pre_configure_target() {
   export PYTHONXCPREFIX="$SYSROOT_PREFIX/usr"

@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain $OPENGL libX11 glew glfw zlib libpng libjpeg-turbo
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="an OpenGL-based programming environment to visualize music and create graphic effects"
 PKG_LONGDESC="an OpenGL-based programming environment to visualize music and create graphic effects"
-PKG_AUTORECONF="no"
 
 export LDFLAGS="$LDFLAGS -lX11"
 

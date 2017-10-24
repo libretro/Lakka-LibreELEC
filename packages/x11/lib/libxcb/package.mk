@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain util-macros Python2:host xcb-proto libpthread-stub
 PKG_SECTION="x11/lib"
 PKG_SHORTDESC="libxcb: X C-language Bindings library"
 PKG_LONGDESC="X C-language Bindings library."
-PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared \
                            --disable-screensaver \

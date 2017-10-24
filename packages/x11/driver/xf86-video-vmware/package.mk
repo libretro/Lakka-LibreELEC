@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain mesa libX11 xorg-server"
 PKG_SECTION="x11/driver"
 PKG_SHORTDESC="xf86-video-vmware: The Xorg driver for vmware video"
 PKG_LONGDESC="xf86-video-vmware: The Xorg driver for vmware video"
-PKG_AUTORECONF="yes"
+PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-vmwarectrl-client \
                            --with-xorg-module-dir=$XORG_PATH_MODULES"

@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain ncurses"
 PKG_SECTION="shell/console"
 PKG_SHORTDESC="terminal multiplexor with VT100/ANSI terminal emulation"
 PKG_LONGDESC="screen is a terminal multiplexor that runs several separate screens on a single physical character-based terminal. Each virtual terminal emulates a DEC VT100 plus several ANSI X3.64 and ISO 2022 functions. Screen sessions can be detached and resumed later on a different terminal."
-PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_header_utempter_h=no \
                            --enable-colors256 \

@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform p8-platform"
 PKG_SECTION=""
 PKG_SHORTDESC="game.libretro: A libretro wrapper for the Game API"
 PKG_LONGDESC="game.libretro is a thin wrapper for libretro"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.gameclient"
