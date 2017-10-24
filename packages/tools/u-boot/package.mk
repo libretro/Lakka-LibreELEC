@@ -116,6 +116,8 @@ make_target() {
         TARGET_NAME="opipc"
       elif [ "$UBOOT_TARGET" = "Cubietruck_defconfig" ]; then
         TARGET_NAME="Cubietruck"
+      elif [ "$UBOOT_TARGET" = "nanopi_m1_plus_defconfig" ]; then
+        TARGET_NAME="nanopi_m1_plus"
       else
         TARGET_NAME="undef"
       fi
@@ -144,6 +146,8 @@ makeinstall_target() {
         DTB="sun8i-h3-orangepi-pc.dtb"
       elif [ "$SYSTEM" == "Cubietruck" ]; then
         DTB="sun7i-a20-cubietruck.dtb"
+      elif [ "$SYSTEM" == "nanopi_m1_plus" ]; then
+        DTB="sun8i-h3-nanopi-m1-plus"
       fi
       sed "s%@DTB@%$DTB%" -i boot.cfg
     fi
