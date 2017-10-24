@@ -36,15 +36,6 @@ case "$LINUX" in
     PKG_VERSION="6ac660c"
     PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
     ;;
-  linux-sun7i)
-    PKG_VERSION="d47d367"
-    PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
-    ;;
-  linux-sun8i)
-    PKG_VERSION="f143b8a"
-    PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
-    PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET sunxi-tools:host sunxi-sys-utils"
-    ;;
   hardkernel)
     PKG_VERSION="3b08361"
     PKG_URL="https://github.com/hardkernel/linux/archive/$PKG_VERSION.tar.gz"
@@ -225,16 +216,6 @@ pre_make_target() {
 make_target() {
   LDFLAGS="" make modules
   LDFLAGS="" make INSTALL_MOD_PATH=$INSTALL/usr DEPMOD="$TOOLCHAIN/bin/depmod" modules_install
-
-  if [ "$LINUX" = "linux-sun8i" ]; then
-    for all_fex in $PROJECT_DIR/$PROJECT/sys_config/*.fex; do
-      fex=$(basename $all_fex)
-      echo $all_fex
-      echo $fex
-      pwd
-      $TOOLCHAIN/bin/fexc $all_fex $fex
-    done
-  fi
 
   rm -f $INSTALL/usr/lib/modules/*/build
   rm -f $INSTALL/usr/lib/modules/*/source
