@@ -41,11 +41,6 @@ elif [ "$UBOOT_VERSION" = "odroidc" ]; then
   PKG_SITE="http://odroid.com/dokuwiki/doku.php?id=en:c1_building_u-boot"
   PKG_URL="$LAKKA_MIRROR/u-boot-$PKG_VERSION.tar.xz"
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gcc-linaro-arm-eabi:host"
-elif [ "$UBOOT_VERSION" = "sunxi" ]; then
-  PKG_VERSION="af9f405"
-  PKG_SITE="https://github.com/linux-sunxi/u-boot-sunxi"
-  PKG_URL="$LAKKA_MIRROR/u-boot-$PKG_VERSION.tar.xz"
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET sunxi-tools:host gcc-linaro-arm-eabi:host"
 elif [ "$UBOOT_VERSION" = "allwinner" ]; then
   PKG_VERSION="2017.09"
   PKG_SITE="http://www.denx.de/wiki/U-Boot/WebHome"
@@ -94,7 +89,7 @@ make_target() {
       CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make mrproper
       CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make $UBOOT_TARGET
       CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make HOSTCC="$HOST_CC" HOSTSTRIP="true"
-    elif [ "$PROJECT" = "OdroidC1" -o "$PROJECT" = "a20" -o "$PROJECT" = "a10" -o "$PROJECT" = "Bananapi" ]; then
+    elif [ "$PROJECT" = "OdroidC1" ]; then
       export PATH=$TOOLCHAIN/lib/gcc-linaro-arm-eabi/bin/:$PATH
       make CROSS_COMPILE="arm-eabi-" ARCH=arm mrproper
       make CROSS_COMPILE="arm-eabi-" ARCH=arm $UBOOT_TARGET
