@@ -11,8 +11,11 @@ DISTRO=Lakka PROJECT=RPi ARCH=arm make noobs -j8
 >&2 echo "RPi2.arm + noobs"
 DISTRO=Lakka PROJECT=RPi2 ARCH=arm make noobs -j8
 >&2 echo "Allwinner.arm"
+DISTRO=Lakka PROJECT=Allwinner SYSTEM=Bananapi ARCH=arm make image -j8
+DISTRO=Lakka PROJECT=Allwinner SYSTEM=Cubieboard2 ARCH=arm make image -j8
 DISTRO=Lakka PROJECT=Allwinner SYSTEM=Cubietruck ARCH=arm make image -j8
 DISTRO=Lakka PROJECT=Allwinner SYSTEM=opipc ARCH=arm make image -j8
+DISTRO=Lakka PROJECT=Allwinner SYSTEM=nanopi_m1_plus ARCH=arm make image -j8
 >&2 echo "imx6.cuboxi.arm"
 DISTRO=Lakka PROJECT=imx6 SYSTEM=cuboxi ARCH=arm make image -j8
 >&2 echo "imx6.udoo.arm"
@@ -49,11 +52,11 @@ DISTRO=Lakka PROJECT=S805 SYSTEM=MK808B-Plus ARCH=arm make image -j8
 >&2 echo "S905.arm"
 DISTRO=Lakka PROJECT=S905 ARCH=arm make image -j8
 >&2 echo "TinkerBoard.arm"
-#DISTRO=Lakka PROJECT=Rockchip DEVICE=TinkerBoard ARCH=arm make image -j8
+DISTRO=Lakka PROJECT=Rockchip DEVICE=TinkerBoard ARCH=arm make image -j8
 >&2 echo "ROCK64.arm"
-#DISTRO=Lakka PROJECT=Rockchip DEVICE=ROCK64 ARCH=arm make image -j8
+DISTRO=Lakka PROJECT=Rockchip DEVICE=ROCK64 ARCH=arm make image -j8
 >&2 echo "MiQi.arm"
-#DISTRO=Lakka PROJECT=Rockchip DEVICE=MiQi ARCH=arm make image -j8
+DISTRO=Lakka PROJECT=Rockchip DEVICE=MiQi ARCH=arm make image -j8
 
 rm target/*.kernel
 rm target/*.system
