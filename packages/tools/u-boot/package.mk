@@ -145,20 +145,6 @@ makeinstall_target() {
   BOOT_CFG="$PROJECT_DIR/$PROJECT/bootloader/boot.cfg"
   if [ -r "$BOOT_CFG" ]; then
     cp $BOOT_CFG boot.cfg
-    if [ "$PROJECT" == "Allwinner" ]; then
-      if [ "$SYSTEM" == "opipc" ]; then
-        DTB="sun8i-h3-orangepi-pc.dtb"
-      elif [ "$SYSTEM" == "Cubieboard2" ]; then
-        DTB="sun7i-a20-cubieboard2.dtb"
-      elif [ "$SYSTEM" == "Cubietruck" ]; then
-        DTB="sun7i-a20-cubietruck.dtb"
-      elif [ "$SYSTEM" == "Bananapi" ]; then
-        DTB="sun7i-a20-bananapi.dtb"
-      elif [ "$SYSTEM" == "nanopi_m1_plus" ]; then
-        DTB="sun8i-h3-nanopi-m1-plus.dtb"
-      fi
-      sed "s%@DTB@%$DTB%" -i boot.cfg
-    fi
     mkimage -A "$TARGET_ARCH" \
             -O u-boot \
             -T script \
