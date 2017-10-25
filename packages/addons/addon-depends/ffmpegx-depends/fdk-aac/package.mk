@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016-present Team LibreELEC
+#      Copyright (C) 2017-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,21 +16,14 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="imagemagick"
-PKG_VERSION="7.0.7-1"
-PKG_LICENSE="http://www.imagemagick.org/script/license.php"
-PKG_SITE="http://www.imagemagick.org/"
-PKG_URL="https://github.com/ImageMagick/ImageMagick/archive/$PKG_VERSION.tar.gz"
-PKG_SOURCE_DIR="ImageMagick-$PKG_VERSION"
-PKG_DEPENDS_TARGET="toolchain libX11"
-PKG_LONGDESC="Software suite to create, edit, compose, or convert bitmap images"
-
-PKG_CONFIGURE_OPTS_TARGET="--enable-static \
-                           --enable-shared \
-                           --with-quantum-depth=8 \
-                           --enable-hdri=no \
-                           --disable-openmp"
-
-makeinstall_target() {
-  make install DESTDIR=$INSTALL
-}
+PKG_NAME="fdk-aac"
+PKG_VERSION="0.1.5"
+PKG_SHA256="ff53d1d01cacc29c071e23192dfefa93bdbeaf775fc5d296259b4859d0306b79"
+PKG_ARCH="any"
+PKG_LICENSE="other"
+PKG_SITE="https://sourceforge.net/projects/opencore-amr/"
+PKG_URL="https://github.com/mstorsjo/fdk-aac/archive/v${PKG_VERSION}.tar.gz"
+PKG_DEPENDS_TARGET="toolchain"
+PKG_SECTION="multimedia"
+PKG_LONGDESC="A standalone library of the Fraunhofer FDK AAC code from Android."
+PKG_AUTORECONF="yes"
