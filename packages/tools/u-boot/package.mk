@@ -155,7 +155,7 @@ makeinstall_target() {
       elif [ "$SYSTEM" == "Bananapi" ]; then
         DTB="sun7i-a20-bananapi.dtb"
       elif [ "$SYSTEM" == "nanopi_m1_plus" ]; then
-        DTB="sun8i-h3-nanopi-m1-plus"
+        DTB="sun8i-h3-nanopi-m1-plus.dtb"
       fi
       sed "s%@DTB@%$DTB%" -i boot.cfg
     fi
