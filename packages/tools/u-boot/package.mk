@@ -118,6 +118,8 @@ make_target() {
         TARGET_NAME="Cubieboard2"
       elif [ "$UBOOT_TARGET" = "Cubietruck_defconfig" ]; then
         TARGET_NAME="Cubietruck"
+      elif [ "$UBOOT_TARGET" = "Bananapi_defconfig" ]; then
+        TARGET_NAME="Bananapi"
       elif [ "$UBOOT_TARGET" = "nanopi_m1_plus_defconfig" ]; then
         TARGET_NAME="nanopi_m1_plus"
       else
@@ -150,6 +152,8 @@ makeinstall_target() {
         DTB="sun7i-a20-cubieboard2.dtb"
       elif [ "$SYSTEM" == "Cubietruck" ]; then
         DTB="sun7i-a20-cubietruck.dtb"
+      elif [ "$SYSTEM" == "Bananapi" ]; then
+        DTB="sun7i-a20-bananapi.dtb"
       elif [ "$SYSTEM" == "nanopi_m1_plus" ]; then
         DTB="sun8i-h3-nanopi-m1-plus"
       fi
