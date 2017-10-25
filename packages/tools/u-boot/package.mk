@@ -114,6 +114,8 @@ make_target() {
         TARGET_NAME="udoo"
       elif [ "$UBOOT_TARGET" = "orangepi_pc_defconfig" ]; then
         TARGET_NAME="opipc"
+      elif [ "$UBOOT_TARGET" = "Cubieboard2_defconfig" ]; then
+        TARGET_NAME="Cubieboard2"
       elif [ "$UBOOT_TARGET" = "Cubietruck_defconfig" ]; then
         TARGET_NAME="Cubietruck"
       elif [ "$UBOOT_TARGET" = "nanopi_m1_plus_defconfig" ]; then
@@ -144,6 +146,8 @@ makeinstall_target() {
     if [ "$PROJECT" == "Allwinner" ]; then
       if [ "$SYSTEM" == "opipc" ]; then
         DTB="sun8i-h3-orangepi-pc.dtb"
+      elif [ "$SYSTEM" == "Cubieboard2" ]; then
+        DTB="sun7i-a20-cubieboard2.dtb"
       elif [ "$SYSTEM" == "Cubietruck" ]; then
         DTB="sun7i-a20-cubietruck.dtb"
       elif [ "$SYSTEM" == "nanopi_m1_plus" ]; then
