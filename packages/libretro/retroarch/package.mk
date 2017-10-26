@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="retroarch"
-PKG_VERSION="cd942f1"
+PKG_VERSION="77cd18e"
 PKG_REV="5"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
@@ -123,7 +123,13 @@ makeinstall_target() {
   sed -i -e "s/# overlays_directory =/overlays_directory =\/usr\/share\/retroarch-overlays/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# cheat_database_path =/cheat_database_path =\/tmp\/database\/cht/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# menu_driver = \"rgui\"/menu_driver = \"xmb\"/" $INSTALL/etc/retroarch.cfg
+
+  # Quick menu
   echo "core_assets_directory =/storage/roms/downloads" >> $INSTALL/etc/retroarch.cfg
+  echo "quick_menu_show_undo_save_load_state = \"false\"" >> $INSTALL/etc/retroarch.cfg
+  echo "quick_menu_show_save_core_overrides = \"false\"" >> $INSTALL/etc/retroarch.cfg
+  echo "quick_menu_show_save_game_overrides = \"false\"" >> $INSTALL/etc/retroarch.cfg
+  echo "quick_menu_show_cheats = \"false\"" >> $INSTALL/etc/retroarch.cfg
   
   # Video
   sed -i -e "s/# video_windowed_fullscreen = true/video_windowed_fullscreen = false/" $INSTALL/etc/retroarch.cfg
@@ -173,6 +179,8 @@ makeinstall_target() {
   # Playlists
   echo "playlist_names = \"$RA_PLAYLIST_NAMES\"" >> $INSTALL/etc/retroarch.cfg
   echo "playlist_cores = \"$RA_PLAYLIST_CORES\"" >> $INSTALL/etc/retroarch.cfg
+  echo "playlist_entry_rename = \"false\"" >> $INSTALL/etc/retroarch.cfg
+  echo "playlist_entry_remove = \"false\"" >> $INSTALL/etc/retroarch.cfg
 
   # Gamegirl
   if [ "$PROJECT" == "Gamegirl" ]; then
