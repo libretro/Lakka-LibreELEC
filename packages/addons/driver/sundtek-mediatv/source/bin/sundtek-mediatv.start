@@ -67,7 +67,15 @@ fi
 [ ! -f $SUNDTEK_ADDON_HOME/rc_key_ok.map ] && mv $SUNDTEK_ADDON_HOME/rc_key_ok $SUNDTEK_ADDON_HOME/rc_key_ok.map
 
 mkdir -p /var/config
-cat "$SUNDTEK_ADDON_SETTINGS" | awk -F\" '{print $2"=\""$4"\""}' | sed '/^=/d' > /var/config/sundtek-addon.conf
+
+# check settings version
+XML_SETTINGS_VER="$(xmlstarlet sel -t -m settings -v @version $SUNDTEK_ADDON_SETTINGS)"
+if [ "$XML_SETTINGS_VER" = "2" ]; then
+  xmlstarlet sel -t -m settings/setting -v @id -o "=\"" -v . -o "\"" -n "$SUNDTEK_ADDON_SETTINGS" > /var/config/sundtek-addon.conf
+else
+  xmlstarlet sel -t -m settings -m setting -v @id -o "=\"" -v @value -o "\"" -n "$SUNDTEK_ADDON_SETTINGS" > /var/config/sundtek-addon.conf
+fi
+
 . /var/config/sundtek-addon.conf
 
 # check if there is new driver on web
@@ -186,7 +194,7 @@ if [ -z "$(pidof mediasrv)" ]; then
       KEYMAP=$(eval echo \$ATTACHED_TUNER_${SERIAL}_KEYMAP)
 
       if [ "$DVBMODE" = "DVB-T" ]; then
-        # only set DVB-T because default is DVB-C (and DVB-S is not set either)
+        # only set DVB-T because default is DVB-C (and DVB-S/S2 is not set either)
         DVBMODE="DVBT"
       else
         DVBMODE=""
