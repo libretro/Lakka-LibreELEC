@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="wayland"
-PKG_VERSION="1.13.92"
+PKG_VERSION="1.14.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
