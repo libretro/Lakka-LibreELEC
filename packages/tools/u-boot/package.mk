@@ -113,7 +113,7 @@ make_target() {
       elif [ "$UBOOT_TARGET" = "udoo_config" ]; then
         TARGET_NAME="udoo"
       elif [ "$UBOOT_TARGET" = "orangepi_pc_defconfig" ]; then
-        TARGET_NAME="opipc"
+        TARGET_NAME="orangepi_pc"
       elif [ "$UBOOT_TARGET" = "Cubieboard2_defconfig" ]; then
         TARGET_NAME="Cubieboard2"
       elif [ "$UBOOT_TARGET" = "Cubietruck_defconfig" ]; then
