@@ -18,7 +18,6 @@
 
 PKG_NAME="ffmpegx"
 PKG_VERSION="3.4"
-PKG_SHA256="2865712ead48b9e5939c1eb23c409c8f1d60e49bc6434ca489271ea677c81adc"
 PKG_ARCH="any"
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://ffmpeg.org"
