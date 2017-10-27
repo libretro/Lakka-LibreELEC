@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="zlib"
-PKG_VERSION="1.2.8"
+PKG_VERSION="1.2.11"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.zlib.net"
