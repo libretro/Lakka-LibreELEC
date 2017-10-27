@@ -112,14 +112,24 @@ make_target() {
         TARGET_NAME="matrix"
       elif [ "$UBOOT_TARGET" = "udoo_config" ]; then
         TARGET_NAME="udoo"
-      elif [ "$UBOOT_TARGET" = "orangepi_pc_defconfig" ]; then
-        TARGET_NAME="orangepi_pc"
       elif [ "$UBOOT_TARGET" = "Cubieboard2_defconfig" ]; then
         TARGET_NAME="Cubieboard2"
       elif [ "$UBOOT_TARGET" = "Cubietruck_defconfig" ]; then
         TARGET_NAME="Cubietruck"
       elif [ "$UBOOT_TARGET" = "Bananapi_defconfig" ]; then
         TARGET_NAME="Bananapi"
+      elif [ "$UBOOT_TARGET" = "orangepi_2_defconfig" ]; then
+        TARGET_NAME="orangepi_2"
+      elif [ "$UBOOT_TARGET" = "orangepi_lite_defconfig" ]; then
+        TARGET_NAME="orangepi_lite"
+      elif [ "$UBOOT_TARGET" = "orangepi_one_defconfig" ]; then
+        TARGET_NAME="orangepi_one"
+      elif [ "$UBOOT_TARGET" = "orangepi_pc_defconfig" ]; then
+        TARGET_NAME="orangepi_pc"
+      elif [ "$UBOOT_TARGET" = "orangepi_plus_defconfig" ]; then
+        TARGET_NAME="orangepi_plus"
+      elif [ "$UBOOT_TARGET" = "orangepi_plus2e_defconfig" ]; then
+        TARGET_NAME="orangepi_plus2e"
       elif [ "$UBOOT_TARGET" = "nanopi_m1_plus_defconfig" ]; then
         TARGET_NAME="nanopi_m1_plus"
       else
