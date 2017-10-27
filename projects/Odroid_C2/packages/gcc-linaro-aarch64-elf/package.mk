@@ -27,10 +27,7 @@ PKG_SOURCE_DIR="gcc-linaro-${PKG_VERSION}-x86_64_aarch64-elf"
 PKG_SECTION="lang"
 PKG_SHORTDESC=""
 PKG_LONGDESC=""
-
-make_host() {
-  :
-}
+PKG_TOOLCHAIN="manual"
 
 makeinstall_host() {
   mkdir -p $TOOLCHAIN/lib/gcc-linaro-aarch64-elf/

@@ -27,10 +27,7 @@ PKG_DEPENDS_TARGET="alsa-utils"
 PKG_SECTION="driver"
 PKG_SHORTDESC="Config scripts for the Wolfson/Cirrus Logic audio card"
 PKG_LONGDESC="Config scripts for the Wolfson/Cirrus Logic audio card"
-
-make_target() {
- : #
-}
+PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/udev

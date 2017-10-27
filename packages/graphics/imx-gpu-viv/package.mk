@@ -34,10 +34,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="graphics"
 PKG_SHORTDESC="imx-gpu-viv: OpenGL-ES and VIVANTE driver for imx6q"
 PKG_LONGDESC="imx-gpu-viv: OpenGL-ES and VIVANTE driver for imx6q"
-
-make_target() {
- : # nothing to make
-}
+PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
   mkdir -p $SYSROOT_PREFIX/usr/include

@@ -26,11 +26,7 @@ PKG_URL="https://releases.linaro.org/components/toolchain/binaries/7.1-2017.08/a
 PKG_SOURCE_DIR="gcc-linaro-${PKG_VERSION}-x86_64_aarch64-linux-gnu"
 PKG_SECTION="lang"
 PKG_SHORTDESC="Linaro Aarch64 GNU Linux Binary Toolchain"
-PKG_AUTORECONF="no"
-
-make_host() {
-  :
-}
+PKG_TOOLCHAIN="manual"
 
 makeinstall_host() {
   mkdir -p $TOOLCHAIN/lib/gcc-linaro-aarch64-linux-gnu/

@@ -24,10 +24,7 @@ PKG_SOURCE_DIR="$PKG_VERSION*"
 PKG_DEPENDS_HOST=""
 PKG_SHORTDESC="configtools"
 PKG_LONGDESC="configtools"
-
-make_host() {
-  :
-}
+PKG_TOOLCHAIN="manual"
 
 makeinstall_host() {
   mkdir -p $TOOLCHAIN/configtools

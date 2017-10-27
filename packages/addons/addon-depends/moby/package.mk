@@ -26,7 +26,7 @@ PKG_DEPENDS_TARGET="toolchain sqlite go:host containerd runc libnetwork tini"
 PKG_SECTION="service/system"
 PKG_SHORTDESC="Moby is an open-source engine that automates the deployment of any application as a lightweight, portable, self-sufficient container that will run virtually anywhere."
 PKG_LONGDESC="Docker containers can encapsulate any payload, and will run consistently on and between virtually any server. The same container that a developer builds and tests on a laptop will run at scale, in production*, on VMs, bare-metal servers, OpenStack clusters, public instances, or combinations of the above. Moby as the central part of the Docker engine"
-PKG_AUTORECONF="no"
+PKG_TOOLCHAIN="manual"
 
 configure_target() {
   export DOCKER_BUILDTAGS="daemon \
@@ -85,8 +85,3 @@ make_target() {
   $GOLANG build -v -o bin/docker -a -tags "$DOCKER_BUILDTAGS" -ldflags "$LDFLAGS" ./cmd/docker
   $GOLANG build -v -o bin/dockerd -a -tags "$DOCKER_BUILDTAGS" -ldflags "$LDFLAGS" ./cmd/dockerd
 }
-
-makeinstall_target() {
-  :
-}
-
