@@ -28,7 +28,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="linux-firmware"
 PKG_SHORTDESC="kernel-firmware: kernel related firmware"
 PKG_LONGDESC="kernel-firmware: kernel related firmware"
-PKG_TOOLCHAIN="other"
+PKG_TOOLCHAIN="manual"
 
 # Install additional miscellaneous drivers
 makeinstall_target() {

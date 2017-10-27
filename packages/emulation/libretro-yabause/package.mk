@@ -28,7 +28,7 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.yabause: Yabause for Kodi"
 PKG_LONGDESC="game.libretro.yabause: Yabause for Kodi"
-PKG_TOOLCHAIN="other"
+PKG_TOOLCHAIN="manual"
 
 PKG_LIBNAME="yabause_libretro.so"
 PKG_LIBPATH="libretro/$PKG_LIBNAME"

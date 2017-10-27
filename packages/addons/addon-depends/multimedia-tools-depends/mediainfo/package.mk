@@ -28,7 +28,7 @@ PKG_DEPENDS_TARGET="toolchain libmediainfo"
 PKG_SECTION="tools"
 PKG_SHORTDESC="MediaInfo is a convenient unified display of the most relevant technical and tag data for video and audio files"
 PKG_LONGDESC="MediaInfo is a convenient unified display of the most relevant technical and tag data for video and audio files"
-PKG_TOOLCHAIN="other"
+PKG_TOOLCHAIN="manual"
 
 pre_configure_target() {
   export LDFLAGS="$LDFLAGS -lmediainfo"

@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="driver/remote"
 PKG_SHORTDESC="iMON-MCE: a Linux driver to add support for MCE remotes to the iMON driver"
 PKG_LONGDESC="Install this to add support for iMon MCE remote controls."
-PKG_TOOLCHAIN="other"
+PKG_TOOLCHAIN="manual"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="iMON-MCE"

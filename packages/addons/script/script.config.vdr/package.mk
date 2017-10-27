@@ -28,7 +28,7 @@ PKG_DEPENDS_TARGET=""
 PKG_SECTION=""
 PKG_SHORTDESC="script.config.vdr"
 PKG_LONGDESC="script.config.vdr"
-PKG_TOOLCHAIN="other"
+PKG_TOOLCHAIN="manual"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="dummy"

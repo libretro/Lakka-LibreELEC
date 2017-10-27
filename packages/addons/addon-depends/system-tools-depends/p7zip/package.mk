@@ -28,7 +28,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="tools"
 PKG_SHORTDESC="p7zip is a port of 7za.exe for POSIX systems like Unix"
 PKG_LONGDESC="p7zip is a port of 7za.exe for POSIX systems like Unix"
-PKG_TOOLCHAIN="other"
+PKG_TOOLCHAIN="manual"
 
 make_host() {
   make CXX=$CXX CC=$CC 7za

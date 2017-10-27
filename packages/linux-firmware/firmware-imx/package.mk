@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="linux-firmware"
 PKG_SHORTDESC="firmware-imx: Freescale IMX firmware"
 PKG_LONGDESC="firmware-imx: Freescale IMX firmware such as for the VPU"
-PKG_TOOLCHAIN="other"
+PKG_TOOLCHAIN="manual"
 
 unpack() {
   mkdir -p $BUILD

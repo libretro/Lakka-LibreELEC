@@ -30,7 +30,7 @@ PKG_SHORTDESC="Touchscreen: support addon for Touchscreens"
 PKG_LONGDESC="Touchscreen: addon creates new virtual input device and \
 converts data from touchscreen to Kodi. Short tap sends button press event \
 and long tap sends only xy coordinates. Also includes calibration program."
-PKG_TOOLCHAIN="other"
+PKG_TOOLCHAIN="manual"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Touchscreen"

@@ -28,7 +28,7 @@ PKG_PRIORITY="optional"
 PKG_SECTION="skin"
 PKG_SHORTDESC="Kodi skin Estouchy"
 PKG_LONGDESC="Kodi skin Estouchy"
-PKG_TOOLCHAIN="other"
+PKG_TOOLCHAIN="manual"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Estouchy"
