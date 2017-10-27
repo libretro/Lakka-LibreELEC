@@ -28,10 +28,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="firmware"
 PKG_SHORTDESC="dvb-firmware: firmwares for various DVB drivers"
 PKG_LONGDESC="dvb-firmware: firmwares for various DVB drivers"
-
-make_target() {
-  : # nothing todo
-}
+PKG_TOOLCHAIN="other"
 
 makeinstall_target() {
   DESTDIR=$INSTALL/$(get_kernel_overlay_dir) ./install

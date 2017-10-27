@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.cap32: cap32 for Kodi"
 PKG_LONGDESC="game.libretro.cap32: cap32 for Kodi"
-PKG_TOOLCHAIN="configure"
 
 PKG_LIBNAME="cap32_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"

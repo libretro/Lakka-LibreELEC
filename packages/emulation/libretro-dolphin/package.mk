@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform enet"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="Dolphin is a GameCube / Wii emulator, allowing you to play games for these two platforms on PC"
 PKG_LONGDESC="Dolphin is a GameCube / Wii emulator, allowing you to play games for these two platforms on PC"
-PKG_TOOLCHAIN="configure"
 
 PKG_LIBNAME="dolphin_libretro.so"
 PKG_LIBPATH="libretro/$PKG_LIBNAME"

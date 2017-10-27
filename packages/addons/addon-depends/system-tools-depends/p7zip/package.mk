@@ -28,6 +28,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="tools"
 PKG_SHORTDESC="p7zip is a port of 7za.exe for POSIX systems like Unix"
 PKG_LONGDESC="p7zip is a port of 7za.exe for POSIX systems like Unix"
+PKG_TOOLCHAIN="other"
 
 make_host() {
   make CXX=$CXX CC=$CC 7za
@@ -40,8 +41,4 @@ make_target() {
 makeinstall_host() {
   mkdir -p $TOOLCHAIN/bin
     cp bin/7za $TOOLCHAIN/bin
-}
-
-makeinstall_target() {
-  : # nop
 }

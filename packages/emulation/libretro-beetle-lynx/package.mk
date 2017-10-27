@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="Standalone port of Mednafen Lynx to libretro, itself a fork of Handy"
 PKG_LONGDESC="Standalone port of Mednafen Lynx to libretro, itself a fork of Handy"
-PKG_TOOLCHAIN="configure"
 
 PKG_LIBNAME="mednafen_lynx_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"

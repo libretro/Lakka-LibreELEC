@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.vecx: vecx for Kodi"
 PKG_LONGDESC="game.libretro.vecx: vecx for Kodi"
-PKG_TOOLCHAIN="configure"
 
 PKG_LIBNAME="vecx_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"

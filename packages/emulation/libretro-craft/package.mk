@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="A simple Minecraft clone written in C using modern OpenGL (shaders)"
 PKG_LONGDESC="A simple Minecraft clone written in C using modern OpenGL (shaders)"
-PKG_TOOLCHAIN="configure"
 
 PKG_LIBNAME="craft_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"

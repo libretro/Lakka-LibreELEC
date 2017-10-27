@@ -27,10 +27,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="firmware"
 PKG_SHORTDESC="wlan-firmware-aml: Firmware for various WLAN chips used in the devices based on Amlogic SoCs"
 PKG_LONGDESC="wlan-firmware-aml: Firmware for various WLAN chips used in the devices based on Amlogic SoCs"
-
-make_target() {
-  : # nothing todo
-}
+PKG_TOOLCHAIN="other"
 
 makeinstall_target() {
   mkdir -p $INSTALL/$(get_full_firmware_dir)/brcm

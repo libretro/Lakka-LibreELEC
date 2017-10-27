@@ -27,10 +27,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="firmware"
 PKG_SHORTDESC="wlan-firmware: firmwares for various WLAN drivers"
 PKG_LONGDESC="wlan-firmware: firmwares for various WLAN drivers"
-
-make_target() {
-  : # nothing todo
-}
+PKG_TOOLCHAIN="other"
 
 makeinstall_target() {
   DESTDIR=$INSTALL/$(get_kernel_overlay_dir) ./install

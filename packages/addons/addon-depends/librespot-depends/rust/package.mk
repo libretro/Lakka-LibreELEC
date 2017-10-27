@@ -25,12 +25,9 @@ PKG_URL=""
 PKG_DEPENDS="toolchain"
 PKG_SECTION="devel"
 PKG_LONGDESC="Rust is a systems programming language that runs blazingly fast, prevents segfaults, and guarantees thread safety."
+PKG_TOOLCHAIN="other"
 
 unpack() {
-  :
-}
-
-configure_target() {
   :
 }
 
@@ -71,8 +68,4 @@ EOF
 
   echo "CARGO_BUILD=\"cargo build --release --target $RUST_TRIPLE\"" \
        >>"$CARGO_HOME/env"
-}
-
-makeinstall_target() {
-  :
 }

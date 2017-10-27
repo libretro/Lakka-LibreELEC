@@ -28,6 +28,7 @@ PKG_DEPENDS_TARGET="toolchain util-linux zlib lzo"
 PKG_SECTION="tools"
 PKG_SHORTDESC="tools for the btrfs filesystem"
 PKG_LONGDESC="tools for the btrfs filesystem"
+PKG_TOOLCHAIN="configure"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="BTRFS Tools"

@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.beetle-bsnes-performance: Beetle bSNES for Kodi"
 PKG_LONGDESC="game.libretro.beetle-bsnes-performance: Beetle bSNES for Kodi"
-PKG_TOOLCHAIN="configure"
 
 PKG_LIBNAME="bsnes_mercury_performance_libretro.so"
 PKG_LIBPATH="out/$PKG_LIBNAME"

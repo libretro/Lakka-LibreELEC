@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.scummvm: scummvm for Kodi"
 PKG_LONGDESC="game.libretro.scummvm: scummvm for Kodi"
-PKG_TOOLCHAIN="configure"
 
 PKG_LIBNAME="scummvm_libretro.so"
 PKG_LIBPATH="backends/platform/libretro/build/$PKG_LIBNAME"

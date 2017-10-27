@@ -28,7 +28,7 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.meteor: Meteor GBA for Kodi"
 PKG_LONGDESC="game.libretro.meteor: Meteor GBA for Kodi"
-PKG_TOOLCHAIN="configure"
+PKG_TOOLCHAIN="make"
 
 PKG_LIBNAME="meteor_libretro.so"
 PKG_LIBPATH="libretro/$PKG_LIBNAME"
