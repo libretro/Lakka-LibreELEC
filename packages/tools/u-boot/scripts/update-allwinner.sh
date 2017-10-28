@@ -44,9 +44,9 @@ fi
     fi
   done
 
-echo "*** updating u-boot on: $BOOT_DISK ..."
+#echo "*** updating u-boot on: $BOOT_DISK ..."
 
-dd if=$SYSTEM_ROOT/usr/share/bootloader/u-boot-sunxi-with-spl.bin of=$BOOT_DISK conv=fsync bs=1024 seek=8
+#dd if=$SYSTEM_ROOT/usr/share/bootloader/u-boot-sunxi-with-spl.bin of=$BOOT_DISK conv=fsync bs=1024 seek=8
 
 # mount $BOOT_ROOT r/o
   sync
