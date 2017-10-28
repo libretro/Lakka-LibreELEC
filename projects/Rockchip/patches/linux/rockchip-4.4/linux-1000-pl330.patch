@@ -1,7 +1,32 @@
-From 935e1c7793a39f91fb0c29846c24818eeb42142c Mon Sep 17 00:00:00 2001
+From 0b4a22b95fce1a5259e0726cd4138dd58a3dbe45 Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Sat, 21 Oct 2017 19:49:27 +0200
+Subject: [PATCH 01/16] Revert "dmaengine: pl330: _loop_cyclic fix cycles of
+ last loop"
+
+This reverts commit d7155171cbc65e45b5b0c8db03fd16fa57a181f2.
+---
+ drivers/dma/pl330.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/dma/pl330.c b/drivers/dma/pl330.c
+index cd05495735d7..1e5c79b20c5b 100644
+--- a/drivers/dma/pl330.c
++++ b/drivers/dma/pl330.c
+@@ -1366,7 +1366,7 @@ static inline int _loop_cyclic(struct pl330_dmac *pl330, unsigned dry_run,
+ 			ccr &= ~(0xf << CC_SRCBRSTLEN_SHFT);
+ 			ccr &= ~(0xf << CC_DSTBRSTLEN_SHFT);
+ 			off += _emit_MOV(dry_run, &buf[off], CCR, ccr);
+-			off += _emit_LP(dry_run, &buf[off], 1, c);
++			off += _emit_LP(dry_run, &buf[off], 1, c - 1);
+ 			ljmp1 = off;
+ 			off += _bursts(pl330, dry_run, &buf[off], pxs, 1);
+ 			lpend.cond = ALWAYS;
+
+From bc1f73538bbb2194d334be69e873e344302ad67d Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Fri, 16 Jun 2017 23:14:54 +0200
-Subject: [PATCH 01/15] Revert "dmaengine: pl330: _loop_cyclic supports
+Subject: [PATCH 02/16] Revert "dmaengine: pl330: _loop_cyclic supports
  unaligned size"
 
 This reverts commit 13dbe2cccd5851540af8158b12499c33801b6ef6.
@@ -10,7 +35,7 @@ This reverts commit 13dbe2cccd5851540af8158b12499c33801b6ef6.
  1 file changed, 10 insertions(+), 28 deletions(-)
 
 diff --git a/drivers/dma/pl330.c b/drivers/dma/pl330.c
-index 781f9f1c8982..73e0a3f515a2 100644
+index 1e5c79b20c5b..4661dfb1a195 100644
 --- a/drivers/dma/pl330.c
 +++ b/drivers/dma/pl330.c
 @@ -1356,28 +1356,6 @@ static inline int _loop_cyclic(struct pl330_dmac *pl330, unsigned dry_run,
@@ -74,10 +99,10 @@ index 781f9f1c8982..73e0a3f515a2 100644
  						pxs, thrd->ev);
  	}
 
-From 422e7ada661658da0f1499f8b056c13933f5bff8 Mon Sep 17 00:00:00 2001
+From e790e719043f7ced5eb5c690b7d2576565501806 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Fri, 16 Jun 2017 23:14:54 +0200
-Subject: [PATCH 02/15] Revert "dmaengine: pl330: redefine the cyclic transfer"
+Subject: [PATCH 03/16] Revert "dmaengine: pl330: redefine the cyclic transfer"
 
 This reverts commit 5f638786e66089344c9cf594b81fbf02cd794f15.
 ---
@@ -85,7 +110,7 @@ This reverts commit 5f638786e66089344c9cf594b81fbf02cd794f15.
  1 file changed, 29 insertions(+), 108 deletions(-)
 
 diff --git a/drivers/dma/pl330.c b/drivers/dma/pl330.c
-index 73e0a3f515a2..74ffe19a3283 100644
+index 4661dfb1a195..d8912a4216df 100644
 --- a/drivers/dma/pl330.c
 +++ b/drivers/dma/pl330.c
 @@ -1303,76 +1303,6 @@ static inline int _loop(struct pl330_dmac *pl330, unsigned dry_run, u8 buf[],
@@ -289,10 +314,10 @@ index 73e0a3f515a2..74ffe19a3283 100644
  	fill_px(&desc->px, dst, src, period_len);
  
 
-From b307bf18154c88ee2cb521469d0f56c40549133e Mon Sep 17 00:00:00 2001
+From dfea19b512237409f24ace1258544468d5998751 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Fri, 16 Jun 2017 23:14:54 +0200
-Subject: [PATCH 03/15] Revert "dmaengine: pl330: make transfer run infinitely
+Subject: [PATCH 04/16] Revert "dmaengine: pl330: make transfer run infinitely
  without CPU intervention"
 
 This reverts commit e8a6e5086cb82d59cae6ae029b1eb4432cc62288.
@@ -301,7 +326,7 @@ This reverts commit e8a6e5086cb82d59cae6ae029b1eb4432cc62288.
  1 file changed, 105 insertions(+), 94 deletions(-)
 
 diff --git a/drivers/dma/pl330.c b/drivers/dma/pl330.c
-index 74ffe19a3283..b49dd585cfd7 100644
+index d8912a4216df..58e99ae039f8 100644
 --- a/drivers/dma/pl330.c
 +++ b/drivers/dma/pl330.c
 @@ -447,6 +447,9 @@ struct dma_pl330_chan {
@@ -632,10 +657,10 @@ index 74ffe19a3283..b49dd585cfd7 100644
  
  	return &desc->txd;
 
-From 13f10f3bb5b65fec1776827bc05ccafba37cdccd Mon Sep 17 00:00:00 2001
+From ae0f0302d1857d40ca2bb1af5c6d3f42ac64fe2b Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Fri, 16 Jun 2017 23:14:55 +0200
-Subject: [PATCH 04/15] Revert "dmaengine: pl330: support transfer that doesn't
+Subject: [PATCH 05/16] Revert "dmaengine: pl330: support transfer that doesn't
  align with (burst len * burst size)"
 
 This reverts commit c66ecf19b98ffac86177c29859e683de39f44e73.
@@ -644,7 +669,7 @@ This reverts commit c66ecf19b98ffac86177c29859e683de39f44e73.
  1 file changed, 3 insertions(+), 20 deletions(-)
 
 diff --git a/drivers/dma/pl330.c b/drivers/dma/pl330.c
-index b49dd585cfd7..75d80e71e3b5 100644
+index 58e99ae039f8..f4837f5b4e87 100644
 --- a/drivers/dma/pl330.c
 +++ b/drivers/dma/pl330.c
 @@ -240,7 +240,6 @@ enum pl330_byteswap {
@@ -692,10 +717,10 @@ index b49dd585cfd7..75d80e71e3b5 100644
  	off += _setup_xfer(pl330, dry_run, &buf[off], pxs);
  
 
-From 8886924c8f30e39589cf0eb824ad00a8c51aaf14 Mon Sep 17 00:00:00 2001
+From 80c35b8163d0c3554f9a919f64d83f306ac099b0 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Fri, 16 Jun 2017 23:14:55 +0200
-Subject: [PATCH 05/15] Revert "dmaengine: pl330: add burst mode according to
+Subject: [PATCH 06/16] Revert "dmaengine: pl330: add burst mode according to
  dts config"
 
 This reverts commit 8e770f371cc27f8828cb9ceb0516adc23fe75995.
@@ -704,7 +729,7 @@ This reverts commit 8e770f371cc27f8828cb9ceb0516adc23fe75995.
  1 file changed, 14 insertions(+), 22 deletions(-)
 
 diff --git a/drivers/dma/pl330.c b/drivers/dma/pl330.c
-index 75d80e71e3b5..cbab161ff283 100644
+index f4837f5b4e87..778be86e908c 100644
 --- a/drivers/dma/pl330.c
 +++ b/drivers/dma/pl330.c
 @@ -494,8 +494,6 @@ struct pl330_dmac {
@@ -793,10 +818,10 @@ index 75d80e71e3b5..cbab161ff283 100644
  	for (i = 0; i < ARRAY_SIZE(of_quirks); i++)
  		if (of_property_read_bool(np, of_quirks[i].quirk))
 
-From 155b823bc8c7709782e7d7a1310ff31440fefe28 Mon Sep 17 00:00:00 2001
+From 9ea6ddab73aa8345fd68fd0404f0ad1660474f2d Mon Sep 17 00:00:00 2001
 From: Vinod Koul <vinod.koul@intel.com>
 Date: Tue, 5 Jul 2016 10:02:16 +0530
-Subject: [PATCH 06/15] UPSTREAM: dmaengine: pl330: explicitly freeup irq
+Subject: [PATCH 07/16] UPSTREAM: dmaengine: pl330: explicitly freeup irq
 
 dmaengine device should explicitly call devm_free_irq() when using
 devm_request_irq().
@@ -813,7 +838,7 @@ Cc: Linus Walleij <linus.walleij@linaro.org>
  1 file changed, 6 insertions(+)
 
 diff --git a/drivers/dma/pl330.c b/drivers/dma/pl330.c
-index cbab161ff283..dd34f384689b 100644
+index 778be86e908c..4e6590f90994 100644
 --- a/drivers/dma/pl330.c
 +++ b/drivers/dma/pl330.c
 @@ -3016,12 +3016,18 @@ static int pl330_remove(struct amba_device *adev)
@@ -836,10 +861,10 @@ index cbab161ff283..dd34f384689b 100644
  
  	/* Idle the DMAC */
 
-From 74c83412645d0f369aae5ea5a58521728f5d4bb9 Mon Sep 17 00:00:00 2001
+From 11f6100d5e9ca4b05acdf1caac71ff4e70e475f7 Mon Sep 17 00:00:00 2001
 From: Stephen Barber <smbarber@chromium.org>
 Date: Thu, 18 Aug 2016 17:59:59 -0700
-Subject: [PATCH 07/15] UPSTREAM: dmaengine: pl330: fix residual for
+Subject: [PATCH 08/16] UPSTREAM: dmaengine: pl330: fix residual for
  non-running BUSY descriptors
 
 Only one descriptor in the work list should be running at
@@ -858,7 +883,7 @@ Signed-off-by: Vinod Koul <vinod.koul@intel.com>
  1 file changed, 12 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/dma/pl330.c b/drivers/dma/pl330.c
-index dd34f384689b..a39e9cd44b02 100644
+index 4e6590f90994..16f578f1d050 100644
 --- a/drivers/dma/pl330.c
 +++ b/drivers/dma/pl330.c
 @@ -2284,7 +2284,7 @@ pl330_tx_status(struct dma_chan *chan, dma_cookie_t cookie,
@@ -896,10 +921,10 @@ index dd34f384689b..a39e9cd44b02 100644
  			transferred = 0;
  		residual += desc->bytes_requested - transferred;
 
-From 4cd4a0ddd0ee26ca772c8428731590cd098bcf16 Mon Sep 17 00:00:00 2001
+From 13854517fa37319614726925173dd06cc71f0db8 Mon Sep 17 00:00:00 2001
 From: Hsin-Yu Chao <hychao@chromium.org>
 Date: Tue, 23 Aug 2016 17:16:55 +0800
-Subject: [PATCH 08/15] UPSTREAM: dmaengine: pl330: Acquire dmac's spinlock in
+Subject: [PATCH 09/16] UPSTREAM: dmaengine: pl330: Acquire dmac's spinlock in
  pl330_tx_status
 
 There is a racing when accessing dmac thread in pl330_tx_status that
@@ -921,7 +946,7 @@ Signed-off-by: Vinod Koul <vinod.koul@intel.com>
  1 file changed, 2 insertions(+)
 
 diff --git a/drivers/dma/pl330.c b/drivers/dma/pl330.c
-index a39e9cd44b02..ac202c912b88 100644
+index 16f578f1d050..642d07412d8d 100644
 --- a/drivers/dma/pl330.c
 +++ b/drivers/dma/pl330.c
 @@ -2297,6 +2297,7 @@ pl330_tx_status(struct dma_chan *chan, dma_cookie_t cookie,
@@ -941,10 +966,10 @@ index a39e9cd44b02..ac202c912b88 100644
  
  out:
 
-From e30064a39804c72966e615c5de96b342a81dd5bb Mon Sep 17 00:00:00 2001
+From 3a9fc6f1528930cd453e23ba81de629d5bc88422 Mon Sep 17 00:00:00 2001
 From: Stephen Barber <smbarber@chromium.org>
 Date: Tue, 1 Nov 2016 16:44:27 -0700
-Subject: [PATCH 09/15] UPSTREAM: dmaengine: pl330: Handle xferred count if
+Subject: [PATCH 10/16] UPSTREAM: dmaengine: pl330: Handle xferred count if
  DMAMOV hasn't finished
 
 After executing DMAGO it's possible that a request can come in for the
@@ -960,7 +985,7 @@ Signed-off-by: Vinod Koul <vinod.koul@intel.com>
  1 file changed, 5 insertions(+)
 
 diff --git a/drivers/dma/pl330.c b/drivers/dma/pl330.c
-index ac202c912b88..e7bf325b3071 100644
+index 642d07412d8d..700abe522316 100644
 --- a/drivers/dma/pl330.c
 +++ b/drivers/dma/pl330.c
 @@ -2275,6 +2275,11 @@ static int pl330_get_current_xferred_count(struct dma_pl330_chan *pch,
@@ -976,10 +1001,10 @@ index ac202c912b88..e7bf325b3071 100644
  }
  
 
-From 42139c568012dd09a6175ccea032d3175b56381e Mon Sep 17 00:00:00 2001
+From 3b94b9db2a5b3c6ecb3d54f358fdecba83c054af Mon Sep 17 00:00:00 2001
 From: Vladimir Murzin <vladimir.murzin@arm.com>
 Date: Wed, 7 Dec 2016 13:17:40 +0000
-Subject: [PATCH 10/15] UPSTREAM: dmaengine: pl330: do not generate unaligned
+Subject: [PATCH 11/16] UPSTREAM: dmaengine: pl330: do not generate unaligned
  access
 
 When PL330 is used with !MMU the following fault is seen:
@@ -1038,7 +1063,7 @@ Signed-off-by: Vinod Koul <vinod.koul@intel.com>
  1 file changed, 10 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/dma/pl330.c b/drivers/dma/pl330.c
-index e7bf325b3071..b45d6230cceb 100644
+index 700abe522316..c242c8634a58 100644
 --- a/drivers/dma/pl330.c
 +++ b/drivers/dma/pl330.c
 @@ -573,7 +573,8 @@ static inline u32 _emit_ADDH(unsigned dry_run, u8 buf[],
@@ -1079,10 +1104,10 @@ index e7bf325b3071..b45d6230cceb 100644
  	return SZ_DMAGO;
  }
 
-From 188ce2576eefd8808b35749197de6d57c5ed2430 Mon Sep 17 00:00:00 2001
+From 30901571a70d486206a6dcd1d63f8a8f9aa03143 Mon Sep 17 00:00:00 2001
 From: Vinod Koul <vinod.koul@intel.com>
 Date: Fri, 9 Dec 2016 15:24:12 +0530
-Subject: [PATCH 11/15] =?UTF-8?q?UPSTREAM:=20dmaengine:=20pl330:=20remove?=
+Subject: [PATCH 12/16] =?UTF-8?q?UPSTREAM:=20dmaengine:=20pl330:=20remove?=
  =?UTF-8?q?=20unused=20=E2=80=98regs=E2=80=99?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -1104,7 +1129,7 @@ Signed-off-by: Vinod Koul <vinod.koul@intel.com>
  1 file changed, 3 deletions(-)
 
 diff --git a/drivers/dma/pl330.c b/drivers/dma/pl330.c
-index b45d6230cceb..b241593856df 100644
+index c242c8634a58..da72d3d984e8 100644
 --- a/drivers/dma/pl330.c
 +++ b/drivers/dma/pl330.c
 @@ -1891,11 +1891,8 @@ static int dmac_alloc_resources(struct pl330_dmac *pl330)
@@ -1120,10 +1145,10 @@ index b45d6230cceb..b241593856df 100644
  	if ((pl330->pcfg.periph_id & 0xfffff) != PERIPH_ID_VAL) {
  		dev_err(pl330->ddma.dev, "PERIPH_ID 0x%x !\n",
 
-From 41e0855fcca7c5ad0976d0f3c4d1d409b7b6502a Mon Sep 17 00:00:00 2001
+From 5b7dd0302b6c0d4242e5f548b98881d25384ceb6 Mon Sep 17 00:00:00 2001
 From: Iago Abal <mail@iagoabal.eu>
 Date: Wed, 11 Jan 2017 14:00:21 +0100
-Subject: [PATCH 12/15] UPSTREAM: dmaengine: pl330: fix double lock
+Subject: [PATCH 13/16] UPSTREAM: dmaengine: pl330: fix double lock
 
 The static bug finder EBA (http://www.iagoabal.eu/eba/) reported the
 following double-lock bug:
@@ -1165,7 +1190,7 @@ Signed-off-by: Vinod Koul <vinod.koul@intel.com>
  1 file changed, 6 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/dma/pl330.c b/drivers/dma/pl330.c
-index b241593856df..c725ceb4644d 100644
+index da72d3d984e8..306186354e00 100644
 --- a/drivers/dma/pl330.c
 +++ b/drivers/dma/pl330.c
 @@ -1699,7 +1699,6 @@ static bool _chan_ns(const struct pl330_dmac *pl330, int i)
@@ -1262,10 +1287,10 @@ index b241593856df..c725ceb4644d 100644
  	pm_runtime_put_autosuspend(pch->dmac->ddma.dev);
  }
 
-From 56f8afb08b1ef7731ec395360081bb25a73e4709 Mon Sep 17 00:00:00 2001
+From ba45f3e6a0e6a1148c1591d0a40bacf3e3baae38 Mon Sep 17 00:00:00 2001
 From: Jean-Philippe Brucker <jean-philippe.brucker@arm.com>
 Date: Thu, 1 Jun 2017 19:22:01 +0100
-Subject: [PATCH 13/15] UPSTREAM: dmaengine: pl330: fix warning in pl330_remove
+Subject: [PATCH 14/16] UPSTREAM: dmaengine: pl330: fix warning in pl330_remove
 
 When removing a device with less than 9 IRQs (AMBA_NR_IRQS), we'll get a
 big WARN_ON from devres.c because pl330_remove calls devm_free_irqs for
@@ -1280,7 +1305,7 @@ Signed-off-by: Vinod Koul <vinod.koul@intel.com>
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/dma/pl330.c b/drivers/dma/pl330.c
-index c725ceb4644d..73eaf78871f1 100644
+index 306186354e00..ddcb8029eddc 100644
 --- a/drivers/dma/pl330.c
 +++ b/drivers/dma/pl330.c
 @@ -3038,7 +3038,8 @@ static int pl330_remove(struct amba_device *adev)
@@ -1294,10 +1319,10 @@ index c725ceb4644d..73eaf78871f1 100644
  
  	dma_async_device_unregister(&pl330->ddma);
 
-From 572f467904bee211e1c5aaa049b43db852dfdc3f Mon Sep 17 00:00:00 2001
+From 031625d840ed49bb4bc8eb681404e64fc7e85978 Mon Sep 17 00:00:00 2001
 From: Marek Szyprowski <m.szyprowski@samsung.com>
 Date: Mon, 27 Mar 2017 07:31:03 +0200
-Subject: [PATCH 14/15] UPSTREAM: dmaengine: pl330: remove pdata based
+Subject: [PATCH 15/16] UPSTREAM: dmaengine: pl330: remove pdata based
  initialization
 
 This driver is now used only on platforms which support device tree, so
@@ -1330,7 +1355,7 @@ index e212f9d804bd..2ef19ad5cb62 100644
  #include <linux/types.h>
  #include <linux/interrupt.h>
 diff --git a/drivers/dma/pl330.c b/drivers/dma/pl330.c
-index 73eaf78871f1..23fdb826c6e8 100644
+index ddcb8029eddc..2044d36f81b1 100644
 --- a/drivers/dma/pl330.c
 +++ b/drivers/dma/pl330.c
 @@ -22,7 +22,6 @@
@@ -1474,10 +1499,10 @@ index fe93758e8403..000000000000
 -extern bool pl330_filter(struct dma_chan *chan, void *param);
 -#endif	/* __AMBA_PL330_H_ */
 
-From 0cf1b88c800b9b2c70c3244944f6ff133573d631 Mon Sep 17 00:00:00 2001
+From 06598b572264326f52dbf67fd5801a40b97f3a3d Mon Sep 17 00:00:00 2001
 From: Matthias Kaehlcke <mka@chromium.org>
 Date: Thu, 15 Jun 2017 16:55:57 -0700
-Subject: [PATCH 15/15] UPSTREAM: dmaengine: pl330: Delete unused functions
+Subject: [PATCH 16/16] UPSTREAM: dmaengine: pl330: Delete unused functions
 
 The functions _queue_empty(), _emit_ADDH(), _emit_NOP(), _emit_STZ()
 and _emit_WFE() are not used. Delete them.
@@ -1490,7 +1515,7 @@ Signed-off-by: Vinod Koul <vinod.koul@intel.com>
  1 file changed, 67 deletions(-)
 
 diff --git a/drivers/dma/pl330.c b/drivers/dma/pl330.c
-index 23fdb826c6e8..51aa1de88007 100644
+index 2044d36f81b1..00ba5db20ec4 100644
 --- a/drivers/dma/pl330.c
 +++ b/drivers/dma/pl330.c
 @@ -538,11 +538,6 @@ struct _xfer_spec {
