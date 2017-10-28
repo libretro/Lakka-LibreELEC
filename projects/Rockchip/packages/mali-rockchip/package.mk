@@ -41,7 +41,7 @@ if [ "$TARGET_ARCH" = "arm" -a "$MALI_FAMILY" = "t760" ]; then
 elif [ "$TARGET_ARCH" = "aarch64" -a "$MALI_FAMILY" = "t860" ]; then
   LIBMALI_FILE="libmali-midgard-4th-r13p0-gbm.so"
 elif [ "$MALI_FAMILY" = "450" ]; then
-  LIBMALI_FILE="libmali-utgard-2th-r7p0-gbm.so"
+  LIBMALI_FILE="libmali-utgard-450-r7p0-gbm.so"
 elif [ "$TARGET_ARCH" = "arm" -a "$MALI_FAMILY" = "400" ]; then
   LIBMALI_FILE="libmali-utgard-r7p0-gbm.so"
 else
