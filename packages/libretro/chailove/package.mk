@@ -18,17 +18,17 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="chaigame"
-PKG_VERSION="c05e640"
+PKG_NAME="chailove"
+PKG_VERSION="6da5e38"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
-PKG_SITE="https://github.com/RobLoach/ChaiGame"
-PKG_URL="https://github.com/RobLoach/ChaiGame/archive/$PKG_VERSION.tar.gz"
+PKG_SITE="https://github.com/RobLoach/ChaiLove"
+PKG_URL="https://github.com/RobLoach/ChaiLove/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="ChaiGame: 2D Game Framework"
+PKG_SHORTDESC="ChaiLove: 2D Game Framework"
 PKG_LONGDESC="Framework to create 2D games with ChaiScript."
 
 PKG_IS_ADDON="no"
