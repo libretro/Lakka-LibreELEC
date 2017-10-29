@@ -102,7 +102,6 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --enable-opencl-icd \
                            --disable-gallium-tests \
                            --enable-shared-glapi \
-                           --enable-shader-cache \
                            $MESA_GALLIUM_LLVM \
                            --disable-silent-rules \
                            --with-gl-lib-name=GL \
