@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="fontconfig"
-PKG_VERSION="2.12.4"
-PKG_SHA256="fd5a6a663f4c4a00e196523902626654dd0c4a78686cbc6e472f338e50fdf806"
+PKG_VERSION="2.12.6"
+PKG_SHA256="064b9ebf060c9e77011733ac9dc0e2ce92870b574cca2405e11f5353a683c334"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.fontconfig.org"
@@ -42,6 +42,9 @@ pre_configure_target() {
   CXXFLAGS=`echo $CXXFLAGS | sed -e "s|-O3|-O2|"`
   CFLAGS="$CFLAGS -I$PKG_BUILD"
   CXXFLAGS="$CXXFLAGS -I$PKG_BUILD"
+
+  # Delete this as a workaround https://bugs.freedesktop.org/show_bug.cgi?id=101280
+  rm -f $PKG_BUILD/src/fcobjshash.h
 }
 
 post_makeinstall_target() {
