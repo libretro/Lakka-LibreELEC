@@ -35,7 +35,15 @@ if [ "$1" = "service" ]; then
   SETTINGS_XML="$ADDON_HOME/settings.xml"
   if [ -f "$SETTINGS_XML" ]; then
     mkdir -p /var/config
-    cat "$SETTINGS_XML" | awk -F\" '{print $2"=\""$4"\""}' | sed '/^=/d' > /var/config/ts_calibration_addon.conf
+
+    # check settings version
+    XML_SETTINGS_VER="$(xmlstarlet sel -t -m settings -v @version $SETTINGS_XML)"
+    if [ "$XML_SETTINGS_VER" = "2" ]; then
+      xmlstarlet sel -t -m settings/setting -v @id -o "=\"" -v . -o "\"" -n "$SETTINGS_XML" > /var/config/ts_calibration_addon.conf
+    else
+      xmlstarlet sel -t -m settings -m setting -v @id -o "=\"" -v @value -o "\"" -n "$SETTINGS_XML" > /var/config/ts_calibration_addon.conf
+    fi
+
     . /var/config/ts_calibration_addon.conf
 
     if [ "$TS_RECALIBRATE" = "true" ]; then
