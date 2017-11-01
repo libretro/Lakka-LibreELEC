@@ -1,0 +1,39 @@
+From 376fb9c7c24c3b8a322cd583839d582cd7041d47 Mon Sep 17 00:00:00 2001
+From: Jakob Unterwurzacher <jakob.unterwurzacher@theobroma-systems.com>
+Date: Mon, 29 May 2017 14:08:43 +0200
+Subject: [PATCH] [drm] fix 32-bit mmap issue on 64-bit kernels
+
+Running 32-bit userland on a 64-bit kernel resulted in the error:
+
+    mpp_drm: mmap failed: Invalid argument
+
+Both the pagesize_mask and the mmap call truncated the offset
+value to 32 bit. This patch fixes both issues.
+
+For details see https://github.com/rockchip-linux/kernel/issues/17
+---
+ osal/allocator/allocator_drm.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/osal/allocator/allocator_drm.c b/osal/allocator/allocator_drm.c
+index 3057671f..9a4e31fe 100644
+--- a/osal/allocator/allocator_drm.c
++++ b/osal/allocator/allocator_drm.c
+@@ -15,6 +15,8 @@
+  */
+ 
+ #define MODULE_TAG "mpp_drm"
++/* Enable 64-bit mmap also when compiling for 32 bit */
++#define _FILE_OFFSET_BITS 64
+ 
+ #include <unistd.h>
+ #include <string.h>
+@@ -67,7 +69,7 @@ static int drm_ioctl(int fd, int req, void *arg)
+ 
+ static void* drm_mmap(int fd, size_t len, int prot, int flags, loff_t offset)
+ {
+-    static unsigned long pagesize_mask = 0;
++    static loff_t pagesize_mask = 0;
+ #if !defined(__gnu_linux__)
+     func_mmap64 fp_mmap64 = mpp_rt_get_mmap64();
+ #endif
