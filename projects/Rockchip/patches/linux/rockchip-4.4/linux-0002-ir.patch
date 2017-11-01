@@ -1,0 +1,826 @@
+From 1dc3dd7e80a63c951b8551393007e2af7ce93cd2 Mon Sep 17 00:00:00 2001
+From: Eric Nelson <eric@nelint.com>
+Date: Sat, 3 Oct 2015 08:18:50 -0700
+Subject: [PATCH 01/10] UPSTREAM: [media] rc-core: define a default timeout for
+ drivers
+
+A default timeout value of 125 ms should work for all decoders.
+
+Declare a constant to help standardize its' use.
+
+Signed-off-by: Eric Nelson <eric@nelint.com>
+Signed-off-by: Mauro Carvalho Chehab <mchehab@osg.samsung.com>
+(cherry picked from commit c8e1bbc52d259a07a81b0f845191ee901ff44e01)
+---
+ include/media/rc-core.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/include/media/rc-core.h b/include/media/rc-core.h
+index ec921f6538c7..f6494709e230 100644
+--- a/include/media/rc-core.h
++++ b/include/media/rc-core.h
+@@ -239,6 +239,7 @@ static inline void init_ir_raw_event(struct ir_raw_event *ev)
+ 	memset(ev, 0, sizeof(*ev));
+ }
+ 
++#define IR_DEFAULT_TIMEOUT	MS_TO_NS(125)
+ #define IR_MAX_DURATION         500000000	/* 500 ms */
+ #define US_TO_NS(usec)		((usec) * 1000)
+ #define MS_TO_US(msec)		((msec) * 1000)
+
+From 3936a27b58de10cd46fea8ea2eb8aa88384b55c8 Mon Sep 17 00:00:00 2001
+From: Eric Nelson <eric@nelint.com>
+Date: Wed, 23 Sep 2015 11:07:08 -0300
+Subject: [PATCH 02/10] UPSTREAM: [media] rc: gpio-ir-recv: add timeout on idle
+
+Many decoders require a trailing space (period without IR illumination)
+to be delivered before completing a decode.
+
+Since the gpio-ir-recv driver only delivers events on gpio transitions,
+a single IR symbol (caused by a quick touch on an IR remote) will not
+be properly decoded without the use of a timer to flush the tail end
+state of the IR receiver.
+
+This patch initializes and uses a timer and the timeout field of rcdev
+to complete the stream and allow decode.
+
+The timeout can be overridden through the use of the LIRC_SET_REC_TIMEOUT
+ioctl.
+
+Signed-off-by: Eric Nelson <eric@nelint.com>
+Acked-by: Sean Young <sean@mess.org>
+Signed-off-by: Mauro Carvalho Chehab <mchehab@osg.samsung.com>
+(cherry picked from commit 3fb136f3392dfb2530fd490718b0652f1001b36b)
+---
+ drivers/media/rc/gpio-ir-recv.c | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
+
+diff --git a/drivers/media/rc/gpio-ir-recv.c b/drivers/media/rc/gpio-ir-recv.c
+index 7dbc9ca6d885..f62e3f1f9d9d 100644
+--- a/drivers/media/rc/gpio-ir-recv.c
++++ b/drivers/media/rc/gpio-ir-recv.c
+@@ -30,6 +30,7 @@ struct gpio_rc_dev {
+ 	struct rc_dev *rcdev;
+ 	int gpio_nr;
+ 	bool active_low;
++	struct timer_list flush_timer;
+ };
+ 
+ #ifdef CONFIG_OF
+@@ -93,12 +94,26 @@ static irqreturn_t gpio_ir_recv_irq(int irq, void *dev_id)
+ 	if (rc < 0)
+ 		goto err_get_value;
+ 
++	mod_timer(&gpio_dev->flush_timer,
++		  jiffies + nsecs_to_jiffies(gpio_dev->rcdev->timeout));
++
+ 	ir_raw_event_handle(gpio_dev->rcdev);
+ 
+ err_get_value:
+ 	return IRQ_HANDLED;
+ }
+ 
++static void flush_timer(unsigned long arg)
++{
++	struct gpio_rc_dev *gpio_dev = (struct gpio_rc_dev *)arg;
++	DEFINE_IR_RAW_EVENT(ev);
++
++	ev.timeout = true;
++	ev.duration = gpio_dev->rcdev->timeout;
++	ir_raw_event_store(gpio_dev->rcdev, &ev);
++	ir_raw_event_handle(gpio_dev->rcdev);
++}
++
+ static int gpio_ir_recv_probe(struct platform_device *pdev)
+ {
+ 	struct gpio_rc_dev *gpio_dev;
+@@ -144,6 +159,9 @@ static int gpio_ir_recv_probe(struct platform_device *pdev)
+ 	rcdev->input_id.version = 0x0100;
+ 	rcdev->dev.parent = &pdev->dev;
+ 	rcdev->driver_name = GPIO_IR_DRIVER_NAME;
++	rcdev->min_timeout = 0;
++	rcdev->timeout = IR_DEFAULT_TIMEOUT;
++	rcdev->max_timeout = 10 * IR_DEFAULT_TIMEOUT;
+ 	if (pdata->allowed_protos)
+ 		rcdev->allowed_protocols = pdata->allowed_protos;
+ 	else
+@@ -154,6 +172,9 @@ static int gpio_ir_recv_probe(struct platform_device *pdev)
+ 	gpio_dev->gpio_nr = pdata->gpio_nr;
+ 	gpio_dev->active_low = pdata->active_low;
+ 
++	setup_timer(&gpio_dev->flush_timer, flush_timer,
++		    (unsigned long)gpio_dev);
++
+ 	rc = gpio_request(pdata->gpio_nr, "gpio-ir-recv");
+ 	if (rc < 0)
+ 		goto err_gpio_request;
+@@ -196,6 +217,7 @@ static int gpio_ir_recv_remove(struct platform_device *pdev)
+ 	struct gpio_rc_dev *gpio_dev = platform_get_drvdata(pdev);
+ 
+ 	free_irq(gpio_to_irq(gpio_dev->gpio_nr), gpio_dev);
++	del_timer_sync(&gpio_dev->flush_timer);
+ 	rc_unregister_device(gpio_dev->rcdev);
+ 	gpio_free(gpio_dev->gpio_nr);
+ 	kfree(gpio_dev);
+
+From 6ca51342bb4d92810c81f8bdfa9e632ddd5fc3b5 Mon Sep 17 00:00:00 2001
+From: Sean Young <sean@mess.org>
+Date: Thu, 26 Jan 2017 14:37:33 -0200
+Subject: [PATCH 03/10] UPSTREAM: [media] gpio-ir: do not allow a timeout of 0
+
+According to the documentation, a timeout of 0 turns off timeouts,
+which is not the case.
+
+Signed-off-by: Sean Young <sean@mess.org>
+Signed-off-by: Mauro Carvalho Chehab <mchehab@s-opensource.com>
+(cherry picked from commit ee5310e66eab685fb42b3b585b00a92b67fb59d7)
+---
+ drivers/media/rc/gpio-ir-recv.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/media/rc/gpio-ir-recv.c b/drivers/media/rc/gpio-ir-recv.c
+index f62e3f1f9d9d..56cf716d0cd4 100644
+--- a/drivers/media/rc/gpio-ir-recv.c
++++ b/drivers/media/rc/gpio-ir-recv.c
+@@ -159,7 +159,7 @@ static int gpio_ir_recv_probe(struct platform_device *pdev)
+ 	rcdev->input_id.version = 0x0100;
+ 	rcdev->dev.parent = &pdev->dev;
+ 	rcdev->driver_name = GPIO_IR_DRIVER_NAME;
+-	rcdev->min_timeout = 0;
++	rcdev->min_timeout = 1;
+ 	rcdev->timeout = IR_DEFAULT_TIMEOUT;
+ 	rcdev->max_timeout = 10 * IR_DEFAULT_TIMEOUT;
+ 	if (pdata->allowed_protos)
+
+From 2005c0284c38ad137ed8bc45fc9f164ebbff2786 Mon Sep 17 00:00:00 2001
+From: Sean Young <sean@mess.org>
+Date: Thu, 15 Dec 2016 07:37:48 -0200
+Subject: [PATCH 04/10] UPSTREAM: [media] rc: unify nec32 protocol scancode
+ format
+
+There are two different encodings used for nec32:
+ - The ir-nec-decoder.c decoder treats it as 32 bit msb first.
+ - The img-ir decoder/encoder, winbond wakeup, dib0700, ir-ctl userspace,
+   treat nec32 analogous to necx and nec: 4 bytes, each lsb first. So this
+   format reverses the 4 bytes.
+
+There are arguments to be had for both formats, but we should not use
+different formats in different parts of the kernel. Selecting the second
+format introduces the least code churn. It does mean that the TiVo keymap
+needs updating.
+
+This change was submitted before as "18bc174 [media] media: rc: change
+32bit NEC scancode format", which was reverted because it was unclear
+what scancode rc drivers produce. There are now more examples of drivers
+which produce nec32 in lsb format.
+
+The TiVo keymap is verified against the Nero Liquid TiVo remote. The
+keymap is not for the Tivo DVR remote, which uses rc-5.
+
+Signed-off-by: Sean Young <sean@mess.org>
+Cc: James Hogan <james.hogan@imgtec.com>
+Signed-off-by: Mauro Carvalho Chehab <mchehab@s-opensource.com>
+(cherry picked from commit 6eae57e9d5b01d0ee4b1932b66102b1b9b6cd93d)
+---
+ drivers/media/rc/ir-nec-decoder.c  |  5 ++-
+ drivers/media/rc/keymaps/rc-tivo.c | 86 +++++++++++++++++++-------------------
+ 2 files changed, 47 insertions(+), 44 deletions(-)
+
+diff --git a/drivers/media/rc/ir-nec-decoder.c b/drivers/media/rc/ir-nec-decoder.c
+index 7b81fec0820f..0af0a0a3beb6 100644
+--- a/drivers/media/rc/ir-nec-decoder.c
++++ b/drivers/media/rc/ir-nec-decoder.c
+@@ -172,7 +172,10 @@ static int ir_nec_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 		if (send_32bits) {
+ 			/* NEC transport, but modified protocol, used by at
+ 			 * least Apple and TiVo remotes */
+-			scancode = data->bits;
++			scancode = not_address << 24 |
++				address     << 16 |
++				not_command <<  8 |
++				command;
+ 			IR_dprintk(1, "NEC (modified) scancode 0x%08x\n", scancode);
+ 		} else if ((address ^ not_address) != 0xff) {
+ 			/* Extended NEC */
+diff --git a/drivers/media/rc/keymaps/rc-tivo.c b/drivers/media/rc/keymaps/rc-tivo.c
+index 454e06295692..5cc1b456e329 100644
+--- a/drivers/media/rc/keymaps/rc-tivo.c
++++ b/drivers/media/rc/keymaps/rc-tivo.c
+@@ -15,62 +15,62 @@
+  * Initial mapping is for the TiVo remote included in the Nero LiquidTV bundle,
+  * which also ships with a TiVo-branded IR transceiver, supported by the mceusb
+  * driver. Note that the remote uses an NEC-ish protocol, but instead of having
+- * a command/not_command pair, it has a vendor ID of 0xa10c, but some keys, the
++ * a command/not_command pair, it has a vendor ID of 0x3085, but some keys, the
+  * NEC extended checksums do pass, so the table presently has the intended
+  * values and the checksum-passed versions for those keys.
+  */
+ static struct rc_map_table tivo[] = {
+-	{ 0xa10c900f, KEY_MEDIA },	/* TiVo Button */
+-	{ 0xa10c0807, KEY_POWER2 },	/* TV Power */
+-	{ 0xa10c8807, KEY_TV },		/* Live TV/Swap */
+-	{ 0xa10c2c03, KEY_VIDEO_NEXT },	/* TV Input */
+-	{ 0xa10cc807, KEY_INFO },
+-	{ 0xa10cfa05, KEY_CYCLEWINDOWS }, /* Window */
++	{ 0x3085f009, KEY_MEDIA },	/* TiVo Button */
++	{ 0x3085e010, KEY_POWER2 },	/* TV Power */
++	{ 0x3085e011, KEY_TV },		/* Live TV/Swap */
++	{ 0x3085c034, KEY_VIDEO_NEXT },	/* TV Input */
++	{ 0x3085e013, KEY_INFO },
++	{ 0x3085a05f, KEY_CYCLEWINDOWS }, /* Window */
+ 	{ 0x0085305f, KEY_CYCLEWINDOWS },
+-	{ 0xa10c6c03, KEY_EPG },	/* Guide */
++	{ 0x3085c036, KEY_EPG },	/* Guide */
+ 
+-	{ 0xa10c2807, KEY_UP },
+-	{ 0xa10c6807, KEY_DOWN },
+-	{ 0xa10ce807, KEY_LEFT },
+-	{ 0xa10ca807, KEY_RIGHT },
++	{ 0x3085e014, KEY_UP },
++	{ 0x3085e016, KEY_DOWN },
++	{ 0x3085e017, KEY_LEFT },
++	{ 0x3085e015, KEY_RIGHT },
+ 
+-	{ 0xa10c1807, KEY_SCROLLDOWN },	/* Red Thumbs Down */
+-	{ 0xa10c9807, KEY_SELECT },
+-	{ 0xa10c5807, KEY_SCROLLUP },	/* Green Thumbs Up */
++	{ 0x3085e018, KEY_SCROLLDOWN },	/* Red Thumbs Down */
++	{ 0x3085e019, KEY_SELECT },
++	{ 0x3085e01a, KEY_SCROLLUP },	/* Green Thumbs Up */
+ 
+-	{ 0xa10c3807, KEY_VOLUMEUP },
+-	{ 0xa10cb807, KEY_VOLUMEDOWN },
+-	{ 0xa10cd807, KEY_MUTE },
+-	{ 0xa10c040b, KEY_RECORD },
+-	{ 0xa10c7807, KEY_CHANNELUP },
+-	{ 0xa10cf807, KEY_CHANNELDOWN },
++	{ 0x3085e01c, KEY_VOLUMEUP },
++	{ 0x3085e01d, KEY_VOLUMEDOWN },
++	{ 0x3085e01b, KEY_MUTE },
++	{ 0x3085d020, KEY_RECORD },
++	{ 0x3085e01e, KEY_CHANNELUP },
++	{ 0x3085e01f, KEY_CHANNELDOWN },
+ 	{ 0x0085301f, KEY_CHANNELDOWN },
+ 
+-	{ 0xa10c840b, KEY_PLAY },
+-	{ 0xa10cc40b, KEY_PAUSE },
+-	{ 0xa10ca40b, KEY_SLOW },
+-	{ 0xa10c440b, KEY_REWIND },
+-	{ 0xa10c240b, KEY_FASTFORWARD },
+-	{ 0xa10c640b, KEY_PREVIOUS },
+-	{ 0xa10ce40b, KEY_NEXT },	/* ->| */
++	{ 0x3085d021, KEY_PLAY },
++	{ 0x3085d023, KEY_PAUSE },
++	{ 0x3085d025, KEY_SLOW },
++	{ 0x3085d022, KEY_REWIND },
++	{ 0x3085d024, KEY_FASTFORWARD },
++	{ 0x3085d026, KEY_PREVIOUS },
++	{ 0x3085d027, KEY_NEXT },	/* ->| */
+ 
+-	{ 0xa10c220d, KEY_ZOOM },	/* Aspect */
+-	{ 0xa10c120d, KEY_STOP },
+-	{ 0xa10c520d, KEY_DVD },	/* DVD Menu */
++	{ 0x3085b044, KEY_ZOOM },	/* Aspect */
++	{ 0x3085b048, KEY_STOP },
++	{ 0x3085b04a, KEY_DVD },	/* DVD Menu */
+ 
+-	{ 0xa10c140b, KEY_NUMERIC_1 },
+-	{ 0xa10c940b, KEY_NUMERIC_2 },
+-	{ 0xa10c540b, KEY_NUMERIC_3 },
+-	{ 0xa10cd40b, KEY_NUMERIC_4 },
+-	{ 0xa10c340b, KEY_NUMERIC_5 },
+-	{ 0xa10cb40b, KEY_NUMERIC_6 },
+-	{ 0xa10c740b, KEY_NUMERIC_7 },
+-	{ 0xa10cf40b, KEY_NUMERIC_8 },
++	{ 0x3085d028, KEY_NUMERIC_1 },
++	{ 0x3085d029, KEY_NUMERIC_2 },
++	{ 0x3085d02a, KEY_NUMERIC_3 },
++	{ 0x3085d02b, KEY_NUMERIC_4 },
++	{ 0x3085d02c, KEY_NUMERIC_5 },
++	{ 0x3085d02d, KEY_NUMERIC_6 },
++	{ 0x3085d02e, KEY_NUMERIC_7 },
++	{ 0x3085d02f, KEY_NUMERIC_8 },
+ 	{ 0x0085302f, KEY_NUMERIC_8 },
+-	{ 0xa10c0c03, KEY_NUMERIC_9 },
+-	{ 0xa10c8c03, KEY_NUMERIC_0 },
+-	{ 0xa10ccc03, KEY_ENTER },
+-	{ 0xa10c4c03, KEY_CLEAR },
++	{ 0x3085c030, KEY_NUMERIC_9 },
++	{ 0x3085c031, KEY_NUMERIC_0 },
++	{ 0x3085c033, KEY_ENTER },
++	{ 0x3085c032, KEY_CLEAR },
+ };
+ 
+ static struct rc_map_list tivo_map = {
+
+From 9f1c6420da8fa2c798ce0ac1123a50f1a29c615b Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Wed, 6 Sep 2017 18:39:09 +0200
+Subject: [PATCH 05/10] [media] rc/keymaps: add keytable for Pine64 IR Remote
+ Controller
+
+---
+ drivers/media/rc/keymaps/Makefile    |  1 +
+ drivers/media/rc/keymaps/rc-pine64.c | 65 ++++++++++++++++++++++++++++++++++++
+ include/media/rc-map.h               |  1 +
+ 3 files changed, 67 insertions(+)
+ create mode 100644 drivers/media/rc/keymaps/rc-pine64.c
+
+diff --git a/drivers/media/rc/keymaps/Makefile b/drivers/media/rc/keymaps/Makefile
+index fbbd3bbcd252..8816520600f7 100644
+--- a/drivers/media/rc/keymaps/Makefile
++++ b/drivers/media/rc/keymaps/Makefile
+@@ -66,6 +66,7 @@ obj-$(CONFIG_RC_MAP) += rc-adstech-dvb-t-pci.o \
+ 			rc-norwood.o \
+ 			rc-npgtech.o \
+ 			rc-pctv-sedna.o \
++			rc-pine64.o \
+ 			rc-pinnacle-color.o \
+ 			rc-pinnacle-grey.o \
+ 			rc-pinnacle-pctv-hd.o \
+diff --git a/drivers/media/rc/keymaps/rc-pine64.c b/drivers/media/rc/keymaps/rc-pine64.c
+new file mode 100644
+index 000000000000..bdf3975e7445
+--- /dev/null
++++ b/drivers/media/rc/keymaps/rc-pine64.c
+@@ -0,0 +1,65 @@
++/* Keytable for Pine64 IR Remote Controller
++ *
++ * Copyright (c) 2017 PINE64
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <media/rc-map.h>
++#include <linux/module.h>
++
++static struct rc_map_table pine64[] = {
++	{ 0x404000, KEY_NUMERIC_0 },
++	{ 0x404001, KEY_NUMERIC_1 },
++	{ 0x404002, KEY_NUMERIC_2 },
++	{ 0x404003, KEY_NUMERIC_3 },
++	{ 0x404004, KEY_NUMERIC_4 },
++	{ 0x404005, KEY_NUMERIC_5 },
++	{ 0x404006, KEY_NUMERIC_6 },
++	{ 0x404007, KEY_NUMERIC_7 },
++	{ 0x404008, KEY_NUMERIC_8 },
++	{ 0x404009, KEY_NUMERIC_9 },
++	{ 0x40400a, KEY_MUTE },
++	{ 0x40400b, KEY_UP },
++	{ 0x40400c, KEY_BACKSPACE },
++	{ 0x40400d, KEY_OK },
++	{ 0x40400e, KEY_DOWN },
++	{ 0x404010, KEY_LEFT },
++	{ 0x404011, KEY_RIGHT },
++	{ 0x404017, KEY_VOLUMEDOWN },
++	{ 0x404018, KEY_VOLUMEUP },
++	{ 0x40401a, KEY_HOME },
++	{ 0x40401d, KEY_MENU },
++	{ 0x40401f, KEY_WWW },
++	{ 0x404045, KEY_BACK },
++	{ 0x404047, KEY_INFO },
++	{ 0x40404d, KEY_POWER },
++};
++
++static struct rc_map_list pine64_map = {
++	.map = {
++		.scan    = pine64,
++		.size    = ARRAY_SIZE(pine64),
++		.rc_type = RC_TYPE_NEC,
++		.name    = RC_MAP_PINE64,
++	}
++};
++
++static int __init init_rc_map_pine64(void)
++{
++	return rc_map_register(&pine64_map);
++}
++
++static void __exit exit_rc_map_pine64(void)
++{
++	rc_map_unregister(&pine64_map);
++}
++
++module_init(init_rc_map_pine64)
++module_exit(exit_rc_map_pine64)
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("PINE64");
+diff --git a/include/media/rc-map.h b/include/media/rc-map.h
+index 7c4bbc4dfab4..3a34a9631dd1 100644
+--- a/include/media/rc-map.h
++++ b/include/media/rc-map.h
+@@ -173,6 +173,7 @@ void rc_map_init(void);
+ #define RC_MAP_NORWOOD                   "rc-norwood"
+ #define RC_MAP_NPGTECH                   "rc-npgtech"
+ #define RC_MAP_PCTV_SEDNA                "rc-pctv-sedna"
++#define RC_MAP_PINE64                    "rc-pine64"
+ #define RC_MAP_PINNACLE_COLOR            "rc-pinnacle-color"
+ #define RC_MAP_PINNACLE_GREY             "rc-pinnacle-grey"
+ #define RC_MAP_PINNACLE_PCTV_HD          "rc-pinnacle-pctv-hd"
+
+From db1fde71dc3ebdc6651f690a8357ef576b677b52 Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Wed, 6 Sep 2017 18:39:09 +0200
+Subject: [PATCH 06/10] arm64: dts: rockchip: rk3328-rock64: add ir-receiver
+
+---
+ arch/arm64/boot/dts/rockchip/rk3328-rock64.dts | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3328-rock64.dts b/arch/arm64/boot/dts/rockchip/rk3328-rock64.dts
+index 9bd60b7c3d46..8369c6ef5508 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3328-rock64.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3328-rock64.dts
+@@ -70,6 +70,14 @@
+ 		#clock-cells = <0>;
+ 	};
+ 
++	ir: ir-receiver {
++		compatible = "gpio-ir-receiver";
++		gpios = <&gpio2 RK_PA2 GPIO_ACTIVE_LOW>;
++		linux,rc-map-name = "rc-pine64";
++		pinctrl-names = "default";
++		pinctrl-0 = <&ir_int>;
++	};
++
+ 	gpio-leds {
+ 		compatible = "gpio-leds";
+ 
+@@ -478,6 +486,12 @@
+ 			<2 RK_PA6 RK_FUNC_GPIO &pcfg_pull_up>;	/* gpio2_a6 */
+ 		};
+ 	};
++
++	ir {
++		ir_int: ir-int {
++			rockchip,pins = <2 RK_PA2 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++	};
+ };
+ 
+ &rkvdec {
+
+From a636d61de3f24941ef6270f2988461796a791304 Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Wed, 6 Sep 2017 18:39:09 +0200
+Subject: [PATCH 07/10] [media] rc/keymaps: add keytable for ODROID IR Remote
+ Controller
+
+---
+ drivers/media/rc/keymaps/Makefile    |  1 +
+ drivers/media/rc/keymaps/rc-odroid.c | 52 ++++++++++++++++++++++++++++++++++++
+ include/media/rc-map.h               |  1 +
+ 3 files changed, 54 insertions(+)
+ create mode 100644 drivers/media/rc/keymaps/rc-odroid.c
+
+diff --git a/drivers/media/rc/keymaps/Makefile b/drivers/media/rc/keymaps/Makefile
+index 8816520600f7..f4321cfbbc79 100644
+--- a/drivers/media/rc/keymaps/Makefile
++++ b/drivers/media/rc/keymaps/Makefile
+@@ -65,6 +65,7 @@ obj-$(CONFIG_RC_MAP) += rc-adstech-dvb-t-pci.o \
+ 			rc-nec-terratec-cinergy-xs.o \
+ 			rc-norwood.o \
+ 			rc-npgtech.o \
++			rc-odroid.o \
+ 			rc-pctv-sedna.o \
+ 			rc-pine64.o \
+ 			rc-pinnacle-color.o \
+diff --git a/drivers/media/rc/keymaps/rc-odroid.c b/drivers/media/rc/keymaps/rc-odroid.c
+new file mode 100644
+index 000000000000..52089f0b7c1d
+--- /dev/null
++++ b/drivers/media/rc/keymaps/rc-odroid.c
+@@ -0,0 +1,52 @@
++/* Keytable for ODROID IR Remote Controller
++ *
++ * Copyright (c) 2017 Hardkernel co., Ltd.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <media/rc-map.h>
++#include <linux/module.h>
++
++static struct rc_map_table odroid[] = {
++	{ 0xb2dc, KEY_POWER },
++	{ 0xb288, KEY_MUTE },
++	{ 0xb282, KEY_HOME },
++	{ 0xb2ce, KEY_OK },
++	{ 0xb2ca, KEY_UP },
++	{ 0xb299, KEY_LEFT },
++	{ 0xb2c1, KEY_RIGHT },
++	{ 0xb2d2, KEY_DOWN },
++	{ 0xb2c5, KEY_MENU },
++	{ 0xb29a, KEY_BACK },
++	{ 0xb281, KEY_VOLUMEDOWN },
++	{ 0xb280, KEY_VOLUMEUP },
++};
++
++static struct rc_map_list odroid_map = {
++	.map = {
++		.scan    = odroid,
++		.size    = ARRAY_SIZE(odroid),
++		.rc_type = RC_TYPE_NEC,
++		.name    = RC_MAP_ODROID,
++	}
++};
++
++static int __init init_rc_map_odroid(void)
++{
++	return rc_map_register(&odroid_map);
++}
++
++static void __exit exit_rc_map_odroid(void)
++{
++	rc_map_unregister(&odroid_map);
++}
++
++module_init(init_rc_map_odroid)
++module_exit(exit_rc_map_odroid)
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Hardkernel co., Ltd.");
+diff --git a/include/media/rc-map.h b/include/media/rc-map.h
+index 3a34a9631dd1..f1badbfbca90 100644
+--- a/include/media/rc-map.h
++++ b/include/media/rc-map.h
+@@ -172,6 +172,7 @@ void rc_map_init(void);
+ #define RC_MAP_NEC_TERRATEC_CINERGY_XS   "rc-nec-terratec-cinergy-xs"
+ #define RC_MAP_NORWOOD                   "rc-norwood"
+ #define RC_MAP_NPGTECH                   "rc-npgtech"
++#define RC_MAP_ODROID                    "rc-odroid"
+ #define RC_MAP_PCTV_SEDNA                "rc-pctv-sedna"
+ #define RC_MAP_PINE64                    "rc-pine64"
+ #define RC_MAP_PINNACLE_COLOR            "rc-pinnacle-color"
+
+From 6c1ce5d39bf5af66b3879468cc7125a5380502ab Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Wed, 6 Sep 2017 18:39:09 +0200
+Subject: [PATCH 08/10] [media] rc/keymaps: add keytable for WeTek Hub Remote
+ Controller
+
+---
+ drivers/media/rc/keymaps/Makefile       |  1 +
+ drivers/media/rc/keymaps/rc-wetek-hub.c | 52 +++++++++++++++++++++++++++++++++
+ include/media/rc-map.h                  |  1 +
+ 3 files changed, 54 insertions(+)
+ create mode 100644 drivers/media/rc/keymaps/rc-wetek-hub.c
+
+diff --git a/drivers/media/rc/keymaps/Makefile b/drivers/media/rc/keymaps/Makefile
+index f4321cfbbc79..e8e6434cbc13 100644
+--- a/drivers/media/rc/keymaps/Makefile
++++ b/drivers/media/rc/keymaps/Makefile
+@@ -101,6 +101,7 @@ obj-$(CONFIG_RC_MAP) += rc-adstech-dvb-t-pci.o \
+ 			rc-tt-1500.o \
+ 			rc-twinhan-dtv-cab-ci.o \
+ 			rc-twinhan1027.o \
++			rc-wetek-hub.o \
+ 			rc-videomate-m1f.o \
+ 			rc-videomate-s350.o \
+ 			rc-videomate-tv-pvr.o \
+diff --git a/drivers/media/rc/keymaps/rc-wetek-hub.c b/drivers/media/rc/keymaps/rc-wetek-hub.c
+new file mode 100644
+index 000000000000..0955ecfcb77c
+--- /dev/null
++++ b/drivers/media/rc/keymaps/rc-wetek-hub.c
+@@ -0,0 +1,52 @@
++/* Keytable for WeTek Hub Remote Controller
++ *
++ * Copyright (c) 2017 WeTek
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <media/rc-map.h>
++#include <linux/module.h>
++
++static struct rc_map_table wetek_hub[] = {
++	{ 0x77f1, KEY_POWER },
++	{ 0x77f2, KEY_HOME },
++	{ 0x77f3, KEY_MUTE },
++	{ 0x77f4, KEY_UP },
++	{ 0x77f5, KEY_DOWN },
++	{ 0x77f6, KEY_LEFT },
++	{ 0x77f7, KEY_RIGHT },
++	{ 0x77f8, KEY_OK },
++	{ 0x77f9, KEY_BACK },
++	{ 0x77fa, KEY_MENU },
++	{ 0x77fb, KEY_VOLUMEUP },
++	{ 0x77fc, KEY_VOLUMEDOWN },
++};
++
++static struct rc_map_list wetek_hub_map = {
++	.map = {
++		.scan    = wetek_hub,
++		.size    = ARRAY_SIZE(wetek_hub),
++		.rc_type = RC_TYPE_NEC,
++		.name    = RC_MAP_WETEK_HUB,
++	}
++};
++
++static int __init init_rc_map_wetek_hub(void)
++{
++	return rc_map_register(&wetek_hub_map);
++}
++
++static void __exit exit_rc_map_wetek_hub(void)
++{
++	rc_map_unregister(&wetek_hub_map);
++}
++
++module_init(init_rc_map_wetek_hub)
++module_exit(exit_rc_map_wetek_hub)
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("WeTek");
+diff --git a/include/media/rc-map.h b/include/media/rc-map.h
+index f1badbfbca90..cd8590c99e22 100644
+--- a/include/media/rc-map.h
++++ b/include/media/rc-map.h
+@@ -209,6 +209,7 @@ void rc_map_init(void);
+ #define RC_MAP_TT_1500                   "rc-tt-1500"
+ #define RC_MAP_TWINHAN_DTV_CAB_CI        "rc-twinhan-dtv-cab-ci"
+ #define RC_MAP_TWINHAN_VP1027_DVBS       "rc-twinhan1027"
++#define RC_MAP_WETEK_HUB                 "rc-wetek-hub"
+ #define RC_MAP_VIDEOMATE_K100            "rc-videomate-k100"
+ #define RC_MAP_VIDEOMATE_S350            "rc-videomate-s350"
+ #define RC_MAP_VIDEOMATE_TV_PVR          "rc-videomate-tv-pvr"
+
+From d8b71eb739d805595663ffd775f90b1bbcddb901 Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Wed, 6 Sep 2017 18:39:09 +0200
+Subject: [PATCH 09/10] [media] rc/keymaps: add keytable for WeTek Play 2
+ Remote Controller
+
+---
+ drivers/media/rc/keymaps/Makefile          |  1 +
+ drivers/media/rc/keymaps/rc-wetek-play-2.c | 83 ++++++++++++++++++++++++++++++
+ include/media/rc-map.h                     |  1 +
+ 3 files changed, 85 insertions(+)
+ create mode 100644 drivers/media/rc/keymaps/rc-wetek-play-2.c
+
+diff --git a/drivers/media/rc/keymaps/Makefile b/drivers/media/rc/keymaps/Makefile
+index e8e6434cbc13..650481039f00 100644
+--- a/drivers/media/rc/keymaps/Makefile
++++ b/drivers/media/rc/keymaps/Makefile
+@@ -102,6 +102,7 @@ obj-$(CONFIG_RC_MAP) += rc-adstech-dvb-t-pci.o \
+ 			rc-twinhan-dtv-cab-ci.o \
+ 			rc-twinhan1027.o \
+ 			rc-wetek-hub.o \
++			rc-wetek-play-2.o \
+ 			rc-videomate-m1f.o \
+ 			rc-videomate-s350.o \
+ 			rc-videomate-tv-pvr.o \
+diff --git a/drivers/media/rc/keymaps/rc-wetek-play-2.c b/drivers/media/rc/keymaps/rc-wetek-play-2.c
+new file mode 100644
+index 000000000000..37586cedbb8a
+--- /dev/null
++++ b/drivers/media/rc/keymaps/rc-wetek-play-2.c
+@@ -0,0 +1,83 @@
++/* Keytable for WeTek Play 2 Remote Controller
++ *
++ * Copyright (c) 2017 WeTek
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <media/rc-map.h>
++#include <linux/module.h>
++
++static struct rc_map_table wetek_play_2[] = {
++	{ 0x5e5f02, KEY_POWER },
++	{ 0x5e5f46, KEY_POWER2 },
++	{ 0x5e5f10, KEY_MUTE },
++	{ 0x5e5f22, KEY_NUMERIC_1 },
++	{ 0x5e5f23, KEY_NUMERIC_2 },
++	{ 0x5e5f24, KEY_NUMERIC_3 },
++	{ 0x5e5f25, KEY_NUMERIC_4 },
++	{ 0x5e5f26, KEY_NUMERIC_5 },
++	{ 0x5e5f27, KEY_NUMERIC_6 },
++	{ 0x5e5f28, KEY_NUMERIC_7 },
++	{ 0x5e5f29, KEY_NUMERIC_8 },
++	{ 0x5e5f30, KEY_NUMERIC_9 },
++	{ 0x5e5f71, KEY_BACKSPACE },
++	{ 0x5e5f21, KEY_NUMERIC_0 },
++	{ 0x5e5f72, KEY_CAPSLOCK },
++	{ 0x5e5f03, KEY_HOME },
++	{ 0x5e5f48, KEY_MENU },
++	{ 0x5e5f61, KEY_BACK },
++	{ 0x5e5f83, KEY_INFO },
++	{ 0x5e5f84, KEY_COMPOSE },
++	{ 0x5e5f77, KEY_HELP },
++	{ 0x5e5f50, KEY_UP },
++	{ 0x5e5f4b, KEY_DOWN },
++	{ 0x5e5f4c, KEY_LEFT },
++	{ 0x5e5f4d, KEY_RIGHT },
++	{ 0x5e5f47, KEY_OK },
++	{ 0x5e5f44, KEY_VOLUMEUP },
++	{ 0x5e5f43, KEY_VOLUMEDOWN },
++	{ 0x5e5f41, KEY_CHANNELUP },
++	{ 0x5e5f42, KEY_CHANNELDOWN },
++	{ 0x5e5f4f, KEY_ZENKAKUHANKAKU },
++	{ 0x5e5f82, KEY_TEXT },
++	{ 0x5e5f73, KEY_RED },
++	{ 0x5e5f74, KEY_GREEN },
++	{ 0x5e5f75, KEY_YELLOW },
++	{ 0x5e5f76, KEY_BLUE },
++	{ 0x5e5f67, KEY_PREVIOUS },
++	{ 0x5e5f79, KEY_REWIND },
++	{ 0x5e5f80, KEY_FASTFORWARD },
++	{ 0x5e5f81, KEY_NEXT },
++	{ 0x5e5f04, KEY_RECORD },
++	{ 0x5e5f2c, KEY_PLAYPAUSE },
++	{ 0x5e5f2b, KEY_STOP },
++};
++
++static struct rc_map_list wetek_play_2_map = {
++	.map = {
++		.scan    = wetek_play_2,
++		.size    = ARRAY_SIZE(wetek_play_2),
++		.rc_type = RC_TYPE_NEC,
++		.name    = RC_MAP_WETEK_PLAY_2,
++	}
++};
++
++static int __init init_rc_map_wetek_play_2(void)
++{
++	return rc_map_register(&wetek_play_2_map);
++}
++
++static void __exit exit_rc_map_wetek_play_2(void)
++{
++	rc_map_unregister(&wetek_play_2_map);
++}
++
++module_init(init_rc_map_wetek_play_2)
++module_exit(exit_rc_map_wetek_play_2)
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("WeTek");
+diff --git a/include/media/rc-map.h b/include/media/rc-map.h
+index cd8590c99e22..93cac05a5170 100644
+--- a/include/media/rc-map.h
++++ b/include/media/rc-map.h
+@@ -210,6 +210,7 @@ void rc_map_init(void);
+ #define RC_MAP_TWINHAN_DTV_CAB_CI        "rc-twinhan-dtv-cab-ci"
+ #define RC_MAP_TWINHAN_VP1027_DVBS       "rc-twinhan1027"
+ #define RC_MAP_WETEK_HUB                 "rc-wetek-hub"
++#define RC_MAP_WETEK_PLAY_2              "rc-wetek-play-2"
+ #define RC_MAP_VIDEOMATE_K100            "rc-videomate-k100"
+ #define RC_MAP_VIDEOMATE_S350            "rc-videomate-s350"
+ #define RC_MAP_VIDEOMATE_TV_PVR          "rc-videomate-tv-pvr"
+
+From 32c677fa8e133ea7f9fcd28e9a591050a5c887bc Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Mon, 30 Oct 2017 23:47:18 +0100
+Subject: [PATCH 10/10] arm64: dts: rockchip: rk3328-rockbox: add ir-receiver
+
+---
+ arch/arm64/boot/dts/rockchip/rk3328-rockbox.dts | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3328-rockbox.dts b/arch/arm64/boot/dts/rockchip/rk3328-rockbox.dts
+index 06e0993b2707..5ce5606da1b1 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3328-rockbox.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3328-rockbox.dts
+@@ -84,6 +84,14 @@
+ 		reset-gpios = <&gpio1 18 GPIO_ACTIVE_LOW>;
+ 	};
+ 
++	ir: ir-receiver {
++		compatible = "gpio-ir-receiver";
++		gpios = <&gpio2 RK_PA2 GPIO_ACTIVE_LOW>;
++		linux,rc-map-name = "rc-pine64";
++		pinctrl-names = "default";
++		pinctrl-0 = <&ir_int>;
++	};
++
+ 	gpio-leds {
+ 		compatible = "gpio-leds";
+ 
+@@ -413,6 +421,12 @@
+ 		};
+ 	};
+ 
++	ir {
++		ir_int: ir-int {
++			rockchip,pins = <2 RK_PA2 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++	};
++
+ 	sdio-pwrseq {
+ 		wifi_enable_h: wifi-enable-h {
+ 		rockchip,pins =
