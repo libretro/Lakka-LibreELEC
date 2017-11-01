@@ -5,6 +5,7 @@ This project is for Rockchip SoC devices
 ## Devices
 
 * [ASUS Tinker Board](devices/TinkerBoard)
+* [PINE64 ROCK64](devices/ROCK64)
 
 **My single-board computer is not listed, will it be added in the future?**<br />
 If your single-board computer uses a current generation SoC listed on http://opensource.rock-chips.com/wiki_Main_Page the odds are in your favor.
