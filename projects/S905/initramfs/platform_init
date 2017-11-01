@@ -33,37 +33,38 @@ if [ -z "$BOOT_IMAGE" -o -z "$boot" -o -z "$disk" ]; then
   echo "$cmdline" > /proc/cmdline
 fi
 
-# Set framebuffer geometry to match the resolution
-case $hdmimode in
-  480*)            X=720  Y=480  ;;
-  576*)            X=720  Y=576  ;;
-  720p*)           X=1280 Y=720  ;;
-  *)               X=1920 Y=1080 ;;
-esac
-
-fbset -fb /dev/fb0 -g $X $Y 1920 2160 32
-fbset -fb /dev/fb1 -g 32 32 32 32 32
-# echo $hdmimode > /sys/class/display/mode
-echo 0 > /sys/class/graphics/fb0/free_scale
-echo 0 > /sys/class/graphics/fb1/free_scale
-echo 1 > /sys/class/video/disable_video
-
-# Enable scaling for 4K output
-case $hdmimode in
-  4k*|smpte*|2160*)
-    echo 0 0 1919 1079 > /sys/class/graphics/fb0/free_scale_axis
-    echo 0 0 3839 2159 > /sys/class/graphics/fb0/window_axis
-    echo 1920 > /sys/class/graphics/fb0/scale_width
-    echo 1080 > /sys/class/graphics/fb0/scale_height
-    echo 0x10001 > /sys/class/graphics/fb0/free_scale
-  ;;
-esac
-
-# Enable framebuffer device
+# Enable first framebuffer
 echo 0 > /sys/class/graphics/fb0/blank
 
-# Blank fb1 to prevent static noise
+# Disable second framebuffer
 echo 1 > /sys/class/graphics/fb1/blank
+
+# Disable framebuffer scaling
+echo 0 > /sys/class/graphics/fb0/free_scale
+echo 0 > /sys/class/graphics/fb1/free_scale
+
+# set initial video state
+echo 1 > /sys/class/video/disable_video
+
+# Set framebuffer geometry to 1920x1080
+fbset -fb /dev/fb0 -g 1920 1080 1920 2160 32
+fbset -fb /dev/fb1 -g 32 32 32 32 32
+
+# Enable scaling for all resolutions except of 1920x1080
+case $hdmimode in
+  480*)             width=719  height=479  ;;
+  576*)             width=719  height=575  ;;
+  720p*)            width=1279 height=719  ;;
+  4k*|smpte*|2160*) width=3839 height=2159 ;;
+esac
+
+if [ -n $width -a -n $height ]; then
+  echo 0 0 1919 1079 > /sys/class/graphics/fb0/free_scale_axis
+  echo 0 0 $width $height > /sys/class/graphics/fb0/window_axis
+  echo 1920 > /sys/class/graphics/fb0/scale_width
+  echo 1080 > /sys/class/graphics/fb0/scale_height
+  echo 0x10001 > /sys/class/graphics/fb0/free_scale
+fi
 
 for part in /sys/block/*/queue/add_random; do
   echo 0 > "$part"
