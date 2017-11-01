@@ -51,7 +51,15 @@ if [ ! -f "$HDHR_ADDON_SETTINGS" ]; then
 fi
 
 mkdir -p /var/config
-cat "$HDHR_ADDON_SETTINGS" | awk -F\" '{print $2"=\""$4"\""}' | sed '/^=/d' > /var/config/hdhomerun-addon.conf
+
+# check settings version
+XML_SETTINGS_VER="$(xmlstarlet sel -t -m settings -v @version $HDHR_ADDON_SETTINGS)"
+if [ "$XML_SETTINGS_VER" = "2" ]; then
+  xmlstarlet sel -t -m settings/setting -v @id -o "=\"" -v . -o "\"" -n "$HDHR_ADDON_SETTINGS" > /var/config/hdhomerun-addon.conf
+else
+  xmlstarlet sel -t -m settings -m setting -v @id -o "=\"" -v @value -o "\"" -n "$HDHR_ADDON_SETTINGS" > /var/config/hdhomerun-addon.conf
+fi
+
 . /var/config/hdhomerun-addon.conf
 
 if [ -z "$(pidof userhdhomerun)" ]; then
