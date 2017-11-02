@@ -61,7 +61,7 @@ DISTRO=Lakka PROJECT=Rockchip DEVICE=TinkerBoard ARCH=arm make image -j8
 >&2 echo "ROCK64.arm"
 DISTRO=Lakka PROJECT=Rockchip DEVICE=ROCK64 ARCH=arm make image -j8
 #>&2 echo "MiQi.arm"
-#DISTRO=Lakka PROJECT=Rockchip DEVICE=MiQi ARCH=arm make image -j8
+DISTRO=Lakka PROJECT=Rockchip DEVICE=MiQi ARCH=arm make image -j8
 
 rm target/*.kernel
 rm target/*.system
