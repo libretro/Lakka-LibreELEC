@@ -1,8 +1,8 @@
 diff --git a/xbmc/addons/Addon.cpp b/xbmc/addons/Addon.cpp
-index 45f42ad2e3..ce10080469 100644
+index 8343101b96..8130d99b83 100644
 --- a/xbmc/addons/Addon.cpp
 +++ b/xbmc/addons/Addon.cpp
-@@ -397,13 +397,48 @@ AddonVersion CAddon::GetDependencyVersion(const std::string &dependencyID) const
+@@ -397,6 +397,37 @@ AddonVersion CAddon::GetDependencyVersion(const std::string &dependencyID) const
    return AddonVersion("0.0.0");
  }
  
@@ -37,28 +37,19 @@ index 45f42ad2e3..ce10080469 100644
 +  }
 +}
 +
- void OnEnabled(const AddonPtr& addon)
+ void OnPreInstall(const AddonPtr& addon)
  {
-+  LEAddonHook(addon, LE_ADDON_ENABLED);
-+
-   addon->OnEnabled();
- }
- 
- void OnDisabled(const AddonPtr& addon)
- {
-+  LEAddonHook(addon, LE_ADDON_DISABLED);
-+
-   addon->OnDisabled();
- }
- 
-@@ -438,11 +476,15 @@ void OnPostInstall(const AddonPtr& addon, bool update, bool modal)
+   //Fallback to the pre-install callback in the addon.
+@@ -426,6 +457,8 @@ void OnPostInstall(const AddonPtr& addon, bool update, bool modal)
+     }
+     closedir(addonsDir);
    }
++
++  LEAddonHook(addon, LE_ADDON_POST_INSTALL);
    // OE
  
-+  LEAddonHook(addon, LE_ADDON_POST_INSTALL);
-+
    addon->OnPostInstall(update, modal);
- }
+@@ -433,6 +466,8 @@ void OnPostInstall(const AddonPtr& addon, bool update, bool modal)
  
  void OnPreUnInstall(const AddonPtr& addon)
  {
@@ -68,12 +59,12 @@ index 45f42ad2e3..ce10080469 100644
  }
  
 diff --git a/xbmc/addons/Addon.h b/xbmc/addons/Addon.h
-index 95f3f23437..23ad39116a 100644
+index b877839848..f7c0b717f6 100644
 --- a/xbmc/addons/Addon.h
 +++ b/xbmc/addons/Addon.h
-@@ -43,6 +43,15 @@ void OnPostInstall(const AddonPtr& addon, bool update, bool modal);
- void OnPreUnInstall(const AddonPtr& addon);
- void OnPostUnInstall(const AddonPtr& addon);
+@@ -41,6 +41,15 @@ namespace ADDON
+   void OnPreUnInstall(const AddonPtr& addon);
+   void OnPostUnInstall(const AddonPtr& addon);
  
 +typedef enum {
 +  LE_ADDON_ENABLED,
@@ -87,3 +78,23 @@ index 95f3f23437..23ad39116a 100644
  class CAddon : public IAddon
  {
  public:
+diff --git a/xbmc/addons/AddonManager.cpp b/xbmc/addons/AddonManager.cpp
+index e015f0755e..92879f19c1 100644
+--- a/xbmc/addons/AddonManager.cpp
++++ b/xbmc/addons/AddonManager.cpp
+@@ -836,6 +836,7 @@ bool CAddonMgr::DisableAddon(const std::string& id)
+   AddonPtr addon;
+   if (GetAddon(id, addon, ADDON_UNKNOWN, false) && addon != NULL)
+   {
++    ADDON::LEAddonHook(addon, ADDON::LE_ADDON_DISABLED);
+     CEventLog::GetInstance().Add(EventPtr(new CAddonManagementEvent(addon, 24141)));
+   }
+ 
+@@ -864,6 +865,7 @@ bool CAddonMgr::EnableSingle(const std::string& id)
+   if (!m_database.DisableAddon(id, false))
+     return false;
+   m_disabled.erase(id);
++  ADDON::LEAddonHook(addon, ADDON::LE_ADDON_ENABLED);
+ 
+   CEventLog::GetInstance().Add(EventPtr(new CAddonManagementEvent(addon, 24064)));
+ 

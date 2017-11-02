@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="visualization.projectm"
-PKG_VERSION="bc05ed8"
-PKG_SHA256="b1e1db697502aa6810277b69d0e0141e40b6fb9cbd4f08298cceff0152544102"
+PKG_VERSION="44aa29a"
+PKG_SHA256="e72737d68223ff25f19af3262df05deb1e85ba34d49ebcf5be56cb6fd0e78191"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

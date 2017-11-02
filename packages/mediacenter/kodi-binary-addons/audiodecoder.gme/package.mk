@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="audiodecoder.gme"
-PKG_VERSION="a7d64dd"
-PKG_SHA256="4ebc2570bbf8bc83636a6e52fb4d7d5abf70bcc004cfdc66476b3399464b7821"
+PKG_VERSION="e0fb12e"
+PKG_SHA256="72f029588de59d419f9bbad94a231fa0c7d7672ed37ccf981081f96b8fd3cd5f"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

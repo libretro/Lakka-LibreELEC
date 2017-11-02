@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="audiodecoder.wsr"
-PKG_VERSION="746fcbb"
-PKG_SHA256="5887a5d84d0feb1f31c0687625f809b119695753bb0995b2529cf0043d2f2570"
+PKG_VERSION="ac3e274"
+PKG_SHA256="0e5c5dbe2193859bfa76a002ff109be6ab49edc57a2614c5623fe60a821b765f"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
