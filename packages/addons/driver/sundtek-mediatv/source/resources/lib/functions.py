@@ -77,7 +77,7 @@ def get_devices_sundtek(mediaclient_e):
         str = line.strip()
         if str.startswith('device '):
           name = str[str.find("[")+1:str.find("]")]
-          tuners.append([name, 0, 's'])
+          tuners.append([name, 0, []])
 
         if str.startswith('[SERIAL]:'):
           line = p.readline()
@@ -85,20 +85,31 @@ def get_devices_sundtek(mediaclient_e):
           if str.startswith('ID:'):
             id = str.split(':');
             id = id[1].strip()
-            tuners[len(tuners)-1] = [name, id, 's']
+            tuners[len(tuners)-1][1] = id
 
-        if str.startswith('[DVB-C]:'):
-          tuners[len(tuners)-1] = [name, id, 'c']
-        elif str.startswith('[DVB-T]:'):
-          tuners[len(tuners)-1] = [name, id, 'c']
-        elif str.startswith('[DVB-T2]:'):
-          tuners[len(tuners)-1] = [name, id, 'c']
+        if str.startswith('[DVB'):
+          types_arr = tuners[len(tuners)-1][2]
+          str = str.translate(None, '[]:')
+          types = str.split(",")
+          for i in range(len(types)):
+            if types[i] == 'DVB-C':
+              types_arr.append('c')
+            elif types[i] == 'DVB-T':
+              types_arr.append('t')
+            elif types[i] == 'DVB-T2':
+              types_arr.append('t2')
+            elif types[i] == 'DVB-S/S2':
+              types_arr.append('s')
+
+          tuners[len(tuners)-1][2] = types_arr
+
   except IOError:
     print 'Error getting sundtek tuners info'
   return tuners
 
   """
 root ~ # mediaclient -e
+
 **** List of Media Hardware Devices ****
 device 0: [Sundtek MediaTV Pro (USB 2.0)]  DVB-C, DVB-T, ANALOG-TV, FM-RADIO, REMOTE-CONTROL, OSS-AUDIO, RDS
   [BUS]:
@@ -123,6 +134,21 @@ device 0: [Sundtek MediaTV Pro (USB 2.0)]  DVB-C, DVB-T, ANALOG-TV, FM-RADIO, RE
      INPUT0: /dev/mediainput0
   [OSS]:
      OSS0: /dev/dsp0
+
+**** List of Media Hardware Devices ****
+device 0: [MediaTV Digital Home III (EU)]  DVB-C, DVB-T, DVB-T2, REMOTE-CONTROL
+  [INFO]:
+     STATUS: STANDBY
+  [BUS]:
+     ID: 2-5
+  [SERIAL]:
+     ID: U170130193421
+  [DVB-C,DVB-T,DVB-T2]:
+     FRONTEND: /dev/dvb/adapter0/frontend0
+     DVR: /dev/dvb/adapter0/dvr0
+     DMX: /dev/dvb/adapter0/demux0
+  [REMOTECONTROL]:
+     INPUT0: /dev/mediainput0
   """
 
 ######################################################################################################
@@ -182,19 +208,42 @@ def add_sundtek(xmldoc, node_cat, tuners):
   for ix, tuner in enumerate(tuners):
     tuner_name   = tuner[0]
     tuner_serial = tuner[1]
-    tuner_type   = tuner[2]
+    tuner_types  = tuner[2]
 
     node1 = xmldoc.createElement("setting")
     node1.setAttribute("id", 'ATTACHED_TUNER_' + tuner_serial + '_DVBMODE')
     node1.setAttribute("label", tuner_name + ", " + tuner_serial)
     node1.setAttribute("type", 'labelenum')
 
-    if (tuner_type == 's'):
-      node1.setAttribute("default", 'DVB-S')
-      node1.setAttribute("values", 'DVB-S')
+    if len(tuner_types) == 0:
+      values = 'unkn'
+      default = 'unkn'
     else:
-      node1.setAttribute("default", 'DVB-C')
-      node1.setAttribute("values", 'DVB-C|DVB-T')
+      values = ''
+      default = ''
+
+      for ix, type in enumerate(tuner_types):
+        if type == 'c':
+          type_str = 'DVB-C'
+        elif type == 't':
+          type_str = 'DVB-T'
+        elif type == 't2':
+          type_str = 'DVB-T2'
+        elif type == 's':
+          type_str = 'DVB-S/S2'
+        else:
+          type_str = 'unkn'
+
+        if not default:  # first one
+          default = type_str;
+
+        if ix == 0:
+          values = type_str
+        else:
+          values = values + '|' + type_str
+
+    node1.setAttribute("default", default)
+    node1.setAttribute("values", values)
 
     node_cat.appendChild(node1)
 
@@ -237,7 +286,7 @@ def add_new_tuners(xmldoc, tuners, which):
 def save_settings(settings_xml, xmldoc):
   try:
     outputfile = open(settings_xml, 'w')
-    xmlpp.pprint(xmldoc.toxml(), output = outputfile, indent=2)
+    xmlpp.pprint(xmldoc.toxml(), output = outputfile, indent=2, width=500)
     outputfile.close()
   except IOError:
     print 'Error saving file:', settings_xml
