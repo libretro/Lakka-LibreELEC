@@ -17,9 +17,9 @@
 ################################################################################
 
 PKG_NAME="ffmpeg"
-# Current branch is: release/3.3-kodi
-PKG_VERSION="20f6654"
-PKG_SHA256="34d4f16d529b03d276fe7cbab8c7d12c4dfd51f0c1f78c5f38fab4a66a836deb"
+# Current branch is: release/3.4-kodi
+PKG_VERSION="d056a4c"
+PKG_SHA256="c041ac2837473fdafbcbc2605d4104f7a3b9ba4d19e21a27487e3eb8581f7b6c"
 PKG_ARCH="any"
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://ffmpeg.org"
@@ -110,7 +110,6 @@ configure_target() {
               --host-cc="$HOST_CC" \
               --host-cflags="$HOST_CFLAGS" \
               --host-ldflags="$HOST_LDFLAGS" \
-              --host-libs="-lm" \
               --extra-cflags="$CFLAGS" \
               --extra-ldflags="$LDFLAGS" \
               --extra-libs="$FFMPEG_LIBS" \
@@ -185,10 +184,8 @@ configure_target() {
               --disable-libfreetype \
               --disable-libgsm \
               --disable-libmp3lame \
-              --disable-libnut \
               --disable-libopenjpeg \
               --disable-librtmp \
-              --disable-libschroedinger \
               --enable-libspeex \
               --disable-libtheora \
               --disable-libvo-amrwbenc \
