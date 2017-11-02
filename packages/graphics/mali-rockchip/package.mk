@@ -43,7 +43,9 @@ else
   PKG_MALI_SUFFIX="-gbm"
 fi
 
-if [ "$MALI_FAMILY" = "t760" ]; then
+if [ "$MALI_FAMILY" = "t760" -a "$MALI_REVISION" = "r1p0" ]; then
+  PKG_MALI_FILE="libmali-midgard-t76x-r14p0-r1p0$PKG_MALI_SUFFIX.so"
+elif [ "$MALI_FAMILY" = "t760" ]; then
   PKG_MALI_FILE="libmali-midgard-t76x-r14p0-r0p0$PKG_MALI_SUFFIX.so"
 elif [ "$MALI_FAMILY" = "t860" ]; then
   PKG_MALI_FILE="libmali-midgard-t86x-r14p0$PKG_MALI_SUFFIX.so"
