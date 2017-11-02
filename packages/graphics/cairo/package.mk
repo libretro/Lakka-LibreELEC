@@ -30,7 +30,7 @@ PKG_LONGDESC="Cairo is a vector graphics library with cross-device output suppor
 PKG_AUTORECONF="no" # ToDo
 
 if [ "$DISPLAYSERVER" = "x11" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libXrender libX11 mesa glu"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libXrender libX11 mesa"
   PKG_CAIRO_CONFIG="--x-includes="$SYSROOT_PREFIX/usr/include" \
                     --x-libraries="$SYSROOT_PREFIX/usr/lib" \
                     --enable-xlib \

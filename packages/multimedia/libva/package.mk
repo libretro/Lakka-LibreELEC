@@ -29,7 +29,7 @@ PKG_LONGDESC="Libva is an open source software library and API specification to 
 PKG_AUTORECONF="yes"
 
 if [ "$DISPLAYSERVER" = "x11" ]; then
-  PKG_DEPENDS_TARGET="toolchain libX11 libXext libXfixes libdrm mesa glu"
+  PKG_DEPENDS_TARGET="toolchain libX11 libXext libXfixes libdrm mesa"
   DISPLAYSERVER_LIBVA="--enable-x11 --enable-glx"
 else
   PKG_DEPENDS_TARGET="toolchain libdrm"
