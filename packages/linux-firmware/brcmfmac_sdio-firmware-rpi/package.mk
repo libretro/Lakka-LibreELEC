@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="brcmfmac_sdio-firmware-rpi"
-PKG_VERSION="0.2"
-PKG_SHA256="c5c8fe1801362cd0817d98c82f8e9eb06c2f64b96a5233770f1cc054cfcaa9a9"
+PKG_VERSION="13edcc7"
+PKG_SHA256="b68626c02afc40763d183324a51922f7d990e40bc015b2ded25e65621c43c0ad"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/LibreELEC/LibreELEC.tv"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://github.com/LibreELEC/$PKG_NAME/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="firmware"
 PKG_SHORTDESC="brcmfmac_sdio-firmware: firmware for brcm bluetooth chips used on RaspberryPi devices"
