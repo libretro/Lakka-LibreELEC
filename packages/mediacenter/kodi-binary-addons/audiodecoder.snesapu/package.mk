@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="audiodecoder.snesapu"
-PKG_VERSION="dcecced"
-PKG_SHA256="585a02a2224b205b762b2d9469949a5b3f636dfd521c08aa33159a5b7058a87d"
+PKG_VERSION="8d1f3a5"
+PKG_SHA256="812ca46a5332a36b05e6c3e04c8f41dcc3d07d1d8e9f6b46cbb32229b6f97d5d"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
