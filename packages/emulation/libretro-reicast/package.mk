@@ -39,10 +39,10 @@ make_target() {
   else
     case $TARGET_CPU in
       arm1176jzf-s)
-        make platform=armv6-hardfloat-$TARGET_CPU
+        make platform=arm FORCE_GLES=1
         ;;
       cortex-a7|cortex-a9)
-        make platform=armv7-neon-hardfloat-$TARGET_CPU
+        make platform=armv7-neon-hardfloat-$TARGET_CPU FORCE_GLES=1
         ;;
       x86-64)
         make

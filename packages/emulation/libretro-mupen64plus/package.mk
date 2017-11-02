@@ -57,7 +57,7 @@ make_target() {
         if [ "$TARGET_ARCH" = "aarch64" ]; then
           make platform=aarch64
         else
-          make WITH_DYNAREC=arm 
+          make platform=linux-gles FORCE_GLES=1 WITH_DYNAREC=arm
         fi
       fi
       ;;
