@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2017 Team LibreELEC
+#      Copyright (C) 2017-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,25 +17,19 @@
 ################################################################################
 
 PKG_NAME="u-boot"
-PKG_VERSION="0012289"
+PKG_VERSION="2017.11-rc3"
+PKG_SHA256="150ce66648460a343407cbf3a3037f8e45d2441847660d17f65bbbf5cc4111e4"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.denx.de/wiki/U-Boot"
-PKG_URL="https://github.com/rockchip-linux/u-boot/archive/$PKG_VERSION.tar.gz"
+PKG_URL="http://ftp.denx.de/pub/u-boot/u-boot-$PKG_VERSION.tar.bz2"
 PKG_SOURCE_DIR="u-boot-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain dtc:host Python:host"
 PKG_SECTION="tools"
 PKG_SHORTDESC="u-boot: Universal Bootloader project"
 PKG_LONGDESC="Das U-Boot is a cross-platform bootloader for embedded systems, used as the default boot loader by several board vendors. It is intended to be easy to port and to debug, and runs on many supported architectures, including PPC, ARM, MIPS, x86, m68k, NIOS, and Microblaze."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-
-if [ "$TARGET_KERNEL_ARCH" = "arm64" -a "$TARGET_ARCH" = "arm" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gcc-linaro-aarch64-elf:host"
-  export PATH=$TOOLCHAIN/lib/gcc-linaro-aarch64-elf/bin:$PATH
-  TARGET_PREFIX=aarch64-elf-
-fi
+PKG_IS_KERNEL_PKG="yes"
 
 if [ "$UBOOT_SOC" = "rk3328" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET rkbin"

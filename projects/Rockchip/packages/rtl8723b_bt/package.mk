@@ -16,16 +16,30 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-# copy files needed for image
-mkdir -p $RELEASE_DIR/3rdparty/bootloader
-  if [ -f $INSTALL/usr/share/bootloader/idbloader.img ]; then
-    cp $INSTALL/usr/share/bootloader/idbloader.img $RELEASE_DIR/3rdparty/bootloader
-  fi
-  if [ -f $INSTALL/usr/share/bootloader/uboot.img ]; then
-    cp $INSTALL/usr/share/bootloader/uboot.img $RELEASE_DIR/3rdparty/bootloader
-  fi
-  if [ -f $INSTALL/usr/share/bootloader/trust.img ]; then
-    cp $INSTALL/usr/share/bootloader/trust.img $RELEASE_DIR/3rdparty/bootloader
-  fi
+PKG_NAME="rtl8723b_bt"
+PKG_VERSION="firmware"
+PKG_ARCH="arm aarch64"
+PKG_LICENSE="nonfree"
+PKG_SITE="https://github.com/rockchip-linux/rk-rootfs-build/tree/master/overlay-firmware/lib/firmware/rtlbt"
+PKG_URL=""
+PKG_DEPENDS_TARGET="rfkill"
+PKG_SECTION="firmware"
+PKG_SHORTDESC="rtl8723b_bt firmware"
+PKG_LONGDESC="rtl8723b_bt firmware"
+PKG_AUTORECONF="no"
 
-  cp $INSTALL/usr/share/bootloader/*.dtb $RELEASE_DIR/3rdparty/bootloader
+make_target() {
+  : # nothing
+}
+
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/bin
+    cp rtk_hciattach $INSTALL/usr/bin
+
+  mkdir -p $INSTALL/$(get_full_firmware_dir)/rtlbt
+    cp rtl8723b_* $INSTALL/$(get_full_firmware_dir)/rtlbt
+}
+
+post_install() {
+  enable_service rtl8723b_bt.service
+}
