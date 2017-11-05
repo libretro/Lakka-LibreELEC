@@ -31,6 +31,12 @@ PKG_LONGDESC="Das U-Boot is a cross-platform bootloader for embedded systems, us
 PKG_AUTORECONF="no"
 PKG_IS_KERNEL_PKG="yes"
 
+if [ "$TARGET_KERNEL_ARCH" = "arm64" -a "$TARGET_ARCH" = "arm" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gcc-linaro-aarch64-elf:host"
+  export PATH=$TOOLCHAIN/lib/gcc-linaro-aarch64-elf/bin/:$PATH
+  TARGET_PREFIX=aarch64-elf-
+fi
+
 if [ "$UBOOT_SOC" = "rk3328" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET rkbin"
   PKG_NEED_UNPACK="$(get_pkg_directory rkbin)"
