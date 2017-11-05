@@ -19,11 +19,11 @@
 ################################################################################
 
 PKG_NAME="mame2003"
-PKG_VERSION="f7c69f3"
+PKG_VERSION="b476604"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MAME"
-PKG_SITE="https://github.com/libretro/mame2003-libretro.git"
+PKG_SITE="https://github.com/libretro/mame2003-libretro"
 PKG_URL="https://github.com/libretro/mame2003-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
