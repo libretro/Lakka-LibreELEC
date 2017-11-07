@@ -49,8 +49,8 @@ addon() {
 
   cp $PKG_DIR/addon.xml $ADDON_BUILD/$PKG_ADDON_ID
 
-  # set version (no need to edit xml file on version bump)
-  $SED -e "s|@ADDON_VERSION@|$ADDON_VERSION.$PKG_REV|g" \
+  # set only version (revision will be added by buildsystem)
+  $SED -e "s|@ADDON_VERSION@|$ADDON_VERSION|g" \
        -i $ADDON_BUILD/$PKG_ADDON_ID/addon.xml
 
   cp $(get_build_dir tslib)/.install_pkg/usr/bin/* $ADDON_BUILD/$PKG_ADDON_ID/bin
