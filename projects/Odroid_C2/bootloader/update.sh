@@ -1,5 +1,4 @@
 #!/bin/sh
-
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
 #      Copyright (C) 2016-present Team LibreELEC
@@ -36,7 +35,7 @@ fi
   mount -o remount,rw $BOOT_ROOT
 
 # update Device Tree Blobs
-  for all_dtb in /flash/*.dtb /flash/DTB; do
+  for all_dtb in /flash/*.dtb; do
     dtb=$(basename $all_dtb)
     if [ -f $SYSTEM_ROOT/usr/share/bootloader/$dtb ]; then
       echo "*** updating Device Tree Blob: $dtb ..."
@@ -44,21 +43,12 @@ fi
     fi
   done
 
-if [ -f $SYSTEM_ROOT/usr/share/bootloader/boot-logo.bmp.gz ]; then
-  echo "*** updating boot logo ..."
-  cp -p $SYSTEM_ROOT/usr/share/bootloader/boot-logo.bmp.gz $BOOT_ROOT
-fi
-
-echo "*** updating u-boot for Odroid on: $BOOT_DISK ..."
-
-dd if=$SYSTEM_ROOT/usr/share/bootloader/u-boot of=$BOOT_DISK conv=fsync bs=1 count=112
-dd if=$SYSTEM_ROOT/usr/share/bootloader/u-boot of=$BOOT_DISK conv=fsync bs=512 skip=1 seek=1
-
-# monkey patch boot.ini for updated kernel
-  sed -i 's|setenv odroidp1 "no_console_suspend hdmimode=${video_output} m_bpp=${video_bpp} vout=${video_mode}"|setenv odroidp1 "no_console_suspend logo=${logoopt} vout=${outputmode},enable hdmimode=${hdmimode} cvbsmode=nocvbs"|' /flash/boot.ini
-  sed -i 's|setenv odroidp2 "${disableuhs} consoleblank=0|setenv odroidp2 "mac=${ethaddr} consoleblank=0|' /flash/boot.ini
-  sed -i 's|setenv bootcmd "${kernel}; ${dtb}; ${timer}; ${bootseq}"|setenv bootcmd "${kernel}; ${dtb}; ${bootseq}"|' /flash/boot.ini
-  sed -i 's|setenv bootargs "${console} ${bootrootfs} ${odroid} ${cec} ${hpd} ${dac} ${libreelec}"|setenv bootargs "${console} ${bootrootfs} ${odroid} ${cec} ${libreelec}"|' /flash/boot.ini
+# update bootloader files
+  if [ -f $SYSTEM_ROOT/usr/share/bootloader/u-boot.bin ]; then
+    echo "*** updating u-boot image ..."
+    dd if=$SYSTEM_ROOT/usr/share/bootloader/u-boot.bin of="$BOOT_DISK" conv=fsync,notrunc bs=1 count=112 &>/dev/null
+    dd if=$SYSTEM_ROOT/usr/share/bootloader/u-boot.bin of="$BOOT_DISK" conv=fsync,notrunc bs=512 skip=1 seek=1 &>/dev/null
+  fi
 
 # mount $BOOT_ROOT r/o
   sync
