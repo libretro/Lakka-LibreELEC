@@ -30,5 +30,5 @@ PKG_LONGDESC="Firmware for Broadcom Bluetooth devices used in some Amlogic based
 PKG_AUTORECONF="no"
 
 makeinstall_target() {
-  DESTDIR=$INSTALL/$(get_kernel_overlay_dir) make install
+  DESTDIR=$INSTALL FWDIR=$INSTALL/$(get_kernel_overlay_dir) make install
 }
