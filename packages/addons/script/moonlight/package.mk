@@ -70,8 +70,6 @@ addon() {
 
     if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
       cp -P $(get_build_dir moonlight-embedded)/.$TARGET_NAME/libmoonlight-pi.so $ADDON_BUILD/$PKG_ADDON_ID/lib
-    elif [ "$KODIPLAYER_DRIVER" = "libfslvpuwrap" ]; then
-      cp -P $(get_build_dir moonlight-embedded)/.$TARGET_NAME/libmoonlight-imx.so $ADDON_BUILD/$PKG_ADDON_ID/lib
     elif [ "$KODIPLAYER_DRIVER" = "libamcodec" ]; then
       cp -P $(get_build_dir moonlight-embedded)/.$TARGET_NAME/libmoonlight-aml.so $ADDON_BUILD/$PKG_ADDON_ID/lib
     fi
