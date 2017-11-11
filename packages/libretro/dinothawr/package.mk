@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="dinothawr"
-PKG_VERSION="c48088b"
+PKG_VERSION="21adc38"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"
