@@ -225,34 +225,35 @@ EOF
       mcopy -s $RELEASE_DIR/3rdparty/bootloader/overlays ::
     fi
 
-elif [ "$BOOTLOADER" = "u-boot" ]; then
+elif [ "$BOOTLOADER" = "u-boot" -a \( -n "$UBOOT_SYSTEM" -o "$PROJECT" = "Odroid_C2" \) ]; then
   # create bootloader configuration
     echo "image: creating bootloader configuration..."
-    if [ -n "$UBOOT_SYSTEM" -a -f "$RELEASE_DIR/3rdparty/bootloader/uEnv-$UBOOT_SYSTEM.txt" ]; then
-      mcopy "$RELEASE_DIR/3rdparty/bootloader/uEnv-$UBOOT_SYSTEM.txt" ::/uEnv.txt
-    elif [ -f "$RELEASE_DIR/3rdparty/bootloader/uEnv.txt" ]; then
-      mcopy $RELEASE_DIR/3rdparty/bootloader/uEnv.txt ::
-    elif [ -f "$RELEASE_DIR/3rdparty/bootloader/boot.scr" ]; then
-      mcopy $RELEASE_DIR/3rdparty/bootloader/boot.scr ::
-    elif [ -f "$RELEASE_DIR/3rdparty/bootloader/boot.ini" ]; then
-      mcopy $RELEASE_DIR/3rdparty/bootloader/boot.ini ::
+
+    if [ "$PROJECT" != "Odroid_C2" ]; then
+      DTB="$($SCRIPTS/uboot_helper $PROJECT $DEVICE $UBOOT_SYSTEM dtb)"
+
+      if [ -f "$RELEASE_DIR/3rdparty/bootloader/$DTB" ]; then
+        mcopy $RELEASE_DIR/3rdparty/bootloader/$DTB ::
+      fi
+
+      mkdir -p "$LE_TMP"/extlinux
+
+      cat << EOF > "$LE_TMP"/extlinux/extlinux.conf
+LABEL $DISTRO
+  LINUX /$KERNEL_NAME
+  FDT /$DTB
+  APPEND boot=UUID=$UUID_SYSTEM disk=UUID=$UUID_STORAGE quiet $EXTRA_CMDLINE
+EOF
+
+      mcopy -s "$LE_TMP"/extlinux ::
     fi
 
-    echo "image: installing u-boot bootloader..."
-    if [ -n "$UBOOT_SYSTEM" -a -f "$RELEASE_DIR/3rdparty/bootloader/SPL-$UBOOT_SYSTEM" ]; then
-      dd if="$RELEASE_DIR/3rdparty/bootloader/SPL-$UBOOT_SYSTEM" of="$DISK" bs=512 seek=2 conv=fsync,notrunc >"$SAVE_ERROR" 2>&1 || show_error
-    elif [ -f "$RELEASE_DIR/3rdparty/bootloader/SPL" ]; then
-      dd if="$RELEASE_DIR/3rdparty/bootloader/SPL" of="$DISK" bs=512 seek=2 conv=fsync,notrunc >"$SAVE_ERROR" 2>&1 || show_error
-    elif [ -n "$UBOOT_SYSTEM" -a -f "$RELEASE_DIR/3rdparty/bootloader/u-boot-$UBOOT_SYSTEM.imx" ]; then
-      dd if="$RELEASE_DIR/3rdparty/bootloader/u-boot-$UBOOT_SYSTEM.imx" of="$DISK" bs=512 seek=2 conv=fsync,notrunc >"$SAVE_ERROR" 2>&1 || show_error
-    elif [ -f "$RELEASE_DIR/3rdparty/bootloader/u-boot.imx" ]; then
-      dd if="$RELEASE_DIR/3rdparty/bootloader/u-boot.imx" of="$DISK" bs=512 seek=2 conv=fsync,notrunc >"$SAVE_ERROR" 2>&1 || show_error
-    elif [ -f "$RELEASE_DIR/3rdparty/bootloader/u-boot-fuse" ]; then
-     # allow custom dd script for vendor specific fusing
-      . $RELEASE_DIR/3rdparty/bootloader/u-boot-fuse
-    elif [ -f "$RELEASE_DIR/3rdparty/bootloader/u-boot" ]; then
-      dd if="$RELEASE_DIR/3rdparty/bootloader/u-boot" of="$DISK" conv=fsync,notrunc bs=1 count=112 >"$SAVE_ERROR" 2>&1 || show_error
-      dd if="$RELEASE_DIR/3rdparty/bootloader/u-boot" of="$DISK" conv=fsync,notrunc bs=512 skip=1 seek=1 >"$SAVE_ERROR" 2>&1 || show_error
+    if [ -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/mkimage ]; then
+      . $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/mkimage
+    elif [ -f $PROJECT_DIR/$PROJECT/bootloader/mkimage ]; then
+      . $PROJECT_DIR/$PROJECT/bootloader/mkimage
+    else
+      echo "No specific mkimage script found. u-boot will not be written"
     fi
 
     echo "image: copying files to part1..."
@@ -261,26 +262,9 @@ elif [ "$BOOTLOADER" = "u-boot" ]; then
     mcopy $RELEASE_DIR/target/KERNEL.md5 "::/$KERNEL_NAME.md5"
     mcopy $RELEASE_DIR/target/SYSTEM.md5 ::/SYSTEM.md5
 
-    if [ -n "$UBOOT_SYSTEM" -a -f "$RELEASE_DIR/3rdparty/bootloader/u-boot-$UBOOT_SYSTEM.img" ]; then
-      mcopy "$RELEASE_DIR/3rdparty/bootloader/u-boot-$UBOOT_SYSTEM.img" ::/u-boot.img
-    elif [ -f $RELEASE_DIR/3rdparty/bootloader/u-boot.img ]; then
-      mcopy $RELEASE_DIR/3rdparty/bootloader/u-boot.img ::
-    fi
-
-    if [ -f $RELEASE_DIR/3rdparty/bootloader/boot-logo.bmp.gz ]; then
-      mcopy $RELEASE_DIR/3rdparty/bootloader/boot-logo.bmp.gz ::
-    fi
-
-    for dtb in $RELEASE_DIR/3rdparty/bootloader/*.dtb ; do
-      if [ -f $dtb ] ; then
-        mcopy "$dtb" ::/$(basename "$dtb")
-      fi
-    done
-
-    # copy Amlogic device tree image
-    if [ -f "$RELEASE_DIR/3rdparty/bootloader/dtb.img" ]; then
-      mcopy $RELEASE_DIR/3rdparty/bootloader/dtb.img ::
-    fi
+elif [ "$BOOTLOADER" = "u-boot" ]; then
+  echo "to make an image using u-boot UBOOT_SYSTEM must be set"
+  cleanup
 fi # bootloader
 
 # extract part2 from image to format and copy files
