@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="tz"
-PKG_VERSION="2017b"
-PKG_SHA256="8e5d235f978a7463cda46fe0ea1f9d9f644a0f9f452678fcf61a37b73849a393"
+PKG_VERSION="2017c"
+PKG_SHA256="83d1c6a5910e827db88528a1a1f6f7b4ad9fe98b6076895749bf49660b02cc68"
 PKG_ARCH="any"
 PKG_LICENSE="Public Domain"
 PKG_SITE="http://www.iana.org/time-zones"
