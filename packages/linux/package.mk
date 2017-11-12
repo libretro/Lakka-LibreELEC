@@ -66,8 +66,8 @@ case "$LINUX" in
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET imx6-status-led imx6-soc-fan irqbalanced"
     ;;
   *)
-    PKG_VERSION="4.14-rc4"
-    PKG_SHA256="338690b6d2d5b22060d81c21a04d43d1bd9710cfe3057aa99590aba64fb432d9"
+    PKG_VERSION="4.14-rc5"
+    PKG_SHA256="e8caf8a1ebe500ab94789a18c5e3fac80b17fbe73d85a44bc817ca74f81e68f8"
     PKG_URL="https://git.kernel.org/torvalds/t/$PKG_NAME-$PKG_VERSION.tar.gz"
     PKG_PATCH_DIRS="default"
     ;;
