@@ -1,0 +1,75 @@
+From 7eeac4c01e577ce81ab5b4356691566dcc897a38 Mon Sep 17 00:00:00 2001
+From: LongChair <LongChair@hotmail.com>
+Date: Wed, 26 Apr 2017 11:45:37 +0200
+Subject: [PATCH 2/3] [mpp]: retrieve available input packet free slots
+
+This is something that allows to know before putting a packet into
+the decoder if it would accept it or if it is full.
+
+This patch also adds a constant define for the input buffer count
+rather than having the 4 hardcoded.
+
+Change-Id: I876e5d4efd0b2e38619ab87d4147a40bedee5669
+Signed-off-by: LongChair <LongChair@hotmail.com>
+Reviewed-by: ayaka <ayaka@soulik.info>
+Signed-off-by: Randy Li <randy.li@rock-chips.com>
+---
+ inc/rk_mpi_cmd.h |  1 +
+ mpp/mpp.cpp      | 11 ++++++++---
+ 2 files changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/inc/rk_mpi_cmd.h b/inc/rk_mpi_cmd.h
+index b67b65dd..0eaa328d 100644
+--- a/inc/rk_mpi_cmd.h
++++ b/inc/rk_mpi_cmd.h
+@@ -96,6 +96,7 @@ typedef enum {
+     MPP_DEC_SET_VC1_EXTRA_DATA,
+     MPP_DEC_SET_OUTPUT_FORMAT,
+     MPP_DEC_CHANGE_HARD_MODE,
++    MPP_DEC_GET_FREE_PACKET_SLOT_COUNT,
+     MPP_DEC_CMD_END,
+ 
+     MPP_ENC_CMD_BASE                    = CMD_MODULE_CODEC | CMD_CTX_ID_ENC,
+diff --git a/mpp/mpp.cpp b/mpp/mpp.cpp
+index c77aac12..321ea76d 100644
+--- a/mpp/mpp.cpp
++++ b/mpp/mpp.cpp
+@@ -33,6 +33,7 @@
+ 
+ #define MPP_TEST_FRAME_SIZE     SZ_1M
+ #define MPP_TEST_PACKET_SIZE    SZ_512K
++#define MPP_MAX_INPUT_PACKETS   4
+ 
+ Mpp::Mpp()
+     : mPackets(NULL),
+@@ -102,8 +103,8 @@ MPP_RET Mpp::init(MppCtxType type, MppCodingType coding)
+ 
+             mpp_task_queue_init(&mInputTaskQueue);
+             mpp_task_queue_init(&mOutputTaskQueue);
+-            mpp_task_queue_setup(mInputTaskQueue, 4);
+-            mpp_task_queue_setup(mOutputTaskQueue, 4);
++            mpp_task_queue_setup(mInputTaskQueue, MPP_MAX_INPUT_PACKETS);
++            mpp_task_queue_setup(mOutputTaskQueue, MPP_MAX_INPUT_PACKETS);
+         } else {
+             mThreadCodec = new MppThread(mpp_dec_advanced_thread, this, "mpp_dec_parser");
+ 
+@@ -258,7 +259,7 @@ MPP_RET Mpp::put_packet(MppPacket packet)
+     AutoMutex autoLock(mPackets->mutex());
+     RK_U32 eos = mpp_packet_get_eos(packet);
+ 
+-    if (mPackets->list_size() < 4 || eos) {
++    if (mPackets->list_size() < MPP_MAX_INPUT_PACKETS || eos) {
+         MppPacket pkt;
+         if (MPP_OK != mpp_packet_copy_init(&pkt, packet))
+             return MPP_NOK;
+@@ -745,6 +746,10 @@ MPP_RET Mpp::control_dec(MpiCmd cmd, MppParam param)
+     case MPP_DEC_SET_OUTPUT_FORMAT: {
+         ret = mpp_dec_control(mDec, cmd, param);
+     } break;
++    case MPP_DEC_GET_FREE_PACKET_SLOT_COUNT: {
++        *((RK_S32 *)param) = MPP_MAX_INPUT_PACKETS - mPackets->list_size();
++         ret = MPP_OK;
++    } break;
+     default : {
+     } break;
+     }
