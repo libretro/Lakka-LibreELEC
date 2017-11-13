@@ -27,7 +27,7 @@ PKG_SITE="https://github.com/ToadKing/wii-u-gc-adapter"
 PKG_URL="https://github.com/ToadKing/wii-u-gc-adapter/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
-PKG_SECTION=""
+PKG_SECTION="tools"
 PKG_SHORTDESC="Tool for using the Wii U GameCube Adapter on Linux"
 PKG_LONGDESC="Tool for using the Wii U GameCube Adapter on Linux"
 
