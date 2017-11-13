@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="fbalpha"
-PKG_VERSION="2021f2d"
+PKG_VERSION="9465ddb"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"
