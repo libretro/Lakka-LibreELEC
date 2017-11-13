@@ -49,8 +49,5 @@ pre_configure_target() {
                       -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
     export CFLAGS="$CFLAGS $BCM2835_INCLUDES"
     export CXXFLAGS="$CXXFLAGS $BCM2835_INCLUDES"
-  elif [ "$KODIPLAYER_DRIVER" = libfslvpuwrap ]; then
-    export CFLAGS="$CFLAGS -DLINUX -DEGL_API_FB"
-    export CXXFLAGS="$CXXFLAGS -DLINUX -DEGL_API_FB"
   fi
 }

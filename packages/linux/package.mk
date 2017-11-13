@@ -45,26 +45,6 @@ case "$LINUX" in
     PKG_SOURCE_DIR="$PKG_NAME-amlogic-$PKG_VERSION*"
     PKG_PATCH_DIRS="amlogic-3.14"
     ;;
-  imx6-3.14-sr)
-    PKG_VERSION="3.14-sr"
-    PKG_SHA256="04ce73fe6434bb31197e94a9c51e3c44aba7f5226450ff4cec21bc5c985f986d"
-    PKG_COMMIT="2fb11e2"
-    PKG_SITE="http://solid-run.com/wiki/doku.php?id=products:imx6:software:development:kernel"
-    PKG_URL="https://github.com/SolidRun/linux-fslc/archive/$PKG_COMMIT.tar.gz"
-    PKG_SOURCE_NAME="$PKG_NAME-$LINUX-$PKG_COMMIT.tar.gz"
-    PKG_SOURCE_DIR="$PKG_NAME-fslc-${PKG_COMMIT}*"
-    PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET imx6-status-led imx6-soc-fan"
-    ;;
-  imx6-4.4-xbian)
-    PKG_VERSION="4.4-xbian"
-    PKG_SHA256="5d7074937a31042b0764bc975f7280500a0728a00a7a46ab6b06372f42d37ede"
-    PKG_COMMIT="3bde863"
-    PKG_SITE="https://github.com/xbianonpi/xbian-sources-kernel/tree/imx6-4.4.y"
-    PKG_URL="https://github.com/xbianonpi/xbian-sources-kernel/archive/$PKG_COMMIT.tar.gz"
-    PKG_SOURCE_NAME="$PKG_NAME-$LINUX-$PKG_COMMIT.tar.gz"
-    PKG_SOURCE_DIR="xbian-sources-kernel-${PKG_COMMIT}*"
-    PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET imx6-status-led imx6-soc-fan irqbalanced"
-    ;;
   *)
     PKG_VERSION="4.13.12"
     PKG_SHA256="bf98065bf0e3aa5af379d0808f157be48ca4e452a55468fc4ce814b17cf9de74"
