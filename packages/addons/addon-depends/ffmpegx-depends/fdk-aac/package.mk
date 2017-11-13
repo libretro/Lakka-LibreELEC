@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016-present Team LibreELEC
+#      Copyright (C) 2017-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,35 +16,14 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="x264"
-PKG_VERSION="snapshot-20170327-2245-stable"
-PKG_SHA256="b96a858a35e36a9248d73f710aeb5ea0f26805517d276a347915fb2d6f3f8550"
+PKG_NAME="fdk-aac"
+PKG_VERSION="0.1.5"
+PKG_SHA256="ff53d1d01cacc29c071e23192dfefa93bdbeaf775fc5d296259b4859d0306b79"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="http://www.videolan.org/developers/x264.html"
-PKG_URL="ftp://ftp.videolan.org/pub/videolan/x264/snapshots/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_LICENSE="other"
+PKG_SITE="https://sourceforge.net/projects/opencore-amr/"
+PKG_URL="https://github.com/mstorsjo/fdk-aac/archive/v${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="multimedia"
-PKG_SHORTDESC="x264"
-PKG_LONGDESC="x264"
-PKG_AUTORECONF="no"
-
-pre_configure_target() {
-  cd $PKG_BUILD
-  rm -rf .$TARGET_NAME
-}
-
-configure_target() {
-  ./configure \
-    --prefix="/usr" \
-    --extra-cflags="$CFLAGS" \
-    --extra-ldflags="$LDFLAGS" \
-    --disable-cli \
-    --enable-static \
-    --enable-strip \
-    --disable-asm \
-    --enable-pic \
-    --host="$TARGET_NAME" \
-    --cross-prefix="$TARGET_PREFIX" \
-    --sysroot="$SYSROOT_PREFIX"
-}
+PKG_LONGDESC="A standalone library of the Fraunhofer FDK AAC code from Android."
+PKG_AUTORECONF="yes"

@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="opus"
-PKG_VERSION="1.1.2"
-PKG_SHA256="0e290078e31211baa7b5886bcc8ab6bc048b9fc83882532da4a1a45e58e907fd"
+PKG_VERSION="1.2.1"
+PKG_SHA256="cfafd339ccd9c5ef8d6ab15d7e1a412c054bf4cb4ecbbbcc78c12ef2def70732"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://www.opus-codec.org"
-PKG_URL="http://downloads.us.xiph.org/releases/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="https://archive.mozilla.org/pub/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="audio"
 PKG_SHORTDESC="Codec designed for interactive speech and audio transmission over the Internet"
@@ -30,11 +30,11 @@ PKG_LONGDESC="Codec designed for interactive speech and audio transmission over 
 PKG_AUTORECONF="no"
 
 if [ "$TARGET_ARCH" = "arm" ]; then
-  FIXED_POINT="--enable-fixed-point"
+  PKG_FIXED_POINT="--enable-fixed-point"
 else
-  FIXED_POINT="--disable-fixed-point"
+  PKG_FIXED_POINT="--disable-fixed-point"
 fi
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --disable-shared \
-                           $FIXED_POINT"
+                           $PKG_FIXED_POINT"

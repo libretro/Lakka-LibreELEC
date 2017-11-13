@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016-present Team LibreELEC
+#      Copyright (C) 2017-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,26 +16,19 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="imagemagick"
-PKG_VERSION="7.0.7-1"
-PKG_SHA256="5a45e29509dbb23793a9c8db5c47ef1114c1ee82c9ca60053eaf06b3fc243e2c"
-PKG_ARCH="any"
-PKG_LICENSE="http://www.imagemagick.org/script/license.php"
-PKG_SITE="http://www.imagemagick.org/"
-PKG_URL="https://github.com/ImageMagick/ImageMagick/archive/$PKG_VERSION.tar.gz"
-PKG_SOURCE_DIR="ImageMagick-$PKG_VERSION"
-PKG_DEPENDS_TARGET="toolchain libX11"
-PKG_SECTION="graphics"
-PKG_SHORTDESC="ImageMagick"
-PKG_LONGDESC="Software suite to create, edit, compose, or convert bitmap images"
+PKG_NAME="x265"
+PKG_VERSION="2.5"
+PKG_SHA256="a5607edead00e9ba90ca222c4a6e93c1f4db76e9f04a4905a96f21fbdb7d626d"
+PKG_ARCH="x86_64"
+PKG_LICENSE="GPL"
+PKG_SITE="https://github.com/videolan/x265"
+PKG_URL="https://github.com/videolan/x265/archive/${PKG_VERSION}.tar.gz"
+PKG_DEPENDS_TARGET="toolchain"
+PKG_SECTION="multimedia"
+PKG_LONGDESC="x265 is a H.265/HEVC video encoder application library"
 PKG_AUTORECONF="no"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-static \
-                           --enable-shared \
-                           --with-quantum-depth=8 \
-                           --enable-hdri=no \
-                           --disable-openmp"
-
-makeinstall_target() {
-  make install DESTDIR=$INSTALL
+pre_configure_target() {
+  LDFLAGS="$LDFLAGS -ldl"
+  cmake -G "Unix Makefiles" ./source
 }

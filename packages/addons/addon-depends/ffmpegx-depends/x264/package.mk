@@ -16,26 +16,35 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="imagemagick"
-PKG_VERSION="7.0.7-1"
-PKG_SHA256="5a45e29509dbb23793a9c8db5c47ef1114c1ee82c9ca60053eaf06b3fc243e2c"
+PKG_NAME="x264"
+PKG_VERSION="snapshot-20171015-2245"
+PKG_SHA256="0a1fb77545821285227bcbd85244e127af5e45180298d3f2c27dcec42a133992"
 PKG_ARCH="any"
-PKG_LICENSE="http://www.imagemagick.org/script/license.php"
-PKG_SITE="http://www.imagemagick.org/"
-PKG_URL="https://github.com/ImageMagick/ImageMagick/archive/$PKG_VERSION.tar.gz"
-PKG_SOURCE_DIR="ImageMagick-$PKG_VERSION"
-PKG_DEPENDS_TARGET="toolchain libX11"
-PKG_SECTION="graphics"
-PKG_SHORTDESC="ImageMagick"
-PKG_LONGDESC="Software suite to create, edit, compose, or convert bitmap images"
+PKG_LICENSE="GPL"
+PKG_SITE="http://www.videolan.org/developers/x264.html"
+PKG_URL="https://download.videolan.org/x264/snapshots/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS_TARGET="toolchain"
+PKG_SECTION="multimedia"
+PKG_SHORTDESC="x264"
+PKG_LONGDESC="x264"
 PKG_AUTORECONF="no"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-static \
-                           --enable-shared \
-                           --with-quantum-depth=8 \
-                           --enable-hdri=no \
-                           --disable-openmp"
+pre_configure_target() {
+  cd $PKG_BUILD
+  rm -rf .$TARGET_NAME
+}
 
-makeinstall_target() {
-  make install DESTDIR=$INSTALL
+configure_target() {
+  ./configure \
+    --prefix="/usr" \
+    --extra-cflags="$CFLAGS" \
+    --extra-ldflags="$LDFLAGS" \
+    --disable-cli \
+    --enable-static \
+    --enable-strip \
+    --disable-asm \
+    --enable-pic \
+    --host="$TARGET_NAME" \
+    --cross-prefix="$TARGET_PREFIX" \
+    --sysroot="$SYSROOT_PREFIX"
 }
