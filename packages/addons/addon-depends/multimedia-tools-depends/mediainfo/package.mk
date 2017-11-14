@@ -30,6 +30,10 @@ PKG_SHORTDESC="MediaInfo is a convenient unified display of the most relevant te
 PKG_LONGDESC="MediaInfo is a convenient unified display of the most relevant technical and tag data for video and audio files"
 PKG_AUTORECONF="no"
 
+pre_configure_target() {
+  export LDFLAGS="$LDFLAGS -lmediainfo"
+}
+
 make_target() {
   cd Project/GNU/CLI
   do_autoreconf
