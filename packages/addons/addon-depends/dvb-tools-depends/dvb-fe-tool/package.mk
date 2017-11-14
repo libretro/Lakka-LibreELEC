@@ -49,6 +49,10 @@ post_patch() {
     touch $PKG_BUILD/v4l-utils-po/Makefile.in.in
 }
 
+pre_configure_target() {
+  export LDFLAGS="$LDFLAGS -pthread"
+}
+
 make_target() {
   cd $PKG_BUILD/.$TARGET_NAME/lib/libdvbv5
   make CFLAGS="$TARGET_CFLAGS"
