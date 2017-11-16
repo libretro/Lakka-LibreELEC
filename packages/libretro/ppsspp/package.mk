@@ -19,13 +19,12 @@
 ################################################################################
 
 PKG_NAME="ppsspp"
-PKG_VERSION="5f7bcf7"
+PKG_VERSION="d6fe312"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/ppsspp"
-PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
-#PKG_URL="https://github.com/libretro/ppsspp/archive/$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/libretro/ppsspp/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -35,6 +34,15 @@ PKG_LONGDESC="A fast and portable PSP emulator"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 PKG_USE_CMAKE="no"
+
+post_unpack() {
+  rm -rf $BUILD/$PKG_NAME-$PKG_VERSION/
+  git clone https://github.com/libretro/ppsspp.git $BUILD/$PKG_NAME-$PKG_VERSION/
+  cd $BUILD/$PKG_NAME-$PKG_VERSION/
+  git checkout $PKG_VERSION
+  git submodule update --init
+  cd $ROOT
+}
 
 pre_configure_target() {
   strip_lto
