@@ -43,6 +43,7 @@ PKG_CONFIGURE_OPTS_HOST="--enable-static --disable-shared \
                          --without-libedit \
                          --without-hesiod \
                          --without-x \
+                         --disable-otp \
                          --with-db-type-preference= \
                          --disable-heimdal-documentation"
 
