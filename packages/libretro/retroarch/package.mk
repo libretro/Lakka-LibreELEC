@@ -19,8 +19,8 @@
 ################################################################################
 
 PKG_NAME="retroarch"
-PKG_VERSION="40cfde0"
-PKG_REV="8"
+PKG_VERSION="3b6f789"
+PKG_REV="9"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
@@ -80,12 +80,10 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
                            --disable-sdl \
                            $RETROARCH_GL \
                            $RETROARCH_NEON \
-                           --enable-fbo \
                            --enable-zlib \
                            --enable-freetype"
 
 pre_configure_target() {
-  strip_lto # workaround for https://github.com/libretro/RetroArch/issues/1078
   cd $PKG_BUILD
 }
 
