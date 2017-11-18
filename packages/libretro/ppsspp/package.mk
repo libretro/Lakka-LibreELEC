@@ -35,15 +35,6 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 PKG_USE_CMAKE="no"
 
-post_unpack() {
-  rm -rf $BUILD/$PKG_NAME-$PKG_VERSION/
-  git clone https://github.com/libretro/ppsspp.git $BUILD/$PKG_NAME-$PKG_VERSION/
-  cd $BUILD/$PKG_NAME-$PKG_VERSION/
-  git checkout $PKG_VERSION
-  git submodule update --init
-  cd $ROOT
-}
-
 pre_configure_target() {
   strip_lto
 }
