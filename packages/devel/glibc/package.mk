@@ -32,7 +32,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="BASH_SHELL=/bin/sh \
-                           ac_cv_path_PERL= \
+                           ac_cv_path_PERL=no \
                            ac_cv_prog_MAKEINFO= \
                            --libexecdir=/usr/lib/glibc \
                            --cache-file=config.cache \
