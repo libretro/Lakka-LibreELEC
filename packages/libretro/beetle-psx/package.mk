@@ -39,7 +39,7 @@ post_unpack() {
 }
 
 make_target() {
-  if [ "$OPENGLES" == "mali-rockchip" -o [ "$DEVICE" = "TinkerBoard" ] || [ "$DEVICE" = "MiQi" ]; then
+  if [ "$OPENGLES" == "mali-rockchip" -o  "$DEVICE" == "TinkerBoard" -o "$DEVICE" == "MiQi" ]; then
   make HAVE_VULKAN=1
   else
   make HAVE_OPENGL=1
