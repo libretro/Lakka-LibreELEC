@@ -30,4 +30,4 @@ PKG_AUTORECONF="no"
 
 get_graphicdrivers
 
-listcontains "$GRAPHIC_DRIVERS" "vmware" && PKG_DEPENDS_TARGET+=" open-vm-tools"
+listcontains "$GRAPHIC_DRIVERS" "vmware" && PKG_DEPENDS_TARGET+=" open-vm-tools" || true
