@@ -17,22 +17,20 @@
 ################################################################################
 
 PKG_NAME="jsoncpp"
-PKG_VERSION="src-0.5.0"
-PKG_SHA256="22b14ecd0de8cdad2b6b6839f6d0804d3b84e91f42861ebd843832a26a927433"
+PKG_VERSION="1.8.3"
+PKG_SHA256="3671ba6051e0f30849942cc66d1798fdf0362d089343a83f704c09ee7156604f"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.kodi.tv"
-PKG_URL="http://sources.openelec.tv/mirror/jsoncpp/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_SITE="https://github.com/open-source-parsers/jsoncpp/"
+PKG_URL="https://github.com/open-source-parsers/jsoncpp/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="multimedia"
-PKG_SHORTDESC="jsoncpp"
-PKG_LONGDESC="jsoncpp"
+PKG_SHORTDESC="A C++ library for interacting with JSON."
+PKG_LONGDESC="A C++ library for interacting with JSON."
 PKG_TOOLCHAIN="cmake"
+
+PKG_CMAKE_OPTS_TARGET="-DJSONCPP_WITH_TESTS=OFF"
 
 pre_configure_target() {
   export CFLAGS="$CFLAGS -fPIC"
-}
-
-pre_build_target() {
-  cp $PKG_DIR/config/CMakeLists.txt $PKG_BUILD
 }
