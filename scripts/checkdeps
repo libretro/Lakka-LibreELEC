@@ -20,6 +20,27 @@
 
 . config/options $1
 
+get_deps() {
+  need=""
+  need_pkg=""
+
+  i=0
+  while dep=`getarg $i $deps` && [ -n "$dep" ]; do
+    [ -z "`which $dep 2>/dev/null`" ] && need="$need $dep" && need_pkg="$need_pkg `getarg $i $deps_pkg`"
+    i=$(($i+1))
+  done
+
+  i=0
+  while file=`getarg $i $files` && [ -n "$file" ]; do
+    installed=N
+    file_pkg=`getarg $i $files_pkg`
+    [ "$(type -t "test_$file_pkg")" == "function" ] && test_$file_pkg && installed=Y
+    [ $installed == N -a -f $file ] && installed=Y
+    [ $installed == N ] && need="$need $file" && need_pkg="$need_pkg $file_pkg"
+    i=$(($i+1))
+  done
+}
+
 get_yes_no()
 {
   local ans
@@ -117,26 +138,6 @@ if [ -n "$DISTRO_DEPS_PKG" ] ; then
   deps_pkg="$deps_pkg $DISTRO_DEPS_PKG"
 fi
 
-getarg() {
-  eval echo \${$(($1+2))}
-}
-
-i=0
-while dep=`getarg $i $deps` && [ -n "$dep" ]; do
-  [ -z "`which $dep 2>/dev/null`" ] && need="$need $dep" && need_pkg="$need_pkg `getarg $i $deps_pkg`"
-  i=$(($i+1))
-done
-
-i=0
-while file=`getarg $i $files` && [ -n "$file" ]; do
-  installed=N
-  file_pkg=`getarg $i $files_pkg`
-  [ "$(type -t "test_$file_pkg")" == "function" ] && test_$file_pkg && installed=Y
-  [ $installed == N -a -f $file ] && installed=Y
-  [ $installed == N ] && need="$need $file" && need_pkg="$need_pkg $file_pkg"
-  i=$(($i+1))
-done
-
 if [ -n "$need" ]; then
   echo "**** Your system lacks the following tools needed to build $DISTRONAME ****"
   echo $need provided by $need_pkg
@@ -169,24 +170,7 @@ if [ -n "$need" ]; then
   esac
 fi
 
-need=""
-need_pkg=""
-
-i=0
-while dep=`getarg $i $deps` && [ -n "$dep" ]; do
-  [ -z "`which $dep 2>/dev/null`" ] && need="$need $dep" && need_pkg="$need_pkg `getarg $i $deps_pkg`"
-  i=$(($i+1))
-done
-
-i=0
-while file=`getarg $i $files` && [ -n "$file" ]; do
-  installed=N
-  file_pkg=`getarg $i $files_pkg`
-  [ "$(type -t "test_$file_pkg")" == "function" ] && test_$file_pkg && installed=Y
-  [ $installed == N -a -f $file ] && installed=Y
-  [ $installed == N ] && need="$need $file" && need_pkg="$need_pkg $file_pkg"
-  i=$(($i+1))
-done
+get_deps
 
 if [ -n "$need" ]; then
   echo "**** The following packages were not installed correctly ****"
