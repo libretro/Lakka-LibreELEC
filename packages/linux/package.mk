@@ -31,8 +31,8 @@ PKG_IS_KERNEL_PKG="yes"
 
 case "$LINUX" in
   amlogic-3.10)
-    PKG_VERSION="544ea88"
-    PKG_SHA256="67fca9225ebdd9ea6579eb3eac723fa38a9465c74b182725c319d1e16e47b712"
+    PKG_VERSION="f016bb1"
+    PKG_SHA256="6297c6aa6bbe1ffa794b516b32dd4d6be5cd4d26cd502e4dbd9079b49ad7b403"
     PKG_URL="https://github.com/LibreELEC/linux-amlogic/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_DIR="$PKG_NAME-amlogic-$PKG_VERSION*"
     PKG_PATCH_DIRS="amlogic-3.10"
