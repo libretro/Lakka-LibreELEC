@@ -31,7 +31,8 @@ PKG_LONGDESC="libCEC is an open-source dual licensed library designed for commun
 PKG_CMAKE_OPTS_TARGET="-DBUILD_SHARED_LIBS=1 \
                        -DCMAKE_INSTALL_LIBDIR:STRING=lib \
                        -DCMAKE_INSTALL_LIBDIR_NOARCH:STRING=lib \
-                       -DHAVE_IMX_API=0"
+                       -DHAVE_IMX_API=0 \
+                       -DHAVE_GIT_BIN=0"
 
 if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"
