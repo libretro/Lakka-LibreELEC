@@ -27,19 +27,11 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="driver/dvb"
 PKG_SHORTDESC="HDHomeRun: a Linux driver to add support for HDHomeRun from silicondust.com"
 PKG_LONGDESC="Install this to add support for HDHomeRun devices."
+PKG_TOOLCHAIN="manual"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="HDHomeRun"
 PKG_ADDON_TYPE="xbmc.python.script"
-PKG_AUTORECONF="no"
-
-make_target() {
-  : # nothing to do here
-}
-
-makeinstall_target() {
-  : # nothing to do here
-}
 
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/config/

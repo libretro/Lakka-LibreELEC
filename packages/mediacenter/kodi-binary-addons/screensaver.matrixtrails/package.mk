@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform soil"
 PKG_SECTION=""
 PKG_SHORTDESC="screensaver.matrixtrails"
 PKG_LONGDESC="screensaver.matrixtrails"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="xbmc.ui.screensaver"

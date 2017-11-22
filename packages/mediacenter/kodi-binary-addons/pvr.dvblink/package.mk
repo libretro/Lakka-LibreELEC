@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform tinyxml2"
 PKG_SECTION=""
 PKG_SHORTDESC="pvr.dvblink"
 PKG_LONGDESC="pvr.dvblink"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="xbmc.pvrclient"

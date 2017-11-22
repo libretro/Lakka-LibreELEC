@@ -27,6 +27,5 @@ PKG_DEPENDS_TARGET="toolchain util-macros xproto libXrender fontconfig freetype"
 PKG_SECTION="x11/lib"
 PKG_SHORTDESC="libxft: X FreeType library"
 PKG_LONGDESC="X FreeType library"
-PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"

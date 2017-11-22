@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-beetle-ngp"
 PKG_SECTION=""
 PKG_SHORTDESC="game.libretro.beetle-ngp: Beetle ngp for kodi"
 PKG_LONGDESC="game.libretro.beetle-ngp: Beetle ngp for Kodi"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.gameclient"

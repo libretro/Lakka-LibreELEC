@@ -24,6 +24,7 @@ PKG_SITE="http://larsimmisch.github.io/pyalsaaudio/"
 PKG_URL="https://files.pythonhosted.org/packages/source/${PKG_NAME:0:1}/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain Python2 distutilscross:host alsa-lib"
 PKG_LONGDESC="ALSA bindings"
+PKG_TOOLCHAIN="manual"
 
 make_target() {
   export LDSHARED="$CC -shared"

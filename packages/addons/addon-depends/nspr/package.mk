@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain nss:host"
 PKG_SECTION="security"
 PKG_SHORTDESC="Netscape Portable Runtime (NSPR) provides a platform-neutral API for system level and libc like functions"
 PKG_LONGDESC="Netscape Portable Runtime (NSPR) provides a platform-neutral API for system level and libc like functions"
-PKG_AUTORECONF="no"
+PKG_TOOLCHAIN="configure"
 
 MAKEFLAGS=-j1
 

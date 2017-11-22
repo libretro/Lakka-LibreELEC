@@ -28,7 +28,7 @@ PKG_DEPENDS_TARGET="toolchain linux bash"
 PKG_SECTION="driver.remote"
 PKG_SHORTDESC="A Linux driver to add support for sapphire remotes"
 PKG_LONGDESC="A Linux driver to add support for sapphire remotes"
-PKG_AUTORECONF="no"
+PKG_TOOLCHAIN="manual"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Sapphire Remote Driver"
@@ -61,10 +61,6 @@ post_make_target() {
 
   sed -i -e 's|\#\!/bin/bash|\#\!/storage/.kodi/addons/driver.remote.sapphire/bin/bash|' \
          sapphire_startup.sh sapphire_keymap.sh
-}
-
-makeinstall_target() {
-  :
 }
 
 addon() {

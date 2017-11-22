@@ -28,8 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="Fork of Mednafen PSX"
 PKG_LONGDESC="Fork of Mednafen PSX"
-PKG_AUTORECONF="no"
-PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="mednafen_psx_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"

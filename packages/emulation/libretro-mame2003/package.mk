@@ -28,8 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="Late 2003 version of MAME (0.78) for libretro"
 PKG_LONGDESC="Late 2003 version of MAME (0.78) for libretro"
-PKG_AUTORECONF="no"
-PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="mame2003_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"

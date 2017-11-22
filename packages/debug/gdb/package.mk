@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain zlib ncurses expat"
 PKG_SECTION="debug"
 PKG_SHORTDESC="gdb: The GNU Debugger"
 PKG_LONGDESC="The purpose of a debugger such as GDB is to allow you to see what is going on ``inside'' another program while it executes--or what another program was doing at the moment it crashed."
-PKG_AUTORECONF="no"
 
 CC_FOR_BUILD="$HOST_CC"
 CFLAGS_FOR_BUILD="$HOST_CFLAGS"

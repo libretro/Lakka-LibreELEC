@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain cmake:host"
 PKG_SECTION="audio"
 PKG_SHORTDESC="soxr: a library which performs one-dimensional sample-rate conversion."
 PKG_LONGDESC="The SoX Resampler library performs one-dimensional sample-rate conversion. it may be used, for example, to resample PCM-encoded audio."
-PKG_AUTORECONF="no"
 
 PKG_CMAKE_OPTS_TARGET="-DHAVE_WORDS_BIGENDIAN_EXITCODE=1 \
                        -DBUILD_TESTS=0 \

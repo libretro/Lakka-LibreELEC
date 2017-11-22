@@ -27,20 +27,12 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="service"
 PKG_SHORTDESC="Provides the ability to change the led lights on the Slice box via Kodi actions"
 PKG_LONGDESC="Provides the ability to change the led lights on the Slice box via Kodi actions"
-PKG_AUTORECONF="no"
+PKG_TOOLCHAIN="manual"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Slice"
 PKG_ADDON_PROJECTS="Slice Slice3"
 PKG_ADDON_TYPE="xbmc.service"
-
-make_target() {
-  :
-}
-
-makeinstall_target() {
-  :
-}
 
 addon() {
   :

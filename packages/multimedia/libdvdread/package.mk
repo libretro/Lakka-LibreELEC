@@ -27,16 +27,4 @@ PKG_DEPENDS_TARGET="toolchain libdvdcss"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="libdvdread: a library which provides a simple foundation for reading DVDs."
 PKG_LONGDESC="libdvdread is a library which provides a simple foundation for reading DVDs."
-PKG_AUTORECONF="no"
-
-configure_target() {
-  :
-}
-
-make_target() {
-  :
-}
-
-makeinstall_target() {
-  :
-}
+PKG_TOOLCHAIN="manual"

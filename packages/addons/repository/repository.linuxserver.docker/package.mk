@@ -28,7 +28,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION=""
 PKG_SHORTDESC="LinuxServer.io docker add-on repository"
 PKG_LONGDESC="LinuxServer.io docker add-on repository"
-PKG_AUTORECONF="no"
+PKG_TOOLCHAIN="manual"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="LinuxServer.io Repository"
@@ -38,10 +38,6 @@ make_target() {
   $SED -e "s|@PKG_VERSION@|$PKG_VERSION|g" \
        -e "s|@PKG_REV@|$PKG_REV|g" \
        -i addon.xml
-}
-
-makeinstall_target() {
-  : # nop
 }
 
 addon() {

@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-tyrquake"
 PKG_SECTION=""
 PKG_SHORTDESC="game.libretro.tyrquake: tyrquake for Kodi"
 PKG_LONGDESC="game.libretro.tyrquake: tyrquake for Kodi"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.gameclient"

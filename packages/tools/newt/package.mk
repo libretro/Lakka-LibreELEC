@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain slang popt"
 PKG_SECTION="tools"
 PKG_SHORTDESC="newt: A programming library for color text mode, widget based user interfaces"
 PKG_LONGDESC="Newt is a programming library for color text mode, widget based user interfaces. Newt can be used to add stacked windows, entry widgets, checkboxes, radio buttons, labels, plain text fields, scrollbars, etc., to text mode user interfaces. Newt is based on the S-Lang library."
-PKG_AUTORECONF="yes"
+PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-nls \
                            --without-python \

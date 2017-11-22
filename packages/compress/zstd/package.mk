@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="compress"
 PKG_SHORTDESC="fast real-time compression algorithm"
 
-PKG_AUTORECONF="no"
 
 PKG_CMAKE_SCRIPT="$PKG_BUILD/build/cmake/CMakeLists.txt"
 PKG_CMAKE_OPTS_HOST="-DTHREADS_PTHREAD_ARG=0"

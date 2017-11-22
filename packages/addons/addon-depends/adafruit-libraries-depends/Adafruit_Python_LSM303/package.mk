@@ -27,12 +27,4 @@ PKG_DEPENDS_TARGET="toolchain Python2 distutilscross:host"
 PKG_SECTION="python"
 PKG_SHORTDESC="Adafruit Python LSM303 Library"
 PKG_LONGDESC="Python code to use the LSM303 accelerometer & magnetometer with Raspberry Pi & BeagleBone Black."
-PKG_AUTORECONF="no"
-
-make_target() {
-  : # nop
-}
-
-makeinstall_target() {
-  : # nop
-}
+PKG_TOOLCHAIN="manual"

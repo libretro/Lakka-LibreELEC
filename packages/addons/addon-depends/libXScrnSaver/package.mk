@@ -27,6 +27,5 @@ PKG_DEPENDS_TARGET="toolchain scrnsaverproto"
 PKG_SECTION="x11/lib"
 PKG_SHORTDESC="X11 Screen Saver extension client library"
 PKG_LONGDESC="X11 Screen Saver extension client library"
-PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --enable-malloc0returnsnull"

@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain Python2 distutilscross:host zlib freetype libjpeg-
 PKG_SECTION="python"
 PKG_SHORTDESC="pil: Imaging handling/processing for Python"
 PKG_LONGDESC="The Python Imaging Library (PIL) adds image processing capabilities to your Python interpreter. This library supports many file formats, and provides powerful image processing and graphics capabilities."
-PKG_AUTORECONF="no"
+PKG_TOOLCHAIN="manual"
 
 pre_make_target() {
   export PYTHONXCPREFIX="$SYSROOT_PREFIX/usr"

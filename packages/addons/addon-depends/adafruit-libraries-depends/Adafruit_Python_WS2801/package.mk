@@ -27,12 +27,4 @@ PKG_DEPENDS_TARGET="toolchain Python2 distutilscross:host"
 PKG_SECTION="python"
 PKG_SHORTDESC="Adafruit Python WS2801 Library"
 PKG_LONGDESC="Python code to control WS2801 and similar SPI interface addressable RGB LED strips on a Raspberry Pi & BeagleBone Black."
-PKG_AUTORECONF="no"
-
-make_target() {
-  : # nop
-}
-
-makeinstall_target() {
-  : # nop
-}
+PKG_TOOLCHAIN="manual"

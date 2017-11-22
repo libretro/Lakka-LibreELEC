@@ -33,7 +33,7 @@ PKG_DEPENDS_TARGET="toolchain curl"                # dependencies that are neede
 PKG_SECTION="service"                              # service, tools, virtual, driver, driver.remote ...
 PKG_SHORTDESC="Addon name: sort description"       # Addon: is a program that does this and that
 PKG_LONGDESC="Addon name ($PKG_VERSION): detailed description"
-PKG_AUTORECONF="no"                                # yes or no
+PKG_TOOLCHAIN="auto"                               # auto, meson, cmake, cmake-make, configure, make, ninja, autotools, manual
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Addon name"                        # proper name of the addon that is shown at the repo

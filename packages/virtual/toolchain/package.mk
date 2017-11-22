@@ -26,4 +26,3 @@ PKG_DEPENDS_TARGET="configtools:host make:host xz:host sed:host pkg-config:host 
 PKG_SECTION="virtual"
 PKG_SHORTDESC="toolchain: LibreELEC.tv' toolchain"
 PKG_LONGDESC="a crosscompiling toolchain to compile all packages"
-PKG_AUTORECONF="no"

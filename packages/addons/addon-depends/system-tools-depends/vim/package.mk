@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain ncurses"
 PKG_SECTION="tools"
 PKG_SHORTDESC="vim: VI IMproved"
 PKG_LONGDESC="Vim is a highly configurable text editor built to enable efficient text editing."
-PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="vim_cv_getcwd_broken=no \
                            vim_cv_memmove_handles_overlap=yes \

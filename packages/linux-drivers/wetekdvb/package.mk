@@ -28,12 +28,8 @@ PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_SECTION="driver"
 PKG_SHORTDESC="wetekdvb: Wetek DVB driver"
 PKG_LONGDESC="These package contains Wetek's DVB driver "
-PKG_AUTORECONF="no"
 PKG_IS_KERNEL_PKG="yes"
-
-make_target() {
-  : # nothing todo
-}
+PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
   mkdir -p $INSTALL/$(get_full_module_dir)/$PKG_NAME

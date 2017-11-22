@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="tools"
 PKG_SHORTDESC="DVBlast is a small channel scan tool to create an channel.conf for VDR"
 PKG_LONGDESC="DVBlast is a small channel scan tool to create an channel.conf for VDR"
-PKG_AUTORECONF="yes"
+PKG_TOOLCHAIN="autotools"
 
 # aml 3.14 is meh
 pre_configure_target() {

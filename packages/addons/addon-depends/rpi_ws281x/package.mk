@@ -27,12 +27,4 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION=""
 PKG_SHORTDESC="Userspace Raspberry Pi PWM library for WS281X LEDs"
 PKG_LONGDESC="Userspace Raspberry Pi PWM library for WS281X LEDs"
-PKG_AUTORECONF="no"
-
-make_target() {
-  :
-}
-
-makeinstall_target() {
-  :
-}
+PKG_TOOLCHAIN="manual"

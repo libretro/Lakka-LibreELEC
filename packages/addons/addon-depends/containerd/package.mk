@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain go:host"
 PKG_SECTION="system"
 PKG_SHORTDESC="containerd is a daemon to control runC"
 PKG_LONGDESC="containerd is a daemon to control runC, built for performance and density. containerd leverages runC's advanced features such as seccomp and user namespace support as well as checkpoint and restore for cloning and live migration of containers."
-PKG_AUTORECONF="no"
+PKG_TOOLCHAIN="manual"
 
 pre_make_target() {
   case $TARGET_ARCH in
@@ -68,8 +68,4 @@ make_target() {
   mkdir -p bin
   $GOLANG build -v -o bin/containerd      -a -tags "static_build" -ldflags "$LDFLAGS" ./containerd
   $GOLANG build -v -o bin/containerd-shim -a -tags "static_build" -ldflags "$LDFLAGS" ./containerd-shim
-}
-
-makeinstall_target() {
-  :
 }

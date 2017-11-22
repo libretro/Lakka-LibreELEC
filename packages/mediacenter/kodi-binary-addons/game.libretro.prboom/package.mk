@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-prboom"
 PKG_SECTION=""
 PKG_SHORTDESC="game.libretro.prboom: prboom for Kodi"
 PKG_LONGDESC="game.libretro.prboom: prboom for Kodi"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.gameclient"

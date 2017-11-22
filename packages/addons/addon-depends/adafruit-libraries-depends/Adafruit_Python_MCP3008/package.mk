@@ -27,12 +27,4 @@ PKG_DEPENDS_TARGET="toolchain Python2 distutilscross:host"
 PKG_SECTION="python"
 PKG_SHORTDESC="Adafruit Python MCP3008 Library"
 PKG_LONGDESC="Python code to use the MCP3008 analog to digital converter with a Raspberry Pi or BeagleBone black."
-PKG_AUTORECONF="no"
-
-make_target() {
-  : # nop
-}
-
-makeinstall_target() {
-  : # nop
-}
+PKG_TOOLCHAIN="manual"

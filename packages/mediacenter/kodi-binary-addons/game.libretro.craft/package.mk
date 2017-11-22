@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-craft"
 PKG_SECTION=""
 PKG_SHORTDESC="game.libretro.craft: A simple Minecraft clone"
 PKG_LONGDESC="game.libretro.2048: A simple Minecraft clone"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.gameclient"

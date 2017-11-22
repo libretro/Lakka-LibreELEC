@@ -28,7 +28,7 @@ PKG_DEPENDS_TARGET="toolchain libpciaccess"
 PKG_SECTION="graphics"
 PKG_SHORTDESC="libdrm: Userspace interface to kernel DRM services"
 PKG_LONGDESC="The userspace interface library to kernel DRM services."
-PKG_AUTORECONF="yes"
+PKG_TOOLCHAIN="autotools"
 
 get_graphicdrivers
 

@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform zlib"
 PKG_SECTION=""
 PKG_SHORTDESC="pvr.iptvsimple"
 PKG_LONGDESC="pvr.iptvsimple"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="xbmc.pvrclient"

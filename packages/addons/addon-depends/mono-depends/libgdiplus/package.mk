@@ -24,7 +24,7 @@ PKG_SITE="https://github.com/mono/libgdiplus"
 PKG_URL="https://github.com/mono/libgdiplus/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain giflib libjpeg-turbo tiff libXext libexif glib cairo"
 PKG_LONGDESC="An Open Source implementation of the GDI+ API"
-PKG_AUTORECONF="yes"
+PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-shared               \
                            --with-libgif=$TARGET_PREFIX  \

@@ -28,16 +28,11 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.hatari: hatari for Kodi"
 PKG_LONGDESC="game.libretro.hatari: hatari for Kodi"
-PKG_AUTORECONF="no"
-PKG_USE_CMAKE="no"
+PKG_TOOLCHAIN="manual"
 
 PKG_LIBNAME="hatari_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"
 PKG_LIBVAR="HATARI_LIB"
-
-configure_target(){
-  :
-}
 
 make_target() {
   cd $PKG_BUILD

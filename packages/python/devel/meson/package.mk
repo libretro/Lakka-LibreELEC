@@ -27,6 +27,7 @@ PKG_DEPENDS_HOST="Python3:host pathlib:host"
 PKG_SECTION="toolchain/devel"
 PKG_SHORTDESC="High productivity build system"
 PKG_LONGDESC="High productivity build system"
+PKG_TOOLCHAIN="manual"
 
 make_host() {
   python3 setup.py build

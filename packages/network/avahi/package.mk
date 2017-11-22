@@ -28,7 +28,7 @@ PKG_SECTION="network"
 PKG_SHORTDESC="avahi: A Zeroconf mDNS/DNS-SD responder"
 PKG_LONGDESC="Avahi is a framework for Multicast DNS Service Discovery (mDNS/DNS-SD a.k.a. Zeroconf) on Linux. It allows programs to publish and discover services running on a local network with no specific configuration. For example, you can plug into a network and instantly find printers to print to, files to look at, and people to talk to."
 #broken
-PKG_AUTORECONF="no"
+PKG_TOOLCHAIN="configure"
 
 MAKEFLAGS="-j1"
 

@@ -29,12 +29,8 @@ PKG_PRIORITY="optional"
 PKG_SECTION="python"
 PKG_SHORTDESC="Python 3.4 Enum backported to 3.3, 3.2, 3.1, 2.7, 2.6, 2.5, and 2.4"
 PKG_LONGDESC="Python 3.4 Enum backported to 3.3, 3.2, 3.1, 2.7, 2.6, 2.5, and 2.4"
-PKG_AUTORECONF="no"
+PKG_TOOLCHAIN="manual"
 
 make_target() {
   python setup.py build
-}
-
-makeinstall_target() {
-  :
 }

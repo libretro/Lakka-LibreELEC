@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain libogg"
 PKG_SECTION="audio"
 PKG_SHORTDESC="flac: An Free Lossless Audio Codec"
 PKG_LONGDESC="Grossly oversimplified, FLAC is similar to MP3, but lossless, meaning that audio is compressed in FLAC without throwing away any information. This is similar to how Zip works, except with FLAC you will get much better compression because it is designed specifically for audio."
-PKG_AUTORECONF="yes"
+PKG_TOOLCHAIN="autotools"
 
 # package specific configure options
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \

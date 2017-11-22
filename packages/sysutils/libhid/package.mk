@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain libusb-compat libusb"
 PKG_SECTION="system"
 PKG_SHORTDESC="libhid: userspace USB HID access library"
 PKG_LONGDESC="libhid provides a generic and flexible way to access and interact with USB HID devices, much like libusb does for plain USB devices"
-PKG_AUTORECONF="yes"
+PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-shared \
             --enable-static \

@@ -25,7 +25,7 @@ PKG_URL="$SOURCEFORGE_SRC/boost/boost/1.65.1/${PKG_NAME}_${PKG_VERSION}.tar.bz2"
 PKG_SOURCE_DIR="${PKG_NAME}_${PKG_VERSION}"
 PKG_DEPENDS_TARGET="toolchain boost:host Python2 zlib bzip2"
 PKG_LONGDESC="boost: Peer-reviewed STL style libraries for C++"
-PKG_AUTORECONF="no"
+PKG_TOOLCHAIN="manual"
 
 make_host() {
   cd tools/build/src/engine
@@ -50,10 +50,6 @@ configure_target() {
 
   echo "using gcc : `$CC -v 2>&1  | tail -n 1 |awk '{print $3}'` : $CC  : <compileflags>\"$CFLAGS\" <linkflags>\"$LDFLAGS\" ;" \
     > tools/build/src/user-config.jam
-}
-
-make_target() {
-  :
 }
 
 makeinstall_target() {

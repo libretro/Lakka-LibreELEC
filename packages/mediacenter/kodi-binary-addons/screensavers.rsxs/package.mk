@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform libXt libXmu"
 PKG_SECTION=""
 PKG_SHORTDESC="screensavers.rsxs"
 PKG_LONGDESC="screensavers.rsxs"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="xbmc.ui.screensaver"

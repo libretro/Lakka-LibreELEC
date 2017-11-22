@@ -28,8 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.fuse: fuse for Kodi"
 PKG_LONGDESC="game.libretro.fuse: fuse for Kodi"
-PKG_AUTORECONF="no"
-PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="fuse_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"

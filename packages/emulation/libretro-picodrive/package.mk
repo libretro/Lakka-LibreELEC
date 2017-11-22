@@ -29,8 +29,7 @@ PKG_DEPENDS_HOST="cyclone68000"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="Fast MegaDrive/MegaCD/32X emulator"
 PKG_LONGDESC="Fast MegaDrive/MegaCD/32X emulator"
-PKG_AUTORECONF="no"
-PKG_USE_CMAKE="no"
+PKG_TOOLCHAIN="manual"
 
 PKG_LIBNAME="picodrive_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"
@@ -46,18 +45,10 @@ pre_configure_host() {
   rm -rf .$HOST_NAME
 }
 
-configure_host() {
-  :
-}
-
 make_host() {
   if [ "$ARCH" == "arm" ]; then
     make -C cpu/cyclone CONFIG_FILE=../cyclone_config.h
   fi
-}
-
-makeinstall_host() {
-  :
 }
 
 pre_configure_target() {

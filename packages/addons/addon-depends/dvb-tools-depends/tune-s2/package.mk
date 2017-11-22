@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="tools"
 PKG_SHORTDESC="tune-s2 is a small linux app to be able to tune a dvb devices"
 PKG_LONGDESC="tune-s2 is a small linux app to be able to tune a dvb devices"
-PKG_AUTORECONF="no"
 
 makeinstall_target() {
   :

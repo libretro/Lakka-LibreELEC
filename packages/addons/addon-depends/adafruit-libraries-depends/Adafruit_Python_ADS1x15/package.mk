@@ -27,12 +27,5 @@ PKG_DEPENDS_TARGET="toolchain Python2 distutilscross:host"
 PKG_SECTION="python"
 PKG_SHORTDESC="Adafruit Python ADS1x15 Library"
 PKG_LONGDESC="Python code to use the ADS1015 and ADS1115 analog to digital converters with a Raspberry Pi or BeagleBone black."
-PKG_AUTORECONF="no"
+PKG_TOOLCHAIN="manual"
 
-make_target() {
-  : # nop
-}
-
-makeinstall_target() {
-  : # nop
-}

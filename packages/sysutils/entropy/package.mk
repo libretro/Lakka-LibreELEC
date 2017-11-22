@@ -26,11 +26,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="system"
 PKG_SHORTDESC="A simple way to add entropy at boot"
 PKG_LONGDESC="A simple way to add entropy at boot"
-PKG_AUTORECONF="no"
-
-make_target(){
-  :
-}
+PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/entropy

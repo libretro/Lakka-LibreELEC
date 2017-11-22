@@ -27,6 +27,5 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="biTStream is a set of C headers allowing a simpler access to binary structures such as specified by MPEG, DVB, IETF, etc."
 PKG_LONGDESC="biTStream is a set of C headers allowing a simpler access to binary structures such as specified by MPEG, DVB, IETF, etc."
-PKG_AUTORECONF="no"
 
 PKG_MAKEINSTALL_OPTS_TARGET="PREFIX=/usr"

@@ -27,7 +27,6 @@ PKG_DEPENDS_HOST="ccache:host gettext:host"
 PKG_SECTION="toolchain/devel"
 PKG_SHORTDESC="pkg-config: A library configuration management system"
 PKG_LONGDESC="pkg-config is a system for managing library compile/link flags that works with automake and autoconf. It replaces the ubiquitous *-config scripts you may have seen with a single tool."
-PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_HOST="--disable-silent-rules \
                          --with-internal-glib --disable-dtrace \

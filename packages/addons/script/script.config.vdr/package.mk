@@ -28,7 +28,7 @@ PKG_DEPENDS_TARGET=""
 PKG_SECTION=""
 PKG_SHORTDESC="script.config.vdr"
 PKG_LONGDESC="script.config.vdr"
-PKG_AUTORECONF="no"
+PKG_TOOLCHAIN="manual"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="dummy"
@@ -37,10 +37,6 @@ make_target() {
   $SED -e "s|@ADDON_VERSION@|$ADDON_VERSION.$PKG_REV|g" \
        -e "s|@OS_VERSION@|$OS_VERSION|g" \
        -i addon.xml
-}
-
-makeinstall_target() {
-  : # nothing to do here
 }
 
 addon() {

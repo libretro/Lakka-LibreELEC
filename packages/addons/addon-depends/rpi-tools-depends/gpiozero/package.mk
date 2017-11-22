@@ -27,12 +27,4 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="python"
 PKG_SHORTDESC="A simple interface to everyday GPIO components used with Raspberry Pi"
 PKG_LONGDESC="A simple interface to everyday GPIO components used with Raspberry Pi"
-PKG_AUTORECONF="no"
-
-make_target() {
-  : # nop
-}
-
-makeinstall_target() {
-  : # nop
-}
+PKG_TOOLCHAIN="manual"

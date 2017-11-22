@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain libusb"
 PKG_SECTION="libs"
 PKG_SHORTDESC="MTP library"
 PKG_LONGDESC="libmtp is an Initiator implementation of the Media Transfer Protocol (MTP) in the form of a library suitable primarily for POSIX compliant operating systems. We implement MTP Basic, the stuff proposed for standardization."
-PKG_AUTORECONF="yes"
+PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --disable-shared \

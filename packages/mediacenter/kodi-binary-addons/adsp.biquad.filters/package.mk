@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform asplib tinyxml"
 PKG_SECTION=""
 PKG_SHORTDESC="adsp.biquad.filters"
 PKG_LONGDESC="adsp.biquad.filters"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.adsp"

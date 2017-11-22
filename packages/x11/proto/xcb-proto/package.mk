@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain util-macros Python2:host"
 PKG_SECTION="x11/proto"
 PKG_SHORTDESC="xcb-proto: X C-language Bindings protocol headers"
 PKG_LONGDESC="X C-language Bindings protocol headers."
-PKG_AUTORECONF="no"
 
 # package specific configure options
 PKG_CONFIGURE_OPTS_TARGET="--without-xmlto"

@@ -29,7 +29,7 @@ PKG_DEPENDS_TARGET="toolchain avahi libvorbis pulseaudio pyalsaaudio rust"
 PKG_SECTION="service"
 PKG_SHORTDESC="Librespot: play Spotify through LibreELEC using a Spotify app as a remote"
 PKG_LONGDESC="Librespot ($PKG_VERSION) plays Spotify through LibreELEC using the open source librespot library using a Spotify app as a remote."
-PKG_AUTORECONF="no"
+PKG_TOOLCHAIN="manual"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Librespot"
@@ -47,10 +47,6 @@ make_target() {
   $CARGO_BUILD --no-default-features --features "alsa-backend pulseaudio-backend"
   cd "$PKG_BUILD/.$TARGET_NAME"/*/release
   $STRIP librespot
-}
-
-makeinstall_target() {
-  :
 }
 
 addon() {

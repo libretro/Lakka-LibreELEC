@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain libxml2"
 PKG_SECTION="debug/tools"
 PKG_SHORTDESC="evtest: Simple tool for input event debugging."
 PKG_LONGDESC="evtest is a simple tool for input event debugging."
-PKG_AUTORECONF="yes"
+PKG_TOOLCHAIN="autotools"
 
 makeinstall_target() {
   : # nop

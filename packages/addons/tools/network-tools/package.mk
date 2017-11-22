@@ -33,7 +33,6 @@ PKG_ADDON_NAME="Network Tools"
 PKG_ADDON_TYPE="xbmc.python.script"
 PKG_ADDON_PROVIDES=""
 
-PKG_AUTORECONF="no"
 
 PKG_DEPENDS_TARGET="toolchain \
                     bwm-ng \

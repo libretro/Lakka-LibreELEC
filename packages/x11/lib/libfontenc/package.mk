@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain util-macros xproto zlib font-util"
 PKG_SECTION="x11/lib"
 PKG_SHORTDESC="libfontenc: X11 font encoding library"
 PKG_LONGDESC="Libfontenc is a library which helps font libraries portably determine and deal with different encodings of fonts."
-PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"
 

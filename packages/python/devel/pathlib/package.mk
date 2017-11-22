@@ -27,10 +27,7 @@ PKG_DEPENDS_HOST="Python3:host"
 PKG_SECTION="python/devel"
 PKG_SHORTDESC="This module offers a set of classes featuring all the common operations on paths in an easy, object-oriented way"
 PKG_LONGDESC="This module offers a set of classes featuring all the common operations on paths in an easy, object-oriented way"
-
-make_host() {
-  :
-}
+PKG_TOOLCHAIN="manual"
 
 makeinstall_host() {
   python3 setup.py install --prefix=$TOOLCHAIN

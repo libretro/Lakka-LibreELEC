@@ -27,6 +27,5 @@ PKG_DEPENDS_TARGET="toolchain alsa-lib SDL2"
 PKG_SECTION="tools"
 PKG_SHORTDESC="mpg123"
 PKG_LONGDESC="A fast MP3 Player"
-PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-shared --enable-static"

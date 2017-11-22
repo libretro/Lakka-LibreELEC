@@ -30,7 +30,6 @@ PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_SECTION="driver/dvb"
 PKG_SHORTDESC="A linux DVB driver for the HDHomeRun TV tuner (http://www.silicondust.com)."
 PKG_LONGDESC="A linux DVB driver for the HDHomeRun TV tuner (http://www.silicondust.com)."
-PKG_AUTORECONF="no"
 PKG_IS_KERNEL_PKG="yes"
 
 PKG_CMAKE_SCRIPT="userhdhomerun/CMakeLists.txt"

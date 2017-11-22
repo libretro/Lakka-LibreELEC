@@ -27,11 +27,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="firmware"
 PKG_SHORTDESC="brcmfmac_sdio-firmware: firmware for brcm bluetooth chips used on RaspberryPi devices"
 PKG_LONGDESC="Firmware for Broadcom Bluetooth chips used on RaspberryPi devices, and brcm-patchram-plus that downloads a patchram files in the HCD format to the Bluetooth based silicon and combo chips and other utility functions."
-PKG_AUTORECONF="no"
-
-make_target() {
-  : # nothing todo
-}
+PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
   DESTDIR=$INSTALL/$(get_kernel_overlay_dir) ./install

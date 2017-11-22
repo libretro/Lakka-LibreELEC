@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-snes9x2010"
 PKG_SECTION=""
 PKG_SHORTDESC="game.libretro.snes9x2010: snes9x2010 for Kodi"
 PKG_LONGDESC="game.libretro.snes9x2010: snes9x2010 for Kodi"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.gameclient"

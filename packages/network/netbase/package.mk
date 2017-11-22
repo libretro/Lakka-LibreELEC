@@ -27,11 +27,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="network"
 PKG_SHORTDESC="The netbase package provides data for network services and protocols from the iana db."
 PKG_LONGDESC="The netbase package provides data for network services and protocols from the iana db."
-PKG_AUTORECONF="no"
-
-make_target() {
-  :
-}
+PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
   mkdir -p $INSTALL/etc

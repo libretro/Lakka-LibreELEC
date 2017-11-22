@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="python/web"
 PKG_SHORTDESC="cxxtools: a collection of general-purpose C++ classes"
 PKG_LONGDESC="Cxxtools is a collection of general-purpose C++ classes"
-PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_HOST="--disable-demos --with-atomictype=pthread --disable-unittest"
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --disable-demos --with-atomictype=pthread --disable-unittest"

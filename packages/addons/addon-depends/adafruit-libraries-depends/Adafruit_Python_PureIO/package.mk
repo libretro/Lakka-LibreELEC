@@ -27,12 +27,4 @@ PKG_DEPENDS_TARGET="toolchain Python2 distutilscross:host"
 PKG_SECTION="python"
 PKG_SHORTDESC="Pure python access to Linux IO including I2C and SPI."
 PKG_LONGDESC="Pure python access to Linux IO including I2C and SPI. Drop in replacement for smbus and spidev modules."
-PKG_AUTORECONF="no"
-
-make_target() {
-  : # nop
-}
-
-makeinstall_target() {
-  : # nop
-}
+PKG_TOOLCHAIN="manual"

@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain systemd glib"
 PKG_SECTION="system"
 PKG_SHORTDESC="irqbalanced: distribute hardware interrupts across processors on a multiprocessor system."
 PKG_LONGDESC="irqbalanced: distribute hardware interrupts across processors on a multiprocessor system."
-PKG_AUTORECONF="no"
+PKG_TOOLCHAIN="configure"
 
 pre_configure_target() {
   sh -c ./autogen.sh

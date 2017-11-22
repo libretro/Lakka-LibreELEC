@@ -29,7 +29,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-mupen64plus"
 PKG_SECTION=""
 PKG_SHORTDESC="game.libretro.mupen64plus: Mupen 64 Plus emulator for Kodi"
 PKG_LONGDESC="game.libretro.mupen64plus: Mupen 64 Plus emulator for Kodi"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.gameclient"

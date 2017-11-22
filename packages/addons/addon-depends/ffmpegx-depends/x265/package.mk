@@ -26,7 +26,7 @@ PKG_URL="https://github.com/videolan/x265/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="multimedia"
 PKG_LONGDESC="x265 is a H.265/HEVC video encoder application library"
-PKG_AUTORECONF="no"
+PKG_TOOLCHAIN="make"
 
 pre_configure_target() {
   LDFLAGS="$LDFLAGS -ldl"

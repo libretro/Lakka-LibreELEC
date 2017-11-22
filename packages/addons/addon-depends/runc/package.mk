@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain go:host"
 PKG_SECTION="system"
 PKG_SHORTDESC="runc is a CLI tool for spawning and running containers according to the OCI specification"
 PKG_LONGDESC="runc is a CLI tool for spawning and running containers according to the OCI specification"
-PKG_AUTORECONF="no"
+PKG_TOOLCHAIN="manual"
 
 pre_make_target() {
   case $TARGET_ARCH in
@@ -67,8 +67,4 @@ pre_make_target() {
 make_target() {
   mkdir -p bin
   $GOLANG build -v -o bin/runc -a -tags "cgo static_build" -ldflags "$LDFLAGS" ./
-}
-
-makeinstall_target() {
-  :
 }

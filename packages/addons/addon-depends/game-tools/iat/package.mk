@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="system"
 PKG_SHORTDESC="Iso9660 Analyzer Tool, this tool have engine for detect many structure of image file"
 PKG_LONGDESC="Iso9660 Analyzer Tool, this tool have engine for detect many structure of image file"
-PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes"
 

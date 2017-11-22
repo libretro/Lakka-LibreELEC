@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain busybox"
 PKG_SECTION="system"
 PKG_SHORTDESC="bkeymaps: binary keyboard maps for busybox"
 PKG_LONGDESC="bkeymaps: binary keyboard maps for busybox"
-PKG_AUTORECONF="no"
 
 make_target() {
   : # nothing todo, we install manually

@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-tgbdual"
 PKG_SECTION=""
 PKG_SHORTDESC="game.libretro.tgbdual: tgbdual for Kodi"
 PKG_LONGDESC="game.libretro.tgbdual: tgbdual for Kodi"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.gameclient"

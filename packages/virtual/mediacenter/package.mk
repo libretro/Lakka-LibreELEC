@@ -26,7 +26,6 @@ PKG_DEPENDS_TARGET="toolchain $MEDIACENTER"
 PKG_SECTION="virtual"
 PKG_SHORTDESC="Mediacenter: Metapackage"
 PKG_LONGDESC="Mediacenter: Metapackage"
-PKG_AUTORECONF="no"
 
 if [ "$MEDIACENTER" = "kodi" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $MEDIACENTER-theme-$SKIN_DEFAULT"

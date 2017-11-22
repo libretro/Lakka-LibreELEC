@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain vdr"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="vdr-plugin-eepg"
 PKG_LONGDESC="This plugin parses the Extended (2 to 10 day) EPG data which is send by providers on their portal channels. This EEPG data is transmitted in a non-standard format on a non-standard PID."
-PKG_AUTORECONF="no"
 
 make_target() {
   VDR_DIR=$(get_build_dir vdr)

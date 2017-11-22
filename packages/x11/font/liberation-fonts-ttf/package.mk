@@ -27,11 +27,7 @@ PKG_DEPENDS_TARGET="toolchain util-macros"
 PKG_SECTION="x11/fonts"
 PKG_SHORTDESC="liberation-fonts: High quality "open-sourced" vector fonts"
 PKG_LONGDESC="This packages included the high-quality and open-sourced TrueType vector fonts released by RedHat."
-PKG_AUTORECONF="no"
-
-make_target() {
-  : # nothing to make
-}
+PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/share/fonts/liberation

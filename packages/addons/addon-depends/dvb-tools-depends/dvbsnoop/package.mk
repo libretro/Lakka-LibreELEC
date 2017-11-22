@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="tools"
 PKG_SHORTDESC="dvbsnoop is a DVB/MPEG stream analyzer program"
 PKG_LONGDESC="dvbsnoop is a DVB/MPEG stream analyzer program"
-PKG_AUTORECONF="yes"
+PKG_TOOLCHAIN="autotools"
 
 makeinstall_target() {
   :

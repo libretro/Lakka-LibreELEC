@@ -27,7 +27,6 @@ PKG_DEPENDS_HOST="ccache:host m4:host gettext:host"
 PKG_SECTION="toolchain/devel"
 PKG_SHORTDESC="autoconf: A GNU tool for automatically configuring source code"
 PKG_LONGDESC="Autoconf is an extensible package of m4 macros that produce shell scripts to automatically configure software source code packages. These scripts can adapt the packages to many kinds of UNIX-like systems without manual user intervention. Autoconf creates a configuration script for a package from a template file that lists the operating system features that the package can use, in the form of m4 macro calls."
-PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_HOST="EMACS=no \
                          ac_cv_path_M4=$TOOLCHAIN/bin/m4 \

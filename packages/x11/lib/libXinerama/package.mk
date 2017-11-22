@@ -27,6 +27,5 @@ PKG_DEPENDS_TARGET="toolchain util-macros xineramaproto libXext"
 PKG_SECTION="x11/lib"
 PKG_SHORTDESC="libXinerama: The Xinerama library."
 PKG_LONGDESC="libXinerama is the Xinerama library."
-PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --enable-malloc0returnsnull"

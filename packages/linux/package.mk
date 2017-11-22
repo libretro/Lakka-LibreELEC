@@ -27,7 +27,6 @@ PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_SECTION="linux"
 PKG_SHORTDESC="linux26: The Linux kernel 2.6 precompiled kernel binary image and modules"
 PKG_LONGDESC="This package contains a precompiled kernel image and the modules."
-PKG_AUTORECONF="no"
 PKG_IS_KERNEL_PKG="yes"
 
 case "$LINUX" in

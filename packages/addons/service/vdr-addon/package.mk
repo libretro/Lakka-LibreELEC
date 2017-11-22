@@ -28,20 +28,12 @@ PKG_DEPENDS_TARGET="toolchain vdr vdr-plugin-dummydevice vdr-plugin-dvbapi vdr-p
 PKG_SECTION="service.multimedia"
 PKG_SHORTDESC="VDR: a TV streaming server for Linux"
 PKG_LONGDESC="VDR (2.2.0) is a TV streaming server for Linux supporting DVB-S/S2, DVB-C, DVB-T/T2, IPTV and SAT>IP"
-PKG_AUTORECONF="no"
+PKG_TOOLCHAIN="manual"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="VDR PVR Backend"
 PKG_ADDON_TYPE="xbmc.service"
 PKG_ADDON_REQUIRES="pvr.vdr.vnsi:0.0.0 script.config.vdr:0.0.0"
-
-make_target() {
-  : # nothing to do here
-}
-
-makeinstall_target() {
-  : # nothing to do here
-}
 
 addon() {
   VDR_DIR="$(get_build_dir vdr)"

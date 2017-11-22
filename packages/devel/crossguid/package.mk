@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain util-linux"
 PKG_SECTION="devel"
 PKG_SHORTDESC="minimal, cross platform, C++ GUID library"
 PKG_LONGDESC="minimal, cross platform, C++ GUID library"
-PKG_AUTORECONF="no"
+PKG_TOOLCHAIN="manual"
 
 make_target() {
   $CXX -c guid.cpp -o guid.o $CXXFLAGS -std=c++11 -DGUID_LIBUUID

@@ -27,12 +27,4 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION=""
 PKG_SHORTDESC="Shared C code for the implementation of Nvidia's GameStream protocol"
 PKG_LONGDESC="Shared C code for the implementation of Nvidia's GameStream protocol"
-PKG_AUTORECONF="no"
-
-make_target() {
-  :
-}
-
-makeinstall_target() {
-  :
-}
+PKG_TOOLCHAIN="manual"

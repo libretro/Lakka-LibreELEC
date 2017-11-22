@@ -26,7 +26,6 @@ PKG_DEPENDS_TARGET="toolchain libc:init busybox:init linux:init plymouth-lite:in
 PKG_SECTION="virtual"
 PKG_SHORTDESC="initramfs: Metapackage for installing initramfs"
 PKG_LONGDESC="debug is a Metapackage for installing initramfs"
-PKG_AUTORECONF="no"
 
 if [ "$ISCSI_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET open-iscsi:init"

@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain libxml2 glib"
 PKG_SECTION="devel"
 PKG_SHORTDESC="libplist: a library for manipulating Apple Binary and XML Property Lists"
 PKG_LONGDESC="libplist is a library for manipulating Apple Binary and XML Property Lists"
-PKG_AUTORECONF="yes"
+PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--without-cython"
 

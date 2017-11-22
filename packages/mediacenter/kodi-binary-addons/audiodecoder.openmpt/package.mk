@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform libopenmpt"
 PKG_SECTION=""
 PKG_SHORTDESC="audiodecoder.openmpt"
 PKG_LONGDESC="audiodecoder.openmpt"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.audiodecoder"

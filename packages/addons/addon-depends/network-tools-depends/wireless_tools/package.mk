@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="debug/tools"
 PKG_SHORTDESC="wireless-tools: tools allowing to manipulate the Wireless Extensions"
 PKG_LONGDESC="The Wireless Tools (WT) is a set of tools allowing to manipulate the Wireless Extensions. They use a textual interface and are rather crude, but aim to support the full Wireless Extension. There are many other tools you can use with Wireless Extensions, however Wireless Tools is the reference implementation."
-PKG_AUTORECONF="no"
 
 pre_configure_Target() {
   # wireless_tools fails to build on some systems with LTO enabled

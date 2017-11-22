@@ -28,7 +28,7 @@ PKG_DEPENDS_TARGET="toolchain libdvbcsa"
 PKG_SECTION="tools"
 PKG_SHORTDESC="MuMuDVB (Multi Multicast DVB) is a program that streams from DVB on a network using multicasting or unicast"
 PKG_LONGDESC="MuMuDVB (Multi Multicast DVB) is a program that streams from DVB on a network using multicasting or unicast"
-PKG_AUTORECONF="yes"
+PKG_TOOLCHAIN="autotools"
 
 makeinstall_target() {
   :

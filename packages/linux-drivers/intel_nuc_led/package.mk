@@ -28,7 +28,6 @@ PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_SECTION="driver"
 PKG_SHORTDESC="Intel NUC7i[x]BN and NUC6CAY LED Control for Linux"
 PKG_LONGDESC="Intel NUC7i[x]BN and NUC6CAY LED Control for Linux"
-PKG_AUTORECONF="no"
 PKG_IS_KERNEL_PKG="yes"
 
 pre_make_target() {

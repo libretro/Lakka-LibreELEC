@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-nestopia"
 PKG_SECTION=""
 PKG_SHORTDESC="game.libretro.nestopia: Nestopia emulator for Kodi"
 PKG_LONGDESC="game.libretro.nestopia: Nestopia emulator for Kodi"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.gameclient"

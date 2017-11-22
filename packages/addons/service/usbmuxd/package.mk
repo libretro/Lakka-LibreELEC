@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain libusb libimobiledevice"
 PKG_SECTION="service"
 PKG_SHORTDESC="USB Multiplex Daemon"
 PKG_LONGDESC="USB Multiplex Daemon"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="iPhone Tether"

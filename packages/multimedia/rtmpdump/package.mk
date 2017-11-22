@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain zlib openssl"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="rtmpdump: a toolkit for RTMP streams."
 PKG_LONGDESC="rtmpdump is a toolkit for RTMP streams. All forms of RTMP are supported, including rtmp://, rtmpt://, rtmpe://, rtmpte://, and rtmps://."
-PKG_AUTORECONF="no"
 
 MAKEFLAGS="-j1"
 

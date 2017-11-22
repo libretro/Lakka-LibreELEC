@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-picodrive"
 PKG_SECTION=""
 PKG_SHORTDESC="game.libretro.picodrive: picodrive for Kodi"
 PKG_LONGDESC="game.libretro.picodrive: picodrive for Kodi"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.gameclient"

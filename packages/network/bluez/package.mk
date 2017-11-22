@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain dbus glib readline systemd"
 PKG_SECTION="network"
 PKG_SHORTDESC="bluez: Bluetooth Tools and System Daemons for Linux."
 PKG_LONGDESC="Bluetooth Tools and System Daemons for Linux."
-PKG_AUTORECONF="yes"
+PKG_TOOLCHAIN="autotools"
 
 if [ "$DEBUG" = "yes" ]; then
   BLUEZ_CONFIG="--enable-debug"

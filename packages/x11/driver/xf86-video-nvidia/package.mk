@@ -31,7 +31,7 @@ PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_SECTION="x11/driver"
 PKG_SHORTDESC="xf86-video-nvidia: The Xorg driver for NVIDIA video chips"
 PKG_LONGDESC="These binary drivers provide optimized hardware acceleration of OpenGL applications via a direct-rendering X Server. AGP, PCIe, SLI, TV-out and flat panel displays are also supported. This version only supports GeForce 8xxx and higher of the Geforce GPUs plus complimentary Quadros and nforce."
-PKG_AUTORECONF="no"
+PKG_TOOLCHAIN="manual"
 
 unpack() {
   [ -d $PKG_BUILD ] && rm -rf $PKG_BUILD

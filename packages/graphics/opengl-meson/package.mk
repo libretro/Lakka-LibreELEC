@@ -41,11 +41,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="graphics"
 PKG_SHORTDESC="opengl-meson: OpenGL ES pre-compiled libraries for Mali GPUs found in Amlogic Meson SoCs"
 PKG_LONGDESC="opengl-meson: OpenGL ES pre-compiled libraries for Mali GPUs found in Amlogic Meson SoCs. The libraries could be found in a Linux buildroot released by Amlogic at http://openlinux.amlogic.com:8000/download/ARM/filesystem/. See the opengl package."
-PKG_AUTORECONF="no"
-
-make_target() {
- : # nothing todo
-}
+PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
   mkdir -p $SYSROOT_PREFIX/usr/include

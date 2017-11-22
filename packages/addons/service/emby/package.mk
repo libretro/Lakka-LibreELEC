@@ -27,6 +27,7 @@ PKG_DEPENDS_TARGET="toolchain ffmpegx imagemagick"
 PKG_SECTION="service"
 PKG_SHORTDESC="Emby Server: a personal media server"
 PKG_LONGDESC="Emby Server ($PKG_VERSION) brings your home videos, music, and photos together, automatically converting and streaming your media on-the-fly to any device"
+PKG_TOOLCHAIN="manual"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Emby Server"
@@ -36,14 +37,6 @@ PKG_MAINTAINER="Anton Voyl (awiouy)"
 
 unpack() {
   mkdir -p $PKG_BUILD
-}
-
-make_target() {
-  : # nop
-}
-
-makeinstall_target() {
-  : # nop
 }
 
 addon() {

@@ -27,6 +27,5 @@ PKG_DEPENDS_TARGET="toolchain freetype"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="a free cross-platform Open Source C++ library that uses Freetype2 to simplify rendering fonts in OpenGL applications"
 PKG_LONGDESC="a free cross-platform Open Source C++ library that uses Freetype2 to simplify rendering fonts in OpenGL applications"
-PKG_AUTORECONF="no"
 
 PKG_CMAKE_OPTS_TARGET="-DOUTPUT_DIR=$SYSROOT_PREFIX/usr"

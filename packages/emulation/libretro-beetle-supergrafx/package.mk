@@ -28,8 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="Standalone port of Mednafen PCE Fast to libretro. This one only emulates a SuperGrafx TG-16"
 PKG_LONGDESC="Standalone port of Mednafen PCE Fast to libretro. This one only emulates a SuperGrafx TG-16"
-PKG_AUTORECONF="no"
-PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="mednafen_supergrafx_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"

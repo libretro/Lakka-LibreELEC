@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain go:host"
 PKG_SECTION="system"
 PKG_SHORTDESC="Libnetwork provides a native Go implementation for connecting containers"
 PKG_LONGDESC="Libnetwork provides a native Go implementation for connecting containers"
-PKG_AUTORECONF="no"
+PKG_TOOLCHAIN="manual"
 
 pre_make_target() {
   case $TARGET_ARCH in
@@ -65,8 +65,4 @@ pre_make_target() {
 make_target() {
   mkdir -p bin
   $GOLANG build -v -o bin/docker-proxy -a -ldflags "$LDFLAGS" ./cmd/proxy
-}
-
-makeinstall_target() {
-  :
 }

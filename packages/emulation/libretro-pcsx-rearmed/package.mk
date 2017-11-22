@@ -28,16 +28,11 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.pcsx-rearmed: PCSX Rearmed for Kodi"
 PKG_LONGDESC="game.libretro.pcsx-rearmed: PCSX Rearmed for Kodi"
-PKG_AUTORECONF="no"
-PKG_USE_CMAKE="no"
+PKG_TOOLCHAIN="manual"
 
 PKG_LIBNAME="pcsx_rearmed_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"
 PKG_LIBVAR="PCSX-REARMED_LIB"
-
-configure_target() {
-  :
-}
 
 pre_make_target() {
   strip_gold

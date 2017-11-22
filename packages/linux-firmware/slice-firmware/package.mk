@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain dtc:host"
 PKG_SECTION="linux-firmware"
 PKG_SHORTDESC="BCM270x firmware related stuff for Slice"
 PKG_LONGDESC="BCM270x firmware related stuff for Slice"
-PKG_AUTORECONF="no"
+PKG_TOOLCHAIN="manual"
 
 make_target() {
   if [ "$DEVICE" = "Slice3" ]; then

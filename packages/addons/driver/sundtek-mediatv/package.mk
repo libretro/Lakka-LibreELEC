@@ -27,11 +27,11 @@ PKG_DEPENDS_TARGET=""
 PKG_SECTION="driver/dvb"
 PKG_SHORTDESC="Sundtek MediaTV: a Linux driver to add support for SUNDTEK USB DVB devices"
 PKG_LONGDESC="Install this to add support for Sundtek USB DVB devices."
+PKG_TOOLCHAIN="manual"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Sundtek MediaTV"
 PKG_ADDON_TYPE="xbmc.service"
-PKG_AUTORECONF="no"
 
 make_target() {
   mkdir -p $PKG_BUILD
@@ -60,10 +60,6 @@ make_target() {
   rm -fr opt/lib/pm/
 
   wget -O version.used http://sundtek.de/media/latest.phtml
-}
-
-makeinstall_target() {
-  : # nothing to do here
 }
 
 addon() {

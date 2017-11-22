@@ -28,11 +28,7 @@ PKG_DEPENDS_HOST="toolchain"
 PKG_SECTION="lang"
 PKG_SHORTDESC=""
 PKG_LONGDESC=""
-PKG_AUTORECONF="no"
-
-make_host() {
-  :
-}
+PKG_TOOLCHAIN="manual"
 
 makeinstall_host() {
   mkdir -p $TOOLCHAIN/lib/gcc-linaro-arm-eabi/

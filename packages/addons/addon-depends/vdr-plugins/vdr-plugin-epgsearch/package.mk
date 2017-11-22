@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain vdr"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="vdr-epgsearch"
 PKG_LONGDESC="vdr-epgsearch"
-PKG_AUTORECONF="no"
 
 make_target() {
   VDR_DIR=$(get_build_dir vdr)

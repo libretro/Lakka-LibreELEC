@@ -27,7 +27,6 @@ PKG_DEPENDS_HOST=""
 PKG_SECTION="tools"
 PKG_SHORTDESC="mkbootimg: Creates kernel boot images for Android"
 PKG_LONGDESC="mkbootimg: Creates kernel boot images for Android"
-PKG_AUTORECONF="no"
 
 makeinstall_host() {
   mkdir -p $SYSROOT_PREFIX/usr/include

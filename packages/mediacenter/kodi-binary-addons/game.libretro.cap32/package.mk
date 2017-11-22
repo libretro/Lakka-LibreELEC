@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-cap32"
 PKG_SECTION=""
 PKG_SHORTDESC="game.libretro.cap32: cap32 for Kodi"
 PKG_LONGDESC="game.libretro.cap32: cap32 for Kodi"
-PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.gameclient"
