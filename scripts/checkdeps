@@ -34,9 +34,18 @@ get_deps() {
     file=${files[$i]}
     file_pkg=${files_pkg[$i]}
     installed=N
-    [ "$(type -t "test_$file_pkg")" == "function" ] && test_$file_pkg && installed=Y
     [ $installed == N -a -f "$file" ] && installed=Y
     [ $installed == N ] && need+=($file) && need_pkg+=("$file_pkg")
+  done
+
+  for i in "${!perl_mod[@]}"; do
+    mod=${perl_mod[$i]}
+    pkg=${perl_pkg[$i]}
+
+    if ! perl -M"$mod" -e exit 2>/dev/null; then
+      need+=(perl::$mod)
+      need_pkg+=($pkg)
+    fi
   done
 }
 
@@ -47,21 +56,6 @@ get_yes_no()
   [ "${ans,,}" == "y" ] && return 0
   [ "${ans,,}" == "yes" ] && return 0
   return 1
-}
-
-test_libjson-perl()
-{
-  perl -MJSON -e 'exit(0);' 2>/dev/null
-}
-
-test_perl-json()
-{
-  test_libjson-perl
-}
-
-test_perl-JSON()
-{
-  test_libjson-perl
 }
 
 if  [ -f /etc/lsb-release ]; then
@@ -78,6 +72,8 @@ deps_pkg=(wget bash bc gcc sed patch patchutils tar bzip2 gzip perl gawk gperf z
 files=(/usr/include/stdio.h /usr/include/ncurses.h)
 files_pkg=(libc6-dev libncurses5-dev)
 
+perl_mod=(JSON)
+
 case "$DISTRO" in
     fedora|centos|rhel)
       deps+=(g++ mkfontscale mkfontdir bdftopcf xsltproc java python)
@@ -85,41 +81,31 @@ case "$DISTRO" in
       [[ ! `rpm -qa glibc-static` ]] && deps+=(glibc-static) && deps_pkg+=(glibc-static)
       [[ ! `rpm -qa libstdc++-static` ]] && deps+=(libstdc++-static) && deps_pkg+=(libstdc++-static)
       files_pkg=(glibc-headers ncurses-devel)
+      perl_pkg=(perl-JSON)
       ;;
     gentoo)
       deps+=(g++ mkfontscale mkfontdir bdftopcf xsltproc java python)
       deps_pkg+=("gcc[cxx]" mkfontscale mkfontdir bdftopcf libxslt virtual/jre python)
       files_pkg=(glibc ncurses)
+      perl_pkg=(JSON)
       ;;
     arch)
       deps+=(g++ mkfontscale mkfontdir bdftopcf xsltproc java python)
       deps_pkg+=(g++ xorg-mkfontscale xorg-mkfontdir xorg-bdftopcf libxslt "java-runtime-common jdk8-openjdk" python2)
+      perl_pkg=(perl-json)
       ;;
     opensuse)
       deps+=( g++ mkfontscale mkfontdir bdftopcf xsltproc java python)
       deps_pkg+=(gcc-c++ mkfontscale mkfontdir bdftopcf libxslt-tools java-1_8_0-openjdk python)
       [[ ! `rpm -qa glibc-devel-static` ]] && deps+=(glibc-devel-static) && deps_pkg+=(glibc-devel-static)
+      perl_pkg=(perl-JSON)
       ;;
     *)
       deps+=(g++ mkfontscale mkfontdir bdftopcf xsltproc java python)
       deps_pkg+=(g++ xfonts-utils xfonts-utils xfonts-utils xsltproc default-jre python)
+      perl_pkg=(libjson-perl)
       ;;
 esac
-
-if ! test_libjson-perl; then
-  files+=(perl/JSON.pm)
-  case "$DISTRO" in
-    arch)
-      files_pkg+=(perl-json)
-      ;;
-    fedora|centos|rhel|opensuse)
-      files_pkg+=(perl-JSON)
-      ;;
-    *)
-      files_pkg+=(libjson-perl)
-      ;;
-    esac
-fi
 
 # project specific dependencies
 if [ -n "$EXTRA_DEPS" ] ; then
