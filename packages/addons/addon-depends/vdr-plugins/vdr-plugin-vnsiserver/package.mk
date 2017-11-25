@@ -17,16 +17,16 @@
 ################################################################################
 
 PKG_NAME="vdr-plugin-vnsiserver"
-PKG_VERSION="615a077"
-PKG_SHA256="7a3fcacd4113d5352a14b7172260da32d1c0621de9e4eb6d3eb0cb64be968154"
+PKG_VERSION="63d8151"
+PKG_SHA256="acc297c0cc9cd117c6de0b9f1fe0d9c02cd4e8e1abb66da4de34747460ec51e0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/FernetMenta/vdr-plugin-vnsiserver"
 PKG_URL="https://github.com/FernetMenta/vdr-plugin-vnsiserver/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain vdr"
 PKG_SECTION="multimedia"
-PKG_SHORTDESC="TV"
-PKG_LONGDESC="TV"
+PKG_SHORTDESC="VDR plugin to handle Kodi clients."
+PKG_LONGDESC="VDR plugin to handle Kodi clients."
 
 make_target() {
   VDR_DIR=$(get_build_dir vdr)
