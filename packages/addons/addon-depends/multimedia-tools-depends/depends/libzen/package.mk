@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="libzen"
-PKG_VERSION="0.4.33"
-PKG_SHA256="a289197a24ca94c506abab3113a1af2dcc82bc97736b23e02fd57ca99e8ac55f"
+PKG_VERSION="0.4.37"
+PKG_SHA256="401c34d93056a95f8392982f856d1371c5de6aec373d84dcbb356e1f473d0452"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://mediaarea.net/en/MediaInfo/"
-PKG_URL="http://mediaarea.net/download/source/libzen/$PKG_VERSION/libzen_$PKG_VERSION.tar.bz2"
+PKG_URL="http://mediaarea.net/download/source/${PKG_NAME}/${PKG_VERSION}/${PKG_NAME}_${PKG_VERSION}.tar.xz"
 PKG_SOURCE_DIR="ZenLib"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="multimedia"
