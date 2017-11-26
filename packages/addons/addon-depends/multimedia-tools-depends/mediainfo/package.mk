@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="mediainfo"
-PKG_VERSION="0.7.83"
-PKG_SHA256="11dfd8aec6607a7fc7da1aff79b3e2bf765ee26787732da0b65d595cb20b9168"
+PKG_VERSION="17.10"
+PKG_SHA256="0c1130cfa1878592f1225097a1814126378abbcc33926cdfff6bcc99422670fb"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://mediaarea.net/en/MediaInfo/Download/Source"
-PKG_URL="http://mediaarea.net/download/source/mediainfo/$PKG_VERSION/mediainfo_$PKG_VERSION.tar.bz2"
+PKG_URL="http://mediaarea.net/download/source/${PKG_NAME}/${PKG_VERSION}/${PKG_NAME}_${PKG_VERSION}.tar.xz"
 PKG_SOURCE_DIR="MediaInfo"
 PKG_DEPENDS_TARGET="toolchain libmediainfo"
 PKG_SECTION="tools"
@@ -31,7 +31,8 @@ PKG_LONGDESC="MediaInfo is a convenient unified display of the most relevant tec
 PKG_TOOLCHAIN="manual"
 
 pre_configure_target() {
-  export LDFLAGS="$LDFLAGS -lmediainfo"
+  export LDFLAGS="$LDFLAGS -L$(get_build_dir libmediainfo)/Project/GNU/Library/.libs -L$(get_build_dir libzen)/Project/GNU/Library/.libs"
+  export LIBS="-lmediainfo -lzen"
 }
 
 make_target() {
