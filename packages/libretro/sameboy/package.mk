@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="sameboy"
-PKG_VERSION="8d69156"
+PKG_VERSION="8c9ff67"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
@@ -35,7 +35,9 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  make -f Makefile.libretro
+  cd libretro
+  make -f Makefile
+  cd ..
 }
 
 makeinstall_target() {

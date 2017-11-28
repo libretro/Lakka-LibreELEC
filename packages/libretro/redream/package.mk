@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="redream"
-PKG_VERSION="2d098bb"
+PKG_VERSION="2bd4046"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
@@ -38,9 +38,11 @@ PKG_USE_CMAKE="no"
 make_target() {
   cd $PKG_BUILD
   if [ "$ARCH" == "arm" ]; then
-    make -f deps/libretro/Makefile CC=$CC CXX=$CXX FORCE_GLES=1 WITH_DYNAREC=arm HAVE_NEON=1
+    cd deps/libretro
+    make -f Makefile CC=$CC CXX=$CXX FORCE_GLES=1 WITH_DYNAREC=arm HAVE_NEON=1
   else
-    make -f deps/libretro/Makefile
+    cd deps/libretro
+    make -f Makefile
   fi
 }
 
