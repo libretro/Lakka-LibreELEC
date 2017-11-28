@@ -1,26 +1,25 @@
 diff --git a/arch/arm/dts/Makefile b/arch/arm/dts/Makefile
-index 9cc5c1e0aa..a3ef6854c2 100644
+old mode 100644
+new mode 100755
+index d1bd78c..f268593
 --- a/arch/arm/dts/Makefile
 +++ b/arch/arm/dts/Makefile
-@@ -318,6 +318,7 @@ dtb-$(CONFIG_MACH_SUN8I_H3) += \
+@@ -317,6 +317,7 @@ dtb-$(CONFIG_MACH_SUN8I_H3) += \
+ 	sun8i-h3-orangepi-2.dtb \
+ 	sun8i-h3-orangepi-lite.dtb \
+ 	sun8i-h3-orangepi-one.dtb \
++	sun8i-h3-beelink-x2.dtb \
+ 	sun8i-h3-orangepi-pc.dtb \
  	sun8i-h3-orangepi-pc-plus.dtb \
  	sun8i-h3-orangepi-plus.dtb \
- 	sun8i-h3-orangepi-plus2e.dtb \
-+	sun8i-h3-orangepi-zeroplus2.dtb \
- 	sun8i-h3-nanopi-m1.dtb \
- 	sun8i-h3-nanopi-m1-plus.dtb \
- 	sun8i-h3-nanopi-neo.dtb \
-diff --git a/arch/arm/dts/sun8i-h3-orangepi-zeroplus2.dts b/arch/arm/dts/sun8i-h3-orangepi-zeroplus2.dts
-new file mode 100644
-index 0000000000..b03e3a51a2
+diff --git a/arch/arm/dts/sun8i-h3-beelink-x2.dts b/arch/arm/dts/sun8i-h3-beelink-x2.dts
+new file mode 100755
+index 0000000..515a3da
 --- /dev/null
-+++ b/arch/arm/dts/sun8i-h3-orangepi-zeroplus2.dts
-@@ -0,0 +1,175 @@
++++ b/arch/arm/dts/sun8i-h3-beelink-x2.dts
+@@ -0,0 +1,88 @@
 +/*
-+ * Copyright (C) 2016 Icenowy Zheng <icenowy@aosc.xyz>
-+ *
-+ * Based on sun8i-h3-orangepi-one.dts, which is:
-+ *   Copyright (C) 2016 Hans de Goede <hdegoede@redhat.com>
++ * Copyright (C) 2016 Hans de Goede <hdegoede@redhat.com>
 + *
 + * This file is dual-licensed: you can use it either under the terms
 + * of the GPL or the X11 license, at your option. Note that this dual
@@ -61,100 +60,33 @@ index 0000000000..b03e3a51a2
 + *     OTHER DEALINGS IN THE SOFTWARE.
 + */
 +
-+/dts-v1/;
-+#include "sun8i-h3.dtsi"
-+#include "sunxi-common-regulators.dtsi"
-+
-+#include <dt-bindings/gpio/gpio.h>
-+#include <dt-bindings/input/input.h>
-+#include <dt-bindings/pinctrl/sun4i-a10.h>
++/* The Orange Pi PC Plus is an extended version of the regular PC */
++#include "sun8i-h3-orangepi-pc.dts"
 +
 +/ {
-+	model = "Xunlong Orange Pi Zero Plus 2";
-+	compatible = "xunlong,orangepi-zeroplus", "allwinner,sun8i-h3";
++	model = "Beelink X2";
++	compatible = "xunlong,orangepi-pc-plus", "allwinner,sun8i-h3";
 +
 +	aliases {
-+		serial0 = &uart0;
 +		/* ethernet0 is the H3 emac, defined in sun8i-h3.dtsi */
-+		ethernet1 = &brcmf;
++		ethernet1 = &rtl8189ftv;
 +	};
-+
-+	chosen {
-+		stdout-path = "serial0:115200n8";
-+	};
-+
-+	leds {
-+		compatible = "gpio-leds";
-+
-+		pwr_led {
-+			label = "orangepi:green:pwr";
-+			gpios = <&r_pio 0 10 GPIO_ACTIVE_HIGH>;
-+			default-state = "on";
-+		};
-+
-+		status_led {
-+			label = "orangepi:red:status";
-+			gpios = <&pio 0 17 GPIO_ACTIVE_HIGH>;
-+		};
-+	};
-+
-+	wifi_pwrseq: wifi_pwrseq {
-+		compatible = "mmc-pwrseq-simple";
-+		pinctrl-names = "default";
-+		reset-gpios = <&pio 0 9 GPIO_ACTIVE_LOW>;
-+		post-power-on-delay-ms = <50>;
-+	};
-+};
-+
-+&ehci1 {
-+	status = "okay";
-+};
-+
-+&ehci2 {
-+	status = "okay";
-+};
-+
-+&ehci3 {
-+	status = "okay";
-+};
-+
-+&emac {
-+	phy = <&phy1>;
-+	phy-mode = "mii";
-+	allwinner,use-internal-phy;
-+	allwinner,leds-active-low;
-+	status = "okay";
-+	phy1: ethernet-phy@1 {
-+		reg = <1>;
-+	};
-+};
-+
-+&mmc0 {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&mmc0_pins_a>;
-+	vmmc-supply = <&reg_vcc3v3>;
-+	bus-width = <4>;
-+	cd-gpios = <&pio 5 6 GPIO_ACTIVE_HIGH>; /* PF6 */
-+	cd-inverted;
-+	status = "okay";
 +};
 +
 +&mmc1 {
 +	pinctrl-names = "default";
 +	pinctrl-0 = <&mmc1_pins_a>;
 +	vmmc-supply = <&reg_vcc3v3>;
-+	vqmmc-supply = <&reg_vcc3v3>;
-+	mmc-pwrseq = <&wifi_pwrseq>;
 +	bus-width = <4>;
 +	non-removable;
 +	status = "okay";
 +
-+	brcmf: bcrmf@1 {
++	/*
++	 * Explicitly define the sdio device, so that we can add an ethernet
++	 * alias for it (which e.g. makes u-boot set a mac-address).
++	 */
++	rtl8189ftv: sdio_wifi@1 {
 +		reg = <1>;
-+		compatible = "brcm,bcm4329-fmac";
-+		interrupt-parent = <&r_pio>;
-+		interrupts = <0 7 IRQ_TYPE_LEVEL_LOW>; /* PL7 / EINT7 */
-+		interrupt-names = "host-wake";
 +	};
 +};
 +
@@ -168,51 +100,36 @@ index 0000000000..b03e3a51a2
 +	status = "okay";
 +};
 +
-+&ohci1 {
-+	status = "okay";
++&mmc2_8bit_pins {
++	/* Increase drive strength for DDR modes */
++	allwinner,drive = <SUN4I_PINCTRL_40_MA>;
++	/* eMMC is missing pull-ups */
++	allwinner,pull = <SUN4I_PINCTRL_PULL_UP>;
 +};
-+
-+&ohci2 {
-+	status = "okay";
-+};
-+
-+&ohci3 {
-+	status = "okay";
-+};
-+
-+&uart0 {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&uart0_pins_a>;
-+	status = "okay";
-+};
-+
-+&usbphy {
-+	/* USB VBUS is always on */
-+	status = "okay";
-+};
-+
-diff --git a/configs/orangepi_zero_plus2_h3_defconfig b/configs/orangepi_zero_plus2_h3_defconfig
-new file mode 100644
-index 0000000000..9257b7c1ed
+diff --git a/configs/beelink_x2_defconfig b/configs/beelink_x2_defconfig
+new file mode 100755
+index 0000000..098fc05
 --- /dev/null
-+++ b/configs/orangepi_zero_plus2_h3_defconfig
-@@ -0,0 +1,19 @@
++++ b/configs/beelink_x2_defconfig
+@@ -0,0 +1,21 @@
 +CONFIG_ARM=y
 +CONFIG_ARCH_SUNXI=y
 +CONFIG_MACH_SUN8I_H3=y
-+CONFIG_DRAM_CLK=408
++CONFIG_DRAM_CLK=624
 +CONFIG_DRAM_ZQ=3881979
 +CONFIG_DRAM_ODT_EN=y
-+CONFIG_DEFAULT_DEVICE_TREE="sun8i-h3-orangepi-zeroplus2"
 +CONFIG_MMC_SUNXI_SLOT_EXTRA=2
++CONFIG_DEFAULT_DEVICE_TREE="sun8i-h3-beelink-x2"
 +# CONFIG_SYS_MALLOC_CLEAR_ON_INIT is not set
 +CONFIG_SPL=y
-+CONFIG_SPL_SPI_FLASH_SUPPORT=y
-+CONFIG_SPL_SPI_SUNXI=y
++CONFIG_SPL_I2C_SUPPORT=y
 +# CONFIG_CMD_IMLS is not set
 +# CONFIG_CMD_FLASH is not set
 +# CONFIG_CMD_FPGA is not set
 +# CONFIG_SPL_DOS_PARTITION is not set
 +# CONFIG_SPL_ISO_PARTITION is not set
 +# CONFIG_SPL_EFI_PARTITION is not set
++CONFIG_SUN8I_EMAC=y
++CONFIG_SY8106A_POWER=y
 +CONFIG_USB_EHCI_HCD=y
++CONFIG_SYS_USB_EVENT_POLL_VIA_INT_QUEUE=y

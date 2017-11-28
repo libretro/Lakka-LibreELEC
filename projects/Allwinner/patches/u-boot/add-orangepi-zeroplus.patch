@@ -1,20 +1,29 @@
-diff --git a/configs/pinebook-a64_defconfig b/configs/pinebook-a64_defconfig
+diff --git a/arch/arm/dts/Makefile b/arch/arm/dts/Makefile
+index fee4680..295a675 100644
+--- a/arch/arm/dts/Makefile
++++ b/arch/arm/dts/Makefile
+@@ -333,6 +333,7 @@ dtb-$(CONFIG_MACH_SUN8I_V3S) += \
+ 	sun8i-v3s-licheepi-zero.dtb
+ dtb-$(CONFIG_MACH_SUN50I_H5) += \
+ 	sun50i-h5-nanopi-neo2.dtb \
++	sun50i-h5-orangepi-zero-plus.dtb \
+ 	sun50i-h5-nanopi-m1-plus2.dts \
+ 	sun50i-h5-nanopi-neo-plus2.dtb \
+ 	sun50i-h5-orangepi-pc2.dtb \
+diff --git a/configs/orangepizero_plus_defconfig b/configs/orangepizero_plus_defconfig
 new file mode 100644
-index 0000000000..ce4e36e5c3
+index 0000000..ff99213
 --- /dev/null
-+++ b/configs/pinebook-a64_defconfig
++++ b/configs/orangepizero_plus_defconfig
 @@ -0,0 +1,21 @@
 +CONFIG_ARM=y
 +CONFIG_ARCH_SUNXI=y
-+CONFIG_MACH_SUN50I=y
-+CONFIG_RESERVE_ALLWINNER_BOOT0_HEADER=y
-+CONFIG_SUNXI_DRAM_LPDDR3_STOCK=y
-+CONFIG_DRAM_CLK=552
-+CONFIG_DRAM_ZQ=3881949
-+CONFIG_DRAM_ODT_EN=y
-+CONFIG_MMC0_CD_PIN=""
-+CONFIG_MMC_SUNXI_SLOT_EXTRA=2
-+CONFIG_DEFAULT_DEVICE_TREE="sun50i-a64-pinebook"
++CONFIG_SPL_SPI_FLASH_SUPPORT=y
++CONFIG_MACH_SUN50I_H5=y
++CONFIG_DRAM_CLK=624
++CONFIG_DRAM_ZQ=3881977
++CONFIG_MACPWR="PD6"
++CONFIG_DEFAULT_DEVICE_TREE="sun50i-h5-orangepi-zero-plus"
 +# CONFIG_SYS_MALLOC_CLEAR_ON_INIT is not set
 +CONFIG_SPL=y
 +# CONFIG_CMD_IMLS is not set
@@ -23,29 +32,19 @@ index 0000000000..ce4e36e5c3
 +# CONFIG_SPL_DOS_PARTITION is not set
 +# CONFIG_SPL_ISO_PARTITION is not set
 +# CONFIG_SPL_EFI_PARTITION is not set
++CONFIG_SPL_SPI_SUNXI=y
 +CONFIG_SUN8I_EMAC=y
 +CONFIG_USB_EHCI_HCD=y
-diff --git a/arch/arm/dts/Makefile b/arch/arm/dts/Makefile
-index 762429c..98f57e0 100644
---- a/arch/arm/dts/Makefile
-+++ b/arch/arm/dts/Makefile
-@@ -338,7 +338,8 @@ dtb-$(CONFIG_MACH_SUN50I) += \
- 	sun50i-a64-olinuxino.dtb \
- 	sun50i-a64-orangepi-win.dtb \
- 	sun50i-a64-pine64-plus.dtb \
--	sun50i-a64-pine64.dtb
-+	sun50i-a64-pine64.dtb \
-+	sun50i-a64-pinebook.dtb
- dtb-$(CONFIG_MACH_SUN9I) += \
- 	sun9i-a80-optimus.dtb \
- 	sun9i-a80-cubieboard4.dtb \
-diff --git a/arch/arm/dts/sun50i-a64-pinebook.dts b/arch/arm/dts/sun50i-a64-pinebook.dts
++CONFIG_MMC_SUNXI_SLOT_EXTRA=2
++CONFIG_SD_BOOT=y
+diff --git a/arch/arm/dts/sun50i-h5-orangepi-zero-plus.dts b/arch/arm/dts/sun50i-h5-orangepi-zero-plus.dts
 new file mode 100644
-index 0000000..97d46d3
+index 0000000..7d12774
 --- /dev/null
-+++ b/arch/arm/dts/sun50i-a64-pinebook.dts
-@@ -0,0 +1,50 @@
++++ b/arch/arm/dts/sun50i-h5-orangepi-zero-plus.dts
+@@ -0,0 +1,113 @@
 +/*
++ * Copyright (C) 2017 Antony Antony <antony@phenome.org>
 + * Copyright (c) 2016 ARM Ltd.
 + *
 + * This file is dual-licensed: you can use it either under the terms
@@ -87,11 +86,73 @@ index 0000000..97d46d3
 + *     OTHER DEALINGS IN THE SOFTWARE.
 + */
 +
-+#include "sun50i-a64-pine64.dts"
++/dts-v1/;
++
++#include "sun50i-h5.dtsi"
++
++#include <dt-bindings/gpio/gpio.h>
 +
 +/ {
-+	model = "Pinebook A64";
-+	compatible = "pine64,pine64-pinebook", "allwinner,sun50i-a64";
++	model = "Xunlong Orange Pi Zero Plus";
++	compatible = "xunlong,orangepizero-zero-plus", "allwinner,sun50i-h5";
 +
-+	/* TODO: Everything */
++	aliases {
++		serial0 = &uart0;
++	};
++
++	chosen {
++		stdout-path = "serial0:115200n8";
++	};
++
++	memory {
++		reg = <0x40000000 0x40000000>;
++	};
++
++	reg_vcc3v3: vcc3v3 {
++		compatible = "regulator-fixed";
++		regulator-name = "vcc3v3";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++	};
++};
++
++&ehci1 {
++	status = "okay";
++};
++
++&mmc0 {
++	compatible = "allwinner,sun50i-h5-mmc",
++		     "allwinner,sun50i-a64-mmc",
++		     "allwinner,sun5i-a13-mmc";
++	pinctrl-names = "default";
++	pinctrl-0 = <&mmc0_pins_a>, <&mmc0_cd_pin>;
++	vmmc-supply = <&reg_vcc3v3>;
++	bus-width = <4>;
++	cd-gpios = <&pio 5 6 GPIO_ACTIVE_HIGH>;
++	cd-inverted;
++	status = "okay";
++};
++
++&mmc2 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&mmc2_8bit_pins>;
++	vmmc-supply = <&reg_vcc3v3>;
++	bus-width = <8>;
++	non-removable;
++	cap-mmc-hw-reset;
++	status = "okay";
++};
++
++&ohci1 {
++	status = "okay";
++};
++
++&uart0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart0_pins_a>;
++	status = "okay";
++};
++
++&usbphy {
++	status = "okay";
 +};
