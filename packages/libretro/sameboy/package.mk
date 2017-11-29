@@ -35,9 +35,9 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  cd libretro
+  cd $PKG_BUILD/libretro
   make -f Makefile
-  cd ..
+  cd $PKG_BUILD
 }
 
 makeinstall_target() {

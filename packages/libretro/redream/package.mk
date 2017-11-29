@@ -36,11 +36,11 @@ PKG_AUTORECONF="no"
 PKG_USE_CMAKE="no"
 
 make_target() {
-  cd $PKG_BUILD
+  cd $PKG_BUILD/deps/libretro
   if [ "$ARCH" == "arm" ]; then
-    make -f deps/libretro/Makefile CC=$CC CXX=$CXX FORCE_GLES=1 WITH_DYNAREC=arm HAVE_NEON=1
+    make CC=$CC CXX=$CXX FORCE_GLES=1 WITH_DYNAREC=arm HAVE_NEON=1
   else
-    make -f deps/libretro/Makefile
+    make
   fi
 }
 
