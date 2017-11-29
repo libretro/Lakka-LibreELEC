@@ -34,10 +34,12 @@ PKG_LONGDESC="Gameboy and Gameboy Color emulator written in C"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-make_target() {
-  cd $PKG_BUILD/libretro
-  make
+configure_target() {
   cd $PKG_BUILD
+}
+
+make_target() {
+  make -C libretro
 }
 
 makeinstall_target() {
