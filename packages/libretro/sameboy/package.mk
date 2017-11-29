@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="sameboy"
-PKG_VERSION="8d69156"
+PKG_VERSION="8c9ff67"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
@@ -34,8 +34,12 @@ PKG_LONGDESC="Gameboy and Gameboy Color emulator written in C"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+configure_target() {
+  cd $PKG_BUILD
+}
+
 make_target() {
-  make -f Makefile.libretro
+  make -C libretro
 }
 
 makeinstall_target() {
