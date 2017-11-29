@@ -36,7 +36,7 @@ PKG_AUTORECONF="no"
 
 make_target() {
   cd $PKG_BUILD/libretro
-  make -f Makefile
+  make
   cd $PKG_BUILD
 }
 
