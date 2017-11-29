@@ -35,11 +35,10 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  cd $PKG_BUILD/libretro
-  make -f Makefile
+  make -C $PKG_BUILD/libretro
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp $PKG_BUILD/sameboy_libretro.so $INSTALL/usr/lib/libretro/
+  cp sameboy_libretro.so $INSTALL/usr/lib/libretro/
 }
