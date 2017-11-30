@@ -45,10 +45,12 @@ def writeconfig():
     location = __addon__.getSetting("LOCATION")
     contact = __addon__.getSetting("CONTACT")
     snmpversion = __addon__.getSetting("SNMPVERSION")
-    
+    cputemp = __addon__.getSetting("CPUTEMP")
+    gputemp = __addon__.getSetting("GPUTEMP")
+
     if xbmcvfs.exists(persistent):
-            xbmcvfs.delete(persistent)
-    
+        xbmcvfs.delete(persistent)
+
     file = xbmcvfs.File(config, 'w')
     file.write('com2sec local default {}\n'.format(community))
     file.write('group localgroup {} local\n'.format(snmpversion))
@@ -57,13 +59,20 @@ def writeconfig():
     file.write('syslocation {}\n'.format(location))
     file.write('syscontact {}\n'.format(contact))
     file.write('dontLogTCPWrappersConnects yes\n')
-    file.close()
-    
+
+    if cputemp == "true":
+        file.write('extend cputemp "/usr/bin/cputemp"\n')
+
+    if gputemp == "true":
+        file.write('extend gputemp "/usr/bin/gputemp"\n')
+
     if snmpversion == "v3":
+        file.write('includeFile ../../snmpd.conf\n')
         snmppassword = __addon__.getSetting("SNMPPASSWORD")
         snmpuser = __addon__.getSetting("SNMPUSER")
-        system("net-snmp-config --create-snmpv3-user -a {0} {1}".format(snmppassword,snmpuser))
-    
+        system("net-snmp-config --create-snmpv3-user -a MD5 -A {0} {1}".format(snmppassword,snmpuser))
+
+    file.close()
     system("systemctl start service.net-snmp.service")
 
 
