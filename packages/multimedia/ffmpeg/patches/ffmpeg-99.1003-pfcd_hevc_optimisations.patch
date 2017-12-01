@@ -516,7 +516,7 @@ index c4ec09b1c4..3b94d47e9a 100644
 +$(SUBDIR)rpi_hevcdec.o $(SUBDIR)rpi_shader_template.o $(SUBDIR)rpi_qpu.o: $(SUBDIR)rpi_hevc_shader.h
 +endif
 diff --git a/libavcodec/allcodecs.c b/libavcodec/allcodecs.c
-index 4f34312e67..a5289a5e14 100644
+index 4f34312e67..5361a22141 100644
 --- a/libavcodec/allcodecs.c
 +++ b/libavcodec/allcodecs.c
 @@ -222,6 +222,7 @@ static void register_all(void)
@@ -527,14 +527,6 @@ index 4f34312e67..a5289a5e14 100644
      REGISTER_DECODER(HEVC,              hevc);
      REGISTER_DECODER(HEVC_QSV,          hevc_qsv);
      REGISTER_DECODER(HEVC_RKMPP,        hevc_rkmpp);
-@@ -731,6 +732,7 @@ static void register_all(void)
-     REGISTER_PARSER(H261,               h261);
-     REGISTER_PARSER(H263,               h263);
-     REGISTER_PARSER(H264,               h264);
-+    REGISTER_PARSER(H264_MVC,           h264_mvc);
-     REGISTER_PARSER(HEVC,               hevc);
-     REGISTER_PARSER(MJPEG,              mjpeg);
-     REGISTER_PARSER(MLP,                mlp);
 diff --git a/libavcodec/arm/Makefile b/libavcodec/arm/Makefile
 index 1eeac5449e..64aca64e52 100644
 --- a/libavcodec/arm/Makefile
@@ -8301,37 +8293,10 @@ index 0000000000..8c32cb23e7
 +endfunc
 +
 diff --git a/libavcodec/avcodec.h b/libavcodec/avcodec.h
-index 18c3e3ea1e..e1a0a9ebc0 100644
+index 18c3e3ea1e..c26b6d607c 100644
 --- a/libavcodec/avcodec.h
 +++ b/libavcodec/avcodec.h
-@@ -449,6 +449,8 @@ enum AVCodecID {
-     AV_CODEC_ID_GDV,
-     AV_CODEC_ID_FITS,
- 
-+    AV_CODEC_ID_H264_MVC,
-+
-     /* various PCM "codecs" */
-     AV_CODEC_ID_FIRST_AUDIO = 0x10000,     ///< A dummy id pointing at the start of audio codecs
-     AV_CODEC_ID_PCM_S16LE = 0x10000,
-@@ -2965,6 +2967,7 @@ typedef struct AVCodecContext {
- #define FF_BUG_MS               8192 ///< Work around various bugs in Microsoft's broken decoders.
- #define FF_BUG_TRUNCATED       16384
- #define FF_BUG_IEDGE           32768
-+#define FF_BUG_GMC_UNSUPPORTED (1 << 16)
- 
-     /**
-      * strictly follow the standard (MPEG-4, ...).
-@@ -3317,6 +3320,9 @@ typedef struct AVCodecContext {
- #define FF_PROFILE_H264_HIGH_444_PREDICTIVE  244
- #define FF_PROFILE_H264_HIGH_444_INTRA       (244|FF_PROFILE_H264_INTRA)
- #define FF_PROFILE_H264_CAVLC_444            44
-+#define FF_PROFILE_H264_MULTIVIEW_HIGH       118
-+#define FF_PROFILE_H264_STEREO_HIGH          128
-+#define FF_PROFILE_H264_MULTIVIEW_HIGH_DEPTH 138
- 
- #define FF_PROFILE_VC1_SIMPLE   0
- #define FF_PROFILE_VC1_MAIN     1
-@@ -3627,7 +3633,13 @@ typedef struct AVCodecContext {
+@@ -3627,7 +3627,13 @@ typedef struct AVCodecContext {
  #endif
  
      /**
@@ -8346,7 +8311,7 @@ index 18c3e3ea1e..e1a0a9ebc0 100644
       * the end of the audio. I.e. this number of decoded samples must be
       * discarded by the caller from the end of the stream to get the original
       * audio without any trailing padding.
-@@ -4816,6 +4828,17 @@ void av_packet_rescale_ts(AVPacket *pkt, AVRational tb_src, AVRational tb_dst);
+@@ -4816,6 +4822,17 @@ void av_packet_rescale_ts(AVPacket *pkt, AVRational tb_src, AVRational tb_dst);
   */
  AVCodec *avcodec_find_decoder(enum AVCodecID id);
  
@@ -8400,10 +8365,10 @@ index af0f6da2e9..bd491c0c55 100644
      AVCodecContext *avctx;
      BswapDSPContext bdsp;
 diff --git a/libavcodec/codec_desc.c b/libavcodec/codec_desc.c
-index 6a13bbbf0e..ff10f3b2bc 100644
+index 6a13bbbf0e..478b7c0ffc 100644
 --- a/libavcodec/codec_desc.c
 +++ b/libavcodec/codec_desc.c
-@@ -1665,6 +1665,48 @@ static const AVCodecDescriptor codec_descriptors[] = {
+@@ -1665,6 +1665,41 @@ static const AVCodecDescriptor codec_descriptors[] = {
          .props     = AV_CODEC_PROP_LOSSLESS,
          .mime_types= MT("image/png"),
      },
@@ -8442,127 +8407,22 @@ index 6a13bbbf0e..ff10f3b2bc 100644
 +        .long_name = NULL_IF_CONFIG_SMALL("YUY2 Lossless Codec"),
 +        .props     = AV_CODEC_PROP_INTRA_ONLY | AV_CODEC_PROP_LOSSLESS,
 +    },
-+    {
-+        .id        = AV_CODEC_ID_H264_MVC,
-+        .type      = AVMEDIA_TYPE_VIDEO,
-+        .name      = "h264_mvc",
-+        .long_name = NULL_IF_CONFIG_SMALL("H264 MVC"),
-+        .props     = AV_CODEC_PROP_LOSSY,
-+    },
  
      /* various PCM "codecs" */
      {
-diff --git a/libavcodec/h264.h b/libavcodec/h264.h
-index 86df5eb9b3..22c4f1d82a 100644
---- a/libavcodec/h264.h
-+++ b/libavcodec/h264.h
-@@ -41,7 +41,9 @@ enum {
-     H264_NAL_END_STREAM      = 11,
-     H264_NAL_FILLER_DATA     = 12,
-     H264_NAL_SPS_EXT         = 13,
-+    H264_NAL_SPS_SUBSET      = 15,
-     H264_NAL_AUXILIARY_SLICE = 19,
-+    H264_NAL_SLICE_EXT       = 20,
- };
- 
- #endif /* AVCODEC_H264_H */
 diff --git a/libavcodec/h264_parser.c b/libavcodec/h264_parser.c
-index dd0a965af0..5e43def0e9 100644
+index dd0a965af0..053325c26b 100644
 --- a/libavcodec/h264_parser.c
 +++ b/libavcodec/h264_parser.c
-@@ -60,6 +60,8 @@ typedef struct H264ParseContext {
-     uint8_t parse_history[6];
-     int parse_history_count;
-     int parse_last_mb;
-+    int is_mvc;
-+    int slice_ext;
-     int64_t reference_dts;
-     int last_frame_num, last_picture_structure;
- } H264ParseContext;
-@@ -109,24 +111,27 @@ static int h264_find_frame_end(H264ParseContext *p, const uint8_t *buf,
-         } else if (state <= 5) {
-             int nalu_type = buf[i] & 0x1F;
-             if (nalu_type == H264_NAL_SEI || nalu_type == H264_NAL_SPS ||
--                nalu_type == H264_NAL_PPS || nalu_type == H264_NAL_AUD) {
-+                nalu_type == H264_NAL_PPS || nalu_type == H264_NAL_AUD ||
-+                nalu_type == H264_NAL_SPS_SUBSET) {
-                 if (pc->frame_start_found) {
-                     i++;
+@@ -115,7 +115,7 @@ static int h264_find_frame_end(H264ParseContext *p, const uint8_t *buf,
                      goto found;
                  }
              } else if (nalu_type == H264_NAL_SLICE || nalu_type == H264_NAL_DPA ||
 -                       nalu_type == H264_NAL_IDR_SLICE) {
-+                       nalu_type == H264_NAL_IDR_SLICE || (p->is_mvc && nalu_type == H264_NAL_SLICE_EXT)) {
++                       nalu_type == H264_NAL_IDR_SLICE)) {
                  state += 8;
-+
-+                p->slice_ext = (nalu_type == H264_NAL_SLICE_EXT);
                  continue;
              }
-             state = 7;
-         } else {
-             p->parse_history[p->parse_history_count++] = buf[i];
--            if (p->parse_history_count > 5) {
-+            if (p->parse_history_count > 8) {
-                 unsigned int mb, last_mb = p->parse_last_mb;
-                 GetBitContext gb;
- 
--                init_get_bits(&gb, p->parse_history, 8*p->parse_history_count);
-+                init_get_bits8(&gb, p->parse_history + 3*p->slice_ext, p->parse_history_count - 3*p->slice_ext);
-                 p->parse_history_count = 0;
-                 mb= get_ue_golomb_long(&gb);
-                 p->parse_last_mb = mb;
-@@ -149,7 +154,7 @@ found:
-     pc->frame_start_found = 0;
-     if (p->is_avc)
-         return next_avc;
--    return i - (state & 5) - 5 * (state > 7);
-+    return i - (state & 5) - 8 * (state > 7);
- }
- 
- static int scan_mmco_reset(AVCodecParserContext *s, GetBitContext *gb,
-@@ -594,7 +599,8 @@ static int h264_parse(AVCodecParserContext *s,
-         }
-     }
- 
--    parse_nal_units(s, avctx, buf, buf_size);
-+    if (!p->is_mvc)
-+        parse_nal_units(s, avctx, buf, buf_size);
- 
-     if (avctx->framerate.num)
-         avctx->time_base = av_inv_q(av_mul_q(avctx->framerate, (AVRational){avctx->ticks_per_frame, 1}));
-@@ -651,7 +657,7 @@ static int h264_split(AVCodecContext *avctx,
-         if ((state & 0xFFFFFF00) != 0x100)
-             break;
-         nalu_type = state & 0x1F;
--        if (nalu_type == H264_NAL_SPS) {
-+        if (nalu_type == H264_NAL_SPS || nalu_type == H264_NAL_SPS_SUBSET) {
-             has_sps = 1;
-         } else if (nalu_type == H264_NAL_PPS)
-             has_pps = 1;
-@@ -703,3 +709,23 @@ AVCodecParser ff_h264_parser = {
-     .parser_close   = h264_close,
-     .split          = h264_split,
- };
-+
-+static av_cold int init_mvc(AVCodecParserContext *s)
-+{
-+    H264ParseContext *p = s->priv_data;
-+    int ret = init(s);
-+    if (ret < 0)
-+        return ret;
-+
-+    p->is_mvc = 1;
-+    return 0;
-+}
-+
-+AVCodecParser ff_h264_mvc_parser = {
-+    .codec_ids      = { AV_CODEC_ID_H264_MVC },
-+    .priv_data_size = sizeof(H264ParseContext),
-+    .parser_init    = init_mvc,
-+    .parser_parse   = h264_parse,
-+    .parser_close   = h264_close,
-+    .split          = h264_split,
-+};
 diff --git a/libavcodec/mmaldec.c b/libavcodec/mmaldec.c
 index 0b1195dc3e..5ef81fa739 100644
 --- a/libavcodec/mmaldec.c
@@ -40769,19 +40629,6 @@ index ad5aedd5f7..0d2df8b870 100644
                                   frame->format);
          break;
      case AVMEDIA_TYPE_AUDIO:
-diff --git a/libavformat/mpegts.c b/libavformat/mpegts.c
-index 53cbcfb543..f93f06fcfb 100644
---- a/libavformat/mpegts.c
-+++ b/libavformat/mpegts.c
-@@ -701,7 +701,7 @@ static const StreamType ISO_types[] = {
- #endif
-     { 0x1b, AVMEDIA_TYPE_VIDEO, AV_CODEC_ID_H264       },
-     { 0x1c, AVMEDIA_TYPE_AUDIO, AV_CODEC_ID_AAC        },
--    { 0x20, AVMEDIA_TYPE_VIDEO, AV_CODEC_ID_H264       },
-+    { 0x20, AVMEDIA_TYPE_VIDEO, AV_CODEC_ID_H264_MVC   },
-     { 0x21, AVMEDIA_TYPE_VIDEO, AV_CODEC_ID_JPEG2000   },
-     { 0x24, AVMEDIA_TYPE_VIDEO, AV_CODEC_ID_HEVC       },
-     { 0x42, AVMEDIA_TYPE_VIDEO, AV_CODEC_ID_CAVS       },
 diff --git a/libavformat/utils.c b/libavformat/utils.c
 index 1a7996c4fd..271e70ed84 100644
 --- a/libavformat/utils.c
@@ -42133,14 +41980,14 @@ index 0000000000..59c0d3959e
 +# -Wa,-ahls
 diff --git a/pi-util/conf_pi2.sh b/pi-util/conf_pi2.sh
 new file mode 100755
-index 0000000000..4e9bd5fa35
+index 0000000000..4de256bc8a
 --- /dev/null
 +++ b/pi-util/conf_pi2.sh
 @@ -0,0 +1,32 @@
 +echo "Configure for Pi2/3"
 +
-+RPI_TOOLROOT=/opt/gcc-linaro-arm-linux-gnueabihf-raspbian-x64/arm-rpi-4.9.3-linux-gnueabihf
-+RPI_OPT_VC=/opt/bcm-rootfs/opt/vc
++RPI_TOOLROOT=`pwd`/../tools/arm-bcm2708/arm-rpi-4.9.3-linux-gnueabihf
++RPI_OPT_VC=`pwd`/../firmware/opt/vc
 +
 +RPI_INCLUDES="-I$RPI_OPT_VC/include -I$RPI_OPT_VC/include/interface/vcos/pthreads -I$RPI_OPT_VC/include/interface/vmcs_host/linux"
 +RPI_LIBDIRS="-L$RPI_TOOLROOT/lib -L$RPI_OPT_VC/lib"
