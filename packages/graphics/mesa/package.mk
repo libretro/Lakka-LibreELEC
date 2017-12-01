@@ -36,11 +36,12 @@ if [ "$DISPLAYSERVER" = "x11" ]; then
   export X11_INCLUDES=
   MESA_DRI="--enable-dri --enable-dri3"
   MESA_GLX="--enable-glx --enable-driglx-direct --enable-glx-tls"
-  MESA_EGL_PLATFORMS="--with-platforms=x11,drm"
+  MESA_PLATFORMS="--with-platforms=x11,drm"
 else
   MESA_DRI="--enable-dri --disable-dri3"
-  MESA_GLX="--disable-glx --disable-driglx-direct --disable-glx-tls"
-  MESA_EGL_PLATFORMS="--with-platforms=drm"
+  # The glx in glx-tls is a misnomer - there's nothing glx in it.
+  MESA_GLX="--disable-glx --disable-driglx-direct --enable-glx-tls"
+  MESA_PLATFORMS="--with-platforms=drm"
 fi
 
 # configure GPU drivers and dependencies:
@@ -82,6 +83,7 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --enable-texture-float \
                            --enable-asm \
                            --disable-selinux \
+                           $MESA_PLATFORMS \
                            --enable-opengl \
                            $MESA_GLES \
                            $MESA_DRI \
@@ -89,7 +91,6 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --disable-osmesa \
                            --disable-gallium-osmesa \
                            --enable-egl \
-                           $MESA_EGL_PLATFORMS \
                            $XA_CONFIG \
                            --enable-gbm \
                            --disable-nine \
@@ -101,7 +102,6 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --enable-opencl-icd \
                            --disable-gallium-tests \
                            --enable-shared-glapi \
-                           --enable-shader-cache \
                            $MESA_GALLIUM_LLVM \
                            --disable-silent-rules \
                            --with-gl-lib-name=GL \
@@ -111,6 +111,10 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --with-vulkan-drivers=no \
                            --with-sysroot=$SYSROOT_PREFIX"
 
+# Temporary workaround:
+# Listed libraries are static, while mesa expects shared ones. This breaks the
+# dependency tracking. The following has some ideas on how to address that.
+# https://github.com/LibreELEC/LibreELEC.tv/pull/2163
 pre_configure_target() {
   if [ "$DISPLAYSERVER" = "x11" ]; then
     export LIBS="-lxcb-dri3 -lxcb-dri2 -lxcb-xfixes -lxcb-present -lxcb-sync -lxshmfence -lz"
@@ -118,6 +122,7 @@ pre_configure_target() {
 }
 
 post_makeinstall_target() {
+  # Similar hack is needed on EGL, GLES* front. Might as well drop it and test the GLVND?
   if [ "$DISPLAYSERVER" = "x11" ]; then
     # rename and relink for cooperate with nvidia drivers
     rm -rf $INSTALL/usr/lib/libGL.so
