@@ -36,3 +36,9 @@ PKG_CONFIGURE_OPTS_HOST="--disable-shared --enable-static \
                          --enable-lzma-links \
                          --disable-scripts \
                          --disable-nls"
+
+PKG_CONFIGURE_OPTS_TARGET="--disable-shared --enable-static"
+
+post_makeinstall_target() {
+  rm -rf $INSTALL
+}
