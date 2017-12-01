@@ -16,18 +16,18 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="pvr.zattoo"
-PKG_VERSION="23d9993"
-PKG_SHA256="4c9caad94059093f16a59865b72645d88d91357cb067db570d1c94ea274fb673"
-PKG_REV="2"
+PKG_NAME="vfs.libarchive"
+PKG_VERSION="d3f3953"
+PKG_SHA256="df094f8f217f25b9c288556cf1ca30c822d35d3e9dfc4973dd994e5f40508edd"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
-PKG_URL="https://github.com/rbuehlma/pvr.zattoo/archive/$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain kodi-platform"
+PKG_URL="https://github.com/notspiff/vfs.libarchive/archive/$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="toolchain kodi-platform bzip2 libarchive lz4 lzo xz zlib"
 PKG_SECTION=""
-PKG_SHORTDESC="pvr.zattoo"
-PKG_LONGDESC="pvr.zattoo"
+PKG_SHORTDESC="vfs.libarchive"
+PKG_LONGDESC="vfs.libarchive"
 
 PKG_IS_ADDON="yes"
-PKG_ADDON_TYPE="xbmc.pvrclient"
+PKG_ADDON_TYPE="kodi.vfs"

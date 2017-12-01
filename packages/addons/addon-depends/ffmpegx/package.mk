@@ -149,6 +149,8 @@ configure_target() {
     \
     `#General options` \
     --enable-avresample \
+    --disable-lzma \
+    --disable-alsa \
     \
     `#Toolchain options` \
     --arch="$TARGET_ARCH" \

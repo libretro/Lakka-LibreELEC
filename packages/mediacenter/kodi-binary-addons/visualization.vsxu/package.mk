@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="visualization.vsxu"
-PKG_VERSION="caedcbc"
-PKG_SHA256="a471095637e8c24d68b37a8c13ced75b66ef4fba7c9dab8a25defefe1c1dc807"
+PKG_VERSION="c3d8264"
+PKG_SHA256="cc9a0e287cd272e83e99003d60599b1546265299c8e4f7a5c061cb3f8d4348cd"
 PKG_REV="2"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="GPL"

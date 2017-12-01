@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="pvr.wmc"
-PKG_VERSION="02edba6"
-PKG_SHA256="7c7f526e8ff6d19a019f01e5b7a979ef7cbdd909ebe3a13f9e666fc282db9be5"
+PKG_VERSION="55e701b"
+PKG_SHA256="9e3dcc8d96934bc2959ebc2e9e89dbcce8f664b2a6cfdbdce8512fa68307d590"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

@@ -16,18 +16,20 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="pvr.zattoo"
-PKG_VERSION="23d9993"
-PKG_SHA256="4c9caad94059093f16a59865b72645d88d91357cb067db570d1c94ea274fb673"
-PKG_REV="2"
+PKG_NAME="libarchive"
+PKG_VERSION="3.3.2"
+PKG_SHA256="ed2dbd6954792b2c054ccf8ec4b330a54b85904a80cef477a1c74643ddafa0ce"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.kodi.tv"
-PKG_URL="https://github.com/rbuehlma/pvr.zattoo/archive/$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SECTION=""
-PKG_SHORTDESC="pvr.zattoo"
-PKG_LONGDESC="pvr.zattoo"
+PKG_SITE="https://www.libarchive.org"
+PKG_URL="https://www.libarchive.org/downloads/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_DEPENDS_HOST="toolchain"
+PKG_DEPENDS_TARGET="toolchain"
+PKG_SECTION="compress"
+PKG_SHORTDESC="libarchive data compressor/decompressor"
 
-PKG_IS_ADDON="yes"
-PKG_ADDON_TYPE="xbmc.pvrclient"
+PKG_CMAKE_OPTS_TARGET="-DENABLE_SHARED=0 -DENABLE_STATIC=1 -DCMAKE_POSITION_INDEPENDENT_CODE=1 -DENABLE_EXPAT=0 -DENABLE_ICONV=0 -DENABLE_LIBXML2=0 -DENABLE_LZO=1 -DENABLE_TEST=0 -DENABLE_COVERAGE=0"
+
+post_makeinstall_target() {
+  rm -rf $INSTALL
+}
