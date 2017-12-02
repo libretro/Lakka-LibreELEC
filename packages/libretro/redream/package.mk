@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="redream"
-PKG_VERSION="c19b16f"
+PKG_VERSION="d271986"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
