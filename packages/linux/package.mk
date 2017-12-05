@@ -45,8 +45,8 @@ case "$LINUX" in
     PKG_PATCH_DIRS="amlogic-3.14"
     ;;
   *)
-    PKG_VERSION="4.14.3"
-    PKG_SHA256="b628134ebb63ec82cb3e304a10aab2fd306fe79212e75ce81d8af73463c80366"
+    PKG_VERSION="4.14.4"
+    PKG_SHA256="2a91bff790da9a27e392469f7cc65ae7380e4204fc118be28ec799eb87e6a79e"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v4.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     PKG_PATCH_DIRS="default"
     ;;
