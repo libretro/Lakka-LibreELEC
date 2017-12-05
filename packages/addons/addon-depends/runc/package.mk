@@ -41,9 +41,9 @@ pre_make_target() {
         arm1176jzf-s)
           export GOARM=6
           ;;
-        cortex-a7)
-         export GOARM=7
-         ;;
+        *)
+          export GOARM=7
+          ;;
       esac
       ;;
     aarch64)

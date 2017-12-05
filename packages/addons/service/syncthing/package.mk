@@ -65,7 +65,7 @@ configure_target() {
         arm1176jzf-s)
           export GOARM=6
           ;;
-        cortex-a7|cortex-a9)
+        *)
           export GOARM=7
           ;;
       esac
