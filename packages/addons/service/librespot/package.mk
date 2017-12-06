@@ -19,7 +19,7 @@
 
 PKG_NAME="librespot"
 PKG_VERSION="ddfc28f"
-PKG_REV="107"
+PKG_REV="108"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/plietar/$PKG_NAME/"
