@@ -33,10 +33,8 @@ PKG_TOOLCHAIN="manual"
 ####################################################################
 # On Fedora `dnf install golang` will install go to /usr/lib/golang
 #
-# On Ubuntu you need to install golang manually, similar to:
-# $ wget https://storage.googleapis.com/golang/go1.6.linux-amd64.tar.gz
-# $ tar xf go1.6.linux-amd64.tar.gz -C /opt/
-# $ ln -s /opt/go /usr/lib/golang
+# On Ubuntu you need to install golang:
+# $ sudo apt install golang-go
 ####################################################################
 
 configure_host() {
