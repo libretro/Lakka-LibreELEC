@@ -1,0 +1,149 @@
+diff --git a/src/timeserver.c b/src/timeserver.c
+index 0e555a73c3bf..fa878949dfba 100644
+--- a/src/timeserver.c
++++ b/src/timeserver.c
+@@ -34,9 +34,11 @@
+ 
+ #define TS_RECHECK_INTERVAL     7200
+ 
++static GSList *timeservers_list = NULL;
+ static GSList *ts_list = NULL;
+ static char *ts_current = NULL;
+ static int ts_recheck_id = 0;
++static int ts_backoff_id = 0;
+ 
+ static GResolv *resolv = NULL;
+ static int resolv_id = 0;
+@@ -114,13 +116,59 @@ static void resolv_result(GResolvResultStatus status, char **results,
+ }
+ 
+ /*
+- * Once the timeserver list (ts_list) is created, we start querying the
+- * servers one by one. If resolving fails on one of them, we move to the
+- * next one. The user can enter either an IP address or a URL for the
+- * timeserver. We only resolve the URLs. Once we have an IP for the NTP
+- * server, we start querying it for time corrections.
++ * Once the timeserver list (timeserver_list) is created, we start
++ * querying the servers one by one. If resolving fails on one of them,
++ * we move to the next one. The user can enter either an IP address or
++ * a URL for the timeserver. We only resolve the URLs. Once we have an
++ * IP for the NTP server, we start querying it for time corrections.
+  */
+-void __connman_timeserver_sync_next()
++static void timeserver_sync_start(void)
++{
++	GSList *list;
++
++	for (list = timeservers_list; list; list = list->next) {
++		char *timeserver = list->data;
++
++		ts_list = g_slist_prepend(ts_list, g_strdup(timeserver));
++	}
++	ts_list = g_slist_reverse(ts_list);
++
++	ts_current = ts_list->data;
++
++	ts_list = g_slist_delete_link(ts_list, ts_list);
++
++	/* if it's an IP, directly query it. */
++	if (connman_inet_check_ipaddress(ts_current) > 0) {
++		DBG("Using timeserver %s", ts_current);
++
++		__connman_ntp_start(ts_current);
++
++		return;
++	}
++
++	DBG("Resolving timeserver %s", ts_current);
++
++	resolv_id = g_resolv_lookup_hostname(resolv, ts_current,
++						resolv_result, NULL);
++
++	return;
++}
++
++static gboolean timeserver_sync_restart(gpointer user_data)
++{
++	timeserver_sync_start();
++	ts_backoff_id = 0;
++
++	return FALSE;
++}
++
++/*
++ * Select the next time server from the working list (ts_list) because
++ * for some reason the first time server in the list didn't work. If
++ * none of the server did work we start over with the first server
++ * with a backoff.
++ */
++void __connman_timeserver_sync_next(void)
+ {
+ 	if (ts_current) {
+ 		g_free(ts_current);
+@@ -130,8 +178,13 @@ void __connman_timeserver_sync_next()
+ 	__connman_ntp_stop();
+ 
+ 	/* Get the 1st server in the list */
+-	if (!ts_list)
++	if (!ts_list) {
++		DBG("No timeserver could be used, restart probing in 5 seconds");
++
++		ts_backoff_id = g_timeout_add_seconds(5,
++					timeserver_sync_restart, NULL);
+ 		return;
++	}
+ 
+ 	ts_current = ts_list->data;
+ 
+@@ -269,6 +322,11 @@ static void ts_recheck_disable(void)
+ 	g_source_remove(ts_recheck_id);
+ 	ts_recheck_id = 0;
+ 
++	if (ts_backoff_id) {
++		g_source_remove(ts_backoff_id);
++		ts_backoff_id = 0;
++	}
++
+ 	if (ts_current) {
+ 		g_free(ts_current);
+ 		ts_current = NULL;
+@@ -327,20 +385,20 @@ int __connman_timeserver_sync(struct connman_service *default_service)
+ 
+ 	g_strfreev(nameservers);
+ 
+-	g_slist_free_full(ts_list, g_free);
++	g_slist_free_full(timeservers_list, g_free);
+ 
+-	ts_list = __connman_timeserver_get_all(service);
++	timeservers_list = __connman_timeserver_get_all(service);
+ 
+-	__connman_service_timeserver_changed(service, ts_list);
++	__connman_service_timeserver_changed(service, timeservers_list);
+ 
+-	if (!ts_list) {
++	if (!timeservers_list) {
+ 		DBG("No timeservers set.");
+ 		return 0;
+ 	}
+ 
+ 	ts_recheck_enable();
+ 
+-	__connman_timeserver_sync_next();
++	timeserver_sync_start();
+ 
+ 	return 0;
+ }
+@@ -396,8 +454,10 @@ static void timeserver_stop(void)
+ 		resolv = NULL;
+ 	}
+ 
+-	g_slist_free_full(ts_list, g_free);
++	g_slist_free_full(timeservers_list, g_free);
++	timeservers_list = NULL;
+ 
++	g_slist_free_full(ts_list, g_free);
+ 	ts_list = NULL;
+ 
+ 	__connman_ntp_stop();
+-- 
+2.9.5
