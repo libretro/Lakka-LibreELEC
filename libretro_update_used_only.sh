@@ -21,6 +21,10 @@ declare -i i=0
 for p in $PACKAGES_ALL
 do
   f=packages/libretro/$p/package.mk
+  if [ ! -f "$f" ] ; then
+    echo "$f: not found! Skipping"
+    continue
+  fi
   PKG_VERSION=`cat $f | sed -En "s/PKG_VERSION=\"(.*)\"/\1/p"`
   PKG_SITE=`cat $f | sed -En "s/PKG_SITE=\"(.*)\"/\1/p"`
   PKG_NAME=`cat $f | sed -En "s/PKG_NAME=\"(.*)\"/\1/p"`
