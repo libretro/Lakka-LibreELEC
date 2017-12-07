@@ -25,6 +25,7 @@ import xbmc
 import xbmcaddon
 import xbmcgui
 
+
 PORT = '6666'
 SINK = 'librespot_sink'
 
@@ -38,7 +39,7 @@ def systemctl(command):
 
 class Controller(threading.Thread):
 
-   FIFO = os.path.join(xbmcaddon.Addon().getAddonInfo('path'), 'rc')
+   FIFO = '/var/run/librespot'
 
    def __init__(self, player):
       super(Controller, self).__init__()
@@ -65,12 +66,14 @@ class Controller(threading.Thread):
                self.player.play()
             elif command[0] == 'stop':
                self.player.stop()
-
-   def stop(self):
       try:
          os.unlink(self.FIFO)
       except OSError:
          pass
+
+   def stop(self):
+      with open(self.FIFO, 'w') as fifo:
+         fifo.close()
 
 
 class Player(xbmc.Player):
@@ -79,7 +82,6 @@ class Player(xbmc.Player):
 
    def __init__(self):
       super(Player, self).__init__(self)
-      self.window = xbmcgui.Window(12006)
       if self.isPlaying():
          self.onPlayBackStarted()
 
@@ -104,7 +106,7 @@ class Player(xbmc.Player):
          listitem.setArt({'thumb': xbmcaddon.Addon().getAddonInfo('icon')})
          super(Player, self).play(self.ITEM, listitem)
          del listitem
-         self.window.show()
+         xbmcgui.Window(12006).show()
 
    def stop(self):
       suspendSink('1')
@@ -130,3 +132,4 @@ if __name__ == '__main__':
    controller.start()
    Monitor(player).waitForAbort()
    controller.stop()
+   controller.join()
