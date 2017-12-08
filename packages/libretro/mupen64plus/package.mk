@@ -49,7 +49,7 @@ make_target() {
 	              -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
       make platform=rpi
       ;;
-    RPi2)
+    RPi2|Slice3)
       CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads \
                       -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
       make platform=rpi2

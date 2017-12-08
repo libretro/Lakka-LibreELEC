@@ -43,10 +43,10 @@ pre_make_target() {
 
 make_target() {
   case $PROJECT in
-    RPi)
+    RPi|Slice)
       make platform=armv6-hardfloat-arm1176jzf-s
       ;;
-    RPi2)
+    RPi2|Slice3)
       make platform=armv7-neon-hardfloat-cortex-a7
       ;;
     imx6)
