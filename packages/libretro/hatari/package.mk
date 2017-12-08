@@ -41,7 +41,7 @@ configure_target() {
 
 make_target() {
   if [ "$ARCH" == "arm" ]; then
-    CFLAGS="$CFLAGS -DARM -marm"
+    CFLAGS="$CFLAGS -DNO_ASM -DARM -D__arm__ -DARM_ASM -DNOSSE -DARM_HARDFP"
   fi
   make -C .. -f Makefile.libretro
 }
