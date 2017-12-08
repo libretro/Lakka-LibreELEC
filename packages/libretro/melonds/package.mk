@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="melonds"
-PKG_VERSION="9bd2df6"
+PKG_VERSION="72959ea"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
