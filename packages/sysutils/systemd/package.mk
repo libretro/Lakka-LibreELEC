@@ -202,6 +202,7 @@ post_makeinstall_target() {
   mkdir -p $INSTALL/usr/bin
   cp $PKG_DIR/scripts/systemd-machine-id-setup $INSTALL/usr/bin
   cp $PKG_DIR/scripts/userconfig-setup $INSTALL/usr/bin
+  cp $PKG_DIR/scripts/usercache-setup $INSTALL/usr/bin
 
   mkdir -p $INSTALL/usr/sbin
   cp $PKG_DIR/scripts/kernel-overlays-setup $INSTALL/usr/sbin
@@ -255,6 +256,7 @@ post_install() {
   enable_service machine-id.service
   enable_service debugconfig.service
   enable_service userconfig.service
+  enable_service usercache.service
   enable_service kernel-overlays.service
   enable_service hwdb.service
 }
