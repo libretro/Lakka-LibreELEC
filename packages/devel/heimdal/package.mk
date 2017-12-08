@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="heimdal"
-PKG_VERSION="7.4.0"
-PKG_SHA256="b1d5c19989ad9f2cd8038c1d7c3e8f2bc227f79a1fa4eb0ade42cab4a40637ab"
+PKG_VERSION="7.5.0"
+PKG_SHA256="ad67fef994dc2268fb0b1a8164b39330d184f425057867485a178e9785a7f35a"
 PKG_ARCH="any"
 PKG_LICENSE="BSD-3c"
 PKG_SITE="http://www.h5l.org/"
