@@ -17,10 +17,17 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-# Remove those sample files that we manage
-for sample in $(find /storage/.config -name '*.sample' 2>/dev/null); do
-  [ -f /usr/config/${sample:16} ] && rm -f ${sample}
-done
+# Copy cache files, but don't overwrite
+false | cp -iRp /usr/cache/* /storage/.cache/ &>/dev/null
 
-# Copy config files, but don't overwrite - this should replace our sample files
-false | cp -iRp /usr/config/* /storage/.config/ &>/dev/null
+# Merge default and custom shadow file details
+if [ -f /storage/.cache/shadow -a -f /usr/cache/shadow ]; then
+  # Get existing root details (possibly user defined)
+  userroot="$(grep "^root:" /storage/.cache/shadow)"
+
+  # Overwrite users shadow file with default details, but replacing root with any existing value
+  [ -n "${userroot}" ] && sed -e "s ^root:.* ${userroot} " /usr/cache/shadow >/storage/.cache/shadow
+
+  # Make sure we have the correct permission
+  chmod 000 /storage/.cache/shadow
+fi
