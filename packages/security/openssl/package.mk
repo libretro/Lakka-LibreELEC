@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="openssl"
-PKG_VERSION="1.0.2l"
-PKG_SHA256="ce07195b659e75f4e1db43552860070061f156a98bb37b672b101ba6e3ddf30c"
+PKG_VERSION="1.0.2n"
+PKG_SHA256="370babb75f278c39e0c50e8c4e7493bc0f18db6867478341a832a982fd15a8fe"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="https://www.openssl.org"
