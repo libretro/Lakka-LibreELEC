@@ -29,11 +29,6 @@ PKG_SHORTDESC="nss-mdns is a plugin for nss to allow name resolution via Multica
 PKG_LONGDESC="nss-mdns is a plugin for the GNU Name Service Switch (NSS) functionality of the GNU C Library (glibc) providing host name resolution via Multicast DNS"
 PKG_TOOLCHAIN="autotools"
 
-makeinstall_target() {
-  mkdir -p $SYSROOT_PREFIX/usr/lib
-    cp -P $PKG_BUILD/.$TARGET_NAME/src/.libs/libnss_mdns_minimal.so.2 $SYSROOT_PREFIX/usr/lib
-}
-
 post_makeinstall_target() {
   mkdir -p $INSTALL/etc
   cp $PKG_DIR/config/nsswitch.conf $INSTALL/etc/nsswitch.conf
