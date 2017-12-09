@@ -14,8 +14,6 @@ usage()
   echo ""
 }
 
-#[ $# -gt 1 ] && { usage ; echo "Error: too many parameters given!" ; exit 1 ; }
-
 [ "$1" == "" ] && { usage ; exit ; }
 
 case $1 in
