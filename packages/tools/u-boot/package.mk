@@ -31,6 +31,12 @@ PKG_SHORTDESC="u-boot: Universal Bootloader project"
 PKG_LONGDESC="Das U-Boot is a cross-platform bootloader for embedded systems, used as the default boot loader by several board vendors. It is intended to be easy to port and to debug, and runs on many supported architectures, including PPC, ARM, MIPS, x86, m68k, NIOS, and Microblaze."
 PKG_IS_KERNEL_PKG="yes"
 
+make_host() {
+  make mrproper
+  make dummy_x86_config
+  make tools-only
+}
+
 make_target() {
   if [ -z "$UBOOT_SYSTEM" ]; then
     echo "UBOOT_SYSTEM must be set to build an image"
@@ -40,6 +46,11 @@ make_target() {
     CROSS_COMPILE="$TARGET_PREFIX" LDFLAGS="" ARCH=arm make $($ROOT/$SCRIPTS/uboot_helper $PROJECT $DEVICE $UBOOT_SYSTEM config)
     CROSS_COMPILE="$TARGET_PREFIX" LDFLAGS="" ARCH=arm make HOSTCC="$HOST_CC" HOSTSTRIP="true"
   fi
+}
+
+makeinstall_host() {
+  mkdir -p $TOOLCHAIN/bin
+    cp tools/mkimage $TOOLCHAIN/bin
 }
 
 makeinstall_target() {
