@@ -3,28 +3,28 @@ LR_PKG_PATH="packages/libretro"
 usage()
 {
   echo ""
-  echo "$0 <--all|--used>"
+  echo "$0 <--all|--used|--packages pkg1 [pkg2] ...>"
   echo ""
   echo "Updates PKG_VERSION in package.mk of libretro packages to latest."
   echo ""
   echo "Parameters:"
-  echo " -a --all   Update all libretro packages"
-  echo " -u --used  Update only libretro packages used by Lakka"
+  echo " -a --all                 Update all libretro packages"
+  echo " -u --used                Update only libretro packages used by Lakka"
+  echo " -p list --packages list  Update listed libretro packages"
   echo ""
 }
 
-[ $# -gt 1 ] && { usage ; echo "Error: too many parameters given!" ; exit 1 ; }
+#[ $# -gt 1 ] && { usage ; echo "Error: too many parameters given!" ; exit 1 ; }
 
-[ "$1" = "" ] && { usage ; exit ; }
+[ "$1" == "" ] && { usage ; exit ; }
 
 case $1 in
   -a | --all )
     # Get list of all libretro packages
-    echo "Checking all libretro packages:"
     PACKAGES_ALL=`ls $LR_PKG_PATH`
+    echo "Checking all libretro packages:"
     ;;
   -u | --used )
-    echo "Checking only libretro packages used by Lakka:"
     # Get list of cores, which are used with Lakka:
     OPTIONS_FILE="distributions/Lakka/options"
     [ -f "$OPTIONS_FILE" ] && source "$OPTIONS_FILE" || { echo "$OPTIONS_FILE: not found! Aborting." ; exit 1 ; }
@@ -39,6 +39,23 @@ case $1 in
     ADDITIONAL_PACKAGES="beetle-bsnes bsnes beetle-psx bsnes-mercury"
     # List of all libretro packages to update:
     PACKAGES_ALL="$RA_PACKAGES $ADDITIONAL_PACKAGES $LIBRETRO_CORES"
+    echo "Checking only libretro packages used by Lakka:"
+    ;;
+  -p | --packages )
+    PACKAGES_ALL=""
+    x="$1"
+    shift
+    v="$@"
+    [ "$v" == "" ] && { echo "Error: You must provide name(s) of package(s) after $x" ; exit 1 ; }
+    for a in $v ; do
+      if [ -f $LR_PKG_PATH/$a/package.mk ] ; then
+        PACKAGES_ALL="$PACKAGES_ALL $a"
+      else
+        echo "Warning: $a is not a libretro package - skipping."
+      fi
+    done
+    [ "$PACKAGES_ALL" == "" ] && { echo "No valid packages given! Aborting." ; exit 1 ; }
+    echo "Checking following packages:$PACKAGES_ALL"
     ;;
   * )
     usage
