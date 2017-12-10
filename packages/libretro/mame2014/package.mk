@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="mame2014"
-PKG_VERSION="8cd09f4"
+PKG_VERSION="3d072c9"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
@@ -43,10 +43,10 @@ pre_make_target() {
 
 make_target() {
   case $PROJECT in
-    RPi)
+    RPi|Slice)
       make platform=armv6-hardfloat-arm1176jzf-s
       ;;
-    RPi2)
+    RPi2|Slice3)
       make platform=armv7-neon-hardfloat-cortex-a7
       ;;
     imx6)

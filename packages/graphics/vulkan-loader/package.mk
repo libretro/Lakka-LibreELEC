@@ -33,9 +33,9 @@ PKG_AUTORECONF="no"
 PKG_CMAKE_OPTS_TARGET="-DBUILD_WSI_WAYLAND_SUPPORT=off \
                        -DBUILD_WSI_XCB_SUPPORT=off \
                        -DBUILD_WSI_XLIB_SUPPORT=off \
-                       -DBUILD_WSI_MIR_SUPPORT=Off \
+                       -DBUILD_WSI_MIR_SUPPORT=off \
                        -DCMAKE_SYSTEM_PROCESSOR=arm \
-                       -DBUILD_TESTS=Off \
+                       -DBUILD_TESTS=off \
                        -DBUILD_LAYERS=off \
                        -DBUILD_DEMOS=off \
                        -DBUILD_VKJSON=off"

@@ -42,7 +42,7 @@ elif [ "$UBOOT_VERSION" = "odroidc" ]; then
   PKG_URL="$LAKKA_MIRROR/u-boot-$PKG_VERSION.tar.xz"
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gcc-linaro-arm-eabi:host"
 elif [ "$UBOOT_VERSION" = "allwinner" ]; then
-  PKG_VERSION="2017.09"
+  PKG_VERSION="2017.11"
   PKG_SITE="http://www.denx.de/wiki/U-Boot/WebHome"
   PKG_URL="ftp://ftp.denx.de/pub/u-boot/u-boot-$PKG_VERSION.tar.bz2"
 else
