@@ -3,7 +3,7 @@ LR_PKG_PATH="packages/libretro"
 usage()
 {
   echo ""
-  echo "$0 <--all|--used|--packages pkg1 [pkg2] ...>"
+  echo "$0 <--all [--exclude list] | --used [--exclude list] | --packages list>"
   echo ""
   echo "Updates PKG_VERSION in package.mk of libretro packages to latest."
   echo ""
@@ -11,6 +11,7 @@ usage()
   echo " -a --all                 Update all libretro packages"
   echo " -u --used                Update only libretro packages used by Lakka"
   echo " -p list --packages list  Update listed libretro packages"
+  echo " -e list --exclude list   Update all/used packages except listed ones"
   echo ""
 }
 
@@ -18,11 +19,60 @@ usage()
 
 case $1 in
   -a | --all )
+    s=$1
+    shift
+    if [ "$1" != "" ] ; then
+      case $1 in
+        -e | --exclude )
+          PACKAGES_EX=""
+          x="$1"
+          shift
+          v="$@"
+          [ "$v" == "" ] && { echo "Error: You must provide name(s) of package(s) to exclude after $x" ; exit 1 ; }
+          for a in $v ; do
+            if [ -f $LR_PKG_PATH/$a/package.mk ] ; then
+              PACKAGES_EX="$PACKAGES_EX $a"
+            else
+              echo "Warning: $a is not a libretro package."
+            fi
+          done
+          [ "$PACKAGES_EX" == "" ] && { echo "No valid packages to exclude given! Aborting." ; exit 1 ; }
+          ;;
+        * )
+          echo "Error: After $s use only --exclude (-e) to exclude some packages."
+          exit 1
+          ;;
+      esac
+    fi
     # Get list of all libretro packages
     PACKAGES_ALL=`ls $LR_PKG_PATH`
-    echo "Checking all libretro packages:"
     ;;
   -u | --used )
+    s=$1
+    shift
+    if [ "$1" != "" ] ; then
+      case $1 in
+        -e | --exclude )
+          PACKAGES_EX=""
+          x="$1"
+          shift
+          v="$@"
+          [ "$v" == "" ] && { echo "Error: You must provide name(s) of package(s) to exclude after $x" ; exit 1 ; }
+          for a in $v ; do
+            if [ -f $LR_PKG_PATH/$a/package.mk ] ; then
+              PACKAGES_EX="$PACKAGES_EX $a"
+            else
+              echo "Warning: $a is not a libretro package."
+            fi
+          done
+          [ "$PACKAGES_EX" == "" ] && { echo "No valid packages to exclude given! Aborting." ; exit 1 ; }
+          ;;
+        * )
+          echo "Error: After $s use only --exclude (-e) to exclude some packages."
+          exit 1
+          ;;
+      esac
+    fi
     # Get list of cores, which are used with Lakka:
     OPTIONS_FILE="distributions/Lakka/options"
     [ -f "$OPTIONS_FILE" ] && source "$OPTIONS_FILE" || { echo "$OPTIONS_FILE: not found! Aborting." ; exit 1 ; }
@@ -34,10 +84,9 @@ case $1 in
     # PKG_DEPENDS_TARGET includes a libretro core/package not included above.
     # PKG_DEPENDS_TARGET often includes also non-libretro packages, hence
     # not pulled from individual project-package files.
-    ADDITIONAL_PACKAGES="beetle-bsnes bsnes beetle-psx bsnes-mercury"
+    ADDITIONAL_PACKAGES=" beetle-bsnes bsnes beetle-psx bsnes-mercury "
     # List of all libretro packages to update:
-    PACKAGES_ALL="$RA_PACKAGES $ADDITIONAL_PACKAGES $LIBRETRO_CORES"
-    echo "Checking only libretro packages used by Lakka:"
+    PACKAGES_ALL=" $RA_PACKAGES $ADDITIONAL_PACKAGES $LIBRETRO_CORES "
     ;;
   -p | --packages )
     PACKAGES_ALL=""
@@ -47,13 +96,12 @@ case $1 in
     [ "$v" == "" ] && { echo "Error: You must provide name(s) of package(s) after $x" ; exit 1 ; }
     for a in $v ; do
       if [ -f $LR_PKG_PATH/$a/package.mk ] ; then
-        PACKAGES_ALL="$PACKAGES_ALL $a"
+        PACKAGES_ALL="$PACKAGES_ALL $a "
       else
         echo "Warning: $a is not a libretro package - skipping."
       fi
     done
     [ "$PACKAGES_ALL" == "" ] && { echo "No valid packages given! Aborting." ; exit 1 ; }
-    echo "Checking following packages:$PACKAGES_ALL"
     ;;
   * )
     usage
@@ -61,6 +109,12 @@ case $1 in
     exit 1
     ;;
 esac
+if [ "$PACKAGES_EX" != "" ] ; then
+  for a in $PACKAGES_EX ; do
+    PACKAGES_ALL=$(echo " "$PACKAGES_ALL" " | sed "s/\ $a\ /\ /g")
+  done
+fi
+echo "Checking following packages: "$PACKAGES_ALL
 declare -i i=0
 for p in $PACKAGES_ALL
 do
