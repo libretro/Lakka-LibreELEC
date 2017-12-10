@@ -1,0 +1,127 @@
+#!/bin/sh
+################################################################################
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2016-present Team LibreELEC
+#
+#  LibreELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  LibreELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+# set media_build version you want to use
+if [ -z "$1" ]; then
+  echo "Usage: $0 crazycat | tbs"
+  exit 0
+else
+  MEDIA_BUILD_PROJECT="$1"  
+fi
+
+# name of the package
+DVB_MKPKG_FOLDER="$(pwd)"
+
+# crazycat
+if [ "$MEDIA_BUILD_PROJECT" = "crazycat" ]; then
+  MEDIA_BUILD_URL="https://bitbucket.org/CrazyCat/media_build.git"
+  MEDIA_TREE_URL="https://github.com/crazycat69/linux_media.git"
+  MEDIA_TREE_BRANCH="latest"
+  MEDIA_BUILD_NAME="crazycat"
+
+# tbs oss
+elif [ "$MEDIA_BUILD_PROJECT" = "tbs" ]; then
+  MEDIA_BUILD_URL="https://github.com/tbsdtv/media_build.git"
+  MEDIA_TREE_URL="https://github.com/tbsdtv/linux_media.git"
+  MEDIA_TREE_BRANCH="latest"
+  MEDIA_BUILD_NAME="tbs"
+
+# exit
+else
+  echo "exit: no valid project"
+  exit 0
+fi
+
+# remove old files
+echo "removing old sources ..."
+rm -rf $MEDIA_BUILD_NAME*/
+
+################################################################################
+
+# media_build dl
+
+echo "getting media_build sources ..."
+
+if [ ! -d media_build.git ]; then
+  git clone $MEDIA_BUILD_URL media_build/
+fi
+
+#get log
+cd media_build/
+  git pull
+  git checkout $MEDIA_BUILD_HASH
+  GIT_LOG_MEDIA_BUILD=`git log --pretty=oneline -n1`
+
+cd $DVB_MKPKG_FOLDER/
+
+# media_tree dl
+echo "getting sources ..."
+  if [ ! -d linux_media.git ]; then
+    git clone --depth=1 $MEDIA_TREE_URL -b $MEDIA_TREE_BRANCH media_tree
+  fi
+
+#get log
+cd media_tree/
+  git pull
+  GIT_LOG_MEDIA_TREE=`git log --pretty=oneline -n1`
+  GIT_REV=`git log -n1 --pretty=format:"%ad" --date=short`
+
+# hack/workaround for borked upstream kernel/media_build
+# without removing atomisp there a lot additional includes that 
+# slowdown build process after modpost from 3min to 6min
+# even if atomisp is disabled via kernel.conf
+  rm -rf drivers/staging/media/atomisp
+  sed -i 's|^.*drivers/staging/media/atomisp.*$||' $DVB_MKPKG_FOLDER/media_tree/drivers/staging/media/Kconfig
+  
+cd $DVB_MKPKG_FOLDER/
+
+################################################################################
+
+# collecting files from media_tree
+echo "create media_tree tar"
+cd media_build/linux
+make tar DIR="$DVB_MKPKG_FOLDER/media_tree/"
+
+cd $DVB_MKPKG_FOLDER 
+
+# cleanup
+rm -rf media_tree/ 
+rm -rf media_build/.git/
+
+# rename buildfolder
+mv media_build/ $MEDIA_BUILD_NAME-$GIT_REV/
+
+# log used versions into LE_versions
+echo "package include: $MEDIA_BUILD_NAME\n
+media_build commit: $GIT_LOG_MEDIA_BUILD
+media_build url: $MEDIA_BUILD_URL
+\n
+media_tree commit: $GIT_LOG_MEDIA_TREE
+media_tree url: $MEDIA_TREE_URL
+\n
+package date: $(date +%F_%H:%M:%S)" > $MEDIA_BUILD_NAME-$GIT_REV/LE_versions
+
+################################################################################
+
+# pack sources
+echo "packing sources ..."
+tar cvJf $MEDIA_BUILD_NAME-$GIT_REV.tar.xz $MEDIA_BUILD_NAME-$GIT_REV
+
+echo "remove temporary sourcedir ..."
+rm -rf $MEDIA_BUILD_NAME-$GIT_REV
