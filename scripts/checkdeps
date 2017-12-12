@@ -20,6 +20,35 @@
 
 . config/options $1
 
+get_deps() {
+  need=()
+  need_pkg=()
+
+  for i in "${!deps[@]}"; do
+    dep=${deps[$i]}
+    dep_pkg=${deps_pkg[$i]}
+    [ -z "$(which $dep 2>/dev/null)" ] && need+=($dep) && need_pkg+=("$dep_pkg")
+  done
+
+  for i in "${!files[@]}"; do
+    file=${files[$i]}
+    file_pkg=${files_pkg[$i]}
+    installed=N
+    [ $installed == N -a -f "$file" ] && installed=Y
+    [ $installed == N ] && need+=($file) && need_pkg+=("$file_pkg")
+  done
+
+  for i in "${!perl_mod[@]}"; do
+    mod=${perl_mod[$i]}
+    pkg=${perl_pkg[$i]}
+
+    if ! perl -M"$mod" -e exit 2>/dev/null; then
+      need+=(perl::$mod)
+      need_pkg+=($pkg)
+    fi
+  done
+}
+
 get_yes_no()
 {
   local ans
@@ -27,21 +56,6 @@ get_yes_no()
   [ "${ans,,}" == "y" ] && return 0
   [ "${ans,,}" == "yes" ] && return 0
   return 1
-}
-
-test_libjson-perl()
-{
-  perl -MJSON -e 'exit(0);' 2>/dev/null
-}
-
-test_perl-json()
-{
-  test_libjson-perl
-}
-
-test_perl-JSON()
-{
-  test_libjson-perl
 }
 
 if  [ -f /etc/lsb-release ]; then
@@ -52,115 +66,91 @@ if  [ -f /etc/os-release ]; then
   DISTRO=$(grep ^ID= /etc/os-release | cut -d "=" -f 2 | tr A-Z a-z)
 fi
 
-deps="wget bash bc gcc sed patch lsdiff tar bzip2 gzip perl gawk gperf zip unzip diff lzop"
-deps_pkg="wget bash bc gcc sed patch patchutils tar bzip2 gzip perl gawk gperf zip unzip diffutils lzop"
+deps=(wget bash bc gcc sed patch lsdiff tar bzip2 gzip perl gawk gperf zip unzip diff lzop)
+deps_pkg=(wget bash bc gcc sed patch patchutils tar bzip2 gzip perl gawk gperf zip unzip diffutils lzop)
 
-files="/usr/include/stdio.h /usr/include/ncurses.h"
-files_pkg="libc6-dev libncurses5-dev"
+files=(/usr/include/stdio.h /usr/include/ncurses.h)
+files_pkg=(libc6-dev libncurses5-dev)
+
+perl_mod=(JSON XML::Parser)
 
 case "$DISTRO" in
     fedora|centos|rhel)
-      deps="$deps g++ mkfontscale mkfontdir bdftopcf xsltproc java python"
-      deps_pkg="$deps_pkg gcc-c++ xorg-x11-font-utils xorg-x11-font-utils xorg-x11-font-utils libxslt java-1.7.0-openjdk python2"
-      [[ ! `rpm -qa glibc-static` ]] && deps="$deps glibc-static" && deps_pkg="$deps_pkg glibc-static"
-      [[ ! `rpm -qa libstdc++-static` ]] && deps="$deps libstdc++-static" && deps_pkg="$deps_pkg libstdc++-static"
-      files_pkg="glibc-headers ncurses-devel"
+      deps+=(g++ mkfontscale mkfontdir bdftopcf xsltproc java python)
+      deps_pkg+=(gcc-c++ xorg-x11-font-utils xorg-x11-font-utils xorg-x11-font-utils libxslt java-1.7.0-openjdk python2)
+      [[ ! $(rpm -qa glibc-static) ]] && deps+=(glibc-static) && deps_pkg+=(glibc-static)
+      [[ ! $(rpm -qa libstdc++-static) ]] && deps+=(libstdc++-static) && deps_pkg+=(libstdc++-static)
+      files_pkg=(glibc-headers ncurses-devel)
+      perl_pkg=(perl-JSON perl-XML-parser)
       ;;
     gentoo)
-      deps="$deps g++ mkfontscale mkfontdir bdftopcf xsltproc java python"
-      deps_pkg="$deps_pkg gcc[cxx] mkfontscale mkfontdir bdftopcf libxslt virtual/jre python"
-      files_pkg="glibc ncurses"
+      deps+=(g++ mkfontscale mkfontdir bdftopcf xsltproc java python)
+      deps_pkg+=("gcc[cxx]" mkfontscale mkfontdir bdftopcf libxslt virtual/jre python)
+      files_pkg=(glibc ncurses)
+      perl_pkg=(JSON XML-Parser)
       ;;
     arch)
-      deps="$deps g++ mkfontscale mkfontdir bdftopcf xsltproc java python"
-      deps_pkg="$deps_pkg g++ xorg-mkfontscale xorg-mkfontdir xorg-bdftopcf libxslt java-runtime-common jdk8-openjdk python2"
+      deps+=(g++ mkfontscale mkfontdir bdftopcf xsltproc java python)
+      deps_pkg+=(g++ xorg-mkfontscale xorg-mkfontdir xorg-bdftopcf libxslt "java-runtime-common jdk8-openjdk" python2)
+      perl_pkg=(perl-json perl-xml-parser)
       ;;
     opensuse)
-      deps="$deps g++ mkfontscale mkfontdir bdftopcf xsltproc java python"
-      deps_pkg="$deps_pkg gcc-c++ mkfontscale mkfontdir bdftopcf libxslt-tools java-1_8_0-openjdk python"
-      [[ ! `rpm -qa glibc-devel-static` ]] && deps="$deps glibc-devel-static" && deps_pkg="$deps_pkg glibc-devel-static"
+      deps+=( g++ mkfontscale mkfontdir bdftopcf xsltproc java python)
+      deps_pkg+=(gcc-c++ mkfontscale mkfontdir bdftopcf libxslt-tools java-1_8_0-openjdk python)
+      [[ ! $(rpm -qa glibc-devel-static) ]] && deps+=(glibc-devel-static) && deps_pkg+=(glibc-devel-static)
+      perl_pkg=(perl-JSON perl-XML-Parser)
       ;;
     *)
-      deps="$deps g++ mkfontscale mkfontdir bdftopcf xsltproc java python"
-      deps_pkg="$deps_pkg g++ xfonts-utils xfonts-utils xfonts-utils xsltproc default-jre python"
+      deps+=(g++ mkfontscale mkfontdir bdftopcf xsltproc java python)
+      deps_pkg+=(g++ xfonts-utils xfonts-utils xfonts-utils xsltproc default-jre python)
+      perl_pkg=(libjson-perl libxml-parser-perl)
       ;;
 esac
 
-if ! test_libjson-perl; then
-  files="$files perl/JSON.pm"
-  case "$DISTRO" in
-    arch)
-      files_pkg="$files_pkg perl-json"
-      ;;
-    fedora|centos|rhel|opensuse)
-      files_pkg="$files_pkg perl-JSON"
-      ;;
-    *)
-      files_pkg="$files_pkg libjson-perl"
-      ;;
-    esac
-fi
-
 # project specific dependencies
 if [ -n "$EXTRA_DEPS" ] ; then
-  deps="$deps $EXTRA_DEPS"
+  deps+=($EXTRA_DEPS)
 fi
 if [ -n "$EXTRA_DEPS_PKG" ] ; then
-  deps_pkg="$deps_pkg $EXTRA_DEPS_PKG"
+  deps_pkg+=($EXTRA_DEPS_PKG)
 fi
 
 # distro specific dependencies
 if [ -n "$DISTRO_DEPS" ] ; then
-  deps="$deps $DISTRO_DEPS"
+  deps+=($DISTRO_DEPS)
 fi
 if [ -n "$DISTRO_DEPS_PKG" ] ; then
-  deps_pkg="$deps_pkg $DISTRO_DEPS_PKG"
+  deps_pkg+=($DISTRO_DEPS_PKG)
 fi
 
-getarg() {
-  eval echo \${$(($1+2))}
-}
+get_deps
 
-i=0
-while dep=`getarg $i $deps` && [ -n "$dep" ]; do
-  [ -z "`which $dep 2>/dev/null`" ] && need="$need $dep" && need_pkg="$need_pkg `getarg $i $deps_pkg`"
-  i=$(($i+1))
-done
-
-i=0
-while file=`getarg $i $files` && [ -n "$file" ]; do
-  installed=N
-  file_pkg=`getarg $i $files_pkg`
-  [ "$(type -t "test_$file_pkg")" == "function" ] && test_$file_pkg && installed=Y
-  [ $installed == N -a -f $file ] && installed=Y
-  [ $installed == N ] && need="$need $file" && need_pkg="$need_pkg $file_pkg"
-  i=$(($i+1))
-done
-
-if [ -n "$need" ]; then
+if [ "${#need[@]}" -gt 0 ]; then
   echo "**** Your system lacks the following tools needed to build $DISTRONAME ****"
-  echo $need provided by $need_pkg
+  for i in "${!need[@]}"; do
+    echo "${need[$i]} provided by ${need_pkg[$i]}"
+  done
   echo "**** You seem to use a $DISTRO system ****"
 
   case "$DISTRO" in
     ubuntu|debian|linuxmint|\"elementary\")
-      get_yes_no && sudo apt-get install $need_pkg
+      get_yes_no && sudo apt-get install "${need_pkg[@]}"
       ;;
     fedora|centos|rhel)
-      if [ `which dnf` ]; then YUM=dnf; else YUM=yum; fi
-      get_yes_no && sudo $YUM install $need_pkg
+      if [ $(which dnf) ]; then YUM=dnf; else YUM=yum; fi
+      get_yes_no && sudo $YUM install "${need_pkg[@]}"
       ;;
     gentoo)
-      get_yes_no && sudo emerge --ask --deep $need_pkg
+      get_yes_no && sudo emerge --ask --deep "${need_pkg[@]}"
       ;;
     mageia)
-      get_yes_no && sudo urpmi $need_pkg
+      get_yes_no && sudo urpmi "${need_pkg[@]}"
       ;;
     arch)
-      get_yes_no && sudo pacman -Sy $need_pkg
+      get_yes_no && sudo pacman -Sy "${need_pkg[@]}"
       ;;
     opensuse)
-      get_yes_no && sudo zypper install -y --no-recommends $need_pkg
+      get_yes_no && sudo zypper install -y --no-recommends "${need_pkg[@]}"
       ;;
     *)
       echo "**** unsupported distro $DISTRO ****"
@@ -169,28 +159,13 @@ if [ -n "$need" ]; then
   esac
 fi
 
-need=""
-need_pkg=""
+get_deps
 
-i=0
-while dep=`getarg $i $deps` && [ -n "$dep" ]; do
-  [ -z "`which $dep 2>/dev/null`" ] && need="$need $dep" && need_pkg="$need_pkg `getarg $i $deps_pkg`"
-  i=$(($i+1))
-done
-
-i=0
-while file=`getarg $i $files` && [ -n "$file" ]; do
-  installed=N
-  file_pkg=`getarg $i $files_pkg`
-  [ "$(type -t "test_$file_pkg")" == "function" ] && test_$file_pkg && installed=Y
-  [ $installed == N -a -f $file ] && installed=Y
-  [ $installed == N ] && need="$need $file" && need_pkg="$need_pkg $file_pkg"
-  i=$(($i+1))
-done
-
-if [ -n "$need" ]; then
+if [ "${#need[@]}" -gt 0 ]; then
   echo "**** The following packages were not installed correctly ****"
-  echo $need_pkg
+  for i in "${!need[@]}"; do
+    echo "${need[$i]} provided by ${need_pkg[$i]}"
+  done
   echo "********"
   exit 1
 fi
