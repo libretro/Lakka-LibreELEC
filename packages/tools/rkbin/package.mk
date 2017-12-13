@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="rkbin"
-PKG_VERSION="878533b"
-PKG_SHA256="75348fec13992e0e07c9efa3453d08523db078ccbe5bbc700aca7dd3f368f97a"
+PKG_VERSION="f64ded6"
+PKG_SHA256="7b858ac964058da83cd96314184d2c5f834a9b2cc6b805be424a661fd9836b54"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="nonfree"
 PKG_SITE="https://github.com/rockchip-linux/rkbin"
