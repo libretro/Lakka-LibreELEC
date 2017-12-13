@@ -1,0 +1,85 @@
+From 3b22d9e27321d9c4bb601bd859029d4ce62bd49b Mon Sep 17 00:00:00 2001
+From: LongChair <LongChair@hotmail.com>
+Date: Sun, 26 Mar 2017 15:30:16 +0200
+Subject: [PATCH 1/2] drm/rockchip: make video overlay bottom layer
+
+---
+ drivers/gpu/drm/rockchip/rockchip_vop_reg.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/rockchip/rockchip_vop_reg.c b/drivers/gpu/drm/rockchip/rockchip_vop_reg.c
+index 9d92b9a55e67..833498ed6915 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_vop_reg.c
++++ b/drivers/gpu/drm/rockchip/rockchip_vop_reg.c
+@@ -281,9 +281,9 @@ static const struct vop_ctrl rk3288_ctrl_data = {
+  */
+ static const struct vop_win_data rk3288_vop_win_data[] = {
+ 	{ .base = 0x00, .phy = &rk3288_win01_data,
+-	  .type = DRM_PLANE_TYPE_PRIMARY },
+-	{ .base = 0x40, .phy = &rk3288_win01_data,
+ 	  .type = DRM_PLANE_TYPE_OVERLAY },
++	{ .base = 0x40, .phy = &rk3288_win01_data,
++	  .type = DRM_PLANE_TYPE_PRIMARY },
+ 	{ .base = 0x00, .phy = &rk3288_win23_data,
+ 	  .type = DRM_PLANE_TYPE_OVERLAY,
+ 	  .area = rk3288_area_data,
+@@ -974,10 +974,10 @@ static const struct vop_csc rk3328_win2_csc = {
+ 
+ static const struct vop_win_data rk3328_vop_win_data[] = {
+ 	{ .base = 0xd0, .phy = &rk3288_win01_data,  .csc = &rk3328_win0_csc,
+-	  .type = DRM_PLANE_TYPE_PRIMARY,
++	  .type = DRM_PLANE_TYPE_OVERLAY,
+ 	  .feature = WIN_FEATURE_HDR2SDR | WIN_FEATURE_SDR2HDR },
+ 	{ .base = 0x1d0, .phy = &rk3288_win01_data, .csc = &rk3328_win1_csc,
+-	  .type = DRM_PLANE_TYPE_OVERLAY,
++	  .type = DRM_PLANE_TYPE_PRIMARY,
+ 	  .feature = WIN_FEATURE_SDR2HDR | WIN_FEATURE_PRE_OVERLAY },
+ 	{ .base = 0x2d0, .phy = &rk3288_win01_data, .csc = &rk3328_win2_csc,
+ 	  .type = DRM_PLANE_TYPE_CURSOR,
+
+From 04759d88467419ab1500908a909ed1775455b84d Mon Sep 17 00:00:00 2001
+From: LongChair <LongChair@hotmail.com>
+Date: Mon, 24 Apr 2017 09:48:54 +0200
+Subject: [PATCH 2/2] drm : allow framebuffer and videomodes not to have same
+ size
+
+DRM legacy doesn't allow that, will be only available with drm atomic.
+Although, when running 4K modes, it's preferable to get a 1080p frambuffer that can be handlded properly by GPU and then use VOP to upscale that to 4K.
+---
+ drivers/gpu/drm/drm_atomic_helper.c | 8 ++++----
+ drivers/gpu/drm/drm_crtc.c          | 2 ++
+ 2 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/drm_atomic_helper.c b/drivers/gpu/drm/drm_atomic_helper.c
+index 9a513abd8a47..193997a5c640 100644
+--- a/drivers/gpu/drm/drm_atomic_helper.c
++++ b/drivers/gpu/drm/drm_atomic_helper.c
+@@ -2208,11 +2208,11 @@ int __drm_atomic_helper_set_config(struct drm_mode_set *set,
+ 	primary_state->src_x = set->x << 16;
+ 	primary_state->src_y = set->y << 16;
+ 	if (primary_state->rotation & (BIT(DRM_ROTATE_90) | BIT(DRM_ROTATE_270))) {
+-		primary_state->src_h = hdisplay << 16;
+-		primary_state->src_w = vdisplay << 16;
++		primary_state->src_h = set->fb->width << 16;
++		primary_state->src_w = set->fb->height << 16;
+ 	} else {
+-		primary_state->src_h = vdisplay << 16;
+-		primary_state->src_w = hdisplay << 16;
++		primary_state->src_h = set->fb->height << 16;
++		primary_state->src_w = set->fb->width << 16;
+ 	}
+ 
+ commit:
+diff --git a/drivers/gpu/drm/drm_crtc.c b/drivers/gpu/drm/drm_crtc.c
+index 7cd13faf83ca..365e3d588163 100644
+--- a/drivers/gpu/drm/drm_crtc.c
++++ b/drivers/gpu/drm/drm_crtc.c
+@@ -2931,6 +2931,8 @@ int drm_crtc_check_viewport(const struct drm_crtc *crtc,
+ 
+ {
+ 	int hdisplay, vdisplay;
++	pr_info("%s: skip check\n", __func__);
++	return 0;
+ 
+ 	drm_crtc_get_hv_timing(mode, &hdisplay, &vdisplay);
+ 
