@@ -35,4 +35,6 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-udev \
 
 post_makeinstall_target() {
   rm -r $INSTALL/usr/share
+  mkdir -p $INSTALL/etc/X11
+    cp $PKG_BUILD/conf/10-amdgpu.conf $INSTALL/etc/X11/xorg-amdgpu.conf
 }
