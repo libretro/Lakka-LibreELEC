@@ -19,15 +19,15 @@
 ################################################################################
 
 PKG_NAME="chromium"
-PKG_VERSION="60.0.3112.113"
-PKG_SHA256="ebfce706a1ea02a92e35f360c7364d1184dacf040b59eade4cb51aa61a4fec59"
-PKG_REV="107"
+PKG_VERSION="61.0.3163.79"
+PKG_SHA256="bdbc139ed86f3b5d1ec3c3b00caeaef4f9ac2c363438f03dded56e217ad10727"
+PKG_REV="108"
 PKG_ARCH="x86_64"
 PKG_LICENSE="Mixed"
 PKG_SITE="http://www.chromium.org/Home"
 PKG_URL="https://commondatastorage.googleapis.com/chromium-browser-official/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_HOST="toolchain"
-PKG_DEPENDS_TARGET="chromium:host pciutils dbus libXcomposite libXcursor libXtst alsa-lib bzip2 yasm nss libXScrnSaver libexif ninja:host libpng harfbuzz atk gtk+ libva-vdpau-driver unclutter xdotool"
+PKG_DEPENDS_HOST="toolchain ninja:host"
+PKG_DEPENDS_TARGET="chromium:host pciutils dbus libXcomposite libXcursor libXtst alsa-lib bzip2 yasm nss libXScrnSaver libexif libpng harfbuzz atk gtk+ libva-vdpau-driver unclutter xdotool"
 PKG_SECTION="browser"
 PKG_SHORTDESC="Chromium Browser: the open-source web browser from Google"
 PKG_LONGDESC="Chromium Browser ($PKG_VERSION): the open-source web browser from Google"
@@ -85,6 +85,7 @@ make_target() {
     'linux_use_bundled_binutils=false'
     'use_allocator="none"'
     'use_cups=false'
+    'use_custom_libcxx=false'
     'use_gconf=false'
     'use_gnome_keyring=false'
     'use_gold=false'
@@ -93,6 +94,7 @@ make_target() {
     'use_pulseaudio=false'
     'use_sysroot=true'
     'use_vulcanize=false'
+    'use_vaapi=true'
     "target_sysroot=\"${SYSROOT_PREFIX}\""
     'enable_hangout_services_extension=true'
     'enable_widevine=true'
