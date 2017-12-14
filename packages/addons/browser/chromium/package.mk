@@ -19,14 +19,14 @@
 ################################################################################
 
 PKG_NAME="chromium"
-PKG_VERSION="61.0.3163.100"
-PKG_SHA256="4135968cac6623c1d2b224494600cd274098cce41c298f8c3908b354a34c281b"
-PKG_REV="107.006"
+PKG_VERSION="62.0.3202.62"
+PKG_SHA256="e8df3150386729ddcb4971636627e54815ad447be5f122201e310f5bb0bcc362"
+PKG_REV="107.008"
 PKG_ARCH="x86_64"
 PKG_LICENSE="Mixed"
 PKG_SITE="http://www.chromium.org/Home"
 PKG_URL="https://commondatastorage.googleapis.com/chromium-browser-official/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_HOST="toolchain ninja:host Python:host"
+PKG_DEPENDS_HOST="toolchain ninja:host Python2:host"
 PKG_DEPENDS_TARGET="chromium:host pciutils dbus libXcomposite libXcursor libXtst alsa-lib bzip2 yasm nss libXScrnSaver libexif libpng harfbuzz atk gtk+ libva-vdpau-driver unclutter xdotool"
 PKG_SECTION="browser"
 PKG_SHORTDESC="Chromium Browser: the open-source web browser from Google"
@@ -95,6 +95,7 @@ make_target() {
     'use_sysroot=true'
     'use_vulcanize=false'
     'use_vaapi=true'
+    'exclude_unwind_tables=true'
     "target_sysroot=\"${SYSROOT_PREFIX}\""
     'enable_hangout_services_extension=true'
     'enable_widevine=true'
