@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="mame2003"
-PKG_VERSION="830402e"
+PKG_VERSION="96d920f"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MAME"
@@ -39,8 +39,7 @@ post_unpack() {
 }
 
 make_target() {
-  strip_lto
-  make ARCH="" CC="$CC" NATIVE_CC="$CC" LD="$CC" -j 1
+  make ARCH="" CC="$CC" NATIVE_CC="$CC" LD="$CC"
 }
 
 makeinstall_target() {
