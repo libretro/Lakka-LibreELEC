@@ -16,45 +16,30 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="media_build"
-PKG_VERSION="2017-06-20-rpi"
-PKG_SHA256="ff30bf1ee9fe342649ad80c9072ab4d37238d05680da850828f6d6c1d6b2e6d4"
-PKG_ARCH="any"
+PKG_NAME="digital_devices"
+PKG_VERSION="0f05b19"
+PKG_SHA256="0f12fa00133eaeb83c4e380cd6e3174d7b399e7e9e5ba8eac0c1ada7579c2c20"
+PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/crazycat69/linux_media"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_SITE="https://github.com/DigitalDevices/dddvb/"
+PKG_URL="https://github.com/DigitalDevices/dddvb/archive/${PKG_VERSION}.tar.gz"
+PKG_SOURCE_DIR="dddvb-${PKG_VERSION}*"
 PKG_DEPENDS_TARGET="toolchain linux"
 PKG_BUILD_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
-PKG_SECTION="driver"
-PKG_SHORTDESC="DVB drivers that replace the version shipped with the kernel"
-PKG_LONGDESC="DVB drivers that replace the version shipped with the kernel"
-PKG_IS_KERNEL_PKG="yes"
+PKG_SECTION="driver.dvb"
+PKG_LONGDESC="DVB driver for Digital Devices cards"
 
-pre_make_target() {
-  export KERNEL_VER=$(get_module_dir)
-  export LDFLAGS=""
-}
+PKG_IS_ADDON="yes"
+PKG_ADDON_IS_STANDALONE="yes"
+PKG_ADDON_NAME="DVB drivers for DigitalDevices"
+PKG_ADDON_TYPE="xbmc.service"
+PKG_ADDON_VERSION="${ADDON_VERSION}.${PKG_REV}"
 
 make_target() {
-  make untar
-
-  # copy config file
-  if [ "$PROJECT" = Generic ] || [ "$PROJECT" = Virtual ]; then
-    if [ -f $PKG_DIR/config/generic.config ]; then
-      cp $PKG_DIR/config/generic.config v4l/.config
-    fi
-  else
-    if [ -f $PKG_DIR/config/usb.config ]; then
-      cp $PKG_DIR/config/usb.config v4l/.config
-    fi
-  fi
-
-  # add menuconfig to edit .config
-  make VER=$KERNEL_VER SRCDIR=$(kernel_path)
+  KDIR=$(kernel_path) make
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/$(get_full_module_dir)/updates
-  find $PKG_BUILD/v4l/ -name \*.ko -exec cp {} $INSTALL/$(get_full_module_dir)/updates \;
+  install_driver_addon_files "$PKG_BUILD/ddbridge $PKG_BUILD/dvb-core $PKG_BUILD/frontends"
 }
