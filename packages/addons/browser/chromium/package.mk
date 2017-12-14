@@ -19,15 +19,15 @@
 ################################################################################
 
 PKG_NAME="chromium"
-PKG_VERSION="62.0.3202.62"
-PKG_SHA256="e8df3150386729ddcb4971636627e54815ad447be5f122201e310f5bb0bcc362"
-PKG_REV="107.008"
+PKG_VERSION="63.0.3239.84"
+PKG_SHA256="6de2754dfc333675ae6a67ae13c95666009b35c84f847b058edbf312e42fa3af"
+PKG_REV="107.009"
 PKG_ARCH="x86_64"
 PKG_LICENSE="Mixed"
 PKG_SITE="http://www.chromium.org/Home"
 PKG_URL="https://commondatastorage.googleapis.com/chromium-browser-official/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_HOST="toolchain ninja:host Python2:host"
-PKG_DEPENDS_TARGET="chromium:host pciutils dbus libXcomposite libXcursor libXtst alsa-lib bzip2 yasm nss libXScrnSaver libexif libpng harfbuzz atk gtk+ libva-vdpau-driver unclutter xdotool"
+PKG_DEPENDS_TARGET="chromium:host node:host pciutils dbus libXcomposite libXcursor libXtst alsa-lib bzip2 yasm nss libXScrnSaver libexif libpng atk gtk+ libva-vdpau-driver unclutter xdotool"
 PKG_SECTION="browser"
 PKG_SHORTDESC="Chromium Browser: the open-source web browser from Google"
 PKG_LONGDESC="Chromium Browser ($PKG_VERSION): the open-source web browser from Google"
@@ -52,10 +52,6 @@ make_host() {
   ./tools/gn/bootstrap/bootstrap.py --no-rebuild --no-clean --verbose
 }
 
-makeinstall_host() {
-  :
-}
-
 make_target() {
   strip_lto
   export LDFLAGS="$LDFLAGS -ludev"
@@ -65,9 +61,9 @@ make_target() {
   # Note: These are for OpenELEC use ONLY. For your own distribution, please
   # get your own set of keys.
 
-  _google_api_key=AIzaSyAQ6L9vt9cnN4nM0weaa6Y38K4eyPvtKgI
-  _google_default_client_id=740889307901-4bkm4e0udppnp1lradko85qsbnmkfq3b.apps.googleusercontent.com
-  _google_default_client_secret=9TJlhL661hvShQub4cWhANXa
+  local _google_api_key=AIzaSyAQ6L9vt9cnN4nM0weaa6Y38K4eyPvtKgI
+  local _google_default_client_id=740889307901-4bkm4e0udppnp1lradko85qsbnmkfq3b.apps.googleusercontent.com
+  local _google_default_client_secret=9TJlhL661hvShQub4cWhANXa
 
   local _flags=(
     "host_toolchain=\"//build/toolchain/linux:x64_host\""
@@ -93,45 +89,27 @@ make_target() {
     'use_kerberos=false'
     'use_pulseaudio=false'
     'use_sysroot=true'
-    'use_vulcanize=false'
     'use_vaapi=true'
-    'exclude_unwind_tables=true'
+    'use_v8_context_snapshot=false'
+    'enable_vulkan=false'
     "target_sysroot=\"${SYSROOT_PREFIX}\""
+    'exclude_unwind_tables=true'
     'enable_hangout_services_extension=true'
     'enable_widevine=true'
     'enable_nacl=false'
     'enable_nacl_nonsfi=false'
     'enable_swiftshader=false'
+    'enable_vulkan=false'
     "google_api_key=\"${_google_api_key}\""
     "google_default_client_id=\"${_google_default_client_id}\""
     "google_default_client_secret=\"${_google_default_client_secret}\""
   )
 
-  # Possible replacements are listed in build/linux/unbundle/replace_gn_files.py
-  local _system_libs=(
-    harfbuzz-ng
-    libjpeg
-    libpng
-    libxslt
-    yasm
-  )
-
-  # Remove bundled libraries for which we will use the system copies; this
-  # *should* do what the remove_bundled_libraries.py script does, with the
-  # added benefit of not having to list all the remaining libraries
-  local _lib
-  for _lib in ${_system_libs}; do
-    find -type f -path "*third_party/$_lib/*" \
-      \! -path "*third_party/$_lib/chromium/*" \
-      \! -path "*third_party/$_lib/google/*" \
-      \! -regex '.*\.\(gn\|gni\|isolate\|py\)' \
-      -delete
-  done
-
-  ./build/linux/unbundle/replace_gn_files.py --system-libraries "${_system_libs}"
   ./third_party/libaddressinput/chromium/tools/update-strings.py
 
   ./out/Release/gn gen out/Release --args="${_flags[*]}" --script-executable=$TOOLCHAIN/bin/python
+  mkdir -p $PKG_BUILD/third_party/node/linux/node-linux-x64/bin
+  ln -fs $TOOLCHAIN/bin/node $PKG_BUILD/third_party/node/linux/node-linux-x64/bin/node
 
   ninja -j${CONCURRENCY_MAKE_LEVEL} -C out/Release chrome chrome_sandbox widevinecdmadapter
 }
