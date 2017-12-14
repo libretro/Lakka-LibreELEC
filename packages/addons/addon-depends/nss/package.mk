@@ -25,7 +25,7 @@ PKG_ARCH="any"
 PKG_LICENSE="Mozilla Public License"
 PKG_SITE="http://ftp.mozilla.org/"
 PKG_URL="http://ftp.mozilla.org/pub/security/nss/releases/NSS_3_29_5_RTM/src/nss-3.29.5-with-nspr-4.13.1.tar.gz"
-PKG_DEPENDS_TARGET="toolchain nss:host nspr zlib"
+PKG_DEPENDS_TARGET="toolchain nss:host nspr zlib sqlite"
 PKG_SECTION="security"
 PKG_SHORTDESC="The Network Security Services (NSS) package is a set of libraries designed to support cross-platform development of security-enabled client and server applications"
 PKG_LONGDESC="The Network Security Services (NSS) package is a set of libraries designed to support cross-platform development of security-enabled client and server applications"
@@ -55,6 +55,7 @@ make_target() {
   make BUILD_OPT=1 $TARGET_USE_64 \
      NSS_USE_SYSTEM_SQLITE=1 \
      NSPR_INCLUDE_DIR=$SYSROOT_PREFIX/usr/include/nspr \
+     NSS_USE_SYSTEM_SQLITE=1 \
      USE_SYSTEM_ZLIB=1 ZLIB_LIBS=-lz \
      SKIP_SHLIBSIGN=1 \
      OS_TEST=$TARGET_ARCH \
