@@ -19,8 +19,8 @@
 ################################################################################
 
 PKG_NAME="chromium"
-PKG_VERSION="55.0.2883.75"
-PKG_SHA256="5bcf7180935bebc7648f7e2577f612da681f7846127f79dac22630ded9984e55"
+PKG_VERSION="60.0.3112.113"
+PKG_SHA256="ebfce706a1ea02a92e35f360c7364d1184dacf040b59eade4cb51aa61a4fec59"
 PKG_REV="107"
 PKG_ARCH="x86_64"
 PKG_LICENSE="Mixed"
@@ -117,7 +117,7 @@ make_target() {
   ./tools/gn/bootstrap/bootstrap.py --gn-gen-args "${_flags[*]}"
   ./out/Release/gn gen out/Release --args="${_flags[*]}" --script-executable=$TOOLCHAIN/bin/python
 
-  ninja -C out/Release chrome chrome_sandbox widevinecdmadapter
+  ninja -j${CONCURRENCY_MAKE_LEVEL} -C out/Release chrome chrome_sandbox widevinecdmadapter
 }
 
 addon() {
