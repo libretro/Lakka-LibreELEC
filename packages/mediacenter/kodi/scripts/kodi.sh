@@ -16,8 +16,16 @@
 
 trap cleanup TERM
 
+KODI_ROOT=$HOME/.kodi
+
 SAVED_ARGS="$@"
-CRASHLOG_DIR=/storage/.kodi/temp
+CRASHLOG_DIR=$KODI_ROOT/temp
+
+BOOT_STATUS=$HOME/.config/boot.status
+NOSAFE_MODE=$HOME/.config/safemode.disable
+CRASH_HIST=/run/libreelec/crashes.dat
+KODI_MAX_RESTARTS=@KODI_MAX_RESTARTS@
+KODI_MAX_SECONDS=@KODI_MAX_SECONDS@
 
 cleanup() {
   # make systemd happy by not exiting immediately but
@@ -41,6 +49,41 @@ single_stacktrace()
     gdb /usr/lib/kodi/kodi.bin --core="$core" --batch -ex "thread apply all bt" 2>/dev/null >> $FILE
     rm -f "$core"
   done
+}
+
+detect_crash_loop()
+{
+  # use monotonic time (in case date/time changes after booting)
+  NOW_TIME=$(awk '/^now/ {print int($3 / 1000000000)}' /proc/timer_list)
+  echo "$NOW_TIME" >> $CRASH_HIST
+
+  NUM_RESTARTS=$(wc -l $CRASH_HIST | cut -d' ' -f1)
+  FIRST_RESTART_TIME=$(tail -n $MAX_RESTARTS $CRASH_HIST | head -n 1)
+
+  # kodi restart loop detected? fail this kodi install
+  if [ $NUM_RESTARTS -ge $KODI_MAX_RESTARTS -a $KODI_MAX_SECONDS -ge $((NOW_TIME - FIRST_RESTART_TIME)) ]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+activate_safe_mode()
+{
+  [ -f $NOSAFE_MODE ] && return 0
+
+  BOOT_STATE="$(cat $BOOT_STATUS 2>/dev/null)"
+
+  if [ "${BOOT_STATE:-OK}" = "OK" ]; then
+    # generate logfiles zip for the failed kodi
+    /usr/bin/createlog
+    lastlog=$(ls -1 /storage/logfiles/*.zip | tail -n 1)
+    mv $lastlog /storage/logfiles/log-$(date -u +%Y-%m-%d-%H.%M.%S)-FAILED.zip
+
+    echo "SAFE" > $BOOT_STATUS
+  fi
+
+  return 0
 }
 
 print_crash_report()
@@ -74,7 +117,7 @@ print_crash_report()
   echo >> $FILE
   echo "################# LOG FILE ##################" >> $FILE
   echo >> $FILE
-  cat /storage/.kodi/temp/kodi.log >> $FILE
+  cat $KODI_ROOT/temp/kodi.log >> $FILE
   echo >> $FILE
   echo "############### END LOG FILE ################" >> $FILE
   echo >> $FILE
@@ -82,7 +125,7 @@ print_crash_report()
   OFILE="$FILE"
   FILE="$CRASHLOG_DIR/kodi_crashlog_$DATE.log"
   mv "$OFILE" "$FILE"
-  ln -sf "$FILE" "$CRASHLOG_DIR/kodi_crash.log"
+  ln -sf "$(basename $FILE)" "$CRASHLOG_DIR/kodi_crash.log"
   echo "Crash report available at $FILE"
 }
 
@@ -94,8 +137,10 @@ fi
 find /storage/.cache/cores -type f -delete
 
 # clean zero-byte database files that prevent migration/startup
-for file in /storage/.kodi/userdata/Database/*.db; do
-  [ -s $file ] || rm -f $file
+for file in $KODI_ROOT/userdata/Database/*.db; do
+  if [ -e "$file" ]; then
+    [ -s $file ] || rm -f $file
+  fi
 done
 
 /usr/lib/kodi/kodi.bin $SAVED_ARGS
@@ -107,6 +152,9 @@ if [ $(( ($RET >= 131 && $RET <= 136) || $RET == 139 )) = "1" ] ; then
 
   # Cleanup. Keep only youngest 10 reports
   rm -f $(ls -1t $CRASHLOG_DIR/kodi_crashlog_*.log | tail -n +11)
+
+  # Enable safe mode if a crash loop is detected
+  detect_crash_loop && activate_safe_mode
 fi
 
 exit $RET
