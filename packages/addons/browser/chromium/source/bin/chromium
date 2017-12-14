@@ -20,6 +20,10 @@
 . /etc/profile
 oe_setup_addon browser.chromium
 
+# fix file permissons (zip packaging)
+chmod +x /storage/.kodi/addons/browser.chromium/bin/chromium /storage/.kodi/addons/browser.chromium/bin/chromium.bin
+chmod 4755 /storage/.kodi/addons/browser.chromium/bin/chrome-sandbox
+
 # make sure we use "own" gtk/pango/nss/etc
 export LD_LIBRARY_PATH=/storage/.kodi/addons/browser.chromium/lib
 
@@ -37,8 +41,56 @@ then
   UNCLUTTER_PID=$!
 fi
 
+# vaapi
+case $VAAPI_MODE in
+  'intel')
+      LIBVA_DRIVERS_PATH='/usr/lib/va'
+      LIBVA_DRIVER_NAME='i965'
+      CHROMIUM_OPTS="$CHROMIUM_OPTS --enable-accelerated-video"
+      export LIBVA_DRIVER_NAME LIBVA_DRIVERS_PATH
+      ;;
+  'amd')
+      LIBVA_DRIVERS_PATH='/storage/.kodi/addons/browser.chromium/lib'
+      LIBVA_DRIVER_NAME='vdpau'
+      CHROMIUM_OPTS="$CHROMIUM_OPTS --enable-accelerated-video"
+      export LIBVA_DRIVER_NAME LIBVA_DRIVERS_PATH
+      ;;
+  'nvidia')
+      LIBVA_DRIVERS_PATH='/storage/.kodi/addons/browser.chromium/lib'
+      LIBVA_DRIVER_NAME='vdpau'
+      CHROMIUM_OPTS="$CHROMIUM_OPTS --enable-accelerated-video --allow-no-sandbox-job --disable-gpu-sandbox"
+      export LIBVA_DRIVER_NAME LIBVA_DRIVERS_PATH
+      ;;
+  *)
+      LIBGL_ALWAYS_SOFTWARE='1'
+      export LIBGL_ALWAYS_SOFTWARE
+esac
+
+# windowed
+case $WINDOW_MODE in
+  'maximized') CHROMIUM_OPTS="$CHROMIUM_OPTS --start-maximized";;
+  'kiosk') CHROMIUM_OPTS="$CHROMIUM_OPTS --kiosk";;
+esac
+
+# rasterization
+case $RASTER_MODE in
+  'off') CHROMIUM_OPTS="$CHROMIUM_OPTS --disable-accelerated-2d-canvas --disable-gpu-compositing";;
+  'force') CHROMIUM_OPTS="$CHROMIUM_OPTS --enable-gpu-rasterization --enable-accelerated-2d-canvas --ignore-gpu-blacklist";;
+esac
+
+# flash
+if [ -e /storage/.kodi/addons/browser.chromium/PepperFlash/libpepflashplayer.so ]; then
+  CHROMIUM_OPTS="$CHROMIUM_OPTS --ppapi-flash-path=/storage/.kodi/addons/browser.chromium/PepperFlash/libpepflashplayer.so"
+fi
+
+# alsa
+if [ ! -z $ALSA_DEVICE ]; then
+  CHROMIUM_OPTS="$CHROMIUM_OPTS --alsa-output-device=$ALSA_DEVICE"
+fi
+
 # start chromium
 LD_PRELOAD=/usr/lib/libGL.so /storage/.kodi/addons/browser.chromium/bin/chromium.bin \
+  $CHROMIUM_OPTS \
   --user-data-dir=/storage/.kodi/userdata/addon_data/browser.chromium/profile \
   --test-type $@
 
