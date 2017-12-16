@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="cairo"
-PKG_VERSION="1.14.6"
-PKG_SHA256="613cb38447b76a93ff7235e17acd55a78b52ea84a9df128c3f2257f8eaa7b252"
+PKG_VERSION="1.14.10"
+PKG_SHA256="7e87878658f2c9951a14fc64114d4958c0e65ac47530b8ac3078b2ce41b66a09"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://cairographics.org/"
@@ -28,6 +28,14 @@ PKG_SECTION="graphics"
 PKG_SHORTDESC="cairo: Multi-platform 2D graphics library"
 PKG_LONGDESC="Cairo is a vector graphics library with cross-device output support. Currently supported output targets include the X Window System and in-memory image buffers. PostScript and PDF file output is planned. Cairo is designed to produce identical output on all output media while taking advantage of display hardware acceleration when available."
 PKG_TOOLCHAIN="configure" # ToDo
+
+if [ "$OPENGL" != "no" ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGL"
+fi
+
+if [ "$OPENGLES" != "no" ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGLES"
+fi
 
 if [ "$DISPLAYSERVER" = "x11" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libXrender libX11 mesa"
