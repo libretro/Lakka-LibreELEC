@@ -47,8 +47,8 @@ case "$LINUX" in
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET aml-dtbtools:host"
     ;;
   rockchip-4.4)
-    PKG_VERSION="bbea8b14"
-    PKG_SHA256="6485f7ecbe4eac424b43df774fdce8c62b97ac7d9d406740d9fafb9f6a84e8af"
+    PKG_VERSION="28018092"
+    PKG_SHA256="944b59f3b8fd9c1e37ea717e600651f9e49f3f01e2e9290d00386dec1789bf83"
     PKG_URL="https://github.com/rockchip-linux/kernel/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_DIR="kernel-$PKG_VERSION*"
     PKG_PATCH_DIRS="rockchip-4.4"
