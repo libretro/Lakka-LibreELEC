@@ -30,12 +30,13 @@ PKG_LONGDESC="intel-vaapi-driver: VA-API user mode driver for Intel GEN Graphics
 PKG_TOOLCHAIN="autotools"
 
 if [ "$DISPLAYSERVER" = "x11" ]; then
-  DISPLAYSERVER_LIBVA="--enable-x11"
+  DISPLAYSERVER_LIBVA="--enable-x11 --disable-wayland"
+elif [ "$DISPLAYSERVER" = "weston" ]; then
+  DISPLAYSERVER_LIBVA="--disable-x11 --enable-wayland"
 else
-  DISPLAYSERVER_LIBVA="--disable-x11"
+  DISPLAYSERVER_LIBVA="--disable-x11 --disable-wayland"
 fi
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
                            --enable-drm \
-                           --disable-wayland \
                            $DISPLAYSERVER_LIBVA"
