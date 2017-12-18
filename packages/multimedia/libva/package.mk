@@ -30,10 +30,13 @@ PKG_TOOLCHAIN="autotools"
 
 if [ "$DISPLAYSERVER" = "x11" ]; then
   PKG_DEPENDS_TARGET="toolchain libX11 libXext libXfixes libdrm mesa"
-  DISPLAYSERVER_LIBVA="--enable-x11 --enable-glx"
+  DISPLAYSERVER_LIBVA="--enable-x11 --enable-glx --disable-wayland"
+elif [ "$DISPLAYSERVER" = "weston" ]; then
+  DISPLAYSERVER_LIBVA="--disable-x11 --disable-glx --enable-wayland"
+  PKG_DEPENDS_TARGET="toolchain libdrm mesa wayland"
 else
   PKG_DEPENDS_TARGET="toolchain libdrm"
-  DISPLAYSERVER_LIBVA="--disable-x11 --disable-glx"
+  DISPLAYSERVER_LIBVA="--disable-x11 --disable-glx --disable-wayland"
 fi
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
@@ -41,5 +44,4 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
                            --enable-drm \
                            --enable-egl \
                            $DISPLAYSERVER_LIBVA \
-                           --disable-wayland \
                            --disable-dummy-driver"

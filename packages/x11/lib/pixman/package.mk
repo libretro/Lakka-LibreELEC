@@ -29,12 +29,14 @@ PKG_SHORTDESC="pixman: Pixel manipulation library"
 PKG_LONGDESC="Pixman is a generic library for manipulating pixel regions, contains low-level pixel manipulation routines and is used by both xorg and cairo."
 
 if [ "$TARGET_ARCH" = arm ]; then
-  if [ "$TARGET_FPU" = neon -o "$TARGET_FPU" = neon-fp16 ]; then
+  if target_has_feature neon; then
     PIXMAN_NEON="--enable-arm-neon"
   else
     PIXMAN_NEON="--disable-arm-neon"
   fi
   PIXMAN_CONFIG="--disable-mmx --disable-sse2 --disable-vmx --enable-arm-simd $PIXMAN_NEON --disable-arm-iwmmxt"
+elif [ "$TARGET_ARCH" = aarch64 ]; then
+  PIXMAN_CONFIG="--disable-mmx --disable-sse2 --disable-vmx --disable-arm-simd --disable-arm-neon --disable-arm-iwmmxt"
 elif [ "$TARGET_ARCH" = x86_64  ]; then
   PIXMAN_CONFIG="--enable-mmx --enable-sse2 --disable-ssse3 --disable-vmx --disable-arm-simd --disable-arm-neon"
 fi

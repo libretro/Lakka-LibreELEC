@@ -37,6 +37,12 @@ if [ "$DISPLAYSERVER" = "x11" ]; then
   MESA_DRI="--enable-dri --enable-dri3"
   MESA_GLX="--enable-glx --enable-driglx-direct --enable-glx-tls"
   MESA_PLATFORMS="--with-platforms=x11,drm"
+elif [ "$DISPLAYSERVER" = "weston" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET wayland wayland-protocols"
+  MESA_DRI="--enable-dri --disable-dri3"
+  # The glx in glx-tls is a misnomer - there's nothing glx in it.
+  MESA_GLX="--disable-glx --disable-driglx-direct --enable-glx-tls"
+  MESA_PLATFORMS="--with-platforms=drm,wayland"
 else
   MESA_DRI="--enable-dri --disable-dri3"
   # The glx in glx-tls is a misnomer - there's nothing glx in it.
@@ -104,7 +110,6 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --enable-shared-glapi \
                            $MESA_GALLIUM_LLVM \
                            --disable-silent-rules \
-                           --with-gl-lib-name=GL \
                            --with-osmesa-lib-name=OSMesa \
                            --with-gallium-drivers=$GALLIUM_DRIVERS \
                            --with-dri-drivers=$DRI_DRIVERS \

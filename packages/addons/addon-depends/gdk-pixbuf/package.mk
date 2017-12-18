@@ -39,4 +39,5 @@ PKG_CONFIGURE_OPTS_TARGET="gio_can_sniff=yes \
                            --with-libpng \
                            --with-libjpeg \
                            --with-libtiff \
+                           --enable-introspection=no \
                            --with-libjasper"
