@@ -47,8 +47,8 @@ case "$LINUX" in
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET aml-dtbtools:host"
     ;;
   *)
-    PKG_VERSION="4.14.6"
-    PKG_SHA256="0907678ba9ea146ddbdecd0a0b6363f56b896b5c61c9a15e809effb3ea346ccc"
+    PKG_VERSION="4.14.7"
+    PKG_SHA256="14ceb78a42d03c71f1a18cafb2d3b26eee77e41b73dd2a14058678d53b2129ec"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v4.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     PKG_PATCH_DIRS="default"
     ;;
