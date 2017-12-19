@@ -83,6 +83,7 @@ PKG_CONFIGURE_OPTS="--prefix=/usr \
                     --without-gpgme \
                     --without-iconv \
                     --without-ldap \
+                    --without-libarchive \
                     --without-pam \
                     --without-pie \
                     --without-regedit \
