@@ -62,9 +62,6 @@ post_makeinstall_target() {
     cp $PKG_DIR/scripts/lircd_helper $INSTALL/usr/lib/libreelec
     cp $PKG_DIR/scripts/lircd_uinput_helper $INSTALL/usr/lib/libreelec
 
-  mkdir -p $INSTALL/usr/lib/udev
-    cp $PKG_DIR/scripts/lircd_wakeup_enable $INSTALL/usr/lib/udev
-
   mkdir -p $INSTALL/usr/share/services
     cp -P $PKG_DIR/default.d/*.conf $INSTALL/usr/share/services
 }
