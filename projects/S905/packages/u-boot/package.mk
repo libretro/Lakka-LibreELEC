@@ -28,7 +28,6 @@ PKG_LICENSE="GPL"
 PKG_SECTION="tools"
 PKG_SHORTDESC="u-boot: Universal Bootloader project"
 PKG_LONGDESC="U-Boot bootloader utility tools. This package includes the mkimage program, which allows generation of U-Boot images in various formats, and the fw_printenv and fw_setenv programs to read and modify U-Boot's environment and other tools."
-PKG_IS_KERNEL_PKG="yes"
 
 make_host() {
   make dummy_defconfig
