@@ -55,6 +55,8 @@ makeinstall_target() {
 }
 
 post_makeinstall_target() {
+  local f keymap
+
   rm -rf $INSTALL/etc/rc_keymaps
     ln -sf /storage/.config/rc_keymaps $INSTALL/etc/rc_keymaps
 
@@ -64,6 +66,17 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/lib/udev/rules.d
     mkdir -p $INSTALL/usr/lib/udev/rules.d
     cp -PR $PKG_DIR/udev.d/*.rules $INSTALL/usr/lib/udev/rules.d
+
+  # install additional keymaps without overwriting upstream maps
+  (
+    set -C
+    for f in $PKG_DIR/keymaps/* ; do
+      if [ -e $f ] ; then
+        keymap=$(basename $f)
+        cat $f > $INSTALL/usr/lib/udev/rc_keymaps/$keymap
+      fi
+    done
+  )
 
   (
     echo "# table libreelec_multi, type: RC6 NEC"
