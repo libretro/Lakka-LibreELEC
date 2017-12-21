@@ -41,7 +41,7 @@ unpack() {
 
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/Emby.Mono
-  unzip -q $ROOT/$SOURCES/$PKG_NAME/$PKG_SOURCE_NAME \
+  unzip -q $SOURCES/$PKG_NAME/$PKG_SOURCE_NAME \
         -d $ADDON_BUILD/$PKG_ADDON_ID/Emby.Mono
 
   sed -i 's/libMagickWand-6./libMagickWand-7./g' \
