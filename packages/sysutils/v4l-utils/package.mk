@@ -95,5 +95,8 @@ post_makeinstall_target() {
 # use combined multi-table on MCE receivers
 # *	rc-rc6-mce	rc6_mce
 *	rc-rc6-mce	libreelec_multi
+# additional non-upstreamed keymaps
+*	rc-odroid	odroid
+*	rc-wetek-hub	wetek_hub
 EOF
 }
