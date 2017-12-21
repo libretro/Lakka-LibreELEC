@@ -85,4 +85,15 @@ post_makeinstall_target() {
       grep -v "^#" $INSTALL/usr/lib/udev/rc_keymaps/$f
     done
   ) > $INSTALL/usr/lib/udev/rc_keymaps/libreelec_multi
+
+  # use multi-keymap instead of default one
+  sed -i '/^\*\s*rc-rc6-mce\s*rc6_mce/d' $INSTALL/etc/rc_maps.cfg
+  cat << EOF >> $INSTALL/etc/rc_maps.cfg
+#
+# Custom LibreELEC configuration starts here
+#
+# use combined multi-table on MCE receivers
+# *	rc-rc6-mce	rc6_mce
+*	rc-rc6-mce	libreelec_multi
+EOF
 }
