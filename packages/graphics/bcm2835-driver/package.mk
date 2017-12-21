@@ -54,7 +54,9 @@ makeinstall_target() {
   mkdir -p $INSTALL/usr/lib
     cp -PRv $FLOAT/opt/vc/lib/*.so $INSTALL/usr/lib
     ln -sf /usr/lib/libbrcmEGL.so $INSTALL/usr/lib/libEGL.so
+    ln -sf /usr/lib/libbrcmEGL.so $INSTALL/usr/lib/libEGL.so.1
     ln -sf /usr/lib/libbrcmGLESv2.so $INSTALL/usr/lib/libGLESv2.so
+    ln -sf /usr/lib/libbrcmGLESv2.so $INSTALL/usr/lib/libGLESv2.so.2
 
 # some usefull debug tools
   mkdir -p $INSTALL/usr/bin
