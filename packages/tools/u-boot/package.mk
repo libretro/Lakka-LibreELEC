@@ -71,4 +71,15 @@ makeinstall_target() {
     elif [ -f $PROJECT_DIR/$PROJECT/bootloader/update.sh ]; then
       cp -av $PROJECT_DIR/$PROJECT/bootloader/update.sh $INSTALL/usr/share/bootloader
     fi
+
+    # Always install the canupdate script
+    if [ -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/canupdate.sh ]; then
+      cp -av $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/canupdate.sh $INSTALL/usr/share/bootloader
+    elif [ -f $PROJECT_DIR/$PROJECT/bootloader/canupdate.sh ]; then
+      cp -av $PROJECT_DIR/$PROJECT/bootloader/canupdate.sh $INSTALL/usr/share/bootloader
+    fi
+    if [ -f $INSTALL/usr/share/bootloader/canupdate.sh ]; then
+      sed -e "s/@PROJECT@/${DEVICE:-$PROJECT}/g" \
+          -i $INSTALL/usr/share/bootloader/canupdate.sh
+    fi
 }
