@@ -32,7 +32,7 @@ PKG_TOOLCHAIN="manual"
 unpack() {
   mkdir -p $BUILD
     cd $BUILD
-    sh $ROOT/$SOURCES/$PKG_NAME/$PKG_NAME-$PKG_VERSION.bin --auto-accept
+    sh $SOURCES/$PKG_NAME/$PKG_NAME-$PKG_VERSION.bin --auto-accept
 }
 
 makeinstall_target() {
