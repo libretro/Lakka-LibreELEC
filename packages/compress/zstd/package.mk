@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="zstd"
-PKG_VERSION="1.3.2"
-PKG_SHA256="ac5054a3c64e6510bc1ae890d05e3d271cc33ceebc9d06ac9f08105766d2798a"
+PKG_VERSION="1.3.3"
+PKG_SHA256="a77c47153ee7de02626c5b2a097005786b71688be61e9fb81806a011f90b297b"
 PKG_ARCH="any"
 PKG_LICENSE="BSD/GPLv2"
 PKG_SITE="http://www.zstd.net"
