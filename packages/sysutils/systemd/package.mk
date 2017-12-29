@@ -69,7 +69,7 @@ PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
                        -Dcoredump=false \
                        -Dresolve=false \
                        -Dlogind=true \
-                       -Dhostnamed=false \
+                       -Dhostnamed=true \
                        -Dlocaled=false \
                        -Dmachined=false \
                        -Dnetworkd=false \
