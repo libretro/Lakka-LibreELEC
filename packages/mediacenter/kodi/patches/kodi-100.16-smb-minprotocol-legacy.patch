@@ -1,0 +1,232 @@
+From 76f6d6fef6494d2dfd8cbc0ea8d88a8d82029c09 Mon Sep 17 00:00:00 2001
+From: chewitt <github@chrishewitt.net>
+Date: Sat, 11 Nov 2017 05:44:48 +0000
+Subject: [PATCH] smbclient: allow config of min client and legacy security
+
+---
+ .../resource.language.en_gb/resources/strings.po   | 34 ++++++++++++++++++----
+ system/settings/linux.xml                          |  6 ++++
+ system/settings/settings.xml                       | 25 ++++++++++++++++
+ xbmc/filesystem/SMBFile.cpp                        | 16 ++++++++++
+ xbmc/network/NetworkServices.cpp                   |  4 ++-
+ xbmc/settings/Settings.cpp                         |  4 +++
+ xbmc/settings/Settings.h                           |  2 ++
+ 7 files changed, 85 insertions(+), 6 deletions(-)
+
+diff --git a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
+index 9009023f4d39..f7755776eea6 100644
+--- a/addons/resource.language.en_gb/resources/strings.po
++++ b/addons/resource.language.en_gb/resources/strings.po
+@@ -19075,25 +19075,25 @@ msgctxt "#36622"
+ msgid "Set the maximum SMB protocol version to negotiate when making connections. Forcing SMBv2 or SMBv1 compatibility may be required with older NAS and Windows shares."
+ msgstr ""
+ 
+-#. Values for setting with label #36621 "Maximum protocol version" - none means "no protocol version is forced"
++#. Values for settings with label #36621 and #36628 "Minimum/Maximum protocol version" - none means "no protocol version is forced"
+ #: system/settings/settings.xml
+ msgctxt "#36623"
+ msgid "None"
+ msgstr ""
+ 
+-#. Values for setting with label #36621 "Maximum protocol version"
++#. Values for setting with label #36621 and #36628 "Minimum/Maximum protocol version"
+ #: system/settings/settings.xml
+ msgctxt "#36624"
+ msgid "SMBv1"
+ msgstr ""
+ 
+-#. Values for setting with label #36621 "Maximum protocol version"
++#. Values for setting with label #36621 and #36628 "Minimum/Maximum protocol version"
+ #: system/settings/settings.xml
+ msgctxt "#36625"
+ msgid "SMBv2"
+ msgstr ""
+ 
+-#. Values for setting with label #36621 "Maximum protocol version"
++#. Values for setting with label #36621 and #36628 "Minimum/Maximum protocol version"
+ #: system/settings/settings.xml
+ msgctxt "#36626"
+ msgid "SMBv3"
+@@ -19105,7 +19105,31 @@ msgctxt "#36627"
+ msgid "Client"
+ msgstr ""
+ 
+-#empty strings from id 36628 to 36899
++#. Label of a setting, allow the minimum smbclient protocol to be configured
++#: system/settings/settings.xml
++msgctxt "#36628"
++msgid "Minimum protocol version"
++msgstr ""
++
++#. Description of setting with label #36628 "Minimum protocol version"
++#: system/settings/settings.xml
++msgctxt "#36629"
++msgid "Set the minimum SMB protocol version to negotiate when making connections. Forcing SMBv2 may be required to prevent SMBv1 use on some OS."
++msgstr ""
++
++#. Label of a setting, sets additional config required for some proprietary SMBv1 implementations (mostly routers)
++#: system/settings/settings.xml
++msgctxt "#36630"
++msgid "Use legacy security"
++msgstr ""
++
++#. Description of setting with label #36630 "Use legacy security"
++#: system/settings/settings.xml
++msgctxt "#36631"
++msgid "Force weak SMBv1 security for compatibility with the USB sharing features on some WiFi routers and NAS devices."
++msgstr ""
++
++#empty strings from id 36632 to 36899
+ 
+ #: xbmc/media/MediaType.cpp
+ msgctxt "#36900"
+diff --git a/system/settings/linux.xml b/system/settings/linux.xml
+index 7cb276acddba..5c27e489a0ad 100644
+--- a/system/settings/linux.xml
++++ b/system/settings/linux.xml
+@@ -12,9 +12,15 @@
+   <section id="services">
+     <category id="smb">
+       <group id="2">
++        <setting id="smb.minprotocol">
++          <visible>true</visible>
++        </setting>
+         <setting id="smb.maxprotocol">
+           <visible>true</visible>
+         </setting>
++        <setting id="smb.legacysecurity">
++          <visible>true</visible>
++        </setting>
+       </group>
+     </category>
+   </section>
+diff --git a/system/settings/settings.xml b/system/settings/settings.xml
+index 5ff71b9741c5..79b4321ab9c7 100644
+--- a/system/settings/settings.xml
++++ b/system/settings/settings.xml
+@@ -1956,6 +1956,20 @@
+           <default>0.0.0.0</default>
+           <control type="edit" format="ip" />
+         </setting>
++        <setting id="smb.minprotocol" type="integer" label="36628" help="36629">
++          <level>2</level>
++          <visible>false</visible>
++          <default>0</default>
++          <constraints>
++            <options>
++              <option label="36623">0</option>
++              <option label="36624">1</option>
++              <option label="36625">2</option>
++              <option label="36626">3</option>
++            </options>
++          </constraints>
++          <control type="list" format="integer" />
++        </setting>
+         <setting id="smb.maxprotocol" type="integer" label="36621" help="36622">
+           <level>2</level>
+           <visible>false</visible>
+@@ -1970,6 +1984,17 @@
+           </constraints>
+           <control type="list" format="integer" />
+         </setting>
++        <setting id="smb.legacysecurity" type="boolean" label="36630" help="36631">
++          <level>2</level>
++          <visible>false</visible>
++          <default>false</default>
++          <control type="toggle" />
++          <dependencies>
++            <dependency type="enable">
++                <condition setting="smb.maxprotocol" operator="is">1</condition>
++            </dependency>
++          </dependencies>
++        </setting>
+       </group>
+     </category>
+     <category id="weather" label="8" help="36316">
+diff --git a/xbmc/filesystem/SMBFile.cpp b/xbmc/filesystem/SMBFile.cpp
+index e5301b0452f9..7fc139635f0b 100644
+--- a/xbmc/filesystem/SMBFile.cpp
++++ b/xbmc/filesystem/SMBFile.cpp
+@@ -117,6 +117,15 @@ void CSMB::Init()
+ 
+         fprintf(f, "\tlock directory = %s/.smb/\n", home.c_str());
+ 
++        // set minimum smbclient protocol version
++        if (CSettings::GetInstance().GetInt(CSettings::SETTING_SMB_MINPROTOCOL) > 0)
++        {
++          if (CSettings::GetInstance().GetInt(CSettings::SETTING_SMB_MINPROTOCOL) == 1)
++            fprintf(f, "\tclient min protocol = NT1\n");
++          else
++            fprintf(f, "\tclient min protocol = SMB%d\n", CSettings::GetInstance().GetInt(CSettings::SETTING_SMB_MINPROTOCOL));
++        }
++
+         // set maximum smbclient protocol version
+         if (CSettings::GetInstance().GetInt(CSettings::SETTING_SMB_MAXPROTOCOL) > 0)
+         {
+@@ -126,6 +135,13 @@ void CSMB::Init()
+             fprintf(f, "\tclient max protocol = SMB%d\n", CSettings::GetInstance().GetInt(CSettings::SETTING_SMB_MAXPROTOCOL));
+         }
+ 
++        // set legacy security options
++        if (CSettings::GetInstance().GetBool(CSettings::SETTING_SMB_LEGACYSECURITY) && (CSettings::GetInstance().GetInt(CSettings::SETTING_SMB_MAXPROTOCOL) == 1))
++        {
++          fprintf(f, "\tclient NTLMv2 auth = no\n");
++          fprintf(f, "\tclient use spnego = no\n");
++        }
++
+         // set wins server if there's one. name resolve order defaults to 'lmhosts host wins bcast'.
+         // if no WINS server has been specified the wins method will be ignored.
+         if (CSettings::GetInstance().GetString(CSettings::SETTING_SMB_WINSSERVER).length() > 0 && !StringUtils::EqualsNoCase(CSettings::GetInstance().GetString(CSettings::SETTING_SMB_WINSSERVER), "0.0.0.0") )
+diff --git a/xbmc/network/NetworkServices.cpp b/xbmc/network/NetworkServices.cpp
+index 393dabc3067d..5dad5c22c0af 100644
+--- a/xbmc/network/NetworkServices.cpp
++++ b/xbmc/network/NetworkServices.cpp
+@@ -439,7 +439,9 @@ void CNetworkServices::OnSettingChanged(const CSetting *setting)
+ #endif // HAS_WEB_SERVER
+   if (settingId == CSettings::SETTING_SMB_WINSSERVER ||
+       settingId == CSettings::SETTING_SMB_WORKGROUP ||
+-      settingId == CSettings::SETTING_SMB_MAXPROTOCOL)
++      settingId == CSettings::SETTING_SMB_MINPROTOCOL ||
++      settingId == CSettings::SETTING_SMB_MAXPROTOCOL ||
++      settingId == CSettings::SETTING_SMB_LEGACYSECURITY)
+   {
+     // okey we really don't need to restart, only deinit samba, but that could be damn hard if something is playing
+     //! @todo - General way of handling setting changes that require restart
+diff --git a/xbmc/settings/Settings.cpp b/xbmc/settings/Settings.cpp
+index f76c152b4d37..5400ba229164 100644
+--- a/xbmc/settings/Settings.cpp
++++ b/xbmc/settings/Settings.cpp
+@@ -333,7 +333,9 @@ const std::string CSettings::SETTING_SERVICES_AIRPLAYPASSWORD = "services.airpla
+ const std::string CSettings::SETTING_SERVICES_AIRPLAYVIDEOSUPPORT = "services.airplayvideosupport";
+ const std::string CSettings::SETTING_SMB_WINSSERVER = "smb.winsserver";
+ const std::string CSettings::SETTING_SMB_WORKGROUP = "smb.workgroup";
++const std::string CSettings::SETTING_SMB_MINPROTOCOL = "smb.minprotocol";
+ const std::string CSettings::SETTING_SMB_MAXPROTOCOL = "smb.maxprotocol";
++const std::string CSettings::SETTING_SMB_LEGACYSECURITY = "smb.legacysecurity";
+ const std::string CSettings::SETTING_VIDEOSCREEN_MONITOR = "videoscreen.monitor";
+ const std::string CSettings::SETTING_VIDEOSCREEN_SCREEN = "videoscreen.screen";
+ const std::string CSettings::SETTING_VIDEOSCREEN_RESOLUTION = "videoscreen.resolution";
+@@ -1160,7 +1162,9 @@ void CSettings::InitializeISettingCallbacks()
+   settingSet.insert(CSettings::SETTING_SERVICES_ESCONTINUOUSDELAY);
+   settingSet.insert(CSettings::SETTING_SMB_WINSSERVER);
+   settingSet.insert(CSettings::SETTING_SMB_WORKGROUP);
++  settingSet.insert(CSettings::SETTING_SMB_MINPROTOCOL);
+   settingSet.insert(CSettings::SETTING_SMB_MAXPROTOCOL);
++  settingSet.insert(CSettings::SETTING_SMB_LEGACYSECURITY);
+   m_settingsManager->RegisterCallback(&CNetworkServices::GetInstance(), settingSet);
+ 
+   settingSet.clear();
+diff --git a/xbmc/settings/Settings.h b/xbmc/settings/Settings.h
+index ab6770997ce5..c40ab2d31957 100644
+--- a/xbmc/settings/Settings.h
++++ b/xbmc/settings/Settings.h
+@@ -290,7 +290,9 @@ class CSettings : public CSettingCreator, public CSettingControlCreator
+   static const std::string SETTING_SERVICES_AIRPLAYVIDEOSUPPORT;
+   static const std::string SETTING_SMB_WINSSERVER;
+   static const std::string SETTING_SMB_WORKGROUP;
++  static const std::string SETTING_SMB_MINPROTOCOL;
+   static const std::string SETTING_SMB_MAXPROTOCOL;
++  static const std::string SETTING_SMB_LEGACYSECURITY;
+   static const std::string SETTING_VIDEOSCREEN_MONITOR;
+   static const std::string SETTING_VIDEOSCREEN_SCREEN;
+   static const std::string SETTING_VIDEOSCREEN_RESOLUTION;

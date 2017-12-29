@@ -16,66 +16,16 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-<<<<<<< HEAD
-import alsaaudio as alsa
-import os
-import subprocess
-import sys
-=======
 import os
 import stat
 import subprocess
 import sys
 import threading
->>>>>>> 6ecb5bc094f11d18cb0b884bcf486a15b9a676d5
 import xbmc
 import xbmcaddon
 import xbmcgui
 
-<<<<<<< HEAD
 
-ICON     = xbmcaddon.Addon().getAddonInfo('icon')
-ID       = xbmcaddon.Addon().getAddonInfo('id')
-NAME     = xbmcaddon.Addon().getAddonInfo('name')
-PROFILE  = xbmcaddon.Addon().getAddonInfo('profile')
-STRINGS  = xbmcaddon.Addon().getLocalizedString
-
-ITEM     = os.path.join(PROFILE, 'librespot.sdp')
-LISTITEM = xbmcgui.ListItem(NAME)
-LISTITEM.setArt({'thumb': ICON})
-
-
-def addon():
-   if len(sys.argv) == 1:
-      Player().play()
-   elif sys.argv[1] == 'wizard':
-      dialog  = xbmcgui.Dialog()
-      while True:
-         pcms = alsa.pcms()[1:]
-         if len(pcms) == 0:
-            dialog.ok(NAME, STRINGS(30210))
-            break
-         pcmx = dialog.select(STRINGS(30112), pcms)
-         if pcmx == -1:
-            break
-         pcm = pcms[pcmx]
-         xbmcaddon.Addon().setSetting('ls_o', pcm)
-         break
-
-
-def systemctl(command):
-   subprocess.call(['systemctl', command, ID])
-
-
-class Monitor(xbmc.Monitor):
-
-   def __init__(self, *args, **kwargs):
-      super(Monitor, self).__init__(self)
-      self.player = Player()
-
-   def onSettingsChanged(self):
-      self.player.stop()
-=======
 PORT = '6666'
 SINK = 'librespot_sink'
 
@@ -89,7 +39,7 @@ def systemctl(command):
 
 class Controller(threading.Thread):
 
-   FIFO = os.path.join(xbmcaddon.Addon().getAddonInfo('path'), 'rc')
+   FIFO = '/var/run/librespot'
 
    def __init__(self, player):
       super(Controller, self).__init__()
@@ -116,43 +66,26 @@ class Controller(threading.Thread):
                self.player.play()
             elif command[0] == 'stop':
                self.player.stop()
-
-   def stop(self):
       try:
          os.unlink(self.FIFO)
       except OSError:
          pass
->>>>>>> 6ecb5bc094f11d18cb0b884bcf486a15b9a676d5
+
+   def stop(self):
+      with open(self.FIFO, 'w') as fifo:
+         fifo.close()
 
 
 class Player(xbmc.Player):
 
-<<<<<<< HEAD
-   def __init__(self, *args, **kwargs):
-      super(Player, self).__init__(self)
-=======
    ITEM = 'rtp://127.0.0.1:{port}'.format(port=PORT)
 
    def __init__(self):
       super(Player, self).__init__(self)
-      self.window = xbmcgui.Window(12006)
->>>>>>> 6ecb5bc094f11d18cb0b884bcf486a15b9a676d5
       if self.isPlaying():
          self.onPlayBackStarted()
 
    def onPlayBackEnded(self):
-<<<<<<< HEAD
-      if not self.islibrespot:
-         xbmc.sleep(5000)
-         if not self.isPlaying():
-            systemctl('start')
-
-   def onPlayBackStarted(self):
-      if self.getPlayingFile() == ITEM:
-         self.islibrespot = True
-      else:
-         self.islibrespot = False
-=======
       suspendSink('1')
       xbmc.sleep(1000)
       if not self.isPlaying():
@@ -161,34 +94,19 @@ class Player(xbmc.Player):
    def onPlayBackStarted(self):
       if self.getPlayingFile() != self.ITEM:
          suspendSink('1')
->>>>>>> 6ecb5bc094f11d18cb0b884bcf486a15b9a676d5
          systemctl('stop')
 
    def onPlayBackStopped(self):
       systemctl('restart')
 
    def play(self):
-<<<<<<< HEAD
-      if not self.isPlaying():
-         super(Player, self).play(ITEM, LISTITEM)
-
-   def stop(self):
-      if self.isPlaying():
-         if self.getPlayingFile() == ITEM:
-            super(Player, self).stop()
-      else:
-         systemctl('restart')
-
-if __name__ == '__main__':
-   Monitor().waitForAbort()
-=======
       if not self.isPlaying() and xbmcaddon.Addon().getSetting('ls_O') == 'Kodi':
          suspendSink('0')
          listitem = xbmcgui.ListItem(xbmcaddon.Addon().getAddonInfo('name'))
          listitem.setArt({'thumb': xbmcaddon.Addon().getAddonInfo('icon')})
          super(Player, self).play(self.ITEM, listitem)
          del listitem
-         self.window.show()
+         xbmcgui.Window(12006).show()
 
    def stop(self):
       suspendSink('1')
@@ -214,4 +132,4 @@ if __name__ == '__main__':
    controller.start()
    Monitor(player).waitForAbort()
    controller.stop()
->>>>>>> 6ecb5bc094f11d18cb0b884bcf486a15b9a676d5
+   controller.join()
