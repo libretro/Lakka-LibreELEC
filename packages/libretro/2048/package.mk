@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="2048"
-PKG_VERSION="04b708a"
+PKG_VERSION="642f129"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
