@@ -726,7 +726,7 @@ get_libreelec_branch() {
 get_libreelec_option() {
   local variable="$1"
   cd $LIBREELEC_DIR
-  . config/options
+  source config/options ""
   echo "${!variable}"
 }
 
@@ -759,13 +759,18 @@ generate_work() {
   # Generate workload using multiple threads
   init_progress
 
-  tcount=0
-  while [ : ]; do
-    tcount=$((tcount + 1))
-    [ ${tcount} -gt ${WORKER_MAX} ] && break
-    generate_work_worker ${pcount} ${tcount} ${revision} &
-  done
-  wait
+  (
+    cd $LIBREELEC_DIR
+    source config/options ""
+
+    tcount=0
+    while [ : ]; do
+      tcount=$((tcount + 1))
+      [ ${tcount} -gt ${WORKER_MAX} ] && break
+      generate_work_worker ${pcount} ${tcount} ${revision} &
+    done
+    wait
+  )
 
   end_progress
 
@@ -792,7 +797,7 @@ generate_work_worker() {
   local pcount=$1 worker="$2" revision="$3"
   local workfile_i="$(printf "%s.%02d" "${WORKFILES_I}" ${worker})"
   local workfile_o="$(printf "%s.%02d" "${WORKFILES_O}" ${worker})"
-  local wanted_vars="PKG_NAME PKG_VERSION PKG_URL PKG_SHA256 PKG_SECTION PKG_IS_ADDON PKG_SOURCE_NAME"
+  local wanted_vars="PKG_NAME PKG_VERSION PKG_URL PKG_SHA256 PKG_DIR PKG_SECTION PKG_IS_ADDON PKG_SOURCE_NAME"
   local package_name var comma PKG_URL PKG_SOURCE_NAME PKG_VERSION PKG_IS_ADDON
 
   [ -f "${workfile_i}" ] || return 0
@@ -809,6 +814,7 @@ generate_work_worker() {
       [ ${PROGRESS} == yes ] && progress ${pcount}
 
       source config/options ${package_name} &>/dev/null || true
+      [ -z "${PKG_DIR}" ] && continue
 
       if [ -n "${revision}" ]; then
         PKG_URL="${PKG_URL/${PKG_VERSION}/${revision}}"
@@ -859,9 +865,9 @@ get_packages() {
   cd $LIBREELEC_DIR
 
   if [ -n "${package_name}" ]; then
-    basename $(dirname $(find packages -path "*/${package_name}/*" -name package.mk) 2>/dev/null) 2>/dev/null
+    basename $(dirname $(find packages projects/${PROJECT} -path "*/${package_name}/*" -name package.mk) 2>/dev/null | head -1) 2>/dev/null
   else
-    find packages -name package.mk -exec bash -c get_package_path "{}" \; | sort -k1 | cut -d' ' -f1
+    find packages projects/${PROJECT} -name package.mk -exec bash -c get_package_path "{}" \; | cut -d' ' -f1 | sort -u
   fi
   return 0
 }
