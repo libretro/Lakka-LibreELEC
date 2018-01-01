@@ -1,6 +1,6 @@
-From f7b15b94254a0af6009ed38cc45bcf63cb1b510d Mon Sep 17 00:00:00 2001
+From 006bcc66f7bc25f0df8aa52efa3b151766f9a5ec Mon Sep 17 00:00:00 2001
 From: MilhouseVH <milhouseVH.github@nmacleod.com>
-Date: Tue, 4 Jul 2017 20:51:08 +0100
+Date: Wed, 20 Dec 2017 07:26:55 +0000
 Subject: [PATCH] handle SIGTERM
 
 0. CApplication::Stop cant be trusted. (deadlocks crashes and boo)
@@ -23,16 +23,16 @@ so, when shutdown/reboot is requested:
  5 files changed, 20 insertions(+), 6 deletions(-)
 
 diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
-index ee50f37..28034c8 100644
+index 334ecec..e3101ff 100644
 --- a/xbmc/Application.cpp
 +++ b/xbmc/Application.cpp
-@@ -2355,12 +2355,12 @@ void CApplication::OnApplicationMessage(ThreadMessage* pMsg)
-   switch (pMsg->dwMessage)
+@@ -2373,12 +2373,12 @@ void CApplication::OnApplicationMessage(ThreadMessage* pMsg)
+   switch (msg)
    {
    case TMSG_POWERDOWN:
 -    Stop(EXITCODE_POWERDOWN);
 +    SetExitCode(EXITCODE_POWERDOWN);
-     g_powerManager.Powerdown();
+     CServiceBroker::GetPowerManager().Powerdown();
      break;
  
    case TMSG_QUIT:
@@ -41,13 +41,13 @@ index ee50f37..28034c8 100644
      break;
  
    case TMSG_SHUTDOWN:
-@@ -2381,12 +2381,13 @@ void CApplication::OnApplicationMessage(ThreadMessage* pMsg)
+@@ -2399,12 +2399,13 @@ void CApplication::OnApplicationMessage(ThreadMessage* pMsg)
  
    case TMSG_RESTART:
    case TMSG_RESET:
 -    Stop(EXITCODE_REBOOT);
 +    SetExitCode(EXITCODE_REBOOT);
-     g_powerManager.Reboot();
+     CServiceBroker::GetPowerManager().Reboot();
      break;
  
    case TMSG_RESTARTAPP:
@@ -56,7 +56,7 @@ index ee50f37..28034c8 100644
      Stop(EXITCODE_RESTARTAPP);
  #endif
      break;
-@@ -2805,6 +2806,17 @@ bool CApplication::Cleanup()
+@@ -2821,6 +2822,17 @@ bool CApplication::Cleanup()
    }
  }
  
@@ -74,7 +74,7 @@ index ee50f37..28034c8 100644
  void CApplication::Stop(int exitCode)
  {
    try
-@@ -2812,7 +2824,7 @@ void CApplication::Stop(int exitCode)
+@@ -2828,7 +2840,7 @@ void CApplication::Stop(int exitCode)
      m_frameMoveGuard.unlock();
  
      CVariant vExitCode(CVariant::VariantTypeObject);
@@ -83,7 +83,7 @@ index ee50f37..28034c8 100644
      CAnnouncementManager::GetInstance().Announce(System, "xbmc", "OnQuit", vExitCode);
  
      // Abort any active screensaver
-@@ -2846,7 +2858,6 @@ void CApplication::Stop(int exitCode)
+@@ -2860,7 +2872,6 @@ void CApplication::Stop(int exitCode)
      // Needs cleaning up
      CApplicationMessenger::GetInstance().Stop();
      m_AppFocused = false;
@@ -92,22 +92,22 @@ index ee50f37..28034c8 100644
  
      // cancel any jobs from the jobmanager
 diff --git a/xbmc/Application.h b/xbmc/Application.h
-index 1402787..c21ab93 100644
+index 9d0b2d4..7b0e18b 100644
 --- a/xbmc/Application.h
 +++ b/xbmc/Application.h
-@@ -147,6 +147,7 @@ public:
+@@ -153,6 +153,7 @@ public:
    bool StartServer(enum ESERVERS eServer, bool bStart, bool bWait = false);
  
    bool IsCurrentThread() const;
 +  void SetExitCode(int exitCode);
    void Stop(int exitCode);
-   void RestartApp();
    void UnloadSkin(bool forReload = false);
+   bool LoadCustomWindows();
 diff --git a/xbmc/XBApplicationEx.cpp b/xbmc/XBApplicationEx.cpp
-index 035aed2..34102f5 100644
+index edfea4f..96f245f 100644
 --- a/xbmc/XBApplicationEx.cpp
 +++ b/xbmc/XBApplicationEx.cpp
-@@ -46,6 +46,7 @@ CXBApplicationEx::CXBApplicationEx()
+@@ -42,6 +42,7 @@ CXBApplicationEx::CXBApplicationEx()
    m_bStop = false;
    m_AppFocused = true;
    m_ExitCode = EXITCODE_QUIT;
@@ -116,7 +116,7 @@ index 035aed2..34102f5 100644
  }
  
 diff --git a/xbmc/XBApplicationEx.h b/xbmc/XBApplicationEx.h
-index 3c8dffd..e96bd5e 100644
+index 6fb2f6c..4bc11fc 100644
 --- a/xbmc/XBApplicationEx.h
 +++ b/xbmc/XBApplicationEx.h
 @@ -42,6 +42,7 @@ public:
@@ -128,7 +128,7 @@ index 3c8dffd..e96bd5e 100644
    bool m_renderGUI;
  
 diff --git a/xbmc/platform/posix/main.cpp b/xbmc/platform/posix/main.cpp
-index bee93da..e36af76 100644
+index fccef84..88e928f 100644
 --- a/xbmc/platform/posix/main.cpp
 +++ b/xbmc/platform/posix/main.cpp
 @@ -63,7 +63,7 @@ protected:
@@ -141,5 +141,5 @@ index bee93da..e36af76 100644
  };
  
 -- 
-2.7.4
+2.14.1
 
