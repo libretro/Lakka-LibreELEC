@@ -18,18 +18,26 @@
 ################################################################################
 
 PKG_NAME="u-boot"
-PKG_VERSION="2017.09"
-PKG_SHA256="b2d15f2cf5f72e706025cde73d67247c6da8cd35f7e10891eefe7d9095089744"
 PKG_ARCH="arm aarch64"
 PKG_SITE="https://www.denx.de/wiki/U-Boot"
-PKG_URL="ftp://ftp.denx.de/pub/u-boot/u-boot-$PKG_VERSION.tar.bz2"
-PKG_SOURCE_DIR="u-boot-$PKG_VERSION"
+PKG_SOURCE_DIR="u-boot-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain dtc:host"
 PKG_LICENSE="GPL"
 PKG_SECTION="tools"
 PKG_SHORTDESC="u-boot: Universal Bootloader project"
 PKG_LONGDESC="Das U-Boot is a cross-platform bootloader for embedded systems, used as the default boot loader by several board vendors. It is intended to be easy to port and to debug, and runs on many supported architectures, including PPC, ARM, MIPS, x86, m68k, NIOS, and Microblaze."
 PKG_IS_KERNEL_PKG="yes"
+
+PKG_NEED_UNPACK="$PROJECT_DIR/$PROJECT/bootloader"
+[ -n "$DEVICE" ] && PKG_NEED_UNPACK+=" $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader"
+
+case "$PROJECT" in
+  *)
+    PKG_VERSION="2017.09"
+    PKG_SHA256="b2d15f2cf5f72e706025cde73d67247c6da8cd35f7e10891eefe7d9095089744"
+    PKG_URL="http://ftp.denx.de/pub/u-boot/u-boot-$PKG_VERSION.tar.bz2"
+    ;;
+esac
 
 make_host() {
   make mrproper
@@ -70,5 +78,16 @@ makeinstall_target() {
       cp -av $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/update.sh $INSTALL/usr/share/bootloader
     elif [ -f $PROJECT_DIR/$PROJECT/bootloader/update.sh ]; then
       cp -av $PROJECT_DIR/$PROJECT/bootloader/update.sh $INSTALL/usr/share/bootloader
+    fi
+
+    # Always install the canupdate script
+    if [ -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/canupdate.sh ]; then
+      cp -av $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/canupdate.sh $INSTALL/usr/share/bootloader
+    elif [ -f $PROJECT_DIR/$PROJECT/bootloader/canupdate.sh ]; then
+      cp -av $PROJECT_DIR/$PROJECT/bootloader/canupdate.sh $INSTALL/usr/share/bootloader
+    fi
+    if [ -f $INSTALL/usr/share/bootloader/canupdate.sh ]; then
+      sed -e "s/@PROJECT@/${DEVICE:-$PROJECT}/g" \
+          -i $INSTALL/usr/share/bootloader/canupdate.sh
     fi
 }
