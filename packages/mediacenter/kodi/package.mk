@@ -82,12 +82,6 @@ else
   KODI_OPTICAL="-DENABLE_OPTICAL=OFF"
 fi
 
-if [ "$KODI_NONFREE_SUPPORT" = yes ]; then
-  KODI_NONFREE="-DENABLE_NONFREE=ON"
-else
-  KODI_NONFREE="-DENABLE_NONFREE=OFF"
-fi
-
 if [ "$KODI_DVDCSS_SUPPORT" = yes ]; then
   KODI_DVDCSS="-DENABLE_DVDCSS=ON \
                -DLIBDVDCSS_URL=$SOURCES/libdvdcss/libdvdcss-$(get_pkg_version libdvdcss).tar.gz"
@@ -215,7 +209,6 @@ PKG_CMAKE_OPTS_TARGET="-DNATIVEPREFIX=$TOOLCHAIN \
                        -DENABLE_INTERNAL_FFMPEG=OFF \
                        -DFFMPEG_INCLUDE_DIRS=$SYSROOT_PREFIX/usr \
                        -DENABLE_INTERNAL_CROSSGUID=OFF \
-                       -DENABLE_SDL=OFF \
                        -DENABLE_OPENSSL=ON \
                        -DENABLE_UDEV=ON \
                        -DENABLE_DBUS=ON \
@@ -241,7 +234,6 @@ PKG_CMAKE_OPTS_TARGET="-DNATIVEPREFIX=$TOOLCHAIN \
                        $KODI_SSH \
                        $KODI_AIRPLAY \
                        $KODI_AIRTUNES \
-                       $KODI_NONFREE \
                        $KODI_OPTICAL \
                        $KODI_BLURAY \
                        $KODI_PLAYER"
