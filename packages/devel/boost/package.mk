@@ -50,6 +50,8 @@ configure_target() {
 
   echo "using gcc : `$CC -v 2>&1  | tail -n 1 |awk '{print $3}'` : $CC  : <compileflags>\"$CFLAGS\" <linkflags>\"$LDFLAGS\" ;" \
     > tools/build/src/user-config.jam
+  echo "using python : ${PKG_PYTHON_VERSION/#python} : $TOOLCHAIN : $SYSROOT_PREFIX/usr/include : $SYSROOT_PREFIX/usr/lib ;" \
+    >> tools/build/src/user-config.jam
 }
 
 makeinstall_target() {
