@@ -54,7 +54,23 @@ makeinstall_target() {
   fi
 }
 
+create_multi_keymap() {
+  local f name protocols
+  name="$1"
+  protocols="$2"
+  shift 2
+  (
+    echo "# table $name, type: $protocols"
+    for f in "$@" ; do
+      echo "# $f"
+      grep -v "^#" $INSTALL/usr/lib/udev/rc_keymaps/$f
+    done
+  ) > $INSTALL/usr/lib/udev/rc_keymaps/$name
+}
+
 post_makeinstall_target() {
+  local default_multi_maps f keymap
+
   rm -rf $INSTALL/etc/rc_keymaps
     ln -sf /storage/.config/rc_keymaps $INSTALL/etc/rc_keymaps
 
@@ -65,11 +81,34 @@ post_makeinstall_target() {
     mkdir -p $INSTALL/usr/lib/udev/rules.d
     cp -PR $PKG_DIR/udev.d/*.rules $INSTALL/usr/lib/udev/rules.d
 
+  # install additional keymaps without overwriting upstream maps
   (
-    echo "# table libreelec_multi, type: RC6 NEC"
-    for f in rc6_mce xbox_360 zotac_ad10 hp_mce xbox_one cubox_i ; do
-      echo "# $f"
-      grep -v "^#" $INSTALL/usr/lib/udev/rc_keymaps/$f
+    set -C
+    for f in $PKG_DIR/keymaps/* ; do
+      if [ -e $f ] ; then
+        keymap=$(basename $f)
+        cat $f > $INSTALL/usr/lib/udev/rc_keymaps/$keymap
+      fi
     done
-  ) > $INSTALL/usr/lib/udev/rc_keymaps/libreelec_multi
+  )
+
+  # create multi keymap to support several remotes OOTB
+
+  default_multi_maps="rc6_mce xbox_360 zotac_ad10 hp_mce xbox_one cubox_i"
+
+  create_multi_keymap libreelec_multi "RC6 NEC" $default_multi_maps
+
+  # use multi-keymap instead of default one
+  sed -i '/^\*\s*rc-rc6-mce\s*rc6_mce/d' $INSTALL/etc/rc_maps.cfg
+  cat << EOF >> $INSTALL/etc/rc_maps.cfg
+#
+# Custom LibreELEC configuration starts here
+#
+# use combined multi-table on MCE receivers
+# *	rc-rc6-mce	rc6_mce
+*	rc-rc6-mce	libreelec_multi
+# additional non-upstreamed keymaps
+*	rc-odroid	odroid
+*	rc-wetek-hub	wetek_hub
+EOF
 }
