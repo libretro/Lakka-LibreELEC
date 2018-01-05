@@ -18,10 +18,12 @@
 ################################################################################
 
 PKG_NAME="u-boot"
+PKG_VERSION="a43076c"
 PKG_ARCH="arm aarch64"
 PKG_SITE="https://www.denx.de/wiki/U-Boot"
+PKG_URL="https://github.com/BayLibre/u-boot/archive/$PKG_VERSION.tar.gz"
 PKG_SOURCE_DIR="u-boot-$PKG_VERSION*"
-PKG_DEPENDS_TARGET="toolchain dtc:host"
+PKG_DEPENDS_TARGET="toolchain dtc:host gcc-linaro-aarch64-elf:host gcc-linaro-arm-eabi:host"
 PKG_LICENSE="GPL"
 PKG_SECTION="tools"
 PKG_SHORTDESC="u-boot: Universal Bootloader project"
@@ -31,35 +33,21 @@ PKG_IS_KERNEL_PKG="yes"
 PKG_NEED_UNPACK="$PROJECT_DIR/$PROJECT/bootloader"
 [ -n "$DEVICE" ] && PKG_NEED_UNPACK+=" $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader"
 
-case "$PROJECT" in
-  *)
-    PKG_VERSION="2017.09"
-    PKG_SHA256="b2d15f2cf5f72e706025cde73d67247c6da8cd35f7e10891eefe7d9095089744"
-    PKG_URL="http://ftp.denx.de/pub/u-boot/u-boot-$PKG_VERSION.tar.bz2"
-    ;;
-esac
-
 make_target() {
-  if [ -z "$UBOOT_SYSTEM" ]; then
-    echo "UBOOT_SYSTEM must be set to build an image"
-    echo "see './scripts/uboot_helper' for more information"
-  else
-    CROSS_COMPILE="$TARGET_PREFIX" LDFLAGS="" ARCH=arm make mrproper
-    CROSS_COMPILE="$TARGET_PREFIX" LDFLAGS="" ARCH=arm make $($ROOT/$SCRIPTS/uboot_helper $PROJECT $DEVICE $UBOOT_SYSTEM config)
-    CROSS_COMPILE="$TARGET_PREFIX" LDFLAGS="" ARCH=arm make HOSTCC="$HOST_CC" HOSTSTRIP="true"
-  fi
+  export PATH=$TOOLCHAIN/lib/gcc-linaro-aarch64-elf/bin/:$TOOLCHAIN/lib/gcc-linaro-arm-eabi/bin/:$PATH
+  CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make mrproper
+  CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make $UBOOT_CONFIG
+  CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make HOSTCC="$HOST_CC" HOSTSTRIP="true"
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/share/bootloader
 
     # Only install u-boot.img et al when building a board specific image
-    if [ -n "$UBOOT_SYSTEM" ]; then
-      if [ -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/install ]; then
-        . $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/install
-      elif [ -f $PROJECT_DIR/$PROJECT/bootloader/install ]; then
-        . $PROJECT_DIR/$PROJECT/bootloader/install
-      fi
+    if [ -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/install ]; then
+      . $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/install
+    elif [ -f $PROJECT_DIR/$PROJECT/bootloader/install ]; then
+      . $PROJECT_DIR/$PROJECT/bootloader/install
     fi
 
     # Always install the update script
@@ -69,14 +57,9 @@ makeinstall_target() {
       cp -av $PROJECT_DIR/$PROJECT/bootloader/update.sh $INSTALL/usr/share/bootloader
     fi
 
-    # Always install the canupdate script
-    if [ -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/canupdate.sh ]; then
-      cp -av $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/canupdate.sh $INSTALL/usr/share/bootloader
-    elif [ -f $PROJECT_DIR/$PROJECT/bootloader/canupdate.sh ]; then
-      cp -av $PROJECT_DIR/$PROJECT/bootloader/canupdate.sh $INSTALL/usr/share/bootloader
-    fi
-    if [ -f $INSTALL/usr/share/bootloader/canupdate.sh ]; then
-      sed -e "s/@PROJECT@/${DEVICE:-$PROJECT}/g" \
-          -i $INSTALL/usr/share/bootloader/canupdate.sh
+    cp $PKG_BUILD/fip/u-boot.bin.sd.bin $INSTALL/usr/share/bootloader/u-boot
+
+    if [ -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/boot.ini ]; then
+      cp -av $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/boot.ini $INSTALL/usr/share/bootloader
     fi
 }

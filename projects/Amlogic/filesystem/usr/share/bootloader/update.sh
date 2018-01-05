@@ -91,3 +91,21 @@ for arg in $(cat /proc/cmdline); do
       ;;
   esac
 done
+
+if [ -f $SYSTEM_ROOT/usr/share/bootloader/boot.ini ]; then
+  echo "*** updating boot.ini ..."
+  mount -o rw,remount $BOOT_ROOT
+  cp -p $SYSTEM_ROOT/usr/share/bootloader/boot.ini $BOOT_ROOT/boot.ini
+fi
+
+if [ -f $SYSTEM_ROOT/usr/share/bootloader/boot-logo.bmp.gz ]; then
+  echo "*** updating boot logo ..."
+  mount -o rw,remount $BOOT_ROOT
+  cp -p $SYSTEM_ROOT/usr/share/bootloader/boot-logo.bmp.gz $BOOT_ROOT
+fi
+
+if [ -f $SYSTEM_ROOT/usr/share/bootloader/u-boot -a ! -e /dev/system -a ! -e /dev/boot ]; then
+  echo "*** updating u-boot on: $BOOT_DISK ..."
+  dd if=$SYSTEM_ROOT/usr/share/bootloader/u-boot of=$BOOT_DISK conv=fsync bs=1 count=112 status=none
+  dd if=$SYSTEM_ROOT/usr/share/bootloader/u-boot of=$BOOT_DISK conv=fsync bs=512 skip=1 seek=1 status=none
+fi
