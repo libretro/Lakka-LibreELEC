@@ -68,6 +68,7 @@ PKG_CONFIGURE_OPTS_TARGET="$UTILLINUX_CONFIG_DEFAULT \
                            --enable-libsmartcols \
                            --enable-losetup \
                            --enable-fsck \
+                           --enable-fstrim \
                            --enable-blkid"
 
 if [ "$SWAP_SUPPORT" = "yes" ]; then
