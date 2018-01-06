@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="RTL8822BU-aml"
-PKG_VERSION="f743231"
-PKG_SHA256="fadfe4f8ae38ba14acc9e37bdf3a2e723cfa11dca7d2f6b7ca6c5f1ffa84cf2b"
+PKG_VERSION="9df3607"
+PKG_SHA256="d7005150d0737f81475437e55430b2cef780664db6948f5a17fecc32c915d317"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/khadas/android_hardware_wifi_realtek_drivers_8822bu"
@@ -35,6 +35,7 @@ PKG_TOOLCHAIN="manual"
 post_unpack() {
   sed -i 's/-DCONFIG_CONCURRENT_MODE//g; s/^CONFIG_POWER_SAVING.*$/CONFIG_POWER_SAVING = n/g; s/^CONFIG_RTW_DEBUG.*/CONFIG_RTW_DEBUG = n/g' $PKG_BUILD/*/Makefile
   sed -i 's/^#define CONFIG_DEBUG.*//g' $PKG_BUILD/*/include/autoconf.h
+  sed -i 's/#define DEFAULT_RANDOM_MACADDR.*1/#define DEFAULT_RANDOM_MACADDR 0/g' $PKG_BUILD/*/core/rtw_ieee80211.c
 }
 
 pre_make_target() {

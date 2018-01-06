@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="RTL8723DS-aml"
-PKG_VERSION="96c22b8"
-PKG_SHA256="3cb93c41c400b5d929820cbc6d89e8f254853d9b8f3a5bff972d6d6cde035c86"
+PKG_VERSION="fb4adf7"
+PKG_SHA256="00da0a7773286df38e8785be2891025e4fa6c4ff5ace9450e54cae85f143847e"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/khadas/android_hardware_wifi_realtek_drivers_8723ds"
@@ -35,6 +35,7 @@ PKG_TOOLCHAIN="manual"
 post_unpack() {
   sed -i 's/-DCONFIG_CONCURRENT_MODE//g; s/^CONFIG_POWER_SAVING.*$/CONFIG_POWER_SAVING = n/g; s/^CONFIG_RTW_DEBUG.*/CONFIG_RTW_DEBUG = n/g' $PKG_BUILD/*/Makefile
   sed -i 's/^#define CONFIG_DEBUG.*//g' $PKG_BUILD/*/include/autoconf.h
+  sed -i 's/#define DEFAULT_RANDOM_MACADDR.*1/#define DEFAULT_RANDOM_MACADDR 0/g' $PKG_BUILD/*/core/rtw_ieee80211.c
 }
 
 pre_make_target() {
