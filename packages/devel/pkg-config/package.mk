@@ -32,7 +32,7 @@ PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_HOST="--disable-silent-rules \
                          --with-internal-glib --disable-dtrace \
-                         --with-gnu-ld"
+                         --with-gnu-ld CFLAGS=-Wno-format-nonliteral"
 
 post_makeinstall_host() {
   mkdir -p $SYSROOT_PREFIX/usr/share/aclocal
