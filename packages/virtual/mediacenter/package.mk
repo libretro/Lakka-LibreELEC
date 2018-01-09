@@ -46,4 +46,9 @@ if [ "$MEDIACENTER" = "kodi" ]; then
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET peripheral.joystick"
   fi
 
+  get_graphicdrivers
+  if listcontains "$GRAPHIC_DRIVERS" "(i915|i965)"; then
+    PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET intel-vaapi-driver"
+  fi
+
 fi
