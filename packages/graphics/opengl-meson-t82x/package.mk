@@ -21,7 +21,7 @@ PKG_ARCH="arm"
 PKG_LICENSE="nonfree"
 PKG_SITE="https://github.com/kszaq/opengl-meson-t82x"
 PKG_DEPENDS_TARGET="toolchain libhybris"
-PKG_VERSION="915cb48"
+PKG_VERSION="076f89d"
 PKG_URL="$PKG_SITE/archive/$PKG_VERSION.tar.gz"
 PKG_SOURCE_DIR="$PKG_NAME-$PKG_VERSION*"
 PKG_SECTION="graphics"
@@ -36,6 +36,9 @@ make_target() {
 }
 
 makeinstall_target() {
+  mkdir -p $SYSROOT_PREFIX/usr/include
+    cp -PR usr/include/* $SYSROOT_PREFIX/usr/include
+
   mkdir -p $INSTALL/system
     cp -PR system/* $INSTALL/system
 }
