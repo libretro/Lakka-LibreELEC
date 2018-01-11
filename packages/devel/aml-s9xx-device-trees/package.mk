@@ -17,9 +17,10 @@
 ################################################################################
 
 PKG_NAME="aml-s9xx-device-trees"
-PKG_VERSION="0.1"
-PKG_REV="1"
+PKG_VERSION="097d287"
 PKG_LICENSE="OSS"
+PKG_URL="https://github.com/kszaq/s905-device-trees/archive/$PKG_VERSION.tar.gz"
+PKG_SOURCE_DIR="s905-device-trees-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain linux"
 
 PKG_AUTORECONF="no"
@@ -41,34 +42,22 @@ make_target() {
   DTB_LIST=""
 
   # Complete device trees
-  for f in $PKG_DIR/sources/*.dts; do
-    if [ -e $f ]; then
-      DTB_NAME="$(basename $f .dts).dtb"
-      cp -f $f arch/$TARGET_KERNEL_ARCH/boot/dts/amlogic/
-      DTB_LIST="$DTB_LIST $DTB_NAME"
-    fi
-  done
-
-  # Patched device trees
-  for f in $PKG_DIR/sources/*.patch; do
-    if [ -e $f ]; then
-      DTB_NAME="$(basename $f .patch).dtb"
-      DTS_NAME="$(basename $f .patch).dts"
-      rm -rf arch/$TARGET_KERNEL_ARCH/boot/dts/amlogic/$DTS_NAME
-      patch -d arch/$TARGET_KERNEL_ARCH/boot/dts/amlogic/ -o $DTS_NAME --merge < $f
-      DTB_LIST="$DTB_LIST $DTB_NAME"
-    fi
+  for f in $PKG_BUILD/*.dts; do
+    DTB_NAME="$(basename $f .dts).dtb"
+    cp -f $f arch/$TARGET_KERNEL_ARCH/boot/dts/amlogic/
+    DTB_LIST="$DTB_LIST $DTB_NAME"
   done
 
   # Kernel-tree trees
   for f in ${EXTRA_TREES[@]}; do
     DTB_LIST="$DTB_LIST $f"
-  done
 
-  # Add "le-dtb-id"
-  for f in $DTB_LIST; do
     LE_DT_ID="${f/.dtb/}"
-    sed -i "/amlogic-dt-id/i le-dt-id=\"$LE_DT_ID\";" arch/$TARGET_KERNEL_ARCH/boot/dts/amlogic/${f/dtb/dts}
+    SOURCE_FILE="arch/$TARGET_KERNEL_ARCH/boot/dts/amlogic/$LE_DT_ID.dts"
+    # Remove "le-dt-id" if exists
+    sed -i "/le-dt-id/d" $SOURCE_FILE
+    # Add "le-dtb-id"
+    echo -e "/ {\n\tle-dt-id = \"$LE_DT_ID\";\n};" >> $SOURCE_FILE
   done
 
   # Compile device trees

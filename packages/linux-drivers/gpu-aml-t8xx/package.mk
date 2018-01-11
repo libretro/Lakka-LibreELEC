@@ -21,7 +21,7 @@ PKG_REV="1"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://openlinux.amlogic.com:8000/download/ARM/gpu/"
-PKG_VERSION="2f5e174"
+PKG_VERSION="fe7a4d8"
 PKG_URL="https://github.com/khadas/android_hardware_arm_gpu/archive/$PKG_VERSION.tar.gz"
 #PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_SOURCE_DIR="android_hardware_arm_gpu-$PKG_VERSION*"
@@ -35,11 +35,11 @@ PKG_LONGDESC="gpu-aml: Linux drivers for Mali GPUs found in Amlogic Meson SoCs"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-  if [ $TARGET_KERNEL_ARCH = "arm64" ] && [ $TARGET_ARCH == "arm"  ]; then
+if [ "$TARGET_KERNEL_ARCH" = "arm64" -a "$TARGET_ARCH" = "arm" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gcc-linaro-aarch64-elf:host"
   export PATH=$TOOLCHAIN/lib/gcc-linaro-aarch64-elf/bin/:$PATH
   TARGET_PREFIX=aarch64-elf-
-  fi
+fi
 
 make_target() {
   LDFLAGS="" make -C $(kernel_path) M=$PKG_BUILD/t83x/kernel/drivers/gpu/arm/midgard \
