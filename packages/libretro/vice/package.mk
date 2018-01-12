@@ -43,8 +43,8 @@ make_target() {
   if [ "$ARCH" == "arm" ]; then
     CFLAGS="$CFLAGS -DARM -DALIGN_DWORD -mstructure-size-boundary=32 -mthumb-interwork -falign-functions=16 -marm"
   fi
-  make -f Makefile.libretro EMUTYPE=x64
-  #make -f Makefile.libretro EMUTYPE=x128
+  make EMUTYPE=x64
+  make EMUTYPE=x128
 }
 
 makeinstall_target() {
