@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="xf86-video-intel"
-PKG_VERSION="028c946"
-PKG_SHA256="f868f6dad81d8c220755c5cbb343463be1f6e44343c334ac1954a48061fd7063"
+PKG_VERSION="26f5406"
+PKG_SHA256="8393ec70f45e9a243de7e6d085b1fa02aa3933c8ac9c72ccd83ce2d890052a5d"
 PKG_ARCH="x86_64"
 PKG_LICENSE="OSS"
 PKG_SITE="http://intellinuxgraphics.org/"
