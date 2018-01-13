@@ -17,10 +17,10 @@
 ################################################################################
 
 PKG_NAME="moonlight"
-PKG_VERSION="391de3f"
-PKG_SHA256="10aa7613afec0f7035135f67aa9cdcb12b8c444b8f92cf976fd2ceec5865a278"
+PKG_VERSION="4d94439"
+PKG_SHA256="5190f9c3a0fd17c7c8f0de8c2509f4749a2f399b7dc4d1402dd55c6f351260b2"
 PKG_VERSION_NUMBER="2.2.2"
-PKG_REV="107"
+PKG_REV="108"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/dead/script.moonlight"
