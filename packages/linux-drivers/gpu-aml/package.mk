@@ -20,11 +20,10 @@ PKG_NAME="gpu-aml"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://openlinux.amlogic.com:8000/download/ARM/gpu/"
-# r5p1
-PKG_VERSION="9b0fbbc"
-PKG_SHA256="7ca380052b285598f1c0100cec3411f69674dcfc0f78bc2dbe407aaf85b8ebd7"
-PKG_URL="https://github.com/openwetek/gpu-aml/archive/$PKG_VERSION.tar.gz"
-PKG_SOURCE_DIR="gpu-aml-$PKG_VERSION*"
+PKG_VERSION="fe7a4d8"
+PKG_SHA256="518f855a2b191e50d09c2d0b3e671b5ed4b5e4db06aa3a718e29ef30cc0d9a57"
+PKG_URL="https://github.com/khadas/android_hardware_arm_gpu/archive/$PKG_VERSION.tar.gz"
+PKG_SOURCE_DIR="android_hardware_arm_gpu-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_SECTION="driver"
@@ -33,13 +32,40 @@ PKG_LONGDESC="gpu-aml: Linux drivers for Mali GPUs found in Amlogic Meson SoCs"
 PKG_TOOLCHAIN="manual"
 PKG_IS_KERNEL_PKG="yes"
 
+PKG_UTGARD_VERSION="r5p1"
+PKG_UTGARD_BUILD_DIR="$PKG_BUILD/utgard/$PKG_UTGARD_VERSION"
+PKG_MIDGARD_VERSION="r16p0"
+PKG_MIDGARD_BUILD_DIR="$PKG_BUILD/midgard/$PKG_MIDGARD_VERSION/kernel/drivers/gpu/arm/midgard"
+
+pre_configure_target() {
+  sed -e "s|shell date|shell date -R|g" -i $PKG_BUILD/utgard/*/Kbuild
+  sed -e "s|USING_GPU_UTILIZATION=1|USING_GPU_UTILIZATION=0|g" -i $PKG_BUILD/utgard/platform/Kbuild.amlogic
+}
+
+pre_make_target() {
+  ln -s $PKG_BUILD/utgard/platform $PKG_UTGARD_BUILD_DIR/platform
+}
+
 make_target() {
-  LDFLAGS="" make -C $(kernel_path) M=$PKG_BUILD/mali \
-    CONFIG_MALI400=m CONFIG_MALI450=m
+  if [ "$MESON_FAMILY" = "gxm" ] ; then
+    LDFLAGS="" make -C $(kernel_path) M=$PKG_MIDGARD_BUILD_DIR \
+    EXTRA_CFLAGS="-DCONFIG_MALI_PLATFORM_DEVICETREE -DCONFIG_MALI_BACKEND=gpu" \
+      CONFIG_MALI_MIDGARD=m CONFIG_MALI_PLATFORM_DEVICETREE=y CONFIG_MALI_BACKEND=gpu modules
+  else
+    LDFLAGS="" make -C $(kernel_path) M=$PKG_UTGARD_BUILD_DIR \
+      EXTRA_CFLAGS="-DCONFIG_MALI450=y" \
+      CONFIG_MALI400=m CONFIG_MALI450=y
+  fi
 }
 
 makeinstall_target() {
-  LDFLAGS="" make -C $(kernel_path) M=$PKG_BUILD/mali \
-    INSTALL_MOD_PATH=$INSTALL/$(get_kernel_overlay_dir) INSTALL_MOD_STRIP=1 DEPMOD=: \
-  modules_install
+  if [ "$MESON_FAMILY" = "gxm" ] ; then
+    LDFLAGS="" make -C $(kernel_path) M=$PKG_MIDGARD_BUILD_DIR \
+      INSTALL_MOD_PATH=$INSTALL/$(get_kernel_overlay_dir) INSTALL_MOD_STRIP=1 DEPMOD=: \
+    modules_install
+  else
+    LDFLAGS="" make -C $(kernel_path) M=$PKG_UTGARD_BUILD_DIR \
+      INSTALL_MOD_PATH=$INSTALL/$(get_kernel_overlay_dir) INSTALL_MOD_STRIP=1 DEPMOD=: \
+    modules_install
+  fi
 }
