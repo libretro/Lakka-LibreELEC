@@ -34,6 +34,10 @@ PKG_LONGDESC="Fork of bsnes with HLE DSP emulation restored."
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+make_target() {
+  make compiler=$CXX ui='target-libretro' profile='balanced'
+}
+
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
   cp out/bsnes_mercury_balanced_libretro.so $INSTALL/usr/lib/libretro/bsnes_mercury_balanced_libretro.so
