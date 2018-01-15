@@ -23,8 +23,8 @@ PKG_VERSION="cfc1306"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/lakkatv/retroarch-joypad-autoconfig"
-PKG_URL="https://github.com/libretro/retroarch-joypad-autoconfig/archive/$PKG_VERSION.tar.gz"
+PKG_SITE="https://github.com/libretro/retroarch-joypad-autoconfig"
+PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -33,10 +33,6 @@ PKG_LONGDESC="RetroArch joypad autoconfig files"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-
-configure_target() {
-  cd $PKG_BUILD
-}
 
 makeinstall_target() {
  make install INSTALLDIR="$INSTALL/etc/retroarch-joypad-autoconfig"

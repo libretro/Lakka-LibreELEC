@@ -24,7 +24,7 @@ PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://github.com/libretro/QuickNES_Core"
-PKG_URL="https://github.com/libretro/QuickNES_Core/archive/$PKG_VERSION.tar.gz"
+PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -33,10 +33,6 @@ PKG_LONGDESC="The QuickNES core library, originally by Shay Green, heavily modif
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-
-post_unpack() {
-  mv $BUILD/QuickNES_Core-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
-}
 
 make_target() {
   make -C libretro

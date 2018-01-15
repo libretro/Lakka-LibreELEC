@@ -24,7 +24,7 @@ PKG_REV="9"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
-PKG_URL="https://github.com/libretro/RetroArch/archive/$PKG_VERSION.tar.gz"
+PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain alsa-lib freetype zlib retroarch-assets retroarch-overlays core-info retroarch-joypad-autoconfig glsl-shaders lakka-update libretro-database ffmpeg libass libvdpau libxkbfile xkeyboard-config libxkbcommon joyutils sixpair empty"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -33,10 +33,6 @@ PKG_LONGDESC="RetroArch is the reference frontend for the libretro API. Popular 
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-
-post_unpack() {
-  mv $BUILD/RetroArch-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
-}
 
 if [ "$OPENGLES_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $OPENGLES"
