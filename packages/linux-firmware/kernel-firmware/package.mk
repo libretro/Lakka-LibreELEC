@@ -61,4 +61,5 @@ makeinstall_target() {
 
   # The following file is installed by brcmfmac_sdio-firmware-rpi
   rm -fr $FW_TARGET_DIR/brcm/brcmfmac43430*-sdio.bin
+  rm -fr $FW_TARGET_DIR/brcm/brcmfmac43455*-sdio.bin
 }
