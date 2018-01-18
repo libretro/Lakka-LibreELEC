@@ -17,13 +17,12 @@
 ################################################################################
 
 PKG_NAME="qca9377-firmware-aml"
-PKG_VERSION="1.0.0"
-PKG_SHA256="239b10d6fb006f566aa20638a81f98a447fa222e6b74bed2f6039a75b8ccd422"
+PKG_VERSION="1.0.0-3"
+PKG_SHA256="9a9f214943e77e89ce8fc8c0dc5b41bc253478a9d92383a76590993df861f36d"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="BSD-3c"
 PKG_SITE="http://linode.boundarydevices.com/repos/apt/ubuntu-relx/pool/main/q/qca-firmware/"
-PKG_URL="http://linode.boundarydevices.com/repos/apt/ubuntu-relx/pool/main/q/qca-firmware/qca-firmware_${PKG_VERSION}.orig.tar.gz"
-PKG_SOURCE_DIR="qca-firmware-$PKG_VERSION"
+PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="firmware"
 PKG_SHORTDESC="qca9377 Linux firmware"
@@ -32,8 +31,5 @@ PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
   mkdir -p $INSTALL/$(get_full_firmware_dir)
-    cp -a *.bin $INSTALL/$(get_full_firmware_dir)
-    cp -a qca $INSTALL/$(get_full_firmware_dir)
-    cp -a wlan $INSTALL/$(get_full_firmware_dir)
-    cp LICENSE.TXT $INSTALL/$(get_full_firmware_dir)/LICENSE.qca
+    cp -a * $INSTALL/$(get_full_firmware_dir)
 }
