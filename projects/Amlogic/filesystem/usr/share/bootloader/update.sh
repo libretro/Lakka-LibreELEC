@@ -96,6 +96,12 @@ if [ -f $SYSTEM_ROOT/usr/share/bootloader/boot.ini ]; then
   echo "*** updating boot.ini ..."
   mount -o rw,remount $BOOT_ROOT
   cp -p $SYSTEM_ROOT/usr/share/bootloader/boot.ini $BOOT_ROOT/boot.ini
+  if [ -f $SYSTEM_ROOT/usr/share/bootloader/config.ini ]; then
+    if [ ! -f $BOOT_ROOT/config.ini ]; then
+      echo "*** creating config.ini ..."
+      cp -p $SYSTEM_ROOT/usr/share/bootloader/config.ini $BOOT_ROOT/config.ini
+    fi
+  fi
 fi
 
 if [ -f $SYSTEM_ROOT/usr/share/bootloader/boot-logo.bmp.gz ]; then
