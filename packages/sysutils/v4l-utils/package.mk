@@ -97,6 +97,8 @@ post_makeinstall_target() {
   default_multi_maps="rc6_mce xbox_360 zotac_ad10 hp_mce xbox_one cubox_i"
 
   create_multi_keymap libreelec_multi "RC6 NEC" $default_multi_maps
+  create_multi_keymap libreelec_multi_amlogic "RC6 NEC" $default_multi_maps \
+    odroid wetek_hub
 
   # use multi-keymap instead of default one
   sed -i '/^\*\s*rc-rc6-mce\s*rc6_mce/d' $INSTALL/etc/rc_maps.cfg
@@ -105,10 +107,9 @@ post_makeinstall_target() {
 # Custom LibreELEC configuration starts here
 #
 # use combined multi-table on MCE receivers
-# *	rc-rc6-mce	rc6_mce
-*	rc-rc6-mce	libreelec_multi
-# additional non-upstreamed keymaps
-*	rc-odroid	odroid
-*	rc-wetek-hub	wetek_hub
+# *		rc-rc6-mce	rc6_mce
+*		rc-rc6-mce	libreelec_multi
+# multi-table for amlogic devices
+meson-ir	*		libreelec_multi_amlogic
 EOF
 }
