@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="eventlircd"
-PKG_VERSION="7faaf9d"
-PKG_SHA256="29addc90720c76d8f6f89269fe06b45825d8f12fac104034942481212eb59495"
+PKG_VERSION="3b753e9"
+PKG_SHA256="4eca52d0570fa568b3296a2c9bc2af252423e25c1a67654bd79680fc5a93092a"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/LibreELEC/eventlircd"
