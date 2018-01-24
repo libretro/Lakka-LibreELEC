@@ -61,7 +61,7 @@ It should be done once every release cycle, at the beginning of the cycle.
 
 Updating RetroArch requires a lot of manual testing. So leave this task to the core team.
 
-# Release cicle
+# Release cycle
 
 We try to release images to the public one time per month.
 
