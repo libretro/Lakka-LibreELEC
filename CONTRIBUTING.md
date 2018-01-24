@@ -46,6 +46,11 @@ PRs should be merged using the *Squash and merge* button only.
 
 If a PR is not in a mergeable state, mark the title with [WIP].
 
+Commit messages should be formatted like the [LibreELEC](https://github.com/LibreELEC/LibreELEC.tv)'s upstream, in the following format:
+```
+package-name: update something on the package
+```
+
 # Merging upstream
 
 The upstream branch, LibreELEC 8.2, will be merged on a regular basis by the maintainers. Merging upstream should be discussed and announced on IRC in presence of the project leader.
