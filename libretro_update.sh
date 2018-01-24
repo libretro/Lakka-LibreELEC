@@ -79,14 +79,8 @@ case $1 in
     [ -z "$LIBRETRO_CORES" ] && { echo "LIBRETRO_CORES: empty. Aborting!" ; exit 1 ; }
     # List of core retroarch packages
     RA_PACKAGES="retroarch retroarch-assets retroarch-joypad-autoconfig retroarch-overlays libretro-database core-info glsl-shaders"
-    # List of cores used by specific projects not included in LIBRETRO_CORES.
-    # This needs to be updated manually in case packages/lakka/*/package.mk
-    # PKG_DEPENDS_TARGET includes a libretro core/package not included above.
-    # PKG_DEPENDS_TARGET often includes also non-libretro packages, hence
-    # not pulled from individual project-package files.
-    ADDITIONAL_PACKAGES=" beetle-bsnes bsnes beetle-psx bsnes-mercury "
     # List of all libretro packages to update:
-    PACKAGES_ALL=" $RA_PACKAGES $ADDITIONAL_PACKAGES $LIBRETRO_CORES "
+    PACKAGES_ALL=" $RA_PACKAGES $LIBRETRO_CORES "
     ;;
   -p | --packages )
     PACKAGES_ALL=""
