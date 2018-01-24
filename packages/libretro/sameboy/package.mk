@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="sameboy"
-PKG_VERSION="f905c4d"
+PKG_VERSION="935b2f6"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
@@ -41,5 +41,5 @@ make_target() {
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp sameboy_libretro.so $INSTALL/usr/lib/libretro/
+  cp $PKG_BUILD/libretro/sameboy_libretro.so $INSTALL/usr/lib/libretro/
 }
