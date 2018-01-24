@@ -3,7 +3,7 @@
  * Lakka focuses on stability rather than bleeding edge
  * We try to maintain all the supported platforms, but we know that 95% of our users are using PC and RPi
  * You are responsible for your own changes, if you break something, you need to fix it
- * Everybody have to test its own changes
+ * Everybody has to test their own changes
  * Testing means manual testing on real hardware
  * If you are unsure how to contribute code, meet us on IRC
  * Our users want the latest working versions of RetroArch and the libretro cores. They don't want non working / half working versions.
