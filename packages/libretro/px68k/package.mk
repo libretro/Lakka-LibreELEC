@@ -24,7 +24,7 @@ PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Unknown"
 PKG_SITE="https://github.com/libretro/px68k-libretro"
-PKG_URL="https://github.com/libretro/px68k-libretro/archive/$PKG_VERSION.tar.gz"
+PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -33,10 +33,6 @@ PKG_LONGDESC="Portable SHARP X68000 Emulator for PSP, Android and other platform
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-
-post_unpack() {
-  mv $BUILD/px68k-libretro-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
-}
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro

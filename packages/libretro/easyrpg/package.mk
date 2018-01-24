@@ -24,7 +24,7 @@ PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/easyrpg-libretro"
-PKG_URL="https://github.com/libretro/easyrpg-libretro/archive/$PKG_VERSION.tar.gz"
+PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain zlib"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -34,10 +34,6 @@ PKG_LONGDESC="An unofficial libretro port of the EasyRPG/Player."
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 PKG_USE_CMAKE="no"
-
-post_unpack() {
-  mv $BUILD/easyrpg-libretro-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
-}
 
 make_target() {
   make -C ../builds/libretro -f Makefile.libretro
