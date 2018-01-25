@@ -1,5 +1,5 @@
 PKG_NAME="gearboy"
-PKG_VERSION="6b69f16"
+PKG_VERSION="caca6cf"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
