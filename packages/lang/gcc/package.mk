@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="gcc"
-PKG_VERSION="7.2.0"
-PKG_SHA256="1cf7adf8ff4b5aa49041c8734bbcf1ad18cc4c94d0029aae0f4e48841088479a"
+PKG_VERSION="7.3.0"
+PKG_SHA256="832ca6ae04636adbb430e865a1451adf6979ab44ca1c8374f61fba65645ce15c"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://gcc.gnu.org/"
