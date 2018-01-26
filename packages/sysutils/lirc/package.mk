@@ -55,14 +55,12 @@ post_makeinstall_target() {
   rm -rf $INSTALL/etc
 
   mkdir -p $INSTALL/etc/lirc
-    cp -r $PKG_DIR/config/* $INSTALL/etc/lirc
+    cp -r $PKG_DIR/config/lirc_options.conf $INSTALL/etc/lirc
+    ln -s /storage/.config/lircd.conf $INSTALL/etc/lirc/lircd.conf
 
   mkdir -p $INSTALL/usr/lib/libreelec
     cp $PKG_DIR/scripts/lircd_helper $INSTALL/usr/lib/libreelec
     cp $PKG_DIR/scripts/lircd_uinput_helper $INSTALL/usr/lib/libreelec
-
-  mkdir -p $INSTALL/usr/lib/udev
-    cp $PKG_DIR/scripts/lircd_wakeup_enable $INSTALL/usr/lib/udev
 
   mkdir -p $INSTALL/usr/share/services
     cp -P $PKG_DIR/default.d/*.conf $INSTALL/usr/share/services
