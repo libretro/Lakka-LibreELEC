@@ -19,8 +19,8 @@
 # with 1.0.0 repeat delay is broken. test on upgrade
 
 PKG_NAME="v4l-utils"
-PKG_VERSION="1.12.3"
-PKG_SHA256="5a47dd6f0e7dfe902d94605c01d385a4a4e87583ff5856d6f181900ea81cf46e"
+PKG_VERSION="1.14.1"
+PKG_SHA256="7974e5626447407d8a1ed531da0461c0fe00e599a696cb548a240d17d3519005"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://linuxtv.org/"
@@ -97,6 +97,8 @@ post_makeinstall_target() {
   default_multi_maps="rc6_mce xbox_360 zotac_ad10 hp_mce xbox_one cubox_i"
 
   create_multi_keymap libreelec_multi "RC6 NEC" $default_multi_maps
+  create_multi_keymap libreelec_multi_amlogic "RC6 NEC" $default_multi_maps \
+    odroid wetek_hub
 
   # use multi-keymap instead of default one
   sed -i '/^\*\s*rc-rc6-mce\s*rc6_mce/d' $INSTALL/etc/rc_maps.cfg
@@ -105,10 +107,9 @@ post_makeinstall_target() {
 # Custom LibreELEC configuration starts here
 #
 # use combined multi-table on MCE receivers
-# *	rc-rc6-mce	rc6_mce
-*	rc-rc6-mce	libreelec_multi
-# additional non-upstreamed keymaps
-*	rc-odroid	odroid
-*	rc-wetek-hub	wetek_hub
+# *		rc-rc6-mce	rc6_mce
+*		rc-rc6-mce	libreelec_multi
+# multi-table for amlogic devices
+meson-ir	*		libreelec_multi_amlogic
 EOF
 }
