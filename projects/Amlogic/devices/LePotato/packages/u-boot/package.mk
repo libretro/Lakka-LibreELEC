@@ -62,4 +62,8 @@ makeinstall_target() {
     if [ -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/boot.ini ]; then
       cp -av $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/boot.ini $INSTALL/usr/share/bootloader
     fi
+
+    if [ -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/config.ini ]; then
+      cp -av $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/config.ini $INSTALL/usr/share/bootloader
+    fi
 }
