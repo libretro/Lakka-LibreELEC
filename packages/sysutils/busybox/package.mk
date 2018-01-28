@@ -40,7 +40,6 @@ PKG_MAKE_OPTS_INIT="ARCH=$TARGET_ARCH \
                     HOSTCC=$HOST_CC \
                     CROSS_COMPILE=$TARGET_PREFIX \
                     KBUILD_VERBOSE=1 \
-                    MAKEFLAGS="-j1" \
                     install"
 
 # nano text editor
