@@ -1,0 +1,102 @@
+From 073c2c6a118a03b70a29fd302e48f1f75bc7e5bc Mon Sep 17 00:00:00 2001
+From: MilhouseVH <milhouseVH.github@nmacleod.com>
+Date: Wed, 24 May 2017 19:17:24 +0100
+Subject: [PATCH] Revert "PR11222"
+
+This reverts commit 6cc9ab253753aeb62b01d3e654bbfa77a7f22a42.
+---
+ .../resource.language.en_gb/resources/strings.po   | 15 --------------
+ system/peripherals.xml                             |  4 +---
+ xbmc/peripherals/devices/PeripheralCecAdapter.cpp  | 23 +++++++---------------
+ 3 files changed, 8 insertions(+), 34 deletions(-)
+
+diff --git a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
+index 6443f3d..e0060d1 100644
+--- a/addons/resource.language.en_gb/resources/strings.po
++++ b/addons/resource.language.en_gb/resources/strings.po
+@@ -19745,18 +19745,3 @@ msgstr ""
+ msgctxt "#39010"
+ msgid "Select sort method"
+ msgstr ""
+-
+-#: system/peripherals.xml
+-msgctxt "#38050"
+-msgid "Remote button press delay before repeating (ms)"
+-msgstr ""
+-
+-#: system/peripherals.xml
+-msgctxt "#38051"
+-msgid "Remote button press repeat rate (ms)"
+-msgstr ""
+-
+-#: system/peripherals.xml
+-msgctxt "#38052"
+-msgid "Remote button press release time (ms)"
+-msgstr ""
+diff --git a/system/peripherals.xml b/system/peripherals.xml
+index 02b1a9e..d5704b2 100644
+--- a/system/peripherals.xml
++++ b/system/peripherals.xml
+@@ -31,9 +31,7 @@
+     <setting key="device_type" type="int" value="1" configurable="0" />
+     <setting key="wake_devices_advanced" type="string" value="" configurable="0" />
+     <setting key="standby_devices_advanced" type="string" value="" configurable="0" />
+-    <setting key="double_tap_timeout_ms" type="int" min="50" max="1000" step="50" value="300" label="38050" order="16" />
+-    <setting key="button_repeat_rate_ms" type="int" min="0" max="250" step="10" value="0" label="38051" order="17" />
+-    <setting key="button_release_delay_ms" type="int" min="0" max="500" step="50" value="0" label="38052" order="18" />
++    <setting key="double_tap_timeout_ms" type="int" min="0" value="300" configurable="0" />
+   </peripheral>
+ 
+   <peripheral vendor_product="2548:1001,2548:1002" bus="usb" name="Pulse-Eight CEC Adapter" mapTo="cec">
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+index d04a632..d032ffd 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+@@ -803,10 +803,7 @@ void CPeripheralCecAdapter::PushCecKeypress(const CecButtonPress &key)
+   CLog::Log(LOGDEBUG, "%s - received key %2x duration %d", __FUNCTION__, key.iButton, key.iDuration);
+ 
+   CSingleLock lock(m_critSection);
+-  // avoid the queue getting too long
+-  if (m_configuration.iButtonRepeatRateMs && m_buttonQueue.size() > 5)
+-    return;
+-  if (m_configuration.iButtonRepeatRateMs == 0 && key.iDuration > 0)
++  if (key.iDuration > 0)
+   {
+     if (m_currentButton.iButton == key.iButton && m_currentButton.iDuration == 0)
+     {
+@@ -1299,15 +1296,6 @@ void CPeripheralCecAdapter::SetConfigurationFromLibCEC(const CEC::libcec_configu
+   m_configuration.bActivateSource = config.bActivateSource;
+   bChanged |= SetSetting("activate_source", m_configuration.bActivateSource == 1);
+ 
+-  m_configuration.iDoubleTapTimeoutMs = config.iDoubleTapTimeoutMs;
+-  bChanged |= SetSetting("double_tap_timeout_ms", (int)m_configuration.iDoubleTapTimeoutMs);
+-
+-  m_configuration.iButtonRepeatRateMs = config.iButtonRepeatRateMs;
+-  bChanged |= SetSetting("button_repeat_rate_ms", (int)m_configuration.iButtonRepeatRateMs);
+-
+-  m_configuration.iButtonReleaseDelayMs = config.iButtonReleaseDelayMs;
+-  bChanged |= SetSetting("button_release_delay_ms", (int)m_configuration.iButtonReleaseDelayMs);
+-
+   m_configuration.bPowerOffOnStandby = config.bPowerOffOnStandby;
+ 
+   m_configuration.iFirmwareVersion = config.iFirmwareVersion;
+@@ -1403,10 +1391,13 @@ void CPeripheralCecAdapter::SetConfigurationFromSettings(void)
+   m_configuration.bPowerOffOnStandby = iStandbyAction == LOCALISED_ID_SUSPEND ? 1 : 0;
+   m_bShutdownOnStandby = iStandbyAction == LOCALISED_ID_POWEROFF;
+ 
+-  // double tap prevention timeout in ms
++#if defined(CEC_DOUBLE_TAP_TIMEOUT_MS_OLD)
++  // double tap prevention timeout in ms. libCEC uses 50ms units for this in 2.2.0, so divide by 50
++  m_configuration.iDoubleTapTimeout50Ms = GetSettingInt("double_tap_timeout_ms") / 50;
++#else
++  // backwards compatibility. will be removed once the next major release of libCEC is out
+   m_configuration.iDoubleTapTimeoutMs = GetSettingInt("double_tap_timeout_ms");
+-  m_configuration.iButtonRepeatRateMs = GetSettingInt("button_repeat_rate_ms");
+-  m_configuration.iButtonReleaseDelayMs = GetSettingInt("button_release_delay_ms");
++#endif
+ 
+   if (GetSettingBool("pause_playback_on_deactivate"))
+   {
+-- 
+2.7.4
+
