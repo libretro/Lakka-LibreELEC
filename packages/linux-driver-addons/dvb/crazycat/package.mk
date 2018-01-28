@@ -62,6 +62,9 @@ make_target() {
   if [ $LINUX = "amlogic-3.14" -o $LINUX = "amlogic-3.10" ]; then
     sed -e 's/CONFIG_VIDEO_TVP5150=m/# CONFIG_VIDEO_TVP5150 is not set/g' -i v4l/.config
     sed -e 's/CONFIG_DVB_LGDT3306A=m/# CONFIG_DVB_LGDT3306A is not set/g' -i v4l/.config
+    if [ $LINUX = "amlogic-3.10" ]; then
+      sed -e 's/CONFIG_IR_NUVOTON=m/# CONFIG_IR_NUVOTON is not set/g' -i v4l/.config
+    fi
   fi
 
   # add menuconfig to edit .config
