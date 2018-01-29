@@ -39,7 +39,11 @@ mkdir -p $BUILD
 STAMP_DEPENDS="$PKG_DIR $PKG_NEED_UNPACK $PROJECT_DIR/$PROJECT/patches/$PKG_NAME"
 [ -n "$DEVICE" ] && STAMP_DEPENDS="$STAMP_DEPENDS $PROJECT_DIR/$PROJECT/devices/$DEVICE/patches/$PKG_NAME"
 
+. $PKG_DIR/package.mk
+
 # Perform a wildcard match on the package to ensure old versions are cleaned too
+# But only in case when not using PKG_GIT_URL
+if [ -z "$PKG_GIT_URL" ]; then
 PKG_DEEPMD5=
 for i in $BUILD/$1-*; do
   if [ -d $i -a -f "$i/.libreelec-unpack" ] ; then
@@ -52,8 +56,9 @@ for i in $BUILD/$1-*; do
     fi
   fi
 done
+fi
 
-if [ -d "$PKG_BUILD" -a ! -f "$STAMP" ]; then
+if [ -z "$PKG_GIT_URL" -a -d "$PKG_BUILD" -a ! -f "$STAMP" ]; then
   # stale pkg build dir
   $SCRIPTS/clean $1
 fi
@@ -103,9 +108,55 @@ if [ -d "$SOURCES/$1" -o -d "$PKG_DIR/sources" -o -n "$PKG_GIT_URL" ]; then
   fi
 
   if [ -z "$PKG_URL" -a -n "$PKG_GIT_URL" ]; then
-    rm -rf $BUILD/$PKG_NAME-$PKG_VERSION
+    # int GIT_ORIG_DIR
+    GIT_ORIG_DIR=""
+    # cycle through folders that match $PKG_NAME in $BUILD until we find the right one
+    for f in $BUILD/$1-* ; do
+      echo "**** debug: checking folder '$f':"
+      if [ -d $f ]; then
+        echo "**** debug: '$f' is folder"
+        if [ -f $f/.libreelec-unpack ]; then
+          echo "**** debug: '.iibreelec-unpack' found"
+          source $f/.libreelec-unpack
+          echo "**** debug: STAMP_PKG_NAME=$STAMP_PKG_NAME"
+          if [ "$PKG_NAME" = "$STAMP_PKG_NAME" ]; then
+            echo "**** debug: NAME matched"
+            if [ -f $f/.git/config ]; then
+              echo "**** debug: .git/config found:"
+	      cat $f/.git/config
+              GIT_MATCH=$(grep "$PKG_GIT_URL" $f/.git/config | wc -l)
+              echo "**** debug: GIT_MATCH=$GIT_MATCH"
+	      if [ "$GIT_MATCH" = "1" ]; then
+                # we found the existing folder!
+                GIT_ORIG_DIR=$f
+		break
+              fi
+            fi
+          fi
+        fi
+      fi
+    done
+    if [ -d "$GIT_ORIG_DIR" -a -n "$GIT_ORIG_DIR" ]; then
+      # rename the original folder to match current version
+      mv $GIT_ORIG_DIR $BUILD/$PKG_NAME-$PKG_VERSION
+      cd $BUILD/$PKG_NAME-$PKG_VERSION
+      # clean
+      echo "**** debug: git clean -fdx"
+      git clean -fdx
+      echo "**** debug: git checkout -- ."
+      git checkout -- .
+      echo "**** debug: git checkout master"
+      git checkout master
+      # pull changes
+      echo "**** debug: git pull"
+      git pull
+    else
+      # clean
+      $SCRIPTS/clean $1
+      # clone
     git clone $PKG_GIT_URL $BUILD/$PKG_NAME-$PKG_VERSION/
     cd $BUILD/$PKG_NAME-$PKG_VERSION/
+    fi
     git checkout $PKG_VERSION
     git submodule update --init --recursive
     cd $ROOT
