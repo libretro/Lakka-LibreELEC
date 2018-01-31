@@ -51,6 +51,7 @@ makeinstall_target() {
   mkdir -p $SYSROOT_PREFIX/usr/lib
     cp -PRv $LIBMALI_FILE $SYSROOT_PREFIX/usr/lib
     ln -sf libmali.so $SYSROOT_PREFIX/usr/lib/libwayland-egl.so
+    ln -sf libmali.so $SYSROOT_PREFIX/usr/lib/libGLESv1_CM.so
     ln -sf libmali.so $SYSROOT_PREFIX/usr/lib/libEGL.so
     ln -sf libmali.so $SYSROOT_PREFIX/usr/lib/libGLESv2.so
     ln -sf libmali.so $SYSROOT_PREFIX/usr/lib/libgbm.so
@@ -58,6 +59,7 @@ makeinstall_target() {
   mkdir -p $INSTALL/usr/lib
     cp -PRv $LIBMALI_FILE $INSTALL/usr/lib
     ln -sf libmali.so $INSTALL/usr/lib/libwayland-egl.so
+    ln -sf libmali.so $INSTALL/usr/lib/libGLESv1_CM.so
     ln -sf libmali.so $INSTALL/usr/lib/libEGL.so
     ln -sf libmali.so $INSTALL/usr/lib/libGLESv2.so
     ln -sf libmali.so $INSTALL/usr/lib/libgbm.so
