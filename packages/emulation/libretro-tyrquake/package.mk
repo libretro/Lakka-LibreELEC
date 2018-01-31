@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-tyrquake"
-PKG_VERSION="010564a"
-PKG_SHA256="5e1aee753f8dd868cc313c0f41e4eed3057ce29ca2f584f0115794f3e84bcef2"
+PKG_VERSION="6124474"
+PKG_SHA256="0480863d4a3c5261015e2b9446e1ea090abc2dbad2647511e2da85a5c4a9f291"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/tyrquake"

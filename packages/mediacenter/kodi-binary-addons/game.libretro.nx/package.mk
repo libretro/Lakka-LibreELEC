@@ -17,9 +17,9 @@
 ################################################################################
 
 PKG_NAME="game.libretro.nx"
-PKG_VERSION="d4f642e"
-PKG_SHA256="06e773a789435fc6449595b4ab250c44633480504ca66b7047b38801b6aa2462"
-PKG_REV="103"
+PKG_VERSION="33762ff"
+PKG_SHA256="06c2070d2c980000c81fbfadf3ac234c9c5876144fc043d9d7837888fecf47c0"
+PKG_REV="104"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.nx"

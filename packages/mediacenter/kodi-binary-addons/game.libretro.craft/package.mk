@@ -17,9 +17,9 @@
 ################################################################################
 
 PKG_NAME="game.libretro.craft"
-PKG_VERSION="ec99c48"
-PKG_SHA256="38a63d2e0bef6ab39bb7a0c76fa299d39cd35ae9adc32c0f3c40dd8114cf9173"
-PKG_REV="103"
+PKG_VERSION="0201962"
+PKG_SHA256="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+PKG_REV="104"
 # no openGL suport in retroplayer yet
 PKG_ARCH="none"
 PKG_LICENSE="GPL"
