@@ -51,8 +51,6 @@ for arg in $(cat /proc/cmdline); do
 
       if [ -f "/proc/device-tree/le-dt-id" ] ; then
         LE_DT_ID=$(cat /proc/device-tree/le-dt-id)
-      else
-        echo "*** remember to update your device tree! ***"
       fi
 
       if [ -f "$UPDATE_DTB_IMG" ] ; then
@@ -76,6 +74,15 @@ for arg in $(cat /proc/cmdline); do
             ;;
         esac
       fi
+
+      for all_dtb in /flash/*.dtb /flash/DTB; do
+        dtb=$(basename $all_dtb)
+        if [ -f $SYSTEM_ROOT/usr/share/bootloader/$dtb ]; then
+          echo "*** updating Device Tree Blob: $dtb ..."
+          mount -o rw,remount $BOOT_ROOT
+          cp -p $SYSTEM_ROOT/usr/share/bootloader/$dtb $BOOT_ROOT
+        fi
+      done
       ;;
     disk=*)
       echo "*** updating DISK partition label ..."
