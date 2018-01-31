@@ -24,10 +24,10 @@ PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://malideveloper.arm.com/resources/drivers/arm-mali-midgard-gpu-user-space-drivers/"
-PKG_URL="https://developer.arm.com/-/media/Files/downloads/mali-drivers/user-space/odroid-xu3/malit62xr12p004rel0linux1fbdev.tar.gz"
-PKG_SOURCE_DIR="fbdev"
+PKG_URL="https://developer.arm.com/-/media/Files/downloads/mali-drivers/user-space/odroid-xu3/malit62xr12p004rel0linux1wayland.tar.gz"
+PKG_SOURCE_DIR="wayland"
 PKG_BUILD_DEPENDS_TARGET="toolchain"
-PKG_DEPENDS_TARGET="libump odroidxu3-mali-headers"
+PKG_DEPENDS_TARGET="libdrm odroidxu3-mali-headers"
 PKG_PRIORITY="optional"
 PKG_SECTION="graphics"
 PKG_SHORTDESC="Mali-t62x blobs for Odroid-XU3/XU4"
@@ -36,13 +36,11 @@ PKG_LONGDESC="Mali-t62x blobs for Odroid-XU3/XU4"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-#unpack() {
-#  $SCRIPTS/extract $PKG_NAME $(basename $PKG_URL) $BUILD
-#}
-
 make_target() {
   ln -sfn libmali.so libEGL.so
   ln -sfn libmali.so libGLESv2.so
+  ln -sfn libmali.so libwayland-egl.so
+  ln -sfn libmali.so libgbm.so
 
   rm -f libGLESv1_CM.so
   rm -f libOpenCL.so
@@ -54,6 +52,8 @@ make_target() {
 makeinstall_target() {
   ln -sfn libmali.so libEGL.so
   ln -sfn libmali.so libGLESv2.so
+  ln -sfn libmali.so libwayland-egl.so
+  ln -sfn libmali.so libgbm.so
 
   rm -f libGLESv1_CM.so
   rm -f libOpenCL.so
