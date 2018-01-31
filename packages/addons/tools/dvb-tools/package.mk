@@ -18,7 +18,7 @@
 
 PKG_NAME="dvb-tools"
 PKG_VERSION=""
-PKG_REV="103"
+PKG_REV="104"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE=""
@@ -26,7 +26,7 @@ PKG_URL=""
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="virtual"
 PKG_SHORTDESC="DVB-Tools: is a bundle of dvb tools and programs"
-PKG_LONGDESC="This bundle currently includes blindscan-s2, dvb-apps, dvb-fe-tool, dvblast, dvbsnoop, mumudvb, szap-s2, tune-s2 and w_scan."
+PKG_LONGDESC="This bundle currently includes blindscan-s2, dvb-apps, dvblast, dvbsnoop, mumudvb, szap-s2, tune-s2 and w_scan."
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="DVB Tools"
@@ -35,7 +35,6 @@ PKG_ADDON_TYPE="xbmc.python.script"
 PKG_DEPENDS_TARGET="toolchain \
                     blindscan-s2 \
                     dvb-apps \
-                    dvb-fe-tool \
                     dvblast \
                     dvbsnoop \
                     mumudvb \
@@ -61,9 +60,6 @@ addon() {
     cp -P $(get_build_dir dvb-apps)/util/szap/szap $ADDON_BUILD/$PKG_ADDON_ID/bin
     cp -P $(get_build_dir dvb-apps)/util/szap/tzap $ADDON_BUILD/$PKG_ADDON_ID/bin
     cp -P $(get_build_dir dvb-apps)/util/zap/zap $ADDON_BUILD/$PKG_ADDON_ID/bin
-
-    # dvb-de-tool
-    cp -P $(get_build_dir dvb-fe-tool)/.$TARGET_NAME/utils/dvb/dvb-fe-tool $ADDON_BUILD/$PKG_ADDON_ID/bin
 
     # dvblast
     cp -P $(get_build_dir dvblast)/dvblast $ADDON_BUILD/$PKG_ADDON_ID/bin
