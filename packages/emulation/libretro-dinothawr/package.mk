@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-dinothawr"
-PKG_VERSION="c48088b"
-PKG_SHA256="a33406f56d43bc312418cc2bbc0b8ac89e2c6897e3c7a6f7fd4687d8fafee2a0"
+PKG_VERSION="fbb3a75"
+PKG_SHA256="f82882d185a8dd357a0da1bac6062e056c4ac3719054d7bb0a826fc2dd5c6b3d"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/Dinothawr"

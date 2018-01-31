@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-yabause"
-PKG_VERSION="bf68d3c"
-PKG_SHA256="4688e014efc3b7a8ed2817fe83bcb67fdd70e1ae5a51dac6b874199ca0a197b1"
+PKG_VERSION="c55eef9"
+PKG_SHA256="d445a71486fc485498b54fb58299cab6019b5d17ef458cf179aef253b1c2ead0"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/yabause"

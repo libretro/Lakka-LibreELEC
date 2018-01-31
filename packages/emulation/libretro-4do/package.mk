@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-4do"
-PKG_VERSION="9053104"
-PKG_SHA256="7a87a014dfd8584b30bc97a5aab390fcb782a1357447724d31eee295056a03f5"
+PKG_VERSION="5f3804f"
+PKG_SHA256="7cca3185facc3b108c66469fb5922a1d7ee4672763cf4277f055689598d92914"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="https://github.com/libretro/4do-libretro"

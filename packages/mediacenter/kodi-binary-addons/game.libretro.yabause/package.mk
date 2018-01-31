@@ -17,9 +17,9 @@
 ################################################################################
 
 PKG_NAME="game.libretro.yabause"
-PKG_VERSION="28909cc"
-PKG_SHA256="fa23985096a3f4b21e3659067d664a7edf162a05c3ea968b7d34df85931beec6"
-PKG_REV="103"
+PKG_VERSION="a51496a"
+PKG_SHA256="11cbf481e962e659d3f3e924e437d5694d7a1f1add9c310eb8f58d30cfab840e"
+PKG_REV="104"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.yabause"
