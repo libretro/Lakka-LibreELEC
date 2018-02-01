@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="rust"
-PKG_VERSION="1.20.0"
+PKG_VERSION="1.23.0"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://www.rust-lang.org"

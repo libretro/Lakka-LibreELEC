@@ -18,13 +18,13 @@
 ################################################################################
 
 PKG_NAME="librespot"
-PKG_VERSION="ddfc28f"
-PKG_SHA256="df22baaa609f4feb249b2144c710764f05f0b8be29a4ae6ca369a40970e56d4f"
-PKG_REV="108"
+PKG_VERSION="bc7ceb3"
+PKG_SHA256="6eb775ac9122618b623c1936ef1ca61ed84cff88035b9f4719e2a947af0c7112"
+PKG_REV="109"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
-PKG_SITE="https://github.com/plietar/$PKG_NAME/"
-PKG_URL="https://github.com/plietar/$PKG_NAME/archive/$PKG_VERSION.zip"
+PKG_SITE="https://github.com/librespot-org/$PKG_NAME/"
+PKG_URL="https://github.com/librespot-org/$PKG_NAME/archive/$PKG_VERSION.zip"
 PKG_DEPENDS_TARGET="toolchain avahi libvorbis pulseaudio pyalsaaudio rust"
 PKG_SECTION="service"
 PKG_SHORTDESC="Librespot: play Spotify through LibreELEC using a Spotify app as a remote"
