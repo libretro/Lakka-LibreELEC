@@ -36,29 +36,10 @@ makeinstall_target() {
     cp -PRv fixup_x.dat $INSTALL/usr/share/bootloader/fixup.dat
     cp -PRv start_x.elf $INSTALL/usr/share/bootloader/start.elf
 
-    if [ -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/config/dt-blob.bin ]; then
-      cp -PRv $PROJECT_DIR/$PROJECT/devices/$DEVICE/config/dt-blob.bin $INSTALL/usr/share/bootloader
-    fi
+    find_file_path config/dt-blob.bin && cp -PRv $FOUND_PATH $INSTALL/usr/share/bootloader
 
     cp -PRv $PKG_DIR/scripts/update.sh $INSTALL/usr/share/bootloader
 
-    if [ -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/config/distroconfig.txt ]; then
-      cp -PRv $PROJECT_DIR/$PROJECT/devices/$DEVICE/config/distroconfig.txt $INSTALL/usr/share/bootloader
-    elif [ -f $PROJECT_DIR/$PROJECT/config/distroconfig.txt ]; then
-      cp -PRv $PROJECT_DIR/$PROJECT/config/distroconfig.txt $INSTALL/usr/share/bootloader
-    elif [ -f $DISTRO_DIR/$DISTRO/config/distroconfig.txt ]; then
-      cp -PRv $DISTRO_DIR/$DISTRO/config/distroconfig.txt $INSTALL/usr/share/bootloader
-    else
-      cp -PRv $PKG_DIR/files/3rdparty/bootloader/distroconfig.txt $INSTALL/usr/share/bootloader
-    fi
-
-    if [ -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/config/config.txt ]; then
-      cp -PRv $PROJECT_DIR/$PROJECT/devices/$DEVICE/config/config.txt $INSTALL/usr/share/bootloader
-    elif [ -f $PROJECT_DIR/$PROJECT/config/config.txt ]; then
-      cp -PRv $PROJECT_DIR/$PROJECT/config/config.txt $INSTALL/usr/share/bootloader
-    elif [ -f $DISTRO_DIR/$DISTRO/config/config.txt ]; then
-      cp -PRv $DISTRO_DIR/$DISTRO/config/config.txt $INSTALL/usr/share/bootloader
-    else
-      cp -PRv $PKG_DIR/files/3rdparty/bootloader/config.txt $INSTALL/usr/share/bootloader
-    fi
+    find_file_path config/distroconfig.txt $PKG_DIR/files/3rdparty/bootloader/distroconfig.txt && cp -PRv ${FOUND_PATH} $INSTALL/usr/share/bootloader
+    find_file_path config/config.txt $PKG_DIR/files/3rdparty/bootloader/config.txt && cp -PRv ${FOUND_PATH} $INSTALL/usr/share/bootloader
 }
