@@ -22,6 +22,8 @@ if [ -z "$1" ]; then
   exit 0
 fi
 
+ROOT=$(cd $(dirname $0)/../.. && pwd)
+
 KODI_BRANCH="$1"
 KODI_DIR="kodi-${KODI_BRANCH}.git"
 
@@ -66,9 +68,9 @@ resolve_hash() {
 # Return 1 if not a github domain
 geturl() {
   local addon="$1"
-  local domain owner repo
+  local domain owner repo PKG_URL
 
-  . ../../packages/mediacenter/kodi-binary-addons/${addon}/package.mk 1>/dev/null 2>/dev/null
+  PKG_URL="$(get_pkg_var ${addon} PKG_URL)"
 
   domain="$(echo "${PKG_URL}" | cut -d/ -f3)"
   [ "${domain}" = "github.com" ] || return 1
@@ -98,8 +100,8 @@ validate_pkg_url() {
 
 get_pkg_var() {
   local pkg_name="$1" pkg_var="$2"
-  cd ../..
-  PROJECT=Generic ARCH=x86_64 source config/options ${pkg_name}
+  cd ${ROOT}
+  PROJECT=Generic ARCH=x86_64 source config/options ${pkg_name} &>/dev/null
   echo "${!pkg_var}"
 }
 
@@ -129,11 +131,11 @@ GIT_HASH=$(cat $KODI_DIR/cmake/addons/depends/common/p8-platform/p8-platform.txt
 PKG_NAME="p8-platform"
 
 git_clone $REPO master $PKG_NAME.git $GIT_HASH
-if [ -f ../../packages/mediacenter/p8-platform/package.mk ] ; then
+if [ -f ${ROOT}/packages/mediacenter/p8-platform/package.mk ] ; then
   # update package.mk
   RESOLVED_HASH=$(resolve_hash $PKG_NAME.git $GIT_HASH)
   echo "Resolving hash for ${PKG_NAME}: ${GIT_HASH} => ${RESOLVED_HASH}"
-  sed -i "s|PKG_VERSION=.*|PKG_VERSION=\"$RESOLVED_HASH\"|g" ../../packages/mediacenter/p8-platform/package.mk
+  sed -i "s|PKG_VERSION=.*|PKG_VERSION=\"$RESOLVED_HASH\"|g" ${ROOT}/packages/mediacenter/p8-platform/package.mk
 fi
 rm -rf $PKG_NAME.git
 
@@ -143,10 +145,10 @@ GIT_HASH=$(cat $KODI_DIR/cmake/addons/depends/common/kodi-platform/kodi-platform
 PKG_NAME="kodi-platform"
 
 git_clone $REPO master $PKG_NAME.git $GIT_HASH
-if [ -f ../../packages/mediacenter/kodi-platform/package.mk ] ; then
+if [ -f ${ROOT}/packages/mediacenter/kodi-platform/package.mk ] ; then
   # update package.mk
   RESOLVED_HASH=$(resolve_hash $PKG_NAME.git $GIT_HASH)
-  update_pkg ../../packages/mediacenter/kodi-platform/package.mk ${PKG_NAME} ${RESOLVED_HASH}
+  update_pkg ${ROOT}/packages/mediacenter/kodi-platform/package.mk ${PKG_NAME} ${RESOLVED_HASH}
 fi
 rm -rf $PKG_NAME.git
 
@@ -175,13 +177,13 @@ for addontxt in $KODI_DIR/cmake/addons/bootstrap/repositories/*-addons.txt ; do
       continue
     fi
 
-    if [ -f ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ] ; then
+    if [ -f ${ROOT}/packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ] ; then
       git_clone $REPO ${KODI_BRANCH} $PKG_NAME.git $GIT_HASH
 
       # update package.mk
       RESOLVED_HASH=$(resolve_hash $PKG_NAME.git $GIT_HASH)
       echo "Resolving hash for ${PKG_NAME}: ${GIT_HASH} => ${RESOLVED_HASH}"
-      update_pkg ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ${PKG_NAME} ${RESOLVED_HASH}
+      update_pkg ${ROOT}/packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ${PKG_NAME} ${RESOLVED_HASH}
 
       rm -rf $PKG_NAME.git
     else
@@ -197,7 +199,7 @@ for addontxt in $KODI_DIR/cmake/addons/bootstrap/repositories/*-addons.txt ; do
 done
 
 # finally, any other unofficial addons
-for ADDON in $(ls -1 ../../packages/mediacenter/kodi-binary-addons); do
+for ADDON in $(ls -1 ${ROOT}/packages/mediacenter/kodi-binary-addons); do
   [[ ${ADDON} =~ ^game.* ]] && continue # ignore game.* addons - handled by update_retroplayer-addons
 
   # ignore already processed addons
@@ -211,7 +213,7 @@ for ADDON in $(ls -1 ../../packages/mediacenter/kodi-binary-addons); do
   # update package.mk for stale github.com packages
   RESOLVED_HASH=$(resolve_hash ${ADDON}.git HEAD) || continue
   echo "Resolving hash for ${ADDON}: HEAD => ${RESOLVED_HASH}"
-  update_pkg ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ${ADDON} ${RESOLVED_HASH}
+  update_pkg ${ROOT}/packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ${ADDON} ${RESOLVED_HASH}
 
   rm -rf $ADDON.git
 done
