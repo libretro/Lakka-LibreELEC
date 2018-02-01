@@ -38,10 +38,6 @@ PKG_AUTORECONF="no"
 LIBMALI_ARCH="arm-linux-gnueabihf"
 LIBMALI_FILE="libmali.so"
 
-configure_target() {
- : # nothing todo
-}
-
 make_target() {
  : # nothing todo
 }
