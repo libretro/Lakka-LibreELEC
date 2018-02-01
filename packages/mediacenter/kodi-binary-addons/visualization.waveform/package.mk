@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="visualization.waveform"
-PKG_VERSION="9a8112f"
-PKG_SHA256="067b90a64562bf314699a777fea8f0b120904a78b69057e7b4744fe4dc1b25b3"
+PKG_VERSION="d34beaa"
+PKG_SHA256="12ecd1dbcea0bba4a424f6c3ef36e150a82fb72664ffdc4aa4af683c1fbf8fe7"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
