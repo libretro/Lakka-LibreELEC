@@ -228,7 +228,7 @@ get_pkg_directory() {
 get_pkg_variable() {
   if [ -n "$1" -a -n "$2" ] ; then
     cd $ROOT
-    . config/options $1
+    . config/options $1 &>/dev/null
     echo "${!2}"
   fi
 }
@@ -244,6 +244,64 @@ listcontains() {
 
 target_has_feature() {
   listcontains "$TARGET_FEATURES" "$1"
+}
+
+# find path for matching file or directory, searching standard directory hierarchy, using optional default
+# if a path is located it will be set in FOUND_PATH and exit code will be 0.
+find_path() {
+  local test_func="$1" search="$2" default="$3"
+  local dir match wildcard=0 ftype
+
+  # support wildcard matches
+  [[ $search =~ \* || $search =~ \? ]] && wildcard=1
+
+  [ "$test_func" = "-f" ] && ftype="file" || ftype="dir"
+
+  for dir in $PROJECT_DIR/$PROJECT/devices/$DEVICE/packages/$PKG_NAME \
+             $PROJECT_DIR/$PROJECT/devices/$DEVICE \
+             $PROJECT_DIR/$PROJECT/packages/$PKG_NAME \
+             $PROJECT_DIR/$PROJECT \
+             $DISTRO_DIR/$DISTRO/packages/$PKG_NAME \
+             $DISTRO_DIR/$DISTRO \
+             $PKG_DIR \
+             ; do
+    # ignore directories with missing DEVICE or PKG_NAME components
+    [[ $dir =~ /packages/$ ]] && continue
+    [[ $dir =~ /devices/$ ]] && continue
+    [[ $dir =~ /devices//packages/$PKG_NAME$ ]] && continue
+
+    if [ $wildcard -eq 1 ]; then
+      ls $dir/$search 1>/dev/null 2>&1 && match="$dir/$search" && break
+    else
+      [ $test_func "$dir/$search" ] && match="$dir/$search" && break
+    fi
+  done
+
+  if [ -z "$match" -a -n "$default" ]; then
+    if [[ $default =~ \* || $default =~ \? ]]; then
+      ls $default 1>/dev/null 2>&1 && match="$default"
+    else
+      [ $test_func "$default" ] && match="$default"
+    fi
+  fi
+
+  if [ -n "$match" ]; then
+    FOUND_PATH="$match"
+    [ "${VERBOSE_FIND_PATH,,}" = "yes" ] && echo "find_path: Searching for $ftype: \"$search\", found: \"$FOUND_PATH\"" >&2
+    return 0
+  else
+    unset FOUND_PATH
+    [ "${VERBOSE_FIND_PATH,,}" = "yes" ] && echo "find_path: Searching for $ftype: \"$search\" - not found" >&2
+    return 1
+  fi
+}
+
+find_file_path() {
+  find_path -f "$1" "$2"
+}
+
+find_dir_path() {
+  find_path -d "$1" "$2"
 }
 
 install_binary_addon() {
