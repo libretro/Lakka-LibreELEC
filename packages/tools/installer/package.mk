@@ -35,11 +35,8 @@ post_install() {
         -i  $INSTALL/usr/bin/installer
 
   mkdir -p $INSTALL/etc
-    if [ -f $PROJECT_DIR/$PROJECT/installer/installer.conf ]; then
-      cp $PROJECT_DIR/$PROJECT/installer/installer.conf $INSTALL/etc
-    else
-      cp $PKG_DIR/config/installer.conf $INSTALL/etc
-    fi
+    find_file_path config/installer.conf
+    cp ${FOUND_PATH} $INSTALL/etc
     sed -e "s/@SYSTEM_SIZE@/$SYSTEM_SIZE/g" \
         -e "s/@SYSTEM_PART_START@/$SYSTEM_PART_START/g" \
         -e "s/@EXTLINUX_PARAMETERS@/$EXTLINUX_PARAMETERS/g" \
