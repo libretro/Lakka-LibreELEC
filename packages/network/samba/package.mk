@@ -143,17 +143,11 @@ post_makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/samba
     cp $PKG_DIR/scripts/samba-config $INSTALL/usr/lib/samba
 
-  mkdir -p $INSTALL/etc/samba
-  if [ -n "$DEVICE" -a -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/config/smb.conf ]; then
-    cp $PROJECT_DIR/$PROJECT/devices/$DEVICE/config/smb.conf $INSTALL/etc/samba
-  elif [ -f $PROJECT_DIR/$PROJECT/config/smb.conf ]; then
-    cp $PROJECT_DIR/$PROJECT/config/smb.conf $INSTALL/etc/samba
-  elif [ -f $DISTRO_DIR/$DISTRO/config/smb.conf ]; then
-    cp $DISTRO_DIR/$DISTRO/config/smb.conf $INSTALL/etc/samba
-  else
-    cp $PKG_DIR/config/smb.conf $INSTALL/etc/samba
+  if find_file_path config/smb.conf; then
+    mkdir -p $INSTALL/etc/samba
+      cp ${FOUND_PATH} $INSTALL/etc/samba
     mkdir -p $INSTALL/usr/config
-      cp $PKG_DIR/config/smb.conf $INSTALL/usr/config/samba.conf.sample
+      cp $INSTALL/etc/samba/smb.conf $INSTALL/usr/config/samba.conf.sample
   fi
 
   if [ "$DEVTOOLS" = "yes" ]; then
