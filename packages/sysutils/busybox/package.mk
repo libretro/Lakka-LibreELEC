@@ -53,18 +53,6 @@ if [ "$NFS_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET rpcbind"
 fi
 
-if [ -f $PROJECT_DIR/$PROJECT/busybox/busybox-target.conf ]; then
-  BUSYBOX_CFG_FILE_TARGET=$PROJECT_DIR/$PROJECT/busybox/busybox-target.conf
-else
-  BUSYBOX_CFG_FILE_TARGET=$PKG_DIR/config/busybox-target.conf
-fi
-
-if [ -f $PROJECT_DIR/$PROJECT/busybox/busybox-init.conf ]; then
-  BUSYBOX_CFG_FILE_INIT=$PROJECT_DIR/$PROJECT/busybox/busybox-init.conf
-else
-  BUSYBOX_CFG_FILE_INIT=$PKG_DIR/config/busybox-init.conf
-fi
-
 pre_build_target() {
   mkdir -p $PKG_BUILD/.$TARGET_NAME
   cp -RP $PKG_BUILD/* $PKG_BUILD/.$TARGET_NAME
@@ -92,7 +80,8 @@ configure_host() {
 
 configure_target() {
   cd $PKG_BUILD/.$TARGET_NAME
-    cp $BUSYBOX_CFG_FILE_TARGET .config
+    find_file_path config/busybox-target.conf
+    cp $FOUND_PATH .config
 
     # set install dir
     sed -i -e "s|^CONFIG_PREFIX=.*$|CONFIG_PREFIX=\"$INSTALL/usr\"|" .config
@@ -129,7 +118,8 @@ configure_target() {
 
 configure_init() {
   cd $PKG_BUILD/.$TARGET_NAME-init
-    cp $BUSYBOX_CFG_FILE_INIT .config
+    find_file_path config/busybox-init.conf
+    cp $FOUND_PATH .config
 
     # set install dir
     sed -i -e "s|^CONFIG_PREFIX=.*$|CONFIG_PREFIX=\"$INSTALL/usr\"|" .config
@@ -234,12 +224,8 @@ makeinstall_init() {
     touch $INSTALL/etc/fstab
     ln -sf /proc/self/mounts $INSTALL/etc/mtab
 
-  if [ -n "$DEVICE" -a -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/initramfs/platform_init ]; then
-    cp $PROJECT_DIR/$PROJECT/devices/$DEVICE/initramfs/platform_init $INSTALL
-  elif [ -f $PROJECT_DIR/$PROJECT/initramfs/platform_init ]; then
-    cp $PROJECT_DIR/$PROJECT/initramfs/platform_init $INSTALL
-  fi
-  if [ -f $INSTALL/platform_init ]; then
+  if find_file_path initramfs/platform_init; then
+    cp ${FOUND_PATH} $INSTALL
     chmod 755 $INSTALL/platform_init
   fi
 
