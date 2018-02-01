@@ -1,0 +1,53 @@
+From 5839d34af2063552f83865fd5ebac651688087f9 Mon Sep 17 00:00:00 2001
+From: MilhouseVH <milhouseVH.github@nmacleod.com>
+Date: Thu, 1 Feb 2018 09:25:19 +0000
+Subject: [PATCH] Fix issues introduced by ksoftirqd change
+
+---
+ kernel/softirq.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/kernel/softirq.c b/kernel/softirq.c
+index 4e09821..d6772be 100644
+--- a/kernel/softirq.c
++++ b/kernel/softirq.c
+@@ -79,12 +79,16 @@ static void wakeup_softirqd(void)
+ 
+ /*
+  * If ksoftirqd is scheduled, we do not want to process pending softirqs
+- * right now. Let ksoftirqd handle this at its own rate, to get fairness.
++ * right now. Let ksoftirqd handle this at its own rate, to get fairness,
++ * unless we're doing some of the synchronous softirqs.
+  */
+-static bool ksoftirqd_running(void)
++#define SOFTIRQ_NOW_MASK ((1 << HI_SOFTIRQ) | (1 << TASKLET_SOFTIRQ))
++static bool ksoftirqd_running(unsigned long pending)
+ {
+ 	struct task_struct *tsk = __this_cpu_read(ksoftirqd);
+ 
++	if (pending & SOFTIRQ_NOW_MASK)
++		return false;
+ 	return tsk && (tsk->state == TASK_RUNNING);
+ }
+ 
+@@ -324,7 +328,7 @@ asmlinkage __visible void do_softirq(void)
+ 
+ 	pending = local_softirq_pending();
+ 
+-	if (pending && !ksoftirqd_running())
++	if (pending && !ksoftirqd_running(pending))
+ 		do_softirq_own_stack();
+ 
+ 	local_irq_restore(flags);
+@@ -351,7 +355,7 @@ void irq_enter(void)
+ 
+ static inline void invoke_softirq(void)
+ {
+-	if (ksoftirqd_running())
++	if (ksoftirqd_running(local_softirq_pending()))
+ 		return;
+ 
+ 	if (!force_irqthreads) {
+-- 
+2.14.1
+
