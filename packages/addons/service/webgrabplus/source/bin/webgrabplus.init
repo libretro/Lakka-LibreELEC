@@ -1,0 +1,77 @@
+#!/bin/sh
+################################################################################
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2016-present Team LibreELEC
+#
+#  LibreELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  LibreELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+. /etc/profile
+oe_setup_addon service.webgrabplus
+
+dir_bup=".backup"
+dir_cfg="$ADDON_DIR/config/"
+dir_sip="siteini.pack"
+dir_siu="siteini.user"
+dir_tmp="/tmp/wgp"
+sip_ver="siteini.version"
+url_ver="http://www.webgrabplus.com/sites/default/files/download/ini/latest_version.txt"
+url_zip="http://webgrabplus.com/sites/default/files/download/ini/SiteIniPack_current.zip"
+
+cd "$ADDON_HOME"
+
+# Hack to not test the patience of beta testers
+old_ver="version.siteini"
+if [ -f "$old_ver" ]; then
+  mv "$old_ver" "$sip_ver"
+fi
+
+if [ ! -d "$dir_bup" -a ! -f "$sip_ver" ]; then
+  for i in "mdb" "rex" "siteini.pack" "WebGrab++.config.xml"; do
+    if [ -e "$i" ]; then
+      mkdir -p "$dir_bup"
+      mv "$i" "$dir_bup"
+      echo "Moved obsolete $i to $dir_bup"
+    fi
+  done
+fi
+
+mkdir -p "$dir_sip"
+mkdir -p "$dir_siu"
+touch "$sip_ver"
+
+for s in $(find "$dir_cfg" -type f); do
+  f="${s#$dir_cfg}"
+  if [ ! -f "$f" ]; then
+    d="$(dirname $f)"
+    mkdir -p "$d"
+    cp "$s" "$d"
+    echo "Created default $f"
+  fi
+done
+
+ver_cur="$(wget $url_ver -qO -)"
+ver_ins="$(cat $sip_ver)"
+
+if [ "$ver_cur" != "$ver_ins" ]; then
+  rm -fr "$dir_tmp"
+  mkdir -p "$dir_tmp"
+  wget "$url_zip" -qP "$dir_tmp" && \
+  unzip -q "$dir_tmp/*.zip" -d "$dir_tmp" && \
+  rm -rf siteini.pack && \
+  mv "$dir_tmp/siteini.pack" . && \
+  echo "$ver_cur" > "$sip_ver" && \
+  echo "Updated siteini.pack to $ver_cur"
+  rm -fr "$dir_tmp"
+fi

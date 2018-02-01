@@ -17,13 +17,14 @@
 ################################################################################
 
 PKG_NAME="webgrabplus"
-PKG_VERSION="56.29pre-20161021"
-PKG_SHA256="1b11551b8b7a5d6abac39a54c9f609af510297a1e6bc8265927f42b0fb3f4bab"
+PKG_VERSION="2.1.5_beta"
+PKG_SHA256="bee5d6c12bc5b62366a0d05b48c1693d715199b28b12240fa74c0b2c0f613a72"
 PKG_REV="105"
 PKG_ARCH="any"
 PKG_LICENSE="prop."
 PKG_SITE="http://www.webgrabplus.com/"
-PKG_URL="https://github.com/awiouy/webgrabplus/archive/$PKG_VERSION.tar.gz"
+PKG_URL="http://webgrabplus.com/sites/default/files/download/SW/V2.1.5/WebGrabPlus_V2.1.5_beta_install.tar.gz"
+PKG_SOURCE_DIR=".wg++"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="service"
 PKG_SHORTDESC="WebGrab+Plus: a multi-site incremental xmltv epg grabber"
@@ -38,5 +39,5 @@ PKG_MAINTAINER="Anton Voyl (awiouy)"
 
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID
-  cp -PR $PKG_BUILD/* $ADDON_BUILD/$PKG_ADDON_ID
+  cp -r $PKG_BUILD/bin $ADDON_BUILD/$PKG_ADDON_ID
 }
