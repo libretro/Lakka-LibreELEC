@@ -65,6 +65,8 @@ make_target() {
     if [ $LINUX = "amlogic-3.10" ]; then
       sed -e 's/CONFIG_IR_NUVOTON=m/# CONFIG_IR_NUVOTON is not set/g' -i v4l/.config
     fi
+  elif [ "$PROJECT" = Rockchip ]; then
+    sed -e 's/CONFIG_DVB_LGDT3306A=m/# CONFIG_DVB_LGDT3306A is not set/g' -i v4l/.config
   fi
 
   # add menuconfig to edit .config
