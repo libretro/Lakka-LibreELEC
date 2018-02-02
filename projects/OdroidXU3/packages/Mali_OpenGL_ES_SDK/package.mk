@@ -43,7 +43,4 @@ makeinstall_target() {
   mkdir -p $SYSROOT_PREFIX/usr/include
     cp -PR $PKG_BUILD/inc/* $SYSROOT_PREFIX/usr/include
     cp -PR $PKG_BUILD/simple_framework/inc/mali/* $SYSROOT_PREFIX/usr/include
-
-    mkdir -p $SYSROOT_PREFIX/usr/lib/pkgconfig
-    cp -PRv $PKG_DIR/pkgconfig/*.pc $SYSROOT_PREFIX/usr/lib/pkgconfig
 }
