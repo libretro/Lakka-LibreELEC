@@ -21,6 +21,7 @@ ARM64: Fix build break for RTL8187\/RTL8192CU wifi
 fixup: rtl8192cu fixes from milhouse
 rtl8192: Fixup build
 rtl8192: switch to netdev->priv_destructor()
+Revert \"softirq: Let ksoftirqd do its job\"
 "
 
 IFS=$'\n'
