@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="visualization.spectrum"
-PKG_VERSION="d75d995"
-PKG_SHA256="1d838196a38bca5b1ca6b29f340165e4249513c548f9f183b2b07fbd10dae268"
+PKG_VERSION="b533965"
+PKG_SHA256="41173e5ef9058a8356e105fdc41f4facf14722fc9125ec2fc19f6ae1a1273e28"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
