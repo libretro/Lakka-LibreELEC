@@ -40,28 +40,30 @@ STAMP_DEPENDS="$PKG_DIR $PKG_NEED_UNPACK $PROJECT_DIR/$PROJECT/patches/$PKG_NAME
 [ -n "$DEVICE" ] && STAMP_DEPENDS="$STAMP_DEPENDS $PROJECT_DIR/$PROJECT/devices/$DEVICE/patches/$PKG_NAME"
 
 # Perform a wildcard match on the package to ensure old versions are cleaned too
-# But only in case when not using PKG_GIT_URL
-if [ -z "$PKG_GIT_URL" ]; then
 PKG_DEEPMD5=
+GIT_MUST_REBUILD=false
 for i in $BUILD/$1-*; do
   if [ -d $i -a -f "$i/.libreelec-unpack" ] ; then
     . "$i/.libreelec-unpack"
     if [ "$STAMP_PKG_NAME" = "$1" ]; then
       [ -z "${PKG_DEEPMD5}" ] && PKG_DEEPMD5=$(find $STAMP_DEPENDS -exec md5sum {} \; 2>/dev/null | sort | md5sum | cut -d" " -f1)
       if [ ! "$PKG_DEEPMD5" = "$STAMP_PKG_DEEPMD5" ] ; then
+        if [ -z "$PKG_GIT_URL" ] ; then
         $SCRIPTS/clean $1
+        else
+          GIT_MUST_REBUILD=true
+        fi
       fi
     fi
   fi
 done
-fi
 
-if [ -z "$PKG_GIT_URL" -a -d "$PKG_BUILD" -a ! -f "$STAMP" ]; then
+if [ -d "$PKG_BUILD" -a ! -f "$STAMP" ]; then
   # stale pkg build dir
   $SCRIPTS/clean $1
 fi
 
-[ -f "$STAMP" ] && exit 0
+[ -f "$STAMP" -a !$GIT_MUST_REBUILD ] && exit 0
 
 if [ -d "$SOURCES/$1" -o -d "$PKG_DIR/sources" -o -n "$PKG_GIT_URL" ]; then
   printf "%${BUILD_INDENT}c ${boldcyan}UNPACK${endcolor}   $1\n" ' '>&$SILENT_OUT
@@ -97,7 +99,7 @@ if [ -d "$SOURCES/$1" -o -d "$PKG_DIR/sources" -o -n "$PKG_GIT_URL" ]; then
         mv $BUILD/$PKG_NAME-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
       fi
     fi
-  
+
     if [ -d "$PKG_DIR/sources" ]; then
       [ ! -d "$BUILD/${PKG_NAME}-${PKG_VERSION}" ] && mkdir -p $BUILD/${PKG_NAME}-${PKG_VERSION}
       cp -PRf $PKG_DIR/sources/* $BUILD/${PKG_NAME}-${PKG_VERSION}
