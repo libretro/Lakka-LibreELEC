@@ -48,26 +48,13 @@ makeinstall_target() {
   mkdir -p $INSTALL/usr/share/bootloader
 
     # Only install u-boot.img et al when building a board specific image
-    if [ -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/install ]; then
-      . $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/install
-    elif [ -f $PROJECT_DIR/$PROJECT/bootloader/install ]; then
-      . $PROJECT_DIR/$PROJECT/bootloader/install
-    fi
+    find_file_path bootloader/install && . ${FOUND_PATH}
 
     # Always install the update script
-    if [ -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/update.sh ]; then
-      cp -av $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/update.sh $INSTALL/usr/share/bootloader
-    elif [ -f $PROJECT_DIR/$PROJECT/bootloader/update.sh ]; then
-      cp -av $PROJECT_DIR/$PROJECT/bootloader/update.sh $INSTALL/usr/share/bootloader
-    fi
+    find_file_path bootloader/update.sh && cp -av ${FOUND_PATH} $INSTALL/usr/share/bootloader
 
     cp $PKG_BUILD/fip/u-boot.bin.sd.bin $INSTALL/usr/share/bootloader/u-boot
 
-    if [ -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/boot.ini ]; then
-      cp -av $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/boot.ini $INSTALL/usr/share/bootloader
-    fi
-
-    if [ -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/config.ini ]; then
-      cp -av $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/config.ini $INSTALL/usr/share/bootloader
-    fi
+    find_file_path bootloader/boot.ini && cp -av ${FOUND_PATH} $INSTALL/usr/share/bootloader
+    find_file_path bootloader/config.ini && cp -av ${FOUND_PATH} $INSTALL/usr/share/bootloader
 }

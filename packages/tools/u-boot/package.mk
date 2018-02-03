@@ -55,27 +55,15 @@ makeinstall_target() {
 
     # Only install u-boot.img et al when building a board specific image
     if [ -n "$UBOOT_SYSTEM" ]; then
-      if [ -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/install ]; then
-        . $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/install
-      elif [ -f $PROJECT_DIR/$PROJECT/bootloader/install ]; then
-        . $PROJECT_DIR/$PROJECT/bootloader/install
-      fi
+      find_file_path bootloader/install && . ${FOUND_PATH}
     fi
 
     # Always install the update script
-    if [ -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/update.sh ]; then
-      cp -av $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/update.sh $INSTALL/usr/share/bootloader
-    elif [ -f $PROJECT_DIR/$PROJECT/bootloader/update.sh ]; then
-      cp -av $PROJECT_DIR/$PROJECT/bootloader/update.sh $INSTALL/usr/share/bootloader
-    fi
+    find_file_path bootloader/update.sh && cp -av ${FOUND_PATH} $INSTALL/usr/share/bootloader
 
     # Always install the canupdate script
-    if [ -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/canupdate.sh ]; then
-      cp -av $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/canupdate.sh $INSTALL/usr/share/bootloader
-    elif [ -f $PROJECT_DIR/$PROJECT/bootloader/canupdate.sh ]; then
-      cp -av $PROJECT_DIR/$PROJECT/bootloader/canupdate.sh $INSTALL/usr/share/bootloader
-    fi
-    if [ -f $INSTALL/usr/share/bootloader/canupdate.sh ]; then
+    if find_file_path bootloader/canupdate.sh; then
+      cp -av ${FOUND_PATH} $INSTALL/usr/share/bootloader
       sed -e "s/@PROJECT@/${DEVICE:-$PROJECT}/g" \
           -i $INSTALL/usr/share/bootloader/canupdate.sh
     fi
