@@ -105,7 +105,7 @@ post_makeinstall_target() {
 
   create_multi_keymap libreelec_multi "RC6 NEC" $default_multi_maps
   create_multi_keymap libreelec_multi_amlogic "RC6 NEC" $default_multi_maps \
-    odroid wetek_hub wetek_play_2
+    odroid wetek_hub wetek_play_2 minix_neo
 
   # use multi-keymap instead of default one
   sed -i '/^\*\s*rc-rc6-mce\s*rc6_mce/d' $INSTALL/etc/rc_maps.cfg
