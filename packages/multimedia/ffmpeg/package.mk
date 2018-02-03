@@ -72,10 +72,6 @@ else
   FFMPEG_FPU="--disable-neon"
 fi
 
-if [ "$DISPLAYSERVER" = "x11" ]; then
-  FFMPEG_X11GRAB="--enable-indev=x11grab_xcb"
-fi
-
 pre_configure_target() {
   cd $PKG_BUILD
   rm -rf .$TARGET_NAME
@@ -204,8 +200,7 @@ configure_target() {
               --disable-altivec \
               $FFMPEG_FPU \
               --enable-yasm \
-              --disable-symver \
-              $FFMPEG_X11GRAB
+              --disable-symver
 }
 
 post_makeinstall_target() {
