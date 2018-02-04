@@ -28,6 +28,7 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="libretro wrapper for desmume NDS emulator."
 PKG_LONGDESC="libretro wrapper for desmume NDS emulator."
+PKG_TOOLCHAIN="make"
 
 PKG_LIBNAME="desmume_libretro.so"
 PKG_LIBPATH="desmume/$PKG_LIBNAME"
