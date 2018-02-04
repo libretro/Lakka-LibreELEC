@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="bitstream"
-PKG_VERSION="1.2"
-PKG_SHA256="ccfbb438711606de1fad881b58c8f134e2d82b4d53a88ea48f2d1bcb49ca5ad2"
+PKG_VERSION="1.3"
+PKG_SHA256="f8a90b0ae517ccb295760317f7809ff097ae220ef75b05b0fc2b813debc4a8b7"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.videolan.org"

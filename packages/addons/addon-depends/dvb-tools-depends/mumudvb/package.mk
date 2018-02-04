@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="mumudvb"
-PKG_VERSION="596f7db"
-PKG_SHA256="4848f61831aa4d000b5e024439acab6e06aab4dd16a950ae18275cbeb11e2c84"
+PKG_VERSION="a09373d"
+PKG_SHA256="66ef8f11a0e5795cd6408e33581a95de88a76d499e8a0d41f34880295d346efa"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://mumudvb.net/"
