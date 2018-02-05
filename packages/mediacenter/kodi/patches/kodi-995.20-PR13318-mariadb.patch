@@ -1,0 +1,197 @@
+From 35c299575feaf12dd09e9571e981347436063806 Mon Sep 17 00:00:00 2001
+From: "Sascha Kuehndel (InuSasha)" <dev@inusasha.de>
+Date: Fri, 5 Jan 2018 18:14:12 +0100
+Subject: [PATCH] sql-client: add support for mariadb-client mariadb is a
+ place-in for mysql. only, the search pathes and the include path are changed.
+
+---
+ CMakeLists.txt                        | 12 +++++-
+ cmake/modules/FindMariaDBClient.cmake | 69 +++++++++++++++++++++++++++++++++++
+ xbmc/dbwrappers/CMakeLists.txt        |  2 +-
+ xbmc/dbwrappers/Database.cpp          |  6 +--
+ xbmc/dbwrappers/mysqldataset.cpp      |  4 ++
+ xbmc/dbwrappers/mysqldataset.h        |  4 ++
+ 6 files changed, 92 insertions(+), 5 deletions(-)
+ create mode 100644 cmake/modules/FindMariaDBClient.cmake
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 08bebea13a59..150fe9744ce9 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -151,7 +151,6 @@ set(optional_deps Alsa
+                   LCMS2
+                   MDNS
+                   MicroHttpd
+-                  MySqlClient
+                   PulseAudio
+                   Python
+                   SmbClient
+@@ -179,6 +178,17 @@ core_optional_dep(${optional_deps})
+ core_require_dyload_dep(${required_dyload})
+ core_optional_dyload_dep(${dyload_optional})
+ 
++if(ENABLE_MARIADBCLIENT AND NOT ENABLE_MARIADBCLIENT STREQUAL AUTO AND ENABLE_MYSQLCLIENT AND NOT ENABLE_MYSQLCLIENT STREQUAL AUTO)
++  MESSAGE(FATAL_ERROR "You can not use MySql and MariaDB at the same time. Disable one by adding -DENABLE_MYSQLCLIENT=OFF or -DENABLE_MARIADBCLIENT=OFF.")
++elseif(ENABLE_MYSQLCLIENT AND NOT ENABLE_MYSQLCLIENT STREQUAL AUTO)
++  set(ENABLE_MARIADBCLIENT OFF CACHE BOOL "")
++endif()
++
++core_optional_dep(MariaDBClient)
++if(NOT MARIADBCLIENT_FOUND)
++  core_optional_dep(MySqlClient)
++endif()
++
+ if(NOT UDEV_FOUND)
+   core_optional_dep(LibUSB)
+ endif()
+diff --git a/cmake/modules/FindMariaDBClient.cmake b/cmake/modules/FindMariaDBClient.cmake
+new file mode 100644
+index 000000000000..1e5e736f46b0
+--- /dev/null
++++ b/cmake/modules/FindMariaDBClient.cmake
+@@ -0,0 +1,69 @@
++#.rst:
++# FindMariaDBClient
++# ---------------
++# Finds the MariaDBClient library
++#
++# This will will define the following variables::
++#
++# MARIADBCLIENT_FOUND - system has MariaDBClient
++# MARIADBCLIENT_INCLUDE_DIRS - the MariaDBClient include directory
++# MARIADBCLIENT_LIBRARIES - the MariaDBClient libraries
++# MARIADBCLIENT_DEFINITIONS - the MariaDBClient compile definitions
++#
++# and the following imported targets::
++#
++#   MariaDBClient::MariaDBClient   - The MariaDBClient library
++
++# Don't find system wide installed version on Windows
++if(WIN32)
++  set(EXTRA_FIND_ARGS NO_SYSTEM_ENVIRONMENT_PATH)
++else()
++  set(EXTRA_FIND_ARGS)
++endif()
++
++find_path(MARIADBCLIENT_INCLUDE_DIR NAMES mariadb/mysql.h mariadb/server/mysql.h)
++find_library(MARIADBCLIENT_LIBRARY_RELEASE NAMES mariadbclient libmariadb
++                                           PATH_SUFFIXES mariadb
++                                           ${EXTRA_FIND_ARGS})
++find_library(MARIADBCLIENT_LIBRARY_DEBUG NAMES mariadbclient libmariadb
++                                         PATH_SUFFIXES mariadb
++                                         ${EXTRA_FIND_ARGS})
++
++if(MARIADBCLIENT_INCLUDE_DIR AND EXISTS "${MARIADBCLIENT_INCLUDE_DIR}/mariadb/mariadb_version.h")
++  file(STRINGS "${MARIADBCLIENT_INCLUDE_DIR}/mariadb/mariadb_version.h" mariadb_version_str REGEX "^#define[\t ]+MARIADB_CLIENT_VERSION_STR[\t ]+\".*\".*")
++  string(REGEX REPLACE "^#define[\t ]+MARIADB_CLIENT_VERSION_STR[\t ]+\"([^\"]+)\".*" "\\1" MARIADBCLIENT_VERSION_STRING "${mariadb_version_str}")
++  unset(mariadb_version_str)
++endif()
++
++include(SelectLibraryConfigurations)
++select_library_configurations(MARIADBCLIENT)
++
++include(FindPackageHandleStandardArgs)
++find_package_handle_standard_args(MariaDBClient
++                                  REQUIRED_VARS MARIADBCLIENT_LIBRARY MARIADBCLIENT_INCLUDE_DIR
++                                  VERSION_VAR MARIADBCLIENT_VERSION_STRING)
++
++if(MARIADBCLIENT_FOUND)
++  set(MARIADBCLIENT_LIBRARIES ${MARIADBCLIENT_LIBRARY})
++  set(MARIADBCLIENT_INCLUDE_DIRS ${MARIADBCLIENT_INCLUDE_DIR})
++  set(MARIADBCLIENT_DEFINITIONS -DHAS_MARIADB=1)
++
++  if(NOT TARGET MariaDBClient::MariaDBClient)
++    add_library(MariaDBClient::MariaDBClient UNKNOWN IMPORTED)
++    if(MARIADBCLIENT_LIBRARY_RELEASE)
++      set_target_properties(MariaDBClient::MariaDBClient PROPERTIES
++                                                         IMPORTED_CONFIGURATIONS RELEASE
++                                                         IMPORTED_LOCATION "${MARIADBCLIENT_LIBRARY_RELEASE}")
++    endif()
++    if(MARIADBCLIENT_LIBRARY_DEBUG)
++      set_target_properties(MariaDBClient::MariaDBClient PROPERTIES
++                                                         IMPORTED_CONFIGURATIONS DEBUG
++                                                         IMPORTED_LOCATION "${MARIADBCLIENT_LIBRARY_DEBUG}")
++    endif()
++    set_target_properties(MariaDBClient::MariaDBClient PROPERTIES
++                                                       INTERFACE_INCLUDE_DIRECTORIES "${MARIADBCLIENT_INCLUDE_DIR}"
++                                                       INTERFACE_COMPILE_DEFINITIONS HAS_MARIADB=1)
++  endif()
++endif()
++
++mark_as_advanced(MARIADBCLIENT_INCLUDE_DIR MARIADBCLIENT_LIBRARY)
+diff --git a/xbmc/dbwrappers/CMakeLists.txt b/xbmc/dbwrappers/CMakeLists.txt
+index 5ca090f0e4dd..16a03f291a6c 100644
+--- a/xbmc/dbwrappers/CMakeLists.txt
++++ b/xbmc/dbwrappers/CMakeLists.txt
+@@ -10,7 +10,7 @@ set(HEADERS Database.h
+             qry_dat.h
+             sqlitedataset.h)
+ 
+-if(MYSQLCLIENT_FOUND)
++if(MYSQLCLIENT_FOUND OR MARIADBCLIENT_FOUND)
+   list(APPEND SOURCES mysqldataset.cpp)
+   list(APPEND HEADERS mysqldataset.h)
+ endif()
+diff --git a/xbmc/dbwrappers/Database.cpp b/xbmc/dbwrappers/Database.cpp
+index b90b28508e6d..c3ae6480bb74 100644
+--- a/xbmc/dbwrappers/Database.cpp
++++ b/xbmc/dbwrappers/Database.cpp
+@@ -30,7 +30,7 @@
+ #include "DatabaseManager.h"
+ #include "DbUrl.h"
+ 
+-#ifdef HAS_MYSQL
++#if defined(HAS_MYSQL) || defined(HAS_MARIADB) 
+ #include "mysqldataset.h"
+ #endif
+ 
+@@ -378,7 +378,7 @@ void CDatabase::InitSettings(DatabaseSettings &dbSettings)
+ {
+   m_sqlite = true;
+ 
+-#ifdef HAS_MYSQL
++#if defined(HAS_MYSQL) || defined(HAS_MARIADB)
+   if (dbSettings.type == "mysql")
+   {
+     // check we have all information before we cancel the fallback
+@@ -421,7 +421,7 @@ bool CDatabase::Connect(const std::string &dbName, const DatabaseSettings &dbSet
+   {
+     m_pDB.reset( new SqliteDatabase() ) ;
+   }
+-#ifdef HAS_MYSQL
++#if defined(HAS_MYSQL) || defined(HAS_MARIADB)
+   else if (dbSettings.type == "mysql")
+   {
+     m_pDB.reset( new MysqlDatabase() ) ;
+diff --git a/xbmc/dbwrappers/mysqldataset.cpp b/xbmc/dbwrappers/mysqldataset.cpp
+index 4e561296a630..69d48201483e 100644
+--- a/xbmc/dbwrappers/mysqldataset.cpp
++++ b/xbmc/dbwrappers/mysqldataset.cpp
+@@ -30,7 +30,11 @@
+ #include "utils/StringUtils.h"
+ 
+ #include "mysqldataset.h"
++#ifdef HAS_MYSQL
+ #include "mysql/errmsg.h"
++#elif defined(HAS_MARIADB)
++#include <mariadb/errmsg.h>
++#endif
+ 
+ #ifdef TARGET_POSIX
+ #include "platform/linux/ConvUtils.h"
+diff --git a/xbmc/dbwrappers/mysqldataset.h b/xbmc/dbwrappers/mysqldataset.h
+index c3072acb1f8a..65949b013787 100644
+--- a/xbmc/dbwrappers/mysqldataset.h
++++ b/xbmc/dbwrappers/mysqldataset.h
+@@ -22,7 +22,11 @@
+ 
+ #include <stdio.h>
+ #include "dataset.h"
++#ifdef HAS_MYSQL
+ #include "mysql/mysql.h"
++#elif defined(HAS_MARIADB)
++#include <mariadb/mysql.h>
++#endif
+ 
+ namespace dbiplus {
+ /***************** Class MysqlDatabase definition ******************
