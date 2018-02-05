@@ -50,6 +50,11 @@ else
   PKG_KERNEL_CFG_FILE=$PKG_DIR/config/$PKG_CFG_FILE
 fi
 
+if [ "$DEVTOOLS" = "yes" ] && grep -q ^CONFIG_PERF_EVENTS= $PKG_KERNEL_CFG_FILE ; then
+  PKG_BUILD_PERF="yes"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET binutils elfutils libunwind zlib openssl"
+fi
+
 case "$LINUX" in
   amlogic-3.10)
     PKG_VERSION="02fdb27"
@@ -174,6 +179,25 @@ make_target() {
   LDFLAGS="" make INSTALL_MOD_PATH=$INSTALL/$(get_kernel_overlay_dir) DEPMOD="$TOOLCHAIN/bin/depmod" modules_install
   rm -f $INSTALL/$(get_kernel_overlay_dir)/lib/modules/*/build
   rm -f $INSTALL/$(get_kernel_overlay_dir)/lib/modules/*/source
+
+  if [ "$PKG_BUILD_PERF" = "yes" ] ; then
+    ( cd tools/perf
+      WERROR=0 \
+      NO_LIBPERL=1 \
+      NO_LIBPYTHON=1 \
+      NO_SLANG=1 \
+      NO_GTK2=1 \
+      NO_LIBNUMA=1 \
+      NO_LIBAUDIT=1 \
+      NO_LZMA=1 \
+      NO_SDT=1 \
+      LDFLAGS="-ldw -ldwfl -lebl -lelf -ldl -lz" \
+      EXTRA_PERFLIBS="-lebl" \
+        make
+      mkdir -p $INSTALL/usr/bin
+        cp perf $INSTALL/usr/bin
+    )
+  fi
 
   ( cd $ROOT
     rm -rf $BUILD/initramfs
