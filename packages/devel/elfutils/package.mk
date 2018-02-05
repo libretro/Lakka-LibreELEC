@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="elfutils"
-PKG_VERSION="0.168"
-PKG_SHA256="b88d07893ba1373c7dd69a7855974706d05377766568a7d9002706d5de72c276"
+PKG_VERSION="0.170"
+PKG_SHA256="1f844775576b79bdc9f9c717a50058d08620323c1e935458223a12f249c9e066"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://sourceware.org/elfutils/"
