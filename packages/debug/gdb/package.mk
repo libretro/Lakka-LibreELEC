@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="gdb"
-PKG_VERSION="7.12.1"
-PKG_SHA256="4607680b973d3ec92c30ad029f1b7dbde3876869e6b3a117d8a7e90081113186"
+PKG_VERSION="8.1"
+PKG_SHA256="af61a0263858e69c5dce51eab26662ff3d2ad9aa68da9583e8143b5426be4b34"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/gdb/"
