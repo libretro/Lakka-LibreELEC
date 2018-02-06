@@ -33,7 +33,7 @@ PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
   mkdir -p $INSTALL/$(get_full_module_dir)/$PKG_NAME
-  if [ $PROJECT = "WeTek_Play_2" ]; then
+  if [ "$DEVICE" = "WeTek_Play_2" ]; then
     cp driver/wetekdvb_play2.ko $INSTALL/$(get_full_module_dir)/$PKG_NAME/wetekdvb.ko
   else
     cp driver/wetekdvb.ko $INSTALL/$(get_full_module_dir)/$PKG_NAME
