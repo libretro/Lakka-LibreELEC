@@ -33,10 +33,6 @@ PKG_IS_KERNEL_PKG="yes"
 PKG_NEED_UNPACK="$PROJECT_DIR/$PROJECT/bootloader"
 [ -n "$DEVICE" ] && PKG_NEED_UNPACK+=" $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader"
 
-post_unpack() {
-  sed -i 's/^#define CONFIG_DDR_CLK.*912/#define CONFIG_DDR_CLK 792/g' $PKG_BUILD/board/amlogic/configs/libretech_cc.h
-}
-
 make_target() {
   export PATH=$TOOLCHAIN/lib/gcc-linaro-aarch64-elf/bin/:$TOOLCHAIN/lib/gcc-linaro-arm-eabi/bin/:$PATH
   CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make mrproper
