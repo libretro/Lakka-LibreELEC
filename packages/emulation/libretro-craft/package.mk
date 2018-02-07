@@ -40,29 +40,28 @@ pre_configure_target() {
 }
 
 make_target() {
-  case $PROJECT in
-    RPi)
-      case $DEVICE in
-        RPi)
-          make -f Makefile.libretro platform=rpi
-          ;;
-        RPi2)
-          make -f Makefile.libretro platform=rpi2
-          ;;
-      esac
-      ;;
-    imx6)
-      make -f Makefile.libretro platform=imx6
-      ;;
-    WeTek_Play|WeTek_Core|Odroid_C2|WeTek_Hub|WeTek_Play_2)
-      if [ "$TARGET_ARCH" = "aarch64" ]; then
-        make -f Makefile.libretro platform=aarch64
-      else
-        make -f Makefile.libretro platform=armv7-neon-gles-cortex-a9
-      fi
+
+  if [ -z "$DEVICE" ]; then
+    PKG_DEVICE_NAME=$PROJECT
+  else
+    PKG_DEVICE_NAME=$DEVICE
+  fi
+
+  case $PKG_DEVICE_NAME in
+    RPi|RPi2)
+      make -f Makefile.libretro platform=${PKG_DEVICE_NAME,,}
       ;;
     Generic)
       make -f Makefile.libretro
+      ;;
+    *)
+      if [ "$TARGET_CPU" = "cortex-a9" ] || [ "$TARGET_CPU" = "cortex-a53" ] || [ "$TARGET_CPU" = "cortex-a17" ]; then
+        if [ "$TARGET_ARCH" = "aarch64" ]; then
+          make -f Makefile.libretro platform=aarch64
+        else
+          make -f Makefile.libretro platform=armv7-neon-gles-cortex-a9
+        fi
+      fi
       ;;
   esac
 }

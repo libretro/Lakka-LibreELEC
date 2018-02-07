@@ -34,27 +34,21 @@ PKG_LIBPATH="$PKG_LIBNAME"
 PKG_LIBVAR="REICAST_LIB"
 
 make_target() {
-  case $PROJECT in
-    RPi)
-      case $DEVICE in
-        RPi)
-          make platform=armv6-hardfloat-arm1176jzf-s
-          ;;
-        RPi2)
-          make platform=rpi2
-          ;;
-      esac
-      ;;
-    imx6)
-      make platform=armv7-neon-hardfloat-cortex-a9
-      ;;
-    WeTek_Play|WeTek_Core)
-      make platform=armv7-neon-hardfloat-cortex-a9
-      ;;
-    Generic)
-      make
-      ;;
-  esac
+  if [ "$DEVICE" = "RPi2" ]; then
+    make platform=${DEVICE,,}
+  else
+    case $TARGET_CPU in
+      arm1176jzf-s)
+        make platform=arm FORCE_GLES=1
+        ;;
+      cortex-a7|cortex-a9)
+        make platform=armv7-neon-hardfloat-$TARGET_CPU FORCE_GLES=1
+        ;;
+      x86-64)
+        make
+        ;;
+    esac
+  fi
 }
 
 makeinstall_target() {

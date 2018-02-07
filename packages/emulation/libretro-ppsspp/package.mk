@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-ppsspp"
-PKG_VERSION="9145287"
-PKG_SHA256="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+PKG_VERSION="5f7bcf7"
+PKG_SHA256="09e61300c05705b1f98e1b575e44d366e5a243cc3be97b3a09ad420581459f87"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/libretro-ppsspp"
@@ -27,6 +27,7 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="A PSP emulator for Android, Windows, Mac, Linux and Blackberry 10, written in C++."
 PKG_LONGDESC="A PSP emulator for Android, Windows, Mac, Linux and Blackberry 10, written in C++."
+PKG_TOOLCHAIN="make"
 
 PKG_LIBNAME="ppsspp_libretro.so"
 PKG_LIBPATH="libretro/$PKG_LIBNAME"
@@ -45,27 +46,27 @@ pre_make_target() {
 }
 
 make_target() {
-  case $PROJECT in
-    RPi)
-      case $DEVICE in
-        RPi)
-          make -C libretro platform=armv6-gles-hardfloat-arm1176jzf-s
-          ;;
-        RPi2)
-          make -C libretro platform=armv7-neon-gles-hardfloat-cortex-a7
-          ;;
-      esac
-      ;;
-    imx6)
-      make -C libretro platform=armv7-neon-gles-hardfloat-cortex-a9
-      ;;
-    WeTek_Play|WeTek_Core)
-      make -C libretro platform=armv7-neon-gles-hardfloat-cortex-a9
-      ;;
-    Generic)
-      make -C libretro
-      ;;
-  esac
+  if [ -z "$DEVICE" ]; then
+    PKG_DEVICE_NAME=$PROJECT
+  else
+    PKG_DEVICE_NAME=$DEVICE
+  fi
+  
+  if [ "$PKG_DEVICE_NAME" = "RPi" ]; then
+    make -C libretro platform=${DEVICE,,}
+  else
+    case $TARGET_CPU in
+      arm1176jzf-s)
+        make -C libretro CC=$CC CXX=$CXX platform=armv6-gles-hardfloat-$TARGET_CPU
+        ;;
+      cortex-a7|cortex-a9)
+        make -C libretro CC=$CC CXX=$CXX platform=armv7-neon-gles-hardfloat-$TARGET_CPU
+        ;;
+      x86-64)
+        make -C libretro CC=$CC CXX=$CXX
+        ;;
+    esac
+  fi
 }
 
 makeinstall_target() {
