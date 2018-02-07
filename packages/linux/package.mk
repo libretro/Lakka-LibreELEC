@@ -29,6 +29,32 @@ PKG_SHORTDESC="linux26: The Linux kernel 2.6 precompiled kernel binary image and
 PKG_LONGDESC="This package contains a precompiled kernel image and the modules."
 PKG_IS_KERNEL_PKG="yes"
 
+PKG_CFG_FILE="$PKG_NAME.${TARGET_PATCH_ARCH:-$TARGET_ARCH}.conf"
+if [ -n "$DEVICE" -a -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/$PKG_NAME/$PKG_VERSION/$PKG_CFG_FILE ]; then
+  PKG_KERNEL_CFG_FILE=$PROJECT_DIR/$PROJECT/devices/$DEVICE/$PKG_NAME/$PKG_VERSION/$PKG_CFG_FILE
+elif [ -n "$DEVICE" -a -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/$PKG_NAME/$LINUX/$PKG_CFG_FILE ]; then
+  PKG_KERNEL_CFG_FILE=$PROJECT_DIR/$PROJECT/devices/$DEVICE/$PKG_NAME/$LINUX/$PKG_CFG_FILE
+elif [ -n "$DEVICE" -a -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/$PKG_NAME/$PKG_CFG_FILE ]; then
+  PKG_KERNEL_CFG_FILE=$PROJECT_DIR/$PROJECT/devices/$DEVICE/$PKG_NAME/$PKG_CFG_FILE
+elif [ -f $PROJECT_DIR/$PROJECT/$PKG_NAME/$PKG_VERSION/$PKG_CFG_FILE ]; then
+  PKG_KERNEL_CFG_FILE=$PROJECT_DIR/$PROJECT/$PKG_NAME/$PKG_VERSION/$PKG_CFG_FILE
+elif [ -f $PROJECT_DIR/$PROJECT/$PKG_NAME/$LINUX/$PKG_CFG_FILE ]; then
+  PKG_KERNEL_CFG_FILE=$PROJECT_DIR/$PROJECT/$PKG_NAME/$LINUX/$PKG_CFG_FILE
+elif [ -f $PROJECT_DIR/$PROJECT/$PKG_NAME/$PKG_CFG_FILE ]; then
+  PKG_KERNEL_CFG_FILE=$PROJECT_DIR/$PROJECT/$PKG_NAME/$PKG_CFG_FILE
+elif [ -f $PKG_DIR/config/$PKG_VERSION/$PKG_CFG_FILE ]; then
+  PKG_KERNEL_CFG_FILE=$PKG_DIR/config/$PKG_VERSION/$PKG_CFG_FILE
+elif [ -f $PKG_DIR/config/$LINUX/$PKG_CFG_FILE ]; then
+  PKG_KERNEL_CFG_FILE=$PKG_DIR/config/$LINUX/$PKG_CFG_FILE
+else
+  PKG_KERNEL_CFG_FILE=$PKG_DIR/config/$PKG_CFG_FILE
+fi
+
+if [ "$DEVTOOLS" = "yes" ] && grep -q ^CONFIG_PERF_EVENTS= $PKG_KERNEL_CFG_FILE ; then
+  PKG_BUILD_PERF="yes"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET binutils elfutils libunwind zlib openssl"
+fi
+
 case "$LINUX" in
   amlogic-3.10)
     PKG_VERSION="02fdb27"
@@ -74,34 +100,13 @@ if [ "$BUILD_ANDROID_BOOTIMG" = "yes" ]; then
 fi
 
 post_patch() {
-  CFG_FILE="$PKG_NAME.${TARGET_PATCH_ARCH:-$TARGET_ARCH}.conf"
-  if [ -n "$DEVICE" -a -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/$PKG_NAME/$PKG_VERSION/$CFG_FILE ]; then
-    KERNEL_CFG_FILE=$PROJECT_DIR/$PROJECT/devices/$DEVICE/$PKG_NAME/$PKG_VERSION/$CFG_FILE
-  elif [ -n "$DEVICE" -a -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/$PKG_NAME/$LINUX/$CFG_FILE ]; then
-    KERNEL_CFG_FILE=$PROJECT_DIR/$PROJECT/devices/$DEVICE/$PKG_NAME/$LINUX/$CFG_FILE
-  elif [ -n "$DEVICE" -a -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/$PKG_NAME/$CFG_FILE ]; then
-    KERNEL_CFG_FILE=$PROJECT_DIR/$PROJECT/devices/$DEVICE/$PKG_NAME/$CFG_FILE
-  elif [ -f $PROJECT_DIR/$PROJECT/$PKG_NAME/$PKG_VERSION/$CFG_FILE ]; then
-    KERNEL_CFG_FILE=$PROJECT_DIR/$PROJECT/$PKG_NAME/$PKG_VERSION/$CFG_FILE
-  elif [ -f $PROJECT_DIR/$PROJECT/$PKG_NAME/$LINUX/$CFG_FILE ]; then
-    KERNEL_CFG_FILE=$PROJECT_DIR/$PROJECT/$PKG_NAME/$LINUX/$CFG_FILE
-  elif [ -f $PROJECT_DIR/$PROJECT/$PKG_NAME/$CFG_FILE ]; then
-    KERNEL_CFG_FILE=$PROJECT_DIR/$PROJECT/$PKG_NAME/$CFG_FILE
-  elif [ -f $PKG_DIR/config/$PKG_VERSION/$CFG_FILE ]; then
-    KERNEL_CFG_FILE=$PKG_DIR/config/$PKG_VERSION/$CFG_FILE
-  elif [ -f $PKG_DIR/config/$LINUX/$CFG_FILE ]; then
-    KERNEL_CFG_FILE=$PKG_DIR/config/$LINUX/$CFG_FILE
-  else
-    KERNEL_CFG_FILE=$PKG_DIR/config/$CFG_FILE
-  fi
-
   sed -i -e "s|^HOSTCC[[:space:]]*=.*$|HOSTCC = $TOOLCHAIN/bin/host-gcc|" \
          -e "s|^HOSTCXX[[:space:]]*=.*$|HOSTCXX = $TOOLCHAIN/bin/host-g++|" \
          -e "s|^ARCH[[:space:]]*?=.*$|ARCH = $TARGET_KERNEL_ARCH|" \
          -e "s|^CROSS_COMPILE[[:space:]]*?=.*$|CROSS_COMPILE = $PKG_TARGET_PREFIX|" \
          $PKG_BUILD/Makefile
 
-  cp $KERNEL_CFG_FILE $PKG_BUILD/.config
+  cp $PKG_KERNEL_CFG_FILE $PKG_BUILD/.config
   if [ ! "$BUILD_ANDROID_BOOTIMG" = "yes" ]; then
     sed -i -e "s|^CONFIG_INITRAMFS_SOURCE=.*$|CONFIG_INITRAMFS_SOURCE=\"$BUILD/image/initramfs.cpio\"|" $PKG_BUILD/.config
     sed -i -e '/^CONFIG_INITRAMFS_SOURCE=*./ a CONFIG_INITRAMFS_ROOT_UID=0\nCONFIG_INITRAMFS_ROOT_GID=0' $PKG_BUILD/.config
@@ -174,6 +179,25 @@ make_target() {
   LDFLAGS="" make INSTALL_MOD_PATH=$INSTALL/$(get_kernel_overlay_dir) DEPMOD="$TOOLCHAIN/bin/depmod" modules_install
   rm -f $INSTALL/$(get_kernel_overlay_dir)/lib/modules/*/build
   rm -f $INSTALL/$(get_kernel_overlay_dir)/lib/modules/*/source
+
+  if [ "$PKG_BUILD_PERF" = "yes" ] ; then
+    ( cd tools/perf
+      WERROR=0 \
+      NO_LIBPERL=1 \
+      NO_LIBPYTHON=1 \
+      NO_SLANG=1 \
+      NO_GTK2=1 \
+      NO_LIBNUMA=1 \
+      NO_LIBAUDIT=1 \
+      NO_LZMA=1 \
+      NO_SDT=1 \
+      LDFLAGS="-ldw -ldwfl -lebl -lelf -ldl -lz" \
+      EXTRA_PERFLIBS="-lebl" \
+        make
+      mkdir -p $INSTALL/usr/bin
+        cp perf $INSTALL/usr/bin
+    )
+  fi
 
   ( cd $ROOT
     rm -rf $BUILD/initramfs
