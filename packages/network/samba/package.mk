@@ -139,6 +139,7 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
   rm -rf $INSTALL/usr/lib/python*
   rm -rf $INSTALL/usr/share/perl*
+  rm -rf $INSTALL/usr/lib64
 
   mkdir -p $INSTALL/usr/lib/samba
     cp $PKG_DIR/scripts/samba-config $INSTALL/usr/lib/samba
