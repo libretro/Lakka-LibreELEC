@@ -182,6 +182,35 @@ kernel_version() {
   get_pkg_version linux
 }
 
+kernel_config_path() {
+  local cfg pkg_linux_dir pkg_linux_version config_name
+
+  # avoid infinite recursion if this is called by linux
+  if [ "$PKG_NAME" = "linux" ]; then
+    pkg_linux_version="$PKG_VERSION"
+    pkg_linux_dir="$PKG_DIR"
+  else
+    pkg_linux_version="$(get_pkg_version linux)"
+    pkg_linux_dir="$(get_pkg_directory linux)"
+  fi
+
+  config_name="linux.${TARGET_PATCH_ARCH:-$TARGET_ARCH}.conf"
+
+  for cfg in $PROJECT_DIR/$PROJECT/devices/$DEVICE/linux/$pkg_linux_version/$config_name \
+             $PROJECT_DIR/$PROJECT/devices/$DEVICE/linux/$LINUX/$config_name \
+             $PROJECT_DIR/$PROJECT/devices/$DEVICE/linux/$config_name \
+             $PROJECT_DIR/$PROJECT/linux/$pkg_linux_version/$config_name \
+             $PROJECT_DIR/$PROJECT/linux/$LINUX/$config_name \
+             $PROJECT_DIR/$PROJECT/linux/$config_name \
+             $pkg_linux_dir/config/$pkg_linux_version/$config_name \
+             $pkg_linux_dir/config/$LINUX/$config_name \
+             $pkg_linux_dir/config/$config_name \
+             ; do
+    [[ $cfg =~ /devices//linux/ ]] && continue
+    [ -f "$cfg" ] && echo "$cfg" && break
+  done
+}
+
 # get kernel module dir
 get_module_dir() {
   if [ -n "${_CACHED_KERNEL_MODULE_DIR}" ]; then
