@@ -29,32 +29,6 @@ PKG_SHORTDESC="linux26: The Linux kernel 2.6 precompiled kernel binary image and
 PKG_LONGDESC="This package contains a precompiled kernel image and the modules."
 PKG_IS_KERNEL_PKG="yes"
 
-PKG_CFG_FILE="$PKG_NAME.${TARGET_PATCH_ARCH:-$TARGET_ARCH}.conf"
-if [ -n "$DEVICE" -a -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/$PKG_NAME/$PKG_VERSION/$PKG_CFG_FILE ]; then
-  PKG_KERNEL_CFG_FILE=$PROJECT_DIR/$PROJECT/devices/$DEVICE/$PKG_NAME/$PKG_VERSION/$PKG_CFG_FILE
-elif [ -n "$DEVICE" -a -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/$PKG_NAME/$LINUX/$PKG_CFG_FILE ]; then
-  PKG_KERNEL_CFG_FILE=$PROJECT_DIR/$PROJECT/devices/$DEVICE/$PKG_NAME/$LINUX/$PKG_CFG_FILE
-elif [ -n "$DEVICE" -a -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/$PKG_NAME/$PKG_CFG_FILE ]; then
-  PKG_KERNEL_CFG_FILE=$PROJECT_DIR/$PROJECT/devices/$DEVICE/$PKG_NAME/$PKG_CFG_FILE
-elif [ -f $PROJECT_DIR/$PROJECT/$PKG_NAME/$PKG_VERSION/$PKG_CFG_FILE ]; then
-  PKG_KERNEL_CFG_FILE=$PROJECT_DIR/$PROJECT/$PKG_NAME/$PKG_VERSION/$PKG_CFG_FILE
-elif [ -f $PROJECT_DIR/$PROJECT/$PKG_NAME/$LINUX/$PKG_CFG_FILE ]; then
-  PKG_KERNEL_CFG_FILE=$PROJECT_DIR/$PROJECT/$PKG_NAME/$LINUX/$PKG_CFG_FILE
-elif [ -f $PROJECT_DIR/$PROJECT/$PKG_NAME/$PKG_CFG_FILE ]; then
-  PKG_KERNEL_CFG_FILE=$PROJECT_DIR/$PROJECT/$PKG_NAME/$PKG_CFG_FILE
-elif [ -f $PKG_DIR/config/$PKG_VERSION/$PKG_CFG_FILE ]; then
-  PKG_KERNEL_CFG_FILE=$PKG_DIR/config/$PKG_VERSION/$PKG_CFG_FILE
-elif [ -f $PKG_DIR/config/$LINUX/$PKG_CFG_FILE ]; then
-  PKG_KERNEL_CFG_FILE=$PKG_DIR/config/$LINUX/$PKG_CFG_FILE
-else
-  PKG_KERNEL_CFG_FILE=$PKG_DIR/config/$PKG_CFG_FILE
-fi
-
-if [ "$DEVTOOLS" = "yes" ] && grep -q ^CONFIG_PERF_EVENTS= $PKG_KERNEL_CFG_FILE ; then
-  PKG_BUILD_PERF="yes"
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET binutils elfutils libunwind zlib openssl"
-fi
-
 case "$LINUX" in
   amlogic-3.10)
     PKG_VERSION="02fdb27"
@@ -79,6 +53,13 @@ case "$LINUX" in
     PKG_PATCH_DIRS="default"
     ;;
 esac
+
+PKG_KERNEL_CFG_FILE=$(kernel_config_path)
+
+if [ "$DEVTOOLS" = "yes" ] && grep -q ^CONFIG_PERF_EVENTS= $PKG_KERNEL_CFG_FILE ; then
+  PKG_BUILD_PERF="yes"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET binutils elfutils libunwind zlib openssl"
+fi
 
 if [ "$TARGET_KERNEL_ARCH" = "arm64" -a "$TARGET_ARCH" = "arm" ]; then
   PKG_DEPENDS_HOST="$PKG_DEPENDS_HOST gcc-linaro-aarch64-linux-gnu:host"
