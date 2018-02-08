@@ -77,6 +77,7 @@ post_makeinstall_target() {
     cp tools/btmgmt $INSTALL/usr/bin
 
   mkdir -p $INSTALL/etc/bluetooth
+    touch $INSTALL/etc/bluetooth/input.conf
     cp src/main.conf $INSTALL/etc/bluetooth
     sed -i $INSTALL/etc/bluetooth/main.conf \
         -e 's/^#Name\ =.*/Name\ =\ %h/' \
