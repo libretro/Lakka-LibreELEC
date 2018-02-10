@@ -72,8 +72,8 @@ PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
                            --enable-dvbcsa \
                            --enable-dvben50221 \
                            --disable-dvbscan \
-                           --enable-hdhomerun_client \
-                           --enable-hdhomerun_static \
+                           --disable-hdhomerun_client \
+                           --disable-hdhomerun_static \
                            --enable-epoll \
                            --enable-inotify \
                            --enable-pngquant \
