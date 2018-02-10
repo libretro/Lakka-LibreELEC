@@ -39,8 +39,8 @@ case "$LINUX" in
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET aml-dtbtools:host"
     ;;
   amlogic-3.14)
-    PKG_VERSION="7951748"
-    PKG_SHA256="d90709aae14ac0c2fc64fd8423caa695829dc012f65f42069d27d84095df8137"
+    PKG_VERSION="9c63c24"
+    PKG_SHA256="ca5c17921e554c75a63dd91f400ceaee3657d2b485db93909754891d68ea19d2"
     PKG_URL="https://github.com/LibreELEC/linux-amlogic/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_DIR="$PKG_NAME-amlogic-$PKG_VERSION*"
     PKG_PATCH_DIRS="amlogic-3.14"
