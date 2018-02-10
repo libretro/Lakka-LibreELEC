@@ -53,7 +53,7 @@ make_target() {
       make WITH_DYNAREC=x86_64
       ;;
     *)
-      if [ "$TARGET_CPU" = "cortex-a9" ] || [ "$TARGET_CPU" = "cortex-a53" ] || [ "$TARGET_CPU" = "cortex-a17" ]; then
+      if [[ "$TARGET_CPU" = "cortex-a9" ]] || [[ "$TARGET_CPU" = *"cortex-a53" ]] || [[ "$TARGET_CPU" = "cortex-a17" ]]; then
         if [ "$TARGET_ARCH" = "aarch64" ]; then
           make platform=aarch64
         else
