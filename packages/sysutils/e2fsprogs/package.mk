@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="e2fsprogs"
-PKG_VERSION="1.43.4"
-PKG_SHA256="a648a90a513f1b25113c7f981af978b8a19f832b3a32bd10707af3ff682ba66d"
+PKG_VERSION="1.43.8"
+PKG_SHA256="3f32f481f408b7f248acf00ea3e423c348d2a17ff51ed0dfa892d171551ec3de"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://e2fsprogs.sourceforge.net/"
@@ -41,8 +41,6 @@ PKG_CONFIGURE_OPTS_TARGET="BUILD_CC=$HOST_CC \
                            --enable-verbose-makecmds \
                            --enable-symlink-install \
                            --enable-symlink-build \
-                           --enable-compression \
-                           --enable-htree \
                            --disable-elf-shlibs \
                            --disable-bsd-shlibs \
                            --disable-profile \

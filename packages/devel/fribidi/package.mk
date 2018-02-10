@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="fribidi"
-PKG_VERSION="0.19.7"
-PKG_SHA256="08222a6212bbc2276a2d55c3bf370109ae4a35b689acbc66571ad2a670595a8e"
+PKG_VERSION="1.0.1"
+PKG_SHA256="c1b182d70590b6cdb5545bab8149de33b966800f27f2d9365c68917ed5a174e4"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://fribidi.freedesktop.org/"
-PKG_URL="http://fribidi.freedesktop.org/download/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_URL="https://github.com/fribidi/fribidi/releases/download/v$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="devel"
 PKG_SHORTDESC="fribidi: The Bidirectional Algorithm library"

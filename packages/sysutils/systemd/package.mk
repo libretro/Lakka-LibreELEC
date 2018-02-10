@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="systemd"
-PKG_VERSION="236"
-PKG_SHA256="0cadccfa7109232ec2a469d41ca595d5595b83b648b534ea669c15dbca904c43"
+PKG_VERSION="237"
+PKG_SHA256="c83dabbe1c9de6b9db1dafdb7e04140c7d0535705c68842f6c0768653ba4913c"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/systemd"
@@ -33,6 +33,7 @@ PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
                        -Dsplit-usr=false \
                        -Ddefault-hierarchy=hybrid \
                        -Dtty-gid=5 \
+                       -Dtests=false \
                        -Dseccomp=false \
                        -Dselinux=false \
                        -Dapparmor=false \

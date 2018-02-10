@@ -1,0 +1,32 @@
+From a2a46bc87819ed5fcb06275f1dcba5a9043ef5cd Mon Sep 17 00:00:00 2001
+From: MilhouseVH <milhouseVH.github@nmacleod.com>
+Date: Sun, 4 Feb 2018 07:42:40 +0000
+Subject: [PATCH] force enable HAVE_MEMFD_CREATE when building with glibc-2.27+
+
+I'm not sure why, but when building with kernel 3.14.y (which does not
+have the memfd_create syscall - added in 3.17.0), meson will fail to
+determine that the memfd_create syscall is now implemented by glibc-2.27+
+causing systemd to redefine it, resulting in a build failure.
+
+Since we know thst the syscall is provided by glibc-2.27 this change should be
+safe (but ugly). Only required for older kernels as meson correctly enables
+this option with default kernels (eg. 4.14.16), and forcing it does no harm.
+---
+ meson.build | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/meson.build b/meson.build
+index 36a62d2..4f56ccb 100644
+--- a/meson.build
++++ b/meson.build
+@@ -515,6 +515,7 @@ foreach ident : [
+         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
+         conf.set10('HAVE_' + ident[0].to_upper(), have)
+ endforeach
++conf.set10('HAVE_MEMFD_CREATE', true)
+ 
+ if cc.has_function('getrandom', prefix : '''#include <sys/random.h>''', args : '-D_GNU_SOURCE')
+         conf.set10('USE_SYS_RANDOM_H', true)
+-- 
+2.14.1
+

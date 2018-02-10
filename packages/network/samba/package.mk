@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="samba"
-PKG_VERSION="4.7.4"
-PKG_SHA256="fb12d0c4452f85b67b78bbeabd4c762d8feb8ff83e39d044d285120c2c488247"
+PKG_VERSION="4.7.5"
+PKG_SHA256="316d04fa9fbabad6f2739fe68e1928778af4866265409119aba6ef3435c8fe8d"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3+"
 PKG_SITE="https://www.samba.org"
