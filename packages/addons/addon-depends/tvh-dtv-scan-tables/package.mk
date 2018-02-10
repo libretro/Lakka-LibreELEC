@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016-present Team LibreELEC
+#      Copyright (C) 2018-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,20 +16,14 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-import subprocess
-import xbmc
-import xbmcaddon
-
-
-class Monitor(xbmc.Monitor):
-
-   def __init__(self, *args, **kwargs):
-      xbmc.Monitor.__init__(self)
-      self.id = xbmcaddon.Addon().getAddonInfo('id')
-
-   def onSettingsChanged(self):
-      subprocess.call(['systemctl', 'restart', self.id])
-
-
-if __name__ == "__main__":
-   Monitor().waitForAbort()
+PKG_NAME="tvh-dtv-scan-tables"
+PKG_VERSION="a3ebfcd"
+PKG_SHA256="0cfb977f9346b3a19f8494816379214a9e197301254f6fd46d9072f3895f5f68"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="https://github.com/tvheadend"
+PKG_URL="https://github.com/tvheadend/dtv-scan-tables/archive/$PKG_VERSION.tar.gz"
+PKG_SOURCE_DIR="dtv-scan-tables-${PKG_VERSION}*"
+PKG_DEPENDS_TARGET="toolchain"
+PKG_LONGDESC="Digital TV scan tables, a fork from Tvh to support more recent tables"
+PKG_TOOLCHAIN="manual"
