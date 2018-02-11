@@ -4,11 +4,15 @@ This project is for Rockchip SoC devices
 
 ## Devices
 
+**RK3288**
 * [ASUS Tinker Board](devices/TinkerBoard)
-* [PINE64 ROCK64](devices/ROCK64)
 * [mqmaker MiQi](devices/MiQi)
-* [Popcorn Hour RockBox](devices/RockBox)
-* [Firefly ROC-RK3328-CC](devices/Renegade)
+
+**RK3328**
+* [PINE64 ROCK64](devices/RK3328)
+* [Popcorn Hour RockBox](devices/RK3328)
+* [Popcorn Hour Transformer](devices/RK3328)
+* [Firefly ROC-RK3328-CC](devices/RK3328)
 
 **My single-board computer is not listed, will it be added in the future?**<br />
 If your single-board computer uses a current generation SoC listed on http://opensource.rock-chips.com/wiki_Main_Page the odds are in your favor.

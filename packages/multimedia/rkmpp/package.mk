@@ -29,7 +29,7 @@ PKG_SECTION="multimedia"
 PKG_SHORTDESC="rkmpp: Rockchip Media Process Platform (MPP) module"
 PKG_LONGDESC="rkmpp: Rockchip Media Process Platform (MPP) module"
 
-if [ "$UBOOT_SYSTEM" = "rk3328" -o "$UBOOT_SYSTEM" = "rk3399" ]; then
+if [ "$DEVICE" = "RK3328" -o "$DEVICE" = "RK3399" ]; then
   PKG_ENABLE_VP9D="ON"
 else
   PKG_ENABLE_VP9D="OFF"
