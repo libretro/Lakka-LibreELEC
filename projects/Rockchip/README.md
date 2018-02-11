@@ -14,6 +14,10 @@ This project is for Rockchip SoC devices
 * [Popcorn Hour Transformer](devices/RK3328)
 * [Firefly ROC-RK3328-CC](devices/RK3328)
 
+**RK3399**
+* [96rocks ROCK960](devices/RK3399)
+* [Rockchip Sapphire Board](devices/RK3399)
+
 **My single-board computer is not listed, will it be added in the future?**<br />
 If your single-board computer uses a current generation SoC listed on http://opensource.rock-chips.com/wiki_Main_Page the odds are in your favor.
 
