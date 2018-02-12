@@ -15,6 +15,11 @@ for pr in projects/*/linux/*.conf; do
   [[ "$res" = "" ]] && >&2 echo "CONFIG_JOYSTICK_XPAD= missing in $pr"
 done
 
+for pr in projects/*/linux/*.conf; do
+  res=`grep 'CONFIG_INITRAMFS_SOURCE=" "' $pr`
+  [[ "$res" = "" ]] && >&2 echo "CONFIG_INITRAMFS_SOURCE=\" \" missing in $pr"
+done
+
 for pr in projects/*; do
   res=${pr/projects/packages\/lakka}
   [[ "$res" = "" ]] && >&2 echo "OEM package missing for $pr"
