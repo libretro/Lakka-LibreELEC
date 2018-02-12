@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libva"
-PKG_VERSION="2.0.0"
-PKG_SHA256="bb0601f9a209e60d8d0b867067323661a7816ff429021441b775452b8589e533"
+PKG_VERSION="2.1.0"
+PKG_SHA256="f3fa953a11d3210c3a4ee79031abdbe0863d5ce13d9b3f93f315f1eec60a4b0f"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://01.org/linuxmedia"
