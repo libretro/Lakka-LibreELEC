@@ -38,7 +38,6 @@ make_host() {
 make_target() {
   CROSS_COMPILE="$TARGET_PREFIX" LDFLAGS="" ARCH=arm make dummy_defconfig
   CROSS_COMPILE="$TARGET_PREFIX" LDFLAGS="" ARCH=arm make env
-  CROSS_COMPILE="$TARGET_PREFIX" LDFLAGS="" ARCH=arm make cross_tools
 }
 
 makeinstall_host() {
@@ -53,12 +52,4 @@ makeinstall_target() {
   mkdir -p $INSTALL/usr/sbin
   cp tools/env/fw_printenv $INSTALL/usr/sbin/fw_printenv
   cp tools/env/fw_printenv $INSTALL/usr/sbin/fw_setenv
-  cp tools/dumpimage $INSTALL/usr/sbin/dumpimage
-  cp tools/fdtgrep $INSTALL/usr/sbin/fdtgrep
-  cp tools/gen_eth_addr $INSTALL/usr/sbin/gen_eth_addr
-  cp tools/img2srec $INSTALL/usr/sbin/img2srec
-  cp tools/mkenvimage $INSTALL/usr/sbin/mkenvimage
-  cp tools/mkimage $INSTALL/usr/sbin/mkimage
-  cp tools/proftool $INSTALL/usr/sbin/proftool
-  cp tools/relocate-rela $INSTALL/usr/sbin/relocate-rela
 }
