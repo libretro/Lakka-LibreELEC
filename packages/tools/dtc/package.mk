@@ -46,6 +46,10 @@ post_makeinstall_host() {
   touch $TOOLCHAIN/lib/$PKG_PYTHON_VERSION/site-packages/pylibfdt/__init__.py
 }
 
+pre_make_target() {
+  make clean BIN=
+}
+
 makeinstall_target() {
   mkdir -p $INSTALL/usr/bin
   mkdir -p $INSTALL/usr/lib
