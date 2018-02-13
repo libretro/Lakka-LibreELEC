@@ -34,7 +34,9 @@ PKG_LONGDESC="Snes9x 2005 Plus. Port of SNES9x 1.43 for libretro (was previously
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-makeinstall_target()  Plu{
+PKG_MAKE_OPTS_TARGET="USE_BLARGG_APU=1"
+
+makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
   cp snes9x2005_plus_libretro.so $INSTALL/usr/lib/libretro/
 }
