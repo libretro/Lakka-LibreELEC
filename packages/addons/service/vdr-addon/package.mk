@@ -25,7 +25,9 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://libreelec.tv"
 PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain vdr vdr-plugin-dummydevice vdr-plugin-dvbapi vdr-plugin-eepg vdr-plugin-epgfixer vdr-plugin-epgsearch vdr-plugin-iptv vdr-plugin-live vdr-plugin-restfulapi vdr-plugin-robotv vdr-plugin-satip vdr-plugin-streamdev vdr-plugin-vnsiserver vdr-plugin-wirbelscan vdr-plugin-wirbelscancontrol vdr-plugin-xmltv2vdr"
+PKG_DEPENDS_TARGET="toolchain vdr vdr-plugin-ddci2 vdr-plugin-dummydevice vdr-plugin-dvbapi vdr-plugin-eepg vdr-plugin-epgfixer \
+                    vdr-plugin-epgsearch vdr-plugin-iptv vdr-plugin-live vdr-plugin-restfulapi vdr-plugin-robotv vdr-plugin-satip \
+                    vdr-plugin-streamdev vdr-plugin-vnsiserver vdr-plugin-wirbelscan vdr-plugin-wirbelscancontrol vdr-plugin-xmltv2vdr"
 PKG_SECTION="service.multimedia"
 PKG_SHORTDESC="VDR: a TV streaming server for Linux"
 PKG_LONGDESC="VDR (2.3.x) is a TV streaming server for Linux supporting DVB-S/S2, DVB-C, DVB-T/T2, IPTV and SAT>IP"
@@ -81,6 +83,7 @@ addon() {
   cp -PR $VDR_PLUGIN_EPGFIXER_DIR/libvdr*.so.* $ADDON_BUILD/$PKG_ADDON_ID/plugin
   cp -PR $VDR_PLUGIN_RESTFULAPI_DIR/libvdr*.so.* $ADDON_BUILD/$PKG_ADDON_ID/plugin
   cp -PR $(get_build_dir vdr-plugin-robotv)/libvdr*.so.* $ADDON_BUILD/$PKG_ADDON_ID/plugin
+  cp -PR $(get_build_dir vdr-plugin-ddci2)/libvdr*.so.* $ADDON_BUILD/$PKG_ADDON_ID/plugin
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/config/plugins/eepg
 
