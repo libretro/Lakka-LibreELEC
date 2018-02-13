@@ -17,9 +17,9 @@
 ################################################################################
 
 PKG_NAME="mono"
-PKG_VERSION="5.4.1.6"
-PKG_SHA256="bdfda0fe9ad5ce20bb2cf9e9bf28fed40f324141297479824e1f65d97da565df"
-PKG_REV="109"
+PKG_VERSION="5.8.0.108"
+PKG_SHA256="ecd7c55c2f62caa65fb360ace74a45ee44bbe2de046566d90594ba66c082f39c"
+PKG_REV="110"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="http://www.mono-project.com"
@@ -83,9 +83,6 @@ addon() {
      "$ADDON_BUILD/$PKG_ADDON_ID/bin/mono"
 
   cp -L "$(get_build_dir cairo)/.install_pkg/usr/lib/libcairo.so.2" \
-        "$(get_build_dir libX11)/.install_pkg/usr/lib/libX11.so.6" \
-        "$(get_build_dir libXext)/.install_pkg/usr/lib/libXext.so.6" \
-        "$(get_build_dir libexif)/.install_pkg/usr/lib/libexif.so.12" \
         "$(get_build_dir libgdiplus)/.install_pkg/usr/lib/libgdiplus.so" \
         "$(get_build_dir mono_sqlite)/.install_pkg/usr/lib/libsqlite3.so.0" \
         "$(get_build_dir pixman)/.install_pkg/usr/lib/libpixman-1.so.0" \

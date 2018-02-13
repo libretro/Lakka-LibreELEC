@@ -57,6 +57,14 @@ elif [ "$DISPLAYSERVER" = "weston" ]; then
                     --enable-glesv2 \
                     --enable-egl \
                     --without-x"
+else
+  PKG_CAIRO_CONFIG="--disable-xlib \
+                    --disable-xlib-xrender \
+                    --disable-gl \
+                    --disable-glx \
+                    --disable-glesv2 \
+                    --disable-egl \
+                    --without-x"
 fi
 
 PKG_CONFIGURE_OPTS_TARGET="$PKG_CAIRO_CONFIG \
