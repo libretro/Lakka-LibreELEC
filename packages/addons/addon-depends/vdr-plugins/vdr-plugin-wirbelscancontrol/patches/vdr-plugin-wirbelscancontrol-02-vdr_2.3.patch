@@ -1,0 +1,59 @@
+--- a/scanmenu.c
++++ b/scanmenu.c
+@@ -255,6 +255,9 @@
+ {
+    eOSState state = cOsdMenu::ProcessKey(Key);
+    int direction = 0;
++#if APIVERSNUM >= 20301
++   LOCK_CHANNELS_READ;
++#endif
+    switch (Key) {
+       case kLeft:    direction = -1;
+                      break;
+@@ -268,7 +271,11 @@
+                         case SETSCAN:
+                           osdstatus = SCANNING;
+                           start = time(NULL);
++#if APIVERSNUM < 20301
+                           channelcount0 = Channels.Count();
++#else
++                          channelcount0 = Channels->Count();
++#endif
+                           SetHelp(tr("Stop"), NULL, NULL, NULL);
+                           TransferSetup();
+                           PutCommand(CmdStartScan);
+@@ -655,7 +662,8 @@
+   sbuf = cString::sprintf("%s (%d%% transponders from scan list + %u queued)", buf, status.progress, status.nextTransponders);
+   ProgressBar->SetText(*sbuf);
+ 
+-  if (TV1 && TV2 && TV3 && TV4 && TV5)
++#if APIVERSNUM < 20301
++  if (TV1 && TV2 && TV3 && TV4 && TV5) {
+      switch (Channels.Count() - channelcount0) {
+          default:;
+          case 5: TV5->SetText(Channels.GetByNumber(Channels.Count()-4)->Name());
+@@ -665,8 +673,23 @@
+          case 1: TV1->SetText(Channels.GetByNumber(Channels.Count()-0)->Name());
+          case 0:; 
+          }
+-
++  }
+   sbuf = cString::sprintf("%s%d", tr("New channels: "), Channels.Count() - channelcount0);
++#else
++  LOCK_CHANNELS_READ;
++  if (TV1 && TV2 && TV3 && TV4 && TV5) {
++     switch (Channels->Count() - channelcount0) {
++         default:;
++         case 5: TV5->SetText(Channels->GetByNumber(Channels->Count()-4)->Name());
++         case 4: TV4->SetText(Channels->GetByNumber(Channels->Count()-3)->Name());
++         case 3: TV3->SetText(Channels->GetByNumber(Channels->Count()-2)->Name());
++         case 2: TV2->SetText(Channels->GetByNumber(Channels->Count()-1)->Name());
++         case 1: TV1->SetText(Channels->GetByNumber(Channels->Count()-0)->Name());
++         case 0:; 
++         }
++  }
++  sbuf = cString::sprintf("%s%d", tr("New channels: "), Channels->Count() - channelcount0);
++#endif
+   if (CH) CH->SetText(*sbuf);
+ 
+   Display();
