@@ -75,12 +75,14 @@ for arg in $(cat /proc/cmdline); do
         esac
       fi
 
-      for all_dtb in /flash/*.dtb /flash/DTB; do
-        dtb=$(basename $all_dtb)
-        if [ -f $SYSTEM_ROOT/usr/share/bootloader/$dtb ]; then
-          echo "*** updating Device Tree Blob: $dtb ..."
-          mount -o rw,remount $BOOT_ROOT
-          cp -p $SYSTEM_ROOT/usr/share/bootloader/$dtb $BOOT_ROOT
+      for all_dtb in /flash/*.dtb ; do
+        if [ -f $all_dtb ] ; then
+          dtb=$(basename $all_dtb)
+          if [ -f $SYSTEM_ROOT/usr/share/bootloader/$dtb ]; then
+            echo "*** updating Device Tree Blob: $dtb ..."
+            mount -o rw,remount $BOOT_ROOT
+            cp -p $SYSTEM_ROOT/usr/share/bootloader/$dtb $BOOT_ROOT
+          fi
         fi
       done
       ;;
