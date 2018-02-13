@@ -1,0 +1,132 @@
+patches taken from https://projects.vdr-developer.org/projects/plg-epgfixer/issues
+
+From: glenvt18 <glenvt18@gmail.com>
+Date: Tue, 24 May 2016 02:36:55 +0300
+Subject: [PATCH 1/2] Fix compiling against VDR >= 2.3.1
+
+--- a/epgclone.c
++++ b/epgclone.c
+@@ -49,9 +49,16 @@ void cEpgClone::CloneEvent(cEvent *Source, cEvent *Dest) {
+      Dest->SetSeen();
+   tChannelID channelID;
+   if (dest_num) {
++#if VDRVERSNUM >= 20301
++     LOCK_CHANNELS_READ;
++     const cChannel *dest_chan = Channels->GetByNumber(dest_num);
++     if (dest_chan)
++        channelID = Channels->GetByNumber(dest_num)->GetChannelID();
++#else
+      cChannel *dest_chan = Channels.GetByNumber(dest_num);
+      if (dest_chan)
+         channelID = Channels.GetByNumber(dest_num)->GetChannelID();
++#endif
+      else
+         channelID = tChannelID::InvalidID;
+      }
+diff --git a/setup_menu.c b/setup_menu.c
+index 8b60870..fcba6b1 100644
+--- a/setup_menu.c
++++ b/setup_menu.c
+@@ -264,9 +264,21 @@ eOSState cMenuSetupEpgfixer::ProcessKey(eKeys Key)
+          break;
+        case kBlue:
+          Skins.Message(mtInfo, tr("Clearing EPG data..."));
++#if VDRVERSNUM >= 20301
++         {
++         LOCK_TIMERS_WRITE;
++         LOCK_SCHEDULES_WRITE;
++         for (cTimer *Timer = Timers->First(); Timer; Timer = Timers->Next(Timer))
++            Timer->SetEvent(NULL);
++         for (cSchedule *Schedule = Schedules->First(); Schedule; Schedule = Schedules->Next(Schedule))
++            Schedule->Cleanup(INT_MAX);
++         }
++         cEitFilter::SetDisableUntil(time(NULL) + 10);
++#else
+          cEitFilter::SetDisableUntil(time(NULL) + 10);
+          if (cSchedules::ClearAll())
+             cEitFilter::SetDisableUntil(time(NULL) + 10);
++#endif
+          Skins.Message(mtInfo, NULL);
+          state = osContinue;
+          break;
+diff --git a/tools.c b/tools.c
+index 9c9133d..35c4b53 100644
+--- a/tools.c
++++ b/tools.c
+@@ -463,14 +463,26 @@ cAddEventThread::~cAddEventThread(void)
+ void cAddEventThread::Action(void)
+ {
+   SetPriority(19);
+-  while (Running() && !LastHandleEvent.TimedOut()) {
++  for (; Running() && !LastHandleEvent.TimedOut(); cCondWait::SleepMs(10)) {
++        if (list->First() == NULL)
++           continue;
+         cAddEventListItem *e = NULL;
++#if VDRVERSNUM >= 20301
++        cStateKey StateKey;
++        cSchedules *schedules = cSchedules::GetSchedulesWrite(StateKey, 10);
++        LOCK_CHANNELS_READ;
++#else
+         cSchedulesLock SchedulesLock(true, 10);
+         cSchedules *schedules = (cSchedules *)cSchedules::Schedules(SchedulesLock);
++#endif
+         Lock();
+         while (schedules && (e = list->First()) != NULL) {
+               tChannelID chanid = e->GetChannelID();
++#if VDRVERSNUM >= 20301
++              const cChannel *chan = Channels->GetByChannelID(chanid);
++#else
+               cChannel *chan = Channels.GetByChannelID(chanid);
++#endif
+               if (!chan) {
+                  error("Destination channel %s not found for cloning!", *chanid.ToString());
+                  }
+@@ -485,7 +497,10 @@ void cAddEventThread::Action(void)
+               list->Del(e);
+               }
+         Unlock();
+-        cCondWait::SleepMs(10);
++#if VDRVERSNUM >= 20301
++        if (schedules)
++           StateKey.Remove();
++#endif
+         }
+ }
+ 
+@@ -553,7 +568,12 @@ bool cListItem::IsActive(tChannelID ChannelID)
+   bool active = false;
+   if (numchannels > 0) {
+      int i = 0;
++#if VDRVERSNUM >= 20301
++     LOCK_CHANNELS_READ;
++     int channel_number = Channels->GetByChannelID(ChannelID)->Number();
++#else
+      int channel_number = Channels.GetByChannelID(ChannelID)->Number();
++#endif
+      while (i < numchannels) {
+            if ((channel_number == GetChannelNum(i)) ||
+                (GetChannelID(i) && (ChannelID == *GetChannelID(i)))) {
+
+From 12db9aadf7a05cae21bd7d75882b8883ac36205d Mon Sep 17 00:00:00 2001
+From: glenvt18 <glenvt18@gmail.com>
+Date: Thu, 18 May 2017 06:03:32 +0300
+Subject: [PATCH 2/2] Make compatible with VDR 2.3.4
+
+---
+ epghandler.h | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/epghandler.h b/epghandler.h
+index de090af..bf65760 100644
+--- a/epghandler.h
++++ b/epghandler.h
+@@ -15,6 +15,9 @@ class cEpgfixerEpgHandler : public cEpgHandler
+ {
+ public:
+   cEpgfixerEpgHandler(void) {};
++#if VDRVERSNUM >= 20304
++  virtual bool BeginSegmentTransfer(const cChannel *Channel, bool Dummy) { return true; }
++#endif
+   virtual bool HandleEvent(cEvent *Event);
+   virtual bool IgnoreChannel(const cChannel *Channel);
+   virtual bool FixEpgBugs(cEvent *Event);

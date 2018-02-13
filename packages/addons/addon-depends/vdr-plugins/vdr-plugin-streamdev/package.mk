@@ -1,32 +1,34 @@
 ################################################################################
-#      This file is part of OpenELEC - http://www.openelec.tv
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2016-present Team LibreELEC
 #      Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 #
-#  OpenELEC is free software: you can redistribute it and/or modify
+#  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation, either version 2 of the License, or
 #  (at your option) any later version.
 #
-#  OpenELEC is distributed in the hope that it will be useful,
+#  LibreELEC is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
 #
 #  You should have received a copy of the GNU General Public License
-#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
 PKG_NAME="vdr-plugin-streamdev"
-PKG_VERSION="fc52e92"
-PKG_SHA256="4c231f0ce9bd2dcf45c330a7c9733e14f02002e4370b3eeff080f614ef227ed3"
+PKG_VERSION="e2a9b97"
+PKG_SHA256="adcc08ac19cf98122576bedf63be3396d8b81ee4196c00df0e25c9fb8b7e11b8"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://projects.vdr-developer.org/projects/plg-streamdev"
-PKG_URL="https://projects.vdr-developer.org/git/vdr-plugin-streamdev.git/snapshot/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_URL="https://github.com/vdr-projects/vdr-plugin-streamdev/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain vdr openssl"
 PKG_SECTION="multimedia"
-PKG_SHORTDESC="TV"
-PKG_LONGDESC="TV"
+PKG_SHORTDESC="This PlugIn is a VDR implementation of Video Transfer and a basic HTTP Streaming Protocol."
+PKG_LONGDESC="This PlugIn is a VDR implementation of Video Transfer and a basic HTTP Streaming Protocol."
+PKG_TOOLCHAIN="manual"
 
 make_target() {
   VDR_DIR=$(get_build_dir vdr)
@@ -45,11 +47,4 @@ post_make_target() {
   LIB_NAME=lib${PKG_NAME/-plugin/}
   cp --remove-destination $PKG_BUILD/server/${LIB_NAME}-server.so $PKG_BUILD/server/${LIB_NAME}-server.so.${VDR_APIVERSION}
   cp --remove-destination $PKG_BUILD/client/${LIB_NAME}-client.so $PKG_BUILD/client/${LIB_NAME}-client.so.${VDR_APIVERSION}
-
-  $STRIP client/libvdr-*.so*
-  $STRIP server/libvdr-*.so*
-}
-
-makeinstall_target() {
-  : # installation not needed, done by create-addon script
 }

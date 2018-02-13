@@ -1,7 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016-present Team LibreELEC
-#      Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+#      Copyright (C) 2017-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,28 +16,24 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="vdr-plugin-eepg"
-PKG_VERSION="584d766"
-PKG_SHA256="0ad19af6bcfb5f7de05814dfcb4ab18bb4f705fdbe60b11ab7dbf72cf0d85231"
+PKG_NAME="vdr-plugin-robotv"
+PKG_VERSION="50d4bdc"
+PKG_SHA256="062489e55111f0ba2420463cc506865ac59b1c1d080b318cb81d58ec3f4fbd3f"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://projects.vdr-developer.org/projects/plg-eepg"
-PKG_URL="https://github.com/vdr-projects/vdr-plugin-eepg/archive/$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain vdr"
+PKG_SITE="https://github.com/pipelka/roboTV"
+PKG_URL="https://github.com/pipelka/vdr-plugin-robotv/archive/$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="toolchain vdr avahi"
 PKG_SECTION="multimedia"
-PKG_SHORTDESC="vdr-plugin-eepg"
-PKG_LONGDESC="This plugin parses the Extended (2 to 10 day) EPG data which is send by providers on their portal channels."
-PKG_TOOLCHAIN="manual"
+PKG_SHORTDESC="VDR server plugin for roboTV"
+PKG_LONGDESC="RoboTV is a Android TV based frontend for VDR"
+PKG_TOOLCHAIN="cmake"
 
-make_target() {
+pre_configure_target() {
   VDR_DIR=$(get_build_dir vdr)
   export PKG_CONFIG_PATH=$VDR_DIR:$PKG_CONFIG_PATH
   export CPLUS_INCLUDE_PATH=$VDR_DIR/include
-
-  make \
-    LIBDIR="." \
-    LOCDIR="./locale" \
-    all install-i18n
+  export VDRDIR=$VDR_DIR
 }
 
 post_make_target() {
@@ -46,5 +41,5 @@ post_make_target() {
   VDR_APIVERSION=`sed -ne '/define APIVERSION/s/^.*"\(.*\)".*$/\1/p' $VDR_DIR/config.h`
   LIB_NAME=lib${PKG_NAME/-plugin/}
 
-  cp --remove-destination $PKG_BUILD/${LIB_NAME}.so $PKG_BUILD/${LIB_NAME}.so.${VDR_APIVERSION}
+  cp --remove-destination $PKG_BUILD/.$TARGET_NAME/${LIB_NAME}.so $PKG_BUILD/${LIB_NAME}.so.${VDR_APIVERSION}
 }

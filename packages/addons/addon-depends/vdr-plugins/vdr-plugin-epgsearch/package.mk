@@ -1,32 +1,34 @@
 ################################################################################
-#      This file is part of OpenELEC - http://www.openelec.tv
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2016-present Team LibreELEC
 #      Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 #
-#  OpenELEC is free software: you can redistribute it and/or modify
+#  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation, either version 2 of the License, or
 #  (at your option) any later version.
 #
-#  OpenELEC is distributed in the hope that it will be useful,
+#  LibreELEC is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
 #
 #  You should have received a copy of the GNU General Public License
-#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
 PKG_NAME="vdr-plugin-epgsearch"
-PKG_VERSION="0b09f90"
-PKG_SHA256="2f50a784a01ef4c7c868b92b63a82b96296247eb148d757b31514a7887ebb534"
+PKG_VERSION="c7c02e2"
+PKG_SHA256="d8096c261cf94653f7487e7f89c9d38d8c2a5c27a766816b77fe0c49b4a82208"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://winni.vdr-developer.org/epgsearch/"
-PKG_URL="https://projects.vdr-developer.org/git/vdr-plugin-epgsearch.git/snapshot/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_URL="https://github.com/vdr-projects/vdr-plugin-epgsearch/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain vdr"
 PKG_SECTION="multimedia"
-PKG_SHORTDESC="vdr-epgsearch"
-PKG_LONGDESC="vdr-epgsearch"
+PKG_SHORTDESC="EPGSearch is a plugin for the Video-Disc-Recorder (VDR)."
+PKG_LONGDESC="EPGSearch is a plugin for the Video-Disc-Recorder (VDR)."
+PKG_TOOLCHAIN="manual"
 
 make_target() {
   VDR_DIR=$(get_build_dir vdr)
@@ -45,9 +47,4 @@ post_make_target() {
   LIB_NAME=lib${PKG_NAME/-plugin/}
 
   cp --remove-destination $PKG_BUILD/${LIB_NAME}.so $PKG_BUILD/${LIB_NAME}.so.${VDR_APIVERSION}
-  $STRIP libvdr-*.so*
-}
-
-makeinstall_target() {
-  : # installation not needed, done by create-addon script
 }

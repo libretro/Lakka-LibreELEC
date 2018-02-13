@@ -1,7 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016-present Team LibreELEC
-#      Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+#      Copyright (C) 2017-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,17 +16,17 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="vdr-plugin-eepg"
-PKG_VERSION="584d766"
-PKG_SHA256="0ad19af6bcfb5f7de05814dfcb4ab18bb4f705fdbe60b11ab7dbf72cf0d85231"
+PKG_NAME="vdr-plugin-ddci2"
+PKG_VERSION="05dd988"
+PKG_SHA256="b8ed2787e9140eb00a68397eaeb14862ba88a6e73480dc3220a098faffb14833"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://projects.vdr-developer.org/projects/plg-eepg"
-PKG_URL="https://github.com/vdr-projects/vdr-plugin-eepg/archive/$PKG_VERSION.tar.gz"
+PKG_SITE="https://github.com/jasmin-j/vdr-plugin-ddci2"
+PKG_URL="https://github.com/jasmin-j/vdr-plugin-ddci2/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain vdr"
 PKG_SECTION="multimedia"
-PKG_SHORTDESC="vdr-plugin-eepg"
-PKG_LONGDESC="This plugin parses the Extended (2 to 10 day) EPG data which is send by providers on their portal channels."
+PKG_SHORTDESC="Support for stand alone CI by Digital Devices."
+PKG_LONGDESC="Support for stand alone CI by Digital Devices."
 PKG_TOOLCHAIN="manual"
 
 make_target() {
@@ -38,7 +37,7 @@ make_target() {
   make \
     LIBDIR="." \
     LOCDIR="./locale" \
-    all install-i18n
+    all
 }
 
 post_make_target() {
@@ -47,4 +46,5 @@ post_make_target() {
   LIB_NAME=lib${PKG_NAME/-plugin/}
 
   cp --remove-destination $PKG_BUILD/${LIB_NAME}.so $PKG_BUILD/${LIB_NAME}.so.${VDR_APIVERSION}
+  $STRIP libvdr-*.so*
 }
