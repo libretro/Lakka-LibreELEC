@@ -31,6 +31,8 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="bash_cv_wcwidth_broken=no \
+                           --disable-shared \
+                           --enable-static \
                            --with-curses \
                            --without-purify"
 
