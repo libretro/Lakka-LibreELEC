@@ -46,7 +46,7 @@ make_target() {
   make -C $(kernel_path) M=$PKG_BUILD/rtl8723DS \
     ARCH=$TARGET_KERNEL_ARCH \
     KSRC=$(kernel_path) \
-    CROSS_COMPILE=$TARGET_PREFIX \
+    CROSS_COMPILE=$TARGET_KERNEL_PREFIX \
     USER_EXTRA_CFLAGS="-fgnu89-inline"
 }
 

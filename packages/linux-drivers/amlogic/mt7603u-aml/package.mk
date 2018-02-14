@@ -39,7 +39,7 @@ pre_make_target() {
 make_target() {
   make LINUX_SRC=$(kernel_path) \
     ARCH=$TARGET_KERNEL_ARCH \
-    CROSS_COMPILE=$TARGET_PREFIX \
+    CROSS_COMPILE=$TARGET_KERNEL_PREFIX \
     RT28xx_DIR=$PKG_BUILD \
     -f $PKG_BUILD/Makefile
 }

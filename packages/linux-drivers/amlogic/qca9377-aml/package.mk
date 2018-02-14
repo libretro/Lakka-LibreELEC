@@ -45,7 +45,7 @@ pre_make_target() {
 make_target() {
   make KERNEL_SRC="$(kernel_path)" \
     ARCH=$TARGET_KERNEL_ARCH \
-    CROSS_COMPILE=$TARGET_PREFIX \
+    CROSS_COMPILE=$TARGET_KERNEL_PREFIX \
     CONFIG_CLD_HL_SDIO_CORE=y
 }
 

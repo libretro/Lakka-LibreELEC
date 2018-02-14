@@ -36,7 +36,7 @@ make_target() {
   LDFLAGS="" make V=1 \
     -C $(kernel_path) M=$PKG_BUILD/bcmdhd_1_201_59_x \
     ARCH=$TARGET_KERNEL_ARCH \
-    CROSS_COMPILE=$TARGET_PREFIX
+    CROSS_COMPILE=$TARGET_KERNEL_PREFIX
 }
 
 makeinstall_target() {
