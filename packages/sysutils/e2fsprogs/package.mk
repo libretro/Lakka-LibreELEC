@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="e2fsprogs"
-PKG_VERSION="1.43.8"
-PKG_SHA256="3f32f481f408b7f248acf00ea3e423c348d2a17ff51ed0dfa892d171551ec3de"
+PKG_VERSION="1.43.9"
+PKG_SHA256="926f8e8de1ffba55d791f21b71334e8a32b5227257ad370f2bf7e4396629e97f"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://e2fsprogs.sourceforge.net/"
-PKG_URL="$SOURCEFORGE_SRC/$PKG_NAME/$PKG_NAME/1.42/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="https://www.kernel.org/pub/linux/kernel/people/tytso/$PKG_NAME/v$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_DEPENDS_INIT="toolchain"
 PKG_SECTION="tools"
