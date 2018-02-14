@@ -30,7 +30,7 @@ make_target() {
   pushd $BUILD/linux-$(kernel_version) > /dev/null
 
   # Device trees already present in kernel tree we want to include
-  EXTRA_TREES=(gxbb_p201 gxl_p212_1g gxl_p212_2g gxm_q200_2g gxm_q201_1g gxm_q201_2g gxl_p281_1g)
+  EXTRA_TREES=(gxbb_p201 gxl_p212_1g gxl_p212_2g gxm_q200_2g gxm_q201_1g gxm_q201_2g gxl_p281_1g gxbb_p200_1G_wetek_hub gxbb_p200_2G_wetek_play_2)
 
   # Add trees to the list
   for f in ${EXTRA_TREES[@]}; do
