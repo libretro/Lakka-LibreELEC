@@ -1,6 +1,6 @@
 # License
 * Lakka and LibreELEC original code is licensed GPLv2: https://github.com/libretro/Lakka-LibreELEC/blob/Lakka-V2.1-dev/licenses/GPL2.txt
-* RetroArch graphic design elements such as including icons are licensed Attribution 4.0 International (CC BY 4.0): https://github.com/libretro/retroarch-assets/blob/master/COPYING
+* RetroArch graphic design elements such as icons are licensed Attribution 4.0 International (CC BY 4.0): https://github.com/libretro/retroarch-assets/blob/master/COPYING
 
 NOTE: Prebuilt Lakka images incorporate software with Non-Commercial licenses. The name Lakka and the Lakka berry icon are registered trademarks. Any commercial forks or derivitives need to remove those components and any other content with Non-Commercial licensing terms.
 
