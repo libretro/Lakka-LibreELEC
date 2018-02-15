@@ -35,11 +35,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  if [ "$OPENGLES" == "mali-rockchip" -o  "$DEVICE" == "TinkerBoard" -o "$DEVICE" == "MiQi" ]; then
-  make HAVE_VULKAN=1
-  else
   make HAVE_OPENGL=1
- fi
 }
 
 makeinstall_target() {
