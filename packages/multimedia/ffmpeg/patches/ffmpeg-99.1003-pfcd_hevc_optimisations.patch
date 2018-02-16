@@ -65,7 +65,7 @@ index 18d80ee87a..9e621d09c1 100755
  vaguedenoiser_filter_deps="gpl"
  vidstabdetect_filter_deps="libvidstab"
 diff --git a/fftools/ffmpeg.c b/fftools/ffmpeg.c
-index 3ee31473dc..312864d737 100644
+index 3ee31473dc..6875200380 100644
 --- a/fftools/ffmpeg.c
 +++ b/fftools/ffmpeg.c
 @@ -24,6 +24,12 @@
@@ -337,14 +337,14 @@ index 3ee31473dc..312864d737 100644
 +        if (de->conn != NULL) {
 +            mmal_connection_destroy(de->conn);
 +        }
++        if (de->rpi_pool != NULL) {
++            mmal_port_pool_destroy(de->display->input[0], de->rpi_pool);
++        }
 +        if (de->isp != NULL) {
 +            mmal_component_destroy(de->isp);
 +        }
 +        if (de->display != NULL) {
 +            mmal_component_destroy(de->display);
-+        }
-+        if (de->rpi_pool != NULL) {
-+            mmal_port_pool_destroy(de->display->input[0], de->rpi_pool);
 +        }
 +
 +        av_free(de);
@@ -388,7 +388,7 @@ index 3ee31473dc..312864d737 100644
  }
  
  void remove_avoptions(AVDictionary **a, AVDictionary *b)
-@@ -1052,6 +1321,15 @@ static void do_video_out(OutputFile *of,
+@@ -1052,6 +1321,17 @@ static void do_video_out(OutputFile *of,
      if (ost->source_index >= 0)
          ist = input_streams[ost->source_index];
  
@@ -396,7 +396,9 @@ index 3ee31473dc..312864d737 100644
 +    if (next_picture && ist != NULL)
 +    {
 +        if (rpi_display_env == NULL)
-+            rpi_display_env = display_init(next_picture->format, 0, 0, next_picture->width, next_picture->height);
++            rpi_display_env = display_init(next_picture->format, 0, 0,
++                                           next_picture->width - next_picture->crop_right,
++                                           next_picture->height - next_picture->crop_bottom);
 +        display_frame(ist->dec_ctx, rpi_display_env, next_picture);
 +    }
 +#endif
@@ -404,7 +406,7 @@ index 3ee31473dc..312864d737 100644
      frame_rate = av_buffersink_get_frame_rate(filter);
      if (frame_rate.num > 0 && frame_rate.den > 0)
          duration = 1/(av_q2d(frame_rate) * av_q2d(enc->time_base));
-@@ -2165,8 +2443,8 @@ static int ifilter_send_frame(InputFilter *ifilter, AVFrame *frame)
+@@ -2165,8 +2445,8 @@ static int ifilter_send_frame(InputFilter *ifilter, AVFrame *frame)
                         ifilter->channel_layout != frame->channel_layout;
          break;
      case AVMEDIA_TYPE_VIDEO:
@@ -415,7 +417,7 @@ index 3ee31473dc..312864d737 100644
          break;
      }
  
-@@ -2896,6 +3174,12 @@ static int init_input_stream(int ist_index, char *error, int error_len)
+@@ -2896,6 +3176,12 @@ static int init_input_stream(int ist_index, char *error, int error_len)
          ist->dec_ctx->opaque                = ist;
          ist->dec_ctx->get_format            = get_format;
          ist->dec_ctx->get_buffer2           = get_buffer;
@@ -4944,10 +4946,10 @@ index 0000000000..7dfcc2751a
 +
 diff --git a/libavcodec/arm/rpi_hevcdsp_sao_neon.S b/libavcodec/arm/rpi_hevcdsp_sao_neon.S
 new file mode 100644
-index 0000000000..b56dc8ccc5
+index 0000000000..12ffc5708a
 --- /dev/null
 +++ b/libavcodec/arm/rpi_hevcdsp_sao_neon.S
-@@ -0,0 +1,2156 @@
+@@ -0,0 +1,2199 @@
 +/*
 + * Copyright (c) 2014 - 2015 Seppo Tomperi <seppo.tomperi@vtt.fi>
 + *               2017 John Cox <jc@kynesim.co.uk> (for Raspberry Pi)
@@ -4974,45 +4976,72 @@ index 0000000000..b56dc8ccc5
 +
 +.set EDGE_SRC_STRIDE, 160
 +
-+.macro sao_band_64b_8 XLAT0, XLAT1, Q_K128
-+        vshr.u8 q12, q8, #3
-+        vadd.s8  q8, \Q_K128
-+        vshr.u8 q13, q9, #3
-+        vadd.s8  q9, \Q_K128
++.macro sao_band_64b_8 XLAT0, XLAT1, Q_K128, I1, I2, I3, I4
++        vshr.u8   q12, q8, #3
++        \I1
++        vadd.i8   q8, \Q_K128
++        \I2
++        vshr.u8   q13, q9, #3
++        \I3
++        vadd.i8   q9, \Q_K128
++        \I4
++        vtbl.8    d24, \XLAT0, d24
++        vtbl.8    d25, \XLAT0, d25
++        vtbl.8    d26, \XLAT1, d26
++        vtbl.8    d27, \XLAT1, d27
 +
-+        vtbl.8   d24, \XLAT0, d24
-+        vtbl.8   d25, \XLAT0, d25
-+        vtbl.8   d26, \XLAT1, d26
-+        vtbl.8   d27, \XLAT1, d27
++        vqadd.s8  q8, q12
++        vshr.u8   q12, q10, #3
++        vadd.i8   q10, \Q_K128
++        vqadd.s8  q9, q13
++        vshr.u8   q13, q11, #3
++        vadd.i8   q11, \Q_K128
 +
-+        vqadd.s8 q8, q12
-+        vshr.u8 q12, q10, #3
-+        vadd.s8  q10, \Q_K128
-+        vqadd.s8 q9, q13
-+        vshr.u8 q13, q11, #3
-+        vadd.s8  q11, \Q_K128
-+
-+        vsub.s8  q8, \Q_K128
-+        vtbl.8   d24, \XLAT0, d24
-+        vtbl.8   d25, \XLAT0, d25
-+        vsub.s8  q9, \Q_K128
-+        vtbl.8   d26, \XLAT1, d26
-+        vtbl.8   d27, \XLAT1, d27
-+        vqadd.s8 q10, q12
-+        vqadd.s8 q11, q13
-+        vsub.s8  q10, \Q_K128
-+        vsub.s8  q11, \Q_K128
++        vtbl.8    d24, \XLAT0, d24
++        vtbl.8    d25, \XLAT0, d25
++        vtbl.8    d26, \XLAT1, d26
++        vtbl.8    d27, \XLAT1, d27
++        vqadd.s8  q10, q12
++        vsub.i8   q8, \Q_K128
++        vqadd.s8  q11, q13
++        vsub.i8   q9, \Q_K128
++        vsub.i8   q10, \Q_K128
++        vsub.i8   q11, \Q_K128
 +.endm
 +
-+.macro sao_band_16b_8 XLAT0, XLAT1, Q_K128
-+        vshr.u8 q12, q8, #3
-+        vadd.s8  q8, \Q_K128
-+
-+        vtbl.8   d24, \XLAT0, d24
-+        vtbl.8   d25, \XLAT1, d25
-+
-+        vqadd.s8 q8, q12
-+        vsub.s8  q8, \Q_K128
++.macro sao_band_16b_8 XLAT0, XLAT1, Q_K128, L1, L2, L3, L4, L5, S1, S2, S3, S4
++        \L1
++        \L2
++        \L3
++        \L4
++        \L5
++        vadd.i8   q12, q8, \Q_K128
++        vshr.u8   q8, #3
++        vtbl.8    d16, \XLAT0, d16
++        vtbl.8    d17, \XLAT1, d17
++        vqadd.s8  q12, q8
++        bmi       2f
++1:        \L1
++          \L2
++          \L3
++          \L4
++          \L5
++        vsub.i8   q13, q12, \Q_K128
++          vadd.i8   q12, q8, \Q_K128
++          vshr.u8   q8, #3
++        \S1
++        \S2
++        \S3
++        \S4
++          vtbl.8    d16, \XLAT0, d16
++          vtbl.8    d17, \XLAT1, d17
++          vqadd.s8  q12, q8
++          bpl       1b
++2:        vsub.i8   q13, q12, \Q_K128
++          \S1
++          \S2
++          \S3
++          \S4
 +.endm
 +
 +
@@ -5028,13 +5057,15 @@ index 0000000000..b56dc8ccc5
 +.endm
 +
 +@ Clobbers q12, q13
-+.macro sao_band_64b_16  Q0, Q1, Q2, Q3, XLAT0, XLAT1, Q_MIN, Q_MAX, bit_depth
++.macro sao_band_64b_16  Q0, Q1, Q2, Q3, XLAT0, XLAT1, Q_MIN, Q_MAX, bit_depth, I1, I2
 +        vshrn.i16 d24, \Q0, #(\bit_depth - 5)
 +        vshrn.i16 d25, \Q1, #(\bit_depth - 5)
 +        vshrn.i16 d26, \Q2, #(\bit_depth - 5)
-+        vshrn.i16 d27, \Q3, #(\bit_depth - 5)
++        \I1
 +        vtbl.8    d24, \XLAT0, d24
++        vshrn.i16 d27, \Q3, #(\bit_depth - 5)
 +        vtbl.8    d25, \XLAT1, d25
++        \I2
 +        vtbl.8    d26, \XLAT0, d26
 +        vtbl.8    d27, \XLAT1, d27
 +        vaddw.s8  \Q0, d24
@@ -5044,18 +5075,48 @@ index 0000000000..b56dc8ccc5
 +        clip16_4   \Q0, \Q1, \Q2, \Q3, \Q_MIN, \Q_MAX
 +.endm
 +
-+@ Clobbers q12
-+.macro sao_band_32b_16  Q0, Q1, XLAT0, XLAT1, Q_MIN, Q_MAX, bit_depth
-+        vshrn.i16 d24, \Q0, #(\bit_depth - 5)
-+        vshrn.i16 d25, \Q1, #(\bit_depth - 5)
++@ Clobbers q10, q11, q12
++.macro sao_band_32b_16 Q0, Q1, XLAT0, XLAT1, Q_MIN, Q_MAX, bit_depth, L1, L2, L3, L4, L5, S1, S2, S3, S4
++        \L1
++        \L2
++        \L3
++        \L4
++        \L5
++        vshrn.i16 d24, \Q0, #\bit_depth - 5
++        vshrn.i16 d25, \Q1, #\bit_depth - 5
 +        vtbl.8    d24, \XLAT0, d24
 +        vtbl.8    d25, \XLAT1, d25
-+        vaddw.s8  \Q0, d24
-+        vaddw.s8  \Q1, d25
-+        vmax.s16  \Q0, \Q_MIN
-+        vmax.s16  \Q1, \Q_MIN
-+        vmin.s16  \Q0, \Q_MAX
-+        vmin.s16  \Q1, \Q_MAX
++        vaddw.s8  q10, \Q0, d24
++        vaddw.s8  q11, \Q1, d25
++        bmi       2f
++1:        \L1
++          \L2
++          \L3
++          \L4
++          \L5
++        vmax.s16  q10, \Q_MIN
++        vmax.s16  q11, \Q_MIN
++          vshrn.i16 d24, \Q0, #\bit_depth - 5
++          vshrn.i16 d25, \Q1, #\bit_depth - 5
++        vmin.s16  q10, \Q_MAX
++        vmin.s16  q11, \Q_MAX
++        \S1
++        \S2
++        \S3
++        \S4
++          vtbl.8    d24, \XLAT0, d24
++          vtbl.8    d25, \XLAT1, d25
++          vaddw.s8  q10, \Q0, d24
++          vaddw.s8  q11, \Q1, d25
++          bpl       1b
++2:        vmax.s16  q10, \Q_MIN
++          vmax.s16  q11, \Q_MIN
++          vmin.s16  q10, \Q_MAX
++          vmin.s16  q11, \Q_MAX
++          \S1
++          \S2
++          \S3
++          \S4
 +.endm
 +
 +
@@ -5072,85 +5133,59 @@ index 0000000000..b56dc8ccc5
 +@
 +@ It also loads other common regs
 +
++@ Beware that the offset read here overrreads by 6 bytes so source must be sized appropriately
 +function band_load_y
++        ldr       ip, [sp, #16]         @ &sao_offset_val[0]
++        ldr       r4, [sp, #20]         @ sao_left_class
++        vmov.i64  d4, #0
 +        vmov.i64  q0, #0
-+        ldr       r12, [sp, #8]         @ &sao_offset_val[0]
-+        add       r12, #2               @ 1st interesting val is [1]
-+        vld1.16   {d16}, [r12]          @ Unaligned
-+        vmov.i64  q1, #0
-+        ldr       r12, [sp, #12]        @ sao_left_class
-+
-+        mov       r4, sp
-+        sub       sp, #32
-+        and       sp, #~63              @ Align stack so we can wrap with a simple AND
-+        vst1.8    {q0, q1}, [sp, :256]  @ Put zero array on stack
-+        add       r12, sp
-+        vst1.8    {d16[0]}, [r12]!
-+        and       r12, #~32
-+        vst1.8    {d16[2]}, [r12]!
-+        and       r12, #~32
-+        vst1.8    {d16[4]}, [r12]!
-+        and       r12, #~32
-+        vst1.8    {d16[6]}, [r12]
-+        vld1.8    {q0, q1}, [sp, :256]  @ Pop modified array
-+        mov       sp, r4
-+
-+        ldr       r12, [sp, #20]        @ height
 +        pld       [r1]
-+
-+        sub       r12, #1
++        vld2.8    {q8}, [ip]
++        sub       ip, sp, #8*5
++        vmov.i64  q1, #0
++        add       r4, ip, r4
++        vpush     {d0-d4}               @ Put zero array on stack
++        vshr.u64  d16, d16, #8          @ 1st interesting val is [1]
++        ldr       ip, [ip, #8*5 + 28]   @ height
++        vst1.32   {d16[0]}, [r4]
 +        add       r4, r1, r3
++        vpop      {d0-d4}               @ Pop modified array
++        sub       ip, ip, #1
++        vorr      d0, d0, d4
 +        bx        lr
 +endfunc
 +
-+
++@ Beware that offset reads here overrread by 6 bytes so source must be sized appropriately
 +function band_load_c
-+        vmov.i64  q2, #0
-+        ldr       r12, [sp, #8]         @ &sao_offset_val1[0]
-+        add       r12, #2               @ 1st interesting val is [1]
-+        vld1.16   {d16}, [r12]          @ Unaligned
-+        vmov.i64  q3, #0
-+        ldr       r12, [sp, #12]        @ sao_left_class
-+
-+        mov       r4, sp                @ Remember SP
-+        sub       sp, #32
-+        and       sp, #~63              @ Align stack so we can wrap with a simple AND
-+
-+        vst1.8    {q2, q3}, [sp, :256]  @ Put zero array on stack
-+        add       r12, sp
-+        vst1.8    {d16[0]}, [r12]!
-+        and       r12, #~32
-+        vst1.8    {d16[2]}, [r12]!
-+        and       r12, #~32
-+        vst1.8    {d16[4]}, [r12]!
-+        and       r12, #~32
-+        vst1.8    {d16[6]}, [r12]
-+        vld1.8    {q0, q1}, [sp, :256]  @ Pop modified array
-+
-+        @ And again for the 2nd set
-+        ldr       r12, [r4, #16]        @ &sao_offset_val2[0]
-+        add       r12, #2               @ 1st interesting val is [1]
-+        vld1.16   {d16}, [r12]          @ Unaligned
-+        ldr       r12, [r4, #20]        @ sao_left_class2
-+
-+        vst1.8    {q2, q3}, [sp, :256]  @ Put zero array on stack (again)
-+        add       r12, sp
-+        vst1.8    {d16[0]}, [r12]!
-+        and       r12, #~32
-+        vst1.8    {d16[2]}, [r12]!
-+        and       r12, #~32
-+        vst1.8    {d16[4]}, [r12]!
-+        and       r12, #~32
-+        vst1.8    {d16[6]}, [r12]
-+        vld1.8    {q2, q3}, [sp, :256]  @ Pop modified array
-+
-+        mov       sp, r4
-+
-+        ldr       r12, [sp, #28]        @ height
++        ldr       ip, [sp, #16]         @ &sao_offset_val1[0]
++        ldr       r4, [sp, #20]         @ sao_left_class1
++        vmov.i64  d24, #0
++        vmov.i64  q10, #0
 +        pld       [r1]
-+
-+        subs      r12, #1
++        vld2.8    {q8}, [ip]
++        sub       ip, sp, #8*5
++        vmov.i64  q11, #0
++        add       r4, ip, r4
++        ldr       ip, [sp, #24]         @ &sao_offset_val2[0]
++        vpush     {d20-d24}             @ Put zero array on stack
++        vld2.8    {q9}, [ip]
++        vshr.u64  d16, d16, #8          @ 1st interesting val is [1]
++        ldr       ip, [sp, #8*5 + 28]   @ sao_left_class2
++        vst1.32   {d16[0]}, [r4]
++        add       ip, sp, ip
++        vshr.u64  d18, d18, #8          @ 1st interesting val is [1]
++        vldmia    sp, {d0-d3}           @ Load modified array
++        vldr      d16, [sp, #8*4]
 +        add       r4, r1, r3
++        vstmia    sp, {d20-d24}         @ Put zero array on stack (again)
++        vst1.32   {d18[0]}, [ip]
++        vorr      d0, d0, d16
++        vldmia    sp, {d4-d7}           @ Load modified array
++        vldr      d18, [sp, #8*4]
++        ldr       ip, [sp, #8*5 + 36]   @ height
++        add       sp, sp, #8*5
++        vorr      d4, d4, d18
++        sub       ip, ip, #1
 +        bx        lr
 +endfunc
 +
@@ -5166,24 +5201,21 @@ index 0000000000..b56dc8ccc5
 +@   int height)                 [sp, #12]
 +
 +function ff_hevc_rpi_sao_band_64_neon_8, export=1
-+        push      {r4, lr}
-+        bl        band_load_y
++        push      {r4-r6, lr}
 +        vmov.u8   q15, #128
++        bl        band_load_y
 +
-+1:      subs      r12, #1
-+        vldm      r1, {q8-q11}
-+        pld       [r4]
-+        add       r1, r3
-+
-+        sao_band_64b_8 "{d0,d1,d2,d3}", "{d0,d1,d2,d3}", q15
-+
-+        it ne
-+        addne     r4, r3
-+        vstm      r0, {q8-q11}
++1:      vldmia    r1, {q8-q11}
++        sao_band_64b_8 {d0-d3}, {d0-d3}, q15, \
++            "pld       [r4]",                 \
++            "subs      ip, #1",               \
++            "it ne; addne r4, r3",            \
++            "add       r1, r3"
++        vstmia    r0, {q8-q11}
 +        add       r0, r2
 +        bpl       1b
 +
-+        pop       {r4, pc}
++        pop       {r4-r6, pc}
 +endfunc
 +
 +@ ff_hevc_rpi_sao_band_32_neon_8 (
@@ -5197,21 +5229,25 @@ index 0000000000..b56dc8ccc5
 +@   int height)                 [sp, #12]
 +
 +function ff_hevc_rpi_sao_band_32_neon_8, export=1
-+        push      {r4, lr}
-+        bl        band_load_y
++        push      {r4-r6, lr}
++        add       r5, r0, r2
++        add       r6, r1, r3
++        lsl       r2, #1
++        lsl       r3, #1
 +        vmov.u8   q15, #128
++        bl        band_load_y
 +
-+1:      subs      r12, #2
-+        vld1.8    { q8, q9 }, [r1, :128], r3
-+        vld1.8    {q10, q11}, [r1, :128], r3
++1:      vld1.8    { q8, q9 }, [r1, :128], r3
++        subs      ip, #2
++        vld1.8    {q10, q11}, [r6, :128], r3
 +
-+        sao_band_64b_8 "{d0,d1,d2,d3}", "{d0,d1,d2,d3}", q15
++        sao_band_64b_8 {d0-d3}, {d0-d3}, q15
 +
 +        vst1.8    { q8, q9 }, [r0, :128], r2
-+        vst1.8    {q10, q11}, [r0, :128], r2
++        vst1.8    {q10, q11}, [r5, :128], r2
 +        bpl       1b
 +
-+        pop       {r4, pc}
++        pop       {r4-r6, pc}
 +endfunc
 +
 +@ ff_hevc_rpi_sao_band_16_neon_8 (
@@ -5225,25 +5261,29 @@ index 0000000000..b56dc8ccc5
 +@   int height)                 [sp, #12]
 +
 +function ff_hevc_rpi_sao_band_16_neon_8, export=1
-+        push      {r4, lr}
-+        bl        band_load_y
++        push      {r4-r6, lr}
++        add       r5, r0, r2
++        add       r6, r1, r3
++        lsl       r2, #1
++        lsl       r3, #1
 +        vmov.u8   q15, #128
++        bl        band_load_y
 +
-+1:      subs      r12, #4
-+        vld1.8    { q8}, [r1, :128], r3
-+        vld1.8    { q9}, [r1, :128], r3
++1:      vld1.8    { q8}, [r1, :128], r3
++        subs      ip, #4
++        vld1.8    { q9}, [r6, :128], r3
 +        vld1.8    {q10}, [r1, :128], r3
-+        vld1.8    {q11}, [r1, :128], r3
++        vld1.8    {q11}, [r6, :128], r3
 +
-+        sao_band_64b_8 "{d0,d1,d2,d3}", "{d0,d1,d2,d3}", q15
++        sao_band_64b_8 {d0-d3}, {d0-d3}, q15
 +
 +        vst1.8    { q8}, [r0, :128], r2
-+        vst1.8    { q9}, [r0, :128], r2
++        vst1.8    { q9}, [r5, :128], r2
 +        vst1.8    {q10}, [r0, :128], r2
-+        vst1.8    {q11}, [r0, :128], r2
++        vst1.8    {q11}, [r5, :128], r2
 +        bpl       1b
 +
-+        pop       {r4, pc}
++        pop       {r4-r6, pc}
 +endfunc
 +
 +@ ff_hevc_rpi_sao_band_8_neon_8 (
@@ -5257,39 +5297,38 @@ index 0000000000..b56dc8ccc5
 +@   int height)                 [sp, #12]
 +
 +function ff_hevc_rpi_sao_band_8_neon_8, export=1
-+        push      {r4, lr}
-+        bl        band_load_y
-+        ldr       lr, [sp, #16]         @ width
++        ldr       ip, [sp, #8]          @ width
++        push      {r4-r6, lr}
 +        vmov.u8   q15, #128
-+        cmp       lr, #8
++        cmp       ip, #8
++        bl        band_load_y
++        add       r5, r0, r2
++        add       r6, r1, r3
++        lsl       r2, #1
++        lsl       r3, #1
 +        blt       4f
 +
-+1:      subs      r12, #2
-+        vld1.8    {d16}, [r1, :64], r3
-+        vld1.8    {d17}, [r1, :64], r3
-+
-+        sao_band_16b_8 "{d0,d1,d2,d3}", "{d0,d1,d2,d3}", q15
-+
-+        vst1.8    {d16}, [r0, :64], r2
-+        vst1.8    {d17}, [r0, :64], r2
-+        bpl       1b
-+        pop       {r4, pc}
-+
++        sao_band_16b_8 {d0-d3}, {d0-d3}, q15, \
++            "vld1.8    {d16}, [r1, :64], r3", \
++            "subs      ip, #2",               \
++            "vld1.8    {d17}, [r6, :64], r3", \
++            "",                               \
++            "",                               \
++            "vst1.8 {d26}, [r0, :64], r2",    \
++            "vst1.8 {d27}, [r5, :64], r2"
++        pop       {r4-r6, pc}
 +4:
-+1:      subs      r12, #4
-+        vld1.32   {d16[0]}, [r1, :32], r3
-+        vld1.32   {d16[1]}, [r1, :32], r3
-+        vld1.32   {d17[0]}, [r1, :32], r3
-+        vld1.32   {d17[1]}, [r1, :32], r3
-+
-+        sao_band_16b_8 "{d0,d1,d2,d3}", "{d0,d1,d2,d3}", q15
-+
-+        vst1.32   {d16[0]}, [r0, :32], r2
-+        vst1.32   {d16[1]}, [r0, :32], r2
-+        vst1.32   {d17[0]}, [r0, :32], r2
-+        vst1.32   {d17[1]}, [r0, :32], r2
-+        bpl       1b
-+        pop       {r4, pc}
++        sao_band_16b_8 {d0-d3}, {d0-d3}, q15,    \
++            "vld1.32   {d16[0]}, [r1, :32], r3", \
++            "subs      ip, #4",                  \
++            "vld1.32   {d16[1]}, [r6, :32], r3", \
++            "vld1.32   {d17[0]}, [r1, :32], r3", \
++            "vld1.32   {d17[1]}, [r6, :32], r3", \
++            "vst1.32   {d26[0]}, [r0, :32], r2", \
++            "vst1.32   {d26[1]}, [r5, :32], r2", \
++            "vst1.32   {d27[0]}, [r0, :32], r2", \
++            "vst1.32   {d27[1]}, [r5, :32], r2"
++        pop       {r4-r6, pc}
 +endfunc
 +
 +@ ff_hevc_rpi_sao_band_c_32_neon_8(
@@ -5305,31 +5344,25 @@ index 0000000000..b56dc8ccc5
 +@   int height             sp[20]
 +
 +function ff_hevc_rpi_sao_band_c_32_neon_8, export=1
-+        push    {r4, lr}
-+        bl      band_load_c
++        push      {r4-r6, lr}
++        add       r5, r0, #32
++        add       r6, r1, #32
++        vmov.u8   q15, #128
++        bl        band_load_c
 +
-+        vmov.i8   q15, #128
-+        sub       r3, #32
-+        sub       r2, #32
++1:      vld2.8    { q8, q9 }, [r1, :128], r3
++        subs      ip, #1
++        vld2.8    {q10, q11}, [r6, :128], r3
 +
-+1:      subs      r12, #1
-+        vld2.8    { q8, q9 }, [r1, :128]!
-+        vld2.8    {q10, q11}, [r1, :128], r3
++        sao_band_64b_8 {d0-d3}, {d4-d7}, q15, \
++            "pld       [r4]",                 \
++            "it ne; addne r4, r3"
 +
-+        pld       [r4]
-+
-+        sao_band_64b_8 "{d0,d1,d2,d3}", "{d4,d5,d6,d7}", q15
-+
-+        vst2.8    { q8, q9 }, [r0, :128]!
-+        vst2.8    {q10, q11}, [r0, :128], r2
-+
-+        itt ne
-+        addne     r4, r3
-+        addne     r4, #32
-+
++        vst2.8    { q8, q9 }, [r0, :128], r2
++        vst2.8    {q10, q11}, [r5, :128], r2
 +        bpl       1b
 +
-+        pop     {r4, pc}
++        pop     {r4-r6, pc}
 +endfunc
 +
 +@ ff_hevc_rpi_sao_band_c_16_neon_8(
@@ -5345,21 +5378,25 @@ index 0000000000..b56dc8ccc5
 +@   int height             sp[20]
 +
 +function ff_hevc_rpi_sao_band_c_16_neon_8, export=1
-+        push    {r4, lr}
-+        bl      band_load_c
-+        vmov.i8   q15, #128
++        push      {r4-r6, lr}
++        add       r5, r0, r2
++        add       r6, r1, r3
++        lsl       r2, #1
++        lsl       r3, #1
++        vmov.u8   q15, #128
++        bl        band_load_c
 +
-+1:      subs      r12, #2
-+        vld2.8    { q8, q9 }, [r1, :128], r3
-+        vld2.8    {q10, q11}, [r1, :128], r3
++1:      vld2.8    { q8, q9 }, [r1, :128], r3
++        subs      ip, #2
++        vld2.8    {q10, q11}, [r6, :128], r3
 +
-+        sao_band_64b_8 "{d0,d1,d2,d3}", "{d4,d5,d6,d7}", q15
++        sao_band_64b_8 {d0-d3}, {d4-d7}, q15
 +
 +        vst2.8    { q8, q9 }, [r0, :128], r2
-+        vst2.8    {q10, q11}, [r0, :128], r2
-+
++        vst2.8    {q10, q11}, [r5, :128], r2
 +        bpl       1b
-+        pop     {r4, pc}
++
++        pop     {r4-r6, pc}
 +endfunc
 +
 +@ ff_hevc_rpi_sao_band_c_8_neon_8(
@@ -5375,35 +5412,36 @@ index 0000000000..b56dc8ccc5
 +@   int height             sp[20]
 +
 +function ff_hevc_rpi_sao_band_c_8_neon_8, export=1
-+        push    {r4, lr}
-+        bl      band_load_c
-+        ldr       lr, [sp, #16]         @ width
++        ldr       ip, [sp, #16]         @ width
++        push      {r4-r6, lr}
 +        vmov.u8   q15, #128
-+        cmp       lr, #8
++        cmp       ip, #8
++        bl        band_load_c
 +        blt       4f
 +
-+1:      subs      r12, #1
-+        vld2.8    {d16, d17}, [r1, :128], r3
-+
-+        sao_band_16b_8 "{d0,d1,d2,d3}", "{d4,d5,d6,d7}", q15
-+
-+        vst2.8    {d16, d17}, [r0, :128], r2
-+        bpl       1b
-+        pop     {r4, pc}
-+
++        sao_band_16b_8 {d0-d3}, {d4-d7}, q15,      \
++            "vld2.8    {d16-d17}, [r1, :128], r3", \
++            "subs      ip, #1",                    \
++            "",                                    \
++            "",                                    \
++            "",                                    \
++            "vst2.8    {d26-d27}, [r0, :128], r2"
++        pop       {r4-r6, pc}
 +4:
-+1:      subs      r12, #1
-+        vld1.8    {d16}, [r1, :64], r3
-+        vld1.8    {d17}, [r1, :64], r3
-+        vuzp.8    d16, d17
-+
-+        sao_band_16b_8 "{d0,d1,d2,d3}", "{d4,d5,d6,d7}", q15
-+
-+        vzip.8    d16, d17
-+        vst1.8    {d16}, [r0, :64], r2
-+        vst1.8    {d17}, [r0, :64], r2
-+        bpl       1b
-+        pop     {r4, pc}
++        add       r5, r0, r2
++        add       r6, r1, r3
++        lsl       r2, #1
++        lsl       r3, #1
++        sao_band_16b_8 {d0-d3}, {d4-d7}, q15, \
++            "vld1.8    {d16}, [r1, :64], r3", \
++            "subs      ip, #2",               \
++            "vld1.8    {d17}, [r6, :64], r3", \
++            "vuzp.8    d16, d17",             \
++            "",                               \
++            "vzip.8    d26, d27",             \
++            "vst1.8    {d26}, [r0, :64], r2", \
++            "vst1.8    {d27}, [r5, :64], r2"
++        pop       {r4-r6, pc}
 +endfunc
 +
 +
@@ -5418,24 +5456,23 @@ index 0000000000..b56dc8ccc5
 +@   int height)                 [sp, #12]
 +
 +.macro band_64_16 bit_depth
-+        push      {r4, lr}
-+        movw      lr, #(1 << \bit_depth) - 1
++        push      {r4-r6, lr}
 +        vmov.i64  q2, #0
-+        vdup.i16  q3, lr
++        vmov.i16  q3, #(1 << \bit_depth) - 1
 +        bl        band_load_y
 +        vpush     {q4-q7}
 +
-+1:      subs      r12, #1
-+        vldm      r1, {q4-q11}
-+        add       r1, r3
-+        sao_band_64b_16 q4,  q5,  q6,  q7, "{d0,d1,d2,d3}", "{d0,d1,d2,d3}", q2, q3, \bit_depth
-+        sao_band_64b_16 q8,  q9, q10, q11, "{d0,d1,d2,d3}", "{d0,d1,d2,d3}", q2, q3, \bit_depth
++1:      vldm      r1, {q4-q11}
++        sao_band_64b_16 q4,  q5,  q6,  q7, {d0-d3}, {d0-d3}, q2, q3, \bit_depth, \
++            "subs      ip, #1",                                                  \
++            "add       r1, r3"
++        sao_band_64b_16 q8,  q9, q10, q11, {d0-d3}, {d0-d3}, q2, q3, \bit_depth
 +        vstm      r0, {q4-q11}
 +        add       r0, r2
 +        bpl       1b
 +
 +        vpop      {q4-q7}
-+        pop       {r4, pc}
++        pop       {r4-r6, pc}
 +.endm
 +
 +function ff_hevc_rpi_sao_band_64_neon_10, export=1
@@ -5453,21 +5490,20 @@ index 0000000000..b56dc8ccc5
 +@   int height)                 [sp, #12]
 +
 +.macro band_32_16 bit_depth
-+        push      {r4, lr}
-+        movw      lr, #(1 << \bit_depth) - 1
++        push      {r4-r6, lr}
 +        vmov.i64  q2, #0
-+        vdup.i16  q3, lr
++        vmov.i16  q3, #(1 << \bit_depth) - 1
 +        bl        band_load_y
 +
-+1:      subs      r12, #1
-+        vldm      r1, {q8-q11}
-+        add       r1, r3
-+        sao_band_64b_16 q8,  q9,  q10, q11, "{d0,d1,d2,d3}", "{d0,d1,d2,d3}", q2, q3, \bit_depth
++1:      vldm      r1, {q8-q11}
++        sao_band_64b_16 q8,  q9,  q10, q11, {d0-d3}, {d0-d3}, q2, q3, \bit_depth, \
++            "subs      ip, #1",                                                   \
++            "add       r1, r3"
 +        vstm      r0, {q8-q11}
 +        add       r0, r2
 +        bpl       1b
 +
-+        pop       {r4, pc}
++        pop       {r4-r6, pc}
 +.endm
 +
 +function ff_hevc_rpi_sao_band_32_neon_10, export=1
@@ -5485,21 +5521,24 @@ index 0000000000..b56dc8ccc5
 +@   int height)                 [sp, #12]
 +
 +.macro band_16_16 bit_depth
-+        push      {r4, lr}
-+        movw      lr, #(1 << \bit_depth) - 1
++        push      {r4-r6, lr}
++        add       r5, r0, r2
++        add       r6, r1, r3
++        lsl       r2, #1
++        lsl       r3, #1
 +        vmov.i64  q14, #0
-+        vdup.i16  q15, lr
++        vmov.i16  q15, #(1 << \bit_depth) - 1
 +        bl        band_load_y
 +
-+1:      subs      r12, #2
-+        vld1.16   { q8, q9 }, [r1, :128], r3
-+        vld1.16   {q10, q11}, [r1, :128], r3
-+        sao_band_64b_16 q8,  q9,  q10, q11, "{d0,d1,d2,d3}", "{d0,d1,d2,d3}", q14, q15, \bit_depth
++1:      vld1.16   { q8, q9 }, [r1, :128], r3
++        subs      r12, #2
++        vld1.16   {q10, q11}, [r6, :128], r3
++        sao_band_64b_16 q8,  q9,  q10, q11, {d0-d3}, {d0-d3}, q14, q15, \bit_depth
 +        vst1.16   { q8, q9 }, [r0, :128], r2
-+        vst1.16   {q10, q11}, [r0, :128], r2
++        vst1.16   {q10, q11}, [r5, :128], r2
 +        bpl       1b
 +
-+        pop       {r4, pc}
++        pop       {r4-r6, pc}
 +.endm
 +
 +function ff_hevc_rpi_sao_band_16_neon_10, export=1
@@ -5517,37 +5556,39 @@ index 0000000000..b56dc8ccc5
 +@   int height)                 [sp, #12]
 +
 +.macro band_8_16 bit_depth
-+        push      {r4, lr}
-+        movw      lr, #(1 << \bit_depth) - 1
++        ldr       ip, [sp, #8]          @ width
++        push      {r4-r6, lr}
 +        vmov.i64  q14, #0
-+        vdup.i16  q15, lr
++        cmp       ip, #8
++        vmov.i16  q15, #(1 << \bit_depth) - 1
 +        bl        band_load_y
-+        ldr       lr, [sp, #16]
-+        cmp       lr, #8
++        add       r5, r0, r2
++        add       r6, r1, r3
++        lsl       r2, #1
++        lsl       r3, #1
 +        blt       4f
 +
-+1:      subs      r12, #2
-+        vld1.16   { q8}, [r1, :128], r3
-+        vld1.16   { q9}, [r1, :128], r3
-+        sao_band_32b_16 q8,  q9, "{d0,d1,d2,d3}", "{d0,d1,d2,d3}", q14, q15, \bit_depth
-+        vst1.16   { q8}, [r0, :128], r2
-+        vst1.16   { q9}, [r0, :128], r2
-+        bpl       1b
-+        pop       {r4, pc}
-+
++        sao_band_32b_16 q8, q9, {d0-d3}, {d0-d3}, q14, q15, \bit_depth, \
++            "vld1.16   {q8}, [r1, :128], r3",                           \
++            "subs      ip, #2",                                         \
++            "vld1.16   {q9}, [r6, :128], r3",                           \
++            "",                                                         \
++            "",                                                         \
++            "vst1.16   {q10}, [r0, :128], r2",                          \
++            "vst1.16   {q11}, [r5, :128], r2"
++        pop       {r4-r6, pc}
 +4:
-+1:      subs      r12, #4
-+        vld1.16   {d16}, [r1, :64], r3
-+        vld1.16   {d17}, [r1, :64], r3
-+        vld1.16   {d18}, [r1, :64], r3
-+        vld1.16   {d19}, [r1, :64], r3
-+        sao_band_32b_16 q8,  q9, "{d0,d1,d2,d3}", "{d0,d1,d2,d3}", q14, q15, \bit_depth
-+        vst1.16   {d16}, [r0, :64], r2
-+        vst1.16   {d17}, [r0, :64], r2
-+        vst1.16   {d18}, [r0, :64], r2
-+        vst1.16   {d19}, [r0, :64], r2
-+        bpl       1b
-+        pop       {r4, pc}
++        sao_band_32b_16 q8, q9, {d0-d3}, {d0-d3}, q14, q15, \bit_depth, \
++            "vld1.16   {d16}, [r1, :64], r3",                           \
++            "subs      ip, #4",                                         \
++            "vld1.16   {d17}, [r6, :64], r3",                           \
++            "vld1.16   {d18}, [r1, :64], r3",                           \
++            "vld1.16   {d19}, [r6, :64], r3",                           \
++            "vst1.16   {d20}, [r0, :64], r2",                           \
++            "vst1.16   {d21}, [r5, :64], r2",                           \
++            "vst1.16   {d22}, [r0, :64], r2",                           \
++            "vst1.16   {d23}, [r5, :64], r2"
++        pop       {r4-r6, pc}
 +.endm
 +
 +function ff_hevc_rpi_sao_band_8_neon_10, export=1
@@ -5568,39 +5609,37 @@ index 0000000000..b56dc8ccc5
 +@   int height             sp[20]
 +
 +.macro band_c_32_16 bit_depth
-+        push      {r4, lr}
-+        bl        band_load_c
-+        vpush     {q4-q7}
-+        movw      lr, #(1 << \bit_depth) - 1
++        push      {r4-r6, lr}
++        add       r5, r0, #32
++        add       r6, r1, #32
++        sub       r2, #64
++        sub       r3, #64
 +        vmov.i64  q14, #0
-+        vdup.i16  q15, lr
-+        sub       r2, #96
++        vmov.i16  q15, #(1 << \bit_depth) - 1
++        bl        band_load_c
++        mov       lr, #64
++        vpush     {q4-q7}
 +
-+1:      subs      r12, #1
++1:      vld2.16   { q4, q5 }, [r1, :128], lr
++        subs      ip, #1
++        vld2.16   { q6, q7 }, [r6, :128], lr
++        vld2.16   { q8, q9 }, [r1, :128], r3
++        vld2.16   {q10, q11}, [r6, :128], r3
 +
-+        vld2.16   { q4, q5 }, [r1, :128]!
-+        vld2.16   { q6, q7 }, [r1, :128]!
-+        vld2.16   { q8, q9 }, [r1, :128]!
-+        vld2.16   {q10, q11}, [r1, :128], r3
++        sao_band_64b_16 q4,  q5,  q6,  q7, {d0-d3}, {d4-d7}, q14, q15, \bit_depth, \
++            "pld       [r4]",                                                      \
++            "it ne; addne r4, r3"
++        sao_band_64b_16 q8,  q9, q10, q11, {d0-d3}, {d4-d7}, q14, q15, \bit_depth
 +
-+        pld       [r4]
-+        sub       r1, #96
-+
-+        sao_band_64b_16 q4,  q5,  q6,  q7, "{d0,d1,d2,d3}", "{d4,d5,d6,d7}", q14, q15, \bit_depth
-+        sao_band_64b_16 q8,  q9, q10, q11, "{d0,d1,d2,d3}", "{d4,d5,d6,d7}", q14, q15, \bit_depth
-+
-+        it ne
-+        addne     r4, r3
-+
-+        vst2.16   { q4, q5 }, [r0, :128]!
-+        vst2.16   { q6, q7 }, [r0, :128]!
-+        vst2.16   { q8, q9 }, [r0, :128]!
-+        vst2.16   {q10, q11}, [r0, :128], r2
++        vst2.16   { q4, q5 }, [r0, :128], lr
++        vst2.16   { q6, q7 }, [r5, :128], lr
++        vst2.16   { q8, q9 }, [r0, :128], r2
++        vst2.16   {q10, q11}, [r5, :128], r2
 +
 +        bpl       1b
 +
 +        vpop      {q4-q7}
-+        pop       {r4, pc}
++        pop       {r4-r6, pc}
 +.endm
 +
 +function ff_hevc_rpi_sao_band_c_32_neon_10, export=1
@@ -5621,26 +5660,25 @@ index 0000000000..b56dc8ccc5
 +@   int height             sp[20]
 +
 +.macro band_c_16_16 bit_depth
-+        push      {r4, lr}
-+        bl        band_load_c
-+        movw      lr, #(1 << \bit_depth) - 1
++        push      {r4-r6, lr}
++        add       r5, r0, #32
++        add       r6, r1, #32
 +        vmov.i64  q14, #0
-+        vdup.i16  q15, lr
-+        sub       r2, #32
-+        sub       r3, #32
++        vmov.i16  q15, #(1 << \bit_depth) - 1
++        bl        band_load_c
 +
-+1:      subs      r12, #1
++1:      vld2.16   { q8, q9 }, [r1, :128], r3
++        subs      ip, #1
++        vld2.16   {q10, q11}, [r6, :128], r3
 +
-+        vld2.16   { q8, q9 }, [r1, :128]!
-+        vld2.16   {q10, q11}, [r1, :128], r3
++        sao_band_64b_16 q4,  q5,  q6,  q7, {d0-d3}, {d4-d7}, q14, q15, \bit_depth
++        sao_band_64b_16 q8,  q9, q10, q11, {d0-d3}, {d4-d7}, q14, q15, \bit_depth
 +
-+        sao_band_64b_16 q8,  q9, q10, q11, "{d0,d1,d2,d3}", "{d4,d5,d6,d7}", q14, q15, \bit_depth
-+
-+        vst2.16   { q8, q9 }, [r0, :128]!
-+        vst2.16   {q10, q11}, [r0, :128], r2
++        vst2.16   { q8, q9 }, [r0, :128], r2
++        vst2.16   {q10, q11}, [r5, :128], r2
 +
 +        bpl       1b
-+        pop       {r4, pc}
++        pop       {r4-r6, pc}
 +.endm
 +
 +function ff_hevc_rpi_sao_band_c_16_neon_10, export=1
@@ -5661,37 +5699,36 @@ index 0000000000..b56dc8ccc5
 +@   int height             sp[20]
 +
 +.macro band_c_8_16 bit_depth
-+        push      {r4, lr}
-+        bl        band_load_c
-+        movw      lr, #(1 << \bit_depth) - 1
++        ldr       ip, [sp, #16]         @ width
++        push      {r4-r6, lr}
 +        vmov.i64  q14, #0
-+        vdup.i16  q15, lr
-+        ldr       lr, [sp, #24]         @ width
-+        cmp       lr, #8
++        cmp       ip, #8
++        vmov.i16  q15, #(1 << \bit_depth) - 1
++        bl        band_load_c
 +        blt       4f
 +
-+1:      subs      r12, #1
-+        vld2.16   { q8, q9 }, [r1, :128], r3
-+
-+        sao_band_32b_16 q8,  q9, "{d0,d1,d2,d3}", "{d4,d5,d6,d7}", q14, q15, \bit_depth
-+
-+        vst2.16   { q8, q9 }, [r0, :128], r2
-+
-+        bpl       1b
-+        pop       {r4, pc}
-+
++        sao_band_32b_16 q8, q9, {d0-d3}, {d4-d7}, q14, q15, \bit_depth, \
++            "vld2.16   {q8,q9}, [r1, :128], r3",                        \
++            "subs      ip, #1",                                         \
++            "",                                                         \
++            "",                                                         \
++            "",                                                         \
++            "vst2.16   {q10,q11}, [r0, :128], r2"
++        pop       {r4-r6, pc}
 +4:
-+1:      subs      r12, #2
-+        vld2.16   {d16, d17}, [r1, :128], r3
-+        vld2.16   {d18, d19}, [r1, :128], r3
-+
-+        sao_band_32b_16 q8,  q9, "{d0,d1,d2,d3}", "{d4,d5,d6,d7}", q14, q15, \bit_depth
-+
-+        vst2.16   {d16, d17}, [r0, :128], r2
-+        vst2.16   {d18, d19}, [r0, :128], r2
-+
-+        bpl       1b
-+        pop       {r4, pc}
++        add       r5, r0, r2
++        add       r6, r1, r3
++        lsl       r2, #1
++        lsl       r3, #1
++        sao_band_32b_16 q8, q9, {d0-d3}, {d4-d7}, q14, q15, \bit_depth, \
++            "vld2.16   {d16,d18}, [r1, :128], r3",                      \
++            "subs      ip, #2",                                         \
++            "vld2.16   {d17,d19}, [r6, :128], r3",                      \
++            "",                                                         \
++            "",                                                         \
++            "vst2.16   {d20,d22}, [r0, :128], r2",                      \
++            "vst2.16   {d21,d23}, [r5, :128], r2"
++        pop       {r4-r6, pc}
 +.endm
 +
 +function ff_hevc_rpi_sao_band_c_8_neon_10, export=1
@@ -6286,8 +6323,10 @@ index 0000000000..b56dc8ccc5
 +        vmov.64  q0, q4
 +        pld      [r1, r3]
 +        vmov.64  q1, q5
++        it       le
 +        pople    {lr}
 +        vmov.64  q2, q6
++        it       le
 +        bxle     lr
 +        vmov.64  q3, q7
 +        add      r0, r0, r2
@@ -6323,6 +6362,7 @@ index 0000000000..b56dc8ccc5
 +        vmov     q1, q9
 +        vst1.8   {q2-q3}, [r0, :256], r2
 +        vmov     q2, q10
++        it       le
 +        bxle     r6
 +        vmov     q3, q11
 +        b        1b
@@ -6342,6 +6382,7 @@ index 0000000000..b56dc8ccc5
 +        subs     r12, #1
 +        // copy c to a
 +        vmov.64  q0, q1
++        it       le
 +        bxle     r6
 +        // copy b to c
 +        vmov.64  q1, q2
@@ -6450,8 +6491,10 @@ index 0000000000..b56dc8ccc5
 +        vldr     d25, [r6, #-8]
 +        vstmia   r0, {q0-q3}
 +        vext.8   q3, q6, q7, #16 - \pb
++        it       le
 +        pople    {lr}
 +        vext.8   q2, q5, q6, #16 - \pb
++        it       le
 +        bxle     lr
 +        vext.8   q1, q4, q5, #16 - \pb
 +        add      r6, r6, r3
@@ -6647,8 +6690,10 @@ index 0000000000..b56dc8ccc5
 +        vldr     d24, [r6, #64]
 +        vstmia   r0, {q0-q3}
 +        vext.8   q0, q4, q5, #\pb
++        it       le
 +        pople    {lr}
 +        vext.8   q1, q5, q6, #\pb
++        it       le
 +        bxle     lr
 +        vext.8   q2, q6, q7, #\pb
 +        add      r6, r6, r3
@@ -9750,10 +9795,10 @@ index 0000000000..0aee673d8b
 +#endif /* AVCODEC_RPI_HEVC_DATA_H */
 diff --git a/libavcodec/rpi_hevc_filter.c b/libavcodec/rpi_hevc_filter.c
 new file mode 100644
-index 0000000000..a1d6d56b04
+index 0000000000..5ae479dd0b
 --- /dev/null
 +++ b/libavcodec/rpi_hevc_filter.c
-@@ -0,0 +1,1067 @@
+@@ -0,0 +1,1069 @@
 +/*
 + * HEVC video decoder
 + *
@@ -10709,7 +10754,8 @@ index 0000000000..a1d6d56b04
 +// flushes and invalidates all pixel rows in [start,end-1]
 +static void ff_hevc_rpi_flush_buffer_lines(HEVCRpiContext *s, int start, int end, int flush_luma, int flush_chroma)
 +{
-+    rpi_cache_flush_env_t * const rfe = rpi_cache_flush_init();
++    rpi_cache_buf_t cbuf;
++    rpi_cache_flush_env_t * const rfe = rpi_cache_flush_init(&cbuf);
 +    rpi_cache_flush_add_frame_block(rfe, s->frame, RPI_CACHE_FLUSH_MODE_WB_INVALIDATE,
 +      0, start, s->ps.sps->width, end - start, ctx_vshift(s, 1), flush_luma, flush_chroma);
 +    rpi_cache_flush_finish(rfe);
@@ -10749,7 +10795,8 @@ index 0000000000..a1d6d56b04
 +  
 +  // Call VPU
 +  {
-+      const vpu_qpu_job_h vqj = vpu_qpu_job_new();
++      vpu_qpu_job_env_t qvbuf;
++      const vpu_qpu_job_h vqj = vpu_qpu_job_init(&qvbuf);
 +      vpu_qpu_job_add_vpu(vqj, vpu_get_fn(s->ps.sps->bit_depth), s->dvq->vpu_cmds_vc, 3, 0, 0, 0, 5);  // 5 means to do all the commands
 +      vpu_qpu_job_add_sync_this(vqj, &s->dvq->cmd_id);
 +      vpu_qpu_job_finish(vqj);
@@ -11780,10 +11827,10 @@ index 0000000000..4b4d032a16
 +#endif /* AVCODEC_RPI_HEVC_PARSE_H */
 diff --git a/libavcodec/rpi_hevc_ps.c b/libavcodec/rpi_hevc_ps.c
 new file mode 100644
-index 0000000000..d28ae0ec92
+index 0000000000..93fc26de88
 --- /dev/null
 +++ b/libavcodec/rpi_hevc_ps.c
-@@ -0,0 +1,1756 @@
+@@ -0,0 +1,1765 @@
 +/*
 + * HEVC Parameter Set decoding
 + *
@@ -13349,6 +13396,15 @@ index 0000000000..d28ae0ec92
 +    pps->num_ref_idx_l1_default_active = get_ue_golomb_long(gb) + 1;
 +
 +    pps->pic_init_qp_minus26 = get_se_golomb(gb);
++    if (pps->pic_init_qp_minus26 > 25 || pps->pic_init_qp_minus26 < -(26 + sps->qp_bd_offset)) {
++        av_log(avctx, AV_LOG_ERROR,
++               "init_qp_minus26 %d is outside the valid range "
++               "[%d, %d].\n",
++               pps->pic_init_qp_minus26,
++               -(26 + sps->qp_bd_offset), 25);
++        ret = AVERROR_INVALIDDATA;
++        goto err;
++    }
 +
 +    pps->constrained_intra_pred_flag = get_bits1(gb);
 +    pps->transform_skip_enabled_flag = get_bits1(gb);
@@ -13542,10 +13598,10 @@ index 0000000000..d28ae0ec92
 +}
 diff --git a/libavcodec/rpi_hevc_ps.h b/libavcodec/rpi_hevc_ps.h
 new file mode 100644
-index 0000000000..989f8953b4
+index 0000000000..96c3739c4f
 --- /dev/null
 +++ b/libavcodec/rpi_hevc_ps.h
-@@ -0,0 +1,446 @@
+@@ -0,0 +1,447 @@
 +/*
 + * HEVC parameter set parsing
 + *
@@ -13650,6 +13706,7 @@ index 0000000000..989f8953b4
 +    int * offset;
 +    int * size;
 +    int num_entry_point_offsets;
++    int offsets_allocated;
 +
 +    int8_t slice_qp;
 +
@@ -26424,10 +26481,10 @@ index 0000000000..56d5206827
 +};
 diff --git a/libavcodec/rpi_hevcdec.c b/libavcodec/rpi_hevcdec.c
 new file mode 100644
-index 0000000000..0ad64f9f19
+index 0000000000..3cee92a11f
 --- /dev/null
 +++ b/libavcodec/rpi_hevcdec.c
-@@ -0,0 +1,5679 @@
+@@ -0,0 +1,5705 @@
 +/*
 + * HEVC video Decoder
 + *
@@ -27222,6 +27279,38 @@ index 0000000000..0ad64f9f19
 + * Section 5.7
 + */
 +
++// Realloc the entry point arrays
++static int alloc_entry_points(RpiSliceHeader * const sh, const int n)
++{
++    if (sh->entry_point_offset == NULL || n > sh->offsets_allocated || n == 0)
++    {
++        // Round up alloc to multiple of 32
++        int a = (n + 31) & ~31;
++
++        // We don't care about the previous contents so probably fastest to simply discard
++        av_freep(&sh->entry_point_offset);
++        av_freep(&sh->offset);
++        av_freep(&sh->size);
++
++        if (a != 0)
++        {
++            sh->entry_point_offset = av_malloc_array(a, sizeof(unsigned));
++            sh->offset = av_malloc_array(a, sizeof(int));
++            sh->size = av_malloc_array(a, sizeof(int));
++
++            if (!sh->entry_point_offset || !sh->offset || !sh->size) {
++                sh->num_entry_point_offsets = 0;
++                sh->offsets_allocated = 0;
++                return AVERROR(ENOMEM);
++            }
++        }
++
++        sh->offsets_allocated = a;
++    }
++
++    return 0;
++}
++
 +/* free everything allocated  by pic_arrays_init() */
 +static void pic_arrays_free(HEVCRpiContext *s)
 +{
@@ -27255,9 +27344,7 @@ index 0000000000..0ad64f9f19
 +    av_freep(&s->horizontal_bs);
 +    av_freep(&s->vertical_bs);
 +
-+    av_freep(&s->sh.entry_point_offset);
-+    av_freep(&s->sh.size);
-+    av_freep(&s->sh.offset);
++    alloc_entry_points(&s->sh, 0);
 +
 +    av_buffer_pool_uninit(&s->tab_mvf_pool);
 +    av_buffer_pool_uninit(&s->rpl_tab_pool);
@@ -27328,7 +27415,7 @@ index 0000000000..0ad64f9f19
 +    s->bs_width  = (width  >> 2) + 1;
 +    s->bs_height = (height >> 2) + 1;
 +
-+    s->sao           = av_mallocz_array(ctb_count, sizeof(*s->sao));
++    s->sao           = av_mallocz(ctb_count * sizeof(*s->sao) + 8); // Our sao code overreads this array slightly
 +    s->deblock       = av_mallocz_array(ctb_count, sizeof(*s->deblock));
 +    if (!s->sao || !s->deblock)
 +        goto fail;
@@ -28048,17 +28135,12 @@ index 0000000000..0ad64f9f19
 +                return AVERROR_INVALIDDATA;
 +            }
 +
-+            av_freep(&sh->entry_point_offset);
-+            av_freep(&sh->offset);
-+            av_freep(&sh->size);
-+            sh->entry_point_offset = av_malloc_array(sh->num_entry_point_offsets, sizeof(unsigned));
-+            sh->offset = av_malloc_array(sh->num_entry_point_offsets, sizeof(int));
-+            sh->size = av_malloc_array(sh->num_entry_point_offsets, sizeof(int));
-+            if (!sh->entry_point_offset || !sh->offset || !sh->size) {
-+                sh->num_entry_point_offsets = 0;
++            if ((ret = alloc_entry_points(sh, sh->num_entry_point_offsets)) < 0)
++            {
 +                av_log(s->avctx, AV_LOG_ERROR, "Failed to allocate memory\n");
-+                return AVERROR(ENOMEM);
++                return ret;
 +            }
++
 +            for (i = 0; i < sh->num_entry_point_offsets; i++) {
 +                uint32_t val_minus1 = get_bits_long(gb, offset_len);
 +                if (val_minus1 > (1 << 28))
@@ -28071,13 +28153,7 @@ index 0000000000..0ad64f9f19
 +                }
 +                sh->entry_point_offset[i] = val_minus1 + 1; // +1 to get the size
 +            }
-+            if (s->threads_number > 1 && (s->ps.pps->num_tile_rows > 1 || s->ps.pps->num_tile_columns > 1)) {
-+                s->enable_parallel_tiles = 0; // TODO: you can enable tiles in parallel here
-+                s->threads_number = 1;
-+            } else
-+                s->enable_parallel_tiles = 0;
-+        } else
-+            s->enable_parallel_tiles = 0;
++        }
 +    }
 +
 +    if (s->ps.pps->slice_header_extension_present_flag) {
@@ -28251,23 +28327,23 @@ index 0000000000..0ad64f9f19
 +        if (s->ps.pps->cu_qp_delta_enabled_flag && !lc->tu.is_cu_qp_delta_coded) {
 +            lc->tu.cu_qp_delta = ff_hevc_rpi_cu_qp_delta_abs(lc);
 +            if (lc->tu.cu_qp_delta != 0)
++            {
 +                if (ff_hevc_rpi_cu_qp_delta_sign_flag(lc) == 1)
 +                    lc->tu.cu_qp_delta = -lc->tu.cu_qp_delta;
-+            lc->tu.is_cu_qp_delta_coded = 1;
 +
-+// Was:
-+//            if (lc->tu.cu_qp_delta < -(26 + s->ps.sps->qp_bd_offset / 2) ||
-+//                if (lc->tu.cu_qp_delta < -(26 + s->ps.sps->qp_bd_offset / 2) ||
-+// 2016 standard says:
-+            if (lc->tu.cu_qp_delta < -(26 + s->ps.sps->qp_bd_offset) ||
-+                lc->tu.cu_qp_delta > 25) {
-+                av_log(s->avctx, AV_LOG_ERROR,
-+                       "The cu_qp_delta %d is outside the valid range "
-+                       "[%d, %d].\n",
-+                       lc->tu.cu_qp_delta,
-+                       -(26 + s->ps.sps->qp_bd_offset), 25);
-+                return AVERROR_INVALIDDATA;
++                if (lc->tu.cu_qp_delta < -(26 + s->ps.sps->qp_bd_offset/2) ||
++                    lc->tu.cu_qp_delta >  (25 + s->ps.sps->qp_bd_offset/2))
++                {
++                    av_log(s->avctx, AV_LOG_ERROR,
++                           "The cu_qp_delta %d is outside the valid range "
++                           "[%d, %d].\n",
++                           lc->tu.cu_qp_delta,
++                           -(26 + s->ps.sps->qp_bd_offset/2),
++                            (25 + s->ps.sps->qp_bd_offset/2));
++                    return AVERROR_INVALIDDATA;
++                }
 +            }
++            lc->tu.is_cu_qp_delta_coded = 1;
 +
 +            ff_hevc_rpi_set_qPy(s, lc, cb_xBase, cb_yBase, log2_cb_size);
 +        }
@@ -29854,11 +29930,15 @@ index 0000000000..0ad64f9f19
 +        const unsigned int yb = (s->ps.pps->ctb_ts_flags[jb->ctu_ts_last] & CTB_TS_FLAGS_EOT) != 0 ?
 +            bound_b : y - ctb_size;
 +
-+        rpi_cache_flush_env_t * const rfe = rpi_cache_flush_init();
-+        rpi_cache_flush_add_frame_block(rfe, s->frame, RPI_CACHE_FLUSH_MODE_WB_INVALIDATE,
-+          xl, yt, bound_r - xl, yb - yt,
-+          ctx_vshift(s, 1), 1, 1);
-+        rpi_cache_flush_finish(rfe);
++        if (yb > yt && bound_r > xl)
++        {
++            rpi_cache_buf_t cbuf;
++            rpi_cache_flush_env_t * const rfe = rpi_cache_flush_init(&cbuf);
++            rpi_cache_flush_add_frame_block(rfe, s->frame, RPI_CACHE_FLUSH_MODE_WB_INVALIDATE,
++              xl, yt, bound_r - xl, yb - yt,
++              ctx_vshift(s, 1), 1, 1);
++            rpi_cache_flush_finish(rfe);
++        }
 +    }
 +
 +    // Signal
@@ -30145,9 +30225,10 @@ index 0000000000..0ad64f9f19
 +
 +static void flush_frame(HEVCRpiContext *s,AVFrame *frame)
 +{
-+  rpi_cache_flush_env_t * rfe = rpi_cache_flush_init();
-+  rpi_cache_flush_add_frame(rfe, frame, RPI_CACHE_FLUSH_MODE_WB_INVALIDATE);
-+  rpi_cache_flush_finish(rfe);
++    rpi_cache_buf_t cbuf;
++    rpi_cache_flush_env_t * rfe = rpi_cache_flush_init(&cbuf);
++    rpi_cache_flush_add_frame(rfe, frame, RPI_CACHE_FLUSH_MODE_WB_INVALIDATE);
++    rpi_cache_flush_finish(rfe);
 +}
 +
 +static void job_gen_bounds(const HEVCRpiContext * const s, HEVCRpiJob * const jb)
@@ -30181,8 +30262,10 @@ index 0000000000..0ad64f9f19
 +    const HEVCRpiContext * const s = s0;
 +    vpu_qpu_wait_h sync_y;
 +    int pred_y, pred_c;
-+    const vpu_qpu_job_h vqj = vpu_qpu_job_new();
-+    rpi_cache_flush_env_t * const rfe = rpi_cache_flush_init();
++    vpu_qpu_job_env_t qvbuf;
++    const vpu_qpu_job_h vqj = vpu_qpu_job_init(&qvbuf);
++    rpi_cache_buf_t cbuf;
++    rpi_cache_flush_env_t * const rfe = rpi_cache_flush_init(&cbuf);
 +
 +    {
 +        const HEVCRpiCoeffsEnv * const cf = &jb->coeffs;
@@ -30314,6 +30397,7 @@ index 0000000000..0ad64f9f19
 +    av_freep(&jb->intra.cmds);
 +    rpi_free_inter_pred(&jb->chroma_ip);
 +    rpi_free_inter_pred(&jb->luma_ip);
++    av_free(jb);
 +}
 +
 +static void jbg_delete(HEVCRpiJobGlobal * const jbg)
@@ -31766,7 +31850,6 @@ index 0000000000..0ad64f9f19
 +        ff_hevc_rpi_progress_kill_state(s->progress_states + i);
 +    }
 +    job_lc_kill(s->HEVClc);
-+    av_rpi_zc_uninit(avctx);
 +
 +    av_freep(&s->sao_pixel_buffer_h[0]);  // [1] & [2] allocated with [0]
 +    av_freep(&s->sao_pixel_buffer_v[0]);
@@ -31787,10 +31870,6 @@ index 0000000000..0ad64f9f19
 +    s->ps.pps = NULL;
 +    s->ps.vps = NULL;
 +
-+    av_freep(&s->sh.entry_point_offset);
-+    av_freep(&s->sh.offset);
-+    av_freep(&s->sh.size);
-+
 +    for (i = 1; i < s->threads_number; i++) {
 +        if (s->sList[i] != NULL) {
 +            av_freep(&s->sList[i]);
@@ -31804,6 +31883,11 @@ index 0000000000..0ad64f9f19
 +    s->HEVClc = NULL;  // Allocated as part of HEVClcList
 +
 +    ff_h2645_packet_uninit(&s->pkt);
++
++    // This must be after we free off the DPB
++    // * If the outer code is still holding any frames hopefully it will
++    //   have its own ref to zc
++    av_rpi_zc_uninit(avctx);
 +
 +    return 0;
 +}
@@ -32001,7 +32085,6 @@ index 0000000000..0ad64f9f19
 +
 +    hevc_init_worker(s);
 +
-+    s->enable_parallel_tiles = 0;
 +    s->sei.picture_timing.picture_struct = 0;
 +    s->eos = 1;
 +
@@ -32109,10 +32192,10 @@ index 0000000000..0ad64f9f19
 +
 diff --git a/libavcodec/rpi_hevcdec.h b/libavcodec/rpi_hevcdec.h
 new file mode 100644
-index 0000000000..2201017cb3
+index 0000000000..fcbf102fa1
 --- /dev/null
 +++ b/libavcodec/rpi_hevcdec.h
-@@ -0,0 +1,1061 @@
+@@ -0,0 +1,1060 @@
 +/*
 + * HEVC video decoder
 + *
@@ -32932,7 +33015,6 @@ index 0000000000..2201017cb3
 +    uint16_t seq_decode;
 +    uint16_t seq_output;
 +
-+    int enable_parallel_tiles;
 +    atomic_int wpp_err;
 +
 +    const uint8_t *data;
@@ -37322,10 +37404,10 @@ index 0000000000..b3168788d2
 +#endif
 diff --git a/libavcodec/rpi_qpu.c b/libavcodec/rpi_qpu.c
 new file mode 100644
-index 0000000000..3dfc35fa5c
+index 0000000000..4a8b328236
 --- /dev/null
 +++ b/libavcodec/rpi_qpu.c
-@@ -0,0 +1,939 @@
+@@ -0,0 +1,920 @@
 +#include <stdio.h>
 +#include <stdlib.h>
 +#include <string.h>
@@ -37346,12 +37428,6 @@ index 0000000000..3dfc35fa5c
 +#include "rpi_hevc_transform8.h"
 +#include "rpi_hevc_transform10.h"
 +#include "libavutil/rpi_sand_fns.h"
-+
-+#pragma GCC diagnostic push
-+// Many many redundant decls in the header files
-+#pragma GCC diagnostic ignored "-Wredundant-decls"
-+#include "interface/vmcs_host/vc_vchi_gpuserv.h"
-+#pragma GCC diagnostic pop
 +
 +// Trace time spent waiting for GPU (VPU/QPU) (1=Yes, 0=No)
 +#define RPI_TRACE_TIME_VPU_QPU_WAIT     0
@@ -37420,16 +37496,7 @@ index 0000000000..3dfc35fa5c
 +  short transMatrix2even[16*16*2];
 +};
 +
-+#define CFE_ENTS_PER_A 8
-+// If we have a sliced frame 2048 wide @ 64 per slice then there are 32 slices
-+// in a line & we want to flush luma + chroma + a couple of bits so ents ~ 70
-+// allow 128
-+#define CFE_ENT_COUNT  128
-+#define CFE_A_COUNT    (CFE_ENT_COUNT / CFE_ENTS_PER_A)
-+
 +struct rpi_cache_flush_env_s {
-+//    unsigned int n;
-+//    struct vcsm_user_clean_invalid_s a[CFE_A_COUNT];
 +  struct vcsm_user_clean_invalid2_s v;
 +};
 +
@@ -37777,23 +37844,18 @@ index 0000000000..3dfc35fa5c
 +//
 +// Cache flush functions
 +
-+#define CACHE_EL_MAX 16
++#define CACHE_EL_MAX ((sizeof(rpi_cache_buf_t) - sizeof (struct vcsm_user_clean_invalid2_s)) / sizeof (struct vcsm_user_clean_invalid2_block_s))
 +
-+rpi_cache_flush_env_t * rpi_cache_flush_init()
++rpi_cache_flush_env_t * rpi_cache_flush_init(rpi_cache_buf_t * const buf)
 +{
-+  rpi_cache_flush_env_t * const rfe = malloc(sizeof(rpi_cache_flush_env_t) +
-+            sizeof(struct vcsm_user_clean_invalid2_block_s) * CACHE_EL_MAX);
-+  if (rfe == NULL)
-+    return NULL;
-+
++  rpi_cache_flush_env_t * const rfe = (rpi_cache_flush_env_t *)buf;
 +  rfe->v.op_count = 0;
 +  return rfe;
 +}
 +
 +void rpi_cache_flush_abort(rpi_cache_flush_env_t * const rfe)
 +{
-+  if (rfe != NULL)
-+    free(rfe);
++  // Nothing needed
 +}
 +
 +int rpi_cache_flush_execute(rpi_cache_flush_env_t * const rfe)
@@ -37814,7 +37876,6 @@ index 0000000000..3dfc35fa5c
 +{
 +  int rc = rpi_cache_flush_execute(rfe);;
 +
-+  free(rfe);
 +  return rc;
 +}
 +
@@ -37944,7 +38005,8 @@ index 0000000000..3dfc35fa5c
 +// Call this to clean and invalidate a region of memory
 +void rpi_cache_flush_one_gm_ptr(const GPU_MEM_PTR_T *const p, const rpi_cache_flush_mode_t mode)
 +{
-+  rpi_cache_flush_env_t * rfe = rpi_cache_flush_init();
++  rpi_cache_buf_t cbuf;
++  rpi_cache_flush_env_t * rfe = rpi_cache_flush_init(&cbuf);
 +  rpi_cache_flush_add_gm_ptr(rfe, p, mode);
 +  rpi_cache_flush_finish(rfe);
 +}
@@ -38054,26 +38116,22 @@ index 0000000000..3dfc35fa5c
 +#define VPU_QPU_MASK_QPU  1
 +#define VPU_QPU_MASK_VPU  2
 +
-+#define VPU_QPU_JOB_MAX 4
-+struct vpu_qpu_job_env_s
-+{
-+  unsigned int n;
-+  unsigned int mask;
-+  struct gpu_job_s j[VPU_QPU_JOB_MAX];
-+};
-+
 +typedef struct vpu_qpu_job_env_s vpu_qpu_job_env_t;
 +
-+vpu_qpu_job_env_t * vpu_qpu_job_new(void)
++vpu_qpu_job_env_t * vpu_qpu_job_init(vpu_qpu_job_env_t * const buf)
 +{
-+  vpu_qpu_job_env_t * vqj = calloc(1, sizeof(vpu_qpu_job_env_t));
++//  vpu_qpu_job_env_t * vqj = calloc(1, sizeof(vpu_qpu_job_env_t));
++  vpu_qpu_job_env_t * vqj = buf;
++//  memset(vqj, 0, sizeof(*vqj));
++  vqj->n = 0;
++  vqj->mask = 0;
 +  return vqj;
 +}
 +
 +void vpu_qpu_job_delete(vpu_qpu_job_env_t * const vqj)
 +{
-+  memset(vqj, 0, sizeof(*vqj));
-+  free(vqj);
++//  memset(vqj, 0, sizeof(*vqj));
++//  free(vqj);
 +}
 +
 +static inline struct gpu_job_s * new_job(vpu_qpu_job_env_t * const vqj)
@@ -38091,6 +38149,8 @@ index 0000000000..3dfc35fa5c
 +    vqj->mask |= VPU_QPU_MASK_VPU;
 +
 +    j->command = EXECUTE_VPU;
++    j->callback.func = 0;
++    j->callback.cookie = NULL;
 +    // The bottom two bits of the execute address contain no-flush flags
 +    // b0 will flush the VPU I-cache if unset so we nearly always want that set
 +    // as we never reload code
@@ -38113,6 +38173,9 @@ index 0000000000..3dfc35fa5c
 +    vqj->mask |= VPU_QPU_MASK_QPU;
 +
 +    j->command = EXECUTE_QPU;
++    j->callback.func = 0;
++    j->callback.cookie = NULL;
++
 +    j->u.q.jobs = n;
 +#if RPI_TRACE_QPU_PROFILE_ALL
 +    j->u.q.noflush = QPU_FLAGS_NO_FLUSH_VPU | QPU_FLAGS_PROF_CLEAR_AND_ENABLE | QPU_FLAGS_PROF_OUTPUT_COUNTS;
@@ -38267,12 +38330,20 @@ index 0000000000..3dfc35fa5c
 +
 diff --git a/libavcodec/rpi_qpu.h b/libavcodec/rpi_qpu.h
 new file mode 100644
-index 0000000000..9389047f8e
+index 0000000000..1aac6babae
 --- /dev/null
 +++ b/libavcodec/rpi_qpu.h
-@@ -0,0 +1,208 @@
+@@ -0,0 +1,227 @@
 +#ifndef RPI_QPU_H
 +#define RPI_QPU_H
++
++#pragma GCC diagnostic push
++// Many many redundant decls in the header files
++#pragma GCC diagnostic ignored "-Wredundant-decls"
++#pragma GCC diagnostic ignored "-Wstrict-prototypes"
++#include "interface/vmcs_host/vc_vchi_gpuserv.h"
++#pragma GCC diagnostic pop
++
 +
 +#define RPI_ONE_BUF 1
 +
@@ -38399,7 +38470,9 @@ index 0000000000..9389047f8e
 +struct rpi_cache_flush_env_s;
 +typedef struct rpi_cache_flush_env_s rpi_cache_flush_env_t;
 +
-+rpi_cache_flush_env_t * rpi_cache_flush_init(void);
++typedef struct {uint32_t t[33];} rpi_cache_buf_t;
++
++rpi_cache_flush_env_t * rpi_cache_flush_init(rpi_cache_buf_t * const buf);
 +// Free env without flushing
 +void rpi_cache_flush_abort(rpi_cache_flush_env_t * const rfe);
 +// Do the accumulated flush & clear but do not free the env
@@ -38457,7 +38530,16 @@ index 0000000000..9389047f8e
 +struct vpu_qpu_job_env_s;
 +typedef struct vpu_qpu_job_env_s * vpu_qpu_job_h;
 +
-+vpu_qpu_job_h vpu_qpu_job_new(void);
++#define VPU_QPU_JOB_MAX 4
++struct vpu_qpu_job_env_s
++{
++  unsigned int n;
++  unsigned int mask;
++  struct gpu_job_s j[VPU_QPU_JOB_MAX];
++};
++typedef struct vpu_qpu_job_env_s vpu_qpu_job_env_t;
++
++vpu_qpu_job_h vpu_qpu_job_init(vpu_qpu_job_env_t * const buf);
 +void vpu_qpu_job_delete(const vpu_qpu_job_h vqj);
 +void vpu_qpu_job_add_vpu(const vpu_qpu_job_h vqj, const uint32_t vpu_code,
 +  const unsigned r0, const unsigned r1, const unsigned r2, const unsigned r3, const unsigned r4, const unsigned r5);

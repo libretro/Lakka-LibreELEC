@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="kodi"
-PKG_VERSION="f621a02"
-PKG_SHA256="ac4b2e5d5858ed2d07cd547dadae8394430da80bde39e5f191572b6e1f20df01"
+PKG_VERSION="f5871d9"
+PKG_SHA256="1762381765e5fcecdf4923ed4d02bacba079136b21782f8b3fb17170e423f0f1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
@@ -203,7 +203,7 @@ KODI_LIBDVD="$KODI_DVDCSS \
              -DLIBDVDREAD_URL=$SOURCES/libdvdread/libdvdread-$(get_pkg_version libdvdread).tar.gz"
 
 # Build Kodi using parallel LTO
-[ "$LTO_SUPPORT" = "yes" ] && PKG_KODI_USE_LTO="-DUSE_LTO=$CONCURRENCY_MAKE_LEVEL"
+[ "$LTO_SUPPORT" = "yes" -a "$DEBUG" != "yes" ] && PKG_KODI_USE_LTO="-DUSE_LTO=$CONCURRENCY_MAKE_LEVEL"
 
 PKG_CMAKE_OPTS_TARGET="-DNATIVEPREFIX=$TOOLCHAIN \
                        -DWITH_TEXTUREPACKER=$TOOLCHAIN/bin/TexturePacker \
