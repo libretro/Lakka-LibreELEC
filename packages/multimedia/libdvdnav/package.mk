@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libdvdnav"
-PKG_VERSION="43b5f81"
-PKG_SHA256="8e3f0563e16df898fe115e1723e3f78dbc953f6e9cf4f04568add215371d9ed2"
+PKG_VERSION="6501b70"
+PKG_SHA256="4004342489f21ce1d67ef98e95669dbd5c6d3dde1dcdf6ce97358155dc16f6f9"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/libdvdnav"
