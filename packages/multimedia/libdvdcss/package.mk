@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libdvdcss"
-PKG_VERSION="2f12236"
-PKG_SHA256="b6eb2d929ff56cb051152c32010afc5e7cf5fe8c5ae32dca412a2b46b6b57e34"
+PKG_VERSION="8f5dba3"
+PKG_SHA256="669868984d1cac32e85ea7e2e669b22b960354e3078073b9176d857844fedc3c"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/libdvdcss"
