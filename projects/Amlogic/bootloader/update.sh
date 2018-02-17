@@ -35,6 +35,8 @@ if [ -z "$BOOT_DISK" ]; then
   esac
 fi
 
+mount -o rw,remount $BOOT_ROOT
+
 for arg in $(cat /proc/cmdline); do
   case $arg in
     boot=*)
@@ -69,7 +71,6 @@ for arg in $(cat /proc/cmdline); do
             dd if="$UPDATE_DTB_SOURCE" of=/dev/dtb bs=256k status=none
             ;;
           /dev/mmc*|LABEL=*)
-            mount -o rw,remount $BOOT_ROOT
             cp -f "$UPDATE_DTB_SOURCE" "$BOOT_ROOT/dtb.img"
             ;;
         esac
@@ -80,7 +81,6 @@ for arg in $(cat /proc/cmdline); do
           dtb=$(basename $all_dtb)
           if [ -f $SYSTEM_ROOT/usr/share/bootloader/$dtb ]; then
             echo "Updating $dtb..."
-            mount -o rw,remount $BOOT_ROOT
             cp -p $SYSTEM_ROOT/usr/share/bootloader/$dtb $BOOT_ROOT
           fi
         fi
@@ -102,14 +102,12 @@ for arg in $(cat /proc/cmdline); do
 done
 
 if [ -d $BOOT_ROOT/device_trees ]; then
-  mount -o rw,remount $BOOT_ROOT
   rm $BOOT_ROOT/device_trees/*.dtb
   cp -p $SYSTEM_ROOT/usr/share/bootloader/*.dtb $BOOT_ROOT/device_trees/
 fi
 
 if [ -f $SYSTEM_ROOT/usr/share/bootloader/boot.ini ]; then
   echo "Updating boot.ini..."
-  mount -o rw,remount $BOOT_ROOT
   cp -p $SYSTEM_ROOT/usr/share/bootloader/boot.ini $BOOT_ROOT/boot.ini
   if [ -f $SYSTEM_ROOT/usr/share/bootloader/config.ini ]; then
     if [ ! -f $BOOT_ROOT/config.ini ]; then
@@ -121,7 +119,6 @@ fi
 
 if [ -f $SYSTEM_ROOT/usr/share/bootloader/boot-logo.bmp.gz ]; then
   echo "Updating boot logo..."
-  mount -o rw,remount $BOOT_ROOT
   cp -p $SYSTEM_ROOT/usr/share/bootloader/boot-logo.bmp.gz $BOOT_ROOT
 fi
 
@@ -130,3 +127,5 @@ if [ -f $SYSTEM_ROOT/usr/share/bootloader/u-boot -a ! -e /dev/system -a ! -e /de
   dd if=$SYSTEM_ROOT/usr/share/bootloader/u-boot of=$BOOT_DISK conv=fsync bs=1 count=112 status=none
   dd if=$SYSTEM_ROOT/usr/share/bootloader/u-boot of=$BOOT_DISK conv=fsync bs=512 skip=1 seek=1 status=none
 fi
+
+mount -o ro,remount $BOOT_ROOT
