@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="snes9x2002"
-PKG_VERSION="a6cf15d"
+PKG_VERSION="d8084b0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"
