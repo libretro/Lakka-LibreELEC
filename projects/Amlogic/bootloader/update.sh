@@ -35,10 +35,12 @@ if [ -z "$BOOT_DISK" ]; then
   esac
 fi
 
+mount -o rw,remount $BOOT_ROOT
+
 for arg in $(cat /proc/cmdline); do
   case $arg in
     boot=*)
-      echo "*** updating BOOT partition label ..."
+      echo "Updating BOOT partition label..."
       boot="${arg#*=}"
       case $boot in
         /dev/mmc*)
@@ -62,30 +64,30 @@ for arg in $(cat /proc/cmdline); do
       fi
 
       if [ -f "$UPDATE_DTB_SOURCE" ] ; then
-        echo "*** updating device tree from $UPDATE_DTB_SOURCE ..."
+        echo "Updating device tree from $UPDATE_DTB_SOURCE..."
         case $boot in
           /dev/system)
             dd if=/dev/zero of=/dev/dtb bs=256k count=1 status=none
             dd if="$UPDATE_DTB_SOURCE" of=/dev/dtb bs=256k status=none
             ;;
           /dev/mmc*|LABEL=*)
-            mount -o rw,remount $BOOT_ROOT
             cp -f "$UPDATE_DTB_SOURCE" "$BOOT_ROOT/dtb.img"
             ;;
         esac
       fi
 
-      for all_dtb in /flash/*.dtb /flash/DTB; do
-        dtb=$(basename $all_dtb)
-        if [ -f $SYSTEM_ROOT/usr/share/bootloader/$dtb ]; then
-          echo "*** updating Device Tree Blob: $dtb ..."
-          mount -o rw,remount $BOOT_ROOT
-          cp -p $SYSTEM_ROOT/usr/share/bootloader/$dtb $BOOT_ROOT
+      for all_dtb in /flash/*.dtb ; do
+        if [ -f $all_dtb ] ; then
+          dtb=$(basename $all_dtb)
+          if [ -f $SYSTEM_ROOT/usr/share/bootloader/$dtb ]; then
+            echo "Updating $dtb..."
+            cp -p $SYSTEM_ROOT/usr/share/bootloader/$dtb $BOOT_ROOT
+          fi
         fi
       done
       ;;
     disk=*)
-      echo "*** updating DISK partition label ..."
+      echo "Updating DISK partition label..."
       disk="${arg#*=}"
       case $disk in
         /dev/mmc*)
@@ -100,31 +102,30 @@ for arg in $(cat /proc/cmdline); do
 done
 
 if [ -d $BOOT_ROOT/device_trees ]; then
-  mount -o rw,remount $BOOT_ROOT
   rm $BOOT_ROOT/device_trees/*.dtb
   cp -p $SYSTEM_ROOT/usr/share/bootloader/*.dtb $BOOT_ROOT/device_trees/
 fi
 
 if [ -f $SYSTEM_ROOT/usr/share/bootloader/boot.ini ]; then
-  echo "*** updating boot.ini ..."
-  mount -o rw,remount $BOOT_ROOT
+  echo "Updating boot.ini..."
   cp -p $SYSTEM_ROOT/usr/share/bootloader/boot.ini $BOOT_ROOT/boot.ini
   if [ -f $SYSTEM_ROOT/usr/share/bootloader/config.ini ]; then
     if [ ! -f $BOOT_ROOT/config.ini ]; then
-      echo "*** creating config.ini ..."
+      echo "Creating config.ini..."
       cp -p $SYSTEM_ROOT/usr/share/bootloader/config.ini $BOOT_ROOT/config.ini
     fi
   fi
 fi
 
 if [ -f $SYSTEM_ROOT/usr/share/bootloader/boot-logo.bmp.gz ]; then
-  echo "*** updating boot logo ..."
-  mount -o rw,remount $BOOT_ROOT
+  echo "Updating boot logo..."
   cp -p $SYSTEM_ROOT/usr/share/bootloader/boot-logo.bmp.gz $BOOT_ROOT
 fi
 
 if [ -f $SYSTEM_ROOT/usr/share/bootloader/u-boot -a ! -e /dev/system -a ! -e /dev/boot ]; then
-  echo "*** updating u-boot on: $BOOT_DISK ..."
+  echo "Updating u-boot on: $BOOT_DISK..."
   dd if=$SYSTEM_ROOT/usr/share/bootloader/u-boot of=$BOOT_DISK conv=fsync bs=1 count=112 status=none
   dd if=$SYSTEM_ROOT/usr/share/bootloader/u-boot of=$BOOT_DISK conv=fsync bs=512 skip=1 seek=1 status=none
 fi
+
+mount -o ro,remount $BOOT_ROOT
