@@ -17,16 +17,16 @@
 ################################################################################
 
 PKG_NAME="tvheadend42"
-PKG_VERSION="7a8fa15"
-PKG_SHA256="317fbd5ac0167cb64021bcfbe1f31deb4edbafaf63e6ffc385c94662706e20a1"
-PKG_VERSION_NUMBER="4.2.5-27"
+PKG_VERSION="fc63a8a"
+PKG_SHA256="38c25e191733a0e0944ec3e32de2aab6a1cff9ddfc597fc328a73579f7c8bf41"
+PKG_VERSION_NUMBER="4.2.5-31"
 PKG_REV="114"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.tvheadend.org"
 PKG_URL="https://github.com/tvheadend/tvheadend/archive/$PKG_VERSION.tar.gz"
 PKG_SOURCE_DIR="tvheadend-${PKG_VERSION}*"
-PKG_DEPENDS_TARGET="toolchain avahi curl dvb-apps ffmpegx libdvbcsa libiconv openssl pngquant:host Python2:host tvh-dtv-scan-tables"
+PKG_DEPENDS_TARGET="toolchain avahi curl dvb-apps ffmpegx libdvbcsa libhdhomerun libiconv openssl pngquant:host Python2:host tvh-dtv-scan-tables"
 PKG_SECTION="service"
 PKG_SHORTDESC="Tvheadend: a TV streaming server for Linux"
 PKG_LONGDESC="Tvheadend ($PKG_VERSION_NUMBER): is a TV streaming server for Linux supporting DVB-S/S2, DVB-C, DVB-T/T2, IPTV, SAT>IP, ATSC and ISDB-T"
@@ -72,7 +72,7 @@ PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
                            --enable-dvbcsa \
                            --enable-dvben50221 \
                            --disable-dvbscan \
-                           --disable-hdhomerun_client \
+                           --enable-hdhomerun_client \
                            --disable-hdhomerun_static \
                            --enable-epoll \
                            --enable-inotify \
@@ -100,6 +100,9 @@ pre_configure_target() {
   PKG_CONFIG_PATH="$(get_build_dir ffmpegx)/.INSTALL_PKG/usr/local/lib/pkgconfig"
   CFLAGS="$CFLAGS -I$(get_build_dir ffmpegx)/.INSTALL_PKG/usr/local/include"
   LDFLAGS="$LDFLAGS -L$(get_build_dir ffmpegx)/.INSTALL_PKG/usr/local/lib"
+
+# pass libhdhomerun to build
+  CFLAGS="$CFLAGS -I$(get_build_dir libhdhomerun)"
 
   export CROSS_COMPILE="$TARGET_PREFIX"
   export CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/iconv -L$SYSROOT_PREFIX/usr/lib/iconv"
