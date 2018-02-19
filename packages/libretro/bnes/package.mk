@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="bnes"
-PKG_VERSION="b3b740f"
+PKG_VERSION="cbdf063"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
