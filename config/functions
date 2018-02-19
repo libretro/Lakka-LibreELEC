@@ -271,6 +271,22 @@ listcontains() {
   fi
 }
 
+# remove item(s) from list.
+# looping makes it greedy (eg. removefromlist "abc def ghi" "(abc|def)" will work).
+listremoveitem() {
+  local data="${1}" odata tmp_array
+  if [ -n "$1" -a -n "$2" ]; then
+    while [ : ]; do
+      odata="${data}"
+      data="$(echo "${data}" | sed -E "s (^|[[:space:]])${2}($|[[:space:]]) \  g")"
+      [ "${odata}" = "${data}" ] && break
+    done
+  fi
+  # Use array word splitting to squash spaces
+  tmp_array=(${data})
+  echo "${tmp_array[@]}"
+}
+
 target_has_feature() {
   listcontains "$TARGET_FEATURES" "$1"
 }
@@ -331,6 +347,79 @@ find_file_path() {
 
 find_dir_path() {
   find_path -d "$1" "$2"
+}
+
+set_debug_depends() {
+  local pkg dep_pkg map tmp_array mpkg bpkg kvpair
+
+  _DEBUG_DEPENDS_LIST=""
+  _DEBUG_PACKAGE_LIST=""
+  if [ "${DEBUG:-no}" != "no" ]; then
+    # Convert DEBUG_GROUPS into array of groups, adding "all" if required
+    declare -A debug_group_map
+    for kvpair in ${DEBUG_GROUPS}; do
+      debug_group_map+=(["${kvpair%=*}"]="${kvpair#*=}")
+    done
+    [ -z "${debug_group_map["all"]}" ] && debug_group_map+=(["all"]="all")
+
+    # Expand $DEBUG into $_DEBUG_PACKAGE_LIST
+    for pkg in ${DEBUG//,/ }; do
+      [ "${pkg}" = "yes" ] && pkg="${DEBUG_GROUP_YES:-all}"
+      map="${debug_group_map["${pkg}"]}"
+      [ -z "${map}" ] && map="${pkg}"
+      for mpkg in ${map//,/ }; do
+        [[ ${mpkg} =~ ^[!-] ]] && bpkg="${mpkg:1}" || bpkg="${mpkg}"
+        # Remove existing instances of this package
+        listcontains "${_DEBUG_PACKAGE_LIST}" "[!-]?${bpkg}" && _DEBUG_PACKAGE_LIST="$(listremoveitem "${_DEBUG_PACKAGE_LIST}" "[!-]?${bpkg}")"
+        # Add package
+        _DEBUG_PACKAGE_LIST+=" ${mpkg}"
+      done
+    done
+    # Use array word splitting to squash spaces
+    tmp_array=(${_DEBUG_PACKAGE_LIST})
+    _DEBUG_PACKAGE_LIST="${tmp_array[@]}"
+
+    # Determine dependencies for each package
+    for pkg in ${_DEBUG_PACKAGE_LIST}; do
+      if [ "${pkg}" != "all" ] && [[ ! ${pkg} =~ ^[!-] ]]; then
+        ! listcontains "${_DEBUG_DEPENDS_LIST}" "${pkg}" && _DEBUG_DEPENDS_LIST+=" ${pkg}"
+        for dep_pkg in $(get_pkg_variable ${pkg} PKG_DEPENDS_TARGET); do
+          [ "${dep_pkg}" = "toolchain" ] && continue
+          [[ ${dep_pkg} =~ ^.*:host$ ]] && continue
+          ! listcontains "${_DEBUG_DEPENDS_LIST}" "${dep_pkg}" && _DEBUG_DEPENDS_LIST+=" ${dep_pkg}"
+        done
+      fi
+    done
+    tmp_array=(${_DEBUG_DEPENDS_LIST})
+    _DEBUG_DEPENDS_LIST="${tmp_array[@]}"
+  fi
+  export _DEBUG_DEPENDS_LIST _DEBUG_PACKAGE_LIST
+}
+
+# Return 0 if building with debug is enabled for the current package (or all packages).
+# Examples: DEBUG=yes  DEBUG=all  DEBUG='all,!linux'  DEBUG=kodi  DEBUG=kodi,samba
+build_with_debug() {
+  if [ "${DEBUG:-no}" != "no" -a -n "${PKG_NAME}" -a -n "${_DEBUG_DEPENDS_LIST+x}" ]; then
+    # Return 1 if this package is not to be built with debug
+    listcontains "${_DEBUG_PACKAGE_LIST}" "[!-]${PKG_NAME}" && return 1
+
+    # Build all packages with debug
+    listcontains "${_DEBUG_PACKAGE_LIST}" "all" && return 0
+
+    # Debugging is enabled for at least one package, so enable debug in the "debug" virtual package
+    [ "${PKG_NAME}" = "debug" ] && return 0
+
+    # Build addons with debug if we're building the mediacenter with debug
+    [ "${PKG_IS_ADDON}" == "yes" ] && listcontains "${_DEBUG_DEPENDS_LIST}" "${MEDIACENTER}" && return 0
+
+    # Build kernel packages with debug if we're building the kernel with debug
+    [ "${PKG_IS_KERNEL_PKG}" == "yes" ] && listcontains "${_DEBUG_DEPENDS_LIST}" "linux" && return 0
+
+    # Build this package with debug if it's a resolved dependency
+    listcontains "${_DEBUG_DEPENDS_LIST}" "${PKG_NAME}" && return 0
+  fi
+
+  return 1
 }
 
 install_binary_addon() {
