@@ -250,7 +250,38 @@ get_pkg_version() {
 }
 
 get_pkg_directory() {
-  get_pkg_variable "$1" PKG_DIR
+  local _PKG_ROOT_NAME=${1%:*} _ALL_DIRS _FOUND=0 _ANCHOR="@?+?@" _PKG_DIR _DIR
+
+  # Check for any available local package in preference to a global package
+  for _DIR in $(echo -e "${_CACHE_PACKAGE_LOCAL}" | grep -F "/${_PKG_ROOT_NAME}${_ANCHOR}"); do
+    _DIR="${_DIR%${_ANCHOR}}"
+    # found first, set $_PKG_DIR
+    _PKG_DIR="$_DIR"
+    # keep track of dirs with package.mk for detecting multiple folders
+    _ALL_DIRS+="${_DIR}\n"
+    _FOUND=$((_FOUND+1))
+  done
+
+  # If there's no local package available, use the global package
+  if [ $_FOUND -eq 0 ]; then
+    for _DIR in $(echo -e "${_CACHE_PACKAGE_GLOBAL}" | grep -F "/${_PKG_ROOT_NAME}${_ANCHOR}"); do
+      _DIR="${_DIR%${_ANCHOR}}"
+      # found first, set $_PKG_DIR
+      _PKG_DIR="$_DIR"
+      # keep track of dirs with package.mk for detecting multiple folders
+      _ALL_DIRS+="${_DIR}\n"
+      _FOUND=$((_FOUND+1))
+    done
+  fi
+
+  # _FOUND multiple packages? fail
+  if [ $_FOUND -gt 1 ]; then
+    echo "Error - multiple package folders for package ${_PKG_ROOT_NAME}:" >&2
+    echo -e "$_ALL_DIRS" >&2
+    exit 1
+  fi
+
+  echo "$_PKG_DIR"
 }
 
 # get variable ($2) for package ($1)
