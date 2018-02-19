@@ -47,7 +47,7 @@ else
   FFMPEG_VDPAU="--disable-vdpau"
 fi
 
-if [ "$DEBUG" = "yes" ]; then
+if build_with_debug; then
   FFMPEG_DEBUG="--enable-debug --disable-stripping"
 else
   FFMPEG_DEBUG="--disable-debug --enable-stripping"
