@@ -74,13 +74,14 @@ fi
 # Apply the following config change to reduce chance of duplicate hashes
 git config --local core.abbrev 40 
 
-git fetch --all --depth=${DEPTH}
+git fetch --all --depth=${DEPTH} --no-tags
 git reset --hard origin/rpi-${BRANCH}.y${REBASE}
 
 if [ -n "${BASEREV}" ]; then
   :
 elif [ -z "${KERNEL}" ]; then
   BASEREV="linux-stable/linux-${BRANCH}.y"
+  KERNEL="$(git log --grep "Linux ${BRANCH}" --pretty=oneline | head -1 | awk '{ print $NF }')"
 else
   BASEREV="$(git log --grep "Linux ${KERNEL}" --pretty=oneline | head -1)"
   [ -z "${BASEREV}" ] && BASEREV="$(git log --grep "Linux v${KERNEL}" --pretty=oneline | head -1)"
@@ -93,7 +94,7 @@ else
   BASEREV="${BASEREV%% *}"
 fi
 
-GIT_SEQUENCE_EDITOR=${BIN}/rpi-linux-rebase.sh git rebase -i ${BASEREV}
+GIT_SEQUENCE_EDITOR=${BIN}/rpi-linux-rebase.sh git rebase -Xours -i ${BASEREV}
 git format-patch --no-signature --stdout ${BASEREV} > /tmp/linux-01-RPi_support.patch
 
 cd .. && rm -fr raspberrypi-linux
@@ -103,6 +104,7 @@ cat /tmp/dropped
 
 echo
 echo "Dropped patches: /tmp/dropped"
+
 echo "New patch file : /tmp/linux-01-RPi_support.patch"
 
 echo
