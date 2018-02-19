@@ -29,7 +29,7 @@ PKG_SHORTDESC="bluez: Bluetooth Tools and System Daemons for Linux."
 PKG_LONGDESC="Bluetooth Tools and System Daemons for Linux."
 PKG_TOOLCHAIN="autotools"
 
-if [ "$DEBUG" = "yes" ]; then
+if build_with_debug; then
   BLUEZ_CONFIG="--enable-debug"
 else
   BLUEZ_CONFIG="--disable-debug"
