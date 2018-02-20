@@ -73,6 +73,10 @@ make_target() {
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/share/bootloader
-  cp -a $PKG_BUILD/*.dtb $INSTALL/usr/share/bootloader
+  case "$DEVICE" in
+    S905|S912)
+      mkdir -p $INSTALL/usr/share/bootloader/device_trees
+      cp -a $PKG_BUILD/*.dtb $INSTALL/usr/share/bootloader/device_trees
+    ;;
+  esac
 }
