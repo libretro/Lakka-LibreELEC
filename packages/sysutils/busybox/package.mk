@@ -40,7 +40,6 @@ PKG_MAKE_OPTS_INIT="ARCH=$TARGET_ARCH \
                     HOSTCC=$HOST_CC \
                     CROSS_COMPILE=$TARGET_PREFIX \
                     KBUILD_VERBOSE=1 \
-                    MAKEFLAGS="-j1" \
                     install"
 
 # nano text editor
@@ -52,6 +51,9 @@ PKG_MAKE_OPTS_INIT="ARCH=$TARGET_ARCH \
 if [ "$NFS_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET rpcbind"
 fi
+
+# dont build parallel
+MAKEFLAGS=-j1
 
 pre_build_target() {
   mkdir -p $PKG_BUILD/.$TARGET_NAME
