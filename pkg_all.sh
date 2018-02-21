@@ -1,5 +1,4 @@
 #!/bin/bash
-#set -x
 usage() {
 	echo ""
 	echo "$0 <build|clean> <package>"
@@ -37,9 +36,9 @@ for f in $(ls -d build.Lakka-*/) ; do
 	if [ -d $f ] ; then
 		i+=1
 		declare "skip_$i=no"
-		declare "distro_$i=$(echo $f | sed -e 's/build\.\(.*\)-\(.*\)-2.1\(.*\)/\1/')"
-		declare "arch_$i=$(echo $f | sed -e 's/build\.\(.*\)-\(.*\)\.\(.*\)-2.1\(.*\)/\3/')"
-		target=$(echo $f | sed -e 's/build\.\(.*\)-\(.*\)\.\(.*\)-2.1\(.*\)/\2/')
+		declare "distro_$i=$(echo $f | sed -e 's/build\.\(.*\)-\(.*\)-[0-9]\(.*\)/\1/')"
+		declare "arch_$i=$(echo $f | sed -e 's/build\.\(.*\)-\(.*\)\.\(.*\)-[0-9]\(.*\)/\3/')"
+		target=$(echo $f | sed -e 's/build\.\(.*\)-\(.*\)\.\(.*\)-[0-9]\(.*\)/\2/')
 		if [ -d projects/$target ] ; then
 			declare "project_$i=$target"
 			declare "device_$1="
