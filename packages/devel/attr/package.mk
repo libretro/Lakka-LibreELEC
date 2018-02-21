@@ -34,7 +34,7 @@ PKG_CONFIGURE_OPTS_TARGET="OPTIMIZER= \
                            INSTALL_USER=root INSTALL_GROUP=root \
                            --disable-shared --enable-static"
 
-if [ "$DEBUG" = yes ]; then
+if build_with_debug; then
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET DEBUG=-DDEBUG"
 else
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET DEBUG=-DNDEBUG"

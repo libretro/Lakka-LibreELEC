@@ -52,48 +52,20 @@ SED="sed -i"
 
 unset LD_LIBRARY_PATH
 
+# Don't use BUILD_WITH_DEBUG in "gloabl" package.mk - instead, call the function
+# build_with_debug() directly as the function depends on various package.mk
+# variables that will be in the process of being configured. Once package.mk is
+# fully sourced we can set this variable and use it in situations where we know the
+# package has already been sourced.
+unset BUILD_WITH_DEBUG
+
 # If the package caches are unset, then populate them
 init_package_cache
 
 # set package metadata
 reset_pkg_vars "$1"
 
-if [ -n "$1" ]; then
-  _PKG_ROOT_NAME=${1%:*}
-  _ALL_DIRS=""
-  _FOUND=0
-  _ANCHOR="@?+?@"
-  PKG_DIR=""
-
-  # Check for any available local package in preference to a global package
-  for DIR in $(echo -e "${_CACHE_PACKAGE_LOCAL}" | grep -F "/${_PKG_ROOT_NAME}${_ANCHOR}"); do
-    DIR="${DIR%${_ANCHOR}}"
-    # found first, set $PKG_DIR
-    PKG_DIR="$DIR"
-    # keep track of dirs with package.mk for detecting multiple folders
-    _ALL_DIRS+="${DIR}\n"
-    _FOUND=$((_FOUND+1))
-  done
-
-  # If there's no local package available, use the global package
-  if [ $_FOUND -eq 0 ]; then
-    for DIR in $(echo -e "${_CACHE_PACKAGE_GLOBAL}" | grep -F "/${_PKG_ROOT_NAME}${_ANCHOR}"); do
-      DIR="${DIR%${_ANCHOR}}"
-      # found first, set $PKG_DIR
-      PKG_DIR="$DIR"
-      # keep track of dirs with package.mk for detecting multiple folders
-      _ALL_DIRS+="${DIR}\n"
-      _FOUND=$((_FOUND+1))
-    done
-  fi
-
-  # _FOUND multiple packages? fail
-  if [ $_FOUND -gt 1 ]; then
-    echo "Error - multiple package folders:"
-    echo -e "$_ALL_DIRS"
-    exit 1
-  fi
-fi
+[ -n "$1" ] && PKG_DIR="$(get_pkg_directory $1)"
 
 if [ -n "$PKG_DIR" -a -r $PKG_DIR/package.mk ]; then
   unset -f configure_package
@@ -140,6 +112,8 @@ if [ -n "$PKG_URL" -a -z "$PKG_SOURCE_NAME" ]; then
 fi
 
 PKG_BUILD="$BUILD/${PKG_NAME}-${PKG_VERSION}"
+
+build_with_debug && BUILD_WITH_DEBUG="yes" || BUILD_WITH_DEBUG="no"
 
 XORG_PATH_DRI=/usr/lib/dri
 XORG_PATH_XKB=/usr/share/X11/xkb

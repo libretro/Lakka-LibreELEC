@@ -38,6 +38,6 @@ if [ "$VAAPI_SUPPORT" = "yes" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libva-utils"
 fi
 
-if [ "$DEBUG" = "yes" -a "$VALGRIND" = "yes" ]; then
+if build_with_debug && [ "$VALGRIND" = "yes" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET valgrind"
 fi
