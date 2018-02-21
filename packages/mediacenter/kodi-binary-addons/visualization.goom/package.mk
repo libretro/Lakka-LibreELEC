@@ -28,6 +28,7 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION=""
 PKG_SHORTDESC="visualization.goom"
 PKG_LONGDESC="visualization.goom"
+PKG_TOOLCHAIN="cmake-make"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="xbmc.player.musicviz"
