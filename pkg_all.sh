@@ -26,7 +26,6 @@ case $1 in
 esac
 
 package=$2
-distro="Lakka"
 declare -i failed=0
 failed_targets=""
 skipped_folders=""
