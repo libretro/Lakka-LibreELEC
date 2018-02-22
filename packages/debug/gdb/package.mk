@@ -52,6 +52,10 @@ PKG_CONFIGURE_OPTS_TARGET="bash_cv_have_mbstate_t=set \
                            --enable-libssp \
                            --disable-werror"
 
+makeinstall_target() {
+  make DESTDIR=$INSTALL install
+}
+
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/share/gdb/python
 }
