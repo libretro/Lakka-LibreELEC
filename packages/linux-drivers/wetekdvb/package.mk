@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="wetekdvb"
-PKG_VERSION="20171219"
-PKG_SHA256="973ae6c3997a24904d36aa2b2fc9ff92f2ff13339d0e52210f78a6307932c917"
+PKG_VERSION="20180222"
+PKG_SHA256="9deb42ede05082279da971edf1ec0133c0f5da6edcae9d69c04f022fc91c7d6c"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.wetek.com/"
@@ -32,12 +32,12 @@ PKG_IS_KERNEL_PKG="yes"
 PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
-  mkdir -p $INSTALL/$(get_full_module_dir)/$PKG_NAME
-  if [ "$DEVICE" = "WeTek_Play_2" ]; then
-    cp driver/wetekdvb_play2.ko $INSTALL/$(get_full_module_dir)/$PKG_NAME/wetekdvb.ko
-  else
-    cp driver/wetekdvb.ko $INSTALL/$(get_full_module_dir)/$PKG_NAME
-  fi
+  device=${DEVICE:-$PROJECT}
+  for overlay_dir in driver/$device/*/; do
+    overlay_dir=`basename $overlay_dir`
+    mkdir -p $INSTALL/$(get_full_module_dir $overlay_dir)/$PKG_NAME
+    cp driver/$device/$overlay_dir/wetekdvb.ko $INSTALL/$(get_full_module_dir $overlay_dir)/$PKG_NAME
+  done
 
   mkdir -p $INSTALL/$(get_full_firmware_dir)
     cp firmware/* $INSTALL/$(get_full_firmware_dir)
