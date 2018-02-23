@@ -51,7 +51,7 @@ make_target() {
     cp Makefile.android Makefile
     sed -i 's,PLATFORMS =,PLATFORMS = '"$PLATFORM"',g' Makefile
     make module SSV_ARCH="$TARGET_KERNEL_ARCH" \
-      SSV_CROSS="$TARGET_PREFIX" \
+      SSV_CROSS="$TARGET_KERNEL_PREFIX" \
       SSV_KERNEL_PATH="$(kernel_path)"
 }
 

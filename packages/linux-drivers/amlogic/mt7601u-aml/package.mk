@@ -39,7 +39,7 @@ pre_make_target() {
 make_target() {
   make -C $(kernel_path) M=$PKG_BUILD \
     ARCH=$TARGET_KERNEL_ARCH \
-    CROSS_COMPILE=$TARGET_PREFIX
+    CROSS_COMPILE=$TARGET_KERNEL_PREFIX
 }
 
 makeinstall_target() {
