@@ -17,9 +17,9 @@
 ################################################################################
 
 PKG_NAME="game.libretro.mrboom"
-PKG_VERSION="62ec3c9"
-PKG_SHA256="16b4fb81ad9b38ee5fdc8b303a4eb960e149fb77de02ddb0d14770458182dc3c"
-PKG_REV="104"
+PKG_VERSION="076c7ab"
+PKG_SHA256="5ddcc6f131177d4413ced1f1786ee231738241569f36398ebedec3775b4150a5"
+PKG_REV="105"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.mrboom"

@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-pcsx-rearmed"
-PKG_VERSION="ec665d1"
-PKG_SHA256="57f345feba92b79ccc42cdc6f0e2dfc41d79b10e0101c1224c6ebfd0b77c283c"
+PKG_VERSION="ea4f438"
+PKG_SHA256="5701f95baa8af35c2bd6cae85652c91a91ec340a1d7509efd25ac1d8913d9b74"
 PKG_ARCH="arm"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/pcsx_rearmed"

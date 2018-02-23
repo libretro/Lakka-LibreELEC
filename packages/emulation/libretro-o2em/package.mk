@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-o2em"
-PKG_VERSION="c3dbcfa"
-PKG_SHA256="6fc616041c228d251c2d5c67cfbac78c123e28e9937e1ee89a3c31770560c968"
+PKG_VERSION="84586bb"
+PKG_SHA256="4e48d0a2b1b483646105583059eba0c87d60e76d1dff41084f7335d5fc4ba88b"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/libretro-o2em"

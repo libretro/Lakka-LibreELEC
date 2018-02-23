@@ -17,9 +17,9 @@
 ################################################################################
 
 PKG_NAME="game.libretro.virtualjaguar"
-PKG_VERSION="01d7278"
-PKG_SHA256="f4bc084822ae32696945288d22c7a382e548729fd9e7be99c2e2105b2e2bfb98"
-PKG_REV="104"
+PKG_VERSION="f296035"
+PKG_SHA256="4ba0b702bcfc8adc03f51408c13f55f27ed17e673a9a4f7dc2f60e1a29ecb329"
+PKG_REV="105"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.virtualjaguar"

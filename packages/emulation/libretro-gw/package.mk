@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-gw"
-PKG_VERSION="8f054a1"
-PKG_SHA256="15aea9d03e68600c739faa91cc0b7270290983cc6afc5d86e17ae38adf5abdde"
+PKG_VERSION="9962b03"
+PKG_SHA256="fc10aaa0caf3e44e3bc73388bb014618e1829a0edd6979cc4181776b3e9e770f"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/gw-libretro"

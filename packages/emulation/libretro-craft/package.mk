@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-craft"
-PKG_VERSION="7dc449e"
-PKG_SHA256="595380372530bd8b1b5116d62a25c2aa546d226887944d1f56bfeb311e6b9f08"
+PKG_VERSION="7421f79"
+PKG_SHA256="bea0743bddd8e1d91584a89ff4a6bbca4d9e54547181f833403569321b3ab319"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/Craft"

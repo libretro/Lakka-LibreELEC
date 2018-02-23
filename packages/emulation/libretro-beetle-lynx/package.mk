@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-beetle-lynx"
-PKG_VERSION="bed327e"
-PKG_SHA256="4c0c2f4c13dc602b6812e26924b168e9814f8d4b865652a1758b3b459766135c"
+PKG_VERSION="4e9a4f2"
+PKG_SHA256="420397ab0bf29cc9405d5361b0ca2346ae81ec4365c4df8934d2cdd550c8d545"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-lynx-libretro"

@@ -17,9 +17,9 @@
 ################################################################################
 
 PKG_NAME="game.libretro.prosystem"
-PKG_VERSION="68e7822"
-PKG_SHA256="4f772018175042b8a70e138a013e4ae203da6f76678d9a72d3619b9a90a62b53"
-PKG_REV="104"
+PKG_VERSION="7a22855"
+PKG_SHA256="e0b21769eb80bc35b208b4a3812cbefd7127d6198525a304708faf6cc1342801"
+PKG_REV="105"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.prosystem"

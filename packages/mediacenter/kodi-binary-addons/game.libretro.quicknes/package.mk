@@ -17,9 +17,9 @@
 ################################################################################
 
 PKG_NAME="game.libretro.quicknes"
-PKG_VERSION="45901f0"
-PKG_SHA256="fc583961e850c007cad4d71f96a559b8970be33477f46582f292a30cf96bfff2"
-PKG_REV="104"
+PKG_VERSION="bec9b79"
+PKG_SHA256="f52d21f1b207afd52c9f68c59bb15207c8c06940cbf26f3955c901c977e7e59b"
+PKG_REV="105"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.quicknes"
