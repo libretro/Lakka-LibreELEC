@@ -27,9 +27,6 @@ PKG_DEPENDS_TARGET="toolchain util-macros xf86vidmodeproto libX11 libXext"
 PKG_SECTION="x11/lib"
 PKG_SHORTDESC="libxxf86vm: Extension library for the XFree86-VidMode X extension"
 PKG_LONGDESC="The libxxf86vm provides an interface to the server extension XFree86-VidModeExtension which allows the video modes to be queried and adjusted dynamically and mode switching to be controlled."
+PKG_BUILD_FLAGS="+pic"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --enable-malloc0returnsnull"
-
-pre_configure_target() {
-  CFLAGS="$CFLAGS -fPIC -DPIC"
-}

@@ -28,9 +28,9 @@ PKG_SECTION="python/system"
 PKG_SHORTDESC="simplejson: a simple, fast, complete, correct and extensible JSON <http://json.org> encoder and decoder for Python 2.5+."
 PKG_LONGDESC="simplejson is a simple, fast, complete, correct and extensible JSON <http://json.org> encoder and decoder for Python 2.5+. It is pure Python code with no dependencies, but includes an optional C extension for a serious speed boost."
 PKG_TOOLCHAIN="manual"
+PKG_BUILD_FLAGS="-lto"
 
 pre_make_target() {
-  strip_lto
   export PYTHONXCPREFIX="$SYSROOT_PREFIX/usr"
 }
 

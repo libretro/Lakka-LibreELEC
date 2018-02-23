@@ -27,16 +27,13 @@ PKG_DEPENDS_TARGET="toolchain libusb"
 PKG_SECTION="devel"
 PKG_SHORTDESC="libFTDI is an open source library to talk to FTDI chips"
 PKG_LONGDESC="libFTDI is an open source library to talk to FTDI chips"
+PKG_BUILD_FLAGS="+pic"
 
 PKG_CMAKE_OPTS_TARGET="-DSTATICLIBS=ON \
                        -DDOCUMENTATION=FALSE \
                        -DEXAMPLES=FALSE \
                        -DFTDIPP=FALSE \
                        -DPYTHON_BINDINGS=FALSE"
-
-pre_configure_target() {
-  CFLAGS="$CFLAGS -fPIC -DPIC"
-}
 
 makeinstall_target() {
   mkdir -p $SYSROOT_PREFIX/usr/include/libftdi1

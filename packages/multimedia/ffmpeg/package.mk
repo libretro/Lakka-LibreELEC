@@ -29,6 +29,7 @@ PKG_DEPENDS_TARGET="toolchain yasm:host zlib bzip2 openssl speex"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="FFmpeg is a complete, cross-platform solution to record, convert and stream audio and video."
 PKG_LONGDESC="FFmpeg is a complete, cross-platform solution to record, convert and stream audio and video."
+PKG_BUILD_FLAGS="-gold -lto"
 
 # Dependencies
 get_graphicdrivers
@@ -82,12 +83,6 @@ fi
 pre_configure_target() {
   cd $PKG_BUILD
   rm -rf .$TARGET_NAME
-
-# ffmpeg fails building for x86_64 with LTO support
-  strip_lto
-
-# ffmpeg fails running with GOLD support
-  strip_gold
 
   if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
     CFLAGS="-I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux $CFLAGS"

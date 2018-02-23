@@ -27,9 +27,6 @@ PKG_DEPENDS_TARGET="toolchain util-macros xproto"
 PKG_SECTION="x11/lib"
 PKG_SHORTDESC="libXau: X authorization file management libary"
 PKG_LONGDESC="X authorization file management libary"
+PKG_BUILD_FLAGS="+pic"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --enable-xthreads"
-
-pre_configure_target() {
-  CFLAGS="$CFLAGS -fPIC -DPIC"
-}

@@ -27,9 +27,10 @@ PKG_DEPENDS_HOST="e2fsprogs:host"
 PKG_SECTION="tools"
 PKG_SHORTDESC="populatefs: Tool for replacing genext2fs when creating ext4 images"
 PKG_LONGDESC="populatefs: Tool for replacing genext2fs when creating ext4 images"
+PKG_BUILD_FLAGS="+pic:host"
 
 make_host() {
-  make EXTRA_LIBS="-lcom_err -lpthread" CFLAGS="$CFLAGS -fPIC"
+  make EXTRA_LIBS="-lcom_err -lpthread"
 }
 
 makeinstall_host() {

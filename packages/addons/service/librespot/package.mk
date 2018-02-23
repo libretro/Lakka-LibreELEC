@@ -30,6 +30,7 @@ PKG_SECTION="service"
 PKG_SHORTDESC="Librespot: play Spotify through LibreELEC using a Spotify app as a remote"
 PKG_LONGDESC="Librespot ($PKG_VERSION) plays Spotify through LibreELEC using the open source librespot library using a Spotify app as a remote."
 PKG_TOOLCHAIN="manual"
+PKG_BUILD_FLAGS="-lto"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Librespot"
@@ -39,7 +40,6 @@ PKG_MAINTAINER="Anton Voyl (awiouy)"
 configure_target() {
   . "$TOOLCHAIN/.cargo/env"
   export PKG_CONFIG_ALLOW_CROSS=0
-  strip_lto
 }
 
 make_target() {

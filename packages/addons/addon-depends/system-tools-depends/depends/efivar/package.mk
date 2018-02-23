@@ -29,13 +29,13 @@ PKG_DEPENDS_TARGET="toolchain efivar:host"
 PKG_SECTION="tools"
 PKG_SHORTDESC="evivar: maniulate EFI Variables"
 PKG_LONGDESC="Tools and library to manipulate EFI variables."
+PKG_BUILD_FLAGS="-lto"
 
 make_host() {
   make -C src/ makeguids
 }
 
 make_target() {
-  strip_lto
   make -C src/ libefivar.a efivar-guids.h efivar.h
 }
 

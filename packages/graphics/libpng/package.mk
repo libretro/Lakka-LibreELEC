@@ -29,6 +29,7 @@ PKG_SECTION="graphics"
 PKG_SHORTDESC="libpng: Portable Network Graphics (PNG) Reference Library"
 PKG_LONGDESC="PNG (Portable Network Graphics) is an extensible file format for the lossless, portable, well-compressed storage of raster images. PNG provides a patent-free replacement for GIF and can also replace many common uses of TIFF. Indexed-color, grayscale, and truecolor images are supported, plus an optional alpha channel. Sample depths range from 1 to 16 bits."
 PKG_TOOLCHAIN="configure"
+PKG_BUILD_FLAGS="+pic +pic:host"
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_lib_z_zlibVersion=yes \
                            --enable-static \
@@ -37,12 +38,10 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_lib_z_zlibVersion=yes \
 PKG_CONFIGURE_OPTS_HOST="--enable-static --disable-shared"
 
 pre_configure_host() {
-  export CFLAGS="$CFLAGS -fPIC -DPIC"
   export CPPFLAGS="$CPPFLAGS -I$TOOLCHAIN/include"
 }
 
 pre_configure_target() {
-  export CFLAGS="$CFLAGS -fPIC -DPIC"
   export CPPFLAGS="$CPPFLAGS -I$SYSROOT_PREFIX/usr/include"
 }
 

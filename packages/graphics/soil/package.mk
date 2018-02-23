@@ -27,10 +27,10 @@ PKG_DEPENDS_TARGET="toolchain mesa"
 PKG_SECTION="graphics"
 PKG_SHORTDESC="A tiny C lib primarily for loading textures into OpenGL"
 PKG_LONGDESC="A tiny C lib primarily for loading textures into OpenGL"
+PKG_BUILD_FLAGS="+pic"
 
 pre_make_target() {
   sed "s/1.07-20071110/$PKG_VERSION/" -i Makefile
-  export CFLAGS="$CFLAGS -fPIC"
 }
 
 pre_makeinstall_target() {

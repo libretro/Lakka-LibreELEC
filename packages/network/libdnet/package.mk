@@ -27,6 +27,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="network"
 PKG_SHORTDESC="A simplified, portable interface to several low-level networking routines"
 PKG_LONGDESC="A simplified, portable interface to several low-level networking routines"
+PKG_BUILD_FLAGS="+pic"
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_strlcat=no \
                            ac_cv_func_strlcpy=no \
@@ -35,7 +36,6 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_strlcat=no \
                            --without-python"
 
 pre_configure_target() {
-  CFLAGS="$CFLAGS -fPIC"
   sed "s|@prefix@|$SYSROOT_PREFIX/usr|g" -i $PKG_BUILD/dnet-config.in
 }
 

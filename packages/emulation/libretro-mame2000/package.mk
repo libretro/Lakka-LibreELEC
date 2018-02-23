@@ -28,14 +28,11 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="2000 version of MAME (0.37b5) for libretro"
 PKG_LONGDESC="2000 version of MAME (0.37b5) for libretro"
+PKG_BUILD_FLAGS="-lto"
 
 PKG_LIBNAME="mame2000_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"
 PKG_LIBVAR="MAME2000_LIB"
-
-configure_target() {
-  strip_lto
-}
 
 make_target() {
   if [ "$TARGET_ARCH" = "arm" ]; then

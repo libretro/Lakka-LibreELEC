@@ -28,10 +28,10 @@ PKG_SECTION="tools"
 PKG_SHORTDESC="udpxy is a UDP-to-HTTP multicast traffic relay daemon"
 PKG_LONGDESC="udpxy is a UDP-to-HTTP multicast traffic relay daemon"
 PKG_DISCLAIMER="this is an unofficial addon. please don't ask for support in openelec forum / irc channel"
+# fails to build with gcc 4.9 + lto
+PKG_BUILD_FLAGS="-lto"
 
 pre_configure_target() {
-  # fails to build with gcc 4.9 + lto
-  strip_lto
   CFLAGS="$CFLAGS -Wno-error=unused-const-variable"
 }
 

@@ -32,6 +32,7 @@ PKG_SECTION="browser"
 PKG_SHORTDESC="Chromium Browser: the open-source web browser from Google"
 PKG_LONGDESC="Chromium Browser ($PKG_VERSION): the open-source web browser from Google"
 PKG_TOOLCHAIN="manual"
+PKG_BUILD_FLAGS="-lto"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Chromium"
@@ -53,7 +54,6 @@ make_host() {
 }
 
 make_target() {
-  strip_lto
   export LDFLAGS="$LDFLAGS -ludev"
   export LD=$CXX
 

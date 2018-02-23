@@ -30,12 +30,7 @@ PKG_SECTION="multimedia"
 PKG_SHORTDESC="Performs a channel scans for DVB-T, DVB-C and DVB-S"
 PKG_LONGDESC="Performs a channel scans for DVB-T, DVB-C and DVB-S"
 PKG_TOOLCHAIN="manual"
-
-pre_configure_target() {
-  export CFLAGS="$CFLAGS -fPIC"
-  export CXXFLAGS="$CXXFLAGS -fPIC"
-  export LDFLAGS="$LDFLAGS -fPIC"
-}
+PKG_BUILD_FLAGS="+pic"
 
 make_target() {
   VDR_DIR=$(get_build_dir vdr)

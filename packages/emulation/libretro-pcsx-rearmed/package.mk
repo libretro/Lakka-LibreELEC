@@ -29,14 +29,11 @@ PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.pcsx-rearmed: PCSX Rearmed for Kodi"
 PKG_LONGDESC="game.libretro.pcsx-rearmed: PCSX Rearmed for Kodi"
 PKG_TOOLCHAIN="manual"
+PKG_BUILD_FLAGS="-gold"
 
 PKG_LIBNAME="pcsx_rearmed_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"
 PKG_LIBVAR="PCSX-REARMED_LIB"
-
-pre_make_target() {
-  strip_gold
-}
 
 make_target() {
   cd $PKG_BUILD

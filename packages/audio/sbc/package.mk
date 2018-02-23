@@ -27,12 +27,9 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="network"
 PKG_SHORTDESC="sbc: standalone SBC library"
 PKG_LONGDESC="standalone SBC library"
+PKG_BUILD_FLAGS="+pic"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --disable-shared \
                            --disable-tools \
                            --disable-tester"
-
-pre_configure_target() {
-  CFLAGS="$CFLAGS -fPIC"
-}

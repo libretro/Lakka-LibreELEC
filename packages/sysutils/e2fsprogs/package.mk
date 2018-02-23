@@ -28,6 +28,7 @@ PKG_DEPENDS_INIT="toolchain"
 PKG_SECTION="tools"
 PKG_SHORTDESC="e2fsprogs: Utilities for use with the ext2 filesystem"
 PKG_LONGDESC="The filesystem utilities for the EXT2 filesystem, including e2fsck, mke2fs, dumpe2fs, fsck, and others."
+PKG_BUILD_FLAGS="-parallel"
 
 if [ "$HFSTOOLS" = "yes" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET diskdev_cmds"
@@ -63,10 +64,6 @@ PKG_CONFIGURE_OPTS_TARGET="BUILD_CC=$HOST_CC \
 
 PKG_CONFIGURE_OPTS_INIT="$PKG_CONFIGURE_OPTS_TARGET"
 
-pre_make_host() {
-  # dont build parallel
-  MAKEFLAGS=-j1
-}
 
 post_makeinstall_target() {
   make -C lib/et LIBMODE=644 DESTDIR=$SYSROOT_PREFIX install

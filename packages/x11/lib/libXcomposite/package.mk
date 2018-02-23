@@ -27,9 +27,6 @@ PKG_DEPENDS_TARGET="toolchain util-macros compositeproto fixesproto libXfixes li
 PKG_SECTION="x11/lib"
 PKG_SHORTDESC="libxcomposite: X Composite Library"
 PKG_LONGDESC="X Composite Library"
+PKG_BUILD_FLAGS="+pic"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"
-
-pre_configure_target() {
-  export CFLAGS="$CFLAGS -fPIC"
-}

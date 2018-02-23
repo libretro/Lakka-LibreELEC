@@ -29,11 +29,10 @@ PKG_SECTION="multimedia"
 PKG_SHORTDESC="xmltv2vdr imports data in xmltv format"
 PKG_LONGDESC="xmltv2vdr imports data in xmltv format"
 PKG_TOOLCHAIN="manual"
+PKG_BUILD_FLAGS="+pic"
 
 pre_configure_target() {
-  export CFLAGS="$CFLAGS -fPIC"
-  export CXXFLAGS="$CXXFLAGS -fPIC -Wno-narrowing"
-  export LDFLAGS="$LDFLAGS -fPIC"
+  export CXXFLAGS="$CXXFLAGS -Wno-narrowing"
   export LIBS="-L$SYSROOT_PREFIX/usr/lib/iconv -lpcre -lpcrecpp"
 }
 

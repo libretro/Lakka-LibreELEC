@@ -28,6 +28,8 @@ PKG_SECTION="audio"
 PKG_SHORTDESC="flac: An Free Lossless Audio Codec"
 PKG_LONGDESC="Grossly oversimplified, FLAC is similar to MP3, but lossless, meaning that audio is compressed in FLAC without throwing away any information. This is similar to how Zip works, except with FLAC you will get much better compression because it is designed specifically for audio."
 PKG_TOOLCHAIN="autotools"
+# flac-1.3.1 dont build with LTO support
+PKG_BUILD_FLAGS="-lto +pic"
 
 # package specific configure options
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
@@ -47,13 +49,6 @@ if target_has_feature sse; then
 else
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --disable-sse"
 fi
-
-pre_configure_target() {
-  # flac-1.3.1 dont build with LTO support
-  strip_lto
-
-  export CFLAGS="$CFLAGS -fPIC -DPIC"
-}
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin

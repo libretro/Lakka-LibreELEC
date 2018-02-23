@@ -29,6 +29,8 @@ PKG_DEPENDS_INIT="toolchain"
 PKG_SECTION="system"
 PKG_SHORTDESC="BusyBox: The Swiss Army Knife of Embedded Linux"
 PKG_LONGDESC="BusyBox combines tiny versions of many common UNIX utilities into a single small executable. It provides replacements for most of the utilities you usually find in GNU fileutils, shellutils, etc. The utilities in BusyBox generally have fewer options than their full-featured GNU cousins; however, the options that are included provide the expected functionality and behave very much like their GNU counterparts. BusyBox provides a fairly complete environment for any small or embedded system."
+# busybox fails to build with GOLD support enabled with binutils-2.25
+PKG_BUILD_FLAGS="-parallel -gold"
 
 PKG_MAKE_OPTS_HOST="ARCH=$TARGET_ARCH CROSS_COMPILE= KBUILD_VERBOSE=1 install"
 PKG_MAKE_OPTS_TARGET="ARCH=$TARGET_ARCH \
@@ -51,9 +53,6 @@ PKG_MAKE_OPTS_INIT="ARCH=$TARGET_ARCH \
 if [ "$NFS_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET rpcbind"
 fi
-
-# dont build parallel
-MAKEFLAGS=-j1
 
 pre_build_target() {
   mkdir -p $PKG_BUILD/.$TARGET_NAME
@@ -111,9 +110,6 @@ configure_target() {
     CFLAGS=`echo $CFLAGS | sed -e "s|-Ofast|-Os|"`
     CFLAGS=`echo $CFLAGS | sed -e "s|-O.|-Os|"`
 
-    # busybox fails to build with GOLD support enabled with binutils-2.25
-    strip_gold
-
     LDFLAGS="$LDFLAGS -fwhole-program"
 
     make oldconfig
@@ -130,9 +126,6 @@ configure_init() {
     # optimize for size
     CFLAGS=`echo $CFLAGS | sed -e "s|-Ofast|-Os|"`
     CFLAGS=`echo $CFLAGS | sed -e "s|-O.|-Os|"`
-
-    # busybox fails to build with GOLD support enabled with binutils-2.25
-    strip_gold
 
     LDFLAGS="$LDFLAGS -fwhole-program"
 

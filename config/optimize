@@ -1,15 +1,6 @@
 GCC_OPTIM="-Os"
 LD_OPTIM="-Wl,--as-needed"
 
-if [ "$LTO_SUPPORT" = yes ];then
-  GCC_OPTIM_LTO="-flto -ffat-lto-objects"
-  LD_OPTIM_LTO="-fuse-linker-plugin -flto"
-fi
-
-if [ "$GOLD_SUPPORT" = yes ];then
-  LD_OPTIM_GOLD="-fuse-ld=gold"
-fi
-
 if [ "${BUILD_WITH_DEBUG}" = "yes" ]; then
   TARGET_CFLAGS="$TARGET_CFLAGS -ggdb"
   TARGET_CXXFLAGS="$TARGET_CXXFLAGS -ggdb"
@@ -20,10 +11,12 @@ else
   TARGET_LDFLAGS="$TARGET_LDFLAGS"
 fi
 
-TARGET_CPPFLAGS=
-TARGET_CFLAGS="$TARGET_CFLAGS -Wall -pipe $GCC_OPTIM $GCC_OPTIM_LTO $PROJECT_CFLAGS"
+NINJA_OPTS=""
+
+TARGET_CPPFLAGS=""
+TARGET_CFLAGS="$TARGET_CFLAGS -Wall -pipe $GCC_OPTIM $PROJECT_CFLAGS"
 TARGET_CXXFLAGS="$TARGET_CFLAGS"
-TARGET_LDFLAGS="$TARGET_LDFLAGS $LD_OPTIM $LD_OPTIM_GOLD $LD_OPTIM_LTO"
+TARGET_LDFLAGS="$TARGET_LDFLAGS $LD_OPTIM"
 TARGET_LIBDIR="$SYSROOT_PREFIX/lib $SYSROOT_PREFIX/usr/lib"
 TARGET_INCDIR="$SYSROOT_PREFIX/include $SYSROOT_PREFIX/usr/include"
 
@@ -37,6 +30,26 @@ HOST_INCDIR="$TOOLCHAIN/include /usr/include"
 # see https://wiki.ubuntu.com/ToolChain/CompilerFlags#A-Wformat_-Wformat-security
 HOST_CFLAGS="$HOST_CFLAGS -Wno-format-security"
 HOST_CXXFLAGS="$HOST_CXXFLAGS -Wno-format-security" 
+
+# lto flags
+CFLAGS_OPTIM_LTO="-flto -ffat-lto-objects"
+CXXFLAGS_OPTIM_LTO="-flto -ffat-lto-objects"
+LDFLAGS_OPTIM_LTO="-fuse-linker-plugin -flto"
+
+# gold flags
+LDFLAGS_OPTIM_GOLD="-fuse-ld=gold"
+
+# position-independent code
+CFLAGS_OPTIM_PIC="-fPIC -DPIC"
+CXXFLAGS_OPTIM_PIC="-fPIC -DPIC"
+LDFLAGS_OPTIM_PIC="-fPIC"
+
+# hardening support
+# TODO: basiclly copied from debian 9, should adjust for LE
+CFLAGS_OPTIM_HARDENING="-fstack-protector-strong -Wformat -Werror=format-security -fPIE"
+CXXFLAGS_OPTIM_HARDENING="-fstack-protector-strong -Wformat -Werror=format-security -fPIE"
+CPPFLAGS_OPTIM_HARDENING="-D_FORTIFY_SOURCE=2"
+LDFLAGS_OPTIM_HARDENING="-Wl,-z,relro -Wl,-z,now"
 
 # add distro specific library dirs
 if [ -z "$HOST_LIBDIR" ]; then

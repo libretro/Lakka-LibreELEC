@@ -28,12 +28,9 @@ PKG_SECTION="system"
 PKG_SHORTDESC="libirman library for lircd"
 PKG_LONGDESC="libirman library for lircd"
 PKG_TOOLCHAIN="autotools"
+PKG_BUILD_FLAGS="+pic"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-swtest"
-
-pre_configure_target() {
-  CFLAGS="$CFLAGS -fPIC -DPIC"
-}
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin

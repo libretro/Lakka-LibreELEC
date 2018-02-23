@@ -28,6 +28,7 @@ PKG_NEED_UNPACK="$(get_pkg_directory heimdal) $(get_pkg_directory e2fsprogs)"
 PKG_SECTION="network"
 PKG_SHORTDESC="samba: The free SMB / CIFS fileserver and client"
 PKG_LONGDESC="Samba is a SMB server that runs on Unix and other operating systems. It allows these operating systems (currently Unix, Netware, OS/2 and AmigaDOS) to act as a file and print server for SMB and CIFS clients. There are many Lan-Manager compatible clients such as LanManager for DOS, Windows for Workgroups, Windows NT, Windows 95, Linux smbfs, OS/2, Pathworks and more."
+PKG_BUILD_FLAGS="-gold"
 
 PKG_MAKE_OPTS_TARGET="V=1"
 
@@ -105,15 +106,13 @@ pre_configure_target() {
 # samba uses its own build directory
   cd $PKG_BUILD
     rm -rf .$TARGET_NAME
-# samba fails to build with gold support
-  strip_gold
 
 # work around link issues
   export LDFLAGS="$LDFLAGS -lreadline"
 
 # support 64-bit offsets and seeks on 32-bit platforms
   if [ "$TARGET_ARCH" = "arm" ]; then
-    export CFLAGS+="-D_FILE_OFFSET_BITS=64 -D_OFF_T_DEFINED_ -Doff_t=off64_t -Dlseek=lseek64"
+    export CFLAGS+=" -D_FILE_OFFSET_BITS=64 -D_OFF_T_DEFINED_ -Doff_t=off64_t -Dlseek=lseek64"
   fi
 }
 

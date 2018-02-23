@@ -27,8 +27,7 @@ PKG_DEPENDS_TARGET="toolchain zlib openssl"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="rtmpdump: a toolkit for RTMP streams."
 PKG_LONGDESC="rtmpdump is a toolkit for RTMP streams. All forms of RTMP are supported, including rtmp://, rtmpt://, rtmpe://, rtmpte://, and rtmps://."
-
-MAKEFLAGS="-j1"
+PKG_BUILD_FLAGS="+pic -parallel"
 
 make_target() {
   make prefix=/usr \
@@ -41,7 +40,7 @@ make_target() {
        SHARED=no \
        CRYPTO="OPENSSL" \
        OPT="" \
-       XCFLAGS="$CFLAGS -fPIC" \
+       XCFLAGS="$CFLAGS" \
        XLDFLAGS="$LDFLAGS" \
        XLIBS="-lm"
 }
@@ -58,7 +57,7 @@ makeinstall_target() {
        SHARED=no \
        CRYPTO="OPENSSL" \
        OPT="" \
-       XCFLAGS="$CFLAGS -fPIC" \
+       XCFLAGS="$CFLAGS" \
        XLDFLAGS="$LDFLAGS" \
        XLIBS="-lm" \
        install
@@ -74,7 +73,7 @@ makeinstall_target() {
        SHARED=no \
        CRYPTO="OPENSSL" \
        OPT="" \
-       XCFLAGS="$CFLAGS -FPIC" \
+       XCFLAGS="$CFLAGS" \
        XLDFLAGS="$LDFLAGS" \
        XLIBS="-lm" \
        install

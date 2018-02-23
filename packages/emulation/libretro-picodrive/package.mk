@@ -30,6 +30,7 @@ PKG_SECTION="emulation"
 PKG_SHORTDESC="Fast MegaDrive/MegaCD/32X emulator"
 PKG_LONGDESC="Fast MegaDrive/MegaCD/32X emulator"
 PKG_TOOLCHAIN="manual"
+PKG_BUILD_FLAGS="-gold"
 
 PKG_LIBNAME="picodrive_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"
@@ -55,10 +56,6 @@ pre_configure_target() {
   # fails to build in subdirs
   cd $PKG_BUILD
   rm -rf .$TARGET_NAME
-}
-
-configure_target() {
-  strip_gold
 }
 
 make_target() {
