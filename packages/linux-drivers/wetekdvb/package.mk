@@ -33,6 +33,7 @@ PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
   device=${DEVICE:-$PROJECT}
+  [ $device="S905" ] && device=WeTek_Play_2
   for overlay_dir in driver/$device/*/; do
     overlay_dir=`basename $overlay_dir`
     mkdir -p $INSTALL/$(get_full_module_dir $overlay_dir)/$PKG_NAME
