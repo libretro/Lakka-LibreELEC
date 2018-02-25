@@ -17,9 +17,9 @@
 ################################################################################
 
 PKG_NAME="game.libretro.stella"
-PKG_VERSION="a6d75e0"
-PKG_SHA256="02efd7e09a6fa426247fb3f308481798f8c5a54395c98cce9d47f6118bd7d625"
-PKG_REV="104"
+PKG_VERSION="d053a35"
+PKG_SHA256="f34aa753458826b7a0ce0d16a8750eed78630c1325c55f0c6266cdc96c837412"
+PKG_REV="105"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.stella"

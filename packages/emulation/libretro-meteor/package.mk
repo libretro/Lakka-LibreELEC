@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-meteor"
-PKG_VERSION="bcb6235"
-PKG_SHA256="6684fdd2fe893aa735b5bc4f252f2822c71097cb7eb47994fe2246b9121f0fe1"
+PKG_VERSION="a052776"
+PKG_SHA256="7960a7b57bac84ee34cc76fbc6545fe5feb10c8cf2fe97b971a3c69791e59765"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/meteor-libretro"

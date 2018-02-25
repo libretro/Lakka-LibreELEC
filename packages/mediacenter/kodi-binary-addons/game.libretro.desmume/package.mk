@@ -17,9 +17,9 @@
 ################################################################################
 
 PKG_NAME="game.libretro.desmume"
-PKG_VERSION="45311f8"
-PKG_SHA256="7d053f7f553f7ce7e7a02563396bff42c1015bf7e48a01a0078fa721b96f2507"
-PKG_REV="103"
+PKG_VERSION="c533d3c"
+PKG_SHA256="730a0025fbce3eddb2154834b6397d3afc160607afb49beffc97036aa734c96b"
+PKG_REV="104"
 # no openGL suport in retroplayer yet
 PKG_ARCH="none"
 PKG_LICENSE="GPL"

@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-nestopia"
-PKG_VERSION="ef33882"
-PKG_SHA256="effeb87eb446afee44fa372976801e0b85f38a84aa2bb1944dbaf41caf62f3c6"
+PKG_VERSION="14329a3"
+PKG_SHA256="6c2d01a7bf75ec021e957be2e2bdad181001c0d9796d5370423a5c547b3c3e1a"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/nestopia"
@@ -35,7 +35,6 @@ PKG_LIBPATH="libretro/$PKG_LIBNAME"
 PKG_LIBVAR="NESTOPIA_LIB"
 
 post_unpack() {
-  rm $PKG_BUILD/CMakeLists.txt
   rm $PKG_BUILD/configure.ac
 }
 
