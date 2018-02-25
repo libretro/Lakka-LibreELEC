@@ -1,0 +1,68 @@
+################################################################################
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2018-present Team LibreELEC
+#
+#  LibreELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  LibreELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+_get_file_already_downloaded() {
+  [ ! -f $PACKAGE -o ! -f $STAMP_URL -o ! -f $STAMP_SHA ] && return 1
+  [ -n "${PKG_SHA256}" -a "$(cat $STAMP_SHA 2>/dev/null)" != "${PKG_SHA256}" ] && return 1
+  return 0
+}
+
+# Latest file already present, exit now...
+_get_file_already_downloaded && exit 0
+
+lock_source_dir $1
+
+# Check again in case of concurrent access - if nothing needs to be downloaded, exit now...
+_get_file_already_downloaded && exit 0
+
+# At this point, we need to download something...
+printf "%${BUILD_INDENT}c $(print_color CLR_GET "GET")      $1 (archive)\n" ' '>&$SILENT_OUT
+export BUILD_INDENT=$((${BUILD_INDENT:-1}+$BUILD_INDENT_SIZE))
+
+PACKAGE_MIRROR="$DISTRO_MIRROR/$PKG_NAME/$PKG_SOURCE_NAME"
+[ "$VERBOSE" != "yes" ] && WGET_OPT=-q
+WGET_CMD="wget --timeout=30 --tries=3 --passive-ftp --no-check-certificate -c $WGET_OPT -O $PACKAGE"
+
+# unset LD_LIBRARY_PATH to stop wget from using toolchain/lib and loading libssl.so/libcrypto.so instead of host libraries
+unset LD_LIBRARY_PATH
+
+rm -f $STAMP_URL $STAMP_SHA
+
+NBWGET=10
+while [ $NBWGET -gt 0 ]; do
+  for url in "$PKG_URL" "$PACKAGE_MIRROR"; do
+    rm -f $PACKAGE
+    if $WGET_CMD "$url"; then
+      CALC_SHA256="$(sha256sum $PACKAGE | cut -d" " -f1)"
+
+      [ -z "${PKG_SHA256}" -o "${PKG_SHA256}" == "${CALC_SHA256}" ] && break 2
+
+      printf "%${BUILD_INDENT}c $(print_color CLR_WARNING "WARNING") Incorrect checksum calculated on downloaded file: got ${CALC_SHA256}, wanted ${PKG_SHA256}\n\n" ' '>&$SILENT_OUT
+    fi
+  done
+  NBWGET=$((NBWGET - 1))
+done
+
+if [ $NBWGET -eq 0 ]; then
+  echo -e "\nCant't get $1 sources : $PKG_URL\n Try later !!"
+  exit 1
+else
+  printf "%${BUILD_INDENT}c $(print_color CLR_INFO "INFO") Calculated checksum: ${CALC_SHA256}\n\n" ' '>&$SILENT_OUT
+  echo "${PKG_URL}" > $STAMP_URL
+  echo "${CALC_SHA256}" > $STAMP_SHA
+fi
