@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
 #      Copyright (C) 2016 Team LibreELEC
@@ -16,6 +16,8 @@
 #  You should have received a copy of the GNU General Public License
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
+
+ROOT=$(cd $(dirname $0)/../.. && pwd)
 
 git_clone() {
   # git_clone https://repo.url branch ./target_dir [githash]
@@ -49,8 +51,8 @@ resolve_hash() {
 
 get_pkg_var() {
   local pkg_name="$1" pkg_var="$2"
-  cd ../..
-  PROJECT=Generic ARCH=x86_64 source config/options ${pkg_name}
+  cd ${ROOT}
+  PROJECT=Generic ARCH=x86_64 source config/options ${pkg_name} &>/dev/null
   echo "${!pkg_var}"
 }
 
@@ -64,9 +66,10 @@ update_pkg() {
     [ -n "$pkg_version}" ] && sed -e "s|PKG_VERSION=.*|PKG_VERSION=\"${pkg_version}\"|g" -i ${pkg_path}
 
     pkg_url=$(get_pkg_var "${pkg_name}" PKG_URL)
-
-    new_sha256="$(wget -q ${pkg_url} -O- | sha256sum | awk '{print $1}')" || exit 1
-    sed -e "s|PKG_SHA256=.*|PKG_SHA256=\"${new_sha256}\"|g" -i ${pkg_path}
+    if [ -n "${pkg_url}" ]; then
+      new_sha256="$(wget -q ${pkg_url} -O- | sha256sum | awk '{print $1}')" || exit 1
+      sed -e "s|PKG_SHA256=.*|PKG_SHA256=\"${new_sha256}\"|g" -i ${pkg_path}
+    fi
   fi
 }
 
@@ -96,15 +99,14 @@ for addontxt in "binary-addons https://github.com/lrusak/repo-binary-addons.git 
         # binary add-on section #
         #########################
 
-        if [ -f ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ]; then
+        if [ -f ${ROOT}/packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ]; then
 
-          . ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk
-          OLD_HASH=$PKG_VERSION
+          OLD_HASH=$(get_pkg_var "${ADDON}" PKG_VERSION)
           git_clone $REPO master $ADDON.git $GIT_HASH
 
           RESOLVED_HASH=$(resolve_hash $ADDON.git $GIT_HASH)
           if [ "$OLD_HASH" != "$RESOLVED_HASH" ]; then
-            update_pkg ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ${ADDON} ${RESOLVED_HASH}
+            update_pkg ${ROOT}/packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ${ADDON} ${RESOLVED_HASH}
 
             BUMP_REV=true
 
@@ -119,15 +121,15 @@ for addontxt in "binary-addons https://github.com/lrusak/repo-binary-addons.git 
         # emulation section     #
         #########################
 
-        if [ -f ../../packages/emulation/$EMULATOR/package.mk ]; then
+        if [ -f ${ROOT}/packages/emulation/$EMULATOR/package.mk ]; then
 
-          . ../../packages/emulation/$EMULATOR/package.mk
-          OLD_HASH=$PKG_VERSION
+          OLD_HASH=$(get_pkg_var "${EMULATOR}" PKG_VERSION)
+          PKG_SITE=$(get_pkg_var "${EMULATOR}" PKG_SITE)
           git_clone $PKG_SITE master $EMULATOR.git
 
           RESOLVED_HASH=$(resolve_hash $EMULATOR.git master)
           if [ "$OLD_HASH" != "$RESOLVED_HASH" ]; then
-            update_pkg ../../packages/emulation/$EMULATOR/package.mk ${EMULATOR} ${RESOLVED_HASH}
+            update_pkg ${ROOT}/packages/emulation/$EMULATOR/package.mk ${EMULATOR} ${RESOLVED_HASH}
             BUMP_REV=true
 
             echo "OLD_HASH: $OLD_HASH"
@@ -139,8 +141,8 @@ for addontxt in "binary-addons https://github.com/lrusak/repo-binary-addons.git 
 
         if [ "$BUMP_REV" = "true" ]; then
 
-          . ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk
-          sed -e "s|PKG_REV=.*|PKG_REV=\"$((PKG_REV+1))\"|" -i ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk
+          PKG_REV=$(get_pkg_var "${ADDON}" PKG_REV)
+          sed -e "s|PKG_REV=.*|PKG_REV=\"$((PKG_REV+1))\"|" -i ${ROOT}/packages/mediacenter/kodi-binary-addons/$ADDON/package.mk
 
           echo "BUMPING PKG_REV FROM: $PKG_REV TO: $((PKG_REV+1))"
           echo ""
