@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016-present Team LibreELEC
+#      Copyright (C) 2018-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,20 +16,23 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-import subprocess
-import xbmc
-import xbmcaddon
+PKG_NAME="ffmpeg-tools"
+PKG_VERSION="1.0"
+PKG_REV="100"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="https://libreelec.tv"
+PKG_URL=""
+PKG_DEPENDS_TARGET="toolchain ffmpegx"
+PKG_SECTION="tools"
+PKG_SHORTDESC="FFmpeg binary for transcoding and audio/video manipulating."
+PKG_TOOLCHAIN="manual"
 
+PKG_IS_ADDON="yes"
+PKG_ADDON_NAME="FFmpeg Tools"
+PKG_ADDON_TYPE="xbmc.python.script"
 
-class Monitor(xbmc.Monitor):
-
-   def __init__(self, *args, **kwargs):
-      xbmc.Monitor.__init__(self)
-      self.id = xbmcaddon.Addon().getAddonInfo('id')
-
-   def onSettingsChanged(self):
-      subprocess.call(['systemctl', 'restart', self.id])
-
-
-if __name__ == "__main__":
-   Monitor().waitForAbort()
+addon() {
+  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin/
+  cp -L $(get_build_dir ffmpegx)/.INSTALL_PKG/usr/local/bin/* $ADDON_BUILD/$PKG_ADDON_ID/bin
+}

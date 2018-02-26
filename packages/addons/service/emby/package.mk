@@ -17,14 +17,14 @@
 ################################################################################
 
 PKG_NAME="emby"
-PKG_VERSION="3.2.34.0"
-PKG_SHA256="85a1bf1d88321063f3c01d84e43226c45418126ec4b4c1e05ea7b53f1152bd81"
-PKG_REV="117"
+PKG_VERSION="3.3.0.0"
+PKG_SHA256="15ca0835d939dbd2ac730bafa1377276c3a63854fd6a2ace8ff02dd439cdd692"
+PKG_REV="118"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://emby.media"
 PKG_URL="https://github.com/MediaBrowser/Emby/releases/download/$PKG_VERSION/Emby.Mono.zip"
-PKG_DEPENDS_TARGET="toolchain ffmpegx imagemagick"
+PKG_DEPENDS_TARGET="toolchain imagemagick"
 PKG_SECTION="service"
 PKG_SHORTDESC="Emby Server: a personal media server"
 PKG_LONGDESC="Emby Server ($PKG_VERSION) brings your home videos, music, and photos together, automatically converting and streaming your media on-the-fly to any device"
@@ -33,7 +33,7 @@ PKG_TOOLCHAIN="manual"
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Emby Server"
 PKG_ADDON_TYPE="xbmc.service"
-PKG_ADDON_REQUIRES="tools.mono:0.0.0"
+PKG_ADDON_REQUIRES="tools.ffmpeg-tools:0.0.0 tools.mono:0.0.0"
 PKG_MAINTAINER="Anton Voyl (awiouy)"
 
 unpack() {
@@ -50,11 +50,6 @@ addon() {
 
   sed -i 's/libsqlite3.so/libsqlite3.so.0/g' \
       $ADDON_BUILD/$PKG_ADDON_ID/Emby.Mono/SQLitePCLRaw.provider.sqlite3.dll.config
-
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
-  cp -L $(get_build_dir ffmpegx)/.INSTALL_PKG/usr/local/bin/ffmpegx  \
-        $(get_build_dir ffmpegx)/.INSTALL_PKG/usr/local/bin/ffprobex \
-        $ADDON_BUILD/$PKG_ADDON_ID/bin/
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib
   cp -L $(get_build_dir imagemagick)/.install_pkg/usr/lib/libMagickCore-7.Q8.so.? \

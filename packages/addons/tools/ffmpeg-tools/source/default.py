@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016-present Team LibreELEC
+#      Copyright (C) 2018-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,20 +16,10 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-import subprocess
-import xbmc
 import xbmcaddon
+import xbmcgui
 
+dialog = xbmcgui.Dialog()
+strings  = xbmcaddon.Addon().getLocalizedString
 
-class Monitor(xbmc.Monitor):
-
-   def __init__(self, *args, **kwargs):
-      xbmc.Monitor.__init__(self)
-      self.id = xbmcaddon.Addon().getAddonInfo('id')
-
-   def onSettingsChanged(self):
-      subprocess.call(['systemctl', 'restart', self.id])
-
-
-if __name__ == "__main__":
-   Monitor().waitForAbort()
+dialog.ok(strings(30000), strings(30001))
