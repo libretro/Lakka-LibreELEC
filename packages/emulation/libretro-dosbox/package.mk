@@ -34,7 +34,7 @@ PKG_LIBPATH="$PKG_LIBNAME"
 PKG_LIBVAR="DOSBOX_LIB"
 
 pre_make_target() {
-  strip_gold
+  strip_lto
 }
 
 make_target() {
