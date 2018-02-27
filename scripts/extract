@@ -28,47 +28,48 @@ fi
 [ -z "$PKG_URL" -o -z "$PKG_SOURCE_NAME" ] && exit 1
 [ ! -d "$SOURCES/$1" -o ! -d "$2" ] && exit 1
 
-for pattern in .tar.gz .tar.xz .tar.bz2 .tgz .txz .tbz .7z .zip; do
-  if [[ $PKG_SOURCE_NAME =~ ${pattern//./\\.}$ ]]; then
-    f="$SOURCES/$1/$PKG_SOURCE_NAME"
-    if [ ! -f $f ]; then
-      echo "error: File $PKG_SOURCE_NAME doesn't exist in package $1 sources directory"
-      echo "Have you called scripts/extract before scripts/get ?"
-      exit 1
-    fi
-    case $PKG_SOURCE_NAME in
-      *.tar)
-        tar xf $f -C $2
-        ;;
-      *.tar.bz2 | *.tbz)
-        tar xjf $f -C $2
-        ;;
-      *.tar.gz | *.tgz)
-        tar xzf $f -C $2
-        ;;
-      *.tar.xz | *.txz)
-        tar xJf $f -C $2
-        ;;
-      *.7z)
-        mkdir -p $2/$1
-        7z x -o$2/$1 $f
-        ;;
-      *.zip)
-        unzip -q $f -d $2
-        ;;
-      *.diff | *.patch)
-        cat $f | patch -d $2 -p1
-        ;;
-      *.diff.bz2 | *.patch.bz2 | patch-*.bz2)
-        bzcat $f | patch -d $2 -p1
-        ;;
-      *.diff.gz | *.patch.gz | patch-*.gz)
-        zcat $f | patch -d $2 -p1
-        ;;
-      *)
-        cp -pPR $f $2
-        ;;
-    esac
-    break
-  fi
-done
+if [[ ${PKG_URL} =~ ^file:// ]]; then
+  FULL_SOURCE_PATH="$PKG_SOURCE_NAME"
+else
+  FULL_SOURCE_PATH="$SOURCES/$1/$PKG_SOURCE_NAME"
+fi
+
+if [ ! -f "$FULL_SOURCE_PATH" -a ! -d "$FULL_SOURCE_PATH" ]; then
+  echo "error: File $PKG_SOURCE_NAME doesn't exist for package $1"
+  echo "Have you called scripts/extract before scripts/get ?"
+  exit 1
+fi
+
+case $PKG_SOURCE_NAME in
+  *.tar)
+    tar xf $FULL_SOURCE_PATH -C $2
+    ;;
+  *.tar.bz2 | *.tbz)
+    tar xjf $FULL_SOURCE_PATH -C $2
+    ;;
+  *.tar.gz | *.tgz)
+    tar xzf $FULL_SOURCE_PATH -C $2
+    ;;
+  *.tar.xz | *.txz)
+    tar xJf $FULL_SOURCE_PATH -C $2
+    ;;
+  *.7z)
+    mkdir -p $2/$1
+    7z x -o$2/$1 $FULL_SOURCE_PATH
+    ;;
+  *.zip)
+    unzip -q $FULL_SOURCE_PATH -d $2
+    ;;
+  *.diff | *.patch)
+    cat $FULL_SOURCE_PATH | patch -d $2 -p1
+    ;;
+  *.diff.bz2 | *.patch.bz2 | patch-*.bz2)
+    bzcat $FULL_SOURCE_PATH | patch -d $2 -p1
+    ;;
+  *.diff.gz | *.patch.gz | patch-*.gz)
+    zcat $FULL_SOURCE_PATH | patch -d $2 -p1
+    ;;
+  *)
+    cp -pPR $FULL_SOURCE_PATH $2
+    ;;
+esac
