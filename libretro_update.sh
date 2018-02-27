@@ -117,9 +117,10 @@ do
     echo "$f: not found! Skipping."
     continue
   fi
-  PKG_VERSION=`cat $f | sed -En "s/PKG_VERSION=\"(.*)\"/\1/p"`
-  PKG_SITE=`cat $f | sed -En "s/PKG_SITE=\"(.*)\"/\1/p"`
-  PKG_NAME=`cat $f | sed -En "s/PKG_NAME=\"(.*)\"/\1/p"`
+  PKG_VERSION=`cat $f | sed -En "s/^PKG_VERSION=\"(.*)\"/\1/p"`
+  PKG_SITE=`cat $f | sed -En "s/^PKG_SITE=\"(.*)\"/\1/p"`
+  PKG_NAME=`cat $f | sed -En "s/^PKG_NAME=\"(.*)\"/\1/p"`
+  PKG_GIT_BRANCH=`cat $f | sed -En "s/^PKG_GIT_BRANCH=\"(.*)\"/\1/p"`
   if [ -z "$PKG_VERSION" ] || [ -z "$PKG_SITE" ] ; then
     echo "$f: does not have PKG_VERSION or PKG_SITE"
     echo "PKG_VERSION: $PKG_VERSION"
@@ -127,7 +128,8 @@ do
     echo "Skipping update."
     continue
   fi
-  UPS_VERSION=`git ls-remote $PKG_SITE | grep HEAD | awk '{ print substr($1,1,7) }'`
+  [ -n "$PKG_GIT_BRANCH" ] && GIT_HEAD="heads/$PKG_GIT_BRANCH" || GIT_HEAD="HEAD"
+  UPS_VERSION=`git ls-remote $PKG_SITE | grep $GIT_HEAD | awk '{ print substr($1,1,7) }'`
   if [ "$UPS_VERSION" == "$PKG_VERSION" ]; then
     echo "$PKG_NAME is up to date ($UPS_VERSION)"
   else
