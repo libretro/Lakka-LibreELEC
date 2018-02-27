@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="busybox"
-PKG_VERSION="1.27.1"
-PKG_SHA256="c890ac53fb218eb4c6ad9ed3207a896783b142e6d306f292b8d9bec82af5f936"
+PKG_VERSION="1.28.1"
+PKG_SHA256="98fe1d3c311156c597cd5cfa7673bb377dc552b6fa20b5d3834579da3b13652e"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.busybox.net"
@@ -96,6 +96,7 @@ configure_target() {
       sed -i -e "s|^CONFIG_CROND=.*$|# CONFIG_CROND is not set|" .config
       sed -i -e "s|^CONFIG_FEATURE_CROND_D=.*$|# CONFIG_FEATURE_CROND_D is not set|" .config
       sed -i -e "s|^CONFIG_CRONTAB=.*$|# CONFIG_CRONTAB is not set|" .config
+      sed -i -e "s|^CONFIG_FEATURE_CROND_SPECIAL_TIMES=.*$|# CONFIG_FEATURE_CROND_SPECIAL_TIMES is not set|" .config
     fi
 
     if [ ! "$NFS_SUPPORT" = yes ]; then
