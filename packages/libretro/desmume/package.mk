@@ -19,11 +19,11 @@
 ################################################################################
 
 PKG_NAME="desmume"
-PKG_VERSION="9464582"
+PKG_VERSION="69658a2"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/libretro/desmume"
+PKG_SITE="https://github.com/libretro/desmume2015"
 PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
@@ -44,5 +44,5 @@ make_target() {
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp desmume/desmume_libretro.so $INSTALL/usr/lib/libretro/
+  cp desmume/desmume2015_libretro.so $INSTALL/usr/lib/libretro/
 }
