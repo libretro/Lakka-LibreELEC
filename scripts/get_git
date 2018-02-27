@@ -1,0 +1,122 @@
+################################################################################
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2018-present Team LibreELEC
+#
+#  LibreELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  LibreELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+# Handler for git
+# usage (in package.mk):
+# PKG_URL (mandatory) must point to a git repository (git://... or https://example.com/repo.git)
+# PKG_VERSION (mandatory) must point to a commit SHA, e.g. a1b2c3d
+# PKG_GIT_SHA (optional) full hash of git commit
+# PKG_GIT_CLONE_BRANCH (optional) clone specific branch
+# PKG_GIT_CLONE_SINGLE (optional) clone single branch only (set to yes)
+# PKG_GIT_CLONE_DEPTH (optional) history to clone, must be a number
+# PKG_GIT_SUBMODULE_DEPTH (optional) history of submodules to clone, must be a number
+
+_get_repo_already_downloaded() {
+  if [ -d $PACKAGE -a -f $STAMP_SHA -a -f $STAMP_URL ]; then
+    GIT_SHA=$(git ls-remote $PACKAGE | grep HEAD | head -n 1 | awk '{print $1;}')
+    [ "$GIT_SHA" = "$(cat $STAMP_SHA 2>/dev/null)" ] && return 0 || return 1
+  else
+    return 1
+  fi
+}
+
+# Latest file already present, exit now...
+_get_repo_already_downloaded && exit 0
+
+lock_source_dir $1
+
+# Check again in case of concurrent access - if nothing needs to be downloaded, exit now...
+_get_repo_already_downloaded && exit 0
+
+# At this point, we need to download something...
+printf "%${BUILD_INDENT}c $(print_color CLR_GET "GET")      $1 (git)\n" ' '>&$SILENT_OUT
+export BUILD_INDENT=$((${BUILD_INDENT:-1}+$BUILD_INDENT_SIZE))
+
+rm -f $STAMP_URL $STAMP_SHA
+
+GIT_CLONE_PARAMS=""
+GIT_SUBMODULE_PARAMS=""
+
+[ -n "$PKG_GIT_CLONE_BRANCH" ] && GIT_CLONE_PARAMS="$GIT_CLONE_PARAMS --branch $PKG_GIT_CLONE_BRANCH"
+[ "$PKG_GIT_CLONE_SINGLE" = "yes" ] && GIT_CLONE_PARAMS="$GIT_CLONE_PARAMS --single-branch"
+
+if [ -n "$PKG_GIT_CLONE_DEPTH" ]; then
+  if [[ $PKG_GIT_CLONE_DEPTH =~ ^[0-9]+$ ]]; then
+    GIT_CLONE_PARAMS="$GIT_CLONE_PARAMS --depth $PKG_GIT_CLONE_DEPTH"
+  else
+    echo "Fatal: PKG_GIT_CLONE_DEPTH is not a number! ($PKG_GIT_CLONE_DEPTH)"
+    exit 1
+  fi
+fi
+
+if [ -n "$PKG_GIT_SUBMODULE_DEPTH" ]; then
+  if [[ $PKG_GIT_SUBMODULE_DEPTH =~ ^[0-9]+$ ]]; then
+    GIT_SUBMODULE_PARAMS="$GIT_SUBMODULE_PARAMS --depth $PKG_GIT_SUBMODULE_DEPTH"
+  else
+    echo "Fatal: PKG_GIT_SUBMODULE_DEPTH is not a number! ($PKG_GIT_SUBMODULE_DEPTH)"
+    exit 1
+  fi
+fi
+
+GIT_FOUND="no"
+for d in $SOURCES/$1/$1-* ; do
+  if [ -d "$d/.git" ] ; then
+    cd $d
+    if [ "$PKG_URL" = "$(git remote get-url origin)" ] ; then
+      if [ "${GIT_FOUND}" = "no" ] ; then
+        printf "%${BUILD_INDENT}c $(print_color CLR_GET "GIT PULL") ($d)\n" ' '>&$SILENT_OUT
+        GIT_FOUND="yes"
+        GIT_DIR="$d"
+        git pull
+        cd -
+      else
+        printf "%${BUILD_INDENT}c $(print_color CLR_CLEAN "DELETE") ($d)\n" ' '>&$SILENT_OUT
+        cd -
+        rm -rf "$d"
+      fi
+    else
+      printf "%${BUILD_INDENT}c $(print_color CLR_CLEAN "DELETE") ($d)\n" ' '>&$SILENT_OUT
+      cd -
+      rm -rf "$d"
+    fi
+  fi
+done
+
+if [ "${GIT_FOUND}" = "no" ] ; then
+  printf "%${BUILD_INDENT}c $(print_color CLR_GET "GIT CLONE") ($PACKAGE)\n" ' '>&$SILENT_OUT
+  git clone $GIT_CLONE_PARAMS $PKG_URL $PACKAGE
+else
+  if [ ! "${GIT_DIR}" = "${PACKAGE}" ] ; then
+    mv "${GIT_DIR}" "${PACKAGE}"
+  fi
+fi
+
+cd $PACKAGE
+git reset --hard $PKG_VERSION
+printf "%${BUILD_INDENT}c $(print_color CLR_GET "GIT SUBMODULE")\n" ' '>&$SILENT_OUT
+git submodule update --init --recursive $GIT_SUBMODULE_PARAMS
+cd -
+
+GIT_SHA=$(git ls-remote $PACKAGE | grep HEAD | head -n 1 | awk '{print $1;}')
+
+if [ -n "$PKG_GIT_SHA" ]; then
+   [ "$PKG_GIT_SHA" = "$GIT_SHA" ] || printf "%${BUILD_INDENT}c $(print_color CLR_WARNING "WARNING") Incorrect git hash in respository: got ${GIT_SHA}, wanted ${PKG_GIT_SHA}\n\n" ' '>&$SILENT_OUT
+fi
+
+echo "${PKG_URL}" > $STAMP_URL
+echo "${GIT_SHA}" > $STAMP_SHA
