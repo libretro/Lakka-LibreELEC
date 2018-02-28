@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="readline"
-PKG_VERSION="6.3"
+PKG_VERSION="7.0"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="http://www.gnu.org/software/readline/"
