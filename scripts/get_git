@@ -17,7 +17,7 @@
 ################################################################################
 
 # Handler for git
-# usage (in package.mk):
+# Usage (in package.mk):
 # PKG_URL (mandatory) must point to a git repository (git://... or https://example.com/repo.git)
 # PKG_VERSION (mandatory) must point to a commit SHA, e.g. a1b2c3d
 # PKG_GIT_SHA (optional) full hash of git commit
@@ -27,12 +27,25 @@
 # PKG_GIT_SUBMODULE_DEPTH (optional) history of submodules to clone, must be a number
 
 _get_repo_already_downloaded() {
-  if [ -d $PACKAGE -a -f $STAMP_SHA -a -f $STAMP_URL ]; then
-    GIT_SHA=$(git ls-remote $PACKAGE | grep HEAD | head -n 1 | awk '{print $1;}')
-    [ "$GIT_SHA" = "$(cat $STAMP_SHA 2>/dev/null)" ] && return 0 || return 1
+  if [ -d $PACKAGE ]; then
+    (
+      cd $PACKAGE
+      _get_repo_clean
+      [ -n "$(git ls-remote . | grep -m1 HEAD | awk "/^${PKG_VERSION}/ {print \$1;}")" ] || exit 1
+      [ "$PKG_URL" = "$(git remote get-url origin)" ] || exit 1
+      [ -z "$PKG_GIT_CLONE_BRANCH" ] && exit 0
+      [ "$PKG_GIT_CLONE_BRANCH" = "$(git branch | grep ^\* | cut -d ' ' -f2)" ] || exit 1
+      exit 0
+    )
+    return
   else
     return 1
   fi
+}
+
+_get_repo_clean() {
+  git clean -fdx
+  git checkout -- .
 }
 
 # Latest file already present, exit now...
@@ -74,49 +87,68 @@ if [ -n "$PKG_GIT_SUBMODULE_DEPTH" ]; then
 fi
 
 GIT_FOUND="no"
+opwd=$(pwd)
 for d in $SOURCES/$1/$1-* ; do
-  if [ -d "$d/.git" ] ; then
-    cd $d
-    if [ "$PKG_URL" = "$(git remote get-url origin)" ] ; then
-      if [ "${GIT_FOUND}" = "no" ] ; then
-        printf "%${BUILD_INDENT}c $(print_color CLR_GET "GIT PULL") ($d)\n" ' '>&$SILENT_OUT
-        GIT_FOUND="yes"
-        GIT_DIR="$d"
-        git pull
-        cd -
+  if [ -d "$d/.git" ]; then
+    if [ "${GIT_FOUND}" = "no" ]; then
+      cd $d
+      if [ "$PKG_URL" = "$(git remote get-url origin)" ]; then
+        if [ -n "$PKG_GIT_CLONE_BRANCH" -a $(git branch | grep "^\* ${PKG_GIT_CLONE_BRANCH}$" | wc -l) -eq 1 -o -z "$PKG_GIT_CLONE_BRANCH" ]; then
+          GIT_FOUND="yes"
+          GIT_DIR="$d"
+          _get_repo_clean
+        elif [ -n "$PKG_GIT_CLONE_BRANCH" -a $(git branch | grep "^  ${PKG_GIT_CLONE_BRANCH}$" | wc -l) -eq 1 ]; then
+          GIT_FOUND="yes"
+          GIT_DIR="$d"
+          _get_repo_clean
+          git checkout $PKG_GIT_CLONE_BRANCH
+        elif [ -n "$PKG_GIT_CLONE_BRANCH" -a $(git branch -a | grep "^  remotes/origin/${PKG_GIT_CLONE_BRANCH}$" | wc -l) -eq 1 ]; then
+          GIT_FOUND="yes"
+          GIT_DIR="$d"
+          _get_repo_clean
+          git checkout -b $PKG_GIT_CLONE_BRANCH origin/$PKG_GIT_CLONE_BRANCH
+        else
+          printf "%${BUILD_INDENT}c $(print_color CLR_CLEAN "DELETE") ($d)\n" ' '>&$SILENT_OUT
+          cd "${opwd}"
+          rm -rf "$d"
+        fi
+        if [ "$GIT_FOUND" = "yes" ]; then
+          printf "%${BUILD_INDENT}c $(print_color CLR_GET "GIT PULL")   $1\n" ' '>&$SILENT_OUT
+          git pull
+          cd "${opwd}"
+        fi
       else
         printf "%${BUILD_INDENT}c $(print_color CLR_CLEAN "DELETE") ($d)\n" ' '>&$SILENT_OUT
-        cd -
+        cd "${opwd}"
         rm -rf "$d"
       fi
     else
       printf "%${BUILD_INDENT}c $(print_color CLR_CLEAN "DELETE") ($d)\n" ' '>&$SILENT_OUT
-      cd -
       rm -rf "$d"
     fi
   fi
 done
+cd "${opwd}"
 
-if [ "${GIT_FOUND}" = "no" ] ; then
-  printf "%${BUILD_INDENT}c $(print_color CLR_GET "GIT CLONE") ($PACKAGE)\n" ' '>&$SILENT_OUT
+if [ "${GIT_FOUND}" = "no" ]; then
+  printf "%${BUILD_INDENT}c $(print_color CLR_GET "GIT CLONE")   $1\n" ' '>&$SILENT_OUT
   git clone $GIT_CLONE_PARAMS $PKG_URL $PACKAGE
 else
-  if [ ! "${GIT_DIR}" = "${PACKAGE}" ] ; then
+  if [ ! "${GIT_DIR}" = "${PACKAGE}" ]; then
     mv "${GIT_DIR}" "${PACKAGE}"
   fi
 fi
 
-cd $PACKAGE
-git reset --hard $PKG_VERSION
-printf "%${BUILD_INDENT}c $(print_color CLR_GET "GIT SUBMODULE")\n" ' '>&$SILENT_OUT
-git submodule update --init --recursive $GIT_SUBMODULE_PARAMS
-cd -
+(
+  cd $PACKAGE
+  [ $(git log --oneline --pretty=tformat:"%H" | grep "^$PKG_VERSION" | wc -l) -eq 1 ] || { echo "There is no commit '$PKG_VERSION' on branch '$(git branch | grep ^\* | cut -d ' ' -f2)' of package '$1'! Aborting!" ; exit 1 ; }
+  git reset --hard $PKG_VERSION
+  printf "%${BUILD_INDENT}c $(print_color CLR_GET "GIT SUBMODULE")   $1\n" ' '>&$SILENT_OUT
+  git submodule update --init --recursive $GIT_SUBMODULE_PARAMS
+)
 
-GIT_SHA=$(git ls-remote $PACKAGE | grep HEAD | head -n 1 | awk '{print $1;}')
+GIT_SHA=$(git ls-remote $PACKAGE | grep -m1 HEAD | awk '{print $1;}')
 
 if [ -n "$PKG_GIT_SHA" ]; then
    [ "$PKG_GIT_SHA" = "$GIT_SHA" ] || printf "%${BUILD_INDENT}c $(print_color CLR_WARNING "WARNING") Incorrect git hash in respository: got ${GIT_SHA}, wanted ${PKG_GIT_SHA}\n\n" ' '>&$SILENT_OUT
 fi
-
-echo "${PKG_URL}" > $STAMP_URL
-echo "${GIT_SHA}" > $STAMP_SHA
