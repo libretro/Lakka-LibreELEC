@@ -35,16 +35,11 @@ PKG_TOOLCHAIN="manual"
 makeinstall_target() {
   FW_TARGET_DIR=$INSTALL/$(get_full_firmware_dir)
 
-  # Install all firmwares found in hierarchy
-  FW_LISTS=
-  for dir in ${PKG_DIR} \
-             ${PROJECT_DIR}/${PROJECT}/packages/${PKG_NAME} \
-             ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/packages/${PKG_NAME} \
-             ; do
-    for fmware in any.dat ${TARGET_ARCH}.dat; do
-      [ -f "${dir}/firmwares/${fmware}" ] && FW_LISTS+=" ${dir}/firmwares/${fmware}"
-    done
-  done
+  if find_file_path firmwares/kernel-firmware.dat; then
+    FW_LISTS="${FOUND_FILE}"
+  else
+    FW_LISTS="${PKG_DIR}/firmwares/any.dat ${PKG_DIR}/firmwares/${TARGET_ARCH}.dat"
+  fi
 
   for fwlist in ${FW_LISTS}; do
     [ -f ${fwlist} ] || continue
