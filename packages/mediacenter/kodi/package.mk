@@ -203,7 +203,7 @@ KODI_LIBDVD="$KODI_DVDCSS \
              -DLIBDVDREAD_URL=$SOURCES/libdvdread/libdvdread-$(get_pkg_version libdvdread).tar.gz"
 
 # Build Kodi using parallel LTO
-[ "$LTO_SUPPORT" = "yes" -a "$DEBUG" != "yes" ] && PKG_KODI_USE_LTO="-DUSE_LTO=$CONCURRENCY_MAKE_LEVEL"
+[ "$LTO_SUPPORT" = "yes" ] && ! build_with_debug && PKG_KODI_USE_LTO="-DUSE_LTO=$CONCURRENCY_MAKE_LEVEL"
 
 PKG_CMAKE_OPTS_TARGET="-DNATIVEPREFIX=$TOOLCHAIN \
                        -DWITH_TEXTUREPACKER=$TOOLCHAIN/bin/TexturePacker \
