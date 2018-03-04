@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="mali-rockchip"
-PKG_VERSION="92b8698"
-PKG_SHA256="a32940d777bee30890068292207a91d71ec832c55e28d96cc8cc64d06171e198"
+PKG_VERSION="12daf22"
+PKG_SHA256="e6004e0f5a8a4aba098d301b3f964e2a9a961bb79f180d55ea6e9e73cd6eb874"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="nonfree"
 PKG_SITE="https://github.com/rockchip-linux/libmali"
