@@ -16,6 +16,8 @@ This project is for Rockchip SoC devices
 
 **RK3399**
 * [96rocks ROCK960](devices/RK3399)
+* [Hardkernel ODROID-N1](devices/RK3399)
+* [PINE64 RockPro64](devices/RK3399)
 * [Rockchip Sapphire Board](devices/RK3399)
 
 **My single-board computer is not listed, will it be added in the future?**<br />
