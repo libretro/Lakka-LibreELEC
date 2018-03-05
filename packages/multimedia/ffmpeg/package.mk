@@ -47,6 +47,13 @@ else
   FFMPEG_VDPAU="--disable-vdpau"
 fi
 
+if [ "$PROJECT" = "Rockchip" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET rkmpp"
+  FFMPEG_RKMPP="--enable-rkmpp --enable-libdrm --enable-version3"
+else
+  FFMPEG_RKMPP="--disable-rkmpp"
+fi
+
 if build_with_debug; then
   FFMPEG_DEBUG="--enable-debug --disable-stripping"
 else
@@ -149,6 +156,7 @@ configure_target() {
               $FFMPEG_VAAPI \
               $FFMPEG_VDPAU \
               $FFMPEG_RPI \
+              $FFMPEG_RKMPP \
               --disable-dxva2 \
               --enable-runtime-cpudetect \
               $FFMPEG_TABLES \

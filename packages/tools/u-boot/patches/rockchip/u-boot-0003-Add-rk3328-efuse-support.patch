@@ -1,0 +1,126 @@
+From dd6e1ab93a92e133c41a8665f6d8aca9450bdca8 Mon Sep 17 00:00:00 2001
+From: Kamil Trzcinski <ayufan@ayufan.eu>
+Date: Sun, 20 Aug 2017 01:52:34 +0200
+Subject: [PATCH] Add rk3328-efuse support
+
+---
+ arch/arm/dts/rk3328.dtsi      | 25 ++++++++++++++++++++
+ drivers/misc/rockchip-efuse.c | 55 +++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 80 insertions(+)
+
+diff --git a/arch/arm/dts/rk3328.dtsi b/arch/arm/dts/rk3328.dtsi
+index 2a4c4929d7..611a0d4b21 100644
+--- a/arch/arm/dts/rk3328.dtsi
++++ b/arch/arm/dts/rk3328.dtsi
+@@ -342,6 +342,31 @@
+ 		};
+ 	};
+ 
++	efuse: efuse@ff260000 {
++		compatible = "rockchip,rk3328-efuse";
++		reg = <0x0 0xff260000 0x0 0x50>;
++		#address-cells = <1>;
++		#size-cells = <1>;
++		clocks = <&cru SCLK_EFUSE>;
++		clock-names = "pclk_efuse";
++		rockchip,efuse-size = <0x20>;
++
++		/* Data cells */
++		efuse_id: id@7 {
++			reg = <0x07 0x10>;
++		};
++		cpu_leakage: cpu-leakage@17 {
++			reg = <0x17 0x1>;
++		};
++		logic_leakage: logic-leakage@19 {
++			reg = <0x19 0x1>;
++		};
++		efuse_cpu_version: cpu-version@1a {
++			reg = <0x1a 0x1>;
++			bits = <3 3>;
++		};
++	};
++
+ 	saradc: saradc@ff280000 {
+ 		compatible = "rockchip,rk3328-saradc", "rockchip,saradc";
+ 		reg = <0x0 0xff280000 0x0 0x100>;
+diff --git a/drivers/misc/rockchip-efuse.c b/drivers/misc/rockchip-efuse.c
+index b4ad19cfe8..81b78f9b2c 100644
+--- a/drivers/misc/rockchip-efuse.c
++++ b/drivers/misc/rockchip-efuse.c
+@@ -16,6 +16,14 @@
+ #include <linux/delay.h>
+ #include <misc.h>
+ 
++#define RK3328_INT_CON	0x0014
++#define RK3328_INT_STATUS	0x0018
++#define RK3328_DOUT		0x0020
++#define RK3328_AUTO_CTRL	0x0024
++#define RK3328_INT_FINISH	BIT(0)
++#define RK3328_AUTO_ENB		BIT(0)
++#define RK3328_AUTO_RD		BIT(1)
++
+ #define RK3399_A_SHIFT          16
+ #define RK3399_A_MASK           0x3ff
+ #define RK3399_NFUSES           32
+@@ -95,6 +103,49 @@ U_BOOT_CMD(
+ );
+ #endif
+ 
++static int rockchip_rk3328_efuse_read(struct udevice *dev, int offset,
++				      void *buf, int size)
++{
++	struct rockchip_efuse_platdata *plat = dev_get_platdata(dev);
++
++	unsigned int addr_start, addr_end, addr_offset;
++	u32 out_value, status;
++	u8  bytes[RK3399_NFUSES * RK3399_BYTES_PER_FUSE];
++	int i = 0;
++	u32 addr;
++
++	/* 128 Byte efuse, 96 Byte for secure, 32 Byte for non-secure */
++	offset += 96;
++
++	addr_start = offset / RK3399_BYTES_PER_FUSE;
++	addr_offset = offset % RK3399_BYTES_PER_FUSE;
++	addr_end = DIV_ROUND_UP(offset + size, RK3399_BYTES_PER_FUSE);
++
++	/* cap to the size of the efuse block */
++	if (addr_end > RK3399_NFUSES)
++		addr_end = RK3399_NFUSES;
++
++	for (addr = addr_start; addr < addr_end; addr++) {
++		writel(RK3328_AUTO_RD | RK3328_AUTO_ENB |
++		       ((addr & RK3399_A_MASK) << RK3399_A_SHIFT),
++		       plat->base + RK3328_AUTO_CTRL);
++		udelay(10);
++		status = readl(plat->base + RK3328_INT_STATUS);
++		if (!(status & RK3328_INT_FINISH)) {
++			return -EIO;
++		}
++		out_value = readl(plat->base + RK3328_DOUT);
++		writel(RK3328_INT_FINISH, plat->base + RK3328_INT_STATUS);
++
++		memcpy(&bytes[i], &out_value, RK3399_BYTES_PER_FUSE);
++		i += RK3399_BYTES_PER_FUSE;
++	}
++
++	memcpy(buf, bytes + addr_offset, size);
++
++	return 0;
++}
++
+ static int rockchip_rk3399_efuse_read(struct udevice *dev, int offset,
+ 				      void *buf, int size)
+ {
+@@ -223,6 +274,10 @@ static const struct udevice_id rockchip_efuse_ids[] = {
+ 		.compatible = "rockchip,rk322x-efuse",
+ 		.data = (ulong)&rockchip_rk3288_efuse_read,
+ 	},
++	{
++		.compatible = "rockchip,rk3328-efuse",
++		.data = (ulong)rockchip_rk3328_efuse_read,
++	},
+ 	{
+ 		.compatible = "rockchip,rk3399-efuse",
+ 		.data = (ulong)&rockchip_rk3399_efuse_read,

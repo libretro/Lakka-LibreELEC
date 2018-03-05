@@ -1,0 +1,73 @@
+################################################################################
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2017-present Team LibreELEC
+#
+#  LibreELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  LibreELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+PKG_RKBIN="$(get_build_dir rkbin)"
+PKG_SOC=$UBOOT_SYSTEM
+
+if [ "$DEVICE" = "RK3328" -o "$DEVICE" = "RK3399" ]; then
+  PKG_SOC="${DEVICE/RK/rk}"
+fi
+
+case "$PKG_SOC" in
+  rk3036)
+    PKG_DATAFILE="spl/u-boot-spl-nodtb.bin"
+    PKG_LOADER="u-boot-dtb.bin"
+    ;;
+  rk3328)
+    PKG_DATAFILE="$PKG_RKBIN/rk33/rk3328_ddr_786MHz_v1.12.bin"
+    PKG_LOADER="$PKG_RKBIN/rk33/rk3328_miniloader_v2.44.bin"
+    PKG_BL31="$PKG_RKBIN/rk33/rk3328_bl31_v1.39.bin"
+    ;;
+  rk3399)
+    PKG_DATAFILE="$PKG_RKBIN/rk33/rk3399_ddr_800MHz_v1.09.bin"
+    PKG_LOADER="$PKG_RKBIN/rk33/rk3399_miniloader_v1.09.bin"
+    PKG_BL31="$PKG_RKBIN/rk33/rk3399_bl31_v1.00.elf"
+    ;;
+  *)
+    PKG_DATAFILE="spl/u-boot-spl-dtb.bin"
+    PKG_LOADER="u-boot-dtb.bin"
+    ;;
+esac
+
+if [ -n "$PKG_DATAFILE" -a -n "$PKG_LOADER" ]; then
+  tools/mkimage -n $PKG_SOC -T rksd -d "$PKG_DATAFILE" idbloader.img
+  cat "$PKG_LOADER" >> idbloader.img
+  cp -av idbloader.img $INSTALL/usr/share/bootloader
+fi
+
+if [ -n "$PKG_BL31" ]; then
+  $PKG_RKBIN/tools/loaderimage --pack --uboot u-boot-dtb.bin uboot.img 0x200000
+  cp -av uboot.img $INSTALL/usr/share/bootloader
+
+  cat >trust.ini <<EOF
+[BL30_OPTION]
+SEC=0
+[BL31_OPTION]
+SEC=1
+PATH=$PKG_BL31
+ADDR=0x00010000
+[BL32_OPTION]
+SEC=0
+[BL33_OPTION]
+SEC=0
+[OUTPUT]
+PATH=trust.img
+EOF
+  $PKG_RKBIN/tools/trust_merger --verbose trust.ini
+  cp -av trust.img $INSTALL/usr/share/bootloader
+fi
