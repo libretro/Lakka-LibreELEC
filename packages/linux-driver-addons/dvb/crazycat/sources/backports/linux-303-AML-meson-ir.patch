@@ -8,42 +8,7 @@
  
  #include <media/rc-core.h>
  
-@@ -113,6 +114,7 @@
- 	const char *map_name;
- 	struct meson_ir *ir;
- 	int irq, ret;
-+	struct pinctrl *pinctrl;
- 
- 	ir = devm_kzalloc(dev, sizeof(struct meson_ir), GFP_KERNEL);
- 	if (!ir)
-@@ -125,6 +127,14 @@
- 		return PTR_ERR(ir->reg);
- 	}
- 
-+ 	if (of_get_property(node, "pinctrl-names", NULL)) {
-+ 		pinctrl = devm_pinctrl_get_select_default(dev);
-+ 		if (IS_ERR(pinctrl)) {
-+ 			dev_err(dev, "failed to get pinctrl\n");
-+ 			ret = PTR_ERR(pinctrl);
-+ 		}
-+ 	}
-+ 
- 	irq = platform_get_irq(pdev, 0);
- 	if (irq < 0) {
- 		dev_err(dev, "no irq resource\n");
---- a/drivers/media/rc/Kconfig
-+++ b/drivers/media/rc/Kconfig
-@@ -227,7 +227,6 @@
- config IR_MESON
- 	tristate "Amlogic Meson IR remote receiver"
- 	depends on RC_CORE
--	depends on ARCH_MESON || COMPILE_TEST
- 	---help---
- 	   Say Y if you want to use the IR remote receiver available
- 	   on Amlogic Meson SoCs.
---- a/drivers/media/rc/meson-ir.c
-+++ b/drivers/media/rc/meson-ir.c
-@@ -69,6 +69,7 @@
+@@ -69,6 +70,7 @@
  	void __iomem	*reg;
  	struct rc_dev	*rc;
  	spinlock_t	lock;
@@ -51,7 +16,7 @@
  };
  
  static void meson_ir_set_mask(struct meson_ir *ir, unsigned int reg,
-@@ -98,6 +99,10 @@
+@@ -98,6 +100,10 @@
  	rawir.pulse = !!(status & STATUS_IR_DEC_IN);
  
  	ir_raw_event_store(ir->rc, &rawir);
@@ -62,7 +27,7 @@
  	ir_raw_event_handle(ir->rc);
  
  	spin_unlock(&ir->lock);
-@@ -105,6 +110,17 @@
+@@ -105,6 +111,17 @@
  	return IRQ_HANDLED;
  }
  
@@ -80,7 +45,30 @@
  static int meson_ir_probe(struct platform_device *pdev)
  {
  	struct device *dev = &pdev->dev;
-@@ -145,7 +161,9 @@
+@@ -113,6 +130,7 @@
+ 	const char *map_name;
+ 	struct meson_ir *ir;
+ 	int irq, ret;
++	struct pinctrl *pinctrl;
+ 
+ 	ir = devm_kzalloc(dev, sizeof(struct meson_ir), GFP_KERNEL);
+ 	if (!ir)
+@@ -125,6 +143,14 @@
+ 		return PTR_ERR(ir->reg);
+ 	}
+ 
++ 	if (of_get_property(node, "pinctrl-names", NULL)) {
++ 		pinctrl = devm_pinctrl_get_select_default(dev);
++ 		if (IS_ERR(pinctrl)) {
++ 			dev_err(dev, "failed to get pinctrl\n");
++ 			ret = PTR_ERR(pinctrl);
++ 		}
++ 	}
++ 
+ 	irq = platform_get_irq(pdev, 0);
+ 	if (irq < 0) {
+ 		dev_err(dev, "no irq resource\n");
+@@ -145,7 +171,9 @@
  	ir->rc->map_name = map_name ? map_name : RC_MAP_EMPTY;
  	ir->rc->allowed_protocols = RC_PROTO_BIT_ALL_IR_DECODER;
  	ir->rc->rx_resolution = US_TO_NS(MESON_TRATE);
@@ -90,16 +78,16 @@
  	ir->rc->driver_name = DRIVER_NAME;
  
  	spin_lock_init(&ir->lock);
-@@ -163,6 +181,8 @@
+@@ -157,6 +185,8 @@
  		return ret;
  	}
  
 +	setup_timer(&ir->flush_timer, flush_timer, (unsigned long) ir);
 +
- 	/* Reset the decoder */
- 	meson_ir_set_mask(ir, IR_DEC_REG1, REG1_RESET, REG1_RESET);
- 	meson_ir_set_mask(ir, IR_DEC_REG1, REG1_RESET, 0);
-@@ -197,6 +217,7 @@
+ 	ret = devm_request_irq(dev, irq, meson_ir_irq, 0, NULL, ir);
+ 	if (ret) {
+ 		dev_err(dev, "failed to request irq\n");
+@@ -197,6 +227,7 @@
  	spin_lock_irqsave(&ir->lock, flags);
  	meson_ir_set_mask(ir, IR_DEC_REG1, REG1_ENABLE, 0);
  	spin_unlock_irqrestore(&ir->lock, flags);
@@ -107,6 +95,16 @@
  
  	return 0;
  }
+--- a/drivers/media/rc/Kconfig
++++ b/drivers/media/rc/Kconfig
+@@ -238,7 +238,6 @@
+ config IR_MESON
+ 	tristate "Amlogic Meson IR remote receiver"
+ 	depends on RC_CORE
+-	depends on ARCH_MESON || COMPILE_TEST
+ 	---help---
+ 	   Say Y if you want to use the IR remote receiver available
+ 	   on Amlogic Meson SoCs.
 --- /dev/null
 +++ b/include/linux/bitfield.h
 @@ -0,0 +1,106 @@
