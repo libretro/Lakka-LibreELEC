@@ -39,6 +39,11 @@ if [[ ! $TARGET_ARCH = arm ]] || target_has_feature neon; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libvpx"
 fi
 
+# X11 grab for screen recording
+if [ "$DISPLAYSERVER" = "x11" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libxcb libX11"
+fi
+
 pre_configure_target() {
   cd $PKG_BUILD
   rm -rf .$TARGET_NAME
@@ -123,7 +128,6 @@ pre_configure_target() {
 
 # X11 grab for screen recording
   if [ "$DISPLAYSERVER" = "x11" ]; then
-    PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libxcb"
     PKG_FFMPEG_LIBS="$PKG_FFMPEG_LIBS -lX11"
     PKG_FFMPEG_X11_GRAB="\
     --enable-libxcb \
