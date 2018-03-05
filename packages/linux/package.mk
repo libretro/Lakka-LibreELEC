@@ -55,6 +55,12 @@ case "$LINUX" in
     PKG_SOURCE_DIR="kernel-$PKG_VERSION*"
     PKG_PATCH_DIRS="rockchip-4.4"
     ;;
+  raspberrypi)
+    PKG_VERSION="80a14a56dacb7cc2b40d5f37d00bedb0ceace130" # 4.14.24
+    PKG_SHA256="fdf9571fe8ad514e0dd7185606828a15199f3ddb140f99ba7fcaf37dadbe8491"
+    PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
+    PKG_PATCH_DIRS="raspberrypi"
+    ;;
   *)
     PKG_VERSION="4.14.24"
     PKG_SHA256="ba512d1bd7f5910bae0f5d66554810f097f82e5df6fccb8c7cc4a11410839801"
