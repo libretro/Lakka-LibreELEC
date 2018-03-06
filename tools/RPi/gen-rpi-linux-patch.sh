@@ -105,6 +105,14 @@ cat /tmp/dropped
 echo
 echo "Dropped patches: /tmp/dropped"
 
+LINE_START=$(grep -n '^DROP_COMMITS="$' ${BIN}/rpi-linux-rebase.sh | awk -F: '{print $1}')
+LINE_END=$(grep -n '^"$' ${BIN}/rpi-linux-rebase.sh | awk -F: '{print $1}')
+while read -r msg; do
+ grep -qxE "drop [a-f0-9]{40} ${msg}$" /tmp/dropped || LINES+="${msg}\n"
+done <<< "$(sed -n "$((LINE_START + 1)),$((LINE_END - 1))p" ${BIN}/rpi-linux-rebase.sh | grep -v "^#### " | tr -d "\\\\")"
+
+[ -n "${LINES}" ] && echo -e "*****\nThe following commits are no longer being dropped:\n\n${LINES}*****"
+
 echo "New patch file : /tmp/linux-01-RPi_support.patch"
 
 echo

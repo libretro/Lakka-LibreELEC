@@ -17,11 +17,13 @@ DROP_COMMITS="
 Added Device IDs for August DVB-T 205
 net: Add non-mainline source for rtl8192cu wlan
 net: Fix rtl8192cu build errors on other platforms
+net: rtl8192cu: Normalize indentation
+net: rtl8192cu: Fix implicit fallthrough warnings
 ARM64: Fix build break for RTL8187\/RTL8192CU wifi
-fixup: rtl8192cu fixes from milhouse
-rtl8192: Fixup build
-rtl8192: switch to netdev->priv_destructor()
 Revert \"softirq: Let ksoftirqd do its job\"
+#### Following commits are dropped to avoid merge conflicts ####
+drm\/vc4: Release fence after signalling
+i2c: bcm2835: Set up the rising\/falling edge delays
 "
 
 IFS=$'\n'
