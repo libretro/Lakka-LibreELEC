@@ -1,8 +1,6 @@
-#!/bin/sh
-
 ################################################################################
-#      This file is part of LibreELEC - https://LibreELEC.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2018-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -18,7 +16,19 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-. config/options $1
+PKG_NAME="autoscript-amlogic"
+PKG_VERSION=""
+PKG_LICENSE="GPL"
+PKG_DEPENDS_TARGET="toolchain"
+PKG_TOOLCHAIN="manual"
 
-mkdir -p $RELEASE_DIR/3rdparty/bootloader
-cp $INSTALL/usr/share/bootloader/dtb.img $RELEASE_DIR/3rdparty/bootloader
+make_target() {
+  for src in $PKG_DIR/scripts/*autoscript.src ; do
+    $TOOLCHAIN/bin/mkimage -A $TARGET_KERNEL_ARCH -O linux -T script -C none -d "$src" "$(basename $src .src)" > /dev/null
+  done
+}
+
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/share/bootloader
+  cp -a $PKG_BUILD/*autoscript $INSTALL/usr/share/bootloader/
+}

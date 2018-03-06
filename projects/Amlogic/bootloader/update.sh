@@ -59,8 +59,8 @@ for arg in $(cat /proc/cmdline); do
         UPDATE_DTB_SOURCE="$UPDATE_DTB_IMG"
       elif [ -f "$UPDATE_DTB" ] ; then
         UPDATE_DTB_SOURCE="$UPDATE_DTB"
-      elif [ -n "$LE_DT_ID" -a -f "$SYSTEM_ROOT/usr/share/bootloader/$LE_DT_ID.dtb" ] ; then
-        UPDATE_DTB_SOURCE="$SYSTEM_ROOT/usr/share/bootloader/$LE_DT_ID.dtb"
+      elif [ -n "$LE_DT_ID" -a -f "$SYSTEM_ROOT/usr/share/bootloader/device_trees/$LE_DT_ID.dtb" ] ; then
+        UPDATE_DTB_SOURCE="$SYSTEM_ROOT/usr/share/bootloader/device_trees/$LE_DT_ID.dtb"
       fi
 
       if [ -f "$UPDATE_DTB_SOURCE" ] ; then

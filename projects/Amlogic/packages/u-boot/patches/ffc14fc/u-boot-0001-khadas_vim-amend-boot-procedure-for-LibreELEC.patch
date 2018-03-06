@@ -1,0 +1,464 @@
+From 1eab6c71f578b46bc9f33378252840ed46f9c443 Mon Sep 17 00:00:00 2001
+From: kszaq <kszaquitto@gmail.com>
+Date: Sat, 17 Feb 2018 20:30:08 +0100
+Subject: [PATCH] khadas_vim: amend boot procedure for LibreELEC
+
+* make eMMC use MBR instead of AML partition structure
+* port eMMC/SD renumbering from Hardkernel to allow booting from either SD or eMMC
+* remove NAND driver (not in use)
+* remove fastboot, bcb, store interface (not in use and conflicts with eMMC MBR)
+* remove preboot steps that are not requried for faster booting
+* fix eMMC for KVIM2 when CONFIG_ENV_IS_NOWHERE
+---
+ board/khadas/configs/kvim.h  | 39 ++++-----------------
+ board/khadas/configs/kvim2.h | 37 +++-----------------
+ board/khadas/kvim/kvim.c     | 83 +++++++++++++++++---------------------------
+ board/khadas/kvim2/kvim2.c   | 80 ++++++++++++++++++++++--------------------
+ drivers/mmc/aml_sd_emmc.c    |  1 -
+ 5 files changed, 85 insertions(+), 155 deletions(-)
+
+diff --git a/board/khadas/configs/kvim.h b/board/khadas/configs/kvim.h
+index 0189f32..e95fc98 100644
+--- a/board/khadas/configs/kvim.h
++++ b/board/khadas/configs/kvim.h
+@@ -47,7 +47,7 @@
+ 
+ //#define CONFIG_INSTABOOT
+ /* configs for dtb in boot.img */
+-//#define DTB_BIND_KERNEL
++#define DTB_BIND_KERNEL
+ 
+ /* SMP Definitinos */
+ #define CPU_RELEASE_ADDR		secondary_boot_func
+@@ -61,12 +61,6 @@
+ /* support ext4*/
+ #define CONFIG_CMD_EXT4 1
+ 
+-/* Bootloader Control Block function
+-   That is used for recovery and the bootloader to talk to each other
+-  */
+-#define CONFIG_BOOTLOADER_CONTROL_BLOCK
+-
+-
+ /* Serial config */
+ #define CONFIG_CONS_INDEX 2
+ #define CONFIG_BAUDRATE  115200
+@@ -109,8 +103,6 @@
+ 			"init_display=" \
+ 				"osd open;" \
+ 				"osd clear;" \
+-				"imgread pic logo bootup ${loadaddr};" \
+-				"bmp display ${bootup_offset}; bmp scale" \
+         	"\0"\
+ 			"bootdisk=ramdisk\0" \
+ 			"bootargs=" \
+@@ -140,13 +132,11 @@
+  * - ramdisk: Ubuntu or Linux distro
+  */
+ #define CONFIG_PREBOOT \
+-	"run init_display;" \
+-	"run combine_key;" \
+-	"run upgrade_key;"
++	"run init_display;"
+ 
+-#define CONFIG_BOOTCOMMAND "cfgload;ext4load mmc 1:5 1080000 Image;ext4load mmc 1:5 10000000 uInitrd;ext4load mmc 1:5 20000000 kvim.dtb;booti 1080000 10000000 20000000"
++#define CONFIG_BOOTCOMMAND "cfgload"
+ 
+-//#define CONFIG_ENV_IS_NOWHERE  1
++#define CONFIG_ENV_IS_NOWHERE  1
+ #define CONFIG_ENV_SIZE   (64*1024)
+ #define CONFIG_FIT 1
+ #define CONFIG_OF_LIBFDT 1
+@@ -184,7 +174,7 @@
+ #define CONFIG_DDR_FUNC_PRINT_WINDOW	0 //0:disable, 1:enable. print ddr training window
+ 
+ /* storage: emmc/nand/sd */
+-#define	CONFIG_STORE_COMPATIBLE 1
++//#define	CONFIG_STORE_COMPATIBLE 1
+ /*
+ *				storage
+ *		|---------|---------|
+@@ -199,7 +189,7 @@
+ /* support for mtd */
+ //#define CONFIG_AML_MTD 1
+ /* support for nftl */
+-#define CONFIG_AML_NAND	1
++// #define CONFIG_AML_NAND	1
+ 
+ #if defined(CONFIG_AML_NAND) && defined(CONFIG_AML_MTD)
+ #error CONFIG_AML_NAND/CONFIG_AML_MTD can not support at the sametime;
+@@ -290,22 +280,6 @@
+ 	#define CONFIG_USB_XHCI_AMLOGIC_GXL 1
+ #endif //#if defined(CONFIG_CMD_USB)
+ 
+-//UBOOT fastboot config
+-#define CONFIG_CMD_FASTBOOT 1
+-#define CONFIG_FASTBOOT_FLASH_MMC_DEV 1
+-#define CONFIG_FASTBOOT_FLASH 1
+-#define CONFIG_USB_GADGET 1
+-#define CONFIG_USBDOWNLOAD_GADGET 1
+-#define CONFIG_SYS_CACHELINE_SIZE 64
+-#define CONFIG_FASTBOOT_MAX_DOWN_SIZE	0x8000000
+-#define CONFIG_DEVICE_PRODUCT	"p212"
+-
+-//UBOOT Facotry usb/sdcard burning config
+-#define CONFIG_AML_V2_FACTORY_BURN              1       //support facotry usb burning
+-#define CONFIG_AML_FACTORY_BURN_LOCAL_UPGRADE   1       //support factory sdcard burning
+-#define CONFIG_POWER_KEY_NOT_SUPPORTED_FOR_BURN 1       //There isn't power-key for factory sdcard burning
+-#define CONFIG_SD_BURNING_SUPPORT_UI            1       //Displaying upgrading progress bar when sdcard/udisk burning
+-
+ #define CONFIG_AML_SECURITY_KEY                 1
+ #ifndef DTB_BIND_KERNEL
+ #define CONFIG_UNIFY_KEY_MANAGE                 1
+@@ -352,7 +326,6 @@
+ 
+ /*file system*/
+ #define CONFIG_DOS_PARTITION 1
+-#define CONFIG_AML_PARTITION 1
+ #define CONFIG_MMC 1
+ #define CONFIG_FS_FAT 1
+ #define CONFIG_FS_EXT4 1
+diff --git a/board/khadas/configs/kvim2.h b/board/khadas/configs/kvim2.h
+index 2b5f832..699b0ec 100644
+--- a/board/khadas/configs/kvim2.h
++++ b/board/khadas/configs/kvim2.h
+@@ -54,11 +54,6 @@
+ /* support ext4*/
+ #define CONFIG_CMD_EXT4 1
+ 
+-/* Bootloader Control Block function
+-   That is used for recovery and the bootloader to talk to each other
+-  */
+-#define CONFIG_BOOTLOADER_CONTROL_BLOCK
+-
+ #define CONFIG_CMD_SARADC 1
+ #define CONFIG_PHY_REALTEK 1
+ 
+@@ -108,8 +103,6 @@
+ 		"init_display=" \
+ 			"osd open;" \
+ 			"osd clear;" \
+-			"imgread pic logo bootup ${loadaddr};" \
+-			"bmp display ${bootup_offset}; bmp scale" \
+ 		"\0"\
+ 		"bootdisk=ramdisk\0" \
+ 		"initargs=" \
+@@ -159,14 +152,11 @@
+ 
+ #define CONFIG_PREBOOT  \
+             "run init_display;"\
+-            "run combine_key;" \
+-			"run storeargs;"\
+             "run wol_init;" \
+-			"run upgrade_key;" \
+ 			"run vim2_check;"
+-#define CONFIG_BOOTCOMMAND "cfgload;ext4load mmc 1:5 1080000 Image;ext4load mmc 1:5 10000000 uInitrd;ext4load mmc 1:5 20000000 kvim2.dtb;booti 1080000 10000000 20000000"
++#define CONFIG_BOOTCOMMAND "cfgload"
+ 
+-//#define CONFIG_ENV_IS_NOWHERE  1
++#define CONFIG_ENV_IS_NOWHERE  1
+ #define CONFIG_ENV_SIZE   (64*1024)
+ #define CONFIG_FIT 1
+ #define CONFIG_OF_LIBFDT 1
+@@ -207,7 +197,7 @@
+ #define CONFIG_DDR_PLL_BYPASS			0 //0:disable, 1:enable. ddr pll bypass function
+ 
+ /* storage: emmc/nand/sd */
+-#define	CONFIG_STORE_COMPATIBLE 1
++//#define	CONFIG_STORE_COMPATIBLE 1
+ /*
+ *				storage
+ *		|---------|---------|
+@@ -283,7 +273,7 @@
+ 
+ /*SPI*/
+ //#define CONFIG_SPI_BOOT 1
+-#define CONFIG_AMLOGIC_SPI_FLASH 1
++//#define CONFIG_AMLOGIC_SPI_FLASH 1
+ #ifdef      CONFIG_AMLOGIC_SPI_FLASH
+ #undef      CONFIG_ENV_IS_NOWHERE
+ #define     CONFIG_SPI_FLASH_WINBOND
+@@ -329,24 +319,8 @@
+ 	#define CONFIG_USB_XHCI_AMLOGIC_GXL 1
+ #endif //#if defined(CONFIG_CMD_USB)
+ 
+-//UBOOT fastboot config
+-#define CONFIG_CMD_FASTBOOT 1
+-#define CONFIG_FASTBOOT_FLASH_MMC_DEV 1
+-#define CONFIG_FASTBOOT_FLASH 1
+-#define CONFIG_USB_GADGET 1
+-#define CONFIG_USBDOWNLOAD_GADGET 1
+-#define CONFIG_SYS_CACHELINE_SIZE 64
+-#define CONFIG_FASTBOOT_MAX_DOWN_SIZE	0x8000000
+-#define CONFIG_DEVICE_PRODUCT	"q200"
+-
+-//UBOOT Facotry usb/sdcard burning config
+-#define CONFIG_AML_V2_FACTORY_BURN              1       //support facotry usb burning
+-#define CONFIG_AML_FACTORY_BURN_LOCAL_UPGRADE   1       //support factory sdcard burning
+-#define CONFIG_POWER_KEY_NOT_SUPPORTED_FOR_BURN 1       //There isn't power-key for factory sdcard burning
+-#define CONFIG_SD_BURNING_SUPPORT_UI            1       //Displaying upgrading progress bar when sdcard/udisk burning
+-
+ #define CONFIG_AML_SECURITY_KEY                 1
+-#define CONFIG_UNIFY_KEY_MANAGE                 1
++//#define CONFIG_UNIFY_KEY_MANAGE                 1
+ 
+ /* net */
+ #define CONFIG_CMD_NET   1
+@@ -388,7 +362,6 @@
+ 
+ /*file system*/
+ #define CONFIG_DOS_PARTITION 1
+-#define CONFIG_AML_PARTITION 1
+ #define CONFIG_MMC 1
+ #define CONFIG_FS_FAT 1
+ #define CONFIG_FS_EXT4 1
+diff --git a/board/khadas/kvim/kvim.c b/board/khadas/kvim/kvim.c
+index b1fdb96..41a056a 100644
+--- a/board/khadas/kvim/kvim.c
++++ b/board/khadas/kvim/kvim.c
+@@ -71,6 +71,23 @@ int dram_init(void)
+ void secondary_boot_func(void)
+ {
+ }
++
++/*
++ * Discover the boot device within MicroSD or eMMC
++ * and return 1 for eMMC, otherwise 0.
++ */
++#define BOOT_DEVICE_RESERVED	0
++#define BOOT_DEVICE_EMMC	1
++#define BOOT_DEVICE_NAND	2
++#define BOOT_DEVICE_SPI		3
++#define BOOT_DEVICE_SD		4
++#define BOOT_DEVICE_USB		5
++
++int get_boot_device(void)
++{
++	return readl(AO_SEC_GP_CFG0) & 0xf;
++}
++
+ void internalPhyConfig(struct phy_device *phydev)
+ {
+ 	/*Enable Analog and DSP register Bank access by*/
+@@ -263,8 +280,21 @@ int board_mmc_init(bd_t	*bis)
+ #else
+ 	//board_mmc_register(SDIO_PORT_B);
+ #endif
+-	board_mmc_register(SDIO_PORT_B);
+-	board_mmc_register(SDIO_PORT_C);
++	switch (get_boot_device())
++	{
++	case BOOT_DEVICE_EMMC:
++		board_mmc_register(SDIO_PORT_C);	// "mmc0"
++		board_mmc_register(SDIO_PORT_B);
++		break;
++	case BOOT_DEVICE_SD:
++		board_mmc_register(SDIO_PORT_B);	// "mmc0"
++		board_mmc_register(SDIO_PORT_C);
++		break;
++	default:
++		printf("No available mmc device! Check boot device!\n");
++		do_reset(NULL, 0, 0, NULL);
++		break;
++	}
+ //	board_mmc_register(SDIO_PORT_B1);
+ #if defined(CONFIG_ENV_IS_NOWHERE) && defined(CONFIG_AML_SD_EMMC)
+ 	/* try emmc here. */
+@@ -413,58 +443,9 @@ U_BOOT_CMD(hdmi_init, CONFIG_SYS_MAXARGS, 0, do_hdmi_init,
+ #endif
+ #ifdef CONFIG_BOARD_LATE_INIT
+ int board_late_init(void){
+-	/* ENV need update in following cases:
+-	 * - Bootloader upgrade
+-	 * - New ROM upgrade(the built-in bootloader might be changed)
+-	 */
+-	run_command("get_rebootmode;" \
+-				"echo reboot_mode=${reboot_mode};" \
+-				"if test ${reboot_mode} = factory_reset; then " \
+-					"defenv_reserv aml_dt;" \
+-					"setenv upgrade_step 2;" \
+-					"save;" \
+-				"fi;", 0);
+-	run_command("if itest ${upgrade_step} == 1; then " \
+-					"defenv_reserv;" \
+-					"setenv upgrade_step 2;" \
+-					"saveenv;" \
+-				"fi;", 0);
+-
+ 	/* HDMI setup */
+ 	run_command("hdmitx hpd", 0);
+ 	run_command("vout output $outputmode", 0);
+-	/* Load DTB */
+-#ifndef DTB_BIND_KERNEL
+-	int ret;
+-	ret = run_command("store dtb read $dtb_mem_addr", 1);
+-	if (ret) {
+-		printf("%s(): [store dtb read $dtb_mem_addr] fail\n", __func__);
+-		#ifdef CONFIG_DTB_MEM_ADDR
+-		char cmd[64];
+-		printf("load dtb to %x\n", CONFIG_DTB_MEM_ADDR);
+-		sprintf(cmd, "store dtb read %x", CONFIG_DTB_MEM_ADDR);
+-		ret = run_command(cmd, 1);
+-		if (ret) {
+-			printf("%s(): %s fail\n", __func__, cmd);
+-		}
+-		#endif
+-	}
+-#elif defined(CONFIG_DTB_MEM_ADDR)
+-		{
+-				char cmd[128];
+-				int ret;
+-                if (!getenv("dtb_mem_addr")) {
+-						sprintf(cmd, "setenv dtb_mem_addr 0x%x", CONFIG_DTB_MEM_ADDR);
+-						run_command(cmd, 0);
+-				}
+-				sprintf(cmd, "imgread dtb boot ${dtb_mem_addr}");
+-				ret = run_command(cmd, 0);
+-                                if (ret) {
+-						printf("%s(): cmd[%s] fail, ret=%d\n", __func__, cmd, ret);
+-				}
+-		}
+-#endif// #ifndef DTB_BIND_KERNEL
+-
+ 	/* Khadas VIM check */
+ 	run_command("saradc open 1;" \
+ 				"if saradc get_in_range 0x1a0 0x220; then " \
+diff --git a/board/khadas/kvim2/kvim2.c b/board/khadas/kvim2/kvim2.c
+index 99a6181..3b9febf 100644
+--- a/board/khadas/kvim2/kvim2.c
++++ b/board/khadas/kvim2/kvim2.c
+@@ -68,6 +68,23 @@ int dram_init(void)
+ void secondary_boot_func(void)
+ {
+ }
++
++/*
++ * Discover the boot device within MicroSD or eMMC
++ * and return 1 for eMMC, otherwise 0.
++ */
++#define BOOT_DEVICE_RESERVED	0
++#define BOOT_DEVICE_EMMC	1
++#define BOOT_DEVICE_NAND	2
++#define BOOT_DEVICE_SPI		3
++#define BOOT_DEVICE_SD		4
++#define BOOT_DEVICE_USB		5
++
++int get_boot_device(void)
++{
++	return readl(AO_SEC_GP_CFG0) & 0xf;
++}
++
+ void internalPhyConfig(struct phy_device *phydev)
+ {
+ 	/*Enable Analog and DSP register Bank access by*/
+@@ -299,14 +316,36 @@ static void board_mmc_register(unsigned port)
+ }
+ int board_mmc_init(bd_t	*bis)
+ {
++	__maybe_unused struct mmc *mmc;
+ #ifdef CONFIG_VLSI_EMULATOR
+ 	//board_mmc_register(SDIO_PORT_A);
+ #else
+ 	//board_mmc_register(SDIO_PORT_B);
+ #endif
+-	board_mmc_register(SDIO_PORT_B);
+-	board_mmc_register(SDIO_PORT_C);
++	switch (get_boot_device())
++	{
++	case BOOT_DEVICE_EMMC:
++		board_mmc_register(SDIO_PORT_C);	// "mmc0"
++		board_mmc_register(SDIO_PORT_B);
++		break;
++	case BOOT_DEVICE_SD:
++		board_mmc_register(SDIO_PORT_B);	// "mmc0"
++		board_mmc_register(SDIO_PORT_C);
++		break;
++	default:
++		printf("No available mmc device! Check boot device!\n");
++		do_reset(NULL, 0, 0, NULL);
++		break;
++	}
+ //	board_mmc_register(SDIO_PORT_B1);
++#if defined(CONFIG_ENV_IS_NOWHERE) && defined(CONFIG_AML_SD_EMMC)
++	/* try emmc here. */
++	mmc = find_mmc_device(CONFIG_SYS_MMC_ENV_DEV);
++	if (!mmc)
++		printf("%s() %d: No MMC found\n", __func__, __LINE__);
++	else if (mmc_init(mmc))
++		printf("%s() %d: MMC init failed\n", __func__, __LINE__);
++#endif
+ 	return 0;
+ }
+ 
+@@ -446,34 +485,13 @@ U_BOOT_CMD(hdmi_init, CONFIG_SYS_MAXARGS, 0, do_hdmi_init,
+ #endif
+ #ifdef CONFIG_BOARD_LATE_INIT
+ int board_late_init(void){
+-	int ret;
+-
+-	//update env before anyone using it
+-	run_command("get_rebootmode; echo reboot_mode=${reboot_mode}; "\
+-			"if test ${reboot_mode} = factory_reset; then "\
+-			"defenv_reserv aml_dt;setenv upgrade_step 2;save; fi;", 0);
+-	run_command("if itest ${upgrade_step} == 1; then "\
+-				"defenv_reserv; setenv upgrade_step 2; saveenv; fi;", 0);
+ 
+ #ifndef CONFIG_AML_IRDETECT_EARLY
+ 	/* after  */
+-	run_command("cvbs init;hdmitx hpd", 0);
++	run_command("hdmitx hpd", 0);
+ 	run_command("vout output $outputmode", 0);
+ #endif
+ 	/*add board late init function here*/
+-	ret = run_command("store dtb read $dtb_mem_addr", 1);
+-	if (ret) {
+-		printf("%s(): [store dtb read $dtb_mem_addr] fail\n", __func__);
+-		#ifdef CONFIG_DTB_MEM_ADDR
+-		char cmd[64];
+-		printf("load dtb to %x\n", CONFIG_DTB_MEM_ADDR);
+-		sprintf(cmd, "store dtb read %x", CONFIG_DTB_MEM_ADDR);
+-		ret = run_command(cmd, 1);
+-		if (ret) {
+-			printf("%s(): %s fail\n", __func__, cmd);
+-		}
+-		#endif
+-	}
+ #ifdef CONFIG_AML_V2_FACTORY_BURN
+ 	if (0x1b8ec003 == readl(P_PREG_STICKY_REG2))
+ 		aml_try_factory_usb_burning(1, gd->bd);
+@@ -489,20 +507,6 @@ int board_late_init(void){
+ 	/* load uboot pq value */
+ 	vpp_pq_load();
+ 
+-	ret = run_command("store dtb read $dtb_mem_addr", 1);
+-	if (ret) {
+-		printf("%s(): [store dtb read $dtb_mem_addr] fail\n", __func__);
+-#ifdef CONFIG_DTB_MEM_ADDR
+-		char cmd[64];
+-		printf("load dtb to %x\n", CONFIG_DTB_MEM_ADDR);
+-		sprintf(cmd, "store dtb read %x", CONFIG_DTB_MEM_ADDR);
+-		ret = run_command(cmd, 1);
+-		if (ret) {
+-			printf("%s(): %s fail\n", __func__, cmd);
+-		}
+-#endif
+-}
+-
+ 	return 0;
+ }
+ #endif
+diff --git a/drivers/mmc/aml_sd_emmc.c b/drivers/mmc/aml_sd_emmc.c
+index 4d3a84f..f8aa8f7 100644
+--- a/drivers/mmc/aml_sd_emmc.c
++++ b/drivers/mmc/aml_sd_emmc.c
+@@ -787,7 +787,6 @@ void sd_emmc_register(struct aml_card_sd_info * aml_priv)
+ #endif
+ 	cfg->f_min = 400000;
+ 	cfg->f_max = 40000000;
+-	cfg->part_type = PART_TYPE_AML;
+ 	cfg->b_max = 256;
+ 	mmc_create(cfg,aml_priv);
+ }
+-- 
+2.7.4
+

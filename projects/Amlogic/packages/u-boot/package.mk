@@ -1,6 +1,5 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 #      Copyright (C) 2017-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
@@ -18,26 +17,49 @@
 ################################################################################
 
 PKG_NAME="u-boot"
-PKG_VERSION="a43076c"
-PKG_ARCH="arm aarch64"
 PKG_SITE="https://www.denx.de/wiki/U-Boot"
-PKG_URL="https://github.com/BayLibre/u-boot/archive/$PKG_VERSION.tar.gz"
-PKG_SOURCE_DIR="u-boot-$PKG_VERSION*"
-PKG_DEPENDS_TARGET="toolchain dtc:host gcc-linaro-aarch64-elf:host gcc-linaro-arm-eabi:host"
+PKG_DEPENDS_TARGET="toolchain gcc-linaro-aarch64-elf:host gcc-linaro-arm-eabi:host"
+PKG_ARCH="arm aarch64"
 PKG_LICENSE="GPL"
 PKG_SECTION="tools"
 PKG_SHORTDESC="u-boot: Universal Bootloader project"
 PKG_LONGDESC="Das U-Boot is a cross-platform bootloader for embedded systems, used as the default boot loader by several board vendors. It is intended to be easy to port and to debug, and runs on many supported architectures, including PPC, ARM, MIPS, x86, m68k, NIOS, and Microblaze."
-PKG_IS_KERNEL_PKG="yes"
+
+case "$DEVICE" in
+  "Odroid_C2")
+    PKG_URL="https://github.com/hardkernel/u-boot/archive/$PKG_VERSION.tar.gz"
+    PKG_VERSION="6e4e886"
+    PKG_SHA256="0d05829e07e226d1acbc6b23ff038d6c92fa3ed738ddc28703d51987c0fab3bb"
+    ;;
+  "KVIM"*)
+    PKG_URL="https://github.com/khadas/u-boot/archive/$PKG_VERSION.tar.gz"
+    PKG_VERSION="ffc14fc"
+    PKG_SHA256="1326126ca7962d314cb522d95e657dbf71966e74c84fb093181910f9e4f2c1fa"
+    ;;
+  "LePotato")
+    PKG_URL="https://github.com/BayLibre/u-boot/archive/$PKG_VERSION.tar.gz"
+    PKG_VERSION="a43076c"
+    PKG_SHA256="0ae5fd97ba86fcd6cc7b2722580745a0ddbf651ffa0cc0bd188a05a9b668373f"
+    ;;
+  *)
+    PKG_TOOLCHAIN="manual"
+    ;;
+esac
 
 PKG_NEED_UNPACK="$PROJECT_DIR/$PROJECT/bootloader"
 [ -n "$DEVICE" ] && PKG_NEED_UNPACK+=" $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader"
 
+post_unpack() {
+  sed -i "s|arm-none-eabi-|arm-eabi-|g" $PKG_BUILD/Makefile $PKG_BUILD/arch/arm/cpu/armv8/gx*/firmware/scp_task/Makefile 2>/dev/null || true
+}
+
 make_target() {
-  export PATH=$TOOLCHAIN/lib/gcc-linaro-aarch64-elf/bin/:$TOOLCHAIN/lib/gcc-linaro-arm-eabi/bin/:$PATH
-  CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make mrproper
-  CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make $UBOOT_CONFIG
-  CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make HOSTCC="$HOST_CC" HOSTSTRIP="true"
+  if [ -n "$PKG_URL" ]; then
+    export PATH=$TOOLCHAIN/lib/gcc-linaro-aarch64-elf/bin/:$TOOLCHAIN/lib/gcc-linaro-arm-eabi/bin/:$PATH
+    CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make mrproper
+    CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make $UBOOT_CONFIG
+    CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make HOSTCC="$HOST_CC" HOSTSTRIP="true"
+  fi
 }
 
 makeinstall_target() {
@@ -49,8 +71,22 @@ makeinstall_target() {
     # Always install the update script
     find_file_path bootloader/update.sh && cp -av ${FOUND_PATH} $INSTALL/usr/share/bootloader
 
-    cp $PKG_BUILD/fip/u-boot.bin.sd.bin $INSTALL/usr/share/bootloader/u-boot
+    # Always install the canupdate script
+    if find_file_path bootloader/canupdate.sh; then
+      cp -av ${FOUND_PATH} $INSTALL/usr/share/bootloader
+      sed -e "s/@PROJECT@/${DEVICE:-$PROJECT}/g" \
+          -i $INSTALL/usr/share/bootloader/canupdate.sh
+    fi
 
     find_file_path bootloader/boot.ini && cp -av ${FOUND_PATH} $INSTALL/usr/share/bootloader
     find_file_path bootloader/config.ini && cp -av ${FOUND_PATH} $INSTALL/usr/share/bootloader
+
+    case "$DEVICE" in
+      "Odroid_C2")
+        cp -av $PKG_BUILD/u-boot.bin $INSTALL/usr/share/bootloader/u-boot
+        ;;
+      "KVIM"*|"LePotato")
+        cp -av $PKG_BUILD/fip/u-boot.bin.sd.bin $INSTALL/usr/share/bootloader/u-boot
+        ;;
+    esac
 }

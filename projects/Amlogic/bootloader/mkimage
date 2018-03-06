@@ -19,13 +19,23 @@
 ################################################################################
 
 # compile and copy amlogic autoscript files to part1
-for src in $INSTALL_SRC_DIR/*autoscript.src ; do
-  if [ -e "$src" ] ; then
-    $TOOLCHAIN/bin/mkimage -A $TARGET_KERNEL_ARCH -O linux -T script -C none -d "$src" "$LE_TMP/$(basename $src .src)" > /dev/null
-    mcopy "$LE_TMP/$(basename $src .src)" ::
-  fi
-done
+mcopy $RELEASE_DIR/3rdparty/bootloader/*autoscript :: 2>&1 > /dev/null || true
 
 # copy device trees to part1
-mmd device_trees
-  mcopy $RELEASE_DIR/3rdparty/bootloader/*.dtb ::/device_trees
+for dtb in $RELEASE_DIR/3rdparty/bootloader/device_trees $RELEASE_DIR/3rdparty/bootloader/*.dtb $RELEASE_DIR/3rdparty/bootloader/dtb.img ; do
+  [ -e "$dtb" ] && mcopy -s "$dtb" ::
+done
+
+if [ -f "$RELEASE_DIR/3rdparty/bootloader/u-boot" ]; then
+  echo "Writing u-boot to $(basename $DISK)"
+  dd if="$RELEASE_DIR/3rdparty/bootloader/u-boot" of="$DISK" conv=fsync,notrunc bs=1 count=112 >"$SAVE_ERROR" 2>&1 || show_error
+  dd if="$RELEASE_DIR/3rdparty/bootloader/u-boot" of="$DISK" conv=fsync,notrunc bs=512 skip=1 seek=1 >"$SAVE_ERROR" 2>&1 || show_error
+fi
+
+if [ -f "$RELEASE_DIR/3rdparty/bootloader/boot.ini" ]; then
+  mcopy $RELEASE_DIR/3rdparty/bootloader/boot.ini ::
+fi
+
+if [ -f "$RELEASE_DIR/3rdparty/bootloader/config.ini" ]; then
+  mcopy $RELEASE_DIR/3rdparty/bootloader/config.ini ::
+fi
