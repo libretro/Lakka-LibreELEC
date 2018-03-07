@@ -27,18 +27,18 @@ PKG_LONGDESC="Das U-Boot is a cross-platform bootloader for embedded systems, us
 
 case "$DEVICE" in
   "Odroid_C2")
-    PKG_URL="https://github.com/hardkernel/u-boot/archive/$PKG_VERSION.tar.gz"
     PKG_VERSION="6e4e886"
+    PKG_URL="https://github.com/hardkernel/u-boot/archive/$PKG_VERSION.tar.gz"
     PKG_SHA256="0d05829e07e226d1acbc6b23ff038d6c92fa3ed738ddc28703d51987c0fab3bb"
     ;;
   "KVIM"*)
-    PKG_URL="https://github.com/khadas/u-boot/archive/$PKG_VERSION.tar.gz"
     PKG_VERSION="ffc14fc"
+    PKG_URL="https://github.com/khadas/u-boot/archive/$PKG_VERSION.tar.gz"
     PKG_SHA256="1326126ca7962d314cb522d95e657dbf71966e74c84fb093181910f9e4f2c1fa"
     ;;
   "LePotato")
-    PKG_URL="https://github.com/BayLibre/u-boot/archive/$PKG_VERSION.tar.gz"
     PKG_VERSION="a43076c"
+    PKG_URL="https://github.com/BayLibre/u-boot/archive/$PKG_VERSION.tar.gz"
     PKG_SHA256="0ae5fd97ba86fcd6cc7b2722580745a0ddbf651ffa0cc0bd188a05a9b668373f"
     ;;
   *)
