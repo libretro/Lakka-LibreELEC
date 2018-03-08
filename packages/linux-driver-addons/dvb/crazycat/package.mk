@@ -35,8 +35,10 @@ PKG_ADDON_NAME="DVB drivers for TBS (CrazyCat)"
 PKG_ADDON_TYPE="xbmc.service"
 PKG_ADDON_VERSION="${ADDON_VERSION}.${PKG_REV}"
 
-if [ $LINUX = "amlogic-3.14" -o $LINUX = "amlogic-3.10" ]; then
-  PKG_PATCH_DIRS="amlogic"
+if [ $LINUX = "amlogic-3.10" ]; then
+  PKG_PATCH_DIRS="amlogic-3.10"
+elif [ $LINUX = "amlogic-3.14" ]; then
+  PKG_PATCH_DIRS="amlogic-3.14"
 fi
 
 pre_make_target() {
