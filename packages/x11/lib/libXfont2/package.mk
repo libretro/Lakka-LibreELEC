@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libXfont2"
-PKG_VERSION="2.0.2"
-PKG_SHA256="94088d3b87f7d42c7116d9adaad155859e93330c6e47f5989f2de600b9a6c111"
+PKG_VERSION="2.0.3"
+PKG_SHA256="0e8ab7fd737ccdfe87e1f02b55f221f0bd4503a1c5f28be4ed6a54586bac9c4e"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
