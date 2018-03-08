@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="xf86-video-amdgpu"
-PKG_VERSION="1.4.0"
-PKG_SHA256="f8cac4bf3dd795b93cc337e5c0c62618026f597890a10d996f09c73eb88ba67c"
+PKG_VERSION="18.0.1"
+PKG_SHA256="7484682ccb403b3ca9e26d1c980572f08cdfa3469e2b2c9a9affc3d51b52691b"
 PKG_ARCH="x86_64"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.x.org/"
