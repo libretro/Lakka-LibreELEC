@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libxshmfence"
-PKG_VERSION="1.2"
-PKG_SHA256="d21b2d1fd78c1efbe1f2c16dae1cb23f8fd231dcf891465b8debe636a9054b0c"
+PKG_VERSION="1.3"
+PKG_SHA256="b884300d26a14961a076fbebc762a39831cb75f92bed5ccf9836345b459220c7"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
