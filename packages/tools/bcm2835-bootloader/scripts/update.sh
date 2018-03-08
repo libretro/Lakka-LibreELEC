@@ -34,6 +34,7 @@
   cp -p $SYSTEM_ROOT/usr/share/bootloader/start.elf $BOOT_ROOT
   [ -f $SYSTEM_ROOT/usr/share/bootloader/dt-blob.bin ] && cp -p $SYSTEM_ROOT/usr/share/bootloader/dt-blob.bin $BOOT_ROOT
 
+  rm -f $BOOT_ROOT/bcm283*.dtb # cleanup excess dtb's used by upstream kernels (ie. not LE)
   cp -p $SYSTEM_ROOT/usr/share/bootloader/*.dtb $BOOT_ROOT
   cp -pR $SYSTEM_ROOT/usr/share/bootloader/overlays $BOOT_ROOT
 
