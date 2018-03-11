@@ -38,7 +38,7 @@ PKG_CONFIGURE_OPTS_HOST="--enable-static \
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --with-jpeg8"
 
-if [ "$SIMD_SUPPORT" = "no" ]; then
+if ! target_has_feature "(neon|sse)"; then
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --without-simd"
 fi
 
