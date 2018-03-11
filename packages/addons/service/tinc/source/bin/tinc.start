@@ -1,0 +1,83 @@
+#!/bin/sh
+################################################################################
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2016-present Team LibreELEC
+#
+#  LibreELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  LibreELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+. /etc/profile
+oe_setup_addon service.system.tinc
+
+DIR_LEGACY="$ADDON_HOME/.config"
+if [ -d "$DIR_LEGACY" ]; then
+  echo "Warning: using legacy configuration $DIR_LEGACY, ignoring Kodi settings"
+  tincd --config "$DIR_LEGACY" --no-detach
+  exit $?
+fi
+
+[ -z "$tinc_loglevel" ] && tinc_loglevel="3"
+
+NET="vmnet_le"
+NAME="${tinc_subnet//./_}"
+CONF_KEYS="/storage/.cache/tinc.$NET"
+CONF_TINC="/run/tinc/$NET"
+DATA_LOCAL="$ADDON_HOME/Local"
+DATA_REMOTES="$ADDON_HOME/Remotes"
+
+rm -fr "$CONF_TINC" "$DATA_LOCAL" &> /dev/null
+
+if [ ! -d "$CONF_KEYS" ]; then
+  rm -fr "$CONF_KEYS" &> /dev/null
+  mkdir -p "$CONF_KEYS"
+  tinc --batch --config "$CONF_KEYS" generate-ed25519-keys
+fi
+
+if [ ! -d "$DATA_REMOTES" ]; then
+  rm -fr "$DATA_REMOTES" &> /dev/null
+  mkdir -p "$DATA_REMOTES"
+fi
+
+if [ "$tinc_subnet" == "0.0.0.0" ]; then
+  echo "Warning: default subnet $tinc_subnet, aborting"
+  exit
+fi
+
+if [ -e "$DATA_REMOTES/$NAME" ]; then
+  echo "Error: $NAME in $DATA_REMOTES, aborting"
+  exit
+fi
+
+mkdir -p "$CONF_TINC"
+cp -RT "$ADDON_DIR/config" "$CONF_TINC"
+chmod +x "$CONF_TINC"/*-*
+ln -sf "$DATA_REMOTES" "$CONF_TINC/hosts"
+tee >> "$CONF_TINC/tinc.conf" << EOF
+Ed25519PrivateKeyFile = $CONF_KEYS/ed25519_key.priv
+LogLevel              = $tinc_loglevel
+Name                  = $NAME
+EOF
+
+mkdir -p "$DATA_LOCAL"
+if [ -n "$tinc_address" ]; then
+  echo "Address          = $tinc_address" >> "$DATA_LOCAL/$NAME"
+fi
+cat "$CONF_KEYS/ed25519_key.pub" >> "$DATA_LOCAL/$NAME"
+
+tee -a "$CONF_TINC/tinc.conf" >> "$DATA_LOCAL/$NAME" << EOF
+Port             = $tinc_port
+Subnet           = $tinc_subnet
+EOF
+
+tincd --net "$NET" --no-detach
