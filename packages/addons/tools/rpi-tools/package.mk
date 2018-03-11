@@ -33,7 +33,7 @@ PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Raspberry Pi Tools"
 PKG_ADDON_TYPE="xbmc.python.module"
 PKG_ADDON_PROVIDES=""
-PKG_ADDON_PROJECTS="RPi RPi2"
+PKG_ADDON_PROJECTS="RPi"
 
 
 addon() {
