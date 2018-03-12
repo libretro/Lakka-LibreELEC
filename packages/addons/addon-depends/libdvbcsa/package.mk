@@ -29,6 +29,8 @@ PKG_SECTION="lib"
 PKG_SHORTDESC="libdvbcsa is a free implementation of the DVB Common Scrambling Algorithm - DVB/CSA - with encryption and decryption capabilities"
 PKG_LONGDESC="libdvbcsa is a free implementation of the DVB Common Scrambling Algorithm - DVB/CSA - with encryption and decryption capabilities"
 PKG_TOOLCHAIN="autotools"
+# libdvbcsa is a bit faster without LTO, and tests will fail with gcc-5.x
+PKG_BUILD_FLAGS="-lto +pic"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-shared --enable-static --with-sysroot=$SYSROOT_PREFIX"
 
@@ -43,10 +45,3 @@ elif [ "$TARGET_ARCH" = x86_64  ]; then
     PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-uint64"
   fi
 fi
-
-pre_configure_target() {
-# libdvbcsa is a bit faster without LTO, and tests will fail with gcc-5.x
-  strip_lto
-
-  export CFLAGS="$CFLAGS -fPIC"
-}

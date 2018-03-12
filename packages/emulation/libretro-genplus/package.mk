@@ -29,13 +29,13 @@ PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.genplus: Genesis Plus GX for Kodi"
 PKG_LONGDESC="game.libretro.genplus: Genesis Plus GX for Kodi"
 PKG_TOOLCHAIN="manual"
+PKG_BUILD_FLAGS="-lto"
 
 PKG_LIBNAME="genesis_plus_gx_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"
 PKG_LIBVAR="GENPLUS_LIB"
 
 make_target() {
-  strip_lto
   make -f Makefile.libretro
 }
 

@@ -28,6 +28,8 @@ PKG_SECTION="audio"
 PKG_SHORTDESC="alsa-lib: Advanced Linux Sound Architecture library"
 PKG_LONGDESC="ALSA (Advanced Linux Sound Architecture) is the next generation Linux Sound API. It provides much finer (->better) access to the sound hardware, has a unbeatable mixer API and supports stuff like multi channel hardware, digital outs and ins, uninterleaved sound data access, and an oss emulation layer (for the old applications). It is the prefered API for professional sound apps under Linux."
 PKG_TOOLCHAIN="autotools"
+# alsa-lib fails building with LTO support
+PKG_BUILD_FLAGS="-lto +pic"
 
 if build_with_debug; then
   ALSA_DEBUG=--with-debug
@@ -40,13 +42,6 @@ PKG_CONFIGURE_OPTS_TARGET="--with-plugindir=/usr/lib/alsa \
                            --disable-python \
                            $ALSA_DEBUG \
                            --disable-dependency-tracking"
-
-pre_configure_target() {
-  CFLAGS="$CFLAGS -fPIC -DPIC"
-
-  # alsa-lib fails building with LTO support
-    strip_lto
-}
 
 post_configure_target() {
   sed -i 's/.*PKGLIBDIR.*/#define PKGLIBDIR ""/' include/config.h

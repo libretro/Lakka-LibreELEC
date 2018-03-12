@@ -28,6 +28,7 @@ PKG_DEPENDS_HOST="libffi:host expat:host libxml2:host"
 PKG_SECTION="wayland"
 PKG_SHORTDESC="a display server protocol"
 PKG_LONGDESC="a display server protocol"
+PKG_BUILD_FLAGS="-lto"
 
 PKG_CONFIGURE_OPTS_HOST="--enable-shared \
                          --disable-static \
@@ -42,10 +43,6 @@ PKG_CONFIGURE_OPTS_TARGET="--with-sysroot=$SYSROOT_PREFIX \
                            --enable-libraries \
                            --disable-documentation \
                            --with-gnu-ld"
-
-pre_configure_target() {
-  strip_lto
-}
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin

@@ -30,6 +30,7 @@ PKG_SECTION="service"
 PKG_SHORTDESC="LCDproc: Software to display system information from your Linux/*BSD box on a LCD"
 PKG_LONGDESC="LCDproc ($PKG_VERSION) is a piece of software that displays real-time system information from your Linux/*BSD box on a LCD. The server supports several serial devices: Matrix Orbital, Crystal Fontz, Bayrad, LB216, LCDM001 (kernelconcepts.de), Wirz-SLI, Cwlinux(.com) and PIC-an-LCD; and some devices connected to the LPT port: HD44780, STV5730, T6963, SED1520 and SED1330. Various clients are available that display things like CPU load, system load, memory usage, uptime, and a lot more."
 PKG_TOOLCHAIN="autotools"
+PKG_BUILD_FLAGS="-parallel"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="LCDproc"
@@ -43,11 +44,6 @@ PKG_CONFIGURE_OPTS_TARGET="--with-ft-prefix=$SYSROOT_PREFIX/usr \
                            --disable-libpng \
                            --enable-drivers=all \
                            --enable-seamless-hbars"
-
-pre_make_target() {
-  # dont build parallel
-    MAKEFLAGS=-j1
-}
 
 addon() {
   drivers="none|$(cat $PKG_BUILD/.$TARGET_NAME/config.log | sed -n "s|^DRIVERS=' \(.*\)'|\1|p" | sed "s|.so||g" | tr ' ' '|')"

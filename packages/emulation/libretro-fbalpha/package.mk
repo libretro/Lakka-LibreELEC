@@ -29,15 +29,12 @@ PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.fba: fba for Kodi"
 PKG_LONGDESC="game.libretro.fba: fba for Kodi"
 PKG_TOOLCHAIN="manual"
+# linking takes too long with lto
+PKG_BUILD_FLAGS="-lto"
 
 PKG_LIBNAME="fbalpha_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"
 PKG_LIBVAR="FBALPHA_LIB"
-
-pre_make_target() {
-  # linking takes too long with lto
-  strip_lto
-}
 
 make_target() {
   make -f makefile.libretro

@@ -27,6 +27,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="audio"
 PKG_SHORTDESC="lame: LAME Ain't an Mp3 Encoder"
 PKG_LONGDESC="LAME originally stood for LAME Ain't an Mp3 Encoder. The goal of the LAME project is to use the open source model to improve the psycho acoustics, noise shaping and speed of MP3. Another goal of the LAME project is to use these improvements for the basis of a patent free audio compression codec for the GNU project."
+PKG_BUILD_FLAGS="-parallel"
 
 # package specific configure options
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
@@ -47,8 +48,3 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --with-gnu-ld \
                            --with-fileio=lame \
                            GTK_CONFIG=no"
-
-post_make_target() {
-  # dont build parallel
-    MAKEFLAGS=-j1
-}

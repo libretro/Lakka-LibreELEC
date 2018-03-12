@@ -28,6 +28,7 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="Late 2014/Early 2015 version of MAME (0.159-ish) for libretro"
 PKG_LONGDESC="Late 2014/Early 2015 version of MAME (0.159-ish) for libretro"
+PKG_BUILD_FLAGS="-lto"
 
 PKG_LIBNAME="mame2014_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"
@@ -37,7 +38,6 @@ pre_make_target() {
   export REALCC=$CC
   export CC=$CXX
   export LD=$CXX
-  strip_lto
 }
 
 make_target() {

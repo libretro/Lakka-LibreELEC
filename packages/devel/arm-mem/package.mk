@@ -28,6 +28,7 @@ PKG_DEPENDS_INIT="toolchain arm-mem"
 PKG_SECTION="devel"
 PKG_SHORTDESC="arm-mem: ARM-accelerated versions of selected functions from string.h"
 PKG_LONGDESC="arm-mem is a ARM-accelerated versions of selected functions from string.h"
+PKG_BUILD_FLAGS="+pic"
 
 if [ "$DEVICE" = "RPi2" -o "$DEVICE" = "Slice3" ] ; then
   PKG_LIB_ARM_MEM="libarmmem-v7l.so"
@@ -39,7 +40,6 @@ PKG_MAKE_OPTS_TARGET="$PKG_LIB_ARM_MEM"
 
 pre_make_target() {
   export CROSS_COMPILE=$TARGET_PREFIX
-  export CFLAGS="$CFLAGS -fPIC"
 }
 
 make_init() {

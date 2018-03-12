@@ -30,11 +30,10 @@ PKG_SECTION="multimedia"
 PKG_SHORTDESC="vdr-live: the LIVE Interactive VDR Environment/"
 PKG_LONGDESC="vdr-live allows a comfortable operation of VDR and some of its plugins trough a web interface"
 PKG_TOOLCHAIN="manual"
+PKG_BUILD_FLAGS="+pic"
 
 pre_configure_target() {
-  export CFLAGS="$CFLAGS -fPIC"
-  export CXXFLAGS="$CXXFLAGS -fPIC"
-  export LDFLAGS="$LDFLAGS -fPIC -L$SYSROOT_PREFIX/usr/lib/iconv"
+  export LDFLAGS="$LDFLAGS -L$SYSROOT_PREFIX/usr/lib/iconv"
 }
 
 make_target() {

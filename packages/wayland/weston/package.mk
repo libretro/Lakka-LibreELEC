@@ -27,6 +27,7 @@ PKG_DEPENDS_TARGET="toolchain wayland-protocols libdrm libxkbcommon libinput cai
 PKG_SECTION="wayland"
 PKG_SHORTDESC="Reference implementation of a Wayland compositor"
 PKG_LONGDESC="Reference implementation of a Wayland compositor"
+PKG_BUILD_FLAGS="-lto"
 
 PKG_CONFIGURE_OPTS_TARGET="CFLAGS=-DMESA_EGL_NO_X11_HEADERS \
                            LIBS=-lturbojpeg \
@@ -47,10 +48,6 @@ PKG_CONFIGURE_OPTS_TARGET="CFLAGS=-DMESA_EGL_NO_X11_HEADERS \
                            --disable-fullscreen-shell \
                            --disable-demo-clients-install \
                            --enable-systemd-notify"
-
-pre_configure_target() {
-  strip_lto
-}
 
 post_makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/weston

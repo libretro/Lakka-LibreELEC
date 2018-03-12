@@ -27,9 +27,6 @@ PKG_DEPENDS_TARGET="toolchain util-macros xextproto libXext libX11 libXt"
 PKG_SECTION="x11/lib"
 PKG_SHORTDESC="libxmu: X11 miscellaneous utility library"
 PKG_LONGDESC="LibXmu provides a set of miscellaneous utility convenience functions for X libraries to use."
+PKG_BUILD_FLAGS="+pic"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --with-gnu-ld --without-xmlto"
-
-pre_configure_target() {
-  CFLAGS="$CFLAGS -fPIC -DPIC"
-}

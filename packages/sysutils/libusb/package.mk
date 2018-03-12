@@ -27,6 +27,8 @@ PKG_DEPENDS_TARGET="toolchain systemd"
 PKG_SECTION="system"
 PKG_SHORTDESC="libusb: OS independent USB device access"
 PKG_LONGDESC="The libusb project's aim is to create a Library for use by user level applications to USB devices regardless of OS."
+#libusb sometimes fails to build if building paralell
+PKG_BUILD_FLAGS="-parallel"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-shared \
             --enable-static \
@@ -34,8 +36,3 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-shared \
             --disable-debug-log \
             --enable-udev \
             --disable-examples-build"
-
-pre_configure_target () {
-  #libusb sometimes fails to build if building paralell
-  export MAKEFLAGS=-j1
-}

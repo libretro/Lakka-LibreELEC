@@ -28,6 +28,7 @@ PKG_SECTION="tools"
 PKG_SHORTDESC="GNU GRUB is a Multiboot boot loader."
 PKG_LONGDESC="GNU GRUB is a Multiboot boot loader that was derived from GRUB, the GRand Unified Bootloader, which was originally designed and implemented by Erich Stefan Boleyn"
 PKG_TOOLCHAIN="configure"
+PKG_BUILD_FLAGS="-lto"
 
 PKG_CONFIGURE_OPTS_TARGET="--target=i386-pc-linux \
                            --disable-nls \
@@ -40,7 +41,6 @@ PKG_CONFIGURE_OPTS_TARGET="--target=i386-pc-linux \
 
 pre_configure_target() {
   unset CPP
-  strip_lto
   cd $PKG_BUILD
      ./autogen.sh
 }

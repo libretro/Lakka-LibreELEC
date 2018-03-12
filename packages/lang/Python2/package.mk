@@ -31,6 +31,7 @@ PKG_SHORTDESC="python2: The Python2 programming language"
 PKG_LONGDESC="Python2 is an interpreted object-oriented programming language, and is often compared with Tcl, Perl, Java or Scheme."
 
 PKG_TOOLCHAIN="autotools"
+PKG_BUILD_FLAGS="-parallel"
 
 PKG_PY_DISABLED_MODULES="_tkinter nis gdbm bsddb ossaudiodev"
 
@@ -81,7 +82,7 @@ make_host() {
 }
 
 makeinstall_host() {
-  make -j1 PYTHON_MODULES_INCLUDE="$HOST_INCDIR" \
+  make PYTHON_MODULES_INCLUDE="$HOST_INCDIR" \
        PYTHON_MODULES_LIB="$HOST_LIBDIR" \
        PYTHON_DISABLE_MODULES="readline _curses _curses_panel $PKG_PY_DISABLED_MODULES" \
        install
@@ -92,20 +93,20 @@ pre_configure_target() {
 }
 
 make_target() {
-  make  -j1 CC="$CC" LDFLAGS="$TARGET_LDFLAGS -L." \
+  make  CC="$CC" LDFLAGS="$TARGET_LDFLAGS -L." \
         PYTHON_DISABLE_MODULES="$PKG_PY_DISABLED_MODULES" \
         PYTHON_MODULES_INCLUDE="$TARGET_INCDIR" \
         PYTHON_MODULES_LIB="$TARGET_LIBDIR"
 }
 
 makeinstall_target() {
-  make  -j1 CC="$CC" DESTDIR=$SYSROOT_PREFIX \
+  make  CC="$CC" DESTDIR=$SYSROOT_PREFIX \
         PYTHON_DISABLE_MODULES="$PKG_PY_DISABLED_MODULES" \
         PYTHON_MODULES_INCLUDE="$TARGET_INCDIR" \
         PYTHON_MODULES_LIB="$TARGET_LIBDIR" \
         install
 
-  make  -j1 CC="$CC" DESTDIR=$INSTALL \
+  make  CC="$CC" DESTDIR=$INSTALL \
         PYTHON_DISABLE_MODULES="$PKG_PY_DISABLED_MODULES" \
         PYTHON_MODULES_INCLUDE="$TARGET_INCDIR" \
         PYTHON_MODULES_LIB="$TARGET_LIBDIR" \

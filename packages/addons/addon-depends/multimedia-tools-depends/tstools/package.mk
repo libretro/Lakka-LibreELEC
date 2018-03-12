@@ -29,9 +29,10 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="tools"
 PKG_SHORTDESC="command line tools for working with MPEG data"
 PKG_LONGDESC="This is a set of cross-platform command line tools for working with MPEG data."
+PKG_BUILD_FLAGS="-parallel"
 
 make_target() {
-  make -j1 CROSS_COMPILE=$TARGET_PREFIX
+  make CROSS_COMPILE=$TARGET_PREFIX
 }
 
 makeinstall_target() {

@@ -27,15 +27,12 @@ PKG_DEPENDS_TARGET="toolchain ncurses"
 PKG_SECTION="devel"
 PKG_SHORTDESC="readline: The GNU Readline library provides a set of functions for use by applications that allow users to edit command lines as they are typed in."
 PKG_LONGDESC="The GNU Readline library provides a set of functions for use by applications that allow users to edit command lines as they are typed in."
+PKG_BUILD_FLAGS="+pic"
 
 PKG_CONFIGURE_OPTS_TARGET="bash_cv_wcwidth_broken=no \
                            --disable-shared \
                            --enable-static \
                            --with-curses"
-
-pre_configure_target() {
-  CFLAGS="$CFLAGS -fPIC"
-}
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/share/readline

@@ -27,6 +27,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="devel"
 PKG_SHORTDESC="fribidi: The Bidirectional Algorithm library"
 PKG_LONGDESC="The library implements all of the algorithm as described in the Unicode Standard Annex #9, The Bidirectional Algorithm, http://www.unicode.org/unicode/reports/tr9/. FriBidi is exhautively tested against Bidi Reference Code, and due to our best knowledge, does not contain any conformance bugs."
+PKG_BUILD_FLAGS="+pic"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-shared \
                            --enable-static \
@@ -40,7 +41,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-shared \
 
 pre_configure_target() {
   export CFLAGS="$CFLAGS -DFRIBIDI_CHUNK_SIZE=4080"
-  export CFLAGS="$CFLAGS -fPIC -DPIC"
 }
 
 post_makeinstall_target() {

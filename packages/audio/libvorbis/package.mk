@@ -28,6 +28,7 @@ PKG_SECTION="audio"
 PKG_SHORTDESC="libvorbis: Lossless audio compression tools using the ogg-vorbis algorithms"
 PKG_LONGDESC="Ogg Vorbis is a fully open, non-proprietary, patent-and-royalty-free, general-purpose compressed audio format for mid to high quality (8kHz-48.0kHz, 16+ bit, polyphonic) audio and music at fixed and variable bitrates from 16 to 128 kbps/channel. This places Vorbis in the same competitive class as audio representations such as MPEG-4 (AAC), and similar to, but higher performance than MPEG-1/2 audio layer 3, MPEG-4 audio (TwinVQ), WMA and PAC."
 PKG_TOOLCHAIN="autotools"
+PKG_BUILD_FLAGS="+pic"
 
 # package specific configure options
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared \
@@ -35,7 +36,3 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared \
                            --disable-oggtest \
                            --disable-docs \
                            --disable-examples"
-
-pre_configure_target() {
-  export CFLAGS="$CFLAGS -fPIC"
-}

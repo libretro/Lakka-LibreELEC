@@ -29,14 +29,11 @@ PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.scummvm: scummvm for Kodi"
 PKG_LONGDESC="game.libretro.scummvm: scummvm for Kodi"
 PKG_TOOLCHAIN="manual"
+PKG_BUILD_FLAGS="-lto"
 
 PKG_LIBNAME="scummvm_libretro.so"
 PKG_LIBPATH="backends/platform/libretro/build/$PKG_LIBNAME"
 PKG_LIBVAR="SCUMMVM_LIB"
-
-pre_configure_target() {
-  strip_lto
-}
 
 make_target() {
   cd $PKG_BUILD

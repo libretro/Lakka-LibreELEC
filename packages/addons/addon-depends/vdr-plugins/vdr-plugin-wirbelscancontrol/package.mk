@@ -30,12 +30,7 @@ PKG_SECTION="multimedia"
 PKG_SHORTDESC="Adds menu entry for wirbelscan at VDR."
 PKG_LONGDESC="Adds menu entry for wirbelscan at VDR."
 PKG_TOOLCHAIN="manual"
-
-pre_configure_target() {
-  export CFLAGS="$CFLAGS -fPIC"
-  export CXXFLAGS="$CXXFLAGS -fPIC"
-  export LDFLAGS="$LDFLAGS -fPIC"
-}
+PKG_BUILD_FLAGS="+pic"
 
 pre_build_target() {
   WIRBELSCAN_DIR=$(get_build_dir vdr-plugin-wirbelscan)

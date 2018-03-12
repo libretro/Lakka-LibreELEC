@@ -29,8 +29,7 @@ PKG_SECTION="devel"
 PKG_SHORTDESC="heimdal: Kerberos 5, PKIX, CMS, GSS-API, SPNEGO, NTLM, Digest-MD5 and, SASL implementation."
 PKG_LONGDESC="Heimdal is an implementation of Kerberos 5 (and some more stuff) largely written in Sweden (which was important when we started writing it, less so now). It is freely available under a three clause BSD style license. "
 PKG_TOOLCHAIN="autotools"
-
-MAKEFLAGS="-j1"
+PKG_BUILD_FLAGS="-parallel"
 
 PKG_CONFIGURE_OPTS_HOST="--enable-static --disable-shared \
                          --without-openldap \

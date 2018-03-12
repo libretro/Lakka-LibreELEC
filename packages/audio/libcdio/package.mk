@@ -27,6 +27,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="audio"
 PKG_SHORTDESC="libcdio: A CD-ROM reading and control library"
 PKG_LONGDESC="This library is to encapsulate CD-ROM reading and control. Applications wishing to be oblivious of the OS- and device-dependant properties of a CD-ROM can use this library. Some support for disk image types like BIN/CUE and NRG is available, so applications that use this library also have the ability to read disc images as though they were CD's."
+PKG_BUILD_FLAGS="+pic"
 
 # package specific configure options
 PKG_CONFIGURE_OPTS_TARGET="--enable-cxx \
@@ -46,10 +47,6 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-cxx \
                            --without-iso-read \
                            --without-libiconv-prefix \
                            --with-gnu-ld"
-
-pre_configure_target() {
-  CFLAGS="$CFLAGS -fPIC -DPIC"
-}
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
