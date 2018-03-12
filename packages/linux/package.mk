@@ -29,31 +29,35 @@ PKG_SHORTDESC="linux26: The Linux kernel 2.6 precompiled kernel binary image and
 PKG_LONGDESC="This package contains a precompiled kernel image and the modules."
 PKG_IS_KERNEL_PKG="yes"
 
+PKG_PATCH_DIRS="$LINUX"
+
 case "$LINUX" in
   amlogic-3.10)
-    PKG_VERSION="02fdb27"
+    PKG_VERSION="02fdb27efcb2940b819fec90d9fb333a57ab9900"
     PKG_SHA256="a4c6a5759ad754109357c1283665498c23796c985fec0b50b18be25f96cf8465"
     PKG_URL="https://github.com/LibreELEC/linux-amlogic/archive/$PKG_VERSION.tar.gz"
-    PKG_SOURCE_DIR="$PKG_NAME-amlogic-$PKG_VERSION*"
-    PKG_PATCH_DIRS="amlogic-3.10"
+    PKG_SOURCE_DIR="linux-amlogic-$PKG_VERSION"
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET aml-dtbtools:host"
     PKG_BUILD_PERF="no"
     ;;
   amlogic-3.14)
-    PKG_VERSION="9c63c24"
+    PKG_VERSION="9c63c24324096d5e03db59c6621521cab671db79"
     PKG_SHA256="ca5c17921e554c75a63dd91f400ceaee3657d2b485db93909754891d68ea19d2"
     PKG_URL="https://github.com/LibreELEC/linux-amlogic/archive/$PKG_VERSION.tar.gz"
-    PKG_SOURCE_DIR="$PKG_NAME-amlogic-$PKG_VERSION*"
-    PKG_PATCH_DIRS="amlogic-3.14"
+    PKG_SOURCE_DIR="linux-amlogic-$PKG_VERSION"
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET aml-dtbtools:host"
     PKG_BUILD_PERF="no"
     ;;
   rockchip-4.4)
-    PKG_VERSION="eae92ae2"
+    PKG_VERSION="eae92ae2b930999857df47c3057327c1c490454b"
     PKG_SHA256="da453ca6ecefc3719a1165bc7b08fe00fc2b50ab64f6289ef6f3670a9fc1ceca"
     PKG_URL="https://github.com/rockchip-linux/kernel/archive/$PKG_VERSION.tar.gz"
-    PKG_SOURCE_DIR="kernel-$PKG_VERSION*"
-    PKG_PATCH_DIRS="rockchip-4.4"
+    PKG_SOURCE_DIR="kernel-$PKG_VERSION"
+    ;;
+  raspberrypi)
+    PKG_VERSION="80a14a56dacb7cc2b40d5f37d00bedb0ceace130" # 4.14.24
+    PKG_SHA256="fdf9571fe8ad514e0dd7185606828a15199f3ddb140f99ba7fcaf37dadbe8491"
+    PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
     ;;
   *)
     PKG_VERSION="4.14.24"
@@ -251,7 +255,13 @@ makeinstall_target() {
     fi
   elif [ "$BOOTLOADER" = "bcm2835-bootloader" ]; then
     mkdir -p $INSTALL/usr/share/bootloader/overlays
+
+    # install platform dtbs, but remove upstream kernel dtbs (i.e. without downstream
+    # drivers and decent USB support) as these are not required by LibreELEC
     cp -p arch/$TARGET_KERNEL_ARCH/boot/dts/*.dtb $INSTALL/usr/share/bootloader
+    rm -f $INSTALL/usr/share/bootloader/bcm283*.dtb
+
+    # install overlay dtbs
     for dtb in arch/$TARGET_KERNEL_ARCH/boot/dts/overlays/*.dtbo; do
       cp $dtb $INSTALL/usr/share/bootloader/overlays 2>/dev/null || :
     done
