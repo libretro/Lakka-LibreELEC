@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="pvr.hdhomerun"
-PKG_VERSION="7379fbc"
-PKG_SHA256="70a58d624aab7a9f38df03876045aefa5c96a16f509cdb25a7c6b7b16722405c"
+PKG_VERSION="f3e0177"
+PKG_SHA256="849637c96bdbba68d9aad53abb31574837322a2ca4a96a707b5a11ac2a81562b"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

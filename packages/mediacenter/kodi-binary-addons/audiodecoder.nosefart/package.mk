@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="audiodecoder.nosefart"
-PKG_VERSION="62d7f30"
-PKG_SHA256="8abe4b40b8c6cfcf03acca8d2208f9fe88f3b2ed4092929437911dd21bc9aa00"
+PKG_VERSION="3aebe49"
+PKG_SHA256="0ea67c59e25a19ab1c0333fdd3c3c42c71a63bee5fc6f9753ae8b53234695262"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

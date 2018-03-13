@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="inputstream.rtmp"
-PKG_VERSION="eba92bd"
-PKG_SHA256="3fa2601f26523350252fa09e08bd66cfa94f4810e37b8cdeff8d2657d33d6bf7"
+PKG_VERSION="9c398d9"
+PKG_SHA256="8e19b7f453def095c33d7039f3aa145858fa3b8321b2aef4d00cc3bb1d292f9b"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
 PKG_URL="https://github.com/notspiff/inputstream.rtmp/archive/$PKG_VERSION.tar.gz"
