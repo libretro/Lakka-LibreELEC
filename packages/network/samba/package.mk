@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="samba"
-PKG_VERSION="4.6.10"
+PKG_VERSION="4.6.14"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3+"
 PKG_SITE="https://www.samba.org"
