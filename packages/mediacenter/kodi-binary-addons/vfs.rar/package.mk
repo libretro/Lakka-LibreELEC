@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="vfs.rar"
-PKG_VERSION="2efe917"
-PKG_SHA256="fd72d3fed58b5489d71290e57b033f60e8e0501df94e208fb6b95599f20553e8"
+PKG_VERSION="a0bbe2a"
+PKG_SHA256="410ccf0bf2170ad2091d0666e5c5e591f46e236862ff78d486577a86515e0ca9"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

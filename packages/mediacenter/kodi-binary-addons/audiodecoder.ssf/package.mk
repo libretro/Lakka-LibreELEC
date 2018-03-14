@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="audiodecoder.ssf"
-PKG_VERSION="8f4662f"
-PKG_SHA256="87316ebe3d9243b4b07576227ce15af601149ce4c1b6de4e86a257d48e11e854"
+PKG_VERSION="ef0d726"
+PKG_SHA256="470a9f4723b9d109fcdd2468be4796935ec797308ed7df388bd60105191eb0a3"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

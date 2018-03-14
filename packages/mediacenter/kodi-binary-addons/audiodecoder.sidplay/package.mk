@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="audiodecoder.sidplay"
-PKG_VERSION="bbf0dda"
-PKG_SHA256="8717f8626ea5530262ef084e99a3c7583408c7ceab94ce29875fe48592257585"
+PKG_VERSION="6b93d75"
+PKG_SHA256="a54a47b07c179ad183b4aed2c5c933d3dc65fb2aabb0a8b1dda6ede7405f9871"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
