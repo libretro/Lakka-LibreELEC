@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="picodrive"
-PKG_VERSION="4ad0087"
+PKG_VERSION="f5d7a8d"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MAME"
