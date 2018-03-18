@@ -18,7 +18,7 @@
 
 PKG_NAME="snapclient"
 PKG_VERSION="0.13.0"
-PKG_REV="100"
+PKG_REV="101"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_DEPENDS_TARGET="toolchain snapcast"
