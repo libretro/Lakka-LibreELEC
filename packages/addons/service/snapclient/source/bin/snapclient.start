@@ -1,0 +1,51 @@
+#!/bin/sh
+################################################################################
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2018-present Team LibreELEC
+#
+#  LibreELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  LibreELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+. /etc/profile
+oe_setup_addon service.snapclient
+
+. /etc/os-release
+case "$LIBREELEC_ARCH" in
+  RPi*.arm)
+    if [ "$sc_a" == "true" ]; then
+      ALSA="/proc/asound/ALSA"
+      if [ ! -e "$ALSA" ]; then
+        echo "Starting Raspberry Pi onboard audio"
+        dtparam audio=on
+        sleep 1
+      fi
+      if [ -e "$ALSA" ]; then
+        echo "Setting Raspberry Pi onboard audio playback route"
+        index="$(readlink $ALSA)"
+        index="${index##*card}"
+        amixer -c "$index" cset name="PCM Playback Route" "$sc_r"
+      fi
+    fi
+    ;;
+esac
+
+[ -n "$sc_h" ] && sc_H="--hostID $sc_h"
+[ -n "$sc_s" ] && sc_S="--soundcard $sc_s"
+
+snapclient \
+  --daemon "$sc_n" \
+  $sc_H \
+  --latency "$sc_l" \
+  --port "$sc_p" \
+  $sc_S

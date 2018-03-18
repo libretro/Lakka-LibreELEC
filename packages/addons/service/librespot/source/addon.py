@@ -28,7 +28,7 @@ while True:
    if len(pcms) == 0:
       dialog.ok(xbmcaddon.Addon().getAddonInfo('name'), strings(30210))
       break
-   pcmx = dialog.select(strings(30112), pcms)
+   pcmx = dialog.select(strings(30115), pcms)
    if pcmx == -1:
       break
    pcm = pcms[pcmx]

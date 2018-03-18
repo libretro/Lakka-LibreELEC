@@ -1,25 +1,25 @@
-From a20f55c268bf44d6923be4cad6c6fdfecfc5dd8a Mon Sep 17 00:00:00 2001
+From ddb20957330b2bb76c0cee85ac3514e5e136b90e Mon Sep 17 00:00:00 2001
 From: awiouy <awiouy@gmail.com>
-Date: Tue, 12 Sep 2017 09:37:53 +0200
+Date: Fri, 26 Jan 2018 21:02:29 +0100
 Subject: [PATCH] kodi hooks
 
 ---
- src/player.rs | 25 +++++++++++++++++--------
+ playback/src/player.rs | 25 +++++++++++++++++--------
  1 file changed, 17 insertions(+), 8 deletions(-)
 
-diff --git a/src/player.rs b/src/player.rs
-index 29380e3..44b9a24 100644
---- a/src/player.rs
-+++ b/src/player.rs
-@@ -1,6 +1,7 @@
- use futures::sync::oneshot;
- use futures::{future, Future};
+diff --git a/playback/src/player.rs b/playback/src/player.rs
+index e549736..34e802a 100644
+--- a/playback/src/player.rs
++++ b/playback/src/player.rs
+@@ -3,6 +3,7 @@ use futures::{future, Future};
+ use std;
  use std::borrow::Cow;
+ use std::io::{Read, Seek, SeekFrom, Result};
 +use std::env;
  use std::mem;
- use std::sync::mpsc::{RecvError, TryRecvError};
- use std::thread;
-@@ -13,7 +14,7 @@ use core::util::{self, SpotifyId, Subfile};
+ use std::process::Command;
+ use std::sync::mpsc::{RecvError, TryRecvError, RecvTimeoutError};
+@@ -16,7 +17,7 @@ use core::spotify_id::SpotifyId;
  use audio_backend::Sink;
  use audio::{AudioFile, AudioDecrypt};
  use audio::{VorbisDecoder, VorbisPacket};
@@ -27,17 +27,17 @@ index 29380e3..44b9a24 100644
 +use metadata::{Artist, FileFormat, Track, Metadata};
  use mixer::AudioFilter;
  
- #[derive(Clone)]
-@@ -215,7 +216,7 @@ impl PlayerInternal {
+ pub struct Player {
+@@ -274,7 +275,7 @@ impl PlayerInternal {
  
              None => {
-                 self.sink.stop().unwrap();
+                 self.stop_sink();
 -                self.run_onstop();
 +                info!("onstop 1");
  
                  let old_state = mem::replace(&mut self.state, PlayerState::Stopped);
                  old_state.signal_end_of_track();
-@@ -227,6 +228,12 @@ impl PlayerInternal {
+@@ -286,6 +287,12 @@ impl PlayerInternal {
          debug!("command={:?}", cmd);
          match cmd {
              PlayerCommand::Load(track_id, play, position, end_of_track) => {
@@ -48,18 +48,18 @@ index 29380e3..44b9a24 100644
 +                self.run_onstart();
 +
                  if self.state.is_playing() {
-                     self.sink.stop().unwrap();
+                     self.stop_sink_if_running();
                  }
-@@ -235,7 +242,7 @@ impl PlayerInternal {
+@@ -294,7 +301,7 @@ impl PlayerInternal {
                      Some(decoder) => {
                          if play {
                              if !self.state.is_playing() {
 -                                self.run_onstart();
 +                                info!("onstart 1");
                              }
-                             self.sink.start().unwrap();
+                             self.start_sink();
  
-@@ -245,7 +252,7 @@ impl PlayerInternal {
+@@ -304,7 +311,7 @@ impl PlayerInternal {
                              };
                          } else {
                              if self.state.is_playing() {
@@ -68,28 +68,28 @@ index 29380e3..44b9a24 100644
                              }
  
                              self.state = PlayerState::Paused {
-@@ -258,7 +265,7 @@ impl PlayerInternal {
+@@ -317,7 +324,7 @@ impl PlayerInternal {
                      None => {
-                         end_of_track.complete(());
+                         let _ = end_of_track.send(());
                          if self.state.is_playing() {
 -                            self.run_onstop();
 +                            info!("onstop 3");
                          }
                      }
                  }
-@@ -279,7 +286,7 @@ impl PlayerInternal {
+@@ -338,7 +345,7 @@ impl PlayerInternal {
                  if let PlayerState::Paused { .. } = self.state {
                      self.state.paused_to_playing();
  
 -                    self.run_onstart();
 +                    info!("onstart 2");
-                     self.sink.start().unwrap();
+                     self.start_sink();
                  } else {
                      warn!("Player::play called from invalid state");
-@@ -291,17 +298,19 @@ impl PlayerInternal {
+@@ -350,17 +357,19 @@ impl PlayerInternal {
                      self.state.playing_to_paused();
  
-                     self.sink.stop().unwrap();
+                     self.stop_sink_if_running();
 -                    self.run_onstop();
 +                    info!("onstop 4");
                  } else {
@@ -102,7 +102,7 @@ index 29380e3..44b9a24 100644
 +
                  match self.state {
                      PlayerState::Playing { .. } => {
-                         self.sink.stop().unwrap();
+                         self.stop_sink_if_running();
 -                        self.run_onstop();
 +                        info!("onstop 5");
                          self.state = PlayerState::Stopped;
