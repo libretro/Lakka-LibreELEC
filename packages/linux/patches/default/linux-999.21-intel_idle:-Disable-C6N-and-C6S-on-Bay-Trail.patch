@@ -1,0 +1,53 @@
+From 945d0eb39d8920854c72ecb743c07d54b738cf7f Mon Sep 17 00:00:00 2001
+From: Hans de Goede <hdegoede@redhat.com>
+Date: Thu, 9 Nov 2017 14:21:24 +0100
+Subject: [PATCH v3 2/2] intel_idle: Disable C6N and C6S on Bay Trail
+
+It seems that Bay Trail SoCs sometimes have issues waking from C6,
+a lot of users even report Bay Trail devices only being stable
+when passing intel_idle.max_cstate=1 to the kernel.
+
+This commits disables the C6 states while leaving the C7 states
+available so that the cores can still reach deep sleep states.
+
+There are several indicators that this is part of the solution for
+all the users who need to pass intel_idle.max_cstate=1:
+
+1) The "VLP52 EOI Transactions May Not be Sent if Software
+   Enters Core C6 During an Interrupt Service Routine" errata.
+
+2) Several users who need intel_idle.max_cstate=1 indicate in bko109051
+   (which has over 800 comments!) that using a shell script which
+   disables C6N and C6S through sysfs allows them to remove
+   intel_idle.max_cstate=1 and still have a stable system which does
+   use the C7 states for power-saving.
+
+BugLink: https://bugzilla.kernel.org/show_bug.cgi?id=109051
+Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+---
+ drivers/idle/intel_idle.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/idle/intel_idle.c b/drivers/idle/intel_idle.c
+index 5dc7ea4b6bc4..fe05984c9e81 100644
+--- a/drivers/idle/intel_idle.c
++++ b/drivers/idle/intel_idle.c
+@@ -221,6 +221,7 @@ static struct cpuidle_state byt_cstates[] = {
+ 		.flags = MWAIT2flg(0x58) | CPUIDLE_FLAG_TLB_FLUSHED,
+ 		.exit_latency = 300,
+ 		.target_residency = 275,
++		.disabled = true,
+ 		.enter = &intel_idle,
+ 		.enter_s2idle = intel_idle_s2idle, },
+ 	{
+@@ -229,6 +230,7 @@ static struct cpuidle_state byt_cstates[] = {
+ 		.flags = MWAIT2flg(0x52) | CPUIDLE_FLAG_TLB_FLUSHED,
+ 		.exit_latency = 500,
+ 		.target_residency = 560,
++		.disabled = true,
+ 		.enter = &intel_idle,
+ 		.enter_s2idle = intel_idle_s2idle, },
+ 	{
+-- 
+2.14.3
+
