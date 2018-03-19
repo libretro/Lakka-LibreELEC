@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="wlan-firmware"
-PKG_VERSION="cfc1842"
-PKG_SHA256="52d56658d7f426cf8b99637179cbca39058b781d3720599f838764571151fc64"
+PKG_VERSION="2142727"
+PKG_SHA256="d03e3108ef18ec10774b601d06d8445aebbd3c39f8ea3ab2b20a26c62af3500f"
 PKG_ARCH="any"
 PKG_LICENSE="Free-to-use"
 PKG_SITE="https://github.com/LibreELEC/wlan-firmware"
