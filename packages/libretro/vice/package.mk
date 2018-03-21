@@ -41,6 +41,8 @@ make_target() {
   fi
   make EMUTYPE=x64
   make EMUTYPE=x128
+  make EMUTYPE=xplus4
+  make EMUTYPE=xvic
 }
 
 makeinstall_target() {
