@@ -46,8 +46,8 @@ class fd628Addon():
 		self._monitor = monitor
 		self._monitor.setSettingsChangedCallback(self)
 		self._settings = fd628settings.fd628Settings()
-		self._vfdon = '/sys/class/leds/fd628_dev/led_on'
-		self._vfdoff = '/sys/class/leds/fd628_dev/led_off'
+		self._vfdon = '/sys/class/leds/le-vfd/led_on'
+		self._vfdoff = '/sys/class/leds/le-vfd/led_off'
 		self._rlock = threading.RLock()
 
 	def run(self):
