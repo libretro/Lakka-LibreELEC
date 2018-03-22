@@ -43,3 +43,7 @@ makeinstall_target() {
   mkdir -p $INSTALL/$(get_full_firmware_dir)
     cp firmware/* $INSTALL/$(get_full_firmware_dir)
 }
+
+post_install() {
+  enable_service wetekdvb.service
+}
