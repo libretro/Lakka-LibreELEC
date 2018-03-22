@@ -29,11 +29,11 @@ PKG_LONGDESC="Libva is an open source software library and API specification to 
 PKG_TOOLCHAIN="autotools"
 
 if [ "$DISPLAYSERVER" = "x11" ]; then
-  PKG_DEPENDS_TARGET="toolchain libX11 libXext libXfixes libdrm mesa"
-  DISPLAYSERVER_LIBVA="--enable-x11 --enable-glx --disable-wayland"
+  PKG_DEPENDS_TARGET="toolchain libX11 libXext libXfixes libdrm"
+  DISPLAYSERVER_LIBVA="--enable-x11 --disable-glx --disable-wayland"
 elif [ "$DISPLAYSERVER" = "weston" ]; then
   DISPLAYSERVER_LIBVA="--disable-x11 --disable-glx --enable-wayland"
-  PKG_DEPENDS_TARGET="toolchain libdrm mesa wayland"
+  PKG_DEPENDS_TARGET="toolchain libdrm wayland"
 else
   PKG_DEPENDS_TARGET="toolchain libdrm"
   DISPLAYSERVER_LIBVA="--disable-x11 --disable-glx --disable-wayland"
