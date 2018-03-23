@@ -17,25 +17,23 @@
 ################################################################################
 
 PKG_NAME="wireless_tools"
-PKG_VERSION="29"
-PKG_SHA256="6fb80935fe208538131ce2c4178221bab1078a1656306bce8909c19887e2e5a1"
+PKG_VERSION="30.pre9"
+PKG_SHA256="abd9c5c98abf1fdd11892ac2f8a56737544fe101e1be27c6241a564948f34c63"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.hpl.hp.com/personal/Jean_Tourrilhes/Linux/Tools.html"
-PKG_URL="http://www.hpl.hp.com/personal/Jean_Tourrilhes/Linux/$PKG_NAME.$PKG_VERSION.tar.gz"
-PKG_SOURCE_DIR="${PKG_NAME}.${PKG_VERSION}"
+PKG_SITE="https://github.com/HewlettPackard/wireless-tools"
+PKG_URL="https://hewlettpackard.github.io/wireless-tools/$PKG_NAME.$PKG_VERSION.tar.gz"
+PKG_SOURCE_DIR="${PKG_NAME}.*"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="debug/tools"
 PKG_SHORTDESC="wireless-tools: tools allowing to manipulate the Wireless Extensions"
-PKG_LONGDESC="The Wireless Tools (WT) is a set of tools allowing to manipulate the Wireless Extensions. They use a textual interface and are rather crude, but aim to support the full Wireless Extension. There are many other tools you can use with Wireless Extensions, however Wireless Tools is the reference implementation."
-# wireless_tools fails to build on some systems with LTO enabled
-PKG_BUILD_FLAGS="-lto"
+PKG_LONGDESC="The Wireless Tools (WT) is a set of tools allowing to manipulate the Wireless Extensions."
 
 make_target() {
   make PREFIX=/usr CC="$CC" AR="$AR" \
-     CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" iwmulticall
+    CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" iwmulticall
 }
 
 makeinstall_target() {
-  : # nop
+  :
 }
