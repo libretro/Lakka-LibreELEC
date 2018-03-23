@@ -17,20 +17,21 @@
 ################################################################################
 
 PKG_NAME="iperf"
-PKG_VERSION="3.1.2"
-PKG_SHA256="48b5c783bb4a9c44f2bdcfe52c5d45b77ab1e1c82de3d0131f692457950811f9"
+PKG_VERSION="3.5"
+PKG_SHA256="4c318707a29d46d7b64e517a4fe5e5e75e698aef030c6906e9b26dc51d9b1fce"
 PKG_ARCH="any"
-PKG_LICENSE="OSS"
-PKG_SITE="https://iperf.fr/"
-PKG_URL="https://iperf.fr/download/source/$PKG_NAME-$PKG_VERSION-source.tar.gz"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_LICENSE="BSD"
+PKG_SITE="http://software.es.net/iperf/"
+PKG_URL="https://github.com/esnet/iperf/archive/$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="toolchain openssl"
 PKG_SECTION="network/testing"
 PKG_SHORTDESC="iperf: A modern alternative for measuring maximum TCP and UDP bandwidth performance"
-PKG_LONGDESC="Iperf was developed by NLANR/DAST as a modern alternative for measuring maximum TCP and UDP bandwidth performance. Iperf allows the tuning of various parameters and UDP characteristics. Iperf reports bandwidth, delay jitter, datagram loss."
+PKG_LONGDESC="Iperf was developed by NLANR/DAST as a modern alternative for measuring maximum TCP and UDP bandwidth performance."
 PKG_TOOLCHAIN="autotools"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"
+PKG_CONFIGURE_OPTS_TARGET="--enable-static \
+                           --disable-shared"
 
 makeinstall_target() {
-  : # nop
+  :
 }
