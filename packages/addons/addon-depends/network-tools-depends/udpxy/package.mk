@@ -17,24 +17,17 @@
 ################################################################################
 
 PKG_NAME="udpxy"
-PKG_VERSION="1.0.23-9"
-PKG_SHA256="6ce33b1d14a1aeab4bd2566aca112e41943df4d002a7678d9a715108e6b714bd"
+PKG_VERSION="1.0.23-12"
+PKG_SHA256="16bdc8fb22f7659e0427e53567dc3e56900339da261199b3d00104d699f7e94c"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="http://www.udpxy.com/download-en.html"
+PKG_LICENSE="GPLv3"
+PKG_SITE="http://www.udpxy.com"
 PKG_URL="http://www.udpxy.com/download/1_23/${PKG_NAME}.${PKG_VERSION}-prod.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="tools"
 PKG_SHORTDESC="udpxy is a UDP-to-HTTP multicast traffic relay daemon"
 PKG_LONGDESC="udpxy is a UDP-to-HTTP multicast traffic relay daemon"
-PKG_DISCLAIMER="this is an unofficial addon. please don't ask for support in openelec forum / irc channel"
-# fails to build with gcc 4.9 + lto
-PKG_BUILD_FLAGS="-lto"
-
-pre_configure_target() {
-  CFLAGS="$CFLAGS -Wno-error=unused-const-variable"
-}
 
 makeinstall_target() {
-  : # nop
+  :
 }
