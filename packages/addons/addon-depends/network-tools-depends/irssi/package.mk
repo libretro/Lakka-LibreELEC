@@ -17,27 +17,24 @@
 ################################################################################
 
 PKG_NAME="irssi"
-PKG_VERSION="0.8.19"
-PKG_SHA256="fe4f4b778698de8e1c319b9cd9b9ed5534f0ece7ac2bfa0af351a3157c6ec85b"
+PKG_VERSION="1.1.1"
+PKG_SHA256="784807e7a1ba25212347f03e4287cff9d0659f076edfb2c6b20928021d75a1bf"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.irssi.org/"
-PKG_URL="https://github.com/irssi-import/irssi/releases/download/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/irssi/irssi/releases/download/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain glib ncurses openssl"
 PKG_SECTION="tools"
 PKG_SHORTDESC="IRC client"
 PKG_LONGDESC="Irssi is a terminal based IRC client for UNIX systems"
 
 PKG_CONFIGURE_OPTS_TARGET="--with-sysroot=$SYSROOT_PREFIX \
-        --enable-ssl \
         --disable-glibtest \
         --without-socks \
         --with-textui \
         --without-bot \
         --without-proxy \
-        --with-gc \
-        --without-perl \
-        --without-sco"
+        --without-perl"
 
 pre_configure_target() {
   export CFLAGS="$CFLAGS -I$PKG_BUILD"
