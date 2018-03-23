@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="ncftp"
-PKG_VERSION="3.2.5"
-PKG_SHA256="b4ebe2415761a5137cd1d313c8fc1352f26d8963cc9e9e354e29720aa2089d42"
+PKG_VERSION="3.2.6"
+PKG_SHA256="5f200687c05d0807690d9fb770327b226f02dd86155b49e750853fce4e31098d"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
+PKG_LICENSE="GPLv3"
 PKG_SITE="http://www.ncftp.com/ncftp/"
-PKG_URL="ftp://ftp.ncftp.com/ncftp/ncftp-${PKG_VERSION}-src.tar.bz2"
+PKG_URL="ftp://ftp.ncftp.com/ncftp/ncftp-${PKG_VERSION}-src.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="tools"
 PKG_SHORTDESC="NcFTP Client (also known as just NcFTP) is a set of FREE application programs implementing the File Transfer Protocol (FTP)."
@@ -44,5 +44,5 @@ pre_build_target() {
 }
 
 makeinstall_target() {
-  : # nop
+  :
 }
