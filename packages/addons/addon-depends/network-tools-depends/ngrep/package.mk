@@ -17,19 +17,21 @@
 ################################################################################
 
 PKG_NAME="ngrep"
-PKG_VERSION="1.45"
-PKG_SHA256="aea6dd337da8781847c75b3b5b876e4de9c58520e0d77310679a979fc6402fa7"
+PKG_VERSION="9b5946"
+PKG_SHA256="db3ea041ad490a90d38ce4623ad9f3e7c9798734bdcaf900d3cf319fce16aa81"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://ngrep.sourceforge.net/"
-PKG_URL="http://prdownloads.sourceforge.net/ngrep/ngrep-${PKG_VERSION}.tar.bz2"
+PKG_SITE="https://github.com/jpr5/ngrep"
+PKG_URL="https://github.com/jpr5/ngrep/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libpcap"
 PKG_SECTION="network/analyzer"
 PKG_SHORTDESC="ngrep - network grep"
-PKG_LONGDESC="ngrep - network grep"
-PKG_DISCLAIMER="this is an unofficial addon. please don't ask for support in openelec forum / irc channel"
+PKG_LONGDESC="ngrep is like GNU grep applied to the network layer"
+PKG_TOOLCHAIN="autotools"
 
-PKG_CONFIGURE_OPTS_TARGET="--with-pcap-includes=$SYSROOT_PREFIX/usr/include --disable-dropprivs"
+PKG_CONFIGURE_OPTS_TARGET="--with-pcap-includes=$SYSROOT_PREFIX/usr/include \
+                           --enable-ipv6 \
+                           --disable-dropprivs"
 
 pre_build_target() {
   mkdir -p $PKG_BUILD/.$TARGET_NAME
@@ -37,5 +39,5 @@ pre_build_target() {
 }
 
 makeinstall_target() {
-  : # nop
+  :
 }
