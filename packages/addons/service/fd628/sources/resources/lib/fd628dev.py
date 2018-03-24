@@ -20,7 +20,7 @@ import os
 import struct
 from fd628utils import *
 
-_led_cmd = '/sys/class/leds/fd628_dev/led_cmd'
+_led_cmd = '/sys/class/leds/le-vfd/led_cmd'
 
 class fd628Dev:
 	def __init__(self):
