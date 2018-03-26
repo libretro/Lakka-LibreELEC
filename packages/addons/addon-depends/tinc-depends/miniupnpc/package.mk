@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016-present Team LibreELEC
+#      Copyright (C) 2018-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,20 +16,14 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-import subprocess
-import xbmc
-import xbmcaddon
+PKG_NAME="miniupnpc"
+PKG_VERSION="2.0.20180222"
+PKG_SHA256="587944686469d09f739744b3aed70c7ce753a79c40d6f1227f68a3e962665b75"
+PKG_ARCH="any"
+PKG_LICENSE="BSD"
+PKG_SITE="http://miniupnp.free.fr"
+PKG_URL="http://miniupnp.free.fr/files/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="toolchain"
+PKG_LONGDESC="The MiniUPnP project offers software which supports the UPnP Internet Gateway Device (IGD) specifications"
 
-
-class Monitor(xbmc.Monitor):
-
-    def __init__(self, *args, **kwargs):
-        xbmc.Monitor.__init__(self)
-        self.id = xbmcaddon.Addon().getAddonInfo('id')
-
-    def onSettingsChanged(self):
-        subprocess.call(['systemctl', 'restart', self.id])
-
-
-if __name__ == '__main__':
-    Monitor().waitForAbort()
+PKG_CMAKE_OPTS_TARGET="-DUPNPC_BUILD_SHARED=OFF -DUPNPC_BUILD_STATIC=ON"
