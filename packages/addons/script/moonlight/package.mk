@@ -20,7 +20,7 @@ PKG_NAME="moonlight"
 PKG_VERSION="4d94439"
 PKG_SHA256="5190f9c3a0fd17c7c8f0de8c2509f4749a2f399b7dc4d1402dd55c6f351260b2"
 PKG_VERSION_NUMBER="2.2.2"
-PKG_REV="108"
+PKG_REV="109"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/dead/script.moonlight"
@@ -57,8 +57,8 @@ addon() {
     cp -P $(get_build_dir moonlight-embedded)/.$TARGET_NAME/moonlight $ADDON_BUILD/$PKG_ADDON_ID/bin
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib
-    cp $(get_build_dir moonlight-embedded)/.$TARGET_NAME/libgamestream/libgamestream.so.2 $ADDON_BUILD/$PKG_ADDON_ID/lib
-    cp $(get_build_dir moonlight-embedded)/.$TARGET_NAME/libgamestream/libmoonlight-common.so.2 $ADDON_BUILD/$PKG_ADDON_ID/lib
+    cp $(get_build_dir moonlight-embedded)/.$TARGET_NAME/libgamestream/libgamestream.so.2.4.6 $ADDON_BUILD/$PKG_ADDON_ID/lib
+    cp $(get_build_dir moonlight-embedded)/.$TARGET_NAME/libgamestream/libmoonlight-common.so.2.4.6 $ADDON_BUILD/$PKG_ADDON_ID/lib
 
     if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
       cp -P $(get_build_dir moonlight-embedded)/.$TARGET_NAME/libmoonlight-pi.so $ADDON_BUILD/$PKG_ADDON_ID/lib
