@@ -90,6 +90,7 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --enable-asm \
                            --disable-selinux \
                            $MESA_PLATFORMS \
+                           --disable-libunwind \
                            --enable-opengl \
                            $MESA_GLES \
                            $MESA_DRI \
