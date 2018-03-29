@@ -40,11 +40,8 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-curses \
                            --disable-readline \
                            --enable-miniupnpc \
                            --sysconfdir=/run"
-
-pre_configure_target() {
-  cd $PKG_BUILD
-  rm -rf .$TARGET_NAME
-}
+PKG_MAKE_OPTS_TARGET="SUBDIRS=src"
+PKG_MAKEINSTALL_OPTS_TARGET="SUBDIRS=src"
 
 make_target() {
   :
