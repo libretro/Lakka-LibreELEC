@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="bcm2835-bootloader"
-PKG_VERSION="75de5d7"
-PKG_SHA256="d90428c3b877d3c312f75ab195d04235f1e5beabb599dd8bd65d62dc84f4f79c"
+PKG_VERSION="c14a903"
+PKG_SHA256="778ad5a0fc53dbc1c621244a73a3ad7ea8896ea38a4acc4ff727b68549cb837a"
 PKG_ARCH="arm"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.broadcom.com"
