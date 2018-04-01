@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="audiodecoder.qsf"
-PKG_VERSION="932874a"
-PKG_SHA256="a384b487bca722c62e31791df81a9750871308ad6c1c0434893db038efcda024"
+PKG_VERSION="9182d5e"
+PKG_SHA256="38678039bb15e272abc7da6e94952ab1434e5f51e1bf2766fe6d96cb093ff053"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

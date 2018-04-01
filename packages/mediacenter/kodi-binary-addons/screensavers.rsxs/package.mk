@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="screensavers.rsxs"
-PKG_VERSION="3b74bb6"
-PKG_SHA256="5ea9b045e98a3ebccd12a2c4c238f97493d9128d68f50fd208365c5666a443f2"
+PKG_VERSION="36b9f97"
+PKG_SHA256="43fcaae28e00fd0a58fd12091560d25258cf5a228114e46799847031de65e063"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

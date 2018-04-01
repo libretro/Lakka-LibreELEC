@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="audiodecoder.upse"
-PKG_VERSION="de58ded"
-PKG_SHA256="a07f78589af864abba0485884eb757f134f0b1d06e64baf4a96bbec11bcc8515"
+PKG_VERSION="de09fb0"
+PKG_SHA256="c450453389ac75612c12b599bdb32f85c86a277f70eceac5f4b21c476ff9a932"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
