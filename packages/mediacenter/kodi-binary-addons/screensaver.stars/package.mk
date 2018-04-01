@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="screensaver.stars"
-PKG_VERSION="bb61e49"
-PKG_SHA256="418e5c0dcf010b83b2cdf7ca00ff27b663359d0706ed00ac85fd841a3e943f43"
+PKG_VERSION="530cf20"
+PKG_SHA256="a1b9da2425be6dbf36a7218f66462656610dda8f644e9c497a0a93e2571cb5db"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

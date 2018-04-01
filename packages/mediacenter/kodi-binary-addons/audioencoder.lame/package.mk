@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="audioencoder.lame"
-PKG_VERSION="6a250f9"
-PKG_SHA256="6d268b135c59e83cc53d6fc553b40a54fcc19321142d00b5b342ddf39d462934"
+PKG_VERSION="1399236"
+PKG_SHA256="9ff1cd4538d2f3e4e5eec1b31f5a5455bf3c67c10a0a7ff2720f2e2b881c3668"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="imagedecoder.raw"
-PKG_VERSION="87449b5"
-PKG_SHA256="0254f48d67204a85bea6c1c310b61ce01e5f2cf970608d3f58d7e42c474e0804"
+PKG_VERSION="d78dff5"
+PKG_SHA256="08e66aabf7e571a57c06cc4fb6cf6655570e39abc3760ef11678c06b8baa742a"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

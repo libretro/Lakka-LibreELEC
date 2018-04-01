@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="peripheral.joystick"
-PKG_VERSION="d68e78c"
-PKG_SHA256="f47beda38104e69628b40ee1872248431b2207f05ab9e61b94878db228e4a2cb"
+PKG_VERSION="80224e1"
+PKG_SHA256="6982014982fd3883ae39fd1e6ad6f71c0e940da825390de7494e87d1c18ca0ea"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
