@@ -88,6 +88,10 @@ makeinstall_host() {
        install
 }
 
+post_makeinstall_host() {
+  rm -fr $PKG_BUILD/.$HOST_NAME/build/temp.*
+}
+
 pre_configure_target() {
   export PYTHON_FOR_BUILD=$TOOLCHAIN/bin/python
 }
@@ -114,6 +118,8 @@ makeinstall_target() {
 }
 
 post_makeinstall_target() {
+  rm -fr $PKG_BUILD/.$TARGET_NAME/build/temp.*
+
   for dir in bsddb idlelib lib-tk lib2to3 msilib pydoc_data test unittest; do
     rm -rf $INSTALL/usr/lib/python*/$dir
   done
