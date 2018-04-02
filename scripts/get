@@ -20,12 +20,6 @@
 
 . config/options $1
 
-_get_file_already_downloaded() {
-  [ ! -f $PACKAGE -o ! -f $STAMP_URL -o ! -f $STAMP_SHA ] && return 1
-  [ -n "${PKG_SHA256}" -a "$(cat $STAMP_SHA 2>/dev/null)" != "${PKG_SHA256}" ] && return 1
-  return 0
-}
-
 if [ -z "$1" ]; then
   for i in `find packages/ -type f -name package.mk`; do
     GET_PKG=`grep ^PKG_NAME= $i | sed -e "s,\",,g" -e "s,PKG_NAME=,,"`
@@ -33,63 +27,46 @@ if [ -z "$1" ]; then
   done
 fi
 
-[ -z "$PKG_URL" -o -z "$PKG_SOURCE_NAME" ] && exit 0
-
-mkdir -p $SOURCES/$1
-
-PACKAGE="$SOURCES/$1/$PKG_SOURCE_NAME"
-PACKAGE_MIRROR="$DISTRO_MIRROR/$PKG_NAME/$PKG_SOURCE_NAME"
-[ "$VERBOSE" != "yes" ] && WGET_OPT=-q
-WGET_CMD="wget --timeout=30 --tries=3 --passive-ftp --no-check-certificate -c $WGET_OPT -O $PACKAGE"
-
-STAMP_URL="$PACKAGE.url"
-STAMP_SHA="$PACKAGE.sha256"
-
-# Latest file already present, exit now...
-_get_file_already_downloaded $1 && exit 0
-
-# Avoid concurrent downloads of the same package
-_isblocked=N
-exec 99<$SOURCES/$1
-while ! flock --nonblock --exclusive 99; do
-  [ ${_isblocked} == N ] && { echo "Project/Device ${DEVICE:-${PROJECT}} waiting, to avoid concurrent download of ${1}..."; _isblocked=Y; }
-  sleep 1
-done
-
-# Check again in case of concurrent access - if nothing needs to be downloaded, exit now...
-_get_file_already_downloaded $1 && exit 0
-
-# At this point, we need to download something...
-printf "%${BUILD_INDENT}c $(print_color CLR_GET "GET")      $1\n" ' '>&$SILENT_OUT
-export BUILD_INDENT=$((${BUILD_INDENT:-1}+$BUILD_INDENT_SIZE))
-
-# unset LD_LIBRARY_PATH to stop wget from using toolchain/lib and loading libssl.so/libcrypto.so instead of host libraries
-unset LD_LIBRARY_PATH
-
-rm -f $STAMP_URL $STAMP_SHA
-
-NBWGET=10
-while [ $NBWGET -gt 0 ]; do
-  for url in "$PKG_URL" "$PACKAGE_MIRROR"; do
-    rm -f $PACKAGE
-    if $WGET_CMD "$url"; then
-      CALC_SHA256="$(sha256sum $PACKAGE | cut -d" " -f1)"
-
-      [ -z "${PKG_SHA256}" -o "${PKG_SHA256}" == "${CALC_SHA256}" ] && break 2
-
-      printf "%${BUILD_INDENT}c $(print_color CLR_WARNING "WARNING") Incorrect checksum calculated on downloaded file: got ${CALC_SHA256}, wanted ${PKG_SHA256}\n\n" ' '>&$SILENT_OUT
-    fi
+# Avoid concurrent processing of the same package
+function lock_source_dir() {
+  local _isblocked=N
+  exec 99<$SOURCES/$1
+  while ! flock --nonblock --exclusive 99; do
+    [ ${_isblocked} = N ] && { echo "Project/Device ${DEVICE:-${PROJECT}} waiting, to avoid concurrent processing of ${1}..."; _isblocked=Y; }
+    sleep 1
   done
-  NBWGET=$((NBWGET - 1))
-done
+}
 
-if [ $NBWGET -eq 0 ]; then
-  echo -e "\nCant't get $1 sources : $PKG_URL\n Try later !!"
-  exit 1
-else
-  printf "%${BUILD_INDENT}c $(print_color CLR_INFO "INFO") Calculated checksum: ${CALC_SHA256}\n\n" ' '>&$SILENT_OUT
-  echo "${PKG_URL}" > $STAMP_URL
-  echo "${CALC_SHA256}" > $STAMP_SHA
+if [ -n "$PKG_URL" -a -n "$PKG_SOURCE_NAME" ]; then
+  mkdir -p $SOURCES/$1
+
+  PACKAGE="$SOURCES/$1/$PKG_SOURCE_NAME"
+
+  STAMP_URL="$PACKAGE.url"
+  STAMP_SHA="$PACKAGE.sha256"
+
+  # determine get handler based on protocol and/or filename
+  case "${PKG_URL}" in
+    git://*|*.git)
+      get_handler="git";;
+    file://*)
+      get_handler="file";;
+    *)
+      get_handler="archive";;
+  esac
+
+  if ! listcontains "${GET_HANDLER_SUPPORT}" "${get_handler}"; then
+    echo "ERROR: get handler \"${get_handler}\" is not supported, unable to get package $1 - aborting!"
+    exit 1
+  else
+    get_handler="${SCRIPTS}/get_${get_handler}"
+    if [ ! -f ${get_handler} ]; then
+      echo "ERROR: get handler \"${get_handler}\" does not exist, unable to get package $1 - aborting!"
+      exit 1
+    else
+      source ${get_handler}
+    fi
+  fi
 fi
 
 exit 0
