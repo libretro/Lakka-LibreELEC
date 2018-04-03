@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="llvm"
-PKG_VERSION="5.0.0"
-PKG_SHA256="e35dcbae6084adcf4abb32514127c5eabd7d63b733852ccdb31e06f1373136da"
+PKG_VERSION="6.0.0"
+PKG_SHA256="1ff53c915b4e761ef400b803f07261ade637b0c269d99569f18040f3dcee4408"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://llvm.org/"

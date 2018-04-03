@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="mesa"
-PKG_VERSION="17.3.5"
-PKG_SHA256="eb9228fc8aaa71e0205c1481c5b157752ebaec9b646b030d27478e25a6d7936a"
+PKG_VERSION="18.0.0"
+PKG_SHA256="694e5c3d37717d23258c1f88bc134223c5d1aac70518d2f9134d6df3ee791eea"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
@@ -97,6 +97,7 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --enable-asm \
                            --disable-selinux \
                            $MESA_PLATFORMS \
+                           --disable-libunwind \
                            --enable-opengl \
                            $MESA_GLES \
                            $MESA_DRI \
