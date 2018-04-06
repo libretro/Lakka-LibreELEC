@@ -27,7 +27,7 @@ PKG_LONGDESC="Das U-Boot is a cross-platform bootloader for embedded systems, us
 
 case "$DEVICE" in
   "Odroid_C2")
-    PKG_VERSION="6e4e886"
+    PKG_VERSION="095fdbe"
     PKG_URL="https://github.com/hardkernel/u-boot/archive/$PKG_VERSION.tar.gz"
     PKG_SHA256="0d05829e07e226d1acbc6b23ff038d6c92fa3ed738ddc28703d51987c0fab3bb"
     ;;
