@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="retroarch-assets"
-PKG_VERSION="f5069cb"
+PKG_VERSION="505ad62"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/libretro/retroarch-assets"
-PKG_URL="https://github.com/libretro/$PKG_NAME/archive/$PKG_VERSION.tar.gz"
+PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"

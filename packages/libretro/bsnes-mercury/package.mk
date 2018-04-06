@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="bsnes-mercury"
-PKG_VERSION="559b513"
+PKG_VERSION="2aa1bc1"
 PKG_REV="1"
-PKG_ARCH="any"
+PKG_ARCH="x86_64 i386"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/bsnes-mercury"
-PKG_URL="https://github.com/libretro/bsnes-mercury/archive/$PKG_VERSION.tar.gz"
+PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -35,7 +35,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  make compiler=$CXX ui='target-libretro' profile='balanced' 
+  make compiler=$CXX ui='target-libretro' profile='balanced'
 }
 
 makeinstall_target() {

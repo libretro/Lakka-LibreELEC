@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="beetle-psx"
-PKG_VERSION="c9a5664"
+PKG_VERSION="791e7a3"
 PKG_REV="1"
-PKG_ARCH="any"
+PKG_ARCH="x86_64 i386"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-psx-libretro"
-PKG_URL="https://github.com/libretro/beetle-psx-libretro/archive/$PKG_VERSION.tar.gz"
+PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -34,16 +34,8 @@ PKG_LONGDESC="Standalone port of Mednafen PSX to libretro."
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-post_unpack() {
-  mv $BUILD/beetle-psx-libretro-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
-}
-
 make_target() {
-  if [ "$OPENGLES" == "mali-rockchip" -o  "$DEVICE" == "TinkerBoard" -o "$DEVICE" == "MiQi" ]; then
-  make HAVE_VULKAN=1
-  else
   make HAVE_OPENGL=1
- fi
 }
 
 makeinstall_target() {

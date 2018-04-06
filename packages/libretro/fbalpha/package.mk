@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="fbalpha"
-PKG_VERSION="bab11d0"
+PKG_VERSION="877d3c4"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"
 PKG_SITE="https://github.com/libretro/fbalpha"
-PKG_URL="https://github.com/libretro/fbalpha/archive/$PKG_VERSION.tar.gz"
+PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"

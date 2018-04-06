@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libinput"
-PKG_VERSION="1.5.3"
+PKG_VERSION="1.8.2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/libinput/"
@@ -34,6 +34,6 @@ PKG_CONFIGURE_OPTS_TARGET="--with-sysroot=$SYSROOT_PREFIX \
                            --enable-shared \
                            --disable-static \
                            --disable-documentation \
-                           --disable-event-gui \
+                           --disable-debug-gui \
                            --disable-tests \
                            --disable-libwacom"

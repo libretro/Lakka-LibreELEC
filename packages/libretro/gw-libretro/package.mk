@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="gw-libretro"
-PKG_VERSION="8f054a1"
+PKG_VERSION="9962b03"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/gw-libretro"
-PKG_URL="https://github.com/libretro/gw-libretro/archive/$PKG_VERSION.tar.gz"
+PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"

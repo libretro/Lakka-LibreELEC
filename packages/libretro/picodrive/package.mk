@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="picodrive"
-PKG_VERSION="c3887ce"
+PKG_VERSION="f5d7a8d"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MAME"
 PKG_SITE="https://github.com/libretro/picodrive"
-PKG_URL="https://github.com/libretro/picodrive/archive/$PKG_VERSION.tar.gz"
+PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain $PKG_NAME:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"

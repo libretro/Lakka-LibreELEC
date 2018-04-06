@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="4do"
-PKG_VERSION="d3d6831"
+PKG_VERSION="1d5c6b7"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL with additional notes"
-PKG_SITE="https://github.com/libretro/4do-libretro.git"
-PKG_URL="https://github.com/libretro/4do-libretro/archive/$PKG_VERSION.tar.gz"
+PKG_SITE="https://github.com/libretro/4do-libretro"
+PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -33,10 +33,6 @@ PKG_LONGDESC="Port of 4DO/libfreedo to libretro."
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-
-post_unpack() {
-  mv $BUILD/4do-libretro-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
-}
 
 make_target() {
   make CC=$CC CXX=$CXX AR=$AR

@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="mame"
-PKG_VERSION="c3b3561"
+PKG_VERSION="893f1ac"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MAME"
-PKG_SITE="https://github.com/libretro/mame.git"
-PKG_URL="https://github.com/libretro/mame/archive/$PKG_VERSION.tar.gz"
+PKG_SITE="https://github.com/libretro/mame"
+PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"

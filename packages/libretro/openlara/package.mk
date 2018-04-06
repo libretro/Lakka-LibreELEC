@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="openlara"
-PKG_VERSION="c975393"
+PKG_VERSION="deb7256"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="BSD"
 PKG_SITE="https://github.com/libretro/openlara"
-PKG_URL="https://github.com/libretro/openlara/archive/$PKG_VERSION.tar.gz"
+PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"

@@ -19,12 +19,13 @@
 ################################################################################
 
 PKG_NAME="sameboy"
-PKG_VERSION="be3385a"
+PKG_VERSION="48cee01"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/libretro/sameboy"
-PKG_URL="https://github.com/libretro/sameboy/archive/$PKG_VERSION.tar.gz"
+PKG_GIT_URL="$PKG_SITE"
+PKG_GIT_BRANCH="buildbot"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -35,10 +36,10 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  make -C $PKG_BUILD/libretro
+  make -C libretro
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp sameboy_libretro.so $INSTALL/usr/lib/libretro/
+  cp libretro/sameboy_libretro.so $INSTALL/usr/lib/libretro/
 }

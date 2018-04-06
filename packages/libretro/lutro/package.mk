@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="lutro"
-PKG_VERSION="d9cacd3"
+PKG_VERSION="8ec9b6d"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/libretro/libretro-lutro"
-PKG_URL="https://github.com/libretro/libretro-lutro/archive/master.tar.gz"
+PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"

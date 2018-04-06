@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="mame2000"
-PKG_VERSION="f8ae2de"
+PKG_VERSION="d93c648"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MAME"
-PKG_SITE="https://github.com/libretro/mame2000-libretro.git"
-PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_SITE="https://github.com/libretro/mame2000-libretro"
+PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"

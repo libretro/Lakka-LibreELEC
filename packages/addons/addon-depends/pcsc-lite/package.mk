@@ -1,6 +1,6 @@
 ################################################################################
-#      This file is part of LibreELEC - https://LibreELEC.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,21 +17,19 @@
 ################################################################################
 
 PKG_NAME="pcsc-lite"
-PKG_VERSION="1.8.16"
+PKG_VERSION="1.8.22"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://pcsclite.alioth.debian.org/pcsclite.html"
-PKG_URL="https://alioth.debian.org/frs/download.php/file/4164/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
+PKG_URL="https://alioth.debian.org/frs/download.php/latestfile/39/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain libusb"
 PKG_SECTION="service/system"
 PKG_SHORTDESC="Middleware to access a smart card using SCard API (PC/SC)"
 PKG_LONGDESC="Middleware to access a smart card using SCard API (PC/SC)"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-shared \
             --enable-static \
             --disable-libudev \
             --enable-libusb \
-            --enable-usbdropdir=/storage/.kodi/addons/service.system.pcscd-addon/drivers"
+            --enable-usbdropdir=/storage/.kodi/addons/service.pcscd/drivers"

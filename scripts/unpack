@@ -60,7 +60,7 @@ fi
 
 [ -f "$STAMP" ] && exit 0
 
-if [ -d "$SOURCES/$1" -o -d "$PKG_DIR/sources" ]; then
+if [ -d "$SOURCES/$1" -o -d "$PKG_DIR/sources" -o -n "$PKG_GIT_URL" ]; then
   printf "%${BUILD_INDENT}c ${boldcyan}UNPACK${endcolor}   $1\n" ' '>&$SILENT_OUT
   export BUILD_INDENT=$((${BUILD_INDENT:-1}+$BUILD_INDENT_SIZE))
 
@@ -73,32 +73,43 @@ if [ -d "$SOURCES/$1" -o -d "$PKG_DIR/sources" ]; then
 
   . $PKG_DIR/package.mk
 
-  if [ "$(type -t pre_unpack)" = "function" ]; then
-    pre_unpack
-  fi
+  if [ -z "$PKG_GIT_URL" ] ; then
 
-  if [ "$(type -t unpack)" = "function" ]; then
-    unpack
-  else
-    if [ -n "$PKG_URL" ]; then
-      $SCRIPTS/extract $1 $BUILD
+    if [ "$(type -t pre_unpack)" = "function" ]; then
+      pre_unpack
     fi
-  fi
 
-  if [ ! -d $BUILD/$PKG_NAME-$PKG_VERSION ]; then
-    if [ -n "$PKG_SOURCE_DIR" ]; then
-      mv $BUILD/$PKG_SOURCE_DIR $BUILD/$PKG_NAME-$PKG_VERSION
-    elif [ -d $BUILD/$PKG_NAME-$PKG_VERSION* ]; then
-      mv $BUILD/$PKG_NAME-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
+    if [ "$(type -t unpack)" = "function" ]; then
+      unpack
+    else
+      if [ -n "$PKG_URL" ]; then
+        $SCRIPTS/extract $1 $BUILD
+      fi
     fi
+
+    if [ ! -d $BUILD/$PKG_NAME-$PKG_VERSION ]; then
+      if [ -n "$PKG_SOURCE_DIR" ]; then
+        mv $BUILD/$PKG_SOURCE_DIR $BUILD/$PKG_NAME-$PKG_VERSION
+      elif [ -d $BUILD/$PKG_NAME-$PKG_VERSION* ]; then
+        mv $BUILD/$PKG_NAME-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
+      fi
+    fi
+  
+    if [ -d "$PKG_DIR/sources" ]; then
+      [ ! -d "$BUILD/${PKG_NAME}-${PKG_VERSION}" ] && mkdir -p $BUILD/${PKG_NAME}-${PKG_VERSION}
+      cp -PRf $PKG_DIR/sources/* $BUILD/${PKG_NAME}-${PKG_VERSION}
+    fi
+
   fi
 
-  if [ -d "$PKG_DIR/sources" ]; then
-    [ ! -d "$BUILD/${PKG_NAME}-${PKG_VERSION}" ] && mkdir -p $BUILD/${PKG_NAME}-${PKG_VERSION}
-    cp -PRf $PKG_DIR/sources/* $BUILD/${PKG_NAME}-${PKG_VERSION}
-  fi
-
-  if [ -z "$PKG_URL" ]; then
+  if [ -z "$PKG_URL" -a -n "$PKG_GIT_URL" ]; then
+    rm -rf $BUILD/$PKG_NAME-$PKG_VERSION
+    git clone $PKG_GIT_URL $BUILD/$PKG_NAME-$PKG_VERSION/
+    cd $BUILD/$PKG_NAME-$PKG_VERSION/
+    git checkout $PKG_VERSION
+    git submodule update --init --recursive
+    cd $ROOT
+  elif [ -z "$PKG_URL" ]; then
     mkdir -p "${BUILD}/${PKG_NAME}-${PKG_VERSION}"
   fi
 
@@ -106,24 +117,15 @@ if [ -d "$SOURCES/$1" -o -d "$PKG_DIR/sources" ]; then
     post_unpack
   fi
 
-if [ "$PKG_SECTION" = "libretro" -a ! -d $BUILD/$PKG_NAME-$PKG_VERSION/.git ]; then
-  rm -rf $BUILD/$PKG_NAME-$PKG_VERSION
-  git clone $PKG_SITE $BUILD/$PKG_NAME-$PKG_VERSION/
-  cd $BUILD/$PKG_NAME-$PKG_VERSION/
-  git checkout $PKG_VERSION
-  git submodule update --init --recursive
-  cd $ROOT
-fi
-
   if [ "$(type -t pre_patch)" = "function" ]; then
     pre_patch
   fi
 
-if [ "$TARGET_ARCH" = "i386" -o "$TARGET_ARCH" = "x86_64" ]; then
-  PATCH_ARCH="x86"
-else
-  PATCH_ARCH="${TARGET_PATCH_ARCH:-$TARGET_ARCH}"
-fi
+  if [ "$TARGET_ARCH" = "i386" -o "$TARGET_ARCH" = "x86_64" ]; then
+    PATCH_ARCH="x86"
+  else
+    PATCH_ARCH="${TARGET_PATCH_ARCH:-$TARGET_ARCH}"
+  fi
 
   PATCH_DIRS_PKG=""
   PATCH_DIRS_PRJ=""
