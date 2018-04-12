@@ -29,7 +29,7 @@ case "$DEVICE" in
   "Odroid_C2")
     PKG_VERSION="095fdbe"
     PKG_URL="https://github.com/hardkernel/u-boot/archive/$PKG_VERSION.tar.gz"
-    PKG_SHA256="0d05829e07e226d1acbc6b23ff038d6c92fa3ed738ddc28703d51987c0fab3bb"
+    PKG_SHA256="25ee7c8208d8a97c831b8dd9222ce8984f4a0b8f95dabf9d513c130d04aa05b5"
     ;;
   "KVIM"*)
     PKG_VERSION="ffc14fc"
