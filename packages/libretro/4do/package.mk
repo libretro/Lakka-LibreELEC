@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="4do"
-PKG_VERSION="55dce71"
+PKG_VERSION="5e7b576"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL with additional notes"
