@@ -50,7 +50,7 @@ make_target() {
     CXXFLAGS="$CXXFLAGS -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads"
   fi
   if [ "$ARCH" == "arm" ]; then
-    SYSROOT_PREFIX=$SYSROOT_PREFIX TARGET_ARCH=arm make platform=armv-neon-gles
+    SYSROOT_PREFIX=$SYSROOT_PREFIX AS=${CXX} make platform=armv-neon-gles
   else
     make
   fi
