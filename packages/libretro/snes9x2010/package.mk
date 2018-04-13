@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="snes9x2010"
-PKG_VERSION="881e708"
+PKG_VERSION="07725e3"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"
