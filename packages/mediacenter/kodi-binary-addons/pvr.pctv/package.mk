@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="pvr.pctv"
-PKG_VERSION="5b47d9f"
-PKG_SHA256="fa23524622e1d2a4ebc1de4c6c8766b7a1987e2b900551049bbcec9d6055d354"
+PKG_VERSION="5e95300"
+PKG_SHA256="878aee780117d878e9658a0916f47cfba66f884718af41d5d22d2b6aeee73c3e"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="pvr.octonet"
-PKG_VERSION="689afbf"
-PKG_SHA256="1bb5ae45466a719021cc192506eb601ef36e68027040ce31ca9b02b1441e2740"
+PKG_VERSION="54680a3"
+PKG_SHA256="27ed72f70412c6cbe7f071bbfaa7c263374ae9268b8015ce1b2307980e2016cc"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
