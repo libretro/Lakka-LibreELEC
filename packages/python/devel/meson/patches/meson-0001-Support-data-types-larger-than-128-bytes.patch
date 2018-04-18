@@ -1,0 +1,38 @@
+From c4192a04fd3d46ac7a0ee81a158e7b1e3d4f06f8 Mon Sep 17 00:00:00 2001
+From: Thierry Reding <treding@nvidia.com>
+Date: Wed, 7 Mar 2018 12:51:25 +0100
+Subject: [PATCH] Support data types larger than 128 bytes
+
+Recent versions of systemd (starting with v238) started to check for the
+existence of the statx structure using the cc.sizeof() operation. The cc
+compiler implementation fails to detect this structure because it's size
+limit is 128, meaning it will fail for any type larger than 128 bytes in
+the following way during cross-compilation checks:
+
+        meson.build:10:2: ERROR: Cross-compile check overflowed
+
+Increase the size limit for data types to 1024 bytes, which should give
+plenty of room for even large data structures. This is obviously not
+guaranteed to be an upper bound, but given the binary search algorithm
+implemented in the cross-compile check, raising the limit too high may
+significantly increase the time required for this check on smaller data
+types.
+
+Signed-off-by: Thierry Reding <treding@nvidia.com>
+---
+ mesonbuild/compilers/c.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/mesonbuild/compilers/c.py b/mesonbuild/compilers/c.py
+index e0cccc3cb..56b46b4fb 100644
+--- a/mesonbuild/compilers/c.py
++++ b/mesonbuild/compilers/c.py
+@@ -416,7 +416,7 @@ def cross_sizeof(self, typename, prefix, env, extra_args=None, dependencies=None
+         }}'''
+         if not self.compiles(t.format(**fargs), env, extra_args, dependencies):
+             return -1
+-        return self.cross_compute_int('sizeof(%s)' % typename, 1, 128, None, prefix, env, extra_args, dependencies)
++        return self.cross_compute_int('sizeof(%s)' % typename, 1, 1024, None, prefix, env, extra_args, dependencies)
+ 
+     def sizeof(self, typename, prefix, env, extra_args=None, dependencies=None):
+         if extra_args is None:
