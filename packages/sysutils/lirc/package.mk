@@ -32,7 +32,6 @@ PKG_TOOLCHAIN="autotools"
 PKG_PYTHON_WANTED=Python2
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-devinput \
-                           --localstatedir=/ \
                            --with-gnu-ld \
                            --without-x"
 
