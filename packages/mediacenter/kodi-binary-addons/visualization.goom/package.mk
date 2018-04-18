@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="visualization.goom"
-PKG_VERSION="65f1d9c"
-PKG_SHA256="7436332d329c275a5fd1a395b1312919726ed83d7d5375ca08fb305b49b2c590"
+PKG_VERSION="7c91a20"
+PKG_SHA256="6197847d922050b37ce8a2a20436c16d10a48566f7128570965aa082fe203fc4"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
