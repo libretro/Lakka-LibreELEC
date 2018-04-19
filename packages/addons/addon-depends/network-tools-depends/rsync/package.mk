@@ -17,21 +17,21 @@
 ################################################################################
 
 PKG_NAME="rsync"
-PKG_VERSION="3.1.2"
-PKG_SHA256="ecfa62a7fa3c4c18b9eccd8c16eaddee4bd308a76ea50b5c02a5840f09c0a1c2"
+PKG_VERSION="3.1.3"
+PKG_SHA256="55cc554efec5fdaad70de921cd5a5eeb6c29a95524c715f3bbf849235b0800c0"
 PKG_ARCH="any"
-PKG_LICENSE="OSS"
+PKG_LICENSE="GPLv3"
 PKG_SITE="http://www.samba.org/ftp/rsync/rsync.html"
 PKG_URL="https://download.samba.org/pub/rsync/src/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="network/backup"
 PKG_SHORTDESC="rsync: A replacement for rcp that has many more features"
-PKG_LONGDESC="Rsync uses an own 'rsync' algorithm which provides a very fast method for bringing remote files into sync. It does this by sending just the differences in the files across the link, without requiring that both sets of files are present at one of the ends of the link beforehand. At first glance this may seem impossible because the calculation of diffs between two files normally requires local access to both files."
+PKG_LONGDESC="Rsync uses an own 'rsync' algorithm which provides a very fast method for bringing remote files into sync."
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-acl-support \
-            --disable-xattr-support \
-            --with-included-popt"
+                           --disable-xattr-support \
+                           --with-included-popt"
 
 makeinstall_target() {
-  : # nop
+  :
 }

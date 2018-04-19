@@ -17,17 +17,17 @@
 ################################################################################
 
 PKG_NAME="tcpdump"
-PKG_VERSION="4.7.4"
-PKG_SHA256="6be520269a89036f99c0b2126713a60965953eab921002b07608ccfc0c47d9af"
+PKG_VERSION="4.9.2"
+PKG_SHA256="798b3536a29832ce0cbb07fafb1ce5097c95e308a6f592d14052e1ef1505fe79"
 PKG_ARCH="any"
 PKG_SITE="http://www.tcpdump.org/"
 PKG_URL="http://www.tcpdump.org/release/tcpdump-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libpcap"
 PKG_SECTION="network/analyzer"
 PKG_SHORTDESC="powerful tool for network monitoring and data acquisition"
-PKG_LONGDESC="This program allows you to dump the traffic on a network. tcpdump is able to examine IPv4, ICMPv4, IPv6, ICMPv6, UDP, TCP, SNMP, AFS BGP, RIP, PIM, DVMRP, IGMP, SMB, OSPF, NFS and many other packet types."
+PKG_LONGDESC="This program allows you to dump the traffic on a network."
 
-PKG_CONFIGURE_OPTS_TARGET="--with-pcap=linux --with-crypto=no --disable-ipv6"
+PKG_CONFIGURE_OPTS_TARGET="--with-crypto=no"
 
 pre_configure_target() {
   # When cross-compiling, configure can't set linux version
@@ -41,5 +41,5 @@ pre_build_target() {
 }
 
 makeinstall_target() {
-  : # nop
+  :
 }
