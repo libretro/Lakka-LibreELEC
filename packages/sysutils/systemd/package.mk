@@ -229,6 +229,8 @@ post_makeinstall_target() {
 
   rm -rf $INSTALL/etc/modules-load.d
   ln -sf /storage/.config/modules-load.d $INSTALL/etc/modules-load.d
+  rm -rf $INSTALL/etc/systemd/logind.conf.d
+  ln -sf /storage/.config/logind.conf.d $INSTALL/etc/systemd/logind.conf.d
   rm -rf $INSTALL/etc/systemd/sleep.conf.d
   ln -sf /storage/.config/sleep.conf.d $INSTALL/etc/systemd/sleep.conf.d
   rm -rf $INSTALL/etc/sysctl.d
