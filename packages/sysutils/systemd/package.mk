@@ -197,6 +197,7 @@ post_makeinstall_target() {
 
   # tune logind.conf
   sed -e "s,^.*HandleLidSwitch=.*$,HandleLidSwitch=ignore,g" -i $INSTALL/etc/systemd/logind.conf
+  sed -e "s,^.*HandlePowerKey=.*$,HandlePowerKey=ignore,g" -i $INSTALL/etc/systemd/logind.conf
 
   # replace systemd-machine-id-setup with ours
   rm -rf $INSTALL/usr/lib/systemd/systemd-machine-id-commit
