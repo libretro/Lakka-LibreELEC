@@ -38,19 +38,22 @@ $SCRIPTS/build kmod:host
 $SCRIPTS/build mtools:host
 $SCRIPTS/build populatefs:host
 
-BUILD_DATE=`date +%Y%m%d%H%M%S`
-
-GIT_HASH=$(git rev-parse HEAD)
+if [ -n "$CUSTOM_GIT_HASH" ]; then
+  GIT_HASH="$CUSTOM_GIT_HASH"
+else
+  GIT_HASH=$(git rev-parse HEAD)
+fi
 
 if [ "$LIBREELEC_VERSION" = "devel" ]; then
-  if ! GIT_BUILD=$(git rev-list --count HEAD 2>/dev/null)
-  then
-    GIT_BUILD=$(git rev-list HEAD | wc -l)
-  fi
-  GIT_ABBREV=$(git log -1 --pretty=format:%h)
+  GIT_ABBREV=${GIT_HASH:0:7}
   DEVEL_VERSION=$LIBREELEC_VERSION
-  LIBREELEC_VERSION=$LIBREELEC_VERSION-$BUILD_DATE-r$GIT_BUILD-g$GIT_ABBREV
-  echo "$LIBREELEC_VERSION" > $BUILD/BUILD_FILENAME
+  case "$BUILD_PERIODIC" in
+    nightly) LIBREELEC_VERSION=nightly-$(date +%Y%m%d)-$GIT_ABBREV;;
+    daily)   LIBREELEC_VERSION=daily-$(date +%Y%j)-$GIT_ABBREV;;
+    weekly)  LIBREELEC_VERSION=weekly-$(date +%G%V)-$GIT_ABBREV;;
+    monthly) LIBREELEC_VERSION=monthly-$(date +%Y%m)-$GIT_ABBREV;;
+    *)       LIBREELEC_VERSION=devel-$(date +%Y%m%d%H%M%S)-$GIT_ABBREV;;
+  esac
 fi
 
 # Get origin url, fix git:// and git@github.com: urls if necessary
@@ -64,10 +67,6 @@ fi
 
 if [ -n "$CUSTOM_VERSION" ]; then
   LIBREELEC_VERSION="$CUSTOM_VERSION"
-fi
-
-if [ -n "$CUSTOM_GIT_HASH" ]; then
-  GIT_HASH="$CUSTOM_GIT_HASH"
 fi
 
 LIBREELEC_ARCH="${DEVICE:-$PROJECT}.$TARGET_ARCH"
@@ -89,6 +88,8 @@ fi
 if [ -n "$IMAGE_SUFFIX" ]; then
   IMAGE_NAME="$IMAGE_NAME-$IMAGE_SUFFIX"
 fi
+
+echo "$IMAGE_NAME" > $BUILD/BUILD_FILENAME
 
 # setup fakeroot
 rm -rf $FAKEROOT_SCRIPT   # remove $FAKEROOT_SCRIPT if it exist
