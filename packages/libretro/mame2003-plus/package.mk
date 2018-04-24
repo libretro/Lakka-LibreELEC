@@ -35,7 +35,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 post_unpack() {
-  mv $BUILD/mame2003-plus-libretro-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
+  mv $BUILD/mame2003_plus_libretro-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
 }
 
 make_target() {
@@ -44,5 +44,5 @@ make_target() {
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp mame2003-plus_libretro.so $INSTALL/usr/lib/libretro/
+  cp mame2003_plus_libretro.so $INSTALL/usr/lib/libretro/
 }
