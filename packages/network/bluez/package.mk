@@ -35,11 +35,7 @@ else
   BLUEZ_CONFIG="--disable-debug"
 fi
 
-if [ "$DEVTOOLS" = "yes" ]; then
-  BLUEZ_CONFIG="$BLUEZ_CONFIG --enable-monitor --enable-test"
-else
-  BLUEZ_CONFIG="$BLUEZ_CONFIG --disable-monitor --disable-test"
-fi
+BLUEZ_CONFIG="$BLUEZ_CONFIG --enable-monitor --enable-test"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-dependency-tracking \
                            --disable-silent-rules \
