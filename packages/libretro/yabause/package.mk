@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="yabause"
-PKG_VERSION="c55eef9"
+PKG_VERSION="3c1f22e"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/yabause"
-PKG_URL="https://github.com/libretro/yabause/archive/$PKG_VERSION.tar.gz"
+PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"

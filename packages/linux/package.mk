@@ -29,8 +29,8 @@ PKG_SHORTDESC="linux26: The Linux kernel 2.6 precompiled kernel binary image and
 PKG_LONGDESC="This package contains a precompiled kernel image and the modules."
 case "$LINUX" in
   linux-odroidxu3)
-    PKG_VERSION="35dfbab"
-    PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+    PKG_VERSION="b8aafc4"
+    PKG_URL="https://github.com/hardkernel/linux/archive/$PKG_VERSION.tar.gz"
     ;;
   linux-odroidc-3.10.y)
     PKG_VERSION="6ac660c"
@@ -88,7 +88,7 @@ case "$LINUX" in
     PKG_PATCH_DIRS="rockchip-4.4"
     ;;
   allwinner)
-    PKG_VERSION="4.14.13"
+    PKG_VERSION="4.14.18"
     PKG_URL="http://www.kernel.org/pub/linux/kernel/v4.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     ;;
   *)

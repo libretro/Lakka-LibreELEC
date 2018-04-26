@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="meteor"
-PKG_VERSION="bcb6235"
+PKG_VERSION="f8ab66c"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/meteor-libretro"
-PKG_URL="https://github.com/libretro/meteor-libretro/archive/$PKG_VERSION.tar.gz"
+PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -34,10 +34,6 @@ PKG_LONGDESC="Meteor is a Nintendo Gameboy Advance emulator."
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 PKG_USE_CMAKE="no"
-
-post_unpack() {
-  mv $BUILD/meteor-libretro-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
-}
 
 make_target() {
   make -C ../libretro

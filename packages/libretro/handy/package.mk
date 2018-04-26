@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="handy"
-PKG_VERSION="b055dc6"
+PKG_VERSION="64e5f90"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Zlib"
 PKG_SITE="https://github.com/libretro/libretro-handy"
-PKG_URL="https://github.com/libretro/libretro-handy/archive/$PKG_VERSION.tar.gz"
+PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -33,10 +33,6 @@ PKG_LONGDESC="Handy is an Atari Lynx Emulator for Windows 95/98/NT/2000. Handy w
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-
-post_unpack() {
-  mv $BUILD/libretro-handy-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
-}
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro

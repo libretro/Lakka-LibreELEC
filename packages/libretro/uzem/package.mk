@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="uzem"
-PKG_VERSION="6decb3c"
+PKG_VERSION="b20d12f"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/libretro/libretro-uzem"
-PKG_URL="https://github.com/libretro/libretro-uzem/archive/$PKG_VERSION.tar.gz"
+PKG_GIT_URL="$PKG_SITE"
 PKG_PATCH_DIRS="libretro"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
@@ -34,10 +34,6 @@ PKG_LONGDESC="A retro-minimalist game console engine for the ATMega644"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-
-post_unpack() {
-  mv $BUILD/libretro-uzem-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
-}
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro

@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="retroarch"
-PKG_VERSION="dbd2faf"
-PKG_REV="9"
+PKG_VERSION="ab00d58"
+PKG_REV="11"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
-PKG_URL="https://github.com/libretro/RetroArch/archive/$PKG_VERSION.tar.gz"
+PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain alsa-lib freetype zlib retroarch-assets retroarch-overlays core-info retroarch-joypad-autoconfig glsl-shaders lakka-update libretro-database ffmpeg libass libvdpau libxkbfile xkeyboard-config libxkbcommon joyutils sixpair empty"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -33,10 +33,6 @@ PKG_LONGDESC="RetroArch is the reference frontend for the libretro API. Popular 
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-
-post_unpack() {
-  mv $BUILD/RetroArch-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
-}
 
 if [ "$OPENGLES_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $OPENGLES"
@@ -58,7 +54,7 @@ elif [ "$OPENGLES" == "bcm2835-driver" ]; then
   RETROARCH_GL="--enable-opengles --disable-kms --disable-x11"
   CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads \
                   -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
-elif [ "$OPENGLES" == "odroidc1-mali" ] || [ "$OPENGLES" == "odroidxu3-mali" ] || [ "$OPENGLES" == "opengl-meson" ] || [ "$OPENGLES" == "opengl-meson8" ] || [ "$OPENGLES" == "opengl-meson-t82x" ]; then
+elif [ "$OPENGLES" == "odroidc1-mali" ] || [ "$OPENGLES" == "opengl-meson" ] || [ "$OPENGLES" == "opengl-meson8" ] || [ "$OPENGLES" == "opengl-meson-t82x" ]; then
   RETROARCH_GL="--enable-opengles --disable-kms --disable-x11 --enable-mali_fbdev"
 elif [ "$OPENGLES" == "gpu-viv-bin-mx6q" ] || [ "$OPENGLES" == "imx-gpu-viv" ]; then
   RETROARCH_GL="--enable-opengles --disable-kms --disable-x11 --enable-vivante_fbdev"
@@ -67,7 +63,7 @@ elif [ "$OPENGLES" == "mali-rockchip" ]; then
   RETROARCH_GL="--enable-opengles --enable-kms --disable-x11 --disable-wayland"
 elif [ "$OPENGLES" == "allwinner-fb-mali" ]; then
    RETROARCH_GL="--enable-opengles --disable-kms --disable-x11 --enable-mali_fbdev"
-elif [ "$OPENGLES" == "allwinner-mali" ]; then
+elif [ "$OPENGLES" == "allwinner-mali" ] || [ "$OPENGLES" == "odroidxu3-mali" ]; then
    RETROARCH_GL="--enable-opengles --enable-kms --disable-x11"
 fi
 
@@ -118,7 +114,7 @@ makeinstall_target() {
   sed -i -e "s/# video_shader_dir =/video_shader_dir =\/tmp\/shaders/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# rgui_show_start_screen = true/rgui_show_start_screen = false/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# assets_directory =/assets_directory =\/tmp\/assets/" $INSTALL/etc/retroarch.cfg
-  sed -i -e "s/# overlays_directory =/overlays_directory =\/usr\/share\/retroarch-overlays/" $INSTALL/etc/retroarch.cfg
+  sed -i -e "s/# overlays_directory =/overlays_directory =\/tmp\/overlays/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# cheat_database_path =/cheat_database_path =\/tmp\/database\/cht/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# menu_driver = \"rgui\"/menu_driver = \"xmb\"/" $INSTALL/etc/retroarch.cfg
 
@@ -165,9 +161,9 @@ makeinstall_target() {
   sed -i -e "s/# thumbnails_directory =/thumbnails_directory = \/storage\/thumbnails/" $INSTALL/etc/retroarch.cfg
   echo "menu_show_advanced_settings = \"false\"" >> $INSTALL/etc/retroarch.cfg
   echo "menu_wallpaper_opacity = \"1.0\"" >> $INSTALL/etc/retroarch.cfg
-  echo "xmb_show_images = \"false\"" >> $INSTALL/etc/retroarch.cfg
-  echo "xmb_show_music = \"false\"" >> $INSTALL/etc/retroarch.cfg
-  echo "xmb_show_video = \"false\"" >> $INSTALL/etc/retroarch.cfg
+  echo "content_show_images = \"false\"" >> $INSTALL/etc/retroarch.cfg
+  echo "content_show_music = \"false\"" >> $INSTALL/etc/retroarch.cfg
+  echo "content_show_video = \"false\"" >> $INSTALL/etc/retroarch.cfg
 
   # Updater
   if [ "$ARCH" == "arm" ]; then

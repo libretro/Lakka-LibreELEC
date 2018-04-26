@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="mgba"
-PKG_VERSION="05e2ff4"
+PKG_VERSION="3fea214"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MPLv2.0"
 PKG_SITE="https://github.com/libretro/mgba"
-PKG_URL="https://github.com/libretro/mgba/archive/$PKG_VERSION.tar.gz"
+PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"

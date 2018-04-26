@@ -79,14 +79,8 @@ case $1 in
     [ -z "$LIBRETRO_CORES" ] && { echo "LIBRETRO_CORES: empty. Aborting!" ; exit 1 ; }
     # List of core retroarch packages
     RA_PACKAGES="retroarch retroarch-assets retroarch-joypad-autoconfig retroarch-overlays libretro-database core-info glsl-shaders"
-    # List of cores used by specific projects not included in LIBRETRO_CORES.
-    # This needs to be updated manually in case packages/lakka/*/package.mk
-    # PKG_DEPENDS_TARGET includes a libretro core/package not included above.
-    # PKG_DEPENDS_TARGET often includes also non-libretro packages, hence
-    # not pulled from individual project-package files.
-    ADDITIONAL_PACKAGES=" beetle-bsnes bsnes beetle-psx bsnes-mercury "
     # List of all libretro packages to update:
-    PACKAGES_ALL=" $RA_PACKAGES $ADDITIONAL_PACKAGES $LIBRETRO_CORES "
+    PACKAGES_ALL=" $RA_PACKAGES $LIBRETRO_CORES "
     ;;
   -p | --packages )
     PACKAGES_ALL=""
@@ -123,9 +117,10 @@ do
     echo "$f: not found! Skipping."
     continue
   fi
-  PKG_VERSION=`cat $f | sed -En "s/PKG_VERSION=\"(.*)\"/\1/p"`
-  PKG_SITE=`cat $f | sed -En "s/PKG_SITE=\"(.*)\"/\1/p"`
-  PKG_NAME=`cat $f | sed -En "s/PKG_NAME=\"(.*)\"/\1/p"`
+  PKG_VERSION=`cat $f | sed -En "s/^PKG_VERSION=\"(.*)\"/\1/p"`
+  PKG_SITE=`cat $f | sed -En "s/^PKG_SITE=\"(.*)\"/\1/p"`
+  PKG_NAME=`cat $f | sed -En "s/^PKG_NAME=\"(.*)\"/\1/p"`
+  PKG_GIT_BRANCH=`cat $f | sed -En "s/^PKG_GIT_BRANCH=\"(.*)\"/\1/p"`
   if [ -z "$PKG_VERSION" ] || [ -z "$PKG_SITE" ] ; then
     echo "$f: does not have PKG_VERSION or PKG_SITE"
     echo "PKG_VERSION: $PKG_VERSION"
@@ -133,7 +128,8 @@ do
     echo "Skipping update."
     continue
   fi
-  UPS_VERSION=`git ls-remote $PKG_SITE | grep HEAD | awk '{ print substr($1,1,7) }'`
+  [ -n "$PKG_GIT_BRANCH" ] && GIT_HEAD="heads/$PKG_GIT_BRANCH" || GIT_HEAD="HEAD"
+  UPS_VERSION=`git ls-remote $PKG_SITE | grep $GIT_HEAD | awk '{ print substr($1,1,7) }'`
   if [ "$UPS_VERSION" == "$PKG_VERSION" ]; then
     echo "$PKG_NAME is up to date ($UPS_VERSION)"
   else

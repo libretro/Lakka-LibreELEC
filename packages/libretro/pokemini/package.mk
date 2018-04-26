@@ -19,12 +19,11 @@
 ################################################################################
 
 PKG_NAME="pokemini"
-PKG_VERSION="c47f6d6"
+PKG_VERSION="9acdf84"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/pokemini"
-PKG_URL="https://github.com/libretro/pokemini/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"

@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="vbam"
-PKG_VERSION="78c1c84"
+PKG_VERSION="584ccf4"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/vbam-libretro"
-PKG_URL="https://github.com/libretro/vbam-libretro/archive/$PKG_VERSION.tar.gz"
+PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -34,10 +34,6 @@ PKG_LONGDESC="VBA-M is a [Super] Game Boy [Color / Advance] emulator for Windows
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 PKG_USE_CMAKE="no"
-
-post_unpack() {
-  mv $BUILD/vbam-libretro-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
-}
 
 make_target() {
   make -C ../src/libretro -f Makefile

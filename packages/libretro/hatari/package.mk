@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="hatari"
-PKG_VERSION="c19b710"
+PKG_VERSION="eb3271d"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/hatari"
-PKG_URL="https://github.com/libretro/hatari/archive/$PKG_VERSION.tar.gz"
+PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"

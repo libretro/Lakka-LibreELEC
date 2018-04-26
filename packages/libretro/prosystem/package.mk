@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="prosystem"
-PKG_VERSION="57c80cb"
+PKG_VERSION="360c65d"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/libretro/prosystem-libretro.git"
-PKG_URL="https://github.com/libretro/prosystem-libretro/archive/$PKG_VERSION.tar.gz"
+PKG_SITE="https://github.com/libretro/prosystem-libretro"
+PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -33,10 +33,6 @@ PKG_LONGDESC="Port of ProSystem to libretro."
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-
-post_unpack() {
-  mv $BUILD/prosystem-libretro-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
-}
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro

@@ -19,13 +19,12 @@
 ################################################################################
 
 PKG_NAME="melonds"
-PKG_VERSION="9440f3d"
+PKG_VERSION="4b31968"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/melonds"
-PKG_URL="https://github.com/libretro/melonds/archive/$PKG_VERSION.tar.gz"
-PKG_SOURCE_DIR="melonDS-$PKG_VERSION*"
+PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"

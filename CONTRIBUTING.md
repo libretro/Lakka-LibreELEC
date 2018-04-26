@@ -1,15 +1,76 @@
-## Questions about Lakka?
+# General rules
 
-To get your questions answered, please ask in the [forum](https://forums.libretro.com/c/libretro/lakka-tv-general) or on IRC: \#lakkatv on freenode.net.
+ * Lakka focuses on stability rather than bleeding edge
+ * We try to maintain all the supported platforms, but we know that 95% of our users are using PC and RPi
+ * You are responsible for your own changes, if you break something, you need to fix it
+ * Everybody has to test their own changes
+ * Testing means manual testing on real hardware
+ * If you are unsure how to contribute code, meet us on IRC
+ * Our users want the latest working versions of RetroArch and the libretro cores. They don't want non working / half working versions.
 
-## Issue Reports
+# Team members
 
-**Before you report a bug make sure you have tried the [latest nightly version of Lakka](http://sources.lakka.tv/nightly/). Your bug might be already fixed.** If you are at all unsure whether it's a bug in Lakka or a problem with something else, post in the [forum](https://forums.libretro.com/c/libretro/lakka-tv-general)  instead. If you are sure that it's a bug in Lakka and you have not found a similar issue, open a new [issue](https://github.com/libretro/Lakka/issues).
+Project leader: kivutar
+Team members: kivutar, Ntemis, gouchi, ToKe79, RobLoach
 
-**It is important to provide logs for debugging as part of your Issue. Instructions for generating logs can be found in the [Troubleshooting Lakka](http://www.lakka.tv/doc/Troubleshooting-Lakka/) documentation.**
+# The development branch
 
-Make sure to specify which version of Lakka you are using.
+The development happens on the branch Lakka-V2.1-dev. This branch follows LibreELEC 8.2 stable.
 
-## Feature Requests and Pull Requests
+We consider this branch as a rolling release, and we ensure that:
 
-Discussions about feature requests are welcome in the forum, but sending a [Pull Request](https://github.com/libretro/Lakka/pulls) is a much better way of getting a particular feature into Lakka. If you have never made a Pull Request before, post in the forums or join IRC for assistance.
+ * All the projects build fine at least on Ubuntu 16.04
+ * All the projects boot
+ * All the projects boot to RetroArch
+
+We don't have a stable branch + unstable branches. For now, we only work on Lakka-V2.1-dev which should be as stable as possible.
+ 
+# Pull requests
+
+All the code contributions are submitted in the form of Pull Requests. Team members should also use Pull Requests except in case of emergency.
+
+A good PR is:
+
+ * Atomic, changes as less things as possible
+ * Well named
+ * Well described
+ * Tested locally by the sender (on real hardware)
+ * Doesn't break other projects (you have to build all of them locally)
+ * Idealy doesn't contain merge messages (you can pull --rebase if necessary)
+ * Doesn't mix important changes with massive reindentation (send two separate PRs)
+ * Doesn't introduce too much changes that would make merging upstream difficult
+
+PRs will be reviewed by the core team. The project leader have the final word on merging a PR or not, but all the core team members are invited to do code reviews.
+
+PRs should be merged using the *Squash and merge* button only.
+
+If a PR is not in a mergeable state, mark the title with [WIP].
+
+Commit messages should be formatted like the [LibreELEC](https://github.com/LibreELEC/LibreELEC.tv)'s upstream, in the following format:
+```
+package-name: update something on the package
+```
+
+# Merging upstream
+
+The upstream branch, LibreELEC 8.2, will be merged on a regular basis by the maintainers. Merging upstream should be discussed and announced on IRC in presence of the project leader.
+
+It should be done once every release cycle, at the beginning of the cycle.
+
+# RetroArch updates
+
+Updating RetroArch requires a lot of manual testing. So leave this task to the core team.
+
+# Release cycle
+
+We try to release images to the public one time per month.
+
+Before every release or release candidate, we have a one week code freeze that is announced on IRC by the team leader.
+
+During the code freeze:
+
+ * Everybody tests the images on real hardware
+ * We merge only critical fixes
+ * We don't merge upstream
+ * We don't update RetroArch or cores for no reasons
+ * If we update RetroArch or a core, it better be done by adding a build time patch than updating the commit ID
