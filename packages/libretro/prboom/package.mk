@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="prboom"
-PKG_VERSION="ee5d224"
+PKG_VERSION="85161af"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
