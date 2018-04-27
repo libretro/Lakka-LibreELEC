@@ -41,13 +41,18 @@ STAMP_DEPENDS="$PKG_DIR $PKG_NEED_UNPACK $PROJECT_DIR/$PROJECT/patches/$PKG_NAME
 
 # Perform a wildcard match on the package to ensure old versions are cleaned too
 PKG_DEEPMD5=
+GIT_MUST_REBUILD="no"
 for i in $BUILD/$1-*; do
   if [ -d $i -a -f "$i/.libreelec-unpack" ] ; then
     . "$i/.libreelec-unpack"
     if [ "$STAMP_PKG_NAME" = "$1" ]; then
       [ -z "${PKG_DEEPMD5}" ] && PKG_DEEPMD5=$(find $STAMP_DEPENDS -exec md5sum {} \; 2>/dev/null | sort | md5sum | cut -d" " -f1)
       if [ ! "$PKG_DEEPMD5" = "$STAMP_PKG_DEEPMD5" ] ; then
+        if [ -z "$PKG_GIT_URL" ] ; then
         $SCRIPTS/clean $1
+        else
+          GIT_MUST_REBUILD="yes"
+        fi
       fi
     fi
   fi
@@ -58,7 +63,7 @@ if [ -d "$PKG_BUILD" -a ! -f "$STAMP" ]; then
   $SCRIPTS/clean $1
 fi
 
-[ -f "$STAMP" ] && exit 0
+[ -f "$STAMP" -a "$GIT_MUST_REBUILD" = "no" ] && exit 0
 
 if [ -d "$SOURCES/$1" -o -d "$PKG_DIR/sources" -o -n "$PKG_GIT_URL" ]; then
   printf "%${BUILD_INDENT}c ${boldcyan}UNPACK${endcolor}   $1\n" ' '>&$SILENT_OUT
@@ -94,7 +99,7 @@ if [ -d "$SOURCES/$1" -o -d "$PKG_DIR/sources" -o -n "$PKG_GIT_URL" ]; then
         mv $BUILD/$PKG_NAME-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
       fi
     fi
-  
+
     if [ -d "$PKG_DIR/sources" ]; then
       [ ! -d "$BUILD/${PKG_NAME}-${PKG_VERSION}" ] && mkdir -p $BUILD/${PKG_NAME}-${PKG_VERSION}
       cp -PRf $PKG_DIR/sources/* $BUILD/${PKG_NAME}-${PKG_VERSION}
@@ -103,9 +108,57 @@ if [ -d "$SOURCES/$1" -o -d "$PKG_DIR/sources" -o -n "$PKG_GIT_URL" ]; then
   fi
 
   if [ -z "$PKG_URL" -a -n "$PKG_GIT_URL" ]; then
-    rm -rf $BUILD/$PKG_NAME-$PKG_VERSION
+    # init GIT_ORIG_DIR
+    GIT_ORIG_DIR=""
+    GIT_PREV_LOCATION=$(pwd)
+    # cycle through folders that match $PKG_NAME in $BUILD until we find the right one
+    for f in $BUILD/$1-* ; do
+      echo "**** debug: checking folder '$f':"
+      if [ -d $f ]; then
+        echo "**** debug: '$f' is folder"
+        if [ -f $f/.libreelec-unpack ]; then
+          echo "**** debug: '.libreelec-unpack' found"
+          source $f/.libreelec-unpack
+          echo "**** debug: STAMP_PKG_NAME=$STAMP_PKG_NAME"
+          if [ "$PKG_NAME" = "$STAMP_PKG_NAME" ]; then
+            echo "**** debug: NAME matched"
+            cd $f
+            BUILD_GIT_URL=$(git remote get-url origin)
+            echo "**** debug: BUILD_GIT_URL=$BUILD_GIT_URL | PKG_GIT_URL=$PKG_GIT_URL"
+            if [ "$BUILD_GIT_URL" = "$PKG_GIT_URL" ]; then
+              # we found the existing folder!
+              GIT_ORIG_DIR=$f
+              break
+            fi
+          fi
+        fi
+      fi
+    done
+    cd $GIT_PREV_LOCATION
+    if [ -d "$GIT_ORIG_DIR" -a -n "$GIT_ORIG_DIR" ]; then
+      # rename the original folder to match current version
+      echo "**** debug: Rename '$GIT_ORIG_DIR' to '$BUILD/$PKG_NAME-$PKG_VERSION'"
+      if [ ! "$GIT_ORIG_DIR" = "$BUILD/$PKG_NAME-$PKG_VERSION" ]; then
+        mv $GIT_ORIG_DIR $BUILD/$PKG_NAME-$PKG_VERSION
+      fi
+      cd $BUILD/$PKG_NAME-$PKG_VERSION
+      # clean
+      echo "**** debug: git clean -fdx"
+      git clean -fdx
+      echo "**** debug: git checkout -- ."
+      git checkout -- .
+      echo "**** debug: git checkout master"
+      git checkout master
+      # pull changes
+      echo "**** debug: git pull"
+      git pull
+    else
+      # clean
+      $SCRIPTS/clean $1
+      # clone
     git clone $PKG_GIT_URL $BUILD/$PKG_NAME-$PKG_VERSION/
     cd $BUILD/$PKG_NAME-$PKG_VERSION/
+    fi
     git checkout $PKG_VERSION
     git submodule update --init --recursive
     cd $ROOT
