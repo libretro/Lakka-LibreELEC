@@ -1,50 +1,43 @@
-From 8fb45ecc61e3c0c8d71ca7f33a866e9bc6d11dfb Mon Sep 17 00:00:00 2001
+From 830aaed8ea116ecac827f830729f1d57f96ac22e Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Mon, 4 Sep 2017 22:34:19 +0200
-Subject: [PATCH 01/11] BACKPORT: HDMI CEC support from v4.13
+Subject: [PATCH] BACKPORT: HDMI CEC support from v4.15
 
 Skipped changes:
 857313e51006ff51524579bcd8808b70f9a80812 "media: utilize new cdev_device_add helper function"
 0f7499fddb153a333dff3c1dc4280c178b9b5a80 "[media] rc-main: assign driver type during allocation"
 ---
  Documentation/devicetree/bindings/media/cec.txt    |   8 +
- Documentation/media/kapi/cec-core.rst              | 338 +++++++++++++++++++
- Documentation/media/uapi/cec/cec-api.rst           |  43 +++
+ Documentation/media/kapi/cec-core.rst              | 381 +++++++++++++++++++++
+ Documentation/media/uapi/cec/cec-api.rst           |  46 +++
  Documentation/media/uapi/cec/cec-func-close.rst    |  47 +++
  Documentation/media/uapi/cec/cec-func-ioctl.rst    |  66 ++++
  Documentation/media/uapi/cec/cec-func-open.rst     |  78 +++++
  Documentation/media/uapi/cec/cec-func-poll.rst     |  77 +++++
- Documentation/media/uapi/cec/cec-funcs.rst         |  21 ++
+ Documentation/media/uapi/cec/cec-funcs.rst         |  20 ++
  Documentation/media/uapi/cec/cec-header.rst        |  10 +
  Documentation/media/uapi/cec/cec-intro.rst         |  40 +++
- .../media/uapi/cec/cec-ioc-adap-g-caps.rst         | 132 ++++++++
- .../media/uapi/cec/cec-ioc-adap-g-log-addrs.rst    | 366 +++++++++++++++++++++
- .../media/uapi/cec/cec-ioc-adap-g-phys-addr.rst    |  93 ++++++
- Documentation/media/uapi/cec/cec-ioc-dqevent.rst   | 187 +++++++++++
- Documentation/media/uapi/cec/cec-ioc-g-mode.rst    | 263 +++++++++++++++
- Documentation/media/uapi/cec/cec-ioc-receive.rst   | 342 +++++++++++++++++++
+ .../media/uapi/cec/cec-ioc-adap-g-caps.rst         | 139 ++++++++
+ .../media/uapi/cec/cec-ioc-adap-g-log-addrs.rst    | 371 ++++++++++++++++++++
+ .../media/uapi/cec/cec-ioc-adap-g-phys-addr.rst    |  93 +++++
+ Documentation/media/uapi/cec/cec-ioc-dqevent.rst   | 226 ++++++++++++
+ Documentation/media/uapi/cec/cec-ioc-g-mode.rst    | 293 ++++++++++++++++
+ Documentation/media/uapi/cec/cec-ioc-receive.rst   | 344 +++++++++++++++++++
  MAINTAINERS                                        |  16 +
- drivers/media/Kconfig                              |  28 +-
- drivers/media/Makefile                             |  10 +-
- drivers/media/cec/Kconfig                          |   6 +
- drivers/media/cec/Makefile                         |   8 +-
- drivers/media/cec/cec-adap.c                       | 219 ++++++++----
- drivers/media/cec/cec-api.c                        |  32 +-
- drivers/media/cec/cec-core.c                       |  48 ++-
- drivers/media/{ => cec}/cec-edid.c                 |   6 +-
- drivers/media/cec/cec-notifier.c                   | 136 ++++++++
+ drivers/media/cec/cec-adap.c                       |  61 +++-
+ drivers/media/cec/cec-core.c                       |  15 +-
  drivers/media/rc/keymaps/Makefile                  |   1 +
  drivers/media/rc/keymaps/rc-cec.c                  | 182 ++++++++++
  drivers/media/rc/rc-main.c                         |   1 +
  fs/compat_ioctl.c                                  |  12 +
- include/media/cec-edid.h                           | 104 ------
- include/media/cec-notifier.h                       | 136 ++++++++
- include/media/cec.h                                | 148 ++++++++-
+ include/media/cec-notifier.h                       |  22 ++
+ include/media/cec.h                                |  32 +-
  include/media/rc-map.h                             |   5 +-
- include/uapi/linux/cec.h                           |   4 +-
+ include/uapi/linux/cec-funcs.h                     |   1 +
+ include/uapi/linux/cec.h                           |   2 +-
  include/uapi/linux/input-event-codes.h             |  31 ++
  include/uapi/linux/input.h                         |   1 +
- 37 files changed, 3019 insertions(+), 226 deletions(-)
+ 30 files changed, 2606 insertions(+), 15 deletions(-)
  create mode 100644 Documentation/devicetree/bindings/media/cec.txt
  create mode 100644 Documentation/media/kapi/cec-core.rst
  create mode 100644 Documentation/media/uapi/cec/cec-api.rst
@@ -61,12 +54,7 @@ Skipped changes:
  create mode 100644 Documentation/media/uapi/cec/cec-ioc-dqevent.rst
  create mode 100644 Documentation/media/uapi/cec/cec-ioc-g-mode.rst
  create mode 100644 Documentation/media/uapi/cec/cec-ioc-receive.rst
- create mode 100644 drivers/media/cec/Kconfig
- rename drivers/media/{ => cec}/cec-edid.c (96%)
- create mode 100644 drivers/media/cec/cec-notifier.c
  create mode 100644 drivers/media/rc/keymaps/rc-cec.c
- delete mode 100644 include/media/cec-edid.h
- create mode 100644 include/media/cec-notifier.h
 
 diff --git a/Documentation/devicetree/bindings/media/cec.txt b/Documentation/devicetree/bindings/media/cec.txt
 new file mode 100644
@@ -84,10 +72,10 @@ index 000000000000..22d7aae3d3d7
 +  up or down.
 diff --git a/Documentation/media/kapi/cec-core.rst b/Documentation/media/kapi/cec-core.rst
 new file mode 100644
-index 000000000000..8a65c69ed071
+index 000000000000..d37e107f2fde
 --- /dev/null
 +++ b/Documentation/media/kapi/cec-core.rst
-@@ -0,0 +1,338 @@
+@@ -0,0 +1,381 @@
 +CEC Kernel Support
 +==================
 +
@@ -197,6 +185,7 @@ index 000000000000..8a65c69ed071
 +		int (*adap_transmit)(struct cec_adapter *adap, u8 attempts,
 +				      u32 signal_free_time, struct cec_msg *msg);
 +		void (*adap_status)(struct cec_adapter *adap, struct seq_file *file);
++		void (*adap_free)(struct cec_adapter *adap);
 +
 +		/* High-level callbacks */
 +		...
@@ -274,6 +263,14 @@ index 000000000000..8a65c69ed071
 +This optional callback can be used to show the status of the CEC hardware.
 +The status is available through debugfs: cat /sys/kernel/debug/cec/cecX/status
 +
++To free any resources when the adapter is deleted:
++
++.. c:function::
++	void (*adap_free)(struct cec_adapter *adap);
++
++This optional callback can be used to free any resources that might have been
++allocated by the driver. It's called from cec_delete_adapter.
++
 +
 +Your adapter driver will also have to react to events (typically interrupt
 +driven) by calling into the framework in the following situations:
@@ -308,8 +305,8 @@ index 000000000000..8a65c69ed071
 +	retransmission.
 +
 +CEC_TX_STATUS_ERROR:
-+	some unspecified error occurred: this can be one of
-+	the previous two if the hardware cannot differentiate or something
++	some unspecified error occurred: this can be one of ARB_LOST
++	or LOW_DRIVE if the hardware cannot differentiate or something
 +	else entirely.
 +
 +CEC_TX_STATUS_MAX_RETRIES:
@@ -318,6 +315,9 @@ index 000000000000..8a65c69ed071
 +	retrying messages. If set, then the framework assumes that it
 +	doesn't have to make another attempt to transmit the message
 +	since the hardware did that already.
++
++The hardware must be able to differentiate between OK, NACK and 'something
++else'.
 +
 +The \*_cnt arguments are the number of error conditions that were seen.
 +This may be 0 if no information is available. Drivers that do not support
@@ -426,12 +426,43 @@ index 000000000000..8a65c69ed071
 +unconfiguring. This function will just return if the physical address is
 +invalid. Once the physical address becomes valid, then the framework will
 +attempt to claim these logical addresses.
++
++CEC Pin framework
++-----------------
++
++Most CEC hardware operates on full CEC messages where the software provides
++the message and the hardware handles the low-level CEC protocol. But some
++hardware only drives the CEC pin and software has to handle the low-level
++CEC protocol. The CEC pin framework was created to handle such devices.
++
++Note that due to the close-to-realtime requirements it can never be guaranteed
++to work 100%. This framework uses highres timers internally, but if a
++timer goes off too late by more than 300 microseconds wrong results can
++occur. In reality it appears to be fairly reliable.
++
++One advantage of this low-level implementation is that it can be used as
++a cheap CEC analyser, especially if interrupts can be used to detect
++CEC pin transitions from low to high or vice versa.
++
++.. kernel-doc:: include/media/cec-pin.h
++
++CEC Notifier framework
++----------------------
++
++Most drm HDMI implementations have an integrated CEC implementation and no
++notifier support is needed. But some have independent CEC implementations
++that have their own driver. This could be an IP block for an SoC or a
++completely separate chip that deals with the CEC pin. For those cases a
++drm driver can install a notifier and use the notifier to inform the
++CEC driver about changes in the physical address.
++
++.. kernel-doc:: include/media/cec-notifier.h
 diff --git a/Documentation/media/uapi/cec/cec-api.rst b/Documentation/media/uapi/cec/cec-api.rst
 new file mode 100644
-index 000000000000..bb018709970c
+index 000000000000..b68ca9c1d2e0
 --- /dev/null
 +++ b/Documentation/media/uapi/cec/cec-api.rst
-@@ -0,0 +1,43 @@
+@@ -0,0 +1,46 @@
 +.. -*- coding: utf-8; mode: rst -*-
 +
 +.. include:: <isonum.txt>
@@ -444,7 +475,10 @@ index 000000000000..bb018709970c
 +
 +This part describes the CEC: Consumer Electronics Control
 +
-+.. class:: toc-title
++
++.. only:: html
++
++   .. class:: toc-title
 +
 +        Table of Contents
 +
@@ -477,7 +511,7 @@ index 000000000000..bb018709970c
 +Initial revision
 diff --git a/Documentation/media/uapi/cec/cec-func-close.rst b/Documentation/media/uapi/cec/cec-func-close.rst
 new file mode 100644
-index 000000000000..895d9c2d1c04
+index 000000000000..334358dfa72e
 --- /dev/null
 +++ b/Documentation/media/uapi/cec/cec-func-close.rst
 @@ -0,0 +1,47 @@
@@ -523,14 +557,14 @@ index 000000000000..895d9c2d1c04
 +Return Value
 +============
 +
-+:c:func:`close()` returns 0 on success. On error, -1 is returned, and
++:c:func:`close() <cec-close>` returns 0 on success. On error, -1 is returned, and
 +``errno`` is set appropriately. Possible error codes are:
 +
 +``EBADF``
 +    ``fd`` is not a valid open file descriptor.
 diff --git a/Documentation/media/uapi/cec/cec-func-ioctl.rst b/Documentation/media/uapi/cec/cec-func-ioctl.rst
 new file mode 100644
-index 000000000000..22fb6304a2df
+index 000000000000..e2b6260b0086
 --- /dev/null
 +++ b/Documentation/media/uapi/cec/cec-func-ioctl.rst
 @@ -0,0 +1,66 @@
@@ -575,7 +609,7 @@ index 000000000000..22fb6304a2df
 +Description
 +===========
 +
-+The :c:func:`ioctl()` function manipulates cec device parameters. The
++The :c:func:`ioctl() <cec-ioctl>` function manipulates cec device parameters. The
 +argument ``fd`` must be an open file descriptor.
 +
 +The ioctl ``request`` code specifies the cec function to be called. It
@@ -602,7 +636,7 @@ index 000000000000..22fb6304a2df
 +parameter remains unmodified.
 diff --git a/Documentation/media/uapi/cec/cec-func-open.rst b/Documentation/media/uapi/cec/cec-func-open.rst
 new file mode 100644
-index 000000000000..18dfb62f2efe
+index 000000000000..5d6663a649bd
 --- /dev/null
 +++ b/Documentation/media/uapi/cec/cec-func-open.rst
 @@ -0,0 +1,78 @@
@@ -654,7 +688,7 @@ index 000000000000..18dfb62f2efe
 +Description
 +===========
 +
-+To open a cec device applications call :c:func:`open()` with the
++To open a cec device applications call :c:func:`open() <cec-open>` with the
 +desired device name. The function has no side effects; the device
 +configuration remain unchanged.
 +
@@ -666,7 +700,7 @@ index 000000000000..18dfb62f2efe
 +Return Value
 +============
 +
-+:c:func:`open()` returns the new file descriptor on success. On error,
++:c:func:`open() <cec-open>` returns the new file descriptor on success. On error,
 +-1 is returned, and ``errno`` is set appropriately. Possible error codes
 +include:
 +
@@ -686,7 +720,7 @@ index 000000000000..18dfb62f2efe
 +    No device corresponding to this device special file exists.
 diff --git a/Documentation/media/uapi/cec/cec-func-poll.rst b/Documentation/media/uapi/cec/cec-func-poll.rst
 new file mode 100644
-index 000000000000..fa0abd8fb160
+index 000000000000..d49f1ee0742d
 --- /dev/null
 +++ b/Documentation/media/uapi/cec/cec-func-poll.rst
 @@ -0,0 +1,77 @@
@@ -731,10 +765,10 @@ index 000000000000..fa0abd8fb160
 +Description
 +===========
 +
-+With the :c:func:`poll()` function applications can wait for CEC
++With the :c:func:`poll() <cec-poll>` function applications can wait for CEC
 +events.
 +
-+On success :c:func:`poll()` returns the number of file descriptors
++On success :c:func:`poll() <cec-poll>` returns the number of file descriptors
 +that have been selected (that is, file descriptors for which the
 +``revents`` field of the respective struct :c:type:`pollfd`
 +is non-zero). CEC devices set the ``POLLIN`` and ``POLLRDNORM`` flags in
@@ -745,13 +779,13 @@ index 000000000000..fa0abd8fb160
 +a value of zero, on failure it returns -1 and the ``errno`` variable is
 +set appropriately.
 +
-+For more details see the :c:func:`poll()` manual page.
++For more details see the :c:func:`poll() <cec-poll>` manual page.
 +
 +
 +Return Value
 +============
 +
-+On success, :c:func:`poll()` returns the number structures which have
++On success, :c:func:`poll() <cec-poll>` returns the number structures which have
 +non-zero ``revents`` fields, or zero if the call timed out. On error -1
 +is returned, and the ``errno`` variable is set appropriately:
 +
@@ -769,10 +803,10 @@ index 000000000000..fa0abd8fb160
 +    The ``nfds`` argument is greater than ``OPEN_MAX``.
 diff --git a/Documentation/media/uapi/cec/cec-funcs.rst b/Documentation/media/uapi/cec/cec-funcs.rst
 new file mode 100644
-index 000000000000..5b7630f2e076
+index 000000000000..6d696cead5cb
 --- /dev/null
 +++ b/Documentation/media/uapi/cec/cec-funcs.rst
-@@ -0,0 +1,21 @@
+@@ -0,0 +1,20 @@
 +.. _cec-user-func:
 +
 +******************
@@ -782,7 +816,6 @@ index 000000000000..5b7630f2e076
 +
 +.. toctree::
 +    :maxdepth: 1
-+    :numbered:
 +
 +    cec-func-open
 +    cec-func-close
@@ -858,10 +891,10 @@ index 000000000000..07ee2b8f89d6
 +- cec-follower: emulates a CEC follower.
 diff --git a/Documentation/media/uapi/cec/cec-ioc-adap-g-caps.rst b/Documentation/media/uapi/cec/cec-ioc-adap-g-caps.rst
 new file mode 100644
-index 000000000000..6d7bf7bef3eb
+index 000000000000..6c1f6efb822e
 --- /dev/null
 +++ b/Documentation/media/uapi/cec/cec-ioc-adap-g-caps.rst
-@@ -0,0 +1,132 @@
+@@ -0,0 +1,139 @@
 +.. -*- coding: utf-8; mode: rst -*-
 +
 +.. _CEC_ADAP_G_CAPS:
@@ -885,7 +918,7 @@ index 000000000000..6d7bf7bef3eb
 +=========
 +
 +``fd``
-+    File descriptor returned by :ref:`open() <cec-func-open>`.
++    File descriptor returned by :c:func:`open() <cec-open>`.
 +
 +``argp``
 +
@@ -985,6 +1018,13 @@ index 000000000000..6d7bf7bef3eb
 +        high. This makes it impossible to use CEC to wake up displays that
 +	set the HPD pin low when in standby mode, but keep the CEC bus
 +	alive.
++    * .. _`CEC-CAP-MONITOR-PIN`:
++
++      - ``CEC_CAP_MONITOR_PIN``
++      - 0x00000080
++      - The CEC hardware can monitor CEC pin changes from low to high voltage
++        and vice versa. When in pin monitoring mode the application will
++	receive ``CEC_EVENT_PIN_CEC_LOW`` and ``CEC_EVENT_PIN_CEC_HIGH`` events.
 +
 +
 +
@@ -996,10 +1036,10 @@ index 000000000000..6d7bf7bef3eb
 +:ref:`Generic Error Codes <gen-errors>` chapter.
 diff --git a/Documentation/media/uapi/cec/cec-ioc-adap-g-log-addrs.rst b/Documentation/media/uapi/cec/cec-ioc-adap-g-log-addrs.rst
 new file mode 100644
-index 000000000000..fcf863ab6f43
+index 000000000000..84f431a022ad
 --- /dev/null
 +++ b/Documentation/media/uapi/cec/cec-ioc-adap-g-log-addrs.rst
-@@ -0,0 +1,366 @@
+@@ -0,0 +1,371 @@
 +.. -*- coding: utf-8; mode: rst -*-
 +
 +.. _CEC_ADAP_LOG_ADDRS:
@@ -1050,7 +1090,9 @@ index 000000000000..fcf863ab6f43
 +the ``EBUSY`` error code will be returned.
 +
 +To clear existing logical addresses set ``num_log_addrs`` to 0. All other fields
-+will be ignored in that case. The adapter will go to the unconfigured state.
++will be ignored in that case. The adapter will go to the unconfigured state and the
++``cec_version``, ``vendor_id`` and ``osd_name`` fields are all reset to their default
++values (CEC version 2.0, no vendor ID and an empty OSD name).
 +
 +If the physical address is valid (see :ref:`ioctl CEC_ADAP_S_PHYS_ADDR <CEC_ADAP_S_PHYS_ADDR>`),
 +then this ioctl will block until all requested logical
@@ -1065,7 +1107,7 @@ index 000000000000..fcf863ab6f43
 +
 +.. c:type:: cec_log_addrs
 +
-+.. tabularcolumns:: |p{1.0cm}|p{7.5cm}|p{8.0cm}|
++.. tabularcolumns:: |p{1.0cm}|p{8.0cm}|p{7.5cm}|
 +
 +.. cssclass:: longtable
 +
@@ -1148,6 +1190,9 @@ index 000000000000..fcf863ab6f43
 +        give the CEC framework more information about the device type, even
 +        though the framework won't use it directly in the CEC message.
 +
++
++.. tabularcolumns:: |p{7.8cm}|p{1.0cm}|p{8.7cm}|
++
 +.. _cec-log-addrs-flags:
 +
 +.. flat-table:: Flags for struct cec_log_addrs
@@ -1175,7 +1220,7 @@ index 000000000000..fcf863ab6f43
 +	to avoid trivial snooping of the keystrokes.
 +    * .. _`CEC-LOG-ADDRS-FL-CDC-ONLY`:
 +
-+      - `CEC_LOG_ADDRS_FL_CDC_ONLY`
++      - ``CEC_LOG_ADDRS_FL_CDC_ONLY``
 +      - 4
 +      - If this flag is set, then the device is CDC-Only. CDC-Only CEC devices
 +	are CEC devices that can only handle CDC messages.
@@ -1183,7 +1228,7 @@ index 000000000000..fcf863ab6f43
 +	All other messages are ignored.
 +
 +
-+.. tabularcolumns:: |p{6.6cm}|p{2.2cm}|p{8.7cm}|
++.. tabularcolumns:: |p{7.8cm}|p{1.0cm}|p{8.7cm}|
 +
 +.. _cec-versions:
 +
@@ -1467,10 +1512,10 @@ index 000000000000..9e49d4be35d5
 +    The physical address is malformed.
 diff --git a/Documentation/media/uapi/cec/cec-ioc-dqevent.rst b/Documentation/media/uapi/cec/cec-ioc-dqevent.rst
 new file mode 100644
-index 000000000000..4d3570c2e0b3
+index 000000000000..b6fd86424fbb
 --- /dev/null
 +++ b/Documentation/media/uapi/cec/cec-ioc-dqevent.rst
-@@ -0,0 +1,187 @@
+@@ -0,0 +1,226 @@
 +.. -*- coding: utf-8; mode: rst -*-
 +
 +.. _CEC_DQEVENT:
@@ -1495,7 +1540,7 @@ index 000000000000..4d3570c2e0b3
 +=========
 +
 +``fd``
-+    File descriptor returned by :ref:`open() <cec-func-open>`.
++    File descriptor returned by :c:func:`open() <cec-open>`.
 +
 +``argp``
 +
@@ -1560,7 +1605,7 @@ index 000000000000..4d3570c2e0b3
 +	this is more than enough.
 +
 +
-+.. tabularcolumns:: |p{1.0cm}|p{4.2cm}|p{2.5cm}|p{8.8cm}|
++.. tabularcolumns:: |p{1.0cm}|p{4.4cm}|p{2.5cm}|p{9.6cm}|
 +
 +.. c:type:: cec_event
 +
@@ -1571,10 +1616,11 @@ index 000000000000..4d3570c2e0b3
 +
 +    * - __u64
 +      - ``ts``
-+      - :cspan:`1` Timestamp of the event in ns.
++      - :cspan:`1`\ Timestamp of the event in ns.
 +
-+	The timestamp has been taken from the ``CLOCK_MONOTONIC`` clock. To access
-+	the same clock from userspace use :c:func:`clock_gettime`.
++	The timestamp has been taken from the ``CLOCK_MONOTONIC`` clock.
++
++	To access the same clock from userspace use :c:func:`clock_gettime`.
 +    * - __u32
 +      - ``event``
 +      - :cspan:`1` The CEC event type, see :ref:`cec-events`.
@@ -1619,6 +1665,38 @@ index 000000000000..4d3570c2e0b3
 +      - 2
 +      - Generated if one or more CEC messages were lost because the
 +	application didn't dequeue CEC messages fast enough.
++    * .. _`CEC-EVENT-PIN-CEC-LOW`:
++
++      - ``CEC_EVENT_PIN_CEC_LOW``
++      - 3
++      - Generated if the CEC pin goes from a high voltage to a low voltage.
++        Only applies to adapters that have the ``CEC_CAP_MONITOR_PIN``
++	capability set.
++    * .. _`CEC-EVENT-PIN-CEC-HIGH`:
++
++      - ``CEC_EVENT_PIN_CEC_HIGH``
++      - 4
++      - Generated if the CEC pin goes from a low voltage to a high voltage.
++        Only applies to adapters that have the ``CEC_CAP_MONITOR_PIN``
++	capability set.
++    * .. _`CEC-EVENT-PIN-HPD-LOW`:
++
++      - ``CEC_EVENT_PIN_HPD_LOW``
++      - 5
++      - Generated if the HPD pin goes from a high voltage to a low voltage.
++	Only applies to adapters that have the ``CEC_CAP_MONITOR_PIN``
++	capability set. When open() is called, the HPD pin can be read and
++	if the HPD is low, then an initial event will be generated for that
++	filehandle.
++    * .. _`CEC-EVENT-PIN-HPD-HIGH`:
++
++      - ``CEC_EVENT_PIN_HPD_HIGH``
++      - 6
++      - Generated if the HPD pin goes from a low voltage to a high voltage.
++	Only applies to adapters that have the ``CEC_CAP_MONITOR_PIN``
++	capability set. When open() is called, the HPD pin can be read and
++	if the HPD is high, then an initial event will be generated for that
++	filehandle.
 +
 +
 +.. tabularcolumns:: |p{6.0cm}|p{0.6cm}|p{10.9cm}|
@@ -1630,14 +1708,20 @@ index 000000000000..4d3570c2e0b3
 +    :stub-columns: 0
 +    :widths:       3 1 8
 +
-+    * .. _`CEC-EVENT-FL-INITIAL-VALUE`:
++    * .. _`CEC-EVENT-FL-INITIAL-STATE`:
 +
-+      - ``CEC_EVENT_FL_INITIAL_VALUE``
++      - ``CEC_EVENT_FL_INITIAL_STATE``
 +      - 1
 +      - Set for the initial events that are generated when the device is
 +	opened. See the table above for which events do this. This allows
 +	applications to learn the initial state of the CEC adapter at
 +	open() time.
++    * .. _`CEC-EVENT-FL-DROPPED-EVENTS`:
++
++      - ``CEC_EVENT_FL_DROPPED_EVENTS``
++      - 2
++      - Set if one or more events of the given event type have been dropped.
++        This is an indication that the application cannot keep up.
 +
 +
 +
@@ -1660,10 +1744,10 @@ index 000000000000..4d3570c2e0b3
 +    events to arrive.
 diff --git a/Documentation/media/uapi/cec/cec-ioc-g-mode.rst b/Documentation/media/uapi/cec/cec-ioc-g-mode.rst
 new file mode 100644
-index 000000000000..664f0d47bbcd
+index 000000000000..508e2e325683
 --- /dev/null
 +++ b/Documentation/media/uapi/cec/cec-ioc-g-mode.rst
-@@ -0,0 +1,263 @@
+@@ -0,0 +1,293 @@
 +.. -*- coding: utf-8; mode: rst -*-
 +
 +.. _CEC_MODE:
@@ -1774,6 +1858,8 @@ index 000000000000..664f0d47bbcd
 +
 +.. _cec-mode-follower_e:
 +
++.. cssclass:: longtable
++
 +.. flat-table:: Follower Modes
 +    :header-rows:  0
 +    :stub-columns: 0
@@ -1815,13 +1901,28 @@ index 000000000000..664f0d47bbcd
 +	code. You cannot become a follower if :ref:`CEC_CAP_TRANSMIT <CEC-CAP-TRANSMIT>`
 +	is not set or if :ref:`CEC_MODE_NO_INITIATOR <CEC-MODE-NO-INITIATOR>` was specified,
 +	the ``EINVAL`` error code is returned in that case.
++    * .. _`CEC-MODE-MONITOR-PIN`:
++
++      - ``CEC_MODE_MONITOR_PIN``
++      - 0xd0
++      - Put the file descriptor into pin monitoring mode. Can only be used in
++	combination with :ref:`CEC_MODE_NO_INITIATOR <CEC-MODE-NO-INITIATOR>`,
++	otherwise the ``EINVAL`` error code will be returned.
++	This mode requires that the :ref:`CEC_CAP_MONITOR_PIN <CEC-CAP-MONITOR-PIN>`
++	capability is set, otherwise the ``EINVAL`` error code is returned.
++	While in pin monitoring mode this file descriptor can receive the
++	``CEC_EVENT_PIN_CEC_LOW`` and ``CEC_EVENT_PIN_CEC_HIGH`` events to see the
++	low-level CEC pin transitions. This is very useful for debugging.
++	This mode is only allowed if the process has the ``CAP_NET_ADMIN``
++	capability. If that is not set, then the ``EPERM`` error code is returned.
 +    * .. _`CEC-MODE-MONITOR`:
 +
 +      - ``CEC_MODE_MONITOR``
 +      - 0xe0
 +      - Put the file descriptor into monitor mode. Can only be used in
-+	combination with :ref:`CEC_MODE_NO_INITIATOR <CEC-MODE-NO-INITIATOR>`, otherwise EINVAL error
-+	code will be returned. In monitor mode all messages this CEC
++	combination with :ref:`CEC_MODE_NO_INITIATOR <CEC-MODE-NO-INITIATOR>`,i
++	otherwise the ``EINVAL`` error code will be returned.
++	In monitor mode all messages this CEC
 +	device transmits and all messages it receives (both broadcast
 +	messages and directed messages for one its logical addresses) will
 +	be reported. This is very useful for debugging. This is only
@@ -1857,55 +1958,68 @@ index 000000000000..664f0d47bbcd
 +    * .. _`CEC-MSG-GET-CEC-VERSION`:
 +
 +      - ``CEC_MSG_GET_CEC_VERSION``
-+      - When in passthrough mode this message has to be handled by
-+	userspace, otherwise the core will return the CEC version that was
-+	set with :ref:`ioctl CEC_ADAP_S_LOG_ADDRS <CEC_ADAP_S_LOG_ADDRS>`.
++      - The core will return the CEC version that was set with
++	:ref:`ioctl CEC_ADAP_S_LOG_ADDRS <CEC_ADAP_S_LOG_ADDRS>`,
++	except when in passthrough mode. In passthrough mode the core
++	does nothing and this message has to be handled by a follower
++	instead.
 +    * .. _`CEC-MSG-GIVE-DEVICE-VENDOR-ID`:
 +
 +      - ``CEC_MSG_GIVE_DEVICE_VENDOR_ID``
-+      - When in passthrough mode this message has to be handled by
-+	userspace, otherwise the core will return the vendor ID that was
-+	set with :ref:`ioctl CEC_ADAP_S_LOG_ADDRS <CEC_ADAP_S_LOG_ADDRS>`.
++      - The core will return the vendor ID that was set with
++	:ref:`ioctl CEC_ADAP_S_LOG_ADDRS <CEC_ADAP_S_LOG_ADDRS>`,
++	except when in passthrough mode. In passthrough mode the core
++	does nothing and this message has to be handled by a follower
++	instead.
 +    * .. _`CEC-MSG-ABORT`:
 +
 +      - ``CEC_MSG_ABORT``
-+      - When in passthrough mode this message has to be handled by
-+	userspace, otherwise the core will return a feature refused
-+	message as per the specification.
++      - The core will return a Feature Abort message with reason
++        'Feature Refused' as per the specification, except when in
++	passthrough mode. In passthrough mode the core does nothing
++	and this message has to be handled by a follower instead.
 +    * .. _`CEC-MSG-GIVE-PHYSICAL-ADDR`:
 +
 +      - ``CEC_MSG_GIVE_PHYSICAL_ADDR``
-+      - When in passthrough mode this message has to be handled by
-+	userspace, otherwise the core will report the current physical
-+	address.
++      - The core will report the current physical address, except when
++        in passthrough mode. In passthrough mode the core does nothing
++	and this message has to be handled by a follower instead.
 +    * .. _`CEC-MSG-GIVE-OSD-NAME`:
 +
 +      - ``CEC_MSG_GIVE_OSD_NAME``
-+      - When in passthrough mode this message has to be handled by
-+	userspace, otherwise the core will report the current OSD name as
-+	was set with :ref:`ioctl CEC_ADAP_S_LOG_ADDRS <CEC_ADAP_S_LOG_ADDRS>`.
++      - The core will report the current OSD name that was set with
++	:ref:`ioctl CEC_ADAP_S_LOG_ADDRS <CEC_ADAP_S_LOG_ADDRS>`,
++	except when in passthrough mode. In passthrough mode the core
++	does nothing and this message has to be handled by a follower
++	instead.
 +    * .. _`CEC-MSG-GIVE-FEATURES`:
 +
 +      - ``CEC_MSG_GIVE_FEATURES``
-+      - When in passthrough mode this message has to be handled by
-+	userspace, otherwise the core will report the current features as
-+	was set with :ref:`ioctl CEC_ADAP_S_LOG_ADDRS <CEC_ADAP_S_LOG_ADDRS>`
-+	or the message is ignored if the CEC version was older than 2.0.
++      - The core will do nothing if the CEC version is older than 2.0,
++        otherwise it will report the current features that were set with
++	:ref:`ioctl CEC_ADAP_S_LOG_ADDRS <CEC_ADAP_S_LOG_ADDRS>`,
++	except when in passthrough mode. In passthrough mode the core
++	does nothing (for any CEC version) and this message has to be handled
++	by a follower instead.
 +    * .. _`CEC-MSG-USER-CONTROL-PRESSED`:
 +
 +      - ``CEC_MSG_USER_CONTROL_PRESSED``
-+      - If :ref:`CEC_CAP_RC <CEC-CAP-RC>` is set, then generate a remote control key
-+	press. This message is always passed on to userspace.
++      - If :ref:`CEC_CAP_RC <CEC-CAP-RC>` is set and if
++        :ref:`CEC_LOG_ADDRS_FL_ALLOW_RC_PASSTHRU <CEC-LOG-ADDRS-FL-ALLOW-RC-PASSTHRU>`
++	is set, then generate a remote control key
++	press. This message is always passed on to the follower(s).
 +    * .. _`CEC-MSG-USER-CONTROL-RELEASED`:
 +
 +      - ``CEC_MSG_USER_CONTROL_RELEASED``
-+      - If :ref:`CEC_CAP_RC <CEC-CAP-RC>` is set, then generate a remote control key
-+	release. This message is always passed on to userspace.
++      - If :ref:`CEC_CAP_RC <CEC-CAP-RC>` is set and if
++        :ref:`CEC_LOG_ADDRS_FL_ALLOW_RC_PASSTHRU <CEC-LOG-ADDRS-FL-ALLOW-RC-PASSTHRU>`
++        is set, then generate a remote control key
++	release. This message is always passed on to the follower(s).
 +    * .. _`CEC-MSG-REPORT-PHYSICAL-ADDR`:
 +
 +      - ``CEC_MSG_REPORT_PHYSICAL_ADDR``
 +      - The CEC framework will make note of the reported physical address
-+	and then just pass the message on to userspace.
++	and then just pass the message on to the follower(s).
 +
 +
 +
@@ -1929,10 +2043,10 @@ index 000000000000..664f0d47bbcd
 +    Someone else is already an exclusive follower or initiator.
 diff --git a/Documentation/media/uapi/cec/cec-ioc-receive.rst b/Documentation/media/uapi/cec/cec-ioc-receive.rst
 new file mode 100644
-index 000000000000..267044f7ac30
+index 000000000000..bdad4b197bcd
 --- /dev/null
 +++ b/Documentation/media/uapi/cec/cec-ioc-receive.rst
-@@ -0,0 +1,342 @@
+@@ -0,0 +1,344 @@
 +.. -*- coding: utf-8; mode: rst -*-
 +
 +.. _CEC_TRANSMIT:
@@ -2066,7 +2180,7 @@ index 000000000000..267044f7ac30
 +      - ``tx_status``
 +      - The status bits of the transmitted message. See
 +	:ref:`cec-tx-status` for the possible status values. It is 0 if
-+	this messages was received, not transmitted.
++	this message was received, not transmitted.
 +    * - __u8
 +      - ``msg[16]``
 +      - The message payload. For :ref:`ioctl CEC_TRANSMIT <CEC_TRANSMIT>` this is filled in by the
@@ -2103,7 +2217,7 @@ index 000000000000..267044f7ac30
 +      - ``tx_status``
 +      - The status bits of the transmitted message. See
 +	:ref:`cec-tx-status` for the possible status values. It is 0 if
-+	this messages was received, not transmitted.
++	this message was received, not transmitted.
 +    * - __u8
 +      - ``tx_arb_lost_cnt``
 +      - A counter of the number of transmit attempts that resulted in the
@@ -2129,6 +2243,8 @@ index 000000000000..267044f7ac30
 +	supports this, otherwise it is always 0. This counter is only
 +	valid if the :ref:`CEC_TX_STATUS_ERROR <CEC-TX-STATUS-ERROR>` status bit is set.
 +
++
++.. tabularcolumns:: |p{6.2cm}|p{1.0cm}|p{10.3cm}|
 +
 +.. _cec-msg-flags:
 +
@@ -2189,9 +2305,9 @@ index 000000000000..267044f7ac30
 +      - ``CEC_TX_STATUS_ERROR``
 +      - 0x10
 +      - Some error occurred. This is used for any errors that do not fit
-+	the previous two, either because the hardware could not tell which
-+	error occurred, or because the hardware tested for other
-+	conditions besides those two.
++	``CEC_TX_STATUS_ARB_LOST`` or ``CEC_TX_STATUS_LOW_DRIVE``, either because
++	the hardware could not tell which error occurred, or because the hardware
++	tested for other conditions besides those two.
 +    * .. _`CEC-TX-STATUS-MAX-RETRIES`:
 +
 +      - ``CEC_TX_STATUS_MAX_RETRIES``
@@ -2276,7 +2392,7 @@ index 000000000000..267044f7ac30
 +ERESTARTSYS
 +    The wait for a successful transmit was interrupted (e.g. by Ctrl-C).
 diff --git a/MAINTAINERS b/MAINTAINERS
-index e86ddedc813c..124551e7b781 100644
+index b88e249026a1..bb1aa323019c 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
 @@ -2657,6 +2657,22 @@ F:	drivers/net/ieee802154/cc2520.c
@@ -2302,709 +2418,125 @@ index e86ddedc813c..124551e7b781 100644
  CELL BROADBAND ENGINE ARCHITECTURE
  M:	Arnd Bergmann <arnd@arndb.de>
  L:	linuxppc-dev@lists.ozlabs.org
-diff --git a/drivers/media/Kconfig b/drivers/media/Kconfig
-index 6758ca0d19af..d0b3412ea8f7 100644
---- a/drivers/media/Kconfig
-+++ b/drivers/media/Kconfig
-@@ -2,6 +2,12 @@
- # Multimedia device configuration
- #
- 
-+config CEC_CORE
-+	tristate
-+
-+config CEC_NOTIFIER
-+	bool
-+
- menuconfig MEDIA_SUPPORT
- 	tristate "Multimedia support"
- 	depends on HAS_IOMEM
-@@ -81,23 +87,15 @@ config MEDIA_RC_SUPPORT
- 	  Say Y when you have a TV or an IR device.
- 
- config MEDIA_CEC_SUPPORT
--	bool "HDMI CEC support"
--	select MEDIA_CEC_EDID
--	---help---
--	  Enable support for HDMI CEC (Consumer Electronics Control),
--	  which is an optional HDMI feature.
--
--	  Say Y when you have an HDMI receiver, transmitter or a USB CEC
--	  adapter that supports HDMI CEC.
-+       bool "HDMI CEC support"
-+       ---help---
-+         Enable support for HDMI CEC (Consumer Electronics Control),
-+         which is an optional HDMI feature.
- 
--config MEDIA_CEC_DEBUG
--	bool "HDMI CEC debugfs interface"
--	depends on MEDIA_CEC_SUPPORT && DEBUG_FS
--	---help---
--	  Turns on the DebugFS interface for CEC devices.
-+         Say Y when you have an HDMI receiver, transmitter or a USB CEC
-+         adapter that supports HDMI CEC.
- 
--config MEDIA_CEC_EDID
--	bool
-+source "drivers/media/cec/Kconfig"
- 
- #
- # Media controller
-diff --git a/drivers/media/Makefile b/drivers/media/Makefile
-index a74f2d92997f..6d5500a74c77 100644
---- a/drivers/media/Makefile
-+++ b/drivers/media/Makefile
-@@ -2,14 +2,6 @@
- # Makefile for the kernel multimedia device drivers.
- #
- 
--ifeq ($(CONFIG_MEDIA_CEC_EDID),y)
--  obj-$(CONFIG_MEDIA_SUPPORT) += cec-edid.o
--endif
--
--ifeq ($(CONFIG_MEDIA_CEC_SUPPORT),y)
--  obj-$(CONFIG_MEDIA_SUPPORT) += cec/
--endif
--
- media-objs	:= media-device.o media-devnode.o media-entity.o
- 
- #
-@@ -32,6 +24,8 @@ obj-$(CONFIG_DVB_CORE)  += dvb-core/
- # There are both core and drivers at RC subtree - merge before drivers
- obj-y += rc/
- 
-+obj-$(CONFIG_CEC_CORE) += cec/
-+
- #
- # Finally, merge the drivers that require the core
- #
-diff --git a/drivers/media/cec/Kconfig b/drivers/media/cec/Kconfig
-new file mode 100644
-index 000000000000..43428cec3a01
---- /dev/null
-+++ b/drivers/media/cec/Kconfig
-@@ -0,0 +1,6 @@
-+config MEDIA_CEC_RC
-+	bool "HDMI CEC RC integration"
-+	depends on CEC_CORE && RC_CORE
-+	depends on CEC_CORE=m || RC_CORE=y
-+	---help---
-+	  Pass on CEC remote control messages to the RC framework.
-diff --git a/drivers/media/cec/Makefile b/drivers/media/cec/Makefile
-index d6686337275f..eaf408e64669 100644
---- a/drivers/media/cec/Makefile
-+++ b/drivers/media/cec/Makefile
-@@ -1,5 +1,7 @@
--cec-objs := cec-core.o cec-adap.o cec-api.o
-+cec-objs := cec-core.o cec-adap.o cec-api.o cec-edid.o
- 
--ifeq ($(CONFIG_MEDIA_CEC_SUPPORT),y)
--  obj-$(CONFIG_MEDIA_SUPPORT) += cec.o
-+ifeq ($(CONFIG_CEC_NOTIFIER),y)
-+  cec-objs += cec-notifier.o
- endif
-+
-+obj-$(CONFIG_CEC_CORE) += cec.o
 diff --git a/drivers/media/cec/cec-adap.c b/drivers/media/cec/cec-adap.c
-index ccda41c2c9e4..d596b601ff42 100644
+index 8c75a51333b2..4f5d382268f7 100644
 --- a/drivers/media/cec/cec-adap.c
 +++ b/drivers/media/cec/cec-adap.c
-@@ -28,6 +28,8 @@
- #include <linux/string.h>
- #include <linux/types.h>
- 
-+#include <drm/drm_edid.h>
-+
- #include "cec-priv.h"
- 
- static void cec_fill_msg_report_features(struct cec_adapter *adap,
-@@ -299,6 +301,40 @@ static void cec_data_cancel(struct cec_data *data)
- 	cec_data_completed(data);
- }
- 
-+/*
-+ * Flush all pending transmits and cancel any pending timeout work.
-+ *
-+ * This function is called with adap->lock held.
-+ */
-+static void cec_flush(struct cec_adapter *adap)
-+{
-+	struct cec_data *data, *n;
-+
-+	/*
-+	 * If the adapter is disabled, or we're asked to stop,
-+	 * then cancel any pending transmits.
-+	 */
-+	while (!list_empty(&adap->transmit_queue)) {
-+		data = list_first_entry(&adap->transmit_queue,
-+					struct cec_data, list);
-+		cec_data_cancel(data);
-+	}
-+	if (adap->transmitting)
-+		cec_data_cancel(adap->transmitting);
-+
-+	/* Cancel the pending timeout work. */
-+	list_for_each_entry_safe(data, n, &adap->wait_queue, list) {
-+		if (cancel_delayed_work(&data->work))
-+			cec_data_cancel(data);
-+		/*
-+		 * If cancel_delayed_work returned false, then
-+		 * the cec_wait_timeout function is running,
-+		 * which will call cec_data_completed. So no
-+		 * need to do anything special in that case.
-+		 */
-+	}
-+}
-+
- /*
-  * Main CEC state machine
-  *
-@@ -332,8 +368,9 @@ int cec_thread_func(void *_adap)
- 			 * transmit should be canceled.
- 			 */
- 			err = wait_event_interruptible_timeout(adap->kthread_waitq,
-+				(adap->needs_hpd &&
-+				 (!adap->is_configured && !adap->is_configuring)) ||
- 				kthread_should_stop() ||
--				(!adap->is_configured && !adap->is_configuring) ||
- 				(!adap->transmitting &&
- 				 !list_empty(&adap->transmit_queue)),
- 				msecs_to_jiffies(CEC_XFER_TIMEOUT_MS));
-@@ -348,39 +385,10 @@ int cec_thread_func(void *_adap)
- 
- 		mutex_lock(&adap->lock);
- 
--		if ((!adap->is_configured && !adap->is_configuring) ||
-+		if ((adap->needs_hpd &&
-+		     (!adap->is_configured && !adap->is_configuring)) ||
- 		    kthread_should_stop()) {
--			/*
--			 * If the adapter is disabled, or we're asked to stop,
--			 * then cancel any pending transmits.
--			 */
--			while (!list_empty(&adap->transmit_queue)) {
--				data = list_first_entry(&adap->transmit_queue,
--							struct cec_data, list);
--				cec_data_cancel(data);
--			}
--			if (adap->transmitting)
--				cec_data_cancel(adap->transmitting);
--
--			/*
--			 * Cancel the pending timeout work. We have to unlock
--			 * the mutex when flushing the work since
--			 * cec_wait_timeout() will take it. This is OK since
--			 * no new entries can be added to wait_queue as long
--			 * as adap->transmitting is NULL, which it is due to
--			 * the cec_data_cancel() above.
--			 */
--			while (!list_empty(&adap->wait_queue)) {
--				data = list_first_entry(&adap->wait_queue,
--							struct cec_data, list);
--
--				if (!cancel_delayed_work(&data->work)) {
--					mutex_unlock(&adap->lock);
--					flush_scheduled_work();
--					mutex_lock(&adap->lock);
--				}
--				cec_data_cancel(data);
--			}
-+			cec_flush(adap);
- 			goto unlock;
- 		}
- 
-@@ -390,7 +398,7 @@ int cec_thread_func(void *_adap)
- 			 * happen and is an indication of a faulty CEC adapter
- 			 * driver, or the CEC bus is in some weird state.
- 			 */
--			dprintk(0, "message %*ph timed out!\n",
-+			dprintk(0, "%s: message %*ph timed out!\n", __func__,
- 				adap->transmitting->msg.len,
- 				adap->transmitting->msg.msg);
- 			/* Just give up on this. */
-@@ -410,6 +418,7 @@ int cec_thread_func(void *_adap)
- 					struct cec_data, list);
- 		list_del_init(&data->list);
- 		adap->transmit_queue_sz--;
-+
- 		/* Make this the current transmitting message */
- 		adap->transmitting = data;
- 
-@@ -465,7 +474,7 @@ void cec_transmit_done(struct cec_adapter *adap, u8 status, u8 arb_lost_cnt,
- 	struct cec_msg *msg;
- 	u64 ts = ktime_get_ns();
- 
--	dprintk(2, "cec_transmit_done %02x\n", status);
-+	dprintk(2, "%s: status %02x\n", __func__, status);
- 	mutex_lock(&adap->lock);
- 	data = adap->transmitting;
- 	if (!data) {
-@@ -474,7 +483,8 @@ void cec_transmit_done(struct cec_adapter *adap, u8 status, u8 arb_lost_cnt,
- 		 * unplugged while the transmit is ongoing. Ignore this
- 		 * transmit in that case.
- 		 */
--		dprintk(1, "cec_transmit_done without an ongoing transmit!\n");
-+		dprintk(1, "%s was called without an ongoing transmit!\n",
-+			__func__);
- 		goto unlock;
- 	}
- 
-@@ -501,6 +511,12 @@ void cec_transmit_done(struct cec_adapter *adap, u8 status, u8 arb_lost_cnt,
- 	    !(status & (CEC_TX_STATUS_MAX_RETRIES | CEC_TX_STATUS_OK))) {
- 		/* Retry this message */
- 		data->attempts--;
-+		if (msg->timeout)
-+			dprintk(2, "retransmit: %*ph (attempts: %d, wait for 0x%02x)\n",
-+				msg->len, msg->msg, data->attempts, msg->reply);
-+		else
-+			dprintk(2, "retransmit: %*ph (attempts: %d)\n",
-+				msg->len, msg->msg, data->attempts);
- 		/* Add the message in front of the transmit queue */
- 		list_add(&data->list, &adap->transmit_queue);
- 		adap->transmit_queue_sz++;
-@@ -541,6 +557,32 @@ unlock:
- }
- EXPORT_SYMBOL_GPL(cec_transmit_done);
- 
-+void cec_transmit_attempt_done(struct cec_adapter *adap, u8 status)
-+{
-+	switch (status & ~CEC_TX_STATUS_MAX_RETRIES) {
-+	case CEC_TX_STATUS_OK:
-+		cec_transmit_done(adap, status, 0, 0, 0, 0);
-+		return;
-+	case CEC_TX_STATUS_ARB_LOST:
-+		cec_transmit_done(adap, status, 1, 0, 0, 0);
-+		return;
-+	case CEC_TX_STATUS_NACK:
-+		cec_transmit_done(adap, status, 0, 1, 0, 0);
-+		return;
-+	case CEC_TX_STATUS_LOW_DRIVE:
-+		cec_transmit_done(adap, status, 0, 0, 1, 0);
-+		return;
-+	case CEC_TX_STATUS_ERROR:
-+		cec_transmit_done(adap, status, 0, 0, 0, 1);
-+		return;
-+	default:
-+		/* Should never happen */
-+		WARN(1, "cec-%s: invalid status 0x%02x\n", adap->name, status);
-+		return;
-+	}
-+}
-+EXPORT_SYMBOL_GPL(cec_transmit_attempt_done);
-+
- /*
-  * Called when waiting for a reply times out.
-  */
-@@ -603,17 +645,17 @@ int cec_transmit_msg_fh(struct cec_adapter *adap, struct cec_msg *msg,
- 
- 	/* Sanity checks */
- 	if (msg->len == 0 || msg->len > CEC_MAX_MSG_SIZE) {
--		dprintk(1, "cec_transmit_msg: invalid length %d\n", msg->len);
-+		dprintk(1, "%s: invalid length %d\n", __func__, msg->len);
- 		return -EINVAL;
- 	}
- 	if (msg->timeout && msg->len == 1) {
--		dprintk(1, "cec_transmit_msg: can't reply for poll msg\n");
-+		dprintk(1, "%s: can't reply for poll msg\n", __func__);
- 		return -EINVAL;
- 	}
- 	memset(msg->msg + msg->len, 0, sizeof(msg->msg) - msg->len);
- 	if (msg->len == 1) {
- 		if (cec_msg_destination(msg) == 0xf) {
--			dprintk(1, "cec_transmit_msg: invalid poll message\n");
-+			dprintk(1, "%s: invalid poll message\n", __func__);
- 			return -EINVAL;
- 		}
- 		if (cec_has_log_addr(adap, cec_msg_destination(msg))) {
-@@ -634,20 +676,30 @@ int cec_transmit_msg_fh(struct cec_adapter *adap, struct cec_msg *msg,
- 	}
- 	if (msg->len > 1 && !cec_msg_is_broadcast(msg) &&
- 	    cec_has_log_addr(adap, cec_msg_destination(msg))) {
--		dprintk(1, "cec_transmit_msg: destination is the adapter itself\n");
-+		dprintk(1, "%s: destination is the adapter itself\n", __func__);
- 		return -EINVAL;
- 	}
- 	if (msg->len > 1 && adap->is_configured &&
- 	    !cec_has_log_addr(adap, cec_msg_initiator(msg))) {
--		dprintk(1, "cec_transmit_msg: initiator has unknown logical address %d\n",
--			cec_msg_initiator(msg));
-+		dprintk(1, "%s: initiator has unknown logical address %d\n",
-+			__func__, cec_msg_initiator(msg));
- 		return -EINVAL;
- 	}
--	if (!adap->is_configured && !adap->is_configuring)
--		return -ENONET;
-+	if (!adap->is_configured && !adap->is_configuring) {
-+		if (adap->needs_hpd || msg->msg[0] != 0xf0) {
-+			dprintk(1, "%s: adapter is unconfigured\n", __func__);
-+			return -ENONET;
-+		}
-+		if (msg->reply) {
-+			dprintk(1, "%s: invalid msg->reply\n", __func__);
-+			return -EINVAL;
-+		}
-+	}
- 
--	if (adap->transmit_queue_sz >= CEC_MAX_MSG_TX_QUEUE_SZ)
-+	if (adap->transmit_queue_sz >= CEC_MAX_MSG_TX_QUEUE_SZ) {
-+		dprintk(1, "%s: transmit queue full\n", __func__);
- 		return -EBUSY;
-+	}
- 
- 	data = kzalloc(sizeof(*data), GFP_KERNEL);
- 	if (!data)
-@@ -659,11 +711,11 @@ int cec_transmit_msg_fh(struct cec_adapter *adap, struct cec_msg *msg,
- 	}
- 
- 	if (msg->timeout)
--		dprintk(2, "cec_transmit_msg: %*ph (wait for 0x%02x%s)\n",
--			msg->len, msg->msg, msg->reply, !block ? ", nb" : "");
-+		dprintk(2, "%s: %*ph (wait for 0x%02x%s)\n",
-+			__func__, msg->len, msg->msg, msg->reply, !block ? ", nb" : "");
- 	else
--		dprintk(2, "cec_transmit_msg: %*ph%s\n",
--			msg->len, msg->msg, !block ? " (nb)" : "");
-+		dprintk(2, "%s: %*ph%s\n",
-+			__func__, msg->len, msg->msg, !block ? " (nb)" : "");
- 
- 	data->msg = *msg;
- 	data->fh = fh;
-@@ -692,6 +744,7 @@ int cec_transmit_msg_fh(struct cec_adapter *adap, struct cec_msg *msg,
- 
- 	if (fh)
- 		list_add_tail(&data->xfer_list, &fh->xfer_list);
-+
- 	list_add_tail(&data->list, &adap->transmit_queue);
- 	adap->transmit_queue_sz++;
- 	if (!adap->transmitting)
-@@ -897,7 +950,7 @@ void cec_received_msg(struct cec_adapter *adap, struct cec_msg *msg)
- 	memset(msg->msg + msg->len, 0, sizeof(msg->msg) - msg->len);
- 
- 	mutex_lock(&adap->lock);
--	dprintk(2, "cec_received_msg: %*ph\n", msg->len, msg->msg);
-+	dprintk(2, "%s: %*ph\n", __func__, msg->len, msg->msg);
- 
- 	/* Check if this message was for us (directed or broadcast). */
- 	if (!cec_msg_is_broadcast(msg))
-@@ -1098,9 +1151,6 @@ static int cec_config_log_addr(struct cec_adapter *adap,
- 	las->log_addr[idx] = log_addr;
- 	las->log_addr_mask |= 1 << log_addr;
- 	adap->phys_addrs[log_addr] = adap->phys_addr;
--
--	dprintk(2, "claimed addr %d (%d)\n", log_addr,
--		las->primary_device_type[idx]);
- 	return 1;
- }
- 
-@@ -1112,11 +1162,14 @@ static int cec_config_log_addr(struct cec_adapter *adap,
-  */
- static void cec_adap_unconfigure(struct cec_adapter *adap)
+@@ -202,7 +202,10 @@ static void cec_queue_msg_fh(struct cec_fh *fh, const struct cec_msg *msg)
  {
--	WARN_ON(adap->ops->adap_log_addr(adap, CEC_LOG_ADDR_INVALID));
-+	if (!adap->needs_hpd ||
-+	    adap->phys_addr != CEC_PHYS_ADDR_INVALID)
-+		WARN_ON(adap->ops->adap_log_addr(adap, CEC_LOG_ADDR_INVALID));
- 	adap->log_addrs.log_addr_mask = 0;
- 	adap->is_configuring = false;
- 	adap->is_configured = false;
- 	memset(adap->phys_addrs, 0xff, sizeof(adap->phys_addrs));
-+	cec_flush(adap);
- 	wake_up_interruptible(&adap->kthread_waitq);
- 	cec_post_state_event(adap);
- }
-@@ -1285,7 +1338,7 @@ configured:
- 		/* Report Physical Address */
- 		cec_msg_report_physical_addr(&msg, adap->phys_addr,
- 					     las->primary_device_type[i]);
--		dprintk(2, "config: la %d pa %x.%x.%x.%x\n",
-+		dprintk(1, "config: la %d pa %x.%x.%x.%x\n",
- 			las->log_addr[i],
- 			cec_phys_addr_exp(adap->phys_addr));
- 		cec_transmit_msg_fh(adap, &msg, NULL, false);
-@@ -1340,6 +1393,8 @@ void __cec_s_phys_addr(struct cec_adapter *adap, u16 phys_addr, bool block)
- 	if (phys_addr == adap->phys_addr || adap->devnode.unregistered)
- 		return;
+ 	static const struct cec_event ev_lost_msgs = {
+ 		.event = CEC_EVENT_LOST_MSGS,
+-		.lost_msgs.lost_msgs = 1,
++		.flags = 0,
++		{
++			.lost_msgs = { 1 },
++		},
+ 	};
+ 	struct cec_msg_entry *entry;
  
-+	dprintk(1, "new physical address %x.%x.%x.%x\n",
-+		cec_phys_addr_exp(phys_addr));
- 	if (phys_addr == CEC_PHYS_ADDR_INVALID ||
- 	    adap->phys_addr != CEC_PHYS_ADDR_INVALID) {
- 		adap->phys_addr = CEC_PHYS_ADDR_INVALID;
-@@ -1348,19 +1403,30 @@ void __cec_s_phys_addr(struct cec_adapter *adap, u16 phys_addr, bool block)
- 		/* Disabling monitor all mode should always succeed */
- 		if (adap->monitor_all_cnt)
- 			WARN_ON(call_op(adap, adap_monitor_all_enable, false));
--		WARN_ON(adap->ops->adap_enable(adap, false));
-+		mutex_lock(&adap->devnode.lock);
-+		if (adap->needs_hpd || list_empty(&adap->devnode.fhs))
-+			WARN_ON(adap->ops->adap_enable(adap, false));
-+		mutex_unlock(&adap->devnode.lock);
- 		if (phys_addr == CEC_PHYS_ADDR_INVALID)
- 			return;
- 	}
- 
--	if (adap->ops->adap_enable(adap, true))
-+	mutex_lock(&adap->devnode.lock);
-+	if ((adap->needs_hpd || list_empty(&adap->devnode.fhs)) &&
-+	    adap->ops->adap_enable(adap, true)) {
-+		mutex_unlock(&adap->devnode.lock);
- 		return;
-+	}
- 
- 	if (adap->monitor_all_cnt &&
- 	    call_op(adap, adap_monitor_all_enable, true)) {
--		WARN_ON(adap->ops->adap_enable(adap, false));
-+		if (adap->needs_hpd || list_empty(&adap->devnode.fhs))
-+			WARN_ON(adap->ops->adap_enable(adap, false));
-+		mutex_unlock(&adap->devnode.lock);
- 		return;
- 	}
-+	mutex_unlock(&adap->devnode.lock);
-+
- 	adap->phys_addr = phys_addr;
- 	cec_post_state_event(adap);
- 	if (adap->log_addrs.num_log_addrs)
-@@ -1378,6 +1444,18 @@ void cec_s_phys_addr(struct cec_adapter *adap, u16 phys_addr, bool block)
- }
- EXPORT_SYMBOL_GPL(cec_s_phys_addr);
- 
-+void cec_s_phys_addr_from_edid(struct cec_adapter *adap,
-+			       const struct edid *edid)
-+{
-+	u16 pa = CEC_PHYS_ADDR_INVALID;
-+
-+	if (edid && edid->extensions)
-+		pa = cec_get_edid_phys_addr((const u8 *)edid,
-+				EDID_LENGTH * (edid->extensions + 1), NULL);
-+	cec_s_phys_addr(adap, pa, false);
-+}
-+EXPORT_SYMBOL_GPL(cec_s_phys_addr_from_edid);
-+
- /*
-  * Called from either the ioctl or a driver to set the logical addresses.
-  *
-@@ -1435,12 +1513,16 @@ int __cec_s_log_addrs(struct cec_adapter *adap,
- 	 * within the correct range.
- 	 */
- 	if (log_addrs->vendor_id != CEC_VENDOR_ID_NONE &&
--	    (log_addrs->vendor_id & 0xff000000) != 0)
-+	    (log_addrs->vendor_id & 0xff000000) != 0) {
-+		dprintk(1, "invalid vendor ID\n");
- 		return -EINVAL;
-+	}
- 
- 	if (log_addrs->cec_version != CEC_OP_CEC_VERSION_1_4 &&
--	    log_addrs->cec_version != CEC_OP_CEC_VERSION_2_0)
-+	    log_addrs->cec_version != CEC_OP_CEC_VERSION_2_0) {
-+		dprintk(1, "invalid CEC version\n");
- 		return -EINVAL;
-+	}
- 
- 	if (log_addrs->num_log_addrs > 1)
- 		for (i = 0; i < log_addrs->num_log_addrs; i++)
-@@ -1504,12 +1586,12 @@ int __cec_s_log_addrs(struct cec_adapter *adap,
- 		if (log_addrs->num_log_addrs == 2) {
- 			if (!(type_mask & ((1 << CEC_LOG_ADDR_TYPE_AUDIOSYSTEM) |
- 					   (1 << CEC_LOG_ADDR_TYPE_TV)))) {
--				dprintk(1, "Two LAs is only allowed for audiosystem and TV\n");
-+				dprintk(1, "two LAs is only allowed for audiosystem and TV\n");
- 				return -EINVAL;
- 			}
- 			if (!(type_mask & ((1 << CEC_LOG_ADDR_TYPE_PLAYBACK) |
- 					   (1 << CEC_LOG_ADDR_TYPE_RECORD)))) {
--				dprintk(1, "An audiosystem/TV can only be combined with record or playback\n");
-+				dprintk(1, "an audiosystem/TV can only be combined with record or playback\n");
- 				return -EINVAL;
- 			}
- 		}
-@@ -1585,6 +1667,9 @@ static int cec_feature_abort_reason(struct cec_adapter *adap,
- 	 */
- 	if (msg->msg[1] == CEC_MSG_FEATURE_ABORT)
- 		return 0;
-+	/* Don't Feature Abort messages from 'Unregistered' */
-+	if (cec_msg_initiator(msg) == CEC_LOG_ADDR_UNREGISTERED)
-+		return 0;
- 	cec_msg_set_reply_to(&tx_msg, msg);
- 	cec_msg_feature_abort(&tx_msg, msg->msg[1], reason);
- 	return cec_transmit_msg(adap, &tx_msg, false);
-@@ -1620,7 +1705,7 @@ static int cec_receive_notify(struct cec_adapter *adap, struct cec_msg *msg,
+@@ -1793,6 +1796,9 @@ static int cec_receive_notify(struct cec_adapter *adap, struct cec_msg *msg,
+ 	int la_idx = cec_log_addr2idx(adap, dest_laddr);
  	bool from_unregistered = init_laddr == 0xf;
  	struct cec_msg tx_cec_msg = { };
- 
--	dprintk(1, "cec_receive_notify: %*ph\n", msg->len, msg->msg);
-+	dprintk(2, "%s: %*ph\n", __func__, msg->len, msg->msg);
- 
- 	/* If this is a CDC-Only device, then ignore any non-CDC messages */
- 	if (cec_is_cdc_only(&adap->log_addrs) &&
-@@ -1689,7 +1774,7 @@ static int cec_receive_notify(struct cec_adapter *adap, struct cec_msg *msg,
- 
- 		if (!from_unregistered)
- 			adap->phys_addrs[init_laddr] = pa;
--		dprintk(1, "Reported physical address %x.%x.%x.%x for logical address %d\n",
-+		dprintk(1, "reported physical address %x.%x.%x.%x for logical address %d\n",
- 			cec_phys_addr_exp(pa), init_laddr);
- 		break;
- 	}
-@@ -1699,7 +1784,7 @@ static int cec_receive_notify(struct cec_adapter *adap, struct cec_msg *msg,
- 		    !(adap->log_addrs.flags & CEC_LOG_ADDRS_FL_ALLOW_RC_PASSTHRU))
- 			break;
- 
--#if IS_REACHABLE(CONFIG_RC_CORE)
 +#ifdef CONFIG_MEDIA_CEC_RC
- 		switch (msg->msg[2]) {
++	int scancode;
++#endif
+ 
+ 	dprintk(2, "%s: %*ph\n", __func__, msg->len, msg->msg);
+ 
+@@ -1888,11 +1894,9 @@ static int cec_receive_notify(struct cec_adapter *adap, struct cec_msg *msg,
+ 		 */
+ 		case 0x60:
+ 			if (msg->len == 2)
+-				rc_keydown(adap->rc, RC_TYPE_CEC,
+-					   msg->msg[2], 0);
++				scancode = msg->msg[2];
+ 			else
+-				rc_keydown(adap->rc, RC_TYPE_CEC,
+-					   msg->msg[2] << 8 | msg->msg[3], 0);
++				scancode = msg->msg[2] << 8 | msg->msg[3];
+ 			break;
  		/*
- 		 * Play function, this message can have variable length
-@@ -1736,7 +1821,7 @@ static int cec_receive_notify(struct cec_adapter *adap, struct cec_msg *msg,
- 		if (!(adap->capabilities & CEC_CAP_RC) ||
- 		    !(adap->log_addrs.flags & CEC_LOG_ADDRS_FL_ALLOW_RC_PASSTHRU))
+ 		 * Other function messages that are not handled.
+@@ -1905,11 +1909,54 @@ static int cec_receive_notify(struct cec_adapter *adap, struct cec_msg *msg,
+ 		 */
+ 		case 0x56: case 0x57:
+ 		case 0x67: case 0x68: case 0x69: case 0x6a:
++			scancode = -1;
  			break;
--#if IS_REACHABLE(CONFIG_RC_CORE)
-+#ifdef CONFIG_MEDIA_CEC_RC
- 		rc_keyup(adap->rc);
+ 		default:
+-			rc_keydown(adap->rc, RC_TYPE_CEC, msg->msg[2], 0);
++			scancode = msg->msg[2];
++			break;
++		}
++
++		/* Was repeating, but keypress timed out */
++		if (adap->rc_repeating && !adap->rc->keypressed) {
++			adap->rc_repeating = false;
++			adap->rc_last_scancode = -1;
++		}
++		/* Different keypress from last time, ends repeat mode */
++		if (adap->rc_last_scancode != scancode) {
++			rc_keyup(adap->rc);
++			adap->rc_repeating = false;
++		}
++		/* We can't handle this scancode */
++		if (scancode < 0) {
++			adap->rc_last_scancode = scancode;
++			break;
++		}
++
++		/* Send key press */
++		rc_keydown(adap->rc, RC_TYPE_CEC, scancode, 0);
++
++		/* When in repeating mode, we're done */
++		if (adap->rc_repeating)
++			break;
++
++		/*
++		 * We are not repeating, but the new scancode is
++		 * the same as the last one, and this second key press is
++		 * within 550 ms (the 'Follower Safety Timeout') from the
++		 * previous key press, so we now enable the repeating mode.
++		 */
++		if (adap->rc_last_scancode == scancode &&
++		    msg->rx_ts - adap->rc_last_keypress < 550 * NSEC_PER_MSEC) {
++			adap->rc_repeating = true;
+ 			break;
+ 		}
++		/*
++		 * Not in repeating mode, so avoid triggering repeat mode
++		 * by calling keyup.
++		 */
++		rc_keyup(adap->rc);
++		adap->rc_last_scancode = scancode;
++		adap->rc_last_keypress = msg->rx_ts;
  #endif
  		break;
-@@ -1831,7 +1916,7 @@ void cec_monitor_all_cnt_dec(struct cec_adapter *adap)
- 		WARN_ON(call_op(adap, adap_monitor_all_enable, 0));
- }
  
--#ifdef CONFIG_MEDIA_CEC_DEBUG
-+#ifdef CONFIG_DEBUG_FS
- /*
-  * Log the current state of the CEC adapter.
-  * Very useful for debugging.
-diff --git a/drivers/media/cec/cec-api.c b/drivers/media/cec/cec-api.c
-index 8950b6c9d6a9..f7eb4c54a354 100644
---- a/drivers/media/cec/cec-api.c
-+++ b/drivers/media/cec/cec-api.c
-@@ -198,7 +198,12 @@ static long cec_transmit(struct cec_adapter *adap, struct cec_fh *fh,
- 		return -EINVAL;
+@@ -1919,6 +1966,8 @@ static int cec_receive_notify(struct cec_adapter *adap, struct cec_msg *msg,
+ 			break;
+ #ifdef CONFIG_MEDIA_CEC_RC
+ 		rc_keyup(adap->rc);
++		adap->rc_repeating = false;
++		adap->rc_last_scancode = -1;
+ #endif
+ 		break;
  
- 	mutex_lock(&adap->lock);
--	if (!adap->is_configured)
-+	if (adap->log_addrs.num_log_addrs == 0)
-+		err = -EPERM;
-+	else if (adap->is_configuring)
-+		err = -ENONET;
-+	else if (!adap->is_configured &&
-+		 (adap->needs_hpd || msg.msg[0] != 0xf0))
- 		err = -ENONET;
- 	else if (cec_is_busy(adap, fh))
- 		err = -EBUSY;
-@@ -267,16 +272,10 @@ static long cec_receive(struct cec_adapter *adap, struct cec_fh *fh,
- 			bool block, struct cec_msg __user *parg)
- {
- 	struct cec_msg msg = {};
--	long err = 0;
-+	long err;
- 
- 	if (copy_from_user(&msg, parg, sizeof(msg)))
- 		return -EFAULT;
--	mutex_lock(&adap->lock);
--	if (!adap->is_configured && fh->mode_follower < CEC_MODE_MONITOR)
--		err = -ENONET;
--	mutex_unlock(&adap->lock);
--	if (err)
--		return err;
- 
- 	err = cec_receive_msg(fh, &msg, block);
- 	if (err)
-@@ -515,9 +514,19 @@ static int cec_open(struct inode *inode, struct file *filp)
- 		return err;
- 	}
- 
-+	mutex_lock(&devnode->lock);
-+	if (list_empty(&devnode->fhs) &&
-+	    !adap->needs_hpd &&
-+	    adap->phys_addr == CEC_PHYS_ADDR_INVALID) {
-+		err = adap->ops->adap_enable(adap, true);
-+		if (err) {
-+			mutex_unlock(&devnode->lock);
-+			kfree(fh);
-+			return err;
-+		}
-+	}
- 	filp->private_data = fh;
- 
--	mutex_lock(&devnode->lock);
- 	/* Queue up initial state events */
- 	ev_state.state_change.phys_addr = adap->phys_addr;
- 	ev_state.state_change.log_addr_mask = adap->log_addrs.log_addr_mask;
-@@ -551,6 +560,11 @@ static int cec_release(struct inode *inode, struct file *filp)
- 
- 	mutex_lock(&devnode->lock);
- 	list_del(&fh->list);
-+	if (list_empty(&devnode->fhs) &&
-+	    !adap->needs_hpd &&
-+	    adap->phys_addr == CEC_PHYS_ADDR_INVALID) {
-+		WARN_ON(adap->ops->adap_enable(adap, false));
-+	}
- 	mutex_unlock(&devnode->lock);
- 
- 	/* Unhook pending transmits from this filehandle. */
 diff --git a/drivers/media/cec/cec-core.c b/drivers/media/cec/cec-core.c
-index 37217e205040..b8f0bf1da57a 100644
+index 969f770acf77..65d763be4385 100644
 --- a/drivers/media/cec/cec-core.c
 +++ b/drivers/media/cec/cec-core.c
-@@ -195,6 +195,24 @@ static void cec_devnode_unregister(struct cec_devnode *devnode)
- 	put_device(&devnode->dev);
- }
- 
-+#ifdef CONFIG_CEC_NOTIFIER
-+static void cec_cec_notify(struct cec_adapter *adap, u16 pa)
-+{
-+	cec_s_phys_addr(adap, pa, false);
-+}
-+
-+void cec_register_cec_notifier(struct cec_adapter *adap,
-+			       struct cec_notifier *notifier)
-+{
-+	if (WARN_ON(!adap->devnode.registered))
-+		return;
-+
-+	adap->notifier = notifier;
-+	cec_notifier_register(adap->notifier, adap, cec_cec_notify);
-+}
-+EXPORT_SYMBOL_GPL(cec_register_cec_notifier);
-+#endif
-+
- struct cec_adapter *cec_allocate_adapter(const struct cec_adap_ops *ops,
- 					 void *priv, const char *name, u32 caps,
- 					 u8 available_las)
-@@ -202,6 +220,10 @@ struct cec_adapter *cec_allocate_adapter(const struct cec_adap_ops *ops,
- 	struct cec_adapter *adap;
- 	int res;
- 
-+#ifndef CONFIG_MEDIA_CEC_RC
-+	caps &= ~CEC_CAP_RC;
-+#endif
-+
- 	if (WARN_ON(!caps))
- 		return ERR_PTR(-EINVAL);
- 	if (WARN_ON(!ops))
-@@ -216,6 +238,7 @@ struct cec_adapter *cec_allocate_adapter(const struct cec_adap_ops *ops,
- 	adap->log_addrs.cec_version = CEC_OP_CEC_VERSION_2_0;
- 	adap->log_addrs.vendor_id = CEC_VENDOR_ID_NONE;
- 	adap->capabilities = caps;
-+	adap->needs_hpd = caps & CEC_CAP_NEEDS_HPD;
- 	adap->available_log_addrs = available_las;
- 	adap->sequence = 0;
- 	adap->ops = ops;
-@@ -234,12 +257,12 @@ struct cec_adapter *cec_allocate_adapter(const struct cec_adap_ops *ops,
- 		return ERR_PTR(res);
- 	}
- 
-+#ifdef CONFIG_MEDIA_CEC_RC
- 	if (!(caps & CEC_CAP_RC))
+@@ -263,7 +263,7 @@ struct cec_adapter *cec_allocate_adapter(const struct cec_adap_ops *ops,
  		return adap;
  
--#if IS_REACHABLE(CONFIG_RC_CORE)
  	/* Prepare the RC input device */
 -	adap->rc = rc_allocate_device(RC_DRIVER_SCANCODE);
 +	adap->rc = rc_allocate_device();
  	if (!adap->rc) {
  		pr_err("cec-%s: failed to allocate memory for rc_dev\n",
  		       name);
-@@ -259,13 +282,12 @@ struct cec_adapter *cec_allocate_adapter(const struct cec_adap_ops *ops,
+@@ -283,11 +283,13 @@ struct cec_adapter *cec_allocate_adapter(const struct cec_adap_ops *ops,
  	adap->rc->input_id.vendor = 0;
  	adap->rc->input_id.product = 0;
  	adap->rc->input_id.version = 1;
@@ -3014,243 +2546,28 @@ index 37217e205040..b8f0bf1da57a 100644
  	adap->rc->priv = adap;
  	adap->rc->map_name = RC_MAP_CEC;
  	adap->rc->timeout = MS_TO_NS(100);
--#else
--	adap->capabilities &= ~CEC_CAP_RC;
++	adap->rc_last_scancode = -1;
  #endif
  	return adap;
  }
-@@ -285,9 +307,9 @@ int cec_register_adapter(struct cec_adapter *adap,
- 	adap->owner = parent->driver->owner;
- 	adap->devnode.dev.parent = parent;
- 
--#if IS_REACHABLE(CONFIG_RC_CORE)
--	adap->rc->dev.parent = parent;
-+#ifdef CONFIG_MEDIA_CEC_RC
- 	if (adap->capabilities & CEC_CAP_RC) {
-+		adap->rc->dev.parent = parent;
- 		res = rc_register_device(adap->rc);
- 
- 		if (res) {
-@@ -302,7 +324,7 @@ int cec_register_adapter(struct cec_adapter *adap,
- 
- 	res = cec_devnode_register(&adap->devnode, adap->owner);
- 	if (res) {
--#if IS_REACHABLE(CONFIG_RC_CORE)
-+#ifdef CONFIG_MEDIA_CEC_RC
- 		/* Note: rc_unregister also calls rc_free */
- 		rc_unregister_device(adap->rc);
- 		adap->rc = NULL;
-@@ -311,7 +333,7 @@ int cec_register_adapter(struct cec_adapter *adap,
+@@ -319,6 +321,17 @@ int cec_register_adapter(struct cec_adapter *adap,
+ 			adap->rc = NULL;
+ 			return res;
+ 		}
++		/*
++		 * The REP_DELAY for CEC is really the time between the initial
++		 * 'User Control Pressed' message and the second. The first
++		 * keypress is always seen as non-repeating, the second
++		 * (provided it has the same UI Command) will start the 'Press
++		 * and Hold' (aka repeat) behavior. By setting REP_DELAY to the
++		 * same value as REP_PERIOD the expected CEC behavior is
++		 * reproduced.
++		 */
++		adap->rc->input_dev->rep[REP_DELAY] =
++			adap->rc->input_dev->rep[REP_PERIOD];
  	}
- 
- 	dev_set_drvdata(&adap->devnode.dev, adap);
--#ifdef CONFIG_MEDIA_CEC_DEBUG
-+#ifdef CONFIG_DEBUG_FS
- 	if (!top_cec_dir)
- 		return 0;
- 
-@@ -337,12 +359,16 @@ void cec_unregister_adapter(struct cec_adapter *adap)
- 	if (IS_ERR_OR_NULL(adap))
- 		return;
- 
--#if IS_REACHABLE(CONFIG_RC_CORE)
-+#ifdef CONFIG_MEDIA_CEC_RC
- 	/* Note: rc_unregister also calls rc_free */
- 	rc_unregister_device(adap->rc);
- 	adap->rc = NULL;
  #endif
- 	debugfs_remove_recursive(adap->cec_dir);
-+#ifdef CONFIG_CEC_NOTIFIER
-+	if (adap->notifier)
-+		cec_notifier_unregister(adap->notifier);
-+#endif
- 	cec_devnode_unregister(&adap->devnode);
- }
- EXPORT_SYMBOL_GPL(cec_unregister_adapter);
-@@ -357,7 +383,7 @@ void cec_delete_adapter(struct cec_adapter *adap)
- 	kthread_stop(adap->kthread);
- 	if (adap->kthread_config)
- 		kthread_stop(adap->kthread_config);
--#if IS_REACHABLE(CONFIG_RC_CORE)
-+#ifdef CONFIG_MEDIA_CEC_RC
- 	rc_free_device(adap->rc);
- #endif
- 	kfree(adap);
-@@ -379,7 +405,7 @@ static int __init cec_devnode_init(void)
- 		return ret;
- 	}
  
--#ifdef CONFIG_MEDIA_CEC_DEBUG
-+#ifdef CONFIG_DEBUG_FS
- 	top_cec_dir = debugfs_create_dir("cec", NULL);
- 	if (IS_ERR_OR_NULL(top_cec_dir)) {
- 		pr_warn("cec: Failed to create debugfs cec dir\n");
-diff --git a/drivers/media/cec-edid.c b/drivers/media/cec/cec-edid.c
-similarity index 96%
-rename from drivers/media/cec-edid.c
-rename to drivers/media/cec/cec-edid.c
-index 5719b991e340..38e3fec6152b 100644
---- a/drivers/media/cec-edid.c
-+++ b/drivers/media/cec/cec-edid.c
-@@ -20,7 +20,7 @@
- #include <linux/module.h>
- #include <linux/kernel.h>
- #include <linux/types.h>
--#include <media/cec-edid.h>
-+#include <media/cec.h>
- 
- /*
-  * This EDID is expected to be a CEA-861 compliant, which means that there are
-@@ -165,7 +165,3 @@ int cec_phys_addr_validate(u16 phys_addr, u16 *parent, u16 *port)
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(cec_phys_addr_validate);
--
--MODULE_AUTHOR("Hans Verkuil <hans.verkuil@cisco.com>");
--MODULE_DESCRIPTION("CEC EDID helper functions");
--MODULE_LICENSE("GPL");
-diff --git a/drivers/media/cec/cec-notifier.c b/drivers/media/cec/cec-notifier.c
-new file mode 100644
-index 000000000000..08b619d0ea1e
---- /dev/null
-+++ b/drivers/media/cec/cec-notifier.c
-@@ -0,0 +1,136 @@
-+/*
-+ * cec-notifier.c - notify CEC drivers of physical address changes
-+ *
-+ * Copyright 2016 Russell King <rmk+kernel@arm.linux.org.uk>
-+ * Copyright 2016-2017 Cisco Systems, Inc. and/or its affiliates. All rights reserved.
-+ *
-+ * This program is free software; you may redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; version 2 of the License.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#include <linux/export.h>
-+#include <linux/string.h>
-+#include <linux/slab.h>
-+#include <linux/list.h>
-+#include <linux/kref.h>
-+
-+#include <media/cec.h>
-+#include <media/cec-notifier.h>
-+#include <drm/drm_edid.h>
-+
-+struct cec_notifier {
-+	struct mutex lock;
-+	struct list_head head;
-+	struct kref kref;
-+	struct device *dev;
-+	struct cec_adapter *cec_adap;
-+	void (*callback)(struct cec_adapter *adap, u16 pa);
-+
-+	u16 phys_addr;
-+};
-+
-+static LIST_HEAD(cec_notifiers);
-+static DEFINE_MUTEX(cec_notifiers_lock);
-+
-+struct cec_notifier *cec_notifier_get(struct device *dev)
-+{
-+	struct cec_notifier *n;
-+
-+	mutex_lock(&cec_notifiers_lock);
-+	list_for_each_entry(n, &cec_notifiers, head) {
-+		if (n->dev == dev) {
-+			kref_get(&n->kref);
-+			mutex_unlock(&cec_notifiers_lock);
-+			return n;
-+		}
-+	}
-+	n = kzalloc(sizeof(*n), GFP_KERNEL);
-+	if (!n)
-+		goto unlock;
-+	n->dev = dev;
-+	n->phys_addr = CEC_PHYS_ADDR_INVALID;
-+	mutex_init(&n->lock);
-+	kref_init(&n->kref);
-+	list_add_tail(&n->head, &cec_notifiers);
-+unlock:
-+	mutex_unlock(&cec_notifiers_lock);
-+	return n;
-+}
-+EXPORT_SYMBOL_GPL(cec_notifier_get);
-+
-+static void cec_notifier_release(struct kref *kref)
-+{
-+	struct cec_notifier *n =
-+		container_of(kref, struct cec_notifier, kref);
-+
-+	list_del(&n->head);
-+	kfree(n);
-+}
-+
-+void cec_notifier_put(struct cec_notifier *n)
-+{
-+	mutex_lock(&cec_notifiers_lock);
-+	kref_put(&n->kref, cec_notifier_release);
-+	mutex_unlock(&cec_notifiers_lock);
-+}
-+EXPORT_SYMBOL_GPL(cec_notifier_put);
-+
-+void cec_notifier_set_phys_addr(struct cec_notifier *n, u16 pa)
-+{
-+	if (n == NULL)
-+		return;
-+
-+	mutex_lock(&n->lock);
-+	n->phys_addr = pa;
-+	if (n->callback)
-+		n->callback(n->cec_adap, n->phys_addr);
-+	mutex_unlock(&n->lock);
-+}
-+EXPORT_SYMBOL_GPL(cec_notifier_set_phys_addr);
-+
-+void cec_notifier_set_phys_addr_from_edid(struct cec_notifier *n,
-+					  const struct edid *edid)
-+{
-+	u16 pa = CEC_PHYS_ADDR_INVALID;
-+
-+	if (n == NULL)
-+		return;
-+
-+	if (edid && edid->extensions)
-+		pa = cec_get_edid_phys_addr((const u8 *)edid,
-+				EDID_LENGTH * (edid->extensions + 1), NULL);
-+	cec_notifier_set_phys_addr(n, pa);
-+}
-+EXPORT_SYMBOL_GPL(cec_notifier_set_phys_addr_from_edid);
-+
-+void cec_notifier_register(struct cec_notifier *n,
-+			   struct cec_adapter *adap,
-+			   void (*callback)(struct cec_adapter *adap, u16 pa))
-+{
-+	kref_get(&n->kref);
-+	mutex_lock(&n->lock);
-+	n->cec_adap = adap;
-+	n->callback = callback;
-+	n->callback(adap, n->phys_addr);
-+	mutex_unlock(&n->lock);
-+}
-+EXPORT_SYMBOL_GPL(cec_notifier_register);
-+
-+void cec_notifier_unregister(struct cec_notifier *n)
-+{
-+	mutex_lock(&n->lock);
-+	n->callback = NULL;
-+	mutex_unlock(&n->lock);
-+	cec_notifier_put(n);
-+}
-+EXPORT_SYMBOL_GPL(cec_notifier_unregister);
 diff --git a/drivers/media/rc/keymaps/Makefile b/drivers/media/rc/keymaps/Makefile
 index fbbd3bbcd252..9cffcc61fdca 100644
 --- a/drivers/media/rc/keymaps/Makefile
@@ -3493,232 +2810,29 @@ index dcf26537c935..1957c340878d 100644
  
  /* joystick */
  COMPATIBLE_IOCTL(JSIOCGVERSION)
-diff --git a/include/media/cec-edid.h b/include/media/cec-edid.h
-deleted file mode 100644
-index bdf731ecba1a..000000000000
---- a/include/media/cec-edid.h
-+++ /dev/null
-@@ -1,104 +0,0 @@
--/*
-- * cec-edid - HDMI Consumer Electronics Control & EDID helpers
-- *
-- * Copyright 2016 Cisco Systems, Inc. and/or its affiliates. All rights reserved.
-- *
-- * This program is free software; you may redistribute it and/or modify
-- * it under the terms of the GNU General Public License as published by
-- * the Free Software Foundation; version 2 of the License.
-- *
-- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-- * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-- * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-- * SOFTWARE.
-- */
--
--#ifndef _MEDIA_CEC_EDID_H
--#define _MEDIA_CEC_EDID_H
--
--#include <linux/types.h>
--
--#define CEC_PHYS_ADDR_INVALID		0xffff
--#define cec_phys_addr_exp(pa) \
--	((pa) >> 12), ((pa) >> 8) & 0xf, ((pa) >> 4) & 0xf, (pa) & 0xf
--
--/**
-- * cec_get_edid_phys_addr() - find and return the physical address
-- *
-- * @edid:	pointer to the EDID data
-- * @size:	size in bytes of the EDID data
-- * @offset:	If not %NULL then the location of the physical address
-- *		bytes in the EDID will be returned here. This is set to 0
-- *		if there is no physical address found.
-- *
-- * Return: the physical address or CEC_PHYS_ADDR_INVALID if there is none.
-- */
--u16 cec_get_edid_phys_addr(const u8 *edid, unsigned int size,
--			   unsigned int *offset);
--
--/**
-- * cec_set_edid_phys_addr() - find and set the physical address
-- *
-- * @edid:	pointer to the EDID data
-- * @size:	size in bytes of the EDID data
-- * @phys_addr:	the new physical address
-- *
-- * This function finds the location of the physical address in the EDID
-- * and fills in the given physical address and updates the checksum
-- * at the end of the EDID block. It does nothing if the EDID doesn't
-- * contain a physical address.
-- */
--void cec_set_edid_phys_addr(u8 *edid, unsigned int size, u16 phys_addr);
--
--/**
-- * cec_phys_addr_for_input() - calculate the PA for an input
-- *
-- * @phys_addr:	the physical address of the parent
-- * @input:	the number of the input port, must be between 1 and 15
-- *
-- * This function calculates a new physical address based on the input
-- * port number. For example:
-- *
-- * PA = 0.0.0.0 and input = 2 becomes 2.0.0.0
-- *
-- * PA = 3.0.0.0 and input = 1 becomes 3.1.0.0
-- *
-- * PA = 3.2.1.0 and input = 5 becomes 3.2.1.5
-- *
-- * PA = 3.2.1.3 and input = 5 becomes f.f.f.f since it maxed out the depth.
-- *
-- * Return: the new physical address or CEC_PHYS_ADDR_INVALID.
-- */
--u16 cec_phys_addr_for_input(u16 phys_addr, u8 input);
--
--/**
-- * cec_phys_addr_validate() - validate a physical address from an EDID
-- *
-- * @phys_addr:	the physical address to validate
-- * @parent:	if not %NULL, then this is filled with the parents PA.
-- * @port:	if not %NULL, then this is filled with the input port.
-- *
-- * This validates a physical address as read from an EDID. If the
-- * PA is invalid (such as 1.0.1.0 since '0' is only allowed at the end),
-- * then it will return -EINVAL.
-- *
-- * The parent PA is passed into %parent and the input port is passed into
-- * %port. For example:
-- *
-- * PA = 0.0.0.0: has parent 0.0.0.0 and input port 0.
-- *
-- * PA = 1.0.0.0: has parent 0.0.0.0 and input port 1.
-- *
-- * PA = 3.2.0.0: has parent 3.0.0.0 and input port 2.
-- *
-- * PA = f.f.f.f: has parent f.f.f.f and input port 0.
-- *
-- * Return: 0 if the PA is valid, -EINVAL if not.
-- */
--int cec_phys_addr_validate(u16 phys_addr, u16 *parent, u16 *port);
--
--#endif /* _MEDIA_CEC_EDID_H */
 diff --git a/include/media/cec-notifier.h b/include/media/cec-notifier.h
-new file mode 100644
-index 000000000000..a4f7429c4ae5
---- /dev/null
+index ca19a9305782..8bb169ac7afd 100644
+--- a/include/media/cec-notifier.h
 +++ b/include/media/cec-notifier.h
-@@ -0,0 +1,136 @@
-+/*
-+ * cec-notifier.h - notify CEC drivers of physical address changes
-+ *
-+ * Copyright 2016 Russell King <rmk+kernel@arm.linux.org.uk>
-+ * Copyright 2016-2017 Cisco Systems, Inc. and/or its affiliates. All rights reserved.
-+ *
-+ * This program is free software; you may redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; version 2 of the License.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#ifndef LINUX_CEC_NOTIFIER_H
-+#define LINUX_CEC_NOTIFIER_H
-+
-+#include <linux/types.h>
-+#include <media/cec.h>
-+
-+struct device;
-+struct edid;
-+struct cec_adapter;
-+struct cec_notifier;
-+
-+#if IS_REACHABLE(CONFIG_CEC_CORE) && IS_ENABLED(CONFIG_CEC_NOTIFIER)
-+
+@@ -91,6 +91,14 @@ void cec_notifier_register(struct cec_notifier *n,
+  */
+ void cec_notifier_unregister(struct cec_notifier *n);
+ 
 +/**
-+ * cec_notifier_get - find or create a new cec_notifier for the given device.
-+ * @dev: device that sends the events.
-+ *
-+ * If a notifier for device @dev already exists, then increase the refcount
-+ * and return that notifier.
-+ *
-+ * If it doesn't exist, then allocate a new notifier struct and return a
-+ * pointer to that new struct.
-+ *
-+ * Return NULL if the memory could not be allocated.
++ * cec_register_cec_notifier - register the notifier with the cec adapter.
++ * @adap: the CEC adapter
++ * @notifier: the CEC notifier
 + */
-+struct cec_notifier *cec_notifier_get(struct device *dev);
++void cec_register_cec_notifier(struct cec_adapter *adap,
++			       struct cec_notifier *notifier);
 +
-+/**
-+ * cec_notifier_put - decrease refcount and delete when the refcount reaches 0.
-+ * @n: notifier
-+ */
-+void cec_notifier_put(struct cec_notifier *n);
-+
-+/**
-+ * cec_notifier_set_phys_addr - set a new physical address.
-+ * @n: the CEC notifier
-+ * @pa: the CEC physical address
-+ *
-+ * Set a new CEC physical address.
-+ * Does nothing if @n == NULL.
-+ */
-+void cec_notifier_set_phys_addr(struct cec_notifier *n, u16 pa);
-+
-+/**
-+ * cec_notifier_set_phys_addr_from_edid - set parse the PA from the EDID.
-+ * @n: the CEC notifier
-+ * @edid: the struct edid pointer
-+ *
-+ * Parses the EDID to obtain the new CEC physical address and set it.
-+ * Does nothing if @n == NULL.
-+ */
-+void cec_notifier_set_phys_addr_from_edid(struct cec_notifier *n,
-+					  const struct edid *edid);
-+
-+/**
-+ * cec_notifier_register - register a callback with the notifier
-+ * @n: the CEC notifier
-+ * @adap: the CEC adapter, passed as argument to the callback function
-+ * @callback: the callback function
-+ */
-+void cec_notifier_register(struct cec_notifier *n,
-+			   struct cec_adapter *adap,
-+			   void (*callback)(struct cec_adapter *adap, u16 pa));
-+
-+/**
-+ * cec_notifier_unregister - unregister the callback from the notifier.
-+ * @n: the CEC notifier
-+ */
-+void cec_notifier_unregister(struct cec_notifier *n);
-+
-+#else
-+static inline struct cec_notifier *cec_notifier_get(struct device *dev)
-+{
-+	/* A non-NULL pointer is expected on success */
-+	return (struct cec_notifier *)0xdeadfeed;
-+}
-+
-+static inline void cec_notifier_put(struct cec_notifier *n)
-+{
-+}
-+
-+static inline void cec_notifier_set_phys_addr(struct cec_notifier *n, u16 pa)
-+{
-+}
-+
-+static inline void cec_notifier_set_phys_addr_from_edid(struct cec_notifier *n,
-+							const struct edid *edid)
-+{
-+}
-+
+ #else
+ static inline struct cec_notifier *cec_notifier_get(struct device *dev)
+ {
+@@ -111,6 +119,20 @@ static inline void cec_notifier_set_phys_addr_from_edid(struct cec_notifier *n,
+ {
+ }
+ 
 +static inline void cec_notifier_register(struct cec_notifier *n,
 +			 struct cec_adapter *adap,
 +			 void (*callback)(struct cec_adapter *adap, u16 pa))
@@ -3729,215 +2843,71 @@ index 000000000000..a4f7429c4ae5
 +{
 +}
 +
-+#endif
-+
-+/**
-+ * cec_notifier_phys_addr_invalidate() - set the physical address to INVALID
-+ *
-+ * @n: the CEC notifier
-+ *
-+ * This is a simple helper function to invalidate the physical
-+ * address. Does nothing if @n == NULL.
-+ */
-+static inline void cec_notifier_phys_addr_invalidate(struct cec_notifier *n)
++static inline void cec_register_cec_notifier(struct cec_adapter *adap,
++					     struct cec_notifier *notifier)
 +{
-+	cec_notifier_set_phys_addr(n, CEC_PHYS_ADDR_INVALID);
 +}
-+
-+#endif
-diff --git a/include/media/cec.h b/include/media/cec.h
-index 96a0aa770d61..56643b27e4b8 100644
---- a/include/media/cec.h
-+++ b/include/media/cec.h
-@@ -29,7 +29,7 @@
- #include <linux/timer.h>
- #include <linux/cec-funcs.h>
- #include <media/rc-core.h>
--#include <media/cec-edid.h>
-+#include <media/cec-notifier.h>
+ #endif
  
  /**
+diff --git a/include/media/cec.h b/include/media/cec.h
+index df3c94f05aa5..f64807a78064 100644
+--- a/include/media/cec.h
++++ b/include/media/cec.h
+@@ -31,6 +31,9 @@
+ #include <media/rc-core.h>
+ #include <media/cec-notifier.h>
+ 
++#define CEC_CAP_DEFAULTS (CEC_CAP_LOG_ADDRS | CEC_CAP_TRANSMIT | \
++			  CEC_CAP_PASSTHROUGH | CEC_CAP_RC)
++
+ /**
   * struct cec_devnode - cec device node
-@@ -164,6 +164,7 @@ struct cec_adapter {
- 	u8 available_log_addrs;
+  * @dev:	cec device
+@@ -188,6 +191,11 @@ struct cec_adapter {
  
- 	u16 phys_addr;
-+	bool needs_hpd;
- 	bool is_configuring;
- 	bool is_configured;
- 	u32 monitor_all_cnt;
-@@ -173,6 +174,10 @@ struct cec_adapter {
- 	bool passthrough;
- 	struct cec_log_addrs log_addrs;
+ 	u32 tx_timeouts;
  
-+#ifdef CONFIG_CEC_NOTIFIER
-+	struct cec_notifier *notifier;
++#ifdef CONFIG_MEDIA_CEC_RC
++	bool rc_repeating;
++	int rc_last_scancode;
++	u64 rc_last_keypress;
 +#endif
-+
- 	struct dentry *cec_dir;
- 	struct dentry *status_file;
+ #ifdef CONFIG_CEC_NOTIFIER
+ 	struct cec_notifier *notifier;
+ #endif
+@@ -226,7 +234,7 @@ static inline bool cec_is_sink(const struct cec_adapter *adap)
  
-@@ -184,6 +189,11 @@ struct cec_adapter {
- 	char input_drv[32];
- };
+ struct edid;
  
-+static inline void *cec_get_drvdata(const struct cec_adapter *adap)
-+{
-+	return adap->priv;
-+}
-+
- static inline bool cec_has_log_addr(const struct cec_adapter *adap, u8 log_addr)
- {
- 	return adap->log_addrs.log_addr_mask & (1 << log_addr);
-@@ -194,7 +204,12 @@ static inline bool cec_is_sink(const struct cec_adapter *adap)
- 	return adap->phys_addr == 0;
- }
- 
--#if IS_ENABLED(CONFIG_MEDIA_CEC_SUPPORT)
-+#define cec_phys_addr_exp(pa) \
-+	((pa) >> 12), ((pa) >> 8) & 0xf, ((pa) >> 4) & 0xf, (pa) & 0xf
-+
-+struct edid;
-+
+-#if IS_ENABLED(CONFIG_CEC_CORE)
 +#if IS_REACHABLE(CONFIG_CEC_CORE)
  struct cec_adapter *cec_allocate_adapter(const struct cec_adap_ops *ops,
  		void *priv, const char *name, u32 caps, u8 available_las);
  int cec_register_adapter(struct cec_adapter *adap, struct device *parent);
-@@ -205,14 +220,102 @@ int cec_s_log_addrs(struct cec_adapter *adap, struct cec_log_addrs *log_addrs,
- 		    bool block);
- void cec_s_phys_addr(struct cec_adapter *adap, u16 phys_addr,
- 		     bool block);
-+void cec_s_phys_addr_from_edid(struct cec_adapter *adap,
-+			       const struct edid *edid);
- int cec_transmit_msg(struct cec_adapter *adap, struct cec_msg *msg,
- 		     bool block);
+@@ -373,11 +381,6 @@ u16 cec_phys_addr_for_input(u16 phys_addr, u8 input);
+  */
+ int cec_phys_addr_validate(u16 phys_addr, u16 *parent, u16 *port);
  
- /* Called by the adapter */
- void cec_transmit_done(struct cec_adapter *adap, u8 status, u8 arb_lost_cnt,
- 		       u8 nack_cnt, u8 low_drive_cnt, u8 error_cnt);
-+/*
-+ * Simplified version of cec_transmit_done for hardware that doesn't retry
-+ * failed transmits. So this is always just one attempt in which case
-+ * the status is sufficient.
-+ */
-+void cec_transmit_attempt_done(struct cec_adapter *adap, u8 status);
- void cec_received_msg(struct cec_adapter *adap, struct cec_msg *msg);
- 
-+/**
-+ * cec_get_edid_phys_addr() - find and return the physical address
-+ *
-+ * @edid:	pointer to the EDID data
-+ * @size:	size in bytes of the EDID data
-+ * @offset:	If not %NULL then the location of the physical address
-+ *		bytes in the EDID will be returned here. This is set to 0
-+ *		if there is no physical address found.
-+ *
-+ * Return: the physical address or CEC_PHYS_ADDR_INVALID if there is none.
-+ */
-+u16 cec_get_edid_phys_addr(const u8 *edid, unsigned int size,
-+			   unsigned int *offset);
-+
-+/**
-+ * cec_set_edid_phys_addr() - find and set the physical address
-+ *
-+ * @edid:	pointer to the EDID data
-+ * @size:	size in bytes of the EDID data
-+ * @phys_addr:	the new physical address
-+ *
-+ * This function finds the location of the physical address in the EDID
-+ * and fills in the given physical address and updates the checksum
-+ * at the end of the EDID block. It does nothing if the EDID doesn't
-+ * contain a physical address.
-+ */
-+void cec_set_edid_phys_addr(u8 *edid, unsigned int size, u16 phys_addr);
-+
-+/**
-+ * cec_phys_addr_for_input() - calculate the PA for an input
-+ *
-+ * @phys_addr:	the physical address of the parent
-+ * @input:	the number of the input port, must be between 1 and 15
-+ *
-+ * This function calculates a new physical address based on the input
-+ * port number. For example:
-+ *
-+ * PA = 0.0.0.0 and input = 2 becomes 2.0.0.0
-+ *
-+ * PA = 3.0.0.0 and input = 1 becomes 3.1.0.0
-+ *
-+ * PA = 3.2.1.0 and input = 5 becomes 3.2.1.5
-+ *
-+ * PA = 3.2.1.3 and input = 5 becomes f.f.f.f since it maxed out the depth.
-+ *
-+ * Return: the new physical address or CEC_PHYS_ADDR_INVALID.
-+ */
-+u16 cec_phys_addr_for_input(u16 phys_addr, u8 input);
-+
-+/**
-+ * cec_phys_addr_validate() - validate a physical address from an EDID
-+ *
-+ * @phys_addr:	the physical address to validate
-+ * @parent:	if not %NULL, then this is filled with the parents PA.
-+ * @port:	if not %NULL, then this is filled with the input port.
-+ *
-+ * This validates a physical address as read from an EDID. If the
-+ * PA is invalid (such as 1.0.1.0 since '0' is only allowed at the end),
-+ * then it will return -EINVAL.
-+ *
-+ * The parent PA is passed into %parent and the input port is passed into
-+ * %port. For example:
-+ *
-+ * PA = 0.0.0.0: has parent 0.0.0.0 and input port 0.
-+ *
-+ * PA = 1.0.0.0: has parent 0.0.0.0 and input port 1.
-+ *
-+ * PA = 3.2.0.0: has parent 3.0.0.0 and input port 2.
-+ *
-+ * PA = f.f.f.f: has parent f.f.f.f and input port 0.
-+ *
-+ * Return: 0 if the PA is valid, -EINVAL if not.
-+ */
-+int cec_phys_addr_validate(u16 phys_addr, u16 *parent, u16 *port);
-+
-+#ifdef CONFIG_CEC_NOTIFIER
-+void cec_register_cec_notifier(struct cec_adapter *adap,
-+			       struct cec_notifier *notifier);
-+#endif
-+
+-#ifdef CONFIG_CEC_NOTIFIER
+-void cec_register_cec_notifier(struct cec_adapter *adap,
+-			       struct cec_notifier *notifier);
+-#endif
+-
  #else
  
  static inline int cec_register_adapter(struct cec_adapter *adap,
-@@ -234,6 +337,47 @@ static inline void cec_s_phys_addr(struct cec_adapter *adap, u16 phys_addr,
+@@ -424,9 +427,26 @@ static inline u16 cec_phys_addr_for_input(u16 phys_addr, u8 input)
+ 
+ static inline int cec_phys_addr_validate(u16 phys_addr, u16 *parent, u16 *port)
  {
++	if (parent)
++		*parent = phys_addr;
++	if (port)
++		*port = 0;
+ 	return 0;
  }
  
-+static inline void cec_s_phys_addr_from_edid(struct cec_adapter *adap,
-+					     const struct edid *edid)
-+{
-+}
-+
-+static inline u16 cec_get_edid_phys_addr(const u8 *edid, unsigned int size,
-+					 unsigned int *offset)
-+{
-+	if (offset)
-+		*offset = 0;
-+	return CEC_PHYS_ADDR_INVALID;
-+}
-+
-+static inline void cec_set_edid_phys_addr(u8 *edid, unsigned int size,
-+					  u16 phys_addr)
-+{
-+}
-+
-+static inline u16 cec_phys_addr_for_input(u16 phys_addr, u8 input)
-+{
-+	return CEC_PHYS_ADDR_INVALID;
-+}
-+
-+static inline int cec_phys_addr_validate(u16 phys_addr, u16 *parent, u16 *port)
-+{
-+	return 0;
-+}
-+
  #endif
  
 +/**
@@ -3991,8 +2961,20 @@ index 7c4bbc4dfab4..d9f87d5b4468 100644
  #define RC_MAP_CINERGY_1400              "rc-cinergy-1400"
  #define RC_MAP_CINERGY                   "rc-cinergy"
  #define RC_MAP_DELOCK_61959              "rc-delock-61959"
+diff --git a/include/uapi/linux/cec-funcs.h b/include/uapi/linux/cec-funcs.h
+index c451eec42a83..270b251a3d9b 100644
+--- a/include/uapi/linux/cec-funcs.h
++++ b/include/uapi/linux/cec-funcs.h
+@@ -895,6 +895,7 @@ static inline void cec_ops_report_features(const struct cec_msg *msg,
+ 	*cec_version = msg->msg[2];
+ 	*all_device_types = msg->msg[3];
+ 	*rc_profile = p;
++	*dev_features = NULL;
+ 	while (p < &msg->msg[14] && (*p & CEC_OP_FEAT_EXT))
+ 		p++;
+ 	if (!(*p & CEC_OP_FEAT_EXT)) {
 diff --git a/include/uapi/linux/cec.h b/include/uapi/linux/cec.h
-index 14b6f24b189e..44579a24f95d 100644
+index af6682f5ea85..b9f8df3a0477 100644
 --- a/include/uapi/linux/cec.h
 +++ b/include/uapi/linux/cec.h
 @@ -223,7 +223,7 @@ static inline int cec_msg_status_is_ok(const struct cec_msg *msg)
@@ -4004,15 +2986,6 @@ index 14b6f24b189e..44579a24f95d 100644
  
  /* The logical address types that the CEC device wants to claim */
  #define CEC_LOG_ADDR_TYPE_TV		0
-@@ -336,6 +336,8 @@ static inline int cec_is_unconfigured(__u16 log_addr_mask)
- #define CEC_CAP_RC		(1 << 4)
- /* Hardware can monitor all messages, not just directed and broadcast. */
- #define CEC_CAP_MONITOR_ALL	(1 << 5)
-+/* Hardware can use CEC only if the HDMI HPD pin is high. */
-+#define CEC_CAP_NEEDS_HPD	(1 << 6)
- 
- /**
-  * struct cec_caps - CEC capabilities structure.
 diff --git a/include/uapi/linux/input-event-codes.h b/include/uapi/linux/input-event-codes.h
 index 87cf351bab03..b0c5c4888a4b 100644
 --- a/include/uapi/linux/input-event-codes.h
@@ -4068,10 +3041,10 @@ index 2758687300b4..41e8dff588e1 100644
  /*
   * MT_TOOL types
 
-From cbebcbaad2e1421dc00722e617885379ead2e7f9 Mon Sep 17 00:00:00 2001
+From d97e3abed49306c25ac724841c21c4705c55a6ea Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Mon, 4 Sep 2017 22:34:22 +0200
-Subject: [PATCH 02/11] BACKPORT: Pulse Eight HDMI CEC from v4.13
+Subject: [PATCH] BACKPORT: Pulse Eight HDMI CEC from v4.15
 
 ---
  MAINTAINERS                               |   7 +
@@ -4080,18 +3053,18 @@ Subject: [PATCH 02/11] BACKPORT: Pulse Eight HDMI CEC from v4.13
  drivers/media/usb/Makefile                |   1 +
  drivers/media/usb/pulse8-cec/Kconfig      |  11 +
  drivers/media/usb/pulse8-cec/Makefile     |   1 +
- drivers/media/usb/pulse8-cec/pulse8-cec.c | 758 ++++++++++++++++++++++++++++++
+ drivers/media/usb/pulse8-cec/pulse8-cec.c | 757 ++++++++++++++++++++++++++++++
  include/uapi/linux/serio.h                |   1 +
- 8 files changed, 798 insertions(+), 3 deletions(-)
+ 8 files changed, 797 insertions(+), 3 deletions(-)
  create mode 100644 drivers/media/usb/pulse8-cec/Kconfig
  create mode 100644 drivers/media/usb/pulse8-cec/Makefile
  create mode 100644 drivers/media/usb/pulse8-cec/pulse8-cec.c
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 124551e7b781..3f10c7b7f3eb 100644
+index bb1aa323019c..3ba807edf5c6 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -8623,6 +8623,13 @@ F:	include/linux/tracehook.h
+@@ -8637,6 +8637,13 @@ F:	include/linux/tracehook.h
  F:	include/uapi/linux/ptrace.h
  F:	kernel/ptrace.c
  
@@ -4198,10 +3171,10 @@ index 000000000000..9800690bc25a
 +obj-$(CONFIG_USB_PULSE8_CEC) += pulse8-cec.o
 diff --git a/drivers/media/usb/pulse8-cec/pulse8-cec.c b/drivers/media/usb/pulse8-cec/pulse8-cec.c
 new file mode 100644
-index 000000000000..f9ed9c950247
+index 000000000000..50146f263d90
 --- /dev/null
 +++ b/drivers/media/usb/pulse8-cec/pulse8-cec.c
-@@ -0,0 +1,758 @@
+@@ -0,0 +1,757 @@
 +/*
 + * Pulse Eight HDMI CEC driver
 + *
@@ -4846,8 +3819,7 @@ index 000000000000..f9ed9c950247
 +
 +static int pulse8_connect(struct serio *serio, struct serio_driver *drv)
 +{
-+	u32 caps = CEC_CAP_TRANSMIT | CEC_CAP_LOG_ADDRS | CEC_CAP_PHYS_ADDR |
-+		CEC_CAP_PASSTHROUGH | CEC_CAP_RC | CEC_CAP_MONITOR_ALL;
++	u32 caps = CEC_CAP_DEFAULTS | CEC_CAP_PHYS_ADDR | CEC_CAP_MONITOR_ALL;
 +	struct pulse8 *pulse8;
 +	int err = -ENOMEM;
 +	struct cec_log_addrs log_addrs = {};
@@ -4860,7 +3832,7 @@ index 000000000000..f9ed9c950247
 +
 +	pulse8->serio = serio;
 +	pulse8->adap = cec_allocate_adapter(&pulse8_cec_adap_ops, pulse8,
-+		"HDMI CEC", caps, 1);
++					    dev_name(&serio->dev), caps, 1);
 +	err = PTR_ERR_OR_ZERO(pulse8->adap);
 +	if (err < 0)
 +		goto free_device;
@@ -4936,7 +3908,7 @@ index 000000000000..f9ed9c950247
 +	mutex_unlock(&pulse8->config_lock);
 +}
 +
-+static struct serio_device_id pulse8_serio_ids[] = {
++static const struct serio_device_id pulse8_serio_ids[] = {
 +	{
 +		.type	= SERIO_RS232,
 +		.proto	= SERIO_PULSE8_CEC,
@@ -4972,10 +3944,10 @@ index becdd78295cc..4588c66a8df0 100644
  
  #endif /* _UAPI_SERIO_H */
 
-From 6290dc12343cd2f3c343425e4736eb7a20ae4520 Mon Sep 17 00:00:00 2001
+From 6af6d21e67410357403b1f99082ab2c825044657 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Mon, 4 Sep 2017 22:34:24 +0200
-Subject: [PATCH 03/11] BACKPORT: RainShadow Tech HDMI CEC from v4.13
+Subject: [PATCH] BACKPORT: RainShadow Tech HDMI CEC from v4.15
 
 ---
  MAINTAINERS                                       |   7 +
@@ -4983,18 +3955,18 @@ Subject: [PATCH 03/11] BACKPORT: RainShadow Tech HDMI CEC from v4.13
  drivers/media/usb/Makefile                        |   1 +
  drivers/media/usb/rainshadow-cec/Kconfig          |  11 +
  drivers/media/usb/rainshadow-cec/Makefile         |   1 +
- drivers/media/usb/rainshadow-cec/rainshadow-cec.c | 385 ++++++++++++++++++++++
+ drivers/media/usb/rainshadow-cec/rainshadow-cec.c | 384 ++++++++++++++++++++++
  include/uapi/linux/serio.h                        |   1 +
- 7 files changed, 407 insertions(+)
+ 7 files changed, 406 insertions(+)
  create mode 100644 drivers/media/usb/rainshadow-cec/Kconfig
  create mode 100644 drivers/media/usb/rainshadow-cec/Makefile
  create mode 100644 drivers/media/usb/rainshadow-cec/rainshadow-cec.c
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 3f10c7b7f3eb..ede39504b4b3 100644
+index 3ba807edf5c6..c6413ddaa627 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -8862,6 +8862,13 @@ L:	linux-fbdev@vger.kernel.org
+@@ -8876,6 +8876,13 @@ L:	linux-fbdev@vger.kernel.org
  S:	Maintained
  F:	drivers/video/fbdev/aty/aty128fb.c
  
@@ -5055,10 +4027,10 @@ index 000000000000..a79fbc77e1f7
 +obj-$(CONFIG_USB_RAINSHADOW_CEC) += rainshadow-cec.o
 diff --git a/drivers/media/usb/rainshadow-cec/rainshadow-cec.c b/drivers/media/usb/rainshadow-cec/rainshadow-cec.c
 new file mode 100644
-index 000000000000..65692576690f
+index 000000000000..cecdcbcd400c
 --- /dev/null
 +++ b/drivers/media/usb/rainshadow-cec/rainshadow-cec.c
-@@ -0,0 +1,385 @@
+@@ -0,0 +1,384 @@
 +/*
 + * RainShadow Tech HDMI CEC driver
 + *
@@ -5370,8 +4342,7 @@ index 000000000000..65692576690f
 +
 +static int rain_connect(struct serio *serio, struct serio_driver *drv)
 +{
-+	u32 caps = CEC_CAP_TRANSMIT | CEC_CAP_LOG_ADDRS | CEC_CAP_PHYS_ADDR |
-+		CEC_CAP_PASSTHROUGH | CEC_CAP_RC | CEC_CAP_MONITOR_ALL;
++	u32 caps = CEC_CAP_DEFAULTS | CEC_CAP_PHYS_ADDR | CEC_CAP_MONITOR_ALL;
 +	struct rain *rain;
 +	int err = -ENOMEM;
 +	struct cec_log_addrs log_addrs = {};
@@ -5384,7 +4355,7 @@ index 000000000000..65692576690f
 +
 +	rain->serio = serio;
 +	rain->adap = cec_allocate_adapter(&rain_cec_adap_ops, rain,
-+		"HDMI CEC", caps, 1);
++					  dev_name(&serio->dev), caps, 1);
 +	err = PTR_ERR_OR_ZERO(rain->adap);
 +	if (err < 0)
 +		goto free_device;
@@ -5420,7 +4391,7 @@ index 000000000000..65692576690f
 +	return err;
 +}
 +
-+static struct serio_device_id rain_serio_ids[] = {
++static const struct serio_device_id rain_serio_ids[] = {
 +	{
 +		.type	= SERIO_RS232,
 +		.proto	= SERIO_RAINSHADOW_CEC,
@@ -5456,926 +4427,10 @@ index 4588c66a8df0..89b72003fb68 100644
  
  #endif /* _UAPI_SERIO_H */
 
-From 52716697f7efbdd3cbbf338df786612ac0d92203 Mon Sep 17 00:00:00 2001
-From: Russell King <rmk+kernel@armlinux.org.uk>
-Date: Mon, 31 Jul 2017 15:29:41 +0100
-Subject: [PATCH 04/11] UPSTREAM: drm/bridge: dw-hdmi: add cec notifier support
-
-Add CEC notifier support to the HDMI bridge driver, so that the CEC
-part of the IP can receive its physical address.
-
-Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
-Tested-by: Neil Armstrong <narmstrong@baylibre.com>
-Reviewed-by: Neil Armstrong <narmstrong@baylibre.com>
-Tested-by: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
-Acked-by: Hans Verkuil <hans.verkuil@cisco.com>
-Signed-off-by: Archit Taneja <architt@codeaurora.org>
-Link: https://patchwork.freedesktop.org/patch/msgid/E1dcBhV-00088e-8x@rmk-PC.armlinux.org.uk
-(cherry picked from commit e84b8d75ac116e67ac3bdb23cafbd03430aa50b9)
----
- drivers/gpu/drm/bridge/Kconfig   |  1 +
- drivers/gpu/drm/bridge/dw-hdmi.c | 18 ++++++++++++++++++
- 2 files changed, 19 insertions(+)
-
-diff --git a/drivers/gpu/drm/bridge/Kconfig b/drivers/gpu/drm/bridge/Kconfig
-index df2dcc157f5a..0af0da74dde9 100644
---- a/drivers/gpu/drm/bridge/Kconfig
-+++ b/drivers/gpu/drm/bridge/Kconfig
-@@ -10,6 +10,7 @@ menu "Display Interface Bridges"
- config DRM_DW_HDMI
- 	tristate
- 	select DRM_KMS_HELPER
-+	select CEC_CORE if CEC_NOTIFIER
- 
- config DRM_DW_HDMI_AHB_AUDIO
- 	tristate "Synopsis Designware AHB Audio interface"
-diff --git a/drivers/gpu/drm/bridge/dw-hdmi.c b/drivers/gpu/drm/bridge/dw-hdmi.c
-index ceeb56d53b93..9753d2c98d42 100644
---- a/drivers/gpu/drm/bridge/dw-hdmi.c
-+++ b/drivers/gpu/drm/bridge/dw-hdmi.c
-@@ -42,6 +42,8 @@
- #include "dw-hdmi-audio.h"
- #include "dw-hdmi-hdcp.h"
- 
-+#include <media/cec-notifier.h>
-+
- #define HDMI_EDID_LEN		512
- #define DDC_SEGMENT_ADDR       0x30
- 
-@@ -260,6 +262,8 @@ struct dw_hdmi {
- 	u8 (*read)(struct dw_hdmi *hdmi, int offset);
- 	void (*enable_audio)(struct dw_hdmi *hdmi);
- 	void (*disable_audio)(struct dw_hdmi *hdmi);
-+
-+	struct cec_notifier *cec_notifier;
- };
- 
- #define HDMI_IH_PHY_STAT0_RX_SENSE \
-@@ -2501,6 +2505,7 @@ static int dw_hdmi_connector_get_modes(struct drm_connector *connector)
- 		hdmi->sink_is_hdmi = drm_detect_hdmi_monitor(edid);
- 		hdmi->sink_has_audio = drm_detect_monitor_audio(edid);
- 		drm_mode_connector_update_edid_property(connector, edid);
-+		cec_notifier_set_phys_addr_from_edid(hdmi->cec_notifier, edid);
- 		ret = drm_add_edid_modes(connector, edid);
- 		/* Store the ELD */
- 		drm_edid_to_eld(connector, edid);
-@@ -2814,6 +2819,10 @@ static irqreturn_t dw_hdmi_irq(int irq, void *dev_id)
- 			dw_hdmi_update_phy_mask(hdmi);
- 		}
- 		mutex_unlock(&hdmi->mutex);
-+
-+		if ((phy_stat & (HDMI_PHY_RX_SENSE | HDMI_PHY_HPD)) == 0)
-+			cec_notifier_set_phys_addr(hdmi->cec_notifier,
-+						   CEC_PHYS_ADDR_INVALID);
- 	}
- 
- 	check_hdmi_irq(hdmi, intr_stat, phy_int_pol);
-@@ -3446,6 +3455,12 @@ int dw_hdmi_bind(struct device *dev, struct device *master,
- 	if (ret)
- 		goto err_iahb;
- 
-+	hdmi->cec_notifier = cec_notifier_get(dev);
-+	if (!hdmi->cec_notifier) {
-+		ret = -ENOMEM;
-+		goto err_iahb;
-+	}
-+
- 	/*
- 	 * To prevent overflows in HDMI_IH_FC_STAT2, set the clk regenerator
- 	 * N and cts values before enabling phy
-@@ -3541,6 +3556,9 @@ err_iahb:
- 	if (hdmi->i2c)
- 		i2c_del_adapter(&hdmi->i2c->adap);
- 
-+	if (hdmi->cec_notifier)
-+		cec_notifier_put(hdmi->cec_notifier);
-+
- 	clk_disable_unprepare(hdmi->iahb_clk);
- err_isfr:
- 	clk_disable_unprepare(hdmi->isfr_clk);
-
-From c2decf44372cebbdbf11cc4d2f81103c15b00cdb Mon Sep 17 00:00:00 2001
-From: Russell King <rmk+kernel@armlinux.org.uk>
-Date: Mon, 31 Jul 2017 15:29:46 +0100
-Subject: [PATCH 05/11] UPSTREAM: drm/bridge: dw-hdmi: add better clock disable
- control
-
-The video setup path aways sets the clock disable register to a specific
-value, which has the effect of disabling the CEC engine.  When we add the
-CEC driver, this becomes a problem.
-
-Fix this by only setting/clearing the bits that the video path needs to.
-
-Reviewed-by: Jose Abreu <joabreu@synopsys.com>
-Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
-Tested-by: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
-Acked-by: Hans Verkuil <hans.verkuil@cisco.com>
-Signed-off-by: Archit Taneja <architt@codeaurora.org>
-Link: https://patchwork.freedesktop.org/patch/msgid/E1dcBha-00088l-DE@rmk-PC.armlinux.org.uk
-(cherry picked from commit 7cc4ab225ae30bd9ec9239e7dba5b2937f526ccc)
----
- drivers/gpu/drm/bridge/dw-hdmi.c | 33 ++++++++++++++++++++-------------
- 1 file changed, 20 insertions(+), 13 deletions(-)
-
-diff --git a/drivers/gpu/drm/bridge/dw-hdmi.c b/drivers/gpu/drm/bridge/dw-hdmi.c
-index 9753d2c98d42..df1efaef9cc6 100644
---- a/drivers/gpu/drm/bridge/dw-hdmi.c
-+++ b/drivers/gpu/drm/bridge/dw-hdmi.c
-@@ -244,6 +244,7 @@ struct dw_hdmi {
- 	bool bridge_is_on;		/* indicates the bridge is on */
- 	bool rxsense;			/* rxsense state */
- 	u8 phy_mask;			/* desired phy int mask settings */
-+	u8 mc_clkdis;			/* clock disable register */
- 
- 	spinlock_t audio_lock;
- 	struct mutex audio_mutex;
-@@ -805,8 +806,11 @@ EXPORT_SYMBOL_GPL(dw_hdmi_set_sample_rate);
- 
- static void hdmi_enable_audio_clk(struct dw_hdmi *hdmi, bool enable)
- {
--	hdmi_modb(hdmi, enable ? 0 : HDMI_MC_CLKDIS_AUDCLK_DISABLE,
--		  HDMI_MC_CLKDIS_AUDCLK_DISABLE, HDMI_MC_CLKDIS);
-+	if (enable)
-+		hdmi->mc_clkdis &= ~HDMI_MC_CLKDIS_AUDCLK_DISABLE;
-+	else
-+		hdmi->mc_clkdis |= HDMI_MC_CLKDIS_AUDCLK_DISABLE;
-+	hdmi_writeb(hdmi, hdmi->mc_clkdis, HDMI_MC_CLKDIS);
- }
- 
- static void dw_hdmi_ahb_audio_enable(struct dw_hdmi *hdmi)
-@@ -2092,8 +2096,6 @@ static void hdmi_av_composer(struct dw_hdmi *hdmi,
- /* HDMI Initialization Step B.4 */
- static void dw_hdmi_enable_video_path(struct dw_hdmi *hdmi)
- {
--	u8 clkdis;
--
- 	/* control period minimum duration */
- 	hdmi_writeb(hdmi, 12, HDMI_FC_CTRLDUR);
- 	hdmi_writeb(hdmi, 32, HDMI_FC_EXCTRLDUR);
-@@ -2105,23 +2107,27 @@ static void dw_hdmi_enable_video_path(struct dw_hdmi *hdmi)
- 	hdmi_writeb(hdmi, 0x21, HDMI_FC_CH2PREAM);
- 
- 	/* Enable pixel clock and tmds data path */
--	clkdis = 0x7F;
--	clkdis &= ~HDMI_MC_CLKDIS_PIXELCLK_DISABLE;
--	hdmi_writeb(hdmi, clkdis, HDMI_MC_CLKDIS);
-+	hdmi->mc_clkdis |= HDMI_MC_CLKDIS_HDCPCLK_DISABLE |
-+			   HDMI_MC_CLKDIS_CSCCLK_DISABLE |
-+			   HDMI_MC_CLKDIS_AUDCLK_DISABLE |
-+			   HDMI_MC_CLKDIS_PREPCLK_DISABLE |
-+			   HDMI_MC_CLKDIS_TMDSCLK_DISABLE;
-+	hdmi->mc_clkdis &= ~HDMI_MC_CLKDIS_PIXELCLK_DISABLE;
-+	hdmi_writeb(hdmi, hdmi->mc_clkdis, HDMI_MC_CLKDIS);
- 
--	clkdis &= ~HDMI_MC_CLKDIS_TMDSCLK_DISABLE;
--	hdmi_writeb(hdmi, clkdis, HDMI_MC_CLKDIS);
-+	hdmi->mc_clkdis &= ~HDMI_MC_CLKDIS_TMDSCLK_DISABLE;
-+	hdmi_writeb(hdmi, hdmi->mc_clkdis, HDMI_MC_CLKDIS);
- 
- 	/* Enable csc path */
- 	if (is_color_space_conversion(hdmi)) {
--		clkdis &= ~HDMI_MC_CLKDIS_CSCCLK_DISABLE;
--		hdmi_writeb(hdmi, clkdis, HDMI_MC_CLKDIS);
-+		hdmi->mc_clkdis &= ~HDMI_MC_CLKDIS_CSCCLK_DISABLE;
-+		hdmi_writeb(hdmi, hdmi->mc_clkdis, HDMI_MC_CLKDIS);
- 	}
- 
- 	/* Enable pixel repetition path */
- 	if (hdmi->hdmi_data.video_mode.mpixelrepetitioninput) {
--		clkdis &= ~HDMI_MC_CLKDIS_PREPCLK_DISABLE;
--		hdmi_writeb(hdmi, clkdis, HDMI_MC_CLKDIS);
-+		hdmi->mc_clkdis &= ~HDMI_MC_CLKDIS_PREPCLK_DISABLE;
-+		hdmi_writeb(hdmi, hdmi->mc_clkdis, HDMI_MC_CLKDIS);
- 	}
- 
- 	/* Enable color space conversion if needed */
-@@ -3342,6 +3348,7 @@ int dw_hdmi_bind(struct device *dev, struct device *master,
- 	hdmi->rxsense = true;
- 	hdmi->phy_mask = (u8)~(HDMI_PHY_HPD | HDMI_PHY_RX_SENSE);
- 	hdmi->irq = irq;
-+	hdmi->mc_clkdis = 0x7f;
- 
- 	mutex_init(&hdmi->mutex);
- 	mutex_init(&hdmi->audio_mutex);
-
-From 0f2974ec0684fa2ebe2c06eb75ef80caaa40f67c Mon Sep 17 00:00:00 2001
-From: Hans Verkuil <hverkuil@xs4all.nl>
-Date: Mon, 7 Aug 2017 09:20:35 +0200
-Subject: [PATCH 06/11] UPSTREAM: drm/bridge: dw-hdmi: add missing
- cec_notifier_put
-
-The __dw_hdmi_remove() function was missing a call to cec_notifier_put
-to balance the cec_notifier_get in the probe function.
-
-Signed-off-by: Hans Verkuil <hans.verkuil@cisco.com>
-Signed-off-by: Archit Taneja <architt@codeaurora.org>
-Link: https://patchwork.freedesktop.org/patch/msgid/a7688d13-2d61-ed16-f2df-28cbb5007f38@xs4all.nl
-(cherry picked from commit e383bf85d32b5953f34fa0e3d619886ec49413b1)
----
- drivers/gpu/drm/bridge/dw-hdmi.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/drivers/gpu/drm/bridge/dw-hdmi.c b/drivers/gpu/drm/bridge/dw-hdmi.c
-index df1efaef9cc6..ce3a2b6233b2 100644
---- a/drivers/gpu/drm/bridge/dw-hdmi.c
-+++ b/drivers/gpu/drm/bridge/dw-hdmi.c
-@@ -3596,6 +3596,9 @@ void dw_hdmi_unbind(struct device *dev, struct device *master, void *data)
- 	/* Disable all interrupts */
- 	hdmi_writeb(hdmi, ~0, HDMI_IH_MUTE_PHY_STAT0);
- 
-+	if (hdmi->cec_notifier)
-+		cec_notifier_put(hdmi->cec_notifier);
-+
- #ifdef CONFIG_SWITCH
- 	switch_dev_unregister(&hdmi->switchdev);
- #endif
-
-From f683587f668f3e6cff8047a8131a60db915d64c8 Mon Sep 17 00:00:00 2001
-From: Russell King <rmk+kernel@armlinux.org.uk>
-Date: Wed, 2 Aug 2017 20:41:07 +0200
-Subject: [PATCH 07/11] UPSTREAM: drm/bridge: dw-hdmi: add cec driver
-
-Add a CEC driver for the dw-hdmi hardware.
-
-Reviewed-by: Neil Armstrong <narmstrong@baylibre.com>
-Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
-[hans.verkuil: unsigned -> unsigned int]
-[hans.verkuil: cec_transmit_done -> cec_transmit_attempt_done]
-[hans.verkuil: add missing CEC_CAP_PASSTHROUGH]
-Acked-by: Hans Verkuil <hans.verkuil@cisco.com>
-Tested-by: Hans Verkuil <hans.verkuil@cisco.com>
-Tested-by: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
-Signed-off-by: Archit Taneja <architt@codeaurora.org>
-Link: https://patchwork.freedesktop.org/patch/msgid/20170802184108.7913-4-hverkuil@xs4all.nl
-(cherry picked from commit a616e63c56ef35365b781f08c7d437840f56940f)
----
- drivers/gpu/drm/bridge/Kconfig       |   9 +
- drivers/gpu/drm/bridge/Makefile      |   1 +
- drivers/gpu/drm/bridge/dw-hdmi-cec.c | 327 +++++++++++++++++++++++++++++++++++
- drivers/gpu/drm/bridge/dw-hdmi-cec.h |  19 ++
- drivers/gpu/drm/bridge/dw-hdmi.c     |  42 ++++-
- drivers/gpu/drm/bridge/dw-hdmi.h     |   1 +
- 6 files changed, 398 insertions(+), 1 deletion(-)
- create mode 100644 drivers/gpu/drm/bridge/dw-hdmi-cec.c
- create mode 100644 drivers/gpu/drm/bridge/dw-hdmi-cec.h
-
-diff --git a/drivers/gpu/drm/bridge/Kconfig b/drivers/gpu/drm/bridge/Kconfig
-index 0af0da74dde9..dc2f6c157ea3 100644
---- a/drivers/gpu/drm/bridge/Kconfig
-+++ b/drivers/gpu/drm/bridge/Kconfig
-@@ -31,6 +31,15 @@ config DRM_DW_HDMI_I2S_AUDIO
- 	  Support the I2S Audio interface which is part of the Synopsis
- 	  Designware HDMI block.
- 
-+config DRM_DW_HDMI_CEC
-+	tristate "Synopsis Designware CEC interface"
-+	depends on DRM_DW_HDMI
-+	select CEC_CORE
-+	select CEC_NOTIFIER
-+	help
-+	  Support the CE interface which is part of the Synopsys
-+	  Designware HDMI block.
-+
- config DRM_NXP_PTN3460
- 	tristate "NXP PTN3460 DP/LVDS bridge"
- 	depends on OF
-diff --git a/drivers/gpu/drm/bridge/Makefile b/drivers/gpu/drm/bridge/Makefile
-index e582bbbb808b..80f162935fef 100644
---- a/drivers/gpu/drm/bridge/Makefile
-+++ b/drivers/gpu/drm/bridge/Makefile
-@@ -3,6 +3,7 @@ ccflags-y := -Iinclude/drm
- obj-$(CONFIG_DRM_DW_HDMI) += dw-hdmi.o dw-hdmi-hdcp.o
- obj-$(CONFIG_DRM_DW_HDMI_AHB_AUDIO) += dw-hdmi-ahb-audio.o
- obj-$(CONFIG_DRM_DW_HDMI_I2S_AUDIO) += dw-hdmi-i2s-audio.o
-+obj-$(CONFIG_DRM_DW_HDMI_CEC) += dw-hdmi-cec.o
- obj-$(CONFIG_DRM_NXP_PTN3460) += nxp-ptn3460.o
- obj-$(CONFIG_DRM_PARADE_PS8622) += parade-ps8622.o
- obj-$(CONFIG_DRM_ANALOGIX_DP) += analogix/
-diff --git a/drivers/gpu/drm/bridge/dw-hdmi-cec.c b/drivers/gpu/drm/bridge/dw-hdmi-cec.c
-new file mode 100644
-index 000000000000..6c323510f128
---- /dev/null
-+++ b/drivers/gpu/drm/bridge/dw-hdmi-cec.c
-@@ -0,0 +1,327 @@
-+/*
-+ * Designware HDMI CEC driver
-+ *
-+ * Copyright (C) 2015-2017 Russell King.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+#include <linux/interrupt.h>
-+#include <linux/io.h>
-+#include <linux/module.h>
-+#include <linux/platform_device.h>
-+#include <linux/sched.h>
-+#include <linux/slab.h>
-+
-+#include <drm/drm_edid.h>
-+
-+#include <media/cec.h>
-+#include <media/cec-notifier.h>
-+
-+#include "dw-hdmi-cec.h"
-+
-+enum {
-+	HDMI_IH_CEC_STAT0	= 0x0106,
-+	HDMI_IH_MUTE_CEC_STAT0	= 0x0186,
-+
-+	HDMI_CEC_CTRL		= 0x7d00,
-+	CEC_CTRL_START		= BIT(0),
-+	CEC_CTRL_FRAME_TYP	= 3 << 1,
-+	CEC_CTRL_RETRY		= 0 << 1,
-+	CEC_CTRL_NORMAL		= 1 << 1,
-+	CEC_CTRL_IMMED		= 2 << 1,
-+
-+	HDMI_CEC_STAT		= 0x7d01,
-+	CEC_STAT_DONE		= BIT(0),
-+	CEC_STAT_EOM		= BIT(1),
-+	CEC_STAT_NACK		= BIT(2),
-+	CEC_STAT_ARBLOST	= BIT(3),
-+	CEC_STAT_ERROR_INIT	= BIT(4),
-+	CEC_STAT_ERROR_FOLL	= BIT(5),
-+	CEC_STAT_WAKEUP		= BIT(6),
-+
-+	HDMI_CEC_MASK		= 0x7d02,
-+	HDMI_CEC_POLARITY	= 0x7d03,
-+	HDMI_CEC_INT		= 0x7d04,
-+	HDMI_CEC_ADDR_L		= 0x7d05,
-+	HDMI_CEC_ADDR_H		= 0x7d06,
-+	HDMI_CEC_TX_CNT		= 0x7d07,
-+	HDMI_CEC_RX_CNT		= 0x7d08,
-+	HDMI_CEC_TX_DATA0	= 0x7d10,
-+	HDMI_CEC_RX_DATA0	= 0x7d20,
-+	HDMI_CEC_LOCK		= 0x7d30,
-+	HDMI_CEC_WKUPCTRL	= 0x7d31,
-+};
-+
-+struct dw_hdmi_cec {
-+	struct dw_hdmi *hdmi;
-+	const struct dw_hdmi_cec_ops *ops;
-+	u32 addresses;
-+	struct cec_adapter *adap;
-+	struct cec_msg rx_msg;
-+	unsigned int tx_status;
-+	bool tx_done;
-+	bool rx_done;
-+	struct cec_notifier *notify;
-+	int irq;
-+};
-+
-+static void dw_hdmi_write(struct dw_hdmi_cec *cec, u8 val, int offset)
-+{
-+	cec->ops->write(cec->hdmi, val, offset);
-+}
-+
-+static u8 dw_hdmi_read(struct dw_hdmi_cec *cec, int offset)
-+{
-+	return cec->ops->read(cec->hdmi, offset);
-+}
-+
-+static int dw_hdmi_cec_log_addr(struct cec_adapter *adap, u8 logical_addr)
-+{
-+	struct dw_hdmi_cec *cec = cec_get_drvdata(adap);
-+
-+	if (logical_addr == CEC_LOG_ADDR_INVALID)
-+		cec->addresses = 0;
-+	else
-+		cec->addresses |= BIT(logical_addr) | BIT(15);
-+
-+	dw_hdmi_write(cec, cec->addresses & 255, HDMI_CEC_ADDR_L);
-+	dw_hdmi_write(cec, cec->addresses >> 8, HDMI_CEC_ADDR_H);
-+
-+	return 0;
-+}
-+
-+static int dw_hdmi_cec_transmit(struct cec_adapter *adap, u8 attempts,
-+				u32 signal_free_time, struct cec_msg *msg)
-+{
-+	struct dw_hdmi_cec *cec = cec_get_drvdata(adap);
-+	unsigned int i, ctrl;
-+
-+	switch (signal_free_time) {
-+	case CEC_SIGNAL_FREE_TIME_RETRY:
-+		ctrl = CEC_CTRL_RETRY;
-+		break;
-+	case CEC_SIGNAL_FREE_TIME_NEW_INITIATOR:
-+	default:
-+		ctrl = CEC_CTRL_NORMAL;
-+		break;
-+	case CEC_SIGNAL_FREE_TIME_NEXT_XFER:
-+		ctrl = CEC_CTRL_IMMED;
-+		break;
-+	}
-+
-+	for (i = 0; i < msg->len; i++)
-+		dw_hdmi_write(cec, msg->msg[i], HDMI_CEC_TX_DATA0 + i);
-+
-+	dw_hdmi_write(cec, msg->len, HDMI_CEC_TX_CNT);
-+	dw_hdmi_write(cec, ctrl | CEC_CTRL_START, HDMI_CEC_CTRL);
-+
-+	return 0;
-+}
-+
-+static irqreturn_t dw_hdmi_cec_hardirq(int irq, void *data)
-+{
-+	struct cec_adapter *adap = data;
-+	struct dw_hdmi_cec *cec = cec_get_drvdata(adap);
-+	unsigned int stat = dw_hdmi_read(cec, HDMI_IH_CEC_STAT0);
-+	irqreturn_t ret = IRQ_HANDLED;
-+
-+	if (stat == 0)
-+		return IRQ_NONE;
-+
-+	dw_hdmi_write(cec, stat, HDMI_IH_CEC_STAT0);
-+
-+	if (stat & CEC_STAT_ERROR_INIT) {
-+		cec->tx_status = CEC_TX_STATUS_ERROR;
-+		cec->tx_done = true;
-+		ret = IRQ_WAKE_THREAD;
-+	} else if (stat & CEC_STAT_DONE) {
-+		cec->tx_status = CEC_TX_STATUS_OK;
-+		cec->tx_done = true;
-+		ret = IRQ_WAKE_THREAD;
-+	} else if (stat & CEC_STAT_NACK) {
-+		cec->tx_status = CEC_TX_STATUS_NACK;
-+		cec->tx_done = true;
-+		ret = IRQ_WAKE_THREAD;
-+	}
-+
-+	if (stat & CEC_STAT_EOM) {
-+		unsigned int len, i;
-+
-+		len = dw_hdmi_read(cec, HDMI_CEC_RX_CNT);
-+		if (len > sizeof(cec->rx_msg.msg))
-+			len = sizeof(cec->rx_msg.msg);
-+
-+		for (i = 0; i < len; i++)
-+			cec->rx_msg.msg[i] =
-+				dw_hdmi_read(cec, HDMI_CEC_RX_DATA0 + i);
-+
-+		dw_hdmi_write(cec, 0, HDMI_CEC_LOCK);
-+
-+		cec->rx_msg.len = len;
-+		smp_wmb();
-+		cec->rx_done = true;
-+
-+		ret = IRQ_WAKE_THREAD;
-+	}
-+
-+	return ret;
-+}
-+
-+static irqreturn_t dw_hdmi_cec_thread(int irq, void *data)
-+{
-+	struct cec_adapter *adap = data;
-+	struct dw_hdmi_cec *cec = cec_get_drvdata(adap);
-+
-+	if (cec->tx_done) {
-+		cec->tx_done = false;
-+		cec_transmit_attempt_done(adap, cec->tx_status);
-+	}
-+	if (cec->rx_done) {
-+		cec->rx_done = false;
-+		smp_rmb();
-+		cec_received_msg(adap, &cec->rx_msg);
-+	}
-+	return IRQ_HANDLED;
-+}
-+
-+static int dw_hdmi_cec_enable(struct cec_adapter *adap, bool enable)
-+{
-+	struct dw_hdmi_cec *cec = cec_get_drvdata(adap);
-+
-+	if (!enable) {
-+		dw_hdmi_write(cec, ~0, HDMI_CEC_MASK);
-+		dw_hdmi_write(cec, ~0, HDMI_IH_MUTE_CEC_STAT0);
-+		dw_hdmi_write(cec, 0, HDMI_CEC_POLARITY);
-+
-+		cec->ops->disable(cec->hdmi);
-+	} else {
-+		unsigned int irqs;
-+
-+		dw_hdmi_write(cec, 0, HDMI_CEC_CTRL);
-+		dw_hdmi_write(cec, ~0, HDMI_IH_CEC_STAT0);
-+		dw_hdmi_write(cec, 0, HDMI_CEC_LOCK);
-+
-+		dw_hdmi_cec_log_addr(cec->adap, CEC_LOG_ADDR_INVALID);
-+
-+		cec->ops->enable(cec->hdmi);
-+
-+		irqs = CEC_STAT_ERROR_INIT | CEC_STAT_NACK | CEC_STAT_EOM |
-+		       CEC_STAT_DONE;
-+		dw_hdmi_write(cec, irqs, HDMI_CEC_POLARITY);
-+		dw_hdmi_write(cec, ~irqs, HDMI_CEC_MASK);
-+		dw_hdmi_write(cec, ~irqs, HDMI_IH_MUTE_CEC_STAT0);
-+	}
-+	return 0;
-+}
-+
-+static const struct cec_adap_ops dw_hdmi_cec_ops = {
-+	.adap_enable = dw_hdmi_cec_enable,
-+	.adap_log_addr = dw_hdmi_cec_log_addr,
-+	.adap_transmit = dw_hdmi_cec_transmit,
-+};
-+
-+static void dw_hdmi_cec_del(void *data)
-+{
-+	struct dw_hdmi_cec *cec = data;
-+
-+	cec_delete_adapter(cec->adap);
-+}
-+
-+static int dw_hdmi_cec_probe(struct platform_device *pdev)
-+{
-+	struct dw_hdmi_cec_data *data = dev_get_platdata(&pdev->dev);
-+	struct dw_hdmi_cec *cec;
-+	int ret;
-+
-+	if (!data)
-+		return -ENXIO;
-+
-+	/*
-+	 * Our device is just a convenience - we want to link to the real
-+	 * hardware device here, so that userspace can see the association
-+	 * between the HDMI hardware and its associated CEC chardev.
-+	 */
-+	cec = devm_kzalloc(&pdev->dev, sizeof(*cec), GFP_KERNEL);
-+	if (!cec)
-+		return -ENOMEM;
-+
-+	cec->irq = data->irq;
-+	cec->ops = data->ops;
-+	cec->hdmi = data->hdmi;
-+
-+	platform_set_drvdata(pdev, cec);
-+
-+	dw_hdmi_write(cec, 0, HDMI_CEC_TX_CNT);
-+	dw_hdmi_write(cec, ~0, HDMI_CEC_MASK);
-+	dw_hdmi_write(cec, ~0, HDMI_IH_MUTE_CEC_STAT0);
-+	dw_hdmi_write(cec, 0, HDMI_CEC_POLARITY);
-+
-+	cec->adap = cec_allocate_adapter(&dw_hdmi_cec_ops, cec, "dw_hdmi",
-+					 CEC_CAP_LOG_ADDRS | CEC_CAP_TRANSMIT |
-+					 CEC_CAP_RC | CEC_CAP_PASSTHROUGH,
-+					 CEC_MAX_LOG_ADDRS);
-+	if (IS_ERR(cec->adap))
-+		return PTR_ERR(cec->adap);
-+
-+	/* override the module pointer */
-+	cec->adap->owner = THIS_MODULE;
-+
-+	ret = devm_add_action(&pdev->dev, dw_hdmi_cec_del, cec);
-+	if (ret) {
-+		cec_delete_adapter(cec->adap);
-+		return ret;
-+	}
-+
-+	ret = devm_request_threaded_irq(&pdev->dev, cec->irq,
-+					dw_hdmi_cec_hardirq,
-+					dw_hdmi_cec_thread, IRQF_SHARED,
-+					"dw-hdmi-cec", cec->adap);
-+	if (ret < 0)
-+		return ret;
-+
-+	cec->notify = cec_notifier_get(pdev->dev.parent);
-+	if (!cec->notify)
-+		return -ENOMEM;
-+
-+	ret = cec_register_adapter(cec->adap, pdev->dev.parent);
-+	if (ret < 0) {
-+		cec_notifier_put(cec->notify);
-+		return ret;
-+	}
-+
-+	/*
-+	 * CEC documentation says we must not call cec_delete_adapter
-+	 * after a successful call to cec_register_adapter().
-+	 */
-+	devm_remove_action(&pdev->dev, dw_hdmi_cec_del, cec);
-+
-+	cec_register_cec_notifier(cec->adap, cec->notify);
-+
-+	return 0;
-+}
-+
-+static int dw_hdmi_cec_remove(struct platform_device *pdev)
-+{
-+	struct dw_hdmi_cec *cec = platform_get_drvdata(pdev);
-+
-+	cec_unregister_adapter(cec->adap);
-+	cec_notifier_put(cec->notify);
-+
-+	return 0;
-+}
-+
-+static struct platform_driver dw_hdmi_cec_driver = {
-+	.probe	= dw_hdmi_cec_probe,
-+	.remove	= dw_hdmi_cec_remove,
-+	.driver = {
-+		.name = "dw-hdmi-cec",
-+	},
-+};
-+module_platform_driver(dw_hdmi_cec_driver);
-+
-+MODULE_AUTHOR("Russell King <rmk+kernel@armlinux.org.uk>");
-+MODULE_DESCRIPTION("Synopsys Designware HDMI CEC driver for i.MX");
-+MODULE_LICENSE("GPL");
-+MODULE_ALIAS(PLATFORM_MODULE_PREFIX "dw-hdmi-cec");
-diff --git a/drivers/gpu/drm/bridge/dw-hdmi-cec.h b/drivers/gpu/drm/bridge/dw-hdmi-cec.h
-new file mode 100644
-index 000000000000..cf4dc121a2c4
---- /dev/null
-+++ b/drivers/gpu/drm/bridge/dw-hdmi-cec.h
-@@ -0,0 +1,19 @@
-+#ifndef DW_HDMI_CEC_H
-+#define DW_HDMI_CEC_H
-+
-+struct dw_hdmi;
-+
-+struct dw_hdmi_cec_ops {
-+	void (*write)(struct dw_hdmi *hdmi, u8 val, int offset);
-+	u8 (*read)(struct dw_hdmi *hdmi, int offset);
-+	void (*enable)(struct dw_hdmi *hdmi);
-+	void (*disable)(struct dw_hdmi *hdmi);
-+};
-+
-+struct dw_hdmi_cec_data {
-+	struct dw_hdmi *hdmi;
-+	const struct dw_hdmi_cec_ops *ops;
-+	int irq;
-+};
-+
-+#endif
-diff --git a/drivers/gpu/drm/bridge/dw-hdmi.c b/drivers/gpu/drm/bridge/dw-hdmi.c
-index ce3a2b6233b2..ed37b187b252 100644
---- a/drivers/gpu/drm/bridge/dw-hdmi.c
-+++ b/drivers/gpu/drm/bridge/dw-hdmi.c
-@@ -41,6 +41,7 @@
- #include "dw-hdmi.h"
- #include "dw-hdmi-audio.h"
- #include "dw-hdmi-hdcp.h"
-+#include "dw-hdmi-cec.h"
- 
- #include <media/cec-notifier.h>
- 
-@@ -206,6 +207,7 @@ struct dw_hdmi {
- 	unsigned int version;
- 
- 	struct platform_device *audio;
-+	struct platform_device *cec;
- 	struct device *dev;
- 	struct clk *isfr_clk;
- 	struct clk *iahb_clk;
-@@ -2346,7 +2348,6 @@ static void initialize_hdmi_ih_mutes(struct dw_hdmi *hdmi)
- 	hdmi_writeb(hdmi, 0xff, HDMI_AUD_HBR_MASK);
- 	hdmi_writeb(hdmi, 0xff, HDMI_GP_MASK);
- 	hdmi_writeb(hdmi, 0xff, HDMI_A_APIINTMSK);
--	hdmi_writeb(hdmi, 0xff, HDMI_CEC_MASK);
- 	hdmi_writeb(hdmi, 0xff, HDMI_I2CM_INT);
- 	hdmi_writeb(hdmi, 0xff, HDMI_I2CM_CTLINT);
- 
-@@ -2957,6 +2958,29 @@ static void dw_hdmi_destroy_properties(struct dw_hdmi *hdmi)
- 					       hdmi->plat_data->phy_data);
- }
- 
-+static void dw_hdmi_cec_enable(struct dw_hdmi *hdmi)
-+{
-+	mutex_lock(&hdmi->mutex);
-+	hdmi->mc_clkdis &= ~HDMI_MC_CLKDIS_CECCLK_DISABLE;
-+	hdmi_writeb(hdmi, hdmi->mc_clkdis, HDMI_MC_CLKDIS);
-+	mutex_unlock(&hdmi->mutex);
-+}
-+
-+static void dw_hdmi_cec_disable(struct dw_hdmi *hdmi)
-+{
-+	mutex_lock(&hdmi->mutex);
-+	hdmi->mc_clkdis |= HDMI_MC_CLKDIS_CECCLK_DISABLE;
-+	hdmi_writeb(hdmi, hdmi->mc_clkdis, HDMI_MC_CLKDIS);
-+	mutex_unlock(&hdmi->mutex);
-+}
-+
-+static const struct dw_hdmi_cec_ops dw_hdmi_cec_ops = {
-+	.write = hdmi_writeb,
-+	.read = hdmi_readb,
-+	.enable = dw_hdmi_cec_enable,
-+	.disable = dw_hdmi_cec_disable,
-+};
-+
- static int dw_hdmi_register(struct drm_device *drm, struct dw_hdmi *hdmi)
- {
- 	struct drm_encoder *encoder = hdmi->encoder;
-@@ -3323,6 +3347,7 @@ int dw_hdmi_bind(struct device *dev, struct device *master,
- 	struct device_node *np = dev->of_node;
- 	struct platform_device_info pdevinfo;
- 	struct device_node *ddc_node;
-+	struct dw_hdmi_cec_data cec;
- 	struct dw_hdmi *hdmi;
- 	int ret;
- 	u8 prod_id0;
-@@ -3549,6 +3574,19 @@ int dw_hdmi_bind(struct device *dev, struct device *master,
- 		hdmi->audio = platform_device_register_full(&pdevinfo);
- 	}
- 
-+	if (config0 & HDMI_CONFIG0_CEC) {
-+		cec.hdmi = hdmi;
-+		cec.ops = &dw_hdmi_cec_ops;
-+		cec.irq = irq;
-+
-+		pdevinfo.name = "dw-hdmi-cec";
-+		pdevinfo.data = &cec;
-+		pdevinfo.size_data = sizeof(cec);
-+		pdevinfo.dma_mask = 0;
-+
-+		hdmi->cec = platform_device_register_full(&pdevinfo);
-+	}
-+
- 	dev_set_drvdata(dev, hdmi);
- 
- 	dw_hdmi_register_debugfs(dev, hdmi);
-@@ -3589,6 +3627,8 @@ void dw_hdmi_unbind(struct device *dev, struct device *master, void *data)
- 
- 	if (hdmi->audio && !IS_ERR(hdmi->audio))
- 		platform_device_unregister(hdmi->audio);
-+	if (!IS_ERR(hdmi->cec))
-+		platform_device_unregister(hdmi->cec);
- 
- 	if (hdmi->hdcp_dev && !IS_ERR(hdmi->hdcp_dev))
- 		platform_device_unregister(hdmi->hdcp_dev);
-diff --git a/drivers/gpu/drm/bridge/dw-hdmi.h b/drivers/gpu/drm/bridge/dw-hdmi.h
-index 8a6e525d498b..c2e738cedfb0 100644
---- a/drivers/gpu/drm/bridge/dw-hdmi.h
-+++ b/drivers/gpu/drm/bridge/dw-hdmi.h
-@@ -598,6 +598,7 @@ enum {
- 
- /* CONFIG0_ID field values */
- 	HDMI_CONFIG0_I2S = 0x10,
-+	HDMI_CONFIG0_CEC = 0x02,
- 
- /* CONFIG1_ID field values */
- 	HDMI_CONFIG1_AHB = 0x01,
-
-From 0836671a14221bc826cce1ee67411538327cce38 Mon Sep 17 00:00:00 2001
-From: Russell King <rmk+kernel@armlinux.org.uk>
-Date: Wed, 2 Aug 2017 20:41:08 +0200
-Subject: [PATCH 08/11] UPSTREAM: drm/bridge: dw-hdmi: remove CEC engine
- register definitions
-
-We don't need the CEC engine register definitions, so let's remove them.
-
-Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
-Acked-by: Hans Verkuil <hans.verkuil@cisco.com>
-Tested-by: Hans Verkuil <hans.verkuil@cisco.com>
-Tested-by: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
-Signed-off-by: Archit Taneja <architt@codeaurora.org>
-Link: https://patchwork.freedesktop.org/patch/msgid/20170802184108.7913-5-hverkuil@xs4all.nl
-(cherry picked from commit 2356c573ba0eca736ec156b82ca6a6b37b8fe609)
----
- drivers/gpu/drm/bridge/dw-hdmi.c |  2 +-
- drivers/gpu/drm/bridge/dw-hdmi.h | 45 ----------------------------------------
- 2 files changed, 1 insertion(+), 46 deletions(-)
-
-diff --git a/drivers/gpu/drm/bridge/dw-hdmi.c b/drivers/gpu/drm/bridge/dw-hdmi.c
-index ed37b187b252..c0dc215dda5b 100644
---- a/drivers/gpu/drm/bridge/dw-hdmi.c
-+++ b/drivers/gpu/drm/bridge/dw-hdmi.c
-@@ -3171,7 +3171,7 @@ static const struct dw_hdmi_reg_table hdmi_reg_table[] = {
- 	{HDMI_A_HDCPCFG0, 0x52bb},
- 	{0x7800, 0x7818},
- 	{0x7900, 0x790e},
--	{HDMI_CEC_CTRL, HDMI_CEC_WKUPCTRL},
-+	{0x7d00, 0x7d31},
- 	{HDMI_I2CM_SLAVE, 0x7e31},
- };
- 
-diff --git a/drivers/gpu/drm/bridge/dw-hdmi.h b/drivers/gpu/drm/bridge/dw-hdmi.h
-index c2e738cedfb0..a827f1dae656 100644
---- a/drivers/gpu/drm/bridge/dw-hdmi.h
-+++ b/drivers/gpu/drm/bridge/dw-hdmi.h
-@@ -520,51 +520,6 @@
- #define HDMI_A_PRESETUP                         0x501A
- #define HDMI_A_SRM_BASE                         0x5020
- 
--/* CEC Engine Registers */
--#define HDMI_CEC_CTRL                           0x7D00
--#define HDMI_CEC_STAT                           0x7D01
--#define HDMI_CEC_MASK                           0x7D02
--#define HDMI_CEC_POLARITY                       0x7D03
--#define HDMI_CEC_INT                            0x7D04
--#define HDMI_CEC_ADDR_L                         0x7D05
--#define HDMI_CEC_ADDR_H                         0x7D06
--#define HDMI_CEC_TX_CNT                         0x7D07
--#define HDMI_CEC_RX_CNT                         0x7D08
--#define HDMI_CEC_TX_DATA0                       0x7D10
--#define HDMI_CEC_TX_DATA1                       0x7D11
--#define HDMI_CEC_TX_DATA2                       0x7D12
--#define HDMI_CEC_TX_DATA3                       0x7D13
--#define HDMI_CEC_TX_DATA4                       0x7D14
--#define HDMI_CEC_TX_DATA5                       0x7D15
--#define HDMI_CEC_TX_DATA6                       0x7D16
--#define HDMI_CEC_TX_DATA7                       0x7D17
--#define HDMI_CEC_TX_DATA8                       0x7D18
--#define HDMI_CEC_TX_DATA9                       0x7D19
--#define HDMI_CEC_TX_DATA10                      0x7D1a
--#define HDMI_CEC_TX_DATA11                      0x7D1b
--#define HDMI_CEC_TX_DATA12                      0x7D1c
--#define HDMI_CEC_TX_DATA13                      0x7D1d
--#define HDMI_CEC_TX_DATA14                      0x7D1e
--#define HDMI_CEC_TX_DATA15                      0x7D1f
--#define HDMI_CEC_RX_DATA0                       0x7D20
--#define HDMI_CEC_RX_DATA1                       0x7D21
--#define HDMI_CEC_RX_DATA2                       0x7D22
--#define HDMI_CEC_RX_DATA3                       0x7D23
--#define HDMI_CEC_RX_DATA4                       0x7D24
--#define HDMI_CEC_RX_DATA5                       0x7D25
--#define HDMI_CEC_RX_DATA6                       0x7D26
--#define HDMI_CEC_RX_DATA7                       0x7D27
--#define HDMI_CEC_RX_DATA8                       0x7D28
--#define HDMI_CEC_RX_DATA9                       0x7D29
--#define HDMI_CEC_RX_DATA10                      0x7D2a
--#define HDMI_CEC_RX_DATA11                      0x7D2b
--#define HDMI_CEC_RX_DATA12                      0x7D2c
--#define HDMI_CEC_RX_DATA13                      0x7D2d
--#define HDMI_CEC_RX_DATA14                      0x7D2e
--#define HDMI_CEC_RX_DATA15                      0x7D2f
--#define HDMI_CEC_LOCK                           0x7D30
--#define HDMI_CEC_WKUPCTRL                       0x7D31
--
- /* I2C Master Registers (E-DDC) */
- #define HDMI_I2CM_SLAVE                         0x7E00
- #define HDMI_I2CM_ADDRESS                       0x7E01
-
-From 21d16ba7c8f982ad6a7431ac152b133c05d5867c Mon Sep 17 00:00:00 2001
-From: Jose Abreu <Jose.Abreu@synopsys.com>
-Date: Thu, 14 Sep 2017 11:23:38 -0400
-Subject: [PATCH 09/11] UPSTREAM: media: cec: Respond to unregistered
- initiators, when applicable
-
-commit 845d6524d69b40bd6abd61dc1264a8657159aa55 upstream.
-
-Running CEC 1.4 compliance test we get the following error on test
-11.1.6.2: "ERROR: The DUT did not broadcast a
-<Report Physical Address> message to the unregistered device."
-
-Fix this by letting GIVE_PHYSICAL_ADDR message respond to unregistered
-device. Also, GIVE_DEVICE_VENDOR_ID and GIVE_FEATURES fall in the
-same category so, respond also to these messages.
-
-With this fix we pass CEC 1.4 official compliance.
-
-Signed-off-by: Jose Abreu <joabreu@synopsys.com>
-Cc: Joao Pinto <jpinto@synopsys.com>
-Signed-off-by: Hans Verkuil <hans.verkuil@cisco.com>
-Signed-off-by: Mauro Carvalho Chehab <mchehab@s-opensource.com>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-
-(cherry picked from commit c2c3a6a57a9502ea57298a1b4e7d4dd7b73dd57a)
----
- drivers/media/cec/cec-adap.c | 13 ++++++++++---
- 1 file changed, 10 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/media/cec/cec-adap.c b/drivers/media/cec/cec-adap.c
-index d596b601ff42..8cfc5e84a129 100644
---- a/drivers/media/cec/cec-adap.c
-+++ b/drivers/media/cec/cec-adap.c
-@@ -1726,12 +1726,19 @@ static int cec_receive_notify(struct cec_adapter *adap, struct cec_msg *msg,
- 	 */
- 	switch (msg->msg[1]) {
- 	case CEC_MSG_GET_CEC_VERSION:
--	case CEC_MSG_GIVE_DEVICE_VENDOR_ID:
- 	case CEC_MSG_ABORT:
- 	case CEC_MSG_GIVE_DEVICE_POWER_STATUS:
--	case CEC_MSG_GIVE_PHYSICAL_ADDR:
- 	case CEC_MSG_GIVE_OSD_NAME:
-+		/*
-+		 * These messages reply with a directed message, so ignore if
-+		 * the initiator is Unregistered.
-+		 */
-+		if (!adap->passthrough && from_unregistered)
-+			return 0;
-+		/* Fall through */
-+	case CEC_MSG_GIVE_DEVICE_VENDOR_ID:
- 	case CEC_MSG_GIVE_FEATURES:
-+	case CEC_MSG_GIVE_PHYSICAL_ADDR:
- 		/*
- 		 * Skip processing these messages if the passthrough mode
- 		 * is on.
-@@ -1739,7 +1746,7 @@ static int cec_receive_notify(struct cec_adapter *adap, struct cec_msg *msg,
- 		if (adap->passthrough)
- 			goto skip_processing;
- 		/* Ignore if addressing is wrong */
--		if (is_broadcast || from_unregistered)
-+		if (is_broadcast)
- 			return 0;
- 		break;
- 
-
-From c65c5853208354eca05b05746a8701f0e8a775d6 Mon Sep 17 00:00:00 2001
+From 4ceffb68390fda7643be488544dc25e439bc164d Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Sat, 2 Sep 2017 16:23:11 +0200
-Subject: [PATCH 10/11] [media] rc/keymaps: initialize rc-cec early
+Subject: [PATCH] [media] rc/keymaps: initialize rc-cec early
 
 ---
  drivers/media/rc/keymaps/rc-cec.c | 2 +-
@@ -6395,20 +4450,20 @@ index 354c8e724b8e..fb0c2b1f3814 100644
  
  MODULE_LICENSE("GPL");
 
-From 98bbc76871bcb78b964aaf5bd70161d3e03ff8e5 Mon Sep 17 00:00:00 2001
+From 3365306ff585f94071383606546cd0f0000c1bb3 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Sat, 2 Sep 2017 16:23:11 +0200
-Subject: [PATCH 11/11] drm/bridge: dw-hdmi: read edid on hpd event
+Subject: [PATCH] drm/bridge: dw-hdmi: read edid on hpd event
 
 ---
- drivers/gpu/drm/bridge/dw-hdmi.c | 24 +++++++++++++++++++-----
- 1 file changed, 19 insertions(+), 5 deletions(-)
+ drivers/gpu/drm/bridge/synopsys/dw-hdmi.c | 23 +++++++++++++++++++----
+ 1 file changed, 19 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/gpu/drm/bridge/dw-hdmi.c b/drivers/gpu/drm/bridge/dw-hdmi.c
-index c0dc215dda5b..20b2fe6961fd 100644
---- a/drivers/gpu/drm/bridge/dw-hdmi.c
-+++ b/drivers/gpu/drm/bridge/dw-hdmi.c
-@@ -2478,6 +2478,7 @@ static void dw_hdmi_bridge_nop(struct drm_bridge *bridge)
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
+index a7f2e381a5bd..b98a1c828657 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
+@@ -2465,6 +2465,7 @@ static void dw_hdmi_bridge_nop(struct drm_bridge *bridge)
  static enum drm_connector_status
  dw_hdmi_connector_detect(struct drm_connector *connector, bool force)
  {
@@ -6416,7 +4471,7 @@ index c0dc215dda5b..20b2fe6961fd 100644
  	struct dw_hdmi *hdmi = container_of(connector, struct dw_hdmi,
  					     connector);
  
-@@ -2487,7 +2488,24 @@ dw_hdmi_connector_detect(struct drm_connector *connector, bool force)
+@@ -2474,7 +2475,24 @@ dw_hdmi_connector_detect(struct drm_connector *connector, bool force)
  	dw_hdmi_update_phy_mask(hdmi);
  	mutex_unlock(&hdmi->mutex);
  
@@ -6442,12 +4497,11 @@ index c0dc215dda5b..20b2fe6961fd 100644
  }
  
  static int dw_hdmi_connector_get_modes(struct drm_connector *connector)
-@@ -2826,10 +2844,6 @@ static irqreturn_t dw_hdmi_irq(int irq, void *dev_id)
+@@ -2867,9 +2885,6 @@ static irqreturn_t dw_hdmi_irq(int irq, void *dev_id)
  			dw_hdmi_update_phy_mask(hdmi);
  		}
  		mutex_unlock(&hdmi->mutex);
--
--		if ((phy_stat & (HDMI_PHY_RX_SENSE | HDMI_PHY_HPD)) == 0)
+-		if (!(phy_stat & (HDMI_PHY_RX_SENSE | HDMI_PHY_HPD)))
 -			cec_notifier_set_phys_addr(hdmi->cec_notifier,
 -						   CEC_PHYS_ADDR_INVALID);
  	}
