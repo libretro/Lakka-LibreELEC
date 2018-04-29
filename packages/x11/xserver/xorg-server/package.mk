@@ -156,13 +156,9 @@ post_makeinstall_target() {
   fi
 
   mkdir -p $INSTALL/etc/X11
-    find_file_path config/xorg.conf &&
+    if find_file_path config/xorg.conf ; then
       cp $FOUND_PATH $INSTALL/etc/X11
-
-  if [ ! "$DEVTOOLS" = yes ]; then
-    rm -rf $INSTALL/usr/bin/cvt
-    rm -rf $INSTALL/usr/bin/gtf
-  fi
+    fi
 }
 
 post_install() {

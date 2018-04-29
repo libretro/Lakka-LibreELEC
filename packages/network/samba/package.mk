@@ -97,10 +97,9 @@ PKG_CONFIGURE_OPTS="--prefix=/usr \
                     --with-syslog  \
                     --nopyc --nopyo"
 
-PKG_SAMBA_TARGET="smbclient"
+PKG_SAMBA_TARGET="smbclient,client/smbclient,smbtree,testparm"
 
 [ "$SAMBA_SERVER" = "yes" ] && PKG_SAMBA_TARGET+=",smbd/smbd,nmbd,smbpasswd"
-[ "$DEVTOOLS" = "yes" ] && PKG_SAMBA_TARGET+=",client/smbclient,smbtree,testparm"
 
 pre_configure_target() {
 # samba uses its own build directory
@@ -152,12 +151,10 @@ post_makeinstall_target() {
       cp $INSTALL/etc/samba/smb.conf $INSTALL/usr/config/samba.conf.sample
   fi
 
-  if [ "$DEVTOOLS" = "yes" ]; then
-    mkdir -p $INSTALL/usr/bin
-      cp -PR bin/default/source3/client/smbclient $INSTALL/usr/bin
-      cp -PR bin/default/source3/utils/smbtree $INSTALL/usr/bin
-      cp -PR bin/default/source3/utils/testparm $INSTALL/usr/bin
-  fi
+  mkdir -p $INSTALL/usr/bin
+    cp -PR bin/default/source3/client/smbclient $INSTALL/usr/bin
+    cp -PR bin/default/source3/utils/smbtree $INSTALL/usr/bin
+    cp -PR bin/default/source3/utils/testparm $INSTALL/usr/bin
 
   if [ "$SAMBA_SERVER" = "yes" ]; then
     mkdir -p $INSTALL/usr/bin
