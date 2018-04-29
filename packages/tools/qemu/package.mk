@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016- Team LibreELEC
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,13 +17,13 @@
 ################################################################################
 
 PKG_NAME="qemu"
-PKG_VERSION="2.8.1"
-PKG_SHA256="018e4c7ed22c220395cf41f835d01505e49d0e579a548bd3d72b03809442bbcd"
+PKG_VERSION="2.12.0"
+PKG_SHA256="e69301f361ff65bf5dabd8a19196aeaa5613c1b5ae1678f0823bdf50e7d5c6fc"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://wiki.qemu.org"
-PKG_URL="http://wiki.qemu-project.org/download/qemu-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS_HOST="toolchain Python2:host zlib:host glib:host"
+PKG_URL="https://download.qemu.org/qemu-$PKG_VERSION.tar.xz"
+PKG_DEPENDS_HOST="toolchain glib:host pixman:host Python2:host zlib:host"
 PKG_SECTION="tools"
 PKG_SHORTDESC="QEMU is a generic and open source machine emulator and virtualizer."
 PKG_LONGDESC="QEMU is a generic and open source machine emulator and virtualizer."
