@@ -17,11 +17,11 @@
 ################################################################################
 
 PKG_NAME="gamecon_gpio_rpi"
-PKG_VERSION="19f4ab8"
+PKG_VERSION="bb65600"
 PKG_ARCH="arm"
 PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/marqs85/gamecon_gpio_rpi/"
-PKG_URL="https://github.com/marqs85/gamecon_gpio_rpi/archive/$PKG_VERSION.tar.gz"
+PKG_SITE="https://github.com/ronj/gamecon_gpio_rpi"
+PKG_URL="https://github.com/ronj/gamecon_gpio_rpi/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_SECTION="driver"
@@ -36,7 +36,6 @@ pre_make_target() {
 }
 
 make_target() {
-  cd gamecon_gpio_rpi-1.3
   make KDIR=$(kernel_path)
 }
 
