@@ -188,7 +188,7 @@ if [ "$DEVICE" = "Slice" -o "$DEVICE" = "Slice3" ]; then
 fi
 
 if [ ! "$KODIPLAYER_DRIVER" = default ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $KODIPLAYER_DRIVER"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $KODIPLAYER_DRIVER libinput libxkbcommon"
   if [ "$KODIPLAYER_DRIVER" = bcm2835-driver ]; then
     KODI_PLAYER="-DCORE_PLATFORM_NAME=rbpi"
   elif [ "$KODIPLAYER_DRIVER" = mesa -o "$KODIPLAYER_DRIVER" = rkmpp ]; then
