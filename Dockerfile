@@ -17,29 +17,24 @@ RUN apt-get update \
 		build-essential \
 		bash \
 		bc \
-		build-essential \
 		bzip2 \
 		diffutils \
-		g++ \
 		gawk \
-		gcc \
 		git-core \
 		gperf \
 		gzip \
 		libjson-perl \
 		libncurses5-dev \
 		lzop \
-		make \
 		patch \
 		patchutils \
 		perl \
 		sed \
 		tar \
 		texinfo \
+		u-boot-tools \
 		unzip \
 		wget \
-		xfonts-utils \
-		xfonts-utils \
 		xfonts-utils \
 		xsltproc \
 		xz-utils \
