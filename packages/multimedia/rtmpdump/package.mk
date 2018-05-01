@@ -9,7 +9,7 @@ PKG_SITE="http://rtmpdump.mplayerhq.hu/"
 PKG_URL="http://repo.or.cz/rtmpdump.git/snapshot/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain zlib openssl"
 PKG_LONGDESC="rtmpdump is a toolkit for RTMP streams."
-PKG_BUILD_FLAGS="+pic -parallel"
+PKG_BUILD_FLAGS="+pic"
 
 make_target() {
   make prefix=/usr \
@@ -23,6 +23,7 @@ make_target() {
        CRYPTO="OPENSSL" \
        OPT="" \
        XCFLAGS="$CFLAGS" \
+       XCFLAGS="$CFLAGS -Wno-unused-but-set-variable -Wno-unused-const-variable" \
        XLDFLAGS="$LDFLAGS" \
        XLIBS="-lm"
 }
