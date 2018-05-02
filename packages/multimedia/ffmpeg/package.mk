@@ -17,9 +17,9 @@
 ################################################################################
 
 PKG_NAME="ffmpeg"
-# Current branch is: release/3.4-kodi
-PKG_VERSION="f96fd5c"
-PKG_SHA256="35ccc07c72b203101030a35b4bb11779365adb7bbf143ef1d68a1f87c781e38b"
+# Current branch is: release/4.0-kodi
+PKG_VERSION="e115b34"
+PKG_SHA256="d9aa2a281f002982474b45980553d3669a8c79021cf08e4cfcff5dd6e8e81268"
 PKG_ARCH="any"
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://ffmpeg.org"
@@ -127,7 +127,6 @@ configure_target() {
               --disable-extra-warnings \
               --disable-ffprobe \
               --disable-ffplay \
-              --disable-ffserver \
               --enable-ffmpeg \
               --enable-avdevice \
               --enable-avcodec \
