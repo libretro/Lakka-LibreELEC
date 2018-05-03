@@ -1,0 +1,141 @@
+From 5ca75ed2cfcc93fb63651965ec146dca3a394a9d Mon Sep 17 00:00:00 2001
+From: Chris Novakovic <chris@chrisn.me.uk>
+Date: Thu, 19 Apr 2018 01:29:43 +0100
+Subject: [PATCH] build: Add --disable-stats option
+
+Generation of interface statistics files can now be controlled at
+compile-time using the --{enable,disable}-stats configure options.
+Statistics files remain enabled by default.
+
+Based on an idea by Feng Wang <wangfe@nestlabs.com>.
+
+This is based on upstream commit 1946bbe0, which doesn't apply cleanly
+against the latest stable release of ConnMan (1.35).
+---
+ Makefile.am   | 14 ++++++++++----
+ configure.ac  |  5 +++++
+ src/nostats.c | 57 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 72 insertions(+), 4 deletions(-)
+ create mode 100644 src/nostats.c
+
+diff --git a/Makefile.am b/Makefile.am
+index e67a7a5..9c3b871 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -43,6 +43,12 @@ else
+ gweb_sources += gweb/giognutls.h gweb/gionotls.c
+ endif
+ 
++if STATS
++stats_sources = src/stats.c
++else
++stats_sources = src/nostats.c
++endif
++
+ if BACKTRACE
+ backtrace_sources = src/backtrace.c
+ endif
+@@ -106,9 +112,9 @@ MANUAL_PAGES =
+ 
+ sbin_PROGRAMS = src/connmand src/connmand-wait-online
+ 
+-src_connmand_SOURCES = $(gdhcp_sources) $(gweb_sources) $(backtrace_sources) \
+-			$(builtin_sources) $(shared_sources) src/connman.ver \
+-			src/main.c src/connman.h src/log.c \
++src_connmand_SOURCES = $(gdhcp_sources) $(gweb_sources) $(stats_sources) \
++			$(backtrace_sources) $(builtin_sources) $(shared_sources) \
++			src/connman.ver src/main.c src/connman.h src/log.c \
+ 			src/error.c src/plugin.c src/task.c \
+ 			src/device.c src/network.c src/connection.c \
+ 			src/manager.c src/service.c \
+@@ -120,7 +126,7 @@ src_connmand_SOURCES = $(gdhcp_sources) $(gweb_sources) $(backtrace_sources) \
+ 			src/storage.c src/dbus.c src/config.c \
+ 			src/technology.c src/counter.c src/ntp.c \
+ 			src/session.c src/tethering.c src/wpad.c src/wispr.c \
+-			src/stats.c src/dnsproxy.c src/6to4.c \
++			src/dnsproxy.c src/6to4.c \
+ 			src/ippool.c src/bridge.c src/nat.c src/ipaddress.c \
+ 			src/inotify.c src/ipv6pd.c src/peer.c \
+ 			src/peer_service.c src/machine.c src/util.c
+diff --git a/configure.ac b/configure.ac
+index 4baa685..56d4b50 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -380,6 +380,11 @@ AC_ARG_ENABLE(tools, AC_HELP_STRING([--disable-tools],
+ 					[enable_tools=${enableval}])
+ AM_CONDITIONAL(TOOLS, test "${enable_tools}" != "no")
+ 
++AC_ARG_ENABLE(stats, AC_HELP_STRING([--disable-stats],
++				[disable statistics round robin file generation]),
++					[enable_stats=${enableval}])
++AM_CONDITIONAL(STATS, test "${enable_stats}" != "no")
++
+ if (test "${enable_tools}" != "no"); then
+ 	AC_PATH_PROGS(IPTABLES_SAVE, [iptables-save], [],
+ 						$PATH:/sbin:/usr/sbin)
+diff --git a/src/nostats.c b/src/nostats.c
+new file mode 100644
+index 0000000..3d0dc79
+--- /dev/null
++++ b/src/nostats.c
+@@ -0,0 +1,57 @@
++/*
++ *
++ *  Connection Manager
++ *
++ *  Copyright (C) 2018  Chris Novakovic
++ *
++ *  This program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License version 2 as
++ *  published by the Free Software Foundation.
++ *
++ *  This program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with this program; if not, write to the Free Software
++ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
++ *
++ */
++
++#define _GNU_SOURCE
++#include <errno.h>
++
++#include "connman.h"
++
++int __connman_stats_service_register(struct connman_service *service)
++{
++	return -ENOTSUP;
++}
++
++void __connman_stats_service_unregister(struct connman_service *service)
++{
++}
++
++int  __connman_stats_update(struct connman_service *service,
++				bool roaming,
++				struct connman_stats_data *data)
++{
++	return 0;
++}
++
++int __connman_stats_get(struct connman_service *service,
++				bool roaming,
++				struct connman_stats_data *data)
++{
++	return 0;
++}
++
++int __connman_stats_init(void)
++{
++	return 0;
++}
++
++void __connman_stats_cleanup(void)
++{
++}
+-- 
+2.7.4
+
