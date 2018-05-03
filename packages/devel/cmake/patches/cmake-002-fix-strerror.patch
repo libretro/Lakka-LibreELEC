@@ -1,0 +1,139 @@
+From 6af9fbb7f4d48d0356523bc0ab85f8463775d67e Mon Sep 17 00:00:00 2001
+From: maxed <max.savenkov@gmail.com>
+Date: Sat, 31 Mar 2018 13:17:45 +0300
+Subject: [PATCH 1/3] fix strerror_r tests to work when cross-compiling without
+ the ability to run code
+
+---
+ Utilities/cmcurl/CMake/CurlTests.c | 27 ++++++++++++---------------
+ Utilities/cmcurl/CMakeLists.txt    |  2 +-
+ 2 files changed, 13 insertions(+), 16 deletions(-)
+
+diff --git a/Utilities/cmcurl/CMake/CurlTests.c b/Utilities/cmcurl/CMake/CurlTests.c
+index bc36c8ef7d..6bfd12a1c3 100644
+--- a/Utilities/cmcurl/CMake/CurlTests.c
++++ b/Utilities/cmcurl/CMake/CurlTests.c
+@@ -507,30 +507,27 @@ main ()
+ #ifdef HAVE_GLIBC_STRERROR_R
+ #include <string.h>
+ #include <errno.h>
++
++void check(char *string) {}
++
+ int
+ main () {
+-  char buffer[1024]; /* big enough to play with */
+-  char *string =
+-    strerror_r(EACCES, buffer, sizeof(buffer));
+-    /* this should've returned a string */
+-    if(!string || !string[0])
+-      return 99;
+-    return 0;
++  char buffer[1024];
++  check(strerror_r(EACCES, buffer, sizeof(buffer)));
++  return 0;
+ }
+ #endif
+ #ifdef HAVE_POSIX_STRERROR_R
+ #include <string.h>
+ #include <errno.h>
++
++void check(int integer) {}
++
+ int
+ main () {
+-  char buffer[1024]; /* big enough to play with */
+-  int error =
+-    strerror_r(EACCES, buffer, sizeof(buffer));
+-    /* This should've returned zero, and written an error string in the
+-       buffer.*/
+-    if(!buffer[0] || error)
+-      return 99;
+-    return 0;
++  char buffer[1024];
++  check(strerror_r(EACCES, buffer, sizeof(buffer)));
++  return 0;
+ }
+ #endif
+ #ifdef HAVE_FSETXATTR_6
+diff --git a/Utilities/cmcurl/CMakeLists.txt b/Utilities/cmcurl/CMakeLists.txt
+index bf25b1f792..3a31933e14 100644
+--- a/Utilities/cmcurl/CMakeLists.txt
++++ b/Utilities/cmcurl/CMakeLists.txt
+@@ -980,7 +980,7 @@ foreach(CURL_TEST
+     HAVE_GLIBC_STRERROR_R
+     HAVE_POSIX_STRERROR_R
+     )
+-  curl_internal_test_run(${CURL_TEST})
++  curl_internal_test(${CURL_TEST})
+ endforeach(CURL_TEST)
+ 
+ # Check for reentrant
+
+From 7af509d339d9cf3ffa677f3613bbdfef2acb6959 Mon Sep 17 00:00:00 2001
+From: maxed <max.savenkov@gmail.com>
+Date: Sat, 31 Mar 2018 16:00:53 +0300
+Subject: [PATCH 2/3] better check that works on modern compilers
+
+---
+ Utilities/cmcurl/CMake/CurlTests.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/Utilities/cmcurl/CMake/CurlTests.c b/Utilities/cmcurl/CMake/CurlTests.c
+index 6bfd12a1c3..ac959f3406 100644
+--- a/Utilities/cmcurl/CMake/CurlTests.c
++++ b/Utilities/cmcurl/CMake/CurlTests.c
+@@ -508,12 +508,13 @@ main ()
+ #include <string.h>
+ #include <errno.h>
+ 
+-void check(char *string) {}
++void check(char c) {}
+ 
+ int
+ main () {
+   char buffer[1024];
+-  check(strerror_r(EACCES, buffer, sizeof(buffer)));
++  // This will not compile if strerror_r does not return a char*
++  check(strerror_r(EACCES, buffer, sizeof(buffer))[0]);
+   return 0;
+ }
+ #endif
+@@ -521,11 +522,13 @@ main () {
+ #include <string.h>
+ #include <errno.h>
+ 
+-void check(int integer) {}
++// float, because a pointer can't be implicitly cast to float
++void check(float f) {}
+ 
+ int
+ main () {
+   char buffer[1024];
++  // This will not compile if strerror_r does not return an int
+   check(strerror_r(EACCES, buffer, sizeof(buffer)));
+   return 0;
+ }
+
+From 757d957bb8722954e626fd481030a93b20a42485 Mon Sep 17 00:00:00 2001
+From: maxed <max.savenkov@gmail.com>
+Date: Fri, 13 Apr 2018 12:12:14 +0300
+Subject: [PATCH 3/3] Fix the test for fsetxattr to work without compiling
+
+---
+ Utilities/cmcurl/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Utilities/cmcurl/CMakeLists.txt b/Utilities/cmcurl/CMakeLists.txt
+index 3a31933e14..df648621de 100644
+--- a/Utilities/cmcurl/CMakeLists.txt
++++ b/Utilities/cmcurl/CMakeLists.txt
+@@ -900,7 +900,7 @@ endif()
+ check_symbol_exists(fsetxattr "${CURL_INCLUDES}" HAVE_FSETXATTR)
+ if(HAVE_FSETXATTR)
+   foreach(CURL_TEST HAVE_FSETXATTR_5 HAVE_FSETXATTR_6)
+-    curl_internal_test_run(${CURL_TEST})
++    curl_internal_test(${CURL_TEST})
+   endforeach(CURL_TEST)
+ endif(HAVE_FSETXATTR)
+ 
