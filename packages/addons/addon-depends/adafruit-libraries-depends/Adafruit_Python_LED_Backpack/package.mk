@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="Adafruit_Python_LED_Backpack"
-PKG_VERSION="ac6e25a"
-PKG_SHA256="55e82c45858e6ede604b5e31408e34d1f71c2610ae4a6a595a683e197e083fa2"
+PKG_VERSION="e34b954"
+PKG_SHA256="244d2625cdaebdc68e299fedde276efa5c9f7c143681c4ee056fb8350a4f7167"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/adafruit/${PKG_NAME}"
