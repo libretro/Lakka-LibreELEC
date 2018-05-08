@@ -18,8 +18,8 @@
 ################################################################################
 
 PKG_NAME="vdr-plugin-epgsearch"
-PKG_VERSION="c7c02e2"
-PKG_SHA256="d8096c261cf94653f7487e7f89c9d38d8c2a5c27a766816b77fe0c49b4a82208"
+PKG_VERSION="84b59b8"
+PKG_SHA256="d6c4a9136588a7cdf2eb43b6b9643a5bb81a44c542c6e6fcf7448b2383901914"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://winni.vdr-developer.org/epgsearch/"
