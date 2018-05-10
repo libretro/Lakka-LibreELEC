@@ -15,6 +15,7 @@ It's a WIP of porting Lakka for the Switch. A standalone Lakka project is on its
     3. Go to the `bootscript` folder of this project and run `make.sh`
     4. Take the `boot.scr` file and put it instead of the existing one in the `boot` folder of the SD card
     5. Get `initramfs.cpio` from the `build.Lakka-xxx/image` folder and convert it to a `uImage` using `mkimage` (no compression)
+        * `mkimage -A arm -T ramdisk -C none -d initramfs.cpio initramfs.uImage`
     6. Call it `initramfs.uImage` and put it in the `boot` folder of the SD card
 4. Use Painless Linux to boot !
 
