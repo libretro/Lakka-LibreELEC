@@ -1,0 +1,11 @@
+PKG_NAME="xf86-video-vesa"
+PKG_VERSION="2.4.0"
+PKG_ARCH="any"
+PKG_SECTION="x11/driver"
+PKG_LICENSE="OSS"
+PKG_SITE="http://www.X.org"
+PKG_DEPENDS_TARGET="toolchain util-macros"
+PKG_URL="http://xorg.freedesktop.org/archive/individual/driver/$PKG_NAME-$PKG_VERSION.tar.bz2"
+
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
