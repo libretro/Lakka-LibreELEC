@@ -61,6 +61,7 @@ PKG_DEPENDS_TARGET="toolchain \
                     patch \
                     pv \
                     screen \
+                    smartmontools \
                     strace \
                     unrar \
                     usb-modeswitch \
@@ -161,6 +162,9 @@ addon() {
 
     # screen
     cp -P $(get_build_dir screen)/screen $ADDON_BUILD/$PKG_ADDON_ID/bin
+
+    # smartmontools
+    cp -P $(get_build_dir smartmontools)/.$TARGET_NAME/smartctl $ADDON_BUILD/$PKG_ADDON_ID/bin
 
     # strace
     cp -P $(get_build_dir strace)/.$TARGET_NAME/strace $ADDON_BUILD/$PKG_ADDON_ID/bin
