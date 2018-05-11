@@ -209,6 +209,11 @@ makeinstall_target() {
     sed -i -e "s/video_smooth = false/video_smooth = true/" $INSTALL/etc/retroarch.cfg
     sed -i -e "s/video_font_path =\/usr\/share\/retroarch-assets\/xmb\/monochrome\/font.ttf//" $INSTALL/etc/retroarch.cfg
   fi
+  
+  # Switch
+  if [ "$PROJECT" == "Switch" ]; then
+    sed -i -e "s/# menu_pointer_enable = false/menu_pointer_enable = true/" $INSTALL/etc/retroarch.cfg
+  fi
 }
 
 post_install() {  
