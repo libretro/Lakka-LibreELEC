@@ -18,35 +18,42 @@
 ################################################################################
 
 PKG_NAME="mc"
-PKG_VERSION="4.8.19"
-PKG_SHA256="eb9e56bbb5b2893601d100d0e0293983049b302c5ab61bfb544ad0ee2cc1f2df"
+PKG_VERSION="4.8.20"
+PKG_SHA256="017ee7f4f8ae420a04f4d6fcebaabe5b494661075c75442c76e9c8b1923d501c"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.midnight-commander.org"
-PKG_URL="http://ftp.midnight-commander.org/${PKG_NAME}-${PKG_VERSION}.tar.xz"
-PKG_DEPENDS_TARGET="toolchain libtool:host gettext:host glib pcre ncurses"
+PKG_URL="http://ftp.midnight-commander.org/mc-${PKG_VERSION}.tar.xz"
+PKG_DEPENDS_TARGET="toolchain gettext:host glib libssh2 libtool:host ncurses pcre"
 PKG_SECTION="tools"
-PKG_SHORTDESC="mc: visual file manager"
-PKG_LONGDESC="mc is a visual file manager, licensed under GNU General Public License and therefore qualifies as Free Software. It's a feature rich full-screen text mode application that allows you to copy, move and delete files and whole directory trees, search for files and run commands in the subshell. Internal viewer and editor are included"
+PKG_LONGDESC="Midnight Commander is a text based filemanager that emulates Norton Commander"
 
-PKG_CONFIGURE_OPTS_TARGET="--sysconfdir=/storage/.kodi/addons/virtual.system-tools/etc \
-            --datadir=/storage/.kodi/addons/virtual.system-tools/data \
-            --libdir=/storage/.kodi/addons/virtual.system-tools/mclib \
-            --disable-mclib \
-            --disable-aspell \
-            --disable-vfs \
-            --disable-doxygen-doc \
-            --disable-doxygen-dot \
-            --disable-doxygen-html \
-            --with-sysroot=$SYSROOT_PREFIX \
-            --with-screen=ncurses \
-            --without-x \
-            --with-gnu-ld \
-            --without-libiconv-prefix \
-            --without-libintl-prefix \
-            --with-internal-edit \
-            --without-diff-viewer \
-            --with-subshell"
+PKG_CONFIGURE_OPTS_TARGET=" \
+  --datadir=/storage/.kodi/addons/virtual.system-tools/data \
+  --libdir=/storage/.kodi/addons/virtual.system-tools/mclib \
+  --sysconfdir=/storage/.kodi/addons/virtual.system-tools/etc \
+  --with-screen=ncurses \
+  --with-sysroot=$SYSROOT_PREFIX \
+  --disable-aspell \
+  --without-diff-viewer \
+  --disable-doxygen-doc \
+  --disable-doxygen-dot \
+  --disable-doxygen-html \
+  --with-gnu-ld \
+  --without-libiconv-prefix \
+  --without-libintl-prefix \
+  --with-internal-edit \
+  --disable-mclib \
+  --with-subshell \
+  --enable-vfs-extfs \
+  --enable-vfs-ftp \
+  --enable-vfs-sftp \
+  --enable-vfs-tar \
+  --without-x"
+
+pre_configure_target() {
+  LDFLAGS="$LDFLAGS -lcrypto -lssl"
+}
 
 post_makeinstall_target() {
   rm -rf $INSTALL/storage/.kodi/addons/virtual.system-tools/data/locale
