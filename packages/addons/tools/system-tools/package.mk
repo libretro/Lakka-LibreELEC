@@ -40,6 +40,7 @@ PKG_DEPENDS_TARGET="toolchain \
                     dstat \
                     dtach \
                     efibootmgr \
+                    encfs \
                     evtest \
                     fdupes \
                     file \
@@ -88,6 +89,10 @@ addon() {
 
     # efibootmgr
     cp -P $(get_build_dir efibootmgr)/src/efibootmgr/efibootmgr $ADDON_BUILD/$PKG_ADDON_ID/bin 2>/dev/null || :
+
+    # encfs
+    cp -P $(get_build_dir encfs)/.$TARGET_NAME/encfs $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_build_dir encfs)/.$TARGET_NAME/encfsctl $ADDON_BUILD/$PKG_ADDON_ID/bin
 
     # evtest
     cp -P $(get_build_dir evtest)/.$TARGET_NAME/evtest $ADDON_BUILD/$PKG_ADDON_ID/bin
