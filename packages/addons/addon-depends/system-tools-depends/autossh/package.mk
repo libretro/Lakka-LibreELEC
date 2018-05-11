@@ -17,16 +17,15 @@
 ################################################################################
 
 PKG_NAME="autossh"
-PKG_VERSION="1.4e"
-PKG_SHA256="9e8e10a59d7619176f4b986e256f776097a364d1be012781ea52e08d04679156"
+PKG_VERSION="1.4f"
+PKG_SHA256="0172e5e1bea40c642e0ef025334be3aadd4ff3b4d62c0b177ed88a8384e2f8f2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.harding.motd.ca/"
-PKG_URL="http://www.harding.motd.ca/autossh/${PKG_NAME}-${PKG_VERSION}.tgz"
+PKG_URL="http://www.harding.motd.ca/autossh/autossh-${PKG_VERSION}.tgz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="tools"
-PKG_SHORTDESC="ssh tool"
-PKG_LONGDESC="SSH tool to keep alive tunnels"
+PKG_LONGDESC="Automatically restart SSH sessions and tunnels"
 PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
@@ -37,5 +36,5 @@ pre_configure_target() {
 }
 
 makeinstall_target() {
-  : # nop
+  :
 }
