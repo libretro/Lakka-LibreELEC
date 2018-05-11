@@ -20,20 +20,43 @@
 . /etc/profile
 oe_setup_addon service.snapserver
 
-case "$ss_ps" in
+config="pulseaudio.conf"
+link="/storage/.config/pulse-daemon.conf.d/50-snapserver.conf"
+mkdir -p "$(dirname $link)"
+ln -sf "$ADDON_HOME/$config" "$link"
+if [ ! -e "$ADDON_HOME/$config" ]; then
+  cp "$ADDON_DIR/config/$config" "$ADDON_HOME"
+fi
+
+file="/tmp/snapkodi"
+sink_name="Snapserver"
+if [ -z "$(pactl list short | grep $sink_name)" ]; then
+  pactl load-module module-pipe-sink \
+                    file="$file" \
+                    rate=48000 \
+                    sink_name="$sink_name" \
+                    sink_properties=device.description="$sink_name"
+fi
+
+case "$ss_st" in
   Default)
-    ss_us="--stream pipe:///tmp/snapfifo?name=Default"
+    stream="pipe:///tmp/snapfifo?name=Default"
     ;;
-  Airplay)
-    ss_us="--stream airplay:///shairport-sync?name=Airplay"
+  Kodi)
+    stream="pipe://$file?name=Kodi"
     ;;
   Spotify)
-    ss_us="--stream spotify:///librespot?name=Spotify"
+    stream="spotify:///librespot?name=Spotify"
+    ;;
+  *)
+    stream="airplay:///shairport-sync?name=AirPlay"
     ;;
 esac
 
+HOME="$ADDON_HOME" \
+nice -n "$ss_ni" \
 snapserver \
-  --controlPort  "$ss_cp" \
-  --daemon       "$ss_ni" \
-  --port         "$ss_sp" \
-  $ss_us
+  --controlPort  "$ss_cp"  \
+  --port         "$ss_sp"  \
+  --stream       "$stream" \
+  > /dev/null
