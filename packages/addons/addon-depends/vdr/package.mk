@@ -19,13 +19,13 @@
 ################################################################################
 
 PKG_NAME="vdr"
-PKG_VERSION="2.3.8"
-PKG_SHA256="d871170ee90ef2fc6293eefb44262b82b2e1f00f934681c721da7bd30e45bf22"
+PKG_VERSION="2.4.0"
+PKG_SHA256="93af49fe87048073dc38ef5e6c71e9704344d730f21c261afac69e3c937f8cce"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.tvdr.de"
-PKG_URL="ftp://ftp.tvdr.de/vdr/Developer/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS_TARGET="toolchain fontconfig freetype libcap libiconv libjpeg-turbo bzip2"
+PKG_URL="ftp://ftp.tvdr.de/vdr/vdr-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS_TARGET="toolchain bzip2 fontconfig freetype libcap libiconv libjpeg-turbo"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="vdr: A powerful DVB TV application"
 PKG_LONGDESC="This project describes how to build your own digital satellite receiver and video disk recorder. It is based mainly on the DVB-S digital satellite receiver card, which used to be available from Fujitsu Siemens and the driver software developed by the LinuxTV project."
