@@ -6,7 +6,7 @@ It's a WIP of porting Lakka for the Switch.
 
 1. Download an existing image file or create one yourself : `DISTRO=Lakka PROJECT=Switch ARCH=aarch64 make image`
 2. Burn the image to your Switch's SD card and put it in
-3. Use Painless Linux to boot !
+3. Use Painless Linux to boot (skip the SD card part, everything is ready)
     * The first boot will resize the storage partition and reboot
 
 ## What works / what doesn't
