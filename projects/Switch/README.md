@@ -1,23 +1,13 @@
 # Lakka for Switch (WIP)
 
-It's a WIP of porting Lakka for the Switch. A standalone Lakka project is on its way to have a nice IMG file to use with Painless Linux - for now it's nothing but a dirty mess. In the meantime you'll have to do it yourself.
+It's a WIP of porting Lakka for the Switch.
 
 ## How to boot
 
-1. `DISTRO=Lakka PROJECT=Switch ARCH=aarch64 make image`
-    * The `make` command will fail when packing the final image but we only need the `SYSTEM` image so it's alright
-2. On your SD card, create two partitions :
-    1. `mmcblk0p1` : a FAT32 partition of ~300mb (flash partition)
-    2. `mmcblk0p2` : an ext4 partition filling the remaining space (it doesn't expand yet) (storage partition)
-3. Mount the FAT32 partition and
-    1. Copy the boot folder from the [Painless Linux](https://github.com/natinusala/painless-linux) repository
-    2. Copy the `Lakka-xxxx.system` file from the `target` folder and rename it `SYSTEM`
-    3. Go to the `bootscript` folder of this project and run `make.sh`
-    4. Take the `boot.scr` file and put it instead of the existing one in the `boot` folder of the SD card
-    5. Get `initramfs.cpio` from the `build.Lakka-xxx/image` folder and convert it to a `uImage` using `mkimage` (no compression)
-        * `mkimage -A arm -T ramdisk -C none -d initramfs.cpio initramfs.uImage`
-    6. Call it `initramfs.uImage` and put it in the `boot` folder of the SD card
-4. Use Painless Linux to boot !
+1. Download an existing image file or create one yourself : `DISTRO=Lakka PROJECT=Switch ARCH=aarch64 make image`
+2. Burn the image to your Switch's SD card and put it in
+3. Use Painless Linux to boot !
+    * The first boot will resize the storage partition and reboot
 
 ## What works / what doesn't
 
