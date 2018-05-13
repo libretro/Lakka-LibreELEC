@@ -18,15 +18,15 @@
 ################################################################################
 
 PKG_NAME="mpd"
-PKG_VERSION="0.20.13"
-PKG_SHA256="46c1c534d80a52de00263e8ef43a6011ff9d765232443749539ef26b1b48ff40"
-PKG_REV="104"
+PKG_VERSION="0.20.19"
+PKG_SHA256="01cdef1b9217588a8fa64dc2cba900c138e1363a787837b4c8327c652b7956c3"
+PKG_REV="105"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://www.musicpd.org"
 PKG_URL="http://www.musicpd.org/download/${PKG_NAME}/${PKG_VERSION%.*}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain alsa-lib boost curl faad2 ffmpeg flac glib lame libcdio libiconv libid3tag \
-                    libmad libmpdclient libsamplerate libvorbis libnfs libogg opus pulseaudio samba yajl"
+                    libmad libmpdclient libsamplerate libvorbis libnfs libogg mpd-mpc opus pulseaudio samba yajl"
 PKG_SECTION="service.multimedia"
 PKG_SHORTDESC="Music Player Daemon (MPD): a free and open Music Player Server"
 PKG_LONGDESC="Music Player Daemon ($PKG_VERSION) is a flexible and powerful server-side application for playing music"
@@ -112,6 +112,8 @@ makeinstall_target() {
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
   cp -P $PKG_BUILD/.$TARGET_NAME/src/mpd $ADDON_BUILD/$PKG_ADDON_ID/bin
+  # copy mpd cli binary
+  cp -P $(get_build_dir mpd-mpc)/.$TARGET_NAME/mpc $ADDON_BUILD/$PKG_ADDON_ID/bin
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib
   cp -p $(get_build_dir libmpdclient)/.install_pkg/usr/lib/libmpdclient.so $ADDON_BUILD/$PKG_ADDON_ID/lib

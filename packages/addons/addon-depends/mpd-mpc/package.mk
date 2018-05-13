@@ -1,9 +1,6 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016-present Team LibreELEC
-#      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
+#      Copyright (C) 2018-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -19,22 +16,18 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-. /etc/profile
+PKG_NAME="mpd-mpc"
+PKG_VERSION="0.30"
+PKG_SHA256="65fc5b0a8430efe9acbe6e261127960682764b20ab994676371bdc797d867fce"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="https://www.musicpd.org"
+PKG_URL="https://www.musicpd.org/download/mpc/0/mpc-${PKG_VERSION}.tar.xz"
+PKG_SOURCE_DIR="mpc-${PKG_VERSION}*"
+PKG_DEPENDS_TARGET="toolchain libiconv"
+PKG_LONGDESC="Command-line client for MPD"
+PKG_TOOLCHAIN="meson"
 
-oe_setup_addon service.multimedia.mpd
-
-mkdir -p $ADDON_HOME/config
-mkdir -p $ADDON_HOME/log
-mkdir -p $ADDON_HOME/playlists
-mkdir -p $ADDON_HOME/music
-touch $ADDON_HOME/log/mpd.log
-touch $ADDON_HOME/mpd.db
-touch $ADDON_HOME/state
-
-chmod a+x $ADDON_DIR/bin/*
-
-if [ ! -f "$ADDON_HOME/config/mpd.conf" ]; then
-  cp $ADDON_DIR/config/mpd.conf $ADDON_HOME/config/mpd.conf
-fi
-
-exec mpd --no-daemon $ADDON_HOME/config/mpd.conf > /dev/null 2>&1
+makeinstall_target() {
+  :
+}
