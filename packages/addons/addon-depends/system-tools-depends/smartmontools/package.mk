@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016-present Team LibreELEC
+#      Copyright (C) 2018-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,21 +16,24 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="file"
-PKG_VERSION="2198460"
-PKG_SHA256="d825eeee9e0a20b79dbcd00c51022b69fe4468354d8ccc03f441eb349ad8bde0"
+PKG_NAME="smartmontools"
+PKG_VERSION="6.6"
+PKG_SHA256="51f43d0fb064fccaf823bbe68cf0d317d0895ff895aa353b3339a3b316a53054"
 PKG_ARCH="any"
-PKG_LICENSE="BSD"
-PKG_SITE="http://www.darwinsys.com/file/"
-PKG_URL="https://github.com/file/file/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_HOST="ccache:host"
-PKG_DEPENDS_TARGET="toolchain zlib file:host"
+PKG_LICENSE="GPL"
+PKG_SITE="https://www.smartmontools.org"
+PKG_URL="https://github.com/smartmontools/smartmontools/releases/download/RELEASE_${PKG_VERSION//./_}/smartmontools-$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="tools"
-PKG_LONGDESC="The file utility is used to determine the types of various files."
-PKG_TOOLCHAIN="autotools"
+PKG_LONGDESC="Control and monitor storage systems using S.M.A.R.T."
 
-PKG_CONFIGURE_OPTS_HOST="--enable-fsect-man5 --enable-static --disable-shared"
-PKG_CONFIGURE_OPTS_TARGET="--enable-fsect-man5 --enable-static --disable-shared"
+PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
+                           --without-initscriptdir \
+                           --without-nvme-devicescan \
+                           --without-systemdenvfile \
+                           --without-systemdsystemunitdir \
+                           --without-systemdenvfile \
+                           --without-systemdsystemunitdir"
 
 makeinstall_target() {
   :

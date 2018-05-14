@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016-present Team LibreELEC
+#      Copyright (C) 2018-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,21 +16,20 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="file"
-PKG_VERSION="2198460"
-PKG_SHA256="d825eeee9e0a20b79dbcd00c51022b69fe4468354d8ccc03f441eb349ad8bde0"
+PKG_NAME="encfs"
+PKG_VERSION="1.9.5"
+PKG_SHA256="4709f05395ccbad6c0a5b40a4619d60aafe3473b1a79bafb3aa700b1f756fd63"
 PKG_ARCH="any"
-PKG_LICENSE="BSD"
-PKG_SITE="http://www.darwinsys.com/file/"
-PKG_URL="https://github.com/file/file/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_HOST="ccache:host"
-PKG_DEPENDS_TARGET="toolchain zlib file:host"
+PKG_LICENSE="LGPL"
+PKG_SITE="https://vgough.github.io/encfs/"
+PKG_URL="https://github.com/vgough/encfs/releases/download/v$PKG_VERSION/encfs-$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="toolchain fuse"
 PKG_SECTION="tools"
-PKG_LONGDESC="The file utility is used to determine the types of various files."
-PKG_TOOLCHAIN="autotools"
+PKG_LONGDESC="EncFS is a Encrypted Filesystem for FUSE"
 
-PKG_CONFIGURE_OPTS_HOST="--enable-fsect-man5 --enable-static --disable-shared"
-PKG_CONFIGURE_OPTS_TARGET="--enable-fsect-man5 --enable-static --disable-shared"
+PKG_CMAKE_OPTS_TARGET="-DCMAKE_INSTALL_PREFIX=/usr \
+                       -DCMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES=$SYSROOT_PREFIX/usr/include \
+                       -DBUILD_UNIT_TESTS=OFF"
 
 makeinstall_target() {
   :

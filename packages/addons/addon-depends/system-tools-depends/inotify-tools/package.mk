@@ -17,15 +17,14 @@
 ################################################################################
 
 PKG_NAME="inotify-tools"
-PKG_VERSION="1df9af4"
-PKG_SHA256="628b8efabb65a739dd747fe43b73b29a609b5cfa9628caa127764ed77766a6e1"
+PKG_VERSION="3.20.1"
+PKG_SHA256="a433cc1dedba851078276db69b0e97f9fe41e4ba3336d2971adfca4b3a6242ac"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="http://wiki.github.com/rvoicilas/inotify-tools/"
-PKG_URL="https://github.com/rvoicilas/$PKG_NAME/archive/$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/rvoicilas/inotify-tools/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="tools"
-PKG_SHORTDESC="inotify-tools"
 PKG_LONGDESC="a C library and a set of command-line programs for Linux providing a simple interface to inotify"
 PKG_TOOLCHAIN="autotools"
 
@@ -36,5 +35,5 @@ pre_configure_target() {
 }
 
 makeinstall_target() {
-  : nothing to do
+  :
 }
