@@ -26,8 +26,7 @@ PKG_URL="https://releases.linaro.org/components/toolchain/binaries/${PKG_VERSION
 PKG_SOURCE_DIR="gcc-linaro-${PKG_VERSION}-x86_64_arm-eabi"
 PKG_DEPENDS_HOST="toolchain"
 PKG_SECTION="lang"
-PKG_SHORTDESC=""
-PKG_LONGDESC=""
+PKG_LONGDESC="Linaro Aarch64 GNU Linux Binary Toolchain"
 PKG_TOOLCHAIN="manual"
 
 makeinstall_host() {
