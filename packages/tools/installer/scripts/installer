@@ -194,11 +194,7 @@ do_install_quick() {
         partsize_storage_end=-1024
 
         msg_progress_install "10" "Creating partition on $INSTALL_DEVICE"
-        if [ "$UEFI" = "1" ]; then
-          parted -s $INSTALL_DEVICE unit s mkpart primary fat32 -- $partsize_system_start $partsize_system_end >> $LOGFILE 2>&1
-        else
-          parted -s $INSTALL_DEVICE unit s mkpart primary ext2  -- $partsize_system_start $partsize_system_end >> $LOGFILE 2>&1
-        fi
+        parted -s $INSTALL_DEVICE unit s mkpart primary fat32 -- $partsize_system_start $partsize_system_end >> $LOGFILE 2>&1
 
         msg_progress_install "13" "Creating partition on $INSTALL_DEVICE"
         parted -s $INSTALL_DEVICE unit s mkpart primary ext4 -- $partsize_storage_start $partsize_storage_end >> $LOGFILE 2>&1
@@ -209,23 +205,15 @@ do_install_quick() {
           parted -s $INSTALL_DEVICE set 1 legacy_boot on >> $LOGFILE 2>&1
         fi
 
-        msg_progress_install "20" "Tell the kernel we have a new partitiontable on $INSTALL_DEVICE"
+        msg_progress_install "20" "Tell the kernel we have a new partition table on $INSTALL_DEVICE"
         partprobe $INSTALL_DEVICE >> $LOGFILE 2>&1
 
         # create filesystem
         msg_progress_install "23" "Creating filesystem on ${INSTALL_DEVICE}1"
-        if [ "$UEFI" = "1" ]; then
-          mkfs.vfat ${INSTALL_DEVICE}${PART1} >> $LOGFILE 2>&1
-        else
-          mke2fs -t ext4 -m 0 ${INSTALL_DEVICE}${PART1} >> $LOGFILE 2>&1
-        fi
+        mkfs.vfat ${INSTALL_DEVICE}${PART1} >> $LOGFILE 2>&1
 
         msg_progress_install "25" "Set uuid and disklabel $DISKLABEL_SYSTEM on ${INSTALL_DEVICE}${PART1}"
-        if [ "$UEFI" = "1" ]; then
-          dosfslabel ${INSTALL_DEVICE}${PART1}  $DISKLABEL_SYSTEM >> $LOGFILE 2>&1
-        else
-          tune2fs -U random -L $DISKLABEL_SYSTEM  ${INSTALL_DEVICE}${PART1} >> $LOGFILE 2>&1
-        fi
+        dosfslabel ${INSTALL_DEVICE}${PART1}  $DISKLABEL_SYSTEM >> $LOGFILE 2>&1
 
         msg_progress_install "28" "Creating filesystem on ${INSTALL_DEVICE}${PART2}"
         mke2fs -t ext4 -m 0 ${INSTALL_DEVICE}${PART2} >> $LOGFILE 2>&1
@@ -238,20 +226,11 @@ do_install_quick() {
         mkdir -p $TMPDIR/part1 >> $LOGFILE 2>&1
 
         msg_progress_install "40" "Mounting ${INSTALL_DEVICE}${PART1} to $TMPDIR/part1"
-        if [ "$UEFI" = "1" ]; then
-          mount -t vfat ${INSTALL_DEVICE}${PART1} $TMPDIR/part1 >> $LOGFILE 2>&1
-        else
-          mount -t ext4 ${INSTALL_DEVICE}${PART1} $TMPDIR/part1 >> $LOGFILE 2>&1
-        fi
+        mount -t vfat ${INSTALL_DEVICE}${PART1} $TMPDIR/part1 >> $LOGFILE 2>&1
 
-        # installing extlinux
-        if [ "$UEFI" = "1" ]; then
-          msg_progress_install "50" "Installing syslinux to $TMPDIR/part1"
-          syslinux -i ${INSTALL_DEVICE}${PART1} >> $LOGFILE 2>&1
-        else
-          msg_progress_install "50" "Installing extlinux to $TMPDIR/part1"
-          extlinux -i $TMPDIR/part1 >> $LOGFILE 2>&1
-        fi
+        # installing syslinux
+        msg_progress_install "50" "Installing syslinux to $TMPDIR/part1"
+        syslinux -i ${INSTALL_DEVICE}${PART1} >> $LOGFILE 2>&1
 
         # install system files
         msg_progress_install "60" "Installing Kernel"
@@ -262,15 +241,15 @@ do_install_quick() {
         sync
 
         # configuring bootloader
-        mkdir -p $TMPDIR/part1/EFI/BOOT
         msg_progress_install "80" "Setup bootloader with boot label = $DISKLABEL_SYSTEM and disk label = $DISKLABEL_STORAGE"
-        cat << EOF > $TMPDIR/part1/extlinux.conf
+        mkdir -p $TMPDIR/part1/EFI/BOOT
+        cat << EOF > $TMPDIR/part1/syslinux.cfg
 DEFAULT linux
 PROMPT 0
 
 LABEL linux
  KERNEL /KERNEL
- APPEND boot=LABEL=$DISKLABEL_SYSTEM disk=LABEL=$DISKLABEL_STORAGE $EXTLINUX_PARAMETERS quiet
+ APPEND boot=LABEL=$DISKLABEL_SYSTEM disk=LABEL=$DISKLABEL_STORAGE $SYSLINUX_PARAMETERS quiet
 EOF
         cat << EOF > $TMPDIR/part1/EFI/BOOT/grub.cfg
 set timeout="0"
@@ -282,12 +261,9 @@ menuentry "LibreELEC" {
 }
 EOF
         # uefi boot / hybrid mode
-        if [ "$UEFI" = "1" ]; then
-          mv $TMPDIR/part1/extlinux.conf $TMPDIR/part1/syslinux.cfg
-          cp /usr/share/syslinux/bootx64.efi $TMPDIR/part1/EFI/BOOT
-          cp /usr/share/syslinux/ldlinux.e64 $TMPDIR/part1/EFI/BOOT
-          cp /usr/share/grub/bootia32.efi $TMPDIR/part1/EFI/BOOT
-        fi
+        cp /usr/share/syslinux/bootx64.efi $TMPDIR/part1/EFI/BOOT
+        cp /usr/share/syslinux/ldlinux.e64 $TMPDIR/part1/EFI/BOOT
+        cp /usr/share/grub/bootia32.efi $TMPDIR/part1/EFI/BOOT
         sync
 
         # umount system partition, remove mountpoint

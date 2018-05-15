@@ -66,7 +66,6 @@ make_host() {
 
 makeinstall_host() {
   mkdir -p $TOOLCHAIN/bin
-    cp bios/extlinux/extlinux $TOOLCHAIN/bin
     cp bios/linux/syslinux $TOOLCHAIN/bin
     cp bios/mtools/syslinux $TOOLCHAIN/bin/syslinux.mtools
 
@@ -79,11 +78,9 @@ makeinstall_host() {
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/bin
-    cp bios/extlinux/extlinux $INSTALL/usr/bin
     cp bios/linux/syslinux $INSTALL/usr/bin
 
   $STRIP $INSTALL/usr/bin/syslinux
-  $STRIP $INSTALL/usr/bin/extlinux
 
   mkdir -p $INSTALL/usr/share/syslinux
     cp bios/mbr/mbr.bin $INSTALL/usr/share/syslinux
