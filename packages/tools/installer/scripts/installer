@@ -221,6 +221,12 @@ do_install_quick() {
         msg_progress_install "30" "Set uuid and disklabel $DISKLABEL_STORAGE on ${INSTALL_DEVICE}${PART2}"
         tune2fs -U random -L $DISKLABEL_STORAGE  ${INSTALL_DEVICE}${PART2} >> $LOGFILE 2>&1
 
+        UUID_SYSTEM="$(blkid --output udev ${INSTALL_DEVICE}${PART1} | grep ^ID_FS_UUID= | cut -d= -f2)"
+        UUID_STORAGE="$(blkid --output udev ${INSTALL_DEVICE}${PART2} | grep ^ID_FS_UUID= | cut -d= -f2)"
+
+        echo "UUID_SYSTEM : ${UUID_SYSTEM}" >> $LOGFILE
+        echo "UUID_STORAGE: ${UUID_STORAGE}" >> $LOGFILE
+
         # mount system partition
         msg_progress_install "35" "Creating $TMPDIR/part1"
         mkdir -p $TMPDIR/part1 >> $LOGFILE 2>&1
@@ -249,7 +255,7 @@ PROMPT 0
 
 LABEL linux
  KERNEL /KERNEL
- APPEND boot=LABEL=$DISKLABEL_SYSTEM disk=LABEL=$DISKLABEL_STORAGE $SYSLINUX_PARAMETERS quiet
+ APPEND boot=UUID=$UUID_SYSTEM disk=UUID=$UUID_STORAGE $SYSLINUX_PARAMETERS quiet
 EOF
         cat << EOF > $TMPDIR/part1/EFI/BOOT/grub.cfg
 set timeout="0"
@@ -257,7 +263,7 @@ set default="LibreELEC"
 
 menuentry "LibreELEC" {
 	search --set -f /KERNEL
-	linux /KERNEL boot=LABEL=$DISKLABEL_SYSTEM disk=LABEL=$DISKLABEL_STORAGE quiet
+	linux /KERNEL boot=UUID=$UUID_SYSTEM disk=UUID=$UUID_STORAGE quiet
 }
 EOF
         # uefi boot / hybrid mode
