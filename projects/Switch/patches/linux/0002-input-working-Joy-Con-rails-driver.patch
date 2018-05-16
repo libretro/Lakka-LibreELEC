@@ -1,15 +1,15 @@
-From ae05af91651980e2d08d20133be202ec60e2ff08 Mon Sep 17 00:00:00 2001
+From 54edf58b6dab53f5d90ae1efec4fe182c6cb04fb Mon Sep 17 00:00:00 2001
 From: shinyquagsire23 <mtinc2@gmail.com>
-Date: Sun, 13 May 2018 01:52:38 -0600
+Date: Tue, 15 May 2018 23:46:06 -0600
 Subject: [PATCH] input: working Joy-Con rails driver
 
 ---
  .../boot/dts/nvidia/tegra210-nintendo-switch.dts   |  48 +-
- arch/arm64/configs/nintendo-switch_defconfig       |   1 +
- drivers/input/joystick/Kconfig                     |  10 +
+ arch/arm64/configs/nintendo-switch_defconfig       |   3 +
+ drivers/input/joystick/Kconfig                     |  11 +
  drivers/input/joystick/Makefile                    |   1 +
- drivers/input/joystick/joycon.c                    | 586 +++++++++++++++++++++
- 5 files changed, 645 insertions(+), 1 deletion(-)
+ drivers/input/joystick/joycon.c                    | 764 +++++++++++++++++++++
+ 5 files changed, 826 insertions(+), 1 deletion(-)
  create mode 100644 drivers/input/joystick/joycon.c
 
 diff --git a/arch/arm64/boot/dts/nvidia/tegra210-nintendo-switch.dts b/arch/arm64/boot/dts/nvidia/tegra210-nintendo-switch.dts
@@ -85,24 +85,27 @@ index 814f414e31ed..3e69e21da180 100644
  
  	/* bluetooth */
 diff --git a/arch/arm64/configs/nintendo-switch_defconfig b/arch/arm64/configs/nintendo-switch_defconfig
-index 2d0262498c9e..2dd4787c8b2c 100644
+index 2d0262498c9e..653df8c5f3bd 100644
 --- a/arch/arm64/configs/nintendo-switch_defconfig
 +++ b/arch/arm64/configs/nintendo-switch_defconfig
-@@ -597,3 +597,4 @@ CONFIG_CRYPTO_AES_ARM64_BS=y
+@@ -597,3 +597,6 @@ CONFIG_CRYPTO_AES_ARM64_BS=y
  CONFIG_CRC_CCITT=y
  CONFIG_CRC7=y
  CONFIG_FONTS=y
++CONFIG_CRC8=y
++CONFIG_INPUT_JOYSTICK=y
 +CONFIG_JOYSTICK_JOYCON=y
 diff --git a/drivers/input/joystick/Kconfig b/drivers/input/joystick/Kconfig
-index f3c2f6ea8b44..8c4c0e3c4b03 100644
+index f3c2f6ea8b44..c38964100730 100644
 --- a/drivers/input/joystick/Kconfig
 +++ b/drivers/input/joystick/Kconfig
-@@ -277,6 +277,16 @@ config JOYSTICK_JOYDUMP
+@@ -277,6 +277,17 @@ config JOYSTICK_JOYDUMP
  	  To compile this driver as a module, choose M here: the
  	  module will be called joydump.
  
 +config JOYSTICK_JOYCON
 +	tristate "Joy-Con Rails"
++	depends on CRC8
 +	select SERIAL_DEV_BUS
 +	help
 +	  Say Y here if you have a one or more Joy-Con connected over UART
@@ -128,10 +131,10 @@ index 67651efda2e1..f494141559ed 100644
  obj-$(CONFIG_JOYSTICK_MAPLE)		+= maplecontrol.o
 diff --git a/drivers/input/joystick/joycon.c b/drivers/input/joystick/joycon.c
 new file mode 100644
-index 000000000000..e698c7f800ca
+index 000000000000..2d4b9df1fd13
 --- /dev/null
 +++ b/drivers/input/joystick/joycon.c
-@@ -0,0 +1,586 @@
+@@ -0,0 +1,764 @@
 +/*
 + *  Copyright (c) 2018 Max Thomas
 + */
@@ -170,6 +173,7 @@ index 000000000000..e698c7f800ca
 +#include <linux/platform_device.h>
 +#include <linux/jiffies.h>
 +#include <linux/workqueue.h>
++#include <linux/crc8.h>
 +
 +#define DRIVER_DESC	"Nintendo Joy-Con serial gamepad driver"
 +
@@ -181,16 +185,12 @@ index 000000000000..e698c7f800ca
 +/*
 + * Constants.
 + */
-+static const u8 magic_start[0x4] = {0xA1, 0xA2, 0xA3, 0xA4};
-+static const u8 handshake_start[0xC] = {0x19, 0x01, 0x03, 0x07, 0x00, 0xA5, 0x02, 0x01, 0x7E, 0x00, 0x00, 0x00};
-+static const u8 get_mac[0xC] = {0x19, 0x01, 0x03, 0x07, 0x00, 0x91, 0x01, 0x00, 0x00, 0x00, 0x00, 0x24};
++
++
 +static const u8 switch_baud[0x14] = {0x19, 0x01, 0x03, 0x0F, 0x00, 0x91, 0x20, 0x08, 0x00, 0x00, 0xBD, 0xB1, 0xC0, 0xC6, 0x2D, 0x00, 0x00, 0x00, 0x00, 0x00};
 +static const u8 controller_status[0xD] = {0x19, 0x01, 0x03, 0x08, 0x00, 0x92, 0x00, 0x01, 0x00, 0x00, 0x69, 0x2D, 0x1F};
-+static const u8 unk_1[0xC] = {0x19, 0x01, 0x03, 0x07, 0x00, 0x91, 0x11, 0x00, 0x00, 0x00, 0x00, 0x0E};
-+static const u8 unk_2[0xC] = {0x19, 0x01, 0x03, 0x07, 0x00, 0x91, 0x10, 0x00, 0x00, 0x00, 0x00, 0x3D};
 +static const u8 unk_3[0x10] = {0x19, 0x01, 0x03, 0x0B, 0x00, 0x91, 0x12, 0x04, 0x00, 0x00, 0x12, 0xA6, 0x0F, 0x00, 0x00, 0x00};
 + 
-+#define JOYCON_MAX_LENGTH 256
 +#define JOYCON_COMMAND_EXTSEND   (0x91)
 +#define JOYCON_COMMAND_EXTRET    (0x92)
 +#define JOYCON_COMMAND_INITRET   (0x94)
@@ -202,30 +202,14 @@ index 000000000000..e698c7f800ca
 +#define JOYCON_INIT_UNK2     (0x10)
 +#define JOYCON_INIT_UNK3     (0x12)
 +
-+#define JOYCON_EXT_INPUT (0x30)
++#define JOYCON_EXT_ACK        (0x1F)
++#define JOYCON_EXT_INPUT      (0x30)
++#define JOYCON_EXT_HIDCOMMAND (0x21)
 +
-+#define JOYCON_BUTTON_Y          BIT(0)
-+#define JOYCON_BUTTON_X          BIT(1)
-+#define JOYCON_BUTTON_B          BIT(2)
-+#define JOYCON_BUTTON_A          BIT(3)
-+#define JOYCON_BUTTON_RSL        BIT(4)
-+#define JOYCON_BUTTON_RSR        BIT(5)
-+#define JOYCON_BUTTON_R          BIT(6)
-+#define JOYCON_BUTTON_ZR         BIT(7)
-+#define JOYCON_BUTTON_MINUS      BIT(8)
-+#define JOYCON_BUTTON_PLUS       BIT(9)
-+#define JOYCON_BUTTON_STICKR     BIT(10)
-+#define JOYCON_BUTTON_STICKL     BIT(11)
-+#define JOYCON_BUTTON_HOME       BIT(12)
-+#define JOYCON_BUTTON_SCREENSHOT BIT(13)
-+#define JOYCON_BUTTON_DOWN       BIT(16)
-+#define JOYCON_BUTTON_UP         BIT(17)
-+#define JOYCON_BUTTON_RIGHT      BIT(18)
-+#define JOYCON_BUTTON_LEFT       BIT(19)
-+#define JOYCON_BUTTON_LSL        BIT(20)
-+#define JOYCON_BUTTON_LSR        BIT(21)
-+#define JOYCON_BUTTON_L          BIT(22)
-+#define JOYCON_BUTTON_ZL         BIT(23)
++#define JOYCON_HID_DEVICE_INFO (0x2)
++#define JOYCON_HID_SPI_READ    (0x10)
++
++#define JOYCON_SPI_FACTORY_CAL_2 (0x603D)
 +
 +#define JOYCON_BUTTONS_LEFT  (0xFFE900)
 +#define JOYCON_BUTTONS_RIGHT (0x76FF)
@@ -233,6 +217,9 @@ index 000000000000..e698c7f800ca
 +
 +#define JOYCON_BUTTONSET_LEFT  BIT(0)
 +#define JOYCON_BUTTONSET_RIGHT BIT(1)
++
++#define JOYCON_CRC8_POLY (0x8D)
++#define JOYCON_CRC8_INIT (0x00)
 +
 +typedef struct joycon_uart_initial
 +{
@@ -255,6 +242,16 @@ index 000000000000..e698c7f800ca
 +	u8 command;
 +	u8 data[];
 +} joycon_subcmd_packet;
++
++struct joycon_stick_calib
++{
++	u16 x_max;
++	u16 y_max;
++	u16 x_cent;
++	u16 y_cent;
++	u16 x_min; 
++	u16 y_min;	
++};
 +
 +/* Joy-Con button mappings */
 +static const signed short joycon_common_btn[] = {
@@ -290,11 +287,17 @@ index 000000000000..e698c7f800ca
 +	
 +	bool handshaken;
 +	bool initialized;
++	bool factory_cal_2_parsed;
 +	
 +	int timeout_samples;
 +	int num_samples;
++	int reconnect_threshold;
 +	
 +	u8 button_set;
++	struct joycon_stick_calib l_calib;
++	struct joycon_stick_calib r_calib;
++	
++	struct workqueue_struct *wq;
 +	
 +	int idx;
 +	u32 buttons;
@@ -308,12 +311,14 @@ index 000000000000..e698c7f800ca
 +static DEFINE_MUTEX(joycon_input_lock);
 +static LIST_HEAD(joycon_device_list);
 +
++static u8 crc_table[CRC8_TABLE_SIZE];
++
 +static struct serdev_device_ops joycon_ops;
 +static struct input_dev *input_dev;
 +static u32 buttons;
 +static int stick_lx, stick_ly, stick_rx, stick_ry;
 +
-+static struct workqueue_struct *joycon_wq;
++
 +struct work_timeout_poll {
 +	struct delayed_work work;
 +	struct joycon* joycon;
@@ -326,7 +331,101 @@ index 000000000000..e698c7f800ca
 +
 +struct work_sync_poll {
 +	struct delayed_work work;
++	struct joycon* joycon;
 +};
++
++u8 joycon_crc8(u8* data, size_t len)
++{
++	return crc8(crc_table, data, len, JOYCON_CRC8_INIT);
++}
++
++u16 joycon_packet_craft(u8 *out, u8 command, u8 *data, u16 size)
++{
++	u16 packet_size = sizeof(joycon_uart_header);
++	joycon_uart_header *pre = (joycon_uart_header*)out;
++
++	pre->initial.magic[0] = 0x19;
++	pre->initial.magic[1] = 0x01;
++	pre->initial.magic[2] = 0x3;
++
++	pre->initial.total_size = 7;
++	pre->command = command;
++
++	if (data)
++		memcpy(pre->data, data, size);
++
++	pre->crc = joycon_crc8((void*)pre + 0x4, 0x7);
++
++	return packet_size;
++}
++
++u16 joycon_extcommand_craft(u8 *out, u8 command, u8 *data, u16 size)
++{
++	struct
++	{
++		u8 size[2];
++	} subcmd_data;
++
++	joycon_subcmd_packet* subcmd_packet = (joycon_subcmd_packet*)out;
++
++	subcmd_data.size[0] = (size + sizeof(u8)) >> 8;
++	subcmd_data.size[1] = (size + sizeof(u8)) & 0xFF;
++	u16 packet_size = joycon_packet_craft(out, 0x92, (u8*)&subcmd_data, sizeof(subcmd_data));
++
++	subcmd_packet->pre.initial.total_size += size;
++	subcmd_packet->command = command;
++	if (data)
++		memcpy(subcmd_packet->data, data, size);
++
++	packet_size += size + sizeof(u8);
++	return packet_size;
++}
++
++void joycon_send_command(struct serdev_device *serdev, u8 command, u8 *data, u16 size)
++{
++	//TODO: memory corruption somewhere
++	u8 temp[0x1000]; //TODO: why did I make this static again
++	memset(temp, 0, sizeof(temp));
++
++	size = joycon_packet_craft(temp, command, data, size);
++
++	//print_bytes(temp, size);
++	serdev_device_write(serdev, temp, size, msecs_to_jiffies(200));
++}
++
++void joycon_send_extcommand(struct serdev_device *serdev, u8 command, u8 *data, u16 size)
++{
++	//u8 *temp = devm_kzalloc(&serdev->dev, size+0x1000, GFP_KERNEL);
++	u8 temp[0x1000];
++	memset(temp, 0, sizeof(temp));
++
++	//TODO: memory corruption somewhere
++	size = joycon_extcommand_craft(temp, command, data, size);
++
++	//print_bytes(temp, size);
++	serdev_device_write(serdev, temp, size, msecs_to_jiffies(200));
++	//kfree(temp);
++}
++
++void joycon_send_hidcommand(struct serdev_device *serdev, u8 command, u8 *data, u16 size)
++{
++	u8 data_gen[0x1000];
++	u8 rumble[8] = {0x00, 0x01, 0x40, 0x40, 0x00, 0x01, 0x40, 0x40};
++
++	memset(data_gen, 0, sizeof(data_gen));
++
++	//TODO: memory corruption somewhere
++	//u8 *data_gen = devm_kzalloc(&serdev->dev, size+10+0x1000, GFP_KERNEL);
++	data_gen[0] = 0; //inc
++	memcpy(&data_gen[1], rumble, sizeof(rumble));
++	data_gen[9] = command;
++	
++	if (data)
++		memcpy(&data_gen[10], data, size);
++
++	joycon_send_extcommand(serdev, 1, data_gen, 0x30);
++	//kfree(data_gen);
++}
 + 
 +static void timeout_handler(struct work_struct *work)
 +{
@@ -335,44 +434,39 @@ index 000000000000..e698c7f800ca
 +	struct serdev_device *serdev = joycon->serdev;
 +	int err;
 +	
-+	printk("timeout! last %x current %x diff %x\n", joycon->timeout_samples, joycon->num_samples, joycon->num_samples - joycon->timeout_samples);
++	// Inactive for 600ms, try handshaking again
++	if (joycon->num_samples - joycon->timeout_samples == 0)
++		joycon->reconnect_threshold++;
++	else
++		joycon->reconnect_threshold = 0;
 +	
-+	// We haven't gotten any samples within 200ms, we've probably been disconnected.
-+	if ((joycon->num_samples - joycon->timeout_samples == 0 && joycon->num_samples) || !joycon->initialized)
++	// We haven't gotten any samples within 600ms, we've probably been disconnected.
++	if (joycon->reconnect_threshold > 3)
 +	{
 +		joycon->handshaken = false;
 +		joycon->initialized = false;
-+		while (!joycon->handshaken)
-+		{
-+			err = serdev_device_write(serdev, magic_start, sizeof(magic_start), msecs_to_jiffies(200));
-+			if (err) goto fail;
 +
-+			err = serdev_device_write(serdev, handshake_start, sizeof(handshake_start), msecs_to_jiffies(200));
-+			if (err) goto fail;
++		err = serdev_device_write(serdev, (u8[]){0xA1, 0xA2, 0xA3, 0xA4}, 4, msecs_to_jiffies(200));
++		if (err) goto fail;
 +
-+			usleep_range(180000, 200000);
-+			printk("Sent handshake\n");
-+		}
++		joycon_send_command(serdev, JOYCON_COMMAND_HANDSHAKE, (u8[]){0x02, 0x01, 0x7E}, 3); //TODO: error passing
 +		
-+		// Get MAC
-+		serdev_device_write(serdev, get_mac, sizeof(get_mac), msecs_to_jiffies(200));
-+		
-+		//serdev_device_write(serdev, switch_baud, sizeof(switch_baud), msecs_to_jiffies(200));
++		serdev_device_write_flush(serdev);
 +
-+		serdev_device_write(serdev, unk_1, sizeof(unk_1), msecs_to_jiffies(200));
-+		serdev_device_write(serdev, unk_2, sizeof(unk_2), msecs_to_jiffies(200));
-+		serdev_device_write(serdev, unk_3, sizeof(unk_3), msecs_to_jiffies(200));
-+		
-+		joycon->num_samples = 0;
-+		joycon->initialized = true;
++		joycon->reconnect_threshold = 0;
++		printk("Sent handshake\n");
 +	}
 +	
-+	//kfree(data);
++	if (!joycon->button_set && joycon->initialized)
++		joycon_send_hidcommand(serdev, JOYCON_HID_DEVICE_INFO, NULL, 0);
++
++	if (joycon->button_set && !joycon->factory_cal_2_parsed)
++		joycon_send_hidcommand(serdev, JOYCON_HID_SPI_READ, (u8[]){0x3D, 0x60, 0x00, 0x00, 0x1E}, 5); //TODO nicer
 +
 +fail:
 +	joycon->timeout_samples = joycon->num_samples;
 +	INIT_DELAYED_WORK(&data->work,timeout_handler);
-+	queue_delayed_work(joycon_wq, &data->work, msecs_to_jiffies(200));
++	queue_delayed_work(joycon->wq, &data->work, msecs_to_jiffies(200));
 +}
 +
 +static void input_handler(struct work_struct *work)
@@ -386,13 +480,13 @@ index 000000000000..e698c7f800ca
 +	}
 +	
 +	INIT_DELAYED_WORK(&data->work, input_handler);
-+	queue_delayed_work(joycon_wq, &data->work, msecs_to_jiffies(16));
++	queue_delayed_work(joycon->wq, &data->work, msecs_to_jiffies(16));
 +}
 +
 +static void sync_handler(struct work_struct *work)
 +{
-+       printk("sync %x", buttons);
 +	struct work_sync_poll * data = (struct work_sync_poll *)work;
++	struct joycon *joycon = data->joycon;
 +	int i;
 +	
 +	mutex_lock(&joycon_input_lock);
@@ -409,7 +503,82 @@ index 000000000000..e698c7f800ca
 +	mutex_unlock(&joycon_input_lock);
 +	
 +	INIT_DELAYED_WORK(&data->work, sync_handler);
-+	queue_delayed_work(joycon_wq, &data->work, msecs_to_jiffies(10));
++	queue_delayed_work(joycon->wq, &data->work, msecs_to_jiffies(10));
++}
++
++static void joycon_parse_stick_cal(struct joycon_stick_calib *calib, u8* packed)
++{
++	//min->max cent->min max->cent
++
++	calib->x_cent = ((packed[1] << 8) & 0xF00) | packed[0];
++	calib->y_cent = (packed[2] << 4) | (packed[1] >> 4);
++	calib->x_min = ((packed[4] << 8) & 0xF00) | packed[3];
++	calib->y_min = (packed[5] << 4) | (packed[4] >> 4);
++	calib->x_max = ((packed[7] << 8) & 0xF00) | packed[6];
++	calib->y_max = (packed[8] << 4) | (packed[7] >> 4);
++}
++
++static void joycon_parse_spi_read(struct serdev_device *serdev, u8* packet, u32 size)
++{
++	struct joycon *joycon = serdev_device_get_drvdata(serdev);
++	u32 addr = (packet[4] << 24) | (packet[3] << 16) | (packet[2] << 8) | packet[1];
++	u8 bytes_read = packet[5];
++	
++	if (addr == JOYCON_SPI_FACTORY_CAL_2)
++	{
++		joycon_parse_stick_cal(&joycon->l_calib, packet + 5);
++		joycon_parse_stick_cal(&joycon->r_calib, packet + 14);
++		
++		//TODO: Colors
++		
++		if (joycon->button_set & JOYCON_BUTTONSET_LEFT)
++		{
++			input_dev->absinfo[ABS_X].minimum = joycon->l_calib.x_cent - joycon->l_calib.x_min;
++			input_dev->absinfo[ABS_X].maximum = joycon->l_calib.x_cent + joycon->l_calib.x_max;
++			input_dev->absinfo[ABS_Y].minimum = joycon->l_calib.y_cent - joycon->l_calib.y_min;
++			input_dev->absinfo[ABS_Y].maximum = joycon->l_calib.y_cent + joycon->l_calib.y_max;
++			printk("Parsed left joystick configs\n");
++		}
++		
++		if (joycon->button_set & JOYCON_BUTTONSET_RIGHT)
++		{
++			input_dev->absinfo[ABS_RX].minimum = joycon->l_calib.x_cent - joycon->r_calib.x_min;
++			input_dev->absinfo[ABS_RX].maximum = joycon->l_calib.x_cent + joycon->r_calib.x_max;
++			input_dev->absinfo[ABS_RY].minimum = joycon->l_calib.y_cent - joycon->r_calib.y_min;
++			input_dev->absinfo[ABS_RY].maximum = joycon->l_calib.x_cent + joycon->r_calib.y_max;
++			printk("Parsed right joystick configs\n");
++		}
++		
++		joycon->factory_cal_2_parsed = true;
++	}
++}
++
++static void joycon_hidret_parse(struct serdev_device *serdev, u8* packet, u32 size)
++{
++	struct joycon *joycon = serdev_device_get_drvdata(serdev);
++	switch (packet[0])
++	{
++	case JOYCON_HID_DEVICE_INFO:
++		printk("Joy-Con firmware version %u.%u\n", packet[1], packet[2]);
++		joycon->button_set = packet[3];
++		if (packet[3] == 1)
++			printk("Joy-Con is a left controller\n");
++		else if (packet[3] == 2)
++			printk("Joy-Con is a right controller\n");
++		else if (packet[3] == 3)
++			printk("Joy-Con is a pro controller\n");
++		else
++			printk("Joy-Con is unknown\n");
++		break;
++	case JOYCON_HID_SPI_READ:
++		joycon_parse_spi_read(serdev, packet, size);
++		break;
++	default:
++		printk("Unknown hidret %x\n", packet[0]);
++		break;
++	}
++	
++	//print_bytes(packet, size);
 +}
 +
 +static void joycon_extret_parse(struct serdev_device *serdev, u8* packet, u32 size)
@@ -419,40 +588,43 @@ index 000000000000..e698c7f800ca
 +
 +	switch (packet[0])
 +	{
-+		case JOYCON_EXT_INPUT:
-+			joycon->buttons = packet[3] | packet[4] << 8 | packet[5] << 16;
-+			
-+			mutex_lock(&joycon_input_lock);
-+			if (joycon->button_set & JOYCON_BUTTONSET_LEFT)
-+			{
-+				buttons &= ~JOYCON_BUTTONS_LEFT;;
-+				buttons |= (joycon->buttons & JOYCON_BUTTONS_LEFT);
-+			}
-+			if (joycon->button_set & JOYCON_BUTTONSET_RIGHT)
-+			{
-+				buttons &= ~JOYCON_BUTTONS_RIGHT;
-+				buttons |= (joycon->buttons & JOYCON_BUTTONS_RIGHT);
-+			}
++	case JOYCON_EXT_INPUT:
++		joycon->buttons = packet[3] | packet[4] << 8 | packet[5] << 16;
++		
++		mutex_lock(&joycon_input_lock);
++		if (joycon->button_set & JOYCON_BUTTONSET_LEFT)
++		{
++			buttons &= ~JOYCON_BUTTONS_LEFT;;
++			buttons |= (joycon->buttons & JOYCON_BUTTONS_LEFT);
++		}
++		if (joycon->button_set & JOYCON_BUTTONSET_RIGHT)
++		{
++			buttons &= ~JOYCON_BUTTONS_RIGHT;
++			buttons |= (joycon->buttons & JOYCON_BUTTONS_RIGHT);
++		}
 +
-+			if (joycon->button_set & JOYCON_BUTTONSET_LEFT)
-+			{
-+				stick_lx = ((packet[7] & 0x0F) << 4) | ((packet[6] & 0xF0) >> 4);
-+				stick_ly = 256 - packet[8];
-+			}
-+			
-+			if (joycon->button_set & JOYCON_BUTTONSET_RIGHT)
-+			{
-+				stick_rx = ((packet[10] & 0x0F) << 4) | ((packet[9] & 0xF0) >> 4);
-+				stick_ry = 256 - packet[11];
-+			}
-+			mutex_unlock(&joycon_input_lock);
++		if (joycon->button_set & JOYCON_BUTTONSET_LEFT)
++		{
++			stick_lx = packet[6+0] | ((packet[6+1] & 0xF) << 8);
++			stick_ly = (packet[6+1] >> 4) | (packet[6+2] << 4);
++		}
++		
++		if (joycon->button_set & JOYCON_BUTTONSET_RIGHT)
++		{
++			stick_rx = packet[9+0] | ((packet[9+1] & 0xF) << 8);
++			stick_ry = (packet[9+1] >> 4) | (packet[9+2] << 4);
++		}
++		mutex_unlock(&joycon_input_lock);
 +			
 +
-+			joycon->num_samples++;
-+			break;
-+		default:
-+			printk("Unknown extret %x\n", packet[0]);
-+			break;
++		joycon->num_samples++;
++		break;
++	case JOYCON_EXT_HIDCOMMAND:
++		joycon_hidret_parse(serdev, packet+14, size-14);
++		break;
++	default:
++		printk("Unknown extret %x\n", packet[0]);
++		break;
 +	}
 +}
 +
@@ -463,29 +635,35 @@ index 000000000000..e698c7f800ca
 +
 +	switch (packet[0])
 +	{
-+		case JOYCON_INIT_MAC:
++	case JOYCON_INIT_MAC:
++
++	for (i = 0xC; i >= 0x6; i--)
++			joycon->mac[j++] = packet[i];
++		printk("Joy-Con with MAC %02X::%02X::%02X::%02X::%02X::%02X\n", joycon->mac[0], joycon->mac[1], joycon->mac[2], joycon->mac[3], joycon->mac[4], joycon->mac[5]);
 +			
-+			for (i = 0xC; i >= 0x6; i--)
-+				joycon->mac[j++] = packet[i];
-+			printk("Joy-Con with MAC %02X::%02X::%02X::%02X::%02X::%02X\n", joycon->mac[0], joycon->mac[1], joycon->mac[2], joycon->mac[3], joycon->mac[4], joycon->mac[5]);
-+			
-+			// TODO: Better detection
-+			if (joycon->mac[0] == 0x7C)
-+				joycon->button_set = JOYCON_BUTTONSET_LEFT;
-+			else
-+				joycon->button_set = JOYCON_BUTTONSET_RIGHT;
-+			break;
-+		case JOYCON_INIT_UNK1:
-+		case JOYCON_INIT_UNK2:
-+		case JOYCON_INIT_UNK3:
-+			break;
-+		case JOYCON_INIT_BAUDRATE:
-+			serdev_device_set_baudrate(serdev, 3125000);
-+			printk("High-speed baudrate shifted...\n");
-+			break;
-+		default:
-+			printk("Unknown initret %x\n", packet[0]);
-+			break;
++		// Next init command
++		//serdev_device_write(serdev, switch_baud, sizeof(switch_baud), msecs_to_jiffies(200));
++		joycon_send_command(serdev, JOYCON_COMMAND_EXTSEND, (u8[]){JOYCON_INIT_UNK1}, 1);
++		break;
++	case JOYCON_INIT_UNK1:
++		joycon_send_command(serdev, JOYCON_COMMAND_EXTSEND, (u8[]){JOYCON_INIT_UNK2}, 1);
++		break;
++	case JOYCON_INIT_UNK2:
++		serdev_device_write(serdev, unk_3, sizeof(unk_3), msecs_to_jiffies(200));
++		break;
++	case JOYCON_INIT_UNK3:
++		joycon->button_set = 0;
++		joycon->num_samples = 0;
++		joycon->factory_cal_2_parsed = false;
++		joycon->initialized = true;
++		break;
++	case JOYCON_INIT_BAUDRATE:
++		serdev_device_set_baudrate(serdev, 3000000);
++		printk("High-speed baudrate shifted...\n");
++		break;
++	default:
++		printk("Unknown initret %x\n", packet[0]);
++		break;
 +	}
 +}
 +
@@ -496,28 +674,28 @@ index 000000000000..e698c7f800ca
 +
 +	switch (header->command)
 +	{
-+		case JOYCON_COMMAND_EXTRET:
-+			joycon_extret_parse(serdev, packet + sizeof(joycon_uart_header), (header->data[0] << 8) | header->data[1]);
-+			break;
-+		case JOYCON_COMMAND_INITRET:
-+			joycon_initret_parse(serdev, packet + sizeof(joycon_uart_initial) + 1, size - sizeof(joycon_uart_initial) - 1);
-+			break;
-+		case JOYCON_COMMAND_HANDSHAKE:
-+			printk("Got handshake response\n");
-+			joycon->handshaken = true;
-+			break;
-+		default:
-+			printk("Unknown command %x\n", header->command);
-+			break;
++	case JOYCON_COMMAND_EXTRET:
++		joycon_extret_parse(serdev, packet + sizeof(joycon_uart_header), (header->data[0] << 8) | header->data[1]);
++		break;
++	case JOYCON_COMMAND_INITRET:
++		joycon_initret_parse(serdev, packet + sizeof(joycon_uart_initial) + 1, size - sizeof(joycon_uart_initial) - 1);
++		break;
++	case JOYCON_COMMAND_HANDSHAKE:
++		printk("Got handshake response\n");
++		joycon->handshaken = true;
++		
++		// Get MAC
++		joycon_send_command(serdev, JOYCON_COMMAND_EXTSEND, (u8[]){JOYCON_INIT_MAC}, 1);
++		break;
++	default:
++		printk("Unknown command %x\n", header->command);
++		break;
 +	}
 +}
 +
 +static int joycon_serdev_receive_buf(struct serdev_device *serdev, const unsigned char *buf, size_t len)
 +{
 +	struct joycon *joycon = serdev_device_get_drvdata(serdev);
-+	int i;
-+	
-+	//printk("Got data from Joy-Con size %zu\n", len);
 +
 +	if (!joycon || serdev != joycon->serdev) {
 +		WARN_ON(1);
@@ -550,6 +728,8 @@ index 000000000000..e698c7f800ca
 +	if (!joycon)
 +		goto fail2;
 +
++	joycon->wq = create_workqueue("joycon_wq");
++
 +	if (input_dev) goto input_exists;
 +
 +	// TODO: For USB/BT this should be an array w/ Joy-Con 
@@ -570,10 +750,11 @@ index 000000000000..e698c7f800ca
 +	for (i = 0; joycon_common_btn[i] >= 0; i++)
 +		__set_bit(joycon_common_btn[i], input_dev->keybit);
 +
-+	input_set_abs_params(input_dev, ABS_X, 32, 255 - 32, 0, 4);
-+	input_set_abs_params(input_dev, ABS_Y, 32, 255 - 32, 0, 4);
-+	input_set_abs_params(input_dev, ABS_RX, 32, 255 - 32, 0, 4);
-+	input_set_abs_params(input_dev, ABS_RY, 32, 255 - 32, 0, 4);
++	//TODO: dead zones
++	input_set_abs_params(input_dev, ABS_X, 0x400, 0xC00, 0, 200);
++	input_set_abs_params(input_dev, ABS_Y, 0x400, 0xC00, 0, 200);
++	input_set_abs_params(input_dev, ABS_RX, 0x400, 0xC00, 0, 200);
++	input_set_abs_params(input_dev, ABS_RY, 0x400, 0xC00, 0, 200);
 +	
 +	err = input_register_device(input_dev);
 +	if (err) goto fail1;
@@ -581,7 +762,8 @@ index 000000000000..e698c7f800ca
 +	// Start input sync polling
 +	work_sync = kmalloc(sizeof(struct work_sync_poll), GFP_KERNEL);
 +	INIT_DELAYED_WORK(&work_sync->work, sync_handler);
-+	queue_delayed_work(joycon_wq, &work_sync->work, msecs_to_jiffies(10));
++	work_sync->joycon = joycon;
++	queue_delayed_work(joycon->wq, &work_sync->work, msecs_to_jiffies(10));
 +
 +input_exists:
 +	joycon->serdev = serdev;
@@ -589,11 +771,11 @@ index 000000000000..e698c7f800ca
 +	joycon->input_dev = input_dev;
 +
 +	serdev_device_set_drvdata(serdev, joycon);
-+	
++
++	//TODO: error checking	
 +	serdev_device_open(serdev);
 +	serdev_device_set_flow_control(serdev, true);
 +	serdev_device_set_baudrate(serdev, 1000000);
-+	printk("Brought baudrate up\n");
 +	
 +	serdev_device_set_client_ops(serdev, &joycon_ops);
 +	
@@ -601,12 +783,12 @@ index 000000000000..e698c7f800ca
 +	work_timeout = kmalloc(sizeof(struct work_timeout_poll), GFP_KERNEL);
 +	INIT_DELAYED_WORK(&work_timeout->work, timeout_handler);
 +	work_timeout->joycon = joycon;
-+	queue_delayed_work(joycon_wq, &work_timeout->work, msecs_to_jiffies(200));
++	queue_delayed_work(joycon->wq, &work_timeout->work, msecs_to_jiffies(200));
 +	
 +	work_input = kmalloc(sizeof(struct work_input_poll), GFP_KERNEL);
 +	work_input->joycon = joycon;
 +	INIT_DELAYED_WORK(&work_input->work, input_handler);
-+	queue_delayed_work(joycon_wq, &work_input->work, msecs_to_jiffies(200));
++	queue_delayed_work(joycon->wq, &work_input->work, msecs_to_jiffies(200));
 +
 +	return 0;
 +
@@ -623,6 +805,10 @@ index 000000000000..e698c7f800ca
 +	printk("Joy-Con remove!\n");
 +	
 +	input_unregister_device(joycon->input_dev);
++	
++	flush_workqueue(joycon->wq);
++	destroy_workqueue(joycon->wq);
++	
 +	kfree(joycon);
 +}
 +
@@ -697,24 +883,18 @@ index 000000000000..e698c7f800ca
 +
 +int __init joycon_init(void)
 +{
-+	printk("joycon init\n");
-+
-+	joycon_wq = create_workqueue("joycon_wq");
-+
 +	platform_driver_register(&joycon_driver);
 +	serdev_device_driver_register(&joycon_serdev_driver);
++	
++	crc8_populate_lsb(crc_table, JOYCON_CRC8_POLY);
 +
 +	return 0;
 +}
 +
 +void __exit joycon_exit(void)
 +{
-+	printk("joycon exit\n");
 +	platform_driver_unregister(&joycon_driver);
 +	serdev_device_driver_unregister(&joycon_serdev_driver);
-+	
-+	flush_workqueue(joycon_wq);
-+	destroy_workqueue(joycon_wq);
 +}
 +
 +module_init(joycon_init);
