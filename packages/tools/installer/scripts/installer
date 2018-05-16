@@ -25,18 +25,18 @@
 # cat /proc/partitions | sed -n "s/\ *[0-9][0-9]*\ *[0-9][0-9]*\ *[0-9][0-9]*\ \([a-z]*\)$/\1/p"
 
 # list all partitionnumbers from /dev/sda:
-# parted -m /dev/sda print |grep -v ^/dev |grep -v ^BYT | cut -f1 -d ":"
+# parted -m /dev/sda print | grep -v ^/dev | grep -v ^BYT | cut -f1 -d ":"
 
 # list device data from /dev/sda:
-# parted -m /dev/sda print |grep /dev/sda
+# parted -m /dev/sda print | grep /dev/sda
 
 # list mounted partitions:
-# mount |grep ^/dev
+# mount | grep ^/dev
 
 # list modelnumber:
-# parted -m /dev/sda print |grep /dev/sda | cut -f7 -d ":" | sed "s/;//"
+# parted -m /dev/sda print | grep /dev/sda | cut -f7 -d ":" | sed "s/;//"
 # list size:
-# parted -m /dev/sda print |grep /dev/sda | cut -f2 -d ":"
+# parted -m /dev/sda print | grep /dev/sda | cut -f2 -d ":"
 
 # exclude mounted partitions
 # for i in `cat /proc/mounts | grep ^/dev/ | cut -f1 -d " " | sed "s/[0-9]//"`; do TEST="$TEST `echo "| grep -v $i"`"; done
@@ -56,6 +56,36 @@ dbglg() {
   echo "" >> $LOGFILE
 }
 
+log_system_status() {
+  echo "# cat /proc/mounts"
+  cat /proc/mounts
+  echo
+
+  echo "# df"
+  df
+  echo
+
+  echo "# df -h"
+  df -h
+  echo
+
+  echo "# parted -s -m -l"
+  parted -s -m -l
+  echo
+
+  echo "# blkid"
+  blkid
+  echo
+
+  echo "# UEFI (if directory exists)"
+  ls -la /sys/firmware/efi
+  echo
+
+  echo "# Disk sizes (bytes)"
+  grep . /sys/block/*/size
+  echo
+}
+
 get_device_unmount() {
   # get all unmounted devices
   # usage: get_devices_unmount
@@ -66,15 +96,15 @@ get_device_unmount() {
   DEVICES=$(parted -s -m -l 2>/dev/null | grep -E '^/dev/sd|^/dev/mmcblk|^/dev/nvme' | grep -E -v '.?rpmb|.?boot?' | cut -f1 -d ":")
 
   for i in $(cat /proc/mounts | grep -E '^/dev/sd' | cut -f1 -d " " | sed "s/[0-9].*$//"); do
-    DEVICES=$(echo $DEVICES |sed -e "s|$i||")
+    DEVICES=$(echo $DEVICES | sed -e "s|$i||")
   done
 
   for i in $(cat /proc/mounts | grep -E '^/dev/mmcblk' | cut -f1 -d " " | sed "s/p.*$//"); do
-    DEVICES=$(echo $DEVICES |sed -e "s|$i||")
+    DEVICES=$(echo $DEVICES | sed -e "s|$i||")
   done
 
   for i in $(cat /proc/mounts | grep -E '^/dev/nvme' | cut -f1 -d " " | sed "s/p.*$//"); do
-    DEVICES=$(echo $DEVICES |sed -e "s|$i||")
+    DEVICES=$(echo $DEVICES | sed -e "s|$i||")
   done
 }
 
@@ -84,7 +114,7 @@ get_partition() {
   # uses:     -
   # provides: PARTITIONS
 
-  PARTITIONS=$(parted -s -m $1 print |grep -v ^/dev |grep -v BYT | cut -f1 -d ":")
+  PARTITIONS=$(parted -s -m $1 print | grep -v ^/dev | grep -v BYT | cut -f1 -d ":")
 }
 
 create_device_list() {
@@ -221,6 +251,7 @@ do_install_quick() {
     UUID_SYSTEM="$(blkid --output udev ${INSTALL_DEVICE}${PART1} | grep ^ID_FS_UUID= | cut -d= -f2)"
     UUID_STORAGE="$(blkid --output udev ${INSTALL_DEVICE}${PART2} | grep ^ID_FS_UUID= | cut -d= -f2)"
 
+    echo "" >> $LOGFILE
     echo "UUID_SYSTEM : ${UUID_SYSTEM}" >> $LOGFILE
     echo "UUID_STORAGE: ${UUID_STORAGE}" >> $LOGFILE
 
@@ -329,6 +360,7 @@ prompt_gpt() {
   GPT="0"
   UEFI="0"
   # Get size in GB.
+  # 2^41 bytes is the DOS limit (2199023255552 bytes, 2.2TB). Use GUID Partition Table.>= 2200GB
   INSTALL_DEVICE_SIZE=$(($(cat /sys/block/${INSTALL_DEVICE#/dev/}/size)*512/1000/1000/1000))
   if [ "$INSTALL_DEVICE_SIZE" -ge 2200 ] 2>/dev/null; then
     GPT="1"
@@ -369,10 +401,11 @@ out during the installation. \
   MSG_CANCEL="Close"
 
   whiptail --backtitle "$BACKTITLE" --cancel-button "$MSG_CANCEL" \
-    --title "$MSG_TITLE" --menu "$MSG_MENU" 18 73 3 \
+    --title "$MSG_TITLE" --menu "$MSG_MENU" 18 73 4 \
       1 "Install @DISTRONAME@" \
       2 "View installation log" \
-      3 "Reboot" 2> $TMPDIR/mainmenu
+      3 "Save installation log" \
+      4 "Reboot" 2> $TMPDIR/mainmenu
 
   case $? in
     0)
@@ -380,7 +413,8 @@ out during the installation. \
       case $ITEM_MAINMENU in
         1) do_install_quick;;
         2) logfile_show;;
-        3) do_reboot;;
+        3) logfile_save;;
+        4) do_reboot;;
       esac
       ;;
     1)
@@ -394,6 +428,20 @@ out during the installation. \
 
 logfile_show() {
   whiptail --textbox "$LOGFILE" 20 73 --scrolltext --backtitle "$BACKTITLE"
+}
+
+logfile_save() {
+  mount -o remount,rw /flash
+
+  mkdir -p $(dirname $LOGBACKUP)
+  cp $LOGFILE $LOGBACKUP
+  sync
+
+  mount -o remount,ro /flash
+
+  MSG_TITLE="@DISTRONAME@ Log Saved"
+  MSG_DETAIL="Log location: ${LOGBACKUP}\n"
+  whiptail --backtitle "$BACKTITLE" --title "$MSG_TITLE" --msgbox "$MSG_DETAIL" 7 52
 }
 
 do_reboot() {
@@ -416,6 +464,7 @@ BACKTITLE="@DISTRONAME@ Installer - $OS_VERSION"
 
 TMPDIR="/tmp/installer"
 LOGFILE="$TMPDIR/install.log"
+LOGBACKUP="/flash/logs/$(date +%Y%m%d%H%M%S).log"
 
 export COLORTERM="1"
 export NEWT_COLORS="$WHIPTAIL_COLORS"
@@ -427,6 +476,9 @@ mkdir -p $TMPDIR
 #create log file
 echo "@DISTRONAME@ Installer - $OS_VERSION started at:" > $LOGFILE
 date >> $LOGFILE
+
+dbglg "System status"
+log_system_status >> $LOGFILE 2>&1
 
 # generate the en_US.UTF-8 locale to enable line drawing
 mkdir -p $TMPDIR/locale
