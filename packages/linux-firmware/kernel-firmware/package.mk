@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="kernel-firmware"
-PKG_VERSION="df40d15"
+PKG_VERSION="8fc2d4e"
 PKG_ARCH="any"
 PKG_LICENSE="other"
 PKG_SITE="https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/"
@@ -45,7 +45,13 @@ makeinstall_target() {
 
   FW_LISTS="${PKG_DIR}/firmwares/any.dat ${PKG_DIR}/firmwares/${TARGET_ARCH}.dat"
   FW_LISTS+=" ${PROJECT_DIR}/${PROJECT}/${PKG_NAME}/firmwares/any.dat"
+  FW_LISTS+=" ${PROJECT_DIR}/${PROJECT}/firmwares/any.dat"
   [ -n "${DEVICE}" ] && FW_LISTS+=" ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/${PKG_NAME}/firmwares/any.dat"
+  
+  # linux-firmware is missing a file necessary for the Switch
+  if [ "$PROJECT" = "Switch" ]; then
+    wget -P "${BUILD}/$PKG_NAME-$PKG_VERSION/brcm" "https://chromium.googlesource.com/chromiumos/third_party/linux-firmware/+/f151f016b4fe656399f199e28cabf8d658bcb52b/brcm/brcmfmac4356-pcie.txt"
+  fi
 
   for fwlist in ${FW_LISTS}; do
     [ -f ${fwlist} ] || continue
