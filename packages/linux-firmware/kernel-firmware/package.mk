@@ -50,7 +50,9 @@ makeinstall_target() {
   
   # linux-firmware is missing a file necessary for the Switch
   if [ "$PROJECT" = "Switch" ]; then
-    wget -P "${BUILD}/$PKG_NAME-$PKG_VERSION/brcm" "https://chromium.googlesource.com/chromiumos/third_party/linux-firmware/+/f151f016b4fe656399f199e28cabf8d658bcb52b/brcm/brcmfmac4356-pcie.txt"
+    wget -P "${BUILD}/$PKG_NAME-$PKG_VERSION/brcm" "https://chromium.googlesource.com/chromiumos/third_party/linux-firmware/+/f151f016b4fe656399f199e28cabf8d658bcb52b/brcm/brcmfmac4356-pcie.txt?format=TEXT"
+    cat "${BUILD}/$PKG_NAME-$PKG_VERSION/brcm/brcmfmac4356-pcie.txt?format=TEXT" | base64 --decode > "${BUILD}/$PKG_NAME-$PKG_VERSION/brcm/brcmfmac4356-pcie.txt"
+    rm -f "${BUILD}/$PKG_NAME-$PKG_VERSION/brcm/brcmfmac4356-pcie.txt?format=TEXT"
   fi
 
   for fwlist in ${FW_LISTS}; do
