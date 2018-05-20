@@ -17,26 +17,21 @@
 ################################################################################
 
 PKG_NAME="rust"
-PKG_VERSION="1.23.0"
+PKG_VERSION="1.26.0"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://www.rust-lang.org"
-PKG_URL=""
-PKG_DEPENDS="toolchain"
+PKG_DEPENDS_TARGET="toolchain rustup.rs"
 PKG_SECTION="devel"
 PKG_LONGDESC="Rust is a systems programming language that runs blazingly fast, prevents segfaults, and guarantees thread safety."
 PKG_TOOLCHAIN="manual"
-
-unpack() {
-  :
-}
 
 make_target() {
   export CARGO_HOME="$TOOLCHAIN/.cargo"
   export RUSTUP_HOME="$CARGO_HOME"
   export PATH="$CARGO_HOME/bin:$PATH"
   rm -rf "$CARGO_HOME"
-  curl https://sh.rustup.rs -sSf | sh -s -- --no-modify-path -y
+  $(get_build_dir rustup.rs)/rustup-init.sh --no-modify-path -y
   rustup default "$PKG_VERSION"
   case "$TARGET_ARCH" in
     aarch64)
