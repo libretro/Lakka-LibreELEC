@@ -9,3 +9,4 @@ PKG_URL="http://xorg.freedesktop.org/archive/individual/driver/$PKG_NAME-$PKG_VE
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+PKG_CONFIGURE_OPTS_TARGET="--enable-glamor --enable-udev --with-xorg-module-dir=$XORG_PATH_MODULES"

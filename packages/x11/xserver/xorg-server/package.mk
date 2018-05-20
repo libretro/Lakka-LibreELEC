@@ -132,12 +132,16 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
                            --with-default-font-path=/usr/share/fonts/misc,built-ins \
                            --with-serverconfig-path=/usr/lib/xserver \
                            --without-xmlto \
+                           --enable-aiglx \
+                           --enable-glx-tls \
+                           --disable-strip \
                            --without-fop"
 
 pre_configure_target() {
 # hack to prevent a build error
   CFLAGS=`echo $CFLAGS | sed -e "s|-O3|-O2|" -e "s|-Ofast|-O2|"`
   LDFLAGS=`echo $LDFLAGS | sed -e "s|-O3|-O2|" -e "s|-Ofast|-O2|"`
+  CFLAGS="$CFLAGS -g"
 }
 
 post_makeinstall_target() {
