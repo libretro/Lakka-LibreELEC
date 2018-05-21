@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="snapserver"
-PKG_VERSION="0.13.0"
-PKG_REV="101"
+PKG_VERSION="0.15.0"
+PKG_REV="102"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_DEPENDS_TARGET="toolchain shairport-sync snapcast"
