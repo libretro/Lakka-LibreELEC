@@ -33,3 +33,12 @@ PKG_LONGDESC=""
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+post_install() {
+  enable_service xorg-configure-switch.service
+  # enable_service switch-wifi-fix.service
+  
+  mkdir -p $INSTALL/usr/bin
+  cp -P $PKG_DIR/scripts/switch-wifi-fix $INSTALL/usr/bin
+}
+
