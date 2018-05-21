@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="snapcast"
-PKG_VERSION="0.13.0"
-PKG_SHA256="331cfc62db8631af80f6c8798b9c359eb55e34d607af0881c3520b94f238f94e"
+PKG_VERSION="0.15.0"
+PKG_SHA256="7c584fad4941a299339fe060174e33c4d810b1cbe80d6efbee54da3dafb252cc"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/badaix/snapcast"
