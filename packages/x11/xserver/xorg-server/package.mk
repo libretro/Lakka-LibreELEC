@@ -134,11 +134,18 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
                            --without-xmlto \
                            --without-fop"
 
-pre_configure_target() {
-# hack to prevent a build error
+
+post_patch() {
+  # revert the prime patch for the Switch
+  if [ "$PROJECT" == "Switch" ]; then
+    patch --reverse -d `echo "$PKG_BUILD" | cut -f1 -d\ ` -p1 < $PKG_DIR/patches/xorg-server-1.18.0-add_prime_support-1.patch
+  fi
+}
+
+pre_configure_target() {  
+  # hack to prevent a build error
   CFLAGS=`echo $CFLAGS | sed -e "s|-O3|-O2|" -e "s|-Ofast|-O2|"`
   LDFLAGS=`echo $LDFLAGS | sed -e "s|-O3|-O2|" -e "s|-Ofast|-O2|"`
-  CFLAGS="$CFLAGS -g"
 }
 
 post_makeinstall_target() {
@@ -152,7 +159,7 @@ post_makeinstall_target() {
   if [ ! "$OPENGL" = "no" ]; then
     if [ -f $INSTALL/usr/lib/xorg/modules/extensions/libglx.so ]; then
       mv $INSTALL/usr/lib/xorg/modules/extensions/libglx.so \
-         $INSTALL/usr/lib/xorg/modules/extensions/libglx_mesa.so # rename for cooperate with nvidia drivers
+         $INSTALL/usr/lib/xorg/modules/extensions/libglx_mesa.so # rename to cooperate with nvidia drivers
       ln -sf /var/lib/libglx.so $INSTALL/usr/lib/xorg/modules/extensions/libglx.so
     fi
   fi

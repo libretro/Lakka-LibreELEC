@@ -58,6 +58,8 @@ fi
 
 if [ "$VULKAN" == "nvidia-driver" ]; then
   RETROARCH_GL="--enable-vulkan --disable-x11 --disable-kms --disable-egl"
+elif [ "$PROJECT" == "Switch" ]; then
+  RETROARCH_GL="--disable-kms --enable-x11 --disable-wayland --disable-opengles --enable-opengl"
 elif [ "$OPENGLES" == "no" ]; then
   RETROARCH_GL="--enable-kms"
 elif [ "$OPENGLES" == "bcm2835-driver" ]; then
@@ -89,6 +91,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
                            $RETROARCH_NEON \
                            --enable-zlib \
                            --enable-freetype"
+                         
 
 pre_configure_target() {
   cd $PKG_BUILD
@@ -207,11 +210,9 @@ makeinstall_target() {
     echo "xmb_shadows_enable = true" >> $INSTALL/etc/retroarch.cfg
     sed -i -e "s/input_menu_toggle_gamepad_combo = 2/input_menu_toggle_gamepad_combo = 4/" $INSTALL/etc/retroarch.cfg
     sed -i -e "s/video_smooth = false/video_smooth = true/" $INSTALL/etc/retroarch.cfg
-    sed -i -e "s/video_font_path =\/usr\/share\/retroarch-assets\/xmb\/monochrome\/font.ttf//" $INSTALL/etc/retroarch.cfg
-  fi
-  
+    sed -i -e "s/video_font_path =\/usr\/share\/retroarch-assets\/xmb\/monochrome\/font.ttf//" $INSTALL/etc/retroarch.cfg  
   # Switch
-  if [ "$PROJECT" == "Switch" ]; then
+  elif [ "$PROJECT" == "Switch" ]; then
     sed -i -e "s/# menu_pointer_enable = false/menu_pointer_enable = true/" $INSTALL/etc/retroarch.cfg
   fi
 }
