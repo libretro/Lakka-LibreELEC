@@ -51,6 +51,12 @@ make_target() {
   fi
   if [ "$ARCH" == "arm" ]; then
     SYSROOT_PREFIX=$SYSROOT_PREFIX AS=${CXX} make platform=armv-neon-gles
+  elif [ "$ARCH" == "aarch64" ]; then
+    if [ "$OPENGL" == "no" ]; then 
+      SYSROOT_PREFIX=$SYSROOT_PREFIX AS=${CXX} make platform=arm64-neon-gles
+    else
+      SYSROOT_PREFIX=$SYSROOT_PREFIX AS=${CXX} make platform=arm64-neon
+    fi
   else
     make
   fi
