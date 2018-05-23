@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="tvh-dtv-scan-tables"
-PKG_VERSION="a3ebfcd"
-PKG_SHA256="0cfb977f9346b3a19f8494816379214a9e197301254f6fd46d9072f3895f5f68"
+PKG_VERSION="4258e52"
+PKG_SHA256="48de5baa843ecd5a2231e9b007fc6b3fd86739ddd075158b31fcdefdcd3ce2dd"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/tvheadend"
