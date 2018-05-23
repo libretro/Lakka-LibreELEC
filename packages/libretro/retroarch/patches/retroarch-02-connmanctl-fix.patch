@@ -1,0 +1,69 @@
+--- a/wifi/drivers/connmanctl.c	2018-05-23 19:23:38.711813963 +0200
++++ b/wifi/drivers/connmanctl.c	2018-05-23 19:22:56.041426348 +0200
+@@ -65,8 +65,12 @@
+    runloop_msg_queue_push("Wi-Fi scan complete.", 1, 180, true);
+ 
+    serv_file = popen("connmanctl services", "r");
++   
++   // Throw the first line away
++   fgets(line, 512, serv_file);
++   
+    while (fgets (line, 512, serv_file) != NULL)
+-   {
++   {  
+       size_t len = strlen(line);
+       if (len > 0 && line[len-1] == '\n')
+          line[--len] = '\0';
+@@ -118,10 +122,10 @@
+          return false;
+       }
+ 
+-      strlcpy(service, list->elems[list->size-1].data, sizeof(service));
++      strlcpy(service, list->elems[list->size-2].data, sizeof(service));
+       string_list_free(list);
+ 
+-      strlcat(command, "connmanctl services ", sizeof(command));
++      strlcat(command, "connmanctl services --properties ", sizeof(command));
+       strlcat(command, service, sizeof(command));
+       strlcat(command, " | grep 'State = \\(online\\|ready\\)'", sizeof(command));
+ 
+@@ -160,8 +164,8 @@
+    // connmanctl services outputs a 4 character prefixed lines, either whispace
+    // or an identifier. i.e.:
+    // $ connmanctl services
+-   //     '*A0 SSID some_unique_id'
+-   //     '    SSID some_another_unique_id'
++   //     '*A0 SSID { some_unique_id }'
++   //     '    SSID { some_another_unique_id }'
+    list = string_split(line+4, " ");
+    if (!list)
+       return false;
+@@ -177,7 +181,7 @@
+       strlcat(name, list->elems[i].data, sizeof(name));
+       strlcat(name, " ", sizeof(name));
+    }
+-   strlcpy(service, list->elems[list->size-1].data, sizeof(service));
++   strlcpy(service, list->elems[list->size-2].data, sizeof(service));
+ 
+    string_list_free(list);
+ 
+@@ -210,11 +214,18 @@
+    strlcat(command, service, sizeof(command));
+    strlcat(command, " 2>&1", sizeof(command));
+ 
++   // FIXME When restarting connman, the services are not yet available
++   // so we wait for connman to be ready by repeating the command
+    command_file = popen(command, "r");
+ 
+    while (fgets (ln, 512, command_file) != NULL)
+    {
+-      runloop_msg_queue_push(ln, 1, 180, true);
++      if (ln[0] == '\'') {
++         pclose(command_file);
++         command_file = popen(command, "r");
++      }
++      else
++         runloop_msg_queue_push(ln, 1, 180, false);
+    }
+    pclose(command_file);
+ 
