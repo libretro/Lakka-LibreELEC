@@ -1,23 +1,24 @@
 #!/bin/sh
 
 ################################################################################
-#      This file is part of OpenELEC - http://www.openelec.tv
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2016-present Team LibreELEC
 #      Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
 #      Copyright (C) 2010-2011 Roman Weber (roman@openelec.tv)
 #      Copyright (C) 2012 Yann Cézard (eesprit@free.fr)
 #
-#  OpenELEC is free software: you can redistribute it and/or modify
+#  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation, either version 2 of the License, or
 #  (at your option) any later version.
 #
-#  OpenELEC is distributed in the hope that it will be useful,
+#  LibreELEC is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
 #
 #  You should have received a copy of the GNU General Public License
-#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
   # create directories
@@ -45,8 +46,8 @@
 
   UPDATE_KERNEL="KERNEL"
   UPDATE_SYSTEM="SYSTEM"
-  IMAGE_KERNEL="KERNEL"
-  IMAGE_SYSTEM="SYSTEM"
+  IMAGE_KERNEL="/@KERNEL_NAME@"
+  IMAGE_SYSTEM="/SYSTEM"
 
   BOOT_STEP="start"
   MD5_FAILED="0"
@@ -58,7 +59,7 @@
   NBD_DEVS="0"
   FLASH_FREE_MIN="5"
 
-  INSTALLED_MEMORY=`cat /proc/meminfo | grep 'MemTotal:' | awk '{print $2}'`
+  INSTALLED_MEMORY=$(cat /proc/meminfo | grep 'MemTotal:' | awk '{print $2}')
   SYSTEM_TORAM_LIMIT=1024000
 
   LIVE="no"
@@ -146,6 +147,9 @@
         ;;
       noram)
         SYSTEM_TORAM=no
+        ;;
+      ramlimit=*)
+        SYSTEM_TORAM_LIMIT="${arg#*=}"
         ;;
       live)
         LIVE=yes
@@ -320,7 +324,7 @@
 
     mount_common "$NBD_DEV" "$2" "$3" "$4"
 
-    NBD_DEVS=$(( ${NBD_DEVS} + 1 ))
+    NBD_DEVS=$(( NBD_DEVS + 1 ))
   }
 
   mount_nfs() {
@@ -473,7 +477,7 @@
     export BOOT_ROOT="/flash"
     export SYSTEM_ROOT="/sysroot"
 
-    mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
+    mount_part "/flash$IMAGE_SYSTEM" "/sysroot" "ro,loop"
 
     if [ -f $SYSTEM_ROOT/usr/share/bootloader/update.sh ]; then
       StartProgress spinner "Updating Bootloader... "
@@ -670,6 +674,10 @@
     wakeonlan
 
     mount_part "$boot" "/flash" "ro,noatime"
+
+    if [ -f /flash/post-flash.sh ] ; then
+      . /flash/post-flash.sh
+    fi
   }
 
   mount_storage() {
@@ -685,7 +693,7 @@
 
     if [ -n "$disk" ]; then
       if [ -n "$OVERLAY" ]; then
-        OVERLAY_DIR=`cat /sys/class/net/eth0/address | tr -d :`
+        OVERLAY_DIR=$(cat /sys/class/net/eth0/address | tr -d :)
 
         mount_part "$disk" "/storage" "rw,noatime"
         mkdir -p /storage/$OVERLAY_DIR
@@ -700,7 +708,12 @@
           disk="$target/$OVERLAY_DIR,$options"
         fi
       fi
-      mount_part "$disk" "/storage" "rw,noatime"
+
+      if [ -f /flash/mount-storage.sh ] ; then
+        . /flash/mount-storage.sh
+      else
+        mount_part "$disk" "/storage" "rw,noatime"
+      fi
     else
       # /storage should always be writable
       mount -t tmpfs none /storage
@@ -719,21 +732,21 @@
 
           mount -o remount,rw /flash
           sed -i "s/^DEFAULT .*/DEFAULT $SYSLINUX_DEFAULT/" /flash/syslinux.cfg
-          [ -f /flash/EFI/BOOT/syslinux.cfg ] && cp /flash/syslinux.cfg /flash/EFI/BOOT/syslinux.cfg
+          rm -f /flash/EFI/BOOT/syslinux.cfg
           mount -o remount,ro /flash
         fi
       fi
     fi
 
-    if [ -n "\"$GRUB_DEFAULT\"" -a -f /flash/grub.cfg ]; then
-      if grep -q "^menuentry \"$GRUB_DEFAULT\"" /flash/grub.cfg; then
-        crnt_default="$(awk '/^set default/ {print substr($2,9,19)}' /flash/grub.cfg)"
+    if [ -n "$GRUB_DEFAULT" -a -f /flash/EFI/BOOT/grub.cfg ]; then
+      if grep -q "^menuentry \"$GRUB_DEFAULT\"" /flash/EFI/BOOT/grub.cfg; then
+        crnt_default="$(awk '/^set default/ {print substr($2,9,19)}' /flash/EFI/BOOT/grub.cfg)"
         if [ ! "$crnt_default" = "\"$GRUB_DEFAULT\"" ]; then
-          progress "Updating /flash/grub.cfg [$crnt_default -> \"$GRUB_DEFAULT\"]"
+          progress "Updating /flash/EFI/BOOT/grub.cfg [$crnt_default -> \"$GRUB_DEFAULT\"]"
 
           mount -o remount,rw /flash
-          sed -i "s/^set default=.*/set default=\"$GRUB_DEFAULT\"/" /flash/grub.cfg
-          [ -f /flash/EFI/BOOT/grub.cfg ] && cp /flash/grub.cfg /flash/EFI/BOOT/grub.cfg
+          sed -i "s/^set default=.*/set default=\"$GRUB_DEFAULT\"/" /flash/EFI/BOOT/grub.cfg
+          rm -f /flash/grub.cfg
           mount -o remount,ro /flash
         fi
       fi
@@ -785,9 +798,9 @@
 
   check_update() {
     progress "Checking for updates"
-    UPDATE_TAR=`ls -1 "$UPDATE_DIR"/*.tar 2>/dev/null | head -n 1`
-    UPDATE_IMG_GZ=`ls -1 "$UPDATE_DIR"/*.img.gz 2>/dev/null | head -n 1`
-    UPDATE_IMG=`ls -1 "$UPDATE_DIR"/*.img 2>/dev/null | head -n 1`
+    UPDATE_TAR=$(ls -1 "$UPDATE_DIR"/*.tar 2>/dev/null | head -n 1)
+    UPDATE_IMG_GZ=$(ls -1 "$UPDATE_DIR"/*.img.gz 2>/dev/null | head -n 1)
+    UPDATE_IMG=$(ls -1 "$UPDATE_DIR"/*.img 2>/dev/null | head -n 1)
 
     if ! [ -f "$UPDATE_DIR/$UPDATE_KERNEL" -a -f "$UPDATE_DIR/$UPDATE_SYSTEM" ] &&
        ! [ -f "$UPDATE_TAR" -o -f "$UPDATE_IMG_GZ" -o -f "$UPDATE_IMG" ]; then
@@ -902,21 +915,24 @@
       # don't make temporary files but instead copy
       # directly from mountpoint to /flash
       UPDATE_DIR=$UPDATE_ROOT/.tmp/mnt
-      if [ ! -b $IMAGE_KERNEL -o -z "@KERNEL_NAME@" ]; then
-        UPDATE_KERNEL=$(basename $IMAGE_KERNEL)
-      else
-        UPDATE_KERNEL="@KERNEL_NAME@"
-      fi
+      UPDATE_KERNEL="@KERNEL_NAME@"
     else
       UPDATE_FILENAME="$UPDATE_DIR/$UPDATE_SYSTEM"
     fi
 
     sync
 
-    if [ ! -f "$UPDATE_DIR/$UPDATE_KERNEL" -o ! -f "$UPDATE_DIR/$UPDATE_SYSTEM" ] ; then
-      echo "Missing ${UPDATE_KERNEL} or ${UPDATE_SYSTEM}!"
+    if [ ! -b "$IMAGE_KERNEL" -a ! -f "/flash$IMAGE_KERNEL" ] || [ ! -f "/flash$IMAGE_SYSTEM" ]; then
+      echo "Missing (target) ${IMAGE_KERNEL} or ${IMAGE_SYSTEM}!"
       do_cleanup
-      StartProgress countdown "Normal startup in 10s... " 10 "NOW"
+      StartProgress countdown "Normal startup in 30s... " 30 "NOW"
+      return 0
+    fi
+
+    if [ ! -f "$UPDATE_DIR/$UPDATE_KERNEL" -o ! -f "$UPDATE_DIR/$UPDATE_SYSTEM" ] ; then
+      echo "Missing (source) ${UPDATE_KERNEL} or ${UPDATE_SYSTEM}!"
+      do_cleanup
+      StartProgress countdown "Normal startup in 30s... " 30 "NOW"
       return 0
     fi
 
@@ -963,7 +979,7 @@
     # Verify that the new upgrade is compatible with the current system - this should avoid creating
     # non-booting systems after (for example) an RPi tar is incorrectly applied to an RPi2 system.
     if [ ! -f "$UPDATE_ROOT/.nocompat" ]; then
-      if ! check_is_compatible "$UPDATE_FILENAME" "/flash/$IMAGE_SYSTEM" "$UPDATE_DIR/$UPDATE_SYSTEM"; then
+      if ! check_is_compatible "$UPDATE_FILENAME" "/flash$IMAGE_SYSTEM" "$UPDATE_DIR/$UPDATE_SYSTEM"; then
         do_cleanup
         StartProgress countdown "Normal startup in 60s... " 60 "NOW"
         return 0
@@ -976,20 +992,20 @@
 
     # Disregard kernel size if it's a a block device, which is the case on Amlogic/WeTek devices
     if [ ! -b $IMAGE_KERNEL ]; then
-      OLD_KERNEL=$(stat -t "/flash/$IMAGE_KERNEL" | awk '{print $2}')
+      OLD_KERNEL=$(stat -t "/flash$IMAGE_KERNEL" | awk '{print $2}')
     else
       OLD_KERNEL="0"
     fi
 
-    OLD_SYSTEM=$(stat -t "/flash/$IMAGE_SYSTEM" | awk '{print $2}')
+    OLD_SYSTEM=$(stat -t "/flash$IMAGE_SYSTEM" | awk '{print $2}')
     NEW_KERNEL=$(stat -t "$UPDATE_DIR/$UPDATE_KERNEL" | awk '{print $2}')
     NEW_SYSTEM=$(stat -t "$UPDATE_DIR/$UPDATE_SYSTEM" | awk '{print $2}')
 
     # old KERNEL+SYSTEM+free space - new KERNEL+SYSTEM must be higher than 5MB
     # at least 5MB free after update
 
-    TMP_SIZE=$(($OLD_KERNEL+$OLD_SYSTEM+$FLASH_FREE-$NEW_KERNEL-$NEW_SYSTEM))
-    FLASH_FREE_MIN=$(($FLASH_FREE_MIN*1024*1024))
+    TMP_SIZE=$((OLD_KERNEL + OLD_SYSTEM + FLASH_FREE - NEW_KERNEL - NEW_SYSTEM))
+    FLASH_FREE_MIN=$((FLASH_FREE_MIN * 1024 * 1024))
 
     if [ $TMP_SIZE -ge $FLASH_FREE_MIN ]; then
       echo "Checking size: OK"
@@ -1012,9 +1028,9 @@
     if [ -b $IMAGE_KERNEL ]; then
       update_partition "Kernel" "$UPDATE_KERNEL" "$IMAGE_KERNEL"
     else
-      update_file "Kernel" "$UPDATE_KERNEL" "/flash/$IMAGE_KERNEL"
+      update_file "Kernel" "$UPDATE_KERNEL" "/flash$IMAGE_KERNEL"
     fi
-    update_file "System" "$UPDATE_SYSTEM" "/flash/$IMAGE_SYSTEM"
+    update_file "System" "$UPDATE_SYSTEM" "/flash$IMAGE_SYSTEM"
     update_bootloader
     do_cleanup
     do_reboot
@@ -1024,10 +1040,10 @@
     progress "Preparing system"
 
     if [ "$SYSTEM_TORAM" = "no" -o "$INSTALLED_MEMORY" -lt "$SYSTEM_TORAM_LIMIT" ]; then
-      mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
+      mount_part "/flash$IMAGE_SYSTEM" "/sysroot" "ro,loop"
     else
-      cp /flash/$IMAGE_SYSTEM /dev/$IMAGE_SYSTEM
-      mount_part "/dev/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
+      cp /flash$IMAGE_SYSTEM /dev$IMAGE_SYSTEM
+      mount_part "/dev$IMAGE_SYSTEM" "/sysroot" "ro,loop"
     fi
 
     mount --move /flash /sysroot/flash
@@ -1035,7 +1051,7 @@
 
     if [ ! -d "/sysroot/usr/lib/kernel-overlays/base/lib/modules/$(uname -r)/" -a -f "/sysroot/usr/lib/systemd/systemd" ]; then
       echo ""
-      echo "NEVER TOUCH boot= in extlinux.conf / cmdline.txt!"
+      echo "NEVER TOUCH boot= in syslinux.conf / cmdline.txt!"
       echo "If you don't know what you are doing,"
       echo "your installation is now broken."
       echo ""
@@ -1109,7 +1125,7 @@
     INIT_UNIT="--unit=fs-resize.target"
   fi
 
-  BACKUP_FILE=`ls -1 /sysroot/storage/.restore/??????????????.tar 2>/dev/null | head -n 1`
+  BACKUP_FILE=$(ls -1 /sysroot/storage/.restore/??????????????.tar 2>/dev/null | head -n 1)
   if [ -f "$BACKUP_FILE" ] ; then
     INIT_UNIT="--unit=backup-restore.target"
   fi

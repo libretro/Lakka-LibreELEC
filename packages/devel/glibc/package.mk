@@ -93,7 +93,7 @@ pre_configure_target() {
   export BUILD_CC=$HOST_CC
   export OBJDUMP_FOR_HOST=objdump
 
-cat >config.cache <<EOF
+  cat >config.cache <<EOF
 libc_cv_forced_unwind=yes
 libc_cv_c_cleanup=yes
 libc_cv_ssp=no
@@ -101,13 +101,21 @@ libc_cv_ssp_strong=no
 libc_cv_slibdir=/usr/lib
 EOF
 
-echo "libdir=/usr/lib" >> configparms
-echo "slibdir=/usr/lib" >> configparms
-echo "sbindir=/usr/bin" >> configparms
-echo "rootsbindir=/usr/bin" >> configparms
-echo "build-programs=yes" >> configparms
+  cat >configparms <<EOF
+libdir=/usr/lib
+slibdir=/usr/lib
+sbindir=/usr/bin
+rootsbindir=/usr/bin
+build-programs=yes
+EOF
 
-GLIBC_INCLUDE_BIN="getent ldd locale"
+  # binaries to install into target
+  GLIBC_INCLUDE_BIN="getent ldd locale"
+
+  # Generic "installer" needs localedef to define drawing chars
+  if [ "$PROJECT" = "Generic" ]; then
+    GLIBC_INCLUDE_BIN+=" localedef"
+  fi
 }
 
 post_makeinstall_target() {
@@ -117,14 +125,7 @@ post_makeinstall_target() {
 # cleanup
 # remove any programs we don't want/need, keeping only those we want
   for f in $(find $INSTALL/usr/bin -type f); do
-    fb="$(basename "${f}")"
-    for ib in $GLIBC_INCLUDE_BIN; do
-      if [ "${ib}" == "${fb}" ]; then
-        fb=
-        break
-      fi
-    done
-    [ -n "${fb}" ] && rm -rf ${f}
+    listcontains "${GLIBC_INCLUDE_BIN}" "$(basename "${f}")" || rm -fr "${f}"
   done
 
   rm -rf $INSTALL/usr/lib/audit
