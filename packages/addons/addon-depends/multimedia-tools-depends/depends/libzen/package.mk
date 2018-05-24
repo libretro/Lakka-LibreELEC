@@ -18,15 +18,14 @@
 
 PKG_NAME="libzen"
 PKG_VERSION="0.4.37"
-PKG_SHA256="401c34d93056a95f8392982f856d1371c5de6aec373d84dcbb356e1f473d0452"
+PKG_SHA256="38c0a68b715b55d6685d2759eecda040adf37bd066955d79a5d01f91977bd9a0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://mediaarea.net/en/MediaInfo/"
-PKG_URL="http://mediaarea.net/download/source/${PKG_NAME}/${PKG_VERSION}/${PKG_NAME}_${PKG_VERSION}.tar.xz"
+PKG_URL="http://mediaarea.net/download/source/libzen/${PKG_VERSION}/libzen_${PKG_VERSION}.tar.xz"
 PKG_SOURCE_DIR="ZenLib"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="multimedia"
-PKG_SHORTDESC="MediaInfo is a convenient unified display of the most relevant technical and tag data for video and audio files"
 PKG_LONGDESC="MediaInfo is a convenient unified display of the most relevant technical and tag data for video and audio files"
 PKG_TOOLCHAIN="manual"
 
