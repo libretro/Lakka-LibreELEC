@@ -17,11 +17,11 @@
 ################################################################################
 
 PKG_NAME="multimedia-tools"
-PKG_VERSION=""
-PKG_REV="107"
+PKG_VERSION="1.0"
+PKG_REV="108"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE=""
+PKG_SITE="https://libreelec.tv"
 PKG_URL=""
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="virtual"
@@ -31,7 +31,6 @@ PKG_LONGDESC="This bundle currently includes alsamixer, mediainfo, mesa-demos, m
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Multimedia Tools"
 PKG_ADDON_TYPE="xbmc.python.script"
-PKG_ADDON_PROVIDES=""
 
 
 PKG_DEPENDS_TARGET="toolchain \
