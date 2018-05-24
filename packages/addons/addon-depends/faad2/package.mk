@@ -1,42 +1,39 @@
 ################################################################################
-#      This file is part of OpenELEC - http://www.openelec.tv
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2016-present Team LibreELEC
 #      Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
 #
-#  OpenELEC is free software: you can redistribute it and/or modify
+#  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation, either version 2 of the License, or
 #  (at your option) any later version.
 #
-#  OpenELEC is distributed in the hope that it will be useful,
+#  LibreELEC is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
 #
 #  You should have received a copy of the GNU General Public License
-#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
 PKG_NAME="faad2"
-PKG_VERSION="2.7"
-PKG_SHA256="ee26ed1e177c0cd8fa8458a481b14a0b24ca0b51468c8b4c8b676fd3ceccd330"
+PKG_VERSION="2.8.8"
+PKG_SHA256="985c3fadb9789d2815e50f4ff714511c79c2710ac27a4aaaf5c0c2662141426d"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.audiocoding.com/"
-PKG_URL="$SOURCEFORGE_SRC/faac/faad2-src/$PKG_NAME-$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_SITE="http://www.audiocoding.com"
+PKG_URL="https://downloads.sourceforge.net/sourceforge/faac/faad2-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="audio"
-PKG_SHORTDESC="faad: An MPEG-4 AAC decoder"
-PKG_LONGDESC="The FAAD project includes the AAC decoder FAAD2. It supports several MPEG-4 object types (LC, Main, LTP, HE AAC, PS) and file formats (ADTS AAC, raw AAC, MP4), multichannel and gapless decoding as well as MP4 metadata tags. The codecs are compatible with standard-compliant audio applications using one or more of these profiles."
+PKG_LONGDESC="An MPEG-4 AAC decoder"
 
-PKG_MAINTAINER="Team LibreELEC (addons@libreelec.tv)"
-
-# package specific configure options
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --disable-shared \
-                           --without-xmms \
                            --without-drm \
+                           --with-gnu-ld \
                            --without-mpeg4ip \
-                           --with-gnu-ld"
+                           --without-xmms"
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
