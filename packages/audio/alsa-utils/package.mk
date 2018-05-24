@@ -1,42 +1,41 @@
 ################################################################################
-#      This file is part of OpenELEC - http://www.openelec.tv
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2016-present Team LibreELEC
 #      Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 #
-#  OpenELEC is free software: you can redistribute it and/or modify
+#  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation, either version 2 of the License, or
 #  (at your option) any later version.
 #
-#  OpenELEC is distributed in the hope that it will be useful,
+#  LibreELEC is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
 #
 #  You should have received a copy of the GNU General Public License
-#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
 PKG_NAME="alsa-utils"
-PKG_VERSION="1.1.5"
-PKG_SHA256="320bd285e91db6e7fd7db3c9ec6f55b02f35449ff273c7844780ac6a5a3de2e8"
+PKG_VERSION="1.1.6"
+PKG_SHA256="155caecc40b2220f686f34ba3655a53e3bdbc0586adb1056733949feaaf7d36e"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.alsa-project.org/"
-PKG_URL="ftp://ftp.alsa-project.org/pub/utils/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_URL="ftp://ftp.alsa-project.org/pub/utils/alsa-utils-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain alsa-lib ncurses"
 PKG_SECTION="audio"
-PKG_SHORTDESC="alsa-utils: Advanced Linux Sound Architecture utilities"
 PKG_LONGDESC="This package includes the utilities for ALSA, like alsamixer, aplay, arecord, alsactl, iecset and speaker-test."
 
-# package specific configure options
-PKG_CONFIGURE_OPTS_TARGET="--disable-dependency-tracking \
-                           --disable-xmlto \
-                           --disable-alsaconf \
+PKG_CONFIGURE_OPTS_TARGET="--disable-alsaconf \
                            --disable-alsaloop \
                            --enable-alsatest \
                            --disable-bat \
+                           --disable-dependency-tracking \
                            --disable-nls \
-                           --disable-rst2man"
+                           --disable-rst2man \
+                           --disable-xmlto"
 
 post_makeinstall_target() {
   rm -rf $INSTALL/lib $INSTALL/var
