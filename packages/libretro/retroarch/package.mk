@@ -193,7 +193,20 @@ makeinstall_target() {
     sed -i -e "s/video_font_path =\/usr\/share\/retroarch-assets\/xmb\/monochrome\/font.ttf//" $INSTALL/etc/retroarch.cfg  
   # Switch
   elif [ "$PROJECT" == "Switch" ]; then
-    sed -i -e "s/# menu_pointer_enable = false/menu_pointer_enable = true/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/menu_mouse_enable = false/menu_mouse_enable = true/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/input_driver = udev/input_driver = x/" $INSTALL/etc/retroarch.cfg
+    
+    sed -i -e "s/# video_hard_sync = false/video_hard_sync = true/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/# video_crop_overscan = true/video_crop_overscan = false/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/# menu_show_online_updater = true/menu_show_online_updater = false/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/# input_joypad_driver =/input_joypad_driver = linuxraw/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/# video_threaded = false/video_threaded = false/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/# input_autodetect_enable = true/input_autodetect_enable = false/"  $INSTALL/etc/retroarch.cfg
+    
+    echo "xmb_shadows_enable = true" >> $INSTALL/etc/retroarch.cfg
+
+    # Joypad Autoconfig doesn't work as Joy-Cons VID and PID are both 0
+    cat $PROJECT_DIR/Switch/joypad/Joy-Con_Rails.cfg >> $INSTALL/etc/retroarch.cfg
   fi
 }
 

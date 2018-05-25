@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="connman"
-PKG_VERSION="1.9"
+PKG_VERSION="1.36"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.connman.net"
@@ -85,7 +85,7 @@ post_makeinstall_target() {
     ln -sf /run/connman/hosts $INSTALL/etc/hosts
 
   mkdir -p $INSTALL/etc/connman
-    cp $PKG_DIR/config/main.conf $INSTALL/etc/connman
+    cp ../src/main.conf $INSTALL/etc/connman
     sed -i $INSTALL/etc/connman/main.conf \
         -e "s|^# BackgroundScanning.*|BackgroundScanning = true|g" \
         -e "s|^# FallbackNameservers.*|FallbackNameservers = 8.8.8.8,8.8.4.4|g" \
