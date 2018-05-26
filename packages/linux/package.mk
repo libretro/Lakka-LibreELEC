@@ -1,19 +1,20 @@
 ################################################################################
-#      This file is part of OpenELEC - http://www.openelec.tv
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2017-present Team LibreELEC
 #      Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 #
-#  OpenELEC is free software: you can redistribute it and/or modify
+#  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation, either version 2 of the License, or
 #  (at your option) any later version.
 #
-#  OpenELEC is distributed in the hope that it will be useful,
+#  LibreELEC is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
 #
 #  You should have received a copy of the GNU General Public License
-#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
 PKG_NAME="linux"
@@ -55,13 +56,13 @@ case "$LINUX" in
     PKG_SOURCE_DIR="kernel-$PKG_VERSION"
     ;;
   raspberrypi)
-    PKG_VERSION="29653ef5475124316b9284adb6cbfc97e9cae48f" # 4.14.37
-    PKG_SHA256="20e596c9bfaa739bf9178431c9fa332429b63671368826361b1a46ccf3354236"
+    PKG_VERSION="865ddc1393f558198e7e7ce70928ff2e49c4f7f6" # 4.14.39
+    PKG_SHA256="6ff5d214fba204f7fc15ea89805f3b622aa4567b05c9526edf38243b6d2af980"
     PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
     ;;
   *)
-    PKG_VERSION="4.14.37"
-    PKG_SHA256="8197e7ed3620713e412905430a7bf93e2048384042ffba189a66f0eeb6908e92"
+    PKG_VERSION="4.14.39"
+    PKG_SHA256="269fc576ab0509e10c3b26e57866aea3f272c17f172f14fd75e2676d38c1b7bd"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v4.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     PKG_PATCH_DIRS="default"
     ;;
