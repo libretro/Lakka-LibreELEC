@@ -112,7 +112,7 @@ When none of these was found, the build abort and you have to set the toolchain 
 
 Build flags implement often used build options. Normally these are activated be default, but single applications/packages has problems to compile/run with these.
 
-Set the variable `PKG_BUILD_FLAGS` in the `package.mk` to enable/disable the single flags. It is a space separated list. The flags can enabled with a `+` prefix, and disables with an `-`.
+Set the variable `PKG_BUILD_FLAGS` in the `package.mk` to enable/disable the single flags. It is a space separated list. The flags can enabled with a `+` prefix, and disabled with a `-`.
 
 | flag     | default  | affected stage | description |
 |----------|----------|----------------|-------------|
@@ -130,7 +130,7 @@ PKG_BUILD_FLAGS="-parallel"
 
 ## Functions
 All build steps in the LibreELEC build system, a done by shell function.
-These functions can overwritten in the `package.mk`. But this raises problems, when the build system ist updated. To reduce the problem, most function was extended by `pre_` and `post_` scripts, to use instead.
+These functions can overwritten in the `package.mk`. But this raises problems, when the build system is updated. To reduce the problem, most function was extended by `pre_` and `post_` scripts, to use instead.
 
 When it is nesseary to replace configure, make and makeinstall, please use `PKG_TOOLCHAIN="manual"`.
 
@@ -145,7 +145,7 @@ Full list of overwrittable functions.
 | pre_build_\[stage]      | yes    | Runs before of the start of the build |
 | configure_\[stage]<br>pre_configure_\[stage]<br>post_configure_\[stage] | yes | Configure the package for the compile. This is only relevant for toolchain, that supports it (e.g. meson, cmake, configure, manual) |
 | make_\[stage]<br>pre_make_\[stage]<br>post_make_\[stage] | yes | Build of the package |
-| makeinstall_\[stage]<br>pre_makeinstall_\[stage]<br>post_makeinstall_\[stage] | yes | Installation of the files in the correct pathes<br>host: TOOLCHAIN<br>target: SYSROOT and IMAGE<br>bootstrap and init: temporar destination
+| makeinstall_\[stage]<br>pre_makeinstall_\[stage]<br>post_makeinstall_\[stage] | yes | Installation of the files in the correct pathes<br>host: TOOLCHAIN<br>target: SYSROOT and IMAGE<br>bootstrap and init: temporary destination
 | addon                   | -      | Copy all files together for addon creation. This is requiered for addons |
 
 ###### Example
@@ -171,18 +171,18 @@ post_makeinstall_target() {
     * add a new network tool
     * new kernel driver
     * ...
-* Find a place in the packages-tree
+2. Find a place in the packages-tree
     * look into the package-tree, i think most is self explaind. When 1. was done, this is going fast :)
     * do not place it, in an existing package (directory with includes a `package.mk`)
-    * when you found a place, create a directory with the name of your package (must the same like PKG_NAME!!)
-* Create a initial `package.mk`
-    * you found a template under `packages/package.mk.template`. copy the template into the new directory and call it `package.mk`
+    * when you found a place, create a directory with the name of your package (must the same like `PKG_NAME`!!)
+3. Create a initial `package.mk`
+    * you found a template under `packages/package.mk.template`. Copy the template into the new directory and call it `package.mk`
     * edit your new `package.mk`
-* Find a place in the dependency tree. When 1. was done, this is going fast, again :)
+4. Find a place in the dependency tree. When 1. was done, this is going fast, again :)
     * when it extend an existing package, add it there to the `PKG_DEPENDS_TARGET`
     * take a look into the path `packages/virtual`, there you should find a virtual packages, that match your new package (misc-packages should the last option)
-* now you can build your image
-    * when ist was build, under build-[...]/ should apear a directory with your package-name and -version.
+5. now you can build your image
+    * after the build, under build-[...]/ should apear a directory with your package-name and -version.
 
 ## Example
 ```
