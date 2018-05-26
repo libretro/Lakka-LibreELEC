@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="nss"
-PKG_VERSION="3.29.5"
-PKG_SHA256="8cb8624147737d1b4587c50bf058afbb6effc0f3c205d69b5ef4077b3bfed0e4"
+PKG_VERSION="3.37.1"
+PKG_SHA256="5ac4a388b06b2785fb7f4f0ae3c909d8cbb2ab370147ff61fe2517cc5bf3c685"
 PKG_ARCH="any"
 PKG_LICENSE="Mozilla Public License"
 PKG_SITE="http://ftp.mozilla.org/"
-PKG_URL="http://ftp.mozilla.org/pub/security/nss/releases/NSS_3_29_5_RTM/src/nss-3.29.5-with-nspr-4.13.1.tar.gz"
+PKG_URL="http://ftp.mozilla.org/pub/security/nss/releases/NSS_3_37_1_RTM/src/nss-3.37.1-with-nspr-4.19.tar.gz"
 PKG_DEPENDS_HOST="nspr:host zlib:host"
 PKG_DEPENDS_TARGET="toolchain nss:host nspr zlib sqlite"
 PKG_SECTION="security"
