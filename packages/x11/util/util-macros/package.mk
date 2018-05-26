@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="util-macros"
-PKG_VERSION="1.19.1"
-PKG_SHA256="18d459400558f4ea99527bc9786c033965a3db45bf4c6a32eefdc07aa9e306a6"
+PKG_VERSION="1.19.2"
+PKG_SHA256="d7e43376ad220411499a79735020f9d145fdc159284867e99467e0d771f3e712"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"

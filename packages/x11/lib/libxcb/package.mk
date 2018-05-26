@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libxcb"
-PKG_VERSION="1.12"
-PKG_SHA256="4adfb1b7c67e99bc9c2ccb110b2f175686576d2f792c8a71b9c8b19014057b5b"
+PKG_VERSION="1.13"
+PKG_SHA256="188c8752193c50ff2dbe89db4554c63df2e26a2e47b0fa415a70918b5b851daa"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://xcb.freedesktop.org"
@@ -29,7 +29,8 @@ PKG_SHORTDESC="libxcb: X C-language Bindings library"
 PKG_LONGDESC="X C-language Bindings library."
 PKG_BUILD_FLAGS="+pic"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared \
+PKG_CONFIGURE_OPTS_TARGET="--enable-static \
+                           --disable-shared \
                            --disable-screensaver \
                            --disable-xprint \
                            --disable-selinux \

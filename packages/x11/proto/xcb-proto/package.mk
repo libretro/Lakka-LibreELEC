@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="xcb-proto"
-PKG_VERSION="1.12"
-PKG_SHA256="5922aba4c664ab7899a29d92ea91a87aa4c1fc7eb5ee550325c3216c480a4906"
+PKG_VERSION="1.13"
+PKG_SHA256="7b98721e669be80284e9bbfeab02d2d0d54cd11172b72271e47a2fe875e2bde1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
