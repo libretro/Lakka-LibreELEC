@@ -5,8 +5,7 @@
 The package.mk file defines variables and functions to build a package.
 
 ## Variables
-All avialible variable, to control the build behavoir of your package.
-Please use these in the order, listed here.
+To control the build behaviour of your package, use variables in the top-down order listed here.
 
 #### Base
 
@@ -22,20 +21,20 @@ Please use these in the order, listed here.
 | PKG_MAINTAINER | -    | no  | Your name |
 | PKG_DEPENDS_BOOTSTRAP<br>PKG_DEPENDS_HOST   PKG_DEPENDS_INIT   PKG_DEPENDS_TARGET | - | no | A space separated list of name of packages required to build the software application |
 | PKG_SECTION | -       | no  | virtual if the package only defines dependencies |
-| PKG_SHORTDESC | -     | no<br>yes&nbsp;for&nbsp;addons | Short description of the application software used in various parts of Kodi |
-| PKG_LONGDESC | -      | yes | Long description of the application software used in various parts of Kodi |
+| PKG_SHORTDESC | -     | no<br>yes&nbsp;for&nbsp;addons | Short description of the software package |
+| PKG_LONGDESC | -      | yes | Long description of the package including purpose or function within LibreELEC or Kodi |
 
 #### Universal Build Option
 | Variable    | Default | Required |Description |
 |-------------|---------|----------|------------|
-| PKG_SOURCE_DIR | -    | no  | Name of the folder to which the source of the software application unpacks. Should only be specified if the source of the software application unpacks to a folder whose name does not start with `$PKG_NAME` |
-| PKG_SOURCE_NAME | -   | no  | Name of the file of the source of the software application. Should only be specified if the source of the software application is not the basename of PKG_URL |
-| PKG_PATCH_DIRS | -    | no  | Change the path for pachtes, to apply to source. Normally the path `./patches` is used. Is this variable is set, the normal path will extended with the value of this variable as a subdirectory: `./patches/${PKG_PATCH_DIRS}` |
-| PKG_NEED_UNPACK | -   | no  | ??? can anyone explane, i have no idea. |
-| PKG_TOOLCHAIN | auto  | no  | Control which of the build toolchains is used. For detailed information, see the [Reference](#toolchain-options). |
-| PKG_BUILD_FLAGS | -   | no  | A Space seperated list of flags, which control often used build modification. Flags can be enabled or disables with a prefixed `+`/`-`. For detailed information, see the [Reference](#build_flags-options). |
-| PKG_PYTHON_VERSION | python2.7 | no | Defines the Python version, which should use. |
-| PKG_IS_KERNEL_PKG | - | no  | Set it to `yes`, for packages which include linux kernel modules |
+| PKG_SOURCE_DIR | -    | no  | Force the folder name that application sources are unpacked to. Used when sources do not automatically unpack to a folder with the `PKG_NAME-PKG_VERSION` naming convention. |
+| PKG_SOURCE_NAME | -   | no  | Force the filename of the application sources. Used when the filename is not the basename of `PKG_URL` |
+| PKG_PATCH_DIRS | -    | no  | Patches in `./patches` are automatically applied after package unpack. Use this option to include patches from an additional folder, e.g. `./patches/$PKG_PATCH_DIRS` |
+| PKG_NEED_UNPACK | -   | no  | Space separated list of files or folders to include in package stamp calculation. If the stamp is invalidated through changes to package files or dependent files/folders the package is cleaned and rebuilt. e.g. `PKG_NEED_UNPACK="$(get_pkg_directory linux)"` will trigger clean/rebuild of a Linux kernel driver package when a change to the `linux` kernel package is detected. |
+| PKG_TOOLCHAIN | auto  | no  | Control which build toolchain is used. For detailed information, see [reference](#toolchain-options). |
+| PKG_BUILD_FLAGS | -   | no  | A space separated list of flags with which to fine-tune the build process. Flags can be enabled or disabled with a `+` or `-` prefix. For detailed information, see the [Reference](#build_flags-options). |
+| PKG_PYTHON_VERSION | python2.7 | no | Define the Python version to be used. |
+| PKG_IS_KERNEL_PKG | - | no  | Set to `yes` for packages that include Linux kernel modules |
 
 #### Meson Options
 | Variable    | Default | Required |Description |
@@ -62,13 +61,12 @@ Please use these in the order, listed here.
 | PKG_MAKEINSTALL_OPTS_HOST<br>PKG_MAKEINSTALL_OPTS_TARGET | - | no | Options directly passed to make in the install step
 
 #### Addons
-These options only needed, when the package is build as an addon.
-"Required" column is focus addon packages, only. When the package is no addon, none of these options is required.
+Additional options used when the package builds an addon.
 
 | Variable    | Default | Required |Description |
 |-------------|---------|----------|------------|
-| PKG_REV     | -       | yes      | The revision number of the addon. Increase on every version. Currently starts at `100`. Please place this variable under `PKG_VERSION` |
-| PKG_IS_ADDON | no     | yes      | Have to set to `yes` |
+| PKG_REV     | -       | yes      | The revision number of the addon (starts at 100). Must be placed after `PKG_VERSION`. Must be incremented for each new version else Kodi clients will not detect version change and download the updated addon. |
+| PKG_IS_ADDON | no     | yes      | Must be set to `yes` |
 | PKG_ADDON_NAME | -    | yes      | Proper name of the addon that is shown at the repo |
 | PKG_ADDON_TYPE | -    | yes      | See LE/config/addon/ for other possibilities |
 | PKG_ADDON_VERSION | - | no       | The version of the addon, used in addon.xml |
@@ -114,7 +112,7 @@ When none of these was found, the build abort and you have to set the toolchain 
 
 Build flags implement often used build options. Normally these are activated be default, but single applications/packages has problems to compile/run with these.
 
-Set the variable `PKG_BUILD_FLAGS` in the `package.mk` to enable/disable the single flags. It is a space seperated list. The flags can enabled with a `+` prefix, and disables with an `-`.
+Set the variable `PKG_BUILD_FLAGS` in the `package.mk` to enable/disable the single flags. It is a space separated list. The flags can enabled with a `+` prefix, and disables with an `-`.
 
 | flag     | default  | affected stage | description |
 |----------|----------|----------------|-------------|
