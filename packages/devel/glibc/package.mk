@@ -84,6 +84,7 @@ pre_configure_target() {
   export CFLAGS=`echo $CFLAGS | sed -e "s|-ffast-math||g"`
   export CFLAGS=`echo $CFLAGS | sed -e "s|-Ofast|-O2|g"`
   export CFLAGS=`echo $CFLAGS | sed -e "s|-O.|-O2|g"`
+  export CFLAGS=`echo $CFLAGS | sed -e "s|-Werror||g"`
 
   if [ -n "$PROJECT_CFLAGS" ]; then
     export CFLAGS=`echo $CFLAGS | sed -e "s|$PROJECT_CFLAGS||g"`
@@ -92,13 +93,13 @@ pre_configure_target() {
   export LDFLAGS=`echo $LDFLAGS | sed -e "s|-ffast-math||g"`
   export LDFLAGS=`echo $LDFLAGS | sed -e "s|-Ofast|-O2|g"`
   export LDFLAGS=`echo $LDFLAGS | sed -e "s|-O.|-O2|g"`
-
   export LDFLAGS=`echo $LDFLAGS | sed -e "s|-Wl,--as-needed||"`
+  export LDFLAGS=`echo $LDFLAGS | sed -e "s|-Werror||g"`
 
   unset LD_LIBRARY_PATH
 
   # set some CFLAGS we need
-  export CFLAGS="$CFLAGS -g -fno-stack-protector"
+  export CFLAGS="$CFLAGS -g -fno-stack-protector -Wno-error"
 
   export BUILD_CC=$HOST_CC
   export OBJDUMP_FOR_HOST=objdump
