@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="citra"
-PKG_VERSION="7e78ed1"
+PKG_VERSION="85e47f1"
 PKG_REV="1"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPLv2+"
@@ -45,7 +45,25 @@ PKG_CMAKE_OPTS_TARGET="-DENABLE_LIBRETRO=1 \
                        -DCMAKE_VERBOSE_MAKEFILE=1 \
                        --target citra_libretro"
 
+PKG_COPY_HEADER_FILES="stdlib.h math.h"
+
+pre_configure_target() {
+  if [ -n "$PKG_COPY_HEADER_FILES" ] ; then
+    for x in $PKG_COPY_HEADER_FILES ; do
+      cp -v $SYSROOT_PREFIX/usr/include/$x $TOOLCHAIN/$TARGET_NAME/include/
+    done
+  fi
+}
+
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
   cp src/citra_libretro/citra_libretro.so $INSTALL/usr/lib/libretro/
+}
+
+post_makeinstall_target() {
+  if [ -n "$PKG_COPY_HEADER_FILES" ] ; then
+    for x in $PKG_COPY_HEADER_FILES ; do
+      rm -vf $TOOLCHAIN/$TARGET_NAME/include/$x
+    done
+  fi
 }

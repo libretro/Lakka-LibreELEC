@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="wlan-firmware"
-PKG_VERSION="cfc1842"
+PKG_VERSION="2142727"
 PKG_ARCH="any"
 PKG_LICENSE="Free-to-use"
 PKG_SITE="https://github.com/LibreELEC/wlan-firmware"
