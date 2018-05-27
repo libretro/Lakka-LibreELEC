@@ -18,7 +18,7 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="higan"
+PKG_NAME="higan-sfc"
 PKG_VERSION="d3f5920"
 PKG_REV="1"
 PKG_ARCH="any"
