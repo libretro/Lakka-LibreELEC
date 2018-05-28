@@ -16,14 +16,17 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="tvh-dtv-scan-tables"
-PKG_VERSION="4258e52"
-PKG_SHA256="48de5baa843ecd5a2231e9b007fc6b3fd86739ddd075158b31fcdefdcd3ce2dd"
+PKG_NAME="aom"
+PKG_VERSION="a586982"
+PKG_SHA256="078c0cc780fa9fcd3d67456722339a8eaa5591a484e1daae9fc2c3c34810ec46"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/tvheadend"
-PKG_URL="https://github.com/tvheadend/dtv-scan-tables/archive/$PKG_VERSION.tar.gz"
-PKG_SOURCE_DIR="dtv-scan-tables-${PKG_VERSION}*"
+PKG_LICENSE="BSD"
+PKG_SITE="https://www.webmproject.org"
+PKG_URL="http://repo.or.cz/aom.git/snapshot/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_LONGDESC="Digital TV scan tables, a fork from Tvh to support more recent tables"
-PKG_TOOLCHAIN="manual"
+PKG_SECTION="multimedia"
+PKG_LONGDESC="AV1 Codec Library"
+
+PKG_CMAKE_OPTS_TARGET="-DENABLE_CCACHE=1 \
+                       -DENABLE_DOCS=0 \
+                       -DENABLE_TOOLS=0"

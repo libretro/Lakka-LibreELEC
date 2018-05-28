@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="fdk-aac"
-PKG_VERSION="0.1.5"
-PKG_SHA256="ff53d1d01cacc29c071e23192dfefa93bdbeaf775fc5d296259b4859d0306b79"
+PKG_VERSION="0.1.6"
+PKG_SHA256="adbcd793e406e1b88b3c1c41382d49f8c27371485b823c0fdab69c9124fd2ce3"
 PKG_ARCH="any"
 PKG_LICENSE="other"
 PKG_SITE="https://sourceforge.net/projects/opencore-amr/"
