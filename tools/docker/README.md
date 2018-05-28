@@ -8,7 +8,7 @@
 **Build container**
 
 * `cd ~/LibreELEC`
-* `docker build --pull -t libreelec tools/docker`
+* `docker build --pull -t libreelec tools/docker/xenial`
 
 **Build image inside container**
 
