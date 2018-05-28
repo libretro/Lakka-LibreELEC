@@ -19,11 +19,11 @@
 ################################################################################
 
 PKG_NAME="ppsspp"
-PKG_VERSION="9c9432e"
+PKG_VERSION="09e85eb"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/libretro/ppsspp"
+PKG_SITE="https://github.com/hrydgard/ppsspp"
 PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
