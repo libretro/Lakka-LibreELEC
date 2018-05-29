@@ -33,8 +33,6 @@ PKG_LONGDESC="Kodi Media Center (which was formerly named Xbox Media Center or X
 # Single threaded LTO is very slow so rely on Kodi for parallel LTO support
 if [ "$LTO_SUPPORT" = "yes" ] && ! build_with_debug; then
   PKG_KODI_USE_LTO="-DUSE_LTO=$CONCURRENCY_MAKE_LEVEL"
-else
-  PKG_BUILD_FLAGS="-lto"
 fi
 
 get_graphicdrivers
