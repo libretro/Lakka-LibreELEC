@@ -28,36 +28,37 @@ PKG_DEPENDS_TARGET="toolchain libpciaccess"
 PKG_SECTION="graphics"
 PKG_SHORTDESC="libdrm: Userspace interface to kernel DRM services"
 PKG_LONGDESC="The userspace interface library to kernel DRM services."
-PKG_TOOLCHAIN="autotools"
+PKG_TOOLCHAIN="meson"
 
 get_graphicdrivers
 
-PKG_DRM_CONFIG="--disable-intel --disable-radeon --disable-amdgpu"
-PKG_DRM_CONFIG="$PKG_DRM_CONFIG --disable-nouveau --disable-vmwgfx --disable-vc4"
+PKG_DRM_CONFIG="-Dnouveau=false \
+                -Domap=false \
+                -Dexynos=false \
+                -Dfreedreno=false \
+                -Dtegra=false \
+                -Detnaviv=false"
 
-for drv in $GRAPHIC_DRIVERS; do
-  [ "$drv" = "i915" -o "$drv" = "i965" ] && \
-    PKG_DRM_CONFIG=`echo $PKG_DRM_CONFIG | sed -e 's/disable-intel/enable-intel/'`
+listcontains "$GRAPHIC_DRIVERS" "(i915|i965)" &&
+  PKG_DRM_CONFIG+=" -Dintel=true" || PKG_DRM_CONFIG+=" -Dintel=false"
 
-  [ "$drv" = "r200" -o "$drv" = "r300" -o "$drv" = "r600" -o "$drv" = "radeonsi" ] && \
-    PKG_DRM_CONFIG=`echo $PKG_DRM_CONFIG | sed -e 's/disable-radeon/enable-radeon/'` && \
-    PKG_DRM_CONFIG=`echo $PKG_DRM_CONFIG | sed -e 's/disable-amdgpu/enable-amdgpu/'`
+listcontains "$GRAPHIC_DRIVERS" "(r200|r300|r600|radeonsi)" &&
+  PKG_DRM_CONFIG+=" -Dradeon=true" || PKG_DRM_CONFIG+=" -Dradeon=false"
 
-  [ "$drv" = "vmware" ] && \
-    PKG_DRM_CONFIG=`echo $PKG_DRM_CONFIG | sed -e 's/disable-vmwgfx/enable-vmwgfx/'`
+listcontains "$GRAPHIC_DRIVERS" "radeonsi" &&
+  PKG_DRM_CONFIG+=" -Damdgpu=true" || PKG_DRM_CONFIG+=" -Damdgpu=false"
 
-  [ "$drv" = "vc4" ] && \
-    PKG_DRM_CONFIG=`echo $PKG_DRM_CONFIG | sed -e 's/disable-vc4/enable-vc4/'`
-done
+listcontains "$GRAPHIC_DRIVERS" "vmware" &&
+  PKG_DRM_CONFIG+=" -Dvmwgfx=true" || PKG_DRM_CONFIG+=" -Dvmwgfx=false"
 
-PKG_CONFIGURE_OPTS_TARGET="--disable-udev \
-                           --enable-largefile \
-                           --with-kernel-source=$(kernel_path) \
-                           --disable-libkms \
-                           $PKG_DRM_CONFIG \
-                           --disable-nouveau \
-                           --disable-freedreno \
-                           --disable-install-test-programs \
-                           --disable-cairo-tests \
-                           --disable-manpages \
-                           --disable-valgrind"
+listcontains "$GRAPHIC_DRIVERS" "vc4" &&
+  PKG_DRM_CONFIG+=" -Dvc4=true" || PKG_DRM_CONFIG+=" -Dvc4=false"
+
+PKG_MESON_OPTS_TARGET="-Dlibkms=false \
+                       $PKG_DRM_CONFIG \
+                       -Dcairo-tests=false \
+                       -Dman-pages=false \
+                       -Dvalgrind=false \
+                       -Dfreedreno-kgsl=false \
+                       -Dinstall-test-programs=false \
+                       -Dudev=false"
