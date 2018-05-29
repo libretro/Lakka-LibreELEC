@@ -28,7 +28,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="audio"
 PKG_LONGDESC="ALSA (Advanced Linux Sound Architecture) is the next generation Linux Sound API."
 PKG_TOOLCHAIN="autotools"
-PKG_BUILD_FLAGS="-lto +pic"
+PKG_BUILD_FLAGS="+pic"
 
 if build_with_debug; then
   PKG_ALSA_DEBUG=--with-debug
