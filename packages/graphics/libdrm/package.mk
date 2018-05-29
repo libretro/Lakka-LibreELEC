@@ -62,3 +62,8 @@ PKG_MESON_OPTS_TARGET="-Dlibkms=false \
                        -Dfreedreno-kgsl=false \
                        -Dinstall-test-programs=false \
                        -Dudev=false"
+
+post_makeinstall_target() {
+  mkdir -p $INSTALL/usr/bin
+    cp -a $PKG_BUILD/.$TARGET_NAME/tests/modetest/modetest $INSTALL/usr/bin/
+}
