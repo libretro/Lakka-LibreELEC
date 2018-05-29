@@ -28,7 +28,6 @@ PKG_DEPENDS_HOST="libffi:host expat:host libxml2:host"
 PKG_SECTION="wayland"
 PKG_SHORTDESC="a display server protocol"
 PKG_LONGDESC="a display server protocol"
-PKG_BUILD_FLAGS="-lto"
 
 PKG_CONFIGURE_OPTS_HOST="--enable-shared \
                          --disable-static \
