@@ -27,7 +27,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="debug"
 PKG_SHORTDESC="A tool to help find memory-management problems in programs"
 PKG_LONGDESC="A tool to help find memory-management problems in programs"
-PKG_BUILD_FLAGS="-lto"
 
 if [ "$TARGET_ARCH" = "arm" ]; then
   PKG_CONFIGURE_OPTS_TARGET="--enable-only32bit"
