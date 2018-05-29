@@ -28,7 +28,7 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.mame: MAME for Kodi"
 PKG_LONGDESC="game.libretro.mame: MAME for Kodi"
-PKG_BUILD_FLAGS="-gold -lto"
+PKG_BUILD_FLAGS="-gold"
 
 PKG_LIBNAME="mame_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"
