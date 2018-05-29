@@ -30,7 +30,7 @@ PKG_SHORTDESC="libdvbcsa is a free implementation of the DVB Common Scrambling A
 PKG_LONGDESC="libdvbcsa is a free implementation of the DVB Common Scrambling Algorithm - DVB/CSA - with encryption and decryption capabilities"
 PKG_TOOLCHAIN="autotools"
 # libdvbcsa is a bit faster without LTO, and tests will fail with gcc-5.x
-PKG_BUILD_FLAGS="-lto +pic"
+PKG_BUILD_FLAGS="+pic"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-shared --enable-static --with-sysroot=$SYSROOT_PREFIX"
 
