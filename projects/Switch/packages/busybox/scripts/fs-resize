@@ -1,0 +1,76 @@
+#!/bin/sh
+################################################################################
+#      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
+#
+#  OpenELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  OpenELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+if [ -e /storage/.please_resize_me ] ; then
+  . /usr/lib/libreelec/functions
+
+  hidecursor
+
+  # this sh** was never intended to be used
+  # on already installed and runing system
+  if [ -d /storage/.kodi -o -d /storage/.config -o -d /storage/.cache ] ; then
+    rm -f /storage/.please_resize_me
+    sync
+    echo "Resizing is not permitted - the system has already been initialised."
+    StartProgress spinner "Please turn off your Nintendo Switch now by pressing the POWER button for 10 seconds" "sleep 999999999999"
+  fi
+
+  # get the disk. /storage on 2nd partition
+  PART=$(grep "/storage " /proc/mounts | cut -d" " -f1 | grep '2$')
+
+  # get disk: /dev/sdx2 -> /dev/sdx, /dev/mmcblkxp2 -> /dev/mmcblkx
+  case $PART in
+    "/dev/mmcblk"*)
+      DISK=$(echo $PART | sed s/p2$//g)
+      ;;
+    *)
+      DISK=$(echo $PART | sed s/2$//g)
+      ;;
+  esac
+
+  rm -f /storage/.please_resize_me
+  sync
+
+  # just in case
+  if [ ! -z "$DISK" -a ! -z "$PART" ] ; then
+    # get storage partition start
+    PART_START=$(parted -s -m $DISK unit b print 2>/dev/null | grep -v ^/dev | grep -v BYT | grep ^2: |  cut -f2 -d ":")
+
+    # failed to get partition start offset ?
+    if [ ! -z "$PART_START" ] ; then
+      umount $PART
+
+      echo "PARTITION RESIZING IN PROGRESS"
+      echo ""
+      echo "Please do not reboot or turn off your Nintendo Switch!"
+      echo ""
+
+      # fix any minor issues, such as gpt header not at end of disk
+      StartProgress spinner "Checking layout...   " "sgdisk -e $DISK &>/dev/null"
+
+      StartProgress spinner "Deleting /storage... " "parted -s -m $DISK rm 2 &>/dev/null"
+      StartProgress spinner "Creating /storage... " "parted -s -m $DISK unit b mkpart primary $PART_START 100% &>/dev/null"
+      StartProgress spinner "Checking /storage... " "e2fsck -f -p $PART &>/dev/null"
+      StartProgress spinner "Resizing /storage... " "resize2fs $PART &>/dev/null"
+
+      StartProgress spinner "Please turn off your Nintendo Switch now by pressing the POWER button for 10 seconds" "sleep 999999999999"
+    fi
+  fi
+fi
+reboot -f &>/dev/null

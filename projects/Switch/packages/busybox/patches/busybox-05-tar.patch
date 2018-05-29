@@ -1,0 +1,108 @@
+From 9655f95d0f501b03b33c7896b7b0c23d090aff81 Mon Sep 17 00:00:00 2001
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Date: Fri, 11 Nov 2016 17:56:45 +0100
+Subject: tar: handle pax-encoded utf8 filenames and link names. Closes 9406
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+ archival/libarchive/get_header_tar.c |  32 +++++++++++++++++++++++++-------
+ testsuite/tar.tests                  |  20 ++++++++++++++++++++
+ testsuite/tar.utf8.tar.bz2           | Bin 0 -> 519 bytes
+ 3 files changed, 45 insertions(+), 7 deletions(-)
+ create mode 100644 testsuite/tar.utf8.tar.bz2
+
+diff --git a/archival/libarchive/get_header_tar.c b/archival/libarchive/get_header_tar.c
+index ea91a88..c7e3bc1 100644
+--- a/archival/libarchive/get_header_tar.c
++++ b/archival/libarchive/get_header_tar.c
+@@ -113,11 +113,19 @@ static void process_pax_hdr(archive_handle_t *archive_handle, unsigned sz, int g
+ 		value = end + 1;
+ 
+ # if ENABLE_FEATURE_TAR_GNU_EXTENSIONS
+-		if (!global && is_prefixed_with(value, "path=")) {
+-			value += sizeof("path=") - 1;
+-			free(archive_handle->tar__longname);
+-			archive_handle->tar__longname = xstrdup(value);
+-			continue;
++		if (!global) {
++			if (is_prefixed_with(value, "path=")) {
++				value += sizeof("path=") - 1;
++				free(archive_handle->tar__longname);
++				archive_handle->tar__longname = xstrdup(value);
++				continue;
++			}
++			if (is_prefixed_with(value, "linkpath=")) {
++				value += sizeof("linkpath=") - 1;
++				free(archive_handle->tar__linkname);
++				archive_handle->tar__linkname = xstrdup(value);
++				continue;
++			}
+ 		}
+ # endif
+ 
+@@ -179,7 +187,13 @@ char FAST_FUNC get_header_tar(archive_handle_t *archive_handle)
+ 	 * the message and we don't check whether we indeed
+ 	 * saw zero block directly before this. */
+ 	if (i == 0) {
+-		bb_error_msg("short read");
++		/* GNU tar 1.29 will be silent if tar archive ends abruptly
++		 * (if there are no zero blocks at all, and last read returns zero,
++		 * not short read 0 < len < 512). Complain only if
++		 * the very first read fails. Grrr.
++		 */
++		if (archive_handle->offset == 0)
++			bb_error_msg("short read");
+ 		/* this merely signals end of archive, not exit(1): */
+ 		return EXIT_FAILURE;
+ 	}
+@@ -195,7 +209,11 @@ char FAST_FUNC get_header_tar(archive_handle_t *archive_handle)
+ 	archive_handle->offset += i;
+ 
+ 	/* If there is no filename its an empty header */
+-	if (tar.name[0] == 0 && tar.prefix[0] == 0) {
++	if (tar.name[0] == 0 && tar.prefix[0] == 0
++	/* Have seen a tar archive with pax 'x' header supplying UTF8 filename,
++	 * with actual file having all name fields NUL-filled. Check this: */
++	 && !p_longname
++	) {
+ 		if (archive_handle->tar__end) {
+ 			/* Second consecutive empty header - end of archive.
+ 			 * Read until the end to empty the pipe from gz or bz2
+diff --git a/testsuite/tar.tests b/testsuite/tar.tests
+index c44b7ad..ffcbe9b 100755
+--- a/testsuite/tar.tests
++++ b/testsuite/tar.tests
+@@ -299,6 +299,26 @@ l4/V8LDoe90yiWJhOJvIypgEfxdyRThQkBVn/bI=
+ "
+ SKIP=
+ 
++optional UNICODE_SUPPORT
++testing "Pax-encoded UTF8 names and symlinks" '\
++tar xvf ../tar.utf8.tar.bz2 2>&1; echo $?
++export LANG=en_US.UTF-8
++ls -l etc/ssl/certs/* | sed "s:.*etc/:etc/:"
++unset LANG
++rm -rf etc usr
++' "\
++etc/ssl/certs/3b2716e5.0
++etc/ssl/certs/EBG_Elektronik_Sertifika_Hizmet_Sağlayıcısı.pem
++etc/ssl/certs/f80cc7f6.0
++usr/share/ca-certificates/mozilla/EBG_Elektronik_Sertifika_Hizmet_Sağlayıcısı.crt
++0
++etc/ssl/certs/3b2716e5.0 -> EBG_Elektronik_Sertifika_Hizmet_Sağlayıcısı.pem
++etc/ssl/certs/EBG_Elektronik_Sertifika_Hizmet_Sağlayıcısı.pem -> /usr/share/ca-certificates/mozilla/EBG_Elektronik_Sertifika_Hizmet_Sağlayıcısı.crt
++etc/ssl/certs/f80cc7f6.0 -> EBG_Elektronik_Sertifika_Hizmet_Sağlayıcısı.pem
++" \
++"" ""
++SKIP=
++
+ 
+ cd .. && rm -rf tar.tempdir || exit 1
+ 
+diff --git a/testsuite/tar.utf8.tar.bz2 b/testsuite/tar.utf8.tar.bz2
+new file mode 100644
+index 0000000..0398e1a
+Binary files /dev/null and b/testsuite/tar.utf8.tar.bz2 differ
+-- 
+cgit v0.12
+
