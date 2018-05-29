@@ -30,7 +30,6 @@ PKG_SHORTDESC="game.libretro.fba: fba for Kodi"
 PKG_LONGDESC="game.libretro.fba: fba for Kodi"
 PKG_TOOLCHAIN="manual"
 # linking takes too long with lto
-PKG_BUILD_FLAGS="-lto"
 
 PKG_LIBNAME="fbalpha_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"
