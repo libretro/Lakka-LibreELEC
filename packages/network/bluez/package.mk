@@ -28,6 +28,7 @@ PKG_SECTION="network"
 PKG_SHORTDESC="bluez: Bluetooth Tools and System Daemons for Linux."
 PKG_LONGDESC="Bluetooth Tools and System Daemons for Linux."
 PKG_TOOLCHAIN="autotools"
+PKG_BUILD_FLAGS="+lto"
 
 if build_with_debug; then
   BLUEZ_CONFIG="--enable-debug"
