@@ -28,6 +28,7 @@ PKG_SECTION="network"
 PKG_SHORTDESC="wpa_supplicant: An IEEE 802.11i supplicant implementation"
 PKG_LONGDESC="The wpa_supplicant is a free software implementation of an IEEE 802.11i supplicant. In addition to being a full-featured WPA2 supplicant, it also has support for WPA and older wireless LAN security protocols."
 PKG_TOOLCHAIN="make"
+PKG_BUILD_FLAGS="+lto-parallel"
 
 PKG_MAKE_OPTS_TARGET="-C wpa_supplicant V=1 LIBDIR=/usr/lib BINDIR=/usr/bin"
 PKG_MAKEINSTALL_OPTS_TARGET="-C wpa_supplicant V=1 LIBDIR=/usr/lib BINDIR=/usr/bin"
