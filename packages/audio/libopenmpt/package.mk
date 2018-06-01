@@ -27,6 +27,7 @@ PKG_DEPENDS_TARGET="toolchain libogg libvorbis"
 PKG_SECTION="audio"
 PKG_SHORTDESC="libopenmpt: renders mod music files as raw audio data, for playing or conversion."
 PKG_LONGDESC="libopenmpt renders mod music files as raw audio data, for playing or conversion."
+PKG_BUILD_FLAGS="+pic"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --disable-shared \
