@@ -1,5 +1,6 @@
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2018 Team LibreELEC
 #      Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 #
 #  OpenELEC is free software: you can redistribute it and/or modify
@@ -27,102 +28,79 @@ PKG_DEPENDS_TARGET="toolchain expat libdrm Mako:host"
 PKG_SECTION="graphics"
 PKG_SHORTDESC="mesa: 3-D graphics library with OpenGL API"
 PKG_LONGDESC="Mesa is a 3-D graphics library with an API which is very similar to that of OpenGL*. To the extent that Mesa utilizes the OpenGL command syntax or state machine, it is being used with authorization from Silicon Graphics, Inc. However, the author makes no claim that Mesa is in any way a compatible replacement for OpenGL or associated with Silicon Graphics, Inc. Those who want a licensed implementation of OpenGL should contact a licensed vendor. While Mesa is not a licensed OpenGL implementation, it is currently being tested with the OpenGL conformance tests. For the current conformance status see the CONFORM file included in the Mesa distribution."
-PKG_TOOLCHAIN="autotools"
+PKG_TOOLCHAIN="meson"
+
+get_graphicdrivers
+
+PKG_MESON_OPTS_TARGET="-Ddri-drivers=$DRI_DRIVERS \
+                       -Ddri-drivers-path=$XORG_PATH_DRI \
+                       -Ddri-search-path=$XORG_PATH_DRI \
+                       -Dgallium-drivers=$GALLIUM_DRIVERS \
+                       -Dgallium-extra-hud=false \
+                       -Dgallium-xvmc=false \
+                       -Dgallium-omx=disabled \
+                       -Dgallium-nine=false \
+                       -Dgallium-opencl=disabled \
+                       -Dvulkan-drivers= \
+                       -Dshader-cache=true \
+                       -Dshared-glapi=true \
+                       -Dopengl=true \
+                       -Dgbm=true \
+                       -Degl=true \
+                       -Dglvnd=false \
+                       -Dasm=true \
+                       -Dvalgrind=false \
+                       -Dlibunwind=false \
+                       -Dlmsensors=false \
+                       -Dbuild-tests=false \
+                       -Dtexture-float=true \
+                       -Dselinux=false \
+                       -Dosmesa=none"
 
 if [ "$DISPLAYSERVER" = "x11" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET glproto dri2proto presentproto libXext libXdamage libXfixes libXxf86vm libxcb libX11 dri3proto libxshmfence"
-  export DRI_DRIVER_INSTALL_DIR=$XORG_PATH_DRI
-  export DRI_DRIVER_SEARCH_DIR=$XORG_PATH_DRI
   export X11_INCLUDES=
-  MESA_DRI="--enable-dri --enable-dri3"
-  MESA_GLX="--enable-glx --enable-driglx-direct --enable-glx-tls"
-  MESA_PLATFORMS="--with-platforms=x11,drm"
+  PKG_MESON_OPTS_TARGET+=" -Dplatforms=x11,drm -Ddri3=true -Dglx=dri"
 elif [ "$DISPLAYSERVER" = "weston" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET wayland wayland-protocols"
-  MESA_DRI="--enable-dri --disable-dri3"
-  # The glx in glx-tls is a misnomer - there's nothing glx in it.
-  MESA_GLX="--disable-glx --disable-driglx-direct --enable-glx-tls"
-  MESA_PLATFORMS="--with-platforms=drm,wayland"
+  PKG_MESON_OPTS_TARGET+=" -Dplatforms=wayland,drm -Ddri3=false -Dglx=disabled"
 else
-  MESA_DRI="--enable-dri --disable-dri3"
-  # The glx in glx-tls is a misnomer - there's nothing glx in it.
-  MESA_GLX="--disable-glx --disable-driglx-direct --enable-glx-tls"
-  MESA_PLATFORMS="--with-platforms=drm"
+  PKG_MESON_OPTS_TARGET+=" -Dplatforms=drm -Ddri3=false -Dglx=disabled"
 fi
-
-# configure GPU drivers and dependencies:
-  get_graphicdrivers
 
 if [ "$LLVM_SUPPORT" = "yes" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET elfutils llvm"
   export LLVM_CONFIG="$SYSROOT_PREFIX/usr/bin/llvm-config-host"
-  MESA_GALLIUM_LLVM="--enable-llvm --enable-llvm-shared-libs"
+  PKG_MESON_OPTS_TARGET+=" -Dllvm=true"
 else
-  MESA_GALLIUM_LLVM="--disable-llvm"
+  PKG_MESON_OPTS_TARGET+=" -Dllvm=false"
 fi
 
 if [ "$VDPAU_SUPPORT" = "yes" -a "$DISPLAYSERVER" = "x11" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libvdpau"
-  MESA_VDPAU="--enable-vdpau"
+  PKG_MESON_OPTS_TARGET+=" -Dgallium-vdpau=true"
 else
-  MESA_VDPAU="--disable-vdpau"
+  PKG_MESON_OPTS_TARGET+=" -Dgallium-vdpau=false"
 fi
 
 if [ "$VAAPI_SUPPORT" = "yes" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libva"
-  MESA_VAAPI="--enable-va"
+  PKG_MESON_OPTS_TARGET+=" -Dgallium-va=true"
 else
-  MESA_VAAPI="--disable-va"
+  PKG_MESON_OPTS_TARGET+=" -Dgallium-va=false"
 fi
 
-XA_CONFIG="--disable-xa"
-for drv in $GRAPHIC_DRIVERS; do
-  [ "$drv" = "vmware" ] && XA_CONFIG="--enable-xa"
-done
+if listcontains "$GRAPHIC_DRIVERS" "vmware"; then
+  PKG_MESON_OPTS_TARGET+=" -Dgallium-xa=true"
+else
+  PKG_MESON_OPTS_TARGET+=" -Dgallium-xa=false"
+fi
 
 if [ "$OPENGLES_SUPPORT" = "yes" ]; then
-  MESA_GLES="--disable-gles1 --enable-gles2"
+  PKG_MESON_OPTS_TARGET+=" -Dgles1=false -Dgles2=true"
 else
-  MESA_GLES="--disable-gles1 --disable-gles2"
+  PKG_MESON_OPTS_TARGET+=" -Dgles1=false -Dgles2=false"
 fi
-
-PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
-                           CXX_FOR_BUILD=$HOST_CXX \
-                           CFLAGS_FOR_BUILD= \
-                           CXXFLAGS_FOR_BUILD= \
-                           LDFLAGS_FOR_BUILD= \
-                           --disable-debug \
-                           --disable-mangling \
-                           --enable-texture-float \
-                           --enable-asm \
-                           --disable-selinux \
-                           $MESA_PLATFORMS \
-                           --disable-libunwind \
-                           --enable-opengl \
-                           $MESA_GLES \
-                           $MESA_DRI \
-                           $MESA_GLX \
-                           --disable-osmesa \
-                           --disable-gallium-osmesa \
-                           --enable-egl \
-                           $XA_CONFIG \
-                           --enable-gbm \
-                           --disable-nine \
-                           --disable-xvmc \
-                           $MESA_VDPAU \
-                           --disable-omx-bellagio \
-                           $MESA_VAAPI \
-                           --disable-opencl \
-                           --enable-opencl-icd \
-                           --disable-gallium-tests \
-                           --enable-shared-glapi \
-                           $MESA_GALLIUM_LLVM \
-                           --disable-silent-rules \
-                           --with-osmesa-lib-name=OSMesa \
-                           --with-gallium-drivers=$GALLIUM_DRIVERS \
-                           --with-dri-drivers=$DRI_DRIVERS \
-                           --with-vulkan-drivers=no \
-                           --with-sysroot=$SYSROOT_PREFIX"
 
 # Temporary workaround:
 # Listed libraries are static, while mesa expects shared ones. This breaks the
