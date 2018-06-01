@@ -27,6 +27,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="rsyslog"
 PKG_SHORTDESC="librelp"
 PKG_LONGDESC="librelp"
+PKG_BUILD_FLAGS="+pic"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-tls \
                            --enable-static --disable-shared \
