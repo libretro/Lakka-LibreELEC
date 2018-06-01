@@ -27,6 +27,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="audio"
 PKG_SHORTDESC="sidplay-libs"
 PKG_LONGDESC="sidplay-libs"
+PKG_BUILD_FLAGS="+pic"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-shared --enable-static"
 
