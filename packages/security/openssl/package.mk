@@ -30,8 +30,7 @@ PKG_SHORTDESC="The Open Source toolkit for Secure Sockets Layer and Transport La
 PKG_LONGDESC="The Open Source toolkit for Secure Sockets Layer and Transport Layer Security"
 PKG_BUILD_FLAGS="-parallel"
 
-PKG_CONFIGURE_OPTS_SHARED="--openssldir=/etc/ssl \
-                           --libdir=lib \
+PKG_CONFIGURE_OPTS_SHARED="--libdir=lib \
                            shared \
                            threads \
                            no-ec2m \
@@ -53,6 +52,11 @@ PKG_CONFIGURE_OPTS_SHARED="--openssldir=/etc/ssl \
                            no-zlib-dynamic \
                            no-static-engine"
 
+PKG_CONFIGURE_OPTS_HOST="--prefix=$TOOLCHAIN \
+                         --openssldir=$TOOLCHAIN/etc/ssl"
+PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
+                           --openssldir=/etc/ssl"
+
 pre_configure_host() {
   mkdir -p $PKG_BUILD/.$HOST_NAME
   cp -a $PKG_BUILD/* $PKG_BUILD/.$HOST_NAME/
@@ -60,11 +64,11 @@ pre_configure_host() {
 
 configure_host() {
   cd $PKG_BUILD/.$HOST_NAME
-  ./Configure --prefix=$TOOLCHAIN $PKG_CONFIGURE_OPTS_SHARED linux-x86_64 $CFLAGS $LDFLAGS
+  ./Configure $PKG_CONFIGURE_OPTS_HOST $PKG_CONFIGURE_OPTS_SHARED linux-x86_64 $CFLAGS $LDFLAGS
 }
 
 makeinstall_host() {
-  make INSTALL_PREFIX=$TOOLCHAIN install_sw
+  make install_sw
 }
 
 pre_configure_target() {
@@ -87,7 +91,7 @@ pre_configure_target() {
 
 configure_target() {
   cd $PKG_BUILD/.$TARGET_NAME
-  ./Configure --prefix=/usr $PKG_CONFIGURE_OPTS_SHARED $PLATFORM_FLAGS $OPENSSL_TARGET $CFLAGS $LDFLAGS
+  ./Configure $PKG_CONFIGURE_OPTS_TARGET $PKG_CONFIGURE_OPTS_SHARED $PLATFORM_FLAGS $OPENSSL_TARGET $CFLAGS $LDFLAGS
 }
 
 makeinstall_target() {
