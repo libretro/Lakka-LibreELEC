@@ -27,6 +27,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="audio"
 PKG_SHORTDESC="FluidSynth: A SoundFont Synthesizer."
 PKG_LONGDESC="FluidSynth renders midi music files as raw audio data, for playing or conversion. "
+PKG_BUILD_FLAGS="+pic"
 
 PKG_CMAKE_OPTS_TARGET="-DBUILD_SHARED_LIBS=0 \
                        -Denable-readline=0 \
