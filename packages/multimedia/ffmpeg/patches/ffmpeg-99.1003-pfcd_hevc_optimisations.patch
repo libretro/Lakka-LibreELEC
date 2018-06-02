@@ -16771,10 +16771,10 @@ index 0000000000..4bfa000da4
 +
 diff --git a/libavcodec/rpi_hevc_mvs.c b/libavcodec/rpi_hevc_mvs.c
 new file mode 100644
-index 0000000000..93f3530ff5
+index 0000000000..93a6294c76
 --- /dev/null
 +++ b/libavcodec/rpi_hevc_mvs.c
-@@ -0,0 +1,761 @@
+@@ -0,0 +1,759 @@
 +/*
 + * HEVC video decoder
 + *
@@ -17017,8 +17017,7 @@ index 0000000000..93f3530ff5
 +        x < s->ps.sps->width) {
 +        x                 &= ~15;
 +        y                 &= ~15;
-+        if (s->threads_type == FF_THREAD_FRAME)
-+            ff_hevc_rpi_progress_wait_mv(s, lc->jb0, ref, y);
++        ff_hevc_rpi_progress_wait_mv(s, lc->jb0, ref, y);
 +        x_pu               = x >> s->ps.sps->log2_min_pu_size;
 +        y_pu               = y >> s->ps.sps->log2_min_pu_size;
 +        temp_col           = TAB_MVF(x_pu, y_pu);
@@ -17031,8 +17030,7 @@ index 0000000000..93f3530ff5
 +        y                  = y0 + (nPbH >> 1);
 +        x                 &= ~15;
 +        y                 &= ~15;
-+        if (s->threads_type == FF_THREAD_FRAME)
-+            ff_hevc_rpi_progress_wait_mv(s, lc->jb0, ref, y);
++        ff_hevc_rpi_progress_wait_mv(s, lc->jb0, ref, y);
 +        x_pu               = x >> s->ps.sps->log2_min_pu_size;
 +        y_pu               = y >> s->ps.sps->log2_min_pu_size;
 +        temp_col           = TAB_MVF(x_pu, y_pu);
@@ -19691,10 +19689,10 @@ index 0000000000..744e7cf248
 +}
 diff --git a/libavcodec/rpi_hevc_ps.h b/libavcodec/rpi_hevc_ps.h
 new file mode 100644
-index 0000000000..1e7120a43d
+index 0000000000..00c1f14614
 --- /dev/null
 +++ b/libavcodec/rpi_hevc_ps.h
-@@ -0,0 +1,441 @@
+@@ -0,0 +1,444 @@
 +/*
 + * HEVC parameter set parsing
 + *
@@ -19802,6 +19800,9 @@ index 0000000000..1e7120a43d
 +    int * size;
 +    int num_entry_point_offsets;
 +    int offsets_allocated;
++
++    uint8_t offload_wpp;
++    uint8_t offload_tiles;
 +
 +    int8_t slice_qp;
 +
@@ -25929,10 +25930,10 @@ index 0000000000..1128a2c054
 +};
 diff --git a/libavcodec/rpi_hevcdec.c b/libavcodec/rpi_hevcdec.c
 new file mode 100644
-index 0000000000..08686ff260
+index 0000000000..bddf0c3417
 --- /dev/null
 +++ b/libavcodec/rpi_hevcdec.c
-@@ -0,0 +1,5787 @@
+@@ -0,0 +1,5782 @@
 +/*
 + * HEVC video Decoder
 + *
@@ -26911,7 +26912,10 @@ index 0000000000..08686ff260
 +        goto fail;
 +
 +    s->tab_ipm  = av_mallocz(min_pu_size);
-+    s->is_pcm   = av_malloc_array(sps->pcm_width, sps->pcm_height);
++    // We can overread by 1 line & one byte in deblock so alloc & zero
++    // We don't need to zero the extra @ start of frame as it will never be
++    // written
++    s->is_pcm   = av_mallocz(sps->pcm_width * (sps->pcm_height + 1) + 1);
 +    if (!s->tab_ipm || !s->is_pcm)
 +        goto fail;
 +
@@ -27645,6 +27649,9 @@ index 0000000000..08686ff260
 +    }
 +
 +    sh->num_entry_point_offsets = 0;
++    sh->offload_wpp = 0;
++    sh->offload_wpp = 0;
++
 +    if (s->ps.pps->tiles_enabled_flag || s->ps.pps->entropy_coding_sync_enabled_flag) {
 +        unsigned num_entry_point_offsets = get_ue_golomb_long(gb);
 +        // It would be possible to bound this tighter but this here is simpler
@@ -27680,6 +27687,18 @@ index 0000000000..08686ff260
 +                    return AVERROR_INVALIDDATA;
 +                }
 +                sh->entry_point_offset[i] = val_minus1 + 1; // +1 to get the size
++            }
++
++            // Do we want to offload this
++            if (s->threads_type != 0)
++            {
++                sh->offload_wpp = (!s->ps.pps->tile_wpp_inter_disable || sh->slice_type == HEVC_SLICE_I) &&
++                    s->ps.pps->num_tile_columns > 1;
++                // * We only cope with WPP in a single column
++                //   Probably want to deal with that case as tiles rather than WPP anyway
++                // ?? Not actually sure that the main code deals with WPP + multi-col correctly
++                sh->offload_wpp = s->ps.pps->entropy_coding_sync_enabled_flag &&
++                    s->ps.pps->num_tile_columns == 1;
 +            }
 +        }
 +    }
@@ -28231,7 +28250,7 @@ index 0000000000..08686ff260
 +static void hevc_await_progress(const HEVCRpiContext * const s, HEVCRpiLocalContext * const lc, const HEVCFrame * const ref,
 +                                const Mv * const mv, const int y0, const int height)
 +{
-+    if (s->threads_type == FF_THREAD_FRAME) {
++    if (s->threads_type != 0) {
 +        const int y = FFMAX(0, (mv->y >> 2) + y0 + height + 9);
 +
 +        // Progress has to be attached to current job as the actual wait
@@ -29408,7 +29427,7 @@ index 0000000000..08686ff260
 +        (s->ps.pps->ctb_ts_flags[jb->ctu_ts_last] & CTB_TS_FLAGS_EOT) != 0);
 +
 +    // Signal
-+    if (s->threads_type == FF_THREAD_FRAME && y > 0) {
++    if (y > 0) {
 +        // Cast away const as progress is held in s, but this really shouldn't confuse anything
 +        ff_hevc_rpi_progress_signal_recon((HEVCRpiContext *)s, y - 1);
 +    }
@@ -30179,7 +30198,7 @@ index 0000000000..08686ff260
 +            ff_hevc_rpi_save_states(s, lc);
 +
 +        // Report progress so we can use our MVs in other frames
-+        if (s->threads_type == FF_THREAD_FRAME && (ctb_flags & CTB_TS_FLAGS_EOL) != 0)
++        if ((ctb_flags & CTB_TS_FLAGS_EOL) != 0)
 +            ff_hevc_rpi_progress_signal_mv(s, y_ctb + ctb_size - 1);
 +
 +        // End of line || End of tile line || End of tile
@@ -30593,9 +30612,7 @@ index 0000000000..08686ff260
 +
 +#if RPI_EXTRA_BIT_THREADS > 0
 +
-+    if (s->sh.num_entry_point_offsets != 0 &&
-+        (!s->ps.pps->tile_wpp_inter_disable || s->sh.slice_type == HEVC_SLICE_I) &&
-+        s->ps.pps->num_tile_columns > 1)
++    if (s->sh.offload_tiles)
 +    {
 +        unsigned int slice_row = 0;
 +
@@ -30640,14 +30657,7 @@ index 0000000000..08686ff260
 +        printf("%s: Done wait: ts=%d\n", __func__, lc->ts);
 +#endif
 +    }
-+    else
-+
-+    // * We only cope with WPP in a single column
-+    //   Probably want to deal with that case as tiles rather than WPP anyway
-+    // ?? Not actually sure that the main code deals with WPP + multi-col correctly
-+    if (s->ps.pps->entropy_coding_sync_enabled_flag &&
-+        s->ps.pps->num_tile_columns == 1 &&
-+        s->sh.num_entry_point_offsets != 0)
++    else if (s->sh.offload_wpp)
 +    {
 +#if TRACE_WPP
 +        printf("%s: Do WPP\n", __func__);
@@ -31002,8 +31012,7 @@ index 0000000000..08686ff260
 +                        s->nal_unit_type == HEVC_NAL_STSA_N  ||
 +                        s->nal_unit_type == HEVC_NAL_RADL_N  ||
 +                        s->nal_unit_type == HEVC_NAL_RASL_N);
-+        s->offload_recon = s->used_for_ref;
-+//        s->offload_recon = 0;
++        s->offload_recon = s->threads_type != 0 && s->used_for_ref;
 +
 +#if DEBUG_DECODE_N
 +        {
@@ -31145,7 +31154,7 @@ index 0000000000..08686ff260
 +
 +fail:  // Also success path
 +    if (s->ref != NULL) {
-+        if (s->used_for_ref && s->threads_type == FF_THREAD_FRAME) {
++        if (s->used_for_ref && s->threads_type != 0) {
 +            ff_hevc_rpi_progress_signal_all_done(s);
 +        }
 +        else {
@@ -31394,12 +31403,6 @@ index 0000000000..08686ff260
 +    s->ps.pps = NULL;
 +    s->ps.vps = NULL;
 +
-+    for (i = 1; i < s->threads_number; i++) {
-+        if (s->sList[i] != NULL) {
-+            av_freep(&s->sList[i]);
-+        }
-+    }
-+
 +    // Free separately from sLists as used that way by RPI WPP
 +    for (i = 0; i < MAX_NB_THREADS && s->HEVClcList[i] != NULL; ++i) {
 +        av_freep(s->HEVClcList + i);
@@ -31428,7 +31431,6 @@ index 0000000000..08686ff260
 +    if (!s->HEVClc)
 +        goto fail;
 +    s->HEVClcList[0] = s->HEVClc;
-+    s->sList[0] = s;
 +
 +    // Whilst FFmpegs init fn is only called once the close fn is called as
 +    // many times as we have threads (init_thread_copy is called for the
@@ -31553,7 +31555,6 @@ index 0000000000..08686ff260
 +    s->is_nalff        = s0->is_nalff;
 +    s->nal_length_size = s0->nal_length_size;
 +
-+    s->threads_number      = s0->threads_number;
 +    s->threads_type        = s0->threads_type;
 +
 +    if (s0->eos) {
@@ -31611,11 +31612,6 @@ index 0000000000..08686ff260
 +
 +    atomic_init(&s->wpp_err, 0);
 +
-+    if(avctx->active_thread_type & FF_THREAD_SLICE)
-+        s->threads_number = avctx->thread_count;
-+    else
-+        s->threads_number = 1;
-+
 +    if (avctx->extradata_size > 0 && avctx->extradata) {
 +        ret = hevc_rpi_decode_extradata(s, avctx->extradata, avctx->extradata_size, 1);
 +
@@ -31632,7 +31628,7 @@ index 0000000000..08686ff260
 +    if((avctx->active_thread_type & FF_THREAD_FRAME) && avctx->thread_count > 1)
 +        s->threads_type = FF_THREAD_FRAME;
 +    else
-+        s->threads_type = FF_THREAD_SLICE;
++        s->threads_type = 0;
 +
 +    return 0;
 +}
@@ -31722,10 +31718,10 @@ index 0000000000..08686ff260
 +
 diff --git a/libavcodec/rpi_hevcdec.h b/libavcodec/rpi_hevcdec.h
 new file mode 100644
-index 0000000000..df2bac1df4
+index 0000000000..d242727b2a
 --- /dev/null
 +++ b/libavcodec/rpi_hevcdec.h
-@@ -0,0 +1,1002 @@
+@@ -0,0 +1,1000 @@
 +/*
 + * HEVC video decoder
 + *
@@ -32430,13 +32426,10 @@ index 0000000000..df2bac1df4
 +    const AVClass *c;  // needed by private avoptions
 +    AVCodecContext *avctx;
 +
-+    struct HEVCRpiContext  *sList[MAX_NB_THREADS];
-+
 +    HEVCRpiLocalContext    *HEVClcList[MAX_NB_THREADS];
 +    HEVCRpiLocalContext    *HEVClc;
 +
 +    uint8_t             threads_type;
-+    uint8_t             threads_number;
 +
 +    /** 1 if the independent slice segment header was successfully parsed */
 +    uint8_t slice_initialized;
@@ -32641,12 +32634,13 @@ index 0000000000..df2bac1df4
 +static inline void ff_hevc_rpi_progress_wait_mv(const HEVCRpiContext * const s, HEVCRpiJob * const jb,
 +                                     const HEVCFrame * const ref, const int y)
 +{
-+    ff_hevc_rpi_progress_wait_field(s, jb, ref, y, 1);
++    if (s->threads_type != 0)
++        ff_hevc_rpi_progress_wait_field(s, jb, ref, y, 1);
 +}
 +
 +static inline void ff_hevc_rpi_progress_signal_mv(HEVCRpiContext * const s, const int y)
 +{
-+    if (s->used_for_ref)
++    if (s->used_for_ref && s->threads_type != 0)
 +        ff_hevc_rpi_progress_signal_field(s, y, 1);
 +}
 +
@@ -32658,7 +32652,7 @@ index 0000000000..df2bac1df4
 +
 +static inline void ff_hevc_rpi_progress_signal_recon(HEVCRpiContext * const s, const int y)
 +{
-+    if (s->used_for_ref)
++    if (s->used_for_ref && s->threads_type != 0)
 +    {
 +        ff_hevc_rpi_progress_signal_field(s, y, 0);
 +    }
@@ -33344,7 +33338,7 @@ index 0000000000..8c9bf725bf
 +#endif /* AVCODEC_RPI_HEVCDSP_H */
 diff --git a/libavcodec/rpi_hevcdsp_template.c b/libavcodec/rpi_hevcdsp_template.c
 new file mode 100644
-index 0000000000..cfe9264fc3
+index 0000000000..d1196a4440
 --- /dev/null
 +++ b/libavcodec/rpi_hevcdsp_template.c
 @@ -0,0 +1,2278 @@
@@ -33929,7 +33923,7 @@ index 0000000000..cfe9264fc3
 +    pixel *src = (pixel *)_src;
 +    int a_stride, b_stride;
 +    int x, y;
-+    ptrdiff_t stride_src = (2*MAX_PB_SIZE + AV_INPUT_BUFFER_PADDING_SIZE) / sizeof(pixel);
++    const ptrdiff_t stride_src = RPI_HEVC_SAO_BUF_STRIDE / sizeof(pixel);
 +    stride_dst /= sizeof(pixel);
 +
 +    a_stride = pos[eo][0][0] + pos[eo][0][1] * stride_src;
@@ -34157,7 +34151,7 @@ index 0000000000..cfe9264fc3
 +    pixel *src = (pixel *)_src;
 +    int a_stride, b_stride;
 +    int x, y;
-+    ptrdiff_t stride_src = (2*MAX_PB_SIZE + AV_INPUT_BUFFER_PADDING_SIZE) / sizeof(pixel);
++    const ptrdiff_t stride_src = RPI_HEVC_SAO_BUF_STRIDE / sizeof(pixel);
 +
 +    stride_dst /= sizeof(pixel);
 +    width *= 2;
