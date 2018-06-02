@@ -82,7 +82,7 @@ else
 fi
 
 if [ "$TARGET_ARCH" = "x86_64" ]; then
-  PKG_FFMPEG_X86ASM="--enable-x86asm"
+  PKG_FFMPEG_X86ASM="--enable-x86asm --x86asmexe=yasm"
 else
   PKG_FFMPEG_X86ASM="--disable-x86asm"
 fi
