@@ -1,20 +1,20 @@
-From 5d3b9dae20b9c9b1c9236d98bf9ce64306d8b63f Mon Sep 17 00:00:00 2001
+From 09ef179755107108722027dcc04ae62795c5d522 Mon Sep 17 00:00:00 2001
 From: MilhouseVH <milhouseVH.github@nmacleod.com>
-Date: Thu, 5 Apr 2018 11:43:28 +0100
+Date: Tue, 22 May 2018 00:28:13 +0100
 Subject: [PATCH] allow using alsa and pulse together
 
 ---
- xbmc/windowing/X11/WinSystemX11GLContext.cpp | 28 ++--------------------------
+ xbmc/windowing/X11/WinSystemX11GLContext.cpp | 35 ++--------------------------
  xbmc/windowing/amlogic/WinSystemAmlogic.cpp  |  2 ++
- xbmc/windowing/gbm/WinSystemGbm.cpp          | 27 ++-------------------------
+ xbmc/windowing/gbm/WinSystemGbm.cpp          | 34 ++-------------------------
  xbmc/windowing/rpi/WinSystemRpi.cpp          |  4 ++++
- 4 files changed, 10 insertions(+), 51 deletions(-)
+ 4 files changed, 10 insertions(+), 65 deletions(-)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11GLContext.cpp b/xbmc/windowing/X11/WinSystemX11GLContext.cpp
-index 17b83a0..2e76053 100644
+index 6e31a80..2e76053 100644
 --- a/xbmc/windowing/X11/WinSystemX11GLContext.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11GLContext.cpp
-@@ -52,32 +52,8 @@ std::unique_ptr<CWinSystemBase> CWinSystemBase::CreateWinSystem()
+@@ -52,39 +52,8 @@ std::unique_ptr<CWinSystemBase> CWinSystemBase::CreateWinSystem()
  
  CWinSystemX11GLContext::CWinSystemX11GLContext()
  {
@@ -29,6 +29,10 @@ index 17b83a0..2e76053 100644
 -  {
 -    OPTIONALS::PulseAudioRegister();
 -  }
+-  else if (StringUtils::EqualsNoCase(envSink, "OSS"))
+-  {
+-    OPTIONALS::OSSRegister();
+-  }
 -  else if (StringUtils::EqualsNoCase(envSink, "SNDIO"))
 -  {
 -    OPTIONALS::SndioRegister();
@@ -39,7 +43,10 @@ index 17b83a0..2e76053 100644
 -    {
 -      if (!OPTIONALS::ALSARegister())
 -      {
--        OPTIONALS::SndioRegister();
+-        if (!OPTIONALS::SndioRegister())
+-        {
+-          OPTIONALS::OSSRegister();
+-        }
 -      }
 -    }
 -  }
@@ -50,7 +57,7 @@ index 17b83a0..2e76053 100644
  }
  
 diff --git a/xbmc/windowing/amlogic/WinSystemAmlogic.cpp b/xbmc/windowing/amlogic/WinSystemAmlogic.cpp
-index 1db2ba7..517aeea 100644
+index 324d47f..1766308 100644
 --- a/xbmc/windowing/amlogic/WinSystemAmlogic.cpp
 +++ b/xbmc/windowing/amlogic/WinSystemAmlogic.cpp
 @@ -32,6 +32,7 @@
@@ -61,21 +68,21 @@ index 1db2ba7..517aeea 100644
  #include "windowing/GraphicContext.h"
  #include "windowing/Resolution.h"
  #include "platform/linux/powermanagement/LinuxPowerSyscall.h"
-@@ -79,6 +80,7 @@ CWinSystemAmlogic::CWinSystemAmlogic()
+@@ -78,6 +79,7 @@ CWinSystemAmlogic::CWinSystemAmlogic() :
    // Register sink
    AE::CAESinkFactory::ClearSinks();
    CAESinkALSA::Register();
 +  CAESinkPULSE::Register();
    CLinuxPowerSyscall::Register();
- }
- 
+   m_lirc.reset(OPTIONALS::LircRegister());
+   m_libinput->Start();
 diff --git a/xbmc/windowing/gbm/WinSystemGbm.cpp b/xbmc/windowing/gbm/WinSystemGbm.cpp
-index 45783bd..7b5e2ba 100644
+index 72ddf6a..79e81d5 100644
 --- a/xbmc/windowing/gbm/WinSystemGbm.cpp
 +++ b/xbmc/windowing/gbm/WinSystemGbm.cpp
-@@ -43,31 +43,8 @@ CWinSystemGbm::CWinSystemGbm() :
-   m_GBM(new CGBMUtils),
-   m_delayDispReset(false)
+@@ -43,38 +43,8 @@ CWinSystemGbm::CWinSystemGbm() :
+   m_delayDispReset(false),
+   m_libinput(new CLibInputHandler)
  {
 -  std::string envSink;
 -  if (getenv("AE_SINK"))
@@ -88,6 +95,10 @@ index 45783bd..7b5e2ba 100644
 -  {
 -    OPTIONALS::PulseAudioRegister();
 -  }
+-  else if (StringUtils::EqualsNoCase(envSink, "OSS"))
+-  {
+-    OPTIONALS::OSSRegister();
+-  }
 -  else if (StringUtils::EqualsNoCase(envSink, "SNDIO"))
 -  {
 -    OPTIONALS::SndioRegister();
@@ -98,22 +109,25 @@ index 45783bd..7b5e2ba 100644
 -    {
 -      if (!OPTIONALS::ALSARegister())
 -      {
--        OPTIONALS::SndioRegister();
+-        if (!OPTIONALS::SndioRegister())
+-        {
+-          OPTIONALS::OSSRegister();
+-        }
 -      }
 -    }
 -  }
 +  OPTIONALS::ALSARegister();
 +  OPTIONALS::PulseAudioRegister();
  
-   m_winEvents.reset(new CWinEventsLinux());
    CLinuxPowerSyscall::Register();
+   m_lirc.reset(OPTIONALS::LircRegister());
 diff --git a/xbmc/windowing/rpi/WinSystemRpi.cpp b/xbmc/windowing/rpi/WinSystemRpi.cpp
-index 82534f2..d4e8ba9 100644
+index fac5cc4..f90e46d 100644
 --- a/xbmc/windowing/rpi/WinSystemRpi.cpp
 +++ b/xbmc/windowing/rpi/WinSystemRpi.cpp
-@@ -34,7 +34,9 @@
+@@ -33,7 +33,9 @@
+ #include "guilib/DispResource.h"
  #include "utils/log.h"
- #include "../WinEventsLinux.h"
  #include "cores/AudioEngine/AESinkFactory.h"
 +#include "cores/AudioEngine/Sinks/AESinkALSA.h"
  #include "cores/AudioEngine/Sinks/AESinkPi.h"
@@ -121,15 +135,15 @@ index 82534f2..d4e8ba9 100644
  #include "platform/linux/powermanagement/LinuxPowerSyscall.h"
  
  #include <EGL/egl.h>
-@@ -56,6 +58,8 @@ CWinSystemRpi::CWinSystemRpi()
-   m_winEvents.reset(new CWinEventsLinux());
+@@ -55,6 +57,8 @@ CWinSystemRpi::CWinSystemRpi() :
+ 
    AE::CAESinkFactory::ClearSinks();
    CAESinkPi::Register();
 +  CAESinkALSA::Register();
 +  CAESinkPULSE::Register();
    CLinuxPowerSyscall::Register();
    m_lirc.reset(OPTIONALS::LircRegister());
- }
+   m_libinput->Start();
 -- 
 2.14.1
 
