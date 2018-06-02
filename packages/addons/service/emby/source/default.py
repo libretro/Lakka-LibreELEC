@@ -16,5 +16,5 @@ class Monitor(xbmc.Monitor):
       subprocess.call(['systemctl', 'restart', self.id])
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
    Monitor().waitForAbort()
