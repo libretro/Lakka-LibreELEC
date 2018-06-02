@@ -81,6 +81,12 @@ else
   FFMPEG_FPU="--disable-neon"
 fi
 
+if [ "$TARGET_ARCH" = "x86_64" ]; then
+  FFMPEG_X86ASM="--enable-x86asm"
+else
+  FFMPEG_X86ASM="--disable-x86asm"
+fi
+
 pre_configure_target() {
   cd $PKG_BUILD
   rm -rf .$TARGET_NAME
@@ -161,7 +167,6 @@ configure_target() {
               --enable-encoder=wmav2 \
               --enable-encoder=mjpeg \
               --enable-encoder=png \
-              --disable-decoder=mpeg_xvmc \
               --enable-hwaccels \
               --disable-muxers \
               --enable-muxer=spdif \
@@ -202,7 +207,7 @@ configure_target() {
               --enable-asm \
               --disable-altivec \
               $FFMPEG_FPU \
-              --enable-yasm \
+              $FFMPEG_X86ASM \
               --disable-symver
 }
 
