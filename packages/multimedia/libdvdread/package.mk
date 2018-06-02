@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libdvdread"
-PKG_VERSION="86f9500"
-PKG_SHA256="a73888c81d14443d9f09fa02f5e5ecc08d9ab09639789fab810557069d335f34"
+PKG_VERSION="bd6b329"
+PKG_SHA256="2d9d6d185dd25a983d6dfc2a00207cafdc396a969c227d5edd84b6215b2fba89"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/libdvdread"
