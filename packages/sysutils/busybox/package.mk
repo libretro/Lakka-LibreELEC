@@ -218,6 +218,9 @@ makeinstall_init() {
 
   if find_file_path initramfs/platform_init; then
     cp ${FOUND_PATH} $INSTALL
+    sed -e "s/@BOOT_LABEL@/$DISTRO_BOOTLABEL/g" \
+        -e "s/@DISK_LABEL@/$DISTRO_DISKLABEL/g" \
+        -i $INSTALL/platform_init
     chmod 755 $INSTALL/platform_init
   fi
 

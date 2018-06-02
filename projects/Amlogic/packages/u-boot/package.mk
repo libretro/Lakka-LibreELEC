@@ -89,4 +89,18 @@ makeinstall_target() {
         cp -av $PKG_BUILD/fip/u-boot.bin.sd.bin $INSTALL/usr/share/bootloader/u-boot
         ;;
     esac
+
+    # Replace partition names in update.sh
+    if [ -f "$INSTALL/usr/share/bootloader/update.sh" ] ; then
+      sed -e "s/@BOOT_LABEL@/$DISTRO_BOOTLABEL/g" \
+          -e "s/@DISK_LABEL@/$DISTRO_DISKLABEL/g" \
+          -i $INSTALL/usr/share/bootloader/update.sh
+    fi
+
+    # Replace labels in boot.ini
+    if [ -f "$INSTALL/usr/share/bootloader/boot.ini" ] ; then
+      sed -e "s/@BOOT_LABEL@/$DISTRO_BOOTLABEL/g" \
+          -e "s/@DISK_LABEL@/$DISTRO_DISKLABEL/g" \
+          -i $INSTALL/usr/share/bootloader/boot.ini
+    fi
 }
