@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="pngquant"
-PKG_VERSION="2.11.7"
-PKG_SHA256="d70b46c3335c7abf21944aced2d9d2b54819ab84ed1a140b354d5e8cc9f0fb0a"
+PKG_VERSION="2.12.0"
+PKG_SHA256="0e540c64bb58c05f2a05b4eaf1d3d165f0d3278500f15abfeac47f93f8fa8fa8"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://pngquant.org"
