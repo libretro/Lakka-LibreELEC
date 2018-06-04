@@ -28,7 +28,7 @@ PKG_DEPENDS_TARGET="toolchain bzip2 fdk-aac libvorbis openssl opus x264 x265 zli
 PKG_SECTION="multimedia"
 PKG_LONGDESC="FFmpegx is an complete FFmpeg build to support encoding and decoding"
 # ffmpeg builds better with these options
-PKG_BUILD_FLAGS="-gold -lto"
+PKG_BUILD_FLAGS="-gold"
 
 # Dependencies
 get_graphicdrivers

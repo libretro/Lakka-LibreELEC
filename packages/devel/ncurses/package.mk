@@ -28,7 +28,7 @@ PKG_SECTION="devel"
 PKG_SHORTDESC="ncurses: The ncurses (new curses) library"
 PKG_LONGDESC="The ncurses (new curses) library is a free software emulation of curses in System V Release 4.0, and more. It uses terminfo format, supports pads and color and multiple highlights and forms characters and function-key mapping, and has all the other SYSV-curses enhancements over BSD curses."
 # causes some segmentation fault's (dialog) when compiled with gcc's link time optimization.
-PKG_BUILD_FLAGS="-lto +pic"
+PKG_BUILD_FLAGS="+pic"
 
 PKG_CONFIGURE_OPTS_TARGET="--without-ada \
                            --without-cxx \

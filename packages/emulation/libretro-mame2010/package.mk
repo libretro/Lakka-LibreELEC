@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="Late 2010 version of MAME (0.139) for libretro"
 PKG_LONGDESC="Late 2010 version of MAME (0.139) for libretro"
-PKG_BUILD_FLAGS="-lto"
 
 PKG_LIBNAME="mame2010_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"

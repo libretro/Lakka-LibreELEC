@@ -27,6 +27,7 @@ PKG_DEPENDS_TARGET="toolchain Python2 dbus dbus-glib"
 PKG_SECTION="python/system"
 PKG_SHORTDESC="dbus-python: A message bus system"
 PKG_LONGDESC="D-BUS is a message bus, used for sending messages between applications. Conceptually, it fits somewhere in between raw sockets and CORBA in terms of complexity. D-BUS supports broadcast messages, asynchronous messages (thus decreasing latency), authentication, and more. It is designed to be low-overhead; messages are sent using a binary protocol, not using XML. D-BUS also supports a method call mapping for its messages, but it is not required; this makes using the system quite simple."
+PKG_BUILD_FLAGS="+lto"
 
 pre_configure_target() {
   export PYTHON_CONFIG="$SYSROOT_PREFIX/usr/bin/python2-config"

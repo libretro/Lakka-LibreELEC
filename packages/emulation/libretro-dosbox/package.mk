@@ -28,7 +28,7 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.dosbox: DOSBox for Kodi"
 PKG_LONGDESC="game.libretro.dosbox: DOSBox for Kodi"
-PKG_BUILD_FLAGS="-lto +pic"
+PKG_BUILD_FLAGS="+pic"
 
 PKG_LIBNAME="dosbox_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"

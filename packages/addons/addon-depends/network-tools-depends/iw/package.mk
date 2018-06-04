@@ -28,7 +28,6 @@ PKG_SECTION="tools"
 PKG_SHORTDESC="iw is a new nl80211 based CLI configuration utility for wireless devices"
 PKG_LONGDESC="iw is a new nl80211 based CLI configuration utility for wireless devices. It supports all new drivers that have been added to the kernel recently."
 # iw fails at runtime with lto enabled
-PKG_BUILD_FLAGS="-lto"
 
 pre_configure_target() {
   export LDFLAGS="$LDFLAGS -pthread"
