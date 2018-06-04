@@ -26,7 +26,7 @@ PKG_URL="https://releases.linaro.org/components/toolchain/binaries/7.2-2017.11/a
 PKG_SOURCE_DIR="gcc-linaro-$PKG_VERSION-i686_arm-linux-gnueabihf"
 PKG_DEPENDS_HOST="ccache:host"
 PKG_SECTION="lang"
-PKG_SHORTDESC="Linaro Aarch64 GNU Linux Binary Toolchain"
+PKG_LONGDESC="Linaro ARMv8 GNU Linux Binary Toolchain"
 PKG_TOOLCHAIN="manual"
 
 makeinstall_host() {
