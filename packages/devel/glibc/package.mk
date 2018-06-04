@@ -89,6 +89,7 @@ pre_configure_target() {
 
   # set some CFLAGS we need
   export CFLAGS="$CFLAGS -g -fno-stack-protector"
+  export CFLAGS="$CFLAGS -Wno-error=stringop-truncation -Wno-error=overflow -Wno-error=format-overflow="
 
   export BUILD_CC=$HOST_CC
   export OBJDUMP_FOR_HOST=objdump
