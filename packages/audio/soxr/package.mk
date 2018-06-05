@@ -32,4 +32,13 @@ PKG_BUILD_FLAGS="+pic"
 
 PKG_CMAKE_OPTS_TARGET="-DBUILD_EXAMPLES=OFF \
                        -DBUILD_SHARED_LIBS=OFF \
-                       -DBUILD_TESTS=OFF"
+                       -DBUILD_TESTS=OFF \
+                       -DWITH_AVFFT=OFF"
+
+if [ "$TARGET_ARCH" = "arm" ]; then
+  if target_has_feature neon; then
+    PKG_CMAKE_OPTS_TARGET+=" -DWITH_CR32=OFF"
+  else
+    PKG_CMAKE_OPTS_TARGET+=" -DWITH_CR32S=OFF"
+  fi
+fi
