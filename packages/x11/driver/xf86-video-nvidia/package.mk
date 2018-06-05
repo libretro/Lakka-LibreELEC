@@ -1,27 +1,28 @@
 ################################################################################
-#      This file is part of OpenELEC - http://www.openelec.tv
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2016-present Team LibreELEC
 #      Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 #
-#  OpenELEC is free software: you can redistribute it and/or modify
+#  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation, either version 2 of the License, or
 #  (at your option) any later version.
 #
-#  OpenELEC is distributed in the hope that it will be useful,
+#  LibreELEC is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
 #
 #  You should have received a copy of the GNU General Public License
-#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
 PKG_NAME="xf86-video-nvidia"
 # Remember to run "python packages/x11/driver/xf86-video-nvidia/scripts/make_nvidia_udev.py" and commit changes to
 # "packages/x11/driver/xf86-video-nvidia/udev.d/96-nvidia.rules" whenever bumping version.
 # Host may require installation of python-lxml and python-requests packages.
-PKG_VERSION="390.59"
-PKG_SHA256="397adf2f725f6d27aaf583431efe8d1182d926930e73f1bfd6f9e6fbc03c0484"
+PKG_VERSION="390.67"
+PKG_SHA256="4d9d4a636d568a93412cd9a2db08c594adef20861707dfdfbd6ae15db3292b26"
 PKG_ARCH="x86_64"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.nvidia.com/"
