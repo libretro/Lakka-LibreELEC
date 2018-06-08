@@ -18,8 +18,8 @@
 ################################################################################
 
 PKG_NAME="hyperion"
-PKG_VERSION="1c21232"
-PKG_SHA256="aea69ba3027c0f967880a65f0c39a2cd7f9cf913947b755ac37a2572a77d51c0"
+PKG_VERSION="dc6a602"
+PKG_SHA256="d585b4e71aafd49f32ced6e27cc88db3c19278a7f258972c22a4e88cad981b0d"
 PKG_REV="106"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
