@@ -25,7 +25,7 @@ PKG_LICENSE="MIT"
 PKG_SITE="http://www.mono-project.com"
 PKG_URL="http://download.mono-project.com/sources/mono/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_SOURCE_DIR="$PKG_NAME-${PKG_VERSION%.*}"
-PKG_DEPENDS_TARGET="toolchain mono:host libgdiplus sqlite mono_sqlite zlib"
+PKG_DEPENDS_TARGET="toolchain mono:host libgdiplus sqlite zlib"
 PKG_SECTION="tools"
 PKG_SHORTDESC="Mono: a cross platform, open source .NET framework"
 PKG_LONGDESC="Mono ($PKG_VERSION) is a software platform designed to allow developers to easily create cross platform applications part of the .NET Foundation"
@@ -83,7 +83,6 @@ addon() {
 
   cp -L "$(get_build_dir cairo)/.install_pkg/usr/lib/libcairo.so.2" \
         "$(get_build_dir libgdiplus)/.install_pkg/usr/lib/libgdiplus.so" \
-        "$(get_build_dir mono_sqlite)/.install_pkg/usr/lib/libsqlite3.so.0" \
         "$(get_build_dir pixman)/.install_pkg/usr/lib/libpixman-1.so.0" \
         "$ADDON_BUILD/$PKG_ADDON_ID/lib"
 }
