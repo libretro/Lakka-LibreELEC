@@ -1,6 +1,6 @@
 ################################################################################
-#      This file is part of LibreELEC - https://www.libreelec.tv
-#      Copyright (C) 2018 Team LibreELEC
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2018-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
