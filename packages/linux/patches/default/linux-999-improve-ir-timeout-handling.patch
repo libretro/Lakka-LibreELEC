@@ -1,10 +1,8 @@
-From 057ccfd1d18842bd2fa39c4b996a9a952c5a821d Mon Sep 17 00:00:00 2001
-From: Matthias Reichl <hias@horus.com>
-Date: Tue, 27 Mar 2018 19:35:11 +0200
-Subject: [PATCH 01/11] media: rc: set timeout to smallest value required by
+From df4fa9f4fa87409253bdced78e2cc2b3bc76b253 Mon Sep 17 00:00:00 2001
+From: Sean Young <sean@mess.org>
+Date: Fri, 23 Mar 2018 16:47:37 -0400
+Subject: [PATCH 01/14] media: rc: set timeout to smallest value required by
  enabled protocols
-
-backport of https://patchwork.linuxtv.org/patch/48516/
 
 The longer the IR timeout, the longer the rc device waits until delivering
 the trailing space. So, by reducing this timeout, we reduce the delay for
@@ -14,8 +12,9 @@ Note that the lirc daemon disables all protocols, in which case we revert
 back to the default value.
 
 Signed-off-by: Sean Young <sean@mess.org>
-Signed-off-by: Matthias Reichl <hias@horus.com>
+Signed-off-by: Mauro Carvalho Chehab <mchehab@s-opensource.com>
 ---
+ drivers/media/rc/ir-imon-decoder.c    |  1 +
  drivers/media/rc/ir-jvc-decoder.c     |  1 +
  drivers/media/rc/ir-mce_kbd-decoder.c |  1 +
  drivers/media/rc/ir-nec-decoder.c     |  1 +
@@ -28,133 +27,145 @@ Signed-off-by: Matthias Reichl <hias@horus.com>
  drivers/media/rc/rc-core-priv.h       |  1 +
  drivers/media/rc/rc-ir-raw.c          | 31 ++++++++++++++++++++++++++++++-
  drivers/media/rc/rc-main.c            | 12 ++++++------
- 12 files changed, 46 insertions(+), 7 deletions(-)
+ 13 files changed, 47 insertions(+), 7 deletions(-)
 
+diff --git a/drivers/media/rc/ir-imon-decoder.c b/drivers/media/rc/ir-imon-decoder.c
+index a1ff06a26542..52ea3b2fda74 100644
+--- a/drivers/media/rc/ir-imon-decoder.c
++++ b/drivers/media/rc/ir-imon-decoder.c
+@@ -170,6 +170,7 @@ static struct ir_raw_handler imon_handler = {
+ 	.decode		= ir_imon_decode,
+ 	.encode		= ir_imon_encode,
+ 	.carrier	= 38000,
++	.min_timeout	= IMON_UNIT * IMON_BITS * 2,
+ };
+ 
+ static int __init ir_imon_decode_init(void)
 diff --git a/drivers/media/rc/ir-jvc-decoder.c b/drivers/media/rc/ir-jvc-decoder.c
-index e2bd68c42edf..fc931fe39bb7 100644
+index 8cb68ae43282..5706cfe60027 100644
 --- a/drivers/media/rc/ir-jvc-decoder.c
 +++ b/drivers/media/rc/ir-jvc-decoder.c
-@@ -212,6 +212,7 @@ static struct ir_raw_handler jvc_handler = {
- 	.protocols	= RC_PROTO_BIT_JVC,
+@@ -213,6 +213,7 @@ static struct ir_raw_handler jvc_handler = {
  	.decode		= ir_jvc_decode,
  	.encode		= ir_jvc_encode,
-+	.max_space	= JVC_TRAILER_SPACE,
+ 	.carrier	= 38000,
++	.min_timeout	= JVC_TRAILER_SPACE,
  };
  
  static int __init ir_jvc_decode_init(void)
 diff --git a/drivers/media/rc/ir-mce_kbd-decoder.c b/drivers/media/rc/ir-mce_kbd-decoder.c
-index 7c572a643656..7afeab04dbbf 100644
+index c110984ca671..05f2a36769c0 100644
 --- a/drivers/media/rc/ir-mce_kbd-decoder.c
 +++ b/drivers/media/rc/ir-mce_kbd-decoder.c
-@@ -474,6 +474,7 @@ static struct ir_raw_handler mce_kbd_handler = {
- 	.encode		= ir_mce_kbd_encode,
+@@ -475,6 +475,7 @@ static struct ir_raw_handler mce_kbd_handler = {
  	.raw_register	= ir_mce_kbd_register,
  	.raw_unregister	= ir_mce_kbd_unregister,
-+	.max_space	= MCIR2_MAX_LEN,
+ 	.carrier	= 36000,
++	.min_timeout	= MCIR2_MAX_LEN + MCIR2_UNIT / 2,
  };
  
  static int __init ir_mce_kbd_decode_init(void)
 diff --git a/drivers/media/rc/ir-nec-decoder.c b/drivers/media/rc/ir-nec-decoder.c
-index a95d09acc22a..3e12059add84 100644
+index 21647b809e6f..6a8973ae3684 100644
 --- a/drivers/media/rc/ir-nec-decoder.c
 +++ b/drivers/media/rc/ir-nec-decoder.c
-@@ -264,6 +264,7 @@ static struct ir_raw_handler nec_handler = {
- 							RC_PROTO_BIT_NEC32,
+@@ -253,6 +253,7 @@ static struct ir_raw_handler nec_handler = {
  	.decode		= ir_nec_decode,
  	.encode		= ir_nec_encode,
-+	.max_space	= NEC_TRAILER_SPACE,
+ 	.carrier	= 38000,
++	.min_timeout	= NEC_TRAILER_SPACE,
  };
  
  static int __init ir_nec_decode_init(void)
 diff --git a/drivers/media/rc/ir-rc5-decoder.c b/drivers/media/rc/ir-rc5-decoder.c
-index 1292f534de43..1eaca0528b69 100644
+index 74d3b859c3a2..cbfaadbee8fa 100644
 --- a/drivers/media/rc/ir-rc5-decoder.c
 +++ b/drivers/media/rc/ir-rc5-decoder.c
-@@ -282,6 +282,7 @@ static struct ir_raw_handler rc5_handler = {
- 							RC_PROTO_BIT_RC5_SZ,
+@@ -274,6 +274,7 @@ static struct ir_raw_handler rc5_handler = {
  	.decode		= ir_rc5_decode,
  	.encode		= ir_rc5_encode,
-+	.max_space	= RC5_TRAILER,
+ 	.carrier	= 36000,
++	.min_timeout	= RC5_TRAILER,
  };
  
  static int __init ir_rc5_decode_init(void)
 diff --git a/drivers/media/rc/ir-rc6-decoder.c b/drivers/media/rc/ir-rc6-decoder.c
-index 5d0d2fe3b7a7..8c4c733a5f27 100644
+index 8314da32453f..66e07109f6fc 100644
 --- a/drivers/media/rc/ir-rc6-decoder.c
 +++ b/drivers/media/rc/ir-rc6-decoder.c
-@@ -408,6 +408,7 @@ static struct ir_raw_handler rc6_handler = {
- 			  RC_PROTO_BIT_RC6_MCE,
+@@ -394,6 +394,7 @@ static struct ir_raw_handler rc6_handler = {
  	.decode		= ir_rc6_decode,
  	.encode		= ir_rc6_encode,
-+	.max_space	= RC6_SUFFIX_SPACE,
+ 	.carrier	= 36000,
++	.min_timeout	= RC6_SUFFIX_SPACE,
  };
  
  static int __init ir_rc6_decode_init(void)
 diff --git a/drivers/media/rc/ir-sanyo-decoder.c b/drivers/media/rc/ir-sanyo-decoder.c
-index 758c60956850..935880d4889e 100644
+index 4efe6db5376a..dd6ee1e339d6 100644
 --- a/drivers/media/rc/ir-sanyo-decoder.c
 +++ b/drivers/media/rc/ir-sanyo-decoder.c
-@@ -218,6 +218,7 @@ static struct ir_raw_handler sanyo_handler = {
- 	.protocols	= RC_PROTO_BIT_SANYO,
+@@ -210,6 +210,7 @@ static struct ir_raw_handler sanyo_handler = {
  	.decode		= ir_sanyo_decode,
  	.encode		= ir_sanyo_encode,
-+	.max_space	= SANYO_TRAILER_SPACE,
+ 	.carrier	= 38000,
++	.min_timeout	= SANYO_TRAILER_SPACE,
  };
  
  static int __init ir_sanyo_decode_init(void)
 diff --git a/drivers/media/rc/ir-sharp-decoder.c b/drivers/media/rc/ir-sharp-decoder.c
-index 129b558acc92..96d818bd0cc9 100644
+index 6a38c50566a4..f96e0c992eed 100644
 --- a/drivers/media/rc/ir-sharp-decoder.c
 +++ b/drivers/media/rc/ir-sharp-decoder.c
 @@ -226,6 +226,7 @@ static struct ir_raw_handler sharp_handler = {
- 	.protocols	= RC_PROTO_BIT_SHARP,
  	.decode		= ir_sharp_decode,
  	.encode		= ir_sharp_encode,
-+	.max_space	= SHARP_ECHO_SPACE,
+ 	.carrier	= 38000,
++	.min_timeout	= SHARP_ECHO_SPACE + SHARP_ECHO_SPACE / 4,
  };
  
  static int __init ir_sharp_decode_init(void)
 diff --git a/drivers/media/rc/ir-sony-decoder.c b/drivers/media/rc/ir-sony-decoder.c
-index a47ced763031..d57d15b431f6 100644
+index 6764ec9de646..5065c081238d 100644
 --- a/drivers/media/rc/ir-sony-decoder.c
 +++ b/drivers/media/rc/ir-sony-decoder.c
-@@ -221,6 +221,7 @@ static struct ir_raw_handler sony_handler = {
- 							RC_PROTO_BIT_SONY20,
+@@ -224,6 +224,7 @@ static struct ir_raw_handler sony_handler = {
  	.decode		= ir_sony_decode,
  	.encode		= ir_sony_encode,
-+	.max_space	= SONY_TRAILER_SPACE,
+ 	.carrier	= 40000,
++	.min_timeout	= SONY_TRAILER_SPACE,
  };
  
  static int __init ir_sony_decode_init(void)
 diff --git a/drivers/media/rc/ir-xmp-decoder.c b/drivers/media/rc/ir-xmp-decoder.c
-index 6f464be1c8d7..1ac3a4cee69e 100644
+index 58b47af1a763..c965f51df1c1 100644
 --- a/drivers/media/rc/ir-xmp-decoder.c
 +++ b/drivers/media/rc/ir-xmp-decoder.c
-@@ -198,6 +198,7 @@ static int ir_xmp_decode(struct rc_dev *dev, struct ir_raw_event ev)
+@@ -199,6 +199,7 @@ static int ir_xmp_decode(struct rc_dev *dev, struct ir_raw_event ev)
  static struct ir_raw_handler xmp_handler = {
  	.protocols	= RC_PROTO_BIT_XMP,
  	.decode		= ir_xmp_decode,
-+	.max_space	= XMP_TRAILER_SPACE,
++	.min_timeout	= XMP_TRAILER_SPACE,
  };
  
  static int __init ir_xmp_decode_init(void)
 diff --git a/drivers/media/rc/rc-core-priv.h b/drivers/media/rc/rc-core-priv.h
-index 7da9c96cb058..5fd3b5aed9ec 100644
+index e0e6a17460f6..f78551344eca 100644
 --- a/drivers/media/rc/rc-core-priv.h
 +++ b/drivers/media/rc/rc-core-priv.h
-@@ -29,6 +29,7 @@ struct ir_raw_handler {
- 	int (*decode)(struct rc_dev *dev, struct ir_raw_event event);
+@@ -37,6 +37,7 @@ struct ir_raw_handler {
  	int (*encode)(enum rc_proto protocol, u32 scancode,
  		      struct ir_raw_event *events, unsigned int max);
-+	u32 max_space;
+ 	u32 carrier;
++	u32 min_timeout;
  
- 	/* These two should only be used by the lirc decoder */
+ 	/* These two should only be used by the mce kbd decoder */
  	int (*raw_register)(struct rc_dev *dev);
 diff --git a/drivers/media/rc/rc-ir-raw.c b/drivers/media/rc/rc-ir-raw.c
-index 503bc425a187..7f0197bf5d32 100644
+index 374f83105a23..22e44c8f16fd 100644
 --- a/drivers/media/rc/rc-ir-raw.c
 +++ b/drivers/media/rc/rc-ir-raw.c
-@@ -215,7 +215,36 @@ ir_raw_get_allowed_protocols(void)
+@@ -233,7 +233,36 @@ ir_raw_get_allowed_protocols(void)
  
  static int change_protocol(struct rc_dev *dev, u64 *rc_proto)
  {
@@ -168,8 +179,8 @@ index 503bc425a187..7f0197bf5d32 100644
 +	mutex_lock(&ir_raw_handler_lock);
 +	list_for_each_entry(handler, &ir_raw_handler_list, list) {
 +		if (handler->protocols & *rc_proto) {
-+			if (timeout < handler->max_space)
-+				timeout = handler->max_space;
++			if (timeout < handler->min_timeout)
++				timeout = handler->min_timeout;
 +		}
 +	}
 +	mutex_unlock(&ir_raw_handler_lock);
@@ -177,7 +188,7 @@ index 503bc425a187..7f0197bf5d32 100644
 +	if (timeout == 0)
 +		timeout = IR_DEFAULT_TIMEOUT;
 +	else
-+		timeout += MS_TO_NS(20);
++		timeout += MS_TO_NS(10);
 +
 +	if (timeout < dev->min_timeout)
 +		timeout = dev->min_timeout;
@@ -193,10 +204,10 @@ index 503bc425a187..7f0197bf5d32 100644
  }
  
 diff --git a/drivers/media/rc/rc-main.c b/drivers/media/rc/rc-main.c
-index 72f381522cb2..e7e20bcfe272 100644
+index b67be33bd62f..6a720e9c7aa8 100644
 --- a/drivers/media/rc/rc-main.c
 +++ b/drivers/media/rc/rc-main.c
-@@ -1161,6 +1161,9 @@ static ssize_t store_protocols(struct device *device,
+@@ -1241,6 +1241,9 @@ static ssize_t store_protocols(struct device *device,
  	if (rc < 0)
  		goto out;
  
@@ -205,8 +216,8 @@ index 72f381522cb2..e7e20bcfe272 100644
 +
  	rc = dev->change_protocol(dev, &new_protocols);
  	if (rc < 0) {
- 		IR_dprintk(1, "Error setting protocols to 0x%llx\n",
-@@ -1168,9 +1171,6 @@ static ssize_t store_protocols(struct device *device,
+ 		dev_dbg(&dev->dev, "Error setting protocols to 0x%llx\n",
+@@ -1248,9 +1251,6 @@ static ssize_t store_protocols(struct device *device,
  		goto out;
  	}
  
@@ -215,10 +226,10 @@ index 72f381522cb2..e7e20bcfe272 100644
 -
  	if (new_protocols != old_protocols) {
  		*current_protocols = new_protocols;
- 		IR_dprintk(1, "Protocols changed to 0x%llx\n",
-@@ -1638,6 +1638,9 @@ static int rc_prepare_rx_device(struct rc_dev *dev)
- 
- 	rc_proto = BIT_ULL(rc_map->rc_proto);
+ 		dev_dbg(&dev->dev, "Protocols changed to 0x%llx\n",
+@@ -1735,6 +1735,9 @@ static int rc_prepare_rx_device(struct rc_dev *dev)
+ 	if (dev->driver_type == RC_DRIVER_SCANCODE && !dev->change_protocol)
+ 		dev->enabled_protocols = dev->allowed_protocols;
  
 +	if (dev->driver_type == RC_DRIVER_IR_RAW)
 +		ir_raw_load_modules(&rc_proto);
@@ -226,7 +237,7 @@ index 72f381522cb2..e7e20bcfe272 100644
  	if (dev->change_protocol) {
  		rc = dev->change_protocol(dev, &rc_proto);
  		if (rc < 0)
-@@ -1645,9 +1648,6 @@ static int rc_prepare_rx_device(struct rc_dev *dev)
+@@ -1742,9 +1745,6 @@ static int rc_prepare_rx_device(struct rc_dev *dev)
  		dev->enabled_protocols = rc_proto;
  	}
  
@@ -240,13 +251,120 @@ index 72f381522cb2..e7e20bcfe272 100644
 2.11.0
 
 
-From 00f54931b0ff7202020567544605b7e3c4f1dee8 Mon Sep 17 00:00:00 2001
-From: Matthias Reichl <hias@horus.com>
-Date: Tue, 27 Mar 2018 19:45:36 +0200
-Subject: [PATCH 02/11] media: rc: per-protocol repeat period and minimum keyup
- timer
+From cfff3db62aa2d6bc9860f9785cdacdaa83c7f278 Mon Sep 17 00:00:00 2001
+From: Sean Young <sean@mess.org>
+Date: Fri, 23 Mar 2018 16:59:52 -0400
+Subject: [PATCH 02/14] media: rc: add ioctl to get the current timeout
 
-backport of https://patchwork.linuxtv.org/patch/48520/
+Since the kernel now modifies the timeout, make it possible to retrieve
+the current value.
+
+Signed-off-by: Sean Young <sean@mess.org>
+Signed-off-by: Mauro Carvalho Chehab <mchehab@s-opensource.com>
+---
+ Documentation/media/uapi/rc/lirc-func.rst            |  1 +
+ Documentation/media/uapi/rc/lirc-set-rec-timeout.rst | 14 +++++++++-----
+ drivers/media/rc/lirc_dev.c                          |  7 +++++++
+ include/uapi/linux/lirc.h                            |  6 ++++++
+ 4 files changed, 23 insertions(+), 5 deletions(-)
+
+diff --git a/Documentation/media/uapi/rc/lirc-func.rst b/Documentation/media/uapi/rc/lirc-func.rst
+index ddb4620de294..9656423a3f28 100644
+--- a/Documentation/media/uapi/rc/lirc-func.rst
++++ b/Documentation/media/uapi/rc/lirc-func.rst
+@@ -17,6 +17,7 @@ LIRC Function Reference
+     lirc-get-rec-resolution
+     lirc-set-send-duty-cycle
+     lirc-get-timeout
++    lirc-get-rec-timeout
+     lirc-set-rec-timeout
+     lirc-set-rec-carrier
+     lirc-set-rec-carrier-range
+diff --git a/Documentation/media/uapi/rc/lirc-set-rec-timeout.rst b/Documentation/media/uapi/rc/lirc-set-rec-timeout.rst
+index b3e16bbdbc90..a833a6a4c25a 100644
+--- a/Documentation/media/uapi/rc/lirc-set-rec-timeout.rst
++++ b/Documentation/media/uapi/rc/lirc-set-rec-timeout.rst
+@@ -1,19 +1,23 @@
+ .. -*- coding: utf-8; mode: rst -*-
+ 
+ .. _lirc_set_rec_timeout:
++.. _lirc_get_rec_timeout:
+ 
+-**************************
+-ioctl LIRC_SET_REC_TIMEOUT
+-**************************
++***************************************************
++ioctl LIRC_GET_REC_TIMEOUT and LIRC_SET_REC_TIMEOUT
++***************************************************
+ 
+ Name
+ ====
+ 
+-LIRC_SET_REC_TIMEOUT - sets the integer value for IR inactivity timeout.
++LIRC_GET_REC_TIMEOUT/LIRC_SET_REC_TIMEOUT - Get/set the integer value for IR inactivity timeout.
+ 
+ Synopsis
+ ========
+ 
++.. c:function:: int ioctl( int fd, LIRC_GET_REC_TIMEOUT, __u32 *timeout )
++    :name: LIRC_GET_REC_TIMEOUT
++
+ .. c:function:: int ioctl( int fd, LIRC_SET_REC_TIMEOUT, __u32 *timeout )
+     :name: LIRC_SET_REC_TIMEOUT
+ 
+@@ -30,7 +34,7 @@ Arguments
+ Description
+ ===========
+ 
+-Sets the integer value for IR inactivity timeout.
++Get and set the integer value for IR inactivity timeout.
+ 
+ If supported by the hardware, setting it to 0  disables all hardware timeouts
+ and data should be reported as soon as possible. If the exact value
+diff --git a/drivers/media/rc/lirc_dev.c b/drivers/media/rc/lirc_dev.c
+index 24e9fbb80e81..17f40c8e939f 100644
+--- a/drivers/media/rc/lirc_dev.c
++++ b/drivers/media/rc/lirc_dev.c
+@@ -575,6 +575,13 @@ static long ir_lirc_ioctl(struct file *file, unsigned int cmd,
+ 		}
+ 		break;
+ 
++	case LIRC_GET_REC_TIMEOUT:
++		if (!dev->timeout)
++			ret = -ENOTTY;
++		else
++			val = DIV_ROUND_UP(dev->timeout, 1000);
++		break;
++
+ 	case LIRC_SET_REC_TIMEOUT_REPORTS:
+ 		if (!dev->timeout)
+ 			ret = -ENOTTY;
+diff --git a/include/uapi/linux/lirc.h b/include/uapi/linux/lirc.h
+index f189931042a7..6b319581882f 100644
+--- a/include/uapi/linux/lirc.h
++++ b/include/uapi/linux/lirc.h
+@@ -134,6 +134,12 @@
+ #define LIRC_SET_WIDEBAND_RECEIVER     _IOW('i', 0x00000023, __u32)
+ 
+ /*
++ * Return the recording timeout, which is either set by
++ * the ioctl LIRC_SET_REC_TIMEOUT or by the kernel after setting the protocols.
++ */
++#define LIRC_GET_REC_TIMEOUT	       _IOR('i', 0x00000024, __u32)
++
++/*
+  * struct lirc_scancode - decoded scancode with protocol for use with
+  *	LIRC_MODE_SCANCODE
+  *
+-- 
+2.11.0
+
+
+From cb1cedbe3615b2ff39e63cb59943d1f22f2d40ac Mon Sep 17 00:00:00 2001
+From: Sean Young <sean@mess.org>
+Date: Sat, 24 Mar 2018 08:02:48 -0400
+Subject: [PATCH 03/14] media: rc: per-protocol repeat period and minimum keyup
+ timer
 
 Each IR protocol has its own repeat period. We can minimise the keyup
 timer to be the protocol period + IR timeout. This makes keys less
@@ -257,44 +375,44 @@ per-protocol repeat period"), but that did not take the IR timeout into
 account, and had to be reverted.
 
 Signed-off-by: Sean Young <sean@mess.org>
-Signed-off-by: Matthias Reichl <hias@horus.com>
+Signed-off-by: Mauro Carvalho Chehab <mchehab@s-opensource.com>
 ---
- drivers/media/cec/cec-core.c     |  2 +-
- drivers/media/rc/ir-lirc-codec.c |  2 +-
- drivers/media/rc/rc-main.c       | 54 +++++++++++++++++++++-------------------
- 3 files changed, 30 insertions(+), 28 deletions(-)
+ drivers/media/cec/cec-core.c |  2 +-
+ drivers/media/rc/lirc_dev.c  |  2 +-
+ drivers/media/rc/rc-main.c   | 56 +++++++++++++++++++++++---------------------
+ 3 files changed, 31 insertions(+), 29 deletions(-)
 
 diff --git a/drivers/media/cec/cec-core.c b/drivers/media/cec/cec-core.c
-index 648136e552d5..4cf35e4af7bd 100644
+index b0c87f9ea08f..b278ab90b387 100644
 --- a/drivers/media/cec/cec-core.c
 +++ b/drivers/media/cec/cec-core.c
-@@ -280,7 +280,7 @@ struct cec_adapter *cec_allocate_adapter(const struct cec_adap_ops *ops,
- 	adap->rc->enabled_protocols = RC_PROTO_BIT_CEC;
+@@ -322,7 +322,7 @@ struct cec_adapter *cec_allocate_adapter(const struct cec_adap_ops *ops,
+ 	adap->rc->allowed_protocols = RC_PROTO_BIT_CEC;
  	adap->rc->priv = adap;
  	adap->rc->map_name = RC_MAP_CEC;
 -	adap->rc->timeout = MS_TO_NS(100);
 +	adap->rc->timeout = MS_TO_NS(550);
- 	adap->rc_last_scancode = -1;
  #endif
  	return adap;
-diff --git a/drivers/media/rc/ir-lirc-codec.c b/drivers/media/rc/ir-lirc-codec.c
-index 4c8f456238bc..ef7e43038092 100644
---- a/drivers/media/rc/ir-lirc-codec.c
-+++ b/drivers/media/rc/ir-lirc-codec.c
-@@ -314,7 +314,7 @@ static long ir_lirc_ioctl(struct file *filep, unsigned int cmd,
+ }
+diff --git a/drivers/media/rc/lirc_dev.c b/drivers/media/rc/lirc_dev.c
+index 17f40c8e939f..19660f9757e1 100644
+--- a/drivers/media/rc/lirc_dev.c
++++ b/drivers/media/rc/lirc_dev.c
+@@ -583,7 +583,7 @@ static long ir_lirc_ioctl(struct file *file, unsigned int cmd,
  		break;
  
  	case LIRC_SET_REC_TIMEOUT_REPORTS:
 -		if (!dev->timeout)
 +		if (dev->driver_type != RC_DRIVER_IR_RAW)
- 			return -ENOTTY;
- 
- 		lirc->send_timeout_reports = !!val;
+ 			ret = -ENOTTY;
+ 		else
+ 			fh->send_timeout_reports = !!val;
 diff --git a/drivers/media/rc/rc-main.c b/drivers/media/rc/rc-main.c
-index e7e20bcfe272..36f99a0919c3 100644
+index 6a720e9c7aa8..9f4df60f62e1 100644
 --- a/drivers/media/rc/rc-main.c
 +++ b/drivers/media/rc/rc-main.c
-@@ -35,48 +35,48 @@ static const struct {
+@@ -26,50 +26,50 @@ static const struct {
  	unsigned int repeat_period;
  	unsigned int scancode_bits;
  } protocols[] = {
@@ -363,29 +481,32 @@ index e7e20bcfe272..36f99a0919c3 100644
 +		.scancode_bits = 0x1fff, .repeat_period = 125 },
 +	[RC_PROTO_XMP] = { .name = "xmp", .repeat_period = 125 },
 +	[RC_PROTO_CEC] = { .name = "cec", .repeat_period = 0 },
+ 	[RC_PROTO_IMON] = { .name = "imon",
+-		.scancode_bits = 0x7fffffff, .repeat_period = 250 },
++		.scancode_bits = 0x7fffffff, .repeat_period = 114 },
  };
  
  /* Used to keep track of known keymaps */
-@@ -659,7 +659,8 @@ static void ir_timer_keyup(unsigned long cookie)
+@@ -690,7 +690,8 @@ static void ir_timer_repeat(struct timer_list *t)
  void rc_repeat(struct rc_dev *dev)
  {
  	unsigned long flags;
 -	unsigned int timeout = protocols[dev->last_protocol].repeat_period;
 +	unsigned int timeout = nsecs_to_jiffies(dev->timeout) +
 +		msecs_to_jiffies(protocols[dev->last_protocol].repeat_period);
- 
- 	spin_lock_irqsave(&dev->keylock, flags);
- 
-@@ -669,7 +670,7 @@ void rc_repeat(struct rc_dev *dev)
- 	input_event(dev->input_dev, EV_MSC, MSC_SCAN, dev->last_scancode);
+ 	struct lirc_scancode sc = {
+ 		.scancode = dev->last_scancode, .rc_proto = dev->last_protocol,
+ 		.keycode = dev->keypressed ? dev->last_keycode : KEY_RESERVED,
+@@ -706,7 +707,7 @@ void rc_repeat(struct rc_dev *dev)
  	input_sync(dev->input_dev);
  
--	dev->keyup_jiffies = jiffies + msecs_to_jiffies(timeout);
-+	dev->keyup_jiffies = jiffies + timeout;
- 	mod_timer(&dev->timer_keyup, dev->keyup_jiffies);
+ 	if (dev->keypressed) {
+-		dev->keyup_jiffies = jiffies + msecs_to_jiffies(timeout);
++		dev->keyup_jiffies = jiffies + timeout;
+ 		mod_timer(&dev->timer_keyup, dev->keyup_jiffies);
+ 	}
  
- out:
-@@ -740,7 +741,7 @@ void rc_keydown(struct rc_dev *dev, enum rc_proto protocol, u32 scancode,
+@@ -801,7 +802,7 @@ void rc_keydown(struct rc_dev *dev, enum rc_proto protocol, u32 scancode,
  	ir_do_keydown(dev, protocol, scancode, keycode, toggle);
  
  	if (dev->keypressed) {
@@ -394,25 +515,23 @@ index e7e20bcfe272..36f99a0919c3 100644
  			msecs_to_jiffies(protocols[protocol].repeat_period);
  		mod_timer(&dev->timer_keyup, dev->keyup_jiffies);
  	}
-@@ -1553,6 +1554,7 @@ struct rc_dev *rc_allocate_device(enum rc_driver_type type)
+@@ -1647,6 +1648,7 @@ struct rc_dev *rc_allocate_device(enum rc_driver_type type)
  		dev->input_dev->setkeycode = ir_setkeycode;
  		input_set_drvdata(dev->input_dev, dev);
  
 +		dev->timeout = IR_DEFAULT_TIMEOUT;
- 		setup_timer(&dev->timer_keyup, ir_timer_keyup,
- 			    (unsigned long)dev);
+ 		timer_setup(&dev->timer_keyup, ir_timer_keyup, 0);
+ 		timer_setup(&dev->timer_repeat, ir_timer_repeat, 0);
  
 -- 
 2.11.0
 
 
-From 6f3d979fa02a3847799d838a03ad9c5ad009a778 Mon Sep 17 00:00:00 2001
+From 20d8ec0acdf9788ae6c3a1317cddab769032d00d Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
-Date: Sun, 8 Apr 2018 22:19:39 +0100
-Subject: [PATCH 03/11] media: rc: mce_kbd decoder: low timeout values cause
+Date: Sun, 25 Mar 2018 11:45:40 -0400
+Subject: [PATCH 04/14] media: rc: mce_kbd decoder: low timeout values cause
  double keydowns
-
-backport of https://patchwork.linuxtv.org/patch/48522/
 
 The mce keyboard repeats pressed keys every 100ms. If the IR timeout
 is set to less than that, we send key up events before the repeat
@@ -423,19 +542,19 @@ are cleared so there is no need to run the timeout timer: it only exists
 for the case that the final 0 was not received.
 
 Signed-off-by: Sean Young <sean@mess.org>
-Signed-off-by: Matthias Reichl <hias@horus.com>
+Signed-off-by: Mauro Carvalho Chehab <mchehab@s-opensource.com>
 ---
  drivers/media/rc/ir-mce_kbd-decoder.c | 12 +++++++-----
  1 file changed, 7 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/media/rc/ir-mce_kbd-decoder.c b/drivers/media/rc/ir-mce_kbd-decoder.c
-index 7afeab04dbbf..a243d2d1ca93 100644
+index 05f2a36769c0..9d609dca6e2b 100644
 --- a/drivers/media/rc/ir-mce_kbd-decoder.c
 +++ b/drivers/media/rc/ir-mce_kbd-decoder.c
-@@ -319,11 +319,13 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
- 		case MCIR2_KEYBOARD_NBITS:
+@@ -322,11 +322,13 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
  			scancode = data->body & 0xffff;
- 			IR_dprintk(1, "keyboard data 0x%08x\n", data->body);
+ 			dev_dbg(&dev->dev, "keyboard data 0x%08x\n",
+ 				data->body);
 -			if (dev->timeout)
 -				delay = usecs_to_jiffies(dev->timeout / 1000);
 -			else
@@ -449,37 +568,35 @@ index 7afeab04dbbf..a243d2d1ca93 100644
 +				del_timer(&data->rx_timeout);
 +			}
  			/* Pass data to keyboard buffer parser */
- 			ir_mce_kbd_process_keyboard_data(data->idev, scancode);
- 			break;
+ 			ir_mce_kbd_process_keyboard_data(dev, scancode);
+ 			lsc.rc_proto = RC_PROTO_MCIR2_KBD;
 -- 
 2.11.0
 
 
-From f4d8df33339167784bb6a17e3ee2d20f9efe1b21 Mon Sep 17 00:00:00 2001
+From f237198b260ea1891437f991178657a0bf4de43d Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
-Date: Sun, 8 Apr 2018 22:19:40 +0100
-Subject: [PATCH 04/11] media: rc: mce_kbd protocol encodes two scancodes
-
-backport of https://patchwork.linuxtv.org/patch/48518/
+Date: Sat, 7 Apr 2018 17:41:17 -0400
+Subject: [PATCH 05/14] media: rc: mce_kbd protocol encodes two scancodes
 
 If two keys are pressed, then both keys are encoded in the scancode. This
 makes the mce keyboard more responsive.
 
 Signed-off-by: Sean Young <sean@mess.org>
-Signed-off-by: Matthias Reichl <hias@horus.com>
+Signed-off-by: Mauro Carvalho Chehab <mchehab@s-opensource.com>
 ---
  drivers/media/rc/ir-mce_kbd-decoder.c | 21 ++++++++++++---------
  drivers/media/rc/rc-main.c            |  2 +-
  2 files changed, 13 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/media/rc/ir-mce_kbd-decoder.c b/drivers/media/rc/ir-mce_kbd-decoder.c
-index a243d2d1ca93..2ea48a54f2b3 100644
+index 9d609dca6e2b..f94e89ebc724 100644
 --- a/drivers/media/rc/ir-mce_kbd-decoder.c
 +++ b/drivers/media/rc/ir-mce_kbd-decoder.c
 @@ -147,13 +147,14 @@ static enum mce_kbd_mode mce_kbd_mode(struct mce_kbd_dec *data)
- static void ir_mce_kbd_process_keyboard_data(struct input_dev *idev,
- 					     u32 scancode)
+ static void ir_mce_kbd_process_keyboard_data(struct rc_dev *dev, u32 scancode)
  {
+ 	struct mce_kbd_dec *data = &dev->raw->mce_kbd;
 -	u8 keydata   = (scancode >> 8) & 0xff;
 +	u8 keydata1  = (scancode >> 8) & 0xff;
 +	u8 keydata2  = (scancode >> 16) & 0xff;
@@ -488,44 +605,44 @@ index a243d2d1ca93..2ea48a54f2b3 100644
 +	unsigned char maskcode;
  	int i, keystate;
  
--	IR_dprintk(1, "keyboard: keydata = 0x%02x, shiftmask = 0x%02x\n",
--		   keydata, shiftmask);
-+	IR_dprintk(1, "keyboard: keydata2 = 0x%02x, keydata1 = 0x%02x, shiftmask = 0x%02x\n",
-+		   keydata2, keydata1, shiftmask);
+-	dev_dbg(&dev->dev, "keyboard: keydata = 0x%02x, shiftmask = 0x%02x\n",
+-		keydata, shiftmask);
++	dev_dbg(&dev->dev, "keyboard: keydata2 = 0x%02x, keydata1 = 0x%02x, shiftmask = 0x%02x\n",
++		keydata2, keydata1, shiftmask);
  
  	for (i = 0; i < 7; i++) {
  		maskcode = kbd_keycodes[MCIR2_MASK_KEYS_START + i];
-@@ -164,10 +165,12 @@ static void ir_mce_kbd_process_keyboard_data(struct input_dev *idev,
- 		input_report_key(idev, maskcode, keystate);
+@@ -164,10 +165,12 @@ static void ir_mce_kbd_process_keyboard_data(struct rc_dev *dev, u32 scancode)
+ 		input_report_key(data->idev, maskcode, keystate);
  	}
  
 -	if (keydata) {
 -		keycode = kbd_keycodes[keydata];
--		input_report_key(idev, keycode, 1);
+-		input_report_key(data->idev, keycode, 1);
 -	} else {
 +	if (keydata1)
-+		input_report_key(idev, kbd_keycodes[keydata1], 1);
++		input_report_key(data->idev, kbd_keycodes[keydata1], 1);
 +	if (keydata2)
-+		input_report_key(idev, kbd_keycodes[keydata2], 1);
++		input_report_key(data->idev, kbd_keycodes[keydata2], 1);
 +
 +	if (!keydata1 && !keydata2) {
  		for (i = 0; i < MCIR2_MASK_KEYS_START; i++)
- 			input_report_key(idev, kbd_keycodes[i], 0);
+ 			input_report_key(data->idev, kbd_keycodes[i], 0);
  	}
-@@ -317,7 +320,7 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
+@@ -319,7 +322,7 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
  
  		switch (data->wanted_bits) {
  		case MCIR2_KEYBOARD_NBITS:
 -			scancode = data->body & 0xffff;
 +			scancode = data->body & 0xffffff;
- 			IR_dprintk(1, "keyboard data 0x%08x\n", data->body);
+ 			dev_dbg(&dev->dev, "keyboard data 0x%08x\n",
+ 				data->body);
  			if (scancode) {
- 				delay = nsecs_to_jiffies(dev->timeout) +
 diff --git a/drivers/media/rc/rc-main.c b/drivers/media/rc/rc-main.c
-index 36f99a0919c3..34cef7aa207c 100644
+index 9f4df60f62e1..b7071bde670a 100644
 --- a/drivers/media/rc/rc-main.c
 +++ b/drivers/media/rc/rc-main.c
-@@ -60,7 +60,7 @@ static const struct {
+@@ -51,7 +51,7 @@ static const struct {
  	[RC_PROTO_SANYO] = { .name = "sanyo",
  		.scancode_bits = 0x1fffff, .repeat_period = 125 },
  	[RC_PROTO_MCIR2_KBD] = { .name = "mcir2-kbd",
@@ -538,12 +655,10 @@ index 36f99a0919c3..34cef7aa207c 100644
 2.11.0
 
 
-From 8b0ffc3eccf8737aa93c6b7bf9bc9d1e10d634bd Mon Sep 17 00:00:00 2001
+From 6b911bbe130adae94296b099441b82914784ee94 Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
-Date: Sun, 8 Apr 2018 22:19:41 +0100
-Subject: [PATCH 05/11] media: rc: mce_kbd decoder: fix stuck keys
-
-backport of https://patchwork.linuxtv.org/patch/48519/
+Date: Sun, 8 Apr 2018 06:36:40 -0400
+Subject: [PATCH 06/14] media: rc: mce_kbd decoder: fix stuck keys
 
 The MCE Remote sends a 0 scancode when keys are released. If this is not
 received or decoded, then keys can get "stuck"; the keyup event is not
@@ -551,21 +666,21 @@ sent since the input_sync() is missing from the timeout handler.
 
 Cc: stable@vger.kernel.org
 Signed-off-by: Sean Young <sean@mess.org>
-Signed-off-by: Matthias Reichl <hias@horus.com>
+Signed-off-by: Mauro Carvalho Chehab <mchehab@s-opensource.com>
 ---
  drivers/media/rc/ir-mce_kbd-decoder.c | 2 ++
  1 file changed, 2 insertions(+)
 
 diff --git a/drivers/media/rc/ir-mce_kbd-decoder.c b/drivers/media/rc/ir-mce_kbd-decoder.c
-index 2ea48a54f2b3..164302ec4fef 100644
+index f94e89ebc724..002b8323ae69 100644
 --- a/drivers/media/rc/ir-mce_kbd-decoder.c
 +++ b/drivers/media/rc/ir-mce_kbd-decoder.c
-@@ -130,6 +130,8 @@ static void mce_kbd_rx_timeout(unsigned long data)
+@@ -130,6 +130,8 @@ static void mce_kbd_rx_timeout(struct timer_list *t)
  
  	for (i = 0; i < MCIR2_MASK_KEYS_START; i++)
- 		input_report_key(mce_kbd->idev, kbd_keycodes[i], 0);
+ 		input_report_key(raw->mce_kbd.idev, kbd_keycodes[i], 0);
 +
-+	input_sync(mce_kbd->idev);
++	input_sync(raw->mce_kbd.idev);
  }
  
  static enum mce_kbd_mode mce_kbd_mode(struct mce_kbd_dec *data)
@@ -573,26 +688,193 @@ index 2ea48a54f2b3..164302ec4fef 100644
 2.11.0
 
 
-From b77de094b54449079890b8cc4fbc2f98573253b2 Mon Sep 17 00:00:00 2001
+From 2734db8383a3761d32f96bef9d173a9390f753d9 Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
-Date: Sun, 8 Apr 2018 22:19:42 +0100
-Subject: [PATCH 06/11] media: rc: mceusb: allow the timeout to be configurable
+Date: Wed, 11 Apr 2018 11:02:16 -0400
+Subject: [PATCH 07/14] media: rc: mce_kbd decoder: remove superfluous call to
+ input_sync
 
-backport of https://patchwork.linuxtv.org/patch/48521/
+There is nothing to sync in this code path.
+
+Reported-by: Matthias Reichl <hias@horus.com>
+Signed-off-by: Sean Young <sean@mess.org>
+Signed-off-by: Mauro Carvalho Chehab <mchehab@s-opensource.com>
+---
+ drivers/media/rc/ir-mce_kbd-decoder.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/media/rc/ir-mce_kbd-decoder.c b/drivers/media/rc/ir-mce_kbd-decoder.c
+index 002b8323ae69..2fc78710a724 100644
+--- a/drivers/media/rc/ir-mce_kbd-decoder.c
++++ b/drivers/media/rc/ir-mce_kbd-decoder.c
+@@ -362,7 +362,6 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 	dev_dbg(&dev->dev, "failed at state %i (%uus %s)\n",
+ 		data->state, TO_US(ev.duration), TO_STR(ev.pulse));
+ 	data->state = STATE_INACTIVE;
+-	input_sync(data->idev);
+ 	return -EINVAL;
+ }
+ 
+-- 
+2.11.0
+
+
+From b7793b3f5899b82d2527d0fa89c3582c5074436d Mon Sep 17 00:00:00 2001
+From: Sean Young <sean@mess.org>
+Date: Thu, 12 Apr 2018 16:28:39 -0400
+Subject: [PATCH 08/14] media: rc: mce_kbd decoder: fix race condition
+
+The MCE keyboard sends both key down and key up events. We have a timeout
+handler mce_kbd_rx_timeout() in case the keyup event is never received;
+however, this may race with new key down events from occurring.
+
+The race is that key down scancode arrives and key down events are
+generated. The timeout handler races this and generates key up events
+straight afterwards. Since the keyboard generates scancodes every 100ms,
+most likely the keys will be repeated 100ms later, and now we have new
+key down events and the user sees duplicate key presses.
+
+Reported-by: Matthias Reichl <hias@horus.com>
+Signed-off-by: Sean Young <sean@mess.org>
+Signed-off-by: Mauro Carvalho Chehab <mchehab@s-opensource.com>
+---
+ drivers/media/rc/ir-mce_kbd-decoder.c | 23 ++++++++++++++++-------
+ drivers/media/rc/rc-core-priv.h       |  2 ++
+ 2 files changed, 18 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/media/rc/ir-mce_kbd-decoder.c b/drivers/media/rc/ir-mce_kbd-decoder.c
+index 2fc78710a724..9574c3dd90f2 100644
+--- a/drivers/media/rc/ir-mce_kbd-decoder.c
++++ b/drivers/media/rc/ir-mce_kbd-decoder.c
+@@ -119,19 +119,25 @@ static void mce_kbd_rx_timeout(struct timer_list *t)
+ {
+ 	struct ir_raw_event_ctrl *raw = from_timer(raw, t, mce_kbd.rx_timeout);
+ 	unsigned char maskcode;
++	unsigned long flags;
+ 	int i;
+ 
+ 	dev_dbg(&raw->dev->dev, "timer callback clearing all keys\n");
+ 
+-	for (i = 0; i < 7; i++) {
+-		maskcode = kbd_keycodes[MCIR2_MASK_KEYS_START + i];
+-		input_report_key(raw->mce_kbd.idev, maskcode, 0);
+-	}
++	spin_lock_irqsave(&raw->mce_kbd.keylock, flags);
+ 
+-	for (i = 0; i < MCIR2_MASK_KEYS_START; i++)
+-		input_report_key(raw->mce_kbd.idev, kbd_keycodes[i], 0);
++	if (time_is_before_eq_jiffies(raw->mce_kbd.rx_timeout.expires)) {
++		for (i = 0; i < 7; i++) {
++			maskcode = kbd_keycodes[MCIR2_MASK_KEYS_START + i];
++			input_report_key(raw->mce_kbd.idev, maskcode, 0);
++		}
+ 
+-	input_sync(raw->mce_kbd.idev);
++		for (i = 0; i < MCIR2_MASK_KEYS_START; i++)
++			input_report_key(raw->mce_kbd.idev, kbd_keycodes[i], 0);
++
++		input_sync(raw->mce_kbd.idev);
++	}
++	spin_unlock_irqrestore(&raw->mce_kbd.keylock, flags);
+ }
+ 
+ static enum mce_kbd_mode mce_kbd_mode(struct mce_kbd_dec *data)
+@@ -327,6 +333,7 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 			scancode = data->body & 0xffffff;
+ 			dev_dbg(&dev->dev, "keyboard data 0x%08x\n",
+ 				data->body);
++			spin_lock(&data->keylock);
+ 			if (scancode) {
+ 				delay = nsecs_to_jiffies(dev->timeout) +
+ 					msecs_to_jiffies(100);
+@@ -336,6 +343,7 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 			}
+ 			/* Pass data to keyboard buffer parser */
+ 			ir_mce_kbd_process_keyboard_data(dev, scancode);
++			spin_unlock(&data->keylock);
+ 			lsc.rc_proto = RC_PROTO_MCIR2_KBD;
+ 			break;
+ 		case MCIR2_MOUSE_NBITS:
+@@ -400,6 +408,7 @@ static int ir_mce_kbd_register(struct rc_dev *dev)
+ 	set_bit(MSC_SCAN, idev->mscbit);
+ 
+ 	timer_setup(&mce_kbd->rx_timeout, mce_kbd_rx_timeout, 0);
++	spin_lock_init(&mce_kbd->keylock);
+ 
+ 	input_set_drvdata(idev, mce_kbd);
+ 
+diff --git a/drivers/media/rc/rc-core-priv.h b/drivers/media/rc/rc-core-priv.h
+index f78551344eca..07ba77fe6a3b 100644
+--- a/drivers/media/rc/rc-core-priv.h
++++ b/drivers/media/rc/rc-core-priv.h
+@@ -105,6 +105,8 @@ struct ir_raw_event_ctrl {
+ 	} sharp;
+ 	struct mce_kbd_dec {
+ 		struct input_dev *idev;
++		/* locks key up timer */
++		spinlock_t keylock;
+ 		struct timer_list rx_timeout;
+ 		char name[64];
+ 		char phys[64];
+-- 
+2.11.0
+
+
+From c5aeb74f46ec942f4079c36a59724824cb188592 Mon Sep 17 00:00:00 2001
+From: Sean Young <sean@mess.org>
+Date: Wed, 18 Apr 2018 05:36:25 -0400
+Subject: [PATCH 09/14] media: rc: mceusb: IR of length 0 means IR timeout, not
+ reset
+
+The last usb packet with IR data will end with 0x80 (MCE_IRDATA_TRAILER).
+If we reset the decoder state at this point, IR decoding can fail.
+
+Signed-off-by: Sean Young <sean@mess.org>
+Signed-off-by: Mauro Carvalho Chehab <mchehab@s-opensource.com>
+---
+ drivers/media/rc/mceusb.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/media/rc/mceusb.c b/drivers/media/rc/mceusb.c
+index 69ba57372c05..a1c21903b96c 100644
+--- a/drivers/media/rc/mceusb.c
++++ b/drivers/media/rc/mceusb.c
+@@ -1182,7 +1182,12 @@ static void mceusb_process_ir_data(struct mceusb_dev *ir, int buf_len)
+ 			if (ir->rem) {
+ 				ir->parser_state = PARSE_IRDATA;
+ 			} else {
+-				ir_raw_event_reset(ir->rc);
++				init_ir_raw_event(&rawir);
++				rawir.timeout = 1;
++				rawir.duration = ir->rc->timeout;
++				if (ir_raw_event_store_with_filter(ir->rc,
++								   &rawir))
++					event = true;
+ 				ir->pulse_tunit = 0;
+ 				ir->pulse_count = 0;
+ 			}
+-- 
+2.11.0
+
+
+From 410a96b5bed5a814ae27129fad5ceda7aa4b4c07 Mon Sep 17 00:00:00 2001
+From: Sean Young <sean@mess.org>
+Date: Sun, 8 Apr 2018 11:06:49 -0400
+Subject: [PATCH 10/14] media: rc: mceusb: allow the timeout to be configurable
 
 mceusb devices have a default timeout of 100ms, but this can be changed.
 
 Signed-off-by: Sean Young <sean@mess.org>
-Signed-off-by: Matthias Reichl <hias@horus.com>
+Signed-off-by: Mauro Carvalho Chehab <mchehab@s-opensource.com>
 ---
  drivers/media/rc/mceusb.c | 22 ++++++++++++++++++++++
  1 file changed, 22 insertions(+)
 
 diff --git a/drivers/media/rc/mceusb.c b/drivers/media/rc/mceusb.c
-index bf7aaff3aa37..160754a7a382 100644
+index a1c21903b96c..5c0bf61fae26 100644
 --- a/drivers/media/rc/mceusb.c
 +++ b/drivers/media/rc/mceusb.c
-@@ -937,6 +937,25 @@ static int mceusb_set_tx_carrier(struct rc_dev *dev, u32 carrier)
+@@ -982,6 +982,25 @@ static int mceusb_set_tx_carrier(struct rc_dev *dev, u32 carrier)
  	return 0;
  }
  
@@ -616,9 +898,9 @@ index bf7aaff3aa37..160754a7a382 100644
 +}
 +
  /*
-  * We don't do anything but print debug spew for many of the command bits
-  * we receive from the hardware, but some of them are useful information
-@@ -1268,7 +1287,10 @@ static struct rc_dev *mceusb_init_rc_dev(struct mceusb_dev *ir)
+  * Select or deselect the 2nd receiver port.
+  * Second receiver is learning mode, wide-band, short-range receiver.
+@@ -1420,7 +1439,10 @@ static struct rc_dev *mceusb_init_rc_dev(struct mceusb_dev *ir)
  	rc->dev.parent = dev;
  	rc->priv = ir;
  	rc->allowed_protocols = RC_PROTO_BIT_ALL_IR_DECODER;
@@ -633,202 +915,24 @@ index bf7aaff3aa37..160754a7a382 100644
 2.11.0
 
 
-From dccebb7231209acb8da7f9f1e8fd1e7c12c3e70f Mon Sep 17 00:00:00 2001
-From: Matthias Reichl <hias@horus.com>
-Date: Sun, 15 Apr 2018 17:26:21 +0200
-Subject: [PATCH 07/11] media: rc: mce_kbd decoder: remove superfluous call to
- input_sync
-
-backport of https://patchwork.linuxtv.org/patch/48681/
-
-There is nothing to sync in this code path.
-
-Reported-by: Matthias Reichl <hias@horus.com>
-Signed-off-by: Sean Young <sean@mess.org>
-Signed-off-by: Matthias Reichl <hias@horus.com>
----
- drivers/media/rc/ir-mce_kbd-decoder.c | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/drivers/media/rc/ir-mce_kbd-decoder.c b/drivers/media/rc/ir-mce_kbd-decoder.c
-index 164302ec4fef..f057b57074c9 100644
---- a/drivers/media/rc/ir-mce_kbd-decoder.c
-+++ b/drivers/media/rc/ir-mce_kbd-decoder.c
-@@ -355,7 +355,6 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
- 	IR_dprintk(1, "failed at state %i (%uus %s)\n",
- 		   data->state, TO_US(ev.duration), TO_STR(ev.pulse));
- 	data->state = STATE_INACTIVE;
--	input_sync(data->idev);
- 	return -EINVAL;
- }
- 
--- 
-2.11.0
-
-
-From 731b38824c8145bbc7d55a9c2af4e449ff5988fb Mon Sep 17 00:00:00 2001
-From: Matthias Reichl <hias@horus.com>
-Date: Sun, 15 Apr 2018 17:38:49 +0200
-Subject: [PATCH 08/11] media: rc: mce_kbd decoder: fix race condition
-
-backport of https://patchwork.linuxtv.org/patch/48680/
-
-The MCE keyboard sends both key down and key up events. We have a timeout
-handler mce_kbd_rx_timeout() in case the keyup event is never received;
-however, this may race with new key down events from occurring.
-
-The race is that key down scancode arrives and key down events are
-generated. The timeout handler races this and generates key up events
-straight afterwards. Since the keyboard generates scancodes every 100ms,
-most likely the keys will be repeated 100ms later, and now we have new
-key down events and the user sees duplicate key presses.
-
-Reported-by: Matthias Reichl <hias@horus.com>
-Signed-off-by: Sean Young <sean@mess.org>
-Signed-off-by: Matthias Reichl <hias@horus.com>
----
- drivers/media/rc/ir-mce_kbd-decoder.c | 23 ++++++++++++++++-------
- drivers/media/rc/rc-core-priv.h       |  1 +
- 2 files changed, 17 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/media/rc/ir-mce_kbd-decoder.c b/drivers/media/rc/ir-mce_kbd-decoder.c
-index f057b57074c9..67c37db76737 100644
---- a/drivers/media/rc/ir-mce_kbd-decoder.c
-+++ b/drivers/media/rc/ir-mce_kbd-decoder.c
-@@ -120,18 +120,24 @@ static void mce_kbd_rx_timeout(unsigned long data)
- 	struct mce_kbd_dec *mce_kbd = (struct mce_kbd_dec *)data;
- 	int i;
- 	unsigned char maskcode;
-+	unsigned long flags;
- 
- 	IR_dprintk(2, "timer callback clearing all keys\n");
- 
--	for (i = 0; i < 7; i++) {
--		maskcode = kbd_keycodes[MCIR2_MASK_KEYS_START + i];
--		input_report_key(mce_kbd->idev, maskcode, 0);
--	}
-+	spin_lock_irqsave(&mce_kbd->keylock, flags);
- 
--	for (i = 0; i < MCIR2_MASK_KEYS_START; i++)
--		input_report_key(mce_kbd->idev, kbd_keycodes[i], 0);
-+	if (time_is_before_eq_jiffies(mce_kbd->rx_timeout.expires)) {
-+		for (i = 0; i < 7; i++) {
-+			maskcode = kbd_keycodes[MCIR2_MASK_KEYS_START + i];
-+			input_report_key(mce_kbd->idev, maskcode, 0);
-+		}
- 
--	input_sync(mce_kbd->idev);
-+		for (i = 0; i < MCIR2_MASK_KEYS_START; i++)
-+			input_report_key(mce_kbd->idev, kbd_keycodes[i], 0);
-+
-+		input_sync(mce_kbd->idev);
-+	}
-+	spin_unlock_irqrestore(&mce_kbd->keylock, flags);
- }
- 
- static enum mce_kbd_mode mce_kbd_mode(struct mce_kbd_dec *data)
-@@ -324,6 +330,7 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
- 		case MCIR2_KEYBOARD_NBITS:
- 			scancode = data->body & 0xffffff;
- 			IR_dprintk(1, "keyboard data 0x%08x\n", data->body);
-+			spin_lock(&data->keylock);
- 			if (scancode) {
- 				delay = nsecs_to_jiffies(dev->timeout) +
- 					msecs_to_jiffies(100);
-@@ -333,6 +340,7 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
- 			}
- 			/* Pass data to keyboard buffer parser */
- 			ir_mce_kbd_process_keyboard_data(data->idev, scancode);
-+			spin_unlock(&data->keylock);
- 			break;
- 		case MCIR2_MOUSE_NBITS:
- 			scancode = data->body & 0x1fffff;
-@@ -397,6 +405,7 @@ static int ir_mce_kbd_register(struct rc_dev *dev)
- 
- 	setup_timer(&mce_kbd->rx_timeout, mce_kbd_rx_timeout,
- 		    (unsigned long)mce_kbd);
-+	spin_lock_init(&mce_kbd->keylock);
- 
- 	input_set_drvdata(idev, mce_kbd);
- 
-diff --git a/drivers/media/rc/rc-core-priv.h b/drivers/media/rc/rc-core-priv.h
-index 5fd3b5aed9ec..77928ae43104 100644
---- a/drivers/media/rc/rc-core-priv.h
-+++ b/drivers/media/rc/rc-core-priv.h
-@@ -97,6 +97,7 @@ struct ir_raw_event_ctrl {
- 	struct mce_kbd_dec {
- 		struct input_dev *idev;
- 		struct timer_list rx_timeout;
-+		spinlock_t keylock;
- 		char name[64];
- 		char phys[64];
- 		int state;
--- 
-2.11.0
-
-
-From 4e363f78b2aae387980ac411e0f901caee5da9e1 Mon Sep 17 00:00:00 2001
-From: Matthias Reichl <hias@horus.com>
-Date: Wed, 18 Apr 2018 13:50:52 +0200
-Subject: [PATCH 09/11] media: rc: mceusb: IR of length 0 means IR timeout, not
- reset
-
-backport of https://patchwork.linuxtv.org/patch/48782/
-
-The last usb packet with IR data will end with 0x80 (MCE_IRDATA_TRAILER).
-If we reset the decoder state at this point, IR decoding can fail.
-
-Signed-off-by: Sean Young <sean@mess.org>
-Signed-off-by: Matthias Reichl <hias@horus.com>
----
- drivers/media/rc/mceusb.c | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/media/rc/mceusb.c b/drivers/media/rc/mceusb.c
-index 160754a7a382..dc7ebed00b3a 100644
---- a/drivers/media/rc/mceusb.c
-+++ b/drivers/media/rc/mceusb.c
-@@ -1056,8 +1056,14 @@ static void mceusb_process_ir_data(struct mceusb_dev *ir, int buf_len)
- 					     i, ir->rem + 1, false);
- 			if (ir->rem)
- 				ir->parser_state = PARSE_IRDATA;
--			else
--				ir_raw_event_reset(ir->rc);
-+			else {
-+				init_ir_raw_event(&rawir);
-+				rawir.timeout = 1;
-+				rawir.duration = ir->rc->timeout;
-+				if (ir_raw_event_store_with_filter(ir->rc,
-+								   &rawir))
-+					event = true;
-+			}
- 			break;
- 		}
- 
--- 
-2.11.0
-
-
-From f74716d6fc4a38f56a374a00cb96be61f2d6fc2d Mon Sep 17 00:00:00 2001
-From: Matthias Reichl <hias@horus.com>
-Date: Thu, 10 May 2018 10:42:24 +0200
-Subject: [PATCH 10/11] media: mceusb: MCE_CMD_SETIRTIMEOUT cause strange
+From bb0b2578562412817987efc0aef6e635b789ae63 Mon Sep 17 00:00:00 2001
+From: Sean Young <sean@mess.org>
+Date: Wed, 9 May 2018 06:11:28 -0400
+Subject: [PATCH 11/14] media: mceusb: MCE_CMD_SETIRTIMEOUT cause strange
  behaviour on device
-
-backport of https://patchwork.linuxtv.org/patch/49409/
 
 If the IR timeout is set on vid 1784 pid 0011, the device starts
 behaving strangely.
 
 Reported-by: Matthias Reichl <hias@horus.com>
 Signed-off-by: Sean Young <sean@mess.org>
-Signed-off-by: Matthias Reichl <hias@horus.com>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
 ---
- drivers/media/rc/mceusb.c | 21 ++++++++++++++++++---
- 1 file changed, 18 insertions(+), 3 deletions(-)
+ drivers/media/rc/mceusb.c | 22 +++++++++++++++++++---
+ 1 file changed, 19 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/media/rc/mceusb.c b/drivers/media/rc/mceusb.c
-index dc7ebed00b3a..2e1241f09c9d 100644
+index 5c0bf61fae26..1619b748469b 100644
 --- a/drivers/media/rc/mceusb.c
 +++ b/drivers/media/rc/mceusb.c
 @@ -181,6 +181,7 @@ enum mceusb_model_type {
@@ -837,29 +941,30 @@ index dc7ebed00b3a..2e1241f09c9d 100644
  	MCE_GEN3,
 +	MCE_GEN3_BROKEN_IRTIMEOUT,
  	MCE_GEN2_TX_INV,
+ 	MCE_GEN2_TX_INV_RX_GOOD,
  	POLARIS_EVK,
- 	CX_HYBRID_TV,
-@@ -196,6 +197,7 @@ struct mceusb_model {
+@@ -199,6 +200,7 @@ struct mceusb_model {
  	u32 mce_gen3:1;
  	u32 tx_mask_normal:1;
  	u32 no_tx:1;
 +	u32 broken_irtimeout:1;
- 
- 	int ir_intfnum;
- 
-@@ -223,6 +225,11 @@ static const struct mceusb_model mceusb_model[] = {
- 		.mce_gen3 = 1,
+ 	/*
+ 	 * 2nd IR receiver (short-range, wideband) for learning mode:
+ 	 *     0, absent 2nd receiver (rx2)
+@@ -242,6 +244,12 @@ static const struct mceusb_model mceusb_model[] = {
  		.tx_mask_normal = 1,
+ 		.rx2 = 2,
  	},
 +	[MCE_GEN3_BROKEN_IRTIMEOUT] = {
 +		.mce_gen3 = 1,
 +		.tx_mask_normal = 1,
++		.rx2 = 2,
 +		.broken_irtimeout = 1
 +	},
  	[POLARIS_EVK] = {
  		/*
  		 * In fact, the EVK is shipped without
-@@ -320,7 +327,7 @@ static struct usb_device_id mceusb_dev_table[] = {
+@@ -352,7 +360,7 @@ static const struct usb_device_id mceusb_dev_table[] = {
  	  .driver_info = MCE_GEN2_TX_INV },
  	/* Topseed eHome Infrared Transceiver */
  	{ USB_DEVICE(VENDOR_TOPSEED, 0x0011),
@@ -868,7 +973,7 @@ index dc7ebed00b3a..2e1241f09c9d 100644
  	/* Ricavision internal Infrared Transceiver */
  	{ USB_DEVICE(VENDOR_RICAVISION, 0x0010) },
  	/* Itron ione Libra Q-11 */
-@@ -1295,8 +1302,16 @@ static struct rc_dev *mceusb_init_rc_dev(struct mceusb_dev *ir)
+@@ -1441,8 +1449,16 @@ static struct rc_dev *mceusb_init_rc_dev(struct mceusb_dev *ir)
  	rc->allowed_protocols = RC_PROTO_BIT_ALL_IR_DECODER;
  	rc->min_timeout = US_TO_NS(MCE_TIME_UNIT);
  	rc->timeout = MS_TO_NS(100);
@@ -891,41 +996,136 @@ index dc7ebed00b3a..2e1241f09c9d 100644
 2.11.0
 
 
-From 0899b373cb0604ed80a80b501dd48cf6a3cbff25 Mon Sep 17 00:00:00 2001
-From: Matthias Reichl <hias@horus.com>
-Date: Fri, 11 May 2018 12:20:44 +0200
-Subject: [PATCH 11/11] media: mceusb: filter out bogus timing irdata of
+From 9fddaafa32f2fbf5d91e719f4d39208c3b782c3a Mon Sep 17 00:00:00 2001
+From: Sean Young <sean@mess.org>
+Date: Thu, 10 May 2018 07:37:51 -0400
+Subject: [PATCH 12/14] media: mceusb: filter out bogus timing irdata of
  duration 0
-
-Backport of https://patchwork.linuxtv.org/patch/49430/
 
 A mceusb device has been observed producing invalid irdata. Proactively
 guard against this.
 
 Suggested-by: Matthias Reichl <hias@horus.com>
 Signed-off-by: Sean Young <sean@mess.org>
-Signed-off-by: Matthias Reichl <hias@horus.com>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
 ---
- drivers/media/rc/mceusb.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/media/rc/mceusb.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
 diff --git a/drivers/media/rc/mceusb.c b/drivers/media/rc/mceusb.c
-index 2e1241f09c9d..7864a30c4f9e 100644
+index 1619b748469b..1ca49491abc8 100644
 --- a/drivers/media/rc/mceusb.c
 +++ b/drivers/media/rc/mceusb.c
-@@ -1038,6 +1038,12 @@ static void mceusb_process_ir_data(struct mceusb_dev *ir, int buf_len)
- 			rawir.duration = (ir->buf_in[i] & MCE_PULSE_MASK)
- 					 * US_TO_NS(MCE_TIME_UNIT);
- 
+@@ -1177,6 +1177,11 @@ static void mceusb_process_ir_data(struct mceusb_dev *ir, int buf_len)
+ 			init_ir_raw_event(&rawir);
+ 			rawir.pulse = ((ir->buf_in[i] & MCE_PULSE_BIT) != 0);
+ 			rawir.duration = (ir->buf_in[i] & MCE_PULSE_MASK);
 +			if (unlikely(!rawir.duration)) {
 +				dev_warn(ir->dev, "nonsensical irdata %02x with duration 0",
 +					 ir->buf_in[i]);
 +				break;
 +			}
-+
- 			dev_dbg(ir->dev, "Storing %s with duration %u",
- 				rawir.pulse ? "pulse" : "space",
- 				rawir.duration);
+ 			if (rawir.pulse) {
+ 				ir->pulse_tunit += rawir.duration;
+ 				ir->pulse_count++;
+-- 
+2.11.0
+
+
+From 1f8b44307727f56f360eb7a43097504fe478e2a9 Mon Sep 17 00:00:00 2001
+From: Sean Young <sean@mess.org>
+Date: Thu, 10 May 2018 07:49:49 -0400
+Subject: [PATCH 13/14] media: mceusb: add missing break
+
+Fallthrough is not intended here.
+
+Signed-off-by: Sean Young <sean@mess.org>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
+---
+ drivers/media/rc/mceusb.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/media/rc/mceusb.c b/drivers/media/rc/mceusb.c
+index 1ca49491abc8..4c0c8008872a 100644
+--- a/drivers/media/rc/mceusb.c
++++ b/drivers/media/rc/mceusb.c
+@@ -572,6 +572,7 @@ static int mceusb_cmd_datasize(u8 cmd, u8 subcmd)
+ 			datasize = 1;
+ 			break;
+ 		}
++		break;
+ 	case MCE_CMD_PORT_IR:
+ 		switch (subcmd) {
+ 		case MCE_CMD_UNKNOWN:
+-- 
+2.11.0
+
+
+From 4b6434f8b34298bd30af762265f25feac4fada62 Mon Sep 17 00:00:00 2001
+From: Matthias Reichl <hias@horus.com>
+Date: Sun, 13 May 2018 07:24:31 -0400
+Subject: [PATCH 14/14] media: rc: ite-cir: lower timeout and extend allowed
+ timeout range
+
+The minimum possible timeout of ite-cir is 8 samples, which is
+typically about 70us. The driver however changes the FIFO trigger
+level from the hardware's default of 1 byte to 17 bytes, so the minimum
+usable timeout value is 17 * 8 samples, which is typically about 1.2ms.
+
+Tests showed that using timeouts down to 1.2ms actually work fine.
+
+The current default timeout of 200ms is much longer than necessary and
+the maximum timeout of 1s seems to have been chosen a bit arbitrarily.
+
+So change the minimum timeout to the driver's limit of 17 * 8 samples
+and bring timeout and maximum timeout in line with the settings
+of many other receivers.
+
+Signed-off-by: Matthias Reichl <hias@horus.com>
+Signed-off-by: Sean Young <sean@mess.org>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
+---
+ drivers/media/rc/ite-cir.c | 8 +++++---
+ drivers/media/rc/ite-cir.h | 7 -------
+ 2 files changed, 5 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/media/rc/ite-cir.c b/drivers/media/rc/ite-cir.c
+index 65e104c7ddfc..de77d22c30a7 100644
+--- a/drivers/media/rc/ite-cir.c
++++ b/drivers/media/rc/ite-cir.c
+@@ -1561,9 +1561,11 @@ static int ite_probe(struct pnp_dev *pdev, const struct pnp_device_id
+ 	rdev->close = ite_close;
+ 	rdev->s_idle = ite_s_idle;
+ 	rdev->s_rx_carrier_range = ite_set_rx_carrier_range;
+-	rdev->min_timeout = ITE_MIN_IDLE_TIMEOUT;
+-	rdev->max_timeout = ITE_MAX_IDLE_TIMEOUT;
+-	rdev->timeout = ITE_IDLE_TIMEOUT;
++	/* FIFO threshold is 17 bytes, so 17 * 8 samples minimum */
++	rdev->min_timeout = 17 * 8 * ITE_BAUDRATE_DIVISOR *
++			    itdev->params.sample_period;
++	rdev->timeout = IR_DEFAULT_TIMEOUT;
++	rdev->max_timeout = 10 * IR_DEFAULT_TIMEOUT;
+ 	rdev->rx_resolution = ITE_BAUDRATE_DIVISOR *
+ 				itdev->params.sample_period;
+ 	rdev->tx_resolution = ITE_BAUDRATE_DIVISOR *
+diff --git a/drivers/media/rc/ite-cir.h b/drivers/media/rc/ite-cir.h
+index 0e8ebc880d1f..9cb24ac01350 100644
+--- a/drivers/media/rc/ite-cir.h
++++ b/drivers/media/rc/ite-cir.h
+@@ -154,13 +154,6 @@ struct ite_dev {
+ /* default carrier freq for when demodulator is off (Hz) */
+ #define ITE_DEFAULT_CARRIER_FREQ	38000
+ 
+-/* default idling timeout in ns (0.2 seconds) */
+-#define ITE_IDLE_TIMEOUT		200000000UL
+-
+-/* limit timeout values */
+-#define ITE_MIN_IDLE_TIMEOUT		100000000UL
+-#define ITE_MAX_IDLE_TIMEOUT		1000000000UL
+-
+ /* convert bits to us */
+ #define ITE_BITS_TO_NS(bits, sample_period) \
+ ((u32) ((bits) * ITE_BAUDRATE_DIVISOR * sample_period))
 -- 
 2.11.0
 
