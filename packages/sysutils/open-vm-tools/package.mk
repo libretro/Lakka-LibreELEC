@@ -25,7 +25,7 @@ PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/vmware/open-vm-tools"
 PKG_URL="https://github.com/vmware/open-vm-tools/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain fuse glib:host glib libdnet"
+PKG_DEPENDS_TARGET="toolchain fuse glib:host glib libdnet libtirpc"
 PKG_SECTION="virtualization"
 PKG_LONGDESC="open-vm-tools: open source implementation of VMware Tools"
 PKG_TOOLCHAIN="autotools"
@@ -53,7 +53,7 @@ post_unpack() {
 }
 
 pre_configure_target() {
-  export LIBS="-ldnet"
+  export LIBS="-ldnet -ltirpc"
 }
 
 post_makeinstall_target() {
