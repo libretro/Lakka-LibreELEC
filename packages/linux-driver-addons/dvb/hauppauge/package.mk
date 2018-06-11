@@ -47,7 +47,7 @@ pre_make_target() {
 
 make_target() {
   cp -RP $(get_build_dir media_tree)/* $PKG_BUILD/linux
-  make VER=$KERNEL_VER SRCDIR=$(kernel_path) stagingconfig
+  kernel_make VER=$KERNEL_VER SRCDIR=$(kernel_path) stagingconfig
 
   # hack to workaround media_build bug
   if [ $LINUX = "amlogic-3.14" -o $LINUX = "amlogic-3.10" ]; then
@@ -56,7 +56,7 @@ make_target() {
     sed -e 's/CONFIG_VIDEO_S5C73M3=m/# CONFIG_VIDEO_S5C73M3 is not set/g' -i v4l/.config
   fi
 
-  make VER=$KERNEL_VER SRCDIR=$(kernel_path)
+  kernel_make VER=$KERNEL_VER SRCDIR=$(kernel_path)
 }
 
 makeinstall_target() {
