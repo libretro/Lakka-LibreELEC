@@ -1,5 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2018-present Team LibreELEC
 #      Copyright (C) 2009-2016 Lukas Rusak (lrusak@libreelec.tv)
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
@@ -17,8 +18,8 @@
 ################################################################################
 
 PKG_NAME="peripheral.joystick"
-PKG_VERSION="80224e1"
-PKG_SHA256="6982014982fd3883ae39fd1e6ad6f71c0e940da825390de7494e87d1c18ca0ea"
+PKG_VERSION="6312745"
+PKG_SHA256="0afec1587bed5c1e32e3717529b5e9dec839f28e01a60ec3c49054577532abf9"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
