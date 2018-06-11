@@ -35,7 +35,6 @@ get_graphicdrivers
 PKG_DRM_CONFIG="-Dnouveau=false \
                 -Domap=false \
                 -Dexynos=false \
-                -Dfreedreno=false \
                 -Dtegra=false \
                 -Detnaviv=false"
 
@@ -53,6 +52,9 @@ listcontains "$GRAPHIC_DRIVERS" "vmware" &&
 
 listcontains "$GRAPHIC_DRIVERS" "vc4" &&
   PKG_DRM_CONFIG+=" -Dvc4=true" || PKG_DRM_CONFIG+=" -Dvc4=false"
+
+listcontains "$GRAPHIC_DRIVERS" "freedreno" &&
+  PKG_DRM_CONFIG+=" -Dfreedreno=true" || PKG_DRM_CONFIG+=" -Dfreedreno=false"
 
 PKG_MESON_OPTS_TARGET="-Dlibkms=false \
                        $PKG_DRM_CONFIG \
