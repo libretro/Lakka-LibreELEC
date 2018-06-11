@@ -35,3 +35,12 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_strlcat=no \
                            --enable-static \
                            --disable-shared \
                            --disable-python"
+
+pre_configure_target() {
+  export CFLAGS+=" -I$PKG_BUILD/include"
+}
+
+post_makeinstall_target() {
+  cp $SYSROOT_PREFIX/usr/bin/dnet-config \
+     $TOOLCHAIN/bin/dnet-config
+}
