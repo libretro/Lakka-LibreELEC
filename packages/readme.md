@@ -124,6 +124,7 @@ Set the variable `PKG_BUILD_FLAGS` in the `package.mk` to enable/disable the sin
 | lto-off  | disabled | target/init | explicitly disable LTO in the compiler and linker |
 | gold     | depend on `GOLD_SUPPORT` | target/init | can only disabled, use of the GOLD-Linker |
 | parallel | enabled  | all | `make` or `ninja` builds with multiple threads/processes (or not) |
+| strip    | enabled  | target | strips executables (or not) |
 
 ###### Example
 ```
