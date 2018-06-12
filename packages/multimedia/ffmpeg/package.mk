@@ -35,6 +35,13 @@ PKG_BUILD_FLAGS="-gold"
 # Dependencies
 get_graphicdrivers
 
+if [ "$V4L2_SUPPORT" = "yes" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libdrm"
+  PKG_FFMPEG_V4L2="--enable-v4l2_m2m --enable-libdrm"
+else
+  PKG_FFMPEG_V4L2="--disable-v4l2_m2m"
+fi
+
 if [ "$VAAPI_SUPPORT" = "yes" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libva"
   PKG_FFMPEG_VAAPI="--enable-vaapi"
@@ -154,6 +161,7 @@ configure_target() {
               --enable-mdct \
               --enable-rdft \
               --disable-crystalhd \
+              $PKG_FFMPEG_V4L2 \
               $PKG_FFMPEG_VAAPI \
               $PKG_FFMPEG_VDPAU \
               $PKG_FFMPEG_RPI \
