@@ -35,7 +35,7 @@ pre_make_target() {
 }
 
 make_target() {
-  make KDIR=$(kernel_path)
+  kernel_make KDIR=$(kernel_path)
 }
 
 makeinstall_target() {
