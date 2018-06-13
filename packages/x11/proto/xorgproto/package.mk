@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain util-macros"
 PKG_SECTION="x11/proto"
 PKG_SHORTDESC="combined X.Org X11 Protocol headers"
 PKG_LONGDESC="combined X.Org X11 Protocol headers"
+PKG_TOOLCHAIN="meson"
 
-pre_configure_target() {
-  export LC_ALL=en_US.UTF-8
-}
-
+PKG_MESON_OPTS_TARGET="-Dlegacy=false"
