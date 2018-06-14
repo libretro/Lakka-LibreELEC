@@ -17,11 +17,11 @@
 ################################################################################
 
 PKG_NAME="simplejson"
-PKG_VERSION="3.10.0"
-PKG_SHA256="953be622e88323c6f43fad61ffd05bebe73b9fd9863a46d68b052d2aa7d71ce2"
+PKG_VERSION="3.15.0"
+PKG_SHA256="ad332f65d9551ceffc132d0a683f4ffd12e4bc7538681100190d577ced3473fb"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
-PKG_SITE="http://pypi.python.org/pypi/simplejson"
+PKG_SITE="http://pypi.org/project/simplejson"
 PKG_URL="https://files.pythonhosted.org/packages/source/${PKG_NAME:0:1}/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain Python2 distutilscross:host"
 PKG_SECTION="python/system"

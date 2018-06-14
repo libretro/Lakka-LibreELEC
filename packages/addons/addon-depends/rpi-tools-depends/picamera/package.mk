@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="picamera"
-PKG_VERSION="1.10"
-PKG_SHA256="f0dfc3a6983f63da2ff7cbefeedcacb8c98cc41ad651e55148e8f798940ca73d"
+PKG_VERSION="1.13"
+PKG_SHA256="890815aa01e4d855a6a95dd3ad0953b872a6b954982106407df0c5a31a163e50"
 PKG_ARCH="arm"
 PKG_LICENSE="BSD"
 PKG_SITE="https://github.com/waveform80/picamera"

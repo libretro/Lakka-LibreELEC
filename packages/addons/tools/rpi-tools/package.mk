@@ -17,11 +17,11 @@
 ################################################################################
 
 PKG_NAME="rpi-tools"
-PKG_VERSION=""
-PKG_REV="104"
+PKG_VERSION="1.0"
+PKG_REV="105"
 PKG_ARCH="arm"
 PKG_LICENSE="GPL"
-PKG_SITE=""
+PKG_SITE="https://libreelec.tv"
 PKG_URL=""
 PKG_DEPENDS_TARGET="toolchain RPi.GPIO picamera gpiozero lan951x-led-ctl"
 PKG_SECTION="virtual"
@@ -32,7 +32,6 @@ PKG_DISCAIMER="Raspberry Pi is a trademark of the Raspberry Pi Foundation http:/
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Raspberry Pi Tools"
 PKG_ADDON_TYPE="xbmc.python.module"
-PKG_ADDON_PROVIDES=""
 PKG_ADDON_PROJECTS="RPi"
 
 

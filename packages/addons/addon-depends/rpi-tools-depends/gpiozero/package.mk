@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="gpiozero"
-PKG_VERSION="1.2.0"
-PKG_SHA256="7e6ad5ecd6ec8e908cc16dbb655c77cdf9f68551e954754f6d02fc926113584d"
+PKG_VERSION="1.4.1"
+PKG_SHA256="b4b074e56dea12c21b05e6feef792719a392a245f5e685bc56be3dc2546f8609"
 PKG_ARCH="arm"
 PKG_LICENSE="BSD"
 PKG_SITE="https://github.com/RPi-Distro/python-gpiozero"
