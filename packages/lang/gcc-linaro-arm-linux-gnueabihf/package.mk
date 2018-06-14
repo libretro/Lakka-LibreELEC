@@ -16,7 +16,7 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="gcc-linaro-arm-linux-gnuebihf"
+PKG_NAME="gcc-linaro-arm-linux-gnueabihf"
 PKG_VERSION="7.2.1-2017.11"
 PKG_SHA256="cee0087b1f1205b73996651b99acd3a926d136e71047048f1758ffcec69b1ca2"
 PKG_ARCH="any"
@@ -30,11 +30,11 @@ PKG_LONGDESC="Linaro ARMv8 GNU Linux Binary Toolchain"
 PKG_TOOLCHAIN="manual"
 
 makeinstall_host() {
-  mkdir -p $TOOLCHAIN/lib/gcc-linaro-arm-linux-gnuebihf/
-    cp -a * $TOOLCHAIN/lib/gcc-linaro-arm-linux-gnuebihf
+  mkdir -p $TOOLCHAIN/lib/gcc-linaro-arm-linux-gnueabihf/
+    cp -a * $TOOLCHAIN/lib/gcc-linaro-arm-linux-gnueabihf
 
   # wrap gcc and g++ with ccache like in gcc package.mk
-  PKG_GCC_PREFIX="$TOOLCHAIN/lib/gcc-linaro-arm-linux-gnuebihf/bin/arm-linux-gnueabihf-"
+  PKG_GCC_PREFIX="$TOOLCHAIN/lib/gcc-linaro-arm-linux-gnueabihf/bin/arm-linux-gnueabihf-"
 
   cp "${PKG_GCC_PREFIX}gcc" "${PKG_GCC_PREFIX}gcc.real"
 cat > "${PKG_GCC_PREFIX}gcc" << EOF
