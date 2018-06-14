@@ -36,7 +36,7 @@ makeinstall_target() {
   FW_TARGET_DIR=$INSTALL/$(get_full_firmware_dir)
 
   if find_file_path firmwares/kernel-firmware.dat; then
-    FW_LISTS="${FOUND_FILE}"
+    FW_LISTS="${FOUND_PATH}"
   else
     FW_LISTS="${PKG_DIR}/firmwares/any.dat ${PKG_DIR}/firmwares/${TARGET_ARCH}.dat"
   fi
