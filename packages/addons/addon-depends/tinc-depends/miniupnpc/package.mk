@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="miniupnpc"
-PKG_VERSION="2.0.20180222"
-PKG_SHA256="587944686469d09f739744b3aed70c7ce753a79c40d6f1227f68a3e962665b75"
+PKG_VERSION="2.1"
+PKG_SHA256="e19fb5e01ea5a707e2a8cb96f537fbd9f3a913d53d804a3265e3aeab3d2064c6"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://miniupnp.free.fr"
