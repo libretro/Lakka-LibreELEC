@@ -86,8 +86,6 @@ if [ "$PKG_BUILD_PERF" != "no" ] && grep -q ^CONFIG_PERF_EVENTS= $PKG_KERNEL_CFG
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET binutils elfutils libunwind zlib openssl"
 fi
 
-PKG_MAKE_OPTS_HOST="CROSS_COMPILE= ARCH=${HEADERS_ARCH:-$TARGET_KERNEL_ARCH} headers_check"
-
 if [ "$TARGET_ARCH" = "x86_64" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET intel-ucode:host kernel-firmware"
 fi
@@ -141,9 +139,26 @@ post_patch() {
   fi
 }
 
+make_host() {
+  make \
+    ARCH=${HEADERS_ARCH:-$TARGET_KERNEL_ARCH} \
+    HOSTCC="$TOOLCHAIN/bin/host-gcc" \
+    HOSTCXX="$TOOLCHAIN/bin/host-g++" \
+    HOSTCFLAGS="$HOST_CFLAGS" \
+    HOSTCXXFLAGS="$HOST_CXXFLAGS" \
+    HOSTLDFLAGS="$HOST_LDFLAGS" \
+    headers_check
+}
+
 makeinstall_host() {
-  make CROSS_COMPILE= ARCH=${HEADERS_ARCH:-$TARGET_KERNEL_ARCH} INSTALL_HDR_PATH=dest \
-    HOSTCFLAGS="$HOST_CFLAGS" HOSTLDFLAGS="$HOST_LDFLAGS" \
+  make \
+    ARCH=${HEADERS_ARCH:-$TARGET_KERNEL_ARCH} \
+    HOSTCC="$TOOLCHAIN/bin/host-gcc" \
+    HOSTCXX="$TOOLCHAIN/bin/host-g++" \
+    HOSTCFLAGS="$HOST_CFLAGS" \
+    HOSTCXXFLAGS="$HOST_CXXFLAGS" \
+    HOSTLDFLAGS="$HOST_LDFLAGS" \
+    INSTALL_HDR_PATH=dest \
     headers_install
   mkdir -p $SYSROOT_PREFIX/usr/include
     cp -R dest/include/* $SYSROOT_PREFIX/usr/include
