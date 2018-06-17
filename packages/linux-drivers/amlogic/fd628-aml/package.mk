@@ -37,7 +37,7 @@ pre_make_target() {
 }
 
 make_target() {
-  make -C "$(kernel_path)" M="$PKG_BUILD/driver"
+  kernel_make -C "$(kernel_path)" M="$PKG_BUILD/driver"
 
   make FD628Service
 }

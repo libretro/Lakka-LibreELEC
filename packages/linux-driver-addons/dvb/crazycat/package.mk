@@ -47,7 +47,7 @@ pre_make_target() {
 }
 
 make_target() {
-  make SRCDIR=$(kernel_path) untar
+  kernel_make SRCDIR=$(kernel_path) untar
 
   # copy config file
   if [ "$PROJECT" = Generic ]; then
@@ -72,7 +72,7 @@ make_target() {
   fi
 
   # add menuconfig to edit .config
-  make VER=$KERNEL_VER SRCDIR=$(kernel_path)
+  kernel_make VER=$KERNEL_VER SRCDIR=$(kernel_path)
 }
 
 makeinstall_target() {

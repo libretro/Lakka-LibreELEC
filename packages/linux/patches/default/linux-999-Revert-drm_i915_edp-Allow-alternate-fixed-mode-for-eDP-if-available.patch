@@ -1,0 +1,242 @@
+From 997fbfe5508bc7d29fdf0a7a103f3864d4db380a Mon Sep 17 00:00:00 2001
+Message-Id: <997fbfe5508bc7d29fdf0a7a103f3864d4db380a.1528140572.git.jan.steffens@gmail.com>
+In-Reply-To: <b7e3d341f20581dcd72d3640fa8f6f99fd766d21.1528140572.git.jan.steffens@gmail.com>
+References: <b7e3d341f20581dcd72d3640fa8f6f99fd766d21.1528140572.git.jan.steffens@gmail.com>
+From: Jani Nikula <jani.nikula@intel.com>
+Date: Wed, 16 May 2018 11:01:10 +0300
+Subject: [PATCH 2/2] Revert "drm/i915/edp: Allow alternate fixed mode for eDP
+ if available."
+
+This reverts commit dc911f5bd8aacfcf8aabd5c26c88e04c837a938e.
+
+Per the report, no matter what display mode you select with xrandr, the
+i915 driver will always select the alternate fixed mode. For the
+reporter this means that the display will always run at 40Hz which is
+quite annoying. This may be due to the mode comparison.
+
+But there are some other potential issues. The choice of alt_fixed_mode
+seems dubious. It's the first non-preferred mode, but there are no
+guarantees that the only difference would be refresh rate. Similarly,
+there may be more than one preferred mode in the probed modes list, and
+the commit changes the preferred mode selection to choose the last one
+on the list instead of the first.
+
+(Note that the probed modes list is the raw, unfiltered, unsorted list
+of modes from drm_add_edid_modes(), not the pretty result after a
+drm_helper_probe_single_connector_modes() call.)
+
+Finally, we already have eerily similar code in place to find the
+downclock mode for DRRS that seems like could be reused here.
+
+Back to the drawing board.
+
+Note: This is a hand-crafted revert due to conflicts. If it fails to
+backport, please just try reverting the original commit directly.
+
+Bugzilla: https://bugs.freedesktop.org/show_bug.cgi?id=105469
+Reported-by: Rune Petersen <rune@megahurts.dk>
+Reported-by: Mark Spencer <n7u4722r35@ynzlx.anonbox.net>
+Fixes: dc911f5bd8aa ("drm/i915/edp: Allow alternate fixed mode for eDP if available.")
+Cc: Clint Taylor <clinton.a.taylor@intel.com>
+Cc: David Weinehall <david.weinehall@linux.intel.com>
+Cc: Rodrigo Vivi <rodrigo.vivi@intel.com>
+Cc: Paulo Zanoni <paulo.r.zanoni@intel.com>
+Cc: Jani Nikula <jani.nikula@intel.com>
+Cc: Chris Wilson <chris@chris-wilson.co.uk>
+Cc: Jim Bride <jim.bride@linux.intel.com>
+Cc: Jani Nikula <jani.nikula@linux.intel.com>
+Cc: Joonas Lahtinen <joonas.lahtinen@linux.intel.com>
+Cc: intel-gfx@lists.freedesktop.org
+Cc: <stable@vger.kernel.org> # v4.14+
+Signed-off-by: Jani Nikula <jani.nikula@intel.com>
+Reviewed-by: Dhinakaran Pandiyan <dhinakaran.pandiyan@intel.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20180516080110.22770-1-jani.nikula@intel.com
+---
+ drivers/gpu/drm/i915/intel_dp.c    | 38 ++++--------------------------
+ drivers/gpu/drm/i915/intel_drv.h   |  2 --
+ drivers/gpu/drm/i915/intel_dsi.c   |  2 +-
+ drivers/gpu/drm/i915/intel_dvo.c   |  2 +-
+ drivers/gpu/drm/i915/intel_lvds.c  |  3 +--
+ drivers/gpu/drm/i915/intel_panel.c |  6 -----
+ 6 files changed, 8 insertions(+), 45 deletions(-)
+
+diff --git a/drivers/gpu/drm/i915/intel_dp.c b/drivers/gpu/drm/i915/intel_dp.c
+index b7b4cfdeb974..48cb8df5ae97 100644
+--- a/drivers/gpu/drm/i915/intel_dp.c
++++ b/drivers/gpu/drm/i915/intel_dp.c
+@@ -1671,23 +1671,6 @@ static int intel_dp_compute_bpp(struct intel_dp *intel_dp,
+ 	return bpp;
+ }
+ 
+-static bool intel_edp_compare_alt_mode(struct drm_display_mode *m1,
+-				       struct drm_display_mode *m2)
+-{
+-	bool bres = false;
+-
+-	if (m1 && m2)
+-		bres = (m1->hdisplay == m2->hdisplay &&
+-			m1->hsync_start == m2->hsync_start &&
+-			m1->hsync_end == m2->hsync_end &&
+-			m1->htotal == m2->htotal &&
+-			m1->vdisplay == m2->vdisplay &&
+-			m1->vsync_start == m2->vsync_start &&
+-			m1->vsync_end == m2->vsync_end &&
+-			m1->vtotal == m2->vtotal);
+-	return bres;
+-}
+-
+ bool
+ intel_dp_compute_config(struct intel_encoder *encoder,
+ 			struct intel_crtc_state *pipe_config,
+@@ -1734,16 +1717,8 @@ intel_dp_compute_config(struct intel_encoder *encoder,
+ 		pipe_config->has_audio = intel_conn_state->force_audio == HDMI_AUDIO_ON;
+ 
+ 	if (intel_dp_is_edp(intel_dp) && intel_connector->panel.fixed_mode) {
+-		struct drm_display_mode *panel_mode =
+-			intel_connector->panel.alt_fixed_mode;
+-		struct drm_display_mode *req_mode = &pipe_config->base.mode;
+-
+-		if (!intel_edp_compare_alt_mode(req_mode, panel_mode))
+-			panel_mode = intel_connector->panel.fixed_mode;
+-
+-		drm_mode_debug_printmodeline(panel_mode);
+-
+-		intel_fixed_panel_mode(panel_mode, adjusted_mode);
++		intel_fixed_panel_mode(intel_connector->panel.fixed_mode,
++				       adjusted_mode);
+ 
+ 		if (INTEL_GEN(dev_priv) >= 9) {
+ 			int ret;
+@@ -6121,7 +6096,6 @@ static bool intel_edp_init_connector(struct intel_dp *intel_dp,
+ 	struct drm_i915_private *dev_priv = to_i915(dev);
+ 	struct drm_connector *connector = &intel_connector->base;
+ 	struct drm_display_mode *fixed_mode = NULL;
+-	struct drm_display_mode *alt_fixed_mode = NULL;
+ 	struct drm_display_mode *downclock_mode = NULL;
+ 	bool has_dpcd;
+ 	struct drm_display_mode *scan;
+@@ -6176,14 +6150,13 @@ static bool intel_edp_init_connector(struct intel_dp *intel_dp,
+ 	}
+ 	intel_connector->edid = edid;
+ 
+-	/* prefer fixed mode from EDID if available, save an alt mode also */
++	/* prefer fixed mode from EDID if available */
+ 	list_for_each_entry(scan, &connector->probed_modes, head) {
+ 		if ((scan->type & DRM_MODE_TYPE_PREFERRED)) {
+ 			fixed_mode = drm_mode_duplicate(dev, scan);
+ 			downclock_mode = intel_dp_drrs_init(
+ 						intel_connector, fixed_mode);
+-		} else if (!alt_fixed_mode) {
+-			alt_fixed_mode = drm_mode_duplicate(dev, scan);
++			break;
+ 		}
+ 	}
+ 
+@@ -6220,8 +6193,7 @@ static bool intel_edp_init_connector(struct intel_dp *intel_dp,
+ 			      pipe_name(pipe));
+ 	}
+ 
+-	intel_panel_init(&intel_connector->panel, fixed_mode, alt_fixed_mode,
+-			 downclock_mode);
++	intel_panel_init(&intel_connector->panel, fixed_mode, downclock_mode);
+ 	intel_connector->panel.backlight.power = intel_edp_backlight_power;
+ 	intel_panel_setup_backlight(connector, pipe);
+ 
+diff --git a/drivers/gpu/drm/i915/intel_drv.h b/drivers/gpu/drm/i915/intel_drv.h
+index a80fbad9be0f..7f3e83f17adb 100644
+--- a/drivers/gpu/drm/i915/intel_drv.h
++++ b/drivers/gpu/drm/i915/intel_drv.h
+@@ -269,7 +269,6 @@ struct intel_encoder {
+ 
+ struct intel_panel {
+ 	struct drm_display_mode *fixed_mode;
+-	struct drm_display_mode *alt_fixed_mode;
+ 	struct drm_display_mode *downclock_mode;
+ 
+ 	/* backlight */
+@@ -1820,7 +1819,6 @@ void intel_overlay_reset(struct drm_i915_private *dev_priv);
+ /* intel_panel.c */
+ int intel_panel_init(struct intel_panel *panel,
+ 		     struct drm_display_mode *fixed_mode,
+-		     struct drm_display_mode *alt_fixed_mode,
+ 		     struct drm_display_mode *downclock_mode);
+ void intel_panel_fini(struct intel_panel *panel);
+ void intel_fixed_panel_mode(const struct drm_display_mode *fixed_mode,
+diff --git a/drivers/gpu/drm/i915/intel_dsi.c b/drivers/gpu/drm/i915/intel_dsi.c
+index 51a1d6868b1e..cf39ca90d887 100644
+--- a/drivers/gpu/drm/i915/intel_dsi.c
++++ b/drivers/gpu/drm/i915/intel_dsi.c
+@@ -1846,7 +1846,7 @@ void intel_dsi_init(struct drm_i915_private *dev_priv)
+ 	connector->display_info.width_mm = fixed_mode->width_mm;
+ 	connector->display_info.height_mm = fixed_mode->height_mm;
+ 
+-	intel_panel_init(&intel_connector->panel, fixed_mode, NULL, NULL);
++	intel_panel_init(&intel_connector->panel, fixed_mode, NULL);
+ 	intel_panel_setup_backlight(connector, INVALID_PIPE);
+ 
+ 	intel_dsi_add_properties(intel_connector);
+diff --git a/drivers/gpu/drm/i915/intel_dvo.c b/drivers/gpu/drm/i915/intel_dvo.c
+index eb0c559b2715..a70d767313aa 100644
+--- a/drivers/gpu/drm/i915/intel_dvo.c
++++ b/drivers/gpu/drm/i915/intel_dvo.c
+@@ -536,7 +536,7 @@ void intel_dvo_init(struct drm_i915_private *dev_priv)
+ 			 */
+ 			intel_panel_init(&intel_connector->panel,
+ 					 intel_dvo_get_current_mode(intel_encoder),
+-					 NULL, NULL);
++					 NULL);
+ 			intel_dvo->panel_wants_dither = true;
+ 		}
+ 
+diff --git a/drivers/gpu/drm/i915/intel_lvds.c b/drivers/gpu/drm/i915/intel_lvds.c
+index e125d16a1aa7..d278f24ba6ae 100644
+--- a/drivers/gpu/drm/i915/intel_lvds.c
++++ b/drivers/gpu/drm/i915/intel_lvds.c
+@@ -1175,8 +1175,7 @@ void intel_lvds_init(struct drm_i915_private *dev_priv)
+ out:
+ 	mutex_unlock(&dev->mode_config.mutex);
+ 
+-	intel_panel_init(&intel_connector->panel, fixed_mode, NULL,
+-			 downclock_mode);
++	intel_panel_init(&intel_connector->panel, fixed_mode, downclock_mode);
+ 	intel_panel_setup_backlight(connector, INVALID_PIPE);
+ 
+ 	lvds_encoder->is_dual_link = compute_is_dual_link_lvds(lvds_encoder);
+diff --git a/drivers/gpu/drm/i915/intel_panel.c b/drivers/gpu/drm/i915/intel_panel.c
+index 41d00b1603e3..b443278e569c 100644
+--- a/drivers/gpu/drm/i915/intel_panel.c
++++ b/drivers/gpu/drm/i915/intel_panel.c
+@@ -1928,30 +1928,24 @@ intel_panel_init_backlight_funcs(struct intel_panel *panel)
+ 
+ int intel_panel_init(struct intel_panel *panel,
+ 		     struct drm_display_mode *fixed_mode,
+-		     struct drm_display_mode *alt_fixed_mode,
+ 		     struct drm_display_mode *downclock_mode)
+ {
+ 	intel_panel_init_backlight_funcs(panel);
+ 
+ 	panel->fixed_mode = fixed_mode;
+-	panel->alt_fixed_mode = alt_fixed_mode;
+ 	panel->downclock_mode = downclock_mode;
+ 
+ 	return 0;
+ }
+ 
+ void intel_panel_fini(struct intel_panel *panel)
+ {
+ 	struct intel_connector *intel_connector =
+ 		container_of(panel, struct intel_connector, panel);
+ 
+ 	if (panel->fixed_mode)
+ 		drm_mode_destroy(intel_connector->base.dev, panel->fixed_mode);
+ 
+-	if (panel->alt_fixed_mode)
+-		drm_mode_destroy(intel_connector->base.dev,
+-				panel->alt_fixed_mode);
+-
+ 	if (panel->downclock_mode)
+ 		drm_mode_destroy(intel_connector->base.dev,
+ 				panel->downclock_mode);
+-- 
+2.17.1
+

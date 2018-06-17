@@ -1,19 +1,20 @@
 ################################################################################
-#      This file is part of OpenELEC - http://www.openelec.tv
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2018-present Team LibreELEC
 #      Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 #
-#  OpenELEC is free software: you can redistribute it and/or modify
+#  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation, either version 2 of the License, or
 #  (at your option) any later version.
 #
-#  OpenELEC is distributed in the hope that it will be useful,
+#  LibreELEC is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
 #
 #  You should have received a copy of the GNU General Public License
-#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
 # Downloadlocation:
@@ -36,7 +37,7 @@ PKG_IS_KERNEL_PKG="yes"
 
 make_target() {
   cd x86-64
-    KBUILD_NOPEDANTIC=1 make V=1 CC=$CC -C $(kernel_path) M=`pwd` BINARCH=$TARGET_KERNEL_ARCH
+    KBUILD_NOPEDANTIC=1 kernel_make V=1 CC=$CC -C $(kernel_path) M=`pwd` BINARCH=$TARGET_KERNEL_ARCH
 }
 
 makeinstall_target() {

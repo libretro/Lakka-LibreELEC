@@ -70,7 +70,7 @@ make_target() {
   esac
 
   # Compile device trees
-  LDFLAGS="" make $DTB_LIST_FILTERED
+  kernel_make $DTB_LIST_FILTERED
   mv arch/$TARGET_KERNEL_ARCH/boot/dts/amlogic/*.dtb $PKG_BUILD
 
   popd > /dev/null
