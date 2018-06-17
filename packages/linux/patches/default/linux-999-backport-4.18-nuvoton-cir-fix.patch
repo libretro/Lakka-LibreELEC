@@ -1,0 +1,55 @@
+From 70c30b1ea706affcb117e3cd3065690abca5ba69 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Micha=C5=82=20Winiarski?= <michal.winiarski@intel.com>
+Date: Mon, 21 May 2018 10:38:01 -0400
+Subject: [PATCH] media: rc: nuvoton: Tweak the interrupt enabling dance
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+It appears that we need to enable CIR device before attempting to touch
+some of the registers. Previously, this was not a big issue, since we
+were rarely seeing nvt_close() getting called.
+
+Unfortunately, since commit cb84343fced1 ("media: lirc: do not call close()
+or open() on unregistered devices") the initial open() during probe from
+rc_setup_rx_device() is no longer successful, which means that userspace
+clients will actually end up calling nvt_open()/nvt_close(). Since
+nvt_open() is broken, the device doesn't seem to work as expected.
+
+Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=199597
+
+Signed-off-by: Michał Winiarski <michal.winiarski@intel.com>
+Cc: Jarod Wilson <jarod@redhat.com>
+Signed-off-by: Sean Young <sean@mess.org>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
+---
+ drivers/media/rc/nuvoton-cir.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/media/rc/nuvoton-cir.c b/drivers/media/rc/nuvoton-cir.c
+index 5e1d866a61a5..ce8949b6549d 100644
+--- a/drivers/media/rc/nuvoton-cir.c
++++ b/drivers/media/rc/nuvoton-cir.c
+@@ -922,6 +922,9 @@ static int nvt_open(struct rc_dev *dev)
+ 	struct nvt_dev *nvt = dev->priv;
+ 	unsigned long flags;
+ 
++	/* enable the CIR logical device */
++	nvt_enable_logical_dev(nvt, LOGICAL_DEV_CIR);
++
+ 	spin_lock_irqsave(&nvt->lock, flags);
+ 
+ 	/* set function enable flags */
+@@ -937,9 +940,6 @@ static int nvt_open(struct rc_dev *dev)
+ 
+ 	spin_unlock_irqrestore(&nvt->lock, flags);
+ 
+-	/* enable the CIR logical device */
+-	nvt_enable_logical_dev(nvt, LOGICAL_DEV_CIR);
+-
+ 	return 0;
+ }
+ 
+-- 
+2.11.0
+
