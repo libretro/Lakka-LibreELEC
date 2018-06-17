@@ -91,6 +91,10 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
                            $RETROARCH_NEON \
                            --enable-zlib \
                            --enable-freetype"
+                           
+if [ "$PROJECT" = "Switch" ]; then
+   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-pulse"
+fi
                          
 
 pre_configure_target() {
@@ -227,12 +231,8 @@ makeinstall_target() {
 
     # Joypad Autoconfig doesn't work as Joy-Cons VID and PID are both 0
     cat $PROJECT_DIR/Switch/joypad/Joy-Con_Rails.cfg >> $INSTALL/etc/retroarch.cfg
-    
-    # Audio causes cores to run too fast - disable it entirely while we wait
-    # for an audio fix
-    sed -i -e "s/# audio_sync = true/audio_sync = false/" $INSTALL/etc/retroarch.cfg
-    sed -i -e "s/# audio_enable = true/audio_enable = false/" $INSTALL/etc/retroarch.cfg
-    sed -i -e "s/audio_driver = \"alsathread\"/audio_driver = null/" $INSTALL/etc/retroarch.cfg
+
+    sed -i -e "s/audio_driver = \"alsathread\"/audio_driver = pulse/" $INSTALL/etc/retroarch.cfg
   fi
 }
 

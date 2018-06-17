@@ -220,7 +220,7 @@ pre_make_target() {
     mkdir -p $PKG_BUILD/external-firmware
     cp -a $(get_build_dir kernel-firmware)/{nvidia,brcm} $PKG_BUILD/external-firmware
     
-    FW_LIST="$(find $PKG_BUILD/external-firmware \( -type f -o -type l \) \( -iname '*.bin' -o -iname '*.txt' \) | sed 's|.*external-firmware/||' | sort | xargs)"
+    FW_LIST="$(find $PKG_BUILD/external-firmware \( -type f -o -type l \) \( -iname '*.bin' -o -iname '*.txt' -o -iname '*.hcd' \) | sed 's|.*external-firmware/||' | sort | xargs)"
     sed -i "s|CONFIG_EXTRA_FIRMWARE=.*|CONFIG_EXTRA_FIRMWARE=\"${FW_LIST}\"|" $PKG_BUILD/.config
   fi
 

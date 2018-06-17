@@ -48,11 +48,9 @@ makeinstall_target() {
   FW_LISTS+=" ${PROJECT_DIR}/${PROJECT}/firmwares/any.dat"
   [ -n "${DEVICE}" ] && FW_LISTS+=" ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/${PKG_NAME}/firmwares/any.dat"
   
-  # linux-firmware is missing a file necessary for the Switch
+  # Add some more firmwares from the Switch OS
   if [ "$PROJECT" = "Switch" ]; then
-    wget -P "${BUILD}/$PKG_NAME-$PKG_VERSION/brcm" "https://chromium.googlesource.com/chromiumos/third_party/linux-firmware/+/f151f016b4fe656399f199e28cabf8d658bcb52b/brcm/brcmfmac4356-pcie.txt?format=TEXT"
-    cat "${BUILD}/$PKG_NAME-$PKG_VERSION/brcm/brcmfmac4356-pcie.txt?format=TEXT" | base64 --decode > "${BUILD}/$PKG_NAME-$PKG_VERSION/brcm/brcmfmac4356-pcie.txt"
-    rm -f "${BUILD}/$PKG_NAME-$PKG_VERSION/brcm/brcmfmac4356-pcie.txt?format=TEXT"
+    cp -r ${PROJECT_DIR}/${PROJECT}/firmwares/files/* ${BUILD}/$PKG_NAME-$PKG_VERSION
   fi
 
   for fwlist in ${FW_LISTS}; do
