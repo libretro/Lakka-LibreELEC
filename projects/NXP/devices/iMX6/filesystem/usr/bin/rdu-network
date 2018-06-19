@@ -1,0 +1,117 @@
+#!/bin/sh
+
+ACTION=$1
+
+LOGGER_TAG="rdu-network"
+MODEL=$(cat /sys/firmware/devicetree/base/model)
+
+IP_IFACE=""
+BR_NAME=""
+BR_IFACES=""
+UNUSED_IFACES=""
+USED_IFACES=""
+
+function log
+{
+    logger -t "${LOGGER_TAG}" "$@"
+}
+
+function logerr
+{
+    logger -t "${LOGGER_TAG}" -p "err" "$@"
+}
+
+# Select setup based on model
+
+case "${MODEL}" in
+    "ZII RDU2+ Board" | "ZII RDU2 Board")
+        log "Loading RDU2 networking setup..."
+        IP_IFACE="enp1s0"
+        BR_NAME="br0"
+        BR_IFACES="netaux netleft netright gigabit_proc"
+        ALL_IFACES="eth0 ${IP_IFACE} ${BR_IFACES} ${BR_NAME}"
+        ;;
+    "ZII RDU1 Board")
+        log "Loading RDU1 networking setup..."
+        IP_IFACE="br0"
+        BR_NAME="br0"
+        BR_IFACES="netaux netleft netright"
+        ALL_IFACES="eth0 ${BR_NAME} ${BR_IFACES}"
+        ;;
+    *)
+        logerr "invalid hardware model detected: ${MODEL}"
+        exit 1
+        ;;
+esac
+
+case "${ACTION}" in
+
+    "start")
+
+        # Assume RDU network is already started if the bridge is available
+        if [ -d /sys/class/net/${BR_NAME} ]; then
+            log "Networking setup is already started"
+            exit 0
+        fi
+
+        # Cleanup all addresses from all interfaces and bring them down
+        log "Resetting interfaces..."
+        for IFACE in ${ALL_IFACES}; do
+            log "  Resetting ${IFACE}..."
+            ip addr flush dev ${IFACE} >/dev/null 2>&1
+            ip link set dev ${IFACE} down >/dev/null 2>&1
+        done
+
+        # Create bridge with all interfaces
+        log "Creating bridge interface..."
+        brctl addbr ${BR_NAME} >/dev/null 2>&1
+        for IFACE in ${BR_IFACES}; do
+            log "  Adding ${IFACE} to bridge..."
+            brctl addif ${BR_NAME} ${IFACE} >/dev/null 2>&1
+        done
+
+        # Bring all bridge interfaces and the bridge itself up
+        log "Bringing up all interfaces..."
+        for IFACE in ${ALL_IFACES}; do
+            log "  Bringing up ${IFACE}..."
+            ip link set dev ${IFACE} up >/dev/null 2>&1
+        done
+
+        # All done
+        log "RDU networking started"
+        exit 0
+        ;;
+
+    "stop")
+
+        # Assume RDU network is already stopped if the bridge is available
+        if [ ! -d /sys/class/net/${BR_NAME} ]; then
+            log "Networking setup is already stopped"
+            exit 0
+        fi
+
+        # Cleanup all addresses from all interfaces and bring them down
+        log "Resetting interfaces..."
+        for IFACE in ${ALL_IFACES}; do
+            ip addr flush dev ${IFACE} >/dev/null 2>&1
+            ip link set dev ${IFACE} down >/dev/null 2>&1
+        done
+
+        # Remove bridge interfaces and bridge itself
+        log "Removing bridge interface..."
+        for IFACE in ${BR_IFACES}; do
+            brctl delif ${BR_NAME} ${IFACE} >/dev/null 2>&1
+        done
+        brctl delbr ${BR_NAME} >/dev/null 2>&1
+
+        # All done
+        log "RDU networking stopped"
+        exit 0
+        ;;
+
+    *)
+        logerr "invalid action requested: ${ACTION}"
+        exit 2
+        ;;
+esac
+
