@@ -1,0 +1,94 @@
+#!/bin/bash
+################################################################################
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2018-present Team LibreELEC
+#
+#  LibreELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  LibreELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+. /etc/profile
+oe_setup_addon browser.chrome
+
+ICON=$ADDON_DIR/resources/icon.png
+CONTROL_FILE=/tmp/curl.done
+DATA_FILE=/tmp/curl.data
+
+# check chrome version
+case "$1" in
+  'latest')
+    CHROME_VER="$(curl -s https://dl.google.com/linux/chrome/rpm/stable/x86_64/repodata/other.xml.gz | \
+                gzip -df | awk -F\" '/pkgid.*-stable/{ print $10 }')"
+    ;;
+  'repo')
+    CHROME_VER="67.0.3396.87"
+    ;;
+  *)
+    echo "Usage $0 { latest | repo }"
+    exit 0;
+    ;;
+esac
+
+# check for enough free disk space
+if [ $(df . | awk 'END {print $4}') -lt 400000 ]; then
+  kodi-send --action="Notification(Not enough disk space, at least 400mb are required,30000,${ICON})" >/dev/null
+  exit 0;
+fi
+
+# remove install status and folders
+if [ -f $ADDON_DIR/extract.ok ]; then
+  rm $ADDON_DIR/extract.ok
+fi
+
+if [ -d $ADDON_DIR/chrome-bin ]; then
+  rm -rf $ADDON_DIR/chrome-bin
+fi
+
+if [ -d $ADDON_DIR/tmp_download ]; then
+  rm -rf $ADDON_DIR/tmp_download
+fi
+
+# create tmp download dir
+mkdir -p $ADDON_DIR/tmp_download
+cd $ADDON_DIR/tmp_download
+
+echo "Downloading Chrome version $CHROME_VER"
+
+# download chrome
+rm -f ${CONTROL_FILE} ${DATA_FILE}
+(
+  curl -# -O -C - http://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_$CHROME_VER-1_amd64.deb 2>${DATA_FILE}
+  touch ${CONTROL_FILE}
+) | \
+  while [ : ]; do
+    [ -f ${DATA_FILE} ] && prog="$(tr '\r' '\n' < ${DATA_FILE} | tail -n 1 | sed -r 's/^[# ]+/#/;s/^[^0-9]*//g')" || prog=
+    kodi-send --action="Notification(Downloading Chrome,"${prog:-0.0%}",3000,${ICON})" >/dev/null
+    [ -f ${CONTROL_FILE} ] && break
+    sleep 4
+  done
+
+rm -f ${CONTROL_FILE} ${DATA_FILE}
+
+## extract chrome
+# extrat chrome.deb
+kodi-send --action="Notification(Extracting Chrome,starting,1000,${ICON})" >/dev/null
+ar -x google-chrome-stable_$CHROME_VER-1_amd64.deb
+
+# extract data.tar.xz to chrome-bin directory
+mkdir $ADDON_DIR/chrome-bin
+tar xf data.tar.xz --strip-components=4 -C $ADDON_DIR/chrome-bin ./opt/google/chrome
+
+# cleanup
+rm -rf $ADDON_DIR/tmp_download
+touch $ADDON_DIR/extract.ok
+kodi-send --action="Notification(Extracting Chrome,finished,1000,${ICON})" >/dev/null
