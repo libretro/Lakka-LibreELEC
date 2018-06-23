@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="systemd"
-PKG_VERSION="238"
-PKG_SHA256="bbc8599bab2e3c4273886dfab12464e488ecdaf20b8284949e50f8858de3e022"
+PKG_VERSION="239"
+PKG_SHA256="8a11b1b07d620f4c06a16e95bba4dd2a97e90efdf2a5ba47ed0a935085787a14"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/systemd"
