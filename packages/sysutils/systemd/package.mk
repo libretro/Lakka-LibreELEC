@@ -76,7 +76,7 @@ PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
                        -Dmachined=false \
                        -Dnetworkd=false \
                        -Dtimedated=false \
-                       -Dtimesyncd=false \
+                       -Dtimesyncd=true \
                        -Dmyhostname=false \
                        -Dfirstboot=false \
                        -Drandomseed=false \
