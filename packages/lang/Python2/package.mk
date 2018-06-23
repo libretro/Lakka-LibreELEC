@@ -60,7 +60,6 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_file_dev_ptc=no \
                            --without-tsc \
                            --with-pymalloc \
                            --without-fpectl \
-                           --with-wctype-functions \
                            --without-cxx-main \
                            --with-system-ffi \
                            --with-system-expat"
