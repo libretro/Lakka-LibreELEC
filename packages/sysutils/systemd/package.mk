@@ -247,6 +247,9 @@ post_makeinstall_target() {
 post_install() {
   add_group systemd-journal 190
 
+  add_group systemd-timesync 191
+  add_user systemd-timesync x 191 191 "systemd-timesync" "/" "/bin/false"
+
   add_group systemd-network 193
   add_user systemd-network x 193 193 "systemd-network" "/" "/bin/sh"
 
