@@ -33,7 +33,8 @@ PKG_PYTHON_WANTED=Python2
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-devinput \
                            --with-gnu-ld \
-                           --without-x"
+                           --without-x \
+                           --runstatedir=/run"
 
 pre_configure_target() {
   export HAVE_WORKING_POLL=yes
