@@ -74,7 +74,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
                            --disable-xace \
                            --disable-xselinux \
                            --disable-xcsecurity \
-                           --disable-tslib \
                            --enable-dbe \
                            --disable-xf86bigfont \
                            --enable-dpms \
@@ -102,11 +101,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
                            --disable-xwin \
                            --disable-kdrive \
                            --disable-xephyr \
-                           --disable-xfake \
-                           --disable-xfbdev \
-                           --disable-kdrive-kbd \
-                           --disable-kdrive-mouse \
-                           --disable-kdrive-evdev \
                            --disable-libunwind \
                            --enable-xshmfence \
                            --disable-install-setuid \
