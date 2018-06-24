@@ -38,9 +38,7 @@ make_target() {
         --enable-static \
         --disable-shared \
         --prefix=/usr \
-        --enable-visibility \
-        --disable-libcurl \
-        --disable-libmms
+        --enable-visibility
   make
 }
 
