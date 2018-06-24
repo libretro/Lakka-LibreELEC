@@ -58,7 +58,7 @@ PKG_CONFIGURE_OPTS_HOST="ac_cv_prog_HAS_HG=/bin/false
                          --with-libmpdec=none
                          --with-doc-strings
                          --without-pymalloc
-                         --without-ensurepi
+                         --without-ensurepip
 "
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_prog_HAS_HG=/bin/false
