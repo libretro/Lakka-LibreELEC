@@ -32,6 +32,5 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --disable-shared \
                            --disable-saidar \
                            --disable-examples \
-                           --disable-manpages \
                            --disable-setuid-binaries \
                            --disable-setgid-binaries"
