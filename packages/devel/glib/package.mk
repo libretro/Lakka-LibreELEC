@@ -55,6 +55,10 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_mmap_fixed_mapped=yes \
                            --with-threads=posix \
                            --with-pcre=internal"
 
+pre_configure_target() {
+  export CFLAGS="$CFLAGS -Wno-error=format-nonliteral"
+}
+
 post_makeinstall_target() {
   mkdir -p $SYSROOT_PREFIX/usr/lib/pkgconfig
     cp g*-2.0.pc $SYSROOT_PREFIX/usr/lib/pkgconfig

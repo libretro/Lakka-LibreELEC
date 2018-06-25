@@ -17,13 +17,14 @@
 ################################################################################
 
 PKG_NAME="tinc"
-PKG_VERSION="1.1pre14"
-PKG_REV="101"
+PKG_VERSION="1.1pre15"
+PKG_REV="103"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="http://www.tinc-vpn.org/"
-PKG_URL="${PKG_SITE}/packages/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain openssl lzo zlib"
+PKG_URL="https://github.com/gsliepen/tinc/archive/release-$PKG_VERSION.tar.gz"
+PKG_SOURCE_DIR="tinc-release-$PKG_VERSION"
+PKG_DEPENDS_TARGET="toolchain lzo miniupnpc openssl zlib"
 PKG_SECTION="service/system"
 PKG_SHORTDESC="tinc: a Virtual Private Network daemon"
 PKG_LONGDESC="tinc ($PKG_VERSION) is a Virtual Private Network (VPN) daemon that uses tunnelling and encryption to create a secure private network between hosts on the Internet. Because the VPN appears to the IP level network code as a normal network device, there is no need to adapt any existing software. This allows VPN sites to share information with each other over the Internet without exposing any information to others."
@@ -34,23 +35,22 @@ PKG_ADDON_NAME="tinc"
 PKG_ADDON_TYPE="xbmc.service"
 PKG_MAINTAINER="Anton Voyl (awiouy)"
 
-PKG_CONFIGURE_OPTS_TARGET="--disable-curses   \
+PKG_CONFIGURE_OPTS_TARGET="--disable-curses \
                            --disable-readline \
-                           --sysconfdir=/storage/.cache"
+                           --enable-miniupnpc \
+                           --sysconfdir=/run"
 
 pre_configure_target() {
-  # tinc fails to build in subdirs
   cd $PKG_BUILD
   rm -rf .$TARGET_NAME
 }
 
-makeinstall_target() {
+make_target() {
   :
 }
 
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
-  cp $PKG_BUILD/src/tinc \
-     $PKG_BUILD/src/tincd \
+  cp $PKG_BUILD/.install_pkg/usr/sbin/* \
      $ADDON_BUILD/$PKG_ADDON_ID/bin
 }

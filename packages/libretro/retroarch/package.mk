@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="retroarch"
-PKG_VERSION="d360265"
+PKG_VERSION="2a2e732"
 PKG_REV="11"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
@@ -124,6 +124,9 @@ makeinstall_target() {
   echo "quick_menu_show_save_core_overrides = \"false\"" >> $INSTALL/etc/retroarch.cfg
   echo "quick_menu_show_save_game_overrides = \"false\"" >> $INSTALL/etc/retroarch.cfg
   echo "quick_menu_show_cheats = \"false\"" >> $INSTALL/etc/retroarch.cfg
+  echo "quick_menu_show_overlays = \"false\"" >> $INSTALL/etc/retroarch.cfg
+  echo "quick_menu_show_rewind = \"false\"" >> $INSTALL/etc/retroarch.cfg
+  echo "quick_menu_show_latency = \"false\"" >> $INSTALL/etc/retroarch.cfg
   
   # Video
   sed -i -e "s/# video_windowed_fullscreen = true/video_windowed_fullscreen = false/" $INSTALL/etc/retroarch.cfg
