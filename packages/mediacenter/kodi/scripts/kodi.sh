@@ -157,4 +157,7 @@ if [ $(( ($RET >= 131 && $RET <= 136) || $RET == 139 )) = "1" ] ; then
   detect_crash_loop && activate_safe_mode
 fi
 
+# Filter Kodi powerdown/restartapp/reboot codes to satisfy systemd
+[ "$RET" -ge 64 -a "$RET" -le 66 ] && RET=0
+
 exit $RET
