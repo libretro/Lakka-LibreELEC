@@ -1,0 +1,286 @@
+diff --git a/intl/msg_hash_lbl.h b/intl/msg_hash_lbl.h
+index bc251b3..619a7bc 100644
+--- a/intl/msg_hash_lbl.h
++++ b/intl/msg_hash_lbl.h
+@@ -1,5 +1,7 @@
+ MSG_HASH(MENU_ENUM_LABEL_SWITCH_GPU_PROFILE,
+       "switch_gpu_profile")
++MSG_HASH(MENU_ENUM_LABEL_SWITCH_BACKLIGHT_CONTROL,
++      "switch_backlight_control")
+ MSG_HASH(MENU_ENUM_LABEL_ACCOUNTS_CHEEVOS_USERNAME,
+       "accounts_cheevos_username")
+ MSG_HASH(MENU_ENUM_LABEL_ACCOUNTS_LIST,
+diff --git a/intl/msg_hash_us.h b/intl/msg_hash_us.h
+index f8f515a..12ced27 100644
+--- a/intl/msg_hash_us.h
++++ b/intl/msg_hash_us.h
+@@ -4,13 +4,21 @@ MSG_HASH(
+       )
+ MSG_HASH(
+       MENU_ENUM_LABEL_VALUE_SWITCH_GPU_PROFILE,
+-      "Set Switch GPU profile"
++      "Overclock GPU"
+       )
+ MSG_HASH(
+       MENU_ENUM_SUBLABEL_SWITCH_GPU_PROFILE,
+       "Overclock or underclock the Switch GPU"
+       )
+ MSG_HASH(
++      MENU_ENUM_LABEL_VALUE_SWITCH_BACKLIGHT_CONTROL,
++      "Screen brightness"
++      )
++MSG_HASH(
++      MENU_ENUM_SUBLABEL_SWITCH_BACKLIGHT_CONTROL,
++      "Increase or decrease the Switch screen brightness"
++      )
++MSG_HASH(
+       MSG_UNKNOWN_COMPILER,
+       "Unknown compiler"
+       )
+diff --git a/menu/cbs/menu_cbs_deferred_push.c b/menu/cbs/menu_cbs_deferred_push.c
+index e93fcf8..00e7af9 100644
+--- a/menu/cbs/menu_cbs_deferred_push.c
++++ b/menu/cbs/menu_cbs_deferred_push.c
+@@ -96,6 +96,7 @@ generic_deferred_push(deferred_push_load_content_special,           DISPLAYLIST_
+ generic_deferred_push(deferred_push_load_content_list,              DISPLAYLIST_LOAD_CONTENT_LIST)
+ generic_deferred_push(deferred_push_information_list,               DISPLAYLIST_INFORMATION_LIST)
+ generic_deferred_push(deferred_push_switch_gpu_profile,             DISPLAYLIST_SWITCH_GPU_PROFILE)
++generic_deferred_push(deferred_push_switch_backlight_control,       DISPLAYLIST_SWITCH_BACKLIGHT_CONTROL)
+ generic_deferred_push(deferred_archive_action_detect_core,          DISPLAYLIST_ARCHIVE_ACTION_DETECT_CORE)
+ generic_deferred_push(deferred_archive_action,                      DISPLAYLIST_ARCHIVE_ACTION)
+ generic_deferred_push(deferred_push_management_options,             DISPLAYLIST_OPTIONS_MANAGEMENT)
+@@ -883,6 +884,11 @@ static int menu_cbs_init_bind_deferred_push_compare_label(
+       BIND_ACTION_DEFERRED_PUSH(cbs, deferred_push_switch_gpu_profile);
+    }
+    else if (strstr(label,
++            msg_hash_to_str(MENU_ENUM_LABEL_SWITCH_BACKLIGHT_CONTROL)))
++   {
++      BIND_ACTION_DEFERRED_PUSH(cbs, deferred_push_switch_backlight_control);
++   }
++   else if (strstr(label,
+             msg_hash_to_str(MENU_ENUM_LABEL_SHADER_OPTIONS)))
+    {
+       BIND_ACTION_DEFERRED_PUSH(cbs, deferred_push_shader_options);
+diff --git a/menu/cbs/menu_cbs_ok.c b/menu/cbs/menu_cbs_ok.c
+index e2ca554..3d019b9 100644
+--- a/menu/cbs/menu_cbs_ok.c
++++ b/menu/cbs/menu_cbs_ok.c
+@@ -2409,6 +2409,24 @@ static int action_ok_file_load_imageviewer(const char *path,
+    return default_action_ok_load_content_with_core_from_menu(fullpath, CORE_TYPE_IMAGEVIEWER);
+ }
+ 
++static int action_ok_set_switch_backlight(const char *path,
++      const char *label, unsigned type, size_t idx, size_t entry_idx)
++{
++	int brightness = SWITCH_BRIGHTNESS[entry_idx];
++	
++	char command[PATH_MAX_LENGTH] = {0};
++	
++	snprintf(command, sizeof(command), "echo %d > /sys/class/backlight/backlight/brightness", brightness);
++	
++        system(command);
++       
++        snprintf(command, sizeof(command), "Brightness set to %d%%", brightness);
++        
++        runloop_msg_queue_push(command, 1, 90, true);
++
++	return 0;
++}
++
+ static int action_ok_set_switch_gpu_profile(const char *path,
+       const char *label, unsigned type, size_t idx, size_t entry_idx)
+ {
+@@ -4283,6 +4301,7 @@ static int menu_cbs_init_bind_ok_compare_label(menu_file_list_cbs_t *cbs,
+          case MENU_ENUM_LABEL_HELP_LIST:
+          case MENU_ENUM_LABEL_INFORMATION_LIST:
+          case MENU_ENUM_LABEL_SWITCH_GPU_PROFILE:
++         case MENU_ENUM_LABEL_SWITCH_BACKLIGHT_CONTROL:
+          case MENU_ENUM_LABEL_CONTENT_SETTINGS:
+             BIND_ACTION_OK(cbs, action_ok_push_default);
+             break;
+@@ -4626,6 +4645,9 @@ static int menu_cbs_init_bind_ok_compare_type(menu_file_list_cbs_t *cbs,
+          case MENU_SET_SWITCH_GPU_PROFILE:
+             BIND_ACTION_OK(cbs, action_ok_set_switch_gpu_profile);
+             break;
++         case MENU_SET_SWITCH_BRIGHTNESS:
++            BIND_ACTION_OK(cbs, action_ok_set_switch_backlight);
++            break;
+          case FILE_TYPE_RPL_ENTRY:
+             BIND_ACTION_OK(cbs, action_ok_rpl_entry);
+             break;
+diff --git a/menu/cbs/menu_cbs_sublabel.c b/menu/cbs/menu_cbs_sublabel.c
+index d85d48b..274e14b 100644
+--- a/menu/cbs/menu_cbs_sublabel.c
++++ b/menu/cbs/menu_cbs_sublabel.c
+@@ -50,6 +50,7 @@
+ 
+ default_sublabel_macro(action_bind_sublabel_crt_switchres,             MENU_ENUM_SUBLABEL_CRT_SWITCH_RESOLUTION)
+ default_sublabel_macro(action_bind_sublabel_switch_gpu_profile,             MENU_ENUM_SUBLABEL_SWITCH_GPU_PROFILE)
++default_sublabel_macro(action_bind_sublabel_switch_backlight_control,             MENU_ENUM_SUBLABEL_SWITCH_BACKLIGHT_CONTROL)
+ default_sublabel_macro(action_bind_sublabel_crt_switchres_super,       MENU_ENUM_SUBLABEL_CRT_SWITCH_RESOLUTION_SUPER)
+ default_sublabel_macro(action_bind_sublabel_automatically_add_content_to_playlist,             MENU_ENUM_SUBLABEL_AUTOMATICALLY_ADD_CONTENT_TO_PLAYLIST)
+ default_sublabel_macro(action_bind_sublabel_driver_settings_list,             MENU_ENUM_SUBLABEL_DRIVER_SETTINGS)
+@@ -1508,6 +1509,9 @@ int menu_cbs_init_bind_sublabel(menu_file_list_cbs_t *cbs,
+          case MENU_ENUM_LABEL_SWITCH_GPU_PROFILE:
+             BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_switch_gpu_profile);
+             break;
++         case MENU_ENUM_LABEL_SWITCH_BACKLIGHT_CONTROL:
++            BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_switch_backlight_control);
++            break;
+          case MENU_ENUM_LABEL_NETPLAY:
+             BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_netplay_settings);
+             break;
+diff --git a/menu/drivers/xmb.c b/menu/drivers/xmb.c
+index 8536a73..c2d36f1 100755
+--- a/menu/drivers/xmb.c
++++ b/menu/drivers/xmb.c
+@@ -2319,6 +2319,7 @@ static uintptr_t xmb_icon_get_id(xmb_handle_t *xmb,
+          return xmb->textures.list[XMB_TEXTURE_SETTING];
+       case MENU_SETTING_GROUP:
+       case MENU_SET_SWITCH_GPU_PROFILE:
++      case MENU_SET_SWITCH_BRIGHTNESS:
+          return xmb->textures.list[XMB_TEXTURE_SETTING];
+       case MENU_INFO_MESSAGE:
+          return xmb->textures.list[XMB_TEXTURE_CORE_INFO];
+@@ -5070,6 +5071,9 @@ static int xmb_list_push(void *data, void *userdata,
+             
+             entry.enum_idx      = MENU_ENUM_LABEL_SWITCH_GPU_PROFILE;
+             menu_displaylist_ctl(DISPLAYLIST_SETTING_ENUM, &entry);
++            
++            entry.enum_idx      = MENU_ENUM_LABEL_SWITCH_BACKLIGHT_CONTROL;
++            menu_displaylist_ctl(DISPLAYLIST_SETTING_ENUM, &entry);
+ 
+ #if !defined(IOS)
+             if (settings->bools.menu_show_quit_retroarch)
+diff --git a/menu/menu_displaylist.c b/menu/menu_displaylist.c
+index 7f3f76d..4edfe05 100644
+--- a/menu/menu_displaylist.c
++++ b/menu/menu_displaylist.c
+@@ -4222,6 +4222,29 @@ bool menu_displaylist_ctl(enum menu_displaylist_ctl_state type, void *data)
+ 
+    switch (type)
+    {
++      case DISPLAYLIST_SWITCH_BACKLIGHT_CONTROL:
++      {
++        menu_entries_ctl(MENU_ENTRIES_CTL_CLEAR, info->list);
++        
++        const size_t brightness_count = sizeof(SWITCH_BRIGHTNESS)/sizeof(SWITCH_BRIGHTNESS[1]);
++        
++        for (int i = 0; i < brightness_count; i++)
++        {
++        	char title[PATH_MAX_LENGTH] = {0};
++        	
++        	snprintf(title, sizeof(title), "Set to %d%%", SWITCH_BRIGHTNESS[i]);
++        	
++        	menu_entries_append_enum(info->list, 
++           		title,
++           		"",
++           		0, MENU_SET_SWITCH_BRIGHTNESS, 0, i);
++        }
++      
++      	info->need_push    = true;
++	info->need_refresh = true;
++	info->need_clear   = true;
++      	break;
++      }
+       case DISPLAYLIST_SWITCH_GPU_PROFILE:
+          {
+            char current_profile[PATH_MAX_LENGTH];
+@@ -6637,9 +6660,15 @@ bool menu_displaylist_ctl(enum menu_displaylist_ctl_state type, void *data)
+                menu_displaylist_parse_settings_enum(menu, info,
+                      MENU_ENUM_LABEL_QUIT_RETROARCH,
+                      PARSE_ACTION, false);
++                     
+             menu_displaylist_parse_settings_enum(menu, info,
+                      MENU_ENUM_LABEL_SWITCH_GPU_PROFILE,
+                      PARSE_ACTION, false);
++                     
++            menu_displaylist_parse_settings_enum(menu, info,
++                     MENU_ENUM_LABEL_SWITCH_BACKLIGHT_CONTROL,
++                     PARSE_ACTION, false);
++                     
+             if (settings->bools.menu_show_reboot)
+                menu_displaylist_parse_settings_enum(menu, info,
+                      MENU_ENUM_LABEL_REBOOT,
+diff --git a/menu/menu_displaylist.h b/menu/menu_displaylist.h
+index a8a52d9..077f471 100644
+--- a/menu/menu_displaylist.h
++++ b/menu/menu_displaylist.h
+@@ -165,7 +165,8 @@ enum menu_displaylist_ctl_state
+    DISPLAYLIST_CORE_CONTENT_DIRS,
+    DISPLAYLIST_CORE_CONTENT_DIRS_SUBDIR,
+    DISPLAYLIST_PENDING_CLEAR,
+-   DISPLAYLIST_SWITCH_GPU_PROFILE
++   DISPLAYLIST_SWITCH_GPU_PROFILE,
++   DISPLAYLIST_SWITCH_BACKLIGHT_CONTROL
+ };
+ 
+ typedef struct menu_displaylist_info
+diff --git a/menu/menu_driver.h b/menu/menu_driver.h
+index 3000cb8..1d5a6fb 100644
+--- a/menu/menu_driver.h
++++ b/menu/menu_driver.h
+@@ -90,6 +90,20 @@ RETRO_BEGIN_DECLS
+ 	    "153 Mhz",
+ 	    "76 Mhz"   
+    };
++   
++   static int SWITCH_BRIGHTNESS[] = {
++   	10,
++   	20,
++   	30,
++   	40,
++   	50,
++   	60,
++   	70,
++   	80,
++   	90,
++   	100
++   	
++   };
+ 
+ enum menu_image_type
+ {
+@@ -248,6 +262,8 @@ enum menu_settings_type
+    MENU_SETTINGS_SUBSYSTEM_LAST = MENU_SETTINGS_SUBSYSTEM_ADD + RARCH_MAX_SUBSYSTEMS,
+    
+    MENU_SET_SWITCH_GPU_PROFILE,
++   
++   MENU_SET_SWITCH_BRIGHTNESS,
+ 
+    MENU_SETTINGS_LAST
+ };
+diff --git a/menu/menu_setting.c b/menu/menu_setting.c
+index 706555b..35621e9 100644
+--- a/menu/menu_setting.c
++++ b/menu/menu_setting.c
+@@ -2207,6 +2207,14 @@ static bool setting_append_list(
+                &group_info,
+                &subgroup_info,
+                parent_group);
++               
++        CONFIG_ACTION(
++               list, list_info,
++               MENU_ENUM_LABEL_SWITCH_BACKLIGHT_CONTROL,
++               MENU_ENUM_LABEL_VALUE_SWITCH_BACKLIGHT_CONTROL,
++               &group_info,
++               &subgroup_info,
++               parent_group);
+ 
+          CONFIG_ACTION(
+                list, list_info,
+diff --git a/msg_hash.h b/msg_hash.h
+index 83495bb..ec8f037 100644
+--- a/msg_hash.h
++++ b/msg_hash.h
+@@ -1769,6 +1769,10 @@ enum msg_hash_enums
+    MENU_ENUM_LABEL_SWITCH_GPU_PROFILE,
+    MENU_ENUM_LABEL_VALUE_SWITCH_GPU_PROFILE,
+    MENU_ENUM_SUBLABEL_SWITCH_GPU_PROFILE,
++   
++   MENU_ENUM_LABEL_SWITCH_BACKLIGHT_CONTROL,
++   MENU_ENUM_LABEL_VALUE_SWITCH_BACKLIGHT_CONTROL,
++   MENU_ENUM_SUBLABEL_SWITCH_BACKLIGHT_CONTROL,
+ 
+    MSG_LAST
+ };
