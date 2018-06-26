@@ -82,7 +82,7 @@ else
   PKG_MESON_OPTS_TARGET+=" -Dgallium-vdpau=false"
 fi
 
-if [ "$VAAPI_SUPPORT" = "yes" ]; then
+if [ "$VAAPI_SUPPORT" = "yes" ] && listcontains "$GRAPHIC_DRIVERS" "(r600|radeonsi)"; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libva"
   PKG_MESON_OPTS_TARGET+=" -Dgallium-va=true"
 else
