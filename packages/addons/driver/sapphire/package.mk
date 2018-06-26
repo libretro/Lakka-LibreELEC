@@ -17,9 +17,9 @@
 ################################################################################
 
 PKG_NAME="sapphire"
-PKG_VERSION="6.6"
-PKG_SHA256="ed8e01764a6e41112a6544d1f8203379711d56b3e951f3291e80d5a6949eb71e"
-PKG_REV="103"
+PKG_VERSION="6.9"
+PKG_SHA256="191661e8186712fe4a08a7555dbca36676338c630536a48373048afbbb3ad2ff"
+PKG_REV="104"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="https://libreelec.tv"
