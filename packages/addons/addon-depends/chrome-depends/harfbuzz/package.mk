@@ -1,6 +1,7 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2018-present Team LibreELEC
+#      Copyright (C) 2016-present Team LibreELEC
+#      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,25 +17,22 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="chromium"
-PKG_VERSION="1.0"
-PKG_REV="100"
+PKG_NAME="harfbuzz"
+PKG_VERSION="1.8.1"
+PKG_SHA256="fbed6392ddb085e45e6090a9f389f72926d0e355f4b0a2ef51d35cf21686df45"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE=""
-PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="browser"
-PKG_SHORTDESC="Add-on removed"
-PKG_LONGDESC="Add-on removed"
-PKG_TOOLCHAIN="manual"
+PKG_SITE="http://www.freedesktop.org/wiki/Software/HarfBuzz"
+PKG_URL="https://www.freedesktop.org/software/harfbuzz/release/harfbuzz-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS_TARGET="toolchain cairo freetype glib icu"
+PKG_LONGDESC="HarfBuzz is an OpenType text shaping engine."
+PKG_TOOLCHAIN="configure"
 
-PKG_ADDON_BROKEN="Chromium is no longer maintained and has been superseded by Chrome."
+PKG_CONFIGURE_OPTS_TARGET="--with-icu \
+                           --disable-gtk-doc \
+                           --disable-gtk-doc-html \
+                           --disable-gtk-doc-pdf"
 
-PKG_IS_ADDON="yes"
-PKG_ADDON_NAME="Chromium"
-PKG_ADDON_TYPE="xbmc.broken"
-
-addon() {
-  :
+pre_configure_target() {
+  export LDFLAGS="$LDFLAGS -ldl"
 }

@@ -1,6 +1,7 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
 #      Copyright (C) 2018-present Team LibreELEC
+#      Copyright (C) 2017 Escalade
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,25 +17,11 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="chromium"
-PKG_VERSION="1.0"
-PKG_REV="100"
+PKG_NAME="at-spi2-atk"
+PKG_VERSION="2.26.2"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE=""
-PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="browser"
-PKG_SHORTDESC="Add-on removed"
-PKG_LONGDESC="Add-on removed"
-PKG_TOOLCHAIN="manual"
-
-PKG_ADDON_BROKEN="Chromium is no longer maintained and has been superseded by Chrome."
-
-PKG_IS_ADDON="yes"
-PKG_ADDON_NAME="Chromium"
-PKG_ADDON_TYPE="xbmc.broken"
-
-addon() {
-  :
-}
+PKG_LICENSE="OSS"
+PKG_SITE="http://www.gnome.org/"
+PKG_URL="https://ftp.gnome.org/pub/gnome/sources/at-spi2-atk/${PKG_VERSION:0:4}/at-spi2-atk-$PKG_VERSION.tar.xz"
+PKG_DEPENDS_TARGET="toolchain at-spi2-core atk libX11 libxml2"
+PKG_SHORTDESC="A GTK+ module that bridges ATK to D-Bus at-spi"

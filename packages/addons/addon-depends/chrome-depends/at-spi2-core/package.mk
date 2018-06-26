@@ -1,6 +1,7 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
 #      Copyright (C) 2018-present Team LibreELEC
+#      Copyright (C) 2017 Escalade
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,25 +17,18 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="chromium"
-PKG_VERSION="1.0"
-PKG_REV="100"
+PKG_NAME="at-spi2-core"
+PKG_VERSION="2.28.0"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE=""
-PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="browser"
-PKG_SHORTDESC="Add-on removed"
-PKG_LONGDESC="Add-on removed"
-PKG_TOOLCHAIN="manual"
+PKG_LICENSE="OSS"
+PKG_SITE="http://www.gnome.org/"
+PKG_URL="https://ftp.gnome.org/pub/gnome/sources/at-spi2-core/${PKG_VERSION:0:4}/at-spi2-core-$PKG_VERSION.tar.xz"
+PKG_DEPENDS_TARGET="toolchain atk dbus glib libXtst"
+PKG_LONGDESC="Protocol definitions and daemon for D-Bus at-spi"
 
-PKG_ADDON_BROKEN="Chromium is no longer maintained and has been superseded by Chrome."
+PKG_MESON_OPTS_TARGET="-Denable_docs=false \
+                       -Denable-introspection=no"
 
-PKG_IS_ADDON="yes"
-PKG_ADDON_NAME="Chromium"
-PKG_ADDON_TYPE="xbmc.broken"
-
-addon() {
-  :
+pre_configure_target() {
+  LDFLAGS="$LDFLAGS -lXext"
 }

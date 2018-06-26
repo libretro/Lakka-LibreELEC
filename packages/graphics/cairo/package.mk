@@ -90,9 +90,7 @@ PKG_CONFIGURE_OPTS_TARGET="$PKG_CAIRO_CONFIG \
                            --disable-beos \
                            --disable-cogl \
                            --disable-drm \
-                           --disable-drm-xr \
                            --disable-gallium \
-                           --disable-xcb-drm \
                            --enable-png \
                            --disable-directfb \
                            --disable-vg \
@@ -107,7 +105,7 @@ PKG_CONFIGURE_OPTS_TARGET="$PKG_CAIRO_CONFIG \
                            --disable-tee \
                            --disable-xml \
                            --enable-pthread \
-                           --disable-gobject \
+                           --enable-gobject=yes \
                            --disable-full-testing \
                            --disable-trace \
                            --enable-interpreter \

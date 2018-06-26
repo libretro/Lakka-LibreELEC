@@ -1,6 +1,7 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2018-present Team LibreELEC
+#      Copyright (C) 2016-present Team LibreELEC
+#      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,25 +17,16 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="chromium"
-PKG_VERSION="1.0"
-PKG_REV="100"
+PKG_NAME="pango"
+PKG_VERSION="1.42.1"
+PKG_SHA256="915a6756b298578ff27c7a6393f8c2e62e6e382f9411f2504d7af1a13c7bce32"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE=""
-PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="browser"
-PKG_SHORTDESC="Add-on removed"
-PKG_LONGDESC="Add-on removed"
-PKG_TOOLCHAIN="manual"
+PKG_SITE="http://www.pango.org/"
+PKG_URL="https://ftp.gnome.org/pub/gnome/sources/pango/${PKG_VERSION:0:4}/pango-$PKG_VERSION.tar.xz"
+PKG_DEPENDS_TARGET="toolchain cairo freetype fontconfig fribidi glib harfbuzz libX11 libXft"
+PKG_LONGDESC="The Pango library for layout and rendering of internationalized text."
+PKG_TOOLCHAIN="meson"
 
-PKG_ADDON_BROKEN="Chromium is no longer maintained and has been superseded by Chrome."
-
-PKG_IS_ADDON="yes"
-PKG_ADDON_NAME="Chromium"
-PKG_ADDON_TYPE="xbmc.broken"
-
-addon() {
-  :
-}
+PKG_MESON_OPTS_TARGET="-Denable_docs=false \
+                       -Dgir=false"

@@ -1,6 +1,7 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2018-present Team LibreELEC
+#      Copyright (C) 2016-present Team LibreELEC
+#      Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,25 +17,16 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="chromium"
-PKG_VERSION="1.0"
-PKG_REV="100"
+PKG_NAME="libXft"
+PKG_VERSION="2.3.2"
+PKG_SHA256="f5a3c824761df351ca91827ac221090943ef28b248573486050de89f4bfcdc4c"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE=""
-PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="browser"
-PKG_SHORTDESC="Add-on removed"
-PKG_LONGDESC="Add-on removed"
-PKG_TOOLCHAIN="manual"
+PKG_LICENSE="OSS"
+PKG_SITE="http://www.X.org"
+PKG_URL="https://xorg.freedesktop.org/archive/individual/lib/libXft-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS_TARGET="toolchain fontconfig freetype libXrender util-macros xorgproto"
+PKG_LONGDESC="X FreeType library"
+PKG_BUILD_FLAGS="+pic"
 
-PKG_ADDON_BROKEN="Chromium is no longer maintained and has been superseded by Chrome."
-
-PKG_IS_ADDON="yes"
-PKG_ADDON_NAME="Chromium"
-PKG_ADDON_TYPE="xbmc.broken"
-
-addon() {
-  :
-}
+PKG_CONFIGURE_OPTS_TARGET="--enable-static \
+                           --disable-shared"

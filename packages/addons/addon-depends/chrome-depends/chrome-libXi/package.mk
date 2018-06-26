@@ -16,25 +16,17 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="chromium"
-PKG_VERSION="1.0"
-PKG_REV="100"
-PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE=""
+. $(get_pkg_directory libXi)/package.mk
+
+PKG_NAME="chrome-libXi"
+PKG_LONGDESC="libXi for chrome"
 PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="browser"
-PKG_SHORTDESC="Add-on removed"
-PKG_LONGDESC="Add-on removed"
-PKG_TOOLCHAIN="manual"
 
-PKG_ADDON_BROKEN="Chromium is no longer maintained and has been superseded by Chrome."
-
-PKG_IS_ADDON="yes"
-PKG_ADDON_NAME="Chromium"
-PKG_ADDON_TYPE="xbmc.broken"
-
-addon() {
-  :
+unpack() {
+  mkdir -p $PKG_BUILD
+  tar --strip-components=1 -xf $SOURCES/${PKG_NAME:7}/${PKG_NAME:7}-$PKG_VERSION.tar.bz2 -C $PKG_BUILD
 }
+
+PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET \
+                           --disable-static \
+                           --enable-shared"

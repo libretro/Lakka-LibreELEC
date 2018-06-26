@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2018-present Team LibreELEC
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,25 +16,22 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="chromium"
-PKG_VERSION="1.0"
-PKG_REV="100"
+PKG_NAME="unclutter"
+PKG_VERSION="1.09"
+PKG_SHA256="3a53575fe2a75a34bc9a2b0ad92ee0f8a7dbedc05d8783f191c500060a40a9bd"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE=""
-PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="browser"
-PKG_SHORTDESC="Add-on removed"
-PKG_LONGDESC="Add-on removed"
-PKG_TOOLCHAIN="manual"
+PKG_LICENSE="Public Domain"
+PKG_SITE="https://sourceforge.net/projects/unclutter/"
+PKG_URL="https://sourceforge.net/projects/unclutter/unclutter/source_$PKG_VERSION/unclutter-$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="toolchain libX11"
+PKG_LONGDESC="Unclutter runs in the background of an X11 session and hides the X11 Cursor."
 
-PKG_ADDON_BROKEN="Chromium is no longer maintained and has been superseded by Chrome."
+make_target() {
+  rm -f Makefile
+  LDFLAGS="$LDFLAGS -lX11" $MAKE unclutter
+}
 
-PKG_IS_ADDON="yes"
-PKG_ADDON_NAME="Chromium"
-PKG_ADDON_TYPE="xbmc.broken"
-
-addon() {
-  :
+makeinstall_target() {
+  mkdir -p .install_pkg/usr/bin
+  install -m 755 unclutter .install_pkg/usr/bin/
 }

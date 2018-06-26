@@ -1,6 +1,7 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
 #      Copyright (C) 2018-present Team LibreELEC
+#      Copyright (C) 2017 Escalade
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,25 +17,29 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="chromium"
-PKG_VERSION="1.0"
-PKG_REV="100"
+PKG_NAME="cups"
+PKG_VERSION="2.2.8"
+PKG_SHA256="8f87157960b9d80986f52989781d9de79235aa060e05008e4cf4c0a6ef6bca72"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE=""
-PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="browser"
-PKG_SHORTDESC="Add-on removed"
-PKG_LONGDESC="Add-on removed"
-PKG_TOOLCHAIN="manual"
+PKG_SITE="http://www.cups.org"
+PKG_URL="https://github.com/apple/cups/archive/v$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="toolchain openssl zlib"
+PKG_LONGDESC="CUPS printing system"
+PKG_BUILD_FLAGS="+pic"
 
-PKG_ADDON_BROKEN="Chromium is no longer maintained and has been superseded by Chrome."
+pre_configure_target() {
+  cd ..
+  rm -rf .$TARGET_NAME
+}
 
-PKG_IS_ADDON="yes"
-PKG_ADDON_NAME="Chromium"
-PKG_ADDON_TYPE="xbmc.broken"
+PKG_CONFIGURE_OPTS_TARGET="--libdir=/usr/lib \
+                           --disable-gssapi \
+                           --disable-avahi \
+                           --disable-systemd \
+                           --disable-launchd \
+                           --disable-unit-tests"
 
-addon() {
-  :
+makeinstall_target() {
+  make BUILDROOT="$INSTALL/../.INSTALL_PKG"
 }

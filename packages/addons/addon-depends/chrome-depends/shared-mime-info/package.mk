@@ -16,25 +16,16 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="chromium"
-PKG_VERSION="1.0"
-PKG_REV="100"
+PKG_NAME="shared-mime-info"
+PKG_VERSION="1.9"
+PKG_SHA256="5c0133ec4e228e41bdf52f726d271a2d821499c2ab97afd3aa3d6cf43efcdc83"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE=""
-PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="browser"
-PKG_SHORTDESC="Add-on removed"
-PKG_LONGDESC="Add-on removed"
-PKG_TOOLCHAIN="manual"
+PKG_LICENSE="GPL2"
+PKG_SITE="https://freedesktop.org/wiki/Software/shared-mime-info/"
+PKG_URL="http://freedesktop.org/~hadess/shared-mime-info-$PKG_VERSION.tar.xz"
+PKG_DEPENDS_TARGET="toolchain libxml2"
+PKG_LONGDESC="The shared-mime-info package contains the core database of common types."
+PKG_BUILD_FLAGS="-parallel"
 
-PKG_ADDON_BROKEN="Chromium is no longer maintained and has been superseded by Chrome."
-
-PKG_IS_ADDON="yes"
-PKG_ADDON_NAME="Chromium"
-PKG_ADDON_TYPE="xbmc.broken"
-
-addon() {
-  :
-}
+PKG_CONFIGURE_OPTS_TARGET="--disable-nls \
+                           --disable-update-mimedb"
