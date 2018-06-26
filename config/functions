@@ -504,8 +504,9 @@ set_debug_depends() {
       [ -z "${map}" ] && map="${pkg}"
       for mpkg in ${map//,/ }; do
         [[ ${mpkg} =~ ^[!-] ]] && bpkg="${mpkg:1}" || bpkg="${mpkg}"
+        [[ ${bpkg} =~ \+$ ]] && bpkg="${bpkg::-1}"
         # Remove existing instances of this package
-        listcontains "${_DEBUG_PACKAGE_LIST}" "[!-]?${bpkg}" && _DEBUG_PACKAGE_LIST="$(listremoveitem "${_DEBUG_PACKAGE_LIST}" "[!-]?${bpkg}")"
+        listcontains "${_DEBUG_PACKAGE_LIST}" "[!-]?${bpkg}[+]?" && _DEBUG_PACKAGE_LIST="$(listremoveitem "${_DEBUG_PACKAGE_LIST}" "[!-]?${bpkg}[+]?")"
         # Add package
         _DEBUG_PACKAGE_LIST+=" ${mpkg}"
       done
@@ -514,11 +515,12 @@ set_debug_depends() {
     tmp_array=(${_DEBUG_PACKAGE_LIST})
     _DEBUG_PACKAGE_LIST="${tmp_array[@]}"
 
-    # Determine dependencies for each package
+    # Determine dependencies for each package+
     for pkg in ${_DEBUG_PACKAGE_LIST}; do
       if [ "${pkg}" != "all" ] && [[ ! ${pkg} =~ ^[!-] ]]; then
         ! listcontains "${_DEBUG_DEPENDS_LIST}" "${pkg}" && _DEBUG_DEPENDS_LIST+=" ${pkg}"
-        for dep_pkg in $(get_pkg_variable ${pkg} PKG_DEPENDS_TARGET); do
+        [[ ! ${pkg} =~ \+$ ]] && continue
+        for dep_pkg in $(get_pkg_variable ${pkg::-1} PKG_DEPENDS_TARGET); do
           [ "${dep_pkg}" = "toolchain" ] && continue
           [[ ${dep_pkg} =~ ^.*:host$ ]] && continue
           ! listcontains "${_DEBUG_DEPENDS_LIST}" "${dep_pkg}" && _DEBUG_DEPENDS_LIST+=" ${dep_pkg}"
@@ -536,7 +538,7 @@ set_debug_depends() {
 build_with_debug() {
   if [ "${DEBUG:-no}" != "no" -a -n "${PKG_NAME}" -a -n "${_DEBUG_DEPENDS_LIST+x}" ]; then
     # Return 1 if this package is not to be built with debug
-    listcontains "${_DEBUG_PACKAGE_LIST}" "[!-]${PKG_NAME}" && return 1
+    listcontains "${_DEBUG_PACKAGE_LIST}" "[!-]${PKG_NAME}[+]?" && return 1
 
     # Build all packages with debug
     listcontains "${_DEBUG_PACKAGE_LIST}" "all" && return 0
@@ -544,11 +546,11 @@ build_with_debug() {
     # Debugging is enabled for at least one package, so enable debug in the "debug" virtual package
     [ "${PKG_NAME}" = "debug" ] && return 0
 
-    # Build addons with debug if we're building the mediacenter with debug
-    [ "${PKG_IS_ADDON}" = "yes" ] && listcontains "${_DEBUG_DEPENDS_LIST}" "${MEDIACENTER}" && return 0
+    # Build addons with debug if we're building the mediacenter with debug and with dependencies
+    [ "${PKG_IS_ADDON}" = "yes" ] && listcontains "${_DEBUG_DEPENDS_LIST}" "${MEDIACENTER}\+" && return 0
 
-    # Build kernel packages with debug if we're building the kernel with debug
-    [ "${PKG_IS_KERNEL_PKG}" = "yes" ] && listcontains "${_DEBUG_DEPENDS_LIST}" "linux" && return 0
+    # Build kernel packages with debug if we're building the kernel with debug and with dependencies
+    [ "${PKG_IS_KERNEL_PKG}" = "yes" ] && listcontains "${_DEBUG_DEPENDS_LIST}" "linux\+" && return 0
 
     # Build this package with debug if it's a resolved dependency
     listcontains "${_DEBUG_DEPENDS_LIST}" "${PKG_NAME}" && return 0
