@@ -48,6 +48,10 @@ if [ "$AVAHI_DAEMON" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET avahi nss-mdns"
 fi
 
+if [ "$PROJECT" = "Switch" ]; then
+   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET pulseaudio"
+fi
+
 if [ "$PROJECT" == "Switch" ]; then
   RETROARCH_GL="--disable-kms --enable-x11 --disable-wayland --disable-opengles --enable-opengl"
 elif [ "$OPENGLES" == "no" ]; then
