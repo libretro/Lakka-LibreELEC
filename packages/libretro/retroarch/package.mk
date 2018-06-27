@@ -56,6 +56,10 @@ if [ "$AVAHI_DAEMON" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET avahi nss-mdns"
 fi
 
+if [ "$PROJECT" = "Switch" ]; then
+   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET pulseaudio"
+fi
+
 if [ "$VULKAN" == "nvidia-driver" ]; then
   RETROARCH_GL="--enable-vulkan --disable-x11 --disable-kms --disable-egl"
 elif [ "$PROJECT" == "Switch" ]; then
