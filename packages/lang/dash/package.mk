@@ -1,7 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
 #      Copyright (C) 2018-present Team LibreELEC
-#      Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,13 +16,19 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="toolchain"
-PKG_VERSION=""
+PKG_NAME="dash"
+PKG_VERSION="0.5.10.2"
+PKG_SHA256="c34e1259c4179a6551dc3ceb41c668cf3be0135c5ec430deb2edfc17fff44da9"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="https://libreelec.tv"
-PKG_URL=""
-PKG_DEPENDS_TARGET="configtools:host make:host xz:host sed:host pkg-config:host autoconf:host automake:host dash:host intltool:host libtool:host autoconf-archive:host gcc:host bison:host flex:host cmake:host xmlstarlet:host yasm:host p7zip:host ninja:host meson:host"
-PKG_SECTION="virtual"
-PKG_SHORTDESC="toolchain: LibreELEC.tv' toolchain"
-PKG_LONGDESC="a crosscompiling toolchain to compile all packages"
+PKG_SITE="http://gondor.apana.org.au/~herbert/dash/"
+PKG_URL="https://git.kernel.org/pub/scm/utils/dash/dash.git/snapshot/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_DEPENDS_HOST=""
+PKG_SECTION="lang"
+PKG_SHORTDESC="dash: Debian Almquist shell"
+PKG_LONGDESC="DASH is a POSIX-compliant implementation of /bin/sh that aims to be as small as possible. It does this without sacrificing speed where possible. In fact, it is significantly faster than bash (the GNU Bourne-Again SHell) for most tasks."
+PKG_TOOLCHAIN="configure"
+
+pre_configure_host() {
+  $PKG_BUILD/autogen.sh
+}
