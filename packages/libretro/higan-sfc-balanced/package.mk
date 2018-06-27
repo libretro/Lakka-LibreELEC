@@ -19,11 +19,11 @@
 ################################################################################
 
 PKG_NAME="higan-sfc-balanced"
-PKG_VERSION="f43168a"
+PKG_VERSION="4892144"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
-PKG_SITE="https://github.com/hex-usr/nSide"
+PKG_SITE="https://github.com/libretro/nSide"
 PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
