@@ -216,7 +216,8 @@ configure_target() {
               --disable-altivec \
               $PKG_FFMPEG_FPU \
               $PKG_FFMPEG_X86ASM \
-              --disable-symver
+              --disable-symver \
+              --disable-programs
 }
 
 post_makeinstall_target() {
