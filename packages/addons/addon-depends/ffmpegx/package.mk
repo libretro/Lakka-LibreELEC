@@ -17,17 +17,16 @@
 ################################################################################
 
 PKG_NAME="ffmpegx"
-PKG_VERSION="4.0"
-PKG_SHA256="95296f881f7e367731a35a71e3df5ebe9360cd4c859f06793bf8dcf917ee8e5a"
+PKG_VERSION="4.0.1"
+PKG_SHA256="cbb7c3ed5b7a669962dfe7c58dc495279274ac259e75770cccf2d2b0115ff5fb"
 PKG_ARCH="any"
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://ffmpeg.org"
 PKG_URL="https://github.com/FFmpeg/FFmpeg/archive/n${PKG_VERSION}.tar.gz"
 PKG_SOURCE_DIR="FFmpeg-n${PKG_VERSION}"
-PKG_DEPENDS_TARGET="toolchain bzip2 fdk-aac libvorbis openssl opus x264 x265 zlib"
+PKG_DEPENDS_TARGET="toolchain aom bzip2 fdk-aac libvorbis openssl opus x264 x265 zlib"
 PKG_SECTION="multimedia"
 PKG_LONGDESC="FFmpegx is an complete FFmpeg build to support encoding and decoding"
-# ffmpeg builds better with these options
 PKG_BUILD_FLAGS="-gold"
 
 # Dependencies
