@@ -189,7 +189,6 @@ configure_target() {
     --extra-cflags="$CFLAGS" \
     --extra-ldflags="$LDFLAGS" \
     --extra-libs="$PKG_FFMPEG_LIBS" \
-    --extra-version="x" \
     --enable-pic \
     --enable-openssl \
     \
@@ -200,8 +199,4 @@ configure_target() {
 
 makeinstall_target() {
   make install DESTDIR="$INSTALL/../.INSTALL_PKG"
-}
-
-post_makeinstall_target() {
-  for ff in "$INSTALL/../.INSTALL_PKG/usr/local/bin/"*; do mv "$ff" "${ff}x"; done
 }
