@@ -44,7 +44,6 @@ PKG_CONFIGURE_OPTS_TARGET="py_cv_mod_gtk_=yes \
                            --disable-gdbm \
                            --enable-libdaemon \
                            --disable-python \
-                           --disable-pygtk \
                            --disable-python-dbus \
                            --disable-mono \
                            --disable-monodoc \

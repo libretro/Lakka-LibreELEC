@@ -31,7 +31,6 @@ PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="WPASUPPLICANT=/usr/bin/wpa_supplicant \
                            --srcdir=.. \
-                           --disable-gtk-doc \
                            --disable-debug \
                            --disable-hh2serial-gps \
                            --disable-openconnect \

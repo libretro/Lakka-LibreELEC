@@ -31,12 +31,9 @@ PKG_LONGDESC="OpenVPN Access Server is a full featured SSL VPN software solution
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_have_decl_TUNSETPERSIST=no \
                            --disable-server \
-                           --enable-password-save \
                            --disable-plugins \
                            --enable-iproute2 IPROUTE=/sbin/ip \
                            --enable-management \
-                           --disable-socks \
-                           --disable-http-proxy \
                            --enable-fragment \
                            --disable-multihome \
                            --disable-port-share \

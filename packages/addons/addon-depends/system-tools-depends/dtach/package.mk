@@ -28,8 +28,6 @@ PKG_SECTION="tools"
 PKG_SHORTDESC="dtach - A program that emulates the detach feature of screen"
 PKG_LONGDESC="dtach - A program that emulates the detach feature of screen"
 
-PKG_CONFIGURE_OPTS_TARGET="--disable-nls"
-
 makeinstall_target() {
-  : # nop
+  :
 }
