@@ -318,7 +318,7 @@ get_pkg_directory() {
   local _PKG_ROOT_NAME=${1%:*} _ALL_DIRS _FOUND=0 _ANCHOR="@?+?@" _PKG_DIR _DIR
 
   # Check for any available local package in preference to a global package
-  for _DIR in $(echo -e "${_CACHE_PACKAGE_LOCAL}" | grep -F "/${_PKG_ROOT_NAME}${_ANCHOR}"); do
+  for _DIR in $(grep -F "/${_PKG_ROOT_NAME}${_ANCHOR}" "${_CACHE_PACKAGE_LOCAL}"); do
     _DIR="${_DIR%${_ANCHOR}}"
     # found first, set $_PKG_DIR
     _PKG_DIR="$_DIR"
@@ -329,7 +329,7 @@ get_pkg_directory() {
 
   # If there's no local package available, use the global package
   if [ $_FOUND -eq 0 ]; then
-    for _DIR in $(echo -e "${_CACHE_PACKAGE_GLOBAL}" | grep -F "/${_PKG_ROOT_NAME}${_ANCHOR}"); do
+    for _DIR in $(grep -F "/${_PKG_ROOT_NAME}${_ANCHOR}" "${_CACHE_PACKAGE_GLOBAL}"); do
       _DIR="${_DIR%${_ANCHOR}}"
       # found first, set $_PKG_DIR
       _PKG_DIR="$_DIR"
@@ -810,25 +810,28 @@ init_package_cache() {
   local _ANCHOR="@?+?@" DIR
 
   # If the package caches are unset, then populate them
-  if [ -z "${_CACHE_PACKAGE_LOCAL+x}" -o -z "${_CACHE_PACKAGE_GLOBAL+x}" ]; then
-    _CACHE_PACKAGE_LOCAL=""
-    _CACHE_PACKAGE_GLOBAL=""
+  if [ -z "${_CACHE_PACKAGE_LOCAL}" -o -z "${_CACHE_PACKAGE_GLOBAL}" ]; then
+    _CACHE_PACKAGE_LOCAL="${BUILD}/.cache_package_local"
+    _CACHE_PACKAGE_GLOBAL="${BUILD}/.cache_package_global"
+    mkdir -p "${BUILD}"
+    : > "${_CACHE_PACKAGE_LOCAL}"
+    : > "${_CACHE_PACKAGE_GLOBAL}"
 
     # cache project/device folder for a package
     if [ -n $DEVICE ]; then
       for DIR in $(find $ROOT/projects/$PROJECT/devices/$DEVICE/packages -type d 2>/dev/null); do
-        [ -r "$DIR/package.mk" ] && _CACHE_PACKAGE_LOCAL+="${DIR}${_ANCHOR}\n"
+        [ -r "$DIR/package.mk" ] && echo "${DIR}${_ANCHOR}" >> "${_CACHE_PACKAGE_LOCAL}"
       done
     fi
 
     # cache project folder for a package
     for DIR in $(find $ROOT/projects/$PROJECT/packages -type d 2>/dev/null); do
-      [ -r "$DIR/package.mk" ] && _CACHE_PACKAGE_LOCAL+="${DIR}${_ANCHOR}\n"
+      [ -r "$DIR/package.mk" ] && echo "${DIR}${_ANCHOR}" >> "${_CACHE_PACKAGE_LOCAL}"
     done
 
     # cache packages folder
     for DIR in $(find $ROOT/$PACKAGES -type d 2>/dev/null); do
-      [ -r "$DIR/package.mk" ] && _CACHE_PACKAGE_GLOBAL+="${DIR}${_ANCHOR}\n"
+      [ -r "$DIR/package.mk" ] && echo "${DIR}${_ANCHOR}" >> "${_CACHE_PACKAGE_GLOBAL}"
     done
 
     export _CACHE_PACKAGE_LOCAL _CACHE_PACKAGE_GLOBAL
