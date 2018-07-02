@@ -2,7 +2,7 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="Adafruit_Python_MCP3008"
-PKG_VERSION="e721d26"
+PKG_VERSION="e721d26e650c99b0f6d3efd4ec30444e1adf5ccd"
 PKG_SHA256="f5e4c847a87716c16f0209df95c281b5071549644a79a143a77b212f25c464dc"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"

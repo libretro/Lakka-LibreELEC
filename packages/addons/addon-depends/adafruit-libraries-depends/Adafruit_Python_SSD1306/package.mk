@@ -2,8 +2,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="Adafruit_Python_SSD1306"
-PKG_VERSION="b7eccd1"
-PKG_SHA256="eb9d6a1387557681d5f86dbdaa4acd96de74aeccbad57bae647c6da947f9e044"
+PKG_VERSION="8819e2d203df49f2843059d981b7347d9881c82b"
+PKG_SHA256="ed1163dee2fe6c0c2065a429e1d93cff7397a309071ff83714c84566739680a2"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/adafruit/${PKG_NAME}"

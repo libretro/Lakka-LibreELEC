@@ -2,7 +2,7 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="Adafruit_Python_WS2801"
-PKG_VERSION="d0c1907"
+PKG_VERSION="d0c190715ffef1b00e5ffa2d7b7560e7f8ed4263"
 PKG_SHA256="6219edb5c1d767ff950f5020bacdfb5ba608b4995eb14d6073fdec2f17f584cb"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"

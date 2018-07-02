@@ -2,7 +2,7 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="Adafruit_Python_TCS34725"
-PKG_VERSION="6306f90"
+PKG_VERSION="6306f90b4601237a852acef89eeecc1261ce38b3"
 PKG_SHA256="f2c3218551da55d7fdbe2499a6ffa3a0b8ed1709e4402c6b0e0f37b17d4aa81f"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
