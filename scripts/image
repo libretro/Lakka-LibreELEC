@@ -330,26 +330,55 @@ if [ "$1" = "release" -o "$1" = "mkimage" -o "$1" = "amlpkg" -o "$1" = "noobs" ]
      cp -PR $BUILD/imx6-mfgtool2-tbs-matrix-*/* $RELEASE_DIR/MfgTool2-TBS-Matrix
   fi
 
-  cp $ROOT/README* $RELEASE_DIR
-  cp $ROOT/CHANGELOG* $RELEASE_DIR
-  echo "$TARGET_VERSION" > $RELEASE_DIR/RELEASE
+  if [ "$PROJECT" != "Switch" ]; then
+    cp $ROOT/README* $RELEASE_DIR
+    cp $ROOT/CHANGELOG* $RELEASE_DIR
+    echo "$TARGET_VERSION" > $RELEASE_DIR/RELEASE
 
-  if [ -n "$MEDIACENTER" ] ; then
-    echo "Kodi commit: `scripts/git_version $MEDIACENTER`" >> $RELEASE_DIR/RELEASE
+    if [ -n "$MEDIACENTER" ] ; then
+      echo "Kodi commit: `scripts/git_version $MEDIACENTER`" >> $RELEASE_DIR/RELEASE
+    fi
+  else
+    mkdir -p $RELEASE_DIR/lakka
+    cp $ROOT/README* $RELEASE_DIR/lakka
+    cp $ROOT/CHANGELOG* $RELEASE_DIR/lakka
+    echo "$TARGET_VERSION" > $RELEASE_DIR/lakka/RELEASE
   fi
 
-  mkdir -p $RELEASE_DIR/licenses
-  cp $ROOT/licenses/* $RELEASE_DIR/licenses
+  if [ "$PROJECT" = "Switch" ]; then
+    mkdir -p $RELEASE_DIR/lakka/licenses
+    cp $ROOT/licenses/* $RELEASE_DIR/lakka/licenses
+  else
+    mkdir -p $RELEASE_DIR/licenses
+    cp $ROOT/licenses/* $RELEASE_DIR/licenses
+  fi
 
-  mkdir -p $RELEASE_DIR/target
-  cp $TARGET_IMG/$IMAGE_NAME.system $RELEASE_DIR/target/SYSTEM
-  cp $TARGET_IMG/$IMAGE_NAME.kernel $RELEASE_DIR/target/KERNEL
+
+  if [ "$PROJECT" = "Switch" ]; then
+    mkdir -p $RELEASE_DIR/lakka/storage
+    cp $TARGET_IMG/$IMAGE_NAME.system $RELEASE_DIR/lakka/SYSTEM
+    cp $TARGET_IMG/$IMAGE_NAME.kernel $RELEASE_DIR/lakka/KERNEL
+  else
+    mkdir -p $RELEASE_DIR/target
+    cp $TARGET_IMG/$IMAGE_NAME.system $RELEASE_DIR/target/SYSTEM
+    cp $TARGET_IMG/$IMAGE_NAME.kernel $RELEASE_DIR/target/KERNEL
+  fi
+
 
   # create md5sum's
-  ( cd $RELEASE_DIR;
-    md5sum -t target/SYSTEM > target/SYSTEM.md5;
-    md5sum -t target/KERNEL > target/KERNEL.md5;
-  )
+  if [ "$PROJECT" = "Switch" ]; then
+          ( cd $RELEASE_DIR;
+            md5sum -t lakka/SYSTEM > lakka/SYSTEM.md5;
+            md5sum -t lakka/KERNEL > lakka/KERNEL.md5;
+          )
+  else
+          ( cd $RELEASE_DIR;
+            md5sum -t target/SYSTEM > target/SYSTEM.md5;
+            md5sum -t target/KERNEL > target/KERNEL.md5;
+          )
+  fi
+  
+  
 
   # create target directory
   mkdir -p $TARGET_IMG
@@ -361,7 +390,7 @@ if [ "$1" = "release" -o "$1" = "mkimage" -o "$1" = "amlpkg" -o "$1" = "noobs" ]
   tar cf $TARGET_IMG/$IMAGE_NAME.tar -C target $IMAGE_NAME
 
   # create image files if requested
-  if [[ ( "$1" = "amlpkg" || "$1" = "noobs" || "$1" = "mkimage" ) && -n "$BOOTLOADER" ]]; then
+  if [[ ( "$1" = "amlpkg" || "$1" = "noobs" || "$1" = "mkimage" ) && -n "$BOOTLOADER" && "$PROJECT" != "Switch" ]]; then
     # projects can set KERNEL_NAME (kernel.img)
     if [ -z "$KERNEL_NAME" ] ; then
       KERNEL_NAME="KERNEL"

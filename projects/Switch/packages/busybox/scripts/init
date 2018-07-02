@@ -27,7 +27,6 @@
   /usr/bin/busybox mkdir -p /tmp
   /usr/bin/busybox mkdir -p /flash
   /usr/bin/busybox mkdir -p /sysroot
-  /usr/bin/busybox mkdir -p /storage
 
   # mount all needed special filesystems
   /usr/bin/busybox mount -t devtmpfs devtmpfs /dev
@@ -43,10 +42,10 @@
   UPDATE_ROOT=/storage/.update
   UPDATE_DIR="$UPDATE_ROOT"
 
-  UPDATE_KERNEL="KERNEL"
-  UPDATE_SYSTEM="SYSTEM"
-  IMAGE_KERNEL="KERNEL"
-  IMAGE_SYSTEM="SYSTEM"
+  UPDATE_KERNEL="lakka/KERNEL"
+  UPDATE_SYSTEM="lakka/SYSTEM"
+  IMAGE_KERNEL="lakka/KERNEL"
+  IMAGE_SYSTEM="lakka/SYSTEM"
 
   BOOT_STEP="start"
   MD5_FAILED="0"
@@ -435,7 +434,7 @@
 
       # loopback file needs writable /flash all the time
       if [ "${disk%%=*}" != "FILE" ]; then
-        mount -o remount,ro /flash
+        mount -o remount,rw /flash
       fi
       sync
     fi
@@ -564,10 +563,6 @@
       /usr/bin/busybox umount /flash
     fi
 
-    if /usr/bin/busybox mountpoint -q /storage ; then
-      /usr/bin/busybox umount /storage
-    fi
-
     usleep 2000000
     echo "Please turn off your Nintendo Switch now by pressing the POWER button for 10 seconds"
     # /usr/bin/busybox reboot
@@ -655,42 +650,15 @@
 
     wakeonlan
 
-    mount_part "$boot" "/flash" "ro,noatime"
+    mount_part "$boot" "/flash" "rw,noatime"
   }
 
   mount_storage() {
     progress "Mounting storage"
 
-    if [ "$LIVE" = "yes" ]; then
-      # mount tmpfs and exit early. disk=xx is not allowed in live mode
-      mount -t tmpfs none /storage
-      return
-    fi
-
     wakeonlan
-
-    if [ -n "$disk" ]; then
-      if [ -n "$OVERLAY" ]; then
-        OVERLAY_DIR=`cat /sys/class/net/eth0/address | tr -d :`
-
-        mount_part "$disk" "/storage" "rw,noatime"
-        mkdir -p /storage/$OVERLAY_DIR
-        umount /storage
-
-        # split $disk into $target,$options so we can append $OVERLAY_DIR
-        options="${disk#*,}"
-        target="${disk%%,*}"
-        if [ "$options" = "$disk" ]; then
-          disk="$target/$OVERLAY_DIR"
-        else
-          disk="$target/$OVERLAY_DIR,$options"
-        fi
-      fi
-      mount_part "$disk" "/storage" "rw,noatime"
-    else
-      # /storage should always be writable
-      mount -t tmpfs none /storage
-    fi
+  
+    ln -s /flash/storage/ /storage
   }
 
   # Make last bootloader label (installer, live, run etc.) as the new default
@@ -706,7 +674,7 @@
           mount -o remount,rw /flash
           sed -i "s/^DEFAULT .*/DEFAULT $SYSLINUX_DEFAULT/" /flash/syslinux.cfg
           [ -f /flash/EFI/BOOT/syslinux.cfg ] && cp /flash/syslinux.cfg /flash/EFI/BOOT/syslinux.cfg
-          mount -o remount,ro /flash
+          mount -o remount,rw /flash
         fi
       fi
     fi
@@ -1003,7 +971,7 @@
     fi
 
     mount --move /flash /sysroot/flash
-    mount --move /storage /sysroot/storage
+    ln -s /storage/ /sysroot/storage
 
     if [ ! -d "/sysroot/usr/lib/modules/$(uname -r)/" -a -f "/sysroot/usr/lib/systemd/systemd" ]; then
       echo ""
@@ -1043,20 +1011,6 @@
 
   BOOT_STEP=final
 
-  # log if booting from usb / removable storage
-  STORAGE=$(cat /proc/mounts | grep " /sysroot/storage " | awk '{print $1}' | awk -F '/' '{print $3}')
-  FLASH=$(cat /proc/mounts | grep " /sysroot/flash " | awk '{print $1}' | awk -F '/' '{print $3}')
-  for i in $STORAGE $FLASH ; do
-    if [ -n "$i" ] ; then
-      removable="/sys/class/block/*/$i/../removable"
-      if [ -e $removable ] ; then
-        if [ "$(cat $removable 2>/dev/null)" = "1" ] ; then
-          echo "### BIG FAT WARNING" > /dev/kmsg
-          echo "### $i is removable. suspend/resume may not work" > /dev/kmsg
-        fi
-      fi
-    fi
-  done
   # move some special filesystems
   /usr/bin/busybox mount --move /dev /sysroot/dev
   /usr/bin/busybox mount --move /proc /sysroot/proc
@@ -1070,10 +1024,6 @@
   # swap can not be used over nfs.(see scripts/mount-swap)
   if [ "$STORAGE_NETBOOT" = "yes" ] ; then
     echo "" > /sysroot/dev/.storage_netboot
-  fi
-
-  if [ -f /sysroot/storage/.please_resize_me ] ; then
-    INIT_UNIT="--unit=fs-resize.target"
   fi
 
   BACKUP_FILE=`ls -1 /sysroot/storage/.restore/??????????????.tar 2>/dev/null | head -n 1`
