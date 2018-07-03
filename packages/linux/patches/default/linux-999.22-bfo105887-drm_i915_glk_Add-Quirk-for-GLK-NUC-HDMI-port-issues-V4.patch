@@ -1,8 +1,8 @@
 diff --git a/drivers/gpu/drm/i915/i915_drv.h b/drivers/gpu/drm/i915/i915_drv.h
-index 2b684f4..6c5a679 100644
+index 2cefe4c..c1526ea 100644
 --- a/drivers/gpu/drm/i915/i915_drv.h
 +++ b/drivers/gpu/drm/i915/i915_drv.h
-@@ -655,6 +655,7 @@ enum intel_sbi_destination {
+@@ -650,6 +650,7 @@ enum intel_sbi_destination {
  #define QUIRK_BACKLIGHT_PRESENT (1<<3)
  #define QUIRK_PIN_SWIZZLED_PAGES (1<<5)
  #define QUIRK_INCREASE_T12_DELAY (1<<6)
@@ -11,7 +11,7 @@ index 2b684f4..6c5a679 100644
  struct intel_fbdev;
  struct intel_fbc_work;
 diff --git a/drivers/gpu/drm/i915/intel_ddi.c b/drivers/gpu/drm/i915/intel_ddi.c
-index 0319825..89bb5ce 100644
+index 0319825..6d33010 100644
 --- a/drivers/gpu/drm/i915/intel_ddi.c
 +++ b/drivers/gpu/drm/i915/intel_ddi.c
 @@ -1807,15 +1807,27 @@ void intel_ddi_enable_transcoder_func(const struct intel_crtc_state *crtc_state)
@@ -31,21 +31,22 @@ index 0319825..89bb5ce 100644
 +
  	i915_reg_t reg = TRANS_DDI_FUNC_CTL(cpu_transcoder);
  	uint32_t val = I915_READ(reg);
- 
+-
  	val &= ~(TRANS_DDI_FUNC_ENABLE | TRANS_DDI_PORT_MASK | TRANS_DDI_DP_VC_PAYLOAD_ALLOC);
  	val |= TRANS_DDI_PORT_NONE;
  	I915_WRITE(reg, val);
 +
 +	if (dev_priv->quirks & QUIRK_INCREASE_DDI_DISABLED_TIME &&
-+	    intel_crtc_has_type(crtc_state, INTEL_OUTPUT_HDMI)) {
-+		msleep(DDI_DISABLED_QUIRK_TIME);
++	    (intel_crtc_has_type(crtc_state, INTEL_OUTPUT_HDMI) ||
++	     intel_crtc_has_type(crtc_state, INTEL_OUTPUT_DDI))) {
 +		DRM_DEBUG_KMS("Quirk Increase DDI disabled time\n");
++		msleep(DDI_DISABLED_QUIRK_TIME);
 +	}
  }
  
  int intel_ddi_toggle_hdcp_signalling(struct intel_encoder *intel_encoder,
 diff --git a/drivers/gpu/drm/i915/intel_display.c b/drivers/gpu/drm/i915/intel_display.c
-index eaa0663..ff42268 100644
+index 681e071..8d31ff3 100644
 --- a/drivers/gpu/drm/i915/intel_display.c
 +++ b/drivers/gpu/drm/i915/intel_display.c
 @@ -5837,7 +5837,7 @@ static void haswell_crtc_disable(struct intel_crtc_state *old_crtc_state,
@@ -57,7 +58,7 @@ index eaa0663..ff42268 100644
  
  	if (INTEL_GEN(dev_priv) >= 9)
  		skylake_scaler_disable(intel_crtc);
-@@ -14852,6 +14852,17 @@ static void quirk_increase_t12_delay(struct drm_device *dev)
+@@ -14847,6 +14847,17 @@ static void quirk_increase_t12_delay(struct drm_device *dev)
  	DRM_INFO("Applying T12 delay quirk\n");
  }
  
@@ -75,7 +76,7 @@ index eaa0663..ff42268 100644
  struct intel_quirk {
  	int device;
  	int subsystem_vendor;
-@@ -14938,6 +14949,14 @@ static int intel_dmi_reverse_brightness(const struct dmi_system_id *id)
+@@ -14933,6 +14944,13 @@ static int intel_dmi_reverse_brightness(const struct dmi_system_id *id)
  
  	/* Toshiba Satellite P50-C-18C */
  	{ 0x191B, 0x1179, 0xF840, quirk_increase_t12_delay },
@@ -86,12 +87,11 @@ index eaa0663..ff42268 100644
 +	/* ASRock ITX*/
 +	{ 0x3185, 0x1849, 0x2212, quirk_increase_ddi_disabled_time },
 +	{ 0x3184, 0x1849, 0x2212, quirk_increase_ddi_disabled_time },
-+
  };
  
  static void intel_init_quirks(struct drm_device *dev)
 diff --git a/drivers/gpu/drm/i915/intel_drv.h b/drivers/gpu/drm/i915/intel_drv.h
-index a6ff260..9c3a3d6 100644
+index b9b7032..2490221 100644
 --- a/drivers/gpu/drm/i915/intel_drv.h
 +++ b/drivers/gpu/drm/i915/intel_drv.h
 @@ -1384,8 +1384,7 @@ void hsw_fdi_link_train(struct intel_crtc *crtc,
