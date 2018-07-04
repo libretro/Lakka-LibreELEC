@@ -46,10 +46,10 @@ pre_make_target() {
 }
 
 make_target() {
-  make V=1 \
-       KVER=$(kernel_version) \
-       KDIR=$(kernel_path) \
-       INPUT_H=$INPUT_H
+  kernel_make -C $(kernel_path) M=$(pwd) modules
+
+  make INPUT_H=$INPUT_H \
+       sapphire_keymap.sh
 }
 
 post_make_target() {
