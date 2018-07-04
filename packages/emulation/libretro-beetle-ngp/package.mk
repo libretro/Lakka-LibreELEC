@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-beetle-ngp"
-PKG_VERSION="9e33e1b"
-PKG_SHA256="8f08d0390afb7ef515ccbd64c90f2e00c60629c868fb953078d38a39608eef0c"
+PKG_VERSION="4ea4d9f"
+PKG_SHA256="6d70a5587aec48231695e336948d90a602b4f29bf93381a5058853b2cb5f9ff3"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-ngp-libretro"

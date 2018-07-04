@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-snes9x2010"
-PKG_VERSION="b9be098"
-PKG_SHA256="d7474d6c2bba537d0e373ea4fb71d78e6aaf50ddaddf2e0ef9bf5c12f84be93b"
+PKG_VERSION="21e176e"
+PKG_SHA256="2a478c476edb079bab50cde3f8fbd14c827fc2a4cace89045f50a4bce6b828a8"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/snes9x2010"

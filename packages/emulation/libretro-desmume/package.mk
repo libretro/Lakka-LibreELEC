@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-desmume"
-PKG_VERSION="1dd58e4"
-PKG_SHA256="0cc647defbbfbe0995e4dfe825e5bf67345ad1f9d8e7e29cdb94c32032c490c4"
+PKG_VERSION="9fb1e8c"
+PKG_SHA256="80c89f23f7c964f33422571437605597e324e20c3b5af548b05e31e31af901e5"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/desmume"

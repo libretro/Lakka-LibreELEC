@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-mame"
-PKG_VERSION="bee25da1dc"
-PKG_SHA256="95ac6c1455eba1dd2f1239516962dfbe9d33cd5bb4c506a1e53df0c2ea65f824"
+PKG_VERSION="3f5b1456"
+PKG_SHA256="6814be8a249bef7bd847ba51ef5f10c94ca3b8d996b772d5ef4ee7304bd31b3f"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mame"
