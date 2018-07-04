@@ -26,7 +26,6 @@ PKG_SITE="https://github.com/kodi-game/game.libretro.4do"
 PKG_URL="https://github.com/kodi-game/game.libretro.4do/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-4do"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.4do: 4DO for Kodi"
 PKG_LONGDESC="game.libretro.4do: 4DO for Kodi"
 
 PKG_IS_ADDON="yes"

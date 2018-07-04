@@ -26,7 +26,6 @@ PKG_SITE="https://github.com/kodi-game/game.libretro.mrboom"
 PKG_URL="https://github.com/kodi-game/game.libretro.mrboom/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-mrboom"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.mrboom: mrboom for Kodi"
 PKG_LONGDESC="game.libretro.mrboom: mrboom for Kodi"
 
 PKG_IS_ADDON="yes"

@@ -27,7 +27,6 @@ PKG_SITE="https://github.com/kodi-game/game.libretro.snes9x2002"
 PKG_URL="https://github.com/kodi-game/game.libretro.snes9x2002/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-snes9x2002"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.snes9x2002: snes9x2002 for Kodi"
 PKG_LONGDESC="game.libretro.snes9x2002: snes9x2002 for Kodi"
 
 PKG_IS_ADDON="yes"

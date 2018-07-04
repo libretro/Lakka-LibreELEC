@@ -27,7 +27,6 @@ PKG_SITE="https://github.com/kodi-game/game.libretro.reicast"
 PKG_URL="https://github.com/kodi-game/game.libretro.reicast/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-reicast"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.reicast: reicast for kodi"
 PKG_LONGDESC="game.libretro.reicast: reicast for Kodi"
 
 PKG_IS_ADDON="yes"

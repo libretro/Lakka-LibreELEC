@@ -26,7 +26,6 @@ PKG_SITE="https://github.com/kodi-game/game.libretro.beetle-pce-fast"
 PKG_URL="https://github.com/kodi-game/game.libretro.beetle-pce-fast/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-beetle-pce-fast"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.beetle-pce-fast: Beetle PCE Fast for Kodi"
 PKG_LONGDESC="game.libretro.beetle-pce-fast: Beetle PCE Fast for Kodi"
 
 PKG_IS_ADDON="yes"

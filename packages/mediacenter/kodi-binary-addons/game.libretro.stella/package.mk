@@ -26,7 +26,6 @@ PKG_SITE="https://github.com/kodi-game/game.libretro.stella"
 PKG_URL="https://github.com/kodi-game/game.libretro.stella/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-stella"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.stella: Stella emulator for Kodi"
 PKG_LONGDESC="game.libretro.stella: Stella emulator for Kodi"
 
 PKG_IS_ADDON="yes"

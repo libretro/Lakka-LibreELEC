@@ -26,7 +26,6 @@ PKG_SITE="https://github.com/kodi-game/game.libretro.vecx"
 PKG_URL="https://github.com/kodi-game/game.libretro.vecx/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-vecx"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.vecx: vecx for Kodi"
 PKG_LONGDESC="game.libretro.vecx: vecx for Kodi"
 
 PKG_IS_ADDON="yes"

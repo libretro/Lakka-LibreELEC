@@ -26,7 +26,6 @@ PKG_SITE="https://github.com/kodi-game/game.libretro.dinothawr"
 PKG_URL="https://github.com/kodi-game/game.libretro.dinothawr/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-dinothawr"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.dinothawr: dinothawr for Kodi"
 PKG_LONGDESC="game.libretro.dinothawr: dinothawr for Kodi"
 
 PKG_IS_ADDON="yes"

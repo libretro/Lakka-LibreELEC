@@ -27,7 +27,6 @@ PKG_SITE="https://github.com/kodi-game/game.libretro.desmume"
 PKG_URL="https://github.com/kodi-game/game.libretro.desmume/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-desmume"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.desmume: DESMuME GameClient for kodi"
 PKG_LONGDESC="game.libretro.desmume: DESMuME GameClient for Kodi"
 
 PKG_IS_ADDON="yes"

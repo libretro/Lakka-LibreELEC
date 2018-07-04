@@ -27,7 +27,6 @@ PKG_SITE="https://github.com/kodi-game/game.libretro.ppsspp"
 PKG_URL="https://github.com/kodi-game/game.libretro.ppsspp/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-ppsspp"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.ppsspp: ppsspp for Kodi"
 PKG_LONGDESC="game.libretro.ppsspp: ppsspp for Kodi"
 
 PKG_IS_ADDON="yes"

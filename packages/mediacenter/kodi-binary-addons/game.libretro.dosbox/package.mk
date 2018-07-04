@@ -26,7 +26,6 @@ PKG_SITE="https://github.com/kodi-game/game.libretro.dosbox"
 PKG_URL="https://github.com/kodi-game/game.libretro.dosbox/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-dosbox"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.dosbox: DOSBox for Kodi"
 PKG_LONGDESC="game.libretro.dosbox: DOSBox for Kodi"
 
 PKG_IS_ADDON="yes"

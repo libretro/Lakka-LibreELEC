@@ -26,7 +26,6 @@ PKG_SITE="https://github.com/kodi-game/game.libretro.nestopia"
 PKG_URL="https://github.com/kodi-game/game.libretro.nestopia/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-nestopia"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.nestopia: Nestopia emulator for Kodi"
 PKG_LONGDESC="game.libretro.nestopia: Nestopia emulator for Kodi"
 
 PKG_IS_ADDON="yes"

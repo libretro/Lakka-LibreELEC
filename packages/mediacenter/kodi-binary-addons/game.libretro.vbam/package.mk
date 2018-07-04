@@ -26,7 +26,6 @@ PKG_SITE="https://github.com/kodi-game/game.libretro.vbam"
 PKG_URL="https://github.com/kodi-game/game.libretro.vbam/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-vbam"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.vbam: VBA-M emulator for Kodi"
 PKG_LONGDESC="game.libretro.vbam: VBA-M emulator for Kodi"
 
 PKG_IS_ADDON="yes"

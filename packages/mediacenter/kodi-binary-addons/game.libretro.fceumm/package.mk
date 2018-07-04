@@ -26,7 +26,6 @@ PKG_SITE="https://github.com/kodi-game/game.libretro.fceumm"
 PKG_URL="https://github.com/kodi-game/game.libretro.fceumm/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-fceumm"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.fceumm: FCEUmm emulator for Kodi"
 PKG_LONGDESC="game.libretro.fceumm: FCEUmm emulator for Kodi"
 
 PKG_IS_ADDON="yes"

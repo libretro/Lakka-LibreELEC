@@ -27,7 +27,6 @@ PKG_SITE="https://github.com/kodi-game/game.libretro.mame"
 PKG_URL="https://github.com/kodi-game/game.libretro.mame/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-mame"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.mame: MAME emulator for Kodi"
 PKG_LONGDESC="game.libretro.mame: MAME emulator for Kodi"
 
 PKG_IS_ADDON="yes"

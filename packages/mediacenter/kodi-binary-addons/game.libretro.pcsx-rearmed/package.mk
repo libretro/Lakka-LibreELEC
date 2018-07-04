@@ -27,7 +27,6 @@ PKG_SITE="https://github.com/kodi-game/game.libretro.pcsx-rearmed"
 PKG_URL="https://github.com/kodi-game/game.libretro.pcsx-rearmed/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-pcsx-rearmed"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.pcsx-rearmed: PCSX Rearmed for Kodi"
 PKG_LONGDESC="game.libretro.pcsx-rearmed: PCSX Rearmed for Kodi"
 
 PKG_IS_ADDON="yes"

@@ -26,7 +26,6 @@ PKG_SITE="https://github.com/kodi-game/game.libretro.gambatte"
 PKG_URL="https://github.com/kodi-game/game.libretro.gambatte/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-gambatte"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.gambatte: Gambatte emulator for Kodi"
 PKG_LONGDESC="game.libretro.gambatte: Gambatte emulator for Kodi"
 PKG_IS_ADDON="yes"
 

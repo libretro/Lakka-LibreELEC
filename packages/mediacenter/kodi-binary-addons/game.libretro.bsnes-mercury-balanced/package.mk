@@ -26,7 +26,6 @@ PKG_SITE="https://github.com/kodi-game/game.libretro.bsnes-mercury-balanced"
 PKG_URL="https://github.com/kodi-game/game.libretro.bsnes-mercury-balanced/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-bsnes-mercury-balanced"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.bsnes-mercury-balanced: bSNES Mercury for Kodi"
 PKG_LONGDESC="game.libretro.bsnes-mercury-balanced: bSNES Mercury for Kodi"
 
 PKG_IS_ADDON="yes"

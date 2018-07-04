@@ -26,7 +26,6 @@ PKG_SITE="https://github.com/kodi-game/game.libretro.beetle-psx"
 PKG_URL="https://github.com/kodi-game/game.libretro.beetle-psx/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-beetle-psx"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.beetle-psx: Beetle PSX for Kodi"
 PKG_LONGDESC="game.libretro.beetle-psx: Beetle PSX for Kodi"
 
 PKG_IS_ADDON="yes"

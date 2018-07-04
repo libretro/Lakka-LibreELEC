@@ -26,7 +26,6 @@ PKG_SITE="https://github.com/kodi-game/game.libretro.scummvm"
 PKG_URL="https://github.com/kodi-game/game.libretro.scummvm/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-scummvm"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.scummvm: scummvm for Kodi"
 PKG_LONGDESC="game.libretro.scummvm: scummvm for Kodi"
 
 PKG_IS_ADDON="yes"

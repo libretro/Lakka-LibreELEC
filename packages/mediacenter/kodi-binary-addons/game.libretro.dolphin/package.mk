@@ -27,7 +27,6 @@ PKG_SITE="https://github.com/kodi-game/game.libretro.dolphin"
 PKG_URL="https://github.com/kodi-game/game.libretro.dolphin/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-dolphin"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.dolphin: Dolphin for Kodi"
 PKG_LONGDESC="game.libretro.dolphin: Dolphin for Kodi"
 
 PKG_IS_ADDON="yes"
