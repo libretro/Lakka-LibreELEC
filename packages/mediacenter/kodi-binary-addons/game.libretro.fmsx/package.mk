@@ -17,16 +17,15 @@
 ################################################################################
 
 PKG_NAME="game.libretro.fmsx"
-PKG_VERSION="9aa88f5"
-PKG_SHA256="d65ed887d03231d08ab93bed8ff82d7da8e13b81a2ae328a4c904e5ad6f853cd"
-PKG_REV="105"
+PKG_VERSION="9c1d33b"
+PKG_SHA256="9955c5f19d420d352d76e6acd810bdcb6e2b43087cbaf8bf97ca8035ccf54ee5"
+PKG_REV="106"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.fmsx"
 PKG_URL="https://github.com/kodi-game/game.libretro.fmsx/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-fmsx"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.fmsx: fmsx for Kodi"
 PKG_LONGDESC="game.libretro.fmsx: fmsx for Kodi"
 
 PKG_IS_ADDON="yes"

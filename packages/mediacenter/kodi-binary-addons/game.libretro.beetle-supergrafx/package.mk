@@ -17,16 +17,15 @@
 ################################################################################
 
 PKG_NAME="game.libretro.beetle-supergrafx"
-PKG_VERSION="3e7b1ae"
-PKG_SHA256="9fff047dca05d86e4be012f5ecd9022e2861b53fa5a50b37e9eb675825536bbe"
-PKG_REV="105"
+PKG_VERSION="f8f219e"
+PKG_SHA256="4a2004289947b685f6571dd319b55ec46e098327757b9d62c47bdc5b37a95c0d"
+PKG_REV="106"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.beetle-supergrafx"
 PKG_URL="https://github.com/kodi-game/game.libretro.beetle-supergrafx/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-beetle-supergrafx"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.beetle-supergrafx: Beetle supergrafx for Kodi"
 PKG_LONGDESC="game.libretro.beetle-supergrafx: Beetle supergrafx for Kodi"
 
 PKG_IS_ADDON="yes"

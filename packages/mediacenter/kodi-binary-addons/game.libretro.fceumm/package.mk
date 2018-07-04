@@ -17,16 +17,15 @@
 ################################################################################
 
 PKG_NAME="game.libretro.fceumm"
-PKG_VERSION="6f76c0f"
-PKG_SHA256="1e40821b3122f068f438dfffca65d33c7adb275e6831b9c586f081517b2d4646"
-PKG_REV="105"
+PKG_VERSION="2f58851"
+PKG_SHA256="b15ab71d212fdb6431ae0c2bd8374616ecae8b3b52cf70bcf1ccd26c0659d988"
+PKG_REV="106"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.fceumm"
 PKG_URL="https://github.com/kodi-game/game.libretro.fceumm/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-fceumm"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.fceumm: FCEUmm emulator for Kodi"
 PKG_LONGDESC="game.libretro.fceumm: FCEUmm emulator for Kodi"
 
 PKG_IS_ADDON="yes"

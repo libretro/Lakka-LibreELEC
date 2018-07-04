@@ -17,16 +17,15 @@
 ################################################################################
 
 PKG_NAME="game.libretro.genplus"
-PKG_VERSION="697c45b"
-PKG_SHA256="fa5a26f55e61f8cb3ad817978fb599c129eccd7aedce25ef497dfd50e804e372"
-PKG_REV="105"
+PKG_VERSION="a72debc"
+PKG_SHA256="b34bdd3f0d833beb0c52bb15a0c2d2ca55b8a99823c8b4d926b7a6af4bb62ed3"
+PKG_REV="106"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.genplus"
 PKG_URL="https://github.com/kodi-game/game.libretro.genplus/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-genplus"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.genplus: Genesis Plus GX emulator for Kodi"
 PKG_LONGDESC="game.libretro.genplus: Genesis Plus GX emulator for Kodi"
 
 PKG_IS_ADDON="yes"

@@ -17,16 +17,15 @@
 ################################################################################
 
 PKG_NAME="game.libretro.stella"
-PKG_VERSION="d053a35"
-PKG_SHA256="f34aa753458826b7a0ce0d16a8750eed78630c1325c55f0c6266cdc96c837412"
-PKG_REV="105"
+PKG_VERSION="0817513"
+PKG_SHA256="c8517a82a4a824952ed74014c6a4faafc2cc6ec6f1876073129c806e2bb23319"
+PKG_REV="106"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.stella"
 PKG_URL="https://github.com/kodi-game/game.libretro.stella/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-stella"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.stella: Stella emulator for Kodi"
 PKG_LONGDESC="game.libretro.stella: Stella emulator for Kodi"
 
 PKG_IS_ADDON="yes"

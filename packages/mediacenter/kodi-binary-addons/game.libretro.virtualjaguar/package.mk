@@ -17,16 +17,15 @@
 ################################################################################
 
 PKG_NAME="game.libretro.virtualjaguar"
-PKG_VERSION="f296035"
-PKG_SHA256="4ba0b702bcfc8adc03f51408c13f55f27ed17e673a9a4f7dc2f60e1a29ecb329"
-PKG_REV="105"
+PKG_VERSION="b3e709c"
+PKG_SHA256="4ff30d8e5dc402df50d469a2473064fd7993d55a8773ace9afd5f3e03a83cb0d"
+PKG_REV="106"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.virtualjaguar"
 PKG_URL="https://github.com/kodi-game/game.libretro.virtualjaguar/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-virtualjaguar"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.virtualjaguar: VirtualJaguar for Kodi"
 PKG_LONGDESC="game.libretro.virtualjaguar: VirtualJaguar for Kodi"
 
 PKG_IS_ADDON="yes"

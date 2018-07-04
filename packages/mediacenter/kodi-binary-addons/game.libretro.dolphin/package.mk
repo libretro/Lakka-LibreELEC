@@ -17,9 +17,9 @@
 ################################################################################
 
 PKG_NAME="game.libretro.dolphin"
-PKG_VERSION="5a5211c"
-PKG_SHA256="13d5f35c10ac0506f1c0348b1d65a3884ee507f72ec1eaf02278d8cf141bf2cf"
-PKG_REV="104"
+PKG_VERSION="f73b307"
+PKG_SHA256="039cfecbfe67c24e87708008f811538b7d4502aa2171379570ee2632a33effe6"
+PKG_REV="105"
 # no openGL suport in retroplayer yet
 PKG_ARCH="none"
 PKG_LICENSE="GPL"
@@ -27,7 +27,6 @@ PKG_SITE="https://github.com/kodi-game/game.libretro.dolphin"
 PKG_URL="https://github.com/kodi-game/game.libretro.dolphin/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-dolphin"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.dolphin: Dolphin for Kodi"
 PKG_LONGDESC="game.libretro.dolphin: Dolphin for Kodi"
 
 PKG_IS_ADDON="yes"

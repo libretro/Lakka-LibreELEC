@@ -17,16 +17,15 @@
 ################################################################################
 
 PKG_NAME="game.libretro.dosbox"
-PKG_VERSION="b579067"
-PKG_SHA256="da5fafe44d571259ad22444b527d9a9ddea18fc90216b115abcd2d7b3ed7eebd"
-PKG_REV="105"
+PKG_VERSION="9664386"
+PKG_SHA256="35444133d1b2c8a280aaaec65e78c3006e8ea928c64a066e1b755a1b2b82657d"
+PKG_REV="106"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.dosbox"
 PKG_URL="https://github.com/kodi-game/game.libretro.dosbox/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-dosbox"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.dosbox: DOSBox for Kodi"
 PKG_LONGDESC="game.libretro.dosbox: DOSBox for Kodi"
 
 PKG_IS_ADDON="yes"

@@ -17,16 +17,15 @@
 ################################################################################
 
 PKG_NAME="game.libretro.meteor"
-PKG_VERSION="babdc5a"
-PKG_SHA256="a996f4c0565611f477ccdc7687e531afe0541e3d85c9a809a41e0061d9863afb"
-PKG_REV="104"
+PKG_VERSION="b50abb1"
+PKG_SHA256="b75fc715b2211c5620c2cd3a682ecca3a1eca8fe512a068e21ee910079a58399"
+PKG_REV="105"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.meteor"
 PKG_URL="https://github.com/kodi-game/game.libretro.meteor/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-meteor"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.meteor: Meteor GBA emulator for Kodi"
 PKG_LONGDESC="game.libretro.meteor: Meteor GBA emulator for Kodi"
 
 PKG_IS_ADDON="yes"

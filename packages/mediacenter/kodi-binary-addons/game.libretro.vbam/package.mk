@@ -17,16 +17,15 @@
 ################################################################################
 
 PKG_NAME="game.libretro.vbam"
-PKG_VERSION="1701ab5"
-PKG_SHA256="dc0d9c13ad96e17a5e6c5ec5a94eaf19270b014f929bc2cad69fccd82d0c3772"
-PKG_REV="105"
+PKG_VERSION="38e6675"
+PKG_SHA256="e48f52312c10afe959d4c454427de9a3d2488c8356c480a0e8a41666f7dcfc16"
+PKG_REV="106"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.vbam"
 PKG_URL="https://github.com/kodi-game/game.libretro.vbam/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-vbam"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.vbam: VBA-M emulator for Kodi"
 PKG_LONGDESC="game.libretro.vbam: VBA-M emulator for Kodi"
 
 PKG_IS_ADDON="yes"

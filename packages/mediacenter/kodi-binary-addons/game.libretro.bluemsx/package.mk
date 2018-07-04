@@ -17,16 +17,15 @@
 ################################################################################
 
 PKG_NAME="game.libretro.bluemsx"
-PKG_VERSION="53c181c"
-PKG_SHA256="7a751e5bf8e5ccbb2a6dde5778503d8a853b70f359f569c69d1cbe52cb83291b"
-PKG_REV="105"
+PKG_VERSION="ab8c0ea"
+PKG_SHA256="0bf9e58c38e8d4399964a1d43e039aaef45cd6db13bb1d95f1d6a1d2f419219b"
+PKG_REV="106"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.bluemsx"
 PKG_URL="https://github.com/kodi-game/game.libretro.bluemsx/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-bluemsx"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.bluemsx: BlueMSX for Kodi"
 PKG_LONGDESC="game.libretro.bluemsx: BlueMSX for Kodi"
 
 PKG_IS_ADDON="yes"

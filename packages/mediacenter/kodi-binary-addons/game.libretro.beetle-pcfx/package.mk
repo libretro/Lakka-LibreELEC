@@ -17,16 +17,15 @@
 ################################################################################
 
 PKG_NAME="game.libretro.beetle-pcfx"
-PKG_VERSION="727c3f8"
-PKG_SHA256="9b269fe7db99271084880abcc4072bcf83493a48672cd16b33d5d5a085306c36"
-PKG_REV="105"
+PKG_VERSION="a78422d"
+PKG_SHA256="b03a7a36da512cb2b6fd89951b1be05f6ec241f893b7ee73ab153f3698e4fcde"
+PKG_REV="106"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.beetle-pcfx"
 PKG_URL="https://github.com/kodi-game/game.libretro.beetle-pcfx/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-beetle-pcfx"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.beetle-pcfx: Beetle pcfx for Kodi"
 PKG_LONGDESC="game.libretro.beetle-pcfx: Beetle pcfx for Kodi"
 
 PKG_IS_ADDON="yes"

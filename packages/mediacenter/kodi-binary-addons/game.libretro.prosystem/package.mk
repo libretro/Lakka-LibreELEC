@@ -17,16 +17,15 @@
 ################################################################################
 
 PKG_NAME="game.libretro.prosystem"
-PKG_VERSION="7a22855"
-PKG_SHA256="e0b21769eb80bc35b208b4a3812cbefd7127d6198525a304708faf6cc1342801"
-PKG_REV="105"
+PKG_VERSION="775a2d4"
+PKG_SHA256="e12e5741ba4e0efcc472946452bcfa382ded8336986afcbaa5c510c428a8ea20"
+PKG_REV="106"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.prosystem"
 PKG_URL="https://github.com/kodi-game/game.libretro.prosystem/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-prosystem"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.prosystem: Prosystem for Kodi"
 PKG_LONGDESC="game.libretro.prosystem: Prosystem for Kodi"
 
 PKG_IS_ADDON="yes"

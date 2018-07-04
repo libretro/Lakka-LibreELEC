@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-dolphin"
-PKG_VERSION="cda77d5d96"
-PKG_SHA256="f38593162d4c22218fdb792fdbd017455d5a79ef6a5e8c6753a6124aee46eff1"
+PKG_VERSION="9ef58b5"
+PKG_SHA256="b9a040233219bdb2bfb2b67f4bc6ea63faf0b9b85bf22893408710a62df4c2da"
 PKG_ARCH="none"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/dolphin"

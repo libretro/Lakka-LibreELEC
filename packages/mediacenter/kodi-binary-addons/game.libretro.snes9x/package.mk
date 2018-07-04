@@ -17,16 +17,15 @@
 ################################################################################
 
 PKG_NAME="game.libretro.snes9x"
-PKG_VERSION="6c5308a"
-PKG_SHA256="1f63d0f774c502a1a9c2f2e2f59253b0b86244d56fb8eed4dab2f879ab628aae"
-PKG_REV="105"
+PKG_VERSION="3b3f5e5"
+PKG_SHA256="4343d9d6638e1a9dc7e77104fbb4c87870f1a35e982b67fce3d9965c4901bb52"
+PKG_REV="106"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.snes9x"
 PKG_URL="https://github.com/kodi-game/game.libretro.snes9x/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-snes9x"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.snes9x: snes9x for Kodi"
 PKG_LONGDESC="game.libretro.snes9x: snes9x for Kodi"
 
 PKG_IS_ADDON="yes"
