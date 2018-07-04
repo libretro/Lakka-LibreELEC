@@ -17,9 +17,9 @@
 ################################################################################
 
 PKG_NAME="game.libretro.tyrquake"
-PKG_VERSION="bbc3ec8"
-PKG_SHA256="3dd01954f84410bc86c414518466b0876a124fed1ef8581020bca4a8d1a92947"
-PKG_REV="105"
+PKG_VERSION="39e9910"
+PKG_SHA256="cc3cf9d0d46838e6aa76203d97ae92afae981732ffbeb2c81c3532c22feb1d1f"
+PKG_REV="106"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.tyrquake"
