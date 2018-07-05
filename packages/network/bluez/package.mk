@@ -55,8 +55,15 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-dependency-tracking \
                            --disable-experimental \
                            --enable-sixaxis \
                            --with-gnu-ld \
-                           $BLUEZ_CONFIG \
-                           storagedir=/storage/.cache/bluetooth"
+                           $BLUEZ_CONFIG"
+                           
+# bluez had the good idea to use ':' in storage filenames, fat32 doesn't like that
+# /var/bluetoothconfig is the mountpoint for a 5mb ext2 image in /storage/
+if [ "$PROJECT" = "Switch" ]; then
+        PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET storagedir=/var/bluetoothconfig"
+else
+        PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET storagedir=/storage/.cache/bluetooth"
+fi
 
 pre_configure_target() {
 # bluez fails to build in subdirs
