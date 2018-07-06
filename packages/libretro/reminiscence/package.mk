@@ -18,28 +18,30 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="core-info"
-PKG_VERSION="889ae6c"
-PKG_REV="1"
+PKG_NAME="reminiscence"
+PKG_VERSION="57e2e2c"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/libretro/libretro-super"
+PKG_SITE="https://github.com/libretro/REminiscence"
 PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="Info files for libretro cores"
-PKG_LONGDESC="Super repo for other libretro projects. Fetches, builds and installs."
+PKG_SHORTDESC="Port of Gregory Montoir's Flashback emulator, running as a libretro core."
+PKG_LONGDESC="Port of Gregory Montoir's Flashback emulator, running as a libretro core."
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+configure_target () {
+  : # nothing to do
+}
+
 make_target() {
-  :
+  cd $PKG_BUILD
+  make
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp dist/info/*.info $INSTALL/usr/lib/libretro/
+  cp reminiscence_libretro.so $INSTALL/usr/lib/libretro/
 }
-
