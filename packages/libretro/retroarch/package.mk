@@ -113,30 +113,20 @@ makeinstall_target() {
     cp $PKG_BUILD/libretro-common/audio/dsp_filters/*.dsp $INSTALL/usr/share/audio_filters
   
   # General configuration
-  if [ "$PROJECT" = "Switch" ]; then
-  	sed -i -e "s/# libretro_directory =/libretro_directory = \"\/usr\/lib\/libretro\"/" $INSTALL/etc/retroarch.cfg
-  	sed -i -e "s/# libretro_info_path =/libretro_info_path = \"\/usr\/lib\/libretro\"/" $INSTALL/etc/retroarch.cfg
-  	sed -i -e "s/# content_database_path =/content_database_path =\/usr\/share\/libretro-database\/rdb/" $INSTALL/etc/retroarch.cfg
-  	sed -i -e "s/# assets_directory =/assets_directory =\/usr\/share\/retroarch-assets/" $INSTALL/etc/retroarch.cfg
-  	sed -i -e "s/# overlay_directory =/overlay_directory =\/usr\/share\/retroarch-overlays/" $INSTALL/etc/retroarch.cfg
-  	sed -i -e "s/# cheat_database_path =/cheat_database_path =\/usr\/share\/libretro-database\/cht/" $INSTALL/etc/retroarch.cfg
-        sed -i -e "s/# video_shader_dir =/video_shader_dir =\/usr\/share\/common-shaders/" $INSTALL/etc/retroarch.cfg
-  else
-  	sed -i -e "s/# libretro_directory =/libretro_directory = \"\/tmp\/cores\"/" $INSTALL/etc/retroarch.cfg
-  	sed -i -e "s/# libretro_info_path =/libretro_info_path = \"\/tmp\/cores\"/" $INSTALL/etc/retroarch.cfg
-  	sed -i -e "s/# content_database_path =/content_database_path =\/tmp\/database\/rdb/" $INSTALL/etc/retroarch.cfg
-  	sed -i -e "s/# assets_directory =/assets_directory =\/tmp\/assets/" $INSTALL/etc/retroarch.cfg
-  	sed -i -e "s/# overlay_directory =/overlay_directory =\/tmp\/overlays/" $INSTALL/etc/retroarch.cfg
-  	sed -i -e "s/# cheat_database_path =/cheat_database_path =\/tmp\/database\/cht/" $INSTALL/etc/retroarch.cfg
-        sed -i -e "s/# video_shader_dir =/video_shader_dir =\/tmp\/shaders/" $INSTALL/etc/retroarch.cfg
-  fi
+  sed -i -e "s/# libretro_directory =/libretro_directory = \"\/tmp\/cores\"/" $INSTALL/etc/retroarch.cfg
+  sed -i -e "s/# libretro_info_path =/libretro_info_path = \"\/tmp\/cores\"/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# rgui_browser_directory =/rgui_browser_directory =\/storage\/roms/" $INSTALL/etc/retroarch.cfg
+  sed -i -e "s/# content_database_path =/content_database_path =\/tmp\/database\/rdb/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# playlist_directory =/playlist_directory =\/storage\/playlists/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# savefile_directory =/savefile_directory =\/storage\/savefiles/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# savestate_directory =/savestate_directory =\/storage\/savestates/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# system_directory =/system_directory =\/storage\/system/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# screenshot_directory =/screenshot_directory =\/storage\/screenshots/" $INSTALL/etc/retroarch.cfg
+  sed -i -e "s/# video_shader_dir =/video_shader_dir =\/tmp\/shaders/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# rgui_show_start_screen = true/rgui_show_start_screen = false/" $INSTALL/etc/retroarch.cfg
+  sed -i -e "s/# assets_directory =/assets_directory =\/tmp\/assets/" $INSTALL/etc/retroarch.cfg
+  sed -i -e "s/# overlays_directory =/overlays_directory =\/tmp\/overlays/" $INSTALL/etc/retroarch.cfg
+  sed -i -e "s/# cheat_database_path =/cheat_database_path =\/tmp\/database\/cht/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# menu_driver = \"rgui\"/menu_driver = \"xmb\"/" $INSTALL/etc/retroarch.cfg
 
   # Quick menu
@@ -174,12 +164,7 @@ makeinstall_target() {
   sed -i -e "s/# input_driver = sdl/input_driver = udev/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# input_max_users = 16/input_max_users = 5/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# input_autodetect_enable = true/input_autodetect_enable = true/" $INSTALL/etc/retroarch.cfg
-  if [ "$PROJECT" = "Switch" ]; then
-    sed -i -e "s/# joypad_autoconfig_dir =/joypad_autoconfig_dir = \/etc\/retroarch-joypad-autoconfig/" $INSTALL/etc/retroarch.cfg
-  else
-    sed -i -e "s/# joypad_autoconfig_dir =/joypad_autoconfig_dir = \/tmp\/joypads/" $INSTALL/etc/retroarch.cfg
-  fi
-
+  sed -i -e "s/# joypad_autoconfig_dir =/joypad_autoconfig_dir = \/tmp\/joypads/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# input_remapping_directory =/input_remapping_directory = \/storage\/remappings/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# input_menu_toggle_gamepad_combo = 0/input_menu_toggle_gamepad_combo = 2/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# all_users_control_menu = false/all_users_control_menu = true/" $INSTALL/etc/retroarch.cfg
@@ -244,13 +229,11 @@ post_install() {
   
   enable_service retroarch-autostart.service
   enable_service retroarch.service
-  if [ "$PROJECT" != "Switch" ]; then
-	  enable_service tmp-cores.mount
-	  enable_service tmp-joypads.mount
-	  enable_service tmp-database.mount
-	  enable_service tmp-assets.mount
-	  enable_service tmp-shaders.mount
-  fi
+  enable_service tmp-cores.mount
+  enable_service tmp-joypads.mount
+  enable_service tmp-database.mount
+  enable_service tmp-assets.mount
+  enable_service tmp-shaders.mount
 }
 
 post_makeinstall_target() {
