@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="aom"
-PKG_VERSION="a586982"
-PKG_SHA256="078c0cc780fa9fcd3d67456722339a8eaa5591a484e1daae9fc2c3c34810ec46"
+PKG_VERSION="96ee0eb"
+PKG_SHA256="37c8d930cc105ccad4987c65751400fc42819b77fd487c9ef19cadee0c95a2d8"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="https://www.webmproject.org"
