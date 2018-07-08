@@ -19,7 +19,7 @@
 PKG_NAME="script.config.vdr"
 PKG_VERSION="61c2dde"
 PKG_SHA256="40e204ceae6e1e0c30810b891e0fb240ceec2988bab9c41d265f94db6b3c121f"
-PKG_REV="101"
+PKG_REV="102"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="https://libreelec.tv"
