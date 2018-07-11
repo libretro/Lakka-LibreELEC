@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="aixlog"
-PKG_VERSION="1.1.0"
-PKG_SHA256="a32f1e899b2ba4631847f1c89d6f967ef81eeef2fa8efa9a13ffea870e7f06f2"
+PKG_VERSION="1.2.1"
+PKG_SHA256="3ed6f47b3658607edfd94faf98034d31906b0f04f3fe4355e87a16f8dd582384"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/badaix/aixlog"
