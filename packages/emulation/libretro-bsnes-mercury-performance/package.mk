@@ -19,8 +19,7 @@
 PKG_NAME="libretro-bsnes-mercury-performance"
 PKG_VERSION="b626037"
 PKG_SHA256="a07a5e4a5f7f39743c88ac841603832629dd12ce37b9ea361a45958b667d5699"
-# currently broken
-PKG_ARCH="none"
+PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/bsnes-mercury"
 PKG_URL="https://github.com/libretro/bsnes-mercury/archive/$PKG_VERSION.tar.gz"
