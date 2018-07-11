@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016-present Team LibreELEC
+#      Copyright (C) 2018-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,25 +16,25 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="libretro-bsnes-mercury-performance"
-PKG_VERSION="b626037"
-PKG_SHA256="a07a5e4a5f7f39743c88ac841603832629dd12ce37b9ea361a45958b667d5699"
+PKG_NAME="libretro-pokemini"
+PKG_VERSION="36a3f63"
+PKG_SHA256="487508fed406893d19332521d6f3791e726b5b9cdf99e93f4796b45d6aa4f872"
 PKG_ARCH="any"
-PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/libretro/bsnes-mercury"
-PKG_URL="https://github.com/libretro/bsnes-mercury/archive/$PKG_VERSION.tar.gz"
-PKG_SOURCE_DIR="bsnes-mercury-$PKG_VERSION*"
+PKG_LICENSE="GPLv3"
+PKG_SITE="https://github.com/libretro/pokemini"
+PKG_URL="https://github.com/libretro/pokemini/archive/$PKG_VERSION.tar.gz"
+PKG_SOURCE_DIR="PokeMini-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
-PKG_SHORTDESC="game.libretro.beetle-bsnes-performance: Beetle bSNES for Kodi"
-PKG_LONGDESC="game.libretro.beetle-bsnes-performance: Beetle bSNES for Kodi"
+PKG_LONGDESC="libretro wrapper for PokeMini emulator."
+PKG_TOOLCHAIN="make"
 
-PKG_LIBNAME="bsnes_mercury_performance_libretro.so"
-PKG_LIBPATH="out/$PKG_LIBNAME"
-PKG_LIBVAR="BSNES-MERCURY-PERFORMANCE_LIB"
+PKG_LIBNAME="pokemini_libretro.so"
+PKG_LIBPATH="$PKG_LIBNAME"
+PKG_LIBVAR="POKEMINI_LIB"
 
-make_target() {
-  make profile=performance
+configure_target() {
+  cd $PKG_BUILD
 }
 
 makeinstall_target() {

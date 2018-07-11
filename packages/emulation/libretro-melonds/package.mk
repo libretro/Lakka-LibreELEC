@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016-present Team LibreELEC
+#      Copyright (C) 2018-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,25 +16,25 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="libretro-bsnes-mercury-performance"
-PKG_VERSION="b626037"
-PKG_SHA256="a07a5e4a5f7f39743c88ac841603832629dd12ce37b9ea361a45958b667d5699"
+PKG_NAME="libretro-melonds"
+PKG_VERSION="ee2f3e3"
+PKG_SHA256="008aab83d55dbb0aed05020d6f39b7fd91eccc2e12e65f674c67110fc48b5d88"
 PKG_ARCH="any"
-PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/libretro/bsnes-mercury"
-PKG_URL="https://github.com/libretro/bsnes-mercury/archive/$PKG_VERSION.tar.gz"
-PKG_SOURCE_DIR="bsnes-mercury-$PKG_VERSION*"
+PKG_LICENSE="GPLv3"
+PKG_SITE="https://github.com/libretro/melonds"
+PKG_URL="https://github.com/libretro/melonds/archive/$PKG_VERSION.tar.gz"
+PKG_SOURCE_DIR="melonDS-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION="emulation"
-PKG_SHORTDESC="game.libretro.beetle-bsnes-performance: Beetle bSNES for Kodi"
-PKG_LONGDESC="game.libretro.beetle-bsnes-performance: Beetle bSNES for Kodi"
+PKG_LONGDESC="libretro wrapper for melonDS DS emulator."
+PKG_TOOLCHAIN="make"
 
-PKG_LIBNAME="bsnes_mercury_performance_libretro.so"
-PKG_LIBPATH="out/$PKG_LIBNAME"
-PKG_LIBVAR="BSNES-MERCURY-PERFORMANCE_LIB"
+PKG_LIBNAME="melonds_libretro.so"
+PKG_LIBPATH="$PKG_LIBNAME"
+PKG_LIBVAR="MELONDS_LIB"
 
-make_target() {
-  make profile=performance
+configure_target() {
+  cd $PKG_BUILD
 }
 
 makeinstall_target() {

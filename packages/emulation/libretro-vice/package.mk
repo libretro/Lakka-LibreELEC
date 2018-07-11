@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016-present Team LibreELEC
+#      Copyright (C) 2018-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,25 +16,28 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="libretro-bsnes-mercury-performance"
-PKG_VERSION="b626037"
-PKG_SHA256="a07a5e4a5f7f39743c88ac841603832629dd12ce37b9ea361a45958b667d5699"
+PKG_NAME="libretro-vice"
+PKG_VERSION="bd62332"
+PKG_SHA256="8ae4ac2af1729b70a54669e4f7beaed942408061fa68a7974ba6b131b1ee15b7"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/libretro/bsnes-mercury"
-PKG_URL="https://github.com/libretro/bsnes-mercury/archive/$PKG_VERSION.tar.gz"
-PKG_SOURCE_DIR="bsnes-mercury-$PKG_VERSION*"
-PKG_DEPENDS_TARGET="toolchain kodi-platform"
+PKG_SITE="https://github.com/libretro/vice-libretro"
+PKG_URL="https://github.com/libretro/vice-libretro/archive/$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="emulation"
-PKG_SHORTDESC="game.libretro.beetle-bsnes-performance: Beetle bSNES for Kodi"
-PKG_LONGDESC="game.libretro.beetle-bsnes-performance: Beetle bSNES for Kodi"
+PKG_LONGDESC="VICE C64 libretro"
+PKG_SOURCE_DIR="vice-libretro-*"
 
-PKG_LIBNAME="bsnes_mercury_performance_libretro.so"
-PKG_LIBPATH="out/$PKG_LIBNAME"
-PKG_LIBVAR="BSNES-MERCURY-PERFORMANCE_LIB"
+PKG_LIBNAME="vice_x64_libretro.so"
+PKG_LIBPATH="$PKG_LIBNAME"
+PKG_LIBVAR="VICE_LIB"
+
+pre_build_target() {
+  export GIT_VERSION=$PKG_VERSION
+}
 
 make_target() {
-  make profile=performance
+  make -f Makefile.libretro CC=$CC
 }
 
 makeinstall_target() {

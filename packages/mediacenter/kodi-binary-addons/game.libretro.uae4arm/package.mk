@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016-present Team LibreELEC
+#      Copyright (C) 2018-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,17 +16,17 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="game.libretro.mame"
-PKG_VERSION="c6f51cb"
-PKG_SHA256="516cafcd8c3d07bc5482f42d1da57fa8aa26dc94c795594a52f79d6fe2b9d9c1"
-PKG_REV="105"
-PKG_ARCH="x86_64"
+PKG_NAME="game.libretro.uae4arm"
+PKG_VERSION="ae25a26"
+PKG_SHA256="5c6b1cc5a5200a47d090e8dee884ee24726c191887d412c738a1a165139dc297"
+PKG_REV="100"
+PKG_ARCH="arm"
 PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/kodi-game/game.libretro.mame"
-PKG_URL="https://github.com/kodi-game/game.libretro.mame/archive/$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-mame"
+PKG_SITE="https://github.com/kodi-game/game.libretro.uae4arm"
+PKG_URL="https://github.com/kodi-game/game.libretro.uae4arm/archive/$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-uae4arm"
 PKG_SECTION=""
-PKG_LONGDESC="game.libretro.mame: MAME emulator for Kodi"
+PKG_LONGDESC="game.libretro.uae4arm: uae4arm emulator for Kodi"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.gameclient"
