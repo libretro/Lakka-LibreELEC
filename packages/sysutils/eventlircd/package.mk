@@ -30,7 +30,8 @@ PKG_SHORTDESC="eventlircd:The eventlircd daemon provides various functions for L
 PKG_LONGDESC="The eventlircd daemon provides four functions for LIRC devices"
 PKG_TOOLCHAIN="autotools"
 
-PKG_CONFIGURE_OPTS_TARGET="--with-udev-dir=/usr/lib/udev"
+PKG_CONFIGURE_OPTS_TARGET="--with-udev-dir=/usr/lib/udev \
+                           --with-lircd-socket=/run/lirc/lircd"
 
 post_makeinstall_target() {
 # install our own evmap files and udev rules
