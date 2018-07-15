@@ -109,13 +109,22 @@ post_makeinstall_target() {
 
   # cert from https://curl.haxx.se/docs/caextract.html
   mkdir -p $INSTALL/etc/ssl
-    cp $PKG_DIR/cert/cacert.pem $INSTALL/etc/ssl/cert.pem
+    cp $PKG_DIR/cert/cacert.pem $INSTALL/etc/ssl/cacert.pem.system
+
+  # give user the chance to include their own CA
+  mkdir -p $INSTALL/usr/bin
+    cp $PKG_DIR/scripts/openssl-config $INSTALL/usr/bin
+    ln -sf /run/libreelec/cacert.pem $INSTALL/etc/ssl/cacert.pem
 
   # backwards comatibility
   mkdir -p $INSTALL/etc/pki/tls
-    ln -sf /etc/ssl/cert.pem $INSTALL/etc/pki/tls/cacert.pem
+    ln -sf /run/libreelec/cacert.pem $INSTALL/etc/pki/tls/cacert.pem
   mkdir -p $INSTALL/etc/pki/tls/certs
-    ln -sf /etc/ssl/cert.pem $INSTALL/etc/pki/tls/certs/ca-bundle.crt
+    ln -sf /run/libreelec/cacert.pem $INSTALL/etc/pki/tls/certs/ca-bundle.crt
   mkdir -p $INSTALL/usr/lib/ssl
-    ln -sf /etc/ssl/cert.pem $INSTALL/usr/lib/ssl/cert.pem
+    ln -sf /run/libreelec/cacert.pem $INSTALL/usr/lib/ssl/cert.pem
+}
+
+post_install() {
+  enable_service openssl-config.service
 }
