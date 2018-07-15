@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="game.libretro.vram-test"
-PKG_VERSION="0c29c7b"
-PKG_SHA256="ece792fb35a7bf1cbf9c07c335149a5f05d92181289612b121fd529204e16278"
+PKG_VERSION="92e1146"
+PKG_SHA256="ab866d1cc455c4fdba6f67b44dff850cd6e713c964ef0afd366d3ee526504288"
 PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
