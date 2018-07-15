@@ -19,7 +19,7 @@ index 0e57cb0b4c..b2e3374fea 100644
  /ffplay
  /ffprobe
 diff --git a/configure b/configure
-index dee507cb6a..0ee9efe1e7 100755
+index dee507cb6a..9a93189107 100755
 --- a/configure
 +++ b/configure
 @@ -318,6 +318,7 @@ External library support:
@@ -30,15 +30,6 @@ index dee507cb6a..0ee9efe1e7 100755
    --disable-nvdec          disable Nvidia video decoding acceleration (via hwaccel) [autodetect]
    --disable-nvenc          disable Nvidia video encoding code [autodetect]
    --enable-omx             enable OpenMAX IL code [no]
-@@ -1036,7 +1037,7 @@ EOF
- 
- check_insn(){
-     log check_insn "$@"
--    check_inline_asm ${1}_inline "$2"
-+    check_inline_asm ${1}_inline "\"$2\""
-     check_as ${1}_external "$2"
- }
- 
 @@ -1776,6 +1777,7 @@ FEATURE_LIST="
      gray
      hardcoded_tables
@@ -12100,10 +12091,10 @@ index 0000000000..6ce3d3ca8d
 +
 diff --git a/libavcodec/arm/rpi_hevcpred_intra_hv_neon.S b/libavcodec/arm/rpi_hevcpred_intra_hv_neon.S
 new file mode 100644
-index 0000000000..afafb6bc44
+index 0000000000..67192e7213
 --- /dev/null
 +++ b/libavcodec/arm/rpi_hevcpred_intra_hv_neon.S
-@@ -0,0 +1,922 @@
+@@ -0,0 +1,911 @@
 +/*
 + * Copyright (c) 2018 John Cox <jc@kynesim.co.uk> (for Raspberry Pi)
 + *
@@ -12340,28 +12331,25 @@ index 0000000000..afafb6bc44
 +@ ? Might be faster as simple arm
 +
 +function ff_hevc_rpi_pred_horizontal_4_neon_8, export=1
-+        vld1.32    {d0[0] }, [r1  :32]  @ Up
-+        ldrb        r12, [r2, #-1]      @ Up-left
-+        vld1.32    {d16[0]}, [r2  :32]  @ left
-+
-+        vdup.8      d4,  r12
-+        vmov.u8     d6,  #128
-+        vhsub.u8    d0,  d4
-+
-+        veor.8      d2,  d16, d6        @ Make -128,127 so we can qadd
-+        add         r2,  r0,  r3
-+        vdup.8      d2,  d2[0]
-+        lsl         r3,  #1
-+        vqadd.s8    d0,  d2
-+        veor.8      d0,  d6
-+
-+        vdup.8      d1,  d16[1]
-+        vdup.8      d2,  d16[2]
-+        vdup.8      d3,  d16[3]
-+        vst1.32    {d0[0] }, [r0  :32], r3
-+        vst1.32    {d1[0] }, [r2  :32], r3
-+        vst1.32    {d2[0] }, [r0  :32]
-+        vst1.32    {d3[0] }, [r2  :32]
++        ldrb        ip, [r2, #-1]       @ Top-left
++        vld1.32     {d0[0]}, [r1 :32]   @ Top
++        add         r1, r2, #3
++        vld1.8      {d1[]}, [r2]!
++        vdup.8      d2, ip
++        vmov.i8     d3, #128
++        vhsub.u8    d0, d2
++        veor        d1, d3
++        vld1.8      {d2[]}, [r2]!
++        add         ip, r0, r3
++        vqadd.s8    d0, d0, d1
++        lsl         r3, #1
++        vld1.8      {d1[]}, [r2]
++        vld1.8      {d4[]}, [r1]
++        veor        d0, d3
++        vst1.32     {d0[0]}, [r0 :32], r3
++        vst1.32     {d2[0]}, [ip :32], r3
++        vst1.32     {d1[0]}, [r0 :32]
++        vst1.32     {d4[0]}, [ip :32]
 +
 +        bx          lr
 +endfunc
@@ -12374,35 +12362,27 @@ index 0000000000..afafb6bc44
 +@       ptrdiff_t stride)       [r3]
 +
 +function ff_hevc_rpi_pred_horizontal_8_neon_8, export=1
-+        vld1.8     {d0 }, [r1  :64]    @ Up
-+        ldrb        r12, [r2, #-1]      @ Up-left
-+        vld1.8     {d16}, [r2  :64]    @ left
-+
-+        vdup.8      d4,  r12
-+        vmov.u8     d6,  #128
-+        vhsub.u8    d0,  d4
-+
-+        veor.8      d2,  d16, d6        @ Make -128,127 so we can qadd
-+        add         r2,  r0,  r3
-+        vdup.8      d2,  d2[0]
-+        lsl         r3,  #1
-+        vqadd.s8    d0,  d2
-+        mov         r1,  #3
-+        veor.8      d0,  d6
-+
-+        vdup.8      d4,  d16[1]
-+        vst1.8     {d0 }, [r0  :64], r3
-+        vst1.8     {d4 }, [r2  :64], r3
-+
++        ldrb        ip, [r2, #-1]       @ Top-left
++        vld1.8      {d0}, [r1 :64]      @ Top
++        vmov.i8     d1, #128
++        vld1.8      {d2[]}, [r2]!
++        mov         r1, #8-2
++        vdup.8      d3, ip
++        vhsub.u8    d0, d3
++        veor        d2, d1
++        vqadd.s8    d0, d2
++          vld1.8      {d2[]}, [r2]!
++        veor        d0, d1
++        vst1.8      {d0}, [r0], r3
 +1:
-+        vext.8      d16,  d16, #2
-+        subs        r1,  #1
-+        vdup.8      d0,  d16[0]
-+        vdup.8      d4,  d16[1]
-+        vst1.8     {d0 }, [r0  :64], r3
-+        vst1.8     {d4 }, [r2  :64], r3
++            vld1.8      {d0[]}, [r2]!
++        subs        r1, #2
++          vst1.8      {d2}, [r0 :64], r3
++              vld1.8      {d2[]}, [r2]!
++            vst1.8      {d0}, [r0 :64], r3
 +        bne         1b
 +
++              vst1.8      {d2}, [r0 :64]
 +        bx          lr
 +endfunc
 +
@@ -12414,35 +12394,27 @@ index 0000000000..afafb6bc44
 +@       ptrdiff_t stride)       [r3]
 +
 +function ff_hevc_rpi_pred_horizontal_16_neon_8, export=1
-+        vld1.8     {q0 }, [r1  :128]    @ Up
-+        ldrb        r12, [r2, #-1]      @ Up-left
-+        vld1.8     {q8 }, [r2  :128]    @ left
-+
-+        vdup.8      q2,  r12
-+        vmov.u8     q3,  #128
-+        vhsub.u8    q0,  q2
-+
-+        veor.8      d2,  d16, d6        @ Make -128,127 so we can qadd
-+        add         r2,  r0,  r3
-+        vdup.8      q1,  d2[0]
-+        lsl         r3,  #1
-+        vqadd.s8    q0,  q1
-+        mov         r1,  #7
-+        veor.8      q0,  q3
-+
-+        vdup.8      q2,  d16[1]
-+        vst1.8     {q0 }, [r0  :128], r3
-+        vst1.8     {q2 }, [r2  :128], r3
-+
++        ldrb        ip, [r2, #-1]       @ Top-left
++        vld1.8      {q0}, [r1 :64]      @ Top
++        mov         r1, #16-2
++        vld1.8      {d4[],d5[]}, [r2]!
++        vdup.8      q3, ip
++        vhsub.u8    q0, q3
++        vmov.i8     q1, #128
++        veor        q2, q1
++        vqadd.s8    q0, q2
++          vld1.8      {d4[],d5[]}, [r2]!
++        veor        q0, q1
++        vst1.8      {q0}, [r0], r3
 +1:
-+        vext.8      q8,  q8,  #2
-+        subs        r1,  #1
-+        vdup.8      q0,  d16[0]
-+        vdup.8      q2,  d16[1]
-+        vst1.8     {q0 }, [r0  :128], r3
-+        vst1.8     {q2 }, [r2  :128], r3
++            vld1.8      {d0[],d1[]}, [r2]!
++        subs        r1, #2
++          vst1.8      {q2}, [r0 :64], r3
++              vld1.8      {d4[],d5[]}, [r2]!
++            vst1.8      {q0}, [r0 :64], r3
 +        bne         1b
 +
++              vst1.8      {q2}, [r0 :64]
 +        bx          lr
 +endfunc
 +
@@ -12454,22 +12426,24 @@ index 0000000000..afafb6bc44
 +@       ptrdiff_t stride)       [r3]
 +
 +function ff_hevc_rpi_pred_horizontal_32_neon_8, export=1
-+        vld1.8     {q8,  q9 }, [r2  :128]    @ Left
-+        add         r2,  r0,  r3
-+        lsl         r3,  #1
-+        mov         r1,  #16
++        vld1.8      {d0[],d1[]}, [r2]!
++        add         ip, r0, #16
++        mov         r1, #32-2
++          vld1.8      {d2[],d3[]}, [r2]!
++        vst1.8      {q0}, [r0 :128], r3
++        vst1.8      {q0}, [ip :128], r3
 +1:
-+        vdup.8      q0,  d16[0]
-+        vdup.8      q1,  d16[0]
-+        vdup.8      q2,  d16[1]
-+        vdup.8      q3,  d16[1]
-+        vext.8      q8,  q9,  #2
-+        vext.8      q9,  q9,  #2
-+        vst1.8     {q0,  q1 }, [r0  :128], r3
-+        subs        r1,  #1
-+        vst1.8     {q2,  q3 }, [r2  :128], r3
++            vld1.8      {d0[],d1[]}, [r2]!
++        subs        r1, #2
++          vst1.8      {q1}, [r0 :128], r3
++          vst1.8      {q1}, [ip :128], r3
++              vld1.8      {d2[],d3[]}, [r2]!
++            vst1.8      {q0}, [r0 :128], r3
++            vst1.8      {q0}, [ip :128], r3
 +        bne         1b
 +
++              vst1.8      {q1}, [r0 :128]
++              vst1.8      {q1}, [ip :128]
 +        bx          lr
 +endfunc
 +
@@ -12481,19 +12455,22 @@ index 0000000000..afafb6bc44
 +@       ptrdiff_t stride)       [r3]
 +
 +function ff_hevc_rpi_pred_horizontal_c_4_neon_8, export=1
-+        vld1.16    {d16}, [r2  :64]    @ Left
-+        add         r2,  r0,  r3,  lsl #1
-+        lsl         r3,  #2
-+
-+        vdup.16     d0,  d16[0]
-+        vdup.16     d1,  d16[1]
-+        vdup.16     d2,  d16[2]
-+        vdup.16     d3,  d16[3]
-+
-+        vst1.16    {d0 }, [r0  :64], r3
-+        vst1.16    {d1 }, [r2  :64], r3
-+        vst1.16    {d2 }, [r0  :64]
-+        vst1.16    {d3 }, [r2  :64]
++        add         r1, r2, #2
++        vld1.16     {d0[]}, [r2]
++        add         r2, #4
++        vld1.16     {d1[]}, [r1]
++        add         r1, #4
++        vld1.16     {d2[]}, [r2]
++A       add         r2, r0, r3, lsl #1
++T       lsl         r3, #1
++T       add         r2, r0, r3
++        vld1.16     {d3[]}, [r1]
++A       lsl         r3, #2
++T       lsl         r3, #1
++        vst1.16     {d0}, [r0 :64], r3
++        vst1.16     {d1}, [r2 :64], r3
++        vst1.16     {d2}, [r0 :64]
++        vst1.16     {d3}, [r2 :64]
 +
 +        bx          lr
 +endfunc
@@ -12506,19 +12483,20 @@ index 0000000000..afafb6bc44
 +@       ptrdiff_t stride)       [r3]
 +
 +function ff_hevc_rpi_pred_horizontal_c_8_neon_8, export=1
-+        vld1.16    {q8 }, [r2  :128]    @ Left
-+        add         r2,  r0,  r3,  lsl #1
-+        lsl         r3,  #2
-+        mov         r1,  #4
++        vld1.16     {d0[],d1[]}, [r2]!
++        lsl         r3, #1
++          vld1.16     {d2[],d3[]}, [r2]!
++        mov         r1, #8-2
++        vst1.16     {q0}, [r0 :64], r3
 +1:
-+        vdup.16     q0,  d16[0]
-+        vdup.16     q2,  d16[1]
-+        vext.16     q8,  q8,  #2
-+        vst1.16    {q0 }, [r0  :128], r3
-+        subs        r1,  #1
-+        vst1.16    {q2 }, [r2  :128], r3
++            vld1.16     {d0[],d1[]}, [r2]!
++        subs        r1, #2
++          vst1.16     {q1}, [r0 :64], r3
++              vld1.16     {d2[],d3[]}, [r2]!
++            vst1.16     {q0}, [r0 :64], r3
 +        bne         1b
 +
++              vst1.16     {q1}, [r0 :64]
 +        bx          lr
 +endfunc
 +
@@ -12530,22 +12508,25 @@ index 0000000000..afafb6bc44
 +@       ptrdiff_t stride)       [r3]
 +
 +function ff_hevc_rpi_pred_horizontal_c_16_neon_8, export=1
-+        vld1.16    {q8,  q9 }, [r2  :128]    @ Left
-+        add         r2,  r0,  r3,  lsl #1
-+        lsl         r3,  #2
-+        mov         r1,  #8
++        vld1.16     {d0[],d1[]}, [r2]!
++        lsl         r3, #1
++        add         ip, r0, #16
++        mov         r1, #16-2
++          vld1.16     {d2[],d3[]}, [r2]!
++        vst1.16     {q0}, [r0 :128], r3
++        vst1.16     {q0}, [ip :128], r3
 +1:
-+        vdup.16     q0,  d16[0]
-+        vdup.16     q1,  d16[0]
-+        vdup.16     q2,  d16[1]
-+        vdup.16     q3,  d16[1]
-+        vext.16     q8,  q9,  #2
-+        vext.16     q9,  q9,  #2
-+        vst1.16    {q0,  q1 }, [r0  :128], r3
-+        subs        r1,  #1
-+        vst1.16    {q2,  q3 }, [r2  :128], r3
++            vld1.16     {d0[],d1[]}, [r2]!
++        subs        r1, #2
++          vst1.16     {q1}, [r0 :128], r3
++          vst1.16     {q1}, [ip :128], r3
++              vld1.16     {d2[],d3[]}, [r2]!
++            vst1.16     {q0}, [r0 :128], r3
++            vst1.16     {q0}, [ip :128], r3
 +        bne         1b
 +
++              vst1.16     {q1}, [r0 :128]
++              vst1.16     {q1}, [ip :128]
 +        bx          lr
 +endfunc
 +
@@ -12780,31 +12761,28 @@ index 0000000000..afafb6bc44
 +@       ptrdiff_t stride)       [r3]
 +
 +function ff_hevc_rpi_pred_horizontal_4_neon_10, export=1
-+        vld1.16    {d0 }, [r1  :64]     @ Up
-+        ldrh        r12, [r2, #-2]      @ Up-left
-+        vld1.16    {d16}, [r2  :64]     @ left
-+
-+        vdup.16     d4,  r12
-+        add         r2,  r0,  r3,  lsl #1
-+        vhsub.u16   d0,  d4
-+
-+        vdup.16     d6,  d16[0]
-+        vmov.s16    d4,  #0
-+        vadd.i16    d0,  d6
-+
-+        vmov.s16    d6,  #0x3ff
-+        vmax.s16    d0,  d4
-+        lsl         r3,  #2
-+        vmin.s16    d0,  d6
-+
-+        vdup.16     d1,  d16[1]
-+        vdup.16     d2,  d16[2]
-+        vdup.16     d3,  d16[3]
-+
-+        vst1.16    {d0 }, [r0  :64], r3
-+        vst1.16    {d1 }, [r2  :64], r3
-+        vst1.16    {d2 }, [r0  :64]
-+        vst1.16    {d3 }, [r2  :64]
++        ldrh        ip, [r2, #-2]       @ Top-left
++        vld1.16     {d0}, [r1 :64]      @ Top
++        vmov.i16    d1, #0
++        vld1.16     {d2[]}, [r2]!
++T       lsl         r3, #1
++        vdup.16     d3, ip
++        vmov.i16    d4, #0x3ff
++        vhsub.u16   d0, d3
++A       add         ip, r0, r3, lsl #1
++T       add         ip, r0, r3
++        vld1.16     {d3[]}, [r2]!
++A       lsl         r3, #2
++T       lsl         r3, #1
++        vadd.i16    d0, d2
++        vld1.16     {d2[]}, [r2]!
++        vmax.s16    d0, d1
++        vld1.16     {d1[]}, [r2]
++        vmin.s16    d0, d4
++        vst1.16     {d0}, [r0 :64], r3
++        vst1.16     {d3}, [ip :64], r3
++        vst1.16     {d2}, [r0 :64]
++        vst1.16     {d1}, [ip :64]
 +
 +        bx          lr
 +endfunc
@@ -12817,37 +12795,29 @@ index 0000000000..afafb6bc44
 +@       ptrdiff_t stride)       [r3]
 +
 +function ff_hevc_rpi_pred_horizontal_8_neon_10, export=1
-+        vld1.16    {q0 }, [r1  :128]    @ Up
-+        ldrh        r12, [r2, #-2]      @ Up-left
-+        vld1.16    {q8 }, [r2  :128]    @ left
-+
-+        vdup.16     q2,  r12
-+        add         r2,  r0,  r3,  lsl #1
-+        vhsub.u16   q0,  q2
-+
-+        vdup.16     q3,  d16[0]
-+        lsl         r3,  #2
-+        vmov.s16    q2,  #0
-+        vadd.i16    q0,  q3
-+
-+        mov         r1,  #3
-+        vmov.s16    q3,  #0x3ff
-+        vmax.s16    q0,  q2
-+        vmin.s16    q0,  q3
-+
-+        vdup.16     q2,  d16[1]
-+
-+        vst1.16    {q0 }, [r0  :128], r3
-+        vst1.16    {q2 }, [r2  :128], r3
++        ldrh        ip, [r2, #-2]       @ Top-left
++        vld1.16     {q0}, [r1 :128]     @ Top
++        lsl         r3, #1
++        vdup.16     q1, ip
++        mov         r1, #8-2
++        vhsub.u16   q0, q1
++        vld1.16     {d2[],d3[]}, [r2]!
++        vmov.i16    q2, #0
++        vadd.i16    q0, q1
++        vmov.i16    q1, #0x3ff
++        vmax.s16    q0, q2
++          vld1.16     {d4[],d5[]}, [r2]!
++        vmin.s16    q0, q1
++        vst1.16     {q0}, [r0 :128], r3
 +1:
-+        vext.16     q8,  q8,  #2
-+        vdup.16     q0,  d16[0]
-+        vdup.16     q2,  d16[1]
-+        subs        r1,  #1
-+        vst1.16    {q0 }, [r0  :128], r3
-+        vst1.16    {q2 }, [r2  :128], r3
++            vld1.16     {d0[],d1[]}, [r2]!
++        subs        r1, #2
++          vst1.16     {q2}, [r0 :128], r3
++              vld1.16     {d4[],d5[]}, [r2]!
++            vst1.16     {q0}, [r0 :128], r3
 +        bne         1b
 +
++              vst1.16     {q2}, [r0 :128]
 +        bx          lr
 +endfunc
 +
@@ -12859,46 +12829,38 @@ index 0000000000..afafb6bc44
 +@       ptrdiff_t stride)       [r3]
 +
 +function ff_hevc_rpi_pred_horizontal_16_neon_10, export=1
-+        vld1.16    {q0,  q1 }, [r1  :128]    @ Up
-+        ldrh        r12, [r2, #-2]           @ Up-left
-+        vld1.16    {q8,  q9 }, [r2  :128]    @ left
-+
-+
-+        vdup.16     q2,  r12
-+        add         r2,  r0,  r3,  lsl #1
-+        vhsub.u16   q0,  q2
-+        vhsub.u16   q1,  q2
-+
-+        vdup.16     q3,  d16[0]
-+        lsl         r3,  #2
-+        vmov.s16    q2,  #0
-+        vadd.i16    q0,  q3
-+        vadd.i16    q1,  q3
-+
-+        mov         r1,  #7
-+        vmov.s16    q3,  #0x3ff
-+        vmax.s16    q0,  q2
-+        vmax.s16    q1,  q2
-+        vmin.s16    q0,  q3
-+        vmin.s16    q1,  q3
-+
-+        vdup.16     q2,  d16[1]
-+        vdup.16     q3,  d16[1]
-+
-+        vst1.16    {q0,  q1 }, [r0  :128], r3
-+        vst1.16    {q2,  q3 }, [r2  :128], r3
++        ldrh        ip, [r2, #-2]       @ Top-left
++        vld1.16     {q0-q1}, [r1 :128]  @ Top
++        lsl         r3, #1
++        vdup.16     q2, ip
++        add         ip, r0, r3
++        vhsub.u16   q0, q2
++        add         ip, #16
++        vhsub.u16   q1, q2
++        mov         r1, #16-2
++        vld1.16     {d4[],d5[]}, [r2]!
++        vmov.i16    q3, #0
++        vadd.u16    q0, q2
++        vadd.i16    q1, q2
++        vmov.i16    q2, #0x3ff
++        vmax.s16    q0, q3
++        vmax.s16    q1, q3
++          vld1.16     {d6[],d7[]}, [r2]!
++        vmin.s16    q0, q2
++        vmin.s16    q1, q2
++        vst1.16     {q0-q1}, [r0 :128], r3
 +1:
-+        vext.16     q8,  q9,  #2
-+        vext.16     q9,  q9,  #2
-+        vdup.16     q0,  d16[0]
-+        vdup.16     q1,  d16[0]
-+        vdup.16     q2,  d16[1]
-+        vdup.16     q3,  d16[1]
-+        subs        r1,  #1
-+        vst1.16    {q0,  q1 }, [r0  :128], r3
-+        vst1.16    {q2,  q3 }, [r2  :128], r3
++            vld1.16     {d0[],d1[]}, [r2]!
++        subs        r1, #2
++          vst1.16     {q3}, [r0 :128], r3
++          vst1.16     {q3}, [ip :128], r3
++              vld1.16     {d6[],d7[]}, [r2]!
++            vst1.16     {q0}, [r0 :128], r3
++            vst1.16     {q0}, [ip :128], r3
 +        bne         1b
 +
++              vst1.16     {q3}, [r0 :128]
++              vst1.16     {q3}, [ip :128]
 +        bx          lr
 +endfunc
 +
@@ -12910,31 +12872,37 @@ index 0000000000..afafb6bc44
 +@       ptrdiff_t stride)       [r3]
 +
 +function ff_hevc_rpi_pred_horizontal_32_neon_10, export=1
-+        vldm        r2, { q8-q11}
-+        mov         r1,  #16
++        vld1.16     {d0[],d1[]}, [r2]!
++        add         ip, r0, #16
++        push        {lr}
++        mov         lr, #32
++          vld1.16     {d2[],d3[]}, [r2]!
++        lsl         r3, #1
++        vst1.16     {q0}, [r0 :128], lr
++        sub         r3, #32
++        vst1.16     {q0}, [ip :128], lr
++        mov         r1, #32-2
++        vst1.16     {q0}, [r0 :128], r3
++        vst1.16     {q0}, [ip :128], r3
 +1:
-+        vdup.16     q0,  d16[0]
-+        vdup.16     q1,  d16[0]
-+        vdup.16     q2,  d16[0]
-+        vdup.16     q3,  d16[0]
-+        add         r2,  r0,  r3,  lsl #1
-+        vdup.16     q12, d16[1]
-+        vdup.16     q13, d16[1]
-+        vdup.16     q14, d16[1]
-+        vdup.16     q15, d16[1]
-+        vstm        r0, { q0-q3 }
-+        vstm        r2, {q12-q15}
-+
-+        vext.16     q8,  q9,  #2
-+        vext.16     q9,  q10, #2
-+        add         r0,  r0,  r3,  lsl #2
-+        vext.16     q10, q11, #2
-+        subs        r1,  #1
-+        vext.16     q11, q11, #2
-+
++            vld1.16     {d0[],d1[]}, [r2]!
++        subs        r1, #2
++          vst1.16     {q1}, [r0 :128], lr
++          vst1.16     {q1}, [ip :128], lr
++          vst1.16     {q1}, [r0 :128], r3
++          vst1.16     {q1}, [ip :128], r3
++              vld1.16     {d2[],d3[]}, [r2]!
++            vst1.16     {q0}, [r0 :128], lr
++            vst1.16     {q0}, [ip :128], lr
++            vst1.16     {q0}, [r0 :128], r3
++            vst1.16     {q0}, [ip :128], r3
 +        bne         1b
 +
-+        bx          lr
++              vst1.16     {q1}, [r0 :128], lr
++              vst1.16     {q1}, [ip :128], lr
++              vst1.16     {q1}, [r0 :128]
++              vst1.16     {q1}, [ip :128]
++        pop         {pc}
 +endfunc
 +
 +
@@ -12945,19 +12913,22 @@ index 0000000000..afafb6bc44
 +@       ptrdiff_t stride)       [r3]
 +
 +function ff_hevc_rpi_pred_horizontal_c_4_neon_10, export=1
-+        vld1.16    {q8 }, [r2  :128]    @ Left
-+        add         r2,  r0,  r3,  lsl #2
-+        lsl         r3,  #3
-+
-+        vdup.32     q0,  d16[0]
-+        vdup.32     q1,  d16[1]
-+        vdup.32     q2,  d17[0]
-+        vdup.32     q3,  d17[1]
-+
-+        vst1.32    {q0 }, [r0  :128], r3
-+        vst1.16    {q1 }, [r2  :128], r3
-+        vst1.32    {q2 }, [r0  :128]
-+        vst1.16    {q3 }, [r2  :128]
++        add         r1, r2, #4
++        vld1.32     {d0[],d1[]}, [r2]
++        add         r2, #8
++        vld1.32     {d2[],d3[]}, [r1]
++        add         r1, #8
++        vld1.32     {d4[],d5[]}, [r2]
++A       add         r2, r0, r3, lsl #2
++T       lsl         r3, #2
++T       add         r2, r0, r3
++        vld1.32     {d6[],d7[]}, [r1]
++A       lsl         r3, #3
++T       lsl         r3, #1
++        vst1.32     {q0}, [r0 :128], r3
++        vst1.32     {q1}, [r2 :128], r3
++        vst1.32     {q2}, [r0 :128]
++        vst1.32     {q3}, [r2 :128]
 +
 +        bx          lr
 +endfunc
@@ -12970,22 +12941,25 @@ index 0000000000..afafb6bc44
 +@       ptrdiff_t stride)       [r3]
 +
 +function ff_hevc_rpi_pred_horizontal_c_8_neon_10, export=1
-+        vld1.16    {q8,  q9 }, [r2  :128]    @ Left
-+        add         r2,  r0,  r3,  lsl #2
-+        lsl         r3,  #3
-+        mov         r1,  #4
++        vld1.32     {d0[],d1[]}, [r2]!
++        lsl         r3, #2
++        add         ip, r0, #16
++        mov         r1, #8-2
++          vld1.32     {d2[],d3[]}, [r2]!
++        vst1.32     {q0}, [r0 :128], r3
++        vst1.32     {q0}, [ip :128], r3
 +1:
-+        vdup.32     q0,  d16[0]
-+        vdup.32     q1,  d16[0]
-+        vdup.32     q2,  d16[1]
-+        vdup.32     q3,  d16[1]
-+        vext.32     q8,  q9,  #2
-+        vext.32     q9,  q9,  #2
-+        vst1.32    {q0,  q1 }, [r0  :128], r3
-+        subs        r1,  #1
-+        vst1.32    {q2,  q3 }, [r2  :128], r3
++            vld1.32     {d0[],d1[]}, [r2]!
++        subs        r1, #2
++          vst1.32     {q1}, [r0 :128], r3
++          vst1.32     {q1}, [ip :128], r3
++              vld1.32     {d2[],d3[]}, [r2]!
++            vst1.32     {q0}, [r0 :128], r3
++            vst1.32     {q0}, [ip :128], r3
 +        bne         1b
 +
++              vst1.32     {q1}, [r0 :128]
++              vst1.32     {q1}, [ip :128]
 +        bx          lr
 +endfunc
 +
@@ -12997,31 +12971,37 @@ index 0000000000..afafb6bc44
 +@       ptrdiff_t stride)       [r3]
 +
 +function ff_hevc_rpi_pred_horizontal_c_16_neon_10, export=1
-+        vldm        r2, { q8-q11}
-+        mov         r1,  #8
++        vld1.32     {d0[],d1[]}, [r2]!
++        add         ip, r0, #16
++        push        {lr}
++        mov         lr, #32
++          vld1.32     {d2[],d3[]}, [r2]!
++        lsl         r3, #2
++        vst1.32     {q0}, [r0 :128], lr
++        sub         r3, #32
++        vst1.32     {q0}, [ip :128], lr
++        mov         r1, #16-2
++        vst1.32     {q0}, [r0 :128], r3
++        vst1.32     {q0}, [ip :128], r3
 +1:
-+        vdup.32     q0,  d16[0]
-+        vdup.32     q1,  d16[0]
-+        vdup.32     q2,  d16[0]
-+        vdup.32     q3,  d16[0]
-+        add         r2,  r0,  r3,  lsl #2
-+        vdup.32     q12, d16[1]
-+        vdup.32     q13, d16[1]
-+        vdup.32     q14, d16[1]
-+        vdup.32     q15, d16[1]
-+        vstm        r0, { q0-q3 }
-+        vstm        r2, {q12-q15}
-+
-+        vext.32     q8,  q9,  #2
-+        vext.32     q9,  q10, #2
-+        add         r0,  r0,  r3,  lsl #3
-+        vext.32     q10, q11, #2
-+        subs        r1,  #1
-+        vext.32     q11, q11, #2
-+
++            vld1.32     {d0[],d1[]}, [r2]!
++        subs        r1, #2
++          vst1.32     {q1}, [r0 :128], lr
++          vst1.32     {q1}, [ip :128], lr
++          vst1.32     {q1}, [r0 :128], r3
++          vst1.32     {q1}, [ip :128], r3
++              vld1.32     {d2[],d3[]}, [r2]!
++            vst1.32     {q0}, [r0 :128], lr
++            vst1.32     {q0}, [ip :128], lr
++            vst1.32     {q0}, [r0 :128], r3
++            vst1.32     {q0}, [ip :128], r3
 +        bne         1b
 +
-+        bx          lr
++              vst1.32     {q1}, [r0 :128], lr
++              vst1.32     {q1}, [ip :128], lr
++              vst1.32     {q1}, [r0 :128]
++              vst1.32     {q1}, [ip :128]
++        pop         {pc}
 +endfunc
 +
 +
@@ -18040,10 +18020,10 @@ index 0000000000..8e7695bcf9
 +
 diff --git a/libavcodec/rpi_hevc_mvs.c b/libavcodec/rpi_hevc_mvs.c
 new file mode 100644
-index 0000000000..f283f01489
+index 0000000000..163e2558dc
 --- /dev/null
 +++ b/libavcodec/rpi_hevc_mvs.c
-@@ -0,0 +1,704 @@
+@@ -0,0 +1,681 @@
 +/*
 + * HEVC video decoder
 + *
@@ -18163,7 +18143,7 @@ index 0000000000..f283f01489
 +                refPicList, X, refIdxLx,                        \
 +                refPicList_col, L ## l, temp_col.ref_idx[l])
 +
-+// derive the motion vectors section 8.5.3.1.8
++// derive the motion vectors section 8.5.3.2.8
 +static int derive_temporal_colocated_mvs(const HEVCRpiContext * const s, const MvField temp_col,
 +                                         const int refIdxLx, Mv * const mvLXCol, const int X,
 +                                         const int colPic, const RefPicList * const refPicList_col)
@@ -18173,35 +18153,12 @@ index 0000000000..f283f01489
 +    if (temp_col.pred_flag == PF_INTRA)
 +        return 0;
 +
-+    if (!(temp_col.pred_flag & PF_L0))
-+        return CHECK_MVSET(1);
-+    else if (temp_col.pred_flag == PF_L0)
++    if (temp_col.pred_flag == PF_L0 ||
++        (temp_col.pred_flag == PF_BI && (s->no_backward_pred_flag ? s->sh.collocated_list == L1 : X == 0)))
++    {
 +        return CHECK_MVSET(0);
-+    else if (temp_col.pred_flag == PF_BI) {
-+        int check_diffpicount = 0;
-+        int i, j;
-+        for (j = 0; j < 2; j++) {
-+            for (i = 0; i < refPicList[j].nb_refs; i++) {
-+                if (refPicList[j].list[i] > s->poc) {
-+                    check_diffpicount++;
-+                    break;
-+                }
-+            }
-+        }
-+        if (!check_diffpicount) {
-+            if (X==0)
-+                return CHECK_MVSET(0);
-+            else
-+                return CHECK_MVSET(1);
-+        } else {
-+            if (s->sh.collocated_list == L1)
-+                return CHECK_MVSET(0);
-+            else
-+                return CHECK_MVSET(1);
-+        }
 +    }
-+
-+    return 0;
++    return CHECK_MVSET(1);
 +}
 +
 +#define TAB_MVF(x, y)                                                   \
@@ -27149,10 +27106,10 @@ index 0000000000..3557348e30
 +};
 diff --git a/libavcodec/rpi_hevcdec.c b/libavcodec/rpi_hevcdec.c
 new file mode 100644
-index 0000000000..255dd6835a
+index 0000000000..eef98e5643
 --- /dev/null
 +++ b/libavcodec/rpi_hevcdec.c
-@@ -0,0 +1,5799 @@
+@@ -0,0 +1,5820 @@
 +/*
 + * HEVC video Decoder
 + *
@@ -31981,11 +31938,32 @@ index 0000000000..255dd6835a
 +}
 +
 +
++static void set_no_backward_pred(HEVCRpiContext * const s)
++{
++    int i, j;
++    const RefPicList *const refPicList = s->ref->refPicList;
++
++    s->no_backward_pred_flag = 0;
++    if (s->sh.slice_type != HEVC_SLICE_B || !s->sh.slice_temporal_mvp_enabled_flag)
++        return;
++
++    for (j = 0; j < 2; j++) {
++        for (i = 0; i < refPicList[j].nb_refs; i++) {
++            if (refPicList[j].list[i] > s->poc) {
++                s->no_backward_pred_flag = 1;
++                return;
++            }
++        }
++    }
++}
++
 +static int hls_slice_data(HEVCRpiContext * const s, const H2645NAL * const nal)
 +{
 +    int err;
 +    if ((err = gen_entry_points(s, nal)) < 0)
 +        return err;
++
++    set_no_backward_pred(s);
 +
 +    return rpi_decode_entry(s->avctx, NULL);
 +}
@@ -32954,10 +32932,10 @@ index 0000000000..255dd6835a
 +
 diff --git a/libavcodec/rpi_hevcdec.h b/libavcodec/rpi_hevcdec.h
 new file mode 100644
-index 0000000000..a5ce342ab3
+index 0000000000..ea08308be2
 --- /dev/null
 +++ b/libavcodec/rpi_hevcdec.h
-@@ -0,0 +1,956 @@
+@@ -0,0 +1,959 @@
 +/*
 + * HEVC video decoder
 + *
@@ -33616,13 +33594,18 @@ index 0000000000..a5ce342ab3
 +    const AVClass *c;  // needed by private avoptions
 +    AVCodecContext *avctx;
 +
-+    HEVCRpiLocalContext    *HEVClcList[MAX_NB_THREADS];
-+    HEVCRpiLocalContext    *HEVClc;
-+
 +    uint8_t             threads_type;
 +
 +    /** 1 if the independent slice segment header was successfully parsed */
 +    uint8_t slice_initialized;
++    char used_for_ref;  // rpi
++    char offload_recon;
++    uint8_t eos;       ///< current packet contains an EOS/EOB NAL
++    uint8_t last_eos;  ///< last packet contains an EOS/EOB NAL
++    uint8_t no_backward_pred_flag;
++    uint8_t is_decoded;
++    uint8_t no_rasl_output_flag;
++
 +
 +    /**
 +     * Sequence counters for decoded and output frames, so that old
@@ -33633,9 +33616,6 @@ index 0000000000..a5ce342ab3
 +
 +    int                 width;
 +    int                 height;
-+
-+    char used_for_ref;  // rpi
-+    char offload_recon;
 +
 +    HEVCRpiJobCtl * jbc;
 +    // cabac stash
@@ -33662,33 +33642,19 @@ index 0000000000..a5ce342ab3
 +    uint8_t *sao_pixel_buffer_h[3];
 +    uint8_t *sao_pixel_buffer_v[3];
 +
-+    HEVCRpiParamSets ps;
-+
 +    AVBufferPool *tab_mvf_pool;
 +    AVBufferPool *rpl_tab_pool;
 +
-+    ///< candidate references for the current frame
-+    RefPicList rps[5];
-+
-+    RpiSliceHeader sh;
 +    RpiSAOParams *sao;
 +    DBParams *deblock;
 +    enum HEVCNALUnitType nal_unit_type;
 +    int temporal_id;  ///< temporal_id_plus1 - 1
 +    HEVCFrame *ref;
-+    HEVCFrame DPB[HEVC_DPB_ELS];
 +    int poc;
 +    int pocTid0;
 +    int slice_idx; ///< number of the slice being currently decoded
-+    int eos;       ///< current packet contains an EOS/EOB NAL
-+    int last_eos;  ///< last packet contains an EOS/EOB NAL
 +    int max_ra;
 +
-+    int is_decoded;
-+    int no_rasl_output_flag;
-+
-+    HEVCRpiPredContext hpc;
-+    HEVCDSPContext hevcdsp;
 +    int8_t *qp_y_tab;
 +
 +    // Deblocking block strength bitmaps
@@ -33730,6 +33696,21 @@ index 0000000000..a5ce342ab3
 +    int nuh_layer_id;
 +
 +    struct AVMD5 *md5_ctx;
++
++    RpiSliceHeader sh;
++
++    HEVCRpiParamSets ps;
++
++    HEVCRpiLocalContext    *HEVClc;
++    HEVCRpiLocalContext    *HEVClcList[MAX_NB_THREADS];
++
++    HEVCFrame DPB[HEVC_DPB_ELS];
++
++    ///< candidate references for the current frame
++    RefPicList rps[5];
++
++    HEVCRpiPredContext hpc;
++    HEVCDSPContext hevcdsp;
 +
 +    HEVCSEIContext sei;
 +

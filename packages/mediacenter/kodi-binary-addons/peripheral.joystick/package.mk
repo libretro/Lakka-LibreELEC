@@ -18,8 +18,8 @@
 ################################################################################
 
 PKG_NAME="peripheral.joystick"
-PKG_VERSION="6312745"
-PKG_SHA256="0afec1587bed5c1e32e3717529b5e9dec839f28e01a60ec3c49054577532abf9"
+PKG_VERSION="dbdeded"
+PKG_SHA256="b36fa4a0c4f4a05dd1704be76f47a8c4bb811ff738226717bea6fa922735ba62"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="pvr.teleboy"
-PKG_VERSION="dfa68b0"
-PKG_SHA256="dde0747985c9f535642a9be5830cfe59b8651b426883c38653ea4a191f1aa9cf"
+PKG_VERSION="0460536"
+PKG_SHA256="c0e3a3410af7e31124d5c821847864e1cd8674f86fbfad15b95c29fad5724b24"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
