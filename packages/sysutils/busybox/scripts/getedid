@@ -36,7 +36,7 @@ help() {
   echo ""
   echo "If you don't want to use the created EDID file anymore use: getedid delete"
   echo ""
-  echo "If you hardware has changed and you want to have a custom EDID again, then you have to delete the old EDID first."
+  echo "If your hardware or kernel has changed and you want to have a custom EDID again, then you have to delete the old EDID first."
   echo "For this use: getedid delete "
   echo "And then use: getedid create"
 }
@@ -44,8 +44,8 @@ help() {
 
 # check for GPU and store string
 check_gpu() {
-  if lspci | grep -i vga | grep -i -q intel ; then
-    gpu="intel"
+  if lspci | grep -i vga | grep -i -q -E 'intel|amd' ; then
+    gpu="intel/amd"
   elif lspci | grep -i vga | grep -i -q nvidia; then
     gpu="nvidia"
   else
@@ -82,8 +82,8 @@ del_edid() {
 
 # run main script depending on the GPU
 run() {
-  if [ "$gpu" = "intel" ]; then
-    intel 
+  if [ "$gpu" = "intel/amd" ]; then
+    intel_amd
   elif [ "$gpu" = "nvidia" ]; then
     nvidia
   fi
@@ -141,14 +141,20 @@ check_file() {
 
 check_content() {
   # check if changes are already made to $file and exit if yes
-  if grep -q "initrd=/edid.cpio drm_kms_helper.edid_firmware=" $file ; then
-    echo "$file has been modified. Exiting."
+  if grep -q "initrd=/edid.cpio" $file ; then
+    echo "$file has been modified. Please run 'getedid delete' first if you want to modify it again. Exiting."
     exit 5
   fi
 }
 
 
-intel() {
+check_kernel() {
+  # determine which kernel is in use and store it in a compareable format. This will probably be deprecated for LE10
+  kernel="$(uname -r | sed 's/[^0-9\.].*//g' | awk -F. '{ printf "%d%02d%03d\n",int($1),int($2),int($3) }')"
+}
+
+
+intel_amd() {
   #check which output is connnected:
   counter=0
   for i in /sys/class/drm/*; do
@@ -188,8 +194,12 @@ intel() {
   # make a backup of $file
   cp "$file" "$file".old
 
-  #add things to $file
-  sed -i "/ APPEND/s/$/ initrd=\/edid.cpio drm_kms_helper.edid_firmware=$hdmi:edid\/edid.bin video=$hdmi:D/" "$file"
+  #add boot parameters to $file in relation to the used kernel
+  if [ "$kernel" -lt "415000" ]; then
+    sed -i "/ APPEND/s/$/ initrd=\/edid.cpio drm_kms_helper.edid_firmware=$hdmi:edid\/edid.bin video=$hdmi:D/" "$file"
+  else
+    sed -i "/ APPEND/s/$/ initrd=\/edid.cpio drm.edid_firmware=edid\/edid.bin/" "$file"
+  fi
 
   #reboot
   sys_reboot
