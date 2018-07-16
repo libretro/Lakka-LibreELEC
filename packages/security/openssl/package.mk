@@ -115,6 +115,7 @@ post_makeinstall_target() {
   mkdir -p $INSTALL/usr/bin
     cp $PKG_DIR/scripts/openssl-config $INSTALL/usr/bin
     ln -sf /run/libreelec/cacert.pem $INSTALL/etc/ssl/cacert.pem
+    ln -sf /run/libreelec/cacert.pem $INSTALL/etc/ssl/cert.pem
 
   # backwards comatibility
   mkdir -p $INSTALL/etc/pki/tls
