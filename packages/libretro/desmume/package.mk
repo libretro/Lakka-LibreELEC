@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="desmume"
-PKG_VERSION="f5df182"
+PKG_VERSION="5957aa0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
@@ -37,6 +37,8 @@ PKG_AUTORECONF="no"
 make_target() {
   if [ "$ARCH" == "arm" ]; then
     make -C desmume platform=armv LDFLAGS="$LDFLAGS -lpthread" # DESMUME_JIT_ARM=1
+  elif [ "$ARCH" == "aarch64" ]; then
+    make -C desmume platform=arm64-unix LDFLAGS="$LDFLAGS -lpthread"
   else
     make -C desmume LDFLAGS="$LDFLAGS -lpthread"
   fi
