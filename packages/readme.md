@@ -66,7 +66,7 @@ Additional options used when the package builds an addon.
 | Variable    | Default | Required |Description |
 |-------------|---------|----------|------------|
 | PKG_REV     | -       | yes      | The revision number of the addon (starts at 100). Must be placed after `PKG_VERSION`. Must be incremented for each new version else Kodi clients will not detect version change and download the updated addon. |
-| PKG_IS_ADDON | no     | yes      | Must be set to `yes` |
+| PKG_IS_ADDON | no     | yes      | Must be set to `yes` <br>or to `embedded` when this addon is part of the image |
 | PKG_ADDON_NAME | -    | yes      | Proper name of the addon that is shown at the repo |
 | PKG_ADDON_TYPE | -    | yes      | See LE/config/addon/ for other possibilities |
 | PKG_ADDON_VERSION | - | no       | The version of the addon, used in addon.xml |

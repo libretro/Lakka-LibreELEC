@@ -4,7 +4,8 @@
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 
 . config/options
-
+set
+exit 
 # usage
 usage() {
   cat - >&2 <<EOUSAGE
@@ -74,11 +75,21 @@ function find_addons() {
       | xargs -n1 -I{} $SHELL -c '. ./config/options {} &>/dev/null; [ "$PKG_IS_ADDON" == "yes" ] && echo $PKG_NAME'
   )
 
+  # check if anything is found
   local _count=$(wc -w <<< $_addons)
   if [ "$_count" == 0 ]; then
-    printf  "$(print_color CLR_ERROR "ERROR: '$1' matches nothing...")\n" ' '>&$SILENT_OUT
-    printf  "for more informations type: ./scripts/create_addon --help\n" ' '>&$SILENT_OUT
-    exit 1
+    # handle embedded addons here, should not found by regex
+    ( . ./config/options $1 &>/dev/null
+      [ "$PKG_IS_ADDON" != "embedded" ] && exit 1
+      echo $PKG_NAME
+    )
+
+    # abort when nothing found and not embedded
+    if [ $? != 0 ]; then
+      printf  "$(print_color CLR_ERROR "ERROR: '$1' matches nothing...")\n" ' '>&$SILENT_OUT
+      printf  "for more informations type: ./scripts/create_addon --help\n" ' '>&$SILENT_OUT
+      exit 1
+    fi
   fi
 
   echo $_addons
@@ -223,6 +234,7 @@ while [ $# -gt 0 ]; do
   case $1 in
     --help)      usage 0;;
     --show-only) show_only="true";;
+    --*)         usage 1;;
     -*)          addons_drop+=" $(find_addons ${1:1})";;
     *)           addons+=" $(find_addons $1)";;
   esac
