@@ -1,0 +1,38 @@
+From 9af33ab01cf84d90fe9a4d354b71dd304bca3010 Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@free-electrons.com>
+Date: Thu, 30 Nov 2017 11:45:24 +0100
+Subject: [PATCH] mali: Make devfreq optional
+
+If the USING_DEVFREQ option is set, any device without operating points
+defined in the device tree will be treated as an hard error, making probe
+fail.
+
+Rework the driver a bit to ignore the property missing error, and treat all
+the others as hard errors.
+
+Signed-off-by: Maxime Ripard <maxime.ripard@free-electrons.com>
+---
+ r6p2/src/devicedrv/mali/linux/mali_devfreq.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/src/devicedrv/mali/linux/mali_devfreq.c b/src/devicedrv/mali/linux/mali_devfreq.c
+index 0b0ba1481eed..c3a2636e6635 100755
+--- a/src/devicedrv/mali/linux/mali_devfreq.c
++++ b/src/devicedrv/mali/linux/mali_devfreq.c
+@@ -232,8 +232,11 @@ int mali_devfreq_init(struct mali_device *mdev)
+ 	dp->get_cur_freq = mali_devfreq_cur_freq;
+ 	dp->exit = mali_devfreq_exit;
+ 
+-	if (mali_devfreq_init_freq_table(mdev, dp))
+-		return -EFAULT;
++	err = mali_devfreq_init_freq_table(mdev, dp);
++	if (err == -ENODEV)
++		return 0;
++	else
++		return err;
+ 
+ 	mdev->devfreq = devfreq_add_device(mdev->dev, dp,
+ 					   "simple_ondemand", NULL);
+-- 
+2.14.3
+
