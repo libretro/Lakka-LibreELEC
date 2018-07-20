@@ -26,13 +26,18 @@ RUN apt-get update \
 		git-core \
 		gperf \
 		gzip \
+		bsdmainutils \
 		libjson-perl \
 		libncurses5-dev \
+		libfdt-dev \
 		lzop \
 		make \
 		patch \
 		patchutils \
 		perl \
+		python \
+		python-dev \
+		swig \
 		sed \
 		tar \
 		texinfo \
