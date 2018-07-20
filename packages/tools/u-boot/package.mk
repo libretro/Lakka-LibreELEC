@@ -132,6 +132,8 @@ make_target() {
         TARGET_NAME="orangepi_plus2e"
       elif [ "$UBOOT_TARGET" = "nanopi_m1_plus_defconfig" ]; then
         TARGET_NAME="nanopi_m1_plus"
+      elif [ "$UBOOT_TARGET" = "Linksprite_pcDuino3_Nano_defconfig" ]; then
+        TARGET_NAME="Linksprite_pcDuino3_Nano"
       else
         TARGET_NAME="undef"
       fi

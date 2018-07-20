@@ -21,6 +21,7 @@ DISTRO=Lakka PROJECT=Allwinner SYSTEM=orangepi_pc ARCH=arm make image -j8
 DISTRO=Lakka PROJECT=Allwinner SYSTEM=orangepi_plus ARCH=arm make image -j8
 DISTRO=Lakka PROJECT=Allwinner SYSTEM=orangepi_plus2e ARCH=arm make image -j8
 DISTRO=Lakka PROJECT=Allwinner SYSTEM=nanopi_m1_plus ARCH=arm make image -j8
+DISTRO=Lakka PROJECT=Allwinner SYSTEM=Linksprite_pcDuino3_Nano ARCH=arm make image -j8
 >&2 echo "imx6.cuboxi.arm"
 DISTRO=Lakka PROJECT=imx6 SYSTEM=cuboxi ARCH=arm make image -j8
 >&2 echo "imx6.udoo.arm"
