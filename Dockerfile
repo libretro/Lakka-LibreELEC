@@ -30,6 +30,7 @@ RUN apt-get update \
 		libjson-perl \
 		libncurses5-dev \
 		libfdt-dev \
+		libssl-dev \
 		lzop \
 		make \
 		patch \
