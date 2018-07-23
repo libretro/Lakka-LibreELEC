@@ -18,23 +18,32 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="switch-bootloader"
-PKG_VERSION="1.0"
+PKG_NAME="switch-u-boot"
+PKG_VERSION="0ee0219"
 PKG_ARCH="any"
-PKG_DEPENDS_TARGET="switch-coreboot:host switch-coreboot"
+PKG_DEPENDS_TARGET="toolchain gcc-linaro-aarch64-linux-gnu:host gcc-linaro-arm-linux-gnueabi:host"
+PKG_SITE="https://github.com/lakka-switch/u-boot"
+PKG_GIT_URL="$PKG_SITE"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-makeinstall_target() {
-  mkdir -p $INSTALL/usr/share/bootloader/boot
-  mkimage -A arm -T script -O linux -d $PKG_DIR/bootscript/boot.txt $BUILD/$PKG_NAME-$PKG_VERSION/boot.scr
+make_target() {
+  export PATH=$TOOLCHAIN/lib/gcc-linaro-aarch64-linux-gnu/bin/:$PATH
+  export PATH=$TOOLCHAIN/lib/gcc-linaro-arm-linux-gnueabi/bin/:$PATH
+  OLD_CROSS_COMPILE=$CROSS_COMPILE
+  export CROSS_COMPILE=aarch64-linux-gnu-
   
-  cp -PRv $BUILD/$PKG_NAME-$PKG_VERSION/boot.scr $INSTALL/usr/share/bootloader/boot/boot.scr
-  cp -PRv $BUILD/switch-boot/coreboot.rom $INSTALL/usr/share/bootloader/boot/coreboot.rom
-  cp -PRv $(kernel_path)/arch/arm64/boot/dts/nvidia/tegra210-nintendo-switch.dtb $INSTALL/usr/share/bootloader/boot/tegra210-nintendo-switch.dtb
+  make nintendo-switch_defconfig
+  make
+  
+  export CROSS_COMPILE=$OLD_CROSS_COMPILE
 }
 
-make_target() {
-  :
+makeinstall_target() {
+  mkdir -p $BUILD/switch-boot
+  cp $PKG_BUILD/u-boot.elf $BUILD/switch-boot
+  
+  mkdir -p $TOOLCHAIN/bin
+  cp tools/mkimage $TOOLCHAIN/bin
 }
