@@ -19,13 +19,13 @@
 ################################################################################
 
 PKG_NAME="dolphin"
-PKG_VERSION="cda77d5"
+PKG_VERSION="535df63"
 PKG_REV="1"
-PKG_ARCH="x86_64"
+PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/dolphin"
 PKG_GIT_URL="$PKG_SITE"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain cmake:host libusb ffmpeg libevdev $OPENGL"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="Dolphin is a GameCube / Wii emulator, allowing you to play games for these two platforms on PC with improvements."
@@ -33,14 +33,22 @@ PKG_LONGDESC="Dolphin is a GameCube / Wii emulator, allowing you to play games f
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-PKG_USE_CMAKE="no"
+PKG_USE_CMAKE="yes"
 
-make_target() {
-  cd $PKG_BUILD
-  make -C Source/Core/DolphinLibretro
+if [ "BLUETOOTH_SUPPORT" = "yes" ]; then
+  PKG_DEPENDS_TARGET = "$PKG_DEPENDS_TARGET bluez"
+fi
+
+PKG_CMAKE_SCRIPT="$PKG_BUILD/CMakeLists.txt"
+
+PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON"
+
+pre_make_target() {
+  # build fix for cross-compiling Dolphin, from Dolphin forums
+  find $PKG_BUILD -name flags.make -exec sed -i "s:isystem :I:g" \{} \;
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp Source/Core/DolphinLibretro/dolphin_libretro.so $INSTALL/usr/lib/libretro/
+  cp $PKG_BUILD/.$TARGET_NAME/dolphin_libretro.so $INSTALL/usr/lib/libretro/
 }
