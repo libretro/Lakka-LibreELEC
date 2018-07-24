@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="peripheral.steamcontroller"
-PKG_VERSION="4eb972a"
-PKG_SHA256="98c3a726175eced66cab1d788ac17fe3a08862d4fc04cdec550d557de8272e35"
-PKG_REV="101"
+PKG_VERSION="ea34539"
+PKG_SHA256="cffac3516af2971e739974175d27cf36d1f9dd255df058a169805355b176eef7"
+PKG_REV="102"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/peripheral.steamcontroller"
