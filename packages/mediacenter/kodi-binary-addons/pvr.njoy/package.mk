@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.njoy"
-PKG_VERSION="30aae48"
-PKG_SHA256="d4cbcf720f9bbc0ecd7f905853166c95b9f6b936221ee02f11242a0e64307a6a"
+PKG_VERSION="204d95b"
+PKG_SHA256="8573bd42222162fe5ccefe18df9d18712ca65f8913c99dcbf066102f850d216d"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
