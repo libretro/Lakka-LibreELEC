@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="dolphin"
-PKG_VERSION="535df63"
+PKG_VERSION="5ff7d20"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
