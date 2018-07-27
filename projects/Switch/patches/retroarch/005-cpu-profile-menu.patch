@@ -1,0 +1,310 @@
+diff --git a/intl/msg_hash_lbl.h b/intl/msg_hash_lbl.h
+index dc8d8c304c..dcd40813c1 100644
+--- a/intl/msg_hash_lbl.h
++++ b/intl/msg_hash_lbl.h
+@@ -1,5 +1,7 @@
+ MSG_HASH(MENU_ENUM_LABEL_SWITCH_GPU_PROFILE,
+       "switch_gpu_profile")
++MSG_HASH(MENU_ENUM_LABEL_SWITCH_CPU_PROFILE,
++      "switch_cpu_profile")
+ MSG_HASH(MENU_ENUM_LABEL_SWITCH_BACKLIGHT_CONTROL,
+       "switch_backlight_control")
+ MSG_HASH(MENU_ENUM_LABEL_ACCOUNTS_CHEEVOS_USERNAME,
+diff --git a/intl/msg_hash_us.h b/intl/msg_hash_us.h
+index b8f8f770e4..597aebfacd 100644
+--- a/intl/msg_hash_us.h
++++ b/intl/msg_hash_us.h
+@@ -4,12 +4,20 @@ MSG_HASH(
+       )
+ MSG_HASH(
+       MENU_ENUM_LABEL_VALUE_SWITCH_GPU_PROFILE,
+-      "Overclock GPU"
++      "GPU Overclock"
+       )
+ MSG_HASH(
+       MENU_ENUM_SUBLABEL_SWITCH_GPU_PROFILE,
+       "Overclock or underclock the Switch GPU"
+       )
++MSG_HASH(
++      MENU_ENUM_LABEL_VALUE_SWITCH_CPU_PROFILE,
++      "CPU Overclock"
++      )
++MSG_HASH(
++      MENU_ENUM_SUBLABEL_SWITCH_CPU_PROFILE,
++      "Overclock the Switch CPU"
++      )
+ MSG_HASH(
+       MENU_ENUM_LABEL_VALUE_SWITCH_BACKLIGHT_CONTROL,
+       "Screen brightness"
+diff --git a/menu/cbs/menu_cbs_deferred_push.c b/menu/cbs/menu_cbs_deferred_push.c
+index b9accda0ff..a2424290c1 100644
+--- a/menu/cbs/menu_cbs_deferred_push.c
++++ b/menu/cbs/menu_cbs_deferred_push.c
+@@ -97,6 +97,7 @@ generic_deferred_push(deferred_push_load_content_special,           DISPLAYLIST_
+ generic_deferred_push(deferred_push_load_content_list,              DISPLAYLIST_LOAD_CONTENT_LIST)
+ generic_deferred_push(deferred_push_information_list,               DISPLAYLIST_INFORMATION_LIST)
+ generic_deferred_push(deferred_push_switch_gpu_profile,             DISPLAYLIST_SWITCH_GPU_PROFILE)
++generic_deferred_push(deferred_push_switch_cpu_profile,             DISPLAYLIST_SWITCH_CPU_PROFILE)
+ generic_deferred_push(deferred_push_switch_backlight_control,       DISPLAYLIST_SWITCH_BACKLIGHT_CONTROL)
+ generic_deferred_push(deferred_archive_action_detect_core,          DISPLAYLIST_ARCHIVE_ACTION_DETECT_CORE)
+ generic_deferred_push(deferred_archive_action,                      DISPLAYLIST_ARCHIVE_ACTION)
+@@ -909,6 +910,11 @@ static int menu_cbs_init_bind_deferred_push_compare_label(
+    {
+       BIND_ACTION_DEFERRED_PUSH(cbs, deferred_push_switch_gpu_profile);
+    }
++   else if (strstr(label,
++            msg_hash_to_str(MENU_ENUM_LABEL_SWITCH_CPU_PROFILE)))
++   {
++      BIND_ACTION_DEFERRED_PUSH(cbs, deferred_push_switch_cpu_profile);
++   }
+    else if (strstr(label,
+             msg_hash_to_str(MENU_ENUM_LABEL_SWITCH_BACKLIGHT_CONTROL)))
+    {
+diff --git a/menu/cbs/menu_cbs_ok.c b/menu/cbs/menu_cbs_ok.c
+index 05fdeb9cc8..4e73a2ad79 100644
+--- a/menu/cbs/menu_cbs_ok.c
++++ b/menu/cbs/menu_cbs_ok.c
+@@ -2653,6 +2653,24 @@ static int action_ok_set_switch_backlight(const char *path,
+ 	return 0;
+ }
+ 
++static int action_ok_set_switch_cpu_profile(const char *path,
++      const char *label, unsigned type, size_t idx, size_t entry_idx)
++{
++	char* profile_name = SWITCH_CPU_PROFILES[entry_idx];
++	
++	char command[PATH_MAX_LENGTH] = {0};
++	
++	snprintf(command, sizeof(command), "cpu-profile set %s", profile_name);
++	
++        system(command);
++        
++        snprintf(command, sizeof(command), "Current profile set to %s", profile_name);
++        
++        runloop_msg_queue_push(command, 1, 90, true);
++	
++	return menu_cbs_exit();
++}
++
+ static int action_ok_set_switch_gpu_profile(const char *path,
+       const char *label, unsigned type, size_t idx, size_t entry_idx)
+ {
+@@ -4551,6 +4569,7 @@ static int menu_cbs_init_bind_ok_compare_label(menu_file_list_cbs_t *cbs,
+          case MENU_ENUM_LABEL_HELP_LIST:
+          case MENU_ENUM_LABEL_INFORMATION_LIST:
+          case MENU_ENUM_LABEL_SWITCH_GPU_PROFILE:
++         case MENU_ENUM_LABEL_SWITCH_CPU_PROFILE:
+          case MENU_ENUM_LABEL_SWITCH_BACKLIGHT_CONTROL:
+          case MENU_ENUM_LABEL_CONTENT_SETTINGS:
+             BIND_ACTION_OK(cbs, action_ok_push_default);
+@@ -4947,6 +4966,9 @@ static int menu_cbs_init_bind_ok_compare_type(menu_file_list_cbs_t *cbs,
+          case MENU_SET_SWITCH_GPU_PROFILE:
+             BIND_ACTION_OK(cbs, action_ok_set_switch_gpu_profile);
+             break;
++         case MENU_SET_SWITCH_CPU_PROFILE:
++            BIND_ACTION_OK(cbs, action_ok_set_switch_cpu_profile);
++            break;
+          case MENU_SET_SWITCH_BRIGHTNESS:
+             BIND_ACTION_OK(cbs, action_ok_set_switch_backlight);
+             break;
+diff --git a/menu/cbs/menu_cbs_sublabel.c b/menu/cbs/menu_cbs_sublabel.c
+index 51b87ea6a0..e717f28b49 100644
+--- a/menu/cbs/menu_cbs_sublabel.c
++++ b/menu/cbs/menu_cbs_sublabel.c
+@@ -68,6 +68,7 @@ default_sublabel_macro(menu_action_sublabel_setting_audio_mixer_stream_volume,
+ default_sublabel_macro(action_bind_sublabel_quick_menu_override_options,             MENU_ENUM_SUBLABEL_QUICK_MENU_OVERRIDE_OPTIONS)
+ default_sublabel_macro(action_bind_sublabel_crt_switchres,             MENU_ENUM_SUBLABEL_CRT_SWITCH_RESOLUTION)
+ default_sublabel_macro(action_bind_sublabel_switch_gpu_profile,             MENU_ENUM_SUBLABEL_SWITCH_GPU_PROFILE)
++default_sublabel_macro(action_bind_sublabel_switch_cpu_profile,             MENU_ENUM_SUBLABEL_SWITCH_CPU_PROFILE)
+ default_sublabel_macro(action_bind_sublabel_switch_backlight_control,             MENU_ENUM_SUBLABEL_SWITCH_BACKLIGHT_CONTROL)
+ default_sublabel_macro(action_bind_sublabel_crt_switchres_super,       MENU_ENUM_SUBLABEL_CRT_SWITCH_RESOLUTION_SUPER)
+ default_sublabel_macro(action_bind_sublabel_automatically_add_content_to_playlist,             MENU_ENUM_SUBLABEL_AUTOMATICALLY_ADD_CONTENT_TO_PLAYLIST)
+@@ -1632,6 +1633,9 @@ int menu_cbs_init_bind_sublabel(menu_file_list_cbs_t *cbs,
+          case MENU_ENUM_LABEL_INFORMATION_LIST:
+             BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_information_list_list);
+             break;
++         case MENU_ENUM_LABEL_SWITCH_CPU_PROFILE:
++            BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_switch_cpu_profile);
++            break;
+          case MENU_ENUM_LABEL_SWITCH_GPU_PROFILE:
+             BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_switch_gpu_profile);
+             break;
+diff --git a/menu/cbs/menu_cbs_title.c b/menu/cbs/menu_cbs_title.c
+index 2973a3ba91..58ab9b6a5f 100644
+--- a/menu/cbs/menu_cbs_title.c
++++ b/menu/cbs/menu_cbs_title.c
+@@ -150,6 +150,7 @@ default_title_macro(action_get_network_information_list,        MENU_ENUM_LABEL_
+ default_title_macro(action_get_settings_list,                   MENU_ENUM_LABEL_VALUE_SETTINGS)
+ default_title_macro(action_get_title_information_list,          MENU_ENUM_LABEL_VALUE_INFORMATION_LIST)
+ default_title_macro(action_get_title_switch_gpu_profile,        MENU_ENUM_LABEL_VALUE_SWITCH_GPU_PROFILE)
++default_title_macro(action_get_title_switch_cpu_profile,        MENU_ENUM_LABEL_VALUE_SWITCH_CPU_PROFILE)
+ default_title_macro(action_get_title_goto_favorites,            MENU_ENUM_LABEL_VALUE_GOTO_FAVORITES)
+ default_title_macro(action_get_title_goto_image,                MENU_ENUM_LABEL_VALUE_GOTO_IMAGES)
+ default_title_macro(action_get_title_goto_music,                MENU_ENUM_LABEL_VALUE_GOTO_MUSIC)
+diff --git a/menu/drivers/xmb.c b/menu/drivers/xmb.c
+index 23de968cac..b1297acdd0 100755
+--- a/menu/drivers/xmb.c
++++ b/menu/drivers/xmb.c
+@@ -2326,6 +2326,7 @@ static uintptr_t xmb_icon_get_id(xmb_handle_t *xmb,
+          return xmb->textures.list[XMB_TEXTURE_SETTING];
+       case MENU_SETTING_GROUP:
+       case MENU_SET_SWITCH_GPU_PROFILE:
++      case MENU_SET_SWITCH_CPU_PROFILE:
+       case MENU_SET_SWITCH_BRIGHTNESS:
+          return xmb->textures.list[XMB_TEXTURE_SETTING];
+       case MENU_INFO_MESSAGE:
+@@ -5090,6 +5091,9 @@ static int xmb_list_push(void *data, void *userdata,
+                menu_displaylist_ctl(DISPLAYLIST_SETTING_ENUM, &entry);
+             }
+             
++            entry.enum_idx      = MENU_ENUM_LABEL_SWITCH_CPU_PROFILE;
++            menu_displaylist_ctl(DISPLAYLIST_SETTING_ENUM, &entry);
++            
+             entry.enum_idx      = MENU_ENUM_LABEL_SWITCH_GPU_PROFILE;
+             menu_displaylist_ctl(DISPLAYLIST_SETTING_ENUM, &entry);
+             
+diff --git a/menu/menu_displaylist.c b/menu/menu_displaylist.c
+index 35db02a5c2..5713fbcb17 100644
+--- a/menu/menu_displaylist.c
++++ b/menu/menu_displaylist.c
+@@ -4196,8 +4196,56 @@ bool menu_displaylist_ctl(enum menu_displaylist_ctl_state type, void *data)
+ 	info->need_clear   = true;
+       	break;
+       }
++      case DISPLAYLIST_SWITCH_CPU_PROFILE:
++           runloop_msg_queue_push("Warning : extented overclocking can damage the Switch", 1, 90, true);
++        
++           char current_profile[PATH_MAX_LENGTH];
++           
++           FILE* profile = popen("cpu-profile get", "r");          
++           fgets(current_profile, PATH_MAX_LENGTH, profile);  
++           pclose(profile);
++           
++           menu_entries_ctl(MENU_ENTRIES_CTL_CLEAR, info->list);
++           
++           char text[PATH_MAX_LENGTH];
++           
++           snprintf(text, sizeof(text), "Current profile : %s", current_profile);
++           
++           menu_entries_append_enum(info->list,
++                     text,
++                     "",
++                     0,
++                     MENU_INFO_MESSAGE, 0, 0);
++           
++           const size_t profiles_count = sizeof(SWITCH_CPU_PROFILES)/sizeof(SWITCH_CPU_PROFILES[1]);
++                     
++            
++           for (int i = 0; i < profiles_count; i++)
++           {
++                char* profile = SWITCH_CPU_PROFILES[i];
++                char* speed = SWITCH_CPU_SPEEDS[i];
++                
++                char title[PATH_MAX_LENGTH] = {0};
++                
++                snprintf(title, sizeof(title), "%s (%s)", profile, speed);
++                
++           	menu_entries_append_enum(info->list, 
++           		title,
++           		"",
++           		0, MENU_SET_SWITCH_CPU_PROFILE, 0, i);
++           		
++           }         
++           		
++           
++           info->need_push    = true;
++           info->need_refresh = true;
++           info->need_clear   = true;
++        
++           break;
+       case DISPLAYLIST_SWITCH_GPU_PROFILE:
+          {
++           runloop_msg_queue_push("Warning : extented overclocking can damage the Switch", 1, 90, true);
++           
+            char current_profile[PATH_MAX_LENGTH];
+            
+            FILE* profile = popen("gpu-profile get", "r");          
+diff --git a/menu/menu_displaylist.h b/menu/menu_displaylist.h
+index 34f818fd62..665edf01ad 100644
+--- a/menu/menu_displaylist.h
++++ b/menu/menu_displaylist.h
+@@ -171,7 +171,8 @@ enum menu_displaylist_ctl_state
+    DISPLAYLIST_CORE_CONTENT_DIRS_SUBDIR,
+    DISPLAYLIST_PENDING_CLEAR,
+    DISPLAYLIST_SWITCH_GPU_PROFILE,
+-   DISPLAYLIST_SWITCH_BACKLIGHT_CONTROL
++   DISPLAYLIST_SWITCH_BACKLIGHT_CONTROL,
++   DISPLAYLIST_SWITCH_CPU_PROFILE
+ };
+ 
+ typedef struct menu_displaylist_info
+diff --git a/menu/menu_driver.h b/menu/menu_driver.h
+index 9ebf6fad80..b8de7171e1 100644
+--- a/menu/menu_driver.h
++++ b/menu/menu_driver.h
+@@ -92,6 +92,22 @@ RETRO_BEGIN_DECLS
+ 	    "76 Mhz"   
+    };
+    
++   static char* SWITCH_CPU_PROFILES[] = {
++        "overclock-4",
++   	"overclock-3",
++	"overclock-2",
++	"overclock-1",
++	"default",
++   };
++   
++   static char* SWITCH_CPU_SPEEDS[] = {
++        "1912 MHz",
++        "1734 MHz",
++        "1530 MHz",
++        "1224 MHz",
++        "1020 MHz"
++   };
++   
+    static int SWITCH_BRIGHTNESS[] = {
+    	10,
+    	20,
+@@ -286,6 +302,8 @@ enum menu_settings_type
+    MENU_SET_SWITCH_GPU_PROFILE,
+    
+    MENU_SET_SWITCH_BRIGHTNESS,
++   
++   MENU_SET_SWITCH_CPU_PROFILE,
+ 
+    MENU_SETTINGS_LAST
+ };
+diff --git a/menu/menu_setting.c b/menu/menu_setting.c
+index 17b7b844ca..4ed8c9e368 100644
+--- a/menu/menu_setting.c
++++ b/menu/menu_setting.c
+@@ -2316,6 +2316,14 @@ static bool setting_append_list(
+ #endif
+ 
+ #if defined(HAVE_LAKKA)
++
++        CONFIG_ACTION(
++               list, list_info,
++               MENU_ENUM_LABEL_SWITCH_CPU_PROFILE,
++               MENU_ENUM_LABEL_VALUE_SWITCH_CPU_PROFILE,
++               &group_info,
++               &subgroup_info,
++               parent_group);
+                
+         CONFIG_ACTION(
+                list, list_info,
+diff --git a/msg_hash.h b/msg_hash.h
+index 1188814035..a8f3e9492b 100644
+--- a/msg_hash.h
++++ b/msg_hash.h
+@@ -1815,6 +1815,10 @@ enum msg_hash_enums
+    MENU_ENUM_LABEL_VALUE_SWITCH_GPU_PROFILE,
+    MENU_ENUM_SUBLABEL_SWITCH_GPU_PROFILE,
+    
++   MENU_ENUM_LABEL_SWITCH_CPU_PROFILE,
++   MENU_ENUM_LABEL_VALUE_SWITCH_CPU_PROFILE,
++   MENU_ENUM_SUBLABEL_SWITCH_CPU_PROFILE,
++   
+    MENU_ENUM_LABEL_SWITCH_BACKLIGHT_CONTROL,
+    MENU_ENUM_LABEL_VALUE_SWITCH_BACKLIGHT_CONTROL,
+    MENU_ENUM_SUBLABEL_SWITCH_BACKLIGHT_CONTROL,

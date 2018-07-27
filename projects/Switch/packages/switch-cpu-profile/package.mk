@@ -18,29 +18,23 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="Switch"
-PKG_VERSION=""
-PKG_REV="1"
+PKG_NAME="switch-cpu-profile"
+PKG_VERSION="1.0"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/lakkatv/Lakka"
-PKG_URL=""
-PKG_DEPENDS_TARGET="freetype libdrm pixman $OPENGL libepoxy glu retroarch $LIBRETRO_CORES switch-gpu-profile switch-cpu-profile xinput mergerfs"
-PKG_PRIORITY="optional"
-PKG_SECTION="virtual"
-PKG_SHORTDESC="Lakka metapackage for Switch"
-PKG_LONGDESC=""
+PKG_DEPENDS="Python"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-post_install() {
-  enable_service xorg-configure-switch.service
-  enable_service mount-bluez-fs.service
-  # enable_service switch-wifi-fix.service
-  
-  mkdir -p $INSTALL/usr/bin
-  cp -P $PKG_DIR/scripts/switch-wifi-fix $INSTALL/usr/bin
-  cp -P $PKG_DIR/scripts/mount-bluez-fs $INSTALL/usr/bin
+make_target() {
+  :
 }
 
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/bin
+  cp $PKG_DIR/scripts/cpu-profile $INSTALL/usr/bin
+}
+
+post_install() {
+  enable_service switch-cpu-profile.service
+}
