@@ -46,8 +46,8 @@ case "$LINUX" in
     PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
     ;;
   *)
-    PKG_VERSION="4.17.10"
-    PKG_SHA256="ea14d2a3e499ec20779709586e5f153f462e5681e1a7b6fca8c2f7c8daff1be8"
+    PKG_VERSION="4.17.11"
+    PKG_SHA256="db1e84ed4f213b43d50f3373627b2ffcdb3b65f3430f746a38f801554ef3728c"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v4.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     PKG_PATCH_DIRS="default"
     ;;
