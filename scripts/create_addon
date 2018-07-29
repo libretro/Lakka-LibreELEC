@@ -2,10 +2,10 @@
 
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
-. config/options
-set
-exit 
+. config/options ""
+
 # usage
 usage() {
   cat - >&2 <<EOUSAGE
@@ -28,7 +28,6 @@ DESCRIPTION
                   * all - all addons found under packages and project/*/packages
                   * offical - all addons found under packages/addons
                   * binary - all addons found under packages/mediacenter/kodi-binary-addons
-                  * retroplayer - all addons called game.libretro. under packages/mediacenter/kodi-binary-addons
               - a regex term (grep styled), the term is automatic sorounded with string begin and end (^[term]$)
 
               addons can removed from list with a leading minus.
@@ -40,8 +39,8 @@ EXAMPLE
        build audio encoders and decoders, only
        > ./script/create_addon audioencoder.* audiodecoder.*
 
-       build all, but not retroplayer
-       > ./script/create_addon all -retroplayer
+       build all, but not binary
+       > ./script/create_addon all -binary
 
 EOUSAGE
   exit ${1:0}
@@ -54,8 +53,6 @@ function find_addons() {
   case $1 in
     binary)      _paths="$ROOT/packages/mediacenter/kodi-binary-addons";;
     offical)     _paths="$ROOT/packages/addons";;
-    retroplayer) _paths="$ROOT/packages/mediacenter/kodi-binary-addons";
-                 _filter='^game\.libretro\.*';;
     all)         _paths="$ROOT/packages $ROOT/projects/*/packages";;
     *)           _paths="$ROOT/packages $ROOT/projects/*/packages";
                  _filter="^$1$";;
@@ -78,8 +75,8 @@ function find_addons() {
   # check if anything is found
   local _count=$(wc -w <<< $_addons)
   if [ "$_count" == 0 ]; then
-    # handle embedded addons here, should not found by regex
-    ( . ./config/options $1 &>/dev/null
+    # handle embedded addons here. Should only build, when they explicte in the addon list
+    ( . ./config/options "$1" &>/dev/null
       [ "$PKG_IS_ADDON" != "embedded" ] && exit 1
       echo $PKG_NAME
     )
@@ -274,7 +271,7 @@ for addon in $(tr " " "\n" <<< $addons | sort -u); do
   fi
 done
 
-# show-only hs no summary, can exit here
+# show-only has no summary, can exit here
 if [ $show_only == "true" ]; then
   exit 0
 fi
