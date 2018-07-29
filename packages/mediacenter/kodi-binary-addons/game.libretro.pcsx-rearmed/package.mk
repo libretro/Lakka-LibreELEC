@@ -4,7 +4,7 @@
 PKG_NAME="game.libretro.pcsx-rearmed"
 PKG_VERSION="5c4f796"
 PKG_SHA256="d012a50421b27070112b2b57343f3297bd1b1a4935e6d1d7b9667bab6783a9d4"
-PKG_REV="106"
+PKG_REV="107"
 # neon optimizations make it only useful for arm
 PKG_ARCH="arm"
 PKG_LICENSE="GPL"
