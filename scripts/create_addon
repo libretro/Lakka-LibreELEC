@@ -18,6 +18,16 @@ DESCRIPTION
        --show-only
               output the list of packages, which are intented to build
 
+       --write-logs=[yes,no,errors]
+              write a log file per addon
+              yes    - write for every addon a log (and keep it)
+              no     - write no logs (default)
+              errors - only keep logs for failed addons
+
+       --log-path
+              path where the logs are written
+              default: \$BUILD/logs
+
        --help shows this message
 
        [addons]
@@ -221,26 +231,42 @@ if [ $# == 0 ]; then
 fi
 
 # collect list of addons for building
-addons=()
-addons_drop=()
+addons=""
+addons_drop=""
 show_only="false"
+write_logs="no"
+log_path="$BUILD/logs"
 export BUILD_INDENT=$((${BUILD_INDENT:-1}+$BUILD_INDENT_SIZE))
 
 # read addons from parameter list
 while [ $# -gt 0 ]; do
   case $1 in
-    --help)      usage 0;;
-    --show-only) show_only="true";;
-    --*)         usage 1;;
-    -*)          addons_drop+=" $(find_addons ${1:1})";;
-    *)           addons+=" $(find_addons $1)";;
+    --help)         usage 0;;
+    --show-only)    show_only="true";;
+    --write-logs=*) write_logs="${1:13}";;
+    --log-path=*)   log_path="${1:11}";;
+    --*)            usage 1;;
+    -*)             addons_drop+=" $(find_addons ${1:1})";;
+    *)              addons+=" $(find_addons $1)";;
   esac
   shift
 done
 
+# check log parameter
+case "$write_logs" in
+  no)     log_path=""
+          remove_success_logs="false";;
+  yes)    remove_success_logs="false";;
+  errors) remove_success_logs="true";;
+  *)      usage 1
+esac
+if [ -n "$log_path" ]; then
+  mkdir -p "$log_path"
+fi
+
 # check environment and create toolchain
 $SCRIPTS/checkdeps
-setup_toolchain target 
+setup_toolchain target
 
 # build addons, by calling function build_addon with one addon, after another
 # (do not abort on build failure)
@@ -259,15 +285,25 @@ for addon in $(tr " " "\n" <<< $addons | sort -u); do
     continue
   fi
 
+  # define log file
+  log_file=/dev/null
+  if [ -n "$log_path" ]; then
+    log_file="$log_path/$addon.log"
+  fi
+
   # build package
   printf "$(print_color CLR_BUILD "CREATE ADDON $addon") (${DEVICE:-$PROJECT}/$TARGET_ARCH)\n" ' '>&$SILENT_OUT
   _count+='x'
-  ( build_addon $addon )
-  if [ $? != 0 ]; then
+  ( build_addon $addon ) \
+    2>&1 | tee $log_file
+  if [ ${PIPESTATUS[0]} != 0 ]; then
     addons_failed+="$addon "
     printf "$(print_color CLR_ERROR "ADDON FAILED $addon")\n" ' '>&$SILENT_OUT
   else
     printf "$(print_color CLR_INFO "ADDON SUCCESS $addon")\n" ' '>&$SILENT_OUT
+    if [ $remove_success_logs == "true" ]; then
+      rm -f $log_file
+    fi
   fi
 done
 
