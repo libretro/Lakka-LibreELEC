@@ -19,11 +19,11 @@
 ################################################################################
 
 PKG_NAME="ppsspp"
-PKG_VERSION="9c9432e"
+PKG_VERSION="9a610c8"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/libretro/ppsspp"
+PKG_SITE="https://github.com/hrydgard/ppsspp"
 PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
@@ -51,6 +51,12 @@ make_target() {
   fi
   if [ "$ARCH" == "arm" ]; then
     SYSROOT_PREFIX=$SYSROOT_PREFIX AS=${CXX} make platform=armv-neon-gles
+  elif [ "$ARCH" == "aarch64" ]; then
+    if [ "$OPENGL" == "no" ]; then 
+      SYSROOT_PREFIX=$SYSROOT_PREFIX AS=${CXX} make platform=arm64-neon-gles
+    else
+      SYSROOT_PREFIX=$SYSROOT_PREFIX AS=${CXX} make platform=arm64-neon
+    fi
   else
     make
   fi
