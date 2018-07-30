@@ -16,7 +16,7 @@ PKG_SHORTDESC="script.program.driverselect"
 PKG_LONGDESC="script.program.driverselect"
 PKG_TOOLCHAIN="manual"
 
-PKG_IS_ADDON="yes"
+PKG_IS_ADDON="embedded"
 PKG_ADDON_NAME="Driver Select"
 PKG_ADDON_TYPE="xbmc.python.script"
 
