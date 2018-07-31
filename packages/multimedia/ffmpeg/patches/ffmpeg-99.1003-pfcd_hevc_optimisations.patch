@@ -8133,10 +8133,10 @@ index 0000000000..21e7700174
 +
 diff --git a/libavcodec/arm/rpi_hevcpred_intra_angular_neon.S b/libavcodec/arm/rpi_hevcpred_intra_angular_neon.S
 new file mode 100644
-index 0000000000..8063a1521e
+index 0000000000..ebf12e8684
 --- /dev/null
 +++ b/libavcodec/arm/rpi_hevcpred_intra_angular_neon.S
-@@ -0,0 +1,2373 @@
+@@ -0,0 +1,2973 @@
 +/*
 + * Copyright (c) 2018 John Cox <jc@kynesim.co.uk> (for Raspberry Pi)
 + *
@@ -8192,101 +8192,137 @@ index 0000000000..8063a1521e
 +@ In/Out (updated)
 +@ r0   Out pointer - on exit point to start of next patch horizontally (i.e. r0 + patch width)
 +@ r2   Left ptr - updated
-+@ r6   Angle frac (init to r4 + 32)
-+@ r8   Inv angle accumulator
-+@ d24  Cur Line - load before 1st call for down - set by _up
-+@ d16  Cur Line - load before 1st call for up   - set by _down
++@ r10  Inv angle accumulator (_up only)
++@ r12  32 - angle frac (_down) or angle frac (_up)
++@ d0   Older reference samples
++@ d1=r8+r9  Newer reference samples
++@ d2   32 - angle frac
++@ d3   Angle frac
++@ q2   Partially computed next result (_up only)
 +@
 +@ Temps
 +@ r5   Loop counter
-+@ r12
-+@ q0-q3, q14, q15
++@ r6
++@ r7   (_down only)
++@ r11  (_up only)
++@ q2, q8-q11
 +
 +patch_h_down_8x8_8:
-+        mov         r5,  #8
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        vmov        d16, d24
-+        vext.8      d24, d24, #1
-+        sub         r6,  #32
-+        vld1.8     {d24[7]}, [r2]!
-+
++        ldrd        r8, r9, [r2]        @ Left
++        rsb         r12, r6, #32
++        vmov        d0, r8, r9
++        vdup.8      d3, r6
++        lsr         r8, #8
++        vdup.8      d2, r12
++        orr         r8, r8, r9, lsl #24
++        ldr         r9, [r2, #5]!
++        vmov        d1, r8, r9
++        // drop through...
++patch_h_down_8x8_8_continue:
++        mov         r5, #8
 +1:
-+        vext.8      q0,  q1,  #8
-+        rsb         r12, r6,  #32
-+        vext.8      q1,  q2,  #8
-+        vdup.8      d30, r6
-+        vext.8      q2,  q3,  #8
-+        vdup.8      d31, r12
-+        vext.8      q3,  q3,  #8
-+
-+        vmull.u8    q14, d24, d30
-+        add         r6,  r4
-+        vmlal.u8    q14, d16, d31
-+        subs        r5,  #1
-+        vrshrn.u16  d7,  q14, #5
-+        bne         2b
-+
++          subs        r12, r4
++        vmull.u8    q2, d0, d2
++          it          mi
++          addmi       r12, #32
++        vmlal.u8    q2, d1, d3
++          rsb         r6, r12, #32
++        vext.8      q8, q8, q9, #8
++          itt         mi
++          lsrmi       r7, r8, #8
++          vmovmi      d0, r8, r9
++          vdup.8      d2, r12
++        vext.8      q9, q9, q10, #8
++          it          mi
++          orrmi       r8, r7, r9, lsl #24
++        vext.8      q10, q10, q11, #8
++          it          mi
++          ldrmi       r9, [r2, #1]!
++        vmov        d22, d23
++        vrshrn.u16  d23, q2, #5
++          it          mi
++          vmovmi      d1, r8, r9
++        subs        r5, #1
++          vdup.8      d3, r6
++        bne         1b
++        // drop through...
 +store_tran_8x8_8:
-+        add         r12, r0,  #4
-+        vst4.8     {d0[0], d1[0], d2[0], d3[0]}, [r0 ]
-+        add         r5,  r0,  r3
-+        vst4.8     {d4[0], d5[0], d6[0], d7[0]}, [r12], r3
-+        add         r0,  #8
-+        vst4.8     {d0[1], d1[1], d2[1], d3[1]}, [r5 ], r3
-+        vst4.8     {d4[1], d5[1], d6[1], d7[1]}, [r12], r3
-+        vst4.8     {d0[2], d1[2], d2[2], d3[2]}, [r5 ], r3
-+        vst4.8     {d4[2], d5[2], d6[2], d7[2]}, [r12], r3
-+        vst4.8     {d0[3], d1[3], d2[3], d3[3]}, [r5 ], r3
-+        vst4.8     {d4[3], d5[3], d6[3], d7[3]}, [r12], r3
-+        vst4.8     {d0[4], d1[4], d2[4], d3[4]}, [r5 ], r3
-+        vst4.8     {d4[4], d5[4], d6[4], d7[4]}, [r12], r3
-+        vst4.8     {d0[5], d1[5], d2[5], d3[5]}, [r5 ], r3
-+        vst4.8     {d4[5], d5[5], d6[5], d7[5]}, [r12], r3
-+        vst4.8     {d0[6], d1[6], d2[6], d3[6]}, [r5 ], r3
-+        vst4.8     {d4[6], d5[6], d6[6], d7[6]}, [r12], r3
-+        vst4.8     {d0[7], d1[7], d2[7], d3[7]}, [r5 ]
-+        vst4.8     {d4[7], d5[7], d6[7], d7[7]}, [r12]
++        vzip.8      d16, d17
++        add         r6, r0, r3
++        vzip.8      d18, d19
++        lsl         r3, #1
++        vzip.8      d20, d21
++        add         r5, r0, r3
++        vzip.8      d22, d23
++        vzip.16     q8, q9
++        vzip.16     q10, q11
++        vzip.32     q8, q10
++        vzip.32     q9, q11
++        vst1.8      {d16}, [r0]!
++        vst1.8      {d17}, [r6], r3
++        vst1.8      {d20}, [r5], r3
++        vst1.8      {d21}, [r6], r3
++        vst1.8      {d18}, [r5], r3
++        vst1.8      {d19}, [r6], r3
++        vst1.8      {d22}, [r5]
++        asr         r3, #1
++        vst1.8      {d23}, [r6]
++
 +        bx          lr
 +
-+
 +patch_h_up_8x8_8:
-+        mov         r5,  #8
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        @ For other widths we may want different logic
-+        @ r2=left (variable), r1=up (const)
-+        adds        r8,  r7
-+        vmov        d24, d16
-+T       itee mi
-+        ldrbmi      r12, [r2,  #-1]!
-+T       asrpl       r12, r8,  #8
-+T       ldrbpl      r12, [r1,  r12]
-+A       ldrbpl      r12, [r1,  r8,  asr #8]
-+        vext.8      d16, d16, d16, #7
-+        sub         r6,  #32
-+        vmov.8      d16[0], r12
-+
++        ldrd        r8, r9, [r2]
++        rsb         r6, r4, #32
++        vmov        d0, r8, r9
++        vdup.8      d3, r4
++        lsr         r11, r8, #24
++        vdup.8      d2, r6
++        ldr         r8, [r2, #-1]!
++        orr         r9, r11, r9, lsl #8
++        vmov        d1, r8, r9
++        mov         r12, r4
++        vmull.u8    q2, d0, d2
++        vmlal.u8    q2, d1, d3
++patch_h_up_8x8_8_continue:
++        mov         r5, #8
 +1:
-+        vdup.8      d31, r6
-+        vext.8      q0,  q1,  #8
-+        rsb         r12, r6,  #32
-+        vext.8      q1,  q2,  #8
++          add         r12, r4
++          mov         r11, #0
++          cmp         r12, #33
++          it          cs
++          addcs       r10, r7
++        vext.8      q8, q8, q9, #8
++          itt         cs
++          subcs       r12, #32
++          tstcs       r10, #1<<31
++          rsb         r6, r12, #32
++          it          eq
++          asreq       r11, r10, #8
++          it          cs
++          vmovcs      d0, r8, r9
++          vdup.8      d2, r6
++          it          cs
++          lsrcs       r6, r8, #24
++        vext.8      q9, q9, q10, #8
++          itt         cs
++          orrcs       r9, r6, r9, lsl #8
++          ldrbcs      r11, [r1, r11]
++          vdup.8      d3, r12
++        vext.8      q10, q10, q11, #8
++          it          hi
++          ldrbhi      r11, [r2, #-1]!
++        vmov        d22, d23
++        vrshrn.u16  d23, q2, #5
++          itt         cs
++          orrcs       r8, r11, r8, lsl #8
++          vmovcs      d1, r8, r9
++          vmull.u8    q2, d0, d2
++        subs        r5, #1
++          vmlal.u8    q2, d1, d3
++        bne         1b
 +
-+        vmull.u8    q14, d16, d31
-+        vext.8      q2,  q3,  #8
-+        vdup.8      d30, r12
-+        vext.8      q3,  q3,  #8
-+        add         r6,  r4
-+        vmlal.u8    q14, d24, d30
-+        subs        r5,  #1
-+        vrshrn.u16  d7,  q14, #5
-+        bne         2b
-+        b           store_tran_8x8_8  @ This will return
++        b           store_tran_8x8_8
++
 +
 +.macro ADRT reg, val
 +@ adr in T32 has enough range but not in A32
@@ -8302,155 +8338,218 @@ index 0000000000..8063a1521e
 +@       unsigned int mode       [sp, #0]  2..34
 +
 +function ff_hevc_rpi_pred_angular_4_neon_8, export=1
-+        ldr         r12, [sp, #0]
-+        push       {r4-r8, lr}
-+        ADRT        r4,  angle_2 - 2
-+        ADRT        r7,  inv_angle - 11*2
-+        ldrsb       r4,  [r4, r12]
-+        add         r7,  r7,  r12, lsl #1
-+
++        ldr         r12, [sp]
++        push        {r4-r8, lr}
++        ADRT        r4, angle_2 - 2
++        ADRT        r7, inv_angle - 11*2
++        add         r7, r7, r12, lsl #1
++        ldrsb       r6, [r4, r12]
++        cmp         r12, #26
++        ldrsb       r4, [r4, r12]
++        bge         26f
 +        cmp         r12, #18
-+        mov         r5,  #4             @ Loop counter for all cases
-+        add         r6,  r4,  #32       @ Force initial load in main loop
 +        bge         18f
-+
 +        cmp         r12, #10
 +        bge         10f
 +
 +@ Down of Horizontal - works down left
-+        vld1.8     {d24}, [r2]
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        vmov        d16, d24
-+        vext.8      d24, d24, #1
-+        sub         r6,  #32
++        ldr         lr, [r2], #1        @ Top
++        rsb         r12, r6, #32
++        vmov        s0, lr
++        vdup.8      d3, r6
++        ldr         lr, [r2], #1
++        vdup.8      d2, r12
++        vmov        s2, lr
++          subs        r12, r4
++        vmull.u8    q2, d0, d2
++          it          mi
++          addmi       r12, #32
++        vmlal.u8    q2, d1, d3
++          rsb         r6, r12, #32
++          itt         mi
++          vmovmi      s0, lr
++          ldrmi       lr, [r2], #1
++          vdup.8      d2, r12
++          it          mi
++          vmovmi      s2, lr
++          vdup.8      d3, r6
++        mov         r5, #2
 +1:
-+        vext.8      q0,  q1,  #8
-+        rsb         r12, r6,  #32
-+        vext.8      q1,  q1,  #8
-+        vdup.8      d30, r6
-+        vdup.8      d31, r12
++        vrshrn.u16  d20, q2, #5
++            subs        r12, r4
++          vmull.u8    q2, d0, d2
++            it          mi
++            addmi       r12, #32
++          vmlal.u8    q2, d1, d3
++            rsb         r6, r12, #32
++        vext.64     q8, q8, q9, #1
++            it          mi
++            vmovmi      s0, lr
++        vext.64     q9, q9, q10, #1
++            it          mi
++            ldrmi       lr, [r2], #1
++            vdup.8      d2, r12
++            it          mi
++            vmovmi      s2, lr
++        subs        r5, #1
++            vdup.8      d3, r6
++        bne         1b
 +
-+        vmull.u8    q14, d24, d30
-+        add         r6,  r4
-+        vmlal.u8    q14, d16, d31
-+        subs        r5,  #1
-+        vrshrn.u16  d3,  q14, #5
-+        bne         2b
++          vrshrn.u16  d20, q2, #5
++            vmull.u8    q2, d0, d2
++        add         r12, r0,  r3
++            vmlal.u8    q2, d1, d3
++        lsl         r3,  #1
++          vext.64     q8, q8, q9, #1
++          vext.64     q9, q9, q10, #1
++            vrshrn.u16  d20, q2, #5
 +
 +98:
-+        add         r12, r0,  r3
-+        lsl         r3,  #1
-+        vst4.8     {d0[0], d1[0], d2[0], d3[0]}, [r0 ], r3
-+        vst4.8     {d0[1], d1[1], d2[1], d3[1]}, [r12], r3
-+        vst4.8     {d0[2], d1[2], d2[2], d3[2]}, [r0 ]
-+        vst4.8     {d0[3], d1[3], d2[3], d3[3]}, [r12]
++        vst4.8      {d17[0], d18[0], d19[0], d20[0]}, [r0], r3
++        vst4.8      {d17[1], d18[1], d19[1], d20[1]}, [r12], r3
++        vst4.8      {d17[2], d18[2], d19[2], d20[2]}, [r0]
++        vst4.8      {d17[3], d18[3], d19[3], d20[3]}, [r12]
 +        pop        {r4-r8, pc}
 +
 +@ Up of Horizontal - works down up
 +10:
-+        ldrh        r7,  [r7]
-+        @ -128 (rather than +128) means we get UL
-+        @ from L & don't have to offset U
-+        mov         r8,  #-128
-+        vld1.32    {d16[0]}, [r2]
-+        sub         r8,  r7
++        ldrh        r7, [r7]
++        rsb         r12, r6, #32
++        ldr         lr, [r2]            @ Left
++        ldrb        r2, [r2, #-1]       @ Top-left
++        vmov        s0, lr
++        vdup.8      d2, r12
++        vdup.8      d3, r6
++        orr         lr, r2, lr, lsl #8
++        vmov        s2, lr
++        sub         r8, r7, #128
++        mov         r5, #3
 +2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        @ For other widths we may want different logic
-+        @ r2=left (variable), r1=up (const)
-+        adds        r8,  r7
-+        vmov        d24, d16
-+T       itee mi
-+        ldrbmi      r12, [r2,  #-1]!
-+T       asrpl       r12, r8,  #8
-+T       ldrbpl      r12, [r1,  r12]
-+A       ldrbpl      r12, [r1,  r8,  asr #8]
-+        vext.8      d16, d16, d16, #7
-+        sub         r6,  #32
-+        vmov.8      d16[0], r12
-+1:
-+        vdup.8      d31, r6
-+        vext.8      q0,  q1,  #8
-+        rsb         r12, r6,  #32
-+        vext.8      q1,  q2,  #8
-+
-+        vmull.u8    q14, d16, d31
-+        vdup.8      d30, r12
-+        add         r6,  r4
-+        vmlal.u8    q14, d24, d30
-+        subs        r5,  #1
-+        vrshrn.u16  d3,  q14, #5
++        vmull.u8    q2, d0, d2
++          subs        r12, r4
++        vmlal.u8    q2, d1, d3
++T         it          mi
++          addmi       r12, #32
++T         asr         r6, r8, #8
++T         it          mi
++T         ldrbmi      r2, [r1, r6]
++A         ldrbmi      r2, [r1, r8, asr #8]
++          rsb         r6, r12, #32
++          vdup.8      d2, r12
++          ittt        mi
++          vmovmi      s0, lr
++          orrmi       lr, r2, lr, lsl #8
++          vmovmi      s2, lr
++        vrshrn.u16  d20, q2, #5
++          vdup.8      d3, r6
++          it          mi
++          addmi       r8, r7
++        subs        r5, #1
++        vext.64     q8, q8, q9, #1
++        vext.64     q9, q9, q10, #1
 +        bne         2b
++
++          vmull.u8    q2, d0, d2
++        add         r12, r0,  r3
++          vmlal.u8    q2, d1, d3
++        lsl         r3,  #1
++          vrshrn.u16  d20, q2, #5
 +        b           98b
 +
-+18:
-+        cmp         r12, #26
-+        bge         26f
-+
 +@ Left of vertical - works down left
-+        vld1.32    {d16[0]}, [r1  :32]    @ Up
-+        ldrh        r7,  [r7]
-+        mov         r8,  #-128
-+
++18:
++        ldrh        r7, [r7]
++        rsb         r12, r6, #32
++        ldr         lr, [r1]            @ Top
++        ldrb        r1, [r2, #-1]       @ Top-left
++        vmov        s0, lr
++        vdup.8      d2, r12
++        vdup.8      d3, r6
++        orr         lr, r1, lr, lsl #8
++        vmov        s2, lr
++        sub         r8, r7, #128
++        mov         r5, #3
 +2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        @ For other widths we may want different logic
-+T       asr         r12, r8,  #8
-+T       ldrb        r12, [r2,  r12]
-+A       ldrb        r12, [r2,  r8,  asr #8]
-+
-+        vmov        d24, d16
-+        add         r8,  r7
-+        sub         r6,  #32
-+        vext.8      d16, d16, #7
-+        vmov.8      d16[0], r12
-+
-+1:
-+        vdup.8      d31, r6
-+        rsb         r12, r6,  #32
-+
-+        vmull.u8    q0,  d16, d31
-+        vdup.8      d30, r12
-+        add         r6,  r4
-+        vmlal.u8    q0,  d24, d30
-+        vrshrn.u16  d0,  q0,  #5
-+
-+        subs        r5,  #1
-+        vst1.32    {d0[0]}, [r0], r3
++        vmull.u8    q2, d0, d2
++          subs        r12, r4
++        vmlal.u8    q2, d1, d3
++T         it          mi
++          addmi       r12, #32
++T         asr         r6, r8, #8
++T         it          mi
++T         ldrbmi      r1, [r2, r6]
++A         ldrbmi      r1, [r2, r8, asr #8]
++          rsb         r6, r12, #32
++          vdup.8      d2, r12
++          ittt        mi
++          vmovmi      s0, lr
++          orrmi       lr, r1, lr, lsl #8
++          vmovmi      s2, lr
++        vrshrn.u16  d4, q2, #5
++          vdup.8      d3, r6
++          it          mi
++          addmi       r8, r7
++        subs        r5, #1
++        vst1.32     {d4[0]}, [r0], r3
 +        bne         2b
-+        pop        {r4-r8, pc}
++
++          vmull.u8    q2, d0, d2
++          vmlal.u8    q2, d1, d3
++          vrshrn.u16  d4, q2, #5
++          vst1.32     {d4[0]}, [r0]
++
++        pop         {r4-r8, pc}
 +
 +@ Right of vertical - works along top - left unused
 +26:
-+        vld1.8     {d24}, [r1]          @ Up + up-right, may be on 32-bit align rather than 64
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        vmov        d16, d24
-+        vext.8      d24, d24, #1
-+        sub         r6,  #32
++        ldr         lr, [r1], #1        @ Top
++        rsb         r12, r6, #32
++        vmov        s0, lr
++        vdup.8      d3, r6
++        ldr         lr, [r1], #1
++        vdup.8      d2, r12
++        vmov        s2, lr
++          subs        r12, r4
++        vmull.u8    q2, d0, d2
++          it          mi
++          addmi       r12, #32
++        vmlal.u8    q2, d1, d3
++          rsb         r6, r12, #32
++          itt         mi
++          vmovmi      s0, lr
++          ldrmi       lr, [r1], #1
++          vdup.8      d2, r12
++          it          mi
++          vmovmi      s2, lr
++          vdup.8      d3, r6
++        mov         r5, #2
 +1:
-+        rsb         r12, r6,  #32
-+        vdup.8      d30, r6
-+        vdup.8      d31, r12
++        vrshrn.u16  d6, q2, #5
++            subs        r12, r4
++          vmull.u8    q2, d0, d2
++            it          mi
++            addmi       r12, #32
++          vmlal.u8    q2, d1, d3
++            rsb         r6, r12, #32
++        vst1.32     {d6[0]}, [r0], r3
++            itt         mi
++            vmovmi      s0, lr
++            ldrmi       lr, [r1], #1
++            vdup.8      d2, r12
++            it          mi
++            vmovmi      s2, lr
++        subs        r5, #1
++            vdup.8      d3, r6
++        bne         1b
 +
-+        vmull.u8    q0,  d24, d30
-+        vmlal.u8    q0,  d16, d31
-+        vrshrn.u16  d0,  q0,  #5
++          vrshrn.u16  d6, q2, #5
++            vmull.u8    q2, d0, d2
++            vmlal.u8    q2, d1, d3
++          vst1.32     {d6[0]}, [r0], r3
++            vrshrn.u16  d6, q2, #5
++            vst1.32     {d6[0]}, [r0]
 +
-+        add         r6,  r4
-+        subs        r5,  #1
-+        vst1.32    {d0[0]}, [r0], r3
-+        bne         2b
-+        pop        {r4-r8, pc}
++        pop         {r4-r8, pc}
 +
 +endfunc
 +
@@ -8464,100 +8563,117 @@ index 0000000000..8063a1521e
 +@       unsigned int mode       [sp, #0]  2..34
 +
 +function ff_hevc_rpi_pred_angular_8_neon_8, export=1
-+        ldr         r12, [sp, #0]
-+        push       {r4-r8, lr}
-+        ADRT        r4,  angle_2 - 2
-+        ADRT        r7,  inv_angle - 11*2
-+        ldrsb       r4,  [r4, r12]
-+        add         r7,  r7,  r12, lsl #1
-+
++        ldr         r12, [sp]
++        push        {r4-r11, lr}
++        ADRT        r4, angle_2 - 2
++        ADRT        r7, inv_angle - 11*2
++        add         r7, r7, r12, lsl #1
++        ldrsb       r6, [r4, r12]
++        cmp         r12, #26
++        ldrsb       r4, [r4, r12]
++        bge         26f
 +        cmp         r12, #18
-+        add         r6,  r4,  #32       @ Force initial load in main loop
 +        bge         18f
-+
 +        cmp         r12, #10
 +        bge         10f
 +
 +@ Down of Horizontal - works down left
-+        vld1.8     {d24}, [r2]!
 +        bl          patch_h_down_8x8_8
-+        pop        {r4-r8, pc}
++        pop         {r4-r11, pc}
 +
 +@ Up of Horizontal - works down up
 +10:
-+        ldrh        r7,  [r7]
-+        @ -128 (rather than +128) means we get UL
-+        @ from L & don't have to offset U
-+        mov         r8,  #-128
-+        vld1.8     {d16}, [r2]
-+        add         r6,  r4,  #32
-+        sub         r8,  r7
++        ldrh        r7, [r7]
++        mov         r10, #-128
 +        bl          patch_h_up_8x8_8
-+        pop        {r4-r8, pc}
-+
-+18:
-+        cmp         r12, #26
-+        mov         r5,  #8            @ Loop counter for the "easy" cases
-+        bge         26f
++        pop         {r4-r11, pc}
 +
 +@ Left of vertical - works down left
-+        vld1.8     {d16}, [r1  :64]    @ Up
-+        ldrh        r7,  [r7]
-+        mov         r8,  #-128
-+
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        @ For other widths we may want different logic
-+T       asr         r12, r8,  #8
-+T       ldrb        r12, [r2,  r12]
-+A       ldrb        r12, [r2,  r8,  asr #8]
-+
-+        vmov        d24, d16
-+        add         r8,  r7
-+        sub         r6,  #32
-+        vext.8      d16, d16, #7
-+        vmov.8      d16[0], r12
++18:
++        ldrd        r8, r9, [r1]        @ Top
++        rsb         r12, r6, #32
++        ldrb        lr, [r2, #-1]       @ Top-left
++        ldrh        r7, [r7]
++        vmov        d0, r8, r9
++        lsl         r9, r9, #8
++        vdup.8      d2, r12
++        orr         r9, r9, r8, lsr #24
++        orr         r8, lr, r8, lsl #8
++        vmov        d1, r8, r9
++        sub         r1, r7, #128
++        mov         r5, #7
 +1:
-+        vdup.8      d31, r6
-+        rsb         r12, r6,  #32
++        vdup.8      d3, r6
++        vmull.u8    q2, d0, d2
++          subs        r12, r12, r4
++        vmlal.u8    q2, d1, d3
++          ittt        mi
++          addmi       lr, r2, r1, asr #8
++          addmi       r12, r12, #32
++          vmovmi      d0, r8, r9
++          rsb         r6, r12, #32
++          itt         mi
++          lslmi       r9, r9, #8
++          ldrbmi      lr, [lr]
++          vdup.8      d2, r12
++        vrshrn.u16  d4, q2, #5
++          itttt       mi
++          orrmi       r9, r9, r8, lsr #24
++          orrmi       r8, lr, r8, lsl #8
++          vmovmi      d1, r8, r9
++          addmi       r1, r1, r7
++        subs        r5, r5, #1
++        vst1.8      {d4}, [r0], r3
++        bne         1b
 +
-+        vmull.u8    q0,  d16, d31
-+        vdup.8      d30, r12
-+        add         r6,  r4
-+        vmlal.u8    q0,  d24, d30
-+        vrshrn.u16  d0,  q0,  #5
++          vdup.8      d3, r6
++          vmull.u8    q2, d0, d2
++          vmlal.u8    q2, d1, d3
++          vrshrn.u16  d4, q2, #5
++          vst1.8      {d4}, [r0]
 +
-+        subs        r5,  #1
-+        vst1.8     {d0 }, [r0], r3
-+        bne         2b
-+        pop        {r4-r8, pc}
++        pop         {r4-r11, pc}
 +
 +@ Right of vertical - works along top - left unused
 +26:
-+        vld1.8     {d24, d25}, [r1  :64]!    @ Up + UR
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        vmov        d16, d24
-+        vext.8      q12, q12, #1
-+        sub         r6,  #32
++        ldrd        r8, r9, [r1]        @ Top
++        rsb         r12, r6, #32
++        vmov        d0, r8, r9
++        vdup.8      d3, r6
++        mov         r5, #7
++        lsr         r8, #8
++        vdup.8      d2, r12
++        orr         r8, r8, r9, lsl #24
++        ldr         r9, [r1, #5]!
++        vmov        d1, r8, r9
 +1:
-+        rsb         r12, r6,  #32
-+        vdup.8      d30, r6
-+        vdup.8      d31, r12
++        vmull.u8    q2, d0, d2
++          subs        r12, r4
++        vmlal.u8    q2, d1, d3
++          it          mi
++          addmi       r12, #32
++          rsb         r6, r12, #32
++          itt         mi
++          vmovmi      d0, r8, r9
++          lsrmi       r8, #8
++          vdup.8      d2, r12
++          itt         mi
++          orrmi       r8, r8, r9, lsl #24
++          ldrmi       r9, [r1, #1]!
++        vrshrn.u16  d6, q2, #5
++          it          mi
++          vmovmi      d1, r8, r9
++          vdup.8      d3, r6
++        subs        r5, #1
++        vst1.8      {d6}, [r0], r3
++        bne         1b
 +
-+        vmull.u8    q0,  d24, d30
-+        vmlal.u8    q0,  d16, d31
-+        vrshrn.u16  d0,  q0,  #5
++          vmull.u8    q2, d0, d2
++          vmlal.u8    q2, d1, d3
++          vrshrn.u16  d6, q2, #5
++          vst1.8      {d6}, [r0]
 +
-+        add         r6,  r4
-+        subs        r5,  #1
-+        vst1.8     {d0 }, [r0], r3
-+        bne         2b
-+        pop        {r4-r8, pc}
++        pop         {r4-r11, pc}
 +
 +endfunc
 +
@@ -8570,136 +8686,221 @@ index 0000000000..8063a1521e
 +@       unsigned int mode       [sp, #0]  2..34
 +
 +function ff_hevc_rpi_pred_angular_16_neon_8, export=1
-+        ldr         r12, [sp, #0]
-+        push       {r4-r8, lr}
-+        ADRT        r4,  angle_2 - 2
-+        ADRT        r7,  inv_angle - 11*2
-+        ldrsb       r4,  [r4, r12]
-+        add         r7,  r7,  r12, lsl #1
-+
++        ldr         r12, [sp]
++        push        {r4-r11, lr}
++        ADRT        r4, angle_2 - 2
++        ADRT        r7, inv_angle - 11*2
++        add         r7, r7, r12, lsl #1
++        ldrsb       r6, [r4, r12]
++        cmp         r12, #26
++        ldrsb       r4, [r4, r12]
++        bge         26f
 +        cmp         r12, #18
-+        add         r6,  r4,  #32       @ Force initial load in main loop
 +        bge         18f
-+
 +        cmp         r12, #10
 +        bge         10f
 +
 +@ Down of Horizontal - works down left
-+        vld1.8     {d24}, [r2]!
 +        mov         r1,  r2             @ save r2 - r1 unused by patch_down
 +
 +        bl          patch_h_down_8x8_8
-+        bl          patch_h_down_8x8_8
++        bl          patch_h_down_8x8_8_continue
 +
-+        mov         r2,  r1             @ restore r2
-+        sub         r0,  #16
-+        add         r6,  r4,  #32       @ Force initial load in main loop
-+        vld1.8     {d24}, [r2]!
-+        add         r0,  r0,  r3,  lsl #3
++        add         r2, r1, #8          @ restore r2, but 8 rows further down left
++        sub         r0, #16
++        mov         r6, r4
++        add         r0, r0, r3, lsl #3
 +
 +        bl          patch_h_down_8x8_8
-+        bl          patch_h_down_8x8_8
-+        pop        {r4-r8, pc}
++        bl          patch_h_down_8x8_8_continue
++
++        pop         {r4-r11, pc}
 +
 +@ Up of Horizontal - works down up
 +10:
-+        ldrh        r7,  [r7]
-+        @ -128 (rather than +128) means we get UL
-+        @ from L & don't have to offset U
-+        mov         r8,  #-128
-+        vld1.8     {d16}, [r2]
-+        sub         r8,  r7
++        ldrh        r7, [r7]
++        mov         r10, #-128
 +
-+        push       {r2, r8}
++        push        {r2}
 +        bl          patch_h_up_8x8_8
-+        bl          patch_h_up_8x8_8
-+        pop        {r2, r8}
++        bl          patch_h_up_8x8_8_continue
++        pop         {r2}
 +
-+        sub         r0,  #16
-+        add         r6,  r4,  #32
-+        add         r2,  r2,  #8
-+        sub         r8,  r8,  r7,  lsl #3
-+        add         r0,  r0,  r3,  lsl #3
-+        vld1.8     {d16}, [r2]
++        sub         r0, #16
++        mov         r10, #-128
++        add         r2, #8
++        add         r0, r0, r3, lsl #3
++        sub         r10, r10, r7, lsl #3
 +
 +        bl          patch_h_up_8x8_8
-+        bl          patch_h_up_8x8_8
-+        pop        {r4-r8, pc}
++        bl          patch_h_up_8x8_8_continue
 +
-+18:
-+        cmp         r12, #26
-+        mov         r5,  #16            @ Loop counter for the "easy" cases
-+        bge         26f
++        pop         {r4-r11, pc}
 +
 +@ Left of vertical - works down left
-+        vld1.8     {q8 }, [r1  :128]    @ Up
-+        ldrh        r7,  [r7]
-+        mov         r8,  #-128
-+
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        @ For other widths we may want different logic
-+T       asr         r12, r8,  #8
-+T       ldrb        r12, [r2,  r12]
-+A       ldrb        r12, [r2,  r8,  asr #8]
-+
-+        vmov        q12, q8
-+        add         r8,  r7
-+        sub         r6,  #32
-+        vext.8      q8,  q8,  q8,  #15
-+        vmov.8      d16[0], r12
-+
++18:
++        vld1.8      {q9}, [r1]
++        sub         r1, r2, #1
++        rsb         r12, r6, #32
++        ldrh        r7, [r7]
++        vdup.8      d6, r6
++        vext.8      q8, q9, q9, #15
++        sub         r8, r7, #128
++        vld1.8      {d16[0]}, [r1]
++        vdup.8      d7, r12
++        mov         r5, #15
 +1:
-+        vdup.8      d31, r6
-+        rsb         r12, r6,  #32
++        vmull.u8    q0, d18, d7
++        subs        r12, r4
++        vmlal.u8    q0, d16, d6
++        it          cc
++        addcc       r12, #32
++        vmull.u8    q1, d19, d7
++        it          cc
++        addcc       r1, r2, r8, asr #8
++        vmlal.u8    q1, d17, d6
++        rsb         r6, r12, #32
++        vext.8      q10, q8, q8, #15
++        sub         r5, #1
++        vld1.8      {d20[0]}, [r1]
++        it          cc
++        addcc       r8, r7
++        vmov        q11, q8
++        teq         r5, #0
++        vrshrn.u16  d0, q0, #5
++        vrshrn.u16  d1, q1, #5
++        vdup.8      d6, r6
++        vdup.8      d7, r12
++        vst1.8      {q0}, [r0], r3
++        bhi         1b
++        beq         4f
++2:
++        vmull.u8    q0, d22, d7
++        subs        r12, r4
++        vmlal.u8    q0, d20, d6
++        it          cc
++        addcc       r12, #32
++        vmull.u8    q1, d23, d7
++        it          cc
++        addcc       r1, r2, r8, asr #8
++        vmlal.u8    q1, d21, d6
++        rsb         r6, r12, #32
++        vext.8      q8, q10, q10, #15
++        sub         r5, #1
++        vld1.8      {d16[0]}, [r1]
++        it          cc
++        addcc       r8, r7
++        vmov        q9, q10
++        teq         r5, #0
++        vrshrn.u16  d0, q0, #5
++        vrshrn.u16  d1, q1, #5
++        vdup.8      d6, r6
++        vdup.8      d7, r12
++        vst1.8      {q0}, [r0], r3
++        bhi         2b
++        bne         1b
++        bcc         5f
++3:
++        vmull.u8    q0, d22, d7
++        vmlal.u8    q0, d20, d6
++        vmull.u8    q1, d23, d7
++        vmlal.u8    q1, d21, d6
++        vrshrn.u16  d0, q0, #5
++        vrshrn.u16  d1, q1, #5
++        vst1.8      {q0}, [r0]
 +
-+        vmull.u8    q0,  d16, d31
-+        vmull.u8    q1,  d17, d31
-+        vdup.8      d30, r12
-+        add         r6,  r4
-+        vmlal.u8    q0,  d24, d30
-+        vmlal.u8    q1,  d25, d30
++        pop         {r4-r11, pc}
++4:
++        bcc         3b
++5:
++        vmull.u8    q0, d18, d7
++        vmlal.u8    q0, d16, d6
++        vmull.u8    q1, d19, d7
++        vmlal.u8    q1, d17, d6
++        vrshrn.u16  d0, q0, #5
++        vrshrn.u16  d1, q1, #5
++        vst1.8      {q0}, [r0]
 +
-+        vrshrn.u16  d0,  q0,  #5
-+        vrshrn.u16  d1,  q1,  #5
-+
-+        subs        r5,  #1
-+        vst1.8     {q0 }, [r0], r3
-+        bne         2b
-+        pop        {r4-r8, pc}
++        pop         {r4-r11, pc}
 +
 +@ Right of vertical - works along top - left unused
 +26:
-+        vld1.8     {q12}, [r1  :128]!   @ Up
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        vmov        q8,  q12
-+        vext.8      q12, q12, #1
-+        sub         r6,  #32
-+        vld1.8     {d25[7]}, [r1]!
-+
++        vld1.8      {q9}, [r1]!
++        rsb         r12, r6, #32
++        vdup.8      d6, r6
++        vdup.8      d7, r12
++        vext.8      q8, q9, q9, #1
++        vld1.8      {d17[7]}, [r1]!
++        mov         r5, #15
 +1:
-+        rsb         r12, r6,  #32
-+        vdup.8      d30, r6
-+        vdup.8      d31, r12
++        vmull.u8    q0, d16, d6
++        subs        r12, r4
++        vmlal.u8    q0, d18, d7
++        it          cc
++        addcc       r12, #32
++        vmull.u8    q1, d17, d6
++        rsb         r6, r12, #32
++        vmlal.u8    q1, d19, d7
++        sub         r5, #1
++        vext.8      q10, q8, q8, #1
++        teq         r5, #0
++        vld1.8      {d21[7]}, [r1]
++        it          cc
++        addcc       r1, #1
++        vmov        q11, q8
++        vrshrn.u16  d0, q0, #5
++        vrshrn.u16  d1, q1, #5
++        vdup.8      d6, r6
++        vdup.8      d7, r12
++        vst1.8      {q0}, [r0], r3
++        bhi         1b
++        beq         4f
++2:
++        vmull.u8    q0, d20, d6
++        subs        r12, r4
++        vmlal.u8    q0, d22, d7
++        it          cc
++        addcc       r12, #32
++        vmull.u8    q1, d21, d6
++        rsb         r6, r12, #32
++        vmlal.u8    q1, d23, d7
++        sub         r5, #1
++        vext.8      q8, q10, q10, #1
++        teq         r5, #0
++        vld1.8      {d17[7]}, [r1]
++        it          cc
++        addcc       r1, #1
++        vmov        q9, q10
++        vrshrn.u16  d0, q0, #5
++        vrshrn.u16  d1, q1, #5
++        vdup.8      d6, r6
++        vdup.8      d7, r12
++        vst1.8      {q0}, [r0], r3
++        bhi         2b
++        bne         1b
++        bcc         5f
++3:
++        vmull.u8    q0, d20, d6
++        vmlal.u8    q0, d22, d7
++        vmull.u8    q1, d21, d6
++        vmlal.u8    q1, d23, d7
++        vrshrn.u16  d0, q0, #5
++        vrshrn.u16  d1, q1, #5
++        vst1.8      {q0}, [r0]
 +
-+        vmull.u8    q0,  d24, d30
-+        vmull.u8    q1,  d25, d30
-+        vmlal.u8    q0,  d16, d31
-+        vmlal.u8    q1,  d17, d31
++        pop         {r4-r11, pc}
++4:
++        bcc         3b
++5:
++        vmull.u8    q0, d16, d6
++        vmlal.u8    q0, d18, d7
++        vmull.u8    q1, d17, d6
++        vmlal.u8    q1, d19, d7
++        vrshrn.u16  d0, q0, #5
++        vrshrn.u16  d1, q1, #5
++        vst1.8      {q0}, [r0]
 +
-+        vrshrn.u16  d0,  q0,  #5
-+        vrshrn.u16  d1,  q1,  #5
-+
-+        add         r6,  r4
-+        subs        r5,  #1
-+        vst1.8     {q0 }, [r0], r3
-+        bne         2b
-+        pop        {r4-r8, pc}
++        pop         {r4-r11, pc}
 +
 +endfunc
 +
@@ -8712,231 +8913,261 @@ index 0000000000..8063a1521e
 +@       unsigned int mode       [sp, #0]  2..34
 +
 +function ff_hevc_rpi_pred_angular_32_neon_8, export=1
-+        ldr         r12, [sp, #0]
-+        push       {r4-r10, lr}
-+        ADRT        r4,  angle_2 - 2
-+        ADRT        r7,  inv_angle - 11*2
-+        ldrsb       r4,  [r4, r12]
-+        add         r7,  r7,  r12, lsl #1
-+
++        ldr         r12, [sp]
++        push        {r4-r11, lr}
++        ADRT        r4, angle_2 - 2
++        ADRT        r7, inv_angle - 11*2
++        add         r7, r7, r12, lsl #1
++        ldrsb       r6, [r4, r12]
++        cmp         r12, #26
++        ldrsb       r4, [r4, r12]
++        bge         26f
 +        cmp         r12, #18
 +        bge         18f
-+
 +        cmp         r12, #10
-+        mov         r10, #4             @ Outer loop counter for "hard" cases
 +        bge         10f
 +
 +@ Down of Horizontal - works down left
-+        mov         r1,  r2
-+2:
-+        vld1.8     {d24}, [r1]!
-+        add         r6,  r4,  #32       @ Force initial load in main loop
-+        mov         r2,  r1
++        mov         r10, #4
++        mov         r1, r2
++1:
++        bl          patch_h_down_8x8_8
++        bl          patch_h_down_8x8_8_continue
++        bl          patch_h_down_8x8_8_continue
++        bl          patch_h_down_8x8_8_continue
 +
-+        bl          patch_h_down_8x8_8
-+        bl          patch_h_down_8x8_8
-+        bl          patch_h_down_8x8_8
-+        bl          patch_h_down_8x8_8
-+
-+        sub         r0,  #32
++        add         r2, r1, #8          @ restore r2, but 8 rows further down left
++        add         r1, r1, #8
++        mov         r6, r4
++        sub         r0, #32
 +        subs        r10, #1
-+        add         r0,  r0,  r3,  lsl #3
-+        bne         2b
-+        pop        {r4-r10, pc}
++        add         r0, r0, r3, lsl #3
++        bne         1b
++
++        pop        {r4-r11, pc}
 +
 +@ Up of Horizontal - works down up
 +10:
-+        ldrh        r7,  [r7]
-+        @ -128 (rather than +128) means we get UL
-+        @ from L & don't have to offset U
-+        mov         r8,  #-128
-+        sub         r8,  r7
-+2:
-+        vld1.8     {d16}, [r2]
-+        add         r6,  r4,  #32
++        ldrh        r7, [r7]
++        mov         r10, #-128
++        vmov.i8     d6, #1<<2
++1:
++        push        {r2,r10}
++        bl          patch_h_up_8x8_8
++        bl          patch_h_up_8x8_8_continue
++        bl          patch_h_up_8x8_8_continue
++        bl          patch_h_up_8x8_8_continue
++        pop         {r2,r10}
 +
-+        push       {r2, r8}
-+        bl          patch_h_up_8x8_8
-+        bl          patch_h_up_8x8_8
-+        bl          patch_h_up_8x8_8
-+        bl          patch_h_up_8x8_8
-+        pop        {r2, r8}
++        vmov        r8, s12
++        sub         r0, #32
++        add         r2, #8
++        add         r0, r0, r3, lsl #3
++        sub         r10, r10, r7, lsl #3
++        vshr.u8     d6, #1
++        teq         r8, #0
++        bne         1b
 +
-+        sub         r0,  #32
-+        subs        r10, #1
-+        add         r2,  r2,  #8
-+        sub         r8,  r8,  r7,  lsl #3
-+        add         r0,  r0,  r3,  lsl #3
-+        bne         2b
-+        pop        {r4-r10, pc}
-+
-+18:
-+        cmp         r12, #26
-+        mov         r5,  #32            @ Loop counter for the "easy" cases
-+        bge         26f
++        pop        {r4-r11, pc}
 +
 +@ Left of vertical - works down left
-+        vld1.8     {q8,  q9 }, [r1  :128]    @ Up
-+        ldrh        r7,  [r7]
-+        add         r6,  r4,  #32
-+        mov         r8,  #-128
-+
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        @ For other widths we may want different logic
-+T       asr         r12, r8,  #8
-+T       ldrb        r12, [r2,  r12]
-+A       ldrb        r12, [r2,  r8,  asr #8]
-+
-+        vmov        q12, q8
-+        add         r8,  r7
-+        vmov        q13, q9
-+        sub         r6,  #32
-+        vext.8      q9,  q8,  q9,  #15
-+        vext.8      q8,  q8,  q8,  #15
-+        vmov.8      d16[0], r12
-+
++18:
++        vld1.8      {q0-q1}, [r1]
++        sub         r9, r2, #1
++        rsb         r12, r6, #32
++        ldrh        r7, [r7]
++        mov         r8, #-128
++        vdup.8      d18, r6
++        vdup.8      d19, r12
++        mov         r5, #32
 +1:
-+        vdup.8      d31, r6
-+        rsb         r12, r6,  #32
++        vld1.8      {d17[7]}, [r9]
++        add         r8, r7
++        vmov        q2, q0
++        vmov        q3, q1
++        add         r9, r2, r8, asr #8
++        vext.8      q1, q0, q1, #15
++        vext.8      q0, q8, q0, #15
++2:
++        vmull.u8    q10, d4, d19
++        subs        r12, r4
++        vmlal.u8    q10, d0, d18
++        it          cc
++        addcc       r12, #32
++        vmull.u8    q11, d5, d19
++        rsb         r6, r12, #32
++        vmlal.u8    q11, d1, d18
++        sub         r5, #1
++        vmull.u8    q12, d6, d19
++        teq         r5, #0
++        vmlal.u8    q12, d2, d18
++        vmull.u8    q13, d7, d19
++        vmlal.u8    q13, d3, d18
++        vdup.8      d18, r6
++        vdup.8      d19, r12
++        vrshrn.u16  d20, q10, #5
++        vrshrn.u16  d21, q11, #5
++        vrshrn.u16  d22, q12, #5
++        vrshrn.u16  d23, q13, #5
++        vst1.8      {q10-q11}, [r0], r3
++        bhi         2b
++        bne         1b
 +
-+        vmull.u8    q0,  d16, d31
-+        vmull.u8    q1,  d17, d31
-+        vdup.8      d30, r12
-+        add         r6,  r4
-+        vmull.u8    q2,  d18, d31
-+        vmull.u8    q3,  d19, d31
-+        vmlal.u8    q0,  d24, d30
-+        vmlal.u8    q1,  d25, d30
-+        vmlal.u8    q2,  d26, d30
-+        vmlal.u8    q3,  d27, d30
-+
-+        vrshrn.u16  d0,  q0,  #5
-+        vrshrn.u16  d1,  q1,  #5
-+        vrshrn.u16  d2,  q2,  #5
-+        vrshrn.u16  d3,  q3,  #5
-+
-+        subs        r5,  #1
-+        vst1.8     {q0,  q1 }, [r0], r3
-+        bne         2b
-+        pop        {r4-r10, pc}
++        pop         {r4-r11, pc}
 +
 +@ Right of vertical - works along top - left unused
 +26:
-+        vld1.8     {q12, q13}, [r1  :128]!   @ Up
-+        add         r6,  r4,  #32       @ Force initial load in main loop
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        vmov        q8,  q12
-+        vmov        q9,  q13
-+        vext.8      q12, q13, #1
-+        vext.8      q13, q13, #1
-+        sub         r6,  #32
-+        vld1.8     {d27[7]}, [r1]!
-+
++        add         r5, r1, #32
++        vld1.8      {q0-q1}, [r1]!
++        rsb         r12, r6, #32
++        vld1.8      {d16[0]}, [r5]
++        mov         r5, #32
++        vdup.8      d18, r6
++        vdup.8      d19, r12
 +1:
-+        rsb         r12, r6,  #32
-+        vdup.8      d30, r6
-+        vdup.8      d31, r12
++        vmov        q2, q0
++        add         r1, #1
++        vmov        q3, q1
++        vext.8      q0, q0, q1, #1
++        vext.8      q1, q1, q8, #1
++2:
++        vmull.u8    q10, d0, d18
++        subs        r12, r4
++        vmlal.u8    q10, d4, d19
++        it          cc
++        addcc       r12, #32
++        vmull.u8    q11, d1, d18
++        rsb         r6, r12, #32
++        vmlal.u8    q11, d5, d19
++        sub         r5, #1
++        vmull.u8    q12, d2, d18
++        teq         r5, #0
++        vmlal.u8    q12, d6, d19
++        vmull.u8    q13, d3, d18
++        vmlal.u8    q13, d7, d19
++        vld1.8      {d16[0]}, [r1]
++        vdup.8      d18, r6
++        vdup.8      d19, r12
++        vrshrn.u16  d20, q10, #5
++        vrshrn.u16  d21, q11, #5
++        vrshrn.u16  d22, q12, #5
++        vrshrn.u16  d23, q13, #5
++        vst1.8      {q10-q11}, [r0], r3
++        bhi         2b
++        bne         1b
 +
-+        vmull.u8    q0,  d24, d30
-+        vmull.u8    q1,  d25, d30
-+        vmull.u8    q2,  d26, d30
-+        vmull.u8    q3,  d27, d30
-+        vmlal.u8    q0,  d16, d31
-+        vmlal.u8    q1,  d17, d31
-+        vmlal.u8    q2,  d18, d31
-+        vmlal.u8    q3,  d19, d31
-+
-+        vrshrn.u16  d0,  q0,  #5
-+        vrshrn.u16  d1,  q1,  #5
-+        vrshrn.u16  d2,  q2,  #5
-+        vrshrn.u16  d3,  q3,  #5
-+
-+        add         r6,  r4
-+        subs        r5,  #1
-+        vst1.8     {q0,  q1 }, [r0], r3
-+        bne         2b
-+        pop        {r4-r10, pc}
++        pop         {r4-r11, pc}
 +
 +endfunc
++
 +
 +@ Chroma 8 bit 4x4 patch fns
 +        .text
 +
 +patch_h_down_c_4x4_8:
-+        mov         r5,  #4
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        vmov        d16, d24
-+        vext.16     d24, d24, #1
-+        sub         r6,  #32
-+        vld1.16    {d24[3]}, [r2]!
-+
++        ldrd        r8, r9, [r2]        @ Left
++        rsb         r12, r6, #32
++        vmov        d0, r8, r9
++        vdup.8      d3, r6
++        lsr         r8, #16
++        vdup.8      d2, r12
++        orr         r8, r8, r9, lsl #16
++        ldr         r9, [r2, #6]!
++        vmov        d1, r8, r9
++        // drop through...
++patch_h_down_c_4x4_8_continue:
++        mov         r5, #4
 +1:
-+        vext.8      q0,  q1,  #8
-+        rsb         r12, r6,  #32
-+        vext.8      q1,  q1,  #8
-+        vdup.8      d30, r6
-+        vdup.8      d31, r12
-+
-+        vmull.u8    q14, d24, d30
-+        add         r6,  r4
-+        vmlal.u8    q14, d16, d31
-+        subs        r5,  #1
-+        vrshrn.u16  d3,  q14, #5
-+        bne         2b
-+
++          subs        r12, r4
++        vmull.u8    q2, d0, d2
++          it          mi
++          addmi       r12, #32
++        vmlal.u8    q2, d1, d3
++          rsb         r6, r12, #32
++        vext.8      q8, q8, q9, #8
++          it          mi
++          lsrmi       r7, r8, #16
++        vmov        d18, d19
++          it          mi
++          vmovmi      d0, r8, r9
++          vdup.8      d2, r12
++          it          mi
++          orrmi       r8, r7, r9, lsl #16
++        vrshrn.u16  d19, q2, #5
++          itt         mi
++          ldrmi       r9, [r2, #2]!
++          vmovmi      d1, r8, r9
++        subs        r5, #1
++          vdup.8      d3, r6
++        bne         1b
++        // drop through...
 +store_tran_c_4x4_8:
-+        add         r12, r0,  r3
-+        vst4.16    {d0[0], d1[0], d2[0], d3[0]}, [r0 ]!
-+        add         r5,  r12, r3
-+        vst4.16    {d0[1], d1[1], d2[1], d3[1]}, [r12]
-+        add         r12, r12, r3,  lsl #1
-+        vst4.16    {d0[2], d1[2], d2[2], d3[2]}, [r5 ]
-+        vst4.16    {d0[3], d1[3], d2[3], d3[3]}, [r12]
++        vzip.16     d16, d17
++        add         r6, r0, r3
++        vzip.16     d18, d19
++        lsl         r3, #1
++        vzip.32     q8, q9
++        add         r5, r0, r3
++        vst1.16     {d16}, [r0]!
++        vst1.16     {d17}, [r6], r3
++        vst1.16     {d18}, [r5]
++        asr         r3, #1
++        vst1.16     {d19}, [r6]
++
 +        bx          lr
 +
 +patch_h_up_c_4x4_8:
-+        mov         r5,  #4
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        @ If r8 is -ve then we are still tracking left
-+        adds        r8,  r7
-+        vmov        d24, d16
-+        @ Initially r2=left (variable), r1=up (const)
-+        @ Use r2 for both up and left, we only ever go from left->up so
-+        @ we assume that we are left and thenm overwrite with up if wanted
-+        sub         r2,  #2
-+        it pl
-+        addpl       r2,  r1,  r8,  asr #7
-+        vext.16     d16, d16, d16, #3
-+        @ We get *2 by >> 7 rather than 8, but that means we need to lose bit 0
-+        and         r2,  #~1
-+        sub         r6,  #32
-+        vld1.16     d16[0], [r2]
++        ldrd        r8, r9, [r2]
++        rsb         r6, r4, #32
++        vmov        d0, r8, r9
++        vdup.8      d3, r4
++        lsr         r11, r8, #16
++        vdup.8      d2, r6
++        ldr         r8, [r2, #-2]!
++        orr         r9, r11, r9, lsl #16
++        vmov        d1, r8, r9
++        mov         r12, r4
++        vmull.u8    q2, d0, d2
++        vmlal.u8    q2, d1, d3
++patch_h_up_c_4x4_8_continue:
++        mov         r5, #4
 +1:
-+        vdup.8      d31, r6
-+        vext.8      q0,  q1,  #8
-+        rsb         r12, r6,  #32
-+        vext.8      q1,  q1,  #8
++          add         r12, r4
++          cmp         r12, #33
++          it          cs
++          addcs       r10, r7
++          mov         r11, #0
++          itt         cs
++          subcs       r12, #32
++          tstcs       r10, #1<<31
++          rsb         r6, r12, #32
++          it          eq
++          asreq       r11, r10, #7
++          it          cs
++          vmovcs      d0, r8, r9
++          it          eq
++          biceq       r11, #1
++          vdup.8      d2, r6
++          it          cs
++          lsrcs       r6, r8, #16
++          vdup.8      d3, r12
++        vext.8      q8, q8, q9, #8
++          itt         cs
++          orrcs       r9, r6, r9, lsl #16
++          ldrhcs      r11, [r1, r11]
++        vmov        d18, d19
++          it          hi
++          ldrhhi      r11, [r2, #-2]!
++        vrshrn.u16  d19, q2, #5
++          itt         cs
++          orrcs       r8, r11, r8, lsl #16
++          vmovcs      d1, r8, r9
++          vmull.u8    q2, d0, d2
++        subs        r5, #1
++          vmlal.u8    q2, d1, d3
++        bne         1b
 +
-+        vmull.u8    q14, d16, d31
-+        vdup.8      d30, r12
-+        add         r6,  r4
-+        vmlal.u8    q14, d24, d30
-+        subs        r5,  #1
-+        vrshrn.u16  d3,  q14, #5
-+        bne         2b
-+        b           store_tran_c_4x4_8  @ This will return
++        b           store_tran_c_4x4_8
 +
 +
 +@ ff_hevc_rpi_pred_angular_c_4_neon_8
@@ -8947,100 +9178,119 @@ index 0000000000..8063a1521e
 +@       unsigned int mode       [sp, #0]  2..34
 +
 +function ff_hevc_rpi_pred_angular_c_4_neon_8, export=1
-+        ldr         r12, [sp, #0]
-+        push       {r4-r8, lr}
-+        ADRT        r4,  angle_2 - 2
-+        ADRT        r7,  inv_angle - 11*2
-+        ldrsb       r4,  [r4, r12]
-+        add         r7,  r7,  r12, lsl #1
-+        lsl         r3,  #1
-+
++        ldr         r12, [sp]
++        push        {r4-r11, lr}
++        ADRT        r4, angle_2 - 2
++        ADRT        r7, inv_angle - 11*2
++        add         r7, r7, r12, lsl #1
++        lsl         r3, #1
++        ldrsb       r6, [r4, r12]
++        cmp         r12, #26
++        ldrsb       r4, [r4, r12]
++        bge         26f
 +        cmp         r12, #18
-+        add         r6,  r4,  #32       @ Force initial load in main loop
 +        bge         18f
-+
 +        cmp         r12, #10
 +        bge         10f
 +
 +@ Down of Horizontal - works down left
-+        vld1.8     {d24}, [r2]!
 +        bl          patch_h_down_c_4x4_8
-+        pop        {r4-r8, pc}
++        pop         {r4-r11, pc}
 +
 +@ Up of Horizontal - works down up
 +10:
-+        ldrh        r7,  [r7]
-+        @ -128 (rather than +128) means we get UL
-+        @ from L & don't have to offset U
-+        mov         r8,  #-128
-+        sub         r8,  r7
-+        vld1.8     {d16}, [r2]
++        ldrh        r7, [r7]
++        mov         r10, #-128
 +        bl          patch_h_up_c_4x4_8
-+        pop        {r4-r8, pc}
-+
-+18:
-+        cmp         r12, #26
-+        mov         r5,  #4             @ Loop counter for the "easy" cases
-+        bge         26f
++        pop         {r4-r11, pc}
 +
 +@ Left of vertical - works down left
-+        vld1.8     {d16}, [r1  :64]     @ Up
-+        ldrh        r7,  [r7]
-+        mov         r8,  #-128
-+
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        @ For other widths we may want different logic
-+        asr         r12, r8,  #8
-+        vmov        d24, d16
-+        add         r8,  r7
-+        vext.16     d16, d16, #3
-+        add         r12, r2,  r12,  lsl #1
-+        sub         r6,  #32
-+        vld1.16    {d16[0]}, [r12]
++18:
++        ldrd        r8, r9, [r1]        @ Top
++        rsb         r12, r6, #32
++        ldrh        lr, [r2, #-2]       @ Top-left
++        ldrh        r7, [r7]
++        vmov        d0, r8, r9
++        lsl         r9, r9, #16
++        vdup.8      d2, r12
++        orr         r9, r9, r8, lsr #16
++        orr         r8, lr, r8, lsl #16
++        vmov        d1, r8, r9
++        sub         r1, r7, #128
++        mov         r5, #3
 +1:
-+        vdup.8      d31, r6
-+        rsb         r12, r6,  #32
++        vdup.8      d3, r6
++        vmull.u8    q2, d0, d2
++          subs        r12, r12, r4
++        vmlal.u8    q2, d1, d3
++          itttt       mi
++          addmi       lr, r2, r1, asr #7
++          bicmi       lr, #1
++          addmi       r12, r12, #32
++          vmovmi      d0, r8, r9
++          rsb         r6, r12, #32
++          itt         mi
++          lslmi       r9, r9, #16
++          ldrhmi      lr, [lr]
++          vdup.8      d2, r12
++        vrshrn.u16  d4, q2, #5
++          itttt       mi
++          orrmi       r9, r9, r8, lsr #16
++          orrmi       r8, lr, r8, lsl #16
++          vmovmi      d1, r8, r9
++          addmi       r1, r1, r7
++        subs        r5, r5, #1
++        vst1.16     {d4}, [r0], r3
++        bne         1b
 +
-+        vmull.u8    q0,  d16, d31
-+        vdup.8      d30, r12
-+        add         r6,  r4
-+        vmlal.u8    q0,  d24, d30
-+        vrshrn.u16  d0,  q0,  #5
++          vdup.8      d3, r6
++          vmull.u8    q2, d0, d2
++          vmlal.u8    q2, d1, d3
++          vrshrn.u16  d4, q2, #5
++          vst1.16     {d4}, [r0]
 +
-+        subs        r5,  #1
-+        vst1.8     {d0 }, [r0], r3
-+        bne         2b
-+        pop        {r4-r8, pc}
++        pop         {r4-r11, pc}
 +
 +@ Right of vertical - works along top - left unused
 +26:
-+        vld1.8     {q12}, [r1]          @ Up + UR (only 64-bit aligned)
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        vmov        q8,  q12
-+        vext.16     q12, q12, #1
-+        sub         r6,  #32
-+
++        ldrd        r8, r9, [r1]        @ Top
++        rsb         r12, r6, #32
++        vmov        d0, r8, r9
++        vdup.8      d3, r6
++        mov         r5, #3
++        lsr         r8, #16
++        vdup.8      d2, r12
++        orr         r8, r8, r9, lsl #16
++        ldr         r9, [r1, #6]!
++        vmov        d1, r8, r9
 +1:
-+        rsb         r12, r6,  #32
-+        vdup.8      d30, r6
-+        vdup.8      d31, r12
++        vmull.u8    q2, d0, d2
++          subs        r12, r4
++        vmlal.u8    q2, d1, d3
++          it          mi
++          addmi       r12, #32
++          rsb         r6, r12, #32
++          itt         mi
++          vmovmi      d0, r8, r9
++          lsrmi       r8, #16
++          vdup.8      d2, r12
++          itt         mi
++          orrmi       r8, r8, r9, lsl #16
++          ldrmi       r9, [r1, #2]!
++        vrshrn.u16  d6, q2, #5
++          it          mi
++          vmovmi      d1, r8, r9
++          vdup.8      d3, r6
++        subs        r5, #1
++        vst1.16     {d6}, [r0], r3
++        bne         1b
 +
-+        vmull.u8    q0,  d24, d30
-+        vmlal.u8    q0,  d16, d31
++          vmull.u8    q2, d0, d2
++          vmlal.u8    q2, d1, d3
++          vrshrn.u16  d6, q2, #5
++          vst1.16     {d6}, [r0]
 +
-+        vrshrn.u16  d0,  q0,  #5
-+
-+        add         r6,  r4
-+        subs        r5,  #1
-+        vst1.8     {d0 }, [r0], r3
-+        bne         2b
-+        pop        {r4-r8, pc}
++        pop         {r4-r11, pc}
 +
 +endfunc
 +
@@ -9053,133 +9303,226 @@ index 0000000000..8063a1521e
 +@       unsigned int mode       [sp, #0]  2..34
 +
 +function ff_hevc_rpi_pred_angular_c_8_neon_8, export=1
-+        ldr         r12, [sp, #0]
-+        push       {r4-r8, lr}
-+        ADRT        r4,  angle_2 - 2
-+        ADRT        r7,  inv_angle - 11*2
-+        ldrsb       r4,  [r4, r12]
-+        add         r7,  r7,  r12, lsl #1
-+        lsl         r3,  #1
-+
++        ldr         r12, [sp]
++        push        {r4-r11, lr}
++        ADRT        r4, angle_2 - 2
++        ADRT        r7, inv_angle - 11*2
++        add         r7, r7, r12, lsl #1
++        lsl         r3, #1
++        ldrsb       r6, [r4, r12]
++        cmp         r12, #26
++        ldrsb       r4, [r4, r12]
++        bge         26f
 +        cmp         r12, #18
-+        add         r6,  r4,  #32
 +        bge         18f
-+
 +        cmp         r12, #10
 +        bge         10f
 +
 +@ Down of Horizontal - works down left
-+        vld1.8     {d24}, [r2]!
-+        mov         r1,  r2
++        mov         r1,  r2             @ save r2 - r1 unused by patch_down
 +
 +        bl          patch_h_down_c_4x4_8
-+        bl          patch_h_down_c_4x4_8
++        bl          patch_h_down_c_4x4_8_continue
 +
-+        sub         r0,  #16
-+        add         r0,  r0,  r3,  lsl #2
-+        vld1.8     {d24}, [r1]!
-+        add         r6,  r4,  #32       @ Force initial load in main loop
-+        mov         r2,  r1
++        add         r2, r1, #4*2        @ restore r2, but 4 rows further down left
++        sub         r0, #16
++        mov         r6, r4
++        add         r0, r0, r3, lsl #2
 +
 +        bl          patch_h_down_c_4x4_8
-+        bl          patch_h_down_c_4x4_8
-+        pop        {r4-r8, pc}
++        bl          patch_h_down_c_4x4_8_continue
++
++        pop         {r4-r11, pc}
 +
 +@ Up of Horizontal - works down up
 +10:
-+        ldrh        r7,  [r7]
-+        @ -128 (rather than +128) means we get UL
-+        @ from L & don't have to offset U
-+        mov         r8,  #-128
-+        sub         r8,  r7
-+        vld1.8     {d16}, [r2]
++        ldrh        r7, [r7]
++        mov         r10, #-128
 +
-+        push       {r2, r8}
++        push        {r2}
 +        bl          patch_h_up_c_4x4_8
-+        bl          patch_h_up_c_4x4_8
-+        pop        {r2, r8}
++        bl          patch_h_up_c_4x4_8_continue
++        pop         {r2}
 +
-+        add         r2,  r2,  #8
-+        sub         r0,  #16
-+        sub         r8,  r8,  r7,  lsl #2
-+        vld1.8     {d16}, [r2]
-+        add         r0,  r0,  r3,  lsl #2
-+        add         r6,  r4,  #32
-+        bl          patch_h_up_c_4x4_8
-+        bl          patch_h_up_c_4x4_8
-+        pop        {r4-r8, pc}
++        sub         r0, #16
++        mov         r10, #-128
++        add         r2, #8
++        add         r0, r0, r3, lsl #2
++        sub         r10, r10, r7, lsl #2
 +
-+18:
-+        cmp         r12, #26
-+        mov         r5,  #8             @ Loop counter for the "easy" cases
-+        bge         26f
++        bl          patch_h_up_c_4x4_8
++        bl          patch_h_up_c_4x4_8_continue
++
++        pop         {r4-r11, pc}
 +
 +@ Left of vertical - works down left
-+        vld1.8     {q8 }, [r1  :128]    @ Up
-+        ldrh        r7,  [r7]
-+        mov         r8,  #-128
-+
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        @ For other widths we may want different logic
-+        asr         r12, r8,  #8
-+        vmov        q12, q8
-+        add         r8,  r7
-+        vext.16     q8,  q8,  #7
-+        add         r12, r2,  r12, lsl #1
-+        sub         r6,  #32
-+        vld1.16    {d16[0]}, [r12]
++18:
++        vld1.8      {q9}, [r1]
++        sub         r1, r2, #2
++        rsb         r12, r6, #32
++        ldrh        r7, [r7]
++        vdup.8      d6, r6
++        vext.8      q8, q9, q9, #14
++        sub         r8, r7, #128
++        vld1.16     {d16[0]}, [r1]
++        vdup.8      d7, r12
++        mov         r5, #7
 +1:
-+        vdup.8      d31, r6
-+        rsb         r12, r6,  #32
++        subs        r12, r4
++        vmull.u8    q0, d18, d7
++        it          cc
++        asrcc       r1, r8, #8
++        vmlal.u8    q0, d16, d6
++        it          cc
++        addcc       r12, #32
++        vmull.u8    q1, d19, d7
++        it          cc
++        addcc       r1, r2, r1, lsl #1
++        vmlal.u8    q1, d17, d6
++        rsb         r6, r12, #32
++        vext.8      q10, q8, q8, #14
++        sub         r5, #1
++        vld1.16     {d20[0]}, [r1]
++        it          cc
++        addcc       r8, r7
++        vmov        q11, q8
++        teq         r5, #0
++        vrshrn.u16  d0, q0, #5
++        vrshrn.u16  d1, q1, #5
++        vdup.8      d6, r6
++        vdup.8      d7, r12
++        vst1.8      {q0}, [r0], r3
++        bhi         1b
++        beq         4f
++2:
++        subs        r12, r4
++        vmull.u8    q0, d22, d7
++        it          cc
++        asrcc       r1, r8, #8
++        vmlal.u8    q0, d20, d6
++        it          cc
++        addcc       r12, #32
++        vmull.u8    q1, d23, d7
++        it          cc
++        addcc       r1, r2, r1, lsl #1
++        vmlal.u8    q1, d21, d6
++        rsb         r6, r12, #32
++        vext.8      q8, q10, q10, #14
++        sub         r5, #1
++        vld1.16     {d16[0]}, [r1]
++        it          cc
++        addcc       r8, r7
++        vmov        q9, q10
++        teq         r5, #0
++        vrshrn.u16  d0, q0, #5
++        vrshrn.u16  d1, q1, #5
++        vdup.8      d6, r6
++        vdup.8      d7, r12
++        vst1.8      {q0}, [r0], r3
++        bhi         2b
++        bne         1b
++        bcc         5f
++3:
++        vmull.u8    q0, d22, d7
++        vmlal.u8    q0, d20, d6
++        vmull.u8    q1, d23, d7
++        vmlal.u8    q1, d21, d6
++        vrshrn.u16  d0, q0, #5
++        vrshrn.u16  d1, q1, #5
++        vst1.8      {q0}, [r0]
 +
-+        vmull.u8    q0,  d16, d31
-+        vdup.8      d30, r12
-+        vmull.u8    q1,  d17, d31
-+        add         r6,  r4
-+        vmlal.u8    q0,  d24, d30
-+        vmlal.u8    q1,  d25, d30
++        pop         {r4-r11, pc}
++4:
++        bcc         3b
++5:
++        vmull.u8    q0, d18, d7
++        vmlal.u8    q0, d16, d6
++        vmull.u8    q1, d19, d7
++        vmlal.u8    q1, d17, d6
++        vrshrn.u16  d0, q0, #5
++        vrshrn.u16  d1, q1, #5
++        vst1.8      {q0}, [r0]
 +
-+        vrshrn.u16  d0,  q0,  #5
-+        vrshrn.u16  d1,  q1,  #5
-+
-+        subs        r5,  #1
-+        vst1.8     {q0 }, [r0], r3
-+        bne         2b
-+        pop        {r4-r8, pc}
++        pop         {r4-r11, pc}
 +
 +@ Right of vertical - works along top - left unused
 +26:
-+        vld1.8     {q12}, [r1  :128]!   @ Up
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        vmov        q8,  q12
-+        vext.16     q12, q12, #1
-+        sub         r6,  #32
-+        vld1.16    {d25[3]}, [r1]!
-+
++        vld1.8      {q9}, [r1]!
++        rsb         r12, r6, #32
++        vdup.8      d6, r6
++        vdup.8      d7, r12
++        vext.8      q8, q9, q9, #2
++        vld1.16     {d17[3]}, [r1]!
++        mov         r5, #7
 +1:
-+        rsb         r12, r6,  #32
-+        vdup.8      d30, r6
-+        vdup.8      d31, r12
++        vmull.u8    q0, d16, d6
++        subs        r12, r4
++        vmlal.u8    q0, d18, d7
++        it          cc
++        addcc       r12, #32
++        vmull.u8    q1, d17, d6
++        rsb         r6, r12, #32
++        vmlal.u8    q1, d19, d7
++        sub         r5, #1
++        vext.8      q10, q8, q8, #2
++        teq         r5, #0
++        vld1.16     {d21[3]}, [r1]
++        it          cc
++        addcc       r1, #2
++        vmov        q11, q8
++        vrshrn.u16  d0, q0, #5
++        vrshrn.u16  d1, q1, #5
++        vdup.8      d6, r6
++        vdup.8      d7, r12
++        vst1.8      {q0}, [r0], r3
++        bhi         1b
++        beq         4f
++2:
++        vmull.u8    q0, d20, d6
++        subs        r12, r4
++        vmlal.u8    q0, d22, d7
++        it          cc
++        addcc       r12, #32
++        vmull.u8    q1, d21, d6
++        rsb         r6, r12, #32
++        vmlal.u8    q1, d23, d7
++        sub         r5, #1
++        vext.8      q8, q10, q10, #2
++        teq         r5, #0
++        vld1.16     {d17[3]}, [r1]
++        it          cc
++        addcc       r1, #2
++        vmov        q9, q10
++        vrshrn.u16  d0, q0, #5
++        vrshrn.u16  d1, q1, #5
++        vdup.8      d6, r6
++        vdup.8      d7, r12
++        vst1.8      {q0}, [r0], r3
++        bhi         2b
++        bne         1b
++        bcc         5f
++3:
++        vmull.u8    q0, d20, d6
++        vmlal.u8    q0, d22, d7
++        vmull.u8    q1, d21, d6
++        vmlal.u8    q1, d23, d7
++        vrshrn.u16  d0, q0, #5
++        vrshrn.u16  d1, q1, #5
++        vst1.8      {q0}, [r0]
 +
-+        vmull.u8    q0,  d24, d30
-+        vmull.u8    q1,  d25, d30
-+        vmlal.u8    q0,  d16, d31
-+        vmlal.u8    q1,  d17, d31
++        pop         {r4-r11, pc}
++4:
++        bcc         3b
++5:
++        vmull.u8    q0, d16, d6
++        vmlal.u8    q0, d18, d7
++        vmull.u8    q1, d17, d6
++        vmlal.u8    q1, d19, d7
++        vrshrn.u16  d0, q0, #5
++        vrshrn.u16  d1, q1, #5
++        vst1.8      {q0}, [r0]
 +
-+        vrshrn.u16  d0,  q0,  #5
-+        vrshrn.u16  d1,  q1,  #5
-+
-+        add         r6,  r4
-+        subs        r5,  #1
-+        vst1.8     {q0 }, [r0], r3
-+        bne         2b
-+        pop        {r4-r8, pc}
++        pop         {r4-r11, pc}
 +
 +endfunc
 +
@@ -9192,155 +9535,152 @@ index 0000000000..8063a1521e
 +@       unsigned int mode       [sp, #0]  2..34
 +
 +function ff_hevc_rpi_pred_angular_c_16_neon_8, export=1
-+        ldr         r12, [sp, #0]
-+        push       {r4-r10, lr}
-+        ADRT        r4,  angle_2 - 2
-+        ADRT        r7,  inv_angle - 11*2
-+        ldrsb       r4,  [r4, r12]
-+        add         r7,  r7,  r12, lsl #1
-+        lsl         r3,  #1
-+
++        ldr         r12, [sp]
++        push        {r4-r11, lr}
++        ADRT        r4, angle_2 - 2
++        ADRT        r7, inv_angle - 11*2
++        add         r7, r7, r12, lsl #1
++        lsl         r3, #1
++        ldrsb       r6, [r4, r12]
++        cmp         r12, #26
++        ldrsb       r4, [r4, r12]
++        bge         26f
 +        cmp         r12, #18
 +        bge         18f
-+
 +        cmp         r12, #10
-+        mov         r10, #4             @ Outer loop counter for "hard" cases
 +        bge         10f
 +
 +@ Down of Horizontal - works down left
-+        mov         r1,  r2
-+2:
-+        vld1.8     {d24}, [r1]!
-+        add         r6,  r4,  #32       @ Force initial load in main loop
-+        mov         r2,  r1
++        mov         r10, #4
++        mov         r1, r2
++1:
++        bl          patch_h_down_c_4x4_8
++        bl          patch_h_down_c_4x4_8_continue
++        bl          patch_h_down_c_4x4_8_continue
++        bl          patch_h_down_c_4x4_8_continue
 +
-+        bl          patch_h_down_c_4x4_8
-+        bl          patch_h_down_c_4x4_8
-+        bl          patch_h_down_c_4x4_8
-+        bl          patch_h_down_c_4x4_8
-+
-+        sub         r0,  #32
++        add         r2, r1, #4*2         @ restore r2, but 4 rows further down left
++        add         r1, r1, #4*2
++        mov         r6, r4
++        sub         r0, #32
 +        subs        r10, #1
-+        add         r0,  r0,  r3,  lsl #2
-+        bne         2b
-+        pop        {r4-r10, pc}
++        add         r0, r0, r3, lsl #2
++        bne         1b
++
++        pop         {r4-r11, pc}
 +
 +@ Up of Horizontal - works down up
 +10:
-+        ldrh        r7,  [r7]
-+        @ -128 (rather than +128) means we get UL
-+        @ from L & don't have to offset U
-+        mov         r8,  #-128
-+        sub         r8,  r7
-+2:
-+        vld1.8     {d16}, [r2]
-+        add         r6,  r4,  #32
++        ldrh        r7, [r7]
++        mov         r10, #-128
++        vmov.i8     d6, #1<<2
++1:
++        push        {r2, r10}
++        bl          patch_h_up_c_4x4_8
++        bl          patch_h_up_c_4x4_8_continue
++        bl          patch_h_up_c_4x4_8_continue
++        bl          patch_h_up_c_4x4_8_continue
++        pop         {r2, r10}
 +
-+        push       {r2, r8}
-+        bl          patch_h_up_c_4x4_8
-+        bl          patch_h_up_c_4x4_8
-+        bl          patch_h_up_c_4x4_8
-+        bl          patch_h_up_c_4x4_8
-+        pop        {r2, r8}
++        vmov        r8, s12
++        sub         r0, #32
++        add         r2, #8
++        add         r0, r0, r3, lsl #2
++        sub         r10, r10, r7, lsl #2
++        vshr.u8     d6, #1
++        teq         r8, #0
++        bne         1b
 +
-+        sub         r0,  #32
-+        subs        r10, #1
-+        add         r2,  r2,  #8
-+        sub         r8,  r8,  r7,  lsl #2
-+        add         r0,  r0,  r3,  lsl #2
-+        bne         2b
-+        pop        {r4-r10, pc}
-+
-+18:
-+        cmp         r12, #26
-+        mov         r5,  #16            @ Loop counter for the "easy" cases
-+        bge         26f
++        pop         {r4-r11, pc}
 +
 +@ Left of vertical - works down left
-+        vld1.8     {q8,  q9 }, [r1  :128]    @ Up
-+        ldrh        r7,  [r7]
-+        add         r6,  r4,  #32
-+        mov         r8,  #-128
-+
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        @ For other widths we may want different logic
-+        asr         r9,  r8,  #8
-+        vmov        q12, q8
-+        add         r8,  r7
-+        vmov        q13, q9
-+        add         r9,  r2,  r9,  lsl #1
-+        vext.16     q9,  q8,  q9,  #7
-+        sub         r6,  #32
-+        vext.16     q8,  q8,  q8,  #7
-+        vld1.16    {d16[0]}, [r9]
-+
++18:
++        vld1.8      {q0-q1}, [r1]
++        sub         r9, r2, #2
++        rsb         r12, r6, #32
++        ldrh        r7, [r7]
++        mov         r8, #-128
++        vdup.8      d18, r6
++        vdup.8      d19, r12
++        mov         r5, #16
 +1:
-+        vdup.8      d31, r6
-+        rsb         r12, r6,  #32
++        vld1.16     {d17[3]}, [r9]
++        add         r8, r7
++        vmov        q2, q0
++        vmov        q3, q1
++        asr         r9, r8, #8
++        vext.8      q1, q0, q1, #14
++        add         r9, r2, r9, lsl #1
++        vext.8      q0, q8, q0, #14
++2:
++        vmull.u8    q10, d4, d19
++        subs        r12, r4
++        vmlal.u8    q10, d0, d18
++        it          cc
++        addcc       r12, #32
++        vmull.u8    q11, d5, d19
++        rsb         r6, r12, #32
++        vmlal.u8    q11, d1, d18
++        sub         r5, #1
++        vmull.u8    q12, d6, d19
++        teq         r5, #0
++        vmlal.u8    q12, d2, d18
++        vmull.u8    q13, d7, d19
++        vmlal.u8    q13, d3, d18
++        vdup.8      d18, r6
++        vdup.8      d19, r12
++        vrshrn.u16  d20, q10, #5
++        vrshrn.u16  d21, q11, #5
++        vrshrn.u16  d22, q12, #5
++        vrshrn.u16  d23, q13, #5
++        vst1.8      {q10-q11}, [r0], r3
++        bhi         2b
++        bne         1b
 +
-+        vmull.u8    q0,  d16, d31
-+        vmull.u8    q1,  d17, d31
-+        vdup.8      d30, r12
-+        add         r6,  r4
-+        vmull.u8    q2,  d18, d31
-+        vmull.u8    q3,  d19, d31
-+        vmlal.u8    q0,  d24, d30
-+        vmlal.u8    q1,  d25, d30
-+        vmlal.u8    q2,  d26, d30
-+        vmlal.u8    q3,  d27, d30
-+
-+        vrshrn.u16  d0,  q0,  #5
-+        vrshrn.u16  d1,  q1,  #5
-+        vrshrn.u16  d2,  q2,  #5
-+        vrshrn.u16  d3,  q3,  #5
-+
-+        subs        r5,  #1
-+        vst1.8     {q0,  q1 }, [r0], r3
-+        bne         2b
-+        pop        {r4-r10, pc}
++        pop         {r4-r11, pc}
 +
 +@ Right of vertical - works along top - left unused
 +26:
-+        vld1.8     {q12, q13}, [r1  :128]!   @ Up
-+        add         r6,  r4,  #32       @ Force initial load in main loop
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        vmov        q8,  q12
-+        vmov        q9,  q13
-+        vext.16     q12, q13, #1
-+        vext.16     q13, q13, #1
-+        sub         r6,  #32
-+        vld1.16    {d27[3]}, [r1]!
-+
++        add         r5, r1, #32
++        vld1.8      {q0-q1}, [r1]!
++        rsb         r12, r6, #32
++        vld1.16     {d16[0]}, [r5]
++        mov         r5, #16
++        vdup.8      d18, r6
++        vdup.8      d19, r12
 +1:
-+        rsb         r12, r6,  #32
-+        vdup.8      d30, r6
-+        vdup.8      d31, r12
++        vmov        q2, q0
++        add         r1, #2
++        vmov        q3, q1
++        vext.8      q0, q0, q1, #2
++        vext.8      q1, q1, q8, #2
++2:
++        vmull.u8    q10, d0, d18
++        subs        r12, r4
++        vmlal.u8    q10, d4, d19
++        it          cc
++        addcc       r12, #32
++        vmull.u8    q11, d1, d18
++        rsb         r6, r12, #32
++        vmlal.u8    q11, d5, d19
++        sub         r5, #1
++        vmull.u8    q12, d2, d18
++        teq         r5, #0
++        vmlal.u8    q12, d6, d19
++        vmull.u8    q13, d3, d18
++        vmlal.u8    q13, d7, d19
++        vld1.16     {d16[0]}, [r1]
++        vdup.8      d18, r6
++        vdup.8      d19, r12
++        vrshrn.u16  d20, q10, #5
++        vrshrn.u16  d21, q11, #5
++        vrshrn.u16  d22, q12, #5
++        vrshrn.u16  d23, q13, #5
++        vst1.8      {q10-q11}, [r0], r3
++        bhi         2b
++        bne         1b
 +
-+        vmull.u8    q0,  d24, d30
-+        vmull.u8    q1,  d25, d30
-+        vmull.u8    q2,  d26, d30
-+        vmull.u8    q3,  d27, d30
-+        vmlal.u8    q0,  d16, d31
-+        vmlal.u8    q1,  d17, d31
-+        vmlal.u8    q2,  d18, d31
-+        vmlal.u8    q3,  d19, d31
-+
-+        vrshrn.u16  d0,  q0,  #5
-+        vrshrn.u16  d1,  q1,  #5
-+        vrshrn.u16  d2,  q2,  #5
-+        vrshrn.u16  d3,  q3,  #5
-+
-+        add         r6,  r4
-+        subs        r5,  #1
-+        vst1.8     {q0,  q1 }, [r0], r3
-+        bne         2b
-+        pop        {r4-r10, pc}
++        pop         {r4-r11, pc}
 +
 +endfunc
 +
@@ -9374,75 +9714,109 @@ index 0000000000..8063a1521e
 +        .balign 64
 +
 +patch_h_down_4x4_10:
-+        mov         r5,  #4
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        vmov        d16, d24
-+        vext.16     d24, d24, #1
-+        sub         r6,  #32
-+        vld1.16    {d24[3]}, [r2]!
-+
++        ldrd        r8, r9, [r2]        @ Left
++        rsb         r12, r6, #32
++        vmov        d0, r8, r9
++        vdup.16     d3, r6
++        lsr         r8, #16
++        vdup.16     d2, r12
++        orr         r8, r8, r9, lsl #16
++        ldr         r9, [r2, #6]!
++        vmov        d1, r8, r9
++        // drop through...
++patch_h_down_4x4_10_continue:
++        mov         r5, #4
 +1:
-+        rsb         r12, r6,  #32
-+        vext.16     q1,  q2,  #4
-+        vmov        s0,  r6
-+        vmov        s1,  r12
-+        vext.16     q2,  q2,  #4
-+
-+        vmul.u16    d1,  d24, d0[0]
-+        add         r6,  r4
-+        vmla.u16    d1,  d16, d0[2]
-+        subs        r5,  #1
-+        vrshr.u16   d5,  d1,  #5
-+        bne         2b
-+
++          subs        r12, r4
++        vmul.u16    d4, d0, d2
++          it          mi
++          addmi       r12, #32
++        vmla.u16    d4, d1, d3
++          rsb         r6, r12, #32
++        vext.16     q8, q8, q9, #4
++          it          mi
++          lsrmi       r7, r8, #16
++        vmov        d18, d19
++          it          mi
++          vmovmi      d0, r8, r9
++          vdup.16     d2, r12
++          it          mi
++          orrmi       r8, r7, r9, lsl #16
++        vrshr.u16   d19, d4, #5
++          itt         mi
++          ldrmi       r9, [r2, #2]!
++          vmovmi      d1, r8, r9
++        subs        r5, #1
++          vdup.16     d3, r6
++        bne         1b
++        // drop through...
 +store_tran_4x4_10:
-+        add         r12, r0,  r3
-+        vst4.16    {d2[0], d3[0], d4[0], d5[0]}, [r0 ]!
-+        add         r5,  r12, r3
-+        vst4.16    {d2[1], d3[1], d4[1], d5[1]}, [r12]
-+        add         r12, r12, r3,  lsl #1
-+        vst4.16    {d2[2], d3[2], d4[2], d5[2]}, [r5 ]
-+        vst4.16    {d2[3], d3[3], d4[3], d5[3]}, [r12]
++        vzip.16     d16, d17
++        add         r6, r0, r3
++        vzip.16     d18, d19
++        lsl         r3, #1
++        vzip.32     q8, q9
++        add         r5, r0, r3
++        vst1.16     {d16}, [r0]!
++        vst1.16     {d17}, [r6], r3
++        vst1.16     {d18}, [r5]
++        asr         r3, #1
++        vst1.16     {d19}, [r6]
++
 +        bx          lr
 +
 +patch_h_up_4x4_10:
-+        mov         r5,  #4
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        @ If r8 is -ve then we are still tracking left
-+        adds        r8,  r7
-+        vmov        d24, d16
-+        @ Initially r2=left (variable), r1=up (const)
-+        @ Use r2 for both up and left, we only ever go from left->up so
-+        @ we assume that we are left and thenm overwrite with up if wanted
-+        sub         r2,  #2
-+        it pl
-+        addpl       r2,  r1,  r8,  asr #7
-+        vext.16     d16, d16, d16, #3
-+        @ We get *2 by >> 7 rather than 8, but that means we need to lose bit 0
-+        and         r2,  #~1
-+        sub         r6,  #32
-+        vld1.16     d16[0], [r2]
-+
++        ldrd        r8, r9, [r2]
++        rsb         r6, r4, #32
++        vmov        d0, r8, r9
++        vdup.16     d3, r4
++        lsr         r11, r8, #16
++        vdup.16     d2, r6
++        ldr         r8, [r2, #-2]!
++        orr         r9, r11, r9, lsl #16
++        vmov        d1, r8, r9
++        mov         r12, r4
++        vmul.u16    d4, d0, d2
++        vmla.u16    d4, d1, d3
++patch_h_up_4x4_10_continue:
++        mov         r5, #4
 +1:
-+        rsb         r12, r6,  #32
-+        vext.16     q1,  q2,  #4
-+        vmov        s0,  r6
-+        vmov        s1,  r12
-+        vext.16     q2,  q2,  #4
++          add         r12, r4
++          cmp         r12, #33
++          it          cs
++          addcs       r10, r7
++          mov         r11, #0
++          itt         cs
++          subcs       r12, #32
++          tstcs       r10, #1<<31
++          rsb         r6, r12, #32
++          it          eq
++          asreq       r11, r10, #7
++          it          cs
++          vmovcs      d0, r8, r9
++          it          eq
++          biceq       r11, #1
++          vdup.16     d2, r6
++          it          cs
++          lsrcs       r6, r8, #16
++          vdup.16     d3, r12
++        vext.16     q8, q8, q9, #4
++          itt         cs
++          orrcs       r9, r6, r9, lsl #16
++          ldrhcs      r11, [r1, r11]
++        vmov        d18, d19
++          it          hi
++          ldrhhi      r11, [r2, #-2]!
++        vrshr.u16   d19, d4, #5
++          itt         cs
++          orrcs       r8, r11, r8, lsl #16
++          vmovcs      d1, r8, r9
++          vmul.u16    d4, d0, d2
++        subs        r5, #1
++          vmla.u16    d4, d1, d3
++        bne         1b
 +
-+        vmul.u16    d1,  d24, d0[2]
-+        add         r6,  r4
-+        vmla.u16    d1,  d16, d0[0]
-+        subs        r5,  #1
-+        vrshr.u16   d5,  d1,  #5
-+        bne         2b
-+        b           store_tran_4x4_10  @ This will return
++        b           store_tran_4x4_10
 +
 +
 +@ ff_hevc_rpi_pred_angular_4_neon_10
@@ -9453,98 +9827,121 @@ index 0000000000..8063a1521e
 +@       unsigned int mode       [sp, #0]  2..34
 +
 +function ff_hevc_rpi_pred_angular_4_neon_10, export=1
-+        ldr         r12, [sp, #0]
-+        push       {r4-r8, lr}
-+        ADRT        r4,  angle_2 - 2
-+        ADRT        r7,  inv_angle - 11*2
-+        lsl         r3,  #1
-+        ldrsb       r4,  [r4, r12]
-+        add         r7,  r7,  r12, lsl #1
-+
++        ldr         r12, [sp]
++        push        {r4-r11, lr}
++        ADRT        r4, angle_2 - 2
++        ADRT        r7, inv_angle - 11*2
++        add         r7, r7, r12, lsl #1
++        lsl         r3, #1
++        ldrsb       r6, [r4, r12]
++        cmp         r12, #26
++        ldrsb       r4, [r4, r12]
++        bge         26f
 +        cmp         r12, #18
-+        add         r6,  r4,  #32       @ Force initial load in main loop
 +        bge         18f
-+
 +        cmp         r12, #10
 +        bge         10f
 +
 +@ Down of Horizontal - works down left
-+        vld1.16    {d24}, [r2]!
 +        bl          patch_h_down_4x4_10
-+        pop        {r4-r8, pc}
++        pop         {r4-r11, pc}
 +
 +@ Up of Horizontal - works down up
 +10:
-+        ldrh        r7,  [r7]
-+        @ -128 (rather than +128) means we get UL
-+        @ from L & don't have to offset U
-+        mov         r8,  #-128
-+        sub         r8,  r7
-+        vld1.16    {d16}, [r2]
++        ldrh        r7, [r7]
++        mov         r10, #-128
 +        bl          patch_h_up_4x4_10
-+        pop        {r4-r8, pc}
-+
-+18:
-+        cmp         r12, #26
-+        mov         r5,  #4             @ Loop counter for the "easy" cases
-+        bge         26f
++        pop         {r4-r11, pc}
 +
 +@ Left of vertical - works down left
-+        vld1.16    {d16}, [r1]       @ Up
-+        ldrh        r7,  [r7]
-+        mov         r8,  #-128
-+
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        asr         r12, r8,  #8
-+        vmov        d24, d16
-+        add         r8,  r7
-+        add         r12, r2,  r12, lsl #1
-+        sub         r6,  #32
-+        vext.16     d16, d16, #3
-+        vld1.16    {d16[0]}, [r12]
++18:
++        ldrd        r8, r9, [r1]        @ Top
++        rsb         r12, r6, #32
++        ldrh        lr, [r2, #-2]       @ Top-left
++        ldrh        r7, [r7]
++        vmov        d0, r8, r9
++        lsl         r9, r9, #16
++        vdup.16     d2, r12
++        orr         r9, r9, r8, lsr #16
++        orr         r8, lr, r8, lsl #16
++        vmov        d1, r8, r9
++        sub         r1, r7, #128
++        mov         r5, #3
 +1:
-+        vmov        s1,  r6
-+        rsb         r12, r6,  #32
-+        add         r6,  r4
-+        vmov        s0,  r12
++        sel         lr, lr, lr          @ force pipeline 0 on Cortex-A53
++        vdup.16     d3, r6
++        vmul.u16    d4, d0, d2
++          subs        r12, r12, r4
++        vmla.u16    d4, d1, d3
++          itttt       mi
++          addmi       lr, r2, r1, asr #7
++          bicmi       lr, #1
++          addmi       r12, r12, #32
++          vmovmi      d0, r8, r9
++          rsb         r6, r12, #32
++          itt         mi
++          lslmi       r9, r9, #16
++          ldrhmi      lr, [lr]
++          vdup.16     d2, r12
++        vrshr.u16   d4, d4, #5
++          itttt       mi
++          orrmi       r9, r9, r8, lsr #16
++          orrmi       r8, lr, r8, lsl #16
++          vmovmi      d1, r8, r9
++          addmi       r1, r1, r7
++        subs        r5, r5, #1
++        vst1.16     {d4}, [r0], r3
++        bne         1b
 +
-+        vmul.u16    d2,  d16, d0[2]
-+        vmla.u16    d2,  d24, d0[0]
-+        vrshr.u16   d2,  #5
++          vdup.16     d3, r6
++          nop                           @ force next insn into pipeline 0 to enable
++          vmul.u16    d4, d0, d2        @ vmla to execute back-to-back on Cortex-A53
++          vmla.u16    d4, d1, d3
++          vrshr.u16   d4, d4, #5
++          vst1.16     {d4}, [r0]
 +
-+        subs        r5,  #1
-+        vst1.16    {d2 }, [r0], r3
-+        bne         2b
-+        pop        {r4-r8, pc}
++        pop         {r4-r11, pc}
 +
 +@ Right of vertical - works along top - left unused
 +26:
-+        vld1.16    {d24, d25}, [r1  :64]  @ Up + UR (64bit aligned)
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        vmov        d16, d24
-+        vext.16     q12, q13, #1
-+        sub         r6,  #32
-+
++        ldrd        r8, r9, [r1]        @ Top
++        rsb         r12, r6, #32
++        vmov        d0, r8, r9
++        vdup.16     d3, r6
++        lsr         r8, #16
++        vdup.16     d2, r12
++        orr         r8, r8, r9, lsl #16
++        ldr         r9, [r1, #6]!
++        vmov        d1, r8, r9
++        mov         r5, #3
 +1:
-+        rsb         r12, r6,  #32
-+        vmov        s0,  r6           @ Have to use d0-d7 for scalar multiply
-+        vmov        s1,  r12
++        vmul.u16    d4, d0, d2
++          subs        r12, r4
++        vmla.u16    d4, d1, d3
++          it          mi
++          addmi       r12, #32
++          rsb         r6, r12, #32
++          itt         mi
++          vmovmi      d0, r8, r9
++          lsrmi       r8, #16
++          vdup.16     d2, r12
++          itt         mi
++          orrmi       r8, r8, r9, lsl #16
++          ldrmi       r9, [r1, #2]!
++        vrshr.u16   d4, d4, #5
++          it          mi
++          vmovmi      d1, r8, r9
++          vdup.16     d3, r6
++        subs        r5, #1
++        vst1.16     {d4}, [r0], r3
++        bne         1b
 +
-+        vmul.u16    d2,  d24, d0[0]
-+        vmla.u16    d2,  d16, d0[2]
-+        vrshr.u16   d2,  #5
++          vmul.u16    d4, d0, d2
++          vmla.u16    d4, d1, d3
++          vrshr.u16   d4, d4, #5
++          vst1.16     {d4}, [r0]
 +
-+        add         r6,  r4
-+        subs        r5,  #1
-+        vst1.16    {d2 }, [r0], r3
-+        bne         2b
-+        pop        {r4-r8, pc}
++        pop         {r4-r11, pc}
 +
 +endfunc
 +
@@ -9557,121 +9954,198 @@ index 0000000000..8063a1521e
 +@       unsigned int mode       [sp, #0]  2..34
 +
 +function ff_hevc_rpi_pred_angular_8_neon_10, export=1
-+        ldr         r12, [sp, #0]
-+        push       {r4-r8, lr}
-+        ADRT        r4,  angle_2 - 2
-+        ADRT        r7,  inv_angle - 11*2
-+        lsl         r3,  #1
-+        ldrsb       r4,  [r4, r12]
-+        add         r7,  r7,  r12, lsl #1
-+
++        ldr         r12, [sp]
++        push        {r4-r11, lr}
++        ADRT        r4, angle_2 - 2
++        ADRT        r7, inv_angle - 11*2
++        add         r7, r7, r12, lsl #1
++        lsl         r3, #1
++        ldrsb       r6, [r4, r12]
++        cmp         r12, #26
++        ldrsb       r4, [r4, r12]
++        bge         26f
 +        cmp         r12, #18
-+        add         r6,  r4,  #32
 +        bge         18f
-+
 +        cmp         r12, #10
 +        bge         10f
 +
 +@ Down of Horizontal - works down left
-+        vld1.16    {d24}, [r2]!
-+        mov         r1,  r2
-+        bl          patch_h_down_4x4_10
-+        bl          patch_h_down_4x4_10
++        mov         r1,  r2             @ save r2 - r1 unused by patch_down
 +
-+        vld1.16    {d24}, [r1]!
-+        sub         r0,  #16
-+        add         r6,  r4,  #32       @ Force initial load in main loop
-+        add         r0,  r0,  r3,  lsl #2
-+        mov         r2,  r1
 +        bl          patch_h_down_4x4_10
++        bl          patch_h_down_4x4_10_continue
++
++        add         r2, r1, #4*2        @ restore r2, but 4 rows further down left
++        sub         r0, #16
++        mov         r6, r4
++        add         r0, r0, r3, lsl #2
++
 +        bl          patch_h_down_4x4_10
-+        pop        {r4-r8, pc}
++        bl          patch_h_down_4x4_10_continue
++
++        pop         {r4-r11, pc}
 +
 +@ Up of Horizontal - works down up
 +10:
-+        ldrh        r7,  [r7]
-+        @ -128 (rather than +128) means we get UL
-+        @ from L & don't have to offset U
-+        mov         r8,  #-128
-+        sub         r8,  r7
-+        vld1.16    {d16}, [r2]
++        ldrh        r7, [r7]
++        mov         r10, #-128
 +
-+        push       {r2, r8}
++        push        {r2}
 +        bl          patch_h_up_4x4_10
-+        bl          patch_h_up_4x4_10
-+        pop        {r2, r8}
++        bl          patch_h_up_4x4_10_continue
++        pop         {r2}
 +
-+        sub         r0,  #16
-+        add         r2,  #8
-+        sub         r8,  r8,  r7,  lsl #2
-+        add         r0,  r0,  r3,  lsl #2
-+        vld1.16    {d16}, [r2]
-+        add         r6,  r4,  #32
-+        bl          patch_h_up_4x4_10
-+        bl          patch_h_up_4x4_10
-+        pop        {r4-r8, pc}
++        sub         r0, #16
++        mov         r10, #-128
++        add         r2, #8
++        add         r0, r0, r3, lsl #2
++        sub         r10, r10, r7, lsl #2
 +
-+18:
-+        cmp         r12, #26
-+        mov         r5,  #8             @ Loop counter for the "easy" cases
-+        bge         26f
++        bl          patch_h_up_4x4_10
++        bl          patch_h_up_4x4_10_continue
++
++        pop         {r4-r11, pc}
 +
 +@ Left of vertical - works down left
-+        vld1.16    {q8 }, [r1]          @ Up
-+        ldrh        r7,  [r7]
-+        mov         r8,  #-128
-+
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        asr         r12, r8,  #8
-+        vmov        q12, q8
-+        add         r8,  r7
-+        add         r12, r2,  r12, lsl #1
-+        sub         r6,  #32
-+        vext.16     q8,  q8,  q8,  #7
-+        vld1.16    {d16[0]}, [r12]
++18:
++        vld1.16     {q9}, [r1]
++        sub         r1, r2, #2
++        rsb         r12, r6, #32
++        ldrh        r7, [r7]
++        vdup.16     q2, r6
++        vext.16     q8, q9, q9, #7
++        sub         r8, r7, #128
++        vld1.16     {d16[0]}, [r1]
++        vdup.16     q3, r12
++        mov         r5, #7
 +1:
-+        vmov        s1,  r6
-+        rsb         r12, r6,  #32
-+        add         r6,  r4
-+        vmov        s0,  r12
++        vmul.u16    q0, q9, q3
++        subs        r12, r4
++        vmla.u16    q0, q8, q2
++        ittt        cc
++        asrcc       r1, r8, #8
++        addcc       r12, #32
++        addcc       r1, r2, r1, lsl #1
++        vext.16     q10, q8, q8, #7
++        rsb         r6, r12, #32
++        vmov        q11, q8
++        sub         r5, #1
++        vrshr.u16   q0, q0, #5
++        it          cc
++        addcc       r8, r7
++        vld1.16     {d20[0]}, [r1]
++        teq         r5, #0
++        vdup.16     q2, r6
++        vdup.16     q3, r12
++        vst1.16     {q0}, [r0], r3
++        bhi         1b
++        beq         4f
++2:
++        vmul.u16    q0, q11, q3
++        subs        r12, r4
++        vmla.u16    q0, q10, q2
++        ittt        cc
++        asrcc       r1, r8, #8
++        addcc       r12, #32
++        addcc       r1, r2, r1, lsl #1
++        vext.16     q8, q10, q10, #7
++        rsb         r6, r12, #32
++        vmov        q9, q10
++        sub         r5, #1
++        vrshr.u16   q0, q0, #5
++        it          cc
++        addcc       r8, r7
++        vld1.16     {d16[0]}, [r1]
++        teq         r5, #0
++        vdup.16     q2, r6
++        vdup.16     q3, r12
++        vst1.16     {q0}, [r0], r3
++        bhi         2b
++        bne         1b
++        bcc         5f
++3:
++        vmul.u16    q0, q11, q3
++        vmla.u16    q0, q10, q2
++        vrshr.u16   q0, q0, #5
++        vst1.16     {q0}, [r0]
 +
-+        vmul.u16    q1,  q8,  d0[2]
-+        vmla.u16    q1,  q12, d0[0]
-+        vrshr.u16   q1,  #5
++        pop         {r4-r11, pc}
++4:
++        bcc         3b
++5:
++        vmul.u16    q0, q9, q3
++        vmla.u16    q0, q8, q2
++        vrshr.u16   q0, q0, #5
++        vst1.16     {q0}, [r0]
 +
-+        subs        r5,  #1
-+        vst1.16    {q1 }, [r0], r3
-+        bne         2b
-+        pop        {r4-r8, pc}
++        pop         {r4-r11, pc}
 +
 +@ Right of vertical - works along top - left unused
 +26:
-+        vld1.16    {q12, q13}, [r1  :128]    @ Up + UR
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        vmov        q8,  q12
-+        vext.16     q12, q13, #1
-+        sub         r6,  #32
-+        vext.16     q13, q13, #1
++        vld1.16     {q9}, [r1]!
++        rsb         r12, r6, #32
++        vdup.16     q2, r6
++        vdup.16     q3, r12
++        vext.16     q8, q9, q9, #1
++        vld1.16     {d17[3]}, [r1]!
++        mov         r5, #7
 +1:
-+        rsb         r12, r6,  #32
-+        vmov        s0,  r6             @ Have to use d0-d7 for scalar multiply
-+        vmov        s1,  r12
++        vmul.u16    q0, q8, q2
++        subs        r12, r4
++        vmla.u16    q0, q9, q3
++        it          cc
++        addcc       r12, #32
++        vext.16     q10, q8, q8, #1
++        rsb         r6, r12, #32
++        vld1.16     {d21[3]}, [r1]
++        sub         r5, #1
++        vmov        q11, q8
++        teq         r5, #0
++        vrshr.u16   q0, q0, #5
++        it          cc
++        addcc       r1, #2
++        vdup.16     q2, r6
++        vdup.16     q3, r12
++        vst1.16     {q0}, [r0], r3
++        bhi         1b
++        beq         4f
++2:
++        vmul.u16    q0, q10, q2
++        subs        r12, r4
++        vmla.u16    q0, q11, q3
++        it          cc
++        addcc       r12, #32
++        vext.16     q8, q10, q10, #1
++        rsb         r6, r12, #32
++        vld1.16     {d17[3]}, [r1]
++        sub         r5, #1
++        vmov        q9, q10
++        teq         r5, #0
++        vrshr.u16   q0, q0, #5
++        it          cc
++        addcc       r1, #2
++        vdup.16     q2, r6
++        vdup.16     q3, r12
++        vst1.16     {q0}, [r0], r3
++        bhi         2b
++        bne         1b
++        bcc         5f
++3:
++        vmul.u16    q0, q10, q2
++        vmla.u16    q0, q11, q3
++        vrshr.u16   q0, q0, #5
++        vst1.16     {q0}, [r0]
 +
-+        vmul.u16    q1,  q12, d0[0]
-+        vmla.u16    q1,  q8,  d0[2]
-+        vrshr.u16   q1,  #5
++        pop         {r4-r11, pc}
++4:
++        bcc         3b
++5:
++        vmul.u16    q0, q8, q2
++        vmla.u16    q0, q9, q3
++        vrshr.u16   q0, q0, #5
++        vst1.16     {q0}, [r0]
 +
-+        add         r6,  r4
-+        subs        r5,  #1
-+        vst1.16    {q1 }, [r0], r3
-+        bne         2b
-+        pop        {r4-r8, pc}
++        pop         {r4-r11, pc}
 +
 +endfunc
 +
@@ -9684,140 +10158,140 @@ index 0000000000..8063a1521e
 +@       unsigned int mode       [sp, #0]  2..34
 +
 +function ff_hevc_rpi_pred_angular_16_neon_10, export=1
-+        ldr         r12, [sp, #0]
-+        push       {r4-r10, lr}
-+        ADRT        r4,  angle_2 - 2
-+        ADRT        r7,  inv_angle - 11*2
-+        lsl         r3,  #1
-+        ldrsb       r4,  [r4, r12]
-+        add         r7,  r7,  r12, lsl #1
-+
++        ldr         r12, [sp]
++        push        {r4-r11, lr}
++        ADRT        r4, angle_2 - 2
++        ADRT        r7, inv_angle - 11*2
++        add         r7, r7, r12, lsl #1
++        lsl         r3, #1
++        ldrsb       r6, [r4, r12]
++        cmp         r12, #26
++        ldrsb       r4, [r4, r12]
++        bge         26f
 +        cmp         r12, #18
 +        bge         18f
-+
 +        cmp         r12, #10
-+        mov         r10, #4             @ Outer loop counter for "hard" cases
 +        bge         10f
 +
 +@ Down of Horizontal - works down left
-+        mov         r1,  r2
-+2:
-+        vld1.16    {d24}, [r1]!
-+        add         r6,  r4,  #32       @ Force initial load in main loop
-+        mov         r2,  r1
++        mov         r10, #4
++        mov         r1, r2
++1:
 +        bl          patch_h_down_4x4_10
-+        bl          patch_h_down_4x4_10
-+        bl          patch_h_down_4x4_10
-+        bl          patch_h_down_4x4_10
++        bl          patch_h_down_4x4_10_continue
++        bl          patch_h_down_4x4_10_continue
++        bl          patch_h_down_4x4_10_continue
 +
-+        sub         r0,  #32
++        add         r2, r1, #4*2         @ restore r2, but 4 rows further down left
++        add         r1, r1, #4*2
++        mov         r6, r4
++        sub         r0, #32
 +        subs        r10, #1
-+        add         r0,  r0,  r3,  lsl #2
-+        bne         2b
-+        pop        {r4-r10, pc}
++        add         r0, r0, r3, lsl #2
++        bne         1b
++
++        pop         {r4-r11, pc}
 +
 +@ Up of Horizontal - works down up
 +10:
-+        ldrh        r7,  [r7]
-+        @ -128 (rather than +128) means we get UL
-+        @ from L & don't have to offset U
-+        mov         r8,  #-128
-+        sub         r8,  r7
-+2:
-+        vld1.16    {d16}, [r2]
-+        add         r6,  r4,  #32
++        ldrh        r7, [r7]
++        mov         r10, #-128
++        vmov.i8     d6, #1<<2
++1:
++        push        {r2, r10}
++        bl          patch_h_up_4x4_10
++        bl          patch_h_up_4x4_10_continue
++        bl          patch_h_up_4x4_10_continue
++        bl          patch_h_up_4x4_10_continue
++        pop         {r2, r10}
 +
-+        push       {r2, r8}
-+        bl          patch_h_up_4x4_10
-+        bl          patch_h_up_4x4_10
-+        bl          patch_h_up_4x4_10
-+        bl          patch_h_up_4x4_10
-+        pop        {r2, r8}
++        vmov        r8, s12
++        sub         r0, #32
++        add         r2, #8
++        add         r0, r0, r3, lsl #2
++        sub         r10, r10, r7, lsl #2
++        vshr.u8     d6, #1
++        teq         r8, #0
++        bne         1b
 +
-+        sub         r0,  #32
-+        subs        r10, #1
-+        add         r2,  #8
-+        sub         r8,  r8,  r7,  lsl #2
-+        add         r0,  r0,  r3,  lsl #2
-+        bne         2b
-+        pop        {r4-r10, pc}
-+
-+18:
-+        cmp         r12, #26
-+        mov         r5,  #16            @ Loop counter for the "easy" cases
-+        bge         26f
++        pop         {r4-r11, pc}
 +
 +@ Left of vertical - works down left
-+        vld1.16    {q8,  q9}, [r1]       @ Up
-+        ldrh        r7,  [r7]
-+        add         r6,  r4,  #32
-+        mov         r8,  #-128
-+
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        asr         r9,  r8,  #8
-+        vmov        q12, q8
-+        add         r8,  r7
-+        vmov        q13, q9
-+        add         r9,  r2,  r9,  lsl #1
-+        sub         r6,  #32
-+        vext.16     q9,  q8,  q9,  #7
-+        vext.16     q8,  q8,  q8,  #7
-+        vld1.16    {d16[0]}, [r9]
++18:
++        vld1.16     {q0-q1}, [r1]
++        sub         r9, r2, #2
++        rsb         r12, r6, #32
++        ldrh        r7, [r7]
++        mov         r8, #-128
++        vdup.16     q9, r6
++        vdup.16     q10, r12
++        mov         r5, #16
 +1:
-+        vmov        s1,  r6
-+        rsb         r12, r6,  #32
-+        add         r6,  r4
-+        vmov        s0,  r12
++        vld1.16     {d17[3]}, [r9]
++        add         r8, r7
++        vmov        q2, q0
++        vmov        q3, q1
++        asr         r9, r8, #8
++        vext.16     q1, q0, q1, #7
++        add         r9, r2, r9, lsl #1
++        vext.16     q0, q8, q0, #7
++2:
++        vmul.u16    q11, q2, q10
++        subs        r12, r4
++        vmla.u16    q11, q0, q9
++        it          cc
++        addcc       r12, #32
++        vmul.u16    q12, q3, q10
++        rsb         r6, r12, #32
++        vmla.u16    q12, q1, q9
++        sub         r5, #1
++        teq         r5, #0
++        vdup.16     q9, r6
++        vdup.16     q10, r12
++        vrshr.u16   q11, q11, #5
++        vrshr.u16   q12, q12, #5
++        vst1.16     {q11-q12}, [r0], r3
++        bhi         2b
++        bne         1b
 +
-+        vmul.u16    q1,  q8,  d0[2]
-+        vmul.u16    q2,  q9,  d0[2]
-+        vmla.u16    q1,  q12, d0[0]
-+        vmla.u16    q2,  q13, d0[0]
-+
-+        vrshr.u16   q1,  #5
-+        vrshr.u16   q2,  #5
-+
-+        subs        r5,  #1
-+        vst1.16    {q1,  q2 }, [r0], r3
-+        bne         2b
-+        pop        {r4-r10, pc}
++        pop         {r4-r11, pc}
 +
 +@ Right of vertical - works along top - left unused
 +26:
-+        vld1.16    {q12, q13}, [r1  :128]!    @ Up
-+        add         r6,  r4,  #32       @ Force initial load in main loop
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        vmov        q8,  q12
-+        vmov        q9,  q13
-+        vext.16     q12, q13, #1
-+        vext.16     q13, q13, #1
-+        sub         r6,  #32
-+        vld1.16    {d27[3]}, [r1]!
-+
++        add         r5, r1, #32
++        vld1.16     {q0-q1}, [r1]!
++        rsb         r12, r6, #32
++        vld1.16     {d16[0]}, [r5]
++        mov         r5, #16
++        vdup.16     q9, r6
++        vdup.16     q10, r12
 +1:
-+        rsb         r12, r6,  #32
-+        vmov        s0,  r6           @ Have to use d0-d7 for scalar multiply
-+        vmov        s1,  r12
++        vmov        q2, q0
++        add         r1, #2
++        vmov        q3, q1
++        vext.16     q0, q0, q1, #1
++        vext.16     q1, q1, q8, #1
++2:
++        vmul.u16    q11, q0, q9
++        subs        r12, r4
++        vmla.u16    q11, q2, q10
++        it          cc
++        addcc       r12, #32
++        vmul.u16    q12, q1, q9
++        rsb         r6, r12, #32
++        vmla.u16    q12, q3, q10
++        sub         r5, #1
++        vld1.16     {d16[0]}, [r1]
++        teq         r5, #0
++        vdup.16     q9, r6
++        vdup.16     q10, r12
++        vrshr.u16   q11, q11, #5
++        vrshr.u16   q12, q12, #5
++        vst1.16     {q11-q12}, [r0], r3
++        bhi         2b
++        bne         1b
 +
-+        vmul.u16    q1,  q12, d0[0]
-+        vmul.u16    q2,  q13, d0[0]
-+        vmla.u16    q1,  q8,  d0[2]
-+        vmla.u16    q2,  q9,  d0[2]
-+
-+        vrshr.u16   q1,  #5
-+        vrshr.u16   q2,  #5
-+
-+        add         r6,  r4
-+        subs        r5,  #1
-+        vst1.16    {q1,  q2 }, [r0], r3
-+        bne         2b
-+        pop        {r4-r10, pc}
++        pop         {r4-r11, pc}
 +
 +endfunc
 +
@@ -9830,170 +10304,185 @@ index 0000000000..8063a1521e
 +@       unsigned int mode       [sp, #0]  2..34
 +
 +function ff_hevc_rpi_pred_angular_32_neon_10, export=1
-+        ldr         r12, [sp, #0]
-+        push       {r4-r10, lr}
-+        vpush      {q4 }
-+        ADRT        r4,  angle_2 - 2
-+        ADRT        r7,  inv_angle - 11*2
-+        lsl         r3,  #1
-+        ldrsb       r4,  [r4, r12]
-+        add         r7,  r7,  r12, lsl #1
-+
++        ldr         r12, [sp]
++        push        {r4-r11, lr}
++        ADRT        r4, angle_2 - 2
++        ADRT        r7, inv_angle - 11*2
++        add         r7, r7, r12, lsl #1
++        lsl         r3, #1
++        vpush       {d8}
++        ldrsb       r6, [r4, r12]
++        cmp         r12, #26
++        ldrsb       r4, [r4, r12]
++        bge         26f
 +        cmp         r12, #18
 +        bge         18f
-+
 +        cmp         r12, #10
-+        mov         r10, #8             @ Outer loop counter for "hard" cases
 +        bge         10f
 +
 +@ Down of Horizontal - works down left
-+        mov         r1,  r2
-+2:
-+        vld1.16    {d24}, [r1]!
-+        add         r6,  r4,  #32       @ Force initial load in main loop
-+        mov         r2,  r1
-+        mov         r9,  #4
++        add         sp, #8
++        mov         r10, #8
++        mov         r1, r2
 +1:
 +        bl          patch_h_down_4x4_10
-+        bl          patch_h_down_4x4_10
-+        subs        r9,  #1
++        bl          patch_h_down_4x4_10_continue
++        bl          patch_h_down_4x4_10_continue
++        bl          patch_h_down_4x4_10_continue
++        bl          patch_h_down_4x4_10_continue
++        bl          patch_h_down_4x4_10_continue
++        bl          patch_h_down_4x4_10_continue
++        bl          patch_h_down_4x4_10_continue
++
++        add         r2, r1, #4*2         @ restore r2, but 4 rows further down left
++        add         r1, r1, #4*2
++        mov         r6, r4
++        sub         r0, #64
++        subs        r10, #1
++        add         r0, r0, r3, lsl #2
 +        bne         1b
 +
-+        sub         r0,  #64
-+        subs        r10, #1
-+        add         r0,  r0,  r3,  lsl #2
-+        bne         2b
-+        b           99f
++        pop         {r4-r11, pc}
 +
 +@ Up of Horizontal - works down up
 +10:
-+        ldrh        r7,  [r7]
-+        @ -128 (rather than +128) means we get UL
-+        @ from L & don't have to offset U
-+        mov         r8,  #-128
-+        sub         r8,  r7
-+2:
-+        vld1.16    {d16}, [r2]
-+        add         r6,  r4,  #32
-+
-+        push       {r2, r8}
-+        mov         r9,  #4
++        add         sp, #8
++        ldrh        r7, [r7]
++        mov         r10, #-128
++        vmov.i8     d6, #1<<6
 +1:
++        push        {r2, r10}
 +        bl          patch_h_up_4x4_10
-+        bl          patch_h_up_4x4_10
-+        subs        r9,  #1
++        bl          patch_h_up_4x4_10_continue
++        bl          patch_h_up_4x4_10_continue
++        bl          patch_h_up_4x4_10_continue
++        bl          patch_h_up_4x4_10_continue
++        bl          patch_h_up_4x4_10_continue
++        bl          patch_h_up_4x4_10_continue
++        bl          patch_h_up_4x4_10_continue
++        pop         {r2, r10}
++
++        vmov        r8, s12
++        sub         r0, #64
++        add         r2, #8
++        add         r0, r0, r3, lsl #2
++        sub         r10, r10, r7, lsl #2
++        vshr.u8     d6, #1
++        teq         r8, #0
 +        bne         1b
-+        pop        {r2, r8}
 +
-+        sub         r0,  #64
-+        subs        r10, #1
-+        add         r2,  #8
-+        sub         r8,  r8,  r7,  lsl #2
-+        add         r0,  r0,  r3,  lsl #2
-+        bne         2b
-+        b           99f
-+
-+18:
-+        cmp         r12, #26
-+        mov         r5,  #32            @ Loop counter for the "easy" cases
-+        bge         26f
++        pop         {r4-r11, pc}
 +
 +@ Left of vertical - works down left
-+        vldm        r1, {q8-q11}        @ Up
-+        ldrh        r7,  [r7]
-+        add         r6,  r4,  #32
-+        mov         r8,  #-128
-+
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        asr         r9,  r8,  #8
-+        vmov        q12, q8
-+        add         r8,  r7
-+        vmov        q13, q9
-+        add         r9,  r2,  r9,  lsl #1
-+        vmov        q14, q10
-+        vmov        q15, q11
-+        sub         r6,  #32
-+        vext.16     q11, q10, q11, #7
-+        vext.16     q10, q9,  q10, #7
-+        vext.16     q9,  q8,  q9,  #7
-+        vext.16     q8,  q8,  q8,  #7
-+        vld1.16    {d16[0]}, [r9]
-+
++18:
++        add         r5, r1, #32
++        vld1.16     {q1-q2}, [r1]
++        rsb         r12, r6, r6, lsl #16
++        vld1.16     {q3-q4}, [r5]
++        sub         r9, r2, #2
++        rsb         r4, r12, #0
++        rsb         r12, r12, #32 << 16
++        ldrh        r7, [r7]
++        mov         r8, #-128
++        vmov        d0, d9
++        vmov        s2, r12
++        add         r10, r0, #32
++        mov         r5, #32
 +1:
-+        vmov        s1,  r6
-+        rsb         r12, r6,  #32
-+        add         r6,  r4
-+        vmov        s0,  r12
++        vld1.16     {d1[3]}, [r9]
++        add         r8, r7
++        vmov        q11, q4
++        vmov        q10, q3
++        asr         r9, r8, #8
++        vmov        q9, q2
++        add         r9, r2, r9, lsl #1
++        vmov        q8, q1
++        vext.16     q4, q3, q4, #7
++        vext.16     q3, q2, q3, #7
++        vext.16     q2, q1, q2, #7
++        vext.16     q1, q0, q1, #7
++2:
++        vmul.u16    q12, q8, d1[1]
++        adds        r12, r4
++        vmla.u16    q12, q1, d1[0]
++        it          cc
++        addcc       r12, #32 << 16
++        vmul.u16    q13, q9, d1[1]
++        it          cc
++        subcc       r12, #32
++        vmla.u16    q13, q2, d1[0]
++        sub         r5, #1
++        vmul.u16    q14, q10, d1[1]
++        teq         r5, #0
++        vmla.u16    q14, q3, d1[0]
++        vmul.u16    q15, q11, d1[1]
++        vmla.u16    q15, q4, d1[0]
++        vmov        s2, r12
++        vrshr.u16   q12, q12, #5
++        vrshr.u16   q13, q13, #5
++        vrshr.u16   q14, q14, #5
++        vrshr.u16   q15, q15, #5
++        vst1.16     {q12-q13}, [r0], r3
++        vst1.16     {q14-q15}, [r10], r3
++        bhi         2b
++        bne         1b
 +
-+        vmul.u16    q1,  q8,  d0[2]
-+        vmul.u16    q2,  q9,  d0[2]
-+        vmul.u16    q3,  q10, d0[2]
-+        vmul.u16    q4,  q11, d0[2]
-+        vmla.u16    q1,  q12, d0[0]
-+        vmla.u16    q2,  q13, d0[0]
-+        vmla.u16    q3,  q14, d0[0]
-+        vmla.u16    q4,  q15, d0[0]
-+
-+        vrshr.u16   q1,  #5
-+        vrshr.u16   q2,  #5
-+        vrshr.u16   q3,  #5
-+        vrshr.u16   q4,  #5
-+
-+        subs        r5,  #1
-+        vstm        r0, {q1-q4}
-+        add         r0,  r3
-+        bne         2b
-+        b           99f
++        vpop        {d8}
++        vmov        d9, d0
++        pop         {r4-r11, pc}
 +
 +@ Right of vertical - works along top - left unused
 +26:
-+        vldm        r1, {q12-q15}       @ Up
-+        add         r6,  r4,  #32       @ Force initial load in main loop
-+        add         r1,  #64
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        vmov        q8,  q12
-+        vmov        q9,  q13
-+        vmov        q10, q14
-+        vmov        q11, q15
-+        vext.16     q12, q13, #1
-+        vext.16     q13, q14, #1
-+        vext.16     q14, q15, #1
-+        vext.16     q15, q15, #1
-+        sub         r6,  #32
-+        vld1.16    {d31[3]}, [r1]!
++        add         r5, r1, #32
++        vld1.16     {q1-q2}, [r1]
++        rsb         r12, r6, r6, lsl #16
++        vld1.16     {q3-q4}, [r5]
++        add         r1, r1, #64
++        rsb         r4, r12, #0
++        rsb         r12, r12, #32 << 16
++        vmov        d1, d9
++        vmov        s1, r12
++        add         r10, r0, #32
++        mov         r5, #32
 +1:
-+        rsb         r12, r6,  #32
-+        vmov        s0,  r6           @ Have to use d0-d7 for scalar multiply
-+        vmov        s1,  r12
++        vld1.16     {d0[0]}, [r1]!
++        vmov        q8, q1
++        vmov        q9, q2
++        vmov        q10, q3
++        vmov        q11, q4
++        vext.16     q1, q1, q2, #1
++        vext.16     q2, q2, q3, #1
++        vext.16     q3, q3, q4, #1
++        vext.16     q4, q4, q0, #1
++2:
++        vmul.u16    q12, q1, d0[2]
++        adds        r12, r4
++        vmla.u16    q12, q8, d0[3]
++        it          cc
++        addcc       r12, #32 << 16
++        vmul.u16    q13, q2, d0[2]
++        it          cc
++        subcc       r12, #32
++        vmla.u16    q13, q9, d0[3]
++        sub         r5, #1
++        vmul.u16    q14, q3, d0[2]
++        teq         r5, #0
++        vmla.u16    q14, q10, d0[3]
++        vmul.u16    q15, q4, d0[2]
++        vmla.u16    q15, q11, d0[3]
++        vmov        s1, r12
++        vrshr.u16   q12, q12, #5
++        vrshr.u16   q13, q13, #5
++        vrshr.u16   q14, q14, #5
++        vrshr.u16   q15, q15, #5
++        vst1.16     {q12-q13}, [r0], r3
++        vst1.16     {q14-q15}, [r10], r3
++        bhi         2b
++        bne         1b
 +
-+        vmul.u16    q1,  q12, d0[0]
-+        vmul.u16    q2,  q13, d0[0]
-+        vmul.u16    q3,  q14, d0[0]
-+        vmul.u16    q4,  q15, d0[0]
-+        vmla.u16    q1,  q8,  d0[2]
-+        vmla.u16    q2,  q9,  d0[2]
-+        vmla.u16    q3,  q10, d0[2]
-+        vmla.u16    q4,  q11, d0[2]
-+
-+        vrshr.u16   q1,  #5
-+        vrshr.u16   q2,  #5
-+        vrshr.u16   q3,  #5
-+        vrshr.u16   q4,  #5
-+
-+        add         r6,  r4
-+        subs        r5,  #1
-+        vstm        r0, {q1-q4}
-+        add         r0,  r3
-+        bne         2b
-+99:
-+        vpop       {q4 }
-+        pop        {r4-r10, pc}
++        vpop        {d8}
++        vmov        d9, d1
++        pop         {r4-r11, pc}
 +
 +endfunc
 +
@@ -10021,76 +10510,103 @@ index 0000000000..8063a1521e
 +@ d0, q1, q12-q15
 +
 +patch_h_down_c_4x4_10:
-+        mov         r5,  #4
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        vmov        q8,  q2
-+        vext.32     q2,  q2, #1
-+        sub         r6,  #32
-+        vld1.32    {d5[1]}, [r2]!
++        vld1.16     {q12}, [r2]!
++        rsb         r12, r6, #32
++        vdup.16     q2, r6
++        vdup.16     q3, r12
++        mov         r5, #4
 +1:
-+        rsb         r12, r6,  #32
-+        vmov        q12, q13
-+        vmov        s0,  r6
-+        vmov        s1,  r12
-+        vmov        q13, q14
++        vmov        q13, q12
++        vext.16     q12, q12, q12, #2
++        vld1.32     {d25[1]}, [r2]!
++patch_h_down_c_4x4_10_continue:
++2:
++        vmov        q8, q9
++        subs        r12, r4
++        vmul.u16    q0, q13, q3
++        it          cc
++        addcc       r12, #32
++        vmla.u16    q0, q12, q2
++        rsb         r6, r12, #32
++        vmov        q9, q10
++        sub         r5, #1
++        vmov        q10, q11
++        teq         r5, #0
++        vdup.16     q2, r6
++        vdup.16     q3, r12
++        vrshr.u16   q11, q0, #5
++        bhi         2b
++        bne         1b
 +
-+        vmul.u16    q3,  q2,  d0[0]
-+        add         r6,  r4
-+        vmla.u16    q3,  q8,  d0[2]
-+        vmov        q14, q15
-+        subs        r5,  #1
-+        vrshr.u16   q15, q3,  #5
-+        bne         2b
++        bcs         3f
++        vmov        q13, q12
++        vext.16     q12, q12, q12, #2
++        vld1.32     {d25[1]}, [r2]!
++3:
 +
 +store_tran_c_4x4_10:
-+        add         r12, r0,  r3
-+        vst4.32    {d24[0], d26[0], d28[0], d30[0]}, [r0 ]!
-+        add         r5,  r12, r3
-+        vst4.32    {d24[1], d26[1], d28[1], d30[1]}, [r12]
-+        add         r12, r12, r3,  lsl #1
-+        vst4.32    {d25[0], d27[0], d29[0], d31[0]}, [r5 ]
-+        vst4.32    {d25[1], d27[1], d29[1], d31[1]}, [r12]
++T       add         r6, r0, r3
++        vzip.32     q8, q10
++A       add         r6, r0, r3
++T       lsl         r3, #1
++        vzip.32     q9, q11
++A       add         r5, r0, r3, lsl #1
++T       add         r5, r0, r3
++        vst2.32     {d16,d18}, [r0]!
++A       lsl         r3, #1
++        vst2.32     {d17,d19}, [r6], r3
++        asr         r3, #1
++        vst2.32     {d20,d22}, [r5]
++        mov         r5, #4
++        vst2.32     {d21,d23}, [r6]
 +        bx          lr
 +
 +patch_h_up_c_4x4_10:
-+        mov         r5,  #4
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        @ If r8 is -ve then we are still tracking left
-+        adds        r8,  r7
-+        vmov        q2,  q8
-+        @ Initially r2=left (variable), r1=up (const)
-+        @ Use r2 for both up and left, we only ever go from left->up so
-+        @ we assume that we are left and thenm overwrite with up if wanted
-+        sub         r2,  #4
-+        it pl
-+        addpl       r2,  r1,  r8,  asr #6
-+        vext.32     q8,  q8,  #3
-+        @ We get *4 by >> 6 rather than 8, but that means we need to lose bits 0 & 1
-+        and         r2,  #~3
-+        sub         r6,  #32
-+        vld1.32     d16[0], [r2]
++        vld1.16     {q1}, [r2]
++        rsb         r12, r6, #32
++        vdup.16     q2, r6
++        vdup.16     q3, r12
++        mov         r5, #4
 +1:
-+        rsb         r12, r6,  #32
-+        vmov        q12, q13
-+        vmov        s0,  r6
-+        vmov        s1,  r12
-+        vmov        q13, q14
++        adds        r8, r7
++        vmov        q12, q1
++        it          mi
++        ldrmi       r6, [r2, #-4]!
++        vext.16     q1, q1, q1, #6
++        itt         pl
++        asrpl       r6, r8, #8
++        ldrpl       r6, [r1, r6, lsl #2]
++        vmov        s4, r6
++patch_h_up_c_4x4_10_continue:
++2:
++        vmov        q8, q9
++        subs        r12, r4
++        vmul.u16    q0, q12, q3
++        it          cc
++        addcc       r12, #32
++        vmla.u16    q0, q1, q2
++        rsb         r6, r12, #32
++        vmov        q9, q10
++        sub         r5, #1
++        vmov        q10, q11
++        teq         r5, #0
++        vdup.16     q2, r6
++        vdup.16     q3, r12
++        vrshr.u16   q11, q0, #5
++        bhi         2b
++        bne         1b
 +
-+        vmul.u16    q1,  q2,  d0[2]
-+        add         r6,  r4
-+        vmla.u16    q1,  q8,  d0[0]
-+        vmov        q14, q15
-+        subs        r5,  #1
-+        vrshr.u16   q15, q1,  #5
-+        bne         2b
-+        b           store_tran_c_4x4_10  @ This will return
-+
++        bcs         store_tran_c_4x4_10
++        adds        r8, r7
++        vmov        q12, q1
++        it          mi
++        ldrmi       r6, [r2, #-4]!
++        vext.16     q1, q1, q1, #6
++        itt         pl
++        asrpl       r6, r8, #8
++        ldrpl       r6, [r1, r6, lsl #2]
++        vmov        s4, r6
++        b           store_tran_c_4x4_10
 +
 +
 +@ ff_hevc_rpi_pred_angular_c_4_neon_10
@@ -10101,100 +10617,173 @@ index 0000000000..8063a1521e
 +@       unsigned int mode       [sp, #0]  2..34
 +
 +function ff_hevc_rpi_pred_angular_c_4_neon_10, export=1
-+        ldr         r12, [sp, #0]
-+        push       {r4-r8, lr}
-+        ADRT        r4,  angle_2 - 2
-+        ADRT        r7,  inv_angle - 11*2
-+        lsl         r3,  #2
-+        ldrsb       r4,  [r4, r12]
-+        add         r7,  r7,  r12, lsl #1
-+
++        ldr         r12, [sp]
++        push        {r4-r8, lr}
++        ADRT        r4, angle_2 - 2
++        ADRT        r7, inv_angle - 11*2
++        add         r7, r7, r12, lsl #1
++        lsl         r3, #2
++        ldrsb       r6, [r4, r12]
++        cmp         r12, #26
++        ldrsb       r4, [r4, r12]
++        bge         26f
 +        cmp         r12, #18
-+        add         r6,  r4,  #32
 +        bge         18f
-+
 +        cmp         r12, #10
 +        bge         10f
 +
 +@ Down of Horizontal - works down left
-+        vld1.32    {q2 }, [r2]!
 +        bl          patch_h_down_c_4x4_10
-+        pop        {r4-r8, pc}
++        pop         {r4-r8, pc}
 +
 +@ Up of Horizontal - works down up
 +10:
-+        ldrh        r7,  [r7]
-+        @ -128 (rather than +128) means we get UL
-+        @ from L & don't have to offset U
-+        mov         r8,  #-128
-+        sub         r8,  r7
-+        vld1.32    {q8 }, [r2]
++        ldrh        r7, [r7]
++        mov         r8, #-128
++        sub         r8, r7
 +        bl          patch_h_up_c_4x4_10
-+        pop        {r4-r8, pc}
-+
-+18:
-+        cmp         r12, #26
-+        mov         r5,  #4             @ Loop counter for the "easy" cases
-+        bge         26f
++        pop         {r4-r8, pc}
 +
 +@ Left of vertical - works down left
-+        vld1.16    {q8 }, [r1]        @ Up
-+        ldrh        r7,  [r7]
-+        mov         r8,  #-128
-+
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        asr         r12, r8,  #8
-+        vmov        q12, q8
-+        add         r8,  r7
-+        vext.32     q8,  q8,  q8,  #3
-+        add         r12, r2,  r12, lsl #2
-+        sub         r6,  #32
-+        vld1.32    {d16[0]}, [r12]
-+
++18:
++        vld1.16     {q9}, [r1]
++        sub         r1, r2, #4
++        rsb         r12, r6, #32
++        ldrh        r7, [r7]
++        vdup.16     q2, r6
++        vext.16     q8, q9, q9, #6
++        sub         r8, r7, #128
++        vld1.32     {d16[0]}, [r1]
++        vdup.16     q3, r12
++        mov         r5, #3
 +1:
-+        vmov        s1,  r6
-+        rsb         r12, r6,  #32
-+        add         r6,  r4
-+        vmov        s0,  r12
++        vmul.u16    q0, q9, q3
++        subs        r12, r4
++        vmla.u16    q0, q8, q2
++        ittt        cc
++        asrcc       r1, r8, #8
++        addcc       r12, #32
++        addcc       r1, r2, r1, lsl #2
++        vext.16     q10, q8, q8, #6
++        rsb         r6, r12, #32
++        vmov        q11, q8
++        sub         r5, #1
++        vrshr.u16   q0, q0, #5
++        it          cc
++        addcc       r8, r7
++        vld1.32     {d20[0]}, [r1]
++        teq         r5, #0
++        vdup.16     q2, r6
++        vdup.16     q3, r12
++        vst1.16     {q0}, [r0], r3
++        bhi         1b
++        beq         4f
++2:
++        vmul.u16    q0, q11, q3
++        subs        r12, r4
++        vmla.u16    q0, q10, q2
++        ittt        cc
++        asrcc       r1, r8, #8
++        addcc       r12, #32
++        addcc       r1, r2, r1, lsl #2
++        vext.16     q8, q10, q10, #6
++        rsb         r6, r12, #32
++        vmov        q9, q10
++        sub         r5, #1
++        vrshr.u16   q0, q0, #5
++        it          cc
++        addcc       r8, r7
++        vld1.32     {d16[0]}, [r1]
++        teq         r5, #0
++        vdup.16     q2, r6
++        vdup.16     q3, r12
++        vst1.16     {q0}, [r0], r3
++        bhi         2b
++        bne         1b
++        bcc         5f
++3:
++        vmul.u16    q0, q11, q3
++        vmla.u16    q0, q10, q2
++        vrshr.u16   q0, q0, #5
++        vst1.16     {q0}, [r0]
 +
-+        vmul.u16    q1,  q8,  d0[2]
-+        vmla.u16    q1,  q12, d0[0]
-+        vrshr.u16   q1,  #5
++        pop         {r4-r8, pc}
++4:
++        bcc         3b
++5:
++        vmul.u16    q0, q9, q3
++        vmla.u16    q0, q8, q2
++        vrshr.u16   q0, q0, #5
++        vst1.16     {q0}, [r0]
 +
-+        subs        r5,  #1
-+        vst1.16    {q1 }, [r0], r3
-+        bne         2b
-+        pop        {r4-r8, pc}
++        pop         {r4-r8, pc}
 +
 +@ Right of vertical - works along top - left unused
 +26:
-+        vld1.16    {q12, q13}, [r1]     @ Up + UR
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        vmov        q8,  q12
-+        vext.32     q12, q13, #1
-+        vext.32     q13, q13, #1
-+        sub         r6,  #32
-+
++        vld1.16     {q9}, [r1]!
++        rsb         r12, r6, #32
++        vdup.16     q2, r6
++        vdup.16     q3, r12
++        vext.16     q8, q9, q9, #2
++        vld1.32     {d17[1]}, [r1]!
++        mov         r5, #3
 +1:
-+        rsb         r12, r6,  #32
-+        vmov        s0,  r6           @ Have to use d0-d7 for scalar multiply
-+        vmov        s1,  r12
++        vmul.u16    q0, q8, q2
++        subs        r12, r4
++        vmla.u16    q0, q9, q3
++        it          cc
++        addcc       r12, #32
++        vext.16     q10, q8, q8, #2
++        rsb         r6, r12, #32
++        vld1.32     {d21[1]}, [r1]
++        sub         r5, #1
++        vmov        q11, q8
++        teq         r5, #0
++        vrshr.u16   q0, q0, #5
++        it          cc
++        addcc       r1, #4
++        vdup.16     q2, r6
++        vdup.16     q3, r12
++        vst1.16     {q0}, [r0], r3
++        bhi         1b
++        beq         4f
++2:
++        vmul.u16    q0, q10, q2
++        subs        r12, r4
++        vmla.u16    q0, q11, q3
++        it          cc
++        addcc       r12, #32
++        vext.16     q8, q10, q10, #2
++        rsb         r6, r12, #32
++        vld1.32     {d17[1]}, [r1]
++        sub         r5, #1
++        vmov        q9, q10
++        teq         r5, #0
++        vrshr.u16   q0, q0, #5
++        it          cc
++        addcc       r1, #4
++        vdup.16     q2, r6
++        vdup.16     q3, r12
++        vst1.16     {q0}, [r0], r3
++        bhi         2b
++        bne         1b
++        bcc         5f
++3:
++        vmul.u16    q0, q10, q2
++        vmla.u16    q0, q11, q3
++        vrshr.u16   q0, q0, #5
++        vst1.16     {q0}, [r0]
 +
-+        vmul.u16    q1,  q12, d0[0]
-+        vmla.u16    q1,  q8,  d0[2]
-+        vrshr.u16   q1,  #5
++        pop         {r4-r8, pc}
++4:
++        bcc         3b
++5:
++        vmul.u16    q0, q8, q2
++        vmla.u16    q0, q9, q3
++        vrshr.u16   q0, q0, #5
++        vst1.16     {q0}, [r0]
 +
-+        add         r6,  r4
-+        subs        r5,  #1
-+        vst1.16    {q1 }, [r0], r3
-+        bne         2b
-+        pop        {r4-r8, pc}
++        pop         {r4-r8, pc}
 +
 +endfunc
 +
@@ -10207,133 +10796,135 @@ index 0000000000..8063a1521e
 +@       unsigned int mode       [sp, #0]  2..34
 +
 +function ff_hevc_rpi_pred_angular_c_8_neon_10, export=1
-+        ldr         r12, [sp, #0]
-+        push       {r4-r8, lr}
-+        ADRT        r4,  angle_2 - 2
-+        ADRT        r7,  inv_angle - 11*2
-+        lsl         r3,  #2
-+        ldrsb       r4,  [r4, r12]
-+        add         r7,  r7,  r12, lsl #1
-+
++        ldr         r12, [sp]
++        push        {r4-r8, lr}
++        ADRT        r4, angle_2 - 2
++        ADRT        r7, inv_angle - 11*2
++        add         r7, r7, r12, lsl #1
++        lsl         r3, #2
++        ldrsb       r6, [r4, r12]
++        cmp         r12, #26
++        ldrsb       r4, [r4, r12]
++        bge         26f
 +        cmp         r12, #18
-+        add         r6,  r4,  #32       @ Force initial load in main loop
 +        bge         18f
-+
 +        cmp         r12, #10
 +        bge         10f
 +
 +@ Down of Horizontal - works down left
-+        vld1.32    {q2 }, [r2]!
-+        mov         r1,  r2
-+        bl          patch_h_down_c_4x4_10
-+        bl          patch_h_down_c_4x4_10
++        mov         r1,  r2             @ save r2 - r1 unused by patch_down
 +
-+        vld1.32    {q2 }, [r1]!
-+        sub         r0,  #32
-+        add         r6,  r4,  #32       @ Force initial load in main loop
-+        add         r0,  r0,  r3,  lsl #2
-+        mov         r2,  r1
 +        bl          patch_h_down_c_4x4_10
++        bl          patch_h_down_c_4x4_10_continue
++
++        add         r2, r1, #4*4        @ restore r2, but 4 rows further down left
++        sub         r0, #32
++        mov         r6, r4
++        add         r0, r0, r3, lsl #2
++
 +        bl          patch_h_down_c_4x4_10
-+        pop        {r4-r8, pc}
++        bl          patch_h_down_c_4x4_10_continue
++
++        pop         {r4-r8, pc}
 +
 +@ Up of Horizontal - works down up
 +10:
-+        ldrh        r7,  [r7]
-+        @ -128 (rather than +128) means we get UL
-+        @ from L & don't have to offset U
-+        mov         r8,  #-128
-+        sub         r8,  r7
-+        vld1.32    {q8 }, [r2]
++        ldrh        r7, [r7]
++        mov         r8, #-128
++        sub         r8, r7
 +
-+        push       {r2, r8}
++        push        {r2, r8}
 +        bl          patch_h_up_c_4x4_10
-+        bl          patch_h_up_c_4x4_10
-+        pop        {r2, r8}
++        bl          patch_h_up_c_4x4_10_continue
++        pop         {r2, r8}
 +
-+        sub         r0,  #32
-+        add         r2,  #16
-+        sub         r8,  r8,  r7,  lsl #2
-+        add         r0,  r0,  r3,  lsl #2
-+        vld1.32    {q8 }, [r2]
-+        add         r6,  r4,  #32
++        sub         r0, #32
++        mov         r6, r4
++        add         r2, #16
++        sub         r8, r8, r7, lsl #2
++        add         r0, r0, r3, lsl #2
 +
 +        bl          patch_h_up_c_4x4_10
-+        bl          patch_h_up_c_4x4_10
-+        pop        {r4-r8, pc}
++        bl          patch_h_up_c_4x4_10_continue
 +
-+18:
-+        cmp         r12, #26
-+        mov         r5,  #8             @ Loop counter for the "easy" cases
-+        bge         26f
++        pop         {r4-r8, pc}
 +
 +@ Left of vertical - works down left
-+        vld1.16    {q8,  q9 }, [r1]        @ Up
-+        ldrh        r7,  [r7]
-+        mov         r8,  #-128
-+
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        vmov        q12, q8
-+        asr         r12, r8,  #8
-+        vmov        q13, q9
-+        add         r8,  r7
-+        vext.32     q9,  q8,  q9,  #3
-+        add         r12, r2,  r12, lsl #2
-+        vext.32     q8,  q8,  q8,  #3
-+        sub         r6,  #32
-+        vld1.32    {d16[0]}, [r12]
++18:
++        vld1.16     {q0-q1}, [r1]
++        sub         r9, r2, #4
++        rsb         r12, r6, #32
++        ldrh        r7, [r7]
++        mov         r8, #-128
++        vdup.16     q9, r6
++        vdup.16     q10, r12
++        mov         r5, #8
 +1:
-+        vmov        s1,  r6
-+        rsb         r12, r6,  #32
-+        add         r6,  r4
-+        vmov        s0,  r12
++        vld1.32     {d17[1]}, [r9]
++        add         r8, r7
++        vmov        q2, q0
++        vmov        q3, q1
++        asr         r9, r8, #8
++        vext.16     q1, q0, q1, #6
++        add         r9, r2, r9, lsl #2
++        vext.16     q0, q8, q0, #6
++2:
++        vmul.u16    q11, q2, q10
++        subs        r12, r4
++        vmla.u16    q11, q0, q9
++        it          cc
++        addcc       r12, #32
++        vmul.u16    q12, q3, q10
++        rsb         r6, r12, #32
++        vmla.u16    q12, q1, q9
++        sub         r5, #1
++        teq         r5, #0
++        vdup.16     q9, r6
++        vdup.16     q10, r12
++        vrshr.u16   q11, q11, #5
++        vrshr.u16   q12, q12, #5
++        vst1.16     {q11-q12}, [r0], r3
++        bhi         2b
++        bne         1b
 +
-+        vmul.u16    q1,  q8,  d0[2]
-+        vmul.u16    q2,  q9,  d0[2]
-+        vmla.u16    q1,  q12, d0[0]
-+        vmla.u16    q2,  q13, d0[0]
-+        vrshr.u16   q1,  #5
-+        vrshr.u16   q2,  #5
-+
-+        subs        r5,  #1
-+        vst1.16    {q1,  q2 }, [r0], r3
-+        bne         2b
-+        pop        {r4-r8, pc}
++        pop         {r4-r8, pc}
 +
 +@ Right of vertical - works along top - left unused
 +26:
-+        vld1.16    {q12, q13}, [r1]!    @ Up
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        vmov        q8,  q12
-+        vmov        q9,  q13
-+        vext.32     q12, q13, #1
-+        vext.32     q13, q14, #1
-+        sub         r6,  #32
-+        vld1.32    {d27[1]}, [r1]!
-+
++        add         r5, r1, #32
++        vld1.16     {q0-q1}, [r1]!
++        rsb         r12, r6, #32
++        vld1.32     {d16[0]}, [r5]
++        mov         r5, #8
++        vdup.16     q9, r6
++        vdup.16     q10, r12
 +1:
-+        rsb         r12, r6,  #32
-+        vmov        s0,  r6           @ Have to use d0-d7 for scalar multiply
-+        vmov        s1,  r12
++        vmov        q2, q0
++        add         r1, #4
++        vmov        q3, q1
++        vext.16     q0, q0, q1, #2
++        vext.16     q1, q1, q8, #2
++2:
++        vmul.u16    q11, q0, q9
++        subs        r12, r4
++        vmla.u16    q11, q2, q10
++        it          cc
++        addcc       r12, #32
++        vmul.u16    q12, q1, q9
++        rsb         r6, r12, #32
++        vmla.u16    q12, q3, q10
++        sub         r5, #1
++        vld1.32     {d16[0]}, [r1]
++        teq         r5, #0
++        vdup.16     q9, r6
++        vdup.16     q10, r12
++        vrshr.u16   q11, q11, #5
++        vrshr.u16   q12, q12, #5
++        vst1.16     {q11-q12}, [r0], r3
++        bhi         2b
++        bne         1b
 +
-+        vmul.u16    q1,  q12, d0[0]
-+        vmul.u16    q2,  q13, d0[0]
-+        vmla.u16    q1,  q8,  d0[2]
-+        vmla.u16    q2,  q9,  d0[2]
-+        vrshr.u16   q1,  #5
-+        vrshr.u16   q2,  #5
-+
-+        add         r6,  r4
-+        subs        r5,  #1
-+        vst1.16    {q1,  q2 }, [r0], r3
-+        bne         2b
-+        pop        {r4-r8, pc}
++        pop         {r4-r8, pc}
 +
 +endfunc
 +
@@ -10346,170 +10937,179 @@ index 0000000000..8063a1521e
 +@       unsigned int mode       [sp, #0]  2..34
 +
 +function ff_hevc_rpi_pred_angular_c_16_neon_10, export=1
-+        ldr         r12, [sp, #0]
-+        push       {r4-r10, lr}
-+        vpush      {q4 }
-+        ADRT        r4,  angle_2 - 2
-+        ADRT        r7,  inv_angle - 11*2
-+        lsl         r3,  #2
-+        ldrsb       r4,  [r4, r12]
-+        add         r7,  r7,  r12, lsl #1
-+
++        ldr         r12, [sp]
++        push        {r4-r10, lr}
++        ADRT        r4, angle_2 - 2
++        ADRT        r7, inv_angle - 11*2
++        add         r7, r7, r12, lsl #1
++        lsl         r3, #2
++        vpush       {d8}
++        ldrsb       r6, [r4, r12]
++        cmp         r12, #26
++        ldrsb       r4, [r4, r12]
++        bge         26f
 +        cmp         r12, #18
 +        bge         18f
-+
 +        cmp         r12, #10
-+        mov         r10, #4             @ Outer loop counter for "hard" cases
 +        bge         10f
 +
 +@ Down of Horizontal - works down left
-+        mov         r1,  r2
-+2:
-+        vld1.32    {q2 }, [r1]!
-+        add         r6,  r4,  #32       @ Force initial load in main loop
-+        mov         r2,  r1
++        add         sp, #8
++        mov         r10, #4
++        mov         r1, r2
++1:
 +        bl          patch_h_down_c_4x4_10
-+        bl          patch_h_down_c_4x4_10
-+        bl          patch_h_down_c_4x4_10
-+        bl          patch_h_down_c_4x4_10
++        bl          patch_h_down_c_4x4_10_continue
++        bl          patch_h_down_c_4x4_10_continue
++        bl          patch_h_down_c_4x4_10_continue
 +
-+        sub         r0,  #64
++        add         r2, r1, #4*4         @ restore r2, but 4 rows further down left
++        add         r1, r1, #4*4
++        mov         r6, r4
++        sub         r0, #64
 +        subs        r10, #1
-+        add         r0,  r0,  r3,  lsl #2
-+        bne         2b
-+        b           99f
++        add         r0, r0, r3, lsl #2
++        bne         1b
++
++        pop         {r4-r10, pc}
 +
 +@ Up of Horizontal - works down up
 +10:
-+        ldrh        r7,  [r7]
-+        @ -128 (rather than +128) means we get UL
-+        @ from L & don't have to offset U
-+        mov         r8,  #-128
-+        sub         r8,  r7
++        add         sp, #8
++        mov         r10, #4
++        ldrh        r7, [r7]
++        mov         r8, #-128
++        sub         r8, r7
 +2:
-+        vld1.32    {q8 }, [r2]
-+        add         r6,  r4,  #32
++        push        {r2, r8}
++        bl          patch_h_up_c_4x4_10
++        bl          patch_h_up_c_4x4_10_continue
++        bl          patch_h_up_c_4x4_10_continue
++        bl          patch_h_up_c_4x4_10_continue
++        pop         {r2, r8}
 +
-+        push       {r2, r8}
-+        bl          patch_h_up_c_4x4_10
-+        bl          patch_h_up_c_4x4_10
-+        bl          patch_h_up_c_4x4_10
-+        bl          patch_h_up_c_4x4_10
-+        pop        {r2, r8}
-+
-+        sub         r0,  #64
++        sub         r0, #64
++        mov         r6, r4
++        add         r2, #16
++        sub         r8, r8, r7, lsl #2
++        add         r0, r0, r3, lsl #2
 +        subs        r10, #1
-+        add         r2,  #16
-+        sub         r8,  r8,  r7,  lsl #2
-+        add         r0,  r0,  r3,  lsl #2
 +        bne         2b
-+        b           99f
 +
-+18:
-+        cmp         r12, #26
-+        mov         r5,  #16            @ Loop counter for the "easy" cases
-+        bge         26f
++        pop         {r4-r10, pc}
 +
 +@ Left of vertical - works down left
-+        vldm        r1, {q8-q11}        @ Up
-+        ldrh        r7,  [r7]
-+        add         r6,  r4,  #32
-+        mov         r8,  #-128
-+
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        asr         r9,  r8,  #8
-+        vmov        q12, q8
-+        add         r8,  r7
-+        vmov        q13, q9
-+        add         r9,  r2,  r9,  lsl #2
-+        vmov        q14, q10
-+        vmov        q15, q11
-+        vext.32     q11, q10, q11, #3
-+        vext.32     q10, q9,  q10, #3
-+        vext.32     q9,  q8,  q9,  #3
-+        vext.32     q8,  q8,  q8,  #3
-+        sub         r6,  #32
-+        vld1.32    {d16[0]}, [r9]
-+
++18:
++        add         r5, r1, #32
++        vld1.16     {q1-q2}, [r1]
++        rsb         r12, r6, r6, lsl #16
++        vld1.16     {q3-q4}, [r5]
++        sub         r9, r2, #4
++        rsb         r4, r12, #0
++        rsb         r12, r12, #32 << 16
++        ldrh        r7, [r7]
++        mov         r8, #-128
++        vmov        d0, d9
++        vmov        s2, r12
++        add         r10, r0, #32
++        mov         r5, #16
 +1:
-+        vmov        s1,  r6
-+        rsb         r12, r6,  #32
-+        add         r6,  r4
-+        vmov        s0,  r12
++        vld1.32     {d1[1]}, [r9]
++        add         r8, r7
++        vmov        q11, q4
++        vmov        q10, q3
++        asr         r9, r8, #8
++        vmov        q9, q2
++        add         r9, r2, r9, lsl #2
++        vmov        q8, q1
++        vext.16     q4, q3, q4, #6
++        vext.16     q3, q2, q3, #6
++        vext.16     q2, q1, q2, #6
++        vext.16     q1, q0, q1, #6
++2:
++        vmul.u16    q12, q8, d1[1]
++        adds        r12, r4
++        vmla.u16    q12, q1, d1[0]
++        it          cc
++        addcc       r12, #32 << 16
++        vmul.u16    q13, q9, d1[1]
++        it          cc
++        subcc       r12, #32
++        vmla.u16    q13, q2, d1[0]
++        sub         r5, #1
++        vmul.u16    q14, q10, d1[1]
++        teq         r5, #0
++        vmla.u16    q14, q3, d1[0]
++        vmul.u16    q15, q11, d1[1]
++        vmla.u16    q15, q4, d1[0]
++        vmov        s2, r12
++        vrshr.u16   q12, q12, #5
++        vrshr.u16   q13, q13, #5
++        vrshr.u16   q14, q14, #5
++        vrshr.u16   q15, q15, #5
++        vst1.16     {q12-q13}, [r0], r3
++        vst1.16     {q14-q15}, [r10], r3
++        bhi         2b
++        bne         1b
 +
-+        vmul.u16    q1,  q8,  d0[2]
-+        vmul.u16    q2,  q9,  d0[2]
-+        vmul.u16    q3,  q10, d0[2]
-+        vmul.u16    q4,  q11, d0[2]
-+        vmla.u16    q1,  q12, d0[0]
-+        vmla.u16    q2,  q13, d0[0]
-+        vmla.u16    q3,  q14, d0[0]
-+        vmla.u16    q4,  q15, d0[0]
-+        vrshr.u16   q1,  #5
-+        vrshr.u16   q2,  #5
-+        vrshr.u16   q3,  #5
-+        vrshr.u16   q4,  #5
-+
-+        subs        r5,  #1
-+        vstm        r0, {q1-q4}
-+        add         r0,  r3
-+        bne         2b
-+        b           99f
++        vpop        {d8}
++        vmov        d9, d0
++        pop         {r4-r10, pc}
 +
 +@ Right of vertical - works along top - left unused
 +26:
-+        vldm        r1, {q12-q15}       @ Up
-+        add         r6,  r4,  #32       @ Force initial load in main loop
-+        add         r1,  #64
-+2:
-+        cmp         r6,  #32
-+        ble         1f
-+
-+        vmov        q8,  q12
-+        vmov        q9,  q13
-+        vmov        q10, q14
-+        vmov        q11, q15
-+        vext.32     q12, q13, #1
-+        vext.32     q13, q14, #1
-+        vext.32     q14, q15, #1
-+        vext.32     q15, q15, #1
-+        sub         r6,  #32
-+        vld1.32    {d31[1]}, [r1]!
-+
++        add         r5, r1, #32
++        vld1.16     {q1-q2}, [r1]
++        rsb         r12, r6, r6, lsl #16
++        vld1.16     {q3-q4}, [r5]
++        add         r1, r1, #64
++        rsb         r4, r12, #0
++        rsb         r12, r12, #32 << 16
++        vmov        d1, d9
++        vmov        s1, r12
++        add         r10, r0, #32
++        mov         r5, #16
 +1:
-+        rsb         r12, r6,  #32
-+        vmov        s0,  r6           @ Have to use d0-d7 for scalar multiply
-+        vmov        s1,  r12
++        vld1.32     {d0[0]}, [r1]!
++        vmov        q8, q1
++        vmov        q9, q2
++        vmov        q10, q3
++        vmov        q11, q4
++        vext.16     q1, q1, q2, #2
++        vext.16     q2, q2, q3, #2
++        vext.16     q3, q3, q4, #2
++        vext.16     q4, q4, q0, #2
++2:
++        vmul.u16    q12, q1, d0[2]
++        adds        r12, r4
++        vmla.u16    q12, q8, d0[3]
++        it          cc
++        addcc       r12, #32 << 16
++        vmul.u16    q13, q2, d0[2]
++        it          cc
++        subcc       r12, #32
++        vmla.u16    q13, q9, d0[3]
++        sub         r5, #1
++        vmul.u16    q14, q3, d0[2]
++        teq         r5, #0
++        vmla.u16    q14, q10, d0[3]
++        vmul.u16    q15, q4, d0[2]
++        vmla.u16    q15, q11, d0[3]
++        vmov        s1, r12
++        vrshr.u16   q12, q12, #5
++        vrshr.u16   q13, q13, #5
++        vrshr.u16   q14, q14, #5
++        vrshr.u16   q15, q15, #5
++        vst1.16     {q12-q13}, [r0], r3
++        vst1.16     {q14-q15}, [r10], r3
++        bhi         2b
++        bne         1b
 +
-+        vmul.u16    q1,  q12, d0[0]
-+        vmul.u16    q2,  q13, d0[0]
-+        vmul.u16    q3,  q14, d0[0]
-+        vmul.u16    q4,  q15, d0[0]
-+        vmla.u16    q1,  q8,  d0[2]
-+        vmla.u16    q2,  q9,  d0[2]
-+        vmla.u16    q3,  q10, d0[2]
-+        vmla.u16    q4,  q11, d0[2]
-+
-+        vrshr.u16   q1,  #5
-+        vrshr.u16   q2,  #5
-+        vrshr.u16   q3,  #5
-+        vrshr.u16   q4,  #5
-+
-+        add         r6,  r4
-+        subs        r5,  #1
-+        vstm        r0, {q1-q4}
-+        add         r0,  r3
-+        bne         2b
-+99:
-+        vpop       {q4 }
-+        pop        {r4-r10, pc}
++        vpop        {d8}
++        vmov        d9, d1
++        pop         {r4-r10, pc}
 +
 +endfunc
-+
-+
 diff --git a/libavcodec/arm/rpi_hevcpred_intra_dc_neon.S b/libavcodec/arm/rpi_hevcpred_intra_dc_neon.S
 new file mode 100644
 index 0000000000..75a1789c25
