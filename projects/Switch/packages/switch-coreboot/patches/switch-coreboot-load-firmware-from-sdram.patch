@@ -1,0 +1,67 @@
+From 70c81290f0de774920675bd96772891c800257d0 Mon Sep 17 00:00:00 2001
+From: Kostas Missos <ctcaer@gmail.com>
+Date: Mon, 30 Jul 2018 19:51:47 +0300
+Subject: [PATCH] [CBFS] Add support for loading firmware from SDRAM
+
+---
+ src/mainboard/nintendo/switch/cbfs_usb.c | 24 ++++++++++++++++++------
+ 1 file changed, 18 insertions(+), 6 deletions(-)
+
+diff --git a/src/mainboard/nintendo/switch/cbfs_usb.c b/src/mainboard/nintendo/switch/cbfs_usb.c
+index fd35840cd8..3377d038d2 100644
+--- a/src/mainboard/nintendo/switch/cbfs_usb.c
++++ b/src/mainboard/nintendo/switch/cbfs_usb.c
+@@ -2,6 +2,7 @@
+  * This file is part of the coreboot project.
+  *
+  * Copyright 2018 Andre Heider <a.heider@gmail.com>
++ * Copyright 2018 Kostas Missos <ctcaer@gmail.com>
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+@@ -25,9 +26,16 @@
+  * on CCPLEX we need to make sure to use the BootROM only on BPMP.
+  * romstage switches to a SDRAM backed CBFS for that reason, and ramstage then
+  * uses that exclusively.
++ *
++ * If the string 'DRAM' is found at CBFS_SDRAM_EN_ADDR in IRAM, the whole process will
++ * be done via SDRAM. This is useful for cases where the RCM payload 
++ * loads the firmware from a microSD card into SDRAM and the the bootblock into IRAM. 
+  */
+ 
+ #define BOOTROM_RCM_TRANSPORT_ADDR	(TEGRA_SRAM_BASE + 0x3114)
++#define CBFS_SDRAM_MAGIC 0x4452414D
++
++static const u32 *CBFS_SDRAM_EN_ADDR = (u32 *)0x4003e000;
+ 
+ /* The used memory regions as defined in memlayout.ld */
+ extern uint8_t _usb_bounce[];
+@@ -127,18 +135,22 @@ static bool rom_in_sdram = false;
+ 
+ void cbfs_switch_to_sdram(void)
+ {
+-	usb_readat(&mdev_usb.rdev, _rom_copy, 0, CONFIG_ROM_SIZE);
++	/* Skip if firmware is already in sdram */
++	if (*CBFS_SDRAM_EN_ADDR != CBFS_SDRAM_MAGIC)
++	{
++		usb_readat(&mdev_usb.rdev, _rom_copy, 0, CONFIG_ROM_SIZE);
+ 
+-	/* Signal host with offset=0 and length=0 that we're done. */
+-	memset(_usb_bounce, 0, 8);
+-	rom_sendbuf(_usb_bounce, 8);
++		/* Signal host with offset=0 and length=0 that we're done. */
++		memset(_usb_bounce, 0, 8);
++		rom_sendbuf(_usb_bounce, 8);
+ 
+-	rom_in_sdram = true;
++		rom_in_sdram = true;
++	}
+ }
+ 
+ const struct region_device *boot_device_ro(void)
+ {
+-	if (rom_in_sdram)
++	if (rom_in_sdram || *CBFS_SDRAM_EN_ADDR == CBFS_SDRAM_MAGIC)
+ 		return &mdev_sdram.rdev;
+ 
+ 	return &mdev_usb.rdev;
