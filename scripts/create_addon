@@ -79,20 +79,20 @@ function find_addons() {
       `# make entries unique` \
       | sort -u \
       `# select packages with PKG_IS_ADDON=yes (slow, but is a short list, now)` \
-      | xargs -n1 -I{} $SHELL -c '. ./config/options {} &>/dev/null; [ "$PKG_IS_ADDON" == "yes" ] && echo $PKG_NAME'
+      | xargs -n1 -I{} /bin/bash -c '. ./config/options {} &>/dev/null; [ "$PKG_IS_ADDON" = "yes" ] && echo $PKG_NAME'
   )
 
   # check if anything is found
   local _count=$(wc -w <<< $_addons)
-  if [ "$_count" == 0 ]; then
-    # handle embedded addons here. Should only build, when they explicte in the addon list
+  if [ $_count -eq 0 ]; then
+    # handle embedded addons here. Should only build when they are explictly specified in the addon list
     ( . ./config/options "$1" &>/dev/null
       [ "$PKG_IS_ADDON" != "embedded" ] && exit 1
       echo $PKG_NAME
     )
 
     # abort when nothing found and not embedded
-    if [ $? != 0 ]; then
+    if [ $? -ne 0 ]; then
       printf  "$(print_color CLR_ERROR "ERROR: '$1' matches nothing...")\n" ' '>&$SILENT_OUT
       printf  "for more informations type: ./scripts/create_addon --help\n" ' '>&$SILENT_OUT
       exit 1
@@ -226,7 +226,7 @@ build_addon() {
 }
 
 # need parameter
-if [ $# == 0 ]; then
+if [ $# -eq 0 ]; then
   usage 1
 fi
 
@@ -280,7 +280,7 @@ for addon in $(tr " " "\n" <<< $addons | sort -u); do
   fi
 
   # show-only: print name and continue with next addon
-  if [ $show_only == "true" ]; then
+  if [ "$show_only" = "true" ]; then
     echo $addon
     continue
   fi
@@ -301,14 +301,14 @@ for addon in $(tr " " "\n" <<< $addons | sort -u); do
     printf "$(print_color CLR_ERROR "ADDON FAILED $addon")\n" ' '>&$SILENT_OUT
   else
     printf "$(print_color CLR_INFO "ADDON SUCCESS $addon")\n" ' '>&$SILENT_OUT
-    if [ $remove_success_logs == "true" ]; then
+    if [ "$remove_success_logs" = "true" ]; then
       rm -f $log_file
     fi
   fi
 done
 
 # show-only has no summary, can exit here
-if [ $show_only == "true" ]; then
+if [ "$show_only" = "true" ]; then
   exit 0
 fi
 
