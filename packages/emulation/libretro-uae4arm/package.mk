@@ -24,7 +24,13 @@ pre_configure_target() {
 }
 
 make_target() {
-  make HAVE_NEON=1 USE_PICASSO96=1
+  if target_has_feature neon; then
+    PKG_HAVE_NEON=1
+  else
+    PKG_HAVE_NEON=0
+  fi
+
+  make HAVE_NEON=$PKG_HAVE_NEON USE_PICASSO96=1
 }
 
 makeinstall_target() {
