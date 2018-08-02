@@ -12,7 +12,6 @@ PKG_DEPENDS_TARGET="toolchain yasm:host alsa-lib systemd dbus"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="SDL2: A cross-platform Graphic API"
 PKG_LONGDESC="Simple DirectMedia Layer is a cross-platform multimedia library designed to provide fast access to the graphics framebuffer and audio device. It is used by MPEG playback software, emulators, and many popular games, including the award winning Linux port of 'Civilization: Call To Power.' Simple DirectMedia Layer supports Linux, Win32, BeOS, MacOS, Solaris, IRIX, and FreeBSD."
-PKG_BUILD_FLAGS="-parallel +pic"
 
 PKG_CMAKE_OPTS_TARGET="-DSDL_STATIC=ON \
                        -DSDL_SHARED=OFF \
@@ -93,10 +92,6 @@ else
                          -DPULSEAUDIO=OFF \
                          -DPULSEAUDIO_SHARED=OFF"
 fi
-
-pre_configure_target() {
- export LDFLAGS=`$SED -i 's/[ \t]*$//' "$LDFLAGS"`
-}
 
 post_makeinstall_target() {
   $SED "s:\(['=\" ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" $SYSROOT_PREFIX/usr/bin/sdl2-config
