@@ -37,9 +37,9 @@ pre_make_target() {
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/bin
-  mkdir -p $INSTALL/usr/lib
     cp -P $PKG_BUILD/dtc $INSTALL/usr/bin
     cp -P $PKG_BUILD/fdtput $INSTALL/usr/bin/
     cp -P $PKG_BUILD/fdtget $INSTALL/usr/bin/
+  mkdir -p $INSTALL/usr/lib
     cp -P $PKG_BUILD/libfdt/libfdt.so $INSTALL/usr/lib/
 }
