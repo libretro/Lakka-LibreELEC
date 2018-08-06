@@ -3,17 +3,30 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="kodi"
-PKG_VERSION="f08d8686e96edcfbe065d4e5094ab6221da057b9"
-PKG_SHA256="eec4e71d836894c39cd722eb3a1b73e2ee678aeadb64abcea2d85227d871bb86"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
-PKG_URL="https://github.com/xbmc/xbmc/archive/$PKG_VERSION.tar.gz"
-PKG_SOURCE_DIR="xbmc-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain JsonSchemaBuilder:host TexturePacker:host Python2 zlib systemd pciutils lzo pcre swig:host libass curl fontconfig fribidi tinyxml libjpeg-turbo freetype libcdio taglib libxml2 libxslt rapidjson sqlite ffmpeg crossguid giflib libdvdnav libhdhomerun libfmt lirc libfstrcmp flatbuffers:host flatbuffers"
 PKG_SECTION="mediacenter"
 PKG_SHORTDESC="kodi: Kodi Mediacenter"
 PKG_LONGDESC="Kodi Media Center (which was formerly named Xbox Media Center or XBMC) is a free and open source cross-platform media player and home entertainment system software with a 10-foot user interface designed for the living-room TV. Its graphical user interface allows the user to easily manage video, photos, podcasts, and music from a computer, optical disk, local network, and the internet using a remote control."
+
+PKG_PATCH_DIRS="$KODI_VENDOR"
+
+case $KODI_VENDOR in
+  raspberrypi)
+    PKG_VERSION="tag" #Leia BetaX
+    PKG_SHA256="sha-for-tag"
+    PKG_URL="https://github.com/popcornmix/xbmc/archive/$PKG_VERSION.tar.gz"
+    PKG_SOURCE_DIR="xbmc-$PKG_VERSION*"
+    ;;
+  *)
+    PKG_VERSION="f08d8686e96edcfbe065d4e5094ab6221da057b9" #Leia Beta 1
+    PKG_SHA256="eec4e71d836894c39cd722eb3a1b73e2ee678aeadb64abcea2d85227d871bb86"
+    PKG_URL="https://github.com/xbmc/xbmc/archive/$PKG_VERSION.tar.gz"
+    PKG_SOURCE_DIR="xbmc-$PKG_VERSION*"
+    ;;
+esac
 
 # Single threaded LTO is very slow so rely on Kodi for parallel LTO support
 if [ "$LTO_SUPPORT" = "yes" ] && ! build_with_debug; then
