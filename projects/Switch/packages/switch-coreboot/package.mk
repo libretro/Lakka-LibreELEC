@@ -18,14 +18,14 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-#switch-coreboot:host must be built before switch-coreboot
-
 PKG_NAME="switch-coreboot"
 PKG_VERSION="1becafe"
 PKG_ARCH="any"
-PKG_DEPENDS_TARGET="toolchain switch-u-boot gcc-linaro-aarch64-linux-gnu:host gcc-linaro-arm-linux-gnueabi:host"
+PKG_DEPENDS_TARGET="toolchain switch-coreboot:host switch-u-boot gcc-linaro-aarch64-linux-gnu:host gcc-linaro-arm-linux-gnueabi:host"
 PKG_SITE="https://github.com/lakka-switch/coreboot"
 PKG_GIT_URL="$PKG_SITE"
+
+PKG_AUTORECONF="no"
 
 make_host() {
   make iasl
@@ -36,13 +36,6 @@ makeinstall_host() {
 }
 
 pre_make_target() {
-  if [ -e "$PKG_DIR/mtc/tegra_mtc.bin" ]; then
-    cp $PKG_DIR/mtc/tegra_mtc.bin $PKG_BUILD/src/soc/nvidia/tegra210/tegra_mtc.bin
-  else
-    echo "Please put tegra_mtc.bin in $PKG_DIR/mtc and try again"
-    exit 1
-  fi
-  
   sed -i -e "s|CONFIG_PAYLOAD_FILE=\"../u-boot/u-boot.elf\"|CONFIG_PAYLOAD_FILE=\"${BUILD}/switch-boot/u-boot.elf\"|" $PKG_BUILD/configs/nintendo_switch_defconfig
   sed -i -e "s|CONFIG_MTC_TABLES_DIRECTORY=\"../shofel2/mtc_tables\"|CONFIG_MTC_TABLES_DIRECTORY=\"${PKG_DIR}/mtc\"|" $PKG_BUILD/configs/nintendo_switch_defconfig
 }
@@ -54,6 +47,24 @@ make_target() {
   export CROSS_COMPILE=aarch64-linux-gnu-
   
   make nintendo_switch_defconfig
+  make tools
+  
+  # Download and copy tegra_mtc.bin to $PKG_BUILD/src/soc/nvidia/tegra210/tegra_mtc.bin (by vgmoose)
+  mkdir -p $PKG_BUILD/switch-mtc
+  
+  # Download the needed parts of the factory image zip
+  curl --header "Range: bytes=1842-3820027" -k https://dl.google.com/dl/android/aosp/ryu-opm4.171019.021.n1-factory-1f31fdce.zip > $PKG_BUILD/switch-mtc/tmp.zip
+  
+  # Extract the bootloader zip from the factory image zip
+  echo y | zip -FF $PKG_BUILD/switch-mtc/tmp.zip --out $PKG_BUILD/switch-mtc/out.zip
+  
+  # Extract the bootloader image file from the bootloader zip
+  unzip $PKG_BUILD/switch-mtc/out.zip -d $PKG_BUILD/switch-mtc
+  
+  # Extract the mtc from the bootloader image file
+  $PKG_BUILD/build/util/cbfstool/cbfstool $PKG_BUILD/switch-mtc/ryu-opm4.171019.021.n1/bootloader-dragon-google_smaug.7900.126.0.img extract -n fallback/tegra_mtc -f $PKG_BUILD/src/soc/nvidia/tegra210/tegra_mtc.bin
+  
+  # Make
   make
   
   export CROSS_COMPILE=$OLD_CROSS_COMPILE
