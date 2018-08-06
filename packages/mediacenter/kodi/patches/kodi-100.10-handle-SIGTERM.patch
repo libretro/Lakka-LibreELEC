@@ -1,6 +1,6 @@
-From 006bcc66f7bc25f0df8aa52efa3b151766f9a5ec Mon Sep 17 00:00:00 2001
+From db712f7aa3c249d5b6c7d4c121b89b61e0dd518f Mon Sep 17 00:00:00 2001
 From: MilhouseVH <milhouseVH.github@nmacleod.com>
-Date: Wed, 20 Dec 2017 07:26:55 +0000
+Date: Sat, 18 Aug 2018 03:29:56 +0100
 Subject: [PATCH] handle SIGTERM
 
 0. CApplication::Stop cant be trusted. (deadlocks crashes and boo)
@@ -15,18 +15,18 @@ so, when shutdown/reboot is requested:
 6. addons / pvrmanager / cec / everything else.. are free to deadlock / crash now, we dont care
 7. KILL
 ---
- xbmc/Application.cpp         | 21 ++++++++++++++++-----
+ xbmc/Application.cpp         | 19 +++++++++++++++----
  xbmc/Application.h           |  1 +
  xbmc/XBApplicationEx.cpp     |  1 +
  xbmc/XBApplicationEx.h       |  1 +
  xbmc/platform/posix/main.cpp |  2 +-
- 5 files changed, 20 insertions(+), 6 deletions(-)
+ 5 files changed, 19 insertions(+), 5 deletions(-)
 
 diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
-index 334ecec..e3101ff 100644
+index b679c63..01750c2 100644
 --- a/xbmc/Application.cpp
 +++ b/xbmc/Application.cpp
-@@ -2373,12 +2373,12 @@ void CApplication::OnApplicationMessage(ThreadMessage* pMsg)
+@@ -2285,12 +2285,12 @@ void CApplication::OnApplicationMessage(ThreadMessage* pMsg)
    switch (msg)
    {
    case TMSG_POWERDOWN:
@@ -41,7 +41,7 @@ index 334ecec..e3101ff 100644
      break;
  
    case TMSG_SHUTDOWN:
-@@ -2399,12 +2399,13 @@ void CApplication::OnApplicationMessage(ThreadMessage* pMsg)
+@@ -2311,12 +2311,13 @@ void CApplication::OnApplicationMessage(ThreadMessage* pMsg)
  
    case TMSG_RESTART:
    case TMSG_RESET:
@@ -56,7 +56,7 @@ index 334ecec..e3101ff 100644
      Stop(EXITCODE_RESTARTAPP);
  #endif
      break;
-@@ -2821,6 +2822,17 @@ bool CApplication::Cleanup()
+@@ -2763,6 +2764,17 @@ bool CApplication::Cleanup()
    }
  }
  
@@ -73,17 +73,8 @@ index 334ecec..e3101ff 100644
 +
  void CApplication::Stop(int exitCode)
  {
-   try
-@@ -2828,7 +2840,7 @@ void CApplication::Stop(int exitCode)
-     m_frameMoveGuard.unlock();
- 
-     CVariant vExitCode(CVariant::VariantTypeObject);
--    vExitCode["exitcode"] = exitCode;
-+    vExitCode["exitcode"] = m_ExitCode;
-     CAnnouncementManager::GetInstance().Announce(System, "xbmc", "OnQuit", vExitCode);
- 
-     // Abort any active screensaver
-@@ -2860,7 +2872,6 @@ void CApplication::Stop(int exitCode)
+   CLog::Log(LOGNOTICE, "stop player");
+@@ -2821,7 +2833,6 @@ void CApplication::Stop(int exitCode)
      // Needs cleaning up
      CApplicationMessenger::GetInstance().Stop();
      m_AppFocused = false;
@@ -92,10 +83,10 @@ index 334ecec..e3101ff 100644
  
      // cancel any jobs from the jobmanager
 diff --git a/xbmc/Application.h b/xbmc/Application.h
-index 9d0b2d4..7b0e18b 100644
+index 1faf9dd..379d3ca 100644
 --- a/xbmc/Application.h
 +++ b/xbmc/Application.h
-@@ -153,6 +153,7 @@ public:
+@@ -154,6 +154,7 @@ public:
    bool StartServer(enum ESERVERS eServer, bool bStart, bool bWait = false);
  
    bool IsCurrentThread() const;
@@ -104,10 +95,10 @@ index 9d0b2d4..7b0e18b 100644
    void UnloadSkin(bool forReload = false);
    bool LoadCustomWindows();
 diff --git a/xbmc/XBApplicationEx.cpp b/xbmc/XBApplicationEx.cpp
-index edfea4f..96f245f 100644
+index 9255271..da788b2 100644
 --- a/xbmc/XBApplicationEx.cpp
 +++ b/xbmc/XBApplicationEx.cpp
-@@ -42,6 +42,7 @@ CXBApplicationEx::CXBApplicationEx()
+@@ -24,6 +24,7 @@ CXBApplicationEx::CXBApplicationEx()
    m_bStop = false;
    m_AppFocused = true;
    m_ExitCode = EXITCODE_QUIT;
@@ -116,10 +107,10 @@ index edfea4f..96f245f 100644
  }
  
 diff --git a/xbmc/XBApplicationEx.h b/xbmc/XBApplicationEx.h
-index 6fb2f6c..4bc11fc 100644
+index e7534b8..8f45f04 100644
 --- a/xbmc/XBApplicationEx.h
 +++ b/xbmc/XBApplicationEx.h
-@@ -42,6 +42,7 @@ public:
+@@ -29,6 +29,7 @@ public:
    // Variables for timing
    bool m_bStop;
    int  m_ExitCode;
@@ -128,10 +119,10 @@ index 6fb2f6c..4bc11fc 100644
    bool m_renderGUI;
  
 diff --git a/xbmc/platform/posix/main.cpp b/xbmc/platform/posix/main.cpp
-index fccef84..88e928f 100644
+index 55840fd..2828c7f 100644
 --- a/xbmc/platform/posix/main.cpp
 +++ b/xbmc/platform/posix/main.cpp
-@@ -63,7 +63,7 @@ protected:
+@@ -47,7 +47,7 @@ protected:
    void Process() override
    {
      CMessagePrinter::DisplayMessage("Exiting application");
