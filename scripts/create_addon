@@ -87,7 +87,7 @@ function find_addons() {
   if [ $_count -eq 0 ]; then
     # handle embedded addons here. Should only build when they are explictly specified in the addon list
     ( . ./config/options "$1" &>/dev/null
-      [ "$PKG_IS_ADDON" != "embedded" ] && exit 1
+      [ "$PKG_IS_ADDON" != "embedded" -a "$PKG_IS_ADDON" != "yes" ] && exit 1
       echo $PKG_NAME
     )
 
@@ -159,17 +159,19 @@ pack_addon() {
         sha256sum $ADDON_JENKINS_ADDON_NAME.zip > $ADDON_JENKINS_ADDON_NAME.zip.sha256
       )
       printf  "%${BUILD_INDENT}c $(print_color CLR_INFO "*** creating $ADDON_JENKINS_ADDON_NAME.zip for Jenkins complete ***")\n" ' '>&$SILENT_OUT
+    else
+      printf  "%${BUILD_INDENT}c $(print_color CLR_INFO "*** creating $PKG_ADDON_ID complete ***")\n" ' '>&$SILENT_OUT
     fi
   fi
 }
 
 not_supported_arch() {
-  printf  "%${BUILD_INDENT}c $(print_color CLR_WARNING "*** ERROR: $PKG_ADDON_ID: '${DEVICE:-$PROJECT}' not supported ***")\n" ' '>&$SILENT_OUT
+  printf  "%${BUILD_INDENT}c $(print_color CLR_WARNING "*** SKIP: $PKG_ADDON_ID: '${DEVICE:-$PROJECT}' not supported ***")\n" ' '>&$SILENT_OUT
   exit 0
 }
 
 not_supported_device() {
-  printf  "%${BUILD_INDENT}c $(print_color CLR_WARNING "*** ERROR: $PKG_ADDON_ID: '$TARGET_ARCH' not supported ***")\n" ' '>&$SILENT_OUT
+  printf  "%${BUILD_INDENT}c $(print_color CLR_WARNING "*** SKIP: $PKG_ADDON_ID: '$TARGET_ARCH' not supported ***")\n" ' '>&$SILENT_OUT
   exit 0
 }
 
@@ -300,7 +302,6 @@ for addon in $(tr " " "\n" <<< $addons | sort -u); do
     addons_failed+="$addon "
     printf "$(print_color CLR_ERROR "ADDON FAILED $addon")\n" ' '>&$SILENT_OUT
   else
-    printf "$(print_color CLR_INFO "ADDON SUCCESS $addon")\n" ' '>&$SILENT_OUT
     if [ "$remove_success_logs" = "true" ]; then
       rm -f $log_file
     fi
