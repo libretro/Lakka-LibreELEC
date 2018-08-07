@@ -28,14 +28,16 @@ PKG_GIT_URL="$PKG_SITE"
 PKG_AUTORECONF="no"
 
 make_host() {
+  make nintendo_switch_defconfig
   make iasl
+  make tools
 }
 
 makeinstall_host() {
   :
 }
 
-pre_make_target() {
+pre_make_host() {
   sed -i -e "s|CONFIG_PAYLOAD_FILE=\"../u-boot/u-boot.elf\"|CONFIG_PAYLOAD_FILE=\"${BUILD}/switch-boot/u-boot.elf\"|" $PKG_BUILD/configs/nintendo_switch_defconfig
   sed -i -e "s|CONFIG_MTC_TABLES_DIRECTORY=\"../shofel2/mtc_tables\"|CONFIG_MTC_TABLES_DIRECTORY=\"${PKG_DIR}/mtc\"|" $PKG_BUILD/configs/nintendo_switch_defconfig
 }
@@ -45,9 +47,6 @@ make_target() {
   export PATH=$TOOLCHAIN/lib/gcc-linaro-arm-linux-gnueabi/bin/:$PATH
   OLD_CROSS_COMPILE=$CROSS_COMPILE
   export CROSS_COMPILE=aarch64-linux-gnu-
-  
-  make nintendo_switch_defconfig
-  make tools
   
   # Download and copy tegra_mtc.bin to $PKG_BUILD/src/soc/nvidia/tegra210/tegra_mtc.bin (by vgmoose)
   mkdir -p $PKG_BUILD/switch-mtc
