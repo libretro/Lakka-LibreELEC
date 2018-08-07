@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="RTL8812AU"
-PKG_VERSION="af07b27"
-PKG_SHA256="a2c3c9554ec0a586e879684ba87b08bdbde5cd30231b4794f3a10ef822e461fc"
+PKG_VERSION="ff2f1dd"
+PKG_SHA256="79419ab37482b7098d9aa995c9be8e3f2f9bccfae20d0b0ccfefe0da9a03d144"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/paspro/rtl8812au"
