@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="ishiiruka"
-PKG_VERSION="75cb6ee"
+PKG_VERSION="bd4c5f1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
