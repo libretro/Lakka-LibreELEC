@@ -18,51 +18,30 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="ppsspp"
-PKG_VERSION="9a610c8"
-PKG_REV="1"
+PKG_NAME="reminiscence"
+PKG_VERSION="57e2e2c"
 PKG_ARCH="any"
-PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/hrydgard/ppsspp"
+PKG_SITE="https://github.com/libretro/REminiscence"
 PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="Libretro port of PPSSPP"
-PKG_LONGDESC="A fast and portable PSP emulator"
+PKG_SHORTDESC="Port of Gregory Montoir's Flashback emulator, running as a libretro core."
+PKG_LONGDESC="Port of Gregory Montoir's Flashback emulator, running as a libretro core."
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-PKG_USE_CMAKE="no"
 
-pre_configure_target() {
-  strip_lto
+configure_target () {
+  : # nothing to do
 }
 
 make_target() {
-  cd $PKG_BUILD/libretro
-  if [ "$OPENGLES" == "gpu-viv-bin-mx6q" -o "$OPENGLES" == "imx-gpu-viv" ]; then
-    CFLAGS="$CFLAGS -DLINUX -DEGL_API_FB"
-    CXXFLAGS="$CXXFLAGS -DLINUX -DEGL_API_FB"
-  fi
-  if [ "$OPENGLES" == "bcm2835-driver" ]; then
-    CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads"
-    CXXFLAGS="$CXXFLAGS -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads"
-  fi
-  if [ "$ARCH" == "arm" ]; then
-    SYSROOT_PREFIX=$SYSROOT_PREFIX AS=${CXX} make platform=armv-neon-gles
-  elif [ "$ARCH" == "aarch64" ]; then
-    if [ "$OPENGL" == "no" ]; then 
-      SYSROOT_PREFIX=$SYSROOT_PREFIX AS=${CXX} make platform=arm64-neon-gles
-    else
-      SYSROOT_PREFIX=$SYSROOT_PREFIX AS=${CXX} make platform=arm64-neon
-    fi
-  else
-    make
-  fi
+  cd $PKG_BUILD
+  make
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp ../libretro/ppsspp_libretro.so $INSTALL/usr/lib/libretro/
+  cp reminiscence_libretro.so $INSTALL/usr/lib/libretro/
 }
