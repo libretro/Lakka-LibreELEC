@@ -38,7 +38,7 @@ make_target() {
   if [ "$ARCH" == "arm" ]; then
     make platform=rpi FORCE_GLES=1 HAVE_OPENMP=0
   else
-    make AS=${AS} CC_AS=${AS}
+    make AS=${AS} CC_AS=${AS} ARCH=${ARCH} HAVE_OPENMP=0
   fi
 }
 
