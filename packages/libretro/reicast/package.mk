@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="reicast"
-PKG_VERSION="03d3cc3"
+PKG_VERSION="a2a14be"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
@@ -36,7 +36,7 @@ PKG_AUTORECONF="no"
 
 make_target() {
   if [ "$ARCH" == "arm" ]; then
-    make platform=rpi FORCE_GLES=1
+    make platform=rpi FORCE_GLES=1 HAVE_OPENMP=0
   else
     make AS=${AS} CC_AS=${AS}
   fi
