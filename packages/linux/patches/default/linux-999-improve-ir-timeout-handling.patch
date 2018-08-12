@@ -1,7 +1,7 @@
-From f3ca010f8a1cced4049fb1b6cf522bac4e778d8c Mon Sep 17 00:00:00 2001
+From 53b3bcf17209cd9b01d8b31c21eee8f0f30cf4dc Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Fri, 23 Mar 2018 16:47:37 -0400
-Subject: [PATCH 01/13] media: rc: set timeout to smallest value required by
+Subject: [PATCH 01/12] media: rc: set timeout to smallest value required by
  enabled protocols
 
 The longer the IR timeout, the longer the rc device waits until delivering
@@ -54,10 +54,10 @@ index 8cb68ae..5706cfe 100644
  
  static int __init ir_jvc_decode_init(void)
 diff --git a/drivers/media/rc/ir-mce_kbd-decoder.c b/drivers/media/rc/ir-mce_kbd-decoder.c
-index 5478fe0..fa5ce51 100644
+index d94f1c1..03d0f7e 100644
 --- a/drivers/media/rc/ir-mce_kbd-decoder.c
 +++ b/drivers/media/rc/ir-mce_kbd-decoder.c
-@@ -477,6 +477,7 @@ static struct ir_raw_handler mce_kbd_handler = {
+@@ -479,6 +479,7 @@ static struct ir_raw_handler mce_kbd_handler = {
  	.raw_register	= ir_mce_kbd_register,
  	.raw_unregister	= ir_mce_kbd_unregister,
  	.carrier	= 36000,
@@ -251,10 +251,10 @@ index cea7b2d..8cd7a26 100644
 2.14.1
 
 
-From ef6ca369163f1b5d4a838bfbcd373dec8377f653 Mon Sep 17 00:00:00 2001
+From 78c7e2b34fd53578770fc9098930ba2fcede0df5 Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Fri, 23 Mar 2018 16:59:52 -0400
-Subject: [PATCH 02/13] media: rc: add ioctl to get the current timeout
+Subject: [PATCH 02/12] media: rc: add ioctl to get the current timeout
 
 Since the kernel now modifies the timeout, make it possible to retrieve
 the current value.
@@ -360,10 +360,10 @@ index f189931..6b31958 100644
 2.14.1
 
 
-From 840d6701d0e1650cfc69bc0af79b983c4674d8c0 Mon Sep 17 00:00:00 2001
+From b4bd3b39310b4f091edb7ce9f3f73e3fe1f7cc5f Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Sat, 24 Mar 2018 08:02:48 -0400
-Subject: [PATCH 03/13] media: rc: per-protocol repeat period and minimum keyup
+Subject: [PATCH 03/12] media: rc: per-protocol repeat period and minimum keyup
  timer
 
 Each IR protocol has its own repeat period. We can minimise the keyup
@@ -527,57 +527,10 @@ index 8cd7a26..3b11241 100644
 2.14.1
 
 
-From 62a0d8ca1d2ee90ce57d6f1700e011ec2ec50c92 Mon Sep 17 00:00:00 2001
-From: Sean Young <sean@mess.org>
-Date: Sun, 25 Mar 2018 11:45:40 -0400
-Subject: [PATCH 04/13] media: rc: mce_kbd decoder: low timeout values cause
- double keydowns
-
-The mce keyboard repeats pressed keys every 100ms. If the IR timeout
-is set to less than that, we send key up events before the repeat
-arrives, so we have key up/key down for each IR repeat.
-
-The keyboard ends any sequence with a 0 scancode, in which case all keys
-are cleared so there is no need to run the timeout timer: it only exists
-for the case that the final 0 was not received.
-
-Signed-off-by: Sean Young <sean@mess.org>
-Signed-off-by: Mauro Carvalho Chehab <mchehab@s-opensource.com>
----
- drivers/media/rc/ir-mce_kbd-decoder.c | 12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/media/rc/ir-mce_kbd-decoder.c b/drivers/media/rc/ir-mce_kbd-decoder.c
-index fa5ce51..03d0f7e 100644
---- a/drivers/media/rc/ir-mce_kbd-decoder.c
-+++ b/drivers/media/rc/ir-mce_kbd-decoder.c
-@@ -324,11 +324,13 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
- 			scancode = data->body & 0xffff;
- 			dev_dbg(&dev->dev, "keyboard data 0x%08x\n",
- 				data->body);
--			if (dev->timeout)
--				delay = usecs_to_jiffies(dev->timeout / 1000);
--			else
--				delay = msecs_to_jiffies(100);
--			mod_timer(&data->rx_timeout, jiffies + delay);
-+			if (scancode) {
-+				delay = nsecs_to_jiffies(dev->timeout) +
-+					msecs_to_jiffies(100);
-+				mod_timer(&data->rx_timeout, jiffies + delay);
-+			} else {
-+				del_timer(&data->rx_timeout);
-+			}
- 			/* Pass data to keyboard buffer parser */
- 			ir_mce_kbd_process_keyboard_data(dev, scancode);
- 			lsc.rc_proto = RC_PROTO_MCIR2_KBD;
--- 
-2.14.1
-
-
-From 109b96feab8cdb9660aa8f5c18fe019671c38949 Mon Sep 17 00:00:00 2001
+From c2f422fb5bc97a1e0db5f4ca8fe41fdf9a9b7fcd Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Sat, 7 Apr 2018 17:41:17 -0400
-Subject: [PATCH 05/13] media: rc: mce_kbd protocol encodes two scancodes
+Subject: [PATCH 04/12] media: rc: mce_kbd protocol encodes two scancodes
 
 If two keys are pressed, then both keys are encoded in the scancode. This
 makes the mce keyboard more responsive.
@@ -655,10 +608,10 @@ index 3b11241..2e222d9 100644
 2.14.1
 
 
-From 83fd4cbbb5e3f6b1a27a2098ae4e4ed53abcdc4a Mon Sep 17 00:00:00 2001
+From 888dab026c977b6f712b70f16ebeb2f6bf6f16db Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Wed, 11 Apr 2018 11:02:16 -0400
-Subject: [PATCH 06/13] media: rc: mce_kbd decoder: remove superfluous call to
+Subject: [PATCH 05/12] media: rc: mce_kbd decoder: remove superfluous call to
  input_sync
 
 There is nothing to sync in this code path.
@@ -686,10 +639,10 @@ index 002b832..2fc7871 100644
 2.14.1
 
 
-From 58e8f06c164bc725c359c9f6dd22f7fb1718768c Mon Sep 17 00:00:00 2001
+From 7b83e504b6bd4238468f807c32069d12cc450ef7 Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Thu, 12 Apr 2018 16:28:39 -0400
-Subject: [PATCH 07/13] media: rc: mce_kbd decoder: fix race condition
+Subject: [PATCH 06/12] media: rc: mce_kbd decoder: fix race condition
 
 The MCE keyboard sends both key down and key up events. We have a timeout
 handler mce_kbd_rx_timeout() in case the keyup event is never received;
@@ -787,10 +740,10 @@ index f785513..07ba77f 100644
 2.14.1
 
 
-From c9142eda7fe068269339893a910f2cd2e71dc8a4 Mon Sep 17 00:00:00 2001
+From 1a9b9e6b0b83261922f3cd6c2be0499a2a9f9ee9 Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Wed, 18 Apr 2018 05:36:25 -0400
-Subject: [PATCH 08/13] media: rc: mceusb: IR of length 0 means IR timeout, not
+Subject: [PATCH 07/12] media: rc: mceusb: IR of length 0 means IR timeout, not
  reset
 
 The last usb packet with IR data will end with 0x80 (MCE_IRDATA_TRAILER).
@@ -824,10 +777,10 @@ index 69ba573..a1c2190 100644
 2.14.1
 
 
-From 072bc4a62bb580904d43bbc2fbe04d97115a4020 Mon Sep 17 00:00:00 2001
+From a137c26c8f9ac1ed406cc0a4a4dad3398fb0c920 Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Sun, 8 Apr 2018 11:06:49 -0400
-Subject: [PATCH 09/13] media: rc: mceusb: allow the timeout to be configurable
+Subject: [PATCH 08/12] media: rc: mceusb: allow the timeout to be configurable
 
 mceusb devices have a default timeout of 100ms, but this can be changed.
 
@@ -882,10 +835,10 @@ index a1c2190..5c0bf61 100644
 2.14.1
 
 
-From 880ddf029177c5a26889672c67db37572fff36e8 Mon Sep 17 00:00:00 2001
+From dd8159588ef7ab8cb05cd2730825a2e3406c3dbe Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Wed, 9 May 2018 06:11:28 -0400
-Subject: [PATCH 10/13] media: mceusb: MCE_CMD_SETIRTIMEOUT cause strange
+Subject: [PATCH 09/12] media: mceusb: MCE_CMD_SETIRTIMEOUT cause strange
  behaviour on device
 
 If the IR timeout is set on vid 1784 pid 0011, the device starts
@@ -963,10 +916,10 @@ index 5c0bf61..1619b74 100644
 2.14.1
 
 
-From 45bfc4c9f1747c826cb98f477f0a18ebbcdd957d Mon Sep 17 00:00:00 2001
+From 1391fe65757811bc1e197200a27918141b2fd90b Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Thu, 10 May 2018 07:37:51 -0400
-Subject: [PATCH 11/13] media: mceusb: filter out bogus timing irdata of
+Subject: [PATCH 10/12] media: mceusb: filter out bogus timing irdata of
  duration 0
 
 A mceusb device has been observed producing invalid irdata. Proactively
@@ -980,7 +933,7 @@ Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
  1 file changed, 5 insertions(+)
 
 diff --git a/drivers/media/rc/mceusb.c b/drivers/media/rc/mceusb.c
-index 1619b74..1ca49491 100644
+index 1619b74..1ca4949 100644
 --- a/drivers/media/rc/mceusb.c
 +++ b/drivers/media/rc/mceusb.c
 @@ -1177,6 +1177,11 @@ static void mceusb_process_ir_data(struct mceusb_dev *ir, int buf_len)
@@ -999,10 +952,10 @@ index 1619b74..1ca49491 100644
 2.14.1
 
 
-From d3f6e4507c2714234a5fac8428b5e5db4514a717 Mon Sep 17 00:00:00 2001
+From 2b7fc5287aba07497933d9cceb3898ebd8001af4 Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Thu, 10 May 2018 07:49:49 -0400
-Subject: [PATCH 12/13] media: mceusb: add missing break
+Subject: [PATCH 11/12] media: mceusb: add missing break
 
 Fallthrough is not intended here.
 
@@ -1013,7 +966,7 @@ Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
  1 file changed, 1 insertion(+)
 
 diff --git a/drivers/media/rc/mceusb.c b/drivers/media/rc/mceusb.c
-index 1ca49491..4c0c800 100644
+index 1ca4949..4c0c800 100644
 --- a/drivers/media/rc/mceusb.c
 +++ b/drivers/media/rc/mceusb.c
 @@ -572,6 +572,7 @@ static int mceusb_cmd_datasize(u8 cmd, u8 subcmd)
@@ -1028,10 +981,10 @@ index 1ca49491..4c0c800 100644
 2.14.1
 
 
-From e7898b7a6ce902107232cb516d854609d71a9426 Mon Sep 17 00:00:00 2001
+From 06ea4ee6cc2d2d6fae27ddb29f31595f2d6a018b Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Sun, 13 May 2018 07:24:31 -0400
-Subject: [PATCH 13/13] media: rc: ite-cir: lower timeout and extend allowed
+Subject: [PATCH 12/12] media: rc: ite-cir: lower timeout and extend allowed
  timeout range
 
 The minimum possible timeout of ite-cir is 8 samples, which is
