@@ -2,12 +2,12 @@
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 
 PKG_NAME="nano"
-PKG_VERSION="2.9.3"
-PKG_SHA256="f12058ead9955cb841c1c5e3b9aec6ba93114a807580e928de0eaf6144c91074"
+PKG_VERSION="2.9.8"
+PKG_SHA256="c2deac31ba4d3fd27a42fafcc47ccf499296cc69a422bbecab63f2933ea85488"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.nano-editor.org/"
-PKG_URL="http://ftpmirror.gnu.org/nano/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="http://ftpmirror.gnu.org/nano/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain ncurses"
 PKG_SECTION="shell/texteditor"
 PKG_SHORTDESC="nano: Pico editor clone with enhancements"
