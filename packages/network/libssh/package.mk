@@ -2,12 +2,12 @@
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 
 PKG_NAME="libssh"
-PKG_VERSION="0.7.5"
-PKG_SHA256="6f7d5b9f3089164eec7408d35b99194b17352cce436a4a95485b511bce2aab4b"
+PKG_VERSION="0.8.1"
+PKG_SHA256="d17f1267b4a5e46c0fbe66d39a3e702b8cefe788928f2eb6e339a18bb00b1924"
 PKG_ARCH="any"
-PKG_LICENSE="OpenSource"
+PKG_LICENSE="LGPL"
 PKG_SITE="http://www.libssh.org/"
-PKG_URL="https://git.libssh.org/projects/libssh.git/snapshot/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://www.libssh.org/files/0.8/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain zlib openssl"
 PKG_SECTION="network"
 PKG_SHORTDESC="libssh: A working SSH implementation by means of a library"
@@ -19,11 +19,9 @@ makeinstall_target() {
 # install static library only
   mkdir -p $SYSROOT_PREFIX/usr/lib
     cp src/libssh.a $SYSROOT_PREFIX/usr/lib
-    cp src/threads/libssh_threads.a $SYSROOT_PREFIX/usr/lib
 
   mkdir -p $SYSROOT_PREFIX/usr/lib/pkgconfig
     cp libssh.pc $SYSROOT_PREFIX/usr/lib/pkgconfig
-    cp libssh_threads.pc $SYSROOT_PREFIX/usr/lib/pkgconfig
 
   mkdir -p $SYSROOT_PREFIX/usr/include/libssh
     cp ../include/libssh/callbacks.h $SYSROOT_PREFIX/usr/include/libssh
