@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="p8-platform"
-PKG_VERSION="3219004"
+PKG_VERSION="32190045c7eb6883c0662db2f91b4ceeab904fc2"
 PKG_SHA256="5225417c2c174d49124d0e44d32e3828f9b83464422445d303adb2dc3111686d"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

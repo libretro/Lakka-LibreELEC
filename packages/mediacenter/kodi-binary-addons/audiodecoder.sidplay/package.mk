@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.sidplay"
-PKG_VERSION="dfa3814"
+PKG_VERSION="dfa3814fc7e0ebe341f4966fe96ebeae553fb54c"
 PKG_SHA256="f7de385f963f7a605965f97d3377dc29829e1be947f9f10e3d9d05d4861d3e0d"
 PKG_REV="2"
 PKG_ARCH="any"

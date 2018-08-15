@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Lukas Rusak (lrusak@libreelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="screensaver.cpblobs"
-PKG_VERSION="f08e473"
+PKG_VERSION="f08e473aeae2a4c693fe82a39d17f2367b0f7f44"
 PKG_SHA256="eae30010f1f3c5ddf50679ab5fce6a655a176f687d744b1dc5b7a81aa67cb530"
 PKG_REV="2"
 PKG_ARCH="any"

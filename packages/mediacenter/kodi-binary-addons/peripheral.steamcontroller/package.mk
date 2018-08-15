@@ -2,7 +2,7 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="peripheral.steamcontroller"
-PKG_VERSION="ea34539"
+PKG_VERSION="ea345392ab5aa4485f3a48d2037fa8a8e8ab82de"
 PKG_SHA256="cffac3516af2971e739974175d27cf36d1f9dd255df058a169805355b176eef7"
 PKG_REV="102"
 PKG_ARCH="any"

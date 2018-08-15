@@ -3,7 +3,7 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.vdr.vnsi"
-PKG_VERSION="bb4fb30"
+PKG_VERSION="bb4fb3083d146f34cad54f2fc9f99e73138d962c"
 PKG_SHA256="7a21117cbbd18a49df81401f3f8681ea9a8956b5766847395a4250b8596e45b9"
 PKG_REV="2"
 PKG_ARCH="any"

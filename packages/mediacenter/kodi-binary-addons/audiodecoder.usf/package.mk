@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.usf"
-PKG_VERSION="ccb1edc"
+PKG_VERSION="ccb1edc537435ae4070705d93ca6a3b67ed70785"
 PKG_SHA256="d0dc7bc7ad61bc19ec1297da4b04e2291ad27b68e0dc384d378e5106bba87709"
 PKG_REV="2"
 PKG_ARCH="any"
