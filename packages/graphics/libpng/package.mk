@@ -2,8 +2,8 @@
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 
 PKG_NAME="libpng"
-PKG_VERSION="1.6.29"
-PKG_SHA256="4245b684e8fe829ebb76186327bb37ce5a639938b219882b53d64bd3cfc5f239"
+PKG_VERSION="1.6.35"
+PKG_SHA256="23912ec8c9584917ed9b09c5023465d71709dce089be503c7867fec68a93bcd7"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.libpng.org/"
