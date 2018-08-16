@@ -7,10 +7,9 @@
 unset _CACHE_PACKAGE_LOCAL _CACHE_PACKAGE_GLOBAL _DEBUG_DEPENDS_LIST _DEBUG_PACKAGE_LIST
 
 . config/options ""
-
 . config/show_config
-show_config
 
+show_config
 save_build_config
 
 setup_toolchain target
@@ -57,18 +56,19 @@ fi
 
 LIBREELEC_ARCH="${DEVICE:-$PROJECT}.$TARGET_ARCH"
 TARGET_VERSION="$LIBREELEC_ARCH-$LIBREELEC_VERSION"
-IMAGE_NAME="$DISTRONAME-$TARGET_VERSION"
-
-if [ "$DEVEL_VERSION" = "devel" ] ; then
-  IMAGE_NAME="$DISTRONAME-$LIBREELEC_ARCH-$OS_VERSION-$LIBREELEC_VERSION"
-fi
-
-if [ -n "$UBOOT_SYSTEM" ]; then
-  IMAGE_NAME="$IMAGE_NAME-$UBOOT_SYSTEM"
-fi
 
 if [ -n "$CUSTOM_IMAGE_NAME" ]; then
-   IMAGE_NAME="$CUSTOM_IMAGE_NAME"
+  IMAGE_NAME="$CUSTOM_IMAGE_NAME"
+else
+  if [ "$DEVEL_VERSION" = "devel" ]; then
+    IMAGE_NAME="$DISTRONAME-$LIBREELEC_ARCH-$OS_VERSION-$LIBREELEC_VERSION"
+  else
+    IMAGE_NAME="$DISTRONAME-$TARGET_VERSION"
+  fi
+
+  if [ -n "$UBOOT_SYSTEM" ]; then
+    IMAGE_NAME="$IMAGE_NAME-$UBOOT_SYSTEM"
+  fi
 fi
 
 if [ -n "$IMAGE_SUFFIX" ]; then
@@ -89,24 +89,16 @@ rm -rf $STAMPS_INSTALL
 mkdir -p $INSTALL
 
 # create baselayout
-mkdir -p $INSTALL/etc
-mkdir -p $INSTALL/dev
-mkdir -p $INSTALL/proc
-mkdir -p $INSTALL/run
-mkdir -p $INSTALL/sys
-mkdir -p $INSTALL/tmp
-mkdir -p $INSTALL/usr
-mkdir -p $INSTALL/var
-mkdir -p $INSTALL/flash
-mkdir -p $INSTALL/storage
+for directory in etc dev proc run sys tmp usr var flash storage; do
+  mkdir -p $INSTALL/$directory
+done
 ln -sf /var/media $INSTALL/media
 ln -sf /usr/lib $INSTALL/lib
 ln -sf /usr/bin $INSTALL/bin
 ln -sf /usr/sbin $INSTALL/sbin
 
-if [ "$TARGET_ARCH" = "x86_64" -o "$TARGET_ARCH" = "powerpc64" ]; then
+if [ "$TARGET_ARCH" = "x86_64" ]; then
   ln -s /usr/lib $INSTALL/lib64
-  mkdir -p $INSTALL/usr
   ln -s /usr/lib $INSTALL/usr/lib64
 fi
 
@@ -137,7 +129,7 @@ echo "$DISTRONAME ($LIBREELEC_BUILD): $LIBREELEC_VERSION ($LIBREELEC_ARCH)" >> $
 
 ln -sf /etc/issue $INSTALL/etc/motd
 
-# Basissystem...
+# populate base system...
 $SCRIPTS/install libc
 $SCRIPTS/install gcc
 
@@ -164,7 +156,7 @@ $SCRIPTS/install network
 # Automounter support
 [ "$UDEVIL" = "yes" ] && $SCRIPTS/install udevil
 
-# NTFS 3G support
+# EXFAT support
 [ "$EXFAT" = "yes" ] && $SCRIPTS/install fuse-exfat
 
 # NTFS 3G support
@@ -191,23 +183,23 @@ $SCRIPTS/install debug
 # OEM packages
 [ "$OEM_SUPPORT" = "yes" ] && $SCRIPTS/install oem
 
-# copy project related files to filesystem
+# copy PROJECT related files to filesystem
 if [ -d "$PROJECT_DIR/$PROJECT/filesystem" ]; then
   cp -PR $PROJECT_DIR/$PROJECT/filesystem/* $INSTALL
   # install project specific systemd services
-  for service in $PROJECT_DIR/$PROJECT/filesystem/usr/lib/systemd/system/*.service ; do
-    if [ -f "$service" ] ; then
+  for service in $PROJECT_DIR/$PROJECT/filesystem/usr/lib/systemd/system/*.service; do
+    if [ -f "$service" ]; then
       enable_service $(basename $service)
     fi
   done
 fi
 
-# copy board related files to filesystem
+# copy DEVICE related files to filesystem
 if [ -n "$DEVICE" -a -d "$PROJECT_DIR/$PROJECT/devices/$DEVICE/filesystem" ]; then
   cp -PR $PROJECT_DIR/$PROJECT/devices/$DEVICE/filesystem/* $INSTALL
   # install device specific systemd services
-  for service in $PROJECT_DIR/$PROJECT/devices/$DEVICE/filesystem/usr/lib/systemd/system/*.service ; do
-    if [ -f "$service" ] ; then
+  for service in $PROJECT_DIR/$PROJECT/devices/$DEVICE/filesystem/usr/lib/systemd/system/*.service; do
+    if [ -f "$service" ]; then
       enable_service $(basename $service)
     fi
   done
@@ -221,7 +213,7 @@ find $INSTALL/usr/lib/kernel-overlays/base/lib/modules/$MODVER/ -name *.ko | \
 $TOOLCHAIN/bin/depmod -b $INSTALL/usr/lib/kernel-overlays/base -a -e -F "$BUILD/linux-$(kernel_version)/System.map" $MODVER
 
 # strip kernel modules
-for MOD in `find $INSTALL/usr/lib/kernel-overlays/ -type f -name *.ko`; do
+for MOD in $(find $INSTALL/usr/lib/kernel-overlays/ -type f -name *.ko); do
   ${TARGET_KERNEL_PREFIX}strip --strip-debug $MOD
 done
 
@@ -281,8 +273,8 @@ if [ "$1" = "release" -o "$1" = "mkimage" -o "$1" = "amlpkg" -o "$1" = "noobs" ]
   cp $ROOT/CHANGELOG* $RELEASE_DIR
   echo "$TARGET_VERSION" > $RELEASE_DIR/RELEASE
 
-  if [ -n "$MEDIACENTER" ] ; then
-    echo "Kodi commit: `scripts/git_version $MEDIACENTER`" >> $RELEASE_DIR/RELEASE
+  if [ -n "$MEDIACENTER" ]; then
+    echo "Kodi commit: $(get_pkg_version $MEDIACENTER)" >> $RELEASE_DIR/RELEASE
   fi
 
   mkdir -p $RELEASE_DIR/licenses
@@ -483,13 +475,13 @@ if [ "$1" = "release" -o "$1" = "mkimage" -o "$1" = "amlpkg" -o "$1" = "noobs" ]
     cp $TARGET_IMG/$IMAGE_NAME.system $RELEASE_DIR/${NOOBS_DISTRO}/System/SYSTEM
     cp $TARGET_IMG/$IMAGE_NAME.kernel $RELEASE_DIR/${NOOBS_DISTRO}/System/kernel.img
 
-    for dtb in $INSTALL/usr/share/bootloader/*.dtb ; do
+    for dtb in $INSTALL/usr/share/bootloader/*.dtb; do
       if [ -f $dtb ]; then
         cp -PR $dtb $RELEASE_DIR/${NOOBS_DISTRO}/System
       fi
     done
 
-    for overlay in $INSTALL/usr/share/bootloader/overlays/* ; do
+    for overlay in $INSTALL/usr/share/bootloader/overlays/*; do
       if [ -f $overlay ]; then
         mkdir -p $RELEASE_DIR/${NOOBS_DISTRO}/System/overlays
         cp -PR $overlay $RELEASE_DIR/${NOOBS_DISTRO}/System/overlays
