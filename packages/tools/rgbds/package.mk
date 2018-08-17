@@ -18,28 +18,23 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="sameboy"
-PKG_VERSION="133914f"
+PKG_NAME="rgbds"
+PKG_VERSION="d778b8e"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
-PKG_SITE="https://github.com/libretro/sameboy"
+PKG_SITE="https://github.com/rednex/rgbds"
 PKG_GIT_URL="$PKG_SITE"
-PKG_GIT_BRANCH="buildbot"
-PKG_DEPENDS_TARGET="toolchain rgbds:host"
-PKG_PRIORITY="optional"
-PKG_SECTION="libretro"
-PKG_SHORTDESC="Gameboy and Gameboy Color emulator written in C"
-PKG_LONGDESC="Gameboy and Gameboy Color emulator written in C"
+PKG_DEPENDS_HOST="toolchain libpng:host"
+PKG_SHORTDESC="Rednex Game Boy Development System"
+PKG_LONGDESC="Rednex Game Boy Development System"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-make_target() {
-  make -C libretro
-}
-
-makeinstall_target() {
-  mkdir -p $INSTALL/usr/lib/libretro
-  cp build/bin/sameboy_libretro.so $INSTALL/usr/lib/libretro/
+makeinstall_host() {
+  cp $PKG_BUILD/rgbasm $TOOLCHAIN/bin
+  cp $PKG_BUILD/rgbfix $TOOLCHAIN/bin
+  cp $PKG_BUILD/rgbgfx $TOOLCHAIN/bin
+  cp $PKG_BUILD/rgblink $TOOLCHAIN/bin
 }
