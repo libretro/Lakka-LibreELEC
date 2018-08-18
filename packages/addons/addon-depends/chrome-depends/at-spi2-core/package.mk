@@ -4,6 +4,7 @@
 
 PKG_NAME="at-spi2-core"
 PKG_VERSION="2.28.0"
+PKG_SHA256="42a2487ab11ce43c288e73b2668ef8b1ab40a0e2b4f94e80fca04ad27b6f1c87"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.gnome.org/"
