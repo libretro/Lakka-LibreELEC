@@ -4,6 +4,7 @@
 
 PKG_NAME="at-spi2-atk"
 PKG_VERSION="2.26.2"
+PKG_SHA256="61891f0abae1689f6617a963105a3f1dcdab5970c4a36ded9c79a7a544b16a6e"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.gnome.org/"
