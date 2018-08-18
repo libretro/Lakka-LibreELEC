@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 # libepoxy (actually) needs to be built shared, to avoid
 # (EE) Failed to load /usr/lib/xorg/modules/libglamoregl.so:
@@ -7,8 +8,8 @@
 # in Xorg.log
 
 PKG_NAME="libepoxy"
-PKG_VERSION="1.4.3"
-PHG_SHA256="0b808a06c9685a62fca34b680abb8bc7fb2fda074478e329b063c1f872b826f6"
+PKG_VERSION="1.5.2"
+PKG_SHA256="a9562386519eb3fd7f03209f279f697a8cba520d3c155d6e253c3e138beca7d8"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/anholt/libepoxy"

@@ -21,7 +21,9 @@ CHECK_FILTER_CLASS=All
 PROGRESS=yes
 IS_MIRROR=yes
 VERBOSE=0
-WORKER_THREADS=32
+PATH_FILTER=
+VERIFY_CHECKSUM=no
+WORKER_THREADS=16
 
 LOCKFILE=/tmp/distro_tool.lock
 WORKFILES_I=/tmp/distro_tool.in
@@ -244,11 +246,14 @@ class MyUtility(object):
     # 35/56 as retries, could have several of these before a successful
     # request - limit total number of retries as ${retry} * 3.
     while retry > 0 and maxattempts > 0:
+      maxattempts -= 1
       if stopped.is_set(): break
       ts_cmd = datetime.datetime.now()
       if HEAD_supported:
+        MyUtility.logmsg(msgs, 3, "%s --head --output - --url %s" % (curl_args, url))
         (result, headers) = MyUtility.runcommand(msgs, "%s --head --output - --url %s" % (curl_args, url))
       else:
+        MyUtility.logmsg(msgs, 3, "%s --range 0-1024 --output /dev/null --url %s" % (curl_args, url))
         (result, headers) = MyUtility.runcommand(msgs, "%s --range 0-1024 --output /dev/null --url %s" % (curl_args, url))
 
       search_obj = MyUtility.search_HTTP_CODE.search(headers)
@@ -352,12 +357,9 @@ class MyUtility(object):
 
   @staticmethod
   def get_package(msgs, package_name, package_source, package_url, package_sha):
-    onsource = False
-    onmirror = False
 
     onsource = MyUtility.remote_file_exists(msgs, package_url)
-    if not onsource:
-      onmirror = MyUtility.remote_file_exists(msgs, "%s/%s/%s" % (DISTRO_MIRROR, package_name, package_source))
+    onmirror = MyUtility.remote_file_exists(msgs, "%s/%s/%s" % (DISTRO_MIRROR, package_name, package_source))
 
     # If the only PKG_URL source is the DISTRO_SRC server...
     if package_url.startswith(DISTRO_SOURCE):
@@ -386,12 +388,29 @@ class MyUtility(object):
     if os.path.exists(tmpfile_log):
       os.remove(tmpfile_log)
 
+    if VERIFY_CHECKSUM == True and package_sha and onmirror:
+      result = MyUtility.download_file(msgs, tmpfile_data, tmpfile_log, "%s/%s/%s" % (DISTRO_MIRROR, package_name, package_source))
+      calc_sha = MyUtility.calculate_sha256(tmpfile_data)
+
+      if os.path.exists(tmpfile_data):
+        os.remove(tmpfile_data)
+      if os.path.exists(tmpfile_log):
+        os.remove(tmpfile_log)
+
+      if calc_sha != package_sha:
+        MyUtility.show(msgs, 0, "yellow", "CHECKSUM MISMATCH FROM MIRROR - REFRESHING FROM SOURCE", "%s (%s)" % (package_name, package_url))
+        MyUtility.logmsg(msgs, 0, "Checksum mismatch - got [%s], expected [%s]" % (calc_sha, package_sha))
+        onmirror = False
+      else:
+        MyUtility.show(msgs, 1, "green", "Mirror checksum valid", "%s (%s)" % (package_name, package_source))
+        return True
+
     if onsource:
       result = MyUtility.download_file(msgs, tmpfile_data, tmpfile_log, package_url)
     elif onmirror:
       result = MyUtility.download_file(msgs, tmpfile_data, tmpfile_log, "%s/%s/%s" % (DISTRO_MIRROR, package_name, package_source))
     else:
-      result=False
+      result = False
 
     if result == False or not os.path.exists(tmpfile_data):
       result = False
@@ -525,15 +544,15 @@ class MyThread(threading.Thread):
 
         MyUtility.logmsg(msgs, 3, ">>>>>>>>>>>>>>>>> %s, %s, %s, wanted sha256 %s" % (pkg_name, pkg_version, pkg_url, pkg_sha))
 
-        if MyUtility.have_package(pkg_name, pkg_source_name):
-          MyUtility.show(msgs, 1, "green", "Already downloaded", "%s (%s)" % (pkg_name, pkg_source_name))
-        else:
+        if not MyUtility.have_package(pkg_name, pkg_source_name) or (VERIFY_CHECKSUM and pkg_sha):
           tStart = datetime.datetime.now()
           if not stopped.is_set() and \
              not MyUtility.get_package(msgs, pkg_name, pkg_source_name, pkg_url, pkg_sha):
              if not IGNORE_ERRORS:
                stopped.set()
           tDelta_get_package = datetime.datetime.now() - tStart
+        else:
+          MyUtility.show(msgs, 1, "green", "Already downloaded", "%s (%s)" % (pkg_name, pkg_source_name))
 
         if CHECK_NEWER and not stopped.is_set():
           if (CHECK_FILTER_CLASS == "All") or \
@@ -655,7 +674,8 @@ if __name__ == "__main__":
     GIT_PASSWORD = args[11]
     CHECK_FILTER_CLASS = args[12]
     CHECK_FILTER_TYPE = args[13]
-    VERBOSE = int(args[14])
+    VERIFY_CHECKSUM = True if args[14] == "yes" else False
+    VERBOSE = int(args[15])
     SCRATCH_DIR="%s/.tmp" % DOWNLOAD_DIR
 
     stopped = threading.Event()
@@ -677,30 +697,32 @@ Usage: $(basename $0) -d|--download <path> [-t|--target <path>] [-l|--libreelec 
            [-m|--mirror] [-s|--source] [-a|-all] [-p|--package <package_name> [-r|--revision <revision>]]
            [--git] [-n|--notnewer] [--check-main | --check-addons] [--check-ver | --check-rev] 
            [--noprogress] [-T #|--threads #] [-U|--gituser] [-P|--gitpass] [--dry-run]
-           [-v|--verbose] [-h|--help]
+           [--path-filter path] [--verify-checksum] [-v|--verbose] [-h|--help]
 
 Options:
-  -d, --download:     Directory path into which new package files will be downloaded - default is $HOME/download[1]
-  -t, --target:       Directory path for existing packages that are to be refreshed, default is $HOME/sources[2]
-  -l, --libreelec:    LibreELEC.tv repo, default is ${HOME}/LibreELEC.tv
-  -m, --mirror:       Target is mirror not source - mirror uses a hierarchical per-package folder structure
-  -s, --source:       Target is source not mirror - source uses a flattened file structure. Default is mirror
-  -a, --all:          Ignore download failures, continue processing all packages
-  -p, --package:      Package to process, otherwise process all packages
-  -r, --revision:     Version to use in place of PKG_VERSION, only applicable in conjunction with -p
-      --git:          Clone (if not available) or pull the LibreELEC.tv repository
-  -n, --notnewer:     Don't check for newer packages ('X.Y.Z+1' 'X.Y+1.0' 'X+1.0.0')
-      --check-main:   Check newer for main packages, ignore add-on packages
-      --check-addons: Check newer for add-on packages, ignore main packages
-      --check-ver:    Check newer for version-based packages, ignore rev-based/github packages
-      --check-rev:    Check newer for rev-based/github packages, ignore version-based packages
-      --noprogress:   Do not show progress indicator
-  -T, --threads:      Number of worker threads, default is 32
-  -U, --gituser:      Git username (or source from ~/.git.conf) - avoids API limits
-  -P, --gitpass:      Git password (or source from ~/.git.conf) - avoids API limits
-      --dry-run:      Don't actually download anything (will still git clone/pull if configured)
-  -v, --verbose:      Output more verbose sync information. Repeat for more detail
-  -h, --help:         This message
+  -d, --download:        Directory path into which new package files will be downloaded - default is $HOME/download[1]
+  -t, --target:          Directory path for existing packages that are to be refreshed, default is $HOME/sources[2]
+  -l, --libreelec:       LibreELEC.tv repo, default is ${HOME}/LibreELEC.tv
+  -m, --mirror:          Target is mirror not source - mirror uses a hierarchical per-package folder structure
+  -s, --source:          Target is source not mirror - source uses a flattened file structure. Default is mirror
+  -a, --all:             Ignore download failures, continue processing all packages
+  -p, --package:         Package to process, otherwise process all packages
+  -r, --revision:        Version to use in place of PKG_VERSION, only applicable in conjunction with -p
+      --git:             Clone (if not available) or pull the LibreELEC.tv repository
+  -n, --notnewer:        Don't check for newer packages ('X.Y.Z+1' 'X.Y+1.0' 'X+1.0.0')
+      --check-main:      Check newer for main packages, ignore add-on packages
+      --check-addons:    Check newer for add-on packages, ignore main packages
+      --check-ver:       Check newer for version-based packages, ignore rev-based/github packages
+      --check-rev:       Check newer for rev-based/github packages, ignore version-based packages
+      --noprogress:      Do not show progress indicator
+  -T, --threads:         Number of worker threads, default is 32
+  -U, --gituser:         Git username (or source from ~/.git.conf) - avoids API limits
+  -P, --gitpass:         Git password (or source from ~/.git.conf) - avoids API limits
+      --dry-run:         Don't actually download anything (will still git clone/pull if configured)
+      --path-filter      Restrict workload to specified path, eg. packages/x11 (recursive)
+      --verify-checksum: If checksum on mirror is no longer valid, attempt re-download of package from source
+  -v, --verbose:         Output more verbose sync information. Repeat for more detail
+  -h, --help:            This message
 
   Note#1. The download directory will have the LibreELEC version appended (eg. /devel) unless it is a mirror, in which case "/mirror" will be appended.
   Note#2. The target directory will have the LibreELEC version appended (eg. /devel) unless it is a mirror, in which case "/mirror" will be appended.
@@ -721,18 +743,22 @@ get_libreelec_option() {
 }
 
 generate_work() {
-  local package_name="$1" revision="$2"
+  local package_name="$1" revision="$2" path_filter="$3"
   local packages pcount
   local workfile_o
   local tcount=0
 
   [ ${PROGRESS} == yes ] && echo -en "Acquiring packages...\r" >&2
 
-  packages="$(get_packages ${package_name})"
+  packages="$(get_packages "${package_name}" "${path_filter}")"
   pcount="$(echo "${packages}" | wc -l)"
 
   if [ -n "${package_name}" -a -z "${packages}" ]; then
-    echo "ERROR: ${package_name} is not a valid package - package.mk does not exist" >&2
+    if [ -n "${path_filter}" ]; then
+      echo "ERROR: ${package_name} is not a valid package when using filter ${path_filter} - package.mk does not exist" >&2
+    else
+      echo "ERROR: ${package_name} is not a valid package - package.mk does not exist" >&2
+    fi
     exit 1
   fi
 
@@ -848,16 +874,24 @@ get_package_path() {
 }
 
 get_packages() {
-  local package_name="$1"
+  local package_name="$1" path_filter="$2"
 
   export -f get_package_path
 
   cd $LIBREELEC_DIR
 
-  if [ -n "${package_name}" ]; then
-    basename $(dirname $(find packages projects/${PROJECT} -path "*/${package_name}/*" -name package.mk) 2>/dev/null | head -1) 2>/dev/null
+  if [ -n "${path_filter}" ]; then
+    if [ -n "${package_name}" ]; then
+      basename $(dirname $(find ${path_filter} -path "*/${package_name}/*" -name package.mk 2>/dev/null) 2>/dev/null | head -1) 2>/dev/null
+    else
+      find ${path_filter} -name package.mk -exec bash -c get_package_path "{}" \; 2>/dev/null | cut -d' ' -f1 | sort -u
+    fi
   else
-    find packages projects/${PROJECT} -name package.mk -exec bash -c get_package_path "{}" \; | cut -d' ' -f1 | sort -u
+    if [ -n "${package_name}" ]; then
+      basename $(dirname $(find packages projects/${PROJECT} -path "*/${package_name}/*" -name package.mk 2>/dev/null) 2>/dev/null | head -1) 2>/dev/null
+    else
+      find packages projects/${PROJECT} -name package.mk -exec bash -c get_package_path "{}" \; 2>/dev/null | cut -d' ' -f1 | sort -u
+    fi
   fi
   return 0
 }
@@ -886,7 +920,7 @@ exec_worker_prog() {
   python3 /tmp/distro-tool.py "${DOWNLOAD_DIR}" "${TARGET_DIR}" "${DISTRO_SOURCE}" "${DISTRO_MIRROR}" \
                               "${IS_MIRROR}" "${IGNORE_ERRORS}" "${DRY_RUN}" "${CHECK_NEWER}" \
                               "${PROGRESS}" "${WORKER_THREADS}" "${GIT_USERNAME}" "${GIT_PASSWORD}" \
-                              "${CHECK_FILTER_CLASS}" "${CHECK_FILTER_TYPE}" "${VERBOSE}"
+                              "${CHECK_FILTER_CLASS}" "${CHECK_FILTER_TYPE}" ${VERIFY_CHECKSUM} "${VERBOSE}"
   rm -f /tmp/distro-tool.py
 }
 
@@ -962,6 +996,13 @@ while [ : ]; do
     --noprogress)
       PROGRESS=no
       ;;
+    --path-filter)
+      shift
+      PATH_FILTER=$1
+      ;;
+    --verify-checksum)
+      VERIFY_CHECKSUM=yes
+      ;;
     -h|--help)
       help
       exit 0
@@ -1026,6 +1067,9 @@ echo "Distro Source is: ${DISTRO_SOURCE}"
 echo "Distro Mirror is: ${DISTRO_MIRROR}"
 echo " Syncing against: ${TARGET_DIR}"
 echo "  Downloading to: ${DOWNLOAD_DIR}"
+if [ -n "${PATH_FILTER}" ]; then
+  echo "     Path filter: ${PATH_FILTER}"
+fi
 echo "     Check Newer: ${CHECK_NEWER^}  Class/Type: ${CHECK_FILTER_CLASS} / ${CHECK_FILTER_TYPE}"
 echo "         Dry run: ${DRY_RUN^}"
 if [ ${VERBOSE} -gt 2 ]; then
@@ -1035,7 +1079,7 @@ fi
 echo
 
 if [ ${VERBOSE} -gt 2 -a -n "${DEBUG_LOG}" ]; then
-  generate_work "${PACKAGE}" "${REVISION}" | exec_worker_prog 2>${DEBUG_LOG}
+  generate_work "${PACKAGE}" "${REVISION}" "${PATH_FILTER}" | exec_worker_prog 2>${DEBUG_LOG}
 else
-  generate_work "${PACKAGE}" "${REVISION}" | exec_worker_prog
+  generate_work "${PACKAGE}" "${REVISION}" "${PATH_FILTER}" | exec_worker_prog
 fi
