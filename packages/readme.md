@@ -12,7 +12,7 @@ To control the build behaviour of your package, use variables in the top-down or
 | Variable    | Default | Required |Description |
 |-------------|---------|----------|------------|
 | PKG_NAME    | -       | yes | Name of the packaged software application. Should be lowercase |
-| PKG_VERSION | -       | yes | Version of the packaged software application |
+| PKG_VERSION | -       | yes | Version of the packaged software application. If the version is a githash, please use the full githash, not the abbreviated form. |
 | PKG_SHA256  | -       | yes | SHA256 hashsum of the application download file |
 | PKG_ARCH    | any     | no  | Architectures for which the package builds. `any` or a space separated list of `aarch64`, `arm` or `x86_64` |
 | PKG_LICENSE | -       | yes | License of the software application. [Reference](https://github.com/LibreELEC/LibreELEC.tv/tree/master/licenses) |
