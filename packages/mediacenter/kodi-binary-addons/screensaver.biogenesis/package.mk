@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="screensaver.biogenesis"
-PKG_VERSION="7c2694d"
+PKG_VERSION="7c2694dfb5891bdfc95b2624235fcb6fceccd7c1"
 PKG_SHA256="2502dd6273dc396a5bf9ae6daad5248fdd03571152bffbb67f3b1f762d319f49"
 PKG_REV="2"
 PKG_ARCH="any"

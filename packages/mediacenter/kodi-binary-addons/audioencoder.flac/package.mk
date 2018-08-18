@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audioencoder.flac"
-PKG_VERSION="c24fc36"
+PKG_VERSION="c24fc36a4b50f72063802c19145db70027f2a5cf"
 PKG_SHA256="be83cead5cc19a0db2e1577d58f91bcc9bff4ad22b607ec6b2c099065486307c"
 PKG_REV="2"
 PKG_ARCH="any"

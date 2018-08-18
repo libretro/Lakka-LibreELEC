@@ -3,7 +3,7 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="visualization.spectrum"
-PKG_VERSION="063cd80"
+PKG_VERSION="063cd80dce3a6ba3aa75016e0bc8a210d37b4f38"
 PKG_SHA256="192c684f343a2c51ae23d54a4da9d53f16f3d6183213d0d0f213c77db3da7c0f"
 PKG_REV="2"
 PKG_ARCH="any"

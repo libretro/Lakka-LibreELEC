@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="visualization.shadertoy"
-PKG_VERSION="6d70239"
+PKG_VERSION="6d70239b0f0062a50640d21aa2b373c03ac29ebd"
 PKG_SHA256="6465ed95ed9cc541015226f0c6e99885f743b902478b951e4ff3ce3f660c6b18"
 PKG_REV="2"
 PKG_ARCH="any"

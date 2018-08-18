@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="visualization.goom"
-PKG_VERSION="7c91a20"
+PKG_VERSION="7c91a206769534adc8a583feaed81cdb8659f64f"
 PKG_SHA256="6197847d922050b37ce8a2a20436c16d10a48566f7128570965aa082fe203fc4"
 PKG_REV="2"
 PKG_ARCH="any"

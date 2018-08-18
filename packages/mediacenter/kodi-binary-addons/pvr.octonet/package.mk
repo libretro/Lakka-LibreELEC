@@ -2,7 +2,7 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.octonet"
-PKG_VERSION="1e44819"
+PKG_VERSION="1e448193009af33a398ddbcb1dc5f10f95594519"
 PKG_SHA256="acea9593c3b6531f7909ce21f95d35553f796fd7327994792839e79f19f1c9ac"
 PKG_REV="2"
 PKG_ARCH="any"

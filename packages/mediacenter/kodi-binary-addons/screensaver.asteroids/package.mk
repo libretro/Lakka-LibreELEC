@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="screensaver.asteroids"
-PKG_VERSION="a3dc5e3"
+PKG_VERSION="a3dc5e331412aaf3d7513a3da43059fe32532e83"
 PKG_SHA256="b1ab51e47700ff6c8ff4102968963ea505c20f0140cc50616d5793b5956a423c"
 PKG_REV="2"
 PKG_ARCH="any"

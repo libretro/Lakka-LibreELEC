@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="inputstream.rtmp"
-PKG_VERSION="bf5351e"
-PKG_SHA256="f1a6117569f3293bc61dad6091ed216d0c82428c3d8981eea9870b16947b2c04"
+PKG_VERSION="0cc2da10e8e237228ce5cee0245e6461facb7f09"
+PKG_SHA256="6880f1f1f084294b6cf429cc8c426a69e07924a021a44f31b37b87ef4c94fec1"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
 PKG_URL="https://github.com/notspiff/inputstream.rtmp/archive/$PKG_VERSION.tar.gz"

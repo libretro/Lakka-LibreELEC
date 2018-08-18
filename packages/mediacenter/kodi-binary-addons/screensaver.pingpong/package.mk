@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="screensaver.pingpong"
-PKG_VERSION="a702c1b"
+PKG_VERSION="a702c1b15ec92845302e1cfcad6e2f7d054bdeb0"
 PKG_SHA256="80eb9b0f1292fa9eebe7dfc8843c859b5c1c05c59704ef1d53c88ba87519a153"
 PKG_REV="2"
 PKG_ARCH="any"

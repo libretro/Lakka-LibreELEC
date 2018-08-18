@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="screensavers.rsxs"
-PKG_VERSION="be03db6"
+PKG_VERSION="be03db6e9652a465b521cb7768b692e52ed2f1e3"
 PKG_SHA256="b0f35760a3f444769c2f0f948defc220b34459dde1bea06522708498eefe2e99"
 PKG_REV="2"
 PKG_ARCH="any"
