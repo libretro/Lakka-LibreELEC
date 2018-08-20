@@ -46,8 +46,8 @@ case "$LINUX" in
     PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
     ;;
   *)
-    PKG_VERSION="4.17.14"
-    PKG_SHA256="c846038df44ee74dd910d19b346044a100f62a5b933eec2264d17008758cbaaf"
+    PKG_VERSION="4.18.3"
+    PKG_SHA256="81ed3ccef8eb43cba3d2451a963d0bbaf5392af98435d42caee82d019a8443d4"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v4.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     PKG_PATCH_DIRS="default"
     ;;
@@ -67,7 +67,7 @@ if [ "$PKG_BUILD_PERF" != "no" ] && grep -q ^CONFIG_PERF_EVENTS= $PKG_KERNEL_CFG
 fi
 
 if [ "$TARGET_ARCH" = "x86_64" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET intel-ucode:host kernel-firmware"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET intel-ucode:host kernel-firmware elfutils:host"
 fi
 
 if [ "$BUILD_ANDROID_BOOTIMG" = "yes" ]; then
