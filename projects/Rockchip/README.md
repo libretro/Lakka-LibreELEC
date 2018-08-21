@@ -38,3 +38,4 @@ You may have luck if your device vendor is open source friendly, otherwise keep 
 * `cat /sys/kernel/debug/clk/clk_summary`
 * `hexdump -C /sys/class/drm/card0-HDMI-A-1/edid`
 * `edid-decode /sys/class/drm/card0-HDMI-A-1/edid`
+* `cat /sys/kernel/debug/dma_buf/bufinfo`
