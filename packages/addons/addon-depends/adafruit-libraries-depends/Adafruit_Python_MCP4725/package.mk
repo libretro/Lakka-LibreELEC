@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="Adafruit_Python_MCP4725"
-PKG_VERSION="8a30e5e"
-PKG_SHA256="83b1e7ff1b2d7c1794b2aedf7d824bd9099bc4068b56ddb83531959ab73602d1"
+PKG_VERSION="4d028bbcf58b011a8f14c5d95057b7e1dcc1064e"
+PKG_SHA256="6ebbd1f76807b01dc2b723064e52b0c82fc45388265b8ec867e0a42a46a6e926"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/adafruit/${PKG_NAME}"

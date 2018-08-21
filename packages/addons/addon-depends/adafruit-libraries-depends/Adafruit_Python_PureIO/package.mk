@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="Adafruit_Python_PureIO"
-PKG_VERSION="5e952c2"
-PKG_SHA256="53faa8629802fad6e8b7bdc434b6cef5f81cb84541564a193e26f334e5b4aa7d"
+PKG_VERSION="6f4976d91c52d70b67b28bba75a429b5328a52c1"
+PKG_SHA256="891a4d077fe6610de6aa4b0dc5b9933a6c7db3492072df60c0383662f28c2ae9"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/adafruit/${PKG_NAME}"

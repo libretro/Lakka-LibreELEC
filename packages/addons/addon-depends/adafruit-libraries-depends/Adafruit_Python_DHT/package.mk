@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="Adafruit_Python_DHT"
-PKG_VERSION="a609d7d"
-PKG_SHA256="820025c19ce9f3e59fa6d389c860eb567d5a665a08ec45e237839ca214b97615"
+PKG_VERSION="18846deec6a96572b3f2c4a9edfb5bac55b46f5b"
+PKG_SHA256="9125f8f42b4874db257a45184b866e8b424aa67230d2ffbc734b53686da7817f"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/adafruit/${PKG_NAME}"

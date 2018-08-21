@@ -3,7 +3,7 @@
 
 PKG_NAME="adafruit-libraries"
 PKG_VERSION=""
-PKG_REV="106"
+PKG_REV="107"
 PKG_ARCH="any"
 PKG_ADDON_PROJECTS="RPi"
 PKG_LICENSE="MIT"
@@ -25,7 +25,7 @@ addon() {
     cp -PR $(get_build_dir Adafruit_Python_ADXL345)/Adafruit_ADXL345           $ADDON_BUILD/$PKG_ADDON_ID/lib/
     cp -PR $(get_build_dir Adafruit_Python_BMP)/Adafruit_BMP                   $ADDON_BUILD/$PKG_ADDON_ID/lib/
     cp -PR $(get_build_dir Adafruit_Python_CharLCD)/Adafruit_CharLCD           $ADDON_BUILD/$PKG_ADDON_ID/lib/
-    cp -PR $(get_build_dir Adafruit_Python_DHT)/build/lib.linux-*/Adafruit_DHT $ADDON_BUILD/$PKG_ADDON_ID/lib/
+    cp -PR $(get_build_dir Adafruit_Python_DHT)/build/lib/Adafruit_DHT         $ADDON_BUILD/$PKG_ADDON_ID/lib/
     cp -PR $(get_build_dir Adafruit_Python_GPIO)/Adafruit_GPIO                 $ADDON_BUILD/$PKG_ADDON_ID/lib/
     cp -PR $(get_build_dir Adafruit_Python_LED_Backpack)/Adafruit_LED_Backpack $ADDON_BUILD/$PKG_ADDON_ID/lib/
     cp -PR $(get_build_dir Adafruit_Python_LSM303)/Adafruit_LSM303             $ADDON_BUILD/$PKG_ADDON_ID/lib/
