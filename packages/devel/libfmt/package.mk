@@ -2,8 +2,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libfmt"
-PKG_VERSION="3.0.2"
-PKG_SHA256="fa4a062897b2f3712badfdb8583e6d938252e1156cb5705c3af87705dfef3957"
+PKG_VERSION="5.1.0"
+PKG_SHA256="73d4cab4fa8a3482643d8703de4d9522d7a56981c938eca42d929106ff474b44"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="https://github.com/fmtlib/fmt"
