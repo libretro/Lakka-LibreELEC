@@ -1,13 +1,14 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pcre"
-PKG_VERSION="8.40"
-PKG_SHA256="00e27a29ead4267e3de8111fcaa59b132d0533cdfdbdddf4b0604279acbcf4f4"
+PKG_VERSION="8.42"
+PKG_SHA256="2cd04b7c887808be030254e8d77de11d3fe9d4505c39d4b15d2664ffe8bf9301"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.pcre.org/"
-PKG_URL="http://ftp.csx.cam.ac.uk/pub/software/programming/pcre/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_URL="https://ftp.pcre.org/pub/pcre/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_HOST=""
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="devel"
