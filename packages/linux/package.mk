@@ -216,7 +216,10 @@ make_target() {
     done
   fi
 
-  kernel_make $KERNEL_TARGET $KERNEL_MAKE_EXTRACMD
+  # the modules target is required to get a proper Module.symvers
+  # file with symbols from built-in and external modules.
+  # Without that it'll contain only the symbols from the kernel
+  kernel_make $KERNEL_TARGET $KERNEL_MAKE_EXTRACMD modules
 
   if [ "$BUILD_ANDROID_BOOTIMG" = "yes" ]; then
     DTB_BLOBS=($(ls arch/$TARGET_KERNEL_ARCH/boot/dts/amlogic/*.dtb 2>/dev/null || true))
