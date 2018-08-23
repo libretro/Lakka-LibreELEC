@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="retroarch"
-PKG_VERSION="2a2e732"
+PKG_VERSION="88cecc5"
 PKG_REV="11"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
@@ -74,6 +74,7 @@ fi
 TARGET_CONFIGURE_OPTS=""
 PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
                            --disable-sdl \
+                           --disable-ssl \
                            $RETROARCH_GL \
                            $RETROARCH_NEON \
                            --enable-zlib \
