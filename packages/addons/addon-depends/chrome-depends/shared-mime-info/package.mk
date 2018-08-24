@@ -14,3 +14,7 @@ PKG_BUILD_FLAGS="-parallel"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-nls \
                            --disable-update-mimedb"
+
+makeinstall_target() {
+  :
+}

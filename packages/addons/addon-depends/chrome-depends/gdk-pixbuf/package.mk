@@ -16,3 +16,6 @@ PKG_MESON_OPTS_TARGET="-Ddocs=false \
                        -Dgir=false \
                        -Dman=false \
                        -Drelocatable=false"
+pre_configure_target() {
+  export PKG_CONFIG_PATH="$(get_build_dir shared-mime-info)/.$TARGET_NAME"
+}
