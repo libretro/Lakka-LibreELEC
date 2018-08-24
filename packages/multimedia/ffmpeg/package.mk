@@ -13,7 +13,6 @@ PKG_URL="https://github.com/xbmc/FFmpeg/archive/${PKG_VERSION}.tar.gz"
 PKG_SOURCE_DIR="FFmpeg-${PKG_VERSION}*"
 PKG_DEPENDS_TARGET="toolchain yasm:host zlib bzip2 openssl speex"
 PKG_SECTION="multimedia"
-PKG_SHORTDESC="FFmpeg is a complete, cross-platform solution to record, convert and stream audio and video."
 PKG_LONGDESC="FFmpeg is a complete, cross-platform solution to record, convert and stream audio and video."
 PKG_BUILD_FLAGS="-gold"
 
@@ -57,15 +56,6 @@ fi
 if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"
 fi
-
-case "$TARGET_ARCH" in
-  arm)
-    PKG_FFMPEG_TABLES="--enable-hardcoded-tables"
-    ;;
-  *)
-    PKG_FFMPEG_TABLES="--disable-hardcoded-tables"
-    ;;
-esac
 
 if target_has_feature neon; then
   PKG_FFMPEG_FPU="--enable-neon"
@@ -124,9 +114,7 @@ configure_target() {
               --pkg-config="$TOOLCHAIN/bin/pkg-config" \
               --enable-optimizations \
               --disable-extra-warnings \
-              --disable-ffprobe \
-              --disable-ffplay \
-              --enable-ffmpeg \
+              --disable-programs \
               --enable-avdevice \
               --enable-avcodec \
               --enable-avformat \
@@ -135,7 +123,6 @@ configure_target() {
               --enable-avfilter \
               --disable-devices \
               --enable-pthreads \
-              --disable-w32threads \
               --enable-network \
               --disable-gnutls --enable-openssl \
               --disable-gray \
@@ -151,9 +138,8 @@ configure_target() {
               $PKG_FFMPEG_VDPAU \
               $PKG_FFMPEG_RPI \
               $PKG_FFMPEG_RKMPP \
-              --disable-dxva2 \
               --enable-runtime-cpudetect \
-              $PKG_FFMPEG_TABLES \
+              --disable-hardcoded-tables \
               --disable-encoders \
               --enable-encoder=ac3 \
               --enable-encoder=aac \
@@ -201,8 +187,7 @@ configure_target() {
               --disable-altivec \
               $PKG_FFMPEG_FPU \
               $PKG_FFMPEG_X86ASM \
-              --disable-symver \
-              --disable-programs
+              --disable-symver
 }
 
 post_makeinstall_target() {
