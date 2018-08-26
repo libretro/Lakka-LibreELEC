@@ -1,0 +1,1449 @@
+Combined patches from https://github.com/b-rad-NDi/Ubuntu-media-tree-kernel-builder
+to support all kind of Hauppauge DVB cards.
+
+diff --git a/drivers/media/dvb-frontends/lgdt3306a.c b/drivers/media/dvb-frontends/lgdt3306a.c
+index 0e1f5da..409db8e 100644
+--- a/drivers/media/dvb-frontends/lgdt3306a.c
++++ b/drivers/media/dvb-frontends/lgdt3306a.c
+@@ -855,6 +855,7 @@ static int lgdt3306a_fe_sleep(struct dvb_frontend *fe)
+ static int lgdt3306a_init(struct dvb_frontend *fe)
+ {
+ 	struct lgdt3306a_state *state = fe->demodulator_priv;
++	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
+ 	u8 val;
+ 	int ret;
+ 
+@@ -1006,6 +1007,9 @@ static int lgdt3306a_init(struct dvb_frontend *fe)
+ 	ret = lgdt3306a_sleep(state);
+ 	lg_chkerr(ret);
+ 
++	c->cnr.len = 1;
++	c->cnr.stat[0].scale = FE_SCALE_NOT_AVAILABLE;
++
+ fail:
+ 	return ret;
+ }
+@@ -1606,6 +1610,7 @@ static int lgdt3306a_read_status(struct dvb_frontend *fe,
+ 				 enum fe_status *status)
+ {
+ 	struct lgdt3306a_state *state = fe->demodulator_priv;
++	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
+ 	u16 strength = 0;
+ 	int ret = 0;
+ 
+@@ -1646,6 +1651,15 @@ static int lgdt3306a_read_status(struct dvb_frontend *fe,
+ 		default:
+ 			ret = -EINVAL;
+ 		}
++
++		if (*status & FE_HAS_SYNC) {
++		        c->cnr.len = 1;
++			c->cnr.stat[0].scale = FE_SCALE_DECIBEL;
++			c->cnr.stat[0].svalue = lgdt3306a_calculate_snr_x100(state) * 10;
++		} else {
++			c->cnr.len = 1;
++			c->cnr.stat[0].scale = FE_SCALE_NOT_AVAILABLE;
++		}
+ 	}
+ 	return ret;
+ }
+diff --git a/drivers/media/dvb-frontends/si2168.c b/drivers/media/dvb-frontends/si2168.c
+index 324493e..4d43424 100644
+--- a/drivers/media/dvb-frontends/si2168.c
++++ b/drivers/media/dvb-frontends/si2168.c
+@@ -18,6 +18,10 @@
+ 
+ #include "si2168_priv.h"
+ 
++static int dvbt_auto_plp = 1;
++module_param(dvbt_auto_plp, int, 0644);
++MODULE_PARM_DESC(dvbt_auto_plp, "if set, the PLP is set to auto detect DVB-T and DVB-T2 signals");
++
+ static const struct dvb_frontend_ops si2168_ops;
+ 
+ /* execute firmware command */
+@@ -106,13 +110,12 @@ static int si2168_ts_bus_ctrl(struct dvb_frontend *fe, int acquire)
+ 	return ret;
+ }
+ 
+-static int si2168_read_status(struct dvb_frontend *fe, enum fe_status *status)
++static int si2168_get_status(struct dvb_frontend *fe, enum fe_status *status)
+ {
+ 	struct i2c_client *client = fe->demodulator_priv;
+ 	struct si2168_dev *dev = i2c_get_clientdata(client);
+ 	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
+-	int ret, i;
+-	unsigned int utmp, utmp1, utmp2;
++	int ret, sys;
+ 	struct si2168_cmd cmd;
+ 
+ 	*status = 0;
+@@ -122,7 +125,23 @@ static int si2168_read_status(struct dvb_frontend *fe, enum fe_status *status)
+ 		goto err;
+ 	}
+ 
+-	switch (c->delivery_system) {
++	sys = c->delivery_system;
++
++	/* check if we found DVB-T2 during DVB-T tuning */
++	if (dvbt_auto_plp && sys == SYS_DVBT) {
++		memcpy(cmd.args, "\x87\x01", 2);
++		cmd.wlen = 2;
++		cmd.rlen = 8;
++
++		ret = si2168_cmd_execute(client, &cmd);
++		if (ret)
++			goto err;
++
++		if ((cmd.args[3] & 0x0f) == 7)
++			sys = SYS_DVBT2;
++	}
++
++	switch (sys) {
+ 	case SYS_DVBT:
+ 		memcpy(cmd.args, "\xa0\x01", 2);
+ 		cmd.wlen = 2;
+@@ -144,9 +163,29 @@ static int si2168_read_status(struct dvb_frontend *fe, enum fe_status *status)
+ 	}
+ 
+ 	ret = si2168_cmd_execute(client, &cmd);
++	if (dvbt_auto_plp && (ret == -EREMOTEIO)) {
++		/* In auto-PLP mode it is possible to read 0x8701 while
++		 * the frontend is in switchover transition. This causes
++		 * a status read failure, due to incorrect system. Check
++		 * the other sys if we hit this race condition.
++		 */
++		if (sys == SYS_DVBT) {
++			memcpy(cmd.args, "\x50\x01", 2); /* DVB-T2 */
++			cmd.wlen = 2;
++			cmd.rlen = 14;
++			ret = si2168_cmd_execute(client, &cmd);
++		} else if (sys == SYS_DVBT2) {
++			memcpy(cmd.args, "\xa0\x01", 2); /* DVB-T */
++			cmd.wlen = 2;
++			cmd.rlen = 13;
++			ret = si2168_cmd_execute(client, &cmd);
++		}
++	}
+ 	if (ret)
+ 		goto err;
+ 
++	//c->delivery_system = sys; /* update delivery system in case auto-PLP */
++
+ 	switch ((cmd.args[2] >> 1) & 0x03) {
+ 	case 0x01:
+ 		*status = FE_HAS_SIGNAL | FE_HAS_CARRIER;
+@@ -157,8 +196,6 @@ static int si2168_read_status(struct dvb_frontend *fe, enum fe_status *status)
+ 		break;
+ 	}
+ 
+-	dev->fe_status = *status;
+-
+ 	if (*status & FE_HAS_LOCK) {
+ 		c->cnr.len = 1;
+ 		c->cnr.stat[0].scale = FE_SCALE_DECIBEL;
+@@ -171,8 +208,120 @@ static int si2168_read_status(struct dvb_frontend *fe, enum fe_status *status)
+ 	dev_dbg(&client->dev, "status=%02x args=%*ph\n",
+ 			*status, cmd.rlen, cmd.args);
+ 
++	dev->fe_status = *status;
++
++	return 0;
++err:
++	dev_dbg(&client->dev, "failed=%d\n", ret);
++	return ret;
++}
++
++static int si2168_read_snr(struct dvb_frontend *fe, u16 *snr)
++{
++	struct i2c_client *client = fe->demodulator_priv;
++	struct si2168_dev *dev = i2c_get_clientdata(client);
++	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
++	enum fe_status status = 0;
++	u64 stat_snr;
++	int ret;
++
++	*snr = 0;
++
++	if (!dev->active) {
++		ret = -EAGAIN;
++		goto err;
++	}
++
++	ret = si2168_get_status(fe, &status);
++	if (ret)
++		goto err;
++
++	if (status & FE_HAS_LOCK) {
++		stat_snr = c->cnr.stat[0].svalue;
++		do_div(stat_snr, 100);
++		*snr = (u16)stat_snr;
++	}
++
++	dev_dbg(&client->dev, "snr=%02x\n", *snr);
++
++	return 0;
++err:
++	dev_dbg(&client->dev, "failed=%d\n", ret);
++	return ret;
++}
++
++static int si2168_read_signal_strength(struct dvb_frontend *fe, u16 *rssi)
++{
++	int ret = -ENOSYS;
++	struct i2c_client *client = fe->demodulator_priv;
++	struct si2168_dev *dev = i2c_get_clientdata(client);
++	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
++	enum fe_status status = 0;
++	u64 stat_strength;
++
++	*rssi = 0;
++
++	if (!dev->active) {
++		ret = -EAGAIN;
++		goto err;
++	}
++
++	ret = si2168_get_status(fe, &status);
++	if (ret)
++		goto err;
++
++	if (status & FE_HAS_LOCK) {
++		if (fe->ops.tuner_ops.get_rf_strength)
++			ret = fe->ops.tuner_ops.get_rf_strength(fe, rssi);
++		else if (c->strength.len > 0) {
++			if (c->strength.stat[0].svalue < -80000)
++				*rssi = 0;
++			else {
++				stat_strength = c->strength.stat[0].svalue;
++				do_div(stat_strength, 1000);
++				*rssi = (u16)(stat_strength + 100);
++				*rssi = (*rssi > 100) ? 0xffff :
++					(u16)(((u32)*rssi) * 0xffff / 100);
++			}
++		}
++	} else {
++		c->strength.len = 1;
++		c->strength.stat[0].scale = FE_SCALE_NOT_AVAILABLE;
++	}
++
++	dev_dbg(&client->dev, "rssi=%02x\n", *rssi);
++
++	return 0;
++err:
++	dev_dbg(&client->dev, "failed=%d\n", ret);
++	return ret;
++}
++
++/* ------------------------------------------------------------------------ */
++
++static int si2168_read_ber(struct dvb_frontend *fe, u32 *ber)
++{
++	struct i2c_client *client = fe->demodulator_priv;
++	struct si2168_dev *dev = i2c_get_clientdata(client);
++	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
++	enum fe_status status = 0;
++	int ret, i;
++	unsigned int utmp, utmp1, utmp2;
++	struct si2168_cmd cmd;
++
++	*ber = 0;
++
++	if (!dev->active) {
++		ret = -EAGAIN;
++		goto err;
++	}
++
++	ret = si2168_get_status(fe, &status);
++	if (ret)
++		goto err;
++
+ 	/* BER */
+-	if (*status & FE_HAS_VITERBI) {
++	if (status & FE_HAS_VITERBI) {
+ 		memcpy(cmd.args, "\x82\x00", 2);
+ 		cmd.wlen = 2;
+ 		cmd.rlen = 3;
+@@ -191,6 +340,9 @@ static int si2168_read_status(struct dvb_frontend *fe, enum fe_status *status)
+ 		utmp1 = cmd.args[2] * utmp1;
+ 		utmp2 = 100000000; /* 10^8 */
+ 
++		if (cmd.args[1] != 0)
++			*ber = (cmd.args[2] * utmp1) / utmp2;
++
+ 		dev_dbg(&client->dev,
+ 			"post_bit_error=%u post_bit_count=%u ber=%u*10^-%u\n",
+ 			utmp1, utmp2, cmd.args[2], cmd.args[1]);
+@@ -204,8 +356,35 @@ static int si2168_read_status(struct dvb_frontend *fe, enum fe_status *status)
+ 		c->post_bit_count.stat[0].scale = FE_SCALE_NOT_AVAILABLE;
+ 	}
+ 
++	return 0;
++err:
++	dev_dbg(&client->dev, "failed=%d\n", ret);
++	return ret;
++}
++
++static int si2168_read_ucblocks(struct dvb_frontend *fe, u32 *ucb)
++{
++	struct i2c_client *client = fe->demodulator_priv;
++	struct si2168_dev *dev = i2c_get_clientdata(client);
++	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
++	enum fe_status status = 0;
++	int ret;
++	unsigned int utmp1;
++	struct si2168_cmd cmd;
++
++	*ucb = 0;
++
++	if (!dev->active) {
++		ret = -EAGAIN;
++		goto err;
++	}
++
++	ret = si2168_get_status(fe, &status);
++	if (ret)
++		goto err;
++
+ 	/* UCB */
+-	if (*status & FE_HAS_SYNC) {
++	if (status & FE_HAS_SYNC) {
+ 		memcpy(cmd.args, "\x84\x01", 2);
+ 		cmd.wlen = 2;
+ 		cmd.rlen = 3;
+@@ -220,11 +399,61 @@ static int si2168_read_status(struct dvb_frontend *fe, enum fe_status *status)
+ 		if (utmp1 == 0xffff)
+ 			utmp1 = 0;
+ 
++		*ucb = utmp1;
++
+ 		c->block_error.stat[0].scale = FE_SCALE_COUNTER;
+ 		c->block_error.stat[0].uvalue += utmp1;
+ 	} else {
+ 		c->block_error.stat[0].scale = FE_SCALE_NOT_AVAILABLE;
+ 	}
++	return 0;
++err:
++	dev_dbg(&client->dev, "failed=%d\n", ret);
++	return ret;
++}
++
++
++static int si2168_read_status(struct dvb_frontend *fe, enum fe_status *status)
++{
++	struct i2c_client *client = fe->demodulator_priv;
++	struct si2168_dev *dev = i2c_get_clientdata(client);
++	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
++	int ret;
++	u16 rssi;
++	u32 ber, ucb;
++
++	*status = 0;
++
++	if (!dev->active) {
++		ret = -EAGAIN;
++		goto err;
++	}
++
++	ret = si2168_get_status(fe, status);
++	if (ret)
++		goto err;
++
++	if ((*status & FE_HAS_LOCK) == 0) {
++		/* No lock, reset all statistics */
++		c->strength.len = 1;
++		c->strength.stat[0].scale = FE_SCALE_NOT_AVAILABLE;
++		c->block_error.stat[0].scale = FE_SCALE_NOT_AVAILABLE;
++		c->post_bit_error.stat[0].scale = FE_SCALE_NOT_AVAILABLE;
++		c->post_bit_count.stat[0].scale = FE_SCALE_NOT_AVAILABLE;
++		return 0;
++	}
++
++	ret = si2168_read_signal_strength(fe, &rssi);
++	if (ret)
++		goto err;
++
++	ret = si2168_read_ber(fe, &ber);
++	if (ret)
++		goto err;
++
++	ret = si2168_read_ucblocks(fe, &ucb);
++	if (ret)
++		goto err;
+ 
+ 	return 0;
+ err:
+@@ -254,7 +483,10 @@ static int si2168_set_frontend(struct dvb_frontend *fe)
+ 
+ 	switch (c->delivery_system) {
+ 	case SYS_DVBT:
+-		delivery_system = 0x20;
++		if (dvbt_auto_plp)
++			delivery_system = 0xf0; /* T/T2 auto-detect is user friendly */
++		else
++			delivery_system = 0x20;
+ 		break;
+ 	case SYS_DVBC_ANNEX_A:
+ 		delivery_system = 0x30;
+@@ -324,6 +556,16 @@ static int si2168_set_frontend(struct dvb_frontend *fe)
+ 		ret = si2168_cmd_execute(client, &cmd);
+ 		if (ret)
+ 			goto err;
++	} else if (dvbt_auto_plp && (c->delivery_system == SYS_DVBT)) {
++		/* select Auto PLP */
++		cmd.args[0] = 0x52;
++		cmd.args[1] = 0;
++		cmd.args[2] = 0; /* Auto PLP */
++		cmd.wlen = 3;
++		cmd.rlen = 1;
++		ret = si2168_cmd_execute(client, &cmd);
++		if (ret)
++			goto err;
+ 	}
+ 
+ 	memcpy(cmd.args, "\x51\x03", 2);
+@@ -363,6 +605,8 @@ static int si2168_set_frontend(struct dvb_frontend *fe)
+ 
+ 	memcpy(cmd.args, "\x14\x00\x0a\x10\x00\x00", 6);
+ 	cmd.args[4] = delivery_system | bandwidth;
++	if (delivery_system == 0xf0)
++		cmd.args[5] |= 2; /* Auto detect DVB-T/T2 */
+ 	if (dev->spectral_inversion)
+ 		cmd.args[5] |= 1;
+ 	cmd.wlen = 6;
+@@ -384,6 +628,8 @@ static int si2168_set_frontend(struct dvb_frontend *fe)
+ 	}
+ 
+ 	memcpy(cmd.args, "\x14\x00\x0f\x10\x10\x00", 6);
++	/* BUGBUG? FW defaults to 1, but windows driver uses 30; above is 0? */
++	cmd.args[5] = 30;
+ 	cmd.wlen = 6;
+ 	cmd.rlen = 4;
+ 	ret = si2168_cmd_execute(client, &cmd);
+@@ -714,6 +960,11 @@ static const struct dvb_frontend_ops si2168_ops = {
+ 	.set_frontend = si2168_set_frontend,
+ 
+ 	.read_status = si2168_read_status,
++
++	.read_ber             = si2168_read_ber,
++	.read_signal_strength = si2168_read_signal_strength,
++	.read_snr             = si2168_read_snr,
++	.read_ucblocks        = si2168_read_ucblocks,
+ };
+ 
+ static int si2168_probe(struct i2c_client *client,
+diff --git a/drivers/media/i2c/cx25840/cx25840-core.c b/drivers/media/i2c/cx25840/cx25840-core.c
+index b168bf3..1f06119 100644
+--- a/drivers/media/i2c/cx25840/cx25840-core.c
++++ b/drivers/media/i2c/cx25840/cx25840-core.c
+@@ -684,14 +684,14 @@ static void cx23885_initialize(struct i2c_client *client)
+ 	 */
+ 	cx25840_write4(client, 0x404, 0x0010253e);
+ 
+-	/* CC on  - Undocumented Register */
++	/* CC on  -  VBI_LINE_CTRL3, FLD_VBI_MD_LINE12 */
+ 	cx25840_write(client, state->vbi_regs_offset + 0x42f, 0x66);
+ 
+ 	/* HVR-1250 / HVR1850 DIF related */
+ 	/* Power everything up */
+ 	cx25840_write4(client, 0x130, 0x0);
+ 
+-	/* Undocumented */
++	/* SRC_COMB_CFG */
+ 	if (is_cx23888(state))
+ 		cx25840_write4(client, 0x454, 0x6628021F);
+ 	else
+@@ -1127,16 +1127,25 @@ static int set_input(struct i2c_client *client, enum cx25840_video_input vid_inp
+ 			cx25840_write4(client, 0x410, 0xffff0dbf);
+ 			cx25840_write4(client, 0x414, 0x00137d03);
+ 
+-			cx25840_write4(client, state->vbi_regs_offset + 0x42c, 0x42600000);
+-			cx25840_write4(client, state->vbi_regs_offset + 0x430, 0x0000039b);
+-			cx25840_write4(client, state->vbi_regs_offset + 0x438, 0x00000000);
+-
+-			cx25840_write4(client, state->vbi_regs_offset + 0x440, 0xF8E3E824);
+-			cx25840_write4(client, state->vbi_regs_offset + 0x444, 0x401040dc);
+-			cx25840_write4(client, state->vbi_regs_offset + 0x448, 0xcd3f02a0);
+-			cx25840_write4(client, state->vbi_regs_offset + 0x44c, 0x161f1000);
+-			cx25840_write4(client, state->vbi_regs_offset + 0x450, 0x00000802);
+-
++			/* These are not VBI controls */
++			if (is_cx23888(state)) {
++				/* 888 MISC_TIM_CTRL */
++				cx25840_write4(client, 0x42c, 0x42600000);
++				/* 888 FIELD_COUNT */
++				cx25840_write4(client, 0x430, 0x0000039b);
++				/* 888 VSCALE_CTRL */
++				cx25840_write4(client, 0x438, 0x00000000);
++				/* 888 DFE_CTRL1 */
++				cx25840_write4(client, 0x440, 0xF8E3E824);
++				/* 888 DFE_CTRL2 */
++				cx25840_write4(client, 0x444, 0x401040dc);
++				/* 888 DFE_CTRL3 */
++				cx25840_write4(client, 0x448, 0xcd3f02a0);
++				/* 888 PLL_CTRL */
++				cx25840_write4(client, 0x44c, 0x161f1000);
++				/* 888 HTL_CTRL */
++				cx25840_write4(client, 0x450, 0x00000802);
++			}
+ 			cx25840_write4(client, 0x91c, 0x01000000);
+ 			cx25840_write4(client, 0x8e0, 0x03063870);
+ 			cx25840_write4(client, 0x8d4, 0x7FFF0024);
+@@ -1743,6 +1752,7 @@ static int cx25840_s_stream(struct v4l2_subdev *sd, int enable)
+ 	if (is_cx2388x(state) || is_cx231xx(state))
+ 		return 0;
+ 
++	/* PIN_CTRL1 */
+ 	if (enable) {
+ 		v = cx25840_read(client, 0x115) | 0x0c;
+ 		cx25840_write(client, 0x115, v);
+diff --git a/drivers/media/pci/cx23885/cx23885-cards.c b/drivers/media/pci/cx23885/cx23885-cards.c
+index ed3210d..9598b99 100644
+--- a/drivers/media/pci/cx23885/cx23885-cards.c
++++ b/drivers/media/pci/cx23885/cx23885-cards.c
+@@ -325,8 +325,7 @@ struct cx23885_board cx23885_boards[] = {
+ 		.name		= "Hauppauge WinTV-HVR1255",
+ 		.porta		= CX23885_ANALOG_VIDEO,
+ 		.portc		= CX23885_MPEG_DVB,
+-		.tuner_type	= TUNER_ABSENT,
+-		.tuner_addr	= 0x42, /* 0x84 >> 1 */
++		.tuner_type	= TUNER_NXP_TDA18271,
+ 		.force_bff	= 1,
+ 		.input          = {{
+ 			.type   = CX23885_VMUX_TELEVISION,
+@@ -354,8 +353,7 @@ struct cx23885_board cx23885_boards[] = {
+ 		.name		= "Hauppauge WinTV-HVR1255",
+ 		.porta		= CX23885_ANALOG_VIDEO,
+ 		.portc		= CX23885_MPEG_DVB,
+-		.tuner_type	= TUNER_ABSENT,
+-		.tuner_addr	= 0x42, /* 0x84 >> 1 */
++		.tuner_type	= TUNER_NXP_TDA18271,
+ 		.force_bff	= 1,
+ 		.input          = {{
+ 			.type   = CX23885_VMUX_TELEVISION,
+@@ -767,24 +765,48 @@ struct cx23885_board cx23885_boards[] = {
+ 		} },
+ 	},
+ 	[CX23885_BOARD_HAUPPAUGE_QUADHD_DVB] = {
+-		.name        = "Hauppauge WinTV-QuadHD-DVB",
++		.name         = "Hauppauge WinTV-QuadHD-DVB",
++		.porta        = CX23885_ANALOG_VIDEO,
+ 		.portb        = CX23885_MPEG_DVB,
+ 		.portc        = CX23885_MPEG_DVB,
++		.tuner_type	= TUNER_ABSENT,
++		.force_bff	= 1,
++		.input          = {{
++			.type   = CX23885_VMUX_TELEVISION,
++			.vmux   =	CX25840_VIN7_CH3 |
++					CX25840_VIN5_CH2 |
++					CX25840_VIN2_CH1 |
++					CX25840_DIF_ON,
++			.amux   = CX25840_AUDIO8,
++		} },
+ 	},
+ 	[CX23885_BOARD_HAUPPAUGE_QUADHD_DVB_885] = {
+-		.name       = "Hauppauge WinTV-QuadHD-DVB(885)",
++		.name         = "Hauppauge WinTV-QuadHD-DVB(885)",
+ 		.portb        = CX23885_MPEG_DVB,
+ 		.portc        = CX23885_MPEG_DVB,
++		.tuner_type   = TUNER_ABSENT,
+ 	},
+ 	[CX23885_BOARD_HAUPPAUGE_QUADHD_ATSC] = {
+-		.name        = "Hauppauge WinTV-QuadHD-ATSC",
++		.name         = "Hauppauge WinTV-QuadHD-ATSC",
++		.porta        = CX23885_ANALOG_VIDEO,
+ 		.portb        = CX23885_MPEG_DVB,
+ 		.portc        = CX23885_MPEG_DVB,
++		.tuner_type	= TUNER_ABSENT,
++		.force_bff	= 1,
++		.input          = {{
++			.type   = CX23885_VMUX_TELEVISION,
++			.vmux   =	CX25840_VIN7_CH3 |
++					CX25840_VIN5_CH2 |
++					CX25840_VIN2_CH1 |
++					CX25840_DIF_ON,
++			.amux   = CX25840_AUDIO8,
++		} },
+ 	},
+ 	[CX23885_BOARD_HAUPPAUGE_QUADHD_ATSC_885] = {
+-		.name       = "Hauppauge WinTV-QuadHD-ATSC(885)",
++		.name         = "Hauppauge WinTV-QuadHD-ATSC(885)",
+ 		.portb        = CX23885_MPEG_DVB,
+ 		.portc        = CX23885_MPEG_DVB,
++		.tuner_type   = TUNER_ABSENT,
+ 	},
+ 	[CX23885_BOARD_HAUPPAUGE_HVR1265_K4] = {
+ 		.name		= "Hauppauge WinTV-HVR-1265(161111)",
+@@ -793,6 +815,13 @@ struct cx23885_board cx23885_boards[] = {
+ 		.tuner_type     = TUNER_ABSENT,
+ 		.force_bff	= 1,
+ 		.input          = {{
++			.type   = CX23885_VMUX_TELEVISION,
++			.vmux   =	CX25840_VIN7_CH3 |
++					CX25840_VIN5_CH2 |
++					CX25840_VIN2_CH1 |
++					CX25840_DIF_ON,
++			.amux   = CX25840_AUDIO8,
++		}, {
+ 			.type   = CX23885_VMUX_COMPOSITE1,
+ 			.vmux   =	CX25840_VIN7_CH3 |
+ 					CX25840_VIN4_CH2 |
+diff --git a/drivers/media/pci/cx23885/cx23885-dvb.c b/drivers/media/pci/cx23885/cx23885-dvb.c
+index 7d52173..9e61f23 100644
+--- a/drivers/media/pci/cx23885/cx23885-dvb.c
++++ b/drivers/media/pci/cx23885/cx23885-dvb.c
+@@ -2382,6 +2382,16 @@ static int dvb_register(struct cx23885_tsport *port)
+ 				goto frontend_detach;
+ 			}
+ 			port->i2c_client_tuner = client_tuner;
++
++			/* we only attach tuner for analog on the 888 version */
++			if (dev->board == CX23885_BOARD_HAUPPAUGE_QUADHD_DVB) {
++				pr_info("%s(): QUADHD_DVB analog setup\n",
++					__func__);
++				dev->ts1.analog_fe.tuner_priv = client_tuner;
++				memcpy(&dev->ts1.analog_fe.ops.tuner_ops,
++					&fe0->dvb.frontend->ops.tuner_ops,
++					sizeof(struct dvb_tuner_ops));
++			}
+ 			break;
+ 
+ 		/* port c - terrestrial/cable */
+@@ -2471,6 +2481,16 @@ static int dvb_register(struct cx23885_tsport *port)
+ 				goto frontend_detach;
+ 			}
+ 			port->i2c_client_tuner = client_tuner;
++
++			/* we only attach tuner for analog on the 888 version */
++			if (dev->board == CX23885_BOARD_HAUPPAUGE_QUADHD_ATSC) {
++				pr_info("%s(): QUADHD_ATSC analog setup\n",
++					__func__);
++				dev->ts1.analog_fe.tuner_priv = client_tuner;
++				memcpy(&dev->ts1.analog_fe.ops.tuner_ops,
++					&fe0->dvb.frontend->ops.tuner_ops,
++					sizeof(struct dvb_tuner_ops));
++			}
+ 			break;
+ 
+ 		/* port c - terrestrial/cable */
+@@ -2542,6 +2562,11 @@ static int dvb_register(struct cx23885_tsport *port)
+ 				goto frontend_detach;
+ 			}
+ 			port->i2c_client_tuner = client_tuner;
++
++			dev->ts1.analog_fe.tuner_priv = client_tuner;
++			memcpy(&dev->ts1.analog_fe.ops.tuner_ops,
++				&fe0->dvb.frontend->ops.tuner_ops,
++				sizeof(struct dvb_tuner_ops));
+ 			break;
+ 		}
+ 		break;
+diff --git a/drivers/media/pci/cx23885/cx23885-video.c b/drivers/media/pci/cx23885/cx23885-video.c
+index f8a3dea..594bdcf 100644
+--- a/drivers/media/pci/cx23885/cx23885-video.c
++++ b/drivers/media/pci/cx23885/cx23885-video.c
+@@ -264,6 +264,8 @@ static int cx23885_video_mux(struct cx23885_dev *dev, unsigned int input)
+ 		(dev->board == CX23885_BOARD_HAUPPAUGE_HVR1255) ||
+ 		(dev->board == CX23885_BOARD_HAUPPAUGE_HVR1255_22111) ||
+ 		(dev->board == CX23885_BOARD_HAUPPAUGE_HVR1265_K4) ||
++		(dev->board == CX23885_BOARD_HAUPPAUGE_QUADHD_ATSC) ||
++		(dev->board == CX23885_BOARD_HAUPPAUGE_QUADHD_DVB) ||
+ 		(dev->board == CX23885_BOARD_HAUPPAUGE_HVR1850) ||
+ 		(dev->board == CX23885_BOARD_MYGICA_X8507) ||
+ 		(dev->board == CX23885_BOARD_AVERMEDIA_HC81R) ||
+@@ -644,8 +646,17 @@ static int vidioc_querycap(struct file *file, void  *priv,
+ 		sizeof(cap->card));
+ 	sprintf(cap->bus_info, "PCIe:%s", pci_name(dev->pci));
+ 	cap->device_caps = V4L2_CAP_READWRITE | V4L2_CAP_STREAMING | V4L2_CAP_AUDIO;
+-	if (dev->tuner_type != TUNER_ABSENT)
++	switch (dev->board) { /* i2c device tuners */
++	case CX23885_BOARD_HAUPPAUGE_HVR1265_K4:
++	case CX23885_BOARD_HAUPPAUGE_QUADHD_DVB:
++	case CX23885_BOARD_HAUPPAUGE_QUADHD_ATSC:
+ 		cap->device_caps |= V4L2_CAP_TUNER;
++		break;
++	default:
++		if (dev->tuner_type != TUNER_ABSENT)
++			cap->device_caps |= V4L2_CAP_TUNER;
++		break;
++	}
+ 	if (vdev->vfl_type == VFL_TYPE_VBI)
+ 		cap->device_caps |= V4L2_CAP_VBI_CAPTURE;
+ 	else
+@@ -882,8 +893,16 @@ static int vidioc_g_tuner(struct file *file, void *priv,
+ {
+ 	struct cx23885_dev *dev = video_drvdata(file);
+ 
+-	if (dev->tuner_type == TUNER_ABSENT)
+-		return -EINVAL;
++	switch (dev->board) { /* i2c device tuners */
++	case CX23885_BOARD_HAUPPAUGE_HVR1265_K4:
++	case CX23885_BOARD_HAUPPAUGE_QUADHD_DVB:
++	case CX23885_BOARD_HAUPPAUGE_QUADHD_ATSC:
++		break;
++	default:
++		if (dev->tuner_type == TUNER_ABSENT)
++			return -EINVAL;
++		break;
++	}
+ 	if (0 != t->index)
+ 		return -EINVAL;
+ 
+@@ -898,8 +917,16 @@ static int vidioc_s_tuner(struct file *file, void *priv,
+ {
+ 	struct cx23885_dev *dev = video_drvdata(file);
+ 
+-	if (dev->tuner_type == TUNER_ABSENT)
+-		return -EINVAL;
++	switch (dev->board) { /* i2c device tuners */
++	case CX23885_BOARD_HAUPPAUGE_HVR1265_K4:
++	case CX23885_BOARD_HAUPPAUGE_QUADHD_DVB:
++	case CX23885_BOARD_HAUPPAUGE_QUADHD_ATSC:
++		break;
++	default:
++		if (dev->tuner_type == TUNER_ABSENT)
++			return -EINVAL;
++		break;
++	}
+ 	if (0 != t->index)
+ 		return -EINVAL;
+ 	/* Update the A/V core */
+@@ -913,9 +940,16 @@ static int vidioc_g_frequency(struct file *file, void *priv,
+ {
+ 	struct cx23885_dev *dev = video_drvdata(file);
+ 
+-	if (dev->tuner_type == TUNER_ABSENT)
+-		return -EINVAL;
+-
++	switch (dev->board) { /* i2c device tuners */
++	case CX23885_BOARD_HAUPPAUGE_HVR1265_K4:
++	case CX23885_BOARD_HAUPPAUGE_QUADHD_DVB:
++	case CX23885_BOARD_HAUPPAUGE_QUADHD_ATSC:
++		break;
++	default:
++		if (dev->tuner_type == TUNER_ABSENT)
++			return -EINVAL;
++		break;
++	}
+ 	f->type = V4L2_TUNER_ANALOG_TV;
+ 	f->frequency = dev->freq;
+ 
+@@ -929,8 +963,16 @@ static int cx23885_set_freq(struct cx23885_dev *dev, const struct v4l2_frequency
+ 	struct v4l2_ctrl *mute;
+ 	int old_mute_val = 1;
+ 
+-	if (dev->tuner_type == TUNER_ABSENT)
+-		return -EINVAL;
++	switch (dev->board) { /* i2c device tuners */
++	case CX23885_BOARD_HAUPPAUGE_HVR1265_K4:
++	case CX23885_BOARD_HAUPPAUGE_QUADHD_DVB:
++	case CX23885_BOARD_HAUPPAUGE_QUADHD_ATSC:
++		break;
++	default:
++		if (dev->tuner_type == TUNER_ABSENT)
++			return -EINVAL;
++		break;
++	}
+ 	if (unlikely(f->tuner != 0))
+ 		return -EINVAL;
+ 
+@@ -995,7 +1037,9 @@ static int cx23885_set_freq_via_ops(struct cx23885_dev *dev,
+ 	if ((dev->board == CX23885_BOARD_HAUPPAUGE_HVR1850) ||
+ 	    (dev->board == CX23885_BOARD_HAUPPAUGE_HVR1255) ||
+ 	    (dev->board == CX23885_BOARD_HAUPPAUGE_HVR1255_22111) ||
+-	    (dev->board == CX23885_BOARD_HAUPPAUGE_HVR1265_K4))
++	    (dev->board == CX23885_BOARD_HAUPPAUGE_HVR1265_K4) ||
++	    (dev->board == CX23885_BOARD_HAUPPAUGE_QUADHD_DVB) ||
++	    (dev->board == CX23885_BOARD_HAUPPAUGE_QUADHD_ATSC))
+ 		fe = &dev->ts1.analog_fe;
+ 
+ 	if (fe && fe->ops.tuner_ops.set_analog_params) {
+@@ -1026,6 +1070,8 @@ int cx23885_set_frequency(struct file *file, void *priv,
+ 	case CX23885_BOARD_HAUPPAUGE_HVR1255_22111:
+ 	case CX23885_BOARD_HAUPPAUGE_HVR1265_K4:
+ 	case CX23885_BOARD_HAUPPAUGE_HVR1850:
++	case CX23885_BOARD_HAUPPAUGE_QUADHD_DVB:
++	case CX23885_BOARD_HAUPPAUGE_QUADHD_ATSC:
+ 		ret = cx23885_set_freq_via_ops(dev, f);
+ 		break;
+ 	default:
+diff --git a/drivers/media/tuners/si2157.c b/drivers/media/tuners/si2157.c
+index a08d8fe..26b1c3d 100644
+--- a/drivers/media/tuners/si2157.c
++++ b/drivers/media/tuners/si2157.c
+@@ -56,14 +56,20 @@ static int si2157_cmd_execute(struct i2c_client *client, struct si2157_cmd *cmd)
+ 				break;
+ 		}
+ 
+-		dev_dbg(&client->dev, "cmd execution took %d ms\n",
++		dev_dbg(&client->dev, "cmd execution took %d ms, status=%x\n",
+ 				jiffies_to_msecs(jiffies) -
+-				(jiffies_to_msecs(timeout) - TIMEOUT));
++				(jiffies_to_msecs(timeout) - TIMEOUT),
++				cmd->args[0]);
+ 
+ 		if (!((cmd->args[0] >> 7) & 0x01)) {
+ 			ret = -ETIMEDOUT;
+ 			goto err_mutex_unlock;
+ 		}
++		/* check error status bit */
++		if (cmd->args[0] & 0x40) {
++			ret = -EAGAIN;
++			goto err_mutex_unlock;
++		}
+ 	}
+ 
+ 	mutex_unlock(&dev->i2c_mutex);
+@@ -84,24 +90,23 @@ static int si2157_init(struct dvb_frontend *fe)
+ 	struct si2157_cmd cmd;
+ 	const struct firmware *fw;
+ 	const char *fw_name;
+-	unsigned int uitmp, chip_id;
++	unsigned int chip_id, xtal_trim;
+ 
+ 	dev_dbg(&client->dev, "\n");
+ 
+-	/* Returned IF frequency is garbage when firmware is not running */
+-	memcpy(cmd.args, "\x15\x00\x06\x07", 4);
++	/* Try to get Xtal trim property, to verify tuner still running */
++	memcpy(cmd.args, "\x15\x00\x04\x02", 4);
+ 	cmd.wlen = 4;
+ 	cmd.rlen = 4;
+ 	ret = si2157_cmd_execute(client, &cmd);
+-	if (ret)
+-		goto err;
+ 
+-	uitmp = cmd.args[2] << 0 | cmd.args[3] << 8;
+-	dev_dbg(&client->dev, "if_frequency kHz=%u\n", uitmp);
++	xtal_trim = cmd.args[2] | (cmd.args[3] << 8);
+ 
+-	if (uitmp == dev->if_frequency / 1000)
++	if ((ret == 0) && (xtal_trim < 16))
+ 		goto warm;
+ 
++	dev->if_frequency = 0; /* we no longer know current tuner state */
++
+ 	/* power up */
+ 	if (dev->chiptype == SI2157_CHIPTYPE_SI2146) {
+ 		memcpy(cmd.args, "\xc0\x05\x01\x00\x00\x0b\x00\x00\x01", 9);
+@@ -230,6 +235,28 @@ skip_fw_download:
+ 
+ 	dev_info(&client->dev, "firmware version: %c.%c.%d\n",
+ 			cmd.args[6], cmd.args[7], cmd.args[8]);
++
++	/* enable tuner status flags */
++	memcpy(cmd.args, "\x14\x00\x01\x05\x01\x00", 6);
++	cmd.wlen = 6;
++	cmd.rlen = 1;
++	ret = si2157_cmd_execute(client, &cmd);
++	if (ret)
++		goto err;
++
++	memcpy(cmd.args, "\x14\x00\x01\x06\x01\x00", 6);
++	cmd.wlen = 6;
++	cmd.rlen = 1;
++	ret = si2157_cmd_execute(client, &cmd);
++	if (ret)
++		goto err;
++
++	memcpy(cmd.args, "\x14\x00\x01\x07\x01\x00", 6);
++	cmd.wlen = 6;
++	cmd.rlen = 1;
++	ret = si2157_cmd_execute(client, &cmd);
++	if (ret)
++		goto err;
+ warm:
+ 	/* init statistics in order signal app which are supported */
+ 	c->strength.len = 1;
+@@ -274,6 +301,84 @@ err:
+ 	return ret;
+ }
+ 
++static int si2157_tune_wait(struct i2c_client *client, u8 is_digital)
++{
++#define TUN_TIMEOUT 40
++#define DIG_TIMEOUT 30
++#define ANALOG_TIMEOUT 150
++	struct si2157_dev *dev = i2c_get_clientdata(client);
++	int ret;
++	unsigned long timeout;
++	unsigned long start_time;
++	u8 wait_status;
++	u8  tune_lock_mask;
++
++	if (is_digital)
++		tune_lock_mask = 0x04;
++	else
++		tune_lock_mask = 0x02;
++
++	mutex_lock(&dev->i2c_mutex);
++
++	/* wait tuner command complete */
++	start_time = jiffies;
++	timeout = start_time + msecs_to_jiffies(TUN_TIMEOUT);
++	while (!time_after(jiffies, timeout)) {
++		ret = i2c_master_recv(client, &wait_status,
++					sizeof(wait_status));
++		if (ret < 0) {
++			goto err_mutex_unlock;
++		} else if (ret != sizeof(wait_status)) {
++			ret = -EREMOTEIO;
++			goto err_mutex_unlock;
++		}
++
++		/* tuner done? */
++		if ((wait_status & 0x81) == 0x81)
++			break;
++		usleep_range(5000, 10000);
++	}
++	/* if we tuned ok, wait a bit for tuner lock */
++	if ((wait_status & 0x81) == 0x81) {
++		if (is_digital)
++			timeout = jiffies + msecs_to_jiffies(DIG_TIMEOUT);
++		else
++			timeout = jiffies + msecs_to_jiffies(ANALOG_TIMEOUT);
++		while (!time_after(jiffies, timeout)) {
++			ret = i2c_master_recv(client, &wait_status,
++						sizeof(wait_status));
++			if (ret < 0) {
++				goto err_mutex_unlock;
++			} else if (ret != sizeof(wait_status)) {
++				ret = -EREMOTEIO;
++				goto err_mutex_unlock;
++			}
++
++			/* tuner locked? */
++			if (wait_status & tune_lock_mask)
++				break;
++			usleep_range(5000, 10000);
++		}
++	}
++
++	dev_dbg(&client->dev, "tuning took %d ms, status=0x%x\n",
++		jiffies_to_msecs(jiffies) - jiffies_to_msecs(start_time),
++		wait_status);
++
++	if ((wait_status & 0xc0) != 0x80) {
++		ret = -ETIMEDOUT;
++		goto err_mutex_unlock;
++	}
++
++	mutex_unlock(&dev->i2c_mutex);
++	return 0;
++
++err_mutex_unlock:
++	mutex_unlock(&dev->i2c_mutex);
++	dev_dbg(&client->dev, "failed=%d\n", ret);
++	return ret;
++}
++
+ static int si2157_set_params(struct dvb_frontend *fe)
+ {
+ 	struct i2c_client *client = fe->tuner_priv;
+@@ -344,7 +449,7 @@ static int si2157_set_params(struct dvb_frontend *fe)
+ 	if (ret)
+ 		goto err;
+ 
+-	/* set if frequency if needed */
++	/* set digital if frequency if needed */
+ 	if (if_frequency != dev->if_frequency) {
+ 		memcpy(cmd.args, "\x14\x00\x06\x07", 4);
+ 		cmd.args[4] = (if_frequency / 1000) & 0xff;
+@@ -358,7 +463,7 @@ static int si2157_set_params(struct dvb_frontend *fe)
+ 		dev->if_frequency = if_frequency;
+ 	}
+ 
+-	/* set frequency */
++	/* set digital frequency */
+ 	memcpy(cmd.args, "\x41\x00\x00\x00\x00\x00\x00\x00", 8);
+ 	cmd.args[4] = (c->frequency >>  0) & 0xff;
+ 	cmd.args[5] = (c->frequency >>  8) & 0xff;
+@@ -370,19 +475,293 @@ static int si2157_set_params(struct dvb_frontend *fe)
+ 	if (ret)
+ 		goto err;
+ 
++	dev->bandwidth = bandwidth;
++	dev->frequency = c->frequency;
++
++	si2157_tune_wait(client, 1); /* wait to complete, ignore any errors */
++
+ 	return 0;
+ err:
++	dev->bandwidth = 0;
++	dev->frequency = 0;
++	dev->if_frequency = 0;
+ 	dev_dbg(&client->dev, "failed=%d\n", ret);
+ 	return ret;
+ }
+ 
++static int si2157_set_analog_params(struct dvb_frontend *fe,
++				      struct analog_parameters *params)
++{
++	struct i2c_client *client = fe->tuner_priv;
++	struct si2157_dev *dev = i2c_get_clientdata(client);
++	char *std; /* for debugging */
++	int ret;
++	struct si2157_cmd cmd;
++	u32 bandwidth = 0;
++	u32 if_frequency = 0;
++	u32 freq = 0;
++	u64 tmp_lval = 0;
++	u8 system = 0;
++	u8 color = 0;    /* 0=NTSC/PAL, 0x10=SECAM */
++	u8 invert_analog = 1; /* analog tuner spectrum; 0=normal, 1=inverted */
++
++	if (dev->chiptype != SI2157_CHIPTYPE_SI2157) {
++		dev_info(&client->dev, "%s: Analog tuning not supported for chiptype=%u\n",
++				__func__, dev->chiptype);
++		ret = -EINVAL;
++		goto err;
++	}
++
++	if (!dev->active)
++		si2157_init(fe);
++
++	if (!dev->active) {
++		ret = -EAGAIN;
++		goto err;
++	}
++	if (params->mode == V4L2_TUNER_RADIO) {
++	/*
++	 * std = "fm";
++	 * bandwidth = 1700000; //best can do for FM, AGC will be a mess though
++	 * if_frequency = 1250000;  //HVR-225x(saa7164), HVR-12xx(cx23885)
++	 * if_frequency = 6600000;  //HVR-9xx(cx231xx)
++	 * if_frequency = 5500000;  //HVR-19xx(pvrusb2)
++	 */
++		dev_dbg(&client->dev, "si2157 does not currently support FM radio\n");
++		ret = -EINVAL;
++		goto err;
++	}
++	tmp_lval = params->frequency * 625LL;
++	do_div(tmp_lval, 10); /* convert to HZ */
++	freq = (u32)tmp_lval;
++
++	if (freq < 1000000) /* is freq in KHz */
++		freq = freq * 1000;
++	dev->frequency = freq;
++
++	/* if_frequency values based on tda187271C2 */
++	if (params->std & (V4L2_STD_B|V4L2_STD_GH)) {
++		if (freq >= 470000000) {
++			std = "palGH";
++			bandwidth = 8000000;
++			if_frequency = 6000000;
++			system = 1;
++			if (params->std & (V4L2_STD_SECAM_G|V4L2_STD_SECAM_H)) {
++				std = "secamGH";
++				color = 0x10;
++			}
++		} else {
++			std = "palB";
++			bandwidth = 7000000;
++			if_frequency = 6000000;
++			system = 0;
++			if (params->std & V4L2_STD_SECAM_B) {
++				std = "secamB";
++				color = 0x10;
++			}
++		}
++	} else if (params->std & V4L2_STD_MN) {
++		std = "MN";
++		bandwidth = 6000000;
++		if_frequency = 5400000;
++		system = 2;
++	} else if (params->std & V4L2_STD_PAL_I) {
++		std = "palI";
++		bandwidth = 8000000;
++		if_frequency = 7250000; /* TODO: does not work yet */
++		system = 4;
++	} else if (params->std & V4L2_STD_DK) {
++		std = "palDK";
++		bandwidth = 8000000;
++		if_frequency = 6900000; /* TODO: does not work yet */
++		system = 5;
++		if (params->std & V4L2_STD_SECAM_DK) {
++			std = "secamDK";
++			color = 0x10;
++		}
++	} else if (params->std & V4L2_STD_SECAM_L) {
++		std = "secamL";
++		bandwidth = 8000000;
++		if_frequency = 6750000; /* TODO: untested */
++		system = 6;
++		color = 0x10;
++	} else if (params->std & V4L2_STD_SECAM_LC) {
++		std = "secamL'";
++		bandwidth = 7000000;
++		if_frequency = 1250000; /* TODO: untested */
++		system = 7;
++		color = 0x10;
++	} else {
++		std = "unknown";
++	}
++	/* calc channel center freq */
++	freq = freq - 1250000 + (bandwidth/2);
++
++	dev_dbg(&client->dev,
++			"mode=%d system=%u std='%s' params->frequency=%u center freq=%u if=%u bandwidth=%u\n",
++			params->mode, system, std, params->frequency,
++			freq, if_frequency, bandwidth);
++
++	/* set analog IF port */
++	memcpy(cmd.args, "\x14\x00\x03\x06\x08\x02", 6);
++	/* in using dev->if_port, we assume analog and digital IF's */
++	/*  are always on different ports */
++	/* assumes if_port definition is 0 or 1 for digital out */
++	cmd.args[4] = (dev->if_port == 1)?8:10;
++	cmd.args[5] = (dev->if_port == 1)?2:1; /* Analog AGC assumed external */
++	cmd.wlen = 6;
++	cmd.rlen = 4;
++	ret = si2157_cmd_execute(client, &cmd);
++	if (ret)
++		goto err;
++
++	/* set analog IF output config */
++	memcpy(cmd.args, "\x14\x00\x0d\x06\x94\x64", 6);
++	cmd.wlen = 6;
++	cmd.rlen = 4;
++	ret = si2157_cmd_execute(client, &cmd);
++	if (ret)
++		goto err;
++
++	/* make this distinct from a digital IF */
++	dev->if_frequency = if_frequency | 1;
++
++	/* calc and set tuner analog if center frequency */
++	if_frequency = if_frequency + 1250000 - (bandwidth/2);
++	dev_dbg(&client->dev, "IF Ctr freq=%d\n", if_frequency);
++
++	memcpy(cmd.args, "\x14\x00\x0C\x06", 4);
++	cmd.args[4] = (if_frequency / 1000) & 0xff;
++	cmd.args[5] = ((if_frequency / 1000) >> 8) & 0xff;
++	cmd.wlen = 6;
++	cmd.rlen = 4;
++	ret = si2157_cmd_execute(client, &cmd);
++	if (ret)
++		goto err;
++
++	/* set analog AGC config */
++	memcpy(cmd.args, "\x14\x00\x07\x06\x32\xc8", 6);
++	cmd.wlen = 6;
++	cmd.rlen = 4;
++	ret = si2157_cmd_execute(client, &cmd);
++	if (ret)
++		goto err;
++
++	/* set analog video mode */
++	memcpy(cmd.args, "\x14\x00\x04\x06\x00\x00", 6);
++	cmd.args[4] = system | color;
++#if 1 /* can use dev->inversion if assumed it applies to both digital/analog */
++	if (invert_analog)
++		cmd.args[5] |= 0x02;
++#else
++	if (dev->inversion)
++		cmd.args[5] |= 0x02;
++#endif
++	cmd.wlen = 6;
++	cmd.rlen = 1;
++	ret = si2157_cmd_execute(client, &cmd);
++	if (ret)
++		goto err;
++
++	/* set analog frequency */
++	memcpy(cmd.args, "\x41\x01\x00\x00\x00\x00\x00\x00", 8);
++	cmd.args[4] = (freq >>  0) & 0xff;
++	cmd.args[5] = (freq >>  8) & 0xff;
++	cmd.args[6] = (freq >> 16) & 0xff;
++	cmd.args[7] = (freq >> 24) & 0xff;
++	cmd.wlen = 8;
++	cmd.rlen = 1;
++	ret = si2157_cmd_execute(client, &cmd);
++	if (ret)
++		goto err;
++
++#if 1 /* testing */
++	/* get tuner status, RSSI values */
++	memcpy(cmd.args, "\x42\x01", 2);
++	cmd.wlen = 2;
++	cmd.rlen = 12;
++	ret = si2157_cmd_execute(client, &cmd);
++
++	dev_info(&client->dev, "%s: tuner status: ret=%d rssi=%d mode=%x freq=%d\n",
++		__func__, ret, cmd.args[3], cmd.args[8],
++		(cmd.args[7]<<24 | cmd.args[6]<<16 |
++		cmd.args[5]<<8 | cmd.args[4]));
++#endif
++	dev->bandwidth = bandwidth;
++
++	si2157_tune_wait(client, 0); /* wait to complete, ignore any errors */
++
++	return 0;
++err:
++	dev->bandwidth = 0;
++	dev->frequency = 0;
++	dev->if_frequency = 0;
++	dev_dbg(&client->dev, "failed=%d\n", ret);
++	return ret;
++}
++
++static int si2157_get_frequency(struct dvb_frontend *fe, u32 *frequency)
++{
++	struct i2c_client *client = fe->tuner_priv;
++	struct si2157_dev *dev = i2c_get_clientdata(client);
++
++	*frequency = dev->frequency;
++	dev_info(&client->dev, "%s: freq=%u\n", __func__, dev->frequency);
++	return 0;
++}
++
++static int si2157_get_bandwidth(struct dvb_frontend *fe, u32 *bandwidth)
++{
++	struct i2c_client *client = fe->tuner_priv;
++	struct si2157_dev *dev = i2c_get_clientdata(client);
++
++	*bandwidth = dev->bandwidth;
++	dev_info(&client->dev, "%s: bandwidth=%u\n", __func__, dev->bandwidth);
++	return 0;
++}
++
+ static int si2157_get_if_frequency(struct dvb_frontend *fe, u32 *frequency)
+ {
+ 	struct i2c_client *client = fe->tuner_priv;
+ 	struct si2157_dev *dev = i2c_get_clientdata(client);
+ 
+-	*frequency = dev->if_frequency;
++	*frequency = dev->if_frequency & ~1; /* strip analog IF indicator bit */
++	dev_info(&client->dev, "%s: if_frequency=%u\n", __func__, *frequency);
++	return 0;
++}
++
++static int si2157_get_rf_strength(struct dvb_frontend *fe, u16 *rssi)
++{
++	struct i2c_client *client = fe->tuner_priv;
++	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
++	struct si2157_cmd cmd;
++	int ret;
++	int strength;
++
++	dev_dbg(&client->dev, "\n");
++
++	memcpy(cmd.args, "\x42\x00", 2);
++	cmd.wlen = 2;
++	cmd.rlen = 12;
++	ret = si2157_cmd_execute(client, &cmd);
++	if (ret)
++		goto err;
++
++	c->strength.stat[0].scale = FE_SCALE_DECIBEL;
++	c->strength.stat[0].svalue = (s8) cmd.args[3] * 1000;
++
++	strength = (s8)cmd.args[3];
++	strength = (strength > -80) ? (u16)(strength + 100) : 0;
++	strength = strength > 80 ? 100 : strength;
++
++	*rssi = (u16)(strength * 0xffff / 100);
++	dev_dbg(&client->dev, "%s: strength=%d rssi=%u\n",
++		__func__, (s8)cmd.args[3], *rssi);
++
+ 	return 0;
++err:
++	dev_dbg(&client->dev, "failed=%d\n", ret);
++	return ret;
+ }
+ 
+ static const struct dvb_tuner_ops si2157_ops = {
+@@ -395,7 +774,12 @@ static const struct dvb_tuner_ops si2157_ops = {
+ 	.init = si2157_init,
+ 	.sleep = si2157_sleep,
+ 	.set_params = si2157_set_params,
+-	.get_if_frequency = si2157_get_if_frequency,
++	.set_analog_params = si2157_set_analog_params,
++	.get_frequency     = si2157_get_frequency,
++	.get_bandwidth     = si2157_get_bandwidth,
++	.get_if_frequency  = si2157_get_if_frequency,
++
++	.get_rf_strength   = si2157_get_rf_strength,
+ };
+ 
+ static void si2157_stat_work(struct work_struct *work)
+@@ -455,7 +839,7 @@ static int si2157_probe(struct i2c_client *client,
+ 	cmd.wlen = 0;
+ 	cmd.rlen = 1;
+ 	ret = si2157_cmd_execute(client, &cmd);
+-	if (ret)
++	if (ret && (ret != -EAGAIN))
+ 		goto err_kfree;
+ 
+ 	memcpy(&fe->ops.tuner_ops, &si2157_ops, sizeof(struct dvb_tuner_ops));
+diff --git a/drivers/media/tuners/si2157_priv.h b/drivers/media/tuners/si2157_priv.h
+index e6436f7..2a67c1b 100644
+--- a/drivers/media/tuners/si2157_priv.h
++++ b/drivers/media/tuners/si2157_priv.h
+@@ -30,6 +30,8 @@ struct si2157_dev {
+ 	u8 chiptype;
+ 	u8 if_port;
+ 	u32 if_frequency;
++	u32 bandwidth;
++	u32 frequency;
+ 	struct delayed_work stat_work;
+ 
+ #if defined(CONFIG_MEDIA_CONTROLLER)
+diff --git a/drivers/media/usb/cx231xx/cx231xx-avcore.c b/drivers/media/usb/cx231xx/cx231xx-avcore.c
+index fdd3c22..25aa7bb 100644
+--- a/drivers/media/usb/cx231xx/cx231xx-avcore.c
++++ b/drivers/media/usb/cx231xx/cx231xx-avcore.c
+@@ -599,14 +599,27 @@ int cx231xx_set_video_input_mux(struct cx231xx *dev, u8 input)
+ 				return status;
+ 			}
+ 		}
+-		if (dev->tuner_type == TUNER_NXP_TDA18271)
++		switch (dev->model) { /* i2c device tuners */
++		case CX231XX_BOARD_HAUPPAUGE_930C_HD_1114xx:
++		case CX231XX_BOARD_HAUPPAUGE_935C:
++		case CX231XX_BOARD_HAUPPAUGE_955Q:
++		case CX231XX_BOARD_HAUPPAUGE_975:
++		case CX231XX_BOARD_EVROMEDIA_FULL_HYBRID_FULLHD:
+ 			status = cx231xx_set_decoder_video_input(dev,
+ 							CX231XX_VMUX_TELEVISION,
+ 							INPUT(input)->vmux);
+-		else
+-			status = cx231xx_set_decoder_video_input(dev,
++			break;
++		default:
++			if (dev->tuner_type == TUNER_NXP_TDA18271)
++				status = cx231xx_set_decoder_video_input(dev,
++							CX231XX_VMUX_TELEVISION,
++							INPUT(input)->vmux);
++			else
++				status = cx231xx_set_decoder_video_input(dev,
+ 							CX231XX_VMUX_COMPOSITE1,
+ 							INPUT(input)->vmux);
++			break;
++		};
+ 
+ 		break;
+ 	default:
+@@ -1205,12 +1218,22 @@ int cx231xx_set_audio_decoder_input(struct cx231xx *dev,
+ 					cx231xx_set_field(FLD_SIF_EN, 0));
+ 			break;
+ 		default:
++			switch (dev->model) { /* i2c device tuners */
++			case CX231XX_BOARD_HAUPPAUGE_930C_HD_1114xx:
++			case CX231XX_BOARD_HAUPPAUGE_935C:
++			case CX231XX_BOARD_HAUPPAUGE_955Q:
++			case CX231XX_BOARD_HAUPPAUGE_975:
++			case CX231XX_BOARD_EVROMEDIA_FULL_HYBRID_FULLHD:
++			/* TODO: Normal mode: SIF passthrough at 14.32 MHz ??? */
++				break;
++			default:
+ 			/* This is just a casual suggestion to people adding
+ 			   new boards in case they use a tuner type we don't
+ 			   currently know about */
+-			dev_info(dev->dev,
+-				 "Unknown tuner type configuring SIF");
+-			break;
++				dev_info(dev->dev,
++					 "Unknown tuner type configuring SIF");
++				break;
++			}
+ 		}
+ 		break;
+ 
+diff --git a/drivers/media/usb/cx231xx/cx231xx-video.c b/drivers/media/usb/cx231xx/cx231xx-video.c
+index f7fcd73..c09b6d7 100644
+--- a/drivers/media/usb/cx231xx/cx231xx-video.c
++++ b/drivers/media/usb/cx231xx/cx231xx-video.c
+@@ -1293,7 +1293,7 @@ int cx231xx_s_frequency(struct file *file, void *priv,
+ 	struct cx231xx_fh *fh = priv;
+ 	struct cx231xx *dev = fh->dev;
+ 	struct v4l2_frequency new_freq = *f;
+-	int rc;
++	int rc, need_if_freq = 0;
+ 	u32 if_frequency = 5400000;
+ 
+ 	dev_dbg(dev->dev,
+@@ -1310,14 +1310,30 @@ int cx231xx_s_frequency(struct file *file, void *priv,
+ 	/* set pre channel change settings in DIF first */
+ 	rc = cx231xx_tuner_pre_channel_change(dev);
+ 
+-	call_all(dev, tuner, s_frequency, f);
+-	call_all(dev, tuner, g_frequency, &new_freq);
+-	dev->ctl_freq = new_freq.frequency;
++	switch (dev->model) { /* i2c device tuners */
++	case CX231XX_BOARD_HAUPPAUGE_930C_HD_1114xx:
++	case CX231XX_BOARD_HAUPPAUGE_935C:
++	case CX231XX_BOARD_HAUPPAUGE_955Q:
++	case CX231XX_BOARD_HAUPPAUGE_975:
++	case CX231XX_BOARD_EVROMEDIA_FULL_HYBRID_FULLHD:
++		if (dev->cx231xx_set_analog_freq)
++			dev->cx231xx_set_analog_freq(dev, f->frequency);
++		dev->ctl_freq = f->frequency;
++		need_if_freq = 1;
++		break;
++	default:
++		call_all(dev, tuner, s_frequency, f);
++		call_all(dev, tuner, g_frequency, &new_freq);
++		dev->ctl_freq = new_freq.frequency;
++		break;
++	}
++
++	pr_err("%s() %u  :  %u\n", __func__, f->frequency, dev->ctl_freq);
+ 
+ 	/* set post channel change settings in DIF first */
+ 	rc = cx231xx_tuner_post_channel_change(dev);
+ 
+-	if (dev->tuner_type == TUNER_NXP_TDA18271) {
++	if (need_if_freq || dev->tuner_type == TUNER_NXP_TDA18271) {
+ 		if (dev->norm & (V4L2_STD_MN | V4L2_STD_NTSC_443))
+ 			if_frequency = 5400000;  /*5.4MHz	*/
+ 		else if (dev->norm & V4L2_STD_B)
+@@ -1566,8 +1582,19 @@ int cx231xx_querycap(struct file *file, void *priv,
+ 		else
+ 			cap->device_caps |= V4L2_CAP_VIDEO_CAPTURE;
+ 	}
+-	if (dev->tuner_type != TUNER_ABSENT)
++	switch (dev->model) { /* i2c device tuners */
++	case CX231XX_BOARD_HAUPPAUGE_930C_HD_1114xx:
++	case CX231XX_BOARD_HAUPPAUGE_935C:
++	case CX231XX_BOARD_HAUPPAUGE_955Q:
++	case CX231XX_BOARD_HAUPPAUGE_975:
++	case CX231XX_BOARD_EVROMEDIA_FULL_HYBRID_FULLHD:
+ 		cap->device_caps |= V4L2_CAP_TUNER;
++		break;
++	default:
++		if (dev->tuner_type != TUNER_ABSENT)
++			cap->device_caps |= V4L2_CAP_TUNER;
++		break;
++	}
+ 	cap->capabilities = cap->device_caps | V4L2_CAP_READWRITE |
+ 		V4L2_CAP_VBI_CAPTURE | V4L2_CAP_VIDEO_CAPTURE |
+ 		V4L2_CAP_STREAMING | V4L2_CAP_DEVICE_CAPS;
+@@ -2172,10 +2199,20 @@ static void cx231xx_vdev_init(struct cx231xx *dev,
+ 
+ 	video_set_drvdata(vfd, dev);
+ 	if (dev->tuner_type == TUNER_ABSENT) {
+-		v4l2_disable_ioctl(vfd, VIDIOC_G_FREQUENCY);
+-		v4l2_disable_ioctl(vfd, VIDIOC_S_FREQUENCY);
+-		v4l2_disable_ioctl(vfd, VIDIOC_G_TUNER);
+-		v4l2_disable_ioctl(vfd, VIDIOC_S_TUNER);
++		switch (dev->model) {
++		case CX231XX_BOARD_HAUPPAUGE_930C_HD_1114xx:
++		case CX231XX_BOARD_HAUPPAUGE_935C:
++		case CX231XX_BOARD_HAUPPAUGE_955Q:
++		case CX231XX_BOARD_HAUPPAUGE_975:
++		case CX231XX_BOARD_EVROMEDIA_FULL_HYBRID_FULLHD:
++			break;
++		default:
++			v4l2_disable_ioctl(vfd, VIDIOC_G_FREQUENCY);
++			v4l2_disable_ioctl(vfd, VIDIOC_S_FREQUENCY);
++			v4l2_disable_ioctl(vfd, VIDIOC_G_TUNER);
++			v4l2_disable_ioctl(vfd, VIDIOC_S_TUNER);
++			break;
++		}
+ 	}
+ }
+ 
+-- 
+2.17.1
+
