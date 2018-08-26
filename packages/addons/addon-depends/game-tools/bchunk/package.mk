@@ -16,3 +16,7 @@ PKG_LONGDESC="binchunker converts a CD image in a .bin / .cue format (sometimes 
 makeinstall_target() {
   :
 }
+
+make_target() {
+  make $PKG_MAKE_OPTS_TARGET CC=$CC LD=$CC
+}
