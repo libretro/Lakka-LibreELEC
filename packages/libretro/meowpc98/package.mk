@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="meowpc98"
-PKG_VERSION="68898f6"
+PKG_VERSION="2b38849"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Unknown"
