@@ -20,10 +20,8 @@ PKG_ADDON_NAME="DVB drivers for TBS (CrazyCat)"
 PKG_ADDON_TYPE="xbmc.service"
 PKG_ADDON_VERSION="${ADDON_VERSION}.${PKG_REV}"
 
-if [ $LINUX = "amlogic-3.10" ]; then
-  PKG_PATCH_DIRS="amlogic-3.10"
-elif [ $LINUX = "amlogic-3.14" ]; then
-  PKG_PATCH_DIRS="amlogic-3.14"
+if [ $LINUX = "rockchip-4.4" ]; then
+  PKG_PATCH_DIRS="rockchip"
 fi
 
 pre_make_target() {
@@ -46,13 +44,7 @@ make_target() {
   fi
 
   # hack to workaround media_build bug
-  if [ $LINUX = "amlogic-3.14" -o $LINUX = "amlogic-3.10" ]; then
-    sed -e 's/CONFIG_VIDEO_TVP5150=m/# CONFIG_VIDEO_TVP5150 is not set/g' -i v4l/.config
-    sed -e 's/CONFIG_DVB_LGDT3306A=m/# CONFIG_DVB_LGDT3306A is not set/g' -i v4l/.config
-    if [ $LINUX = "amlogic-3.10" ]; then
-      sed -e 's/CONFIG_IR_NUVOTON=m/# CONFIG_IR_NUVOTON is not set/g' -i v4l/.config
-    fi
-  elif [ "$PROJECT" = Rockchip ]; then
+  if [ "$PROJECT" = Rockchip ]; then
     sed -e 's/CONFIG_DVB_CXD2820R=m/# CONFIG_DVB_CXD2820R is not set/g' -i v4l/.config
     sed -e 's/CONFIG_DVB_LGDT3306A=m/# CONFIG_DVB_LGDT3306A is not set/g' -i v4l/.config
   fi
