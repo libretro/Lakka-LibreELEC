@@ -25,18 +25,28 @@ if [ ! -f "$FULL_SOURCE_PATH" -a ! -d "$FULL_SOURCE_PATH" ]; then
   exit 1
 fi
 
+# The build system expects packages to be extracted to
+# $BUILD/$PKG_NAME-$PKG_VERSION.
+# Try to strip the top level dir from the archive and extract to
+# the correct directory if possible so packages don't need to
+# set PKG_SOURCE_DIR and scripts/unpack doesn't need to rename
+# the directory.
+# Currently this is only supported for tar archives.
+# If PKG_SOURCE_DIR is set don't apply any directory mangling
+# so advanced renaming (eg stripping more than one directory level)
+# can be performed by scripts/unpack.
+if [ -z "$PKG_SOURCE_DIR" ]; then
+	TAR_OPTS="--strip-components=1"
+	DESTDIR="$2/$PKG_NAME-$PKG_VERSION"
+else
+	TAR_OPTS=""
+	DESTDIR="$2"
+fi
+
 case $PKG_SOURCE_NAME in
-  *.tar)
-    tar xf $FULL_SOURCE_PATH -C $2
-    ;;
-  *.tar.bz2 | *.tbz)
-    tar xjf $FULL_SOURCE_PATH -C $2
-    ;;
-  *.tar.gz | *.tgz)
-    tar xzf $FULL_SOURCE_PATH -C $2
-    ;;
-  *.tar.xz | *.txz)
-    tar xJf $FULL_SOURCE_PATH -C $2
+  *.tar | *.tar.bz2 | *.tbz | *.tar.gz | *.tgz | *.tar.xz | *.txz)
+    mkdir -p "$DESTDIR"
+    tar xf $FULL_SOURCE_PATH $TAR_OPTS -C "$DESTDIR"
     ;;
   *.7z)
     mkdir -p $2/$1
