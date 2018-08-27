@@ -1,6 +1,6 @@
-From db712f7aa3c249d5b6c7d4c121b89b61e0dd518f Mon Sep 17 00:00:00 2001
+From ab5679fefbf2190008ba6c815e91f5c24820614e Mon Sep 17 00:00:00 2001
 From: MilhouseVH <milhouseVH.github@nmacleod.com>
-Date: Sat, 18 Aug 2018 03:29:56 +0100
+Date: Mon, 27 Aug 2018 17:48:05 +0100
 Subject: [PATCH] handle SIGTERM
 
 0. CApplication::Stop cant be trusted. (deadlocks crashes and boo)
@@ -15,18 +15,18 @@ so, when shutdown/reboot is requested:
 6. addons / pvrmanager / cec / everything else.. are free to deadlock / crash now, we dont care
 7. KILL
 ---
- xbmc/Application.cpp         | 19 +++++++++++++++----
+ xbmc/Application.cpp         | 21 ++++++++++++++++-----
  xbmc/Application.h           |  1 +
  xbmc/XBApplicationEx.cpp     |  1 +
  xbmc/XBApplicationEx.h       |  1 +
  xbmc/platform/posix/main.cpp |  2 +-
- 5 files changed, 19 insertions(+), 5 deletions(-)
+ 5 files changed, 20 insertions(+), 6 deletions(-)
 
 diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
-index b679c63..01750c2 100644
+index f39a94e..80bcecb 100644
 --- a/xbmc/Application.cpp
 +++ b/xbmc/Application.cpp
-@@ -2285,12 +2285,12 @@ void CApplication::OnApplicationMessage(ThreadMessage* pMsg)
+@@ -2286,12 +2286,12 @@ void CApplication::OnApplicationMessage(ThreadMessage* pMsg)
    switch (msg)
    {
    case TMSG_POWERDOWN:
@@ -41,7 +41,7 @@ index b679c63..01750c2 100644
      break;
  
    case TMSG_SHUTDOWN:
-@@ -2311,12 +2311,13 @@ void CApplication::OnApplicationMessage(ThreadMessage* pMsg)
+@@ -2312,12 +2312,13 @@ void CApplication::OnApplicationMessage(ThreadMessage* pMsg)
  
    case TMSG_RESTART:
    case TMSG_RESET:
@@ -56,7 +56,7 @@ index b679c63..01750c2 100644
      Stop(EXITCODE_RESTARTAPP);
  #endif
      break;
-@@ -2763,6 +2764,17 @@ bool CApplication::Cleanup()
+@@ -2764,6 +2765,17 @@ bool CApplication::Cleanup()
    }
  }
  
@@ -74,7 +74,16 @@ index b679c63..01750c2 100644
  void CApplication::Stop(int exitCode)
  {
    CLog::Log(LOGNOTICE, "stop player");
-@@ -2821,7 +2833,6 @@ void CApplication::Stop(int exitCode)
+@@ -2790,7 +2802,7 @@ void CApplication::Stop(int exitCode)
+     m_frameMoveGuard.unlock();
+ 
+     CVariant vExitCode(CVariant::VariantTypeObject);
+-    vExitCode["exitcode"] = exitCode;
++    vExitCode["exitcode"] = m_ExitCode;
+     CServiceBroker::GetAnnouncementManager()->Announce(ANNOUNCEMENT::System, "xbmc", "OnQuit", vExitCode);
+ 
+     // Abort any active screensaver
+@@ -2822,7 +2834,6 @@ void CApplication::Stop(int exitCode)
      // Needs cleaning up
      CApplicationMessenger::GetInstance().Stop();
      m_AppFocused = false;
