@@ -238,14 +238,8 @@ kernel_version() {
 kernel_config_path() {
   local cfg pkg_linux_dir pkg_linux_version config_name
 
-  # avoid infinite recursion if this is called by linux
-  if [ "$PKG_NAME" = "linux" ]; then
-    pkg_linux_version="$PKG_VERSION"
-    pkg_linux_dir="$PKG_DIR"
-  else
-    pkg_linux_version="$(get_pkg_version linux)"
-    pkg_linux_dir="$(get_pkg_directory linux)"
-  fi
+  pkg_linux_version="$(get_pkg_version linux)"
+  pkg_linux_dir="$(get_pkg_directory linux)"
 
   config_name="linux.${TARGET_PATCH_ARCH:-$TARGET_ARCH}.conf"
 
@@ -349,11 +343,14 @@ get_pkg_directory() {
   echo "$_PKG_DIR"
 }
 
-# get variable ($2) for package ($1)
+# get variable ($2) for package ($1).
+# avoid infinite recursion if required package is already loaded.
 get_pkg_variable() {
   if [ -n "$1" -a -n "$2" ] ; then
-    cd $ROOT
-    . config/options $1 &>/dev/null
+    if [ "$1" != "$PKG_NAME" ]; then
+      cd $ROOT
+      . config/options $1 &>/dev/null
+    fi
     echo "${!2}"
   fi
 }
