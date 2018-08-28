@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="xz"
-PKG_VERSION="5.2.3"
-PKG_SHA256="fd9ca16de1052aac899ad3495ad20dfa906c27b4a5070102a2ec35ca3a4740c1"
+PKG_VERSION="5.2.4"
+PKG_SHA256="3313fd2a95f43d88e44264e6b015e7d03053e681860b0d5d3f9baca79c57b7bf"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://tukaani.org/xz/"
