@@ -3,13 +3,13 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mpd"
-PKG_VERSION="0.20.19"
-PKG_SHA256="01cdef1b9217588a8fa64dc2cba900c138e1363a787837b4c8327c652b7956c3"
-PKG_REV="105"
+PKG_VERSION="0.20.21"
+PKG_SHA256="8322764dc265c20f05c8c8fdfdd578b0722e74626bef56fcd8eebfb01acc58dc"
+PKG_REV="106"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://www.musicpd.org"
-PKG_URL="http://www.musicpd.org/download/${PKG_NAME}/${PKG_VERSION%.*}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+PKG_URL="http://www.musicpd.org/download/mpd/${PKG_VERSION%.*}/mpd-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain alsa-lib boost curl faad2 ffmpeg flac glib lame libcdio libiconv libid3tag \
                     libmad libmpdclient libsamplerate libvorbis libnfs libogg mpd-mpc opus pulseaudio samba yajl"
 PKG_SECTION="service.multimedia"
@@ -54,7 +54,7 @@ PKG_CONFIGURE_OPTS_TARGET=" \
   --disable-libwrap \
   --enable-lsr \
   --enable-mad \
-  --disable-mikmod\
+  --disable-mikmod \
   --disable-mms \
   --disable-modplug \
   --disable-mpc \
