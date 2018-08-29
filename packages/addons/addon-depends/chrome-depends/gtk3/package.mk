@@ -27,4 +27,10 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-cups \
 
 pre_configure_target() {
   LIBS="$LIBS -lXcursor"
+  export PKG_CONFIG_PATH="$(get_build_dir pango)/.$TARGET_NAME"
+  export CFLAGS="$CFLAGS -I$(get_build_dir pango) -L$(get_build_dir pango)/.$TARGET_NAME/pango"
+}
+
+makeinstall_target() {
+  :
 }

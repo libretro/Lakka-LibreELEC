@@ -15,3 +15,7 @@ PKG_LONGDESC="X11 Screen Saver extension client library"
 PKG_CONFIGURE_OPTS_TARGET="--disable-static \
                            --enable-shared \
                            --enable-malloc0returnsnull"
+
+makeinstall_target() {
+  :
+}

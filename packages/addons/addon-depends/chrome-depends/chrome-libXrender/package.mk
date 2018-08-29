@@ -15,3 +15,7 @@ unpack() {
 PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET \
                            --disable-static \
                            --enable-shared"
+
+makeinstall_target() {
+  :
+}
