@@ -117,6 +117,10 @@ EOF
 
   # To avoid cache trashing
   touch -c -t $DATE $CROSS_CXX
+
+  # install lto plugin for binutils
+  mkdir -p $TOOLCHAIN/lib/bfd-plugins
+    ln -sf ../gcc/$TARGET_NAME/$GCC_VERSION/liblto_plugin.so $TOOLCHAIN/lib/bfd-plugins
 }
 
 configure_target() {
