@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="cap32"
-PKG_VERSION="af33c9c"
+PKG_VERSION="ac8608b"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"

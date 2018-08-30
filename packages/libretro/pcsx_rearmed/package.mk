@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="pcsx_rearmed"
-PKG_VERSION="5d705e2"
+PKG_VERSION="b616979"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
