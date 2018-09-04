@@ -4,25 +4,25 @@
 case "$ARCH" in
   "aarch64")
     PKG_NC_ARCH="arm64"
-    PKG_SHA256="09c4b9c369c7f98066ba493a36a5c256eb102031739bec4862b58299590b5a18"
+    PKG_SHA256="771904d72f06eb816e5a4adbaa76c4352c097fbf5ed7dee9e4059e776278223a"
     ;;
   "arm")
     PKG_NC_ARCH="arm"
-    PKG_SHA256="bdbb9739092098c1e572bbdcc9799bdfb17de75fbf7f4e72898dbf63d424e14f"
+    PKG_SHA256="cbdc689bff4dc01cb89e792d34a296bf9971f251719b6d60bbe5c5caeda846c7"
     ;;
   "x86_64")
     PKG_NC_ARCH="x64"
-    PKG_SHA256="0d0db92d1d4779ad28562ca445acd3701e61bcef957ae3dbdcc97a7c0e8f10c5"
+    PKG_SHA256="dd5d52fdc439fce37b2cc706ecdaf8900c36870654bbce4ae693a66279821b2e"
     ;;
 esac
 
 PKG_NAME="dotnet-runtime"
-PKG_VERSION="2.1.2"
-PKG_REV="100"
+PKG_VERSION="2.1.3"
+PKG_REV="101"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://dotnet.github.io/"
-PKG_URL="https://download.microsoft.com/download/1/f/7/1f7755c5-934d-4638-b89f-1f4ffa5afe89/dotnet-runtime-2.1.2-linux-$PKG_NC_ARCH.tar.gz"
+PKG_URL="https://download.microsoft.com/download/6/E/B/6EBD972D-2E2F-41EB-9668-F73F5FDDC09C/dotnet-runtime-$PKG_VERSION-linux-$PKG_NC_ARCH.tar.gz"
 PKG_SOURCE_NAME="$PKG_NAME-$PKG_VERSION-$ARCH.tar.gz"
 PKG_DEPENDS_TARGET="toolchain curl curl3 krb5 lttng-ust"
 PKG_SECTION="tools"
