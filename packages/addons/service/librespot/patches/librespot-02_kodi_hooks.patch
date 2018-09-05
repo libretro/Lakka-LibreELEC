@@ -1,30 +1,23 @@
+commit 55439529ae313eac5d946aa751387fa747cc6bc4
+Author: awiouy <awiouy@gmail.com>
+Date:   Wed Jun 13 17:39:54 2018 +0200
+
+    libreelec: kodi hooks
+
 diff --git a/playback/src/player.rs b/playback/src/player.rs
-index dd99423..365c108 100644
+index ab1a8ab..0aa0630 100644
 --- a/playback/src/player.rs
 +++ b/playback/src/player.rs
-@@ -17,7 +17,7 @@ use core::spotify_id::SpotifyId;
- use audio::{AudioDecrypt, AudioFile};
- use audio::{VorbisDecoder, VorbisPacket};
- use audio_backend::Sink;
--use metadata::{FileFormat, Metadata, Track};
-+use metadata::{FileFormat, Metadata, Track, Artist};
- use mixer::AudioFilter;
- 
- pub struct Player {
-@@ -49,15 +49,22 @@ enum PlayerCommand {
+@@ -49,15 +49,18 @@ enum PlayerCommand {
  pub enum PlayerEvent {
      Started {
          track_id: SpotifyId,
-+        track: Track,
-+        artist: Artist,
 +        new_state: String,
      },
  
      Changed {
          old_track_id: SpotifyId,
          new_track_id: SpotifyId,
-+        track: Track,
-+        artist: Artist,
 +        new_state: String,
      },
  
@@ -34,17 +27,7 @@ index dd99423..365c108 100644
      },
  }
  
-@@ -404,6 +411,9 @@ impl PlayerInternal {
- 
-                 match self.load_track(track_id, position as i64) {
-                     Some((decoder, normalisation_factor)) => {
-+                        let track = Track::get(&self.session, track_id).wait().unwrap();
-+                        let artist = Artist::get(&self.session, track.artists[0]).wait().unwrap();
-+                        
-                         if play {
-                             match self.state {
-                                 PlayerState::Playing {
-@@ -413,11 +423,20 @@ impl PlayerInternal {
+@@ -413,11 +416,18 @@ impl PlayerInternal {
                                  | PlayerState::EndOfTrack {
                                      track_id: old_track_id,
                                      ..
@@ -58,19 +41,17 @@ index dd99423..365c108 100644
 +                                    self.send_event(PlayerEvent::Changed {
 +                                        old_track_id: old_track_id,
 +                                        new_track_id: track_id,
-+                                        track: track,
-+                                        artist: artist,
 +                                        new_state: new_state,
 +                                    });
 +                                },
 +                                _ => {
 +                                    let new_state = "play".to_string();
-+                                    self.send_event(PlayerEvent::Started { track_id, track, artist, new_state });
++                                    self.send_event(PlayerEvent::Started { track_id, new_state });
 +                                },
                              }
  
                              self.start_sink();
-@@ -443,13 +462,20 @@ impl PlayerInternal {
+@@ -443,13 +453,18 @@ impl PlayerInternal {
                                  | PlayerState::EndOfTrack {
                                      track_id: old_track_id,
                                      ..
@@ -83,8 +64,6 @@ index dd99423..365c108 100644
 +                                    self.send_event(PlayerEvent::Changed {
 +                                        old_track_id: old_track_id,
 +                                        new_track_id: track_id,
-+                                        track: track,
-+                                        artist: artist,
 +                                        new_state: new_state,
 +                                    })
 +                                },
@@ -96,19 +75,17 @@ index dd99423..365c108 100644
                          }
                      }
  
-@@ -474,7 +500,10 @@ impl PlayerInternal {
+@@ -474,7 +489,8 @@ impl PlayerInternal {
                  if let PlayerState::Paused { track_id, .. } = self.state {
                      self.state.paused_to_playing();
  
 -                    self.send_event(PlayerEvent::Started { track_id });
-+                    let track = Track::get(&self.session, track_id).wait().unwrap();
-+                    let artist = Artist::get(&self.session, track.artists[0]).wait().unwrap();
 +                    let new_state = "play".to_string();
-+                    self.send_event(PlayerEvent::Started { track_id, track, artist, new_state });
++                    self.send_event(PlayerEvent::Started { track_id, new_state });
                      self.start_sink();
                  } else {
                      warn!("Player::play called from invalid state");
-@@ -486,7 +515,8 @@ impl PlayerInternal {
+@@ -486,7 +502,8 @@ impl PlayerInternal {
                      self.state.playing_to_paused();
  
                      self.stop_sink_if_running();
@@ -118,7 +95,7 @@ index dd99423..365c108 100644
                  } else {
                      warn!("Player::pause called from invalid state");
                  }
-@@ -497,7 +527,8 @@ impl PlayerInternal {
+@@ -497,7 +514,8 @@ impl PlayerInternal {
                  | PlayerState::Paused { track_id, .. }
                  | PlayerState::EndOfTrack { track_id } => {
                      self.stop_sink_if_running();
@@ -129,36 +106,34 @@ index dd99423..365c108 100644
                  }
                  PlayerState::Stopped => {
 diff --git a/src/player_event_handler.rs b/src/player_event_handler.rs
-index b6a653d..f746c8f 100644
+index b6a653d..7549e00 100644
 --- a/src/player_event_handler.rs
 +++ b/src/player_event_handler.rs
-@@ -18,18 +18,28 @@ pub fn run_program_on_events(event: PlayerEvent, onevent: &str) {
+@@ -18,18 +18,22 @@ pub fn run_program_on_events(event: PlayerEvent, onevent: &str) {
          PlayerEvent::Changed {
              old_track_id,
              new_track_id,
-+            track,
-+            artist,
 +            new_state,
          } => {
              env_vars.insert("PLAYER_EVENT", "change".to_string());
-             env_vars.insert("OLD_TRACK_ID", old_track_id.to_base16());
-             env_vars.insert("TRACK_ID", new_track_id.to_base16());
-+            env_vars.insert("TITLE", track.name.to_string());
-+            env_vars.insert("ARTIST", artist.name.to_string());
+-            env_vars.insert("OLD_TRACK_ID", old_track_id.to_base16());
+-            env_vars.insert("TRACK_ID", new_track_id.to_base16());
++            env_vars.insert("OLD_TRACK_ID", old_track_id.to_base62());
++            env_vars.insert("TRACK_ID", new_track_id.to_base62());
 +            env_vars.insert("STATE", new_state.to_string());
          }
 -        PlayerEvent::Started { track_id } => {
-+        PlayerEvent::Started { track_id, track, artist, new_state } => {
++        PlayerEvent::Started { track_id, new_state } => {
              env_vars.insert("PLAYER_EVENT", "start".to_string());
-             env_vars.insert("TRACK_ID", track_id.to_base16());
-+            env_vars.insert("TITLE", track.name.to_string());
-+            env_vars.insert("ARTIST", artist.name.to_string());
+-            env_vars.insert("TRACK_ID", track_id.to_base16());
++            env_vars.insert("TRACK_ID", track_id.to_base62());
 +            env_vars.insert("STATE", new_state.to_string());
          }
 -        PlayerEvent::Stopped { track_id } => {
 +        PlayerEvent::Stopped { track_id, new_state } => {
              env_vars.insert("PLAYER_EVENT", "stop".to_string());
-             env_vars.insert("TRACK_ID", track_id.to_base16());
+-            env_vars.insert("TRACK_ID", track_id.to_base16());
++            env_vars.insert("TRACK_ID", track_id.to_base62());
 +            env_vars.insert("STATE", new_state.to_string());
          }
      }
