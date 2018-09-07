@@ -62,7 +62,7 @@ create_multi_keymap() {
 }
 
 post_makeinstall_target() {
-  local default_multi_maps f keymap
+  local f keymap
 
   rm -rf $INSTALL/etc/rc_keymaps
     ln -sf /storage/.config/rc_keymaps $INSTALL/etc/rc_keymaps
@@ -86,16 +86,13 @@ post_makeinstall_target() {
   )
 
   # create multi keymap to support several remotes OOTB
+  if [ -n "$IR_REMOTE_PROTOCOLS" -a -n "$IR_REMOTE_KEYMAPS" ]; then
+    create_multi_keymap libreelec_multi "$IR_REMOTE_PROTOCOLS" $IR_REMOTE_KEYMAPS
 
-  default_multi_maps="rc6_mce xbox_360 zotac_ad10 hp_mce xbox_one cubox_i"
+    # use multi-keymap instead of default one
+    sed -i '/^\*\s*rc-rc6-mce\s*rc6_mce/d' $INSTALL/etc/rc_maps.cfg
 
-  create_multi_keymap libreelec_multi "RC6 NEC" $default_multi_maps
-  create_multi_keymap libreelec_multi_amlogic "RC6 NEC" $default_multi_maps \
-    odroid wetek_hub wetek_play_2 minix_neo
-
-  # use multi-keymap instead of default one
-  sed -i '/^\*\s*rc-rc6-mce\s*rc6_mce/d' $INSTALL/etc/rc_maps.cfg
-  cat << EOF >> $INSTALL/etc/rc_maps.cfg
+    cat << EOF >> $INSTALL/etc/rc_maps.cfg
 #
 # Custom LibreELEC configuration starts here
 #
@@ -103,6 +100,8 @@ post_makeinstall_target() {
 # *		rc-rc6-mce	rc6_mce
 *		rc-rc6-mce	libreelec_multi
 # multi-table for amlogic devices
-meson-ir	*		libreelec_multi_amlogic
+meson-ir	*		libreelec_multi
 EOF
+
+  fi
 }
