@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="wireless-regdb"
-PKG_VERSION="2018.05.31"
-PKG_SHA256="e1dfbc3b97771373077f430c3c05082fae883145b37db5b2cfd12c56676fbe7b"
+PKG_VERSION="2018.09.07"
+PKG_SHA256="a36b8147f1a3e98e1fd44321a4b8d7ad2f03cac98cdf527ccb1693342f08d65a"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://wireless.kernel.org/en/developers/Regulatory"
