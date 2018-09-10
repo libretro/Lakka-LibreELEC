@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mesa"
-PKG_VERSION="18.1.7"
-PKG_SHA256="655e3b32ce3bdddd5e6e8768596e5d4bdef82d0dd37067c324cc4b2daa207306"
+PKG_VERSION="18.2.0"
+PKG_SHA256="22452bdffff8e11bf4284278155a9f77cb28d6d73a12c507f1490732d0d9ddce"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
@@ -37,12 +37,11 @@ PKG_MESON_OPTS_TARGET="-Ddri-drivers=$DRI_DRIVERS \
                        -Dlibunwind=false \
                        -Dlmsensors=false \
                        -Dbuild-tests=false \
-                       -Dtexture-float=true \
                        -Dselinux=false \
                        -Dosmesa=none"
 
 if [ "$DISPLAYSERVER" = "x11" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET xorgproto libXext libXdamage libXfixes libXxf86vm libxcb libX11 libxshmfence"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET xorgproto libXext libXdamage libXfixes libXxf86vm libxcb libX11 libxshmfence libXrandr"
   export X11_INCLUDES=
   PKG_MESON_OPTS_TARGET+=" -Dplatforms=x11,drm -Ddri3=true -Dglx=dri"
 elif [ "$DISPLAYSERVER" = "weston" ]; then
