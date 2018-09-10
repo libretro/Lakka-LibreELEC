@@ -2,14 +2,14 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="Python3"
-PKG_VERSION="3.6.3"
-PKG_SHA256="cda7d967c9a4bfa52337cdf551bcc5cff026b6ac50a8834e568ce4a794ca81da"
+PKG_VERSION="3.7.0"
+PKG_SHA256="0382996d1ee6aafe59763426cf0139ffebe36984474d0ec4126dd1c40a8b3549"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.python.org/"
 PKG_URL="http://www.python.org/ftp/python/$PKG_VERSION/${PKG_NAME::-1}-$PKG_VERSION.tar.xz"
 PKG_SOURCE_DIR="${PKG_NAME::-1}-$PKG_VERSION*"
-PKG_DEPENDS_HOST="zlib:host bzip2:host"
+PKG_DEPENDS_HOST="zlib:host bzip2:host libffi:host"
 PKG_DEPENDS_TARGET="toolchain sqlite expat zlib bzip2 openssl Python3:host readline ncurses"
 PKG_SECTION="lang"
 PKG_SHORTDESC="python3: The Python3 programming language"
