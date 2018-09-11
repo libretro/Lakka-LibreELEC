@@ -2,6 +2,7 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="Python3"
+# When changing PKG_VERSION remember to sync PKG_PYTHON_VERSION!
 PKG_VERSION="3.7.0"
 PKG_SHA256="0382996d1ee6aafe59763426cf0139ffebe36984474d0ec4126dd1c40a8b3549"
 PKG_ARCH="any"
@@ -15,7 +16,7 @@ PKG_SECTION="lang"
 PKG_SHORTDESC="python3: The Python3 programming language"
 PKG_LONGDESC="Python3 is an interpreted object-oriented programming language, and is often compared with Tcl, Perl, Java or Scheme."
 
-PKG_PYTHON_VERSION=python3.6
+PKG_PYTHON_VERSION=python3.7
 
 PKG_TOOLCHAIN="autotools"
 

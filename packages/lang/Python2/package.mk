@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="Python2"
+# When changing PKG_VERSION remember to sync PKG_PYTHON_VERSION!
 PKG_VERSION="2.7.15"
 PKG_SHA256="22d9b1ac5b26135ad2b8c2901a9413537e08749a753356ee913c84dbd2df5574"
 PKG_ARCH="any"
