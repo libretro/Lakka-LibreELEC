@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="u-boot"
-PKG_VERSION="2017.11"
-PKG_SHA256="6a018fd3caf58f3dcfa23ee989a82bd35df03af71872b9dca8c6d758a0d26c05"
+PKG_VERSION="2018.07"
+PKG_SHA256="9f10df88bc91b35642e461217f73256bbaeeca9ae2db8db56197ba5e89e1f6d4"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.denx.de/wiki/U-Boot"
@@ -37,7 +37,7 @@ if [ "$TARGET_KERNEL_ARCH" = "arm64" -a "$TARGET_ARCH" = "arm" ]; then
   TARGET_PREFIX=aarch64-elf-
 fi
 
-if [ "$UBOOT_SOC" = "rk3328" ]; then
+if [ "$UBOOT_SOC" = "rk3328" ] || [ "$UBOOT_SOC" = "rk3399" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET rkbin"
   PKG_NEED_UNPACK="$(get_pkg_directory rkbin)"
 fi
@@ -71,35 +71,38 @@ makeinstall_target() {
     cat u-boot-dtb.bin >> idbloader.img
 
     cp -PRv idbloader.img $INSTALL/usr/share/bootloader
-  elif [ "$UBOOT_SOC" = "rk3328" ]; then
+  elif [ "$UBOOT_SOC" = "rk3328" ] ||[ "$UBOOT_SOC" = "rk3399" ] ; then
+  
+      case "$UBOOT_SOC" in
+        rk3328)
+          DATAFILE="$PROJECT_DIR/$PROJECT/bootloader/rk3328_ddr_786MHz_v1.08.bin"
+          LOADER="$PROJECT_DIR/$PROJECT/bootloader/rk3328_miniloader_v2.44.bin"
+          BL31="$(get_build_dir rkbin)/rk33/rk3328_bl31_v1.34.bin"
+          ;;
+        rk3399)
+          DATAFILE="$PROJECT_DIR/$PROJECT/bootloader/rk3399_ddr_800MHz_v1.14.bin"
+          LOADER="$PROJECT_DIR/$PROJECT/bootloader/rk3399_miniloader_v1.15.bin"
+          BL31="$PROJECT_DIR/$PROJECT/bootloader/rk3399_bl31_v1.18.elf"
+          ;;
+      esac
+    
     $(get_build_dir rkbin)/tools/loaderimage --pack --uboot u-boot-dtb.bin uboot.img 0x200000
 
-    if [ -f $PROJECT_DIR/$PROJECT/bootloader/rk3328_ddr_786MHz_v1.08.bin ]; then
-      dd if=$PROJECT_DIR/$PROJECT/bootloader/rk3328_ddr_786MHz_v1.08.bin of=ddr.bin bs=4 skip=1
-    else
-      dd if=$(get_build_dir rkbin)/rk33/rk3328_ddr_786MHz_v1.06.bin of=ddr.bin bs=4 skip=1
-    fi
     tools/mkimage \
       -n $UBOOT_SOC \
       -T rksd \
-      -d ddr.bin \
+      -d "$DATAFILE" \
       idbloader.img
-    if [ -f $PROJECT_DIR/$PROJECT/bootloader/rk3328_miniloader_v2.44.bin ]; then
-      cat $PROJECT_DIR/$PROJECT/bootloader/rk3328_miniloader_v2.44.bin >> idbloader.img
-    else
-      cat $(get_build_dir rkbin)/rk33/rk3328_miniloader_v2.43.bin >> idbloader.img
-    fi
+      
+    cat "$LOADER" >> idbloader.img
 
     cat >trust.ini <<EOF
-[VERSION]
-MAJOR=1
-MINOR=2
 [BL30_OPTION]
 SEC=0
 [BL31_OPTION]
 SEC=1
-PATH=$(get_build_dir rkbin)/rk33/rk3328_bl31_v1.34.bin
-ADDR=0x10000
+PATH=$BL31
+ADDR=0x00010000
 [BL32_OPTION]
 SEC=0
 [BL33_OPTION]
@@ -107,7 +110,7 @@ SEC=0
 [OUTPUT]
 PATH=trust.img
 EOF
-    $(get_build_dir rkbin)/tools/trust_merger trust.ini
+    $(get_build_dir rkbin)/tools/trust_merger --verbose trust.ini
 
     cp -PRv idbloader.img $INSTALL/usr/share/bootloader
     cp -PRv uboot.img $INSTALL/usr/share/bootloader

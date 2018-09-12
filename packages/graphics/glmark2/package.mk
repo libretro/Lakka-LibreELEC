@@ -40,16 +40,16 @@ fi
 PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr $GLMARK2_FLAVOR"
 
 configure_target() {
-  cd /root/Lakka-LibreELEC/$PKG_BUILD
+  cd $PKG_BUILD
     LDFLAGS="-lz" ./waf configure $PKG_CONFIGURE_OPTS_TARGET
 }
 
 make_target() {
-  cd /root/Lakka-LibreELEC/$PKG_BUILD
+  cd $PKG_BUILD
     ./waf build
 }
 
 makeinstall_target() {
-  cd /root/Lakka-LibreELEC/$PKG_BUILD
+  cd $PKG_BUILD
     ./waf install --destdir=$INSTALL
 }
