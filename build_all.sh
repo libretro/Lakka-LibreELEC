@@ -64,6 +64,10 @@ PROJECT=Rockchip DEVICE=TinkerBoard ARCH=arm make image -j8
 PROJECT=Rockchip DEVICE=ROCK64 ARCH=arm make image -j8
 >&2 echo "MiQi.arm"
 PROJECT=Rockchip DEVICE=MiQi ARCH=arm make image -j8
+>&2 echo "RK3399.aarch64"
+PROJECT=Rockchip DEVICE=RK3399 BOARD=ROCKPro64 ARCH=aarch64 make image -j8
+PROJECT=Rockchip DEVICE=RK3399 BOARD=ROCK960 ARCH=aarch64 make image -j8
+PROJECT=Rockchip DEVICE=RK3399 BOARD=OdroidN1 ARCH=aarch64 make image -j8
 
 rm target/*.kernel
 rm target/*.system
