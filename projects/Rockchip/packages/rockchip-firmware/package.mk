@@ -17,16 +17,17 @@
 ################################################################################
 
 PKG_NAME="rockchip-firmware"
-PKG_VERSION="f64ded6"
+PKG_VERSION="b3a2661830dd7e1800b755373b02ac892863ef9b"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="nonfree"
 PKG_SITE="https://github.com/rockchip-linux/rkbin"
-PKG_GIT_URL="$PKG_SITE"
+PKG_URL="https://github.com/rockchip-linux/rkbin/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="rkbin rfkill"
 PKG_SECTION="firmware"
 PKG_SHORTDESC="rockchip firmware"
 PKG_LONGDESC="rockchip firmware"
 PKG_TOOLCHAIN="manual"
+PKG_SOURCE_DIR="rkbin-$PKG_VERSION*"
 
 make_target() {
   :
