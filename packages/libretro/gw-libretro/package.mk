@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="gw-libretro"
-PKG_VERSION="3235eba"
+PKG_VERSION="b6bcc81"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
