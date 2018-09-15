@@ -76,13 +76,13 @@ makeinstall_target() {
       case "$UBOOT_SOC" in
         rk3328)
           DATAFILE="$PROJECT_DIR/$PROJECT/bootloader/rk3328_ddr_786MHz_v1.08.bin"
-          LOADER="$PROJECT_DIR/$PROJECT/bootloader/rk3328_miniloader_v2.44.bin"
+          LOADER="$(get_build_dir rkbin)/rk33/rk3328_miniloader_v2.49.bin"
           BL31="$(get_build_dir rkbin)/rk33/rk3328_bl31_v1.34.bin"
           ;;
         rk3399)
-          DATAFILE="$PROJECT_DIR/$PROJECT/bootloader/rk3399_ddr_800MHz_v1.14.bin"
-          LOADER="$PROJECT_DIR/$PROJECT/bootloader/rk3399_miniloader_v1.15.bin"
-          BL31="$PROJECT_DIR/$PROJECT/bootloader/rk3399_bl31_v1.18.elf"
+          DATAFILE="$(get_build_dir rkbin)/rk33/rk3399_ddr_800MHz_v1.14.bin"
+          LOADER="$(get_build_dir rkbin)/rk33/rk3399_miniloader_v1.15.bin"
+          BL31="$(get_build_dir rkbin)/rk33/rk3399_bl31_v1.18.elf"
           ;;
       esac
     
