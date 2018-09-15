@@ -47,8 +47,8 @@ case "$LINUX" in
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     ;;
   *)
-    PKG_VERSION="4.18.7"
-    PKG_SHA256="f03b425e262a71e5079736706233a4e9afaf77c8462b552b4d6db2d33f5af731"
+    PKG_VERSION="4.18.8"
+    PKG_SHA256="f1551bad69ab617708fa8cf3f94545ae03dd350bdeb3065fbcf39c1a7df85494"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v4.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     PKG_PATCH_DIRS="default"
     ;;
