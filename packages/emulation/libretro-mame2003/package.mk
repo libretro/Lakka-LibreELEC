@@ -2,16 +2,12 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-mame2003"
-PKG_VERSION="69163cc"
-PKG_SHA256="5c505590857319cfb7043883afa1965067bfa8387829ff6cbe462927f1262303"
-PKG_ARCH="any"
+PKG_VERSION="6ca3bdece6f5dac9fbf5be837c7a1a69d99b5bdd"
+PKG_SHA256="b4e7badb774b3e80bda70bb825edeec0a9da99d25c7b3d2cf926d68b3922d437"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mame2003-libretro"
 PKG_URL="https://github.com/libretro/mame2003-libretro/archive/$PKG_VERSION.tar.gz"
-PKG_SOURCE_DIR="mame2003-libretro-$PKG_VERSION*"
-PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SECTION="emulation"
-PKG_SHORTDESC="Late 2003 version of MAME (0.78) for libretro"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Late 2003 version of MAME (0.78) for libretro"
 
 PKG_LIBNAME="mame2003_libretro.so"
