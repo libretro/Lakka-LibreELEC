@@ -2,16 +2,12 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-mame2000"
-PKG_VERSION="1083de2"
-PKG_SHA256="9942b393d94ea0ddf2c24ee98e2c695cf2fa4217283c33522c9d0db8e219cfee"
-PKG_ARCH="any"
+PKG_VERSION="bd3833c41f6894ba1c5d2f3f35b29190658517a0"
+PKG_SHA256="99d25517612f28be117c8a68c581d152a4ea07355eaa7748584c2a84c70f04fb"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mame2000-libretro"
 PKG_URL="https://github.com/libretro/mame2000-libretro/archive/$PKG_VERSION.tar.gz"
-PKG_SOURCE_DIR="mame2000-libretro-$PKG_VERSION*"
-PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SECTION="emulation"
-PKG_SHORTDESC="2000 version of MAME (0.37b5) for libretro"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="2000 version of MAME (0.37b5) for libretro"
 
 PKG_LIBNAME="mame2000_libretro.so"
