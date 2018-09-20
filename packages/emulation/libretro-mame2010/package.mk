@@ -2,16 +2,12 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-mame2010"
-PKG_VERSION="3a9d2ff"
-PKG_SHA256="e60cad55518281516778b943723b6d1ae4a17b096124f108dd27520862175f5b"
-PKG_ARCH="any"
+PKG_VERSION="70732f9137f6bb2bde4014746ea8bc613173dd1e"
+PKG_SHA256="36ab11541233c9a4240baf6f0a529d8d335dce23f25b66b950e18373fd8e65fb"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mame2010-libretro"
 PKG_URL="https://github.com/libretro/mame2010-libretro/archive/$PKG_VERSION.tar.gz"
-PKG_SOURCE_DIR="mame2010-libretro-$PKG_VERSION*"
-PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SECTION="emulation"
-PKG_SHORTDESC="Late 2010 version of MAME (0.139) for libretro"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Late 2010 version of MAME (0.139) for libretro"
 
 PKG_LIBNAME="mame2010_libretro.so"
