@@ -2,16 +2,12 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-mame2014"
-PKG_VERSION="49f55c1"
-PKG_SHA256="c1f018dbbf8dcc43df66e4ad10431812981db1e3a794485c41799b2a43f8d834"
-PKG_ARCH="any"
+PKG_VERSION="62a932c9435ef89fdb9a1b0c41deadd7f04f53f3"
+PKG_SHA256="9b38e1c0d75bc4295d9c08288579f2bf58e55e97132308b65d92ca494e55fa67"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mame2014-libretro"
 PKG_URL="https://github.com/libretro/mame2014-libretro/archive/$PKG_VERSION.tar.gz"
-PKG_SOURCE_DIR="mame2014-libretro-$PKG_VERSION*"
-PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SECTION="emulation"
-PKG_SHORTDESC="Late 2014/Early 2015 version of MAME (0.159-ish) for libretro"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Late 2014/Early 2015 version of MAME (0.159-ish) for libretro"
 
 PKG_LIBNAME="mame2014_libretro.so"
