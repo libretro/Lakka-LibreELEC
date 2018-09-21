@@ -80,10 +80,6 @@ configure_target() {
       sed -i -e "s|^CONFIG_FEATURE_CROND_SPECIAL_TIMES=.*$|# CONFIG_FEATURE_CROND_SPECIAL_TIMES is not set|" .config
     fi
 
-    if [ ! "$NFS_SUPPORT" = yes ]; then
-      sed -i -e "s|^CONFIG_FEATURE_MOUNT_NFS=.*$|# CONFIG_FEATURE_MOUNT_NFS is not set|" .config
-    fi
-
     if [ ! "$SAMBA_SUPPORT" = yes ]; then
       sed -i -e "s|^CONFIG_FEATURE_MOUNT_CIFS=.*$|# CONFIG_FEATURE_MOUNT_CIFS is not set|" .config
     fi
