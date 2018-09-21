@@ -61,7 +61,7 @@ PROJECT=S912 ARCH=arm make image -j8
 >&2 echo "TinkerBoard.arm"
 PROJECT=Rockchip DEVICE=TinkerBoard ARCH=arm make image -j8
 >&2 echo "ROCK64.arm"
-PROJECT=Rockchip DEVICE=ROCK64 ARCH=arm make image -j8
+PROJECT=Rockchip DEVICE=RK3328 BOARD=ROCK64 ARCH=arm make image -j8
 >&2 echo "MiQi.arm"
 PROJECT=Rockchip DEVICE=MiQi ARCH=arm make image -j8
 >&2 echo "RK3399.aarch64"
