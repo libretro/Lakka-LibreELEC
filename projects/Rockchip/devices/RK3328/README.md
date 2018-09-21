@@ -22,8 +22,11 @@ This is an experimental project for the RK3328-based boards
         * [x] h264 / hevc / vp8
     * Video aspect ratio / zoom is not working for all modes
     * 4K resolution is limited to 30hz
+* ROC-RK3328-CC
 
 **Build**
 
 * `PROJECT=Rockchip DEVICE=RK3328 BOARD=ROCK64 ARCH=aarch64 make image`
 * `PROJECT=Rockchip DEVICE=RK3328 BOARD=ROCK64 ARCH=arm make image`
+* `PROJECT=Rockchip DEVICE=RK3328 BOARD=ROC-RK3328-CC ARCH=aarch64 make image`
+* `PROJECT=Rockchip DEVICE=RK3328 BOARD=ROC-RK3328-CC ARCH=arm make image`
