@@ -3,8 +3,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="samba"
-PKG_VERSION="4.8.5"
-PKG_SHA256="e58ee6b1262d4128b8932ceee59d5f0b0a9bbe00547eb3cc4c41552de1a65155"
+PKG_VERSION="4.9.0"
+PKG_SHA256="d071e9e738e9583d0b9ce1c758d46808b76078405787c88a0c5b465bef8a9b15"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3+"
 PKG_SITE="https://www.samba.org"
@@ -81,6 +81,8 @@ PKG_CONFIGURE_OPTS="--prefix=/usr \
                     --bundled-libraries='ALL,!asn1_compile,!compile_et,!zlib' \
                     --without-quotas \
                     --with-syslog  \
+                    --without-json-audit \
+                    --without-ldb-lmdb \
                     --nopyc --nopyo"
 
 PKG_SAMBA_TARGET="smbclient,client/smbclient,smbtree,testparm"
