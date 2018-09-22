@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="elfutils"
-PKG_VERSION="0.170"
-PKG_SHA256="1f844775576b79bdc9f9c717a50058d08620323c1e935458223a12f249c9e066"
+PKG_VERSION="0.173"
+PKG_SHA256="b76d8c133f68dad46250f5c223482c8299d454a69430d9aa5c19123345a000ff"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://sourceware.org/elfutils/"
