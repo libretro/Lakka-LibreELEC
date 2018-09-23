@@ -2,10 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="emby"
-PKG_VERSION="3.5.2.0"
-PKG_SHA256="fe5561c27a5d2bbe79a9717ecb2eb8ce4f243592494b813250d2db56da5a3710"
-PKG_REV="123"
-PKG_ARCH="any"
+PKG_VERSION="3.5.3.0"
+PKG_SHA256="f25abb6d34f888c467db561ad333a222626febdc69b6353de86c04848753210c"
+PKG_REV="124"
 PKG_LICENSE="OSS"
 PKG_SITE="http://emby.media"
 PKG_URL="https://github.com/MediaBrowser/Emby.Releases/releases/download/$PKG_VERSION/embyserver-netcore_$PKG_VERSION.zip"
