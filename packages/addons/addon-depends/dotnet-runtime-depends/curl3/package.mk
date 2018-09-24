@@ -14,7 +14,7 @@ unpack() {
 }
 
 makeinstall_target() {
-  :
+  make install DESTDIR=$INSTALL $PKG_MAKEINSTALL_OPTS_TARGET
 }
 
 post_makeinstall_target() {
