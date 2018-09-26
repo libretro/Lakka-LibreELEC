@@ -124,6 +124,8 @@ makeinstall_target() {
   mkdir -p $INSTALL/usr/bin
     [ $TARGET_ARCH = x86_64 ] && cp $PKG_DIR/scripts/getedid $INSTALL/usr/bin
     cp $PKG_DIR/scripts/createlog $INSTALL/usr/bin/
+    cp $PKG_DIR/scripts/dtfile $INSTALL/usr/bin
+    cp $PKG_DIR/scripts/dtname $INSTALL/usr/bin
     cp $PKG_DIR/scripts/lsb_release $INSTALL/usr/bin/
     cp $PKG_DIR/scripts/apt-get $INSTALL/usr/bin/
     cp $PKG_DIR/scripts/sudo $INSTALL/usr/bin/
