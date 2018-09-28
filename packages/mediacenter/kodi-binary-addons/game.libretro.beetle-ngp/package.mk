@@ -4,7 +4,7 @@
 PKG_NAME="game.libretro.beetle-ngp"
 PKG_VERSION="5818ba5"
 PKG_SHA256="8c5a8948f2c7162f20eda896d6de73844144357ade36fe9c79c4b85641fe9617"
-PKG_REV="106"
+PKG_REV="107"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.beetle-ngp"
