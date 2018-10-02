@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.pcsx-rearmed"
-PKG_VERSION="5c4f796"
-PKG_SHA256="d012a50421b27070112b2b57343f3297bd1b1a4935e6d1d7b9667bab6783a9d4"
-PKG_REV="107"
+PKG_VERSION="75208998eb366f70624d427d14353662b07990a2"
+PKG_SHA256="5d99e36d62f1016ebff01a6877a48aa8b01a9c0b88f5c5dd67c0dd710d5ff352"
+PKG_REV="108"
 # neon optimizations make it only useful for arm
 PKG_ARCH="arm"
 PKG_LICENSE="GPL"
