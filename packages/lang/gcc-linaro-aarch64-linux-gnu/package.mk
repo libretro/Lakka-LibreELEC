@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="gcc-linaro-aarch64-linux-gnu"
-PKG_VERSION="6.3.1-2017.02"
-PKG_VERSION_SHORT="6.3-2017.02"
+PKG_VERSION="7.3.1-2018.05"
+PKG_VERSION_SHORT="7.3-2018.05"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
