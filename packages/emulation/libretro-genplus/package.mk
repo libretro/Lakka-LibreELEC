@@ -20,7 +20,11 @@ PKG_LIBPATH="$PKG_LIBNAME"
 PKG_LIBVAR="GENPLUS_LIB"
 
 make_target() {
-  make -f Makefile.libretro
+  if [ "$ARCH" = "arm" ]; then
+    CFLAGS="$CFLAGS -DALIGN_LONG"
+  fi
+
+  make -f Makefile.libretro GIT_VERSION=$PKG_VERSION
 }
 
 makeinstall_target() {
