@@ -2,15 +2,12 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ffmpegx"
-PKG_VERSION="4.0.1"
-PKG_SHA256="cbb7c3ed5b7a669962dfe7c58dc495279274ac259e75770cccf2d2b0115ff5fb"
-PKG_ARCH="any"
+PKG_VERSION="4.0.2"
+PKG_SHA256="5ec8d580ef8c357e79f46bf00faaf1c237e1377b1b473a42ea1c3b0fb80b6123"
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://ffmpeg.org"
 PKG_URL="https://github.com/FFmpeg/FFmpeg/archive/n${PKG_VERSION}.tar.gz"
-PKG_SOURCE_DIR="FFmpeg-n${PKG_VERSION}"
 PKG_DEPENDS_TARGET="toolchain aom bzip2 fdk-aac libvorbis openssl opus x264 x265 zlib"
-PKG_SECTION="multimedia"
 PKG_LONGDESC="FFmpegx is an complete FFmpeg build to support encoding and decoding"
 PKG_BUILD_FLAGS="-gold"
 
@@ -37,10 +34,6 @@ pre_configure_target() {
   if [ "$KODIPLAYER_DRIVER" == "bcm2835-driver" ]; then
     CFLAGS="-DRPI=1 -I$SYSROOT_PREFIX/usr/include/IL -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux $CFLAGS"
     PKG_FFMPEG_LIBS="-lbcm_host -ldl -lmmal -lmmal_core -lmmal_util -lvchiq_arm -lvcos -lvcsm"
-  fi
-
-  if [ "$TARGET_ARCH" == "arm" ]; then
-    PKG_FFMPEG_ARM_AO="--enable-hardcoded-tables"
   fi
 
 # HW encoders
@@ -177,7 +170,7 @@ configure_target() {
     --enable-openssl \
     \
     `#Advanced options` \
-    $PKG_FFMPEG_ARM_AO \
+    --disable-hardcoded-tables \
 
 }
 
