@@ -51,8 +51,13 @@ make_target() {
     LDFLAGS="$LDFLAGS -lpthread"
     make WITH_DYNAREC=$DYNAREC HAVE_PARALLEL=1 HAVE_OPENGL=0
   elif [[ "$TARGET_FPU" =~ "neon" ]]; then
+    if [ "$OPENGLES_SUPPORT" = "yes" ]; then
+      P64GLES="-gles"
+    else
+      P64GLES=""
+    fi
     CFLAGS="$CFLAGS -DGL_BGRA_EXT=0x80E1" # Fix build for platforms where GL_BGRA_EXT is not defined
-    make platform=armv-gles-neon
+    make platform=armv$P64GLES-neon
   elif [ "$PROJECT" ==  "Rockchip" -a "$ARCH" == "aarch64" ]; then
     LDFLAGS="$LDFLAGS -lpthread"
     make FORCE_GLES=1 HAVE_PARALLEL=1
