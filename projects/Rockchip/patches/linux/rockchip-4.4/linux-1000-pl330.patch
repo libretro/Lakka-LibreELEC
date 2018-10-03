@@ -1,4 +1,158 @@
-From 0a3affb0d28223e6ffbdb3ccceeaae1ed7a35b21 Mon Sep 17 00:00:00 2001
+From de1d7ef4900e4083d3eb61a41ef21970cd572a59 Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Sat, 8 Sep 2018 11:03:36 +0200
+Subject: [PATCH] Revert "dmaengine: pl330: add support for interlace single
+ xfer"
+
+This reverts commit 83623425bceb4005151379cc959e41eddd2a0937.
+---
+ drivers/dma/pl330.c | 10 +---------
+ 1 file changed, 1 insertion(+), 9 deletions(-)
+
+diff --git a/drivers/dma/pl330.c b/drivers/dma/pl330.c
+index b14f5c225401..8746c24d3cd7 100644
+--- a/drivers/dma/pl330.c
++++ b/drivers/dma/pl330.c
+@@ -1477,12 +1477,6 @@ static inline int _setup_loops(struct pl330_dmac *pl330,
+ 		off += _emit_FLUSHP(dry_run, &buf[off],
+ 					pxs->desc->peri);
+ #endif
+-	if (pxs->desc->rqtype == DMA_DEV_TO_MEM)
+-		bursts = x->bytes / (BRST_SIZE(ccr) * BRST_LEN(ccr) +
+-				     pxs->desc->dst_interlace_size);
+-	else if (pxs->desc->rqtype == DMA_MEM_TO_DEV)
+-		bursts = x->bytes / (BRST_SIZE(ccr) * BRST_LEN(ccr) +
+-				     pxs->desc->src_interlace_size);
+ 	while (bursts) {
+ 		c = bursts;
+ 		off += _loop(pl330, dry_run, &buf[off], &c, pxs);
+@@ -1507,9 +1501,7 @@ static inline int _setup_xfer(struct pl330_dmac *pl330,
+ 	/* Setup Loop(s) */
+ 	off += _setup_loops(pl330, dry_run, &buf[off], pxs);
+ 
+-	if (pxs->desc->src_interlace_size == 0 &&
+-	    pxs->desc->dst_interlace_size == 0 &&
+-	    pl330->peripherals_req_type == BURST) {
++	if (pl330->peripherals_req_type == BURST) {
+ 		unsigned int ccr = pxs->ccr;
+ 		unsigned long c = 0;
+ 
+
+From 875fb88fb64f5dc61abb8c4a311de82b68792d0e Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Sat, 1 Sep 2018 07:43:58 +0200
+Subject: [PATCH] Revert "dmaengine: pl330: _loop_cyclic: fixup loopcnt is too
+ large"
+
+This reverts commit 8ea3f97aab1b68b5aa1aece7eb83bef6d08b3c84.
+---
+ drivers/dma/pl330.c | 67 +++++++++++++++++------------------------------------
+ 1 file changed, 21 insertions(+), 46 deletions(-)
+
+diff --git a/drivers/dma/pl330.c b/drivers/dma/pl330.c
+index 8746c24d3cd7..5893c11dd858 100644
+--- a/drivers/dma/pl330.c
++++ b/drivers/dma/pl330.c
+@@ -1341,14 +1341,19 @@ static inline int _loop(struct pl330_dmac *pl330, unsigned dry_run, u8 buf[],
+ 	return off;
+ }
+ 
+-static int _period(struct pl330_dmac *pl330, unsigned int dry_run, u8 buf[],
+-		   unsigned long bursts, const struct _xfer_spec *pxs, int ev)
++/* Returns bytes consumed */
++static inline int _loop_cyclic(struct pl330_dmac *pl330, unsigned dry_run,
++		u8 buf[], unsigned long bursts, const struct _xfer_spec *pxs, int ev)
+ {
+-	unsigned int lcnt1, ljmp1;
+-	int cyc, off = 0;
++	int cyc, off;
++	unsigned lcnt0, lcnt1, ljmp0, ljmp1, ljmpfe;
+ 	struct _arg_LPEND lpend;
+ 	struct pl330_xfer *x = &pxs->desc->px;
+ 
++	off = 0;
++	ljmpfe = off;
++	lcnt0 = pxs->desc->num_periods;
++
+ 	if (bursts > 256) {
+ 		lcnt1 = 256;
+ 		cyc = bursts / 256;
+@@ -1357,6 +1362,18 @@ static int _period(struct pl330_dmac *pl330, unsigned int dry_run, u8 buf[],
+ 		cyc = 1;
+ 	}
+ 
++	/* forever loop */
++	off += _emit_MOV(dry_run, &buf[off], SAR, x->src_addr);
++	off += _emit_MOV(dry_run, &buf[off], DAR, x->dst_addr);
++#ifdef CONFIG_ARCH_ROCKCHIP
++	if (!(pl330->quirks & PL330_QUIRK_BROKEN_NO_FLUSHP))
++		off += _emit_FLUSHP(dry_run, &buf[off],
++					pxs->desc->peri);
++#endif
++	/* loop0 */
++	off += _emit_LP(dry_run, &buf[off], 0,  lcnt0);
++	ljmp0 = off;
++
+ 	/* loop1 */
+ 	off += _emit_LP(dry_run, &buf[off], 1, lcnt1);
+ 	ljmp1 = off;
+@@ -1407,54 +1424,12 @@ static int _period(struct pl330_dmac *pl330, unsigned int dry_run, u8 buf[],
+ 
+ 	off += _emit_SEV(dry_run, &buf[off], ev);
+ 
+-	return off;
+-}
+-
+-/* Returns bytes consumed */
+-static inline int _loop_cyclic(struct pl330_dmac *pl330, unsigned int dry_run,
+-		u8 buf[], unsigned long bursts, const struct _xfer_spec *pxs, int ev)
+-{
+-	int off, periods, residue, i;
+-	unsigned int lcnt0, ljmp0, ljmpfe;
+-	struct _arg_LPEND lpend;
+-	struct pl330_xfer *x = &pxs->desc->px;
+-
+-	off = 0;
+-	ljmpfe = off;
+-	lcnt0 = pxs->desc->num_periods;
+-	periods = 1;
+-
+-	while (lcnt0 > 256) {
+-		periods++;
+-		lcnt0 = pxs->desc->num_periods / periods;
+-	}
+-
+-	residue = pxs->desc->num_periods % periods;
+-
+-	/* forever loop */
+-	off += _emit_MOV(dry_run, &buf[off], SAR, x->src_addr);
+-	off += _emit_MOV(dry_run, &buf[off], DAR, x->dst_addr);
+-#ifdef CONFIG_ARCH_ROCKCHIP
+-	if (!(pl330->quirks & PL330_QUIRK_BROKEN_NO_FLUSHP))
+-		off += _emit_FLUSHP(dry_run, &buf[off],
+-					pxs->desc->peri);
+-#endif
+-	/* loop0 */
+-	off += _emit_LP(dry_run, &buf[off], 0,  lcnt0);
+-	ljmp0 = off;
+-
+-	for (i = 0; i < periods; i++)
+-		off += _period(pl330, dry_run, &buf[off], bursts, pxs, ev);
+-
+ 	lpend.cond = ALWAYS;
+ 	lpend.forever = false;
+ 	lpend.loop = 0;
+ 	lpend.bjump = off - ljmp0;
+ 	off += _emit_LPEND(dry_run, &buf[off], &lpend);
+ 
+-	for (i = 0; i < residue; i++)
+-		off += _period(pl330, dry_run, &buf[off], bursts, pxs, ev);
+-
+ 	lpend.cond = ALWAYS;
+ 	lpend.forever = true;
+ 	lpend.loop = 1;
+
+From b773c238a40773bd6f717701324630a917b67567 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Sun, 3 Jun 2018 07:36:35 +0200
 Subject: [PATCH] Revert "dmaengine: pl330: add support for interlace cyclic
@@ -78,7 +232,7 @@ index 5893c11dd858..b4a0d48bafa4 100644
  }
  
 
-From 16aaccef2d6178e8ce9bdb676526301fd071c3d6 Mon Sep 17 00:00:00 2001
+From b933f0eb613228472124849615f5a5e075b8b787 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Sun, 3 Jun 2018 07:36:53 +0200
 Subject: [PATCH] Revert "dmaengine: pl330: add support for interlace size
@@ -216,7 +370,7 @@ index 3050f88daf9e..948c17e409e9 100644
  
  /**
 
-From ef7bddfb9e1490a323aa322b3f1719f071720f3b Mon Sep 17 00:00:00 2001
+From 90870281a7399dffb49ff4d631ee9df249c3d0c0 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Sun, 4 Feb 2018 10:47:28 +0100
 Subject: [PATCH] Revert "dmaengine: pl330: fix bug that chan descdone is null"
@@ -257,7 +411,7 @@ index babaeace0a8a..6e375d7ec09c 100644
  	}
  
 
-From 0e87104dd4138e358202bc6bad1f6ca2701fb711 Mon Sep 17 00:00:00 2001
+From ca7c03b12f7c113e9f722a02c7acebabb2cccc27 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Sun, 4 Feb 2018 10:47:38 +0100
 Subject: [PATCH] Revert "dmaengine: pl330: flush before first loop"
@@ -298,7 +452,7 @@ index 6e375d7ec09c..9664f71dbab2 100644
  		c = bursts;
  		off += _loop(pl330, dry_run, &buf[off], &c, pxs);
 
-From 31a66caa86b6ed3bde555f70d7d6cb351ff60156 Mon Sep 17 00:00:00 2001
+From 7e5d6f86b631c40624eb595910c23e7972783347 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Sun, 4 Feb 2018 10:47:51 +0100
 Subject: [PATCH] Revert "dmaengine: pl330: fix 2 bursts transfer when dma
@@ -348,7 +502,7 @@ index 9664f71dbab2..9c3699ad2245 100644
  		if (!(pl330->quirks & PL330_QUIRK_BROKEN_NO_FLUSHP))
  			off += _emit_FLUSHP(dry_run, &buf[off],
 
-From 4429392f7f65d46bac1dd0dda3d8611663acce63 Mon Sep 17 00:00:00 2001
+From 846d1829607d8806fd932fa3f8f4f0eb9e71d241 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Sat, 21 Oct 2017 19:49:27 +0200
 Subject: [PATCH] Revert "dmaengine: pl330: _loop_cyclic fix cycles of last
@@ -373,7 +527,7 @@ index 9c3699ad2245..be4ea6e089ae 100644
  			off += _bursts(pl330, dry_run, &buf[off], pxs, 1);
  			lpend.cond = ALWAYS;
 
-From 4bd0efa160df1d9cdfd2fd213b96587cb7961c76 Mon Sep 17 00:00:00 2001
+From f7fdbad73413294e56e632fa8353765b8e205582 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Sun, 4 Feb 2018 11:05:44 +0100
 Subject: [PATCH] Revert "dmaengine: pl330: pl330_tasklet init power_down by
@@ -398,7 +552,7 @@ index be4ea6e089ae..2ba795d599fb 100644
  	} else {
  		/* Make sure the PL330 Channel thread is active */
 
-From 2550b832a5aec4d0a2b584bed27a789cb76c2d35 Mon Sep 17 00:00:00 2001
+From 07a5172605729425390855a0b6ced66bfde22ee5 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Fri, 16 Jun 2017 23:14:54 +0200
 Subject: [PATCH] Revert "dmaengine: pl330: _loop_cyclic supports unaligned
@@ -474,7 +628,7 @@ index 2ba795d599fb..e5b3893d441e 100644
  						pxs, thrd->ev);
  	}
 
-From ce768db94e3fb2c33d68ccf90001f725c0c7feb5 Mon Sep 17 00:00:00 2001
+From 5083d82f6622749e07174fe6da32e431068b59cb Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Fri, 16 Jun 2017 23:14:54 +0200
 Subject: [PATCH] Revert "dmaengine: pl330: redefine the cyclic transfer"
@@ -689,7 +843,7 @@ index e5b3893d441e..38c46f4e0408 100644
  	fill_px(&desc->px, dst, src, period_len);
  
 
-From 8ad1819a2e61483c3840d09b9a27f669c7fcb8bc Mon Sep 17 00:00:00 2001
+From e8a5eaffda3179b78b9d1bb619ddf25dd651d134 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Fri, 16 Jun 2017 23:14:54 +0200
 Subject: [PATCH] Revert "dmaengine: pl330: make transfer run infinitely
@@ -1032,7 +1186,7 @@ index 38c46f4e0408..ad9d616551f8 100644
  
  	return &desc->txd;
 
-From ef009783e673113536eb2c9809f3787f5aeef87a Mon Sep 17 00:00:00 2001
+From 0cb8495a963957245b2196e34e404472445a9d3a Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Sun, 22 Jul 2018 16:07:46 +0200
 Subject: [PATCH] Revert "dmaengine: pl330: fix error message to
@@ -1059,7 +1213,7 @@ index ad9d616551f8..3d5d91084605 100644
  		goto updt_exit;
  	}
 
-From 45c38c611da7df545138bf436f43e78481a6fa1a Mon Sep 17 00:00:00 2001
+From c32a7b1b9bac8450d9c0ff71b2256714ab32e5c3 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Fri, 16 Jun 2017 23:14:55 +0200
 Subject: [PATCH] Revert "dmaengine: pl330: support transfer that doesn't align
@@ -1119,7 +1273,7 @@ index 3d5d91084605..2f5f8d40147c 100644
  	off += _setup_xfer(pl330, dry_run, &buf[off], pxs);
  
 
-From 0be5f99a27515b375304a2dc85226a2fd3d560cd Mon Sep 17 00:00:00 2001
+From 8a5c2aac1f170e5d8a8cdce3ab147cf641e38981 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Fri, 16 Jun 2017 23:14:55 +0200
 Subject: [PATCH] Revert "dmaengine: pl330: add burst mode according to dts
@@ -1220,7 +1374,7 @@ index 2f5f8d40147c..f7977979cbf5 100644
  	for (i = 0; i < ARRAY_SIZE(of_quirks); i++)
  		if (of_property_read_bool(np, of_quirks[i].quirk))
 
-From a3456e55253a88214f07c72127744eee7e81ede1 Mon Sep 17 00:00:00 2001
+From 31567aa7a43385bbc429eff72855b49c90c2ac97 Mon Sep 17 00:00:00 2001
 From: Vinod Koul <vinod.koul@intel.com>
 Date: Tue, 5 Jul 2016 10:02:16 +0530
 Subject: [PATCH] UPSTREAM: dmaengine: pl330: explicitly freeup irq
@@ -1263,7 +1417,7 @@ index f7977979cbf5..b6793b0d53c9 100644
  
  	/* Idle the DMAC */
 
-From f1fd696d39b9ded57b30f79bbe23317262481a80 Mon Sep 17 00:00:00 2001
+From ba1d527ad2e0ac6b1f60f79b6e15cd2231876367 Mon Sep 17 00:00:00 2001
 From: Stephen Barber <smbarber@chromium.org>
 Date: Thu, 18 Aug 2016 17:59:59 -0700
 Subject: [PATCH] UPSTREAM: dmaengine: pl330: fix residual for non-running BUSY
@@ -1323,7 +1477,7 @@ index b6793b0d53c9..7e05ef5ba37f 100644
  			transferred = 0;
  		residual += desc->bytes_requested - transferred;
 
-From 5cb6529514e53ca8db016137788675be769a75b7 Mon Sep 17 00:00:00 2001
+From c6ddb1c340be89262163fc1f1ddbeff2b7adac7c Mon Sep 17 00:00:00 2001
 From: Hsin-Yu Chao <hychao@chromium.org>
 Date: Tue, 23 Aug 2016 17:16:55 +0800
 Subject: [PATCH] UPSTREAM: dmaengine: pl330: Acquire dmac's spinlock in
@@ -1368,7 +1522,7 @@ index 7e05ef5ba37f..93efdcc54f19 100644
  
  out:
 
-From cd1b3fa8ef7ec0a775321d44d2f5469ffbab7431 Mon Sep 17 00:00:00 2001
+From a2bd9dfc9421a44c86ad35c6b29fc28534917553 Mon Sep 17 00:00:00 2001
 From: Stephen Barber <smbarber@chromium.org>
 Date: Tue, 1 Nov 2016 16:44:27 -0700
 Subject: [PATCH] UPSTREAM: dmaengine: pl330: Handle xferred count if DMAMOV
@@ -1403,7 +1557,7 @@ index 93efdcc54f19..497cc048feaa 100644
  }
  
 
-From 5f387aa530599beb607885a28a5bbf8f50d1dbb6 Mon Sep 17 00:00:00 2001
+From 166204f617a83115d81ffdf34329757b4b1f9fb0 Mon Sep 17 00:00:00 2001
 From: Vladimir Murzin <vladimir.murzin@arm.com>
 Date: Wed, 7 Dec 2016 13:17:40 +0000
 Subject: [PATCH] UPSTREAM: dmaengine: pl330: do not generate unaligned access
@@ -1505,7 +1659,7 @@ index 497cc048feaa..eb274eeda0aa 100644
  	return SZ_DMAGO;
  }
 
-From 90b0d473241a84db9a284123c7357231a0ffd7d2 Mon Sep 17 00:00:00 2001
+From 50165cc7de07efd5986eeb604bbefe6328a142c4 Mon Sep 17 00:00:00 2001
 From: Vinod Koul <vinod.koul@intel.com>
 Date: Fri, 9 Dec 2016 15:24:12 +0530
 Subject: [PATCH] =?UTF-8?q?UPSTREAM:=20dmaengine:=20pl330:=20remove=20unus?=
@@ -1546,7 +1700,7 @@ index eb274eeda0aa..14efb0e4a6a8 100644
  	if ((pl330->pcfg.periph_id & 0xfffff) != PERIPH_ID_VAL) {
  		dev_err(pl330->ddma.dev, "PERIPH_ID 0x%x !\n",
 
-From 10abe915578c8bbd0e2621a255718beecc6a3425 Mon Sep 17 00:00:00 2001
+From 9d2bcf1dd31ccb4cf3486deeda428b5e4211aff7 Mon Sep 17 00:00:00 2001
 From: Marek Szyprowski <m.szyprowski@samsung.com>
 Date: Mon, 27 Mar 2017 07:31:03 +0200
 Subject: [PATCH] UPSTREAM: dmaengine: pl330: remove pdata based initialization
@@ -1725,7 +1879,7 @@ index fe93758e8403..000000000000
 -extern bool pl330_filter(struct dma_chan *chan, void *param);
 -#endif	/* __AMBA_PL330_H_ */
 
-From 1ecb8e7abb5ba82380d83c7951621faeba06389e Mon Sep 17 00:00:00 2001
+From 4ecadbeac3bbd8cd7e2377681b458a4036c33233 Mon Sep 17 00:00:00 2001
 From: Jean-Philippe Brucker <jean-philippe.brucker@arm.com>
 Date: Thu, 1 Jun 2017 19:22:01 +0100
 Subject: [PATCH] UPSTREAM: dmaengine: pl330: fix warning in pl330_remove
@@ -1757,7 +1911,7 @@ index 8d6c483663dc..f6a4a89ae8aa 100644
  
  	dma_async_device_unregister(&pl330->ddma);
 
-From 7d8694893a9e8d32c82b52fa589fe1e5660ec590 Mon Sep 17 00:00:00 2001
+From 062d0ddfbc9c08f971870e6ce8636a06b5b6d4d7 Mon Sep 17 00:00:00 2001
 From: Matthias Kaehlcke <mka@chromium.org>
 Date: Thu, 15 Jun 2017 16:55:57 -0700
 Subject: [PATCH] UPSTREAM: dmaengine: pl330: Delete unused functions
@@ -1872,7 +2026,7 @@ index f6a4a89ae8aa..bd4a0c3deaf6 100644
  		enum pl330_cond cond, u8 peri)
  {
 
-From 66625effb6e47117c803249fc0d843eff367f32b Mon Sep 17 00:00:00 2001
+From 5d7da5fbd04fb60500162c823056b836c78ba397 Mon Sep 17 00:00:00 2001
 From: Arvind Yadav <arvind.yadav.cs@gmail.com>
 Date: Wed, 23 Aug 2017 21:57:31 +0530
 Subject: [PATCH] UPSTREAM: dmaengine: pl330: constify amba_id
@@ -1901,7 +2055,7 @@ index bd4a0c3deaf6..63ffb8d1f885 100644
  		.id	= 0x00041330,
  		.mask	= 0x000fffff,
 
-From 32b006c4a5e5af627e8daa773a49da36a5deeced Mon Sep 17 00:00:00 2001
+From 79dd0f02e59662d1f1ce0b118280356ed9e63d65 Mon Sep 17 00:00:00 2001
 From: Alexander Kochetkov <al.kochet@gmail.com>
 Date: Wed, 4 Oct 2017 14:37:23 +0300
 Subject: [PATCH] UPSTREAM: dmaengine: pl330: fix descriptor allocation fail
@@ -2029,7 +2183,7 @@ index 63ffb8d1f885..257492238cea 100644
  
  	INIT_LIST_HEAD(&pd->channels);
 
-From 60af02189c1e3cc3d8e957754ac0f97dc20655f5 Mon Sep 17 00:00:00 2001
+From a285cd8b8945bbe899f23e90c98d54249903e7bf Mon Sep 17 00:00:00 2001
 From: Frank Mori Hess <fmh6jj@gmail.com>
 Date: Wed, 18 Apr 2018 20:31:06 -0400
 Subject: [PATCH] UPSTREAM: dmaengine: pl330: flush before wait, and add dev
@@ -2388,7 +2542,7 @@ index 257492238cea..fd48c031ead8 100644
  		desc->bytes_requested = sg_dma_len(sg);
  	}
 
-From b970d8fda69d56f0c9b59e436493bbbc6448ef10 Mon Sep 17 00:00:00 2001
+From 058373c4d717d3a353bca1345ea90f8ca6531136 Mon Sep 17 00:00:00 2001
 From: Marek Szyprowski <m.szyprowski@samsung.com>
 Date: Tue, 19 Jun 2018 15:20:50 +0200
 Subject: [PATCH] UPSTREAM: dmaengine: pl330: report BURST residue granularity
@@ -2416,4 +2570,141 @@ index fd48c031ead8..029bd0444137 100644
 +	pd->residue_granularity = DMA_RESIDUE_GRANULARITY_BURST;
  	pd->max_burst = ((pl330->quirks & PL330_QUIRK_BROKEN_NO_FLUSHP) ?
  			 1 : PL330_MAX_BURST);
+ 
+
+From 05fa0eafd6eda3e61ac5d4a9511eb4d1bb1924f9 Mon Sep 17 00:00:00 2001
+From: Vinod Koul <vkoul@kernel.org>
+Date: Mon, 9 Jul 2018 17:09:58 +0530
+Subject: [PATCH] dmaengine: pl330: Mark expected switch fall-through
+
+In preparation to enabling -Wimplicit-fallthrough, mark switch cases
+where we are expecting to fall through.
+
+Reviewed-by: Krzysztof Kozlowski <krzk@kernel.org>
+Signed-off-by: Vinod Koul <vkoul@kernel.org>
+(cherry picked from commit bbcb87555869cb6c249bf00d13d3bc400c476c84)
+---
+ drivers/dma/pl330.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/dma/pl330.c b/drivers/dma/pl330.c
+index 029bd0444137..c3bd238b0c22 100644
+--- a/drivers/dma/pl330.c
++++ b/drivers/dma/pl330.c
+@@ -1047,13 +1047,16 @@ static bool _start(struct pl330_thread *thrd)
+ 
+ 		if (_state(thrd) == PL330_STATE_KILLING)
+ 			UNTIL(thrd, PL330_STATE_STOPPED)
++		/* fall through */
+ 
+ 	case PL330_STATE_FAULTING:
+ 		_stop(thrd);
++		/* fall through */
+ 
+ 	case PL330_STATE_KILLING:
+ 	case PL330_STATE_COMPLETING:
+ 		UNTIL(thrd, PL330_STATE_STOPPED)
++		/* fall through */
+ 
+ 	case PL330_STATE_STOPPED:
+ 		return _trigger(thrd);
+
+From b654bf6ca9ee98bab1a3c55ebd359f251b9c1a61 Mon Sep 17 00:00:00 2001
+From: Vinod Koul <vkoul@kernel.org>
+Date: Mon, 9 Jul 2018 20:08:48 +0530
+Subject: [PATCH] dmaengine: pl330: remove set but unused variable
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Compiler complains (with W=1):
+drivers/dma/pl330.c: In function ‘pl330_release_channel’:
+drivers/dma/pl330.c:1782:21: warning:
+	variable ‘pl330’ set but not used [-Wunused-but-set-variable]
+  struct pl330_dmac *pl330;
+                     ^~~~~
+
+Remove the pl330 variable in pl330_release_channel as it is set but
+never used.
+
+Signed-off-by: Vinod Koul <vkoul@kernel.org>
+(cherry picked from commit 2f903bab92dea8dec8c93e4fa3c7c5295ef0a0fe)
+---
+ drivers/dma/pl330.c | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/drivers/dma/pl330.c b/drivers/dma/pl330.c
+index c3bd238b0c22..a25ab357b87c 100644
+--- a/drivers/dma/pl330.c
++++ b/drivers/dma/pl330.c
+@@ -1783,8 +1783,6 @@ static inline void _free_event(struct pl330_thread *thrd, int ev)
+ 
+ static void pl330_release_channel(struct pl330_thread *thrd)
+ {
+-	struct pl330_dmac *pl330;
+-
+ 	if (!thrd || thrd->free)
+ 		return;
+ 
+@@ -1793,8 +1791,6 @@ static void pl330_release_channel(struct pl330_thread *thrd)
+ 	dma_pl330_rqcb(thrd->req[1 - thrd->lstenq].desc, PL330_ERR_ABORT);
+ 	dma_pl330_rqcb(thrd->req[thrd->lstenq].desc, PL330_ERR_ABORT);
+ 
+-	pl330 = thrd->dmac;
+-
+ 	_free_event(thrd, thrd->ev);
+ 	thrd->free = true;
+ }
+
+From 31c885c621005218388ca68648dec38d2ea3f9a2 Mon Sep 17 00:00:00 2001
+From: John Keeping <john@metanate.com>
+Date: Tue, 17 Jul 2018 11:48:16 +0100
+Subject: [PATCH] dmaengine: pl330: fix irq race with terminate_all
+
+In pl330_update() when checking if a channel has been aborted, the
+channel's lock is not taken, only the overall pl330_dmac lock.  But in
+pl330_terminate_all() the aborted flag (req_running==-1) is set under
+the channel lock and not the pl330_dmac lock.
+
+With threaded interrupts, this leads to a potential race:
+
+    pl330_terminate_all	        pl330_update
+    -------------------         ------------
+    lock channel
+                                entry
+    lock pl330
+    _stop channel
+    unlock pl330
+                                lock pl330
+                                check req_running != -1
+    req_running = -1
+                                _start channel
+
+Signed-off-by: John Keeping <john@metanate.com>
+Signed-off-by: Vinod Koul <vkoul@kernel.org>
+(cherry picked from commit e49756544a21f5625b379b3871d27d8500764670)
+---
+ drivers/dma/pl330.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/dma/pl330.c b/drivers/dma/pl330.c
+index a25ab357b87c..5b0aef7d1f80 100644
+--- a/drivers/dma/pl330.c
++++ b/drivers/dma/pl330.c
+@@ -2209,13 +2209,14 @@ static int pl330_terminate_all(struct dma_chan *chan)
+ 
+ 	pm_runtime_get_sync(pl330->ddma.dev);
+ 	spin_lock_irqsave(&pch->lock, flags);
++
+ 	spin_lock(&pl330->lock);
+ 	_stop(pch->thread);
+-	spin_unlock(&pl330->lock);
+-
+ 	pch->thread->req[0].desc = NULL;
+ 	pch->thread->req[1].desc = NULL;
+ 	pch->thread->req_running = -1;
++	spin_unlock(&pl330->lock);
++
+ 	power_down = pch->active;
+ 	pch->active = false;
  

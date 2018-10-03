@@ -2,8 +2,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="rkmpp"
-PKG_VERSION="93824dc71392b9ac94ee8ca157d9f2d4739e8f8f"
-PKG_SHA256="14c49ceebd6c45dbb4c601bb4815de9a27d71d47f551c998ba9d3ff255572ad8"
+PKG_VERSION="7a21a6a0454f604fdf752a1d45be6e2c954cc6de"
+PKG_SHA256="ea981633839673dcfdc0fa0e4666b61ed0626def4273cdf5336b6a6bf322fdb3"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="APL"
 PKG_SITE="https://github.com/rockchip-linux/mpp"
@@ -20,6 +20,5 @@ else
   PKG_ENABLE_VP9D="OFF"
 fi
 
-PKG_CMAKE_OPTS_TARGET="-DRKPLATFORM=ON \
-                       -DENABLE_VP9D=$PKG_ENABLE_VP9D \
+PKG_CMAKE_OPTS_TARGET="-DENABLE_VP9D=$PKG_ENABLE_VP9D \
                        -DHAVE_DRM=ON"
