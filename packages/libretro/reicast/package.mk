@@ -36,7 +36,12 @@ PKG_AUTORECONF="no"
 
 make_target() {
   if [ "$ARCH" == "arm" ]; then
-    make platform=rpi FORCE_GLES=1 HAVE_OPENMP=0
+    if [ "$OPENGLES_SUPPORT" = "yes" ]; then
+      REICAST_GLES=1
+    else
+      REICAST_GLES=0
+    fi
+    make platform=rpi FORCE_GLES=$REICAST_GLES
   else
     make AS=${AS} CC_AS=${AS} ARCH=${ARCH} HAVE_OPENMP=0
   fi
