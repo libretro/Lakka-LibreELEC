@@ -12,6 +12,8 @@ PKG_LONGDESC="Comskip detects commercial breaks from a video stream. It can be u
 PKG_TOOLCHAIN="autotools"
 
 pre_configure_target() {
+  LDFLAGS="$LDFLAGS -ldl"
+
   export argtable2_CFLAGS="-I$(get_build_dir argtable2)/src"
   export argtable2_LIBS="-L$(get_build_dir argtable2)/src/.libs -largtable2"
 
