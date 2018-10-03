@@ -19,14 +19,14 @@
 ################################################################################
 
 PKG_NAME="sameboy"
-PKG_VERSION="179d3f6"
+PKG_VERSION="c727852"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/libretro/sameboy"
 PKG_GIT_URL="$PKG_SITE"
 PKG_GIT_BRANCH="buildbot"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain rgbds:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="Gameboy and Gameboy Color emulator written in C"
@@ -41,5 +41,5 @@ make_target() {
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp libretro/sameboy_libretro.so $INSTALL/usr/lib/libretro/
+  cp build/bin/sameboy_libretro.so $INSTALL/usr/lib/libretro/
 }
