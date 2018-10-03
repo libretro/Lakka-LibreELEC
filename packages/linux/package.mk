@@ -35,8 +35,8 @@ case "$LINUX" in
     PKG_BUILD_PERF="no"
     ;;
   rockchip-4.4)
-    PKG_VERSION="bca2464422eb8dd734f9218265dae256a82299be"
-    PKG_SHA256="baaea04ca4a1b34e0bfce36bfcf74d65b06ae371e29fa2ef96d26327e55b690d"
+    PKG_VERSION="aa8bacf821e5c8ae6dd8cae8d64011c741659945"
+    PKG_SHA256="a2760fe89a15aa7be142fd25fb08ebd357c5d855c41f1612cf47c6e89de39bb3"
     PKG_URL="https://github.com/rockchip-linux/kernel/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     ;;
