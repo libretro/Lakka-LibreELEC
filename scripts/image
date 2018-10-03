@@ -236,11 +236,15 @@ rm -rf $TARGET_IMG/$IMAGE_NAME.kernel
 cp -PR $BUILD/linux-$(kernel_version)/arch/$TARGET_KERNEL_ARCH/boot/$KERNEL_TARGET $TARGET_IMG/$IMAGE_NAME.kernel
 chmod 0644 $TARGET_IMG/$IMAGE_NAME.kernel
 
-# use strongest available compression level for images
-if [ "$SQUASHFS_COMPRESSION"  = "lzo" -o "${SQUASHFS_COMPRESSION:-gzip}" = "gzip" ]; then
-  SQUASHFS_COMPRESSION_OPTION="-Xcompression-level 9"
-elif [ "$SQUASHFS_COMPRESSION" = "zstd" ]; then
-  SQUASHFS_COMPRESSION_OPTION="-Xcompression-level 22"
+# Set mksquashfs options for each compression method
+if [ -z "$SQUASHFS_COMPRESSION_OPTION" ]; then
+  if [ "${SQUASHFS_COMPRESSION:-gzip}" = "gzip" ]; then
+    SQUASHFS_COMPRESSION_OPTION="-Xcompression-level 9 -b 262144"
+  elif [ "$SQUASHFS_COMPRESSION" = "lzo" ]; then
+    SQUASHFS_COMPRESSION_OPTION="-Xcompression-level 9 -b 524288"
+  elif [ "$SQUASHFS_COMPRESSION" = "zstd" ]; then
+    SQUASHFS_COMPRESSION_OPTION="-Xcompression-level 22 -b 262144"
+  fi
 fi
 
 # create squashfs file, default to gzip if no compression configured
