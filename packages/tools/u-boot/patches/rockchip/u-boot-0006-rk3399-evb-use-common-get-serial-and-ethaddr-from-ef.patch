@@ -1,18 +1,18 @@
-From ea235722e95630c3d5da5403e660a8bc20e2b8d0 Mon Sep 17 00:00:00 2001
+From 400e9e6b21878e8570ce1cb0242d93baa6c21c99 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Mon, 20 Aug 2018 23:01:10 +0200
-Subject: [PATCH] rk3399-evb: fixup get serial and ethaddr from efuse
+Subject: [PATCH] rk3399-evb: use common get serial and ethaddr from efuse
 
 ---
- board/rockchip/evb_rk3399/evb-rk3399.c | 80 +-------------------------
- include/configs/evb_rk3399.h           |  3 -
- 2 files changed, 2 insertions(+), 81 deletions(-)
+ board/rockchip/evb_rk3399/evb-rk3399.c | 119 -------------------------
+ include/configs/evb_rk3399.h           |   3 -
+ 2 files changed, 122 deletions(-)
 
 diff --git a/board/rockchip/evb_rk3399/evb-rk3399.c b/board/rockchip/evb_rk3399/evb-rk3399.c
-index b6f730852a..c0a38d5143 100644
+index b6f730852a..3a6b802a3f 100644
 --- a/board/rockchip/evb_rk3399/evb-rk3399.c
 +++ b/board/rockchip/evb_rk3399/evb-rk3399.c
-@@ -6,13 +6,12 @@
+@@ -6,23 +6,17 @@
  
  #include <common.h>
  #include <dm.h>
@@ -23,11 +23,10 @@ index b6f730852a..c0a38d5143 100644
 -#include <asm/setup.h>
  #include <asm/arch/periph.h>
  #include <power/regulator.h>
-+#include <hash.h>
- #include <u-boot/sha256.h>
+-#include <u-boot/sha256.h>
  #include <usb.h>
  #include <dwc3-uboot.h>
-@@ -20,9 +19,6 @@
+ #include <spl.h>
  
  DECLARE_GLOBAL_DATA_PTR;
  
@@ -37,17 +36,48 @@ index b6f730852a..c0a38d5143 100644
  int rk_board_init(void)
  {
  	struct udevice *pinctrl, *regulator;
-@@ -106,87 +102,15 @@ static void setup_macaddr(void)
- 	mac_addr[0] |= 0x02;  /* set local assignment bit (IEEE802) */
- 	eth_env_set_enetaddr("ethaddr", mac_addr);
- #endif
--
--	return;
+@@ -74,119 +68,6 @@ out:
+ 	return 0;
  }
  
+-static void setup_macaddr(void)
+-{
+-#if CONFIG_IS_ENABLED(CMD_NET)
+-	int ret;
+-	const char *cpuid = env_get("cpuid#");
+-	u8 hash[SHA256_SUM_LEN];
+-	int size = sizeof(hash);
+-	u8 mac_addr[6];
+-
+-	/* Only generate a MAC address, if none is set in the environment */
+-	if (env_get("ethaddr"))
+-		return;
+-
+-	if (!cpuid) {
+-		debug("%s: could not retrieve 'cpuid#'\n", __func__);
+-		return;
+-	}
+-
+-	ret = hash_block("sha256", (void *)cpuid, strlen(cpuid), hash, &size);
+-	if (ret) {
+-		debug("%s: failed to calculate SHA256\n", __func__);
+-		return;
+-	}
+-
+-	/* Copy 6 bytes of the hash to base the MAC address on */
+-	memcpy(mac_addr, hash, 6);
+-
+-	/* Make this a valid MAC address and set it */
+-	mac_addr[0] &= 0xfe;  /* clear multicast bit */
+-	mac_addr[0] |= 0x02;  /* set local assignment bit (IEEE802) */
+-	eth_env_set_enetaddr("ethaddr", mac_addr);
+-#endif
+-
+-	return;
+-}
+-
 -static void setup_serial(void)
-+int rk_board_late_init(void)
- {
+-{
 -#if CONFIG_IS_ENABLED(ROCKCHIP_EFUSE)
 -	struct udevice *dev;
 -	int ret, i;
@@ -102,11 +132,11 @@ index b6f730852a..c0a38d5143 100644
 -int misc_init_r(void)
 -{
 -	setup_serial();
- 	setup_macaddr();
- 
- 	return 0;
- }
- 
+-	setup_macaddr();
+-
+-	return 0;
+-}
+-
 -#ifdef CONFIG_SERIAL_TAG
 -void get_board_serial(struct tag_serialnr *serialnr)
 -{
