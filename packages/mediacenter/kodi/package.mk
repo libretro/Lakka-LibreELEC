@@ -20,6 +20,12 @@ case $KODI_VENDOR in
     PKG_URL="https://github.com/popcornmix/xbmc/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="kodi-$KODI_VENDOR-$PKG_VERSION.tar.gz"
     ;;
+  rockchip)
+    PKG_VERSION="rockchip_18.0b3-Leia"
+    PKG_SHA256="e785669ffe70cee47bcbc83c3d75a17b73e77c8add4f1cca4a983552711f821e"
+    PKG_URL="https://github.com/kwiboo/xbmc/archive/$PKG_VERSION.tar.gz"
+    PKG_SOURCE_NAME="kodi-$KODI_VENDOR-$PKG_VERSION.tar.gz"
+    ;;
   *)
     PKG_VERSION="18.0b3-Leia"
     PKG_SHA256="cc5f1a75287438b2336c49a265019a4cab9626235e05a70345d77e4cecd6dce3"
