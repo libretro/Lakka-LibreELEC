@@ -14,6 +14,9 @@ PKG_LONGDESC="rockchip firmware"
 PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
+  mkdir -p $INSTALL/usr/lib/libreelec
+    cp $PKG_DIR/scripts/* $INSTALL/usr/lib/libreelec
+
   mkdir -p $INSTALL/usr/bin
     cp -v $(get_build_dir rkbin)/firmware/bin/rtk_hciattach $INSTALL/usr/bin
 
