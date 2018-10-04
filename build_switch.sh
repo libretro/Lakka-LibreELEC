@@ -3,7 +3,7 @@ PROJECT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
 export DISTRO="Lakka"
 export PROJECT="Switch"
-export ARCH="aarch64"
+export ARCH="arm"
 
 build_target() {
   cd "$PROJECT_DIR" && make image $MAKE_OPTS
