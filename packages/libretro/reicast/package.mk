@@ -44,7 +44,7 @@ make_target() {
     else
       REICAST_GLES=0
     fi
-    make platform=rpi FORCE_GLES=$REICAST_GLES
+    make platform=rpi FORCE_GLES=$REICAST_GLES HAVE_OPENMP=0
   else
     make platform=unix AS=${AS} CC_AS=${AS} ARCH=${ARCH} HAVE_OPENMP=0
   fi
