@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="allwinner-gpu"
-PKG_VERSION="r6p2-01rel0"
-PKG_SHA256="bb49d23ab3d9fbeb701a127e6f28cff1c963bba05786f98d76edff1df0fe6c52"
+PKG_VERSION="r8p1-00rel0"
+PKG_SHA256="0036796165612eea75bee0e756fbd50c3137be257d4739b91aad0c159ae4016a"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://developer.arm.com/products/software/mali-drivers/utgard-kernel"
@@ -27,34 +27,22 @@ PKG_SOURCE_DIR="DX910-SW-99002-$PKG_VERSION"
 PKG_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_SECTION="driver"
-PKG_SHORTDESC="allwinner-gpu: Linux drivers for Mali GPUs found in Allwinner SoCs"
-PKG_LONGDESC="allwinner-gpu: Linux drivers for Mali GPUs found in Allwinner SoCs"
-
-PKG_IS_ADDON="no"
-PKG_AUTORECONF="no"
+PKG_SHORTDESC="gpu-sunxi: Linux drivers for Mali GPUs found in Allwinner SoCs"
+PKG_LONGDESC="gpu-sunxi: Linux drivers for Mali GPUs found in Allwinner SoCs"
+PKG_TOOLCHAIN="manual"
 PKG_IS_KERNEL_PKG="yes"
 
-DRIVER_DIR=$PKG_BUILD/src/devicedrv/mali/
+PKG_DRIVER_DIR=$PKG_BUILD/driver/src/devicedrv/mali/
 
-pre_patch() {
-  # move source dir to allow patching
-  mv $PKG_BUILD/driver/src $PKG_BUILD/
-  rm -rf $PKG_BUILD/driver
-}
 
 make_target() {
-  USING_UMP=0 \
-  BUILD=$BUILD \
-  USING_PROFILING=0 \
-  MALI_PLATFORM=sunxi \
-  USING_DVFS=1 \
-  USING_DEVFREQ=0 \
-  KDIR=$(kernel_path) \
-  CROSS_COMPILE=$TARGET_PREFIX \
-    make -C $DRIVER_DIR
+    make -C $(kernel_path) M=$PKG_DRIVER_DIR MALI_PLATFORM_FILES=/platform/sunxi/sunxi.c \
+    EXTRA_CFLAGS="-DCONFIG_MALI_DVFS -DMALI_FAKE_PLATFORM_DEVICE=1 -DCONFIG_MALI_DMA_BUF_MAP_ON_ATTACH" \
+    CONFIG_MALI400=m CONFIG_MALI_DVFS=y CONFIG_MALI400_DEBUG=y
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/$(get_full_module_dir)/$PKG_NAME
-    cp $DRIVER_DIR/*.ko $INSTALL/$(get_full_module_dir)/$PKG_NAME
+    make -C $(kernel_path) M=$PKG_DRIVER_DIR \
+    INSTALL_MOD_PATH=$INSTALL/$(get_full_module_dir) INSTALL_MOD_STRIP=1 DEPMOD=: \
+    modules_install
 }

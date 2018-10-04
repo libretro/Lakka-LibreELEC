@@ -1,0 +1,119 @@
+diff --git a/Makefile b/Makefile
+index 5427c4b..5ebed1e 100644
+--- a/Makefile
++++ b/Makefile
+@@ -24,6 +24,9 @@ $(TARGET): $(OBJECTS) | vendor/libretro-common/include/libretro.h
+ %.o: %.c | vendor/libretro-common/include/libretro.h
+ 	-$(CC) -c -o $@ $< $(CFLAGS)
+ 
++%.o: %.S
++	-$(CC) -c -o $@ $< $(CFLAGS)
++
+ %.o: %.m | vendor/libretro-common/include/libretro.h
+ 	-$(CC) -c -o $@ $< $(CFLAGS)
+ 
+diff --git a/Makefile.common b/Makefile.common
+index 3c2b3cf..a10dede 100644
+--- a/Makefile.common
++++ b/Makefile.common
+@@ -47,13 +47,15 @@ ifneq ($(STATIC_LINKING), 1)
+ 		$(CORE_DIR)/vendor/libretro-common/vfs/*.c \
+ 	)
+ endif
+-ifeq ($(__ARM_NEON__),1)
+-	OBJ += \
+-		$(CORE_DIR)/vendor/libretro-common/audio/resampler/drivers/sinc_resampler_neon.o \
+-		audio/drivers_resampler/cc_resampler_neon.o \
+-		memory/neon/memcpy-neon.o
++#ifeq ($(__ARM_NEON__),1)
++#	OBJ += \
++#		$(CORE_DIR)/vendor/libretro-common/audio/resampler/drivers/sinc_resampler_neon.o \
++#		audio/drivers_resampler/cc_resampler_neon.o \
++#		memory/neon/memcpy-neon.o
++	SOURCES_ASM += \
++		$(CORE_DIR)/vendor/libretro-common/audio/resampler/drivers/sinc_resampler_neon.S
+ 	FLAGS += -DHAVE_NEON
+-endif
++#endif
+ 
+ # stb_vorbis
+ #SOURCES_C += $(CORE_DIR)/vendor/stb/stb_vorbis.c
+@@ -61,22 +63,8 @@ FLAGS += -DHAVE_STB_VORBIS
+ FLAGS += -I$(CORE_DIR)/vendor/libretro-deps
+ 
+ # zlib
+-SOURCES_C += \
+-	$(CORE_DIR)/vendor/libretro-deps/libz/adler32.c \
+-	$(CORE_DIR)/vendor/libretro-deps/libz/compress.c \
+-	$(CORE_DIR)/vendor/libretro-deps/libz/crc32.c \
+-	$(CORE_DIR)/vendor/libretro-deps/libz/deflate.c \
+-	$(CORE_DIR)/vendor/libretro-deps/libz/gzclose.c \
+-	$(CORE_DIR)/vendor/libretro-deps/libz/gzlib.c \
+-	$(CORE_DIR)/vendor/libretro-deps/libz/gzread.c \
+-	$(CORE_DIR)/vendor/libretro-deps/libz/gzwrite.c \
+-	$(CORE_DIR)/vendor/libretro-deps/libz/infback.c \
+-	$(CORE_DIR)/vendor/libretro-deps/libz/inffast.c \
+-	$(CORE_DIR)/vendor/libretro-deps/libz/inflate.c \
+-	$(CORE_DIR)/vendor/libretro-deps/libz/inftrees.c \
+-	$(CORE_DIR)/vendor/libretro-deps/libz/trees.c \
+-	$(CORE_DIR)/vendor/libretro-deps/libz/zutil.c
+-FLAGS += -I$(CORE_DIR)/vendor/libretro-deps/libz
++FLAGS += $(shell pkg-config --cflags zlib)
++LDFLAGS += $(shell pkg-config --libs zlib)
+ FLAGS += -I$(CORE_DIR)/vendor/libretro-common/compat
+ FLAGS += -DWANT_ZLIB
+ 
+@@ -205,7 +193,7 @@ endif
+ FLAGS += -DSDL_THREADS_DISABLED -DSDL_CDROM_DISABLED
+ FLAGS += -I$(CORE_DIR)/vendor/sdl-libretro/include
+ 
+-OBJECTS += $(SOURCES_CXX:.cpp=.o) $(SOURCES_C:.c=.o) $(SOURCES_M:.m=.o)
++OBJECTS += $(SOURCES_CXX:.cpp=.o) $(SOURCES_C:.c=.o) $(SOURCES_ASM:.S=.o) $(SOURCES_M:.m=.o)
+ 
+ LDFLAGS +=  $(fpic) $(SHARED) $(EXTRA_LDF)
+ 
+diff --git a/Makefile.libretro b/Makefile.libretro
+index c17a2a0..70e5b61 100644
+--- a/Makefile.libretro
++++ b/Makefile.libretro
+@@ -209,7 +209,7 @@ else ifeq ($(platform), rpi1)
+ else ifeq ($(platform), rpi2)
+ 	TARGET := $(TARGET_NAME)_libretro.so
+ 	fpic := -fPIC
+-	SHARED := -shared -Wl,--version-script=link.T -Wl,-no-undefined
++	SHARED := -shared -Wl,--version-script=link.T -Wl,-no-undefined -Wl,--as-needed
+ 	CFLAGS += -DARM
+ 	CFLAGS += -marm -mcpu=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -funsafe-math-optimizations
+ 	CFLAGS += -fomit-frame-pointer -fstrict-aliasing -ffast-math
+@@ -571,8 +571,8 @@ else
+ 		CFLAGS += -O2 -DNDEBUG
+ 		CXXFLAGS += -O2 -DNDEBUG
+ 	else
+-		CFLAGS += -O2 -DNDEBUG
+-		CXXFLAGS += -O2 -DNDEBUG
++		CFLAGS += -DNDEBUG
++		CXXFLAGS += -DNDEBUG
+ 	endif
+ endif
+ 
+@@ -585,7 +585,7 @@ CORE_DIR := .
+ include Makefile.common
+ 
+ ifeq ($(DEBUG), 0)
+-   FLAGS += -O3 -ffast-math -fomit-frame-pointer
++   FLAGS += -ffast-math -fomit-frame-pointer
+ else
+    FLAGS += -O0 -g
+ endif
+diff --git a/src/love/data.cpp b/src/love/data.cpp
+index 5754557..23f66ef 100644
+--- a/src/love/data.cpp
++++ b/src/love/data.cpp
+@@ -6,6 +6,7 @@
+ #include <sstream>
+ #include <iostream>
+ #include <vector>
++#include <stdexcept>
+ #include "compat/zlib.h"
+ #include "utils/md5.h"
+ #include "TinySHA1.hpp"

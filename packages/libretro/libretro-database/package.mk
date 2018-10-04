@@ -19,12 +19,14 @@
 ################################################################################
 
 PKG_NAME="libretro-database"
-PKG_VERSION="4177a08"
+PKG_VERSION="b707f16"
+PKG_VERSION_LONG="b707f16f422052bee98862c28af3b034053e16a1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/libretro/libretro-database"
-PKG_GIT_URL="$PKG_SITE"
+PKG_URL="$PKG_SITE/archive/$PKG_VERSION.tar.gz"
+PKG_SOURCE_DIR="$PKG_NAME-$PKG_VERSION_LONG"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"

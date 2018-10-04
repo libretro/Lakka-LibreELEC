@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="dolphin"
-PKG_VERSION="5ff7d20"
+PKG_VERSION="a5bce7d"
 PKG_REV="1"
 PKG_ARCH="x86_64 aarch64"
 PKG_LICENSE="GPLv2"
@@ -41,7 +41,7 @@ fi
 
 PKG_CMAKE_SCRIPT="$PKG_BUILD/CMakeLists.txt"
 
-PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON"
+PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_C_COMPILER=${CC}"
 
 pre_make_target() {
   # build fix for cross-compiling Dolphin, from Dolphin forums

@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="reicast"
-PKG_VERSION="03d3cc3"
+PKG_VERSION="514c569"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
@@ -41,9 +41,9 @@ make_target() {
     else
       REICAST_GLES=0
     fi
-    make platform=rpi FORCE_GLES=$REICAST_GLES
+    make platform=rpi FORCE_GLES=$REICAST_GLES HAVE_OPENMP=0
   else
-    make AS=${AS} CC_AS=${AS}
+    make AS=${AS} CC_AS=${AS} ARCH=${ARCH} HAVE_OPENMP=0
   fi
 }
 

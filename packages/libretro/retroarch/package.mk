@@ -19,12 +19,14 @@
 ################################################################################
 
 PKG_NAME="retroarch"
-PKG_VERSION="2a2e732"
+PKG_VERSION="1155e11"
+PKG_VERSION_LONG="1155e11cfc0ba04e0b6bbafd351a81251dc6abc9"
 PKG_REV="11"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
-PKG_GIT_URL="$PKG_SITE"
+PKG_URL="$PKG_SITE/archive/$PKG_VERSION.tar.gz"
+PKG_SOURCE_DIR="RetroArch-$PKG_VERSION_LONG"
 PKG_DEPENDS_TARGET="toolchain alsa-lib freetype zlib retroarch-assets retroarch-overlays core-info retroarch-joypad-autoconfig glsl-shaders lakka-update libretro-database ffmpeg libass libvdpau libxkbfile xkeyboard-config libxkbcommon joyutils sixpair empty"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -80,6 +82,7 @@ fi
 TARGET_CONFIGURE_OPTS=""
 PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
                            --disable-sdl \
+                           --disable-ssl \
                            $RETROARCH_GL \
                            $RETROARCH_NEON \
                            --enable-zlib \
