@@ -21,7 +21,7 @@
 PKG_NAME="mupen64plus"
 PKG_VERSION="4ca2fa8"
 PKG_REV="1"
-PKG_ARCH="any"
+PKG_ARCH="arm i386 x86_64"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mupen64plus-libretro"
 PKG_GIT_URL="$PKG_SITE"
@@ -65,7 +65,11 @@ make_target() {
       make platform=odroid BOARD=ODROID-XU3
       ;;
     *)
-      make platform=linux-gles GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
+      if [ "$OPENGLES_SUPPORT" = "yes" ]; then
+        make platform=linux-gles GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
+      else
+        make platform=linux-neon HAVE_NEON=1 WITH_DYNAREC=arm
+      fi
       ;;
   esac
 }
