@@ -17,7 +17,8 @@
 ################################################################################
 
 PKG_NAME="rkmpp"
-PKG_VERSION="60cbbff"
+PKG_VERSION="7a21a6a0454f604fdf752a1d45be6e2c954cc6de"
+PKG_SHA256="ea981633839673dcfdc0fa0e4666b61ed0626def4273cdf5336b6a6bf322fdb3"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="APL"
 PKG_SITE="https://github.com/rockchip-linux/mpp"
@@ -28,23 +29,11 @@ PKG_SECTION="multimedia"
 PKG_SHORTDESC="rkmpp: Rockchip Media Process Platform (MPP) module"
 PKG_LONGDESC="rkmpp: Rockchip Media Process Platform (MPP) module"
 
-PKG_IS_ADDON="no"
-PKG_AUTORECONF="no"
-
-if [ "$UBOOT_SOC" = "rk3328" ]; then
-  ENABLE_VP9D="ON"
+if [ "$DEVICE" = "RK3328" -o "$DEVICE" = "RK3399" ]; then
+  PKG_ENABLE_VP9D="ON"
 else
-  ENABLE_VP9D="OFF"
+  PKG_ENABLE_VP9D="OFF"
 fi
 
-PKG_CMAKE_OPTS_TARGET="-DRKPLATFORM=ON \
-                       -DENABLE_AVSD=OFF \
-                       -DENABLE_H263D=OFF \
-                       -DENABLE_H264D=ON \
-                       -DENABLE_H265D=ON \
-                       -DENABLE_MPEG2D=ON \
-                       -DENABLE_MPEG4D=ON \
-                       -DENABLE_VP8D=ON \
-                       -DENABLE_VP9D=$ENABLE_VP9D \
-                       -DENABLE_JPEGD=OFF \
+PKG_CMAKE_OPTS_TARGET="-DENABLE_VP9D=$PKG_ENABLE_VP9D \
                        -DHAVE_DRM=ON"

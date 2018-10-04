@@ -10,7 +10,6 @@
 
 * The ethernet MAC address is currently random at each boot - this causes the IP address to be different too each time the board is rebooted.
   * While it should, the MAC address is not passed from u-boot (for network boot) to Linux, this causes the board to have one IP address when u-boot runs then another when Linux runs
-* The HDMI display resolution is wrong when booting the board. A workaround for this is unplugging and plugging back the HDMI cord once booted.
 
 **Build**
 
