@@ -68,7 +68,11 @@ make_target() {
       make platform=unix-gles GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
       ;;
     *)
-      make platform=unix-gles GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
+      if [ "$OPENGLES_SUPPORT" = "yes" ]; then
+        make platform=unix-gles GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
+      else
+        make platform=unix-neon HAVE_NEON=1 WITH_DYNAREC=arm
+      fi
       ;;
   esac
 }
