@@ -106,7 +106,11 @@ pre_configure_target() {
 }
 
 make_target() {
-  make V=1 HAVE_LAKKA=1 HAVE_ZARCH=0
+  if [ "$PROJECT" = "Switch" ]; then
+    make V=1 HAVE_LAKKA=1 HAVE_LAKKA_SWITCH=1 HAVE_ZARCH=0
+  else
+    make V=1 HAVE_LAKKA=1 HAVE_ZARCH=0
+  fi
   make -C gfx/video_filters compiler=$CC extra_flags="$CFLAGS"
   make -C libretro-common/audio/dsp_filters compiler=$CC extra_flags="$CFLAGS"
 }
