@@ -19,8 +19,8 @@
 ################################################################################
 
 PKG_NAME="retroarch"
-PKG_VERSION="1155e11"
-PKG_VERSION_LONG="1155e11cfc0ba04e0b6bbafd351a81251dc6abc9"
+PKG_VERSION="d628e01"
+PKG_VERSION_LONG="d628e01247ca9c908a7c5376bd1e1f8ad2a7cba2"
 PKG_REV="11"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
@@ -98,7 +98,11 @@ pre_configure_target() {
 }
 
 make_target() {
-  make V=1 HAVE_LAKKA=1 HAVE_ZARCH=0
+  if [ "$PROJECT" = "Switch" ]; then
+    make V=1 HAVE_LAKKA=1 HAVE_LAKKA_SWITCH=1 HAVE_ZARCH=0
+  else
+    make V=1 HAVE_LAKKA=1 HAVE_ZARCH=0
+  fi
   make -C gfx/video_filters compiler=$CC extra_flags="$CFLAGS"
   make -C libretro-common/audio/dsp_filters compiler=$CC extra_flags="$CFLAGS"
 }
