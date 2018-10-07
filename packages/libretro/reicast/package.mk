@@ -19,12 +19,14 @@
 ################################################################################
 
 PKG_NAME="reicast"
-PKG_VERSION="03d3cc3"
+PKG_VERSION="f4cb7e3"
+PKG_VERSION_LONG="f4cb7e3ce11effdabe17398ba3412ab59d25226c"
 PKG_REV="1"
-PKG_ARCH="any"
+PKG_ARCH="arm i386 x86_64"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/reicast-emulator"
-PKG_GIT_URL="$PKG_SITE"
+PKG_URL="$PKG_SITE/archive/$PKG_VERSION.tar.gz"
+PKG_SOURCE_DIR="$PKG_NAME-emulator-$PKG_VERSION"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -35,10 +37,12 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  if [ "$ARCH" == "arm" ]; then
-    make platform=rpi FORCE_GLES=1
+  if [ "$PROJECT" == "Switch" ]; then
+    make platform=armv-neon HAVE_OPENMP=0
+  elif [ "$ARCH" == "arm" ]; then
+    make platform=rpi FORCE_GLES=1 HAVE_OPENMP=0
   else
-    make AS=${AS} CC_AS=${AS}
+    make platform=unix AS=${AS} CC_AS=${AS} ARCH=${ARCH} HAVE_OPENMP=0
   fi
 }
 

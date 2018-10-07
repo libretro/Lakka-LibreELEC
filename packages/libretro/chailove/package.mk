@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="chailove"
-PKG_VERSION="712abdd"
+PKG_VERSION="6ac3eaa"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
@@ -36,6 +36,14 @@ PKG_AUTORECONF="no"
 
 configure_target() {
   cd $PKG_BUILD
+}
+
+make_target() {
+  if [ "$ARCH" = "arm" ]; then
+    __ARM_NEON__=1 make
+  else
+    make
+  fi
 }
 
 makeinstall_target() {

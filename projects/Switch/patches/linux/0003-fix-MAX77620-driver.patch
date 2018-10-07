@@ -1,0 +1,30 @@
+From ce5c0d82c6555db14d3a872974aaf09ba0bc2a5a Mon Sep 17 00:00:00 2001
+From: perillamint <perillamint@quendi.moe>
+Date: Mon, 2 Jul 2018 14:19:53 +0900
+Subject: [PATCH] DIRTY HACK: Prevent MAX77620 GPIO driver messing up
+ MAX77620_REG_CNFGGLBL1 register
+
+---
+ drivers/base/regmap/regmap-irq.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/base/regmap/regmap-irq.c b/drivers/base/regmap/regmap-irq.c
+index 429ca8ed7e51..9b4a9bd73474 100644
+--- a/drivers/base/regmap/regmap-irq.c
++++ b/drivers/base/regmap/regmap-irq.c
+@@ -528,6 +528,12 @@ int regmap_add_irq_chip(struct regmap *map, int irq, int irq_flags,
+ 		d->mask_buf[i] = d->mask_buf_def[i];
+ 		reg = chip->mask_base +
+ 			(i * map->reg_stride * d->irq_reg_stride);
++
++		// Dirty workaround for Nvidia MAX77620 driver
++		if (strcmp(chip->name, "max77620-gpio") == 0 && reg == 0x00) {
++			continue;
++		}
++
+ 		if (chip->mask_invert)
+ 			ret = regmap_irq_update_bits(d, reg,
+ 					 d->mask_buf[i], ~d->mask_buf[i]);
+-- 
+2.17.1
+

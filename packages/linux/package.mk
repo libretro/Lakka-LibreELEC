@@ -29,7 +29,7 @@ PKG_SHORTDESC="linux26: The Linux kernel 2.6 precompiled kernel binary image and
 PKG_LONGDESC="This package contains a precompiled kernel image and the modules."
 case "$LINUX" in
   linux-odroidxu3)
-    PKG_VERSION="08a0e22"
+    PKG_VERSION="eebbb12c"
     PKG_URL="https://github.com/hardkernel/linux/archive/$PKG_VERSION.tar.gz"
     ;;
   linux-odroidc-3.10.y)
@@ -102,12 +102,23 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 if [ "$TARGET_KERNEL_ARCH" = "arm64" -a "$TARGET_ARCH" = "arm" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gcc-linaro-aarch64-elf:host"
-  export PATH=$TOOLCHAIN/lib/gcc-linaro-aarch64-elf/bin/:$PATH
-  TARGET_PREFIX=aarch64-elf-
-  PKG_MAKE_OPTS_HOST="ARCH=$TARGET_ARCH headers_check"
+  if [ "$PROJECT" = "Switch" ]; then
+    PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gcc-linaro-aarch64-linux-gnu:host"
+    export PATH=$TOOLCHAIN/lib/gcc-linaro-aarch64-linux-gnu/bin/:$PATH
+    TARGET_PREFIX=aarch64-linux-gnu-
+    PKG_MAKE_OPTS_HOST="ARCH=$TARGET_ARCH headers_check"
+  else
+    PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gcc-linaro-aarch64-elf:host"
+    export PATH=$TOOLCHAIN/lib/gcc-linaro-aarch64-elf/bin/:$PATH
+    TARGET_PREFIX=aarch64-elf-
+    PKG_MAKE_OPTS_HOST="ARCH=$TARGET_ARCH headers_check"
+  fi
 else
  PKG_MAKE_OPTS_HOST="ARCH=$TARGET_KERNEL_ARCH headers_check"
+fi
+
+if [ "$PROJECT" = "Switch" ]; then
+    PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET kernel-firmware"
 fi
 
 if [ "$TARGET_ARCH" = "x86_64" ]; then
@@ -208,6 +219,14 @@ pre_make_target() {
     cp -a $(get_build_dir intel-ucode)/intel-ucode $PKG_BUILD/external-firmware
 
     FW_LIST="$(find $PKG_BUILD/external-firmware \( -type f -o -type l \) \( -iname '*.bin' -o -iname '*.fw' -o -path '*/intel-ucode/*' \) | sed 's|.*external-firmware/||' | sort | xargs)"
+    sed -i "s|CONFIG_EXTRA_FIRMWARE=.*|CONFIG_EXTRA_FIRMWARE=\"${FW_LIST}\"|" $PKG_BUILD/.config
+  fi
+  
+  if [ "$PROJECT" = "Switch" ]; then
+    mkdir -p $PKG_BUILD/external-firmware
+    cp -a $(get_build_dir kernel-firmware)/{nvidia,brcm} $PKG_BUILD/external-firmware
+    
+    FW_LIST="$(find $PKG_BUILD/external-firmware \( -type f -o -type l \) \( -iname '*.bin' -o -iname '*.txt' -o -iname '*.hcd' \) | sed 's|.*external-firmware/||' | sort | xargs)"
     sed -i "s|CONFIG_EXTRA_FIRMWARE=.*|CONFIG_EXTRA_FIRMWARE=\"${FW_LIST}\"|" $PKG_BUILD/.config
   fi
 

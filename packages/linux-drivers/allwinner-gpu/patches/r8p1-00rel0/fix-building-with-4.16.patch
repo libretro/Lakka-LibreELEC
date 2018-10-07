@@ -1,0 +1,336 @@
+From 246fdac477cf109c354011c1ae0a7a8d928cb504 Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Mon, 12 Mar 2018 23:02:55 +0100
+Subject: [PATCH] v4.16 build fix
+
+---
+ .../driver/src/devicedrv/mali/common/mali_control_timer.c |  2 +-
+ src/devicedrv/mali/common/mali_group.c      |  8 ++++---
+ src/devicedrv/mali/common/mali_osk_types.h  |  8 ++++++-
+ .../driver/src/devicedrv/mali/linux/mali_internal_sync.c  | 28 +++++++++++++++++++++-
+ .../driver/src/devicedrv/mali/linux/mali_internal_sync.h  |  4 ++++
+ .../devicedrv/mali/linux/mali_memory_os_alloc.c    |  6 +++++
+ .../driver/src/devicedrv/mali/linux/mali_memory_secure.c  |  4 ++++
+ .../devicedrv/mali/linux/mali_memory_swap_alloc.c  |  8 +++++++
+ .../devicedrv/mali/linux/mali_osk_notification.c   |  4 ++++
+ src/devicedrv/mali/linux/mali_osk_timers.c  | 20 +++++++++++-----
+ src/devicedrv/mali/platform/arm/arm.c       |  6 +++--
+ 11 files changed, 84 insertions(+), 14 deletions(-)
+
+diff --git a/driver/src/devicedrv/mali/common/mali_control_timer.c b/driver/src/devicedrv/mali/common/mali_control_timer.c
+index 1296ffe..bfe975f 100644
+--- a/driver/src/devicedrv/mali/common/mali_control_timer.c
++++ b/driver/src/devicedrv/mali/common/mali_control_timer.c
+@@ -28,7 +28,7 @@ void mali_control_timer_add(u32 timeout)
+ 	_mali_osk_timer_add(mali_control_timer, _mali_osk_time_mstoticks(timeout));
+ }
+ 
+-static void mali_control_timer_callback(void *arg)
++static void mali_control_timer_callback(struct timer_list *t)
+ {
+ 	if (mali_utilization_enabled()) {
+ 		struct mali_gpu_utilization_data *util_data = NULL;
+diff --git a/driver/src/devicedrv/mali/common/mali_group.c b/driver/src/devicedrv/mali/common/mali_group.c
+index e9005e1..4a43753 100644
+--- a/driver/src/devicedrv/mali/common/mali_group.c
++++ b/driver/src/devicedrv/mali/common/mali_group.c
+@@ -44,7 +44,7 @@ int mali_max_job_runtime = MALI_MAX_JOB_RUNTIME_DEFAULT;
+ static void mali_group_bottom_half_mmu(void *data);
+ static void mali_group_bottom_half_gp(void *data);
+ static void mali_group_bottom_half_pp(void *data);
+-static void mali_group_timeout(void *data);
++static void mali_group_timeout(struct timer_list *t);
+ static void mali_group_reset_pp(struct mali_group *group);
+ static void mali_group_reset_mmu(struct mali_group *group);
+ 
+@@ -1761,9 +1761,11 @@ static void mali_group_bottom_half_pp(void *data)
+ 				      0xFFFFFFFF, 0);
+ }
+ 
+-static void mali_group_timeout(void *data)
++static void mali_group_timeout(struct timer_list *t)
+ {
+-	struct mali_group *group = (struct mali_group *)data;
++	_mali_osk_timer_t *tim = container_of(t, _mali_osk_timer_t, timer);
++	struct mali_group *group = container_of(&tim, struct mali_group, timeout_timer);
++
+ 	MALI_DEBUG_ASSERT_POINTER(group);
+ 
+ 	MALI_DEBUG_PRINT(2, ("Group: timeout handler for %s at %u\n",
+diff --git a/driver/src/devicedrv/mali/common/mali_osk_types.h b/driver/src/devicedrv/mali/common/mali_osk_types.h
+index 03161cf..c9d0fec 100644
+--- a/driver/src/devicedrv/mali/common/mali_osk_types.h
++++ b/driver/src/devicedrv/mali/common/mali_osk_types.h
+@@ -50,6 +50,7 @@ typedef unsigned long long u64;
+ #include <linux/types.h>
+ #endif
+ 
++#include <linux/timer.h>
+ /** @brief Mali Boolean type which uses MALI_TRUE and MALI_FALSE
+   */
+ typedef unsigned long mali_bool;
+@@ -395,7 +396,12 @@ typedef struct _mali_osk_notification_t_struct {
+  * by any callers of _mali_osk_timer_del(). Otherwise, a deadlock may occur.
+  *
+  * @param arg Function-specific data */
+-typedef void (*_mali_osk_timer_callback_t)(void *arg);
++typedef void (*_mali_osk_timer_callback_t)(struct timer_list *t);
++
++
++struct _mali_osk_timer_t_struct {
++	struct timer_list timer;
++};
+ 
+ /** @brief Private type for Timer Callback Objects */
+ typedef struct _mali_osk_timer_t_struct _mali_osk_timer_t;
+diff --git a/driver/src/devicedrv/mali/linux/mali_internal_sync.c b/driver/src/devicedrv/mali/linux/mali_internal_sync.c
+index 0478ab5..cc23fc0 100644
+--- a/driver/src/devicedrv/mali/linux/mali_internal_sync.c
++++ b/driver/src/devicedrv/mali/linux/mali_internal_sync.c
+@@ -121,8 +121,13 @@ static void mali_internal_sync_fence_add_fence(struct mali_internal_sync_fence *
+ }
+ #endif
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
++static int mali_internal_sync_fence_wake_up_wq(wait_queue_entry_t *curr, unsigned mode,
++		int wake_flags, void *key)
++#else
+ static int mali_internal_sync_fence_wake_up_wq(wait_queue_t *curr, unsigned mode,
+ 		int wake_flags, void *key)
++#endif
+ {
+ 	struct mali_internal_sync_fence_waiter *wait;
+ 	MALI_IGNORE(mode);
+@@ -130,7 +135,11 @@ static int mali_internal_sync_fence_wake_up_wq(wait_queue_t *curr, unsigned mode
+ 	MALI_IGNORE(key);
+ 
+ 	wait = container_of(curr, struct mali_internal_sync_fence_waiter, work);
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
++	list_del_init(&wait->work.entry);
++#else
+ 	list_del_init(&wait->work.task_list);
++#endif
+ 
+ 	wait->callback(wait->work.private, wait);
+ 	return 1;
+@@ -508,7 +517,11 @@ void mali_internal_sync_fence_waiter_init(struct mali_internal_sync_fence_waiter
+ 	MALI_DEBUG_ASSERT_POINTER(waiter);
+ 	MALI_DEBUG_ASSERT_POINTER(callback);
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
++	INIT_LIST_HEAD(&waiter->work.entry);
++#else
+ 	INIT_LIST_HEAD(&waiter->work.task_list);
++#endif
+ 	waiter->callback = callback;
+ }
+ 
+@@ -536,7 +549,11 @@ int mali_internal_sync_fence_wait_async(struct mali_internal_sync_fence *sync_fe
+ 	err = atomic_read(&sync_fence->status);
+ 
+ 	if (0 < err)
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
++		__add_wait_queue_entry_tail(&sync_fence->wq, &waiter->work);
++#else
+ 		__add_wait_queue_tail(&sync_fence->wq, &waiter->work);
++#endif
+ 	spin_unlock_irqrestore(&sync_fence->wq.lock, flags);
+ 
+ 	if (0 > err)
+@@ -571,7 +588,11 @@ int mali_internal_sync_fence_wait_async(struct mali_internal_sync_fence *sync_fe
+ 	err =  sync_fence->fence->ops->signaled(sync_fence->fence);
+ 
+ 	if (0 == err)
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
++		__add_wait_queue_entry_tail(&sync_fence->wq, &waiter->work);
++#else
+ 		__add_wait_queue_tail(&sync_fence->wq, &waiter->work);
++#endif
+ 	spin_unlock_irqrestore(&sync_fence->wq.lock, flags);
+ 
+ 	return err;
+@@ -588,8 +609,13 @@ int mali_internal_sync_fence_cancel_async(struct mali_internal_sync_fence *sync_
+ 	MALI_DEBUG_ASSERT_POINTER(waiter);
+ 
+ 	spin_lock_irqsave(&sync_fence->wq.lock, flags);
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
++	if (!list_empty(&waiter->work.entry))
++		list_del_init(&waiter->work.entry);
++#else
+ 	if (!list_empty(&waiter->work.task_list))
+ 		list_del_init(&waiter->work.task_list);
++#endif
+ 	else
+ 		ret = -ENOENT;
+ 	spin_unlock_irqrestore(&sync_fence->wq.lock, flags);
+@@ -689,7 +715,7 @@ static bool mali_internal_fence_signaled(struct fence *fence)
+ 
+ 	ret = parent->ops->has_signaled(sync_pt);
+ 	if (0 > ret)
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 68)
+ 		fence->error = ret;
+ #else
+ 		fence->status = ret;
+diff --git a/driver/src/devicedrv/mali/linux/mali_internal_sync.h b/driver/src/devicedrv/mali/linux/mali_internal_sync.h
+index a5655c7..70f29f9 100644
+--- a/driver/src/devicedrv/mali/linux/mali_internal_sync.h
++++ b/driver/src/devicedrv/mali/linux/mali_internal_sync.h
+@@ -112,7 +112,11 @@ typedef void (*mali_internal_sync_callback_t)(struct mali_internal_sync_fence *s
+ 		struct mali_internal_sync_fence_waiter *waiter);
+ 
+ struct mali_internal_sync_fence_waiter {
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
++	wait_queue_entry_t work;
++#else
+ 	wait_queue_t work;
++#endif
+ 	mali_internal_sync_callback_t callback;
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0)
+diff --git a/driver/src/devicedrv/mali/linux/mali_memory_os_alloc.c b/driver/src/devicedrv/mali/linux/mali_memory_os_alloc.c
+index 5fe1270..92c245a 100644
+--- a/driver/src/devicedrv/mali/linux/mali_memory_os_alloc.c
++++ b/driver/src/devicedrv/mali/linux/mali_memory_os_alloc.c
+@@ -202,7 +202,13 @@ int mali_mem_os_alloc_pages(mali_mem_os_mem *os_mem, u32 size)
+ 	/* Allocate new pages, if needed. */
+ 	for (i = 0; i < remaining; i++) {
+ 		dma_addr_t dma_addr;
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0)
++		gfp_t flags = __GFP_ZERO | __GFP_RETRY_MAYFAIL | __GFP_NOWARN;
++#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
++		gfp_t flags = __GFP_ZERO | __GFP_RETRY_MAYFAIL | __GFP_NOWARN | __GFP_COLD;
++#else
+ 		gfp_t flags = __GFP_ZERO | __GFP_REPEAT | __GFP_NOWARN | __GFP_COLD;
++#endif
+ 		int err;
+ 
+ #if defined(CONFIG_ARM) && !defined(CONFIG_ARM_LPAE)
+diff --git a/driver/src/devicedrv/mali/linux/mali_memory_secure.c b/driver/src/devicedrv/mali/linux/mali_memory_secure.c
+index 2836b1b..4f55fa5 100644
+--- a/driver/src/devicedrv/mali/linux/mali_memory_secure.c
++++ b/driver/src/devicedrv/mali/linux/mali_memory_secure.c
+@@ -13,7 +13,11 @@
+ #include "mali_memory_secure.h"
+ #include "mali_osk.h"
+ #include <linux/mutex.h>
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 16, 0)
++#include <linux/dma-direct.h>
++#else
+ #include <linux/dma-mapping.h>
++#endif
+ #include <linux/dma-buf.h>
+ 
+ _mali_osk_errcode_t mali_mem_secure_attach_dma_buf(mali_mem_secure *secure_mem, u32 size, int mem_fd)
+diff --git a/driver/src/devicedrv/mali/linux/mali_memory_swap_alloc.c b/driver/src/devicedrv/mali/linux/mali_memory_swap_alloc.c
+index a54faca..012cfe1 100644
+--- a/driver/src/devicedrv/mali/linux/mali_memory_swap_alloc.c
++++ b/driver/src/devicedrv/mali/linux/mali_memory_swap_alloc.c
+@@ -248,7 +248,11 @@ static void mali_mem_swap_swapped_bkend_pool_shrink(_mali_mem_swap_pool_shrink_t
+ 	}
+ 
+ 	/* Get system free pages number. */
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
++	system_free_size = global_zone_page_state(NR_FREE_PAGES) * PAGE_SIZE;
++#else
+ 	system_free_size = global_page_state(NR_FREE_PAGES) * PAGE_SIZE;
++#endif
+ 	last_gpu_utilization = _mali_ukk_utilization_gp_pp();
+ 
+ 	if ((last_gpu_utilization < gpu_utilization_threshold_value)
+@@ -576,7 +580,11 @@ int mali_mem_swap_alloc_pages(mali_mem_swap *swap_mem, u32 size, u32 *bkend_idx)
+ 		list_add_tail(&m_page->list, &swap_mem->pages);
+ 	}
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
++	system_free_size = global_zone_page_state(NR_FREE_PAGES) * PAGE_SIZE;
++#else
+ 	system_free_size = global_page_state(NR_FREE_PAGES) * PAGE_SIZE;
++#endif
+ 
+ 	if ((system_free_size < mali_mem_swap_out_threshold_value)
+ 	    && (mem_backend_swapped_pool_size > (mali_mem_swap_out_threshold_value >> 2))
+diff --git a/driver/src/devicedrv/mali/linux/mali_osk_notification.c b/driver/src/devicedrv/mali/linux/mali_osk_notification.c
+index b22fe68..dac0327 100644
+--- a/driver/src/devicedrv/mali/linux/mali_osk_notification.c
++++ b/driver/src/devicedrv/mali/linux/mali_osk_notification.c
+@@ -57,7 +57,11 @@ _mali_osk_notification_t *_mali_osk_notification_create(u32 type, u32 size)
+ 	_mali_osk_notification_wrapper_t *notification;
+ 
+ 	notification = (_mali_osk_notification_wrapper_t *)kmalloc(sizeof(_mali_osk_notification_wrapper_t) + size,
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
++			GFP_KERNEL | __GFP_HIGH | __GFP_RETRY_MAYFAIL);
++#else
+ 			GFP_KERNEL | __GFP_HIGH | __GFP_REPEAT);
++#endif
+ 	if (NULL == notification) {
+ 		MALI_DEBUG_PRINT(1, ("Failed to create a notification object\n"));
+ 		return NULL;
+diff --git a/driver/src/devicedrv/mali/linux/mali_osk_timers.c b/driver/src/devicedrv/mali/linux/mali_osk_timers.c
+index e5d7238..701051a 100644
+--- a/driver/src/devicedrv/mali/linux/mali_osk_timers.c
++++ b/driver/src/devicedrv/mali/linux/mali_osk_timers.c
+@@ -18,16 +18,25 @@
+ #include "mali_osk.h"
+ #include "mali_kernel_common.h"
+ 
+-struct _mali_osk_timer_t_struct {
+-	struct timer_list timer;
+-};
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
++
++#define TIMER_DATA_TYPE		unsigned long
++#define TIMER_FUNC_TYPE		void (*)(TIMER_DATA_TYPE)
++
++static inline void timer_setup(struct timer_list *timer,
++			       void (*callback)(struct timer_list *),
++			       unsigned int flags)
++{
++	__setup_timer(timer, (TIMER_FUNC_TYPE)callback,
++		      (TIMER_DATA_TYPE)timer, flags);
++}
++#endif
+ 
+ typedef void (*timer_timeout_function_t)(unsigned long);
+ 
+ _mali_osk_timer_t *_mali_osk_timer_init(void)
+ {
+ 	_mali_osk_timer_t *t = (_mali_osk_timer_t *)kmalloc(sizeof(_mali_osk_timer_t), GFP_KERNEL);
+-	if (NULL != t) init_timer(&t->timer);
+ 	return t;
+ }
+ 
+@@ -65,8 +74,7 @@ mali_bool _mali_osk_timer_pending(_mali_osk_timer_t *tim)
+ void _mali_osk_timer_setcallback(_mali_osk_timer_t *tim, _mali_osk_timer_callback_t callback, void *data)
+ {
+ 	MALI_DEBUG_ASSERT_POINTER(tim);
+-	tim->timer.data = (unsigned long)data;
+-	tim->timer.function = (timer_timeout_function_t)callback;
++	timer_setup(&tim->timer, callback, 0);
+ }
+ 
+ void _mali_osk_timer_term(_mali_osk_timer_t *tim)
+diff --git a/driver/src/devicedrv/mali/platform/arm/arm.c b/driver/src/devicedrv/mali/platform/arm/arm.c
+index 4e09aca..f1150a3 100644
+--- a/driver/src/devicedrv/mali/platform/arm/arm.c
++++ b/driver/src/devicedrv/mali/platform/arm/arm.c
+@@ -183,7 +183,8 @@ static struct resource mali_gpu_resources_m400_mp2[] = {
+ static struct thermal_zone_device *gpu_tz;
+ 
+ /* Calculate gpu static power example for reference */
+-static unsigned long arm_model_static_power(unsigned long voltage)
++static unsigned long arm_model_static_power(struct devfreq *devfreq,
++					    unsigned long voltage)
+ {
+ 	int temperature, temp;
+ 	int temp_squared, temp_cubed, temp_scaling_factor;
+@@ -223,7 +224,8 @@ static unsigned long arm_model_static_power(unsigned long voltage)
+ }
+ 
+ /* Calculate gpu dynamic power example for reference */
+-static unsigned long arm_model_dynamic_power(unsigned long freq,
++static unsigned long arm_model_dynamic_power(struct devfreq *devfreq,
++		unsigned long freq,
+ 		unsigned long voltage)
+ {
+ 	/* The inputs: freq (f) is in Hz, and voltage (v) in mV.

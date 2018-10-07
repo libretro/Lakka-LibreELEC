@@ -19,12 +19,14 @@
 ################################################################################
 
 PKG_NAME="retroarch"
-PKG_VERSION="2a2e732"
+PKG_VERSION="d628e01"
+PKG_VERSION_LONG="d628e01247ca9c908a7c5376bd1e1f8ad2a7cba2"
 PKG_REV="11"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
-PKG_GIT_URL="$PKG_SITE"
+PKG_URL="$PKG_SITE/archive/$PKG_VERSION.tar.gz"
+PKG_SOURCE_DIR="RetroArch-$PKG_VERSION"
 PKG_DEPENDS_TARGET="toolchain alsa-lib freetype zlib retroarch-assets retroarch-overlays core-info retroarch-joypad-autoconfig glsl-shaders lakka-update libretro-database ffmpeg libass libvdpau libxkbfile xkeyboard-config libxkbcommon joyutils sixpair empty"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -48,7 +50,13 @@ if [ "$AVAHI_DAEMON" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET avahi nss-mdns"
 fi
 
-if [ "$OPENGLES" == "no" ]; then
+if [ "$PROJECT" = "Switch" ]; then
+   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET pulseaudio"
+fi
+
+if [ "$PROJECT" == "Switch" ]; then
+  RETROARCH_GL="--disable-kms --enable-x11 --disable-wayland --disable-opengles --enable-opengl"
+elif [ "$OPENGLES" == "no" ]; then
   RETROARCH_GL="--enable-kms"
 elif [ "$OPENGLES" == "bcm2835-driver" ]; then
   RETROARCH_GL="--enable-opengles --disable-kms --disable-x11"
@@ -74,17 +82,27 @@ fi
 TARGET_CONFIGURE_OPTS=""
 PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
                            --disable-sdl \
+                           --disable-ssl \
                            $RETROARCH_GL \
                            $RETROARCH_NEON \
                            --enable-zlib \
                            --enable-freetype"
+                           
+if [ "$PROJECT" = "Switch" ]; then
+   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-pulse"
+fi
+                         
 
 pre_configure_target() {
   cd $PKG_BUILD
 }
 
 make_target() {
-  make V=1 HAVE_LAKKA=1 HAVE_ZARCH=0
+  if [ "$PROJECT" = "Switch" ]; then
+    make V=1 HAVE_LAKKA=1 HAVE_LAKKA_SWITCH=1 HAVE_ZARCH=0
+  else
+    make V=1 HAVE_LAKKA=1 HAVE_ZARCH=0
+  fi
   make -C gfx/video_filters compiler=$CC extra_flags="$CFLAGS"
   make -C libretro-common/audio/dsp_filters compiler=$CC extra_flags="$CFLAGS"
 }
@@ -190,7 +208,25 @@ makeinstall_target() {
     echo "xmb_shadows_enable = true" >> $INSTALL/etc/retroarch.cfg
     sed -i -e "s/input_menu_toggle_gamepad_combo = 2/input_menu_toggle_gamepad_combo = 4/" $INSTALL/etc/retroarch.cfg
     sed -i -e "s/video_smooth = false/video_smooth = true/" $INSTALL/etc/retroarch.cfg
-    sed -i -e "s/video_font_path =\/usr\/share\/retroarch-assets\/xmb\/monochrome\/font.ttf//" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/video_font_path =\/usr\/share\/retroarch-assets\/xmb\/monochrome\/font.ttf//" $INSTALL/etc/retroarch.cfg  
+  # Switch
+  elif [ "$PROJECT" == "Switch" ]; then
+    sed -i -e "s/menu_mouse_enable = false/menu_mouse_enable = true/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/input_driver = udev/input_driver = x/" $INSTALL/etc/retroarch.cfg
+    
+    sed -i -e "s/# video_hard_sync = false/video_hard_sync = true/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/# video_crop_overscan = true/video_crop_overscan = false/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/# menu_show_online_updater = true/menu_show_online_updater = false/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/# input_joypad_driver =/input_joypad_driver = linuxraw/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/video_threaded = true/video_threaded = false/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/input_autodetect_enable = true/input_autodetect_enable = false/"  $INSTALL/etc/retroarch.cfg
+    
+    echo "xmb_shadows_enable = true" >> $INSTALL/etc/retroarch.cfg
+
+    # Joypad Autoconfig doesn't work as Joy-Cons VID and PID are both 0
+    cat $PROJECT_DIR/Switch/joypad/Joy-Con_Rails.cfg >> $INSTALL/etc/retroarch.cfg
+
+    sed -i -e "s/audio_driver = \"alsathread\"/audio_driver = pulse/" $INSTALL/etc/retroarch.cfg
   fi
 }
 
