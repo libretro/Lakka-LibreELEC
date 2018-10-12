@@ -18,14 +18,13 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="sameboy"
+PKG_NAME="SameBoy"
 PKG_VERSION="179d3f6"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/libretro/sameboy"
-PKG_GIT_URL="$PKG_SITE"
-PKG_GIT_BRANCH="buildbot"
+PKG_URL="https://github.com/libretro/sameboy/archive/179d3f6.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
