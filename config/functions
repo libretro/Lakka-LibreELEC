@@ -100,8 +100,7 @@ flag_enabled() {
   # check flag
   if [ -n "${PKG_BUILD_FLAGS}" ] && listcontains "${PKG_BUILD_FLAGS}" "[+]?$1"; then
     if [ "${3:none}" = "only-disable" ]; then
-      echo "ERROR: $1 can not enable via PKG_BUILD_FLAGS (found in $PKG_NAME)"
-      exit 1
+      die "ERROR: $1 cannot enable via PKG_BUILD_FLAGS (found in $PKG_NAME)"
     fi
     declare ${flag_name}="yes"
     return 0
@@ -110,8 +109,7 @@ flag_enabled() {
     return 0
   else
     if [ "${3:none}" = "only-enable" ]; then
-      echo "ERROR: $1 can not disable via PKG_BUILD_FLAGS (found in $PKG_NAME)"
-      exit 1
+      die "ERROR: $1 cannot disable via PKG_BUILD_FLAGS (found in $PKG_NAME)"
     fi
     declare ${flag_name}="no"
     return 1
@@ -418,8 +416,7 @@ build_with_debug() {
 # strip
 debug_strip() {
   if [ -z "${BUILD_WITH_DEBUG}" ]; then
-    echo "ERROR: debug_strip() must not be called without configuring BUILD_WITH_DEBUG" >&2
-    exit 1
+    die "ERROR: debug_strip() must not be called without configuring BUILD_WITH_DEBUG"
   fi
 
   if [ "${BUILD_WITH_DEBUG}" != "yes" ] && flag_enabled "strip" "yes"; then
@@ -469,7 +466,7 @@ check_path() {
     check_pathmessage="$check_pathmessage\n Please use another dir (for example your \$HOME) to build $DISTRONAME"
 
     echo -e $check_pathmessage
-    exit 1
+    die
   fi
 }
 
@@ -502,7 +499,7 @@ check_config() {
       check_project="$check_project\n - $(basename $projects)"
     done
     echo -e $check_project
-    exit 1
+    die
   fi
 
   if [ \( -z "$DEVICE" -a -d "$PROJECT_DIR/$PROJECT/devices" \) -o \( -n "$DEVICE" -a ! -d "$PROJECT_DIR/$PROJECT/devices/$DEVICE" \) ]; then
@@ -515,7 +512,7 @@ check_config() {
       check_device="$check_device\n - $(basename $device)"
     done
     echo -e $check_device
-    exit 1
+    die
   fi
 
   if [ -d $PROJECT_DIR/$PROJECT/devices/$DEVICE/linux ]; then
@@ -537,7 +534,7 @@ check_config() {
       check_arch="$check_arch\n - $(basename $arch | cut -f2 -d".")"
     done
     echo -e $check_arch
-    exit 1
+    die
   fi
 }
 
@@ -642,7 +639,7 @@ get_pkg_directory() {
   if [ $_FOUND -gt 1 ]; then
     echo "Error - multiple package folders for package ${_PKG_ROOT_NAME}:" >&2
     echo -e "$_ALL_DIRS" >&2
-    exit 1
+    die
   fi
 
   echo "$_PKG_DIR"
@@ -863,9 +860,8 @@ done
     cp $ROOT/config/addon/${PKG_ADDON_TYPE}.xml "$addon_xml"
     addon_version=${PKG_ADDON_VERSION:-${ADDON_VERSION}.${PKG_REV}}
   else
-    if [ ! $(which xmlstarlet) ]; then
-      echo "*** ERROR: $ADDON has addon.xml shipped, you need 'xmlstarlet' ***"
-      exit 255
+    if  ! command -v xmlstarlet >/dev/null ; then
+      die "*** ERROR: $ADDON has addon.xml shipped, you need 'xmlstarlet' ***" "255"
     fi
     addon_version="${PKG_ADDON_VERSION:-$(xmlstarlet sel -t -v "/addon/@version" "$addon_xml").$PKG_REV}"
     xmlstarlet ed --inplace -u "/addon[@version]/@version" -v "$addon_version" "$addon_xml"
@@ -914,7 +910,7 @@ install_addon_files() {
 install_driver_addon_files() {
   if [ "$#" -eq 0 ] ; then
     printf "$(print_color CLR_ERROR "no module search path defined")\n"
-    exit 1
+    die
   fi
 
   PKG_MODULE_DIR="$INSTALL/$(get_full_module_dir $PKG_ADDON_ID)/updates/$PKG_ADDON_ID"
@@ -969,7 +965,7 @@ enable_service () {
   local target="$2"
   local target_dir=$INSTALL
 
-  [ -f "$target_dir/$unit_dir/$unit" ] || exit 1
+  [ -f "$target_dir/$unit_dir/$unit" ] || die
   if [ -z "$target" ] ; then
     for target in `grep '^WantedBy' $target_dir/$unit_dir/$unit | cut -f2 -d=` ; do
       if [ -n "$target" ]; then
