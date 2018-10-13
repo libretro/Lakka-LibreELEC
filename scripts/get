@@ -22,7 +22,7 @@
 
 _get_file_already_downloaded() {
   if [ -f $PACKAGE ]; then
-    if [ "$(cat $STAMP_URL 2>/dev/null)" == "${PKG_URL}" ]; then
+    if [ "$(cat $STAMP_URL 2>/dev/null)" == "${PKG_URL}" -o "$(cat $STAMP_URL 2>/dev/null)" == "${PKG_GIT_URL}" ]; then
       [ -z "${PKG_SHA256}" -o "$(cat $STAMP_SHA 2>/dev/null)" == "${PKG_SHA256}" ] && return 0
     fi
   fi
@@ -36,7 +36,16 @@ if [ -z "$1" ]; then
   done
 fi
 
-[ -z "$PKG_URL" -o -z "$PKG_SOURCE_NAME" ] && exit 0
+if [ -z "$PKG_URL" -o -z "$PKG_SOURCE_NAME" ]; then
+  if [ -z "$PKG_GIT_URL" -o -z "$PKG_SOURCE_NAME" ]; then
+    exit 0
+  fi
+fi
+
+if [ -n "$PKG_GIT_URL" -a -n "$PKG_URL" ]; then
+  echo -e "${boldred}ERROR${endcolor} Package '$PKG_NAME' has PKG_URL and PKG_GIT_URL defined. Concurrent usage of both is not supported. Use only one of those!"
+  exit 1
+fi
 
 mkdir -p $SOURCES/$1
 
@@ -70,6 +79,71 @@ export BUILD_INDENT=$((${BUILD_INDENT:-1}+$BUILD_INDENT_SIZE))
 unset LD_LIBRARY_PATH
 
 rm -f $STAMP_URL $STAMP_SHA
+
+if [ -n "$PKG_GIT_URL" -a -z "$PKG_URL" ]; then
+
+  if [ -n "$LAKKA_MIRROR" ]; then
+    PACKAGE_MIRROR="$LAKKA_MIRROR/$PKG_SOURCE_NAME"
+    NBWGET=5
+
+    # first look if we have tarball mirrored
+    while [ $NBWGET -gt 0 ]; do
+      rm -f $PACKAGE
+
+      if $WGET_CMD "$PACKAGE_MIRROR"; then
+        break
+      fi
+
+      NBWGET=$((NBWGET - 1))
+      rm -f $PACKAGE
+    done
+
+    if [ $NBWGET -eq 0 ]; then
+      # no tarball on mirror - clone and create tarball
+      CUR_PWD="$(pwd)"
+      GIT_REPO_FOLDER="$SOURCES/$1/repo"
+
+      # remove stale folders if they exist
+      rm -rf $SOURCES/$1/$PKG_NAME-*/
+
+      if [ ! -d "$GIT_REPO_FOLDER" ]; then
+        git clone $PKG_GIT_URL $GIT_REPO_FOLDER
+      fi
+
+      cd $GIT_REPO_FOLDER
+      git clean -fdx
+      git checkout -- .
+      git pull
+      [ -n "$PKG_GIT_BRANCH" ] && git checkout $PKG_GIT_BRANCH
+      git reset --hard $PKG_VERSION
+      git submodule update --init --recursive
+      cd "$ROOT/$SOURCES/$1"
+      mv repo $PKG_NAME-$PKG_VERSION
+      echo -n "Creating tarball..."
+      tar -pcJf $ROOT/$PACKAGE $PKG_NAME-$PKG_VERSION
+      echo "done!"
+      mv $PKG_NAME-$PKG_VERSION repo
+      cd "$CUR_PWD"
+    fi
+
+    CALC_SHA256="$(sha256sum $PACKAGE | cut -d" " -f1)"
+
+    if [ -z "${PKG_SHA256}" -o "${PKG_SHA256}" == "${CALC_SHA256}" ]; then
+      printf "${boldgreen}INFO${endcolor} Calculated checksum is: ${CALC_SHA256}\n\n"
+    else
+      printf "${boldred}WARNING${endcolor} Incorrect checksum calculated on downloaded file: got ${CALC_SHA256}, wanted ${PKG_SHA256}\n\n"
+    fi
+
+    echo "${PKG_GIT_URL}" > $STAMP_URL
+    echo "${CALC_SHA256}" > $STAMP_SHA
+
+  else
+    echo -e "${boldred}WARNING${endcolor} Package '$PKG_NAME' not downloaded! Use\n\n\tDISTRO=Lakka $0\n\nto download Lakka libretro git-based packages!\n\n"
+  fi
+
+  exit 0
+
+fi
 
 NBWGET=10
 while [ $NBWGET -gt 0 ]; do
