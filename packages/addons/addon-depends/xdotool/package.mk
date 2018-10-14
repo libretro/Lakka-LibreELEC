@@ -18,11 +18,11 @@
 ################################################################################
 
 PKG_NAME="xdotool"
-PKG_VERSION="2.20110530.1"
+PKG_VERSION="08c8e2d6cad60a69ce415499e34865157a1b66fd"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.semicomplete.com/projects/xdotool/"
-PKG_URL="http://semicomplete.googlecode.com/files/${PKG_NAME}-${PKG_VERSION}.tar.gz"
+PKG_SITE="https://github.com/jordansissel/xdotool"
+PKG_URL="$PKG_SITE/archive/$PKG_VERSION.zip"
 PKG_DEPENDS_TARGET="toolchain libXinerama libXtst"
 PKG_SECTION="x11/app"
 PKG_SHORTDESC="This tool lets you simulate keyboard input and mouse activity, move and resize windows, etc."
@@ -40,6 +40,7 @@ make_target() {
   mv xdotool.static xdotool
 }
 
-makeinstall_target() {
-  : # nothing to do here
+post_makeinstall_target() {
+  mv $INSTALL/usr/local/* $INSTALL/usr/
+  rm -rf $INSTALL/usr/local/
 }
