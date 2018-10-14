@@ -18,31 +18,13 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="Switch"
-PKG_VERSION=""
-PKG_REV="1"
+PKG_NAME="xbindkeys"
+PKG_VERSION="1.8.6"
+PKG_URL="https://www.nongnu.org/xbindkeys/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_SHORTDESC="xbindkeys is a program that allows you to launch shell commands with your keyboard or your mouse under X Window. It links commands to keys or mouse buttons, using a configuration file. It's independant of the window manager and can capture all keyboard keys (ex: Power, Wake...)."
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/lakkatv/Lakka"
-PKG_URL=""
-PKG_DEPENDS_TARGET="freetype libdrm pixman $OPENGL libepoxy glu retroarch $LIBRETRO_CORES switch-gpu-profile switch-cpu-profile xinput xbindkeys xdotool mergerfs"
-PKG_PRIORITY="optional"
-PKG_SECTION="virtual"
-PKG_SHORTDESC="Lakka metapackage for Switch"
-PKG_LONGDESC=""
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-post_install() {
-  enable_service xorg-configure-switch.service
-  enable_service mount-bluez-fs.service
-  enable_service switch-set-mac-address.service
-  # enable_service switch-wifi-fix.service
-  
-  mkdir -p $INSTALL/usr/bin
-  cp -P $PKG_DIR/scripts/switch-wifi-fix $INSTALL/usr/bin
-  cp -P $PKG_DIR/scripts/mount-bluez-fs $INSTALL/usr/bin
-  cp -P $PKG_DIR/scripts/switch-set-mac-address $INSTALL/usr/bin
-}
-
+PKG_CONFIGURE_OPTS_TARGET="--disable-guile"
