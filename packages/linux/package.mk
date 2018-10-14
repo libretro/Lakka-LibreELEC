@@ -120,7 +120,9 @@ else
 fi
 
 if [ "$PROJECT" = "Switch" ]; then
-    PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET kernel-firmware"
+    PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET kernel-firmware openssl:host"
+    export C_INCLUDE_PATH="$TOOLCHAIN/include:$C_INCLUDE_PATH"
+    export LIBRARY_PATH="$TOOLCHAIN/lib:$LIBRARY_PATH"
 fi
 
 if [ "$TARGET_ARCH" = "x86_64" ]; then

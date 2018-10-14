@@ -21,8 +21,8 @@
 PKG_NAME="switch-coreboot"
 PKG_VERSION="1becafe"
 PKG_ARCH="any"
-PKG_DEPENDS_HOST="gcc-linaro-aarch64-linux-gnu:host gcc-linaro-arm-linux-gnueabi:host"
-PKG_DEPENDS_TARGET="toolchain switch-coreboot:host switch-u-boot gcc-linaro-aarch64-linux-gnu:host gcc-linaro-arm-linux-gnueabi:host"
+PKG_DEPENDS_HOST="gcc-linaro-aarch64-linux-gnu:host gcc-linaro-arm-linux-gnueabi:host zlib:host openssl:host"
+PKG_DEPENDS_TARGET="toolchain switch-coreboot:host switch-u-boot gcc-linaro-aarch64-linux-gnu:host gcc-linaro-arm-linux-gnueabi:host curl:host"
 PKG_SITE="https://github.com/lakka-switch/coreboot"
 PKG_GIT_URL="$PKG_SITE"
 
@@ -31,6 +31,8 @@ PKG_AUTORECONF="no"
 make_host() {
   export PATH=$TOOLCHAIN/lib/gcc-linaro-aarch64-linux-gnu/bin/:$PATH
   export PATH=$TOOLCHAIN/lib/gcc-linaro-arm-linux-gnueabi/bin/:$PATH
+  export C_INCLUDE_PATH="$TOOLCHAIN/include:$C_INCLUDE_PATH"
+  export LIBRARY_PATH="$TOOLCHAIN/lib:$LIBRARY_PATH"
   make nintendo_switch_defconfig
   make iasl
   make tools
