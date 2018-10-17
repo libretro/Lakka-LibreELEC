@@ -36,7 +36,7 @@ make_target() {
     arm)
       make -f Makefile.libretro USE_DYNAREC=1 GIT_VERSION=$PKG_VERSION
       ;;
-    x86-64)
+    x86_64)
       make -f Makefile.libretro GIT_VERSION=$PKG_VERSION
       ;;
   esac
