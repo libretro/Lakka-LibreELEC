@@ -4,7 +4,7 @@
 PKG_NAME="libretro-pcsx-rearmed"
 PKG_VERSION="0370856deb325e759179c6835897e2553cef31c2"
 PKG_SHA256="e4971b2624100a4389e81ac51f2b43ab2784993e6803b47f8cdf7b96c86d8d8e"
-PKG_ARCH="arm"
+PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/pcsx_rearmed"
 PKG_URL="https://github.com/libretro/pcsx_rearmed/archive/$PKG_VERSION.tar.gz"
@@ -31,13 +31,13 @@ make_target() {
   
   case $TARGET_ARCH in
     aarch64)
-      make -f Makefile.libretro platform=aarch64
+      make -f Makefile.libretro platform=aarch64 GIT_VERSION=$PKG_VERSION
       ;;
     arm)
-      make -f Makefile.libretro USE_DYNAREC=1
+      make -f Makefile.libretro USE_DYNAREC=1 GIT_VERSION=$PKG_VERSION
       ;;
     x86-64)
-      make -f Makefile.libretro
+      make -f Makefile.libretro GIT_VERSION=$PKG_VERSION
       ;;
   esac
 }
