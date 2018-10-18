@@ -279,6 +279,7 @@ post_makeinstall_target() {
   mkdir -p $INSTALL/usr/bin
     cp $PKG_DIR/scripts/cputemp $INSTALL/usr/bin
       ln -sf cputemp $INSTALL/usr/bin/gputemp
+    cp $PKG_DIR/scripts/kodi-remote $INSTALL/usr/bin
     cp $PKG_DIR/scripts/setwakeup.sh $INSTALL/usr/bin
 
   mkdir -p $INSTALL/usr/share/kodi/addons
