@@ -1,4 +1,4 @@
-From 3a0776f16df87fcb0f001d721deac5986ba6d52b Mon Sep 17 00:00:00 2001
+From 4d331d301222dc0585ab8864a842b3e460b1f744 Mon Sep 17 00:00:00 2001
 From: Benjamin Valentin <benpicco@googlemail.com>
 Date: Thu, 4 Oct 2018 02:57:10 +0200
 Subject: [PATCH] media: rc: add driver for Xbox DVD Movie Playback Kit
@@ -14,14 +14,15 @@ This driver is heaviely based on the ati_remote driver where all the
 boilerplate was taken from - I was mostly just removing code.
 
 Signed-off-by: Benjamin Valentin <benpicco@googlemail.com>
+Signed-off-by: Sean Young <sean@mess.org>
 ---
  drivers/media/rc/Kconfig               |  12 +
  drivers/media/rc/Makefile              |   1 +
  drivers/media/rc/keymaps/Makefile      |   1 +
  drivers/media/rc/keymaps/rc-xbox-dvd.c |  63 +++++
- drivers/media/rc/xbox_remote.c         | 305 +++++++++++++++++++++++++
+ drivers/media/rc/xbox_remote.c         | 306 +++++++++++++++++++++++++
  include/media/rc-map.h                 |   1 +
- 6 files changed, 383 insertions(+)
+ 6 files changed, 384 insertions(+)
  create mode 100644 drivers/media/rc/keymaps/rc-xbox-dvd.c
  create mode 100644 drivers/media/rc/xbox_remote.c
 
@@ -69,7 +70,7 @@ index d6b913a3032d..5b1399af6b3a 100644
  			rc-zx-irdec.o
 diff --git a/drivers/media/rc/keymaps/rc-xbox-dvd.c b/drivers/media/rc/keymaps/rc-xbox-dvd.c
 new file mode 100644
-index 000000000000..61da6706715c
+index 000000000000..af387244636b
 --- /dev/null
 +++ b/drivers/media/rc/keymaps/rc-xbox-dvd.c
 @@ -0,0 +1,63 @@
@@ -82,35 +83,35 @@ index 000000000000..61da6706715c
 +
 +/* based on lircd.conf.xbox */
 +static struct rc_map_table xbox_dvd[] = {
-+	{0x0b, KEY_OK},
-+	{0xa6, KEY_UP},
-+	{0xa7, KEY_DOWN},
-+	{0xa8, KEY_RIGHT},
-+	{0xa9, KEY_LEFT},
-+	{0xc3, KEY_INFO},
++	{0xa0b, KEY_OK},
++	{0xaa6, KEY_UP},
++	{0xaa7, KEY_DOWN},
++	{0xaa8, KEY_RIGHT},
++	{0xaa9, KEY_LEFT},
++	{0xac3, KEY_INFO},
 +
-+	{0xc6, KEY_9},
-+	{0xc7, KEY_8},
-+	{0xc8, KEY_7},
-+	{0xc9, KEY_6},
-+	{0xca, KEY_5},
-+	{0xcb, KEY_4},
-+	{0xcc, KEY_3},
-+	{0xcd, KEY_2},
-+	{0xce, KEY_1},
-+	{0xcf, KEY_0},
++	{0xac6, KEY_9},
++	{0xac7, KEY_8},
++	{0xac8, KEY_7},
++	{0xac9, KEY_6},
++	{0xaca, KEY_5},
++	{0xacb, KEY_4},
++	{0xacc, KEY_3},
++	{0xacd, KEY_2},
++	{0xace, KEY_1},
++	{0xacf, KEY_0},
 +
-+	{0xd5, KEY_ANGLE},
-+	{0xd8, KEY_BACK},
-+	{0xdd, KEY_PREVIOUSSONG},
-+	{0xdf, KEY_NEXTSONG},
-+	{0xe0, KEY_STOP},
-+	{0xe2, KEY_REWIND},
-+	{0xe3, KEY_FASTFORWARD},
-+	{0xe5, KEY_TITLE},
-+	{0xe6, KEY_PAUSE},
-+	{0xea, KEY_PLAY},
-+	{0xf7, KEY_MENU},
++	{0xad5, KEY_ANGLE},
++	{0xad8, KEY_BACK},
++	{0xadd, KEY_PREVIOUSSONG},
++	{0xadf, KEY_NEXTSONG},
++	{0xae0, KEY_STOP},
++	{0xae2, KEY_REWIND},
++	{0xae3, KEY_FASTFORWARD},
++	{0xae5, KEY_TITLE},
++	{0xae6, KEY_PAUSE},
++	{0xaea, KEY_PLAY},
++	{0xaf7, KEY_MENU},
 +};
 +
 +static struct rc_map_list xbox_dvd_map = {
@@ -138,10 +139,10 @@ index 000000000000..61da6706715c
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/media/rc/xbox_remote.c b/drivers/media/rc/xbox_remote.c
 new file mode 100644
-index 000000000000..55fa4b4aed60
+index 000000000000..07ed9be24a60
 --- /dev/null
 +++ b/drivers/media/rc/xbox_remote.c
-@@ -0,0 +1,305 @@
+@@ -0,0 +1,306 @@
 +// SPDX-License-Identifier: GPL-2.0+
 +// Driver for Xbox DVD Movie Playback Kit
 +// Copyright (c) 2018 by Benjamin Valentin <benpicco@googlemail.com>
@@ -199,7 +200,7 @@ index 000000000000..55fa4b4aed60
 +	struct usb_interface *interface;
 +
 +	struct urb *irq_urb;
-+	unsigned char inbuf[DATA_BUFSIZE];
++	unsigned char inbuf[DATA_BUFSIZE] __aligned(sizeof(u16));
 +
 +	char rc_name[NAME_BUFSIZE];
 +	char rc_phys[NAME_BUFSIZE];
@@ -239,7 +240,7 @@ index 000000000000..55fa4b4aed60
 +	 * data[0] = 0x00
 +	 * data[1] = length - always 0x06
 +	 * data[2] = the key code
-+	 * data[3] = high part of key code? - always 0x0a
++	 * data[3] = high part of key code
 +	 * data[4] = last_press_ms (low)
 +	 * data[5] = last_press_ms (high)
 +	 */
@@ -251,7 +252,8 @@ index 000000000000..55fa4b4aed60
 +		return;
 +	}
 +
-+	rc_keydown(xbox_remote->rdev, RC_PROTO_UNKNOWN, data[2], 0);
++	rc_keydown(xbox_remote->rdev, RC_PROTO_UNKNOWN,
++		   le16_to_cpup((__le16*)(data + 2)), 0);
 +}
 +
 +/*
