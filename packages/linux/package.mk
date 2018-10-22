@@ -44,9 +44,9 @@ case "$LINUX" in
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     ;;
   *)
-    PKG_VERSION="4.19-rc8"
-    PKG_SHA256="365e2e43a8377044b3c771b5224ecaf9d80100b9247297ef168b44627f7e88f7"
-    PKG_URL="https://git.kernel.org/torvalds/t/$PKG_NAME-$PKG_VERSION.tar.gz"
+    PKG_VERSION="4.19"
+    PKG_SHA256="0c68f5655528aed4f99dae71a5b259edc93239fa899e2df79c055275c21749a1"
+    PKG_URL="https://www.kernel.org/pub/linux/kernel/v4.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     PKG_PATCH_DIRS="default"
     ;;
 esac
