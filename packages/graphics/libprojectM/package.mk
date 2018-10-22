@@ -9,7 +9,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://projectm.sourceforge.net/"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain ftgl freetype $OPENGL"
-PKG_SECTION="multimedia"
 PKG_SHORTDESC="a MilkDrop compatible opensource music visualizer"
 PKG_LONGDESC="a MilkDrop compatible opensource music visualizer"
 

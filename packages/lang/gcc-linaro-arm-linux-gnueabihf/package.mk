@@ -10,7 +10,6 @@ PKG_SITE=""
 PKG_URL="https://releases.linaro.org/components/toolchain/binaries/7.3-2018.05/arm-linux-gnueabihf/gcc-linaro-${PKG_VERSION}-x86_64_arm-linux-gnueabihf.tar.xz"
 PKG_SOURCE_DIR="gcc-linaro-${PKG_VERSION}-x86_64_arm-linux-gnueabihf"
 PKG_DEPENDS_HOST="ccache:host"
-PKG_SECTION="lang"
 PKG_LONGDESC="Linaro ARM GNU Linux Binary Toolchain"
 PKG_TOOLCHAIN="manual"
 

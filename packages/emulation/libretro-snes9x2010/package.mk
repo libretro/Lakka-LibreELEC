@@ -10,7 +10,6 @@ PKG_SITE="https://github.com/libretro/snes9x2010"
 PKG_URL="https://github.com/libretro/snes9x2010/archive/$PKG_VERSION.tar.gz"
 PKG_SOURCE_DIR="snes9x2010-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SECTION="emulation"
 PKG_SHORTDESC="snes9x2010 for Kodi"
 PKG_LONGDESC="snes9x2010 for Kodi"
 

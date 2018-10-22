@@ -9,7 +9,6 @@ PKG_LICENSE="Public Domain"
 PKG_SITE="http://www.iana.org/time-zones"
 PKG_URL="https://github.com/eggert/tz/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="system"
 PKG_SHORTDESC="tzdata"
 PKG_LONGDESC="tzdata"
 

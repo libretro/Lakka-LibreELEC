@@ -9,7 +9,6 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/vice-libretro"
 PKG_URL="https://github.com/libretro/vice-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="emulation"
 PKG_LONGDESC="VICE C64 libretro"
 PKG_SOURCE_DIR="vice-libretro-*"
 

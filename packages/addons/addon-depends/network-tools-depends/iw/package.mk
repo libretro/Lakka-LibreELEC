@@ -9,7 +9,6 @@ PKG_LICENSE="PUBLIC_DOMAIN"
 PKG_SITE="http://wireless.kernel.org/en/users/Documentation/iw"
 PKG_URL="https://www.kernel.org/pub/software/network/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain libnl"
-PKG_SECTION="tools"
 PKG_SHORTDESC="iw is a new nl80211 based CLI configuration utility for wireless devices"
 PKG_LONGDESC="iw is a new nl80211 based CLI configuration utility for wireless devices. It supports all new drivers that have been added to the kernel recently."
 # iw fails at runtime with lto enabled

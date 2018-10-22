@@ -11,7 +11,6 @@ PKG_SITE="https://sourceforge.net/projects/soxr/"
 PKG_URL="$SOURCEFORGE_SRC/soxr/soxr-$PKG_VERSION-Source.tar.xz"
 PKG_SOURCE_DIR="$PKG_NAME-$PKG_VERSION-Source"
 PKG_DEPENDS_TARGET="toolchain cmake:host"
-PKG_SECTION="audio"
 PKG_LONGDESC="The SoX Resampler library performs one-dimensional sample-rate conversion. It may be used to resample PCM-encoded audio."
 PKG_BUILD_FLAGS="+pic"
 

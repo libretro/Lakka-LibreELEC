@@ -9,7 +9,6 @@ PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/alucryd/ecm-tools"
 PKG_URL="https://github.com/alucryd/ecm-tools/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="system"
 PKG_SHORTDESC="Error Code Modeler"
 PKG_LONGDESC="Error Code Modeler"
 

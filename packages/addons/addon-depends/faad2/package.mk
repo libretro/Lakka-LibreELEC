@@ -10,7 +10,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.audiocoding.com"
 PKG_URL="https://downloads.sourceforge.net/sourceforge/faac/faad2-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="audio"
 PKG_LONGDESC="An MPEG-4 AAC decoder"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \

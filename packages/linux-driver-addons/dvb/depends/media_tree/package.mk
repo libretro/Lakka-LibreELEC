@@ -9,7 +9,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://git.linuxtv.org/media_tree.git"
 PKG_URL="http://linuxtv.org/downloads/drivers/linux-media-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="driver"
 PKG_LONGDESC="Source of Linux Kernel media_tree subsystem to build with media_build."
 PKG_TOOLCHAIN="manual"
 

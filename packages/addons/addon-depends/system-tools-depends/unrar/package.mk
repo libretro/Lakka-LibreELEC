@@ -10,7 +10,6 @@ PKG_SITE="http://www.rarlab.com"
 PKG_URL="http://www.rarlab.com/rar/unrarsrc-$PKG_VERSION.tar.gz"
 PKG_SOURCE_DIR="${PKG_NAME}"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="tools"
 PKG_LONGDESC="unrar extract, test and view RAR archives"
 PKG_TOOLCHAIN="manual"
 

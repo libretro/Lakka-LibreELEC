@@ -11,7 +11,6 @@ PKG_URL="https://git.linuxtv.org/media_build.git/snapshot/${PKG_VERSION}.tar.gz"
 PKG_SOURCE_DIR="${PKG_VERSION}"
 PKG_DEPENDS_TARGET="toolchain linux media_tree"
 PKG_NEED_UNPACK="$LINUX_DEPENDS media_tree"
-PKG_SECTION="driver.dvb"
 PKG_LONGDESC="DVB drivers from the latest kernel (media_build)"
 
 PKG_IS_ADDON="embedded"

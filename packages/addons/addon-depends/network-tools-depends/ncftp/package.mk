@@ -9,7 +9,6 @@ PKG_LICENSE="GPLv3"
 PKG_SITE="http://www.ncftp.com/ncftp/"
 PKG_URL="ftp://ftp.ncftp.com/ncftp/ncftp-${PKG_VERSION}-src.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="tools"
 PKG_SHORTDESC="NcFTP Client (also known as just NcFTP) is a set of FREE application programs implementing the File Transfer Protocol (FTP)."
 PKG_LONGDESC="NcFTP Client (also known as just NcFTP) is a set of FREE application programs implementing the File Transfer Protocol (FTP)."
 

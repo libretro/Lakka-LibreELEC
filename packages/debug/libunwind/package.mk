@@ -8,7 +8,6 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.nongnu.org/libunwind/"
 PKG_URL="http://download.savannah.nongnu.org/releases/libunwind/libunwind-${PKG_VERSION}.tar.gz"
-PKG_SECTION="debug"
 PKG_SHORTDESC="library to determine the call-chain of a program"
 PKG_LONGDESC="library to determine the call-chain of a program"
 

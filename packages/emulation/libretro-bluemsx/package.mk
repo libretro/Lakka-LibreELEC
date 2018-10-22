@@ -10,7 +10,6 @@ PKG_SITE="https://github.com/libretro/blueMSX-libretro"
 PKG_URL="https://github.com/libretro/blueMSX-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_SOURCE_DIR="blueMSX-libretro-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.bluemsx: BlueMSX for Kodi"
 PKG_LONGDESC="game.libretro.bluemsx: BlueMSX for Kodi"
 

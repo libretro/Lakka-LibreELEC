@@ -10,7 +10,6 @@ PKG_SITE="https://github.com/google/flatbuffers"
 PKG_URL="https://github.com/google/flatbuffers/archive/v$PKG_VERSION.tar.gz"
 PKG_DEPENDS_HOST="toolchain"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="devel"
 PKG_LONGDESC="FlatBuffers is an efficient cross platform serialization library for games and other memory constrained apps. It allows you to directly access serialized data without unpacking/parsing it first, while still having great forwards/backwards compatibility."
 
 PKG_CMAKE_OPTS_HOST="-DFLATBUFFERS_CODE_COVERAGE=OFF \

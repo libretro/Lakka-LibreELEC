@@ -10,7 +10,6 @@ PKG_SITE="https://github.com/libretro/nxengine-libretro"
 PKG_URL="https://github.com/libretro/nxengine-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_SOURCE_DIR="nxengine-libretro-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.nx: nx for Kodi"
 PKG_LONGDESC="game.libretro.nx: nx for Kodi"
 

@@ -9,7 +9,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://sourceforge.net/projects/linuxconsole/"
 PKG_URL="http://prdownloads.sourceforge.net/linuxconsole/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="system"
 PKG_SHORTDESC="Set of utilities for joysticks and serial devices"
 PKG_LONGDESC="Set of utilities for joysticks and serial devices"
 

@@ -10,7 +10,6 @@ PKG_SITE="https://github.com/libretro/pokemini"
 PKG_URL="https://github.com/libretro/pokemini/archive/$PKG_VERSION.tar.gz"
 PKG_SOURCE_DIR="PokeMini-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SECTION="emulation"
 PKG_LONGDESC="libretro wrapper for PokeMini emulator."
 PKG_TOOLCHAIN="make"
 

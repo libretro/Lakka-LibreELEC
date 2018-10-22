@@ -10,7 +10,6 @@ PKG_SITE="http://secure.netroedge.com/~lm78/"
 PKG_URL="https://github.com/groeck/lm-sensors/archive/${PKG_VERSION}.tar.gz"
 PKG_SOURCE_DIR="lm-sensors-${PKG_VERSION}*"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="tools"
 PKG_LONGDESC="lm-sensors provides user-space support for the hardware monitoring drivers"
 
 PKG_MAKE_OPTS_TARGET="PREFIX=/usr CC=$CC AR=$AR"

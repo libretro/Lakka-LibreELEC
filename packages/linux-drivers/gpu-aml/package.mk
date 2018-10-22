@@ -11,7 +11,6 @@ PKG_URL="https://github.com/khadas/android_hardware_arm_gpu/archive/$PKG_VERSION
 PKG_SOURCE_DIR="android_hardware_arm_gpu-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
-PKG_SECTION="driver"
 PKG_SHORTDESC="gpu-aml: Linux drivers for Mali GPUs found in Amlogic Meson SoCs"
 PKG_LONGDESC="gpu-aml: Linux drivers for Mali GPUs found in Amlogic Meson SoCs"
 PKG_TOOLCHAIN="manual"

@@ -11,7 +11,6 @@ PKG_URL="https://github.com/boundarydevices/qcacld-2.0/archive/$PKG_VERSION.tar.
 PKG_SOURCE_DIR="qcacld-2.0-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
-PKG_SECTION="driver"
 PKG_SHORTDESC="qca9377 Linux driver"
 PKG_LONGDESC="qca9377 Linux Driver"
 PKG_IS_KERNEL_PKG="yes"

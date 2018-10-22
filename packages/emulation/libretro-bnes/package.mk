@@ -10,7 +10,6 @@ PKG_SITE="https://github.com/libretro/bnes-libretro"
 PKG_URL="https://github.com/libretro/bnes-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_SOURCE_DIR="bnes-libretro-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.bnes: bNES for Kodi"
 PKG_LONGDESC="game.libretro.bnes: bNES for Kodi"
 

@@ -9,7 +9,6 @@ PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/badaix/snapcast"
 PKG_URL="https://github.com/badaix/snapcast/archive/v$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain aixlog alsa-lib asio avahi flac libvorbis popl"
-PKG_SECTION="tools"
 PKG_LONGDESC="Synchronous multi-room audio player"
 PKG_TOOLCHAIN="make"
 

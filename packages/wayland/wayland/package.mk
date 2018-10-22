@@ -10,7 +10,6 @@ PKG_SITE="https://wayland.freedesktop.org/"
 PKG_URL="https://wayland.freedesktop.org/releases/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain wayland:host libxml2"
 PKG_DEPENDS_HOST="libffi:host expat:host libxml2:host"
-PKG_SECTION="wayland"
 PKG_SHORTDESC="a display server protocol"
 PKG_LONGDESC="a display server protocol"
 

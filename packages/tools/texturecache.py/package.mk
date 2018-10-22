@@ -8,7 +8,6 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/MilhouseVH/texturecache.py"
 PKG_URL="https://github.com/MilhouseVH/$PKG_NAME/archive/$PKG_VERSION.tar.gz"
-PKG_SECTION="tools"
 PKG_LONGDESC="The Swiss Army knife for Kodi"
 PKG_TOOLCHAIN="manual"
 

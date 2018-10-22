@@ -12,7 +12,6 @@ PKG_URL="http://wirbel.htpc-forum.de/wirbelscancontrol/${PKG_NAME/-plugin/}-$PKG
 PKG_SOURCE_DIR="wirbelscancontrol-${PKG_VERSION}"
 PKG_DEPENDS_TARGET="toolchain vdr vdr-plugin-wirbelscan"
 PKG_NEED_UNPACK="$(get_pkg_directory vdr)"
-PKG_SECTION="multimedia"
 PKG_SHORTDESC="Adds menu entry for wirbelscan at VDR."
 PKG_LONGDESC="Adds menu entry for wirbelscan at VDR."
 PKG_TOOLCHAIN="manual"

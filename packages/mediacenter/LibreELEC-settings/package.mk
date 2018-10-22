@@ -11,7 +11,6 @@ PKG_SITE="https://libreelec.tv"
 PKG_URL="https://github.com/LibreELEC/service.libreelec.settings/archive/$PKG_VERSION.tar.gz"
 PKG_SOURCE_DIR="service.libreelec.settings-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain Python2 connman pygobject dbus-python"
-PKG_SECTION=""
 PKG_SHORTDESC="LibreELEC-settings: Settings dialog for LibreELEC"
 PKG_LONGDESC="LibreELEC-settings: is a settings dialog for LibreELEC"
 

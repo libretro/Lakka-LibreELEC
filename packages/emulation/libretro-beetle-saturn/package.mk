@@ -10,7 +10,6 @@ PKG_SITE="https://github.com/libretro/beetle-saturn-libretro"
 PKG_URL="https://github.com/libretro/beetle-saturn-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_SOURCE_DIR="beetle-saturn-libretro-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.beetle-saturn: beetle-saturn for Kodi"
 PKG_LONGDESC="game.libretro.beetle-saturn: beetle-saturn for Kodi"
 

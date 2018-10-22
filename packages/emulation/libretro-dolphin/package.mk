@@ -10,7 +10,6 @@ PKG_SITE="https://github.com/libretro/dolphin"
 PKG_URL="https://github.com/libretro/dolphin/archive/$PKG_VERSION.tar.gz"
 PKG_SOURCE_DIR="dolphin-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain kodi-platform enet"
-PKG_SECTION="emulation"
 PKG_SHORTDESC="Dolphin is a GameCube / Wii emulator, allowing you to play games for these two platforms on PC"
 PKG_LONGDESC="Dolphin is a GameCube / Wii emulator, allowing you to play games for these two platforms on PC"
 

@@ -10,7 +10,6 @@ PKG_SITE="https://github.com/libretro/melonds"
 PKG_URL="https://github.com/libretro/melonds/archive/$PKG_VERSION.tar.gz"
 PKG_SOURCE_DIR="melonDS-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SECTION="emulation"
 PKG_LONGDESC="libretro wrapper for melonDS DS emulator."
 PKG_TOOLCHAIN="make"
 

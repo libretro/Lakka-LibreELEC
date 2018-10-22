@@ -9,7 +9,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.libimobiledevice.org"
 PKG_URL="http://www.libimobiledevice.org/downloads/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain libplist"
-PKG_SECTION="libs"
 PKG_SHORTDESC="USB Multiplex Daemon"
 PKG_LONGDESC="USB Multiplex Daemon"
 

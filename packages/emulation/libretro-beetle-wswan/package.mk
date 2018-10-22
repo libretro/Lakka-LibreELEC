@@ -10,7 +10,6 @@ PKG_SITE="https://github.com/libretro/beetle-wswan-libretro"
 PKG_URL="https://github.com/libretro/beetle-wswan-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_SOURCE_DIR="beetle-wswan-libretro-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SECTION="emulation"
 PKG_SHORTDESC="Standalone port of Mednafen WonderSwan to libretro, itself a fork of Cygne"
 PKG_LONGDESC="Standalone port of Mednafen WonderSwan to libretro, itself a fork of Cygne"
 

@@ -9,7 +9,6 @@ PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/krallin/tini"
 PKG_URL="https://github.com/krallin/tini/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="system"
 PKG_SHORTDESC="Tini is the simplest init you could think of"
 PKG_LONGDESC="Tini is the simplest init you could think of"
 

@@ -11,7 +11,6 @@ PKG_URL="https://github.com/khadas/android_hardware_wifi_realtek_drivers_8188eu/
 PKG_SOURCE_DIR="android_hardware_wifi_realtek_drivers_8188eu-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
-PKG_SECTION="driver"
 PKG_SHORTDESC="Realtek RTL8188EU Linux driver"
 PKG_LONGDESC="Realtek RTL8188EU Linux driver"
 PKG_IS_KERNEL_PKG="yes"

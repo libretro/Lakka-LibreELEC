@@ -9,7 +9,6 @@ PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/miloyip/rapidjson"
 PKG_URL="https://github.com/miloyip/rapidjson/archive/v$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="devel"
 PKG_SHORTDESC="rapidjson: JSON parser/generator"
 PKG_LONGDESC="A fast JSON parser/generator for C++ with both SAX/DOM style API"
 

@@ -10,7 +10,6 @@ PKG_SITE="https://github.com/libretro/mgba"
 PKG_URL="https://github.com/libretro/mgba/archive/$PKG_VERSION.tar.gz"
 PKG_SOURCE_DIR="mgba-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libepoxy libzip SDL2"
-PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.mgba: mGBA for Kodi"
 PKG_LONGDESC="game.libretro.mgba: mGBA for Kodi"
 

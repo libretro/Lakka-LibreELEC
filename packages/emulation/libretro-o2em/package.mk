@@ -9,7 +9,6 @@ PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/libretro-o2em"
 PKG_URL="https://github.com/libretro/libretro-o2em/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.o2em: o2em for Kodi"
 PKG_LONGDESC="game.libretro.o2em: o2em for Kodi"
 

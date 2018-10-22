@@ -11,7 +11,6 @@ PKG_URL="https://git.kernel.org/pub/scm/utils/dtc/dtc.git/snapshot/$PKG_VERSION.
 PKG_SOURCE_DIR="$PKG_VERSION"
 PKG_DEPENDS_HOST="Python2:host swig:host"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="tools"
 PKG_SHORTDESC="The Device Tree Compiler"
 PKG_LONGDESC="The Device Tree Compiler"
 

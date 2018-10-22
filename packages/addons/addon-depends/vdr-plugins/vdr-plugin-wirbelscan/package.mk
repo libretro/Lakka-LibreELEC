@@ -12,7 +12,6 @@ PKG_URL="http://wirbel.htpc-forum.de/wirbelscan/${PKG_NAME/-plugin/}-dev-$PKG_VE
 PKG_SOURCE_DIR="wirbelscan-${PKG_VERSION}"
 PKG_DEPENDS_TARGET="toolchain vdr"
 PKG_NEED_UNPACK="$(get_pkg_directory vdr)"
-PKG_SECTION="multimedia"
 PKG_SHORTDESC="Performs a channel scans for DVB-T, DVB-C and DVB-S"
 PKG_LONGDESC="Performs a channel scans for DVB-T, DVB-C and DVB-S"
 PKG_TOOLCHAIN="manual"

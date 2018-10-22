@@ -9,7 +9,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/screen/"
 PKG_URL="http://ftpmirror.gnu.org/screen/$PKG_NAME-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain ncurses"
-PKG_SECTION="shell/console"
 PKG_LONGDESC="Screen is a window manager that multiplexes a physical terminal between several processes"
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_header_utempter_h=no \

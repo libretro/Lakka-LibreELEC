@@ -10,7 +10,6 @@ PKG_SITE="https://github.com/libretro/sameboy"
 PKG_URL="https://github.com/libretro/sameboy/archive/$PKG_VERSION.tar.gz"
 PKG_SOURCE_DIR="SameBoy-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SECTION="emulation"
 PKG_LONGDESC="libretro wrapper for SameBoy emulator."
 
 PKG_LIBNAME="sameboy_libretro.so"

@@ -10,7 +10,6 @@ PKG_SITE="https://github.com/libretro/tyrquake"
 PKG_URL="https://github.com/libretro/tyrquake/archive/$PKG_VERSION.tar.gz"
 PKG_SOURCE_DIR="tyrquake-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.tyrquake: tyrquake for Kodi"
 PKG_LONGDESC="game.libretro.tyrquake: tyrquake for Kodi"
 

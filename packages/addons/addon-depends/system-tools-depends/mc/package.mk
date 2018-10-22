@@ -10,7 +10,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.midnight-commander.org"
 PKG_URL="http://ftp.midnight-commander.org/mc-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain gettext:host glib libssh2 libtool:host ncurses pcre"
-PKG_SECTION="tools"
 PKG_LONGDESC="Midnight Commander is a text based filemanager that emulates Norton Commander"
 
 PKG_CONFIGURE_OPTS_TARGET=" \

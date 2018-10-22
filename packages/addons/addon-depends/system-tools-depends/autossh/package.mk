@@ -9,7 +9,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.harding.motd.ca/"
 PKG_URL="http://www.harding.motd.ca/autossh/autossh-${PKG_VERSION}.tgz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="tools"
 PKG_LONGDESC="Automatically restart SSH sessions and tunnels"
 PKG_TOOLCHAIN="autotools"
 

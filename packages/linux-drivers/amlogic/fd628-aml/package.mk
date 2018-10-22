@@ -11,7 +11,6 @@ PKG_URL="https://github.com/arthur-liberman/linux_fd628/archive/$PKG_VERSION.tar
 PKG_SOURCE_DIR="linux_fd628-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
-PKG_SECTION="driver"
 PKG_SHORTDESC="fd628-aml: Driver for Amlogic FD628 display"
 PKG_LONGDESC="fd628-aml: Driver for Amlogic FD628 display"
 

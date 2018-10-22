@@ -10,7 +10,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kynesim/tstools"
 PKG_URL="https://github.com/kynesim/tstools/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="tools"
 PKG_LONGDESC="This is a set of cross-platform command line tools for working with MPEG data."
 PKG_BUILD_FLAGS="-parallel"
 

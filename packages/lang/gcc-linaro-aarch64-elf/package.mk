@@ -10,7 +10,6 @@ PKG_SITE=""
 PKG_URL="https://releases.linaro.org/components/toolchain/binaries/4.9-2017.01/aarch64-elf/gcc-linaro-${PKG_VERSION}-x86_64_aarch64-elf.tar.xz"
 PKG_SOURCE_DIR="gcc-linaro-${PKG_VERSION}-x86_64_aarch64-elf"
 PKG_DEPENDS_HOST="ccache:host"
-PKG_SECTION="lang"
 PKG_LONGDESC="Linaro Aarch64 GNU Linux Binary Toolchain"
 PKG_TOOLCHAIN="manual"
 

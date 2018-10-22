@@ -9,7 +9,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://www.smartmontools.org"
 PKG_URL="https://github.com/smartmontools/smartmontools/releases/download/RELEASE_${PKG_VERSION//./_}/smartmontools-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="tools"
 PKG_LONGDESC="Control and monitor storage systems using S.M.A.R.T."
 
 PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \

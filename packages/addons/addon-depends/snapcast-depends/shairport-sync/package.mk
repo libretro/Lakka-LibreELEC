@@ -9,7 +9,6 @@ PKG_LICENSE="OSS"
 PKG_SITE="https://github.com/mikebrady/shairport-sync"
 PKG_URL="https://github.com/mikebrady/shairport-sync/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain alsa-lib avahi libconfig libdaemon openssl popt pulseaudio soxr"
-PKG_SECTION="tools"
 PKG_LONGDESC="AirPlay audio player"
 PKG_TOOLCHAIN="autotools"
 

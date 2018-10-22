@@ -10,7 +10,6 @@ PKG_SITE="http://www.darwinsys.com/file/"
 PKG_URL="https://github.com/file/file/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_HOST="ccache:host"
 PKG_DEPENDS_TARGET="toolchain zlib file:host"
-PKG_SECTION="tools"
 PKG_LONGDESC="The file utility is used to determine the types of various files."
 PKG_TOOLCHAIN="autotools"
 

@@ -7,7 +7,6 @@ PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://www.rust-lang.org"
 PKG_DEPENDS_TARGET="toolchain rustup.rs"
-PKG_SECTION="devel"
 PKG_LONGDESC="Rust is a systems programming language that runs blazingly fast, prevents segfaults, and guarantees thread safety."
 PKG_TOOLCHAIN="manual"
 

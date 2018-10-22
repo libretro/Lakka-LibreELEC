@@ -10,7 +10,6 @@ PKG_LICENSE="LGPL"
 PKG_SITE="https://github.com/thom311/libnl"
 PKG_URL="https://github.com/thom311/libnl/releases/download/libnl${PKG_VERSION//./_}/libnl-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="network"
 PKG_LONGDESC="A library for applications dealing with netlink socket."
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \

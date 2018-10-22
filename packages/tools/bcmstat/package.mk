@@ -8,7 +8,6 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/MilhouseVH/bcmstat"
 PKG_URL="https://github.com/MilhouseVH/$PKG_NAME/archive/$PKG_VERSION.tar.gz"
-PKG_SECTION="tools"
 PKG_LONGDESC="Raspberry Pi monitoring script"
 PKG_TOOLCHAIN="manual"
 

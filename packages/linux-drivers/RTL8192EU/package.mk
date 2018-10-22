@@ -12,7 +12,6 @@ PKG_URL="https://github.com/Mange/rtl8192eu-linux-driver/archive/$PKG_VERSION.ta
 PKG_SOURCE_DIR="rtl8192eu-linux-driver-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
-PKG_SECTION="driver"
 PKG_SHORTDESC="Realtek RTL8192EU Linux 3.x driver"
 PKG_LONGDESC="Realtek RTL8192EU Linux 3.x driver"
 PKG_IS_KERNEL_PKG="yes"

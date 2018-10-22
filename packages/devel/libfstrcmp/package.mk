@@ -10,7 +10,6 @@ PKG_SITE="http://fstrcmp.sourceforge.net/"
 PKG_URL="https://downloads.sourceforge.net/project/fstrcmp/fstrcmp/0.7/fstrcmp-$PKG_VERSION.tar.gz"
 PKG_SOURCE_DIR="fstrcmp-$PKG_VERSION"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="devel"
 PKG_LONGDESC="The fstrcmp project provides a library that is used to make fuzzy comparisons of strings and byte arrays, including multi-byte character strings."
 
 pre_configure_target() {

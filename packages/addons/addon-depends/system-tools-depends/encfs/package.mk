@@ -9,7 +9,6 @@ PKG_LICENSE="LGPL"
 PKG_SITE="https://vgough.github.io/encfs/"
 PKG_URL="https://github.com/vgough/encfs/releases/download/v$PKG_VERSION/encfs-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain fuse"
-PKG_SECTION="tools"
 PKG_LONGDESC="EncFS is a Encrypted Filesystem for FUSE"
 
 PKG_CMAKE_OPTS_TARGET="-DCMAKE_INSTALL_PREFIX=/usr \

@@ -13,7 +13,6 @@ PKG_URL="http://www.python.org/ftp/python/$PKG_VERSION/${PKG_NAME::-1}-$PKG_VERS
 PKG_SOURCE_DIR="${PKG_NAME::-1}-$PKG_VERSION*"
 PKG_DEPENDS_HOST="zlib:host bzip2:host sqlite:host"
 PKG_DEPENDS_TARGET="toolchain sqlite expat zlib bzip2 openssl libffi Python2:host"
-PKG_SECTION="lang"
 PKG_SHORTDESC="python2: The Python2 programming language"
 PKG_LONGDESC="Python2 is an interpreted object-oriented programming language, and is often compared with Tcl, Perl, Java or Scheme."
 

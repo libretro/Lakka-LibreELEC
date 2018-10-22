@@ -10,7 +10,6 @@ PKG_SITE="http://mediaarea.net/en/MediaInfo/Download/Source"
 PKG_URL="http://mediaarea.net/download/source/mediainfo/${PKG_VERSION}/mediainfo_${PKG_VERSION}.tar.xz"
 PKG_SOURCE_DIR="MediaInfo"
 PKG_DEPENDS_TARGET="toolchain libmediainfo"
-PKG_SECTION="tools"
 PKG_LONGDESC="MediaInfo is a convenient unified display of the most relevant technical and tag data for video and audio files"
 PKG_TOOLCHAIN="manual"
 

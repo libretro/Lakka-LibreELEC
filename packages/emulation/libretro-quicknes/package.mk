@@ -10,7 +10,6 @@ PKG_SITE="https://github.com/libretro/QuickNES_Core"
 PKG_URL="https://github.com/libretro/QuickNES_Core/archive/$PKG_VERSION.tar.gz"
 PKG_SOURCE_DIR="QuickNES_Core-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.quicknes: QuickNES for Kodi"
 PKG_LONGDESC="game.libretro.quicknes: QuickNES for Kodi"
 

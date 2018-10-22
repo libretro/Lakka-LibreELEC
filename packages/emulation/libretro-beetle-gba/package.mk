@@ -10,7 +10,6 @@ PKG_SITE="https://github.com/libretro/beetle-gba-libretro"
 PKG_URL="https://github.com/libretro/beetle-gba-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_SOURCE_DIR="beetle-gba-libretro-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.beetle-gba: Beetle GBA for Kodi"
 PKG_LONGDESC="game.libretro.beetle-gba: Beetle GBA for Kodi"
 

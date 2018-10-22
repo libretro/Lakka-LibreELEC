@@ -9,7 +9,6 @@ PKG_LICENSE="VIM"
 PKG_SITE="http://www.vim.org/"
 PKG_URL="https://github.com/vim/vim/archive/v$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain ncurses"
-PKG_SECTION="tools"
 PKG_SHORTDESC="vim: VI IMproved"
 PKG_LONGDESC="Vim is a highly configurable text editor built to enable efficient text editing."
 
