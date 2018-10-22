@@ -7,6 +7,7 @@ PKG_SHA256="bcbcd81abab242afaf439ff4d3b92039f2dba97ce0986285627e19e58f1c47d4"
 PKG_LICENSE="GPL"
 PKG_URL="https://github.com/LibreELEC/device-trees-amlogic/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
+PKG_LONGDESC="Device trees for Amlogic devices." 
 PKG_IS_KERNEL_PKG="yes"
 PKG_TOOLCHAIN="manual"
 

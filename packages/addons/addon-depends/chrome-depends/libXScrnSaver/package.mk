@@ -9,7 +9,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://xorg.freedesktop.org/"
 PKG_URL="https://xorg.freedesktop.org/releases/individual/lib/libXScrnSaver-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain scrnsaverproto"
-PKG_LONGDESC="X11 Screen Saver extension client library"
+PKG_LONGDESC="X11 Screen Saver extension client library."
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-static \
                            --enable-shared \

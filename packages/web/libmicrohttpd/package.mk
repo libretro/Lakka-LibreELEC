@@ -8,8 +8,7 @@ PKG_LICENSE="LGPLv2.1"
 PKG_SITE="http://www.gnu.org/software/libmicrohttpd/"
 PKG_URL="http://ftpmirror.gnu.org/libmicrohttpd/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="libmicrohttpd: a small webserver C library"
-PKG_LONGDESC="GNU libmicrohttpd is a small C library that is supposed to make it easy to run an HTTP server as part of another application."
+PKG_LONGDESC="A small C library that is supposed to make it easy to run an HTTP server as part of another application."
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-shared \
                            --enable-static \

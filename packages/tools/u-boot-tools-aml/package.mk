@@ -8,8 +8,7 @@ PKG_SITE="https://www.denx.de/wiki/U-Boot"
 PKG_URL="ftp://ftp.denx.de/pub/u-boot/u-boot-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain dtc:host u-boot-tools-aml:host"
 PKG_LICENSE="GPL"
-PKG_SHORTDESC="u-boot: Universal Bootloader project"
-PKG_LONGDESC="U-Boot bootloader utility tools. This package includes the mkimage program, which allows generation of U-Boot images in various formats, and the fw_printenv and fw_setenv programs to read and modify U-Boot's environment and other tools."
+PKG_LONGDESC="Das U-Boot is a cross-platform bootloader for embedded systems."
 
 make_host() {
   make mrproper

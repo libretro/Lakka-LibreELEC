@@ -8,7 +8,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://he.fi/bchunk/"
 PKG_URL="http://he.fi/bchunk/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_LONGDESC="binchunker converts a CD image in a .bin / .cue format (sometimes .raw / .cue) to a set of .iso and .cdr tracks"
+PKG_LONGDESC="Tool to convert a CD image in a .bin/.cue format to a set of .iso and .cdr tracks."
 
 makeinstall_target() {
   :

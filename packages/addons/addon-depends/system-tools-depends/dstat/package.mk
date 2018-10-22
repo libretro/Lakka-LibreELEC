@@ -8,7 +8,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://dag.wiee.rs/home-made/dstat"
 PKG_URL="https://github.com/dagwieers/dstat/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain Python2"
-PKG_LONGDESC="Versatile resource statistics tool"
+PKG_LONGDESC="Versatile resource statistics tool."
 PKG_TOOLCHAIN="manual"
 
 post_unpack() {

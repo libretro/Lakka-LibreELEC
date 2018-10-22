@@ -10,8 +10,7 @@ PKG_URL="http://ftpmirror.gnu.org/parted/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_HOST="toolchain util-linux:host"
 PKG_DEPENDS_TARGET="toolchain util-linux parted:host"
 PKG_DEPENDS_INIT="toolchain util-linux:init parted"
-PKG_SHORTDESC="parted: GNU partition editor"
-PKG_LONGDESC="GNU Parted is a program for creating, destroying, resizing, checking and copying partitions, and the file systems on them. This is useful for creating space for new operating systems, reorganising disk usage, copying data between hard disks and disk imaging."
+PKG_LONGDESC="GNU Parted is a program for creating, destroying, resizing, checking and copying partitions."
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-device-mapper \
                            --disable-shared \

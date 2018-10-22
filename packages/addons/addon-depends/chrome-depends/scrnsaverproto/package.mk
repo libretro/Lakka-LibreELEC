@@ -9,7 +9,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://xorg.freedesktop.org/"
 PKG_URL="https://xorg.freedesktop.org/releases/individual/proto/scrnsaverproto-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_LONGDESC="X11 Screen Saver extension wire protocol"
+PKG_LONGDESC="X11 Screen Saver extension wire protocol."
 
 makeinstall_target() {
   :

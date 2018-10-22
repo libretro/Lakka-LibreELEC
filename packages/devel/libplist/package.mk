@@ -8,7 +8,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.libimobiledevice.org/"
 PKG_URL="http://www.libimobiledevice.org/downloads/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain glib"
-PKG_SHORTDESC="libplist: a library for manipulating Apple Binary and XML Property Lists"
 PKG_LONGDESC="libplist is a library for manipulating Apple Binary and XML Property Lists"
 PKG_TOOLCHAIN="autotools"
 

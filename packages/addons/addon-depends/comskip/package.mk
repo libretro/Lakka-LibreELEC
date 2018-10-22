@@ -8,7 +8,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.kaashoek.com/comskip/"
 PKG_URL="https://github.com/erikkaashoek/Comskip/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain argtable2 ffmpeg"
-PKG_LONGDESC="Comskip detects commercial breaks from a video stream. It can be used for post-processing recordings"
+PKG_LONGDESC="Comskip detects commercial breaks from a video stream. It can be used for post-processing recordings."
 PKG_TOOLCHAIN="autotools"
 
 pre_configure_target() {

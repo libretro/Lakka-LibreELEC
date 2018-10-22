@@ -8,8 +8,7 @@ PKG_LICENSE="ISC"
 PKG_SITE="http://lloyd.github.com/yajl/"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="yajl: Yet Another JSON Library (YAJL) is a small event-driven (SAX-style) JSON parser"
-PKG_LONGDESC="Yet Another JSON Library (YAJL) is a small event-driven (SAX-style) JSON parser written in ANSI C, and a small validating JSON generator. YAJL is released under the permissive ISC license."
+PKG_LONGDESC="A small event-driven (SAX-style) JSON parser."
 
 post_makeinstall_target() {
   mv $SYSROOT_PREFIX/usr/lib/libyajl_s.a $SYSROOT_PREFIX/usr/lib/libyajl.a

@@ -9,7 +9,6 @@ PKG_SITE="http://www.fiveninjas.com"
 PKG_URL="http://updates.fiveninjas.com/src/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain zlib libpng slice-addon"
 PKG_DEPENDS_HOST="toolchain"
-PKG_SHORTDESC="led_tools"
 PKG_LONGDESC="LED tools, these are a set of tools to control the LEDs on Slice"
 
 make_target() {

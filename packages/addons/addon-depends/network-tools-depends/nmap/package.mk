@@ -8,8 +8,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://nmap.org/"
 PKG_URL="http://nmap.org/dist/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="network tool"
-PKG_LONGDESC="Free Security Scanned for Network"
+PKG_LONGDESC="Free Security Scanned for Network."
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --with-pcap=linux \

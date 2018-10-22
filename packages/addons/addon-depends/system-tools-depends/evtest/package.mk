@@ -8,8 +8,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://cgit.freedesktop.org/evtest/"
 PKG_URL="http://cgit.freedesktop.org/evtest/snapshot/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain libxml2"
-PKG_SHORTDESC="evtest: Simple tool for input event debugging."
-PKG_LONGDESC="evtest is a simple tool for input event debugging."
+PKG_LONGDESC="A simple tool for input event debugging."
 PKG_TOOLCHAIN="autotools"
 
 makeinstall_target() {

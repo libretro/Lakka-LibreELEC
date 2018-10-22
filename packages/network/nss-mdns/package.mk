@@ -8,8 +8,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/lathiat/nss-mdns"
 PKG_URL="https://github.com/lathiat/nss-mdns/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain avahi"
-PKG_SHORTDESC="nss-mdns is a plugin for nss to allow name resolution via Multicast DNS."
-PKG_LONGDESC="nss-mdns is a plugin for the GNU Name Service Switch (NSS) functionality of the GNU C Library (glibc) providing host name resolution via Multicast DNS"
+PKG_LONGDESC="A plugin for nss to allow name resolution via Multicast DNS."
 PKG_TOOLCHAIN="autotools"
 
 post_makeinstall_target() {

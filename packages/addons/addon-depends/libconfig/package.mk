@@ -8,7 +8,7 @@ PKG_LICENSE="LGPL"
 PKG_SITE="http://hyperrealm.com/libconfig/libconfig.html"
 PKG_URL="https://github.com/hyperrealm/libconfig/archive/v$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_LONGDESC="C/C++ Configuration File Library"
+PKG_LONGDESC="A C/C++ configuration file library."
 PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \

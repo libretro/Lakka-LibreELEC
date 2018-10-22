@@ -10,7 +10,6 @@ PKG_LICENSE="LGPL"
 PKG_SITE="https://github.com/vathpela/efivar"
 PKG_URL="https://github.com/vathpela/efivar-devel/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain efivar:host"
-PKG_SHORTDESC="evivar: maniulate EFI Variables"
 PKG_LONGDESC="Tools and library to manipulate EFI variables."
 
 make_host() {

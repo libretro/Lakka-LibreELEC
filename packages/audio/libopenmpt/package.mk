@@ -8,7 +8,6 @@ PKG_LICENSE="BSD"
 PKG_SITE="http://lib.openmpt.org/libopenmpt/"
 PKG_URL="http://lib.openmpt.org/files/libopenmpt/src/${PKG_NAME}-${PKG_VERSION}+release.autotools.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libogg libvorbis"
-PKG_SHORTDESC="libopenmpt: renders mod music files as raw audio data, for playing or conversion."
 PKG_LONGDESC="libopenmpt renders mod music files as raw audio data, for playing or conversion."
 PKG_BUILD_FLAGS="+pic"
 

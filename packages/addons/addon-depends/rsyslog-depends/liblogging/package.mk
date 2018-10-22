@@ -8,7 +8,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.liblogging.org"
 PKG_URL="http://download.rsyslog.com/liblogging/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain systemd"
-PKG_LONGDESC="an easy to use and lightweight signal-safe logging library"
+PKG_LONGDESC="An easy to use and lightweight signal-safe logging library."
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --disable-shared \

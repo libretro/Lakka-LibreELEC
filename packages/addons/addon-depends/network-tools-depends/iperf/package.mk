@@ -8,8 +8,7 @@ PKG_LICENSE="BSD"
 PKG_SITE="http://software.es.net/iperf/"
 PKG_URL="https://github.com/esnet/iperf/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain openssl"
-PKG_SHORTDESC="iperf: A modern alternative for measuring maximum TCP and UDP bandwidth performance"
-PKG_LONGDESC="Iperf was developed by NLANR/DAST as a modern alternative for measuring maximum TCP and UDP bandwidth performance."
+PKG_LONGDESC="A tool to measuring maximum TCP and UDP bandwidth performance."
 PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \

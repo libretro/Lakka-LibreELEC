@@ -8,8 +8,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/jpr5/ngrep"
 PKG_URL="https://github.com/jpr5/ngrep/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libpcap"
-PKG_SHORTDESC="ngrep - network grep"
-PKG_LONGDESC="ngrep is like GNU grep applied to the network layer"
+PKG_LONGDESC="A tool like GNU grep applied to the network layer."
 PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--with-pcap-includes=$SYSROOT_PREFIX/usr/include \

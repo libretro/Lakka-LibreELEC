@@ -8,8 +8,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://ccache.samba.org/"
 PKG_URL="https://samba.org/ftp/ccache/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_HOST="make:host"
-PKG_SHORTDESC="ccache: A fast compiler cache"
-PKG_LONGDESC="Ccache is a compiler cache. It speeds up re-compilation of C/C++ code by caching previous compiles and detecting when the same compile is being done again."
+PKG_LONGDESC="A compiler cache to speed up re-compilation of C/C++ code by caching."
 
 export CC=$LOCAL_CC
 export CXX=$LOCAL_CXX

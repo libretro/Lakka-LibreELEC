@@ -8,7 +8,6 @@ PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/font/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain util-macros font-util:host"
-PKG_SHORTDESC="encodings: X font encodings"
 PKG_LONGDESC="X font encoding meta files."
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-gzip-small-encodings \

@@ -8,8 +8,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://fluidsynth.org/"
 PKG_URL="$SOURCEFORGE_SRC/project/fluidsynth/fluidsynth-$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="FluidSynth: A SoundFont Synthesizer."
-PKG_LONGDESC="FluidSynth renders midi music files as raw audio data, for playing or conversion. "
+PKG_LONGDESC="FluidSynth renders midi music files as raw audio data, for playing or conversion."
 PKG_BUILD_FLAGS="+pic"
 
 PKG_CMAKE_OPTS_TARGET="-DBUILD_SHARED_LIBS=0 \

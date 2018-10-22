@@ -8,7 +8,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://pcsclite.apdu.fr"
 PKG_URL="https://pcsclite.apdu.fr/files/pcsc-lite-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain libusb"
-PKG_LONGDESC="Middleware to access a smart card using SCard API (PC/SC)"
+PKG_LONGDESC="Middleware to access a smart card using SCard API (PC/SC)."
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-shared \
             --enable-static \

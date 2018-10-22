@@ -8,7 +8,7 @@ PKG_LICENSE="MIT"
 PKG_SITE="http://web.mit.edu/kerberos/"
 PKG_URL="https://github.com/krb5/krb5/archive/krb5-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_LONGDESC="The Kerberos network authentication protocol"
+PKG_LONGDESC="The Kerberos network authentication protocol."
 PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_regcomp=yes \

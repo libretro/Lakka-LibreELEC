@@ -8,8 +8,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.guzu.net/linux/hddtemp.php"
 PKG_URL="https://github.com/guzu/hddtemp/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="hddtemp: tool that reports hard drive temperature"
-PKG_LONGDESC="hddtemp is a small utility (daemonizable) that gives you the temperature of your hard drive by reading S.M.A.R.T. informations (for drives that support this feature)."
+PKG_LONGDESC="A utility that gives you the temperature of your hard drive by reading S.M.A.R.T.."
 
 PKG_CONFIGURE_OPTS_TARGET="--with-db-path=/storage/.kodi/addons/virtual.system-tools/data/hddtemp.db"
 

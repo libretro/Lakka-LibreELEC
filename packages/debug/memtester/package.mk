@@ -8,7 +8,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://pyropus.ca/software/memtester/"
 PKG_URL="http://pyropus.ca/software/memtester/old-versions/memtester-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="A userspace utility for testing the memory subsystem for faults"
+PKG_LONGDESC="A userspace utility for testing the memory subsystem for faults."
 PKG_TOOLCHAIN="manual"
 
 make_target() {

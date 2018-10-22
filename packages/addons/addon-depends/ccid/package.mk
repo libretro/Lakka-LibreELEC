@@ -9,7 +9,7 @@ PKG_LICENSE="LGPL"
 PKG_SITE="http://pcsclite.alioth.debian.org/ccid.html"
 PKG_URL="https://alioth.debian.org/frs/download.php/latestfile/112/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain pcsc-lite"
-PKG_LONGDESC="CCID free software driver"
+PKG_LONGDESC="A generic USB Chip/Smart Card Interface Devices driver."
 PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --enable-twinserial"

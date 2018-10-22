@@ -8,8 +8,7 @@ PKG_LICENSE="GPLv3"
 PKG_SITE="https://pngquant.org"
 PKG_URL="http://pngquant.org/pngquant-${PKG_VERSION}-src.tar.gz"
 PKG_DEPENDS_HOST="toolchain libpng:host zlib:host"
-PKG_SHORTDESC="lossy PNG compressor"
-PKG_LONGDESC="a PNG compresor that significantly reduces file sizes by converting images to a more efficient 8-bit PNG format"
+PKG_LONGDESC="A lossy PNG compressor."
 
 configure_host() {
   :

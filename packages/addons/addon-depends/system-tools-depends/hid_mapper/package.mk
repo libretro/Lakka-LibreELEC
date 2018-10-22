@@ -8,7 +8,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/s-leroux/hid_mapper"
 PKG_URL="https://github.com/s-leroux/hid_mapper/archive/v${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_LONGDESC="generic HID mapper"
+PKG_LONGDESC="A Generic HID mapper."
 
 makeinstall_target() {
   : # nope

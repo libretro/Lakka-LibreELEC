@@ -10,8 +10,7 @@ PKG_URL="https://github.com/kszaq/opengl-meson-t82x/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libhybris"
 PKG_SOURCE_DIR="$PKG_NAME-$PKG_VERSION*"
 PKG_SECTION="graphics"
-PKG_SHORTDESC="opengl-meson: OpenGL ES pre-compiled libraries for Mali GPUs found in Amlogic Meson SoCs"
-PKG_LONGDESC="opengl-meson: OpenGL ES pre-compiled libraries for Mali GPUs found in Amlogic Meson SoCs. The libraries were extracted from Khadas VIM2 Android firmware."
+PKG_LONGDESC="OpenGL ES pre-compiled libraries for Mali GPUs. The libraries were extracted from Khadas VIM2 Android firmware."
 PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {

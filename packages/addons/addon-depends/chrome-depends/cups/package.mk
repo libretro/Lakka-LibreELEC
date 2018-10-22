@@ -9,7 +9,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.cups.org"
 PKG_URL="https://github.com/apple/cups/archive/v$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain openssl zlib"
-PKG_LONGDESC="CUPS printing system"
+PKG_LONGDESC="CUPS printing system."
 PKG_BUILD_FLAGS="+pic"
 
 pre_configure_target() {

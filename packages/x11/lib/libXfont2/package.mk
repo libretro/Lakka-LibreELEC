@@ -9,7 +9,6 @@ PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain util-macros xtrans freetype libfontenc"
-PKG_SHORTDESC="libxfont: X font Library"
 PKG_LONGDESC="X font Library"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared \

@@ -8,8 +8,7 @@ PKG_LICENSE="GPLv3"
 PKG_SITE="http://lftp.yar.ru/"
 PKG_URL="http://lftp.yar.ru/ftp/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain readline openssl zlib"
-PKG_SHORTDESC="ftp client"
-PKG_LONGDESC="LFTP is a sophisticated ftp/http client, and a file transfer program supporting a number of network protocols"
+PKG_LONGDESC="A sophisticated ftp/http client, and a file transfer program supporting a number of network protocols."
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-nls \
                            --without-gnutls \

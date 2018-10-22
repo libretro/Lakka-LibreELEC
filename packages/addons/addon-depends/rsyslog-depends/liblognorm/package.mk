@@ -9,7 +9,7 @@ PKG_SITE="http://www.liblognorm.com"
 PKG_URL="https://github.com/rsyslog/liblognorm/archive/v$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_TOOLCHAIN="autotools"
-PKG_LONGDESC="a fast samples-based log normalization library"
+PKG_LONGDESC="A fast samples-based log normalization library."
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --disable-shared \

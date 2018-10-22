@@ -8,7 +8,7 @@ PKG_LICENSE="APL"
 PKG_SITE="https://github.com/docker/libnetwork"
 PKG_URL="https://github.com/docker/libnetwork/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain go:host"
-PKG_LONGDESC="Libnetwork provides a native Go implementation for connecting containers"
+PKG_LONGDESC="A native Go implementation for connecting containers."
 PKG_TOOLCHAIN="manual"
 
 pre_make_target() {

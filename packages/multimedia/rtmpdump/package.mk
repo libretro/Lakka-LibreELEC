@@ -8,8 +8,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://rtmpdump.mplayerhq.hu/"
 PKG_URL="http://repo.or.cz/rtmpdump.git/snapshot/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain zlib openssl"
-PKG_SHORTDESC="rtmpdump: a toolkit for RTMP streams."
-PKG_LONGDESC="rtmpdump is a toolkit for RTMP streams. All forms of RTMP are supported, including rtmp://, rtmpt://, rtmpe://, rtmpte://, and rtmps://."
+PKG_LONGDESC="rtmpdump is a toolkit for RTMP streams."
 PKG_BUILD_FLAGS="+pic -parallel"
 
 make_target() {

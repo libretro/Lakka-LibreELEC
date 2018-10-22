@@ -8,7 +8,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://www.musicpd.org"
 PKG_URL="https://www.musicpd.org/download/mpc/0/mpc-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain libiconv"
-PKG_LONGDESC="Command-line client for MPD"
+PKG_LONGDESC="Command-line client for MPD."
 PKG_TOOLCHAIN="meson"
 
 makeinstall_target() {

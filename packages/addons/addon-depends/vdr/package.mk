@@ -10,8 +10,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.tvdr.de"
 PKG_URL="ftp://ftp.tvdr.de/vdr/vdr-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain bzip2 fontconfig freetype libcap libiconv libjpeg-turbo"
-PKG_SHORTDESC="vdr: A powerful DVB TV application"
-PKG_LONGDESC="This project describes how to build your own digital satellite receiver and video disk recorder. It is based mainly on the DVB-S digital satellite receiver card, which used to be available from Fujitsu Siemens and the driver software developed by the LinuxTV project."
+PKG_LONGDESC="A DVB TV server application."
 PKG_TOOLCHAIN="manual"
 
 post_unpack() {

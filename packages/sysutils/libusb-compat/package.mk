@@ -8,8 +8,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://libusb.sourceforge.net/"
 PKG_URL="$SOURCEFORGE_SRC/libusb/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain libusb"
-PKG_SHORTDESC="libusb-compat: OS independent USB device access"
-PKG_LONGDESC="The libusb project's aim is to create a Library for use by user level applications to USB devices regardless of OS."
+PKG_LONGDESC="The libusb project's aim is to create a Library for use by user level applications to USB devices."
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-log --disable-debug-log --disable-examples-build"
 

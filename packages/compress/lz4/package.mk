@@ -9,7 +9,7 @@ PKG_SITE="https://github.com/lz4/lz4"
 PKG_URL="https://github.com/lz4/lz4/archive/v$PKG_VERSION.tar.gz"
 PKG_DEPENDS_HOST="toolchain"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="lz4 data compressor/decompressor"
+PKG_LONGDESC="lz4 data compressor/decompressor"
 
 PKG_CMAKE_SCRIPT="$PKG_BUILD/contrib/cmake_unofficial/CMakeLists.txt"
 

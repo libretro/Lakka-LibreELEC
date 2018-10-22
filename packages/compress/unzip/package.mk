@@ -8,8 +8,7 @@ PKG_LICENSE="OSS"
 PKG_SITE="http://www.info-zip.org/pub/infozip/"
 PKG_URL="http://ftp.uk.i-scream.org/sites/www.ibiblio.org/gentoo/distfiles/$PKG_NAME$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="unzip: PKUNZIP compatible compression utility"
-PKG_LONGDESC="UnZip is an extraction utility for archives compressed in .zip format (also called "zipfiles"). Although highly compatible both with PKWARE's PKZIP and PKUNZIP utilities for MS-DOS and with Info-ZIP's own Zip program, the primary objectives have been portability and non-MSDOS functionality."
+PKG_LONGDESC="UnZip is an extraction utility for archives compressed in .zip format."
 PKG_TOOLCHAIN="manual"
 
 make_target() {

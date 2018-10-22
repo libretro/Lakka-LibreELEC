@@ -9,7 +9,6 @@ PKG_LICENSE="OSS"
 PKG_SITE="http://rpcbind.sourceforge.net/"
 PKG_URL="$SOURCEFORGE_SRC/rpcbind/rpcbind/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain libtirpc systemd"
-PKG_SHORTDESC="rpcbind: a server that converts RPC program numbers into universal addresses."
 PKG_LONGDESC="The rpcbind utility is a server that converts RPC program numbers into universal addresses."
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_header_rpcsvc_mount_h=no \

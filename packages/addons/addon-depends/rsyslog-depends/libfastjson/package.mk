@@ -8,7 +8,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.rsyslog.com/tag/libfastjson"
 PKG_URL="http://download.rsyslog.com/libfastjson/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_LONGDESC="a fast json library for C"
+PKG_LONGDESC="A fast json library for C."
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --disable-shared \

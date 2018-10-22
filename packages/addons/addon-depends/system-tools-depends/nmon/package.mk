@@ -8,7 +8,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/axibase/nmon"
 PKG_URL="https://github.com/axibase/nmon/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain ncurses"
-PKG_SHORTDESC="Systems administrator, tuner, benchmark tool gives you a huge amount of important performance information in one go"
+PKG_LONGDESC="Systems administrator, tuner, benchmark tool gives you a huge amount of important performance information in one go."
 PKG_TOOLCHAIN="manual"
 
 make_target() {

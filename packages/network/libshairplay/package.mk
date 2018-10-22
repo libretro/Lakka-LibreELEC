@@ -8,8 +8,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/juhovh/shairplay"
 PKG_URL="https://github.com/juhovh/shairplay/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="libshairplay: emulates AirPort Express"
-PKG_LONGDESC="libshairPlay emulates an AirPort Express for the purpose of streaming music from iTunes and compatible iPods."
+PKG_LONGDESC="Emulates an AirPort Express to streaming music from iTunes and compatible iPods."
 PKG_TOOLCHAIN="autotools"
 
 post_makeinstall_target() {

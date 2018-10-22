@@ -9,8 +9,7 @@ PKG_SITE="http://www.tntnet.org/"
 PKG_URL="http://www.tntnet.org/download/${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_HOST="cxxtools:host zlib:host"
 PKG_DEPENDS_TARGET="toolchain tntnet:host libtool cxxtools"
-PKG_SHORTDESC="tntnet: C++ Dynamite for the Web"
-PKG_LONGDESC="Tntnet is a modular, multithreaded, high performance webapplicationserver for C++"
+PKG_LONGDESC="A web application server for C++."
 
 PKG_CONFIGURE_OPTS_HOST="--disable-unittest \
                          --with-server=no \

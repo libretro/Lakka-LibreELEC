@@ -10,8 +10,7 @@ PKG_SITE="https://github.com/yavdr/vdr-plugin-restfulapi"
 PKG_URL="https://github.com/yavdr/${PKG_NAME}/releases/download/${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain vdr cxxtools vdr-plugin-wirbelscan"
 PKG_NEED_UNPACK="$(get_pkg_directory vdr)"
-PKG_SHORTDESC="vdr-plugin-restfulapi: the restful API for the VDR/"
-PKG_LONGDESC="vdr-plugin-restfulapi allows to access many internals of the VDR via a restful API"
+PKG_LONGDESC="Allows to access many internals of the VDR via a restful API."
 PKG_TOOLCHAIN="manual"
 
 make_target() {

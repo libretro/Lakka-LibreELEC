@@ -8,8 +8,7 @@ PKG_SITE="http://www.i-scream.org/libstatgrab/"
 PKG_URL="http://ftp.i-scream.org/pub/i-scream/libstatgrab/libstatgrab-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION=libs
-PKG_SHORTDESC="provides cross platform access to statistics about the system on which it's run"
-PKG_LONGDESC="libstatgrab is a library that provides cross platform access to statistics about the system on which it's run. It's written in C and presents a selection of useful interfaces which can be used to access key system statistics. The current list of statistics includes CPU usage, memory utilisation, disk usage, process counts, network traffic, disk I/O, and more."
+PKG_LONGDESC="A library that provides cross platform access to statistics about the system on which it's run."
 PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \

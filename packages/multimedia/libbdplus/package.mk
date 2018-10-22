@@ -8,7 +8,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://www.videolan.org/developers/libbdplus.html"
 PKG_URL="http://download.videolan.org/pub/videolan/$PKG_NAME/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain libgcrypt libgpg-error"
-PKG_SHORTDESC="libbdplus: A project to implement the BD+ System Specifications"
 PKG_LONGDESC="libbdplus is a research project to implement the BD+ System Specifications."
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-werror \

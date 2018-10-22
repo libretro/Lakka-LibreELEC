@@ -8,7 +8,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.mars.org/home/rob/proj/mpeg/"
 PKG_URL="$SOURCEFORGE_SRC/mad/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain zlib"
-PKG_LONGDESC="library for id3 tagging"
+PKG_LONGDESC="A library for id3 tagging."
 
 PKG_MAINTAINER="Lukas Sabota (LTsmooth42@gmail.com)"
 
