@@ -10,7 +10,6 @@ PKG_SITE="https://github.com/libretro/vice-libretro"
 PKG_URL="https://github.com/libretro/vice-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="VICE C64 libretro"
-PKG_SOURCE_DIR="vice-libretro-*"
 
 PKG_LIBNAME="vice_x64_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"

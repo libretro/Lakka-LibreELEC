@@ -8,7 +8,6 @@ PKG_ARCH="arm"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/libretro/uae4arm-libretro"
 PKG_URL="https://github.com/libretro/uae4arm-libretro/archive/$PKG_VERSION.tar.gz"
-PKG_SOURCE_DIR="uae4arm-libretro-${PKG_VERSION}*"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="UAE4ARM amiga emulator."
 

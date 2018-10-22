@@ -5,7 +5,6 @@
 PKG_NAME="u-boot"
 PKG_ARCH="arm aarch64"
 PKG_SITE="https://www.denx.de/wiki/U-Boot"
-PKG_SOURCE_DIR="u-boot-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain dtc:host"
 PKG_LICENSE="GPL"
 PKG_SHORTDESC="u-boot: Universal Bootloader project"

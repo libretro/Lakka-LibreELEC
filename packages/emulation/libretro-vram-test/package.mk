@@ -10,7 +10,6 @@ PKG_SITE="https://github.com/libretro/libretro-samples"
 PKG_URL="https://github.com/libretro/libretro-samples/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="VRAM Test from libretro"
-PKG_SOURCE_DIR="libretro-samples-*"
 PKG_TOOLCHAIN="manual"
 
 PKG_LIBNAME="testsw_vram_libretro.so"
