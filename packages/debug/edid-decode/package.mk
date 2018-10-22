@@ -4,7 +4,6 @@
 PKG_NAME="edid-decode"
 PKG_VERSION="f56f329"
 PKG_SHA256="d9347ddf6933c6f90c79230b1898da5686083f0e5ebb7ef67acb011108cfaeae"
-PKG_ARCH="any"
 PKG_LICENSE="None"
 PKG_SITE="https://cgit.freedesktop.org/xorg/app/edid-decode/"
 PKG_URL="https://cgit.freedesktop.org/xorg/app/edid-decode/snapshot/$PKG_VERSION.tar.xz"

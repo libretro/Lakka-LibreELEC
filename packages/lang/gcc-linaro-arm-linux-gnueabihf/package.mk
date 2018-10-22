@@ -4,7 +4,6 @@
 PKG_NAME="gcc-linaro-arm-linux-gnueabihf"
 PKG_VERSION="7.3.1-2018.05"
 PKG_SHA256="7248bf105d0d468887a9b8a7120bb281ac8ad0223d9cb3d00dc7c2d498485d91"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE=""
 PKG_URL="https://releases.linaro.org/components/toolchain/binaries/7.3-2018.05/arm-linux-gnueabihf/gcc-linaro-${PKG_VERSION}-x86_64_arm-linux-gnueabihf.tar.xz"

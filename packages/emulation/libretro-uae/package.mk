@@ -4,7 +4,6 @@
 PKG_NAME="libretro-uae"
 PKG_VERSION="555bfce"
 PKG_SHA256="a28bb68a8bfec18e7d7122f9d8b28b0edad7e60cad4dfd98e4c4fd059b017f85"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/libretro/libretro-uae"
 PKG_URL="https://github.com/libretro/libretro-uae/archive/$PKG_VERSION.tar.gz"

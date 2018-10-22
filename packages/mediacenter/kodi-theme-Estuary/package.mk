@@ -3,7 +3,6 @@
 
 PKG_NAME="kodi-theme-Estuary"
 PKG_VERSION="1.0"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
 PKG_URL=""

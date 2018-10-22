@@ -4,7 +4,6 @@
 PKG_NAME="valgrind"
 PKG_VERSION="3.13.0"
 PKG_SHA256="d76680ef03f00cd5e970bbdcd4e57fb1f6df7d2e2c071635ef2be74790190c3b"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://valgrind.org/"
 PKG_URL="ftp://sourceware.org/pub/valgrind/$PKG_NAME-$PKG_VERSION.tar.bz2"

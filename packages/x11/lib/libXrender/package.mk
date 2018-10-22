@@ -5,7 +5,6 @@
 PKG_NAME="libXrender"
 PKG_VERSION="0.9.10"
 PKG_SHA256="c06d5979f86e64cabbde57c223938db0b939dff49fdb5a793a1d3d0396650949"
-PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/$PKG_NAME-$PKG_VERSION.tar.bz2"

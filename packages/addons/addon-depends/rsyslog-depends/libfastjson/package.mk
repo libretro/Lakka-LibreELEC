@@ -4,7 +4,6 @@
 PKG_NAME="libfastjson"
 PKG_VERSION="0.99.8"
 PKG_SHA256="3544c757668b4a257825b3cbc26f800f59ef3c1ff2a260f40f96b48ab1d59e07"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.rsyslog.com/tag/libfastjson"
 PKG_URL="http://download.rsyslog.com/libfastjson/$PKG_NAME-$PKG_VERSION.tar.gz"

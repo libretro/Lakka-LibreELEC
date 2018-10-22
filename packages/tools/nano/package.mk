@@ -4,7 +4,6 @@
 PKG_NAME="nano"
 PKG_VERSION="3.0"
 PKG_SHA256="e0a5bca354514e64762c987c200a8758b05e7bcced3b00b3e48ea0a2d383c8a0"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.nano-editor.org/"
 PKG_URL="http://ftpmirror.gnu.org/nano/$PKG_NAME-$PKG_VERSION.tar.xz"

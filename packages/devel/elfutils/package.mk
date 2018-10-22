@@ -5,7 +5,6 @@
 PKG_NAME="elfutils"
 PKG_VERSION="0.173"
 PKG_SHA256="b76d8c133f68dad46250f5c223482c8299d454a69430d9aa5c19123345a000ff"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://sourceware.org/elfutils/"
 PKG_URL="https://sourceware.org/elfutils/ftp/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.bz2"

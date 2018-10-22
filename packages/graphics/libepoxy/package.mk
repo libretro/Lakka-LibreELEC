@@ -10,7 +10,6 @@
 PKG_NAME="libepoxy"
 PKG_VERSION="1.5.2"
 PKG_SHA256="a9562386519eb3fd7f03209f279f697a8cba520d3c155d6e253c3e138beca7d8"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/anholt/libepoxy"
 PKG_URL="https://github.com/anholt/libepoxy/releases/download/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.xz"

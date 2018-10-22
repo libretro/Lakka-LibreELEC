@@ -4,7 +4,6 @@
 PKG_NAME="android-headers"
 PKG_VERSION="25"
 PKG_SHA256="1e0ecdf56c33aaa523109254e2c475878d8cfc5795ebd4bb5ecbaf80926f4fe9"
-PKG_ARCH="any"
 PKG_LICENSE="Apache"
 PKG_SITE="https://android.googlesource.com/"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.gz"

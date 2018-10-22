@@ -4,7 +4,6 @@
 PKG_NAME="dvbhdhomerun"
 PKG_VERSION="20130704"
 PKG_SHA256="1af817b85b163f3c6c3a9a07410f54875e74513c197709638b4922165e894f54"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://sourceforge.net/projects/dvbhdhomerun/"
 PKG_URL="${DISTRO_SRC}/${PKG_NAME}-${PKG_VERSION}.tar.xz"

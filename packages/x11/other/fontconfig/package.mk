@@ -4,7 +4,6 @@
 PKG_NAME="fontconfig"
 PKG_VERSION="2.12.6"
 PKG_SHA256="064b9ebf060c9e77011733ac9dc0e2ce92870b574cca2405e11f5353a683c334"
-PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.fontconfig.org"
 PKG_URL="http://www.freedesktop.org/software/fontconfig/release/$PKG_NAME-$PKG_VERSION.tar.gz"

@@ -5,7 +5,6 @@
 PKG_NAME="atk"
 PKG_VERSION="2.29.1"
 PKG_SHA256="1aa7707c6297c1797fe4d79a22a57ede4d5586b0f7a3b30e886d7ca9d75f20da"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://library.gnome.org/devel/atk/"
 PKG_URL="https://ftp.gnome.org/pub/gnome/sources/atk/${PKG_VERSION:0:4}/atk-$PKG_VERSION.tar.xz"

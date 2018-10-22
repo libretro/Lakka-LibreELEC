@@ -4,7 +4,6 @@
 PKG_NAME="gdb"
 PKG_VERSION="8.1"
 PKG_SHA256="af61a0263858e69c5dce51eab26662ff3d2ad9aa68da9583e8143b5426be4b34"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/gdb/"
 PKG_URL="http://ftpmirror.gnu.org/gdb/$PKG_NAME-$PKG_VERSION.tar.xz"

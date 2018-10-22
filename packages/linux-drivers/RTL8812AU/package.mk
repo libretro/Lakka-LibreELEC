@@ -5,7 +5,6 @@
 PKG_NAME="RTL8812AU"
 PKG_VERSION="ff2f1dd"
 PKG_SHA256="79419ab37482b7098d9aa995c9be8e3f2f9bccfae20d0b0ccfefe0da9a03d144"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/paspro/rtl8812au"
 PKG_URL="https://github.com/paspro/rtl8812au/archive/$PKG_VERSION.tar.gz"

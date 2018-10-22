@@ -5,7 +5,6 @@
 PKG_NAME="libXext"
 PKG_VERSION="1.3.3"
 PKG_SHA256="b518d4d332231f313371fdefac59e3776f4f0823bcb23cf7c7305bfb57b16e35"
-PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/$PKG_NAME-$PKG_VERSION.tar.bz2"

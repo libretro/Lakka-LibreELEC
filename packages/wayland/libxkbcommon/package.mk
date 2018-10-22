@@ -4,7 +4,6 @@
 PKG_NAME="libxkbcommon"
 PKG_VERSION="0.7.1"
 PKG_SHA256="ba59305d2e19e47c27ea065c2e0df96ebac6a3c6e97e28ae5620073b6084e68b"
-PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://xkbcommon.org"
 PKG_URL="http://xkbcommon.org/download/${PKG_NAME}-${PKG_VERSION}.tar.xz"

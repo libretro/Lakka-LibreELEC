@@ -4,7 +4,6 @@
 PKG_NAME="autossh"
 PKG_VERSION="1.4f"
 PKG_SHA256="0172e5e1bea40c642e0ef025334be3aadd4ff3b4d62c0b177ed88a8384e2f8f2"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.harding.motd.ca/"
 PKG_URL="http://www.harding.motd.ca/autossh/autossh-${PKG_VERSION}.tgz"

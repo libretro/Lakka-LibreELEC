@@ -4,7 +4,6 @@
 PKG_NAME="libgcrypt"
 PKG_VERSION="1.8.3"
 PKG_SHA256="66ec90be036747602f2b48f98312361a9180c97c68a690a5f376fa0f67d0af7c"
-PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://www.gnupg.org/"
 PKG_URL="https://www.gnupg.org/ftp/gcrypt/libgcrypt/$PKG_NAME-$PKG_VERSION.tar.bz2"

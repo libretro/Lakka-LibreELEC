@@ -4,7 +4,6 @@
 PKG_NAME="lirc"
 PKG_VERSION="0.10.0"
 PKG_SHA256="e57c2de8b1b91325d23f1c14fc553ec7912b0add7891e653d048300d38c3f553"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.lirc.org"
 PKG_URL="https://sourceforge.net/projects/lirc/files/LIRC/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.bz2"

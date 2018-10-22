@@ -5,7 +5,6 @@
 PKG_NAME="glibc"
 PKG_VERSION="2.28"
 PKG_SHA256="b1900051afad76f7a4f73e71413df4826dce085ef8ddb785a945b66d7d513082"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/libc/"
 PKG_URL="http://ftp.gnu.org/pub/gnu/glibc/$PKG_NAME-$PKG_VERSION.tar.xz"

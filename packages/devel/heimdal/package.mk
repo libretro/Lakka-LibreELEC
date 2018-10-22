@@ -4,7 +4,6 @@
 PKG_NAME="heimdal"
 PKG_VERSION="7.5.0"
 PKG_SHA256="ad67fef994dc2268fb0b1a8164b39330d184f425057867485a178e9785a7f35a"
-PKG_ARCH="any"
 PKG_LICENSE="BSD-3c"
 PKG_SITE="http://www.h5l.org/"
 PKG_URL="https://github.com/heimdal/heimdal/archive/$PKG_NAME-$PKG_VERSION.tar.gz"

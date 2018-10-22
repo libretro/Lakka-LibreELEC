@@ -5,7 +5,6 @@
 PKG_NAME="util-linux"
 PKG_VERSION="2.31"
 PKG_SHA256="f9be7cdcf4fc5c5064a226599acdda6bdf3d86c640152ba01ea642d91108dc8a"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_URL="http://www.kernel.org/pub/linux/utils/util-linux/v${PKG_VERSION%-*}/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_HOST=""

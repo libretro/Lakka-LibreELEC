@@ -4,7 +4,6 @@
 PKG_NAME="avahi"
 PKG_VERSION="0.7"
 PKG_SHA256="fd45480cef0559b3eab965ea3ad4fe2d7a8f27db32c851a032ee0b487c378329"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://avahi.org/"
 PKG_URL="https://github.com/lathiat/avahi/archive/v$PKG_VERSION.tar.gz"

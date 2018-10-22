@@ -4,7 +4,6 @@
 
 PKG_NAME="mediacenter"
 PKG_VERSION=""
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://libreelec.tv"
 PKG_URL=""

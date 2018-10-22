@@ -3,7 +3,6 @@
 
 PKG_NAME="entropy"
 PKG_VERSION="0"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE=""
 PKG_URL=""

@@ -4,7 +4,6 @@
 PKG_NAME="bison"
 PKG_VERSION="3.0.5"
 PKG_SHA256="075cef2e814642e30e10e8155e93022e4a91ca38a65aa1d5467d4e969f97f338"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/bison/"
 PKG_URL="http://ftpmirror.gnu.org/bison/$PKG_NAME-$PKG_VERSION.tar.xz"

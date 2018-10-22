@@ -3,7 +3,6 @@
 
 PKG_NAME="initramfs"
 PKG_VERSION=""
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.openelec.tv"
 PKG_URL=""

@@ -5,7 +5,6 @@
 PKG_NAME="busybox"
 PKG_VERSION="1.29.2"
 PKG_SHA256="67d2fa6e147a45875fe972de62d907ef866fe784c495c363bf34756c444a5d61"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.busybox.net"
 PKG_URL="http://busybox.net/downloads/$PKG_NAME-$PKG_VERSION.tar.bz2"

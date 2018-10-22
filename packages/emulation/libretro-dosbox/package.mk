@@ -4,7 +4,6 @@
 PKG_NAME="libretro-dosbox"
 PKG_VERSION="2d6bfbfe9ae82be17afbadf41f24950c2f9e2db9"
 PKG_SHA256="48b0e329bfe7e11822d220a5a622da1af3fd06dfbb5f88b4c5ba141fda8b4d2a"
-PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/dosbox-libretro"
 PKG_URL="https://github.com/libretro/dosbox-libretro/archive/$PKG_VERSION.tar.gz"

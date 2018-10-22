@@ -4,7 +4,6 @@
 PKG_NAME="u-boot-tools-aml"
 PKG_VERSION="2016.03"
 PKG_SHA256="e49337262ecac44dbdeac140f2c6ebd1eba345e0162b0464172e7f05583ed7bb"
-PKG_ARCH="any"
 PKG_SITE="https://www.denx.de/wiki/U-Boot"
 PKG_URL="ftp://ftp.denx.de/pub/u-boot/u-boot-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain dtc:host u-boot-tools-aml:host"

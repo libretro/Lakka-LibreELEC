@@ -5,7 +5,6 @@
 PKG_NAME="vdr-plugin-eepg"
 PKG_VERSION="584d766"
 PKG_SHA256="0ad19af6bcfb5f7de05814dfcb4ab18bb4f705fdbe60b11ab7dbf72cf0d85231"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://projects.vdr-developer.org/projects/plg-eepg"
 PKG_URL="https://github.com/vdr-projects/vdr-plugin-eepg/archive/$PKG_VERSION.tar.gz"

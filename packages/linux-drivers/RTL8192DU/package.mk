@@ -5,7 +5,6 @@
 PKG_NAME="RTL8192DU"
 PKG_VERSION="a9deaec"
 PKG_SHA256="af71aa79c0382f056f2c7091b45a3c2d79b9c2848eb6bb1ffed22b6f0a63cbfd"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/lwfinger/rtl8192du"
 PKG_URL="https://github.com/lwfinger/rtl8192du/archive/$PKG_VERSION.tar.gz"

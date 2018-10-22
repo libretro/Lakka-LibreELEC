@@ -4,7 +4,6 @@
 PKG_NAME="sed"
 PKG_VERSION="4.2.2"
 PKG_SHA256="f048d1838da284c8bc9753e4506b85a1e0cc1ea8999d36f6995bcb9460cddbd7"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/sed/"
 PKG_URL="http://ftpmirror.gnu.org/sed/$PKG_NAME-$PKG_VERSION.tar.bz2"

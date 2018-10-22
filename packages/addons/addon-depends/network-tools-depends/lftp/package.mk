@@ -4,7 +4,6 @@
 PKG_NAME="lftp"
 PKG_VERSION="4.8.3"
 PKG_SHA256="de7aee451afaa1aa391f7076b5f602922c2da0e05524a8d8fea413eda83cc78b"
-PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="http://lftp.yar.ru/"
 PKG_URL="http://lftp.yar.ru/ftp/${PKG_NAME}-${PKG_VERSION}.tar.xz"

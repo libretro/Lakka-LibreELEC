@@ -4,7 +4,6 @@
 PKG_NAME="simplejson"
 PKG_VERSION="3.15.0"
 PKG_SHA256="ad332f65d9551ceffc132d0a683f4ffd12e4bc7538681100190d577ced3473fb"
-PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://pypi.org/project/simplejson"
 PKG_URL="https://files.pythonhosted.org/packages/source/${PKG_NAME:0:1}/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.gz"

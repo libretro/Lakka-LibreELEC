@@ -4,7 +4,6 @@
 PKG_NAME="led_tools"
 PKG_VERSION="0.1"
 PKG_SHA256="0484b4a2da9d586accef87ba7dd18595baae1d602c1b1bd9e0a8565ab50419a2"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.fiveninjas.com"
 PKG_URL="http://updates.fiveninjas.com/src/$PKG_NAME-$PKG_VERSION.tar.gz"

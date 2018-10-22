@@ -5,7 +5,6 @@
 PKG_NAME="libXft"
 PKG_VERSION="2.3.2"
 PKG_SHA256="f5a3c824761df351ca91827ac221090943ef28b248573486050de89f4bfcdc4c"
-PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
 PKG_URL="https://xorg.freedesktop.org/archive/individual/lib/libXft-$PKG_VERSION.tar.bz2"

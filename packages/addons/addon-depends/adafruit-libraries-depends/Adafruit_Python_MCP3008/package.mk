@@ -4,7 +4,6 @@
 PKG_NAME="Adafruit_Python_MCP3008"
 PKG_VERSION="e721d26e650c99b0f6d3efd4ec30444e1adf5ccd"
 PKG_SHA256="f5e4c847a87716c16f0209df95c281b5071549644a79a143a77b212f25c464dc"
-PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/adafruit/${PKG_NAME}"
 PKG_URL="https://github.com/adafruit/${PKG_NAME}/archive/$PKG_VERSION.tar.gz"

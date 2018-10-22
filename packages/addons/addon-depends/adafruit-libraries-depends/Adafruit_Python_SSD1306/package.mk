@@ -4,7 +4,6 @@
 PKG_NAME="Adafruit_Python_SSD1306"
 PKG_VERSION="8819e2d203df49f2843059d981b7347d9881c82b"
 PKG_SHA256="ed1163dee2fe6c0c2065a429e1d93cff7397a309071ff83714c84566739680a2"
-PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/adafruit/${PKG_NAME}"
 PKG_URL="https://github.com/adafruit/${PKG_NAME}/archive/$PKG_VERSION.tar.gz"

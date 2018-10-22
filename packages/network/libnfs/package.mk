@@ -5,7 +5,6 @@
 PKG_NAME="libnfs"
 PKG_VERSION="3.0.0"
 PKG_SHA256="445d92c5fc55e4a5b115e358e60486cf8f87ee50e0103d46a02e7fb4618566a5"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/sahlberg/libnfs"
 PKG_URL="https://github.com/sahlberg/libnfs/archive/$PKG_NAME-$PKG_VERSION.tar.gz"

@@ -4,7 +4,6 @@
 PKG_NAME="libjpeg-turbo"
 PKG_VERSION="1.5.3"
 PKG_SHA256="b24890e2bb46e12e72a79f7e965f409f4e16466d00e1dd15d93d73ee6b592523"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://libjpeg-turbo.virtualgl.org/"
 PKG_URL="$SOURCEFORGE_SRC/libjpeg-turbo/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.gz"

@@ -5,7 +5,6 @@
 PKG_NAME="soxr"
 PKG_VERSION="0.1.3"
 PKG_SHA256="b111c15fdc8c029989330ff559184198c161100a59312f5dc19ddeb9b5a15889"
-PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="https://sourceforge.net/projects/soxr/"
 PKG_URL="$SOURCEFORGE_SRC/soxr/soxr-$PKG_VERSION-Source.tar.xz"

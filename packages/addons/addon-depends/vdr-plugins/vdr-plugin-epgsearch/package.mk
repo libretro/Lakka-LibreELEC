@@ -5,7 +5,6 @@
 PKG_NAME="vdr-plugin-epgsearch"
 PKG_VERSION="84b59b8"
 PKG_SHA256="d6c4a9136588a7cdf2eb43b6b9643a5bb81a44c542c6e6fcf7448b2383901914"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://winni.vdr-developer.org/epgsearch/"
 PKG_URL="https://github.com/vdr-projects/vdr-plugin-epgsearch/archive/$PKG_VERSION.tar.gz"

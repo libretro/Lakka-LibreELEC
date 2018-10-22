@@ -5,7 +5,6 @@
 PKG_NAME="vdr-plugin-iptv"
 PKG_VERSION="5ae793f"
 PKG_SHA256="b7a071ff46e6e06c18e3fbc413e3c8eb2bdb6cae3af953ce93e94ab445bf5cda"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.saunalahti.fi/~rahrenbe/vdr/iptv/"
 PKG_URL="https://github.com/rofafor/vdr-plugin-iptv/archive/$PKG_VERSION.tar.gz"

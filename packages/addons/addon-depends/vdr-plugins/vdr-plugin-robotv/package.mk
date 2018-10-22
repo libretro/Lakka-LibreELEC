@@ -4,7 +4,6 @@
 PKG_NAME="vdr-plugin-robotv"
 PKG_VERSION="50d4bdc"
 PKG_SHA256="062489e55111f0ba2420463cc506865ac59b1c1d080b318cb81d58ec3f4fbd3f"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/pipelka/roboTV"
 PKG_URL="https://github.com/pipelka/vdr-plugin-robotv/archive/$PKG_VERSION.tar.gz"

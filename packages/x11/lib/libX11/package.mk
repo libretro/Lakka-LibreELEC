@@ -5,7 +5,6 @@
 PKG_NAME="libX11"
 PKG_VERSION="1.6.5"
 PKG_SHA256="4d3890db2ba225ba8c55ca63c6409c1ebb078a2806de59fb16342768ae63435d"
-PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.x.org/"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/$PKG_NAME-$PKG_VERSION.tar.bz2"

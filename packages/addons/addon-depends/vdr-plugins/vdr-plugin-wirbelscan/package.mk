@@ -5,7 +5,6 @@
 PKG_NAME="vdr-plugin-wirbelscan"
 PKG_VERSION="2017.06.04"
 PKG_SHA256="c7a792c794fb98dd7f665e1be2271f4a1a957a26c017043fcd4dd8d8b7fd582b"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://wirbel.htpc-forum.de/wirbelscan/index2.html"
 PKG_URL="http://wirbel.htpc-forum.de/wirbelscan/${PKG_NAME/-plugin/}-dev-$PKG_VERSION.tgz"

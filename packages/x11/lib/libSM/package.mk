@@ -4,7 +4,6 @@
 PKG_NAME="libSM"
 PKG_VERSION="1.2.2"
 PKG_SHA256="0baca8c9f5d934450a70896c4ad38d06475521255ca63b717a6510fdb6e287bd"
-PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/$PKG_NAME-$PKG_VERSION.tar.bz2"

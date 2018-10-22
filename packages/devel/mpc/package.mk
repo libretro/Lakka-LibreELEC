@@ -4,7 +4,6 @@
 PKG_NAME="mpc"
 PKG_VERSION="1.0.3"
 PKG_SHA256="617decc6ea09889fb08ede330917a00b16809b8db88c29c31bfbb49cbf88ecc3"
-PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.multiprecision.org"
 PKG_URL="http://ftpmirror.gnu.org/mpc/$PKG_NAME-$PKG_VERSION.tar.gz"

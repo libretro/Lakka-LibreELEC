@@ -5,7 +5,6 @@
 PKG_NAME="p8-platform"
 PKG_VERSION="32190045c7eb6883c0662db2f91b4ceeab904fc2"
 PKG_SHA256="5225417c2c174d49124d0e44d32e3828f9b83464422445d303adb2dc3111686d"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
 PKG_URL="https://github.com/Pulse-Eight/platform/archive/$PKG_VERSION.tar.gz"

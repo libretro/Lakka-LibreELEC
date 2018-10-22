@@ -4,7 +4,6 @@
 PKG_NAME="vdr-plugin-ddci2"
 PKG_VERSION="05dd988"
 PKG_SHA256="b8ed2787e9140eb00a68397eaeb14862ba88a6e73480dc3220a098faffb14833"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/jasmin-j/vdr-plugin-ddci2"
 PKG_URL="https://github.com/jasmin-j/vdr-plugin-ddci2/archive/$PKG_VERSION.tar.gz"

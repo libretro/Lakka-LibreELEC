@@ -4,7 +4,6 @@
 PKG_NAME="Adafruit_Python_BMP"
 PKG_VERSION="e8521e969afae3321d9789353d7e92ea9a5e9a56"
 PKG_SHA256="e5e140c34e312f6a00c62b1bd47ebe3f1857009b1c202c18c7b092ebb2e1eb9c"
-PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/adafruit/${PKG_NAME}"
 PKG_URL="https://github.com/adafruit/${PKG_NAME}/archive/$PKG_VERSION.tar.gz"

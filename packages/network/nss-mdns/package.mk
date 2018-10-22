@@ -4,7 +4,6 @@
 PKG_NAME="nss-mdns"
 PKG_VERSION="47edc38"
 PKG_SHA256="f02e8baeceea30e82a2ecdaa8cafdbcabfdaa33a766f6942e7dc8aa81948f7b6"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/lathiat/nss-mdns"
 PKG_URL="https://github.com/lathiat/nss-mdns/archive/$PKG_VERSION.tar.gz"

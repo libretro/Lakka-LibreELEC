@@ -4,7 +4,6 @@
 PKG_NAME="rapidjson"
 PKG_VERSION="1.1.0"
 PKG_SHA256="bf7ced29704a1e696fbccf2a2b4ea068e7774fa37f6d7dd4039d0787f8bed98e"
-PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/miloyip/rapidjson"
 PKG_URL="https://github.com/miloyip/rapidjson/archive/v$PKG_VERSION.tar.gz"

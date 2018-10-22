@@ -5,7 +5,6 @@
 PKG_NAME="xz"
 PKG_VERSION="5.2.4"
 PKG_SHA256="3313fd2a95f43d88e44264e6b015e7d03053e681860b0d5d3f9baca79c57b7bf"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://tukaani.org/xz/"
 PKG_URL="http://tukaani.org/xz/$PKG_NAME-$PKG_VERSION.tar.bz2"

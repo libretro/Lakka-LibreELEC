@@ -3,7 +3,6 @@
 
 PKG_NAME="testing"
 PKG_VERSION=""
-PKG_ARCH="any"
 PKG_LICENSE="various"
 PKG_SITE="http://www.openelec.tv"
 PKG_URL=""

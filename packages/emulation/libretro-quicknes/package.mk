@@ -4,7 +4,6 @@
 PKG_NAME="libretro-quicknes"
 PKG_VERSION="6d50e29"
 PKG_SHA256="fcc9e87fc0f1192dcadf71c316e383f2400c0d29af0ed2b275aafffc14364cb3"
-PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/QuickNES_Core"
 PKG_URL="https://github.com/libretro/QuickNES_Core/archive/$PKG_VERSION.tar.gz"

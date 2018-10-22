@@ -4,7 +4,6 @@
 PKG_NAME="libretro-melonds"
 PKG_VERSION="ee2f3e3"
 PKG_SHA256="008aab83d55dbb0aed05020d6f39b7fd91eccc2e12e65f674c67110fc48b5d88"
-PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/melonds"
 PKG_URL="https://github.com/libretro/melonds/archive/$PKG_VERSION.tar.gz"

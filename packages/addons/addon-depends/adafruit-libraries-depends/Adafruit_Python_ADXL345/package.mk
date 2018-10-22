@@ -4,7 +4,6 @@
 PKG_NAME="Adafruit_Python_ADXL345"
 PKG_VERSION="dca3d90b5477a304fa130f5cc90ea59e3968ce6f"
 PKG_SHA256="22ec0fc6679cc3e9b5f0aff5cfeef34cbbf13e59aecfb829c2f0dc2d90b5fb8b"
-PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/adafruit/${PKG_NAME}"
 PKG_URL="https://github.com/adafruit/${PKG_NAME}/archive/$PKG_VERSION.tar.gz"

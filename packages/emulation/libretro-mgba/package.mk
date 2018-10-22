@@ -4,7 +4,6 @@
 PKG_NAME="libretro-mgba"
 PKG_VERSION="d98de4a"
 PKG_SHA256="cca97b095137a3ad43915776d535960b6cbcbbf5e0da54d371a638c747f5aae8"
-PKG_ARCH="any"
 PKG_LICENSE="MPL 2.0"
 PKG_SITE="https://github.com/libretro/mgba"
 PKG_URL="https://github.com/libretro/mgba/archive/$PKG_VERSION.tar.gz"

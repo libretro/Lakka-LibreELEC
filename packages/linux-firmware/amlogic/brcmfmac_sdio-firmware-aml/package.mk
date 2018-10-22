@@ -4,7 +4,6 @@
 PKG_NAME="brcmfmac_sdio-firmware-aml"
 PKG_VERSION="0.1"
 PKG_SHA256="37e19eb005882793d26d0def8704417b21beb1c24d2b4489715e4ed7e7818776"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/LibreELEC/LibreELEC.tv"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"

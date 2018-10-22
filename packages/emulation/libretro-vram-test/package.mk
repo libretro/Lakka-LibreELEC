@@ -4,7 +4,6 @@
 PKG_NAME="libretro-vram-test"
 PKG_VERSION="6b90ce9"
 PKG_SHA256="2bd1b3af783a028355eb4b4c416f09802313a9a69759e716377b55012f7bb4ae"
-PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/libretro/libretro-samples"
 PKG_URL="https://github.com/libretro/libretro-samples/archive/$PKG_VERSION.tar.gz"

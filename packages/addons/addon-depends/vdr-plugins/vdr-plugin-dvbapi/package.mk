@@ -5,7 +5,6 @@
 PKG_NAME="vdr-plugin-dvbapi"
 PKG_VERSION="7d51cc4"
 PKG_SHA256="b16840574802581950343942559797aeccbc4a8fc216901ad0cea42f420bfd7c"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/manio/vdr-plugin-dvbapi"
 PKG_URL="https://github.com/manio/vdr-plugin-dvbapi/archive/$PKG_VERSION.tar.gz"

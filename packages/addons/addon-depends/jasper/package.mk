@@ -4,7 +4,6 @@
 PKG_NAME="jasper"
 PKG_VERSION="1.900.1"
 PKG_SHA256="6e9a959bf4f8cb02f77f42d1b9880b8e85d021ac51f43d8787b5438fd2b7a1c5"
-PKG_ARCH="any"
 PKG_LICENSE="OpenSource"
 PKG_SITE="http://www.ece.uvic.ca/~mdadams/jasper/"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.bz2"

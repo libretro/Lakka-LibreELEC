@@ -4,7 +4,6 @@
 PKG_NAME="tntnet"
 PKG_VERSION="2.2.1"
 PKG_SHA256="c83170d08ef04c5868051e1c28c74b9562fe71e9e8263828e755ad5bd3547521"
-PKG_ARCH="any"
 PKG_LICENSE="GPL-2"
 PKG_SITE="http://www.tntnet.org/"
 PKG_URL="http://www.tntnet.org/download/${PKG_NAME}-${PKG_VERSION}.tar.gz"

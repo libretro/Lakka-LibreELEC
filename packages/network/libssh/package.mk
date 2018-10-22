@@ -4,7 +4,6 @@
 PKG_NAME="libssh"
 PKG_VERSION="0.8.1"
 PKG_SHA256="d17f1267b4a5e46c0fbe66d39a3e702b8cefe788928f2eb6e339a18bb00b1924"
-PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.libssh.org/"
 PKG_URL="https://www.libssh.org/files/0.8/$PKG_NAME-$PKG_VERSION.tar.xz"

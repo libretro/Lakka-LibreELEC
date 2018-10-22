@@ -4,7 +4,6 @@
 PKG_NAME="setuptools"
 PKG_VERSION="39.2.0"
 PKG_SHA256="ca8119dd5c2764a7d290518817de0b880d23d790913fcd797c02ad2aa39b8c41"
-PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="https://pypi.org/project/setuptools"
 PKG_URL="https://github.com/pypa/setuptools/archive/v$PKG_VERSION.tar.gz"

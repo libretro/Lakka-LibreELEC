@@ -5,7 +5,6 @@
 PKG_NAME="vdr-plugin-satip"
 PKG_VERSION="299296b"
 PKG_SHA256="a6416619e0c57e4e0f3379ccde52a92cebeeec080805f0e7121e599a45e0c0df"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.saunalahti.fi/~rahrenbe/vdr/satip/"
 PKG_URL="https://github.com/rofafor/vdr-plugin-satip/archive/$PKG_VERSION.tar.gz"

@@ -5,7 +5,6 @@
 PKG_NAME="tiff"
 PKG_VERSION="4.0.9"
 PKG_SHA256="6e7bdeec2c310734e734d19aae3a71ebe37a4d842e0e23dbb1b8921c0026cfcd"
-PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.remotesensing.org/libtiff/"
 PKG_URL="http://download.osgeo.org/libtiff/$PKG_NAME-$PKG_VERSION.tar.gz"

@@ -5,7 +5,6 @@
 PKG_NAME="vdr-plugin-vnsiserver"
 PKG_VERSION="8c898d9"
 PKG_SHA256="3f01213b24a12bbbae97575aac2cf166d740c3f4f7f9a40e31cfe67f5964b192"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/FernetMenta/vdr-plugin-vnsiserver"
 PKG_URL="https://github.com/FernetMenta/vdr-plugin-vnsiserver/archive/$PKG_VERSION.tar.gz"

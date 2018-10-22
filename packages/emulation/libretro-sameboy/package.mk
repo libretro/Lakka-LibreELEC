@@ -4,7 +4,6 @@
 PKG_NAME="libretro-sameboy"
 PKG_VERSION="1829313" #buildbot branch
 PKG_SHA256="fb30679f5fe056bc87ce49e0d493bc4ffec66d4c143893ac0734c9bf47aca7e1"
-PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/libretro/sameboy"
 PKG_URL="https://github.com/libretro/sameboy/archive/$PKG_VERSION.tar.gz"

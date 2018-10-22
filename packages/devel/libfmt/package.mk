@@ -4,7 +4,6 @@
 PKG_NAME="libfmt"
 PKG_VERSION="5.1.0"
 PKG_SHA256="73d4cab4fa8a3482643d8703de4d9522d7a56981c938eca42d929106ff474b44"
-PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="https://github.com/fmtlib/fmt"
 PKG_URL="https://github.com/fmtlib/fmt/archive/$PKG_VERSION.tar.gz"

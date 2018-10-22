@@ -4,7 +4,6 @@
 PKG_NAME="dvb-latest"
 PKG_VERSION="baf45935ffad914f33faf751ad9f4d0dd276c021"
 PKG_SHA256="591f0c4c039f4b2453982187447232fa2e72a48dfd915ed307ae11c7a6427031"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://git.linuxtv.org/media_build.git"
 PKG_URL="https://git.linuxtv.org/media_build.git/snapshot/${PKG_VERSION}.tar.gz"

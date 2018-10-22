@@ -4,7 +4,6 @@
 PKG_NAME="diskdev_cmds"
 PKG_VERSION="332.14"
 PKG_SHA256="a46bec392661a02d9683355baf4442d494e2bcde0ffb094aacc1e57ddc03b3d4"
-PKG_ARCH="any"
 PKG_LICENSE="APSL"
 PKG_SITE="http://src.gnu-darwin.org/DarwinSourceArchive/expanded/diskdev_cmds/"
 PKG_URL="http://www.opensource.apple.com/tarballs/diskdev_cmds/$PKG_NAME-$PKG_VERSION.tar.gz"

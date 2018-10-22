@@ -4,7 +4,6 @@
 PKG_NAME="libmad"
 PKG_VERSION="0.15.1b"
 PKG_SHA256="bbfac3ed6bfbc2823d3775ebb931087371e142bb0e9bb1bee51a76a6e0078690"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.mars.org/home/rob/proj/mpeg/"
 PKG_URL="$SOURCEFORGE_SRC/mad/$PKG_NAME-$PKG_VERSION.tar.gz"

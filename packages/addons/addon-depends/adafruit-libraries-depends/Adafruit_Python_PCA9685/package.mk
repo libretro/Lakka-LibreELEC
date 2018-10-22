@@ -4,7 +4,6 @@
 PKG_NAME="Adafruit_Python_PCA9685"
 PKG_VERSION="f86db2ca5de379748afd71e379ce2155f47d21e7"
 PKG_SHA256="46e11dcfbfaab5756ddeb6ab31740cf8c7419ec1d32be2519f19882e7d86e426"
-PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/adafruit/${PKG_NAME}"
 PKG_URL="https://github.com/adafruit/${PKG_NAME}/archive/$PKG_VERSION.tar.gz"

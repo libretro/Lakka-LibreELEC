@@ -4,7 +4,6 @@
 PKG_NAME="libusb"
 PKG_VERSION="1.0.21"
 PKG_SHA256="7dce9cce9a81194b7065ee912bcd55eeffebab694ea403ffb91b67db66b1824b"
-PKG_ARCH="any"
 PKG_LICENSE="LGPLv2.1"
 PKG_SITE="http://libusb.info/"
 PKG_URL="$SOURCEFORGE_SRC/libusb/files/$PKG_NAME-$PKG_VERSION.tar.bz2"

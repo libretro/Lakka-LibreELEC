@@ -4,7 +4,6 @@
 PKG_NAME="libcdio"
 PKG_VERSION="0.94"
 PKG_SHA256="96e2c903f866ae96f9f5b9048fa32db0921464a2286f5b586c0f02699710025a"
-PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://www.gnu.org/software/libcdio/"
 PKG_URL="http://ftpmirror.gnu.org/libcdio/$PKG_NAME-$PKG_VERSION.tar.gz"

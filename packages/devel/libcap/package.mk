@@ -5,7 +5,6 @@
 PKG_NAME="libcap"
 PKG_VERSION="2.25"
 PKG_SHA256="693c8ac51e983ee678205571ef272439d83afe62dd8e424ea14ad9790bc35162"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE=""
 PKG_URL="http://www.kernel.org/pub/linux/libs/security/linux-privs/libcap2/$PKG_NAME-$PKG_VERSION.tar.xz"

@@ -5,7 +5,6 @@
 PKG_NAME="libdnet"
 PKG_VERSION="8029bf9"
 PKG_SHA256="1e41cbe5e4884108b08fa92964305354f1662b7e889f62736b3749845d7a8c56"
-PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="https://github.com/sgeto/libdnet"
 PKG_URL="https://github.com/sgeto/libdnet/archive/$PKG_VERSION.tar.gz"

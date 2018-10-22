@@ -4,7 +4,6 @@
 PKG_NAME="libusbmuxd"
 PKG_VERSION="1.0.10"
 PKG_SHA256="1aa21391265d2284ac3ccb7cf278126d10d354878589905b35e8102104fec9f2"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.libimobiledevice.org"
 PKG_URL="http://www.libimobiledevice.org/downloads/$PKG_NAME-$PKG_VERSION.tar.bz2"

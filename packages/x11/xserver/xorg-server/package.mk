@@ -5,7 +5,6 @@
 PKG_NAME="xorg-server"
 PKG_VERSION="1.20.2"
 PKG_SHA256="0ed5f7bc48f22f54e1ae0229ad6f35a521da4232d9d5529d7cebb5e79b3ccee2"
-PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/xserver/$PKG_NAME-$PKG_VERSION.tar.bz2"

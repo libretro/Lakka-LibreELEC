@@ -4,7 +4,6 @@
 PKG_NAME="newt"
 PKG_VERSION="0.52.20"
 PKG_SHA256="8d66ba6beffc3f786d4ccfee9d2b43d93484680ef8db9397a4fb70b5adbb6dbc"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://pagure.io/newt"
 PKG_URL="https://releases.pagure.org/newt/$PKG_NAME-$PKG_VERSION.tar.gz"

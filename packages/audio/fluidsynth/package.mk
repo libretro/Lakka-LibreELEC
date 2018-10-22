@@ -4,7 +4,6 @@
 PKG_NAME="fluidsynth"
 PKG_VERSION="1.1.6"
 PKG_SHA256="d28b47dfbf7f8e426902ae7fa2981d821fbf84f41da9e1b85be933d2d748f601"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://fluidsynth.org/"
 PKG_URL="$SOURCEFORGE_SRC/project/fluidsynth/fluidsynth-$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.bz2"

@@ -5,7 +5,6 @@
 PKG_NAME="samba"
 PKG_VERSION="4.9.1"
 PKG_SHA256="33118cbe83a87be085eba1aae6e597878b02d6ac9b2da67454ed33cf3e9853f2"
-PKG_ARCH="any"
 PKG_LICENSE="GPLv3+"
 PKG_SITE="https://www.samba.org"
 PKG_URL="https://download.samba.org/pub/samba/stable/$PKG_NAME-$PKG_VERSION.tar.gz"

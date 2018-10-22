@@ -6,7 +6,6 @@ PKG_NAME="Python2"
 # When changing PKG_VERSION remember to sync PKG_PYTHON_VERSION!
 PKG_VERSION="2.7.15"
 PKG_SHA256="22d9b1ac5b26135ad2b8c2901a9413537e08749a753356ee913c84dbd2df5574"
-PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.python.org/"
 PKG_URL="http://www.python.org/ftp/python/$PKG_VERSION/${PKG_NAME::-1}-$PKG_VERSION.tar.xz"

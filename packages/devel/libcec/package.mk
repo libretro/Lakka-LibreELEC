@@ -5,7 +5,6 @@
 PKG_NAME="libcec"
 PKG_VERSION="8adc786"
 PKG_SHA256="742efcc24e8949d822effdd06cfebfd0d62babab826be33c1686c7bfea52f455"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://libcec.pulse-eight.com/"
 PKG_URL="https://github.com/Pulse-Eight/libcec/archive/$PKG_VERSION.tar.gz"

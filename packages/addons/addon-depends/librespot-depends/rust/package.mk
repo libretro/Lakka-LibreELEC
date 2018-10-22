@@ -3,7 +3,6 @@
 
 PKG_NAME="rust"
 PKG_VERSION="1.28.0"
-PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://www.rust-lang.org"
 PKG_DEPENDS_TARGET="toolchain rustup.rs"

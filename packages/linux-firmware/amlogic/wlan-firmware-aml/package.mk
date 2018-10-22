@@ -4,7 +4,6 @@
 PKG_NAME="wlan-firmware-aml"
 PKG_VERSION="5f5fae7"
 PKG_SHA256="a926edbd87b028afcf8048c776859fa2bf0dca006df6a0f6867ce3915bd21494"
-PKG_ARCH="any"
 PKG_LICENSE="Free-to-use"
 PKG_SITE="http://openlinux.amlogic.com:8000/download/ARM/wifi/"
 PKG_URL="https://github.com/openwetek/wlan-firmware-aml/archive/$PKG_VERSION.tar.gz"

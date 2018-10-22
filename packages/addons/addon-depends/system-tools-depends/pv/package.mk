@@ -4,7 +4,6 @@
 PKG_NAME="pv"
 PKG_VERSION="1.6.0"
 PKG_SHA256="9dd45391806b0ed215abee4c5ac1597d018c386fe9c1f5afd2f6bc3b07fd82c3"
-PKG_ARCH="any"
 PKG_LICENSE="GNU"
 PKG_SITE="http://www.ivarch.com/programs/pv.shtml"
 PKG_URL="http://www.ivarch.com/programs/sources/$PKG_NAME-$PKG_VERSION.tar.gz"

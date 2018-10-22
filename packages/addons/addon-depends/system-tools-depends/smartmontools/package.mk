@@ -4,7 +4,6 @@
 PKG_NAME="smartmontools"
 PKG_VERSION="6.6"
 PKG_SHA256="51f43d0fb064fccaf823bbe68cf0d317d0895ff895aa353b3339a3b316a53054"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://www.smartmontools.org"
 PKG_URL="https://github.com/smartmontools/smartmontools/releases/download/RELEASE_${PKG_VERSION//./_}/smartmontools-$PKG_VERSION.tar.gz"
