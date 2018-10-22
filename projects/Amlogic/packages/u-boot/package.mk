@@ -6,7 +6,6 @@ PKG_SITE="https://www.denx.de/wiki/U-Boot"
 PKG_DEPENDS_TARGET="toolchain gcc-linaro-aarch64-elf:host gcc-linaro-arm-eabi:host"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="GPL"
-PKG_SECTION="tools"
 PKG_LONGDESC="Das U-Boot is a cross-platform bootloader for embedded systems."
 
 case "$DEVICE" in
