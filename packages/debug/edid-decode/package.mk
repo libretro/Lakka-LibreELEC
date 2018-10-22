@@ -8,7 +8,6 @@ PKG_LICENSE="None"
 PKG_SITE="https://cgit.freedesktop.org/xorg/app/edid-decode/"
 PKG_URL="https://cgit.freedesktop.org/xorg/app/edid-decode/snapshot/$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Decode EDID data in human-readable format"
 PKG_LONGDESC="Decode EDID data in human-readable format"
 
 make_target() {

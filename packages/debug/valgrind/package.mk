@@ -8,7 +8,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://valgrind.org/"
 PKG_URL="ftp://sourceware.org/pub/valgrind/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="A tool to help find memory-management problems in programs"
 PKG_LONGDESC="A tool to help find memory-management problems in programs"
 
 if [ "$TARGET_ARCH" = "arm" ]; then

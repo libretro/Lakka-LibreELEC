@@ -8,7 +8,6 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-pcfx-libretro"
 PKG_URL="https://github.com/libretro/beetle-pcfx-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SHORTDESC="Standalone port of Mednafen PCFX to libretro"
 PKG_LONGDESC="Standalone port of Mednafen PCFX to libretro"
 
 PKG_LIBNAME="mednafen_pcfx_libretro.so"

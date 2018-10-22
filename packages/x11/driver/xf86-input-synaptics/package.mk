@@ -8,7 +8,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://lists.freedesktop.org/mailman/listinfo/xorg"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/driver/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain libXi"
-PKG_SHORTDESC="Synaptics touchpad driver for X.Org."
 PKG_LONGDESC="Synaptics touchpad driver for X.Org."
 PKG_TOOLCHAIN="autotools"
 

@@ -10,7 +10,6 @@ PKG_SITE="https://github.com/khadas/android_hardware_wifi_realtek_drivers_8822bu
 PKG_URL="https://github.com/khadas/android_hardware_wifi_realtek_drivers_8822bu/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
-PKG_SHORTDESC="Realtek RTL8822BU Linux driver"
 PKG_LONGDESC="Realtek RTL8822BU Linux driver"
 PKG_IS_KERNEL_PKG="yes"
 PKG_TOOLCHAIN="manual"

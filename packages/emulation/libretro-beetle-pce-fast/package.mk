@@ -8,7 +8,6 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-pce-fast-libretro"
 PKG_URL="https://github.com/libretro/beetle-pce-fast-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SHORTDESC="game.libretro.beetle-pce-fast: Beetle PCE Fast for Kodi"
 PKG_LONGDESC="game.libretro.beetle-pce-fast: Beetle PCE Fast for Kodi"
 
 PKG_LIBNAME="mednafen_pce_fast_libretro.so"

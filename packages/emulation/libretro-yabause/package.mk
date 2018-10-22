@@ -8,7 +8,6 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/yabause"
 PKG_URL="https://github.com/libretro/yabause/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SHORTDESC="game.libretro.yabause: Yabause for Kodi"
 PKG_LONGDESC="game.libretro.yabause: Yabause for Kodi"
 PKG_TOOLCHAIN="manual"
 

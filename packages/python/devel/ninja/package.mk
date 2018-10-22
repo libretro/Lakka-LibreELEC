@@ -8,7 +8,6 @@ PKG_LICENSE="Apache"
 PKG_SITE="http://martine.github.io/ninja/"
 PKG_URL="https://github.com/ninja-build/ninja/archive/v$PKG_VERSION.tar.gz"
 PKG_DEPENDS_HOST="Python2:host"
-PKG_SHORTDESC="Small build system with a focus on speed"
 PKG_LONGDESC="Small build system with a focus on speed"
 PKG_TOOLCHAIN="manual"
 

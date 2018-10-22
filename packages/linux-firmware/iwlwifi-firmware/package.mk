@@ -9,7 +9,6 @@ PKG_LICENSE="Free-to-use"
 PKG_SITE="https://github.com/LibreELEC/iwlwifi-firmware"
 PKG_URL="https://github.com/LibreELEC/iwlwifi-firmware/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="iwlwifi-firmware: firmwares for various Intel WLAN drivers"
 PKG_LONGDESC="iwlwifi-firmware: firmwares for various Intel WLAN drivers"
 PKG_TOOLCHAIN="manual"
 

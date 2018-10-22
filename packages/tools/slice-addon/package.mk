@@ -8,7 +8,6 @@ PKG_LICENSE="GPL"
 PKG_SITE=""
 PKG_URL=""
 PKG_DEPENDS_TARGET=""
-PKG_SHORTDESC="Controls the LED lights on the Slice box using Kodi actions"
 PKG_LONGDESC="Controls the LED lights on the Slice box using Kodi actions"
 PKG_TOOLCHAIN="manual"
 

@@ -8,7 +8,6 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/gambatte-libretro"
 PKG_URL="https://github.com/libretro/gambatte-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SHORTDESC="game.libretro.gambatte: Gambatte for Kodi"
 PKG_LONGDESC="game.libretro.gambatte: Gambatte for Kodi"
 
 PKG_LIBNAME="gambatte_libretro.so"

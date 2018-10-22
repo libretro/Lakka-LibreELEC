@@ -8,7 +8,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/bash/bash.html"
 PKG_URL="ftp://ftp.cwru.edu/pub/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain ncurses"
-PKG_SHORTDESC="The GNU Bourne Again shell"
 PKG_LONGDESC="The GNU Bourne Again shell"
 
 PKG_CONFIGURE_OPTS_TARGET="--with-curses \

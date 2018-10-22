@@ -8,7 +8,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/NilsBrause/waylandpp"
 PKG_URL="https://github.com/NilsBrause/waylandpp/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain waylandpp:host"
-PKG_SHORTDESC="Wayland C++ bindings"
 PKG_LONGDESC="Wayland C++ bindings"
 
 PKG_CMAKE_OPTS_HOST="-DBUILD_SCANNER=ON \

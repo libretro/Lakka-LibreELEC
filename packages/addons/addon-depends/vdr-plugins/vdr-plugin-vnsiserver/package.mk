@@ -10,7 +10,6 @@ PKG_SITE="https://github.com/FernetMenta/vdr-plugin-vnsiserver"
 PKG_URL="https://github.com/FernetMenta/vdr-plugin-vnsiserver/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain vdr"
 PKG_NEED_UNPACK="$(get_pkg_directory vdr)"
-PKG_SHORTDESC="VDR plugin to handle Kodi clients."
 PKG_LONGDESC="VDR plugin to handle Kodi clients."
 PKG_TOOLCHAIN="manual"
 

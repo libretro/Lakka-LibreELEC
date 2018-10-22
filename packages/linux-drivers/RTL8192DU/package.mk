@@ -10,7 +10,6 @@ PKG_SITE="https://github.com/lwfinger/rtl8192du"
 PKG_URL="https://github.com/lwfinger/rtl8192du/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
-PKG_SHORTDESC="Realtek RTL8192DU Linux 3.x driver"
 PKG_LONGDESC="Realtek RTL8192DU Linux 3.x driver"
 PKG_IS_KERNEL_PKG="yes"
 

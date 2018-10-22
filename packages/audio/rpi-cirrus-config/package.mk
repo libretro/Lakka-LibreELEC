@@ -8,7 +8,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/HiassofT/rpi-cirrus-config"
 PKG_URL="https://github.com/HiassofT/rpi-cirrus-config/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="alsa-utils"
-PKG_SHORTDESC="Config scripts for the Wolfson/Cirrus Logic audio card"
 PKG_LONGDESC="Config scripts for the Wolfson/Cirrus Logic audio card"
 PKG_TOOLCHAIN="manual"
 

@@ -9,7 +9,6 @@ PKG_LICENSE="APL"
 PKG_SITE="https://github.com/rockchip-linux/mpp"
 PKG_URL="https://github.com/rockchip-linux/mpp/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libdrm"
-PKG_SHORTDESC="rkmpp: Rockchip Media Process Platform (MPP) module"
 PKG_LONGDESC="rkmpp: Rockchip Media Process Platform (MPP) module"
 
 if [ "$DEVICE" = "RK3328" -o "$DEVICE" = "RK3399" ]; then

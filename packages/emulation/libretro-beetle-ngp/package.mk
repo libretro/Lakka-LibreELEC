@@ -8,7 +8,6 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-ngp-libretro"
 PKG_URL="https://github.com/libretro/beetle-ngp-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SHORTDESC="Standalone port of Mednafen NGP to the libretro API, itself a fork of Neopop"
 PKG_LONGDESC="Standalone port of Mednafen NGP to the libretro API, itself a fork of Neopop"
 
 PKG_LIBNAME="mednafen_ngp_libretro.so"

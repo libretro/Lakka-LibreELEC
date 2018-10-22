@@ -8,7 +8,6 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/dosbox-libretro"
 PKG_URL="https://github.com/libretro/dosbox-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SHORTDESC="game.libretro.dosbox: DOSBox for Kodi"
 PKG_LONGDESC="game.libretro.dosbox: DOSBox for Kodi"
 PKG_BUILD_FLAGS="+pic"
 

@@ -8,7 +8,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://p7zip.sourceforge.net/"
 PKG_URL="http://downloads.sourceforge.net/project/p7zip/p7zip/${PKG_VERSION}/p7zip_${PKG_VERSION}_src_all.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="p7zip is a port of 7za.exe for POSIX systems like Unix"
 PKG_LONGDESC="p7zip is a port of 7za.exe for POSIX systems like Unix"
 PKG_TOOLCHAIN="manual"
 

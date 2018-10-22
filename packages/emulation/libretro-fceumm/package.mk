@@ -8,7 +8,6 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/libretro-fceumm"
 PKG_URL="https://github.com/libretro/libretro-fceumm/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SHORTDESC="game.libretro.fceumm: FCEUmm emulator for Kodi"
 PKG_LONGDESC="game.libretro.fceumm: FCEUmm emulator for Kodi"
 
 PKG_LIBNAME="fceumm_libretro.so"

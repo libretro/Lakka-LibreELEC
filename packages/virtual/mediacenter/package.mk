@@ -9,7 +9,6 @@ PKG_SITE="https://libreelec.tv"
 PKG_URL=""
 PKG_DEPENDS_TARGET="toolchain $MEDIACENTER"
 PKG_SECTION="virtual"
-PKG_SHORTDESC="Mediacenter: Metapackage"
 PKG_LONGDESC="Mediacenter: Metapackage"
 
 if [ "$MEDIACENTER" = "kodi" ]; then

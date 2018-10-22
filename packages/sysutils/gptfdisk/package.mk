@@ -8,7 +8,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.rodsbooks.com/gdisk/"
 PKG_URL="https://downloads.sourceforge.net/project/$PKG_NAME/$PKG_NAME/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain popt"
-PKG_SHORTDESC="GPT text-mode partitioning tools"
 PKG_LONGDESC="GPT text-mode partitioning tools"
 
 make_target() {

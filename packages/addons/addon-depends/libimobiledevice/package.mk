@@ -8,7 +8,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.libimobiledevice.org"
 PKG_URL="http://www.libimobiledevice.org/downloads/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain libusbmuxd openssl"
-PKG_SHORTDESC="libimobiledevice is a cross-platform software library that talks the protocols to support iPhone®, iPod Touch®, iPad® and Apple TV® devices"
 PKG_LONGDESC="libimobiledevice is a cross-platform software library that talks the protocols to support iPhone®, iPod Touch®, iPad® and Apple TV® devices"
 PKG_TOOLCHAIN="autotools"
 

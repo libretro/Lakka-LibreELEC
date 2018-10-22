@@ -8,7 +8,6 @@ PKG_LICENSE="Modified BSD / LGPLv2.1"
 PKG_SITE="https://github.com/libretro/Genesis-Plus-GX"
 PKG_URL="https://github.com/libretro/Genesis-Plus-GX/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SHORTDESC="game.libretro.genplus: Genesis Plus GX for Kodi"
 PKG_LONGDESC="game.libretro.genplus: Genesis Plus GX for Kodi"
 PKG_TOOLCHAIN="manual"
 

@@ -8,7 +8,6 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-lynx-libretro"
 PKG_URL="https://github.com/libretro/beetle-lynx-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SHORTDESC="Standalone port of Mednafen Lynx to libretro, itself a fork of Handy"
 PKG_LONGDESC="Standalone port of Mednafen Lynx to libretro, itself a fork of Handy"
 
 PKG_LIBNAME="mednafen_lynx_libretro.so"

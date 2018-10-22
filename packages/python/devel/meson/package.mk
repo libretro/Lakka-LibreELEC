@@ -8,7 +8,6 @@ PKG_LICENSE="Apache"
 PKG_SITE="http://mesonbuild.com"
 PKG_URL="https://github.com/mesonbuild/meson/releases/download/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_HOST="Python3:host pathlib:host"
-PKG_SHORTDESC="High productivity build system"
 PKG_LONGDESC="High productivity build system"
 PKG_TOOLCHAIN="manual"
 

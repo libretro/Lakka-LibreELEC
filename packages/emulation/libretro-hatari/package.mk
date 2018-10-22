@@ -8,7 +8,6 @@ PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/hatari"
 PKG_URL="https://github.com/libretro/hatari/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SHORTDESC="game.libretro.hatari: hatari for Kodi"
 PKG_LONGDESC="game.libretro.hatari: hatari for Kodi"
 PKG_TOOLCHAIN="manual"
 

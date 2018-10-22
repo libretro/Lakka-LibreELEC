@@ -8,7 +8,6 @@ PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/gw-libretro"
 PKG_URL="https://github.com/libretro/gw-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SHORTDESC="game.libretro.gw: gw for Kodi"
 PKG_LONGDESC="game.libretro.gw: gw for Kodi"
 
 PKG_LIBNAME="gw_libretro.so"

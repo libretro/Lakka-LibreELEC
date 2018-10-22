@@ -8,7 +8,6 @@ PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/virtualjaguar-libretro"
 PKG_URL="https://github.com/libretro/virtualjaguar-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SHORTDESC="Port of Virtual Jaguar to Libretro"
 PKG_LONGDESC="Port of Virtual Jaguar to Libretro"
 
 PKG_LIBNAME="virtualjaguar_libretro.so"

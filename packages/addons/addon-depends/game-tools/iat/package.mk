@@ -8,7 +8,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://sourceforge.net/projects/iat.berlios/"
 PKG_URL="https://sourceforge.net/projects/iat.berlios/files/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Iso9660 Analyzer Tool, this tool have engine for detect many structure of image file"
 PKG_LONGDESC="Iso9660 Analyzer Tool, this tool have engine for detect many structure of image file"
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes"

@@ -8,7 +8,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kergoth/tslib"
 PKG_URL="https://github.com/kergoth/tslib/releases/download/1.1/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain evtest"
-PKG_SHORTDESC="Touchscreen access library with ts_uinput_touch daemon."
 PKG_LONGDESC="Touchscreen access library with ts_uinput_touch daemon."
 PKG_TOOLCHAIN="autotools"
 

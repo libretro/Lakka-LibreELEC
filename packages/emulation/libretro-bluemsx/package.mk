@@ -8,7 +8,6 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/blueMSX-libretro"
 PKG_URL="https://github.com/libretro/blueMSX-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SHORTDESC="game.libretro.bluemsx: BlueMSX for Kodi"
 PKG_LONGDESC="game.libretro.bluemsx: BlueMSX for Kodi"
 
 PKG_LIBNAME="bluemsx_libretro.so"

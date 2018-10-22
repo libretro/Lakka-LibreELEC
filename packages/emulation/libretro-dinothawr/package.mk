@@ -8,7 +8,6 @@ PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/Dinothawr"
 PKG_URL="https://github.com/libretro/Dinothawr/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SHORTDESC="game.libretro.dinothawr: dinothawr for Kodi"
 PKG_LONGDESC="game.libretro.dinothawr: dinothawr for Kodi"
 
 PKG_LIBNAME="dinothawr_libretro.so"

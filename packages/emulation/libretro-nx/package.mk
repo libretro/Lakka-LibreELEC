@@ -8,7 +8,6 @@ PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/nxengine-libretro"
 PKG_URL="https://github.com/libretro/nxengine-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SHORTDESC="game.libretro.nx: nx for Kodi"
 PKG_LONGDESC="game.libretro.nx: nx for Kodi"
 
 PKG_LIBNAME="nxengine_libretro.so"

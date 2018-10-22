@@ -8,7 +8,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://keytouch.sourceforge.net"
 PKG_URL="$SOURCEFORGE_SRC/keytouch/getscancodes-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Shows the scancode of the pressed or released key"
 PKG_LONGDESC="Shows the scancode of the pressed or released key"
 
 PKG_MAKE_OPTS_TARGET="CC=$CC"

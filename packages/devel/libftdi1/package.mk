@@ -8,7 +8,6 @@ PKG_LICENSE="LGPL"
 PKG_SITE="http://www.intra2net.com/en/developer/libftdi/"
 PKG_URL="http://www.intra2net.com/en/developer/libftdi/download/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain libusb"
-PKG_SHORTDESC="libFTDI is an open source library to talk to FTDI chips"
 PKG_LONGDESC="libFTDI is an open source library to talk to FTDI chips"
 PKG_BUILD_FLAGS="+pic"
 

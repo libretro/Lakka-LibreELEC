@@ -10,7 +10,6 @@ PKG_SITE="https://github.com/khadas/android_hardware_wifi_broadcom_drivers_ap6xx
 PKG_URL="https://github.com/khadas/android_hardware_wifi_broadcom_drivers_ap6xxx/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
-PKG_SHORTDESC="ap6xxx: Linux drivers for AP6xxx WLAN chips used in some devices based on Amlogic SoCs"
 PKG_LONGDESC="ap6xxx: Linux drivers for AP6xxx WLAN chips used in some devices based on Amlogic SoCs"
 PKG_IS_KERNEL_PKG="yes"
 PKG_TOOLCHAIN="manual"

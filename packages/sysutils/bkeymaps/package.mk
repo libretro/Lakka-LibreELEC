@@ -8,7 +8,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.alpinelinux.org"
 PKG_URL="http://dev.alpinelinux.org/archive/bkeymaps/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain busybox"
-PKG_SHORTDESC="bkeymaps: binary keyboard maps for busybox"
 PKG_LONGDESC="bkeymaps: binary keyboard maps for busybox"
 
 make_target() {

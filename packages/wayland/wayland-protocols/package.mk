@@ -8,7 +8,6 @@ PKG_LICENSE="OSS"
 PKG_SITE="https://wayland.freedesktop.org/"
 PKG_URL="https://wayland.freedesktop.org/releases/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Specifications of extended Wayland protocols"
 PKG_LONGDESC="Specifications of extended Wayland protocols"
 
 post_makeinstall_target() {

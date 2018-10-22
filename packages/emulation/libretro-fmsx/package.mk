@@ -8,7 +8,6 @@ PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/fmsx-libretro"
 PKG_URL="https://github.com/libretro/fmsx-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SHORTDESC="game.libretro.fmsx: fmsx for Kodi"
 PKG_LONGDESC="game.libretro.fmsx: fmsx for Kodi"
 
 PKG_LIBNAME="fmsx_libretro.so"

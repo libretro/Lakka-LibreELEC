@@ -8,7 +8,6 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/stella-libretro"
 PKG_URL="https://github.com/libretro/stella-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SHORTDESC="game.libretro.stella: Stella for Kodi"
 PKG_LONGDESC="game.libretro.stella: Stella for Kodi"
 
 PKG_LIBNAME="stella_libretro.so"

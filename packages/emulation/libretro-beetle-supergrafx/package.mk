@@ -8,7 +8,6 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-supergrafx-libretro"
 PKG_URL="https://github.com/libretro/beetle-supergrafx-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SHORTDESC="Standalone port of Mednafen PCE Fast to libretro. This one only emulates a SuperGrafx TG-16"
 PKG_LONGDESC="Standalone port of Mednafen PCE Fast to libretro. This one only emulates a SuperGrafx TG-16"
 
 PKG_LIBNAME="mednafen_supergrafx_libretro.so"

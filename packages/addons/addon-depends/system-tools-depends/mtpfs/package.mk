@@ -8,7 +8,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.adebenham.com/mtpfs/"
 PKG_URL="https://github.com/cjd/mtpfs/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain fuse libmtp glib"
-PKG_SHORTDESC="MTPfs is a FUSE filesystem that supports reading and writing from any MTP device"
 PKG_LONGDESC="MTPfs is a FUSE filesystem that supports reading and writing from any MTP device"
 PKG_TOOLCHAIN="autotools"
 

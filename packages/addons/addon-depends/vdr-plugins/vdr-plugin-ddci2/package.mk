@@ -9,7 +9,6 @@ PKG_SITE="https://github.com/jasmin-j/vdr-plugin-ddci2"
 PKG_URL="https://github.com/jasmin-j/vdr-plugin-ddci2/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain vdr"
 PKG_NEED_UNPACK="$(get_pkg_directory vdr)"
-PKG_SHORTDESC="Support for stand alone CI by Digital Devices."
 PKG_LONGDESC="Support for stand alone CI by Digital Devices."
 PKG_TOOLCHAIN="manual"
 

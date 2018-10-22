@@ -8,7 +8,6 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/nestopia"
 PKG_URL="https://github.com/libretro/nestopia/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SHORTDESC="game.libretro.nestopia: Nestopia for Kodi"
 PKG_LONGDESC="game.libretro.nestopia: Nestopia for Kodi"
 PKG_TOOLCHAIN="manual"
 

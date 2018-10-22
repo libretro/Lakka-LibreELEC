@@ -8,7 +8,6 @@ PKG_LICENSE="LGPL"
 PKG_SITE="https://github.com/libretro/4do-libretro"
 PKG_URL="https://github.com/libretro/4do-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Port of 4DO/libfreedo to libretro."
 PKG_LONGDESC="Port of 4DO/libfreedo to libretro."
 
 PKG_LIBNAME="4do_libretro.so"

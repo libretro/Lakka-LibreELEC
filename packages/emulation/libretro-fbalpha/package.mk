@@ -8,7 +8,6 @@ PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/fbalpha"
 PKG_URL="https://github.com/libretro/fbalpha/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SHORTDESC="game.libretro.fba: fba for Kodi"
 PKG_LONGDESC="game.libretro.fba: fba for Kodi"
 PKG_TOOLCHAIN="manual"
 # linking takes too long with lto

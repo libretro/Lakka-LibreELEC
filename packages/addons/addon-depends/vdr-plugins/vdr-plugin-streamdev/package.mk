@@ -10,7 +10,6 @@ PKG_SITE="http://projects.vdr-developer.org/projects/plg-streamdev"
 PKG_URL="https://github.com/vdr-projects/vdr-plugin-streamdev/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain vdr openssl"
 PKG_NEED_UNPACK="$(get_pkg_directory vdr)"
-PKG_SHORTDESC="This PlugIn is a VDR implementation of Video Transfer and a basic HTTP Streaming Protocol."
 PKG_LONGDESC="This PlugIn is a VDR implementation of Video Transfer and a basic HTTP Streaming Protocol."
 PKG_TOOLCHAIN="manual"
 

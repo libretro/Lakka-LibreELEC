@@ -8,7 +8,6 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/vbam-libretro"
 PKG_URL="https://github.com/libretro/vbam-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SHORTDESC="game.libretro.vbam: VBA-M for Kodi"
 PKG_LONGDESC="game.libretro.vbam: VBA-M for Kodi"
 PKG_TOOLCHAIN="make"
 

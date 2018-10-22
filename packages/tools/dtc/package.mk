@@ -9,7 +9,6 @@ PKG_SITE="https://git.kernel.org/pub/scm/utils/dtc/dtc.git/"
 PKG_URL="https://git.kernel.org/pub/scm/utils/dtc/dtc.git/snapshot/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_HOST="Python2:host swig:host"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="The Device Tree Compiler"
 PKG_LONGDESC="The Device Tree Compiler"
 
 PKG_MAKE_OPTS_HOST="dtc libfdt"

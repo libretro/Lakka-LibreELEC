@@ -8,7 +8,6 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/desmume"
 PKG_URL="https://github.com/libretro/desmume/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SHORTDESC="libretro wrapper for desmume NDS emulator."
 PKG_LONGDESC="libretro wrapper for desmume NDS emulator."
 PKG_TOOLCHAIN="make"
 

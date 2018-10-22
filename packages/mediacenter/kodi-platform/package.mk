@@ -9,7 +9,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
 PKG_URL="https://github.com/xbmc/kodi-platform/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain tinyxml $MEDIACENTER p8-platform"
-PKG_SHORTDESC="kodi-platform:"
 PKG_LONGDESC="kodi-platform:"
 
 PKG_CMAKE_OPTS_TARGET="-DCMAKE_INSTALL_LIBDIR:STRING=lib \

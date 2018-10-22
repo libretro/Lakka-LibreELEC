@@ -10,7 +10,6 @@ PKG_SITE="https://github.com/pvaret/rtl8192cu-fixes"
 PKG_URL="$PKG_SITE/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
-PKG_SHORTDESC="Realtek RTL81xxCU Linux 3.x driver"
 PKG_LONGDESC="Realtek RTL81xxCU Linux 3.x driver"
 PKG_IS_KERNEL_PKG="yes"
 

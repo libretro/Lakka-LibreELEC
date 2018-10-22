@@ -8,7 +8,6 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-gba-libretro"
 PKG_URL="https://github.com/libretro/beetle-gba-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SHORTDESC="game.libretro.beetle-gba: Beetle GBA for Kodi"
 PKG_LONGDESC="game.libretro.beetle-gba: Beetle GBA for Kodi"
 
 PKG_LIBNAME="mednafen_gba_libretro.so"

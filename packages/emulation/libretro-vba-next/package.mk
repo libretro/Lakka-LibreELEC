@@ -8,7 +8,6 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/vba-next"
 PKG_URL="https://github.com/libretro/vba-next/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_SHORTDESC="game.libretro.vba-next: VBA-Next for Kodi"
 PKG_LONGDESC="game.libretro.vba-next: VBA-Next for Kodi"
 
 PKG_LIBNAME="vba_next_libretro.so"
