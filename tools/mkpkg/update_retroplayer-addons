@@ -28,13 +28,6 @@ git_clone() {
   fi
 }
 
-resolve_hash() {
-  if [ -d "$1" ] ; then
-    cd "$1"
-    git rev-parse --short $2 2>/dev/null
-  fi
-}
-
 get_pkg_var() {
   local pkg_name="$1" pkg_var="$2"
   cd ${ROOT}
@@ -60,7 +53,7 @@ update_pkg() {
 }
 
 # addons
-for addontxt in "binary-addons https://github.com/lrusak/repo-binary-addons.git retroplayer" ; do
+for addontxt in "binary-addons https://github.com/kodi-game/repo-binary-addons.git retroplayer" ; do
   ADDONS=$(echo $addontxt | awk '{print $1}')
   ADDONREPO=$(echo $addontxt | awk '{print $2}')
   GIT_HASH=$(echo $addontxt | awk '{print $3}')
@@ -70,12 +63,11 @@ for addontxt in "binary-addons https://github.com/lrusak/repo-binary-addons.git 
     for addon in $ADDONS.git/*.*/ ; do
       if [ -n "$(echo $addon | grep game.)" -o -n "$(echo $addon | grep peripheral.)" ]; then
         ADDON=$(basename $addon)
-        REPO=$(cat $addon/$ADDON.txt | awk '{print $2}')
-        GIT_HASH=$(cat $addon/$ADDON.txt | awk '{print $3}')
+        GIT_BRANCH=$(cat $addon/$ADDON.txt | awk '{print $3}')
         EMULATOR="libretro-${ADDON##*.}"
         BUMP_REV=""
         OLD_HASH=""
-        RESOLVED_HASH=""
+        GIT_HASH=""
 
         if ! grep -q all $addon/platforms.txt && ! grep -q linux $addon/platforms.txt && ! grep -q ! $addon/platforms.txt; then
           continue
@@ -88,16 +80,17 @@ for addontxt in "binary-addons https://github.com/lrusak/repo-binary-addons.git 
         if [ -f ${ROOT}/packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ]; then
 
           OLD_HASH=$(get_pkg_var "${ADDON}" PKG_VERSION)
-          git_clone $REPO master $ADDON.git $GIT_HASH
+          PKG_SITE=$(get_pkg_var "${ADDON}" PKG_SITE)
+          GIT_HASH=$(git ls-remote $PKG_SITE $GIT_BRANCH | awk '{print $1}')
 
-          RESOLVED_HASH=$(resolve_hash $ADDON.git $GIT_HASH)
-          if [ "$OLD_HASH" != "$RESOLVED_HASH" ]; then
-            update_pkg ${ROOT}/packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ${ADDON} ${RESOLVED_HASH}
+          if [ "$OLD_HASH" != "$GIT_HASH" -a -n "$GIT_HASH" ]; then
+            update_pkg ${ROOT}/packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ${ADDON} ${GIT_HASH}
 
             BUMP_REV=true
 
+            echo "UPDATING: $ADDON"
             echo "OLD_HASH: $OLD_HASH"
-            echo "NEW_HASH: $RESOLVED_HASH"
+            echo "NEW_HASH: $GIT_HASH"
             echo ""
 
           fi
@@ -111,15 +104,16 @@ for addontxt in "binary-addons https://github.com/lrusak/repo-binary-addons.git 
 
           OLD_HASH=$(get_pkg_var "${EMULATOR}" PKG_VERSION)
           PKG_SITE=$(get_pkg_var "${EMULATOR}" PKG_SITE)
-          git_clone $PKG_SITE master $EMULATOR.git
+          GIT_HASH=$(git ls-remote $PKG_SITE master | awk '{print $1}')
 
-          RESOLVED_HASH=$(resolve_hash $EMULATOR.git master)
-          if [ "$OLD_HASH" != "$RESOLVED_HASH" ]; then
-            update_pkg ${ROOT}/packages/emulation/$EMULATOR/package.mk ${EMULATOR} ${RESOLVED_HASH}
+          if [ "$OLD_HASH" != "$GIT_HASH" -a -n "$GIT_HASH" ]; then
+            update_pkg ${ROOT}/packages/emulation/$EMULATOR/package.mk ${EMULATOR} ${GIT_HASH}
+
             BUMP_REV=true
 
+            echo "UPDATING: $EMULATOR"
             echo "OLD_HASH: $OLD_HASH"
-            echo "NEW_HASH: $RESOLVED_HASH"
+            echo "NEW_HASH: $GIT_HASH"
             echo ""
 
           fi
