@@ -3,13 +3,13 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.ssf"
-PKG_VERSION="8adf1217567daaa0495189b4602c77c5893add85"
-PKG_SHA256="18328f92bdfd426814bfd4e7549f674a171420c945f9284aa6183d70870b7f60"
+PKG_VERSION="f84fe46cea8c624165baba087f67422a196024e3"
+PKG_SHA256="be0946b923395cca1dc02e6b801e7dc61fe39c9836d20e08fddc3a4ce1c36082"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/notspiff/audiodecoder.ssf"
-PKG_URL="https://github.com/notspiff/audiodecoder.ssf/archive/$PKG_VERSION.tar.gz"
+PKG_SITE="https://github.com/xbmc/audiodecoder.ssf"
+PKG_URL="https://github.com/xbmc/audiodecoder.ssf/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION=""
 PKG_SHORTDESC="audiodecoder.ssf"

@@ -3,13 +3,13 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="screensaver.pingpong"
-PKG_VERSION="a702c1b15ec92845302e1cfcad6e2f7d054bdeb0"
-PKG_SHA256="80eb9b0f1292fa9eebe7dfc8843c859b5c1c05c59704ef1d53c88ba87519a153"
+PKG_VERSION="85b6007dc526cf1ba109f32182c2cae574b5b5b4"
+PKG_SHA256="bfe830decb409feeb53b3b4aa0da9c8545f80ce50975e2ea6b251b6a9c11196d"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/notspiff/screensaver.pingpong"
-PKG_URL="https://github.com/notspiff/screensaver.pingpong/archive/$PKG_VERSION.tar.gz"
+PKG_SITE="https://github.com/xbmc/screensaver.pingpong"
+PKG_URL="https://github.com/xbmc/screensaver.pingpong/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION=""
 PKG_SHORTDESC="screensaver.pingpong"

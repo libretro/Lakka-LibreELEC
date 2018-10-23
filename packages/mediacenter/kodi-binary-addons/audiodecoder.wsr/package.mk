@@ -3,13 +3,13 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.wsr"
-PKG_VERSION="c0c55a0559a4affb6cd8406b120f098a5eccb3cd"
-PKG_SHA256="20cc416cab6168225272667a4a25c88e137c9ba6eb7e868876aae5c82d51d87e"
+PKG_VERSION="5463f4f68ef39d3424ced144609addd1d37dedc0"
+PKG_SHA256="5316b15193bffc7dc2105da1ba74403d644abdf5085f8a90ccccac74019804c3"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/notspiff/audiodecoder.wsr"
-PKG_URL="https://github.com/notspiff/audiodecoder.wsr/archive/$PKG_VERSION.tar.gz"
+PKG_SITE="https://github.com/xbmc/audiodecoder.wsr"
+PKG_URL="https://github.com/xbmc/audiodecoder.wsr/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION=""
 PKG_SHORTDESC="audiodecoder.wsr"

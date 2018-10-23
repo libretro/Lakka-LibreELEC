@@ -3,13 +3,13 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.organya"
-PKG_VERSION="93a8601b1249215b30468dcaa5c02544ecb8112a"
-PKG_SHA256="8e37aad49bb9b32ffea3a473c903ceb0b2e1b1e586aa829376d69bd2f0117f3f"
+PKG_VERSION="785cec4a536bbc7a34a9342d55a819ccfc555eed"
+PKG_SHA256="eb8fced34fbbdd7437f411fca6c703640a37b50793354ba7d3fd6f75687eaa17"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/notspiff/audiodecoder.organya"
-PKG_URL="https://github.com/notspiff/audiodecoder.organya/archive/$PKG_VERSION.tar.gz"
+PKG_SITE="https://github.com/xbmc/audiodecoder.organya"
+PKG_URL="https://github.com/xbmc/audiodecoder.organya/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION=""
 PKG_SHORTDESC="audiodecoder.organya"
