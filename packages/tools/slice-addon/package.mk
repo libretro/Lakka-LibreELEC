@@ -4,12 +4,10 @@
 PKG_NAME="slice-addon"
 PKG_VERSION="1.0"
 PKG_REV="101"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE=""
 PKG_URL=""
 PKG_DEPENDS_TARGET=""
-PKG_SHORTDESC="Controls the LED lights on the Slice box using Kodi actions"
 PKG_LONGDESC="Controls the LED lights on the Slice box using Kodi actions"
 PKG_TOOLCHAIN="manual"
 

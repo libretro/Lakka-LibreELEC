@@ -9,8 +9,6 @@ PKG_LICENSE="other"
 PKG_SITE="http://www.amlogic.com"
 PKG_URL="https://github.com/codesnake/amremote/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain usbutils"
-PKG_SECTION="sysutils/remote"
-PKG_SHORTDESC="amremote - IR remote configuration utility for Amlogic-based devices"
 PKG_LONGDESC="amremote - IR remote configuration utility for Amlogic-based devices"
 
 makeinstall_target() {

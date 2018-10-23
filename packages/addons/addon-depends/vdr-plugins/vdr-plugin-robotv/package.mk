@@ -4,15 +4,12 @@
 PKG_NAME="vdr-plugin-robotv"
 PKG_VERSION="50d4bdc"
 PKG_SHA256="062489e55111f0ba2420463cc506865ac59b1c1d080b318cb81d58ec3f4fbd3f"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/pipelka/roboTV"
 PKG_URL="https://github.com/pipelka/vdr-plugin-robotv/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain vdr avahi"
 PKG_NEED_UNPACK="$(get_pkg_directory vdr)"
-PKG_SECTION="multimedia"
-PKG_SHORTDESC="VDR server plugin for roboTV"
-PKG_LONGDESC="RoboTV is a Android TV based frontend for VDR"
+PKG_LONGDESC="RoboTV is a Android TV based frontend for VDR."
 PKG_TOOLCHAIN="cmake"
 
 pre_configure_target() {

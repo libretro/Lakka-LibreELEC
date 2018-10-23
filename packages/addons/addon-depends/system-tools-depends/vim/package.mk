@@ -4,13 +4,10 @@
 PKG_NAME="vim"
 PKG_VERSION="8.0.0684"
 PKG_SHA256="edee3a85471d8e299428971a399cf5fee29febd8eb081f12b241b6ddbf3264f0"
-PKG_ARCH="any"
 PKG_LICENSE="VIM"
 PKG_SITE="http://www.vim.org/"
 PKG_URL="https://github.com/vim/vim/archive/v$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain ncurses"
-PKG_SECTION="tools"
-PKG_SHORTDESC="vim: VI IMproved"
 PKG_LONGDESC="Vim is a highly configurable text editor built to enable efficient text editing."
 
 PKG_CONFIGURE_OPTS_TARGET="vim_cv_getcwd_broken=no \

@@ -9,9 +9,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://dev.gentoo.org/~spock/projects/uvesafb/"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_INIT="toolchain gcc:init"
-PKG_SECTION="system"
-PKG_SHORTDESC="v86d: A userspace helper that runs x86 code in an emulated environment."
-PKG_LONGDESC="v86d is the userspace helper that runs x86 code in an emulated environment. uvesafb will not work without v86d. v86d currently supports the x86 and amd64 (x86-64) architectures."
+PKG_LONGDESC="v86d is the userspace helper that runs x86 code in an emulated environment."
 
 INIT_CONFIGURE_OPTS="--with-x86emu"
 

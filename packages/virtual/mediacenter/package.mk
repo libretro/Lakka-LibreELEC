@@ -4,13 +4,11 @@
 
 PKG_NAME="mediacenter"
 PKG_VERSION=""
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://libreelec.tv"
 PKG_URL=""
 PKG_DEPENDS_TARGET="toolchain $MEDIACENTER"
 PKG_SECTION="virtual"
-PKG_SHORTDESC="Mediacenter: Metapackage"
 PKG_LONGDESC="Mediacenter: Metapackage"
 
 if [ "$MEDIACENTER" = "kodi" ]; then

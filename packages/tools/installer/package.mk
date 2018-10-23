@@ -3,13 +3,10 @@
 
 PKG_NAME="installer"
 PKG_VERSION="1"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://libreelec.tv/"
 PKG_URL=""
 PKG_DEPENDS_TARGET="toolchain busybox newt parted e2fsprogs syslinux grub"
-PKG_SECTION="tools"
-PKG_SHORTDESC="installer: LibreELEC.tv Install manager"
 PKG_LONGDESC="LibreELEC.tv Install manager to install the system on any disk"
 PKG_TOOLCHAIN="manual"
 

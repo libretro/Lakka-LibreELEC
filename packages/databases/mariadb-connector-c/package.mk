@@ -4,7 +4,6 @@
 PKG_NAME="mariadb-connector-c"
 PKG_VERSION="3.0.6"
 PKG_SHA256="46181f8c95c096ac1aa6cb0ca80f4ed0e746873cfd6af84f3bac925d7e2cd091"
-PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="https://mariadb.org/"
 PKG_URL="https://github.com/MariaDB/mariadb-connector-c/archive/v$PKG_VERSION.tar.gz"

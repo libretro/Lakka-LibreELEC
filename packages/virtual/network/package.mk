@@ -3,14 +3,12 @@
 
 PKG_NAME="network"
 PKG_VERSION=""
-PKG_ARCH="any"
 PKG_LICENSE="various"
 PKG_SITE="http://www.openelec.tv"
 PKG_URL=""
 PKG_DEPENDS_TARGET="toolchain connman netbase ethtool openssh"
 PKG_SECTION="virtual"
-PKG_SHORTDESC="network: Metapackage for packages to install network support"
-PKG_LONGDESC="network: Metapackage for various packages to install network support"
+PKG_LONGDESC="Metapackage for various packages to install network support"
 
 if [ "$BLUETOOTH_SUPPORT" = "yes" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bluez"

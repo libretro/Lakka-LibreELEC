@@ -4,13 +4,10 @@
 PKG_NAME="gcc-linaro-arm-eabi"
 PKG_VERSION="4.9.4-2017.01"
 PKG_SHA256="5fa170a74db172dca098c70ae58f4c08d2fca0232ce135530b2ef4996326b4bd"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE=""
 PKG_URL="https://releases.linaro.org/components/toolchain/binaries/4.9-2017.01/arm-eabi/gcc-linaro-${PKG_VERSION}-x86_64_arm-eabi.tar.xz"
-PKG_SOURCE_DIR="gcc-linaro-${PKG_VERSION}-x86_64_arm-eabi"
 PKG_DEPENDS_HOST="ccache:host"
-PKG_SECTION="lang"
 PKG_LONGDESC="Linaro ARM GNU Linux Binary Toolchain"
 PKG_TOOLCHAIN="manual"
 

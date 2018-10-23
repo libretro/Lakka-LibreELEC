@@ -4,14 +4,11 @@
 PKG_NAME="whois"
 PKG_VERSION="5.2.13"
 PKG_SHA256="d7af1e89e7b3c63835e78bcea6c8aeb14640a3f1027f18b7b619a47100a6f2dc"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.linux.it/~md/software/"
 PKG_URL="https://github.com/rfc1036/whois/archive/v${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="system"
-PKG_SHORTDESC="whois is a client-side application which queries the whois directory service for information pertaining to a particular domain name."
-PKG_LONGDESC="whois is a client-side application which queries the whois directory service for information pertaining to a particular domain name."
+PKG_LONGDESC="A tool that queries the whois directory service for information pertaining to a particular domain name."
 
 make_target() {
   make mkpasswd

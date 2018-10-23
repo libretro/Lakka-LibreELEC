@@ -10,8 +10,6 @@ PKG_SITE="https://downloadcenter.intel.com/search?keyword=linux+microcode"
 PKG_URL="https://downloadmirror.intel.com/28087/eng/microcode-${PKG_VERSION}.tgz"
 PKG_DEPENDS_HOST="toolchain"
 PKG_DEPENDS_TARGET="toolchain intel-ucode:host"
-PKG_SECTION="linux-firmware"
-PKG_SHORTDESC="intel-ucode: Intel CPU microcodes"
 PKG_LONGDESC="intel-ucode: Intel CPU microcodes"
 PKG_TOOLCHAIN="manual"
 

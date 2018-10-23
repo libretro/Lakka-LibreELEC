@@ -4,14 +4,11 @@
 PKG_NAME="libass"
 PKG_VERSION="0.13.7"
 PKG_SHA256="7065e5f5fb76e46f2042a62e7c68d81e5482dbeeda24644db1bd066e44da7e9d"
-PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="https://github.com/libass/libass"
 PKG_URL="https://github.com/libass/libass/releases/download/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain freetype fontconfig fribidi"
-PKG_SECTION="multimedia"
-PKG_SHORTDESC="libass: a portable subtitle renderer for the ASS/SSA (Advanced Substation Alpha/Substation Alpha) subtitle format."
-PKG_LONGDESC="libass is a portable subtitle renderer for the ASS/SSA (Advanced Substation Alpha/Substation Alpha) subtitle format. It is mostly compatible with VSFilter"
+PKG_LONGDESC="A portable subtitle renderer for the ASS/SSA (Advanced Substation Alpha/Substation Alpha) subtitle format."
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-test \
                            --enable-fontconfig \

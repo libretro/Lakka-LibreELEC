@@ -4,14 +4,11 @@
 PKG_NAME="irssi"
 PKG_VERSION="1.1.1"
 PKG_SHA256="784807e7a1ba25212347f03e4287cff9d0659f076edfb2c6b20928021d75a1bf"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.irssi.org/"
 PKG_URL="https://github.com/irssi/irssi/releases/download/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain glib ncurses openssl"
-PKG_SECTION="tools"
-PKG_SHORTDESC="IRC client"
-PKG_LONGDESC="Irssi is a terminal based IRC client for UNIX systems"
+PKG_LONGDESC="Irssi is a terminal based IRC client for UNIX systems."
 
 PKG_CONFIGURE_OPTS_TARGET="--with-sysroot=$SYSROOT_PREFIX \
         --disable-glibtest \

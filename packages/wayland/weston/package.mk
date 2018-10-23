@@ -4,13 +4,10 @@
 PKG_NAME="weston"
 PKG_VERSION="3.0.0"
 PKG_SHA256="cde1d55e8dd70c3cbb3d1ec72f60e60000041579caa1d6a262bd9c35e93723a5"
-PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="https://wayland.freedesktop.org/"
 PKG_URL="https://wayland.freedesktop.org/releases/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain wayland-protocols libdrm libxkbcommon libinput cairo libjpeg-turbo dbus"
-PKG_SECTION="wayland"
-PKG_SHORTDESC="Reference implementation of a Wayland compositor"
 PKG_LONGDESC="Reference implementation of a Wayland compositor"
 
 PKG_CONFIGURE_OPTS_TARGET="CFLAGS=-DMESA_EGL_NO_X11_HEADERS \

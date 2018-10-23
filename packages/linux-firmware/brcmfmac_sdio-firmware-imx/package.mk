@@ -4,14 +4,11 @@
 PKG_NAME="brcmfmac_sdio-firmware-imx"
 PKG_VERSION="0.1"
 PKG_SHA256="4c8ed8ae39ecd05d7e3aeebc98cf230912cdcc887fa78d5112f981b6f9358b6e"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/LibreELEC/LibreELEC.tv"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="firmware"
-PKG_SHORTDESC="brcmfmac_sdio-firmware: firmware for brcm bluetooth chips used in some Freescale iMX based devices"
-PKG_LONGDESC="Firmware for Broadcom Bluetooth chips used in some Freescale iMX based devices, and brcm-patchram-plus that downloads a patchram files in the HCD format to the Bluetooth based silicon and combo chips and other utility functions."
+PKG_LONGDESC="Firmware for brcm bluetooth chips used in some Freescale iMX based devices."
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/bin

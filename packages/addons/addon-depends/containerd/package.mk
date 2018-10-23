@@ -4,14 +4,11 @@
 PKG_NAME="containerd"
 PKG_VERSION="06b9cb3"
 PKG_SHA256="4d2b6e30bcc6c4bb901d6b9f19b5ac1d4a2d9b17075a9b1f110102920d01f64a"
-PKG_ARCH="any"
 PKG_LICENSE="APL"
 PKG_SITE="https://containerd.tools/"
 PKG_URL="https://github.com/docker/containerd/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain go:host"
-PKG_SECTION="system"
-PKG_SHORTDESC="containerd is a daemon to control runC"
-PKG_LONGDESC="containerd is a daemon to control runC, built for performance and density. containerd leverages runC's advanced features such as seccomp and user namespace support as well as checkpoint and restore for cloning and live migration of containers."
+PKG_LONGDESC="A daemon to control runC, built for performance and density."
 PKG_TOOLCHAIN="manual"
 
 pre_make_target() {

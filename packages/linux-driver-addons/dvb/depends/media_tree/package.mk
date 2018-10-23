@@ -4,12 +4,10 @@
 PKG_NAME="media_tree"
 PKG_VERSION="2018-08-08-8179de98cd35"
 PKG_SHA256="e4a2c0cddb306c22ccbd0ea997bd020bf2b9c6946b1cc9467ecffbbbafde7f54"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://git.linuxtv.org/media_tree.git"
 PKG_URL="http://linuxtv.org/downloads/drivers/linux-media-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="driver"
 PKG_LONGDESC="Source of Linux Kernel media_tree subsystem to build with media_build."
 PKG_TOOLCHAIN="manual"
 

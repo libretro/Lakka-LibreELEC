@@ -4,13 +4,10 @@
 PKG_NAME="tcpdump"
 PKG_VERSION="4.9.2"
 PKG_SHA256="798b3536a29832ce0cbb07fafb1ce5097c95e308a6f592d14052e1ef1505fe79"
-PKG_ARCH="any"
 PKG_SITE="http://www.tcpdump.org/"
 PKG_URL="http://www.tcpdump.org/release/tcpdump-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libpcap libtirpc"
-PKG_SECTION="network/analyzer"
-PKG_SHORTDESC="powerful tool for network monitoring and data acquisition"
-PKG_LONGDESC="This program allows you to dump the traffic on a network."
+PKG_LONGDESC="A program that allows you to dump the traffic on a network."
 
 PKG_CONFIGURE_OPTS_TARGET="--with-crypto=no"
 

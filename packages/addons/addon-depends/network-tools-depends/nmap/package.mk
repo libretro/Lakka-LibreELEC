@@ -4,14 +4,11 @@
 PKG_NAME="nmap"
 PKG_VERSION="7.70"
 PKG_SHA256="847b068955f792f4cc247593aca6dc3dc4aae12976169873247488de147a6e18"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://nmap.org/"
 PKG_URL="http://nmap.org/dist/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="tools"
-PKG_SHORTDESC="network tool"
-PKG_LONGDESC="Free Security Scanned for Network"
+PKG_LONGDESC="Free Security Scanned for Network."
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --with-pcap=linux \

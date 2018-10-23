@@ -4,14 +4,11 @@
 PKG_NAME="udevil"
 PKG_VERSION="0.4.4"
 PKG_SHA256="ce8c51fd4d589cda7be56e75b42188deeb258c66fc911a9b3a70a3945c157739"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/IgnorantGuru/udevil"
 PKG_URL="https://github.com/IgnorantGuru/udevil/raw/pkg/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain systemd glib"
-PKG_SECTION="system"
-PKG_SHORTDESC="udevil: Mounts and unmounts removable devices and networks without a password."
-PKG_LONGDESC="udevil Mounts and unmounts removable devices and networks without a password (set suid), shows device info, monitors device changes. Emulates mount's and udisks's command line usage and udisks v1's output. Includes the devmon automounting daemon."
+PKG_LONGDESC="Mounts and unmounts removable devices and networks without a password."
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-systemd \
                            --with-mount-prog=/usr/bin/mount \

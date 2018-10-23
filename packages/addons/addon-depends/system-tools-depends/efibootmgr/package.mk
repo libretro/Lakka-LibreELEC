@@ -8,11 +8,8 @@ PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/vathpela/efibootmgr"
 PKG_URL="https://github.com/vathpela/efibootmgr-devel/archive/$PKG_VERSION.tar.gz"
-PKG_SOURCE_DIR="efibootmgr-devel-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain efivar pciutils zlib"
-PKG_SECTION="tools"
-PKG_SHORTDESC="EFI Boot Manager"
-PKG_LONGDESC="This is a Linux user-space application to modify the Intel Extensible Firmware Interface (EFI) Boot Manager configuration. This application can create and destroy boot entries, change the boot order, change the next running boot option, and more."
+PKG_LONGDESC="Tool to modify UEFI Firmware Boot Manager Variables."
 
 pre_make_target() {
   export EXTRA_CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include -I$SYSROOT_PREFIX/usr/include/efivar -fgnu89-inline"

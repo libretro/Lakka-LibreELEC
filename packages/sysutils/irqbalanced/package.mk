@@ -9,8 +9,6 @@ PKG_LICENSE="other"
 PKG_SITE="http://www.freescale.com"
 PKG_URL="https://github.com/dv1/irqbalanced/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain systemd glib"
-PKG_SECTION="system"
-PKG_SHORTDESC="irqbalanced: distribute hardware interrupts across processors on a multiprocessor system."
 PKG_LONGDESC="irqbalanced: distribute hardware interrupts across processors on a multiprocessor system."
 PKG_TOOLCHAIN="configure"
 

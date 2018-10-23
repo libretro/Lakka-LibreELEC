@@ -18,8 +18,6 @@ case $TARGET_KERNEL_ARCH in
     ;;
 esac
 PKG_DEPENDS_TARGET="toolchain alsa-lib"
-PKG_SECTION="multimedia"
-PKG_SHORTDESC="libamcodec: Interface library for Amlogic media codecs"
 PKG_LONGDESC="libamplayer: Interface library for Amlogic media codecs"
 
 post_unpack() {

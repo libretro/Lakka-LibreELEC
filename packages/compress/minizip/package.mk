@@ -4,13 +4,10 @@
 PKG_NAME="minizip"
 PKG_VERSION="1.1"
 PKG_SHA256="5666b5ee3e85dfd2dd119970613c12e6267d31813f07d3ffa5d359fe272cb6d1"
-PKG_ARCH="any"
 PKG_LICENSE="zlib"
 PKG_SITE="https://github.com/nmoinvaz/minizip"
 PKG_URL="https://github.com/nmoinvaz/minizip/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="zlib"
-PKG_SECTION="compress"
-PKG_SHORTDESC="Minizip zlib contribution fork with latest bug fixes"
 PKG_LONGDESC="Minizip zlib contribution fork with latest bug fixes"
 
 PKG_CMAKE_OPTS_TARGET="-DUSE_AES=OFF \

@@ -9,8 +9,6 @@ PKG_LICENSE="other"
 PKG_SITE="http://www.freescale.com"
 PKG_URL="http://www.nxp.com/lgfiles/NMG/MAD/YOCTO/${PKG_NAME}-${PKG_VERSION}.bin"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="linux-firmware"
-PKG_SHORTDESC="firmware-imx: Freescale IMX firmware"
 PKG_LONGDESC="firmware-imx: Freescale IMX firmware such as for the VPU"
 PKG_TOOLCHAIN="manual"
 

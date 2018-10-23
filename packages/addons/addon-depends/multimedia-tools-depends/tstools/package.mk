@@ -5,12 +5,10 @@
 PKG_NAME="tstools"
 PKG_VERSION="db1f79f"
 PKG_SHA256="f204229016c9deafcc75fe602c390339878312126134edbfcebf239e093dc4ff"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kynesim/tstools"
 PKG_URL="https://github.com/kynesim/tstools/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="tools"
 PKG_LONGDESC="This is a set of cross-platform command line tools for working with MPEG data."
 PKG_BUILD_FLAGS="-parallel"
 

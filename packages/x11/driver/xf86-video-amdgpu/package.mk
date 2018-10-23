@@ -9,9 +9,7 @@ PKG_LICENSE="OSS"
 PKG_SITE="http://www.x.org/"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/driver/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain xorg-server"
-PKG_SECTION="x11/driver"
-PKG_SHORTDESC="xf86-video-amdgpu - AMD Radeon video driver for the Xorg X server"
-PKG_LONGDESC="AMD Xorg video driver"
+PKG_LONGDESC="AMD Radeon video driver for the Xorg X server."
 PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-udev \

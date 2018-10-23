@@ -5,16 +5,13 @@
 PKG_NAME="busybox"
 PKG_VERSION="1.29.2"
 PKG_SHA256="67d2fa6e147a45875fe972de62d907ef866fe784c495c363bf34756c444a5d61"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.busybox.net"
 PKG_URL="http://busybox.net/downloads/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_HOST=""
 PKG_DEPENDS_TARGET="toolchain busybox:host hdparm dosfstools e2fsprogs zip unzip pciutils usbutils parted procps-ng gptfdisk libtirpc"
 PKG_DEPENDS_INIT="toolchain libtirpc"
-PKG_SECTION="system"
-PKG_SHORTDESC="BusyBox: The Swiss Army Knife of Embedded Linux"
-PKG_LONGDESC="BusyBox combines tiny versions of many common UNIX utilities into a single small executable. It provides replacements for most of the utilities you usually find in GNU fileutils, shellutils, etc. The utilities in BusyBox generally have fewer options than their full-featured GNU cousins; however, the options that are included provide the expected functionality and behave very much like their GNU counterparts. BusyBox provides a fairly complete environment for any small or embedded system."
+PKG_LONGDESC="BusyBox combines tiny versions of many common UNIX utilities into a single small executable."
 # busybox fails to build with GOLD support enabled with binutils-2.25
 PKG_BUILD_FLAGS="-parallel -gold"
 

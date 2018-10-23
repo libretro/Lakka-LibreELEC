@@ -10,8 +10,6 @@ PKG_SITE="https://github.com/LibreELEC/slice-drivers"
 PKG_URL="https://github.com/LibreELEC/slice-drivers/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
-PKG_SECTION="driver"
-PKG_SHORTDESC="linux kernel modules for the Slice box"
 PKG_LONGDESC="linux kernel modules for the Slice box"
 PKG_IS_KERNEL_PKG="yes"
 

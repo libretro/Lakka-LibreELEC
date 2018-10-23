@@ -9,8 +9,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://mockmoon-cybernetics.ch/computer/raspberry-pi/lan951x-led-ctl/"
 PKG_URL="https://mockmoon-cybernetics.ch/cgi/cgit/lan951x-led-ctl.git/snapshot/lan951x-led-ctl-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain libusb"
-PKG_SECTION="rpi-tools"
-PKG_LONGDESC="Control LEDs connected to LAN9512/LAN9514 ethernet USB controllers"
+PKG_LONGDESC="Control LEDs connected to LAN9512/LAN9514 ethernet USB controllers."
 PKG_TOOLCHAIN="manual"
 
 make_target() {

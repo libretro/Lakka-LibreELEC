@@ -4,14 +4,11 @@
 PKG_NAME="tsdecrypt"
 PKG_VERSION="10.0"
 PKG_SHA256="a337a7d60cc8f78b9dffbd7d675390497763bcb8f878ec9f1bec3eb80f32b1f1"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://georgi.unixsol.org/programs/tsdecrypt"
 PKG_URL="http://georgi.unixsol.org/programs/tsdecrypt/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain libdvbcsa"
-PKG_SECTION="tools"
-PKG_SHORTDESC="tsdecrypt"
-PKG_LONGDESC="tsdecrypt reads incoming mpeg transport stream over UDP/RTP and then decrypts it using libdvbcsa/ffdecsa and keys obtained from OSCAM or similar cam server"
+PKG_LONGDESC="A tool that reads incoming mpeg transport stream over UDP/RTP and then decrypts it using libdvbcsa/ffdecsa."
 
 make_target() {
   make CC=$CC LINK="$LD -o"

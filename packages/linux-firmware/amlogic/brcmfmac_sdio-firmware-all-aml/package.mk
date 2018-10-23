@@ -8,11 +8,8 @@ PKG_ARCH="arm aarch64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kszaq/brcmfmac_sdio-firmware-aml"
 PKG_URL="https://github.com/kszaq/brcmfmac_sdio-firmware-aml/archive/$PKG_VERSION.tar.gz"
-PKG_SOURCE_DIR="brcmfmac_sdio-firmware-aml-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="firmware"
-PKG_SHORTDESC="brcmfmac_sdio-firmware: firmware for brcm bluetooth chips used in some Amlogic based devices"
-PKG_LONGDESC="Firmware for Broadcom Bluetooth devices used in some Amlogic based devices, and brcm-patchram-plus that downloads a patchram files in the HCD format to the Bluetooth based silicon and combo chips and other utility functions."
+PKG_LONGDESC="Firmware for brcm bluetooth chips used in some Amlogic based devices."
 
 post_makeinstall_target() {
   cd $INSTALL/$(get_full_firmware_dir)/brcm

@@ -9,9 +9,7 @@ PKG_LICENSE="MIT"
 PKG_SITE="http://sourceforge.net/p/raspberry-gpio-python/"
 PKG_URL="https://files.pythonhosted.org/packages/source/${PKG_NAME:0:1}/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain Python2 distutilscross:host"
-PKG_SECTION="python"
-PKG_SHORTDESC="A module to control Raspberry Pi GPIO channels"
-PKG_LONGDESC="A module to control Raspberry Pi GPIO channels"
+PKG_LONGDESC="A module to control Raspberry Pi GPIO channels."
 PKG_TOOLCHAIN="manual"
 
 pre_configure_target() {

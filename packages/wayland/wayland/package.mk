@@ -4,14 +4,11 @@
 PKG_NAME="wayland"
 PKG_VERSION="1.14.0"
 PKG_SHA256="ed80cabc0961a759a42092e2c39aabfc1ec9a13c86c98bbe2b812f008da27ab8"
-PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="https://wayland.freedesktop.org/"
 PKG_URL="https://wayland.freedesktop.org/releases/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain wayland:host libxml2"
 PKG_DEPENDS_HOST="libffi:host expat:host libxml2:host"
-PKG_SECTION="wayland"
-PKG_SHORTDESC="a display server protocol"
 PKG_LONGDESC="a display server protocol"
 
 PKG_CONFIGURE_OPTS_HOST="--enable-shared \

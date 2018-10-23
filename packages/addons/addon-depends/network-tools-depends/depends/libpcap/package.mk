@@ -4,14 +4,11 @@
 PKG_NAME="libpcap"
 PKG_VERSION="1.7.4"
 PKG_SHA256="7ad3112187e88328b85e46dce7a9b949632af18ee74d97ffc3f2b41fe7f448b0"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.tcpdump.org/"
 PKG_URL="http://www.tcpdump.org/release/libpcap-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="devel"
-PKG_SHORTDESC="system interface for user-level packet capture"
-PKG_LONGDESC="libpcap (Packet CAPture) provides a portable framework for low-level network monitoring. Applications include network statistics collection, security monitoring, network debugging, etc."
+PKG_LONGDESC="A portable framework for low-level network monitoring."
 
 PKG_CONFIGURE_OPTS_TARGET="LIBS=-lpthread \
                            ac_cv_header_libusb_1_0_libusb_h=no \

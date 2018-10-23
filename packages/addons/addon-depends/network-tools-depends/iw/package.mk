@@ -4,14 +4,11 @@
 PKG_NAME="iw"
 PKG_VERSION="4.14"
 PKG_SHA256="f01671c0074bfdec082a884057edba1b9efd35c89eda554638496f03b769ad89"
-PKG_ARCH="any"
 PKG_LICENSE="PUBLIC_DOMAIN"
 PKG_SITE="http://wireless.kernel.org/en/users/Documentation/iw"
 PKG_URL="https://www.kernel.org/pub/software/network/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain libnl"
-PKG_SECTION="tools"
-PKG_SHORTDESC="iw is a new nl80211 based CLI configuration utility for wireless devices"
-PKG_LONGDESC="iw is a new nl80211 based CLI configuration utility for wireless devices. It supports all new drivers that have been added to the kernel recently."
+PKG_LONGDESC="A new nl80211 based CLI configuration utility for wireless devices."
 # iw fails at runtime with lto enabled
 
 pre_configure_target() {

@@ -5,13 +5,11 @@
 PKG_NAME="serdisplib"
 PKG_VERSION="1.97.9"
 PKG_SHA256="fe82ebe72731e91509083569dfe41a09e21632cc1211cdc4f76274f83ed218fa"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://serdisplib.sourceforge.net/"
 PKG_URL="$SOURCEFORGE_SRC/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libusb-compat"
-PKG_SHORTDESC="serdisplib: a lcd control library"
-PKG_LONGDESC="Library to drive serial/parallel/usb displays with built-in controllers"
+PKG_LONGDESC="Library to drive serial/parallel/usb displays with built-in controllers."
 
 PKG_CONFIGURE_OPTS_TARGET="--prefix=$SYSROOT_PREFIX/usr \
                            --bindir=$SYSROOT_PREFIX/usr/bin \

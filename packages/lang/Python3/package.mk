@@ -5,16 +5,12 @@ PKG_NAME="Python3"
 # When changing PKG_VERSION remember to sync PKG_PYTHON_VERSION!
 PKG_VERSION="3.7.0"
 PKG_SHA256="0382996d1ee6aafe59763426cf0139ffebe36984474d0ec4126dd1c40a8b3549"
-PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.python.org/"
 PKG_URL="http://www.python.org/ftp/python/$PKG_VERSION/${PKG_NAME::-1}-$PKG_VERSION.tar.xz"
-PKG_SOURCE_DIR="${PKG_NAME::-1}-$PKG_VERSION*"
 PKG_DEPENDS_HOST="zlib:host bzip2:host libffi:host util-linux:host"
 PKG_DEPENDS_TARGET="toolchain sqlite expat zlib bzip2 openssl Python3:host readline ncurses"
-PKG_SECTION="lang"
-PKG_SHORTDESC="python3: The Python3 programming language"
-PKG_LONGDESC="Python3 is an interpreted object-oriented programming language, and is often compared with Tcl, Perl, Java or Scheme."
+PKG_LONGDESC="Python3 is an interpreted object-oriented programming language."
 
 PKG_PYTHON_VERSION=python3.7
 

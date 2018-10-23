@@ -5,12 +5,10 @@
 PKG_NAME="alsa-utils"
 PKG_VERSION="1.1.6"
 PKG_SHA256="155caecc40b2220f686f34ba3655a53e3bdbc0586adb1056733949feaaf7d36e"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.alsa-project.org/"
 PKG_URL="ftp://ftp.alsa-project.org/pub/utils/alsa-utils-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain alsa-lib ncurses"
-PKG_SECTION="audio"
 PKG_LONGDESC="This package includes the utilities for ALSA, like alsamixer, aplay, arecord, alsactl, iecset and speaker-test."
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-alsaconf \

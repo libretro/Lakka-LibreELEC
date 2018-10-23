@@ -5,14 +5,11 @@ PKG_NAME="fluxbox"
 # dont bump or go back to ratpoison then f*** all 3rdparty stuff.
 PKG_VERSION="1.3.7"
 PKG_SHA256="c99e2baa06fff1e96342b20415059d12ff1fa2917ade0173c75b2fa570295b9f"
-PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://fluxbox.org/"
 PKG_URL="http://sourceforge.net/projects/fluxbox/files/fluxbox/${PKG_VERSION}/$PKG_NAME-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libX11 libXrandr libXext libXrender"
-PKG_SECTION="x11/other"
-PKG_SHORTDESC="Fluxbox is a windowmanager for X that was based on the Blackbox 0.61.1 code"
-PKG_LONGDESC="Fluxbox is a windowmanager for X that was based on the Blackbox 0.61.1 code. It is very light on resources and easy to handle but yet full of features to make an easy, and extremely fast, desktop experience. It is built using C++ and licensed under the MIT-License."
+PKG_LONGDESC="Fluxbox is a windowmanager for X that was based on the Blackbox 0.61.1 code."
 PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_realloc_0_nonnull=yes \

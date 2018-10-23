@@ -4,14 +4,11 @@
 PKG_NAME="libaacs"
 PKG_VERSION="0.9.0"
 PKG_SHA256="47e0bdc9c9f0f6146ed7b4cc78ed1527a04a537012cf540cf5211e06a248bace"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.videolan.org/developers/libaacs.html"
 PKG_URL="http://download.videolan.org/pub/videolan/libaacs/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain libgcrypt"
-PKG_SECTION="multimedia"
-PKG_SHORTDESC="libaacs: a research project to implement the Advanced Access Content System specification."
-PKG_LONGDESC="libaacs is a research project to implement the Advanced Access Content System specification. This research project provides, through an open-source library, a way to understand how the AACS works. This research project is mainly developed by an international team of developers from Doom9."
+PKG_LONGDESC="libaacs is a research project to implement the Advanced Access Content System specification."
 PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-werror \

@@ -4,13 +4,10 @@
 PKG_NAME="plymouth-lite"
 PKG_VERSION="0.6.0"
 PKG_SHA256="fa7b581bdd38c5751668243ff9d2ebaee7c45753358cbb310fb50cfcd3a8081b"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.meego.com"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_INIT="toolchain gcc:init libpng"
-PKG_SECTION="tools"
-PKG_SHORTDESC="plymouth-lite: Boot splash screen based on Fedora's Plymouth code"
 PKG_LONGDESC="Boot splash screen based on Fedora's Plymouth code"
 
 if [ "$UVESAFB_SUPPORT" = yes ]; then

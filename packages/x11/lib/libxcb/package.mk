@@ -4,13 +4,10 @@
 PKG_NAME="libxcb"
 PKG_VERSION="1.13"
 PKG_SHA256="188c8752193c50ff2dbe89db4554c63df2e26a2e47b0fa415a70918b5b851daa"
-PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://xcb.freedesktop.org"
 PKG_URL="http://xcb.freedesktop.org/dist/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain util-macros Python2:host xcb-proto libpthread-stubs libXau"
-PKG_SECTION="x11/lib"
-PKG_SHORTDESC="libxcb: X C-language Bindings library"
 PKG_LONGDESC="X C-language Bindings library."
 PKG_BUILD_FLAGS="+pic"
 

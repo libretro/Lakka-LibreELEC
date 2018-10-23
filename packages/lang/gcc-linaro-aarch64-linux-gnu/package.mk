@@ -4,13 +4,10 @@
 PKG_NAME="gcc-linaro-aarch64-linux-gnu"
 PKG_VERSION="7.3.1-2018.05"
 PKG_SHA256="73eed74e593e2267504efbcf3678918bb22409ab7afa3dc7c135d2c6790c2345"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE=""
 PKG_URL="https://releases.linaro.org/components/toolchain/binaries/7.3-2018.05/aarch64-linux-gnu/gcc-linaro-${PKG_VERSION}-x86_64_aarch64-linux-gnu.tar.xz"
-PKG_SOURCE_DIR="gcc-linaro-${PKG_VERSION}-x86_64_aarch64-linux-gnu"
 PKG_DEPENDS_HOST="ccache:host"
-PKG_SECTION="lang"
 PKG_LONGDESC="Linaro Aarch64 GNU Linux Binary Toolchain"
 PKG_TOOLCHAIN="manual"
 

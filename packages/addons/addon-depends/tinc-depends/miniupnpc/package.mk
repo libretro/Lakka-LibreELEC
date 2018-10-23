@@ -4,7 +4,6 @@
 PKG_NAME="miniupnpc"
 PKG_VERSION="2.1"
 PKG_SHA256="e19fb5e01ea5a707e2a8cb96f537fbd9f3a913d53d804a3265e3aeab3d2064c6"
-PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://miniupnp.free.fr"
 PKG_URL="http://miniupnp.free.fr/files/$PKG_NAME-$PKG_VERSION.tar.gz"

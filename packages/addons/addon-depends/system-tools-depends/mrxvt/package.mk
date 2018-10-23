@@ -9,9 +9,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://materm.sourceforge.net/"
 PKG_URL="$SOURCEFORGE_SRC/materm/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libX11"
-PKG_SECTION="tools"
-PKG_SHORTDESC="mrxvt: Lightweight Xterm replacement"
-PKG_LONGDESC="Mrxvt (previously named as materm) is a lightweight and powerful multi-tabbed X terminal emulator based on the popular rxvt and aterm. It implements many useful features seen in some modern X terminal emulators, like gnome-terminal and konsole, but keep to be lightweight and independent from the GNOME and KDE desktop environment."
+PKG_LONGDESC="A lightweight and powerful multi-tabbed X terminal emulator based on the popular rxvt and aterm."
 PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_setpgrp_void=no \

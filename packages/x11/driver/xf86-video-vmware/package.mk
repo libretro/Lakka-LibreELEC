@@ -10,8 +10,6 @@ PKG_LICENSE="OSS"
 PKG_SITE="http://www.vmware.com"
 PKG_URL="http://xorg.freedesktop.org/releases/individual/driver/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain mesa libX11 xorg-server"
-PKG_SECTION="x11/driver"
-PKG_SHORTDESC="xf86-video-vmware: The Xorg driver for vmware video"
 PKG_LONGDESC="xf86-video-vmware: The Xorg driver for vmware video"
 PKG_TOOLCHAIN="autotools"
 

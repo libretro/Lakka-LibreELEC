@@ -5,7 +5,6 @@
 PKG_NAME="harfbuzz"
 PKG_VERSION="1.8.1"
 PKG_SHA256="fbed6392ddb085e45e6090a9f389f72926d0e355f4b0a2ef51d35cf21686df45"
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/HarfBuzz"
 PKG_URL="https://www.freedesktop.org/software/harfbuzz/release/harfbuzz-$PKG_VERSION.tar.bz2"

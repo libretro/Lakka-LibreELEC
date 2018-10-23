@@ -6,13 +6,10 @@ PKG_NAME="ffmpeg"
 # Current branch is: release/4.0-kodi
 PKG_VERSION="719e85d" #4.0.2-Leia-Alpha3
 PKG_SHA256="3d6976f34de2abf7ee05f3f5f2af9ba4142e85f68eab75a83b74e89ab9f61541"
-PKG_ARCH="any"
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://ffmpeg.org"
 PKG_URL="https://github.com/xbmc/FFmpeg/archive/${PKG_VERSION}.tar.gz"
-PKG_SOURCE_DIR="FFmpeg-${PKG_VERSION}*"
 PKG_DEPENDS_TARGET="toolchain yasm:host zlib bzip2 openssl speex"
-PKG_SECTION="multimedia"
 PKG_LONGDESC="FFmpeg is a complete, cross-platform solution to record, convert and stream audio and video."
 PKG_BUILD_FLAGS="-gold"
 

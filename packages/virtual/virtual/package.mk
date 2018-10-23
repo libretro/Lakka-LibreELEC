@@ -3,13 +3,11 @@
 
 PKG_NAME="virtual"
 PKG_VERSION=""
-PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.libreelec.tv"
 PKG_URL=""
 PKG_DEPENDS_TARGET="qemu:host"
 PKG_SECTION="virtual"
-PKG_SHORTDESC="virtual: Meta package to install Virtual project extra deps"
 PKG_LONGDESC="virtual is a Meta package to install Virtual project extra dependencies"
 
 get_graphicdrivers
