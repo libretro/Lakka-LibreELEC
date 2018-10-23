@@ -9,6 +9,7 @@ PKG_SITE="https://bitbucket.org/CrazyCat/media_build"
 PKG_URL="https://bitbucket.org/CrazyCat/media_build/get/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain linux media_tree_cc"
 PKG_NEED_UNPACK="$LINUX_DEPENDS media_tree_cc"
+PKG_SECTION="driver.dvb"
 PKG_LONGDESC="DVB driver for TBS cards with CrazyCats additions"
 
 PKG_IS_ADDON="embedded"
