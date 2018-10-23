@@ -11,6 +11,7 @@ PKG_URL="https://github.com/DigitalDevices/dddvb/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain linux"
 PKG_BUILD_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
+PKG_SECTION="driver.dvb"
 PKG_LONGDESC="DVB driver for Digital Devices cards"
 
 PKG_IS_ADDON="embedded"
