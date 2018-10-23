@@ -36,31 +36,23 @@ if [ -e /storage/.please_resize_me ] ; then
 
   # just in case
   if [ ! -z "$DISK" -a ! -z "$PART" ] ; then
-    # get storage partition start
-    PART_START=$(parted -s -m $DISK unit b print 2>/dev/null | grep -v ^/dev | grep -v BYT | grep ^2: |  cut -f2 -d ":")
+    umount $PART
 
-    # failed to get partition start offset ?
-    if [ ! -z "$PART_START" ] ; then
-      umount $PART
+    echo "PARTITION RESIZING IN PROGRESS"
+    echo ""
+    echo "Please do not reboot or turn off your @DISTRONAME@ device!"
+    echo ""
 
-      echo "PARTITION RESIZING IN PROGRESS"
-      echo ""
-      echo "Please do not reboot or turn off your @DISTRONAME@ device!"
-      echo ""
-
-      # identify the partition scheme, and if gpt fix minor issues such as gpt header not at end of disk
-      SCHEME=$(blkid -s PTTYPE -o value $DISK)
-      if [ "$SCHEME" = "gpt" ]; then
-        StartProgress spinner "Checking layout...   " "sgdisk -e $DISK &>/dev/null"
-      fi
-
-      StartProgress spinner "Deleting /storage... " "parted -s -m $DISK rm 2 &>/dev/null"
-      StartProgress spinner "Creating /storage... " "parted -s -m $DISK unit b mkpart primary $PART_START 100% &>/dev/null"
-      StartProgress spinner "Checking /storage... " "e2fsck -f -p $PART &>/dev/null"
-      StartProgress spinner "Resizing /storage... " "resize2fs $PART &>/dev/null"
-
-      StartProgress countdown "Rebooting in 15s... " 15 "NOW"
+    # identify the partition scheme, and if gpt fix minor issues such as gpt header not at end of disk
+    SCHEME=$(blkid -s PTTYPE -o value $DISK)
+    if [ "$SCHEME" = "gpt" ]; then
+      StartProgress spinner "Checking layout...      " "sgdisk -e $DISK &>/dev/null"
     fi
+
+    StartProgress spinner "Resizing partition...   " "parted -s -m $DISK resizepart 2 100% &>/dev/null"
+    StartProgress spinner "Checking file system... " "e2fsck -f -p $PART &>/dev/null"
+    StartProgress spinner "Resizing file system... " "resize2fs $PART &>/dev/null"
+    StartProgress countdown "Rebooting in 15s...     " 15 "NOW"
   fi
 fi
 reboot -f &>/dev/null
