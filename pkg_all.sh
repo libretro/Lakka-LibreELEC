@@ -66,10 +66,12 @@ for a in $(seq 1 $i) ; do
 	declare "project=${!var}"
 	declare "var=device_$a"
 	declare "device=${!var}"
+	declare "var=board_$a"
+	declare "board=${!var}"
 	declare "var=arch_$a"
 	declare "arch=${!var}"
-	target_name=${distro}-${project:-$device}.${arch}
-	DISTRO=$distro PROJECT=$project DEVICE=$device ARCH=$arch $script $package
+	target_name=${distro}-${board:-${device:-$project}}}.${arch}
+	DISTRO=$distro PROJECT=$project DEVICE=$device BOARD=$board ARCH=$arch $script $package
 	if [ $? -gt 0 ] ; then
 		failed+=1
 		failed_targets="${failed_targets}${target_name}\n"

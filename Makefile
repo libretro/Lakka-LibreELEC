@@ -6,10 +6,12 @@ endif
 ifeq ($(PROJECT)$(DEVICE),)
 	_P := *
 else
-	ifeq ($(DEVICE),)
+        ifeq ($(BOARD),)
+                _P := ${DEVICE}
+	else ifeq ($(DEVICE),)
 		_P := ${PROJECT}
 	else
-		_P := ${DEVICE}
+		_P := ${BOARD}
 	endif
 endif
 

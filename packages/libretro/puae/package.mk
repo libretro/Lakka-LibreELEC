@@ -21,7 +21,7 @@
 PKG_NAME="puae"
 PKG_VERSION="cfb9f1e"
 PKG_REV="1"
-PKG_ARCH="any"
+PKG_ARCH="arm i386 x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/libretro/libretro-uae"
 PKG_GIT_URL="$PKG_SITE"
