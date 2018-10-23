@@ -1,3 +1,121 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
+
+### FUNCTION HELPERS ###
+# die (message, code) abort with optional message and code
+die() {
+  if [ -n "$1" ]; then
+    echo -e "$1" >&2
+  fi
+  exit "${2:-1}"
+}
+
+# return 0 if $2 in space-separated list $1, otherwise return 1
+listcontains() {
+  if [ -n "$1" -a -n "$2" ]; then
+    [[ ${1} =~ (^|[[:space:]])${2}($|[[:space:]]) ]] && return 0 || return 1
+  else
+    return 1
+  fi
+}
+
+# remove item(s) from list.
+# looping makes it greedy (eg. removefromlist "abc def ghi" "(abc|def)" will work).
+listremoveitem() {
+  local data="${1}" odata tmp_array
+  if [ -n "$1" -a -n "$2" ]; then
+    while [ : ]; do
+      odata="${data}"
+      data="$(echo "${data}" | sed -E "s (^|[[:space:]])${2}($|[[:space:]]) \  g")"
+      [ "${odata}" = "${data}" ] && break
+    done
+  fi
+  # Use array word splitting to squash spaces
+  tmp_array=(${data})
+  echo "${tmp_array[@]}"
+}
+
+print_color() {
+  local clr_name="$1" clr_text="$2" clr_actual
+
+  if [ "$DISABLE_COLORS" = "yes" ]; then
+    [ $# -eq 2 ] && echo -en "${clr_text}"
+    return 0
+  fi
+
+  clr_actual="${!clr_name}"
+
+  # If $clr_name isn't another colour variable (boldgreen etc.), then
+  # assume it's an actual colour escape sequence.
+  #
+  # Otherwise if $clr_name isn't defined, or doesn't exist, then use
+  # standard colours.
+  #
+  if [[ -n "${clr_actual}" ]] && [[ -z "${!clr_actual}" ]]; then
+    clr_actual="${clr_name}"
+  elif [[ -z "${clr_actual}" ]] || [[ -z "${!clr_actual}" ]]; then
+    case "${clr_name}" in
+      CLR_ERROR)        clr_actual="boldred";;
+      CLR_WARNING)      clr_actual="boldred";;
+      CLR_WARNING_DIM)  clr_actual="red";;
+
+      CLR_APPLY_PATCH)  clr_actual="boldgreen";;
+      CLR_AUTORECONF)   clr_actual="boldmagenta";;
+      CLR_BUILD)        clr_actual="boldyellow";;
+      CLR_TOOLCHAIN)    clr_actual="boldmagenta";;
+      CLR_CLEAN)        clr_actual="boldred";;
+      CLR_FIXCONFIG)    clr_actual="boldyellow";;
+      CLR_GET)          clr_actual="boldcyan";;
+      CLR_INFO)         clr_actual="boldgreen";;
+      CLR_INSTALL)      clr_actual="boldgreen";;
+      CLR_PATCH_DESC)   clr_actual="boldwhite";;
+      CLR_TARGET)       clr_actual="boldwhite";;
+      CLR_UNPACK)       clr_actual="boldcyan";;
+
+      CLR_ENDCOLOR)     clr_actual="endcolor";;
+
+      *)                clr_actual="endcolor";;
+    esac
+  fi
+
+  if [ $# -eq 2 ]; then
+    echo -en "${!clr_actual}${clr_text}${endcolor}"
+  else
+    echo -en "${!clr_actual}"
+  fi
+}
+
+
+### BUILDSYSTEM HELPERS ###
+# check if a flag is enabled
+# $1: flag-name, $2: default (yes/no), $3: ingenious check (none,only-disable,only-enable)
+# set variable PKG_[FLAG]_[HOST/TARGET]_ENABLED=(yes/no)
+# return 0 if flag is enabled, otherwise 1
+flag_enabled() {
+  # make flag name upper case and replace hyphen with underscore, to use as variable name
+  local flag_name=${1^^}
+  [[ $flag_name =~ : ]] || flag_name+="_TARGET"
+  flag_name="PKG_${flag_name//[:-]/_}_ENABLED"
+
+  # check flag
+  if [ -n "${PKG_BUILD_FLAGS}" ] && listcontains "${PKG_BUILD_FLAGS}" "[+]?$1"; then
+    if [ "${3:none}" = "only-disable" ]; then
+      die "ERROR: $1 cannot enable via PKG_BUILD_FLAGS (found in $PKG_NAME)"
+    fi
+    declare ${flag_name}="yes"
+    return 0
+  elif [ "$2" = "yes" ] && ! listcontains "${PKG_BUILD_FLAGS}" "-$1"; then
+    declare ${flag_name}="yes"
+    return 0
+  else
+    if [ "${3:none}" = "only-enable" ]; then
+      die "ERROR: $1 cannot disable via PKG_BUILD_FLAGS (found in $PKG_NAME)"
+    fi
+    declare ${flag_name}="no"
+    return 1
+  fi
+}
+
 setup_toolchain() {
   if [ "$LTO_SUPPORT" = "yes" ]; then
     if flag_enabled "lto-parallel" "no"; then
@@ -220,260 +338,6 @@ reset_pkg_vars() {
   PKG_PYTHON_VERSION="python2.7"
 }
 
-kernel_path() {
-  get_build_dir linux
-}
-
-kernel_version() {
-  get_pkg_version linux
-}
-
-kernel_config_path() {
-  local cfg pkg_linux_dir pkg_linux_version config_name
-
-  pkg_linux_version="$(get_pkg_version linux)"
-  pkg_linux_dir="$(get_pkg_directory linux)"
-
-  config_name="linux.${TARGET_PATCH_ARCH:-$TARGET_ARCH}.conf"
-
-  for cfg in $PROJECT_DIR/$PROJECT/devices/$DEVICE/linux/$pkg_linux_version/$config_name \
-             $PROJECT_DIR/$PROJECT/devices/$DEVICE/linux/$LINUX/$config_name \
-             $PROJECT_DIR/$PROJECT/devices/$DEVICE/linux/$config_name \
-             $PROJECT_DIR/$PROJECT/linux/$pkg_linux_version/$config_name \
-             $PROJECT_DIR/$PROJECT/linux/$LINUX/$config_name \
-             $PROJECT_DIR/$PROJECT/linux/$config_name \
-             $pkg_linux_dir/config/$pkg_linux_version/$config_name \
-             $pkg_linux_dir/config/$LINUX/$config_name \
-             $pkg_linux_dir/config/$config_name \
-             ; do
-    [[ $cfg =~ /devices//linux/ ]] && continue
-    [ -f "$cfg" ] && echo "$cfg" && break
-  done
-}
-
-kernel_make() {
-  LDFLAGS="" make CROSS_COMPILE=$TARGET_KERNEL_PREFIX \
-    ARCH="$TARGET_KERNEL_ARCH" \
-    HOSTCC="$TOOLCHAIN/bin/host-gcc" \
-    HOSTCXX="$TOOLCHAIN/bin/host-g++" \
-    HOSTCFLAGS="$HOST_CFLAGS" \
-    HOSTLDFLAGS="$HOST_LDFLAGS" \
-    HOSTCXXFLAGS="$HOST_CXXFLAGS" \
-    DEPMOD="$TOOLCHAIN/bin/depmod" \
-    "$@"
-}
-
-# get kernel module dir
-get_module_dir() {
-  if [ -n "${_CACHED_KERNEL_MODULE_DIR}" ]; then
-    echo "${_CACHED_KERNEL_MODULE_DIR}"
-  else
-    basename $(ls -d $(get_build_dir linux)/.install_pkg/usr/lib/kernel-overlays/base/lib/modules/*)
-  fi
-}
-
-# get base path to kernel modules and firmware
-get_kernel_overlay_dir() {
-  echo "usr/lib/kernel-overlays/${1:-base}"
-}
-
-# get full path to kernel module dir
-# optional parameter specifies overlay level (default is base)
-get_full_module_dir() {
-  echo "$(get_kernel_overlay_dir $1)/lib/modules/$(get_module_dir)"
-}
-
-# get full path to firmware dir
-# optional parameter specifies overlay level (default is base)
-get_full_firmware_dir() {
-  echo "$(get_kernel_overlay_dir $1)/lib/firmware"
-}
-
-# get package's build dir
-get_build_dir() {
-  local _PKG_NAME="$(get_pkg_variable "$1" PKG_NAME)" _PKG_VERSION="$(get_pkg_version "$1")"
-  if [ -n "$_PKG_NAME" -a -n "$_PKG_VERSION" ]; then
-    echo $BUILD/${_PKG_NAME}-${_PKG_VERSION}
-  fi
-}
-
-get_pkg_version() {
-  get_pkg_variable "$1" PKG_VERSION
-}
-
-get_pkg_directory() {
-  local _PKG_ROOT_NAME=${1%:*} _ALL_DIRS _FOUND=0 _ANCHOR="@?+?@" _PKG_DIR _DIR
-
-  # Check for any available local package in preference to a global package
-  for _DIR in $(grep -F "/${_PKG_ROOT_NAME}${_ANCHOR}" "${_CACHE_PACKAGE_LOCAL}"); do
-    _DIR="${_DIR%${_ANCHOR}}"
-    # found first, set $_PKG_DIR
-    _PKG_DIR="$_DIR"
-    # keep track of dirs with package.mk for detecting multiple folders
-    _ALL_DIRS+="${_DIR}\n"
-    _FOUND=$((_FOUND+1))
-  done
-
-  # If there's no local package available, use the global package
-  if [ $_FOUND -eq 0 ]; then
-    for _DIR in $(grep -F "/${_PKG_ROOT_NAME}${_ANCHOR}" "${_CACHE_PACKAGE_GLOBAL}"); do
-      _DIR="${_DIR%${_ANCHOR}}"
-      # found first, set $_PKG_DIR
-      _PKG_DIR="$_DIR"
-      # keep track of dirs with package.mk for detecting multiple folders
-      _ALL_DIRS+="${_DIR}\n"
-      _FOUND=$((_FOUND+1))
-    done
-  fi
-
-  # _FOUND multiple packages? fail
-  if [ $_FOUND -gt 1 ]; then
-    echo "Error - multiple package folders for package ${_PKG_ROOT_NAME}:" >&2
-    echo -e "$_ALL_DIRS" >&2
-    exit 1
-  fi
-
-  echo "$_PKG_DIR"
-}
-
-# get variable ($2) for package ($1).
-# avoid infinite recursion if required package is already loaded.
-get_pkg_variable() {
-  if [ -n "$1" -a -n "$2" ] ; then
-    if [ "$1" != "$PKG_NAME" ]; then
-      cd $ROOT
-      . config/options $1 &>/dev/null
-    fi
-    echo "${!2}"
-  fi
-}
-
-calculate_stamp() {
-  local stamp
-  stamp="$PKG_DIR $PROJECT_DIR/$PROJECT/patches/$PKG_NAME"
-  [ -n "$DEVICE" ] && stamp+=" $PROJECT_DIR/$PROJECT/devices/$DEVICE/patches/$PKG_NAME"
-  [ -n "$PKG_NEED_UNPACK" ] && stamp+=" $PKG_NEED_UNPACK"
-  find ${stamp} -exec sha256sum {} \; 2>/dev/null | sed "s/ ${ROOT//\//\\/}\// /" | sort | sha256sum | cut -d" " -f1
-}
-
-# return 0 if $2 in space-separated list $1, otherwise return 1
-listcontains() {
-  if [ -n "$1" -a -n "$2" ]; then
-    [[ ${1} =~ (^|[[:space:]])${2}($|[[:space:]]) ]] && return 0 || return 1
-  else
-    return 1
-  fi
-}
-
-# remove item(s) from list.
-# looping makes it greedy (eg. removefromlist "abc def ghi" "(abc|def)" will work).
-listremoveitem() {
-  local data="${1}" odata tmp_array
-  if [ -n "$1" -a -n "$2" ]; then
-    while [ : ]; do
-      odata="${data}"
-      data="$(echo "${data}" | sed -E "s (^|[[:space:]])${2}($|[[:space:]]) \  g")"
-      [ "${odata}" = "${data}" ] && break
-    done
-  fi
-  # Use array word splitting to squash spaces
-  tmp_array=(${data})
-  echo "${tmp_array[@]}"
-}
-
-# check if a flag is enabled
-# $1: flag-name, $2: default (yes/no), $3: ingenious check (none,only-disable,only-enable)
-# set variable PKG_[FLAG]_[HOST/TARGET]_ENABLED=(yes/no)
-# return 0 if flag is enabled, otherwise 1
-flag_enabled() {
-  # make flag name upper case and replace hyphen with underscore, to use as variable name
-  local flag_name=${1^^}
-  [[ $flag_name =~ : ]] || flag_name+="_TARGET"
-  flag_name="PKG_${flag_name//[:-]/_}_ENABLED"
-
-  # check flag
-  if [ -n "${PKG_BUILD_FLAGS}" ] && listcontains "${PKG_BUILD_FLAGS}" "[+]?$1"; then
-    if [ "${3:none}" = "only-disable" ]; then
-      echo "ERROR: $1 can not enable via PKG_BUILD_FLAGS (found in $PKG_NAME)"
-      exit 1
-    fi
-    declare ${flag_name}="yes"
-    return 0
-  elif [ "$2" = "yes" ] && ! listcontains "${PKG_BUILD_FLAGS}" "-$1"; then
-    declare ${flag_name}="yes"
-    return 0
-  else
-    if [ "${3:none}" = "only-enable" ]; then
-      echo "ERROR: $1 can not disable via PKG_BUILD_FLAGS (found in $PKG_NAME)"
-      exit 1
-    fi
-    declare ${flag_name}="no"
-    return 1
-  fi
-}
-
-target_has_feature() {
-  listcontains "$TARGET_FEATURES" "$1"
-}
-
-# find path for matching file or directory, searching standard directory hierarchy, using optional default
-# if a path is located it will be set in FOUND_PATH and exit code will be 0.
-find_path() {
-  local test_func="$1" search="$2" default="$3"
-  local dir match wildcard=0 ftype
-
-  # support wildcard matches
-  [[ $search =~ \* || $search =~ \? ]] && wildcard=1
-
-  [ "$test_func" = "-f" ] && ftype="file" || ftype="dir"
-
-  for dir in $PROJECT_DIR/$PROJECT/devices/$DEVICE/packages/$PKG_NAME \
-             $PROJECT_DIR/$PROJECT/devices/$DEVICE \
-             $PROJECT_DIR/$PROJECT/packages/$PKG_NAME \
-             $PROJECT_DIR/$PROJECT \
-             $DISTRO_DIR/$DISTRO/packages/$PKG_NAME \
-             $DISTRO_DIR/$DISTRO \
-             $PKG_DIR \
-             ; do
-    # ignore directories with missing DEVICE or PKG_NAME components
-    [[ $dir =~ /packages/$ ]] && continue
-    [[ $dir =~ /devices/$ ]] && continue
-    [[ $dir =~ /devices//packages/$PKG_NAME$ ]] && continue
-
-    if [ $wildcard -eq 1 ]; then
-      ls $dir/$search 1>/dev/null 2>&1 && match="$dir/$search" && break
-    else
-      [ $test_func "$dir/$search" ] && match="$dir/$search" && break
-    fi
-  done
-
-  if [ -z "$match" -a -n "$default" ]; then
-    if [[ $default =~ \* || $default =~ \? ]]; then
-      ls $default 1>/dev/null 2>&1 && match="$default"
-    else
-      [ $test_func "$default" ] && match="$default"
-    fi
-  fi
-
-  if [ -n "$match" ]; then
-    FOUND_PATH="$match"
-    [ "${VERBOSE_FIND_PATH,,}" = "yes" ] && echo "find_path: Searching for $ftype: \"$search\", found: \"$FOUND_PATH\"" >&2
-    return 0
-  else
-    unset FOUND_PATH
-    [ "${VERBOSE_FIND_PATH,,}" = "yes" ] && echo "find_path: Searching for $ftype: \"$search\" - not found" >&2
-    return 1
-  fi
-}
-
-find_file_path() {
-  find_path -f "$1" "$2"
-}
-
-find_dir_path() {
-  find_path -d "$1" "$2"
-}
-
 set_debug_depends() {
   local pkg dep_pkg map tmp_array mpkg bpkg kvpair
 
@@ -549,6 +413,423 @@ build_with_debug() {
   return 1
 }
 
+# strip
+debug_strip() {
+  if [ -z "${BUILD_WITH_DEBUG}" ]; then
+    die "ERROR: debug_strip() must not be called without configuring BUILD_WITH_DEBUG"
+  fi
+
+  if [ "${BUILD_WITH_DEBUG}" != "yes" ] && flag_enabled "strip" "yes"; then
+    find $* -type f -executable | xargs $STRIP 2>/dev/null || :
+  fi
+}
+
+init_package_cache() {
+  local _ANCHOR="@?+?@" DIR
+
+  # If the package caches are unset, then populate them
+  if [ -z "${_CACHE_PACKAGE_LOCAL}" -o -z "${_CACHE_PACKAGE_GLOBAL}" ]; then
+    _CACHE_PACKAGE_LOCAL="${BUILD}/.cache_package_local"
+    _CACHE_PACKAGE_GLOBAL="${BUILD}/.cache_package_global"
+    mkdir -p "${BUILD}"
+    : > "${_CACHE_PACKAGE_LOCAL}"
+    : > "${_CACHE_PACKAGE_GLOBAL}"
+
+    # cache project/device folder for a package
+    if [ -n $DEVICE ]; then
+      for DIR in $(find $ROOT/projects/$PROJECT/devices/$DEVICE/packages -type d 2>/dev/null); do
+        [ -r "$DIR/package.mk" ] && echo "${DIR}${_ANCHOR}" >> "${_CACHE_PACKAGE_LOCAL}"
+      done
+    fi
+
+    # cache project folder for a package
+    for DIR in $(find $ROOT/projects/$PROJECT/packages -type d 2>/dev/null); do
+      [ -r "$DIR/package.mk" ] && echo "${DIR}${_ANCHOR}" >> "${_CACHE_PACKAGE_LOCAL}"
+    done
+
+    # cache packages folder
+    for DIR in $(find $ROOT/$PACKAGES -type d 2>/dev/null); do
+      [ -r "$DIR/package.mk" ] && echo "${DIR}${_ANCHOR}" >> "${_CACHE_PACKAGE_GLOBAL}"
+    done
+
+    export _CACHE_PACKAGE_LOCAL _CACHE_PACKAGE_GLOBAL
+  fi
+}
+
+check_path() {
+  local dashes="===========================" path_err_msg
+  if [ "${PWD##/usr}" != "${PWD}" ]; then
+    path_err_msg="\n $dashes$dashes$dashes"
+    path_err_msg="${path_err_msg}\n ERROR: Detected building inside /usr"
+    path_err_msg="${path_err_msg}\n $dashes$dashes$dashes"
+    path_err_msg="${path_err_msg}\n This is not supported with our buildsystem."
+    path_err_msg="${path_err_msg}\n Please use another dir (for example your \$HOME) to build ${DISTRONAME}"
+
+    die "${path_err_msg}"
+  fi
+}
+
+load_build_config() {
+  if [ -d "${1}" -a -f ${1}/.build.conf ]; then
+    source ${1}/.build.conf
+    return 0
+  fi
+  return 1
+}
+
+save_build_config() {
+  local var
+  mkdir -p ${BUILD}
+  rm -f ${BUILD}/.build.conf
+  for var in PROJECT DEVICE ARCH DEBUG BUILD_SUFFIX; do
+    echo "export ${var}=\"${!var}\"" >> ${BUILD}/.build.conf
+  done
+}
+
+check_distro() {
+  local dashes="===========================" distro_err_msg
+  if [ -z "${DISTRO}" -o ! -d "${DISTRO_DIR}/${DISTRO}" ]; then
+    distro_err_msg="\n $dashes$dashes$dashes"
+    distro_err_msg="${distro_err_msg}\n ERROR: Distro not found, use a valid distro or create a new config"
+    distro_err_msg="${distro_err_msg}\n $dashes$dashes$dashes"
+    distro_err_msg="${distro_err_msg}\n\n Valid distros:"
+
+    for distros in ${DISTRO_DIR}/*; do
+      distro_err_msg="${distro_err_msg}\n - ${distros##*/}"
+    done
+    die "${distro_err_msg}"
+  fi
+}
+
+check_project() {
+  local dashes="===========================" project_err_msg
+  if [ -z "${PROJECT}" -o ! -d "${PROJECT_DIR}/${PROJECT}" ]; then
+    project_err_msg="\n $dashes$dashes$dashes"
+    project_err_msg="${project_err_msg}\n ERROR: Project not found, use a valid project or create a new config"
+    project_err_msg="${project_err_msg}\n $dashes$dashes$dashes"
+    project_err_msg="${project_err_msg}\n\n Valid projects:"
+
+    for projects in ${PROJECT_DIR}/*; do
+      project_err_msg="${project_err_msg}\n - ${projects##*/}"
+    done
+    die "${project_err_msg}"
+  fi
+}
+
+check_device() {
+  local dashes="===========================" device_err_msg
+  if [ \( -z "${DEVICE}" -a -d "${PROJECT_DIR}/${PROJECT}/devices" \) -o \
+       \( -n "${DEVICE}" -a ! -d "${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}" \) ]; then
+    device_err_msg="\n $dashes$dashes$dashes"
+    device_err_msg="${device_err_msg}\n ERROR: You need to specify a valid device for the $PROJECT project"
+    device_err_msg="${device_err_msg}\n $dashes$dashes$dashes"
+    device_err_msg="${device_err_msg}\n\n Valid devices for project: ${PROJECT}"
+
+    for device in ${PROJECT_DIR}/${PROJECT}/devices/*; do
+      device_err_msg="${device_err_msg}\n - ${device##*/}"
+    done
+    die "${device_err_msg}"
+  fi
+}
+
+check_arch() {
+  local dashes="===========================" arch_err_msg linux_config_dir
+  if [ -d ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/linux ]; then
+    linux_config_dir="${PROJECT_DIR}/${PROJECT}/devices/$DEVICE/linux"
+  else
+    linux_config_dir="${PROJECT_DIR}/${PROJECT}/linux"
+  fi
+
+  if [ ! -e $linux_config_dir/linux.${TARGET_PATCH_ARCH:-$TARGET_ARCH}.conf ] &&
+     ! ls $linux_config_dir/*/linux.${TARGET_PATCH_ARCH:-$TARGET_ARCH}.conf &>/dev/null; then
+    arch_err_msg="\n $dashes$dashes$dashes"
+    arch_err_msg="${arch_err_msg}\n ERROR: Architecture not found, use a valid Architecture"
+    arch_err_msg="${arch_err_msg}\n for your project or create a new config"
+    arch_err_msg="${arch_err_msg}\n $dashes$dashes$dashes"
+    arch_err_msg="${arch_err_msg}\n\n Valid Architectures for your project: ${PROJECT}"
+
+    for arch in $linux_config_dir/*.conf $linux_config_dir/*/linux.$TARGET_ARCH.conf; do
+      [[ ${arch} =~ .*\*.* ]] && continue #ignore unexpanded wildcard
+      arch_err_msg="${arch_err_msg}\n - $(basename $arch | cut -f2 -d".")"
+    done
+    die "${arch_err_msg}"
+  fi
+}
+
+check_config() {
+  check_distro
+  check_project
+  check_device
+  check_arch
+}
+
+do_autoreconf() {
+  export ACLOCAL_DIR=$SYSROOT_PREFIX/usr/share/aclocal
+
+  if [ -e "$TOOLCHAIN/bin/autoconf" ]; then
+    export AUTOCONF=$TOOLCHAIN/bin/autoconf
+  fi
+
+  if [ -e "$TOOLCHAIN/bin/automake" ]; then
+    export AUTOMAKE=$TOOLCHAIN/bin/automake
+  fi
+
+  if [ -e "$TOOLCHAIN/bin/autopoint" ]; then
+    export AUTOPOINT=$TOOLCHAIN/bin/autopoint
+  fi
+
+  if [ -e "$TOOLCHAIN/bin/libtoolize" ]; then
+    export LIBTOOLIZE=$TOOLCHAIN/bin/libtoolize
+  fi
+
+  if [ -e "$TOOLCHAIN/bin/intltoolize" ]; then
+    export INTLTOOLIZE=$TOOLCHAIN/bin/intltoolize
+  fi
+
+  if [ -e "$TOOLCHAIN/bin/aclocal" ]; then
+    export ACLOCAL="$TOOLCHAIN/bin/aclocal -I $ACLOCAL_DIR"
+  fi
+
+  if [ -e "$TOOLCHAIN/bin/autoheader" ]; then
+    export AUTOHEADER=$TOOLCHAIN/bin/autoheader
+  fi
+
+  if [ -e "$TOOLCHAIN/bin/libtool" ]; then
+    export LIBTOOL=$TOOLCHAIN/bin/libtool
+  fi
+
+  if [ -e "$TOOLCHAIN/bin/autoreconf" -a -e "$INTLTOOLIZE" ]; then
+    mkdir -p $ACLOCAL_DIR
+    if [ -e "$LIBTOOLIZE" ]; then
+      export AUTORECONF="$TOOLCHAIN/bin/autoreconf --verbose --force --install -I $ACLOCAL_DIR"
+    else
+      export AUTORECONF="$TOOLCHAIN/bin/autoreconf --verbose --force -I $ACLOCAL_DIR"
+    fi
+    $AUTORECONF $@
+  fi
+}
+
+
+### PACKAGE HELPERS ###
+# get variable ($2) for package ($1).
+# avoid infinite recursion if required package is already loaded.
+get_pkg_variable() {
+  if [ -n "$1" -a -n "$2" ] ; then
+    if [ "$1" != "$PKG_NAME" ]; then
+      cd $ROOT
+      . config/options $1 &>/dev/null
+    fi
+    echo "${!2}"
+  fi
+}
+
+# get package's build dir
+get_build_dir() {
+  local _PKG_NAME="$(get_pkg_variable "$1" PKG_NAME)" _PKG_VERSION="$(get_pkg_version "$1")"
+  if [ -n "$_PKG_NAME" -a -n "$_PKG_VERSION" ]; then
+    echo $BUILD/${_PKG_NAME}-${_PKG_VERSION}
+  fi
+}
+
+get_pkg_version() {
+  get_pkg_variable "$1" PKG_VERSION
+}
+
+get_pkg_directory() {
+  local _PKG_ROOT_NAME=${1%:*} _ALL_DIRS _FOUND=0 _ANCHOR="@?+?@" _PKG_DIR _DIR
+
+  # Check for any available local package in preference to a global package
+  for _DIR in $(grep -F "/${_PKG_ROOT_NAME}${_ANCHOR}" "${_CACHE_PACKAGE_LOCAL}"); do
+    _DIR="${_DIR%${_ANCHOR}}"
+    # found first, set $_PKG_DIR
+    _PKG_DIR="$_DIR"
+    # keep track of dirs with package.mk for detecting multiple folders
+    _ALL_DIRS+="${_DIR}\n"
+    _FOUND=$((_FOUND+1))
+  done
+
+  # If there's no local package available, use the global package
+  if [ $_FOUND -eq 0 ]; then
+    for _DIR in $(grep -F "/${_PKG_ROOT_NAME}${_ANCHOR}" "${_CACHE_PACKAGE_GLOBAL}"); do
+      _DIR="${_DIR%${_ANCHOR}}"
+      # found first, set $_PKG_DIR
+      _PKG_DIR="$_DIR"
+      # keep track of dirs with package.mk for detecting multiple folders
+      _ALL_DIRS+="${_DIR}\n"
+      _FOUND=$((_FOUND+1))
+    done
+  fi
+
+  # _FOUND multiple packages? fail
+  if [ $_FOUND -gt 1 ]; then
+    echo "Error - multiple package folders for package ${_PKG_ROOT_NAME}:" >&2
+    echo -e "$_ALL_DIRS" >&2
+    die
+  fi
+
+  echo "$_PKG_DIR"
+}
+
+calculate_stamp() {
+  local stamp
+  stamp="$PKG_DIR $PROJECT_DIR/$PROJECT/patches/$PKG_NAME"
+  [ -n "$DEVICE" ] && stamp+=" $PROJECT_DIR/$PROJECT/devices/$DEVICE/patches/$PKG_NAME"
+  [ -n "$PKG_NEED_UNPACK" ] && stamp+=" $PKG_NEED_UNPACK"
+  find ${stamp} -exec sha256sum {} \; 2>/dev/null | sed "s/ ${ROOT//\//\\/}\// /" | sort | sha256sum | cut -d" " -f1
+}
+
+target_has_feature() {
+  listcontains "$TARGET_FEATURES" "$1"
+}
+
+# find path for matching file or directory, searching standard directory hierarchy, using optional default
+# if a path is located it will be set in FOUND_PATH and exit code will be 0.
+find_path() {
+  local test_func="$1" search="$2" default="$3"
+  local dir match wildcard=0 ftype
+
+  # support wildcard matches
+  [[ $search =~ \* || $search =~ \? ]] && wildcard=1
+
+  [ "$test_func" = "-f" ] && ftype="file" || ftype="dir"
+
+  for dir in $PROJECT_DIR/$PROJECT/devices/$DEVICE/packages/$PKG_NAME \
+             $PROJECT_DIR/$PROJECT/devices/$DEVICE \
+             $PROJECT_DIR/$PROJECT/packages/$PKG_NAME \
+             $PROJECT_DIR/$PROJECT \
+             $DISTRO_DIR/$DISTRO/packages/$PKG_NAME \
+             $DISTRO_DIR/$DISTRO \
+             $PKG_DIR \
+             ; do
+    # ignore directories with missing DEVICE or PKG_NAME components
+    [[ $dir =~ /packages/$ ]] && continue
+    [[ $dir =~ /devices/$ ]] && continue
+    [[ $dir =~ /devices//packages/$PKG_NAME$ ]] && continue
+
+    if [ $wildcard -eq 1 ]; then
+      ls $dir/$search 1>/dev/null 2>&1 && match="$dir/$search" && break
+    else
+      [ $test_func "$dir/$search" ] && match="$dir/$search" && break
+    fi
+  done
+
+  if [ -z "$match" -a -n "$default" ]; then
+    if [[ $default =~ \* || $default =~ \? ]]; then
+      ls $default 1>/dev/null 2>&1 && match="$default"
+    else
+      [ $test_func "$default" ] && match="$default"
+    fi
+  fi
+
+  if [ -n "$match" ]; then
+    FOUND_PATH="$match"
+    [ "${VERBOSE_FIND_PATH,,}" = "yes" ] && echo "find_path: Searching for $ftype: \"$search\", found: \"$FOUND_PATH\"" >&2
+    return 0
+  else
+    unset FOUND_PATH
+    [ "${VERBOSE_FIND_PATH,,}" = "yes" ] && echo "find_path: Searching for $ftype: \"$search\" - not found" >&2
+    return 1
+  fi
+}
+
+find_file_path() {
+  find_path -f "$1" "$2"
+}
+
+find_dir_path() {
+  find_path -d "$1" "$2"
+}
+
+
+### KERNEL HELPERS ###
+kernel_path() {
+  get_build_dir linux
+}
+
+kernel_version() {
+  get_pkg_version linux
+}
+
+kernel_config_path() {
+  local cfg pkg_linux_dir pkg_linux_version config_name
+
+  pkg_linux_version="$(get_pkg_version linux)"
+  pkg_linux_dir="$(get_pkg_directory linux)"
+
+  config_name="linux.${TARGET_PATCH_ARCH:-$TARGET_ARCH}.conf"
+
+  for cfg in $PROJECT_DIR/$PROJECT/devices/$DEVICE/linux/$pkg_linux_version/$config_name \
+             $PROJECT_DIR/$PROJECT/devices/$DEVICE/linux/$LINUX/$config_name \
+             $PROJECT_DIR/$PROJECT/devices/$DEVICE/linux/$config_name \
+             $PROJECT_DIR/$PROJECT/linux/$pkg_linux_version/$config_name \
+             $PROJECT_DIR/$PROJECT/linux/$LINUX/$config_name \
+             $PROJECT_DIR/$PROJECT/linux/$config_name \
+             $pkg_linux_dir/config/$pkg_linux_version/$config_name \
+             $pkg_linux_dir/config/$LINUX/$config_name \
+             $pkg_linux_dir/config/$config_name \
+             ; do
+    [[ $cfg =~ /devices//linux/ ]] && continue
+    [ -f "$cfg" ] && echo "$cfg" && break
+  done
+}
+
+kernel_make() {
+  LDFLAGS="" make CROSS_COMPILE=$TARGET_KERNEL_PREFIX \
+    ARCH="$TARGET_KERNEL_ARCH" \
+    HOSTCC="$TOOLCHAIN/bin/host-gcc" \
+    HOSTCXX="$TOOLCHAIN/bin/host-g++" \
+    HOSTCFLAGS="$HOST_CFLAGS" \
+    HOSTLDFLAGS="$HOST_LDFLAGS" \
+    HOSTCXXFLAGS="$HOST_CXXFLAGS" \
+    DEPMOD="$TOOLCHAIN/bin/depmod" \
+    "$@"
+}
+
+# get kernel module dir
+get_module_dir() {
+  if [ -n "${_CACHED_KERNEL_MODULE_DIR}" ]; then
+    echo "${_CACHED_KERNEL_MODULE_DIR}"
+  else
+    basename $(ls -d $(get_build_dir linux)/.install_pkg/usr/lib/kernel-overlays/base/lib/modules/*)
+  fi
+}
+
+# get base path to kernel modules and firmware
+get_kernel_overlay_dir() {
+  echo "usr/lib/kernel-overlays/${1:-base}"
+}
+
+# get full path to kernel module dir
+# optional parameter specifies overlay level (default is base)
+get_full_module_dir() {
+  echo "$(get_kernel_overlay_dir $1)/lib/modules/$(get_module_dir)"
+}
+
+# get full path to firmware dir
+# optional parameter specifies overlay level (default is base)
+get_full_firmware_dir() {
+  echo "$(get_kernel_overlay_dir $1)/lib/firmware"
+}
+
+fix_module_depends() {
+  # modify .modinfo section in kernel module to depends on other required modules
+  local MODULE="$1"
+  local DEPENDS="$2"
+  local OLD_DEPENDS=""
+  cp ${MODULE} ${MODULE}_orig
+  $OBJDUMP -s -j .modinfo ${MODULE}_orig | awk 'BEGIN{v=0;} /Contents/ {v=1; next;} {if (v==1) print $0;}' >new.modinfo1
+  cat new.modinfo1 | cut -c7-41 | awk '{printf($0);}' | sed 's/ //g;s/../\\\x&/g;' >new.modinfo2
+  /bin/echo -ne `cat new.modinfo2` | tr '\000' '\n' >new.modinfo3
+  cat new.modinfo3 | awk '/^depends=/ {next;} {print $0;}' | tr '\n' '\000' >new.modinfo
+  OLD_DEPENDS=$(awk '{FS="="} /depends=/ {print $2}' new.modinfo3)
+  [ -n "$OLD_DEPENDS" ] && DEPENDS="$OLD_DEPENDS,$DEPENDS"
+  /bin/echo -ne "depends=$DEPENDS\0" >>new.modinfo
+  $OBJCOPY --remove-section=.modinfo --add-section=.modinfo=new.modinfo --set-section-flags .modinfo=contents,alloc,load,readonly,data ${MODULE}_orig ${MODULE}
+  rm new.modinfo*
+}
+
+
+### ADDON HELPERS ###
 install_binary_addon() {
   local addon_id="$1" addon_so
 
@@ -604,9 +885,8 @@ done
     cp $ROOT/config/addon/${PKG_ADDON_TYPE}.xml "$addon_xml"
     addon_version=${PKG_ADDON_VERSION:-${ADDON_VERSION}.${PKG_REV}}
   else
-    if [ ! $(which xmlstarlet) ]; then
-      echo "*** ERROR: $ADDON has addon.xml shipped, you need 'xmlstarlet' ***"
-      exit 255
+    if  ! command -v xmlstarlet >/dev/null ; then
+      die "*** ERROR: $ADDON has addon.xml shipped, you need 'xmlstarlet' ***" "255"
     fi
     addon_version="${PKG_ADDON_VERSION:-$(xmlstarlet sel -t -v "/addon/@version" "$addon_xml").$PKG_REV}"
     xmlstarlet ed --inplace -u "/addon[@version]/@version" -v "$addon_version" "$addon_xml"
@@ -646,10 +926,16 @@ done
        -i "$addon_xml"
 }
 
+install_addon_files() {
+  install_addon_source "$1"
+  install_addon_images "$1"
+  create_addon_xml "$1"
+}
+
 install_driver_addon_files() {
   if [ "$#" -eq 0 ] ; then
     printf "$(print_color CLR_ERROR "no module search path defined")\n"
-    exit 1
+    die
   fi
 
   PKG_MODULE_DIR="$INSTALL/$(get_full_module_dir $PKG_ADDON_ID)/updates/$PKG_ADDON_ID"
@@ -665,12 +951,8 @@ install_driver_addon_files() {
   install_addon_files "$PKG_ADDON_DIR"
 }
 
-install_addon_files() {
-  install_addon_source "$1"
-  install_addon_images "$1"
-  create_addon_xml "$1"
-}
 
+### TARGET CONFIGURATION HELPERS ###
 add_user() {
   # Usage: add_user "username" "password" "userid" "groupid" "description" "home" "shell"
   mkdir -p ${INSTALL}/etc
@@ -701,69 +983,6 @@ add_group() {
   fi
 }
 
-do_autoreconf() {
-  export ACLOCAL_DIR=$SYSROOT_PREFIX/usr/share/aclocal
-
-  if [ -e "$TOOLCHAIN/bin/autoconf" ]; then
-    export AUTOCONF=$TOOLCHAIN/bin/autoconf
-  fi
-
-  if [ -e "$TOOLCHAIN/bin/automake" ]; then
-    export AUTOMAKE=$TOOLCHAIN/bin/automake
-  fi
-
-  if [ -e "$TOOLCHAIN/bin/autopoint" ]; then
-    export AUTOPOINT=$TOOLCHAIN/bin/autopoint
-  fi
-
-  if [ -e "$TOOLCHAIN/bin/libtoolize" ]; then
-    export LIBTOOLIZE=$TOOLCHAIN/bin/libtoolize
-  fi
-
-  if [ -e "$TOOLCHAIN/bin/intltoolize" ]; then
-    export INTLTOOLIZE=$TOOLCHAIN/bin/intltoolize
-  fi
-
-  if [ -e "$TOOLCHAIN/bin/aclocal" ]; then
-    export ACLOCAL="$TOOLCHAIN/bin/aclocal -I $ACLOCAL_DIR"
-  fi
-
-  if [ -e "$TOOLCHAIN/bin/autoheader" ]; then
-    export AUTOHEADER=$TOOLCHAIN/bin/autoheader
-  fi
-
-  if [ -e "$TOOLCHAIN/bin/libtool" ]; then
-    export LIBTOOL=$TOOLCHAIN/bin/libtool
-  fi
-
-  if [ -e "$TOOLCHAIN/bin/autoreconf" -a -e "$INTLTOOLIZE" ]; then
-    mkdir -p $ACLOCAL_DIR
-    if [ -e "$LIBTOOLIZE" ]; then
-      export AUTORECONF="$TOOLCHAIN/bin/autoreconf --verbose --force --install -I $ACLOCAL_DIR"
-    else
-      export AUTORECONF="$TOOLCHAIN/bin/autoreconf --verbose --force -I $ACLOCAL_DIR"
-    fi
-    $AUTORECONF $@
-  fi
-}
-
-fix_module_depends() {
-  # modify .modinfo section in kernel module to depends on other required modules
-  local MODULE="$1"
-  local DEPENDS="$2"
-  local OLD_DEPENDS=""
-  cp ${MODULE} ${MODULE}_orig
-  $OBJDUMP -s -j .modinfo ${MODULE}_orig | awk 'BEGIN{v=0;} /Contents/ {v=1; next;} {if (v==1) print $0;}' >new.modinfo1
-  cat new.modinfo1 | cut -c7-41 | awk '{printf($0);}' | sed 's/ //g;s/../\\\x&/g;' >new.modinfo2
-  /bin/echo -ne `cat new.modinfo2` | tr '\000' '\n' >new.modinfo3
-  cat new.modinfo3 | awk '/^depends=/ {next;} {print $0;}' | tr '\n' '\000' >new.modinfo
-  OLD_DEPENDS=$(awk '{FS="="} /depends=/ {print $2}' new.modinfo3)
-  [ -n "$OLD_DEPENDS" ] && DEPENDS="$OLD_DEPENDS,$DEPENDS"
-  /bin/echo -ne "depends=$DEPENDS\0" >>new.modinfo
-  $OBJCOPY --remove-section=.modinfo --add-section=.modinfo=new.modinfo --set-section-flags .modinfo=contents,alloc,load,readonly,data ${MODULE}_orig ${MODULE}
-  rm new.modinfo*
-}
-
 # Usage: enable_service <unit> [target]
 enable_service () {
   local unit="$1"
@@ -771,7 +990,7 @@ enable_service () {
   local target="$2"
   local target_dir=$INSTALL
 
-  [ -f "$target_dir/$unit_dir/$unit" ] || exit 1
+  [ -f "$target_dir/$unit_dir/$unit" ] || die
   if [ -z "$target" ] ; then
     for target in `grep '^WantedBy' $target_dir/$unit_dir/$unit | cut -f2 -d=` ; do
       if [ -n "$target" ]; then
@@ -785,182 +1004,6 @@ enable_service () {
       ln -sf ${unit} ${target_dir}/$unit_dir/${target}
     fi
   done
-}
-
-init_package_cache() {
-  local _ANCHOR="@?+?@" DIR
-
-  # If the package caches are unset, then populate them
-  if [ -z "${_CACHE_PACKAGE_LOCAL}" -o -z "${_CACHE_PACKAGE_GLOBAL}" ]; then
-    _CACHE_PACKAGE_LOCAL="${BUILD}/.cache_package_local"
-    _CACHE_PACKAGE_GLOBAL="${BUILD}/.cache_package_global"
-    mkdir -p "${BUILD}"
-    : > "${_CACHE_PACKAGE_LOCAL}"
-    : > "${_CACHE_PACKAGE_GLOBAL}"
-
-    # cache project/device folder for a package
-    if [ -n $DEVICE ]; then
-      for DIR in $(find $ROOT/projects/$PROJECT/devices/$DEVICE/packages -type d 2>/dev/null); do
-        [ -r "$DIR/package.mk" ] && echo "${DIR}${_ANCHOR}" >> "${_CACHE_PACKAGE_LOCAL}"
-      done
-    fi
-
-    # cache project folder for a package
-    for DIR in $(find $ROOT/projects/$PROJECT/packages -type d 2>/dev/null); do
-      [ -r "$DIR/package.mk" ] && echo "${DIR}${_ANCHOR}" >> "${_CACHE_PACKAGE_LOCAL}"
-    done
-
-    # cache packages folder
-    for DIR in $(find $ROOT/$PACKAGES -type d 2>/dev/null); do
-      [ -r "$DIR/package.mk" ] && echo "${DIR}${_ANCHOR}" >> "${_CACHE_PACKAGE_GLOBAL}"
-    done
-
-    export _CACHE_PACKAGE_LOCAL _CACHE_PACKAGE_GLOBAL
-  fi
-}
-
-check_path() {
-  dashes="==========================="
-  if [ "${PWD##/usr}" != "${PWD}" ]; then
-    check_pathmessage="$check_pathmessage\n $dashes$dashes$dashes"
-    check_pathmessage="$check_pathmessage\n ERROR: You try to build inside /usr"
-    check_pathmessage="$check_pathmessage\n $dashes$dashes$dashes"
-    check_pathmessage="$check_pathmessage\n This is not supported with our buildsystem."
-    check_pathmessage="$check_pathmessage\n Please use another dir (for example your \$HOME) to build $DISTRONAME"
-
-    echo -e $check_pathmessage
-    exit 1
-  fi
-}
-
-load_build_config() {
-  if [ -d "${1}" -a -f ${1}/.build.conf ]; then
-    source ${1}/.build.conf
-    return 0
-  fi
-  return 1
-}
-
-save_build_config() {
-  local var
-  mkdir -p ${BUILD}
-  rm -f ${BUILD}/.build.conf
-  for var in PROJECT DEVICE ARCH DEBUG BUILD_SUFFIX; do
-    echo "export ${var}=\"${!var}\"" >> ${BUILD}/.build.conf
-  done
-}
-
-check_config() {
-  dashes="==========================="
-  if [ ! -d $PROJECT_DIR/$PROJECT ]; then
-    check_project="$check_project\n $dashes$dashes$dashes"
-    check_project="$check_project\n ERROR: Project not found, use a valid project or create a new config"
-    check_project="$check_project\n $dashes$dashes$dashes"
-    check_project="$check_project\n\n Valid projects:"
-
-    for projects in $PROJECT_DIR/*; do
-      check_project="$check_project\n - $(basename $projects)"
-    done
-    echo -e $check_project
-    exit 1
-  fi
-
-  if [ \( -z "$DEVICE" -a -d "$PROJECT_DIR/$PROJECT/devices" \) -o \( -n "$DEVICE" -a ! -d "$PROJECT_DIR/$PROJECT/devices/$DEVICE" \) ]; then
-    check_device="$check_device\n $dashes$dashes$dashes"
-    check_device="$check_device\n ERROR: You need to specify a valid device for the $PROJECT project"
-    check_device="$check_device\n $dashes$dashes$dashes"
-    check_device="$check_device\n\n Valid devices for project: $PROJECT"
-
-    for device in $PROJECT_DIR/$PROJECT/devices/*; do
-      check_device="$check_device\n - $(basename $device)"
-    done
-    echo -e $check_device
-    exit 1
-  fi
-
-  if [ -d $PROJECT_DIR/$PROJECT/devices/$DEVICE/linux ]; then
-    linux_config_dir="$PROJECT_DIR/$PROJECT/devices/$DEVICE/linux"
-  else
-    linux_config_dir="$PROJECT_DIR/$PROJECT/linux"
-  fi
-
-  if [ ! -e $linux_config_dir/linux.${TARGET_PATCH_ARCH:-$TARGET_ARCH}.conf ] &&
-     ! ls $linux_config_dir/*/linux.${TARGET_PATCH_ARCH:-$TARGET_ARCH}.conf &>/dev/null; then
-    check_arch="$check_arch\n $dashes$dashes$dashes"
-    check_arch="$check_arch\n ERROR: Architecture not found, use a valid Architecture"
-    check_arch="$check_arch\n for your project or create a new config"
-    check_arch="$check_arch\n $dashes$dashes$dashes"
-    check_arch="$check_arch\n\n Valid Architectures for your project: $PROJECT"
-
-    for arch in $linux_config_dir/*.conf $linux_config_dir/*/linux.$TARGET_ARCH.conf; do
-      [[ ${arch} =~ .*\*.* ]] && continue #ignore unexpanded wildcard
-      check_arch="$check_arch\n - $(basename $arch | cut -f2 -d".")"
-    done
-    echo -e $check_arch
-    exit 1
-  fi
-}
-
-# strip
-debug_strip() {
-  if [ -z "${BUILD_WITH_DEBUG}" ]; then
-    echo "ERROR: debug_strip() must not be called without configuring BUILD_WITH_DEBUG" >&2
-    exit 1
-  fi
-
-  if [ "${BUILD_WITH_DEBUG}" != "yes" ] && flag_enabled "strip" "yes"; then
-    find $* -type f -executable | xargs $STRIP 2>/dev/null || :
-  fi
-}
-
-print_color() {
-  local clr_name="$1" clr_text="$2" clr_actual
-
-  if [ "$DISABLE_COLORS" = "yes" ]; then
-    [ $# -eq 2 ] && echo -en "${clr_text}"
-    return 0
-  fi
-
-  clr_actual="${!clr_name}"
-
-  # If $clr_name isn't another colour variable (boldgreen etc.), then
-  # assume it's an actual colour escape sequence.
-  #
-  # Otherwise if $clr_name isn't defined, or doesn't exist, then use
-  # standard colours.
-  #
-  if [[ -n "${clr_actual}" ]] && [[ -z "${!clr_actual}" ]]; then
-    clr_actual="${clr_name}"
-  elif [[ -z "${clr_actual}" ]] || [[ -z "${!clr_actual}" ]]; then
-    case "${clr_name}" in
-      CLR_ERROR)        clr_actual="boldred";;
-      CLR_WARNING)      clr_actual="boldred";;
-      CLR_WARNING_DIM)  clr_actual="red";;
-
-      CLR_APPLY_PATCH)  clr_actual="boldgreen";;
-      CLR_AUTORECONF)   clr_actual="boldmagenta";;
-      CLR_BUILD)        clr_actual="boldyellow";;
-      CLR_TOOLCHAIN)    clr_actual="boldmagenta";;
-      CLR_CLEAN)        clr_actual="boldred";;
-      CLR_FIXCONFIG)    clr_actual="boldyellow";;
-      CLR_GET)          clr_actual="boldcyan";;
-      CLR_INFO)         clr_actual="boldgreen";;
-      CLR_INSTALL)      clr_actual="boldgreen";;
-      CLR_PATCH_DESC)   clr_actual="boldwhite";;
-      CLR_TARGET)       clr_actual="boldwhite";;
-      CLR_UNPACK)       clr_actual="boldcyan";;
-
-      CLR_ENDCOLOR)     clr_actual="endcolor";;
-
-      *)                clr_actual="endcolor";;
-    esac
-  fi
-
-  if [ $# -eq 2 ]; then
-    echo -en "${!clr_actual}${clr_text}${endcolor}"
-  else
-    echo -en "${!clr_actual}"
-  fi
 }
 
 # Use distribution functions if any
