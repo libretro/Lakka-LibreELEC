@@ -1,0 +1,57 @@
+From f892d3791219d1041e0cbb1b866e15774004aa18 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Michel=20D=C3=A4nzer?= <michel.daenzer@amd.com>
+Date: Mon, 15 Oct 2018 17:14:41 +0200
+Subject: dri3: Handle radeon_get_pixmap_bo returning NULL
+
+We were trying to already, but testing the wrong pointer.
+
+Fixes: b85b7b11f5b5 "Add struct radeon_buffer"
+Bug: https://bugs.debian.org/910846
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ src/radeon_dri3.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/src/radeon_dri3.c b/src/radeon_dri3.c
+index 7e89a2f..25078ba 100644
+--- a/src/radeon_dri3.c
++++ b/src/radeon_dri3.c
+@@ -212,7 +212,7 @@ static int radeon_dri3_fd_from_pixmap(ScreenPtr screen,
+ 				      CARD16 *stride,
+ 				      CARD32 *size)
+ {
+-	struct radeon_bo *bo;
++	struct radeon_buffer *bo;
+ 	int fd;
+ #ifdef USE_GLAMOR
+ 	ScrnInfoPtr scrn = xf86ScreenToScrn(screen);
+@@ -222,10 +222,10 @@ static int radeon_dri3_fd_from_pixmap(ScreenPtr screen,
+ 		return glamor_fd_from_pixmap(screen, pixmap, stride, size);
+ #endif
+ 
+-	bo = radeon_get_pixmap_bo(pixmap)->bo.radeon;
++	bo = radeon_get_pixmap_bo(pixmap);
+ 	if (!bo) {
+ 		exaMoveInPixmap(pixmap);
+-		bo = radeon_get_pixmap_bo(pixmap)->bo.radeon;
++		bo = radeon_get_pixmap_bo(pixmap);
+ 		if (!bo)
+ 			return -1;
+ 	}
+@@ -233,11 +233,11 @@ static int radeon_dri3_fd_from_pixmap(ScreenPtr screen,
+ 	if (pixmap->devKind > UINT16_MAX)
+ 		return -1;
+ 
+-	if (radeon_gem_prime_share_bo(bo, &fd) < 0)
++	if (radeon_gem_prime_share_bo(bo->bo.radeon, &fd) < 0)
+ 		return -1;
+ 
+ 	*stride = pixmap->devKind;
+-	*size = bo->size;
++	*size = bo->bo.radeon->size;
+ 	return fd;
+ }
+ 
+-- 
+cgit v1.1
+
