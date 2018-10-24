@@ -1,0 +1,36 @@
+From 1667f2b95424f7c42fbd5b30aaadef53ab76e3ad Mon Sep 17 00:00:00 2001
+From: Lukas Rusak <lorusak@gmail.com>
+Date: Fri, 12 Apr 2019 22:22:34 -0700
+Subject: [PATCH] CWinSystemGbm: only lock the front buffer if something is
+ rendered
+
+---
+ xbmc/windowing/gbm/WinSystemGbm.cpp | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/xbmc/windowing/gbm/WinSystemGbm.cpp b/xbmc/windowing/gbm/WinSystemGbm.cpp
+index 4a3291a55045..5cee802be2de 100644
+--- a/xbmc/windowing/gbm/WinSystemGbm.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbm.cpp
+@@ -207,11 +207,19 @@ void CWinSystemGbm::FlipPage(bool rendered, bool videoLayer)
+     m_videoLayerBridge->Disable();
+   }
+ 
+-  struct gbm_bo *bo = m_GBM->LockFrontBuffer();
++  struct gbm_bo *bo = nullptr;
++
++  if (rendered)
++  {
++    bo = m_GBM->LockFrontBuffer();
++  }
+ 
+   m_DRM->FlipPage(bo, rendered, videoLayer);
+ 
+-  m_GBM->ReleaseBuffer();
++  if (rendered)
++  {
++    m_GBM->ReleaseBuffer();
++  }
+ 
+   if (m_videoLayerBridge && !videoLayer)
+   {

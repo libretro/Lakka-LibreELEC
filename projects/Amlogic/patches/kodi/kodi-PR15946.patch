@@ -1,0 +1,65 @@
+From 2104dbd5e263b9f83c0e6cd451a486d6f3046f83 Mon Sep 17 00:00:00 2001
+From: Lukas Rusak <lorusak@gmail.com>
+Date: Sat, 20 Apr 2019 12:01:19 -0700
+Subject: [PATCH] CDRMUtils: fallback to drmModeAddFB2 if
+ drmModeAddFB2WithModifiers fails
+
+---
+ xbmc/windowing/gbm/DRMUtils.cpp | 43 +++++++++++++++++++++------------
+ 1 file changed, 28 insertions(+), 15 deletions(-)
+
+diff --git a/xbmc/windowing/gbm/DRMUtils.cpp b/xbmc/windowing/gbm/DRMUtils.cpp
+index 8e1ec9d0dcb5..6cae2176296f 100644
+--- a/xbmc/windowing/gbm/DRMUtils.cpp
++++ b/xbmc/windowing/gbm/DRMUtils.cpp
+@@ -117,22 +117,35 @@ drm_fb * CDRMUtils::DrmFbGetFromBo(struct gbm_bo *bo)
+     CLog::Log(LOGDEBUG, "CDRMUtils::{} - using modifier: {:#x}", __FUNCTION__, modifiers[0]);
+   }
+ 
+-  auto ret = drmModeAddFB2WithModifiers(m_fd,
+-                                        width,
+-                                        height,
+-                                        fb->format,
+-                                        handles,
+-                                        strides,
+-                                        offsets,
+-                                        modifiers,
+-                                        &fb->fb_id,
+-                                        flags);
++  int ret = drmModeAddFB2WithModifiers(m_fd,
++                                       width,
++                                       height,
++                                       fb->format,
++                                       handles,
++                                       strides,
++                                       offsets,
++                                       modifiers,
++                                       &fb->fb_id,
++                                       flags);
++
++  if(ret < 0)
++  {
++    ret = drmModeAddFB2(m_fd,
++                        width,
++                        height,
++                        fb->format,
++                        handles,
++                        strides,
++                        offsets,
++                        &fb->fb_id,
++                        flags);
+ 
+-  if(ret)
+-  {
+-    delete (fb);
+-    CLog::Log(LOGDEBUG, "CDRMUtils::%s - failed to add framebuffer", __FUNCTION__);
+-    return nullptr;
++    if (ret < 0)
++    {
++      delete (fb);
++      CLog::Log(LOGDEBUG, "CDRMUtils::{} - failed to add framebuffer: {} ({})", __FUNCTION__, strerror(errno), errno);
++      return nullptr;
++    }
+   }
+ 
+   gbm_bo_set_user_data(bo, fb, DrmFbDestroyCallback);
