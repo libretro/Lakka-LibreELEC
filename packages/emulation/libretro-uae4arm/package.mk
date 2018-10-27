@@ -2,7 +2,7 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-uae4arm"
-PKG_VERSION="0e9dd6e"
+PKG_VERSION="0e9dd6e2e8c1d08df0532a429afc8fa9f5e9ca3a"
 PKG_SHA256="ccc989c75c11cbc1be96b917cadc3551b5fb8710f2a203f2ce86c46196229a4a"
 PKG_ARCH="arm"
 PKG_LICENSE="GPL"
