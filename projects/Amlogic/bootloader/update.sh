@@ -6,8 +6,10 @@
 [ -z "$SYSTEM_ROOT" ] && SYSTEM_ROOT=""
 [ -z "$BOOT_ROOT" ] && BOOT_ROOT="/flash"
 [ -z "$UPDATE_DIR" ] && UPDATE_DIR="/storage/.update"
+
 UPDATE_DTB_IMG="$UPDATE_DIR/dtb.img"
-UPDATE_DTB=`ls -1 "$UPDATE_DIR"/*.dtb 2>/dev/null | head -n 1`
+UPDATE_DTB="$(ls -1 "$UPDATE_DIR"/*.dtb 2>/dev/null | head -n 1)"
+
 [ -z "$BOOT_PART" ] && BOOT_PART=$(df "$BOOT_ROOT" | tail -1 | awk {' print $1 '})
 if [ -z "$BOOT_DISK" ]; then
   case $BOOT_PART in
