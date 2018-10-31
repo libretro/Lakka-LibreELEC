@@ -52,20 +52,6 @@ makeinstall_target() {
     # Always install the update script
     find_file_path bootloader/update.sh && cp -av ${FOUND_PATH} $INSTALL/usr/share/bootloader
 
-    # Replace partition names in update.sh
-    if [ -f "$INSTALL/usr/share/bootloader/update.sh" ] ; then
-      sed -e "s/@BOOT_LABEL@/$DISTRO_BOOTLABEL/g" \
-          -e "s/@DISK_LABEL@/$DISTRO_DISKLABEL/g" \
-          -i $INSTALL/usr/share/bootloader/update.sh
-    fi
-
-    # Replace labels in boot.ini
-    if [ -f "$INSTALL/usr/share/bootloader/boot.ini" ] ; then
-      sed -e "s/@BOOT_LABEL@/$DISTRO_BOOTLABEL/g" \
-          -e "s/@DISK_LABEL@/$DISTRO_DISKLABEL/g" \
-          -i $INSTALL/usr/share/bootloader/boot.ini
-    fi
-
     # Always install the canupdate script
     if find_file_path bootloader/canupdate.sh; then
       cp -av ${FOUND_PATH} $INSTALL/usr/share/bootloader
