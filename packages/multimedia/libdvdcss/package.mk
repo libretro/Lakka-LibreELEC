@@ -3,8 +3,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libdvdcss"
-PKG_VERSION="80fdc8d"
-PKG_SHA256="1bcdf96e4fe644ac3d70014ef144f3021b69c6f88bba06fc26ec32cd4b8dc82b"
+PKG_VERSION="1.4.2-Leia-Beta-5"
+PKG_SHA256="38816f8373e243bc5950449b4f3b18938c4e1c59348e3411e23f31db4072e40d"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/libdvdcss"
 PKG_URL="https://github.com/xbmc/libdvdcss/archive/$PKG_VERSION.tar.gz"
