@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libconfuse"
-PKG_VERSION="3.2"
-PKG_SHA256="02593cb4fc83854d8d404b77825acfeeff2832e641bd0d9feb4c05a39163279b"
+PKG_VERSION="3.2.2"
+PKG_SHA256="2cf7e032980aff8f488efba61510dc3fb95e9a4b9183f985dea457a5651b0e2c"
 PKG_LICENSE="https://github.com/martinh/libconfuse/blob/master/LICENSE"
 PKG_SITE="https://github.com/martinh/libconfuse"
 PKG_URL="https://github.com/martinh/libconfuse/archive/v$PKG_VERSION.tar.gz"
