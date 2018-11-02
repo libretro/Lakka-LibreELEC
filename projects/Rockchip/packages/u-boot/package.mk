@@ -36,8 +36,8 @@ case $BOARD in
     PKG_PATCH_DIRS="rockchip"
     ;;
   *)
-    PKG_VERSION="2018.07"
-    PKG_SHA256="9f10df88bc91b35642e461217f73256bbaeeca9ae2db8db56197ba5e89e1f6d4"
+    PKG_VERSION="2018.09"
+    PKG_SHA256="839bf23cfe8ce613a77e583a60375179d0ad324e92c82fbdd07bebf0fd142268"
     PKG_URL="http://ftp.denx.de/pub/u-boot/u-boot-$PKG_VERSION.tar.bz2"
     PKG_PATCH_DIRS="mainline"
 esac
@@ -83,10 +83,10 @@ makeinstall_target() {
 
     cp -PRv idbloader.img $INSTALL/usr/share/bootloader
   elif [ "$UBOOT_SOC" = "rk3328" ] ||[ "$UBOOT_SOC" = "rk3399" ] ; then
-  
+
       case "$UBOOT_SOC" in
         rk3328)
-          DATAFILE="$PROJECT_DIR/$PROJECT/bootloader/rk3328_ddr_786MHz_v1.08.bin"
+          DATAFILE="$PROJECT_DIR/$PROJECT/bootloader/rk3328_ddr_933MHz_v1.10.bin"
           LOADER="$(get_build_dir rkbin)/rk33/rk3328_miniloader_v2.49.bin"
           BL31="$(get_build_dir rkbin)/rk33/rk3328_bl31_v1.34.bin"
           ;;
@@ -96,7 +96,7 @@ makeinstall_target() {
           BL31="$(get_build_dir rkbin)/rk33/rk3399_bl31_v1.18.elf"
           ;;
       esac
-    
+
     $(get_build_dir rkbin)/tools/loaderimage --pack --uboot u-boot-dtb.bin uboot.img 0x200000
 
     tools/mkimage \
@@ -104,7 +104,7 @@ makeinstall_target() {
       -T rksd \
       -d "$DATAFILE" \
       idbloader.img
-      
+
     cat "$LOADER" >> idbloader.img
 
     cat >trust.ini <<EOF
