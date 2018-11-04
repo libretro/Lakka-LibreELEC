@@ -56,9 +56,13 @@ post_makeinstall_target() {
     sed -i $INSTALL/etc/bluetooth/main.conf \
         -e "s|^#\[Policy\]|\[Policy\]|g" \
         -e "s|^#AutoEnable.*|AutoEnable=true|g"
+
+  mkdir -p $INSTALL/usr/share/services
+    cp -P $PKG_DIR/default.d/*.conf $INSTALL/usr/share/services
 }
 
 post_install() {
+  enable_service bluetooth-defaults.service
   enable_service bluetooth.service
   enable_service obex.service
 }
