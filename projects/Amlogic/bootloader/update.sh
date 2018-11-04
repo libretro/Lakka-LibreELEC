@@ -6,8 +6,10 @@
 [ -z "$SYSTEM_ROOT" ] && SYSTEM_ROOT=""
 [ -z "$BOOT_ROOT" ] && BOOT_ROOT="/flash"
 [ -z "$UPDATE_DIR" ] && UPDATE_DIR="/storage/.update"
+
 UPDATE_DTB_IMG="$UPDATE_DIR/dtb.img"
-UPDATE_DTB=`ls -1 "$UPDATE_DIR"/*.dtb 2>/dev/null | head -n 1`
+UPDATE_DTB="$(ls -1 "$UPDATE_DIR"/*.dtb 2>/dev/null | head -n 1)"
+
 [ -z "$BOOT_PART" ] && BOOT_PART=$(df "$BOOT_ROOT" | tail -1 | awk {' print $1 '})
 if [ -z "$BOOT_DISK" ]; then
   case $BOOT_PART in
@@ -25,14 +27,13 @@ mount -o rw,remount $BOOT_ROOT
 for arg in $(cat /proc/cmdline); do
   case $arg in
     boot=*)
-      echo "Updating BOOT partition label..."
       boot="${arg#*=}"
       case $boot in
         /dev/mmc*)
-          LD_LIBRARY_PATH="$SYSTEM_ROOT/lib" $SYSTEM_ROOT/usr/sbin/fatlabel $boot "@BOOT_LABEL@"
+          BOOT_UUID="$(blkid $boot | sed 's/.* UUID="//;s/".*//g')"
           ;;
-        LABEL=*)
-          LD_LIBRARY_PATH="$SYSTEM_ROOT/lib" $SYSTEM_ROOT/usr/sbin/fatlabel $($SYSTEM_ROOT/usr/sbin/findfs $boot) "@BOOT_LABEL@"
+        UUID=*|LABEL=*)
+          BOOT_UUID="$(blkid | sed 's/"//g' | grep -m 1 -i " $boot " | sed 's/.* UUID=//;s/ .*//g')"
           ;;
       esac
 
@@ -71,15 +72,15 @@ for arg in $(cat /proc/cmdline); do
         fi
       done
       ;;
+
     disk=*)
-      echo "Updating DISK partition label..."
       disk="${arg#*=}"
       case $disk in
         /dev/mmc*)
-          LD_LIBRARY_PATH="$SYSTEM_ROOT/lib" $SYSTEM_ROOT/usr/sbin/e2label $disk "@DISK_LABEL@"
+          DISK_UUID="$(blkid $disk | sed 's/.* UUID="//;s/".*//g')"
           ;;
-        LABEL=*)
-          LD_LIBRARY_PATH="$SYSTEM_ROOT/lib" $SYSTEM_ROOT/usr/sbin/e2label $($SYSTEM_ROOT/usr/sbin/findfs $disk) "@DISK_LABEL@"
+        UUID=*|LABEL=*)
+          DISK_UUID="$(blkid | sed 's/"//g' | grep -m 1 -i " $disk " | sed 's/.* UUID=//;s/ .*//g')"
           ;;
       esac
       ;;
@@ -94,6 +95,10 @@ fi
 if [ -f $SYSTEM_ROOT/usr/share/bootloader/boot.ini ]; then
   echo "Updating boot.ini..."
   cp -p $SYSTEM_ROOT/usr/share/bootloader/boot.ini $BOOT_ROOT/boot.ini
+  sed -e "s/@BOOT_UUID@/$BOOT_UUID/" \
+      -e "s/@DISK_UUID@/$DISK_UUID/" \
+      -i $BOOT_ROOT/boot.ini
+
   if [ -f $SYSTEM_ROOT/usr/share/bootloader/config.ini ]; then
     if [ ! -f $BOOT_ROOT/config.ini ]; then
       echo "Creating config.ini..."
