@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="p8-platform"
-PKG_VERSION="32190045c7eb6883c0662db2f91b4ceeab904fc2"
-PKG_SHA256="5225417c2c174d49124d0e44d32e3828f9b83464422445d303adb2dc3111686d"
+PKG_VERSION="f6a565efa00581b791e3a63258950a0a3194da86"
+PKG_SHA256="e62568e627fd80fe314f7a3120548f8f2977401801fee253ea426a13b009a288"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
 PKG_URL="https://github.com/Pulse-Eight/platform/archive/$PKG_VERSION.tar.gz"
