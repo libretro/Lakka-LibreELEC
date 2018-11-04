@@ -2,22 +2,21 @@
 
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 . config/options $1
 
 if [ -z "$1" ]; then
-  echo "usage: $0 package_name"
-  exit 1
+  die "usage: $0 package_name"
 fi
 
 if [ ! -f $PKG_DIR/package.mk ]; then
-  printf "$(print_color CLR_ERROR "$1: no package.mk file found")\n"
-  exit 1
+  die "$(print_color CLR_ERROR "$1: no package.mk file found")"
 fi
 
 $SCRIPTS/get $1
 
-STAMP=$PKG_BUILD/.libreelec-unpack
+STAMP="$PKG_BUILD/.libreelec-unpack"
 
 mkdir -p $BUILD
 
@@ -67,21 +66,21 @@ if [ -d "$SOURCES/$1" -o -d "$PKG_DIR/sources" ]; then
     fi
   fi
 
-  if [ ! -d $BUILD/$PKG_NAME-$PKG_VERSION ]; then
+  if [ ! -d "$PKG_BUILD" ]; then
     if [ -n "$PKG_SOURCE_DIR" ]; then
-      mv $BUILD/$PKG_SOURCE_DIR $BUILD/$PKG_NAME-$PKG_VERSION
-    elif [ -d $BUILD/$PKG_NAME-$PKG_VERSION* ]; then
-      mv $BUILD/$PKG_NAME-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
+      mv $BUILD/$PKG_SOURCE_DIR "$PKG_BUILD"
+    elif [ -d "$PKG_BUILD"* ]; then
+      mv "$PKG_BUILD"* "$PKG_BUILD"
     fi
   fi
 
   if [ -d "$PKG_DIR/sources" ]; then
-    [ ! -d "$BUILD/${PKG_NAME}-${PKG_VERSION}" ] && mkdir -p $BUILD/${PKG_NAME}-${PKG_VERSION}
-    cp -PRf $PKG_DIR/sources/* $BUILD/${PKG_NAME}-${PKG_VERSION}
+    [ ! -d "$PKG_BUILD" ] && mkdir -p "$PKG_BUILD"
+    cp -PRf "$PKG_DIR/sources/"* "$PKG_BUILD"
   fi
 
   if [ -z "$PKG_URL" ]; then
-    mkdir -p "${BUILD}/${PKG_NAME}-${PKG_VERSION}"
+    mkdir -p "${PKG_BUILD}"
   fi
 
   if [ "$(type -t post_unpack)" = "function" ]; then
@@ -153,9 +152,9 @@ if [ -d "$SOURCES/$1" -o -d "$PKG_DIR/sources" ]; then
       if [ -f "$i" ]; then
         printf "%${BUILD_INDENT}c $(print_color CLR_APPLY_PATCH "APPLY PATCH") $(print_color CLR_PATCH_DESC "${PATCH_DESC}")   ${i#$ROOT/}\n" ' '>&$SILENT_OUT
         if grep -qE '^GIT binary patch$|^rename from|^rename to' $i; then
-          cat $i | git apply --directory=`echo "$PKG_BUILD" | cut -f1 -d\ ` -p1 --verbose --whitespace=nowarn --unsafe-paths >&$VERBOSE_OUT
+          cat $i | git apply --directory=$(echo "$PKG_BUILD" | cut -f1 -d\ ) -p1 --verbose --whitespace=nowarn --unsafe-paths >&$VERBOSE_OUT
         else
-          cat $i | patch -d `echo "$PKG_BUILD" | cut -f1 -d\ ` -p1 >&$VERBOSE_OUT
+          cat $i | patch -d $(echo "$PKG_BUILD" | cut -f1 -d\ ) -p1 >&$VERBOSE_OUT
         fi
       fi
     done
@@ -166,7 +165,7 @@ if [ -d "$SOURCES/$1" -o -d "$PKG_DIR/sources" ]; then
   fi
 
   if [ ! "$PKG_NAME" = "configtools" ] ; then
-    for config in `find $PKG_BUILD -name config.guess | sed 's/config.guess//'`; do
+    for config in $(find "$PKG_BUILD" -name config.guess | sed 's/config.guess//'); do
       printf "%${BUILD_INDENT}c $(print_color CLR_FIXCONFIG "FIXCONFIG")   $config\n" ' '
 
       [ -f "$config/config.guess" -a -f $TOOLCHAIN/configtools/config.guess ] && \
@@ -178,7 +177,7 @@ if [ -d "$SOURCES/$1" -o -d "$PKG_DIR/sources" ]; then
 fi
 
 if [ "$PKG_SECTION" != "virtual" ]; then
-  mkdir -p $PKG_BUILD
+  mkdir -p "$PKG_BUILD"
 
   rm -f $STAMPS/$1/build_*
 

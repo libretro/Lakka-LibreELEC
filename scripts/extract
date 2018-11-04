@@ -2,16 +2,17 @@
 
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 . config/options $1
 
 if [ -z "$2" ]; then
-  echo "usage: $0 package_name target_dir"
-  exit 1
+  die "usage: $0 package_name target_dir"
 fi
 
-[ -z "$PKG_URL" -o -z "$PKG_SOURCE_NAME" ] && exit 1
-[ ! -d "$SOURCES/$1" -o ! -d "$2" ] && exit 1
+[ -z "$PKG_URL" -o -z "$PKG_SOURCE_NAME" ] && die "$PKG_NAME: PKG_URL or PKG_SOURCE_NAME undefined"
+[ ! -d "$SOURCES/$1" ] && die "$PKG_NAME: $SOURCES/$1 not found"
+[ ! -d "$2" ] && die "$PKG_NAME: target $2 not found"
 
 if [[ ${PKG_URL} =~ ^file:// ]]; then
   FULL_SOURCE_PATH="$PKG_SOURCE_NAME"
@@ -22,11 +23,11 @@ fi
 if [ ! -f "$FULL_SOURCE_PATH" -a ! -d "$FULL_SOURCE_PATH" ]; then
   echo "error: File $PKG_SOURCE_NAME doesn't exist for package $1"
   echo "Have you called scripts/extract before scripts/get ?"
-  exit 1
+  die
 fi
 
 # The build system expects packages to be extracted to
-# $BUILD/$PKG_NAME-$PKG_VERSION.
+# $PKG_BUILD.
 # Try to strip the top level dir from the archive and extract to
 # the correct directory if possible so packages don't need to
 # set PKG_SOURCE_DIR and scripts/unpack doesn't need to rename
@@ -36,11 +37,11 @@ fi
 # so advanced renaming (eg stripping more than one directory level)
 # can be performed by scripts/unpack.
 if [ -z "$PKG_SOURCE_DIR" ]; then
-	TAR_OPTS="--strip-components=1"
-	DESTDIR="$2/$PKG_NAME-$PKG_VERSION"
+  TAR_OPTS="--strip-components=1"
+  DESTDIR="$2/$PKG_NAME-$PKG_VERSION"
 else
-	TAR_OPTS=""
-	DESTDIR="$2"
+  TAR_OPTS=""
+  DESTDIR="$2"
 fi
 
 case $PKG_SOURCE_NAME in
