@@ -29,7 +29,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-unittest \
                            --with-stressjob=no"
 
 post_makeinstall_target() {
-  $SED "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" $SYSROOT_PREFIX/usr/bin/tntnet-config
+  sed -e "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" -i $SYSROOT_PREFIX/usr/bin/tntnet-config
 
   rm -rf $INSTALL/usr/bin
   rm -rf $INSTALL/usr/share

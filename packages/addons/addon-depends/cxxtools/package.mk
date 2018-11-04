@@ -20,7 +20,7 @@ post_makeinstall_host() {
 }
 
 post_makeinstall_target() {
-  $SED "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" $SYSROOT_PREFIX/usr/bin/cxxtools-config
+  sed -e "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" -i $SYSROOT_PREFIX/usr/bin/cxxtools-config
 
   rm -rf $INSTALL/usr/bin
 }

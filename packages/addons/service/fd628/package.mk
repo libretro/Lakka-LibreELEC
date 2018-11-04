@@ -20,8 +20,8 @@ PKG_ADDON_PROJECTS="S905 S912"
 PKG_ADDON_TYPE="xbmc.service"
 
 make_target() {
-  $SED -e "s|@PKG_VERSION@|$PKG_VERSION|g" \
-       -i addon.xml
+  sed -e "s|@PKG_VERSION@|$PKG_VERSION|g" \
+      -i addon.xml
 }
 
 addon() {

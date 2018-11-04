@@ -107,8 +107,8 @@ addon() {
   cp $PKG_DIR/addon.xml $ADDON_BUILD/$PKG_ADDON_ID
 
   # set only version (revision will be added by buildsystem)
-  $SED -e "s|@ADDON_VERSION@|$ADDON_VERSION|g" \
-       -i $ADDON_BUILD/$PKG_ADDON_ID/addon.xml
+  sed -e "s|@ADDON_VERSION@|$ADDON_VERSION|g" \
+      -i $ADDON_BUILD/$PKG_ADDON_ID/addon.xml
 
   cp -P $PKG_BUILD/build.linux/tvheadend $ADDON_BUILD/$PKG_ADDON_ID/bin
   cp -P $PKG_BUILD/capmt_ca.so $ADDON_BUILD/$PKG_ADDON_ID/bin
