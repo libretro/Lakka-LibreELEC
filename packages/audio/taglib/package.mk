@@ -17,9 +17,9 @@ PKG_CMAKE_OPTS_TARGET="-DBUILD_SHARED_LIBS=OFF \
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
   # pkgconf hack
-  $SED "s:\(['=\" ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" $SYSROOT_PREFIX/usr/bin/taglib-config
-  $SED "s:\([':\" ]\)-I/usr:\\1-I$SYSROOT_PREFIX/usr:g" $SYSROOT_PREFIX/usr/lib/pkgconfig/taglib.pc
-  $SED "s:\([':\" ]\)-L/usr:\\1-L$SYSROOT_PREFIX/usr:g" $SYSROOT_PREFIX/usr/lib/pkgconfig/taglib.pc
-  $SED "s:\([':\" ]\)-I/usr:\\1-I$SYSROOT_PREFIX/usr:g" $SYSROOT_PREFIX/usr/lib/pkgconfig/taglib_c.pc
-  $SED "s:\([':\" ]\)-L/usr:\\1-L$SYSROOT_PREFIX/usr:g" $SYSROOT_PREFIX/usr/lib/pkgconfig/taglib_c.pc
+  sed -e "s:\(['=\" ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" -i $SYSROOT_PREFIX/usr/bin/taglib-config
+  sed -e "s:\([':\" ]\)-I/usr:\\1-I$SYSROOT_PREFIX/usr:g" -i $SYSROOT_PREFIX/usr/lib/pkgconfig/taglib.pc
+  sed -e "s:\([':\" ]\)-L/usr:\\1-L$SYSROOT_PREFIX/usr:g" -i $SYSROOT_PREFIX/usr/lib/pkgconfig/taglib.pc
+  sed -e "s:\([':\" ]\)-I/usr:\\1-I$SYSROOT_PREFIX/usr:g" -i $SYSROOT_PREFIX/usr/lib/pkgconfig/taglib_c.pc
+  sed -e "s:\([':\" ]\)-L/usr:\\1-L$SYSROOT_PREFIX/usr:g" -i $SYSROOT_PREFIX/usr/lib/pkgconfig/taglib_c.pc
 }

@@ -19,9 +19,9 @@ PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="dummy"
 
 make_target() {
-  $SED -e "s|@ADDON_VERSION@|$ADDON_VERSION.$PKG_REV|g" \
-       -e "s|@OS_VERSION@|$OS_VERSION|g" \
-       -i addon.xml
+  sed -e "s|@ADDON_VERSION@|$ADDON_VERSION.$PKG_REV|g" \
+      -e "s|@OS_VERSION@|$OS_VERSION|g" \
+      -i addon.xml
 }
 
 addon() {
