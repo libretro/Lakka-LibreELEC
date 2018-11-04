@@ -1,93 +1,74 @@
 # Do not build as root. Ever.
-if [[ $EUID -eq 0 ]]; then
+if [[ "${EUID}" -eq 0 ]]; then
   echo "Building as the root user is NOT supported. Use a regular user account for the build." 1>&2
   exit 1
 fi
 
 # set default language for buildsystem
-  export LC_ALL=C
+export LC_ALL=C
+
+# set default independent variables
+ROOT="${PWD}"
+DISTRO_DIR="${ROOT}/distributions"
+PROJECT_DIR="${ROOT}/projects"
 
 # determines DISTRO, if not forced by user
-# default is LibreELEC
-if [ -z "$DISTRO" ]; then
-  DISTRO="LibreELEC"
-else
-  DISTRO="$DISTRO"
-fi
+DISTRO="${DISTRO:-LibreELEC}"
 
 # determines PROJECT, if not forced by user
-# default is Generic
-if [ -z "$PROJECT" ]; then
-  PROJECT="Generic"
-else
-  PROJECT="$PROJECT"
-fi
+PROJECT="${PROJECT:-Generic}"
 
-# determines TARGET_ARCH, if not forced by user (x86_64 / arm)
-# default is x86_64
-if [ -z "$ARCH" ]; then
-  TARGET_ARCH="x86_64"
-else
-  TARGET_ARCH="$ARCH"
-fi
-
-ROOT="${PWD}"
-DISTRO_DIR="$ROOT/distributions"
-PROJECT_DIR="$ROOT/projects"
+# determines TARGET_ARCH, if not forced by user
+ARCH="${ARCH:-x86_64}"
+TARGET_ARCH="${ARCH}"
 
 # include helper functions
 . config/functions
 
-# include versioning
-  . config/version
+# read DISTRO version information
+. "${DISTRO_DIR}/${DISTRO}/version" || die "\nERROR: No distro version present\n"
 
-# read distro versioning if available
- if [ -f "$DISTRO_DIR/$DISTRO/version" ]; then
-   . $DISTRO_DIR/$DISTRO/version
- fi
+# read DISTRO options if available
+if [ -f "${DISTRO_DIR}/${DISTRO}/options" ]; then
+  . "${DISTRO_DIR}/${DISTRO}/options"
+fi
 
-# read distro options if available
- if [ -f "$DISTRO_DIR/$DISTRO/options" ]; then
-   . $DISTRO_DIR/$DISTRO/options
- fi
+# read PROJECT options if available
+if [ -f "${PROJECT_DIR}/${PROJECT}/options" ]; then
+  . "${PROJECT_DIR}/${PROJECT}/options"
+fi
 
-# read project options if available
- if [ -f "$PROJECT_DIR/$PROJECT/options" ]; then
-   . $PROJECT_DIR/$PROJECT/options
- fi
-
-# read board options if available
- if [ -f "$PROJECT_DIR/$PROJECT/devices/$DEVICE/options" ]; then
-   . $PROJECT_DIR/$PROJECT/devices/$DEVICE/options
- fi
+# read DEVICE options if available
+if [ -f "${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/options" ]; then
+  . "${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/options"
+fi
 
 # projects can set KERNEL_NAME (kernel.img)
-[ -z "$KERNEL_NAME" ] && KERNEL_NAME="KERNEL"
+KERNEL_NAME="${KERNEL_NAME:-KERNEL}"
 
-LINUX_DEPENDS="$PROJECT_DIR/$PROJECT/linux $PROJECT_DIR/$PROJECT/patches/linux $PROJECT_DIR/$PROJECT/packages/linux $ROOT/packages/linux"
-[ -n "$DEVICE" ] && LINUX_DEPENDS+=" $PROJECT_DIR/$PROJECT/devices/$DEVICE/linux $PROJECT_DIR/$PROJECT/devices/$DEVICE/patches/linux $PROJECT_DIR/$PROJECT/devices/$DEVICE/packages/linux"
-[ "$TARGET_ARCH" = "x86_64" ] && LINUX_DEPENDS+=" $ROOT/packages/linux-firmware/intel-ucode $ROOT/packages/linux-firmware/kernel-firmware"
+LINUX_DEPENDS="${PROJECT_DIR}/${PROJECT}/linux ${PROJECT_DIR}/${PROJECT}/patches/linux ${PROJECT_DIR}/${PROJECT}/packages/linux ${ROOT}/packages/linux"
+[ -n "${DEVICE}" ] && LINUX_DEPENDS+=" ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/linux ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/patches/linux ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/packages/linux"
+[ "${TARGET_ARCH}" = "x86_64" ] && LINUX_DEPENDS+=" ${ROOT}/packages/linux-firmware/intel-ucode ${ROOT}/packages/linux-firmware/kernel-firmware"
 
 # Need to point to your actual cc
-# If you have ccache installed, take care that LOCAL_CC don't point to it
-  [ -z "${LOCAL_CC}" ] && export LOCAL_CC="$(command -v gcc)"
+# If you have ccache installed, take care that LOCAL_CC does not point to it
+[ -z "${LOCAL_CC}" ] && export LOCAL_CC="$(command -v gcc)"
 
-if [ -z "$LOCAL_CC" ] ; then
-  echo "***** Please install gcc *****"
-  exit 127
+if [ -z "${LOCAL_CC}" ]; then
+  die "***** Please install gcc *****" "127"
 fi
 
 # Need to point to your actual g++
-# If you have ccache installed, take care that LOCAL_CXX don't point to it
-  [ -z "${LOCAL_CXX}" ] && export LOCAL_CXX="$(command -v g++)"
+# If you have ccache installed, take care that LOCAL_CXX does not point to it
+[ -z "${LOCAL_CXX}" ] && export LOCAL_CXX="$(command -v g++)"
 
 # verbose compilation mode (yes/no)
-  VERBOSE="${VERBOSE:-yes}"
+VERBOSE="${VERBOSE:-yes}"
 
 # Concurrency make level (-j option)
 #  Try values between 1 and number of processor cores present.
 #  default: use all cores
-  [ -z "${CONCURRENCY_MAKE_LEVEL}" ] && export CONCURRENCY_MAKE_LEVEL=$(nproc)
+[ -z "${CONCURRENCY_MAKE_LEVEL}" ] && export CONCURRENCY_MAKE_LEVEL=$(nproc)
 
 # cache size for ccache
 # Set the maximum size of the files stored in the cache. You can specify a
@@ -95,22 +76,21 @@ fi
 # value. The default is gigabytes. The actual value stored is rounded down to
 # the nearest multiple of 16 kilobytes.  Keep in mind this per project .ccache
 # directory.
-  CCACHE_CACHE_SIZE="10G"
+CCACHE_CACHE_SIZE="10G"
 
 # read options from $HOME if available
-  if [ -f "$HOME/.libreelec/options" ]; then
-    . $HOME/.libreelec/options
-  fi
-
-# overwrite OEM_SUPPORT via commandline
-if [ "$OEM" = yes -o "$OEM" = no ]; then
-  OEM_SUPPORT=$OEM
+if [ -f "${HOME}/.libreelec/options" ]; then
+  . "${HOME}/.libreelec/options"
 fi
 
-[ -z ${_DEBUG_DEPENDS_LIST+x} ] && set_debug_depends
+# overwrite OEM_SUPPORT via commandline
+if [ "${OEM}" = "yes" -o "${OEM}" = "no" ]; then
+  OEM_SUPPORT="${OEM}"
+fi
 
-check_path >&2
-check_config >&2
+[ -z "${_DEBUG_DEPENDS_LIST+x}" ] && set_debug_depends
+
+check_config
 
 . config/graphic
 . config/path $1
