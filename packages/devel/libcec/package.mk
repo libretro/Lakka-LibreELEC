@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libcec"
-PKG_VERSION="96ba7dd54c5082323798d53d2315e2d4c5d6b434"
-PKG_SHA256="539a23de83953fdc2b7e92ce05cef1b308d46d93e7710a9bee44f2065db39a96"
+PKG_VERSION="edb8b7765efee0efcfeefa310dfe2b180c62d0cd"
+PKG_SHA256="8cf29363ac57bd054dea837c7546961cd1cdcbbfabbd8d3db835ac699604044d"
 PKG_LICENSE="GPL"
 PKG_SITE="http://libcec.pulse-eight.com/"
 PKG_URL="https://github.com/Pulse-Eight/libcec/archive/$PKG_VERSION.tar.gz"
@@ -14,6 +14,7 @@ PKG_LONGDESC="libCEC is an open-source dual licensed library designed for commun
 PKG_CMAKE_OPTS_TARGET="-DBUILD_SHARED_LIBS=1 \
                        -DCMAKE_INSTALL_LIBDIR:STRING=lib \
                        -DCMAKE_INSTALL_LIBDIR_NOARCH:STRING=lib \
+                       -DSKIP_PYTHON_WRAPPER=1 \
                        -DHAVE_IMX_API=0 \
                        -DHAVE_GIT_BIN=0"
 
