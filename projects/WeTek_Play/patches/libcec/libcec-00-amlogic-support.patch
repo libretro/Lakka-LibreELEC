@@ -1,21 +1,21 @@
-From dabfc33004b94d2f06d20ad4f8a889dd5a94e796 Mon Sep 17 00:00:00 2001
+From bd56646f065c5952266adc28ed569be29159d818 Mon Sep 17 00:00:00 2001
 From: Gerald Dachs <gda@dachsweb.de>
 Date: Tue, 6 Dec 2016 11:06:49 +0100
 Subject: [PATCH] Amlogic CEC adapter
 
 ---
- include/cectypes.h                                 |  15 +-
+ include/cectypes.h                                 |  13 +-
  src/libcec/CMakeLists.txt                          |   3 +
- src/libcec/adapter/AdapterFactory.cpp              |  24 +-
+ src/libcec/adapter/AdapterFactory.cpp              |  22 ++
  src/libcec/adapter/Amlogic/AmlogicCEC.h            |  41 +++
  .../Amlogic/AmlogicCECAdapterCommunication.cpp     | 306 +++++++++++++++++++++
- .../Amlogic/AmlogicCECAdapterCommunication.h       | 105 +++++++
+ .../Amlogic/AmlogicCECAdapterCommunication.h       | 106 +++++++
  .../adapter/Amlogic/AmlogicCECAdapterDetection.cpp |  50 ++++
  .../adapter/Amlogic/AmlogicCECAdapterDetection.h   |  46 ++++
  src/libcec/cmake/CheckPlatformSupport.cmake        |  13 +
  src/libcec/cmake/DisplayPlatformSupport.cmake      |   6 +
  src/libcec/env.h.in                                |   3 +
- 11 files changed, 610 insertions(+), 2 deletions(-)
+ 11 files changed, 608 insertions(+), 1 deletion(-)
  create mode 100644 src/libcec/adapter/Amlogic/AmlogicCEC.h
  create mode 100644 src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp
  create mode 100644 src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.h
@@ -23,10 +23,10 @@ Subject: [PATCH] Amlogic CEC adapter
  create mode 100644 src/libcec/adapter/Amlogic/AmlogicCECAdapterDetection.h
 
 diff --git a/include/cectypes.h b/include/cectypes.h
-index 9c91842..1bc7b52 100644
+index 9c91842..3af93ca 100644
 --- a/include/cectypes.h
 +++ b/include/cectypes.h
-@@ -276,6 +276,18 @@ namespace CEC {
+@@ -276,6 +276,16 @@ namespace CEC {
   */
  #define CEC_EXYNOS_VIRTUAL_COM		"Exynos"
  
@@ -40,12 +40,10 @@ index 9c91842..1bc7b52 100644
 + */
 +#define CEC_AMLOGIC_VIRTUAL_COM                "Amlogic"
 +
-+/*!
-+
  /**
   * Maximum size of a data packet
   */
-@@ -861,7 +873,8 @@ typedef enum cec_adapter_type
+@@ -861,7 +871,8 @@ typedef enum cec_adapter_type
    ADAPTERTYPE_RPI              = 0x100,
    ADAPTERTYPE_TDA995x          = 0x200,
    ADAPTERTYPE_EXYNOS           = 0x300,
@@ -56,21 +54,21 @@ index 9c91842..1bc7b52 100644
  
  /** force exporting through swig */
 diff --git a/src/libcec/CMakeLists.txt b/src/libcec/CMakeLists.txt
-index d3eefa3..125512b 100644
+index 6baee69..a537825 100644
 --- a/src/libcec/CMakeLists.txt
 +++ b/src/libcec/CMakeLists.txt
-@@ -87,6 +87,9 @@ set(CEC_HEADERS devices/CECRecordingDevice.h
+@@ -89,6 +89,9 @@ set(CEC_HEADERS devices/CECRecordingDevice.h
                  adapter/Exynos/ExynosCEC.h
                  adapter/Exynos/ExynosCECAdapterDetection.h
                  adapter/Exynos/ExynosCECAdapterCommunication.h
-+		adapter/Amlogic/AmlogicCEC.h
++                adapter/Amlogic/AmlogicCEC.h
 +                adapter/Amlogic/AmlogicCECAdapterDetection.h
 +                adapter/Amlogic/AmlogicCECAdapterCommunication.h
                  adapter/AOCEC/AOCEC.h
                  adapter/AOCEC/AOCECAdapterDetection.h
                  adapter/AOCEC/AOCECAdapterCommunication.h
 diff --git a/src/libcec/adapter/AdapterFactory.cpp b/src/libcec/adapter/AdapterFactory.cpp
-index 1e946e6..a539394 100644
+index 91195ea..3344516 100644
 --- a/src/libcec/adapter/AdapterFactory.cpp
 +++ b/src/libcec/adapter/AdapterFactory.cpp
 @@ -58,6 +58,11 @@
@@ -477,10 +475,10 @@ index 0000000..88d19db
 +#endif	// HAVE_AMLOGIC_API
 diff --git a/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.h b/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.h
 new file mode 100644
-index 0000000..0e99cf8
+index 0000000..a8e6fce
 --- /dev/null
 +++ b/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.h
-@@ -0,0 +1,105 @@
+@@ -0,0 +1,106 @@
 +#pragma once
 +/*
 + * This file is part of the libCEC(R) library.
@@ -555,6 +553,7 @@ index 0000000..0e99cf8
 +    uint32_t GetFirmwareBuildDate(void) { return 0; }
 +    bool IsRunningLatestFirmware(void) { return true; }
 +    bool PersistConfiguration(const libcec_configuration & UNUSED(configuration)) { return false; }
++    bool SetAutoMode(bool UNUSED(automode)) override { return false; }
 +    bool GetConfiguration(libcec_configuration & UNUSED(configuration)) { return false; }
 +    std::string GetPortName(void) { return std::string("AMLOGIC"); }
 +    uint16_t GetPhysicalAddress(void);
@@ -695,18 +694,18 @@ index 0000000..8a7418d
 +  };
 +}
 diff --git a/src/libcec/cmake/CheckPlatformSupport.cmake b/src/libcec/cmake/CheckPlatformSupport.cmake
-index 532f213..382c39c 100644
+index b7773ee..58ba8f1 100644
 --- a/src/libcec/cmake/CheckPlatformSupport.cmake
 +++ b/src/libcec/cmake/CheckPlatformSupport.cmake
 @@ -11,6 +11,7 @@
  #       HAVE_EXYNOS_API           ON if Exynos is supported
  #       HAVE_AOCEC_API            ON if AOCEC is supported
  #       HAVE_P8_USB               ON if Pulse-Eight devices are supported
-+#      HAVE_AMLOGIC_API          1 if AMLOGIC is supported
++#       HAVE_AMLOGIC_API          ON if AMLOGIC is supported
  #       HAVE_P8_USB_DETECT        ON if Pulse-Eight devices can be auto-detected
  #       HAVE_DRM_EDID_PARSER      ON if DRM EDID parsing is supported
  #
-@@ -137,6 +138,18 @@ else()
+@@ -139,6 +140,18 @@ else()
      list(APPEND CEC_SOURCES ${CEC_SOURCES_ADAPTER_EXYNOS})
    endif()
  
@@ -726,7 +725,7 @@ index 532f213..382c39c 100644
    if (${HAVE_AOCEC_API})
      set(LIB_INFO "${LIB_INFO}, AOCEC")
 diff --git a/src/libcec/cmake/DisplayPlatformSupport.cmake b/src/libcec/cmake/DisplayPlatformSupport.cmake
-index 7ec10f5..7a38d32 100644
+index 83a778a..c7088f3 100644
 --- a/src/libcec/cmake/DisplayPlatformSupport.cmake
 +++ b/src/libcec/cmake/DisplayPlatformSupport.cmake
 @@ -56,5 +56,11 @@ else()
@@ -742,10 +741,10 @@ index 7ec10f5..7a38d32 100644
  message(STATUS "lib info: ${LIB_INFO}")
  
 diff --git a/src/libcec/env.h.in b/src/libcec/env.h.in
-index fe6c83d..09304e1 100644
+index 456a2e7..a40f931 100644
 --- a/src/libcec/env.h.in
 +++ b/src/libcec/env.h.in
-@@ -78,6 +78,9 @@
+@@ -82,6 +82,9 @@
  /* Define to 1 for nVidia EDID parsing support (on selected models) */
  #cmakedefine HAVE_NVIDIA_EDID_PARSER @HAVE_NVIDIA_EDID_PARSER@
  
@@ -755,3 +754,6 @@ index fe6c83d..09304e1 100644
  /* Define to 1 for DRM EDID parsing support */
  #cmakedefine HAVE_DRM_EDID_PARSER @HAVE_DRM_EDID_PARSER@
  
+-- 
+2.14.1
+
