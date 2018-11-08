@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Lukas Rusak (lrusak@libreelec.tv)
+# Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="containerd"
-PKG_VERSION="06b9cb3"
-PKG_SHA256="4d2b6e30bcc6c4bb901d6b9f19b5ac1d4a2d9b17075a9b1f110102920d01f64a"
+PKG_VERSION="c4446665cb9c30056f4998ed953e6d4ff22c7c39" # v1.2.0
+PKG_SHA256="0bd3370f769c25f077445b77266a0afba6fe60b9caa443153e604d8727f2a891"
 PKG_LICENSE="APL"
 PKG_SITE="https://containerd.tools/"
-PKG_URL="https://github.com/docker/containerd/archive/${PKG_VERSION}.tar.gz"
+PKG_URL="https://github.com/containerd/containerd/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain go:host"
 PKG_LONGDESC="A daemon to control runC, built for performance and density."
 PKG_TOOLCHAIN="manual"
@@ -53,6 +54,6 @@ pre_make_target() {
 
 make_target() {
   mkdir -p bin
-  $GOLANG build -v -o bin/containerd      -a -tags "static_build" -ldflags "$LDFLAGS" ./containerd
-  $GOLANG build -v -o bin/containerd-shim -a -tags "static_build" -ldflags "$LDFLAGS" ./containerd-shim
+  $GOLANG build -v -o bin/containerd      -a -tags "static_build no_btrfs" -ldflags "$LDFLAGS" ./cmd/containerd
+  $GOLANG build -v -o bin/containerd-shim -a -tags "static_build no_btrfs" -ldflags "$LDFLAGS" ./cmd/containerd-shim
 }
