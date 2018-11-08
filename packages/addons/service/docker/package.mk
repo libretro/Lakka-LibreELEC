@@ -3,9 +3,9 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="docker"
-PKG_VERSION="17.10.0"
-PKG_SHA256="90f54b988d5241ee0472800e139e0628ae8a58dac168bb32fdb031383f3b46be"
-PKG_REV="117"
+PKG_VERSION="18.06.1"
+PKG_SHA256="153cb489033686260dfe7a42acbdd1753d56f7a9c2d7ad90633f0c8cce563b23"
+PKG_REV="119"
 PKG_ARCH="any"
 PKG_ADDON_PROJECTS="any !WeTek_Core !WeTek_Play"
 PKG_LICENSE="ASL"
@@ -56,22 +56,36 @@ configure_target() {
   export CGO_CFLAGS=$CFLAGS
   export LDFLAGS="-w -linkmode external -extldflags -Wl,--unresolved-symbols=ignore-in-shared-libs -extld $CC"
   export GOLANG=$TOOLCHAIN/lib/golang/bin/go
-  export GOPATH=$PKG_BUILD/.gopath:$PKG_BUILD/.gopath_cli
+  export GOPATH=$PKG_BUILD/.gopath_cli:$PKG_BUILD/.gopath
   export GOROOT=$TOOLCHAIN/lib/golang
   export PATH=$PATH:$GOROOT/bin
 
   mkdir -p $PKG_BUILD/.gopath
   mkdir -p $PKG_BUILD/.gopath_cli
+
   PKG_ENGINE_PATH=$PKG_BUILD/components/engine
   PKG_CLI_PATH=$PKG_BUILD/components/cli
+
   if [ -d $PKG_ENGINE_PATH/vendor ]; then
     mv $PKG_ENGINE_PATH/vendor $PKG_BUILD/.gopath/src
   fi
+
   if [ -d $PKG_CLI_PATH/vendor ]; then
     mv $PKG_CLI_PATH/vendor $PKG_BUILD/.gopath_cli/src
   fi
-  ln -fs $PKG_ENGINE_PATH $PKG_BUILD/.gopath/src/github.com/docker/docker
-  ln -fs $PKG_CLI_PATH $PKG_BUILD/.gopath_cli/src/github.com/docker/cli
+
+  cp -rf $PKG_BUILD/.gopath/src/* $PKG_BUILD/.gopath_cli/src
+
+  mkdir -p $PKG_BUILD/.gopath_cli/src/github.com/docker/docker/builder
+  cp -rf $PKG_ENGINE_PATH/builder/* $PKG_BUILD/.gopath_cli/src/github.com/docker/docker/builder
+
+  if [ ! -L $PKG_BUILD/.gopath/src/github.com/docker/docker ];then
+    ln -fs $PKG_ENGINE_PATH $PKG_BUILD/.gopath/src/github.com/docker/docker
+  fi
+
+  if [ ! -L $PKG_BUILD/.gopath_cli/src/github.com/docker/cli ];then
+    ln -fs $PKG_CLI_PATH $PKG_BUILD/.gopath_cli/src/github.com/docker/cli
+  fi
 
   # used for docker version
   export GITCOMMIT=${PKG_VERSION}-ce
