@@ -3,9 +3,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="hyperion"
-PKG_VERSION="dc6a602"
-PKG_SHA256="d585b4e71aafd49f32ced6e27cc88db3c19278a7f258972c22a4e88cad981b0d"
-PKG_REV="107"
+PKG_VERSION="1d125d8df863ad176002f591d72dbba79ce9be63"
+PKG_SHA256="1f3bcd1422dffb7c4398b1c22c63f78151c52c9a44505d1a4ba31278290fd47c"
+PKG_REV="108"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/hyperion-project/hyperion"
