@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="switch-coreboot"
-PKG_VERSION="1becafe"
+PKG_VERSION="b66ec96"
 PKG_ARCH="any"
 PKG_DEPENDS_HOST="gcc-linaro-aarch64-linux-gnu:host gcc-linaro-arm-linux-gnueabi:host zlib:host openssl:host"
 PKG_DEPENDS_TARGET="toolchain switch-coreboot:host switch-u-boot gcc-linaro-aarch64-linux-gnu:host gcc-linaro-arm-linux-gnueabi:host curl:host"
