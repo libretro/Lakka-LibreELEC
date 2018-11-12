@@ -95,11 +95,11 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
                            $RETROARCH_NEON \
                            --enable-zlib \
                            --enable-freetype"
-                           
+              
 if [ "$PROJECT" = "Switch" ]; then
    PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-pulse"
 fi
-                         
+      
 
 pre_configure_target() {
   cd $PKG_BUILD
