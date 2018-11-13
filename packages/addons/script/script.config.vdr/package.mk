@@ -2,9 +2,9 @@
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 
 PKG_NAME="script.config.vdr"
-PKG_VERSION="61c2dde"
-PKG_SHA256="40e204ceae6e1e0c30810b891e0fb240ceec2988bab9c41d265f94db6b3c121f"
-PKG_REV="102"
+PKG_VERSION="0345a2a3b98de48cbbaf77768ca6c9289f531e2b"
+PKG_SHA256="793676258c399427047a7d6628984358c67b1180b98df44b48647d20e8f9395b"
+PKG_REV="103"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="https://libreelec.tv"
@@ -19,7 +19,7 @@ PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="dummy"
 
 make_target() {
-  sed -e "s|@ADDON_VERSION@|$ADDON_VERSION.$PKG_REV|g" \
+  sed -e "s|@ADDON_VERSION@|$ADDON_VERSION|g" \
       -e "s|@OS_VERSION@|$OS_VERSION|g" \
       -i addon.xml
 }
