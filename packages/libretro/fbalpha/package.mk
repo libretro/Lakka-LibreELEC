@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="fbalpha"
-PKG_VERSION="6f85b5d"
+PKG_VERSION="79704a6"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"
@@ -36,7 +36,11 @@ PKG_AUTORECONF="no"
 
 make_target() {
   if [ "$ARCH" == "arm" ]; then
-    make -f makefile.libretro CC=$CC CXX=$CXX profile=performance
+    if [[ "$TARGET_FPU" =~ "neon" ]]; then
+      make -f makefile.libretro CC=$CC CXX=$CXX HAVE_NEON=1 profile=performance
+    else
+      make -f makefile.libretro CC=$CC CXX=$CXX profile=performance
+    fi
   else
     make -f makefile.libretro CC=$CC CXX=$CXX profile=accuracy
   fi
