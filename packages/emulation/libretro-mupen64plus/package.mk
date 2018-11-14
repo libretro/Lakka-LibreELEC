@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-mupen64plus"
-PKG_VERSION="e7ea1ae1f7a6e9913a46946e322d1a2f6d8c4ae0"
-PKG_SHA256="f1d86cc8ac9e3b951bd757a0c2196f3e42473a6a81ac8952374cf92743069d25"
+PKG_VERSION="a4fbedf5c30db1761812627cbb4923cef8bb92b4"
+PKG_SHA256="b05816c0692f9554c1f331f700e82f625156352110aab79a3d5ec4be0e1a83de"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mupen64plus-libretro"
 PKG_URL="https://github.com/libretro/mupen64plus-libretro/archive/$PKG_VERSION.tar.gz"
