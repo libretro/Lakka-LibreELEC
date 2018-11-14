@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.fmsx"
-PKG_VERSION="c7fe596ee370e8465dfec20766b23436cfc5bd80"
-PKG_SHA256="3d3b87954c9cbf70e2ac3968fa2a2fcfd92efdc12d8293d5759972dc3f0795ce"
-PKG_REV="108"
+PKG_VERSION="1f2dde3810c49305ae37ec83256026f451ee1f81"
+PKG_SHA256="0e06833517eb512a9f5ed4f8d1ac3af88d0d72665e5dc3e57a7c38402d52fb54"
+PKG_REV="109"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.fmsx"
