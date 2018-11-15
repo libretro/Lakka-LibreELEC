@@ -53,7 +53,7 @@ make_target() {
     imx6)
       CFLAGS="$CFLAGS -DLINUX -DEGL_API_FB"
       CPPFLAGS="$CPPFLAGS -DLINUX -DEGL_API_FB"
-      make platform=linux GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
+      make platform=unix GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
       ;;
     Generic)
       make
@@ -64,8 +64,11 @@ make_target() {
     OdroidXU3)
       make platform=odroid BOARD=ODROID-XU3 GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
       ;;
+    ROCK960)
+      make platform=unix-gles GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
+      ;;
     *)
-      make platform=linux-gles GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
+      make platform=unix-gles GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
       ;;
   esac
 }
