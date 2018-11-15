@@ -38,7 +38,11 @@ pre_make_target() {
   export CGO_ENABLED=1
   export CGO_NO_EMULATION=1
   export CGO_CFLAGS=$CFLAGS
-  export LDFLAGS="-w -extldflags -static -X github.com/docker/containerd.GitCommit=${PKG_VERSION} -extld $CC"
+  # Update CONTAINERD_VERSION if you update the PKG_VERSION
+  export CONTAINERD_VERSION=v1.2.0
+  export CONTAINERD_REVISION=$PKG_VERSION
+  export CONTAINERD_PKG=github.com/containerd/containerd
+  export LDFLAGS="-w -extldflags -static -X ${CONTAINERD_PKG}/version.Version=${CONTAINERD_VERSION} -X ${CONTAINERD_PKG}/version.Revision=${CONTAINERD_REVISION} -X ${CONTAINERD_PKG}/version.Package=${CONTAINERD_PKG} -extld $CC"
   export GOLANG=$TOOLCHAIN/lib/golang/bin/go
   export GOPATH=$PKG_BUILD/.gopath
   export GOROOT=$TOOLCHAIN/lib/golang
