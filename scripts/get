@@ -3,32 +3,31 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
-. config/options $1
+. config/options "${1}"
 
-if [ -z "$1" ]; then
-  for i in `find packages/ -type f -name package.mk`; do
-    GET_PKG=`grep ^PKG_NAME= $i | sed -e "s,\",,g" -e "s,PKG_NAME=,,"`
-    $SCRIPTS/get $GET_PKG
+if [ -z "${1}" ]; then
+  for i in $(find "${PACKAGES}/" -type f -name "package.mk"); do
+    GET_PKG=$(grep "^PKG_NAME=" "${i}" | sed -e "s,\",,g" -e "s,PKG_NAME=,,")
+    "${SCRIPTS}"/get "${GET_PKG}"
   done
 fi
 
 # Avoid concurrent processing of the same package
-function lock_source_dir() {
-  local _isblocked=N
-  exec 99<$SOURCES/$1
-  while ! flock --nonblock --exclusive 99; do
-    [ ${_isblocked} = N ] && { echo "Project/Device ${DEVICE:-${PROJECT}} waiting, to avoid concurrent processing of ${1}..."; _isblocked=Y; }
-    sleep 1
-  done
+lock_source_dir() {
+  exec 99<"${SOURCES}/${1}"
+  if ! flock --nonblock --exclusive 99; then
+    echo "Project/Device ${DEVICE:-${PROJECT}} waiting, to avoid concurrent processing of ${1}..."
+    flock --exclusive 99
+  fi
 }
 
-if [ -n "$PKG_URL" -a -n "$PKG_SOURCE_NAME" ]; then
-  mkdir -p $SOURCES/$1
+if [ -n "${PKG_URL}" -a -n "${PKG_SOURCE_NAME}" ]; then
+  mkdir -p "${SOURCES}/${1}"
 
-  PACKAGE="$SOURCES/$1/$PKG_SOURCE_NAME"
+  PACKAGE="${SOURCES}/${1}/${PKG_SOURCE_NAME}"
 
-  STAMP_URL="$PACKAGE.url"
-  STAMP_SHA="$PACKAGE.sha256"
+  STAMP_URL="${PACKAGE}.url"
+  STAMP_SHA="${PACKAGE}.sha256"
 
   # determine get handler based on protocol and/or filename
   case "${PKG_URL}" in
@@ -41,16 +40,14 @@ if [ -n "$PKG_URL" -a -n "$PKG_SOURCE_NAME" ]; then
   esac
 
   if ! listcontains "${GET_HANDLER_SUPPORT}" "${get_handler}"; then
-    echo "ERROR: get handler \"${get_handler}\" is not supported, unable to get package $1 - aborting!"
-    exit 1
+    die "ERROR: get handler \"${get_handler}\" is not supported, unable to get package ${1} - aborting!"
   else
     get_handler="${SCRIPTS}/get_${get_handler}"
-    if [ ! -f ${get_handler} ]; then
-      echo "ERROR: get handler \"${get_handler}\" does not exist, unable to get package $1 - aborting!"
-      exit 1
-    else
-      source ${get_handler}
+    if [ ! -f "${get_handler}" ]; then
+      die "ERROR: get handler \"${get_handler}\" does not exist, unable to get package ${1} - aborting!"
     fi
+
+    . "${get_handler}"
   fi
 fi
 
