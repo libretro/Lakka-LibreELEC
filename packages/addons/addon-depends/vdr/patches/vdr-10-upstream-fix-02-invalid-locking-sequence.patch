@@ -1,0 +1,48 @@
+# This patch fixes a possible invalid locking sequence in case a remote timer handling error message
+# is displayed on the OSD and the skin tries to lock the Recordings or DeletedRecordings
+# list in its Flush() function (for instance by calling cVideoDiskUsage::HasChanged()).
+# To do this, the call to Skins.Message() in menu.c's HandleRemoteModifications() has
+# been changed to Skins.QueueMessage(), and cSkins::ProcessQueuedMessages() is now called
+# unconditionally in the main loop, and checks whether the current cSkinDisplay object
+# (if any) implements SetMessage().
+#
+--- 1/menu.c	2018/04/14 10:24:41	5.0
++++ 1/menu.c	2018/04/28 12:09:45
+@@ -1075,7 +1075,7 @@
+ {
+   cString ErrorMessage;
+   if (!HandleRemoteTimerModifications(NewTimer, OldTimer, &ErrorMessage)) {
+-     Skins.Message(mtError, ErrorMessage);
++     Skins.QueueMessage(mtError, ErrorMessage);
+      return false;
+      }
+   return true;
+--- 1/skins.c	2013/08/18 12:07:22	5.0
++++ 1/skins.c	2018/04/28 12:13:01
+@@ -352,6 +352,14 @@
+      dsyslog("cSkins::ProcessQueuedMessages() called from background thread - ignored!");
+      return;
+      }
++  // Check whether there is a cSkinDisplay object (if any) that implements SetMessage():
++  if (cSkinDisplay *sd = cSkinDisplay::Current()) {
++     if (!(dynamic_cast<cSkinDisplayChannel *>(sd) ||
++           dynamic_cast<cSkinDisplayMenu *>(sd) ||
++           dynamic_cast<cSkinDisplayReplay *>(sd) ||
++           dynamic_cast<cSkinDisplayMessage *>(sd)))
++        return;
++     }
+   cSkinQueuedMessage *msg = NULL;
+   // Get the first waiting message:
+   queueMessageMutex.Lock();
+--- 1/vdr.c	2018/04/10 13:24:43	5.0
++++ 1/vdr.c	2018/04/28 11:27:48
+@@ -1176,8 +1176,7 @@
+         if (!Menu && !cOsd::IsOpen())
+            Menu = CamControl();
+         // Queued messages:
+-        if (!Skins.IsOpen())
+-           Skins.ProcessQueuedMessages();
++        Skins.ProcessQueuedMessages();
+         // User Input:
+         cOsdObject *Interact = Menu ? Menu : cControl::Control();
+         eKeys key = Interface->GetKey(!Interact || !Interact->NeedsFastResponse());
