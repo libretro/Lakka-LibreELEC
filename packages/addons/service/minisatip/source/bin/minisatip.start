@@ -1,0 +1,64 @@
+#!/bin/sh
+
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
+
+. /etc/profile
+
+oe_setup_addon service.minisatip
+
+chmod a+x $ADDON_DIR/bin/*
+
+# wait for dvb card
+if [ "$WAIT_FOR_FEINIT" = "true" ]; then
+  while [ true ] ; do
+    if [ -e /dev/dvb/adapter$((NUM_ADAPTERS-1))/frontend0 ]; then
+      break
+    fi
+    sleep 1
+  done
+fi
+
+# sleep for x seconds
+if [ "$WORKAROUND_SLEEP" = "true" ]; then
+  sleep $WORKAROUND_SLEEP_TIME
+fi
+
+## options
+# simulate x adapters
+if [ "$MINISATIP_TESTMODE" = "true" ]; then
+  MINISATIP_ARG_TEST="-a 2:2:2"
+fi
+
+# debug log
+if [ "$MINISATIP_DEBUG" = "true" ]; then
+  MINISATIP_ARG="-l -l -l"
+fi
+
+# RTSP over TCP instead UDP
+if [ "$MINISATIP_SATIP_TCP" = "true" ]; then
+  MINISATIP_ARG="$MINISATIP_ARG -O"
+fi
+
+# clean the PSI from all CA information
+if [ "$MINISATIP_CLEANPSI" = "true" ]; then
+  MINISATIP_ARG="$MINISATIP_ARG -t"
+fi
+
+# port for listening for rtsp requests
+if [ "$MINISATIP_RTSP_PORT" != "554" ]; then
+  MINISATIP_ARG="$MINISATIP_ARG -y $MINISATIP_RTSP_PORT"
+fi
+
+# specify the hostname and port for the dvbapi server (oscam)
+if [ "$MINISATIP_CLEANPSI" = "true" ]; then
+  MINISATIP_ARG="$MINISATIP_ARG -o ${MINISATIP_DVBAPI_IP}:${MINISATIP_DVBAPI_PORT}"
+fi
+
+if [ "$MINISATIP_STARTUP" = "true" ]; then
+  echo "Minisatip was started with this settings: ${MINISATIP_STARTUP_ARGS}" > $ADDON_LOG_FILE
+  exec $ADDON_DIR/bin/minisatip -f ${MINISATIP_ARG_TEST} -x ${MINISATIP_WEBPORT} -R /storage/.kodi/addons/service.minisatip/webif ${MINISATIP_STARTUP_ARGS} >> $ADDON_LOG_FILE
+else
+  echo "Minisatip was started with this settings: ${MINISATIP_ARG}" > $ADDON_LOG_FILE
+  $ADDON_DIR/bin/minisatip -f ${MINISATIP_ARG_TEST} -x ${MINISATIP_WEBPORT} -R /storage/.kodi/addons/service.minisatip/webif ${MINISATIP_ARG} >> $ADDON_LOG_FILE
+fi
