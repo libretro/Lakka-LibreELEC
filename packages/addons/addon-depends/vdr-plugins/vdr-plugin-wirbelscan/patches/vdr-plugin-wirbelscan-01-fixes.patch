@@ -1,0 +1,56 @@
+Subject: [PATCH 1/2] interface channel count
+
+diff --git a/wirbelscan.c b/wirbelscan.c
+index 602e659..aafbec3 100644
+--- a/wirbelscan.c
++++ b/wirbelscan.c
+@@ -12,6 +12,7 @@
+ #include "menusetup.h"
+ #include "countries.h"
+ #include "satellites.h"
++extern TChannels NewChannels;
+ 
+ static const char *VERSION        = "2018.11.04";
+ static const char *DESCRIPTION    = "DVB channel scan for VDR";
+@@ -201,8 +202,8 @@ bool cPluginWirbelscan::Service(const char* id, void* Data) {
+         strcpy(s->transponder, lTransponder.length()? lTransponder.c_str():"none");
+         s->progress = s->status == StatusScanning?lProgress:0;
+         s->strength = s->status == StatusScanning?lStrength:0;
+-        s->numChannels = 0;              // Channels.Count(); // not possible any longer.
+-        s->newChannels = channelcount;   // ((Channels.Count() - channelcount) > 0) && channelcount?Channels.Count() - channelcount:0;
++        s->numChannels = cChannels::MaxNumber();
++        s->newChannels = (NewChannels.Count() > cChannels::MaxNumber()) ? NewChannels.Count() - cChannels::MaxNumber():0;
+         s->nextTransponders = nextTransponders;
+         return true;
+         }
+Subject: [PATCH 2/2] device detection
+
+diff --git a/common.c b/common.c
+index 0ba4656..1ea8e51 100644
+--- a/common.c
++++ b/common.c
+@@ -46,20 +46,10 @@ void cMySetup::InitSystems(void) {
+   for(int i = 0; i < cDevice::NumDevices(); i++) {
+      cDevice* device = cDevice::GetDevice(i);
+      if (device == NULL) continue;
+-     std::string t = *device->DeviceType();
+-     if (t == "DVB-C" ) systems[SCAN_CABLE         ] = 1;
+-     if (t == "DVB-T" ) systems[SCAN_TERRESTRIAL   ] = 1;
+-     if (t == "DSS"   ) systems[SCAN_SATELLITE     ] = 1;
+-     if (t == "DVB-S" ) systems[SCAN_SATELLITE     ] = 1;
+-     if (t == "DVB-S2") systems[SCAN_SATELLITE     ] = 1;
+-     if (t == "ATSC"  ) systems[SCAN_TERRCABLE_ATSC] = 1;
+-     if (t == "DVB-T2") systems[SCAN_TERRESTRIAL   ] = 1;
+-     if (t == "TURBO" ) systems[SCAN_SATELLITE     ] = 1;
+-     if (t == "SAT>IP") {
+-        if (device->ProvidesSource(cSource::FromString("S"))) systems[SCAN_SATELLITE     ] = 1;
+-        if (device->ProvidesSource(cSource::FromString("T"))) systems[SCAN_TERRESTRIAL   ] = 1;
+-        if (device->ProvidesSource(cSource::FromString("C"))) systems[SCAN_CABLE         ] = 1;
+-        }
++     if (device->ProvidesSource(cSource::stSat))   systems[SCAN_SATELLITE] = 1;
++     if (device->ProvidesSource(cSource::stTerr))  systems[SCAN_TERRESTRIAL] = 1;
++     if (device->ProvidesSource(cSource::stCable)) systems[SCAN_CABLE] = 1;
++     if (device->ProvidesSource(cSource::stAtsc))  systems[SCAN_TERRCABLE_ATSC] = 1;
+      }
+ 
+   if (DVB_Type >= SCAN_NO_DEVICE || ! systems[DVB_Type]) {

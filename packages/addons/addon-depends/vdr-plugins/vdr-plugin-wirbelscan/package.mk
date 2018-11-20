@@ -3,11 +3,11 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="vdr-plugin-wirbelscan"
-PKG_VERSION="2017.06.04"
-PKG_SHA256="c7a792c794fb98dd7f665e1be2271f4a1a957a26c017043fcd4dd8d8b7fd582b"
+PKG_VERSION="2018.11.04"
+PKG_SHA256="62c2848aefdb768c165310f70b3746665f57b96a95ebae96761febbb07e942e3"
 PKG_LICENSE="GPL"
 PKG_SITE="http://wirbel.htpc-forum.de/wirbelscan/index2.html"
-PKG_URL="http://wirbel.htpc-forum.de/wirbelscan/${PKG_NAME/-plugin/}-dev-$PKG_VERSION.tgz"
+PKG_URL="http://wirbel.htpc-forum.de/wirbelscan/vdr-wirbelscan-$PKG_VERSION.tgz"
 PKG_DEPENDS_TARGET="toolchain vdr"
 PKG_NEED_UNPACK="$(get_pkg_directory vdr)"
 PKG_LONGDESC="Performs a channel scans for DVB-T, DVB-C and DVB-S"
@@ -16,7 +16,6 @@ PKG_BUILD_FLAGS="+pic"
 
 make_target() {
   VDR_DIR=$(get_build_dir vdr)
-  cp backup/Makefile.old Makefile
   make VDRDIR=$VDR_DIR \
     LIBDIR="." \
     LOCALEDIR="./locale"
