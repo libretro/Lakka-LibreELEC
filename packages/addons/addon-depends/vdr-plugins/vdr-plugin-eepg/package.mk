@@ -3,8 +3,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="vdr-plugin-eepg"
-PKG_VERSION="584d766"
-PKG_SHA256="0ad19af6bcfb5f7de05814dfcb4ab18bb4f705fdbe60b11ab7dbf72cf0d85231"
+PKG_VERSION="c46be443988489780f993a47d23a42936b49d6c0"
+PKG_SHA256="08b343caa392bddefeb6e8cfe6f341b4e11e120046dce05961a335a06e9bee6c"
 PKG_LICENSE="GPL"
 PKG_SITE="http://projects.vdr-developer.org/projects/plg-eepg"
 PKG_URL="https://github.com/vdr-projects/vdr-plugin-eepg/archive/$PKG_VERSION.tar.gz"
