@@ -3,7 +3,7 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="vdr-plugin-xmltv2vdr"
-PKG_VERSION="ec7bd92"
+PKG_VERSION="ec7bd920d94e55f2d21bfa076b7e900b7b2b7537"
 PKG_SHA256="eacc91062095563d8adc93873b373ddb34b076a8c0a9e5a86f6220d1d5d892e9"
 PKG_LICENSE="GPL"
 PKG_SITE="http://projects.vdr-developer.org/projects/plg-xmltv2vdr"

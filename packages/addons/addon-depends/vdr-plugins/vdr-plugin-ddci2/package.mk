@@ -2,7 +2,7 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="vdr-plugin-ddci2"
-PKG_VERSION="05dd988"
+PKG_VERSION="05dd98824092859afd2aa7a4996c8f258affd975"
 PKG_SHA256="b8ed2787e9140eb00a68397eaeb14862ba88a6e73480dc3220a098faffb14833"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/jasmin-j/vdr-plugin-ddci2"
