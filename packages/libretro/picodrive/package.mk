@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="picodrive"
-PKG_VERSION="2db9062"
+PKG_VERSION="c64747f"
 PKG_REV="1"
 PKG_ARCH="arm i386 x86_64"
 PKG_LICENSE="MAME"
