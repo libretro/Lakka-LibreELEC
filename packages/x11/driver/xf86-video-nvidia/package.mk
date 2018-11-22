@@ -39,9 +39,7 @@ makeinstall_target() {
 
   mkdir -p $INSTALL/$XORG_PATH_MODULES/extensions
   # rename to not conflicting with Mesa libGL.so
-    cp -P libGLX.so* $INSTALL/$XORG_PATH_MODULES/extensions/libglx_nvidia.so
-    cp -P libglxserver_nvidia.so.$PKG_VERSION $INSTALL/$XORG_PATH_MODULES/extensions
-      ln -s libglxserver_nvidia.so.$PKG_VERSION $INSTALL/$XORG_PATH_MODULES/extensions/libglxserver_nvidia.so
+    cp -P libglxserver_nvidia.so.$PKG_VERSION $INSTALL/$XORG_PATH_MODULES/extensions/libglx_nvidia.so
 
   mkdir -p $INSTALL/etc/X11
     cp $PKG_DIR/config/*.conf $INSTALL/etc/X11
@@ -51,7 +49,6 @@ makeinstall_target() {
     cp -P libnvidia-ml.so.$PKG_VERSION $INSTALL/usr/lib
       ln -sf /var/lib/libnvidia-ml.so.1 $INSTALL/usr/lib/libnvidia-ml.so.1
     cp -P tls/libnvidia-tls.so.$PKG_VERSION $INSTALL/usr/lib
-    cp -P libGLdispatch.so.* $INSTALL/usr/lib
   # rename to not conflicting with Mesa libGL.so
     cp -P libGL.so.$PKG_VERSION $INSTALL/usr/lib/libGL_nvidia.so.1
 
