@@ -42,8 +42,7 @@ lock_source_dir "${1}"
 _get_repo_already_downloaded && exit 0
 
 # At this point, we need to download something...
-printf "%${BUILD_INDENT}c $(print_color CLR_GET "GET")      ${1} (git)\n" ' '>&$SILENT_OUT
-export BUILD_INDENT=$((${BUILD_INDENT:-1}+${BUILD_INDENT_SIZE}))
+build_msg "CLR_GET" "GET" "${1} (git)" "indent"
 
 rm -f "${STAMP_URL}" "${STAMP_SHA}"
 
@@ -91,46 +90,44 @@ for d in "${SOURCES}/${1}/${1}-"* ; do
           _get_repo_clean
           git checkout -b "${PKG_GIT_CLONE_BRANCH}" "origin/${PKG_GIT_CLONE_BRANCH}"
         else
-          printf "%${BUILD_INDENT}c $(print_color CLR_CLEAN "DELETE") (${d})\n" ' '>&$SILENT_OUT
+          build_msg "CLR_CLEAN" "DELETE" "(${d})"
           cd "${opwd}"
           rm -rf "${d}"
         fi
         if [ "${GIT_FOUND}" = "yes" ]; then
-          printf "%${BUILD_INDENT}c $(print_color CLR_GET "GIT PULL")   ${1}\n" ' '>&$SILENT_OUT
+          build_msg "CLR_GET" "GIT PULL" "${1}"
           git pull
           cd "${opwd}"
         fi
       else
-        printf "%${BUILD_INDENT}c $(print_color CLR_CLEAN "DELETE") (${d})\n" ' '>&$SILENT_OUT
+        build_msg "CLR_CLEAN" "DELETE" "(${d})"
         cd "${opwd}"
         rm -rf "${d}"
       fi
     fi
   else
-    printf "%${BUILD_INDENT}c $(print_color CLR_CLEAN "DELETE") (${d})\n" ' '>&$SILENT_OUT
+    build_msg "CLR_CLEAN" "DELETE" "(${d})"
     rm -rf "${d}"
   fi
 done
 cd "${opwd}"
 
 if [ "${GIT_FOUND}" = "no" ]; then
-  printf "%${BUILD_INDENT}c $(print_color CLR_GET "GIT CLONE")   ${1}\n" ' '>&$SILENT_OUT
+  build_msg "CLR_GET" "GIT CLONE" "${1}"
   git clone ${GIT_CLONE_PARAMS} "${PKG_URL}" "${PACKAGE}"
-else
-  if [ ! "${GIT_DIR}" = "${PACKAGE}" ]; then
-    mv "${GIT_DIR}" "${PACKAGE}"
-  fi
+elif [ ! "${GIT_DIR}" = "${PACKAGE}" ]; then
+  mv "${GIT_DIR}" "${PACKAGE}"
 fi
 
 ( cd "${PACKAGE}"
   [ $(git log --oneline --pretty=tformat:"%H" | grep "^${PKG_VERSION}" | wc -l) -eq 1 ] || die "There is no commit '${PKG_VERSION}' on branch '$(git branch | grep ^\* | cut -d ' ' -f2)' of package '${1}'! Aborting!"
   git reset --hard "${PKG_VERSION}"
-  printf "%${BUILD_INDENT}c $(print_color CLR_GET "GIT SUBMODULE")   ${1}\n" ' '>&$SILENT_OUT
+  build_msg "CLR_GET" "GIT SUBMODULE" "${1}"
   git submodule update --init --recursive ${GIT_SUBMODULE_PARAMS}
 )
 
 GIT_SHA="$(git ls-remote "${PACKAGE}" | grep -m1 HEAD | awk '{print $1;}')"
 
-if [ -n "${PKG_GIT_SHA}" ]; then
-   [ "${PKG_GIT_SHA}" = "${GIT_SHA}" ] || printf "%${BUILD_INDENT}c $(print_color CLR_WARNING "WARNING") Incorrect git hash in respository: got ${GIT_SHA}, wanted ${PKG_GIT_SHA}\n\n" ' '>&$SILENT_OUT
+if [ -n "${PKG_GIT_SHA}" -a "${PKG_GIT_SHA}" != "${GIT_SHA}" ]; then
+  build_msg "CLR_WARNING" "WARNING" "Incorrect git hash in repository: got ${GIT_SHA}, wanted ${PKG_GIT_SHA}"
 fi

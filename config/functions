@@ -37,51 +37,91 @@ listremoveitem() {
 
 print_color() {
   local clr_name="$1" clr_text="$2" clr_actual
+  local black red green yellow blue magenta cyan white endcolor
+  local boldblack boldred boldgreen boldyellow boldblue boldmagenta boldcyan boldwhite
+
+  [ -z "${clr_name}" ] && return 0
 
   if [ "$DISABLE_COLORS" = "yes" ]; then
     [ $# -eq 2 ] && echo -en "${clr_text}"
     return 0
   fi
 
+  black="\e[0;30m"
+  boldblack="\e[1;30m"
+  red="\e[0;31m"
+  boldred="\e[1;31m"
+  green="\e[0;32m"
+  boldgreen="\e[1;32m"
+  yellow="\e[0;33m"
+  boldyellow="\e[1;33m"
+  blue="\e[0;34m"
+  boldblue="\e[1;34m"
+  magenta="\e[0;35m"
+  boldmagenta="\e[1;35m"
+  cyan="\e[0;36m"
+  boldcyan="\e[1;36m"
+  white="\e[0;37m"
+  boldwhite="\e[1;37m"
+  endcolor="\e[0m"
+
+  # $clr_name can be a color variable (boldgreen etc.) or a
+  # "standard" color determined by an indirect name (CLR_ERROR etc.)
+  #
+  # If ${!clr_name} doesn't exist then assume it's a standard color.
+  #
   clr_actual="${!clr_name}"
 
-  # If $clr_name isn't another colour variable (boldgreen etc.), then
-  # assume it's an actual colour escape sequence.
-  #
-  # Otherwise if $clr_name isn't defined, or doesn't exist, then use
-  # standard colours.
-  #
-  if [[ -n "${clr_actual}" ]] && [[ -z "${!clr_actual}" ]]; then
-    clr_actual="${clr_name}"
-  elif [[ -z "${clr_actual}" ]] || [[ -z "${!clr_actual}" ]]; then
+  if [ -z "${clr_actual}" ]; then
     case "${clr_name}" in
-      CLR_ERROR)        clr_actual="boldred";;
-      CLR_WARNING)      clr_actual="boldred";;
-      CLR_WARNING_DIM)  clr_actual="red";;
+      CLR_ERROR)        clr_actual="${boldred}";;
+      CLR_WARNING)      clr_actual="${boldred}";;
+      CLR_WARNING_DIM)  clr_actual="${red}";;
 
-      CLR_APPLY_PATCH)  clr_actual="boldgreen";;
-      CLR_AUTORECONF)   clr_actual="boldmagenta";;
-      CLR_BUILD)        clr_actual="boldyellow";;
-      CLR_TOOLCHAIN)    clr_actual="boldmagenta";;
-      CLR_CLEAN)        clr_actual="boldred";;
-      CLR_FIXCONFIG)    clr_actual="boldyellow";;
-      CLR_GET)          clr_actual="boldcyan";;
-      CLR_INFO)         clr_actual="boldgreen";;
-      CLR_INSTALL)      clr_actual="boldgreen";;
-      CLR_PATCH_DESC)   clr_actual="boldwhite";;
-      CLR_TARGET)       clr_actual="boldwhite";;
-      CLR_UNPACK)       clr_actual="boldcyan";;
+      CLR_APPLY_PATCH)  clr_actual="${boldgreen}";;
+      CLR_AUTORECONF)   clr_actual="${boldmagenta}";;
+      CLR_BUILD)        clr_actual="${boldyellow}";;
+      CLR_TOOLCHAIN)    clr_actual="${boldmagenta}";;
+      CLR_CLEAN)        clr_actual="${boldred}";;
+      CLR_FIXCONFIG)    clr_actual="${boldyellow}";;
+      CLR_GET)          clr_actual="${boldcyan}";;
+      CLR_INFO)         clr_actual="${boldgreen}";;
+      CLR_INSTALL)      clr_actual="${boldgreen}";;
+      CLR_PATCH_DESC)   clr_actual="${boldwhite}";;
+      CLR_TARGET)       clr_actual="${boldwhite}";;
+      CLR_UNPACK)       clr_actual="${boldcyan}";;
 
-      CLR_ENDCOLOR)     clr_actual="endcolor";;
+      CLR_ENDCOLOR)     clr_actual="${endcolor}";;
 
-      *)                clr_actual="endcolor";;
+      *)                clr_actual="${endcolor}";;
     esac
   fi
 
   if [ $# -eq 2 ]; then
-    echo -en "${!clr_actual}${clr_text}${endcolor}"
+    echo -en "${clr_actual}${clr_text}${endcolor}"
   else
-    echo -en "${!clr_actual}"
+    echo -en "${clr_actual}"
+  fi
+}
+
+# print build progress messages
+# param1: message color, p2: label, p3: text, p4: indent (optional)
+build_msg() {
+  local spaces
+
+  [ -n "${BUILD_INDENT}" ] && spaces="$(printf "%${BUILD_INDENT}c" " ")" || spaces=""
+
+  if [ -n "${3}" ]; then
+    echo -e "${spaces}$(print_color "${1}" "${2}")      ${3}" >&${SILENT_OUT}
+  else
+    echo -e "${spaces}$(print_color "${1}" "${2}")" >&${SILENT_OUT}
+  fi
+
+  # pad left space to create "indent" effect
+  if [ "${4}" = "indent" ]; then
+    export BUILD_INDENT=$((${BUILD_INDENT:-0}+${BUILD_INDENT_SIZE}))
+  elif [ -n "${4}" ]; then
+    die "ERROR: ${0} unexpected parameter: ${4}"
   fi
 }
 

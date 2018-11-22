@@ -2,44 +2,40 @@
 
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
-. config/options $1
+. config/options "${1}"
 
 clean_package() {
-  printf "%${BUILD_INDENT}c $(print_color CLR_CLEAN "CLEAN")    $1\n" ' '>&$SILENT_OUT
-  export BUILD_INDENT=$((${BUILD_INDENT:-1}+$BUILD_INDENT_SIZE))
+  build_msg "CLR_CLEAN" "CLEAN" "${1}" "indent"
 
-  if [ "$CLEAN_SOURCES" = true ]; then
-    rm -rf $SOURCES/$1
+  if [ "${CLEAN_SOURCES}" = true ]; then
+    rm -rf "${SOURCES}/${1}"
     return
   fi
 
   # Use a wilcard here to remove all versions of the package
-  for i in $BUILD/$1-*; do
-    if [ -d $i -a -f "$i/.libreelec-unpack" ] ; then
-      . "$i/.libreelec-unpack"
-      if [ "$STAMP_PKG_NAME" = "$1" ]; then
-        printf "%${BUILD_INDENT}c $(print_color CLR_WARNING "*") $(print_color CLR_WARNING_DIM "Removing $i ...")\n" ' '>&$SILENT_OUT
-        rm -rf $i
+  for i in "${BUILD}/${1}-"*; do
+    if [ -d "${i}" -a -f "${i}/.libreelec-unpack" ]; then
+      . "${i}/.libreelec-unpack"
+      if [ "${STAMP_PKG_NAME}" = "${1}" ]; then
+        build_msg "CLR_WARNING" "*" "$(print_color "CLR_WARNING_DIM" "Removing ${i} ...")"
+        rm -rf "${i}"
       fi
     else
       # force clean if no stamp found (previous unpack failed)
-      printf "%${BUILD_INDENT}c * Removing $i ...\n" ' '>&$SILENT_OUT
-      rm -rf $i
+      build_msg "" "" "* Removing ${i} ..."
+      rm -rf "${i}"
     fi
   done
-  rm -f $STAMPS/$1/build_*
+  rm -f "${STAMPS}/${1}/build_"*
 }
 
-if [ "$1" = "--all" ]; then
-  if [ ! -z "$2" ]; then
-    for build_dir in $(ls -1d ${ROOT}/build.*); do
-      load_build_config "${build_dir}" && ./scripts/clean $2
-    done
-  fi
-else
-  if [ ! -z "$1" ]; then
-    clean_package $1
-  fi
+if [ "${1}" = "--all" -a -n "${2}" ]; then
+  for build_dir in $(ls -1d "${ROOT}/build."*); do
+    load_build_config "${build_dir}" && "${SCRIPTS}/clean" "${2}"
+  done
+elif [ -n "${1}" ]; then
+  clean_package "${1}"
 fi
 
