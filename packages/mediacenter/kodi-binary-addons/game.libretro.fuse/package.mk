@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.fuse"
-PKG_VERSION="821e84b4c07ecfe23c8b3cbe7795f36a485959f7"
-PKG_SHA256="694cc3806e1d865df2d73b78a75c2957c78b9ba115d120ffaf3747ef3e49e8fa"
-PKG_REV="109"
+PKG_VERSION="cbb7c6d79e6bc04bc520a4aaf9696fd8911711f7"
+PKG_SHA256="578772fdae256a03d46a2471de09b3738c6b41a83731c53b4868f772ac408462"
+PKG_REV="110"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.fuse"

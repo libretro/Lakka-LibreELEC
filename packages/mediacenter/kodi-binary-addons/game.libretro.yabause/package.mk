@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.yabause"
-PKG_VERSION="2aca8b5f65e241f47da88e41dd8cfad646551bd2"
-PKG_SHA256="013e6e51733cf081ce7e05fd6a79d112ffed56098555e271ef72f881e62a2eea"
-PKG_REV="110"
+PKG_VERSION="7ce6f799941db8d8b3774c1dc163d386776efd49"
+PKG_SHA256="e3c790f9cf58fd1cd8ef83145915f31078a390eb7ab375dee72153a2a3f0e705"
+PKG_REV="111"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.yabause"

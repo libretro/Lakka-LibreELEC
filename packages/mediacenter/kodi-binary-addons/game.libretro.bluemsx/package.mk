@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.bluemsx"
-PKG_VERSION="90dd3e0aaadca2cdf25561c2767479d5f4deb9ba"
-PKG_SHA256="5f8af35b2ddc768c7b14170fd2207dc8c54c54db498c4ace91cc2185c79c8fa3"
-PKG_REV="109"
+PKG_VERSION="87aae5594c88be4055090dad887da4783022af6c"
+PKG_SHA256="3200db96dbf4817d04b9766422e7b37cc7253182f1dd20e26103f6dc7a8efdfe"
+PKG_REV="110"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.bluemsx"
