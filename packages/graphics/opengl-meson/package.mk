@@ -11,8 +11,8 @@ case $MESON_FAMILY in
     PKG_SHA256="717739c9f65f6782e3185aad09d01f228873315f70f9a58c0526b9e63a6e386f"
     ;;
   6)
-    PKG_VERSION="6-r5p1-01rel0-armhf"
-    PKG_SHA256="21a8376668c84bf1b9e64a917fcfa1cf74689035fed8e4630833c9cde28d40c1"
+    PKG_VERSION="6-r5p1-02rel0-armhf"
+    PKG_SHA256="de38a1fa23191bd5de5c85c66627d4537775ee4634b71baa8d0e241b8b9d4ba2"
     ;;
   gxbb)
     if [ "$TARGET_ARCH" = "arm" ]; then
