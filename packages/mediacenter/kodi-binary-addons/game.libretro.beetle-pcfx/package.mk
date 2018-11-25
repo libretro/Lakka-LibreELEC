@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.beetle-pcfx"
-PKG_VERSION="da33005f6cef884c9b360a5422df80d92fcabb70"
-PKG_SHA256="52bc84035c78bd345bcc587c302d94a1f482e11f12572c0706bbbfc92fbb2423"
-PKG_REV="109"
+PKG_VERSION="2065aad74260a104806c28893d988020360bb1e0"
+PKG_SHA256="f7bc033214cd1d1fda6a7020c74e57c867eab6bbb8be6b890f9110a644a3642f"
+PKG_REV="110"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.beetle-pcfx"
