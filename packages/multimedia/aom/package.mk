@@ -12,4 +12,6 @@ PKG_LONGDESC="AV1 Codec Library"
 
 PKG_CMAKE_OPTS_TARGET="-DENABLE_CCACHE=1 \
                        -DENABLE_DOCS=0 \
+                       -DENABLE_EXAMPLES=0 \
+                       -DENABLE_TESTS=0 \
                        -DENABLE_TOOLS=0"
