@@ -2,8 +2,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="tvh-dtv-scan-tables"
-PKG_VERSION="47f11c5680863858e43e7feb3d48cc22575da0ae"
-PKG_SHA256="2c34829c9a263449d1227f31dc3ad5e348e2ba742661b5b021eef6175f21931d"
+PKG_VERSION="421c08b31b24e0cd5d8fb54e6f3278a1ef9d3666"
+PKG_SHA256="2377c0edec0997d320f121a8f7944b37935e0fd40249252d4098b7002df82693"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/tvheadend"
 PKG_URL="https://github.com/tvheadend/dtv-scan-tables/archive/$PKG_VERSION.tar.gz"
