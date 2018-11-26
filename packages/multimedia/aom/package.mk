@@ -15,3 +15,7 @@ PKG_CMAKE_OPTS_TARGET="-DENABLE_CCACHE=1 \
                        -DENABLE_EXAMPLES=0 \
                        -DENABLE_TESTS=0 \
                        -DENABLE_TOOLS=0"
+
+if ! target_has_feature neon; then
+  PKG_CMAKE_OPTS_TARGET+=" -DENABLE_NEON=0 -DENABLE_NEON_ASM=0"
+fi
