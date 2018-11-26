@@ -30,6 +30,10 @@ make_target() {
   # make config all
   kernel_make VER=$KERNEL_VER SRCDIR=$(kernel_path) allyesconfig
 
+  if [ "$PROJECT" = Rockchip ]; then
+    sed -e 's/CONFIG_VIDEO_ADV7604=m/# CONFIG_VIDEO_ADV7604 is not set/g' -i v4l/.config
+  fi
+
   kernel_make VER=$KERNEL_VER SRCDIR=$(kernel_path)
 }
 
