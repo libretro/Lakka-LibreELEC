@@ -9,7 +9,7 @@ PKG_SHA256="f25559d4b803321483b28ac9b513671200bdc8e3531c02f0affdd622846a9c5e"
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://ffmpeg.org"
 PKG_URL="https://github.com/xbmc/FFmpeg/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain yasm:host zlib bzip2 openssl speex dav1d"
+PKG_DEPENDS_TARGET="toolchain yasm:host zlib bzip2 openssl speex"
 PKG_LONGDESC="FFmpeg is a complete, cross-platform solution to record, convert and stream audio and video."
 PKG_BUILD_FLAGS="-gold"
 
@@ -64,6 +64,11 @@ if [ "$TARGET_ARCH" = "x86_64" ]; then
   PKG_FFMPEG_X86ASM="--enable-x86asm --x86asmexe=yasm"
 else
   PKG_FFMPEG_X86ASM="--disable-x86asm"
+fi
+
+if target_has_feature "(neon|sse)"; then
+  PKG_DEPENDS_TARGET+=" dav1d"
+  PKG_FFMPEG_AV1="--enable-libdav1d"
 fi
 
 pre_configure_target() {
@@ -171,7 +176,7 @@ configure_target() {
               --disable-libmp3lame \
               --disable-libopenjpeg \
               --disable-librtmp \
-              --enable-libdav1d \
+              $PKG_FFMPEG_AV1 \
               --enable-libspeex \
               --disable-libtheora \
               --disable-libvo-amrwbenc \
