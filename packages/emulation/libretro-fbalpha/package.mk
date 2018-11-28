@@ -2,22 +2,37 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-fbalpha"
-PKG_VERSION="79704a667cd0aa5865feffd0f55b6fc4acc13dec"
-PKG_SHA256="5edc9e3c7f71d7b6e8177edb34ff11681fa68f199949dba81f6f313843208861"
+PKG_VERSION="bfededf36c4ca6f37926a66822d860a9754080c3"
+PKG_SHA256="0c31bb6fe84f2dfa9adead0a6fd23cb2d516c96c7213cec89e66444e13fe8478"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/fbalpha"
 PKG_URL="https://github.com/libretro/fbalpha/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_LONGDESC="game.libretro.fba: fba for Kodi"
-PKG_TOOLCHAIN="manual"
-# linking takes too long with lto
+PKG_TOOLCHAIN="make"
 
 PKG_LIBNAME="fbalpha_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"
 PKG_LIBVAR="FBALPHA_LIB"
 
-make_target() {
-  make -f makefile.libretro
+PKG_MAKE_OPTS_TARGET="-f makefile.libretro CC=$CC CXX=$CXX GIT_VERSION=${PKG_VERSION:0:7}"
+
+pre_make_target() {
+  if [ "$PROJECT" = "RPi" ]; then
+    case $DEVICE in
+      RPi)
+        PKG_MAKE_OPTS_TARGET+=" platform=armv"
+        ;;
+      RPi2)
+        PKG_MAKE_OPTS_TARGET+=" platform=rpi2"
+        ;;
+    esac
+  else
+    # NEON Support ?
+    if target_has_feature neon; then
+      PKG_MAKE_OPTS_TARGET+=" HAVE_NEON=1"
+    fi
+  fi
 }
 
 makeinstall_target() {
