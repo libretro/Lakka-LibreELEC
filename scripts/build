@@ -192,9 +192,7 @@ BOOTSTRAP_MESON_OPTS="$HOST_MESON_OPTS"
 . $PKG_DIR/package.mk
 
 # finalise package configuration
-if [ "$(type -t configure_package)" = "function" ]; then
-  configure_package
-fi
+pkg_call_optional configure_package
 
 # build dependencies, only when PKG_DEPENDS_? is filled
 unset _pkg_depends
@@ -274,9 +272,7 @@ if [ "$PKG_TOOLCHAIN" = "autotools" ]; then
 fi
 
 # include build template and build
-if [ "$(type -t pre_build_$TARGET)" = "function" ]; then
-  pre_build_$TARGET
-fi
+pkg_call_optional pre_build_$TARGET
 
 # ensure $PKG_BUILD is there. (installer? PKG_URL="")
 if [ ! -d "$PKG_BUILD" ] ; then
@@ -299,12 +295,9 @@ if [ -f "$PKG_CONFIGURE_SCRIPT" -o -f "$PKG_CMAKE_SCRIPT" -o -f "$PKG_MESON_SCRI
 fi
 
 # configure
-if [ "$(type -t pre_configure_$TARGET)" = "function" ]; then
-  pre_configure_$TARGET
-fi
-if [ "$(type -t configure_$TARGET)" = "function" ]; then
-  configure_$TARGET
-else
+pkg_call_optional pre_configure_$TARGET
+
+if ! pkg_call configure_$TARGET; then
   case "$PKG_TOOLCHAIN:$TARGET" in
     # meson builds
     "meson:target")
@@ -383,17 +376,13 @@ else
       ;;
   esac
 fi
-if [ "$(type -t post_configure_$TARGET)" = "function" ]; then
-  post_configure_$TARGET
-fi
+
+pkg_call_optional post_configure_$TARGET
 
 # make
-if [ "$(type -t pre_make_$TARGET)" = "function" ]; then
-  pre_make_$TARGET
-fi
-if [ "$(type -t make_$TARGET)" = "function" ]; then
-  make_$TARGET
-else
+pkg_call_optional pre_make_$TARGET
+
+if ! pkg_call make_$TARGET; then
   case "$PKG_TOOLCHAIN:$TARGET" in
     # ninja based builds
     "meson:target"|"cmake:target"|"ninja:target")
@@ -432,17 +421,13 @@ else
       ;;
   esac
 fi
-if [ "$(type -t post_make_$TARGET)" = "function" ]; then
-  post_make_$TARGET
-fi
+
+pkg_call_optional post_make_$TARGET
 
 # make install
-if [ "$(type -t pre_makeinstall_$TARGET)" = "function" ]; then
-  pre_makeinstall_$TARGET
-fi
-if [ "$(type -t makeinstall_$TARGET)" = "function" ]; then
-  makeinstall_$TARGET
-else
+pkg_call_optional pre_makeinstall_$TARGET
+
+if ! pkg_call makeinstall_$TARGET; then
   case "$PKG_TOOLCHAIN:$TARGET" in
     # ninja based builds
     "meson:target"|"cmake:target")
@@ -475,9 +460,8 @@ else
       ;;
   esac
 fi
-if [ "$(type -t post_makeinstall_$TARGET)" = "function" ]; then
-  post_makeinstall_$TARGET
-fi
+
+pkg_call_optional post_makeinstall_$TARGET
 
 if [ "$TARGET" = "target" -o "$TARGET" = "init" ]; then
   if [ -d $INSTALL ]; then

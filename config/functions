@@ -10,6 +10,24 @@ die() {
   exit "${2:-1}"
 }
 
+# p1: name of potential function to execute if it exists
+# return 0 if function executed, 1 if not, die if error
+pkg_call() {
+  [ -n "${PKG_NAME}" ] || die "$(print_color CLR_ERROR "FAILURE: Cannot call ${1} package function when package is not known!")"
+
+  if [ "$(type -t ${1})" = "function" ]; then
+    ${1} || die "$(print_color CLR_ERROR "FAILURE: ${1} for package ${PKG_NAME} did not succeed!")"
+  else
+    return 1
+  fi
+}
+
+# p1: name of potential function to execute if it exists
+# return 0 if function executed or not, or die if error
+pkg_call_optional() {
+  pkg_call ${1} || return 0
+}
+
 # return 0 if $2 in space-separated list $1, otherwise return 1
 listcontains() {
   if [ -n "$1" -a -n "$2" ]; then
@@ -20,7 +38,7 @@ listcontains() {
 }
 
 # remove item(s) from list.
-# looping makes it greedy (eg. removefromlist "abc def ghi" "(abc|def)" will work).
+# looping makes it greedy (eg. listremoveitem "abc def ghi" "(abc|def)" removes both "abc" and "def").
 listremoveitem() {
   local data="${1}" odata tmp_array
   if [ -n "$1" -a -n "$2" ]; then
