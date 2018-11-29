@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="dvb-latest"
-PKG_VERSION="9f419c414672676f63e85a61ea99df0ddcd6e9a7"
-PKG_SHA256="284026f37db8880247f94e8fb763107c47ac44460d1b7819e076c61ccec9b86c"
+PKG_VERSION="a8aef9cea0a4a2f3ea86c0b37bd6a1378018c0c1"
+PKG_SHA256="a26566b1f8ad52f2a1b3c60f0ee8862702e51e2a7bc9e5385999137db0da3fe3"
 PKG_LICENSE="GPL"
 PKG_SITE="http://git.linuxtv.org/media_build.git"
 PKG_URL="https://git.linuxtv.org/media_build.git/snapshot/${PKG_VERSION}.tar.gz"
@@ -29,6 +29,10 @@ make_target() {
 
   # make config all
   kernel_make VER=$KERNEL_VER SRCDIR=$(kernel_path) allyesconfig
+
+  if [ "$PROJECT" = Rockchip ]; then
+    sed -e 's/CONFIG_VIDEO_ADV7604=m/# CONFIG_VIDEO_ADV7604 is not set/g' -i v4l/.config
+  fi
 
   kernel_make VER=$KERNEL_VER SRCDIR=$(kernel_path)
 }
