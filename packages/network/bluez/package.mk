@@ -59,6 +59,9 @@ post_makeinstall_target() {
 
   mkdir -p $INSTALL/usr/share/services
     cp -P $PKG_DIR/default.d/*.conf $INSTALL/usr/share/services
+
+  # bluez looks in /etc/firmware/
+    ln -sf /usr/lib/firmware $INSTALL/etc/firmware
 }
 
 post_install() {
