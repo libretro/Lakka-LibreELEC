@@ -50,7 +50,6 @@ del_edid() {
       mv "$file".old "$file"
       rm -f /flash/edid.cpio
       mount_ro
-      rm -fr /storage/.config/firmware
       sys_reboot
     else
       echo "You don't have a backup file for $file. You did not use this script to create the custom EDID"
@@ -107,7 +106,7 @@ check_file() {
     sys_path="/flash"
   fi
 
-  #check which file is available
+  # check which file is available
   if [ -f "$sys_path/syslinux.cfg" -a -f "$sys_path/extlinux.conf" ]; then
     echo "Your system contains both a /flash/syslinux.cfg and a /flash/extlinux.conf file"
     echo "Something is wrong on your system. Exiting"
@@ -139,8 +138,19 @@ check_kernel() {
 }
 
 
+create_edid() {
+  # create edid 
+  mkdir -p /tmp/cpio/lib/firmware/edid
+  cat "/sys/class/drm/$card/edid" > /tmp/cpio/lib/firmware/edid/edid.bin
+
+  # create cpio archive
+  cd /tmp/cpio/
+  find . -print | cpio -ov -H newc > /storage/edid.cpio
+}
+
+
 intel_amd() {
-  #check which output is connnected:
+  # check which output is connnected:
   counter=0
   for i in /sys/class/drm/*; do
     if [ "$(cat "$i"/status 2>/dev/null)" = "connected" ]; then
@@ -155,38 +165,28 @@ intel_amd() {
     fi
   done
 
-  #create edid
-  mkdir -p /storage/.config/firmware/edid
-  cat "/sys/class/drm/$card/edid" > /storage/.config/firmware/edid/edid.bin
+  # create the edid 
+  create_edid
 
-  #create cpio archive
-  cd /storage
-  mkdir -p cpio/lib/firmware/edid
-  cp /storage/.config/firmware/edid/edid.bin /storage/cpio/lib/firmware/edid/
-  cd cpio/
-  find . -print | cpio -ov -H newc > /storage/edid.cpio
-  cd /storage
-  rm -rf cpio
-
-  #check extlinux.conf and syslinux.cfg
+  # check extlinux.conf and syslinux.cfg
   check_file
   check_content
 
-  #remount /flash to rw
+  # remount /flash to rw
   mount_rw
   mv /storage/edid.cpio /flash
 
   # make a backup of $file
   cp "$file" "$file".old
 
-  #add boot parameters to $file in relation to the used kernel
+  # add boot parameters to $file in relation to the used kernel
   if [ "$kernel" -lt "415000" ]; then
     sed -i "/ APPEND/s/$/ initrd=\/edid.cpio drm_kms_helper.edid_firmware=$hdmi:edid\/edid.bin video=$hdmi:D/" "$file"
   else
     sed -i "/ APPEND/s/$/ initrd=\/edid.cpio drm.edid_firmware=edid\/edid.bin/" "$file"
   fi
 
-  #reboot
+  # reboot
   sys_reboot
 }
 
