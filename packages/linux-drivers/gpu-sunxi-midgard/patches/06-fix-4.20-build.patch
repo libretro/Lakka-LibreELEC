@@ -1,0 +1,60 @@
+diff -Nur a/driver/product/kernel/drivers/gpu/arm/midgard/mali_kbase_mem_linux.c c/driver/product/kernel/drivers/gpu/arm/midgard/mali_kbase_mem_linux.c
+--- a/driver/product/kernel/drivers/gpu/arm/midgard/mali_kbase_mem_linux.c	2018-12-01 17:49:08.000000000 +0100
++++ c/driver/product/kernel/drivers/gpu/arm/midgard/mali_kbase_mem_linux.c	2018-12-01 20:27:42.057964019 +0100
+@@ -1668,6 +1668,7 @@
+ 	struct kbase_cpu_mapping *map = vma->vm_private_data;
+ 	pgoff_t rel_pgoff;
+ 	size_t i;
++	int ret = VM_FAULT_SIGBUS;
+ 	pgoff_t addr;
+ 
+ 	KBASE_DEBUG_ASSERT(map);
+@@ -1693,9 +1694,9 @@
+ 	addr = (pgoff_t)(vmf->address >> PAGE_SHIFT);
+ #endif
+ 	while (i < map->alloc->nents && (addr < vma->vm_end >> PAGE_SHIFT)) {
+-		int ret = vm_insert_pfn(vma, addr << PAGE_SHIFT,
++		ret = vmf_insert_pfn(vma, addr << PAGE_SHIFT,
+ 		    PFN_DOWN(as_phys_addr_t(map->alloc->pages[i])));
+-		if (ret < 0 && ret != -EBUSY)
++		if (unlikely(ret & VM_FAULT_ERROR))
+ 			goto locked_bad_fault;
+ 
+ 		i++; addr++;
+@@ -1707,7 +1708,7 @@
+ 
+ locked_bad_fault:
+ 	kbase_gpu_vm_unlock(map->kctx);
+-	return VM_FAULT_SIGBUS;
++	return ret;
+ }
+ 
+ const struct vm_operations_struct kbase_vm_ops = {
+@@ -1776,10 +1777,11 @@
+ 			phys_addr_t phys;
+ 
+ 			phys = as_phys_addr_t(page_array[i + start_off]);
+-			err = vm_insert_pfn(vma, addr, PFN_DOWN(phys));
+-			if (WARN_ON(err))
++			err = vmf_insert_pfn(vma, addr, PFN_DOWN(phys));
++			if (unlikely(WARN_ON(err & VM_FAULT_ERROR)))
+ 				break;
+ 
++			err = 0;
+ 			addr += PAGE_SIZE;
+ 		}
+ 	} else {
+diff -Nur a/driver/product/kernel/drivers/gpu/arm/midgard/mali_kbase_smc.c c/driver/product/kernel/drivers/gpu/arm/midgard/mali_kbase_smc.c
+--- a/driver/product/kernel/drivers/gpu/arm/midgard/mali_kbase_smc.c	2018-01-13 23:26:00.000000000 +0100
++++ c/driver/product/kernel/drivers/gpu/arm/midgard/mali_kbase_smc.c	2018-12-01 20:03:30.071690693 +0100
+@@ -27,6 +27,10 @@
+ 
+ #include <linux/compiler.h>
+ 
++#ifndef __asmeq
++#define __asmeq(x, y)  ".ifnc " x "," y " ; .err ; .endif\n\t"
++#endif
++
+ static noinline u64 invoke_smc_fid(u64 function_id,
+ 		u64 arg0, u64 arg1, u64 arg2)
+ {
