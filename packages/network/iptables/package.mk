@@ -3,13 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="iptables"
-if [[ ! $LINUX =~ ^amlogic-3 ]]; then
-  PKG_VERSION="1.8.2"
-  PKG_SHA256="a3778b50ed1a3256f9ca975de82c2204e508001fc2471238c8c97f3d1c4c12af"
-else
-  PKG_VERSION="1.6.1"
-  PKG_SHA256="0fc2d7bd5d7be11311726466789d4c65fb4c8e096c9182b56ce97440864f0cf5"
-fi
+PKG_VERSION="1.8.2"
+PKG_SHA256="a3778b50ed1a3256f9ca975de82c2204e508001fc2471238c8c97f3d1c4c12af"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.netfilter.org/"
 PKG_URL="http://www.netfilter.org/projects/iptables/files/$PKG_NAME-$PKG_VERSION.tar.bz2"
