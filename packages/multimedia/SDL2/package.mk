@@ -7,7 +7,7 @@ PKG_SHA256="edc77c57308661d576e843344d8638e025a7818bff73f8fbfab09c3c5fd092ec"
 PKG_LICENSE="GPL"
 PKG_SITE="https://www.libsdl.org/"
 PKG_URL="https://www.libsdl.org/release/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain yasm:host alsa-lib systemd dbus"
+PKG_DEPENDS_TARGET="toolchain nasm:host alsa-lib systemd dbus"
 PKG_LONGDESC="A cross-platform multimedia library designed to provide fast access to the graphics framebuffer and audio device. "
 PKG_BUILD_FLAGS="+pic"
 
