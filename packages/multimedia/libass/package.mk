@@ -18,6 +18,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-test \
                            --with-gnu-ld"
 
 if [ $TARGET_ARCH = "x86_64" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET nasm:host"
-  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-asm"
+  PKG_DEPENDS_TARGET+=" nasm:host"
+  PKG_CONFIGURE_OPTS_TARGET+=" --enable-asm"
 fi
