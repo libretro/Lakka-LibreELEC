@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="screensaver.pingpong"
-PKG_VERSION="85b6007dc526cf1ba109f32182c2cae574b5b5b4"
-PKG_SHA256="bfe830decb409feeb53b3b4aa0da9c8545f80ce50975e2ea6b251b6a9c11196d"
+PKG_VERSION="a307f670db4e6553229c4c8db19d36a2666b3c3c"
+PKG_SHA256="cc629bb2dfd82a3096c6de601d37f614d1258b04db55b75a7413c8ecc40d0112"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
