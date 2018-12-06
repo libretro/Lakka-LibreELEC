@@ -1,0 +1,118 @@
+diff -u a/configure.ac b/configure.ac
+--- a/configure.ac	2018-10-16 20:01:20.000000000 -0400
++++ b/configure.ac	2018-12-06 04:08:42.718993760 -0500
+@@ -4903,6 +4903,19 @@
+ )
+ 
+ 
++# Set keydir
++AC_ARG_WITH([keydir],
++	[  --with-keydir=      Specify different path for storing keys],
++	[
++		if test -n "$withval" && test "x$withval" != "xno" && \
++			test "x${withval}" != "xyes"; then
++			KEYDIR=$withval
++		fi
++	]
++)
++AC_SUBST([KEYDIR])
++
++
+ AC_MSG_CHECKING([if we need to convert IPv4 in IPv6-mapped addresses])
+ IPV4_IN6_HACK_MSG="no"
+ AC_ARG_WITH(4in6,
+@@ -5277,6 +5290,7 @@
+ H=`eval echo ${PRIVSEP_PATH}` ; H=`eval echo ${H}`
+ I=`eval echo ${user_path}` ; I=`eval echo ${I}`
+ J=`eval echo ${superuser_path}` ; J=`eval echo ${J}`
++K=`eval echo ${KEYDIR}` ; K=`eval echo ${K}`
+ 
+ echo ""
+ echo "OpenSSH has been configured with the following options:"
+@@ -5300,6 +5314,9 @@
+ if test ! -z "$superuser_path" ; then
+ echo "          sshd superuser user PATH: $J"
+ fi
++if test ! -z "$KEYDIR" ; then
++echo "                       sshd keydir: $K"
++fi
+ echo "                    Manpage format: $MANTYPE"
+ echo "                       PAM support: $PAM_MSG"
+ echo "                   OSF SIA support: $SIA_MSG"
+Common subdirectories: a/contrib and b/contrib
+diff -u a/Makefile.in b/Makefile.in
+--- a/Makefile.in	2018-10-16 20:01:20.000000000 -0400
++++ b/Makefile.in	2018-12-06 04:00:04.301968236 -0500
+@@ -28,8 +28,10 @@
+ SSH_PRIVSEP_USER=@SSH_PRIVSEP_USER@
+ STRIP_OPT=@STRIP_OPT@
+ TEST_SHELL=@TEST_SHELL@
++KEYDIR=@KEYDIR@
+ 
+ PATHS= -DSSHDIR=\"$(sysconfdir)\" \
++	-DKEYDIR=\"$(KEYDIR)\" \
+ 	-D_PATH_SSH_PROGRAM=\"$(SSH_PROGRAM)\" \
+ 	-D_PATH_SSH_ASKPASS_DEFAULT=\"$(ASKPASS_PROGRAM)\" \
+ 	-D_PATH_SFTP_SERVER=\"$(SFTP_SERVER)\" \
+@@ -133,11 +135,11 @@
+ 	-e 's|/etc/ssh/sshd_config|$(sysconfdir)/sshd_config|g' \
+ 	-e 's|/usr/libexec|$(libexecdir)|g' \
+ 	-e 's|/etc/shosts.equiv|$(sysconfdir)/shosts.equiv|g' \
+-	-e 's|/etc/ssh/ssh_host_key|$(sysconfdir)/ssh_host_key|g' \
+-	-e 's|/etc/ssh/ssh_host_ecdsa_key|$(sysconfdir)/ssh_host_ecdsa_key|g' \
+-	-e 's|/etc/ssh/ssh_host_dsa_key|$(sysconfdir)/ssh_host_dsa_key|g' \
+-	-e 's|/etc/ssh/ssh_host_rsa_key|$(sysconfdir)/ssh_host_rsa_key|g' \
+-	-e 's|/etc/ssh/ssh_host_ed25519_key|$(sysconfdir)/ssh_host_ed25519_key|g' \
++	-e 's|/etc/ssh/ssh_host_key|$(KEYDIR)/ssh_host_key|g' \
++	-e 's|/etc/ssh/ssh_host_ecdsa_key|$(KEYDIR)/ssh_host_ecdsa_key|g' \
++	-e 's|/etc/ssh/ssh_host_dsa_key|$(KEYDIR)/ssh_host_dsa_key|g' \
++	-e 's|/etc/ssh/ssh_host_rsa_key|$(KEYDIR)/ssh_host_rsa_key|g' \
++	-e 's|/etc/ssh/ssh_host_ed25519_key|$(KEYDIR)/ssh_host_ed25519_key|g' \
+ 	-e 's|/var/run/sshd.pid|$(piddir)/sshd.pid|g' \
+ 	-e 's|/etc/moduli|$(sysconfdir)/moduli|g' \
+ 	-e 's|/etc/ssh/moduli|$(sysconfdir)/moduli|g' \
+Common subdirectories: a/openbsd-compat and b/openbsd-compat
+diff -u a/pathnames.h b/pathnames.h
+--- a/pathnames.h	2018-10-16 20:01:20.000000000 -0400
++++ b/pathnames.h	2018-12-06 04:15:01.286012398 -0500
+@@ -18,6 +18,10 @@
+ #define SSHDIR				ETCDIR "/ssh"
+ #endif
+ 
++#ifndef KEYDIR
++#define KEYDIR				SSHDIR
++#endif
++
+ #ifndef _PATH_SSH_PIDDIR
+ #define _PATH_SSH_PIDDIR		"/var/run"
+ #endif
+@@ -26,9 +30,9 @@
+  * System-wide file containing host keys of known hosts.  This file should be
+  * world-readable.
+  */
+-#define _PATH_SSH_SYSTEM_HOSTFILE	SSHDIR "/ssh_known_hosts"
++#define _PATH_SSH_SYSTEM_HOSTFILE	KEYDIR "/ssh_known_hosts"
+ /* backward compat for protocol 2 */
+-#define _PATH_SSH_SYSTEM_HOSTFILE2	SSHDIR "/ssh_known_hosts2"
++#define _PATH_SSH_SYSTEM_HOSTFILE2	KEYDIR "/ssh_known_hosts2"
+ 
+ /*
+  * Of these, ssh_host_key must be readable only by root, whereas ssh_config
+@@ -36,11 +40,11 @@
+  */
+ #define _PATH_SERVER_CONFIG_FILE	SSHDIR "/sshd_config"
+ #define _PATH_HOST_CONFIG_FILE		SSHDIR "/ssh_config"
+-#define _PATH_HOST_DSA_KEY_FILE		SSHDIR "/ssh_host_dsa_key"
+-#define _PATH_HOST_ECDSA_KEY_FILE	SSHDIR "/ssh_host_ecdsa_key"
+-#define _PATH_HOST_ED25519_KEY_FILE	SSHDIR "/ssh_host_ed25519_key"
+-#define _PATH_HOST_XMSS_KEY_FILE	SSHDIR "/ssh_host_xmss_key"
+-#define _PATH_HOST_RSA_KEY_FILE		SSHDIR "/ssh_host_rsa_key"
++#define _PATH_HOST_DSA_KEY_FILE		KEYDIR "/ssh_host_dsa_key"
++#define _PATH_HOST_ECDSA_KEY_FILE	KEYDIR "/ssh_host_ecdsa_key"
++#define _PATH_HOST_ED25519_KEY_FILE	KEYDIR "/ssh_host_ed25519_key"
++#define _PATH_HOST_XMSS_KEY_FILE	KEYDIR "/ssh_host_xmss_key"
++#define _PATH_HOST_RSA_KEY_FILE		KEYDIR "/ssh_host_rsa_key"
+ #define _PATH_DH_MODULI			SSHDIR "/moduli"
+ 
+ #ifndef _PATH_SSH_PROGRAM
+Common subdirectories: a/regress and b/regress
