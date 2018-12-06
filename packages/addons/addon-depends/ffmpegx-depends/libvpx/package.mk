@@ -7,7 +7,7 @@ PKG_SHA256="1fec931eb5c94279ad219a5b6e0202358e94a93a90cfb1603578c326abfc1238"
 PKG_LICENSE="BSD"
 PKG_SITE="https://www.webmproject.org"
 PKG_URL="https://github.com/webmproject/libvpx/archive/v${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain yasm:host"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="WebM VP8/VP9 Codec"
 
 configure_target() {
@@ -20,13 +20,14 @@ configure_target() {
       PKG_TARGET_NAME_LIBVPX="armv7-linux-gcc"
       ;;
     x86_64)
+      PKG_DEPENDS_TARGET+=" nasm:host"
       PKG_TARGET_NAME_LIBVPX="x86_64-linux-gcc"
       ;;
   esac
 
   $PKG_CONFIGURE_SCRIPT --prefix=/usr \
                         --extra-cflags="$CFLAGS" \
-                        --as=yasm \
+                        --as=nasm \
                         --target=$PKG_TARGET_NAME_LIBVPX \
                         --disable-docs \
                         --disable-examples \

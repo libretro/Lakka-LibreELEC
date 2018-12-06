@@ -9,7 +9,7 @@ PKG_SHA256="f25559d4b803321483b28ac9b513671200bdc8e3531c02f0affdd622846a9c5e"
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://ffmpeg.org"
 PKG_URL="https://github.com/xbmc/FFmpeg/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain yasm:host zlib bzip2 openssl speex"
+PKG_DEPENDS_TARGET="toolchain zlib bzip2 openssl speex"
 PKG_LONGDESC="FFmpeg is a complete, cross-platform solution to record, convert and stream audio and video."
 PKG_BUILD_FLAGS="-gold"
 
@@ -61,9 +61,7 @@ else
 fi
 
 if [ "$TARGET_ARCH" = "x86_64" ]; then
-  PKG_FFMPEG_X86ASM="--enable-x86asm --x86asmexe=yasm"
-else
-  PKG_FFMPEG_X86ASM="--disable-x86asm"
+  PKG_DEPENDS_TARGET+=" nasm:host"
 fi
 
 if target_has_feature "(neon|sse)"; then
@@ -189,7 +187,6 @@ configure_target() {
               --enable-asm \
               --disable-altivec \
               $PKG_FFMPEG_FPU \
-              $PKG_FFMPEG_X86ASM \
               --disable-symver
 }
 

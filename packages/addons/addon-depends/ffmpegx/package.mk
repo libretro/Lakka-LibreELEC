@@ -18,6 +18,10 @@ if [ "$KODIPLAYER_DRIVER" == "bcm2835-driver" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"
 fi
 
+if [ "$TARGET_ARCH" = "x86_64" ]; then
+  PKG_DEPENDS_TARGET+=" nasm:host"
+fi
+
 if [[ ! $TARGET_ARCH = arm ]] || target_has_feature neon; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libvpx"
 fi
