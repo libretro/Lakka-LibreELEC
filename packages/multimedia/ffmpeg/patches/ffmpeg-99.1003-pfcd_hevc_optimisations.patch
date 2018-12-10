@@ -12349,7 +12349,7 @@ index 0000000000..75a1789c25
 +
 diff --git a/libavcodec/arm/rpi_hevcpred_intra_filter_neon.S b/libavcodec/arm/rpi_hevcpred_intra_filter_neon.S
 new file mode 100644
-index 0000000000..6ce3d3ca8d
+index 0000000000..21cd28c709
 --- /dev/null
 +++ b/libavcodec/arm/rpi_hevcpred_intra_filter_neon.S
 @@ -0,0 +1,872 @@
@@ -12838,7 +12838,7 @@ index 0000000000..6ce3d3ca8d
 +        vldm       r5,  {d20-d23}
 +        bgt        1f
 +        bge        4f
-+        cmp        r5,  #8
++        cmp        r12,  #8
 +        bge        3f
 +        vdup.16    d21, d20[3]
 +3:      vdup.16    d22, d21[3]
@@ -39984,10 +39984,10 @@ index 0000000000..2f710626cf
 +
 diff --git a/libavcodec/rpi_mailbox.c b/libavcodec/rpi_mailbox.c
 new file mode 100644
-index 0000000000..c16d9931bd
+index 0000000000..20f218f22c
 --- /dev/null
 +++ b/libavcodec/rpi_mailbox.c
-@@ -0,0 +1,145 @@
+@@ -0,0 +1,107 @@
 +/*
 +Copyright (c) 2012, Broadcom Europe Ltd.
 +All rights reserved.
@@ -40053,44 +40053,6 @@ index 0000000000..c16d9931bd
 +   return ret_val;
 +}
 +
-+unsigned mbox_mem_lock(int file_desc, unsigned handle)
-+{
-+   int i=0;
-+   unsigned p[32];
-+   p[i++] = 0; // size
-+   p[i++] = 0x00000000; // process request
-+
-+   p[i++] = 0x3000d; // (the tag id)
-+   p[i++] = 4; // (size of the buffer)
-+   p[i++] = 4; // (size of the data)
-+   p[i++] = handle;
-+
-+   p[i++] = 0x00000000; // end tag
-+   p[0] = i*sizeof *p; // actual size
-+
-+   mbox_property(file_desc, p);
-+   return p[5];
-+}
-+
-+unsigned mbox_mem_unlock(int file_desc, unsigned handle)
-+{
-+   int i=0;
-+   unsigned p[32];
-+   p[i++] = 0; // size
-+   p[i++] = 0x00000000; // process request
-+
-+   p[i++] = 0x3000e; // (the tag id)
-+   p[i++] = 4; // (size of the buffer)
-+   p[i++] = 4; // (size of the data)
-+   p[i++] = handle;
-+
-+   p[i++] = 0x00000000; // end tag
-+   p[0] = i*sizeof *p; // actual size
-+
-+   mbox_property(file_desc, p);
-+   return p[5];
-+}
-+
 +#define GET_VCIMAGE_PARAMS 0x30044
 +
 +int mbox_get_image_params(int fd, VC_IMAGE_T * img)
@@ -40135,10 +40097,10 @@ index 0000000000..c16d9931bd
 +
 diff --git a/libavcodec/rpi_mailbox.h b/libavcodec/rpi_mailbox.h
 new file mode 100644
-index 0000000000..b3168788d2
+index 0000000000..06709d57fd
 --- /dev/null
 +++ b/libavcodec/rpi_mailbox.h
-@@ -0,0 +1,58 @@
+@@ -0,0 +1,55 @@
 +#ifndef RPI_MAILBOX_H
 +#define RPI_MAILBOX_H
 +
@@ -40191,18 +40153,15 @@ index 0000000000..b3168788d2
 +extern int mbox_open(void);
 +extern void mbox_close(int file_desc);
 +
-+extern unsigned mbox_mem_lock(int file_desc, unsigned handle);
-+extern unsigned mbox_mem_unlock(int file_desc, unsigned handle);
-+
 +int mbox_get_image_params(int fd, VC_IMAGE_T * img);
 +
 +#endif
 diff --git a/libavcodec/rpi_qpu.c b/libavcodec/rpi_qpu.c
 new file mode 100644
-index 0000000000..ddbb1eb9a6
+index 0000000000..f4498bf7b1
 --- /dev/null
 +++ b/libavcodec/rpi_qpu.c
-@@ -0,0 +1,992 @@
+@@ -0,0 +1,957 @@
 +#include <stdio.h>
 +#include <stdlib.h>
 +#include <string.h>
@@ -40286,9 +40245,9 @@ index 0000000000..ddbb1eb9a6
 +struct GPU
 +{
 +//  unsigned int qpu_code[QPU_CODE_SIZE];
-+  unsigned int vpu_code8[VPU_CODE_SIZE];
-+  unsigned int vpu_code10[VPU_CODE_SIZE];
-+  short transMatrix2even[16*16*2];
++    unsigned int vpu_code8[VPU_CODE_SIZE];
++    unsigned int vpu_code10[VPU_CODE_SIZE];
++    short transMatrix2even[16*16*2];
 +};
 +
 +struct rpi_cache_flush_env_s {
@@ -40299,31 +40258,31 @@ index 0000000000..ddbb1eb9a6
 +
 +typedef struct trace_time_one_s
 +{
-+  int count;
-+  int64_t start[WAIT_COUNT_MAX];
-+  int64_t total[WAIT_COUNT_MAX];
++    int count;
++    int64_t start[WAIT_COUNT_MAX];
++    int64_t total[WAIT_COUNT_MAX];
 +} trace_time_one_t;
 +
 +typedef struct trace_time_wait_s
 +{
-+  unsigned int jcount;
-+  int64_t start0;
-+  int64_t last_update;
-+  trace_time_one_t active;
-+  trace_time_one_t wait;
++    unsigned int jcount;
++    int64_t start0;
++    int64_t last_update;
++    trace_time_one_t active;
++    trace_time_one_t wait;
 +} trace_time_wait_t;
 +
 +typedef struct vq_wait_s
 +{
-+  sem_t sem;
-+  struct vq_wait_s * next;
++    sem_t sem;
++    struct vq_wait_s * next;
 +} vq_wait_t;
 +
 +#define VQ_WAIT_POOL_SIZE 16
 +typedef struct vq_wait_pool_s
 +{
-+  vq_wait_t * head;
-+  vq_wait_t pool[VQ_WAIT_POOL_SIZE];
++    vq_wait_t * head;
++    vq_wait_t pool[VQ_WAIT_POOL_SIZE];
 +} vq_wait_pool_t;
 +
 +static void vq_wait_pool_init(vq_wait_pool_t * const pool);
@@ -40331,16 +40290,16 @@ index 0000000000..ddbb1eb9a6
 +
 +typedef struct gpu_env_s
 +{
-+  int open_count;
-+  int init_count;
-+  int mb;
-+  int vpu_i_cache_flushed;
-+  GPU_MEM_PTR_T qpu_code_gm_ptr;
-+  GPU_MEM_PTR_T code_gm_ptr;
-+  GPU_MEM_PTR_T dummy_gm_ptr;
-+  vq_wait_pool_t wait_pool;
++    int open_count;
++    int init_count;
++    int mb;
++    int vpu_i_cache_flushed;
++    GPU_MEM_PTR_T qpu_code_gm_ptr;
++    GPU_MEM_PTR_T code_gm_ptr;
++    GPU_MEM_PTR_T dummy_gm_ptr;
++    vq_wait_pool_t wait_pool;
 +#if RPI_TRACE_TIME_VPU_QPU_WAIT
-+  trace_time_wait_t ttw;
++    trace_time_wait_t ttw;
 +#endif
 +} gpu_env_t;
 +
@@ -40367,13 +40326,13 @@ index 0000000000..ddbb1eb9a6
 +
 +static void tto_print(trace_time_one_t * tto, const int64_t now, const int64_t start0, const char * const prefix)
 +{
-+  // Update totals for levels that are still pending
-+  for (int i = 0; i < tto->count; ++i) {
-+    tto->total[i] += now - tto->start[i];
-+    tto->start[i] = now;
-+  }
++    // Update totals for levels that are still pending
++    for (int i = 0; i < tto->count; ++i) {
++        tto->total[i] += now - tto->start[i];
++        tto->start[i] = now;
++    }
 +
-+  printf("%s: Idle:" T_FMT ", 1:" T_FMT ", 2:" T_FMT ", 3:" T_FMT ", 4:" T_FMT "\n",
++    printf("%s: Idle:" T_FMT ", 1:" T_FMT ", 2:" T_FMT ", 3:" T_FMT ", 4:" T_FMT "\n",
 +         prefix,
 +         T_ARG(now - start0 - tto->total[0]),
 +         T_ARG(tto->total[0]),
@@ -40385,78 +40344,53 @@ index 0000000000..ddbb1eb9a6
 +
 +static void tto_start(trace_time_one_t * const tto, const int64_t now)
 +{
-+  av_assert0(tto->count < WAIT_COUNT_MAX);
-+  tto->start[tto->count++] = now;
++    av_assert0(tto->count < WAIT_COUNT_MAX);
++    tto->start[tto->count++] = now;
 +}
 +
 +static void tto_end(trace_time_one_t * const tto, const int64_t now)
 +{
-+  const int n = --tto->count;
-+  av_assert0(n >= 0);
-+  tto->total[n] += now - tto->start[n];
++    const int n = --tto->count;
++    av_assert0(n >= 0);
++    tto->total[n] += now - tto->start[n];
 +}
 +
 +static void ttw_print(trace_time_wait_t * const ttw, const int64_t now)
 +{
-+  printf("Jobs:%d, Total time=" T_FMT "\n", ttw->jcount, T_ARG(now - ttw->start0));
-+  tto_print(&ttw->active, now, ttw->start0, "Active");
-+  tto_print(&ttw->wait,   now, ttw->start0, "  Wait");
++    printf("Jobs:%d, Total time=" T_FMT "\n", ttw->jcount, T_ARG(now - ttw->start0));
++    tto_print(&ttw->active, now, ttw->start0, "Active");
++    tto_print(&ttw->wait,   now, ttw->start0, "  Wait");
 +}
 +
 +#endif
 +
 +// GPU memory alloc fns (internal)
 +
-+// GPU_MEM_PTR_T alloc fns
-+// The magic 0x80 on the cache type means: map all pages to arm memory now
-+//   rather than demand page later
-+static int gpu_malloc_cached_internal(const int mb, const int numbytes, GPU_MEM_PTR_T * const p) {
-+  p->numbytes = (numbytes + 255) & ~255;  // Round up
-+  p->vcsm_handle = vcsm_malloc_cache(p->numbytes, VCSM_CACHE_TYPE_HOST | 0x80, (char *)"Video Frame" );
-+  //p->vcsm_handle = vcsm_malloc_cache(numbytes, VCSM_CACHE_TYPE_VC, (char *)"Video Frame" );
-+  //p->vcsm_handle = vcsm_malloc_cache(numbytes, VCSM_CACHE_TYPE_NONE, (char *)"Video Frame" );
-+  //p->vcsm_handle = vcsm_malloc_cache(numbytes, VCSM_CACHE_TYPE_HOST_AND_VC, (char *)"Video Frame" );
-+  av_assert0(p->vcsm_handle);
-+  p->vc_handle = vcsm_vc_hdl_from_hdl(p->vcsm_handle);
-+  av_assert0(p->vc_handle);
-+  p->arm = vcsm_lock(p->vcsm_handle);
-+  av_assert0(p->arm);
-+  p->vc = mbox_mem_lock(mb, p->vc_handle);
-+  av_assert0(p->vc);
-+  return 0;
++static void gpu_free_internal(GPU_MEM_PTR_T * const p)
++{
++    if (p->arm != NULL)
++        vcsm_unlock_ptr(p->arm);
++    if (p->vcsm_handle != 0)
++        vcsm_free(p->vcsm_handle);
++    memset(p, 0, sizeof(*p));  // Ensure we crash hard if we try and use this again
 +}
 +
-+static int gpu_malloc_vccached_internal(const int mb, const int numbytes, GPU_MEM_PTR_T * const p) {
-+  p->numbytes = numbytes;
-+  p->vcsm_handle = vcsm_malloc_cache(numbytes, VCSM_CACHE_TYPE_VC | 0x80, (char *)"VPU code" );
-+  av_assert0(p->vcsm_handle);
-+  p->vc_handle = vcsm_vc_hdl_from_hdl(p->vcsm_handle);
-+  av_assert0(p->vc_handle);
-+  p->arm = vcsm_lock(p->vcsm_handle);
-+  av_assert0(p->arm);
-+  p->vc = mbox_mem_lock(mb, p->vc_handle);
-+  av_assert0(p->vc);
-+  return 0;
-+}
 +
-+static int gpu_malloc_uncached_internal(const int mb, const int numbytes, GPU_MEM_PTR_T * const p) {
-+  p->numbytes = numbytes;
-+  p->vcsm_handle = vcsm_malloc_cache(numbytes, VCSM_CACHE_TYPE_NONE | 0x80, (char *)"Video Frame" );
-+  av_assert0(p->vcsm_handle);
-+  p->vc_handle = vcsm_vc_hdl_from_hdl(p->vcsm_handle);
-+  av_assert0(p->vc_handle);
-+  p->arm = vcsm_lock(p->vcsm_handle);
-+  av_assert0(p->arm);
-+  p->vc = mbox_mem_lock(mb, p->vc_handle);
-+  av_assert0(p->vc);
-+  return 0;
-+}
++static int gpu_malloc_internal(GPU_MEM_PTR_T * const p,
++    const int numbytes, const unsigned int cache_type, const char * const name)
++{
++    memset(p, 0, sizeof(*p));
++    p->numbytes = (numbytes + 255) & ~255;  // Round up
 +
-+static void gpu_free_internal(const int mb, GPU_MEM_PTR_T * const p) {
-+  mbox_mem_unlock(mb, p->vc_handle);
-+  vcsm_unlock_ptr(p->arm);
-+  vcsm_free(p->vcsm_handle);
-+  memset(p, 0, sizeof(*p));  // Ensure we crash hard if we try and use this again
++    if ((p->vcsm_handle = vcsm_malloc_cache(p->numbytes, cache_type | 0x80, (char *)name)) == 0 ||
++        (p->vc_handle = vcsm_vc_hdl_from_hdl(p->vcsm_handle)) == 0 ||
++        (p->arm = vcsm_lock(p->vcsm_handle)) == NULL ||
++        (p->vc = vcsm_vc_addr_from_hdl(p->vcsm_handle)) == 0)
++    {
++        gpu_free_internal(p);
++        return AVERROR(ENOMEM);
++    }
++    return 0;
 +}
 +
 +
@@ -40464,123 +40398,127 @@ index 0000000000..ddbb1eb9a6
 +
 +static void gpu_term(void)
 +{
-+  gpu_env_t * const ge = gpu;
++    gpu_env_t * const ge = gpu;
 +
-+  // We have to hope that eveything has terminated...
-+  gpu = NULL;
++    // We have to hope that eveything has terminated...
++    gpu = NULL;
 +
-+  vc_gpuserv_deinit();
++    vc_gpuserv_deinit();
 +
-+  gpu_free_internal(ge->mb, &ge->code_gm_ptr);
-+  gpu_free_internal(ge->mb, &ge->qpu_code_gm_ptr);
-+  gpu_free_internal(ge->mb, &ge->dummy_gm_ptr);
++    gpu_free_internal(&ge->code_gm_ptr);
++    gpu_free_internal(&ge->qpu_code_gm_ptr);
++    gpu_free_internal(&ge->dummy_gm_ptr);
 +
-+  vcsm_exit();
++    vcsm_exit();
 +
-+  mbox_close(ge->mb);
++    mbox_close(ge->mb);
 +
-+  vq_wait_pool_deinit(&ge->wait_pool);
++    vq_wait_pool_deinit(&ge->wait_pool);
 +
-+  free(ge);
++    free(ge);
 +}
 +
 +
 +// Connect to QPU, returns 0 on success.
 +static int gpu_init(gpu_env_t ** const gpu) {
-+  volatile struct GPU* ptr;
-+  gpu_env_t * const ge = calloc(1, sizeof(gpu_env_t));
-+  *gpu = NULL;
++    volatile struct GPU* ptr;
++    gpu_env_t * const ge = calloc(1, sizeof(gpu_env_t));
++    int rv;
++    *gpu = NULL;
 +
-+  if (ge == NULL)
-+    return -1;
++    if (ge == NULL)
++        return -1;
 +
-+  if ((ge->mb = mbox_open()) < 0)
-+    return -1;
++    if ((ge->mb = mbox_open()) < 0)
++        return -1;
 +
-+  vq_wait_pool_init(&ge->wait_pool);
++    vq_wait_pool_init(&ge->wait_pool);
 +
-+  vcsm_init();
++    vcsm_init();
 +
-+  // Now copy over the QPU code into GPU memory
-+  gpu_malloc_uncached_internal(ge->mb, QPU_CODE_SIZE*4, &ge->qpu_code_gm_ptr);
++    // Now copy over the QPU code into GPU memory
++    if ((rv = gpu_malloc_internal(&ge->qpu_code_gm_ptr, QPU_CODE_SIZE * 4, VCSM_CACHE_TYPE_NONE, "ffmpeg qpu code")) != 0)
++      return rv;
 +
-+  {
-+    int num_bytes = (char *)mc_end - (char *)ff_hevc_rpi_shader;
-+    av_assert0(num_bytes<=QPU_CODE_SIZE*sizeof(unsigned int));
-+    memcpy(ge->qpu_code_gm_ptr.arm, ff_hevc_rpi_shader, num_bytes);
-+    memset(ge->qpu_code_gm_ptr.arm + num_bytes, 0, QPU_CODE_SIZE*4 - num_bytes);
-+  }
++    {
++        int num_bytes = (char *)mc_end - (char *)ff_hevc_rpi_shader;
++        av_assert0(num_bytes<=QPU_CODE_SIZE*sizeof(unsigned int));
++        memcpy(ge->qpu_code_gm_ptr.arm, ff_hevc_rpi_shader, num_bytes);
++        memset(ge->qpu_code_gm_ptr.arm + num_bytes, 0, QPU_CODE_SIZE*4 - num_bytes);
++    }
 +
-+  // And the VPU code
-+  gpu_malloc_vccached_internal(ge->mb, sizeof(struct GPU), &ge->code_gm_ptr);
-+  ptr = (volatile struct GPU*)ge->code_gm_ptr.arm;
++    // And the VPU code
++    if ((rv = gpu_malloc_internal(&ge->code_gm_ptr, sizeof(struct GPU), VCSM_CACHE_TYPE_VC, "ffmpeg vpu code")) != 0)
++        return rv;
++    ptr = (volatile struct GPU*)ge->code_gm_ptr.arm;
 +
-+  // Zero everything so we have zeros between the code bits
-+  memset((void *)ptr, 0, sizeof(*ptr));
-+  {
-+    int num_bytes = sizeof(rpi_hevc_transform8);
-+    av_assert0(num_bytes<=VPU_CODE_SIZE*sizeof(unsigned int));
-+    memcpy((void*)ptr->vpu_code8, rpi_hevc_transform8, num_bytes);
-+  }
-+  {
-+    int num_bytes = sizeof(rpi_hevc_transform10);
-+    av_assert0(num_bytes<=VPU_CODE_SIZE*sizeof(unsigned int));
-+    memcpy((void*)ptr->vpu_code10, rpi_hevc_transform10, num_bytes);
-+  }
-+  // And the transform coefficients
-+  memcpy((void*)ptr->transMatrix2even, rpi_transMatrix2even, sizeof(rpi_transMatrix2even));
++    // Zero everything so we have zeros between the code bits
++    memset((void *)ptr, 0, sizeof(*ptr));
++    {
++        int num_bytes = sizeof(rpi_hevc_transform8);
++        av_assert0(num_bytes<=VPU_CODE_SIZE*sizeof(unsigned int));
++        memcpy((void*)ptr->vpu_code8, rpi_hevc_transform8, num_bytes);
++    }
++    {
++        int num_bytes = sizeof(rpi_hevc_transform10);
++        av_assert0(num_bytes<=VPU_CODE_SIZE*sizeof(unsigned int));
++        memcpy((void*)ptr->vpu_code10, rpi_hevc_transform10, num_bytes);
++    }
++    // And the transform coefficients
++    memcpy((void*)ptr->transMatrix2even, rpi_transMatrix2even, sizeof(rpi_transMatrix2even));
 +
-+  // Generate a dummy "frame" & fill with 0x80
-+  // * Could reset to 1 <<bit_depth?
-+  gpu_malloc_uncached_internal(ge->mb, 0x4000, &ge->dummy_gm_ptr);
-+  memset(ge->dummy_gm_ptr.arm, 0x80, 0x4000);
++    // Generate a dummy "frame" & fill with 0x80
++    // * Could reset to 1 <<bit_depth?
++    if ((rv = gpu_malloc_internal(&ge->dummy_gm_ptr, 0x4000, VCSM_CACHE_TYPE_NONE, "ffmpeg dummy frame")) != 0)
++        return rv;
++    memset(ge->dummy_gm_ptr.arm, 0x80, 0x4000);
 +
-+  *gpu = ge;
-+  return 0;
++    *gpu = ge;
++    return 0;
 +}
 +
 +
 +
 +static void gpu_unlock(void) {
-+  pthread_mutex_unlock(&gpu_mutex);
++    pthread_mutex_unlock(&gpu_mutex);
 +}
 +
 +// Make sure we have exclusive access to the mailbox, and enable qpu if necessary.
 +static gpu_env_t * gpu_lock(void) {
-+  pthread_mutex_lock(&gpu_mutex);
++    pthread_mutex_lock(&gpu_mutex);
 +
-+  av_assert1(gpu != NULL);
-+  return gpu;
++    av_assert1(gpu != NULL);
++    return gpu;
 +}
 +
 +static gpu_env_t * gpu_lock_ref(void)
 +{
-+  pthread_mutex_lock(&gpu_mutex);
++    pthread_mutex_lock(&gpu_mutex);
 +
-+  if (gpu == NULL) {
-+    int rv = gpu_init(&gpu);
-+    if (rv != 0) {
-+      gpu_unlock();
-+      return NULL;
++    if (gpu == NULL) {
++        int rv = gpu_init(&gpu);
++        if (rv != 0) {
++            gpu_unlock();
++            return NULL;
++        }
 +    }
-+  }
 +
-+  ++gpu->open_count;
-+  return gpu;
++    ++gpu->open_count;
++    return gpu;
 +}
 +
 +static void gpu_unlock_unref(gpu_env_t * const ge)
 +{
-+  if (--ge->open_count == 0)
-+    gpu_term();
++    if (--ge->open_count == 0)
++        gpu_term();
 +
-+  gpu_unlock();
++    gpu_unlock();
 +}
 +
 +static inline gpu_env_t * gpu_ptr(void)
 +{
-+  av_assert1(gpu != NULL);
-+  return gpu;
++    av_assert1(gpu != NULL);
++    return gpu;
 +}
 +
 +// Public gpu fns
@@ -40592,13 +40530,7 @@ index 0000000000..ddbb1eb9a6
 +// Therefore safe to use without data cache flushing.
 +int gpu_malloc_uncached(int numbytes, GPU_MEM_PTR_T *p)
 +{
-+  int r;
-+  gpu_env_t * const ge = gpu_lock_ref();
-+  if (ge == NULL)
-+    return -1;
-+  r = gpu_malloc_uncached_internal(ge->mb, numbytes, p);
-+  gpu_unlock();
-+  return r;
++    return gpu_malloc_internal(p, numbytes, VCSM_CACHE_TYPE_NONE, "ffmpeg uncached");
 +}
 +
 +// This allocates data that will be
@@ -40606,19 +40538,11 @@ index 0000000000..ddbb1eb9a6
 +//    Uncached in VPU L2
 +int gpu_malloc_cached(int numbytes, GPU_MEM_PTR_T *p)
 +{
-+  int r;
-+  gpu_env_t * const ge = gpu_lock_ref();
-+  if (ge == NULL)
-+    return -1;
-+  r = gpu_malloc_cached_internal(ge->mb, numbytes, p);
-+  gpu_unlock();
-+  return r;
++    return gpu_malloc_internal(p, numbytes, VCSM_CACHE_TYPE_HOST, "ffmpeg cached");
 +}
 +
 +void gpu_free(GPU_MEM_PTR_T * const p) {
-+  gpu_env_t * const ge = gpu_lock();
-+  gpu_free_internal(ge->mb, p);
-+  gpu_unlock_unref(ge);
++    gpu_free_internal(p);
 +}
 +
 +unsigned int vpu_get_fn(const unsigned int bit_depth) {
