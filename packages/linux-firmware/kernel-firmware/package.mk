@@ -43,9 +43,13 @@ makeinstall_target() {
     done < ${fwlist}
   done
 
-  # The following files are RPi specific and installed by brcmfmac_sdio-firmware-rpi instead
-  rm -fr $FW_TARGET_DIR/brcm/brcmfmac43430*-sdio.bin
-  rm -fr $FW_TARGET_DIR/brcm/brcmfmac43455*-sdio.bin
+  # The following files are RPi specific and installed by brcmfmac_sdio-firmware-rpi instead.
+  # They are also not required at all if the kernel is not suitably configured.
+  if listcontains "${FIRMWARE}" "brcmfmac_sdio-firmware-rpi" || \
+     ! grep -q "^CONFIG_BRCMFMAC_SDIO=y" $(kernel_config_path); then
+    rm -fr $FW_TARGET_DIR/brcm/brcmfmac43430*-sdio.*
+    rm -fr $FW_TARGET_DIR/brcm/brcmfmac43455*-sdio.*
+  fi
 
   # Cleanup - which may be project or device specific
   find_file_path scripts/cleanup.sh && ${FOUND_PATH} ${FW_TARGET_DIR} || true
