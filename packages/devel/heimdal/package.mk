@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2017 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="heimdal"
 PKG_VERSION="7.5.0"
@@ -24,7 +25,6 @@ PKG_CONFIGURE_OPTS_HOST="--enable-static --disable-shared \
                          --without-hesiod \
                          --without-x \
                          --disable-otp \
-                         --with-db-type-preference= \
                          --disable-heimdal-documentation"
 
 makeinstall_host() {
