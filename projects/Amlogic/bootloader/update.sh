@@ -56,7 +56,7 @@ for arg in $(cat /proc/cmdline); do
             dd if=/dev/zero of=/dev/dtb bs=256k count=1 status=none
             dd if="$UPDATE_DTB_SOURCE" of=/dev/dtb bs=256k status=none
             ;;
-          /dev/mmc*|LABEL=*)
+          /dev/mmc*|LABEL=*|UUID=*)
             cp -f "$UPDATE_DTB_SOURCE" "$BOOT_ROOT/dtb.img"
             ;;
         esac
