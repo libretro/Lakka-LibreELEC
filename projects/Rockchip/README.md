@@ -16,6 +16,7 @@ This project is for Rockchip SoC devices
 
 **RK3399**
 * [96rocks ROCK960](devices/RK3399)
+* [Khadas Edge](devices/RK3399)
 * [PINE64 RockPro64](devices/RK3399)
 * [Rockchip Sapphire Board](devices/RK3399)
 
