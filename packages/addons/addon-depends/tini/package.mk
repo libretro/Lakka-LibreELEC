@@ -11,9 +11,9 @@ PKG_URL="https://github.com/krallin/tini/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Tini is a simplest init system."
 
-PKG_CMAKE_TARGET_OPTS="-DMINIMAL=ON"
+PKG_CMAKE_OPTS_TARGET="-DMINIMAL=ON"
 
-PKG_MAKE_TARGET_OPTS="tini-static"
+PKG_MAKE_OPTS_TARGET="tini-static"
 
 pre_configure_target(){
   sed -i "s|@tini_VERSION_GIT@| - git.${PKG_VERSION}|" $PKG_BUILD/src/tiniConfig.h.in
