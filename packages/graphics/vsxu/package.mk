@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="vsxu"
 PKG_VERSION="0.5.1"
@@ -12,12 +13,14 @@ PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain $OPENGL libX11 glew glfw zlib libpng libjpeg-turbo freetype"
 PKG_LONGDESC="an OpenGL-based programming environment to visualize music and create graphic effects"
 
-export LDFLAGS="$LDFLAGS -lX11"
-
 PKG_CMAKE_OPTS_TARGET="-DBUILD_SHARED_LIBS=0 \
                        -DVSXU_STATIC=1 \
                        -DCMAKE_POSITION_INDEPENDENT_CODE=1 \
                        -DCMAKE_CXX_FLAGS=-I$SYSROOT_PREFIX/usr/include/freetype2"
+
+pre_configure_target(){
+  export LDFLAGS="$LDFLAGS -lX11"
+}
 
 post_makeinstall_target() {
   mkdir -p $SYSROOT_PREFIX/usr/lib/vsxu

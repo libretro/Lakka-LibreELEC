@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="gdb"
 PKG_VERSION="8.1"
@@ -10,9 +11,6 @@ PKG_URL="http://ftpmirror.gnu.org/gdb/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain zlib ncurses expat"
 PKG_LONGDESC="GNU Project debugger, allows you to see what is going on inside another program while it executes."
 # gdb could fail on runtime if build with LTO support
-
-CC_FOR_BUILD="$HOST_CC"
-CFLAGS_FOR_BUILD="$HOST_CFLAGS"
 
 PKG_CONFIGURE_OPTS_TARGET="bash_cv_have_mbstate_t=set \
                            --disable-shared \
@@ -29,6 +27,11 @@ PKG_CONFIGURE_OPTS_TARGET="bash_cv_have_mbstate_t=set \
                            --enable-libada \
                            --enable-libssp \
                            --disable-werror"
+
+pre_configure_target() {
+  CC_FOR_BUILD="$HOST_CC"
+  CFLAGS_FOR_BUILD="$HOST_CFLAGS"
+}
 
 makeinstall_target() {
   make DESTDIR=$INSTALL install

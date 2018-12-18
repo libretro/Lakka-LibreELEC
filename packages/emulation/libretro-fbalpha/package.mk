@@ -15,9 +15,9 @@ PKG_LIBNAME="fbalpha_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"
 PKG_LIBVAR="FBALPHA_LIB"
 
-PKG_MAKE_OPTS_TARGET="-f makefile.libretro CC=$CC CXX=$CXX GIT_VERSION=${PKG_VERSION:0:7}"
-
 pre_make_target() {
+  PKG_MAKE_OPTS_TARGET="-f makefile.libretro CC=$CC CXX=$CXX GIT_VERSION=${PKG_VERSION:0:7}"
+
   if [ "$PROJECT" = "RPi" ]; then
     case $DEVICE in
       RPi)

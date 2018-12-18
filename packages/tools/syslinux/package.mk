@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="syslinux"
 PKG_VERSION="6.03"
@@ -12,13 +13,15 @@ PKG_DEPENDS_HOST="util-linux:host"
 PKG_DEPENDS_TARGET="toolchain util-linux e2fsprogs syslinux:host"
 PKG_LONGDESC="The SYSLINUX project covers lightweight linux bootloaders."
 
-PKG_MAKE_OPTS_TARGET="CC=$CC AR=$AR RANLIB=$RANLIB installer"
+pre_configure_target() {
+  PKG_MAKE_OPTS_TARGET="CC=$CC AR=$AR RANLIB=$RANLIB installer"
 
 # Unset all compiler FLAGS
   unset CFLAGS
   unset CPPFLAGS
   unset CXXFLAGS
   unset LDFLAGS
+}
 
 pre_build_target() {
   mkdir -p $PKG_BUILD/.$TARGET_NAME
