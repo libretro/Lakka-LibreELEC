@@ -23,24 +23,25 @@ makeinstall_target() {
   fi
 
   for fwlist in ${FW_LISTS}; do
-    [ -f ${fwlist} ] || continue
+    [ -f "${fwlist}" ] || continue
+
     while read -r fwline; do
       [ -z "${fwline}" ] && continue
       [[ ${fwline} =~ ^#.* ]] && continue
       [[ ${fwline} =~ ^[[:space:]] ]] && continue
 
-      for fwfile in $(cd ${PKG_BUILD} && eval "find ${fwline}"); do
-        [ -d ${PKG_BUILD}/${fwfile} ] && continue
+      while read -r fwfile; do
+        [ -d "${PKG_BUILD}/${fwfile}" ] && continue
 
-        if [ -f ${PKG_BUILD}/${fwfile} ]; then
-          mkdir -p $(dirname ${FW_TARGET_DIR}/${fwfile})
-            cp -Lv ${PKG_BUILD}/${fwfile} ${FW_TARGET_DIR}/${fwfile}
+        if [ -f "${PKG_BUILD}/${fwfile}" ]; then
+          mkdir -p "$(dirname "${FW_TARGET_DIR}/${fwfile}")"
+            cp -Lv "${PKG_BUILD}/${fwfile}" "${FW_TARGET_DIR}/${fwfile}"
         else
           echo "ERROR: Firmware file ${fwfile} does not exist - aborting"
           exit 1
         fi
-      done
-    done < ${fwlist}
+      done <<< "$(cd ${PKG_BUILD} && eval "find "${fwline}"")"
+    done < "${fwlist}"
   done
 
   # The following files are RPi specific and installed by brcmfmac_sdio-firmware-rpi instead.
