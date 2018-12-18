@@ -45,8 +45,6 @@ else
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --disable-debug"
 fi
 
-NSS_CONF_DIR="$PKG_BUILD/nss"
-
 pre_build_target() {
   cd $PKG_BUILD
     aclocal --force --verbose

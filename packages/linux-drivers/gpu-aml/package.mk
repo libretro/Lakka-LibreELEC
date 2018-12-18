@@ -14,10 +14,12 @@ PKG_LONGDESC="gpu-aml: Linux drivers for Mali GPUs found in Amlogic Meson SoCs"
 PKG_TOOLCHAIN="manual"
 PKG_IS_KERNEL_PKG="yes"
 
-PKG_UTGARD_VERSION="r5p1"
-PKG_UTGARD_BUILD_DIR="$PKG_BUILD/utgard/$PKG_UTGARD_VERSION"
-PKG_MIDGARD_VERSION="r16p0"
-PKG_MIDGARD_BUILD_DIR="$PKG_BUILD/midgard/$PKG_MIDGARD_VERSION/kernel/drivers/gpu/arm/midgard"
+configure_package() {
+  PKG_UTGARD_VERSION="r5p1"
+  PKG_UTGARD_BUILD_DIR="$PKG_BUILD/utgard/$PKG_UTGARD_VERSION"
+  PKG_MIDGARD_VERSION="r16p0"
+  PKG_MIDGARD_BUILD_DIR="$PKG_BUILD/midgard/$PKG_MIDGARD_VERSION/kernel/drivers/gpu/arm/midgard"
+}
 
 pre_configure_target() {
   sed -e "s|shell date|shell date -R|g" -i $PKG_BUILD/utgard/*/Kbuild
