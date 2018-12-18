@@ -10,19 +10,21 @@ PKG_URL="https://download.qemu.org/qemu-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_HOST="toolchain glib:host pixman:host Python2:host zlib:host"
 PKG_LONGDESC="QEMU is a generic and open source machine emulator and virtualizer."
 
-HOST_CONFIGURE_OPTS="--bindir=$TOOLCHAIN/bin \
-  --extra-cflags=-I$TOOLCHAIN/include \
-  --extra-ldflags=-L$TOOLCHAIN/lib \
-  --libexecdir=$TOOLCHAIN/lib \
-  --localstatedir=$TOOLCHAIN/var \
-  --prefix=$TOOLCHAIN \
-  --sbindir=$TOOLCHAIN/sbin \
-  --static \
-  --sysconfdir=$TOOLCHAIN/etc \
-  --disable-blobs \
-  --disable-docs \
-  --disable-gcrypt \
-  --disable-system \
-  --disable-user \
-  --disable-vnc \
-  --disable-werror"
+pre_configure_host() {
+  HOST_CONFIGURE_OPTS="--bindir=$TOOLCHAIN/bin \
+                       --extra-cflags=-I$TOOLCHAIN/include \
+                       --extra-ldflags=-L$TOOLCHAIN/lib \
+                       --libexecdir=$TOOLCHAIN/lib \
+                       --localstatedir=$TOOLCHAIN/var \
+                       --prefix=$TOOLCHAIN \
+                       --sbindir=$TOOLCHAIN/sbin \
+                       --static \
+                       --sysconfdir=$TOOLCHAIN/etc \
+                       --disable-blobs \
+                       --disable-docs \
+                       --disable-gcrypt \
+                       --disable-system \
+                       --disable-user \
+                       --disable-vnc \
+                       --disable-werror"
+}
