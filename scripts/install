@@ -5,14 +5,23 @@
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
-. config/options $1
+. config/options "$1"
 
 if [ -z "$1" ]; then
   die "usage: $0 package_name"
 fi
 
+if [ -z "${PKG_NAME}" ]; then
+  die "$(print_color CLR_ERROR "${1}: no package.mk file found")"
+fi
+
 if [ -z "$INSTALL" ] ; then
   die "error: '\$INSTALL' not set! this script is not intended to be run manually"
+fi
+
+if [ -n "$PKG_ARCH" ]; then
+  listcontains "$PKG_ARCH" "!$TARGET_ARCH" && exit 0
+  listcontains "$PKG_ARCH" "$TARGET_ARCH" || listcontains "$PKG_ARCH" "any" || exit 0
 fi
 
 # set defaults
@@ -26,22 +35,11 @@ fi
 [ -z "$TARGET" ] && TARGET="target"
 
 STAMP=$STAMPS_INSTALL/$PACKAGE_NAME/install_$TARGET
-mkdir -p $STAMPS_INSTALL/$PACKAGE_NAME
-
 [ -f $STAMP ] && exit 0
 
-if [ -n "$PKG_ARCH" ]; then
-  listcontains "$PKG_ARCH" "!$TARGET_ARCH" && exit 0
-  listcontains "$PKG_ARCH" "$TARGET_ARCH" || listcontains "$PKG_ARCH" "any" || exit 0
-fi
-
-if [ ! -f $PKG_DIR/package.mk ]; then
-  die "$(print_color CLR_ERROR "${PACKAGE_NAME}: no package.mk file found")"
-fi
+mkdir -p $STAMPS_INSTALL/$PACKAGE_NAME
 
 $SCRIPTS/build $@
-
-build_msg "CLR_INSTALL" "INSTALL" "${PACKAGE_NAME} $(print_color CLR_TARGET "(${TARGET})")" "indent"
 
 if [ "$TARGET" = target ] ; then
   for p in $PKG_DEPENDS_TARGET; do
@@ -53,6 +51,8 @@ elif [ "$TARGET" = init ] ; then
   done
   INSTALL=$BUILD/initramfs
 fi
+
+build_msg "CLR_INSTALL" "INSTALL" "${PACKAGE_NAME} $(print_color CLR_TARGET "(${TARGET})")" "indent"
 
 mkdir -p $INSTALL
 
@@ -121,23 +121,14 @@ if [ "$TARGET" = target ] ; then
   done
 fi
 
-# unset functions
-unset -f pre_install
-unset -f post_install
-
-# include buildfile
-. $PKG_DIR/package.mk
-
 # install
 if [ "$TARGET" = target ] ; then
   pkg_call_optional pre_install
 fi
 
 if [ "$TARGET" = "target" -a -d $PKG_BUILD/.install_pkg ]; then
-  mkdir -p $INSTALL
   cp -PR $PKG_BUILD/.install_pkg/* $INSTALL
 elif [ "$TARGET" = "init" -a -d $PKG_BUILD/.install_init ]; then
-  mkdir -p $INSTALL
   cp -PR $PKG_BUILD/.install_init/* $INSTALL
 fi
 
