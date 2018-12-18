@@ -26,7 +26,7 @@ configure_package() {
   PKG_CONFIGURE_OPTS_TARGET="--with-cross-build=$PKG_BUILD/.$HOST_NAME \
                              $PKG_ICU_OPTS"
 
-  PKG_CONFIGURE_SCRIPT="source/configure"
+  PKG_CONFIGURE_SCRIPT="${PKG_BUILD}/source/configure"
 }
 
 post_makeinstall_target() {
