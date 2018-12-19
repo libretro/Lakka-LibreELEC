@@ -11,6 +11,7 @@ PKG_URL="ftp://xmlsoft.org/libxml2/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_HOST="libxml2:host"
 PKG_DEPENDS_TARGET="toolchain libxml2"
 PKG_LONGDESC="A XSLT C library."
+PKG_BUILD_FLAGS="+pic"
 
 PKG_CONFIGURE_OPTS_HOST="  ac_cv_header_ansidecl_h=no \
                            ac_cv_header_xlocale_h=no \
