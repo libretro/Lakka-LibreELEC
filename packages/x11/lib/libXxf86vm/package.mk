@@ -30,7 +30,7 @@ PKG_LONGDESC="The libxxf86vm provides an interface to the server extension XFree
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --enable-malloc0returnsnull"
+PKG_CONFIGURE_OPTS_TARGET="--enable-static --enable-shared --enable-malloc0returnsnull"
 
 pre_configure_target() {
   CFLAGS="$CFLAGS -fPIC -DPIC"

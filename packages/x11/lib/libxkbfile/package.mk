@@ -30,4 +30,4 @@ PKG_LONGDESC="Libxkbfile provides an interface to read and manipulate descriptio
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"
+PKG_CONFIGURE_OPTS_TARGET="--enable-static --enable-shared"

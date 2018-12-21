@@ -30,4 +30,4 @@ PKG_LONGDESC="libXinerama is the Xinerama library."
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --enable-malloc0returnsnull"
+PKG_CONFIGURE_OPTS_TARGET="--enable-static --enable-shared --enable-malloc0returnsnull"

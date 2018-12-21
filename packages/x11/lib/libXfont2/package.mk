@@ -30,7 +30,7 @@ PKG_LONGDESC="X font Library"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared \
+PKG_CONFIGURE_OPTS_TARGET="--enable-static --enable-shared \
                            --disable-ipv6 \
                            --enable-freetype \
                            --enable-builtins \

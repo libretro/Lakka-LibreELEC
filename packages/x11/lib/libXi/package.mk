@@ -30,7 +30,7 @@ PKG_LONGDESC="LibXi provides an X Window System client interface to the XINPUT e
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared \
+PKG_CONFIGURE_OPTS_TARGET="--enable-static --enable-shared \
                            --enable-malloc0returnsnull \
                            --disable-silent-rules \
                            --disable-docs \

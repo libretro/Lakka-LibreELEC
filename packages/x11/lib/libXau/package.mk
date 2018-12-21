@@ -30,7 +30,7 @@ PKG_LONGDESC="X authorization file management libary"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --enable-xthreads"
+PKG_CONFIGURE_OPTS_TARGET="--enable-static --enable-shared --enable-xthreads"
 
 pre_configure_target() {
   CFLAGS="$CFLAGS -fPIC -DPIC"

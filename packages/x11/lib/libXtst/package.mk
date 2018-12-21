@@ -30,4 +30,4 @@ PKG_LONGDESC="The Xtst Library"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --with-gnu-ld --without-xmlto"
+PKG_CONFIGURE_OPTS_TARGET="--enable-static --enable-shared --with-gnu-ld --without-xmlto"
