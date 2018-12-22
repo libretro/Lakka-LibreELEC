@@ -2,6 +2,8 @@
 
 rm -rf target/
 
+export IGNORE_VERSION=1
+
 >&2 echo "Generic.x86_64"
 PROJECT=Generic ARCH=x86_64 make image -j8
 >&2 echo "Generic.i386"
