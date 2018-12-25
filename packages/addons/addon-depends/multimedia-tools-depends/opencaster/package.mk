@@ -10,7 +10,9 @@ PKG_URL="http://ftp.de.debian.org/debian/pool/main/o/opencaster/opencaster_${PKG
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A free and open source MPEG2 transport stream data generator and packet manipulator."
 
-PKG_MAKE_OPTS_TARGET="CC=$CC"
+pre_configure_target() {
+  PKG_MAKE_OPTS_TARGET="CC=$CC"
+}
 
 pre_makeinstall_target() {
   mkdir -p $PKG_BUILD/.install_pkg

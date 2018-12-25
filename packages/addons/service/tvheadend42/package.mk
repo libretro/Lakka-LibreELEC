@@ -46,37 +46,37 @@ if [[ "$TARGET_ARCH" != "x86_64" ]]; then
     --disable-libx265"
 fi
 
-PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
-                           --arch=$TARGET_ARCH \
-                           --cpu=$TARGET_CPU \
-                           --cc=$CC \
-                           $PKG_TVH_TRANSCODING \
-                           --enable-avahi \
-                           --enable-bundle \
-                           --disable-dbus_1 \
-                           --enable-dvbcsa \
-                           --enable-dvben50221 \
-                           --disable-dvbscan \
-                           --enable-hdhomerun_client \
-                           --disable-hdhomerun_static \
-                           --enable-epoll \
-                           --enable-inotify \
-                           --enable-pngquant \
-                           --disable-libmfx_static \
-                           --disable-nvenc \
-                           --disable-uriparser \
-                           --enable-tvhcsa \
-                           --enable-trace \
-                           --nowerror \
-                           --disable-bintray_cache \
-                           --python=$TOOLCHAIN/bin/python"
-
 post_unpack() {
   sed -e 's/VER="0.0.0~unknown"/VER="'$PKG_VERSION_NUMBER' ~ LibreELEC Tvh-addon v'$ADDON_VERSION'.'$PKG_REV'"/g' -i $PKG_BUILD/support/version
   sed -e 's|'/usr/bin/pngquant'|'$TOOLCHAIN/bin/pngquant'|g' -i $PKG_BUILD/support/mkbundle
 }
 
 pre_configure_target() {
+  PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
+                             --arch=$TARGET_ARCH \
+                             --cpu=$TARGET_CPU \
+                             --cc=$CC \
+                             $PKG_TVH_TRANSCODING \
+                             --enable-avahi \
+                             --enable-bundle \
+                             --disable-dbus_1 \
+                             --enable-dvbcsa \
+                             --enable-dvben50221 \
+                             --disable-dvbscan \
+                             --enable-hdhomerun_client \
+                             --disable-hdhomerun_static \
+                             --enable-epoll \
+                             --enable-inotify \
+                             --enable-pngquant \
+                             --disable-libmfx_static \
+                             --disable-nvenc \
+                             --disable-uriparser \
+                             --enable-tvhcsa \
+                             --enable-trace \
+                             --nowerror \
+                             --disable-bintray_cache \
+                             --python=$TOOLCHAIN/bin/python"
+
 # fails to build in subdirs
   cd $PKG_BUILD
   rm -rf .$TARGET_NAME

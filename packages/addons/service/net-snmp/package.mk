@@ -19,7 +19,8 @@ PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Net-SNMP"
 PKG_ADDON_TYPE="xbmc.service"
 
-PKG_CONFIGURE_OPTS_TARGET="--with-defaults \
+configure_package() {
+  PKG_CONFIGURE_OPTS_TARGET="--with-defaults \
         --disable-applications \
         --disable-manuals \
         --disable-debugging \
@@ -40,6 +41,7 @@ PKG_CONFIGURE_OPTS_TARGET="--with-defaults \
         --libdir=/storage/.kodi/addons/${PKG_ADDON_ID}/lib \
         --disable-embedded-perl \
         --with-sysroot=$SYSROOT_PREFIX"
+}
 
 make_target() {
   make
