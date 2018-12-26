@@ -1,0 +1,59 @@
+#!/bin/sh
+
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
+
+. /etc/profile
+oe_setup_addon service.mariadb
+
+# create dir for socket and pid
+mkdir -p /var/run/mysqld
+
+# exit if already running
+PID=$(ps aux | awk '/\/bin\/mysqld/ {print $1; exit 0}')
+if [ -n "$PID" ]; then
+  echo "MariaDB server is already running"
+  exit 0
+fi
+
+# check for first run and generate passwords
+DEF_XML="$ADDON_DIR/settings-default.xml"
+CUR_XML="$ADDON_HOME/settings.xml"
+
+if grep -q "@MYSQL_ROOT_PASS@" $DEF_XML; then
+  MYSQL_ROOT_PASS="$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 8)"
+  MYSQL_KODI_PASS="$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 8)"
+
+  sed -i "s|@MYSQL_ROOT_PASS@|$MYSQL_ROOT_PASS|g" $DEF_XML
+  sed -i "s|@MYSQL_KODI_PASS@|$MYSQL_KODI_PASS|g" $DEF_XML
+
+  cp $DEF_XML $CUR_XML
+fi
+
+# copy config file
+if [ ! -f $ADDON_HOME/my.cnf ]; then
+  cp $ADDON_DIR/config/my.cnf $ADDON_HOME
+fi
+
+# install database
+if [ ! -d "$ADDON_HOME/data/mysql" ]; then
+  echo "Installing database"
+  $ADDON_DIR/bin/mysql_install_db --basedir=$ADDON_DIR --datadir=$ADDON_HOME/data
+fi
+
+# init script to create user kodi and change passwords
+if [[ ! -f $ADDON_DIR/set_mysql_passwords.sql ]] || [[ $CUR_XML -nt $ADDON_DIR/set_mysql_passwords.sql ]]; then
+  cat << SQL_DATA > $ADDON_DIR/set_mysql_passwords.sql
+SET PASSWORD FOR 'root'@'localhost'=PASSWORD('$MYSQL_ROOT_PASS');
+CREATE USER IF NOT EXISTS 'kodi';
+SET PASSWORD FOR 'kodi'=PASSWORD('$MYSQL_KODI_PASS');
+GRANT ALL ON *.* TO 'kodi';
+flush privileges;
+
+SQL_DATA
+
+  init_file="--init-file=$ADDON_DIR/set_mysql_passwords.sql"
+fi
+
+echo "Starting mysqld"
+MYSQL_HOME="$ADDON_HOME" exec $ADDON_DIR/bin/mysqld $init_file &
