@@ -1,25 +1,19 @@
+
 # Automatically load the proper keymaps after the Remote Controller device
 # creation.
 #
 # User-defined rules can be stored in /storage/.config/rc_maps.cfg. If that
 # file doesn't exist the default rules from /etc/rc_maps.cfg are used.
 
-ACTION=="add", SUBSYSTEMS=="rc", GOTO="begin"
+ACTION=="add", KERNEL=="event*", SUBSYSTEM=="input", SUBSYSTEMS=="rc", ENV{.rc_sysdev}="$id", GOTO="begin"
 GOTO="end"
 
 LABEL="begin"
 
-SUBSYSTEM=="rc", ENV{rc_sysdev}="$name"
+ENV{.rc_maps_cfg}="/etc/rc_maps.cfg"
+TEST=="/storage/.config/rc_maps.cfg", ENV{.rc_maps_cfg}="/storage/.config/rc_maps.cfg"
 
-SUBSYSTEM=="input", IMPORT{parent}="rc_sysdev"
-
-KERNEL=="event[0-9]*", ENV{rc_sysdev}=="?*", IMPORT{program}="/usr/bin/sh -c '\
-  if [ -r /storage/.config/rc_maps.cfg ] ; then \
-    echo rc_maps_cfg=/storage/.config/rc_maps.cfg ; \
-  else \
-    echo rc_maps_cfg=/etc/rc_maps.cfg ; \
-  fi'"
-
-ENV{rc_maps_cfg}=="?*", RUN+="/usr/bin/ir-keytable -a $env{rc_maps_cfg} -s $env{rc_sysdev}"
+RUN+="/usr/bin/ir-keytable -a $env{.rc_maps_cfg} -s $env{.rc_sysdev}"
 
 LABEL="end"
+
