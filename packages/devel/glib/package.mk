@@ -39,14 +39,6 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_snprintf_c99=yes \
                            --with-python=python"
 
 post_makeinstall_target() {
-  mkdir -p $SYSROOT_PREFIX/usr/lib/pkgconfig
-    cp g*-2.0.pc $SYSROOT_PREFIX/usr/lib/pkgconfig
-
-  mkdir -p $SYSROOT_PREFIX/usr/share/aclocal
-    cp ../m4macros/glib-gettext.m4 $SYSROOT_PREFIX/usr/share/aclocal
-}
-
-post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
   rm -rf $INSTALL/usr/lib/gdbus-2.0
   rm -rf $INSTALL/usr/lib/glib-2.0
