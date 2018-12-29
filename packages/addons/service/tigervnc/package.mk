@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="tigervnc"
-PKG_VERSION="1.8.0"
-PKG_SHA256="9951dab0e10f8de03996ec94bec0d938da9f36d48dca8c954e8bbc95c16338f8"
-PKG_REV="103"
+PKG_VERSION="1.9.0"
+PKG_SHA256="f15ced8500ec56356c3bf271f52e58ed83729118361c7103eab64a618441f740"
+PKG_REV="104"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPLv2"
 PKG_SITE="http://www.tigervnc.org"
