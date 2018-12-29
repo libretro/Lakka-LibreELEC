@@ -12,8 +12,11 @@ PKG_LONGDESC="VRAM Test from libretro"
 PKG_TOOLCHAIN="manual"
 
 PKG_LIBNAME="testsw_vram_libretro.so"
-PKG_LIBPATH="$PKG_BUILD/video/software/rendering_direct_to_vram/$PKG_LIBNAME"
 PKG_LIBVAR="VRAM-TEST_LIB"
+
+configure_package() {
+  PKG_LIBPATH="$PKG_BUILD/video/software/rendering_direct_to_vram/$PKG_LIBNAME"
+}
 
 make_target() {
   cd $PKG_BUILD/video/software/rendering_direct_to_vram

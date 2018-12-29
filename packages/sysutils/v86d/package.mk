@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="v86d"
 PKG_VERSION="0.1.10"
@@ -11,9 +12,9 @@ PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_INIT="toolchain gcc:init"
 PKG_LONGDESC="v86d is the userspace helper that runs x86 code in an emulated environment."
 
-INIT_CONFIGURE_OPTS="--with-x86emu"
-
 pre_configure_init() {
+  INIT_CONFIGURE_OPTS="--with-x86emu"
+
 # v86d fails to build in subdirs
   cd $PKG_BUILD
     rm -rf .$TARGET_NAME-init

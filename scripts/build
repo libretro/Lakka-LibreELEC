@@ -4,29 +4,29 @@
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
-. config/options $1
-
-if [ "$1" = "--all" ]; then
-  if [ -n "$2" ]; then
-    for build_dir in $(ls -1d ${ROOT}/build.*); do
-      load_build_config ${build_dir} && ./scripts/build $2
-    done
-  fi
-  exit 0
-fi
+. config/options "$1"
 
 if [ -z "$1" ]; then
   die "usage: $0 package_name[:<host|target|init|bootstrap>]"
 fi
 
-if [ ! -f $PKG_DIR/package.mk ]; then
-  die "$(print_color CLR_ERROR "$1: no package.mk file found")"
+if [ "$1" = "--all" ]; then
+  if [ -n "$2" ]; then
+    for build_dir in $(ls -1d ${ROOT}/build.*); do
+      load_build_config ${build_dir} && ${SCRIPTS}/build "$2"
+    done
+  fi
+  exit 0
 fi
 
-# set defaults
-PKG_CONFIGURE_SCRIPT=""
-PKG_MAKE_OPTS=""
-PKG_MAKEINSTALL_OPTS=""
+if [ -z "${PKG_NAME}" ]; then
+  die "$(print_color CLR_ERROR "${1}: no package.mk file found")"
+fi
+
+if [ -n "$PKG_ARCH" ]; then
+  listcontains "$PKG_ARCH" "!$TARGET_ARCH" && exit 0
+  listcontains "$PKG_ARCH" "$TARGET_ARCH" || listcontains "$PKG_ARCH" "any" || exit 0
+fi
 
 if [ "${1//:/}" != "${1}" ]; then
   PACKAGE_NAME="${1%:*}"
@@ -37,19 +37,9 @@ else
 fi
 TARGET="${TARGET:-target}"
 
-if [ -n "$PKG_ARCH" ]; then
-  listcontains "$PKG_ARCH" "!$TARGET_ARCH" && exit 0
-  listcontains "$PKG_ARCH" "$TARGET_ARCH" || listcontains "$PKG_ARCH" "any" || exit 0
-fi
-
-unset INSTALL
-
 mkdir -p $STAMPS/$PACKAGE_NAME
 STAMP=$STAMPS/$PACKAGE_NAME/build_$TARGET
-
-$SCRIPTS/unpack $PACKAGE_NAME
-
-if [ -f $STAMP ] ; then
+if [ -f $STAMP ]; then
   . $STAMP
   PKG_DEEPHASH=$(calculate_stamp)
   if [ ! "$PKG_DEEPHASH" = "$STAMP_PKG_DEEPHASH" ]; then
@@ -58,62 +48,57 @@ if [ -f $STAMP ] ; then
     rm -f $STAMP
   elif [ "$1" = "u-boot" -a ! "$UBOOT_SYSTEM" = "$STAMP_UBOOT_SYSTEM" ]; then
     rm -f $STAMP
+  else
+    # stamp matched: already built, do nothing
+    exit 0
   fi
 fi
 
-if [ -f $STAMP ]; then
-  # already build, do nothing
+$SCRIPTS/unpack $PACKAGE_NAME
+
+# build dependencies, only when PKG_DEPENDS_? is filled
+unset _pkg_depends
+case "$TARGET" in
+  "target") _pkg_depends="$PKG_DEPENDS_TARGET";;
+  "host") _pkg_depends="$PKG_DEPENDS_HOST";;
+  "init") _pkg_depends="$PKG_DEPENDS_INIT";;
+  "bootstrap") _pkg_depends="$PKG_DEPENDS_BOOTSTRAP";;
+esac
+for p in $_pkg_depends; do
+  $SCRIPTS/build $p
+done
+
+# build this package
+if [ "${BUILD_WITH_DEBUG}" = "yes" ]; then
+  build_msg "CLR_BUILD" "BUILD" "${PACKAGE_NAME} $(print_color "CLR_TARGET" "(${TARGET})") [DEBUG]" "indent"
+else
+  build_msg "CLR_BUILD" "BUILD" "${PACKAGE_NAME} $(print_color "CLR_TARGET" "(${TARGET})")" "indent"
+fi
+
+# virtual packages are not built as they only contain dependencies, so dont go further here
+if [ "$PKG_SECTION" = "virtual" ]; then
+  PKG_DEEPHASH=$(calculate_stamp)
+  for i in PKG_NAME PKG_DEEPHASH BUILD_WITH_DEBUG; do
+    echo "STAMP_$i=\"${!i}\"" >> $STAMP
+  done
+
   exit 0
 fi
-rm -f $STAMP
 
 setup_toolchain $TARGET
 
-# unset functions
-unset -f configure_package
-unset -f pre_build_target
-unset -f pre_configure_target
-unset -f configure_target
-unset -f post_configure_target
-unset -f pre_make_target
-unset -f make_target
-unset -f post_make_target
-unset -f pre_makeinstall_target
-unset -f makeinstall_target
-unset -f post_makeinstall_target
-
-unset -f pre_build_host
-unset -f pre_configure_host
-unset -f configure_host
-unset -f post_configure_host
-unset -f pre_make_host
-unset -f make_host
-unset -f post_make_host
-unset -f pre_makeinstall_host
-unset -f makeinstall_host
-unset -f post_makeinstall_host
-
-unset -f pre_build_init
-unset -f pre_configure_init
-unset -f configure_init
-unset -f post_configure_init
-unset -f pre_make_init
-unset -f make_init
-unset -f post_make_init
-unset -f pre_makeinstall_init
-unset -f makeinstall_init
-unset -f post_makeinstall_init
-
-unset -f pre_build_bootstrap
-unset -f pre_configure_bootstrap
-unset -f configure_bootstrap
-unset -f post_configure_bootstrap
-unset -f pre_make_bootstrap
-unset -f make_bootstrap
-unset -f post_make_bootstrap
-unset -f pre_makeinstall_bootstrap
-unset -f makeinstall_bootstrap
-unset -f post_makeinstall_bootstrap
+# configure install directory
+if [ "$TARGET" = "target" ]; then
+  INSTALL="$PKG_BUILD/.install_pkg"
+elif [ "$TARGET" = "init" ]; then
+  INSTALL="$PKG_BUILD/.install_init"
+else
+  unset INSTALL
+fi
+# remove previous install files
+if [ -n "$INSTALL" -a -d "$INSTALL" ]; then
+  rm -rf "$INSTALL"
+fi
 
 # configure debug build defaults
 if [ "${BUILD_WITH_DEBUG}" = "yes" ]; then
@@ -123,6 +108,9 @@ else
   CMAKE_BUILD_TYPE="MinSizeRel"
   MESON_BUILD_TYPE="plain"
 fi
+
+CMAKE_GENERATOR_NINJA="-GNinja \
+                       -DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
 
 # configure TARGET build defaults
 TARGET_CONFIGURE_OPTS="--host=$TARGET_NAME \
@@ -136,9 +124,6 @@ TARGET_CONFIGURE_OPTS="--host=$TARGET_NAME \
                        --localstatedir=/var \
                        --disable-static \
                        --enable-shared"
-
-CMAKE_GENERATOR_NINJA="-GNinja \
-                       -DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
 
 TARGET_CMAKE_OPTS="-DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
                    -DCMAKE_INSTALL_PREFIX=/usr \
@@ -188,62 +173,10 @@ BOOTSTRAP_CONFIGURE_OPTS="$HOST_CONFIGURE_OPTS"
 BOOTSTRAP_CMAKE_OPTS="$HOST_CMAKE_OPTS"
 BOOTSTRAP_MESON_OPTS="$HOST_MESON_OPTS"
 
-# include buildfile
-. $PKG_DIR/package.mk
-
-# finalise package configuration
-pkg_call_optional configure_package
-
-# build dependencies, only when PKG_DEPENDS_? is filled
-unset _pkg_depends
-case "$TARGET" in
-  "target") _pkg_depends="$PKG_DEPENDS_TARGET";;
-  "host") _pkg_depends="$PKG_DEPENDS_HOST";;
-  "init") _pkg_depends="$PKG_DEPENDS_INIT";;
-  "bootstrap") _pkg_depends="$PKG_DEPENDS_BOOTSTRAP";;
-esac
-for p in $_pkg_depends; do
-  $SCRIPTS/build $p
-done
-
-if [ "${BUILD_WITH_DEBUG}" = "yes" ]; then
-  build_msg "CLR_BUILD" "BUILD" "${PACKAGE_NAME} $(print_color "CLR_TARGET" "(${TARGET})") [DEBUG]" "indent"
-else
-  build_msg "CLR_BUILD" "BUILD" "${PACKAGE_NAME} $(print_color "CLR_TARGET" "(${TARGET})")" "indent"
-fi
-
-# virtual packages dont must be build, they only contains dependencies, so dont go further here
-if [ "$PKG_SECTION" = "virtual" ]; then
-  PKG_DEEPHASH=$(calculate_stamp)
-  for i in PKG_NAME PKG_DEEPHASH BUILD_WITH_DEBUG; do
-    echo "STAMP_$i=\"${!i}\"" >> $STAMP
-  done
-
-  exit 0
-fi
-
-# configure other variables
-if [ "$TARGET" = "target" ]; then
-  INSTALL="$PKG_BUILD/.install_pkg"
-elif [ "$TARGET" = "init" ]; then
-  INSTALL="$PKG_BUILD/.install_init"
-fi
-
-# clear previous image files
-if [ -n "$INSTALL" -a -d "$INSTALL" ]; then
-  rm -rf "$INSTALL"
-fi
-
 # setup configure scripts
-if [ -z "$PKG_CONFIGURE_SCRIPT" ]; then
-  PKG_CONFIGURE_SCRIPT="$PKG_BUILD/configure"
-else
-  PKG_CONFIGURE_SCRIPT="$PKG_BUILD/$PKG_CONFIGURE_SCRIPT"
-fi
-
-PKG_CMAKE_SCRIPT="${PKG_CMAKE_SCRIPT:-$PKG_BUILD/CMakeLists.txt}"
-
-PKG_MESON_SCRIPT="${PKG_MESON_SCRIPT:-$PKG_BUILD/meson.build}"
+PKG_CONFIGURE_SCRIPT="${PKG_CONFIGURE_SCRIPT:-${PKG_BUILD}/configure}"
+PKG_CMAKE_SCRIPT="${PKG_CMAKE_SCRIPT:-${PKG_BUILD}/CMakeLists.txt}"
+PKG_MESON_SCRIPT="${PKG_MESON_SCRIPT:-${PKG_BUILD}/meson.build}"
 
 # auto detect toolchain
 _auto_toolchain=""
@@ -516,7 +449,6 @@ PKG_DEEPHASH=$(calculate_stamp)
 for i in PKG_NAME PKG_DEEPHASH BUILD_WITH_DEBUG; do
   echo "STAMP_$i=\"${!i}\"" >> $STAMP
 done
-
 if [ "$1" = "u-boot" ]; then
   echo "STAMP_UBOOT_SYSTEM=\"${UBOOT_SYSTEM}\"" >> $STAMP
 fi

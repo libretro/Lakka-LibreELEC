@@ -12,19 +12,19 @@ PKG_DEPENDS_TARGET="toolchain flex freetype:host"
 PKG_LONGDESC="GRUB is a Multiboot boot loader."
 PKG_TOOLCHAIN="configure"
 
-PKG_CONFIGURE_OPTS_TARGET="--target=i386-pc-linux \
-                           --disable-nls \
-                           --with-platform=efi"
+pre_configure_target() {
+  PKG_CONFIGURE_OPTS_TARGET="--target=i386-pc-linux \
+                             --disable-nls \
+                             --with-platform=efi"
 
   unset CFLAGS
   unset CPPFLAGS
   unset CXXFLAGS
   unset LDFLAGS
-
-pre_configure_target() {
   unset CPP
+
   cd $PKG_BUILD
-     ./autogen.sh
+    ./autogen.sh
 }
 
 make_target() {

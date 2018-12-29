@@ -11,10 +11,11 @@ PKG_URL="https://github.com/groeck/lm-sensors/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Provides user-space support for the hardware monitoring drivers."
 
-PKG_MAKE_OPTS_TARGET="PREFIX=/usr CC=$CC AR=$AR"
 PKG_MAKEINSTALL_OPTS_TARGET="PREFIX=/usr"
 
 pre_make_target() {
+  PKG_MAKE_OPTS_TARGET="PREFIX=/usr CC=$CC AR=$AR"
+
   export CFLAGS="$TARGET_CFLAGS"
   export CPPFLAGS="$TARGET_CPPFLAGS"
 }

@@ -13,78 +13,80 @@ PKG_NEED_UNPACK="$(get_pkg_directory heimdal) $(get_pkg_directory e2fsprogs)"
 PKG_LONGDESC="A free SMB / CIFS fileserver and client."
 PKG_BUILD_FLAGS="-gold"
 
-PKG_MAKE_OPTS_TARGET="V=1"
+configure_package() {
+  PKG_MAKE_OPTS_TARGET="V=1"
 
-if [ "$AVAHI_DAEMON" = yes ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET avahi"
-  SMB_AVAHI="--enable-avahi"
-else
-  SMB_AVAHI="--disable-avahi"
-fi
+  if [ "$AVAHI_DAEMON" = yes ]; then
+    PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET avahi"
+    SMB_AVAHI="--enable-avahi"
+  else
+    SMB_AVAHI="--disable-avahi"
+  fi
 
-if [ "$TARGET_ARCH" = x86_64 ]; then
-  SMB_AESNI="--accel-aes=intelaesni"
-else
-  SMB_AESNI="--accel-aes=none"
-fi
+  if [ "$TARGET_ARCH" = x86_64 ]; then
+    SMB_AESNI="--accel-aes=intelaesni"
+  else
+    SMB_AESNI="--accel-aes=none"
+  fi
 
-PKG_CONFIGURE_OPTS="--prefix=/usr \
-                    --sysconfdir=/etc \
-                    --localstatedir=/var \
-                    --with-lockdir=/var/lock \
-                    --with-logfilebase=/var/log \
-                    --with-piddir=/run/samba \
-                    --with-privatedir=/run/samba \
-                    --with-modulesdir=/usr/lib \
-                    --with-privatelibdir=/usr/lib \
-                    --with-sockets-dir=/run/samba \
-                    --with-configdir=/run/samba \
-                    --with-libiconv=$SYSROOT_PREFIX/usr \
-                    --cross-compile \
-                    --cross-answers=$PKG_BUILD/cache.txt \
-                    --hostcc=gcc \
-                    --enable-fhs \
-                    --without-dmapi \
-                    --disable-glusterfs \
-                    --disable-rpath \
-                    --disable-rpath-install \
-                    --disable-rpath-private-install \
-                    $SMB_AVAHI \
-                    $SMB_AESNI \
-                    --disable-cups \
-                    --disable-iprint \
-                    --disable-gnutls \
-                    --with-relro \
-                    --with-sendfile-support \
-                    --without-acl-support \
-                    --without-ads \
-                    --without-ad-dc \
-                    --without-automount \
-                    --without-cluster-support \
-                    --without-dnsupdate \
-                    --without-fam \
-                    --without-gettext \
-                    --without-gpgme \
-                    --without-iconv \
-                    --without-ldap \
-                    --without-libarchive \
-                    --without-pam \
-                    --without-pie \
-                    --without-regedit \
-                    --without-systemd \
-                    --without-utmp \
-                    --without-winbind \
-                    --enable-auto-reconfigure \
-                    --bundled-libraries='ALL,!asn1_compile,!compile_et,!zlib' \
-                    --without-quotas \
-                    --with-syslog  \
-                    --without-json-audit \
-                    --without-ldb-lmdb \
-                    --nopyc --nopyo"
+  PKG_CONFIGURE_OPTS="--prefix=/usr \
+                      --sysconfdir=/etc \
+                      --localstatedir=/var \
+                      --with-lockdir=/var/lock \
+                      --with-logfilebase=/var/log \
+                      --with-piddir=/run/samba \
+                      --with-privatedir=/run/samba \
+                      --with-modulesdir=/usr/lib \
+                      --with-privatelibdir=/usr/lib \
+                      --with-sockets-dir=/run/samba \
+                      --with-configdir=/run/samba \
+                      --with-libiconv=$SYSROOT_PREFIX/usr \
+                      --cross-compile \
+                      --cross-answers=$PKG_BUILD/cache.txt \
+                      --hostcc=gcc \
+                      --enable-fhs \
+                      --without-dmapi \
+                      --disable-glusterfs \
+                      --disable-rpath \
+                      --disable-rpath-install \
+                      --disable-rpath-private-install \
+                      $SMB_AVAHI \
+                      $SMB_AESNI \
+                      --disable-cups \
+                      --disable-iprint \
+                      --disable-gnutls \
+                      --with-relro \
+                      --with-sendfile-support \
+                      --without-acl-support \
+                      --without-ads \
+                      --without-ad-dc \
+                      --without-automount \
+                      --without-cluster-support \
+                      --without-dnsupdate \
+                      --without-fam \
+                      --without-gettext \
+                      --without-gpgme \
+                      --without-iconv \
+                      --without-ldap \
+                      --without-libarchive \
+                      --without-pam \
+                      --without-pie \
+                      --without-regedit \
+                      --without-systemd \
+                      --without-utmp \
+                      --without-winbind \
+                      --enable-auto-reconfigure \
+                      --bundled-libraries='ALL,!asn1_compile,!compile_et,!zlib' \
+                      --without-quotas \
+                      --with-syslog  \
+                      --without-json-audit \
+                      --without-ldb-lmdb \
+                      --nopyc --nopyo"
 
-PKG_SAMBA_TARGET="smbclient,client/smbclient,smbtree,testparm"
+  PKG_SAMBA_TARGET="smbclient,client/smbclient,smbtree,testparm"
 
-[ "$SAMBA_SERVER" = "yes" ] && PKG_SAMBA_TARGET+=",smbd/smbd,nmbd,smbpasswd"
+  [ "$SAMBA_SERVER" = "yes" ] && PKG_SAMBA_TARGET+=",smbd/smbd,nmbd,smbpasswd"
+}
 
 pre_configure_target() {
 # samba uses its own build directory

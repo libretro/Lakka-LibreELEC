@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="diskdev_cmds"
 PKG_VERSION="332.14"
@@ -10,9 +11,9 @@ PKG_URL="http://www.opensource.apple.com/tarballs/diskdev_cmds/$PKG_NAME-$PKG_VE
 PKG_DEPENDS_TARGET="toolchain openssl"
 PKG_LONGDESC="The fsck and mkfs utliities for hfs and hfsplus filesystems."
 
-PKG_MAKE_OPTS_TARGET="-f Makefile.lnx CC=$CC"
-
 pre_make_target() {
+  PKG_MAKE_OPTS_TARGET="-f Makefile.lnx CC=$CC"
+
   export CFLAGS="$TARGET_CFLAGS -g3 -Wall -I$PKG_BUILD/include -DDEBUG_BUILD=0 -D_FILE_OFFSET_BITS=64 -D LINUX=1 -D BSD=1"
 }
 
