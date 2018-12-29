@@ -3,26 +3,29 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libjpeg-turbo"
-PKG_VERSION="1.5.3"
-PKG_SHA256="b24890e2bb46e12e72a79f7e965f409f4e16466d00e1dd15d93d73ee6b592523"
+PKG_VERSION="2.0.1"
+PKG_SHA256="a30db8bcc8a0fab56998ea134233a8cdcb7ac81170e7d87f8bc900f02dda39d4"
 PKG_LICENSE="GPL"
-PKG_SITE="http://libjpeg-turbo.virtualgl.org/"
-PKG_URL="$SOURCEFORGE_SRC/libjpeg-turbo/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_SITE="https://libjpeg-turbo.org/"
+PKG_URL="https://github.com/libjpeg-turbo/libjpeg-turbo/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_HOST="toolchain"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A high-speed version of libjpeg for x86 and x86-64 processors which uses SIMD."
-PKG_TOOLCHAIN="configure"
 PKG_BUILD_FLAGS="+pic +pic:host"
 
-PKG_CONFIGURE_OPTS_HOST="--enable-static \
-                         --disable-shared \
-                         --with-jpeg8 \
-                         --without-simd"
+PKG_CMAKE_OPTS_HOST="-DENABLE_STATIC=ON \
+                     -DENABLE_SHARED=OFF \
+                     -DWITH_JPEG8=ON \
+                     -DWITH_SIMD=OFF"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --with-jpeg8"
+PKG_CMAKE_OPTS_TARGET="-DENABLE_STATIC=ON \
+                       -DENABLE_SHARED=OFF \
+                       -DWITH_JPEG8=ON"
 
-if ! target_has_feature "(neon|sse)"; then
-  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --without-simd"
+if target_has_feature "(neon|sse)"; then
+  PKG_CMAKE_OPTS_TARGET+=" -DWITH_SIMD=ON"
+else
+  PKG_CMAKE_OPTS_TARGET+=" -DWITH_SIMD=OFF"
 fi
 
 if [ $TARGET_ARCH = "x86_64" ]; then
