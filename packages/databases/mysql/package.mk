@@ -11,15 +11,6 @@ PKG_DEPENDS_HOST="toolchain zlib:host"
 PKG_DEPENDS_TARGET="toolchain zlib ncurses openssl boost mysql:host"
 PKG_LONGDESC="A SQL database server."
 
-post_unpack() {
-  sed -i 's|GET_TARGET_PROPERTY(LIBMYSQL_OS_OUTPUT_NAME libmysql OUTPUT_NAME)|SET(LIBMYSQL_OS_OUTPUT_NAME "mysqlclient")|' $PKG_BUILD/scripts/CMakeLists.txt
-  sed -i "s|COMMAND comp_err|COMMAND $TOOLCHAIN/bin/comp_err|" $PKG_BUILD/extra/CMakeLists.txt
-  sed -i "s|COMMAND comp_sql|COMMAND $TOOLCHAIN/bin/comp_sql|" $PKG_BUILD/scripts/CMakeLists.txt
-  sed -i "s|COMMAND gen_lex_hash|COMMAND $TOOLCHAIN/bin/gen_lex_hash|" $PKG_BUILD/sql/CMakeLists.txt
-
-  sed -i '/^IF(NOT BOOST_MINOR_VERSION.*$/,/^ENDIF()$/d' $PKG_BUILD/cmake/boost.cmake
-}
-
 PKG_CMAKE_OPTS_HOST="-DCMAKE_BUILD_TYPE=Release \
                      -DSTACK_DIRECTION=-1 \
                      -DHAVE_LLVM_LIBCPP_EXITCODE=0 \
@@ -36,23 +27,6 @@ PKG_CMAKE_OPTS_HOST="-DCMAKE_BUILD_TYPE=Release \
                      -DLOCAL_BOOST_DIR=$(get_build_dir boost) \
                      -DWITH_UNIT_TESTS=OFF \
                      -DWITH_ZLIB=bundled"
-
-make_host() {
-  ninja comp_err
-  ninja gen_lex_hash
-  ninja comp_sql
-}
-
-post_make_host() {
-  # needed so the binary isn't built for target
-  cp scripts/comp_sql ../scripts/comp_sql
-}
-
-makeinstall_host() {
-  cp -P extra/comp_err $TOOLCHAIN/bin
-  cp -P sql/gen_lex_hash $TOOLCHAIN/bin
-  cp -P scripts/comp_sql $TOOLCHAIN/bin
-}
 
 PKG_CMAKE_OPTS_TARGET="-DINSTALL_INCLUDEDIR=include/mysql \
                        -DCMAKE_BUILD_TYPE=Release \
@@ -74,6 +48,32 @@ PKG_CMAKE_OPTS_TARGET="-DINSTALL_INCLUDEDIR=include/mysql \
                        -DLOCAL_BOOST_DIR=$(get_build_dir boost) \
                        -DSTACK_DIRECTION=1 \
                        -DHAVE_LLVM_LIBCPP=1"
+
+post_unpack() {
+  sed -i 's|GET_TARGET_PROPERTY(LIBMYSQL_OS_OUTPUT_NAME libmysql OUTPUT_NAME)|SET(LIBMYSQL_OS_OUTPUT_NAME "mysqlclient")|' $PKG_BUILD/scripts/CMakeLists.txt
+  sed -i "s|COMMAND comp_err|COMMAND $TOOLCHAIN/bin/comp_err|" $PKG_BUILD/extra/CMakeLists.txt
+  sed -i "s|COMMAND comp_sql|COMMAND $TOOLCHAIN/bin/comp_sql|" $PKG_BUILD/scripts/CMakeLists.txt
+  sed -i "s|COMMAND gen_lex_hash|COMMAND $TOOLCHAIN/bin/gen_lex_hash|" $PKG_BUILD/sql/CMakeLists.txt
+
+  sed -i '/^IF(NOT BOOST_MINOR_VERSION.*$/,/^ENDIF()$/d' $PKG_BUILD/cmake/boost.cmake
+}
+
+make_host() {
+  ninja comp_err
+  ninja gen_lex_hash
+  ninja comp_sql
+}
+
+post_make_host() {
+  # needed so the binary isn't built for target
+  cp scripts/comp_sql ../scripts/comp_sql
+}
+
+makeinstall_host() {
+  cp -P extra/comp_err $TOOLCHAIN/bin
+  cp -P sql/gen_lex_hash $TOOLCHAIN/bin
+  cp -P scripts/comp_sql $TOOLCHAIN/bin
+}
 
 post_makeinstall_target() {
   sed -i "s|pkgincludedir=.*|pkgincludedir=\'$SYSROOT_PREFIX/usr/include/mysql\'|" scripts/mysql_config
