@@ -36,14 +36,6 @@ elif [ "$DISPLAYSERVER" = "x11" ]; then
   PKG_X11_SUPPORT="-DENABLE_X11=1"
 fi
 
-pre_build_target() {
-  cp -a $(get_build_dir rpi_ws281x)/* $PKG_BUILD/dependencies/external/rpi_ws281x
-}
-
-pre_configure_target() {
-  echo "" > ../cmake/FindGitVersion.cmake
-}
-
 PKG_CMAKE_OPTS_TARGET="-DCMAKE_NO_SYSTEM_FROM_IMPORTED=ON \
                        -DHYPERION_VERSION_ID="$PKG_VERSION" \
                        $PKG_AMLOGIC_SUPPORT \
@@ -60,6 +52,14 @@ PKG_CMAKE_OPTS_TARGET="-DCMAKE_NO_SYSTEM_FROM_IMPORTED=ON \
                        -DENABLE_QT5=1 \
                        -DENABLE_TESTS=0 \
                        -Wno-dev"
+
+pre_build_target() {
+  cp -a $(get_build_dir rpi_ws281x)/* $PKG_BUILD/dependencies/external/rpi_ws281x
+}
+
+pre_configure_target() {
+  echo "" > ../cmake/FindGitVersion.cmake
+}
 
 makeinstall_target() {
   : # nothing to do here
