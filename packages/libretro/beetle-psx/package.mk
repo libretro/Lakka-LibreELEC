@@ -35,7 +35,11 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  make HAVE_OPENGL=1
+  if [ "$PROJECT" == "Generic_VK_nvidia" ]; then
+    make HAVE_VULKAN=1
+  else
+    make HAVE_OPENGL=1
+  fi
 }
 
 makeinstall_target() {
