@@ -27,13 +27,13 @@ if [ "$PROJECT" = "Amlogic" ] || [ "$PROJECT" = "RPi" ]; then
   esac
 fi
 
-pre_configure_target() {
-  LDFLAGS="$LDFLAGS -lpthread"
-}
-
 PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON \
                        -DUSE_SYSTEM_FFMPEG=ON \
                        $PKG_ARCH_ARM"
+
+pre_configure_target() {
+  LDFLAGS="$LDFLAGS -lpthread"
+}
 
 pre_make_target() {
   find . -name flags.make -exec sed -i "s:isystem :I:g" \{} \;
