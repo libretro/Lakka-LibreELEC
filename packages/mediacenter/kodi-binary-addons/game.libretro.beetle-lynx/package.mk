@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.beetle-lynx"
-PKG_VERSION="5d28bdd811b3604e863233fc2806b6a665ff5b62"
-PKG_SHA256="ac416408898736e23b18d61980ee6bcf653c2ef8c5e7773c8c200dadda0c2151"
-PKG_REV="109"
+PKG_VERSION="582f2fdaf36d2911d17e9a30ba96bc7e90bacbe2"
+PKG_SHA256="3acd798679c993f80d881dbcfab4d07e8c8518ea731d37820832d80e2288bf2f"
+PKG_REV="110"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.beetle-lynx"

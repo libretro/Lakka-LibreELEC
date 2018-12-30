@@ -2,9 +2,9 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.sameboy"
-PKG_VERSION="338c3798bbba5f2714163f2d26fe767b31026fc0"
-PKG_SHA256="44dfbed607eb877f7a952ee9fbe4bc260a21a0e486fba09c153f4100ca57e7eb"
-PKG_REV="103"
+PKG_VERSION="b84afee9502c2b354c4c2d9dda42a115804178d0"
+PKG_SHA256="e54359ee05ae27ad1d52736f3222e68a701a8142ff59af1e82eb4a83a284230b"
+PKG_REV="104"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.sameboy"
