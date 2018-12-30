@@ -40,9 +40,13 @@ pre_configure_target() {
 
 make_target() {
   DYNAREC=$ARCH
-
   if [ "$ARCH" == "i386" ]; then
     DYNAREC=x86
+  fi
+
+  PARALLEL=0
+  if [ "$PROJECT" ==  "Generic_VK_nvidia" ]; then
+    PARALLEL=1
   fi
 
   if [ "$PROJECT" == "RPi" -o "$PROJECT" == "Gamegirl" -o "$PROJECT" == "Slice" ]; then
@@ -55,7 +59,7 @@ make_target() {
     make FORCE_GLES=1 HAVE_PARALLEL=1
   else
     LDFLAGS="$LDFLAGS -lpthread"
-    make WITH_DYNAREC=$DYNAREC HAVE_PARALLEL=0
+    make WITH_DYNAREC=$DYNAREC HAVE_PARALLEL=$PARALLEL
   fi
 }
 
