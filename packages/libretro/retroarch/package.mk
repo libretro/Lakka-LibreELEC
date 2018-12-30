@@ -190,6 +190,12 @@ makeinstall_target() {
   echo "playlist_entry_rename = \"false\"" >> $INSTALL/etc/retroarch.cfg
   echo "playlist_entry_remove = \"false\"" >> $INSTALL/etc/retroarch.cfg
 
+  # Generic_VK_nvidia
+  if [ "$PROJECT" == "Generic_VK_nvidia" ]; then
+    echo "video_context_driver = \"khr_display\"" >> $INSTALL/etc/retroarch.cfg
+    echo "video_driver = \"vulkan\"" >> $INSTALL/etc/retroarch.cfg
+  fi
+
   # Gamegirl
   if [ "$PROJECT" == "Gamegirl" ]; then
     echo "xmb_theme = 3" >> $INSTALL/etc/retroarch.cfg
