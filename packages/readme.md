@@ -212,7 +212,7 @@ Lastly, the following variables are assigned during `scripts/build` but some pac
   BOOTSTRAP_MESON_OPTS
 ```
 
-###### Example
+#### Example
 ```
 configure_package() {
   # now we know where we're building, assign a value
@@ -234,6 +234,19 @@ post_makeinstall_target() {
   rm $INSTALL/usr/bin/bigexecutable
 }
 ```
+
+#### tools/pkgcheck
+
+Use `tools/pkgcheck` to verify packages. It detects the following issues:
+
+Issue | Level | Meaning |
+| :--- | :----: | ---- |
+| late&nbsp;binding&nbsp;violation | FAIL | Late binding variables referenced outside of a function - see [late binding](https://github.com/LibreELEC/LibreELEC.tv/blob/master/packages/readme.md#late-binding-variable-assignment) |
+| duplicate&nbsp;function&nbsp;def | FAIL | Function defined multiple times, only last definition will be used |
+| bad&nbsp;func&nbsp;-&nbsp;missing&nbsp;brace | FAIL | Opening brace (`{`) for function definition should be on same line as the function def, ie. `pre_configure_target() {` |
+| intertwined&nbsp;vars&nbsp;&&nbsp;funcs | WARN | Variable assignments and logic is intertwined with functions - this is cosmetic, but variables and logic should be specified before all functions |
+| unknown&nbsp;function | WARN | Could be a misspelled function, ie. `per_configure_target() {` which might fail silently.|
+
 
 ## Add a new package to the Image
 1. Think about, why you need it in the image.

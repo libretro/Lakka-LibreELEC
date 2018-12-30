@@ -20,10 +20,6 @@ PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Music Player Daemon (MPD)"
 PKG_ADDON_TYPE="xbmc.service"
 
-pre_configure_target() {
-  export LIBS="$LIBS -logg -lFLAC -ldl"
-}
-
 PKG_CONFIGURE_OPTS_TARGET=" \
   --enable-aac \
   --disable-adplug \
@@ -89,6 +85,10 @@ PKG_CONFIGURE_OPTS_TARGET=" \
   --disable-wildmidi \
   --enable-zlib \
   --with-zeroconf=no"
+
+pre_configure_target() {
+  export LIBS="$LIBS -logg -lFLAC -ldl"
+}
 
 makeinstall_target() {
   :
