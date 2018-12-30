@@ -12,17 +12,17 @@ PKG_DEPENDS_TARGET="toolchain openssl zlib"
 PKG_LONGDESC="CUPS printing system."
 PKG_BUILD_FLAGS="+pic"
 
-pre_configure_target() {
-  cd ..
-  rm -rf .$TARGET_NAME
-}
-
 PKG_CONFIGURE_OPTS_TARGET="--libdir=/usr/lib \
                            --disable-gssapi \
                            --disable-avahi \
                            --disable-systemd \
                            --disable-launchd \
                            --disable-unit-tests"
+
+pre_configure_target() {
+  cd ..
+  rm -rf .$TARGET_NAME
+}
 
 makeinstall_target() {
   make BUILDROOT="$INSTALL/../.INSTALL_PKG"
