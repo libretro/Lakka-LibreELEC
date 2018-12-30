@@ -50,6 +50,7 @@ makeinstall_target() {
   mkdir -p $INSTALL/usr/lib
     cp -P lib*so* $INSTALL/usr/lib
     cp -P tls/libnvidia-tls.so.$PKG_VERSION $INSTALL/usr/lib
+    cp -P libEGL_nvidia.so.$PKG_VERSION $INSTALL/usr/lib/libEGL_nvidia.so.1
 
   mkdir -p $INSTALL/$(get_full_module_dir)/nvidia
     cp -P kernel/nvidia.ko $INSTALL/$(get_full_module_dir)/nvidia
@@ -58,4 +59,7 @@ makeinstall_target() {
 
   mkdir -p $INSTALL/usr/bin
     cp -P nvidia-smi $INSTALL/usr/bin
+
+  mkdir -p $INSTALL/usr/share/vulkan/icd.d
+    sed "s#__NV_VK_ICD__#libEGL_nvidia.so.1#" nvidia_icd.json.template > $INSTALL/usr/share/vulkan/icd.d/nvidia_icd.json
 }
