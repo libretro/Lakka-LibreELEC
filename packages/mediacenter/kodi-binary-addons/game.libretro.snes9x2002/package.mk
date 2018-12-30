@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.snes9x2002"
-PKG_VERSION="85bb9dcb737ff6871efde22339743749286da96d"
-PKG_SHA256="202b5dcc0b61d09b66aa52e1920c7fe4265a634270b269e9f66344508cb088ce"
-PKG_REV="108"
+PKG_VERSION="ece08d1a3bac2705462c049d0d4af4f6d5884ba8"
+PKG_SHA256="2fcbb48e95903a85ad2dc17be98a323f77552e375c4c7d1fbdb1b13395b8c6fc"
+PKG_REV="109"
 # neon optimizations make it only useful for arm
 PKG_ARCH="arm"
 PKG_LICENSE="GPL"
