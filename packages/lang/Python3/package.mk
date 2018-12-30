@@ -25,7 +25,7 @@ PKG_SITE="http://www.python.org/"
 PKG_URL="http://www.python.org/ftp/python/$PKG_VERSION/${PKG_NAME::-1}-$PKG_VERSION.tar.xz"
 PKG_SOURCE_DIR="${PKG_NAME::-1}-$PKG_VERSION*"
 PKG_DEPENDS_HOST="zlib:host bzip2:host"
-PKG_DEPENDS_TARGET="toolchain sqlite expat zlib bzip2 openssl Python3:host readline ncurses"
+PKG_DEPENDS_TARGET="toolchain sqlite expat zlib bzip2 openssl Python3:host readline"
 PKG_SECTION="lang"
 PKG_SHORTDESC="python3: The Python3 programming language"
 PKG_LONGDESC="Python3 is an interpreted object-oriented programming language, and is often compared with Tcl, Perl, Java or Scheme."
@@ -85,7 +85,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_prog_HAS_HG=/bin/false
                            --enable-zlib
                            --disable-xz
                            --disable-tk
-                           --enable-curses
+                           --disable-curses
                            --disable-pydoc
                            --disable-test-modules
                            --disable-lib2to3
