@@ -8,8 +8,6 @@ export IGNORE_VERSION=1
 PROJECT=Generic ARCH=x86_64 make image
 >&2 echo "Generic.i386"
 PROJECT=Generic ARCH=i386 make image
->&2 echo "Generic_VK_nvidia.x86_64"
-PROJECT=Generic_VK_nvidia ARCH=x86_64 make image
 >&2 echo "RPi.arm + noobs"
 PROJECT=RPi ARCH=arm make noobs
 >&2 echo "RPi2.arm + noobs"
