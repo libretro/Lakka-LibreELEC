@@ -34,7 +34,7 @@ PKG_LONGDESC="RetroArch is the reference frontend for the libretro API. Popular 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-if [ "$VULKAN_SUPPORT" = yes ]; then
+if [ "$PROJECT" == "Generic_VK_nvidia" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET slang-shaders"
 else
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET glsl-shaders"
