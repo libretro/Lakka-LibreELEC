@@ -56,7 +56,7 @@ if [ "$AVAHI_DAEMON" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET avahi nss-mdns"
 fi
 
-if [ "$VULKAN" == "nvidia" ]; then
+if [ "$VULKAN" == "nvidia-driver" ]; then
   RETROARCH_GL="--enable-vulkan --disable-x11 --disable-kms --disable-egl"
 elif [ "$OPENGLES" == "no" ]; then
   RETROARCH_GL="--enable-kms"
