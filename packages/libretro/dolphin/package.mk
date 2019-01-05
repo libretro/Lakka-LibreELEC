@@ -43,6 +43,10 @@ PKG_CMAKE_SCRIPT="$PKG_BUILD/CMakeLists.txt"
 
 PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_C_COMPILER=${CC} -DENABLE_X11=OFF"
 
+if [ "$PROJECT" == "Generic_VK_nvidia" ]; then
+  PKG_VERSION="a5bce7d"
+fi
+
 pre_make_target() {
   # build fix for cross-compiling Dolphin, from Dolphin forums
   find $PKG_BUILD -name flags.make -exec sed -i "s:isystem :I:g" \{} \;
