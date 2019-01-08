@@ -30,7 +30,7 @@ post_makeinstall_target() {
 # so we avoid resetting our soundconfig
   rm -rf $INSTALL/usr/lib/udev/rules.d/90-alsa-restore.rules
 
-  for i in aconnect alsamixer alsaucm amidi aplaymidi arecord arecordmidi aseqdump aseqnet iecset; do
+  for i in aconnect alsamixer amidi aplaymidi arecord arecordmidi aseqdump aseqnet iecset; do
     rm -rf $INSTALL/usr/bin/$i
   done
 
