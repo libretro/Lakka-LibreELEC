@@ -61,7 +61,7 @@ pre_configure_target() {
                              --enable-bundle \
                              --disable-dbus_1 \
                              --enable-dvbcsa \
-                             --enable-dvben50221 \
+                             --disable-dvben50221 \
                              --disable-dvbscan \
                              --enable-hdhomerun_client \
                              --disable-hdhomerun_static \
