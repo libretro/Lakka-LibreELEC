@@ -86,6 +86,9 @@ pre_configure_target() {
   CFLAGS="$CFLAGS -I$(get_build_dir ffmpegx)/.INSTALL_PKG/usr/local/include"
   LDFLAGS="$LDFLAGS -L$(get_build_dir ffmpegx)/.INSTALL_PKG/usr/local/lib"
 
+# pass gnutls to build
+  LDFLAGS="$LDFLAGS -L$(get_build_dir gnutls)/.INSTALL_PKG/usr/lib"
+
 # pass libhdhomerun to build
   CFLAGS="$CFLAGS -I$(get_build_dir libhdhomerun)"
 
@@ -106,6 +109,14 @@ addon() {
 
   cp $PKG_DIR/addon.xml $ADDON_BUILD/$PKG_ADDON_ID
 
+  # copy gnutls lib that is needed for ffmpeg
+  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib
+  cp -PL $(get_build_dir gnutls)/.INSTALL_PKG/usr/lib/libgnutls.so.30 $ADDON_BUILD/$PKG_ADDON_ID/lib
+  cp -PL $(get_build_dir nettle)/.install_pkg/usr/lib/libnettle.so.6 $ADDON_BUILD/$PKG_ADDON_ID/lib
+  cp -PL $(get_build_dir nettle)/.install_pkg/usr/lib/libhogweed.so.4 $ADDON_BUILD/$PKG_ADDON_ID/lib
+  cp -PL $(get_build_dir libidn2)/.install_pkg/usr/lib/libidn2.so.4 $ADDON_BUILD/$PKG_ADDON_ID/lib
+  cp -PL $(get_build_dir gmp)/.install_pkg/usr/lib/libgmp.so.10 $ADDON_BUILD/$PKG_ADDON_ID/lib
+
   # set only version (revision will be added by buildsystem)
   sed -e "s|@ADDON_VERSION@|$ADDON_VERSION|g" \
       -i $ADDON_BUILD/$PKG_ADDON_ID/addon.xml
@@ -114,7 +125,7 @@ addon() {
   cp -P $PKG_BUILD/capmt_ca.so $ADDON_BUILD/$PKG_ADDON_ID/bin
   cp -P $(get_build_dir comskip)/.install_pkg/usr/bin/comskip $ADDON_BUILD/$PKG_ADDON_ID/bin
 
-  #dvb-scan files
+  # dvb-scan files
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/dvb-scan
   cp -r $(get_build_dir tvh-dtv-scan-tables)/atsc \
         $(get_build_dir tvh-dtv-scan-tables)/dvb-* \
