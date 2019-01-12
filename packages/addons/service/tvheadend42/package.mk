@@ -2,10 +2,10 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="tvheadend42"
-PKG_VERSION="036b9cbab12ea9f76ea8ffd2d704163e5e43427c"
-PKG_SHA256="adc1a74790aac532f8bf4a10e662ad30e55f1eb083fd690205e4ac2c26230627"
-PKG_VERSION_NUMBER="4.2.7-34"
-PKG_REV="117"
+PKG_VERSION="5c218500579d5bd1c1f7e7a4b5f7f0fb35baa626"
+PKG_SHA256="a9fe5a4c36aa185e3f0a73a709f0dc05794ae9c12f5d888985b559ff68a2508d"
+PKG_VERSION_NUMBER="4.2.7-44"
+PKG_REV="118"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.tvheadend.org"
@@ -61,7 +61,7 @@ pre_configure_target() {
                              --enable-bundle \
                              --disable-dbus_1 \
                              --enable-dvbcsa \
-                             --enable-dvben50221 \
+                             --disable-dvben50221 \
                              --disable-dvbscan \
                              --enable-hdhomerun_client \
                              --disable-hdhomerun_static \
@@ -86,6 +86,9 @@ pre_configure_target() {
   CFLAGS="$CFLAGS -I$(get_build_dir ffmpegx)/.INSTALL_PKG/usr/local/include"
   LDFLAGS="$LDFLAGS -L$(get_build_dir ffmpegx)/.INSTALL_PKG/usr/local/lib"
 
+# pass gnutls to build
+  LDFLAGS="$LDFLAGS -L$(get_build_dir gnutls)/.INSTALL_PKG/usr/lib"
+
 # pass libhdhomerun to build
   CFLAGS="$CFLAGS -I$(get_build_dir libhdhomerun)"
 
@@ -106,6 +109,14 @@ addon() {
 
   cp $PKG_DIR/addon.xml $ADDON_BUILD/$PKG_ADDON_ID
 
+  # copy gnutls lib that is needed for ffmpeg
+  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib
+  cp -PL $(get_build_dir gnutls)/.INSTALL_PKG/usr/lib/libgnutls.so.30 $ADDON_BUILD/$PKG_ADDON_ID/lib
+  cp -PL $(get_build_dir nettle)/.install_pkg/usr/lib/libnettle.so.6 $ADDON_BUILD/$PKG_ADDON_ID/lib
+  cp -PL $(get_build_dir nettle)/.install_pkg/usr/lib/libhogweed.so.4 $ADDON_BUILD/$PKG_ADDON_ID/lib
+  cp -PL $(get_build_dir libidn2)/.install_pkg/usr/lib/libidn2.so.4 $ADDON_BUILD/$PKG_ADDON_ID/lib
+  cp -PL $(get_build_dir gmp)/.install_pkg/usr/lib/libgmp.so.10 $ADDON_BUILD/$PKG_ADDON_ID/lib
+
   # set only version (revision will be added by buildsystem)
   sed -e "s|@ADDON_VERSION@|$ADDON_VERSION|g" \
       -i $ADDON_BUILD/$PKG_ADDON_ID/addon.xml
@@ -114,7 +125,7 @@ addon() {
   cp -P $PKG_BUILD/capmt_ca.so $ADDON_BUILD/$PKG_ADDON_ID/bin
   cp -P $(get_build_dir comskip)/.install_pkg/usr/bin/comskip $ADDON_BUILD/$PKG_ADDON_ID/bin
 
-  #dvb-scan files
+  # dvb-scan files
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/dvb-scan
   cp -r $(get_build_dir tvh-dtv-scan-tables)/atsc \
         $(get_build_dir tvh-dtv-scan-tables)/dvb-* \

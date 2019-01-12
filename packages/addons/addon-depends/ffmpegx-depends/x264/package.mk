@@ -20,7 +20,6 @@ pre_configure_target() {
 
   if [ "$TARGET_ARCH" = "x86_64" ]; then
     export AS="$TOOLCHAIN/bin/nasm"
-    PKG_X264_ASM="--enable-asm"
   else
     PKG_X264_ASM="--disable-asm"
   fi

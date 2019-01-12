@@ -7,7 +7,7 @@ PKG_SHA256="7afb163d6974693cdad742aa1224c33683c50845c67ee5ae35506efc631ac121"
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://ffmpeg.org"
 PKG_URL="https://github.com/FFmpeg/FFmpeg/archive/n${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain aom bzip2 fdk-aac libvorbis openssl opus x264 x265 zlib"
+PKG_DEPENDS_TARGET="toolchain aom bzip2 gnutls libvorbis opus x264 zlib"
 PKG_LONGDESC="FFmpegx is an complete FFmpeg build to support encoding and decoding."
 PKG_BUILD_FLAGS="-gold"
 
@@ -19,7 +19,7 @@ if [ "$KODIPLAYER_DRIVER" == "bcm2835-driver" ]; then
 fi
 
 if [ "$TARGET_ARCH" = "x86_64" ]; then
-  PKG_DEPENDS_TARGET+=" nasm:host"
+  PKG_DEPENDS_TARGET+=" nasm:host x265"
 fi
 
 if [[ ! $TARGET_ARCH = arm ]] || target_has_feature neon; then
@@ -34,6 +34,11 @@ fi
 pre_configure_target() {
   cd $PKG_BUILD
   rm -rf .$TARGET_NAME
+  
+  # pass gnutls to build
+  PKG_CONFIG_PATH="$(get_build_dir gnutls)/.INSTALL_PKG/usr/lib/pkgconfig"
+  CFLAGS="$CFLAGS -I$(get_build_dir gnutls)/.INSTALL_PKG/usr/include"
+  LDFLAGS="$LDFLAGS -L$(get_build_dir gnutls)/.INSTALL_PKG/usr/lib"
 
   if [ "$KODIPLAYER_DRIVER" == "bcm2835-driver" ]; then
     CFLAGS="-DRPI=1 -I$SYSROOT_PREFIX/usr/include/IL -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux $CFLAGS"
@@ -97,10 +102,9 @@ pre_configure_target() {
     --enable-encoder=libaom_av1 \
     \
     `#Audio encoders` \
+    --enable-encoder=aac \
     --enable-encoder=ac3 \
     --enable-encoder=eac3 \
-    --enable-libfdk-aac \
-    --enable-encoder=libfdk-aac \
     --enable-encoder=flac \
     --enable-libmp3lame \
     --enable-encoder=libmp3lame \
@@ -134,7 +138,7 @@ configure_target() {
     \
     `#Licensing options` \
     --enable-gpl \
-    --enable-nonfree \
+    --disable-nonfree \
     \
     `#Documentation options` \
     --disable-doc \
@@ -171,7 +175,8 @@ configure_target() {
     --extra-ldflags="$LDFLAGS" \
     --extra-libs="$PKG_FFMPEG_LIBS" \
     --enable-pic \
-    --enable-openssl \
+    --enable-gnutls \
+    --disable-openssl \
     \
     `#Advanced options` \
     --disable-hardcoded-tables \
