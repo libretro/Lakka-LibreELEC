@@ -3,14 +3,14 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="docker"
-PKG_VERSION="18.06.1"
-PKG_SHA256="153cb489033686260dfe7a42acbdd1753d56f7a9c2d7ad90633f0c8cce563b23"
-PKG_REV="119"
+PKG_VERSION="18.09.1"
+PKG_SHA256="9eadb1eae1954b0322aadf6505f5397d1b1eccf6395ab511cadf8e6975cfc576"
+PKG_REV="122"
 PKG_ARCH="any"
 PKG_ADDON_PROJECTS="any !WeTek_Core !WeTek_Play"
 PKG_LICENSE="ASL"
 PKG_SITE="http://www.docker.com/"
-PKG_URL="https://github.com/docker/docker-ce/archive/v${PKG_VERSION}-ce.tar.gz"
+PKG_URL="https://github.com/docker/docker-ce/archive/v${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain sqlite go:host containerd runc libnetwork tini systemd"
 PKG_SECTION="service/system"
 PKG_SHORTDESC="Docker is an open-source engine that automates the deployment of any application as a lightweight, portable, self-sufficient container that will run virtually anywhere."
@@ -74,7 +74,23 @@ configure_target() {
     mv $PKG_CLI_PATH/vendor $PKG_BUILD/.gopath_cli/src
   fi
 
-  cp -rf $PKG_BUILD/.gopath/src/* $PKG_BUILD/.gopath_cli/src
+  # Fix missing/incompatible .go files
+  cp -rf $PKG_BUILD/.gopath/src/github.com/moby/buildkit/frontend/* $PKG_BUILD/.gopath_cli/src/github.com/moby/buildkit/frontend
+  cp -rf $PKG_BUILD/.gopath/src/github.com/moby/buildkit/frontend/gateway/* $PKG_BUILD/.gopath_cli/src/github.com/moby/buildkit/frontend/gateway
+  cp -rf $PKG_BUILD/.gopath/src/github.com/moby/buildkit/solver/* $PKG_BUILD/.gopath_cli/src/github.com/moby/buildkit/solver
+  cp -rf $PKG_BUILD/.gopath/src/github.com/moby/buildkit/util/progress/* $PKG_BUILD/.gopath_cli/src/github.com/moby/buildkit/util/progress
+  cp -rf $PKG_BUILD/.gopath/src/github.com/docker/swarmkit/manager/* $PKG_BUILD/.gopath_cli/src/github.com/docker/swarmkit/manager
+  cp -rf $PKG_BUILD/.gopath/src/github.com/coreos/etcd/raft/* $PKG_BUILD/.gopath_cli/src/github.com/coreos/etcd/raft
+  cp -rf $PKG_BUILD/.gopath/src/golang.org/x/* $PKG_BUILD/.gopath_cli/src/golang.org/x
+  cp -rf $PKG_BUILD/.gopath/src/github.com/opencontainers/runtime-spec/specs-go/* $PKG_BUILD/.gopath_cli/src/github.com/opencontainers/runtime-spec/specs-go
+
+  rm -rf $PKG_BUILD/.gopath_cli/src/github.com/containerd/containerd
+  mkdir -p $PKG_BUILD/.gopath_cli/src/github.com/containerd/containerd
+  cp -rf $PKG_BUILD/.gopath/src/github.com/containerd/containerd/* $PKG_BUILD/.gopath_cli/src/github.com/containerd/containerd
+
+  rm -rf $PKG_BUILD/.gopath_cli/src/github.com/containerd/continuity
+  mkdir -p $PKG_BUILD/.gopath_cli/src/github.com/containerd/continuity
+  cp -rf $PKG_BUILD/.gopath/src/github.com/containerd/continuity/* $PKG_BUILD/.gopath_cli/src/github.com/containerd/continuity
 
   mkdir -p $PKG_BUILD/.gopath_cli/src/github.com/docker/docker/builder
   cp -rf $PKG_ENGINE_PATH/builder/* $PKG_BUILD/.gopath_cli/src/github.com/docker/docker/builder
@@ -88,8 +104,8 @@ configure_target() {
   fi
 
   # used for docker version
-  export GITCOMMIT=${PKG_VERSION}-ce
-  export VERSION=${PKG_VERSION}-ce
+  export GITCOMMIT=${PKG_VERSION}
+  export VERSION=${PKG_VERSION}
   export BUILDTIME="$(date --utc)"
 
   cd $PKG_ENGINE_PATH
@@ -116,14 +132,14 @@ addon() {
     cp -P $PKG_BUILD/bin/dockerd $ADDON_BUILD/$PKG_ADDON_ID/bin
 
     # containerd
-    cp -P $(get_build_dir containerd)/bin/containerd $ADDON_BUILD/$PKG_ADDON_ID/bin/docker-containerd
-    cp -P $(get_build_dir containerd)/bin/containerd-shim $ADDON_BUILD/$PKG_ADDON_ID/bin/docker-containerd-shim
+    cp -P $(get_build_dir containerd)/bin/containerd $ADDON_BUILD/$PKG_ADDON_ID/bin/containerd
+    cp -P $(get_build_dir containerd)/bin/containerd-shim $ADDON_BUILD/$PKG_ADDON_ID/bin/containerd-shim
 
     # libnetwork
     cp -P $(get_build_dir libnetwork)/bin/docker-proxy $ADDON_BUILD/$PKG_ADDON_ID/bin/docker-proxy
 
     # runc
-    cp -P $(get_build_dir runc)/bin/runc $ADDON_BUILD/$PKG_ADDON_ID/bin/docker-runc
+    cp -P $(get_build_dir runc)/bin/runc $ADDON_BUILD/$PKG_ADDON_ID/bin/runc
 
     # tini
     cp -P $(get_build_dir tini)/.$TARGET_NAME/tini-static $ADDON_BUILD/$PKG_ADDON_ID/bin/docker-init
