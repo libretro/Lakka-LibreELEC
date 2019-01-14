@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="patch"
-PKG_VERSION="2.7.5"
-PKG_SHA256="fd95153655d6b95567e623843a0e77b81612d502ecf78a489a4aed7867caa299"
+PKG_VERSION="2.7.6"
+PKG_SHA256="ac610bda97abe0d9f6b7c963255a11dcb196c25e337c61f94e4778d632f1d8fd"
 PKG_LICENSE="GPL"
 PKG_SITE="http://savannah.gnu.org/projects/patch/"
 PKG_URL="http://ftpmirror.gnu.org/patch/$PKG_NAME-$PKG_VERSION.tar.xz"
@@ -13,5 +13,5 @@ PKG_LONGDESC="Patch takes a patch file containing a difference listing produced 
 PKG_CONFIGURE_OPTS_TARGET="--disable-xattr"
 
 makeinstall_target() {
-  : # nop
+  :
 }
