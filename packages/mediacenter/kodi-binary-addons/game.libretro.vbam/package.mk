@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.vbam"
-PKG_VERSION="38649bfa4eaa077da210ed00323461b67c98b3af"
-PKG_SHA256="b34540ecdb65fcfd6b4be6aeed8485a426c11b83002b512836acdaaab85039bc"
-PKG_REV="110"
+PKG_VERSION="99bbb75c01144f336d940c8d5cc2f2df79964508"
+PKG_SHA256="667cf7e28a807eb5203400e70714f63db906409d6dc4d356e04a1bbb1d3c2115"
+PKG_REV="111"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.vbam"
