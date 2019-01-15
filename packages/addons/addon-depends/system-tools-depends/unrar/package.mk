@@ -18,5 +18,17 @@ make_target() {
      RANLIB="$RANLIB" \
      AR="$AR" \
      STRIP="$STRIP" \
-     -f makefile
+     -f makefile unrar
+
+  make clean
+
+  make CXX="$CXX" \
+     CXXFLAGS="$TARGET_CXXFLAGS" \
+     RANLIB="$RANLIB" \
+     AR="$AR" \
+     -f makefile lib
+}
+
+post_make_target() {
+  rm -f libunrar.so
 }
