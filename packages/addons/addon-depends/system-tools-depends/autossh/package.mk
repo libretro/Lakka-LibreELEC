@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="autossh"
-PKG_VERSION="1.4f"
-PKG_SHA256="0172e5e1bea40c642e0ef025334be3aadd4ff3b4d62c0b177ed88a8384e2f8f2"
+PKG_VERSION="1.4g"
+PKG_SHA256="5fc3cee3361ca1615af862364c480593171d0c54ec156de79fc421e31ae21277"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.harding.motd.ca/"
 PKG_URL="http://www.harding.motd.ca/autossh/autossh-${PKG_VERSION}.tgz"

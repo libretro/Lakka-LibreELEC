@@ -2,11 +2,11 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="smartmontools"
-PKG_VERSION="6.6"
-PKG_SHA256="51f43d0fb064fccaf823bbe68cf0d317d0895ff895aa353b3339a3b316a53054"
+PKG_VERSION="7.0"
+PKG_SHA256="e5e1ac2786bc87fdbd6f92d0ee751b799fbb3e1a09c0a6a379f9eb64b3e8f61c"
 PKG_LICENSE="GPL"
 PKG_SITE="https://www.smartmontools.org"
-PKG_URL="https://github.com/smartmontools/smartmontools/releases/download/RELEASE_${PKG_VERSION//./_}/smartmontools-$PKG_VERSION.tar.gz"
+PKG_URL="https://downloads.sourceforge.net/sourceforge/smartmontools/smartmontools-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Control and monitor storage systems using S.M.A.R.T."
 
