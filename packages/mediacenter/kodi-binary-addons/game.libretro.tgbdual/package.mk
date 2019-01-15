@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.tgbdual"
-PKG_VERSION="004ea3ff2a822322e3f37f4559c580a15d2a8233"
-PKG_SHA256="6fdd8c28f20740f2326d3c9118198e7645417b29f9c59368aba3f4a16d8819ff"
-PKG_REV="109"
+PKG_VERSION="81f97cb95cb67e67e19ec812e1177a6a54bc7ae5"
+PKG_SHA256="6a3876c8d8485f84408796e146173b709ab6bf28ed60518141f29c3dbd3aefbe"
+PKG_REV="110"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.tgbdual"

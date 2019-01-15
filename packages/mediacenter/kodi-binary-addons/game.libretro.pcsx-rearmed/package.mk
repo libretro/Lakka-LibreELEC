@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.pcsx-rearmed"
-PKG_VERSION="a66c4d43c21befea6e3e2e0f232745dc5cadb360"
-PKG_SHA256="d59205d9ad7111fd98cddf2c9288d6a67b935857a1af6edd64399e0978bf4b14"
-PKG_REV="112"
+PKG_VERSION="844d4b17767b195ec224ae6b1ee3e0ac7e4a12a7"
+PKG_SHA256="332574b8fb188321a67853834b5404fbeb0c527c0cb9d8ce457c3a4c6d46aa2f"
+PKG_REV="113"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.pcsx-rearmed"

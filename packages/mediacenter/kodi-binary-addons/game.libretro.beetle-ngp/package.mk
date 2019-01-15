@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.beetle-ngp"
-PKG_VERSION="af74c4a91d96b1d872c1ba4cc816912128b73687"
-PKG_SHA256="828eef1ab500e454f6a4ed562989a278868e545a2789a560ee3c6bbd4867b62f"
-PKG_REV="111"
+PKG_VERSION="5d994bef4fe2883470f307363e8fd16585119950"
+PKG_SHA256="77a6f9cb6a7528726c96a6e6977518f87de704487e3ca11ec3fb1f0cb7e14564"
+PKG_REV="112"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.beetle-ngp"
