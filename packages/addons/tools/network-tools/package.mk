@@ -27,6 +27,7 @@ PKG_DEPENDS_TARGET="toolchain \
                     ncftp \
                     ngrep \
                     nmap \
+                    rar2fs \
                     rsync \
                     sshfs \
                     tcpdump \
@@ -66,6 +67,10 @@ addon() {
 
     # nmap
     cp -P $(get_build_dir nmap)/nmap $ADDON_BUILD/$PKG_ADDON_ID/bin
+
+    # rar2fs
+    cp -P $(get_build_dir rar2fs)/.$TARGET_NAME/mkr2i $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_build_dir rar2fs)/.$TARGET_NAME/rar2fs $ADDON_BUILD/$PKG_ADDON_ID/bin
 
     # rsync
     cp -P $(get_build_dir rsync)/.$TARGET_NAME/rsync $ADDON_BUILD/$PKG_ADDON_ID/bin
