@@ -3,7 +3,7 @@
 
 PKG_NAME="network-tools"
 PKG_VERSION="1.0"
-PKG_REV="102"
+PKG_REV="103"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://libreelec.tv"
@@ -11,7 +11,7 @@ PKG_URL=""
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="virtual"
 PKG_SHORTDESC="A bundle of network tools and programs"
-PKG_LONGDESC="This bundle currently includes bwm-ng, iftop, iperf, irssi, iw, lftp, ncftp, ngrep, nmap, rsync, sshfs, tcpdump, udpxy and wireless_tools."
+PKG_LONGDESC="This bundle currently includes bwm-ng, iftop, iperf, irssi, iw, lftp, ncftp, ngrep, nmap, rar2fs, rsync, sshfs, tcpdump, udpxy and wireless_tools."
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Network Tools"
@@ -35,7 +35,7 @@ PKG_DEPENDS_TARGET="toolchain \
                     wireless_tools"
 
 addon() {
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin/
+  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
     # bwm-ng
     cp -P $(get_build_dir bwm-ng)/.$TARGET_NAME/src/bwm-ng $ADDON_BUILD/$PKG_ADDON_ID/bin
 
@@ -82,7 +82,7 @@ addon() {
     cp -P $(get_build_dir tcpdump)/.$TARGET_NAME/tcpdump $ADDON_BUILD/$PKG_ADDON_ID/bin
 
     # udpxy
-    cp -P $(get_build_dir udpxy)/udpxy $ADDON_BUILD/$PKG_ADDON_ID/bin/
+    cp -P $(get_build_dir udpxy)/udpxy $ADDON_BUILD/$PKG_ADDON_ID/bin
 
     # wireless_tools
     cp -P $(get_build_dir wireless_tools)/iwmulticall $ADDON_BUILD/$PKG_ADDON_ID/bin
