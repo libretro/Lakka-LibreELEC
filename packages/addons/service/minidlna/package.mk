@@ -2,17 +2,18 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="minidlna"
-PKG_VERSION="138d03d"
-PKG_SHA256="efd780aa7c7e076dee273694b73d2f03598b0201ca79335b2975779c24469f97"
-PKG_REV="100"
+PKG_VERSION="799e6cf505ec470b2bf0ae4118143380aa16b837"
+PKG_SHA256="6d9d5a874381415b81dde80df30aa127ad732be341b37d73effb8a135454cbee"
+PKG_VERSION_DATE="1.2.1+2018-05-04"
+PKG_REV="101"
 PKG_ARCH="any"
 PKG_LICENSE="BSD-3c/GPLv2"
 PKG_SITE="https://sourceforge.net/projects/minidlna/"
 PKG_URL="http://repo.or.cz/minidlna.git/snapshot/$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain libiconv libid3tag libexif libjpeg-turbo libogg libvorbis ffmpeg flac sqlite"
+PKG_DEPENDS_TARGET="toolchain ffmpeg flac libexif libiconv libid3tag libjpeg-turbo libogg libvorbis sqlite"
 PKG_SECTION="service"
 PKG_SHORTDESC="MiniDLNA (ReadyMedia): a fully compliant DLNA/UPnP-AV server"
-PKG_LONGDESC="MiniDLNA ($PKG_VERSION) (ReadyMedia) is a media server, with the aim of being fully compliant with DLNA/UPnP-AV clients."
+PKG_LONGDESC="MiniDLNA ($PKG_VERSION_DATE) (ReadyMedia) is a media server, with the aim of being fully compliant with DLNA/UPnP-AV clients."
 PKG_TOOLCHAIN="autotools"
 
 PKG_IS_ADDON="yes"
