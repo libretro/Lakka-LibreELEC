@@ -14,7 +14,8 @@ PKG_LONGDESC="Library for accessing ssh client services through C libraries."
 PKG_CMAKE_OPTS_TARGET="-DWITH_STATIC_LIB=1 \
                        -DWITH_SERVER=OFF \
                        -DWITH_GCRYPT=OFF \
-                       -DWITH_GSSAPI=OFF"
+                       -DWITH_GSSAPI=OFF \
+                       -DWITH_INTERNAL_DOC=OFF"
 
 makeinstall_target() {
 # install static library only
