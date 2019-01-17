@@ -478,33 +478,46 @@ debug_strip() {
 
 init_package_cache() {
   local _ANCHOR="@?+?@" DIR
+  local temp_global temp_local
 
   # If the package caches are unset, then populate them
   if [ -z "${_CACHE_PACKAGE_LOCAL}" -o -z "${_CACHE_PACKAGE_GLOBAL}" ]; then
-    _CACHE_PACKAGE_LOCAL="${BUILD}/.cache_package_local"
-    _CACHE_PACKAGE_GLOBAL="${BUILD}/.cache_package_global"
-    mkdir -p "${BUILD}"
-    : > "${_CACHE_PACKAGE_LOCAL}"
-    : > "${_CACHE_PACKAGE_GLOBAL}"
+    temp_global="$(mktemp)"
+    temp_local="$(mktemp)"
 
     # cache project/device folder for a package
     if [ -n $DEVICE ]; then
       for DIR in $(find $ROOT/projects/$PROJECT/devices/$DEVICE/packages -type d 2>/dev/null); do
-        [ -r "$DIR/package.mk" ] && echo "${DIR}${_ANCHOR}" >> "${_CACHE_PACKAGE_LOCAL}"
+        [ -r "$DIR/package.mk" ] && echo "${DIR}${_ANCHOR}" >> "${temp_local}"
       done
     fi
 
     # cache project folder for a package
     for DIR in $(find $ROOT/projects/$PROJECT/packages -type d 2>/dev/null); do
-      [ -r "$DIR/package.mk" ] && echo "${DIR}${_ANCHOR}" >> "${_CACHE_PACKAGE_LOCAL}"
+      [ -r "$DIR/package.mk" ] && echo "${DIR}${_ANCHOR}" >> "${temp_local}"
     done
 
     # cache packages folder
     for DIR in $(find $ROOT/$PACKAGES -type d 2>/dev/null); do
-      [ -r "$DIR/package.mk" ] && echo "${DIR}${_ANCHOR}" >> "${_CACHE_PACKAGE_GLOBAL}"
+      [ -r "$DIR/package.mk" ] && echo "${DIR}${_ANCHOR}" >> "${temp_global}"
     done
 
+    _CACHE_PACKAGE_LOCAL="${BUILD}/.cache_package_local"
+    _CACHE_PACKAGE_GLOBAL="${BUILD}/.cache_package_global"
     export _CACHE_PACKAGE_LOCAL _CACHE_PACKAGE_GLOBAL
+
+    # overwrite existing cache files only when they are invalid, or not yet created
+    mkdir -p "$(dirname "${_CACHE_PACKAGE_GLOBAL}")"
+    if [ -f "${_CACHE_PACKAGE_LOCAL}" ] && cmp -s "${temp_local}" "${_CACHE_PACKAGE_LOCAL}"; then
+      rm "${temp_local}"
+    else
+      mv "${temp_local}" "${_CACHE_PACKAGE_LOCAL}"
+    fi
+    if [ -f "${_CACHE_PACKAGE_GLOBAL}" ] && cmp -s "${temp_global}" "${_CACHE_PACKAGE_GLOBAL}"; then
+      rm "${temp_global}"
+    else
+      mv "${temp_global}" "${_CACHE_PACKAGE_GLOBAL}"
+    fi
   fi
 }
 
