@@ -2,7 +2,7 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="rust"
-PKG_VERSION="1.30.0"
+PKG_VERSION="1.31.1"
 PKG_LICENSE="MIT"
 PKG_SITE="https://www.rust-lang.org"
 PKG_DEPENDS_TARGET="toolchain rustup.rs"
