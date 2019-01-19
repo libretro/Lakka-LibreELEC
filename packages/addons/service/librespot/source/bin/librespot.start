@@ -3,110 +3,34 @@
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
-f="/storage/.kodi/userdata/addon_data/service.librespot/settings.xml"
-[ -f "$f" ] && sed -i  's/ls_O/ls_m/g' "$f"
-
-activate_card() {
-  if [ -e "/proc/asound/$1" ]; then
-    return
-  fi
-  case "$LIBREELEC_ARCH" in
-    RPi*.arm)
-      if [ "$1" = "ALSA" ]; then
-        dtparam audio=on
-        sleep 1
-      fi
-      ;;
-    *)
-      echo "Unable to activate card $1 on $LIBREELEC_ARCH"
-      exit
-      ;;
-  esac
-}
-
-init_alsa() {
-  . /etc/os-release
-
-  if [ ! "$(cat /proc/asound/pcm 2> /dev/null)" ]; then
-    case "$LIBREELEC_ARCH" in
-      RPi*.arm)
-        activate_card "ALSA"
-        ;;
-      *)
-        echo "Unable to activate an audio interface on $LIBREELEC_ARCH"
-        exit
-        ;;
-    esac
-  fi
-
-  case "$ls_o" in
-    *:CARD=*)
-      card="${ls_o##*:CARD=}"
-      card="${card%%,*}"
-      activate_card "$card"
-      index="$(readlink /proc/asound/$card)"
-      index="${index##*card}"
-      ;;
-    hw:*,*)
-      echo "The hw:d,s specification is unreliable, use device:CARD=card instead"
-      index="${ls_o##hw:}"
-      index="${index%%,*}"
-      card="card$index"
-      activate_card "$card"
-      ;;
-    *)
-      if [ -n "$ls_o" ]; then
-        echo "Unknown playback device specification $ls_o"
-      fi
-      ;;
-  esac
-
-  case "$LIBREELEC_ARCH" in
-    RPi*.arm)
-      [ "$(readlink /proc/asound/ALSA)" = "card$index" ] && [ "$pcm_3" ] &&
-        amixer -c "$index" cset name="PCM Playback Route" "$pcm_3"
-      ;;
-  esac
-}
-
-
 . /etc/profile
 oe_setup_addon service.librespot
 
-LIBRESPOT="librespot --cache \"$ADDON_HOME/cache\" \
-                     --disable-audio-cache \
-                     --name \"Librespot@$HOSTNAME\" \
-                     --onevent librespot.onevent"
+PORT="6666"
+SINK_NAME="librespot_sink"
 
-if [ -n "$ls_b" -a "$ls_b" != "-" ]; then
-  LIBRESPOT="$LIBRESPOT --bitrate $ls_b"
+if ! pactl list modules short | grep "sink_name=$SINK_NAME"; then
+  pactl load-module module-null-sink sink_name="$SINK_NAME" > /dev/null
 fi
+if ! pactl list modules short | grep "source=$SINK_NAME"; then
+  pactl load-module module-rtp-send source="$SINK_NAME.monitor" \
+    destination_ip=127.0.0.1 port="$PORT" source_ip=127.0.0.1 > /dev/null
+fi
+pactl suspend-sink "$SINK_NAME" 1
+
+LIBRESPOT="librespot \
+    --backend pulseaudio \
+    --cache \"$ADDON_HOME/cache\" \
+    --device-type TV \
+    --disable-audio-cache \
+    --name \"Kodi ($HOSTNAME)\" \
+    --notify-kodi"
 
 if [ "$ls_a" = "true" -a -n "$ls_p" -a -n "$ls_u" ]; then
-  LIBRESPOT="$LIBRESPOT --disable-discovery \
-                        --password \"$ls_p\" \
-                        --username \"$ls_u\""
+  LIBRESPOT="$LIBRESPOT \
+    --disable-discovery \
+    --password \"$ls_p\" \
+    --username \"$ls_u\""
 fi
-
-if [ "$ls_m" = "Kodi" ]; then
-  LIBRESPOT="$LIBRESPOT --backend pulseaudio --device-type TV"
-else
-  init_alsa
-  if [ -n "$ls_o" ]; then
-    LIBRESPOT="$LIBRESPOT --device \"$ls_o\""
-  fi
-  LIBRESPOT="$LIBRESPOT --device-type Speaker"
-fi
-
-if [ -z "$(pactl list short modules | grep sink_name=$LS_SINK)" ]; then
-  pactl load-module module-null-sink sink_name="$LS_SINK" > /dev/null
-fi
-pactl suspend-sink "$LS_SINK" 1
-if [ -z "$(pactl list short modules | grep source=$LS_SINK.monitor)" ]; then
-  pactl load-module module-rtp-send source="$LS_SINK.monitor" \
-    destination_ip=127.0.0.1 port="$LS_PORT" source_ip=127.0.0.1 > /dev/null
-fi
-
-export LS_FIFO="/var/run/librespot"
 
 eval $LIBRESPOT
