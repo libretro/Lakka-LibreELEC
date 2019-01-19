@@ -7,7 +7,8 @@ PKG_NAME="chrome-libXi"
 PKG_LONGDESC="libXi for chrome"
 PKG_URL=""
 
-PKG_CONFIGURE_OPTS_TARGET="--disable-static \
+PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET \
+                           --disable-static \
                            --enable-shared"
 
 unpack() {
