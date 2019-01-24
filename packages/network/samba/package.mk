@@ -85,7 +85,9 @@ configure_package() {
 
   PKG_SAMBA_TARGET="smbclient,client/smbclient,smbtree,testparm"
 
-  [ "$SAMBA_SERVER" = "yes" ] && PKG_SAMBA_TARGET+=",smbd/smbd,nmbd,smbpasswd"
+  if [ "$SAMBA_SERVER" = "yes" ]; then
+    PKG_SAMBA_TARGET+=",smbd/smbd,nmbd,smbpasswd"
+  fi
 }
 
 pre_configure_target() {
