@@ -805,22 +805,18 @@ find_dir_path() {
   find_path -d "$1" "$2"
 }
 
-# p1: name of potential function to execute if it exists
-# return 0 if function executed, 1 if not, die if error
+# p1: name of function to test for
+# return 0 if function exists, 1 if not
+pkg_call_exists() {
+  [ "$(type -t ${1})" = "function" ] && return 0 || return 1
+}
+
+# p1: name of function to execute unconditionally
+# testing the exit code value of this function is likely to break set -e fail-on-error behaviour
 pkg_call() {
   [ -n "${PKG_NAME}" ] || die "$(print_color CLR_ERROR "FAILURE: Cannot call ${1} package function when package is not known!")"
 
-  if [ "$(type -t ${1})" = "function" ]; then
-    ${1} || die "$(print_color CLR_ERROR "FAILURE: ${1} for package ${PKG_NAME} did not succeed!")"
-  else
-    return 1
-  fi
-}
-
-# p1: name of potential function to execute if it exists
-# return 0 if function executed or not, or die if error
-pkg_call_optional() {
-  pkg_call ${1} || return 0
+  ${1}
 }
 
 unset_functions() {
@@ -922,7 +918,11 @@ source_package() {
   # Late variable binding - allow the package to now evaluate any variables
   # that we may have initialised after sourcing the package, typically
   # PKG_BUILD etc.
-  [ -n "${PKG_NAME}" ] && pkg_call_optional configure_package || true
+  if [ -n "${PKG_NAME}" ]; then
+    if pkg_call_exists configure_package; then
+      pkg_call configure_package
+    fi
+  fi
 }
 
 

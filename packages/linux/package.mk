@@ -206,7 +206,7 @@ make_target() {
   ( cd $ROOT
     rm -rf $BUILD/initramfs
     $SCRIPTS/install initramfs
-  ) || die "FAILURE: Building initramfs"
+  )
 
   if [ "$BOOTLOADER" = "u-boot" -a -n "$KERNEL_UBOOT_EXTRA_TARGET" ]; then
     for extra_target in "$KERNEL_UBOOT_EXTRA_TARGET"; do

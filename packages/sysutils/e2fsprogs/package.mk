@@ -48,7 +48,7 @@ pre_configure_target() {
 }
 
 pre_configure_init() {
-  pkg_call pre_configure_target || die "pre_configure_target not found"
+  pkg_call pre_configure_target
 
   PKG_CONFIGURE_OPTS_INIT="$PKG_CONFIGURE_OPTS_TARGET"
 }
