@@ -3,9 +3,10 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="hyperion"
-PKG_VERSION="1d125d8df863ad176002f591d72dbba79ce9be63"
-PKG_SHA256="1f3bcd1422dffb7c4398b1c22c63f78151c52c9a44505d1a4ba31278290fd47c"
-PKG_REV="108"
+PKG_VERSION="22f7be8df010fe8f0a51e3677fe0c8e709042622"
+PKG_SHA256="51cb6c5694d4bad67255ac4ae61a3c0aa481395c4868fb044a3ee19ca35bf19d"
+PKG_VERSION_DATE="2018-12-20"
+PKG_REV="109"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/hyperion-project/hyperion"
@@ -13,7 +14,7 @@ PKG_URL="https://github.com/hyperion-project/hyperion/archive/$PKG_VERSION.tar.g
 PKG_DEPENDS_TARGET="toolchain Python2 libusb qtbase protobuf rpi_ws281x"
 PKG_SECTION="service"
 PKG_SHORTDESC="Hyperion: an AmbiLight controller"
-PKG_LONGDESC="Hyperion($PKG_VERSION) is an modern opensource AmbiLight implementation."
+PKG_LONGDESC="Hyperion($PKG_VERSION_DATE) is an modern opensource AmbiLight implementation."
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Hyperion"
