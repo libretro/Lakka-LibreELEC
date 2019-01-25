@@ -7,7 +7,8 @@ PKG_NAME="chrome-libXdamage"
 PKG_LONGDESC="libXdamage for chrome"
 PKG_URL=""
 
-PKG_CONFIGURE_OPTS_TARGET="--disable-static \
+PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET \
+                           --disable-static \
                            --enable-shared"
 
 unpack() {
