@@ -1,0 +1,73 @@
+From 9c39a05e87e89534bc0ebf0b1a1bfb918cfb127d Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Thu, 24 Jan 2019 22:11:10 +0100
+Subject: [PATCH] vo_gpu: hwdec_drmprime_drm: add hwdec ctx
+
+This allows to use drm hwaccels that require a hwdevice.
+
+Tested with v4l2request hwaccel and cedrus driver on an allwinner device
+running mpv with --vo=gpu --gpu-context=drm --hwdec=drm.
+---
+ video/out/opengl/hwdec_drmprime_drm.c | 14 ++++++++++++++
+ wscript                               |  2 +-
+ 2 files changed, 15 insertions(+), 1 deletion(-)
+
+diff --git a/video/out/opengl/hwdec_drmprime_drm.c b/video/out/opengl/hwdec_drmprime_drm.c
+index fd3d383c55..13fbe7528f 100644
+--- a/video/out/opengl/hwdec_drmprime_drm.c
++++ b/video/out/opengl/hwdec_drmprime_drm.c
+@@ -23,6 +23,7 @@
+ #include <math.h>
+ #include <stdbool.h>
+ 
++#include <libavutil/hwcontext.h>
+ #include <libavutil/hwcontext_drm.h>
+ 
+ #include "common.h"
+@@ -44,6 +45,7 @@ struct drm_frame {
+ 
+ struct priv {
+     struct mp_log *log;
++    struct mp_hwdec_ctx hwctx;
+ 
+     struct mp_image_params params;
+ 
+@@ -231,6 +233,9 @@ static void uninit(struct ra_hwdec *hw)
+     disable_video_plane(hw);
+     set_current_frame(hw, NULL);
+ 
++    hwdec_devices_remove(hw->devs, &p->hwctx);
++    av_buffer_unref(&p->hwctx.av_device_ref);
++
+     if (p->ctx) {
+         drm_atomic_destroy_context(p->ctx);
+         p->ctx = NULL;
+@@ -284,6 +289,15 @@ static int init(struct ra_hwdec *hw)
+     }
+ 
+     disable_video_plane(hw);
++
++    p->hwctx = (struct mp_hwdec_ctx) {
++        .driver_name = hw->driver->name,
++    };
++    if (!av_hwdevice_ctx_create(&p->hwctx.av_device_ref, AV_HWDEVICE_TYPE_DRM,
++                                drmGetDeviceNameFromFd2(p->ctx->fd), NULL, 0)) {
++        hwdec_devices_add(hw->devs, &p->hwctx);
++    }
++
+     return 0;
+ 
+ err:
+diff --git a/wscript b/wscript
+index d3d49090c8..c437d5adc1 100644
+--- a/wscript
++++ b/wscript
+@@ -554,7 +554,7 @@ video_output_features = [
+         'name': '--drm',
+         'desc': 'DRM',
+         'deps': 'vt.h',
+-        'func': check_pkg_config('libdrm'),
++        'func': check_pkg_config('libdrm', '>= 2.4.74'),
+     }, {
+         'name': '--drmprime',
+         'desc': 'DRM Prime ffmpeg support',
