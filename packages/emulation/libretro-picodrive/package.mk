@@ -39,6 +39,10 @@ pre_configure_target() {
   rm -rf .$TARGET_NAME
 }
 
+post_configure_target() {
+  sed -e "s|^GIT_VERSION :=.*$|GIT_VERSION := \" ${PKG_VERSION:0:7}\"|" -i Makefile.libretro
+}
+
 make_target() {
   make -f Makefile.libretro
 }
