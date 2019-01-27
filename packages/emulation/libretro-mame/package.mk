@@ -13,7 +13,7 @@ PKG_LONGDESC="game.libretro.mame: MAME for Kodi"
 PKG_BUILD_FLAGS="-gold -lto"
 PKG_TOOLCHAIN="make"
 
-PKG_LIBNAME="mamearcade_libretro.so"
+PKG_LIBNAME="mame_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"
 PKG_LIBVAR="MAME_LIB"
 
@@ -31,6 +31,10 @@ make_target() {
        LIBRETRO_OS="unix" ARCH="" PROJECT="" LIBRETRO_CPU="$ARCH" DISTRO="debian-stable" \
        CC="$CC" CXX="$CXX" LD="$LD" CROSS_BUILD="" PTR64="$PTR64" TARGET="mame" \
        SUBTARGET="arcade" PLATFORM="$ARCH" RETRO=1 OSD="retro"
+}
+
+post_make_target() {
+  mv $PKG_BUILD/mamearcade_libretro.so $PKG_BUILD/mame_libretro.so
 }
 
 makeinstall_target() {
