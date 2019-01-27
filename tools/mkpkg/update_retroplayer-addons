@@ -68,6 +68,26 @@ cleanup_pkg_tmp() {
   rm -rf "${TMP_PKG_FILE}" "${TMP_PKG_DIR}"
 }
 
+msg_color() {
+  echo $(
+    cd "${ROOT}"
+    PROJECT=Generic ARCH=x86_64 . config/options ""
+    echo $(print_color "$1" "$2")
+  )
+}
+
+msg_warn() {
+  msg_color CLR_WARNING "$1"
+}
+
+msg_error() {
+  msg_color CLR_ERROR "$1"
+}
+
+msg_info() {
+  echo "$1"
+}
+
 set_pkg_sha256() {
   local package_mk="$1/package.mk"
   local new_sha256=$(sha256sum < "${TMP_PKG_FILE}" | awk '{print $1}')
@@ -80,7 +100,7 @@ bump_pkg_rev() {
   local new_pkg_rev=$((${pkg_rev}+1))
 
   sed -e "s|PKG_REV=.*|PKG_REV=\"${new_pkg_rev}\"|" -i "${package_mk}"
-  echo "BUMPED ${pkg_name} PKG_REV from ${pkg_rev} to ${new_pkg_rev}"
+  msg_info "BUMPED ${pkg_name} PKG_REV from ${pkg_rev} to ${new_pkg_rev}"
 }
 
 # addons
@@ -103,7 +123,7 @@ for addontxt in "binary-addons https://github.com/kodi-game/repo-binary-addons.g
     GAME_PATH="${ROOT}/packages/mediacenter/kodi-binary-addons/${GAME_ADDON}"
 
     if [ ! -d "$GAME_PATH" ] ; then
-      echo "SKIPPING ${GAME_ADDON}, not present in LE"
+      msg_warn "SKIPPING ${GAME_ADDON}, not present in LE"
       continue
     fi
 
@@ -130,7 +150,7 @@ for addontxt in "binary-addons https://github.com/kodi-game/repo-binary-addons.g
       set_pkg_version "${GAME_PATH}" "${GAME_NEW_HASH}"
       download_pkg_file "${GAME_ADDON}"
       set_pkg_sha256 "${GAME_PATH}"
-      echo "UPDATED ${GAME_ADDON} from ${GAME_VERSION} to ${GAME_NEW_HASH}"
+      msg_info "UPDATED ${GAME_ADDON} from ${GAME_VERSION} to ${GAME_NEW_HASH}"
     fi
 
     if [ -n "${FORCE_LIBRETRO_BUMP}" -a -n "${RETRO_NAME}" -a -z "${CHECK_RETRO}" ]; then
@@ -140,7 +160,7 @@ for addontxt in "binary-addons https://github.com/kodi-game/repo-binary-addons.g
 
     if [ -n "${CHECK_RETRO}" ]; then
       if [ ! -d "${RETRO_PATH}" ]; then
-        echo "ERROR: ${RETRO_PATH} doesn't exist"
+        msg_error "ERROR: ${RETRO_PATH} doesn't exist"
         cleanup_pkg_tmp
         exit 1
       fi
@@ -151,7 +171,7 @@ for addontxt in "binary-addons https://github.com/kodi-game/repo-binary-addons.g
       RETRO_VERSION_FILE="${TMP_PKG_DIR}/depends/common/${RETRO_NAME}/${RETRO_NAME}.txt"
 
       if [ ! -f "${RETRO_VERSION_FILE}" ]; then
-        echo "ERROR: ${RETRO_VERSION_FILE} does not exist"
+        msg_error "ERROR: ${RETRO_VERSION_FILE} does not exist"
         cleanup_pkg_tmp
         exit 1
       fi
@@ -161,7 +181,7 @@ for addontxt in "binary-addons https://github.com/kodi-game/repo-binary-addons.g
         # version referenced by githash
         RETRO_NEW_HASH=$(sed -e 's|^.*/archive/||' -e 's|\.zip$||' "${RETRO_VERSION_FILE}")
       else
-        echo "unmanaged version in kodi package: ${VERSION_INFO}"
+        msg_warn "unmanaged version in kodi package: ${VERSION_INFO}"
         # unmanaged version, repo plus branch
         RETRO_SITE=$(echo "${VERSION_INFO}" | awk '{print $2}')
         RETRO_BRANCH=$(echo "${VERSION_INFO}" | awk '{print $3}')
@@ -173,7 +193,7 @@ for addontxt in "binary-addons https://github.com/kodi-game/repo-binary-addons.g
         set_pkg_version "${RETRO_PATH}" "${RETRO_NEW_HASH}"
         download_pkg_file "${RETRO_ADDON}"
         set_pkg_sha256 "${RETRO_PATH}"
-        echo "UPDATED ${RETRO_ADDON} from ${RETRO_VERSION} to ${RETRO_NEW_HASH}"
+        msg_info "UPDATED ${RETRO_ADDON} from ${RETRO_VERSION} to ${RETRO_NEW_HASH}"
       fi
     fi
 
