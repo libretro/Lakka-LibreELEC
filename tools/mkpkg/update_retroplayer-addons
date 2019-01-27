@@ -3,7 +3,20 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
+FORCE_LIBRETRO_BUMP=""
+
+if [ "$1" == "-f" ]; then
+  FORCE_LIBRETRO_BUMP="yes"
+  shift
+fi
+
 ROOT=$(cd $(dirname $0)/../.. && pwd)
+TMPDIR="$(pwd)/.update-retroplayer-tmp"
+TMP_PKG_FILE="${TMPDIR}/package.tar.gz"
+TMP_PKG_DIR="${TMPDIR}/package"
+
+rm -rf "${TMPDIR}"
+mkdir -p "${TMPDIR}"
 
 git_clone() {
   # git_clone https://repo.url branch ./target_dir [githash]
@@ -35,21 +48,59 @@ get_pkg_var() {
   echo "${!pkg_var}"
 }
 
-update_pkg() {
-  local pkg_path="$1" pkg_name="$2" pkg_version="$3"
-  local old_version pkg_url new_sha256
+set_pkg_version() {
+  local package_mk="$1/package.mk" pkg_version="$2"
+  sed -e "s|PKG_VERSION=.*|PKG_VERSION=\"${pkg_version}\"|g" -i "${package_mk}"
+}
 
-  old_version=$(get_pkg_var "${pkg_name}" PKG_VERSION)
+download_pkg_file() {
+  local pkg_name="$1"
+  local pkg_url=$(get_pkg_var "${pkg_name}" PKG_URL)
+  wget -q -O "${TMP_PKG_FILE}" "${pkg_url}"
+}
 
-  if [ "${old_version}" != "${pkg_version}" ]; then
-    [ -n "$pkg_version}" ] && sed -e "s|PKG_VERSION=.*|PKG_VERSION=\"${pkg_version}\"|g" -i ${pkg_path}
+extract_pkg_file() {
+  mkdir -p "${TMP_PKG_DIR}"
+  tar xf "${TMP_PKG_FILE}" --strip-components=1 -C "${TMP_PKG_DIR}"
+}
 
-    pkg_url=$(get_pkg_var "${pkg_name}" PKG_URL)
-    if [ -n "${pkg_url}" ]; then
-      new_sha256="$(wget -q ${pkg_url} -O- | sha256sum | awk '{print $1}')" || exit 1
-      sed -e "s|PKG_SHA256=.*|PKG_SHA256=\"${new_sha256}\"|g" -i ${pkg_path}
-    fi
-  fi
+cleanup_pkg_tmp() {
+  rm -rf "${TMP_PKG_FILE}" "${TMP_PKG_DIR}"
+}
+
+msg_color() {
+  echo $(
+    cd "${ROOT}"
+    PROJECT=Generic ARCH=x86_64 . config/options ""
+    echo $(print_color "$1" "$2")
+  )
+}
+
+msg_warn() {
+  msg_color CLR_WARNING "$1"
+}
+
+msg_error() {
+  msg_color CLR_ERROR "$1"
+}
+
+msg_info() {
+  echo "$1"
+}
+
+set_pkg_sha256() {
+  local package_mk="$1/package.mk"
+  local new_sha256=$(sha256sum < "${TMP_PKG_FILE}" | awk '{print $1}')
+  sed -e "s|PKG_SHA256=.*|PKG_SHA256=\"${new_sha256}\"|g" -i "${package_mk}"
+}
+
+bump_pkg_rev() {
+  local package_mk="$1/package.mk" pkg_name="$2"
+  local pkg_rev=$(get_pkg_var "${pkg_name}" PKG_REV)
+  local new_pkg_rev=$((${pkg_rev}+1))
+
+  sed -e "s|PKG_REV=.*|PKG_REV=\"${new_pkg_rev}\"|" -i "${package_mk}"
+  msg_info "BUMPED ${pkg_name} PKG_REV from ${pkg_rev} to ${new_pkg_rev}"
 }
 
 # addons
@@ -59,76 +110,99 @@ for addontxt in "binary-addons https://github.com/kodi-game/repo-binary-addons.g
   GIT_HASH=$(echo $addontxt | awk '{print $3}')
   git_clone $ADDONREPO retroplayer $ADDONS.git $GIT_HASH
 
-  if [ -z "$1" ]; then
-    for addon in $ADDONS.git/*.*/ ; do
-      if [ -n "$(echo $addon | grep game.)" -o -n "$(echo $addon | grep peripheral.)" ]; then
-        ADDON=$(basename $addon)
-        GIT_BRANCH=$(cat $addon/$ADDON.txt | awk '{print $3}')
-        EMULATOR="libretro-${ADDON##*.}"
-        BUMP_REV=""
-        OLD_HASH=""
-        GIT_HASH=""
+  for addon in $ADDONS.git/*.*/ ; do
+    GAME_ADDON=$(basename ${addon})
 
-        if ! grep -q all $addon/platforms.txt && ! grep -q linux $addon/platforms.txt && ! grep -q ! $addon/platforms.txt; then
-          continue
-        fi
+    [[ "${GAME_ADDON}" =~ ^game. ]] || continue
 
-        #########################
-        # binary add-on section #
-        #########################
+    if ! grep -q all $addon/platforms.txt && ! grep -q linux $addon/platforms.txt && ! grep -q ! $addon/platforms.txt; then
+      continue
+    fi
 
-        if [ -f ${ROOT}/packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ]; then
+    GAME_GIT_BRANCH=$(cat $addon/${GAME_ADDON}.txt | awk '{print $3}')
+    GAME_PATH="${ROOT}/packages/mediacenter/kodi-binary-addons/${GAME_ADDON}"
 
-          OLD_HASH=$(get_pkg_var "${ADDON}" PKG_VERSION)
-          PKG_SITE=$(get_pkg_var "${ADDON}" PKG_SITE)
-          GIT_HASH=$(git ls-remote $PKG_SITE $GIT_BRANCH | awk '{print $1}')
+    if [ ! -d "$GAME_PATH" ] ; then
+      msg_warn "SKIPPING ${GAME_ADDON}, not present in LE"
+      continue
+    fi
 
-          if [ "$OLD_HASH" != "$GIT_HASH" -a -n "$GIT_HASH" ]; then
-            update_pkg ${ROOT}/packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ${ADDON} ${GIT_HASH}
+    if [[ "${GAME_ADDON}" =~ ^game.libretro. ]]; then
+      RETRO_NAME="${GAME_ADDON#game.libretro.}"
+      RETRO_ADDON="libretro-${RETRO_NAME}"
+      RETRO_PATH="${ROOT}/packages/emulation/${RETRO_ADDON}"
+    else
+      RETRO_NAME=""
+      RETRO_ADDON=""
+      RETRO_PATH=""
+    fi
 
-            BUMP_REV=true
+    BUMPED=""
+    CHECK_RETRO=""
 
-            echo "UPDATING: $ADDON"
-            echo "OLD_HASH: $OLD_HASH"
-            echo "NEW_HASH: $GIT_HASH"
-            echo ""
+    GAME_VERSION=$(get_pkg_var "${GAME_ADDON}" PKG_VERSION)
+    GAME_PKG_SITE=$(get_pkg_var "${GAME_ADDON}" PKG_SITE)
+    GAME_NEW_HASH=$(git ls-remote $GAME_PKG_SITE $GAME_GIT_BRANCH | awk '{print $1}')
 
-          fi
-        fi
+    if [ "${GAME_VERSION}" != "${GAME_NEW_HASH}" ]; then
+      BUMPED="yes"
+      [ -n "${RETRO_NAME}" ] && CHECK_RETRO="yes"
+      set_pkg_version "${GAME_PATH}" "${GAME_NEW_HASH}"
+      download_pkg_file "${GAME_ADDON}"
+      set_pkg_sha256 "${GAME_PATH}"
+      msg_info "UPDATED ${GAME_ADDON} from ${GAME_VERSION} to ${GAME_NEW_HASH}"
+    fi
 
-        #########################
-        # emulation section     #
-        #########################
+    if [ -n "${FORCE_LIBRETRO_BUMP}" -a -n "${RETRO_NAME}" -a -z "${CHECK_RETRO}" ]; then
+      download_pkg_file "${GAME_ADDON}"
+      CHECK_RETRO="yes"
+    fi
 
-        if [ -f ${ROOT}/packages/emulation/$EMULATOR/package.mk ]; then
-
-          OLD_HASH=$(get_pkg_var "${EMULATOR}" PKG_VERSION)
-          PKG_SITE=$(get_pkg_var "${EMULATOR}" PKG_SITE)
-          GIT_HASH=$(git ls-remote $PKG_SITE HEAD | awk '{print $1}')
-
-          if [ "$OLD_HASH" != "$GIT_HASH" -a -n "$GIT_HASH" ]; then
-            update_pkg ${ROOT}/packages/emulation/$EMULATOR/package.mk ${EMULATOR} ${GIT_HASH}
-
-            BUMP_REV=true
-
-            echo "UPDATING: $EMULATOR"
-            echo "OLD_HASH: $OLD_HASH"
-            echo "NEW_HASH: $GIT_HASH"
-            echo ""
-
-          fi
-        fi
-
-        if [ "$BUMP_REV" = "true" ]; then
-
-          PKG_REV=$(get_pkg_var "${ADDON}" PKG_REV)
-          sed -e "s|PKG_REV=.*|PKG_REV=\"$((PKG_REV+1))\"|" -i ${ROOT}/packages/mediacenter/kodi-binary-addons/$ADDON/package.mk
-
-          echo "BUMPING PKG_REV FROM: $PKG_REV TO: $((PKG_REV+1))"
-          echo ""
-
-        fi
+    if [ -n "${CHECK_RETRO}" ]; then
+      if [ ! -d "${RETRO_PATH}" ]; then
+        msg_error "ERROR: ${RETRO_PATH} doesn't exist"
+        cleanup_pkg_tmp
+        exit 1
       fi
-    done
-  fi
+
+      RETRO_VERSION=$(get_pkg_var "${RETRO_ADDON}" PKG_VERSION)
+      extract_pkg_file
+
+      RETRO_VERSION_FILE="${TMP_PKG_DIR}/depends/common/${RETRO_NAME}/${RETRO_NAME}.txt"
+
+      if [ ! -f "${RETRO_VERSION_FILE}" ]; then
+        msg_error "ERROR: ${RETRO_VERSION_FILE} does not exist"
+        cleanup_pkg_tmp
+        exit 1
+      fi
+
+      VERSION_INFO=$(grep "^${RETRO_NAME}" "${RETRO_VERSION_FILE}" | head -1)
+      if [[ "$VERSION_INFO" =~ .zip$ ]] ; then
+        # version referenced by githash
+        RETRO_NEW_HASH=$(sed -e 's|^.*/archive/||' -e 's|\.zip$||' "${RETRO_VERSION_FILE}")
+      else
+        msg_warn "unmanaged version in kodi package: ${VERSION_INFO}"
+        # unmanaged version, repo plus branch
+        RETRO_SITE=$(echo "${VERSION_INFO}" | awk '{print $2}')
+        RETRO_BRANCH=$(echo "${VERSION_INFO}" | awk '{print $3}')
+        RETRO_NEW_HASH=$(git ls-remote "${RETRO_SITE}" "${RETRO_BRANCH}" | awk '{print $1}')
+      fi
+
+      if [ "${RETRO_VERSION}" != "${RETRO_NEW_HASH}" ]; then
+        BUMPED="yes"
+        set_pkg_version "${RETRO_PATH}" "${RETRO_NEW_HASH}"
+        download_pkg_file "${RETRO_ADDON}"
+        set_pkg_sha256 "${RETRO_PATH}"
+        msg_info "UPDATED ${RETRO_ADDON} from ${RETRO_VERSION} to ${RETRO_NEW_HASH}"
+      fi
+    fi
+
+    if [ -n "${BUMPED}" ]; then
+      bump_pkg_rev "${GAME_PATH}" "${GAME_ADDON}"
+      cleanup_pkg_tmp
+    fi
+  done
 done
+
+rm -rf "${TMPDIR}"
+
