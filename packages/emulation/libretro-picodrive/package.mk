@@ -44,7 +44,7 @@ post_configure_target() {
 }
 
 make_target() {
-  make -f Makefile.libretro
+  R= make -f Makefile.libretro
 }
 
 makeinstall_target() {
