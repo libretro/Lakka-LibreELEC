@@ -10,7 +10,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://www.musicpd.org"
 PKG_URL="http://www.musicpd.org/download/mpd/${PKG_VERSION%.*}/mpd-${PKG_VERSION}.tar.xz"
-PKG_DEPENDS_TARGET="toolchain alsa-lib boost curl faad2 ffmpeg flac glib lame libcdio libiconv libid3tag \
+PKG_DEPENDS_TARGET="toolchain alsa-lib avahi boost curl faad2 ffmpeg flac glib lame libcdio libiconv libid3tag \
                     libmad libmpdclient libsamplerate libvorbis libnfs libogg mpd-mpc opus pulseaudio samba yajl"
 PKG_SECTION="service.multimedia"
 PKG_SHORTDESC="Music Player Daemon (MPD): a free and open Music Player Server"
@@ -20,71 +20,78 @@ PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Music Player Daemon (MPD)"
 PKG_ADDON_TYPE="xbmc.service"
 
-PKG_CONFIGURE_OPTS_TARGET=" \
-  --enable-aac \
-  --disable-adplug \
-  --enable-alsa \
-  --disable-ao \
-  --disable-audiofile \
-  --enable-bzip2 \
-  --disable-cdio-paranoia \
-  --enable-cue \
-  --enable-curl \
-  --enable-database \
-  --disable-debug \
-  --disable-documentation \
-  --enable-expat \
-  --enable-ffmpeg \
-  --enable-flac \
-  --disable-fluidsynth \
-  --disable-gme \
-  --disable-haiku \
-  --enable-httpd-output \
-  --enable-iconv \
-  --disable-icu \
-  --enable-id3 \
-  --enable-iso9660 \
-  --disable-jack \
-  --enable-lame-encoder \
-  --enable-libmpdclient \
-  --disable-libwrap \
-  --enable-lsr \
-  --enable-mad \
-  --disable-mikmod \
-  --disable-mms \
-  --disable-modplug \
-  --disable-mpc \
-  --disable-mpg123 \
-  --enable-nfs \
-  --disable-openal \
-  --enable-opus \
-  --disable-oss \
-  --enable-pipe-output \
-  --enable-pulse \
-  --disable-recorder-output \
-  --disable-roar \
-  --disable-shout \
-  --disable-shine-encoder \
-  --disable-sidplay \
-  --enable-smbclient \
-  --enable-sndfile \
-  --disable-sndio \
-  --disable-solaris-output \
-  --enable-soundcloud \
-  --enable-soxr \
-  --enable-sqlite \
-  --disable-syslog \
-  --disable-systemd-daemon \
-  --disable-test \
-  --disable-twolame-encoder \
-  --disable-upnp \
-  --enable-vorbis \
-  --enable-vorbis-encoder \
-  --disable-wavpack \
-  --enable-webdav \
-  --disable-wildmidi \
-  --enable-zlib \
-  --with-zeroconf=no"
+PKG_MESON_OPTS_TARGET=" \
+  -Dadplug=disabled \
+  -Dalsa=enabled \
+  -Dao=disabled \
+  -Daudiofile=disabled \
+  -Dbzip2=enabled \
+  -Dcdio_paranoia=disabled \
+  -Dchromaprint=disabled \
+  -Dcue=true \
+  -Dcurl=enabled \
+  -Ddatabase=true \
+  -Ddocumentation=false \
+  -Ddsd=true \
+  -Dexpat=enabled \
+  -Dfaad=enabled \
+  -Dffmpeg=enabled \
+  -Dfifo=false \
+  -Dflac=enabled \
+  -Dfluidsynth=disabled \
+  -Dgme=disabled \
+  -Dhttpd=true \
+  -Diconv=disabled \
+  -Dicu=disabled \
+  -Did3tag=enabled \
+  -Dipv6=enabled \
+  -Diso9660=enabled \
+  -Djack=disabled \
+  -Dlame=enabled \
+  -Dlibmpdclient=enabled \
+  -Dlibsamplerate=enabled \
+  -Dlocal_socket=false \
+  -Dmad=enabled \
+  -Dmikmod=disabled \
+  -Dmms=disabled \
+  -Dmodplug=disabled \
+  -Dmpcdec=disabled \
+  -Dmpg123=disabled \
+  -Dneighbor=false \
+  -Dnfs=enabled \
+  -Dopenal=disabled \
+  -Dopus=enabled \
+  -Doss=disabled \
+  -Dpipe=true \
+  -Dpulse=enabled \
+  -Dqobuz=enabled \
+  -Drecorder=false \
+  -Dshine=disabled \
+  -Dshout=disabled \
+  -Dsidplay=disabled \
+  -Dsmbclient=enabled \
+  -Dsndfile=enabled \
+  -Dsndio=disabled \
+  -Dsolaris_output=disabled \
+  -Dsoundcloud=enabled \
+  -Dsoxr=enabled \
+  -Dsqlite=enabled \
+  -Dsyslog=disabled \
+  -Dsystemd=disabled \
+  -Dtest=false \
+  -Dtidal=enabled \
+  -Dtwolame=disabled \
+  -Dupnp=disabled \
+  -Dvorbis=enabled \
+  -Dvorbisenc=enabled \
+  -Dwave_encoder=true \
+  -Dwavpack=disabled \
+  -Dwebdav=enabled \
+  -Dwildmidi=disabled \
+  -Dyajl=enabled \
+  -Dzeroconf=avahi \
+  -Dzlib=enabled \
+  -Dzzip=disabled"
 
 pre_configure_target() {
   export LIBS="$LIBS -logg -lFLAC -ldl"
