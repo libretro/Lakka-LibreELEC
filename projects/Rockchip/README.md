@@ -18,6 +18,7 @@ This project is for Rockchip SoC devices
 * [96rocks ROCK960](devices/RK3399)
 * [Khadas Edge](devices/RK3399)
 * [PINE64 RockPro64](devices/RK3399)
+* [Radxa ROCK Pi 4](devices/RK3399)
 * [Rockchip Sapphire Board](devices/RK3399)
 
 **My single-board computer is not listed, will it be added in the future?**<br />
