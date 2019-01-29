@@ -16,20 +16,6 @@ if [ -n "$PID" ]; then
   exit 0
 fi
 
-# check for first run and generate passwords
-DEF_XML="$ADDON_DIR/settings-default.xml"
-CUR_XML="$ADDON_HOME/settings.xml"
-
-if grep -q "@MYSQL_ROOT_PASS@" $DEF_XML; then
-  MYSQL_ROOT_PASS="$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 8)"
-  MYSQL_KODI_PASS="$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 8)"
-
-  sed -i "s|@MYSQL_ROOT_PASS@|$MYSQL_ROOT_PASS|g" $DEF_XML
-  sed -i "s|@MYSQL_KODI_PASS@|$MYSQL_KODI_PASS|g" $DEF_XML
-
-  cp $DEF_XML $CUR_XML
-fi
-
 # copy config file
 if [ ! -f $ADDON_HOME/my.cnf ]; then
   cp $ADDON_DIR/config/my.cnf $ADDON_HOME
@@ -41,19 +27,28 @@ if [ ! -d "$ADDON_HOME/data/mysql" ]; then
   $ADDON_DIR/bin/mysql_install_db --basedir=$ADDON_DIR --datadir=$ADDON_HOME/data
 fi
 
+# check for first run and generate passwords
+if grep -q "@MYSQL_ROOT_PASS@" $ADDON_HOME/settings.xml; then
+  MYSQL_ROOT_PASS="$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 8)"
+  MYSQL_KODI_PASS="$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 8)"
+
+  sed -e "s|@MYSQL_ROOT_PASS@|$MYSQL_ROOT_PASS|g" \
+      -e "s|@MYSQL_KODI_PASS@|$MYSQL_KODI_PASS|g" \
+      -i $ADDON_HOME/settings.xml
+fi
+
 # init script to create user kodi and change passwords
 init_file=""
-if [[ ! -f $ADDON_DIR/set_mysql_passwords.sql ]] || [[ $CUR_XML -nt $ADDON_DIR/set_mysql_passwords.sql ]]; then
-  cat << SQL_DATA > $ADDON_DIR/set_mysql_passwords.sql
+if [[ ! -f $ADDON_HOME/set_mysql_passwords.sql ]] || [[ $ADDON_HOME/settings.xml -nt $ADDON_HOME/set_mysql_passwords.sql ]]; then
+  cat << SQL_DATA > $ADDON_HOME/set_mysql_passwords.sql
 SET PASSWORD FOR 'root'@'localhost'=PASSWORD('$MYSQL_ROOT_PASS');
 CREATE USER IF NOT EXISTS 'kodi';
 SET PASSWORD FOR 'kodi'=PASSWORD('$MYSQL_KODI_PASS');
 GRANT ALL ON *.* TO 'kodi';
 flush privileges;
-
 SQL_DATA
 
-  init_file="--init-file=$ADDON_DIR/set_mysql_passwords.sql"
+  init_file="--init-file=$ADDON_HOME/set_mysql_passwords.sql"
 fi
 
 echo "Starting mysqld"
