@@ -20,9 +20,6 @@
 /usr/bin/busybox mount -t proc proc /proc
 /usr/bin/busybox mount -t sysfs sysfs /sys
 
-# common functions
-. /functions
-
 # set needed variables
 MODULE_DIR=/usr/lib/modules
 
@@ -55,123 +52,10 @@ BREAK_TRIPPED="no"
 MACHINE_UID="$(cat /proc/cpuinfo | awk '/^Serial/{s=$3; gsub ("^0*","",s); print s}')"
 [ -z "$MACHINE_UID" ] && MACHINE_UID="$(cat /sys/class/net/eth0/address 2>/dev/null | tr -d :)"
 
-# hide kernel log messages on console
-echo '1 4 1 7' > /proc/sys/kernel/printk
+# common functions
+. /functions
 
-# set ondemand up_threshold
-if [ -e /sys/devices/system/cpu/cpufreq/ondemand/up_threshold ] ; then
-  echo 50 > /sys/devices/system/cpu/cpufreq/ondemand/up_threshold
-fi
-
-# run platform_init script if exists
-if [ -f "./platform_init" ]; then
-  ./platform_init
-fi
-
-# clear screen and hide cursor
-clear
-hidecursor
-
-# parse command line arguments
-for arg in $(cat /proc/cmdline); do
-  case $arg in
-    BOOT_IMAGE=*)
-      IMAGE_KERNEL="${arg#*=}"
-      [ "${IMAGE_KERNEL:0:1}" = "/" ] && IMAGE_KERNEL="${IMAGE_KERNEL:1}"
-      ;;
-    SYSTEM_IMAGE=*)
-      IMAGE_SYSTEM="${arg#*=}"
-      [ "${IMAGE_SYSTEM:0:1}" = "/" ] && IMAGE_SYSTEM="${IMAGE_SYSTEM:1}"
-      ;;
-    boot=*)
-      boot="${arg#*=}"
-      case $boot in
-        ISCSI=*|NBD=*|NFS=*)
-          UPDATE_DISABLED=yes
-          FLASH_NETBOOT=yes
-          ;;
-        /dev/*|LABEL=*|UUID=*)
-          RUN_FSCK_DISKS="$RUN_FSCK_DISKS $boot"
-          ;;
-      esac
-      ;;
-    disk=*)
-      disk="${arg#*=}"
-      case $disk in
-        ISCSI=*|NBD=*|NFS=*)
-          STORAGE_NETBOOT=yes
-          ;;
-        /dev/*|LABEL=*|UUID=*)
-          RUN_FSCK_DISKS="$RUN_FSCK_DISKS $disk"
-          ;;
-      esac
-      ;;
-    wol_mac=*)
-      wol_mac="${arg#*=}"
-      ;;
-    wol_wait=*)
-      wol_wait="${arg#*=}"
-      ;;
-    textmode)
-      INIT_UNIT="--unit=textmode.target"
-      ;;
-    installer)
-      INIT_UNIT="--unit=installer.target"
-      SYSLINUX_DEFAULT="installer"
-      ;;
-    debugging)
-      DEBUG=yes
-      ;;
-    progress)
-      PROGRESS=yes
-      INIT_ARGS="$INIT_ARGS --show-status=1"
-      ;;
-    nofsck)
-      RUN_FSCK=no
-      ;;
-    nosplash)
-      SPLASH=no
-      ;;
-    noram)
-      SYSTEM_TORAM=no
-      ;;
-    ramlimit=*)
-      SYSTEM_TORAM_LIMIT="${arg#*=}"
-      ;;
-    live)
-      LIVE=yes
-      SYSLINUX_DEFAULT="live"
-      ;;
-    portable)
-      SYSLINUX_DEFAULT="run"
-      ;;
-    grub_live)
-      LIVE=yes
-      GRUB_DEFAULT="Live"
-      ;;
-    grub_portable)
-      GRUB_DEFAULT="Run"
-      ;;
-    overlay)
-      OVERLAY=yes
-      ;;
-    setfbres=*)
-      SWITCH_FRAMEBUFFER="${arg#*=}"
-      SWITCH_FRAMEBUFFER="${SWITCH_FRAMEBUFFER//,/ }"
-      ;;
-    break=*)
-      BREAK="${arg#*=}"
-      ;;
-  esac
-done
-
-if test "$DEBUG" = "yes"; then
-  exec 3>&1
-else
-  exec 3>/dev/null
-fi
-SILENT_OUT=3
-
+# script functions
 progress() {
   if test "$PROGRESS" = "yes"; then
     echo "### $1 ###" >&2
@@ -1047,6 +931,125 @@ prepare_sysroot() {
 
   [ -f "/sysroot/usr/lib/systemd/systemd" ] || error "final_check" "Could not find systemd!"
 }
+
+# Do init tasks to bring up system
+
+# hide kernel log messages on console
+echo '1 4 1 7' > /proc/sys/kernel/printk
+
+# set ondemand up_threshold
+if [ -e /sys/devices/system/cpu/cpufreq/ondemand/up_threshold ] ; then
+  echo 50 > /sys/devices/system/cpu/cpufreq/ondemand/up_threshold
+fi
+
+# run platform_init script if exists
+if [ -f "./platform_init" ]; then
+  ./platform_init
+fi
+
+# clear screen and hide cursor
+clear
+hidecursor
+
+# parse command line arguments
+for arg in $(cat /proc/cmdline); do
+  case $arg in
+    BOOT_IMAGE=*)
+      IMAGE_KERNEL="${arg#*=}"
+      [ "${IMAGE_KERNEL:0:1}" = "/" ] && IMAGE_KERNEL="${IMAGE_KERNEL:1}"
+      ;;
+    SYSTEM_IMAGE=*)
+      IMAGE_SYSTEM="${arg#*=}"
+      [ "${IMAGE_SYSTEM:0:1}" = "/" ] && IMAGE_SYSTEM="${IMAGE_SYSTEM:1}"
+      ;;
+    boot=*)
+      boot="${arg#*=}"
+      case $boot in
+        ISCSI=*|NBD=*|NFS=*)
+          UPDATE_DISABLED=yes
+          FLASH_NETBOOT=yes
+          ;;
+        /dev/*|LABEL=*|UUID=*)
+          RUN_FSCK_DISKS="$RUN_FSCK_DISKS $boot"
+          ;;
+      esac
+      ;;
+    disk=*)
+      disk="${arg#*=}"
+      case $disk in
+        ISCSI=*|NBD=*|NFS=*)
+          STORAGE_NETBOOT=yes
+          ;;
+        /dev/*|LABEL=*|UUID=*)
+          RUN_FSCK_DISKS="$RUN_FSCK_DISKS $disk"
+          ;;
+      esac
+      ;;
+    wol_mac=*)
+      wol_mac="${arg#*=}"
+      ;;
+    wol_wait=*)
+      wol_wait="${arg#*=}"
+      ;;
+    textmode)
+      INIT_UNIT="--unit=textmode.target"
+      ;;
+    installer)
+      INIT_UNIT="--unit=installer.target"
+      SYSLINUX_DEFAULT="installer"
+      ;;
+    debugging)
+      DEBUG=yes
+      ;;
+    progress)
+      PROGRESS=yes
+      INIT_ARGS="$INIT_ARGS --show-status=1"
+      ;;
+    nofsck)
+      RUN_FSCK=no
+      ;;
+    nosplash)
+      SPLASH=no
+      ;;
+    noram)
+      SYSTEM_TORAM=no
+      ;;
+    ramlimit=*)
+      SYSTEM_TORAM_LIMIT="${arg#*=}"
+      ;;
+    live)
+      LIVE=yes
+      SYSLINUX_DEFAULT="live"
+      ;;
+    portable)
+      SYSLINUX_DEFAULT="run"
+      ;;
+    grub_live)
+      LIVE=yes
+      GRUB_DEFAULT="Live"
+      ;;
+    grub_portable)
+      GRUB_DEFAULT="Run"
+      ;;
+    overlay)
+      OVERLAY=yes
+      ;;
+    setfbres=*)
+      SWITCH_FRAMEBUFFER="${arg#*=}"
+      SWITCH_FRAMEBUFFER="${SWITCH_FRAMEBUFFER//,/ }"
+      ;;
+    break=*)
+      BREAK="${arg#*=}"
+      ;;
+  esac
+done
+
+if test "$DEBUG" = "yes"; then
+  exec 3>&1
+else
+  exec 3>/dev/null
+fi
+SILENT_OUT=3
 
 # If the network is up (due to the use of the "ip" kernel parameter) and a DNS
 # server is known, allow the libc resolver to use it
