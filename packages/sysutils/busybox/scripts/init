@@ -171,14 +171,11 @@ mount_iscsi() {
 
   if [ "$ISCSI_OPTIONS" = "auto" ]; then
     progress "Network configuration based on iBFT"
-    /usr/sbin/iscsistart -N >&$SILENT_OUT 2>&1 || \
-      error "iscsistart" "Unable to configure network"
+    /usr/sbin/iscsistart -N >&$SILENT_OUT 2>&1 || error "iscsistart" "Unable to configure network"
     progress "iSCSI auto connect based on iBFT"
-    /usr/sbin/iscsistart -b >&$SILENT_OUT 2>&1 || \
-      error "iscsistart" "Unable to auto connect"
+    /usr/sbin/iscsistart -b >&$SILENT_OUT 2>&1 || error "iscsistart" "Unable to auto connect"
   else
-    /usr/sbin/iscsistart $(get_iscsistart_options "$ISCSI_OPTIONS") >&$SILENT_OUT 2>&1 || \
-      error "iscsistart" "Unable to connect to ISCSI target"
+    /usr/sbin/iscsistart $(get_iscsistart_options "$ISCSI_OPTIONS") >&$SILENT_OUT 2>&1 || error "iscsistart" "Unable to connect to ISCSI target"
   fi
 
   mount_common "$ISCSI_DEV" "$2" "$3" "$4"
@@ -190,8 +187,7 @@ mount_nbd() {
   NBD_PORT="${1#*:}"
   NBD_DEV="/dev/nbd$NBD_DEVS"
 
-  nbd-client $NBD_SERVER $NBD_PORT $NBD_DEV >&$SILENT_OUT 2>&1 || \
-    error "nbd-client" "Could not connect to NBD server $1"
+  nbd-client $NBD_SERVER $NBD_PORT $NBD_DEV >&$SILENT_OUT 2>&1 || error "nbd-client" "Could not connect to NBD server $1"
 
   mount_common "$NBD_DEV" "$2" "$3" "$4"
 
@@ -367,8 +363,7 @@ load_modules() {
   [ ! -f "/etc/modules" ] && return
   for module in $(cat /etc/modules); do
     progress "Loading kernel module $module"
-    insmod "$MODULE_DIR/$module.ko" || \
-      progress "... Failed to load kernel module $module, skipping"
+    insmod "$MODULE_DIR/$module.ko" || progress "... Failed to load kernel module $module, skipping"
   done
 }
 
@@ -382,9 +377,7 @@ load_splash() {
     # load uvesafb module if needed
     if [ -f "$MODULE_DIR/uvesafb.ko" -a ! -e /dev/fb0 ]; then
       progress "Loading kernel module uvesafb.ko"
-      insmod "$MODULE_DIR/uvesafb.ko" && \
-        set_default_res=yes || \
-        progress "... Failed to load kernel module uvesafb, skipping"
+      insmod "$MODULE_DIR/uvesafb.ko" && set_default_res=yes || progress "... Failed to load kernel module uvesafb, skipping"
     fi
 
     if [ -e /dev/fb0 ]; then
@@ -470,12 +463,12 @@ force_fsck() {
   read -t120 -n1
   # The exit status is 0 if input is available
   # The exit status is greater than 128 if the timeout is exceeded
-  if [ "$?" -ne "0" -o "$?" -gt "128" ] ; then
+  if [ "$?" -ne "0" -o "$?" -gt "128" ]; then
     echo "Repairing filesystem..."
     echo ""
     /usr/sbin/fsck -T -M -y $RUN_FSCK_DISKS
     FSCK_RET="$?"
-    if [ "$(( $FSCK_RET & 8 ))" = 8 ] ; then
+    if [ "$(( $FSCK_RET & 8 ))" = 8 ]; then
       # fubar
       echo "Forced fsck failed. Your system is broken beyond repair"
       echo "Please re-install @DISTRONAME@"
@@ -501,17 +494,17 @@ check_disks() {
     FSCK_RET="$?"
 
     # FSCK_RET is the bit-wise OR of the exit codes for each filesystem that is checked.
-    if [ "$(( $FSCK_RET & 4 ))" = 4 ] ; then
+    if [ "$(( $FSCK_RET & 4 ))" = 4 ]; then
       # errors left
       force_fsck
-    elif [ "$(( $FSCK_RET & 2 ))" = 2 ] ; then
+    elif [ "$(( $FSCK_RET & 2 ))" = 2 ]; then
       # reboot needed
       echo "Filesystem repaired, reboot needed..."
       do_reboot
-    elif [ "$(( $FSCK_RET & 1 ))" = 1 ] ; then
+    elif [ "$(( $FSCK_RET & 1 ))" = 1 ]; then
       # filesystem errors corrected
       progress "Filesystem errors corrected , continuing..."
-    elif [ "$(( $FSCK_RET & 0 ))" = 0 ] ; then
+    elif [ "$(( $FSCK_RET & 0 ))" = 0 ]; then
       # no errors found
       progress "No filesystem errors found, continuing..."
     fi
@@ -546,7 +539,7 @@ mount_flash() {
 
   mount_part "$boot" "/flash" "ro,noatime"
 
-  if [ -f /flash/post-flash.sh ] ; then
+  if [ -f /flash/post-flash.sh ]; then
     . /flash/post-flash.sh
   fi
 }
@@ -580,7 +573,7 @@ mount_storage() {
       fi
     fi
 
-    if [ -f /flash/mount-storage.sh ] ; then
+    if [ -f /flash/mount-storage.sh ]; then
       . /flash/mount-storage.sh
     else
       mount_part "$disk" "/storage" "rw,noatime"
@@ -678,7 +671,7 @@ check_update() {
     return 0
   fi
 
-  if [ "$UPDATE_DISABLED" = "yes" ] ; then
+  if [ "$UPDATE_DISABLED" = "yes" ]; then
     echo "Updating is not supported on netboot"
     do_cleanup
     StartProgress countdown "Normal startup in 10s... " 10 "NOW"
@@ -701,7 +694,7 @@ check_update() {
   echo "Please do not reboot or turn off your @DISTRONAME@ device!"
   echo ""
 
-  if [ -f "$UPDATE_TAR" ] ; then
+  if [ -f "$UPDATE_TAR" ]; then
     TARRESULT="0"
 
     echo "Found new .tar archive"
@@ -725,7 +718,7 @@ check_update() {
       StartProgress countdown "Normal startup in 30s... " 30 "NOW"
       return 0
     fi
-  elif [ -f "$UPDATE_IMG_GZ" -o -f "$UPDATE_IMG" ] ; then
+  elif [ -f "$UPDATE_IMG_GZ" -o -f "$UPDATE_IMG" ]; then
     mkdir -p $UPDATE_DIR/.tmp/mnt &>/dev/null
     IMG_FILE="$UPDATE_DIR/.tmp/update.img"
     GZRESULT="0"
@@ -800,7 +793,7 @@ check_update() {
     return 0
   fi
 
-  if [ ! -f "$UPDATE_DIR/$UPDATE_KERNEL" -o ! -f "$UPDATE_DIR/$UPDATE_SYSTEM" ] ; then
+  if [ ! -f "$UPDATE_DIR/$UPDATE_KERNEL" -o ! -f "$UPDATE_DIR/$UPDATE_SYSTEM" ]; then
     echo "Missing (source) ${UPDATE_KERNEL} or ${UPDATE_SYSTEM}!"
     do_cleanup
     StartProgress countdown "Normal startup in 30s... " 30 "NOW"
@@ -809,9 +802,9 @@ check_update() {
 
   # check md5 sums if .nocheck doesn't exist
   if [ ! -f "$UPDATE_ROOT/.nocheck" ]; then
-    if [ -f "$UPDATE_DIR/${UPDATE_KERNEL}.md5" -a -f "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" ] ; then
+    if [ -f "$UPDATE_DIR/${UPDATE_KERNEL}.md5" -a -f "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" ]; then
       # *.md5 size-check
-      if [ ! -s "$UPDATE_DIR/${UPDATE_KERNEL}.md5" -o ! -s "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" ] ; then
+      if [ ! -s "$UPDATE_DIR/${UPDATE_KERNEL}.md5" -o ! -s "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" ]; then
         echo "Zero-sized .md5 file!"
         MD5_FAILED="1"
       else
@@ -938,7 +931,7 @@ prepare_sysroot() {
 echo '1 4 1 7' > /proc/sys/kernel/printk
 
 # set ondemand up_threshold
-if [ -e /sys/devices/system/cpu/cpufreq/ondemand/up_threshold ] ; then
+if [ -e /sys/devices/system/cpu/cpufreq/ondemand/up_threshold ]; then
   echo 50 > /sys/devices/system/cpu/cpufreq/ondemand/up_threshold
 fi
 
@@ -1081,10 +1074,10 @@ BOOT_STEP=final
 STORAGE=$(cat /proc/mounts | grep " /sysroot/storage " | awk '{print $1}' | awk -F '/' '{print $3}')
 FLASH=$(cat /proc/mounts | grep " /sysroot/flash " | awk '{print $1}' | awk -F '/' '{print $3}')
 for i in $STORAGE $FLASH ; do
-  if [ -n "$i" ] ; then
+  if [ -n "$i" ]; then
     removable="/sys/class/block/*/$i/../removable"
-    if [ -e $removable ] ; then
-      if [ "$(cat $removable 2>/dev/null)" = "1" ] ; then
+    if [ -e $removable ]; then
+      if [ "$(cat $removable 2>/dev/null)" = "1" ]; then
         echo "### BIG FAT WARNING" > /dev/kmsg
         echo "### $i is removable. suspend/resume may not work" > /dev/kmsg
       fi
@@ -1098,29 +1091,29 @@ done
 /usr/bin/busybox rm -fr /tmp
 
 # tell OE settings addon to disable updates
-if [ "$UPDATE_DISABLED" = "yes" ] ; then
+if [ "$UPDATE_DISABLED" = "yes" ]; then
   echo "" > /sysroot/dev/.update_disabled
 fi
 
-if [ "$FLASH_NETBOOT" = "yes" ] ; then
+if [ "$FLASH_NETBOOT" = "yes" ]; then
   echo "" > /sysroot/dev/.flash_netboot
 fi
 
 # swap can not be used over nfs.(see scripts/mount-swap)
-if [ "$STORAGE_NETBOOT" = "yes" ] ; then
+if [ "$STORAGE_NETBOOT" = "yes" ]; then
   echo "" > /sysroot/dev/.storage_netboot
 fi
 
-if [ -f /sysroot/storage/.please_resize_me ] ; then
+if [ -f /sysroot/storage/.please_resize_me ]; then
   INIT_UNIT="--unit=fs-resize.target"
 fi
 
 BACKUP_FILE=$(ls -1 /sysroot/storage/.restore/??????????????.tar 2>/dev/null | head -n 1)
-if [ -f "$BACKUP_FILE" ] ; then
+if [ -f "$BACKUP_FILE" ]; then
   INIT_UNIT="--unit=backup-restore.target"
 fi
 
-if [ -f /sysroot/storage/.cache/reset_oe -o -f /sysroot/storage/.cache/reset_xbmc ] ; then
+if [ -f /sysroot/storage/.cache/reset_oe -o -f /sysroot/storage/.cache/reset_xbmc ]; then
   INIT_UNIT="--unit=factory-reset.target"
 fi
 
