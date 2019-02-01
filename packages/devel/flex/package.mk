@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="flex"
-PKG_VERSION="2.5.39"
-PKG_SHA256="add2b55f3bc38cb512b48fad7d72f43b11ef244487ff25fc00aabec1e32b617f"
+PKG_VERSION="2.6.0"
+PKG_SHA256="24e611ef5a4703a191012f80c1027dc9d12555183ce0ecd46f3636e587e9b8e9"
 PKG_LICENSE="GPL"
 PKG_SITE="http://flex.sourceforge.net/"
 PKG_URL="$SOURCEFORGE_SRC/flex/$PKG_NAME-$PKG_VERSION.tar.bz2"
