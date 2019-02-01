@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2017 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libaio"
-PKG_VERSION="0.3.110"
-PKG_SHA256="e019028e631725729376250e32b473012f7cb68e1f7275bfc1bbcdd0f8745f7e"
+PKG_VERSION="0.3.111"
+PKG_SHA256="62cf871ad8fd09eb3418f00aca7a7d449299b8e1de31c65f28bf6a2ef1fa502a"
 PKG_LICENSE="GPL"
 PKG_SITE="http://lse.sourceforge.net/io/aio.html"
 PKG_URL="http://http.debian.net/debian/pool/main/liba/libaio/${PKG_NAME}_${PKG_VERSION}.orig.tar.gz"
