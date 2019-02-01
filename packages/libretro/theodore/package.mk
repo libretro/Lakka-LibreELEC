@@ -18,26 +18,29 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="libretro-database"
-PKG_VERSION="7be1e11"
+PKG_NAME="theodore"
+PKG_VERSION="a58a6ae"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/libretro/libretro-database"
+PKG_LICENSE="GPLv2"
+PKG_SITE="https://github.com/Zlika/theodore"
 PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="Repository containing cheatcode files, content data files, etc."
-PKG_LONGDESC="Repository containing cheatcode files, content data files, etc."
+PKG_SHORTDESC="Libretro core for Thomson MO/TO emulation."
+PKG_LONGDESC="Libretro core for Thomson MO/TO emulation, based on Daniel Coulom's DCTO8D/DCTO9P/DCMO5 emulators."
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+PKG_USE_CMAKE="no"
 
-configure_target() {
+make_target() {
   cd $PKG_BUILD
+  make
 }
 
 makeinstall_target() {
-  make install INSTALLDIR="$INSTALL/usr/share/libretro-database"
+  mkdir -p $INSTALL/usr/lib/libretro
+  cp theodore_libretro.so $INSTALL/usr/lib/libretro/
 }
