@@ -3,44 +3,48 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="glib"
-PKG_VERSION="2.53.5"
-PKG_SHA256="991421f41a4ed4cc1637e5f9db0d03fd236d2cbd19f3c5b097a343bec5126602"
+PKG_VERSION="2.59.1"
+PKG_SHA256="d11f1ca55ccd00dd0abf800c2f42d9cc5e3803be321ff6bc79eb3ce2ca1863f0"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.gtk.org/"
 PKG_URL="http://ftp.gnome.org/pub/gnome/sources/glib/${PKG_VERSION%.*}/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET="toolchain zlib libffi Python2:host util-linux"
-PKG_DEPENDS_HOST="libffi:host pcre:host"
+PKG_DEPENDS_HOST="libffi:host Python3:host"
+PKG_DEPENDS_TARGET="toolchain pcre zlib libffi Python3:host util-linux"
 PKG_LONGDESC="A library which includes support routines for C such as lists, trees, hashes, memory allocation."
-PKG_TOOLCHAIN="autotools"
+PKG_TOOLCHAIN="meson"
 
-PKG_CONFIGURE_OPTS_HOST="PCRE_LIBS=-l:libpcre.a \
-                         --enable-static \
-                         --disable-shared \
-                         --disable-libmount \
-                         --with-python=python"
-PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_snprintf_c99=yes \
-                           ac_cv_func_vsnprintf_c99=yes \
-                           glib_cv_stack_grows=no \
-                           glib_cv_uscore=no \
-                           glib_cv_va_val_copy=no \
-                           --disable-selinux \
-                           --disable-fam \
-                           --enable-xattr \
-                           --disable-libelf \
-                           --disable-gtk-doc \
-                           --disable-gtk-doc-html \
-                           --disable-man \
-                           --disable-dtrace \
-                           --disable-systemtap \
-                           --enable-Bsymbolic \
-                           --with-gnu-ld \
-                           --with-threads=posix \
-                           --with-pcre=internal \
-                           --with-python=python"
+PKG_MESON_OPTS_HOST="-Ddefault_library=static \
+                     -Dinternal_pcre=true \
+                     -Dinstalled_tests=false \
+                     -Dlibmount=false"
+
+PKG_MESON_OPTS_TARGET="-Ddefault_library=shared \
+                       -Dinternal_pcre=false \
+                       -Dinstalled_tests=false \
+                       -Dselinux=disabled \
+                       -Dfam=false \
+                       -Dxattr=true \
+                       -Dgtk_doc=false \
+                       -Dman=false \
+                       -Ddtrace=false \
+                       -Dsystemtap=false \
+                       -Dbsymbolic_functions=true \
+                       -Dforce_posix_threads=true"
+
+PKG_MESON_PROPERTIES_TARGET="
+have_c99_vsnprintf=false
+have_c99_snprintf=false
+growing_stack=false
+va_val_copy=false"
+
+pre_configure_target() {
+  LDFLAGS+=" -lz"
+}
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
   rm -rf $INSTALL/usr/lib/gdbus-2.0
   rm -rf $INSTALL/usr/lib/glib-2.0
+  rm -rf $INSTALL/usr/lib/installed-tests
   rm -rf $INSTALL/usr/share
 }
