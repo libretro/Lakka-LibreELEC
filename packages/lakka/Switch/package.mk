@@ -25,7 +25,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/lakkatv/Lakka"
 PKG_URL=""
-PKG_DEPENDS_TARGET="freetype libdrm pixman $OPENGL libepoxy glu retroarch $LIBRETRO_CORES switch-gpu-profile switch-cpu-profile xinput xbindkeys xdotool mergerfs"
+PKG_DEPENDS_TARGET="freetype libdrm pixman $OPENGL libepoxy glu retroarch $LIBRETRO_CORES switch-gpu-profile switch-cpu-profile xinput xbindkeys xdotool mergerfs rewritefs"
 PKG_PRIORITY="optional"
 PKG_SECTION="virtual"
 PKG_SHORTDESC="Lakka metapackage for Switch"
@@ -36,13 +36,12 @@ PKG_AUTORECONF="no"
 
 post_install() {
   enable_service xorg-configure-switch.service
-  enable_service mount-bluez-fs.service
+  enable_service var-bluetoothconfig.mount
   enable_service switch-set-mac-address.service
   # enable_service switch-wifi-fix.service
   
   mkdir -p $INSTALL/usr/bin
   cp -P $PKG_DIR/scripts/switch-wifi-fix $INSTALL/usr/bin
-  cp -P $PKG_DIR/scripts/mount-bluez-fs $INSTALL/usr/bin
   cp -P $PKG_DIR/scripts/switch-set-mac-address $INSTALL/usr/bin
 }
 

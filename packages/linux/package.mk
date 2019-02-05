@@ -108,11 +108,15 @@ if [ "$TARGET_KERNEL_ARCH" = "arm64" -a "$TARGET_ARCH" = "arm" ]; then
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gcc-linaro-aarch64-linux-gnu:host"
     export PATH=$TOOLCHAIN/lib/gcc-linaro-aarch64-linux-gnu/bin/:$PATH
     TARGET_PREFIX=aarch64-linux-gnu-
+    OLD_CROSS_COMPILE=$CROSS_COMPILE
+    export CROSS_COMPILE=$TARGET_PREFIX # necessary for Linux 5
     PKG_MAKE_OPTS_HOST="ARCH=$TARGET_ARCH headers_check"
   else
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gcc-linaro-aarch64-elf:host"
     export PATH=$TOOLCHAIN/lib/gcc-linaro-aarch64-elf/bin/:$PATH
     TARGET_PREFIX=aarch64-elf-
+    OLD_CROSS_COMPILE=$CROSS_COMPILE
+    export CROSS_COMPILE=$TARGET_PREFIX # necessary for Linux 5
     PKG_MAKE_OPTS_HOST="ARCH=$TARGET_ARCH headers_check"
   fi
 else
@@ -234,7 +238,7 @@ pre_make_target() {
     sed -i "s|CONFIG_EXTRA_FIRMWARE=.*|CONFIG_EXTRA_FIRMWARE=\"${FW_LIST}\"|" $PKG_BUILD/.config
   fi
 
-  make oldconfig
+  make olddefconfig # i'm sorry oldconfig but you are too annoying
 
   # regdb
   cp $(get_build_dir wireless-regdb)/db.txt $PKG_BUILD/net/wireless/db.txt
@@ -320,4 +324,6 @@ post_install() {
 
   # bluez looks in /etc/firmware/
     ln -sf /usr/lib/firmware/ $INSTALL/etc/firmware
+
+  export CROSS_COMPILE=$OLD_CROSS_COMPILE
 }

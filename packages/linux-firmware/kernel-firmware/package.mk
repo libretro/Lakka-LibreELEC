@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="kernel-firmware"
-PKG_VERSION="8fc2d4e"
+PKG_VERSION="a8b75ca"
 PKG_ARCH="any"
 PKG_LICENSE="other"
 PKG_SITE="https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/"
@@ -41,6 +41,7 @@ make_target() {
 
 # Install additional miscellaneous drivers
 makeinstall_target() {
+  MISSING=false
   FW_TARGET_DIR=$INSTALL/usr/lib/firmware
 
   FW_LISTS="${PKG_DIR}/firmwares/any.dat ${PKG_DIR}/firmwares/${TARGET_ARCH}.dat"
@@ -54,6 +55,7 @@ makeinstall_target() {
   fi
 
   for fwlist in ${FW_LISTS}; do
+    echo "USING: ${fwlist}"
     [ -f ${fwlist} ] || continue
     while read -r fwline; do
       [ -z "${fwline}" ] && continue
@@ -64,17 +66,40 @@ makeinstall_target() {
         [ -d ${PKG_BUILD}/${fwfile} ] && continue
 
         if [ -f ${PKG_BUILD}/${fwfile} ]; then
+          echo "COPYING: Firmware file ${fwfile}"
           mkdir -p $(dirname ${FW_TARGET_DIR}/${fwfile})
-            cp -Lv ${PKG_BUILD}/${fwfile} ${FW_TARGET_DIR}/${fwfile}
+            cp -L ${PKG_BUILD}/${fwfile} ${FW_TARGET_DIR}/${fwfile}
         else
-          echo "ERROR: Firmware file ${fwfile} does not exist - aborting"
-          exit 1
+          echo "WARNING: Firmware file ${fwfile} does not exist"
+          MISSING=true
         fi
       done
     done < ${fwlist}
   done
 
-  # The following file is installed by brcmfmac_sdio-firmware-rpi
+  if [ "$MISSING" == "true" ]; then
+    echo "WARNING: One or more requested firmware files are missing"
+  fi
+
+  # The following files are installed by brcmfmac_sdio-firmware-rpi
   rm -fr $FW_TARGET_DIR/brcm/brcmfmac43430*-sdio.bin
   rm -fr $FW_TARGET_DIR/brcm/brcmfmac43455*-sdio.bin
+
+  # Blacklist some firmware files for Switch
+  if [ "$PROJECT" == "Switch" ]; then
+    rm -fr "$FW_TARGET_DIR/brcm/brcmfmac43362-sdio.cubietech,cubietruck.txt"
+    rm -fr "$PKG_BUILD/brcm/brcmfmac43362-sdio.cubietech,cubietruck.txt"
+
+    rm -fr "$FW_TARGET_DIR/brcm/brcmfmac43362-sdio.lemaker,bananapro.txt"
+    rm -fr "$PKG_BUILD/brcm/brcmfmac43362-sdio.lemaker,bananapro.txt"
+
+    rm -fr "$FW_TARGET_DIR/brcm/brcmfmac43430a0-sdio.ONDA-V80 PLUS.txt"
+    rm -fr "$PKG_BUILD/brcm/brcmfmac43430a0-sdio.ONDA-V80 PLUS.txt"
+
+    rm -fr "$FW_TARGET_DIR/brcm/brcmfmac43430-sdio.raspberrypi,3-model-b.txt"
+    rm -fr "$PKG_BUILD/brcm/brcmfmac43430-sdio.raspberrypi,3-model-b.txt"
+
+    rm -fr "$FW_TARGET_DIR/brcm/brcmfmac43455-sdio.raspberrypi,3-model-b-plus.txt"
+    rm -fr "$PKG_BUILD/brcm/brcmfmac43455-sdio.raspberrypi,3-model-b-plus.txt"
+  fi
 }
