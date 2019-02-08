@@ -13,5 +13,5 @@ PKG_LONGDESC="MarkupSafe implements a XML/HTML/XHTML Markup safe string for Pyth
 PKG_TOOLCHAIN="manual"
 
 makeinstall_host() {
-  python3 setup.py install --prefix=$TOOLCHAIN
+  exec_thread_safe python3 setup.py install --prefix=$TOOLCHAIN
 }
