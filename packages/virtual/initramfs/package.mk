@@ -22,14 +22,14 @@ fi
 post_install() {
   ( cd $BUILD/initramfs
     if [ "$TARGET_ARCH" = "x86_64" ]; then
-      ln -sf /usr/lib $BUILD/initramfs/lib64
+      ln -sfn /usr/lib $BUILD/initramfs/lib64
       mkdir -p $BUILD/initramfs/usr
-      ln -sf /usr/lib $BUILD/initramfs/usr/lib64
+      ln -sfn /usr/lib $BUILD/initramfs/usr/lib64
     fi
 
-    ln -sf /usr/lib $BUILD/initramfs/lib
-    ln -sf /usr/bin $BUILD/initramfs/bin
-    ln -sf /usr/sbin $BUILD/initramfs/sbin
+    ln -sfn /usr/lib $BUILD/initramfs/lib
+    ln -sfn /usr/bin $BUILD/initramfs/bin
+    ln -sfn /usr/sbin $BUILD/initramfs/sbin
 
     mkdir -p $BUILD/image/
     fakeroot -- sh -c \

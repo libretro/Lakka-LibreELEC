@@ -12,11 +12,24 @@ if [ ! -f "${PKG_BUILD}/configure.in" \
 fi
 
 if [ ! -f "${PKG_BUILD}/.autoreconf-done" ]; then
-  touch "${PKG_BUILD}/NEWS" "${PKG_BUILD}/AUTHORS" "${PKG_BUILD}/ChangeLog"
-  mkdir -p "${PKG_BUILD}/m4"
+  PARENT_PKG="${2}"
 
-  build_msg "CLR_AUTORECONF" "AUTORECONF" "${1}" "indent"
+  # lock package during autoreconf otherwise it is racy, eg. glib:host/glib:target building concurrently
+  pkg_lock "${PKG_NAME}" "reconf" "${PARENT_PKG}"
 
-  do_autoreconf "${PKG_BUILD}"
-  touch "${PKG_BUILD}/.autoreconf-done"
+  if [ ! -f "${PKG_BUILD}/.autoreconf-done" ]; then
+    pkg_lock_status "ACTIVE" "${PKG_NAME}" "reconf"
+
+    touch "${PKG_BUILD}/NEWS" "${PKG_BUILD}/AUTHORS" "${PKG_BUILD}/ChangeLog"
+    mkdir -p "${PKG_BUILD}/m4"
+
+    build_msg "CLR_AUTORECONF" "AUTORECONF" "${PKG_NAME}" "indent"
+
+    do_autoreconf "${PKG_BUILD}"
+    touch "${PKG_BUILD}/.autoreconf-done"
+
+    pkg_lock_status "UNLOCK" "${PKG_NAME}" "reconf" "configured"
+  else
+    pkg_lock_status "UNLOCK" "${PKG_NAME}" "reconf" "already configured"
+  fi
 fi

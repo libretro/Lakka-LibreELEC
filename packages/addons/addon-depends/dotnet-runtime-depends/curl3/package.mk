@@ -5,6 +5,7 @@
 
 PKG_NAME="curl3"
 PKG_URL=""
+PKG_DEPENDS_UNPACK+=" curl"
 PKG_LONGDESC="curl for dotnet"
 
 unpack() {

@@ -1,21 +1,27 @@
 #!/bin/bash
 
-# SPDX-License-Identifier: GPL-2.0
-# Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 unset _CACHE_PACKAGE_LOCAL _CACHE_PACKAGE_GLOBAL _DEBUG_DEPENDS_LIST _DEBUG_PACKAGE_LIST
 
 . config/options ""
-. config/multithread
 . config/show_config
 
 show_config
 save_build_config
 
-# Setup both toolchain cmake configs to avoid potentially racy behaviour later.
-# Use a fork for host to isolate any variable modifications.
-( setup_toolchain host )
 setup_toolchain target
+
+$SCRIPTS/checkdeps
+$SCRIPTS/build toolchain
+$SCRIPTS/build squashfs:host
+$SCRIPTS/build dosfstools:host
+$SCRIPTS/build fakeroot:host
+$SCRIPTS/build kmod:host
+$SCRIPTS/build mtools:host
+$SCRIPTS/build populatefs:host
 
 if [ -n "$CUSTOM_GIT_HASH" ]; then
   GIT_HASH="$CUSTOM_GIT_HASH"
@@ -76,28 +82,21 @@ fi
 
 echo "$IMAGE_NAME" > $BUILD/BUILD_FILENAME
 
-# Setup fakeroot
+# setup fakeroot
 rm -rf $FAKEROOT_SCRIPT   # remove $FAKEROOT_SCRIPT if it exist
 touch $FAKEROOT_SCRIPT    # create an empty $FAKEROOT_SCRIPT
 chmod +x $FAKEROOT_SCRIPT # make $FAKEROOT_SCRIPT executable
 echo "chown -R 0:0 $INSTALL" >> $FAKEROOT_SCRIPT
 
-# Clean old install dirs
+# clean old install dirs
 rm -rf $INSTALL
 rm -rf $STAMPS_INSTALL
 mkdir -p $INSTALL
 
-# Create base layout of LibreELEC read-only file system
+# create baselayout
 for directory in etc dev proc run sys tmp usr var flash storage; do
   mkdir -p $INSTALL/$directory
 done
-
-# Build image contents
-MTADDONBUILD=no start_multithread_build image || die "Parallel build failure - see log for details. Time of failure: $(date)"
-
-echo "Successful build, creating image..." >&2
-
-# Create legacy sym links
 ln -sfn /var/media $INSTALL/media
 ln -sfn /usr/lib $INSTALL/lib
 ln -sfn /usr/bin $INSTALL/bin
@@ -110,7 +109,7 @@ fi
 
 echo "$TARGET_VERSION" > $INSTALL/etc/release
 
-# Create /etc/os-release
+# create /etc/os-release
 echo -e "NAME=\"$DISTRONAME\"" > $INSTALL/etc/os-release
 echo -e "VERSION=\"$LIBREELEC_VERSION\"" >> $INSTALL/etc/os-release
 echo -e "ID=\"libreelec\"" >> $INSTALL/etc/os-release
@@ -127,7 +126,7 @@ echo -e "LIBREELEC_PROJECT=\"$PROJECT\"" >> $INSTALL/etc/os-release
 [ -n "$BUILDER_NAME" ] && echo -e "BUILDER_NAME=\"$BUILDER_NAME\"" >> $INSTALL/etc/os-release
 [ -n "$BUILDER_VERSION" ] && echo -e "BUILDER_VERSION=\"$BUILDER_VERSION\"" >> $INSTALL/etc/os-release
 
-# Create /etc/issue
+# create /etc/issue
 echo "$GREETING0" >  $INSTALL/etc/issue
 echo "$GREETING1" >> $INSTALL/etc/issue
 echo "$GREETING2" >> $INSTALL/etc/issue
@@ -137,10 +136,64 @@ echo "$DISTRONAME ($LIBREELEC_BUILD): $LIBREELEC_VERSION ($LIBREELEC_ARCH)" >> $
 
 ln -sf /etc/issue $INSTALL/etc/motd
 
-# Copy PROJECT related files to filesystem
+# populate base system...
+$SCRIPTS/install libc
+$SCRIPTS/install gcc
+
+$SCRIPTS/install linux
+export _CACHED_KERNEL_MODULE_DIR="$(get_module_dir)"
+
+$SCRIPTS/install linux-drivers
+$SCRIPTS/install linux-firmware
+$SCRIPTS/install $BOOTLOADER
+$SCRIPTS/install busybox
+$SCRIPTS/install util-linux
+$SCRIPTS/install corefonts
+$SCRIPTS/install network
+
+# Graphic support
+[ ! "$DISPLAYSERVER" = "no" ] && $SCRIPTS/install $DISPLAYSERVER
+
+# Multimedia support
+[ ! "$MEDIACENTER" = "no" ] && $SCRIPTS/install mediacenter
+
+# Sound support
+[ "$ALSA_SUPPORT" = "yes" ] && $SCRIPTS/install alsa
+
+# Automounter support
+[ "$UDEVIL" = "yes" ] && $SCRIPTS/install udevil
+
+# EXFAT support
+[ "$EXFAT" = "yes" ] && $SCRIPTS/install fuse-exfat
+
+# NTFS 3G support
+[ "$NTFS3G" = "yes" ] && $SCRIPTS/install ntfs-3g_ntfsprogs
+
+# Remote support
+[ "$REMOTE_SUPPORT" = "yes" ] && $SCRIPTS/install remote
+
+# Install miscellaneous packages
+$SCRIPTS/install misc-packages
+
+# Virtual image creation support
+[ "$PROJECT" = "Generic" ] && $SCRIPTS/install virtual
+
+# Installer support
+[ "$INSTALLER_SUPPORT" = "yes" ] && $SCRIPTS/install installer
+
+# Devtools... (not for Release)
+[ "$TESTING" = "yes" ] && $SCRIPTS/install testing
+
+# Install gdb in all builds, including releases
+$SCRIPTS/install debug
+
+# OEM packages
+[ "$OEM_SUPPORT" = "yes" ] && $SCRIPTS/install oem
+
+# copy PROJECT related files to filesystem
 if [ -d "$PROJECT_DIR/$PROJECT/filesystem" ]; then
   cp -PR $PROJECT_DIR/$PROJECT/filesystem/* $INSTALL
-  # Install project specific systemd services
+  # install project specific systemd services
   for service in $PROJECT_DIR/$PROJECT/filesystem/usr/lib/systemd/system/*.service; do
     if [ -f "$service" ]; then
       enable_service $(basename $service)
@@ -148,10 +201,10 @@ if [ -d "$PROJECT_DIR/$PROJECT/filesystem" ]; then
   done
 fi
 
-# Copy DEVICE related files to filesystem
+# copy DEVICE related files to filesystem
 if [ -n "$DEVICE" -a -d "$PROJECT_DIR/$PROJECT/devices/$DEVICE/filesystem" ]; then
   cp -PR $PROJECT_DIR/$PROJECT/devices/$DEVICE/filesystem/* $INSTALL
-  # Install device specific systemd services
+  # install device specific systemd services
   for service in $PROJECT_DIR/$PROJECT/devices/$DEVICE/filesystem/usr/lib/systemd/system/*.service; do
     if [ -f "$service" ]; then
       enable_service $(basename $service)
@@ -159,29 +212,29 @@ if [ -n "$DEVICE" -a -d "$PROJECT_DIR/$PROJECT/devices/$DEVICE/filesystem" ]; th
   done
 fi
 
-# Run depmod for base overlay modules
+# run depmod for base overlay modules
 MODVER=$(basename $(ls -d $INSTALL/usr/lib/kernel-overlays/base/lib/modules/*))
 find $INSTALL/usr/lib/kernel-overlays/base/lib/modules/$MODVER/ -name *.ko | \
   sed -e "s,$INSTALL/usr/lib/kernel-overlays/base/lib/modules/$MODVER/,," \
     > $INSTALL/usr/lib/kernel-overlays/base/lib/modules/$MODVER/modules.order
-$TOOLCHAIN/bin/depmod -b $INSTALL/usr/lib/kernel-overlays/base -a -e -F "$BUILD/linux-$(kernel_version)/System.map" $MODVER 2>&1
+$TOOLCHAIN/bin/depmod -b $INSTALL/usr/lib/kernel-overlays/base -a -e -F "$BUILD/linux-$(kernel_version)/System.map" $MODVER
 
-# Strip kernel modules
+# strip kernel modules
 for MOD in $(find $INSTALL/usr/lib/kernel-overlays/ -type f -name *.ko); do
   ${TARGET_KERNEL_PREFIX}strip --strip-debug $MOD
 done
 
-# Symlink overlayed modules to /usr/lib/modules
+# symlink overlayed modules to /usr/lib/modules
 ln -sT /var/lib/modules $INSTALL/usr/lib/modules
 
-# Symlink overlayed firmware to /usr/lib/firmware
+# symlink overlayed firmware to /usr/lib/firmware
 ln -sT /var/lib/firmware $INSTALL/usr/lib/firmware
 
-# Make target dir
+# make target dir
 mkdir -p $TARGET_IMG
 rm -rf $TARGET_IMG/$IMAGE_NAME.kernel
 
-# Copy kernel to target dir
+# copy kernel to target dir
 cp -PR $BUILD/linux-$(kernel_version)/arch/$TARGET_KERNEL_ARCH/boot/$KERNEL_TARGET $TARGET_IMG/$IMAGE_NAME.kernel
 chmod 0644 $TARGET_IMG/$IMAGE_NAME.kernel
 
@@ -196,28 +249,28 @@ if [ -z "$SQUASHFS_COMPRESSION_OPTION" ]; then
   fi
 fi
 
-# Create squashfs file, default to gzip if no compression configured
+# create squashfs file, default to gzip if no compression configured
 echo "rm -rf \"$TARGET_IMG/$IMAGE_NAME.system\"" >> $FAKEROOT_SCRIPT
 echo "$TOOLCHAIN/bin/mksquashfs \"$BUILD/image/system\" \"$TARGET_IMG/$IMAGE_NAME.system\" -noappend -comp ${SQUASHFS_COMPRESSION:-gzip} ${SQUASHFS_COMPRESSION_OPTION}" >> $FAKEROOT_SCRIPT
 
-# Run fakeroot
+# run fakeroot
 $TOOLCHAIN/bin/fakeroot -- $FAKEROOT_SCRIPT
 rm -rf $FAKEROOT_SCRIPT
 
-# Set permissions
+# set permissions
 chmod 0644 $TARGET_IMG/$IMAGE_NAME.system
 
 if [ "$1" = "release" -o "$1" = "mkimage" -o "$1" = "amlpkg" -o "$1" = "noobs" ]; then
 
   RELEASE_DIR="target/$IMAGE_NAME"
 
-  # Cleanup
+  # cleanup
   rm -rf $RELEASE_DIR
 
-  # Create release dir
+  # create release dir
   mkdir -p $RELEASE_DIR
 
-  # Remove any previously created release images
+  # remove n previous created release image
   rm -rf $TARGET_IMG/$IMAGE_NAME.img.gz
 
   if [ -n "$BOOTLOADER" ]; then
@@ -249,27 +302,27 @@ if [ "$1" = "release" -o "$1" = "mkimage" -o "$1" = "amlpkg" -o "$1" = "noobs" ]
   cp $TARGET_IMG/$IMAGE_NAME.system $RELEASE_DIR/target/SYSTEM
   cp $TARGET_IMG/$IMAGE_NAME.kernel $RELEASE_DIR/target/KERNEL
 
-  # Create md5sum's
+  # create md5sum's
   ( cd $RELEASE_DIR;
     md5sum -t target/SYSTEM > target/SYSTEM.md5;
     md5sum -t target/KERNEL > target/KERNEL.md5;
   )
 
-  # Create target directory
+  # create target directory
   mkdir -p $TARGET_IMG
 
-  # Remove any previously created release tarballs
+  # remove an previous created release tarball
   rm -rf $TARGET_IMG/$IMAGE_NAME.tar
 
-  # Create release tarball
+  # create release tarball
   tar cf $TARGET_IMG/$IMAGE_NAME.tar -C target $IMAGE_NAME
 
-  # Create sha256 checksum of tarball
+  # create sha256 checksum of tarball
   ( cd $TARGET_IMG
     sha256sum ${IMAGE_NAME}.tar > ${IMAGE_NAME}.tar.sha256
   )
 
-  # Create image files if requested
+  # create image files if requested
   if [[ ( "$1" = "amlpkg" || "$1" = "noobs" || "$1" = "mkimage" ) && -n "$BOOTLOADER" ]]; then
     # INSTALL_SRC_DIR can be board specific
     if [ -n "$DEVICE" -a -d "$PROJECT_DIR/$PROJECT/devices/$DEVICE/install" ]; then
@@ -278,7 +331,7 @@ if [ "$1" = "release" -o "$1" = "mkimage" -o "$1" = "amlpkg" -o "$1" = "noobs" ]
       INSTALL_SRC_DIR="$PROJECT_DIR/$PROJECT/install"
     fi
 
-    # Variables used in image script must be passed
+    # variables used in image script must be passed
     env \
       PATH="$PATH:/sbin" \
       ROOT="$ROOT" \
@@ -307,50 +360,50 @@ if [ "$1" = "release" -o "$1" = "mkimage" -o "$1" = "amlpkg" -o "$1" = "noobs" ]
       $SCRIPTS/mkimage
   fi
 
-  # Cleanup release dir
+  # cleanup release dir
   rm -rf $RELEASE_DIR
 
-  # Create WeTek Play (Amlogic) ZIP update and auto-install packages if requested
+  # create WeTek Play (Amlogic) ZIP update and auto-install packages if requested
   if [ "$1" = "amlpkg" ]; then
     echo "Creating Amlogic ZIP update package"
 
     AML_PKG_DIR="$RELEASE_DIR/ampl-pkg"
 
-    # Create package directory
+    # create package directory
     mkdir -p "$AML_PKG_DIR"
 
-    # Copy system and kernel images
+    # copy system and kernel images
     mkdir -p "$AML_PKG_DIR/system"
     cp $TARGET_IMG/$IMAGE_NAME.system $AML_PKG_DIR/system/SYSTEM
     cp $TARGET_IMG/$IMAGE_NAME.kernel $AML_PKG_DIR/KERNEL
 
-    # Copy update-binary and updater-script
+    # copy update-binary and updater-script
     META_INF_DIR="$AML_PKG_DIR/META-INF/com/google/android"
     mkdir -p "$META_INF_DIR"
     cp $INSTALL_SRC_DIR/update-binary $META_INF_DIR
     cp $INSTALL_SRC_DIR/updater-script $META_INF_DIR
 
-    # Copy other files if any
+    # copy other files if any
     if [ -d "$INSTALL_SRC_DIR/files" ]; then
       cp -PR $INSTALL_SRC_DIR/files/* $AML_PKG_DIR
     fi
 
-    # Copy device tree image if any
+    # copy device tree image if any
     if [ -f "$INSTALL/usr/share/bootloader/dtb.img" ]; then
       cp "$INSTALL/usr/share/bootloader/dtb.img" $AML_PKG_DIR/dtb.img
     fi
 
-    # Create the update package
+    # create the update package
     pushd "$AML_PKG_DIR" > /dev/null
     zip -rq update.zip *
 
-    # Sign the update package
+    # sign the update package
     echo "Signing the update package"
     mkdir -p sign
     SIGNAPK_DIR="$ROOT/tools/signapk"
     java -Xmx1024m -jar $SIGNAPK_DIR/signapk.jar -w $SIGNAPK_DIR/testkey.x509.pem $SIGNAPK_DIR/testkey.pk8 update.zip sign/$IMAGE_NAME-update.zip
 
-    # Create the auto-install package
+    # create the auto-install package
     echo "Creating Amlogic ZIP auto-install package"
     pushd sign > /dev/null
     echo --update_package=/sdcard/$IMAGE_NAME-update.zip > factory_update_param.aml
@@ -364,14 +417,14 @@ if [ "$1" = "release" -o "$1" = "mkimage" -o "$1" = "amlpkg" -o "$1" = "noobs" ]
       cp $INSTALL_SRC_DIR/files/aml_autoscript .
     fi
 
-    # Copy device tree image if any
+    # copy device tree image if any
     if [ -f "$INSTALL/usr/share/bootloader/dtb.img" ]; then
       cp "$INSTALL/usr/share/bootloader/dtb.img" .
     fi
 
     zip -q $TARGET_IMG/$IMAGE_NAME.zip *
 
-    # Create sha256 checksum of zip
+    # create sha256 checksum of zip
     ( cd $TARGET_IMG
       sha256sum ${IMAGE_NAME}.zip > ${IMAGE_NAME}.zip.sha256
     )
@@ -387,7 +440,7 @@ if [ "$1" = "release" -o "$1" = "mkimage" -o "$1" = "amlpkg" -o "$1" = "noobs" ]
     # eg. LibreELEC_RPi, LibreELEC_RPi2 etc.
     NOOBS_DISTRO="${DISTRONAME}_${DEVICE:-$PROJECT}"
 
-    # Create release dir
+    # create release dir
     mkdir -p $RELEASE_DIR/${NOOBS_DISTRO}
 
     if [ -f $DISTRO_DIR/$DISTRO/${DISTRONAME}_40x40.png ]; then
@@ -422,7 +475,7 @@ if [ "$1" = "release" -o "$1" = "mkimage" -o "$1" = "amlpkg" -o "$1" = "noobs" ]
         -e "s%@SYSTEM_SIZE@%$SYSTEM_SIZE%g" \
         -i $RELEASE_DIR/${NOOBS_DISTRO}/partitions.json
 
-    # Create System dir
+    # create System dir
     mkdir -p $RELEASE_DIR/${NOOBS_DISTRO}/System
 
     BOOTLOADER_DIR="$(get_pkg_directory "$BOOTLOADER")"
@@ -430,14 +483,14 @@ if [ "$1" = "release" -o "$1" = "mkimage" -o "$1" = "amlpkg" -o "$1" = "noobs" ]
       cp -PR $BOOTLOADER_DIR/files/3rdparty/bootloader/* $RELEASE_DIR/${NOOBS_DISTRO}/System
     fi
 
-    # Copy Bootloader
+    # copy Bootloader
     cp -PR $BUILD/bcm2835-bootloader-*/LICENCE* $RELEASE_DIR/${NOOBS_DISTRO}/System/
     cp -PR $BUILD/bcm2835-bootloader-*/bootcode.bin $RELEASE_DIR/${NOOBS_DISTRO}/System/
     cp -PR $BUILD/bcm2835-bootloader-*/fixup_x.dat $RELEASE_DIR/${NOOBS_DISTRO}/System/fixup.dat
     cp -PR $BUILD/bcm2835-bootloader-*/start_x.elf $RELEASE_DIR/${NOOBS_DISTRO}/System/start.elf
     [ -f $BUILD/bcm2835-bootloader-*/dt-blob.bin ] && cp -PR $BUILD/bcm2835-bootloader-*/dt-blob.bin $RELEASE_DIR/${NOOBS_DISTRO}/System/dt-blob.bin
 
-    # Copy system files
+    # copy system files
     cp $TARGET_IMG/$IMAGE_NAME.system $RELEASE_DIR/${NOOBS_DISTRO}/System/SYSTEM
     cp $TARGET_IMG/$IMAGE_NAME.kernel $RELEASE_DIR/${NOOBS_DISTRO}/System/kernel.img
 
@@ -454,45 +507,45 @@ if [ "$1" = "release" -o "$1" = "mkimage" -o "$1" = "amlpkg" -o "$1" = "noobs" ]
       fi
     done
 
-    # Create md5sum's
+    # create md5sum's
     ( cd $RELEASE_DIR/${NOOBS_DISTRO}/System;
       md5sum -t SYSTEM > SYSTEM.md5;
       md5sum -t kernel.img > kernel.img.md5;
     )
 
-    # Copy additional files
+    # copy additional files
     mkdir -p $RELEASE_DIR/${NOOBS_DISTRO}/System/licenses
     cp $ROOT/licenses/* $RELEASE_DIR/${NOOBS_DISTRO}/System/licenses
 
-    # Create Storage dir
+    # create Storage dir
     mkdir -p $RELEASE_DIR/${NOOBS_DISTRO}/Storage
 
-    # Remove any previously created release tarball
+    # remove any previously created release tarball
     rm -rf $RELEASE_DIR/${NOOBS_DISTRO}/System.tar.xz
     rm -rf $RELEASE_DIR/${NOOBS_DISTRO}/Storage.tar.xz
 
-    # Create filesystem tarballs
+    # create filesystem tarballs
     tar cJf $RELEASE_DIR/${NOOBS_DISTRO}/System.tar.xz -C $RELEASE_DIR/${NOOBS_DISTRO}/System/ .
     tar cJf $RELEASE_DIR/${NOOBS_DISTRO}/Storage.tar.xz -C $RELEASE_DIR/${NOOBS_DISTRO}/Storage/ .
 
-    # Remove filesystem dirs
+    # remove filesystem dirs
     rm -rf $RELEASE_DIR/${NOOBS_DISTRO}/System
     rm -rf $RELEASE_DIR/${NOOBS_DISTRO}/Storage
 
-    # Remove any previously created release tarball
+    # remove any previously created release tarball
     rm -rf $TARGET_IMG/${IMAGE_NAME}-$1.tar
 
-    # Create release tarball
+    # create release tarball
     tar cf $TARGET_IMG/${IMAGE_NAME}-$1.tar -C $TARGET_IMG ${IMAGE_NAME}-$1
 
-    # Create sha256 checksum of tarball
+    # create sha256 checksum of tarball
     ( cd $TARGET_IMG
       sha256sum ${IMAGE_NAME}-$1.tar > ${IMAGE_NAME}-$1.tar.sha256
     )
   fi
 
   if [ -d $RELEASE_DIR ]; then
-    # Cleanup release dir
+    # cleanup release dir
     rm -rf $RELEASE_DIR
   fi
 fi

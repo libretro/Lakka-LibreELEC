@@ -32,6 +32,11 @@ else
   PKG_CMAKE_OPTS_TARGET="$PKG_CMAKE_OPTS_TARGET -DHAVE_AOCEC_API=0 -DHAVE_AMLOGIC_API=0"
 fi
 
+# libX11 and xrandr to read the sink's EDID, used to determine the PC's HDMI physical address
+if [ "$DISPLAYSERVER" = "x11" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libX11 libXrandr"
+fi
+
 if [ "$CEC_FRAMEWORK_SUPPORT" = "yes" ]; then
   PKG_PATCH_DIRS="cec-framework"
   PKG_CMAKE_OPTS_TARGET="$PKG_CMAKE_OPTS_TARGET -DHAVE_LINUX_API=1"
@@ -49,6 +54,9 @@ pre_configure_target() {
 }
 
 post_makeinstall_target() {
+  # Remove the Python3 demo - useless for us
+  rm -f $INSTALL/usr/bin/pyCecClient
+
   PYTHON_DIR=$INSTALL/usr/lib/$PKG_PYTHON_VERSION
   if [ -d $PYTHON_DIR/dist-packages ]; then
     mv $PYTHON_DIR/dist-packages $PYTHON_DIR/site-packages

@@ -8,7 +8,7 @@
 . config/options "$1"
 
 if [ -z "$1" ]; then
-  die "usage: $0 package_name"
+  die "usage: $0 package_name [parent_pkg]"
 fi
 
 if [ -z "${PKG_NAME}" ]; then
@@ -29,28 +29,34 @@ if [ "${1//:/}" != "${1}" ]; then
   PACKAGE_NAME="${1%:*}"
   TARGET="${1#*:}"
 else
-  PACKAGE_NAME=$1
+  PACKAGE_NAME="${1}"
   TARGET=
 fi
 [ -z "$TARGET" ] && TARGET="target"
+PARENT_PKG="${2:-${PKG_NAME}:${TARGET}}"
+
+pkg_lock "${PACKAGE_NAME}:${TARGET}" "install" "${PARENT_PKG}"
 
 STAMP=$STAMPS_INSTALL/$PACKAGE_NAME/install_$TARGET
+[ -f $STAMP ] && pkg_lock_status "UNLOCK" "${PACKAGE_NAME}:${TARGET}" "install" "already installed"
 [ -f $STAMP ] && exit 0
 
 mkdir -p $STAMPS_INSTALL/$PACKAGE_NAME
 
-$SCRIPTS/build $@
+$SCRIPTS/build "${1}" "${PARENT_PKG}"
 
 if [ "$TARGET" = target ] ; then
   for p in $PKG_DEPENDS_TARGET; do
-    $SCRIPTS/install $p
+    $SCRIPTS/install "${p}" "${PARENT_PKG}"
   done
 elif [ "$TARGET" = init ] ; then
   for p in $PKG_DEPENDS_INIT; do
-    $SCRIPTS/install $p
+    $SCRIPTS/install "${p}" "${PARENT_PKG}"
   done
   INSTALL=$BUILD/initramfs
 fi
+
+pkg_lock_status "ACTIVE" "${PACKAGE_NAME}:${TARGET}" "install"
 
 build_msg "CLR_INSTALL" "INSTALL" "${PACKAGE_NAME} $(print_color CLR_TARGET "(${TARGET})")" "indent"
 
@@ -137,3 +143,5 @@ if [ "$TARGET" = target ] ; then
 fi
 
 touch $STAMP
+
+pkg_lock_status "UNLOCK" "${PACKAGE_NAME}:${TARGET}" "install" "installed"

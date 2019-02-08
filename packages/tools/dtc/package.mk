@@ -8,7 +8,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://git.kernel.org/pub/scm/utils/dtc/dtc.git/"
 PKG_URL="https://git.kernel.org/pub/scm/utils/dtc/dtc.git/snapshot/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_HOST="Python2:host swig:host"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain dtc:host"
 PKG_LONGDESC="The Device Tree Compiler"
 
 PKG_MAKE_OPTS_HOST="dtc libfdt"
@@ -22,7 +22,7 @@ makeinstall_host() {
 
 post_makeinstall_host() {
   python ./pylibfdt/setup.py build_ext --inplace
-  python ./pylibfdt/setup.py install --prefix=$TOOLCHAIN
+  exec_thread_safe python ./pylibfdt/setup.py install --prefix=$TOOLCHAIN
 
   touch $TOOLCHAIN/lib/$PKG_PYTHON_VERSION/site-packages/pylibfdt/__init__.py
 }

@@ -21,12 +21,15 @@ PKG_ADDON_TYPE="xbmc.python.script"
 PKG_DEPENDS_TARGET="toolchain \
                     alsa-utils \
                     mediainfo \
-                    mesa-demos \
                     mpg123 \
                     opencaster \
                     squeezelite \
                     tsdecrypt \
                     tstools"
+
+if [ "$TARGET_ARCH" = "x86_64" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET mesa-demos"
+fi
 
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin/

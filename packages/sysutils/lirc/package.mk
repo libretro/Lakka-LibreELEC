@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="lirc"
 PKG_VERSION="0.10.0"
@@ -13,7 +14,9 @@ PKG_TOOLCHAIN="autotools"
 
 PKG_PYTHON_WANTED=Python2
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-devinput \
+PKG_CONFIGURE_OPTS_TARGET="ac_cv_header_alsa_asoundlib_h=no \
+                           ac_cv_lib_asound_snd_async_del_handler=no \
+                           --enable-devinput \
                            --with-gnu-ld \
                            --without-x \
                            --runstatedir=/run"

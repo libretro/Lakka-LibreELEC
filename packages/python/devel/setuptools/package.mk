@@ -18,6 +18,6 @@ make_host() {
 }
 
 makeinstall_host() {
-  python2 setup.py install --prefix=$TOOLCHAIN
-  python3 setup.py install --prefix=$TOOLCHAIN
+  exec_thread_safe python2 setup.py install --prefix=$TOOLCHAIN
+  exec_thread_safe python3 setup.py install --prefix=$TOOLCHAIN
 }

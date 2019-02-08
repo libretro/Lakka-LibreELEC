@@ -12,5 +12,5 @@ PKG_LONGDESC="This module offers a set of classes featuring all the common opera
 PKG_TOOLCHAIN="manual"
 
 makeinstall_host() {
-  python3 setup.py install --prefix=$TOOLCHAIN
+  exec_thread_safe python3 setup.py install --prefix=$TOOLCHAIN
 }

@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="TexturePacker"
 PKG_VERSION="0"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
-PKG_URL=""
 PKG_DEPENDS_HOST="lzo:host libpng:host libjpeg-turbo:host giflib:host"
+PKG_DEPENDS_UNPACK="kodi"
 PKG_NEED_UNPACK="$(get_pkg_directory $MEDIACENTER)"
 PKG_LONGDESC="kodi-platform:"
 

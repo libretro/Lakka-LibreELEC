@@ -1,0 +1,183 @@
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
+
+THREADCOUNT=${THREADCOUNT:-100%}
+
+# This function is passed a list of package.mk paths to be processed.
+# Each package.mk is sourced with relevant variables output in JSON format.
+json_worker() {
+  local packages="$@"
+  local pkgpath hierarchy exited
+
+  exit() { exited=1; }
+
+  . config/options ""
+
+  for pkgpath in ${packages}; do
+    pkgpath="${pkgpath%%@*}"
+
+    exited=0
+    if ! source_package "${pkgpath}/package.mk" &>/dev/null; then
+      unset -f exit
+      die "$(print_color CLR_ERROR "FAILURE: sourcing package ${pkgpath}/package.mk")"
+    fi
+
+    [ ${exited} -eq 1 ] && continue
+
+    [[ ${pkgpath} =~ ^${ROOT}/${PACKAGES}/ ]] && hierarchy="global" || hierarchy="local"
+
+    if [ -n "$PKG_ARCH" ]; then
+      listcontains "$PKG_ARCH" "!$TARGET_ARCH" && continue
+      listcontains "$PKG_ARCH" "$TARGET_ARCH" || listcontains "$PKG_ARCH" "any" || continue
+    fi
+
+    cat <<EOF
+  {
+    "name": "${PKG_NAME}",
+    "hierarchy": "${hierarchy}",
+    "section": "${PKG_SECTION}",
+    "bootstrap": "${PKG_DEPENDS_BOOTSTRAP}",
+    "init": "${PKG_DEPENDS_INIT}",
+    "host": "${PKG_DEPENDS_HOST}",
+    "target": "${PKG_DEPENDS_TARGET}"
+  },
+EOF
+  done
+}
+export -f json_worker
+
+# This function is passed the build instruction for a single job.
+# The function will run either "build <package>" or "install <package>".
+# ${slot} is the job slot number, ie. 1-8 when THREADCOUNT=8.
+# ${job} is the sequence within the total number of ${jobs}.
+package_worker() {
+  local slot=$1 job=$2 jobs=$3 args="$4"
+  local task pkgname result status
+  local addon istarget
+
+  export MTJOBID=${slot} MTMAXJOBS=${jobs}
+
+  read -r task pkgname <<< "${args}"
+
+  . config/options "${pkgname}"
+
+  [ ! -f "${THREAD_CONTROL}/pid" ] && echo "${PARALLEL_PID}" >"${THREAD_CONTROL}/pid"
+
+  ${SCRIPTS}/${task} ${pkgname} 2>&1 && result=0 || result=1
+
+  [[ ${pkgname} =~ :target$ || "${pkgname//:/}" = "${pkgname}" ]] && istarget="yes" || istarget="no"
+
+  if [ "${MTADDONBUILD}" = "yes" -a "${PKG_IS_ADDON}" = "yes" -a "${istarget}" = "yes" ]; then
+    if [ ${result} -eq 0 ]; then
+      (
+        pkg_lock "${pkgname}" "packadd"
+        pkg_lock_status "ACTIVE" "${pkgname}" "packadd"
+
+        # cleanup old install path
+        rm -rf "${ADDON_BUILD}"
+
+        # install addon parts
+        if pkg_call_exists addon; then
+          pkg_call addon
+        else
+          install_binary_addon "${PKG_ADDON_ID}"
+        fi
+
+        # HACK for packages that provide multiple addons like screensavers.rsxs
+        # addon's addon() in package.mk should take care for exporting
+        # MULTI_ADDONS="addon.boo1 addon.boo2 addon.boo3"
+        if [ -n "${MULTI_ADDONS}" ] ; then
+          for addon in ${MULTI_ADDONS}; do
+            ${SCRIPTS}/install_addon "${PKG_NAME}" "${addon}"
+          done
+        else
+          ${SCRIPTS}/install_addon "${PKG_NAME}" "${PKG_ADDON_ID}"
+        fi
+
+        pkg_lock_status "UNLOCK" "${pkgname}" "packadd" "packed"
+      ) 2>&1 || result=1
+    fi
+
+    if [ ${result} -ne 0 ]; then
+      if [ -d "${THREAD_CONTROL}/logs" ]; then
+        echo "${PKG_NAME} ${THREAD_CONTROL}/logs/${job}/stdout" >>"${THREAD_CONTROL}/addons.failed"
+      else
+        echo "${PKG_NAME}" >>"${THREAD_CONTROL}/addons.failed"
+      fi
+    fi
+  fi
+
+  (
+    flock --exclusive 95
+    [ ${result} -eq 0 ] && status="DONE" || status="FAIL"
+    num=$(($(cat "${THREAD_CONTROL}/progress") + 1))
+    mv "${THREAD_CONTROL}/progress" "${THREAD_CONTROL}/progress.prev"
+    echo ${num} >"${THREAD_CONTROL}/progress"
+    printf "[%0*d/%0*d] [%-4s] %-7s %s\n" ${#jobs} ${num} ${#jobs} ${jobs} "${status}" "${task}" "${pkgname}" >&2
+  ) 95>"${THREAD_CONTROL}/locks/.progress"
+
+  if [ ${result} -eq 0 ]; then
+    pkg_lock_status "IDLE"
+  else
+    pkg_lock_status "FAILED" "${pkgname}" "${task}"
+
+    print_color CLR_ERROR "FAILURE: $SCRIPTS/${task} ${pkgname} has failed!\n"
+
+    if [ -d "${THREAD_CONTROL}/logs" ]; then
+      cat >&2 <<EOF
+
+The following logs for this failure are available:
+  stdout: ${THREAD_CONTROL}/logs/${job}/stdout
+  stderr: ${THREAD_CONTROL}/logs/${job}/stderr
+
+EOF
+    fi
+  fi
+
+  return ${result}
+}
+export -f package_worker
+
+start_multithread_build() {
+  local singlethread buildopts
+
+  # init thread control folder
+  rm -fr "${THREAD_CONTROL}"
+  mkdir -p "${THREAD_CONTROL}/locks"
+  echo -1 >"${THREAD_CONTROL}/progress.prev"
+  echo 0 >"${THREAD_CONTROL}/progress"
+  touch "${THREAD_CONTROL}/status"
+
+  [ "${THREADCOUNT}" = "0" ] && THREADCOUNT=1
+
+  # Bootstrap GNU parallel
+  $SCRIPTS/build parallel:host 2>&1 || die "Unable to bootstrap parallel package"
+
+  # if number of detected slots is 1 then don't bother using inter-process locks as this is a sequential build
+  [ $(seq 1 32 | ${TOOLCHAIN}/bin/parallel --plain --no-notice --max-procs ${THREADCOUNT} echo {%} | sort -n | tail -1) -eq 1 ] && singlethread=yes || singlethread=no
+
+  # create a single log file by default if not using locks (single build process), or the builder is a masochist
+  if [ "${singlethread}" = "yes" -a "${ONELOG,,}" != "no" ] || [ "${ONELOG,,}" = "yes" ]; then
+    buildopts+=" --ungroup"
+  else
+    mkdir -p "${THREAD_CONTROL}/logs"
+    buildopts+=" --group --results ${THREAD_CONTROL}/logs/{#}/"
+  fi
+
+  # When building addons, don't halt on error - keep building all packages/addons
+  [ "${MTADDONBUILD}" = "yes" ] && buildopts+=" --halt never" || buildopts+=" --halt now,fail=1"
+
+  # pipefail: return value of a pipeline is the value of the last (rightmost) command to exit with a non-zero status
+  set -o pipefail
+
+  cat ${_CACHE_PACKAGE_GLOBAL} ${_CACHE_PACKAGE_LOCAL} | \
+    ${TOOLCHAIN}/bin/parallel --plain --no-notice --max-args 30 --halt now,fail=1 json_worker | \
+    ${SCRIPTS}/genbuildplan.py --no-reorder --show-wants --build ${@} > "${THREAD_CONTROL}"/plan || return
+
+  cat "${THREAD_CONTROL}"/plan | awk '{print $1 " " $2}' | \
+    MTBUILDSTART=$(date +%s) MTWITHLOCKS=yes ${TOOLCHAIN}/bin/parallel \
+      --plain --no-notice --max-procs ${THREADCOUNT} --joblog="${THREAD_CONTROL}/joblog" --plus ${buildopts} \
+      package_worker {%} {#} {##} {} || return
+
+  set +o pipefail
+}

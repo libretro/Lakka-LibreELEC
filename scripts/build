@@ -7,7 +7,7 @@
 . config/options "$1"
 
 if [ -z "$1" ]; then
-  die "usage: $0 package_name[:<host|target|init|bootstrap>]"
+  die "usage: $0 package_name[:<host|target|init|bootstrap>] [parent_pkg]"
 fi
 
 if [ "$1" = "--all" ]; then
@@ -32,10 +32,13 @@ if [ "${1//:/}" != "${1}" ]; then
   PACKAGE_NAME="${1%:*}"
   TARGET="${1#*:}"
 else
-  PACKAGE_NAME=$1
+  PACKAGE_NAME="${1}"
   TARGET=
 fi
 TARGET="${TARGET:-target}"
+PARENT_PKG="${2:-${PKG_NAME}:${TARGET}}"
+
+pkg_lock "${PACKAGE_NAME}:${TARGET}" "build" "${PARENT_PKG}"
 
 mkdir -p $STAMPS/$PACKAGE_NAME
 STAMP=$STAMPS/$PACKAGE_NAME/build_$TARGET
@@ -46,15 +49,21 @@ if [ -f $STAMP ]; then
     rm -f $STAMP
   elif [ ! "$BUILD_WITH_DEBUG" = "$STAMP_BUILD_WITH_DEBUG" ]; then
     rm -f $STAMP
-  elif [ "$1" = "u-boot" -a ! "$UBOOT_SYSTEM" = "$STAMP_UBOOT_SYSTEM" ]; then
+  elif [ "${PKG_NAME}" = "u-boot" -a ! "$UBOOT_SYSTEM" = "$STAMP_UBOOT_SYSTEM" ]; then
     rm -f $STAMP
   else
     # stamp matched: already built, do nothing
+    pkg_lock_status "UNLOCK" "${PKG_NAME}:${TARGET}" "build" "already built"
     exit 0
   fi
 fi
 
-$SCRIPTS/unpack $PACKAGE_NAME
+if [ -n "${PKG_DEPENDS_UNPACK}" ]; then
+  for p in ${PKG_DEPENDS_UNPACK}; do
+    $SCRIPTS/unpack "${p}" "${PARENT_PKG}"
+  done
+fi
+$SCRIPTS/unpack "${PACKAGE_NAME}" "${PARENT_PKG}"
 
 # build dependencies, only when PKG_DEPENDS_? is filled
 unset _pkg_depends
@@ -65,15 +74,8 @@ case "$TARGET" in
   "bootstrap") _pkg_depends="$PKG_DEPENDS_BOOTSTRAP";;
 esac
 for p in $_pkg_depends; do
-  $SCRIPTS/build $p
+  $SCRIPTS/build "${p}" "${PARENT_PKG}"
 done
-
-# build this package
-if [ "${BUILD_WITH_DEBUG}" = "yes" ]; then
-  build_msg "CLR_BUILD" "BUILD" "${PACKAGE_NAME} $(print_color "CLR_TARGET" "(${TARGET})") [DEBUG]" "indent"
-else
-  build_msg "CLR_BUILD" "BUILD" "${PACKAGE_NAME} $(print_color "CLR_TARGET" "(${TARGET})")" "indent"
-fi
 
 # virtual packages are not built as they only contain dependencies, so dont go further here
 if [ "$PKG_SECTION" = "virtual" ]; then
@@ -82,7 +84,15 @@ if [ "$PKG_SECTION" = "virtual" ]; then
     echo "STAMP_$i=\"${!i}\"" >> $STAMP
   done
 
+  pkg_lock_status "UNLOCK" "${PKG_NAME}:${TARGET}" "build" "built"
   exit 0
+fi
+
+# build this package
+if [ "${BUILD_WITH_DEBUG}" = "yes" ]; then
+  build_msg "CLR_BUILD" "BUILD" "${PACKAGE_NAME} $(print_color "CLR_TARGET" "(${TARGET})") [DEBUG]" "indent"
+else
+  build_msg "CLR_BUILD" "BUILD" "${PACKAGE_NAME} $(print_color "CLR_TARGET" "(${TARGET})")" "indent"
 fi
 
 setup_toolchain $TARGET
@@ -201,8 +211,10 @@ build_msg "CLR_TOOLCHAIN" "TOOLCHAIN" "${PKG_TOOLCHAIN}${_auto_toolchain}"
 
 # make autoreconf
 if [ "$PKG_TOOLCHAIN" = "autotools" ]; then
-  $SCRIPTS/autoreconf $PACKAGE_NAME
+  $SCRIPTS/autoreconf "${PACKAGE_NAME}" "${PARENT_PKG}"
 fi
+
+pkg_lock_status "ACTIVE" "${PKG_NAME}:${TARGET}" "build"
 
 # include build template and build
 pkg_call_exists pre_build_$TARGET && pkg_call pre_build_$TARGET
@@ -361,6 +373,14 @@ fi
 
 pkg_call_exists post_make_$TARGET && pkg_call post_make_$TARGET
 
+# make install writes directly to sysroot which then needs fixing up - this is racy
+if listcontains "configure:target cmake-make:target autotools:target make:target" "${PKG_TOOLCHAIN}:${TARGET}"; then
+  acquire_exclusive_lock "${PKG_NAME}:${TARGET}" "build"
+  PKG_NEED_UNLOCK=yes
+else
+  PKG_NEED_UNLOCK=no
+fi
+
 # make install
 pkg_call_exists pre_makeinstall_$TARGET && pkg_call pre_makeinstall_$TARGET
 
@@ -385,7 +405,7 @@ else
 
     # make based builds
     "configure:target"|"cmake-make:target"|"autotools:target"|"make:target")
-      $MAKEINSTALL $PKG_MAKEINSTALL_OPTS_TARGET
+      make install DESTDIR=$SYSROOT_PREFIX -j1 $PKG_MAKEINSTALL_OPTS_TARGET
       make install DESTDIR=$INSTALL $PKG_MAKEINSTALL_OPTS_TARGET
       ;;
     "configure:host"|"cmake-make:host"|"autotools:host"|"make:host")
@@ -401,6 +421,15 @@ else
 fi
 
 pkg_call_exists post_makeinstall_$TARGET && pkg_call post_makeinstall_$TARGET
+
+# This is the racy part - one or more processes may be creating, modifying or deleting
+# $SYSROOT_PREFIX/usr/lib/*.la files while another (eg. this) process is rewriting the same
+# files as it fixes up the libdir prefix. Eugh.
+for i in $(find $SYSROOT_PREFIX/usr/lib/ -name "*.la" 2>/dev/null); do
+  sed -e "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" -i $i
+done
+
+[ "${PKG_NEED_UNLOCK}" = "yes" ] && release_exclusive_lock "${PKG_NAME}:${TARGET}" "build" || true
 
 if [ "$TARGET" = "target" -o "$TARGET" = "init" ]; then
   if [ -d $INSTALL ]; then
@@ -447,14 +476,12 @@ fi
 
 cd $ROOT
 
-for i in $(find $SYSROOT_PREFIX/usr/lib/ -name "*.la" 2>/dev/null); do
-  sed -e "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" -i $i
-done
-
 PKG_DEEPHASH=$(calculate_stamp)
 for i in PKG_NAME PKG_DEEPHASH BUILD_WITH_DEBUG; do
   echo "STAMP_$i=\"${!i}\"" >> $STAMP
 done
-if [ "$1" = "u-boot" ]; then
+if [ "${PKG_NAME}" = "u-boot" ]; then
   echo "STAMP_UBOOT_SYSTEM=\"${UBOOT_SYSTEM}\"" >> $STAMP
 fi
+
+pkg_lock_status "UNLOCK" "${PKG_NAME}:${TARGET}" "build" "built"

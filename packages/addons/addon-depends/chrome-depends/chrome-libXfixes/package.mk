@@ -6,6 +6,7 @@
 PKG_NAME="chrome-libXfixes"
 PKG_LONGDESC="libXfixes for chrome"
 PKG_URL=""
+PKG_DEPENDS_UNPACK+=" libXfixes"
 
 PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET \
                            --disable-static \
