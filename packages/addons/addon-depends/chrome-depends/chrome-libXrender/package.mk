@@ -6,6 +6,7 @@
 PKG_NAME="chrome-libXrender"
 PKG_LONGDESC="libXrender for chrome"
 PKG_URL=""
+PKG_DEPENDS_UNPACK+=" libXrender"
 
 PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET \
                            --disable-static \
