@@ -1,0 +1,184 @@
+#!/bin/bash
+
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
+
+. config/options ""
+. config/multithread
+
+usage() {
+  cat - >&2 <<EOF
+SYNOPSIS
+       ./script/create_addon_mt [OPTION] [addons]...
+
+DESCRIPTION
+       create_addon builds one or more addons.
+
+       --show-only
+              output the list of packages, which are intented to build
+
+       --help shows this message
+
+       [addons]
+              list of addons to build.
+              The addons can identified by:
+              - the name of the addon
+              - a group name of addons
+                  * all - all addons found under packages and project/*/packages
+                  * official - all addons found under packages/addons
+                  * binary - all addons found under packages/mediacenter/kodi-binary-addons
+              - a regex term (grep styled), the term is automatic sorounded with string begin and end (^[term]$)
+
+              addons can removed from list with a leading minus.
+
+EXAMPLE
+       build all addons
+       > ./script/create_addon_mt all
+
+       build audio encoders and decoders, only
+       > ./script/create_addon_mt audioencoder.* audiodecoder.*
+
+       build all, but not binary
+       > ./script/create_addon_mt all -binary
+EOF
+  exit ${1:-0}
+}
+
+# Get list of addon packages
+get_addons() {
+  local paths filter
+  local pkgpath exited
+  local count=0 validpkg
+
+  case $1 in
+    binary)   paths="^$ROOT/packages/mediacenter/kodi-binary-addons/";;
+    official) paths="^$ROOT/packages/addons/";;
+    all)      paths="^$ROOT/packages/|^$ROOT/projects/.*/packages/";;
+    *)        paths="^$ROOT/packages/|^$ROOT/projects/.*/packages/"; filter="$1";;
+  esac
+
+  exit() { exited=1; }
+
+  for pkgpath in $(cat "${_CACHE_PACKAGE_LOCAL}" "${_CACHE_PACKAGE_GLOBAL}" | grep -E "${paths}"); do
+    if [ -n "${filter}" ]; then
+      [[ ${pkgpath} =~ ^.*/${filter}@?+?@ ]] || continue
+    fi
+
+    exited=0
+    source_package "${pkgpath%%@*}/package.mk" &>/dev/null
+    [ ${exited} -eq 1 ] && continue
+
+    validpkg="no"
+    # Should only build embedded addons when they are explictly specified in the addon list
+    if [ "${PKG_IS_ADDON}" = "embedded" ]; then
+      if [ -n "${filter}" ]; then
+        verify_addon && validpkg="yes"
+      fi
+    elif [ "${PKG_IS_ADDON}" = "yes" ]; then
+      verify_addon && validpkg="yes"
+    fi
+
+    if [ "${validpkg}" = "yes" ]; then
+      echo "${PKG_NAME}"
+      count=$((count + 1))
+    fi
+  done
+
+  unset -f exit
+
+  if [ ${count} -eq 0 -a -n "${filter}" ]; then
+    echo  "$(print_color CLR_ERROR "ERROR: no addons matched for filter ${filter}")" >&2
+    echo  "For more information type: ./scripts/create_addon_mt --help" >&2
+    die
+  fi
+}
+
+# Return 0 if package is a suitable addon, 1 otherwise
+verify_addon() {
+  [ "${PKG_ADDON_TYPE}" = "xbmc.broken" ] && return 1
+
+  if [ -n "${PKG_ARCH}" ]; then
+    listcontains "${PKG_ARCH}" "!${TARGET_ARCH}" && return 1
+    listcontains "${PKG_ARCH}" "${TARGET_ARCH}" || listcontains "${PKG_ARCH}" "any" || return 1
+  fi
+
+  if [ -n "${PKG_ADDON_PROJECTS}" ]; then
+    [ "${DEVICE}" = "RPi" ] && _DEVICE="RPi1" || _DEVICE="${DEVICE}"
+
+    if listcontains "${PKG_ADDON_PROJECTS}" "!${_DEVICE:-$PROJECT}" ||
+       listcontains "${PKG_ADDON_PROJECTS}" "!${PROJECT}"; then
+      return 1
+    fi
+
+    if ! listcontains "${PKG_ADDON_PROJECTS}" "${_DEVICE:-$PROJECT}" &&
+       ! listcontains "${PKG_ADDON_PROJECTS}" "${PROJECT}" &&
+       ! listcontains "${PKG_ADDON_PROJECTS}" "any"; then
+      return 1
+    fi
+  fi
+
+  return 0
+}
+
+# need parameter
+if [ $# -eq 0 ]; then
+  usage 1
+fi
+
+# check environment and configure toolchains
+${SCRIPTS}/checkdeps
+
+(setup_toolchain host)
+setup_toolchain target
+
+# collect list of addons for building
+addons=
+addons_drop=
+show_only="no"
+
+# read addons from parameter list
+while [ $# -gt 0 ]; do
+  case $1 in
+    --help)         usage 0;;
+    --show-only)    show_only="yes";;
+    --*)            usage 1;;
+    -*)             addons_drop+=" $(get_addons ${1:1})";;
+    *)              addons+=" $(get_addons $1)";;
+  esac
+  shift
+done
+
+# Build a new list containing only those addons we want to build
+wanted_addons=
+for addon in $(echo ${addons} | tr ' ' '\n' | sort -u); do
+  listcontains "${addons_drop}" "${addon}" || wanted_addons+=" ${addon}"
+done
+
+if [ "${show_only}" = "yes" ]; then
+  for addon in ${wanted_addons}; do
+    echo ${addon}
+  done
+  exit 0
+fi
+
+# Build all addons at once using a single plan
+if MTADDONBUILD=yes start_multithread_build "${wanted_addons:1}"; then
+  echo
+  echo "$(print_color CLR_INFO "ALL ADDONS BUILT SUCCESSFULLY")"
+  exit 0
+elif [ -f "${THREAD_CONTROL}/addons.failed" ]; then
+  echo >&2
+  print_color CLR_ERROR "FAILED ADDONS:\n" >&2
+  while read -r addon logfile; do
+    if [ -n "${addon}" ]; then
+      if [ -n "${logfile}" ]; then
+        echo "    $(print_color CLR_ERROR "${addon}"): ${logfile}" >&2
+      else
+        echo "    $(print_color CLR_ERROR "${addon}")" >&2
+      fi
+    fi
+  done < "${THREAD_CONTROL}/addons.failed"
+  die
+else
+  die "$(print_color CLR_ERROR "UNKNOWN BUILD FAILURE OR INABILITY TO GENERATE PLAN")"
+fi

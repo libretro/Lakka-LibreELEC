@@ -53,26 +53,68 @@ export -f json_worker
 package_worker() {
   local slot=$1 job=$2 jobs=$3 args="$4"
   local task pkgname result status
-
-  . config/options ""
-
-  [ -f "${THREAD_CONTROL}/pid" ] || echo "${PARALLEL_PID}" >"${THREAD_CONTROL}/pid"
+  local addon istarget
 
   export MTJOBID=${slot} MTMAXJOBS=${jobs}
 
-  read -r task pkgname <<<$(echo "${args}")
+  read -r task pkgname <<< "${args}"
+
+  . config/options "${pkgname}"
+
+  [ ! -f "${THREAD_CONTROL}/pid" ] && echo "${PARALLEL_PID}" >"${THREAD_CONTROL}/pid"
 
   ${SCRIPTS}/${task} ${pkgname} 2>&1 && result=0 || result=1
 
-  [ ${result} -eq 0 ] && status="DONE" || status="FAIL"
+  [[ ${pkgname} =~ :target$ || "${pkgname//:/}" = "${pkgname}" ]] && istarget="yes" || istarget="no"
+
+  if [ "${MTADDONBUILD}" = "yes" -a "${PKG_IS_ADDON}" = "yes" -a "${istarget}" = "yes" ]; then
+    if [ ${result} -eq 0 ]; then
+      (
+        pkg_lock "${pkgname}" "packadd"
+        pkg_lock_status "ACTIVE" "${pkgname}" "packadd"
+
+        # cleanup old install path
+        rm -rf "${ADDON_BUILD}"
+
+        # install addon parts
+        if pkg_call_exists addon; then
+          pkg_call addon
+        else
+          install_binary_addon "${PKG_ADDON_ID}"
+        fi
+
+        # HACK for packages that provide multiple addons like screensavers.rsxs
+        # addon's addon() in package.mk should take care for exporting
+        # MULTI_ADDONS="addon.boo1 addon.boo2 addon.boo3"
+        if [ -n "${MULTI_ADDONS}" ] ; then
+          for addon in ${MULTI_ADDONS}; do
+            ${SCRIPTS}/install_addon "${PKG_NAME}" "${addon}"
+          done
+        else
+          ${SCRIPTS}/install_addon "${PKG_NAME}" "${PKG_ADDON_ID}"
+        fi
+
+        pkg_lock_status "UNLOCK" "${pkgname}" "packadd" "packed"
+      ) 2>&1 || result=1
+    fi
+
+    if [ ${result} -ne 0 ]; then
+      if [ -d "${THREAD_CONTROL}/logs" ]; then
+        echo "${PKG_NAME} ${THREAD_CONTROL}/logs/${job}/stdout" >>"${THREAD_CONTROL}/addons.failed"
+      else
+        echo "${PKG_NAME}" >>"${THREAD_CONTROL}/addons.failed"
+      fi
+    fi
+  fi
 
   (
     flock --exclusive 95
+    [ ${result} -eq 0 ] && status="DONE" || status="FAIL"
     num=$(($(cat "${THREAD_CONTROL}/progress") + 1))
     mv "${THREAD_CONTROL}/progress" "${THREAD_CONTROL}/progress.prev"
     echo ${num} >"${THREAD_CONTROL}/progress"
     printf "[%0*d/%0*d] [%-4s] %-7s %s\n" ${#jobs} ${num} ${#jobs} ${jobs} "${status}" "${task}" "${pkgname}" >&2
-  ) 95>"${THREAD_CONTROL}/progress.lock"
+  ) 95>"${THREAD_CONTROL}/locks/.progress"
 
   if [ ${result} -eq 0 ]; then
     pkg_lock_status "IDLE"
@@ -97,7 +139,7 @@ EOF
 export -f package_worker
 
 start_multithread_build() {
-  local logbuffer withlocks
+  local singlethread buildopts
 
   # init thread control folder
   rm -fr "${THREAD_CONTROL}"
@@ -112,15 +154,18 @@ start_multithread_build() {
   $SCRIPTS/build parallel:host 2>&1 || die "Unable to bootstrap parallel package"
 
   # if number of detected slots is 1 then don't bother using inter-process locks as this is a sequential build
-  [ $(seq 1 32 | ${TOOLCHAIN}/bin/parallel --plain --no-notice --max-procs ${THREADCOUNT} echo {%} | sort -n | tail -1) -eq 1 ] && withlocks=no || withlocks=yes
+  [ $(seq 1 32 | ${TOOLCHAIN}/bin/parallel --plain --no-notice --max-procs ${THREADCOUNT} echo {%} | sort -n | tail -1) -eq 1 ] && singlethread=yes || singlethread=no
 
   # create a single log file by default if not using locks (single build process), or the builder is a masochist
-  if [ "${withlocks}" = "no" -a "${ONELOG,,}" != "no" ] || [ "${ONELOG,,}" = "yes" ]; then
-    logbuffer="--ungroup"
+  if [ "${singlethread}" = "yes" -a "${ONELOG,,}" != "no" ] || [ "${ONELOG,,}" = "yes" ]; then
+    buildopts+=" --ungroup"
   else
     mkdir -p "${THREAD_CONTROL}/logs"
-    logbuffer="--group --results ${THREAD_CONTROL}/logs/{#}/"
+    buildopts+=" --group --results ${THREAD_CONTROL}/logs/{#}/"
   fi
+
+  # When building addons, don't halt on error - keep building all packages/addons
+  [ "${MTADDONBUILD}" = "yes" ] && buildopts+=" --halt never" || buildopts+=" --halt now,fail=1"
 
   # pipefail: return value of a pipeline is the value of the last (rightmost) command to exit with a non-zero status
   set -o pipefail
@@ -130,8 +175,8 @@ start_multithread_build() {
     ${SCRIPTS}/genbuildplan.py --no-reorder --show-wants --build ${@} > "${THREAD_CONTROL}"/plan || return
 
   cat "${THREAD_CONTROL}"/plan | awk '{print $1 " " $2}' | \
-    MTBUILDSTART=$(date +%s) MTWITHLOCKS=${withlocks} ${TOOLCHAIN}/bin/parallel \
-      --plain --no-notice --max-procs ${THREADCOUNT} --joblog="${THREAD_CONTROL}/joblog" ${logbuffer} --halt now,fail=1 --plus \
+    MTBUILDSTART=$(date +%s) MTWITHLOCKS=yes ${TOOLCHAIN}/bin/parallel \
+      --plain --no-notice --max-procs ${THREADCOUNT} --joblog="${THREAD_CONTROL}/joblog" --plus ${buildopts} \
       package_worker {%} {#} {##} {} || return
 
   set +o pipefail

@@ -1216,6 +1216,7 @@ pkg_lock() {
   local pkg="$1" task="$2" parent_pkg="$3"
   local this_job="${MTJOBID}"
   local lock_job lock_task lock_pkg
+  local fail_seq
 
   exec 98>"${THREAD_CONTROL}/locks/${pkg}.${task}"
   if ! flock --nonblock --exclusive 98; then
@@ -1229,6 +1230,23 @@ pkg_lock() {
       flock --exclusive 98
     fi
   fi
+
+  # As we now have the lock, if .failed still exists then a previous process must have failed
+  if [ -f "${THREAD_CONTROL}/locks/${pkg}.${task}.failed" ]; then
+    fail_seq="$(cat "${THREAD_CONTROL}/locks/${pkg}.${task}.failed")"
+    print_color CLR_ERROR "FAILURE: ${pkg}.${task}.failed exists, a previous dependency process has failed (seq: ${fail_seq})\n"
+    if [ -d "${THREAD_CONTROL}/logs" ]; then
+cat <<EOF
+
+The following logs for this failure are available:
+  stdout: ${THREAD_CONTROL}/logs/${fail_seq}/stdout
+  stderr: ${THREAD_CONTROL}/logs/${fail_seq}/stderr
+
+EOF
+    fi
+    return 1
+  fi
+
   echo "${this_job} ${task} ${pkg}" >"${THREAD_CONTROL}/locks/${pkg}.${task}.owner"
 
   pkg_lock_status "LOCKED" "${pkg}" "${task}"
@@ -1248,6 +1266,14 @@ pkg_lock_status() {
   echo "${line}" >>"${THREAD_CONTROL}/history"
 
   [ "${DASHBOARD}" != "no" ] && update_dashboard "${status}" "${pkg}" "${task}" "${msg}"
+
+  if [ "${status}" = "LOCKED" ]; then
+    echo "${PARALLEL_SEQ}" > "${THREAD_CONTROL}/locks/${pkg}.${task}.failed"
+  elif [ "${status}" = "UNLOCK" ]; then
+    rm "${THREAD_CONTROL}/locks/${pkg}.${task}.failed"
+  fi
+
+  return 0
 }
 
 update_dashboard() {
@@ -1304,14 +1330,14 @@ update_dashboard() {
 acquire_exclusive_lock() {
   [ "${MTWITHLOCKS}" != "yes" ] && return 0
 
-  local pkg="$1" task="$2" lockfile="${3:-.global}"
+  local pkg="$1" task="$2" lockfile="${3:-global}"
   local this_job="${MTJOBID}"
   local lock_job lock_task lock_pkg
 
-  exec 96>"${THREAD_CONTROL}/locks/${lockfile}"
+  exec 96>"${THREAD_CONTROL}/locks/.mutex.${lockfile}"
   if ! flock --nonblock --exclusive 96; then
     while [ : ]; do
-      read -r lock_job lock_task lock_pkg <<<$(cat "${THREAD_CONTROL}/locks/${lockfile}.owner" 2>/dev/null)
+      read -r lock_job lock_task lock_pkg <<<$(cat "${THREAD_CONTROL}/locks/.mutex.${lockfile}.owner" 2>/dev/null)
       [ -n "${lock_job}" ] && break || sleep 1
     done
 
@@ -1320,7 +1346,7 @@ acquire_exclusive_lock() {
       flock --exclusive 96
     fi
   fi
-  echo "${this_job} ${task} ${pkg}" >"${THREAD_CONTROL}/locks/${lockfile}.owner"
+  echo "${this_job} ${task} ${pkg}" >"${THREAD_CONTROL}/locks/.mutex.${lockfile}.owner"
 
   pkg_lock_status "MUTEX" "${pkg}" "${task}" "mutex: ${lockfile}"
 }

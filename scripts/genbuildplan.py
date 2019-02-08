@@ -203,6 +203,14 @@ def get_build_steps(args, nodes, trigger_pkgs, built_pkgs):
     resolved = []
     unresolved = []
 
+    # When building the image the :target packages must be installed.
+    #
+    # However, if we are not building the image then only build the packages
+    # and don't install them as it's likely we will be building discrete add-ons
+    # which are installed outside of the image.
+    #
+    install = True if "image" in args.build else False
+
     for pkgname in [x for x in trigger_pkgs if x]:
         if pkgname.find(":") == -1:
             pkgname = "%s:target" % pkgname
@@ -221,7 +229,7 @@ def get_build_steps(args, nodes, trigger_pkgs, built_pkgs):
     for pkg in resolved:
         if pkg.fqname not in built_pkgs:
             built_pkgs.append(pkg.fqname)
-            task = "build" if pkg.fqname.endswith(":host") else "install"
+            task = "build" if pkg.fqname.endswith(":host") or not install else "install"
             yield(task, pkg.fqname)
 
 # Reduce the complete list of packages to a map of those packages that will
