@@ -8,7 +8,7 @@ PKG_SHA256="9edaa6205baf6d2922cc4db3d8e54a7e7773b5f733b0ae90f6be7725f983b70d"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/driver/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS_TARGET="toolchain util-macros libevdev mtdev systemd"
+PKG_DEPENDS_TARGET="toolchain xorg-server util-macros libevdev mtdev systemd"
 PKG_LONGDESC="Evdev is an Xorg input driver for Linux's generic event devices."
 PKG_TOOLCHAIN="autotools"
 
