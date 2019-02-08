@@ -368,6 +368,14 @@ fi
 
 pkg_call_exists post_make_$TARGET && pkg_call post_make_$TARGET
 
+# make install writes directly to sysroot which then needs fixing up - this is racy
+if listcontains "configure:target cmake-make:target autotools:target make:target" "${PKG_TOOLCHAIN}:${TARGET}"; then
+  acquire_exclusive_lock "${PKG_NAME}:${TARGET}" "build"
+  PKG_NEED_UNLOCK=yes
+else
+  PKG_NEED_UNLOCK=no
+fi
+
 # make install
 pkg_call_exists pre_makeinstall_$TARGET && pkg_call pre_makeinstall_$TARGET
 
@@ -408,6 +416,15 @@ else
 fi
 
 pkg_call_exists post_makeinstall_$TARGET && pkg_call post_makeinstall_$TARGET
+
+# This is the racy part - one or more processes may be creating, modifying or deleting
+# $SYSROOT_PREFIX/usr/lib/*.la files while another (eg. this) process is rewriting the same
+# files as it fixes up the libdir prefix. Eugh.
+for i in $(find $SYSROOT_PREFIX/usr/lib/ -name "*.la" 2>/dev/null); do
+  sed -e "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" -i $i
+done
+
+[ "${PKG_NEED_UNLOCK}" = "yes" ] && release_exclusive_lock "${PKG_NAME}:${TARGET}" "build" || true
 
 if [ "$TARGET" = "target" -o "$TARGET" = "init" ]; then
   if [ -d $INSTALL ]; then
@@ -453,10 +470,6 @@ if [ "$TARGET" = "target" -o "$TARGET" = "init" ]; then
 fi
 
 cd $ROOT
-
-for i in $(find $SYSROOT_PREFIX/usr/lib/ -name "*.la" 2>/dev/null); do
-  sed -e "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" -i $i
-done
 
 PKG_DEEPHASH=$(calculate_stamp)
 for i in PKG_NAME PKG_DEEPHASH BUILD_WITH_DEBUG; do
