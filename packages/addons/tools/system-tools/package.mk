@@ -22,7 +22,6 @@ PKG_DEPENDS_TARGET="toolchain \
                     diffutils \
                     dstat \
                     dtach \
-                    efibootmgr \
                     encfs \
                     evtest \
                     fdupes \
@@ -38,7 +37,6 @@ PKG_DEPENDS_TARGET="toolchain \
                     lm_sensors \
                     lshw \
                     mc \
-                    mrxvt \
                     mtpfs \
                     nmon \
                     p7zip \
@@ -51,6 +49,10 @@ PKG_DEPENDS_TARGET="toolchain \
                     unrar \
                     usb-modeswitch \
                     vim"
+
+if [ "$TARGET_ARCH" = "x86_64" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET efibootmgr mrxvt"
+fi
 
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib/
