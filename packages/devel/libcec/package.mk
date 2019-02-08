@@ -49,6 +49,9 @@ pre_configure_target() {
 }
 
 post_makeinstall_target() {
+  # Remove the Python3 demo - useless for us
+  rm -f $INSTALL/usr/bin/pyCecClient
+
   PYTHON_DIR=$INSTALL/usr/lib/$PKG_PYTHON_VERSION
   if [ -d $PYTHON_DIR/dist-packages ]; then
     mv $PYTHON_DIR/dist-packages $PYTHON_DIR/site-packages
