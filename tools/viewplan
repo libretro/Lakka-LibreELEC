@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
+
+unset _CACHE_PACKAGE_LOCAL _CACHE_PACKAGE_GLOBAL _DEBUG_DEPENDS_LIST _DEBUG_PACKAGE_LIST
+
+. config/options ""
+. config/multithread
+
+# Fake the parallel command if GNU parallel is not available - slow, but works.
+fake_parallel() {
+  while read -r line; do
+    json_worker "${line}"
+  done
+}
+
+PARALLEL_BIN=${TOOLCHAIN}/bin/parallel
+  
+[ -x ${PARALLEL_BIN} ] || PARALLEL_BIN=parallel
+command -v ${PARALLEL_BIN} >/dev/null || PARALLEL_BIN=fake_parallel
+
+# pipefail: return value of a pipeline is the value of the last (rightmost) command to exit with a non-zero status
+set -o pipefail
+
+cat ${_CACHE_PACKAGE_GLOBAL} ${_CACHE_PACKAGE_LOCAL} | \
+  ${PARALLEL_BIN} --plain --no-notice --max-args 30 json_worker --halt now,fail=1 | \
+  ${SCRIPTS}/genbuildplan.py --no-reorder --show-wants --build ${@:-image} --warn-invalid ${GENFLAGS} || \
+    die "FAILURE: Unable to generate plan"
