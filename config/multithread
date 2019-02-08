@@ -69,10 +69,10 @@ package_worker() {
   (
     flock --exclusive 95
     num=$(($(cat "${THREAD_CONTROL}/progress") + 1))
-    cp "${THREAD_CONTROL}/progress" "${THREAD_CONTROL}/progress.prev"
-    echo "${num}" >"${THREAD_CONTROL}/progress"
+    mv "${THREAD_CONTROL}/progress" "${THREAD_CONTROL}/progress.prev"
+    echo ${num} >"${THREAD_CONTROL}/progress"
     printf "[%0*d/%0*d] [%-4s] %-7s %s\n" ${#jobs} ${num} ${#jobs} ${jobs} "${status}" "${task}" "${pkgname}" >&2
-  ) 95<"${THREAD_CONTROL}/progress"
+  ) 95>"${THREAD_CONTROL}/progress.lock"
 
   if [ ${result} -eq 0 ]; then
     pkg_lock_status "IDLE"
@@ -97,9 +97,7 @@ EOF
 export -f package_worker
 
 start_multithread_build() {
-  local logbuffer withlocks now
-
-  now=$(date +%s)
+  local logbuffer withlocks
 
   # init thread control folder
   rm -fr "${THREAD_CONTROL}"
@@ -132,7 +130,7 @@ start_multithread_build() {
     ${SCRIPTS}/genbuildplan.py --no-reorder --show-wants --build ${@} > "${THREAD_CONTROL}"/plan || return
 
   cat "${THREAD_CONTROL}"/plan | awk '{print $1 " " $2}' | \
-    MTBUILDSTART=${now} MTWITHLOCKS=${withlocks} ${TOOLCHAIN}/bin/parallel \
+    MTBUILDSTART=$(date +%s) MTWITHLOCKS=${withlocks} ${TOOLCHAIN}/bin/parallel \
       --plain --no-notice --max-procs ${THREADCOUNT} --joblog="${THREAD_CONTROL}/joblog" ${logbuffer} --halt now,fail=1 --plus \
       package_worker {%} {#} {##} {} || return
 
