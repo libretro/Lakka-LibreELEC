@@ -25,59 +25,80 @@ case $1 in
 		;;
 esac
 
+# existing targets in format PROJECT|ARCH|DEVICE|SYSTEM|BOARD|OUTPUT
+targets="\
+	Generic|i386||||image \
+	Generic|x86_64||||image \
+	RPi|arm||||noobs \
+	RPi2|arm||||noobs \
+	Allwinner|arm||Bananapi||image \
+	Allwinner|arm||Cubieboard2||image \
+	Allwinner|arm||Cubietruck||image \
+	Allwinner|arm||orangepi_2||image \
+	Allwinner|arm||orangepi_lite||image \
+	Allwinner|arm||orangepi_one||image \
+	Allwinner|arm||orangepi_pc||image \
+	Allwinner|arm||orangepi_plus||image \
+	Allwinner|arm||orangepi_plus2e||image \
+	Allwinner|arm||nanopi_m1_plus||image \
+	imx6|arm||cuboxi||image \
+	imx6|arm||udoo||image \
+	OdroidC1|arm||||image \
+	Odroid_C2|arm||||image \
+	OdroidXU3|arm||||image \
+	WeTek_Core|arm||||image \
+	WeTek_Hub|arm||||image \
+	WeTek_Play|arm||||image \
+	WeTek_Play_2|arm||||image \
+	Gamegirl|arm||||image \
+	S8X2|arm||S82||image \
+	S8X2|arm||M8||image \
+	S8X2|arm||T8||image \
+	S8X2|arm||MXIII-1G||image \
+	S8X2|arm||MXIII-PLUS||image \
+	S8X2|arm||X8H-PLUS||image \
+	S805|arm||MXQ||image \
+	S805|arm||HD18Q||image \
+	S805|arm||M201C||image \
+	S805|arm||M201D||image \
+	S805|arm||MK808B-Plus||image \
+	S905|arm||||image \
+	S912|arm||||image \
+	Rockchip|arm|TinkerBoard|||image \
+	Rockchip|arm|RK3328||ROCK64|image \
+	Rockchip|arm|RK3328||ROC-RK3328-CC|image \
+	Rockchip|arm|MiQi|||image \
+	Rockchip|arm|RK3399||ROCKPro64|image \
+	Rockchip|arm|RK3399||ROCK960|image \
+	Slice|arm||||image \
+	Slice3|arm||||image \
+	"
 package=$2
 declare -i failed=0
 failed_targets=""
-skipped_folders=""
+skipped_targets=""
+distro="Lakka"
 
-declare -i i=0
-for f in $(ls -d build.Lakka-*/) ; do
-	if [ -d $f ] ; then
-		i+=1
-		declare "skip_$i=no"
-		declare "distro_$i=$(echo $f | sed -e 's/build\.\(.*\)-\(.*\)-[0-9]\(.*\)/\1/')"
-		declare "arch_$i=$(echo $f | sed -e 's/build\.\(.*\)-\(.*\)\.\(.*\)-[0-9]\(.*\)/\3/')"
-		target=$(echo $f | sed -e 's/build\.\(.*\)-\(.*\)\.\(.*\)-[0-9]\(.*\)/\2/')
-		if [ -d projects/$target ] ; then
-			declare "project_$i=$target"
-			declare "device_$1="
-		else
-			if [ -d projects/*/devices/$target ] ; then
-				declare "device_$i=$target"
-				declare "project_$i=$(ls -d projects/*/devices/$target | sed -e 's/projects\/\(.*\)\/devices\/\(.*\)/\1/')"
-			else
-				echo "Skipping $f: could not match."
-				skipped_folders="${skipped_folders}${f}\n"
-				declare "skip_$i=yes"
-			fi
+for T in $targets ; do
+	IFS='|' read -r -a build <<< "$T"
+	project=${build[0]}
+	arch=${build[1]}
+	device=${build[2]}
+	system=${build[3]}
+	board=${build[4]}
+	target=${build[5]}
+	target_name=${board:-${device:-${project}}}.${arch}
+	if [ ! -d build.${distro}-${target_name}-* ] ; then
+		skipped_targets="${skipped_targets}${target_name}\n"
+	else
+		PROJECT=$project DEVICE=$device BOARD=$board ARCH=$arch $script $package
+		if [ $? -gt 0 ] ; then
+			failed+=1
+			failed_targets="${failed_targets}${target_name}\n"
 		fi
 	fi
 done
-
-[ $i -eq 0 ] && { echo "No build folders found!" ; exit 1 ; }
-
-for a in $(seq 1 $i) ; do
-	declare "var=skip_$a"
-	declare "skip=${!var}"
-	[ "$skip" = "yes" ] && continue
-	declare "var=distro_$a"
-	declare "distro=${!var}"
-	declare "var=project_$a"
-	declare "project=${!var}"
-	declare "var=device_$a"
-	declare "device=${!var}"
-	declare "var=board_$a"
-	declare "board=${!var}"
-	declare "var=arch_$a"
-	declare "arch=${!var}"
-	target_name=${distro}-${board:-${device:-${project}}}.${arch}
-	DISTRO=$distro PROJECT=$project DEVICE=$device BOARD=$board ARCH=$arch $script $package
-	if [ $? -gt 0 ] ; then
-		failed+=1
-		failed_targets="${failed_targets}${target_name}\n"
-	fi
-done
-[ -n "$skipped_folders" ] && { echo -e "Following folders were skipped - could not match:\n$skipped_folders\n\n" ; }
+[ -n "$skipped_targets" ] && { echo -e "Following targets were skipped - could not find existing build folder:\n$skipped_targets\n\n" ; }
 if [ $failed -gt 0 ] ; then
 	echo -e "\nFailed to ${action} package '$package' on following targets:\n${failed_targets}" >&2
 	exit 127
