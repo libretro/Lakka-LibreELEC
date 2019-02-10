@@ -70,7 +70,7 @@ for a in $(seq 1 $i) ; do
 	declare "board=${!var}"
 	declare "var=arch_$a"
 	declare "arch=${!var}"
-	target_name=${distro}-${board:-${device:-$project}}}.${arch}
+	target_name=${distro}-${board:-${device:-${project}}}.${arch}
 	DISTRO=$distro PROJECT=$project DEVICE=$device BOARD=$board ARCH=$arch $script $package
 	if [ $? -gt 0 ] ; then
 		failed+=1
