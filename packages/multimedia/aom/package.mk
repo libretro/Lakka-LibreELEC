@@ -16,6 +16,10 @@ PKG_CMAKE_OPTS_TARGET="-DENABLE_CCACHE=1 \
                        -DENABLE_TESTS=0 \
                        -DENABLE_TOOLS=0"
 
+if [ "$TARGET_ARCH" = "x86_64" ]; then
+  PKG_DEPENDS_TARGET+=" nasm:host"
+fi
+
 if ! target_has_feature neon; then
   PKG_CMAKE_OPTS_TARGET+=" -DENABLE_NEON=0 -DENABLE_NEON_ASM=0"
 fi
