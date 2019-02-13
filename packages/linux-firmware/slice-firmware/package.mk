@@ -8,7 +8,7 @@ PKG_ARCH="arm"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/FiveNinjas/slice-firmware"
 PKG_URL="https://github.com/libreelec/slice-firmware/archive/$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain dtc:host"
+PKG_DEPENDS_TARGET="toolchain dtc:host linux"
 PKG_LONGDESC="BCM270x firmware related stuff for Slice"
 PKG_TOOLCHAIN="manual"
 
