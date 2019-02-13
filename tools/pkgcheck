@@ -21,14 +21,20 @@ log() {
   [ ${lc} -eq 0 ] && flc="---" || flc="$(printf "%03d" ${lc})"
   [[ ${filename} =~ packages/addons/addon-depends ]] && colw=80 || colw=50
 
-  printf "[%s]: %3s: %-*s: %-25s: %s\n" "${txcolour}${level}${TXRESET}" "${flc}" ${colw} "${filename}" "${msg}" "${data}"
+  printf "[%s] %3s: %-*s: %-25s: %s\n" "${txcolour}${level}${TXRESET}" "${flc}" ${colw} "${filename}" "${msg}" "${data}"
 }
 
 process_line() {
-  local filename="$1" lc="$2" line="$3" inassign="$4" infunc="$5"
+  local filename="$1" lc="$2" line="$3" inassign="$4" funcname="$5"
   local var matches assignallowed=Y
 
-  [ "${infunc}" = "Y" ] && return 0
+  if [ -n "${funcname}" -a "${funcname}" != "configure_package" -a "${inassign}" = "Y" ]; then
+    if [[ ${line} =~ PKG_DEPENDS_.*= ]]; then
+      log "${filename}" ${lc} "WARN" "ignored depends assign" "${funcname}() => ${line//[[:space:]]*PKG_DEPENDS_/PKG_DEPENDS_}"
+    fi
+  fi
+
+  [ -n "${funcname}" ] && return 0
 
   rightside="${line#*=}"
 
@@ -104,7 +110,7 @@ check_func_name() {
 
 process_pkg() {
   local filename="$1"
-  local lc=0 isassign=N isfunc=N fc=0 intertwined=N
+  local lc=0 isassign=N funcname= fc=0 intertwined=N
 
   while IFS= read -r line; do
     lc=$((lc + 1))
@@ -116,22 +122,22 @@ process_pkg() {
     fi
 
     if [[ "${line}" =~ \(\)[[:space:]]*\{ ]]; then
-      isfunc=Y
+      funcname="${line//(*/}"
       fc=$((fc+1))
       check_func_name "${filename}" "${lc}" "${line}"
     fi
 
-    if [ "${intertwined}" = "N" -a "${isfunc}" = "N" -a ${fc} -ge 1 ]; then
+    if [ "${intertwined}" = "N" -a -z "${funcname}" -a ${fc} -ge 1 ]; then
       log "${filename}" ${lc} "WARN" "intertwined vars & funcs" "${line}"
       intertwined=Y
     fi
 
     [[ "${line}" =~ ^[[:space:]]*PKG_.*=\" ]] && isassign=Y
 
-    process_line "$1" "${lc}" "${line}" "${isassign}" "${isfunc}"
+    process_line "$1" "${lc}" "${line}" "${isassign}" "${funcname}"
 
     [[ "${line}" =~ (\"$|\"[[:space:]]*$|\"[[:space:]]*#.*$) ]] && isassign=N
-    [[ "${line}" =~ (^}|^[[:space:]]*}) ]] && isfunc=N
+    [[ "${line}" =~ (^}|^[[:space:]]*}) ]] && funcname=
   done < "${filename}"
 
   # Duplicate function check
