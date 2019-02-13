@@ -9,7 +9,7 @@
 usage() {
   cat - >&2 <<EOF
 SYNOPSIS
-       ./script/create_addon_mt [OPTION] [addons]...
+       ./script/create_addon [OPTION] [addons]...
 
 DESCRIPTION
        create_addon builds one or more addons.
@@ -33,13 +33,13 @@ DESCRIPTION
 
 EXAMPLE
        build all addons
-       > ./script/create_addon_mt all
+       > ./script/create_addon all
 
        build audio encoders and decoders, only
-       > ./script/create_addon_mt audioencoder.* audiodecoder.*
+       > ./script/create_addon audioencoder.* audiodecoder.*
 
        build all, but not binary
-       > ./script/create_addon_mt all -binary
+       > ./script/create_addon all -binary
 EOF
   exit ${1:-0}
 }
@@ -69,6 +69,7 @@ get_addons() {
     [ ${exited} -eq 1 ] && continue
 
     validpkg="no"
+    VERIFY_FAIL=
     # Should only build embedded addons when they are explictly specified in the addon list
     if [ "${PKG_IS_ADDON}" = "embedded" ]; then
       if [ -n "${filter}" ]; then
@@ -81,6 +82,8 @@ get_addons() {
     if [ "${validpkg}" = "yes" ]; then
       echo "${PKG_NAME}"
       count=$((count + 1))
+    elif [ -n "${VERIFY_FAIL}" -a -n "${filter}" ]; then
+      echo "$(print_color CLR_ERROR "${PKG_NAME}"): ${VERIFY_FAIL}" >&2
     fi
   done
 
@@ -88,22 +91,23 @@ get_addons() {
 
   if [ ${count} -eq 0 -a -n "${filter}" ]; then
     echo  "$(print_color CLR_ERROR "ERROR: no addons matched for filter ${filter}")" >&2
-    echo  "For more information type: ./scripts/create_addon_mt --help" >&2
+    echo  "For more information type: ./scripts/create_addon --help" >&2
     die
   fi
 }
 
 # Return 0 if package is a suitable addon, 1 otherwise
 verify_addon() {
-  [ "${PKG_ADDON_TYPE}" = "xbmc.broken" ] && return 1
-
   if [ -n "${PKG_ARCH}" ]; then
+    VERIFY_FAIL="Incompatible arch: \"${TARGET_ARCH}\" not in [ ${PKG_ARCH} ]"
     listcontains "${PKG_ARCH}" "!${TARGET_ARCH}" && return 1
     listcontains "${PKG_ARCH}" "${TARGET_ARCH}" || listcontains "${PKG_ARCH}" "any" || return 1
   fi
 
   if [ -n "${PKG_ADDON_PROJECTS}" ]; then
     [ "${DEVICE}" = "RPi" ] && _DEVICE="RPi1" || _DEVICE="${DEVICE}"
+
+    VERIFY_FAIL="Incompatible project or device: \"${_DEVICE:-${PROJECT}}\" not in [ ${PKG_ADDON_PROJECTS} ]"
 
     if listcontains "${PKG_ADDON_PROJECTS}" "!${_DEVICE:-$PROJECT}" ||
        listcontains "${PKG_ADDON_PROJECTS}" "!${PROJECT}"; then
