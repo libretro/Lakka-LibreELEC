@@ -51,8 +51,6 @@ post_makeinstall_target() {
       -e "s|^#StrictModes.*|StrictModes no|g" \
       -i $INSTALL/etc/ssh/sshd_config
 
-  echo "PubkeyAcceptedKeyTypes +ssh-dss" >> $INSTALL/etc/ssh/sshd_config
-
   debug_strip $INSTALL/usr
 }
 
