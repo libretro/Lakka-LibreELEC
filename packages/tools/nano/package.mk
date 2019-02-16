@@ -12,7 +12,8 @@ PKG_LONGDESC="Nano is an enhanced clone of the Pico text editor."
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-utf8 \
                            --disable-nls \
-                           --disable-libmagic"
+                           --disable-libmagic \
+                           --disable-wrapping"
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/share/nano
