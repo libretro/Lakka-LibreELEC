@@ -21,6 +21,7 @@ pre_make_target() {
   cd $PKG_BUILD
   CXXFLAGS+=" -DHAVE_POSIX_MEMALIGN=1"
   export AR+=" cru"
+  export LD="$CC"
 }
 
 makeinstall_target() {
