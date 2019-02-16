@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-fbalpha"
-PKG_VERSION="bfededf36c4ca6f37926a66822d860a9754080c3"
-PKG_SHA256="0c31bb6fe84f2dfa9adead0a6fd23cb2d516c96c7213cec89e66444e13fe8478"
+PKG_VERSION="0581bf39ec9ac7a6f63d37324bc0083e9f024880"
+PKG_SHA256="9b9cc7aad7ff4eedcc2faa18e36ea969911bdba8a868be7d983dc4c8e92b9fd8"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/fbalpha"
 PKG_URL="https://github.com/libretro/fbalpha/archive/$PKG_VERSION.tar.gz"
