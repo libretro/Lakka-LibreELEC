@@ -2,9 +2,9 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="vfs.libarchive"
-PKG_VERSION="6d39012c73750a80e4d3ab623d1b394c9a2c0ed8"
-PKG_SHA256="7a35387977d78a5c986c5cecd7cc844fde1e71e26c3d1a6b1d8a8f928b0e14a6"
-PKG_REV="1"
+PKG_VERSION="2ba11021ef58cf7fa9ca1051e5c0d558cd2a04bc"
+PKG_SHA256="634fc1189422d6e2a9590dd3b824f6b14a9c3bfc5075c51d2a5eb1779ef5aa23"
+PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"

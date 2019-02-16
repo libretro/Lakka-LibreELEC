@@ -3,9 +3,9 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="screensaver.biogenesis"
-PKG_VERSION="ee3641ac59496e1d1c9901f3a4253b883303fada"
-PKG_SHA256="a99542d3c11bcc60ddf419c207e567333084dd72629a8fced17d8a38e85dd7fd"
-PKG_REV="2"
+PKG_VERSION="23050786a0b28a1fdb80104ea802bee370c6176f"
+PKG_SHA256="1360eebadc0bb3cfa03b938793480329ada7014ae84e319c0caf72d794c4d2a5"
+PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/screensaver.biogenesis"
