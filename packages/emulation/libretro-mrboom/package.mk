@@ -14,6 +14,13 @@ PKG_LIBNAME="mrboom_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"
 PKG_LIBVAR="MRBOOM_LIB"
 
+pre_make_target() {
+  # Disable NEON otherwise build fails
+  if target_has_feature neon; then
+    CFLAGS+=" -DDONT_WANT_ARM_OPTIMIZATIONS"
+  fi
+}
+
 make_target() {
   make
 }
