@@ -27,8 +27,15 @@ class HistoryEvent:
             self.secs = (datetime.datetime.strptime(self.datetime, "%Y-%m-%d %H:%M:%S.%f") - EPOCH).total_seconds()
         return self.secs
 
-def secs_to_hms(secs):
-    return "%02d:%02d:%06.3f" % (int(secs / 3600), int(secs / 60 % 60), secs % 60)
+def secs_to_hms(seconds, blankzero=False):
+    hours = "%02d" % int(seconds / 3600)
+    mins = "%02d" % int(seconds / 60 % 60)
+    secs = "%06.3f" % (seconds % 60)
+    if blankzero and hours == "00":
+      hours = "  "
+      if mins == "00":
+        mins = "  "
+    return "%2s:%2s:%s" % (hours, mins, secs)
 
 def get_slot_val(slot):
     return slots[slot]["total"]
@@ -87,7 +94,7 @@ for slotn in slots:
 
 elapsed = (ended - started)
 
-print("Total Build Time: %s\n" % secs_to_hms(elapsed))
+print("Total Build Time: %s\n" % secs_to_hms(elapsed, blankzero=False))
 
 print("Peak concurrency: %d out of %d slots\n" % (peak, len(slots)))
 
@@ -100,13 +107,13 @@ for rank, slotn in enumerate(sorted(slots, key=get_slot_val, reverse=True)):
     slot = slots[slotn]
     pct = (100 * slot["total"] / elapsed) if elapsed > 0.0 else 0.0
     state = " active" if slot["active"] else "       "
-    stime = secs_to_hms(slot["total"]).replace("00:", "  :")
+    stime = secs_to_hms(slot["total"], blankzero=True)
     lines.append("%s   %s (%04.1f%%)%s" % (slotn, stime, pct, state))
 
 for rank, concurrentn in enumerate(sorted(concurrency, key=get_concurrent_val, reverse=True)):
     concurrent = concurrency[concurrentn]
     pct = (100 * concurrent["total"] / elapsed) if elapsed > 0.0 else 0.0
-    stime = secs_to_hms(concurrent["total"]).replace("00:", "  :")
+    stime = secs_to_hms(concurrent["total"], blankzero=True)
     lines[rank] += "       %02d      %s (%04.1f%%)" % (concurrentn, stime, pct)
 
 for rank, line in enumerate(lines):
