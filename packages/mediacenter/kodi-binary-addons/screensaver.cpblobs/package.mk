@@ -3,9 +3,9 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="screensaver.cpblobs"
-PKG_VERSION="f08e473aeae2a4c693fe82a39d17f2367b0f7f44"
-PKG_SHA256="eae30010f1f3c5ddf50679ab5fce6a655a176f687d744b1dc5b7a81aa67cb530"
-PKG_REV="2"
+PKG_VERSION="8f9b8bcc54816b3ba6dc5aa24f11c35ffd128bf4"
+PKG_SHA256="0cb103ddf4876c35e7f1a2e8ddf4871fa56b9d0d367f30324cd2f58b0b268959"
+PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/notspiff/screensaver.cpblobs"

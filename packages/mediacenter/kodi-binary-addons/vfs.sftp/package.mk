@@ -2,9 +2,9 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="vfs.sftp"
-PKG_VERSION="6749200e5bf579e78bf0c7b37224d2b47382d9a7"
-PKG_SHA256="f2cc81789cfe78cb026cf00b19fac6bca07eeb3e50a06c0bcdd218d61f1167fe"
-PKG_REV="3"
+PKG_VERSION="b9fbb2298bb55adde3fbb46f2c2ab6ca2c2a6b0d"
+PKG_SHA256="860075f0b200a798e103947cb3f1dcc65b952df0db01b9a6d24f9f71c0cc8410"
+PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://kodi.tv"

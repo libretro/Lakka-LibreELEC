@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.reicast"
-PKG_VERSION="da758eabc2ac8df92d5dc4688772c7a40d58904c"
-PKG_SHA256="c07d72c50796459611088b44ce4751daaf043b0dae2d4fee7fa008634acdb96a"
-PKG_REV="113"
+PKG_VERSION="bf615a08d2d374fd774e6b0d277bc9280a3c064a"
+PKG_SHA256="5ae936037be132f85dd1832a3bb32e6095e8135a60ed13fefe40e571546e0b0f"
+PKG_REV="114"
 # no openGL suport in retroplayer yet
 PKG_ARCH="none"
 PKG_LICENSE="GPL"
