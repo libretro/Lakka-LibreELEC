@@ -17,5 +17,6 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --disable-largefile"
 
 post_makeinstall_target() {
-  cp $PKG_BUILD/common/utils.h $SYSROOT_PREFIX/usr/include/libimobiledevice/
+  mkdir -p "${SYSROOT_PREFIX}/usr/include/lib/libimobiledevice"
+    cp ${PKG_BUILD}/common/utils.h "${SYSROOT_PREFIX}/usr/include/libimobiledevice"
 }
