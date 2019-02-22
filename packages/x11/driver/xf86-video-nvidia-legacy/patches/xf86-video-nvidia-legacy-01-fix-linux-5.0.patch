@@ -1,0 +1,257 @@
+From 8ca52f318962cf0f5d4fba74f676c4c58940d7a6 Mon Sep 17 00:00:00 2001
+From: MilhouseVH <milhouseVH.github@nmacleod.com>
+Date: Fri, 22 Feb 2019 21:19:00 +0000
+Subject: [PATCH] fix build for 5.0
+
+Source: https://devtalk.nvidia.com/default/topic/1047179/linux/-solved-nvidia-340-107-linux-5-0-rc5-failed-to-build-kernel-module/post/5315771/#5315771
+---
+ kernel/Makefile               |  2 ++
+ kernel/conftest.sh            | 33 +++++++++++++++++++++++++++++++++
+ kernel/nv-drm.c               | 12 +++++++++++-
+ kernel/nv-time.h              | 24 ++++++++++++++++++++++++
+ kernel/os-interface.c         | 13 +++++++------
+ kernel/uvm/Makefile           |  1 +
+ kernel/uvm/nvidia_uvm_linux.h |  1 +
+ kernel/uvm/nvidia_uvm_lite.c  |  4 ++--
+ 8 files changed, 81 insertions(+), 9 deletions(-)
+ create mode 100644 kernel/nv-time.h
+
+diff --git a/kernel/Makefile b/kernel/Makefile
+index 8ac3c1a..1959dce 100644
+--- a/kernel/Makefile
++++ b/kernel/Makefile
+@@ -147,6 +147,8 @@ COMPILE_TESTS = \
+ 	vm_fault_present \
+ 	vm_fault_has_address \
+ 	drm_driver_unload_has_int_return_type \
++	drm_gem_object_get \
++	do_gettimeofday \
+ 	drm_legacy_pci_init \
+ 	timer_setup
+ #
+diff --git a/kernel/conftest.sh b/kernel/conftest.sh
+index 64d75a1..fb0bf60 100755
+--- a/kernel/conftest.sh
++++ b/kernel/conftest.sh
+@@ -168,6 +168,7 @@ test_headers() {
+     FILES="$FILES linux/sched/task.h"
+     FILES="$FILES xen/ioemu.h"
+     FILES="$FILES linux/fence.h"
++    FILES="$FILES linux/ktime.h"
+ 
+     FILES_ARCH="$FILES_ARCH asm/set_memory.h"
+ 
+@@ -1971,6 +1972,38 @@ compile_test() {
+             compile_check_conftest "$CODE" "NV_DRM_DRIVER_UNLOAD_HAS_INT_RETURN_TYPE" "" "types"
+         ;;
+ 
++        drm_gem_object_get)
++            #
++            # Determine if the function drm_gem_object_get() is present.
++            #
++            CODE="
++            #include <drm/drmP.h>
++            #if defined(NV_DRM_DRM_GEM_H_PRESENT)
++            #include <drm/drm_gem.h>
++            #endif
++            void conftest_drm_gem_object_get(void) {
++                drm_gem_object_get();
++            }"
++
++            compile_check_conftest "$CODE" "NV_DRM_GEM_OBJECT_GET_PRESENT" "" "functions"
++        ;;
++
++        do_gettimeofday)
++            #
++            # Determine if the function do_gettimeofday() is present.
++            #
++            CODE="
++            #include <linux/time.h>
++            #if defined(NV_LINUX_KTIME_H_PRESENT)
++            #include <linux/ktime.h>
++            #endif
++            void conftest_do_gettimeofday(void) {
++                do_gettimeofday();
++            }"
++
++            compile_check_conftest "$CODE" "NV_DO_GETTIMEOFDAY_PRESENT" "" "functions"
++        ;;
++
+         drm_legacy_pci_init)
+             #
+             # Determine if drm_legacy_pci_init() is present. drm_pci_init() was
+diff --git a/kernel/nv-drm.c b/kernel/nv-drm.c
+index 0eb72e4..1c968de 100644
+--- a/kernel/nv-drm.c
++++ b/kernel/nv-drm.c
+@@ -37,6 +37,16 @@ struct nv_gem_object {
+     struct page **pages;
+ };
+ 
++static inline void
++nv_drm_gem_object_unreference_unlocked(struct nv_gem_object *nv_gem)
++{
++#if defined(NV_DRM_GEM_OBJECT_GET_PRESENT)
++    drm_gem_object_put_unlocked(&nv_gem->base);
++#else
++    drm_gem_object_unreference_unlocked(&nv_gem->base);
++#endif
++}
++
+ static int nv_drm_load(
+     struct drm_device *dev,
+     unsigned long flags
+@@ -252,7 +262,7 @@ RM_STATUS NV_API_CALL nv_alloc_os_descriptor_handle(
+         goto done;
+     }
+ 
+-    drm_gem_object_unreference_unlocked(&nv_obj->base);
++    nv_drm_gem_object_unreference_unlocked(nv_obj);
+ 
+     status = RM_OK;
+ 
+diff --git a/kernel/nv-time.h b/kernel/nv-time.h
+new file mode 100644
+index 0000000..cc828aa
+--- /dev/null
++++ b/kernel/nv-time.h
+@@ -0,0 +1,24 @@
++#ifndef __NV_TIME_H__
++#define __NV_TIME_H__
++
++#include "conftest.h"
++#include <linux/time.h>
++
++#if defined(NV_LINUX_KTIME_H_PRESENT)
++#include <linux/ktime.h>
++#endif
++
++static inline void nv_gettimeofday(struct timeval *tv)
++{
++#ifdef NV_DO_GETTIMEOFDAY_PRESENT
++    do_gettimeofday(tv);
++#else
++    struct timespec64 now;
++
++    ktime_get_real_ts64(&now);
++    tv->tv_sec = now.tv_sec;
++    tv->tv_usec = now.tv_nsec/1000;
++#endif
++}
++
++#endif
+diff --git a/kernel/os-interface.c b/kernel/os-interface.c
+index 7e3d362..7190b26 100644
+--- a/kernel/os-interface.c
++++ b/kernel/os-interface.c
+@@ -13,6 +13,7 @@
+ 
+ #include "os-interface.h"
+ #include "nv-linux.h"
++#include "nv-time.h"
+ 
+ RM_STATUS NV_API_CALL os_disable_console_access(void)
+ {
+@@ -440,7 +441,7 @@ RM_STATUS NV_API_CALL os_get_current_time(
+ {
+     struct timeval tm;
+ 
+-    do_gettimeofday(&tm);
++    nv_gettimeofday(&tm);
+ 
+     *seconds = tm.tv_sec;
+     *useconds = tm.tv_usec;
+@@ -475,7 +476,7 @@ RM_STATUS NV_API_CALL os_delay_us(NvU32 MicroSeconds)
+ #ifdef NV_CHECK_DELAY_ACCURACY
+     struct timeval tm1, tm2;
+ 
+-    do_gettimeofday(&tm1);
++    nv_gettimeofday(&tm1);
+ #endif
+ 
+     if (in_irq() && (MicroSeconds > NV_MAX_ISR_DELAY_US))
+@@ -490,7 +491,7 @@ RM_STATUS NV_API_CALL os_delay_us(NvU32 MicroSeconds)
+         udelay(usec);
+ 
+ #ifdef NV_CHECK_DELAY_ACCURACY
+-    do_gettimeofday(&tm2);
++    nv_gettimeofday(&tm2);
+     nv_printf(NV_DBG_ERRORS, "NVRM: osDelayUs %d: 0x%x 0x%x\n",
+         MicroSeconds, tm2.tv_sec - tm1.tv_sec, tm2.tv_usec - tm1.tv_usec);
+ #endif
+@@ -518,7 +519,7 @@ RM_STATUS NV_API_CALL os_delay(NvU32 MilliSeconds)
+     struct timeval tm_start;
+ #endif
+ 
+-    do_gettimeofday(&tm_aux);
++    nv_gettimeofday(&tm_aux);
+ #ifdef NV_CHECK_DELAY_ACCURACY
+     tm_start = tm_aux;
+ #endif
+@@ -552,7 +553,7 @@ RM_STATUS NV_API_CALL os_delay(NvU32 MilliSeconds)
+         do
+         {
+             schedule_timeout(jiffies);
+-            do_gettimeofday(&tm_aux);
++            nv_gettimeofday(&tm_aux);
+             if (NV_TIMERCMP(&tm_aux, &tm_end, <))
+             {
+                 NV_TIMERSUB(&tm_end, &tm_aux, &tm_aux);
+@@ -574,7 +575,7 @@ RM_STATUS NV_API_CALL os_delay(NvU32 MilliSeconds)
+         udelay(MicroSeconds);
+     }
+ #ifdef NV_CHECK_DELAY_ACCURACY
+-    do_gettimeofday(&tm_aux);
++    nv_gettimeofday(&tm_aux);
+     timersub(&tm_aux, &tm_start, &tm_aux);
+     nv_printf(NV_DBG_ERRORS, "NVRM: osDelay %dmsec: %d.%06dsec\n",
+         MilliSeconds, tm_aux.tv_sec, tm_aux.tv_usec);
+diff --git a/kernel/uvm/Makefile b/kernel/uvm/Makefile
+index 42ad927..5c7b466 100644
+--- a/kernel/uvm/Makefile
++++ b/kernel/uvm/Makefile
+@@ -171,6 +171,7 @@ COMPILE_TESTS = \
+ 	kbasename \
+ 	fatal_signal_pending \
+ 	kuid_t \
++	do_gettimeofday \
+ 	vm_fault_has_address
+ 
+ MODULE_NAME:= nvidia-uvm
+diff --git a/kernel/uvm/nvidia_uvm_linux.h b/kernel/uvm/nvidia_uvm_linux.h
+index 1625209..1edb620 100644
+--- a/kernel/uvm/nvidia_uvm_linux.h
++++ b/kernel/uvm/nvidia_uvm_linux.h
+@@ -146,6 +146,7 @@
+ #include <linux/interrupt.h>        /* tasklets, interrupt helpers      */
+ #include <linux/timer.h>
+ #include <linux/time.h>             /* do_gettimeofday()*/
++#include "nv-time.h"
+ 
+ #include <asm/div64.h>              /* do_div()                         */
+ #if defined(NV_ASM_SYSTEM_H_PRESENT)
+diff --git a/kernel/uvm/nvidia_uvm_lite.c b/kernel/uvm/nvidia_uvm_lite.c
+index 246ed04..8bcf548 100644
+--- a/kernel/uvm/nvidia_uvm_lite.c
++++ b/kernel/uvm/nvidia_uvm_lite.c
+@@ -2008,7 +2008,7 @@ static RM_STATUS _check_ecc_errors(UvmGpuMigrationTracking *pMigTracker,
+     {
+         if (!!(rmInterruptSet) && !bEccIncomingError)
+         {
+-            do_gettimeofday(&eccErrorStartTime);
++            nv_gettimeofday(&eccErrorStartTime);
+             _set_timeout_in_usec(&eccErrorStartTime, &eccTimeout,
+                                  UVM_ECC_ERR_TIMEOUT_USEC);
+ 
+@@ -2040,7 +2040,7 @@ static RM_STATUS _check_ecc_errors(UvmGpuMigrationTracking *pMigTracker,
+         //
+         if (!!(rmInterruptSet) && (eccErrorStartTime.tv_usec != 0))
+         {
+-            do_gettimeofday(&eccErrorCurrentTime);
++            nv_gettimeofday(&eccErrorCurrentTime);
+             if ((eccErrorCurrentTime.tv_sec > eccTimeout.tv_sec) ||
+                 ((eccErrorCurrentTime.tv_sec == eccTimeout.tv_sec) &&
+                 (eccErrorCurrentTime.tv_usec >= eccTimeout.tv_usec)))
+-- 
+2.14.1
+
