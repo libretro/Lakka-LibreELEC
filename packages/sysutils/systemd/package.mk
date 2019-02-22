@@ -94,83 +94,83 @@ pre_configure_target() {
 
 post_makeinstall_target() {
   # remove unneeded stuff
-  rm -rf $INSTALL/etc/init.d
-  rm -rf $INSTALL/etc/pam.d
-  rm -rf $INSTALL/etc/systemd/system
-  rm -rf $INSTALL/etc/xdg
-  rm -rf $INSTALL/etc/X11
-  rm  -f $INSTALL/usr/bin/kernel-install
-  rm -rf $INSTALL/usr/lib/kernel/install.d
-  rm -rf $INSTALL/usr/lib/rpm
-  rm -rf $INSTALL/usr/lib/systemd/user
-  rm -rf $INSTALL/usr/lib/tmpfiles.d/etc.conf
-  rm -rf $INSTALL/usr/lib/tmpfiles.d/home.conf
-  rm -rf $INSTALL/usr/share/factory
-  rm -rf $INSTALL/usr/share/zsh
+  safe_remove $INSTALL/etc/init.d
+  safe_remove $INSTALL/etc/pam.d
+  safe_remove $INSTALL/etc/systemd/system
+  safe_remove $INSTALL/etc/xdg
+  safe_remove $INSTALL/etc/X11
+  safe_remove $INSTALL/usr/bin/kernel-install
+  safe_remove $INSTALL/usr/lib/kernel/install.d
+  safe_remove $INSTALL/usr/lib/rpm
+  safe_remove $INSTALL/usr/lib/systemd/user
+  safe_remove $INSTALL/usr/lib/tmpfiles.d/etc.conf
+  safe_remove $INSTALL/usr/lib/tmpfiles.d/home.conf
+  safe_remove $INSTALL/usr/share/factory
+  safe_remove $INSTALL/usr/share/zsh
 
   # clean up hwdb
-  rm -f $INSTALL/usr/lib/udev/hwdb.d/20-OUI.hwdb
-  rm -f $INSTALL/usr/lib/udev/hwdb.d/20-acpi-vendor.hwdb
-  rm -f $INSTALL/usr/lib/udev/hwdb.d/20-bluetooth-vendor-product.hwdb
-  rm -f $INSTALL/usr/lib/udev/hwdb.d/20-net-ifname.hwdb
-  rm -f $INSTALL/usr/lib/udev/hwdb.d/20-sdio-classes.hwdb
-  rm -f $INSTALL/usr/lib/udev/hwdb.d/20-sdio-vendor-model.hwdb
+  safe_remove $INSTALL/usr/lib/udev/hwdb.d/20-OUI.hwdb
+  safe_remove $INSTALL/usr/lib/udev/hwdb.d/20-acpi-vendor.hwdb
+  safe_remove $INSTALL/usr/lib/udev/hwdb.d/20-bluetooth-vendor-product.hwdb
+  safe_remove $INSTALL/usr/lib/udev/hwdb.d/20-net-ifname.hwdb
+  safe_remove $INSTALL/usr/lib/udev/hwdb.d/20-sdio-classes.hwdb
+  safe_remove $INSTALL/usr/lib/udev/hwdb.d/20-sdio-vendor-model.hwdb
 
   # remove Network adaper renaming rule, this is confusing
-  rm -rf $INSTALL/usr/lib/udev/rules.d/80-net-setup-link.rules
+  safe_remove $INSTALL/usr/lib/udev/rules.d/80-net-setup-link.rules
 
   # remove the uaccess rules as we don't build systemd with ACL (see https://github.com/systemd/systemd/issues/4107)
-  rm -rf $INSTALL/usr/lib/udev/rules.d/70-uaccess.rules
-  rm -rf $INSTALL/usr/lib/udev/rules.d/71-seat.rules
-  rm -rf $INSTALL/usr/lib/udev/rules.d/73-seat-late.rules
+  safe_remove $INSTALL/usr/lib/udev/rules.d/70-uaccess.rules
+  safe_remove $INSTALL/usr/lib/udev/rules.d/71-seat.rules
+  safe_remove $INSTALL/usr/lib/udev/rules.d/73-seat-late.rules
 
   # remove debug-shell.service, we install our own
-  rm -rf $INSTALL/usr/lib/systemd/system/debug-shell.service
+  safe_remove $INSTALL/usr/lib/systemd/system/debug-shell.service
 
   # remove getty units, we dont want a console
-  rm -rf $INSTALL/usr/lib/systemd/system/autovt@.service
-  rm -rf $INSTALL/usr/lib/systemd/system/console-getty.service
-  rm -rf $INSTALL/usr/lib/systemd/system/console-shell.service
-  rm -rf $INSTALL/usr/lib/systemd/system/container-getty@.service
-  rm -rf $INSTALL/usr/lib/systemd/system/getty.target
-  rm -rf $INSTALL/usr/lib/systemd/system/getty@.service
-  rm -rf $INSTALL/usr/lib/systemd/system/serial-getty@.service
-  rm -rf $INSTALL/usr/lib/systemd/system/*.target.wants/getty.target
+  safe_remove $INSTALL/usr/lib/systemd/system/autovt@.service
+  safe_remove $INSTALL/usr/lib/systemd/system/console-getty.service
+  safe_remove $INSTALL/usr/lib/systemd/system/console-shell.service
+  safe_remove $INSTALL/usr/lib/systemd/system/container-getty@.service
+  safe_remove $INSTALL/usr/lib/systemd/system/getty.target
+  safe_remove $INSTALL/usr/lib/systemd/system/getty@.service
+  safe_remove $INSTALL/usr/lib/systemd/system/serial-getty@.service
+  safe_remove $INSTALL/usr/lib/systemd/system/*.target.wants/getty.target
 
   # remove other notused or nonsense stuff (our /etc is ro)
-  rm -rf $INSTALL/usr/lib/systemd/systemd-update-done
-  rm -rf $INSTALL/usr/lib/systemd/system/systemd-update-done.service
-  rm -rf $INSTALL/usr/lib/systemd/system/*.target.wants/systemd-update-done.service
+  safe_remove $INSTALL/usr/lib/systemd/systemd-update-done
+  safe_remove $INSTALL/usr/lib/systemd/system/systemd-update-done.service
+  safe_remove $INSTALL/usr/lib/systemd/system/*.target.wants/systemd-update-done.service
 
   # remove systemd-udev-hwdb-update. we have own hwdb.service
-  rm -rf $INSTALL/usr/lib/systemd/system/systemd-udev-hwdb-update.service
-  rm -rf $INSTALL/usr/lib/systemd/system/*.target.wants/systemd-udev-hwdb-update.service
+  safe_remove $INSTALL/usr/lib/systemd/system/systemd-udev-hwdb-update.service
+  safe_remove $INSTALL/usr/lib/systemd/system/*.target.wants/systemd-udev-hwdb-update.service
 
   # remove systemd-user-sessions
-  rm -rf $INSTALL/usr/lib/systemd/system/systemd-user-sessions.service
-  rm -rf $INSTALL/usr/lib/systemd/system/*.target.wants/systemd-user-sessions.service
+  safe_remove $INSTALL/usr/lib/systemd/system/systemd-user-sessions.service
+  safe_remove $INSTALL/usr/lib/systemd/system/*.target.wants/systemd-user-sessions.service
 
   # remove nspawn
-  rm -rf $INSTALL/usr/bin/systemd-nspawn
-  rm -rf $INSTALL/usr/lib/systemd/system/systemd-nspawn@.service
+  safe_remove $INSTALL/usr/bin/systemd-nspawn
+  safe_remove $INSTALL/usr/lib/systemd/system/systemd-nspawn@.service
 
   # remove genetators/catalog
-  rm -rf $INSTALL/usr/lib/systemd/system-generators
-  rm -rf $INSTALL/usr/lib/systemd/catalog
+  safe_remove $INSTALL/usr/lib/systemd/system-generators
+  safe_remove $INSTALL/usr/lib/systemd/catalog
 
   # remove partition
-  rm -rf $INSTALL/usr/lib/systemd/systemd-growfs
-  rm -rf $INSTALL/usr/lib/systemd/systemd-makefs
+  safe_remove $INSTALL/usr/lib/systemd/systemd-growfs
+  safe_remove $INSTALL/usr/lib/systemd/systemd-makefs
 
   # distro preset policy
-  rm -f $INSTALL/usr/lib/systemd/system-preset/*
+  safe_remove $INSTALL/usr/lib/systemd/system-preset/*
   echo "disable *" > $INSTALL/usr/lib/systemd/system-preset/99-default.preset
 
-  rm -f $INSTALL/usr/lib/systemd/user-preset/*
+  safe_remove $INSTALL/usr/lib/systemd/user-preset/*
   echo "disable *" > $INSTALL/usr/lib/systemd/user-preset/90-systemd.preset
 
   # remove networkd
-  rm -rf $INSTALL/usr/lib/systemd/network
+  safe_remove $INSTALL/usr/lib/systemd/network
 
   # tune journald.conf
   sed -e "s,^.*Compress=.*$,Compress=no,g" -i $INSTALL/etc/systemd/journald.conf
@@ -184,10 +184,10 @@ post_makeinstall_target() {
   sed -e "s,^.*HandlePowerKey=.*$,HandlePowerKey=ignore,g" -i $INSTALL/etc/systemd/logind.conf
 
   # replace systemd-machine-id-setup with ours
-  rm -rf $INSTALL/usr/lib/systemd/systemd-machine-id-commit
-  rm -rf $INSTALL/usr/lib/systemd/system/systemd-machine-id-commit.service
-  rm -rf $INSTALL/usr/lib/systemd/system/*.target.wants/systemd-machine-id-commit.service
-  rm -rf $INSTALL/usr/bin/systemd-machine-id-setup
+  safe_remove $INSTALL/usr/lib/systemd/systemd-machine-id-commit
+  safe_remove $INSTALL/usr/lib/systemd/system/systemd-machine-id-commit.service
+  safe_remove $INSTALL/usr/lib/systemd/system/*.target.wants/systemd-machine-id-commit.service
+  safe_remove $INSTALL/usr/bin/systemd-machine-id-setup
   mkdir -p $INSTALL/usr/bin
   cp $PKG_DIR/scripts/systemd-machine-id-setup $INSTALL/usr/bin
   cp $PKG_DIR/scripts/userconfig-setup $INSTALL/usr/bin
@@ -211,19 +211,19 @@ post_makeinstall_target() {
   mkdir -p $INSTALL/usr/config
   cp -PR $PKG_DIR/config/* $INSTALL/usr/config
 
-  rm -rf $INSTALL/etc/modules-load.d
+  safe_remove $INSTALL/etc/modules-load.d
   ln -sf /storage/.config/modules-load.d $INSTALL/etc/modules-load.d
-  rm -rf $INSTALL/etc/systemd/logind.conf.d
+  safe_remove $INSTALL/etc/systemd/logind.conf.d
   ln -sf /storage/.config/logind.conf.d $INSTALL/etc/systemd/logind.conf.d
-  rm -rf $INSTALL/etc/systemd/sleep.conf.d
+  safe_remove $INSTALL/etc/systemd/sleep.conf.d
   ln -sf /storage/.config/sleep.conf.d $INSTALL/etc/systemd/sleep.conf.d
-  rm -rf $INSTALL/etc/sysctl.d
+  safe_remove $INSTALL/etc/sysctl.d
   ln -sf /storage/.config/sysctl.d $INSTALL/etc/sysctl.d
-  rm -rf $INSTALL/etc/tmpfiles.d
+  safe_remove $INSTALL/etc/tmpfiles.d
   ln -sf /storage/.config/tmpfiles.d $INSTALL/etc/tmpfiles.d
-  rm -rf $INSTALL/etc/udev/hwdb.d
+  safe_remove $INSTALL/etc/udev/hwdb.d
   ln -sf /storage/.config/hwdb.d $INSTALL/etc/udev/hwdb.d
-  rm -rf $INSTALL/etc/udev/rules.d
+  safe_remove $INSTALL/etc/udev/rules.d
   ln -sf /storage/.config/udev.rules.d $INSTALL/etc/udev/rules.d
 }
 
