@@ -313,7 +313,7 @@ def processPackages(args, packages, build):
                     elif not args.ignore_invalid:
                         raise Exception("Invalid package! Package %s cannot be found for this PROJECT/DEVICE/ARCH" % dfq_p)
 
-    # To each target-specific node, add the correspnding
+    # To each target-specific node, add the corresponding
     # target-specific dependency nodes ("edges")
     for name in node_map:
         node = node_map[name]
