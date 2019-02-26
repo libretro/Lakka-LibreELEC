@@ -373,13 +373,17 @@ fi
 
 pkg_call_exists post_make_$TARGET && pkg_call post_make_$TARGET
 
-# make install writes directly to sysroot which then needs fixing up - this is racy
-if listcontains "configure:target cmake-make:target autotools:target make:target" "${PKG_TOOLCHAIN}:${TARGET}"; then
-  acquire_exclusive_lock "${PKG_NAME}:${TARGET}" "build"
-  PKG_NEED_UNLOCK=yes
-else
-  PKG_NEED_UNLOCK=no
-fi
+# Hack around directly writing/modifying the content of a shared sysroot
+# by temporarily installing new files to a package specific sysroot
+PKG_ORIG_SYSROOT_PREFIX="${SYSROOT_PREFIX}"
+export SYSROOT_PREFIX="${BUILD}/.sysroot/${PKG_NAME}.${TARGET}"
+rm -rf "${SYSROOT_PREFIX}"
+
+# Create common sysroot directories as some packages expect them to exist.
+# TODO: Fix those packages so we don't need to pre-create directories.
+for d in /usr/lib /usr/include /usr/bin /usr/lib/pkgconfig; do
+  mkdir -p "${SYSROOT_PREFIX}${d}"
+done
 
 # make install
 pkg_call_exists pre_makeinstall_$TARGET && pkg_call pre_makeinstall_$TARGET
@@ -422,14 +426,26 @@ fi
 
 pkg_call_exists post_makeinstall_$TARGET && pkg_call post_makeinstall_$TARGET
 
-# This is the racy part - one or more processes may be creating, modifying or deleting
-# $SYSROOT_PREFIX/usr/lib/*.la files while another (eg. this) process is rewriting the same
-# files as it fixes up the libdir prefix. Eugh.
-for i in $(find $SYSROOT_PREFIX/usr/lib/ -name "*.la" 2>/dev/null); do
-  sed -e "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" -i $i
+# Fixup temporary sysroot references to the shared sysroot
+for i in $(find "${SYSROOT_PREFIX}/usr/lib" -type f -name "*.la" 2>/dev/null); do
+  sed -e "s:\(['= ]\)/usr:\\1${PKG_ORIG_SYSROOT_PREFIX}/usr:g" -i "${i}"
+done
+for i in $(find "${SYSROOT_PREFIX}/usr/bin" -type f -name "*-config" 2>/dev/null); do
+  sed -e "s#${SYSROOT_PREFIX}/usr#${PKG_ORIG_SYSROOT_PREFIX}/usr#g" -i "${i}"
+done
+for i in $(find "${SYSROOT_PREFIX}/usr/lib" -type f -name "*.pc" 2>/dev/null); do
+  sed -e "s#${SYSROOT_PREFIX}/usr#${PKG_ORIG_SYSROOT_PREFIX}/usr#g" -i "${i}"
+done
+for i in $(find "${SYSROOT_PREFIX}/usr"/{lib,share} -type f -name "*.cmake" 2>/dev/null); do
+  sed -e "s#${SYSROOT_PREFIX}/usr#${PKG_ORIG_SYSROOT_PREFIX}/usr#g" -i "${i}"
 done
 
-[ "${PKG_NEED_UNLOCK}" = "yes" ] && release_exclusive_lock "${PKG_NAME}:${TARGET}" "build"
+# Transfer the new sysroot content to the shared sysroot
+mkdir -p "${PKG_ORIG_SYSROOT_PREFIX}"
+cp -PR "${SYSROOT_PREFIX}"/* "${PKG_ORIG_SYSROOT_PREFIX}"
+rm -rf "${SYSROOT_PREFIX}"
+
+export SYSROOT_PREFIX="${PKG_ORIG_SYSROOT_PREFIX}"
 
 if [ "$TARGET" = "target" -o "$TARGET" = "init" ]; then
   if [ -d $INSTALL ]; then

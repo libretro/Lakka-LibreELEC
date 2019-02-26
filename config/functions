@@ -1261,11 +1261,15 @@ pkg_lock_status() {
   local status="$1" pkg="$2" task="$3" msg="$4"
   local this_job="${MTJOBID}" line
 
-  printf -v line "%s: <%05d> [%02d/%0*d] %-7s %-7s %-35s" \
-    "$(date +%Y-%m-%d\ %H:%M:%S.%N)" $$ ${this_job} ${#MTMAXJOBS} ${PARALLEL_SEQ:-0} "${status}" "${task}" "${pkg}"
-  [ -n "${msg}" ] && line+=" (${msg})"
+  (
+    flock --exclusive 94
 
-  echo "${line}" >>"${THREAD_CONTROL}/history"
+    printf -v line "%s: <%05d> [%02d/%0*d] %-7s %-7s %-35s" \
+    "$(date +%Y-%m-%d\ %H:%M:%S.%N)" $$ ${this_job} ${#MTMAXJOBS} ${PARALLEL_SEQ:-0} "${status}" "${task}" "${pkg}"
+    [ -n "${msg}" ] && line+=" (${msg})"
+
+    echo "${line}" >>"${THREAD_CONTROL}/history"
+  ) 94>"${THREAD_CONTROL}/locks/.history"
 
   [ "${DASHBOARD}" != "no" ] && update_dashboard "${status}" "${pkg}" "${task}" "${msg}"
 
