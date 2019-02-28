@@ -10,11 +10,16 @@ if [ -n "${PROJECT}" -a "$1" != "auto" ]; then
 fi
 
 _find_latest_tcdir() {
+  local IFS=$'\n'
+
   if [ -n "${THREAD_CONTROL}" ]; then
     echo "${THREAD_CONTROL}"
   else
-    ls -1tdr "${PWD}"/build.*/.threads 2>/dev/null | tail -1
+    for dir in $(ls -1td "${PWD}"/build.*/.threads 2>/dev/null); do
+      [ -f "${dir}/parallel.pid" ] && echo "${dir}" && break
+    done
   fi
+  return 0
 }
 
 while [ : ]; do
@@ -24,7 +29,7 @@ while [ : ]; do
     tcdir="$(_find_latest_tcdir)"
 
     if [ -n "${tcdir}" ]; then
-      pid="$(cat "${tcdir}/pid" 2>/dev/null || true)"
+      pid="$(cat "${tcdir}/parallel.pid" 2>/dev/null || true)"
       [ -n "${pid}" ] && ps -p ${pid} &>/dev/null && break
     fi
 
