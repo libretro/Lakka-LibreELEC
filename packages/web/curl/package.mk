@@ -11,11 +11,11 @@
 #   there: http://forum.xbmc.org/showthread.php?tid=177557
 
 PKG_NAME="curl"
-PKG_VERSION="7.62.0"
-PKG_SHA256="7802c54076500be500b171fde786258579d60547a3a35b8c5a23d8c88e8f9620"
+PKG_VERSION="7.64.0"
+PKG_SHA256="2f2f13fa34d44aa29cb444077ad7dc4dc6d189584ad552e0aaeb06e608af6001"
 PKG_LICENSE="MIT"
 PKG_SITE="http://curl.haxx.se"
-PKG_URL="http://curl.haxx.se/download/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_URL="http://curl.haxx.se/download/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain zlib openssl rtmpdump"
 PKG_LONGDESC="Client and library for (HTTP, HTTPS, FTP, ...) transfers."
 PKG_TOOLCHAIN="configure"
