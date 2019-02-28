@@ -51,6 +51,13 @@ resolve_hash() {
   fi
 }
 
+resolve_tag() {
+  if [ -d "$1" ] ; then
+    cd "$1"
+    git describe --abbrev=0 --tags $2 2>/dev/null
+  fi
+}
+
 # Get url in git:// notation for a package.mk, assuming it is a github.com url
 # Return 1 if not a github domain
 geturl() {
@@ -94,7 +101,7 @@ get_pkg_var() {
 
 update_pkg() {
   local pkg_path="$1" pkg_name="$2" pkg_version="$3"
-  local old_version pkg_url new_sha256
+  local old_version pkg_url new_sha256 pkg_rev
 
   old_version=$(get_pkg_var "${pkg_name}" PKG_VERSION)
 
@@ -105,7 +112,28 @@ update_pkg() {
 
     new_sha256="$(wget -q ${pkg_url} -O- | sha256sum | awk '{print $1}')" || exit 1
     sed -e "s|PKG_SHA256=.*|PKG_SHA256=\"${new_sha256}\"|g" -i ${pkg_path}
+}
+
+update_to_latest_tag() {
+  local package_mk="$1" pkg_name="$2" repo="$3" branch="$4" ref="$5"
+  local gitdir=${pkg_name}.git
+  local resolved_version
+
+  git_clone ${repo} ${branch} ${gitdir} ${ref}
+
+  resolved_version=$(resolve_tag ${gitdir} ${ref})
+  if [ -z "${resolved_version}" ]; then
+    echo "========================================================================"
+    echo "ERROR: no tag found for package ${pkg_name}, falling back to HEAD"
+    echo "========================================================================"
+    resolved_version=$(resolve_hash ${gitdir} ${ref})
   fi
+
+  echo "Resolved version for ${pkg_name}: ${ref} => ${resolved_version}"
+
+  update_pkg ${package_mk} ${pkg_name} ${resolved_version}
+
+  rm -rf ${gitdir}
 }
 
 if [ ! -d ${KODI_DIR} ] ; then
@@ -152,27 +180,21 @@ for addontxt in $KODI_DIR/cmake/addons/bootstrap/repositories/*-addons.txt ; do
 
     REPO=$(cat $addon/$ADDON.txt | awk '{print $2}')
     GIT_HASH=$(cat $addon/$ADDON.txt | awk '{print $3}')
-    PKG_NAME="$ADDON"
 
     # Verify the Kodi repo matches our package repo
     # If different, ignore the addon and process it later as an "unofficial" addon
     validate_pkg_url "$ADDON" "$REPO" || continue
 
-    PROCESSED="${PROCESSED}${PKG_NAME}\n"
+    PROCESSED="${PROCESSED}${ADDON}\n"
 
     if ! grep -q all $addon/platforms.txt && ! grep -q linux $addon/platforms.txt && ! grep -q ! $addon/platforms.txt; then
       continue
     fi
 
     if [ -f ${ROOT}/packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ] ; then
-      git_clone $REPO ${KODI_BRANCH} $PKG_NAME.git $GIT_HASH
-
-      # update package.mk
-      RESOLVED_HASH=$(resolve_hash $PKG_NAME.git $GIT_HASH)
-      echo "Resolving hash for ${PKG_NAME}: ${GIT_HASH} => ${RESOLVED_HASH}"
-      update_pkg ${ROOT}/packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ${PKG_NAME} ${RESOLVED_HASH}
-
-      rm -rf $PKG_NAME.git
+      update_to_latest_tag \
+        ${ROOT}/packages/mediacenter/kodi-binary-addons/${ADDON}/package.mk \
+        ${ADDON} ${REPO} ${KODI_BRANCH} ${GIT_HASH}
     else
       echo "[mkpkg] Skipped $ADDON"
       SKIPPED_ADDONS="$SKIPPED_ADDONS $ADDON"
