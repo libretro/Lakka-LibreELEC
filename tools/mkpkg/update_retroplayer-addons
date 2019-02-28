@@ -10,6 +10,9 @@ if [ "$1" == "-f" ]; then
   shift
 fi
 
+# the following environment variables can be set to "yes" to enable optional features:
+# KEEP_GIT_DIRS: don't delete cloned git directories after update check
+
 MY_DIR="$(dirname "$0")"
 ROOT="$(cd "${MY_DIR}"/../.. && pwd)"
 TMPDIR="$(pwd)/.update-retroplayer-tmp"
@@ -37,6 +40,8 @@ for addontxt in "game-binary-addons https://github.com/kodi-game/repo-binary-add
       continue
     fi
 
+    GAME_GIT_DIR="${GAME_ADDON}.git"
+    GAME_GIT_REPO=$(cat $addon/${GAME_ADDON}.txt | awk '{print $2}')
     GAME_GIT_BRANCH=$(cat $addon/${GAME_ADDON}.txt | awk '{print $3}')
     GAME_PATH="${ROOT}/packages/mediacenter/kodi-binary-addons/${GAME_ADDON}"
 
@@ -58,17 +63,28 @@ for addontxt in "game-binary-addons https://github.com/kodi-game/repo-binary-add
     BUMPED=""
     CHECK_RETRO=""
 
-    GAME_VERSION=$(get_pkg_var "${GAME_ADDON}" PKG_VERSION)
-    GAME_PKG_SITE=$(get_pkg_var "${GAME_ADDON}" PKG_SITE)
-    GAME_NEW_HASH=$(git ls-remote $GAME_PKG_SITE $GAME_GIT_BRANCH | awk '{print $1}')
+    git_clone "${GAME_GIT_REPO}" "${GAME_GIT_BRANCH}" "${GAME_GIT_DIR}" "${GAME_GIT_BRANCH}"
+    GAME_NEW_VERSION=$(resolve_tag "${GAME_GIT_DIR}" "${GAME_GIT_BRANCH}")
+    if [ -z "${GAME_NEW_VERSION}" ]; then
+      echo "========================================================================"
+      msg_warn "WARNING: no tag found for addon ${GAME_ADDON}, falling back to HEAD"
+      echo "========================================================================"
+      GAME_NEW_VERSION=$(resolve_hash "${GAME_GIT_DIR}" "${GAME_GIT_BRANCH}")
+    fi
 
-    if [ "${GAME_VERSION}" != "${GAME_NEW_HASH}" ]; then
+    if [ "${KEEP_GIT_DIRS}" != "yes" ]; then
+      rm -rf "${GAME_GIT_DIR}"
+    fi
+
+    GAME_VERSION=$(get_pkg_var "${GAME_ADDON}" PKG_VERSION)
+
+    if [ "${GAME_VERSION}" != "${GAME_NEW_VERSION}" ]; then
       BUMPED="yes"
       [ -n "${RETRO_NAME}" ] && CHECK_RETRO="yes"
-      set_pkg_version "${GAME_PATH}" "${GAME_NEW_HASH}"
+      set_pkg_version "${GAME_PATH}" "${GAME_NEW_VERSION}"
       download_pkg_file "${GAME_ADDON}"
       set_pkg_sha256 "${GAME_PATH}"
-      msg_info "UPDATED ${GAME_ADDON} from ${GAME_VERSION} to ${GAME_NEW_HASH}"
+      msg_info "UPDATED ${GAME_ADDON} from ${GAME_VERSION} to ${GAME_NEW_VERSION}"
     fi
 
     if [ -n "${FORCE_LIBRETRO_BUMP}" -a -n "${RETRO_NAME}" -a -z "${CHECK_RETRO}" ]; then
