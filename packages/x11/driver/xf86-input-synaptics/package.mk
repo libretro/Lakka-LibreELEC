@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="xf86-input-synaptics"
-PKG_VERSION="1.9.0"
-PKG_SHA256="afba3289d7a40217a19d90db98ce181772f9ca6d77e1898727b0afcf02073b5a"
+PKG_VERSION="1.9.1"
+PKG_SHA256="7af83526eff1c76e8b9e1553b34245c203d029028d8044dd9dcf71eef1001576"
 PKG_LICENSE="GPL"
 PKG_SITE="http://lists.freedesktop.org/mailman/listinfo/xorg"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/driver/$PKG_NAME-$PKG_VERSION.tar.bz2"
