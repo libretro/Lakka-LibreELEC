@@ -9,6 +9,10 @@ if [ -z "$1" ]; then
   exit 0
 fi
 
+# the following environment variables can be set to "yes" to enable optional features:
+# KEEP_GIT_DIRS: don't delete cloned git directories after update check
+# BUMP_PKG_REV: bump PKG_REV if PKG_VERSION has changed
+
 ROOT=$(cd $(dirname $0)/../.. && pwd)
 
 KODI_BRANCH="$1"
@@ -112,6 +116,13 @@ update_pkg() {
 
     new_sha256="$(wget -q ${pkg_url} -O- | sha256sum | awk '{print $1}')" || exit 1
     sed -e "s|PKG_SHA256=.*|PKG_SHA256=\"${new_sha256}\"|g" -i ${pkg_path}
+
+    if [ "${BUMP_PKG_REV}" = "yes" ]; then
+      pkg_rev=$(get_pkg_var "${pkg_name}" PKG_REV)
+      pkg_rev=$((${pkg_rev}+1))
+      sed -e "s|PKG_REV=.*|PKG_REV=\"${pkg_rev}\"|" -i "${pkg_path}"
+    fi
+  fi
 }
 
 update_to_latest_tag() {
@@ -133,7 +144,9 @@ update_to_latest_tag() {
 
   update_pkg ${package_mk} ${pkg_name} ${resolved_version}
 
-  rm -rf ${gitdir}
+  if [ "${KEEP_GIT_DIRS}" != "yes" ]; then
+    rm -rf ${gitdir}
+  fi
 }
 
 if [ ! -d ${KODI_DIR} ] ; then
@@ -152,7 +165,9 @@ if [ -f ${ROOT}/packages/mediacenter/p8-platform/package.mk ] ; then
   echo "Resolving hash for ${PKG_NAME}: ${GIT_HASH} => ${RESOLVED_HASH}"
   sed -i "s|PKG_VERSION=.*|PKG_VERSION=\"$RESOLVED_HASH\"|g" ${ROOT}/packages/mediacenter/p8-platform/package.mk
 fi
-rm -rf $PKG_NAME.git
+if [ "${KEEP_GIT_DIRS}" != "yes" ]; then
+  rm -rf $PKG_NAME.git
+fi
 
 # kodi-platform
 REPO=$(cat $KODI_DIR/cmake/addons/depends/common/kodi-platform/kodi-platform.txt | awk '{print $2}')
@@ -165,7 +180,9 @@ if [ -f ${ROOT}/packages/mediacenter/kodi-platform/package.mk ] ; then
   RESOLVED_HASH=$(resolve_hash $PKG_NAME.git $GIT_HASH)
   update_pkg ${ROOT}/packages/mediacenter/kodi-platform/package.mk ${PKG_NAME} ${RESOLVED_HASH}
 fi
-rm -rf $PKG_NAME.git
+if [ "${KEEP_GIT_DIRS}" != "yes" ]; then
+  rm -rf $PKG_NAME.git
+fi
 
 # addons
 for addontxt in $KODI_DIR/cmake/addons/bootstrap/repositories/*-addons.txt ; do
@@ -224,5 +241,7 @@ for ADDON in $(ls -1 ${ROOT}/packages/mediacenter/kodi-binary-addons); do
   echo "Resolving hash for ${ADDON}: HEAD => ${RESOLVED_HASH}"
   update_pkg ${ROOT}/packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ${ADDON} ${RESOLVED_HASH}
 
-  rm -rf $ADDON.git
+  if [ "${KEEP_GIT_DIRS}" != "yes" ]; then
+    rm -rf $ADDON.git
+  fi
 done
