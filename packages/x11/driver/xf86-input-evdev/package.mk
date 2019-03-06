@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="xf86-input-evdev"
-PKG_VERSION="2.10.5"
-PKG_SHA256="9edaa6205baf6d2922cc4db3d8e54a7e7773b5f733b0ae90f6be7725f983b70d"
+PKG_VERSION="2.10.6"
+PKG_SHA256="8726073e81861bc7b2321e76272cbdbd33c7e1a121535a9827977265b9033ec0"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/driver/$PKG_NAME-$PKG_VERSION.tar.bz2"
