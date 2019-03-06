@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libgpg-error"
-PKG_VERSION="1.27"
-PKG_SHA256="4f93aac6fecb7da2b92871bb9ee33032be6a87b174f54abf8ddf0911a22d29d2"
+PKG_VERSION="1.35"
+PKG_SHA256="cbd5ee62a8a8c88d48c158fff4fc9ead4132aacd1b4a56eb791f9f997d07e067"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://www.gnupg.org"
 PKG_URL="https://www.gnupg.org/ftp/gcrypt/libgpg-error/$PKG_NAME-$PKG_VERSION.tar.bz2"
@@ -24,12 +24,8 @@ pre_configure_target() {
       GPGERROR_TUPLE=arm-unknown-linux-gnueabi
       GPGERROR_TARGET=linux-gnueabi
       ;;
-    i386)
-      GPGERROR_TUPLE=i486-pc-linux-gnu
-      GPGERROR_TARGET=linux-gnu
-      ;;
     x86_64)
-      GPGERROR_TUPLE=x86_64-pc-linux-gnu
+      GPGERROR_TUPLE=x86_64-unknown-linux-gnu
       GPGERROR_TARGET=linux-gnu
       ;;
   esac
