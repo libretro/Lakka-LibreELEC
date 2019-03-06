@@ -26,11 +26,6 @@ json_worker() {
 
     [[ ${pkgpath} =~ ^${ROOT}/${PACKAGES}/ ]] && hierarchy="global" || hierarchy="local"
 
-    if [ -n "$PKG_ARCH" ]; then
-      listcontains "$PKG_ARCH" "!$TARGET_ARCH" && continue
-      listcontains "$PKG_ARCH" "$TARGET_ARCH" || listcontains "$PKG_ARCH" "any" || continue
-    fi
-
     cat <<EOF
   {
     "name": "${PKG_NAME}",
@@ -61,7 +56,7 @@ package_worker() {
 
   . config/options "${pkgname}"
 
-  [ ! -f "${THREAD_CONTROL}/pid" ] && echo "${PARALLEL_PID}" >"${THREAD_CONTROL}/pid"
+  [ ! -f "${THREAD_CONTROL}/parallel.pid" ] && echo "${PARALLEL_PID}" >"${THREAD_CONTROL}/parallel.pid"
 
   ${SCRIPTS}/${task} ${pkgname} 2>&1 && result=0 || result=1
 
@@ -141,7 +136,7 @@ EOF
 export -f package_worker
 
 start_multithread_build() {
-  local singlethread buildopts
+  local singlethread buildopts result=0
 
   # init thread control folder
   rm -rf "${THREAD_CONTROL}"
@@ -174,12 +169,18 @@ start_multithread_build() {
 
   cat ${_CACHE_PACKAGE_GLOBAL} ${_CACHE_PACKAGE_LOCAL} | \
     ${TOOLCHAIN}/bin/parallel --plain --no-notice --max-args 30 --halt now,fail=1 json_worker | \
-    ${SCRIPTS}/genbuildplan.py --no-reorder --show-wants --build ${@} > "${THREAD_CONTROL}"/plan || return
+    ${SCRIPTS}/genbuildplan.py --no-reorder --show-wants --build ${@} > "${THREAD_CONTROL}"/plan || result=1
 
-  cat "${THREAD_CONTROL}"/plan | awk '{print $1 " " $2}' | \
-    MTBUILDSTART=$(date +%s) MTWITHLOCKS=yes ${TOOLCHAIN}/bin/parallel \
-      --plain --no-notice --max-procs ${THREADCOUNT} --joblog="${THREAD_CONTROL}/joblog" --plus ${buildopts} \
-      package_worker {%} {#} {##} {} || return
+  if [ ${result} -eq 0 ]; then
+    cat "${THREAD_CONTROL}"/plan | awk '{print $1 " " $2}' | \
+      MTBUILDSTART=$(date +%s) MTWITHLOCKS=yes ${TOOLCHAIN}/bin/parallel \
+        --plain --no-notice --max-procs ${THREADCOUNT} --joblog="${THREAD_CONTROL}/joblog" --plus ${buildopts} \
+        package_worker {%} {#} {##} {} || result=1
+
+    rm -f "${THREAD_CONTROL}/parallel.pid"
+  fi
 
   set +o pipefail
+
+  return ${result}
 }

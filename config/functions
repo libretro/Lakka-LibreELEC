@@ -495,7 +495,7 @@ debug_strip() {
 }
 
 init_package_cache() {
-  local _ANCHOR="@?+?@" DIR
+  local _ANCHOR="@?+?@"
   local temp_global temp_local
 
   # If the package caches are unset, then populate them
@@ -503,22 +503,16 @@ init_package_cache() {
     temp_global="$(mktemp)"
     temp_local="$(mktemp)"
 
-    # cache project/device folder for a package
-    if [ -n $DEVICE ]; then
-      for DIR in $(find $ROOT/projects/$PROJECT/devices/$DEVICE/packages -type d 2>/dev/null); do
-        [ -r "$DIR/package.mk" ] && echo "${DIR}${_ANCHOR}" >> "${temp_local}"
-      done
+    # cache project/device folder for packages
+    if [ -n "${DEVICE}" ]; then
+      find "${ROOT}/projects/${PROJECT}/devices/${DEVICE}/packages" -type f -name package.mk 2>/dev/null | sed "s#/package\.mk\$#${_ANCHOR}#" >> "${temp_local}"
     fi
 
-    # cache project folder for a package
-    for DIR in $(find $ROOT/projects/$PROJECT/packages -type d 2>/dev/null); do
-      [ -r "$DIR/package.mk" ] && echo "${DIR}${_ANCHOR}" >> "${temp_local}"
-    done
+    # cache project folder for packages
+    find "${ROOT}/projects/${PROJECT}/packages" -type f -name package.mk 2>/dev/null | sed "s#/package\.mk\$#${_ANCHOR}#" >> "${temp_local}"
 
     # cache packages folder
-    for DIR in $(find $ROOT/$PACKAGES -type d 2>/dev/null); do
-      [ -r "$DIR/package.mk" ] && echo "${DIR}${_ANCHOR}" >> "${temp_global}"
-    done
+    find "${ROOT}/${PACKAGES}" -type f -name package.mk 2>/dev/null | sed "s#/package\.mk\$#${_ANCHOR}#" >> "${temp_global}"
 
     _CACHE_PACKAGE_LOCAL="${BUILD}/.cache_package_local"
     _CACHE_PACKAGE_GLOBAL="${BUILD}/.cache_package_global"
@@ -621,14 +615,14 @@ check_device() {
 
 check_arch() {
   local dashes="===========================" arch_err_msg linux_config_dir
-  if [ -d ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/linux ]; then
+  if [ -d "${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/linux" ]; then
     linux_config_dir="${PROJECT_DIR}/${PROJECT}/devices/$DEVICE/linux"
   else
     linux_config_dir="${PROJECT_DIR}/${PROJECT}/linux"
   fi
 
-  if [ ! -e $linux_config_dir/linux.${TARGET_PATCH_ARCH:-$TARGET_ARCH}.conf ] &&
-     ! ls $linux_config_dir/*/linux.${TARGET_PATCH_ARCH:-$TARGET_ARCH}.conf &>/dev/null; then
+  if [ ! -e "$linux_config_dir/linux.${TARGET_PATCH_ARCH:-$TARGET_ARCH}.conf" ] &&
+       ! ls "$linux_config_dir/"*/linux.${TARGET_PATCH_ARCH:-$TARGET_ARCH}.conf &>/dev/null; then
     arch_err_msg="\n $dashes$dashes$dashes"
     arch_err_msg="${arch_err_msg}\n ERROR: Architecture not found, use a valid Architecture"
     arch_err_msg="${arch_err_msg}\n for your project or create a new config"
