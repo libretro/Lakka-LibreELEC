@@ -2,9 +2,9 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.uae"
-PKG_VERSION="7d167cf3b2f9a7b356196316dbfeffc0cd8f4341"
-PKG_SHA256="57ed8022fa74beb1e4e6d245c383e7b28ec61b2ec66c0e8e9f6d00c83a155420"
-PKG_REV="106"
+PKG_VERSION="2.6.1.1-Leia"
+PKG_SHA256="c0db1d17d45e5484dd47f78cdd3cd9c28c6b4425357297b625be616d8a7b8d06"
+PKG_REV="107"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.uae"

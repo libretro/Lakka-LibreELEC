@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.vecx"
-PKG_VERSION="20edd48c4fefcc3b9a3413a1e682e1d8d46b59c9"
-PKG_SHA256="e965ef7ef6669357d67dec06c6e2715f7b62a0f31a17582ba05a26d956c36192"
-PKG_REV="113"
+PKG_VERSION="1.2.0.3-Leia"
+PKG_SHA256="002cc478876c38ac916d5bf78d1e3bdb2ea0b85aeb9926046696673dca959fde"
+PKG_REV="114"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.vecx"
