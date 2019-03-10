@@ -10,7 +10,22 @@ if [ "$1" == "-f" ]; then
   shift
 fi
 
-ROOT=$(cd $(dirname $0)/../.. && pwd)
+# the following environment variables can be set to "yes" to enable optional features:
+# KEEP_GIT_DIRS: don't delete cloned git directories after update check
+# BUMP_PKG_REV: bump PKG_REV if PKG_VERSION has changed
+
+# list of packages to exclude from update
+EXCLUDED_PACKAGES="game.libretro.chailove
+	game.libretro.fbalpha2012
+	game.libretro.lutro
+	game.libretro.parallel_n64
+	game.libretro.pcem
+	game.libretro.theodore
+	game.netplay
+	game.shader.presets"
+
+MY_DIR="$(dirname "$0")"
+ROOT="$(cd "${MY_DIR}"/../.. && pwd)"
 TMPDIR="$(pwd)/.update-retroplayer-tmp"
 TMP_PKG_FILE="${TMPDIR}/package.tar.gz"
 TMP_PKG_DIR="${TMPDIR}/package"
@@ -18,93 +33,10 @@ TMP_PKG_DIR="${TMPDIR}/package"
 rm -rf "${TMPDIR}"
 mkdir -p "${TMPDIR}"
 
-git_clone() {
-  # git_clone https://repo.url branch ./target_dir [githash]
-  echo "[mkpkg] Checking out $1 ..."
-  if [ ! -d "$3" ]; then
-    git clone --single-branch --depth=1 --recursive "$1" -b $2 "$3"
-  else
-    if [ -d "$3" ] ; then
-      cd "$3"
-      git checkout $2 >/dev/null 2>/dev/null
-      git pull
-      cd ..
-    fi
-  fi
-  if [ ! -z "$4" ] ; then
-    cd "$3"
-    git fetch >/dev/null 2>/dev/null
-    git branch -D $4 >/dev/null 2>/dev/null
-    git checkout $4 >/dev/null 2>/dev/null
-    git checkout -b ref-$4 >/dev/null 2>/dev/null
-    cd ..
-  fi
-}
-
-get_pkg_var() {
-  local pkg_name="$1" pkg_var="$2"
-  cd ${ROOT}
-  PROJECT=Generic ARCH=x86_64 source config/options ${pkg_name} &>/dev/null
-  echo "${!pkg_var}"
-}
-
-set_pkg_version() {
-  local package_mk="$1/package.mk" pkg_version="$2"
-  sed -e "s|PKG_VERSION=.*|PKG_VERSION=\"${pkg_version}\"|g" -i "${package_mk}"
-}
-
-download_pkg_file() {
-  local pkg_name="$1"
-  local pkg_url=$(get_pkg_var "${pkg_name}" PKG_URL)
-  wget -q -O "${TMP_PKG_FILE}" "${pkg_url}"
-}
-
-extract_pkg_file() {
-  mkdir -p "${TMP_PKG_DIR}"
-  tar xf "${TMP_PKG_FILE}" --strip-components=1 -C "${TMP_PKG_DIR}"
-}
-
-cleanup_pkg_tmp() {
-  rm -rf "${TMP_PKG_FILE}" "${TMP_PKG_DIR}"
-}
-
-msg_color() {
-  echo $(
-    cd "${ROOT}"
-    PROJECT=Generic ARCH=x86_64 . config/options ""
-    echo $(print_color "$1" "$2")
-  )
-}
-
-msg_warn() {
-  msg_color CLR_WARNING "$1"
-}
-
-msg_error() {
-  msg_color CLR_ERROR "$1"
-}
-
-msg_info() {
-  echo "$1"
-}
-
-set_pkg_sha256() {
-  local package_mk="$1/package.mk"
-  local new_sha256=$(sha256sum < "${TMP_PKG_FILE}" | awk '{print $1}')
-  sed -e "s|PKG_SHA256=.*|PKG_SHA256=\"${new_sha256}\"|g" -i "${package_mk}"
-}
-
-bump_pkg_rev() {
-  local package_mk="$1/package.mk" pkg_name="$2"
-  local pkg_rev=$(get_pkg_var "${pkg_name}" PKG_REV)
-  local new_pkg_rev=$((${pkg_rev}+1))
-
-  sed -e "s|PKG_REV=.*|PKG_REV=\"${new_pkg_rev}\"|" -i "${package_mk}"
-  msg_info "BUMPED ${pkg_name} PKG_REV from ${pkg_rev} to ${new_pkg_rev}"
-}
+. "${MY_DIR}/update_common_functions"
 
 # addons
-for addontxt in "binary-addons https://github.com/kodi-game/repo-binary-addons.git retroplayer" ; do
+for addontxt in "game-binary-addons https://github.com/kodi-game/repo-binary-addons.git retroplayer" ; do
   ADDONS=$(echo $addontxt | awk '{print $1}')
   ADDONREPO=$(echo $addontxt | awk '{print $2}')
   GIT_HASH=$(echo $addontxt | awk '{print $3}')
@@ -115,10 +47,14 @@ for addontxt in "binary-addons https://github.com/kodi-game/repo-binary-addons.g
 
     [[ "${GAME_ADDON}" =~ ^game. ]] || continue
 
+    check_package_excluded "${GAME_ADDON}" "${EXCLUDED_PACKAGES}" && continue
+
     if ! grep -q all $addon/platforms.txt && ! grep -q linux $addon/platforms.txt && ! grep -q ! $addon/platforms.txt; then
       continue
     fi
 
+    GAME_GIT_DIR="${GAME_ADDON}.git"
+    GAME_GIT_REPO=$(cat $addon/${GAME_ADDON}.txt | awk '{print $2}')
     GAME_GIT_BRANCH=$(cat $addon/${GAME_ADDON}.txt | awk '{print $3}')
     GAME_PATH="${ROOT}/packages/mediacenter/kodi-binary-addons/${GAME_ADDON}"
 
@@ -140,17 +76,30 @@ for addontxt in "binary-addons https://github.com/kodi-game/repo-binary-addons.g
     BUMPED=""
     CHECK_RETRO=""
 
-    GAME_VERSION=$(get_pkg_var "${GAME_ADDON}" PKG_VERSION)
-    GAME_PKG_SITE=$(get_pkg_var "${GAME_ADDON}" PKG_SITE)
-    GAME_NEW_HASH=$(git ls-remote $GAME_PKG_SITE $GAME_GIT_BRANCH | awk '{print $1}')
+    git_clone "${GAME_GIT_REPO}" "${GAME_GIT_BRANCH}" "${GAME_GIT_DIR}" "${GAME_GIT_BRANCH}"
+    GAME_NEW_VERSION=$(resolve_tag "${GAME_GIT_DIR}" "${GAME_GIT_BRANCH}")
+    if [ -z "${GAME_NEW_VERSION}" ]; then
+      echo "========================================================================"
+      msg_warn "WARNING: no tag found for addon ${GAME_ADDON}, falling back to HEAD"
+      echo "========================================================================"
+      GAME_NEW_VERSION=$(resolve_hash "${GAME_GIT_DIR}" "${GAME_GIT_BRANCH}")
+    fi
 
-    if [ "${GAME_VERSION}" != "${GAME_NEW_HASH}" ]; then
-      BUMPED="yes"
+    if [ "${KEEP_GIT_DIRS}" != "yes" ]; then
+      rm -rf "${GAME_GIT_DIR}"
+    fi
+
+    GAME_VERSION=$(get_pkg_var "${GAME_ADDON}" PKG_VERSION)
+
+    if [ "${GAME_VERSION}" != "${GAME_NEW_VERSION}" ]; then
+      if [ "${BUMP_PKG_REV}" = "yes" ]; then
+        BUMPED="yes"
+      fi
       [ -n "${RETRO_NAME}" ] && CHECK_RETRO="yes"
-      set_pkg_version "${GAME_PATH}" "${GAME_NEW_HASH}"
+      set_pkg_version "${GAME_PATH}" "${GAME_NEW_VERSION}"
       download_pkg_file "${GAME_ADDON}"
       set_pkg_sha256 "${GAME_PATH}"
-      msg_info "UPDATED ${GAME_ADDON} from ${GAME_VERSION} to ${GAME_NEW_HASH}"
+      msg_info "UPDATED ${GAME_ADDON} from ${GAME_VERSION} to ${GAME_NEW_VERSION}"
     fi
 
     if [ -n "${FORCE_LIBRETRO_BUMP}" -a -n "${RETRO_NAME}" -a -z "${CHECK_RETRO}" ]; then
