@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="emux-sms"
-PKG_VERSION="bc2648a"
+PKG_VERSION="ba63bd5"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"

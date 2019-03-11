@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="mame2000"
-PKG_VERSION="bd3833c"
+PKG_VERSION="90d9909"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MAME"
