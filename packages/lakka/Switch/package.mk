@@ -43,5 +43,6 @@ post_install() {
   mkdir -p $INSTALL/usr/bin
   cp -P $PKG_DIR/scripts/switch-wifi-fix $INSTALL/usr/bin
   cp -P $PKG_DIR/scripts/switch-set-mac-address $INSTALL/usr/bin
+  cp -P $PKG_DIR/scripts/switch-sleep $INSTALL/usr/bin
 }
 
