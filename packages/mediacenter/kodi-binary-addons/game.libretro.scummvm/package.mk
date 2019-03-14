@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.scummvm"
-PKG_VERSION="76da70af46362d51950105b3dd7095245e6ccda3"
-PKG_SHA256="20679170acad84a6e725110cff9d09d2ec0649040954313528d7b5b9e712e497"
-PKG_REV="114"
+PKG_VERSION="2.0.0.4-Leia"
+PKG_SHA256="af667d068dfd728eb1a9e58900b8743240b5480a02e1077d626db867cf5171ac"
+PKG_REV="115"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.scummvm"

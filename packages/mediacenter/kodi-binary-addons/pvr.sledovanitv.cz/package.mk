@@ -2,12 +2,12 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.sledovanitv.cz"
-PKG_VERSION="2e3a7e245f3133c7cc9a132de716d94a31a1e7ec"
-PKG_SHA256="a8f9589995bc5d570f8d74692697f6b13843bf3ca78fcabbb14ebaf96f330c34"
-PKG_REV="0"
+PKG_VERSION="1.4.9-Leia"
+PKG_SHA256="e3af803c2b69a3e5a1658c8d766fcbb882d6071be6a7acde9ffca317200783c1"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
-PKG_SITE="https://kodi.tv"
+PKG_SITE="https://github.com/palinek/pvr.sledovanitv.cz"
 PKG_URL="https://github.com/palinek/pvr.sledovanitv.cz/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform jsoncpp"
 PKG_SECTION=""

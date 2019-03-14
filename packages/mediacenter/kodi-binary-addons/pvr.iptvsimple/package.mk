@@ -3,12 +3,12 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.iptvsimple"
-PKG_VERSION="73feb2f4a3106cb3cf7f3f5432438ad1af2590a3"
-PKG_SHA256="332cd69cf8991d8e789125b294fe877c3d742d8ce83afb189f366461c67b5a86"
-PKG_REV="2"
+PKG_VERSION="3.5.7-Leia"
+PKG_SHA256="eb1a72baaf5d0a6766214eb452c8e8635ac1d917ac621a76b70d0138c63b9341"
+PKG_REV="3"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.kodi.tv"
+PKG_SITE="https://github.com/kodi-pvr/pvr.iptvsimple"
 PKG_URL="https://github.com/kodi-pvr/pvr.iptvsimple/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform rapidxml zlib"
 PKG_SECTION=""

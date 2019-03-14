@@ -3,12 +3,12 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.sidplay"
-PKG_VERSION="dad5daa4018721914d1bce56d2551ffcd4855830"
-PKG_SHA256="32ece47f2e95a45bc20ba99fbf3a98c0153b3223a98cb6cc75bba0e588ef50cc"
-PKG_REV="2"
+PKG_VERSION="1.1.3-Leia"
+PKG_SHA256="d1388fa0d5358ced760b9d87c35f35088e29a9ab7723068155259715495247fd"
+PKG_REV="3"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.kodi.tv"
+PKG_SITE="https://github.com/xbmc/audiodecoder.sidplay"
 PKG_URL="https://github.com/xbmc/audiodecoder.sidplay/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform sidplay-libs"
 PKG_SECTION=""

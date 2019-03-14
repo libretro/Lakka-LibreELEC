@@ -2,12 +2,12 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="vfs.libarchive"
-PKG_VERSION="2ba11021ef58cf7fa9ca1051e5c0d558cd2a04bc"
-PKG_SHA256="634fc1189422d6e2a9590dd3b824f6b14a9c3bfc5075c51d2a5eb1779ef5aa23"
-PKG_REV="0"
+PKG_VERSION="1.0.5-Leia"
+PKG_SHA256="4e851761bcd2d49da8e20a2cd40fd969a103288e561fe14052ac5b7397e497f7"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.kodi.tv"
+PKG_SITE="https://github.com/xbmc/vfs.libarchive"
 PKG_URL="https://github.com/xbmc/vfs.libarchive/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform bzip2 libarchive lz4 lzo xz zlib"
 PKG_SECTION=""

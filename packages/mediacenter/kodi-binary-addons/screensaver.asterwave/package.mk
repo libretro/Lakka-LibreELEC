@@ -3,13 +3,13 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="screensaver.asterwave"
-PKG_VERSION="6acee9c199049854bf511043c88da821e2b19459"
-PKG_SHA256="554f348a7f120cf218e8f8922afd04f2e0814b1742e2bd27e2e9aadad238aebb"
-PKG_REV="0"
+PKG_VERSION="3.0.1-Leia"
+PKG_SHA256="b05a8ef46ae17db52f2fb0ef2bf07e5b6f13f004a739e1d6d33836b1de469ff2"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/notspiff/screensaver.asterwave"
-PKG_URL="https://github.com/notspiff/screensaver.asterwave/archive/$PKG_VERSION.tar.gz"
+PKG_SITE="https://github.com/xbmc/screensaver.asterwave"
+PKG_URL="https://github.com/xbmc/screensaver.asterwave/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform soil glm"
 PKG_SECTION=""
 PKG_SHORTDESC="screensaver.asterwave"

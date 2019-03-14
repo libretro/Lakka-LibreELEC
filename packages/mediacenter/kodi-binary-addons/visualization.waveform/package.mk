@@ -3,12 +3,12 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="visualization.waveform"
-PKG_VERSION="0cf358a5fda80815089a52b44191ecc26dfdc7f3"
-PKG_SHA256="804701930dcadc0a5b66266bbdf0e5a2733d05178d5af8ce18425285c97a3905"
-PKG_REV="2"
+PKG_VERSION="2.0.1-Leia"
+PKG_SHA256="ee5fd55287cbdf112da941f0c13ebe575d7af082f7ef764ab399cd047ca384ab"
+PKG_REV="3"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.kodi.tv"
+PKG_SITE="https://github.com/xbmc/visualization.waveform"
 PKG_URL="https://github.com/xbmc/visualization.waveform/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION=""

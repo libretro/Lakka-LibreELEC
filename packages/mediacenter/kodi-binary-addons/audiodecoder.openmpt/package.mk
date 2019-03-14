@@ -3,12 +3,12 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.openmpt"
-PKG_VERSION="15796e64b7359719bd766f9dc9a6c3e59fe33959"
-PKG_SHA256="7ae364ad42788c464068876050a6e5a08c71b6a6af24a114fd5ddf729c81e68e"
-PKG_REV="2"
+PKG_VERSION="2.0.1-Leia"
+PKG_SHA256="40779e34403fecb17fa1c58bbca3392b15cba91722a41665b0f9dcbae5bd853d"
+PKG_REV="3"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.kodi.tv"
+PKG_SITE="https://github.com/xbmc/audiodecoder.openmpt"
 PKG_URL="https://github.com/xbmc/audiodecoder.openmpt/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libopenmpt"
 PKG_SECTION=""
