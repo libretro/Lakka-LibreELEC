@@ -2,12 +2,12 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="vfs.sftp"
-PKG_VERSION="b9fbb2298bb55adde3fbb46f2c2ab6ca2c2a6b0d"
-PKG_SHA256="860075f0b200a798e103947cb3f1dcc65b952df0db01b9a6d24f9f71c0cc8410"
-PKG_REV="0"
+PKG_VERSION="1.0.1-Leia"
+PKG_SHA256="fc1fe2efd080ae96f5eb5a0fee0a53c0986c825cbffc26f6cb6a95a196af9bab"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
-PKG_SITE="https://kodi.tv"
+PKG_SITE="https://github.com/xbmc/vfs.sftp"
 PKG_URL="https://github.com/xbmc/vfs.sftp/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libssh"
 PKG_SECTION=""

@@ -3,12 +3,12 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audioencoder.vorbis"
-PKG_VERSION="acd7c796109971fa05bf33f620d7b737e5dbd0bb"
-PKG_SHA256="bb624a6926ff932a657d52702d503ffcb416db5065004e9b4207d9c5019f03c4"
-PKG_REV="2"
+PKG_VERSION="v2.0.1"
+PKG_SHA256="cb6ab5aa121e36b9a9d7ccbd92d5aca4684cbd4a4839135df08b65b6925e1d6b"
+PKG_REV="3"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.kodi.tv"
+PKG_SITE="https://github.com/xbmc/audioencoder.vorbis"
 PKG_URL="https://github.com/xbmc/audioencoder.vorbis/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libogg libvorbis"
 PKG_SECTION=""

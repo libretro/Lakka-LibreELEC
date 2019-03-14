@@ -3,12 +3,12 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.snesapu"
-PKG_VERSION="32bed39a2e9bbd7df8ce2cef5fd2681579d5ec30"
-PKG_SHA256="994ac5268ed46b8c2b63e749e5c3645ff95b64ddc2eeeabf5b8c439497eb0959"
-PKG_REV="2"
+PKG_VERSION="2.0.0-Leia"
+PKG_SHA256="440175129e609d78e039c95cfa18e4e0f8b45dc67b9d89ca859a3cef362d5aee"
+PKG_REV="3"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.kodi.tv"
+PKG_SITE="https://github.com/xbmc/audiodecoder.snesapu"
 PKG_URL="https://github.com/xbmc/audiodecoder.snesapu/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION=""
