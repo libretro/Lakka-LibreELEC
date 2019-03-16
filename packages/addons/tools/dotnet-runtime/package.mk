@@ -4,24 +4,24 @@
 case "$ARCH" in
   "aarch64")
     PKG_NC_ARCH="arm64"
-    PKG_SHA256="8baeaeb6ff7d65fbb8e7d085f7625cc4e3e2ffaecd97e80d2c5e4ca0ed598356"
-    PKG_URL="https://download.visualstudio.microsoft.com/download/pr/8931cb99-76f8-4d62-82be-881b79b03aac/9b31f0cbd0caac6d1639cece76d414a8/dotnet-runtime-2.2.0-linux-arm64.tar.gz"
+    PKG_SHA256="ceb6adf82fb010508124d72746bc4a5df97814de47d84d03b6df0d6598030fcd"
+    PKG_URL="https://download.visualstudio.microsoft.com/download/pr/07657a0c-b079-4616-9d62-d3d39202f9af/406eb81bef25fe3e3030a9cc63a69c12/dotnet-runtime-2.2.3-linux-arm64.tar.gz"
     ;;
   "arm")
     PKG_NC_ARCH="arm"
-    PKG_SHA256="248e3d43b7b46b30f9059c775b08770c377f3a90f27bbc3da188a3f7f24de75d"
-    PKG_URL="https://download.visualstudio.microsoft.com/download/pr/a3f3e38e-246a-4eab-8da3-63f9cd1b1c13/c2e795a9bb03bc75d3cfa767f3f77310/dotnet-runtime-2.2.0-linux-arm.tar.gz"
+    PKG_SHA256="3eaa645dbe95957d8adb94da5f4334b0fd65a18cb3f9d92eba89a53fef6b7f6a"
+    PKG_URL="https://download.visualstudio.microsoft.com/download/pr/b12c61f5-7ba4-47f1-93f0-d2280fa4bf3c/8e1ae5ac780c61e0339d0247e7d9a8d8/dotnet-runtime-2.2.3-linux-arm.tar.gz"
     ;;
   "x86_64")
     PKG_NC_ARCH="x64"
-    PKG_SHA256="452ea9e2fc4f84fd5d0bf17501aa99a99d33badabee23950e537a1a4dc6a2b05"
-    PKG_URL="https://download.visualstudio.microsoft.com/download/pr/1057e14e-16cc-410b-80a4-5c2420c8359c/004dc3ce8255475d4723de9a011ac513/dotnet-runtime-2.2.0-linux-x64.tar.gz"
+    PKG_SHA256="ae4aeb1e96c447b59ee9e9a2d08b6c9ec7a82bc06222819828ec165d704f05e8"
+    PKG_URL="https://download.visualstudio.microsoft.com/download/pr/28271651-a8f6-41d6-9144-2d53f6c4aac4/bb29124818f370cd08c5c8cc8f8816bf/dotnet-runtime-2.2.3-linux-x64.tar.gz"
     ;;
 esac
 
 PKG_NAME="dotnet-runtime"
-PKG_VERSION="2.2.0"
-PKG_REV="104"
+PKG_VERSION="2.2.3"
+PKG_REV="105"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://dotnet.github.io/"
