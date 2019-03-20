@@ -27,6 +27,7 @@ PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_SECTION="linux"
 PKG_SHORTDESC="linux26: The Linux kernel 2.6 precompiled kernel binary image and modules"
 PKG_LONGDESC="This package contains a precompiled kernel image and the modules."
+
 case "$LINUX" in
   linux-odroidxu3)
     PKG_VERSION="ab1ca974"
@@ -98,6 +99,10 @@ case "$LINUX" in
     PKG_PATCH_DIRS="default"
     ;;
 esac
+
+if [ "$PROJECT" = "Switch" ]; then
+  PKG_SOURCE_DIR="linux-switch-$PKG_VERSION"
+fi
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
