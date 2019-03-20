@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="digital_devices"
-PKG_VERSION="21aefddd4bbff5ac2915cfde05bd5d373ce413c3"
-PKG_SHA256="0ef1e9c2edd9c574c67b30f2e5d79d21e95169ed08968704cf25cd77d885da58"
+PKG_VERSION="e3601828472485b299495ec15dcd7e4cc4c770a3"
+PKG_SHA256="2e75a97602cd7512655020d7147a18eee76a9b7befa2aaca82d1548a0995c313"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/DigitalDevices/dddvb/"
