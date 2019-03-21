@@ -1,0 +1,180 @@
+From ebf7001e438867ac1870c549cdb55eae3a86f82e Mon Sep 17 00:00:00 2001
+From: MilhouseVH <milhouseVH.github@nmacleod.com>
+Date: Thu, 21 Mar 2019 10:23:47 +0000
+Subject: [PATCH] Fix build with linux 5.1-rc1
+
+Credit: http://rglinuxtech.com/?p=2530
+---
+ kernel/common/inc/nv-list-helpers.h             |  2 +-
+ kernel/nvidia-drm/nvidia-drm-connector.c        |  9 +++++++++
+ kernel/nvidia-drm/nvidia-drm-drv.c              | 10 ++++++++++
+ kernel/nvidia-drm/nvidia-drm-encoder.c          | 14 ++++++++++++++
+ kernel/nvidia-drm/nvidia-drm-gem-nvkms-memory.c |  6 ++++++
+ kernel/nvidia-uvm/uvm8.c                        |  8 ++++++++
+ kernel/nvidia-uvm/uvm8_range_tree.c             |  2 +-
+ 7 files changed, 49 insertions(+), 2 deletions(-)
+
+diff --git a/kernel/common/inc/nv-list-helpers.h b/kernel/common/inc/nv-list-helpers.h
+index 0aed851..e6bb240 100644
+--- a/kernel/common/inc/nv-list-helpers.h
++++ b/kernel/common/inc/nv-list-helpers.h
+@@ -91,7 +91,7 @@
+         list_entry((pos)->member.next, typeof(*(pos)), member)
+ #endif
+ 
+-static inline int list_is_first(const struct list_head *list,
++static inline int nv_list_is_first(const struct list_head *list,
+                                 const struct list_head *head)
+ {
+     return list->prev == head;
+diff --git a/kernel/nvidia-drm/nvidia-drm-connector.c b/kernel/nvidia-drm/nvidia-drm-connector.c
+index 4dd12d1..96df497 100644
+--- a/kernel/nvidia-drm/nvidia-drm-connector.c
++++ b/kernel/nvidia-drm/nvidia-drm-connector.c
+@@ -35,6 +35,8 @@
+ #include <drm/drm_atomic.h>
+ #include <drm/drm_atomic_helper.h>
+ 
++#include <linux/version.h>
++
+ static void nv_drm_connector_destroy(struct drm_connector *connector)
+ {
+     struct nv_drm_connector *nv_connector = to_nv_connector(connector);
+@@ -201,6 +203,13 @@ nv_drm_connector_detect(struct drm_connector *connector, bool force)
+     return __nv_drm_connector_detect_internal(connector);
+ }
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
++/* Add header constants missing after 5.1-rc1 */
++int drm_helper_probe_single_connector_modes(struct drm_connector
++*connector, uint32_t maxX,
++uint32_t maxY);
++#endif
++
+ static struct drm_connector_funcs nv_connector_funcs = {
+ #if defined NV_DRM_ATOMIC_HELPER_CONNECTOR_DPMS_PRESENT
+     .dpms                   = drm_atomic_helper_connector_dpms,
+diff --git a/kernel/nvidia-drm/nvidia-drm-drv.c b/kernel/nvidia-drm/nvidia-drm-drv.c
+index 49f099f..96562bf 100644
+--- a/kernel/nvidia-drm/nvidia-drm-drv.c
++++ b/kernel/nvidia-drm/nvidia-drm-drv.c
+@@ -35,8 +35,18 @@
+ #include "nvidia-drm-gem-nvkms-memory.h"
+ #include "nvidia-drm-gem-user-memory.h"
+ 
++#include <linux/version.h>
++
+ #if defined(NV_DRM_AVAILABLE)
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
++/* Add header constants missing after 5.1-rc1 */
++void drm_kms_helper_poll_init(struct drm_device *dev);
++void drm_kms_helper_poll_fini(struct drm_device *dev);
++bool drm_helper_hpd_irq_event(struct drm_device *dev);
++void drm_kms_helper_poll_disable(struct drm_device *dev);
++#endif
++
+ #include "nvidia-drm-ioctl.h"
+ 
+ #include <drm/drmP.h>
+diff --git a/kernel/nvidia-drm/nvidia-drm-encoder.c b/kernel/nvidia-drm/nvidia-drm-encoder.c
+index f66bbd7..7a5e0de 100644
+--- a/kernel/nvidia-drm/nvidia-drm-encoder.c
++++ b/kernel/nvidia-drm/nvidia-drm-encoder.c
+@@ -36,6 +36,13 @@
+ #include <drm/drm_atomic.h>
+ #include <drm/drm_atomic_helper.h>
+ 
++#include <linux/version.h>
++
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
++/* Add header constants missing after 5.1-rc1 */
++void drm_kms_helper_hotplug_event(struct drm_device *dev);
++#endif
++
+ static void nv_drm_encoder_destroy(struct drm_encoder *encoder)
+ {
+     struct nv_drm_encoder *nv_encoder = to_nv_encoder(encoder);
+@@ -152,6 +159,13 @@ nv_drm_encoder_new(struct drm_device *dev,
+     return &nv_encoder->base;
+ }
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
++/* Add header constants missing after 5.1-rc1 */
++int drm_helper_probe_single_connector_modes(struct drm_connector
++*connector, uint32_t maxX,
++uint32_t maxY);
++#endif
++
+ /*
+  * Add encoder for given NvKmsKapiDisplay
+  */
+diff --git a/kernel/nvidia-drm/nvidia-drm-gem-nvkms-memory.c b/kernel/nvidia-drm/nvidia-drm-gem-nvkms-memory.c
+index 998fcc2..a5a154a 100644
+--- a/kernel/nvidia-drm/nvidia-drm-gem-nvkms-memory.c
++++ b/kernel/nvidia-drm/nvidia-drm-gem-nvkms-memory.c
+@@ -29,6 +29,8 @@
+ 
+ #include "nv-mm.h"
+ 
++#include <linux/version.h>
++
+ static void __nv_drm_gem_nvkms_memory_free(struct nv_drm_gem_object *nv_gem)
+ {
+     struct nv_drm_device *nv_dev = nv_gem->nv_dev;
+@@ -377,7 +379,11 @@ static int __nv_drm_vma_fault(struct vm_area_struct *vma,
+  */
+ 
+ #if defined(NV_VM_OPS_FAULT_REMOVED_VMA_ARG)
++#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 1, 0)
+ static int nv_drm_vma_fault(struct vm_fault *vmf)
++#else
++static vm_fault_t nv_drm_vma_fault(struct vm_fault *vmf)
++#endif
+ {
+     return __nv_drm_vma_fault(vmf->vma, vmf);
+ }
+diff --git a/kernel/nvidia-uvm/uvm8.c b/kernel/nvidia-uvm/uvm8.c
+index 70ed244..e5b7054 100644
+--- a/kernel/nvidia-uvm/uvm8.c
++++ b/kernel/nvidia-uvm/uvm8.c
+@@ -172,7 +172,11 @@ static int uvm_vm_fault_sigbus(struct vm_area_struct *vma, struct vm_fault *vmf)
+     return VM_FAULT_SIGBUS;
+ }
+ 
++#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 1, 0)
+ static int uvm_vm_fault_sigbus_wrapper(struct vm_fault *vmf)
++#else
++static vm_fault_t uvm_vm_fault_sigbus_wrapper(struct vm_fault *vmf)
++#endif
+ {
+ #if defined(NV_VM_OPS_FAULT_REMOVED_VMA_ARG)
+     return uvm_vm_fault_sigbus(vmf->vma, vmf);
+@@ -507,7 +511,11 @@ convert_error:
+     }
+ }
+ 
++#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 1, 0)
+ static int uvm_vm_fault_wrapper(struct vm_fault *vmf)
++#else
++static vm_fault_t uvm_vm_fault_wrapper(struct vm_fault *vmf)
++#endif
+ {
+ #if defined(NV_VM_OPS_FAULT_REMOVED_VMA_ARG)
+     return uvm_vm_fault(vmf->vma, vmf);
+diff --git a/kernel/nvidia-uvm/uvm8_range_tree.c b/kernel/nvidia-uvm/uvm8_range_tree.c
+index b7170d0..ba15777 100644
+--- a/kernel/nvidia-uvm/uvm8_range_tree.c
++++ b/kernel/nvidia-uvm/uvm8_range_tree.c
+@@ -31,7 +31,7 @@ static uvm_range_tree_node_t *get_range_node(struct rb_node *rb_node)
+ 
+ uvm_range_tree_node_t *uvm_range_tree_prev(uvm_range_tree_t *tree, uvm_range_tree_node_t *node)
+ {
+-    if (list_is_first(&node->list, &tree->head))
++    if (nv_list_is_first(&node->list, &tree->head))
+         return NULL;
+     return list_prev_entry(node, list);
+ }
+-- 
+2.14.1
+
