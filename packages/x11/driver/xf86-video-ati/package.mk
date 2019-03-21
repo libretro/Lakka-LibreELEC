@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="xf86-video-ati"
-PKG_VERSION="18.1.0"
-PKG_SHA256="6c335f423c1dc3d904550d41cb871ca4130ba7037dda67d82e3f1555e1bfb9ac"
+PKG_VERSION="19.0.1"
+PKG_SHA256="5cb6015d8664546ad1311bc9c363d7bc41ebf60e7046ceb44dd38e5b707961b0"
 PKG_ARCH="x86_64"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.x.org/"
