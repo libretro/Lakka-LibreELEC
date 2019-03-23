@@ -57,7 +57,7 @@ else
   PKG_FFMPEG_DEBUG="--disable-debug --enable-stripping"
 fi
 
-if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
+if [ "$PROJECT" = "RPi" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"
 fi
 
@@ -80,7 +80,7 @@ pre_configure_target() {
   cd $PKG_BUILD
   rm -rf .$TARGET_NAME
 
-  if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
+  if [ "$PROJECT" = "RPi" ]; then
     PKG_FFMPEG_LIBS="-lbcm_host -lvcos -lvchiq_arm -lmmal -lmmal_core -lmmal_util -lvcsm"
     PKG_FFMPEG_RPI="--enable-rpi"
   else
