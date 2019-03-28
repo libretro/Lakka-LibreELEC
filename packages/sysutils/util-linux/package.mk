@@ -53,7 +53,8 @@ PKG_CONFIGURE_OPTS_TARGET="$UTILLINUX_CONFIG_DEFAULT \
                            --enable-losetup \
                            --enable-fsck \
                            --enable-fstrim \
-                           --enable-blkid"
+                           --enable-blkid \
+                           --enable-lscpu"
 
 if [ "$SWAP_SUPPORT" = "yes" ]; then
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-swapon"
