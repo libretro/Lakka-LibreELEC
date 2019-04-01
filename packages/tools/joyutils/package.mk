@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="joyutils"
-PKG_VERSION="1.2.15"
+PKG_VERSION="b6703eb"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://atrey.karlin.mff.cuni.cz/~vojtech/joystick/"
-PKG_URL="ftp://atrey.karlin.mff.cuni.cz/pub/linux/joystick/joystick-$PKG_VERSION.tar.gz"
+PKG_SITE="https://github.com/datrh/joyutils"
+PKG_URL="$PKG_SITE/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="tools"
@@ -33,10 +33,6 @@ PKG_LONGDESC="jscal, jstest, and jsattach utilities for the Linux joystick drive
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-
-post_unpack() {
-  mv $BUILD/joystick-$PKG_VERSION $BUILD/$PKG_NAME-$PKG_VERSION
-}
 
 make_target() {
   $CC -lm -o jscal jscal.c $CFLAGS
