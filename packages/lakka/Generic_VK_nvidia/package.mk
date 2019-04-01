@@ -18,31 +18,19 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="beetle-psx"
-PKG_VERSION="5359198"
+PKG_NAME="Generic_VK_nvidia"
+PKG_VERSION=""
 PKG_REV="1"
-PKG_ARCH="x86_64 i386"
-PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/libretro/beetle-psx-libretro"
-PKG_GIT_URL="$PKG_SITE"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="https://github.com/lakkatv/Lakka"
+PKG_URL=""
+PKG_DEPENDS_TARGET="retroarch $LIBRETRO_CORES wii-u-gc-adapter"
 PKG_PRIORITY="optional"
-PKG_SECTION="libretro"
-PKG_SHORTDESC="Standalone port of Mednafen PSX to libretro."
-PKG_LONGDESC="Standalone port of Mednafen PSX to libretro."
+PKG_SECTION="virtual"
+PKG_SHORTDESC="Lakka metapackage for Generic_VK_nvidia"
+PKG_LONGDESC=""
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-make_target() {
-  if [ "$PROJECT" == "Generic_VK_nvidia" ]; then
-    make HAVE_VULKAN=1
-  else
-    make HAVE_OPENGL=1
-  fi
-}
-
-makeinstall_target() {
-  mkdir -p $INSTALL/usr/lib/libretro
-  cp *.so $INSTALL/usr/lib/libretro/
-}

@@ -23,7 +23,7 @@ PKG_LICENSE="Apache 2.0"
 PKG_SITE="https://www.khronos.org"
 PKG_URL="https://github.com/KhronosGroup/Vulkan-LoaderAndValidationLayers/archive/sdk-$PKG_VERSION.tar.gz"
 PKG_SOURCE_DIR="Vulkan-*$PKG_VERSION*"
-PKG_DEPENDS_TARGET="toolchain cmake:host"
+PKG_DEPENDS_TARGET="toolchain cmake:host Python3"
 PKG_SECTION="graphics"
 PKG_SHORTDESC="Vulkan Installable Client Driver (ICD) Loader."
 
@@ -34,7 +34,6 @@ PKG_CMAKE_OPTS_TARGET="-DBUILD_WSI_WAYLAND_SUPPORT=off \
                        -DBUILD_WSI_XCB_SUPPORT=off \
                        -DBUILD_WSI_XLIB_SUPPORT=off \
                        -DBUILD_WSI_MIR_SUPPORT=off \
-                       -DCMAKE_SYSTEM_PROCESSOR=arm \
                        -DBUILD_TESTS=off \
                        -DBUILD_LAYERS=off \
                        -DBUILD_DEMOS=off \

@@ -18,41 +18,26 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="dolphin"
-PKG_VERSION="1a7d1bc"
+PKG_NAME="slang-shaders"
+PKG_VERSION="b54b0b2"
 PKG_REV="1"
-PKG_ARCH="x86_64"
-PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/libretro/dolphin"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="https://github.com/libretro/slang-shaders"
 PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="Dolphin is a GameCube / Wii emulator, allowing you to play games for these two platforms on PC with improvements."
-PKG_LONGDESC="Dolphin is a GameCube / Wii emulator, allowing you to play games for these two platforms on PC with improvements."
+PKG_SHORTDESC="Common Slang shaders for RetroArch"
+PKG_LONGDESC="Common Slang shaders for RetroArch"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-PKG_USE_CMAKE="yes"
 
-if [ "$BLUETOOTH_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bluez"
-fi
-
-PKG_CMAKE_SCRIPT="$PKG_BUILD/CMakeLists.txt"
-
-PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_C_COMPILER=${CC} -DENABLE_X11=OFF"
-
-if [ "$PROJECT" == "Generic_VK_nvidia" ]; then
-  PKG_VERSION="a5bce7d"
-fi
-
-pre_make_target() {
-  # build fix for cross-compiling Dolphin, from Dolphin forums
-  find $PKG_BUILD -name flags.make -exec sed -i "s:isystem :I:g" \{} \;
+configure_target() {
+  cd $PKG_BUILD
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/lib/libretro
-  cp $PKG_BUILD/.$TARGET_NAME/dolphin_libretro.so $INSTALL/usr/lib/libretro/
+  make install INSTALLDIR="$INSTALL/usr/share/common-shaders"
 }
