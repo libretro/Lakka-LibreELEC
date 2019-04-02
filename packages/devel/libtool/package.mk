@@ -14,3 +14,8 @@ PKG_LONGDESC="A generic library support script."
 PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_HOST="--enable-static --disable-shared"
+
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr/bin
+  rm -rf $INSTALL/usr/share
+}
