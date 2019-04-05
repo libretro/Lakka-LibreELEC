@@ -2,9 +2,9 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mariadb"
-PKG_VERSION="10.3.12"
-PKG_REV="102"
-PKG_SHA256="f7449a34c25e0455928d7983dae83fd2069fe1f16c4c5f4aeed9ed9d3f081ff6"
+PKG_VERSION="10.3.14"
+PKG_REV="103"
+PKG_SHA256="ba1c94d92fc8ebdf9b8a1d1b93ed6aeeead33da507efbbd4afcf49f32023e054"
 PKG_LICENSE="GPL2"
 PKG_SITE="https://mariadb.org"
 PKG_URL="https://downloads.mariadb.org/interstitial/${PKG_NAME}-${PKG_VERSION}/source/${PKG_NAME}-${PKG_VERSION}.tar.gz"
@@ -87,6 +87,7 @@ addon() {
   cp ${MARIADB}/bin/mysql \
      ${MARIADB}/bin/mysqld \
      ${MARIADB}/bin/mysqladmin \
+     ${MARIADB}/bin/mysqldump \
      ${MARIADB}/bin/mysql_secure_installation \
      ${MARIADB}/bin/my_print_defaults \
      ${MARIADB}/bin/resolveip \
