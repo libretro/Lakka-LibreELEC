@@ -88,6 +88,7 @@ SED="sed -i"
   PKG_ADDON_TYPE=""
   PKG_DISCLAIMER=""
   PKG_MAINTAINER=""
+  PKG_CLEAN=""
 
   if [ -n "$1" ]; then
     _PKG_ROOT_NAME=${1%:*}
@@ -97,9 +98,15 @@ SED="sed -i"
     PKG_DIR=""
 
     # If the package caches are unset, then populate them
-    if [ -z "${_CACHE_PACKAGE_LOCAL+x}" -o -z "${_CACHE_PACKAGE_GLOBAL+x}" ]; then
+    if [ -z "${_CACHE_PACKAGE_DEVICE+x}" -o -z "${_CACHE_PACKAGE_LOCAL+x}" -o -z "${_CACHE_PACKAGE_GLOBAL+x}" ]; then
+      _CACHE_PACKAGE_DEVICE=""
       _CACHE_PACKAGE_LOCAL=""
       _CACHE_PACKAGE_GLOBAL=""
+
+      # cache device folder for a package
+      for DIR in $(find $ROOT/projects/$PROJECT/devices/$DEVICE/packages -type d 2>/dev/null); do
+        [ -r "$DIR/package.mk" ] && _CACHE_PACKAGE_DEVICE+="${DIR}${_ANCHOR}\n"
+      done
 
       # cache project folder for a package
       for DIR in $(find $ROOT/projects/$PROJECT/packages -type d 2>/dev/null); do
@@ -111,8 +118,18 @@ SED="sed -i"
         [ -r "$DIR/package.mk" ] && _CACHE_PACKAGE_GLOBAL+="${DIR}${_ANCHOR}\n"
       done
 
-      export _CACHE_PACKAGE_LOCAL _CACHE_PACKAGE_GLOBAL
+      export _CACHE_PACKAGE_DEVICE _CACHE_PACKAGE_LOCAL _CACHE_PACKAGE_GLOBAL
     fi
+
+    # Check for any available device package in preference to a local package
+    for DIR in $(echo -e "${_CACHE_PACKAGE_DEVICE}" | grep -F "/${_PKG_ROOT_NAME}${_ANCHOR}"); do
+      DIR="${DIR%${_ANCHOR}}"
+      # found first, set $PKG_DIR
+      PKG_DIR="$DIR"
+      # keep track of dirs with package.mk for detecting multiple folders
+      _ALL_DIRS+="${DIR}\n"
+      _FOUND=$((_FOUND+1))
+    done
 
     # Check for any available local package in preference to a global package
     for DIR in $(echo -e "${_CACHE_PACKAGE_LOCAL}" | grep -F "/${_PKG_ROOT_NAME}${_ANCHOR}"); do

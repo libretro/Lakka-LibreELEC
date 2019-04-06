@@ -1,0 +1,95 @@
+From: Ishwarya Balaji Gururajan <igururajan@nvidia.com>
+Date: Mon, 20 Aug 2018 16:26:29 +0000 (-0700)
+Subject: Revert "Revert "tegra: common: moved tegra_is_bl_display_init()""
+X-Git-Tag: tegra-l4t-r32.1~306
+X-Git-Url: http://nv-tegra.nvidia.com/gitweb/?p=linux-4.9.git;a=commitdiff_plain;h=9ce28f3d94526110e10c432260ed5ad45662704a
+
+Revert "Revert "tegra: common: moved tegra_is_bl_display_init()""
+
+This reverts commit 578a3a95c7596c9ddcfb75b941a43c0931ec6dbc.
+
+Change-Id: Ia68c5eaede8cfa8f01feef05bf3ab1bcce52c407
+Signed-off-by: Ishwarya Balaji Gururajan <igururajan@nvidia.com>
+Reviewed-on: https://git-master.nvidia.com/r/1803207
+GVS: Gerrit_Virtual_Submit
+Reviewed-by: Mitch Luban <mluban@nvidia.com>
+Reviewed-by: Mark Zhang <markz@nvidia.com>
+Reviewed-by: mobile promotions <svcmobile_promotions@nvidia.com>
+Tested-by: mobile promotions <svcmobile_promotions@nvidia.com>
+---
+
+diff --git a/drivers/soc/tegra/common.c b/drivers/soc/tegra/common.c
+index 76fe750..73b32d2 100644
+--- a/drivers/soc/tegra/common.c
++++ b/drivers/soc/tegra/common.c
+@@ -326,36 +326,9 @@ static int __init tegra_bootloader_lut4_arg(char *options)
+ }
+ early_param("lut_mem4", tegra_bootloader_lut4_arg);
+ 
+-
+-/* returns true if bl initialized the display */
+-bool tegra_is_bl_display_initialized(int instance)
+-{
+-	/* display initialized implies non-zero
+-	 * fb size is passed from bl to kernel
+-	 */
+-	switch (instance) {
+-	case 0:
+-		return tegra_bootloader_fb_start && tegra_bootloader_fb_size;
+-	case 1:
+-		return tegra_bootloader_fb2_start && tegra_bootloader_fb2_size;
+-	case 2:
+-		return tegra_bootloader_fb3_start && tegra_bootloader_fb3_size;
+-	case 3:
+-		return tegra_bootloader_fb4_start && tegra_bootloader_fb4_size;
+-	default:
+-		pr_err("Could not find DC instance %d\n", instance);
+-		return false;
+-	}
+-}
+-EXPORT_SYMBOL(tegra_is_bl_display_initialized);
+-
+ void tegra_get_fb_resource(struct resource *fb_res, int instance)
+ {
+-	if (!tegra_is_bl_display_initialized(instance)) {
+-		fb_res->start = 0;
+-		fb_res->end = 0;
+-	} else {
+-		switch (instance) {
++	switch (instance) {
+ 		case 0:
+ 			fb_res->start =
+ 				(resource_size_t) tegra_bootloader_fb_start;
+@@ -383,9 +356,7 @@ void tegra_get_fb_resource(struct resource *fb_res, int instance)
+ 		default:
+ 			pr_err("Could not find DC instance %d\n", instance);
+ 			break;
+-		}
+ 	}
+-
+ }
+ 
+ static int __init tegra_usb_port_owner_info(char *id)
+diff --git a/drivers/video/backlight/lp855x_bl.c b/drivers/video/backlight/lp855x_bl.c
+index cf31303..635346a 100644
+--- a/drivers/video/backlight/lp855x_bl.c
++++ b/drivers/video/backlight/lp855x_bl.c
+@@ -3,7 +3,7 @@
+  *
+  *			Copyright (C) 2011 Texas Instruments
+  *
+- * Copyright (c) 2016, NVIDIA CORPORATION, All rights reserved.
++ * Copyright (c) 2016-2018, NVIDIA CORPORATION, All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License version 2 as
+@@ -158,8 +158,7 @@ static int lp855x_configure(struct lp855x *lp)
+ 		return -EINVAL;
+ 	}
+ 
+-	if (lp->cfg->pre_init_device &&
+-			!tegra_is_bl_display_initialized(DC_INSTANCE_0)) {
++	if (lp->cfg->pre_init_device) {
+ 		ret = lp->cfg->pre_init_device(lp);
+ 		if (ret) {
+ 			dev_err(lp->dev, "pre init device err: %d\n", ret);

@@ -19,9 +19,9 @@
 ################################################################################
 
 PKG_NAME="dosbox-svn"
-PKG_VERSION="b3856be"
+PKG_VERSION="51bab81"
 PKG_REV="1"
-PKG_ARCH="any"
+PKG_ARCH="x86_64 x86 arm"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/fr500/dosbox-svn"
 PKG_URL="https://github.com/fr500/dosbox-svn/archive/$PKG_VERSION.zip"

@@ -24,6 +24,7 @@ PKG_ARCH="any"
 PKG_DEPENDS_TARGET="toolchain gcc-linaro-aarch64-linux-gnu:host gcc-linaro-arm-linux-gnueabi:host Python Python:host swig:host"
 PKG_SITE="https://github.com/lakka-switch/u-boot"
 PKG_GIT_URL="$PKG_SITE"
+PKG_CLEAN="switch-coreboot"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"

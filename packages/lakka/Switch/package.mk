@@ -31,6 +31,10 @@ PKG_SECTION="virtual"
 PKG_SHORTDESC="Lakka metapackage for Switch"
 PKG_LONGDESC=""
 
+if [ "$DEVICE" = "Switch-L4T" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libdrm libXext libXdamage libXfixes libXxf86vm libxcb libX11 libXrandr"
+fi
+
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 

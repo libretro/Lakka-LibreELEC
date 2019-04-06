@@ -62,7 +62,7 @@ fi
 
 NSS_CONF_DIR="$PKG_BUILD/nss"
 
-GLIBC_EXCLUDE_BIN="catchsegv gencat getconf iconv iconvconfig ldconfig"
+GLIBC_EXCLUDE_BIN="catchsegv gencat getconf iconv iconvconfig"
 GLIBC_EXCLUDE_BIN="$GLIBC_EXCLUDE_BIN makedb mtrace pcprofiledump"
 GLIBC_EXCLUDE_BIN="$GLIBC_EXCLUDE_BIN pldd rpcgen sln sotruss sprof xtrace"
 
@@ -159,6 +159,9 @@ post_makeinstall_target() {
   if [ "$TARGET_ARCH" = "arm" -a "$TARGET_FLOAT" = "hard" ]; then
     ln -sf ld.so $INSTALL/usr/lib/ld-linux.so.3
   fi
+
+  mkdir -p $INSTALL/usr/sbin/
+    ln -sf /usr/bin/ldconfig $INSTALL/usr/sbin/ldconfig
 }
 
 configure_init() {
