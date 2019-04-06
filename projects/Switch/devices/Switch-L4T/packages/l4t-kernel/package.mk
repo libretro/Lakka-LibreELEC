@@ -19,7 +19,8 @@
 ################################################################################
 
 PKG_NAME="l4t-kernel"
-PKG_VERSION="8525cbec9d5db59f56425ca58c783999cc6f3666"
+PKG_VERSION="710857fb13f86e33ba5b1cb3ff91db8e71926836"
+PKG_GIT_BRANCH="rel30-rel32stack"
 PKG_ARCH="any"
 PKG_LICENSE="nonfree"
 PKG_SITE="https://gitlab.com/switchroot/l4t-kernel-4.9"

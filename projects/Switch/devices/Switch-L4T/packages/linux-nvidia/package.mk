@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="linux-nvidia"
-PKG_VERSION="tegra-l4t-r32.1"
-PKG_VERSION_LONG="tegra-l4t-r32.1.1"
+PKG_VERSION="87f177b605d61b2691098c28549220941b335936"
+PKG_GIT_BRANCH="rel32-rel32stack"
 PKG_ARCH="any"
 PKG_LICENSE="nonfree"
-PKG_SITE="https://nv-tegra.nvidia.com/gitweb"
-PKG_URL="https://nv-tegra.nvidia.com/gitweb/?p=$PKG_NAME.git;a=snapshot;h=$PKG_VERSION;sf=tgz"
+PKG_SITE="https://gitlab.com/switchroot/l4t-kernel-nvidia"
+PKG_GIT_URL="$PKG_SITE"
 PKG_CLEAN="linux"
 
 make_target() {
@@ -49,9 +49,4 @@ make_init() {
 
 makeinstall_init() {
 	:
-}
-
-unpack() {
-	mkdir -p $PKG_BUILD
-	tar -xf "$SOURCES/$PKG_NAME/$PKG_NAME-$PKG_VERSION_LONG;sf=tgz" -C $PKG_BUILD --strip 1
 }
