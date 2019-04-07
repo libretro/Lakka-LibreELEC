@@ -1,0 +1,78 @@
+From 7b8ff76e3ae35e067054cbbe35c70f6b7a9ca47d Mon Sep 17 00:00:00 2001
+From: shinyquagsire23 <mtinc2@gmail.com>
+Date: Sun, 13 May 2018 01:46:20 -0600
+Subject: [PATCH] tegra: Allow UART pins to be inverted
+
+---
+ drivers/tty/serial/serial-tegra.c | 28 ++++++++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
+
+diff --git a/drivers/tty/serial/serial-tegra.c b/drivers/tty/serial/serial-tegra.c
+index af2a29cfbbe9..aecb97d0d802 100644
+--- a/drivers/tty/serial/serial-tegra.c
++++ b/drivers/tty/serial/serial-tegra.c
+@@ -46,6 +46,10 @@
+ #define TEGRA_UART_LSR_ANY			(UART_LSR_OE | UART_LSR_BI | \
+ 						UART_LSR_PE | UART_LSR_FE)
+ #define TEGRA_UART_IRDA_CSR			0x08
++#define TEGRA_UART_INVERT_RXD			0x01
++#define TEGRA_UART_INVERT_TXD			0x02
++#define TEGRA_UART_INVERT_CTS			0x04
++#define TEGRA_UART_INVERT_RTS			0x08
+ #define TEGRA_UART_SIR_ENABLED			0x80
+ 
+ #define TEGRA_UART_TX_PIO			1
+@@ -99,12 +103,17 @@ struct tegra_uart_port {
+ 	unsigned long				mcr_shadow;
+ 	unsigned long				lcr_shadow;
+ 	unsigned long				ier_shadow;
++	unsigned long				irda_csr_shadow;
+ 	bool					rts_active;
+ 
+ 	int					tx_in_progress;
+ 	unsigned int				tx_bytes;
+ 
+ 	bool					enable_modem_interrupt;
++	bool					invert_rxd;
++	bool					invert_txd;
++	bool					invert_cts;
++	bool					invert_rts;
+ 
+ 	bool					rx_timeout;
+ 	int					rx_in_progress;
+@@ -1148,6 +1157,17 @@ static void tegra_uart_set_termios(struct uart_port *u,
+ 		tty_termios_encode_baud_rate(termios, baud, baud);
+ 	spin_lock_irqsave(&u->lock, flags);
+ 
++	/* Line inversions */
++	if (tup->invert_rxd)
++		tup->irda_csr_shadow |= TEGRA_UART_INVERT_RXD;
++	if (tup->invert_txd)
++		tup->irda_csr_shadow |= TEGRA_UART_INVERT_TXD;
++	if (tup->invert_cts)
++		tup->irda_csr_shadow |= TEGRA_UART_INVERT_CTS;
++	if (tup->invert_rts)
++		tup->irda_csr_shadow |= TEGRA_UART_INVERT_RTS;
++	tegra_uart_write(tup, tup->irda_csr_shadow, TEGRA_UART_IRDA_CSR);
++
+ 	/* Flow control */
+ 	if (termios->c_cflag & CRTSCTS)	{
+ 		tup->mcr_shadow |= TEGRA_UART_MCR_CTS_EN;
+@@ -1629,6 +1629,15 @@
+ 
+ 	tup->enable_modem_interrupt = of_property_read_bool(np,
+ 					"nvidia,enable-modem-interrupt");
++
++	tup->invert_rxd = of_property_read_bool(np,
++					"nvidia,invert-rxd");
++	tup->invert_txd = of_property_read_bool(np,
++					"nvidia,invert-txd");
++	tup->invert_cts = of_property_read_bool(np,
++					"nvidia,invert-cts");
++	tup->invert_rts = of_property_read_bool(np,
++					"nvidia,invert-rts");
+ 
+ 	index = of_property_match_string(np, "dma-names", "rx");
+ 	if (index < 0) {
+-- 
+2.16.3
