@@ -21,7 +21,7 @@
 PKG_NAME="ppsspp"
 PKG_VERSION="2dbdd73"
 PKG_REV="1"
-PKG_ARCH="x86 x86_64 arm"
+PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/hrydgard/ppsspp"
 PKG_GIT_URL="$PKG_SITE"
