@@ -1,22 +1,22 @@
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
-PKG_NAME="gcc-linaro-aarch64-linux-gnu"
-PKG_VERSION="7.3.1-2018.05"
-PKG_SHA256="73eed74e593e2267504efbcf3678918bb22409ab7afa3dc7c135d2c6790c2345"
+PKG_NAME="gcc-arm-arm-linux-gnueabihf"
+PKG_VERSION="8.3-2019.03"
+PKG_SHA256="d4f6480ecaa99e977e3833cc8a8e1263f9eecd1ce2d022bb548a24c4f32670f5"
 PKG_LICENSE="GPL"
 PKG_SITE=""
-PKG_URL="https://releases.linaro.org/components/toolchain/binaries/7.3-2018.05/aarch64-linux-gnu/gcc-linaro-${PKG_VERSION}-x86_64_aarch64-linux-gnu.tar.xz"
+PKG_URL="https://developer.arm.com/-/media/Files/downloads/gnu-a/${PKG_VERSION}/binrel/gcc-arm-${PKG_VERSION}-x86_64-arm-linux-gnueabihf.tar.xz"
 PKG_DEPENDS_HOST="ccache:host"
-PKG_LONGDESC="Linaro Aarch64 GNU Linux Binary Toolchain"
+PKG_LONGDESC="ARM GNU Linux Binary Toolchain"
 PKG_TOOLCHAIN="manual"
 
 makeinstall_host() {
-  mkdir -p $TOOLCHAIN/lib/gcc-linaro-aarch64-linux-gnu/
-    cp -a * $TOOLCHAIN/lib/gcc-linaro-aarch64-linux-gnu
+  mkdir -p $TOOLCHAIN/lib/gcc-arm-arm-linux-gnueabihf/
+    cp -a * $TOOLCHAIN/lib/gcc-arm-arm-linux-gnueabihf
 
   # wrap gcc and g++ with ccache like in gcc package.mk
-  PKG_GCC_PREFIX="$TOOLCHAIN/lib/gcc-linaro-aarch64-linux-gnu/bin/aarch64-linux-gnu-"
+  PKG_GCC_PREFIX="$TOOLCHAIN/lib/gcc-arm-arm-linux-gnueabihf/bin/arm-linux-gnueabihf-"
 
   cp "${PKG_GCC_PREFIX}gcc" "${PKG_GCC_PREFIX}gcc.real"
 cat > "${PKG_GCC_PREFIX}gcc" << EOF
