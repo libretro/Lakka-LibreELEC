@@ -30,14 +30,14 @@ case "$LINUX" in
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     ;;
   raspberrypi)
-    PKG_VERSION="709198a03e40bbf035f75772e9162464dc7fc665" # 5.0.2
-    PKG_SHA256="07133de2bf4be2a2926a484ad94bf9ebc72845d0869eae99d266edeb3e83b2c3"
+    PKG_VERSION="75b821b12af48026ca25614cd8968da26f861964" # 5.0.7
+    PKG_SHA256="8448e36fdd7ed4c4433a5a47d7136753dc5b11b7a1c9830889fb82517f22a547"
     PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     ;;
   *)
-    PKG_VERSION="5.0.2"
-    PKG_SHA256="43bfea3a6b24b4e5f63190409a199bee8cb93dbea01c52ad7f017078ebdf7c9b"
+    PKG_VERSION="5.0.7"
+    PKG_SHA256="16e177662b9fc7255bfc51018513979f6effcbe52e459c543aa83a5b15ef54ec"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v5.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     PKG_PATCH_DIRS="default"
     ;;
@@ -185,8 +185,6 @@ make_target() {
       NO_LIBAUDIT=1 \
       NO_LZMA=1 \
       NO_SDT=1 \
-      LDFLAGS="$LDFLAGS -ldw -ldwfl -lebl -lelf -ldl -lz" \
-      EXTRA_PERFLIBS="-lebl" \
       CROSS_COMPILE="$TARGET_PREFIX" \
       JOBS="$CONCURRENCY_MAKE_LEVEL" \
         make $PERF_BUILD_ARGS
