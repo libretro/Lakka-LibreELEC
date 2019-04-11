@@ -29,12 +29,14 @@ PKG_AUTORECONF="no"
 makeinstall_target() {
   mkdir -p $INSTALL/usr/share/bootloader/boot
   mkimage -A arm -T script -O linux -d $PKG_DIR/assets/boot.txt $BUILD/$PKG_NAME-$PKG_VERSION/boot.scr
-  mkimage -A arm -T script -O linux -d $PKG_DIR/assets/boot_verbose.txt $BUILD/$PKG_NAME-$PKG_VERSION/boot_verbose.scr
+  mkimage -A arm -T script -O linux -d $PKG_DIR/assets/boot_uart.txt $BUILD/$PKG_NAME-$PKG_VERSION/boot_uart.scr
+  mkimage -A arm -T script -O linux -d $PKG_DIR/assets/boot_usb.txt $BUILD/$PKG_NAME-$PKG_VERSION/boot_usb.scr
 
   cp -PRv $PKG_DIR/assets/splash.bmp $INSTALL/usr/share/bootloader/boot/splash.bmp
   cp -PRv $PKG_DIR/assets/00-Lakka.ini $INSTALL/usr/share/bootloader/boot/00-Lakka.ini
   cp -PRv $BUILD/$PKG_NAME-$PKG_VERSION/boot.scr $INSTALL/usr/share/bootloader/boot/boot.scr
-  cp -PRv $BUILD/$PKG_NAME-$PKG_VERSION/boot_verbose.scr $INSTALL/usr/share/bootloader/boot/boot_verbose.scr
+  cp -PRv $BUILD/$PKG_NAME-$PKG_VERSION/boot_uart.scr $INSTALL/usr/share/bootloader/boot/boot_uart.scr
+    cp -PRv $BUILD/$PKG_NAME-$PKG_VERSION/boot_usb.scr $INSTALL/usr/share/bootloader/boot/boot_usb.scr
   cp -PRv $BUILD/switch-boot/coreboot.rom $INSTALL/usr/share/bootloader/boot/coreboot.rom
   if [ "$DEVICE" = "Switch-L4T" ]; then
     cp $(kernel_path)/arch/arm64/boot/dts/tegra210-icosa.dtb $(kernel_path)/arch/arm64/boot/dts/nvidia/tegra210-nintendo-switch.dtb
