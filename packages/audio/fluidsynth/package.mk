@@ -13,6 +13,7 @@ PKG_LONGDESC="FluidSynth renders midi music files as raw audio data, for playing
 PKG_BUILD_FLAGS="+pic"
 
 PKG_CMAKE_OPTS_TARGET="-DBUILD_SHARED_LIBS=0 \
+                       -DLIB_SUFFIX= \
                        -Denable-readline=0 \
                        -Denable-pulseaudio=0 \
                        -Denable-libsndfile=0"
