@@ -3,8 +3,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libnetwork"
-PKG_VERSION="2cfbf9b1f98162a55829a21cc603c76072a75382"
-PKG_SHA256="12986c29a112f989886ceec675f5b11ccd001dcdb1c17a49835970c56aa406d0"
+PKG_VERSION="4725f2163fb214a6312f3beae5991f838ec36326"
+PKG_SHA256="049bddc1e584f30c29e0fed8716b3c7023d4bb31789d7c3aa48d17b979f1522b"
 PKG_LICENSE="APL"
 PKG_SITE="https://github.com/docker/libnetwork"
 PKG_URL="https://github.com/docker/libnetwork/archive/${PKG_VERSION}.tar.gz"
