@@ -36,12 +36,14 @@ PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
                        -Dqrencode=false \
                        -Dgcrypt=false \
                        -Dgnutls=false \
+                       -Dopenssl=false \
                        -Delfutils=false \
                        -Dzlib=false \
                        -Dbzip2=false \
                        -Dxz=false \
                        -Dlz4=false \
                        -Dxkbcommon=false \
+                       -Dpcre2=false \
                        -Dglib=false \
                        -Ddbus=false \
                        -Ddefault-dnssec=no \
