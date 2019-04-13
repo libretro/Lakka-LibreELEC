@@ -78,6 +78,9 @@ PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
                        -Dsmack=false \
                        -Dgshadow=false \
                        -Didn=false \
+                       -Dnss-myhostname=false \
+                       -Dnss-mymachines=false \
+                       -Dnss-resolve=false \
                        -Dnss-systemd=false \
                        -Dman=false \
                        -Dhtml=false \
