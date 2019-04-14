@@ -8,7 +8,7 @@ PKG_SHA256="8a11b1b07d620f4c06a16e95bba4dd2a97e90efdf2a5ba47ed0a935085787a14"
 PKG_LICENSE="LGPL2.1+"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/systemd"
 PKG_URL="https://github.com/systemd/systemd/archive/v$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain libcap kmod util-linux entropy"
+PKG_DEPENDS_TARGET="toolchain libcap kmod util-linux entropy libidn2"
 PKG_LONGDESC="A system and session manager for Linux, compatible with SysV and LSB init scripts."
 
 PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
@@ -31,7 +31,7 @@ PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
                        -Dlibcryptsetup=false \
                        -Dlibcurl=false \
                        -Dlibidn=false \
-                       -Dlibidn2=false \
+                       -Dlibidn2=true \
                        -Dlibiptc=false \
                        -Dqrencode=false \
                        -Dgcrypt=false \
