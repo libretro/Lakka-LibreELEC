@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="arm-mem"
-PKG_VERSION="a3277ce"
-PKG_SHA256="f571bbc43e3670c8f52447eb885f0c561ed039bcfb692678681899d7df13b165"
+PKG_VERSION="010044568a9691bb375e86a96f7e26495f5c5d6e"
+PKG_SHA256="7a73fc64e0c56b2257f3a4d6d0facee078da74a8a98761823ebf266d57381fd5"
 PKG_ARCH="arm"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/bavison/arm-mem"
@@ -13,7 +14,7 @@ PKG_DEPENDS_INIT="toolchain arm-mem"
 PKG_LONGDESC="arm-mem is a ARM-accelerated versions of selected functions from string.h"
 PKG_BUILD_FLAGS="+pic"
 
-if [ "$DEVICE" = "RPi2" -o "$DEVICE" = "Slice3" ] ; then
+if target_has_feature neon; then
   PKG_LIB_ARM_MEM="libarmmem-v7l.so"
 else
   PKG_LIB_ARM_MEM="libarmmem-v6l.so"
