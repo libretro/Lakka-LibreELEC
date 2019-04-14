@@ -1,0 +1,232 @@
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
+index a63e5f0dae56..fdda26f8b056 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
+@@ -2634,7 +2634,7 @@ __dw_hdmi_probe(struct platform_device *pdev,
+ 		hdmi->audio = platform_device_register_full(&pdevinfo);
+ 	}
+ 
+-	if (config0 & HDMI_CONFIG0_CEC) {
++	if (!plat_data->is_cec_unusable && (config0 & HDMI_CONFIG0_CEC)) {
+ 		cec.hdmi = hdmi;
+ 		cec.ops = &dw_hdmi_cec_ops;
+ 		cec.irq = irq;
+diff --git a/drivers/gpu/drm/sun4i/Kconfig b/drivers/gpu/drm/sun4i/Kconfig
+index 1dbbc3a1b763..7149c72e44c8 100644
+--- a/drivers/gpu/drm/sun4i/Kconfig
++++ b/drivers/gpu/drm/sun4i/Kconfig
+@@ -60,6 +60,16 @@ config DRM_SUN8I_DW_HDMI
+ 	  DesignWare HDMI controller with custom HDMI PHY. If M is
+ 	  selected the module will be called sun8i_dw_hdmi.
+ 
++config DRM_SUN8I_DW_HDMI_CEC
++       bool "Allwinner DesignWare HDMI CEC Support for 40nm SoCs"
++       depends on DRM_SUN8I_DW_HDMI
++       select CEC_CORE
++       select CEC_PIN
++       help
++	  Choose this option if you have an 40nm Allwinner SoC with
++	  the DesignWare HDMI controller with custom HDMI PHY and
++	  you want to use CEC.
++
+ config DRM_SUN8I_MIXER
+ 	tristate "Support for Allwinner Display Engine 2.0 Mixer"
+ 	default MACH_SUN8I
+diff --git a/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h b/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h
+index 720c5aa8adc1..82dd84094638 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h
++++ b/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h
+@@ -12,6 +12,7 @@
+ #include <linux/regmap.h>
+ #include <linux/regulator/consumer.h>
+ #include <linux/reset.h>
++#include <media/cec-pin.h>
+ 
+ #define SUN8I_HDMI_PHY_DBG_CTRL_REG	0x0000
+ #define SUN8I_HDMI_PHY_DBG_CTRL_PX_LOCK		BIT(0)
+@@ -144,6 +145,13 @@
+ #define SUN8I_HDMI_PHY_ANA_STS_RCAL_MASK	GENMASK(5, 0)
+ 
+ #define SUN8I_HDMI_PHY_CEC_REG		0x003c
++#define SUN8I_HDMI_PHY_CEC_PIN_CTRL		BIT(7)
++/*
++ * Documentation says that this bit is output enable. However,
++ * it seems that this bit is actually output disable.
++ */
++#define SUN8I_HDMI_PHY_CEC_OUT_DIS		BIT(2)
++#define SUN8I_HDMI_PHY_CEC_IN_DATA		BIT(1)
+ 
+ struct sun8i_hdmi_phy;
+ 
+@@ -151,6 +159,7 @@ struct sun8i_hdmi_phy_variant {
+ 	bool has_phy_clk;
+ 	bool has_second_pll;
+ 	unsigned int is_custom_phy : 1;
++	unsigned int bit_bang_cec : 1;
+ 	const struct dw_hdmi_curr_ctrl *cur_ctr;
+ 	const struct dw_hdmi_mpll_config *mpll_cfg;
+ 	const struct dw_hdmi_phy_config *phy_cfg;
+@@ -163,6 +172,8 @@ struct sun8i_hdmi_phy_variant {
+ };
+ 
+ struct sun8i_hdmi_phy {
++	struct cec_adapter		*cec_adapter;
++	struct cec_notifier 		*cec_notifier;
+ 	struct clk			*clk_bus;
+ 	struct clk			*clk_mod;
+ 	struct clk			*clk_phy;
+diff --git a/drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c b/drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c
+index 66ea3a902e36..70e291353569 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c
++++ b/drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c
+@@ -503,8 +503,9 @@ static void sun8i_hdmi_phy_init_h3(struct sun8i_hdmi_phy *phy)
+ 	regmap_update_bits(phy->regs, SUN8I_HDMI_PHY_PLL_CFG1_REG,
+ 			   SUN8I_HDMI_PHY_PLL_CFG1_CKIN_SEL_MSK, 0);
+ 
+-	/* set HW control of CEC pins */
+-	regmap_write(phy->regs, SUN8I_HDMI_PHY_CEC_REG, 0);
++	/* manual control of CEC pins */
++	regmap_write(phy->regs, SUN8I_HDMI_PHY_CEC_REG,
++		     SUN8I_HDMI_PHY_CEC_PIN_CTRL);
+ 
+ 	/* read calibration data */
+ 	regmap_read(phy->regs, SUN8I_HDMI_PHY_ANA_STS_REG, &val);
+@@ -530,8 +531,49 @@ void sun8i_hdmi_phy_set_ops(struct sun8i_hdmi_phy *phy,
+ 		plat_data->cur_ctr = variant->cur_ctr;
+ 		plat_data->phy_config = variant->phy_cfg;
+ 	}
++	plat_data->is_cec_unusable = phy->variant->bit_bang_cec;
+ }
+ 
++#ifdef CONFIG_DRM_SUN8I_DW_HDMI_CEC
++static bool sun8i_hdmi_phy_cec_pin_read(struct cec_adapter *adap)
++{
++	struct sun8i_hdmi_phy *phy = cec_get_drvdata(adap);
++	unsigned int val;
++
++	regmap_read(phy->regs, SUN8I_HDMI_PHY_CEC_REG, &val);
++
++	return val & SUN8I_HDMI_PHY_CEC_IN_DATA;
++}
++
++static void sun8i_hdmi_phy_cec_pin_low(struct cec_adapter *adap)
++{
++	struct sun8i_hdmi_phy *phy = cec_get_drvdata(adap);
++
++	/* Start driving the CEC pin low */
++	regmap_write(phy->regs, SUN8I_HDMI_PHY_CEC_REG,
++		     SUN8I_HDMI_PHY_CEC_PIN_CTRL);
++}
++
++static void sun8i_hdmi_phy_cec_pin_high(struct cec_adapter *adap)
++{
++	struct sun8i_hdmi_phy *phy = cec_get_drvdata(adap);
++
++	/*
++	 * Stop driving the CEC pin, the pull up will take over
++	 * unless another CEC device is driving the pin low.
++	 */
++	regmap_write(phy->regs, SUN8I_HDMI_PHY_CEC_REG,
++		     SUN8I_HDMI_PHY_CEC_PIN_CTRL |
++		     SUN8I_HDMI_PHY_CEC_OUT_DIS);
++}
++
++static const struct cec_pin_ops sun8i_hdmi_phy_cec_pin_ops = {
++	.read = sun8i_hdmi_phy_cec_pin_read,
++	.low = sun8i_hdmi_phy_cec_pin_low,
++	.high = sun8i_hdmi_phy_cec_pin_high,
++};
++#endif
++
+ static struct regmap_config sun8i_hdmi_phy_regmap_config = {
+ 	.reg_bits	= 32,
+ 	.val_bits	= 32,
+@@ -548,6 +590,7 @@ static const struct sun8i_hdmi_phy_variant sun8i_a83t_hdmi_phy = {
+ };
+ 
+ static const struct sun8i_hdmi_phy_variant sun8i_h3_hdmi_phy = {
++	.bit_bang_cec = true,
+ 	.has_phy_clk = true,
+ 	.is_custom_phy = true,
+ 	.phy_init = &sun8i_hdmi_phy_init_h3,
+@@ -556,6 +599,7 @@ static const struct sun8i_hdmi_phy_variant sun8i_h3_hdmi_phy = {
+ };
+ 
+ static const struct sun8i_hdmi_phy_variant sun8i_r40_hdmi_phy = {
++	.bit_bang_cec = true,
+ 	.has_phy_clk = true,
+ 	.has_second_pll = true,
+ 	.is_custom_phy = true,
+@@ -565,6 +609,7 @@ static const struct sun8i_hdmi_phy_variant sun8i_r40_hdmi_phy = {
+ };
+ 
+ static const struct sun8i_hdmi_phy_variant sun50i_a64_hdmi_phy = {
++	.bit_bang_cec = true,
+ 	.has_phy_clk = true,
+ 	.is_custom_phy = true,
+ 	.phy_init = &sun8i_hdmi_phy_init_h3,
+@@ -708,10 +753,40 @@ int sun8i_hdmi_phy_probe(struct sun8i_dw_hdmi *hdmi, struct device_node *node)
+ 		goto err_disable_clk_bus;
+ 	}
+ 
++#ifdef CONFIG_DRM_SUN8I_DW_HDMI_CEC
++	if (phy->variant->bit_bang_cec) {
++		phy->cec_notifier = cec_notifier_get(dev);
++		if (!phy->cec_notifier) {
++			ret = -ENOMEM;
++			goto err_disable_clk_mod;
++		}
++
++		phy->cec_adapter =
++			cec_pin_allocate_adapter(&sun8i_hdmi_phy_cec_pin_ops,
++						 phy, "sun8i-cec",
++						 CEC_CAP_DEFAULTS);
++		ret = PTR_ERR_OR_ZERO(phy->cec_adapter);
++		if (ret < 0)
++			goto err_put_cec_notifier;
++
++		ret = cec_register_adapter(phy->cec_adapter, dev);
++		if (ret < 0)
++			goto err_delete_cec_adapter;
++
++		cec_register_cec_notifier(phy->cec_adapter, phy->cec_notifier);
++	}
++#endif
++
+ 	hdmi->phy = phy;
+ 
+ 	return 0;
+ 
++err_delete_cec_adapter:
++	cec_delete_adapter(phy->cec_adapter);
++err_put_cec_notifier:
++	cec_notifier_put(phy->cec_notifier);
++err_disable_clk_mod:
++	clk_disable_unprepare(phy->clk_mod);
+ err_disable_clk_bus:
+ 	clk_disable_unprepare(phy->clk_bus);
+ err_deassert_rst_phy:
+@@ -736,6 +811,10 @@ void sun8i_hdmi_phy_remove(struct sun8i_dw_hdmi *hdmi)
+ {
+ 	struct sun8i_hdmi_phy *phy = hdmi->phy;
+ 
++	cec_unregister_adapter(phy->cec_adapter);
++	if (phy->cec_notifier)
++		cec_notifier_put(phy->cec_notifier);
++
+ 	clk_disable_unprepare(phy->clk_mod);
+ 	clk_disable_unprepare(phy->clk_bus);
+ 	clk_disable_unprepare(phy->clk_phy);
+diff --git a/include/drm/bridge/dw_hdmi.h b/include/drm/bridge/dw_hdmi.h
+index 66e70770cce5..764b8bcfa62c 100644
+--- a/include/drm/bridge/dw_hdmi.h
++++ b/include/drm/bridge/dw_hdmi.h
+@@ -144,6 +144,8 @@ struct dw_hdmi_plat_data {
+ 	int (*configure_phy)(struct dw_hdmi *hdmi,
+ 			     const struct dw_hdmi_plat_data *pdata,
+ 			     unsigned long mpixelclock);
++
++	unsigned int is_cec_unusable : 1;
+ };
+ 
+ struct dw_hdmi *dw_hdmi_probe(struct platform_device *pdev,
