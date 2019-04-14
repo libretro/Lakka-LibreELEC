@@ -3,8 +3,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="go"
-PKG_VERSION="1.11.2"
-PKG_SHA256="7854866866c57394217ae5facc41944dff2a7386a064b2bcc4149f7c68e3c79a"
+PKG_VERSION="1.12.3"
+PKG_SHA256="b710a65982e9001ef99a167cf6e8636e46ec36a10e487e7c1c7384cdcd6fcd7c"
 PKG_LICENSE="BSD"
 PKG_SITE="https://golang.org"
 PKG_URL="https://github.com/golang/go/archive/${PKG_NAME}${PKG_VERSION}.tar.gz"
@@ -21,7 +21,7 @@ PKG_TOOLCHAIN="manual"
 
 configure_host() {
   export GOOS=linux
-  export GOROOT_FINAL=$TOOLCHAIN/lib/golang
+  export GOROOT_FINAL=${TOOLCHAIN}/lib/golang
   if [ -x /usr/lib/go/bin/go ]; then
     export GOROOT_BOOTSTRAP=/usr/lib/go
   else
@@ -31,16 +31,16 @@ configure_host() {
 }
 
 make_host() {
-  cd $PKG_BUILD/src
+  cd ${PKG_BUILD}/src
   bash make.bash --no-banner
 }
 
 pre_makeinstall_host() {
   # need to cleanup old golang version when updating to a new version
-  rm -rf $TOOLCHAIN/lib/golang
+  rm -rf ${TOOLCHAIN}/lib/golang
 }
 
 makeinstall_host() {
-  mkdir -p $TOOLCHAIN/lib/golang
-  cp -av $PKG_BUILD/* $TOOLCHAIN/lib/golang/
+  mkdir -p ${TOOLCHAIN}/lib/golang
+  cp -av ${PKG_BUILD}/* ${TOOLCHAIN}/lib/golang/
 }

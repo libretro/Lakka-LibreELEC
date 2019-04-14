@@ -3,8 +3,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="containerd"
-PKG_VERSION="1.2.2"
-PKG_SHA256="91d480816986d74ff4fa7dd0412c787615fa705975b18fa4079c333b137c653f"
+PKG_VERSION="1.2.6"
+PKG_SHA256="f2d578b743fb9faa5b3477b7cf4b33d00501087043a53b27754f14bbe741f891"
 PKG_LICENSE="APL"
 PKG_SITE="https://containerd.tools/"
 PKG_URL="https://github.com/containerd/containerd/archive/v$PKG_VERSION.tar.gz"
@@ -13,14 +13,14 @@ PKG_LONGDESC="A daemon to control runC, built for performance and density."
 PKG_TOOLCHAIN="manual"
 
 pre_make_target() {
-  case $TARGET_ARCH in
+  case ${TARGET_ARCH} in
     x86_64)
       export GOARCH=amd64
       ;;
     arm)
       export GOARCH=arm
 
-      case $TARGET_CPU in
+      case ${TARGET_CPU} in
         arm1176jzf-s)
           export GOARM=6
           ;;
@@ -37,26 +37,26 @@ pre_make_target() {
   export GOOS=linux
   export CGO_ENABLED=1
   export CGO_NO_EMULATION=1
-  export CGO_CFLAGS=$CFLAGS
+  export CGO_CFLAGS=${CFLAGS}
   export CONTAINERD_VERSION=v${PKG_VERSION}
   export CONTAINERD_REVISION=${PKG_VERSION}
   export CONTAINERD_PKG=github.com/containerd/containerd
   export LDFLAGS="-w -extldflags -static -X ${CONTAINERD_PKG}/version.Version=${CONTAINERD_VERSION} -X ${CONTAINERD_PKG}/version.Revision=${CONTAINERD_REVISION} -X ${CONTAINERD_PKG}/version.Package=${CONTAINERD_PKG} -extld $CC"
-  export GOLANG=$TOOLCHAIN/lib/golang/bin/go
-  export GOPATH=$PKG_BUILD/.gopath
-  export GOROOT=$TOOLCHAIN/lib/golang
-  export PATH=$PATH:$GOROOT/bin
+  export GOLANG=${TOOLCHAIN}/lib/golang/bin/go
+  export GOPATH=${PKG_BUILD}/.gopath
+  export GOROOT=${TOOLCHAIN}/lib/golang
+  export PATH=${PATH}:${GOROOT}/bin
 
-  mkdir -p $PKG_BUILD/.gopath
-  if [ -d $PKG_BUILD/vendor ]; then
-    mv $PKG_BUILD/vendor $PKG_BUILD/.gopath/src
+  mkdir -p ${PKG_BUILD}/.gopath
+  if [ -d ${PKG_BUILD}/vendor ]; then
+    mv ${PKG_BUILD}/vendor ${PKG_BUILD}/.gopath/src
   fi
 
-  ln -fs $PKG_BUILD $PKG_BUILD/.gopath/src/github.com/containerd/containerd
+  ln -fs ${PKG_BUILD} ${PKG_BUILD}/.gopath/src/github.com/containerd/containerd
 }
 
 make_target() {
   mkdir -p bin
-  $GOLANG build -v -o bin/containerd      -a -tags "static_build no_btrfs" -ldflags "$LDFLAGS" ./cmd/containerd
-  $GOLANG build -v -o bin/containerd-shim -a -tags "static_build no_btrfs" -ldflags "$LDFLAGS" ./cmd/containerd-shim
+  ${GOLANG} build -v -o bin/containerd      -a -tags "static_build no_btrfs" -ldflags "${LDFLAGS}" ./cmd/containerd
+  ${GOLANG} build -v -o bin/containerd-shim -a -tags "static_build no_btrfs" -ldflags "${LDFLAGS}" ./cmd/containerd-shim
 }
