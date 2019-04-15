@@ -30,14 +30,14 @@
 # PHS: L4T system setup and general setup for thermal zones.
 #
 # Fail early, fail fast.
-set -e
+# set -e
 # Also be verbose about the failing command should we exit early due
 # to the -e flag. As an exception, do silence any prints during the +e
 # flag.
-set -E
-trap 'set -o | egrep -q "^errexit[[:space:]]+on" && \
-echo "*** ERROR:${BASH_SOURCE}:${BASH_LINENO}: \
-script aborting due to failing exit status from: \"${BASH_COMMAND}\""' ERR
+# set -E
+# trap 'set -o | egrep -q "^errexit[[:space:]]+on" && \
+# echo "*** ERROR:${BASH_SOURCE}:${BASH_LINENO}: \
+# script aborting due to failing exit status from: \"${BASH_COMMAND}\""' ERR
 # Check for root privileges
 [ "$(id -u)" == "0" ] || { echo >&2 "*** ERROR: $0 must run as root"; exit 1; }
 # PHS runs as this user.
@@ -55,7 +55,7 @@ chmod 0775 "/var/lib/nvphs"
 chown "${phsuser}" "/var/lib/nvphs"
 # These commands will fail on thermal zones missing some of the
 # referenced nodes. Lift -e to avoid exiting unnecessarily.
-set +e
+# set +e
 # Thermal zones:
 # Make the name (type) of the thermal zone readable by nvphsd.
 # Make temperature (temp) readable by nvphsd.
@@ -73,4 +73,5 @@ do
 		chmod 0664 "${tz}"/trip_point_*_hyst 2> /dev/null
 	fi
 done
-set -e
+# set -e
+exit 0
