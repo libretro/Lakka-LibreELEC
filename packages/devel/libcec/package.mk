@@ -44,10 +44,6 @@ fi
 
 pre_configure_target() {
   if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
-    export CXXFLAGS="$CXXFLAGS \
-      -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads/ \
-      -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
-
     # detecting RPi support fails without -lvchiq_arm
     export LDFLAGS="$LDFLAGS -lvchiq_arm"
   fi
