@@ -205,6 +205,13 @@ make_target() {
     done
   fi
 
+  # arm64 target does not support creating uImage.
+  # Build Image first, then wrap it using u-boot's mkimage.
+  if [[ "$TARGET_KERNEL_ARCH" == "arm64" && "$KERNEL_TARGET" == uImage* ]]; then
+    KERNEL_UIMAGE_TARGET="$KERNEL_TARGET"
+    KERNEL_TARGET="${KERNEL_TARGET/uImage/Image}"
+  fi
+
   # the modules target is required to get a proper Module.symvers
   # file with symbols from built-in and external modules.
   # Without that it'll contain only the symbols from the kernel
@@ -229,6 +236,19 @@ make_target() {
 
     mv -f arch/$TARGET_KERNEL_ARCH/boot/boot.img arch/$TARGET_KERNEL_ARCH/boot/$KERNEL_TARGET
 
+  fi
+
+  if [ -n "$KERNEL_UIMAGE_TARGET" ] ; then
+    KERNEL_UIMAGE_COMP=${KERNEL_UIMAGE_TARGET:7}
+    KERNEL_UIMAGE_COMP=${KERNEL_UIMAGE_COMP:-none}
+    mkimage -A $TARGET_KERNEL_ARCH \
+            -O linux \
+            -T kernel \
+            -C $KERNEL_UIMAGE_COMP \
+            -a $KERNEL_UIMAGE_LOADADDR \
+            -e $KERNEL_UIMAGE_ENTRYADDR \
+            -d arch/$TARGET_KERNEL_ARCH/boot/$KERNEL_TARGET \
+               arch/$TARGET_KERNEL_ARCH/boot/$KERNEL_UIMAGE_TARGET
   fi
 }
 
