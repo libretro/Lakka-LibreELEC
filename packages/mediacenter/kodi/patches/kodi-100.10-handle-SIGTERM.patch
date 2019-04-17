@@ -1,4 +1,4 @@
-From 5ef37fded5c9c84134f338fd489983177ec555f5 Mon Sep 17 00:00:00 2001
+From 332f8f5c552f695d4e893512a642f9f9bbed6d9e Mon Sep 17 00:00:00 2001
 From: MilhouseVH <milhouseVH.github@nmacleod.com>
 Date: Tue, 19 Mar 2019 18:06:56 +0000
 Subject: [PATCH] handle SIGTERM
@@ -15,14 +15,15 @@ so, when shutdown/reboot is requested:
 6. addons / pvrmanager / cec / everything else.. are free to deadlock / crash now, we dont care
 7. KILL
 ---
- xbmc/Application.cpp     | 23 +++++++++++++++++------
- xbmc/Application.h       |  1 +
- xbmc/XBApplicationEx.cpp |  1 +
- xbmc/XBApplicationEx.h   |  1 +
- 4 files changed, 20 insertions(+), 6 deletions(-)
+ xbmc/Application.cpp                          | 23 ++++++++++++++-----
+ xbmc/Application.h                            |  1 +
+ xbmc/XBApplicationEx.cpp                      |  1 +
+ xbmc/XBApplicationEx.h                        |  1 +
+ .../powermanagement/LogindUPowerSyscall.cpp   |  2 --
+ 5 files changed, 20 insertions(+), 8 deletions(-)
 
 diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
-index 3bd24ef..b151026 100644
+index bfa6083209..a7fbe8afd5 100644
 --- a/xbmc/Application.cpp
 +++ b/xbmc/Application.cpp
 @@ -2029,12 +2029,12 @@ void CApplication::OnApplicationMessage(ThreadMessage* pMsg)
@@ -91,7 +92,7 @@ index 3bd24ef..b151026 100644
  
      // cancel any jobs from the jobmanager
 @@ -4111,7 +4122,7 @@ void CApplication::ProcessSlow()
-   if (CPlatformPosix::TestShutdownFlag())
+   if (CPlatformPosix::TestQuitFlag())
    {
      CLog::Log(LOGNOTICE, "Quitting due to POSIX signal");
 -    CApplicationMessenger::GetInstance().PostMsg(TMSG_QUIT);
@@ -100,7 +101,7 @@ index 3bd24ef..b151026 100644
  #endif
  
 diff --git a/xbmc/Application.h b/xbmc/Application.h
-index 30cf6e7..1866fab 100644
+index 57b006b60c..5b66d7f09f 100644
 --- a/xbmc/Application.h
 +++ b/xbmc/Application.h
 @@ -156,6 +156,7 @@ public:
@@ -112,7 +113,7 @@ index 30cf6e7..1866fab 100644
    void UnloadSkin(bool forReload = false);
    bool LoadCustomWindows();
 diff --git a/xbmc/XBApplicationEx.cpp b/xbmc/XBApplicationEx.cpp
-index fb0bd6c..4f82951 100644
+index fb0bd6c70d..4f829512f1 100644
 --- a/xbmc/XBApplicationEx.cpp
 +++ b/xbmc/XBApplicationEx.cpp
 @@ -24,6 +24,7 @@ CXBApplicationEx::CXBApplicationEx()
@@ -124,7 +125,7 @@ index fb0bd6c..4f82951 100644
  }
  
 diff --git a/xbmc/XBApplicationEx.h b/xbmc/XBApplicationEx.h
-index e7534b8..8f45f04 100644
+index e7534b8c05..8f45f04ec8 100644
 --- a/xbmc/XBApplicationEx.h
 +++ b/xbmc/XBApplicationEx.h
 @@ -29,6 +29,7 @@ public:
@@ -135,6 +136,19 @@ index e7534b8..8f45f04 100644
    bool m_AppFocused;
    bool m_renderGUI;
  
+diff --git a/xbmc/platform/linux/powermanagement/LogindUPowerSyscall.cpp b/xbmc/platform/linux/powermanagement/LogindUPowerSyscall.cpp
+index 9e65e939fc..fec636a417 100644
+--- a/xbmc/platform/linux/powermanagement/LogindUPowerSyscall.cpp
++++ b/xbmc/platform/linux/powermanagement/LogindUPowerSyscall.cpp
+@@ -76,8 +76,6 @@ CLogindUPowerSyscall::~CLogindUPowerSyscall()
+ 
+ bool CLogindUPowerSyscall::Powerdown()
+ {
+-  // delay shutdown so that the app can close properly
+-  InhibitDelayLockShutdown();
+   return LogindSetPowerState("PowerOff");
+ }
+ 
 -- 
-2.14.1
+2.19.1
 
