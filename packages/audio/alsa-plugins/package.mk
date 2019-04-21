@@ -22,7 +22,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.alsa-project.org/"
 PKG_URL="ftp://ftp.alsa-project.org/pub/plugins/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS_TARGET="toolchain alsa-lib"
+PKG_DEPENDS_TARGET="toolchain alsa-lib pulseaudio"
 PKG_SECTION="audio"
 PKG_SHORTDESC="alsa-plugins contains plugins for various ALSA needs (e.g. Jack)."
 

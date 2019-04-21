@@ -104,7 +104,7 @@ setup_toolchain() {
 }
 
 kernel_path() {
-  if [ "$PROJECT" = "Switch" -a "$DEVICE" = "Switch-L4T" ]; then
+  if [ "$PROJECT" = "Switch" -a "$DEVICE" = "L4T" ]; then
     echo "$(get_build_dir linux)/kernel/kernel-4.9"
   else
     get_build_dir linux
@@ -519,6 +519,157 @@ show_config() {
 debug_strip() {
   if [ ! "$DEBUG" = yes ]; then
     find $* -type f -executable | xargs $STRIP 2>/dev/null || :
+  fi
+}
+
+# Thread concurrency helpers to avoid concurrency issues with some code,
+# eg. when Python installs directly into $TOOLCHAIN.
+# Test MTJOBID so that these functions are a no-op during non-multithreaded builds.
+acquire_exclusive_lock() {
+  [ "${MTWITHLOCKS}" != "yes" ] && return 0
+
+  local pkg="$1" task="$2" lockfile="${3:-global}"
+  local this_job="${MTJOBID}"
+  local lock_job lock_seq lock_task lock_pkg
+
+  exec 96>"${THREAD_CONTROL}/locks/.mutex.${lockfile}"
+  if ! flock --nonblock --exclusive 96; then
+    while [ : ]; do
+      read -r lock_job lock_seq lock_task lock_pkg <<<$(cat "${THREAD_CONTROL}/locks/.mutex.${lockfile}.owner" 2>/dev/null)
+      [ -n "${lock_job}" ] && break || sleep 1
+    done
+
+    if [ "${lock_job}/${lock_seq}" != "${this_job}/${PARALLEL_SEQ}" ]; then
+      pkg_lock_status "MUTEX/W" "${pkg}" "${task}" "$(printf "mutex: %s; waiting on [%02d] %s %s" "${lockfile}" ${lock_job} "${lock_task}" "${lock_pkg}")"
+      flock --exclusive 96
+    fi
+  fi
+
+  pkg_lock_status "MUTEX" "${pkg}" "${task}" "mutex: ${lockfile}"
+
+  echo "${this_job} ${PARALLEL_SEQ} ${task} ${pkg}" >"${THREAD_CONTROL}/locks/.mutex.${lockfile}.owner"
+}
+
+release_exclusive_lock() {
+  [ "${MTWITHLOCKS}" != "yes" ] && return 0
+
+  local pkg="$1" task="$2"
+
+  pkg_lock_status "ACTIVE" "${pkg}" "${task}"
+
+  flock --unlock 96 2>/dev/null
+}
+
+# Execute single command using mutex
+exec_thread_safe() {
+  local result
+  acquire_exclusive_lock "${PKG_NAME:exec}" "execcmd"
+  $@
+  result=$?
+  release_exclusive_lock "${PKG_NAME:exec}" "execcmd"
+  return ${result}
+}
+
+print_color() {
+  local clr_name="$1" clr_text="$2" clr_actual
+  local black red green yellow blue magenta cyan white endcolor
+  local boldblack boldred boldgreen boldyellow boldblue boldmagenta boldcyan boldwhite
+
+  [ -z "${clr_name}" ] && return 0
+
+  if [ "$DISABLE_COLORS" = "yes" ]; then
+    [ $# -eq 2 ] && echo -en "${clr_text}"
+    return 0
+  fi
+
+  black="\e[0;30m"
+  boldblack="\e[1;30m"
+  red="\e[0;31m"
+  boldred="\e[1;31m"
+  green="\e[0;32m"
+  boldgreen="\e[1;32m"
+  yellow="\e[0;33m"
+  boldyellow="\e[1;33m"
+  blue="\e[0;34m"
+  boldblue="\e[1;34m"
+  magenta="\e[0;35m"
+  boldmagenta="\e[1;35m"
+  cyan="\e[0;36m"
+  boldcyan="\e[1;36m"
+  white="\e[0;37m"
+  boldwhite="\e[1;37m"
+  endcolor="\e[0m"
+
+  # $clr_name can be a color variable (boldgreen etc.) or a
+  # "standard" color determined by an indirect name (CLR_ERROR etc.)
+  #
+  # If ${!clr_name} doesn't exist then assume it's a standard color.
+  # If ${!clr_name} does exist then check it's not a custom color mapping.
+  # Custom color mappings can be configured in options files.
+  #
+  clr_actual="${!clr_name}"
+
+  if [ -n "${clr_actual}" ]; then
+    clr_actual="${!clr_actual}"
+  else
+    case "${clr_name}" in
+      CLR_ERROR)        clr_actual="${boldred}";;
+      CLR_WARNING)      clr_actual="${boldred}";;
+      CLR_WARNING_DIM)  clr_actual="${red}";;
+
+      CLR_APPLY_PATCH)  clr_actual="${boldgreen}";;
+      CLR_AUTORECONF)   clr_actual="${boldmagenta}";;
+      CLR_BUILD)        clr_actual="${boldyellow}";;
+      CLR_TOOLCHAIN)    clr_actual="${boldmagenta}";;
+      CLR_CLEAN)        clr_actual="${boldred}";;
+      CLR_FIXCONFIG)    clr_actual="${boldyellow}";;
+      CLR_GET)          clr_actual="${boldcyan}";;
+      CLR_INFO)         clr_actual="${boldgreen}";;
+      CLR_INSTALL)      clr_actual="${boldgreen}";;
+      CLR_PATCH_DESC)   clr_actual="${boldwhite}";;
+      CLR_TARGET)       clr_actual="${boldwhite}";;
+      CLR_UNPACK)       clr_actual="${boldcyan}";;
+
+      CLR_ENDCOLOR)     clr_actual="${endcolor}";;
+
+      *)                clr_actual="${endcolor}";;
+    esac
+  fi
+
+  if [ $# -eq 2 ]; then
+    echo -en "${clr_actual}${clr_text}${endcolor}"
+  else
+    echo -en "${clr_actual}"
+  fi
+}
+
+# p1: name of function to test for
+# return 0 if function exists, 1 if not
+pkg_call_exists() {
+  [ "$(type -t ${1})" = "function" ] && return 0 || return 1
+}
+
+# p1: name of function to execute unconditionally
+# testing the exit code value of this function is likely to break set -e fail-on-error behaviour
+pkg_call() {
+  [ -n "${PKG_NAME}" ] || die "$(print_color CLR_ERROR "FAILURE: Cannot call ${1} package function when package is not known!")"
+
+  ${1}
+}
+
+# prints a warning if the file slated for removal doesn't exist
+# this allows us to continue instead of bailing out with just "rm"
+safe_remove() {
+  local path="$1"
+
+  [ -z "${path}" ] && return 0
+
+  if [ -f "${path}" -o -d "${path}" ]; then
+    rm -r "${path}"
+  elif [ -n "${PKG_NAME}" ]; then
+    print_color CLR_WARNING "safe_remove: path does not exist: [${PKG_NAME}]: ${path}\n"
+  else
+    print_color CLR_WARNING "safe_remove: path does not exist: ${path}\n"
   fi
 }
 

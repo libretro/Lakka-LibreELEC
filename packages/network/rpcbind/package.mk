@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="rpcbind"
-PKG_VERSION="0.2.4"
+PKG_VERSION="1.2.5"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://rpcbind.sourceforge.net/"

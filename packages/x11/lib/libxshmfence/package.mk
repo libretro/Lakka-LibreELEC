@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libxshmfence"
-PKG_VERSION="1.2"
+PKG_VERSION="1.3"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"

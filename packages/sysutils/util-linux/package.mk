@@ -1,34 +1,18 @@
-################################################################################
-#      This file is part of OpenELEC - http://www.openelec.tv
-#      Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
-#
-#  OpenELEC is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 2 of the License, or
-#  (at your option) any later version.
-#
-#  OpenELEC is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
-################################################################################
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="util-linux"
-PKG_VERSION="2.29"
-PKG_ARCH="any"
+PKG_VERSION="2.33.1"
+PKG_SHA256="c14bd9f3b6e1792b90db87696e87ec643f9d63efa0a424f092a5a6b2f2dbef21"
 PKG_LICENSE="GPL"
-PKG_URL="http://www.kernel.org/pub/linux/utils/util-linux/v2.29/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="http://www.kernel.org/pub/linux/utils/util-linux/v${PKG_VERSION%.*}/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_DEPENDS_HOST="gcc:host pkg-config:host"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_DEPENDS_INIT="toolchain"
-PKG_SECTION="system"
-PKG_SHORTDESC="util-linux: Miscellaneous system utilities for Linux"
-PKG_LONGDESC="The util-linux package contains a large variety of low-level system utilities that are necessary for a Linux system to function. Among many features, Util-linux contains the fdisk configuration tool and the login program."
-
-PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_LONGDESC="A large variety of low-level system utilities that are necessary for a Linux system to function."
+PKG_TOOLCHAIN="autotools"
+PKG_BUILD_FLAGS="+pic:host"
 
 UTILLINUX_CONFIG_DEFAULT="--disable-gtk-doc \
                           --disable-nls \
@@ -36,7 +20,6 @@ UTILLINUX_CONFIG_DEFAULT="--disable-gtk-doc \
                           --enable-tls \
                           --disable-all-programs \
                           --enable-chsh-only-listed \
-                          --enable-libmount-force-mountinfo \
                           --disable-bash-completion \
                           --disable-colors-default \
                           --disable-pylibmount \
@@ -49,9 +32,9 @@ UTILLINUX_CONFIG_DEFAULT="--disable-gtk-doc \
                           --without-audit \
                           --without-udev \
                           --without-ncurses \
+                          --without-ncursesw \
                           --without-readline \
                           --without-slang \
-                          --without-termcap \
                           --without-tinfo \
                           --without-utempter \
                           --without-util \
@@ -69,7 +52,9 @@ PKG_CONFIGURE_OPTS_TARGET="$UTILLINUX_CONFIG_DEFAULT \
                            --enable-libsmartcols \
                            --enable-losetup \
                            --enable-fsck \
-                           --enable-blkid"
+                           --enable-fstrim \
+                           --enable-blkid \
+                           --enable-lscpu"
 
 if [ "$SWAP_SUPPORT" = "yes" ]; then
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-swapon"
@@ -79,8 +64,8 @@ PKG_CONFIGURE_OPTS_HOST="--enable-static \
                          --disable-shared \
                          $UTILLINUX_CONFIG_DEFAULT \
                          --enable-uuidgen \
-                         --enable-hexdump \
-                         --enable-libuuid"
+                         --enable-libuuid
+                         --enable-hexdump"
 
 PKG_CONFIGURE_OPTS_INIT="$UTILLINUX_CONFIG_DEFAULT \
                          --enable-libblkid \

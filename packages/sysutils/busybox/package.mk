@@ -51,7 +51,7 @@ PKG_MAKE_OPTS_INIT="ARCH=$TARGET_ARCH \
 
 # nfs support
 if [ "$NFS_SUPPORT" = yes ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET rpcbind"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libtirpc"
 fi
 
 if [ -f $PROJECT_DIR/$PROJECT/busybox/busybox-target.conf ]; then

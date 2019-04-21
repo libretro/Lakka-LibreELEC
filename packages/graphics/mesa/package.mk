@@ -114,7 +114,7 @@ post_makeinstall_target() {
     ln -sf /var/lib/libGL.so $INSTALL/usr/lib/libGL.so.1
     mv $INSTALL/usr/lib/libGL.so.1.2.0 $INSTALL/usr/lib/libGL_mesa.so.1
   fi
-  if [ "$DEVICE" = "Switch-L4T" ]; then
+  if [ "$DEVICE" = "L4T" ]; then
     mv $INSTALL/usr/lib/libglapi* $INSTALL/
     rm -rf $INSTALL/usr/lib/*.so*
     rm -rf $INSTALL/usr/lib/*/*.so*

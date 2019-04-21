@@ -1,35 +1,18 @@
-################################################################################
-#      This file is part of OpenELEC - http://www.openelec.tv
-#      Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
-#
-#  OpenELEC is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 2 of the License, or
-#  (at your option) any later version.
-#
-#  OpenELEC is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
-################################################################################
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="e2fsprogs"
-PKG_VERSION="1.43.4"
-PKG_ARCH="any"
+PKG_VERSION="1.43.9"
+PKG_SHA256="926f8e8de1ffba55d791f21b71334e8a32b5227257ad370f2bf7e4396629e97f"
 PKG_LICENSE="GPL"
 PKG_SITE="http://e2fsprogs.sourceforge.net/"
-PKG_URL="$SOURCEFORGE_SRC/$PKG_NAME/$PKG_NAME/1.42/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="https://www.kernel.org/pub/linux/kernel/people/tytso/$PKG_NAME/v$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_DEPENDS_HOST="gcc:host"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_DEPENDS_INIT="toolchain"
-PKG_SECTION="tools"
-PKG_SHORTDESC="e2fsprogs: Utilities for use with the ext2 filesystem"
 PKG_LONGDESC="The filesystem utilities for the EXT2 filesystem, including e2fsck, mke2fs, dumpe2fs, fsck, and others."
-PKG_IS_ADDON="no"
-
-PKG_AUTORECONF="no"
+PKG_BUILD_FLAGS="-parallel"
 
 if [ "$HFSTOOLS" = "yes" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET diskdev_cmds"
@@ -39,37 +22,36 @@ PKG_CONFIGURE_OPTS_HOST="--prefix=$TOOLCHAIN/ \
                          --bindir=$TOOLCHAIN/bin \
                          --sbindir=$TOOLCHAIN/sbin"
 
-PKG_CONFIGURE_OPTS_TARGET="BUILD_CC=$HOST_CC \
-                           --enable-verbose-makecmds \
-                           --enable-symlink-install \
-                           --enable-symlink-build \
-                           --enable-compression \
-                           --enable-htree \
-                           --disable-elf-shlibs \
-                           --disable-bsd-shlibs \
-                           --disable-profile \
-                           --disable-jbd-debug \
-                           --disable-blkid-debug \
-                           --disable-testio-debug \
-                           --enable-libuuid \
-                           --enable-libblkid \
-                           --disable-debugfs \
-                           --disable-imager \
-                           --enable-resizer \
-                           --enable-fsck \
-                           --disable-e2initrd-helper \
-                           --enable-tls \
-                           --disable-uuidd \
-                           --disable-nls \
-                           --disable-rpath \
-                           --disable-fuse2fs \
-                           --with-gnu-ld"
+pre_configure_target() {
+  PKG_CONFIGURE_OPTS_TARGET="BUILD_CC=$HOST_CC \
+                             --enable-verbose-makecmds \
+                             --enable-symlink-install \
+                             --enable-symlink-build \
+                             --disable-elf-shlibs \
+                             --disable-bsd-shlibs \
+                             --disable-profile \
+                             --disable-jbd-debug \
+                             --disable-blkid-debug \
+                             --disable-testio-debug \
+                             --enable-libuuid \
+                             --enable-libblkid \
+                             --disable-debugfs \
+                             --disable-imager \
+                             --enable-resizer \
+                             --enable-fsck \
+                             --disable-e2initrd-helper \
+                             --enable-tls \
+                             --disable-uuidd \
+                             --disable-nls \
+                             --disable-rpath \
+                             --disable-fuse2fs \
+                             --with-gnu-ld"
+}
 
-PKG_CONFIGURE_OPTS_INIT="$PKG_CONFIGURE_OPTS_TARGET"
+pre_configure_init() {
+  pkg_call pre_configure_target
 
-pre_make_host() {
-  # dont build parallel
-  MAKEFLAGS=-j1
+  PKG_CONFIGURE_OPTS_INIT="$PKG_CONFIGURE_OPTS_TARGET"
 }
 
 post_makeinstall_target() {
