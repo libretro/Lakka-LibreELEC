@@ -99,7 +99,7 @@ post_makeinstall_target() {
 # table for Xbox DVD Playback Kit
 *		rc-xbox-dvd	xbox_dvd
 # multi-table for amlogic devices
-meson-ir	*		libreelec_multi
+meson-ir	rc-empty	libreelec_multi
 EOF
 
   fi
