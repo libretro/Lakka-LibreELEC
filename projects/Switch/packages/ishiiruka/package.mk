@@ -19,11 +19,12 @@
 ################################################################################
 
 PKG_NAME="ishiiruka"
-PKG_VERSION="ede0713"
+PKG_VERSION="60c9a09"
 PKG_REV="1"
-PKG_ARCH="x86_64"
+PKG_ARCH="x86_64 aarch64"
 PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/libretro/Ishiiruka"
+PKG_SITE="https://github.com/lakka-switch/Ishiiruka"
+PKG_GIT_BRANCH="l4t"
 PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain cmake:host libusb ffmpeg libevdev $OPENGL"
 PKG_PRIORITY="optional"
