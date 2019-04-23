@@ -18,18 +18,18 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="mupen64plus"
-PKG_VERSION="be81697"
+PKG_NAME="mupen64plus-next"
+PKG_VERSION="206d0f1"
+PKG_GIT_BRANCH="GLideN64"
 PKG_REV="1"
-PKG_ARCH="arm i386 x86_64"
+PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/libretro/mupen64plus-libretro"
+PKG_SITE="https://github.com/libretro/mupen64plus-libretro-nx"
 PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain nasm:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="mupen64plus + RSP-HLE + GLideN64 + libretro"
-PKG_LONGDESC="mupen64plus + RSP-HLE + GLideN64 + libretro"
+PKG_SHORTDESC="Improved mupen64plus libretro core reimplementation"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
@@ -69,9 +69,9 @@ make_target() {
       ;;
     *)
       if [ "$OPENGLES_SUPPORT" = "yes" ]; then
-        make platform=unix-gles GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
+        make platform=unix-gles GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=$ARCH
       else
-        make platform=unix-neon HAVE_NEON=1 WITH_DYNAREC=arm
+        make platform=unix WITH_DYNAREC=$ARCH
       fi
       ;;
   esac
@@ -79,5 +79,5 @@ make_target() {
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp mupen64plus_libretro.so $INSTALL/usr/lib/libretro/
+  cp mupen64plus_next_libretro.so $INSTALL/usr/lib/libretro/
 }
