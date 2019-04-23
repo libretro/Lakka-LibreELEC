@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="linux-nvidia"
-PKG_VERSION="87f177b605d61b2691098c28549220941b335936"
+PKG_VERSION="864d62a265147d4fc99ef4df424dde9bc909dfa0"
 PKG_GIT_BRANCH="rel32-rel32stack"
 PKG_ARCH="any"
 PKG_LICENSE="nonfree"

@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="l4t-platform-t210-switch"
-PKG_VERSION="ba1612571ea8cdd5592bcee8d6d290505ce15f96"
+PKG_VERSION="ebca204f695fd86254feeeab387c523a311c0c29"
 PKG_ARCH="any"
 PKG_LICENSE="nonfree"
 PKG_SITE="https://gitlab.com/switchroot/l4t-platform-t210-switch"
