@@ -1,4 +1,4 @@
-From 61f6745f6aac46fffc69f3c96112633cb1793fdf Mon Sep 17 00:00:00 2001
+From b42a087411199d7f480f1683bddd3206c5fd17b1 Mon Sep 17 00:00:00 2001
 From: Gary Bisson <gary.bisson@boundarydevices.com>
 Date: Wed, 17 Aug 2016 11:36:28 +0200
 Subject: [PATCH] hciattach: add QCA9377 Tuffello support
@@ -11,23 +11,29 @@ Modifications:
 - remove verbose traces
 - use H4 protocol instead of IBS
 
+Also squashed:
+hciattach_rome: simplify baudrate setting
+hciattach_rome: do not override module internal MAC address
+hciattach_rome: force IBS to disabled in NVM
+hciattach_rome: display ROM and TLV info by default
+
 Signed-off-by: Gary Bisson <gary.bisson@boundarydevices.com>
 ---
  Makefile.tools         |    1 +
  android/Android.mk     |    1 +
  tools/hciattach.c      |   12 +
  tools/hciattach.h      |    1 +
- tools/hciattach_rome.c | 1879 ++++++++++++++++++++++++++++++++++++++++++++++++
- tools/hciattach_rome.h |  407 +++++++++++
- 6 files changed, 2301 insertions(+)
+ tools/hciattach_rome.c | 1872 ++++++++++++++++++++++++++++++++++++++++
+ tools/hciattach_rome.h |  388 +++++++++
+ 6 files changed, 2275 insertions(+)
  create mode 100644 tools/hciattach_rome.c
  create mode 100644 tools/hciattach_rome.h
 
 diff --git a/Makefile.tools b/Makefile.tools
-index 561302fa1..756fed1af 100644
+index b7b422506..e0e995089 100644
 --- a/Makefile.tools
 +++ b/Makefile.tools
-@@ -308,6 +308,7 @@ tools_hciattach_SOURCES = tools/hciattach.c tools/hciattach.h \
+@@ -304,6 +304,7 @@ tools_hciattach_SOURCES = tools/hciattach.c tools/hciattach.h \
  						tools/hciattach_ti.c \
  						tools/hciattach_tialt.c \
  						tools/hciattach_ath3k.c \
@@ -36,10 +42,10 @@ index 561302fa1..756fed1af 100644
  						tools/hciattach_intel.c \
  						tools/hciattach_bcm43xx.c
 diff --git a/android/Android.mk b/android/Android.mk
-index 38ef4aa97..d5045dacd 100644
+index 76a826b47..01599c04b 100644
 --- a/android/Android.mk
 +++ b/android/Android.mk
-@@ -695,6 +695,7 @@ LOCAL_SRC_FILES := \
+@@ -696,6 +696,7 @@ LOCAL_SRC_FILES := \
  	bluez/tools/hciattach_ti.c \
  	bluez/tools/hciattach_tialt.c \
  	bluez/tools/hciattach_ath3k.c \
@@ -98,10 +104,10 @@ index 249aab49e..85c801ccf 100644
  int bcm43xx_init(int fd, int def_speed, int speed, struct termios *ti,
 diff --git a/tools/hciattach_rome.c b/tools/hciattach_rome.c
 new file mode 100644
-index 000000000..2586dbc77
+index 000000000..9a7f222c4
 --- /dev/null
 +++ b/tools/hciattach_rome.c
-@@ -0,0 +1,1879 @@
+@@ -0,0 +1,1872 @@
 +/*
 + *
 + *  Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
@@ -133,6 +139,7 @@ index 000000000..2586dbc77
 + *
 + ******************************************************************************/
 +
++#define MODULE_HAS_MAC_ADDR
 +#define LOG_TAG "bt_vendor"
 +#include <stdio.h>
 +#include <unistd.h>
@@ -335,21 +342,21 @@ index 000000000..2586dbc77
 +		switch(rsp[RSP_TYPE_OFFSET]) {
 +		case EDL_PATCH_VER_RES_EVT:
 +		case EDL_APP_VER_RES_EVT:
-+			PR_DBG("\t Current Product ID\t\t: 0x%08x\n",
++			PR_INFO("Current Product ID\t\t: 0x%08x\n",
 +			       (unsigned int)(rsp[PATCH_PROD_ID_OFFSET +3] << 24 |
 +					      rsp[PATCH_PROD_ID_OFFSET+2] << 16 |
 +					      rsp[PATCH_PROD_ID_OFFSET+1] << 8 |
 +					      rsp[PATCH_PROD_ID_OFFSET]  ));
 +
 +			/* Patch Version indicates FW patch version */
-+			PR_DBG("\t Current Patch Version\t\t: 0x%04x\n",
++			PR_INFO("Current Patch Version\t\t: 0x%04x\n",
 +			       (unsigned short)(rsp[PATCH_PATCH_VER_OFFSET + 1] << 8 |
 +						rsp[PATCH_PATCH_VER_OFFSET] ));
 +
 +			/* ROM Build Version indicates ROM build version like 1.0/1.1/2.0 */
 +			rome_ver = (int)(rsp[PATCH_ROM_BUILD_VER_OFFSET + 1] << 8 |
 +					 rsp[PATCH_ROM_BUILD_VER_OFFSET]);
-+			PR_DBG("\t Current ROM Build Version\t: 0x%04x\n", rome_ver);
++			PR_INFO("Current ROM Build Version\t: 0x%04x\n", rome_ver);
 +
 +			/* In case rome 1.0/1.1, there is no SOC ID version available */
 +			if (paramlen - 10) {
@@ -357,7 +364,7 @@ index 000000000..2586dbc77
 +							rsp[PATCH_SOC_VER_OFFSET+2] << 16 |
 +							rsp[PATCH_SOC_VER_OFFSET+1] << 8 |
 +							rsp[PATCH_SOC_VER_OFFSET]);
-+				PR_DBG("\t Current SOC Version\t\t: 0x%08x\n", soc_id);
++				PR_INFO("Current SOC Version\t\t: 0x%08x\n", soc_id);
 +			}
 +
 +			/* Rome Chipset Version can be decided by Patch version and SOC version,
@@ -1012,66 +1019,55 @@ index 000000000..2586dbc77
 +	return 0;
 +}
 +
-+int isSpeedValid(int speed, int *local_baud_rate, int *controller_baud_rate)
++int isSpeedValid(int speed, unsigned char *baud_rate)
 +{
 +	switch(speed) {
 +	case 9600:
-+		*local_baud_rate = USERIAL_BAUD_9600;
-+		*controller_baud_rate = BAUDRATE_9600;
++		*baud_rate = BAUDRATE_9600;
 +		break;
 +	case 19200:
-+		*local_baud_rate = USERIAL_BAUD_19200;
-+		*controller_baud_rate = BAUDRATE_19200;
++		*baud_rate = BAUDRATE_19200;
 +		break;
 +	case 57600:
-+		*local_baud_rate = USERIAL_BAUD_57600;
-+		*controller_baud_rate = BAUDRATE_57600;
++		*baud_rate = BAUDRATE_57600;
 +		break;
 +	case 115200:
-+		*local_baud_rate = USERIAL_BAUD_115200;
-+		*controller_baud_rate = BAUDRATE_115200;
++		*baud_rate = BAUDRATE_115200;
 +		break;
 +	case 230400:
-+		*local_baud_rate = USERIAL_BAUD_230400;
-+		*controller_baud_rate = BAUDRATE_230400;
++		*baud_rate = BAUDRATE_230400;
 +		break;
 +	case 460800:
-+		*local_baud_rate = USERIAL_BAUD_460800;
-+		*controller_baud_rate = BAUDRATE_460800;
++		*baud_rate = BAUDRATE_460800;
 +		break;
 +	case 921600:
-+		*local_baud_rate = USERIAL_BAUD_921600;
-+		*controller_baud_rate = BAUDRATE_921600;
++		*baud_rate = BAUDRATE_921600;
 +		break;
 +	case 1000000:
-+		*local_baud_rate = USERIAL_BAUD_1M;
-+		*controller_baud_rate = BAUDRATE_1000000;
++		*baud_rate = BAUDRATE_1000000;
 +		break;
 +	case 2000000:
-+		*local_baud_rate = USERIAL_BAUD_2M;
-+		*controller_baud_rate = BAUDRATE_2000000;
++		*baud_rate = BAUDRATE_2000000;
 +		break;
 +	case 3000000:
-+		*local_baud_rate = USERIAL_BAUD_3M;
-+		*controller_baud_rate = BAUDRATE_3000000;
++		*baud_rate = BAUDRATE_3000000;
 +		break;
 +	case 4000000:
-+		*local_baud_rate = USERIAL_BAUD_4M;
-+		*controller_baud_rate = BAUDRATE_4000000;
++		*baud_rate = BAUDRATE_4000000;
 +		break;
 +	case 300:
 +	case 600:
 +	case 1200:
 +	case 2400:
 +	default:
-+		fprintf(stderr, "Invalid baud rate passed!\n");
-+		*local_baud_rate = *controller_baud_rate = -1;
++		fprintf(stderr, "Invalid baudrate, default to 115200!\n");
++		*baud_rate = BAUDRATE_115200;
 +		break;
 +	}
 +	return -1;
 +}
 +
-+int rome_get_tlv_file(char *file_path)
++int rome_get_tlv_file(char *file_path, unsigned char baud_rate)
 +{
 +	FILE * pFile;
 +	long fileSize;
@@ -1133,30 +1129,31 @@ index 000000000..2586dbc77
 +	gtlv_dwndcfg = ptlv_header->tlv.patch.dwnd_cfg;
 +
 +	if (ptlv_header->tlv_type == TLV_TYPE_PATCH) {
-+		PR_DBG("====================================================\n");
-+		PR_DBG("TLV Type\t\t\t : 0x%x\n", ptlv_header->tlv_type);
-+		PR_DBG("Length\t\t\t : %d bytes\n", (ptlv_header->tlv_length1) |
++		PR_INFO("====================================================\n");
++		PR_INFO("TLV Type               : 0x%x\n", ptlv_header->tlv_type);
++		PR_INFO("Length                 : %d bytes\n", (ptlv_header->tlv_length1) |
 +		       (ptlv_header->tlv_length2 << 8) |
 +		       (ptlv_header->tlv_length3 << 16));
-+		PR_DBG("Total Length\t\t\t : %d bytes\n", ptlv_header->tlv.patch.tlv_data_len);
-+		PR_DBG("Patch Data Length\t\t\t : %d bytes\n",ptlv_header->tlv.patch.tlv_patch_data_len);
-+		PR_DBG("Signing Format Version\t : 0x%x\n", ptlv_header->tlv.patch.sign_ver);
-+		PR_DBG("Signature Algorithm\t\t : 0x%x\n", ptlv_header->tlv.patch.sign_algorithm);
-+		PR_DBG("Event Handling\t\t\t : 0x%x", ptlv_header->tlv.patch.dwnd_cfg);
-+		PR_DBG("Reserved\t\t\t : 0x%x\n", ptlv_header->tlv.patch.reserved1);
-+		PR_DBG("Product ID\t\t\t : 0x%04x\n", ptlv_header->tlv.patch.prod_id);
-+		PR_DBG("Rom Build Version\t\t : 0x%04x\n", ptlv_header->tlv.patch.build_ver);
-+		PR_DBG("Patch Version\t\t : 0x%04x\n", ptlv_header->tlv.patch.patch_ver);
-+		PR_DBG("Reserved\t\t\t : 0x%x\n", ptlv_header->tlv.patch.reserved2);
-+		PR_DBG("Patch Entry Address\t\t : 0x%x\n", (ptlv_header->tlv.patch.patch_entry_addr));
-+		PR_DBG("====================================================\n");
++		PR_INFO("Total Length           : %d bytes\n", ptlv_header->tlv.patch.tlv_data_len);
++		PR_INFO("Patch Data Length      : %d bytes\n",ptlv_header->tlv.patch.tlv_patch_data_len);
++		PR_INFO("Signing Format Version : 0x%x\n", ptlv_header->tlv.patch.sign_ver);
++		PR_INFO("Signature Algorithm    : 0x%x\n", ptlv_header->tlv.patch.sign_algorithm);
++		PR_INFO("Event Handling         : 0x%x\n", ptlv_header->tlv.patch.dwnd_cfg);
++		PR_INFO("Reserved               : 0x%x\n", ptlv_header->tlv.patch.reserved1);
++		PR_INFO("Product ID             : 0x%04x\n", ptlv_header->tlv.patch.prod_id);
++		PR_INFO("Rom Build Version      : 0x%04x\n", ptlv_header->tlv.patch.build_ver);
++		PR_INFO("Patch Version          : 0x%04x\n", ptlv_header->tlv.patch.patch_ver);
++		PR_INFO("Reserved               : 0x%x\n", ptlv_header->tlv.patch.reserved2);
++		PR_INFO("Patch Entry Address    : 0x%x\n", (ptlv_header->tlv.patch.patch_entry_addr));
++		PR_INFO("====================================================\n");
 +
 +	} else if (ptlv_header->tlv_type == TLV_TYPE_NVM) {
-+		PR_DBG("====================================================\n");
-+		PR_DBG("TLV Type\t\t\t : 0x%x\n", ptlv_header->tlv_type);
-+		PR_DBG("Length\t\t\t : %d bytes\n",  nvm_length = (ptlv_header->tlv_length1) |
-+		       (ptlv_header->tlv_length2 << 8) |
-+		       (ptlv_header->tlv_length3 << 16));
++		PR_INFO("====================================================\n");
++		PR_INFO("TLV Type               : 0x%x\n", ptlv_header->tlv_type);
++		PR_INFO("Length                 : %d bytes\n",  nvm_length =
++			(ptlv_header->tlv_length1) |
++			(ptlv_header->tlv_length2 << 8) |
++			(ptlv_header->tlv_length3 << 16));
 +
 +		if (nvm_length <= 0)
 +			return readSize;
@@ -1172,27 +1169,39 @@ index 000000000..2586dbc77
 +			nvm_index+=sizeof(tlv_nvm_hdr);
 +			nvm_byte_ptr+=sizeof(tlv_nvm_hdr);
 +
++#ifndef MODULE_HAS_MAC_ADDR
 +			/* Write BD Address */
 +			if (nvm_ptr->tag_id == TAG_NUM_2 && read_bd_address(bdaddr) == 0) {
 +				memcpy(nvm_byte_ptr, bdaddr, 6);
-+				PR_DBG("Overriding default BD ADDR with user"
++				PR_INFO("Overriding default BD ADDR with user"
 +				       " programmed BD Address: %02x:%02x:%02x:%02x:%02x:%02x\n",
 +				       *nvm_byte_ptr, *(nvm_byte_ptr+1), *(nvm_byte_ptr+2),
 +				       *(nvm_byte_ptr+3), *(nvm_byte_ptr+4), *(nvm_byte_ptr+5));
 +			}
++#else
++			/* Remove it from NVM data */
++			if (nvm_ptr->tag_id == TAG_NUM_2) {
++				int nvm_size = nvm_ptr->tag_len + sizeof(tlv_nvm_hdr);
++				PR_INFO("Skip BD Address from NVM\n");
++				nvm_index += nvm_ptr->tag_len;
++				nvm_byte_ptr += nvm_ptr->tag_len;
++				memmove(nvm_ptr, nvm_byte_ptr, nvm_length - nvm_index);
++				nvm_length -= nvm_size;
++				nvm_byte_ptr -= nvm_size;
++				readSize -= nvm_size;
++				nvm_index -= nvm_size;
++				continue;
++			}
++#endif
 +
 +			if (nvm_ptr->tag_id == TAG_NUM_17) {
-+				if ((ibs_value =
-+				     get_value_from_config(FW_CONFIG_FILE_PATH, "IBS")) >= 0) {
-+					if (ibs_value == FWCONF_IBS_DISABLE) {
-+						nvm_byte_ptr[FWCONF_IBS_VAL_OFFSET] &=
-+							(~(FWCONF_IBS_ENABLE <<
-+							   FWCONF_IBS_VAL_BIT));
-+					} else if (ibs_value == FWCONF_IBS_ENABLE) {
-+						nvm_byte_ptr[FWCONF_IBS_VAL_OFFSET] |=
-+							(FWCONF_IBS_ENABLE <<
-+							 FWCONF_IBS_VAL_BIT);
-+					}
++				PR_DBG("Forcing IBS to be disabled\n");
++				nvm_byte_ptr[FWCONF_IBS_VAL_OFFSET] &=
++					(~(FWCONF_IBS_ENABLE << FWCONF_IBS_VAL_BIT));
++				if (baud_rate != nvm_byte_ptr[FWCONF_BAUD_VAL_OFFSET]) {
++					PR_INFO("Change Vendor Baud from 0x%02x to 0x%02x\n",
++					       nvm_byte_ptr[FWCONF_BAUD_VAL_OFFSET], baud_rate);
++					nvm_byte_ptr[FWCONF_BAUD_VAL_OFFSET] = baud_rate;
 +				}
 +			}
 +
@@ -1246,7 +1255,7 @@ index 000000000..2586dbc77
 +			nvm_byte_ptr +=nvm_ptr->tag_len;
 +		}
 +
-+		PR_DBG("====================================================\n");
++		PR_INFO("====================================================\n");
 +
 +	} else {
 +		fprintf(stderr, "TLV Header type is unknown (%d) \n", ptlv_header->tlv_type);
@@ -1384,14 +1393,14 @@ index 000000000..2586dbc77
 +	return err;
 +}
 +
-+int rome_download_tlv_file(int fd)
++int rome_download_tlv_file(int fd, unsigned char baud_rate)
 +{
 +	int tlv_size, err = -1;
 +
 +	/* Rampatch TLV file Downloading */
 +	pdata_buffer = NULL;
 +
-+	if ((tlv_size = rome_get_tlv_file(rampatch_file_path)) < 0)
++	if ((tlv_size = rome_get_tlv_file(rampatch_file_path, baud_rate)) < 0)
 +		goto error;
 +
 +	if ((err = rome_tlv_dnld_req(fd, tlv_size)) < 0)
@@ -1403,7 +1412,7 @@ index 000000000..2586dbc77
 +	}
 +
 +	/* NVM TLV file Downloading */
-+	if ((tlv_size = rome_get_tlv_file(nvm_file_path)) < 0)
++	if ((tlv_size = rome_get_tlv_file(nvm_file_path, baud_rate)) < 0)
 +		goto error;
 +
 +	if ((err = rome_tlv_dnld_req(fd, tlv_size)) < 0)
@@ -1737,7 +1746,7 @@ index 000000000..2586dbc77
 +}
 +
 +
-+int rome_set_baudrate_req(int fd, int local_baud_rate, int controller_baud_rate)
++int rome_set_baudrate_req(int fd, unsigned char baud_rate)
 +{
 +	int size, err = 0;
 +	unsigned char cmd[HCI_MAX_CMD_SIZE];
@@ -1751,7 +1760,7 @@ index 000000000..2586dbc77
 +	cmd[0]  = HCI_COMMAND_PKT;
 +	cmd_hdr->opcode = cmd_opcode_pack(HCI_VENDOR_CMD_OGF, EDL_SET_BAUDRATE_CMD_OCF);
 +	cmd_hdr->plen     = VSC_SET_BAUDRATE_REQ_LEN;
-+	cmd[4]  = controller_baud_rate;
++	cmd[4]  = baud_rate;
 +
 +	/* Total length of the packet to be sent to the Controller */
 +	size = (HCI_CMD_IND + HCI_COMMAND_HDR_SIZE + VSC_SET_BAUDRATE_REQ_LEN);
@@ -1766,7 +1775,7 @@ index 000000000..2586dbc77
 +		goto error;
 +	}
 +	/* Change Local UART baudrate to high speed UART */
-+	userial_vendor_set_baud(local_baud_rate);
++	userial_vendor_set_baud(baud_rate);
 +
 +	/* Flow on after changing local uart baudrate */
 +	flow_control(fd, MSM_ENABLE_FLOW_CTRL);
@@ -1839,7 +1848,8 @@ index 000000000..2586dbc77
 +{
 +	int err = -1;
 +	int ret = 0;
-+	int size, local_baud_rate = 0, controller_baud_rate = 0;
++	int size;
++	unsigned char baud_rate = 0;
 +
 +	vnd_userial.fd = fd;
 +
@@ -1891,7 +1901,7 @@ index 000000000..2586dbc77
 +		}
 +
 +		/* Change baud rate 115.2 kbps to 3Mbps*/
-+		err = rome_hci_reset_req(fd, local_baud_rate);
++		err = rome_hci_reset_req(fd, baud_rate);
 +		if (err < 0) {
 +			fprintf(stderr, "HCI Reset Failed !!\n");
 +			ret = -1;
@@ -1926,36 +1936,25 @@ index 000000000..2586dbc77
 +		rampatch_file_path = TF_RAMPATCH_TLV_1_0_1_PATH;
 +		nvm_file_path = TF_NVM_TLV_1_0_1_PATH;
 +download:
-+		/* Check if user requested for 115200 kbps */
-+		if (speed == 115200) {
-+			local_baud_rate = USERIAL_BAUD_115200;
-+			controller_baud_rate = BAUDRATE_115200;
-+		}
-+		else {
-+			/* Change only if baud rate requested is valid or not */
-+			isSpeedValid(speed, &local_baud_rate, &controller_baud_rate);
-+			if (local_baud_rate < 0 || controller_baud_rate < 0) {
-+				ret = -1;
-+				goto error;
-+			}
++		isSpeedValid(speed, &baud_rate);
++		if (baud_rate < 0) {
++			ret = -1;
++			goto error;
 +		}
 +
 +		/* Donwload TLV files (rampatch, NVM) */
-+		err = rome_download_tlv_file(fd);
++		err = rome_download_tlv_file(fd, baud_rate);
 +		if (err < 0) {
 +			fprintf(stderr, "%s: Download TLV file failed!\n", __FUNCTION__);
 +			ret = -1;
 +			goto error;
 +		}
 +
-+		/* FW download complete, add some delay before updating baudrate */
-+		usleep(20000);
-+
 +		/*
 +		 * Overriding the baud rate value in NVM file with the user
 +		 * requested baud rate, since default baud rate in NVM file is 3M.
 +		 */
-+		err = rome_set_baudrate_req(fd, local_baud_rate, controller_baud_rate);
++		err = rome_set_baudrate_req(fd, baud_rate);
 +		if (err < 0) {
 +			fprintf(stderr, "%s: Baud rate change failed!\n", __FUNCTION__);
 +			ret = -1;
@@ -1963,7 +1962,7 @@ index 000000000..2586dbc77
 +		}
 +
 +		/* Perform HCI reset here*/
-+		err = rome_hci_reset_req(fd, local_baud_rate);
++		err = rome_hci_reset_req(fd, baud_rate);
 +		if (err < 0) {
 +			fprintf(stderr, "HCI Reset Failed !!!\n");
 +			ret = -1;
@@ -1983,10 +1982,10 @@ index 000000000..2586dbc77
 +}
 diff --git a/tools/hciattach_rome.h b/tools/hciattach_rome.h
 new file mode 100644
-index 000000000..a356cc24f
+index 000000000..597743e0b
 --- /dev/null
 +++ b/tools/hciattach_rome.h
-@@ -0,0 +1,407 @@
+@@ -0,0 +1,388 @@
 +/*
 + * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
 + * Not a Contribution.
@@ -2037,6 +2036,7 @@ index 000000000..a356cc24f
 +#define USERIAL_OP_CLK_OFF     0x5442
 +#endif
 +
++#define PR_INFO(fmt, arg...) printf(fmt, ## arg)
 +#ifdef DEBUG
 +    #define PR_DBG(fmt, arg...) printf(fmt, ## arg)
 +#else
@@ -2077,27 +2077,6 @@ index 000000000..a356cc24f
 +#define USERIAL_BAUD_3M         14
 +#define USERIAL_BAUD_4M         15
 +#define USERIAL_BAUD_AUTO       16
-+
-+/* Vendor specific baud rate values */
-+#define UART_Baud_Rate_Baud_9600        4
-+#define UART_Baud_Rate_Baud_19200       3
-+#define UART_Baud_Rate_Baud_57600       1
-+#define UART_Baud_Rate_Baud_115200      0
-+#define UART_Baud_Rate_Baud_230400      5
-+#define UART_Baud_Rate_Baud_460800      7
-+#define UART_Baud_Rate_Baud_921600      10
-+#define UART_Baud_Rate_Baud_1000000     11
-+#define UART_Baud_Rate_Baud_2000000     13
-+#define UART_Baud_Rate_Baud_3000000     14
-+#define UART_Baud_Rate_Baud_4000000     15
-+
-+#define UART_Baud_Rate_Baud_250000      6
-+#define UART_Baud_Rate_Baud_500000      8
-+#define UART_Baud_Rate_Baud_720000      9
-+#define UART_Baud_Rate_Baud_125000      12
-+#define UART_Baud_Rate_Baud_1600000     16
-+#define UART_Baud_Rate_Baud_3200000     17
-+#define UART_Baud_Rate_Baud_3500000     18
 +
 +#ifndef FALSE
 +#define FALSE  0
@@ -2211,11 +2190,12 @@ index 000000000..a356cc24f
 +#define FWCONF_PCM_MASTER           0
 +#define FWCONF_PCM_ROLE_BIT_OFFSET  4
 +
-+/* FW IBS Configuration */
++/* FW HCI Transport Layer Configuration */
 +#define FWCONF_IBS_DISABLE          (0)
 +#define FWCONF_IBS_ENABLE           (1)
 +#define FWCONF_IBS_VAL_BIT          (7)
 +#define FWCONF_IBS_VAL_OFFSET       (0)
++#define FWCONF_BAUD_VAL_OFFSET      (2)
 +
 +/* FW DEEP SLEEP Configuration */
 +#define FWCONF_DEEP_SLEEP_DISABLE       0
