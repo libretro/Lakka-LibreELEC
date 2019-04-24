@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mesa"
-PKG_VERSION="19.0.2"
-PKG_SHA256="2b64022b209fd729ec164f746bd237a8b1dfa9d85dcf1bbc70103e986dbfc60c"
+PKG_VERSION="19.0.3"
+PKG_SHA256="46a8b46bfbd3f8a3eccf3edcfa94e68f13bd6429b71ed8b57a24c6a0543c824e"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
 PKG_URL="https://github.com/mesa3d/mesa/archive/mesa-$PKG_VERSION.tar.gz"
