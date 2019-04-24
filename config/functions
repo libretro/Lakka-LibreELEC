@@ -1245,20 +1245,19 @@ pkg_lock() {
 
   local pkg="$1" task="$2" parent_pkg="$3"
   local this_job="${MTJOBID}"
-  local lock_job lock_seq lock_task lock_pkg
+  local lock_job lock_seq lock_task lock_pkg locked=no
   local fail_seq
 
   exec 98>"${THREAD_CONTROL}/locks/${pkg}.${task}"
-  if ! flock --nonblock --exclusive 98; then
-    while [ : ]; do
-      read -r lock_job lock_seq lock_task lock_pkg <<<$(cat "${THREAD_CONTROL}/locks/${pkg}.${task}.owner" 2>/dev/null)
-      [ -n "${lock_job}" ] && break || sleep 1
-    done
+  while [ : ]; do
+    read -r lock_job lock_seq lock_task lock_pkg <<<$(cat "${THREAD_CONTROL}/locks/${pkg}.${task}.owner" 2>/dev/null)
+    [ -n "${lock_job}" ] && break
+    flock --wait 1 --exclusive 98 && locked=yes && break
+  done
 
-    if [ "${lock_job}/${lock_seq}" != "${this_job}/${PARALLEL_SEQ}" ]; then
-      pkg_lock_status "STALLED" "${parent_pkg}" "${task}" "$(printf "waiting on [%02d] %s %s" ${lock_job} "${lock_task}" "${lock_pkg}")"
-      flock --exclusive 98
-    fi
+  if [ "${locked}" = "no" -a "${lock_job}/${lock_seq}" != "${this_job}/${PARALLEL_SEQ}" ]; then
+    pkg_lock_status "STALLED" "${parent_pkg}" "${task}" "$(printf "waiting on [%02d] %s %s" ${lock_job} "${lock_task}" "${lock_pkg}")"
+    flock --exclusive 98
   fi
 
   # As we now have the lock, if .failed still exists then a previous process must have failed
@@ -1305,6 +1304,7 @@ pkg_lock_status() {
     echo "${PARALLEL_SEQ}" > "${THREAD_CONTROL}/locks/${pkg}.${task}.failed"
     echo "${this_job} ${PARALLEL_SEQ} ${task} ${pkg}" >"${THREAD_CONTROL}/locks/${pkg}.${task}.owner"
   elif [ "${status}" = "UNLOCK" ]; then
+    rm "${THREAD_CONTROL}/locks/${pkg}.${task}.owner"
     rm "${THREAD_CONTROL}/locks/${pkg}.${task}.failed"
   fi
 
@@ -1361,19 +1361,18 @@ acquire_exclusive_lock() {
 
   local pkg="$1" task="$2" lockfile="${3:-global}"
   local this_job="${MTJOBID}"
-  local lock_job lock_seq lock_task lock_pkg
+  local lock_job lock_seq lock_task lock_pkg locked=no
 
   exec 96>"${THREAD_CONTROL}/locks/.mutex.${lockfile}"
-  if ! flock --nonblock --exclusive 96; then
-    while [ : ]; do
-      read -r lock_job lock_seq lock_task lock_pkg <<<$(cat "${THREAD_CONTROL}/locks/.mutex.${lockfile}.owner" 2>/dev/null)
-      [ -n "${lock_job}" ] && break || sleep 1
-    done
+  while [ : ]; do
+    read -r lock_job lock_seq lock_task lock_pkg <<<$(cat "${THREAD_CONTROL}/locks/.mutex.${lockfile}.owner" 2>/dev/null)
+    [ -n "${lock_job}" ] && break
+    flock --wait 1 --exclusive 96 && locked=yes && break
+  done
 
-    if [ "${lock_job}/${lock_seq}" != "${this_job}/${PARALLEL_SEQ}" ]; then
-      pkg_lock_status "MUTEX/W" "${pkg}" "${task}" "$(printf "mutex: %s; waiting on [%02d] %s %s" "${lockfile}" ${lock_job} "${lock_task}" "${lock_pkg}")"
-      flock --exclusive 96
-    fi
+  if [ "${locked}" = "no" -a "${lock_job}/${lock_seq}" != "${this_job}/${PARALLEL_SEQ}" ]; then
+    pkg_lock_status "MUTEX/W" "${pkg}" "${task}" "$(printf "mutex: %s; waiting on [%02d] %s %s" "${lockfile}" ${lock_job} "${lock_task}" "${lock_pkg}")"
+    flock --exclusive 96
   fi
 
   pkg_lock_status "MUTEX" "${pkg}" "${task}" "mutex: ${lockfile}"
@@ -1384,10 +1383,11 @@ acquire_exclusive_lock() {
 release_exclusive_lock() {
   [ "${MTWITHLOCKS}" != "yes" ] && return 0
 
-  local pkg="$1" task="$2"
+  local pkg="$1" task="$2" lockfile="${3:-global}"
 
   pkg_lock_status "ACTIVE" "${pkg}" "${task}"
 
+  rm "${THREAD_CONTROL}/locks/.mutex.${lockfile}.owner"
   flock --unlock 96 2>/dev/null
 }
 
