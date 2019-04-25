@@ -14,9 +14,6 @@ image:
 noobs:
 	./scripts/image noobs
 
-amlpkg:
-	./scripts/image amlpkg
-
 # legacy sequential build targets
 system-st:
 	./scripts/image_st
@@ -29,9 +26,6 @@ image-st:
 
 noobs-st:
 	./scripts/image_st noobs
-
-amlpkg-st:
-	./scripts/image_st amlpkg
 
 clean:
 	rm -rf $(BUILD_DIRS)/* $(BUILD_DIRS)/.stamps
