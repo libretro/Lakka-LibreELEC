@@ -12,7 +12,7 @@ PKG_LONGDESC="A client for the Logitech Media Server."
 
 pre_make_target() {
   export OPTS="-DDSD -DFFMPEG -DRESAMPLE -DVISEXPORT -DLINKALL"
-  export LIBS="-lvorbis -logg"
+  export LDFLAGS="$LDFLAGS -lFLAC -lvorbisfile -lvorbis -logg"
 }
 
 makeinstall_target() {
