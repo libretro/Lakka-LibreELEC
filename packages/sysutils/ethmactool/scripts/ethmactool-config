@@ -1,0 +1,73 @@
+#!/bin/sh
+
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
+
+COMPATIBLE=$(/usr/bin/dtsoc)
+MAC_STEP=""
+
+validate_mac() {
+  [ ${#MAC} -eq 12 -a "${MAC}" != "000000000000" ]
+}
+
+fixup_self_mac() {
+  # clear multicast bit and set local assignment bit (IEEE802)
+  MAC=$(printf '%012X' "$(( (0x$MAC & 0xFEFFFFFFFFFF) | 0x020000000000 ))")
+}
+
+from_cmdline() {
+  for arg in $(cat /proc/cmdline | tr -d ':'); do
+    case ${arg} in
+      mac=*)
+        MAC=${arg#*=}
+        ;;
+    esac
+  done
+}
+
+aml_from_efuse_gxbb() {
+  if [ -e /sys/devices/platform/efuse/efuse0/nvmem ] ; then
+    MAC=$(od -x -A n -j 0x34 -N 6 /sys/bus/nvmem/devices/efuse0/nvmem | tr -d ' ')
+    MAC=${MAC:2:2}${MAC:0:2}${MAC:6:2}${MAC:4:2}${MAC:10:2}${MAC:8:2}
+  fi
+}
+
+aml_from_efuse_gxl() {
+  if [ -e /sys/devices/platform/efuse/efuse0/nvmem ] ; then
+    MAC=$(cat /sys/devices/platform/efuse/efuse0/nvmem)
+  fi
+}
+
+aml_from_cpu_sn() {
+  if [ -e /sys/bus/platform/devices/firmware\:secure-monitor/serial ] ; then
+    MAC=$(cat /sys/bus/platform/devices/firmware\:secure-monitor/serial 2>/dev/null | cut -b-12)
+    fixup_self_mac
+  fi
+}
+
+from_cpu_sn() {
+  MAC=$(cat /proc/cpuinfo 2>/dev/null | awk '/Serial/ {print substr($3,1,12)}')
+  fixup_self_mac
+}
+
+case $COMPATIBLE in
+  amlogic*)
+    MAC_STEPS="from_cmdline aml_from_efuse_gxbb aml_from_efuse_gxl aml_from_cpu_sn"
+    ;;
+  *)
+    MAC_STEPS="from_cpu_sn"
+    ;;
+esac
+
+for MAC_STEP in $MAC_STEPS ; do
+  $MAC_STEP
+  validate_mac && break
+done
+
+if validate_mac ; then
+  MAC=$(echo "$MAC" | sed 's/\(..\)/\1:/g' | cut -b-17)
+  echo "MAC=${MAC}" > /run/libreelec/ethmactool-$1
+  /usr/sbin/ip link set dev $1 down
+  /usr/sbin/ip link set dev $1 address $MAC
+  /usr/sbin/ip link set dev $1 up
+fi
