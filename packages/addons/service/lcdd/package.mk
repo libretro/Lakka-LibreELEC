@@ -31,7 +31,6 @@ PKG_CONFIGURE_OPTS_TARGET="--with-ft-prefix=$SYSROOT_PREFIX/usr \
 
 pre_configure_target() {
   CFLAGS="$CFLAGS -O3"
-  CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/freetype2"
 }
 
 addon() {
