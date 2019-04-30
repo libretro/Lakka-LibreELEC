@@ -27,12 +27,3 @@ if [ "$OPENGLES_SUPPORT" = yes ]; then
 # for OpenGL-ES support
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $OPENGLES"
 fi
-
-pre_configure_target() {
-  if [ "$KODIPLAYER_DRIVER" = bcm2835-driver ]; then
-    BCM2835_INCLUDES="-I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads/ \
-                      -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
-    export CFLAGS="$CFLAGS $BCM2835_INCLUDES"
-    export CXXFLAGS="$CXXFLAGS $BCM2835_INCLUDES"
-  fi
-}

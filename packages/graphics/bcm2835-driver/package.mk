@@ -7,50 +7,66 @@ PKG_VERSION="fd15e0700e45d9b7db83e30696aba299b9f2f31d"
 PKG_SHA256="6324b4638b7b3f906469a1d2b94902f608436279749f167ade70e68c5c4c79a7"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.broadcom.com"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="${DISTRO_SRC}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain dtc"
 PKG_LONGDESC="OpenMAX-bcm2835: OpenGL-ES and OpenMAX driver for BCM2835"
 PKG_TOOLCHAIN="manual"
 
-if [ "$TARGET_FLOAT" = "softfp" -o "$TARGET_FLOAT" = "soft" ]; then
-  FLOAT="softfp"
-elif [ "$TARGET_FLOAT" = "hard" ]; then
-  FLOAT="hardfp"
+# Set SoftFP ABI or HardFP ABI
+if [ "${TARGET_FLOAT}" = "soft" ]; then
+  PKG_FLOAT="softfp"
+else
+  PKG_FLOAT="hardfp"
 fi
 
 make_target() {
-  mkdir -p $SYSROOT_PREFIX/usr/include
-    cp -PRv $FLOAT/opt/vc/include/* $SYSROOT_PREFIX/usr/include
+  # Install vendor header files
+  mkdir -p ${SYSROOT_PREFIX}/usr/include
+    cp -PRv ${PKG_FLOAT}/opt/vc/include/* ${SYSROOT_PREFIX}/usr/include
 
-  mkdir -p $SYSROOT_PREFIX/usr/lib
-    cp -PRv $FLOAT/opt/vc/lib/*.so $SYSROOT_PREFIX/usr/lib
-    ln -sf $SYSROOT_PREFIX/usr/lib/libbrcmEGL.so $SYSROOT_PREFIX/usr/lib/libEGL.so
-    ln -sf $SYSROOT_PREFIX/usr/lib/libbrcmGLESv2.so $SYSROOT_PREFIX/usr/lib/libGLESv2.so
-    cp -PRv $FLOAT/opt/vc/lib/*.a $SYSROOT_PREFIX/usr/lib
-    cp -PRv $FLOAT/opt/vc/lib/pkgconfig $SYSROOT_PREFIX/usr/lib
+  # Install EGL, OpenGL ES, Open VG, etc. vendor libs & pkgconfigs
+  mkdir -p ${SYSROOT_PREFIX}/usr/lib
+    cp -PRv ${PKG_FLOAT}/opt/vc/lib/*.so              ${SYSROOT_PREFIX}/usr/lib
+    ln -sf ${SYSROOT_PREFIX}/usr/lib/libbrcmEGL.so    ${SYSROOT_PREFIX}/usr/lib/libEGL.so
+    ln -sf ${SYSROOT_PREFIX}/usr/lib/libbrcmGLESv2.so ${SYSROOT_PREFIX}/usr/lib/libGLESv2.so
+    cp -PRv ${PKG_FLOAT}/opt/vc/lib/*.a               ${SYSROOT_PREFIX}/usr/lib
+    cp -PRv ${PKG_FLOAT}/opt/vc/lib/pkgconfig         ${SYSROOT_PREFIX}/usr/lib
+
+  # Update prefix in vendor pkgconfig files
+  for PKG_CONFIGS in $(find "${SYSROOT_PREFIX}/usr/lib" -type f -name "*.pc" 2>/dev/null); do
+    sed -e "s#prefix=/opt/vc#prefix=/usr#g" -i "${PKG_CONFIGS}"
+  done
+
+  # Create symlinks to /opt/vc to satisfy hardcoded include & lib paths
+  mkdir -p ${SYSROOT_PREFIX}/opt/vc
+    ln -sf ${SYSROOT_PREFIX}/usr/lib     ${SYSROOT_PREFIX}/opt/vc/lib
+    ln -sf ${SYSROOT_PREFIX}/usr/include ${SYSROOT_PREFIX}/opt/vc/include
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/lib
-    cp -PRv $FLOAT/opt/vc/lib/*.so $INSTALL/usr/lib
-    ln -sf /usr/lib/libbrcmEGL.so $INSTALL/usr/lib/libEGL.so
-    ln -sf /usr/lib/libbrcmEGL.so $INSTALL/usr/lib/libEGL.so.1
-    ln -sf /usr/lib/libbrcmGLESv2.so $INSTALL/usr/lib/libGLESv2.so
-    ln -sf /usr/lib/libbrcmGLESv2.so $INSTALL/usr/lib/libGLESv2.so.2
+  # Install EGL, OpenGL ES and other vendor libs
+  mkdir -p ${INSTALL}/usr/lib
+    cp -PRv ${PKG_FLOAT}/opt/vc/lib/*.so ${INSTALL}/usr/lib
+    ln -sf /usr/lib/libbrcmEGL.so        ${INSTALL}/usr/lib/libEGL.so
+    ln -sf /usr/lib/libbrcmEGL.so        ${INSTALL}/usr/lib/libEGL.so.1
+    ln -sf /usr/lib/libbrcmGLESv2.so     ${INSTALL}/usr/lib/libGLESv2.so
+    ln -sf /usr/lib/libbrcmGLESv2.so     ${INSTALL}/usr/lib/libGLESv2.so.2
 
-# some usefull debug tools
-  mkdir -p $INSTALL/usr/bin
-    cp -PRv $FLOAT/opt/vc/bin/dtoverlay $INSTALL/usr/bin
-    ln -s dtoverlay $INSTALL/usr/bin/dtparam
-    cp -PRv $FLOAT/opt/vc/bin/vcdbg $INSTALL/usr/bin
-    cp -PRv $FLOAT/opt/vc/bin/vcgencmd $INSTALL/usr/bin
-    cp -PRv $FLOAT/opt/vc/bin/tvservice $INSTALL/usr/bin
-    cp -PRv $FLOAT/opt/vc/bin/edidparser $INSTALL/usr/bin
+  # Install useful tools
+  mkdir -p ${INSTALL}/usr/bin
+    cp -PRv ${PKG_FLOAT}/opt/vc/bin/dtoverlay  ${INSTALL}/usr/bin
+    ln -s dtoverlay                            ${INSTALL}/usr/bin/dtparam
+    cp -PRv ${PKG_FLOAT}/opt/vc/bin/vcdbg      ${INSTALL}/usr/bin
+    cp -PRv ${PKG_FLOAT}/opt/vc/bin/vcgencmd   ${INSTALL}/usr/bin
+    cp -PRv ${PKG_FLOAT}/opt/vc/bin/tvservice  ${INSTALL}/usr/bin
+    cp -PRv ${PKG_FLOAT}/opt/vc/bin/edidparser ${INSTALL}/usr/bin
 
-  mkdir -p $INSTALL/opt/vc
-    ln -sf /usr/lib $INSTALL/opt/vc/lib
+  # Create symlinks to /opt/vc to satisfy hardcoded lib paths
+  mkdir -p ${INSTALL}/opt/vc
+    ln -sf /usr/lib ${INSTALL}/opt/vc/lib
 }
 
 post_install() {
+  # unbind Framebuffer console
   enable_service unbind-console.service
 }

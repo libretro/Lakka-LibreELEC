@@ -41,7 +41,7 @@ pre_configure_target() {
   LDFLAGS="$LDFLAGS -L$(get_build_dir gnutls)/.INSTALL_PKG/usr/lib"
 
   if [ "$KODIPLAYER_DRIVER" == "bcm2835-driver" ]; then
-    CFLAGS="-DRPI=1 -I$SYSROOT_PREFIX/usr/include/IL -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux $CFLAGS"
+    CFLAGS="$CFLAGS -DRPI=1 -I$SYSROOT_PREFIX/usr/include/IL"
     PKG_FFMPEG_LIBS="-lbcm_host -ldl -lmmal -lmmal_core -lmmal_util -lvchiq_arm -lvcos -lvcsm"
   fi
 
