@@ -17,7 +17,3 @@ PKG_LONGDESC="screensaver.asteroids"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="xbmc.ui.screensaver"
-
-if [ "$OPENGL" = "no" ] ; then
-  exit 0
-fi

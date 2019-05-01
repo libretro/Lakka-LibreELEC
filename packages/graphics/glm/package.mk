@@ -10,7 +10,3 @@ PKG_URL="https://github.com/g-truc/glm/releases/download/$PKG_VERSION/glm-$PKG_V
 PKG_SOURCE_DIR="glm"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="OpenGL Mathematics (GLM)"
-
-if [ "$OPENGL" = "no" ] ; then
-  exit 0
-fi
