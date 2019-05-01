@@ -19,9 +19,9 @@
 ################################################################################
 
 PKG_NAME="picodrive"
-PKG_VERSION="7d6deb9"
+PKG_VERSION="82f7735"
 PKG_REV="1"
-PKG_ARCH="arm i386 x86_64"
+PKG_ARCH="arm i386 x86_64 aarch64"
 PKG_LICENSE="MAME"
 PKG_SITE="https://github.com/libretro/picodrive"
 PKG_GIT_URL="$PKG_SITE"
@@ -59,6 +59,8 @@ configure_target() {
 make_target() {
   if [ "$ARCH" == "arm" ]; then
     make -C .. -f Makefile.libretro platform=armv6
+  elif [ "$ARCH" == "aarch64" ]; then
+    make -C .. -f Makefile.libretro platform=arm64
   else
     make -C .. -f Makefile.libretro
   fi
