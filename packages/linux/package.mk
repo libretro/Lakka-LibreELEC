@@ -243,8 +243,19 @@ make_target() {
   fi
 
   if [ -n "$KERNEL_UIMAGE_TARGET" ] ; then
+    # determine compression used for kernel image
     KERNEL_UIMAGE_COMP=${KERNEL_UIMAGE_TARGET:7}
     KERNEL_UIMAGE_COMP=${KERNEL_UIMAGE_COMP:-none}
+
+    # calculate new load address to make kernel Image unpack to memory area after compressed image
+    if [ "$KERNEL_UIMAGE_COMP" != "none" ] ; then
+      COMPRESSED_SIZE=$(stat -t "arch/$TARGET_KERNEL_ARCH/boot/$KERNEL_TARGET" | awk '{print $2}')
+      # align to 1 MiB
+      COMPRESSED_SIZE=$(( (($COMPRESSED_SIZE - 1 >> 20) + 1) << 20 ))
+      KERNEL_UIMAGE_LOADADDR=$(printf '%X' "$(( $KERNEL_UIMAGE_LOADADDR + $COMPRESSED_SIZE ))")
+      KERNEL_UIMAGE_ENTRYADDR=$(printf '%X' "$(( $KERNEL_UIMAGE_ENTRYADDR + $COMPRESSED_SIZE ))")
+    fi
+
     mkimage -A $TARGET_KERNEL_ARCH \
             -O linux \
             -T kernel \
