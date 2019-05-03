@@ -1,12 +1,19 @@
-diff -Naur reicast-a2a14be/Makefile reicast.patch/Makefile
---- reicast-a2a14be/Makefile	2018-08-12 16:28:43.398877322 +0200
-+++ reicast.patch/Makefile	2018-08-12 16:04:39.396217020 +0200
-@@ -21,18 +21,12 @@
+diff --git a/Makefile b/Makefile
+index db13ab8e..7d1cec95 100644
+--- a/Makefile
++++ b/Makefile
+@@ -22,24 +22,16 @@ HAVE_CLANG    := 0
  TARGET_NAME   := reicast
- endif
  
--CXX      = ${CC_PREFIX}g++
--CC       = ${CC_PREFIX}gcc
+ ifeq ($(HAVE_CLANG),1)
+-	CXX      = ${CC_PREFIX}clang++
+-	CC       = ${CC_PREFIX}clang
+ 	SHARED   := -fuse-ld=lld
+ else
+-	CXX      = ${CC_PREFIX}g++
+-	CC       = ${CC_PREFIX}gcc
+ 	SHARED   :=
+ endif
 -CC_AS    = ${CC_PREFIX}as
  
  MFLAGS   := 
@@ -20,7 +27,47 @@ diff -Naur reicast-a2a14be/Makefile reicast.patch/Makefile
  
  GIT_VERSION := " $(shell git rev-parse --short HEAD || echo unknown)"
  ifneq ($(GIT_VERSION)," unknown")
-@@ -604,7 +598,7 @@
+@@ -106,6 +98,7 @@ HOST_CPU_X86=0x20000001
+ HOST_CPU_ARM=0x20000002
+ HOST_CPU_MIPS=0x20000003
+ HOST_CPU_X64=0x20000004
++HOST_CPU_ARM64=0x20000006
+ 
+ ifeq ($(STATIC_LINKING),1)
+ 	EXT=a
+@@ -307,6 +300,30 @@ else ifeq ($(platform), sun8i)
+ 	CORE_DEFINES += -DLOW_END
+ #######################################
+ 
++# ARM-64
++else ifeq ($(platform), arm64)
++	EXT ?= so
++	TARGET := $(TARGET_NAME)_libretro.$(EXT)
++	SHARED += -shared -Wl,--version-script=link.T
++	LDFLAGS +=  -Wl,--no-undefined
++	fpic = -fPIC
++	LIBS += -lrt
++	ARM_FLOAT_ABI_HARD = 0
++	FORCE_GLES = 1
++	SINGLE_PREC_FLAGS = 1
++	CPUFLAGS += -DHOST_CPU=0x20000006 -DTARGET_LINUX_ARMv8 -frename-registers
++	CFLAGS += $(CPUFLAGS)
++	CXXFLAGS += $(CPUFLAGS)
++	ASFLAGS += $(CFLAGS) -c -frename-registers -fno-strict-aliasing -ffast-math -ftree-vectorize
++	PLATFORM_EXT := unix
++	WITH_DYNAREC=arm64
++	HAVE_GENERIC_JIT = 0
++	HAVE_LTCG = 0
++	LDFLAGS := $(filter-out -flto, $(LDFLAGS))
++	CFLAGS := $(filter-out -flto, $(CFLAGS))
++	CXXFLAGS := $(filter-out -flto, $(CXXFLAGS))
++#######################################
++
+ # Odroid-N2
+ else ifeq ($(platform), odroid-n2)
+ 	EXT ?= so
+@@ -856,8 +870,8 @@ CXXFLAGS       += $(CORE_DEFINES)
+ 
  PREFIX        ?= /usr/local
  
  ifneq (,$(findstring arm, $(ARCH)))
