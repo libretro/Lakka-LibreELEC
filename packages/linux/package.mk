@@ -255,16 +255,19 @@ make_target() {
       COMPRESSED_SIZE=$(stat -t "arch/$TARGET_KERNEL_ARCH/boot/$KERNEL_TARGET" | awk '{print $2}')
       # align to 1 MiB
       COMPRESSED_SIZE=$(( (($COMPRESSED_SIZE - 1 >> 20) + 1) << 20 ))
-      KERNEL_UIMAGE_LOADADDR=$(printf '%X' "$(( $KERNEL_UIMAGE_LOADADDR + $COMPRESSED_SIZE ))")
-      KERNEL_UIMAGE_ENTRYADDR=$(printf '%X' "$(( $KERNEL_UIMAGE_ENTRYADDR + $COMPRESSED_SIZE ))")
+      PKG_KERNEL_UIMAGE_LOADADDR=$(printf '%X' "$(( $KERNEL_UIMAGE_LOADADDR + $COMPRESSED_SIZE ))")
+      PKG_KERNEL_UIMAGE_ENTRYADDR=$(printf '%X' "$(( $KERNEL_UIMAGE_ENTRYADDR + $COMPRESSED_SIZE ))")
+    else
+      PKG_KERNEL_UIMAGE_LOADADDR=${KERNEL_UIMAGE_LOADADDR}
+      PKG_KERNEL_UIMAGE_ENTRYADDR=${KERNEL_UIMAGE_ENTRYADDR}
     fi
 
     mkimage -A $TARGET_KERNEL_ARCH \
             -O linux \
             -T kernel \
             -C $KERNEL_UIMAGE_COMP \
-            -a $KERNEL_UIMAGE_LOADADDR \
-            -e $KERNEL_UIMAGE_ENTRYADDR \
+            -a $PKG_KERNEL_UIMAGE_LOADADDR \
+            -e $PKG_KERNEL_UIMAGE_ENTRYADDR \
             -d arch/$TARGET_KERNEL_ARCH/boot/$KERNEL_TARGET \
                arch/$TARGET_KERNEL_ARCH/boot/$KERNEL_UIMAGE_TARGET
   fi
