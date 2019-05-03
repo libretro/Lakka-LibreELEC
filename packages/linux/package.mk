@@ -61,6 +61,10 @@ if [ "$TARGET_ARCH" = "x86_64" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET intel-ucode:host kernel-firmware elfutils:host pciutils"
 fi
 
+if [[ "$KERNEL_TARGET" = uImage* ]]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET u-boot-tools:host"
+fi
+
 if [ "$BUILD_ANDROID_BOOTIMG" = "yes" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET mkbootimg:host"
 fi
