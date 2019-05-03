@@ -270,6 +270,8 @@ make_target() {
             -e $PKG_KERNEL_UIMAGE_ENTRYADDR \
             -d arch/$TARGET_KERNEL_ARCH/boot/$KERNEL_TARGET \
                arch/$TARGET_KERNEL_ARCH/boot/$KERNEL_UIMAGE_TARGET
+
+    KERNEL_TARGET="${KERNEL_UIMAGE_TARGET}"
   fi
 }
 
