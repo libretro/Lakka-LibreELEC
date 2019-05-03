@@ -46,8 +46,10 @@ make_target() {
         fi
         make platform=rpi FORCE_GLES=$REICAST_GLES HAVE_OPENMP=0
     fi
-  else
+  elif [ "$ARCH" == "aarch64" ]; then
     make platform=arm64 HAVE_OPENMP=0 FORCE_GLES=0 GLES=0 HAVE_OIT=1
+  else
+    make platform=unix unix AS=${AS} CC_AS=${AS} ARCH=${ARCH} HAVE_OPENMP=0
   fi
 }
 
