@@ -212,6 +212,9 @@ make_target() {
   # arm64 target does not support creating uImage.
   # Build Image first, then wrap it using u-boot's mkimage.
   if [[ "$TARGET_KERNEL_ARCH" == "arm64" && "$KERNEL_TARGET" == uImage* ]]; then
+    if [ -z "$KERNEL_UIMAGE_LOADADDR" -o -z "$KERNEL_UIMAGE_ENTRYADDR" ]; then
+      die "ERROR: KERNEL_UIMAGE_LOADADDR and KERNEL_UIMAGE_ENTRYADDR have to be set to build uImage - aborting"
+    fi
     KERNEL_UIMAGE_TARGET="$KERNEL_TARGET"
     KERNEL_TARGET="${KERNEL_TARGET/uImage/Image}"
   fi
