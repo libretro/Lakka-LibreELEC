@@ -28,7 +28,7 @@ pre_configure_host() {
 }
 
 make_host() {
-  if [ "$ARCH" == "arm" ]; then
+  if [ "$ARCH" = "arm" ]; then
     make -C cpu/cyclone CONFIG_FILE=../cyclone_config.h
   fi
 }

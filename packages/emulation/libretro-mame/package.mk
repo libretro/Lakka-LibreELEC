@@ -21,9 +21,9 @@ make_target() {
   PTR64="0"
   NOASM="0"
 
-  if [ "$ARCH" == "arm" ]; then
+  if [ "$ARCH" = "arm" ]; then
     NOASM="1"
-  elif [ "$ARCH" == "x86_64" ]; then
+  elif [ "$ARCH" = "x86_64" ]; then
     PTR64="1"
   fi
 
