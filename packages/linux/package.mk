@@ -214,7 +214,7 @@ make_target() {
   if [ -n "$KERNEL_UIMAGE_TARGET" ] ; then
     # determine compression used for kernel image
     KERNEL_UIMAGE_COMP=${KERNEL_UIMAGE_TARGET:7}
-    KERNEL_UIMAGE_COMP=${KERNEL_UIMAGE_COMP:-none}
+    KERNEL_UIMAGE_COMP=$(echo ${KERNEL_UIMAGE_COMP:-none} | sed 's/gz/gzip/; s/bz2/bzip2/')
 
     # calculate new load address to make kernel Image unpack to memory area after compressed image
     if [ "$KERNEL_UIMAGE_COMP" != "none" ] ; then
