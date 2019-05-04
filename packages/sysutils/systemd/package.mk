@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="systemd"
-PKG_VERSION="239"
-PKG_SHA256="8a11b1b07d620f4c06a16e95bba4dd2a97e90efdf2a5ba47ed0a935085787a14"
+PKG_VERSION="242"
+PKG_SHA256="ec22be9a5dd94c9640e6348ed8391d1499af8ca2c2f01109198a414cff6c6cba"
 PKG_LICENSE="LGPL2.1+"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/systemd"
 PKG_URL="https://github.com/systemd/systemd/archive/v$PKG_VERSION.tar.gz"
@@ -36,12 +36,14 @@ PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
                        -Dqrencode=false \
                        -Dgcrypt=false \
                        -Dgnutls=false \
+                       -Dopenssl=false \
                        -Delfutils=false \
                        -Dzlib=false \
                        -Dbzip2=false \
                        -Dxz=false \
                        -Dlz4=false \
                        -Dxkbcommon=false \
+                       -Dpcre2=false \
                        -Dglib=false \
                        -Ddbus=false \
                        -Ddefault-dnssec=no \
@@ -60,7 +62,6 @@ PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
                        -Dnetworkd=false \
                        -Dtimedated=false \
                        -Dtimesyncd=true \
-                       -Dmyhostname=false \
                        -Dfirstboot=false \
                        -Drandomseed=false \
                        -Dbacklight=false \
@@ -77,12 +78,14 @@ PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
                        -Dsmack=false \
                        -Dgshadow=false \
                        -Didn=false \
+                       -Dnss-myhostname=false \
+                       -Dnss-mymachines=false \
+                       -Dnss-resolve=false \
                        -Dnss-systemd=false \
                        -Dman=false \
                        -Dhtml=false \
                        -Dbashcompletiondir=no \
                        -Dzshcompletiondir=no \
-                       -Dkill-path=/usr/bin/kill \
                        -Dkmod-path=/usr/bin/kmod \
                        -Dmount-path=/usr/bin/mount \
                        -Dumount-path=/usr/bin/umount"
