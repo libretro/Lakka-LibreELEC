@@ -15,16 +15,12 @@ PKG_LIBNAME="ppsspp_libretro.so"
 PKG_LIBPATH="lib/$PKG_LIBNAME"
 PKG_LIBVAR="PPSSPP_LIB"
 
-if [ "$PROJECT" = "Amlogic" ] || [ "$PROJECT" = "RPi" ]; then
-  case $DEVICE in
-     KVIM|RPi2|S905|Odroid_C2)
-      PKG_ARCH_ARM="-DARMV7=ON \
+if target_has_feature neon; then
+  PKG_ARCH_ARM="-DARMV7=ON \
                 -DUSING_FBDEV=ON \
                 -DUSING_EGL=ON \
                 -DUSING_GLES2=ON \
                 -DUSING_X11_VULKAN=OFF"
-     ;;
-  esac
 fi
 
 PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON \
