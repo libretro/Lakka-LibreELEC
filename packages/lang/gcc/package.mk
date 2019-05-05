@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="gcc"
-PKG_VERSION="8.3.0"
-PKG_SHA256="64baadfe6cc0f4947a84cb12d7f0dfaf45bb58b7e92461639596c21e02d97d2c"
+PKG_VERSION="9.1.0"
+PKG_SHA256="79a66834e96a6050d8fe78db2c3b32fb285b230b855d0a66288235bc04b327a0"
 PKG_LICENSE="GPL"
 PKG_SITE="http://gcc.gnu.org/"
 PKG_URL="http://ftpmirror.gnu.org/gcc/$PKG_NAME-$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.xz"
