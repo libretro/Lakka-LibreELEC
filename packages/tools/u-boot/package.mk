@@ -33,6 +33,13 @@ case "$PROJECT" in
     ;;
 esac
 
+post_patch() {
+  if [ -n "$UBOOT_SYSTEM" ]; then
+    # Enable LZ4, LZO and LZMA decompression support
+    echo -e "CONFIG_LZ4=y\nCONFIG_LZO=y\nCONFIG_LZMA=y" >> "$PKG_BUILD/configs/$($ROOT/$SCRIPTS/uboot_helper $PROJECT $DEVICE $UBOOT_SYSTEM config)"
+  fi
+}
+
 make_target() {
   if [ -z "$UBOOT_SYSTEM" ]; then
     echo "UBOOT_SYSTEM must be set to build an image"
