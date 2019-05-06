@@ -16,31 +16,17 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="vulkan-loader"
-PKG_VERSION="1.1.73.0"
+PKG_NAME="glslang"
+PKG_VERSION="f88e582"
 PKG_ARCH="any"
 PKG_LICENSE="Apache 2.0"
-PKG_SITE="https://www.khronos.org"
-PKG_URL="https://github.com/KhronosGroup/Vulkan-LoaderAndValidationLayers/archive/sdk-$PKG_VERSION.tar.gz"
-PKG_SOURCE_DIR="Vulkan-*$PKG_VERSION*"
-PKG_DEPENDS_TARGET="toolchain cmake:host Python3 spirv-tools glslang"
+PKG_SITE="https://github.com/KhronosGroup/glslang"
+PKG_GIT_URL="$PKG_SITE"
+PKG_DEPENDS_TARGET="toolchain cmake:host Python3"
 PKG_SECTION="graphics"
-PKG_SHORTDESC="Vulkan Installable Client Driver (ICD) Loader."
+PKG_SHORTDESC="An OpenGL and OpenGL ES shader front end and validator."
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CMAKE_OPTS_TARGET="-DBUILD_WSI_WAYLAND_SUPPORT=off \
-                       -DBUILD_WSI_XCB_SUPPORT=on \
-                       -DBUILD_WSI_XLIB_SUPPORT=on \
-                       -DBUILD_WSI_MIR_SUPPORT=off \
-                       -DBUILD_TESTS=off \
-                       -DBUILD_LAYERS=on \
-                       -DBUILD_DEMOS=on \
-                       -DBUILD_VKJSON=on"
-
-pre_configure_target() {
-  cd ..
-  ./update_external_sources.sh
-  cd -
-}
+PKG_CMAKE_OPTS_TARGET=""

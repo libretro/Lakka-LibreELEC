@@ -42,9 +42,13 @@ fi
 
 if [ "$OPENGLES_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $OPENGLES"
-elif [ "$OPENGL_SUPPORT" == yes ]; then
+fi
+
+if [ "$OPENGL_SUPPORT" == yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $OPENGL"
-elif [ "$VULKAN_SUPPORT" == yes ]; then
+fi
+
+if [ "$VULKAN_SUPPORT" == yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $VULKAN vulkan-loader"
 fi
 
@@ -81,6 +85,10 @@ elif [ "$OPENGLES" == "allwinner-fb-mali" ]; then
    RETROARCH_GL="--enable-opengles --disable-kms --disable-x11 --enable-mali_fbdev"
 elif [ "$OPENGLES" == "allwinner-mali" ] || [ "$OPENGLES" == "odroidxu3-mali" ]; then
    RETROARCH_GL="--enable-opengles --enable-kms --disable-x11"
+fi
+
+if [ "$DEVICE" = "L4T" ]; then
+   RETROARCH_GL="$RETROARCH_GL --enable-vulkan --disable-egl --disable-vulkan_display"
 fi
 
 if [[ "$TARGET_FPU" =~ "neon" ]]; then
