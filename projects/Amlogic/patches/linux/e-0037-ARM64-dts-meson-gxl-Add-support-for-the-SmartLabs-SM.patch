@@ -1,0 +1,334 @@
+From eec12dffbedb498597b8eb3b7f6fad76cd24d0d7 Mon Sep 17 00:00:00 2001
+From: chewitt <github@chrishewitt.net>
+Date: Wed, 24 Apr 2019 10:56:33 +0000
+Subject: [PATCH 37/37] ARM64: dts: meson-gxl: Add support for the SmartLabs
+ SML-5442TW
+
+The SmartLabs SML-5442TW is broadly similar to the P231 reference design
+but with the following differences:
+
+- Yellow and Blue front-panel LEDs are available but disabled
+- Red/Green LED is used to signal off/on status
+- GPIOX_17 is set high to enable the QCA9377 wireless module
+- uart_AO can be accessed after opening the case; soldered pins exist
+
+Signed-off-by: Christian Hewitt <christianshewitt@gmail.com>
+---
+ arch/arm64/boot/dts/amlogic/Makefile          |   1 +
+ .../meson-gxl-s905d-smartlabs-sml5442tw.dts   | 202 ++++++++++++++++++
+ drivers/media/rc/keymaps/Makefile             |   1 +
+ drivers/media/rc/keymaps/rc-vega-s95.c        |  56 +++++
+ include/media/rc-map.h                        |   1 +
+ 5 files changed, 261 insertions(+)
+ create mode 100644 arch/arm64/boot/dts/amlogic/meson-gxl-s905d-smartlabs-sml5442tw.dts
+ create mode 100644 drivers/media/rc/keymaps/rc-vega-s95.c
+
+diff --git a/arch/arm64/boot/dts/amlogic/Makefile b/arch/arm64/boot/dts/amlogic/Makefile
+index 0821fed4c074..8a948b6b4f5d 100644
+--- a/arch/arm64/boot/dts/amlogic/Makefile
++++ b/arch/arm64/boot/dts/amlogic/Makefile
+@@ -21,6 +21,7 @@ dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905x-p212.dtb
+ dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905d-p230.dtb
+ dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905d-p231.dtb
+ dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905d-phicomm-n1.dtb
++dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905d-smartlabs-sml5442tw.dtb
+ dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s805x-p241.dtb
+ dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905w-p281.dtb
+ dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905w-tx3-mini.dtb
+diff --git a/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-smartlabs-sml5442tw.dts b/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-smartlabs-sml5442tw.dts
+new file mode 100644
+index 000000000000..a574fdc17dd3
+--- /dev/null
++++ b/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-smartlabs-sml5442tw.dts
+@@ -0,0 +1,202 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++/*
++ * Copyright (c) Christian Hewitt <christianshewitt@gmail.com>
++ */
++
++/dts-v1/;
++
++#include "meson-gxl-s905d-p231.dts"
++
++/ {
++	compatible = "smartlabs,sml5442tw", "amlogic,s905d", "amlogic,meson-gxl";
++	model = "SmartLabs SML-5442TW for O2.cz";
++
++	aliases {
++		serial1 = &uart_A;
++	};
++
++	leds {
++		compatible = "gpio-leds";
++
++		yellow {
++			label = "sml5442tw:yellow";
++			gpios = <&gpio_ao GPIOAO_6 GPIO_ACTIVE_HIGH>;
++			default-state = "off";
++		};
++
++		blue {
++			label = "sml5442tw:blue";
++			gpios = <&gpio GPIODV_28 GPIO_ACTIVE_HIGH>;
++			default-state = "off";
++		};
++
++		green {
++			label = "sml5442tw:green";
++			gpios = <&gpio_ao GPIOAO_9 GPIO_ACTIVE_HIGH>;
++			default-state = "on";
++		};
++
++		red {
++			label = "sml5442tw:red";
++			gpios = <&gpio GPIODV_27 GPIO_ACTIVE_HIGH>;
++			default-state = "off";
++		};
++	};
++};
++
++&cec_AO {
++	status = "okay";
++	pinctrl-0 = <&ao_cec_pins>;
++	pinctrl-names = "default";
++	hdmi-phandle = <&hdmi_tx>;
++};
++
++&audio {
++	status = "okay";
++};
++
++&aiu_i2s {
++	status = "okay";
++};
++
++&cvbs_vdac_port {
++	cvbs_vdac_out: endpoint {
++		remote-endpoint = <&cvbs_connector_in>;
++	};
++};
++
++&ethmac {
++	status = "okay";
++	phy-mode = "rmii";
++	phy-handle = <&internal_phy>;
++};
++
++/* This will enable the bluetooth module */
++&gpio {
++	bt-en {
++		gpio-hog;
++		gpios = <GPIOX_17 GPIO_ACTIVE_HIGH>;
++		output-high;
++		line-name = "bt-en";
++	};
++};
++
++&hdmi_tx {
++	status = "okay";
++	pinctrl-0 = <&hdmi_hpd_pins>, <&hdmi_i2c_pins>;
++	pinctrl-names = "default";
++};
++
++&hdmi_tx_tmds_port {
++	hdmi_tx_tmds_out: endpoint {
++		remote-endpoint = <&hdmi_connector_in>;
++	};
++};
++
++&i2c_A {
++	status = "okay";
++	pinctrl-0 = <&i2c_a_pins>;
++	pinctrl-names = "default";
++};
++
++&internal_phy {
++        pinctrl-0 = <&eth_link_led_pins>, <&eth_act_led_pins>;
++        pinctrl-names = "default";
++};
++
++&ir {
++        status = "okay";
++        pinctrl-0 = <&remote_input_ao_pins>;
++        pinctrl-names = "default";
++        linux,rc-map-name = "rc-khamsin";
++};
++
++&pwm_ef {
++	status = "okay";
++	pinctrl-0 = <&pwm_e_pins>;
++	pinctrl-names = "default";
++	clocks = <&clkc CLKID_FCLK_DIV4>;
++	clock-names = "clkin0";
++};
++
++&saradc {
++        status = "okay";
++        vref-supply = <&vddio_ao18>;
++};
++
++/* Wireless SDIO Module */
++&sd_emmc_a {
++	status = "okay";
++	pinctrl-0 = <&sdio_pins>;
++	pinctrl-1 = <&sdio_clk_gate_pins>;
++	pinctrl-names = "default", "clk-gate";
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	bus-width = <4>;
++	cap-sd-highspeed;
++	max-frequency = <100000000>;
++
++	non-removable;
++	disable-wp;
++
++	mmc-pwrseq = <&sdio_pwrseq>;
++
++	vmmc-supply = <&vddao_3v3>;
++	vqmmc-supply = <&vddio_boot>;
++};
++
++/* SD card */
++&sd_emmc_b {
++	status = "okay";
++	pinctrl-0 = <&sdcard_pins>;
++	pinctrl-1 = <&sdcard_clk_gate_pins>;
++	pinctrl-names = "default", "clk-gate";
++
++	bus-width = <4>;
++	cap-sd-highspeed;
++	max-frequency = <100000000>;
++	disable-wp;
++
++	cd-gpios = <&gpio CARD_6 GPIO_ACTIVE_LOW>;
++
++	vmmc-supply = <&vddao_3v3>;
++	vqmmc-supply = <&vddio_boot>;
++};
++
++/* eMMC */
++&sd_emmc_c {
++	status = "okay";
++	pinctrl-0 = <&emmc_pins>, <&emmc_ds_pins>;
++	pinctrl-1 = <&emmc_clk_gate_pins>;
++	pinctrl-names = "default", "clk-gate";
++
++	bus-width = <8>;
++	cap-mmc-highspeed;
++	max-frequency = <200000000>;
++	non-removable;
++	disable-wp;
++	mmc-ddr-1_8v;
++	mmc-hs200-1_8v;
++
++	mmc-pwrseq = <&emmc_pwrseq>;
++	vmmc-supply = <&vcc_3v3>;
++	vqmmc-supply = <&vddio_boot>;
++};
++
++/* This is connected to the Bluetooth module: */
++&uart_A {
++	status = "okay";
++	pinctrl-0 = <&uart_a_pins>, <&uart_a_cts_rts_pins>;
++	pinctrl-names = "default";
++};
++
++&uart_AO {
++	status = "okay";
++	pinctrl-0 = <&uart_ao_a_pins>;
++	pinctrl-names = "default";
++};
++
++&usb0 {
++	status = "okay";
++};
+diff --git a/drivers/media/rc/keymaps/Makefile b/drivers/media/rc/keymaps/Makefile
+index b2c13dac1755..ce4dff101355 100644
+--- a/drivers/media/rc/keymaps/Makefile
++++ b/drivers/media/rc/keymaps/Makefile
+@@ -118,6 +118,7 @@ obj-$(CONFIG_RC_MAP) += rc-adstech-dvb-t-pci.o \
+ 			rc-videomate-m1f.o \
+ 			rc-videomate-s350.o \
+ 			rc-videomate-tv-pvr.o \
++			rc-vega-s95.o \
+ 			rc-wetek-hub.o \
+ 			rc-wetek-play2.o \
+ 			rc-winfast.o \
+diff --git a/drivers/media/rc/keymaps/rc-vega-s95.c b/drivers/media/rc/keymaps/rc-vega-s95.c
+new file mode 100644
+index 000000000000..533464ecf932
+--- /dev/null
++++ b/drivers/media/rc/keymaps/rc-vega-s95.c
+@@ -0,0 +1,56 @@
++// SPDX-License-Identifier: GPL-2.0+
++//
++// Copyright (c) 2018 Christian Hewitt <christianshewitt@gmail.com>
++
++#include <media/rc-map.h>
++#include <linux/module.h>
++
++/*
++ * This keymap is used with the Tronsmart Vega S95 Android STB
++ */
++
++static struct rc_map_table vega_s95[] = {
++
++	{ 0x18, KEY_POWER },
++	{ 0x17, KEY_INFO }, // mouse
++
++	{ 0x46, KEY_UP },
++	{ 0x16, KEY_DOWN },
++	{ 0x47, KEY_LEFT },
++	{ 0x15, KEY_RIGHT },
++	{ 0x55, KEY_OK },
++
++	{ 0x06, KEY_HOME },
++	{ 0x42, KEY_PLAYPAUSE},
++	{ 0x40, KEY_BACK },
++
++	{ 0x14, KEY_VOLUMEDOWN },
++	{ 0x04, KEY_MENU },
++	{ 0x10, KEY_VOLUMEUP },
++
++};
++
++static struct rc_map_list vega_s95_map = {
++	.map = {
++		.scan     = vega_s95,
++		.size     = ARRAY_SIZE(vega_s95),
++		.rc_proto = RC_PROTO_NEC,
++		.name     = RC_MAP_VEGA_S95,
++	}
++};
++
++static int __init init_rc_map_vega_s95(void)
++{
++	return rc_map_register(&vega_s95_map);
++}
++
++static void __exit exit_rc_map_vega_s95(void)
++{
++	rc_map_unregister(&vega_s95_map);
++}
++
++module_init(init_rc_map_vega_s95)
++module_exit(exit_rc_map_vega_s95)
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Christian Hewitt <christianshewitt@gmail.com>");
+diff --git a/include/media/rc-map.h b/include/media/rc-map.h
+index 49fe4e73b28b..491ef0382575 100644
+--- a/include/media/rc-map.h
++++ b/include/media/rc-map.h
+@@ -284,6 +284,7 @@ struct rc_map *rc_map_get(const char *name);
+ #define RC_MAP_TT_1500                   "rc-tt-1500"
+ #define RC_MAP_TWINHAN_DTV_CAB_CI        "rc-twinhan-dtv-cab-ci"
+ #define RC_MAP_TWINHAN_VP1027_DVBS       "rc-twinhan1027"
++#define RC_MAP_VEGA_S95                  "rc-vega-s95"
+ #define RC_MAP_VIDEOMATE_K100            "rc-videomate-k100"
+ #define RC_MAP_VIDEOMATE_S350            "rc-videomate-s350"
+ #define RC_MAP_VIDEOMATE_TV_PVR          "rc-videomate-tv-pvr"
+-- 
+2.17.1
+
