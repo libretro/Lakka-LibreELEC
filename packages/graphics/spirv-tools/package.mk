@@ -29,7 +29,7 @@ PKG_SHORTDESC="The SPIR-V Tools project provides an API and commands for process
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CMAKE_OPTS_TARGET=""
+PKG_CMAKE_OPTS_TARGET="-DSPIRV_WERROR=OFF"
 
 pre_configure_target() {
   cd $PKG_BUILD/external
