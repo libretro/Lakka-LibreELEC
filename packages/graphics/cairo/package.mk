@@ -30,22 +30,13 @@ if [ "$DISPLAYSERVER" = "x11" ]; then
                     --disable-glesv2 \
                     --disable-egl \
                     --with-x"
-
-elif [ "$DISPLAYSERVER" = "weston" ]; then
+else
   PKG_CAIRO_CONFIG="--disable-xlib \
                     --disable-xlib-xrender \
                     --disable-gl \
                     --disable-glx \
                     --enable-glesv2 \
                     --enable-egl \
-                    --without-x"
-else
-  PKG_CAIRO_CONFIG="--disable-xlib \
-                    --disable-xlib-xrender \
-                    --disable-gl \
-                    --disable-glx \
-                    --disable-glesv2 \
-                    --disable-egl \
                     --without-x"
 fi
 
