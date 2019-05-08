@@ -88,7 +88,8 @@ PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
                        -Dzshcompletiondir=no \
                        -Dkmod-path=/usr/bin/kmod \
                        -Dmount-path=/usr/bin/mount \
-                       -Dumount-path=/usr/bin/umount"
+                       -Dumount-path=/usr/bin/umount \
+                       -Ddebug-tty=$DEBUG_TTY"
 
 pre_configure_target() {
   export CFLAGS="$CFLAGS -fno-schedule-insns -fno-schedule-insns2 -Wno-format-truncation"
@@ -126,9 +127,6 @@ post_makeinstall_target() {
   safe_remove $INSTALL/usr/lib/udev/rules.d/70-uaccess.rules
   safe_remove $INSTALL/usr/lib/udev/rules.d/71-seat.rules
   safe_remove $INSTALL/usr/lib/udev/rules.d/73-seat-late.rules
-
-  # remove debug-shell.service, we install our own
-  safe_remove $INSTALL/usr/lib/systemd/system/debug-shell.service
 
   # remove getty units, we dont want a console
   safe_remove $INSTALL/usr/lib/systemd/system/autovt@.service
@@ -258,4 +256,5 @@ post_install() {
   enable_service usercache.service
   enable_service kernel-overlays.service
   enable_service hwdb.service
+  enable_service debug-shell.service
 }
