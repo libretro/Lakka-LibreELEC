@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="l4t-kernel"
-PKG_VERSION="794e92ad323a2c3d37b1528c5194eebcd7309717"
+PKG_VERSION="7bc33ec9554be062bb98c909b324e9c5cd6c0df8"
 PKG_GIT_BRANCH="rel30-rel32stack"
 PKG_ARCH="any"
 PKG_LICENSE="nonfree"
