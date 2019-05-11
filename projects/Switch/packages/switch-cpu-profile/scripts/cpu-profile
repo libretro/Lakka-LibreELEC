@@ -13,6 +13,7 @@ For now the profile is not retained and is set to default speed when rebooting.
 
 # File corresponding to the current profile
 PROFILE_FILE = "/sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq"
+OVERCLOCK_FILE = "/sys/kernel/tegra_cpufreq/overclock"
 
 # Profiles list, in KHz - max 2091000
 PROFILES = {
@@ -43,7 +44,6 @@ def get_profile():
     raise Exception("Unknown profile code %s" % profile_code)
 
 
-
 def apply_profile(profile):
     if profile not in PROFILES:
         raise Exception("Unknown profile %s" % profile)
@@ -52,6 +52,13 @@ def apply_profile(profile):
         f.write(PROFILES[profile])
         f.flush()
     print("Applied profile %s" % profile)
+
+
+def unlock_full_power():
+    with open(OVERCLOCK_FILE, "w") as f:
+        f.write("1")
+        f.flush()
+    print("Granted overclock access")
 
 
 def print_usage():
@@ -70,6 +77,7 @@ def print_usage():
             Gets the current profile name
     '''
 
+
 def print_profiles():
     print "Format : <name> - <freq in KHz> [* : enabled] [d : reboot default]"
 
@@ -85,12 +93,14 @@ def print_profiles():
         padding = " " * (max_profile_name_length - len(profile_name))
         print "%s%s - %s %s %s" % (profile_name, padding, profile_freq, "*" if is_current else " ", "d" if is_default else "")
 
+
 # Main
 if __name__ == "__main__":
     argc = len(sys.argv)
     if argc == 2:
         if sys.argv[1] == "init":
             apply_profile(DEFAULT_PROFILE)
+            unlock_full_power()
         elif sys.argv[1] == "get":
             print get_profile()
         elif sys.argv[1] == "list":
