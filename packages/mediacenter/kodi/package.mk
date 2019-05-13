@@ -52,7 +52,9 @@ configure_package() {
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET wayland waylandpp"
     CFLAGS="$CFLAGS -DMESA_EGL_NO_X11_HEADERS"
     CXXFLAGS="$CXXFLAGS -DMESA_EGL_NO_X11_HEADERS"
-    KODI_XORG="-DCORE_PLATFORM_NAME=wayland -DWAYLAND_RENDER_SYSTEM=gles"
+    KODI_XORG="-DCORE_PLATFORM_NAME=wayland \
+               -DWAYLAND_RENDER_SYSTEM=gles \
+               -DWAYLANDPP_PROTOCOLS_DIR=${SYSROOT_PREFIX}/usr/share/waylandpp/protocols"
   fi
 
   if [ ! "$OPENGL" = "no" ]; then
