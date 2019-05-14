@@ -18,38 +18,28 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="ishiiruka"
-PKG_VERSION="60c9a09"
+PKG_NAME="kronos"
+PKG_VERSION="23b6d99"
+PKG_GIT_BRANCH="kronos"
 PKG_REV="1"
-PKG_ARCH="x86_64"
+PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/lakka-switch/Ishiiruka"
-PKG_GIT_BRANCH="l4t"
+PKG_SITE="https://github.com/libretro/yabause"
 PKG_GIT_URL="$PKG_SITE"
-PKG_DEPENDS_TARGET="toolchain cmake:host libusb ffmpeg libevdev $OPENGL"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="A Dolphin fork where the focus is on the gaming experience and speed."
-PKG_LONGDESC="A Dolphin fork where the focus is on the gaming experience and speed."
+PKG_SHORTDESC="Port of Kronos to libretro."
+PKG_LONGDESC="Port of Kronos to libretro."
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-PKG_USE_CMAKE="yes"
 
-if [ "$BLUETOOTH_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bluez"
-fi
-
-PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON -DENABLE_WX=OFF"
-PKG_MAKE_OPTS_TARGET="ishiiruka_libretro"
-
-pre_make_target() {
-  # build fix for cross-compiling Dolphin, from Dolphin forums
-  find $PKG_BUILD -name flags.make -exec sed -i "s:isystem :I:g" \{} \;
+make_target() {
+  make -C yabause/src/libretro platform=arm64
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp $PKG_BUILD/.$TARGET_NAME/Binaries/ishiiruka_libretro.so $INSTALL/usr/lib/libretro/
-  cp $PKG_DIR/core_info/ishiiruka_libretro.info $INSTALL/usr/lib/libretro/
+  cp yabause/src/libretro/kronos_libretro.so $INSTALL/usr/lib/libretro/
 }
