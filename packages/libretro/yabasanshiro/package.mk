@@ -18,28 +18,28 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="core-info"
-PKG_VERSION="c473fb0"
+PKG_NAME="yabasanshiro"
+PKG_VERSION="d92cf22"
+PKG_GIT_BRANCH="yabasanshiro"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/libretro/libretro-super"
+PKG_LICENSE="GPLv2"
+PKG_SITE="https://github.com/libretro/yabause"
 PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="Info files for libretro cores"
-PKG_LONGDESC="Super repo for other libretro projects. Fetches, builds and installs."
+PKG_SHORTDESC="Port of YabaSanshiro to libretro."
+PKG_LONGDESC="Port of YabaSanshiro to libretro."
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  :
+  make -C yabause/src/libretro platform=arm64
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp dist/info/*.info $INSTALL/usr/lib/libretro/
+  cp yabause/src/libretro/yabasanshiro_libretro.so $INSTALL/usr/lib/libretro/
 }
-
