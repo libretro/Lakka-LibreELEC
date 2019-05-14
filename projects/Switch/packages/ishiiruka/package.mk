@@ -21,7 +21,7 @@
 PKG_NAME="ishiiruka"
 PKG_VERSION="60c9a09"
 PKG_REV="1"
-PKG_ARCH="x86_64 aarch64"
+PKG_ARCH="x86_64"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/lakka-switch/Ishiiruka"
 PKG_GIT_BRANCH="l4t"
