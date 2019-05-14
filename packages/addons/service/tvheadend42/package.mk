@@ -5,7 +5,7 @@ PKG_NAME="tvheadend42"
 PKG_VERSION="5bdcfd8ac97b3337e1c7911ae24127df76fa693a"
 PKG_SHA256="b562a26248cdc02dc94cc62038deea172668fa4c079b2ea4e1b4220f3b1d34f5"
 PKG_VERSION_NUMBER="4.2.8-36"
-PKG_REV="123"
+PKG_REV="124"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.tvheadend.org"
@@ -86,9 +86,6 @@ pre_configure_target() {
   CFLAGS+=" -I$(get_build_dir ffmpegx)/.INSTALL_PKG/usr/local/include"
   LDFLAGS+=" -L$(get_build_dir ffmpegx)/.INSTALL_PKG/usr/local/lib"
 
-# pass gnutls to build
-  LDFLAGS="$LDFLAGS -L$(get_build_dir gnutls)/.INSTALL_PKG/usr/lib"
-
 # pass libhdhomerun to build
   CFLAGS+=" -I$(get_build_dir libhdhomerun)"
 
@@ -108,13 +105,6 @@ addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
 
   cp $PKG_DIR/addon.xml $ADDON_BUILD/$PKG_ADDON_ID
-
-  # copy gnutls lib that is needed for ffmpeg
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib
-  cp -PL $(get_build_dir gnutls)/.INSTALL_PKG/usr/lib/libgnutls.so.30 $ADDON_BUILD/$PKG_ADDON_ID/lib
-  cp -PL $(get_build_dir nettle)/.install_pkg/usr/lib/libnettle.so.8 $ADDON_BUILD/$PKG_ADDON_ID/lib
-  cp -PL $(get_build_dir nettle)/.install_pkg/usr/lib/libhogweed.so.6 $ADDON_BUILD/$PKG_ADDON_ID/lib
-  cp -PL $(get_build_dir gmp)/.install_pkg/usr/lib/libgmp.so.10 $ADDON_BUILD/$PKG_ADDON_ID/lib
 
   # set only version (revision will be added by buildsystem)
   sed -e "s|@ADDON_VERSION@|$ADDON_VERSION|g" \
