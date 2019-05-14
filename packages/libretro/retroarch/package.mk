@@ -49,7 +49,7 @@ if [ "$OPENGL_SUPPORT" == yes ]; then
 fi
 
 if [ "$VULKAN_SUPPORT" == yes ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $VULKAN vulkan-loader"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $VULKAN vulkan-loader slang-shaders"
 fi
 
 if [ "$SAMBA_SUPPORT" = yes ]; then
