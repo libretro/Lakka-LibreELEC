@@ -11,7 +11,7 @@ PKG_DEPENDS_INIT="toolchain"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_LONGDESC="This package contains a precompiled kernel image and the modules."
 PKG_IS_KERNEL_PKG="yes"
-PKG_STAMP="$KERNEL_TARGET $KERNEL_MAKE_EXTRACMD $KERNEL_UBOOT_EXTRA_TARGET"
+PKG_STAMP="$KERNEL_TARGET $KERNEL_MAKE_EXTRACMD"
 
 PKG_PATCH_DIRS="$LINUX"
 
@@ -202,12 +202,6 @@ make_target() {
     rm -rf $BUILD/initramfs
     $SCRIPTS/install initramfs
   )
-
-  if [ "$BOOTLOADER" = "u-boot" -a -n "$KERNEL_UBOOT_EXTRA_TARGET" ]; then
-    for extra_target in "$KERNEL_UBOOT_EXTRA_TARGET"; do
-      kernel_make $extra_target
-    done
-  fi
 
   # arm64 target does not support creating uImage.
   # Build Image first, then wrap it using u-boot's mkimage.
