@@ -40,7 +40,7 @@ configure_target() {
   strip_gold
 }
 
-post_patch() {
+pre_patch() {
   cd $PKG_BUILD
   git remote add switch $PKG_SITE_ALT  # add m4xw
   git fetch switch master         # pull from m4xw
