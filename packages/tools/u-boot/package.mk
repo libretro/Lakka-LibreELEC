@@ -34,9 +34,8 @@ case "$PROJECT" in
 esac
 
 post_patch() {
-  if [ -n "$UBOOT_SYSTEM" ]; then
-    # Enable LZ4, LZO and LZMA decompression support
-    echo -e "CONFIG_LZ4=y\nCONFIG_LZO=y\nCONFIG_LZMA=y" >> "$PKG_BUILD/configs/$($ROOT/$SCRIPTS/uboot_helper $PROJECT $DEVICE $UBOOT_SYSTEM config)"
+  if [ -n "$UBOOT_SYSTEM" ] && find_file_path bootloader/config; then
+    cat $FOUND_PATH >> "$PKG_BUILD/configs/$($ROOT/$SCRIPTS/uboot_helper $PROJECT $DEVICE $UBOOT_SYSTEM config)"
   fi
 }
 
