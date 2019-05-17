@@ -127,6 +127,11 @@ makeinstall_host() {
 }
 
 pre_make_target() {
+  ( cd $ROOT
+    rm -rf $BUILD/initramfs
+    $SCRIPTS/install initramfs
+  )
+
   if [ "$TARGET_ARCH" = "x86_64" ]; then
     # copy some extra firmware to linux tree
     mkdir -p $PKG_BUILD/external-firmware
@@ -184,11 +189,6 @@ make_target() {
         cp perf $INSTALL/usr/bin
     )
   fi
-
-  ( cd $ROOT
-    rm -rf $BUILD/initramfs
-    $SCRIPTS/install initramfs
-  )
 
   # arm64 target does not support creating uImage.
   # Build Image first, then wrap it using u-boot's mkimage.
