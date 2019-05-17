@@ -297,31 +297,6 @@ makeinstall_target() {
   fi
 }
 
-make_init() {
- : # reuse make_target()
-}
-
-makeinstall_init() {
-  if [ -n "$INITRAMFS_MODULES" ]; then
-    mkdir -p $INSTALL/etc
-    mkdir -p $INSTALL/usr/lib/modules
-
-    for i in $INITRAMFS_MODULES; do
-      module=`find .install_pkg/$(get_full_module_dir)/kernel -name $i.ko`
-      if [ -n "$module" ]; then
-        echo $i >> $INSTALL/etc/modules
-        cp $module $INSTALL/usr/lib/modules/`basename $module`
-      fi
-    done
-  fi
-
-  if [ "$UVESAFB_SUPPORT" = yes ]; then
-    mkdir -p $INSTALL/usr/lib/modules
-      uvesafb=`find .install_pkg/$(get_full_module_dir)/kernel -name uvesafb.ko`
-      cp $uvesafb $INSTALL/usr/lib/modules/`basename $uvesafb`
-  fi
-}
-
 post_install() {
   mkdir -p $INSTALL/$(get_full_firmware_dir)/
 
