@@ -19,13 +19,11 @@
 ################################################################################
 
 PKG_NAME="pcsx_rearmed"
-PKG_VERSION="80209d1"
+PKG_VERSION="3796032"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/libretro/pcsx_rearmed"
-PKG_SITE_ALT="https://github.com/libretro/pcsx_rearmed_switch"
-PKG_VERSION_ALT="b716d51"
+PKG_SITE="https://github.com/libretro/pcsx_rearmed_switch"
 PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
@@ -38,14 +36,6 @@ PKG_AUTORECONF="no"
 
 configure_target() {
   strip_gold
-}
-
-pre_patch() {
-  cd $PKG_BUILD
-  git remote add switch $PKG_SITE_ALT  # add m4xw
-  git fetch switch master         # pull from m4xw
-  git checkout $PKG_VERSION_ALT   # latest known good from m4xw
-  git rebase -q $PKG_VERSION      # rebase onto known good from mainline
 }
 
 make_target() {
