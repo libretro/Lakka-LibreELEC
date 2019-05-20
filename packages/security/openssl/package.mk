@@ -96,6 +96,9 @@ configure_target() {
 }
 
 makeinstall_target() {
+  ## Strip any trailing ":" from LD_LIBRARY_PATH
+  ## This prevents a segault during install_sw
+  LD_LIBRARY_PATH=${LD_LIBRARY_PATH%:}
   make INSTALL_PREFIX=$INSTALL install_sw
   make INSTALL_PREFIX=$SYSROOT_PREFIX install_sw
   chmod 755 $INSTALL/usr/lib/*.so*
