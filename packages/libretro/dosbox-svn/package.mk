@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="dosbox-svn"
-PKG_VERSION="7a756dd"
+PKG_VERSION="5380ccb"
 PKG_GIT_BRANCH="libretro"
 PKG_REV="1"
 PKG_ARCH="any"
