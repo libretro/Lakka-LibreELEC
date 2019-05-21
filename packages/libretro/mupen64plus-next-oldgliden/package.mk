@@ -18,7 +18,7 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="mupen64plus-next"
+PKG_NAME="mupen64plus-next-oldgliden"
 PKG_VERSION="73ca3a8"
 PKG_GIT_BRANCH="mupen_next"
 PKG_REV="1"
