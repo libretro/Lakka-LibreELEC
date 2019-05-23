@@ -60,40 +60,46 @@ if [ -d "$SOURCES/${PKG_NAME}" -o -d "$PKG_DIR/sources" ]; then
   pkg_call_exists pre_unpack && pkg_call pre_unpack
 
   if pkg_call_exists unpack; then
-    pkg_call unpack
+    (
+      PKG_BUILD="${PKG_UNPACK_DIR}/${PKG_NAME}-${PKG_VERSION}"
+      pkg_call unpack
+    )
   else
     if [ -n "$PKG_URL" ]; then
       ${SCRIPTS}/extract "${PKG_NAME}" "${PKG_UNPACK_DIR}"
     fi
   fi
 
-  _pkg_build="$(basename "${PKG_BUILD}")"
-  [ -z "${PKG_SOURCE_DIR}" -a -d "${PKG_UNPACK_DIR}/${_pkg_build}"* ] && mv "${PKG_UNPACK_DIR}/${_pkg_build}"* "${PKG_BUILD}"
+  if [ -z "${PKG_SOURCE_DIR}" -a -d "${PKG_UNPACK_DIR}/${PKG_NAME}-${PKG_VERSION}"* ]; then
+    mv "${PKG_UNPACK_DIR}/${PKG_NAME}-${PKG_VERSION}"* "${PKG_UNPACK_DIR}/.intermediate"
+  fi
 
-  if [ ! -d "${PKG_BUILD}" ]; then
+  if [ ! -d "${PKG_UNPACK_DIR}/.intermediate" ]; then
     if [ -n "${PKG_SOURCE_DIR}" ]; then
       if [ -d "${PKG_UNPACK_DIR}"/${PKG_SOURCE_DIR} ]; then
-        mv "${PKG_UNPACK_DIR}"/${PKG_SOURCE_DIR} "${PKG_BUILD}"
+        mv "${PKG_UNPACK_DIR}"/${PKG_SOURCE_DIR} "${PKG_UNPACK_DIR}/.intermediate"
       else
         # fallback
-        mv "${BUILD}"/${PKG_SOURCE_DIR} "${PKG_BUILD}"
+        mv "${BUILD}"/${PKG_SOURCE_DIR} "${PKG_UNPACK_DIR}/.intermediate"
       fi
     elif [ -d "${PKG_BUILD}"* ]; then
-      mv "${PKG_BUILD}"* "${PKG_BUILD}"
+      mv "${PKG_BUILD}"* "${PKG_UNPACK_DIR}/.intermediate"
     fi
   fi
 
-  # cleanup
-  rm -rf "${PKG_UNPACK_DIR}"
+  [ ! -d "${PKG_UNPACK_DIR}/.intermediate" ] && mkdir -p "${PKG_UNPACK_DIR}/.intermediate"
 
   if [ -d "$PKG_DIR/sources" ]; then
-    [ ! -d "$PKG_BUILD" ] && mkdir -p "$PKG_BUILD"
-    cp -PRf "$PKG_DIR/sources/"* "$PKG_BUILD"
+    cp -PRf "$PKG_DIR/sources/"* "${PKG_UNPACK_DIR}/.intermediate"
   fi
 
-  if [ -z "$PKG_URL" ]; then
-    mkdir -p "${PKG_BUILD}"
-  fi
+  echo "INFO_PKG_NAME=\"${PKG_NAME}\"" > "${PKG_UNPACK_DIR}/.intermediate/.libreelec-package"
+
+  rm -fr "${PKG_BUILD}"
+  mv "${PKG_UNPACK_DIR}/.intermediate" "${PKG_BUILD}"
+
+  # cleanup
+  rm -rf "${PKG_UNPACK_DIR}"
 
   pkg_call_exists post_unpack && pkg_call post_unpack
 
@@ -184,6 +190,7 @@ fi
 
 if [ "$PKG_SECTION" != "virtual" ]; then
   mkdir -p "$PKG_BUILD"
+  echo "INFO_PKG_NAME=\"${PKG_NAME}\"" > "${PKG_BUILD}/.libreelec-package"
 
   rm -f $STAMPS/${PKG_NAME}/build_*
 
