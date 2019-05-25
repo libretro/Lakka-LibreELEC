@@ -1,18 +1,18 @@
-From e41186f41a546d1c60797f090001da969f5eda5a Mon Sep 17 00:00:00 2001
+From 9714cf1bc8c5b48f21af3500e34497621b51a4b1 Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@siol.net>
 Date: Thu, 14 Feb 2019 22:50:12 +0100
-Subject: [PATCH] cedrus: Improve H264
+Subject: [PATCH 3/5] media: cedrus: WIP H264 improvements
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
 ---
- .../staging/media/sunxi/cedrus/cedrus_h264.c  | 69 +++++++++++--------
- 1 file changed, 41 insertions(+), 28 deletions(-)
+ .../staging/media/sunxi/cedrus/cedrus_h264.c  | 37 ++++++++++++++-----
+ 1 file changed, 27 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_h264.c b/drivers/staging/media/sunxi/cedrus/cedrus_h264.c
-index a5c5f13ffecb..405545947b85 100644
+index d0ee3f90ff46..dcb8d3837869 100644
 --- a/drivers/staging/media/sunxi/cedrus/cedrus_h264.c
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus_h264.c
-@@ -38,7 +38,7 @@ struct cedrus_h264_sram_ref_pic {
+@@ -39,7 +39,7 @@ struct cedrus_h264_sram_ref_pic {
  #define CEDRUS_H264_FRAME_NUM		18
  
  #define CEDRUS_NEIGHBOR_INFO_BUF_SIZE	(16 * SZ_1K)
@@ -21,7 +21,7 @@ index a5c5f13ffecb..405545947b85 100644
  
  static void cedrus_h264_write_sram(struct cedrus_dev *dev,
  				   enum cedrus_h264_sram_off off,
-@@ -101,7 +101,7 @@ static void cedrus_write_frame_list(struct cedrus_ctx *ctx,
+@@ -102,7 +102,7 @@ static void cedrus_write_frame_list(struct cedrus_ctx *ctx,
  	struct cedrus_dev *dev = ctx->dev;
  	unsigned long used_dpbs = 0;
  	unsigned int position;
@@ -30,7 +30,7 @@ index a5c5f13ffecb..405545947b85 100644
  	unsigned int i;
  
  	memset(pic_list, 0, sizeof(pic_list));
-@@ -126,6 +126,11 @@ static void cedrus_write_frame_list(struct cedrus_ctx *ctx,
+@@ -123,6 +123,11 @@ static void cedrus_write_frame_list(struct cedrus_ctx *ctx,
  		position = cedrus_buf->codec.h264.position;
  		used_dpbs |= BIT(position);
  
@@ -42,7 +42,7 @@ index a5c5f13ffecb..405545947b85 100644
  		if (!(dpb->flags & V4L2_H264_DPB_ENTRY_FLAG_ACTIVE))
  			continue;
  
-@@ -133,13 +138,11 @@ static void cedrus_write_frame_list(struct cedrus_ctx *ctx,
+@@ -130,13 +135,11 @@ static void cedrus_write_frame_list(struct cedrus_ctx *ctx,
  				    dpb->top_field_order_cnt,
  				    dpb->bottom_field_order_cnt,
  				    &pic_list[position]);
@@ -59,7 +59,7 @@ index a5c5f13ffecb..405545947b85 100644
  		position = find_first_zero_bit(&used_dpbs, CEDRUS_H264_FRAME_NUM);
  
  	output_buf = vb2_to_cedrus_buffer(&run->dst->vb2_buf);
-@@ -165,6 +168,10 @@ static void cedrus_write_frame_list(struct cedrus_ctx *ctx,
+@@ -162,6 +165,10 @@ static void cedrus_write_frame_list(struct cedrus_ctx *ctx,
  
  #define CEDRUS_MAX_REF_IDX	32
  
@@ -70,7 +70,7 @@ index a5c5f13ffecb..405545947b85 100644
  static void _cedrus_write_ref_list(struct cedrus_ctx *ctx,
  				   struct cedrus_run *run,
  				   const u8 *ref_list, u8 num_ref,
-@@ -187,7 +194,7 @@ static void _cedrus_write_ref_list(struct cedrus_ctx *ctx,
+@@ -184,7 +191,7 @@ static void _cedrus_write_ref_list(struct cedrus_ctx *ctx,
  		int buf_idx;
  		u8 dpb_idx;
  
@@ -79,7 +79,7 @@ index a5c5f13ffecb..405545947b85 100644
  		dpb = &decode->dpb[dpb_idx];
  
  		if (!(dpb->flags & V4L2_H264_DPB_ENTRY_FLAG_ACTIVE))
-@@ -206,7 +213,8 @@ static void _cedrus_write_ref_list(struct cedrus_ctx *ctx,
+@@ -199,7 +206,8 @@ static void _cedrus_write_ref_list(struct cedrus_ctx *ctx,
  		position = cedrus_buf->codec.h264.position;
  
  		sram_array[i] |= position << 1;
@@ -89,16 +89,16 @@ index a5c5f13ffecb..405545947b85 100644
  			sram_array[i] |= BIT(0);
  	}
  
-@@ -309,6 +317,8 @@ static void cedrus_set_params(struct cedrus_ctx *ctx,
+@@ -315,6 +323,8 @@ static void cedrus_set_params(struct cedrus_ctx *ctx,
+ 	struct cedrus_dev *dev = ctx->dev;
  	dma_addr_t src_buf_addr;
- 	u32 offset = slice->header_bit_size;
- 	u32 len = (slice->size * 8) - offset;
+ 	u32 len = slice->size * 8;
 +	unsigned int pic_width_in_mbs;
 +	bool mbaff_picture;
  	u32 reg;
  
  	cedrus_write(dev, VE_H264_VLD_LEN, len);
-@@ -378,12 +387,19 @@ static void cedrus_set_params(struct cedrus_ctx *ctx,
+@@ -382,12 +392,19 @@ static void cedrus_set_params(struct cedrus_ctx *ctx,
  		reg |= VE_H264_SPS_DIRECT_8X8_INFERENCE;
  	cedrus_write(dev, VE_H264_SPS, reg);
  
@@ -119,15 +119,6 @@ index a5c5f13ffecb..405545947b85 100644
  	if (slice->flags & V4L2_H264_SLICE_FLAG_FIELD_PIC)
  		reg |= VE_H264_SHS_FIELD_PIC;
  	if (slice->flags & V4L2_H264_SLICE_FLAG_BOTTOM_FIELD)
-@@ -531,7 +541,7 @@ static int cedrus_h264_start(struct cedrus_ctx *ctx)
- 	 * we need to work on.
- 	 */
- 	field_size = field_size * 2;
--	ctx->codec.h264.mv_col_buf_field_size = field_size;
-+	ctx->codec.h264.mv_col_buf_field_size = ALIGN(field_size, 1024);
- 
- 	mv_col_size = field_size * 2 * CEDRUS_H264_FRAME_NUM;
- 	ctx->codec.h264.mv_col_buf_size = mv_col_size;
 -- 
-2.20.1
+2.21.0
 

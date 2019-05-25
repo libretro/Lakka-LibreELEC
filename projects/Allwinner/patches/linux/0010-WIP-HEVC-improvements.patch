@@ -1,8 +1,25 @@
+From c6582c38df2f78dc9d4f8fd920780a82a01e4d8e Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Sat, 25 May 2019 13:58:17 +0200
+Subject: [PATCH 2/3] WIP: HEVC improvements
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+---
+ drivers/media/v4l2-core/v4l2-ctrls.c          |   8 +
+ drivers/staging/media/sunxi/cedrus/cedrus.c   |   6 +
+ drivers/staging/media/sunxi/cedrus/cedrus.h   |  11 +-
+ .../staging/media/sunxi/cedrus/cedrus_dec.c   |   2 +
+ .../staging/media/sunxi/cedrus/cedrus_h265.c  | 348 +++++++++++++-----
+ .../staging/media/sunxi/cedrus/cedrus_regs.h  |   3 +
+ .../staging/media/sunxi/cedrus/cedrus_video.c |  12 +-
+ include/media/hevc-ctrls.h                    |  20 +-
+ 8 files changed, 301 insertions(+), 109 deletions(-)
+
 diff --git a/drivers/media/v4l2-core/v4l2-ctrls.c b/drivers/media/v4l2-core/v4l2-ctrls.c
-index 3bab9d4e3304..a14762dff91d 100644
+index 1107698b9d06..aed7a4526193 100644
 --- a/drivers/media/v4l2-core/v4l2-ctrls.c
 +++ b/drivers/media/v4l2-core/v4l2-ctrls.c
-@@ -916,6 +916,7 @@ const char *v4l2_ctrl_get_name(u32 id)
+@@ -947,6 +947,7 @@ const char *v4l2_ctrl_get_name(u32 id)
  	case V4L2_CID_MPEG_VIDEO_HEVC_SPS:			return "HEVC Sequence Parameter Set";
  	case V4L2_CID_MPEG_VIDEO_HEVC_PPS:			return "HEVC Picture Parameter Set";
  	case V4L2_CID_MPEG_VIDEO_HEVC_SLICE_PARAMS:		return "HEVC Slice Parameters";
@@ -10,7 +27,7 @@ index 3bab9d4e3304..a14762dff91d 100644
  
  	/* CAMERA controls */
  	/* Keep the order of the 'case's the same as in v4l2-controls.h! */
-@@ -1332,6 +1333,9 @@ void v4l2_ctrl_fill(u32 id, const char **name, enum v4l2_ctrl_type *type,
+@@ -1368,6 +1369,9 @@ void v4l2_ctrl_fill(u32 id, const char **name, enum v4l2_ctrl_type *type,
  	case V4L2_CID_MPEG_VIDEO_HEVC_SLICE_PARAMS:
  		*type = V4L2_CTRL_TYPE_HEVC_SLICE_PARAMS;
  		break;
@@ -20,7 +37,7 @@ index 3bab9d4e3304..a14762dff91d 100644
  	default:
  		*type = V4L2_CTRL_TYPE_INTEGER;
  		break;
-@@ -1708,6 +1712,7 @@ static int std_validate(const struct v4l2_ctrl *ctrl, u32 idx,
+@@ -1747,6 +1751,7 @@ static int std_validate(const struct v4l2_ctrl *ctrl, u32 idx,
  	case V4L2_CTRL_TYPE_HEVC_SPS:
  	case V4L2_CTRL_TYPE_HEVC_PPS:
  	case V4L2_CTRL_TYPE_HEVC_SLICE_PARAMS:
@@ -28,7 +45,7 @@ index 3bab9d4e3304..a14762dff91d 100644
  		return 0;
  
  	default:
-@@ -2314,6 +2319,9 @@ static struct v4l2_ctrl *v4l2_ctrl_new(struct v4l2_ctrl_handler *hdl,
+@@ -2356,6 +2361,9 @@ static struct v4l2_ctrl *v4l2_ctrl_new(struct v4l2_ctrl_handler *hdl,
  	case V4L2_CTRL_TYPE_HEVC_SLICE_PARAMS:
  		elem_size = sizeof(struct v4l2_ctrl_hevc_slice_params);
  		break;
@@ -39,10 +56,10 @@ index 3bab9d4e3304..a14762dff91d 100644
  		if (type < V4L2_CTRL_COMPOUND_TYPES)
  			elem_size = sizeof(s32);
 diff --git a/drivers/staging/media/sunxi/cedrus/cedrus.c b/drivers/staging/media/sunxi/cedrus/cedrus.c
-index a713630ce7ba..3040f483e0a2 100644
+index 70642834f351..01860f247aa6 100644
 --- a/drivers/staging/media/sunxi/cedrus/cedrus.c
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus.c
-@@ -87,6 +87,12 @@ static const struct cedrus_control cedrus_controls[] = {
+@@ -88,6 +88,12 @@ static const struct cedrus_control cedrus_controls[] = {
  		.codec		= CEDRUS_CODEC_H265,
  		.required	= true,
  	},
@@ -56,10 +73,10 @@ index a713630ce7ba..3040f483e0a2 100644
  
  #define CEDRUS_CONTROLS_COUNT	ARRAY_SIZE(cedrus_controls)
 diff --git a/drivers/staging/media/sunxi/cedrus/cedrus.h b/drivers/staging/media/sunxi/cedrus/cedrus.h
-index b5d083812bea..deb9fa1de97c 100644
+index f19be772d78b..b518c5613fdf 100644
 --- a/drivers/staging/media/sunxi/cedrus/cedrus.h
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus.h
-@@ -72,6 +72,7 @@ struct cedrus_h265_run {
+@@ -74,6 +74,7 @@ struct cedrus_h265_run {
  	const struct v4l2_ctrl_hevc_sps			*sps;
  	const struct v4l2_ctrl_hevc_pps			*pps;
  	const struct v4l2_ctrl_hevc_slice_params	*slice_params;
@@ -67,7 +84,7 @@ index b5d083812bea..deb9fa1de97c 100644
  };
  
  struct cedrus_run {
-@@ -88,6 +89,10 @@ struct cedrus_run {
+@@ -90,6 +91,10 @@ struct cedrus_run {
  struct cedrus_buffer {
  	struct v4l2_m2m_buffer          m2m_buf;
  
@@ -78,7 +95,7 @@ index b5d083812bea..deb9fa1de97c 100644
  	union {
  		struct {
  			unsigned int			position;
-@@ -121,12 +126,10 @@ struct cedrus_ctx {
+@@ -123,12 +128,10 @@ struct cedrus_ctx {
  			dma_addr_t	neighbor_info_buf_dma;
  		} h264;
  		struct {
@@ -94,10 +111,10 @@ index b5d083812bea..deb9fa1de97c 100644
  	} codec;
  };
 diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_dec.c b/drivers/staging/media/sunxi/cedrus/cedrus_dec.c
-index c50397f8692f..80c6d920142d 100644
+index c6d0ef66cdd0..104adb08492c 100644
 --- a/drivers/staging/media/sunxi/cedrus/cedrus_dec.c
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus_dec.c
-@@ -68,6 +68,8 @@ void cedrus_device_run(void *priv)
+@@ -66,6 +66,8 @@ void cedrus_device_run(void *priv)
  			V4L2_CID_MPEG_VIDEO_HEVC_PPS);
  		run.h265.slice_params = cedrus_find_control_data(ctx,
  			V4L2_CID_MPEG_VIDEO_HEVC_SLICE_PARAMS);
@@ -107,7 +124,7 @@ index c50397f8692f..80c6d920142d 100644
  
  	default:
 diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_h265.c b/drivers/staging/media/sunxi/cedrus/cedrus_h265.c
-index f1c3665e95ab..2cc36d69548e 100644
+index fd4d86b02156..82d29c59b787 100644
 --- a/drivers/staging/media/sunxi/cedrus/cedrus_h265.c
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus_h265.c
 @@ -77,24 +77,25 @@ static void cedrus_h265_sram_write_offset(struct cedrus_dev *dev, u32 offset)
@@ -157,7 +174,7 @@ index f1c3665e95ab..2cc36d69548e 100644
  	};
  	u32 offset = VE_DEC_H265_SRAM_OFFSET_FRAME_INFO +
  		     VE_DEC_H265_SRAM_OFFSET_FRAME_INFO_UNIT * index;
-@@ -157,28 +157,24 @@ static void cedrus_h265_ref_pic_list_write(struct cedrus_dev *dev,
+@@ -158,28 +158,24 @@ static void cedrus_h265_ref_pic_list_write(struct cedrus_dev *dev,
  					   u8 num_ref_idx_active,
  					   u32 sram_offset)
  {
@@ -195,7 +212,7 @@ index f1c3665e95ab..2cc36d69548e 100644
  }
  
  static void cedrus_h265_pred_weight_write(struct cedrus_dev *dev,
-@@ -219,6 +215,105 @@ static void cedrus_h265_pred_weight_write(struct cedrus_dev *dev,
+@@ -220,6 +216,131 @@ static void cedrus_h265_pred_weight_write(struct cedrus_dev *dev,
  	}
  }
  
@@ -204,6 +221,7 @@ index f1c3665e95ab..2cc36d69548e 100644
 +{
 +	const struct v4l2_ctrl_hevc_scaling_matrix *scaling;
 +	struct cedrus_dev *dev = ctx->dev;
++	u32 i, j, k, val;
 +
 +	scaling = run->h265.scaling_matrix;
 +
@@ -219,21 +237,46 @@ index f1c3665e95ab..2cc36d69548e 100644
 +		     (scaling->scaling_list_dc_coef_16x16[3] << 8) |
 +		     (scaling->scaling_list_dc_coef_16x16[2] << 0));
 +
-+	cedrus_h265_sram_write_offset(dev, VE_DEC_H265_SRAM_OFFSET_SCALING_LISTS_8x8);
-+	cedrus_h265_sram_write_data(dev, scaling->scaling_list_8x8,
-+			       sizeof(scaling->scaling_list_8x8));
++	cedrus_h265_sram_write_offset(dev, VE_DEC_H265_SRAM_OFFSET_SCALING_LISTS);
 +
-+	cedrus_h265_sram_write_offset(dev, VE_DEC_H265_SRAM_OFFSET_SCALING_LISTS_32x32);
-+	cedrus_h265_sram_write_data(dev, scaling->scaling_list_32x32,
-+			       sizeof(scaling->scaling_list_32x32));
++	for (i = 0; i < 6; i++)
++		for (j = 0; j < 8; j++)
++			for (k = 0; k < 8; k += 4) {
++				val = ((u32)scaling->scaling_list_8x8[i][j + (k + 3) * 8] << 24) |
++				      ((u32)scaling->scaling_list_8x8[i][j + (k + 2) * 8] << 16) |
++				      ((u32)scaling->scaling_list_8x8[i][j + (k + 1) * 8] << 8) |
++				      scaling->scaling_list_8x8[i][j + k * 8];
++				cedrus_write(dev, VE_DEC_H265_SRAM_DATA, val);
++			}
 +
-+	cedrus_h265_sram_write_offset(dev, VE_DEC_H265_SRAM_OFFSET_SCALING_LISTS_16x16);
-+	cedrus_h265_sram_write_data(dev, scaling->scaling_list_16x16,
-+			       sizeof(scaling->scaling_list_16x16));
++	for (i = 0; i < 2; i++)
++		for (j = 0; j < 8; j++)
++			for (k = 0; k < 8; k += 4) {
++				val = ((u32)scaling->scaling_list_32x32[i][j + (k + 3) * 8] << 24) |
++				      ((u32)scaling->scaling_list_32x32[i][j + (k + 2) * 8] << 16) |
++				      ((u32)scaling->scaling_list_32x32[i][j + (k + 1) * 8] << 8) |
++				      scaling->scaling_list_32x32[i][j + k * 8];
++				cedrus_write(dev, VE_DEC_H265_SRAM_DATA, val);
++			}
 +
-+	cedrus_h265_sram_write_offset(dev, VE_DEC_H265_SRAM_OFFSET_SCALING_LISTS_4x4);
-+	cedrus_h265_sram_write_data(dev, scaling->scaling_list_4x4,
-+			       sizeof(scaling->scaling_list_4x4));
++	for (i = 0; i < 6; i++)
++		for (j = 0; j < 8; j++)
++			for (k = 0; k < 8; k += 4) {
++				val = ((u32)scaling->scaling_list_16x16[i][j + (k + 3) * 8] << 24) |
++				      ((u32)scaling->scaling_list_16x16[i][j + (k + 2) * 8] << 16) |
++				      ((u32)scaling->scaling_list_16x16[i][j + (k + 1) * 8] << 8) |
++				      scaling->scaling_list_16x16[i][j + k * 8];
++				cedrus_write(dev, VE_DEC_H265_SRAM_DATA, val);
++			}
++
++	for (i = 0; i < 6; i++)
++		for (j = 0; j < 4; j++) {
++			val = ((u32)scaling->scaling_list_4x4[i][j + 12] << 24) |
++			      ((u32)scaling->scaling_list_4x4[i][j + 8] << 16) |
++			      ((u32)scaling->scaling_list_4x4[i][j + 4] << 8) |
++			      scaling->scaling_list_4x4[i][j];
++			cedrus_write(dev, VE_DEC_H265_SRAM_DATA, val);
++		}
 +}
 +
 +static void write_entry_point_list(struct cedrus_ctx *ctx,
@@ -301,7 +344,7 @@ index f1c3665e95ab..2cc36d69548e 100644
  static void cedrus_h265_setup(struct cedrus_ctx *ctx,
  			      struct cedrus_run *run)
  {
-@@ -227,6 +322,7 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
+@@ -228,6 +349,7 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
  	const struct v4l2_ctrl_hevc_pps *pps;
  	const struct v4l2_ctrl_hevc_slice_params *slice_params;
  	const struct v4l2_hevc_pred_weight_table *pred_weight_table;
@@ -309,7 +352,7 @@ index f1c3665e95ab..2cc36d69548e 100644
  	dma_addr_t src_buf_addr;
  	dma_addr_t src_buf_end_addr;
  	u32 chroma_log2_weight_denom;
-@@ -239,43 +335,10 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
+@@ -240,43 +362,10 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
  	slice_params = run->h265.slice_params;
  	pred_weight_table = &slice_params->pred_weight_table;
  
@@ -355,7 +398,7 @@ index f1c3665e95ab..2cc36d69548e 100644
  
  	/* Source offset and length in bits. */
  
-@@ -299,18 +362,35 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
+@@ -300,18 +389,35 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
  	src_buf_end_addr = src_buf_addr +
  			   DIV_ROUND_UP(slice_params->bit_size, 8);
  
@@ -397,7 +440,7 @@ index f1c3665e95ab..2cc36d69548e 100644
  
  	/* Initialize bitstream access. */
  	cedrus_write(dev, VE_DEC_H265_TRIGGER, VE_DEC_H265_TRIGGER_INIT_SWDEC);
-@@ -333,6 +413,7 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
+@@ -334,6 +440,7 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
  	      VE_DEC_H265_DEC_SPS_HDR_LOG2_DIFF_MAX_MIN_LUMA_CODING_BLOCK_SIZE(sps->log2_diff_max_min_luma_coding_block_size) |
  	      VE_DEC_H265_DEC_SPS_HDR_LOG2_MIN_LUMA_CODING_BLOCK_SIZE_MINUS3(sps->log2_min_luma_coding_block_size_minus3) |
  	      VE_DEC_H265_DEC_SPS_HDR_BIT_DEPTH_CHROMA_MINUS8(sps->bit_depth_chroma_minus8) |
@@ -405,7 +448,7 @@ index f1c3665e95ab..2cc36d69548e 100644
  	      VE_DEC_H265_DEC_SPS_HDR_SEPARATE_COLOUR_PLANE_FLAG(sps->separate_colour_plane_flag) |
  	      VE_DEC_H265_DEC_SPS_HDR_CHROMA_FORMAT_IDC(sps->chroma_format_idc);
  
-@@ -362,7 +443,7 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
+@@ -363,7 +470,7 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
  	      VE_DEC_H265_DEC_PPS_CTRL1_PPS_LOOP_FILTER_ACROSS_SLICES_ENABLED_FLAG(pps->pps_loop_filter_across_slices_enabled_flag) |
  	      VE_DEC_H265_DEC_PPS_CTRL1_LOOP_FILTER_ACROSS_TILES_ENABLED_FLAG(pps->loop_filter_across_tiles_enabled_flag) |
  	      VE_DEC_H265_DEC_PPS_CTRL1_ENTROPY_CODING_SYNC_ENABLED_FLAG(pps->entropy_coding_sync_enabled_flag) |
@@ -414,7 +457,7 @@ index f1c3665e95ab..2cc36d69548e 100644
  	      VE_DEC_H265_DEC_PPS_CTRL1_TRANSQUANT_BYPASS_ENABLE_FLAG(pps->transquant_bypass_enabled_flag) |
  	      VE_DEC_H265_DEC_PPS_CTRL1_WEIGHTED_BIPRED_FLAG(pps->weighted_bipred_flag) |
  	      VE_DEC_H265_DEC_PPS_CTRL1_WEIGHTED_PRED_FLAG(pps->weighted_pred_flag);
-@@ -383,7 +464,7 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
+@@ -384,7 +491,7 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
  	      VE_DEC_H265_DEC_SLICE_HDR_INFO0_COLOUR_PLANE_ID(slice_params->colour_plane_id) |
  	      VE_DEC_H265_DEC_SLICE_HDR_INFO0_SLICE_TYPE(slice_params->slice_type) |
  	      VE_DEC_H265_DEC_SLICE_HDR_INFO0_DEPENDENT_SLICE_SEGMENT_FLAG(pps->dependent_slice_segment_flag) |
@@ -423,7 +466,7 @@ index f1c3665e95ab..2cc36d69548e 100644
  
  	cedrus_write(dev, VE_DEC_H265_DEC_SLICE_HDR_INFO0, reg);
  
-@@ -400,34 +481,68 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
+@@ -401,34 +508,68 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
  
  	chroma_log2_weight_denom = pred_weight_table->luma_log2_weight_denom +
  				   pred_weight_table->delta_chroma_log2_weight_denom;
@@ -497,7 +540,7 @@ index f1c3665e95ab..2cc36d69548e 100644
  	output_pic_list_index = V4L2_HEVC_DPB_ENTRIES_NUM_MAX;
  	pic_order_cnt[0] = slice_params->slice_pic_order_cnt;
  	pic_order_cnt[1] = slice_params->slice_pic_order_cnt;
-@@ -443,36 +558,36 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
+@@ -444,36 +585,36 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
  	if (slice_params->slice_type != V4L2_HEVC_SLICE_TYPE_I) {
  		cedrus_h265_ref_pic_list_write(dev, slice_params->dpb,
  					       slice_params->ref_idx_l0,
@@ -552,7 +595,7 @@ index f1c3665e95ab..2cc36d69548e 100644
  	}
  
  	/* Enable appropriate interruptions. */
-@@ -483,9 +598,6 @@ static int cedrus_h265_start(struct cedrus_ctx *ctx)
+@@ -484,9 +625,6 @@ static int cedrus_h265_start(struct cedrus_ctx *ctx)
  {
  	struct cedrus_dev *dev = ctx->dev;
  
@@ -562,7 +605,7 @@ index f1c3665e95ab..2cc36d69548e 100644
  	ctx->codec.h265.neighbor_info_buf =
  		dma_alloc_coherent(dev->dev, CEDRUS_H265_NEIGHBOR_INFO_BUF_SIZE,
  				   &ctx->codec.h265.neighbor_info_buf_addr,
-@@ -493,6 +605,17 @@ static int cedrus_h265_start(struct cedrus_ctx *ctx)
+@@ -494,6 +632,17 @@ static int cedrus_h265_start(struct cedrus_ctx *ctx)
  	if (!ctx->codec.h265.neighbor_info_buf)
  		return -ENOMEM;
  
@@ -580,7 +623,7 @@ index f1c3665e95ab..2cc36d69548e 100644
  	return 0;
  }
  
-@@ -500,17 +623,12 @@ static void cedrus_h265_stop(struct cedrus_ctx *ctx)
+@@ -501,17 +650,12 @@ static void cedrus_h265_stop(struct cedrus_ctx *ctx)
  {
  	struct cedrus_dev *dev = ctx->dev;
  
@@ -602,7 +645,7 @@ index f1c3665e95ab..2cc36d69548e 100644
  
  static void cedrus_h265_trigger(struct cedrus_ctx *ctx)
 diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_regs.h b/drivers/staging/media/sunxi/cedrus/cedrus_regs.h
-index 87651d6b6227..a2931f322c7a 100644
+index 87651d6b6227..8d153dbe4f83 100644
 --- a/drivers/staging/media/sunxi/cedrus/cedrus_regs.h
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus_regs.h
 @@ -496,6 +496,9 @@
@@ -615,23 +658,11 @@ index 87651d6b6227..a2931f322c7a 100644
  #define VE_DEC_H265_LOW_ADDR			(VE_ENGINE_DEC_H265 + 0x80)
  
  #define VE_DEC_H265_LOW_ADDR_PRIMARY_CHROMA(a) \
-@@ -513,7 +516,10 @@
- #define VE_DEC_H265_SRAM_OFFSET_PRED_WEIGHT_CHROMA_L1	0x80
- #define VE_DEC_H265_SRAM_OFFSET_FRAME_INFO		0x400
- #define VE_DEC_H265_SRAM_OFFSET_FRAME_INFO_UNIT		0x20
--#define VE_DEC_H265_SRAM_OFFSET_SCALING_LISTS		0x800
-+#define VE_DEC_H265_SRAM_OFFSET_SCALING_LISTS_8x8	0x800
-+#define VE_DEC_H265_SRAM_OFFSET_SCALING_LISTS_32x32	0x980
-+#define VE_DEC_H265_SRAM_OFFSET_SCALING_LISTS_16x16	0xa00
-+#define VE_DEC_H265_SRAM_OFFSET_SCALING_LISTS_4x4	0xb80
- #define VE_DEC_H265_SRAM_OFFSET_REF_PIC_LIST0		0xc00
- #define VE_DEC_H265_SRAM_OFFSET_REF_PIC_LIST1		0xc10
- 
 diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_video.c b/drivers/staging/media/sunxi/cedrus/cedrus_video.c
-index b9acdc03c839..adf00513c15f 100644
+index dbe6f9510641..a0817cae1d69 100644
 --- a/drivers/staging/media/sunxi/cedrus/cedrus_video.c
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus_video.c
-@@ -423,8 +423,18 @@ static void cedrus_buf_cleanup(struct vb2_buffer *vb)
+@@ -433,8 +433,18 @@ static void cedrus_buf_cleanup(struct vb2_buffer *vb)
  	struct vb2_queue *vq = vb->vb2_queue;
  	struct cedrus_ctx *ctx = vb2_get_drv_priv(vq);
  
@@ -652,24 +683,24 @@ index b9acdc03c839..adf00513c15f 100644
  
  static int cedrus_buf_out_validate(struct vb2_buffer *vb)
 diff --git a/include/media/hevc-ctrls.h b/include/media/hevc-ctrls.h
-index 005c71c67163..4bf3d79047f4 100644
+index 2de83d9f6d47..19469097c6d4 100644
 --- a/include/media/hevc-ctrls.h
 +++ b/include/media/hevc-ctrls.h
-@@ -14,11 +14,13 @@
- #define V4L2_CID_MPEG_VIDEO_HEVC_SPS		(V4L2_CID_MPEG_BASE + 645)
- #define V4L2_CID_MPEG_VIDEO_HEVC_PPS		(V4L2_CID_MPEG_BASE + 646)
- #define V4L2_CID_MPEG_VIDEO_HEVC_SLICE_PARAMS	(V4L2_CID_MPEG_BASE + 647)
-+#define V4L2_CID_MPEG_VIDEO_HEVC_SCALING_MATRIX	(V4L2_CID_MPEG_BASE + 648)
+@@ -17,11 +17,13 @@
+ #define V4L2_CID_MPEG_VIDEO_HEVC_SPS		(V4L2_CID_MPEG_BASE + 1008)
+ #define V4L2_CID_MPEG_VIDEO_HEVC_PPS		(V4L2_CID_MPEG_BASE + 1009)
+ #define V4L2_CID_MPEG_VIDEO_HEVC_SLICE_PARAMS	(V4L2_CID_MPEG_BASE + 1010)
++#define V4L2_CID_MPEG_VIDEO_HEVC_SCALING_MATRIX	(V4L2_CID_MPEG_BASE + 1011)
  
  /* enum v4l2_ctrl_type type values */
- #define V4L2_CTRL_TYPE_HEVC_SPS 0x0115
- #define V4L2_CTRL_TYPE_HEVC_PPS 0x0116
- #define V4L2_CTRL_TYPE_HEVC_SLICE_PARAMS 0x0117
-+#define V4L2_CTRL_TYPE_HEVC_SCALING_MATRIX 0x0118
+ #define V4L2_CTRL_TYPE_HEVC_SPS 0x0120
+ #define V4L2_CTRL_TYPE_HEVC_PPS 0x0121
+ #define V4L2_CTRL_TYPE_HEVC_SLICE_PARAMS 0x0122
++#define V4L2_CTRL_TYPE_HEVC_SCALING_MATRIX 0x0123
  
  #define V4L2_HEVC_SLICE_TYPE_B	0
  #define V4L2_HEVC_SLICE_TYPE_P	1
-@@ -91,7 +93,7 @@ struct v4l2_ctrl_hevc_pps {
+@@ -95,7 +97,7 @@ struct v4l2_ctrl_hevc_pps {
  	__u8	lists_modification_present_flag;
  	__u8	log2_parallel_merge_level_minus2;
  	__u8	slice_segment_header_extension_present_flag;
@@ -678,7 +709,7 @@ index 005c71c67163..4bf3d79047f4 100644
  };
  
  #define V4L2_HEVC_DPB_ENTRY_RPS_ST_CURR_BEFORE	0x01
-@@ -175,7 +177,21 @@ struct v4l2_ctrl_hevc_slice_params {
+@@ -179,7 +181,21 @@ struct v4l2_ctrl_hevc_slice_params {
  	/* ISO/IEC 23008-2, ITU-T Rec. H.265: Weighted prediction parameter */
  	struct v4l2_hevc_pred_weight_table pred_weight_table;
  
@@ -701,3 +732,6 @@ index 005c71c67163..4bf3d79047f4 100644
  };
  
  #endif
+-- 
+2.21.0
+

@@ -1,8 +1,85 @@
+From bf21ad0889bdcc1dc12fe5a024fd7df7ad2c4310 Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Tue, 26 Feb 2019 20:45:14 +0000
+Subject: [PATCH 1/2] WIP: dw-hdmi-cec: sleep 100ms on error
+
+---
+ drivers/gpu/drm/bridge/synopsys/dw-hdmi-cec.c | 18 ++++++++++++++++--
+ 1 file changed, 16 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-cec.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-cec.c
+index 6c323510f128..b5a1a85c8700 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-cec.c
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-cec.c
+@@ -7,6 +7,7 @@
+  * it under the terms of the GNU General Public License version 2 as
+  * published by the Free Software Foundation.
+  */
++#include <linux/delay.h>
+ #include <linux/interrupt.h>
+ #include <linux/io.h>
+ #include <linux/module.h>
+@@ -132,8 +133,15 @@ static irqreturn_t dw_hdmi_cec_hardirq(int irq, void *data)
+ 
+ 	dw_hdmi_write(cec, stat, HDMI_IH_CEC_STAT0);
+ 
+-	if (stat & CEC_STAT_ERROR_INIT) {
+-		cec->tx_status = CEC_TX_STATUS_ERROR;
++	/* Status with both done and error_initiator bits have been seen
++	 * on Rockchip RK3328 devices, transmit attempt seems to have failed
++	 * when this happens, report as low drive and block cec-framework
++	 * 100ms before core retransmits the failed message, this seems to
++	 * mitigate the issue with failed transmit attempts.
++	 */
++	if ((stat & (CEC_STAT_DONE|CEC_STAT_ERROR_INIT)) == (CEC_STAT_DONE|CEC_STAT_ERROR_INIT)) {
++		pr_info("dw_hdmi_cec_hardirq: stat=%02x LOW_DRIVE\n", stat);
++		cec->tx_status = CEC_TX_STATUS_LOW_DRIVE;
+ 		cec->tx_done = true;
+ 		ret = IRQ_WAKE_THREAD;
+ 	} else if (stat & CEC_STAT_DONE) {
+@@ -144,6 +152,10 @@ static irqreturn_t dw_hdmi_cec_hardirq(int irq, void *data)
+ 		cec->tx_status = CEC_TX_STATUS_NACK;
+ 		cec->tx_done = true;
+ 		ret = IRQ_WAKE_THREAD;
++	} else if (stat & CEC_STAT_ERROR_INIT) {
++		cec->tx_status = CEC_TX_STATUS_ERROR;
++		cec->tx_done = true;
++		ret = IRQ_WAKE_THREAD;
+ 	}
+ 
+ 	if (stat & CEC_STAT_EOM) {
+@@ -176,6 +188,8 @@ static irqreturn_t dw_hdmi_cec_thread(int irq, void *data)
+ 
+ 	if (cec->tx_done) {
+ 		cec->tx_done = false;
++		if (cec->tx_status == CEC_TX_STATUS_LOW_DRIVE)
++			msleep(100);
+ 		cec_transmit_attempt_done(adap, cec->tx_status);
+ 	}
+ 	if (cec->rx_done) {
+-- 
+2.21.0
+
+
+From 12f1abe2b5cee6575c6dd9cd29b17b589f044b80 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Sat, 25 May 2019 12:03:39 +0200
+Subject: [PATCH 2/2] WIP: sun8i-hdmi CEC improvements
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+---
+ drivers/gpu/drm/bridge/synopsys/dw-hdmi.c |  2 +-
+ drivers/gpu/drm/sun4i/Kconfig             | 10 +++
+ drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h     | 11 +++
+ drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c    | 83 ++++++++++++++++++++++-
+ include/drm/bridge/dw_hdmi.h              |  2 +
+ 5 files changed, 105 insertions(+), 3 deletions(-)
+
 diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
-index a63e5f0dae56..fdda26f8b056 100644
+index 09fdc9f87651..f359c4c3f1d1 100644
 --- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
 +++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
-@@ -2634,7 +2634,7 @@ __dw_hdmi_probe(struct platform_device *pdev,
+@@ -2713,7 +2713,7 @@ __dw_hdmi_probe(struct platform_device *pdev,
  		hdmi->audio = platform_device_register_full(&pdevinfo);
  	}
  
@@ -33,7 +110,7 @@ index 1dbbc3a1b763..7149c72e44c8 100644
  	tristate "Support for Allwinner Display Engine 2.0 Mixer"
  	default MACH_SUN8I
 diff --git a/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h b/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h
-index 720c5aa8adc1..82dd84094638 100644
+index 720c5aa8adc1..49ca001923e3 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h
 +++ b/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h
 @@ -12,6 +12,7 @@
@@ -71,15 +148,15 @@ index 720c5aa8adc1..82dd84094638 100644
  
  struct sun8i_hdmi_phy {
 +	struct cec_adapter		*cec_adapter;
-+	struct cec_notifier 		*cec_notifier;
++	struct cec_notifier		*cec_notifier;
  	struct clk			*clk_bus;
  	struct clk			*clk_mod;
  	struct clk			*clk_phy;
 diff --git a/drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c b/drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c
-index 66ea3a902e36..70e291353569 100644
+index 43643ad31730..d840bc07cba6 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c
-@@ -503,8 +503,9 @@ static void sun8i_hdmi_phy_init_h3(struct sun8i_hdmi_phy *phy)
+@@ -504,8 +504,9 @@ static void sun8i_hdmi_phy_init_h3(struct sun8i_hdmi_phy *phy)
  	regmap_update_bits(phy->regs, SUN8I_HDMI_PHY_PLL_CFG1_REG,
  			   SUN8I_HDMI_PHY_PLL_CFG1_CKIN_SEL_MSK, 0);
  
@@ -91,7 +168,7 @@ index 66ea3a902e36..70e291353569 100644
  
  	/* read calibration data */
  	regmap_read(phy->regs, SUN8I_HDMI_PHY_ANA_STS_REG, &val);
-@@ -530,8 +531,49 @@ void sun8i_hdmi_phy_set_ops(struct sun8i_hdmi_phy *phy,
+@@ -531,8 +532,49 @@ void sun8i_hdmi_phy_set_ops(struct sun8i_hdmi_phy *phy,
  		plat_data->cur_ctr = variant->cur_ctr;
  		plat_data->phy_config = variant->phy_cfg;
  	}
@@ -141,7 +218,7 @@ index 66ea3a902e36..70e291353569 100644
  static struct regmap_config sun8i_hdmi_phy_regmap_config = {
  	.reg_bits	= 32,
  	.val_bits	= 32,
-@@ -548,6 +590,7 @@ static const struct sun8i_hdmi_phy_variant sun8i_a83t_hdmi_phy = {
+@@ -549,6 +591,7 @@ static const struct sun8i_hdmi_phy_variant sun8i_a83t_hdmi_phy = {
  };
  
  static const struct sun8i_hdmi_phy_variant sun8i_h3_hdmi_phy = {
@@ -149,7 +226,7 @@ index 66ea3a902e36..70e291353569 100644
  	.has_phy_clk = true,
  	.is_custom_phy = true,
  	.phy_init = &sun8i_hdmi_phy_init_h3,
-@@ -556,6 +599,7 @@ static const struct sun8i_hdmi_phy_variant sun8i_h3_hdmi_phy = {
+@@ -557,6 +600,7 @@ static const struct sun8i_hdmi_phy_variant sun8i_h3_hdmi_phy = {
  };
  
  static const struct sun8i_hdmi_phy_variant sun8i_r40_hdmi_phy = {
@@ -157,7 +234,7 @@ index 66ea3a902e36..70e291353569 100644
  	.has_phy_clk = true,
  	.has_second_pll = true,
  	.is_custom_phy = true,
-@@ -565,6 +609,7 @@ static const struct sun8i_hdmi_phy_variant sun8i_r40_hdmi_phy = {
+@@ -566,6 +610,7 @@ static const struct sun8i_hdmi_phy_variant sun8i_r40_hdmi_phy = {
  };
  
  static const struct sun8i_hdmi_phy_variant sun50i_a64_hdmi_phy = {
@@ -165,7 +242,7 @@ index 66ea3a902e36..70e291353569 100644
  	.has_phy_clk = true,
  	.is_custom_phy = true,
  	.phy_init = &sun8i_hdmi_phy_init_h3,
-@@ -708,10 +753,40 @@ int sun8i_hdmi_phy_probe(struct sun8i_dw_hdmi *hdmi, struct device_node *node)
+@@ -711,10 +756,40 @@ int sun8i_hdmi_phy_probe(struct sun8i_dw_hdmi *hdmi, struct device_node *node)
  		clk_prepare_enable(phy->clk_phy);
  	}
  
@@ -204,9 +281,9 @@ index 66ea3a902e36..70e291353569 100644
 +err_disable_clk_phy:
 +	clk_disable_unprepare(phy->clk_phy);
  err_disable_clk_mod:
-	clk_disable_unprepare(phy->clk_mod);
+ 	clk_disable_unprepare(phy->clk_mod);
  err_disable_clk_bus:
-@@ -736,6 +811,10 @@ void sun8i_hdmi_phy_remove(struct sun8i_dw_hdmi *hdmi)
+@@ -739,6 +814,10 @@ void sun8i_hdmi_phy_remove(struct sun8i_dw_hdmi *hdmi)
  {
  	struct sun8i_hdmi_phy *phy = hdmi->phy;
  
@@ -218,7 +295,7 @@ index 66ea3a902e36..70e291353569 100644
  	clk_disable_unprepare(phy->clk_bus);
  	clk_disable_unprepare(phy->clk_phy);
 diff --git a/include/drm/bridge/dw_hdmi.h b/include/drm/bridge/dw_hdmi.h
-index 66e70770cce5..764b8bcfa62c 100644
+index 323febe7f102..cec73761856d 100644
 --- a/include/drm/bridge/dw_hdmi.h
 +++ b/include/drm/bridge/dw_hdmi.h
 @@ -144,6 +144,8 @@ struct dw_hdmi_plat_data {
@@ -230,3 +307,6 @@ index 66e70770cce5..764b8bcfa62c 100644
  };
  
  struct dw_hdmi *dw_hdmi_probe(struct platform_device *pdev,
+-- 
+2.21.0
+

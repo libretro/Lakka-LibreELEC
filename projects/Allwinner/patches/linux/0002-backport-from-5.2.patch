@@ -674,3 +674,370 @@ index b98add3cdedd..d0429c0e6b6b 100644
 -- 
 2.21.0
 
+From ed19ec00d4d62a74857ad9c2ea1dbf9671ac3580 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Mon, 28 Jan 2019 19:36:54 +0100
+Subject: [PATCH 1/6] dt-bindings: media: cedrus: Add H6 compatible
+
+This adds a compatible for H6. H6 VPU supports 10-bit HEVC decoding and
+additional AFBC output format for HEVC.
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+---
+ Documentation/devicetree/bindings/media/cedrus.txt | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/media/cedrus.txt b/Documentation/devicetree/bindings/media/cedrus.txt
+index bce0705df953..20c82fb0c343 100644
+--- a/Documentation/devicetree/bindings/media/cedrus.txt
++++ b/Documentation/devicetree/bindings/media/cedrus.txt
+@@ -13,6 +13,7 @@ Required properties:
+ 			- "allwinner,sun8i-h3-video-engine"
+ 			- "allwinner,sun50i-a64-video-engine"
+ 			- "allwinner,sun50i-h5-video-engine"
++			- "allwinner,sun50i-h6-video-engine"
+ - reg			: register base and length of VE;
+ - clocks		: list of clock specifiers, corresponding to entries in
+ 			  the clock-names property;
+-- 
+2.20.1
+
+
+From bb6b00e1225a5b382b723d3c2190429e15a4c607 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Mon, 28 Jan 2019 19:45:38 +0100
+Subject: [PATCH 2/6] media: cedrus: Add a quirk for not setting DMA offset
+
+H6 VPU doesn't work if DMA offset is set.
+
+Add a quirk for it.
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+---
+ drivers/staging/media/sunxi/cedrus/cedrus.h    | 3 +++
+ drivers/staging/media/sunxi/cedrus/cedrus_hw.c | 3 ++-
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/staging/media/sunxi/cedrus/cedrus.h b/drivers/staging/media/sunxi/cedrus/cedrus.h
+index 4aedd24a9848..c57c04b41d2e 100644
+--- a/drivers/staging/media/sunxi/cedrus/cedrus.h
++++ b/drivers/staging/media/sunxi/cedrus/cedrus.h
+@@ -28,6 +28,8 @@
+ 
+ #define CEDRUS_CAPABILITY_UNTILED	BIT(0)
+ 
++#define CEDRUS_QUIRK_NO_DMA_OFFSET	BIT(0)
++
+ enum cedrus_codec {
+ 	CEDRUS_CODEC_MPEG2,
+ 
+@@ -91,6 +93,7 @@ struct cedrus_dec_ops {
+ 
+ struct cedrus_variant {
+ 	unsigned int	capabilities;
++	unsigned int	quirks;
+ };
+ 
+ struct cedrus_dev {
+diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_hw.c b/drivers/staging/media/sunxi/cedrus/cedrus_hw.c
+index 0acf219a8c91..fbfff7c1c771 100644
+--- a/drivers/staging/media/sunxi/cedrus/cedrus_hw.c
++++ b/drivers/staging/media/sunxi/cedrus/cedrus_hw.c
+@@ -177,7 +177,8 @@ int cedrus_hw_probe(struct cedrus_dev *dev)
+ 	 */
+ 
+ #ifdef PHYS_PFN_OFFSET
+-	dev->dev->dma_pfn_offset = PHYS_PFN_OFFSET;
++	if (!(variant->quirks & CEDRUS_QUIRK_NO_DMA_OFFSET))
++		dev->dev->dma_pfn_offset = PHYS_PFN_OFFSET;
+ #endif
+ 
+ 	ret = of_reserved_mem_device_init(dev->dev);
+-- 
+2.20.1
+
+
+From 744c66f8c328ef40b6fb246f8b9f2daa9cce4d9d Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Mon, 28 Jan 2019 19:47:33 +0100
+Subject: [PATCH 3/6] media: cedrus: Add support for H6
+
+H6 has improved VPU. It supports 10-bit HEVC decoding and AFBC output
+format for HEVC.
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+---
+ drivers/staging/media/sunxi/cedrus/cedrus.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/drivers/staging/media/sunxi/cedrus/cedrus.c b/drivers/staging/media/sunxi/cedrus/cedrus.c
+index ff11cbeba205..b98add3cdedd 100644
+--- a/drivers/staging/media/sunxi/cedrus/cedrus.c
++++ b/drivers/staging/media/sunxi/cedrus/cedrus.c
+@@ -396,6 +396,11 @@ static const struct cedrus_variant sun50i_h5_cedrus_variant = {
+ 	.capabilities	= CEDRUS_CAPABILITY_UNTILED,
+ };
+ 
++static const struct cedrus_variant sun50i_h6_cedrus_variant = {
++	.capabilities	= CEDRUS_CAPABILITY_UNTILED,
++	.quirks		= CEDRUS_QUIRK_NO_DMA_OFFSET,
++};
++
+ static const struct of_device_id cedrus_dt_match[] = {
+ 	{
+ 		.compatible = "allwinner,sun4i-a10-video-engine",
+@@ -425,6 +430,10 @@ static const struct of_device_id cedrus_dt_match[] = {
+ 		.compatible = "allwinner,sun50i-h5-video-engine",
+ 		.data = &sun50i_h5_cedrus_variant,
+ 	},
++	{
++		.compatible = "allwinner,sun50i-h6-video-engine",
++		.data = &sun50i_h6_cedrus_variant,
++	},
+ 	{ /* sentinel */ }
+ };
+ MODULE_DEVICE_TABLE(of, cedrus_dt_match);
+-- 
+2.20.1
+
+
+From c1b3128ac98c05c0afde4e6e065d6b1f2ae1dfa7 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Mon, 28 Jan 2019 19:59:27 +0100
+Subject: [PATCH 6/6] arm64: dts: allwinner: h6: Add Video Engine node
+
+This adds the Video engine node for H6. It can use whole DRAM range so
+there is no need for reserved memory node.
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+---
+ arch/arm64/boot/dts/allwinner/sun50i-h6.dtsi | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h6.dtsi b/arch/arm64/boot/dts/allwinner/sun50i-h6.dtsi
+index 247dc0a5ce89..de4b7a1f1012 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-h6.dtsi
++++ b/arch/arm64/boot/dts/allwinner/sun50i-h6.dtsi
+@@ -146,6 +146,17 @@
+ 			};
+ 		};
+ 
++		video-codec@1c0e000 {
++			compatible = "allwinner,sun50i-h6-video-engine";
++			reg = <0x01c0e000 0x2000>;
++			clocks = <&ccu CLK_BUS_VE>, <&ccu CLK_VE>,
++				 <&ccu CLK_MBUS_VE>;
++			clock-names = "ahb", "mod", "ram";
++			resets = <&ccu RST_BUS_VE>;
++			interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>;
++			allwinner,sram = <&ve_sram 1>;
++		};
++
+ 		syscon: syscon@3000000 {
+ 			compatible = "allwinner,sun50i-h6-system-control",
+ 				     "allwinner,sun50i-a64-system-control";
+-- 
+2.20.1
+
+From 87effaae9e90474546d441b9123bca824e670a0b Mon Sep 17 00:00:00 2001
+From: Fish Lin <linfish@google.com>
+Date: Thu, 28 Mar 2019 23:20:46 -0400
+Subject: [PATCH] media: v4l: add I / P frame min max QP definitions
+
+Add following V4L2 QP parameters for H.264:
+* V4L2_CID_MPEG_VIDEO_H264_I_FRAME_MIN_QP
+* V4L2_CID_MPEG_VIDEO_H264_I_FRAME_MAX_QP
+* V4L2_CID_MPEG_VIDEO_H264_P_FRAME_MIN_QP
+* V4L2_CID_MPEG_VIDEO_H264_P_FRAME_MAX_QP
+
+These controls will limit QP range for intra and inter frame,
+provide more manual control to improve video encode quality.
+
+Signed-off-by: Fish Lin <linfish@google.com>
+Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
+---
+ .../media/uapi/v4l/ext-ctrls-codec.rst        | 24 +++++++++++++++++++
+ drivers/media/v4l2-core/v4l2-ctrls.c          |  4 ++++
+ include/uapi/linux/v4l2-controls.h            |  4 ++++
+ 3 files changed, 32 insertions(+)
+
+diff --git a/Documentation/media/uapi/v4l/ext-ctrls-codec.rst b/Documentation/media/uapi/v4l/ext-ctrls-codec.rst
+index 67a122339c0e..4a8446203085 100644
+--- a/Documentation/media/uapi/v4l/ext-ctrls-codec.rst
++++ b/Documentation/media/uapi/v4l/ext-ctrls-codec.rst
+@@ -1055,6 +1055,30 @@ enum v4l2_mpeg_video_h264_entropy_mode -
+     Quantization parameter for an B frame for H264. Valid range: from 0
+     to 51.
+ 
++``V4L2_CID_MPEG_VIDEO_H264_I_FRAME_MIN_QP (integer)``
++    Minimum quantization parameter for the H264 I frame to limit I frame
++    quality to a range. Valid range: from 0 to 51. If
++    V4L2_CID_MPEG_VIDEO_H264_MIN_QP is also set, the quantization parameter
++    should be chosen to meet both requirements.
++
++``V4L2_CID_MPEG_VIDEO_H264_I_FRAME_MAX_QP (integer)``
++    Maximum quantization parameter for the H264 I frame to limit I frame
++    quality to a range. Valid range: from 0 to 51. If
++    V4L2_CID_MPEG_VIDEO_H264_MAX_QP is also set, the quantization parameter
++    should be chosen to meet both requirements.
++
++``V4L2_CID_MPEG_VIDEO_H264_P_FRAME_MIN_QP (integer)``
++    Minimum quantization parameter for the H264 P frame to limit P frame
++    quality to a range. Valid range: from 0 to 51. If
++    V4L2_CID_MPEG_VIDEO_H264_MIN_QP is also set, the quantization parameter
++    should be chosen to meet both requirements.
++
++``V4L2_CID_MPEG_VIDEO_H264_P_FRAME_MAX_QP (integer)``
++    Maximum quantization parameter for the H264 P frame to limit P frame
++    quality to a range. Valid range: from 0 to 51. If
++    V4L2_CID_MPEG_VIDEO_H264_MAX_QP is also set, the quantization parameter
++    should be chosen to meet both requirements.
++
+ ``V4L2_CID_MPEG_VIDEO_MPEG4_I_FRAME_QP (integer)``
+     Quantization parameter for an I frame for MPEG4. Valid range: from 1
+     to 31.
+diff --git a/drivers/media/v4l2-core/v4l2-ctrls.c b/drivers/media/v4l2-core/v4l2-ctrls.c
+index b1ae2e555c68..89a1fe564675 100644
+--- a/drivers/media/v4l2-core/v4l2-ctrls.c
++++ b/drivers/media/v4l2-core/v4l2-ctrls.c
+@@ -828,6 +828,10 @@ const char *v4l2_ctrl_get_name(u32 id)
+ 	case V4L2_CID_MPEG_VIDEO_H264_CONSTRAINED_INTRA_PREDICTION:
+ 								return "H264 Constrained Intra Pred";
+ 	case V4L2_CID_MPEG_VIDEO_H264_CHROMA_QP_INDEX_OFFSET:	return "H264 Chroma QP Index Offset";
++	case V4L2_CID_MPEG_VIDEO_H264_I_FRAME_MIN_QP:		return "H264 I-Frame Minimum QP Value";
++	case V4L2_CID_MPEG_VIDEO_H264_I_FRAME_MAX_QP:		return "H264 I-Frame Maximum QP Value";
++	case V4L2_CID_MPEG_VIDEO_H264_P_FRAME_MIN_QP:		return "H264 P-Frame Minimum QP Value";
++	case V4L2_CID_MPEG_VIDEO_H264_P_FRAME_MAX_QP:		return "H264 P-Frame Maximum QP Value";
+ 	case V4L2_CID_MPEG_VIDEO_MPEG4_I_FRAME_QP:		return "MPEG4 I-Frame QP Value";
+ 	case V4L2_CID_MPEG_VIDEO_MPEG4_P_FRAME_QP:		return "MPEG4 P-Frame QP Value";
+ 	case V4L2_CID_MPEG_VIDEO_MPEG4_B_FRAME_QP:		return "MPEG4 B-Frame QP Value";
+diff --git a/include/uapi/linux/v4l2-controls.h b/include/uapi/linux/v4l2-controls.h
+index 78816ec88751..37807f23231e 100644
+--- a/include/uapi/linux/v4l2-controls.h
++++ b/include/uapi/linux/v4l2-controls.h
+@@ -539,6 +539,10 @@ enum v4l2_mpeg_video_h264_hierarchical_coding_type {
+ #define V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_QP	(V4L2_CID_MPEG_BASE+382)
+ #define V4L2_CID_MPEG_VIDEO_H264_CONSTRAINED_INTRA_PREDICTION	(V4L2_CID_MPEG_BASE+383)
+ #define V4L2_CID_MPEG_VIDEO_H264_CHROMA_QP_INDEX_OFFSET		(V4L2_CID_MPEG_BASE+384)
++#define V4L2_CID_MPEG_VIDEO_H264_I_FRAME_MIN_QP	(V4L2_CID_MPEG_BASE+385)
++#define V4L2_CID_MPEG_VIDEO_H264_I_FRAME_MAX_QP	(V4L2_CID_MPEG_BASE+386)
++#define V4L2_CID_MPEG_VIDEO_H264_P_FRAME_MIN_QP	(V4L2_CID_MPEG_BASE+387)
++#define V4L2_CID_MPEG_VIDEO_H264_P_FRAME_MAX_QP	(V4L2_CID_MPEG_BASE+388)
+ #define V4L2_CID_MPEG_VIDEO_MPEG4_I_FRAME_QP	(V4L2_CID_MPEG_BASE+400)
+ #define V4L2_CID_MPEG_VIDEO_MPEG4_P_FRAME_QP	(V4L2_CID_MPEG_BASE+401)
+ #define V4L2_CID_MPEG_VIDEO_MPEG4_B_FRAME_QP	(V4L2_CID_MPEG_BASE+402)
+-- 
+2.21.0
+
+From 26fae7a41313506931c9be5f532c12d8d654f153 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Tue, 2 Apr 2019 23:06:22 +0200
+Subject: [PATCH] clk: sunxi-ng: h6: Preset hdmi-cec clock parent
+
+H6 manual and BSP clock driver both states that hdmi-cec clock has two
+possible parents, osc32k and pll-periph0-2x with 36621 predivider.
+Because pll-periph0-2x is always 1.2 GHz, both parents give same
+hdmi-cec rate - 32768 Hz, which is exactly the rate needed for HDMI CEC
+controller to operate correctly.
+
+However, for some reason, HDMI CEC controller doesn't work if default
+parent (osc32k) is used. BSP HDMI driver also always use pll-periph0-2x
+as hdmi-cec clock parent.
+
+In order to solve the issue, preset hdmi-cec clock parent to
+pll-periph0-2x.
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+---
+ drivers/clk/sunxi-ng/ccu-sun50i-h6.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/drivers/clk/sunxi-ng/ccu-sun50i-h6.c b/drivers/clk/sunxi-ng/ccu-sun50i-h6.c
+index daf78966555e..33980067b06e 100644
+--- a/drivers/clk/sunxi-ng/ccu-sun50i-h6.c
++++ b/drivers/clk/sunxi-ng/ccu-sun50i-h6.c
+@@ -656,6 +656,8 @@ static const char * const hdmi_cec_parents[] = { "osc32k", "pll-periph0-2x" };
+ static const struct ccu_mux_fixed_prediv hdmi_cec_predivs[] = {
+ 	{ .index = 1, .div = 36621 },
+ };
++
++#define SUN50I_H6_HDMI_CEC_CLK_REG		0xb10
+ static struct ccu_mux hdmi_cec_clk = {
+ 	.enable		= BIT(31),
+ 
+@@ -1200,6 +1202,15 @@ static int sun50i_h6_ccu_probe(struct platform_device *pdev)
+ 	val &= ~(GENMASK(21, 16) | BIT(0));
+ 	writel(val | (7 << 16), reg + SUN50I_H6_PLL_AUDIO_REG);
+ 
++	/*
++	 * First clock parent (osc32K) is unusable for CEC. But since there
++	 * is no good way to force parent switch (both run with same frequency),
++	 * just set second clock parent here.
++	 */
++	val = readl(reg + SUN50I_H6_HDMI_CEC_CLK_REG);
++	val |= BIT(24);
++	writel(val, reg + SUN50I_H6_HDMI_CEC_CLK_REG);
++
+ 	return sunxi_ccu_probe(pdev->dev.of_node, reg, &sun50i_h6_ccu_desc);
+ }
+ 
+-- 
+2.21.0
+
+From 6597ce3de9e443f0cab693496fc529f55ae6eb01 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Wed, 3 Apr 2019 17:14:03 +0200
+Subject: [PATCH] clk: sunxi-ng: h6: Allow video & vpu clocks to change parent
+ rate
+
+Video related clocks need to set rate as close as possible to the
+requested one, so they should be able to change parent clock rate.
+
+When processing 4K video, VPU clock has to be set to higher rate than it
+is default parent rate. Because of that, VPU clock should be able to
+change parent clock rate.
+
+Add CLK_SET_RATE_PARENT flag to tcon-lcd0, tcon-tv0 and ve.
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+---
+ drivers/clk/sunxi-ng/ccu-sun50i-h6.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/clk/sunxi-ng/ccu-sun50i-h6.c b/drivers/clk/sunxi-ng/ccu-sun50i-h6.c
+index 33980067b06e..3c32d7798f27 100644
+--- a/drivers/clk/sunxi-ng/ccu-sun50i-h6.c
++++ b/drivers/clk/sunxi-ng/ccu-sun50i-h6.c
+@@ -311,7 +311,7 @@ static SUNXI_CCU_M_WITH_MUX_GATE(ve_clk, "ve", ve_parents, 0x690,
+ 				       0, 3,	/* M */
+ 				       24, 1,	/* mux */
+ 				       BIT(31),	/* gate */
+-				       0);
++				       CLK_SET_RATE_PARENT);
+ 
+ static SUNXI_CCU_GATE(bus_ve_clk, "bus-ve", "psi-ahb1-ahb2",
+ 		      0x69c, BIT(0), 0);
+@@ -691,7 +691,7 @@ static SUNXI_CCU_MUX_WITH_GATE(tcon_lcd0_clk, "tcon-lcd0",
+ 			       tcon_lcd0_parents, 0xb60,
+ 			       24, 3,	/* mux */
+ 			       BIT(31),	/* gate */
+-			       0);
++			       CLK_SET_RATE_PARENT);
+ 
+ static SUNXI_CCU_GATE(bus_tcon_lcd0_clk, "bus-tcon-lcd0", "ahb3",
+ 		      0xb7c, BIT(0), 0);
+@@ -706,7 +706,7 @@ static SUNXI_CCU_MP_WITH_MUX_GATE(tcon_tv0_clk, "tcon-tv0",
+ 				  8, 2,		/* P */
+ 				  24, 3,	/* mux */
+ 				  BIT(31),	/* gate */
+-				  0);
++				  CLK_SET_RATE_PARENT);
+ 
+ static SUNXI_CCU_GATE(bus_tcon_tv0_clk, "bus-tcon-tv0", "ahb3",
+ 		      0xb9c, BIT(0), 0);
+-- 
+2.21.0
+
