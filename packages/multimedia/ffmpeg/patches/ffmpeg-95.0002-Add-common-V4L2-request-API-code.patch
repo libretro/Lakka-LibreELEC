@@ -1,21 +1,21 @@
-From 4bd117a06e468ad2259f3011c95c182150f295ef Mon Sep 17 00:00:00 2001
+From 0ba3c868e1d828520b8facaa4ce36d9b80339cc6 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Sat, 15 Dec 2018 22:32:16 +0100
 Subject: [PATCH 2/6] Add common V4L2 request API code
 
 Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
 ---
- configure                 |   8 +
+ configure                 |  12 +
  libavcodec/Makefile       |   1 +
  libavcodec/hwaccel.h      |   2 +
- libavcodec/v4l2_request.c | 885 ++++++++++++++++++++++++++++++++++++++
+ libavcodec/v4l2_request.c | 888 ++++++++++++++++++++++++++++++++++++++
  libavcodec/v4l2_request.h |  65 +++
- 5 files changed, 961 insertions(+)
+ 5 files changed, 968 insertions(+)
  create mode 100644 libavcodec/v4l2_request.c
  create mode 100644 libavcodec/v4l2_request.h
 
 diff --git a/configure b/configure
-index 172611bb4a..ed587ec05e 100755
+index 172611bb4a..6401cae9e7 100755
 --- a/configure
 +++ b/configure
 @@ -264,6 +264,7 @@ External library support:
@@ -66,7 +66,18 @@ index 172611bb4a..ed587ec05e 100755
  enabled libv4l2           && require_pkg_config libv4l2 libv4l2 libv4l2.h v4l2_ioctl
  enabled libvidstab        && require_pkg_config libvidstab "vidstab >= 0.98" vid.stab/libvidstab.h vsMotionDetectInit
  enabled libvmaf           && require_pkg_config libvmaf "libvmaf >= 0.6.2" libvmaf.h compute_vmaf
-@@ -6230,6 +6236,8 @@ check_cc h264_v4l2_m2m linux/videodev2.h "int i = V4L2_PIX_FMT_H264;"
+@@ -6153,6 +6159,10 @@ enabled rkmpp             && { require_pkg_config rkmpp rockchip_mpp  rockchip/r
+                                { enabled libdrm ||
+                                  die "ERROR: rkmpp requires --enable-libdrm"; }
+                              }
++enabled v4l2_request      && { enabled libdrm ||
++                               die "ERROR: v4l2-request requires --enable-libdrm"; } &&
++                             { enabled libudev ||
++                               die "ERROR: v4l2-request requires --enable-libudev"; }
+ 
+ if enabled gcrypt; then
+     GCRYPT_CONFIG="${cross_prefix}libgcrypt-config"
+@@ -6230,6 +6240,8 @@ check_cc h264_v4l2_m2m linux/videodev2.h "int i = V4L2_PIX_FMT_H264;"
  check_cc vp8_v4l2_m2m linux/videodev2.h "int i = V4L2_PIX_FMT_VP8;"
  check_cc vp9_v4l2_m2m linux/videodev2.h "int i = V4L2_PIX_FMT_VP9;"
  
@@ -101,10 +112,10 @@ index 3aaa92571c..2eefc91e7e 100644
  #endif /* AVCODEC_HWACCEL_H */
 diff --git a/libavcodec/v4l2_request.c b/libavcodec/v4l2_request.c
 new file mode 100644
-index 0000000000..f66cba3ae8
+index 0000000000..4589209e60
 --- /dev/null
 +++ b/libavcodec/v4l2_request.c
-@@ -0,0 +1,885 @@
+@@ -0,0 +1,888 @@
 +/*
 + * This file is part of FFmpeg.
 + *
@@ -181,7 +192,7 @@ index 0000000000..f66cba3ae8
 +        .type = buf->buffer.type,
 +        .memory = buf->buffer.memory,
 +        .index = buf->index,
-+        .timestamp.tv_usec = buf->index,
++        .timestamp.tv_usec = buf->index + 1,
 +        .bytesused = buf->used,
 +        .request_fd = request_fd,
 +        .flags = (request_fd >= 0) ? V4L2_BUF_FLAG_REQUEST_FD : 0,
@@ -281,6 +292,8 @@ index 0000000000..f66cba3ae8
 +        av_log(avctx, AV_LOG_ERROR, "%s: set controls failed for request %d, %s (%d)\n", __func__, req->request_fd, strerror(errno), errno);
 +        return -1;
 +    }
++
++    memset(req->output.addr + req->output.used, 0, AV_INPUT_BUFFER_PADDING_SIZE);
 +
 +    ret = v4l2_request_queue_buffer(ctx, req->request_fd, &req->output);
 +    if (ret < 0) {
@@ -827,13 +840,14 @@ index 0000000000..f66cba3ae8
 +    buf->buffer.type = type;
 +    buf->buffer.memory = V4L2_MEMORY_MMAP;
 +    buf->buffer.index = buf->index;
-+    buf->buffer.timestamp.tv_usec = buf->index;
 +
 +    ret = ioctl(ctx->video_fd, VIDIOC_QUERYBUF, &buf->buffer);
 +    if (ret < 0) {
 +        av_log(avctx, AV_LOG_ERROR, "%s: query buffer %d failed, %s (%d)\n", __func__, buf->index, strerror(errno), errno);
 +        return ret;
 +    }
++
++    buf->buffer.timestamp.tv_usec = buf->index + 1;
 +
 +    if (V4L2_TYPE_IS_OUTPUT(type)) {
 +        void *addr = mmap(NULL, buf->size, PROT_READ | PROT_WRITE, MAP_SHARED, ctx->video_fd, V4L2_TYPE_IS_MULTIPLANAR(type) ? buf->buffer.m.planes[0].m.mem_offset : buf->buffer.m.offset);
