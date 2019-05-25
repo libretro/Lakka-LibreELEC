@@ -10,7 +10,3 @@ PKG_URL=""
 PKG_DEPENDS_TARGET="toolchain eventlircd libirman v4l-utils"
 PKG_SECTION="virtual"
 PKG_LONGDESC="Meta package for installing various tools needed for remote support"
-
-if [ "$ATVCLIENT_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET atvclient"
-fi
