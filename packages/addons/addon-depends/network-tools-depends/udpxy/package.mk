@@ -10,6 +10,10 @@ PKG_URL="http://www.udpxy.com/download/1_23/${PKG_NAME}.${PKG_VERSION}-prod.tar.
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A UDP-to-HTTP multicast traffic relay daemon."
 
+configure_target() {
+  export CFLAGS+=" -Wno-stringop-truncation"
+}
+
 makeinstall_target() {
   :
 }
