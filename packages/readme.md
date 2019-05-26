@@ -148,7 +148,7 @@ Full list of overwrittable functions.
 | unpack<br>pre_unpack<br>post_unpack | - | Extract the source from the downloaded file |
 | pre_patch<br>post_patch | -      | Apply the patches to the source, after extraction. The patch function it self is not allowed to overwritten |
 | pre_build_\[stage]      | yes    | Runs before of the start of the build |
-| configure_\[stage]<br>pre_configure_\[stage]<br>post_configure_\[stage] | yes | Configure the package for the compile. This is only relevant for toolchain, that supports it (e.g. meson, cmake, configure, manual) |
+| pre_configure<br>pre_configure_\[stage]<br>configure_\[stage]<br>post_configure_\[stage] | yes | Configure the package for the compile. This is only relevant for toolchain, that supports it (e.g. meson, cmake, configure, manual) |
 | make_\[stage]<br>pre_make_\[stage]<br>post_make_\[stage] | yes | Build of the package |
 | makeinstall_\[stage]<br>pre_makeinstall_\[stage]<br>post_makeinstall_\[stage] | yes | Installation of the files in the correct pathes<br>host: TOOLCHAIN<br>target: SYSROOT and IMAGE<br>bootstrap and init: temporary destination
 | addon                   | -      | Copy all files together for addon creation. This is requiered for addons |
