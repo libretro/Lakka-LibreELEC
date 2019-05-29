@@ -24,7 +24,7 @@ PKG_ARCH="any"
 PKG_LICENSE="nonfree"
 PKG_SITE="https://nv-tegra.nvidia.com/gitweb"
 PKG_URL="https://nv-tegra.nvidia.com/gitweb/?p=device/hardware/nvidia/platform/t210/common.git;a=snapshot;h=$PKG_VERSION;sf=tgz"
-PKG_CLEAN="linux"
+PKG_CLEAN="linux switch-bootloader"
 
 make_target() {
 	:
