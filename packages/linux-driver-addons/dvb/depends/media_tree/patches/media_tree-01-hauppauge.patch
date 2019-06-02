@@ -2,7 +2,7 @@ Combined patches from https://github.com/b-rad-NDi/Ubuntu-media-tree-kernel-buil
 to support all kind of Hauppauge DVB cards.
 
 diff --git a/drivers/media/dvb-frontends/lgdt3306a.c b/drivers/media/dvb-frontends/lgdt3306a.c
-index 0e1f5da..409db8e 100644
+index 99c6289..ceaf617 100644
 --- a/drivers/media/dvb-frontends/lgdt3306a.c
 +++ b/drivers/media/dvb-frontends/lgdt3306a.c
 @@ -855,6 +855,7 @@ static int lgdt3306a_fe_sleep(struct dvb_frontend *fe)
@@ -48,7 +48,7 @@ index 0e1f5da..409db8e 100644
  	return ret;
  }
 diff --git a/drivers/media/dvb-frontends/si2168.c b/drivers/media/dvb-frontends/si2168.c
-index 324493e..4d43424 100644
+index 17301c6..9b021ac 100644
 --- a/drivers/media/dvb-frontends/si2168.c
 +++ b/drivers/media/dvb-frontends/si2168.c
 @@ -18,6 +18,10 @@
@@ -420,7 +420,7 @@ index 324493e..4d43424 100644
  	cmd.wlen = 6;
  	cmd.rlen = 4;
  	ret = si2168_cmd_execute(client, &cmd);
-@@ -714,6 +960,11 @@ static const struct dvb_frontend_ops si2168_ops = {
+@@ -717,6 +963,11 @@ static const struct dvb_frontend_ops si2168_ops = {
  	.set_frontend = si2168_set_frontend,
  
  	.read_status = si2168_read_status,
@@ -433,40 +433,30 @@ index 324493e..4d43424 100644
  
  static int si2168_probe(struct i2c_client *client,
 diff --git a/drivers/media/i2c/cx25840/cx25840-core.c b/drivers/media/i2c/cx25840/cx25840-core.c
-index b168bf3..1f06119 100644
+index f071a94..14ce009 100644
 --- a/drivers/media/i2c/cx25840/cx25840-core.c
 +++ b/drivers/media/i2c/cx25840/cx25840-core.c
-@@ -684,14 +684,14 @@ static void cx23885_initialize(struct i2c_client *client)
- 	 */
- 	cx25840_write4(client, 0x404, 0x0010253e);
- 
--	/* CC on  - Undocumented Register */
-+	/* CC on  -  VBI_LINE_CTRL3, FLD_VBI_MD_LINE12 */
- 	cx25840_write(client, state->vbi_regs_offset + 0x42f, 0x66);
- 
- 	/* HVR-1250 / HVR1850 DIF related */
- 	/* Power everything up */
- 	cx25840_write4(client, 0x130, 0x0);
- 
--	/* Undocumented */
-+	/* SRC_COMB_CFG */
- 	if (is_cx23888(state))
- 		cx25840_write4(client, 0x454, 0x6628021F);
- 	else
-@@ -1127,16 +1127,25 @@ static int set_input(struct i2c_client *client, enum cx25840_video_input vid_inp
+@@ -1495,23 +1495,25 @@ static int set_input(struct i2c_client *client,
  			cx25840_write4(client, 0x410, 0xffff0dbf);
  			cx25840_write4(client, 0x414, 0x00137d03);
  
--			cx25840_write4(client, state->vbi_regs_offset + 0x42c, 0x42600000);
--			cx25840_write4(client, state->vbi_regs_offset + 0x430, 0x0000039b);
--			cx25840_write4(client, state->vbi_regs_offset + 0x438, 0x00000000);
+-			cx25840_write4(client, state->vbi_regs_offset + 0x42c,
+-				       0x42600000);
+-			cx25840_write4(client, state->vbi_regs_offset + 0x430,
+-				       0x0000039b);
+-			cx25840_write4(client, state->vbi_regs_offset + 0x438,
+-				       0x00000000);
 -
--			cx25840_write4(client, state->vbi_regs_offset + 0x440, 0xF8E3E824);
--			cx25840_write4(client, state->vbi_regs_offset + 0x444, 0x401040dc);
--			cx25840_write4(client, state->vbi_regs_offset + 0x448, 0xcd3f02a0);
--			cx25840_write4(client, state->vbi_regs_offset + 0x44c, 0x161f1000);
--			cx25840_write4(client, state->vbi_regs_offset + 0x450, 0x00000802);
--
+-			cx25840_write4(client, state->vbi_regs_offset + 0x440,
+-				       0xF8E3E824);
+-			cx25840_write4(client, state->vbi_regs_offset + 0x444,
+-				       0x401040dc);
+-			cx25840_write4(client, state->vbi_regs_offset + 0x448,
+-				       0xcd3f02a0);
+-			cx25840_write4(client, state->vbi_regs_offset + 0x44c,
+-				       0x161f1000);
+-			cx25840_write4(client, state->vbi_regs_offset + 0x450,
+-				       0x00000802);
 +			/* These are not VBI controls */
 +			if (is_cx23888(state)) {
 +				/* 888 MISC_TIM_CTRL */
@@ -486,17 +476,9 @@ index b168bf3..1f06119 100644
 +				/* 888 HTL_CTRL */
 +				cx25840_write4(client, 0x450, 0x00000802);
 +			}
+ 
  			cx25840_write4(client, 0x91c, 0x01000000);
  			cx25840_write4(client, 0x8e0, 0x03063870);
- 			cx25840_write4(client, 0x8d4, 0x7FFF0024);
-@@ -1743,6 +1752,7 @@ static int cx25840_s_stream(struct v4l2_subdev *sd, int enable)
- 	if (is_cx2388x(state) || is_cx231xx(state))
- 		return 0;
- 
-+	/* PIN_CTRL1 */
- 	if (enable) {
- 		v = cx25840_read(client, 0x115) | 0x0c;
- 		cx25840_write(client, 0x115, v);
 diff --git a/drivers/media/pci/cx23885/cx23885-cards.c b/drivers/media/pci/cx23885/cx23885-cards.c
 index ed3210d..9598b99 100644
 --- a/drivers/media/pci/cx23885/cx23885-cards.c
@@ -589,10 +571,10 @@ index ed3210d..9598b99 100644
  			.vmux   =	CX25840_VIN7_CH3 |
  					CX25840_VIN4_CH2 |
 diff --git a/drivers/media/pci/cx23885/cx23885-dvb.c b/drivers/media/pci/cx23885/cx23885-dvb.c
-index 0d0929c..0366c4d 100644
+index e2e63f0..aea7738 100644
 --- a/drivers/media/pci/cx23885/cx23885-dvb.c
 +++ b/drivers/media/pci/cx23885/cx23885-dvb.c
-@@ -2382,6 +2382,16 @@ static int dvb_register(struct cx23885_tsport *port)
+@@ -2383,6 +2383,16 @@ static int dvb_register(struct cx23885_tsport *port)
  				goto frontend_detach;
  			}
  			port->i2c_client_tuner = client_tuner;
@@ -609,7 +591,7 @@ index 0d0929c..0366c4d 100644
  			break;
  
  		/* port c - terrestrial/cable */
-@@ -2471,6 +2481,16 @@ static int dvb_register(struct cx23885_tsport *port)
+@@ -2472,6 +2482,16 @@ static int dvb_register(struct cx23885_tsport *port)
  				goto frontend_detach;
  			}
  			port->i2c_client_tuner = client_tuner;
@@ -626,7 +608,7 @@ index 0d0929c..0366c4d 100644
  			break;
  
  		/* port c - terrestrial/cable */
-@@ -2542,6 +2562,11 @@ static int dvb_register(struct cx23885_tsport *port)
+@@ -2543,6 +2563,11 @@ static int dvb_register(struct cx23885_tsport *port)
  				goto frontend_detach;
  			}
  			port->i2c_client_tuner = client_tuner;
@@ -768,7 +750,7 @@ index 168178c..6d6e7fb 100644
  		break;
  	default:
 diff --git a/drivers/media/tuners/si2157.c b/drivers/media/tuners/si2157.c
-index d389f1f..b93f333 100644
+index d389f1f..2563ab4 100644
 --- a/drivers/media/tuners/si2157.c
 +++ b/drivers/media/tuners/si2157.c
 @@ -1,5 +1,5 @@
@@ -833,7 +815,25 @@ index d389f1f..b93f333 100644
  	/* power up */
  	if (dev->chiptype == SI2157_CHIPTYPE_SI2146) {
  		memcpy(cmd.args, "\xc0\x05\x01\x00\x00\x0b\x00\x00\x01", 9);
-@@ -230,6 +235,45 @@ skip_fw_download:
+@@ -138,6 +143,7 @@ static int si2157_init(struct dvb_frontend *fe)
+ 	chip_id = cmd.args[1] << 24 | cmd.args[2] << 16 | cmd.args[3] << 8 |
+ 			cmd.args[4] << 0;
+ 
++	#define SI2177_A30 ('A' << 24 | 77 << 16 | '3' << 8 | '0' << 0)
+ 	#define SI2158_A20 ('A' << 24 | 58 << 16 | '2' << 8 | '0' << 0)
+ 	#define SI2148_A20 ('A' << 24 | 48 << 16 | '2' << 8 | '0' << 0)
+ 	#define SI2157_A30 ('A' << 24 | 57 << 16 | '3' << 8 | '0' << 0)
+@@ -153,6 +159,9 @@ static int si2157_init(struct dvb_frontend *fe)
+ 	case SI2141_A10:
+ 		fw_name = SI2141_A10_FIRMWARE;
+ 		break;
++	case SI2177_A30:
++		fw_name = SI2157_A30_FIRMWARE;
++		break;
+ 	case SI2157_A30:
+ 	case SI2147_A30:
+ 	case SI2146_A10:
+@@ -230,6 +239,45 @@ skip_fw_download:
  
  	dev_info(&client->dev, "firmware version: %c.%c.%d\n",
  			cmd.args[6], cmd.args[7], cmd.args[8]);
@@ -879,7 +879,7 @@ index d389f1f..b93f333 100644
  warm:
  	/* init statistics in order signal app which are supported */
  	c->strength.len = 1;
-@@ -274,6 +318,84 @@ err:
+@@ -274,6 +322,84 @@ err:
  	return ret;
  }
  
@@ -964,7 +964,7 @@ index d389f1f..b93f333 100644
  static int si2157_set_params(struct dvb_frontend *fe)
  {
  	struct i2c_client *client = fe->tuner_priv;
-@@ -344,7 +466,7 @@ static int si2157_set_params(struct dvb_frontend *fe)
+@@ -344,7 +470,7 @@ static int si2157_set_params(struct dvb_frontend *fe)
  	if (ret)
  		goto err;
  
@@ -973,7 +973,7 @@ index d389f1f..b93f333 100644
  	if (if_frequency != dev->if_frequency) {
  		memcpy(cmd.args, "\x14\x00\x06\x07", 4);
  		cmd.args[4] = (if_frequency / 1000) & 0xff;
-@@ -358,7 +480,7 @@ static int si2157_set_params(struct dvb_frontend *fe)
+@@ -358,7 +484,7 @@ static int si2157_set_params(struct dvb_frontend *fe)
  		dev->if_frequency = if_frequency;
  	}
  
@@ -982,7 +982,7 @@ index d389f1f..b93f333 100644
  	memcpy(cmd.args, "\x41\x00\x00\x00\x00\x00\x00\x00", 8);
  	cmd.args[4] = (c->frequency >>  0) & 0xff;
  	cmd.args[5] = (c->frequency >>  8) & 0xff;
-@@ -370,24 +492,298 @@ static int si2157_set_params(struct dvb_frontend *fe)
+@@ -370,24 +496,298 @@ static int si2157_set_params(struct dvb_frontend *fe)
  	if (ret)
  		goto err;
  
@@ -991,15 +991,15 @@ index d389f1f..b93f333 100644
 +
 +	si2157_tune_wait(client, 1); /* wait to complete, ignore any errors */
 +
-+	return 0;
-+err:
+ 	return 0;
+ err:
 +	dev->bandwidth = 0;
 +	dev->frequency = 0;
 +	dev->if_frequency = 0;
-+	dev_dbg(&client->dev, "failed=%d\n", ret);
-+	return ret;
-+}
-+
+ 	dev_dbg(&client->dev, "failed=%d\n", ret);
+ 	return ret;
+ }
+ 
 +static int si2157_set_analog_params(struct dvb_frontend *fe,
 +				      struct analog_parameters *params)
 +{
@@ -1202,15 +1202,15 @@ index d389f1f..b93f333 100644
 +
 +	si2157_tune_wait(client, 0); /* wait to complete, ignore any errors */
 +
- 	return 0;
- err:
++	return 0;
++err:
 +	dev->bandwidth = 0;
 +	dev->frequency = 0;
 +	dev->if_frequency = 0;
- 	dev_dbg(&client->dev, "failed=%d\n", ret);
- 	return ret;
- }
- 
++	dev_dbg(&client->dev, "failed=%d\n", ret);
++	return ret;
++}
++
 +static int si2157_get_frequency(struct dvb_frontend *fe, u32 *frequency)
 +{
 +	struct i2c_client *client = fe->tuner_priv;
@@ -1283,7 +1283,7 @@ index d389f1f..b93f333 100644
  		.frequency_min_hz =  42 * MHz,
  		.frequency_max_hz = 870 * MHz,
  	},
-@@ -395,7 +791,12 @@ static const struct dvb_tuner_ops si2157_ops = {
+@@ -395,7 +795,12 @@ static const struct dvb_tuner_ops si2157_ops = {
  	.init = si2157_init,
  	.sleep = si2157_sleep,
  	.set_params = si2157_set_params,
@@ -1297,7 +1297,7 @@ index d389f1f..b93f333 100644
  };
  
  static void si2157_stat_work(struct work_struct *work)
-@@ -455,7 +856,7 @@ static int si2157_probe(struct i2c_client *client,
+@@ -455,7 +860,7 @@ static int si2157_probe(struct i2c_client *client,
  	cmd.wlen = 0;
  	cmd.rlen = 1;
  	ret = si2157_cmd_execute(client, &cmd);
@@ -1306,8 +1306,21 @@ index d389f1f..b93f333 100644
  		goto err_kfree;
  
  	memcpy(&fe->ops.tuner_ops, &si2157_ops, sizeof(struct dvb_tuner_ops));
+@@ -529,6 +934,7 @@ static const struct i2c_device_id si2157_id_table[] = {
+ 	{"si2157", SI2157_CHIPTYPE_SI2157},
+ 	{"si2146", SI2157_CHIPTYPE_SI2146},
+ 	{"si2141", SI2157_CHIPTYPE_SI2141},
++	{"si2177", SI2157_CHIPTYPE_SI2177},
+ 	{}
+ };
+ MODULE_DEVICE_TABLE(i2c, si2157_id_table);
+@@ -550,3 +956,4 @@ MODULE_AUTHOR("Antti Palosaari <crope@iki.fi>");
+ MODULE_LICENSE("GPL");
+ MODULE_FIRMWARE(SI2158_A20_FIRMWARE);
+ MODULE_FIRMWARE(SI2141_A10_FIRMWARE);
++MODULE_FIRMWARE(SI2157_A30_FIRMWARE);
 diff --git a/drivers/media/tuners/si2157_priv.h b/drivers/media/tuners/si2157_priv.h
-index 50f8630..1e5ce5b 100644
+index 50f8630..84ed808 100644
 --- a/drivers/media/tuners/si2157_priv.h
 +++ b/drivers/media/tuners/si2157_priv.h
 @@ -37,6 +37,8 @@ struct si2157_dev {
@@ -1319,11 +1332,26 @@ index 50f8630..1e5ce5b 100644
  	struct delayed_work stat_work;
  
  #if defined(CONFIG_MEDIA_CONTROLLER)
+@@ -50,6 +52,7 @@ struct si2157_dev {
+ #define SI2157_CHIPTYPE_SI2157 0
+ #define SI2157_CHIPTYPE_SI2146 1
+ #define SI2157_CHIPTYPE_SI2141 2
++#define SI2157_CHIPTYPE_SI2177 3
+ 
+ /* firmware command struct */
+ #define SI2157_ARGLEN      30
+@@ -61,5 +64,5 @@ struct si2157_cmd {
+ 
+ #define SI2158_A20_FIRMWARE "dvb-tuner-si2158-a20-01.fw"
+ #define SI2141_A10_FIRMWARE "dvb-tuner-si2141-a10-01.fw"
+-
++#define SI2157_A30_FIRMWARE "dvb-tuner-si2157-a30-05.fw"
+ #endif
 diff --git a/drivers/media/usb/cx231xx/cx231xx-avcore.c b/drivers/media/usb/cx231xx/cx231xx-avcore.c
-index fdd3c22..25aa7bb 100644
+index d417b5f..f575ae0 100644
 --- a/drivers/media/usb/cx231xx/cx231xx-avcore.c
 +++ b/drivers/media/usb/cx231xx/cx231xx-avcore.c
-@@ -599,14 +599,27 @@ int cx231xx_set_video_input_mux(struct cx231xx *dev, u8 input)
+@@ -587,14 +587,27 @@ int cx231xx_set_video_input_mux(struct cx231xx *dev, u8 input)
  				return status;
  			}
  		}
@@ -1354,7 +1382,7 @@ index fdd3c22..25aa7bb 100644
  
  		break;
  	default:
-@@ -1205,12 +1218,22 @@ int cx231xx_set_audio_decoder_input(struct cx231xx *dev,
+@@ -1193,12 +1206,22 @@ int cx231xx_set_audio_decoder_input(struct cx231xx *dev,
  					cx231xx_set_field(FLD_SIF_EN, 0));
  			break;
  		default:
@@ -1381,10 +1409,10 @@ index fdd3c22..25aa7bb 100644
  		break;
  
 diff --git a/drivers/media/usb/cx231xx/cx231xx-video.c b/drivers/media/usb/cx231xx/cx231xx-video.c
-index 0d451c4..d5e51a5 100644
+index f882047..77c118b 100644
 --- a/drivers/media/usb/cx231xx/cx231xx-video.c
 +++ b/drivers/media/usb/cx231xx/cx231xx-video.c
-@@ -1293,7 +1293,7 @@ int cx231xx_s_frequency(struct file *file, void *priv,
+@@ -1281,7 +1281,7 @@ int cx231xx_s_frequency(struct file *file, void *priv,
  	struct cx231xx_fh *fh = priv;
  	struct cx231xx *dev = fh->dev;
  	struct v4l2_frequency new_freq = *f;
@@ -1393,7 +1421,7 @@ index 0d451c4..d5e51a5 100644
  	u32 if_frequency = 5400000;
  
  	dev_dbg(dev->dev,
-@@ -1310,14 +1310,30 @@ int cx231xx_s_frequency(struct file *file, void *priv,
+@@ -1298,14 +1298,30 @@ int cx231xx_s_frequency(struct file *file, void *priv,
  	/* set pre channel change settings in DIF first */
  	rc = cx231xx_tuner_pre_channel_change(dev);
  
@@ -1428,7 +1456,7 @@ index 0d451c4..d5e51a5 100644
  		if (dev->norm & (V4L2_STD_MN | V4L2_STD_NTSC_443))
  			if_frequency = 5400000;  /*5.4MHz	*/
  		else if (dev->norm & V4L2_STD_B)
-@@ -1584,8 +1600,19 @@ int cx231xx_querycap(struct file *file, void *priv,
+@@ -1572,8 +1588,19 @@ int cx231xx_querycap(struct file *file, void *priv,
  		else
  			cap->device_caps |= V4L2_CAP_VIDEO_CAPTURE;
  	}
@@ -1449,7 +1477,7 @@ index 0d451c4..d5e51a5 100644
  	cap->capabilities = cap->device_caps | V4L2_CAP_READWRITE |
  		V4L2_CAP_VBI_CAPTURE | V4L2_CAP_VIDEO_CAPTURE |
  		V4L2_CAP_STREAMING | V4L2_CAP_DEVICE_CAPS;
-@@ -2191,10 +2218,20 @@ static void cx231xx_vdev_init(struct cx231xx *dev,
+@@ -2179,10 +2206,20 @@ static void cx231xx_vdev_init(struct cx231xx *dev,
  
  	video_set_drvdata(vfd, dev);
  	if (dev->tuner_type == TUNER_ABSENT) {
@@ -1474,6 +1502,582 @@ index 0d451c4..d5e51a5 100644
  	}
  }
  
+diff --git a/drivers/media/usb/pvrusb2/Kconfig b/drivers/media/usb/pvrusb2/Kconfig
+index 64f9df0..e6a4f73 100644
+--- a/drivers/media/usb/pvrusb2/Kconfig
++++ b/drivers/media/usb/pvrusb2/Kconfig
+@@ -41,6 +41,8 @@ config VIDEO_PVRUSB2_DVB
+ 	select DVB_S5H1409 if MEDIA_SUBDRV_AUTOSELECT
+ 	select DVB_S5H1411 if MEDIA_SUBDRV_AUTOSELECT
+ 	select DVB_TDA10048 if MEDIA_SUBDRV_AUTOSELECT
++	select DVB_LGDT3306A if MEDIA_SUBDRV_AUTOSELECT
++	select DVB_SI2168 if MEDIA_SUBDRV_AUTOSELECT
+ 	select MEDIA_TUNER_TDA18271 if MEDIA_SUBDRV_AUTOSELECT
+ 	select MEDIA_TUNER_SIMPLE if MEDIA_SUBDRV_AUTOSELECT
+ 	select MEDIA_TUNER_TDA8290 if MEDIA_SUBDRV_AUTOSELECT
+diff --git a/drivers/media/usb/pvrusb2/pvrusb2-cx2584x-v4l.c b/drivers/media/usb/pvrusb2/pvrusb2-cx2584x-v4l.c
+index d5bec0f..36016ab 100644
+--- a/drivers/media/usb/pvrusb2/pvrusb2-cx2584x-v4l.c
++++ b/drivers/media/usb/pvrusb2/pvrusb2-cx2584x-v4l.c
+@@ -111,10 +111,35 @@ static const struct routing_scheme routing_defav400 = {
+ 	.cnt = ARRAY_SIZE(routing_schemeav400),
+ };
+ 
++static const struct routing_scheme_item routing_scheme160xxx[] = {
++	[PVR2_CVAL_INPUT_TV] = {
++		.vid = CX25840_COMPOSITE7,
++		.aud = CX25840_AUDIO8,
++	},
++	[PVR2_CVAL_INPUT_RADIO] = {
++		.vid = CX25840_COMPOSITE4,
++		.aud = CX25840_AUDIO6,
++	},
++	[PVR2_CVAL_INPUT_COMPOSITE] = {
++		.vid = CX25840_COMPOSITE3,
++		.aud = CX25840_AUDIO_SERIAL,
++	},
++	[PVR2_CVAL_INPUT_SVIDEO] = {
++		.vid = CX25840_SVIDEO1,
++		.aud = CX25840_AUDIO_SERIAL,
++	},
++};
++
++static const struct routing_scheme routing_def160xxx = {
++	.def = routing_scheme160xxx,
++	.cnt = ARRAY_SIZE(routing_scheme160xxx),
++};
++
+ static const struct routing_scheme *routing_schemes[] = {
+ 	[PVR2_ROUTING_SCHEME_HAUPPAUGE] = &routing_def0,
+ 	[PVR2_ROUTING_SCHEME_GOTVIEW] = &routing_defgv,
+ 	[PVR2_ROUTING_SCHEME_AV400] = &routing_defav400,
++	[PVR2_ROUTING_SCHEME_HAUP160XXX] = &routing_def160xxx,
+ };
+ 
+ void pvr2_cx25840_subdev_update(struct pvr2_hdw *hdw, struct v4l2_subdev *sd)
+diff --git a/drivers/media/usb/pvrusb2/pvrusb2-devattr.c b/drivers/media/usb/pvrusb2/pvrusb2-devattr.c
+index 06de1c8..97b4fc8 100644
+--- a/drivers/media/usb/pvrusb2/pvrusb2-devattr.c
++++ b/drivers/media/usb/pvrusb2/pvrusb2-devattr.c
+@@ -37,6 +37,9 @@ pvr2_device_desc structures.
+ #include "tda18271.h"
+ #include "tda8290.h"
+ #include "tuner-simple.h"
++#include "si2157.h"
++#include "lgdt3306a.h"
++#include "si2168.h"
+ #endif
+ 
+ 
+@@ -188,10 +191,10 @@ static struct lgdt330x_config pvr2_lgdt3303_config = {
+ 
+ static int pvr2_lgdt3303_attach(struct pvr2_dvb_adapter *adap)
+ {
+-	adap->fe = dvb_attach(lgdt330x_attach, &pvr2_lgdt3303_config,
+-			      0x0e,
+-			      &adap->channel.hdw->i2c_adap);
+-	if (adap->fe)
++	adap->fe[0] = dvb_attach(lgdt330x_attach, &pvr2_lgdt3303_config,
++				 0x0e,
++				 &adap->channel.hdw->i2c_adap);
++	if (adap->fe[0])
+ 		return 0;
+ 
+ 	return -EIO;
+@@ -199,7 +202,7 @@ static int pvr2_lgdt3303_attach(struct pvr2_dvb_adapter *adap)
+ 
+ static int pvr2_lgh06xf_attach(struct pvr2_dvb_adapter *adap)
+ {
+-	dvb_attach(simple_tuner_attach, adap->fe,
++	dvb_attach(simple_tuner_attach, adap->fe[0],
+ 		   &adap->channel.hdw->i2c_adap, 0x61,
+ 		   TUNER_LG_TDVS_H06XF);
+ 
+@@ -248,10 +251,10 @@ static struct lgdt330x_config pvr2_lgdt3302_config = {
+ 
+ static int pvr2_lgdt3302_attach(struct pvr2_dvb_adapter *adap)
+ {
+-	adap->fe = dvb_attach(lgdt330x_attach, &pvr2_lgdt3302_config,
++	adap->fe[0] = dvb_attach(lgdt330x_attach, &pvr2_lgdt3302_config,
+ 			      0x0e,
+ 			      &adap->channel.hdw->i2c_adap);
+-	if (adap->fe)
++	if (adap->fe[0])
+ 		return 0;
+ 
+ 	return -EIO;
+@@ -259,7 +262,7 @@ static int pvr2_lgdt3302_attach(struct pvr2_dvb_adapter *adap)
+ 
+ static int pvr2_fcv1236d_attach(struct pvr2_dvb_adapter *adap)
+ {
+-	dvb_attach(simple_tuner_attach, adap->fe,
++	dvb_attach(simple_tuner_attach, adap->fe[0],
+ 		   &adap->channel.hdw->i2c_adap, 0x61,
+ 		   TUNER_PHILIPS_FCV1236D);
+ 
+@@ -335,9 +338,9 @@ static struct tda18271_config hauppauge_tda18271_dvb_config = {
+ 
+ static int pvr2_tda10048_attach(struct pvr2_dvb_adapter *adap)
+ {
+-	adap->fe = dvb_attach(tda10048_attach, &hauppauge_tda10048_config,
++	adap->fe[0] = dvb_attach(tda10048_attach, &hauppauge_tda10048_config,
+ 			      &adap->channel.hdw->i2c_adap);
+-	if (adap->fe)
++	if (adap->fe[0])
+ 		return 0;
+ 
+ 	return -EIO;
+@@ -345,10 +348,10 @@ static int pvr2_tda10048_attach(struct pvr2_dvb_adapter *adap)
+ 
+ static int pvr2_73xxx_tda18271_8295_attach(struct pvr2_dvb_adapter *adap)
+ {
+-	dvb_attach(tda829x_attach, adap->fe,
++	dvb_attach(tda829x_attach, adap->fe[0],
+ 		   &adap->channel.hdw->i2c_adap, 0x42,
+ 		   &tda829x_no_probe);
+-	dvb_attach(tda18271_attach, adap->fe, 0x60,
++	dvb_attach(tda18271_attach, adap->fe[0], 0x60,
+ 		   &adap->channel.hdw->i2c_adap,
+ 		   &hauppauge_tda18271_dvb_config);
+ 
+@@ -433,9 +436,9 @@ static struct tda18271_config hauppauge_tda18271_config = {
+ 
+ static int pvr2_s5h1409_attach(struct pvr2_dvb_adapter *adap)
+ {
+-	adap->fe = dvb_attach(s5h1409_attach, &pvr2_s5h1409_config,
++	adap->fe[0] = dvb_attach(s5h1409_attach, &pvr2_s5h1409_config,
+ 			      &adap->channel.hdw->i2c_adap);
+-	if (adap->fe)
++	if (adap->fe[0])
+ 		return 0;
+ 
+ 	return -EIO;
+@@ -443,9 +446,9 @@ static int pvr2_s5h1409_attach(struct pvr2_dvb_adapter *adap)
+ 
+ static int pvr2_s5h1411_attach(struct pvr2_dvb_adapter *adap)
+ {
+-	adap->fe = dvb_attach(s5h1411_attach, &pvr2_s5h1411_config,
++	adap->fe[0] = dvb_attach(s5h1411_attach, &pvr2_s5h1411_config,
+ 			      &adap->channel.hdw->i2c_adap);
+-	if (adap->fe)
++	if (adap->fe[0])
+ 		return 0;
+ 
+ 	return -EIO;
+@@ -453,10 +456,10 @@ static int pvr2_s5h1411_attach(struct pvr2_dvb_adapter *adap)
+ 
+ static int pvr2_tda18271_8295_attach(struct pvr2_dvb_adapter *adap)
+ {
+-	dvb_attach(tda829x_attach, adap->fe,
++	dvb_attach(tda829x_attach, adap->fe[0],
+ 		   &adap->channel.hdw->i2c_adap, 0x42,
+ 		   &tda829x_no_probe);
+-	dvb_attach(tda18271_attach, adap->fe, 0x60,
++	dvb_attach(tda18271_attach, adap->fe[0], 0x60,
+ 		   &adap->channel.hdw->i2c_adap,
+ 		   &hauppauge_tda18271_config);
+ 
+@@ -525,7 +528,164 @@ static const struct pvr2_device_desc pvr2_device_751xx = {
+ #endif
+ };
+ 
++/*------------------------------------------------------------------------*/
++/*    Hauppauge PVR-USB2 Model 160000 / 160111 -- HVR-1955 / HVR-1975     */
++
++#ifdef CONFIG_VIDEO_PVRUSB2_DVB
++static int pvr2_si2157_attach(struct pvr2_dvb_adapter *adap);
++static int pvr2_si2168_attach(struct pvr2_dvb_adapter *adap);
++static int pvr2_dual_fe_attach(struct pvr2_dvb_adapter *adap);
++static int pvr2_lgdt3306a_attach(struct pvr2_dvb_adapter *adap);
++
++static const struct pvr2_dvb_props pvr2_160000_dvb_props = {
++	.frontend_attach = pvr2_dual_fe_attach,
++	.tuner_attach    = pvr2_si2157_attach,
++};
++static const struct pvr2_dvb_props pvr2_160111_dvb_props = {
++	.frontend_attach = pvr2_lgdt3306a_attach,
++	.tuner_attach    = pvr2_si2157_attach,
++};
++
++static int pvr2_si2157_attach(struct pvr2_dvb_adapter *adap)
++{
++	struct si2157_config si2157_config = {};
++
++	si2157_config.inversion = 1;
++	si2157_config.fe = adap->fe[0];
++
++	adap->i2c_client_tuner = dvb_module_probe("si2157", "si2177",
++						&adap->channel.hdw->i2c_adap,
++						0x60, &si2157_config);
++
++	if (!adap->i2c_client_tuner)
++		return -ENODEV;
++
++	return 0;
++}
++
++static int pvr2_si2168_attach(struct pvr2_dvb_adapter *adap)
++{
++	struct si2168_config si2168_config = {};
++	struct i2c_adapter *adapter;
++
++	pr_debug("%s()\n", __func__);
++
++	si2168_config.fe = &adap->fe[1];
++	si2168_config.i2c_adapter = &adapter;
++	si2168_config.ts_mode = SI2168_TS_PARALLEL; /*2, 1-serial, 2-parallel.*/
++	si2168_config.ts_clock_gapped = 1; /*0-disabled, 1-enabled.*/
++	si2168_config.ts_clock_inv = 0; /*0-not-invert, 1-invert*/
++	si2168_config.spectral_inversion = 1; /*0-not-invert, 1-invert*/
++
++	adap->i2c_client_demod[1] = dvb_module_probe("si2168", NULL,
++						&adap->channel.hdw->i2c_adap,
++						0x64, &si2168_config);
++
++	if (!adap->i2c_client_demod[1])
++		return -ENODEV;
++
++	return 0;
++}
++
++static int pvr2_lgdt3306a_attach(struct pvr2_dvb_adapter *adap)
++{
++	struct lgdt3306a_config lgdt3306a_config;
++	struct i2c_adapter *adapter;
++
++	pr_debug("%s()\n", __func__);
++
++	lgdt3306a_config.fe = &adap->fe[0];
++	lgdt3306a_config.i2c_adapter = &adapter;
++	lgdt3306a_config.deny_i2c_rptr = 1;
++	lgdt3306a_config.spectral_inversion = 1;
++	lgdt3306a_config.qam_if_khz = 4000;
++	lgdt3306a_config.vsb_if_khz = 3250;
++	lgdt3306a_config.mpeg_mode = LGDT3306A_MPEG_PARALLEL;
++	lgdt3306a_config.tpclk_edge = LGDT3306A_TPCLK_FALLING_EDGE;
++	lgdt3306a_config.tpvalid_polarity = LGDT3306A_TP_VALID_LOW;
++	lgdt3306a_config.xtalMHz = 25, /* demod clock MHz; 24/25 supported */
++
++	adap->i2c_client_demod[0] = dvb_module_probe("lgdt3306a", NULL,
++						&adap->channel.hdw->i2c_adap,
++						0x59, &lgdt3306a_config);
++
++	if (!adap->i2c_client_demod[0])
++		return -ENODEV;
++
++	return 0;
++}
++
++static int pvr2_dual_fe_attach(struct pvr2_dvb_adapter *adap)
++{
++	pr_debug("%s()\n", __func__);
++
++	if (pvr2_lgdt3306a_attach(adap) != 0)
++		return -ENODEV;
++
++	if (pvr2_si2168_attach(adap) != 0) {
++		dvb_module_release(adap->i2c_client_demod[0]);
++		return -ENODEV;
++	}
+ 
++	return 0;
++}
++#endif
++
++#define PVR2_FIRMWARE_160xxx "v4l-pvrusb2-160xxx-01.fw"
++static const char *pvr2_fw1_names_160xxx[] = {
++		PVR2_FIRMWARE_160xxx,
++};
++
++static const struct pvr2_device_client_desc pvr2_cli_160xxx[] = {
++	{ .module_id = PVR2_CLIENT_ID_CX25840 },
++};
++
++static const struct pvr2_device_desc pvr2_device_160000 = {
++		.description = "WinTV HVR-1975 Model 160000",
++		.shortname = "160000",
++		.client_table.lst = pvr2_cli_160xxx,
++		.client_table.cnt = ARRAY_SIZE(pvr2_cli_160xxx),
++		.fx2_firmware.lst = pvr2_fw1_names_160xxx,
++		.fx2_firmware.cnt = ARRAY_SIZE(pvr2_fw1_names_160xxx),
++		.default_tuner_type = TUNER_ABSENT,
++		.flag_has_cx25840 = !0,
++		.flag_has_hauppauge_rom = !0,
++		.flag_has_analogtuner = !0,
++		.flag_has_composite = !0,
++		.flag_has_svideo = !0,
++		.flag_fx2_16kb = !0,
++		.signal_routing_scheme = PVR2_ROUTING_SCHEME_HAUPPAUGE,
++		.digital_control_scheme = PVR2_DIGITAL_SCHEME_HAUPPAUGE,
++		.default_std_mask = V4L2_STD_NTSC_M,
++		.led_scheme = PVR2_LED_SCHEME_HAUPPAUGE,
++		.ir_scheme = PVR2_IR_SCHEME_ZILOG,
++#ifdef CONFIG_VIDEO_PVRUSB2_DVB
++		.dvb_props = &pvr2_160000_dvb_props,
++#endif
++};
++static const struct pvr2_device_desc pvr2_device_160111 = {
++		.description = "WinTV HVR-1955 Model 160111",
++		.shortname = "160111",
++		.client_table.lst = pvr2_cli_160xxx,
++		.client_table.cnt = ARRAY_SIZE(pvr2_cli_160xxx),
++		.fx2_firmware.lst = pvr2_fw1_names_160xxx,
++		.fx2_firmware.cnt = ARRAY_SIZE(pvr2_fw1_names_160xxx),
++		.default_tuner_type = TUNER_ABSENT,
++		.flag_has_cx25840 = !0,
++		.flag_has_hauppauge_rom = !0,
++		.flag_has_analogtuner = !0,
++		.flag_has_composite = !0,
++		.flag_has_svideo = !0,
++		.flag_fx2_16kb = !0,
++		.signal_routing_scheme = PVR2_ROUTING_SCHEME_HAUPPAUGE,
++		.digital_control_scheme = PVR2_DIGITAL_SCHEME_HAUPPAUGE,
++		.default_std_mask = V4L2_STD_NTSC_M,
++		.led_scheme = PVR2_LED_SCHEME_HAUPPAUGE,
++		.ir_scheme = PVR2_IR_SCHEME_ZILOG,
++#ifdef CONFIG_VIDEO_PVRUSB2_DVB
++		.dvb_props = &pvr2_160111_dvb_props,
++#endif
++};
+ 
+ /*------------------------------------------------------------------------*/
+ 
+@@ -552,6 +712,10 @@ struct usb_device_id pvr2_device_table[] = {
+ 	  .driver_info = (kernel_ulong_t)&pvr2_device_751xx},
+ 	{ USB_DEVICE(0x0ccd, 0x0039),
+ 	  .driver_info = (kernel_ulong_t)&pvr2_device_av400},
++	{ USB_DEVICE(0x2040, 0x7502),
++	  .driver_info = (kernel_ulong_t)&pvr2_device_160111},
++	{ USB_DEVICE(0x2040, 0x7510),
++	  .driver_info = (kernel_ulong_t)&pvr2_device_160000},
+ 	{ }
+ };
+ 
+diff --git a/drivers/media/usb/pvrusb2/pvrusb2-devattr.h b/drivers/media/usb/pvrusb2/pvrusb2-devattr.h
+index c1e7d48..ea0b2bf 100644
+--- a/drivers/media/usb/pvrusb2/pvrusb2-devattr.h
++++ b/drivers/media/usb/pvrusb2/pvrusb2-devattr.h
+@@ -66,6 +66,7 @@ struct pvr2_string_table {
+ #define PVR2_ROUTING_SCHEME_GOTVIEW 1
+ #define PVR2_ROUTING_SCHEME_ONAIR 2
+ #define PVR2_ROUTING_SCHEME_AV400 3
++#define PVR2_ROUTING_SCHEME_HAUP160XXX 4
+ 
+ #define PVR2_DIGITAL_SCHEME_NONE 0
+ #define PVR2_DIGITAL_SCHEME_HAUPPAUGE 1
+diff --git a/drivers/media/usb/pvrusb2/pvrusb2-dvb.c b/drivers/media/usb/pvrusb2/pvrusb2-dvb.c
+index 4b32b21..8f492ec 100644
+--- a/drivers/media/usb/pvrusb2/pvrusb2-dvb.c
++++ b/drivers/media/usb/pvrusb2/pvrusb2-dvb.c
+@@ -343,26 +343,19 @@ static int pvr2_dvb_frontend_init(struct pvr2_dvb_adapter *adap)
+ 		goto done;
+ 	}
+ 
+-	if ((dvb_props->frontend_attach(adap) == 0) && (adap->fe)) {
+-
+-		if (dvb_register_frontend(&adap->dvb_adap, adap->fe)) {
++	if (dvb_props->frontend_attach(adap) == 0 && adap->fe[0]) {
++		if (dvb_register_frontend(&adap->dvb_adap, adap->fe[0])) {
+ 			pvr2_trace(PVR2_TRACE_ERROR_LEGS,
+ 				   "frontend registration failed!");
+-			dvb_frontend_detach(adap->fe);
+-			adap->fe = NULL;
+ 			ret = -ENODEV;
+-			goto done;
++			goto fail_frontend0;
+ 		}
++		if (adap->fe[0]->ops.analog_ops.standby)
++			adap->fe[0]->ops.analog_ops.standby(adap->fe[0]);
+ 
+-		if (dvb_props->tuner_attach)
+-			dvb_props->tuner_attach(adap);
+-
+-		if (adap->fe->ops.analog_ops.standby)
+-			adap->fe->ops.analog_ops.standby(adap->fe);
+-
+-		/* Ensure all frontends negotiate bus access */
+-		adap->fe->ops.ts_bus_ctrl = pvr2_dvb_bus_ctrl;
+-
++		pvr2_trace(PVR2_TRACE_INFO, "transferring fe[%d] ts_bus_ctrl() to pvr2_dvb_bus_ctrl()",
++				adap->fe[0]->id);
++		adap->fe[0]->ops.ts_bus_ctrl = pvr2_dvb_bus_ctrl;
+ 	} else {
+ 		pvr2_trace(PVR2_TRACE_ERROR_LEGS,
+ 			   "no frontend was attached!");
+@@ -370,17 +363,74 @@ static int pvr2_dvb_frontend_init(struct pvr2_dvb_adapter *adap)
+ 		return ret;
+ 	}
+ 
+- done:
++	if (dvb_props->tuner_attach && dvb_props->tuner_attach(adap)) {
++		pvr2_trace(PVR2_TRACE_ERROR_LEGS, "tuner attach failed");
++		ret = -ENODEV;
++		goto fail_tuner;
++	}
++
++	if (adap->fe[1]) {
++		adap->fe[1]->id = 1;
++		adap->fe[1]->tuner_priv = adap->fe[0]->tuner_priv;
++		memcpy(&adap->fe[1]->ops.tuner_ops,
++			&adap->fe[0]->ops.tuner_ops,
++			sizeof(struct dvb_tuner_ops));
++
++		if (dvb_register_frontend(&adap->dvb_adap, adap->fe[1])) {
++			pvr2_trace(PVR2_TRACE_ERROR_LEGS,
++				   "frontend registration failed!");
++			ret = -ENODEV;
++			goto fail_frontend1;
++		}
++		/* MFE lock */
++		adap->dvb_adap.mfe_shared = 1;
++
++		if (adap->fe[1]->ops.analog_ops.standby)
++			adap->fe[1]->ops.analog_ops.standby(adap->fe[1]);
++
++		pvr2_trace(PVR2_TRACE_INFO, "transferring fe[%d] ts_bus_ctrl() to pvr2_dvb_bus_ctrl()",
++				adap->fe[1]->id);
++		adap->fe[1]->ops.ts_bus_ctrl = pvr2_dvb_bus_ctrl;
++	}
++done:
+ 	pvr2_channel_limit_inputs(&adap->channel, 0);
+ 	return ret;
++
++fail_frontend1:
++	dvb_frontend_detach(adap->fe[1]);
++	adap->fe[1] = NULL;
++fail_tuner:
++	dvb_unregister_frontend(adap->fe[0]);
++fail_frontend0:
++	dvb_frontend_detach(adap->fe[0]);
++	adap->fe[0] = NULL;
++	dvb_module_release(adap->i2c_client_tuner);
++	dvb_module_release(adap->i2c_client_demod[1]);
++	dvb_module_release(adap->i2c_client_demod[0]);
++
++	return ret;
+ }
+ 
+ static int pvr2_dvb_frontend_exit(struct pvr2_dvb_adapter *adap)
+ {
+-	if (adap->fe != NULL) {
+-		dvb_unregister_frontend(adap->fe);
+-		dvb_frontend_detach(adap->fe);
++	if (adap->fe[1]) {
++		dvb_unregister_frontend(adap->fe[1]);
++		dvb_frontend_detach(adap->fe[1]);
++		adap->fe[1] = NULL;
++	}
++	if (adap->fe[0]) {
++		dvb_unregister_frontend(adap->fe[0]);
++		dvb_frontend_detach(adap->fe[0]);
++		adap->fe[0] = NULL;
+ 	}
++
++	dvb_module_release(adap->i2c_client_tuner);
++	adap->i2c_client_tuner = NULL;
++	dvb_module_release(adap->i2c_client_demod[1]);
++	adap->i2c_client_demod[1] = NULL;
++	dvb_module_release(adap->i2c_client_demod[0]);
++	adap->i2c_client_demod[0] = NULL;
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/media/usb/pvrusb2/pvrusb2-dvb.h b/drivers/media/usb/pvrusb2/pvrusb2-dvb.h
+index e7f71fb..c0b27f5 100644
+--- a/drivers/media/usb/pvrusb2/pvrusb2-dvb.h
++++ b/drivers/media/usb/pvrusb2/pvrusb2-dvb.h
+@@ -18,7 +18,10 @@ struct pvr2_dvb_adapter {
+ 	struct dmxdev		dmxdev;
+ 	struct dvb_demux	demux;
+ 	struct dvb_net		dvb_net;
+-	struct dvb_frontend	*fe;
++	struct dvb_frontend	*fe[2];
++
++	struct i2c_client	*i2c_client_demod[2];
++	struct i2c_client	*i2c_client_tuner;
+ 
+ 	int			feedcount;
+ 	int			max_feed_count;
+diff --git a/drivers/media/usb/pvrusb2/pvrusb2-fx2-cmd.h b/drivers/media/usb/pvrusb2/pvrusb2-fx2-cmd.h
+index 0a01de4..640b033 100644
+--- a/drivers/media/usb/pvrusb2/pvrusb2-fx2-cmd.h
++++ b/drivers/media/usb/pvrusb2/pvrusb2-fx2-cmd.h
+@@ -38,6 +38,10 @@
+ 
+ #define FX2CMD_FWPOST1          0x52u
+ 
++/* These 2 only exist on Model 160xxx */
++#define FX2CMD_HCW_DEMOD_RESET_PIN 0xd4u
++#define FX2CMD_HCW_MAKO_SLEEP_PIN  0xd5u
++
+ #define FX2CMD_POWER_OFF        0xdcu
+ #define FX2CMD_POWER_ON         0xdeu
+ 
+diff --git a/drivers/media/usb/pvrusb2/pvrusb2-hdw.c b/drivers/media/usb/pvrusb2/pvrusb2-hdw.c
+index 1914391..63916ca 100644
+--- a/drivers/media/usb/pvrusb2/pvrusb2-hdw.c
++++ b/drivers/media/usb/pvrusb2/pvrusb2-hdw.c
+@@ -316,6 +316,8 @@ static const struct pvr2_fx2cmd_descdef pvr2_fx2cmd_desc[] = {
+ 	{FX2CMD_ONAIR_DTV_STREAMING_OFF, "onair dtv stream off"},
+ 	{FX2CMD_ONAIR_DTV_POWER_ON, "onair dtv power on"},
+ 	{FX2CMD_ONAIR_DTV_POWER_OFF, "onair dtv power off"},
++	{FX2CMD_HCW_DEMOD_RESET_PIN, "hcw demod reset pin"},
++	{FX2CMD_HCW_MAKO_SLEEP_PIN, "hcw mako sleep pin"},
+ };
+ 
+ 
+@@ -2139,10 +2141,28 @@ static void pvr2_hdw_setup_low(struct pvr2_hdw *hdw)
+ 				      ((0) << 16));
+ 	}
+ 
+-	// This step MUST happen after the earlier powerup step.
++	/* This step MUST happen after the earlier powerup step */
+ 	pvr2_i2c_core_init(hdw);
+ 	if (!pvr2_hdw_dev_ok(hdw)) return;
+ 
++	/* Reset demod only on Hauppauge 160xxx platform */
++	if (hdw->usb_dev->descriptor.idVendor == 0x2040 &&
++	    (hdw->usb_dev->descriptor.idProduct == 0x7502 ||
++	     hdw->usb_dev->descriptor.idProduct == 0x7510)) {
++		pr_info("%s(): resetting 160xxx demod\n", __func__);
++		/* TODO: not sure this is proper place to reset once only */
++		pvr2_issue_simple_cmd(hdw,
++				     FX2CMD_HCW_DEMOD_RESET_PIN |
++				     (1 << 8) |
++				     ((0) << 16));
++		msleep(10);
++		pvr2_issue_simple_cmd(hdw,
++				     FX2CMD_HCW_DEMOD_RESET_PIN |
++				     (1 << 8) |
++				     ((1) << 16));
++		msleep(10);
++	}
++
+ 	pvr2_hdw_load_modules(hdw);
+ 	if (!pvr2_hdw_dev_ok(hdw)) return;
+ 
+@@ -4012,6 +4032,20 @@ int pvr2_hdw_cmd_decoder_reset(struct pvr2_hdw *hdw)
+ static int pvr2_hdw_cmd_hcw_demod_reset(struct pvr2_hdw *hdw, int onoff)
+ {
+ 	hdw->flag_ok = !0;
++
++	/* Use this for Hauppauge 160xxx only */
++	if (hdw->usb_dev->descriptor.idVendor == 0x2040 &&
++	    (hdw->usb_dev->descriptor.idProduct == 0x7502 ||
++	     hdw->usb_dev->descriptor.idProduct == 0x7510)) {
++		pr_debug("%s(): resetting demod on Hauppauge 160xxx platform skipped\n",
++			__func__);
++		/* Can't reset 160xxx or it will trash Demod tristate */
++		return pvr2_issue_simple_cmd(hdw,
++				     FX2CMD_HCW_MAKO_SLEEP_PIN |
++				     (1 << 8) |
++				     ((onoff ? 1 : 0) << 16));
++	}
++
+ 	return pvr2_issue_simple_cmd(hdw,
+ 				     FX2CMD_HCW_DEMOD_RESETIN |
+ 				     (1 << 8) |
 -- 
 2.17.1
 
