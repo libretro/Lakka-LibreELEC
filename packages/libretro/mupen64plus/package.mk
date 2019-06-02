@@ -55,17 +55,21 @@ make_target() {
       CPPFLAGS="$CPPFLAGS -DLINUX -DEGL_API_FB"
       make platform=unix GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
       ;;
-    Generic)
-      make
+    Generic*)
+      case $ARCH in
+        x86_64)
+          make WITH_DYNAREC=x86_64
+          ;;
+        i386)
+          make WITH_DYNAREC=x86
+          ;;
+      esac
       ;;
     OdroidC1)
-      make platform=odroid BOARD=ODROID-C1 GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
+      make platform=odroid BOARD=ODROIDC1 GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
       ;;
     OdroidXU3)
       make platform=odroid BOARD=ODROID-XU3 GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
-      ;;
-    ROCK960)
-      make platform=unix-gles GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
       ;;
     *)
       make platform=unix-gles GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
