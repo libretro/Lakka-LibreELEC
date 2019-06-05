@@ -107,8 +107,9 @@ package_worker() {
   (
     flock --exclusive 95
     [ ${result} -eq 0 ] && status="DONE" || status="FAIL"
-    num=$(($(cat "${THREAD_CONTROL}/progress") + 1))
+    num=$(< "${THREAD_CONTROL}/progress")
     mv "${THREAD_CONTROL}/progress" "${THREAD_CONTROL}/progress.prev"
+    num=$((num + 1))
     echo ${num} >"${THREAD_CONTROL}/progress"
     printf "[%0*d/%0*d] [%-4s] %-7s %s\n" ${#jobs} ${num} ${#jobs} ${jobs} "${status}" "${task}" "${pkgname}" >&2
   ) 95>"${THREAD_CONTROL}/locks/.progress"
@@ -143,6 +144,7 @@ start_multithread_build() {
   mkdir -p "${THREAD_CONTROL}/locks"
   echo -1 >"${THREAD_CONTROL}/progress.prev"
   echo 0 >"${THREAD_CONTROL}/progress"
+  echo 0 >"${THREAD_CONTROL}/status.max"
   touch "${THREAD_CONTROL}/status"
 
   [ "${THREADCOUNT}" = "0" ] && THREADCOUNT=1

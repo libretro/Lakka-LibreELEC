@@ -15,7 +15,9 @@ PKG_TOOLCHAIN="manual"
 unpack() {
   mkdir -p $PKG_BUILD/
   tar -xf $SOURCES/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.bz2 -C $PKG_BUILD/
+}
 
+post_unpack() {
   # hack/workaround for borked upstream kernel/media_build
   # without removing atomisp there a lot additional includes that 
   # slowdown build process after modpost from 3min to 6min

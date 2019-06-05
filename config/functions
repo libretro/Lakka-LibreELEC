@@ -1155,6 +1155,8 @@ done
 }
 
 install_addon_files() {
+  mkdir -p "$1"
+
   install_addon_source "$1"
   install_addon_images "$1"
   create_addon_xml "$1"
@@ -1262,7 +1264,7 @@ pkg_lock() {
 
   # As we now have the lock, if .failed still exists then a previous process must have failed
   if [ -f "${THREAD_CONTROL}/locks/${pkg}.${task}.failed" ]; then
-    fail_seq="$(cat "${THREAD_CONTROL}/locks/${pkg}.${task}.failed")"
+    fail_seq="$(< "${THREAD_CONTROL}/locks/${pkg}.${task}.failed")"
     print_color CLR_ERROR "FAILURE: ${pkg}.${task}.failed exists, a previous dependency process has failed (seq: ${fail_seq})\n"
     if [ -d "${THREAD_CONTROL}/logs" ]; then
 cat <<EOF
@@ -1320,15 +1322,18 @@ update_dashboard() {
 
   sedline=$((MTJOBID + 2))
 
-  num=$(cat "${THREAD_CONTROL}/status" | wc -l)
-  while [ ${num} -lt ${sedline} ]; do echo "" >>"${THREAD_CONTROL}/status"; num=$((num + 1)); done
+  num=$(< "${THREAD_CONTROL}/status.max")
+  if [ ${num} -lt ${sedline} ]; then
+    echo ${sedline} >"${THREAD_CONTROL}/status.max"
+    for i in $(seq $((num + 1)) ${sedline}); do echo "" >>"${THREAD_CONTROL}/status"; done
+  fi
 
-  num=$(($(cat "${THREAD_CONTROL}/progress.prev") + 1))
+  num=$(< "${THREAD_CONTROL}/progress.prev")
   projdevarch="${PROJECT}/"
   [ -n "${DEVICE}" ] && projdevarch+="${DEVICE}/"
   projdevarch+="${TARGET_ARCH}"
   TZ=UTC0 printf -v elapsed "%(%H:%M:%S)T" $(($(date +%s) - MTBUILDSTART))
-  printf -v preamble "%s Dashboard (%s) - %d of %d jobs completed, %s elapsed" "${DISTRONAME}" "${projdevarch}" ${num} ${MTMAXJOBS} "${elapsed}"
+  printf -v preamble "%s Dashboard (%s) - %d of %d jobs completed, %s elapsed" "${DISTRONAME}" "${projdevarch}" $((num + 1)) ${MTMAXJOBS} "${elapsed}"
   printf -v preamble "%b%-105s %s" "\e[2J\e[0;0H" "${preamble//\//\\/}" "$(date "+%Y-%m-%d %H:%M:%S")"
 
   if [ "${DISABLE_COLORS}" != "yes" ]; then

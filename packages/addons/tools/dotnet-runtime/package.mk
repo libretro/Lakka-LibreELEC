@@ -36,11 +36,6 @@ PKG_ADDON_NAME=".Net Core Runtime"
 PKG_ADDON_TYPE="xbmc.python.script"
 PKG_MAINTAINER="Anton Voyl (awiouy)"
 
-unpack() {
-  mkdir -p $PKG_BUILD
-  $SCRIPTS/extract $PKG_NAME $PKG_BUILD
-}
-
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
   cp -r $PKG_BUILD/$PKG_NAME-$PKG_VERSION/* \
