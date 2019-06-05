@@ -3,8 +3,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="fuse-exfat"
-PKG_VERSION="1.3.0"
-PKG_SHA256="07652136064da5e4d32df5555f88c138ffa4835a23b88a5bae2015f21006e0d3"
+PKG_VERSION="1.2.8"
+PKG_SHA256="1f357e7026407cba6617acd2a0109ede8292e5ede4addd918c65a7b700ef96cb"
 PKG_LICENSE="GPLv2+"
 PKG_SITE="https://github.com/relan/exfat"
 PKG_URL="https://github.com/relan/exfat/releases/download/v$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.gz"
