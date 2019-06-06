@@ -38,6 +38,7 @@ RUN apt-get update \
 		sed \
 		tar \
 		texinfo \
+		u-boot-tools \		
 		unzip \
 		wget \
 		xfonts-utils \
