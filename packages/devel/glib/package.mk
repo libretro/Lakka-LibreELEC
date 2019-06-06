@@ -59,6 +59,10 @@ pre_configure_target() {
   export CFLAGS="$CFLAGS -Wno-error=format-nonliteral"
 }
 
+pre_configure_host() {
+  export CFLAGS="$CFLAGS -Wno-error=format-nonliteral"
+}
+
 post_makeinstall_target() {
   mkdir -p $SYSROOT_PREFIX/usr/lib/pkgconfig
     cp g*-2.0.pc $SYSROOT_PREFIX/usr/lib/pkgconfig
