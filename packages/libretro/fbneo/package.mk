@@ -18,18 +18,18 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="fbalpha"
-PKG_VERSION="84eb9d9"
+PKG_NAME="fbneo"
+PKG_VERSION="06f6f81"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"
-PKG_SITE="https://github.com/libretro/fbalpha"
+PKG_SITE="https://github.com/libretro/fbneo"
 PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="Port of Final Burn Alpha to Libretro (v0.2.97.38)."
-PKG_LONGDESC="Currently, FB Alpha supports games on Capcom CPS-1 and CPS-2 hardware, SNK Neo-Geo hardware, Toaplan hardware, Cave hardware, and various games on miscellaneous hardware. "
+PKG_SHORTDESC="Port of Final Burn Neo to Libretro"
+PKG_LONGDESC="Currently, FB Neo supports games on Capcom CPS-1 and CPS-2 hardware, SNK Neo-Geo hardware, Toaplan hardware, Cave hardware, and various games on miscellaneous hardware. "
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
@@ -37,16 +37,16 @@ PKG_AUTORECONF="no"
 make_target() {
   if [ "$ARCH" == "arm" ]; then
     if [[ "$TARGET_FPU" =~ "neon" ]]; then
-      make -f makefile.libretro CC=$CC CXX=$CXX HAVE_NEON=1 profile=performance
+      make -C src/burner/libretro CC=$CC CXX=$CXX HAVE_NEON=1 profile=performance
     else
-      make -f makefile.libretro CC=$CC CXX=$CXX profile=performance
+      make -C src/burner/libretro CC=$CC CXX=$CXX profile=performance
     fi
   else
-    make -f makefile.libretro CC=$CC CXX=$CXX profile=accuracy
+    make -C src/burner/libretro CC=$CC CXX=$CXX profile=accuracy
   fi
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp fbalpha_libretro.so $INSTALL/usr/lib/libretro/
+  cp src/burner/libretro/fbneo_libretro.so $INSTALL/usr/lib/libretro/
 }
