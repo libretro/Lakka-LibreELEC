@@ -16,6 +16,7 @@ RUN apt-get update \
 	&& apt-get install -y \
 		bash \
 		bc \
+		bsdmainutils \
 		build-essential \
 		bzip2 \
 		diffutils \
