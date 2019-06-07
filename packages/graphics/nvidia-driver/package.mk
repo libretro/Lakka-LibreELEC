@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="nvidia-driver"
-PKG_VERSION="390.42"
+PKG_VERSION="418.56"
 PKG_ARCH="x86_64"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.nvidia.com/"
@@ -48,13 +48,15 @@ make_target() {
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib
-    cp -P tls/libnvidia-tls.so.$PKG_VERSION $INSTALL/usr/lib
+    cp -P libnvidia-tls.so.$PKG_VERSION $INSTALL/usr/lib
     cp -P libEGL_nvidia.so.$PKG_VERSION $INSTALL/usr/lib/libEGL_nvidia.so.1
     cp -P libnvidia-eglcore.so.$PKG_VERSION $INSTALL/usr/lib
     cp -P libnvidia-glsi.so.$PKG_VERSION $INSTALL/usr/lib
+    cp -P libnvidia-glvkspirv.so.$PKG_VERSION $INSTALL/usr/lib
     cp -P libnvidia-ml.so.$PKG_VERSION $INSTALL/usr/lib/libnvidia-ml.so.1
     cp -P libvdpau_nvidia.so.$PKG_VERSION $INSTALL/usr/lib/libvdpau_nvidia.so.1
     cp -P libvdpau_nvidia.so.$PKG_VERSION $INSTALL/usr/lib/libvdpau_nvidia.so
+
 
   mkdir -p $INSTALL/$(get_full_module_dir)/nvidia
     cp -P kernel/nvidia.ko $INSTALL/$(get_full_module_dir)/nvidia
