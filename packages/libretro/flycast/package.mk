@@ -36,20 +36,11 @@ PKG_AUTORECONF="no"
 
 make_target() {
   if [ "$ARCH" == "arm" ]; then
-    if [ "$PROJECT" == "Switch" ]; then
-      make platform=armv-neon HAVE_OPENMP=0 FORCE_GLES=0 GLES=0 HAVE_OIT=1
-    else
-        if [ "$OPENGLES_SUPPORT" = "yes" ]; then
-          REICAST_GLES=1
-        else
-          REICAST_GLES=0
-        fi
-        make platform=rpi FORCE_GLES=$REICAST_GLES HAVE_OPENMP=0
-    fi
+    make platform=rpi FORCE_GLES=1 HAVE_OPENMP=0
   elif [ "$ARCH" == "aarch64" ]; then
     make platform=arm64 HAVE_OPENMP=0 FORCE_GLES=0 GLES=0 HAVE_OIT=1
   else
-    make platform=unix unix AS=${AS} CC_AS=${AS} ARCH=${ARCH} HAVE_OPENMP=0
+    make AS=${AS} CC_AS=${AS} ARCH=${ARCH} HAVE_OPENMP=0
   fi
 }
 
