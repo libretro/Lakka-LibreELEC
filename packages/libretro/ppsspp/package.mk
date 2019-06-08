@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="ppsspp"
-PKG_VERSION="649b7a5"
+PKG_VERSION="e5f1598"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
@@ -50,12 +50,7 @@ make_target() {
     CXXFLAGS="$CXXFLAGS -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads"
   fi
   if [ "$ARCH" == "arm" ]; then
-    if [ "$OPENGLES_SUPPORT" = "yes" ]; then
-      PPSSPPGLES="-gles"
-    else
-      PPSSPPGLES=""
-    fi
-    SYSROOT_PREFIX=$SYSROOT_PREFIX AS=${CXX} make platform=armv$PPSSPPGLES-neon
+    SYSROOT_PREFIX=$SYSROOT_PREFIX AS=${CXX} make platform=armv-neon-gles
   elif [ "$ARCH" == "aarch64" ]; then
     if [ "$OPENGL" == "no" ]; then 
       SYSROOT_PREFIX=$SYSROOT_PREFIX AS=${CXX} make platform=arm64-neon-gles
