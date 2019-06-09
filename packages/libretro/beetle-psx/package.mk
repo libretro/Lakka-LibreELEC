@@ -21,7 +21,7 @@
 PKG_NAME="beetle-psx"
 PKG_VERSION="5359198"
 PKG_REV="1"
-PKG_ARCH="x86_64 i386"
+PKG_ARCH="x86_64 i386 aarch64"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-psx-libretro"
 PKG_GIT_URL="$PKG_SITE"
@@ -35,10 +35,14 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  if [ "$PROJECT" == "Generic_VK_nvidia" ]; then
+  if [ "$OPENGL" != "no" ] && [ "$VULKAN" != "no" ]; then
+    make HAVE_HW=1
+  elif [ "$OPENGL" != "no" ]; then
+    make HAVE_OPENGL=1
+  elif [ "$VULKAN" != "no" ]; then
     make HAVE_VULKAN=1
   else
-    make HAVE_OPENGL=1
+    make
   fi
 }
 
