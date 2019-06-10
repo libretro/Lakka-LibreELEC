@@ -17,12 +17,13 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --disable-modern-top \
                            --enable-static"
 
-PKG_MAKE_OPTS_TARGET="top/top proc/libprocps.la proc/libprocps.pc"
+PKG_MAKE_OPTS_TARGET="free top/top proc/libprocps.la proc/libprocps.pc"
 
 PKG_MAKEINSTALL_OPTS_TARGET="install-libLTLIBRARIES install-pkgconfigDATA"
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/bin
+    cp -P $PKG_BUILD/.$TARGET_NAME/free $INSTALL/usr/bin
     cp -P $PKG_BUILD/.$TARGET_NAME/top/top $INSTALL/usr/bin
 
   make DESTDIR=$SYSROOT_PREFIX -j1 $PKG_MAKEINSTALL_OPTS_TARGET
