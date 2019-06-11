@@ -19,9 +19,9 @@
 ################################################################################
 
 PKG_NAME="dolphin"
-PKG_VERSION="1a7d1bc"
+PKG_VERSION="e8f27d0"
 PKG_REV="1"
-PKG_ARCH="x86_64"
+PKG_ARCH="x86_64 aarch64"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/dolphin"
 PKG_GIT_URL="$PKG_SITE"
@@ -41,7 +41,7 @@ fi
 
 PKG_CMAKE_SCRIPT="$PKG_BUILD/CMakeLists.txt"
 
-PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_C_COMPILER=${CC} -DENABLE_X11=OFF"
+PKG_CMAKE_OPTS_TARGET="-DCLANG=ON -DLIBRETRO=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_C_COMPILER=${CC} -DENABLE_X11=OFF"
 
 if [ "$PROJECT" == "Generic_VK_nvidia" ]; then
   PKG_VERSION="a5bce7d"
