@@ -34,6 +34,17 @@ PKG_LONGDESC="Reicast is a multiplatform Sega Dreamcast emulator"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+pre_configure_target() {
+  if [ "$ARCH" != "arm" ]; then
+    CFLAGS="${CFLAGS//-flto/}"
+    CFLAGS="${CFLAGS//-ffat-lto-objects/}"
+    CXXFLAGS="${CXXFLAGS//-flto/}"
+    CXXFLAGS="${CXXFLAGS//-ffat-lto-objects/}"
+    LDFLAGS="${LDFLAGS//-flto/}"
+    LDFLAGS="${LDFLAGS//-ffat-lto-objects/}"
+  fi
+}
+
 make_target() {
   if [ "$ARCH" == "arm" ]; then
     make platform=rpi FORCE_GLES=1 HAVE_OPENMP=0
