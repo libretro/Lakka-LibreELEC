@@ -35,10 +35,15 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  if [ "$ARCH" == "arm" ]; then
-    CFLAGS="$CFLAGS -DALIGN_LONG"
+  if [ "$ARCH" == "aarch64" ]; then
+    make -f Makefile.libretro NO_OPTIMIZE=1
+  else
+    if [ "$ARCH" == "arm" ]; then
+      CFLAGS="$CFLAGS -DALIGN_LONG"
+    fi
+
+    make -f Makefile.libretro
   fi
-  make -f Makefile.libretro
 }
 
 makeinstall_target() {
