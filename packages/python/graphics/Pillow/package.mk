@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="Pillow"
-PKG_VERSION="5.1.0"
-PKG_SHA256="cee9bc75bff455d317b6947081df0824a8f118de2786dc3d74a3503fd631f4ef"
+PKG_VERSION="6.0.0"
+PKG_SHA256="809c0a2ce9032cbcd7b5313f71af4bdc5c8c771cb86eb7559afd954cab82ebb5"
 PKG_LICENSE="BSD"
 PKG_SITE="http://www.pythonware.com/products/pil/"
 PKG_URL="https://files.pythonhosted.org/packages/source/${PKG_NAME:0:1}/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.gz"

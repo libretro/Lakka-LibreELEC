@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="minizip"
-PKG_VERSION="1.1"
-PKG_SHA256="5666b5ee3e85dfd2dd119970613c12e6267d31813f07d3ffa5d359fe272cb6d1"
+PKG_VERSION="2.8.8"
+PKG_SHA256="a551063636ae4f989baefc6a20870f5b28246052a372a2ce124ebf3f66018db0"
 PKG_LICENSE="zlib"
 PKG_SITE="https://github.com/nmoinvaz/minizip"
 PKG_URL="https://github.com/nmoinvaz/minizip/archive/$PKG_VERSION.tar.gz"

@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libXdamage"
-PKG_VERSION="1.1.4"
-PKG_SHA256="7c3fe7c657e83547f4822bfde30a90d84524efb56365448768409b77f05355ad"
+PKG_VERSION="1.1.5"
+PKG_SHA256="b734068643cac3b5f3d2c8279dd366b5bf28c7219d9e9d8717e1383995e0ea45"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/$PKG_NAME-$PKG_VERSION.tar.bz2"

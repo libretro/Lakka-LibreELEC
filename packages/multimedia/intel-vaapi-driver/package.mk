@@ -22,5 +22,4 @@ else
 fi
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
-                           --enable-drm \
                            $DISPLAYSERVER_LIBVA"
