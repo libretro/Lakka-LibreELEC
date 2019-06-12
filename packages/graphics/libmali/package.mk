@@ -17,6 +17,12 @@ if listcontains "$MALI_FAMILY" "(t620|t720)"; then
   PKG_DEPENDS_TARGET+=" wayland"
 fi
 
+if [ "$LINUX" != "rockchip-4.4" ]; then
+  listcontains "$MALI_FAMILY" "4[0-9]+" && PKG_DEPENDS_TARGET+=" mali-utgard"
+  listcontains "$MALI_FAMILY" "t[0-9]+" && PKG_DEPENDS_TARGET+=" mali-midgard"
+  listcontains "$MALI_FAMILY" "g[0-9]+" && PKG_DEPENDS_TARGET+=" mali-bifrost"
+fi
+
 PKG_CMAKE_OPTS_TARGET="-DMALI_VARIANT=${MALI_FAMILY// /;}"
 
 if [ "$TARGET_ARCH" = "aarch64" ]; then
