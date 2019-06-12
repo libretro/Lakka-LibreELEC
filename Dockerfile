@@ -26,9 +26,6 @@ RUN apt-get update \
 		git-core \
 		gperf \
 		gzip \
-		libasound2-dev \
-		libgl1-mesa-dev \
-		libgles2-mesa-dev \
 		libjson-perl \
 		libncurses5-dev \
 		lzop \
