@@ -104,7 +104,13 @@ class MyUtility(object):
         return (0, subprocess.check_output(command.split(" "), stderr=_logfile))
     except  subprocess.CalledProcessError as cpe:
       if MyUtility.isPython3:
-        return (cpe.returncode, cpe.output.decode("utf-8"))
+        # Clean up undecodable garbage in response (eg. libftdi1 error page)
+        output = bytearray()
+        for c in cpe.output:
+          if c <= 127:
+            output.append(c)
+
+        return (cpe.returncode, output.decode("utf-8"))
       else:
         return (cpe.returncode, cpe.output)
     finally:

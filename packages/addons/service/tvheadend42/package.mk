@@ -5,7 +5,7 @@ PKG_NAME="tvheadend42"
 PKG_VERSION="5c218500579d5bd1c1f7e7a4b5f7f0fb35baa626"
 PKG_SHA256="a9fe5a4c36aa185e3f0a73a709f0dc05794ae9c12f5d888985b559ff68a2508d"
 PKG_VERSION_NUMBER="4.2.7-44"
-PKG_REV="118"
+PKG_REV="119"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.tvheadend.org"
@@ -114,7 +114,6 @@ addon() {
   cp -PL $(get_build_dir gnutls)/.INSTALL_PKG/usr/lib/libgnutls.so.30 $ADDON_BUILD/$PKG_ADDON_ID/lib
   cp -PL $(get_build_dir nettle)/.install_pkg/usr/lib/libnettle.so.6 $ADDON_BUILD/$PKG_ADDON_ID/lib
   cp -PL $(get_build_dir nettle)/.install_pkg/usr/lib/libhogweed.so.4 $ADDON_BUILD/$PKG_ADDON_ID/lib
-  cp -PL $(get_build_dir libidn2)/.install_pkg/usr/lib/libidn2.so.4 $ADDON_BUILD/$PKG_ADDON_ID/lib
   cp -PL $(get_build_dir gmp)/.install_pkg/usr/lib/libgmp.so.10 $ADDON_BUILD/$PKG_ADDON_ID/lib
 
   # set only version (revision will be added by buildsystem)

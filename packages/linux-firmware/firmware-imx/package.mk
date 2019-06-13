@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="firmware-imx"
 PKG_VERSION="5.4"
@@ -13,9 +14,8 @@ PKG_LONGDESC="firmware-imx: Freescale IMX firmware such as for the VPU"
 PKG_TOOLCHAIN="manual"
 
 unpack() {
-  mkdir -p $BUILD
-    cd $BUILD
-    sh $SOURCES/$PKG_NAME/$PKG_NAME-$PKG_VERSION.bin --auto-accept
+  cd $(dirname $PKG_BUILD)
+  sh $SOURCES/$PKG_NAME/$PKG_NAME-$PKG_VERSION.bin --auto-accept
 }
 
 makeinstall_target() {

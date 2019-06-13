@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libxkbfile"
-PKG_VERSION="1.0.9"
-PKG_SHA256="51817e0530961975d9513b773960b4edd275f7d5c72293d5a151ed4f42aeb16a"
+PKG_VERSION="1.1.0"
+PKG_SHA256="758dbdaa20add2db4902df0b1b7c936564b7376c02a0acd1f2a331bd334b38c7"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/$PKG_NAME-$PKG_VERSION.tar.bz2"
