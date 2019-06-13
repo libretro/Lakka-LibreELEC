@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="jsoncpp"
-PKG_VERSION="1.8.3"
-PKG_SHA256="3671ba6051e0f30849942cc66d1798fdf0362d089343a83f704c09ee7156604f"
+PKG_VERSION="1.8.4"
+PKG_SHA256="c49deac9e0933bcb7044f08516861a2d560988540b23de2ac1ad443b219afdb6"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/open-source-parsers/jsoncpp/"
 PKG_URL="https://github.com/open-source-parsers/jsoncpp/archive/$PKG_VERSION.tar.gz"

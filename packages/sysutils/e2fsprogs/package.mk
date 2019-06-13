@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="e2fsprogs"
-PKG_VERSION="1.43.9"
-PKG_SHA256="926f8e8de1ffba55d791f21b71334e8a32b5227257ad370f2bf7e4396629e97f"
+PKG_VERSION="1.45.1"
+PKG_SHA256="24acedbe376a9c1b5c0a0b15c9fb84b3bef4943d669caf40b2e3e41e86d95548"
 PKG_LICENSE="GPL"
 PKG_SITE="http://e2fsprogs.sourceforge.net/"
 PKG_URL="https://www.kernel.org/pub/linux/kernel/people/tytso/$PKG_NAME/v$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.xz"
@@ -22,36 +22,33 @@ PKG_CONFIGURE_OPTS_HOST="--prefix=$TOOLCHAIN/ \
                          --bindir=$TOOLCHAIN/bin \
                          --sbindir=$TOOLCHAIN/sbin"
 
-pre_configure_target() {
-  PKG_CONFIGURE_OPTS_TARGET="BUILD_CC=$HOST_CC \
-                             --enable-verbose-makecmds \
-                             --enable-symlink-install \
-                             --enable-symlink-build \
-                             --disable-elf-shlibs \
-                             --disable-bsd-shlibs \
-                             --disable-profile \
-                             --disable-jbd-debug \
-                             --disable-blkid-debug \
-                             --disable-testio-debug \
-                             --enable-libuuid \
-                             --enable-libblkid \
-                             --disable-debugfs \
-                             --disable-imager \
-                             --enable-resizer \
-                             --enable-fsck \
-                             --disable-e2initrd-helper \
-                             --enable-tls \
-                             --disable-uuidd \
-                             --disable-nls \
-                             --disable-rpath \
-                             --disable-fuse2fs \
-                             --with-gnu-ld"
-}
+pre_configure() {
+  PKG_CONFIGURE_OPTS_INIT="BUILD_CC=$HOST_CC \
+                           --enable-verbose-makecmds \
+                           --enable-symlink-install \
+                           --enable-symlink-build \
+                           --disable-subset \
+                           --disable-elf-shlibs \
+                           --disable-bsd-shlibs \
+                           --disable-profile \
+                           --disable-jbd-debug \
+                           --disable-blkid-debug \
+                           --disable-testio-debug \
+                           --enable-libuuid \
+                           --enable-libblkid \
+                           --disable-debugfs \
+                           --disable-imager \
+                           --enable-resizer \
+                           --enable-fsck \
+                           --disable-e2initrd-helper \
+                           --enable-tls \
+                           --disable-uuidd \
+                           --disable-nls \
+                           --disable-rpath \
+                           --disable-fuse2fs \
+                           --with-gnu-ld"
 
-pre_configure_init() {
-  pkg_call pre_configure_target
-
-  PKG_CONFIGURE_OPTS_INIT="$PKG_CONFIGURE_OPTS_TARGET"
+  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_INIT"
 }
 
 post_makeinstall_target() {

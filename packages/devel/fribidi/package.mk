@@ -18,9 +18,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-shared \
                            --disable-debug \
                            --disable-deprecated \
                            --disable-silent-rules \
-                           --enable-charsets \
-                           --with-gnu-ld \
-                           --without-glib"
+                           --with-gnu-ld"
 
 pre_configure_target() {
   export CFLAGS="$CFLAGS -DFRIBIDI_CHUNK_SIZE=4080"
