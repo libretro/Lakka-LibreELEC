@@ -2,8 +2,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="media_tree"
-PKG_VERSION="2019-01-10-15d90a6ae98e"
-PKG_SHA256="cf170bfc0e78959c6b289db6f4cf7ec7b400dd4704f45909e1535a935702e8bc"
+PKG_VERSION="2017-08-20-3b6471c7becd"
+PKG_SHA256="7fa8d0be68991d1bc6a244888cf2308d2f6152748c1d417efa0784d101ba262b"
 PKG_LICENSE="GPL"
 PKG_SITE="https://git.linuxtv.org/media_tree.git"
 PKG_URL="http://linuxtv.org/downloads/drivers/linux-media-${PKG_VERSION}.tar.bz2"
