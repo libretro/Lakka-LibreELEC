@@ -91,6 +91,10 @@ configure_package() {
     KODI_CEC="-DENABLE_CEC=OFF"
   fi
 
+  if [ "$CEC_FRAMEWORK_SUPPORT" = "yes" ]; then
+    PKG_PATCH_DIRS+=" cec-framework"
+  fi
+
   if [ "$KODI_OPTICAL_SUPPORT" = yes ]; then
     KODI_OPTICAL="-DENABLE_OPTICAL=ON"
   else
