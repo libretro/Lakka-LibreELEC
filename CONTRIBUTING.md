@@ -5,25 +5,26 @@
  * You are responsible for your own changes, if you break something, you need to fix it
  * Everybody has to test their own changes
  * Testing means manual testing on real hardware
- * If you are unsure how to contribute code, meet us on IRC
+ * If you are unsure how to contribute code, meet us on IRC (#lakkatv on freenode) or Discord (libretro server)
  * Our users want the latest working versions of RetroArch and the libretro cores. They don't want non working / half working versions.
 
 # Team members
 
-Project leader: kivutar
-Team members: kivutar, Ntemis, gouchi, ToKe79, RobLoach
+Project leader: natinusala
+
+Team members: kivutar, Ntemis, gouchi, ToKe79, RobLoach, natinusala, plaidman
 
 # The development branch
 
-The development happens on the branch Lakka-V2.1-dev. This branch follows LibreELEC 8.2 stable.
+The development happens on the branch master. This branch follows LibreELEC 8.2 stable.
 
 We consider this branch as a rolling release, and we ensure that:
 
- * All the projects build fine at least on Ubuntu 16.04
+ * All the projects build fine at least on Ubuntu 16.04 and 18.04
  * All the projects boot
  * All the projects boot to RetroArch
 
-We don't have a stable branch + unstable branches. For now, we only work on Lakka-V2.1-dev which should be as stable as possible.
+We don't have a stable branch + unstable branches. For now, we only work on master which should be as stable as possible.
  
 # Pull requests
 
@@ -65,7 +66,7 @@ Updating RetroArch requires a lot of manual testing. So leave this task to the c
 
 We try to release images to the public one time per month.
 
-Before every release or release candidate, we have a one week code freeze that is announced on IRC by the team leader.
+Before every release or release candidate, we have a one week code freeze that is announced on IRC or Discord by the team leader.
 
 During the code freeze:
 
