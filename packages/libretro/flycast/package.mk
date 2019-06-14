@@ -18,18 +18,18 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="reicast"
-PKG_VERSION="2abb342"
+PKG_NAME="flycast"
+PKG_VERSION="4a020d4"
 PKG_REV="1"
-PKG_ARCH="arm i386 x86_64"
+PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/libretro/reicast-emulator"
+PKG_SITE="https://github.com/libretro/flycast"
 PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="Reicast is a multiplatform Sega Dreamcast emulator"
-PKG_LONGDESC="Reicast is a multiplatform Sega Dreamcast emulator"
+PKG_SHORTDESC="Flycast is a multiplatform Sega Dreamcast emulator"
+PKG_LONGDESC="Flycast is a multiplatform Sega Dreamcast emulator"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
@@ -48,5 +48,5 @@ make_target() {
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp reicast_libretro.so $INSTALL/usr/lib/libretro/
+  cp flycast_libretro.so $INSTALL/usr/lib/libretro/
 }
