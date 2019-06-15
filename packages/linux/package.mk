@@ -36,7 +36,7 @@ case "$LINUX" in
     ;;
 esac
 
-PKG_KERNEL_CFG_FILE=$(kernel_config_path)
+PKG_KERNEL_CFG_FILE=$(kernel_config_path) || die
 
 if [ -n "$KERNEL_TOOLCHAIN" ]; then
   PKG_DEPENDS_HOST="$PKG_DEPENDS_HOST gcc-arm-$KERNEL_TOOLCHAIN:host"
