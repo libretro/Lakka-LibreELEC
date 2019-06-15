@@ -22,18 +22,32 @@
 # mount $BOOT_ROOT rw
   mount -o remount,rw $BOOT_ROOT
 
-# update device trees
-  for dtbfile in $BOOT_ROOT/dtb/*.dtb ; do
-    dtb=$(basename $dtbfile)
-    echo "Updating $dtb"
-    cp -p $SYSTEM_ROOT/usr/share/bootloader/$dtb $BOOT_ROOT/dtb/ 2>/dev/null || true
-  done
+# update extlinux device trees
+  if [ -f $BOOT_ROOT/extlinux/extlinux.conf ]; then
+    for dtbfile in $BOOT_ROOT/*.dtb ; do
+      dtb=$(basename $dtbfile)
+      echo "Updating $dtb"
+      cp -p $SYSTEM_ROOT/usr/share/bootloader/$dtb $BOOT_ROOT/dtb/ 2>/dev/null || true
+    done
+  fi
+
+# update box device trees
+  if [ -f $BOOT_ROOT/uEnv.ini ]; then
+    for dtbfile in $BOOT_ROOT/dtb/*.dtb ; do
+      dtb=$(basename $dtbfile)
+      echo "Updating $dtb"
+      cp -p $SYSTEM_ROOT/usr/share/bootloader/$dtb $BOOT_ROOT/dtb/ 2>/dev/null || true
+    done
+  fi
 
 # update u-boot scripts
-  for scriptfile in $SYSTEM_ROOT/usr/share/bootloader/*_autoscript* $SYSTEM_ROOT/usr/share/bootloader/*.scr ; do
-    echo "Updating $(basename $scriptfile)"
-    cp -p $scriptfile $BOOT_ROOT 2>/dev/null || true
-  done
+  if [ -f $BOOT_ROOT/uEnv.ini ]; then
+    for scriptfile in $SYSTEM_ROOT/usr/share/bootloader/*_autoscript* $SYSTEM_ROOT/usr/share/bootloader/*.scr ; do
+      script=$(basename $scriptfile)
+      echo "Updating $script"
+      cp -p $SYSTEM_ROOT/usr/share/bootloader/$script $BOOT_ROOT/ 2>/dev/null || true
+    done
+  fi
 
 # mount $BOOT_ROOT ro
   sync
