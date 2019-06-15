@@ -16,6 +16,13 @@ PKG_STAMP="$KERNEL_TARGET $KERNEL_MAKE_EXTRACMD"
 PKG_PATCH_DIRS="$LINUX"
 
 case "$LINUX" in
+  amlogic)
+    PKG_VERSION="f74c2bb98776e2de508f4d607cd519873065118e" # 5.3-rc8
+    PKG_SHA256="f2438baf7672aa86e5cc8a82beca86af4b4debe4fcce8fa8535f4e955647f906"
+    PKG_URL="https://github.com/torvalds/linux/archive/$PKG_VERSION.tar.gz"
+    PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
+    PKG_PATCH_DIRS="amlogic"
+    ;;
   rockchip-4.4)
     PKG_VERSION="aa8bacf821e5c8ae6dd8cae8d64011c741659945"
     PKG_SHA256="a2760fe89a15aa7be142fd25fb08ebd357c5d855c41f1612cf47c6e89de39bb3"
