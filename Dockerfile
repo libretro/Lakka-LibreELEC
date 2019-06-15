@@ -40,8 +40,6 @@ RUN apt-get update \
 		unzip \
 		wget \
 		xfonts-utils \
-		xfonts-utils \
-		xfonts-utils \
 		xsltproc \
 		xz-utils \
 		zip \
