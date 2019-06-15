@@ -14,19 +14,6 @@ image:
 noobs:
 	./scripts/image noobs
 
-# legacy sequential build targets
-system-st:
-	./scripts/image_st
-
-release-st:
-	./scripts/image_st release
-
-image-st:
-	./scripts/image_st mkimage
-
-noobs-st:
-	./scripts/image_st noobs
-
 clean:
 	rm -rf $(BUILD_DIRS)/* $(BUILD_DIRS)/.stamps
 
