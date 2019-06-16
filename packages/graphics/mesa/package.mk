@@ -14,8 +14,8 @@ PKG_TOOLCHAIN="meson"
 PKG_BUILD_FLAGS="+lto"
 
 if listcontains "${GRAPHIC_DRIVERS}" "(lima|panfrost)"; then
-  PKG_VERSION="659aa3dd6519f64379e91ca97fe184434fd7fdee" # master-19.2
-  PKG_SHA256="7152dd8c780e47c4e5e18ebaa47fd4f8fe116b43012affda2f964ae23b324d34"
+  PKG_VERSION="ef919d8dcb9272ad7b23f5dbd8b7fb2f83393b42" # master-19.3
+  PKG_SHA256="9b881e5c7617941ae89876cbb2c31982f19c7289353a5fdca4101f8b01ade69d"
   PKG_URL="https://gitlab.freedesktop.org/mesa/mesa/-/archive/$PKG_VERSION/mesa-$PKG_VERSION.tar.gz"
 fi
 
@@ -95,21 +95,6 @@ fi
 pre_configure_target() {
   if [ "$DISPLAYSERVER" = "x11" ]; then
     export LIBS="-lxcb-dri3 -lxcb-dri2 -lxcb-xfixes -lxcb-present -lxcb-sync -lxshmfence -lz"
-  fi
-
-  # Temporary hack (until panfrost evolves) to use 64-bit pointers in structs passed to GPU
-  # even if userspace is 32-bit. This is required for Mali-T8xx to work with mesa built for
-  # arm userspace. The hack does not affect building for aarch64.
-  if [[ "${MALI_FAMILY}" = *t8* ]]; then
-    (
-      cd "$PKG_BUILD/src/gallium/drivers/panfrost"
-      sed -i 's/uintptr_t/uint64_t/g' include/panfrost-job.h \
-                                      include/panfrost-misc.h \
-                                      pan_context.c \
-                                      pandecode/decode.c
-
-      find -type f -exec sed -i 's/ndef __LP64__/ 0/g; s/def __LP64__/ 1/g' {} +;
-    )
   fi
 }
 
