@@ -3,72 +3,72 @@
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
-. config/options $1
+. config/options "${1}"
 
 # Make sure we have a value for STRIP
 setup_toolchain target
 
-[ -n "$2" ] && PKG_ADDON_ID=$2
+[ -n "${2}" ] && PKG_ADDON_ID=${2}
 
-ADDON_DIRECTORY="$ADDON_BUILD/$PKG_ADDON_ID"
+ADDON_DIRECTORY="${ADDON_BUILD}/${PKG_ADDON_ID}"
 
-install_addon_files "$ADDON_DIRECTORY"
+install_addon_files "${ADDON_DIRECTORY}"
 
-debug_strip "$ADDON_DIRECTORY"
+debug_strip "${ADDON_DIRECTORY}"
 
 # pack_addon()
-ADDON_INSTALL_DIR="$TARGET_IMG/$ADDONS/$ADDON_VERSION/${DEVICE:-$PROJECT}/$TARGET_ARCH/$PKG_ADDON_ID"
-ADDONVER="$(xmlstarlet sel -t -v "/addon/@version" $ADDON_BUILD/$PKG_ADDON_ID/addon.xml)"
+ADDON_INSTALL_DIR="${TARGET_IMG}/${ADDONS}/${ADDON_VERSION}/${DEVICE:-${PROJECT}}/${TARGET_ARCH}/${PKG_ADDON_ID}"
+ADDONVER="$(xmlstarlet sel -t -v "/addon/@version" ${ADDON_BUILD}/${PKG_ADDON_ID}/addon.xml)"
 
-if [ -f $ADDON_INSTALL_DIR/$PKG_ADDON_ID-$ADDONVER.zip ]; then
-  if [ "$ADDON_OVERWRITE" = "yes" ]; then
-    rm $ADDON_INSTALL_DIR/$PKG_ADDON_ID-$ADDONVER.zip
+if [ -f ${ADDON_INSTALL_DIR}/${PKG_ADDON_ID}-${ADDONVER}.zip ]; then
+  if [ "${ADDON_OVERWRITE}" = "yes" ]; then
+    rm ${ADDON_INSTALL_DIR}/${PKG_ADDON_ID}-${ADDONVER}.zip
   else
     build_msg "CLR_WARNING" "*** WARNING: ${PKG_ADDON_ID}-${ADDONVER}.zip already exists. Not overwriting it. ***"
     exit 0
   fi
 fi
 
-cd $ADDON_BUILD
+cd ${ADDON_BUILD}
 build_msg "CLR_INFO" "*** compressing addon ${PKG_ADDON_ID} ... ***"
-$TOOLCHAIN/bin/7za a -l -mx9 -bsp0 -bso0 -tzip $PKG_ADDON_ID-$ADDONVER.zip $PKG_ADDON_ID
+${TOOLCHAIN}/bin/7za a -l -mx9 -bsp0 -bso0 -tzip ${PKG_ADDON_ID}-${ADDONVER}.zip ${PKG_ADDON_ID}
 cd - &>/dev/null
 
-mkdir -p $ADDON_INSTALL_DIR
-cp $ADDON_BUILD/$PKG_ADDON_ID-$ADDONVER.zip $ADDON_INSTALL_DIR
-if [ -f $ADDON_BUILD/$PKG_ADDON_ID/changelog.txt ]; then
-  cp $ADDON_BUILD/$PKG_ADDON_ID/changelog.txt $ADDON_INSTALL_DIR/changelog-$ADDONVER.txt
+mkdir -p ${ADDON_INSTALL_DIR}
+cp ${ADDON_BUILD}/${PKG_ADDON_ID}-${ADDONVER}.zip ${ADDON_INSTALL_DIR}
+if [ -f ${ADDON_BUILD}/${PKG_ADDON_ID}/changelog.txt ]; then
+  cp ${ADDON_BUILD}/${PKG_ADDON_ID}/changelog.txt ${ADDON_INSTALL_DIR}/changelog-${ADDONVER}.txt
 fi
-if [ -f $ADDON_BUILD/$PKG_ADDON_ID/resources/icon.png ]; then
-  mkdir -p $ADDON_INSTALL_DIR/resources
-  cp $ADDON_BUILD/$PKG_ADDON_ID/resources/icon.png $ADDON_INSTALL_DIR/resources/icon.png
+if [ -f ${ADDON_BUILD}/${PKG_ADDON_ID}/resources/icon.png ]; then
+  mkdir -p ${ADDON_INSTALL_DIR}/resources
+  cp ${ADDON_BUILD}/${PKG_ADDON_ID}/resources/icon.png ${ADDON_INSTALL_DIR}/resources/icon.png
 fi
 
 # workaround for kodi pvr addons
-if [ -f $ADDON_BUILD/$PKG_ADDON_ID/icon.png ]; then
-  cp $ADDON_BUILD/$PKG_ADDON_ID/icon.png $ADDON_INSTALL_DIR/icon.png
+if [ -f ${ADDON_BUILD}/${PKG_ADDON_ID}/icon.png ]; then
+  cp ${ADDON_BUILD}/${PKG_ADDON_ID}/icon.png ${ADDON_INSTALL_DIR}/icon.png
 fi
 
-if [ -f $ADDON_BUILD/$PKG_ADDON_ID/resources/fanart.png ]; then
-  mkdir -p $ADDON_INSTALL_DIR/resources
-  cp $ADDON_BUILD/$PKG_ADDON_ID/resources/fanart.png $ADDON_INSTALL_DIR/resources/fanart.png
+if [ -f ${ADDON_BUILD}/${PKG_ADDON_ID}/resources/fanart.png ]; then
+  mkdir -p ${ADDON_INSTALL_DIR}/resources
+  cp ${ADDON_BUILD}/${PKG_ADDON_ID}/resources/fanart.png ${ADDON_INSTALL_DIR}/resources/fanart.png
 fi
-for f in $ADDON_BUILD/$PKG_ADDON_ID/resources/screenshot-*.{jpg,png}; do
-  if [ -f "$f" ]; then
-    mkdir -p $ADDON_INSTALL_DIR/resources
-    cp $f $ADDON_INSTALL_DIR/resources
+for f in ${ADDON_BUILD}/${PKG_ADDON_ID}/resources/screenshot-*.{jpg,png}; do
+  if [ -f "${f}" ]; then
+    mkdir -p ${ADDON_INSTALL_DIR}/resources
+    cp ${f} ${ADDON_INSTALL_DIR}/resources
   fi
 done
 
 # Jenkins add-on build
-if [ "$ADDON_JENKINS" = "yes" ]; then
-  ADDON_JENKINS_DIR="$TARGET_IMG/jenkins"
-  ADDON_JENKINS_ADDON_NAME="$ADDON_VERSION-${DEVICE:-$PROJECT}-$TARGET_ARCH-$PKG_ADDON_ID-$ADDONVER"
-  mkdir -p "$ADDON_JENKINS_DIR"
-  cd $ADDON_INSTALL_DIR
-  $TOOLCHAIN/bin/7za a -l -mx0 -bsp0 -bso0 -tzip $ADDON_JENKINS_DIR/$ADDON_JENKINS_ADDON_NAME.zip $PKG_ADDON_ID-$ADDONVER.zip resources/
-  ( cd $ADDON_JENKINS_DIR
-    sha256sum $ADDON_JENKINS_ADDON_NAME.zip > $ADDON_JENKINS_ADDON_NAME.zip.sha256
+if [ "${ADDON_JENKINS}" = "yes" ]; then
+  ADDON_JENKINS_DIR="${TARGET_IMG}/jenkins"
+  ADDON_JENKINS_ADDON_NAME="${ADDON_VERSION}-${DEVICE:-${PROJECT}}-${TARGET_ARCH}-${PKG_ADDON_ID}-${ADDONVER}"
+  mkdir -p "${ADDON_JENKINS_DIR}"
+  cd ${ADDON_INSTALL_DIR}
+  ${TOOLCHAIN}/bin/7za a -l -mx0 -bsp0 -bso0 -tzip ${ADDON_JENKINS_DIR}/${ADDON_JENKINS_ADDON_NAME}.zip ${PKG_ADDON_ID}-${ADDONVER}.zip resources/
+  ( cd ${ADDON_JENKINS_DIR}
+    sha256sum ${ADDON_JENKINS_ADDON_NAME}.zip > ${ADDON_JENKINS_ADDON_NAME}.zip.sha256
   )
   build_msg "CLR_INFO" "*** creating ${ADDON_JENKINS_ADDON_NAME}.zip for Jenkins complete ***"
 else
