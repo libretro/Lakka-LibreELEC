@@ -1,0 +1,150 @@
+From b2ad605c9ae4b3e8bf5447562aea095fa094e66a Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Thu, 30 May 2019 21:36:32 +0000
+Subject: [PATCH] windowing/gbm: add option to limit gui size
+
+---
+ .../resources/strings.po                      | 44 ++++++++++++++++++-
+ system/settings/gbm.xml                       | 15 +++++++
+ xbmc/windowing/gbm/DRMUtils.cpp               | 33 +++++++++++++-
+ 3 files changed, 90 insertions(+), 2 deletions(-)
+
+diff --git a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
+index 9c9161a99323..11cdf4aba26c 100644
+--- a/addons/resource.language.en_gb/resources/strings.po
++++ b/addons/resource.language.en_gb/resources/strings.po
+@@ -7266,7 +7266,49 @@ msgctxt "#13465"
+ msgid "EGL"
+ msgstr ""
+ 
+-#empty strings from id 13466 to 13504
++#. Option for setting Limit GUI Size
++#: system/settings/gbm.xml
++msgctxt "#13466"
++msgid "Limit GUI Size"
++msgstr ""
++
++#. Description of setting with label #13466 "Limit GUI Size"
++#: system/settings/gbm.xml
++msgctxt "#13467"
++msgid "This option limits GUI size for screen resolutions above 1080p. Requires restart."
++msgstr ""
++
++#. String for options 1 of setting with label #13466 "Limit GUI Size"
++#: system/settings/gbm.xml
++msgctxt "#13468"
++msgid "No limit"
++msgstr ""
++
++#. String for options 2 of setting with label #13466 "Limit GUI Size"
++#: system/settings/gbm.xml
++msgctxt "#13469"
++msgid "720p"
++msgstr ""
++
++#. String for options 3 of setting with label #13466 "Limit GUI Size"
++#: system/settings/gbm.xml
++msgctxt "#13470"
++msgid "1080p / 720p (>30hz)"
++msgstr ""
++
++#. String for options 4 of setting with label #13466 "Limit GUI Size"
++#: system/settings/gbm.xml
++msgctxt "#13471"
++msgid "1080p"
++msgstr ""
++
++#. String for options 5 of setting with label #13466 "Limit GUI Size"
++#: system/settings/gbm.xml
++msgctxt "#13472"
++msgid "No limit / 1080p (>30hz)"
++msgstr ""
++
++#empty strings from id 13473 to 13504
+ 
+ #: system/settings/settings.xml
+ msgctxt "#13505"
+diff --git a/system/settings/gbm.xml b/system/settings/gbm.xml
+index c5e4d98e0bef..6492b08ef5f2 100644
+--- a/system/settings/gbm.xml
++++ b/system/settings/gbm.xml
+@@ -41,6 +41,21 @@
+         <setting id="videoscreen.screen">
+           <visible>false</visible>
+         </setting>
++        <setting id="videoscreen.limitguisize" type="integer" label="13466" help="13467">
++          <visible>false</visible>
++          <level>3</level>
++          <default>0</default>
++          <constraints>
++            <options>
++              <option label="13468">0</option> <!-- No limit -->
++              <option label="13469">1</option> <!-- 720p -->
++              <option label="13470">2</option> <!-- 1080p / 720p (>30hz) -->
++              <option label="13471">3</option> <!-- 1080p -->
++              <option label="13472">4</option> <!-- No limit / 1080p (>30hz) -->
++            </options>
++          </constraints>
++          <control type="list" format="string" />
++        </setting>
+         <setting id="videoscreen.limitedrange" type="boolean" label="36042" help="36359">
+           <level>3</level>
+           <default>false</default>
+diff --git a/xbmc/windowing/gbm/DRMUtils.cpp b/xbmc/windowing/gbm/DRMUtils.cpp
+index 48f0bc40bcf9..c6031bf67c41 100644
+--- a/xbmc/windowing/gbm/DRMUtils.cpp
++++ b/xbmc/windowing/gbm/DRMUtils.cpp
+@@ -17,14 +17,21 @@
+ #include <unistd.h>
+ 
+ #include "platform/linux/XTimeUtils.h"
+-#include "utils/log.h"
++#include "settings/Settings.h"
++#include "settings/SettingsComponent.h"
+ #include "utils/StringUtils.h"
++#include "utils/log.h"
+ #include "windowing/GraphicContext.h"
+ 
+ #include "DRMUtils.h"
+ 
+ using namespace KODI::WINDOWING::GBM;
+ 
++namespace
++{
++const std::string SETTING_VIDEOSCREEN_LIMITGUISIZE = "videoscreen.limitguisize";
++}
++
+ CDRMUtils::CDRMUtils()
+   : m_connector(new connector)
+   , m_encoder(new encoder)
+@@ -762,6 +769,30 @@ RESOLUTION_INFO CDRMUtils::GetResolutionInfo(drmModeModeInfoPtr mode)
+   res.iWidth = res.iScreenWidth;
+   res.iHeight = res.iScreenHeight;
+ 
++  int limit = CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt(SETTING_VIDEOSCREEN_LIMITGUISIZE);
++  if (limit > 0 && res.iScreenWidth > 1920 && res.iScreenHeight > 1080)
++  {
++    switch (limit)
++    {
++    case 1: // 720p
++      res.iWidth = 1280;
++      res.iHeight = 720;
++      break;
++    case 2: // 1080p / 720p (>30hz)
++      res.iWidth = mode->vrefresh > 30 ? 1280 : 1920;
++      res.iHeight = mode->vrefresh > 30 ? 720 : 1080;
++      break;
++    case 3: // 1080p
++      res.iWidth = 1920;
++      res.iHeight = 1080;
++      break;
++    case 4: // No limit / 1080p (>30hz)
++      res.iWidth = mode->vrefresh > 30 ? 1920 : res.iScreenWidth;
++      res.iHeight = mode->vrefresh > 30 ? 1080 : res.iScreenHeight;
++      break;
++    }
++  }
++
+   if (mode->clock % 5 != 0)
+     res.fRefreshRate = static_cast<float>(mode->vrefresh) * (1000.0f/1001.0f);
+   else
