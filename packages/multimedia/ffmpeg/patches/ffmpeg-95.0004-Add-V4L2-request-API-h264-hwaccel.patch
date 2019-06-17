@@ -1,4 +1,4 @@
-From bc1ed76cbc2dad2ec308801552e2398fc2de0a07 Mon Sep 17 00:00:00 2001
+From 250fab0e761f4956c009a6333c6799f63440b091 Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@siol.net>
 Date: Sat, 15 Dec 2018 22:32:16 +0100
 Subject: [PATCH 4/6] Add V4L2 request API h264 hwaccel
@@ -11,12 +11,12 @@ Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
  libavcodec/h264_slice.c        |   4 +
  libavcodec/h264dec.c           |   3 +
  libavcodec/hwaccels.h          |   1 +
- libavcodec/v4l2_request_h264.c | 368 +++++++++++++++++++++++++++++++++
- 6 files changed, 380 insertions(+)
+ libavcodec/v4l2_request_h264.c | 367 +++++++++++++++++++++++++++++++++
+ 6 files changed, 379 insertions(+)
  create mode 100644 libavcodec/v4l2_request_h264.c
 
 diff --git a/configure b/configure
-index c93d67056d..296ca78ce7 100755
+index b163ed8dbe..698a91d5dc 100755
 --- a/configure
 +++ b/configure
 @@ -2804,6 +2804,8 @@ h264_dxva2_hwaccel_deps="dxva2"
@@ -28,7 +28,7 @@ index c93d67056d..296ca78ce7 100755
  h264_vaapi_hwaccel_deps="vaapi"
  h264_vaapi_hwaccel_select="h264_decoder"
  h264_vdpau_hwaccel_deps="vdpau"
-@@ -6239,6 +6241,7 @@ check_cc vp8_v4l2_m2m linux/videodev2.h "int i = V4L2_PIX_FMT_VP8;"
+@@ -6243,6 +6245,7 @@ check_cc vp8_v4l2_m2m linux/videodev2.h "int i = V4L2_PIX_FMT_VP8;"
  check_cc vp9_v4l2_m2m linux/videodev2.h "int i = V4L2_PIX_FMT_VP9;"
  
  check_func_headers "linux/media.h linux/videodev2.h" v4l2_timeval_to_ns
@@ -98,10 +98,10 @@ index ef54de2a3b..003200edea 100644
  extern const AVHWAccel ff_h264_videotoolbox_hwaccel;
 diff --git a/libavcodec/v4l2_request_h264.c b/libavcodec/v4l2_request_h264.c
 new file mode 100644
-index 0000000000..a5c56d81c3
+index 0000000000..3687325fad
 --- /dev/null
 +++ b/libavcodec/v4l2_request_h264.c
-@@ -0,0 +1,368 @@
+@@ -0,0 +1,367 @@
 +/*
 + * This file is part of FFmpeg.
 + *
@@ -164,8 +164,10 @@ index 0000000000..a5c56d81c3
 +        entry->flags |= V4L2_H264_DPB_ENTRY_FLAG_ACTIVE;
 +    if (pic->long_ref)
 +        entry->flags |= V4L2_H264_DPB_ENTRY_FLAG_LONG_TERM;
-+    entry->top_field_order_cnt = pic->field_poc[0];
-+    entry->bottom_field_order_cnt = pic->field_poc[1];
++    if (pic->field_poc[0] != INT_MAX)
++        entry->top_field_order_cnt = pic->field_poc[0];
++    if (pic->field_poc[1] != INT_MAX)
++        entry->bottom_field_order_cnt = pic->field_poc[1];
 +}
 +
 +static void fill_dpb(struct v4l2_ctrl_h264_decode_params *decode, const H264Context *h)
@@ -174,7 +176,7 @@ index 0000000000..a5c56d81c3
 +
 +    for (int i = 0; i < h->short_ref_count; i++) {
 +        const H264Picture *pic = h->short_ref[i];
-+        if (pic)
++        if (pic && (pic->field_poc[0] != INT_MAX || pic->field_poc[1] != INT_MAX))
 +            fill_dpb_entry(&decode->dpb[entries++], pic);
 +    }
 +
@@ -183,7 +185,7 @@ index 0000000000..a5c56d81c3
 +
 +    for (int i = 0; i < FF_ARRAY_ELEMS(h->long_ref); i++) {
 +        const H264Picture *pic = h->long_ref[i];
-+        if (pic)
++        if (pic && (pic->field_poc[0] != INT_MAX || pic->field_poc[1] != INT_MAX))
 +            fill_dpb_entry(&decode->dpb[entries++], pic);
 +    }
 +}
@@ -299,11 +301,8 @@ index 0000000000..a5c56d81c3
 +    controls->decode_params = (struct v4l2_ctrl_h264_decode_params) {
 +        .num_slices = 0,
 +        .nal_ref_idc = h->nal_ref_idc,
-+        //.ref_pic_list_p0[32]  - not required? not set by libva-v4l2-request
-+        //.ref_pic_list_b0[32]  - not required? not set by libva-v4l2-request
-+        //.ref_pic_list_b1[32]  - not required? not set by libva-v4l2-request
-+        .top_field_order_cnt = h->cur_pic_ptr->field_poc[0],
-+        .bottom_field_order_cnt = h->cur_pic_ptr->field_poc[1],
++        .top_field_order_cnt = h->cur_pic_ptr->field_poc[0] != INT_MAX ? h->cur_pic_ptr->field_poc[0] : 0,
++        .bottom_field_order_cnt = h->cur_pic_ptr->field_poc[1] != INT_MAX ? h->cur_pic_ptr->field_poc[1] : 0,
 +    };
 +
 +    if (h->picture_idr)

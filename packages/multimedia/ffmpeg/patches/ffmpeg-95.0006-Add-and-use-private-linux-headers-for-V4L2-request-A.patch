@@ -1,27 +1,50 @@
-From 583677006f15ee59600f6f30f5e79aa5f81935b9 Mon Sep 17 00:00:00 2001
+From d80cbc949372d6f19dc8c3b5f97b336864bd259c Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@siol.net>
 Date: Thu, 14 Feb 2019 23:20:05 +0100
 Subject: [PATCH 6/6] Add and use private linux headers for V4L2 request API
  ctrls
 
 ---
- libavcodec/h264-ctrls.h         | 192 +++++++++++++++++++++++++++++++
- libavcodec/hevc-ctrls.h         | 197 ++++++++++++++++++++++++++++++++
+ configure                       |   4 +-
+ libavcodec/h264-ctrls.h         | 197 +++++++++++++++++++++++++++++++
+ libavcodec/hevc-ctrls.h         | 203 ++++++++++++++++++++++++++++++++
  libavcodec/mpeg2-ctrls.h        |  82 +++++++++++++
  libavcodec/v4l2_request_h264.c  |   1 +
  libavcodec/v4l2_request_hevc.c  |   1 +
  libavcodec/v4l2_request_mpeg2.c |   1 +
- 6 files changed, 474 insertions(+)
+ 7 files changed, 487 insertions(+), 2 deletions(-)
  create mode 100644 libavcodec/h264-ctrls.h
  create mode 100644 libavcodec/hevc-ctrls.h
  create mode 100644 libavcodec/mpeg2-ctrls.h
 
+diff --git a/configure b/configure
+index 2d39cecbdf..23b1e57882 100755
+--- a/configure
++++ b/configure
+@@ -2804,7 +2804,7 @@ h264_dxva2_hwaccel_deps="dxva2"
+ h264_dxva2_hwaccel_select="h264_decoder"
+ h264_nvdec_hwaccel_deps="nvdec"
+ h264_nvdec_hwaccel_select="h264_decoder"
+-h264_v4l2request_hwaccel_deps="v4l2_request h264_v4l2_request"
++h264_v4l2request_hwaccel_deps="v4l2_request"
+ h264_v4l2request_hwaccel_select="h264_decoder"
+ h264_vaapi_hwaccel_deps="vaapi"
+ h264_vaapi_hwaccel_select="h264_decoder"
+@@ -2820,7 +2820,7 @@ hevc_dxva2_hwaccel_deps="dxva2 DXVA_PicParams_HEVC"
+ hevc_dxva2_hwaccel_select="hevc_decoder"
+ hevc_nvdec_hwaccel_deps="nvdec"
+ hevc_nvdec_hwaccel_select="hevc_decoder"
+-hevc_v4l2request_hwaccel_deps="v4l2_request hevc_v4l2_request"
++hevc_v4l2request_hwaccel_deps="v4l2_request"
+ hevc_v4l2request_hwaccel_select="hevc_decoder"
+ hevc_vaapi_hwaccel_deps="vaapi VAPictureParameterBufferHEVC"
+ hevc_vaapi_hwaccel_select="hevc_decoder"
 diff --git a/libavcodec/h264-ctrls.h b/libavcodec/h264-ctrls.h
 new file mode 100644
-index 0000000000..e2f83b3cdb
+index 0000000000..e1404d78d6
 --- /dev/null
 +++ b/libavcodec/h264-ctrls.h
-@@ -0,0 +1,192 @@
+@@ -0,0 +1,197 @@
 +/* SPDX-License-Identifier: GPL-2.0 */
 +/*
 + * These are the H.264 state controls for use with stateless H.264
@@ -34,6 +57,11 @@ index 0000000000..e2f83b3cdb
 +
 +#ifndef _H264_CTRLS_H_
 +#define _H264_CTRLS_H_
++
++#include <linux/videodev2.h>
++
++/* Our pixel format isn't stable at the moment */
++#define V4L2_PIX_FMT_H264_SLICE_RAW v4l2_fourcc('S', '2', '6', '4') /* H264 parsed slices */
 +
 +/*
 + * This is put insanely high to avoid conflicting with controls that
@@ -216,10 +244,10 @@ index 0000000000..e2f83b3cdb
 +#endif
 diff --git a/libavcodec/hevc-ctrls.h b/libavcodec/hevc-ctrls.h
 new file mode 100644
-index 0000000000..c8c61079c6
+index 0000000000..eee4479c7a
 --- /dev/null
 +++ b/libavcodec/hevc-ctrls.h
-@@ -0,0 +1,197 @@
+@@ -0,0 +1,203 @@
 +/* SPDX-License-Identifier: GPL-2.0 */
 +/*
 + * These are the HEVC state controls for use with stateless HEVC
@@ -233,21 +261,27 @@ index 0000000000..c8c61079c6
 +#ifndef _HEVC_CTRLS_H_
 +#define _HEVC_CTRLS_H_
 +
-+#define V4L2_CID_MPEG_VIDEO_HEVC_SPS		(V4L2_CID_MPEG_BASE + 645)
-+#define V4L2_CID_MPEG_VIDEO_HEVC_PPS		(V4L2_CID_MPEG_BASE + 646)
-+#define V4L2_CID_MPEG_VIDEO_HEVC_SLICE_PARAMS	(V4L2_CID_MPEG_BASE + 647)
-+#define V4L2_CID_MPEG_VIDEO_HEVC_SCALING_MATRIX	(V4L2_CID_MPEG_BASE + 648)
++#include <linux/videodev2.h>
++
++/* The pixel format isn't stable at the moment and will likely be renamed. */
++#define V4L2_PIX_FMT_HEVC_SLICE v4l2_fourcc('S', '2', '6', '5') /* HEVC parsed slices */
++
++#define V4L2_CID_MPEG_VIDEO_HEVC_SPS		(V4L2_CID_MPEG_BASE + 1008)
++#define V4L2_CID_MPEG_VIDEO_HEVC_PPS		(V4L2_CID_MPEG_BASE + 1009)
++#define V4L2_CID_MPEG_VIDEO_HEVC_SLICE_PARAMS	(V4L2_CID_MPEG_BASE + 1010)
++#define V4L2_CID_MPEG_VIDEO_HEVC_SCALING_MATRIX	(V4L2_CID_MPEG_BASE + 1011)
 +
 +/* enum v4l2_ctrl_type type values */
-+#define V4L2_CTRL_TYPE_HEVC_SPS 0x0115
-+#define V4L2_CTRL_TYPE_HEVC_PPS 0x0116
-+#define V4L2_CTRL_TYPE_HEVC_SLICE_PARAMS 0x0117
-+#define V4L2_CTRL_TYPE_HEVC_SCALING_MATRIX 0x0118
++#define V4L2_CTRL_TYPE_HEVC_SPS 0x0120
++#define V4L2_CTRL_TYPE_HEVC_PPS 0x0121
++#define V4L2_CTRL_TYPE_HEVC_SLICE_PARAMS 0x0122
++#define V4L2_CTRL_TYPE_HEVC_SCALING_MATRIX 0x0123
 +
 +#define V4L2_HEVC_SLICE_TYPE_B	0
 +#define V4L2_HEVC_SLICE_TYPE_P	1
 +#define V4L2_HEVC_SLICE_TYPE_I	2
 +
++/* The controls are not stable at the moment and will likely be reworked. */
 +struct v4l2_ctrl_hevc_sps {
 +	/* ISO/IEC 23008-2, ITU-T Rec. H.265: Sequence parameter set */
 +	__u8	chroma_format_idc;
@@ -506,7 +540,7 @@ index 0000000000..6601455b3d
 +
 +#endif
 diff --git a/libavcodec/v4l2_request_h264.c b/libavcodec/v4l2_request_h264.c
-index a5c56d81c3..a5dbc08a8d 100644
+index 3687325fad..2145a974eb 100644
 --- a/libavcodec/v4l2_request_h264.c
 +++ b/libavcodec/v4l2_request_h264.c
 @@ -19,6 +19,7 @@
@@ -518,7 +552,7 @@ index a5c56d81c3..a5dbc08a8d 100644
  typedef struct V4L2RequestControlsH264 {
      struct v4l2_ctrl_h264_sps sps;
 diff --git a/libavcodec/v4l2_request_hevc.c b/libavcodec/v4l2_request_hevc.c
-index 300c1866ce..7c7948cfbf 100644
+index 38969d77fb..b73eb2ab03 100644
 --- a/libavcodec/v4l2_request_hevc.c
 +++ b/libavcodec/v4l2_request_hevc.c
 @@ -19,6 +19,7 @@

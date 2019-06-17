@@ -1,0 +1,989 @@
+From 2495f39ce1fa027aab0c3161c14f074295f81c71 Mon Sep 17 00:00:00 2001
+From: Dafna Hirschfeld <dafna3@gmail.com>
+Date: Wed, 6 Mar 2019 16:13:40 -0500
+Subject: [PATCH] media: vicodec: Introducing stateless fwht defs and structs
+
+Add structs and definitions needed to implement stateless
+decoder for fwht and add I/P-frames QP controls to the
+public api.
+
+Signed-off-by: Dafna Hirschfeld <dafna3@gmail.com>
+Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
+---
+ drivers/media/platform/vicodec/vicodec-core.c | 41 ++++++-------------
+ drivers/media/v4l2-core/v4l2-ctrls.c          | 12 ++++++
+ include/media/fwht-ctrls.h                    | 31 ++++++++++++++
+ include/media/v4l2-ctrls.h                    |  5 ++-
+ include/uapi/linux/v4l2-controls.h            |  4 ++
+ include/uapi/linux/videodev2.h                |  1 +
+ 6 files changed, 65 insertions(+), 29 deletions(-)
+ create mode 100644 include/media/fwht-ctrls.h
+
+diff --git a/drivers/media/platform/vicodec/vicodec-core.c b/drivers/media/platform/vicodec/vicodec-core.c
+index b86985babdb1..a3a9d8ac4a33 100644
+--- a/drivers/media/platform/vicodec/vicodec-core.c
++++ b/drivers/media/platform/vicodec/vicodec-core.c
+@@ -64,6 +64,10 @@ static const struct v4l2_fwht_pixfmt_info pixfmt_fwht = {
+ 	V4L2_PIX_FMT_FWHT, 0, 3, 1, 1, 1, 1, 1, 0, 1
+ };
+ 
++static const struct v4l2_fwht_pixfmt_info pixfmt_stateless_fwht = {
++	V4L2_PIX_FMT_FWHT_STATELESS, 0, 3, 1, 1, 1, 1, 1, 0, 1
++};
++
+ static void vicodec_dev_release(struct device *dev)
+ {
+ }
+@@ -1524,10 +1528,6 @@ static int queue_init(void *priv, struct vb2_queue *src_vq,
+ 	return vb2_queue_init(dst_vq);
+ }
+ 
+-#define VICODEC_CID_CUSTOM_BASE		(V4L2_CID_MPEG_BASE | 0xf000)
+-#define VICODEC_CID_I_FRAME_QP		(VICODEC_CID_CUSTOM_BASE + 0)
+-#define VICODEC_CID_P_FRAME_QP		(VICODEC_CID_CUSTOM_BASE + 1)
+-
+ static int vicodec_s_ctrl(struct v4l2_ctrl *ctrl)
+ {
+ 	struct vicodec_ctx *ctx = container_of(ctrl->handler,
+@@ -1537,10 +1537,10 @@ static int vicodec_s_ctrl(struct v4l2_ctrl *ctrl)
+ 	case V4L2_CID_MPEG_VIDEO_GOP_SIZE:
+ 		ctx->state.gop_size = ctrl->val;
+ 		return 0;
+-	case VICODEC_CID_I_FRAME_QP:
++	case V4L2_CID_FWHT_I_FRAME_QP:
+ 		ctx->state.i_frame_qp = ctrl->val;
+ 		return 0;
+-	case VICODEC_CID_P_FRAME_QP:
++	case V4L2_CID_FWHT_P_FRAME_QP:
+ 		ctx->state.p_frame_qp = ctrl->val;
+ 		return 0;
+ 	}
+@@ -1551,26 +1551,9 @@ static const struct v4l2_ctrl_ops vicodec_ctrl_ops = {
+ 	.s_ctrl = vicodec_s_ctrl,
+ };
+ 
+-static const struct v4l2_ctrl_config vicodec_ctrl_i_frame = {
+-	.ops = &vicodec_ctrl_ops,
+-	.id = VICODEC_CID_I_FRAME_QP,
+-	.name = "FWHT I-Frame QP Value",
+-	.type = V4L2_CTRL_TYPE_INTEGER,
+-	.min = 1,
+-	.max = 31,
+-	.def = 20,
+-	.step = 1,
+-};
+-
+-static const struct v4l2_ctrl_config vicodec_ctrl_p_frame = {
+-	.ops = &vicodec_ctrl_ops,
+-	.id = VICODEC_CID_P_FRAME_QP,
+-	.name = "FWHT P-Frame QP Value",
+-	.type = V4L2_CTRL_TYPE_INTEGER,
+-	.min = 1,
+-	.max = 31,
+-	.def = 20,
+-	.step = 1,
++static const struct v4l2_ctrl_config vicodec_ctrl_stateless_state = {
++	.id		= V4L2_CID_MPEG_VIDEO_FWHT_PARAMS,
++	.elem_size      = sizeof(struct v4l2_ctrl_fwht_params),
+ };
+ 
+ /*
+@@ -1603,8 +1586,10 @@ static int vicodec_open(struct file *file)
+ 	v4l2_ctrl_handler_init(hdl, 4);
+ 	v4l2_ctrl_new_std(hdl, &vicodec_ctrl_ops, V4L2_CID_MPEG_VIDEO_GOP_SIZE,
+ 			  1, 16, 1, 10);
+-	v4l2_ctrl_new_custom(hdl, &vicodec_ctrl_i_frame, NULL);
+-	v4l2_ctrl_new_custom(hdl, &vicodec_ctrl_p_frame, NULL);
++	v4l2_ctrl_new_std(hdl, &vicodec_ctrl_ops, V4L2_CID_FWHT_I_FRAME_QP,
++			  1, 31, 1, 20);
++	v4l2_ctrl_new_std(hdl, &vicodec_ctrl_ops, V4L2_CID_FWHT_P_FRAME_QP,
++			  1, 31, 1, 20);
+ 	if (hdl->error) {
+ 		rc = hdl->error;
+ 		v4l2_ctrl_handler_free(hdl);
+diff --git a/drivers/media/v4l2-core/v4l2-ctrls.c b/drivers/media/v4l2-core/v4l2-ctrls.c
+index 54d66dbc2a31..aed1c3a06500 100644
+--- a/drivers/media/v4l2-core/v4l2-ctrls.c
++++ b/drivers/media/v4l2-core/v4l2-ctrls.c
+@@ -849,6 +849,9 @@ const char *v4l2_ctrl_get_name(u32 id)
+ 	case V4L2_CID_MPEG_VIDEO_FORCE_KEY_FRAME:		return "Force Key Frame";
+ 	case V4L2_CID_MPEG_VIDEO_MPEG2_SLICE_PARAMS:		return "MPEG-2 Slice Parameters";
+ 	case V4L2_CID_MPEG_VIDEO_MPEG2_QUANTIZATION:		return "MPEG-2 Quantization Matrices";
++	case V4L2_CID_MPEG_VIDEO_FWHT_PARAMS:			return "FWHT Stateless Parameters";
++	case V4L2_CID_FWHT_I_FRAME_QP:				return "FWHT I-Frame QP Value";
++	case V4L2_CID_FWHT_P_FRAME_QP:				return "FWHT P-Frame QP Value";
+ 
+ 	/* VPX controls */
+ 	case V4L2_CID_MPEG_VIDEO_VPX_NUM_PARTITIONS:		return "VPX Number of Partitions";
+@@ -1303,6 +1306,9 @@ void v4l2_ctrl_fill(u32 id, const char **name, enum v4l2_ctrl_type *type,
+ 	case V4L2_CID_MPEG_VIDEO_MPEG2_QUANTIZATION:
+ 		*type = V4L2_CTRL_TYPE_MPEG2_QUANTIZATION;
+ 		break;
++	case V4L2_CID_MPEG_VIDEO_FWHT_PARAMS:
++		*type = V4L2_CTRL_TYPE_FWHT_PARAMS;
++		break;
+ 	default:
+ 		*type = V4L2_CTRL_TYPE_INTEGER;
+ 		break;
+@@ -1669,6 +1675,9 @@ static int std_validate(const struct v4l2_ctrl *ctrl, u32 idx,
+ 	case V4L2_CTRL_TYPE_MPEG2_QUANTIZATION:
+ 		return 0;
+ 
++	case V4L2_CTRL_TYPE_FWHT_PARAMS:
++		return 0;
++
+ 	default:
+ 		return -EINVAL;
+ 	}
+@@ -2249,6 +2258,9 @@ static struct v4l2_ctrl *v4l2_ctrl_new(struct v4l2_ctrl_handler *hdl,
+ 	case V4L2_CTRL_TYPE_MPEG2_QUANTIZATION:
+ 		elem_size = sizeof(struct v4l2_ctrl_mpeg2_quantization);
+ 		break;
++	case V4L2_CTRL_TYPE_FWHT_PARAMS:
++		elem_size = sizeof(struct v4l2_ctrl_fwht_params);
++		break;
+ 	default:
+ 		if (type < V4L2_CTRL_COMPOUND_TYPES)
+ 			elem_size = sizeof(s32);
+diff --git a/include/media/fwht-ctrls.h b/include/media/fwht-ctrls.h
+new file mode 100644
+index 000000000000..615027410e47
+--- /dev/null
++++ b/include/media/fwht-ctrls.h
+@@ -0,0 +1,31 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/*
++ * These are the FWHT state controls for use with stateless FWHT
++ * codec drivers.
++ *
++ * It turns out that these structs are not stable yet and will undergo
++ * more changes. So keep them private until they are stable and ready to
++ * become part of the official public API.
++ */
++
++#ifndef _FWHT_CTRLS_H_
++#define _FWHT_CTRLS_H_
++
++#define V4L2_CTRL_TYPE_FWHT_PARAMS 0x0105
++
++#define V4L2_CID_MPEG_VIDEO_FWHT_PARAMS	(V4L2_CID_MPEG_BASE + 292)
++
++struct v4l2_ctrl_fwht_params {
++	__u64 backward_ref_ts;
++	__u32 version;
++	__u32 width;
++	__u32 height;
++	__u32 flags;
++	__u32 colorspace;
++	__u32 xfer_func;
++	__u32 ycbcr_enc;
++	__u32 quantization;
++};
++
++
++#endif
+diff --git a/include/media/v4l2-ctrls.h b/include/media/v4l2-ctrls.h
+index 200f8a66ecaa..bd621cec65a5 100644
+--- a/include/media/v4l2-ctrls.h
++++ b/include/media/v4l2-ctrls.h
+@@ -23,10 +23,11 @@
+ #include <media/media-request.h>
+ 
+ /*
+- * Include the mpeg2 stateless codec compound control definitions.
++ * Include the mpeg2 and fwht stateless codec compound control definitions.
+  * This will move to the public headers once this API is fully stable.
+  */
+ #include <media/mpeg2-ctrls.h>
++#include <media/fwht-ctrls.h>
+ 
+ /* forward references */
+ struct file;
+@@ -49,6 +50,7 @@ struct poll_table_struct;
+  * @p_char:			Pointer to a string.
+  * @p_mpeg2_slice_params:	Pointer to a MPEG2 slice parameters structure.
+  * @p_mpeg2_quantization:	Pointer to a MPEG2 quantization data structure.
++ * @p_fwht_params:		Pointer to a FWHT stateless parameters structure.
+  * @p:				Pointer to a compound value.
+  */
+ union v4l2_ctrl_ptr {
+@@ -60,6 +62,7 @@ union v4l2_ctrl_ptr {
+ 	char *p_char;
+ 	struct v4l2_ctrl_mpeg2_slice_params *p_mpeg2_slice_params;
+ 	struct v4l2_ctrl_mpeg2_quantization *p_mpeg2_quantization;
++	struct v4l2_ctrl_fwht_params *p_fwht_params;
+ 	void *p;
+ };
+ 
+diff --git a/include/uapi/linux/v4l2-controls.h b/include/uapi/linux/v4l2-controls.h
+index 06479f2fb3ae..78816ec88751 100644
+--- a/include/uapi/linux/v4l2-controls.h
++++ b/include/uapi/linux/v4l2-controls.h
+@@ -404,6 +404,10 @@ enum v4l2_mpeg_video_multi_slice_mode {
+ #define V4L2_CID_MPEG_VIDEO_MV_V_SEARCH_RANGE		(V4L2_CID_MPEG_BASE+228)
+ #define V4L2_CID_MPEG_VIDEO_FORCE_KEY_FRAME		(V4L2_CID_MPEG_BASE+229)
+ 
++/* CIDs for the FWHT codec as used by the vicodec driver. */
++#define V4L2_CID_FWHT_I_FRAME_QP             (V4L2_CID_MPEG_BASE + 290)
++#define V4L2_CID_FWHT_P_FRAME_QP             (V4L2_CID_MPEG_BASE + 291)
++
+ #define V4L2_CID_MPEG_VIDEO_H263_I_FRAME_QP		(V4L2_CID_MPEG_BASE+300)
+ #define V4L2_CID_MPEG_VIDEO_H263_P_FRAME_QP		(V4L2_CID_MPEG_BASE+301)
+ #define V4L2_CID_MPEG_VIDEO_H263_B_FRAME_QP		(V4L2_CID_MPEG_BASE+302)
+diff --git a/include/uapi/linux/videodev2.h b/include/uapi/linux/videodev2.h
+index 1db220da3bcc..496e6453450c 100644
+--- a/include/uapi/linux/videodev2.h
++++ b/include/uapi/linux/videodev2.h
+@@ -669,6 +669,7 @@ struct v4l2_pix_format {
+ #define V4L2_PIX_FMT_VP9      v4l2_fourcc('V', 'P', '9', '0') /* VP9 */
+ #define V4L2_PIX_FMT_HEVC     v4l2_fourcc('H', 'E', 'V', 'C') /* HEVC aka H.265 */
+ #define V4L2_PIX_FMT_FWHT     v4l2_fourcc('F', 'W', 'H', 'T') /* Fast Walsh Hadamard Transform (vicodec) */
++#define V4L2_PIX_FMT_FWHT_STATELESS     v4l2_fourcc('S', 'F', 'W', 'H') /* Stateless FWHT (vicodec) */
+ 
+ /*  Vendor-specific formats   */
+ #define V4L2_PIX_FMT_CPIA1    v4l2_fourcc('C', 'P', 'I', 'A') /* cpia1 YUV */
+-- 
+2.21.0
+
+From 97ed8eab2a0067bee21aa634c938454660e76a38 Mon Sep 17 00:00:00 2001
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Date: Tue, 2 Apr 2019 12:31:49 +0200
+Subject: [PATCH] staging: add missing SPDX lines to Makefile files
+
+There are a few remaining drivers/staging/*/Makefile files that do not
+have SPDX identifiers in them.  Add the correct GPL-2.0 identifier to
+them to make scanning tools happy.
+
+Reviewed-by: Mukesh Ojha <mojha@codeaurora.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+---
+ drivers/staging/media/sunxi/Makefile                     | 1 +
+ drivers/staging/media/sunxi/cedrus/Makefile              | 1 +
+ 56 files changed, 56 insertions(+)
+
+diff --git a/drivers/staging/media/sunxi/Makefile b/drivers/staging/media/sunxi/Makefile
+index cee2846c3ecf..b87140b0e15f 100644
+--- a/drivers/staging/media/sunxi/Makefile
++++ b/drivers/staging/media/sunxi/Makefile
+@@ -1 +1,2 @@
++# SPDX-License-Identifier: GPL-2.0
+ obj-$(CONFIG_VIDEO_SUNXI_CEDRUS)	+= cedrus/
+diff --git a/drivers/staging/media/sunxi/cedrus/Makefile b/drivers/staging/media/sunxi/cedrus/Makefile
+index e9dc68b7bcb6..808842f0119e 100644
+--- a/drivers/staging/media/sunxi/cedrus/Makefile
++++ b/drivers/staging/media/sunxi/cedrus/Makefile
+@@ -1,3 +1,4 @@
++# SPDX-License-Identifier: GPL-2.0
+ obj-$(CONFIG_VIDEO_SUNXI_CEDRUS) += sunxi-cedrus.o
+ 
+ sunxi-cedrus-y = cedrus.o cedrus_video.o cedrus_hw.o cedrus_dec.o cedrus_mpeg2.o
+-- 
+2.21.0
+
+From 6ece1909256d809df8cf975a62bddd565d03eb1a Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Thu, 28 Feb 2019 18:57:48 +0100
+Subject: [PATCH 1/3] clk: sunxi-ng: Allow DE clock to set parent rate
+
+DE2/DE3 mixers have to run at specific frequency in order to work
+optimally. This wasn't actually possible for some SoCs because "de"
+clock wasn't allowed to adjust parent rate.
+
+Add CLK_SET_RATE_PARENT flag to all "de" clocks which didn't have it
+yet.
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+---
+ drivers/clk/sunxi-ng/ccu-sun50i-a64.c | 3 ++-
+ drivers/clk/sunxi-ng/ccu-sun50i-h6.c  | 2 +-
+ drivers/clk/sunxi-ng/ccu-sun8i-v3s.c  | 3 ++-
+ 3 files changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/clk/sunxi-ng/ccu-sun50i-a64.c b/drivers/clk/sunxi-ng/ccu-sun50i-a64.c
+index 932836d26e2b..be0deee70182 100644
+--- a/drivers/clk/sunxi-ng/ccu-sun50i-a64.c
++++ b/drivers/clk/sunxi-ng/ccu-sun50i-a64.c
+@@ -531,7 +531,8 @@ static SUNXI_CCU_GATE(dram_ts_clk,	"dram-ts",	"dram",
+ 
+ static const char * const de_parents[] = { "pll-periph0-2x", "pll-de" };
+ static SUNXI_CCU_M_WITH_MUX_GATE(de_clk, "de", de_parents,
+-				 0x104, 0, 4, 24, 3, BIT(31), 0);
++				 0x104, 0, 4, 24, 3, BIT(31),
++				 CLK_SET_RATE_PARENT);
+ 
+ static const char * const tcon0_parents[] = { "pll-mipi", "pll-video0-2x" };
+ static const u8 tcon0_table[] = { 0, 2, };
+diff --git a/drivers/clk/sunxi-ng/ccu-sun50i-h6.c b/drivers/clk/sunxi-ng/ccu-sun50i-h6.c
+index 139e8389615c..daf78966555e 100644
+--- a/drivers/clk/sunxi-ng/ccu-sun50i-h6.c
++++ b/drivers/clk/sunxi-ng/ccu-sun50i-h6.c
+@@ -266,7 +266,7 @@ static SUNXI_CCU_M_WITH_MUX_GATE(de_clk, "de", de_parents, 0x600,
+ 				       0, 4,	/* M */
+ 				       24, 1,	/* mux */
+ 				       BIT(31),	/* gate */
+-				       0);
++				       CLK_SET_RATE_PARENT);
+ 
+ static SUNXI_CCU_GATE(bus_de_clk, "bus-de", "psi-ahb1-ahb2",
+ 		      0x60c, BIT(0), 0);
+diff --git a/drivers/clk/sunxi-ng/ccu-sun8i-v3s.c b/drivers/clk/sunxi-ng/ccu-sun8i-v3s.c
+index 621b1cd996db..ee170bf21cdf 100644
+--- a/drivers/clk/sunxi-ng/ccu-sun8i-v3s.c
++++ b/drivers/clk/sunxi-ng/ccu-sun8i-v3s.c
+@@ -325,7 +325,8 @@ static SUNXI_CCU_GATE(dram_ohci_clk,	"dram-ohci",	"dram",
+ 
+ static const char * const de_parents[] = { "pll-video", "pll-periph0" };
+ static SUNXI_CCU_M_WITH_MUX_GATE(de_clk, "de", de_parents,
+-				 0x104, 0, 4, 24, 2, BIT(31), 0);
++				 0x104, 0, 4, 24, 2, BIT(31),
++				 CLK_SET_RATE_PARENT);
+ 
+ static const char * const tcon_parents[] = { "pll-video" };
+ static SUNXI_CCU_M_WITH_MUX_GATE(tcon_clk, "tcon", tcon_parents,
+-- 
+2.20.1
+
+
+From 3622c17fc40031cd2ca7b4030b83e6fad0c4e127 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Mon, 24 Dec 2018 18:11:56 +0100
+Subject: [PATCH 2/3] drm/sun4i: Add VI scaler line size quirk for DE2/DE3
+
+While all RGB scalers have maximum line size of 2048, some YUV scalers
+have maximum line size of 2048 and some have line size of 4096.
+
+Since there is no rule for that, add a quirk.
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+---
+ drivers/gpu/drm/sun4i/sun8i_mixer.c | 9 +++++++++
+ drivers/gpu/drm/sun4i/sun8i_mixer.h | 2 ++
+ 2 files changed, 11 insertions(+)
+
+diff --git a/drivers/gpu/drm/sun4i/sun8i_mixer.c b/drivers/gpu/drm/sun4i/sun8i_mixer.c
+index 44a9ba7d8433..e46edacb7ab4 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_mixer.c
++++ b/drivers/gpu/drm/sun4i/sun8i_mixer.c
+@@ -554,6 +554,7 @@ static int sun8i_mixer_remove(struct platform_device *pdev)
+ static const struct sun8i_mixer_cfg sun8i_a83t_mixer0_cfg = {
+ 	.ccsc		= 0,
+ 	.scaler_mask	= 0xf,
++	.scanline_yuv	= 2048,
+ 	.ui_num		= 3,
+ 	.vi_num		= 1,
+ };
+@@ -561,6 +562,7 @@ static const struct sun8i_mixer_cfg sun8i_a83t_mixer0_cfg = {
+ static const struct sun8i_mixer_cfg sun8i_a83t_mixer1_cfg = {
+ 	.ccsc		= 1,
+ 	.scaler_mask	= 0x3,
++	.scanline_yuv	= 2048,
+ 	.ui_num		= 1,
+ 	.vi_num		= 1,
+ };
+@@ -569,6 +571,7 @@ static const struct sun8i_mixer_cfg sun8i_h3_mixer0_cfg = {
+ 	.ccsc		= 0,
+ 	.mod_rate	= 432000000,
+ 	.scaler_mask	= 0xf,
++	.scanline_yuv	= 2048,
+ 	.ui_num		= 3,
+ 	.vi_num		= 1,
+ };
+@@ -577,6 +580,7 @@ static const struct sun8i_mixer_cfg sun8i_r40_mixer0_cfg = {
+ 	.ccsc		= 0,
+ 	.mod_rate	= 297000000,
+ 	.scaler_mask	= 0xf,
++	.scanline_yuv	= 2048,
+ 	.ui_num		= 3,
+ 	.vi_num		= 1,
+ };
+@@ -585,6 +589,7 @@ static const struct sun8i_mixer_cfg sun8i_r40_mixer1_cfg = {
+ 	.ccsc		= 1,
+ 	.mod_rate	= 297000000,
+ 	.scaler_mask	= 0x3,
++	.scanline_yuv	= 2048,
+ 	.ui_num		= 1,
+ 	.vi_num		= 1,
+ };
+@@ -593,6 +598,7 @@ static const struct sun8i_mixer_cfg sun8i_v3s_mixer_cfg = {
+ 	.vi_num = 2,
+ 	.ui_num = 1,
+ 	.scaler_mask = 0x3,
++	.scanline_yuv = 2048,
+ 	.ccsc = 0,
+ 	.mod_rate = 150000000,
+ };
+@@ -601,6 +607,7 @@ static const struct sun8i_mixer_cfg sun50i_a64_mixer0_cfg = {
+ 	.ccsc		= 0,
+ 	.mod_rate	= 297000000,
+ 	.scaler_mask	= 0xf,
++	.scanline_yuv	= 4096,
+ 	.ui_num		= 3,
+ 	.vi_num		= 1,
+ };
+@@ -609,6 +616,7 @@ static const struct sun8i_mixer_cfg sun50i_a64_mixer1_cfg = {
+ 	.ccsc		= 1,
+ 	.mod_rate	= 297000000,
+ 	.scaler_mask	= 0x3,
++	.scanline_yuv	= 2048,
+ 	.ui_num		= 1,
+ 	.vi_num		= 1,
+ };
+@@ -618,6 +626,7 @@ static const struct sun8i_mixer_cfg sun50i_h6_mixer0_cfg = {
+ 	.is_de3		= true,
+ 	.mod_rate	= 600000000,
+ 	.scaler_mask	= 0xf,
++	.scanline_yuv	= 4096,
+ 	.ui_num		= 3,
+ 	.vi_num		= 1,
+ };
+diff --git a/drivers/gpu/drm/sun4i/sun8i_mixer.h b/drivers/gpu/drm/sun4i/sun8i_mixer.h
+index 913d14ce68b0..80e084caa084 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_mixer.h
++++ b/drivers/gpu/drm/sun4i/sun8i_mixer.h
+@@ -159,6 +159,7 @@ struct de2_fmt_info {
+  * @mod_rate: module clock rate that needs to be set in order to have
+  *	a functional block.
+  * @is_de3: true, if this is next gen display engine 3.0, false otherwise.
++ * @scaline_yuv: size of a scanline for VI scaler for YUV formats.
+  */
+ struct sun8i_mixer_cfg {
+ 	int		vi_num;
+@@ -167,6 +168,7 @@ struct sun8i_mixer_cfg {
+ 	int		ccsc;
+ 	unsigned long	mod_rate;
+ 	unsigned int	is_de3 : 1;
++	unsigned int	scanline_yuv;
+ };
+ 
+ struct sun8i_mixer {
+-- 
+2.20.1
+
+
+From 6d1be62144db6bebfdbcb8c50a11ac428dcdc741 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Mon, 24 Dec 2018 18:16:50 +0100
+Subject: [PATCH 3/3] drm/sun4i: Improve VI scaling for DE2/DE3
+
+VI planes support coarse scaling which helps to overcome VI scaler
+limitations. While exact working of coarse scaling isn't known, it seems
+that it just skips programmed amount of rows and columns. This is
+especially useful for downscaling very big planes (4K down to 1080p).
+
+Horizontal coarse scaling is currently used to fit one line to VI scaler
+buffer.
+
+Vertical coarse scaling is used to assure that VI scaler is actually
+capable of processing framebuffer in one frame time.
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+---
+ drivers/gpu/drm/sun4i/sun8i_vi_layer.c | 54 ++++++++++++++++++++++++--
+ drivers/gpu/drm/sun4i/sun8i_vi_layer.h | 11 ++++++
+ 2 files changed, 62 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/sun4i/sun8i_vi_layer.c b/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
+index 87be898f9b7a..ce42560aa9df 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
++++ b/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
+@@ -80,6 +80,8 @@ static int sun8i_vi_layer_update_coord(struct sun8i_mixer *mixer, int channel,
+ 	u32 bld_base, ch_base;
+ 	u32 outsize, insize;
+ 	u32 hphase, vphase;
++	u32 hn = 0, hm = 0;
++	u32 vn = 0, vm = 0;
+ 	bool subsampled;
+ 
+ 	DRM_DEBUG_DRIVER("Updating VI channel %d overlay %d\n",
+@@ -137,12 +139,41 @@ static int sun8i_vi_layer_update_coord(struct sun8i_mixer *mixer, int channel,
+ 	subsampled = format->hsub > 1 || format->vsub > 1;
+ 
+ 	if (insize != outsize || subsampled || hphase || vphase) {
+-		u32 hscale, vscale;
++		unsigned int scanline, required;
++		struct drm_display_mode *mode;
++		u32 hscale, vscale, fps;
++		u64 ability;
+ 
+ 		DRM_DEBUG_DRIVER("HW scaling is enabled\n");
+ 
+-		hscale = state->src_w / state->crtc_w;
+-		vscale = state->src_h / state->crtc_h;
++		mode = &plane->state->crtc->state->mode;
++		fps = (mode->clock * 1000) / (mode->vtotal * mode->htotal);
++		ability = clk_get_rate(mixer->mod_clk);
++		/* BSP algorithm assumes 80% efficiency of VI scaler unit */
++		ability *= 80;
++		do_div(ability, mode->vdisplay * fps * max(src_w, dst_w));
++
++		required = src_h * 100 / dst_h;
++
++		if (ability < required) {
++			DRM_DEBUG_DRIVER("Using vertical coarse scaling\n");
++			vm = src_h;
++			vn = (u32)ability * dst_h / 100;
++			src_h = vn;
++		}
++
++		/* it seems that every RGB scaler has buffer for 2048 pixels */
++		scanline = subsampled ? mixer->cfg->scanline_yuv : 2048;
++
++		if (src_w > scanline) {
++			DRM_DEBUG_DRIVER("Using horizontal coarse scaling\n");
++			hm = src_w;
++			hn = scanline;
++			src_w = hn;
++		}
++
++		hscale = (src_w << 16) / dst_w;
++		vscale = (src_h << 16) / dst_h;
+ 
+ 		sun8i_vi_scaler_setup(mixer, channel, src_w, src_h, dst_w,
+ 				      dst_h, hscale, vscale, hphase, vphase,
+@@ -153,6 +184,23 @@ static int sun8i_vi_layer_update_coord(struct sun8i_mixer *mixer, int channel,
+ 		sun8i_vi_scaler_enable(mixer, channel, false);
+ 	}
+ 
++	regmap_write(mixer->engine.regs,
++		     SUN8I_MIXER_CHAN_VI_HDS_Y(ch_base),
++		     SUN8I_MIXER_CHAN_VI_DS_N(hn) |
++		     SUN8I_MIXER_CHAN_VI_DS_M(hm));
++	regmap_write(mixer->engine.regs,
++		     SUN8I_MIXER_CHAN_VI_HDS_UV(ch_base),
++		     SUN8I_MIXER_CHAN_VI_DS_N(hn) |
++		     SUN8I_MIXER_CHAN_VI_DS_M(hm));
++	regmap_write(mixer->engine.regs,
++		     SUN8I_MIXER_CHAN_VI_VDS_Y(ch_base),
++		     SUN8I_MIXER_CHAN_VI_DS_N(vn) |
++		     SUN8I_MIXER_CHAN_VI_DS_M(vm));
++	regmap_write(mixer->engine.regs,
++		     SUN8I_MIXER_CHAN_VI_VDS_UV(ch_base),
++		     SUN8I_MIXER_CHAN_VI_DS_N(vn) |
++		     SUN8I_MIXER_CHAN_VI_DS_M(vm));
++
+ 	/* Set base coordinates */
+ 	DRM_DEBUG_DRIVER("Layer destination coordinates X: %d Y: %d\n",
+ 			 state->dst.x1, state->dst.y1);
+diff --git a/drivers/gpu/drm/sun4i/sun8i_vi_layer.h b/drivers/gpu/drm/sun4i/sun8i_vi_layer.h
+index 8a5e6d01c85d..a223a4839f45 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_vi_layer.h
++++ b/drivers/gpu/drm/sun4i/sun8i_vi_layer.h
+@@ -24,6 +24,14 @@
+ 		((base) + 0x30 * (layer) + 0x18 + 4 * (plane))
+ #define SUN8I_MIXER_CHAN_VI_OVL_SIZE(base) \
+ 		((base) + 0xe8)
++#define SUN8I_MIXER_CHAN_VI_HDS_Y(base) \
++		((base) + 0xf0)
++#define SUN8I_MIXER_CHAN_VI_HDS_UV(base) \
++		((base) + 0xf4)
++#define SUN8I_MIXER_CHAN_VI_VDS_Y(base) \
++		((base) + 0xf8)
++#define SUN8I_MIXER_CHAN_VI_VDS_UV(base) \
++		((base) + 0xfc)
+ 
+ #define SUN8I_MIXER_CHAN_VI_LAYER_ATTR_EN		BIT(0)
+ /* RGB mode should be set for RGB formats and cleared for YCbCr */
+@@ -33,6 +41,9 @@
+ #define SUN50I_MIXER_CHAN_VI_LAYER_ATTR_ALPHA_MASK	GENMASK(31, 24)
+ #define SUN50I_MIXER_CHAN_VI_LAYER_ATTR_ALPHA(x)	((x) << 24)
+ 
++#define SUN8I_MIXER_CHAN_VI_DS_N(x)			((x) << 16)
++#define SUN8I_MIXER_CHAN_VI_DS_M(x)			((x) << 0)
++
+ struct sun8i_mixer;
+ 
+ struct sun8i_vi_layer {
+-- 
+2.20.1
+
+From 05f640b80bb6797ec11c328d16e9905884653f98 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Sun, 7 Apr 2019 20:36:40 +0200
+Subject: [PATCH] media: cedrus: Fix initialization order
+
+Currently, MEDIA_IOC_G_TOPOLOGY ioctl on cedrus fails due to incorrect
+initialization order. Fix that by moving video_register_device() before
+v4l2_m2m_register_media_controller() and while at it, fix error path.
+
+Reported-by: Jonas Karlman <jonas@kwiboo.se>
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+---
+ drivers/staging/media/sunxi/cedrus/cedrus.c | 24 ++++++++++-----------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/staging/media/sunxi/cedrus/cedrus.c b/drivers/staging/media/sunxi/cedrus/cedrus.c
+index b98add3cdedd..d0429c0e6b6b 100644
+--- a/drivers/staging/media/sunxi/cedrus/cedrus.c
++++ b/drivers/staging/media/sunxi/cedrus/cedrus.c
+@@ -300,7 +300,7 @@ static int cedrus_probe(struct platform_device *pdev)
+ 			 "Failed to initialize V4L2 M2M device\n");
+ 		ret = PTR_ERR(dev->m2m_dev);
+ 
+-		goto err_video;
++		goto err_v4l2;
+ 	}
+ 
+ 	dev->mdev.dev = &pdev->dev;
+@@ -310,23 +310,23 @@ static int cedrus_probe(struct platform_device *pdev)
+ 	dev->mdev.ops = &cedrus_m2m_media_ops;
+ 	dev->v4l2_dev.mdev = &dev->mdev;
+ 
+-	ret = v4l2_m2m_register_media_controller(dev->m2m_dev, vfd,
+-						 MEDIA_ENT_F_PROC_VIDEO_DECODER);
+-	if (ret) {
+-		v4l2_err(&dev->v4l2_dev,
+-			 "Failed to initialize V4L2 M2M media controller\n");
+-		goto err_m2m;
+-	}
+-
+ 	ret = video_register_device(vfd, VFL_TYPE_GRABBER, 0);
+ 	if (ret) {
+ 		v4l2_err(&dev->v4l2_dev, "Failed to register video device\n");
+-		goto err_v4l2;
++		goto err_m2m;
+ 	}
+ 
+ 	v4l2_info(&dev->v4l2_dev,
+ 		  "Device registered as /dev/video%d\n", vfd->num);
+ 
++	ret = v4l2_m2m_register_media_controller(dev->m2m_dev, vfd,
++						 MEDIA_ENT_F_PROC_VIDEO_DECODER);
++	if (ret) {
++		v4l2_err(&dev->v4l2_dev,
++			 "Failed to initialize V4L2 M2M media controller\n");
++		goto err_video;
++	}
++
+ 	ret = media_device_register(&dev->mdev);
+ 	if (ret) {
+ 		v4l2_err(&dev->v4l2_dev, "Failed to register media device\n");
+@@ -339,10 +339,10 @@ static int cedrus_probe(struct platform_device *pdev)
+ 
+ err_m2m_mc:
+ 	v4l2_m2m_unregister_media_controller(dev->m2m_dev);
+-err_m2m:
+-	v4l2_m2m_release(dev->m2m_dev);
+ err_video:
+ 	video_unregister_device(&dev->vfd);
++err_m2m:
++	v4l2_m2m_release(dev->m2m_dev);
+ err_v4l2:
+ 	v4l2_device_unregister(&dev->v4l2_dev);
+ 
+-- 
+2.21.0
+
+From ed19ec00d4d62a74857ad9c2ea1dbf9671ac3580 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Mon, 28 Jan 2019 19:36:54 +0100
+Subject: [PATCH 1/6] dt-bindings: media: cedrus: Add H6 compatible
+
+This adds a compatible for H6. H6 VPU supports 10-bit HEVC decoding and
+additional AFBC output format for HEVC.
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+---
+ Documentation/devicetree/bindings/media/cedrus.txt | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/media/cedrus.txt b/Documentation/devicetree/bindings/media/cedrus.txt
+index bce0705df953..20c82fb0c343 100644
+--- a/Documentation/devicetree/bindings/media/cedrus.txt
++++ b/Documentation/devicetree/bindings/media/cedrus.txt
+@@ -13,6 +13,7 @@ Required properties:
+ 			- "allwinner,sun8i-h3-video-engine"
+ 			- "allwinner,sun50i-a64-video-engine"
+ 			- "allwinner,sun50i-h5-video-engine"
++			- "allwinner,sun50i-h6-video-engine"
+ - reg			: register base and length of VE;
+ - clocks		: list of clock specifiers, corresponding to entries in
+ 			  the clock-names property;
+-- 
+2.20.1
+
+
+From 744c66f8c328ef40b6fb246f8b9f2daa9cce4d9d Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Mon, 28 Jan 2019 19:47:33 +0100
+Subject: [PATCH 3/6] media: cedrus: Add support for H6
+
+H6 has improved VPU. It supports 10-bit HEVC decoding and AFBC output
+format for HEVC.
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+---
+ drivers/staging/media/sunxi/cedrus/cedrus.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/drivers/staging/media/sunxi/cedrus/cedrus.c b/drivers/staging/media/sunxi/cedrus/cedrus.c
+index ff11cbeba205..b98add3cdedd 100644
+--- a/drivers/staging/media/sunxi/cedrus/cedrus.c
++++ b/drivers/staging/media/sunxi/cedrus/cedrus.c
+@@ -396,6 +396,11 @@ static const struct cedrus_variant sun50i_h5_cedrus_variant = {
+ 	.capabilities	= CEDRUS_CAPABILITY_UNTILED,
+ };
+ 
++static const struct cedrus_variant sun50i_h6_cedrus_variant = {
++	.capabilities	= CEDRUS_CAPABILITY_UNTILED,
++	.quirks		= CEDRUS_QUIRK_NO_DMA_OFFSET,
++};
++
+ static const struct of_device_id cedrus_dt_match[] = {
+ 	{
+ 		.compatible = "allwinner,sun4i-a10-video-engine",
+@@ -425,6 +430,10 @@ static const struct of_device_id cedrus_dt_match[] = {
+ 		.compatible = "allwinner,sun50i-h5-video-engine",
+ 		.data = &sun50i_h5_cedrus_variant,
+ 	},
++	{
++		.compatible = "allwinner,sun50i-h6-video-engine",
++		.data = &sun50i_h6_cedrus_variant,
++	},
+ 	{ /* sentinel */ }
+ };
+ MODULE_DEVICE_TABLE(of, cedrus_dt_match);
+-- 
+2.20.1
+
+
+From c1b3128ac98c05c0afde4e6e065d6b1f2ae1dfa7 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Mon, 28 Jan 2019 19:59:27 +0100
+Subject: [PATCH 6/6] arm64: dts: allwinner: h6: Add Video Engine node
+
+This adds the Video engine node for H6. It can use whole DRAM range so
+there is no need for reserved memory node.
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+---
+ arch/arm64/boot/dts/allwinner/sun50i-h6.dtsi | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h6.dtsi b/arch/arm64/boot/dts/allwinner/sun50i-h6.dtsi
+index 247dc0a5ce89..de4b7a1f1012 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-h6.dtsi
++++ b/arch/arm64/boot/dts/allwinner/sun50i-h6.dtsi
+@@ -146,6 +146,17 @@
+ 			};
+ 		};
+ 
++		video-codec@1c0e000 {
++			compatible = "allwinner,sun50i-h6-video-engine";
++			reg = <0x01c0e000 0x2000>;
++			clocks = <&ccu CLK_BUS_VE>, <&ccu CLK_VE>,
++				 <&ccu CLK_MBUS_VE>;
++			clock-names = "ahb", "mod", "ram";
++			resets = <&ccu RST_BUS_VE>;
++			interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>;
++			allwinner,sram = <&ve_sram 1>;
++		};
++
+ 		syscon: syscon@3000000 {
+ 			compatible = "allwinner,sun50i-h6-system-control",
+ 				     "allwinner,sun50i-a64-system-control";
+-- 
+2.20.1
+
+From 87effaae9e90474546d441b9123bca824e670a0b Mon Sep 17 00:00:00 2001
+From: Fish Lin <linfish@google.com>
+Date: Thu, 28 Mar 2019 23:20:46 -0400
+Subject: [PATCH] media: v4l: add I / P frame min max QP definitions
+
+Add following V4L2 QP parameters for H.264:
+* V4L2_CID_MPEG_VIDEO_H264_I_FRAME_MIN_QP
+* V4L2_CID_MPEG_VIDEO_H264_I_FRAME_MAX_QP
+* V4L2_CID_MPEG_VIDEO_H264_P_FRAME_MIN_QP
+* V4L2_CID_MPEG_VIDEO_H264_P_FRAME_MAX_QP
+
+These controls will limit QP range for intra and inter frame,
+provide more manual control to improve video encode quality.
+
+Signed-off-by: Fish Lin <linfish@google.com>
+Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
+---
+ .../media/uapi/v4l/ext-ctrls-codec.rst        | 24 +++++++++++++++++++
+ drivers/media/v4l2-core/v4l2-ctrls.c          |  4 ++++
+ include/uapi/linux/v4l2-controls.h            |  4 ++++
+ 3 files changed, 32 insertions(+)
+
+diff --git a/Documentation/media/uapi/v4l/ext-ctrls-codec.rst b/Documentation/media/uapi/v4l/ext-ctrls-codec.rst
+index 67a122339c0e..4a8446203085 100644
+--- a/Documentation/media/uapi/v4l/ext-ctrls-codec.rst
++++ b/Documentation/media/uapi/v4l/ext-ctrls-codec.rst
+@@ -1055,6 +1055,30 @@ enum v4l2_mpeg_video_h264_entropy_mode -
+     Quantization parameter for an B frame for H264. Valid range: from 0
+     to 51.
+ 
++``V4L2_CID_MPEG_VIDEO_H264_I_FRAME_MIN_QP (integer)``
++    Minimum quantization parameter for the H264 I frame to limit I frame
++    quality to a range. Valid range: from 0 to 51. If
++    V4L2_CID_MPEG_VIDEO_H264_MIN_QP is also set, the quantization parameter
++    should be chosen to meet both requirements.
++
++``V4L2_CID_MPEG_VIDEO_H264_I_FRAME_MAX_QP (integer)``
++    Maximum quantization parameter for the H264 I frame to limit I frame
++    quality to a range. Valid range: from 0 to 51. If
++    V4L2_CID_MPEG_VIDEO_H264_MAX_QP is also set, the quantization parameter
++    should be chosen to meet both requirements.
++
++``V4L2_CID_MPEG_VIDEO_H264_P_FRAME_MIN_QP (integer)``
++    Minimum quantization parameter for the H264 P frame to limit P frame
++    quality to a range. Valid range: from 0 to 51. If
++    V4L2_CID_MPEG_VIDEO_H264_MIN_QP is also set, the quantization parameter
++    should be chosen to meet both requirements.
++
++``V4L2_CID_MPEG_VIDEO_H264_P_FRAME_MAX_QP (integer)``
++    Maximum quantization parameter for the H264 P frame to limit P frame
++    quality to a range. Valid range: from 0 to 51. If
++    V4L2_CID_MPEG_VIDEO_H264_MAX_QP is also set, the quantization parameter
++    should be chosen to meet both requirements.
++
+ ``V4L2_CID_MPEG_VIDEO_MPEG4_I_FRAME_QP (integer)``
+     Quantization parameter for an I frame for MPEG4. Valid range: from 1
+     to 31.
+diff --git a/drivers/media/v4l2-core/v4l2-ctrls.c b/drivers/media/v4l2-core/v4l2-ctrls.c
+index b1ae2e555c68..89a1fe564675 100644
+--- a/drivers/media/v4l2-core/v4l2-ctrls.c
++++ b/drivers/media/v4l2-core/v4l2-ctrls.c
+@@ -828,6 +828,10 @@ const char *v4l2_ctrl_get_name(u32 id)
+ 	case V4L2_CID_MPEG_VIDEO_H264_CONSTRAINED_INTRA_PREDICTION:
+ 								return "H264 Constrained Intra Pred";
+ 	case V4L2_CID_MPEG_VIDEO_H264_CHROMA_QP_INDEX_OFFSET:	return "H264 Chroma QP Index Offset";
++	case V4L2_CID_MPEG_VIDEO_H264_I_FRAME_MIN_QP:		return "H264 I-Frame Minimum QP Value";
++	case V4L2_CID_MPEG_VIDEO_H264_I_FRAME_MAX_QP:		return "H264 I-Frame Maximum QP Value";
++	case V4L2_CID_MPEG_VIDEO_H264_P_FRAME_MIN_QP:		return "H264 P-Frame Minimum QP Value";
++	case V4L2_CID_MPEG_VIDEO_H264_P_FRAME_MAX_QP:		return "H264 P-Frame Maximum QP Value";
+ 	case V4L2_CID_MPEG_VIDEO_MPEG4_I_FRAME_QP:		return "MPEG4 I-Frame QP Value";
+ 	case V4L2_CID_MPEG_VIDEO_MPEG4_P_FRAME_QP:		return "MPEG4 P-Frame QP Value";
+ 	case V4L2_CID_MPEG_VIDEO_MPEG4_B_FRAME_QP:		return "MPEG4 B-Frame QP Value";
+diff --git a/include/uapi/linux/v4l2-controls.h b/include/uapi/linux/v4l2-controls.h
+index 78816ec88751..37807f23231e 100644
+--- a/include/uapi/linux/v4l2-controls.h
++++ b/include/uapi/linux/v4l2-controls.h
+@@ -539,6 +539,10 @@ enum v4l2_mpeg_video_h264_hierarchical_coding_type {
+ #define V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_QP	(V4L2_CID_MPEG_BASE+382)
+ #define V4L2_CID_MPEG_VIDEO_H264_CONSTRAINED_INTRA_PREDICTION	(V4L2_CID_MPEG_BASE+383)
+ #define V4L2_CID_MPEG_VIDEO_H264_CHROMA_QP_INDEX_OFFSET		(V4L2_CID_MPEG_BASE+384)
++#define V4L2_CID_MPEG_VIDEO_H264_I_FRAME_MIN_QP	(V4L2_CID_MPEG_BASE+385)
++#define V4L2_CID_MPEG_VIDEO_H264_I_FRAME_MAX_QP	(V4L2_CID_MPEG_BASE+386)
++#define V4L2_CID_MPEG_VIDEO_H264_P_FRAME_MIN_QP	(V4L2_CID_MPEG_BASE+387)
++#define V4L2_CID_MPEG_VIDEO_H264_P_FRAME_MAX_QP	(V4L2_CID_MPEG_BASE+388)
+ #define V4L2_CID_MPEG_VIDEO_MPEG4_I_FRAME_QP	(V4L2_CID_MPEG_BASE+400)
+ #define V4L2_CID_MPEG_VIDEO_MPEG4_P_FRAME_QP	(V4L2_CID_MPEG_BASE+401)
+ #define V4L2_CID_MPEG_VIDEO_MPEG4_B_FRAME_QP	(V4L2_CID_MPEG_BASE+402)
+-- 
+2.21.0
+
+From 26fae7a41313506931c9be5f532c12d8d654f153 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Tue, 2 Apr 2019 23:06:22 +0200
+Subject: [PATCH] clk: sunxi-ng: h6: Preset hdmi-cec clock parent
+
+H6 manual and BSP clock driver both states that hdmi-cec clock has two
+possible parents, osc32k and pll-periph0-2x with 36621 predivider.
+Because pll-periph0-2x is always 1.2 GHz, both parents give same
+hdmi-cec rate - 32768 Hz, which is exactly the rate needed for HDMI CEC
+controller to operate correctly.
+
+However, for some reason, HDMI CEC controller doesn't work if default
+parent (osc32k) is used. BSP HDMI driver also always use pll-periph0-2x
+as hdmi-cec clock parent.
+
+In order to solve the issue, preset hdmi-cec clock parent to
+pll-periph0-2x.
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+---
+ drivers/clk/sunxi-ng/ccu-sun50i-h6.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/drivers/clk/sunxi-ng/ccu-sun50i-h6.c b/drivers/clk/sunxi-ng/ccu-sun50i-h6.c
+index daf78966555e..33980067b06e 100644
+--- a/drivers/clk/sunxi-ng/ccu-sun50i-h6.c
++++ b/drivers/clk/sunxi-ng/ccu-sun50i-h6.c
+@@ -656,6 +656,8 @@ static const char * const hdmi_cec_parents[] = { "osc32k", "pll-periph0-2x" };
+ static const struct ccu_mux_fixed_prediv hdmi_cec_predivs[] = {
+ 	{ .index = 1, .div = 36621 },
+ };
++
++#define SUN50I_H6_HDMI_CEC_CLK_REG		0xb10
+ static struct ccu_mux hdmi_cec_clk = {
+ 	.enable		= BIT(31),
+ 
+@@ -1200,6 +1202,15 @@ static int sun50i_h6_ccu_probe(struct platform_device *pdev)
+ 	val &= ~(GENMASK(21, 16) | BIT(0));
+ 	writel(val | (7 << 16), reg + SUN50I_H6_PLL_AUDIO_REG);
+ 
++	/*
++	 * First clock parent (osc32K) is unusable for CEC. But since there
++	 * is no good way to force parent switch (both run with same frequency),
++	 * just set second clock parent here.
++	 */
++	val = readl(reg + SUN50I_H6_HDMI_CEC_CLK_REG);
++	val |= BIT(24);
++	writel(val, reg + SUN50I_H6_HDMI_CEC_CLK_REG);
++
+ 	return sunxi_ccu_probe(pdev->dev.of_node, reg, &sun50i_h6_ccu_desc);
+ }
+ 
+-- 
+2.21.0
+
+From 6597ce3de9e443f0cab693496fc529f55ae6eb01 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Wed, 3 Apr 2019 17:14:03 +0200
+Subject: [PATCH] clk: sunxi-ng: h6: Allow video & vpu clocks to change parent
+ rate
+
+Video related clocks need to set rate as close as possible to the
+requested one, so they should be able to change parent clock rate.
+
+When processing 4K video, VPU clock has to be set to higher rate than it
+is default parent rate. Because of that, VPU clock should be able to
+change parent clock rate.
+
+Add CLK_SET_RATE_PARENT flag to tcon-lcd0, tcon-tv0 and ve.
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+---
+ drivers/clk/sunxi-ng/ccu-sun50i-h6.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/clk/sunxi-ng/ccu-sun50i-h6.c b/drivers/clk/sunxi-ng/ccu-sun50i-h6.c
+index 33980067b06e..3c32d7798f27 100644
+--- a/drivers/clk/sunxi-ng/ccu-sun50i-h6.c
++++ b/drivers/clk/sunxi-ng/ccu-sun50i-h6.c
+@@ -311,7 +311,7 @@ static SUNXI_CCU_M_WITH_MUX_GATE(ve_clk, "ve", ve_parents, 0x690,
+ 				       0, 3,	/* M */
+ 				       24, 1,	/* mux */
+ 				       BIT(31),	/* gate */
+-				       0);
++				       CLK_SET_RATE_PARENT);
+ 
+ static SUNXI_CCU_GATE(bus_ve_clk, "bus-ve", "psi-ahb1-ahb2",
+ 		      0x69c, BIT(0), 0);
+@@ -691,7 +691,7 @@ static SUNXI_CCU_MUX_WITH_GATE(tcon_lcd0_clk, "tcon-lcd0",
+ 			       tcon_lcd0_parents, 0xb60,
+ 			       24, 3,	/* mux */
+ 			       BIT(31),	/* gate */
+-			       0);
++			       CLK_SET_RATE_PARENT);
+ 
+ static SUNXI_CCU_GATE(bus_tcon_lcd0_clk, "bus-tcon-lcd0", "ahb3",
+ 		      0xb7c, BIT(0), 0);
+@@ -706,7 +706,7 @@ static SUNXI_CCU_MP_WITH_MUX_GATE(tcon_tv0_clk, "tcon-tv0",
+ 				  8, 2,		/* P */
+ 				  24, 3,	/* mux */
+ 				  BIT(31),	/* gate */
+-				  0);
++				  CLK_SET_RATE_PARENT);
+ 
+ static SUNXI_CCU_GATE(bus_tcon_tv0_clk, "bus-tcon-tv0", "ahb3",
+ 		      0xb9c, BIT(0), 0);
+-- 
+2.21.0
+
