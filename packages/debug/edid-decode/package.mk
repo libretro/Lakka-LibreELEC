@@ -2,11 +2,11 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="edid-decode"
-PKG_VERSION="f56f329"
-PKG_SHA256="d9347ddf6933c6f90c79230b1898da5686083f0e5ebb7ef67acb011108cfaeae"
+PKG_VERSION="15df4aebf06da579241c58949493b866139d0e2b"
+PKG_SHA256="58743c8ba768134ef1421e1ce9f4edf0eafdae29377fe5b8f4cb285f16dc142e"
 PKG_LICENSE="None"
-PKG_SITE="https://cgit.freedesktop.org/xorg/app/edid-decode/"
-PKG_URL="https://cgit.freedesktop.org/xorg/app/edid-decode/snapshot/$PKG_VERSION.tar.xz"
+PKG_SITE="https://git.linuxtv.org/edid-decode.git/"
+PKG_URL="https://git.linuxtv.org/edid-decode.git/snapshot/$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Decode EDID data in human-readable format"
 
