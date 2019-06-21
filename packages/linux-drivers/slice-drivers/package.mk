@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="slice-drivers"
-PKG_VERSION="8a2bdcd5dc182de899f19b0935d8beeb7f5fdbcb"
-PKG_SHA256="ffb3b9ef5a0e6101d661407447257abf136f1ae206a17bd18d9b204e0b29f050"
+PKG_VERSION="cff35bf3819edd3379140ccbbe667cbfd3535e93"
+PKG_SHA256="7d159cc52c7ee086468799ec7b2941ba7a39fe5fc372faa59c38a141b8b0ae01"
 PKG_ARCH="arm"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/LibreELEC/slice-drivers"
@@ -18,10 +18,17 @@ pre_make_target() {
 }
 
 make_target() {
-  kernel_make KDIR=$(kernel_path)
+  local kdir=$(kernel_path)
+  local dtc=${kdir}/scripts/dtc/dtc
+  local dtcflags="-@ -O dtb -Wno-unit_address_vs_reg"
+  kernel_make KDIR=${kdir}
+  ${dtc} ${dtcflags} -o slice.dtbo slice-overlay.dts
+  ${dtc} ${dtcflags} -o ws2812.dtbo ws2812-overlay.dts
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/$(get_full_module_dir)/$PKG_NAME
     cp *.ko $INSTALL/$(get_full_module_dir)/$PKG_NAME
+  mkdir -p $INSTALL/usr/share/bootloader/overlays
+    cp *.dtbo $INSTALL/usr/share/bootloader/overlays
 }
