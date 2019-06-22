@@ -4,16 +4,16 @@
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
-. config/options "$1"
+. config/options "${1}"
 
-if [ -z "$1" ]; then
-  die "usage: $0 package_name[:<host|target|init|bootstrap>] [parent_pkg]"
+if [ -z "${1}" ]; then
+  die "usage: ${0} package_name[:<host|target|init|bootstrap>] [parent_pkg]"
 fi
 
-if [ "$1" = "--all" ]; then
-  if [ -n "$2" ]; then
+if [ "${1}" = "--all" ]; then
+  if [ -n "${2}" ]; then
     for build_dir in $(ls -1d ${ROOT}/build.*); do
-      load_build_config ${build_dir} && ${SCRIPTS}/build "$2"
+      load_build_config ${build_dir} && ${SCRIPTS}/build "${2}"
     done
   fi
   exit 0
@@ -23,63 +23,60 @@ if [ -z "${PKG_NAME}" ]; then
   die "$(print_color CLR_ERROR "${1}: no package.mk file found")"
 fi
 
-if [ -n "$PKG_ARCH" ]; then
-  listcontains "$PKG_ARCH" "!$TARGET_ARCH" && exit 0
-  listcontains "$PKG_ARCH" "$TARGET_ARCH" || listcontains "$PKG_ARCH" "any" || exit 0
+if [ -n "${PKG_ARCH}" ]; then
+  listcontains "${PKG_ARCH}" "!${TARGET_ARCH}" && exit 0
+  listcontains "${PKG_ARCH}" "${TARGET_ARCH}" || listcontains "${PKG_ARCH}" "any" || exit 0
 fi
 
 if [ "${1//:/}" != "${1}" ]; then
-  PACKAGE_NAME="${1%:*}"
   TARGET="${1#*:}"
 else
-  PACKAGE_NAME="${1}"
   TARGET=
 fi
 TARGET="${TARGET:-target}"
 PARENT_PKG="${2:-${PKG_NAME}:${TARGET}}"
 
-pkg_lock "${PACKAGE_NAME}:${TARGET}" "build" "${PARENT_PKG}"
+pkg_lock "${PKG_NAME}:${TARGET}" "build" "${PARENT_PKG}"
 
-mkdir -p $STAMPS/$PACKAGE_NAME
-STAMP=$STAMPS/$PACKAGE_NAME/build_$TARGET
-if [ -f $STAMP ]; then
-  . $STAMP
+mkdir -p ${STAMPS}/${PKG_NAME}
+STAMP=${STAMPS}/${PKG_NAME}/build_${TARGET}
+if [ -f ${STAMP} ]; then
+  . ${STAMP}
   PKG_DEEPHASH=$(calculate_stamp)
-  if [ ! "$PKG_DEEPHASH" = "$STAMP_PKG_DEEPHASH" ]; then
-    rm -f $STAMP
-  elif [ ! "$BUILD_WITH_DEBUG" = "$STAMP_BUILD_WITH_DEBUG" ]; then
-    rm -f $STAMP
-  else
+
+  if [ "${PKG_DEEPHASH}" = "${STAMP_PKG_DEEPHASH}" -a "${BUILD_WITH_DEBUG}" = "${STAMP_BUILD_WITH_DEBUG}" ]; then
     # stamp matched: already built, do nothing
     pkg_lock_status "UNLOCK" "${PKG_NAME}:${TARGET}" "build" "already built"
     exit 0
   fi
+
+  rm -f ${STAMP}
 fi
 
 if [ -n "${PKG_DEPENDS_UNPACK}" ]; then
   for p in ${PKG_DEPENDS_UNPACK}; do
-    $SCRIPTS/unpack "${p}" "${PARENT_PKG}"
+    ${SCRIPTS}/unpack "${p}" "${PARENT_PKG}"
   done
 fi
-$SCRIPTS/unpack "${PACKAGE_NAME}" "${PARENT_PKG}"
+${SCRIPTS}/unpack "${PKG_NAME}" "${PARENT_PKG}"
 
 # build dependencies, only when PKG_DEPENDS_? is filled
 unset _pkg_depends
-case "$TARGET" in
-  "target") _pkg_depends="$PKG_DEPENDS_TARGET";;
-  "host") _pkg_depends="$PKG_DEPENDS_HOST";;
-  "init") _pkg_depends="$PKG_DEPENDS_INIT";;
-  "bootstrap") _pkg_depends="$PKG_DEPENDS_BOOTSTRAP";;
+case "${TARGET}" in
+  "target") _pkg_depends="${PKG_DEPENDS_TARGET}";;
+  "host") _pkg_depends="${PKG_DEPENDS_HOST}";;
+  "init") _pkg_depends="${PKG_DEPENDS_INIT}";;
+  "bootstrap") _pkg_depends="${PKG_DEPENDS_BOOTSTRAP}";;
 esac
-for p in $_pkg_depends; do
-  $SCRIPTS/build "${p}" "${PARENT_PKG}"
+for p in ${_pkg_depends}; do
+  ${SCRIPTS}/build "${p}" "${PARENT_PKG}"
 done
 
 # virtual packages are not built as they only contain dependencies, so dont go further here
-if [ "$PKG_SECTION" = "virtual" ]; then
+if [ "${PKG_SECTION}" = "virtual" ]; then
   PKG_DEEPHASH=$(calculate_stamp)
   for i in PKG_NAME PKG_DEEPHASH BUILD_WITH_DEBUG; do
-    echo "STAMP_$i=\"${!i}\"" >> $STAMP
+    echo "STAMP_${i}=\"${!i}\"" >> ${STAMP}
   done
 
   pkg_lock_status "UNLOCK" "${PKG_NAME}:${TARGET}" "build" "built"
@@ -88,24 +85,24 @@ fi
 
 # build this package
 if [ "${BUILD_WITH_DEBUG}" = "yes" ]; then
-  build_msg "CLR_BUILD" "BUILD" "${PACKAGE_NAME} $(print_color "CLR_TARGET" "(${TARGET})") [DEBUG]" "indent"
+  build_msg "CLR_BUILD" "BUILD" "${PKG_NAME} $(print_color "CLR_TARGET" "(${TARGET})") [DEBUG]" "indent"
 else
-  build_msg "CLR_BUILD" "BUILD" "${PACKAGE_NAME} $(print_color "CLR_TARGET" "(${TARGET})")" "indent"
+  build_msg "CLR_BUILD" "BUILD" "${PKG_NAME} $(print_color "CLR_TARGET" "(${TARGET})")" "indent"
 fi
 
-setup_toolchain $TARGET
+setup_toolchain ${TARGET}
 
 # configure install directory
-if [ "$TARGET" = "target" ]; then
-  INSTALL="$PKG_BUILD/.install_pkg"
-elif [ "$TARGET" = "init" ]; then
-  INSTALL="$PKG_BUILD/.install_init"
+if [ "${TARGET}" = "target" ]; then
+  INSTALL="${PKG_BUILD}/.install_pkg"
+elif [ "${TARGET}" = "init" ]; then
+  INSTALL="${PKG_BUILD}/.install_init"
 else
   unset INSTALL
 fi
 # remove previous install files
-if [ -n "$INSTALL" -a -d "$INSTALL" ]; then
-  rm -rf "$INSTALL"
+if [ -n "${INSTALL}" -a -d "${INSTALL}" ]; then
+  rm -rf "${INSTALL}"
 fi
 
 # configure debug build defaults
@@ -121,8 +118,8 @@ CMAKE_GENERATOR_NINJA="-GNinja \
                        -DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
 
 # configure TARGET build defaults
-TARGET_CONFIGURE_OPTS="--host=$TARGET_NAME \
-                       --build=$HOST_NAME \
+TARGET_CONFIGURE_OPTS="--host=${TARGET_NAME} \
+                       --build=${HOST_NAME} \
                        --prefix=/usr \
                        --bindir=/usr/bin \
                        --sbindir=/usr/sbin \
@@ -133,9 +130,9 @@ TARGET_CONFIGURE_OPTS="--host=$TARGET_NAME \
                        --disable-static \
                        --enable-shared"
 
-TARGET_CMAKE_OPTS="-DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
+TARGET_CMAKE_OPTS="-DCMAKE_TOOLCHAIN_FILE=${CMAKE_CONF} \
                    -DCMAKE_INSTALL_PREFIX=/usr \
-                   -DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE"
+                   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
 
 TARGET_MESON_OPTS="--prefix=/usr \
                    --bindir=/usr/bin \
@@ -144,42 +141,42 @@ TARGET_MESON_OPTS="--prefix=/usr \
                    --libdir=/usr/lib \
                    --libexecdir=/usr/lib \
                    --localstatedir=/var \
-                   --buildtype=$MESON_BUILD_TYPE"
+                   --buildtype=${MESON_BUILD_TYPE}"
 
 # configure HOST build defaults
-HOST_CONFIGURE_OPTS="--host=$HOST_NAME \
-                     --build=$HOST_NAME \
-                     --prefix=$TOOLCHAIN \
-                     --bindir=$TOOLCHAIN/bin \
-                     --sbindir=$TOOLCHAIN/sbin \
-                     --sysconfdir=$TOOLCHAIN/etc \
-                     --libexecdir=$TOOLCHAIN/lib \
-                     --localstatedir=$TOOLCHAIN/var \
+HOST_CONFIGURE_OPTS="--host=${HOST_NAME} \
+                     --build=${HOST_NAME} \
+                     --prefix=${TOOLCHAIN} \
+                     --bindir=${TOOLCHAIN}/bin \
+                     --sbindir=${TOOLCHAIN}/sbin \
+                     --sysconfdir=${TOOLCHAIN}/etc \
+                     --libexecdir=${TOOLCHAIN}/lib \
+                     --localstatedir=${TOOLCHAIN}/var \
                      --disable-static \
                      --enable-shared"
 
-HOST_CMAKE_OPTS="$CMAKE_GENERATOR \
-                 -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
-                 -DCMAKE_INSTALL_PREFIX=$TOOLCHAIN"
+HOST_CMAKE_OPTS="${CMAKE_GENERATOR} \
+                 -DCMAKE_TOOLCHAIN_FILE=${CMAKE_CONF} \
+                 -DCMAKE_INSTALL_PREFIX=${TOOLCHAIN}"
 
-HOST_MESON_OPTS="--prefix=$TOOLCHAIN \
-                 --bindir=$TOOLCHAIN/bin \
-                 --sbindir=$TOOLCHAIN/sbin \
-                 --sysconfdir=$TOOLCHAIN/etc \
-                 --libdir=$TOOLCHAIN/lib \
-                 --libexecdir=$TOOLCHAIN/lib \
-                 --localstatedir=$TOOLCHAIN/var \
+HOST_MESON_OPTS="--prefix=${TOOLCHAIN} \
+                 --bindir=${TOOLCHAIN}/bin \
+                 --sbindir=${TOOLCHAIN}/sbin \
+                 --sysconfdir=${TOOLCHAIN}/etc \
+                 --libdir=${TOOLCHAIN}/lib \
+                 --libexecdir=${TOOLCHAIN}/lib \
+                 --localstatedir=${TOOLCHAIN}/var \
                  --buildtype=plain"
 
 # configure INIT build defaults
-INIT_CONFIGURE_OPTS="$TARGET_CONFIGURE_OPTS"
-INIT_CMAKE_OPTS="$TARGET_CMAKE_OPTS"
-INIT_MESON_OPTS="$TARGET_MESON_OPTS"
+INIT_CONFIGURE_OPTS="${TARGET_CONFIGURE_OPTS}"
+INIT_CMAKE_OPTS="${TARGET_CMAKE_OPTS}"
+INIT_MESON_OPTS="${TARGET_MESON_OPTS}"
 
 # configure BOOTSTRAP build defaults
-BOOTSTRAP_CONFIGURE_OPTS="$HOST_CONFIGURE_OPTS"
-BOOTSTRAP_CMAKE_OPTS="$HOST_CMAKE_OPTS"
-BOOTSTRAP_MESON_OPTS="$HOST_MESON_OPTS"
+BOOTSTRAP_CONFIGURE_OPTS="${HOST_CONFIGURE_OPTS}"
+BOOTSTRAP_CMAKE_OPTS="${HOST_CMAKE_OPTS}"
+BOOTSTRAP_MESON_OPTS="${HOST_MESON_OPTS}"
 
 # setup configure scripts
 PKG_CONFIGURE_SCRIPT="${PKG_CONFIGURE_SCRIPT:-${PKG_BUILD}/configure}"
@@ -188,189 +185,187 @@ PKG_MESON_SCRIPT="${PKG_MESON_SCRIPT:-${PKG_BUILD}/meson.build}"
 
 # auto detect toolchain
 _auto_toolchain=""
-if [ -z "$PKG_TOOLCHAIN" -o "$PKG_TOOLCHAIN" = "auto" ]; then
-  if [ -f "$PKG_MESON_SCRIPT" ]; then
+if [ -z "${PKG_TOOLCHAIN}" -o "${PKG_TOOLCHAIN}" = "auto" ]; then
+  if [ -f "${PKG_MESON_SCRIPT}" ]; then
     PKG_TOOLCHAIN="meson"
-  elif [ -f "$PKG_CMAKE_SCRIPT" ]; then
+  elif [ -f "${PKG_CMAKE_SCRIPT}" ]; then
     PKG_TOOLCHAIN="cmake"
-  elif [ -f "$PKG_CONFIGURE_SCRIPT" ]; then
+  elif [ -f "${PKG_CONFIGURE_SCRIPT}" ]; then
     PKG_TOOLCHAIN="configure"
-  elif [ -f "$PKG_BUILD/Makefile" ]; then
+  elif [ -f "${PKG_BUILD}/Makefile" ]; then
     PKG_TOOLCHAIN="make"
   else
     die "Not possible to detect toolchain automatically. Add PKG_TOOLCHAIN= to package.mk"
   fi
   _auto_toolchain=" (auto-detect)"
 fi
-if ! listcontains "meson cmake cmake-make configure ninja make autotools manual" "$PKG_TOOLCHAIN"; then
-  die "$(print_color "CLR_ERROR" "ERROR:") unknown toolchain $PKG_TOOLCHAIN"
+if ! listcontains "meson cmake cmake-make configure ninja make autotools manual" "${PKG_TOOLCHAIN}"; then
+  die "$(print_color "CLR_ERROR" "ERROR:") unknown toolchain ${PKG_TOOLCHAIN}"
 fi
 build_msg "CLR_TOOLCHAIN" "TOOLCHAIN" "${PKG_TOOLCHAIN}${_auto_toolchain}"
 
 # make autoreconf
-if [ "$PKG_TOOLCHAIN" = "autotools" ]; then
-  $SCRIPTS/autoreconf "${PACKAGE_NAME}" "${PARENT_PKG}"
+if [ "${PKG_TOOLCHAIN}" = "autotools" ]; then
+  ${SCRIPTS}/autoreconf "${PKG_NAME}" "${PARENT_PKG}"
 fi
 
 pkg_lock_status "ACTIVE" "${PKG_NAME}:${TARGET}" "build"
 
 # include build template and build
-pkg_call_exists pre_build_$TARGET && pkg_call pre_build_$TARGET
+pkg_call_exists pre_build_${TARGET} && pkg_call pre_build_${TARGET}
 
-# ensure $PKG_BUILD is there. (installer? PKG_URL="")
-if [ ! -d "$PKG_BUILD" ] ; then
-  mkdir -p "$PKG_BUILD"
-fi
+# ensure ${PKG_BUILD} is there. (installer? PKG_URL="")
+mkdir -p "${PKG_BUILD}"
 
-cd "$PKG_BUILD"
+cd "${PKG_BUILD}"
 
-if [ -f "$PKG_CONFIGURE_SCRIPT" -o -f "$PKG_CMAKE_SCRIPT" -o -f "$PKG_MESON_SCRIPT" ]; then
-  case "$TARGET" in
-    "target")    PKG_REAL_BUILD="$PKG_BUILD/.$TARGET_NAME" ;;
-    "host")      PKG_REAL_BUILD="$PKG_BUILD/.$HOST_NAME" ;;
-    "init")      PKG_REAL_BUILD="$PKG_BUILD/.$TARGET_NAME-$TARGET" ;;
-    "bootstrap") PKG_REAL_BUILD="$PKG_BUILD/.$HOST_NAME-$TARGET" ;;
+if [ -f "${PKG_CONFIGURE_SCRIPT}" -o -f "${PKG_CMAKE_SCRIPT}" -o -f "${PKG_MESON_SCRIPT}" ]; then
+  case "${TARGET}" in
+    "target")    PKG_REAL_BUILD="${PKG_BUILD}/.${TARGET_NAME}" ;;
+    "host")      PKG_REAL_BUILD="${PKG_BUILD}/.${HOST_NAME}" ;;
+    "init")      PKG_REAL_BUILD="${PKG_BUILD}/.${TARGET_NAME}-${TARGET}" ;;
+    "bootstrap") PKG_REAL_BUILD="${PKG_BUILD}/.${HOST_NAME}-${TARGET}" ;;
   esac
-  mkdir -p "$PKG_REAL_BUILD"
-  cd "$PKG_REAL_BUILD"
+  mkdir -p "${PKG_REAL_BUILD}"
+  cd "${PKG_REAL_BUILD}"
 
-  MESON_CONF="$PKG_REAL_BUILD/meson.conf"
+  MESON_CONF="${PKG_REAL_BUILD}/meson.conf"
 fi
 
 # configure
 pkg_call_exists pre_configure && pkg_call pre_configure
-pkg_call_exists pre_configure_$TARGET && pkg_call pre_configure_$TARGET
+pkg_call_exists pre_configure_${TARGET} && pkg_call pre_configure_${TARGET}
 
-if pkg_call_exists configure_$TARGET; then
-  pkg_call configure_$TARGET
+if pkg_call_exists configure_${TARGET}; then
+  pkg_call configure_${TARGET}
 else
-  case "$PKG_TOOLCHAIN:$TARGET" in
+  case "${PKG_TOOLCHAIN}:${TARGET}" in
     # meson builds
     "meson:target")
-      create_meson_conf $TARGET $MESON_CONF
-      echo "Executing (target): meson $TARGET_MESON_OPTS --cross-file=$MESON_CONF $PKG_MESON_OPTS_TARGET $(dirname $PKG_MESON_SCRIPT)" | tr -s " "
-      CC="$HOST_CC" CXX="$HOST_CXX" meson $TARGET_MESON_OPTS --cross-file=$MESON_CONF $PKG_MESON_OPTS_TARGET $(dirname $PKG_MESON_SCRIPT)
+      create_meson_conf ${TARGET} ${MESON_CONF}
+      echo "Executing (target): meson ${TARGET_MESON_OPTS} --cross-file=${MESON_CONF} ${PKG_MESON_OPTS_TARGET} $(dirname ${PKG_MESON_SCRIPT})" | tr -s " "
+      CC="${HOST_CC}" CXX="${HOST_CXX}" meson ${TARGET_MESON_OPTS} --cross-file=${MESON_CONF} ${PKG_MESON_OPTS_TARGET} $(dirname ${PKG_MESON_SCRIPT})
       ;;
     "meson:host")
-      create_meson_conf $TARGET $MESON_CONF
-      echo "Executing (host): meson $HOST_MESON_OPTS --cross-file=$MESON_CONF $PKG_MESON_OPTS_HOST $(dirname $PKG_MESON_SCRIPT)" | tr -s " "
-      meson $HOST_MESON_OPTS --cross-file=$MESON_CONF $PKG_MESON_OPTS_HOST $(dirname $PKG_MESON_SCRIPT)
+      create_meson_conf ${TARGET} ${MESON_CONF}
+      echo "Executing (host): meson ${HOST_MESON_OPTS} --cross-file=${MESON_CONF} ${PKG_MESON_OPTS_HOST} $(dirname ${PKG_MESON_SCRIPT})" | tr -s " "
+      meson ${HOST_MESON_OPTS} --cross-file=${MESON_CONF} ${PKG_MESON_OPTS_HOST} $(dirname ${PKG_MESON_SCRIPT})
       ;;
     "meson:init")
-      create_meson_conf $TARGET $MESON_CONF
-      echo "Executing (init): meson $INIT_MESON_OPTS --cross-file=$MESON_CONF $PKG_MESON_OPTS_INIT $(dirname $PKG_MESON_SCRIPT)" | tr -s " "
-      meson $INIT_MESON_OPTS --cross-file=$MESON_CONF $PKG_MESON_OPTS_INIT $(dirname $PKG_MESON_SCRIPT)
+      create_meson_conf ${TARGET} ${MESON_CONF}
+      echo "Executing (init): meson ${INIT_MESON_OPTS} --cross-file=${MESON_CONF} ${PKG_MESON_OPTS_INIT} $(dirname ${PKG_MESON_SCRIPT})" | tr -s " "
+      meson ${INIT_MESON_OPTS} --cross-file=${MESON_CONF} ${PKG_MESON_OPTS_INIT} $(dirname ${PKG_MESON_SCRIPT})
       ;;
     "meson:bootstrap")
-      create_meson_conf $TARGET $MESON_CONF
-      echo "Executing (bootstrap): meson $BOOTSTRAP_MESON_OPTS --cross-file=$MESON_CONF $PKG_MESON_OPTS_BOOTSTRAP $(dirname $PKG_MESON_SCRIPT)" | tr -s " "
-      meson $BOOTSTRAP_MESON_OPTS --cross-file=$MESON_CONF $PKG_MESON_OPTS_BOOTSTRAP $(dirname $PKG_MESON_SCRIPT)
+      create_meson_conf ${TARGET} ${MESON_CONF}
+      echo "Executing (bootstrap): meson ${BOOTSTRAP_MESON_OPTS} --cross-file=${MESON_CONF} ${PKG_MESON_OPTS_BOOTSTRAP} $(dirname ${PKG_MESON_SCRIPT})" | tr -s " "
+      meson ${BOOTSTRAP_MESON_OPTS} --cross-file=${MESON_CONF} ${PKG_MESON_OPTS_BOOTSTRAP} $(dirname ${PKG_MESON_SCRIPT})
       ;;
 
     # cmake builds with ninja
     "cmake:target")
-      echo "Executing (target): cmake $CMAKE_GENERATOR_NINJA $TARGET_CMAKE_OPTS $PKG_CMAKE_OPTS_TARGET $(dirname $PKG_CMAKE_SCRIPT)" | tr -s " "
-      cmake $CMAKE_GENERATOR_NINJA $TARGET_CMAKE_OPTS $PKG_CMAKE_OPTS_TARGET $(dirname $PKG_CMAKE_SCRIPT)
+      echo "Executing (target): cmake ${CMAKE_GENERATOR_NINJA} ${TARGET_CMAKE_OPTS} ${PKG_CMAKE_OPTS_TARGET} $(dirname ${PKG_CMAKE_SCRIPT})" | tr -s " "
+      cmake ${CMAKE_GENERATOR_NINJA} ${TARGET_CMAKE_OPTS} ${PKG_CMAKE_OPTS_TARGET} $(dirname ${PKG_CMAKE_SCRIPT})
       ;;
     "cmake:host")
-      echo "Executing (host): cmake $CMAKE_GENERATOR_NINJA $HOST_CMAKE_OPTS $PKG_CMAKE_OPTS_HOST $(dirname $PKG_CMAKE_SCRIPT)" | tr -s " "
-      cmake $CMAKE_GENERATOR_NINJA $HOST_CMAKE_OPTS $PKG_CMAKE_OPTS_HOST $(dirname $PKG_CMAKE_SCRIPT)
+      echo "Executing (host): cmake ${CMAKE_GENERATOR_NINJA} ${HOST_CMAKE_OPTS} ${PKG_CMAKE_OPTS_HOST} $(dirname ${PKG_CMAKE_SCRIPT})" | tr -s " "
+      cmake ${CMAKE_GENERATOR_NINJA} ${HOST_CMAKE_OPTS} ${PKG_CMAKE_OPTS_HOST} $(dirname ${PKG_CMAKE_SCRIPT})
       ;;
     "cmake:init")
-      echo "Executing (init): cmake $CMAKE_GENERATOR_NINJA $INIT_CMAKE_OPTS $PKG_CMAKE_OPTS_INIT $(dirname $PKG_CMAKE_SCRIPT)" | tr -s " "
-      cmake $CMAKE_GENERATOR_NINJA $INIT_CMAKE_OPTS $PKG_CMAKE_OPTS_INIT $(dirname $PKG_CMAKE_SCRIPT)
+      echo "Executing (init): cmake ${CMAKE_GENERATOR_NINJA} ${INIT_CMAKE_OPTS} ${PKG_CMAKE_OPTS_INIT} $(dirname ${PKG_CMAKE_SCRIPT})" | tr -s " "
+      cmake ${CMAKE_GENERATOR_NINJA} ${INIT_CMAKE_OPTS} ${PKG_CMAKE_OPTS_INIT} $(dirname ${PKG_CMAKE_SCRIPT})
       ;;
     "cmake:bootstrap")
-      echo "Executing (bootstrap): cmake $CMAKE_GENERATOR_NINJA $BOOTSTRAP_CMAKE_OPTS $PKG_CMAKE_OPTS_BOOTSTRAP $(dirname $PKG_CMAKE_SCRIPT)" | tr -s " "
-      cmake $CMAKE_GENERATOR_NINJA $BOOTSTRAP_CMAKE_OPTS $PKG_CMAKE_OPTS_BOOTSTRAP $(dirname $PKG_CMAKE_SCRIPT)
+      echo "Executing (bootstrap): cmake ${CMAKE_GENERATOR_NINJA} ${BOOTSTRAP_CMAKE_OPTS} ${PKG_CMAKE_OPTS_BOOTSTRAP} $(dirname ${PKG_CMAKE_SCRIPT})" | tr -s " "
+      cmake ${CMAKE_GENERATOR_NINJA} ${BOOTSTRAP_CMAKE_OPTS} ${PKG_CMAKE_OPTS_BOOTSTRAP} $(dirname ${PKG_CMAKE_SCRIPT})
       ;;
 
     # cmake builds with make
     "cmake-make:target")
-      echo "Executing (target): cmake $TARGET_CMAKE_OPTS $PKG_CMAKE_OPTS_TARGET $(dirname $PKG_CMAKE_SCRIPT)" | tr -s " "
-      cmake $TARGET_CMAKE_OPTS $PKG_CMAKE_OPTS_TARGET $(dirname $PKG_CMAKE_SCRIPT)
+      echo "Executing (target): cmake ${TARGET_CMAKE_OPTS} ${PKG_CMAKE_OPTS_TARGET} $(dirname ${PKG_CMAKE_SCRIPT})" | tr -s " "
+      cmake ${TARGET_CMAKE_OPTS} ${PKG_CMAKE_OPTS_TARGET} $(dirname ${PKG_CMAKE_SCRIPT})
       ;;
     "cmake-make:host")
-      echo "Executing (host): cmake $HOST_CMAKE_OPTS $PKG_CMAKE_OPTS_HOST $(dirname $PKG_CMAKE_SCRIPT)" | tr -s " "
-      cmake $HOST_CMAKE_OPTS $PKG_CMAKE_OPTS_HOST $(dirname $PKG_CMAKE_SCRIPT)
+      echo "Executing (host): cmake ${HOST_CMAKE_OPTS} ${PKG_CMAKE_OPTS_HOST} $(dirname ${PKG_CMAKE_SCRIPT})" | tr -s " "
+      cmake ${HOST_CMAKE_OPTS} ${PKG_CMAKE_OPTS_HOST} $(dirname ${PKG_CMAKE_SCRIPT})
       ;;
     "cmake-make:init")
-      echo "Executing (init): cmake $INIT_CMAKE_OPTS $PKG_CMAKE_OPTS_INIT $(dirname $PKG_CMAKE_SCRIPT)" | tr -s " "
-      cmake $INIT_CMAKE_OPTS $PKG_CMAKE_OPTS_INIT $(dirname $PKG_CMAKE_SCRIPT)
+      echo "Executing (init): cmake ${INIT_CMAKE_OPTS} ${PKG_CMAKE_OPTS_INIT} $(dirname ${PKG_CMAKE_SCRIPT})" | tr -s " "
+      cmake ${INIT_CMAKE_OPTS} ${PKG_CMAKE_OPTS_INIT} $(dirname ${PKG_CMAKE_SCRIPT})
       ;;
     "cmake-make:bootstrap")
-      echo "Executing (bootstrap): cmake $BOOTSTRAP_CMAKE_OPTS $PKG_CMAKE_OPTS_BOOTSTRAP $(dirname $PKG_CMAKE_SCRIPT)" | tr -s " "
-      cmake $BOOTSTRAP_CMAKE_OPTS $PKG_CMAKE_OPTS_BOOTSTRAP $(dirname $PKG_CMAKE_SCRIPT)
+      echo "Executing (bootstrap): cmake ${BOOTSTRAP_CMAKE_OPTS} ${PKG_CMAKE_OPTS_BOOTSTRAP} $(dirname ${PKG_CMAKE_SCRIPT})" | tr -s " "
+      cmake ${BOOTSTRAP_CMAKE_OPTS} ${PKG_CMAKE_OPTS_BOOTSTRAP} $(dirname ${PKG_CMAKE_SCRIPT})
       ;;
 
     # configure builds
     "configure:target"|"autotools:target")
-      echo "Executing (target): $PKG_CONFIGURE_SCRIPT $TARGET_CONFIGURE_OPTS $PKG_CONFIGURE_OPTS_TARGET" | tr -s " "
-      $PKG_CONFIGURE_SCRIPT $TARGET_CONFIGURE_OPTS $PKG_CONFIGURE_OPTS_TARGET
+      echo "Executing (target): ${PKG_CONFIGURE_SCRIPT} ${TARGET_CONFIGURE_OPTS} ${PKG_CONFIGURE_OPTS_TARGET}" | tr -s " "
+      ${PKG_CONFIGURE_SCRIPT} ${TARGET_CONFIGURE_OPTS} ${PKG_CONFIGURE_OPTS_TARGET}
       ;;
     "configure:host"|"autotools:host")
-      echo "Executing (host): $PKG_CONFIGURE_SCRIPT $HOST_CONFIGURE_OPTS $PKG_CONFIGURE_OPTS_HOST" | tr -s " "
-      $PKG_CONFIGURE_SCRIPT $HOST_CONFIGURE_OPTS $PKG_CONFIGURE_OPTS_HOST
+      echo "Executing (host): ${PKG_CONFIGURE_SCRIPT} ${HOST_CONFIGURE_OPTS} ${PKG_CONFIGURE_OPTS_HOST}" | tr -s " "
+      ${PKG_CONFIGURE_SCRIPT} ${HOST_CONFIGURE_OPTS} ${PKG_CONFIGURE_OPTS_HOST}
       ;;
     "configure:init"|"autotools:init")
-      echo "Executing (init): $PKG_CONFIGURE_SCRIPT $INIT_CONFIGURE_OPTS $PKG_CONFIGURE_OPTS_INIT" | tr -s " "
-      $PKG_CONFIGURE_SCRIPT $INIT_CONFIGURE_OPTS $PKG_CONFIGURE_OPTS_INIT
+      echo "Executing (init): ${PKG_CONFIGURE_SCRIPT} ${INIT_CONFIGURE_OPTS} ${PKG_CONFIGURE_OPTS_INIT}" | tr -s " "
+      ${PKG_CONFIGURE_SCRIPT} ${INIT_CONFIGURE_OPTS} ${PKG_CONFIGURE_OPTS_INIT}
       ;;
     "configure:bootstrap"|"autotools:bootstrap")
-      echo "Executing (bootstrap): $PKG_CONFIGURE_SCRIPT $BOOTSTRAP_CONFIGURE_OPTS $PKG_CONFIGURE_OPTS_BOOTSTRAP" | tr -s " "
-      $PKG_CONFIGURE_SCRIPT $BOOTSTRAP_CONFIGURE_OPTS $PKG_CONFIGURE_OPTS_BOOTSTRAP
+      echo "Executing (bootstrap): ${PKG_CONFIGURE_SCRIPT} ${BOOTSTRAP_CONFIGURE_OPTS} ${PKG_CONFIGURE_OPTS_BOOTSTRAP}" | tr -s " "
+      ${PKG_CONFIGURE_SCRIPT} ${BOOTSTRAP_CONFIGURE_OPTS} ${PKG_CONFIGURE_OPTS_BOOTSTRAP}
       ;;
   esac
 fi
 
-pkg_call_exists post_configure_$TARGET && pkg_call post_configure_$TARGET
+pkg_call_exists post_configure_${TARGET} && pkg_call post_configure_${TARGET}
 
 # make
-pkg_call_exists pre_make_$TARGET && pkg_call pre_make_$TARGET
+pkg_call_exists pre_make_${TARGET} && pkg_call pre_make_${TARGET}
 
-if pkg_call_exists make_$TARGET; then
-  pkg_call make_$TARGET
+if pkg_call_exists make_${TARGET}; then
+  pkg_call make_${TARGET}
 else
-  case "$PKG_TOOLCHAIN:$TARGET" in
+  case "${PKG_TOOLCHAIN}:${TARGET}" in
     # ninja based builds
     "meson:target"|"cmake:target"|"ninja:target")
-      echo "Executing (target): ninja $PKG_MAKE_OPTS_TARGET" | tr -s " "
-      ninja $NINJA_OPTS $PKG_MAKE_OPTS_TARGET
+      echo "Executing (target): ninja ${PKG_MAKE_OPTS_TARGET}" | tr -s " "
+      ninja ${NINJA_OPTS} ${PKG_MAKE_OPTS_TARGET}
       ;;
     "meson:host"|"cmake:host"|"ninja:host")
-      echo "Executing (host): ninja $PKG_MAKE_OPTS_HOST" | tr -s " "
-      ninja $NINJA_OPTS $PKG_MAKE_OPTS_HOST
+      echo "Executing (host): ninja ${PKG_MAKE_OPTS_HOST}" | tr -s " "
+      ninja ${NINJA_OPTS} ${PKG_MAKE_OPTS_HOST}
       ;;
     "meson:init"|"cmake:init"|"ninja:init")
-      echo "Executing (init): ninja $PKG_MAKE_OPTS_INIT" | tr -s " "
-      ninja $NINJA_OPTS $PKG_MAKE_OPTS_INIT
+      echo "Executing (init): ninja ${PKG_MAKE_OPTS_INIT}" | tr -s " "
+      ninja ${NINJA_OPTS} ${PKG_MAKE_OPTS_INIT}
       ;;
     "meson:bootstrap"|"cmake:bootstrap"|"ninja:bootstrap")
-      echo "Executing (bootstrap): ninja $PKG_MAKE_OPTS_BOOTSTRAP" | tr -s " "
-      ninja $NINJA_OPTS $PKG_MAKE_OPTS_BOOTSTRAP
+      echo "Executing (bootstrap): ninja ${PKG_MAKE_OPTS_BOOTSTRAP}" | tr -s " "
+      ninja ${NINJA_OPTS} ${PKG_MAKE_OPTS_BOOTSTRAP}
       ;;
 
     # make based builds
     "configure:target"|"cmake-make:target"|"autotools:target"|"make:target")
-      echo "Executing (target): make $PKG_MAKE_OPTS_TARGET" | tr -s " "
-      make $PKG_MAKE_OPTS_TARGET
+      echo "Executing (target): make ${PKG_MAKE_OPTS_TARGET}" | tr -s " "
+      make ${PKG_MAKE_OPTS_TARGET}
       ;;
     "configure:host"|"cmake-make:host"|"autotools:host"|"make:host")
-      echo "Executing (host): make $PKG_MAKE_OPTS_HOST" | tr -s " "
-      make $PKG_MAKE_OPTS_HOST
+      echo "Executing (host): make ${PKG_MAKE_OPTS_HOST}" | tr -s " "
+      make ${PKG_MAKE_OPTS_HOST}
       ;;
     "configure:init"|"cmake-make:init"|"autotools:init"|"make:init")
-      echo "Executing (init): make $PKG_MAKE_OPTS_INIT" | tr -s " "
-      make $PKG_MAKE_OPTS_INIT
+      echo "Executing (init): make ${PKG_MAKE_OPTS_INIT}" | tr -s " "
+      make ${PKG_MAKE_OPTS_INIT}
       ;;
     "configure:bootstrap"|"cmake-make:bootstrap"|"autotools:bootstrap"|"make:bootstrap")
-      echo "Executing (bootstrap): make $PKG_MAKE_OPTS_BOOTSTRAP" | tr -s " "
-      make $PKG_MAKE_OPTS_BOOTSTRAP
+      echo "Executing (bootstrap): make ${PKG_MAKE_OPTS_BOOTSTRAP}" | tr -s " "
+      make ${PKG_MAKE_OPTS_BOOTSTRAP}
       ;;
   esac
 fi
 
-pkg_call_exists post_make_$TARGET && pkg_call post_make_$TARGET
+pkg_call_exists post_make_${TARGET} && pkg_call post_make_${TARGET}
 
 # Hack around directly writing/modifying the content of a shared sysroot
 # by temporarily installing new files to a package specific sysroot
@@ -385,45 +380,45 @@ for d in /usr/lib /usr/include /usr/bin /usr/lib/pkgconfig; do
 done
 
 # make install
-pkg_call_exists pre_makeinstall_$TARGET && pkg_call pre_makeinstall_$TARGET
+pkg_call_exists pre_makeinstall_${TARGET} && pkg_call pre_makeinstall_${TARGET}
 
-if pkg_call_exists makeinstall_$TARGET; then
-  pkg_call makeinstall_$TARGET
+if pkg_call_exists makeinstall_${TARGET}; then
+  pkg_call makeinstall_${TARGET}
 else
-  case "$PKG_TOOLCHAIN:$TARGET" in
+  case "${PKG_TOOLCHAIN}:${TARGET}" in
     # ninja based builds
     "meson:target"|"cmake:target")
-      DESTDIR=$SYSROOT_PREFIX ninja install $PKG_MAKEINSTALL_OPTS_TARGET
-      DESTDIR=$INSTALL ninja install $PKG_MAKEINSTALL_OPTS_TARGET
+      DESTDIR=${SYSROOT_PREFIX} ninja install ${PKG_MAKEINSTALL_OPTS_TARGET}
+      DESTDIR=${INSTALL} ninja install ${PKG_MAKEINSTALL_OPTS_TARGET}
       ;;
     "meson:host"|"cmake:host")
-      ninja install $PKG_MAKEINSTALL_OPTS_HOST
+      ninja install ${PKG_MAKEINSTALL_OPTS_HOST}
       ;;
     "meson:init"|"cmake:init")
-      DESTDIR=$INSTALL ninja install $PKG_MAKEINSTALL_OPTS_INIT
+      DESTDIR=${INSTALL} ninja install ${PKG_MAKEINSTALL_OPTS_INIT}
       ;;
     "meson:bootstrap"|"cmake:bootstrap")
-      ninja install $PKG_MAKEINSTALL_OPTS_BOOTSTRAP
+      ninja install ${PKG_MAKEINSTALL_OPTS_BOOTSTRAP}
       ;;
 
     # make based builds
     "configure:target"|"cmake-make:target"|"autotools:target"|"make:target")
-      make install DESTDIR=$SYSROOT_PREFIX -j1 $PKG_MAKEINSTALL_OPTS_TARGET
-      make install DESTDIR=$INSTALL $PKG_MAKEINSTALL_OPTS_TARGET
+      make install DESTDIR=${SYSROOT_PREFIX} -j1 ${PKG_MAKEINSTALL_OPTS_TARGET}
+      make install DESTDIR=${INSTALL} ${PKG_MAKEINSTALL_OPTS_TARGET}
       ;;
     "configure:host"|"cmake-make:host"|"autotools:host"|"make:host")
-      make install $PKG_MAKEINSTALL_OPTS_HOST
+      make install ${PKG_MAKEINSTALL_OPTS_HOST}
       ;;
     "configure:init"|"cmake-make:init"|"autotools:init"|"make:init")
-      make install DESTDIR=$INSTALL $PKG_MAKEINSTALL_OPTS_INIT
+      make install DESTDIR=${INSTALL} ${PKG_MAKEINSTALL_OPTS_INIT}
       ;;
     "configure:bootstrap"|"cmake-make:bootstrap"|"autotools:bootstrap"|"make:bootstrap")
-      make install $PKG_MAKEINSTALL_OPTS_BOOTSTRAP
+      make install ${PKG_MAKEINSTALL_OPTS_BOOTSTRAP}
       ;;
   esac
 fi
 
-pkg_call_exists post_makeinstall_$TARGET && pkg_call post_makeinstall_$TARGET
+pkg_call_exists post_makeinstall_${TARGET} && pkg_call post_makeinstall_${TARGET}
 
 # Fixup temporary sysroot references to the shared sysroot
 for i in $(find "${SYSROOT_PREFIX}/usr/lib" -type f -name "*.la" 2>/dev/null); do
@@ -452,23 +447,23 @@ rm -rf "${SYSROOT_PREFIX}"
 
 export SYSROOT_PREFIX="${PKG_ORIG_SYSROOT_PREFIX}"
 
-if [ "$TARGET" = "target" -o "$TARGET" = "init" ]; then
-  if [ -d $INSTALL ]; then
-    rm -rf $INSTALL/{usr/,}include
-    rm -rf $INSTALL/{usr/,}lib/cmake
-    rm -rf $INSTALL/{usr/,}lib/pkgconfig
-    rm -rf $INSTALL/{usr/,}man
-    rm -rf $INSTALL/{usr/,}share/aclocal
-    rm -rf $INSTALL/{usr/,}share/bash-completion
-    rm -rf $INSTALL/{usr/,}share/doc
-    rm -rf $INSTALL/{usr/,}share/gtk-doc
-    rm -rf $INSTALL/{usr/,}share/info
-    rm -rf $INSTALL/{usr/,}share/locale
-    rm -rf $INSTALL/{usr/,}share/man
-    rm -rf $INSTALL/{usr/,}share/pkgconfig
-    rm -rf $INSTALL/{usr/,}share/zsh
-    rm -rf $INSTALL/{usr/,}var
-    find $INSTALL \( -name "*.orig" \
+if [ "${TARGET}" = "target" -o "${TARGET}" = "init" ]; then
+  if [ -d ${INSTALL} ]; then
+    rm -rf ${INSTALL}/{usr/,}include
+    rm -rf ${INSTALL}/{usr/,}lib/cmake
+    rm -rf ${INSTALL}/{usr/,}lib/pkgconfig
+    rm -rf ${INSTALL}/{usr/,}man
+    rm -rf ${INSTALL}/{usr/,}share/aclocal
+    rm -rf ${INSTALL}/{usr/,}share/bash-completion
+    rm -rf ${INSTALL}/{usr/,}share/doc
+    rm -rf ${INSTALL}/{usr/,}share/gtk-doc
+    rm -rf ${INSTALL}/{usr/,}share/info
+    rm -rf ${INSTALL}/{usr/,}share/locale
+    rm -rf ${INSTALL}/{usr/,}share/man
+    rm -rf ${INSTALL}/{usr/,}share/pkgconfig
+    rm -rf ${INSTALL}/{usr/,}share/zsh
+    rm -rf ${INSTALL}/{usr/,}var
+    find ${INSTALL} \( -name "*.orig" \
                   -o -name "*.rej" \
                   -o -name "*.a" \
                   -o -name "*.la" \
@@ -476,30 +471,30 @@ if [ "$TARGET" = "target" -o "$TARGET" = "init" ]; then
                   -o -name "*.in" \
                   -o -name ".git*" \) \
         -exec rm -f {} \; 2>/dev/null || :
-    find $INSTALL -type d -exec rmdir -p {} \; 2>/dev/null || :
+    find ${INSTALL} -type d -exec rmdir -p {} \; 2>/dev/null || :
 
     if [ ! "${BUILD_WITH_DEBUG}" = "yes" ]; then
-      $STRIP $(find $INSTALL \
+      ${STRIP} $(find ${INSTALL} \
         -type f -name "*.so*" \
         ! -name "ld-*.so" \
         ! -name "libc-*.so" \
         ! -name "libpthread-*.so" \
         ! -name "libthread_db-*so" \
         2>/dev/null) 2>/dev/null || :
-        if [ "$TARGET" = "init" ]; then
-          $STRIP $(find $INSTALL -type f -name "*.so*" 2>/dev/null) 2>/dev/null || :
+        if [ "${TARGET}" = "init" ]; then
+          ${STRIP} $(find ${INSTALL} -type f -name "*.so*" 2>/dev/null) 2>/dev/null || :
         fi
-        $STRIP $(find $INSTALL ! -name "*.so*" ! -name "*.ko" \
+        ${STRIP} $(find ${INSTALL} ! -name "*.so*" ! -name "*.ko" \
           -type f -executable 2>/dev/null) 2>/dev/null || :
     fi
   fi
 fi
 
-cd $ROOT
+cd ${ROOT}
 
 PKG_DEEPHASH=$(calculate_stamp)
 for i in PKG_NAME PKG_DEEPHASH BUILD_WITH_DEBUG; do
-  echo "STAMP_$i=\"${!i}\"" >> $STAMP
+  echo "STAMP_${i}=\"${!i}\"" >> ${STAMP}
 done
 
 pkg_lock_status "UNLOCK" "${PKG_NAME}:${TARGET}" "build" "built"

@@ -4,10 +4,10 @@
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
-. config/options "$1"
+. config/options "${1}"
 
-if [ -z "$1" ]; then
-  die "usage: $0 package_name [parent_pkg]"
+if [ -z "${1}" ]; then
+  die "usage: ${0} package_name [parent_pkg]"
 fi
 
 if [ -z "${PKG_NAME}" ]; then
@@ -19,37 +19,37 @@ pkg_lock "${PKG_NAME}" "unpack" "${PARENT_PKG}"
 
 pkg_lock_status "ACTIVE" "${PKG_NAME}" "unpack"
 
-$SCRIPTS/get "${PKG_NAME}"
+${SCRIPTS}/get "${PKG_NAME}"
 
-STAMP="$PKG_BUILD/.libreelec-unpack"
+STAMP="${PKG_BUILD}/.libreelec-unpack"
 
-mkdir -p $BUILD
+mkdir -p ${BUILD}
 
 # Perform a wildcard match on the package to ensure old versions are cleaned too
 PKG_DEEPHASH=
-for i in $BUILD/${PKG_NAME}-*; do
-  if [ -d $i -a -f "$i/.libreelec-unpack" ] ; then
-    . "$i/.libreelec-unpack"
-    if [ "$STAMP_PKG_NAME" = "${PKG_NAME}" ]; then
+for i in ${BUILD}/${PKG_NAME}-*; do
+  if [ -d ${i} -a -f "${i}/.libreelec-unpack" ] ; then
+    . "${i}/.libreelec-unpack"
+    if [ "${STAMP_PKG_NAME}" = "${PKG_NAME}" ]; then
       [ -z "${PKG_DEEPHASH}" ] && PKG_DEEPHASH=$(calculate_stamp)
-      if [ ! "$PKG_DEEPHASH" = "$STAMP_PKG_DEEPHASH" ] ; then
-        $SCRIPTS/clean "${PKG_NAME}"
+      if [ ! "${PKG_DEEPHASH}" = "${STAMP_PKG_DEEPHASH}" ] ; then
+        ${SCRIPTS}/clean "${PKG_NAME}"
       fi
     fi
   fi
 done
 
-if [ -d "$PKG_BUILD" -a ! -f "$STAMP" ]; then
+if [ -d "${PKG_BUILD}" -a ! -f "${STAMP}" ]; then
   # stale pkg build dir
-  $SCRIPTS/clean "${PKG_NAME}"
+  ${SCRIPTS}/clean "${PKG_NAME}"
 fi
 
-if [ -f "$STAMP" ]; then
+if [ -f "${STAMP}" ]; then
   pkg_lock_status "UNLOCK" "${PKG_NAME}" "unpack" "already unpacked"
   exit 0
 fi
 
-if [ -d "$SOURCES/${PKG_NAME}" -o -d "$PKG_DIR/sources" ]; then
+if [ -d "${SOURCES}/${PKG_NAME}" -o -d "${PKG_DIR}/sources" ]; then
   build_msg "CLR_UNPACK" "UNPACK" "${PKG_NAME}" "indent"
 
   # unpack into a unique location as unpacking into a single ${BUILD} directory is not thread-safe
@@ -65,7 +65,7 @@ if [ -d "$SOURCES/${PKG_NAME}" -o -d "$PKG_DIR/sources" ]; then
       pkg_call unpack
     )
   else
-    if [ -n "$PKG_URL" ]; then
+    if [ -n "${PKG_URL}" ]; then
       ${SCRIPTS}/extract "${PKG_NAME}" "${PKG_UNPACK_DIR}"
     fi
   fi
@@ -89,8 +89,8 @@ if [ -d "$SOURCES/${PKG_NAME}" -o -d "$PKG_DIR/sources" ]; then
 
   [ ! -d "${PKG_UNPACK_DIR}/.intermediate" ] && mkdir -p "${PKG_UNPACK_DIR}/.intermediate"
 
-  if [ -d "$PKG_DIR/sources" ]; then
-    cp -PRf "$PKG_DIR/sources/"* "${PKG_UNPACK_DIR}/.intermediate"
+  if [ -d "${PKG_DIR}/sources" ]; then
+    cp -PRf "${PKG_DIR}/sources/"* "${PKG_UNPACK_DIR}/.intermediate"
   fi
 
   echo "INFO_PKG_NAME=\"${PKG_NAME}\"" > "${PKG_UNPACK_DIR}/.intermediate/.libreelec-package"
@@ -106,69 +106,69 @@ if [ -d "$SOURCES/${PKG_NAME}" -o -d "$PKG_DIR/sources" ]; then
   if [ "${PKG_SKIP_PATCHES}" != "yes" ]; then
     pkg_call_exists pre_patch && pkg_call pre_patch
 
-    if [ "$TARGET_ARCH" = "x86_64" ]; then
+    if [ "${TARGET_ARCH}" = "x86_64" ]; then
       PATCH_ARCH="x86"
     else
-      PATCH_ARCH="${TARGET_PATCH_ARCH:-$TARGET_ARCH}"
+      PATCH_ARCH="${TARGET_PATCH_ARCH:-${TARGET_ARCH}}"
     fi
 
     PATCH_DIRS_PKG=""
     PATCH_DIRS_PRJ=""
-    if [ -n "$PKG_PATCH_DIRS" ]; then
-      for patch_dir in $PKG_PATCH_DIRS; do
-        [ -d $PKG_DIR/patches/$patch_dir ] && PATCH_DIRS_PKG="$PATCH_DIRS_PKG $PKG_DIR/patches/$patch_dir/*.patch"
-        [ -d $PROJECT_DIR/$PROJECT/patches/$PKG_NAME/$patch_dir ] && PATCH_DIRS_PRJ="$PATCH_DIRS_PRJ $PROJECT_DIR/$PROJECT/patches/$PKG_NAME/$patch_dir/*.patch"
-        [ -d $PROJECT_DIR/$PROJECT/devices/$DEVICE/patches/$PKG_NAME/$patch_dir ] && PATCH_DIRS_PRJ="$PATCH_DIRS_PRJ $PROJECT_DIR/$PROJECT/devices/$DEVICE/patches/$PKG_NAME/$patch_dir/*.patch"
+    if [ -n "${PKG_PATCH_DIRS}" ]; then
+      for patch_dir in ${PKG_PATCH_DIRS}; do
+        [ -d ${PKG_DIR}/patches/${patch_dir} ] && PATCH_DIRS_PKG+="${PATCH_DIRS_PKG} ${PKG_DIR}/patches/${patch_dir}/*.patch"
+        [ -d ${PROJECT_DIR}/${PROJECT}/patches/${PKG_NAME}/${patch_dir} ] && PATCH_DIRS_PRJ="${PATCH_DIRS_PRJ} ${PROJECT_DIR}/${PROJECT}/patches/${PKG_NAME}/${patch_dir}/*.patch"
+        [ -d ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/patches/${PKG_NAME}/${patch_dir} ] && PATCH_DIRS_PRJ="${PATCH_DIRS_PRJ} ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/patches/${PKG_NAME}/${patch_dir}/*.patch"
       done
     fi
 
-    for i in $PKG_DIR/patches/*.patch \
-             $PKG_DIR/patches/$PATCH_ARCH/*.patch \
-             $PATCH_DIRS_PKG \
-             $PKG_DIR/patches/$PKG_VERSION/*.patch \
-             $PKG_DIR/patches/$PKG_VERSION/$PATCH_ARCH/*.patch \
-             $PROJECT_DIR/$PROJECT/patches/$PKG_NAME/*.patch \
-             $PROJECT_DIR/$PROJECT/patches/$PKG_NAME/$PATCH_ARCH/*.patch \
-             $PATCH_DIRS_PRJ \
-             $PROJECT_DIR/$PROJECT/patches/$PKG_NAME/$PKG_VERSION/*.patch \
-             $PROJECT_DIR/$PROJECT/devices/$DEVICE/patches/$PKG_NAME/*.patch; do
+    for i in ${PKG_DIR}/patches/*.patch \
+             ${PKG_DIR}/patches/${PATCH_ARCH}/*.patch \
+             ${PATCH_DIRS_PKG} \
+             ${PKG_DIR}/patches/${PKG_VERSION}/*.patch \
+             ${PKG_DIR}/patches/${PKG_VERSION}/${PATCH_ARCH}/*.patch \
+             ${PROJECT_DIR}/${PROJECT}/patches/${PKG_NAME}/*.patch \
+             ${PROJECT_DIR}/${PROJECT}/patches/${PKG_NAME}/${PATCH_ARCH}/*.patch \
+             ${PATCH_DIRS_PRJ} \
+             ${PROJECT_DIR}/${PROJECT}/patches/${PKG_NAME}/${PKG_VERSION}/*.patch \
+             ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/patches/${PKG_NAME}/*.patch; do
 
-      thisdir="$(dirname "$i")"
+      thisdir="$(dirname "${i}")"
 
-      if [ "$thisdir" = "$PKG_DIR/patches" ]; then
+      if [ "${thisdir}" = "${PKG_DIR}/patches" ]; then
         PATCH_DESC="(common)"
-      elif [ "$thisdir" = "$PKG_DIR/patches/$PATCH_ARCH" ]; then
-        PATCH_DESC="(common - $PATCH_ARCH)"
-      elif [ "$thisdir" = "$PKG_DIR/patches/$PKG_VERSION" ]; then
-        PATCH_DESC="(common - $PKG_VERSION)"
-      elif [ "$thisdir" = "$PKG_DIR/patches/$PKG_VERSION/$PATCH_ARCH" ]; then
-        PATCH_DESC="($PKG_VERSION - $PATCH_ARCH)"
-      elif [ "$thisdir" = "$PROJECT_DIR/$PROJECT/patches/$PKG_NAME" ]; then
+      elif [ "${thisdir}" = "${PKG_DIR}/patches/${PATCH_ARCH}" ]; then
+        PATCH_DESC="(common - ${PATCH_ARCH})"
+      elif [ "${thisdir}" = "${PKG_DIR}/patches/${PKG_VERSION}" ]; then
+        PATCH_DESC="(common - ${PKG_VERSION})"
+      elif [ "${thisdir}" = "${PKG_DIR}/patches/${PKG_VERSION}/${PATCH_ARCH}" ]; then
+        PATCH_DESC="(${PKG_VERSION} - ${PATCH_ARCH})"
+      elif [ "${thisdir}" = "${PROJECT_DIR}/${PROJECT}/patches/${PKG_NAME}" ]; then
         PATCH_DESC="(project)"
-      elif [ "$thisdir" = "$PROJECT_DIR/$PROJECT/patches/$PKG_NAME/$PATCH_ARCH" ]; then
-        PATCH_DESC="(project - $PATCH_ARCH)"
-      elif [ "$thisdir" = "$PROJECT_DIR/$PROJECT/patches/$PKG_NAME/$PKG_VERSION" ]; then
-        PATCH_DESC="(project - $PKG_VERSION)"
-      elif [ "$thisdir" = "$PROJECT_DIR/$PROJECT/devices/$DEVICE/patches/$PKG_NAME" ]; then
+      elif [ "${thisdir}" = "${PROJECT_DIR}/${PROJECT}/patches/${PKG_NAME}/${PATCH_ARCH}" ]; then
+        PATCH_DESC="(project - ${PATCH_ARCH})"
+      elif [ "${thisdir}" = "${PROJECT_DIR}/${PROJECT}/patches/${PKG_NAME}/${PKG_VERSION}" ]; then
+        PATCH_DESC="(project - ${PKG_VERSION})"
+      elif [ "${thisdir}" = "${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/patches/${PKG_NAME}" ]; then
         PATCH_DESC="(device)"
       else
-        if [[ "$thisdir" =~ ^$PKG_DIR/.* ]]; then
-          PATCH_DESC="(common - $(basename "$thisdir"))"
-        elif [[ "$thisdir" =~ ^$PROJECT_DIR/.*/devices/.* ]]; then
-          PATCH_DESC="(device - $(basename "$thisdir"))"
-        elif [[ "$thisdir" =~ ^$PROJECT_DIR/.* ]]; then
-          PATCH_DESC="(project - $(basename "$thisdir"))"
+        if [[ "${thisdir}" =~ ^${PKG_DIR}/.* ]]; then
+          PATCH_DESC="(common - $(basename "${thisdir}"))"
+        elif [[ "${thisdir}" =~ ^${PROJECT_DIR}/.*/devices/.* ]]; then
+          PATCH_DESC="(device - $(basename "${thisdir}"))"
+        elif [[ "${thisdir}" =~ ^${PROJECT_DIR}/.* ]]; then
+          PATCH_DESC="(project - $(basename "${thisdir}"))"
         else
-          PATCH_DESC="(unknown - $(basename "$thisdir"))"
+          PATCH_DESC="(unknown - $(basename "${thisdir}"))"
         fi
       fi
 
-      if [ -f "$i" ]; then
+      if [ -f "${i}" ]; then
         build_msg "CLR_APPLY_PATCH" "APPLY PATCH $(print_color "CLR_PATCH_DESC" "${PATCH_DESC}")" "${i#${ROOT}/}"
-        if grep -qE '^GIT binary patch$|^rename from|^rename to' $i; then
-          cat $i | git apply --directory=$(echo "$PKG_BUILD" | cut -f1 -d\ ) -p1 --verbose --whitespace=nowarn --unsafe-paths >&$VERBOSE_OUT
+        if grep -qE '^GIT binary patch$|^rename from|^rename to' ${i}; then
+          cat ${i} | git apply --directory=$(echo "${PKG_BUILD}" | cut -f1 -d\ ) -p1 --verbose --whitespace=nowarn --unsafe-paths >&${VERBOSE_OUT}
         else
-          cat $i | patch -d $(echo "$PKG_BUILD" | cut -f1 -d\ ) -p1 >&$VERBOSE_OUT
+          cat ${i} | patch -d $(echo "${PKG_BUILD}" | cut -f1 -d\ ) -p1 >&${VERBOSE_OUT}
         fi
       fi
     done
@@ -176,27 +176,27 @@ if [ -d "$SOURCES/${PKG_NAME}" -o -d "$PKG_DIR/sources" ]; then
     pkg_call_exists post_patch && pkg_call post_patch
   fi
 
-  if [ ! "$PKG_NAME" = "configtools" ] ; then
-    for config in $(find "$PKG_BUILD" -name config.guess | sed 's/config.guess//'); do
+  if [ ! "${PKG_NAME}" = "configtools" ] ; then
+    for config in $(find "${PKG_BUILD}" -name config.guess | sed 's/config.guess//'); do
       build_msg "CLR_FIXCONFIG" "FIXCONFIG" "${config}"
 
-      [ -f "$config/config.guess" -a -f $TOOLCHAIN/configtools/config.guess ] && \
-        cp -f $TOOLCHAIN/configtools/config.guess $config
-      [ -f "$config/config.sub" -a -f $TOOLCHAIN/configtools/config.sub ] && \
-        cp -f $TOOLCHAIN/configtools/config.sub $config
+      [ -f "${config}/config.guess" -a -f ${TOOLCHAIN}/configtools/config.guess ] && \
+        cp -f ${TOOLCHAIN}/configtools/config.guess ${config}
+      [ -f "${config}/config.sub" -a -f ${TOOLCHAIN}/configtools/config.sub ] && \
+        cp -f ${TOOLCHAIN}/configtools/config.sub ${config}
     done
   fi
 fi
 
-if [ "$PKG_SECTION" != "virtual" ]; then
-  mkdir -p "$PKG_BUILD"
+if [ "${PKG_SECTION}" != "virtual" ]; then
+  mkdir -p "${PKG_BUILD}"
   echo "INFO_PKG_NAME=\"${PKG_NAME}\"" > "${PKG_BUILD}/.libreelec-package"
 
-  rm -f $STAMPS/${PKG_NAME}/build_*
+  rm -f ${STAMPS}/${PKG_NAME}/build_*
 
   PKG_DEEPHASH=$(calculate_stamp)
   for i in PKG_NAME PKG_DEEPHASH; do
-    echo "STAMP_$i=\"${!i}\"" >> $STAMP
+    echo "STAMP_${i}=\"${!i}\"" >> ${STAMP}
   done
 fi
 
