@@ -1,0 +1,52 @@
+From f85d62a7d99f3da1d86ac57f94fa58c885ee5476 Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Sat, 22 Jun 2019 13:42:08 +0000
+Subject: [PATCH] [h265d]: fix color range and colorspace metadata
+
+---
+ inc/mpp_frame.h                  | 2 ++
+ mpp/codec/dec/h265/h265d_codec.h | 2 ++
+ mpp/codec/dec/h265/h265d_refs.c  | 2 ++
+ 3 files changed, 6 insertions(+)
+
+diff --git a/inc/mpp_frame.h b/inc/mpp_frame.h
+index fd1358d3..33a6e644 100644
+--- a/inc/mpp_frame.h
++++ b/inc/mpp_frame.h
+@@ -68,6 +68,8 @@ typedef enum {
+     MPP_FRAME_PRI_FILM        = 8,      ///< colour filters using Illuminant C
+     MPP_FRAME_PRI_BT2020      = 9,      ///< ITU-R BT2020
+     MPP_FRAME_PRI_SMPTEST428_1 = 10,    ///< SMPTE ST 428-1 (CIE 1931 XYZ)
++    MPP_FRAME_PRI_SMPTE431    = 11,     ///< SMPTE ST 431-2 (2011) / DCI P3
++    MPP_FRAME_PRI_SMPTE432    = 12,     ///< SMPTE ST 432-1 (2010) / P3 D65 / Display P3
+     MPP_FRAME_PRI_NB,                   ///< Not part of ABI
+ } MppFrameColorPrimaries;
+ 
+diff --git a/mpp/codec/dec/h265/h265d_codec.h b/mpp/codec/dec/h265/h265d_codec.h
+index 49804f7c..3fdddbfc 100644
+--- a/mpp/codec/dec/h265/h265d_codec.h
++++ b/mpp/codec/dec/h265/h265d_codec.h
+@@ -39,6 +39,8 @@ enum MppColorSpace {
+     MPPCOL_SPC_SMPTE170M   = 6, ///< also ITU-R BT601-6 525 / ITU-R BT1358 525 / ITU-R BT1700 NTSC / functionally identical to above
+     MPPCOL_SPC_SMPTE240M   = 7,
+     MPPCOL_SPC_YCOCG       = 8, ///< Used by Dirac / VC-2 and H.264 FRext, see ITU-T SG16
++    MPPCOL_SPC_BT2020_NCL  = 9,  ///< ITU-R BT2020 non-constant luminance system
++    MPPCOL_SPC_BT2020_CL   = 10, ///< ITU-R BT2020 constant luminance system
+     MPPCOL_SPC_NB             , ///< Not part of ABI
+ };
+ 
+diff --git a/mpp/codec/dec/h265/h265d_refs.c b/mpp/codec/dec/h265/h265d_refs.c
+index 504a90c4..80905d98 100644
+--- a/mpp/codec/dec/h265/h265d_refs.c
++++ b/mpp/codec/dec/h265/h265d_refs.c
+@@ -91,8 +91,10 @@ static HEVCFrame *alloc_frame(HEVCContext *s)
+         mpp_frame_set_errinfo(frame->frame, 0);
+         mpp_frame_set_pts(frame->frame, s->pts);
+         mpp_frame_set_poc(frame->frame, s->poc);
++        mpp_frame_set_color_range(frame->frame, s->h265dctx->color_range);
+         mpp_frame_set_color_primaries(frame->frame, s->sps->vui.colour_primaries);
+         mpp_frame_set_color_trc(frame->frame, s->sps->vui.transfer_characteristic);
++        mpp_frame_set_colorspace(frame->frame, s->h265dctx->colorspace);
+         h265d_dbg(H265D_DBG_GLOBAL, "w_stride %d h_stride %d\n", s->h265dctx->coded_width, s->h265dctx->coded_height);
+         ret = mpp_buf_slot_get_unused(s->slots, &frame->slot_index);
+         mpp_assert(ret == MPP_OK);
