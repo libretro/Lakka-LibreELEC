@@ -3,7 +3,7 @@
 
 PKG_NAME="multimedia-tools"
 PKG_VERSION="1.0"
-PKG_REV="109"
+PKG_REV="110"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://libreelec.tv"
@@ -11,7 +11,7 @@ PKG_URL=""
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="virtual"
 PKG_SHORTDESC="A bundle of multimedia tools and programs"
-PKG_LONGDESC="This bundle currently includes alsamixer, mediainfo, mesa-demos, mpg123, opencaster, squeezelite, tsdecrypt and tstools."
+PKG_LONGDESC="This bundle currently includes alsamixer, mediainfo, mesa-demos, mpg123, mpv, opencaster, squeezelite, tsdecrypt and tstools."
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Multimedia Tools"
@@ -22,6 +22,7 @@ PKG_DEPENDS_TARGET="toolchain \
                     alsa-utils \
                     mediainfo \
                     mpg123 \
+                    mpv-drmprime \
                     opencaster \
                     squeezelite \
                     tsdecrypt \
@@ -46,6 +47,9 @@ addon() {
 
     # mpg123
     cp -P $(get_build_dir mpg123)/.install_pkg/usr/bin/* $ADDON_BUILD/$PKG_ADDON_ID/bin/
+
+    # mpv
+    cp -P $(get_build_dir mpv-drmprime)/.install_pkg/usr/bin/* $ADDON_BUILD/$PKG_ADDON_ID/bin/
 
     # opencaster
     cp -P $(get_build_dir opencaster)/.install_pkg/* $ADDON_BUILD/$PKG_ADDON_ID/bin/
