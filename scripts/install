@@ -5,143 +5,143 @@
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
-. config/options "$1"
+. config/options "${1}"
 
-if [ -z "$1" ]; then
-  die "usage: $0 package_name [parent_pkg]"
+if [ -z "${1}" ]; then
+  die "usage: ${0} package_name [parent_pkg]"
 fi
 
 if [ -z "${PKG_NAME}" ]; then
   die "$(print_color CLR_ERROR "${1}: no package.mk file found")"
 fi
 
-if [ -z "$INSTALL" ] ; then
-  die "error: '\$INSTALL' not set! this script is not intended to be run manually"
+if [ -z "${INSTALL}" ] ; then
+  die "error: '\${INSTALL}' not set! this script is not intended to be run manually"
 fi
 
-if [ -n "$PKG_ARCH" ]; then
-  listcontains "$PKG_ARCH" "!$TARGET_ARCH" && exit 0
-  listcontains "$PKG_ARCH" "$TARGET_ARCH" || listcontains "$PKG_ARCH" "any" || exit 0
+if [ -n "${PKG_ARCH}" ]; then
+  listcontains "${PKG_ARCH}" "!${TARGET_ARCH}" && exit 0
+  listcontains "${PKG_ARCH}" "${TARGET_ARCH}" || listcontains "${PKG_ARCH}" "any" || exit 0
 fi
 
 # set defaults
 if [ "${1//:/}" != "${1}" ]; then
-  PACKAGE_NAME="${1%:*}"
   TARGET="${1#*:}"
 else
-  PACKAGE_NAME="${1}"
   TARGET=
 fi
-[ -z "$TARGET" ] && TARGET="target"
+[ -z "${TARGET}" ] && TARGET="target"
 PARENT_PKG="${2:-${PKG_NAME}:${TARGET}}"
 
-pkg_lock "${PACKAGE_NAME}:${TARGET}" "install" "${PARENT_PKG}"
+pkg_lock "${PKG_NAME}:${TARGET}" "install" "${PARENT_PKG}"
 
-STAMP=$STAMPS_INSTALL/$PACKAGE_NAME/install_$TARGET
-[ -f $STAMP ] && pkg_lock_status "UNLOCK" "${PACKAGE_NAME}:${TARGET}" "install" "already installed"
-[ -f $STAMP ] && exit 0
-
-mkdir -p $STAMPS_INSTALL/$PACKAGE_NAME
-
-$SCRIPTS/build "${1}" "${PARENT_PKG}"
-
-if [ "$TARGET" = target ] ; then
-  for p in $PKG_DEPENDS_TARGET; do
-    $SCRIPTS/install "${p}" "${PARENT_PKG}"
-  done
-elif [ "$TARGET" = init ] ; then
-  for p in $PKG_DEPENDS_INIT; do
-    $SCRIPTS/install "${p}" "${PARENT_PKG}"
-  done
-  INSTALL=$BUILD/initramfs
+STAMP=${STAMPS_INSTALL}/${PKG_NAME}/install_${TARGET}
+if [ -f ${STAMP} ]; then
+  pkg_lock_status "UNLOCK" "${PKG_NAME}:${TARGET}" "install" "already installed"
+  exit 0
 fi
 
-pkg_lock_status "ACTIVE" "${PACKAGE_NAME}:${TARGET}" "install"
+mkdir -p ${STAMPS_INSTALL}/${PKG_NAME}
 
-build_msg "CLR_INSTALL" "INSTALL" "${PACKAGE_NAME} $(print_color CLR_TARGET "(${TARGET})")" "indent"
+${SCRIPTS}/build "${1}" "${PARENT_PKG}"
 
-mkdir -p $INSTALL
+if [ "${TARGET}" = "target" ] ; then
+  for p in ${PKG_DEPENDS_TARGET}; do
+    ${SCRIPTS}/install "${p}" "${PARENT_PKG}"
+  done
+elif [ "${TARGET}" = "init" ] ; then
+  for p in ${PKG_DEPENDS_INIT}; do
+    ${SCRIPTS}/install "${p}" "${PARENT_PKG}"
+  done
+  INSTALL=${BUILD}/initramfs
+fi
 
-if [ "$TARGET" = target ] ; then
-  for PKG_TMP_DIR in $PKG_DIR \
-                      $PROJECT_DIR/$PROJECT/packages/$PKG_NAME \
-                      $PROJECT_DIR/$PROJECT/devices/$DEVICE/packages/$PKG_NAME \
-                      ; do
+pkg_lock_status "ACTIVE" "${PKG_NAME}:${TARGET}" "install"
 
-    [ -d $PKG_TMP_DIR ] || continue
+build_msg "CLR_INSTALL" "INSTALL" "${PKG_NAME} $(print_color CLR_TARGET "(${TARGET})")" "indent"
 
-    if [ -d $PKG_TMP_DIR/profile.d ]; then
-      mkdir -p $INSTALL/etc/profile.d
-      cp $PKG_TMP_DIR/profile.d/*.conf $INSTALL/etc/profile.d
+mkdir -p ${INSTALL}
+
+if [ "${TARGET}" = "target" ] ; then
+  for PKG_TMP_DIR in ${PKG_DIR} \
+                     ${PROJECT_DIR}/${PROJECT}/packages/${PKG_NAME} \
+                     ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/packages/${PKG_NAME} \
+                     ; do
+
+    [ -d ${PKG_TMP_DIR} ] || continue
+
+    if [ -d ${PKG_TMP_DIR}/profile.d ]; then
+      mkdir -p ${INSTALL}/etc/profile.d
+      cp ${PKG_TMP_DIR}/profile.d/*.conf ${INSTALL}/etc/profile.d
     fi
 
-    if [ -d $PKG_TMP_DIR/tmpfiles.d ]; then
-      mkdir -p $INSTALL/usr/lib/tmpfiles.d
-      cp $PKG_TMP_DIR/tmpfiles.d/*.conf $INSTALL/usr/lib/tmpfiles.d
+    if [ -d ${PKG_TMP_DIR}/tmpfiles.d ]; then
+      mkdir -p ${INSTALL}/usr/lib/tmpfiles.d
+      cp ${PKG_TMP_DIR}/tmpfiles.d/*.conf ${INSTALL}/usr/lib/tmpfiles.d
     fi
 
-    if [ -d $PKG_TMP_DIR/system.d ]; then
-      mkdir -p $INSTALL/usr/lib/systemd/system
-      cp $PKG_TMP_DIR/system.d/*.* $INSTALL/usr/lib/systemd/system
+    if [ -d ${PKG_TMP_DIR}/system.d ]; then
+      mkdir -p ${INSTALL}/usr/lib/systemd/system
+      cp ${PKG_TMP_DIR}/system.d/*.* ${INSTALL}/usr/lib/systemd/system
     fi
 
-    if [ -d $PKG_TMP_DIR/udev.d ]; then
-      mkdir -p $INSTALL/usr/lib/udev/rules.d
-      cp $PKG_TMP_DIR/udev.d/*.rules $INSTALL/usr/lib/udev/rules.d
+    if [ -d ${PKG_TMP_DIR}/udev.d ]; then
+      mkdir -p ${INSTALL}/usr/lib/udev/rules.d
+      cp ${PKG_TMP_DIR}/udev.d/*.rules ${INSTALL}/usr/lib/udev/rules.d
     fi
 
-    if [ -d $PKG_TMP_DIR/sleep.d ]; then
-      mkdir -p $INSTALL/usr/lib/systemd/system-sleep
-      cp $PKG_TMP_DIR/sleep.d/* $INSTALL/usr/lib/systemd/system-sleep
+    if [ -d ${PKG_TMP_DIR}/sleep.d ]; then
+      mkdir -p ${INSTALL}/usr/lib/systemd/system-sleep
+      cp ${PKG_TMP_DIR}/sleep.d/* ${INSTALL}/usr/lib/systemd/system-sleep
     fi
 
-    if [ -d $PKG_TMP_DIR/sleep.d.serial ]; then
-      mkdir -p $INSTALL/usr/lib/systemd/system-sleep.serial
-      cp $PKG_TMP_DIR/sleep.d.serial/* $INSTALL/usr/lib/systemd/system-sleep.serial
+    if [ -d ${PKG_TMP_DIR}/sleep.d.serial ]; then
+      mkdir -p ${INSTALL}/usr/lib/systemd/system-sleep.serial
+      cp ${PKG_TMP_DIR}/sleep.d.serial/* ${INSTALL}/usr/lib/systemd/system-sleep.serial
     fi
 
-    if [ -d $PKG_TMP_DIR/sysctl.d ]; then
-      mkdir -p $INSTALL/usr/lib/sysctl.d
-      cp $PKG_TMP_DIR/sysctl.d/*.conf $INSTALL/usr/lib/sysctl.d
+    if [ -d ${PKG_TMP_DIR}/sysctl.d ]; then
+      mkdir -p ${INSTALL}/usr/lib/sysctl.d
+      cp ${PKG_TMP_DIR}/sysctl.d/*.conf ${INSTALL}/usr/lib/sysctl.d
     fi
 
-    if [ -d $PKG_TMP_DIR/modules-load.d ]; then
-      mkdir -p $INSTALL/usr/lib/modules-load.d
-      cp $PKG_TMP_DIR/modules-load.d/*.conf $INSTALL/usr/lib/modules-load.d
+    if [ -d ${PKG_TMP_DIR}/modules-load.d ]; then
+      mkdir -p ${INSTALL}/usr/lib/modules-load.d
+      cp ${PKG_TMP_DIR}/modules-load.d/*.conf ${INSTALL}/usr/lib/modules-load.d
     fi
 
-    if [ -d $PKG_TMP_DIR/sysconf.d ]; then
-      mkdir -p $INSTALL/etc/sysconf.d
-      cp $PKG_TMP_DIR/sysconf.d/*.conf $INSTALL/etc/sysconf.d
+    if [ -d ${PKG_TMP_DIR}/sysconf.d ]; then
+      mkdir -p ${INSTALL}/etc/sysconf.d
+      cp ${PKG_TMP_DIR}/sysconf.d/*.conf ${INSTALL}/etc/sysconf.d
     fi
 
-    if [ -d $PKG_TMP_DIR/debug.d ]; then
-      mkdir -p $INSTALL/usr/share/debugconf
-      cp $PKG_TMP_DIR/debug.d/*.conf $INSTALL/usr/share/debugconf
+    if [ -d ${PKG_TMP_DIR}/debug.d ]; then
+      mkdir -p ${INSTALL}/usr/share/debugconf
+      cp ${PKG_TMP_DIR}/debug.d/*.conf ${INSTALL}/usr/share/debugconf
     fi
 
-    if [ -d $PKG_TMP_DIR/modprobe.d ]; then
-      mkdir -p $INSTALL/usr/lib/modprobe.d
-      cp $PKG_TMP_DIR/modprobe.d/*.conf $INSTALL/usr/lib/modprobe.d
+    if [ -d ${PKG_TMP_DIR}/modprobe.d ]; then
+      mkdir -p ${INSTALL}/usr/lib/modprobe.d
+      cp ${PKG_TMP_DIR}/modprobe.d/*.conf ${INSTALL}/usr/lib/modprobe.d
     fi
   done
 fi
 
 # install
-if [ "$TARGET" = target ] ; then
+if [ "${TARGET}" = "target" ] ; then
   pkg_call_exists pre_install && pkg_call pre_install
 fi
 
-if [ "$TARGET" = "target" -a -d $PKG_BUILD/.install_pkg ]; then
-  cp -PR $PKG_BUILD/.install_pkg/* $INSTALL
-elif [ "$TARGET" = "init" -a -d $PKG_BUILD/.install_init ]; then
-  cp -PR $PKG_BUILD/.install_init/* $INSTALL
+if [ "${TARGET}" = "target" -a -d ${PKG_BUILD}/.install_pkg ]; then
+  cp -PR ${PKG_BUILD}/.install_pkg/* ${INSTALL}
+elif [ "${TARGET}" = "init" -a -d ${PKG_BUILD}/.install_init ]; then
+  cp -PR ${PKG_BUILD}/.install_init/* ${INSTALL}
 fi
 
-if [ "$TARGET" = target ] ; then
+if [ "${TARGET}" = "target" ] ; then
   pkg_call_exists post_install && pkg_call post_install
 fi
 
-touch $STAMP
+touch ${STAMP}
 
-pkg_lock_status "UNLOCK" "${PACKAGE_NAME}:${TARGET}" "install" "installed"
+pkg_lock_status "UNLOCK" "${PKG_NAME}:${TARGET}" "install" "installed"
