@@ -19,8 +19,8 @@ case $KODI_VENDOR in
     PKG_SOURCE_NAME="kodi-$KODI_VENDOR-$PKG_VERSION.tar.gz"
     ;;
   rockchip)
-    PKG_VERSION="rockchip_18.3-Leia"
-    PKG_SHA256="a9eb3f44b0c7ab409604a2de0c3469f88b20c5d4a69209c006ca4a61673db318"
+    PKG_VERSION="rockchip_18.3-Leia-v2"
+    PKG_SHA256="dfce13129aa8381a4e06cd6c0f597c6212f4230184723edf802d06ea20d5509b"
     PKG_URL="https://github.com/kwiboo/xbmc/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="kodi-$KODI_VENDOR-$PKG_VERSION.tar.gz"
     ;;
