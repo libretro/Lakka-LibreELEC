@@ -111,18 +111,32 @@ if [ -n "$PKG_GIT_URL" -a -z "$PKG_URL" ]; then
       rm -rf $SOURCES/$1/$PKG_NAME-*/
 
       if [ ! -d "$GIT_REPO_FOLDER" ]; then
+	printf "%${BUILD_INDENT}c ${boldcyan}GIT CLONE${endcolor}    $1\n" ' '>&$SILENT_OUT
         git clone $PKG_GIT_URL $GIT_REPO_FOLDER
       fi
 
       cd $GIT_REPO_FOLDER
+      REPO_FOLDER_ORIGIN=$(git remote get-url origin || echo ERROR)
+
+      if [ "$PKG_GIT_URL" != "$REPO_FOLDER_ORIGIN" ]; then
+        printf "%${BUILD_INDENT}c ${boldred}WARNING${endcolor} $1 git remote changed\n" ' '>&$SILENT_OUT
+        cd ..
+        rm -rf repo
+        git clone $PKG_GIT_URL repo
+	cd repo
+      fi
+
+      printf "%${BUILD_INDENT}c ${boldred}GIT CLEAN${endcolor} $1\n" ' '>&$SILENT_OUT
       git clean -fdx
       git checkout -- .
+      printf "%${BUILD_INDENT}c ${boldcyan}GIT PULL${endcolor} $1\n" ' '>&$SILENT_OUT
       git pull
       [ -n "$PKG_GIT_BRANCH" ] && git checkout $PKG_GIT_BRANCH
       git reset --hard $PKG_VERSION
       git submodule update --init --recursive
       cd "$ROOT/$SOURCES/$1"
       mv repo $PKG_NAME-$PKG_VERSION
+      printf "%${BUILD_INDENT}c ${boldcyan}GIT PACK${endcolor} $1\n" ' '>&$SILENT_OUT
       echo -n "Creating tarball..."
       tar -pcJf $ROOT/$PACKAGE $PKG_NAME-$PKG_VERSION
       echo "done!"
