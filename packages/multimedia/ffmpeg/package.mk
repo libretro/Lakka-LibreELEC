@@ -83,8 +83,6 @@ pre_configure_target() {
   if [ "$PROJECT" = "RPi" ]; then
     PKG_FFMPEG_LIBS="-lbcm_host -lvcos -lvchiq_arm -lmmal -lmmal_core -lmmal_util -lvcsm"
     PKG_FFMPEG_RPI="--enable-rpi"
-  else
-    PKG_FFMPEG_RPI="--disable-rpi"
   fi
 }
 
