@@ -3,8 +3,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="bcm2835-driver"
-PKG_VERSION="fd15e0700e45d9b7db83e30696aba299b9f2f31d"
-PKG_SHA256="6324b4638b7b3f906469a1d2b94902f608436279749f167ade70e68c5c4c79a7"
+PKG_VERSION="2b7c80a066c9d72dd0703f574ab2f27b3c1c3c3d"
+PKG_SHA256="3cc783f4acffbcf52b8c303fbf497ed681c1c82210cdd005ccc383742fc07bbc"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.broadcom.com"
 PKG_URL="${DISTRO_SRC}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
@@ -22,15 +22,31 @@ fi
 make_target() {
   # Install vendor header files
   mkdir -p ${SYSROOT_PREFIX}/usr/include
-    cp -PRv ${PKG_FLOAT}/opt/vc/include/* ${SYSROOT_PREFIX}/usr/include
+    if [ "${OPENGLES}" = "bcm2835-driver" ]; then
+      cp -PRv ${PKG_FLOAT}/opt/vc/include/* ${SYSROOT_PREFIX}/usr/include
+    else
+      for f in $(cd ${PKG_FLOAT}/opt/vc/include; ls | grep -v "GL"); do
+        cp -PRv ${PKG_FLOAT}/opt/vc/include/$f ${SYSROOT_PREFIX}/usr/include
+      done
+    fi
 
   # Install EGL, OpenGL ES, Open VG, etc. vendor libs & pkgconfigs
   mkdir -p ${SYSROOT_PREFIX}/usr/lib
-    cp -PRv ${PKG_FLOAT}/opt/vc/lib/*.so              ${SYSROOT_PREFIX}/usr/lib
-    ln -sf ${SYSROOT_PREFIX}/usr/lib/libbrcmEGL.so    ${SYSROOT_PREFIX}/usr/lib/libEGL.so
-    ln -sf ${SYSROOT_PREFIX}/usr/lib/libbrcmGLESv2.so ${SYSROOT_PREFIX}/usr/lib/libGLESv2.so
-    cp -PRv ${PKG_FLOAT}/opt/vc/lib/*.a               ${SYSROOT_PREFIX}/usr/lib
-    cp -PRv ${PKG_FLOAT}/opt/vc/lib/pkgconfig         ${SYSROOT_PREFIX}/usr/lib
+    if [ "${OPENGLES}" = "bcm2835-driver" ]; then
+      cp -PRv ${PKG_FLOAT}/opt/vc/lib/*.so              ${SYSROOT_PREFIX}/usr/lib
+      ln -sf ${SYSROOT_PREFIX}/usr/lib/libbrcmEGL.so    ${SYSROOT_PREFIX}/usr/lib/libEGL.so
+      ln -sf ${SYSROOT_PREFIX}/usr/lib/libbrcmGLESv2.so ${SYSROOT_PREFIX}/usr/lib/libGLESv2.so
+      cp -PRv ${PKG_FLOAT}/opt/vc/lib/*.a               ${SYSROOT_PREFIX}/usr/lib
+      cp -PRv ${PKG_FLOAT}/opt/vc/lib/pkgconfig         ${SYSROOT_PREFIX}/usr/lib
+    else
+      for f in $(cd ${PKG_FLOAT}/opt/vc/lib; ls *.so *.a | grep -Ev "^lib(EGL|GL)"); do
+        cp -PRv ${PKG_FLOAT}/opt/vc/lib/$f              ${SYSROOT_PREFIX}/usr/lib
+      done
+      mkdir -p ${SYSROOT_PREFIX}/usr/lib/pkgconfig
+        for f in $(cd ${PKG_FLOAT}/opt/vc/lib/pkgconfig; ls | grep -v "gl"); do
+          cp -PRv ${PKG_FLOAT}/opt/vc/lib/pkgconfig/$f  ${SYSROOT_PREFIX}/usr/lib/pkgconfig
+        done
+    fi
 
   # Update prefix in vendor pkgconfig files
   for PKG_CONFIGS in $(find "${SYSROOT_PREFIX}/usr/lib" -type f -name "*.pc" 2>/dev/null); do
@@ -46,11 +62,17 @@ make_target() {
 makeinstall_target() {
   # Install EGL, OpenGL ES and other vendor libs
   mkdir -p ${INSTALL}/usr/lib
-    cp -PRv ${PKG_FLOAT}/opt/vc/lib/*.so ${INSTALL}/usr/lib
-    ln -sf /usr/lib/libbrcmEGL.so        ${INSTALL}/usr/lib/libEGL.so
-    ln -sf /usr/lib/libbrcmEGL.so        ${INSTALL}/usr/lib/libEGL.so.1
-    ln -sf /usr/lib/libbrcmGLESv2.so     ${INSTALL}/usr/lib/libGLESv2.so
-    ln -sf /usr/lib/libbrcmGLESv2.so     ${INSTALL}/usr/lib/libGLESv2.so.2
+    if [ "${OPENGLES}" = "bcm2835-driver" ]; then
+      cp -PRv ${PKG_FLOAT}/opt/vc/lib/*.so ${INSTALL}/usr/lib
+      ln -sf /usr/lib/libbrcmEGL.so        ${INSTALL}/usr/lib/libEGL.so
+      ln -sf /usr/lib/libbrcmEGL.so        ${INSTALL}/usr/lib/libEGL.so.1
+      ln -sf /usr/lib/libbrcmGLESv2.so     ${INSTALL}/usr/lib/libGLESv2.so
+      ln -sf /usr/lib/libbrcmGLESv2.so     ${INSTALL}/usr/lib/libGLESv2.so.2
+    else
+      for f in $(cd ${PKG_FLOAT}/opt/vc/lib; ls *.so | grep -Ev "^lib(EGL|GL)"); do
+        cp -PRv ${PKG_FLOAT}/opt/vc/lib/$f ${INSTALL}/usr/lib
+      done
+    fi
 
   # Install useful tools
   mkdir -p ${INSTALL}/usr/bin
@@ -68,5 +90,7 @@ makeinstall_target() {
 
 post_install() {
   # unbind Framebuffer console
-  enable_service unbind-console.service
+  if [ "${OPENGLES}" = "bcm2835-driver" ]; then
+    enable_service unbind-console.service
+  fi
 }

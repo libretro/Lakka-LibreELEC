@@ -1,0 +1,4102 @@
+diff --git a/configure b/configure
+index 2c9359273c..36258ed184 100755
+--- a/configure
++++ b/configure
+@@ -1788,6 +1788,8 @@ HWACCEL_LIBRARY_LIST="
+     omx
+     opencl
+     v4l2_request
++    rpi4_8
++    rpi4_10
+ "
+ 
+ DOCUMENT_LIST="
+@@ -1849,6 +1851,7 @@ SUBSYSTEM_LIST="
+     pixelutils
+     network
+     rdft
++    rpi
+ "
+ 
+ # COMPONENT_LIST needs to come last to ensure correct dependency checking
+@@ -2318,6 +2321,7 @@ CONFIG_EXTRA="
+     rangecoder
+     riffdec
+     riffenc
++    rpi
+     rtpdec
+     rtpenc_chain
+     rv34dsp
+diff --git a/fftools/ffmpeg.c b/fftools/ffmpeg.c
+index c0214c42d8..3f43b58cbb 100644
+--- a/fftools/ffmpeg.c
++++ b/fftools/ffmpeg.c
+@@ -23,6 +23,11 @@
+  * multimedia converter based on the FFmpeg libraries
+  */
+ 
++#ifdef RPI
++//#define RPI_DISPLAY
++#define RPI_DISPLAY_ALL 0
++#endif
++
+ #include "config.h"
+ #include <ctype.h>
+ #include <string.h>
+@@ -70,6 +75,24 @@
+ # include "libavfilter/buffersrc.h"
+ # include "libavfilter/buffersink.h"
+ 
++#ifdef RPI_DISPLAY
++#pragma GCC diagnostic push
++// Many many redundant decls in the header files
++#pragma GCC diagnostic ignored "-Wredundant-decls"
++#include <bcm_host.h>
++#include <interface/mmal/mmal.h>
++#include <interface/mmal/mmal_parameters_camera.h>
++#include <interface/mmal/mmal_buffer.h>
++#include <interface/mmal/mmal_port.h>
++#include <interface/mmal/util/mmal_util.h>
++#include <interface/mmal/util/mmal_default_components.h>
++#include <interface/mmal/util/mmal_connection.h>
++#include <interface/mmal/util/mmal_util_params.h>
++#pragma GCC diagnostic pop
++#include "libavcodec/rpi_qpu.h"
++#include "libavcodec/rpi_zc.h"
++#endif
++
+ #if HAVE_SYS_RESOURCE_H
+ #include <sys/time.h>
+ #include <sys/types.h>
+@@ -162,6 +185,247 @@ static int restore_tty;
+ static void free_input_threads(void);
+ #endif
+ 
++#ifdef RPI_DISPLAY
++
++#define NUM_BUFFERS 4
++
++
++typedef struct rpi_display_env_s
++{
++    MMAL_COMPONENT_T* display;
++    MMAL_COMPONENT_T* isp;
++    MMAL_PORT_T * port_in;  // Input port of either isp or display depending on pipe setup
++    MMAL_CONNECTION_T * conn;
++
++    MMAL_POOL_T *rpi_pool;
++    volatile int rpi_display_count;
++    enum AVPixelFormat avfmt;
++} rpi_display_env_t;
++
++static rpi_display_env_t * rpi_display_env = NULL;
++
++
++static MMAL_POOL_T* display_alloc_pool(MMAL_PORT_T* port)
++{
++    MMAL_POOL_T* pool;
++    mmal_port_parameter_set_boolean(port, MMAL_PARAMETER_ZERO_COPY, MMAL_TRUE); // Does this mark that the buffer contains a vc_handle?  Would have expected a vc_image?
++    pool = mmal_port_pool_create(port, NUM_BUFFERS, 0);
++    assert(pool);
++
++    return pool;
++}
++
++static void display_cb_input(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer) {
++    rpi_display_env_t *const de = (rpi_display_env_t *)port->userdata;
++    av_rpi_zc_unref(buffer->user_data);
++    atomic_fetch_add(&de->rpi_display_count, -1);
++    mmal_buffer_header_release(buffer);
++}
++
++static void display_cb_control(MMAL_PORT_T *port,MMAL_BUFFER_HEADER_T *buffer) {
++  mmal_buffer_header_release(buffer);
++}
++
++#define DISPLAY_PORT_DEPTH 4
++
++static rpi_display_env_t *
++display_init(const enum AVPixelFormat req_fmt, size_t x, size_t y, size_t w, size_t h)
++{
++    MMAL_STATUS_T err;
++    MMAL_DISPLAYREGION_T region =
++    {
++        .hdr = {MMAL_PARAMETER_DISPLAYREGION, sizeof(region)},
++        .set = MMAL_DISPLAY_SET_LAYER | MMAL_DISPLAY_SET_FULLSCREEN | MMAL_DISPLAY_SET_DEST_RECT,
++        .layer = 2,
++        .fullscreen = 0,
++        .dest_rect = {x, y, w, h}
++    };
++#if RPI_ZC_SAND_8_IN_10_BUF
++    const enum AVPixelFormat fmt = (req_fmt == AV_PIX_FMT_YUV420P10 || av_rpi_is_sand_format(req_fmt)) ? AV_PIX_FMT_SAND128 : req_fmt;
++#else
++    const enum AVPixelFormat fmt = (req_fmt == AV_PIX_FMT_YUV420P10) ? AV_PIX_FMT_SAND128 : req_fmt;
++#endif
++    const AVRpiZcFrameGeometry geo = av_rpi_zc_frame_geometry(fmt, w, h);
++    rpi_display_env_t * de;
++    int isp_req = (fmt == AV_PIX_FMT_SAND64_10);
++
++    bcm_host_init();  // Needs to be done by someone...
++
++    if ((de = av_mallocz(sizeof(*de))) == NULL) {
++        return NULL;
++    }
++
++    mmal_component_create(MMAL_COMPONENT_DEFAULT_VIDEO_RENDERER, &de->display);
++    av_assert0(de->display);
++    de->port_in = de->display->input[0];
++
++    if (isp_req)
++    {
++        mmal_component_create("vc.ril.isp", &de->isp);
++        de->port_in = de->isp->input[0];
++    }
++
++    mmal_port_parameter_set(de->display->input[0], &region.hdr);
++
++    {
++        MMAL_PORT_T * const port = de->port_in;
++        MMAL_ES_FORMAT_T* const format = port->format;
++        port->userdata = (struct MMAL_PORT_USERDATA_T *)de;
++        port->buffer_num = DISPLAY_PORT_DEPTH;
++        format->encoding =
++            fmt == AV_PIX_FMT_SAND128 ? MMAL_ENCODING_YUVUV128 :
++            fmt == AV_PIX_FMT_RPI4_8  ? MMAL_ENCODING_YUVUV128 :
++            fmt == AV_PIX_FMT_RPI4_10 ? MMAL_ENCODING_YUV10_COL :
++            fmt == AV_PIX_FMT_SAND64_10 ? MMAL_ENCODING_YUVUV64_16 :
++                MMAL_ENCODING_I420;
++        format->es->video.width = geo.stride_y;
++        format->es->video.height = (fmt == AV_PIX_FMT_SAND128 ||
++                                    fmt == AV_PIX_FMT_RPI4_8 ||
++                                    fmt == AV_PIX_FMT_RPI4_10 ||
++                                    fmt == AV_PIX_FMT_SAND64_10) ?
++                                      (h + 15) & ~15 : geo.height_y;  // Magic
++        format->es->video.crop.x = 0;
++        format->es->video.crop.y = 0;
++        format->es->video.crop.width = w;
++        format->es->video.crop.height = h;
++        mmal_port_format_commit(port);
++    }
++
++    de->rpi_pool = display_alloc_pool(de->port_in);
++    mmal_port_enable(de->port_in,display_cb_input);
++
++    if (isp_req) {
++        MMAL_PORT_T * const port_out = de->isp->output[0];
++        mmal_log_dump_port(de->port_in);
++        mmal_format_copy(port_out->format, de->port_in->format);
++        if (fmt == AV_PIX_FMT_SAND64_10) {
++            if ((err = mmal_port_parameter_set_int32(de->port_in, MMAL_PARAMETER_CCM_SHIFT, 5)) != MMAL_SUCCESS ||
++                (err = mmal_port_parameter_set_int32(port_out, MMAL_PARAMETER_OUTPUT_SHIFT, 1)) != MMAL_SUCCESS)
++            {
++                av_log(NULL, AV_LOG_WARNING, "Failed to set ISP output port shift\n");
++            }
++            else
++                av_log(NULL, AV_LOG_WARNING, "Set ISP output port shift OK\n");
++
++        }
++        port_out->format->encoding = MMAL_ENCODING_I420;
++        mmal_log_dump_port(port_out);
++        if ((err = mmal_port_format_commit(port_out)) != MMAL_SUCCESS)
++        {
++            av_log(NULL, AV_LOG_ERROR, "Failed to set ISP output port format\n");
++            goto fail;
++        }
++        if ((err = mmal_connection_create(&de->conn, port_out, de->display->input[0], MMAL_CONNECTION_FLAG_TUNNELLING)) != MMAL_SUCCESS) {
++            av_log(NULL, AV_LOG_ERROR, "Failed to create connection\n");
++            goto fail;
++        }
++        if ((err = mmal_connection_enable(de->conn)) != MMAL_SUCCESS) {
++            av_log(NULL, AV_LOG_ERROR, "Failed to enable connection\n");
++            goto fail;
++        }
++        mmal_port_enable(de->isp->control,display_cb_control);
++        mmal_component_enable(de->isp);
++    }
++
++    mmal_component_enable(de->display);
++    mmal_port_enable(de->display->control,display_cb_control);
++    de->avfmt = fmt;
++
++    printf("Allocated display %dx%d in %dx%d, fmt=%d\n", w, h, geo.stride_y, geo.height_y, fmt);
++
++    return de;
++
++fail:
++    // **** Free stuff
++    return NULL;
++}
++
++static void display_frame(struct AVCodecContext * const s, rpi_display_env_t * const de, const AVFrame* const fr)
++{
++    MMAL_BUFFER_HEADER_T* buf;
++
++    if (de == NULL)
++        return;
++
++    if (atomic_load(&de->rpi_display_count) >= DISPLAY_PORT_DEPTH - 1) {
++        av_log(s, AV_LOG_VERBOSE, "Frame dropped\n");
++        return;
++    }
++
++    buf = mmal_queue_get(de->rpi_pool->queue);
++    if (!buf) {
++        // Running too fast so drop the frame
++        printf("Q alloc failure\n");
++        return;
++    }
++    assert(buf);
++    buf->cmd = 0;
++    buf->offset = 0; // Offset to valid data
++    buf->flags = 0;
++    {
++        const AVRpiZcRefPtr fr_buf = av_rpi_zc_ref(s, fr, de->avfmt, 1);
++        if (fr_buf == NULL) {
++            mmal_buffer_header_release(buf);
++            return;
++        }
++
++        buf->user_data = fr_buf;
++        buf->data = (uint8_t *)av_rpi_zc_vc_handle(fr_buf);  // Cast our handle to a pointer for mmal
++        buf->offset = av_rpi_zc_offset(fr_buf);
++        buf->length = av_rpi_zc_length(fr_buf);
++        buf->alloc_size = av_rpi_zc_numbytes(fr_buf);
++        atomic_fetch_add(&de->rpi_display_count, 1);
++    }
++#if RPI_DISPLAY_ALL
++    while (atomic_load(&de->rpi_display_count) >= DISPLAY_PORT_DEPTH - 1) {
++        usleep(5000);
++    }
++#endif
++
++    if (mmal_port_send_buffer(de->port_in, buf) != MMAL_SUCCESS)
++    {
++        av_log(s, AV_LOG_ERROR, "mmal_port_send_buffer failed: depth=%d\n", de->rpi_display_count);
++        display_cb_input(de->port_in, buf);
++    }
++}
++
++static void display_exit(rpi_display_env_t ** const pde)
++{
++    rpi_display_env_t * const de = *pde;
++    *pde = NULL;
++
++    if (de != NULL) {
++//    sleep(120);
++
++        if (de->port_in != NULL) {
++            mmal_port_disable(de->port_in);
++        }
++
++        // The above disable should kick out all buffers - check that
++        if (atomic_load(&de->rpi_display_count) != 0) {
++            av_log(NULL, AV_LOG_WARNING, "Exiting with display count non-zero:%d\n", atomic_load(&de->rpi_display_count));
++        }
++
++        if (de->conn != NULL) {
++            mmal_connection_destroy(de->conn);
++        }
++        if (de->isp != NULL) {
++            mmal_component_destroy(de->isp);
++        }
++        if (de->display != NULL) {
++            mmal_component_destroy(de->display);
++        }
++        if (de->rpi_pool != NULL) {
++            mmal_port_pool_destroy(de->display->input[0], de->rpi_pool);
++        }
++
++        av_free(de);
++    }
++}
++
++#endif
++
++
+ /* sub2video hack:
+    Convert subtitles to video with alpha to insert them in filter graphs.
+    This is a temporary solution until libavfilter gets real subtitles support.
+@@ -583,6 +847,11 @@ static void ffmpeg_cleanup(int ret)
+         avformat_close_input(&input_files[i]->ctx);
+         av_freep(&input_files[i]);
+     }
++
++#ifdef RPI_DISPLAY
++    display_exit(&rpi_display_env);
++#endif
++
+     for (i = 0; i < nb_input_streams; i++) {
+         InputStream *ist = input_streams[i];
+ 
+@@ -594,7 +863,9 @@ static void ffmpeg_cleanup(int ret)
+         av_freep(&ist->filters);
+         av_freep(&ist->hwaccel_device);
+         av_freep(&ist->dts_buffer);
+-
++#ifdef RPI_DISPLAY
++        av_rpi_zc_uninit(ist->dec_ctx);
++#endif
+         avcodec_free_context(&ist->dec_ctx);
+ 
+         av_freep(&input_streams[i]);
+@@ -625,6 +896,7 @@ static void ffmpeg_cleanup(int ret)
+     }
+     term_exit();
+     ffmpeg_exited = 1;
++
+ }
+ 
+ void remove_avoptions(AVDictionary **a, AVDictionary *b)
+@@ -1060,6 +1332,15 @@ static void do_video_out(OutputFile *of,
+     if (ost->source_index >= 0)
+         ist = input_streams[ost->source_index];
+ 
++#ifdef RPI_DISPLAY
++    if (next_picture && ist != NULL)
++    {
++        if (rpi_display_env == NULL)
++            rpi_display_env = display_init(next_picture->format, 0, 0, next_picture->width, next_picture->height);
++        display_frame(ist->dec_ctx, rpi_display_env, next_picture);
++    }
++#endif
++
+     frame_rate = av_buffersink_get_frame_rate(filter);
+     if (frame_rate.num > 0 && frame_rate.den > 0)
+         duration = 1/(av_q2d(frame_rate) * av_q2d(enc->time_base));
+@@ -1275,7 +1556,7 @@ static void do_video_out(OutputFile *of,
+ 
+         ost->frames_encoded++;
+ 
+-        ret = avcodec_send_frame(enc, in_picture);
++        ret = 0;//avcodec_send_frame(enc, in_picture);
+         if (ret < 0)
+             goto error;
+ 
+@@ -2891,6 +3172,12 @@ static int init_input_stream(int ist_index, char *error, int error_len)
+         ist->dec_ctx->opaque                = ist;
+         ist->dec_ctx->get_format            = get_format;
+         ist->dec_ctx->get_buffer2           = get_buffer;
++
++#ifdef RPI_DISPLAY
++        // Overrides the above get_buffer2
++        av_rpi_zc_init(ist->dec_ctx);
++#endif
++
+         ist->dec_ctx->thread_safe_callbacks = 1;
+ 
+         av_opt_set_int(ist->dec_ctx, "refcounted_frames", 1, 0);
+diff --git a/fftools/ffmpeg.h b/fftools/ffmpeg.h
+index d44b7a5c72..0c5fa38f1d 100644
+--- a/fftools/ffmpeg.h
++++ b/fftools/ffmpeg.h
+@@ -62,6 +62,7 @@ enum HWAccelID {
+     HWACCEL_VIDEOTOOLBOX,
+     HWACCEL_QSV,
+     HWACCEL_CUVID,
++    HWACCEL_RPI,
+ };
+ 
+ typedef struct HWAccel {
+@@ -654,6 +655,7 @@ int ffmpeg_parse_options(int argc, char **argv);
+ int videotoolbox_init(AVCodecContext *s);
+ int qsv_init(AVCodecContext *s);
+ int cuvid_init(AVCodecContext *s);
++int rpi_init(AVCodecContext *s);
+ 
+ HWDevice *hw_device_get_by_name(const char *name);
+ int hw_device_init_from_string(const char *arg, HWDevice **dev);
+diff --git a/fftools/ffmpeg_opt.c b/fftools/ffmpeg_opt.c
+index d7a7eb0662..4ee87e742b 100644
+--- a/fftools/ffmpeg_opt.c
++++ b/fftools/ffmpeg_opt.c
+@@ -74,6 +74,10 @@ const HWAccel hwaccels[] = {
+ #endif
+ #if CONFIG_CUVID
+     { "cuvid", cuvid_init, HWACCEL_CUVID, AV_PIX_FMT_CUDA },
++#endif
++#if CONFIG_RPI
++    {  "rpi", rpi_init, HWACCEL_RPI, AV_PIX_FMT_RPI4_8 },
++    {  "rpi", rpi_init, HWACCEL_RPI, AV_PIX_FMT_RPI4_10 },
+ #endif
+     { 0 },
+ };
+diff --git a/libavcodec/Makefile b/libavcodec/Makefile
+index 8b3eab6fb6..84f7e1a1e4 100644
+--- a/libavcodec/Makefile
++++ b/libavcodec/Makefile
+@@ -6,6 +6,10 @@ HEADERS = ac3_parser.h                                                  \
+           avcodec.h                                                     \
+           avdct.h                                                       \
+           avfft.h                                                       \
++          rpi_qpu.h                                                     \
++          rpi_mailbox.h                                                 \
++          rpi_zc.h                                                      \
++          rpi_ctrl_ffmpeg.h                                             \
+           d3d11va.h                                                     \
+           dirac.h                                                       \
+           dv_profile.h                                                  \
+@@ -48,6 +52,10 @@ OBJS = ac3_parser.o                                                     \
+        qsv_api.o                                                        \
+        raw.o                                                            \
+        utils.o                                                          \
++       rpi_qpu.o                                                        \
++       rpi_mailbox.o                                                    \
++       rpi_zc.o                                                         \
++       rpi_ctrl_ffmpeg.o                                                \
+        vorbis_parser.o                                                  \
+        xiph.o                                                           \
+ 
+@@ -361,6 +369,7 @@ OBJS-$(CONFIG_HAP_ENCODER)             += hapenc.o hap.o
+ OBJS-$(CONFIG_HEVC_DECODER)            += hevcdec.o hevc_mvs.o \
+                                           hevc_cabac.o hevc_refs.o hevcpred.o    \
+                                           hevcdsp.o hevc_filter.o hevc_data.o
++OBJS-$(CONFIG_RPI)                     += rpi_hevc.o
+ OBJS-$(CONFIG_HEVC_AMF_ENCODER)        += amfenc_hevc.o
+ OBJS-$(CONFIG_HEVC_CUVID_DECODER)      += cuviddec.o
+ OBJS-$(CONFIG_HEVC_MEDIACODEC_DECODER) += mediacodecdec.o
+diff --git a/libavcodec/avcodec.h b/libavcodec/avcodec.h
+index 4c4581c895..f519b1d8c4 100644
+--- a/libavcodec/avcodec.h
++++ b/libavcodec/avcodec.h
+@@ -3212,7 +3212,13 @@ typedef struct AVCodecContext {
+ #endif
+ 
+     /**
+-     * Audio only. The amount of padding (in samples) appended by the encoder to
++     * Opaque pointer for use by replacement get_buffer2 code
++     *
++     * @author jc (08/02/2016)
++     */
++    void * get_buffer_context;
++
++    /* Audio only. The amount of padding (in samples) appended by the encoder to
+      * the end of the audio. I.e. this number of decoded samples must be
+      * discarded by the caller from the end of the stream to get the original
+      * audio without any trailing padding.
+diff --git a/libavcodec/hevcdec.c b/libavcodec/hevcdec.c
+index df33433150..a692e685c4 100644
+--- a/libavcodec/hevcdec.c
++++ b/libavcodec/hevcdec.c
+@@ -365,12 +365,17 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
+                      CONFIG_HEVC_V4L2REQUEST_HWACCEL + \
+                      CONFIG_HEVC_VAAPI_HWACCEL + \
+                      CONFIG_HEVC_VIDEOTOOLBOX_HWACCEL + \
++                     CONFIG_HEVC_RPI4_8_HWACCEL + \
++                     CONFIG_HEVC_RPI4_10_HWACCEL + \
+                      CONFIG_HEVC_VDPAU_HWACCEL)
+     enum AVPixelFormat pix_fmts[HWACCEL_MAX + 2], *fmt = pix_fmts;
+ 
+     switch (sps->pix_fmt) {
+     case AV_PIX_FMT_YUV420P:
+     case AV_PIX_FMT_YUVJ420P:
++#if CONFIG_HEVC_RPI4_8_HWACCEL
++        *fmt++ = AV_PIX_FMT_RPI4_8;
++#endif
+ #if CONFIG_HEVC_DXVA2_HWACCEL
+         *fmt++ = AV_PIX_FMT_DXVA2_VLD;
+ #endif
+@@ -395,6 +400,9 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
+ #endif
+         break;
+     case AV_PIX_FMT_YUV420P10:
++#if CONFIG_HEVC_RPI4_10_HWACCEL
++        *fmt++ = AV_PIX_FMT_RPI4_10;
++#endif
+ #if CONFIG_HEVC_DXVA2_HWACCEL
+         *fmt++ = AV_PIX_FMT_DXVA2_VLD;
+ #endif
+@@ -3564,6 +3572,12 @@ AVCodec ff_hevc_decoder = {
+ #if CONFIG_HEVC_VIDEOTOOLBOX_HWACCEL
+                                HWACCEL_VIDEOTOOLBOX(hevc),
+ #endif
++#if CONFIG_HEVC_RPI4_8_HWACCEL
++                               HWACCEL_RPI4_8(hevc),
++#endif
++#if CONFIG_HEVC_RPI4_10_HWACCEL
++                               HWACCEL_RPI4_10(hevc),
++#endif
+ #if CONFIG_HEVC_V4L2REQUEST_HWACCEL
+                                HWACCEL_V4L2REQUEST(hevc),
+ #endif
+diff --git a/libavcodec/hwaccel.h b/libavcodec/hwaccel.h
+index 2eefc91e7e..0e482f2265 100644
+--- a/libavcodec/hwaccel.h
++++ b/libavcodec/hwaccel.h
+@@ -82,5 +82,9 @@ typedef struct AVCodecHWConfigInternal {
+     HW_CONFIG_HWACCEL(0, 0, 1, XVMC,         NONE,         ff_ ## codec ## _xvmc_hwaccel)
+ #define HWACCEL_V4L2REQUEST(codec) \
+     HW_CONFIG_HWACCEL(1, 0, 0, DRM_PRIME,    DRM,          ff_ ## codec ## _v4l2request_hwaccel)
++#define HWACCEL_RPI4_8(codec) \
++    HW_CONFIG_HWACCEL(0, 0, 1, RPI4_8,       NONE,         ff_ ## codec ## _rpi4_8_hwaccel)
++#define HWACCEL_RPI4_10(codec) \
++    HW_CONFIG_HWACCEL(0, 0, 1, RPI4_10,      NONE,         ff_ ## codec ## _rpi4_10_hwaccel)
+ 
+ #endif /* AVCODEC_HWACCEL_H */
+diff --git a/libavcodec/hwaccels.h b/libavcodec/hwaccels.h
+index d183675abe..31a4a94e28 100644
+--- a/libavcodec/hwaccels.h
++++ b/libavcodec/hwaccels.h
+@@ -77,5 +77,7 @@ extern const AVHWAccel ff_wmv3_dxva2_hwaccel;
+ extern const AVHWAccel ff_wmv3_nvdec_hwaccel;
+ extern const AVHWAccel ff_wmv3_vaapi_hwaccel;
+ extern const AVHWAccel ff_wmv3_vdpau_hwaccel;
++extern const AVHWAccel ff_hevc_rpi4_8_hwaccel;
++extern const AVHWAccel ff_hevc_rpi4_10_hwaccel;
+ 
+ #endif /* AVCODEC_HWACCELS_H */
+diff --git a/libavcodec/rpi_ctrl_ffmpeg.c b/libavcodec/rpi_ctrl_ffmpeg.c
+new file mode 100644
+index 0000000000..6d93adba03
+--- /dev/null
++++ b/libavcodec/rpi_ctrl_ffmpeg.c
+@@ -0,0 +1,427 @@
++#include <stdio.h>
++#include <stdint.h>
++#include <stdlib.h>
++#include <inttypes.h>
++
++//  How to access GPIO registers from C-code on the Raspberry-Pi
++//  Example program
++//  15-January-2012
++//  Dom and Gert
++
++// Access from ARM Running Linux
++
++#include <assert.h>
++#include <stdio.h>
++#include <string.h>
++#include <stdlib.h>
++#include <dirent.h>
++#include <fcntl.h>
++#include <assert.h>
++#include <sys/mman.h>
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <sched.h>
++#include <time.h>
++
++#include <unistd.h>
++#include <pthread.h>
++#include <interface/vcsm/user-vcsm.h>
++#include <bcm_host.h>
++#include "rpi_mailbox.h"
++#include "rpi_ctrl_ffmpeg.h"
++
++#define av_assert0(x) assert(x)
++
++// argon block doesn't see VC sdram alias bits
++#define MANGLE(x) ((x) &~0xc0000000)
++#ifdef AXI_BUFFERS
++#define AXI_MEM_SIZE (64*1024*1024)
++#else
++#define AXI_MEM_SIZE (64*1024*1024)
++#endif
++
++#define PAGE_SIZE (4*1024)
++#define BLOCK_SIZE (0x10000)
++#define CACHED 0
++#define VERBOSE 0
++
++static inline void __DMB2(void) {}//{ asm volatile ("dmb" ::: "memory"); }
++
++
++// GPU memory alloc fns (internal)
++typedef struct gpu_mem_ptr_s {
++  unsigned char *arm; // Pointer to memory mapped on ARM side
++  int vc_handle;   // Videocore handle of relocatable memory
++  int vcsm_handle; // Handle for use by VCSM
++  unsigned int vc;       // Address for use in GPU code
++  unsigned int numbytes; // Size of memory block
++} GPU_MEM_PTR_T;
++
++typedef enum
++{
++    RPI_CACHE_FLUSH_MODE_INVALIDATE     = 1,
++    RPI_CACHE_FLUSH_MODE_WRITEBACK      = 2,
++    RPI_CACHE_FLUSH_MODE_WB_INVALIDATE  = 3
++} rpi_cache_flush_mode_t;
++
++// GPU_MEM_PTR_T alloc fns
++static int gpu_malloc_cached_internal(const int mb, const int numbytes, GPU_MEM_PTR_T * const p) {
++  p->numbytes = (numbytes + 255) & ~255;  // Round up
++  p->vcsm_handle = vcsm_malloc_cache(p->numbytes, VCSM_CACHE_TYPE_HOST | 0x80, (char *)"Video Frame" );
++  av_assert0(p->vcsm_handle);
++  p->vc_handle = vcsm_vc_hdl_from_hdl(p->vcsm_handle);
++  av_assert0(p->vc_handle);
++  p->arm = vcsm_lock(p->vcsm_handle);
++  av_assert0(p->arm);
++  p->vc = mbox_mem_lock(mb, p->vc_handle);
++  av_assert0(p->vc);
++  printf("***** %s, %d\n", __func__, numbytes);
++
++  return 0;
++}
++
++static int gpu_malloc_uncached_internal(const int mb, const int numbytes, GPU_MEM_PTR_T * const p) {
++  p->numbytes = numbytes;
++  p->vcsm_handle = vcsm_malloc_cache(numbytes, VCSM_CACHE_TYPE_NONE | 0x80, (char *)"Video Frame" );
++  av_assert0(p->vcsm_handle);
++  p->vc_handle = vcsm_vc_hdl_from_hdl(p->vcsm_handle);
++  av_assert0(p->vc_handle);
++  p->arm = vcsm_lock(p->vcsm_handle);
++  av_assert0(p->arm);
++  p->vc = mbox_mem_lock(mb, p->vc_handle);
++  av_assert0(p->vc);
++  printf("***** %s, %d\n", __func__, numbytes);
++  return 0;
++}
++
++static void gpu_free_internal(const int mb, GPU_MEM_PTR_T * const p) {
++  mbox_mem_unlock(mb, p->vc_handle);
++  vcsm_unlock_ptr(p->arm);
++  vcsm_free(p->vcsm_handle);
++  memset(p, 0, sizeof(*p));  // Ensure we crash hard if we try and use this again
++  printf("***** %s\n", __func__);
++}
++
++static void gpu_clean_invalidate(GPU_MEM_PTR_T * const p, int mode) {
++  struct vcsm_user_clean_invalid_s iocache = {};
++  iocache.s[0].handle = p->vcsm_handle;
++  iocache.s[0].cmd = mode;
++  iocache.s[0].addr = (int) p->arm;
++  iocache.s[0].size  = p->numbytes;
++  vcsm_clean_invalid( &iocache );
++  printf("***** %s mode:%d\n", __func__, mode);
++}
++
++//
++// Set up a memory regions to access periperhals
++//
++static void *setup_io(const char *dev, unsigned long base)
++{
++   void *gpio_map;
++   int  mem_fd;
++
++   /* open /dev/mem */
++   if ((mem_fd = open(dev, O_RDWR|O_SYNC) ) < 0) {
++      printf("can't open %s\n", dev);
++      exit (-1);
++   }
++   // Now map it
++   gpio_map = (unsigned char *)mmap(
++      NULL,
++      BLOCK_SIZE,
++      PROT_READ|PROT_WRITE,
++      MAP_SHARED,
++      mem_fd,
++      base
++   );
++      printf("%s: %08lx -> %p (fd:%d)\n", __FUNCTION__, base, gpio_map, mem_fd);
++
++   if (gpio_map == MAP_FAILED) {
++      printf("mmap error %p\n", gpio_map);
++      //exit (-1);
++   }
++
++   return gpio_map;
++} // setup_io
++
++static void release_io(void *gpio_map)
++{
++   int s = munmap(gpio_map, BLOCK_SIZE);
++   assert(s == 0);
++}
++
++struct RPI_DEBUG {
++    FILE *fp_reg;
++    FILE *fp_bin;
++    int mbox;
++    GPU_MEM_PTR_T axi;
++    void *read_buf;
++    int32_t read_buf_size, read_buf_used;
++    volatile unsigned int *apb;
++    volatile unsigned int *interrupt;
++    //volatile unsigned int *sdram;
++};
++
++//////////////////////////////////////////////////////////////////////////////
++
++void rpi_apb_write_addr(void *id, uint16_t addr, uint32_t data) {
++    struct RPI_DEBUG *rpi = (struct RPI_DEBUG *) id;
++    if (VERBOSE)
++    fprintf(rpi->fp_reg, "P %x %08x\n", addr, data);
++    __DMB2();
++    rpi->apb[addr>>2] = data + (MANGLE(rpi->axi.vc)>>6);
++}
++
++uint64_t rpi_axi_get_addr(void *id) {
++    struct RPI_DEBUG *rpi = (struct RPI_DEBUG *) id;
++    return (uint64_t)MANGLE(rpi->axi.vc);
++}
++
++void rpi_apb_write(void *id, uint16_t addr, uint32_t data) {
++    struct RPI_DEBUG *rpi = (struct RPI_DEBUG *) id;
++    if (VERBOSE)
++    fprintf(rpi->fp_reg, "W %x %08x\n", addr, data);
++    __DMB2();
++    rpi->apb[addr>>2] = data;
++}
++
++uint32_t rpi_apb_read(void *id, uint16_t addr) {
++    struct RPI_DEBUG *rpi = (struct RPI_DEBUG *) id;
++    uint32_t v = rpi->apb[addr>>2];
++    __DMB2();
++    if (VERBOSE)
++    fprintf(rpi->fp_reg, "R %x (=%x)\n", addr, v);
++    return v;
++}
++
++void rpi_apb_read_drop(void *id, uint16_t addr) {
++    struct RPI_DEBUG *rpi = (struct RPI_DEBUG *) id;
++    uint32_t v = rpi->apb[addr>>2];
++    __DMB2();
++    if (VERBOSE)
++    fprintf(rpi->fp_reg, "R %x (=%x)\n", addr, v);
++}
++
++void rpi_axi_write(void *id, uint64_t addr, uint32_t size, void *buf) {
++    struct RPI_DEBUG *rpi = (struct RPI_DEBUG *) id;
++    if (VERBOSE)
++    fprintf(rpi->fp_reg, "L %08" PRIx64 " %08x\n", addr, size);
++    assert(addr + size <= AXI_MEM_SIZE);
++    __DMB2();
++    memcpy(rpi->axi.arm + addr, buf, size);
++}
++
++void rpi_axi_read_alloc(void *id, uint32_t size) {
++    struct RPI_DEBUG *rpi = (struct RPI_DEBUG *) id;
++    assert(rpi->read_buf == NULL);
++    rpi->read_buf = malloc(size);
++    rpi->read_buf_size = size;
++    rpi->read_buf_used = 0;
++}
++
++void rpi_axi_read_tx(void *id, uint64_t addr, uint32_t size) {
++    struct RPI_DEBUG *rpi = (struct RPI_DEBUG *) id;
++    assert(rpi->read_buf_used + size <= rpi->read_buf_size);
++    if (VERBOSE)
++    fprintf(rpi->fp_reg, "S %08" PRIx64 " %08x\n", addr, size);
++    assert(addr + size <= AXI_MEM_SIZE);
++    __DMB2();
++    memcpy((char *)rpi->read_buf + rpi->read_buf_used, rpi->axi.arm + addr, size);
++    rpi->read_buf_used += size;
++}
++
++void rpi_axi_read_rx(void *id, uint32_t size, void *buf) {
++    struct RPI_DEBUG *rpi = (struct RPI_DEBUG *) id;
++    assert(size == rpi->read_buf_used);
++    fprintf(rpi->fp_reg, "Z " PRIx64 " %08x\n", size);
++    memcpy(buf, rpi->read_buf, size);
++    free(rpi->read_buf);
++    rpi->read_buf = NULL;
++    rpi->read_buf_size = 0;
++    rpi->read_buf_used = 0;
++}
++
++static int getthreadnum(unsigned pid)
++{
++   static unsigned pids[8];
++   int i;
++   for (i = 0; i < 8; i++)
++   {
++      if (pids[i] == 0)
++         pids[i] = pid;
++      if (pids[i] == pid)
++         return i;
++   }
++   return -1;
++}
++
++#define _NOP() //do { __asm__ __volatile__ ("nop"); } while (0)
++
++static void yield(void)
++{
++  int i;
++  for (i=0; i<0; i++)
++    _NOP();
++  usleep(1000);
++}
++
++
++void rpi_wait_interrupt(void *id, int phase) {
++    struct RPI_DEBUG *rpi = (struct RPI_DEBUG *) id;
++    static struct timespec tfirst={0,0};
++    static __thread struct timespec tstart={0,0};
++    struct timespec tend={0,0};
++    unsigned pid = (unsigned)pthread_self();
++    clock_gettime(CLOCK_MONOTONIC, &tend);
++    if (tstart.tv_sec == 0 && tstart.tv_nsec == 0)
++       tstart = tend;
++    if (tfirst.tv_sec == 0 && tfirst.tv_nsec == 0)
++    {
++       /*printf("%s:  Resetting sdram stats\n", __FUNCTION__);
++       rpi->sdram[0x30/4] = 0;*/
++       tfirst = tend;
++    }
++    if (VERBOSE)
++    printf("%08llu: %s:  IN thread:%u phase:%d time:%llu\n", ((tend.tv_sec * 1000000000ULL + tend.tv_nsec) - (tfirst.tv_sec * 1000000000ULL + tfirst.tv_nsec))/1000, 
++       __FUNCTION__, getthreadnum(pid), phase, ((tend.tv_sec * 1000000000ULL + tend.tv_nsec) - (tstart.tv_sec * 1000000000ULL + tstart.tv_nsec))/1000);
++    /*enum {IDL=0x30/4, RTC=0x34/4, WTC=0x38/4, RDC=0x3c/4, WDC=0x40/4, RAC=0x44/4, CYC=0x48/4, CMD=0x4c/4, DAT=0x50/4, RDCMD=0x78/4, RDSUB=0x7c/4, WRCMD=0x80/4, WRSUB=0x84/4, MWRCMD=0x88/4, MWRSUB=0x8c/4,};
++    printf("IDL:%u RTC:%u WTC:%u RDC:%u WDC:%u RAC:%u CYC:%u CMD:%u DAT:%u RDCMD:%u RDSUB:%u WRCMD:%u WRSUB:%u MWRCMD:%u MWRSUB:%u\n", 
++      rpi->sdram[IDL], rpi->sdram[RTC], rpi->sdram[WTC], rpi->sdram[RDC], rpi->sdram[WDC], rpi->sdram[RAC], rpi->sdram[CYC], rpi->sdram[CMD], rpi->sdram[DAT],
++      rpi->sdram[RDCMD], rpi->sdram[RDSUB], rpi->sdram[WRCMD], rpi->sdram[WRSUB], rpi->sdram[MWRCMD], rpi->sdram[MWRSUB]);
++    rpi->sdram[0x30/4] = 0;*/
++
++    if (VERBOSE)
++    fprintf(rpi->fp_reg, "I %d\n", phase);
++    __DMB2();
++#if 0
++    assert(phase == 1 || phase == 2);
++    for (;;) {
++        if      (phase==1 && rpi->apb[0x74>>2]==rpi->apb[0x70>>2]) break;
++        else if (phase==2 && (rpi->apb[0x8028/*STATUS2*/>>2]&1)==0) break;
++    }
++    fprintf(rpi->fp_reg, "I %d done\n", phase);
++#else
++    #define ARG_IC_ICTRL_ACTIVE1_INT_SET                   0x00000001
++    #define ARG_IC_ICTRL_ACTIVE1_EDGE_SET                  0x00000002
++    #define ARG_IC_ICTRL_ACTIVE1_EN_SET                    0x00000004
++    #define ARG_IC_ICTRL_ACTIVE1_STATUS_SET                0x00000008
++    #define ARG_IC_ICTRL_ACTIVE2_INT_SET                   0x00000010
++    #define ARG_IC_ICTRL_ACTIVE2_EDGE_SET                  0x00000020
++    #define ARG_IC_ICTRL_ACTIVE2_EN_SET                    0x00000040
++    #define ARG_IC_ICTRL_ACTIVE2_STATUS_SET                0x00000080
++    //if (rpi->interrupt[0] &~ (ARG_IC_ICTRL_ACTIVE1_INT_SET|ARG_IC_ICTRL_ACTIVE2_INT_SET|ARG_IC_ICTRL_ACTIVE1_EDGE_SET|ARG_IC_ICTRL_ACTIVE2_EDGE_SET|ARG_IC_ICTRL_ACTIVE1_STATUS_SET|ARG_IC_ICTRL_ACTIVE2_STATUS_SET))
++    //fprintf(rpi->fp_reg, "I %d %x in\n", phase, rpi->interrupt[0]);
++
++    if (phase == 1) {
++      while (!(rpi->interrupt[0] & ARG_IC_ICTRL_ACTIVE1_INT_SET))
++        yield();
++      rpi->interrupt[0] = rpi->interrupt[0] &~ ARG_IC_ICTRL_ACTIVE2_INT_SET; //ARG_IC_ICTRL_ACTIVE1_INT_SET|ARG_IC_ICTRL_ACTIVE2_EDGE_SET|ARG_IC_ICTRL_ACTIVE2_EDGE_SET;
++    } else if (phase == 2) {
++      while (!(rpi->interrupt[0] & ARG_IC_ICTRL_ACTIVE2_INT_SET))
++        yield();
++      rpi->interrupt[0] = rpi->interrupt[0] &~ ARG_IC_ICTRL_ACTIVE1_INT_SET; //ARG_IC_ICTRL_ACTIVE2_INT_SET|ARG_IC_ICTRL_ACTIVE1_EDGE_SET|ARG_IC_ICTRL_ACTIVE2_EDGE_SET;
++    } else assert(0);
++#endif
++    //fprintf(rpi->fp_reg, "I %d %x out\n", phase, rpi->interrupt[0]);
++    if (phase == 2)
++    {
++      __DMB2();
++      if (VERBOSE)
++      fprintf(rpi->fp_reg, "YBASE:%08x CBASE:%08x\n", rpi->apb[0x8018>>2]*64, rpi->apb[0x8020>>2]*64);
++    }
++    clock_gettime(CLOCK_MONOTONIC, &tend);
++
++    if (VERBOSE)
++    printf("%08llu: %s: OUT thread:%u phase:%d time:%llu\n", ((tend.tv_sec * 1000000000ULL + tend.tv_nsec) - (tfirst.tv_sec * 1000000000ULL + tfirst.tv_nsec))/1000, 
++       __FUNCTION__, getthreadnum(pid), phase, ((tend.tv_sec * 1000000000ULL + tend.tv_nsec) - (tstart.tv_sec * 1000000000ULL + tstart.tv_nsec))/1000);
++    /*printf("IDL:%u RTC:%u WTC:%u RDC:%u WDC:%u RAC:%u CYC:%u CMD:%u DAT:%u RDCMD:%u RDSUB:%u WRCMD:%u WRSUB:%u MWRCMD:%u MWRSUB:%u\n", 
++      rpi->sdram[IDL], rpi->sdram[RTC], rpi->sdram[WTC], rpi->sdram[RDC], rpi->sdram[WDC], rpi->sdram[RAC], rpi->sdram[CYC], rpi->sdram[CMD], rpi->sdram[DAT],
++      rpi->sdram[RDCMD], rpi->sdram[RDSUB], rpi->sdram[WRCMD], rpi->sdram[WRSUB], rpi->sdram[MWRCMD], rpi->sdram[MWRSUB]);*/
++
++    tstart = tend;
++}
++
++
++void rpi_apb_dump_regs(void *id, uint16_t addr, int num) {
++    struct RPI_DEBUG *rpi = (struct RPI_DEBUG *) id;
++    int i;
++    __DMB2();
++    if (VERBOSE)
++    for (i=0; i<num; i++)
++    {
++      if ((i%4)==0)
++        fprintf(rpi->fp_reg, "%08x: ", 0x7eb00000 + addr + 4*i);
++      fprintf(rpi->fp_reg, "%08x", rpi->apb[(addr>>2)+i]);
++      if ((i%4)==3 || i+1 == num)
++        fprintf(rpi->fp_reg, "\n");
++      else
++        fprintf(rpi->fp_reg, " ");
++    }
++}
++
++void rpi_axi_dump(void *id, uint64_t addr, uint32_t size) {
++    struct RPI_DEBUG *rpi = (struct RPI_DEBUG *) id;
++    int i;
++    __DMB2();
++    if (VERBOSE)
++    for (i=0; i<size>>2; i++)
++    {
++      if ((i%4)==0)
++        fprintf(rpi->fp_reg, "%08x: ", MANGLE(rpi->axi.vc) + (uint32_t)addr + 4*i);
++      fprintf(rpi->fp_reg, "%08x", ((uint32_t*)rpi->axi.arm)[(addr>>2)+i]);
++      if ((i%4)==3 || i+1 == size>>2)
++        fprintf(rpi->fp_reg, "\n");
++      else
++        fprintf(rpi->fp_reg, " ");
++    }
++}
++
++void rpi_axi_flush(void *id, int mode) {
++    struct RPI_DEBUG *rpi = (struct RPI_DEBUG *) id;
++    if (CACHED)
++    {
++        gpu_clean_invalidate(&rpi->axi, mode);
++    }
++}
++
++//////////////////////////////////////////////////////////////////////////////
++
++const char * rpi_ctrl_ffmpeg_init(const char *hwaccel_device, void **id) {
++    struct RPI_DEBUG *rpi = calloc(1, sizeof(struct RPI_DEBUG));
++    (void) hwaccel_device;
++    printf("%s\n id=%p\n", __FUNCTION__, rpi);
++
++    if (!rpi) return "out of memory";
++
++    bcm_host_init();
++    vcsm_init();
++    rpi->apb = setup_io("/dev/argon-hevcmem", 0);
++    rpi->interrupt = setup_io("/dev/argon-intcmem", 0);
++    //rpi->sdram = setup_io(0xfe001000);
++
++    rpi->fp_bin = stderr;
++    rpi->fp_reg = stderr;
++
++    rpi->mbox = mbox_open();
++    if ((CACHED ? gpu_malloc_cached_internal:gpu_malloc_uncached_internal)(rpi->mbox, AXI_MEM_SIZE, &rpi->axi) != 0)
++      return "out of memory";
++
++    fprintf(rpi->fp_reg, "A 100000000 apb:%p axi.arm:%p axi.vc:%08x\n", rpi->apb, rpi->axi.arm, MANGLE(rpi->axi.vc));
++    *id = rpi;
++    return 0;
++}
++
++void rpi_ctrl_ffmpeg_free(void *id) {
++    struct RPI_DEBUG *rpi = (struct RPI_DEBUG *) id;
++    printf("%s id=%p\n", __FUNCTION__, rpi);
++    release_io(rpi->apb);
++    release_io(rpi->interrupt);
++    gpu_free_internal(rpi->mbox, &rpi->axi);
++    printf("%s freed axi mem\n", __FUNCTION__);
++    mbox_close(rpi->mbox);
++    printf("%s closed mbox\n", __FUNCTION__);
++    free(rpi);
++    printf("%s freed rpi\n", __FUNCTION__);
++    vcsm_exit();
++    bcm_host_deinit();
++}
+diff --git a/libavcodec/rpi_ctrl_ffmpeg.h b/libavcodec/rpi_ctrl_ffmpeg.h
+new file mode 100644
+index 0000000000..6a1d95f195
+--- /dev/null
++++ b/libavcodec/rpi_ctrl_ffmpeg.h
+@@ -0,0 +1,29 @@
++// rpi_ctrl_ffmpeg.h
++//
++// This file contains prototypes for the functions used to control the socket
++// interface when using ffmpeg.
++//
++
++#ifndef __CTRL_FFMPEG_H__
++#define __CTRL_FFMPEG_H__
++
++#include <stdint.h>
++
++const char *rpi_ctrl_ffmpeg_init  (const char *hwaccel_device, void **id);
++void      rpi_apb_write_addr    (void *id, uint16_t addr, uint32_t data);
++void      rpi_apb_write         (void *id, uint16_t addr, uint32_t data);
++uint32_t  rpi_apb_read          (void *id, uint16_t addr);
++void      rpi_apb_read_drop     (void *id, uint16_t addr);
++void      rpi_axi_write         (void *id, uint64_t addr, uint32_t size, void *buf);
++void      rpi_axi_read          (void *id, uint64_t addr, uint32_t size, void *buf);
++void      rpi_axi_read_alloc    (void *id, uint32_t size);
++void      rpi_axi_read_tx       (void *id, uint64_t addr, uint32_t size);
++void      rpi_axi_read_rx       (void *id, uint32_t size, void *buf);
++void      rpi_wait_interrupt    (void *id, int phase);
++void      rpi_ctrl_ffmpeg_free  (void *id);
++uint64_t  rpi_axi_get_addr      (void *id);
++void rpi_apb_dump_regs(void *id, uint16_t addr, int num);
++void rpi_axi_dump(void *id, uint64_t addr, uint32_t size);
++void rpi_axi_flush(void *id, int mode);
++
++#endif // __CTRL_FILES_H__
+diff --git a/libavcodec/rpi_hevc.c b/libavcodec/rpi_hevc.c
+new file mode 100644
+index 0000000000..a000077f33
+--- /dev/null
++++ b/libavcodec/rpi_hevc.c
+@@ -0,0 +1,1065 @@
++// FFMPEG HEVC decoder hardware accelerator
++// Andrew Holme, Argon Design Ltd
++// Copyright (c) June 2017 Raspberry Pi Ltd
++
++#include <stdio.h>
++#include <dlfcn.h>
++
++#include "fftools/ffmpeg.h"
++#include "libavutil/avassert.h"
++#include "libavutil/imgutils.h"
++#include "avcodec.h"
++#include "hwaccel.h"
++
++#include "rpi_hevc.h"
++#include "rpi_zc.h"
++#include "rpi_qpu.h"
++
++#include "rpi_ctrl_ffmpeg.h"
++//////////////////////////////////////////////////////////////////////////////
++
++// Array of constants for scaling factors
++static const uint32_t scaling_factor_offsets[4][6] = {
++    // MID0    MID1    MID2    MID3    MID4    MID5
++    {0x0000, 0x0010, 0x0020, 0x0030, 0x0040, 0x0050},   // SID0 (4x4)
++    {0x0060, 0x00A0, 0x00E0, 0x0120, 0x0160, 0x01A0},   // SID1 (8x8)
++    {0x01E0, 0x02E0, 0x03E0, 0x04E0, 0x05E0, 0x06E0},   // SID2 (16x16)
++    {0x07E0,      0,      0, 0x0BE0,      0,      0}};  // SID3 (32x32)
++
++// ffmpeg places SID3,MID1 where matrixID 3 normally is
++
++//////////////////////////////////////////////////////////////////////////////
++// Scaling factors
++
++static void expand_scaling_list(
++    RPI_T *rpi,
++    const ScalingList *scaling_list, // scaling list structure from ffmpeg
++    uint8_t sizeID, uint8_t matrixID)
++{
++    uint8_t x, y, i, blkSize = 4<<sizeID;
++    const uint32_t index_offset = scaling_factor_offsets[sizeID][matrixID];
++
++    for (x=0; x<blkSize; x++) {
++        for (y=0; y<blkSize; y++) {
++            uint32_t index = index_offset + x + y*blkSize;
++            // Derivation of i to match indexing in ff_hevc_hls_residual_coding
++            switch (sizeID) {
++                case 0: i = (y<<2) + x;             break;
++                case 1: i = (y<<3) + x;             break;
++                case 2: i = ((y>>1)<<3) + (x>>1);   break;
++                case 3: i = ((y>>2)<<3) + (x>>2);
++            }
++            rpi->scaling_factors[index] = scaling_list->sl[sizeID][matrixID][i];
++        }
++    }
++    if (sizeID>1)
++        rpi->scaling_factors[index_offset] =
++            scaling_list->sl_dc[sizeID-2][matrixID];
++}
++
++static void populate_scaling_factors(RPI_T *rpi, HEVCContext *s) {
++    const ScalingList *sl =
++        s->ps.pps->scaling_list_data_present_flag ? &s->ps.pps->scaling_list
++                                                  : &s->ps.sps->scaling_list;
++    int sid, mid;
++    for (sid=0; sid<3; sid++)
++        for (mid=0; mid<6; mid++)
++            expand_scaling_list(rpi, sl, sid, mid);
++
++    // second scaling matrix for 32x32 is at matrixID 3 not 1 in ffmpeg
++    expand_scaling_list(rpi, sl, 3, 0);
++    expand_scaling_list(rpi, sl, 3, 3);
++}
++
++//////////////////////////////////////////////////////////////////////////////
++// Probabilities
++
++static void populate_prob_tables(RPI_T *rpi, HEVCContext *s) {
++    struct RPI_PROB *dst = &rpi->probabilities;
++    struct FFM_PROB *src = (struct FFM_PROB *) s->HEVClc->cabac_state;
++    #define PROB_CPSZ(to, from, sz) memcpy(dst->to, src->from, sz)
++    #define PROB_COPY(to, from)     memcpy(dst->to, src->from, sizeof(dst->to))
++    memset(dst, 0, sizeof(*dst));
++    PROB_COPY(SAO_MERGE_FLAG           , sao_merge_flag                 );
++    PROB_COPY(SAO_TYPE_IDX             , sao_type_idx                   );
++    PROB_COPY(SPLIT_FLAG               , split_coding_unit_flag         );
++    PROB_COPY(CU_SKIP_FLAG             , skip_flag                      );
++    PROB_COPY(CU_TRANSQUANT_BYPASS_FLAG, cu_transquant_bypass_flag      );
++    PROB_COPY(PRED_MODE                , pred_mode_flag                 );
++    PROB_COPY(PART_SIZE                , part_mode                      );
++    PROB_COPY(INTRA_PRED_MODE          , prev_intra_luma_pred_flag      );
++    PROB_COPY(CHROMA_PRED_MODE         , intra_chroma_pred_mode         );
++    PROB_COPY(MERGE_FLAG_EXT           , merge_flag                     );
++    PROB_COPY(MERGE_IDX_EXT            , merge_idx                      );
++    PROB_COPY(INTER_DIR                , inter_pred_idc                 );
++    PROB_COPY(REF_PIC                  , ref_idx_l0                     );
++    PROB_COPY(MVP_IDX                  , mvp_lx_flag                    );
++    PROB_CPSZ(MVD+0                    , abs_mvd_greater0_flag+0    ,  1); // ABS_MVD_GREATER0_FLAG[1] not used
++    PROB_CPSZ(MVD+1                    , abs_mvd_greater1_flag+1    ,  1); // ABS_MVD_GREATER1_FLAG[0] not used
++    PROB_COPY(QT_ROOT_CBF              , no_residual_data_flag          );
++    PROB_COPY(TRANS_SUBDIV_FLAG        , split_transform_flag           );
++    PROB_CPSZ(QT_CBF                   , cbf_luma                   ,  2);
++    PROB_CPSZ(QT_CBF+2                 , cbf_cb_cr                  ,  4);
++    PROB_COPY(DQP                      , cu_qp_delta                    );
++    PROB_COPY(ONE_FLAG                 , coeff_abs_level_greater1_flag  );
++    PROB_COPY(LASTX                    , last_significant_coeff_x_prefix);
++    PROB_COPY(LASTY                    , last_significant_coeff_y_prefix);
++    PROB_COPY(SIG_CG_FLAG              , significant_coeff_group_flag   );
++    PROB_COPY(ABS_FLAG                 , coeff_abs_level_greater2_flag  );
++    PROB_COPY(TRANSFORMSKIP_FLAG       , transform_skip_flag            );
++    PROB_CPSZ(SIG_FLAG                 , significant_coeff_flag     , 42);
++}
++
++//////////////////////////////////////////////////////////////////////////////
++// Read YUV data from socket server
++
++static int bytes_per_line(const HEVCSPS *sps, int jump, int x) {
++    int width = FFMIN(jump, sps->width - x);
++    return sps->bit_depth>8? (width>48? 128:64)
++                           : (width>64? 128:64);
++}
++
++static void read_rect(RPI_T *rpi, char *buf, int addr64, int height, int bytes_per_line) {
++    rpi->axi_read_alloc(rpi->id, bytes_per_line*height);
++    if (bytes_per_line==128)
++        rpi->axi_read_tx(rpi->id, ((uint64_t)addr64)<<6, 128*height);
++    else {
++        int y;
++        for (y=0; y<height; y++, addr64+=2) rpi->axi_read_tx(rpi->id, ((uint64_t)addr64)<<6, 64);
++    }
++    rpi->axi_read_rx(rpi->id, bytes_per_line*height, buf);
++}
++
++#ifdef AXI_BUFFERS
++//////////////////////////////////////////////////////////////////////////////
++// Copy YUV output data to FFMPEG frame buffer
++
++static void copy_luma(char *buf, int bpl, int height, int x, uint8_t *data, int linesize) {
++    int y;
++    for (y=0; y<height; y++)
++        memcpy(data+y*linesize+x, buf+bpl*y, FFMIN(bpl, linesize-x));
++}
++
++static void copy_chroma(char *buf, int bpl, int height, int x, uint8_t *u, uint8_t *v, int linesize) {
++    int i, j, y;
++    for (y=0; y<height; y++, buf+=bpl) for (j=x,i=0; i<bpl && j<linesize; j++) {
++        u[y*linesize+j] = buf[i++];
++        v[y*linesize+j] = buf[i++];
++    }
++}
++
++static void copy_luma10(char *buf, int bpl, int height, int x, uint8_t *data, int linesize) {
++    int i, j, y;
++    for (y=0; y<height; y++) {
++        uint32_t *src = (uint32_t*) (buf+y*bpl);
++        uint16_t *dst = (uint16_t*) (data+y*linesize);
++        for (j=x,i=0; i<bpl/4; i++) {
++            dst[j] = (src[i]>> 0)&0x3ff; if(++j==linesize/2) break;
++            dst[j] = (src[i]>>10)&0x3ff; if(++j==linesize/2) break;
++            dst[j] = (src[i]>>20)&0x3ff; if(++j==linesize/2) break;
++        }
++    }
++}
++
++static void copy_chroma10(char *buf, int bpl, int height, int x, uint8_t *u8, uint8_t *v8, int linesize) {
++    int i, j, y;
++    for (y=0; y<height; y++) {
++        uint32_t *src = (uint32_t *) (buf+y*bpl);
++        uint16_t *u16 = (uint16_t *) (u8+y*linesize);
++        uint16_t *v16 = (uint16_t *) (v8+y*linesize);
++        for (j=x,i=0; i<bpl/4; i++) {
++            u16[j] = (src[i]>> 0)&0x3ff;
++            v16[j] = (src[i]>>10)&0x3ff; if(++j==linesize/2) break;
++            u16[j] = (src[i]>>20)&0x3ff; i++;
++            v16[j] = (src[i]>> 0)&0x3ff; if(++j==linesize/2) break;
++            u16[j] = (src[i]>>10)&0x3ff;
++            v16[j] = (src[i]>>20)&0x3ff; if(++j==linesize/2) break;
++        }
++    }
++}
++#endif
++
++//////////////////////////////////////////////////////////////////////////////
++// Phase 1 command and bit FIFOs
++
++static int p1_apb_write(RPI_T *rpi, uint16_t addr, uint32_t data) {
++    if (rpi->cmd_len==rpi->cmd_max)
++        av_assert0(rpi->cmd_fifo = realloc(rpi->cmd_fifo, (rpi->cmd_max*=2)*sizeof(struct RPI_CMD)));
++    rpi->cmd_fifo[rpi->cmd_len].addr = addr;
++    rpi->cmd_fifo[rpi->cmd_len].data = data;
++    return rpi->cmd_len++;
++}
++
++static void p1_axi_write(RPI_T *rpi, uint32_t len, const void *ptr, int cmd_idx) {
++    if (rpi->bit_len==rpi->bit_max)
++        av_assert0(rpi->bit_fifo = realloc(rpi->bit_fifo, (rpi->bit_max*=2)*sizeof(struct RPI_BIT)));
++    rpi->bit_fifo[rpi->bit_len].cmd = cmd_idx;
++    rpi->bit_fifo[rpi->bit_len].ptr = ptr;
++    rpi->bit_fifo[rpi->bit_len].len = len;
++    rpi->bit_len++;
++}
++
++//////////////////////////////////////////////////////////////////////////////
++// Write probability and scaling factor memories
++
++static void WriteProb(RPI_T *rpi) {
++    int i;
++    uint8_t *p = (uint8_t *) &rpi->probabilities;
++    for (i=0; i<sizeof(struct RPI_PROB); i+=4, p+=4)
++        p1_apb_write(rpi, 0x1000+i, p[0] + (p[1]<<8) + (p[2]<<16) + (p[3]<<24));
++}
++
++static void WriteScalingFactors(RPI_T *rpi) {
++    int i;
++    uint8_t *p = (uint8_t *) rpi->scaling_factors;
++    for (i=0; i<NUM_SCALING_FACTORS; i+=4, p+=4)
++        p1_apb_write(rpi, 0x2000+i, p[0] + (p[1]<<8) + (p[2]<<16) + (p[3]<<24));
++}
++
++//////////////////////////////////////////////////////////////////////////////
++
++static int ctb_to_tile (unsigned int ctb, unsigned int *bd, int num) {
++    int i;
++    for (i=1; ctb >= bd[i]; i++); // bd[] has num+1 elements; bd[0]=0; see hevc_ps.c
++    return i-1;
++}
++
++static int ctb_to_slice_w_h (unsigned int ctb, int ctb_size, int width, unsigned int *bd, int num) {
++    if (ctb < bd[num-1]) return ctb_size;
++    else if (width % ctb_size) return width % ctb_size;
++    else return ctb_size;
++}
++
++//////////////////////////////////////////////////////////////////////////////
++
++static void alloc_picture_space(RPI_T *rpi, HEVCContext *s, int thread_idx) {
++    const HEVCSPS *sps = s->ps.sps;
++    int CtbSizeY = 1<<sps->log2_ctb_size;
++    int x64 = AXI_BASE64;
++
++    rpi->PicWidthInCtbsY  = (sps->width + CtbSizeY - 1) / CtbSizeY;  //7-15
++    rpi->PicHeightInCtbsY = (sps->height + CtbSizeY - 1) / CtbSizeY;  //7-17
++#ifdef AXI_BUFFERS
++    rpi->lumabytes64 = ((sps->height+64) * ((sps->width+95)/96) * 2);
++    rpi->framebytes64 = ((rpi->lumabytes64 * 3)/2);
++    rpi->lumastride64 = ((sps->height+64) * 128) / 64;
++    rpi->chromastride64 = (((sps->height+64) * 128 ) / 2) / 64;
++
++    x64 += 17 * rpi->framebytes64;
++#endif
++
++    // collocated reads/writes
++    if (sps->sps_temporal_mvp_enabled_flag) {
++        // 128 bits = 16 bytes per MV, one for every 16*16
++        int collocatedStride64 = (rpi->PicWidthInCtbsY * (CtbSizeY/16) * 16 + 63)>>6;
++        rpi->mvframebytes64 = rpi->PicHeightInCtbsY * (CtbSizeY/16) * collocatedStride64;
++        rpi->mvstorage64 = x64;
++        x64 += rpi->mvframebytes64 * 17; // Leave space for 17 reference pictures
++        rpi->colstride64 = collocatedStride64;
++        rpi->mvstride64 = collocatedStride64;
++    }
++
++    rpi->pubase64[0] = x64;
++}
++
++static int alloc_stream_space(RPI_T *rpi, HEVCContext *s, int thread_idx) {
++    int stride64, x64 = rpi->pubase64[0];
++
++    stride64 = 1 + (rpi->max_pu_msgs*2*rpi->PicWidthInCtbsY)/64;
++    rpi->pubase64[thread_idx] = x64 + rpi->PicHeightInCtbsY*stride64 * thread_idx;
++    rpi->pustep64 = stride64;
++    x64 += rpi->PicHeightInCtbsY*stride64 * s->avctx->thread_count;
++
++    stride64 = rpi->max_coeff64;
++    rpi->coeffbase64[thread_idx] = x64 + rpi->PicHeightInCtbsY*stride64 * thread_idx;
++    rpi->coeffstep64 = stride64;
++    x64 += rpi->PicHeightInCtbsY*stride64 * s->avctx->thread_count;
++    return x64;
++}
++
++//////////////////////////////////////////////////////////////////////////////
++// Start or restart phase 1
++
++static void phase1_begin(RPI_T *rpi, HEVCContext *s, int thread_idx) {
++    rpi->apb_write_addr(rpi->id, RPI_PUWBASE,      rpi->pubase64[thread_idx]);
++    rpi->apb_write(rpi->id, RPI_PUWSTRIDE,    rpi->pustep64);
++    rpi->apb_write_addr(rpi->id, RPI_COEFFWBASE,   rpi->coeffbase64[thread_idx]);
++    rpi->apb_write(rpi->id, RPI_COEFFWSTRIDE, rpi->coeffstep64);
++}
++
++///////////////////////////////////////////////////////////////////////////////
++// Wait until phase 2 idle
++
++static void wait_idle(RPI_T *rpi, int last) {
++    for (;;) {
++        int order;
++        pthread_mutex_lock  (&rpi->mutex_phase2);
++        order = rpi->phase2_order;
++        pthread_mutex_unlock(&rpi->mutex_phase2);
++        if (order==last) return;
++    }
++}
++
++//////////////////////////////////////////////////////////////////////////////
++// Handle PU and COEFF stream overflow
++
++static int check_status(RPI_T *rpi) {
++    int status, c, p;
++    status = rpi->apb_read(rpi->id, RPI_STATUS);
++    p = (status>>4)&1;
++    c = (status>>3)&1;
++    if (p|c) { // overflow?
++        wait_idle(rpi, rpi->phase1_order-1); // drain phase2 before changing memory layout
++        if (p) rpi->max_pu_msgs += rpi->max_pu_msgs/2;
++        if (c) rpi->max_coeff64 += rpi->max_coeff64/2;
++        return 1;
++    }
++    return 0;
++}
++
++//////////////////////////////////////////////////////////////////////////////
++// Write STATUS register with expected end CTU address of previous slice
++
++static void end_previous_slice(RPI_T *rpi, HEVCContext *s, int ctb_addr_ts) {
++    const HEVCPPS *pps = s->ps.pps;
++    int last_x = pps->ctb_addr_ts_to_rs[ctb_addr_ts-1] % rpi->PicWidthInCtbsY;
++    int last_y = pps->ctb_addr_ts_to_rs[ctb_addr_ts-1] / rpi->PicWidthInCtbsY;
++    p1_apb_write(rpi, RPI_STATUS, 1 + (last_x<<5) + (last_y<<18));
++}
++
++static void wpp_pause(RPI_T *rpi, int ctb_row) {
++    p1_apb_write(rpi, RPI_STATUS, (ctb_row<<18) + 0x25);
++    p1_apb_write(rpi, RPI_TRANSFER, PROB_BACKUP);
++    p1_apb_write(rpi, RPI_MODE, ctb_row==rpi->PicHeightInCtbsY-1?0x70000:0x30000);
++    p1_apb_write(rpi, RPI_CONTROL, (ctb_row<<16) + 2);
++}
++
++static void wpp_end_previous_slice(RPI_T *rpi, HEVCContext *s, int ctb_addr_ts) {
++    const HEVCPPS *pps = s->ps.pps;
++    int new_x = s->sh.slice_ctb_addr_rs % rpi->PicWidthInCtbsY;
++    int new_y = s->sh.slice_ctb_addr_rs / rpi->PicWidthInCtbsY;
++    int last_x = pps->ctb_addr_ts_to_rs[ctb_addr_ts-1] % rpi->PicWidthInCtbsY;
++    int last_y = pps->ctb_addr_ts_to_rs[ctb_addr_ts-1] / rpi->PicWidthInCtbsY;
++    if (rpi->wpp_entry_x<2 && (rpi->wpp_entry_y<new_y || new_x>2) && rpi->PicWidthInCtbsY>2) wpp_pause(rpi, last_y);
++    p1_apb_write(rpi, RPI_STATUS, 1 + (last_x<<5) + (last_y<<18));
++    if (new_x==2 || rpi->PicWidthInCtbsY==2 && rpi->wpp_entry_y<new_y) p1_apb_write(rpi, RPI_TRANSFER, PROB_BACKUP);
++}
++
++//////////////////////////////////////////////////////////////////////////////
++
++static void new_slice_segment(RPI_T *rpi, HEVCContext *s) {
++    const HEVCSPS *sps = s->ps.sps;
++    const HEVCPPS *pps = s->ps.pps;
++
++    p1_apb_write(rpi, RPI_SPS0,
++        (sps->log2_min_cb_size                    <<  0) +
++        (sps->log2_ctb_size                       <<  4) +
++        (sps->log2_min_tb_size                    <<  8) +
++        (sps->log2_max_trafo_size                 << 12) +
++        (sps->bit_depth                           << 16) +
++        (sps->bit_depth                           << 20) +
++        (sps->max_transform_hierarchy_depth_intra << 24) +
++        (sps->max_transform_hierarchy_depth_inter << 28));
++
++    p1_apb_write(rpi, RPI_SPS1,
++        (sps->pcm.bit_depth                                        <<  0) +
++        (sps->pcm.bit_depth_chroma                                 <<  4) +
++        (sps->pcm.log2_min_pcm_cb_size                             <<  8) +
++        (sps->pcm.log2_max_pcm_cb_size                             << 12) +
++        (sps->separate_colour_plane_flag? 0:sps->chroma_format_idc << 16) +
++        (sps->amp_enabled_flag                                     << 18) +
++        (sps->pcm_enabled_flag                                     << 19) +
++        (sps->scaling_list_enable_flag                             << 20) +
++        (sps->sps_strong_intra_smoothing_enable_flag               << 21));
++
++    p1_apb_write(rpi, RPI_PPS,
++        (sps->log2_ctb_size - pps->diff_cu_qp_delta_depth   <<  0) +
++        (pps->cu_qp_delta_enabled_flag                      <<  4) +
++        (pps->transquant_bypass_enable_flag                 <<  5) +
++        (pps->transform_skip_enabled_flag                   <<  6) +
++        (pps->sign_data_hiding_flag                         <<  7) +
++      (((pps->cb_qp_offset + s->sh.slice_cb_qp_offset)&255) <<  8) +
++      (((pps->cr_qp_offset + s->sh.slice_cr_qp_offset)&255) << 16) +
++        (pps->constrained_intra_pred_flag                   << 24));
++
++    if (s->ps.sps->scaling_list_enable_flag) WriteScalingFactors(rpi);
++
++    if (!s->sh.dependent_slice_segment_flag) {
++        int ctb_col = s->sh.slice_ctb_addr_rs % rpi->PicWidthInCtbsY;
++        int ctb_row = s->sh.slice_ctb_addr_rs / rpi->PicWidthInCtbsY;
++        rpi->reg_slicestart = (ctb_col<<0) + (ctb_row<<16);
++    }
++
++    p1_apb_write(rpi, RPI_SLICESTART, rpi->reg_slicestart);
++}
++
++//////////////////////////////////////////////////////////////////////////////
++
++static void write_slice(RPI_T *rpi, HEVCContext *s, uint8_t slice_w, uint8_t slice_h) {
++    uint32_t u32 =
++          (s->sh.slice_type                           << 12)
++        + (s->sh.slice_sample_adaptive_offset_flag[0] << 14)
++        + (s->sh.slice_sample_adaptive_offset_flag[1] << 15)
++        + (slice_w                                    << 17)
++        + (slice_h                                    << 24);
++
++    if (s->sh.slice_type==HEVC_SLICE_B || s->sh.slice_type==HEVC_SLICE_P) u32 |=
++          (s->sh.max_num_merge_cand << 0)
++        + (s->sh.nb_refs[L0]        << 4)
++        + (s->sh.nb_refs[L1]        << 8);
++
++    if (s->sh.slice_type==HEVC_SLICE_B) u32 |= s->sh.mvd_l1_zero_flag<<16;
++    p1_apb_write(rpi, RPI_SLICE, u32);
++}
++
++//////////////////////////////////////////////////////////////////////////////
++// Wavefront mode
++
++static void wpp_entry_point(RPI_T *rpi, HEVCContext *s, int do_bte, int resetQPY, int ctb_addr_ts) {
++    const HEVCSPS *sps = s->ps.sps;
++    const HEVCPPS *pps = s->ps.pps;
++
++    int ctb_size = 1<<sps->log2_ctb_size;
++    int ctb_addr_rs = pps->ctb_addr_ts_to_rs[ctb_addr_ts];
++
++    int ctb_col = rpi->wpp_entry_x = ctb_addr_rs % rpi->PicWidthInCtbsY;
++    int ctb_row = rpi->wpp_entry_y = ctb_addr_rs / rpi->PicWidthInCtbsY;
++
++    int endx = rpi->PicWidthInCtbsY-1;
++    int endy = ctb_row;
++
++    uint8_t slice_w = ctb_to_slice_w_h(ctb_col, ctb_size, sps->width,  pps->col_bd, pps->num_tile_columns);
++    uint8_t slice_h = ctb_to_slice_w_h(ctb_row, ctb_size, sps->height, pps->row_bd, pps->num_tile_rows);
++
++    p1_apb_write(rpi, RPI_TILESTART, 0);
++    p1_apb_write(rpi, RPI_TILEEND, endx + (endy<<16));
++
++    if (do_bte) p1_apb_write(rpi, RPI_BEGINTILEEND, endx + (endy<<16));
++
++    write_slice(rpi, s, slice_w, ctb_row==rpi->PicHeightInCtbsY-1? slice_h : ctb_size);
++
++    if (resetQPY) p1_apb_write(rpi, RPI_QP, sps->qp_bd_offset + s->sh.slice_qp);
++
++    p1_apb_write(rpi, RPI_MODE, ctb_row==rpi->PicHeightInCtbsY-1? 0x60001 : 0x20001);
++    p1_apb_write(rpi, RPI_CONTROL, (ctb_col<<0) + (ctb_row<<16));
++}
++
++//////////////////////////////////////////////////////////////////////////////
++// Tiles mode
++
++static void new_entry_point(RPI_T *rpi, HEVCContext *s, int do_bte, int resetQPY, int ctb_addr_ts) {
++    const HEVCSPS *sps = s->ps.sps;
++    const HEVCPPS *pps = s->ps.pps;
++
++    int ctb_col = pps->ctb_addr_ts_to_rs[ctb_addr_ts] % rpi->PicWidthInCtbsY;
++    int ctb_row = pps->ctb_addr_ts_to_rs[ctb_addr_ts] / rpi->PicWidthInCtbsY;
++
++    int tile_x = ctb_to_tile (ctb_col, pps->col_bd, pps->num_tile_columns);
++    int tile_y = ctb_to_tile (ctb_row, pps->row_bd, pps->num_tile_rows);
++
++    int endx = pps->col_bd[tile_x+1] - 1;
++    int endy = pps->row_bd[tile_y+1] - 1;
++
++    uint8_t slice_w = ctb_to_slice_w_h(ctb_col, 1<<sps->log2_ctb_size, sps->width,  pps->col_bd, pps->num_tile_columns);
++    uint8_t slice_h = ctb_to_slice_w_h(ctb_row, 1<<sps->log2_ctb_size, sps->height, pps->row_bd, pps->num_tile_rows);
++
++    p1_apb_write(rpi, RPI_TILESTART, pps->col_bd[tile_x] + (pps->row_bd[tile_y]<<16));
++    p1_apb_write(rpi, RPI_TILEEND, endx + (endy<<16));
++
++    if (do_bte) p1_apb_write(rpi, RPI_BEGINTILEEND, endx + (endy<<16));
++
++    write_slice(rpi, s, slice_w, slice_h);
++
++    if (resetQPY) p1_apb_write(rpi, RPI_QP, sps->qp_bd_offset + s->sh.slice_qp);
++
++    p1_apb_write(rpi, RPI_MODE, (0xFFFF                            <<  0)
++                              + (0x0                               << 16)
++                              + ((tile_x==pps->num_tile_columns-1) << 17)
++                              + ((tile_y==pps->num_tile_rows-1)    << 18));
++
++    p1_apb_write(rpi, RPI_CONTROL, (ctb_col<<0) + (ctb_row<<16));
++}
++
++//////////////////////////////////////////////////////////////////////////////
++// Workaround for 3 December 2016 commit 8dfba25ce89b62c80ba83e2116d549176c376144
++// https://github.com/libav/libav/commit/8dfba25ce89b62c80ba83e2116d549176c376144
++// This commit prevents multi-threaded hardware acceleration by locking hwaccel_mutex
++// around codec->decode() calls.  Workaround is to unlock and relock before returning.
++
++static void hwaccel_mutex(AVCodecContext *avctx, int (*action) (pthread_mutex_t *)) {
++    struct FrameThreadContext {
++        void *foo1, *foo2; // must match struct layout in pthread_frame.c
++        pthread_mutex_t foo3, hwaccel_mutex;
++    };
++    struct PerThreadContext {
++        struct FrameThreadContext *parent;
++    };
++    struct PerThreadContext *p = avctx->internal->thread_ctx;
++    if (avctx->thread_count>1) action(&p->parent->hwaccel_mutex);
++}
++
++//////////////////////////////////////////////////////////////////////////////
++
++static int get_thread_idx(RPI_T *rpi, AVCodecContext *avctx) {
++    int idx;
++    for (idx=0; idx<MAX_THREADS; idx++) if (rpi->thread_avctx[idx]==avctx) break;
++    av_assert0(idx<MAX_THREADS);
++    return idx;
++}
++
++//////////////////////////////////////////////////////////////////////////////
++// Start frame
++
++static int rpi_hevc_start_frame(
++    AVCodecContext *avctx,
++    const uint8_t *buffer,
++    uint32_t size) {
++
++    RPI_T *rpi = avctx->internal->hwaccel_priv_data;
++    HEVCContext *s = avctx->priv_data;
++
++    int thread_idx = get_thread_idx(rpi, 0); // Find first free slot
++
++    rpi->thread_avctx[thread_idx] = avctx;
++    rpi->thread_order[thread_idx] = rpi->decode_order++;
++
++    ff_thread_finish_setup(avctx); // Allow next thread to enter rpi_hevc_start_frame
++    hwaccel_mutex(avctx, pthread_mutex_unlock);
++
++    // Enforcing phase 1 order precludes busy waiting for phase 2
++    for (;;) {
++        pthread_mutex_lock  (&rpi->mutex_phase1);
++        if (rpi->thread_order[thread_idx]==rpi->phase1_order) break;
++        pthread_mutex_unlock(&rpi->mutex_phase1);
++    }
++    rpi->phase1_order++;
++
++    alloc_picture_space(rpi, s, thread_idx);
++    rpi->bit_len = rpi->cmd_len = 0;
++    return 0;
++}
++
++//////////////////////////////////////////////////////////////////////////////
++// Slice messages
++
++static void msg_slice(RPI_T *rpi, uint16_t msg) {
++    rpi->slice_msgs[rpi->num_slice_msgs++] = msg;
++}
++
++static void program_slicecmds(RPI_T *rpi, int sliceid) {
++    int i;
++    p1_apb_write(rpi, RPI_SLICECMDS, rpi->num_slice_msgs+(sliceid<<8));
++    for(i=0; i<rpi->num_slice_msgs; i++) {
++        p1_apb_write(rpi, 0x4000+4*i, rpi->slice_msgs[i] & 0xffff);
++    }
++}
++
++static void pre_slice_decode(RPI_T *rpi, HEVCContext *s) {
++    const HEVCSPS *sps = s->ps.sps;
++    const HEVCPPS *pps = s->ps.pps;
++    SliceHeader *sh = &s->sh;
++
++    int weightedPredFlag, i, rIdx;
++    uint16_t cmd_slice;
++
++    rpi->num_slice_msgs=0;
++    cmd_slice = 0;
++    if (sh->slice_type==HEVC_SLICE_I) cmd_slice = 1;
++    if (sh->slice_type==HEVC_SLICE_P) cmd_slice = 2;
++    if (sh->slice_type==HEVC_SLICE_B) cmd_slice = 3;
++
++    if (sh->slice_type!=HEVC_SLICE_I) {
++        cmd_slice += sh->nb_refs[L0]<<2;
++        cmd_slice += sh->nb_refs[L1]<<6;
++    }
++    if (sh->slice_type==HEVC_SLICE_P
++    ||  sh->slice_type==HEVC_SLICE_B) rpi->max_num_merge_cand = sh->max_num_merge_cand;
++
++    cmd_slice += rpi->max_num_merge_cand<<11;
++
++    if (sh->slice_temporal_mvp_enabled_flag) {
++        if      (sh->slice_type==HEVC_SLICE_B) rpi->collocated_from_l0_flag = sh->collocated_list==L0;
++        else if (sh->slice_type==HEVC_SLICE_P) rpi->collocated_from_l0_flag = 1;
++    }
++    cmd_slice += rpi->collocated_from_l0_flag<<14;
++
++    if (sh->slice_type==HEVC_SLICE_P || sh->slice_type==HEVC_SLICE_B) {
++
++        int NoBackwardPredFlag = 1; // Flag to say all reference pictures are from the past
++        for(i=L0; i<=L1; i++) {
++            for(rIdx=0; rIdx <sh->nb_refs[i]; rIdx++) {
++                HEVCFrame *f = s->ref->refPicList[i].ref[rIdx];
++                HEVCFrame *c = s->ref; // CurrentPicture
++                if (c->poc < f->poc) NoBackwardPredFlag = 0;
++            }
++        }
++
++        rpi->collocated_ref_idx = sh->collocated_ref_idx;
++        if (s->ref->refPicList && s->ref->collocated_ref)
++            for (i=0; i<HEVC_MAX_REFS; i++) {
++                if (i<sh->nb_refs[L1]) rpi->RefPicList[1][i] = s->ref->refPicList[1].ref[i] - s->DPB;
++                if (i<sh->nb_refs[L0]) rpi->RefPicList[0][i] = s->ref->refPicList[0].ref[i] - s->DPB;
++            }
++
++        cmd_slice += NoBackwardPredFlag<<10;
++        msg_slice(rpi, cmd_slice);
++
++        // Write reference picture descriptions
++        weightedPredFlag = sh->slice_type==HEVC_SLICE_P? pps->weighted_pred_flag : pps->weighted_bipred_flag;
++
++        for(i=L0; i<=L1; i++)
++            for(rIdx=0; rIdx <sh->nb_refs[i]; rIdx++) {
++                HEVCFrame *f = s->ref->refPicList[i].ref[rIdx];
++                HEVCFrame *c = s->ref; // CurrentPicture
++                int pic = f - s->DPB;
++                // Make sure pictures are in range 0 to 15
++                int adjusted_pic = f<c? pic : pic-1;
++                int lt = s->ref->refPicList[i].isLongTerm[rIdx];
++                msg_slice(rpi, adjusted_pic+(lt<<4)+(weightedPredFlag<<5)+(weightedPredFlag<<6));
++                msg_slice(rpi, f->poc);
++                if (weightedPredFlag) {
++                    msg_slice(rpi,   s->sh.luma_log2_weight_denom+(((i?s->  sh.luma_weight_l1:  s->sh.luma_weight_l0)[rIdx]   &0x1ff)<<3));
++                    msg_slice(rpi,                                  (i?s->  sh.luma_offset_l1:  s->sh.luma_offset_l0)[rIdx]   & 0xff);
++                    msg_slice(rpi, s->sh.chroma_log2_weight_denom+(((i?s->sh.chroma_weight_l1:s->sh.chroma_weight_l0)[rIdx][0]&0x1ff)<<3));
++                    msg_slice(rpi,                                  (i?s->sh.chroma_offset_l1:s->sh.chroma_offset_l0)[rIdx][0]& 0xff);
++                    msg_slice(rpi, s->sh.chroma_log2_weight_denom+(((i?s->sh.chroma_weight_l1:s->sh.chroma_weight_l0)[rIdx][1]&0x1ff)<<3));
++                    msg_slice(rpi,                                  (i?s->sh.chroma_offset_l1:s->sh.chroma_offset_l0)[rIdx][1]& 0xff);
++                }
++            }
++    }
++    else
++        msg_slice(rpi, cmd_slice);
++
++    msg_slice(rpi, ((sh->beta_offset/2)&15)
++        + (((sh->tc_offset/2)&15)                           <<  4)
++        + (sh->disable_deblocking_filter_flag               <<  8)
++        + (sh->slice_loop_filter_across_slices_enabled_flag <<  9)
++        + (pps->loop_filter_across_tiles_enabled_flag       << 10)); // CMD_DEBLOCK
++
++    msg_slice(rpi, ((sh->slice_cr_qp_offset&31)<<5) + (sh->slice_cb_qp_offset&31)); // CMD_QPOFF
++
++    // collocated reads/writes
++    if (sps->sps_temporal_mvp_enabled_flag) {
++        int thread_idx = get_thread_idx(rpi, s->avctx);
++        int CurrentPicture = s->ref - s->DPB;
++        int colPic = rpi->RefPicList[sh->slice_type==HEVC_SLICE_B && rpi->collocated_from_l0_flag==0][rpi->collocated_ref_idx];
++        rpi->mvbase64 [thread_idx] = rpi->mvstorage64 + CurrentPicture * rpi->mvframebytes64;
++        if (sh->slice_type==HEVC_SLICE_I) {
++            // Collocated picture not well defined here.  Use mvbase or previous value
++            if (sh->first_slice_in_pic_flag)
++                rpi->colbase64[thread_idx] = rpi->mvbase64[thread_idx]; // Ensure we don't read garbage
++        }
++        else
++            rpi->colbase64[thread_idx] = rpi->mvstorage64 + colPic * rpi->mvframebytes64;
++    }
++}
++
++//////////////////////////////////////////////////////////////////////////////
++// End frame
++
++static int rpi_hevc_end_frame(AVCodecContext *avctx) {
++    RPI_T *rpi = avctx->internal->hwaccel_priv_data;
++    HEVCContext *s = avctx->priv_data;
++    const HEVCPPS *pps = s->ps.pps;
++    const HEVCSPS *sps = s->ps.sps;
++    int thread_idx = get_thread_idx(rpi, avctx);
++    int jump = sps->bit_depth>8?96:128;
++    int CurrentPicture = s->ref - s->DPB;
++    AVFrame *f = s->ref->frame;
++    int last_x = pps->col_bd[pps->num_tile_columns]-1;
++    int last_y = pps->row_bd[pps->num_tile_rows]-1;
++
++    int i, a64, x;
++    char *buf;
++
++    // End of phase 1 command compilation
++    if (pps->entropy_coding_sync_enabled_flag) {
++        if (rpi->wpp_entry_x<2 && rpi->PicWidthInCtbsY>2) wpp_pause(rpi, last_y);
++    }
++    p1_apb_write(rpi, RPI_STATUS, 1 + (last_x<<5) + (last_y<<18));
++
++    // Phase 1 ...
++    for (;;) {
++        // (Re-)allocate PU/COEFF stream space
++        a64 = alloc_stream_space(rpi, s, thread_idx);
++        // Send bitstream data
++        for (i=0; i<rpi->bit_len; i++) {
++            rpi->axi_write(rpi->id, ((uint64_t)a64)<<6, rpi->bit_fifo[i].len, rpi->bit_fifo[i].ptr);
++            rpi->cmd_fifo[rpi->bit_fifo[i].cmd].data = a64 + (rpi->axi_get_addr(rpi->id)>>6); // Set BFBASE
++            a64 += (rpi->bit_fifo[i].len+63)/64;
++        }
++        // Send phase 1 commands (cache flush on real hardware)
++        rpi->axi_write(rpi->id, ((uint64_t)a64)<<6, rpi->cmd_len * sizeof(struct RPI_CMD), rpi->cmd_fifo);
++        rpi->axi_flush(rpi->id, 3);
++        phase1_begin(rpi, s, thread_idx);
++        // Trigger command FIFO
++        rpi->apb_write(rpi->id, RPI_CFNUM, rpi->cmd_len);
++        rpi->apb_dump_regs(rpi->id, 0x0, 32);
++        rpi->apb_dump_regs(rpi->id, 0x8000, 24);
++        rpi->axi_dump(rpi->id, ((uint64_t)a64)<<6, rpi->cmd_len * sizeof(struct RPI_CMD));
++        rpi->apb_write_addr(rpi->id, RPI_CFBASE, a64);
++        rpi->wait_interrupt(rpi->id, 1);
++        if (check_status(rpi)==0) break; // No PU/COEFF overflow?
++    }
++    pthread_mutex_unlock(&rpi->mutex_phase1);
++
++    // Phase 2 ...
++    for (;;) {
++        pthread_mutex_lock  (&rpi->mutex_phase2);
++        if (rpi->thread_order[thread_idx]==rpi->phase2_order) break;
++        pthread_mutex_unlock(&rpi->mutex_phase2);
++    }
++    rpi->phase2_order++;
++
++    rpi->apb_write_addr(rpi->id, RPI_PURBASE, rpi->pubase64[thread_idx]);
++    rpi->apb_write(rpi->id, RPI_PURSTRIDE, rpi->pustep64);
++    rpi->apb_write_addr(rpi->id, RPI_COEFFRBASE, rpi->coeffbase64[thread_idx]);
++    rpi->apb_write(rpi->id, RPI_COEFFRSTRIDE, rpi->coeffstep64);
++
++#if !defined(AXI_BUFFERS)
++#define MANGLE(x) (((x) &~0xc0000000)>>6)
++{
++    const AVRpiZcRefPtr fr_buf = f ? av_rpi_zc_ref(avctx, f, f->format, 0) : NULL;
++    uint32_t handle = fr_buf ? av_rpi_zc_vc_handle(fr_buf):0;
++//    printf("%s cur:%d fr:%p handle:%d YUV:%x:%x ystride:%d ustride:%d ah:%d\n", __FUNCTION__, CurrentPicture, f, handle, get_vc_address_y(f), get_vc_address_u(f), f->linesize[0], f->linesize[1],  f->linesize[3]);
++    rpi->apb_write(rpi->id, RPI_OUTYBASE, MANGLE(get_vc_address_y(f)));
++    rpi->apb_write(rpi->id, RPI_OUTCBASE, MANGLE(get_vc_address_u(f)));
++    rpi->apb_write(rpi->id, RPI_OUTYSTRIDE, f->linesize[3] * 128 / 64);
++    rpi->apb_write(rpi->id, RPI_OUTCSTRIDE, f->linesize[3] * 128 / 64);
++    av_rpi_zc_unref(fr_buf);
++}
++#else
++    // Output frame and reference picture locations
++    rpi->apb_write_addr(rpi->id, RPI_OUTYBASE, CurrentPicture * rpi->framebytes64);
++    rpi->apb_write_addr(rpi->id, RPI_OUTCBASE, CurrentPicture * rpi->framebytes64 + rpi->lumabytes64);
++    rpi->apb_write(rpi->id, RPI_OUTYSTRIDE, rpi->lumastride64);
++    rpi->apb_write(rpi->id, RPI_OUTCSTRIDE, rpi->chromastride64);
++#endif
++
++#if !defined(AXI_BUFFERS)
++{
++    SliceHeader *sh = &s->sh;
++    int rIdx;
++    for(i=0; i<16; i++) {
++        rpi->apb_write(rpi->id, 0x9000+16*i, 0);
++        rpi->apb_write(rpi->id, 0x9004+16*i, 0);
++        rpi->apb_write(rpi->id, 0x9008+16*i, 0);
++        rpi->apb_write(rpi->id, 0x900C+16*i, 0);
++    }
++
++    for(i=L0; i<=L1; i++)
++    for(rIdx=0; rIdx <sh->nb_refs[i]; rIdx++) {
++        HEVCFrame *f1 = s->ref->refPicList[i].ref[rIdx];
++        HEVCFrame *c = s->ref; // CurrentPicture
++        int pic = f1 - s->DPB;
++        // Make sure pictures are in range 0 to 15
++        int adjusted_pic = f1<c? pic : pic-1;
++        struct HEVCFrame *hevc = &s->DPB[pic];
++        AVFrame *fr = hevc ? hevc->frame : NULL;
++        const AVRpiZcRefPtr fr_buf = fr ? av_rpi_zc_ref(avctx, fr, fr->format, 0) : NULL;
++        uint32_t handle = fr_buf ? av_rpi_zc_vc_handle(fr_buf):0;
++//        printf("%s pic:%d (%d,%d,%d) fr:%p handle:%d YUV:%x:%x\n", __FUNCTION__, adjusted_pic, i, rIdx, pic, fr, handle, get_vc_address_y(fr), get_vc_address_u(fr));
++        rpi->apb_write(rpi->id, 0x9000+16*adjusted_pic, MANGLE(get_vc_address_y(fr)));
++        rpi->apb_write(rpi->id, 0x9008+16*adjusted_pic, MANGLE(get_vc_address_u(fr)));
++        rpi->apb_write(rpi->id, RPI_OUTYSTRIDE, fr->linesize[3] * 128 / 64);
++        rpi->apb_write(rpi->id, RPI_OUTCSTRIDE, fr->linesize[3] * 128 / 64);
++        av_rpi_zc_unref(fr_buf);
++    }
++}
++#else
++    for(i=0; i<16; i++) {
++        int pic = i < CurrentPicture ? i : i+1;
++        rpi->apb_write_addr(rpi->id, 0x9000+16*i, pic * rpi->framebytes64);
++        rpi->apb_write(rpi->id, 0x9004+16*i, rpi->lumastride64);
++        rpi->apb_write_addr(rpi->id, 0x9008+16*i, pic * rpi->framebytes64 + rpi->lumabytes64);
++        rpi->apb_write(rpi->id, 0x900C+16*i, rpi->chromastride64);
++    }
++#endif
++
++    rpi->apb_write(rpi->id, RPI_CONFIG2,
++          (sps->bit_depth                             << 0) // BitDepthY
++        + (sps->bit_depth                             << 4) // BitDepthC
++       + ((sps->bit_depth>8)                          << 8) // BitDepthY
++       + ((sps->bit_depth>8)                          << 9) // BitDepthC
++        + (sps->log2_ctb_size                         <<10)
++        + (pps->constrained_intra_pred_flag           <<13)
++        + (sps->sps_strong_intra_smoothing_enable_flag<<14)
++        + (sps->sps_temporal_mvp_enabled_flag         <<15)
++        + (pps->log2_parallel_merge_level             <<16)
++        + (s->sh.slice_temporal_mvp_enabled_flag      <<19)
++        + (sps->pcm.loop_filter_disable_flag          <<20)
++       + ((pps->cb_qp_offset&31)                      <<21)
++       + ((pps->cr_qp_offset&31)                      <<26));
++
++    rpi->apb_write(rpi->id, RPI_FRAMESIZE, (sps->height<<16) + sps->width);
++    rpi->apb_write(rpi->id, RPI_CURRPOC, s->poc);
++
++    // collocated reads/writes
++    if (sps->sps_temporal_mvp_enabled_flag) {
++        rpi->apb_write(rpi->id, RPI_COLSTRIDE, rpi->colstride64);
++        rpi->apb_write(rpi->id, RPI_MVSTRIDE,  rpi->mvstride64);
++        rpi->apb_write_addr(rpi->id, RPI_MVBASE,    rpi->mvbase64 [thread_idx]);
++        rpi->apb_write_addr(rpi->id, RPI_COLBASE,   rpi->colbase64[thread_idx]);
++    }
++
++    rpi->apb_dump_regs(rpi->id, 0x0, 32);
++    rpi->apb_dump_regs(rpi->id, 0x8000, 24);
++    rpi->apb_write(rpi->id, RPI_NUMROWS, rpi->PicHeightInCtbsY);
++    rpi->apb_read_drop(rpi->id, RPI_NUMROWS); // Read back to confirm write has reached block
++    rpi->wait_interrupt(rpi->id, 2);
++
++//printf("%s: %dx%d %d\n", __FUNCTION__, f->width, f->height, f->linesize[0]);
++#if defined(AXI_BUFFERS)
++    // Copy YUV output frame
++    av_assert0(buf = malloc(128*sps->height));
++    a64 = AXI_BASE64 + CurrentPicture * rpi->framebytes64;
++    for(x=0; x<sps->width; x+=jump) {
++        int bpl = bytes_per_line(sps, jump, x);
++        read_rect(rpi, buf, a64, sps->height, bpl);
++        (sps->bit_depth>8?copy_luma10:copy_luma)(buf, bpl, sps->height, x, f->data[0], f->linesize[0]);
++        a64 += rpi->lumastride64;
++    }
++    a64 = AXI_BASE64 + CurrentPicture * rpi->framebytes64 + rpi->lumabytes64;
++    for(x=0; x<sps->width; x+=jump) {
++        int bpl = bytes_per_line(sps, jump, x);
++        read_rect(rpi, buf, a64, sps->height/2, bpl);
++        (sps->bit_depth>8?copy_chroma10:copy_chroma)(buf, bpl, sps->height/2, x/2, f->data[1], f->data[2], f->linesize[1]);
++        a64 += rpi->chromastride64;
++    }
++    free(buf);
++#endif
++    rpi->thread_avctx[thread_idx] = 0;
++    pthread_mutex_unlock(&rpi->mutex_phase2);
++    hwaccel_mutex(avctx, pthread_mutex_lock);
++    return 0;
++}
++
++//////////////////////////////////////////////////////////////////////////////
++
++static void WriteBitstream(RPI_T *rpi, HEVCContext *s) {
++    const int rpi_use_emu = 0; // FFmpeg removes emulation prevention bytes
++    const int offset = 0; // Always 64-byte aligned in sim, need not be on real hardware
++    GetBitContext *gb = &s->HEVClc->gb;
++    int len = 1 + gb->size_in_bits/8 - gb->index/8;
++    const void *ptr = &gb->buffer[gb->index/8];
++
++    p1_axi_write(rpi, len, ptr, p1_apb_write(rpi, RPI_BFBASE, 0)); // BFBASE set later
++    p1_apb_write(rpi, RPI_BFNUM, len);
++    p1_apb_write(rpi, RPI_BFCONTROL, offset + (1<<7)); // Stop
++    p1_apb_write(rpi, RPI_BFCONTROL, offset + (rpi_use_emu<<6));
++}
++
++//////////////////////////////////////////////////////////////////////////////
++// Wavefront mode
++
++static void wpp_decode_slice(RPI_T *rpi, HEVCContext *s, int ctb_addr_ts) {
++    const HEVCPPS *pps = s->ps.pps;
++
++    int i, resetQPY=1;
++    int indep = !s->sh.dependent_slice_segment_flag;
++    int ctb_col = s->sh.slice_ctb_addr_rs % rpi->PicWidthInCtbsY;
++
++    if (ctb_addr_ts) wpp_end_previous_slice(rpi, s, ctb_addr_ts);
++    pre_slice_decode(rpi, s);
++    WriteBitstream(rpi, s);
++    if (ctb_addr_ts==0 || indep || rpi->PicWidthInCtbsY==1) WriteProb(rpi);
++    else if (ctb_col==0) p1_apb_write(rpi, RPI_TRANSFER, PROB_RELOAD);
++    else resetQPY=0;
++    program_slicecmds(rpi, s->slice_idx);
++    new_slice_segment(rpi, s);
++    wpp_entry_point(rpi, s, indep, resetQPY, ctb_addr_ts);
++    for (i=0; i<s->sh.num_entry_point_offsets; i++) {
++        int ctb_addr_rs = pps->ctb_addr_ts_to_rs[ctb_addr_ts];
++        int ctb_row = ctb_addr_rs / rpi->PicWidthInCtbsY;
++        int last_x = rpi->PicWidthInCtbsY-1;
++        if (rpi->PicWidthInCtbsY>2) wpp_pause(rpi, ctb_row);
++        p1_apb_write(rpi, RPI_STATUS, (ctb_row<<18) + (last_x<<5) + 2);
++        if (rpi->PicWidthInCtbsY==2) p1_apb_write(rpi, RPI_TRANSFER, PROB_BACKUP);
++        if (rpi->PicWidthInCtbsY==1) WriteProb(rpi);
++        else p1_apb_write(rpi, RPI_TRANSFER, PROB_RELOAD);
++        ctb_addr_ts += pps->column_width[0];
++        wpp_entry_point(rpi, s, 0, 1, ctb_addr_ts);
++    }
++}
++
++//////////////////////////////////////////////////////////////////////////////
++// Tiles mode
++
++static void decode_slice(RPI_T *rpi, HEVCContext *s, int ctb_addr_ts) {
++    const HEVCPPS *pps = s->ps.pps;
++    int i, resetQPY;
++
++    if (ctb_addr_ts) end_previous_slice(rpi, s, ctb_addr_ts);
++    pre_slice_decode(rpi, s);
++    WriteBitstream(rpi, s);
++    resetQPY = ctb_addr_ts==0
++            || pps->tile_id[ctb_addr_ts]!=pps->tile_id[ctb_addr_ts-1]
++            || !s->sh.dependent_slice_segment_flag;
++    if (resetQPY) WriteProb(rpi);
++    program_slicecmds(rpi, s->slice_idx);
++    new_slice_segment(rpi, s);
++    new_entry_point(rpi, s, !s->sh.dependent_slice_segment_flag, resetQPY, ctb_addr_ts);
++    for (i=0; i<s->sh.num_entry_point_offsets; i++) {
++        int ctb_addr_rs = pps->ctb_addr_ts_to_rs[ctb_addr_ts];
++        int ctb_col = ctb_addr_rs % rpi->PicWidthInCtbsY;
++        int ctb_row = ctb_addr_rs / rpi->PicWidthInCtbsY;
++        int tile_x = ctb_to_tile (ctb_col, pps->col_bd, pps->num_tile_columns);
++        int tile_y = ctb_to_tile (ctb_row, pps->row_bd, pps->num_tile_rows);
++        int last_x = pps->col_bd[tile_x+1]-1;
++        int last_y = pps->row_bd[tile_y+1]-1;
++        p1_apb_write(rpi, RPI_STATUS, 2 + (last_x<<5) + (last_y<<18));
++        WriteProb(rpi);
++        ctb_addr_ts += pps->column_width[tile_x] * pps->row_height[tile_y];
++        new_entry_point(rpi, s, 0, 1, ctb_addr_ts);
++    }
++}
++
++//////////////////////////////////////////////////////////////////////////////
++
++static int rpi_hevc_decode_slice(
++    AVCodecContext *avctx,
++    const uint8_t *buffer,
++    uint32_t size) {
++
++    RPI_T *rpi = avctx->internal->hwaccel_priv_data;
++    HEVCContext *s = avctx->priv_data;
++    const HEVCPPS *pps = s->ps.pps;
++    int ctb_addr_ts = pps->ctb_addr_rs_to_ts[s->sh.slice_ctb_addr_rs];
++    ff_hevc_cabac_init(s, ctb_addr_ts);
++    if (s->ps.sps->scaling_list_enable_flag) populate_scaling_factors(rpi, s);
++    populate_prob_tables(rpi, s);
++    pps->entropy_coding_sync_enabled_flag? wpp_decode_slice(rpi, s, ctb_addr_ts)
++                                             : decode_slice(rpi, s, ctb_addr_ts);
++    return 0;
++}
++
++//////////////////////////////////////////////////////////////////////////////
++// Bind to socket client
++
++static int open_socket_client(RPI_T *rpi, const char *so) {
++     *(void **) &rpi->ctrl_ffmpeg_init = rpi_ctrl_ffmpeg_init;
++     *(void **) &rpi->apb_write        = rpi_apb_write;
++     *(void **) &rpi->apb_write_addr   = rpi_apb_write_addr;
++     *(void **) &rpi->apb_read         = rpi_apb_read;
++     *(void **) &rpi->apb_read_drop    = rpi_apb_read_drop;
++     *(void **) &rpi->axi_write        = rpi_axi_write;
++     *(void **) &rpi->axi_read_alloc   = rpi_axi_read_alloc;
++     *(void **) &rpi->axi_read_tx      = rpi_axi_read_tx;
++     *(void **) &rpi->axi_read_rx      = rpi_axi_read_rx;
++     *(void **) &rpi->axi_get_addr     = rpi_axi_get_addr;
++     *(void **) &rpi->apb_dump_regs    = rpi_apb_dump_regs;
++     *(void **) &rpi->axi_dump         = rpi_axi_dump;
++     *(void **) &rpi->axi_flush        = rpi_axi_flush;
++     *(void **) &rpi->wait_interrupt   = rpi_wait_interrupt;
++     *(void **) &rpi->ctrl_ffmpeg_free = rpi_ctrl_ffmpeg_free;
++    return 1;
++}
++
++//////////////////////////////////////////////////////////////////////////////
++
++static int rpi_hevc_alloc_frame(AVCodecContext *avctx, AVFrame *f) {
++    HEVCContext *s = avctx->priv_data;
++    const HEVCSPS *sps = s->ps.sps;
++    const int ALIGN = 16;
++
++    f->width  = sps->width;
++    f->height = sps->height;
++    f->format = sps->pix_fmt;
++    f->buf[0] = av_buffer_alloc(1);
++    f->buf[1] = av_buffer_alloc(1);
++    f->buf[2] = av_buffer_alloc(1);
++    return av_image_alloc(f->data, f->linesize, f->width, f->height, f->format, ALIGN);
++}
++
++//////////////////////////////////////////////////////////////////////////////
++
++static int rpi_hevc_init(AVCodecContext *avctx) {
++    RPI_T *rpi = avctx->internal->hwaccel_priv_data;
++    const char *err, *so;
++
++    so = "./rpi_ffmpeg.so";
++
++    if (avctx->width>4096 || avctx->height>4096) {
++        av_log(NULL, AV_LOG_FATAL, "Picture size %dx%d exceeds 4096x4096 maximum for HWAccel\n", avctx->width, avctx->height);
++        return AVERROR(ENOTSUP);
++    }
++    if (!open_socket_client(rpi, so)) {
++        av_log(NULL, AV_LOG_FATAL, "%s\n", dlerror());
++        return AVERROR_EXTERNAL;
++    }
++    err = rpi->ctrl_ffmpeg_init(NULL, &rpi->id);
++    if (err) {
++        av_log(NULL, AV_LOG_FATAL, "Could not connect to RPI server: %s\n", err);
++        return AVERROR_EXTERNAL;
++    }
++
++#ifdef RPI_DISPLAY
++  #include "rpi_zc.h"
++    // Whilst FFmpegs init fn is only called once the close fn is called as
++    // many times as we have threads (init_thread_copy is called for the
++    // threads).  So to match init & term put the init here where it will be
++    // called by both init & copy
++    av_rpi_zc_init(avctx);
++#endif
++
++    pthread_mutex_init(&rpi->mutex_phase1, NULL);
++    pthread_mutex_init(&rpi->mutex_phase2, NULL);
++
++    // Initial PU/COEFF stream buffer sizes chosen so jellyfish40.265 requires 1 overflow/restart
++    rpi->max_pu_msgs = 2+340; // 7.2 says at most 1611 messages per CTU
++    rpi->max_coeff64 = 2+1404;
++
++    av_assert0(rpi->cmd_fifo = malloc((rpi->cmd_max=1024)*sizeof(struct RPI_CMD)));
++    av_assert0(rpi->bit_fifo = malloc((rpi->bit_max=1024)*sizeof(struct RPI_BIT)));
++    return 0;
++}
++
++//////////////////////////////////////////////////////////////////////////////
++
++static int rpi_hevc_free(AVCodecContext *avctx) {
++    RPI_T *rpi = avctx->internal->hwaccel_priv_data;
++    if (rpi->decode_order) wait_idle(rpi, rpi->decode_order);
++    if (rpi->cmd_fifo) free(rpi->cmd_fifo);
++    if (rpi->bit_fifo) free(rpi->bit_fifo);
++    pthread_mutex_destroy(&rpi->mutex_phase1);
++    pthread_mutex_destroy(&rpi->mutex_phase2);
++    if (rpi->id && rpi->ctrl_ffmpeg_free) rpi->ctrl_ffmpeg_free(rpi->id);
++    return 0;
++}
++
++//////////////////////////////////////////////////////////////////////////////
++
++const AVHWAccel ff_hevc_rpi4_8_hwaccel = {
++    .name           = "hevc_rpi4_8",
++    .type           = AVMEDIA_TYPE_VIDEO,
++    .id             = AV_CODEC_ID_HEVC,
++    .pix_fmt        = AV_PIX_FMT_RPI4_8,
++    //.alloc_frame    = rpi_hevc_alloc_frame,
++    .start_frame    = rpi_hevc_start_frame,
++    .end_frame      = rpi_hevc_end_frame,
++    .decode_slice   = rpi_hevc_decode_slice,
++    .init           = rpi_hevc_init,
++    .uninit         = rpi_hevc_free,
++    .priv_data_size = sizeof(RPI_T),
++    .caps_internal  = HWACCEL_CAP_ASYNC_SAFE,
++};
++
++const AVHWAccel ff_hevc_rpi4_10_hwaccel = {
++    .name           = "hevc_rpi4_10",
++    .type           = AVMEDIA_TYPE_VIDEO,
++    .id             = AV_CODEC_ID_HEVC,
++    .pix_fmt        = AV_PIX_FMT_RPI4_10,
++    //.alloc_frame    = rpi_hevc_alloc_frame,
++    .start_frame    = rpi_hevc_start_frame,
++    .end_frame      = rpi_hevc_end_frame,
++    .decode_slice   = rpi_hevc_decode_slice,
++    .init           = rpi_hevc_init,
++    .uninit         = rpi_hevc_free,
++    .priv_data_size = sizeof(RPI_T),
++    .caps_internal  = HWACCEL_CAP_ASYNC_SAFE,
++};
++
++
++int rpi_init(AVCodecContext *avctx) {
++    return 0;
++}
+diff --git a/libavcodec/rpi_hevc.h b/libavcodec/rpi_hevc.h
+new file mode 100644
+index 0000000000..f54657a957
+--- /dev/null
++++ b/libavcodec/rpi_hevc.h
+@@ -0,0 +1,219 @@
++// FFMPEG HEVC decoder hardware accelerator
++// Andrew Holme, Argon Design Ltd
++// Copyright (c) June 2017 Raspberry Pi Ltd
++
++#include <stdio.h>
++#include <pthread.h>
++
++#include "hevc.h"
++#include "hevcdec.h"
++
++#define MAX_THREADS 50
++#define NUM_SCALING_FACTORS 4064
++
++#define AXI_BASE64 0
++
++#define PROB_BACKUP ((20<<12) + (20<<6) + (0<<0))
++#define PROB_RELOAD ((20<<12) + (20<<0) + (0<<6))
++
++//////////////////////////////////////////////////////////////////////////////
++
++#define RPI_SPS0         0
++#define RPI_SPS1         4
++#define RPI_PPS          8
++#define RPI_SLICE        12
++#define RPI_TILESTART    16
++#define RPI_TILEEND      20
++#define RPI_SLICESTART   24
++#define RPI_MODE         28
++#define RPI_LEFT0        32
++#define RPI_LEFT1        36
++#define RPI_LEFT2        40
++#define RPI_LEFT3        44
++#define RPI_QP           48
++#define RPI_CONTROL      52
++#define RPI_STATUS       56
++#define RPI_VERSION      60
++#define RPI_BFBASE       64
++#define RPI_BFNUM        68
++#define RPI_BFCONTROL    72
++#define RPI_BFSTATUS     76
++#define RPI_PUWBASE      80
++#define RPI_PUWSTRIDE    84
++#define RPI_COEFFWBASE   88
++#define RPI_COEFFWSTRIDE 92
++#define RPI_SLICECMDS    96
++#define RPI_BEGINTILEEND 100
++#define RPI_TRANSFER     104
++#define RPI_CFBASE       108
++#define RPI_CFNUM        112
++#define RPI_CFSTATUS     116
++
++#define RPI_PURBASE       0x8000
++#define RPI_PURSTRIDE     0x8004
++#define RPI_COEFFRBASE    0x8008
++#define RPI_COEFFRSTRIDE  0x800C
++#define RPI_NUMROWS       0x8010
++#define RPI_CONFIG2       0x8014
++#define RPI_OUTYBASE      0x8018
++#define RPI_OUTYSTRIDE    0x801C
++#define RPI_OUTCBASE      0x8020
++#define RPI_OUTCSTRIDE    0x8024
++#define RPI_STATUS2       0x8028
++#define RPI_FRAMESIZE     0x802C
++#define RPI_MVBASE        0x8030
++#define RPI_MVSTRIDE      0x8034
++#define RPI_COLBASE       0x8038
++#define RPI_COLSTRIDE     0x803C
++#define RPI_CURRPOC       0x8040
++
++//////////////////////////////////////////////////////////////////////////////
++
++struct FFM_PROB {
++    uint8_t  sao_merge_flag                   [ 1];
++    uint8_t  sao_type_idx                     [ 1];
++    uint8_t  split_coding_unit_flag           [ 3];
++    uint8_t  cu_transquant_bypass_flag        [ 1];
++    uint8_t  skip_flag                        [ 3];
++    uint8_t  cu_qp_delta                      [ 3];
++    uint8_t  pred_mode_flag                   [ 1];
++    uint8_t  part_mode                        [ 4];
++    uint8_t  prev_intra_luma_pred_flag        [ 1];
++    uint8_t  intra_chroma_pred_mode           [ 2];
++    uint8_t  merge_flag                       [ 1];
++    uint8_t  merge_idx                        [ 1];
++    uint8_t  inter_pred_idc                   [ 5];
++    uint8_t  ref_idx_l0                       [ 2];
++    uint8_t  ref_idx_l1                       [ 2];
++    uint8_t  abs_mvd_greater0_flag            [ 2];
++    uint8_t  abs_mvd_greater1_flag            [ 2];
++    uint8_t  mvp_lx_flag                      [ 1];
++    uint8_t  no_residual_data_flag            [ 1];
++    uint8_t  split_transform_flag             [ 3];
++    uint8_t  cbf_luma                         [ 2];
++    uint8_t  cbf_cb_cr                        [ 4];
++    uint8_t  transform_skip_flag/*[][]*/      [ 2];
++    uint8_t  explicit_rdpcm_flag/*[][]*/      [ 2];
++    uint8_t  explicit_rdpcm_dir_flag/*[][]*/  [ 2];
++    uint8_t  last_significant_coeff_x_prefix  [18];
++    uint8_t  last_significant_coeff_y_prefix  [18];
++    uint8_t  significant_coeff_group_flag     [ 4];
++    uint8_t  significant_coeff_flag           [44];
++    uint8_t  coeff_abs_level_greater1_flag    [24];
++    uint8_t  coeff_abs_level_greater2_flag    [ 6];
++    uint8_t  log2_res_scale_abs               [ 8];
++    uint8_t  res_scale_sign_flag              [ 2];
++    uint8_t  cu_chroma_qp_offset_flag         [ 1];
++    uint8_t  cu_chroma_qp_offset_idx          [ 1];
++} __attribute__((packed));
++
++//////////////////////////////////////////////////////////////////////////////
++
++struct RPI_PROB {
++    uint8_t  SAO_MERGE_FLAG             [ 1];
++    uint8_t  SAO_TYPE_IDX               [ 1];
++    uint8_t  SPLIT_FLAG                 [ 3];
++    uint8_t  CU_SKIP_FLAG               [ 3];
++    uint8_t  CU_TRANSQUANT_BYPASS_FLAG  [ 1];
++    uint8_t  PRED_MODE                  [ 1];
++    uint8_t  PART_SIZE                  [ 4];
++    uint8_t  INTRA_PRED_MODE            [ 1];
++    uint8_t  CHROMA_PRED_MODE           [ 1];
++    uint8_t  MERGE_FLAG_EXT             [ 1];
++    uint8_t  MERGE_IDX_EXT              [ 1];
++    uint8_t  INTER_DIR                  [ 5];
++    uint8_t  REF_PIC                    [ 2];
++    uint8_t  MVP_IDX                    [ 1];
++    uint8_t  MVD                        [ 2];
++    uint8_t  QT_ROOT_CBF                [ 1];
++    uint8_t  TRANS_SUBDIV_FLAG          [ 3];
++    uint8_t  QT_CBF                     [ 6];
++    uint8_t  DQP                        [ 2];
++    uint8_t  ONE_FLAG                   [24];
++    uint8_t  LASTX                      [18];
++    uint8_t  LASTY                      [18];
++    uint8_t  SIG_CG_FLAG                [ 4];
++    uint8_t  ABS_FLAG                   [ 6];
++    uint8_t  TRANSFORMSKIP_FLAG         [ 2];
++    uint8_t  SIG_FLAG                   [42];
++    uint8_t  SIG_FLAG_unused            [ 2];
++} __attribute__((packed));
++
++//////////////////////////////////////////////////////////////////////////////
++
++struct RPI_CMD {
++    uint32_t addr;
++    uint32_t data;
++} __attribute__((packed));
++
++struct RPI_BIT {
++    int         cmd;
++    const void *ptr;
++    int         len;
++};
++
++//////////////////////////////////////////////////////////////////////////////
++
++typedef struct RPI_T {
++struct RPI_BIT *bit_fifo;
++struct RPI_CMD *cmd_fifo;
++    int         bit_len, bit_max;
++    int         cmd_len, cmd_max;
++    int         max_pu_msgs;
++    int         max_coeff64;
++AVCodecContext *thread_avctx[MAX_THREADS];
++    int         thread_order[MAX_THREADS];
++    int         decode_order;
++    int         phase1_order;
++    int         phase2_order;
++pthread_mutex_t mutex_phase1;
++pthread_mutex_t mutex_phase2;
++    uint8_t     scaling_factors[NUM_SCALING_FACTORS];
++struct RPI_PROB probabilities;
++    int         num_slice_msgs;
++    uint16_t    slice_msgs[2*HEVC_MAX_REFS*8+3];
++    int         pubase64[MAX_THREADS];
++    int         pustep64;
++    int         coeffbase64[MAX_THREADS];
++    int         coeffstep64;
++    int         PicWidthInCtbsY;
++    int         PicHeightInCtbsY;
++#ifdef AXI_BUFFERS
++    int         lumabytes64;
++    int         framebytes64;
++    int         lumastride64;
++    int         chromastride64;
++#endif
++    int         mvframebytes64;
++    int         mvstorage64;
++    int         colstride64;
++    int         mvstride64;
++    int         colbase64[MAX_THREADS];
++    int         mvbase64[MAX_THREADS];
++    uint32_t    reg_slicestart;
++    int         collocated_from_l0_flag;
++    int         max_num_merge_cand;
++    int         RefPicList[2][HEVC_MAX_REFS];
++    int         collocated_ref_idx;
++    int         wpp_entry_x;
++    int         wpp_entry_y;
++
++    void *      dl_handle;
++    void *      id;
++    char *   (* ctrl_ffmpeg_init) (const char *hwaccel_device, void **id);
++    void     (* apb_write)        (void *id, uint16_t addr, uint32_t data);
++    void     (* apb_write_addr)   (void *id, uint16_t addr, uint32_t data);
++    uint32_t (* apb_read)         (void *id, uint16_t addr);
++    void     (* apb_read_drop)    (void *id, uint16_t addr);
++    void     (* axi_write)        (void *id, uint64_t addr, uint32_t size, const void *buf);
++    void     (* axi_read_alloc)   (void *id, uint32_t size);
++    void     (* axi_read_tx)      (void *id, uint64_t addr, uint32_t size);
++    void     (* axi_read_rx)      (void *id, uint32_t size, void *buf);
++    uint64_t (* axi_get_addr)     (void *id);
++    void     (* apb_dump_regs)    (void *id, uint16_t addr, int num);
++    void     (* axi_dump)         (void *id, uint64_t addr, uint32_t size);
++    void     (* axi_flush)        (void *id, int mode);
++    void     (* wait_interrupt)   (void *id, int phase);
++    void     (* ctrl_ffmpeg_free) (void *id);
++
++} RPI_T;
+diff --git a/libavcodec/rpi_mailbox.c b/libavcodec/rpi_mailbox.c
+new file mode 100644
+index 0000000000..5f23e9b36c
+--- /dev/null
++++ b/libavcodec/rpi_mailbox.c
+@@ -0,0 +1,149 @@
++/*
++Copyright (c) 2012, Broadcom Europe Ltd.
++All rights reserved.
++
++Redistribution and use in source and binary forms, with or without
++modification, are permitted provided that the following conditions are met:
++    * Redistributions of source code must retain the above copyright
++      notice, this list of conditions and the following disclaimer.
++    * Redistributions in binary form must reproduce the above copyright
++      notice, this list of conditions and the following disclaimer in the
++      documentation and/or other materials provided with the distribution.
++    * Neither the name of the copyright holder nor the
++      names of its contributors may be used to endorse or promote products
++      derived from this software without specific prior written permission.
++
++THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
++ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
++WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY
++DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
++LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
++ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++*/
++
++#if 1//defined(RPI) || defined (RPI_DISPLAY)
++
++#include <stdio.h>
++#include <string.h>
++#include <stdlib.h>
++#include <fcntl.h>
++#include <unistd.h>
++#include <assert.h>
++#include <stdint.h>
++#include <sys/ioctl.h>
++
++#include <linux/ioctl.h>
++
++#define MAJOR_NUM 100
++#define IOCTL_MBOX_PROPERTY _IOWR(MAJOR_NUM, 0, char *)
++#define DEVICE_FILE_NAME "/dev/vcio"
++
++#include "rpi_mailbox.h"
++//#include <interface/vctypes/vc_image_structs.h>
++
++/*
++ * use ioctl to send mbox property message
++ */
++
++static int mbox_property(int file_desc, void *buf)
++{
++   int ret_val = ioctl(file_desc, IOCTL_MBOX_PROPERTY, buf);
++
++   if (ret_val < 0) {
++      printf("ioctl_set_msg failed:%d\n", ret_val);
++   }
++
++#ifdef DEBUG
++   unsigned *p = buf; int i; unsigned size = *(unsigned *)buf;
++   for (i=0; i<size/4; i++)
++      printf("%04x: 0x%08x\n", i*sizeof *p, p[i]);
++#endif
++   return ret_val;
++}
++
++unsigned mbox_mem_lock(int file_desc, unsigned handle)
++{
++   int i=0;
++   unsigned p[32];
++   p[i++] = 0; // size
++   p[i++] = 0x00000000; // process request
++
++   p[i++] = 0x3000d; // (the tag id)
++   p[i++] = 4; // (size of the buffer)
++   p[i++] = 4; // (size of the data)
++   p[i++] = handle;
++
++   p[i++] = 0x00000000; // end tag
++   p[0] = i*sizeof *p; // actual size
++
++   mbox_property(file_desc, p);
++   return p[5];
++}
++
++unsigned mbox_mem_unlock(int file_desc, unsigned handle)
++{
++   int i=0;
++   unsigned p[32];
++   p[i++] = 0; // size
++   p[i++] = 0x00000000; // process request
++
++   p[i++] = 0x3000e; // (the tag id)
++   p[i++] = 4; // (size of the buffer)
++   p[i++] = 4; // (size of the data)
++   p[i++] = handle;
++
++   p[i++] = 0x00000000; // end tag
++   p[0] = i*sizeof *p; // actual size
++
++   mbox_property(file_desc, p);
++   return p[5];
++}
++
++#define GET_VCIMAGE_PARAMS 0x30044
++
++int mbox_get_image_params(int fd, VC_IMAGE_T * img)
++{
++    uint32_t buf[sizeof(*img) / sizeof(uint32_t) + 32];
++    uint32_t * p = buf;
++    void * rimg;
++    int rv;
++
++    *p++ = 0; // size
++    *p++ = 0; // process request
++    *p++ = GET_VCIMAGE_PARAMS;
++    *p++ = sizeof(*img);
++    *p++ = sizeof(*img);
++    rimg = p;
++    memcpy(p, img, sizeof(*img));
++    p += sizeof(*img) / sizeof(*p);
++    *p++ = 0;  // End tag
++    buf[0] = (p - buf) * sizeof(*p);
++
++    rv = mbox_property(fd, buf);
++    memcpy(img, rimg, sizeof(*img));
++
++    return rv;
++}
++
++int mbox_open() {
++   int file_desc;
++
++   // open a char device file used for communicating with kernel mbox driver
++   file_desc = open(DEVICE_FILE_NAME, 0);
++   if (file_desc < 0) {
++      printf("Can't open device file: %s\n", DEVICE_FILE_NAME);
++      printf("Try creating a device file with: sudo mknod %s c %d 0\n", DEVICE_FILE_NAME, MAJOR_NUM);
++   }
++   return file_desc;
++}
++
++void mbox_close(int file_desc) {
++  close(file_desc);
++}
++
++#endif
++
+diff --git a/libavcodec/rpi_mailbox.h b/libavcodec/rpi_mailbox.h
+new file mode 100644
+index 0000000000..b3168788d2
+--- /dev/null
++++ b/libavcodec/rpi_mailbox.h
+@@ -0,0 +1,58 @@
++#ifndef RPI_MAILBOX_H
++#define RPI_MAILBOX_H
++
++/* The image structure. */
++typedef struct vc_image_extra_uv_s {
++  void *u, *v;
++  int vpitch;
++} VC_IMAGE_EXTRA_UV_T;
++
++typedef union {
++    VC_IMAGE_EXTRA_UV_T uv;
++//  VC_IMAGE_EXTRA_RGBA_T rgba;
++//  VC_IMAGE_EXTRA_PAL_T pal;
++//  VC_IMAGE_EXTRA_TF_T tf;
++//  VC_IMAGE_EXTRA_BAYER_T bayer;
++//  VC_IMAGE_EXTRA_MSBAYER_T msbayer;
++//  VC_IMAGE_EXTRA_CODEC_T codec;
++//  VC_IMAGE_EXTRA_OPENGL_T opengl;
++} VC_IMAGE_EXTRA_T;
++
++
++typedef struct VC_IMAGE_T {
++  unsigned short                  type;           /* should restrict to 16 bits */
++  unsigned short                  info;           /* format-specific info; zero for VC02 behaviour */
++  unsigned short                  width;          /* width in pixels */
++  unsigned short                  height;         /* height in pixels */
++  int                             pitch;          /* pitch of image_data array in bytes */
++  int                             size;           /* number of bytes available in image_data array */
++  void                           *image_data;     /* pixel data */
++  VC_IMAGE_EXTRA_T                extra;          /* extra data like palette pointer */
++  void                           *metadata;       /* metadata header for the image */
++  void                           *pool_object;    /* nonNULL if image was allocated from a vc_pool */
++  int                             mem_handle;     /* the mem handle for relocatable memory storage */
++  int                             metadata_size;  /* size of metadata of each channel in bytes */
++  int                             channel_offset; /* offset of consecutive channels in bytes */
++  uint32_t                        video_timestamp;/* 90000 Hz RTP times domain - derived from audio timestamp */
++  uint8_t                         num_channels;   /* number of channels (2 for stereo) */
++  uint8_t                         current_channel;/* the channel this header is currently pointing to */
++  uint8_t                         linked_multichann_flag;/* Indicate the header has the linked-multichannel structure*/
++  uint8_t                         is_channel_linked;     /* Track if the above structure is been used to link the header
++                                                            into a linked-mulitchannel image */
++  uint8_t                         channel_index;         /* index of the channel this header represents while
++                                                            it is being linked. */
++  uint8_t                         _dummy[3];      /* pad struct to 64 bytes */
++} VC_IMAGE_T;
++
++typedef int vc_image_t_size_check[(sizeof(VC_IMAGE_T) == 64) * 2 - 1];
++
++
++extern int mbox_open(void);
++extern void mbox_close(int file_desc);
++
++extern unsigned mbox_mem_lock(int file_desc, unsigned handle);
++extern unsigned mbox_mem_unlock(int file_desc, unsigned handle);
++
++int mbox_get_image_params(int fd, VC_IMAGE_T * img);
++
++#endif
+diff --git a/libavcodec/rpi_qpu.c b/libavcodec/rpi_qpu.c
+new file mode 100644
+index 0000000000..9f9e110cb1
+--- /dev/null
++++ b/libavcodec/rpi_qpu.c
+@@ -0,0 +1,335 @@
++#if 1//defined(RPI) || defined (RPI_DISPLAY)
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <stddef.h>
++#include <stdint.h>
++#include "libavutil/avassert.h"
++
++#include "config.h"
++
++#include <pthread.h>
++#include <time.h>
++
++#include <interface/vcsm/user-vcsm.h>
++
++#include "rpi_mailbox.h"
++#include "rpi_qpu.h"
++
++#pragma GCC diagnostic push
++// Many many redundant decls in the header files
++#pragma GCC diagnostic ignored "-Wredundant-decls"
++#include "interface/vmcs_host/vc_vchi_gpuserv.h"
++#pragma GCC diagnostic pop
++
++// QPU "noflush" flags
++// a mixture of flushing & profiling
++
++#define QPU_FLAGS_NO_FLUSH_VPU          1       // If unset VPU cache will be flushed
++#define QPU_FLAGS_PROF_CLEAR_AND_ENABLE 2       // Clear & Enable detailed QPU profiling registers
++#define QPU_FLAGS_PROF_OUTPUT_COUNTS    4       // Print the results
++#define QPU_FLAGS_OUTPUT_QPU_TIMES      8       // Print QPU times - independant of the profiling
++#define QPU_FLAGS_NO_FLUSH_QPU          16      // If unset flush QPU caches & TMUs (uniforms always flushed)
++
++#define vcos_verify_ge0(x) ((x)>=0)
++
++struct rpi_cache_flush_env_s {
++//    unsigned int n;
++//    struct vcsm_user_clean_invalid_s a[CFE_A_COUNT];
++  struct vcsm_user_clean_invalid2_s v;
++};
++
++typedef struct gpu_env_s
++{
++  int open_count;
++  int init_count;
++  int mb;
++  int vpu_i_cache_flushed;
++} gpu_env_t;
++
++// Stop more than one thread trying to allocate memory or use the processing resources at once
++static pthread_mutex_t gpu_mutex = PTHREAD_MUTEX_INITIALIZER;
++static gpu_env_t * gpu = NULL;
++
++
++// GPU memory alloc fns (internal)
++
++// GPU_MEM_PTR_T alloc fns
++static int gpu_malloc_cached_internal(const int mb, const int numbytes, GPU_MEM_PTR_T * const p) {
++  p->numbytes = (numbytes + 255) & ~255;  // Round up
++  p->vcsm_handle = vcsm_malloc_cache(p->numbytes, VCSM_CACHE_TYPE_HOST | 0x80, (char *)"Video Frame" );
++  //p->vcsm_handle = vcsm_malloc_cache(numbytes, VCSM_CACHE_TYPE_VC, (char *)"Video Frame" );
++  //p->vcsm_handle = vcsm_malloc_cache(numbytes, VCSM_CACHE_TYPE_NONE, (char *)"Video Frame" );
++  //p->vcsm_handle = vcsm_malloc_cache(numbytes, VCSM_CACHE_TYPE_HOST_AND_VC, (char *)"Video Frame" );
++  av_assert0(p->vcsm_handle);
++  p->vc_handle = vcsm_vc_hdl_from_hdl(p->vcsm_handle);
++  av_assert0(p->vc_handle);
++  p->arm = vcsm_lock(p->vcsm_handle);
++  av_assert0(p->arm);
++  p->vc = mbox_mem_lock(mb, p->vc_handle);
++  av_assert0(p->vc);
++//  printf("***** %s, %d\n", __func__, numbytes);
++
++  return 0;
++}
++
++static int gpu_malloc_uncached_internal(const int mb, const int numbytes, GPU_MEM_PTR_T * const p) {
++  p->numbytes = numbytes;
++  p->vcsm_handle = vcsm_malloc_cache(numbytes, VCSM_CACHE_TYPE_NONE | 0x80, (char *)"Video Frame" );
++  av_assert0(p->vcsm_handle);
++  p->vc_handle = vcsm_vc_hdl_from_hdl(p->vcsm_handle);
++  av_assert0(p->vc_handle);
++  p->arm = vcsm_lock(p->vcsm_handle);
++  av_assert0(p->arm);
++  p->vc = mbox_mem_lock(mb, p->vc_handle);
++  av_assert0(p->vc);
++//  printf("***** %s, %d\n", __func__, numbytes);
++  return 0;
++}
++
++static void gpu_free_internal(const int mb, GPU_MEM_PTR_T * const p) {
++  mbox_mem_unlock(mb, p->vc_handle);
++  vcsm_unlock_ptr(p->arm);
++  vcsm_free(p->vcsm_handle);
++  memset(p, 0, sizeof(*p));  // Ensure we crash hard if we try and use this again
++//  printf("***** %s\n", __func__);
++}
++
++
++// GPU init, free, lock, unlock
++
++static void gpu_term(void)
++{
++  gpu_env_t * const ge = gpu;
++
++  // We have to hope that eveything has terminated...
++  gpu = NULL;
++
++  vc_gpuserv_deinit();
++
++  vcsm_exit();
++
++  mbox_close(ge->mb);
++
++  free(ge);
++}
++
++
++// Connect to QPU, returns 0 on success.
++static int gpu_init(gpu_env_t ** const gpu) {
++  gpu_env_t * const ge = calloc(1, sizeof(gpu_env_t));
++  *gpu = NULL;
++
++  if (ge == NULL)
++    return -1;
++
++  if ((ge->mb = mbox_open()) < 0)
++    return -1;
++
++  vcsm_init();
++
++  *gpu = ge;
++  return 0;
++}
++
++
++
++static void gpu_unlock(void) {
++  pthread_mutex_unlock(&gpu_mutex);
++}
++
++// Make sure we have exclusive access to the mailbox, and enable qpu if necessary.
++static gpu_env_t * gpu_lock(void) {
++  pthread_mutex_lock(&gpu_mutex);
++
++  av_assert0(gpu != NULL);
++  return gpu;
++}
++
++static gpu_env_t * gpu_lock_ref(void)
++{
++  pthread_mutex_lock(&gpu_mutex);
++
++  if (gpu == NULL) {
++    int rv = gpu_init(&gpu);
++    if (rv != 0) {
++      gpu_unlock();
++      return NULL;
++    }
++  }
++
++  ++gpu->open_count;
++  return gpu;
++}
++
++static void gpu_unlock_unref(gpu_env_t * const ge)
++{
++  if (--ge->open_count == 0)
++    gpu_term();
++
++  gpu_unlock();
++}
++
++static inline gpu_env_t * gpu_ptr(void)
++{
++  av_assert0(gpu != NULL);
++  return gpu;
++}
++
++// Public gpu fns
++
++// Allocate memory on GPU
++// Fills in structure <p> containing ARM pointer, videocore handle, videocore memory address, numbytes
++// Returns 0 on success.
++// This allocates memory that will not be cached in ARM's data cache.
++// Therefore safe to use without data cache flushing.
++int gpu_malloc_uncached(int numbytes, GPU_MEM_PTR_T *p)
++{
++  int r;
++  gpu_env_t * const ge = gpu_lock_ref();
++  if (ge == NULL)
++    return -1;
++  r = gpu_malloc_uncached_internal(ge->mb, numbytes, p);
++  gpu_unlock();
++  return r;
++}
++
++// This allocates data that will be
++//    Cached in ARM L2
++//    Uncached in VPU L2
++int gpu_malloc_cached(int numbytes, GPU_MEM_PTR_T *p)
++{
++  int r;
++  gpu_env_t * const ge = gpu_lock_ref();
++  if (ge == NULL)
++    return -1;
++  r = gpu_malloc_cached_internal(ge->mb, numbytes, p);
++  gpu_unlock();
++  return r;
++}
++
++void gpu_free(GPU_MEM_PTR_T * const p) {
++  gpu_env_t * const ge = gpu_lock();
++  gpu_free_internal(ge->mb, p);
++  gpu_unlock_unref(ge);
++}
++
++int gpu_get_mailbox(void)
++{
++  av_assert0(gpu);
++  return gpu->mb;
++}
++
++void gpu_ref(void)
++{
++  gpu_lock_ref();
++  gpu_unlock();
++}
++
++void gpu_unref(void)
++{
++  gpu_env_t * const ge = gpu_lock();
++  gpu_unlock_unref(ge);
++}
++
++// ----------------------------------------------------------------------------
++//
++// Cache flush functions
++
++#define CACHE_EL_MAX 16
++
++rpi_cache_flush_env_t * rpi_cache_flush_init()
++{
++  rpi_cache_flush_env_t * const rfe = malloc(sizeof(rpi_cache_flush_env_t) +
++            sizeof(struct vcsm_user_clean_invalid2_block_s) * CACHE_EL_MAX);
++  if (rfe == NULL)
++    return NULL;
++
++  rfe->v.op_count = 0;
++  return rfe;
++}
++
++void rpi_cache_flush_abort(rpi_cache_flush_env_t * const rfe)
++{
++  if (rfe != NULL)
++    free(rfe);
++}
++
++int rpi_cache_flush_finish(rpi_cache_flush_env_t * const rfe)
++{
++  int rc = 0;
++
++  if (vcsm_clean_invalid2(&rfe->v) != 0)
++    rc = -1;
++
++  free(rfe);
++
++  if (rc == 0)
++    return 0;
++
++  av_log(NULL, AV_LOG_ERROR, "vcsm_clean_invalid failed: errno=%d\n", errno);
++  return rc;
++}
++
++inline void rpi_cache_flush_add_gm_blocks(rpi_cache_flush_env_t * const rfe, const GPU_MEM_PTR_T * const gm, const unsigned int mode,
++  const unsigned int offset0, const unsigned int block_size, const unsigned int blocks, const unsigned int block_stride)
++{
++  struct vcsm_user_clean_invalid2_block_s * const b = rfe->v.s + rfe->v.op_count++;
++
++  av_assert0(rfe->v.op_count <= CACHE_EL_MAX);
++
++  b->invalidate_mode = mode;
++  b->block_count = blocks;
++  b->start_address = gm->arm + offset0;
++  b->block_size = block_size;
++  b->inter_block_stride = block_stride;
++}
++
++void rpi_cache_flush_add_gm_range(rpi_cache_flush_env_t * const rfe, const GPU_MEM_PTR_T * const gm, const unsigned int mode,
++  const unsigned int offset, const unsigned int size)
++{
++  // Deal with empty pointer trivially
++  if (gm == NULL || size == 0)
++    return;
++
++  av_assert0(offset <= gm->numbytes);
++  av_assert0(size <= gm->numbytes);
++  av_assert0(offset + size <= gm->numbytes);
++
++  rpi_cache_flush_add_gm_blocks(rfe, gm, mode, offset, size, 1, 0);
++}
++
++void rpi_cache_flush_add_gm_ptr(rpi_cache_flush_env_t * const rfe, const GPU_MEM_PTR_T * const gm, const unsigned int mode)
++{
++  rpi_cache_flush_add_gm_blocks(rfe, gm, mode, 0, gm->numbytes, 1, 0);
++}
++
++
++void rpi_cache_flush_add_frame(rpi_cache_flush_env_t * const rfe, const AVFrame * const frame, const unsigned int mode)
++{
++#if !RPI_ONE_BUF
++#error Fixme! (NIF)
++#endif
++  if (gpu_is_buf1(frame)) {
++    rpi_cache_flush_add_gm_ptr(rfe, gpu_buf1_gmem(frame), mode);
++  }
++  else
++  {
++    rpi_cache_flush_add_gm_ptr(rfe, gpu_buf3_gmem(frame, 0), mode);
++    rpi_cache_flush_add_gm_ptr(rfe, gpu_buf3_gmem(frame, 1), mode);
++    rpi_cache_flush_add_gm_ptr(rfe, gpu_buf3_gmem(frame, 2), mode);
++  }
++}
++
++// Call this to clean and invalidate a region of memory
++void rpi_cache_flush_one_gm_ptr(const GPU_MEM_PTR_T *const p, const rpi_cache_flush_mode_t mode)
++{
++  rpi_cache_flush_env_t * rfe = rpi_cache_flush_init();
++  rpi_cache_flush_add_gm_ptr(rfe, p, mode);
++  rpi_cache_flush_finish(rfe);
++}
++
++
++// ----------------------------------------------------------------------------
++
++#endif // RPI
+diff --git a/libavcodec/rpi_qpu.h b/libavcodec/rpi_qpu.h
+new file mode 100644
+index 0000000000..485a08f8ba
+--- /dev/null
++++ b/libavcodec/rpi_qpu.h
+@@ -0,0 +1,206 @@
++#ifndef RPI_QPU_H
++#define RPI_QPU_H
++
++#define RPI_ONE_BUF 1
++
++typedef struct gpu_mem_ptr_s {
++  unsigned char *arm; // Pointer to memory mapped on ARM side
++  int vc_handle;   // Videocore handle of relocatable memory
++  int vcsm_handle; // Handle for use by VCSM
++  int vc;       // Address for use in GPU code
++  int numbytes; // Size of memory block
++} GPU_MEM_PTR_T;
++
++// General GPU functions
++extern int gpu_malloc_cached(int numbytes, GPU_MEM_PTR_T *p);
++extern int gpu_malloc_uncached(int numbytes, GPU_MEM_PTR_T *p);
++extern void gpu_free(GPU_MEM_PTR_T * const p);
++
++#include "libavutil/frame.h"
++#if !RPI_ONE_BUF
++static inline uint32_t get_vc_address_y(const AVFrame * const frame) {
++    GPU_MEM_PTR_T *p = av_buffer_pool_opaque(frame->buf[0]);
++    return p->vc;
++}
++
++static inline uint32_t get_vc_address_u(const AVFrame * const frame) {
++    GPU_MEM_PTR_T *p = av_buffer_pool_opaque(frame->buf[1]);
++    return p->vc;
++}
++
++static inline uint32_t get_vc_address_v(const AVFrame * const frame) {
++    GPU_MEM_PTR_T *p = av_buffer_pool_opaque(frame->buf[2]);
++    return p->vc;
++}
++
++static inline GPU_MEM_PTR_T get_gpu_mem_ptr_y(const AVFrame * const frame) {
++    return *(GPU_MEM_PTR_T *)av_buffer_pool_opaque(frame->buf[0]);
++}
++
++static inline GPU_MEM_PTR_T get_gpu_mem_ptr_u(const AVFrame * const frame) {
++    return *(GPU_MEM_PTR_T *)av_buffer_pool_opaque(frame->buf[1]);
++}
++
++static inline GPU_MEM_PTR_T get_gpu_mem_ptr_v(const AVFrame * const frame) {
++    return *(GPU_MEM_PTR_T *)av_buffer_pool_opaque(frame->buf[2]);
++}
++
++#else
++
++static inline int gpu_is_buf1(const AVFrame * const frame)
++{
++    return frame->buf[1] == NULL;
++}
++
++static inline GPU_MEM_PTR_T * gpu_buf1_gmem(const AVFrame * const frame)
++{
++    return av_buffer_get_opaque(frame->buf[0]);
++}
++
++static inline GPU_MEM_PTR_T * gpu_buf3_gmem(const AVFrame * const frame, const unsigned int n)
++{
++    return av_buffer_pool_opaque(frame->buf[n]);
++}
++
++static inline uint32_t get_vc_address3(const AVFrame * const frame, const unsigned int n)
++{
++    const GPU_MEM_PTR_T * const gm = gpu_is_buf1(frame) ? gpu_buf1_gmem(frame) : gpu_buf3_gmem(frame, n);
++    return gm->vc + (frame->data[n] - gm->arm);
++}
++
++
++static inline uint32_t get_vc_address_y(const AVFrame * const frame) {
++    return get_vc_address3(frame, 0);
++}
++
++static inline uint32_t get_vc_address_u(const AVFrame * const frame) {
++    return get_vc_address3(frame, 1);
++}
++
++static inline uint32_t get_vc_address_v(const AVFrame * const frame) {
++    return get_vc_address3(frame, 2);
++}
++
++#if 0
++static inline GPU_MEM_PTR_T get_gpu_mem_ptr_y(const AVFrame * const frame) {
++    if (gpu_is_buf1(frame))
++    {
++        GPU_MEM_PTR_T g = *gpu_buf1_gmem(frame);
++        g.numbytes = frame->data[1] - frame->data[0];
++        return g;
++    }
++    else
++        return *gpu_buf3_gmem(frame, 0);
++}
++
++static inline GPU_MEM_PTR_T get_gpu_mem_ptr_u(const AVFrame * const frame) {
++    if (gpu_is_buf1(frame))
++    {
++        GPU_MEM_PTR_T g = *gpu_buf1_gmem(frame);
++        g.arm += frame->data[1] - frame->data[0];
++        g.vc += frame->data[1] - frame->data[0];
++        g.numbytes = frame->data[2] - frame->data[1];  // chroma size
++        return g;
++    }
++    else
++        return *gpu_buf3_gmem(frame, 1);
++}
++
++static inline GPU_MEM_PTR_T get_gpu_mem_ptr_v(const AVFrame * const frame) {
++    if (gpu_is_buf1(frame))
++    {
++        GPU_MEM_PTR_T g = *gpu_buf1_gmem(frame);
++        g.arm += frame->data[2] - frame->data[0];
++        g.vc += frame->data[2] - frame->data[0];
++        g.numbytes = frame->data[2] - frame->data[1];  // chroma size
++        return g;
++    }
++    else
++        return *gpu_buf3_gmem(frame, 2);
++}
++#endif
++#endif
++
++// Cache flush stuff
++
++struct rpi_cache_flush_env_s;
++typedef struct rpi_cache_flush_env_s rpi_cache_flush_env_t;
++
++rpi_cache_flush_env_t * rpi_cache_flush_init(void);
++// Free env without flushing
++void rpi_cache_flush_abort(rpi_cache_flush_env_t * const rfe);
++// Do the accumulated flush & free the env
++int rpi_cache_flush_finish(rpi_cache_flush_env_t * const rfe);
++
++typedef enum
++{
++    RPI_CACHE_FLUSH_MODE_INVALIDATE     = 1,
++    RPI_CACHE_FLUSH_MODE_WRITEBACK      = 2,
++    RPI_CACHE_FLUSH_MODE_WB_INVALIDATE  = 3
++} rpi_cache_flush_mode_t;
++
++void rpi_cache_flush_add_gm_ptr(rpi_cache_flush_env_t * const rfe, const GPU_MEM_PTR_T * const gm, const rpi_cache_flush_mode_t mode);
++void rpi_cache_flush_add_gm_range(rpi_cache_flush_env_t * const rfe, const GPU_MEM_PTR_T * const gm, const rpi_cache_flush_mode_t mode,
++  const unsigned int offset, const unsigned int size);
++void rpi_cache_flush_add_gm_blocks(rpi_cache_flush_env_t * const rfe, const GPU_MEM_PTR_T * const gm, const unsigned int mode,
++  const unsigned int offset0, const unsigned int block_size, const unsigned int blocks, const unsigned int block_stride);
++void rpi_cache_flush_add_frame(rpi_cache_flush_env_t * const rfe, const AVFrame * const frame, const rpi_cache_flush_mode_t mode);
++void rpi_cache_flush_add_frame_block(rpi_cache_flush_env_t * const rfe, const AVFrame * const frame, const rpi_cache_flush_mode_t mode,
++  const unsigned int x0, const unsigned int y0, const unsigned int width, const unsigned int height,
++  const unsigned int uv_shift, const int do_luma, const int do_chroma);
++
++// init, add, finish for one gm ptr
++void rpi_cache_flush_one_gm_ptr(const GPU_MEM_PTR_T * const p, const rpi_cache_flush_mode_t mode);
++
++
++// QPU specific functions
++
++typedef struct HEVCRpiQpu {
++    uint32_t c_pxx;
++    uint32_t c_pxx_l1;
++    uint32_t c_bxx;
++    uint32_t y_pxx;
++    uint32_t y_bxx;
++    uint32_t y_p00;
++    uint32_t y_b00;
++} HEVCRpiQpu;
++
++int rpi_hevc_qpu_init_fn(HEVCRpiQpu * const qf, const unsigned int bit_depth);
++
++uint32_t qpu_fn(const int * const mc_fn);
++
++#define QPU_N_GRP    4
++#define QPU_N_MAX    12
++
++#define QPU_MAIL_EL_VALS  2
++
++struct vpu_qpu_wait_s;
++typedef struct vq_wait_s * vpu_qpu_wait_h;
++
++// VPU specific functions
++
++struct vpu_qpu_job_env_s;
++typedef struct vpu_qpu_job_env_s * vpu_qpu_job_h;
++
++vpu_qpu_job_h vpu_qpu_job_new(void);
++void vpu_qpu_job_delete(const vpu_qpu_job_h vqj);
++void vpu_qpu_job_add_vpu(const vpu_qpu_job_h vqj, const uint32_t vpu_code,
++  const unsigned r0, const unsigned r1, const unsigned r2, const unsigned r3, const unsigned r4, const unsigned r5);
++void vpu_qpu_job_add_qpu(const vpu_qpu_job_h vqj, const unsigned int n, const uint32_t * const mail);
++void vpu_qpu_job_add_sync_this(const vpu_qpu_job_h vqj, vpu_qpu_wait_h * const wait_h);
++int vpu_qpu_job_start(const vpu_qpu_job_h vqj);
++int vpu_qpu_job_finish(const vpu_qpu_job_h vqj);
++
++extern unsigned int vpu_get_fn(const unsigned int bit_depth);
++extern unsigned int vpu_get_constants(void);
++
++// Waits for previous post_codee to complete and Will null out *wait_h after use
++void vpu_qpu_wait(vpu_qpu_wait_h * const wait_h);
++int vpu_qpu_init(void);
++void vpu_qpu_term(void);
++
++extern int gpu_get_mailbox(void);
++void gpu_ref(void);
++void gpu_unref(void);
++
++#endif
+diff --git a/libavcodec/rpi_zc.c b/libavcodec/rpi_zc.c
+new file mode 100644
+index 0000000000..3bf1da4083
+--- /dev/null
++++ b/libavcodec/rpi_zc.c
+@@ -0,0 +1,743 @@
++#include "config.h"
++#if 1 //defined(RPI) //|| defined (RPI_DISPLAY)
++#include "libavcodec/avcodec.h"
++#include "rpi_qpu.h"
++#include "rpi_mailbox.h"
++#include "rpi_zc.h"
++#include "libavutil/avassert.h"
++#include <pthread.h>
++
++#include "libavutil/buffer_internal.h"
++#include <interface/vctypes/vc_image_types.h>
++
++#define TRACE_ALLOC 0
++
++struct ZcPoolEnt;
++
++typedef struct ZcPool
++{
++    int numbytes;
++    unsigned int n;
++    struct ZcPoolEnt * head;
++    pthread_mutex_t lock;
++} ZcPool;
++
++typedef struct ZcPoolEnt
++{
++    // It is important that we start with gmem as other bits of code will expect to see that
++    GPU_MEM_PTR_T gmem;
++    unsigned int n;
++    struct ZcPoolEnt * next;
++    struct ZcPool * pool;
++} ZcPoolEnt;
++
++#define ALLOC_PAD       0
++#define ALLOC_ROUND     0x1000
++#define ALLOC_N_OFFSET  0
++#define STRIDE_ROUND    64
++#define STRIDE_OR       0
++
++#define DEBUG_ZAP0_BUFFERS 0
++
++static inline int av_rpi_is_sand_format(const int format)
++{
++    return (format >= AV_PIX_FMT_SAND128 && format <= AV_PIX_FMT_SAND64_16) ||
++        (format == AV_PIX_FMT_RPI4_8 || format == AV_PIX_FMT_RPI4_10);
++}
++
++static inline int av_rpi_is_sand_frame(const AVFrame * const frame)
++{
++    return av_rpi_is_sand_format(frame->format);
++}
++
++static ZcPoolEnt * zc_pool_ent_alloc(ZcPool * const pool, const unsigned int req_size)
++{
++    ZcPoolEnt * const zp = av_malloc(sizeof(ZcPoolEnt));
++
++    // Round up to 4k & add 4k
++    const unsigned int alloc_size = (req_size + ALLOC_PAD + ALLOC_ROUND - 1) & ~(ALLOC_ROUND - 1);
++
++    if (zp == NULL) {
++        av_log(NULL, AV_LOG_ERROR, "av_malloc(ZcPoolEnt) failed\n");
++        goto fail0;
++    }
++
++    if (gpu_malloc_cached(alloc_size, &zp->gmem) != 0)
++    {
++        av_log(NULL, AV_LOG_ERROR, "av_gpu_malloc_cached(%d) failed\n", alloc_size);
++        goto fail1;
++    }
++
++#if TRACE_ALLOC
++    printf("%s: Alloc %#x bytes @ %p\n", __func__, zp->gmem.numbytes, zp->gmem.arm);
++#endif
++
++    pool->numbytes = zp->gmem.numbytes;
++    zp->next = NULL;
++    zp->pool = pool;
++    zp->n = pool->n++;
++    return zp;
++
++fail1:
++    av_free(zp);
++fail0:
++    return NULL;
++}
++
++static void zc_pool_ent_free(ZcPoolEnt * const zp)
++{
++#if TRACE_ALLOC
++    printf("%s: Free %#x bytes @ %p\n", __func__, zp->gmem.numbytes, zp->gmem.arm);
++#endif
++
++    gpu_free(&zp->gmem);
++    av_free(zp);
++}
++
++static void zc_pool_flush(ZcPool * const pool)
++{
++    ZcPoolEnt * p = pool->head;
++    pool->head = NULL;
++    pool->numbytes = -1;
++
++    while (p != NULL)
++    {
++        ZcPoolEnt * const zp = p;
++        p = p->next;
++        zc_pool_ent_free(zp);
++    }
++}
++
++static ZcPoolEnt * zc_pool_alloc(ZcPool * const pool, const int req_bytes)
++{
++    ZcPoolEnt * zp;
++    int numbytes;
++
++    pthread_mutex_lock(&pool->lock);
++
++    numbytes = pool->numbytes;
++
++    // If size isn't close then dump the pool
++    // Close in this context means within 128k
++    if (req_bytes > numbytes || req_bytes + 0x20000 < numbytes)
++    {
++        zc_pool_flush(pool);
++        numbytes = req_bytes;
++    }
++
++    if (pool->head != NULL)
++    {
++        zp = pool->head;
++        pool->head = zp->next;
++    }
++    else
++    {
++        zp = zc_pool_ent_alloc(pool, numbytes);
++    }
++
++    pthread_mutex_unlock(&pool->lock);
++
++    // Start with our buffer empty of preconceptions
++//    rpi_cache_flush_one_gm_ptr(&zp->gmem, RPI_CACHE_FLUSH_MODE_INVALIDATE);
++
++    return zp;
++}
++
++static void zc_pool_free(ZcPoolEnt * const zp)
++{
++    ZcPool * const pool = zp == NULL ? NULL : zp->pool;
++    if (zp != NULL)
++    {
++        pthread_mutex_lock(&pool->lock);
++#if TRACE_ALLOC
++        printf("%s: Recycle %#x, %#x\n", __func__, pool->numbytes, zp->gmem.numbytes);
++#endif
++
++        if (pool->numbytes == zp->gmem.numbytes)
++        {
++            zp->next = pool->head;
++            pool->head = zp;
++            pthread_mutex_unlock(&pool->lock);
++        }
++        else
++        {
++            pthread_mutex_unlock(&pool->lock);
++            zc_pool_ent_free(zp);
++        }
++    }
++}
++
++static void
++zc_pool_init(ZcPool * const pool)
++{
++    pool->numbytes = -1;
++    pool->head = NULL;
++    pthread_mutex_init(&pool->lock, NULL);
++}
++
++static void
++zc_pool_destroy(ZcPool * const pool)
++{
++    pool->numbytes = -1;
++    zc_pool_flush(pool);
++    pthread_mutex_destroy(&pool->lock);
++}
++
++typedef struct ZcOldCtxVals
++{
++    int thread_safe_callbacks;
++    int (*get_buffer2)(struct AVCodecContext *s, AVFrame *frame, int flags);
++    void * get_buffer_context;
++} ZcOldCtxVals;
++
++typedef struct AVZcEnv
++{
++    unsigned int refcount;
++    ZcPool pool;
++    ZcOldCtxVals old;
++} ZcEnv;
++
++// Callback when buffer unrefed to zero
++static void rpi_free_display_buffer(void *opaque, uint8_t *data)
++{
++    ZcPoolEnt *const zp = opaque;
++//    printf("%s: data=%p\n", __func__, data);
++    zc_pool_free(zp);
++}
++
++static inline GPU_MEM_PTR_T * pic_gm_ptr(AVBufferRef * const buf)
++{
++    // Kludge where we check the free fn to check this is really
++    // one of our buffers - can't think of a better way
++    return buf == NULL || buf->buffer->free != rpi_free_display_buffer ? NULL :
++        av_buffer_get_opaque(buf);
++}
++
++AVRpiZcFrameGeometry av_rpi_zc_frame_geometry(
++    const int format, const unsigned int video_width, const unsigned int video_height)
++{
++    AVRpiZcFrameGeometry geo;
++
++    switch (format)
++    {
++        case AV_PIX_FMT_YUV420P:
++            geo.stride_y = ((video_width + 32 + STRIDE_ROUND - 1) & ~(STRIDE_ROUND - 1)) | STRIDE_OR;
++            geo.stride_c = geo.stride_y / 2;
++            geo.height_y = (video_height + 32 + 31) & ~31;
++            geo.height_c = geo.height_y / 2;
++            geo.planes_c = 2;
++            geo.stripes = 1;
++            geo.bytes_per_pel = 1;
++            geo.stripe_is_yc = 1;
++            break;
++
++        case AV_PIX_FMT_YUV420P10:
++            geo.stride_y = ((video_width * 2 + 64 + STRIDE_ROUND - 1) & ~(STRIDE_ROUND - 1)) | STRIDE_OR;
++            geo.stride_c = geo.stride_y / 2;
++            geo.height_y = (video_height + 32 + 31) & ~31;
++            geo.height_c = geo.height_y / 2;
++            geo.planes_c = 2;
++            geo.stripes = 1;
++            geo.bytes_per_pel = 2;
++            geo.stripe_is_yc = 1;
++            break;
++
++        case AV_PIX_FMT_SAND128:
++        case AV_PIX_FMT_RPI4_8:
++        {
++            const unsigned int stripe_w = 128;
++
++            static pthread_mutex_t sand_lock = PTHREAD_MUTEX_INITIALIZER;
++            static VC_IMAGE_T img = {0};
++
++            // Given the overhead of calling the mailbox keep a stashed
++            // copy as we will almost certainly just want the same numbers again
++            // but that means we need a lock
++            pthread_mutex_lock(&sand_lock);
++
++            if (img.width != video_width || img.height != video_height)
++            {
++                VC_IMAGE_T new_img = {
++                    .type = VC_IMAGE_YUV_UV,
++                    .width = video_width,
++                    .height = video_height
++                };
++
++                gpu_ref();
++                mbox_get_image_params(gpu_get_mailbox(), &new_img);
++                gpu_unref();
++                img = new_img;
++            }
++
++            geo.stride_y = stripe_w;
++            geo.stride_c = stripe_w;
++            geo.height_y = ((intptr_t)img.extra.uv.u - (intptr_t)img.image_data) / stripe_w;
++            geo.height_c = img.pitch / stripe_w - geo.height_y;
++            geo.stripe_is_yc = 1;
++            if (geo.height_y * stripe_w > img.pitch)
++            {
++                // "tall" sand - all C blocks now follow Y
++                geo.height_y = img.pitch / stripe_w;
++                geo.height_c = geo.height_y;
++                geo.stripe_is_yc = 0;
++            }
++            geo.planes_c = 1;
++            geo.stripes = (video_width + stripe_w - 1) / stripe_w;
++            geo.bytes_per_pel = 1;
++
++            pthread_mutex_unlock(&sand_lock);
++#if 0
++            printf("Req: %dx%d: stride=%d/%d, height=%d/%d, stripes=%d, img.pitch=%d\n",
++                   video_width, video_height,
++                   geo.stride_y, geo.stride_c,
++                   geo.height_y, geo.height_c,
++                   geo.stripes, img.pitch);
++#endif
++            av_assert0((int)geo.height_y > 0 && (int)geo.height_c > 0);
++            av_assert0(geo.height_y >= video_height && geo.height_c >= video_height / 2);
++            break;
++        }
++
++        case AV_PIX_FMT_RPI4_10:
++        {
++            const unsigned int stripe_w = 128;  // bytes
++
++            static pthread_mutex_t sand_lock = PTHREAD_MUTEX_INITIALIZER;
++            static VC_IMAGE_T img = {0};
++
++            // Given the overhead of calling the mailbox keep a stashed
++            // copy as we will almost certainly just want the same numbers again
++            // but that means we need a lock
++            pthread_mutex_lock(&sand_lock);
++
++            if (img.width != video_width || img.height != video_height)
++            {
++                VC_IMAGE_T new_img = {
++                    .type = VC_IMAGE_YUV10COL,
++                    .width = video_width,
++                    .height = video_height
++                };
++
++                gpu_ref();
++                mbox_get_image_params(gpu_get_mailbox(), &new_img);
++                gpu_unref();
++                img = new_img;
++            }
++
++            geo.stride_y = stripe_w;
++            geo.stride_c = stripe_w;
++            geo.height_y = ((intptr_t)img.extra.uv.u - (intptr_t)img.image_data) / stripe_w;
++            geo.height_c = img.pitch / stripe_w - geo.height_y;
++            geo.planes_c = 1;
++            geo.stripes = ((video_width * 4 + 2) / 3 + stripe_w - 1) / stripe_w;
++            geo.bytes_per_pel = 1;
++            geo.stripe_is_yc = 1;
++
++            pthread_mutex_unlock(&sand_lock);
++
++            av_assert0((int)geo.height_y > 0 && (int)geo.height_c > 0);
++            av_assert0(geo.height_y >= video_height && geo.height_c >= video_height / 2);
++            break;
++        }
++
++        case AV_PIX_FMT_SAND64_16:
++        case AV_PIX_FMT_SAND64_10:
++        {
++            const unsigned int stripe_w = 128;  // bytes
++
++            static pthread_mutex_t sand_lock = PTHREAD_MUTEX_INITIALIZER;
++            static VC_IMAGE_T img = {0};
++
++            // Given the overhead of calling the mailbox keep a stashed
++            // copy as we will almost certainly just want the same numbers again
++            // but that means we need a lock
++            pthread_mutex_lock(&sand_lock);
++
++            if (img.width != video_width || img.height != video_height)
++            {
++                VC_IMAGE_T new_img = {
++                    .type = VC_IMAGE_YUV_UV_16,
++                    .width = video_width,
++                    .height = video_height
++                };
++
++                gpu_ref();
++                mbox_get_image_params(gpu_get_mailbox(), &new_img);
++                gpu_unref();
++                img = new_img;
++            }
++
++            geo.stride_y = stripe_w;
++            geo.stride_c = stripe_w;
++            geo.height_y = ((intptr_t)img.extra.uv.u - (intptr_t)img.image_data) / stripe_w;
++            geo.height_c = img.pitch / stripe_w - geo.height_y;
++            geo.planes_c = 1;
++            geo.stripes = (video_width * 2 + stripe_w - 1) / stripe_w;
++            geo.bytes_per_pel = 2;
++            geo.stripe_is_yc = 1;
++
++            pthread_mutex_unlock(&sand_lock);
++            break;
++        }
++
++        default:
++            memset(&geo, 0, sizeof(geo));
++            break;
++    }
++    return geo;
++}
++
++
++static AVBufferRef * rpi_buf_pool_alloc(ZcPool * const pool, int size)
++{
++    ZcPoolEnt *const zp = zc_pool_alloc(pool, size);
++    AVBufferRef * buf;
++    intptr_t idata = (intptr_t)zp->gmem.arm;
++#if ALLOC_N_OFFSET != 0
++    intptr_t noff = (zp->n * ALLOC_N_OFFSET) & (ALLOC_PAD - 1);
++#endif
++
++    if (zp == NULL) {
++        av_log(NULL, AV_LOG_ERROR, "zc_pool_alloc(%d) failed\n", size);
++        goto fail0;
++    }
++
++#if ALLOC_N_OFFSET != 0
++    idata = ((idata & ~(ALLOC_PAD - 1)) | noff) + (((idata & (ALLOC_PAD - 1)) > noff) ? ALLOC_PAD : 0);
++#endif
++
++#if DEBUG_ZAP0_BUFFERS
++    memset((void*)idata, 0, size);
++#endif
++
++    if ((buf = av_buffer_create((void *)idata, size, rpi_free_display_buffer, zp, AV_BUFFER_FLAG_READONLY)) == NULL)
++    {
++        av_log(NULL, AV_LOG_ERROR, "av_buffer_create() failed\n");
++        goto fail2;
++    }
++
++    return buf;
++
++fail2:
++    zc_pool_free(zp);
++fail0:
++    return NULL;
++}
++
++static int rpi_get_display_buffer(ZcEnv *const zc, AVFrame * const frame)
++{
++    const AVRpiZcFrameGeometry geo = av_rpi_zc_frame_geometry(frame->format, frame->width, frame->height);
++    const unsigned int size_y = geo.stride_y * geo.height_y;
++    const unsigned int size_c = geo.stride_c * geo.height_c;
++    const unsigned int size_pic = (size_y + size_c * geo.planes_c) * geo.stripes;
++    AVBufferRef * buf;
++    unsigned int i;
++
++//    printf("Do local alloc: format=%#x, %dx%d: %u\n", frame->format, frame->width, frame->height, size_pic);
++
++    if ((buf = rpi_buf_pool_alloc(&zc->pool, size_pic)) == NULL)
++    {
++        av_log(NULL, AV_LOG_ERROR, "rpi_get_display_buffer: Failed to get buffer from pool\n");
++        return AVERROR(ENOMEM);
++    }
++
++    for (i = 0; i < AV_NUM_DATA_POINTERS; i++) {
++        frame->buf[i] = NULL;
++        frame->data[i] = NULL;
++        frame->linesize[i] = 0;
++    }
++
++    frame->buf[0] = buf;
++
++    frame->linesize[0] = geo.stride_y;
++    frame->linesize[1] = geo.stride_c;
++    frame->linesize[2] = geo.stride_c;
++    // abuse: linesize[3] = "stripe stride"
++    // stripe_stride is NOT the stride between slices it is (that / geo.stride_y).
++    // In a general case this makes the calculation an xor and multiply rather
++    // than a divide and multiply
++    if (geo.stripes > 1)
++        frame->linesize[3] = geo.stripe_is_yc ? geo.height_y + geo.height_c : geo.height_y;
++
++    frame->data[0] = buf->data;
++    frame->data[1] = frame->data[0] + (geo.stripe_is_yc ? size_y : size_y * geo.stripes);
++    if (geo.planes_c > 1)
++        frame->data[2] = frame->data[1] + size_c;
++
++    frame->extended_data = frame->data;
++    // Leave extended buf alone
++
++#if RPI_ZC_SAND_8_IN_10_BUF != 0
++    // *** If we intend to use this for real we will want a 2nd buffer pool
++    frame->buf[RPI_ZC_SAND_8_IN_10_BUF] = rpi_buf_pool_alloc(&zc->pool, size_pic);  // *** 2 * wanted size - kludge
++#endif
++
++    return 0;
++}
++
++#define RPI_GET_BUFFER2 1
++
++int av_rpi_zc_get_buffer2(struct AVCodecContext *s, AVFrame *frame, int flags)
++{
++#if !RPI_GET_BUFFER2
++    return avcodec_default_get_buffer2(s, frame, flags);
++#else
++    int rv;
++
++    if ((s->codec->capabilities & AV_CODEC_CAP_DR1) == 0)
++    {
++//        printf("Do default alloc: format=%#x\n", frame->format);
++        rv = avcodec_default_get_buffer2(s, frame, flags);
++    }
++    else if (frame->format == AV_PIX_FMT_YUV420P ||
++             av_rpi_is_sand_frame(frame))
++    {
++        rv = rpi_get_display_buffer(s->get_buffer_context, frame);
++    }
++    else
++    {
++        rv = avcodec_default_get_buffer2(s, frame, flags);
++    }
++
++#if 0
++    printf("%s: fmt:%d, %dx%d lsize=%d/%d/%d/%d data=%p/%p/%p bref=%p/%p/%p opaque[0]=%p\n", __func__,
++        frame->format, frame->width, frame->height,
++        frame->linesize[0], frame->linesize[1], frame->linesize[2], frame->linesize[3],
++        frame->data[0], frame->data[1], frame->data[2],
++        frame->buf[0], frame->buf[1], frame->buf[2],
++        av_buffer_get_opaque(frame->buf[0]));
++#endif
++    return rv;
++#endif
++}
++
++
++static AVBufferRef * zc_copy(struct AVCodecContext * const s,
++    const AVFrame * const src)
++{
++    AVFrame dest_frame;
++    AVFrame * const dest = &dest_frame;
++    unsigned int i;
++    uint8_t * psrc, * pdest;
++
++    dest->format = src->format;
++    dest->width = src->width;
++    dest->height = src->height;
++
++    if (rpi_get_display_buffer(s->get_buffer_context, dest) != 0)
++    {
++        return NULL;
++    }
++
++    for (i = 0, psrc = src->data[0], pdest = dest->data[0];
++         i != dest->height;
++         ++i, psrc += src->linesize[0], pdest += dest->linesize[0])
++    {
++        memcpy(pdest, psrc, dest->width);
++    }
++    for (i = 0, psrc = src->data[1], pdest = dest->data[1];
++         i != dest->height / 2;
++         ++i, psrc += src->linesize[1], pdest += dest->linesize[1])
++    {
++        memcpy(pdest, psrc, dest->width / 2);
++    }
++    for (i = 0, psrc = src->data[2], pdest = dest->data[2];
++         i != dest->height / 2;
++         ++i, psrc += src->linesize[2], pdest += dest->linesize[2])
++    {
++        memcpy(pdest, psrc, dest->width / 2);
++    }
++
++    return dest->buf[0];
++}
++
++
++static AVBufferRef * zc_420p10_to_sand128(struct AVCodecContext * const s,
++    const AVFrame * const src)
++{
++    assert(0);
++    return NULL;
++}
++
++
++static AVBufferRef * zc_sand64_16_to_sand128(struct AVCodecContext * const s,
++    const AVFrame * const src, const unsigned int src_bits)
++{
++    assert(0);
++    return NULL;
++}
++
++
++
++AVRpiZcRefPtr av_rpi_zc_ref(struct AVCodecContext * const s,
++    const AVFrame * const frame, const enum AVPixelFormat expected_format, const int maycopy)
++{
++    assert(s != NULL);
++
++    if (frame->format != AV_PIX_FMT_YUV420P &&
++        frame->format != AV_PIX_FMT_YUV420P10 &&
++        !av_rpi_is_sand_frame(frame))
++    {
++        av_log(s, AV_LOG_WARNING, "%s: *** Format not SAND/YUV420P: %d\n", __func__, frame->format);
++        return NULL;
++    }
++
++    if (frame->buf[1] != NULL || frame->format != expected_format)
++    {
++#if RPI_ZC_SAND_8_IN_10_BUF
++        if (frame->format == AV_PIX_FMT_SAND64_10 && expected_format == AV_PIX_FMT_SAND128 && frame->buf[RPI_ZC_SAND_8_IN_10_BUF] != NULL)
++        {
++//            av_log(s, AV_LOG_INFO, "%s: --- found buf[4]\n", __func__);
++            return av_buffer_ref(frame->buf[RPI_ZC_SAND_8_IN_10_BUF]);
++        }
++#endif
++
++        if (maycopy)
++        {
++            if (frame->buf[1] != NULL)
++                av_log(s, AV_LOG_INFO, "%s: *** Not a single buf frame: copying\n", __func__);
++            else
++                av_log(s, AV_LOG_INFO, "%s: *** Unexpected frame format %d: copying to %d\n", __func__, frame->format, expected_format);
++
++            switch (frame->format)
++            {
++                case AV_PIX_FMT_YUV420P10:
++                    return zc_420p10_to_sand128(s, frame);
++
++                case AV_PIX_FMT_SAND64_10:
++                    return zc_sand64_16_to_sand128(s, frame, 10);
++
++                default:
++                    return zc_copy(s, frame);
++            }
++        }
++        else
++        {
++            if (frame->buf[1] != NULL)
++                av_log(s, AV_LOG_WARNING, "%s: *** Not a single buf frame: buf[1] != NULL\n", __func__);
++            else
++                av_log(s, AV_LOG_INFO, "%s: *** Unexpected frame format: %d != %d\n", __func__, frame->format, expected_format);
++            return NULL;
++        }
++    }
++
++    if (pic_gm_ptr(frame->buf[0]) == NULL)
++    {
++        if (maycopy)
++        {
++            av_log(s, AV_LOG_INFO, "%s: *** Not one of our buffers: copying\n", __func__);
++            return zc_copy(s, frame);
++        }
++        else
++        {
++            av_log(s, AV_LOG_WARNING, "%s: *** Not one of our buffers: NULL\n", __func__);
++            return NULL;
++        }
++    }
++
++    return av_buffer_ref(frame->buf[0]);
++}
++
++int av_rpi_zc_vc_handle(const AVRpiZcRefPtr fr_ref)
++{
++    const GPU_MEM_PTR_T * const p = pic_gm_ptr(fr_ref);
++    return p == NULL ? -1 : p->vc_handle;
++}
++
++int av_rpi_zc_offset(const AVRpiZcRefPtr fr_ref)
++{
++    const GPU_MEM_PTR_T * const p = pic_gm_ptr(fr_ref);
++    return p == NULL ? 0 : fr_ref->data - p->arm;
++}
++
++int av_rpi_zc_length(const AVRpiZcRefPtr fr_ref)
++{
++    return fr_ref == NULL ? 0 : fr_ref->size;
++}
++
++
++int av_rpi_zc_numbytes(const AVRpiZcRefPtr fr_ref)
++{
++    const GPU_MEM_PTR_T * const p = pic_gm_ptr(fr_ref);
++    return p == NULL ? 0 : p->numbytes;
++}
++
++void av_rpi_zc_unref(AVRpiZcRefPtr fr_ref)
++{
++    if (fr_ref != NULL)
++    {
++        av_buffer_unref(&fr_ref);
++    }
++}
++
++AVZcEnvPtr av_rpi_zc_env_alloc(void)
++{
++    ZcEnv * const zc = av_mallocz(sizeof(ZcEnv));
++    if (zc == NULL)
++    {
++        av_log(NULL, AV_LOG_ERROR, "av_rpi_zc_env_alloc: Context allocation failed\n");
++        return NULL;
++    }
++
++    zc_pool_init(&zc->pool);
++    return zc;
++}
++
++void av_rpi_zc_env_free(AVZcEnvPtr zc)
++{
++    if (zc != NULL)
++    {
++        zc_pool_destroy(&zc->pool); ;
++        av_free(zc);
++    }
++}
++
++int av_rpi_zc_in_use(const struct AVCodecContext * const s)
++{
++    return s->get_buffer2 == av_rpi_zc_get_buffer2;
++}
++
++int av_rpi_zc_init(struct AVCodecContext * const s)
++{
++    if (av_rpi_zc_in_use(s))
++    {
++        ZcEnv * const zc = s->get_buffer_context;
++        ++zc->refcount;
++    }
++    else
++    {
++        ZcEnv *const zc = av_rpi_zc_env_alloc();
++        if (zc == NULL)
++        {
++            return AVERROR(ENOMEM);
++        }
++
++        zc->refcount = 1;
++        zc->old.get_buffer_context = s->get_buffer_context;
++        zc->old.get_buffer2 = s->get_buffer2;
++        zc->old.thread_safe_callbacks = s->thread_safe_callbacks;
++
++        s->get_buffer_context = zc;
++        s->get_buffer2 = av_rpi_zc_get_buffer2;
++        s->thread_safe_callbacks = 1;
++    }
++    return 0;
++}
++
++void av_rpi_zc_uninit(struct AVCodecContext * const s)
++{
++    if (av_rpi_zc_in_use(s))
++    {
++        ZcEnv * const zc = s->get_buffer_context;
++        if (--zc->refcount == 0)
++        {
++            s->get_buffer2 = zc->old.get_buffer2;
++            s->get_buffer_context = zc->old.get_buffer_context;
++            s->thread_safe_callbacks = zc->old.thread_safe_callbacks;
++            av_rpi_zc_env_free(zc);
++        }
++    }
++}
++
++#endif  // RPI
++
+diff --git a/libavcodec/rpi_zc.h b/libavcodec/rpi_zc.h
+new file mode 100644
+index 0000000000..0e39b8e3b3
+--- /dev/null
++++ b/libavcodec/rpi_zc.h
+@@ -0,0 +1,106 @@
++#ifndef LIBAVCODEC_RPI_ZC_H
++#define LIBAVCODEC_RPI_ZC_H
++
++// Zero-Copy frame code for RPi
++// RPi needs Y/U/V planes to be contiguous for display.  By default
++// ffmpeg will allocate separated planes so a memcpy is needed before
++// display.  This code provides a method a making ffmpeg allocate a single
++// bit of memory for the frame when can then be reference counted until
++// display has finished with it.
++
++// Frame buffer number in which to stuff an 8-bit copy of a 16-bit frame
++// 0 disables
++// *** This option still in development
++//     Only works if SAO active
++//     Allocates buffers that are twice the required size
++#define RPI_ZC_SAND_8_IN_10_BUF  0
++
++struct AVBufferRef;
++struct AVFrame;
++struct AVCodecContext;
++enum AVPixelFormat;
++
++// "Opaque" pointer to whatever we are using as a buffer reference
++typedef struct AVBufferRef * AVRpiZcRefPtr;
++
++struct AVZcEnv;
++typedef struct AVZcEnv * AVZcEnvPtr;
++
++typedef struct AVRpiZcFrameGeometry
++{
++    unsigned int stride_y;  // Luma stride (bytes)
++    unsigned int height_y;  // Luma height (lines)
++    unsigned int stride_c;  // Chroma stride (bytes)
++    unsigned int height_c;  // Chroma stride (lines)
++    unsigned int planes_c;  // Chroma plane count (U, V = 2, interleaved = 1)
++    unsigned int stripes;   // Number of stripes (sand)
++    unsigned int bytes_per_pel;
++    int stripe_is_yc;       // A single stripe is Y then C (false for tall sand)
++} AVRpiZcFrameGeometry;
++
++
++AVRpiZcFrameGeometry av_rpi_zc_frame_geometry(
++    const int format,
++    const unsigned int video_width, const unsigned int video_height);
++
++// Replacement fn for avctx->get_buffer2
++// Should be set before calling avcodec_decode_open2
++//
++// N.B. in addition to to setting avctx->get_buffer2, avctx->refcounted_frames
++// must be set to 1 as otherwise the buffer info is killed before being returned
++// by avcodec_decode_video2.  Note also that this means that the AVFrame that is
++// returned must be manually derefed with av_frame_unref.  This should be done
++// after av_rpi_zc_ref has been called.
++int av_rpi_zc_get_buffer2(struct AVCodecContext *s, AVFrame *frame, int flags);
++
++// Generate a ZC reference to the buffer(s) in this frame
++// If the buffer doesn't appear to be one allocated by _get_buffer_2
++// then the behaviour depends on maycopy:
++//   If maycopy=0 then return NULL
++//   If maycopy=1 && the src frame is in a form where we can easily copy
++//     the data, then allocate a new buffer and copy the data into it
++//   Otherwise return NULL
++AVRpiZcRefPtr av_rpi_zc_ref(struct AVCodecContext * const s,
++    const struct AVFrame * const frame, const enum AVPixelFormat expected_format, const int maycopy);
++
++// Get the vc_handle from the frame ref
++// Returns -1 if ref doesn't look valid
++int av_rpi_zc_vc_handle(const AVRpiZcRefPtr fr_ref);
++// Get offset from the start of the memory referenced
++// by the vc_handle to valid data
++int av_rpi_zc_offset(const AVRpiZcRefPtr fr_ref);
++// Length of buffer data
++int av_rpi_zc_length(const AVRpiZcRefPtr fr_ref);
++// Get the number of bytes allocated from the frame ref
++// Returns 0 if ref doesn't look valid
++int av_rpi_zc_numbytes(const AVRpiZcRefPtr fr_ref);
++
++// Unreference the buffer refed/allocated by _zc_ref
++// If fr_ref is NULL then this will NOP
++void av_rpi_zc_unref(AVRpiZcRefPtr fr_ref);
++
++// Allocate an environment for the buffer pool used by the ZC code
++// This should be put in avctx->get_buffer_context so it can be found by
++// av_rpi_zc_get_buffer2 when it is called from ffmpeg
++AVZcEnvPtr av_rpi_zc_env_alloc(void);
++
++// Allocate the environment used by the ZC code
++void av_rpi_zc_env_free(AVZcEnvPtr);
++
++// Test to see if the context is using zc (checks get_buffer2)
++int av_rpi_zc_in_use(const struct AVCodecContext * const s);
++
++// Init ZC into a context
++// There is nothing magic in this fn - it just packages setting
++// get_buffer2 & get_buffer_context
++int av_rpi_zc_init(struct AVCodecContext * const s);
++
++// Free ZC from a context
++// There is nothing magic in this fn - it just packages unsetting
++// get_buffer2 & get_buffer_context
++void av_rpi_zc_uninit(struct AVCodecContext * const s);
++
++
++
++#endif
++
+diff --git a/libavutil/buffer.c b/libavutil/buffer.c
+index 9c5d530c7a..e07f947cdc 100644
+--- a/libavutil/buffer.c
++++ b/libavutil/buffer.c
+@@ -368,3 +368,9 @@ AVBufferRef *av_buffer_pool_get(AVBufferPool *pool)
+ 
+     return ret;
+ }
++
++// Return the opaque for the underlying frame (gives us a GPU_MEM_PTR_T)
++void *av_buffer_pool_opaque(AVBufferRef *ref) {
++  BufferPoolEntry *buf = av_buffer_get_opaque(ref);
++  return buf->opaque;
++}
+diff --git a/libavutil/buffer.h b/libavutil/buffer.h
+index fab745f853..d0271e50fc 100644
+--- a/libavutil/buffer.h
++++ b/libavutil/buffer.h
+@@ -289,6 +289,9 @@ void av_buffer_pool_uninit(AVBufferPool **pool);
+  */
+ AVBufferRef *av_buffer_pool_get(AVBufferPool *pool);
+ 
++// Return the opaque for the underlying frame
++void *av_buffer_pool_opaque(AVBufferRef *ref);
++
+ /**
+  * @}
+  */
+diff --git a/libavutil/pixdesc.c b/libavutil/pixdesc.c
+index 8ed52751c1..5e2b5ec3bc 100644
+--- a/libavutil/pixdesc.c
++++ b/libavutil/pixdesc.c
+@@ -1989,6 +1989,18 @@ static const AVPixFmtDescriptor av_pix_fmt_descriptors[AV_PIX_FMT_NB] = {
+         .name = "cuda",
+         .flags = AV_PIX_FMT_FLAG_HWACCEL,
+     },
++    [AV_PIX_FMT_RPI] = {
++        .name = "rpi",
++        .flags = AV_PIX_FMT_FLAG_HWACCEL,
++    },
++    [AV_PIX_FMT_RPI4_10] = {
++        .name = "rpi",
++        .flags = AV_PIX_FMT_FLAG_HWACCEL,
++    },
++    [AV_PIX_FMT_RPI4_8] = {
++        .name = "rpi",
++        .flags = AV_PIX_FMT_FLAG_HWACCEL,
++    },
+     [AV_PIX_FMT_AYUV64LE] = {
+         .name = "ayuv64le",
+         .nb_components = 4,
+diff --git a/libavutil/pixfmt.h b/libavutil/pixfmt.h
+index 34a1531489..0a6ff1f482 100644
+--- a/libavutil/pixfmt.h
++++ b/libavutil/pixfmt.h
+@@ -234,6 +234,11 @@ enum AVPixelFormat {
+      */
+     AV_PIX_FMT_CUDA,
+ 
++    /**
++     * HW acceleration through RPI.
++     */
++    AV_PIX_FMT_RPI,
++
+     AV_PIX_FMT_0RGB,        ///< packed RGB 8:8:8, 32bpp, XRGBXRGB...   X=unused/undefined
+     AV_PIX_FMT_RGB0,        ///< packed RGB 8:8:8, 32bpp, RGBXRGBX...   X=unused/undefined
+     AV_PIX_FMT_0BGR,        ///< packed BGR 8:8:8, 32bpp, XBGRXBGR...   X=unused/undefined
+@@ -334,6 +339,14 @@ enum AVPixelFormat {
+      */
+     AV_PIX_FMT_OPENCL,
+ 
++// RPI - not on ifdef so can be got at by calling progs
++    AV_PIX_FMT_SAND128,    ///< 4:2:0  8-bit 128x*Y stripe, 64x*UV stripe, then next x stripe, mysterious padding
++    AV_PIX_FMT_SAND64_10,  ///< 4:2:0 10-bit  64x*Y stripe, 32x*UV stripe, then next x stripe, mysterious padding
++    AV_PIX_FMT_SAND64_16,  ///< 4:2:0 16-bit  64x*Y stripe, 32x*UV stripe, then next x stripe, mysterious padding
++
++    AV_PIX_FMT_RPI4_8,
++    AV_PIX_FMT_RPI4_10,
++
+     AV_PIX_FMT_NB         ///< number of pixel formats, DO NOT USE THIS if you want to link with shared libav* because the number of formats might differ between versions
+ };
+ 
+diff --git a/pi-util/conf_pi1.sh b/pi-util/conf_pi1.sh
+new file mode 100644
+index 0000000000..ec25b81c31
+--- /dev/null
++++ b/pi-util/conf_pi1.sh
+@@ -0,0 +1,31 @@
++echo "Configure for Pi1"
++
++RPI_TOOLROOT=`pwd`/../tools/arm-bcm2708/arm-rpi-4.9.3-linux-gnueabihf
++RPI_OPT_VC=`pwd`/../firmware/opt/vc
++
++RPI_INCLUDES="-I$RPI_OPT_VC/include -I$RPI_OPT_VC/include/interface/vcos/pthreads -I$RPI_OPT_VC/include/interface/vmcs_host/linux"
++RPI_DEFS="-D__VCCOREVER__=0x04000000 -DRPI=1"
++RPI_LIBDIRS="-L$RPI_TOOLROOT/lib -L$RPI_OPT_VC/lib"
++#RPI_KEEPS="-save-temps=obj"
++RPI_KEEPS=""
++
++./configure --enable-cross-compile\
++ --cpu=arm1176jzf-s\
++ --arch=arm\
++ --disable-neon\
++ --target-os=linux\
++ --disable-stripping\
++ --enable-mmal\
++ --extra-cflags="-g $RPI_KEEPS $RPI_DEFS $RPI_INCLUDES"\
++ --extra-cxxflags="$RPI_DEFS $RPI_INCLUDES"\
++ --extra-ldflags="$RPI_LIBDIRS -Wl,-rpath=/opt/vc/lib,-rpath-link=$RPI_OPT_VC/lib,-rpath=/lib,-rpath=/usr/lib,-rpath-link=$RPI_TOOLROOT/lib,-rpath-link=$RPI_TOOLROOT/lib"\
++ --extra-libs="-Wl,--start-group -lbcm_host -lmmal -lmmal_util -lmmal_core -lvcos -lvcsm -lvchostif -lvchiq_arm"\
++ --cross-prefix=$RPI_TOOLROOT/bin/arm-linux-gnueabihf-
++
++
++# --enable-extra-warnings\
++# --arch=armv71\
++# --enable-shared\
++
++# gcc option for getting asm listing
++# -Wa,-ahls
+diff --git a/pi-util/conf_pi2.sh b/pi-util/conf_pi2.sh
+new file mode 100644
+index 0000000000..7ec0402ce8
+--- /dev/null
++++ b/pi-util/conf_pi2.sh
+@@ -0,0 +1,34 @@
++echo "Configure for Pi2/3"
++
++RPI_TOOLROOT=/home/dom/tools/arm-bcm2708/arm-rpi-4.9.3-linux-gnueabihf
++RPI_OPT_VC=/opt/bcm-rootfs/opt/vc
++
++RPI_INCLUDES="-I$RPI_OPT_VC/include -I$RPI_OPT_VC/include/interface/vcos/pthreads -I$RPI_OPT_VC/include/interface/vmcs_host/linux"
++RPI_DEFS="-D__VCCOREVER__=0x04000000 -DRPI_DISPLAY=1"
++RPI_LIBDIRS="-L$RPI_TOOLROOT/lib -L$RPI_OPT_VC/lib"
++#RPI_KEEPS="-save-temps=obj"
++RPI_KEEPS=""
++
++./configure --enable-cross-compile\
++ --arch=armv6t2\
++ --cpu=cortex-a7\
++ --target-os=linux\
++ --disable-stripping\
++ --disable-thumb\
++ --enable-mmal\
++ --enable-rpi\
++ --extra-cflags="-g $RPI_KEEPS $RPI_DEFS $RPI_INCLUDES"\
++ --extra-cxxflags="$RPI_DEFS $RPI_INCLUDES"\
++ --extra-ldflags="$RPI_LIBDIRS -Wl,-rpath=/opt/vc/lib,-rpath-link=$RPI_OPT_VC/lib,-rpath=/lib,-rpath=/usr/lib,-rpath-link=$RPI_TOOLROOT/lib,-rpath-link=$RPI_TOOLROOT/lib"\
++ --extra-libs="-Wl,--start-group -lbcm_host -lmmal -lmmal_util -lmmal_core -lvcos -lvcsm -lvchostif -lvchiq_arm"\
++ --cross-prefix=$RPI_TOOLROOT/bin/arm-linux-gnueabihf- \
++ --prefix=$HOME/buster/home/pi/projects/fpga \
++ --extra-libs="-ldl"
++
++# --disable-decoders --enable-decoder=hevc --disable-hwaccels --enable-hwaccel=hevc_rpi --disable-encoders --enable-encoder=rawvideo --enable-muxer=rawvideo \
++# --enable-extra-warnings\
++# --arch=armv71\
++# --enable-shared\
++
++# gcc option for getting asm listing
++# -Wa,-ahls
