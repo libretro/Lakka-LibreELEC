@@ -39,7 +39,7 @@ make_target() {
       cp -PRv ${PKG_FLOAT}/opt/vc/lib/*.a               ${SYSROOT_PREFIX}/usr/lib
       cp -PRv ${PKG_FLOAT}/opt/vc/lib/pkgconfig         ${SYSROOT_PREFIX}/usr/lib
     else
-      for f in $(cd ${PKG_FLOAT}/opt/vc/lib; ls *.so *.a | grep -v "GL"); do
+      for f in $(cd ${PKG_FLOAT}/opt/vc/lib; ls *.so *.a | grep -Ev "^lib(EGL|GL)"); do
         cp -PRv ${PKG_FLOAT}/opt/vc/lib/$f              ${SYSROOT_PREFIX}/usr/lib
       done
       mkdir -p ${SYSROOT_PREFIX}/usr/lib/pkgconfig
@@ -69,7 +69,7 @@ makeinstall_target() {
       ln -sf /usr/lib/libbrcmGLESv2.so     ${INSTALL}/usr/lib/libGLESv2.so
       ln -sf /usr/lib/libbrcmGLESv2.so     ${INSTALL}/usr/lib/libGLESv2.so.2
     else
-      for f in $(cd ${PKG_FLOAT}/opt/vc/lib; ls *.so | grep -v "GL"); do
+      for f in $(cd ${PKG_FLOAT}/opt/vc/lib; ls *.so | grep -Ev "^lib(EGL|GL)"); do
         cp -PRv ${PKG_FLOAT}/opt/vc/lib/$f ${INSTALL}/usr/lib
       done
     fi
