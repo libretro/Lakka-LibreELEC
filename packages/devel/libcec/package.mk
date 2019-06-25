@@ -19,7 +19,7 @@ PKG_CMAKE_OPTS_TARGET="-DBUILD_SHARED_LIBS=1 \
                        -DHAVE_AOCEC_API=0 -DHAVE_AMLOGIC_API=0 \
                        -DHAVE_GIT_BIN=0"
 
-if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
+if [ "$PROJECT" = "RPi" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"
 fi
 
@@ -34,7 +34,7 @@ if [ "$CEC_FRAMEWORK_SUPPORT" = "yes" ]; then
 fi
 
 pre_configure_target() {
-  if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
+  if [ "$PROJECT" = "RPi" ]; then
     # detecting RPi support fails without -lvchiq_arm
     export LDFLAGS="$LDFLAGS -lvchiq_arm"
   fi
