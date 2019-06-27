@@ -364,6 +364,14 @@ if [ "${1}" = "release" -o "${1}" = "mkimage" -o "${1}" = "noobs" ]; then
     cp ${ROOT}/README* ${RELEASE_DIR}/${NOOBS_DISTRO}
     cp ${ROOT}/CHANGELOG ${RELEASE_DIR}/${NOOBS_DISTRO}/release_notes.txt
 
+    if [ -n "${NOOBS_HEX}" ]; then
+      sed -e "s%@NOOBS_HEX@%${NOOBS_HEX}%g" \
+          -i ${RELEASE_DIR}/${NOOBS_DISTRO}/os.json
+    else
+      sed -e "/@NOOBS_HEX@/d" \
+          -i ${RELEASE_DIR}/${NOOBS_DISTRO}/os.json
+    fi
+
     sed -e "s%@DISTRONAME@%${DISTRONAME}%g" \
         -e "s%@PROJECT@%${DEVICE:-${PROJECT}}%g" \
         -e "s%@LIBREELEC_VERSION@%${LIBREELEC_VERSION}%g" \
@@ -372,7 +380,6 @@ if [ "${1}" = "release" -o "${1}" = "mkimage" -o "${1}" = "noobs" ]; then
         -e "s%@DESCRIPTION@%${DESCRIPTION}%g" \
         -e "s%@ROOT_PASSWORD@%${ROOT_PASSWORD}%g" \
         -e "s%@NOOBS_SUPPORTED_MODELS@%${NOOBS_SUPPORTED_MODELS}%g" \
-        -e "s%@NOOBS_HEX@%${NOOBS_HEX}%g" \
         -i ${RELEASE_DIR}/${NOOBS_DISTRO}/os.json
 
     sed -e "s%@DISTRONAME@%${DISTRONAME}%g" \
@@ -383,12 +390,9 @@ if [ "${1}" = "release" -o "${1}" = "mkimage" -o "${1}" = "noobs" ]; then
     # Create System dir
     mkdir -p ${RELEASE_DIR}/${NOOBS_DISTRO}/System
 
-    BOOTLOADER_DIR="$(get_pkg_directory "${BOOTLOADER}")"
-    if [ -d ${BOOTLOADER_DIR}/files/3rdparty/bootloader/ ]; then
-      cp -PR ${BOOTLOADER_DIR}/files/3rdparty/bootloader/* ${RELEASE_DIR}/${NOOBS_DISTRO}/System
-    fi
-
     # Copy Bootloader
+    cp -PR ${INSTALL}/usr/share/bootloader/config.txt ${RELEASE_DIR}/${NOOBS_DISTRO}/System/
+    cp -PR ${INSTALL}/usr/share/bootloader/distroconfig.txt ${RELEASE_DIR}/${NOOBS_DISTRO}/System/
     cp -PR ${INSTALL}/usr/share/bootloader/LICENCE* ${RELEASE_DIR}/${NOOBS_DISTRO}/System/
     cp -PR ${INSTALL}/usr/share/bootloader/bootcode.bin ${RELEASE_DIR}/${NOOBS_DISTRO}/System/
     cp -PR ${INSTALL}/usr/share/bootloader/fixup.dat ${RELEASE_DIR}/${NOOBS_DISTRO}/System/
@@ -430,8 +434,8 @@ if [ "${1}" = "release" -o "${1}" = "mkimage" -o "${1}" = "noobs" ]; then
     rm -rf ${RELEASE_DIR}/${NOOBS_DISTRO}/Storage.tar.xz
 
     # Create filesystem tarballs
-    tar cJf ${RELEASE_DIR}/${NOOBS_DISTRO}/System.tar.xz -C ${RELEASE_DIR}/${NOOBS_DISTRO}/System/ .
-    tar cJf ${RELEASE_DIR}/${NOOBS_DISTRO}/Storage.tar.xz -C ${RELEASE_DIR}/${NOOBS_DISTRO}/Storage/ .
+    ${TOOLCHAIN}/bin/fakeroot tar cJf ${RELEASE_DIR}/${NOOBS_DISTRO}/System.tar.xz -C ${RELEASE_DIR}/${NOOBS_DISTRO}/System/ .
+    ${TOOLCHAIN}/bin/fakeroot tar cJf ${RELEASE_DIR}/${NOOBS_DISTRO}/Storage.tar.xz -C ${RELEASE_DIR}/${NOOBS_DISTRO}/Storage/ .
 
     # Remove filesystem dirs
     rm -rf ${RELEASE_DIR}/${NOOBS_DISTRO}/System
