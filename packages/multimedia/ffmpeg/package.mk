@@ -38,6 +38,7 @@ else
 fi
 
 if [ "$PROJECT" = "Rockchip" ]; then
+  PKG_PATCH_DIRS+=" rkmpp"
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET rkmpp"
   PKG_FFMPEG_RKMPP="--enable-rkmpp --enable-libdrm --enable-version3"
 else
