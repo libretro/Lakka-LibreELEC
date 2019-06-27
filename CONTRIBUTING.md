@@ -1,110 +1,77 @@
-### Questions about LibreELEC?
+# General rules
 
-To get your questions answered, please ask in the LibreELEC [Forum], on IRC: 
-\#libreelec on freenode.net. 
+ * Lakka focuses on stability rather than bleeding edge
+ * We try to maintain all the supported platforms, but we know that 95% of our users are using PC and RPi
+ * You are responsible for your own changes, if you break something, you need to fix it
+ * Everybody has to test their own changes
+ * Testing means manual testing on real hardware
+ * If you are unsure how to contribute code, meet us on IRC (#lakkatv on freenode) or Discord (libretro server)
+ * Our users want the latest working versions of RetroArch and the libretro cores. They don't want non working / half working versions.
 
-Do not open an issue.
+# Team members
 
-### Issue Reports
+Project leader: natinusala
 
-**BEFORE you report a bug make sure you got the latest testing version of 
-LibreELEC. Your bug might be already fixed.**
+Team members: kivutar, Ntemis, gouchi, ToKe79, RobLoach, natinusala, plaidman
 
-If you are at all unsure whether it's a bug in LibreELEC or a problem with 
-something else, post in the LibreELEC [Forum] instead. If it turns out that it is
-a bug, an issue can always be opened later.
+# The development branch
 
-If you are sure that it's a bug in LibreELEC and you have not found a [similar issue], open a new [issue]
-and try to answer the following questions:
-- What did you do?
-- What did you expect to happen?
-- What happened instead?
+The development happens on the branch master. This branch follows LibreELEC 8.2 stable.
 
-**It is also importent to provide logs for debugging.
-A zip file can be found in the [logfiles] samba share, this will contain all the logs needed.**
+We consider this branch as a rolling release, and we ensure that:
 
-Make sure to specify which version of LibreELEC you are using.
-- LibreELEC version
-- LibreELEC build
-- LibreELEC arch
+ * All the projects build fine at least on Ubuntu 16.04 and 18.04
+ * All the projects boot
+ * All the projects boot to RetroArch
 
-Please don't paste log messages in the issue reports or issue comments - use 
-[sprunge.us](http://sprunge.us) instead.
+We don't have a stable branch + unstable branches. For now, we only work on master which should be as stable as possible.
+ 
+# Pull requests
 
-Feature requests are great, but they usually end up lying around the issue
-tracker indefinitely. Sending a pull request is a much better way of getting a
-particular feature into LibreELEC.
+All the code contributions are submitted in the form of Pull Requests. Team members should also use Pull Requests except in case of emergency.
 
-Please dont ask us to add 3rdparty drivers unless you are the maintainer/developer of the driver,
-we have no manpower to support a non-mainlined kernel driver for your hardware.
-However, LibreELEC comes with minimal set of kernel drivers enabled, if you are sure that your hardware
-is supported in mainline kernel, feel free to send us a Pull Request to enable it in our
-kernel defconfigs. We are always happy to support known-working hardware.
+A good PR is:
 
-### Reporting build failures
+ * Atomic, changes as less things as possible
+ * Well named
+ * Well described
+ * Tested locally by the sender (on real hardware)
+ * Doesn't break other projects (you have to build all of them locally)
+ * Idealy doesn't contain merge messages (you can pull --rebase if necessary)
+ * Doesn't mix important changes with massive reindentation (send two separate PRs)
+ * Doesn't introduce too much changes that would make merging upstream difficult
 
-As buildsystem / core packages (toolchain) / random libraries change from time to time, it is required
-that you always do a clean build (make clean) before reporting build failures. Also make sure that you
-have a clean, unmodified git clone, we can't fix bugs caused by you failed to merge / rebase on
-your own fork.
+PRs will be reviewed by the core team. The project leader have the final word on merging a PR or not, but all the core team members are invited to do code reviews.
 
-### Pull Requests
+PRs should be merged using the *Squash and merge* button only.
 
-- **Create topic branches**. Don't ask us to pull from your master branch.
+If a PR is not in a mergeable state, mark the title with [WIP].
 
-- **One pull request per feature**. If you want to do more than one thing, send
-  multiple pull requests.
+Commit messages should be formatted like the [LibreELEC](https://github.com/LibreELEC/LibreELEC.tv)'s upstream, in the following format:
+```
+package-name: update something on the package
+```
 
-- **Send coherent history**. Make sure each individual commit in your pull
-  request is meaningful. If you had to make multiple intermediate commits while
-  developing, please squash them before sending them to us.
+# Merging upstream
 
-Please follow this process; it's the best way to get your work included in the project:
+The upstream branch, LibreELEC 8.2, will be merged on a regular basis by the maintainers. Merging upstream should be discussed and announced on IRC in presence of the project leader.
 
-- [Fork](http://help.github.com/fork-a-repo/) the project, clone your fork,
-   and configure the remotes:
+It should be done once every release cycle, at the beginning of the cycle.
 
-```bash
-   # clone your fork of the repo into the current directory in terminal
-   git clone git@github.com:<your username>/LibreELEC.tv.git
-   # navigate to the newly cloned directory
-   cd LibreELEC.tv
-   # assign the original repo to a remote called "upstream"
-   git remote add upstream https://github.com/LibreELEC/LibreELEC.tv.git
-   ```
+# RetroArch updates
 
-- If you cloned a while ago, get the latest changes from upstream:
+Updating RetroArch requires a lot of manual testing. So leave this task to the core team.
 
-   ```bash
-   # fetch upstream changes
-   git fetch upstream
-   # make sure you are on your 'master' branch
-   git checkout master
-   # merge upstream changes
-   git merge upstream/master
-   ```
+# Release cycle
 
-- Create a new topic branch to contain your feature, change, or fix:
+We try to release images to the public one time per month.
 
-   ```bash
-   git checkout -b <topic-branch-name>
-   ```
+Before every release or release candidate, we have a one week code freeze that is announced on IRC or Discord by the team leader.
 
-- Commit your changes in logical chunks. or your pull request is unlikely
-   be merged into the main project. Use git's
-   [interactive rebase](https://help.github.com/articles/interactive-rebase)
-   feature to tidy up your commits before making them public.
+During the code freeze:
 
-- Push your topic branch up to your fork:
-
-   ```bash
-   git push origin <topic-branch-name>
-   ```
-
-- [Open a Pull Request](https://help.github.com/articles/using-pull-requests) with a
-    clear title and description.
-
-[Forum]: https://forum.libreelec.tv/
-[issue]: https://github.com/LibreELEC/LibreELEC.tv/issues
-[logfiles]: https://wiki.libreelec.tv/index.php?title=LibreELEC_FAQ#Support_Logs
-[similar issue]: https://github.com/LibreELEC/LibreELEC.tv/search?&ref=cmdform&type=Issues
+ * Everybody tests the images on real hardware
+ * We merge only critical fixes
+ * We don't merge upstream
+ * We don't update RetroArch or cores for no reasons
+ * If we update RetroArch or a core, it better be done by adding a build time patch than updating the commit ID

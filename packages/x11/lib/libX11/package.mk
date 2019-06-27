@@ -8,7 +8,7 @@ PKG_SHA256="910e9e30efba4ad3672ca277741c2728aebffa7bc526f04dcfa74df2e52a1348"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.x.org/"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS_TARGET="toolchain util-macros xtrans libXau libxcb"
+PKG_DEPENDS_TARGET="toolchain xproto:host xproto util-macros xtrans libXau libxcb"
 PKG_LONGDESC="LibX11 is the main X11 library containing all the client-side code to access the X11 windowing system."
 PKG_TOOLCHAIN="autotools"
 
@@ -30,3 +30,12 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-loadable-i18n \
                            --disable-ipv6 \
                            --without-launchd \
                            --without-lint"
+
+pre_configure_target() {
+  export CC_FOR_BUILD="$HOST_CC"
+  export CPPFLAGS_FOR_BUILD="$HOST_CPPFLAGS"
+  export CFLAGS_FOR_BUILD="$HOST_CFLAGS"
+  export LDFLAGS_FOR_BUILD="$HOST_LDFLAGS"
+  unset PKG_CONFIG_ALLOW_SYSTEM_CFLAGS
+}
+
