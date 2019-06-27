@@ -45,10 +45,9 @@ else
 fi
 
 if [ "$PROJECT" = "Allwinner" ]; then
+  PKG_PATCH_DIRS+=" v4l2-request-api"
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libdrm systemd" # systemd is needed for libudev
   PKG_FFMPEG_V4L2_REQUEST="--enable-v4l2-request --enable-libudev --enable-libdrm"
-else
-  PKG_FFMPEG_V4L2_REQUEST="--disable-v4l2-request --disable-libudev"
 fi
 
 if build_with_debug; then
