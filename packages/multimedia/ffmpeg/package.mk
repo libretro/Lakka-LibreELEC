@@ -59,6 +59,11 @@ fi
 
 if [ "$PROJECT" = "RPi" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"
+  if [ "$DEVICE" = "RPi4" ]; then
+   PKG_PATCH_DIRS+=" rpi4-hevc"
+  else
+   PKG_PATCH_DIRS+=" rpi-hevc"
+ fi
 fi
 
 if target_has_feature neon; then
