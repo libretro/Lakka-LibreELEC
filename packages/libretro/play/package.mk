@@ -18,28 +18,43 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="core-info"
-PKG_VERSION="c25bc45"
+PKG_NAME="play"
+PKG_VERSION="d4e4a58"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/libretro/libretro-super"
+PKG_SITE="https://github.com/lakka-switch/Play-Build"
 PKG_GIT_URL="$PKG_SITE"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain curl"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="Info files for libretro cores"
-PKG_LONGDESC="Super repo for other libretro projects. Fetches, builds and installs."
+PKG_SHORTDESC="Play! - PlayStation 2 Emulator"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+PKG_USE_CMAKE="yes"
 
-make_target() {
-  :
+PKG_CMAKE_SCRIPT="$PKG_BUILD/Play/CMakeLists.txt"
+
+PKG_CMAKE_OPTS_TARGET="-DBUILD_LIBRETRO_CORE=ON -DBUILD_PLAY=OFF -DBUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_C_COMPILER=${CC}"
+
+pre_patch() {
+  cd $PKG_BUILD
+  git submodule update -q --init --recursive
+  git submodule foreach "git checkout -q master"
+  cd Dependencies
+  git submodule update --init
+
+  cd boost-cmake
+  wget "https://github.com/jpd002/boost-cmake/releases/download/v1.68.0/boost_1_68_0.tar.xz" --no-check-certificate
+  
+  dos2unix $PKG_BUILD/Play/Source/ui_libretro/SH_LibreAudio.cpp
+}
+
+pre_make_target() {
+  find $PKG_BUILD -name flags.make -exec sed -i "s:isystem :I:g" \{} \;
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp dist/info/*.info $INSTALL/usr/lib/libretro/
+  cp $PKG_BUILD/.$TARGET_NAME/Source/ui_libretro/play_libretro.so $INSTALL/usr/lib/libretro/
 }
-
