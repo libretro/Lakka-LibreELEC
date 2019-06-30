@@ -19,6 +19,10 @@ if [ "$INITRAMFS_PARTED_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET parted:init"
 fi
 
+if [ "$PROJECT" = "Gamegirl" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gamegirl-screen:init"
+fi
+
 post_install() {
   ( cd $BUILD/initramfs
     if [ "$TARGET_ARCH" = "x86_64" ]; then
