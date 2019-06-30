@@ -18,6 +18,11 @@ else
   DISPLAYSERVER_LIBVA="--disable-x11"
 fi
 
+if [ "$DISTRO" = "Lakka" ]; then
+  PKG_DEPENDS_TARGET="toolchain libva libdrm libX11"
+  DISPLAYSERVER_LIBVA="--enable-x11"
+fi
+
 PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
                            --enable-drm \
                            $DISPLAYSERVER_LIBVA \
