@@ -19,10 +19,10 @@
 ################################################################################
 
 PKG_NAME="play"
-PKG_VERSION="d4e4a58"
+PKG_VERSION="2df73b8"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_SITE="https://github.com/lakka-switch/Play-Build"
+PKG_SITE="https://github.com/libretro/Play-"
 PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain curl"
 PKG_PRIORITY="optional"
@@ -33,21 +33,15 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 PKG_USE_CMAKE="yes"
 
-PKG_CMAKE_SCRIPT="$PKG_BUILD/Play/CMakeLists.txt"
+PKG_CMAKE_SCRIPT="$PKG_BUILD/CMakeLists.txt"
 
 PKG_CMAKE_OPTS_TARGET="-DBUILD_LIBRETRO_CORE=ON -DBUILD_PLAY=OFF -DBUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_C_COMPILER=${CC}"
 
 pre_patch() {
-  cd $PKG_BUILD
-  git submodule update -q --init --recursive
-  git submodule foreach "git checkout -q master"
-  cd Dependencies
-  git submodule update --init
-
-  cd boost-cmake
+  cd $PKG_BUILD/deps/Dependencies/boost-cmake
   wget "https://github.com/jpd002/boost-cmake/releases/download/v1.68.0/boost_1_68_0.tar.xz" --no-check-certificate
-  
-  dos2unix $PKG_BUILD/Play/Source/ui_libretro/SH_LibreAudio.cpp
+
+  dos2unix $PKG_BUILD/Source/ui_libretro/SH_LibreAudio.cpp
 }
 
 pre_make_target() {
