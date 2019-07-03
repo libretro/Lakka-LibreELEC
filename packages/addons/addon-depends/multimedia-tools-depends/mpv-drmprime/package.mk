@@ -11,9 +11,23 @@ PKG_DEPENDS_TARGET="toolchain waf:host alsa ffmpeg libass libdrm"
 PKG_LONGDESC="A media player based on MPlayer and mplayer2. It supports a wide variety of video file formats, audio and video codecs, and subtitle types."
 PKG_TOOLCHAIN="manual"
 
-PKG_CONFIGURE_OPTS_TARGET="--disable-libsmbclient \
+PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
+                           --disable-libsmbclient \
                            --disable-apple-remote \
-                           --prefix=/usr \
+                           --disable-libarchive \
+                           --disable-lua \
+                           --disable-javascript \
+                           --disable-uchardet \
+                           --disable-rubberband \
+                           --disable-lcms2 \
+                           --disable-vapoursynth \
+                           --disable-jack \
+                           --disable-wayland \
+                           --disable-x11 \
+                           --disable-vulkan \
+                           --disable-caca \
+                           --disable-crossc \
+                           --disable-libv4l2 \
                            --enable-drm \
                            --enable-drmprime \
                            --enable-gbm \
