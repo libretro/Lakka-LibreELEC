@@ -103,7 +103,7 @@ pre_configure_target() {
   strip_gold
 
 # work around link issues
-  export LDFLAGS="$LDFLAGS -lreadline"
+  export LDFLAGS="$LDFLAGS -lreadline -lcurses"
 
 # support 64-bit offsets and seeks on 32-bit platforms
   if [ "$TARGET_ARCH" = "arm" ]; then
