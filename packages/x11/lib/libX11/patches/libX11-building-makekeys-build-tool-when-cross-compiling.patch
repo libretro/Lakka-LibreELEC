@@ -1,0 +1,64 @@
+From 0141737e9d649c1d48f93ee8d56379f87c1dc0ea Mon Sep 17 00:00:00 2001
+From: Jon Turney <jon.turney@dronecode.org.uk>
+Date: Tue, 30 Apr 2019 14:30:41 +0100
+Subject: [PATCH lib/libX11] Ease building makekeys build tool when
+ cross-compiling
+
+Remove makekeys dependency on X headers
+
+This is the patch from https://bugs.freedesktop.org/show_bug.cgi?id=6669
+by Pierre Ossman, reworked for master.
+
+Avoid using LIBS (which are for host, but we don't need) and rewrite
+makekeys slightly to avoid needing to include any X headers, which
+avoids potentially having -I with host paths in CFLAGS, which can cause
+standard headers e.g. stdio.h for the host to also be used, which can
+break things...
+
+---
+ src/util/Makefile.am | 5 +++--
+ src/util/makekeys.c  | 9 +++++----
+ 2 files changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/src/util/Makefile.am b/src/util/Makefile.am
+index 79962d47..37314370 100644
+--- a/src/util/Makefile.am
++++ b/src/util/Makefile.am
+@@ -2,7 +2,6 @@
+ noinst_PROGRAMS=makekeys
+
+ AM_CFLAGS = \
+-	$(X11_CFLAGS) \
+	$(CWARNFLAGS)
+
+ AM_CPPFLAGS = \
+
+diff --git a/src/util/makekeys.c b/src/util/makekeys.c
+index 5613e42f..17cfa2b2 100644
+--- a/src/util/makekeys.c
++++ b/src/util/makekeys.c
+@@ -28,17 +28,18 @@ from The Open Group.
+
+ /* Constructs hash tables for XStringToKeysym and XKeysymToString. */
+
+-#include <X11/X.h>
+-#include <X11/Xos.h>
+-#include <X11/Xresource.h>
+-#include <X11/keysymdef.h>
+ #include <stdio.h>
+ #include <stdlib.h>
++#include <string.h>
+
+ #include "../Xresinternal.h"
+
+ #define KTNUM 4000
+
++#define XK_VoidSymbol                  0xffffff  /* Void symbol */
++
++typedef unsigned long KeySym;
++
+ static struct info {
+     char	*name;
+     KeySym	val;
+--
+2.17.0
