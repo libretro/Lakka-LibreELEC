@@ -546,10 +546,10 @@ index 7d73da8676..01799f869a 100644
  #endif /* AVCODEC_HWACCELS_H */
 diff --git a/libavcodec/rpi_ctrl_ffmpeg.c b/libavcodec/rpi_ctrl_ffmpeg.c
 new file mode 100644
-index 0000000000..6d93adba03
+index 0000000000..af00de6339
 --- /dev/null
 +++ b/libavcodec/rpi_ctrl_ffmpeg.c
-@@ -0,0 +1,427 @@
+@@ -0,0 +1,433 @@
 +#include <stdio.h>
 +#include <stdint.h>
 +#include <stdlib.h>
@@ -704,7 +704,6 @@ index 0000000000..6d93adba03
 +
 +struct RPI_DEBUG {
 +    FILE *fp_reg;
-+    FILE *fp_bin;
 +    int mbox;
 +    GPU_MEM_PTR_T axi;
 +    void *read_buf;
@@ -947,14 +946,21 @@ index 0000000000..6d93adba03
 +
 +    bcm_host_init();
 +    vcsm_init();
++
++    rpi->fp_reg = stderr;
 +    rpi->apb = setup_io("/dev/argon-hevcmem", 0);
 +    rpi->interrupt = setup_io("/dev/argon-intcmem", 0);
 +    //rpi->sdram = setup_io(0xfe001000);
 +
-+    rpi->fp_bin = stderr;
-+    rpi->fp_reg = stderr;
++    if (!rpi->apb)
++      return "Failed to open apb";
++    if (!rpi->interrupt)
++      return "Failed to open interrupt";
 +
 +    rpi->mbox = mbox_open();
++    if (rpi->mbox < 0)
++      return "Failed to open mbox";
++
 +    if ((CACHED ? gpu_malloc_cached_internal:gpu_malloc_uncached_internal)(rpi->mbox, AXI_MEM_SIZE, &rpi->axi) != 0)
 +      return "out of memory";
 +
@@ -966,8 +972,8 @@ index 0000000000..6d93adba03
 +void rpi_ctrl_ffmpeg_free(void *id) {
 +    struct RPI_DEBUG *rpi = (struct RPI_DEBUG *) id;
 +    printf("%s id=%p\n", __FUNCTION__, rpi);
-+    release_io(rpi->apb);
-+    release_io(rpi->interrupt);
++    release_io((void *)rpi->apb);
++    release_io((void *)rpi->interrupt);
 +    gpu_free_internal(rpi->mbox, &rpi->axi);
 +    printf("%s freed axi mem\n", __FUNCTION__);
 +    mbox_close(rpi->mbox);
@@ -2310,10 +2316,10 @@ index 0000000000..f54657a957
 +} RPI_T;
 diff --git a/libavcodec/rpi_mailbox.c b/libavcodec/rpi_mailbox.c
 new file mode 100644
-index 0000000000..5f23e9b36c
+index 0000000000..1b3532ba02
 --- /dev/null
 +++ b/libavcodec/rpi_mailbox.c
-@@ -0,0 +1,149 @@
+@@ -0,0 +1,150 @@
 +/*
 +Copyright (c) 2012, Broadcom Europe Ltd.
 +All rights reserved.
@@ -2350,6 +2356,7 @@ index 0000000000..5f23e9b36c
 +#include <unistd.h>
 +#include <assert.h>
 +#include <stdint.h>
++#include <errno.h>
 +#include <sys/ioctl.h>
 +
 +#include <linux/ioctl.h>
@@ -2451,7 +2458,7 @@ index 0000000000..5f23e9b36c
 +   // open a char device file used for communicating with kernel mbox driver
 +   file_desc = open(DEVICE_FILE_NAME, 0);
 +   if (file_desc < 0) {
-+      printf("Can't open device file: %s\n", DEVICE_FILE_NAME);
++      printf("Can't open device file: %s (%d)\n", DEVICE_FILE_NAME, errno);
 +      printf("Try creating a device file with: sudo mknod %s c %d 0\n", DEVICE_FILE_NAME, MAJOR_NUM);
 +   }
 +   return file_desc;
