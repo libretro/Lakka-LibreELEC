@@ -1,0 +1,167 @@
+From e4a12e4cdcec5d3482302258daedf1392f4c147a Mon Sep 17 00:00:00 2001
+From: MilhouseVH <milhouseVH.github@nmacleod.com>
+Date: Wed, 26 Sep 2018 02:47:03 +0100
+Subject: [PATCH] allow using alsa and pulse together
+
+rebased on leia_pi4 branch, WinSystemGbm.cpp had a merge conflict
+because PiSink is added there, too.
+---
+ xbmc/windowing/X11/WinSystemX11GLContext.cpp | 35 ++-----------------
+ xbmc/windowing/amlogic/WinSystemAmlogic.cpp  |  2 ++
+ xbmc/windowing/gbm/WinSystemGbm.cpp          | 36 ++------------------
+ xbmc/windowing/rpi/WinSystemRpi.cpp          | 17 +++------
+ 4 files changed, 10 insertions(+), 80 deletions(-)
+
+diff --git a/xbmc/windowing/X11/WinSystemX11GLContext.cpp b/xbmc/windowing/X11/WinSystemX11GLContext.cpp
+index 5b0b155736..a3a3251a5d 100644
+--- a/xbmc/windowing/X11/WinSystemX11GLContext.cpp
++++ b/xbmc/windowing/X11/WinSystemX11GLContext.cpp
+@@ -40,39 +40,8 @@ std::unique_ptr<CWinSystemBase> CWinSystemBase::CreateWinSystem()
+ 
+ CWinSystemX11GLContext::CWinSystemX11GLContext()
+ {
+-  std::string envSink;
+-  if (getenv("KODI_AE_SINK"))
+-    envSink = getenv("KODI_AE_SINK");
+-  if (StringUtils::EqualsNoCase(envSink, "ALSA"))
+-  {
+-    OPTIONALS::ALSARegister();
+-  }
+-  else if (StringUtils::EqualsNoCase(envSink, "PULSE"))
+-  {
+-    OPTIONALS::PulseAudioRegister();
+-  }
+-  else if (StringUtils::EqualsNoCase(envSink, "OSS"))
+-  {
+-    OPTIONALS::OSSRegister();
+-  }
+-  else if (StringUtils::EqualsNoCase(envSink, "SNDIO"))
+-  {
+-    OPTIONALS::SndioRegister();
+-  }
+-  else
+-  {
+-    if (!OPTIONALS::PulseAudioRegister())
+-    {
+-      if (!OPTIONALS::ALSARegister())
+-      {
+-        if (!OPTIONALS::SndioRegister())
+-        {
+-          OPTIONALS::OSSRegister();
+-        }
+-      }
+-    }
+-  }
+-
++  OPTIONALS::ALSARegister();
++  OPTIONALS::PulseAudioRegister();
+   m_lirc.reset(OPTIONALS::LircRegister());
+ }
+ 
+diff --git a/xbmc/windowing/amlogic/WinSystemAmlogic.cpp b/xbmc/windowing/amlogic/WinSystemAmlogic.cpp
+index 0637f83fc0..b1b41b0503 100644
+--- a/xbmc/windowing/amlogic/WinSystemAmlogic.cpp
++++ b/xbmc/windowing/amlogic/WinSystemAmlogic.cpp
+@@ -20,6 +20,7 @@
+ // AESink Factory
+ #include "cores/AudioEngine/AESinkFactory.h"
+ #include "cores/AudioEngine/Sinks/AESinkALSA.h"
++#include "cores/AudioEngine/Sinks/AESinkPULSE.h"
+ #include "windowing/GraphicContext.h"
+ #include "windowing/Resolution.h"
+ #include "platform/linux/powermanagement/LinuxPowerSyscall.h"
+@@ -67,6 +68,7 @@ CWinSystemAmlogic::CWinSystemAmlogic() :
+   // Register sink
+   AE::CAESinkFactory::ClearSinks();
+   CAESinkALSA::Register();
++  CAESinkPULSE::Register();
+   CLinuxPowerSyscall::Register();
+   m_lirc.reset(OPTIONALS::LircRegister());
+   m_libinput->Start();
+diff --git a/xbmc/windowing/gbm/WinSystemGbm.cpp b/xbmc/windowing/gbm/WinSystemGbm.cpp
+index 65606911ed..dc5a61bb54 100644
+--- a/xbmc/windowing/gbm/WinSystemGbm.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbm.cpp
+@@ -34,41 +34,9 @@ CWinSystemGbm::CWinSystemGbm() :
+   m_GBM(new CGBMUtils),
+   m_libinput(new CLibInputHandler)
+ {
+-  std::string envSink;
+-
+   CAESinkPi::Register();
+-
+-  if (getenv("KODI_AE_SINK"))
+-    envSink = getenv("KODI_AE_SINK");
+-  if (StringUtils::EqualsNoCase(envSink, "ALSA"))
+-  {
+-    OPTIONALS::ALSARegister();
+-  }
+-  else if (StringUtils::EqualsNoCase(envSink, "PULSE"))
+-  {
+-    OPTIONALS::PulseAudioRegister();
+-  }
+-  else if (StringUtils::EqualsNoCase(envSink, "OSS"))
+-  {
+-    OPTIONALS::OSSRegister();
+-  }
+-  else if (StringUtils::EqualsNoCase(envSink, "SNDIO"))
+-  {
+-    OPTIONALS::SndioRegister();
+-  }
+-  else
+-  {
+-    if (!OPTIONALS::PulseAudioRegister())
+-    {
+-      if (!OPTIONALS::ALSARegister())
+-      {
+-        if (!OPTIONALS::SndioRegister())
+-        {
+-          OPTIONALS::OSSRegister();
+-        }
+-      }
+-    }
+-  }
++  OPTIONALS::ALSARegister();
++  OPTIONALS::PulseAudioRegister();
+ 
+   CLinuxPowerSyscall::Register();
+   m_lirc.reset(OPTIONALS::LircRegister());
+diff --git a/xbmc/windowing/rpi/WinSystemRpi.cpp b/xbmc/windowing/rpi/WinSystemRpi.cpp
+index bdeb68c8c0..f5bc22c3cb 100644
+--- a/xbmc/windowing/rpi/WinSystemRpi.cpp
++++ b/xbmc/windowing/rpi/WinSystemRpi.cpp
+@@ -22,7 +22,9 @@
+ #include "guilib/DispResource.h"
+ #include "utils/log.h"
+ #include "cores/AudioEngine/AESinkFactory.h"
++#include "cores/AudioEngine/Sinks/AESinkALSA.h"
+ #include "cores/AudioEngine/Sinks/AESinkPi.h"
++#include "cores/AudioEngine/Sinks/AESinkPULSE.h"
+ #include "platform/linux/powermanagement/LinuxPowerSyscall.h"
+ 
+ #include <EGL/egl.h>
+@@ -45,19 +47,8 @@ CWinSystemRpi::CWinSystemRpi() :
+   AE::CAESinkFactory::ClearSinks();
+ 
+   CAESinkPi::Register();
+-  std::string envSink;
+-  if (getenv("KODI_AE_SINK"))
+-    envSink = getenv("KODI_AE_SINK");
+-
+-  if (StringUtils::EqualsNoCase(envSink, "PULSE"))
+-  {
+-    OPTIONALS::PulseAudioRegister();
+-  }
+-  else
+-  {
+-    OPTIONALS::ALSARegister();
+-  }
+-
++  CAESinkALSA::Register();
++  CAESinkPULSE::Register();
+   CLinuxPowerSyscall::Register();
+   m_lirc.reset(OPTIONALS::LircRegister());
+   m_libinput->Start();
+-- 
+2.20.1
+
