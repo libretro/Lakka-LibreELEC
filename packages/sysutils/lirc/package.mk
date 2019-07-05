@@ -17,6 +17,7 @@ PKG_PYTHON_WANTED=Python2
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_header_alsa_asoundlib_h=no \
                            ac_cv_lib_asound_snd_async_del_handler=no \
                            --enable-devinput \
+                           --enable-uinput \
                            --with-gnu-ld \
                            --without-x \
                            --runstatedir=/run"
