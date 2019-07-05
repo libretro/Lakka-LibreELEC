@@ -30,8 +30,6 @@ PKG_CONFIGURE_OPTS_TARGET="--srcdir=.. \
                            --enable-loopback \
                            --enable-ethernet \
                            --disable-gadget \
-                           --disable-wifi \
-                           --enable-iwd \
                            --disable-bluetooth \
                            --disable-ofono \
                            --disable-dundee \
