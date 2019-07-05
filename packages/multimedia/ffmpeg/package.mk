@@ -38,6 +38,7 @@ else
 fi
 
 if [ "$PROJECT" = "Rockchip" ]; then
+  PKG_PATCH_DIRS+=" rkmpp"
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET rkmpp"
   PKG_FFMPEG_RKMPP="--enable-rkmpp --enable-libdrm --enable-version3"
 else
@@ -45,10 +46,9 @@ else
 fi
 
 if [ "$PROJECT" = "Allwinner" ]; then
+  PKG_PATCH_DIRS+=" v4l2-request-api"
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libdrm systemd" # systemd is needed for libudev
   PKG_FFMPEG_V4L2_REQUEST="--enable-v4l2-request --enable-libudev --enable-libdrm"
-else
-  PKG_FFMPEG_V4L2_REQUEST="--disable-v4l2-request --disable-libudev"
 fi
 
 if build_with_debug; then
@@ -59,6 +59,7 @@ fi
 
 if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"
+  PKG_PATCH_DIRS+=" rpi-hevc"
 fi
 
 if target_has_feature neon; then
@@ -83,8 +84,6 @@ pre_configure_target() {
   if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
     PKG_FFMPEG_LIBS="-lbcm_host -lvcos -lvchiq_arm -lmmal -lmmal_core -lmmal_util -lvcsm"
     PKG_FFMPEG_RPI="--enable-rpi"
-  else
-    PKG_FFMPEG_RPI="--disable-rpi"
   fi
 }
 
