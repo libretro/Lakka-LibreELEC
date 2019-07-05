@@ -159,10 +159,17 @@ makeinstall_target() {
   sed -i -e "s/# video_fullscreen = false/video_fullscreen = true/" $INSTALL/etc/retroarch.cfg
 
   # Audio
-  sed -i -e "s/# audio_driver =/audio_driver = \"alsathread\"/" $INSTALL/etc/retroarch.cfg
+  if [ "$DEVICE" = "RPi4" ]; then
+    sed -i -e "s/# audio_driver =/audio_driver = \"alsa\"/" $INSTALL/etc/retroarch.cfg
+  else
+    sed -i -e "s/# audio_driver =/audio_driver = \"alsathread\"/" $INSTALL/etc/retroarch.cfg
+  fi
   sed -i -e "s/# audio_filter_dir =/audio_filter_dir =\/usr\/share\/audio_filters/" $INSTALL/etc/retroarch.cfg
-  if [ "$PROJECT" == "OdroidXU3" ]; then # workaround the 55fps bug
+  if [ "$PROJECT" = "OdroidXU3" -o "$DEVICE" = "RPi4" ]; then # workaround the 55fps bug + fix no audio for RPi4
     sed -i -e "s/# audio_out_rate = 48000/audio_out_rate = 44100/" $INSTALL/etc/retroarch.cfg
+  fi
+  if [ "$DEVICE" = "RPi4" ]; then
+    sed -i -e "s/# audio_device =/audio_device = \"hw:0,1\"/" $INSTALL/etc/retroarch.cfg
   fi
 
   # Saving
