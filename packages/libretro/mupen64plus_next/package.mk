@@ -38,12 +38,12 @@ PKG_AUTORECONF="no"
 
 make_target() {
   case ${DEVICE:-$PROJECT} in
-    RPi|Gamegirl|Slice)
+    RPi|Gamegirl)
       CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads \
 	              -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
       make platform=rpi GLES=1 FORCE_GLES=1 WITH_DYNAREC=arm
       ;;
-    RPi2|Slice3)
+    RPi2)
       CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads \
                       -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
       make platform=rpi2 GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm

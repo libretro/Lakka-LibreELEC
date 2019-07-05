@@ -37,7 +37,7 @@ PKG_AUTORECONF="no"
 
 make_target() {
   case ${DEVICE:-$PROJECT} in
-    RPi|RPi2|Gamegirl|Slice|Slice3)
+    RPi|RPi2|Gamegirl)
       CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads \
                       -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
       make -C src/platform/libretro GLES=1

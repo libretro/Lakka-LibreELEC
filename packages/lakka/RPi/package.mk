@@ -27,11 +27,7 @@ PKG_SITE="https://github.com/libretro/Lakka-LibreELEC"
 PKG_URL=""
 PKG_DEPENDS_TARGET="retroarch $LIBRETRO_CORES"
 
-if [ "$DEVICE" = "RPi" -o \
-     "$DEVICE" = "RPi2" -o \
-     "$DEVICE" = "Slice" -o \
-     "$DEIVCE" = "Slice3" \
-   ] ; then
+if [ "$DEVICE" = "RPi" -o "$DEVICE" = "RPi2" ] ; then
   PKG_DEPENDS_TARGET+=" wii-u-gc-adapter wiringPi"
 fi
 

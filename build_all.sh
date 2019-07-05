@@ -16,8 +16,6 @@ targets="\
 	RPi|RPi|arm \
 	RPi|RPi2|arm \
 	RPi|RPi4|arm \
-	RPi|Slice|arm \
-	RPi|Slice3|arm \
 	"
 
 
