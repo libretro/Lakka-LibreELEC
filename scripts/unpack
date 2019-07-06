@@ -63,13 +63,15 @@ if [ -d "${SOURCES}/${PKG_NAME}" -o -d "${PKG_DIR}/sources" ] || pkg_call_exists
   rm -rf "${PKG_UNPACK_DIR}"
   mkdir -p "${PKG_UNPACK_DIR}"
 
+  # Save PKG_BUILD and point at our private unpack directory so that any
+  # modifications to the content of ${PKG_BUILD} will be "safe".
+  PKG_BUILD_ORIG="${PKG_BUILD}"
+  PKG_BUILD="${PKG_UNPACK_DIR}/${PKG_NAME}-${PKG_VERSION}"
+
   pkg_call_exists pre_unpack && pkg_call pre_unpack
 
   if pkg_call_exists unpack; then
-    PKG_BUILD_ORIG="${PKG_BUILD}"
-    PKG_BUILD="${PKG_UNPACK_DIR}/${PKG_NAME}-${PKG_VERSION}"
     pkg_call unpack
-    PKG_BUILD="${PKG_BUILD_ORIG}"
   else
     if [ -n "${PKG_URL}" ]; then
       ${SCRIPTS}/extract "${PKG_NAME}" "${PKG_UNPACK_DIR}"
@@ -88,8 +90,6 @@ if [ -d "${SOURCES}/${PKG_NAME}" -o -d "${PKG_DIR}/sources" ] || pkg_call_exists
         # fallback
         mv "${BUILD}"/${PKG_SOURCE_DIR} "${PKG_UNPACK_DIR}/.intermediate"
       fi
-    elif [ -d "${PKG_BUILD}"* ]; then
-      mv "${PKG_BUILD}"* "${PKG_UNPACK_DIR}/.intermediate"
     fi
   fi
 
@@ -99,8 +99,11 @@ if [ -d "${SOURCES}/${PKG_NAME}" -o -d "${PKG_DIR}/sources" ] || pkg_call_exists
     cp -PRf "${PKG_DIR}/sources/"* "${PKG_UNPACK_DIR}/.intermediate"
   fi
 
+  # Add a tag to the unpacked folder before transferring into the shared build folder
   echo "INFO_PKG_NAME=\"${PKG_NAME}\"" > "${PKG_UNPACK_DIR}/.intermediate/.libreelec-package"
 
+  # Restore original PKG_BUILD, and transfer the unpacked folder
+  PKG_BUILD="${PKG_BUILD_ORIG}"
   rm -fr "${PKG_BUILD}"
   mv "${PKG_UNPACK_DIR}/.intermediate" "${PKG_BUILD}"
 
