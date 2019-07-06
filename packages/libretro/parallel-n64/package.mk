@@ -45,8 +45,10 @@ make_target() {
     DYNAREC=x86
   fi
 
-  if [ "$PROJECT" == "RPi" -o "$PROJECT" == "Gamegirl" -o "$PROJECT" == "Slice" ]; then
-    make platform=rpi
+  if [ "$BOARD" == "RPi4" ]; then
+      make platform=armv-neon WITH_DYNAREC=arm HAVE_PARALLEL=1 HAVE_OPENGL=1
+  elif [ "$PROJECT" == "RPi" -o "$PROJECT" == "Gamegirl" -o "$PROJECT" == "Slice" ]; then
+      make platform=rpi
   elif [[ "$PROJECT" == "Generic_VK_nvidia" ]]; then
     LDFLAGS="$LDFLAGS -lpthread"
     make WITH_DYNAREC=$DYNAREC HAVE_PARALLEL=1 HAVE_OPENGL=0

@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="retroarch"
-PKG_VERSION="3064d0d"
+PKG_VERSION="ef5f448"
 PKG_REV="11"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
@@ -58,6 +58,8 @@ fi
 
 if [ "$VULKAN" == "nvidia-driver" ]; then
   RETROARCH_GL="--enable-vulkan --disable-x11 --disable-kms --disable-egl"
+elif [ "$BOARD" == "RPi4" ]; then
+  RETROARCH_GL="--disable-videocore --disable-opengl1 --enable-kms --disable-x11 --enable-opengles --enable-opengles3 --enable-opengl_core"
 elif [ "$OPENGLES" == "no" ]; then
   RETROARCH_GL="--enable-kms"
 elif [ "$OPENGLES" == "bcm2835-driver" ]; then
@@ -155,6 +157,10 @@ makeinstall_target() {
   sed -i -e "s/# audio_filter_dir =/audio_filter_dir =\/usr\/share\/audio_filters/" $INSTALL/etc/retroarch.cfg
   if [ "$PROJECT" == "OdroidXU3" ]; then # workaround the 55fps bug
     sed -i -e "s/# audio_out_rate = 48000/audio_out_rate = 44100/" $INSTALL/etc/retroarch.cfg
+  fi
+  if [ "$BOARD" == "RPi4" ]; then
+    sed -i -e "s/# audio_out_rate = 48000/audio_out_rate = 44100/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/# audio_device =/audio_device = \"hw:0,1\"/" $INSTALL/etc/retroarch.cfg
   fi
 
   # Saving

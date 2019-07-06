@@ -1,211 +1,129 @@
-diff -Naur linux-3.19.orig/drivers/hid/hid-core.c linux-3.19/drivers/hid/hid-core.c
---- linux-3.19.orig/drivers/hid/hid-core.c	2015-02-20 14:01:17.080322846 -0800
-+++ linux-3.19/drivers/hid/hid-core.c	2015-02-20 14:03:30.375519421 -0800
-@@ -1884,6 +1884,7 @@
- 	{ HID_USB_DEVICE(USB_VENDOR_ID_NTRIG, USB_DEVICE_ID_NTRIG_TOUCH_SCREEN_18) },
- 	{ HID_USB_DEVICE(USB_VENDOR_ID_ORTEK, USB_DEVICE_ID_ORTEK_PKB1700) },
- 	{ HID_USB_DEVICE(USB_VENDOR_ID_ORTEK, USB_DEVICE_ID_ORTEK_WKB2000) },
-+	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_OUYA, USB_DEVICE_ID_OUYA_CONTROLLER) },
- 	{ HID_USB_DEVICE(USB_VENDOR_ID_PENMOUNT, USB_DEVICE_ID_PENMOUNT_6000) },
- 	{ HID_USB_DEVICE(USB_VENDOR_ID_PETALYNX, USB_DEVICE_ID_PETALYNX_MAXTER_REMOTE) },
- 	{ HID_USB_DEVICE(USB_VENDOR_ID_PHILIPS, USB_DEVICE_ID_PHILIPS_SPINEL_PLUS_1) },
-diff -Naur linux-3.19.orig/drivers/hid/hid-ids.h linux-3.19/drivers/hid/hid-ids.h
---- linux-3.19.orig/drivers/hid/hid-ids.h	2015-02-20 14:01:17.080322846 -0800
-+++ linux-3.19/drivers/hid/hid-ids.h	2015-02-20 14:03:30.382519482 -0800
-@@ -721,6 +721,9 @@
- #define USB_DEVICE_ID_ORTEK_PKB1700	0x1700
- #define USB_DEVICE_ID_ORTEK_WKB2000	0x2000
+commit 5a596921a4636e62843a59b7eab7b87b70a6d296
+Author: Lukas Rusak <lorusak@gmail.com>
+Date:   Sun May 6 22:03:11 2018 -0700
+
+    HID: add ouya HID driver
+    
+    This driver is a simple implementation to get the controller working and mapped properly.
+    This driver does not include functionality for the touchpad (yet). The original driver
+    was taken from from the ouya linux tree and has been simplified. It seems there may have
+    been other versions of the controller present that had a broken report descriptor. I have
+    removed that for now.
+
+diff --git a/drivers/hid/Kconfig b/drivers/hid/Kconfig
+index 60252fd796f6..6be2c454e72e 100644
+--- a/drivers/hid/Kconfig
++++ b/drivers/hid/Kconfig
+@@ -659,6 +659,12 @@ config HID_ORTEK
+ 	   - Ortek WKB-2000
+ 	   - Skycable wireless presenter
  
-+#define USB_VENDOR_ID_OUYA		0x2836
-+#define USB_DEVICE_ID_OUYA_CONTROLLER	0x0001
++config HID_OUYA
++	tristate "OUYA Game Controller"
++	depends on USB_HID
++	---help---
++	  Support for OUYA Game Controller.
++
+ config HID_PANTHERLORD
+ 	tristate "Pantherlord/GreenAsia game controller"
+ 	depends on HID
+diff --git a/drivers/hid/Makefile b/drivers/hid/Makefile
+index 17a8bd97da9d..4425890934e4 100644
+--- a/drivers/hid/Makefile
++++ b/drivers/hid/Makefile
+@@ -71,6 +71,7 @@ obj-$(CONFIG_HID_MULTITOUCH)	+= hid-multitouch.o
+ obj-$(CONFIG_HID_NTI)			+= hid-nti.o
+ obj-$(CONFIG_HID_NTRIG)		+= hid-ntrig.o
+ obj-$(CONFIG_HID_ORTEK)		+= hid-ortek.o
++obj-$(CONFIG_HID_OUYA)		+= hid-ouya.o
+ obj-$(CONFIG_HID_PRODIKEYS)	+= hid-prodikeys.o
+ obj-$(CONFIG_HID_PANTHERLORD)	+= hid-pl.o
+ obj-$(CONFIG_HID_PENMOUNT)	+= hid-penmount.o
+diff --git a/drivers/hid/hid-ids.h b/drivers/hid/hid-ids.h
+index 0b5cc910f62e..0528efb825fa 100644
+--- a/drivers/hid/hid-ids.h
++++ b/drivers/hid/hid-ids.h
+@@ -859,6 +859,9 @@
+ #define USB_DEVICE_ID_ORTEK_WKB2000	0x2000
+ #define USB_DEVICE_ID_ORTEK_IHOME_IMAC_A210S	0x8003
+ 
++#define USB_VENDOR_ID_OUYA 0x2836
++#define USB_DEVICE_ID_OUYA_CONTROLLER 0x0001
 +
  #define USB_VENDOR_ID_PLANTRONICS	0x047f
  
  #define USB_VENDOR_ID_PANASONIC		0x04da
-diff -Naur linux-3.19.orig/drivers/hid/hid-ouya.c linux-3.19/drivers/hid/hid-ouya.c
---- linux-3.19.orig/drivers/hid/hid-ouya.c	1969-12-31 16:00:00.000000000 -0800
-+++ linux-3.19/drivers/hid/hid-ouya.c	2015-02-20 14:03:30.371519386 -0800
-@@ -0,0 +1,260 @@
+diff --git a/drivers/hid/hid-ouya.c b/drivers/hid/hid-ouya.c
+new file mode 100644
+index 000000000000..4344a47b40af
+--- /dev/null
++++ b/drivers/hid/hid-ouya.c
+@@ -0,0 +1,131 @@
 +/*
 + *  HID driver for OUYA Game Controller(s)
 + *
 + *  Copyright (c) 2013 OUYA
++ *  Copyright (c) 2013 Gregorios Leach <optikflux@gmail.com>
++ *  Copyright (c) 2018 Lukas Rusak <lorusak@gmail.com>
 + */
 +
 +#include <linux/device.h>
-+#include <linux/input.h>
 +#include <linux/hid.h>
++#include <linux/input.h>
 +#include <linux/module.h>
 +
 +#include "hid-ids.h"
 +
-+#define OUYA_TOUCHPAD_FIXUP     (1 << 0)
-+
-+struct ouya_sc {
-+	unsigned long quirks;
++static const unsigned int ouya_absmap[] = {
++	[0x30] = ABS_X,		/* left stick X */
++	[0x31] = ABS_Y,		/* left stick Y */
++	[0x32] = ABS_Z,		/* L2 */
++	[0x33] = ABS_RX,	/* right stick X */
++	[0x34] = ABS_RY,	/* right stick Y */
++	[0x35] = ABS_RZ,	/* R2 */
 +};
 +
-+/* Fixed report descriptor */
-+static __u8 ouya_rdesc_fixed[] = {
-+
-+	0x05, 0x01,         /*  Usage Page (Desktop),           */
-+	0x09, 0x05,         /*  Usage (Game Pad),               */
-+
-+	0xA1, 0x01,         /*  Collection (Application),       */
-+	0x85, 0x07,         /*      Report ID (7),              */
-+
-+	0xA1, 0x00,         /*      Collection (Physical),      */
-+	0x09, 0x30,         /*          Usage (X),              */
-+	0x09, 0x31,         /*          Usage (Y),              */
-+	0x15, 0x00,         /*          Logical Minimum (0),    */
-+	0x26, 0xFF, 0x00,   /*          Logical Maximum (255),  */
-+	0x35, 0x00,         /*          Physical Minimum (0),   */
-+	0x46, 0xFF, 0x00,   /*          Physical Maximum (255), */
-+	0x95, 0x02,         /*          Report Count (2),       */
-+	0x75, 0x08,         /*          Report Size (8),        */
-+	0x81, 0x02,         /*          Input (Variable),       */
-+	0xC0,               /*      End Collection,             */
-+
-+	0xA1, 0x00,         /*      Collection (Physical),      */
-+	0x09, 0x33,         /*          Usage (Rx),             */
-+	0x09, 0x34,         /*          Usage (Ry),             */
-+	0x15, 0x00,         /*          Logical Minimum (0),    */
-+	0x26, 0xFF, 0x00,   /*          Logical Maximum (255),  */
-+	0x35, 0x00,         /*          Physical Minimum (0),   */
-+	0x46, 0xFF, 0x00,   /*          Physical Maximum (255), */
-+	0x95, 0x02,         /*          Report Count (2),       */
-+	0x75, 0x08,         /*          Report Size (8),        */
-+	0x81, 0x02,         /*          Input (Variable),       */
-+	0xC0,               /*      End Collection,             */
-+
-+	0xA1, 0x00,         /*      Collection (Physical),      */
-+	0x09, 0x32,         /*          Usage (Z),              */
-+	0x15, 0x00,         /*          Logical Minimum (0),    */
-+	0x26, 0xFF, 0x00,   /*          Logical Maximum (255),  */
-+	0x35, 0x00,         /*          Physical Minimum (0),   */
-+	0x46, 0xFF, 0x00,   /*          Physical Maximum (255), */
-+	0x95, 0x01,         /*          Report Count (1),       */
-+	0x75, 0x08,         /*          Report Size (8),        */
-+	0x81, 0x02,         /*          Input (Variable),       */
-+	0xC0,               /*      End Collection,             */
-+
-+	0xA1, 0x00,         /*      Collection (Physical),      */
-+	0x09, 0x35,         /*          Usage (Rz),             */
-+	0x15, 0x00,         /*          Logical Minimum (0),    */
-+	0x26, 0xFF, 0x00,   /*          Logical Maximum (255),  */
-+	0x35, 0x00,         /*          Physical Minimum (0),   */
-+	0x46, 0xFF, 0x00,   /*          Physical Maximum (255), */
-+	0x95, 0x01,         /*          Report Count (1),       */
-+	0x75, 0x08,         /*          Report Size (8),        */
-+	0x81, 0x02,         /*          Input (Variable),       */
-+	0xC0,               /*      End Collection,             */
-+
-+	0x05, 0x09,         /*      Usage Page (Button),        */
-+	0x19, 0x01,         /*      Usage Minimum (01h),        */
-+	0x29, 0x10,         /*      Usage Maximum (10h),        */
-+	0x95, 0x10,         /*      Report Count (16),          */
-+	0x75, 0x01,         /*      Report Size (1),            */
-+	0x81, 0x02,         /*      Input (Variable),           */
-+
-+	/*   ORIGINAL REPORT DESCRIPTOR FOR TOUCHPAD INPUT  */
-+    /* 06 00 ff a1 02 09 02 15 00 26 ff 00 35 00 46 ff 00 95 03 75 08 81 02 c0 */
-+
-+	0x06, 0x00, 0xFF,   /*      Usage Page (Custom),        */
-+	0x09, 0x02,         /*      Usage (Mouse),              */
-+	0x09, 0x01,         /*      Usage (Pointer),            */
-+	0xA1, 0x00,         /*      Collection (Physical),      */
-+	0x05, 0x09,         /*          Usage Page (Button),    */
-+	0x19, 0x01,         /*          Usage Minimum (01h),    */
-+	0x29, 0x03,         /*          Usage Maximum (03h),    */
-+	0x15, 0x00,         /*          Logical Minimum (0),    */
-+	0x25, 0x01,         /*          Logical Maximum (1),    */
-+	0x95, 0x03,         /*          Report Count (3),       */
-+	0x75, 0x01,         /*          Report Size (1),        */
-+	0x81, 0x02,         /*          Input (Variable),       */
-+	0x95, 0x01,         /*          Report Count (1),       */
-+	0x75, 0x05,         /*          Report Size (5),        */
-+	0x81, 0x01,         /*          Input (Constant),       */
-+	0x05, 0x01,         /*          Usage Page (Desktop),   */
-+	0x09, 0x30,         /*          Usage (X),              */
-+	0x09, 0x31,         /*          Usage (Y),              */
-+	0x15, 0x81,         /*          Logical Minimum (-127), */
-+	0x25, 0x7f,         /*          Logical Maximum (127),  */
-+	0x95, 0x02,         /*          Report Count (2),       */
-+	0x75, 0x08,         /*          Report Size (8),        */
-+	0x81, 0x06,         /*          Input (Relative),       */
-+	0xC0,               /*      End Collection,             */
-+
-+	0x06, 0x00, 0xFF,   /*      Usage Page (Custom),        */
-+	0xA1, 0x02,         /*      Collection (Logical),       */
-+	0x75, 0x08,         /*          Report Size (8),        */
-+	0x95, 0x07,         /*          Report Count (7),       */
-+	0x46, 0xFF, 0x00,   /*          Physical Maximum (255), */
-+	0x26, 0xFF, 0x00,   /*          Logical Maximum (255),  */
-+	0x09, 0x01,         /*          Usage (Pointer),        */
-+	0x91, 0x02,         /*          Output (Variable),      */
-+	0xC0,               /*      End Collection,             */
-+
-+	0xC0,               /*  End Collection                  */
-+
-+
-+	0x06, 0x00, 0xFF,   /*  Usage Page (Custom),            */
-+	0x05, 0x0C,         /*  Usage Page (Consumer),          */
-+	0x09, 0x01,         /*  Usage (Consumer Control),       */
-+
-+	0xA1, 0x01,         /*  Collection (Application),       */
-+	0x85, 0x03,         /*      Report ID (3),              */
-+	0x05, 0x01,         /*      Usage Page (Desktop),       */
-+	0x09, 0x06,         /*      Usage (Keyboard),           */
-+	0xA1, 0x02,         /*      Collection (Logical),       */
-+	0x05, 0x06,         /*          Usage Page (Generic),   */
-+	0x09, 0x20,         /*          Usage (Battery Strgth), */
-+	0x15, 0x00,         /*          Logical Minimum (0),    */
-+	0x26, 0xFF, 0x00,   /*          Logical Maximum (255),  */
-+	0x75, 0x08,         /*          Report Size (8),        */
-+	0x95, 0x01,         /*          Report Count (1),       */
-+	0x81, 0x02,         /*          Input (Variable),       */
-+	0x06, 0xBC, 0xFF,   /*          Usage Page (Custom),    */
-+
-+	0x0A, 0xAD, 0xBD,   /*  UNKNOWN */
-+
-+	0x75, 0x08,         /*          Report Size (8),        */
-+	0x95, 0x06,         /*          Report Count (6),       */
-+	0x81, 0x02,         /*          Input (Variable),       */
-+	0xC0,               /*      End Collection,             */
-+
-+	0xC0,               /*  End Collection                  */
-+	
-+	0x00 
++static const unsigned int ouya_keymap[] = {
++	[0x1] = BTN_SOUTH,	/* O */
++	[0x2] = BTN_WEST,	/* U */
++	[0x3] = BTN_NORTH,	/* Y */
++	[0x4] = BTN_EAST,	/* A */
++	[0x5] = BTN_TL,		/* L1 */
++	[0x6] = BTN_TR,		/* R1 */
++	[0x7] = BTN_THUMBL,	/* L3 */
++	[0x8] = BTN_THUMBR,	/* R3 */
++	[0x9] = BTN_DPAD_UP,	/* Up */
++	[0xa] = BTN_DPAD_DOWN,	/* Down */
++	[0xb] = BTN_DPAD_LEFT,	/* Left */
++	[0xc] = BTN_DPAD_RIGHT, /* Right */
++	[0xd] = BTN_TL2,	/* L2 */
++	[0xe] = BTN_TR2,	/* R2 */
++	[0xf] = BTN_MODE,	/* Power */
 +};
-+
-+static __u8 *ouya_report_fixup(struct hid_device *hdev, __u8 *rdesc,
-+		unsigned int *rsize)
-+{
-+	struct ouya_sc *sc = hid_get_drvdata(hdev);
-+
-+	if (sc->quirks & OUYA_TOUCHPAD_FIXUP) {
-+		rdesc = ouya_rdesc_fixed;
-+		*rsize = sizeof(ouya_rdesc_fixed);
-+	}
-+    return rdesc;
-+}
 +
 +static int ouya_input_mapping(struct hid_device *hdev, struct hid_input *hi,
 +			       struct hid_field *field, struct hid_usage *usage,
 +			       unsigned long **bit, int *max)
 +{
-+	struct ouya_sc *sc = hid_get_drvdata(hdev);
++	if ((usage->hid & HID_USAGE_PAGE) == HID_UP_BUTTON) {
++		unsigned int key = usage->hid & HID_USAGE;
 +
-+	if (!(sc->quirks & OUYA_TOUCHPAD_FIXUP)) {
-+		return 0;
-+	}
++		if (key >= ARRAY_SIZE(ouya_keymap))
++			return -1;
 +
-+	if ((usage->hid & 0x90000) == 0x90000 &&
-+		(field->physical & 0xff000000) == 0xff000000 &&
-+		usage->collection_index == 5 &&
-+		field->report_count == 3) {
++		key = ouya_keymap[key];
++		hid_map_usage_clear(hi, usage, bit, max, EV_KEY, key);
 +
-+		hid_map_usage(hi, usage, bit, max, EV_KEY, BTN_MOUSE + (usage->hid - 0x90001));
++		return 1;
++
++	} else if ((usage->hid & HID_USAGE_PAGE) == HID_UP_GENDESK) {
++		unsigned int abs = usage->hid & HID_USAGE;
++
++		if (abs >= ARRAY_SIZE(ouya_absmap))
++			return -1;
++
++		abs = ouya_absmap[abs];
++		hid_map_usage_clear(hi, usage, bit, max, EV_ABS, abs);
 +
 +		return 1;
 +	}
@@ -216,22 +134,6 @@ diff -Naur linux-3.19.orig/drivers/hid/hid-ouya.c linux-3.19/drivers/hid/hid-ouy
 +static int ouya_probe(struct hid_device *hdev, const struct hid_device_id *id)
 +{
 +	int ret;
-+	struct ouya_sc *sc;
-+
-+	sc = kzalloc(sizeof(*sc), GFP_KERNEL);
-+	if (sc == NULL) {
-+		hid_err(hdev, "can't alloc ouya descriptor\n");
-+		return -ENOMEM;
-+	}
-+
-+	if(((hdev->version & 0xff00) == 0x0100 && (hdev->version & 0xff) >= 0x04) ||
-+		((hdev->version & 0xff00) == 0xe100 && (hdev->version & 0xff) >= 0x3a)) {
-+		hid_info(hdev, "ouya controller - new version\n");
-+		sc->quirks = OUYA_TOUCHPAD_FIXUP;	
-+	} else {
-+		sc->quirks = 0;	
-+	}
-+	hid_set_drvdata(hdev, sc);
 +
 +	ret = hid_parse(hdev);
 +	if (ret) {
@@ -239,8 +141,7 @@ diff -Naur linux-3.19.orig/drivers/hid/hid-ouya.c linux-3.19/drivers/hid/hid-ouy
 +		goto err_free;
 +	}
 +
-+	ret = hid_hw_start(hdev, HID_CONNECT_DEFAULT |
-+			HID_CONNECT_HIDDEV_FORCE);
++	ret = hid_hw_start(hdev, HID_CONNECT_DEFAULT | HID_CONNECT_HIDDEV_FORCE);
 +	if (ret) {
 +		hid_err(hdev, "hw start failed\n");
 +		goto err_free;
@@ -249,7 +150,6 @@ diff -Naur linux-3.19.orig/drivers/hid/hid-ouya.c linux-3.19/drivers/hid/hid-ouy
 +	return 0;
 +
 +err_free:
-+	kfree(sc);
 +	return ret;
 +}
 +
@@ -268,10 +168,9 @@ diff -Naur linux-3.19.orig/drivers/hid/hid-ouya.c linux-3.19/drivers/hid/hid-ouy
 +static struct hid_driver ouya_driver = {
 +	.name = "ouya",
 +	.id_table = ouya_devices,
++	.input_mapping = ouya_input_mapping,
 +	.probe = ouya_probe,
 +	.remove = ouya_remove,
-+	.input_mapping = ouya_input_mapping,	
-+	.report_fixup = ouya_report_fixup
 +};
 +
 +static int __init ouya_init(void)
@@ -286,30 +185,22 @@ diff -Naur linux-3.19.orig/drivers/hid/hid-ouya.c linux-3.19/drivers/hid/hid-ouy
 +
 +module_init(ouya_init);
 +module_exit(ouya_exit);
-diff -Naur linux-3.19.orig/drivers/hid/Kconfig linux-3.19/drivers/hid/Kconfig
---- linux-3.19.orig/drivers/hid/Kconfig	2015-02-20 14:01:17.081322855 -0800
-+++ linux-3.19/drivers/hid/Kconfig	2015-02-20 14:03:30.381519473 -0800
-@@ -528,6 +528,12 @@
- 	   - Ortek WKB-2000
- 	   - Skycable wireless presenter
- 
-+config HID_OUYA
-+	tristate "OUYA Game Controller"
-+	depends on USB_HID
-+	---help---
-+	Support for OUYA Game Controller.
 +
- config HID_PANTHERLORD
- 	tristate "Pantherlord/GreenAsia game controller"
- 	depends on HID
-diff -Naur linux-3.19.orig/drivers/hid/Makefile linux-3.19/drivers/hid/Makefile
---- linux-3.19.orig/drivers/hid/Makefile	2015-02-20 14:01:17.081322855 -0800
-+++ linux-3.19/drivers/hid/Makefile	2015-02-20 14:03:30.382519482 -0800
-@@ -70,6 +70,7 @@
- obj-$(CONFIG_HID_MULTITOUCH)	+= hid-multitouch.o
- obj-$(CONFIG_HID_NTRIG)		+= hid-ntrig.o
- obj-$(CONFIG_HID_ORTEK)		+= hid-ortek.o
-+obj-$(CONFIG_HID_OUYA)		+= hid-ouya.o
- obj-$(CONFIG_HID_PRODIKEYS)	+= hid-prodikeys.o
- obj-$(CONFIG_HID_PANTHERLORD)	+= hid-pl.o
- obj-$(CONFIG_HID_PENMOUNT)	+= hid-penmount.o
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Lukas Rusak <lorusak@gmail.com>");
++MODULE_AUTHOR("Gregorios Leach <optikflux@gmail.com>");
++MODULE_DESCRIPTION("Ouya Controller Driver");
+diff --git a/drivers/hid/hid-quirks.c b/drivers/hid/hid-quirks.c
+index 587e2681a53f..b5adc13e0df1 100644
+--- a/drivers/hid/hid-quirks.c
++++ b/drivers/hid/hid-quirks.c
+@@ -538,6 +538,9 @@ static const struct hid_device_id hid_have_special_driver[] = {
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_ORTEK, USB_DEVICE_ID_ORTEK_IHOME_IMAC_A210S) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_SKYCABLE, USB_DEVICE_ID_SKYCABLE_WIRELESS_PRESENTER) },
+ #endif
++#if IS_ENABLED(CONFIG_HID_OUYA)
++	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_OUYA, USB_DEVICE_ID_OUYA_CONTROLLER) },
++#endif
+ #if IS_ENABLED(CONFIG_HID_PANTHERLORD)
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_GAMERON, USB_DEVICE_ID_GAMERON_DUAL_PSX_ADAPTOR) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_GAMERON, USB_DEVICE_ID_GAMERON_DUAL_PCS_ADAPTOR) },

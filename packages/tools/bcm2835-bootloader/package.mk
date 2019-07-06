@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="bcm2835-bootloader"
-PKG_VERSION="3aa8060"
+PKG_VERSION="025759b8634c2f8df35203be02c19a0633f1cec1"
 PKG_ARCH="arm"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.broadcom.com"
@@ -38,12 +38,20 @@ makeinstall_target() {
   mkdir -p $INSTALL/usr/share/bootloader
     cp -PRv LICENCE* $INSTALL/usr/share/bootloader
     cp -PRv bootcode.bin $INSTALL/usr/share/bootloader
-    cp -PRv fixup_x.dat $INSTALL/usr/share/bootloader/fixup.dat
-    cp -PRv start_x.elf $INSTALL/usr/share/bootloader/start.elf
+
+    if [ "$BOARD" == "RPi4" ]; then
+      cp -PRv fixup4x.dat $INSTALL/usr/share/bootloader/fixup.dat
+      cp -PRv start4x.elf $INSTALL/usr/share/bootloader/start.elf
+    else
+      cp -PRv fixup_x.dat $INSTALL/usr/share/bootloader/fixup.dat
+      cp -PRv start_x.elf $INSTALL/usr/share/bootloader/start.elf
+    fi
 
     cp -PRv $PKG_DIR/scripts/update.sh $INSTALL/usr/share/bootloader
 
-    if [ -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/config/distroconfig.txt ]; then
+    if [ -f $PROJECT_DIR/$PROJECT/boards/$BOARD/config/distroconfig.txt ]; then
+      cp -PRv $PROJECT_DIR/$PROJECT/boards/$BOARD/config/distroconfig.txt $INSTALL/usr/share/bootloader
+    elif [ -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/config/distroconfig.txt ]; then
       cp -PRv $PROJECT_DIR/$PROJECT/devices/$DEVICE/config/distroconfig.txt $INSTALL/usr/share/bootloader
     elif [ -f $PROJECT_DIR/$PROJECT/config/distroconfig.txt ]; then
       cp -PRv $PROJECT_DIR/$PROJECT/config/distroconfig.txt $INSTALL/usr/share/bootloader
