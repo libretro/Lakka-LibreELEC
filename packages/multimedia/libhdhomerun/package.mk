@@ -3,11 +3,11 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libhdhomerun"
-PKG_VERSION="20180817"
-PKG_SHA256="437888b27206f526827ee7a4c57c1c167a36483b0445232e07fb7bb7ee854b42"
+PKG_VERSION="b0e5d5f5c8e2bf37dea34beb014e08ebb598ebf6" #20190625
+PKG_SHA256="ac39e03090c148678e1a8d4f928a728caccd2d29a0555287e7e5ece28c876959"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.silicondust.com"
-PKG_URL="http://download.silicondust.com/hdhomerun/${PKG_NAME}_${PKG_VERSION}.tgz"
+PKG_URL="https://github.com/Silicondust/libhdhomerun/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="The library provides functionality to setup the HDHomeRun."
 
