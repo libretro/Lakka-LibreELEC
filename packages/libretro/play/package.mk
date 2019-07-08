@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="play"
-PKG_VERSION="0043c9a"
+PKG_VERSION="95ce2c3"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_SITE="https://github.com/libretro/Play-"
@@ -35,7 +35,7 @@ PKG_USE_CMAKE="yes"
 
 PKG_CMAKE_SCRIPT="$PKG_BUILD/CMakeLists.txt"
 
-PKG_CMAKE_OPTS_TARGET="-DBUILD_LIBRETRO_CORE=ON -DBUILD_PLAY=OFF -DBUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_C_COMPILER=${CC}"
+PKG_CMAKE_OPTS_TARGET="-DBUILD_LIBRETRO_CORE=ON -DBUILD_PLAY=OFF -DBUILD_TESTS=OFF -DUSE_GLES=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_C_COMPILER=${CC}"
 
 pre_patch() {
   cd $PKG_BUILD/deps/Dependencies/boost-cmake
