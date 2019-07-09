@@ -36,10 +36,18 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  if [ "$ARCH" == "arm" ]; then
-    make platform=rpi FORCE_GLES=1 HAVE_OPENMP=0
+  if [ "$OPENGL_SUPPORT" != no ]; then
+    if [ "$ARCH" = "arm" ]; then
+      make HAVE_OPENMP=0
+    else
+      make AS=${AS} CC_AS=${AS} ARCH=${ARCH} HAVE_OPENMP=0
+    fi
   else
-    make AS=${AS} CC_AS=${AS} ARCH=${ARCH} HAVE_OPENMP=0
+    if [ "$ARCH" == "arm" ]; then
+      make platform=rpi FORCE_GLES=1 HAVE_OPENMP=0
+    else
+      make AS=${AS} CC_AS=${AS} ARCH=${ARCH} HAVE_OPENMP=0
+    fi
   fi
 }
 

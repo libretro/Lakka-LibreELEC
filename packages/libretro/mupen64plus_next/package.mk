@@ -72,6 +72,9 @@ make_target() {
     S905|S912)
       make platform=amlogic GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
       ;;
+    RPi4)
+      make WITH_DYNAREC=arm HAVE_NEON=1
+      ;;
     *)
       make platform=unix-gles GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
       ;;

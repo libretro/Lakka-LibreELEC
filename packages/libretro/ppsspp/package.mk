@@ -50,7 +50,9 @@ make_target() {
     CFLAGS+=" -D__GBM__"
     CXXFLAGS+=" -D__GBM__"
   fi
-  if [ "$ARCH" == "arm" ]; then
+  if [ "$DEVICE" = "RPi4" ]; then
+    SYSROOT_PREFIX=$SYSROOT_PREFIX AS=${CXX} make platform=armv-neon
+  elif [ "$ARCH" == "arm" ]; then
     SYSROOT_PREFIX=$SYSROOT_PREFIX AS=${CXX} make platform=armv-neon-gles
   elif [ "$ARCH" == "aarch64" ]; then
     if [ "$OPENGL" == "no" ]; then 

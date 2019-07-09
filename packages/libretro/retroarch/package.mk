@@ -56,14 +56,18 @@ if [ "$AVAHI_DAEMON" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET avahi nss-mdns"
 fi
 
+RETROARCH_GL=""
+
 if [ "$VULKAN" == "nvidia-driver" ]; then
   RETROARCH_GL="--enable-vulkan --disable-x11 --disable-kms --disable-egl"
 elif [ "$OPENGLES" == "no" ]; then
-  RETROARCH_GL="--enable-kms"
+  if [ "$ARCH" == "arm" ]; then
+    RETROARCH_GL="--enable-egl --enable-opengl_core --enable-kms --disable-x11 --disable-videocore --enable-plain_drm"
+  else
+    RETROARCH_GL="--enable-kms"
+  fi
 elif [ "$OPENGLES" == "bcm2835-driver" ]; then
   RETROARCH_GL="--enable-opengles --disable-kms --disable-x11"
-elif [ "$OPENGLES" == "mesa" ];then
-  RETROARCH_GL="--enable-egl --enable-kms --disable-x11 --disable-videocore --enable-plain_drm"
 elif [ "$OPENGLES" == "odroidc1-mali" ] || [ "$OPENGLES" == "opengl-meson" ] || [ "$OPENGLES" == "opengl-meson8" ] || [ "$OPENGLES" == "opengl-meson-t82x" ]; then
   RETROARCH_GL="--enable-opengles --disable-kms --disable-x11 --enable-mali_fbdev"
 elif [ "$OPENGLES" == "gpu-viv-bin-mx6q" ] || [ "$OPENGLES" == "imx-gpu-viv" ]; then
@@ -75,6 +79,8 @@ elif [ "$OPENGLES" == "allwinner-fb-mali" ]; then
 elif [ "$OPENGLES" == "allwinner-mali" ] || [ "$OPENGLES" == "odroidxu3-mali" ]; then
    RETROARCH_GL="--enable-opengles --enable-kms --disable-x11"
 fi
+
+RETROARCH_NEON=""
 
 if [[ "$TARGET_FPU" =~ "neon" ]]; then
   RETROARCH_NEON="--enable-neon"
