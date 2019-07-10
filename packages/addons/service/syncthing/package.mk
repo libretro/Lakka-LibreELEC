@@ -2,13 +2,13 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="syncthing"
-PKG_VERSION="1.0.0"
-PKG_SHA256="737161bc87c1f414c142d95e04102de2bbdc8b0bfff908a114898305956a16c1"
-PKG_REV="107"
+PKG_VERSION="1.2.0"
+PKG_SHA256="0339877effdcf3bf8aa7d4d1e50b878992792e4752ff778f27788bf71eccecd0"
+PKG_REV="108"
 PKG_ARCH="any"
 PKG_LICENSE="MPLv2"
 PKG_SITE="https://syncthing.net/"
-PKG_URL="https://github.com/syncthing/syncthing/archive/v${PKG_VERSION}.tar.gz"
+PKG_URL="https://github.com/syncthing/syncthing/releases/download/v${PKG_VERSION}/syncthing-source-v${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain go:host"
 PKG_SECTION="service/system"
 PKG_SHORTDESC="Syncthing: open source continuous file synchronization"
