@@ -35,6 +35,14 @@ PKG_BUILD_FLAGS="-lto"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+if [ "$OPENGL_SUPPORT" = yes ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGL"
+fi
+
+if [ "$OPENGLES_SUPPORT" = yes ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGLES"
+fi
+
 make_target() {
   if [ "$OPENGL_SUPPORT" != no ]; then
     if [ "$ARCH" = "arm" ]; then

@@ -36,6 +36,14 @@ PKG_TOOLCHAIN="make"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+if [ "$OPENGL_SUPPORT" = yes ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGL"
+fi
+
+if [ "$OPENGLES_SUPPORT" = yes ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGLES"
+fi
+
 make_target() {
   cd $PKG_BUILD/libretro
   if [ "$OPENGLES" == "gpu-viv-bin-mx6q" -o "$OPENGLES" == "imx-gpu-viv" ]; then

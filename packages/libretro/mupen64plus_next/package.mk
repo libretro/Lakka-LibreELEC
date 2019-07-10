@@ -36,6 +36,14 @@ PKG_BUILD_FLAGS="-lto"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+if [ "$OPENGL_SUPPORT" = yes ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGL"
+fi
+
+if [ "$OPENGLES_SUPPORT" = yes ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGLES"
+fi
+
 make_target() {
   case ${DEVICE:-$PROJECT} in
     RPi|Gamegirl)

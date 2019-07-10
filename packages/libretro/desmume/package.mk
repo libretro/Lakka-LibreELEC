@@ -35,20 +35,28 @@ PKG_TOOLCHAIN="manual"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-if [ "$OPENGL" == "no" -o "$OPENGL" == "" ]; then
-  OGL=0
-else
-  OGL=1
+if [ "$OPENGL_SUPPORT" = yes ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGL"
+fi
+
+if [ "$OPENGLES_SUPPORT" = yes ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGLES"
 fi
 
 post_patch() {
   # enable OGL back if present
-  if [ "$OPENGL" != "no" -a "$OPENGL" != "" ]; then
+  if [ "$OPENGL_SUPPORT" = yes ]; then
     patch --reverse -d `echo "$PKG_BUILD" | cut -f1 -d\ ` -p1 < $PKG_DIR/patches/desmume-002-disable-ogl.patch
   fi
 }
 
 make_target() {
+  if [ "$OPENGL_SUPPORT" = yes ]; then
+    OGL=1
+  else
+    OGL=0
+  fi
+
   if [ "$ARCH" == "arm" ]; then
     make -C desmume/src/frontend/libretro platform=armv LDFLAGS="$LDFLAGS -lpthread" HAVE_GL=$OGL DESMUME_OPENGL=$OGL DESMUME_OPENGL_CORE=$OGL # DESMUME_JIT_ARM=1
   elif [ "$ARCH" == "aarch64" ]; then

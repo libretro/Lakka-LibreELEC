@@ -34,6 +34,14 @@ PKG_LONGDESC="A simple Minecraft clone written in C using modern OpenGL (shaders
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+if [ "$OPENGL_SUPPORT" = yes ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGL"
+fi
+
+if [ "$OPENGLES_SUPPORT" = yes ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGLES"
+fi
+
 pre_configure_target() {
   cd $PKG_BUILD
 }

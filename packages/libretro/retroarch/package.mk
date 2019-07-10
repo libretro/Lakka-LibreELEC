@@ -35,32 +35,36 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 if [ "$PROJECT" == "Generic_VK_nvidia" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET slang-shaders"
+  PKG_DEPENDS_TARGET+=" slang-shaders"
 else
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET glsl-shaders"
+  PKG_DEPENDS_TARGET+=" glsl-shaders"
 fi
 
 if [ "$OPENGLES_SUPPORT" = yes ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $OPENGLES"
-elif [ "$OPENGL_SUPPORT" == yes ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $OPENGL"
-elif [ "$VULKAN_SUPPORT" == yes ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $VULKAN vulkan-loader"
+  PKG_DEPENDS_TARGET+=" $OPENGLES"
+fi
+
+if [ "$OPENGL_SUPPORT" = yes ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGL"
+fi
+
+if [ "$VULKAN_SUPPORT" = yes ]; then
+  PKG_DEPENDS_TARGET+=" $VULKAN vulkan-loader"
 fi
 
 if [ "$SAMBA_SUPPORT" = yes ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET samba"
+  PKG_DEPENDS_TARGET+=" samba"
 fi
 
 if [ "$AVAHI_DAEMON" = yes ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET avahi nss-mdns"
+  PKG_DEPENDS_TARGET+=" avahi nss-mdns"
 fi
 
 RETROARCH_GL=""
 
 if [ "$VULKAN" == "nvidia-driver" ]; then
   RETROARCH_GL="--enable-vulkan --disable-x11 --disable-kms --disable-egl"
-elif [ "$OPENGLES" == "no" ]; then
+elif [ "$OPENGLES_SUPPORT" = no ]; then
   if [ "$ARCH" == "arm" ]; then
     RETROARCH_GL="--enable-egl --enable-opengl_core --enable-kms --disable-x11 --disable-videocore --enable-plain_drm"
   else

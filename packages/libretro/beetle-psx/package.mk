@@ -34,12 +34,20 @@ PKG_LONGDESC="Standalone port of Mednafen PSX to libretro."
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+if [ "$OPENGL_SUPPORT" = yes ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGL"
+fi
+
+if [ "$VULKAN_SUPPORT" = yes ]; then
+  PKG_DEPENDS_TARGET+=" $VULKAN vulkan-loader"
+fi
+
 make_target() {
-  if [ "$OPENGL" != "no" ] && [ "$VULKAN" != "no" ]; then
+  if [ "$OPENGL_SUPPORT" = yes ] && [ "$VULKAN_SUPPORT" = yes ]; then
     make HAVE_HW=1
-  elif [ "$OPENGL" != "no" ]; then
+  elif [ "$OPENGL_SUPPORT" = yes ]; then
     make HAVE_OPENGL=1
-  elif [ "$VULKAN" != "no" ]; then
+  elif [ "$VULKAN_SUPPORT" = yes ]; then
     make HAVE_VULKAN=1
   else
     make
