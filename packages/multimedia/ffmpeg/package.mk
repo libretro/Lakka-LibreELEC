@@ -16,6 +16,10 @@ PKG_BUILD_FLAGS="-gold"
 # Dependencies
 get_graphicdrivers
 
+if [ "$DISTRO" = "Lakka" ]; then
+  VAAPI_SUPPORT=no
+fi
+
 if [ "$V4L2_SUPPORT" = "yes" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libdrm"
   PKG_FFMPEG_V4L2="--enable-v4l2_m2m --enable-libdrm"

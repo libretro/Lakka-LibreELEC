@@ -13,6 +13,10 @@ PKG_LONGDESC="debug is a Metapackage for installing debugging tools"
 # configure GPU drivers and dependencies:
   get_graphicdrivers
 
+if [ "$DISTRO" = "Lakka" ]; then
+  VAAPI_SUPPORT=no
+fi
+
 if [ "$VDPAU_SUPPORT" = "yes" -a "$DISPLAYSERVER" = "x11" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET vdpauinfo"
 fi
