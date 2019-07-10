@@ -40,8 +40,6 @@ PKG_CMAKE_OPTS_TARGET="-DBUILD_LIBRETRO_CORE=ON -DBUILD_PLAY=OFF -DBUILD_TESTS=O
 pre_patch() {
   cd $PKG_BUILD/deps/Dependencies/boost-cmake
   wget "https://github.com/jpd002/boost-cmake/releases/download/v1.68.0/boost_1_68_0.tar.xz" --no-check-certificate
-
-  dos2unix $PKG_BUILD/Source/ui_libretro/SH_LibreAudio.cpp
 }
 
 pre_make_target() {
