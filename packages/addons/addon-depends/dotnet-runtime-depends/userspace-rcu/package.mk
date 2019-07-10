@@ -2,8 +2,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="userspace-rcu"
-PKG_VERSION="0.10.1"
-PKG_SHA256="4ddbca9927b459b7a295dec612cf43df5886d398161d50c59d0097995e368a3b"
+PKG_VERSION="0.11.1"
+PKG_SHA256="a0ed8995edfbeac5f5eb2f152a8f3654040ecfc99a746bfe3da3bccf435b7d5d"
 PKG_LICENSE="LGPLv2.1"
 PKG_SITE="http://liburcu.org"
 PKG_URL="https://github.com/urcu/userspace-rcu/archive/v$PKG_VERSION.tar.gz"
