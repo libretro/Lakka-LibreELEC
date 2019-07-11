@@ -118,6 +118,15 @@ bump_pkg_rev() {
   msg_info "BUMPED ${pkg_name} PKG_REV from ${pkg_rev} to ${new_pkg_rev}"
 }
 
+reset_pkg_rev() {
+  local package_mk="$1/package.mk" pkg_name="$2"
+  local pkg_rev=$(get_pkg_var "${pkg_name}" PKG_REV)
+  local new_pkg_rev="1"
+
+  sed -e "s|PKG_REV=.*|PKG_REV=\"${new_pkg_rev}\"|" -i "${package_mk}"
+  msg_info "RESET ${pkg_name} PKG_REV from ${pkg_rev} to ${new_pkg_rev}"
+}
+
 update_pkg() {
   local pkg_path="$1" pkg_name="$2" pkg_version="$3"
 
@@ -131,9 +140,9 @@ update_pkg() {
     download_pkg_file "${pkg_name}"
     set_pkg_sha256 "${pkg_path}"
 
-    if [ "${BUMP_PKG_REV}" = "yes" ]; then
-      bump_pkg_rev "${pkg_path}" "${pkg_name}"
-    fi
+    return 0
+  else
+    return 1
   fi
 }
 
@@ -141,11 +150,13 @@ update_to_latest_tag() {
   local pkg_path="$1" pkg_name="$2" repo="$3" branch="$4" ref="$5"
   local gitdir=${pkg_name}.git
   local resolved_version
+  local no_tag=""
 
   git_clone "${repo}" "${branch}" "${gitdir}" "${ref}"
 
   resolved_version=$(resolve_tag "${gitdir}" "${ref}")
   if [ -z "${resolved_version}" ]; then
+    no_tag="yes"
     echo "========================================================================"
     msg_warn "WARNING: no tag found for package ${pkg_name}, falling back to HEAD"
     echo "========================================================================"
@@ -154,7 +165,16 @@ update_to_latest_tag() {
 
   echo "Resolved version for ${pkg_name}: ${ref} => ${resolved_version}"
 
-  update_pkg "${pkg_path}" "${pkg_name}" "${resolved_version}"
+  if update_pkg "${pkg_path}" "${pkg_name}" "${resolved_version}"; then
+    if [ -n "${no_tag}" ]; then
+      # always bump PKG_REV on updates as we have no info if version changed
+      bump_pkg_rev "${pkg_path}" "${pkg_name}"
+    else
+      reset_pkg_rev "${pkg_path}" "${pkg_name}"
+    fi
+  else
+    [ "${BUMP_PKG_REV}" = "yes" ] && bump_pkg_rev "${pkg_path}" "${pkg_name}"
+  fi
 
   if [ "${KEEP_GIT_DIRS}" != "yes" ]; then
     rm -rf "${gitdir}"

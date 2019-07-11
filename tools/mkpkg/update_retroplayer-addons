@@ -116,12 +116,15 @@ for addontxt in "game-binary-addons https://github.com/kodi-game/repo-binary-add
       RETRO_PATH=""
     fi
 
-    BUMPED=""
+    BUMPED_ADDON=""
+    BUMPED_RETRO=""
+    NO_TAG=""
     CHECK_RETRO=""
 
     git_clone "${GAME_GIT_REPO}" "${GAME_GIT_BRANCH}" "${GAME_GIT_DIR}" "${GAME_GIT_BRANCH}"
     GAME_NEW_VERSION=$(resolve_tag "${GAME_GIT_DIR}" "${GAME_GIT_BRANCH}")
     if [ -z "${GAME_NEW_VERSION}" ]; then
+      NO_TAG="yes"
       echo "========================================================================"
       msg_warn "WARNING: no tag found for addon ${GAME_ADDON}, falling back to HEAD"
       echo "========================================================================"
@@ -135,9 +138,7 @@ for addontxt in "game-binary-addons https://github.com/kodi-game/repo-binary-add
     GAME_VERSION=$(get_pkg_var "${GAME_ADDON}" PKG_VERSION)
 
     if [ "${GAME_VERSION}" != "${GAME_NEW_VERSION}" ]; then
-      if [ "${BUMP_PKG_REV}" = "yes" ]; then
-        BUMPED="yes"
-      fi
+      BUMPED_ADDON="yes"
       [ -n "${RETRO_NAME}" ] && CHECK_RETRO="yes"
       set_pkg_version "${GAME_PATH}" "${GAME_NEW_VERSION}"
       download_pkg_file "${GAME_ADDON}"
@@ -181,7 +182,7 @@ for addontxt in "game-binary-addons https://github.com/kodi-game/repo-binary-add
       fi
 
       if [ "${RETRO_VERSION}" != "${RETRO_NEW_HASH}" ]; then
-        BUMPED="yes"
+        BUMPED_RETRO="yes"
         set_pkg_version "${RETRO_PATH}" "${RETRO_NEW_HASH}"
         download_pkg_file "${RETRO_ADDON}"
         set_pkg_sha256 "${RETRO_PATH}"
@@ -189,10 +190,24 @@ for addontxt in "game-binary-addons https://github.com/kodi-game/repo-binary-add
       fi
     fi
 
-    if [ -n "${BUMPED}" ]; then
-      bump_pkg_rev "${GAME_PATH}" "${GAME_ADDON}"
-      cleanup_pkg_tmp
+    if [ -n "${NO_TAG}" ]; then
+      # always bump PKG_REV on updates as we have no info if version changed
+      if [ -n "${BUMPED_ADDON}" -o -n "${BUMPED_RETRO}" -o -n "${BUMP_PKG_REV}" ]; then
+        bump_pkg_rev "${GAME_PATH}" "${GAME_ADDON}"
+      fi
+    else
+      if [ -n "${BUMPED_ADDON}" ]; then
+        # reset PKG_REV if version changed
+        reset_pkg_rev "${GAME_PATH}" "${GAME_ADDON}"
+      else
+        # if addon version is unchanged but libretro changed bump PKG_REV
+        if [ -n "${BUMPED_RETRO}" -o -n "${BUMP_PKG_REV}" ]; then
+          bump_pkg_rev "${GAME_PATH}" "${GAME_ADDON}"
+        fi
+      fi
     fi
+
+    cleanup_pkg_tmp
   done
 done
 
