@@ -17,6 +17,8 @@ PARENT_PKG="${2:-${PKG_NAME}}"
 
 pkg_lock "${PKG_NAME}" "unpack" "${PARENT_PKG}"
 
+${SCRIPTS}/get "${PKG_NAME}"
+
 if [ -n "${PKG_DEPENDS_UNPACK}" ]; then
   for p in ${PKG_DEPENDS_UNPACK}; do
     ${SCRIPTS}/unpack "${p}" "${PARENT_PKG}"
@@ -53,9 +55,7 @@ fi
 
 pkg_lock_status "ACTIVE" "${PKG_NAME}" "unpack"
 
-${SCRIPTS}/get "${PKG_NAME}"
-
-if [ -d "${SOURCES}/${PKG_NAME}" -o -d "${PKG_DIR}/sources" ]; then
+if [ -d "${SOURCES}/${PKG_NAME}" -o -d "${PKG_DIR}/sources" ] || pkg_call_exists unpack; then
   build_msg "CLR_UNPACK" "UNPACK" "${PKG_NAME}" "indent"
 
   # unpack into a unique location as unpacking into a single ${BUILD} directory is not thread-safe
@@ -63,13 +63,15 @@ if [ -d "${SOURCES}/${PKG_NAME}" -o -d "${PKG_DIR}/sources" ]; then
   rm -rf "${PKG_UNPACK_DIR}"
   mkdir -p "${PKG_UNPACK_DIR}"
 
+  # Save PKG_BUILD and point at our private unpack directory so that any
+  # modifications to the content of ${PKG_BUILD} will be "safe".
+  PKG_BUILD_ORIG="${PKG_BUILD}"
+  PKG_BUILD="${PKG_UNPACK_DIR}/${PKG_NAME}-${PKG_VERSION}"
+
   pkg_call_exists pre_unpack && pkg_call pre_unpack
 
   if pkg_call_exists unpack; then
-    (
-      PKG_BUILD="${PKG_UNPACK_DIR}/${PKG_NAME}-${PKG_VERSION}"
-      pkg_call unpack
-    )
+    pkg_call unpack
   else
     if [ -n "${PKG_URL}" ]; then
       ${SCRIPTS}/extract "${PKG_NAME}" "${PKG_UNPACK_DIR}"
@@ -88,8 +90,6 @@ if [ -d "${SOURCES}/${PKG_NAME}" -o -d "${PKG_DIR}/sources" ]; then
         # fallback
         mv "${BUILD}"/${PKG_SOURCE_DIR} "${PKG_UNPACK_DIR}/.intermediate"
       fi
-    elif [ -d "${PKG_BUILD}"* ]; then
-      mv "${PKG_BUILD}"* "${PKG_UNPACK_DIR}/.intermediate"
     fi
   fi
 
@@ -99,8 +99,11 @@ if [ -d "${SOURCES}/${PKG_NAME}" -o -d "${PKG_DIR}/sources" ]; then
     cp -PRf "${PKG_DIR}/sources/"* "${PKG_UNPACK_DIR}/.intermediate"
   fi
 
+  # Add a tag to the unpacked folder before transferring into the shared build folder
   echo "INFO_PKG_NAME=\"${PKG_NAME}\"" > "${PKG_UNPACK_DIR}/.intermediate/.libreelec-package"
 
+  # Restore original PKG_BUILD, and transfer the unpacked folder
+  PKG_BUILD="${PKG_BUILD_ORIG}"
   rm -fr "${PKG_BUILD}"
   mv "${PKG_UNPACK_DIR}/.intermediate" "${PKG_BUILD}"
 
@@ -122,9 +125,14 @@ if [ -d "${SOURCES}/${PKG_NAME}" -o -d "${PKG_DIR}/sources" ]; then
     PATCH_DIRS_PRJ=""
     if [ -n "${PKG_PATCH_DIRS}" ]; then
       for patch_dir in ${PKG_PATCH_DIRS}; do
-        [ -d ${PKG_DIR}/patches/${patch_dir} ] && PATCH_DIRS_PKG+=" ${PKG_DIR}/patches/${patch_dir}/*.patch"
-        [ -d ${PROJECT_DIR}/${PROJECT}/patches/${PKG_NAME}/${patch_dir} ] && PATCH_DIRS_PRJ+=" ${PROJECT_DIR}/${PROJECT}/patches/${PKG_NAME}/${patch_dir}/*.patch"
-        [ -d ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/patches/${PKG_NAME}/${patch_dir} ] && PATCH_DIRS_PRJ+=" ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/patches/${PKG_NAME}/${patch_dir}/*.patch"
+        if [[ ${patch_dir} =~ ^/ ]]; then
+          [ -f ${patch_dir} ] && PATCH_DIRS_PKG+=" ${patch_dir}"
+          [ -d ${patch_dir} ] && PATCH_DIRS_PKG+=" ${patch_dir}/*.patch"
+        else
+          [ -d ${PKG_DIR}/patches/${patch_dir} ] && PATCH_DIRS_PKG+=" ${PKG_DIR}/patches/${patch_dir}/*.patch"
+          [ -d ${PROJECT_DIR}/${PROJECT}/patches/${PKG_NAME}/${patch_dir} ] && PATCH_DIRS_PRJ+=" ${PROJECT_DIR}/${PROJECT}/patches/${PKG_NAME}/${patch_dir}/*.patch"
+          [ -d ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/patches/${PKG_NAME}/${patch_dir} ] && PATCH_DIRS_PRJ+=" ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/patches/${PKG_NAME}/${patch_dir}/*.patch"
+        fi
       done
     fi
 
@@ -165,7 +173,7 @@ if [ -d "${SOURCES}/${PKG_NAME}" -o -d "${PKG_DIR}/sources" ]; then
         elif [[ "${thisdir}" =~ ^${PROJECT_DIR}/.* ]]; then
           PATCH_DESC="(project - $(basename "${thisdir}"))"
         else
-          PATCH_DESC="(unknown - $(basename "${thisdir}"))"
+          PATCH_DESC="(absolute - ${i})"
         fi
       fi
 
