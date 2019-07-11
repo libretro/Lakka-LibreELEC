@@ -5,7 +5,7 @@
 PKG_NAME="visualization.shadertoy"
 PKG_VERSION="1.1.10-Leia"
 PKG_SHA256="342b89a6d9ec1175023d085f540358b5ddc427bb73e172f155d61e77e87ee56e"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/visualization.shadertoy"
