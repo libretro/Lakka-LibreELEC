@@ -14,7 +14,7 @@ PKG_SHORTDESC="Add-on removed"
 PKG_LONGDESC="Add-on removed"
 PKG_TOOLCHAIN="manual"
 
-PKG_ADDON_BROKEN="Drivers are already included."
+PKG_ADDON_BROKEN="Drivers are now natively supported by the kernel."
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Steam Controller Driver"
