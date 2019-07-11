@@ -189,6 +189,7 @@ make_target() {
     rm -rf $BUILD/initramfs
     $SCRIPTS/install initramfs
   )
+  pkg_lock_status "ACTIVE" "linux:target" "build"
 
   # arm64 target does not support creating uImage.
   # Build Image first, then wrap it using u-boot's mkimage.

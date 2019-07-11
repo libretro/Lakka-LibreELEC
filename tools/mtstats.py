@@ -63,7 +63,7 @@ for event in events:
                                   "start": 0.0,
                                   "total": 0.0})
 
-    if event.status in ["ACTIVE", "MUTEX"]:
+    if event.status in ["ACTIVE", "MUTEX", "GETPKG"]:
         if slot["active"] == False:
             active += 1
             concurrent = concurrency.get(active, {"start": 0.0, "total": 0.0})
@@ -98,7 +98,7 @@ print("Total Build Time: %s\n" % secs_to_hms(elapsed, blankzero=False))
 
 print("Peak concurrency: %d out of %d slots\n" % (peak, len(slots)))
 
-print("Slot usage (time in ACTIVE state):       | Concurrency breakdown:\n")
+print("Slot usage (time in an \"active\" state):  | Concurrency breakdown:\n")
 print("#Rank  Slot  Usage        ( Pct )          # of Slots  Usage        ( Pct )")
 
 lines = []

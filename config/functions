@@ -714,7 +714,7 @@ get_pkg_variable() {
 
 # get package's build dir
 get_build_dir() {
-  local _PKG_NAME="$(get_pkg_variable "$1" PKG_NAME)" _PKG_VERSION="$(get_pkg_version "$1")"
+  local _PKG_NAME="${1%:*}" _PKG_VERSION="$(get_pkg_version "$1")"
   if [ -n "$_PKG_NAME" -a -n "$_PKG_VERSION" ]; then
     echo $BUILD/${_PKG_NAME}-${_PKG_VERSION}
   fi
@@ -1239,6 +1239,8 @@ enable_service() {
 
 
 ### MULTI-THREADED FUNCTION HELPERS ###
+# Test MTWITHLOCKS so that these functions are a no-op during non-multithreaded builds.
+
 # Prevent concurrent modifications to a package (unpack) or
 # package:target (install/build).
 #
@@ -1293,7 +1295,7 @@ pkg_lock_status() {
   (
     flock --exclusive 94
 
-    printf -v line "%s: <%05d> [%02d/%0*d] %-7s %-7s %-35s" \
+    printf -v line "%s: <%06d> [%02d/%0*d] %-7s %-7s %-35s" \
     "$(date +%Y-%m-%d\ %H:%M:%S.%N)" $$ ${this_job} ${#MTMAXJOBS} ${PARALLEL_SEQ:-0} "${status}" "${task}" "${pkg}"
     [ -n "${msg}" ] && line+=" (${msg})"
 
@@ -1334,6 +1336,7 @@ update_dashboard() {
   projdevarch="${PROJECT}/"
   [ -n "${DEVICE}" ] && projdevarch+="${DEVICE}/"
   projdevarch+="${TARGET_ARCH}"
+  [ -n "${BUILD_SUFFIX}" ] && projdevarch+=", ${BUILD_SUFFIX}"
   TZ=UTC0 printf -v elapsed "%(%H:%M:%S)T" $(($(date +%s) - MTBUILDSTART))
   printf -v preamble "%s Dashboard (%s) - %d of %d jobs completed, %s elapsed" "${DISTRONAME}" "${projdevarch}" $((num + 1)) ${MTMAXJOBS} "${elapsed}"
   printf -v preamble "%b%-105s %s" "\e[2J\e[0;0H" "${preamble//\//\\/}" "$(date "+%Y-%m-%d %H:%M:%S")"
@@ -1362,7 +1365,6 @@ update_dashboard() {
 
 # Thread concurrency helpers to avoid concurrency issues with some code,
 # eg. when Python installs directly into $TOOLCHAIN.
-# Test MTJOBID so that these functions are a no-op during non-multithreaded builds.
 acquire_exclusive_lock() {
   [ "${MTWITHLOCKS}" != "yes" ] && return 0
 
