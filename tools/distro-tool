@@ -702,7 +702,7 @@ help() {
 Usage: $(basename $0) -d|--download <path> [-t|--target <path>] [-l|--libreelec <path>]
            [-m|--mirror] [-s|--source] [-a|-all] [-p|--package <package_name> [-r|--revision <revision>]]
            [--git] [-n|--notnewer] [--check-main | --check-addons] [--check-ver | --check-rev] 
-           [--noprogress] [-T #|--threads #] [-U|--gituser] [-P|--gitpass] [--dry-run]
+           [--no-progress] [-T #|--threads #] [-U|--gituser] [-P|--gitpass] [--dry-run]
            [--path-filter path] [--verify-checksum] [-v|--verbose] [-h|--help]
 
 Options:
@@ -720,8 +720,8 @@ Options:
       --check-addons:    Check newer for add-on packages, ignore main packages
       --check-ver:       Check newer for version-based packages, ignore rev-based/github packages
       --check-rev:       Check newer for rev-based/github packages, ignore version-based packages
-      --noprogress:      Do not show progress indicator
-  -T, --threads:         Number of worker threads, default is 32
+      --no-progress:     Do not show progress indicator
+  -T, --threads:         Number of download worker threads, default is 16
   -U, --gituser:         Git username (or source from ~/.git.conf) - avoids API limits
   -P, --gitpass:         Git password (or source from ~/.git.conf) - avoids API limits
       --dry-run:         Don't actually download anything (will still git clone/pull if configured)
@@ -754,7 +754,7 @@ generate_work() {
   local workfile_o
   local tcount=0
 
-  [ ${PROGRESS} == yes ] && echo -en "Acquiring packages...\r" >&2
+  [ ${PROGRESS} = yes ] && echo -en "Acquiring packages...\r" >&2
 
   packages="$(get_packages "${package_name}" "${path_filter}")"
   pcount="$(echo "${packages}" | wc -l)"
@@ -770,7 +770,7 @@ generate_work() {
 
   rm -f ${WORKFILES_I}.* ${WORKFILES_O}.*
 
-  # Split packages across workers
+  # Distribute packages across workers
   tcount=0
   for package_name in ${packages}; do
     tcount=$((tcount + 1))
@@ -778,21 +778,17 @@ generate_work() {
     echo "$package_name" >>$(printf "%s.%02d" "${WORKFILES_I}" ${tcount})
   done
 
-  # Generate workload using multiple threads
+  # Generate workload using multiple "threads" (cores, hopefully...)
   init_progress
 
-  (
-    cd $LIBREELEC_DIR
-    source config/options ""
+  tcount=0
 
-    tcount=0
-    while [ : ]; do
-      tcount=$((tcount + 1))
-      [ ${tcount} -gt ${WORKER_MAX} ] && break
-      generate_work_worker ${pcount} ${tcount} ${revision} &
-    done
-    wait
-  )
+  while [ : ]; do
+    tcount=$((tcount + 1))
+    [ ${tcount} -gt ${WORKER_MAX} ] && break
+    generate_work_worker ${pcount} ${tcount} ${revision} &
+  done
+  wait
 
   end_progress
 
@@ -823,7 +819,6 @@ generate_work_worker() {
   local package_name var comma PKG_URL PKG_SOURCE_NAME PKG_VERSION PKG_IS_ADDON
 
   [ -f "${workfile_i}" ] || return 0
-
   (
     # Override exit function so that packages calling exit don't terminate this sub-shell
     exit() {
@@ -832,10 +827,12 @@ generate_work_worker() {
 
     cd $LIBREELEC_DIR
 
-    while read -r package_name; do
-      [ ${PROGRESS} == yes ] && progress ${pcount}
+    source config/options ""
 
-      source config/options ${package_name} &>/dev/null || true
+    while read -r package_name; do
+      [ ${PROGRESS} = yes ] && progress ${pcount}
+
+      source_package ${package_name} &>/dev/null || true
       [ -z "${PKG_DIR}" ] && continue
 
       if [ -n "${revision}" ]; then
@@ -881,24 +878,31 @@ get_package_path() {
 
 get_packages() {
   local package_name="$1" path_filter="$2"
+  local anchor="@?+?@"
 
-  export -f get_package_path
+  (
+    cd $LIBREELEC_DIR
 
-  cd $LIBREELEC_DIR
+    # Generate package caches...
+    source config/options ""
 
-  if [ -n "${path_filter}" ]; then
-    if [ -n "${package_name}" ]; then
-      basename $(dirname $(find ${path_filter} -path "*/${package_name}/*" -name package.mk 2>/dev/null) 2>/dev/null | head -1) 2>/dev/null
+    cache_data="${BUILD}/.cache_package_global ${BUILD}/.cache_package_local"
+
+    if [ -n "${path_filter}" ]; then
+      if [ -n "${package_name}" ]; then
+        grep -F "/${path_filter}/" ${cache_data} | grep -F "/${package_name}${anchor}"
+      else
+        grep -F "/${path_filter}/" ${cache_data}
+      fi
     else
-      find ${path_filter} -name package.mk -exec bash -c get_package_path "{}" \; 2>/dev/null | cut -d' ' -f1 | sort -u
+      if [ -n "${package_name}" ]; then
+        grep -F "/${package_name}${anchor}" ${cache_data}
+      else
+        cat ${cache_data}
+      fi
     fi
-  else
-    if [ -n "${package_name}" ]; then
-      basename $(dirname $(find packages projects/${PROJECT} -path "*/${package_name}/*" -name package.mk 2>/dev/null) 2>/dev/null | head -1) 2>/dev/null
-    else
-      find packages projects/${PROJECT} -name package.mk -exec bash -c get_package_path "{}" \; 2>/dev/null | cut -d' ' -f1 | sort -u
-    fi
-  fi
+  ) | sed "s#${anchor}\$##g;s#/# #g" | awk '{print $NF}' | sort -u
+
   return 0
 }
 
@@ -910,7 +914,7 @@ progress() {
   local count
   (
     flock -x 9
-    count=$(($(cat ${LOCKFILE}) + 1))
+    count=$(($(< ${LOCKFILE}) + 1))
     echo "${count}" >${LOCKFILE}
     printf "Generating workload... %3d%% (%d of %d)\r" $((count * 100 / $1)) ${count} $1 >&2
   ) 9< "${LOCKFILE}"
@@ -999,7 +1003,7 @@ while [ : ]; do
     -v|--verbose)
       VERBOSE=$((VERBOSE + 1))
       ;;
-    --noprogress)
+    --no-progress)
       PROGRESS=no
       ;;
     --path-filter)
@@ -1023,7 +1027,7 @@ done
 
 [ -n "${PACKAGE}" -a ${VERBOSE} -eq 0 ] && VERBOSE=1
 
-if [ ${DOGIT} == yes ]; then
+if [ ${DOGIT} = yes ]; then
   (
     if [ -d ${LIBREELEC_DIR}/.git ]; then
       cd ${LIBREELEC_DIR}
@@ -1043,14 +1047,14 @@ DISTRO_SOURCE="$(get_libreelec_option DISTRO_SRC)"
 DISTRO_MIRROR="$(get_libreelec_option DISTRO_MIRROR)"
 LIBREELEC_VER="$(get_libreelec_option LIBREELEC_VERSION)"
 
-if [ ${IS_MIRROR} == no ]; then
+if [ ${IS_MIRROR} = no ]; then
   TARGET_DIR="$(get_abs_path "${TARGET_DIR}/${LIBREELEC_VER}")"
 else
   TARGET_DIR="$(get_abs_path "${TARGET_DIR}/mirror")"
 fi
 check_exists TARGET_DIR || exit
 
-if [ ${IS_MIRROR} == no ]; then
+if [ ${IS_MIRROR} = no ]; then
   DOWNLOAD_DIR="$(get_abs_path "${DOWNLOAD_DIR}/${LIBREELEC_VER}")"
 else
   DOWNLOAD_DIR="$(get_abs_path "${DOWNLOAD_DIR}/mirror")"
@@ -1063,7 +1067,7 @@ if [ -n "${REVISION}" -a -z "${PACKAGE}" ]; then
 fi
 
 echo
-if [ ${IS_MIRROR} == yes ]; then
+if [ ${IS_MIRROR} = yes ]; then
   echo "Synchronising LibreELEC.tv (branch: $(get_libreelec_branch), version: ${LIBREELEC_VER}) with MIRROR server ${TARGET_DIR}"
 else
   echo "Synchronising LibreELEC.tv (branch: $(get_libreelec_branch), version: ${LIBREELEC_VER}) with SOURCE server ${TARGET_DIR}"
