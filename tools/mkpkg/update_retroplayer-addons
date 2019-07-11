@@ -3,16 +3,59 @@
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
+BUMP_PKG_REV=""
 FORCE_LIBRETRO_BUMP=""
+KEEP_GIT_DIRS="yes"
 
-if [ "$1" == "-f" ]; then
-  FORCE_LIBRETRO_BUMP="yes"
-  shift
+usage() {
+  echo "Usage: $0 [options] [<branch>]"
+  echo " -b, --bump-pkg-rev: bump PKG_REV if package was not updated"
+  echo " -d, --delete-git-dirs: delete cloned git dirs after update"
+  echo " -f, --force-libretro-bump: check for new libretro package"
+  echo "     even if kodi game package version has not changed"
+  echo " -h, --help: display help"
+}
+
+while [ $# -ne 0 ]; do
+  case "$1" in
+  -b|--bump-pkg-rev)
+    BUMP_PKG_REV="yes"
+    shift
+    ;;
+  -d|--delete-git-dirs)
+    KEEP_GIT_DIRS=""
+    shift
+    ;;
+  -f|--force-libretro-bump)
+    FORCE_LIBRETRO_BUMP="yes"
+    shift
+    ;;
+  -h|--help)
+    usage
+    exit 1
+    ;;
+  -*)
+    echo "illegal option $1"
+    usage
+    exit 1
+    ;;
+  *)
+    break
+    ;;
+  esac
+done
+
+
+if [ $# -gt 1 ]; then
+  usage
+  exit 1
 fi
-
-# the following environment variables can be set to "yes" to enable optional features:
-# KEEP_GIT_DIRS: don't delete cloned git directories after update check
-# BUMP_PKG_REV: bump PKG_REV if PKG_VERSION has changed
+if [ $# -eq 0 ]; then
+  KODI_BRANCH="retroplayer"
+  echo "using default branch ${KODI_BRANCH}"
+else
+  KODI_BRANCH="$1"
+fi
 
 # list of packages to exclude from update
 EXCLUDED_PACKAGES="game.libretro.chailove
@@ -36,7 +79,7 @@ mkdir -p "${TMPDIR}"
 . "${MY_DIR}/update_common_functions"
 
 # addons
-for addontxt in "game-binary-addons https://github.com/kodi-game/repo-binary-addons.git retroplayer" ; do
+for addontxt in "game-binary-addons https://github.com/kodi-game/repo-binary-addons.git ${KODI_BRANCH}" ; do
   ADDONS=$(echo $addontxt | awk '{print $1}')
   ADDONREPO=$(echo $addontxt | awk '{print $2}')
   GIT_HASH=$(echo $addontxt | awk '{print $3}')
