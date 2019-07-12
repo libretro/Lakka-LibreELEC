@@ -47,8 +47,10 @@ targets="\
 	S912|arm||||image \
 	Rockchip|arm|TinkerBoard|||image \
 	Rockchip|arm|RK3328||ROCK64|image \
+	Rockchip|arm|RK3328||ROC-RK3328-CC|image \
 	Rockchip|arm|MiQi|||image \
 	Rockchip|arm|RK3399||ROCKPro64|image \
+	Rockchip|arm|RK3399||ROCK960|image \
 	"
 package=$2
 declare -i failed=0
