@@ -34,7 +34,7 @@ PKG_LONGDESC="TIC-80 is a fantasy computer for making, playing and sharing tiny 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CMAKE_OPTS_TARGET="-DBUILD_SDL=OFF -DBUILD_SOKOL=OFF"
+PKG_CMAKE_OPTS_TARGET="-DBUILD_SDL=OFF -DBUILD_SOKOL=OFF -DBUILD_DEMO_CARTS=OFF"
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
