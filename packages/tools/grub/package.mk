@@ -4,7 +4,7 @@
 PKG_NAME="grub"
 PKG_VERSION="2.02"
 PKG_SHA256="4ff6999add483bf640e130bc076ca1464901b4677ee01297901b40fe55de03c4"
-PKG_ARCH="x86_64"
+PKG_ARCH="i386 x86_64"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://www.gnu.org/software/grub/index.html"
 PKG_URL="http://git.savannah.gnu.org/cgit/grub.git/snapshot/$PKG_NAME-$PKG_VERSION.tar.gz"
