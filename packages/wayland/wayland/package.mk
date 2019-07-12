@@ -7,7 +7,7 @@ PKG_SHA256="72aa11b8ac6e22f4777302c9251e8fec7655dc22f9d94ee676c6b276f95f91a4"
 PKG_LICENSE="OSS"
 PKG_SITE="https://wayland.freedesktop.org/"
 PKG_URL="https://wayland.freedesktop.org/releases/${PKG_NAME}-${PKG_VERSION}.tar.xz"
-PKG_DEPENDS_TARGET="toolchain wayland:host libxml2"
+PKG_DEPENDS_TARGET="toolchain wayland:host libffi expat libxml2"
 PKG_DEPENDS_HOST="libffi:host expat:host libxml2:host"
 PKG_LONGDESC="a display server protocol"
 
