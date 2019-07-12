@@ -19,11 +19,11 @@
 ################################################################################
 
 PKG_NAME="tic80"
-PKG_VERSION="e083ad1"
+PKG_VERSION="3c50d57"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64 arm"
 PKG_LICENSE="GPLv3"
-PKG_SITE="https://github.com/RobLoach/TIC-80"
+PKG_SITE="https://github.com/nesbox/TIC-80"
 PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
