@@ -59,7 +59,7 @@ makeinstall_target() {
   fi
 
   # brcm pcie firmware is only needed by x86_64
-  [ "$TARGET_ARCH" != "x86_64" ] && rm -fr $FW_TARGET_DIR/brcm/*-pcie.*
+  [ "$TARGET_ARCH" != "x86_64" -o "$TARGET_ARCH" != "i386" ] && rm -fr $FW_TARGET_DIR/brcm/*-pcie.*
 
   # Cleanup - which may be project or device specific
   find_file_path scripts/cleanup.sh && ${FOUND_PATH} ${FW_TARGET_DIR} || true

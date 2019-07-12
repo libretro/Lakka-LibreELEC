@@ -28,6 +28,10 @@ pre_configure_target() {
       GPGERROR_TUPLE=x86_64-unknown-linux-gnu
       GPGERROR_TARGET=linux-gnu
       ;;
+    i386)
+      GPGERROR_TUPLE=i686-unknown-linux-gnu
+      GPGERROR_TARGET=linux-gnu
+      ;;
   esac
 
   cp $PKG_BUILD/src/syscfg/lock-obj-pub.$GPGERROR_TUPLE.h $PKG_BUILD/src/syscfg/lock-obj-pub.$GPGERROR_TARGET.h

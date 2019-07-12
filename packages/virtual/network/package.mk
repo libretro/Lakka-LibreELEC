@@ -23,6 +23,6 @@ if [ "$OPENVPN_SUPPORT" = "yes" ]; then
 fi
 
 # nss needed by inputstream.adaptive, chromium etc.
-if [ "$TARGET_ARCH" = "x86_64" ] || [ "$TARGET_ARCH" = "arm" ]; then
+if [ "$TARGET_ARCH" = "x86_64" ] || [ "$TARGET_ARCH" = "i386" ] || [ "$TARGET_ARCH" = "arm" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET nss"
 fi

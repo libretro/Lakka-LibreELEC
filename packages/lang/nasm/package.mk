@@ -5,7 +5,7 @@
 PKG_NAME="nasm"
 PKG_VERSION="2.14.02"
 PKG_SHA256="e24ade3e928f7253aa8c14aa44726d1edf3f98643f87c9d72ec1df44b26be8f5"
-PKG_ARCH="x86_64"
+PKG_ARCH="i386 x86_64"
 PKG_LICENSE="BSD"
 PKG_SITE="https://www.nasm.us/"
 PKG_URL="http://www.nasm.us/pub/nasm/releasebuilds/${PKG_VERSION}/nasm-${PKG_VERSION}.tar.xz"

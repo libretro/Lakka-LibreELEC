@@ -43,8 +43,12 @@ PKG_MESON_OPTS_TARGET="-Ddri-drivers=${DRI_DRIVERS// /,} \
                        -Dselinux=false \
                        -Dosmesa=none"
 
-if [ "$DISTRO" = "Lakka" ];then
+if [ "$DISTRO" = "Lakka" ]; then
   VAAPI_SUPPORT=no
+fi
+
+if [ "$TARGET_ARCH" = "i386" ]; then
+  PKG_MESON_OPTS_TARGET="${PKG_MESON_OPTS_TARGET//-Dvulkan-drivers=auto/-Dvulkan-drivers=}"
 fi
 
 if [ "$DISPLAYSERVER" = "x11" ]; then

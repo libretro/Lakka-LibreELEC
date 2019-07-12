@@ -17,7 +17,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-test \
                            --disable-silent-rules \
                            --with-gnu-ld"
 
-if [ $TARGET_ARCH = "x86_64" ]; then
+if [ $TARGET_ARCH = "x86_64" -o $TARGET_ARCH = "i386" ]; then
   PKG_DEPENDS_TARGET+=" nasm:host"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-asm"
 fi

@@ -5,7 +5,7 @@
 PKG_NAME="v86d"
 PKG_VERSION="0.1.10"
 PKG_SHA256="634964ae18ef68c8493add2ce150e3b4502badeb0d9194b4bd81241d25e6735c"
-PKG_ARCH="x86_64"
+PKG_ARCH="i386 x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://dev.gentoo.org/~spock/projects/uvesafb/"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.bz2"

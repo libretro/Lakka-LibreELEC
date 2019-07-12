@@ -4,7 +4,7 @@
 PKG_NAME="intel_nuc_led"
 PKG_VERSION="637c07a"
 PKG_SHA256="b6c3c6f8a1a306f853f521bd0b6ab3cc876cd10ae8f6d152a72056e93e2866d4"
-PKG_ARCH="x86_64"
+PKG_ARCH="i386 x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/milesp20/intel_nuc_led/"
 PKG_URL="https://github.com/milesp20/intel_nuc_led/archive/$PKG_VERSION.tar.gz"

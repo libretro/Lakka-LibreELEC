@@ -21,7 +21,7 @@ if [ "$TARGET_ARCH" = arm ]; then
   PIXMAN_CONFIG="--disable-mmx --disable-sse2 --disable-vmx --enable-arm-simd $PIXMAN_NEON --disable-arm-iwmmxt"
 elif [ "$TARGET_ARCH" = aarch64 ]; then
   PIXMAN_CONFIG="--disable-mmx --disable-sse2 --disable-vmx --disable-arm-simd --disable-arm-neon --disable-arm-iwmmxt"
-elif [ "$TARGET_ARCH" = x86_64  ]; then
+elif [ "$TARGET_ARCH" = x86_64 -o "$TARGET_ARCH" = "i386" ]; then
   PIXMAN_CONFIG="--enable-mmx --enable-sse2 --disable-ssse3 --disable-vmx --disable-arm-simd --disable-arm-neon"
 fi
 

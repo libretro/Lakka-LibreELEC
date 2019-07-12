@@ -5,7 +5,7 @@
 PKG_NAME="pciutils"
 PKG_VERSION="3.6.2"
 PKG_SHA256="db452ec986edefd88af0d222d22f6102f8030a8633fdfe846c3ae4bde9bb93f3"
-PKG_ARCH="x86_64"
+PKG_ARCH="i386 x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://mj.ucw.cz/pciutils.shtml"
 PKG_URL="http://www.kernel.org/pub/software/utils/pciutils/$PKG_NAME-$PKG_VERSION.tar.xz"
@@ -26,7 +26,7 @@ makeinstall_target() {
   make $PKG_MAKE_OPTS DESTDIR=$SYSROOT_PREFIX install
   make $PKG_MAKE_OPTS DESTDIR=$SYSROOT_PREFIX install-lib
   make $PKG_MAKE_OPTS DESTDIR=$INSTALL install-lib
-  if [ "$TARGET_ARCH" = x86_64 ]; then
+  if [ "$TARGET_ARCH" = x86_64 -o "$TARGET_ARCH" = i386 ]; then
     make $PKG_MAKE_OPTS DESTDIR=$INSTALL install
   fi
 }

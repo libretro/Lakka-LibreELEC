@@ -62,6 +62,9 @@ pre_configure_target() {
       OPENSSL_TARGET=linux-x86_64
       PLATFORM_FLAGS=enable-ec_nistp_64_gcc_128
       ;;
+    i386)
+      OPENSSL_TARGET=linux-generic32
+      ;;
     arm)
       OPENSSL_TARGET=linux-armv4
       ;;
