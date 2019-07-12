@@ -4,7 +4,7 @@
 PKG_NAME="game.libretro.beetle-vb"
 PKG_VERSION="0.9.36.3-Leia"
 PKG_SHA256="48136ff0251dad6a52ca985f3f2da7ee251f3a58058af0e5006a652dffde1ba7"
-PKG_REV="114"
+PKG_REV="115"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.beetle-vb"

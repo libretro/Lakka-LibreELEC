@@ -5,7 +5,7 @@
 PKG_NAME="pvr.pctv"
 PKG_VERSION="2.4.5-Leia"
 PKG_SHA256="a9f1c5596786cf4cfa279d0b4477839ef7f5bb7267c65152dbcf7ae0bda56679"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-pvr/pvr.pctv"

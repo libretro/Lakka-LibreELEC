@@ -4,7 +4,7 @@
 PKG_NAME="game.libretro.tgbdual"
 PKG_VERSION="0.8.3.3-Leia"
 PKG_SHA256="f5c8e0c85b7518316cad44ec9552cc1e86394494b239b6106bb91580d3dc7ad1"
-PKG_REV="112"
+PKG_REV="113"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.tgbdual"

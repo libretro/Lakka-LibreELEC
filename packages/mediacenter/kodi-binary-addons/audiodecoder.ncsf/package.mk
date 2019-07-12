@@ -5,7 +5,7 @@
 PKG_NAME="audiodecoder.ncsf"
 PKG_VERSION="2.0.0-Leia"
 PKG_SHA256="25330d7425b69b0c684ec92b5351d445ceac05fc17cb38af6b25f2bc17a1ffb9"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.ncsf"

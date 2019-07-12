@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-2048"
-PKG_VERSION="bc05dc6e504e78fd4eaf7bf91f5b3f84a93c2962"
-PKG_SHA256="39d283fdf59ffc22e66a06918b8e2afa27cd2912317fb0754431516b0e34277e"
+PKG_VERSION="b8d222ace1bf1962423111e395e01d4674776270"
+PKG_SHA256="7591faae469c571c1ec36bffddabccd0efc7304e31936c8d56b487a6a4947fd1"
 PKG_LICENSE="Public domain"
 PKG_SITE="https://github.com/libretro/libretro-2048"
 PKG_URL="https://github.com/libretro/libretro-2048/archive/$PKG_VERSION.tar.gz"

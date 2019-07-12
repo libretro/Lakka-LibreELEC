@@ -5,7 +5,7 @@
 PKG_NAME="audiodecoder.nosefart"
 PKG_VERSION="2.0.0-Leia"
 PKG_SHA256="264eb3f7f9eadb9a216a324fc3acde5b92c08f40b803e2029890152872543ad1"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.nosefart"

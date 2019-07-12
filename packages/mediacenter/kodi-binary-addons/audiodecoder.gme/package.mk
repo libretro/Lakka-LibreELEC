@@ -5,7 +5,7 @@
 PKG_NAME="audiodecoder.gme"
 PKG_VERSION="2.0.0-Leia"
 PKG_SHA256="cc6da8989d54b32c4ed575b2c980cc6339264b019c74f462f7cfb7817d4ca95a"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.gme"
