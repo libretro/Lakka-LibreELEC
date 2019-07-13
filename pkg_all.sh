@@ -32,6 +32,7 @@ targets="\
 	Allwinner|H6|arm \
 	Amlogic|AMLGX|arm \
 	Generic||x86_64 \
+	Generic||i386 \
 	Rockchip|MiQi|arm \
 	Rockchip|RK3328|arm \
 	Rockchip|RK3399|arm \
