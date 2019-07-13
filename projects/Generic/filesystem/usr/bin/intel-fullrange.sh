@@ -1,7 +1,7 @@
 #!/bin/sh
 FB_TYPE="$(grep '^0 ' /proc/fb | sed 's/[^[:space:]] //')"
 
-if [ "$FB_TYPE" == "inteldrmfb" ]; then
+if [ "$FB_TYPE" == "inteldrmfb" ] || echo "$FB_TYPE" | grep -q "^i9[0-9]*drmfb$"; then
   OUTPUT=`/usr/bin/xrandr -display :0 -q | sed '/ connected/!d;s/ .*//;q'`
   for out in $OUTPUT ; do
     # Hack - something is not yet fully right
