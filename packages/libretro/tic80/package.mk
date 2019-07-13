@@ -18,26 +18,25 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="libretro-database"
-PKG_VERSION="e23ab29"
+PKG_NAME="tic80"
+PKG_VERSION="3c50d57"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/libretro/libretro-database"
+PKG_LICENSE="GPLv3"
+PKG_SITE="https://github.com/nesbox/TIC-80"
 PKG_URL="$PKG_SITE.git"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="Repository containing cheatcode files, content data files, etc."
-PKG_LONGDESC="Repository containing cheatcode files, content data files, etc."
+PKG_SHORTDESC="TIC-80 is a fantasy computer for making, playing and sharing tiny games."
+PKG_LONGDESC="TIC-80 is a fantasy computer for making, playing and sharing tiny games."
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-configure_target() {
-  cd $PKG_BUILD
-}
+PKG_CMAKE_OPTS_TARGET="-DBUILD_SDL=OFF -DBUILD_SOKOL=OFF -DBUILD_DEMO_CARTS=OFF"
 
 makeinstall_target() {
-  make install INSTALLDIR="$INSTALL/usr/share/libretro-database"
+  mkdir -p $INSTALL/usr/lib/libretro
+  cp lib/tic80_libretro.so $INSTALL/usr/lib/libretro/
 }
