@@ -17,6 +17,12 @@ case $KODI_VENDOR in
     PKG_URL="https://github.com/popcornmix/xbmc/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="kodi-$KODI_VENDOR-$PKG_VERSION.tar.gz"
     ;;
+  raspberrypi4)
+    PKG_VERSION="932b08f071fd6cf8d95d01fe0c9e186821a38983" # 18.3-Leia
+    PKG_SHA256="4f678f48baedca0b6bfacec451424d38a8b8b04c47490899c656305de72f8a15"
+    PKG_URL="https://github.com/popcornmix/xbmc/archive/$PKG_VERSION.tar.gz"
+    PKG_SOURCE_NAME="kodi-$KODI_VENDOR-$PKG_VERSION.tar.gz"
+    ;;
   rockchip)
     PKG_VERSION="rockchip_18.3-Leia-v2"
     PKG_SHA256="dfce13129aa8381a4e06cd6c0f597c6212f4230184723edf802d06ea20d5509b"
@@ -297,6 +303,7 @@ post_makeinstall_target() {
     sed -e "s|@OS_VERSION@|$OS_VERSION|g" -i $INSTALL/usr/share/kodi/addons/os.libreelec.tv/addon.xml
     cp -R $PKG_DIR/config/repository.libreelec.tv $INSTALL/usr/share/kodi/addons
     sed -e "s|@ADDON_URL@|$ADDON_URL|g" -i $INSTALL/usr/share/kodi/addons/repository.libreelec.tv/addon.xml
+    sed -e "s|@ADDON_VERSION@|$ADDON_VERSION|g" -i $INSTALL/usr/share/kodi/addons/repository.libreelec.tv/addon.xml
     cp -R $PKG_DIR/config/repository.kodi.game $INSTALL/usr/share/kodi/addons
 
   mkdir -p $INSTALL/usr/share/kodi/config

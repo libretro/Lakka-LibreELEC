@@ -1,17 +1,17 @@
 diff --git a/configure b/configure
-index 2c9359273c..36258ed184 100755
+index 172611bb4a..fa204fca71 100755
 --- a/configure
 +++ b/configure
-@@ -1788,6 +1788,8 @@ HWACCEL_LIBRARY_LIST="
+@@ -1782,6 +1782,8 @@ HWACCEL_LIBRARY_LIST="
+     mmal
      omx
      opencl
-     v4l2_request
 +    rpi4_8
 +    rpi4_10
  "
  
  DOCUMENT_LIST="
-@@ -1849,6 +1851,7 @@ SUBSYSTEM_LIST="
+@@ -1843,6 +1845,7 @@ SUBSYSTEM_LIST="
      pixelutils
      network
      rdft
@@ -19,7 +19,7 @@ index 2c9359273c..36258ed184 100755
  "
  
  # COMPONENT_LIST needs to come last to ensure correct dependency checking
-@@ -2318,6 +2321,7 @@ CONFIG_EXTRA="
+@@ -2312,6 +2315,7 @@ CONFIG_EXTRA="
      rangecoder
      riffdec
      riffenc
@@ -421,7 +421,7 @@ index d7a7eb0662..4ee87e742b 100644
      { 0 },
  };
 diff --git a/libavcodec/Makefile b/libavcodec/Makefile
-index 8b3eab6fb6..84f7e1a1e4 100644
+index 4b8ad121db..40ec4691ef 100644
 --- a/libavcodec/Makefile
 +++ b/libavcodec/Makefile
 @@ -6,6 +6,10 @@ HEADERS = ac3_parser.h                                                  \
@@ -446,7 +446,7 @@ index 8b3eab6fb6..84f7e1a1e4 100644
         vorbis_parser.o                                                  \
         xiph.o                                                           \
  
-@@ -361,6 +369,7 @@ OBJS-$(CONFIG_HAP_ENCODER)             += hapenc.o hap.o
+@@ -360,6 +368,7 @@ OBJS-$(CONFIG_HAP_ENCODER)             += hapenc.o hap.o
  OBJS-$(CONFIG_HEVC_DECODER)            += hevcdec.o hevc_mvs.o \
                                            hevc_cabac.o hevc_refs.o hevcpred.o    \
                                            hevcdsp.o hevc_filter.o hevc_data.o
@@ -455,10 +455,10 @@ index 8b3eab6fb6..84f7e1a1e4 100644
  OBJS-$(CONFIG_HEVC_CUVID_DECODER)      += cuviddec.o
  OBJS-$(CONFIG_HEVC_MEDIACODEC_DECODER) += mediacodecdec.o
 diff --git a/libavcodec/avcodec.h b/libavcodec/avcodec.h
-index 4c4581c895..f519b1d8c4 100644
+index fb0c6fae70..798d0903eb 100644
 --- a/libavcodec/avcodec.h
 +++ b/libavcodec/avcodec.h
-@@ -3212,7 +3212,13 @@ typedef struct AVCodecContext {
+@@ -3208,7 +3208,13 @@ typedef struct AVCodecContext {
  #endif
  
      /**
@@ -474,11 +474,11 @@ index 4c4581c895..f519b1d8c4 100644
       * discarded by the caller from the end of the stream to get the original
       * audio without any trailing padding.
 diff --git a/libavcodec/hevcdec.c b/libavcodec/hevcdec.c
-index df33433150..a692e685c4 100644
+index c8877626d2..da769116ec 100644
 --- a/libavcodec/hevcdec.c
 +++ b/libavcodec/hevcdec.c
-@@ -365,12 +365,17 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
-                      CONFIG_HEVC_V4L2REQUEST_HWACCEL + \
+@@ -364,12 +364,17 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
+                      CONFIG_HEVC_NVDEC_HWACCEL + \
                       CONFIG_HEVC_VAAPI_HWACCEL + \
                       CONFIG_HEVC_VIDEOTOOLBOX_HWACCEL + \
 +                     CONFIG_HEVC_RPI4_8_HWACCEL + \
@@ -495,7 +495,7 @@ index df33433150..a692e685c4 100644
  #if CONFIG_HEVC_DXVA2_HWACCEL
          *fmt++ = AV_PIX_FMT_DXVA2_VLD;
  #endif
-@@ -395,6 +400,9 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
+@@ -391,6 +396,9 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
  #endif
          break;
      case AV_PIX_FMT_YUV420P10:
@@ -505,27 +505,27 @@ index df33433150..a692e685c4 100644
  #if CONFIG_HEVC_DXVA2_HWACCEL
          *fmt++ = AV_PIX_FMT_DXVA2_VLD;
  #endif
-@@ -3564,6 +3572,12 @@ AVCodec ff_hevc_decoder = {
+@@ -3556,6 +3564,12 @@ AVCodec ff_hevc_decoder = {
+ #endif
  #if CONFIG_HEVC_VIDEOTOOLBOX_HWACCEL
                                 HWACCEL_VIDEOTOOLBOX(hevc),
- #endif
++#endif
 +#if CONFIG_HEVC_RPI4_8_HWACCEL
 +                               HWACCEL_RPI4_8(hevc),
 +#endif
 +#if CONFIG_HEVC_RPI4_10_HWACCEL
 +                               HWACCEL_RPI4_10(hevc),
-+#endif
- #if CONFIG_HEVC_V4L2REQUEST_HWACCEL
-                                HWACCEL_V4L2REQUEST(hevc),
  #endif
+                                NULL
+                            },
 diff --git a/libavcodec/hwaccel.h b/libavcodec/hwaccel.h
-index 2eefc91e7e..0e482f2265 100644
+index 3aaa92571c..c6bc36b3e3 100644
 --- a/libavcodec/hwaccel.h
 +++ b/libavcodec/hwaccel.h
-@@ -82,5 +82,9 @@ typedef struct AVCodecHWConfigInternal {
+@@ -80,5 +80,9 @@ typedef struct AVCodecHWConfigInternal {
+     HW_CONFIG_HWACCEL(0, 0, 1, D3D11VA_VLD,  NONE,         ff_ ## codec ## _d3d11va_hwaccel)
+ #define HWACCEL_XVMC(codec) \
      HW_CONFIG_HWACCEL(0, 0, 1, XVMC,         NONE,         ff_ ## codec ## _xvmc_hwaccel)
- #define HWACCEL_V4L2REQUEST(codec) \
-     HW_CONFIG_HWACCEL(1, 0, 0, DRM_PRIME,    DRM,          ff_ ## codec ## _v4l2request_hwaccel)
 +#define HWACCEL_RPI4_8(codec) \
 +    HW_CONFIG_HWACCEL(0, 0, 1, RPI4_8,       NONE,         ff_ ## codec ## _rpi4_8_hwaccel)
 +#define HWACCEL_RPI4_10(codec) \
@@ -533,10 +533,10 @@ index 2eefc91e7e..0e482f2265 100644
  
  #endif /* AVCODEC_HWACCEL_H */
 diff --git a/libavcodec/hwaccels.h b/libavcodec/hwaccels.h
-index d183675abe..31a4a94e28 100644
+index 7d73da8676..01799f869a 100644
 --- a/libavcodec/hwaccels.h
 +++ b/libavcodec/hwaccels.h
-@@ -77,5 +77,7 @@ extern const AVHWAccel ff_wmv3_dxva2_hwaccel;
+@@ -74,5 +74,7 @@ extern const AVHWAccel ff_wmv3_dxva2_hwaccel;
  extern const AVHWAccel ff_wmv3_nvdec_hwaccel;
  extern const AVHWAccel ff_wmv3_vaapi_hwaccel;
  extern const AVHWAccel ff_wmv3_vdpau_hwaccel;
@@ -546,10 +546,10 @@ index d183675abe..31a4a94e28 100644
  #endif /* AVCODEC_HWACCELS_H */
 diff --git a/libavcodec/rpi_ctrl_ffmpeg.c b/libavcodec/rpi_ctrl_ffmpeg.c
 new file mode 100644
-index 0000000000..6d93adba03
+index 0000000000..af00de6339
 --- /dev/null
 +++ b/libavcodec/rpi_ctrl_ffmpeg.c
-@@ -0,0 +1,427 @@
+@@ -0,0 +1,433 @@
 +#include <stdio.h>
 +#include <stdint.h>
 +#include <stdlib.h>
@@ -704,7 +704,6 @@ index 0000000000..6d93adba03
 +
 +struct RPI_DEBUG {
 +    FILE *fp_reg;
-+    FILE *fp_bin;
 +    int mbox;
 +    GPU_MEM_PTR_T axi;
 +    void *read_buf;
@@ -947,14 +946,21 @@ index 0000000000..6d93adba03
 +
 +    bcm_host_init();
 +    vcsm_init();
++
++    rpi->fp_reg = stderr;
 +    rpi->apb = setup_io("/dev/argon-hevcmem", 0);
 +    rpi->interrupt = setup_io("/dev/argon-intcmem", 0);
 +    //rpi->sdram = setup_io(0xfe001000);
 +
-+    rpi->fp_bin = stderr;
-+    rpi->fp_reg = stderr;
++    if (!rpi->apb)
++      return "Failed to open apb";
++    if (!rpi->interrupt)
++      return "Failed to open interrupt";
 +
 +    rpi->mbox = mbox_open();
++    if (rpi->mbox < 0)
++      return "Failed to open mbox";
++
 +    if ((CACHED ? gpu_malloc_cached_internal:gpu_malloc_uncached_internal)(rpi->mbox, AXI_MEM_SIZE, &rpi->axi) != 0)
 +      return "out of memory";
 +
@@ -966,8 +972,8 @@ index 0000000000..6d93adba03
 +void rpi_ctrl_ffmpeg_free(void *id) {
 +    struct RPI_DEBUG *rpi = (struct RPI_DEBUG *) id;
 +    printf("%s id=%p\n", __FUNCTION__, rpi);
-+    release_io(rpi->apb);
-+    release_io(rpi->interrupt);
++    release_io((void *)rpi->apb);
++    release_io((void *)rpi->interrupt);
 +    gpu_free_internal(rpi->mbox, &rpi->axi);
 +    printf("%s freed axi mem\n", __FUNCTION__);
 +    mbox_close(rpi->mbox);
@@ -2310,10 +2316,10 @@ index 0000000000..f54657a957
 +} RPI_T;
 diff --git a/libavcodec/rpi_mailbox.c b/libavcodec/rpi_mailbox.c
 new file mode 100644
-index 0000000000..5f23e9b36c
+index 0000000000..1b3532ba02
 --- /dev/null
 +++ b/libavcodec/rpi_mailbox.c
-@@ -0,0 +1,149 @@
+@@ -0,0 +1,150 @@
 +/*
 +Copyright (c) 2012, Broadcom Europe Ltd.
 +All rights reserved.
@@ -2350,6 +2356,7 @@ index 0000000000..5f23e9b36c
 +#include <unistd.h>
 +#include <assert.h>
 +#include <stdint.h>
++#include <errno.h>
 +#include <sys/ioctl.h>
 +
 +#include <linux/ioctl.h>
@@ -2451,7 +2458,7 @@ index 0000000000..5f23e9b36c
 +   // open a char device file used for communicating with kernel mbox driver
 +   file_desc = open(DEVICE_FILE_NAME, 0);
 +   if (file_desc < 0) {
-+      printf("Can't open device file: %s\n", DEVICE_FILE_NAME);
++      printf("Can't open device file: %s (%d)\n", DEVICE_FILE_NAME, errno);
 +      printf("Try creating a device file with: sudo mknod %s c %d 0\n", DEVICE_FILE_NAME, MAJOR_NUM);
 +   }
 +   return file_desc;
@@ -3942,10 +3949,10 @@ index 0000000000..0e39b8e3b3
 +#endif
 +
 diff --git a/libavutil/buffer.c b/libavutil/buffer.c
-index 9c5d530c7a..e07f947cdc 100644
+index 8d1aa5fa84..649876db77 100644
 --- a/libavutil/buffer.c
 +++ b/libavutil/buffer.c
-@@ -368,3 +368,9 @@ AVBufferRef *av_buffer_pool_get(AVBufferPool *pool)
+@@ -355,3 +355,9 @@ AVBufferRef *av_buffer_pool_get(AVBufferPool *pool)
  
      return ret;
  }
@@ -3956,10 +3963,10 @@ index 9c5d530c7a..e07f947cdc 100644
 +  return buf->opaque;
 +}
 diff --git a/libavutil/buffer.h b/libavutil/buffer.h
-index fab745f853..d0271e50fc 100644
+index 73b6bd0b14..d907de3f1c 100644
 --- a/libavutil/buffer.h
 +++ b/libavutil/buffer.h
-@@ -289,6 +289,9 @@ void av_buffer_pool_uninit(AVBufferPool **pool);
+@@ -284,6 +284,9 @@ void av_buffer_pool_uninit(AVBufferPool **pool);
   */
  AVBufferRef *av_buffer_pool_get(AVBufferPool *pool);
  
@@ -4024,7 +4031,7 @@ index 34a1531489..0a6ff1f482 100644
  };
  
 diff --git a/pi-util/conf_pi1.sh b/pi-util/conf_pi1.sh
-new file mode 100644
+new file mode 100755
 index 0000000000..ec25b81c31
 --- /dev/null
 +++ b/pi-util/conf_pi1.sh
@@ -4061,7 +4068,7 @@ index 0000000000..ec25b81c31
 +# gcc option for getting asm listing
 +# -Wa,-ahls
 diff --git a/pi-util/conf_pi2.sh b/pi-util/conf_pi2.sh
-new file mode 100644
+new file mode 100755
 index 0000000000..7ec0402ce8
 --- /dev/null
 +++ b/pi-util/conf_pi2.sh

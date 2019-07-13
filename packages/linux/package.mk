@@ -23,14 +23,14 @@ case "$LINUX" in
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     ;;
   raspberrypi)
-    PKG_VERSION="71d47f4c4bd7fd395b87c474498187b2f9be8751"
-    PKG_SHA256="d1ef4b20f0e0435ed1792eccee99d430b06404ba114dbe3f17e0af616a9b748d"
+    PKG_VERSION="8ea4810a9f2d0c510f6a8fd56805e82ac76904a3" # 4.19.57
+    PKG_SHA256="c5390847b342376fa6146f17a504ddca7eeb2817c8a1ada28aca2d4106693af6"
     PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     ;;
   *)
-    PKG_VERSION="5.1.9"
-    PKG_SHA256="58c9eca99c3dd2fff5b559302996c985c3f3f2aad0b99b2172a61c4df7122a79"
+    PKG_VERSION="5.1.16"
+    PKG_SHA256="8a3e55be3e788700836db6f75875b4d3b824a581d1eacfc2fcd29ed4e727ba3e"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v5.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     PKG_PATCH_DIRS="default"
     ;;
@@ -189,6 +189,7 @@ make_target() {
     rm -rf $BUILD/initramfs
     $SCRIPTS/install initramfs
   )
+  pkg_lock_status "ACTIVE" "linux:target" "build"
 
   # arm64 target does not support creating uImage.
   # Build Image first, then wrap it using u-boot's mkimage.

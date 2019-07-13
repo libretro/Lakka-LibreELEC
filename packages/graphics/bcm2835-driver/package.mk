@@ -3,8 +3,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="bcm2835-driver"
-PKG_VERSION="bcf40b5c2b94178c7564fb451098d44968e44af5"
-PKG_SHA256="52bdbc43d53689a34599c8a58815566006133dc1cab086bec62040f8dc1ea2a4"
+PKG_VERSION="025759b8634c2f8df35203be02c19a0633f1cec1"
+PKG_SHA256="12a878ea58aab1ed666de2389fd39b7725ad73c940c95616248226366f933a9f"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.broadcom.com"
 PKG_URL="${DISTRO_SRC}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
@@ -19,7 +19,7 @@ else
   PKG_FLOAT="hardfp"
 fi
 
-make_target() {
+makeinstall_target() {
   # Install vendor header files
   mkdir -p ${SYSROOT_PREFIX}/usr/include
     if [ "${OPENGLES}" = "bcm2835-driver" ]; then
@@ -57,9 +57,7 @@ make_target() {
   mkdir -p ${SYSROOT_PREFIX}/opt/vc
     ln -sf ${SYSROOT_PREFIX}/usr/lib     ${SYSROOT_PREFIX}/opt/vc/lib
     ln -sf ${SYSROOT_PREFIX}/usr/include ${SYSROOT_PREFIX}/opt/vc/include
-}
 
-makeinstall_target() {
   # Install EGL, OpenGL ES and other vendor libs
   mkdir -p ${INSTALL}/usr/lib
     if [ "${OPENGLES}" = "bcm2835-driver" ]; then

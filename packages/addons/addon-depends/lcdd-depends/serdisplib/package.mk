@@ -26,16 +26,14 @@ pre_configure_target() {
   export ac_cv_path_LIBUSB_CONFIG=$SYSROOT_PREFIX/usr/bin/libusb-config
 }
 
-post_make_target() {
+makeinstall_target() {
   # copy necessary libs and headers to build serdisplib support
   # into the driver glcd from lcdproc
   mkdir -p $SYSROOT_PREFIX/usr/include/serdisplib
   cp include/serdisplib/*.h $SYSROOT_PREFIX/usr/include/serdisplib
   mkdir -p $SYSROOT_PREFIX/usr/lib
   cp lib/libserdisp.so* $SYSROOT_PREFIX/usr/lib
-}
 
-makeinstall_target() {
   mkdir -p $INSTALL/usr/lib
   cp lib/libserdisp.so* $INSTALL/usr/lib
 }

@@ -409,21 +409,17 @@ load_splash() {
       if [ -z "$SPLASHIMAGE" ]; then
         vres="$(fbset 2>/dev/null | awk '/geometry/ { print $3 }')"
 
-        if [ -f /flash/oemsplash.png -o -f /flash/oemsplash-1080.png ]; then
-          if [ -n "$vres" -a -f /flash/oemsplash-$vres.png ]; then
-            SPLASHIMAGE="/flash/oemsplash-$vres.png"
-          elif [ -f /flash/oemsplash-1080.png ]; then
-            SPLASHIMAGE="/flash/oemsplash-1080.png"
-          else
-            SPLASHIMAGE="/flash/oemsplash.png"
+        for s in /flash/oemsplash-${vres}.png \
+                 /flash/oemsplash-1080.png \
+                 /flash/oemsplash.png \
+                 /splash/splash-${vres}.png \
+                 /splash/splash-1080.png \
+                 ; do
+          if [ -f "${s}" ]; then
+            SPLASHIMAGE="${s}"
+            break
           fi
-        else
-          if [ -n "$vres" -a -f /splash/splash-$vres.png ]; then
-            SPLASHIMAGE="/splash/splash-$vres.png"
-          else
-            SPLASHIMAGE="/splash/splash-1080.png"
-          fi
-        fi
+        done
       fi
 
       if [ -n "$SPLASHIMAGE" -a -f "$SPLASHIMAGE" ]; then
@@ -595,7 +591,8 @@ update_bootmenu() {
         progress "Updating /flash/syslinux.cfg [$crnt_default -> $SYSLINUX_DEFAULT]"
 
         mount -o remount,rw /flash
-        sed -i "s/^DEFAULT .*/DEFAULT $SYSLINUX_DEFAULT/" /flash/syslinux.cfg
+        sed -e "s/^SAY Wait for .* mode/SAY Wait for ${SYSLINUX_DEFAULT} mode/" -i /flash/syslinux.cfg
+        sed -e "s/^DEFAULT .*/DEFAULT $SYSLINUX_DEFAULT/" -i /flash/syslinux.cfg
         rm -f /flash/EFI/BOOT/syslinux.cfg
         mount -o remount,ro /flash
       fi
@@ -609,7 +606,7 @@ update_bootmenu() {
         progress "Updating /flash/EFI/BOOT/grub.cfg [$crnt_default -> \"$GRUB_DEFAULT\"]"
 
         mount -o remount,rw /flash
-        sed -i "s/^set default=.*/set default=\"$GRUB_DEFAULT\"/" /flash/EFI/BOOT/grub.cfg
+        sed -e "s/^set default=.*/set default=\"$GRUB_DEFAULT\"/" -i /flash/EFI/BOOT/grub.cfg
         rm -f /flash/grub.cfg
         mount -o remount,ro /flash
       fi

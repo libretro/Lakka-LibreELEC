@@ -2,8 +2,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="lttng-ust"
-PKG_VERSION="2.10.2"
-PKG_SHA256="015452be6f94e4468315d0478cd5a4d01d9e52672bcea122b4ff7426198d5803"
+PKG_VERSION="2.10.4"
+PKG_SHA256="9df458fbfeac5a380672751decbd9b57356075acbfe106cb8820e803a94a0d96"
 PKG_LICENSE="LGPLv2.1"
 PKG_SITE="https://lttng.org/"
 PKG_URL="https://github.com/lttng/lttng-ust/archive/v$PKG_VERSION.tar.gz"
