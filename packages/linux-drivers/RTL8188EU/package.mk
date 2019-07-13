@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="RTL8188EU"
-PKG_VERSION="9a56f32c2a46be5b81f0eedf49ad44ea8f10bfae"
-PKG_SHA256="c8f225ff85cdc49e4a043773234e42de38aac0d2c9322829dac21c2ba72fed87"
+PKG_VERSION="a0fff49c4114241a314571b57e3b32c9b0a4c656"
+PKG_SHA256="76026dc8eb17accde69f9c10a7485d637f01fd7a36f3c54aeda1e51b3abe5ada"
 PKG_LICENSE="GPL"
 # realtek: PKG_SITE="http://www.realtek.com.tw/downloads/downloadsView.aspx?Langid=1&PFid=48&Level=5&Conn=4&ProdID=274&DownTypeID=3&GetDown=false&Downloads=true"
 PKG_SITE="https://github.com/lwfinger/rtl8188eu"
