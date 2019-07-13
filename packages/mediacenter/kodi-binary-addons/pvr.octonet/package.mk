@@ -4,7 +4,7 @@
 PKG_NAME="pvr.octonet"
 PKG_VERSION="0.7.0-Leia"
 PKG_SHA256="ad78297e5934915bbcaafafbd2bfcccc187984a53ce88a2732831a82f0114140"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/DigitalDevices/pvr.octonet"

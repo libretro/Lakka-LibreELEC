@@ -5,7 +5,7 @@
 PKG_NAME="audiodecoder.vgmstream"
 PKG_VERSION="1.1.3-Leia"
 PKG_SHA256="ff2d7e506c9239068ff47db376f79bdf6506976d1690d670fc90885458987549"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.vgmstream"

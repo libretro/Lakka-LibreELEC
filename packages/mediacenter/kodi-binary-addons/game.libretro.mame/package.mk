@@ -4,7 +4,7 @@
 PKG_NAME="game.libretro.mame"
 PKG_VERSION="0.204.0.2-Leia"
 PKG_SHA256="57f92a3e4c737262bfec22e8d46243a117e80822fdd9f863b84f7cb058f5a003"
-PKG_REV="109"
+PKG_REV="110"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.mame"

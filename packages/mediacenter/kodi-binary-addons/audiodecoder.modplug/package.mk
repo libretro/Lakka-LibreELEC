@@ -5,7 +5,7 @@
 PKG_NAME="audiodecoder.modplug"
 PKG_VERSION="2.0.0-Leia"
 PKG_SHA256="eb7d07a0ec618a3184389b7af93119c261b57beb3691f9a728c2d16b5ff03f43"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.modplug"
