@@ -157,6 +157,43 @@ menuentry "Run" {
 }
 EOF
 
+  # Lakka - default = live = use medium for storage
+  if [ "$DISTRO" = "Lakka" ]; then
+    cat << EOF > "${LE_TMP}/syslinux.cfg"
+SAY Wait for live mode to start automatically in 5 seconds...
+SAY
+SAY Options
+SAY =======
+SAY live: boot ${DISTRO} using this USB memory device for storage
+SAY installer: permanently install ${DISTRO} to HDD/SSD
+SAY
+DEFAULT live
+TIMEOUT 50
+PROMPT 1
+
+LABEL live
+  KERNEL /${KERNEL_NAME}
+  APPEND boot=UUID=${UUID_SYSTEM} disk=UUID=${UUID_STORAGE} tty portable quiet
+
+LABEL installer
+  KERNEL /${KERNEL_NAME}
+  APPEND boot=UUID=${UUID_SYSTEM} installer quiet tty vga=current
+EOF
+
+    cat << EOF > "${LE_TMP}/grub.cfg"
+set timeout="25"
+set default="Live"
+menuentry "Live" {
+	search --set -f /KERNEL
+	linux /KERNEL boot=UUID=${UUID_SYSTEM} disk=UUID=${UUID_STORAGE} tty grub_portable quiet
+}
+menuentry "Installer" {
+	search --set -f /KERNEL
+	linux /KERNEL boot=UUID=${UUID_SYSTEM} installer quiet tty vga=current
+}
+EOF
+  fi
+
   mcopy "${LE_TMP}/syslinux.cfg" ::
 
   # install syslinux
