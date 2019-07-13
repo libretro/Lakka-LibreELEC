@@ -27,51 +27,30 @@ esac
 
 # existing targets in format PROJECT|ARCH|DEVICE|SYSTEM|BOARD|OUTPUT
 targets="\
-	Generic|i386||||image \
-	Generic|x86_64||||image \
-	RPi|arm||||noobs \
-	RPi2|arm||||noobs \
-	Allwinner|arm||Bananapi||image \
-	Allwinner|arm||Cubieboard2||image \
-	Allwinner|arm||Cubietruck||image \
-	Allwinner|arm||orangepi_2||image \
-	Allwinner|arm||orangepi_lite||image \
-	Allwinner|arm||orangepi_one||image \
-	Allwinner|arm||orangepi_pc||image \
-	Allwinner|arm||orangepi_plus||image \
-	Allwinner|arm||orangepi_plus2e||image \
-	Allwinner|arm||nanopi_m1_plus||image \
-	imx6|arm||cuboxi||image \
-	imx6|arm||udoo||image \
-	OdroidC1|arm||||image \
-	Odroid_C2|arm||||image \
-	OdroidXU3|arm||||image \
-	WeTek_Core|arm||||image \
-	WeTek_Hub|arm||||image \
-	WeTek_Play|arm||||image \
-	WeTek_Play_2|arm||||image \
-	Gamegirl|arm||||image \
-	S8X2|arm||S82||image \
-	S8X2|arm||M8||image \
-	S8X2|arm||T8||image \
-	S8X2|arm||MXIII-1G||image \
-	S8X2|arm||MXIII-PLUS||image \
-	S8X2|arm||X8H-PLUS||image \
-	S805|arm||MXQ||image \
-	S805|arm||HD18Q||image \
-	S805|arm||M201C||image \
-	S805|arm||M201D||image \
-	S805|arm||MK808B-Plus||image \
-	S905|arm||||image \
-	S912|arm||||image \
-	Rockchip|arm|TinkerBoard|||image \
-	Rockchip|arm|RK3328||ROCK64|image \
-	Rockchip|arm|RK3328||ROC-RK3328-CC|image \
-	Rockchip|arm|MiQi|||image \
-	Rockchip|arm|RK3399||ROCKPro64|image \
-	Rockchip|arm|RK3399||ROCK960|image \
-	Slice|arm||||image \
-	Slice3|arm||||image \
+	Generic|i386||| \
+	Generic|x86_64||| \
+	RPi|arm||| \
+	RPi2|arm||| \
+	Allwinner|arm||Bananapi| \
+	imx6|arm||cuboxi| \
+	OdroidC1|arm||| \
+	Odroid_C2|arm||| \
+	OdroidXU3|arm||| \
+	WeTek_Core|arm||| \
+	WeTek_Hub|arm||| \
+	WeTek_Play|arm||| \
+	WeTek_Play_2|arm||| \
+	Gamegirl|arm||| \
+	S8X2|arm||S82| \
+	S805|arm||MXQ| \
+	S905|arm||| \
+	S912|arm||| \
+	Rockchip|arm|TinkerBoard|| \
+	Rockchip|arm|RK3328||ROCK64 \
+	Rockchip|arm|RK3328||ROC-RK3328-CC \
+	Rockchip|arm|MiQi|| \
+	Rockchip|arm|RK3399||ROCKPro64 \
+	Rockchip|arm|RK3399||ROCK960 \
 	"
 package=$2
 declare -i failed=0
@@ -86,9 +65,8 @@ for T in $targets ; do
 	device=${build[2]}
 	system=${build[3]}
 	board=${build[4]}
-	target=${build[5]}
 	target_name=${board:-${device:-${project}}}.${arch}
-	if [ ! -d build.${distro}-${target_name}-* ] ; then
+	if [ ! -d build.${distro}-${target_name}* ] ; then
 		skipped_targets="${skipped_targets}${target_name}\n"
 	else
 		PROJECT=$project DEVICE=$device BOARD=$board ARCH=$arch $script $package
