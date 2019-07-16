@@ -3,16 +3,59 @@
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
+BUMP_PKG_REV=""
 FORCE_LIBRETRO_BUMP=""
+KEEP_GIT_DIRS="yes"
 
-if [ "$1" == "-f" ]; then
-  FORCE_LIBRETRO_BUMP="yes"
-  shift
+usage() {
+  echo "Usage: $0 [options] [<branch>]"
+  echo " -b, --bump-pkg-rev: bump PKG_REV if package was not updated"
+  echo " -d, --delete-git-dirs: delete cloned git dirs after update"
+  echo " -f, --force-libretro-bump: check for new libretro package"
+  echo "     even if kodi game package version has not changed"
+  echo " -h, --help: display help"
+}
+
+while [ $# -ne 0 ]; do
+  case "$1" in
+  -b|--bump-pkg-rev)
+    BUMP_PKG_REV="yes"
+    shift
+    ;;
+  -d|--delete-git-dirs)
+    KEEP_GIT_DIRS=""
+    shift
+    ;;
+  -f|--force-libretro-bump)
+    FORCE_LIBRETRO_BUMP="yes"
+    shift
+    ;;
+  -h|--help)
+    usage
+    exit 1
+    ;;
+  -*)
+    echo "illegal option $1"
+    usage
+    exit 1
+    ;;
+  *)
+    break
+    ;;
+  esac
+done
+
+
+if [ $# -gt 1 ]; then
+  usage
+  exit 1
 fi
-
-# the following environment variables can be set to "yes" to enable optional features:
-# KEEP_GIT_DIRS: don't delete cloned git directories after update check
-# BUMP_PKG_REV: bump PKG_REV if PKG_VERSION has changed
+if [ $# -eq 0 ]; then
+  KODI_BRANCH="retroplayer"
+  echo "using default branch ${KODI_BRANCH}"
+else
+  KODI_BRANCH="$1"
+fi
 
 # list of packages to exclude from update
 EXCLUDED_PACKAGES="game.libretro.chailove
@@ -35,122 +78,124 @@ mkdir -p "${TMPDIR}"
 
 . "${MY_DIR}/update_common_functions"
 
-# addons
-for addontxt in "game-binary-addons https://github.com/kodi-game/repo-binary-addons.git retroplayer" ; do
-  ADDONS=$(echo $addontxt | awk '{print $1}')
-  ADDONREPO=$(echo $addontxt | awk '{print $2}')
-  GIT_HASH=$(echo $addontxt | awk '{print $3}')
-  git_clone $ADDONREPO retroplayer $ADDONS.git $GIT_HASH
+ADDONS="game-binary-addons"
+ADDONS_DIR="${ADDONS}.git"
+ADDONS_REPO="https://github.com/kodi-game/repo-binary-addons.git"
+git_clone ${ADDONS_REPO} ${ADDONS_DIR} ${KODI_BRANCH}
 
-  for addon in $ADDONS.git/*.*/ ; do
-    GAME_ADDON=$(basename ${addon})
+for addon in ${ADDONS_DIR}/*.*/ ; do
+  GAME_ADDON=$(basename ${addon})
 
-    [[ "${GAME_ADDON}" =~ ^game. ]] || continue
+  [[ "${GAME_ADDON}" =~ ^game. ]] || continue
 
-    check_package_excluded "${GAME_ADDON}" "${EXCLUDED_PACKAGES}" && continue
+  check_package_excluded "${GAME_ADDON}" "${EXCLUDED_PACKAGES}" && continue
 
-    if ! grep -q all $addon/platforms.txt && ! grep -q linux $addon/platforms.txt && ! grep -q ! $addon/platforms.txt; then
-      continue
-    fi
+  if ! grep -q all $addon/platforms.txt && ! grep -q linux $addon/platforms.txt && ! grep -q ! $addon/platforms.txt; then
+    continue
+  fi
 
-    GAME_GIT_DIR="${GAME_ADDON}.git"
-    GAME_GIT_REPO=$(cat $addon/${GAME_ADDON}.txt | awk '{print $2}')
-    GAME_GIT_BRANCH=$(cat $addon/${GAME_ADDON}.txt | awk '{print $3}')
-    GAME_PATH="${ROOT}/packages/mediacenter/kodi-binary-addons/${GAME_ADDON}"
+  GAME_GIT_DIR="${GAME_ADDON}.git"
+  GAME_GIT_REPO=$(cat $addon/${GAME_ADDON}.txt | awk '{print $2}')
+  GAME_GIT_BRANCH=$(cat $addon/${GAME_ADDON}.txt | awk '{print $3}')
+  GAME_PATH="${ROOT}/packages/mediacenter/kodi-binary-addons/${GAME_ADDON}"
 
-    if [ ! -d "$GAME_PATH" ] ; then
-      msg_warn "SKIPPING ${GAME_ADDON}, not present in LE"
-      continue
-    fi
+  if [ ! -d "$GAME_PATH" ] ; then
+    msg_warn "SKIPPING ${GAME_ADDON}, not present in LE"
+    continue
+  fi
 
-    if [[ "${GAME_ADDON}" =~ ^game.libretro. ]]; then
-      RETRO_NAME="${GAME_ADDON#game.libretro.}"
-      RETRO_ADDON="libretro-${RETRO_NAME}"
-      RETRO_PATH="${ROOT}/packages/emulation/${RETRO_ADDON}"
-    else
-      RETRO_NAME=""
-      RETRO_ADDON=""
-      RETRO_PATH=""
-    fi
+  if [[ "${GAME_ADDON}" =~ ^game.libretro. ]]; then
+    RETRO_NAME="${GAME_ADDON#game.libretro.}"
+    RETRO_ADDON="libretro-${RETRO_NAME}"
+    RETRO_PATH="${ROOT}/packages/emulation/${RETRO_ADDON}"
+  else
+    RETRO_NAME=""
+    RETRO_ADDON=""
+    RETRO_PATH=""
+  fi
 
-    BUMPED=""
-    CHECK_RETRO=""
+  BUMPED_ADDON=""
+  BUMPED_RETRO=""
+  NO_TAG=""
+  CHECK_RETRO=""
 
-    git_clone "${GAME_GIT_REPO}" "${GAME_GIT_BRANCH}" "${GAME_GIT_DIR}" "${GAME_GIT_BRANCH}"
-    GAME_NEW_VERSION=$(resolve_tag "${GAME_GIT_DIR}" "${GAME_GIT_BRANCH}")
-    if [ -z "${GAME_NEW_VERSION}" ]; then
-      echo "========================================================================"
-      msg_warn "WARNING: no tag found for addon ${GAME_ADDON}, falling back to HEAD"
-      echo "========================================================================"
-      GAME_NEW_VERSION=$(resolve_hash "${GAME_GIT_DIR}" "${GAME_GIT_BRANCH}")
-    fi
+  git_clone "${GAME_GIT_REPO}" "${GAME_GIT_DIR}"
+  GAME_NEW_VERSION=$(resolve_tag_in_branch "${GAME_GIT_DIR}" "${GAME_GIT_BRANCH}")
+  if [ -z "${GAME_NEW_VERSION}" ]; then
+    NO_TAG="yes"
+    echo "========================================================================"
+    msg_warn "WARNING: no tag found for addon ${GAME_ADDON}, falling back to HEAD"
+    echo "========================================================================"
+    GAME_NEW_VERSION=$(resolve_hash_in_branch "${GAME_GIT_DIR}" "${GAME_GIT_BRANCH}")
+  fi
 
-    if [ "${KEEP_GIT_DIRS}" != "yes" ]; then
-      rm -rf "${GAME_GIT_DIR}"
-    fi
+  if [ "${KEEP_GIT_DIRS}" != "yes" ]; then
+    rm -rf "${GAME_GIT_DIR}"
+  fi
 
-    GAME_VERSION=$(get_pkg_var "${GAME_ADDON}" PKG_VERSION)
-
-    if [ "${GAME_VERSION}" != "${GAME_NEW_VERSION}" ]; then
-      if [ "${BUMP_PKG_REV}" = "yes" ]; then
-        BUMPED="yes"
-      fi
-      [ -n "${RETRO_NAME}" ] && CHECK_RETRO="yes"
-      set_pkg_version "${GAME_PATH}" "${GAME_NEW_VERSION}"
-      download_pkg_file "${GAME_ADDON}"
-      set_pkg_sha256 "${GAME_PATH}"
-      msg_info "UPDATED ${GAME_ADDON} from ${GAME_VERSION} to ${GAME_NEW_VERSION}"
-    fi
-
-    if [ -n "${FORCE_LIBRETRO_BUMP}" -a -n "${RETRO_NAME}" -a -z "${CHECK_RETRO}" ]; then
+  if update_pkg "${GAME_PATH}" "${GAME_ADDON}" "${GAME_NEW_VERSION}"; then
+    BUMPED_ADDON="yes"
+    [ -n "${RETRO_NAME}" ] && CHECK_RETRO="yes"
+  else
+    if [ -n "${FORCE_LIBRETRO_BUMP}" -a -n "${RETRO_NAME}" ]; then
       download_pkg_file "${GAME_ADDON}"
       CHECK_RETRO="yes"
     fi
+  fi
 
-    if [ -n "${CHECK_RETRO}" ]; then
-      if [ ! -d "${RETRO_PATH}" ]; then
-        msg_error "ERROR: ${RETRO_PATH} doesn't exist"
-        cleanup_pkg_tmp
-        exit 1
-      fi
-
-      RETRO_VERSION=$(get_pkg_var "${RETRO_ADDON}" PKG_VERSION)
-      extract_pkg_file
-
-      RETRO_VERSION_FILE="${TMP_PKG_DIR}/depends/common/${RETRO_NAME}/${RETRO_NAME}.txt"
-
-      if [ ! -f "${RETRO_VERSION_FILE}" ]; then
-        msg_error "ERROR: ${RETRO_VERSION_FILE} does not exist"
-        cleanup_pkg_tmp
-        exit 1
-      fi
-
-      VERSION_INFO=$(grep "^${RETRO_NAME}" "${RETRO_VERSION_FILE}" | head -1)
-      if [[ "$VERSION_INFO" =~ .zip$ ]] ; then
-        # version referenced by githash
-        RETRO_NEW_HASH=$(sed -e 's|^.*/archive/||' -e 's|\.zip$||' "${RETRO_VERSION_FILE}")
-      else
-        msg_warn "unmanaged version in kodi package: ${VERSION_INFO}"
-        # unmanaged version, repo plus branch
-        RETRO_SITE=$(echo "${VERSION_INFO}" | awk '{print $2}')
-        RETRO_BRANCH=$(echo "${VERSION_INFO}" | awk '{print $3}')
-        RETRO_NEW_HASH=$(git ls-remote "${RETRO_SITE}" "${RETRO_BRANCH}" | awk '{print $1}')
-      fi
-
-      if [ "${RETRO_VERSION}" != "${RETRO_NEW_HASH}" ]; then
-        BUMPED="yes"
-        set_pkg_version "${RETRO_PATH}" "${RETRO_NEW_HASH}"
-        download_pkg_file "${RETRO_ADDON}"
-        set_pkg_sha256 "${RETRO_PATH}"
-        msg_info "UPDATED ${RETRO_ADDON} from ${RETRO_VERSION} to ${RETRO_NEW_HASH}"
-      fi
-    fi
-
-    if [ -n "${BUMPED}" ]; then
-      bump_pkg_rev "${GAME_PATH}" "${GAME_ADDON}"
+  if [ -n "${CHECK_RETRO}" ]; then
+    if [ ! -d "${RETRO_PATH}" ]; then
+      msg_error "ERROR: ${RETRO_PATH} doesn't exist"
       cleanup_pkg_tmp
+      exit 1
     fi
-  done
+
+    RETRO_VERSION=$(get_pkg_var "${RETRO_ADDON}" PKG_VERSION)
+    extract_pkg_file
+
+    RETRO_VERSION_FILE="${TMP_PKG_DIR}/depends/common/${RETRO_NAME}/${RETRO_NAME}.txt"
+
+    if [ ! -f "${RETRO_VERSION_FILE}" ]; then
+      msg_error "ERROR: ${RETRO_VERSION_FILE} does not exist"
+      cleanup_pkg_tmp
+      exit 1
+    fi
+
+    VERSION_INFO=$(grep "^${RETRO_NAME}" "${RETRO_VERSION_FILE}" | head -1)
+    if [[ "$VERSION_INFO" =~ .zip$ ]] ; then
+      # version referenced by githash
+      RETRO_NEW_VERSION=$(sed -e 's|^.*/archive/||' -e 's|\.zip$||' "${RETRO_VERSION_FILE}")
+    else
+      msg_warn "unmanaged version in kodi package: ${VERSION_INFO}"
+      # unmanaged version, repo plus branch
+      RETRO_SITE=$(echo "${VERSION_INFO}" | awk '{print $2}')
+      RETRO_BRANCH=$(echo "${VERSION_INFO}" | awk '{print $3}')
+      RETRO_NEW_VERSION=$(git ls-remote "${RETRO_SITE}" "${RETRO_BRANCH}" | awk '{print $1}')
+    fi
+
+    if update_pkg "${RETRO_PATH}" "${RETRO_ADDON}" "${RETRO_NEW_VERSION}"; then
+      BUMPED_RETRO="yes"
+    fi
+  fi
+
+  if [ -n "${NO_TAG}" ]; then
+    # always bump PKG_REV on updates as we have no info if version changed
+    if [ -n "${BUMPED_ADDON}" -o -n "${BUMPED_RETRO}" -o -n "${BUMP_PKG_REV}" ]; then
+      bump_pkg_rev "${GAME_PATH}" "${GAME_ADDON}"
+    fi
+  else
+    if [ -n "${BUMPED_ADDON}" ]; then
+      # reset PKG_REV if version changed
+      reset_pkg_rev "${GAME_PATH}" "${GAME_ADDON}"
+    else
+      # if addon version is unchanged but libretro changed bump PKG_REV
+      if [ -n "${BUMPED_RETRO}" -o -n "${BUMP_PKG_REV}" ]; then
+        bump_pkg_rev "${GAME_PATH}" "${GAME_ADDON}"
+      fi
+    fi
+  fi
+
+  cleanup_pkg_tmp
 done
 
 rm -rf "${TMPDIR}"
