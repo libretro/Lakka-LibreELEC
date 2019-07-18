@@ -11,8 +11,8 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Decode EDID data in human-readable format"
 
 make_target() {
-  echo "$CC $CFLAGS -Wall $LDFLAGS -lm -o edid-decode edid-decode.c"
-  $CC $CFLAGS -Wall $LDFLAGS -lm -o edid-decode edid-decode.c
+  echo "$CC $CFLAGS -Wall $LDFLAGS -o edid-decode edid-decode.c -lm"
+  $CC $CFLAGS -Wall $LDFLAGS -o edid-decode edid-decode.c -lm
 }
 
 makeinstall_target() {
