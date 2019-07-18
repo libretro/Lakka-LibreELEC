@@ -17,6 +17,7 @@ targets="\
 	RPi|RPi|arm \
 	RPi|RPi2|arm \
 	RPi|RPi4|arm \
+	Qualcomm|Dragonboard|arm \
 	"
 
 
