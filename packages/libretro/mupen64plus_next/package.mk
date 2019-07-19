@@ -56,6 +56,9 @@ make_target() {
                       -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
       make platform=rpi2 GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
       ;;
+    RPi4)
+      make platform=unix WITH_DYNAREC=arm HAVE_NEON=1 GLES3=1 FORCE_GLES3=1
+      ;;
     imx6)
       CFLAGS="$CFLAGS -DLINUX -DEGL_API_FB"
       CPPFLAGS="$CPPFLAGS -DLINUX -DEGL_API_FB"
@@ -79,9 +82,6 @@ make_target() {
       ;;
     S905|S912)
       make platform=amlogic GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
-      ;;
-    RPi4)
-      make WITH_DYNAREC=arm HAVE_NEON=1
       ;;
     *)
       make platform=unix-gles GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
