@@ -20,9 +20,14 @@ targets="\
 	Qualcomm|Dragonboard|arm \
 	"
 
-
 failed_targets=""
 declare -i failed_jobs=0
+
+# number of buildthreads = two times number of cpu threads
+tc=""
+if [ -n "$(which nproc)" ]; then
+	tc="THREADCOUNT=$(($(nproc)*2))"
+fi
 
 for target in $targets
 do
@@ -34,16 +39,25 @@ do
 
 	echo "Starting build of ${target_name}"
 
-	PROJECT=$project DEVICE=$device ARCH=$arch make image
+	make image PROJECT=$project DEVICE=$device ARCH=$arch $tc
 
 	if [ $? -gt 0 ]
 	then
 		failed_jobs+=1
 		failed_targets+="${target_name}\n"
 	else
-		rm -f target/*.kernel target/*.system target/*.tar target/*.tar.sha256 target/*.ova target/*.ova.sha256
+		rm -vf \
+			target/Lakka-${target_name}-*.kernel \
+			target/Lakka-${target_name}-*.system \
+			target/Lakka-${target_name}-*.tar \
+			target/Lakka-${target_name}-*.tar.sha256 \
+			target/Lakka-${target_name}-*.ova \
+			target/Lakka-${target_name}-*.ova.sha256
 		mkdir -p target/${target_name}
-		mv target/Lakka-${target_name}-*.img.gz target/Lakka-${target_name}-*.img.gz.sha256 target/${target_name}/
+		mv -v \
+			target/Lakka-${target_name}-*.img.gz \
+			target/Lakka-${target_name}-*.img.gz.sha256 \
+			target/${target_name}/
 	fi
 done
 
