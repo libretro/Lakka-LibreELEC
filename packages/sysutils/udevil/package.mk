@@ -23,6 +23,13 @@ makeinstall_target() {
 post_makeinstall_target() {
   mkdir -p $INSTALL/etc/udevil
     cp $PKG_DIR/config/udevil.conf $INSTALL/etc/udevil
+    if [ "$DISTRO" = "Lakka" ]; then
+      sed -i $INSTALL/etc/udevil/udevil.conf -e "s|^allowed_media_dirs =.*$|allowed_media_dirs = /storage/roms|"
+      sed -i $INSTALL/etc/udevil/udevil.conf -e "s|^# mount_point_mode = 0755$|mount_point_mode = 0755|"
+      sed -i $INSTALL/etc/udevil/udevil.conf -e "s|^# mount_point_mode_sshfs =$|mount_point_mode_sshfs =|"
+      sed -i $INSTALL/etc/udevil/udevil.conf -e "s|^# mount_point_mode_curlftpfs =$|mount_point_mode_curlftpfs =|"
+      sed -i $INSTALL/etc/udevil/udevil.conf -e "s|^# mount_point_mode_ftpfs =$|mount_point_mode_ftpfs =|"
+    fi
 
   mkdir -p $INSTALL/usr/bin
     cp -PR src/udevil $INSTALL/usr/bin
