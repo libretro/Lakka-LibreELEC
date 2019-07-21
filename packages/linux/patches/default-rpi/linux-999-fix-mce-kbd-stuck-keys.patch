@@ -1,0 +1,34 @@
+From 4b41e56e488efa81470eac901ba0e0af597a293f Mon Sep 17 00:00:00 2001
+From: Sean Young <sean@mess.org>
+Date: Sun, 8 Apr 2018 22:19:41 +0100
+Subject: [PATCH] media: rc: mce_kbd decoder: fix stuck keys
+
+backport of https://patchwork.linuxtv.org/patch/48519/
+
+The MCE Remote sends a 0 scancode when keys are released. If this is not
+received or decoded, then keys can get "stuck"; the keyup event is not
+sent since the input_sync() is missing from the timeout handler.
+
+Cc: stable@vger.kernel.org
+Signed-off-by: Sean Young <sean@mess.org>
+Signed-off-by: Matthias Reichl <hias@horus.com>
+---
+ drivers/media/rc/ir-mce_kbd-decoder.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/media/rc/ir-mce_kbd-decoder.c b/drivers/media/rc/ir-mce_kbd-decoder.c
+index 2ea48a54f2b3e..164302ec4fef0 100644
+--- a/drivers/media/rc/ir-mce_kbd-decoder.c
++++ b/drivers/media/rc/ir-mce_kbd-decoder.c
+@@ -130,6 +130,8 @@ static void mce_kbd_rx_timeout(unsigned long data)
+ 
+ 	for (i = 0; i < MCIR2_MASK_KEYS_START; i++)
+ 		input_report_key(mce_kbd->idev, kbd_keycodes[i], 0);
++
++	input_sync(mce_kbd->idev);
+ }
+ 
+ static enum mce_kbd_mode mce_kbd_mode(struct mce_kbd_dec *data)
+-- 
+2.11.0
+
