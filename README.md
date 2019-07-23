@@ -17,17 +17,3 @@ Please refer to our website http://www.lakka.tv/get on how to setup Lakka.
 * #lakkatv on irc.freenode.org
 * [Discord](https://discord.gg/BNFR4hM)
 * [Forums](https://forums.libretro.com/c/libretro/lakka-tv-general)
-
-## Notes for maintainters/developers
-
-This branch is based on LibreELEC 9.2
-```
-# Add upstream remote repository
-git remote add upstream https://github.com/LibreELEC/LibreELEC.tv
-
-# Fetch remote tracking branch
-git fetch upstream libreelec-9.2:libreelec-9.2
-
-# Set remote tracking branch
-git branch --set-upstream-to=upstream/libreelec-9.2
-```
