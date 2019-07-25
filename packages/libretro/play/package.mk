@@ -35,7 +35,7 @@ PKG_AUTORECONF="no"
 PKG_TOOLCHAIN="cmake"
 
 if [ "$OPENGL_SUPPORT" = yes ]; then
-  PKG_DEPENDS_TARGET+=" $OPENGL"
+  PKG_DEPENDS_TARGET+=" $OPENGL glu"
 fi
 
 if [ "$OPENGLES_SUPPORT" = yes ]; then
