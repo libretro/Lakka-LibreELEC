@@ -21,7 +21,7 @@ fi
 
 post_unpack() {
   # do not build GLES stuff when not using as GLES driver
-  if [ "${OPENGLES}" != "bcm2835-driver" ]; then
+  if [ "${OPENGLES}" != "bcm2835-driver" -a "${OPENGL}" != "bcm2835-driver" ]; then
     rm -v $PKG_BUILD/$PKG_FLOAT/opt/vc/lib/pkgconfig/brcmegl.pc
     rm -v $PKG_BUILD/$PKG_FLOAT/opt/vc/lib/pkgconfig/egl.pc
     rm -v $PKG_BUILD/$PKG_FLOAT/opt/vc/lib/pkgconfig/brcmglesv2.pc
