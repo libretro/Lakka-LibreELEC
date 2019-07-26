@@ -64,12 +64,8 @@ RETROARCH_GL=""
 
 if [ "$VULKAN" == "nvidia-driver" ]; then
   RETROARCH_GL="--enable-vulkan --disable-x11 --disable-kms --disable-egl"
-elif [ "$OPENGLES_SUPPORT" = no ]; then
-  if [ "$ARCH" == "arm" ]; then
-    RETROARCH_GL="--enable-egl --enable-opengl_core --enable-kms --disable-x11 --disable-videocore --enable-plain_drm"
-  else
-    RETROARCH_GL="--enable-kms"
-  fi
+elif [ "$OPENGL_SUPPORT" == "yes" ]; then
+  RETROARCH_GL="--enable-kms"
 elif [ "$OPENGLES" == "bcm2835-driver" ]; then
   RETROARCH_GL="--enable-opengles --disable-kms --disable-x11"
 elif [ "$OPENGLES" == "odroidc1-mali" ] || [ "$OPENGLES" == "opengl-meson" ] || [ "$OPENGLES" == "opengl-meson8" ] || [ "$OPENGLES" == "opengl-meson-t82x" ]; then
@@ -80,8 +76,14 @@ elif [ "$OPENGLES" == "libmali" ]; then
   RETROARCH_GL="--enable-opengles --enable-kms --disable-x11 --disable-wayland"
 elif [ "$OPENGLES" == "allwinner-fb-mali" ]; then
    RETROARCH_GL="--enable-opengles --disable-kms --disable-x11 --enable-mali_fbdev"
-elif [ "$OPENGLES" == "allwinner-mali" ] || [ "$OPENGLES" == "odroidxu3-mali" ] || [ "$OPENGLES" == "mesa" ]; then
-   RETROARCH_GL="--enable-opengles --enable-kms --disable-x11"
+elif [ "$OPENGLES" == "allwinner-mali" ] || [ "$OPENGLES" == "odroidxu3-mali" ]; then
+  RETROARCH_GL="--enable-opengles --enable-kms --disable-x11"
+elif [ "$OPENGLES" == "mesa" ]; then
+  if [ "$DEVICE" == "RPi4" ]; then
+    RETROARCH_GL="--enable-opengles --enable-opengles3 --enable-opengl_core --enable-kms --disable-x11 --disable-videocore --enable-plain_drm"
+  else
+    RETROARCH_GL="--enable-opengles --enable-kms --disable-x11"
+  fi
 fi
 
 RETROARCH_NEON=""

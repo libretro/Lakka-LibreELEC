@@ -44,17 +44,19 @@ if [ "$OPENGLES_SUPPORT" = yes ]; then
 fi
 
 make_target() {
-  if [ "$OPENGL_SUPPORT" != no ]; then
+  if [ "$OPENGL_SUPPORT" = yes ]; then
     if [ "$ARCH" = "arm" ]; then
       make HAVE_OPENMP=0
     else
       make AS=${AS} CC_AS=${AS} ARCH=${ARCH} HAVE_OPENMP=0
     fi
   else
+    FLYCAST_GL=""
+    [ "$OPENGLES_SUPPORT" = yes ] && FLYCAST_GL="FORCE_GLES=1"
     if [ "$ARCH" == "arm" ]; then
-      make platform=rpi FORCE_GLES=1 HAVE_OPENMP=0
+      make platform=rpi $FLYCAST_GL HAVE_OPENMP=0
     else
-      make AS=${AS} CC_AS=${AS} ARCH=${ARCH} HAVE_OPENMP=0
+      make AS=${AS} CC_AS=${AS} ARCH=${ARCH} $FLYCAST_GL HAVE_OPENMP=0
     fi
   fi
 }
