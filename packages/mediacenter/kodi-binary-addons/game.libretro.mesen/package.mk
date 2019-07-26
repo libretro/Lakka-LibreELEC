@@ -4,7 +4,7 @@
 PKG_NAME="game.libretro.mesen"
 PKG_VERSION="0.9.7.5-Leia"
 PKG_SHA256="208a05273b5392d9ce604edfc322509351b8cb3c9e56b6381c77b9c4ea794688"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.mesen"

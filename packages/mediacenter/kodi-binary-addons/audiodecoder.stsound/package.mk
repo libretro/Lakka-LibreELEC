@@ -5,7 +5,7 @@
 PKG_NAME="audiodecoder.stsound"
 PKG_VERSION="2.0.0-Leia"
 PKG_SHA256="ebc003053ae09f8f6393aead3eff754c062f64d751760f31b30a5abee629263a"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.stsound"

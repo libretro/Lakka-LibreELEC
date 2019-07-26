@@ -5,7 +5,7 @@
 PKG_NAME="pvr.hdhomerun"
 PKG_VERSION="3.5.0-Leia"
 PKG_SHA256="815ba3dfbe6e1318226d41879057f0b8a4f0ac960d12ebc5d69f0a1ac28cfa09"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-pvr/pvr.hdhomerun"

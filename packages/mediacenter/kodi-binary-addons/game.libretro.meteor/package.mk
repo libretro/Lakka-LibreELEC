@@ -4,7 +4,7 @@
 PKG_NAME="game.libretro.meteor"
 PKG_VERSION="1.4.0.1-Leia"
 PKG_SHA256="3e1b973787e6f3345d9596794c04ee442a704f445c332bd4c42beeb24e601d85"
-PKG_REV="111"
+PKG_REV="112"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.meteor"

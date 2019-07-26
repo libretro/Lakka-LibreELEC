@@ -4,7 +4,7 @@
 PKG_NAME="game.libretro.pcsx-rearmed"
 PKG_VERSION="22.0.0.4-Leia"
 PKG_SHA256="c215dc5f1b9d498a649d2c037c52594d35051bb4d43b0ec433dcd9de67f25d69"
-PKG_REV="116"
+PKG_REV="117"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.pcsx-rearmed"

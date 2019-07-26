@@ -5,7 +5,7 @@
 PKG_NAME="audiodecoder.gsf"
 PKG_VERSION="2.0.0-Leia"
 PKG_SHA256="595b262068586a3317a65c34a67c9bd47d799a344cbb738d120ffb76754e219d"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.gsf"
