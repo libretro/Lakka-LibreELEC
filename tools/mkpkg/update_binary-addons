@@ -4,17 +4,49 @@
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
-if [ -z "$1" ]; then
-  echo "Usage: $0 <branch-name>"
-  exit 0
+BUMP_PKG_REV=""
+KEEP_GIT_DIRS="yes"
+
+usage() {
+  echo "Usage: $0 [options] <branch-name>"
+  echo " -b, --bump-pkg-rev: bump PKG_REV if package was not updated"
+  echo " -d, --delete-git-dirs: delete cloned git dirs after update"
+  echo " -h, --help: display help and exit"
+  exit 1
+}
+
+while [ $# -ne 0 ]; do
+  case "$1" in
+  -b|--bump-pkg-rev)
+    BUMP_PKG_REV="yes"
+    shift
+    ;;
+  -d|--delete-git-dirs)
+    KEEP_GIT_DIRS=""
+    shift
+    ;;
+  -h|--help)
+    usage
+    exit 1
+    ;;
+  -*)
+    echo "illegal option $1"
+    usage
+    exit 1
+    ;;
+  *)
+    break
+    ;;
+  esac
+done
+
+if [ $# -ne 1 ]; then
+  usage
+  exit 1
 fi
 
 # list of packages to exclude from update
 EXCLUDED_PACKAGES="vfs.nfs vfs.sacd"
-
-# the following environment variables can be set to "yes" to enable optional features:
-# KEEP_GIT_DIRS: don't delete cloned git directories after update check
-# BUMP_PKG_REV: bump PKG_REV if PKG_VERSION has changed
 
 MY_DIR="$(dirname "$0")"
 ROOT="$(cd "${MY_DIR}"/../.. && pwd)"
@@ -26,24 +58,22 @@ rm -rf "${TMPDIR}"
 mkdir -p "${TMPDIR}"
 
 KODI_BRANCH="$1"
-KODI_DIR="kodi-${KODI_BRANCH}.git"
+KODI_DIR="kodi.git"
 
 . "${MY_DIR}/update_common_functions"
 
-if [ ! -d ${KODI_DIR} ] ; then
-  git_clone https://github.com/xbmc/xbmc ${KODI_BRANCH} ${KODI_DIR}
-fi
+git_clone https://github.com/xbmc/xbmc ${KODI_DIR} ${KODI_BRANCH}
 
-# kodi-platform
+# kodi-platform, points to repo+githash
 REPO=$(cat $KODI_DIR/cmake/addons/depends/common/kodi-platform/kodi-platform.txt | awk '{print $2}')
 GIT_HASH=$(cat $KODI_DIR/cmake/addons/depends/common/kodi-platform/kodi-platform.txt | awk '{print $3}')
 PKG_NAME="kodi-platform"
 
-git_clone $REPO master $PKG_NAME.git $GIT_HASH
+git_clone $REPO $PKG_NAME.git
 if [ -f "${ROOT}/packages/mediacenter/kodi-platform/package.mk" ] ; then
   # update package.mk
   RESOLVED_HASH=$(resolve_hash $PKG_NAME.git $GIT_HASH)
-  update_pkg "${ROOT}/packages/mediacenter/kodi-platform" ${PKG_NAME} ${RESOLVED_HASH}
+  update_pkg "${ROOT}/packages/mediacenter/kodi-platform" ${PKG_NAME} ${RESOLVED_HASH} || true
 fi
 if [ "${KEEP_GIT_DIRS}" != "yes" ]; then
   rm -rf $PKG_NAME.git
@@ -52,30 +82,60 @@ fi
 # addons
 for addontxt in $KODI_DIR/cmake/addons/bootstrap/repositories/*-addons.txt ; do
   ADDONS=$(cat $addontxt | awk '{print $1}')
-  ADDONREPO=$(cat $addontxt | awk '{print $2}')
-  GIT_HASH=$(cat $addontxt | awk '{print $3}')
-  git_clone $ADDONREPO ${KODI_BRANCH} $ADDONS.git $GIT_HASH
-  for addon in $ADDONS.git/*.*/ ; do
+  ADDONS_GIT_DIR="${ADDONS}.git"
+  ADDONS_GIT_REPO=$(cat $addontxt | awk '{print $2}')
+  ADDONS_GIT_BRANCH=$(cat $addontxt | awk '{print $3}')
+  git_clone $ADDONS_GIT_REPO $ADDONS_GIT_DIR ${ADDONS_GIT_BRANCH}
+
+  for addon in $ADDONS_GIT_DIR/*.*/ ; do
     ADDON=$(basename $addon)
 
     [[ ${ADDON} =~ ^game.* ]] && continue # ignore game.* addons - handled by update_retroplayer-addons
 
     check_package_excluded "${ADDON}" "${EXCLUDED_PACKAGES}" && continue
 
-    REPO=$(cat $addon/$ADDON.txt | awk '{print $2}')
-    GIT_HASH=$(cat $addon/$ADDON.txt | awk '{print $3}')
+    GIT_DIR="${ADDON}.git"
+    GIT_REPO=$(cat ${addon}/${ADDON}.txt | awk '{print $2}')
+    GIT_BRANCH=$(cat ${addon}/${ADDON}.txt | awk '{print $3}')
 
-    if ! grep -q all $addon/platforms.txt && ! grep -q linux $addon/platforms.txt && ! grep -q ! $addon/platforms.txt; then
+    if ! grep -q all ${addon}/platforms.txt && ! grep -q linux ${addon}/platforms.txt && ! grep -q ! ${addon}/platforms.txt; then
       continue
     fi
 
-    ADDON_PATH="${ROOT}/packages/mediacenter/kodi-binary-addons/$ADDON/"
+    ADDON_PATH="${ROOT}/packages/mediacenter/kodi-binary-addons/${ADDON}/"
     if [ -f "${ADDON_PATH}/package.mk" ] ; then
       # Verify the Kodi repo matches our package repo
       # If different, ignore the addon and process it later as an "unofficial" addon
-      validate_pkg_url "$ADDON" "$REPO" || continue
+      validate_pkg_url "${ADDON}" "${GIT_REPO}" || continue
 
-      update_to_latest_tag "${ADDON_PATH}" ${ADDON} ${REPO} ${KODI_BRANCH} ${GIT_HASH}
+      git_clone ${GIT_REPO} ${GIT_DIR} ${GIT_BRANCH}
+
+      NO_TAG=""
+      NEW_VERSION=$(resolve_tag_in_branch ${GIT_DIR} ${GIT_BRANCH})
+      if [ -z "${NEW_VERSION}" ]; then
+        NO_TAG="yes"
+        echo "========================================================================"
+        msg_warn "WARNING: no tag found for addon ${ADDON}, falling back to HEAD"
+        echo "========================================================================"
+        NEW_VERSION=$(resolve_hash_in_branch "${GIT_DIR}" "${GIT_BRANCH}")
+      fi
+
+      echo "Resolved version for ${ADDON}: ${GIT_BRANCH} => ${NEW_VERSION}"
+
+      if update_pkg "${ADDON_PATH}" ${ADDON} ${NEW_VERSION}; then
+        if [ -n "${NO_TAG}" ]; then
+          # always bump PKG_REV on updates as we have no info if version changed
+          bump_pkg_rev "${ADDON_PATH}" "${ADDON}"
+        else
+          reset_pkg_rev "${ADDON_PATH}" "${ADDON}"
+        fi
+      else
+        [ "${BUMP_PKG_REV}" = "yes" ] && bump_pkg_rev "${ADDON_PATH}" "${ADDON}"
+      fi
+
+      if [ "${KEEP_GIT_DIRS}" != "yes" ]; then
+        rm -rf "${GIT_DIR}"
+      fi
     else
       echo "[mkpkg] Skipped $ADDON"
       SKIPPED_ADDONS="$SKIPPED_ADDONS $ADDON"
@@ -98,18 +158,25 @@ for ADDON in $(ls -1 "${ROOT}/packages/mediacenter/kodi-binary-addons"); do
 
   check_package_excluded "${ADDON}" "${EXCLUDED_PACKAGES}" && continue
 
+  ADDON_PATH="${ROOT}/packages/mediacenter/kodi-binary-addons/${ADDON}/"
   # Obtain git url - ignore if not a suitable repo
-  REPO="$(geturl "${ADDON}")" || continue
+  GIT_DIR="${ADDON}.git"
+  GIT_REPO="$(geturl "${ADDON}")" || continue
 
-  git_clone $REPO ${KODI_BRANCH} $ADDON.git HEAD
+  git_clone ${GIT_REPO} ${GIT_DIR}
 
   # update package.mk for stale github.com packages
-  RESOLVED_HASH=$(resolve_hash ${ADDON}.git HEAD) || continue
+  RESOLVED_HASH=$(resolve_hash_in_branch ${ADDON}.git HEAD) || continue
   echo "Resolving hash for ${ADDON}: HEAD => ${RESOLVED_HASH}"
-  update_pkg "${ROOT}/packages/mediacenter/kodi-binary-addons/$ADDON" ${ADDON} ${RESOLVED_HASH}
+  if update_pkg "${ADDON_PATH}" "${ADDON}" "${RESOLVED_HASH}"; then
+    # always bump PKG_REV when updating untagged addons
+    bump_pkg_rev "${ADDON_PATH}" "${ADDON}"
+  else
+    [ "${BUMP_PKG_REV}" = "yes" ] && bump_pkg_rev "${ADDON_PATH}" "${ADDON}"
+  fi
 
   if [ "${KEEP_GIT_DIRS}" != "yes" ]; then
-    rm -rf $ADDON.git
+    rm -rf ${GIT_DIR}
   fi
 done
 

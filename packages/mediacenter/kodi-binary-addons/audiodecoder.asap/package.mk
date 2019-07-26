@@ -5,7 +5,7 @@
 PKG_NAME="audiodecoder.asap"
 PKG_VERSION="2.0.0-Leia"
 PKG_SHA256="f270b46a123440c0c894bab93184c798cebeec814a71b2dde0ad4a64f222d4b3"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.asap"

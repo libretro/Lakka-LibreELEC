@@ -4,7 +4,7 @@
 PKG_NAME="game.libretro.mame2003"
 PKG_VERSION="0.78.0.11-Leia"
 PKG_SHA256="a53551d1472a07ffa23321454e3fa2a76ae0368ca1574b0bd63bc4138b687b52"
-PKG_REV="106"
+PKG_REV="107"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.mame2003"
 PKG_URL="https://github.com/kodi-game/game.libretro.mame2003/archive/$PKG_VERSION.tar.gz"

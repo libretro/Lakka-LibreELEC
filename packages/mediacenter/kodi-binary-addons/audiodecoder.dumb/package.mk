@@ -5,7 +5,7 @@
 PKG_NAME="audiodecoder.dumb"
 PKG_VERSION="2.0.0-Leia"
 PKG_SHA256="278e65b805c01b32d7d916da7b312e737a38ae5da7402aeaeec4207c98ae42d7"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.dumb"

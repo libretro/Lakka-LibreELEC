@@ -1,0 +1,151 @@
+diff --git a/playback/src/config.rs b/playback/src/config.rs
+index 0f71110..931167d 100644
+--- a/playback/src/config.rs
++++ b/playback/src/config.rs
+@@ -30,6 +30,7 @@ pub struct PlayerConfig {
+     pub bitrate: Bitrate,
+     pub normalisation: bool,
+     pub normalisation_pregain: f32,
++    pub notify_kodi: bool,
+ }
+
+ impl Default for PlayerConfig {
+@@ -38,6 +39,7 @@ impl Default for PlayerConfig {
+             bitrate: Bitrate::default(),
+             normalisation: false,
+             normalisation_pregain: 0.0,
++            notify_kodi: false,
+         }
+     }
+ }
+diff --git a/playback/src/player.rs b/playback/src/player.rs
+index ab1a8ab..19d6394 100644
+--- a/playback/src/player.rs
++++ b/playback/src/player.rs
+@@ -4,7 +4,8 @@ use futures::sync::oneshot;
+ use futures::{future, Future};
+ use std;
+ use std::borrow::Cow;
+-use std::io::{Read, Result, Seek, SeekFrom};
++use std::fs::OpenOptions;
++use std::io::{Read, Result, Seek, SeekFrom, Write};
+ use std::mem;
+ use std::sync::mpsc::{RecvError, RecvTimeoutError, TryRecvError};
+ use std::thread;
+@@ -394,6 +395,14 @@ impl PlayerInternal {
+         }
+     }
+
++    fn notify_kodi(&mut self, id: &str, track_id: &SpotifyId) {
++        // println!("fifo = {} {}", id, track_id.to_base62());
++        if self.config.notify_kodi {
++            let mut file = OpenOptions::new().write(true).open("/tmp/librespot").unwrap();
++            writeln!(&mut file, "{}\n{}", id, track_id.to_base62()).unwrap();
++        }
++    }
++
+     fn handle_command(&mut self, cmd: PlayerCommand) {
+         debug!("command={:?}", cmd);
+         match cmd {
+@@ -413,11 +422,17 @@ impl PlayerInternal {
+                                 | PlayerState::EndOfTrack {
+                                     track_id: old_track_id,
+                                     ..
+-                                } => self.send_event(PlayerEvent::Changed {
+-                                    old_track_id: old_track_id,
+-                                    new_track_id: track_id,
+-                                }),
+-                                _ => self.send_event(PlayerEvent::Started { track_id }),
++                                } => {
++                                    self.send_event(PlayerEvent::Changed {
++                                        old_track_id: old_track_id,
++                                        new_track_id: track_id,
++                                    });
++                                    self.notify_kodi("1", &track_id)
++                                }
++                                _ => {
++                                    self.send_event(PlayerEvent::Started { track_id });
++                                    self.notify_kodi("2", &track_id)
++                                }
+                             }
+
+                             self.start_sink();
+@@ -443,13 +458,17 @@ impl PlayerInternal {
+                                 | PlayerState::EndOfTrack {
+                                     track_id: old_track_id,
+                                     ..
+-                                } => self.send_event(PlayerEvent::Changed {
+-                                    old_track_id: old_track_id,
+-                                    new_track_id: track_id,
+-                                }),
++                                } => {
++                                    self.send_event(PlayerEvent::Changed {
++                                        old_track_id: old_track_id,
++                                        new_track_id: track_id,
++                                    });
++                                    self.notify_kodi("3", &track_id)
++                                }
+                                 _ => (),
+                             }
+                             self.send_event(PlayerEvent::Stopped { track_id });
++                            self.notify_kodi("4", &track_id)
+                         }
+                     }
+
+@@ -476,6 +495,7 @@ impl PlayerInternal {
+
+                     self.send_event(PlayerEvent::Started { track_id });
+                     self.start_sink();
++                    self.notify_kodi("5", &track_id)
+                 } else {
+                     warn!("Player::play called from invalid state");
+                 }
+@@ -487,6 +507,7 @@ impl PlayerInternal {
+
+                     self.stop_sink_if_running();
+                     self.send_event(PlayerEvent::Stopped { track_id });
++                    self.notify_kodi("6", &track_id)
+                 } else {
+                     warn!("Player::pause called from invalid state");
+                 }
+@@ -499,6 +520,7 @@ impl PlayerInternal {
+                     self.stop_sink_if_running();
+                     self.send_event(PlayerEvent::Stopped { track_id });
+                     self.state = PlayerState::Stopped;
++                    self.notify_kodi("7", &track_id)
+                 }
+                 PlayerState::Stopped => {
+                     warn!("Player::stop called from invalid state");
+diff --git a/src/main.rs b/src/main.rs
+index 36cd1b5..502cac8 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -168,6 +168,11 @@ fn setup(args: &[String]) -> Setup {
+             "Pregain (dB) applied by volume normalisation",
+             "PREGAIN",
+         )
++        .optflag(
++            "",
++            "notify-kodi",
++            "Notify Kodi",
++        )
+         .optflag(
+             "",
+             "linear-volume",
+@@ -248,6 +253,8 @@ fn setup(args: &[String]) -> Setup {
+         )
+     };
+
++    let notify_kodi = matches.opt_present("notify-kodi");
++
+     let session_config = {
+         let device_id = device_id(&name);
+
+@@ -291,6 +298,7 @@ fn setup(args: &[String]) -> Setup {
+                 .opt_str("normalisation-pregain")
+                 .map(|pregain| pregain.parse::<f32>().expect("Invalid pregain float value"))
+                 .unwrap_or(PlayerConfig::default().normalisation_pregain),
++            notify_kodi: notify_kodi,
+         }
+     };
+

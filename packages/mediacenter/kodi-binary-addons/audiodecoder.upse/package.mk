@@ -5,7 +5,7 @@
 PKG_NAME="audiodecoder.upse"
 PKG_VERSION="2.0.0-Leia"
 PKG_SHA256="a9879b970e53156dad2b937e9c366fb77aa7e85bf8d2702175469f68ad4569cb"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.upse"

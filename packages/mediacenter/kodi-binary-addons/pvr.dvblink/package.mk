@@ -5,7 +5,7 @@
 PKG_NAME="pvr.dvblink"
 PKG_VERSION="4.7.2-Leia"
 PKG_SHA256="ad7586abfe7b3f9dd67b3a2225c442fc8d2a442e48bd7df75b11652286392c2f"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-pvr/pvr.dvblink"

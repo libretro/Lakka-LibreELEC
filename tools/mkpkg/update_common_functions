@@ -23,31 +23,18 @@ msg_info() {
 }
 
 git_clone() {
-  # git_clone https://repo.url branch ./target_dir [githash]
+  # git_clone https://repo.url target_dir [branch]
   echo "[mkpkg] Checking out $1 ..."
-  if [ ! -d "$3" ]; then
-    git clone "$1" "$3"
-    # Try to switch to specified branch if it exist, if not then use default branch
-    if [ -n "$2" ]; then
-      cd "$3"
-      git checkout $2 >/dev/null 2>/dev/null
-      cd ..
-    fi
+  if [ ! -d "$2" ]; then
+    git clone "$1" "$2"
   else
-    if [ -d "$3" ] ; then
-      cd "$3"
-      git checkout $2 >/dev/null 2>/dev/null
-      git pull
-      cd ..
-    fi
+    cd "$2"
+    git fetch
+    cd ..
   fi
-
-  if [ ! -z "$4" ] ; then
-    cd "$3"
-    git fetch >/dev/null 2>/dev/null
-    git branch -D $4 >/dev/null 2>/dev/null
-    git checkout $4 >/dev/null 2>/dev/null
-    git checkout -b ref-$4 >/dev/null 2>/dev/null
+  if [ -n "$3" ]; then
+    cd "$2"
+    git checkout -q origin/"$3";
     cd ..
   fi
 }
@@ -66,10 +53,17 @@ resolve_hash() {
   fi
 }
 
-resolve_tag() {
+resolve_hash_in_branch() {
   if [ -d "$1" ] ; then
     cd "$1"
-    git describe --abbrev=0 --tags $2 2>/dev/null
+    git rev-parse origin/$2 2>/dev/null
+  fi
+}
+
+resolve_tag_in_branch() {
+  if [ -d "$1" ] ; then
+    cd "$1"
+    git describe --abbrev=0 --tags origin/$2 2>/dev/null
   fi
 }
 
@@ -118,6 +112,15 @@ bump_pkg_rev() {
   msg_info "BUMPED ${pkg_name} PKG_REV from ${pkg_rev} to ${new_pkg_rev}"
 }
 
+reset_pkg_rev() {
+  local package_mk="$1/package.mk" pkg_name="$2"
+  local pkg_rev=$(get_pkg_var "${pkg_name}" PKG_REV)
+  local new_pkg_rev="1"
+
+  sed -e "s|PKG_REV=.*|PKG_REV=\"${new_pkg_rev}\"|" -i "${package_mk}"
+  msg_info "RESET ${pkg_name} PKG_REV from ${pkg_rev} to ${new_pkg_rev}"
+}
+
 update_pkg() {
   local pkg_path="$1" pkg_name="$2" pkg_version="$3"
 
@@ -131,33 +134,11 @@ update_pkg() {
     download_pkg_file "${pkg_name}"
     set_pkg_sha256 "${pkg_path}"
 
-    if [ "${BUMP_PKG_REV}" = "yes" ]; then
-      bump_pkg_rev "${pkg_path}" "${pkg_name}"
-    fi
-  fi
-}
+    msg_info "UPDATED ${pkg_name} from ${old_version} to ${pkg_version}"
 
-update_to_latest_tag() {
-  local pkg_path="$1" pkg_name="$2" repo="$3" branch="$4" ref="$5"
-  local gitdir=${pkg_name}.git
-  local resolved_version
-
-  git_clone "${repo}" "${branch}" "${gitdir}" "${ref}"
-
-  resolved_version=$(resolve_tag "${gitdir}" "${ref}")
-  if [ -z "${resolved_version}" ]; then
-    echo "========================================================================"
-    msg_warn "WARNING: no tag found for package ${pkg_name}, falling back to HEAD"
-    echo "========================================================================"
-    resolved_version=$(resolve_hash "${gitdir}" "${ref}")
-  fi
-
-  echo "Resolved version for ${pkg_name}: ${ref} => ${resolved_version}"
-
-  update_pkg "${pkg_path}" "${pkg_name}" "${resolved_version}"
-
-  if [ "${KEEP_GIT_DIRS}" != "yes" ]; then
-    rm -rf "${gitdir}"
+    return 0
+  else
+    return 1
   fi
 }
 

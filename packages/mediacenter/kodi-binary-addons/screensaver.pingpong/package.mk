@@ -5,7 +5,7 @@
 PKG_NAME="screensaver.pingpong"
 PKG_VERSION="2.1.1-Leia"
 PKG_SHA256="d4e09509bf036b7d5c381cd4ecac926a59396fb481347a4056d843ae68d3a20d"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/screensaver.pingpong"

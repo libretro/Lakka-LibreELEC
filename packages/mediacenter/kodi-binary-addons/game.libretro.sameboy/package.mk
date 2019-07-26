@@ -4,7 +4,7 @@
 PKG_NAME="game.libretro.sameboy"
 PKG_VERSION="0.11.2.6-Leia"
 PKG_SHA256="a08a5b0e7eeed6c4f5c6348733dd2df80ad75773dcc9cfdc088cfeb8529fa79b"
-PKG_REV="107"
+PKG_REV="108"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.sameboy"

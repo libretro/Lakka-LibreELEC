@@ -4,7 +4,7 @@
 PKG_NAME="game.libretro.uae"
 PKG_VERSION="2.6.1.1-Leia"
 PKG_SHA256="c0db1d17d45e5484dd47f78cdd3cd9c28c6b4425357297b625be616d8a7b8d06"
-PKG_REV="107"
+PKG_REV="108"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.uae"
