@@ -6,6 +6,7 @@ targets="\
 	Allwinner|A64|arm|image \
 	Allwinner|H3|arm|image \
 	Allwinner|H6|arm|image \
+	Amlogic|AMLG12|arm|image \
 	Amlogic|AMLGX|arm|image \
 	Generic||x86_64|image \
 	Generic||i386|image \
