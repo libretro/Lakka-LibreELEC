@@ -30,6 +30,10 @@ PKG_LONGDESC="libglu is the The OpenGL utility library"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
+if [ "$OPENGL" != "no" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $OPENGL"
+fi
+
 PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
             --disable-debug \
             --disable-osmesa \

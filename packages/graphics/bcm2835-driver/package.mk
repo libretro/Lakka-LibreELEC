@@ -1,74 +1,100 @@
-################################################################################
-#      This file is part of OpenELEC - http://www.openelec.tv
-#      Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
-#
-#  OpenELEC is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 2 of the License, or
-#  (at your option) any later version.
-#
-#  OpenELEC is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
-################################################################################
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="bcm2835-driver"
-PKG_VERSION="3aa8060"
-PKG_ARCH="any"
+PKG_VERSION="025759b8634c2f8df35203be02c19a0633f1cec1"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.broadcom.com"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="${DISTRO_SRC}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain dtc"
-PKG_SECTION="graphics"
-PKG_SHORTDESC="OpenMAX-bcm2835: OpenGL-ES and OpenMAX driver for BCM2835"
 PKG_LONGDESC="OpenMAX-bcm2835: OpenGL-ES and OpenMAX driver for BCM2835"
+PKG_TOOLCHAIN="manual"
 
-PKG_IS_ADDON="no"
-PKG_AUTORECONF="no"
-
-if [ "$TARGET_FLOAT" = "softfp" -o "$TARGET_FLOAT" = "soft" ]; then
-  FLOAT="softfp"
-elif [ "$TARGET_FLOAT" = "hard" ]; then
-  FLOAT="hardfp"
+# Set SoftFP ABI or HardFP ABI
+if [ "${TARGET_FLOAT}" = "soft" ]; then
+  PKG_FLOAT="softfp"
+else
+  PKG_FLOAT="hardfp"
 fi
 
-make_target() {
-  mkdir -p $SYSROOT_PREFIX/usr/include
-    cp -PRv $FLOAT/opt/vc/include/* $SYSROOT_PREFIX/usr/include
+post_unpack() {
+  cd $PKG_BUILD
+  
+  # RPi4 uses mesa as graphics driver, remove all gl related libs
+  if [ "$BOARD" == "RPi4" ]; then
+    rm $PKG_FLOAT/opt/vc/lib/pkgconfig/brcmegl.pc
+    rm $PKG_FLOAT/opt/vc/lib/pkgconfig/egl.pc
+    rm $PKG_FLOAT/opt/vc/lib/pkgconfig/brcmglesv2.pc
+    rm $PKG_FLOAT/opt/vc/lib/pkgconfig/glesv2.pc
+    
+    rm $PKG_FLOAT/opt/vc/lib/libbrcmEGL.so
+    rm $PKG_FLOAT/opt/vc/lib/libbrcmGLESv2.so
+    rm $PKG_FLOAT/opt/vc/lib/libEGL.so
+    rm $PKG_FLOAT/opt/vc/lib/libGLESv1_CM.so
+    rm $PKG_FLOAT/opt/vc/lib/libGLESv2.so
+    
+    rm $PKG_FLOAT/opt/vc/lib/libEGL_static.a
+    rm $PKG_FLOAT/opt/vc/lib/libGLESv2_static.a
+    
+    rm -rf $PKG_FLOAT/opt/vc/include/EGL
+    rm -rf $PKG_FLOAT/opt/vc/include/GLES
+    rm -rf $PKG_FLOAT/opt/vc/include/GLES2
+  fi
+}
 
-  mkdir -p $SYSROOT_PREFIX/usr/lib
-    cp -PRv $FLOAT/opt/vc/lib/*.so $SYSROOT_PREFIX/usr/lib
-    ln -sf $SYSROOT_PREFIX/usr/lib/libbrcmEGL.so $SYSROOT_PREFIX/usr/lib/libEGL.so
-    ln -sf $SYSROOT_PREFIX/usr/lib/libbrcmGLESv2.so $SYSROOT_PREFIX/usr/lib/libGLESv2.so
-    cp -PRv $FLOAT/opt/vc/lib/*.a $SYSROOT_PREFIX/usr/lib
+make_target() {
+  # Install vendor header files
+  mkdir -p ${SYSROOT_PREFIX}/usr/include
+    cp -PRv ${PKG_FLOAT}/opt/vc/include/* ${SYSROOT_PREFIX}/usr/include
+
+  # Install EGL, OpenGL ES, Open VG, etc. vendor libs & pkgconfigs
+  mkdir -p ${SYSROOT_PREFIX}/usr/lib
+    cp -PRv ${PKG_FLOAT}/opt/vc/lib/*.so              ${SYSROOT_PREFIX}/usr/lib
+    cp -PRv ${PKG_FLOAT}/opt/vc/lib/*.a               ${SYSROOT_PREFIX}/usr/lib
+    cp -PRv ${PKG_FLOAT}/opt/vc/lib/pkgconfig         ${SYSROOT_PREFIX}/usr/lib
+    if [ "$BOARD" != "RPi4" ]; then
+      ln -sf ${SYSROOT_PREFIX}/usr/lib/libbrcmEGL.so    ${SYSROOT_PREFIX}/usr/lib/libEGL.so
+      ln -sf ${SYSROOT_PREFIX}/usr/lib/libbrcmGLESv2.so ${SYSROOT_PREFIX}/usr/lib/libGLESv2.so
+    fi
+
+  # Update prefix in vendor pkgconfig files
+  for PKG_CONFIGS in $(find "${SYSROOT_PREFIX}/usr/lib" -type f -name "*.pc" 2>/dev/null); do
+    sed -e "s#prefix=/opt/vc#prefix=/usr#g" -i "${PKG_CONFIGS}"
+  done
+
+  # Create symlinks to /opt/vc to satisfy hardcoded include & lib paths
+  mkdir -p ${SYSROOT_PREFIX}/opt/vc
+    ln -sf ${SYSROOT_PREFIX}/usr/lib     ${SYSROOT_PREFIX}/opt/vc/lib
+    ln -sf ${SYSROOT_PREFIX}/usr/include ${SYSROOT_PREFIX}/opt/vc/include
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/sbin
-    cp -PRv $FLOAT/opt/vc/sbin/vcfiled $INSTALL/usr/sbin
+  # Install EGL, OpenGL ES and other vendor libs
+  mkdir -p ${INSTALL}/usr/lib
+    cp -PRv ${PKG_FLOAT}/opt/vc/lib/*.so ${INSTALL}/usr/lib
+    if [ "$BOARD" != "RPi4" ]; then
+      ln -sf /usr/lib/libbrcmEGL.so        ${INSTALL}/usr/lib/libEGL.so
+      ln -sf /usr/lib/libbrcmEGL.so        ${INSTALL}/usr/lib/libEGL.so.1
+      ln -sf /usr/lib/libbrcmGLESv2.so     ${INSTALL}/usr/lib/libGLESv2.so
+      ln -sf /usr/lib/libbrcmGLESv2.so     ${INSTALL}/usr/lib/libGLESv2.so.2
+    fi
 
-  mkdir -p $INSTALL/usr/lib
-    cp -PRv $FLOAT/opt/vc/lib/*.so $INSTALL/usr/lib
-    ln -sf /usr/lib/libbrcmEGL.so $INSTALL/usr/lib/libEGL.so
-    ln -sf /usr/lib/libbrcmGLESv2.so $INSTALL/usr/lib/libGLESv2.so
+  # Install useful tools
+  mkdir -p ${INSTALL}/usr/bin
+    cp -PRv ${PKG_FLOAT}/opt/vc/bin/dtoverlay  ${INSTALL}/usr/bin
+    ln -s dtoverlay                            ${INSTALL}/usr/bin/dtparam
+    cp -PRv ${PKG_FLOAT}/opt/vc/bin/vcdbg      ${INSTALL}/usr/bin
+    cp -PRv ${PKG_FLOAT}/opt/vc/bin/vcgencmd   ${INSTALL}/usr/bin
+    cp -PRv ${PKG_FLOAT}/opt/vc/bin/tvservice  ${INSTALL}/usr/bin
+    cp -PRv ${PKG_FLOAT}/opt/vc/bin/edidparser ${INSTALL}/usr/bin
 
-# some usefull debug tools
-  mkdir -p $INSTALL/usr/bin
-    cp -PRv $FLOAT/opt/vc/bin/dtoverlay $INSTALL/usr/bin
-    ln -s dtoverlay $INSTALL/usr/bin/dtparam
-    cp -PRv $FLOAT/opt/vc/bin/vcdbg $INSTALL/usr/bin
-    cp -PRv $FLOAT/opt/vc/bin/vcgencmd $INSTALL/usr/bin
-    cp -PRv $FLOAT/opt/vc/bin/tvservice $INSTALL/usr/bin
-    cp -PRv $FLOAT/opt/vc/bin/edidparser $INSTALL/usr/bin
-
-  mkdir -p $INSTALL/opt/vc
-    ln -sf /usr/lib $INSTALL/opt/vc/lib
+  # Create symlinks to /opt/vc to satisfy hardcoded lib paths
+  mkdir -p ${INSTALL}/opt/vc
+    ln -sf /usr/lib ${INSTALL}/opt/vc/lib
 }
 
 post_install() {
+  # unbind Framebuffer console
   enable_service unbind-console.service
 }

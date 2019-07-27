@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="ffmpeg"
-# Current branch is: release/3.1-xbmc
-PKG_VERSION="9702d0d"
+# Current branch is: release/4.0-kodi
+PKG_VERSION="4.0.3-Leia-18.2"
 PKG_ARCH="any"
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://ffmpeg.org"
@@ -49,21 +49,10 @@ else
   FFMPEG_VDPAU="--disable-vdpau"
 fi
 
-if [ "$PROJECT" = "Rockchip" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET rkmpp"
-  FFMPEG_RKMPP="--enable-rkmpp"
-else
-  FFMPEG_RKMPP="--disable-rkmpp"
-fi
-
 if [ "$DEBUG" = "yes" ]; then
   FFMPEG_DEBUG="--enable-debug --disable-stripping"
 else
   FFMPEG_DEBUG="--disable-debug --enable-stripping"
-fi
-
-if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"
 fi
 
 case "$TARGET_ARCH" in
@@ -85,6 +74,43 @@ if [ "$DISPLAYSERVER" = "x11" ]; then
   FFMPEG_X11GRAB="--enable-indev=x11grab_xcb"
 fi
 
+if [ "$PROJECT" = "Rockchip" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET rkmpp"
+fi
+
+if [ "$PROJECT" = "Allwinner" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libdrm systemd" # systemd is needed for libudev
+fi
+
+if [ "$PROJECT" == "RPi" ] || [ "$PROJECT" == "RPi2" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"
+fi
+
+pre_patch() {
+  if [ "$PROJECT" = "Rockchip" ]; then
+    PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET rkmpp"
+    FFMPEG_RKMPP="--enable-rkmpp"
+    PKG_PATCH_DIRS+=" rkmpp"
+  else
+    FFMPEG_RKMPP="--disable-rkmpp"
+  fi
+
+  if [ "$PROJECT" = "Allwinner" ]; then
+    PKG_PATCH_DIRS+=" v4l2-request-api"
+    PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libdrm systemd" # systemd is needed for libudev
+    FFMPEG_V4L2_REQUEST="--enable-v4l2-request --enable-libudev --enable-libdrm"
+  fi
+
+  if [ "$PROJECT" == "RPi" ] || [ "$PROJECT" == "RPi2" ]; then
+    PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"
+    if [ "$BOARD" = "RPi4" ]; then
+     PKG_PATCH_DIRS+=" rpi4-hevc"
+    else
+     PKG_PATCH_DIRS+=" rpi-hevc"
+   fi
+  fi
+}
+
 pre_configure_target() {
   cd $PKG_BUILD
   rm -rf .$TARGET_NAME
@@ -95,10 +121,9 @@ pre_configure_target() {
 # ffmpeg fails running with GOLD support
   strip_gold
 
-
-  if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
-    CFLAGS="-I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux -DRPI=1 $CFLAGS"
+  if [ "$PROJECT" == "RPi" ] || [ "$PROJECT" == "RPi2" ]; then
     FFMPEG_LIBS="-lbcm_host -lvcos -lvchiq_arm -lmmal -lmmal_core -lmmal_util -lvcsm"
+    FFMPEG_RPI="--enable-rpi"
   fi
 }
 
@@ -119,7 +144,6 @@ configure_target() {
               --host-cc="$HOST_CC" \
               --host-cflags="$HOST_CFLAGS" \
               --host-ldflags="$HOST_LDFLAGS" \
-              --host-libs="-lm" \
               --extra-cflags="$CFLAGS" \
               --extra-ldflags="$LDFLAGS" \
               --extra-libs="$FFMPEG_LIBS" \
@@ -137,8 +161,7 @@ configure_target() {
               --disable-extra-warnings \
               --disable-ffprobe \
               --disable-ffplay \
-              --disable-ffserver \
-              --enable-ffmpeg \
+              --disable-ffmpeg \
               --enable-avdevice \
               --enable-avcodec \
               --enable-avformat \
@@ -161,17 +184,17 @@ configure_target() {
               $FFMPEG_VAAPI \
               $FFMPEG_VDPAU \
               $FFMPEG_RKMPP \
+              $FFMPEG_RPI \
+              $FFMPEG_V4L2_REQUEST \
               --disable-dxva2 \
               --enable-runtime-cpudetect \
               $FFMPEG_TABLES \
-              --disable-memalign-hack \
               --disable-encoders \
               --enable-encoder=ac3 \
               --enable-encoder=aac \
               --enable-encoder=wmav2 \
               --enable-encoder=mjpeg \
               --enable-encoder=png \
-              --disable-decoder=mpeg_xvmc \
               --enable-hwaccels \
               --disable-muxers \
               --enable-muxer=spdif \
@@ -193,14 +216,11 @@ configure_target() {
               --disable-libopencore-amrwb \
               --disable-libopencv \
               --disable-libdc1394 \
-              --disable-libfaac \
               --disable-libfreetype \
               --disable-libgsm \
               --disable-libmp3lame \
-              --disable-libnut \
               --disable-libopenjpeg \
               --disable-librtmp \
-              --disable-libschroedinger \
               --disable-libtheora \
               --disable-libvo-amrwbenc \
               --disable-libvorbis \
@@ -212,7 +232,7 @@ configure_target() {
               --enable-asm \
               --disable-altivec \
               $FFMPEG_FPU \
-              --enable-yasm \
+              --enable-x86asm \
               --disable-symver \
               $FFMPEG_X11GRAB
 }

@@ -34,6 +34,7 @@ targets="\
 	Generic_VK_nvidia|x86_64||| \
 	RPi|arm||| \
 	RPi2|arm||| \
+	RPi2|arm|||RPi4 \
 	Allwinner|arm||Bananapi| \
 	imx6|arm||cuboxi| \
 	OdroidC1|arm||| \

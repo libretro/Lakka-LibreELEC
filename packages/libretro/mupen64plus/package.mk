@@ -46,9 +46,13 @@ make_target() {
       make platform=rpi GLES=1 FORCE_GLES=1 WITH_DYNAREC=arm
       ;;
     RPi2|Slice3)
-      CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads \
-                      -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
-      make platform=rpi2 GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
+      if [ "$BOARD" == "RPi4" ]; then
+        CFLAGS="$CFLAGS -mfpu=neon" make platform=unix GLES3=1 FORCE_GLES3=1 HAVE_NEON=1 WITH_DYNAREC=arm
+      else
+        CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads \
+                        -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
+        make platform=rpi2 GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
+      fi
       ;;
     imx6)
       CFLAGS="$CFLAGS -DLINUX -DEGL_API_FB"

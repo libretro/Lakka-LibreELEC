@@ -81,6 +81,11 @@ case "$LINUX" in
     PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
     PKG_PATCH_DIRS="default-rpi"
     ;;
+  default-rpi4)
+    PKG_VERSION="71d47f4c4bd7fd395b87c474498187b2f9be8751"
+    PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
+    PKG_PATCH_DIRS="default-rpi4"
+    ;;
   rockchip-4.4)
     PKG_VERSION="aa8bacf821e5c8ae6dd8cae8d64011c741659945"
     PKG_SHA256="a2760fe89a15aa7be142fd25fb08ebd357c5d855c41f1612cf47c6e89de39bb3"
@@ -121,7 +126,9 @@ fi
 
 post_patch() {
   CFG_FILE="$PKG_NAME.${TARGET_PATCH_ARCH:-$TARGET_ARCH}.conf"
-  if [ -n "$DEVICE" -a -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/$PKG_NAME/$PKG_VERSION/$CFG_FILE ]; then
+  if [ -n "$BOARD" -a -f $PROJECT_DIR/$PROJECT/boards/$BOARD/$PKG_NAME/$CFG_FILE ]; then
+    KERNEL_CFG_FILE=$PROJECT_DIR/$PROJECT/boards/$BOARD/$PKG_NAME/$CFG_FILE
+  elif [ -n "$DEVICE" -a -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/$PKG_NAME/$PKG_VERSION/$CFG_FILE ]; then
     KERNEL_CFG_FILE=$PROJECT_DIR/$PROJECT/devices/$DEVICE/$PKG_NAME/$PKG_VERSION/$CFG_FILE
   elif [ -n "$DEVICE" -a -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/$PKG_NAME/$LINUX/$CFG_FILE ]; then
     KERNEL_CFG_FILE=$PROJECT_DIR/$PROJECT/devices/$DEVICE/$PKG_NAME/$LINUX/$CFG_FILE
@@ -140,7 +147,10 @@ post_patch() {
   else
     KERNEL_CFG_FILE=$PKG_DIR/config/$CFG_FILE
   fi
-
+  
+  echo "Using kernel config $KERNEL_CFG_FILE"
+  echo "Target arch is $TARGET_ARCH"
+  
   sed -i -e "s|^HOSTCC[[:space:]]*=.*$|HOSTCC = $TOOLCHAIN/bin/host-gcc|" \
          -e "s|^HOSTCXX[[:space:]]*=.*$|HOSTCXX = $TOOLCHAIN/bin/host-g++|" \
          -e "s|^ARCH[[:space:]]*?=.*$|ARCH = $TARGET_KERNEL_ARCH|" \
@@ -212,7 +222,7 @@ pre_make_target() {
     sed -i "s|CONFIG_EXTRA_FIRMWARE=.*|CONFIG_EXTRA_FIRMWARE=\"${FW_LIST}\"|" $PKG_BUILD/.config
   fi
 
-  make oldconfig
+  make olddefconfig
 
   # regdb
   cp $(get_build_dir wireless-regdb)/db.txt $PKG_BUILD/net/wireless/db.txt

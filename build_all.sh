@@ -12,6 +12,8 @@ PROJECT=Generic ARCH=i386 make image
 PROJECT=RPi ARCH=arm make noobs
 >&2 echo "RPi2.arm + noobs"
 PROJECT=RPi2 ARCH=arm make noobs
+>&2 echo "RPi4.arm + noobs"
+PROJECT=RPi2 BOARD=RPi4 ARCH=arm make noobs
 >&2 echo "Allwinner.arm"
 PROJECT=Allwinner SYSTEM=Bananapi ARCH=arm make image
 PROJECT=Allwinner SYSTEM=Cubieboard2 ARCH=arm make image
