@@ -3,26 +3,33 @@
 rm -rf target/
 
 targets="\
-	Allwinner|A64|arm \
-	Allwinner|H3|arm \
-	Allwinner|H6|arm \
-	Amlogic|AMLGX|arm \
-	Generic||x86_64 \
-	Generic||i386 \
-	Rockchip|MiQi|arm \
-	Rockchip|RK3328|arm \
-	Rockchip|RK3399|arm \
-	Rockchip|TinkerBoard|arm \
-	RPi|Gamegirl|arm \
-	RPi|RPi|arm \
-	RPi|RPi2|arm \
-	RPi|RPi4|arm \
-	Qualcomm|Dragonboard|arm \
+	Allwinner|A64|arm|image \
+	Allwinner|H3|arm|image \
+	Allwinner|H6|arm|image \
+	Amlogic|AMLG12|arm|image \
+	Amlogic|AMLGX|arm|image \
+	Generic||x86_64|image \
+	Generic||i386|image \
+	Rockchip|MiQi|arm|image \
+	Rockchip|RK3328|arm|image \
+	Rockchip|RK3399|arm|image \
+	Rockchip|TinkerBoard|arm|image \
+	RPi|Gamegirl|arm|image \
+	RPi|RPi|arm|noobs \
+	RPi|RPi2|arm|noobs \
+	RPi|RPi4|arm|noobs \
+	Qualcomm|Dragonboard|arm|image \
 	"
-
 
 failed_targets=""
 declare -i failed_jobs=0
+
+# number of buildthreads = two times number of cpu threads
+tc=""
+if [ -n "$(which nproc)" ]
+then
+	tc="THREADCOUNT=$(($(nproc)*2))"
+fi
 
 for target in $targets
 do
@@ -30,20 +37,30 @@ do
 	project=${build[0]}
 	device=${build[1]}
 	arch=${build[2]}
+	out=${build[3]}
 	target_name=${device:-$project}.${arch}
 
 	echo "Starting build of ${target_name}"
 
-	PROJECT=$project DEVICE=$device ARCH=$arch make image
+	make $out PROJECT=$project DEVICE=$device ARCH=$arch $tc
 
 	if [ $? -gt 0 ]
 	then
 		failed_jobs+=1
 		failed_targets+="${target_name}\n"
 	else
-		rm -f target/*.kernel target/*.system target/*.tar target/*.tar.sha256 target/*.ova target/*.ova.sha256
-		mkdir -p target/${target_name}
-		mv target/Lakka-${target_name}-*.img.gz target/Lakka-${target_name}-*.img.gz.sha256 target/${target_name}/
+		cd target
+		mkdir -p ${target_name}
+		for file in Lakka-${target_name}-*.{kernel,system}
+		do
+			md5sum ${file} > ${file}.md5
+		done
+		for file in Lakka-${target_name}-*{.img.gz,-noobs.tar,.kernel,.system}*
+		do
+			mv -v ${file} ${target_name}/
+		done
+		rm -vf Lakka-${target_name}-*.{tar,ova}*
+		cd ..
 	fi
 done
 
