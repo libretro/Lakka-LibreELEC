@@ -17,6 +17,7 @@ PKG_BUILD_FLAGS="-gold"
 get_graphicdrivers
 
 if [ "$V4L2_SUPPORT" = "yes" ]; then
+  PKG_PATCH_DIRS+=" v4l2"
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libdrm"
   PKG_FFMPEG_V4L2="--enable-v4l2_m2m --enable-libdrm"
 else
