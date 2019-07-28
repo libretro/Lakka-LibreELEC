@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="retroarch"
-PKG_VERSION="a689536"
+PKG_VERSION="ef5f448"
 PKG_REV="11"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
@@ -247,8 +247,6 @@ makeinstall_target() {
 
     # Joypad Autoconfig doesn't work as Joy-Cons VID and PID are both 0
     cat $PROJECT_DIR/Switch/joypad/Joy-Con_Rails.cfg >> $INSTALL/etc/retroarch.cfg
-
-    sed -i -e "s/audio_driver = \"alsathread\"/audio_driver = pulse/" $INSTALL/etc/retroarch.cfg
   fi
 }
 
