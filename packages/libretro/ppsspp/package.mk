@@ -45,6 +45,10 @@ if [ "$OPENGL_SUPPORT" = no -a "$OPENGLES_SUPPORT" = yes ]; then
   PKG_CMAKE_OPTS_TARGET="-DUSING_GLES2=yes $PKG_CMAKE_OPTS_TARGET"
 fi
 
+if [ "$TARGET_ARCH" = "arm" ]; then
+  PKG_CMAKE_OPTS_TARGET="-DARMV7=yes $PKG_CMAKE_OPTS_TARGET"
+fi
+
 pre_configure_target() {
   strip_lto
 }
