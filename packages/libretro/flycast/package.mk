@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="flycast"
-PKG_VERSION="4a020d4"
+PKG_VERSION="bbf5888"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
@@ -54,7 +54,11 @@ make_target() {
     FLYCAST_GL=""
     [ "$OPENGLES_SUPPORT" = yes ] && FLYCAST_GL="FORCE_GLES=1"
     if [ "$ARCH" == "arm" ]; then
-      make platform=rpi $FLYCAST_GL HAVE_OPENMP=0
+      if [ "$DEVICE" = "RPi4" ]; then
+        make platform=rpi4-gles-neon HAVE_OPENMP=0
+      else
+        make platform=rpi $FLYCAST_GL HAVE_OPENMP=0
+      fi
     else
       make AS=${AS} CC_AS=${AS} ARCH=${ARCH} $FLYCAST_GL HAVE_OPENMP=0
     fi
