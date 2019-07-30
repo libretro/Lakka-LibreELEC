@@ -47,6 +47,8 @@ fi
 
 if [ "$TARGET_ARCH" = "arm" ]; then
   PKG_CMAKE_OPTS_TARGET="-DARMV7=yes $PKG_CMAKE_OPTS_TARGET"
+elif [ "$TARGET_ARCH" = "aarch64" ]; then
+  PKG_CMAKE_OPTS_TARGET="-DARM64=yes $PKG_CMAKE_OPTS_TARGET"
 fi
 
 pre_configure_target() {
