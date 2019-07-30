@@ -25,13 +25,13 @@ PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/hrydgard/ppsspp"
 PKG_URL="$PKG_SITE.git"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain ffmpeg"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="Libretro port of PPSSPP"
 PKG_LONGDESC="A fast and portable PSP emulator"
 PKG_BUILD_FLAGS="-lto"
-PKG_TOOLCHAIN="make"
+PKG_TOOLCHAIN="cmake"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
@@ -44,36 +44,30 @@ if [ "$OPENGLES_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET+=" $OPENGLES"
 fi
 
-make_target() {
-  cd $PKG_BUILD/libretro
-  if [ "$OPENGLES" == "gpu-viv-bin-mx6q" -o "$OPENGLES" == "imx-gpu-viv" ]; then
-    CFLAGS="$CFLAGS -DLINUX -DEGL_API_FB"
-    CXXFLAGS="$CXXFLAGS -DLINUX -DEGL_API_FB"
-  fi
-  if [ "$OPENGLES" == "bcm2835-driver" ]; then
-    CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads"
-    CXXFLAGS="$CXXFLAGS -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads"
-  fi
-  if [ "$PROJECT" == "Rockchip" ]; then
-    CFLAGS+=" -D__GBM__"
-    CXXFLAGS+=" -D__GBM__"
-  fi
-  if [ "$DEVICE" = "RPi4" ]; then
-    SYSROOT_PREFIX=$SYSROOT_PREFIX AS=${CXX} make platform=armv-neon
-  elif [ "$ARCH" == "arm" ]; then
-    SYSROOT_PREFIX=$SYSROOT_PREFIX AS=${CXX} make platform=armv-neon-gles
-  elif [ "$ARCH" == "aarch64" ]; then
-    if [ "$OPENGL" == "no" ]; then 
-      SYSROOT_PREFIX=$SYSROOT_PREFIX AS=${CXX} make platform=arm64-neon-gles
-    else
-      SYSROOT_PREFIX=$SYSROOT_PREFIX AS=${CXX} make platform=arm64-neon
-    fi
-  else
-    make
-  fi
+PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=yes \
+                       -DCMAKE_BUILD_TYPE=Release \
+                       -DUSE_FFMPEG=yes \
+                       -DUSE_SYSTEM_FFMPEG=yes \
+                       --target ppsspp_libretro"
+
+if [ "$OPENGL_SUPPORT" = no -a "$OPENGLES_SUPPORT" = yes ]; then
+  PKG_CMAKE_OPTS_TARGET="-DUSING_GLES2=yes $PKG_CMAKE_OPTS_TARGET"
+fi
+
+if [ "$TARGET_ARCH" = "arm" ]; then
+  PKG_CMAKE_OPTS_TARGET="-DARMV7=yes $PKG_CMAKE_OPTS_TARGET"
+elif [ "$TARGET_ARCH" = "aarch64" ]; then
+  PKG_CMAKE_OPTS_TARGET="-DARM64=yes $PKG_CMAKE_OPTS_TARGET"
+fi
+
+pre_make_target() {
+  find $PKG_BUILD -name flags.make -exec sed -i "s:isystem :I:g" \{} \;
+  find $PKG_BUILD -name build.ninja -exec sed -i "s:isystem :I:g" \{} \;
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp ../libretro/ppsspp_libretro.so $INSTALL/usr/lib/libretro/
+  cp lib/ppsspp_libretro.so $INSTALL/usr/lib/libretro/
+  mkdir -p $INSTALL/usr/share/retroarch-system/PPSSPP
+  cp -R $PKG_BUILD/assets/* $INSTALL/usr/share/retroarch-system/PPSSPP/
 }
