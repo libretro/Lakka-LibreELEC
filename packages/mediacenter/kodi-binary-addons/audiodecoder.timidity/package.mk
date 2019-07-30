@@ -17,3 +17,10 @@ PKG_LONGDESC="audiodecoder.timidity"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.audiodecoder"
+
+addon() {
+  install_binary_addon $PKG_ADDON_ID
+
+  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID
+    cp -P $PKG_BUILD/.$TARGET_NAME/lib/timidity/libtimidity.so $ADDON_BUILD/$PKG_ADDON_ID/
+}
