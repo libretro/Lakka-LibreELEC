@@ -54,6 +54,10 @@ if [ "$OPENGL_SUPPORT" = no -a "$OPENGLES_SUPPORT" = yes ]; then
   PKG_CMAKE_OPTS_TARGET="-DUSING_GLES2=yes $PKG_CMAKE_OPTS_TARGET"
 fi
 
+if [ "$TARGET_ARCH" = "arm" ]; then
+  PKG_CMAKE_OPTS_TARGET="-DARMV7=yes $PKG_CMAKE_OPTS_TARGET"
+fi
+
 pre_make_target() {
   find $PKG_BUILD -name flags.make -exec sed -i "s:isystem :I:g" \{} \;
   find $PKG_BUILD -name build.ninja -exec sed -i "s:isystem :I:g" \{} \;
