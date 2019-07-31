@@ -2525,3 +2525,71 @@ index 4802902e128f..9e464d40cbff 100644
 -- 
 2.21.0
 
+From dc1b5d9aed1794b5a1c6b0da46e372cc09974cbc Mon Sep 17 00:00:00 2001
+From: Enric Balletbo i Serra <enric.balletbo@collabora.com>
+Date: Thu, 13 Jun 2019 17:01:07 +0200
+Subject: [PATCH] usb: dwc3: Fix core validation in probe, move after clocks
+ are enabled
+
+The required clocks needs to be enabled before the first register
+access. After commit fe8abf332b8f ("usb: dwc3: support clocks and resets
+for DWC3 core"), this happens when the dwc3_core_is_valid function is
+called, but the mentioned commit adds that call in the wrong place,
+before the clocks are enabled. So, move that call after the
+clk_bulk_enable() to ensure the clocks are enabled and the reset
+deasserted.
+
+I detected this while, as experiment, I tried to move the clocks and resets
+from the glue layer to the DWC3 core on a Samsung Chromebook Plus.
+
+That was not detected before because, in most cases, the glue layer
+initializes SoC-specific things and then populates the child "snps,dwc3"
+with those clocks already enabled.
+
+Fixes: b873e2d0ea1ef ("usb: dwc3: Do core validation early on probe")
+Signed-off-by: Enric Balletbo i Serra <enric.balletbo@collabora.com>
+Signed-off-by: Felipe Balbi <felipe.balbi@linux.intel.com>
+---
+ drivers/usb/dwc3/core.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/usb/dwc3/core.c b/drivers/usb/dwc3/core.c
+index 4aff1d8dbc4f..6e9e172010fc 100644
+--- a/drivers/usb/dwc3/core.c
++++ b/drivers/usb/dwc3/core.c
+@@ -1423,11 +1423,6 @@ static int dwc3_probe(struct platform_device *pdev)
+ 	dwc->regs	= regs;
+ 	dwc->regs_size	= resource_size(&dwc_res);
+ 
+-	if (!dwc3_core_is_valid(dwc)) {
+-		dev_err(dwc->dev, "this is not a DesignWare USB3 DRD Core\n");
+-		return -ENODEV;
+-	}
+-
+ 	dwc3_get_properties(dwc);
+ 
+ 	dwc->reset = devm_reset_control_get_optional_shared(dev, NULL);
+@@ -1460,6 +1455,12 @@ static int dwc3_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		goto unprepare_clks;
+ 
++	if (!dwc3_core_is_valid(dwc)) {
++		dev_err(dwc->dev, "this is not a DesignWare USB3 DRD Core\n");
++		ret = -ENODEV;
++		goto disable_clks;
++	}
++
+ 	platform_set_drvdata(pdev, dwc);
+ 	dwc3_cache_hwparams(dwc);
+ 
+@@ -1525,6 +1526,7 @@ static int dwc3_probe(struct platform_device *pdev)
+ 	pm_runtime_put_sync(&pdev->dev);
+ 	pm_runtime_disable(&pdev->dev);
+ 
++disable_clks:
+ 	clk_bulk_disable(dwc->num_clks, dwc->clks);
+ unprepare_clks:
+ 	clk_bulk_unprepare(dwc->num_clks, dwc->clks);
+-- 
+2.22.0
+
