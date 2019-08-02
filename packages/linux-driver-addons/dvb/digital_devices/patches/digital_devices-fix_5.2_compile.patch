@@ -1,0 +1,171 @@
+From e38f504aa02c05d3917bb65dbe5d13836b251b86 Mon Sep 17 00:00:00 2001
+From: Martin Vidovic <martin.vidovic@nevron.si>
+Date: Tue, 9 Jul 2019 12:31:21 +0200
+Subject: [PATCH 1/2] fix build on linux-5.2
+
+---
+ dvb-core/dvbdev.c | 22 +++++++++++++++++++---
+ 1 file changed, 19 insertions(+), 3 deletions(-)
+
+diff --git a/dvb-core/dvbdev.c b/dvb-core/dvbdev.c
+index 219b869..9ef0e45 100644
+--- a/dvb-core/dvbdev.c
++++ b/dvb-core/dvbdev.c
+@@ -598,7 +598,7 @@ int dvb_create_media_graph(struct dvb_adapter *adap,
+ 	unsigned demux_pad = 0;
+ 	unsigned dvr_pad = 0;
+ 	unsigned ntuner = 0, ndemod = 0;
+-	int ret;
++	int ret, pad_source, pad_sink;
+ 	static const char *connector_name = "Television";
+ 
+ 	if (!mdev)
+@@ -667,11 +667,19 @@ int dvb_create_media_graph(struct dvb_adapter *adap,
+ 						     MEDIA_LNK_FL_ENABLED,
+ 						     false);
+ 		else
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,2,0))
++			pad_sink = media_get_pad_index(tuner, true,
++						       PAD_SIGNAL_ANALOG);
++			if (pad_sink < 0)
++				return -EINVAL;
++#else
++			pad_sink = TUNER_PAD_RF_INPUT;
++#endif
+ 			ret = media_create_pad_links(mdev,
+ 						     MEDIA_ENT_F_CONN_RF,
+ 						     conn, 0,
+ 						     MEDIA_ENT_F_TUNER,
+-						     tuner, TUNER_PAD_RF_INPUT,
++						     tuner, pad_sink,
+ 						     MEDIA_LNK_FL_ENABLED,
+ 						     false);
+ 		if (ret)
+@@ -679,9 +687,17 @@ int dvb_create_media_graph(struct dvb_adapter *adap,
+ 	}
+ 
+ 	if (ntuner && ndemod) {
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,2,0))
++		pad_source = media_get_pad_index(tuner, true,
++					         PAD_SIGNAL_ANALOG);
++		if (pad_source)
++			return -EINVAL;
++#else
++		pad_source = TUNER_PAD_OUTPUT;
++#endif
+ 		ret = media_create_pad_links(mdev,
+ 					     MEDIA_ENT_F_TUNER,
+-					     tuner, TUNER_PAD_OUTPUT,
++					     tuner, pad_source,
+ 					     MEDIA_ENT_F_DTV_DEMOD,
+ 					     demod, 0, MEDIA_LNK_FL_ENABLED,
+ 					     false);
+
+From f0f693ae7f2a05c71a5b3df19d410fa1580f2db8 Mon Sep 17 00:00:00 2001
+From: Martin Vidovic <martin.vidovic@nevron.si>
+Date: Tue, 9 Jul 2019 12:37:06 +0200
+Subject: [PATCH 2/2] switch from SUBDIRS to KBUILD_EXTMOD for kbuild
+
+---
+ Makefile           | 6 +++---
+ ddbridge/Kbuild    | 2 +-
+ ddip/Kbuild        | 2 +-
+ ddip/Makefile      | 6 +++---
+ dvb-core/Makefile  | 2 +-
+ frontends/Makefile | 2 +-
+ 6 files changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index a631a57..847504e 100644
+--- a/Makefile
++++ b/Makefile
+@@ -5,7 +5,7 @@ PWD	:= $(shell pwd)
+ MODDEFS := CONFIG_DVB_CORE=m CONFIG_DVB_DDBRIDGE=m CONFIG_DVB_DRXK=m CONFIG_DVB_TDA18271C2DD=m CONFIG_DVB_CXD2099=m CONFIG_DVB_LNBP21=m  CONFIG_DVB_STV090x=m CONFIG_DVB_STV6110x=m CONFIG_DVB_STV0367=m CONFIG_DVB_TDA18212=m CONFIG_DVB_STV0367DD=m CONFIG_DVB_TDA18212DD=m CONFIG_DVB_OCTONET=m CONFIG_DVB_CXD2843=m CONFIG_DVB_STV0910=m CONFIG_DVB_STV6111=m CONFIG_DVB_LNBH25=m CONFIG_DVB_MXL5XX=m CONFIG_DVB_NET=m
+ 
+ all: 
+-	$(MAKE) -C $(KDIR) SUBDIRS=$(PWD) $(MODDEFS) modules
++	$(MAKE) -C $(KDIR) KBUILD_EXTMOD=$(PWD) $(MODDEFS) modules
+ 	$(MAKE) -C apps
+ 
+ libdddvb:
+@@ -15,10 +15,10 @@ libdddvb-install:
+ 	$(MAKE) -C lib install
+ 
+ dep:
+-	DIR=`pwd`; (cd $(TOPDIR); make SUBDIRS=$$DIR dep)
++	DIR=`pwd`; (cd $(TOPDIR); make KBUILD_EXTMOD=$$DIR dep)
+ 
+ install: all
+-	$(MAKE) -C $(KDIR) SUBDIRS=$(PWD) modules_install
++	$(MAKE) -C $(KDIR) KBUILD_EXTMOD=$(PWD) modules_install
+ 
+ clean:
+ 	rm -rf */.*.o.d */*.o */*.ko */*.mod.c */.*.cmd .tmp_versions Module* modules*
+diff --git a/ddbridge/Kbuild b/ddbridge/Kbuild
+index e43b288..ee1a8ce 100644
+--- a/ddbridge/Kbuild
++++ b/ddbridge/Kbuild
+@@ -8,4 +8,4 @@ obj-$(CONFIG_DVB_OCTONET) += octonet.o
+ 
+ EXTRA_CFLAGS += -Idrivers/media/dvb/frontends -Idrivers/media/dvb-frontends
+ EXTRA_CFLAGS += -Idrivers/media/common/tuners
+-NOSTDINC_FLAGS += -I$(SUBDIRS)/frontends -I$(SUBDIRS)/include -I$(SUBDIRS)/dvb-core
+\ No newline at end of file
++NOSTDINC_FLAGS += -I$(KBUILD_EXTMOD)/frontends -I$(KBUILD_EXTMOD)/include -I$(KBUILD_EXTMOD)/dvb-core
+\ No newline at end of file
+diff --git a/ddip/Kbuild b/ddip/Kbuild
+index 2744e39..74ce4d6 100644
+--- a/ddip/Kbuild
++++ b/ddip/Kbuild
+@@ -2,4 +2,4 @@ obj-$(CONFIG_DVB_DDBRIDGE) += ddip.o
+ 
+ EXTRA_CFLAGS += -Idrivers/media/dvb/frontends -Idrivers/media/dvb-frontends
+ EXTRA_CFLAGS += -Idrivers/media/common/tuners 
+-NOSTDINC_FLAGS += -I$(SUBDIRS)/frontends -I$(SUBDIRS)/include -I$(SUBDIRS)/dvb-core 
+\ No newline at end of file
++NOSTDINC_FLAGS += -I$(KBUILD_EXTMOD)/frontends -I$(KBUILD_EXTMOD)/include -I$(KBUILD_EXTMOD)/dvb-core 
+\ No newline at end of file
+diff --git a/ddip/Makefile b/ddip/Makefile
+index b5d0418..f5b773d 100644
+--- a/ddip/Makefile
++++ b/ddip/Makefile
+@@ -4,13 +4,13 @@ PWD	:= $(shell pwd)
+ MODDEFS := CONFIG_DVB_DDIP=m 
+ 
+ all: 
+-	$(MAKE) -C $(KDIR) SUBDIRS=$(PWD) $(MODDEFS) modules
++	$(MAKE) -C $(KDIR) KBUILD_EXTMOD=$(PWD) $(MODDEFS) modules
+ 
+ dep:
+-	DIR=`pwd`; (cd $(TOPDIR); make SUBDIRS=$$DIR dep)
++	DIR=`pwd`; (cd $(TOPDIR); make KBUILD_EXTMOD=$$DIR dep)
+ 
+ install: all
+-	$(MAKE) -C $(KDIR) SUBDIRS=$(PWD) modules_install
++	$(MAKE) -C $(KDIR) KBUILD_EXTMOD=$(PWD) modules_install
+ 
+ clean:
+ 	rm -rf */*.o */*.ko */*.mod.c */.*.cmd .tmp_versions Module* modules*
+diff --git a/dvb-core/Makefile b/dvb-core/Makefile
+index f286aa9..fdcdd47 100644
+--- a/dvb-core/Makefile
++++ b/dvb-core/Makefile
+@@ -9,4 +9,4 @@ dvb-core-objs := dvbdev.o dmxdev.o dvb_demux.o dvb_filter.o 	\
+ obj-$(CONFIG_DVB_CORE) += dvb-core.o
+ 
+ EXTRA_CFLAGS += -DCONFIG_DVB_DYNAMIC_MINORS -DCONFIG_DVB_NET
+-NOSTDINC_FLAGS += -I$(SUBDIRS)/include -I$(SUBDIRS)/dvb-core
++NOSTDINC_FLAGS += -I$(KBUILD_EXTMOD)/include -I$(KBUILD_EXTMOD)/dvb-core
+diff --git a/frontends/Makefile b/frontends/Makefile
+index 32f569f..49b8417 100644
+--- a/frontends/Makefile
++++ b/frontends/Makefile
+@@ -16,7 +16,7 @@ EXTRA_CFLAGS += -DCONFIG_DVB_LNBH25
+ EXTRA_CFLAGS += -DCONFIG_DVB_MXL5XX
+ EXTRA_CFLAGS += -DCONFIG_DVB_CXD2099
+ EXTRA_CFLAGS += -DDBVALS
+-NOSTDINC_FLAGS += -I$(SUBDIRS)/include -I$(SUBDIRS)/dvb-core
++NOSTDINC_FLAGS += -I$(KBUILD_EXTMOD)/include -I$(KBUILD_EXTMOD)/dvb-core
+ 
+ drxk-objs := drxk_hard.o 
+ obj-$(CONFIG_DVB_DRXK) += drxk.o
