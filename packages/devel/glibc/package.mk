@@ -108,18 +108,18 @@ post_makeinstall_target() {
 # cleanup
 # remove any programs we don't want/need, keeping only those we want
   for f in $(find $INSTALL/usr/bin -type f); do
-    listcontains "${GLIBC_INCLUDE_BIN}" "$(basename "${f}")" || rm -fr "${f}"
+    listcontains "${GLIBC_INCLUDE_BIN}" "$(basename "${f}")" || safe_remove "${f}"
   done
 
-  rm -rf $INSTALL/usr/lib/audit
-  rm -rf $INSTALL/usr/lib/glibc
-  rm -rf $INSTALL/usr/lib/libc_pic
-  rm -rf $INSTALL/usr/lib/*.o
-  rm -rf $INSTALL/usr/lib/*.map
-  rm -rf $INSTALL/var
+  safe_remove $INSTALL/usr/lib/audit
+  safe_remove $INSTALL/usr/lib/glibc
+  safe_remove $INSTALL/usr/lib/libc_pic
+  safe_remove $INSTALL/usr/lib/*.o
+  safe_remove $INSTALL/usr/lib/*.map
+  safe_remove $INSTALL/var
 
 # remove locales and charmaps
-  rm -rf $INSTALL/usr/share/i18n/charmaps
+  safe_remove $INSTALL/usr/share/i18n/charmaps
 
 # add UTF-8 charmap for Generic (charmap is needed for installer)
   if [ "$PROJECT" = "Generic" ]; then
@@ -129,7 +129,7 @@ post_makeinstall_target() {
   fi
 
   if [ ! "$GLIBC_LOCALES" = yes ]; then
-    rm -rf $INSTALL/usr/share/i18n/locales
+    safe_remove $INSTALL/usr/share/i18n/locales
 
     mkdir -p $INSTALL/usr/share/i18n/locales
       cp -PR $PKG_BUILD/localedata/locales/POSIX $INSTALL/usr/share/i18n/locales
