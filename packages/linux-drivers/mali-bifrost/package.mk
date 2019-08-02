@@ -10,7 +10,7 @@ PKG_SITE="https://developer.arm.com/products/software/mali-drivers/bifrost-kerne
 PKG_URL="https://github.com/LibreELEC/mali-bifrost/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
-PKG_LONGDESC="mali-midgard: the Linux kernel driver for ARM Mali Midgard GPUs"
+PKG_LONGDESC="mali-bifrost: the Linux kernel driver for ARM Mali Bifrost GPUs"
 PKG_TOOLCHAIN="manual"
 PKG_IS_KERNEL_PKG="yes"
 
