@@ -1,0 +1,104 @@
+From patchwork Sun Jul 28 23:39:42 2019
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+X-Patchwork-Submitter: =?utf-8?q?Ond=C5=99ej_Jirman?= <megous@megous.com>
+X-Patchwork-Id: 1138087
+X-Patchwork-Delegate: jagannadh.teki@gmail.com
+Return-Path: <u-boot-bounces@lists.denx.de>
+X-Original-To: incoming@patchwork.ozlabs.org
+Delivered-To: patchwork-incoming@bilbo.ozlabs.org
+Authentication-Results: ozlabs.org;
+ spf=none (mailfrom) smtp.mailfrom=lists.denx.de
+ (client-ip=81.169.180.215; helo=lists.denx.de;
+ envelope-from=u-boot-bounces@lists.denx.de;
+ receiver=<UNKNOWN>)
+Authentication-Results: ozlabs.org;
+ dmarc=fail (p=none dis=none) header.from=megous.com
+Authentication-Results: ozlabs.org;
+ dkim=fail reason="signature verification failed" (1024-bit key;
+ unprotected) header.d=megous.com header.i=@megous.com
+ header.b="CrQpjmRT"; dkim-atps=neutral
+Received: from lists.denx.de (dione.denx.de [81.169.180.215])
+ by ozlabs.org (Postfix) with ESMTP id 45xfSd39Cgz9sBt
+ for <incoming@patchwork.ozlabs.org>;
+ Mon, 29 Jul 2019 09:40:15 +1000 (AEST)
+Received: by lists.denx.de (Postfix, from userid 105)
+ id B2080C21C6A; Sun, 28 Jul 2019 23:40:01 +0000 (UTC)
+X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on lists.denx.de
+X-Spam-Level: 
+X-Spam-Status: No, score=0.0 required=5.0 tests=T_DKIM_INVALID
+ autolearn=unavailable autolearn_force=no version=3.4.0
+Received: from lists.denx.de (localhost [IPv6:::1])
+ by lists.denx.de (Postfix) with ESMTP id 4ADF8C21C2F;
+ Sun, 28 Jul 2019 23:40:00 +0000 (UTC)
+Received: by lists.denx.de (Postfix, from userid 105)
+ id 6153DC21C2F; Sun, 28 Jul 2019 23:39:58 +0000 (UTC)
+Received: from vps.xff.cz (vps.xff.cz [195.181.215.36])
+ by lists.denx.de (Postfix) with ESMTPS id 01E68C21C2C
+ for <u-boot@lists.denx.de>; Sun, 28 Jul 2019 23:39:58 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=megous.com; s=mail;
+ t=1564357197; bh=O569bOUuJGqDJElKbA3RSmC4Fo1qMuQYR/PPaLa2AAo=;
+ h=From:To:Cc:Subject:Date:From;
+ b=CrQpjmRTeDQh+lZWj24nnowLe5dFPiJtkSEF1vR2ioP52kdNo+KsrhhPYOL5zP4s8
+ ty4iCkZUQ2Fov/BIVCPJJEgeBBTEFTWzfXyDxIbvgWya45gG3FlGFjyrh52+e3T4zk
+ t9n7yy1iXLNInpC9uJRwJPMee3pcSZKVudimC7DY=
+From: megous@megous.com
+To: u-boot@lists.denx.de
+Date: Mon, 29 Jul 2019 01:39:42 +0200
+Message-Id: <20190728233942.9767-1-megous@megous.com>
+MIME-Version: 1.0
+Cc: Ondrej Jirman <megous@megous.com>, =?utf-8?q?Andr=C3=A9_Przywara?=
+ <andre.przywara@arm.com>,  Maxime Ripard <maxime.ripard@bootlin.com>
+Subject: [U-Boot] [PATCH] Fix unreliable detection of DRAM size on Orange Pi 3
+X-BeenThere: u-boot@lists.denx.de
+X-Mailman-Version: 2.1.18
+Precedence: list
+List-Id: U-Boot discussion <u-boot.lists.denx.de>
+List-Unsubscribe: <https://lists.denx.de/options/u-boot>,
+ <mailto:u-boot-request@lists.denx.de?subject=unsubscribe>
+List-Archive: <http://lists.denx.de/pipermail/u-boot/>
+List-Post: <mailto:u-boot@lists.denx.de>
+List-Help: <mailto:u-boot-request@lists.denx.de?subject=help>
+List-Subscribe: <https://lists.denx.de/listinfo/u-boot>,
+ <mailto:u-boot-request@lists.denx.de?subject=subscribe>
+Content-Type: text/plain; charset="utf-8"
+Errors-To: u-boot-bounces@lists.denx.de
+Sender: "U-Boot" <u-boot-bounces@lists.denx.de>
+
+From: Ondrej Jirman <megous@megous.com>
+
+Orange Pi 3 has 2 GiB of DRAM, that sometime get misdetected
+as 4 GiB, due to false negative result from mctl_mem_matches()
+when detecting number of column address bits. This leads to
+u-boot detecting more address bits than there are and the
+boot process hangs shortly after.
+
+In mctl_mem_matches() we need to wait for each write to finish,
+separately. Without this, the check is not reliable for some
+unknown reason, probably having to do with unpredictable memory
+access ordering.
+
+Patch was made with help from André Przywara, who noticed that
+my original idea about detection failing due to read-back from
+cache without involving DRAM was false, because data cache is
+still of at the time of the DRAM size autodetection.
+
+Signed-off-by: Ondrej Jirman <megous@megous.com>
+Cc: André Przywara <andre.przywara@arm.com>
+---
+ arch/arm/mach-sunxi/dram_helpers.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm/mach-sunxi/dram_helpers.c b/arch/arm/mach-sunxi/dram_helpers.c
+index 239ab421a8..6dba448638 100644
+--- a/arch/arm/mach-sunxi/dram_helpers.c
++++ b/arch/arm/mach-sunxi/dram_helpers.c
+@@ -30,6 +30,7 @@ bool mctl_mem_matches(u32 offset)
+ {
+ 	/* Try to write different values to RAM at two addresses */
+ 	writel(0, CONFIG_SYS_SDRAM_BASE);
++	dsb();
+ 	writel(0xaa55aa55, (ulong)CONFIG_SYS_SDRAM_BASE + offset);
+ 	dsb();
+ 	/* Check if the same value is actually observed when reading back */
