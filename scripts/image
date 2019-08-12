@@ -10,6 +10,15 @@ unset _CACHE_PACKAGE_LOCAL _CACHE_PACKAGE_GLOBAL _DEBUG_DEPENDS_LIST _DEBUG_PACK
 . config/multithread
 . config/show_config
 
+# Validate UBOOT_SYSTEM if it is specified
+if [ "${BOOTLOADER}" = "u-boot" -a -n "${DEVICE}" ]; then
+  if [ -z "${UBOOT_SYSTEM}" ]; then
+    ${SCRIPTS}/uboot_helper ${PROJECT} ${DEVICE} >/dev/null
+  elif [ "${UBOOT_VERSION}" != "vendor" ]; then
+    ${SCRIPTS}/uboot_helper ${PROJECT} ${DEVICE} ${UBOOT_SYSTEM} dtb >/dev/null
+  fi
+fi
+
 show_config
 save_build_config
 
@@ -310,9 +319,12 @@ if [ "${1}" = "release" -o "${1}" = "mkimage" -o "${1}" = "noobs" ]; then
     UUID_SYSTEM="$(date '+%d%m')-$(date '+%M%S')"
     UUID_STORAGE="$(uuidgen)"
 
-    DEVICE_BOARDS=$(${SCRIPTS}/uboot_helper "${PROJECT}" "${DEVICE}")
+    DEVICE_BOARDS=
+    if [ "${BOOTLOADER}" = "u-boot" -a -z "${UBOOT_SYSTEM}" -a -n "${DEVICE}" ]; then
+      DEVICE_BOARDS=$(${SCRIPTS}/uboot_helper "${PROJECT}" "${DEVICE}")
+    fi
 
-    if [ "${BOOTLOADER}" = "u-boot" -a -z "${UBOOT_SYSTEM}" -a -n "${DEVICE}" -a -n "${DEVICE_BOARDS}" ]; then
+    if [ -n "${DEVICE_BOARDS}" ]; then
       for UBOOT_SYSTEM in ${DEVICE_BOARDS}; do
 
         # Re-install u-boot package
