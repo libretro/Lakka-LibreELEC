@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
+
+from __future__ import print_function
 import sys
 
 # When adding new devices to the list please keep them in alphabetical order
@@ -223,60 +227,76 @@ devices = \
   },
 }
 
-def usage():
-  print(' '.join(['Usage:', sys.argv[0], '<project>', '<soc>', '<board-name>', 'dtb|config']))
-  print(' '.join(['      ', sys.argv[0], '<project>', '<soc>']))
-  print(' '.join(['      ', sys.argv[0], '<project>']) + '\n')
-  print('Projects:' + '\n')
-  for project in devices:
-    print('  ' + project + ':')
-    for soc in devices[project]:
-      print('    ' + soc + ':')
-      for board in devices[project][soc]:
-        print('      ' + board)
-      print('')
-    print('')
+def usage(PROJECT=None, SOC=None, FILE=sys.stdout):
+  print('Usage: %s <project> <soc> <board-name> dtb|config' % sys.argv[0], file=FILE)
+  print('       %s <project> <soc>' % sys.argv[0], file=FILE)
+  print('       %s <project>' % sys.argv[0], file=FILE)
+  print('', file=FILE)
+
+  if PROJECT and PROJECT not in devices:
+    PROJECT = SOC = None
+  if PROJECT and SOC and SOC not in devices[PROJECT]:
+    SOC = None
+
+  print('Projects:', file=FILE)
+  print('', file=FILE)
+  for project in sorted(devices):
+    if PROJECT is None or PROJECT == project:
+      print('  %s:' % project, file=FILE)
+      for soc in sorted(devices[project]):
+        if SOC is None or SOC == soc:
+          print('    %s:' % soc, file=FILE)
+          for board in sorted(devices[project][soc]):
+            print('      %s' % board, file=FILE)
+          print('', file=FILE)
+      print('', file=FILE)
+
+def exit_error(msg, PROJECT=None, SOC=None):
+  print(msg, file=sys.stderr)
+  print('', file=sys.stderr)
+  usage(PROJECT=PROJECT, SOC=SOC, FILE=sys.stderr)
+  sys.exit(1)
+
+# Basic argument validation
+if len(sys.argv) == 2 and sys.argv[1] in ['help', 'usage']:
+  usage()
+  sys.exit(0)
+
+if len(sys.argv) > 1 and sys.argv[1] not in devices:
+  exit_error('Invalid project: %s' % sys.argv[1])
+
+if len(sys.argv) > 2 and sys.argv[2] not in devices[sys.argv[1]]:
+  exit_error('Invalid soc: %s' % sys.argv[2], PROJECT=sys.argv[1])
+
+if len(sys.argv) > 3 and sys.argv[3] not in devices[sys.argv[1]][sys.argv[2]]:
+  exit_error('Invalid board-name: %s' % sys.argv[3], PROJECT=sys.argv[1], SOC=sys.argv[2])
+
+if len(sys.argv) == 4:
+  exit_error('Invalid option: must specify dtb or config', PROJECT=sys.argv[1], SOC=sys.argv[2])
+elif len(sys.argv) > 4 and sys.argv[4] not in ['dtb', 'config']:
+  exit_error('Invalid option: %s' % sys.argv[4], PROJECT=sys.argv[1], SOC=sys.argv[2])
+
+if len(sys.argv) > 5:
+  exit_error('Invalid number of arguments: %s' % ' '.join(sys.argv[1:]), PROJECT=sys.argv[1], SOC=sys.argv[2])
 
 # Get dtb or u-boot config for a given project, soc, and board
-# ./scripts/uboot_helper project device board_name dtb
+# ./scripts/uboot_helper project device board-name dtb|config
 if len(sys.argv) == 5:
-  if sys.argv[1] in devices:
-    if sys.argv[2] in devices[sys.argv[1]]:
-      if sys.argv[3] in devices[sys.argv[1]][sys.argv[2]]:
-        if sys.argv[4] in ['dtb', 'config']:
-          print(devices[sys.argv[1]][sys.argv[2]][sys.argv[3]][sys.argv[4]])
-          sys.exit(0)
+  print(devices[sys.argv[1]][sys.argv[2]][sys.argv[3]][sys.argv[4]])
 
 # List boards supported by a given project and soc
 # ./scripts/uboot_helper project device
 elif len(sys.argv) == 3:
-  if sys.argv[1] in devices:
-    if sys.argv[2] in devices[sys.argv[1]]:
-      boards = []
-      for board in sorted(devices[sys.argv[1]][sys.argv[2]]):
-          boards.append(board)
-      print(' '.join(boards))
-  sys.exit(0)
+  print(' '.join([board for board in sorted(devices[sys.argv[1]][sys.argv[2]])]))
 
 # List socs supported by a given project
 # ./scripts/uboot_helper project
 elif len(sys.argv) == 2:
-  if sys.argv[1] in ['help', 'usage']:
-    usage()
-  elif sys.argv[1] in devices:
-    socs = []
-    for soc in sorted(devices[sys.argv[1]]):
-      socs.append(soc)
-    print(' '.join(socs))
-  sys.exit(0)
+  print(' '.join([soc for soc in sorted(devices[sys.argv[1]])]))
 
 # List projects
 # ./scripts/uboot_helper
 elif len(sys.argv) == 1:
-  projects = []
-  for project in sorted(devices):
-    projects.append(project)
-  print(' '.join(projects))
-  sys.exit(0)
+  print(' '.join([project for project in sorted(devices)]))
 
-usage()
+sys.exit(0)
