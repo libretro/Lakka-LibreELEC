@@ -1,0 +1,63 @@
+From 5e5db096a323377cb59e5ce438b4581a7c664674 Mon Sep 17 00:00:00 2001
+From: Neil Armstrong <narmstrong@baylibre.com>
+Date: Mon, 22 Jul 2019 11:32:50 +0200
+Subject: [PATCH] ARM: meson-g12a: Handle 4GiB DRAM size
+
+When configured with 4GiB DRAM size, only 3.8GiB is available, the
+I/O beeing mapped in the last 256MiB of the first 4GiB physical memory/
+
+First fixup the mm_region to handle the first 3.8GiB as memory and the
+last 256MiB as I/O.
+
+Then limit the real memory reported by the firmware to the available
+physical space, 3.8GiB aligned with the mm_region memory zone size.
+
+Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+Tested-by: Mark Kettenis <kettenis@openbsd.org>
+---
+ arch/arm/mach-meson/board-g12a.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/arch/arm/mach-meson/board-g12a.c b/arch/arm/mach-meson/board-g12a.c
+index 1652970fbd..546b9f6039 100644
+--- a/arch/arm/mach-meson/board-g12a.c
++++ b/arch/arm/mach-meson/board-g12a.c
+@@ -62,21 +62,21 @@ void meson_init_reserved_memory(void *fdt)
+ phys_size_t get_effective_memsize(void)
+ {
+ 	/* Size is reported in MiB, convert it in bytes */
+-	return ((readl(G12A_AO_SEC_GP_CFG0) & G12A_AO_MEM_SIZE_MASK)
+-			>> G12A_AO_MEM_SIZE_SHIFT) * SZ_1M;
++	return min(((readl(G12A_AO_SEC_GP_CFG0) & G12A_AO_MEM_SIZE_MASK)
++			>> G12A_AO_MEM_SIZE_SHIFT) * SZ_1M, 0xf5000000);
+ }
+ 
+ static struct mm_region g12a_mem_map[] = {
+ 	{
+ 		.virt = 0x0UL,
+ 		.phys = 0x0UL,
+-		.size = 0x80000000UL,
++		.size = 0xf5000000UL,
+ 		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) |
+ 			 PTE_BLOCK_INNER_SHARE
+ 	}, {
+-		.virt = 0xf0000000UL,
+-		.phys = 0xf0000000UL,
+-		.size = 0x10000000UL,
++		.virt = 0xf5000000UL,
++		.phys = 0xf5000000UL,
++		.size = 0x0b000000UL,
+ 		.attrs = PTE_BLOCK_MEMTYPE(MT_DEVICE_NGNRNE) |
+ 			 PTE_BLOCK_NON_SHARE |
+ 			 PTE_BLOCK_PXN | PTE_BLOCK_UXN
+@@ -129,6 +129,7 @@ void meson_eth_init(phy_interface_t mode, unsigned int flags)
+ 			     G12A_ETH_REG_0_TX_RATIO(4) |
+ 			     G12A_ETH_REG_0_PHY_CLK_EN |
+ 			     G12A_ETH_REG_0_CLK_EN);
++		g12a_enable_external_mdio();
+ 		break;
+ 
+ 	case PHY_INTERFACE_MODE_RMII:
+-- 
+2.21.0
+
