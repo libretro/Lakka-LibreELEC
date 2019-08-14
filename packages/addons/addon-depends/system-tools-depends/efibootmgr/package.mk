@@ -12,7 +12,7 @@ PKG_DEPENDS_TARGET="toolchain efivar pciutils zlib"
 PKG_LONGDESC="Tool to modify UEFI Firmware Boot Manager Variables."
 
 make_target() {
-  export CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include -I$SYSROOT_PREFIX/usr/include/efivar -fgnu89-inline"
+  export CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include -I$SYSROOT_PREFIX/usr/include/efivar -fgnu89-inline -Wno-pointer-sign"
   export LDFLAGS="$LDFLAGS -L$SYSROOT_PREFIX/usr/lib -ludev -ldl"
 
   make EFIDIR=BOOT EFI_LOADER=bootx64.efi PKG_CONFIG=true \
