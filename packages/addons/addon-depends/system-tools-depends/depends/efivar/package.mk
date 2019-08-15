@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="efivar"
-PKG_VERSION="3e687d8072f3ed53ae727ec2cb99ae56dbcdf02b"
-PKG_SHA256="810d386c9f4dafc160c721ef73e491c933c311e3df768e27eec50c28ac0f4d97"
+PKG_VERSION="272b216e197b2b3d05da68ef51861545a36dc6d8"
+PKG_SHA256="ab3b517c7cfc5bafc45a9b30c859d552b77c0b7c35883afd1c734e13013ffb39"
 PKG_ARCH="x86_64"
 PKG_LICENSE="LGPL"
 PKG_SITE="https://github.com/rhboot/efivar"
