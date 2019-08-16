@@ -92,6 +92,17 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
                            --enable-zlib \
                            --enable-freetype"
 
+post_patch() {
+  # patch URL to nightly builds instead of stable builds if building nightly
+  if [ "$LAKKA_NIGHTLY" = yes ]; then
+    i="${PKG_DIR}/patches/nightly/retroarch-lakka_nightly_url.patch"
+    if [ -f "$i" ]; then
+      printf "%${BUILD_INDENT}c ${boldgreen}APPLY PATCH${endcolor} ${boldwhite}(nightly)${endcolor}   ${i#$ROOT/}\n" ' '>&$SILENT_OUT
+      cat $i | patch -d `echo "$PKG_BUILD" | cut -f1 -d\ ` -p1 >&$VERBOSE_OUT
+    fi
+  fi
+}
+
 pre_configure_target() {
   cd $PKG_BUILD
 }
