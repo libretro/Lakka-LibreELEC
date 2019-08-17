@@ -8,6 +8,7 @@ PKG_ARCH="x86_64"
 PKG_LICENSE="LGPL"
 PKG_SITE="https://github.com/rhboot/efivar"
 PKG_URL="https://github.com/rhboot/efivar/archive/$PKG_VERSION.tar.gz"
+PKG_DEPENDS_HOST="gcc:host"
 PKG_DEPENDS_TARGET="toolchain efivar:host"
 PKG_LONGDESC="Tools and library to manipulate EFI variables."
 
