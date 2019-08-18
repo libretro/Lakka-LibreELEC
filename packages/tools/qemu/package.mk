@@ -17,11 +17,11 @@
 ################################################################################
 
 PKG_NAME="qemu"
-PKG_VERSION="2.7.0"
+PKG_VERSION="2.10.2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://wiki.qemu.org"
-PKG_URL="http://wiki.qemu-project.org/download/qemu-$PKG_VERSION.tar.bz2"
+PKG_SITE="https://www.qemu.org"
+PKG_URL="https://download.qemu.org/qemu-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_HOST="toolchain Python:host zlib:host glib:host"
 PKG_SECTION="tools"
 PKG_SHORTDESC="QEMU is a generic and open source machine emulator and virtualizer."
