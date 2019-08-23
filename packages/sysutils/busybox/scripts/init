@@ -48,6 +48,8 @@ LIVE="no"
 
 BREAK_TRIPPED="no"
 
+BIGFONT="1080"
+
 # Get a serial number if present (eg. RPi) otherwise use MAC address from eth0
 MACHINE_UID="$(cat /proc/cpuinfo | awk '/^Serial/{s=$3; gsub ("^0*","",s); print s}')"
 [ -z "$MACHINE_UID" ] && MACHINE_UID="$(cat /sys/class/net/eth0/address 2>/dev/null | tr -d :)"
@@ -365,6 +367,18 @@ load_modules() {
     progress "Loading kernel module $module"
     insmod "$MODULE_DIR/$module.ko" || progress "... Failed to load kernel module $module, skipping"
   done
+}
+
+set_consolefont() {
+  local vres
+
+  progress "Set console font"
+  if [ -e /dev/fb0 ]; then
+    vres="$(fbset 2>/dev/null | awk '/geometry/ { print $3 }')"
+    if [ $vres -gt "$BIGFONT" ]; then
+      setfont -C /dev/tty0 ter-v32b.psf
+    fi
+  fi
 }
 
 load_splash() {
@@ -1029,6 +1043,9 @@ for arg in $(cat /proc/cmdline); do
     break=*)
       BREAK="${arg#*=}"
       ;;
+    bigfont=*)
+      BIGFONT="${arg#*=}"
+      ;;
   esac
 done
 
@@ -1052,6 +1069,7 @@ debug_msg "Unique identifier for this client: ${MACHINE_UID:-NOT AVAILABLE}"
 # main boot sequence
 for BOOT_STEP in \
     load_modules \
+    set_consolefont \
     check_disks \
     mount_flash \
     update_bootmenu \
