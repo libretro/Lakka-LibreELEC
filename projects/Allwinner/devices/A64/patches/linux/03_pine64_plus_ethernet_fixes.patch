@@ -1,0 +1,132 @@
+From eee4bfe0a8423922948b25a415b110985004f25c Mon Sep 17 00:00:00 2001
+From: Icenowy Zheng <icenowy@aosc.io>
+Date: Mon, 29 Jul 2019 17:29:29 +0800
+Subject: [PATCH] arm64: allwinner: a64: dts: apply hack for RTL8211E on
+ Pine64+
+
+Some of the Pine64+ boards are known to use a batch of broken RTL8211E
+PHYs. A magic number that is in an undocumented field of a register is
+passed from Realtek via Pine64.
+
+Add the property to apply the hack to the Pine64+ device tree.
+
+Signed-off-by: Icenowy Zheng <icenowy@aosc.io>
+---
+ arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-plus.dts | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-plus.dts b/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-plus.dts
+index 24f1aac366d64..4d68f850d03a1 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-plus.dts
++++ b/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-plus.dts
+@@ -61,5 +61,6 @@
+ 	ext_rgmii_phy: ethernet-phy@1 {
+ 		compatible = "ethernet-phy-ieee802.3-c22";
+ 		reg = <1>;
++		realtek,config-magic-for-pine64;
+ 	};
+ };
+From f74d56b5dc80440aef4877996a5b6df041625d2b Mon Sep 17 00:00:00 2001
+From: Icenowy Zheng <icenowy@aosc.io>
+Date: Mon, 29 Jul 2019 17:27:26 +0800
+Subject: [PATCH] net: phy: realtek: add config hack for broken RTL8211E on
+ Pine64+ boards
+
+Some RTL8211E chips have broken GbE function, which needs a hack to
+fix.
+
+Currently only some Pine64+ boards are known to used this broken batch
+of RTL8211E chips.
+
+Enable this hack when a certain device tree property is set.
+
+As this hack is not documented on the datasheet at all, it contains
+magic numbers, and could not be revealed. These magic numbers are
+received from Realtek via Pine64.
+
+Signed-off-by: Icenowy Zheng <icenowy@aosc.io>
+---
+ drivers/net/phy/realtek.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/drivers/net/phy/realtek.c b/drivers/net/phy/realtek.c
+index a669945eb829a..ace1a6340ca9c 100644
+--- a/drivers/net/phy/realtek.c
++++ b/drivers/net/phy/realtek.c
+@@ -9,6 +9,7 @@
+  * Copyright (c) 2004 Freescale Semiconductor, Inc.
+  */
+ #include <linux/bitops.h>
++#include <linux/of.h>
+ #include <linux/phy.h>
+ #include <linux/module.h>
+ 
+@@ -32,6 +33,13 @@
+ #define RTL8211E_TX_DELAY			BIT(1)
+ #define RTL8211E_RX_DELAY			BIT(2)
+ #define RTL8211E_MODE_MII_GMII			BIT(3)
++/*
++ * The following number resides in the same register with
++ * the delay bits and mode bit above. However, no known
++ * document can explain this, and this value is directly
++ * received from Realtek via Pine64.
++ */
++#define RTL8211E_CONF_MAGIC_PINE64		0xb400
+ 
+ #define RTL8201F_ISR				0x1e
+ #define RTL8201F_IER				0x13
+@@ -186,6 +194,7 @@ static int rtl8211e_config_init(struct phy_device *phydev)
+ {
+ 	int ret = 0, oldpage;
+ 	u16 val;
++	struct device_node *of_node = phydev->mdio.dev.of_node;
+ 
+ 	/* enable TX/RX delay for rgmii-* modes, and disable them for rgmii. */
+ 	switch (phydev->interface) {
+@@ -224,6 +233,12 @@ static int rtl8211e_config_init(struct phy_device *phydev)
+ 	ret = __phy_modify(phydev, 0x1c, RTL8211E_TX_DELAY | RTL8211E_RX_DELAY,
+ 			   val);
+ 
++	if (of_node &&
++	    of_property_read_bool(of_node, "realtek,config-magic-for-pine64")) {
++		ret = __phy_modify(phydev, 0x1c, GENMASK(15, 9),
++				   RTL8211E_CONF_MAGIC_PINE64);
++	}
++
+ err_restore_page:
+ 	return phy_restore_page(phydev, oldpage, ret);
+ }
+From bb0516f4d03ffe9bcc06f840e477ea665af94e9d Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Sun, 25 Aug 2019 14:40:10 +0200
+Subject: [PATCH] arm64: dts: allwinner: a64: pine64-plus: Add PHY regulator
+ delay
+
+Depending on kernel and bootloader configuration, it's possible that
+Realtek ethernet PHY isn't powered on properly. It needs some time
+before it can be used.
+
+Fix that by adding 100ms ramp delay to regulator responsible for
+powering PHY.
+
+Fixes: 94dcfdc77fc5 ("arm64: allwinner: pine64-plus: Enable dwmac-sun8i")
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+---
+ arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-plus.dts | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-plus.dts b/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-plus.dts
+index 24f1aac366d6..9612a34c1762 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-plus.dts
++++ b/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-plus.dts
+@@ -63,3 +63,7 @@
+ 		reg = <1>;
+ 	};
+ };
++
++&reg_dc1sw {
++	regulator-enable-ramp-delay = <100000>;
++};
+-- 
+2.23.0
+
