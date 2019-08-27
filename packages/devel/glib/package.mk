@@ -37,10 +37,6 @@ have_c99_snprintf=false
 growing_stack=false
 va_val_copy=false"
 
-pre_configure_target() {
-  LDFLAGS+=" -lz"
-}
-
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
   rm -rf $INSTALL/usr/lib/gdbus-2.0
