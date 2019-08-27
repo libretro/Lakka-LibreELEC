@@ -93,10 +93,6 @@ PKG_MESON_OPTS_TARGET=" \
   -Dzlib=enabled \
   -Dzzip=disabled"
 
-pre_configure_target() {
-  export LIBS="$LIBS -logg -lFLAC -ldl"
-}
-
 makeinstall_target() {
   :
 }
