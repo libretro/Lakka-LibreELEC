@@ -15,5 +15,5 @@ PKG_MESON_OPTS_TARGET="-Denable_docs=false \
                        -Denable-introspection=no"
 
 pre_configure_target() {
-  LDFLAGS="$LDFLAGS -lXext"
+  TARGET_LDFLAGS="$LDFLAGS -lXext"
 }
