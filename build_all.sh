@@ -10,6 +10,8 @@ PROJECT=Generic ARCH=x86_64 make image
 PROJECT=Generic ARCH=i386 make image
 >&2 echo "RPi.arm + noobs"
 PROJECT=RPi ARCH=arm make noobs
+>&2 echo "RPi.gpicase.arm + noobs"
+PROJECT=RPi BOARD=GPICase ARCH=arm make noobs
 >&2 echo "RPi2.arm + noobs"
 PROJECT=RPi2 ARCH=arm make noobs
 >&2 echo "RPi4.arm + noobs"
