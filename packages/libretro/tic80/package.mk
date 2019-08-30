@@ -19,11 +19,11 @@
 ################################################################################
 
 PKG_NAME="tic80"
-PKG_VERSION="634f3e7"
+PKG_VERSION="c9e0630"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64 arm"
 PKG_LICENSE="GPLv3"
-PKG_SITE="https://github.com/nesbox/TIC-80"
+PKG_SITE="https://github.com/RobLoach/TIC-80"
 PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
@@ -34,7 +34,7 @@ PKG_LONGDESC="TIC-80 is a fantasy computer for making, playing and sharing tiny 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CMAKE_OPTS_TARGET="-DBUILD_SDL=OFF -DBUILD_SOKOL=OFF"
+PKG_CMAKE_OPTS_TARGET="-DBUILD_SDL=OFF -DBUILD_SOKOL=OFF -DBUILD_DEMO_CARTS=OFF"
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
