@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="tic80"
-PKG_VERSION="3c50d57"
+PKG_VERSION="634f3e7"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64 arm"
 PKG_LICENSE="GPLv3"
