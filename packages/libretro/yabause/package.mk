@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="yabause"
-PKG_VERSION="aa15301"
+PKG_VERSION="0d3e433"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
@@ -35,10 +35,14 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  make -C libretro
+  if [ "$ARCH" == "arm" ]; then
+    make -C yabause/src/libretro HAVE_SSE=0
+  else
+    make -C yabause/src/libretro
+  fi
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp libretro/yabause_libretro.so $INSTALL/usr/lib/libretro/
+  cp yabause/src/libretro/yabause_libretro.so $INSTALL/usr/lib/libretro/
 }

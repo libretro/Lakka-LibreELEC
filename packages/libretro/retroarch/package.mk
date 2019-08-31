@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="retroarch"
-PKG_VERSION="ef5f448"
+PKG_VERSION="e4fb558"
 PKG_REV="11"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
@@ -83,6 +83,10 @@ if [[ "$TARGET_FPU" =~ "neon" ]]; then
   RETROARCH_NEON="--enable-neon"
 fi
 
+if [ "$LAKKA_NIGHTLY" = yes ]; then
+  CFLAGS="$CFLAGS -DHAVE_LAKKA_NIGHTLY"
+fi
+
 TARGET_CONFIGURE_OPTS=""
 PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
                            --disable-sdl \
@@ -91,17 +95,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
                            $RETROARCH_NEON \
                            --enable-zlib \
                            --enable-freetype"
-
-post_patch() {
-  # patch URL to nightly builds instead of stable builds if building nightly
-  if [ "$LAKKA_NIGHTLY" = yes ]; then
-    i="${PKG_DIR}/patches/nightly/retroarch-lakka_nightly_url.patch"
-    if [ -f "$i" ]; then
-      printf "%${BUILD_INDENT}c ${boldgreen}APPLY PATCH${endcolor} ${boldwhite}(nightly)${endcolor}   ${i#$ROOT/}\n" ' '>&$SILENT_OUT
-      cat $i | patch -d `echo "$PKG_BUILD" | cut -f1 -d\ ` -p1 >&$VERBOSE_OUT
-    fi
-  fi
-}
 
 pre_configure_target() {
   cd $PKG_BUILD
@@ -239,6 +232,11 @@ makeinstall_target() {
     sed -i -e "s/# video_font_size = 32/video_font_size = 16/" $INSTALL/etc/retroarch.cfg
     sed -i -e "s/# video_scale_integer = false/video_scale_integer = true/" $INSTALL/etc/retroarch.cfg
   fi
+
+  
+  # System overlay
+  mkdir -p $INSTALL/usr/share/retroarch-system
+>>>>>>> libretro update
 }
 
 post_install() {  

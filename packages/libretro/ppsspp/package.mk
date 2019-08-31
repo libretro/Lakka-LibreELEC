@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="ppsspp"
-PKG_VERSION="e5f1598"
+PKG_VERSION="1618aa8"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
@@ -63,6 +63,7 @@ pre_make_target() {
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
   cp lib/ppsspp_libretro.so $INSTALL/usr/lib/libretro/
+
   mkdir -p $INSTALL/usr/share/retroarch-system/PPSSPP
   cp -R $PKG_BUILD/assets/* $INSTALL/usr/share/retroarch-system/PPSSPP/
 }

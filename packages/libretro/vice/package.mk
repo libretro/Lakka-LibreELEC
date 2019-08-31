@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="vice"
-PKG_VERSION="ce4524d"
+PKG_VERSION="ff9df92"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
