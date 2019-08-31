@@ -19,13 +19,13 @@
 ################################################################################
 
 PKG_NAME="desmume"
-PKG_VERSION="5f6f1ee"
+PKG_VERSION="ae862a8"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/desmume"
 PKG_GIT_URL="$PKG_SITE"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain libpcap"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="libretro wrapper for desmume NDS emulator."

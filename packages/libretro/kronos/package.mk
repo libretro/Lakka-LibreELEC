@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="kronos"
-PKG_VERSION="ac74c14"
+PKG_VERSION="6edb3d5"
 PKG_GIT_BRANCH="kronos"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64"
