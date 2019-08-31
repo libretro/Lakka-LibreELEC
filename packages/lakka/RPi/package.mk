@@ -34,3 +34,7 @@ PKG_LONGDESC=""
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+if [ "$PROJECT" == "RPi" ] && [ "$BOARD" == "GPICase" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gpicase-safeshutdown"
+fi
+
