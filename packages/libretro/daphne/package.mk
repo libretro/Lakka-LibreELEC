@@ -34,11 +34,6 @@ PKG_LONGDESC="Daphne is a laserdisc games emulator"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-make_target() {
-  make -f Makefile
-}
-
-
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
   cp daphne_libretro.so $INSTALL/usr/lib/libretro/
