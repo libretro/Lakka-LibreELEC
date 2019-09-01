@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-beetle-supergrafx"
-PKG_VERSION="c92d975f4e572b84a219e96573a92e17af21dbe7"
-PKG_SHA256="5aa844efb11dd53e70e03caaa1bc1535bdae4c6929d73715b1a07fabfd76865d"
+PKG_VERSION="326eaafd1a866ada2560056309ec69b31b0208fe"
+PKG_SHA256="8310746377c2f4c6c62d43ec59a0fe9c6f33c645ce9099f839d1de3c0f5786de"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-supergrafx-libretro"
 PKG_URL="https://github.com/libretro/beetle-supergrafx-libretro/archive/$PKG_VERSION.tar.gz"
