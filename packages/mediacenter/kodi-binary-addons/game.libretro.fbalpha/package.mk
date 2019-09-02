@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.fbalpha"
-PKG_VERSION="0.2.97.11-Leia"
-PKG_SHA256="f14887027a2258189c84f6a5e4fdaf7887b0773c4f01f90389d4b6ba82299763"
-PKG_REV="115"
+PKG_VERSION="0.2.97.13-Leia"
+PKG_SHA256="e6f2fadb341554937800016e08d87e5a2864106ea7b39485b5dad4faa4d5b7c8"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.fbalpha"

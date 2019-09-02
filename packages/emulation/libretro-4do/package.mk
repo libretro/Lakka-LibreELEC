@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-4do"
-PKG_VERSION="e2ba1ebcbf6f210fcb8807ea43f57fe03c5a10ba"
-PKG_SHA256="e7d691d26cabf03c141111b308a528567633568a653fd473d78616cba2444619"
+PKG_VERSION="1fa503598323f7c573deca8dfef44f3b465c8074"
+PKG_SHA256="28d8a084fc67d29b27f837800e87307a2365637d92994b9edb2660fade7cfce7"
 PKG_LICENSE="LGPL"
 PKG_SITE="https://github.com/libretro/4do-libretro"
 PKG_URL="https://github.com/libretro/4do-libretro/archive/$PKG_VERSION.tar.gz"

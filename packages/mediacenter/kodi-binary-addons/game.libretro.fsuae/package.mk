@@ -2,9 +2,9 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.fsuae"
-PKG_VERSION="f615a46bd611db79465ef8de379f3174ca925fc0"
-PKG_SHA256="15f6f9c805d65383d4809e48c934a25a9d6d2021e8ae3e2c887d877ab953b237"
-PKG_REV="104"
+PKG_VERSION="dadbb8343699666d601ab316fcd748741a021961"
+PKG_SHA256="e606284a0f86128ddae40a18d5e4e5c105658d751e2016fd56e43b382121f354"
+PKG_REV="105"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.fsuae"
