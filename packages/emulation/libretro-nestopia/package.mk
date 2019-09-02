@@ -9,18 +9,27 @@ PKG_SITE="https://github.com/libretro/nestopia"
 PKG_URL="https://github.com/libretro/nestopia/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_LONGDESC="game.libretro.nestopia: Nestopia for Kodi"
-PKG_TOOLCHAIN="manual"
+PKG_TOOLCHAIN="make"
 
 PKG_LIBNAME="nestopia_libretro.so"
 PKG_LIBPATH="libretro/$PKG_LIBNAME"
 PKG_LIBVAR="NESTOPIA_LIB"
 
-post_unpack() {
-  rm $PKG_BUILD/configure.ac
-}
+PKG_MAKE_OPTS_TARGET="-C libretro GIT_VERSION=${PKG_VERSION:0:7}"
 
-make_target() {
-  make -C libretro
+pre_configure_target() {
+  if [ "${ARCH}" = "arm" ]; then
+    if [ "${PROJECT}" = "RPi" ]; then
+      PKG_MAKE_OPTS_TARGET+=" platform=rpi2"
+    else
+      PKG_MAKE_OPTS_TARGET+=" platform=armv"
+      # ARM NEON support
+      if target_has_feature neon; then
+        PKG_MAKE_OPTS_TARGET+="-neon"
+      fi
+      PKG_MAKE_OPTS_TARGET+="-${TARGET_FLOAT}float-${TARGET_CPU}"
+    fi
+  fi
 }
 
 makeinstall_target() {
