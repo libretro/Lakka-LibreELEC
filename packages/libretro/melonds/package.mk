@@ -39,6 +39,14 @@ configure_target() {
   cd $PKG_BUILD
 }
 
+make_target() {
+  if [ "$OPENGL" != "no" ]; then
+    make HAVE_OPENGL=1
+  else
+    make HAVE_OPENGL=0
+  fi
+}
+
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
   cp melonds_libretro.so $INSTALL/usr/lib/libretro/
