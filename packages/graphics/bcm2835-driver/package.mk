@@ -78,11 +78,13 @@ makeinstall_target() {
     ln -s dtoverlay                            ${INSTALL}/usr/bin/dtparam
     cp -PRv ${PKG_FLOAT}/opt/vc/bin/vcdbg      ${INSTALL}/usr/bin
     cp -PRv ${PKG_FLOAT}/opt/vc/bin/vcgencmd   ${INSTALL}/usr/bin
+    cp -PRv ${PKG_FLOAT}/opt/vc/bin/vcmailbox  ${INSTALL}/usr/bin
     cp -PRv ${PKG_FLOAT}/opt/vc/bin/tvservice  ${INSTALL}/usr/bin
     cp -PRv ${PKG_FLOAT}/opt/vc/bin/edidparser ${INSTALL}/usr/bin
 
   # Create symlinks to /opt/vc to satisfy hardcoded lib paths
   mkdir -p ${INSTALL}/opt/vc
+    ln -sf /usr/bin ${INSTALL}/opt/vc/bin
     ln -sf /usr/lib ${INSTALL}/opt/vc/lib
 }
 
