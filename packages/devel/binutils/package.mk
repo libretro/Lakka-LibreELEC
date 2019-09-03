@@ -67,6 +67,7 @@ make_target() {
   make -C libiberty
   make -C bfd
   make -C opcodes
+  make -C binutils strings
 }
 
 makeinstall_target() {
@@ -74,4 +75,7 @@ makeinstall_target() {
     cp libiberty/libiberty.a $SYSROOT_PREFIX/usr/lib
   make DESTDIR="$SYSROOT_PREFIX" -C bfd install
   make DESTDIR="$SYSROOT_PREFIX" -C opcodes install
+
+  mkdir -p ${INSTALL}/usr/bin
+    cp binutils/strings ${INSTALL}/usr/bin
 }
