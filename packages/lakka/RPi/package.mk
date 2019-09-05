@@ -38,3 +38,8 @@ if [ "$PROJECT" == "RPi" ] && [ "$BOARD" == "GPICase" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gpicase-safeshutdown"
 fi
 
+post_install() {
+  if [ "$PROJECT" == "RPi" ] && [ "$BOARD" == "GPICase" ]; then
+    enable_service disable-hdmi.service
+  fi
+}
