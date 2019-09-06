@@ -106,33 +106,60 @@ if [ -n "$PKG_GIT_URL" -a -z "$PKG_URL" ]; then
       # no tarball on mirror - clone and create tarball
       CUR_PWD="$(pwd)"
       GIT_REPO_FOLDER="$SOURCES/$1/repo"
+      REPO_FRESH=0
 
       # remove stale folders if they exist
       rm -rf $SOURCES/$1/$PKG_NAME-*/
 
       if [ ! -d "$GIT_REPO_FOLDER" ]; then
-	printf "%${BUILD_INDENT}c ${boldcyan}GIT CLONE${endcolor}    $1\n" ' '>&$SILENT_OUT
+        printf "%${BUILD_INDENT}c ${boldcyan}GIT CLONE${endcolor}    $1\n" ' '>&$SILENT_OUT
         git clone $PKG_GIT_URL $GIT_REPO_FOLDER
+        cd $GIT_REPO_FOLDER
+        REPO_FRESH=1
+      else
+        cd $GIT_REPO_FOLDER
+        REPO_FOLDER_ORIGIN=$(git remote get-url origin || echo ERROR)
+        if [ "$PKG_GIT_URL" != "$REPO_FOLDER_ORIGIN" ]; then
+          printf "%${BUILD_INDENT}c ${boldred}WARNING${endcolor} $1 git remote changed\n" ' '>&$SILENT_OUT
+          cd ..
+          rm -rf repo
+          printf "%${BUILD_INDENT}c ${boldcyan}GIT CLONE${endcolor}    $1\n" ' '>&$SILENT_OUT
+          git clone $PKG_GIT_URL repo
+          cd repo
+          REPO_FRESH=1
+        fi
       fi
 
-      cd $GIT_REPO_FOLDER
-      REPO_FOLDER_ORIGIN=$(git remote get-url origin || echo ERROR)
-
-      if [ "$PKG_GIT_URL" != "$REPO_FOLDER_ORIGIN" ]; then
-        printf "%${BUILD_INDENT}c ${boldred}WARNING${endcolor} $1 git remote changed\n" ' '>&$SILENT_OUT
-        cd ..
-        rm -rf repo
-        git clone $PKG_GIT_URL repo
-	cd repo
+      if [ $REPO_FRESH -eq 1 ]; then
+        if [ -n "$PKG_GIT_BRANCH" ]; then
+          printf "%${BUILD_INDENT}c ${boldcyan}GIT CHECKOUT BRANCH${endcolor} $1 - $PKG_GIT_BRANCH\n" ' '>&$SILENT_OUT
+          git checkout -b $PKG_GIT_BRANCH origin/$PKG_GIT_BRANCH || {
+            echo "ERROR: branch '$PKG_GIT_BRANCH' does not exist!"
+            exit 1
+          }
+        fi
+      else
+        printf "%${BUILD_INDENT}c ${boldred}GIT CLEAN${endcolor} $1\n" ' '>&$SILENT_OUT
+        git clean -fdx
+        git checkout -- .
+        if [ -n "$PKG_GIT_BRANCH" ]; then
+          REPO_FOLDER_BRANCH=$(git branch | grep ^\* | cut -d' ' -f2)
+          if [ "$PKG_GIT_BRANCH" != "$REPO_FOLDER_BRANCH" ]; then
+            printf "%${BUILD_INDENT}c ${boldcyan}GIT FETCH${endcolor} $1 branch changed\n" ' '>&$SILENT_OUT
+            git fetch
+            printf "%${BUILD_INDENT}c ${boldcyan}GIT CHECKOUT BRANCH${endcolor} $1 - $PKG_GIT_BRANCH\n" ' '>&$SILENT_OUT
+            git checkout -b $PKG_GIT_BRANCH origin/$PKG_GIT_BRANCH || {
+              echo "ERROR: branch '$PKG_GIT_BRANCH' does not exist!"
+              exit 1
+            }
+          fi
+        fi
+        printf "%${BUILD_INDENT}c ${boldcyan}GIT PULL${endcolor} $1\n" ' '>&$SILENT_OUT
+        git pull
       fi
-
-      printf "%${BUILD_INDENT}c ${boldred}GIT CLEAN${endcolor} $1\n" ' '>&$SILENT_OUT
-      git clean -fdx
-      git checkout -- .
-      printf "%${BUILD_INDENT}c ${boldcyan}GIT PULL${endcolor} $1\n" ' '>&$SILENT_OUT
-      git pull
-      [ -n "$PKG_GIT_BRANCH" ] && git checkout $PKG_GIT_BRANCH
+      printf "%${BUILD_INDENT}c ${boldcyan}GIT VERSION${endcolor} $1 - $PKG_VERSION\n" ' '>&$SILENT_OUT
       git reset --hard $PKG_VERSION
+      printf "%${BUILD_INDENT}c ${boldcyan}GIT SUBMODULE${endcolor} $1\n" ' '>&$SILENT_OUT
       git submodule update --init --recursive
       cd "$ROOT/$SOURCES/$1"
       mv repo $PKG_NAME-$PKG_VERSION
