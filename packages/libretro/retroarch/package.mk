@@ -230,6 +230,14 @@ makeinstall_target() {
   # GPICase
   if [ "$PROJECT" == "RPi" ] && [ "$BOARD" == "GPICase" ]; then
     echo "audio_device = \"default:CARD=ALSA\"" >> $INSTALL/etc/retroarch.cfg
+    echo "menu_timedate_enable = false" >> $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/input_menu_toggle_gamepad_combo = 2/input_menu_toggle_gamepad_combo = 4/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/menu_driver = \"xmb\"/menu_driver = \"rgui\"/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/video_threaded = true/video_threaded = false/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/# aspect_ratio_index = 19/aspect_ratio_index = 21/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/# audio_out_rate = 48000/audio_out_rate = 44100/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/# video_font_size = 32/video_font_size = 16/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/# video_scale_integer = false/video_scale_integer = true/" $INSTALL/etc/retroarch.cfg
   fi
 }
 
