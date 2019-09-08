@@ -18,13 +18,14 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="flycast"
-PKG_VERSION="446ec55"
+PKG_NAME="flycast_wince"
+PKG_VERSION="cfe5134"
 PKG_REV="1"
 PKG_ARCH="arm aarch64 x86_64"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/flycast"
 PKG_GIT_URL="$PKG_SITE"
+PKG_GIT_BRANCH="fh/wince"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -52,5 +53,5 @@ make_target() {
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp flycast_libretro.so $INSTALL/usr/lib/libretro/
+  cp flycast_wince_libretro.so $INSTALL/usr/lib/libretro/
 }
