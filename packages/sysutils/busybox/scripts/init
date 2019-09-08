@@ -548,6 +548,17 @@ mount_flash() {
   fi
 }
 
+cleanup_flash() {
+  progress "Cleaning up flash (if required)"
+
+  if [ -f /flash/pieeprom.upd ]; then
+    mount -o remount,rw /flash
+    rm -f /flash/pieeprom.bin /flash/pieeprom.upd
+    rm -f /flash/recovery.bin /flash/recovery.[0-9][0-9][0-9] /flash/RECOVERY.[0-9][0-9][0-9]
+    mount -o remount,ro /flash
+  fi
+}
+
 mount_storage() {
   progress "Mounting storage"
 
@@ -1072,6 +1083,7 @@ for BOOT_STEP in \
     set_consolefont \
     check_disks \
     mount_flash \
+    cleanup_flash \
     update_bootmenu \
     load_splash \
     mount_storage \
@@ -1117,17 +1129,16 @@ if [ "$STORAGE_NETBOOT" = "yes" ]; then
   echo "" > /sysroot/dev/.storage_netboot
 fi
 
+BACKUP_FILE=$(ls -1 /sysroot/storage/.restore/??????????????.tar 2>/dev/null | head -n 1)
+
 if [ -f /sysroot/storage/.please_resize_me ]; then
   INIT_UNIT="--unit=fs-resize.target"
-fi
-
-BACKUP_FILE=$(ls -1 /sysroot/storage/.restore/??????????????.tar 2>/dev/null | head -n 1)
-if [ -f "$BACKUP_FILE" ]; then
-  INIT_UNIT="--unit=backup-restore.target"
-fi
-
-if [ -f /sysroot/storage/.cache/reset_oe -o -f /sysroot/storage/.cache/reset_xbmc ]; then
+elif [ -f /sysroot/storage/.cache/reset_oe -o -f /sysroot/storage/.cache/reset_xbmc ]; then
   INIT_UNIT="--unit=factory-reset.target"
+elif [ -f "$BACKUP_FILE" ]; then
+  INIT_UNIT="--unit=backup-restore.target"
+elif [ -f /sysroot/storage/.rpi_flash_firmware ]; then
+  INIT_UNIT="--unit=rpi-flash-firmware.target"
 fi
 
 # switch to new sysroot and start real init
