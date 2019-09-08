@@ -18,28 +18,26 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="core-info"
-PKG_VERSION="8809af0"
+PKG_NAME="bsnes_hd"
+PKG_VERSION="e3b2e93"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/libretro/libretro-super"
+PKG_LICENSE="GPLv3"
+PKG_SITE="https://github.com/libretro/bsnes"
 PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="Info files for libretro cores"
-PKG_LONGDESC="Super repo for other libretro projects. Fetches, builds and installs."
+PKG_SHORTDESC="Super Nintendo (Super Famicom) emulator"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  :
+  make -C bsnes -f GNUmakefile target="libretro"
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp dist/info/*.info $INSTALL/usr/lib/libretro/
+  cp bsnes/out/bsnes_hd_libretro.so $INSTALL/usr/lib/libretro/
 }
-
