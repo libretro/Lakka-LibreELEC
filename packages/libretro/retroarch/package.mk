@@ -90,6 +90,7 @@ fi
 TARGET_CONFIGURE_OPTS=""
 PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
                            --disable-sdl \
+                           --disable-sdl2 \
                            --disable-ssl \
                            $RETROARCH_GL \
                            $RETROARCH_NEON \
