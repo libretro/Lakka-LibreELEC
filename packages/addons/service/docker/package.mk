@@ -3,9 +3,9 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="docker"
-PKG_VERSION="18.09.8"
-PKG_SHA256="33dfaf3cf296f8e9011ec6ed2de0125dfeaf8a938126f0218b0218a156c14014"
-PKG_REV="127"
+PKG_VERSION="19.03.2"
+PKG_SHA256="46b52f92cb258e038e3f29624e75a52e4d2f91502f56edeac0f0b2661b3b9c3d"
+PKG_REV="128"
 PKG_ARCH="any"
 PKG_LICENSE="ASL"
 PKG_SITE="http://www.docker.com/"
@@ -15,6 +15,9 @@ PKG_SECTION="service/system"
 PKG_SHORTDESC="Docker is an open-source engine that automates the deployment of any application as a lightweight, portable, self-sufficient container that will run virtually anywhere."
 PKG_LONGDESC="Docker containers can encapsulate any payload, and will run consistently on and between virtually any server. The same container that a developer builds and tests on a laptop will run at scale, in production*, on VMs, bare-metal servers, OpenStack clusters, public instances, or combinations of the above."
 PKG_TOOLCHAIN="manual"
+
+# Git commit of the matching release https://github.com/docker/docker-ce/releases
+export PKG_GIT_COMMIT="6a30dfca03664a0b6bf0646a7d389ee7d0318e6e"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Docker"
@@ -103,7 +106,7 @@ configure_target() {
   fi
 
   # used for docker version
-  export GITCOMMIT=${PKG_VERSION}
+  export GITCOMMIT=${PKG_GIT_COMMIT}
   export VERSION=${PKG_VERSION}
   export BUILDTIME="$(date --utc)"
 
@@ -114,9 +117,9 @@ configure_target() {
 
 make_target() {
   mkdir -p bin
-  PKG_CLI_FLAGS="-X 'github.com/docker/cli/cli.Version=${VERSION}'"
-  PKG_CLI_FLAGS="${PKG_CLI_FLAGS} -X 'github.com/docker/cli/cli.GitCommit=${GITCOMMIT}'"
-  PKG_CLI_FLAGS="${PKG_CLI_FLAGS} -X 'github.com/docker/cli/cli.BuildTime=${BUILDTIME}'"
+  PKG_CLI_FLAGS="-X 'github.com/docker/cli/cli/version.Version=${VERSION}'"
+  PKG_CLI_FLAGS="${PKG_CLI_FLAGS} -X 'github.com/docker/cli/cli/version.GitCommit=${GITCOMMIT}'"
+  PKG_CLI_FLAGS="${PKG_CLI_FLAGS} -X 'github.com/docker/cli/cli/version.BuildTime=${BUILDTIME}'"
   ${GOLANG} build -v -o bin/docker -a -tags "${DOCKER_BUILDTAGS}" -ldflags "${LDFLAGS} ${PKG_CLI_FLAGS}" ./components/cli/cmd/docker
   ${GOLANG} build -v -o bin/dockerd -a -tags "${DOCKER_BUILDTAGS}" -ldflags "${LDFLAGS}" ./components/engine/cmd/dockerd
 }
