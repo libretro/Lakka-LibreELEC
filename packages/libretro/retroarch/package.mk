@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="retroarch"
-PKG_VERSION="e4fb558"
+PKG_VERSION="561a4cd"
 PKG_REV="11"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
@@ -95,7 +95,9 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
                            $RETROARCH_GL \
                            $RETROARCH_NEON \
                            --enable-zlib \
-                           --enable-freetype"
+                           --enable-freetype \
+                           --enable-translate \
+                           --enable-cdrom"
 
 pre_configure_target() {
   cd $PKG_BUILD
