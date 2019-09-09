@@ -294,9 +294,9 @@ index fb2f0ac..bfb1519 100644
 --- a/sound/soc/codecs/hdmi-codec.c
 +++ b/sound/soc/codecs/hdmi-codec.c
 @@ -285,6 +285,8 @@ struct hdmi_codec_priv {
- 	uint8_t eld[MAX_ELD_BYTES];
  	struct snd_pcm_chmap *chmap_info;
  	unsigned int chmap_idx;
+ 	struct mutex lock;
 +	struct snd_card *snd_card;
 +	struct snd_kcontrol *kctl;
  };
@@ -952,13 +952,12 @@ index bc128e2..2e3fc59 100644
  #define SUN4I_I2S_CTRL_TX_EN			BIT(2)
  #define SUN4I_I2S_CTRL_RX_EN			BIT(1)
  #define SUN4I_I2S_CTRL_GL_EN			BIT(0)
-@@ -129,15 +130,16 @@
+@@ -129,14 +130,15 @@
   * @has_chsel_offset: SoC uses offset for selecting dai operational mode.
   * @reg_offset_txdata: offset of the tx fifo.
   * @sun4i_i2s_regmap: regmap config to use.
 - * @mclk_offset: Value by which mclkdiv needs to be adjusted.
 - * @bclk_offset: Value by which bclkdiv needs to be adjusted.
-  * @fmt_offset: Value by which wss and sr needs to be adjusted.
   * @field_clkdiv_mclk_en: regmap field to enable mclk output.
 + * @field_clkdiv_mclk: regmap field for mclkdiv.
 + * @field_clkdiv_bclk: regmap field for bclkdiv.
@@ -977,9 +976,9 @@ index bc128e2..2e3fc59 100644
  	const struct regmap_config	*sun4i_i2s_regmap;
 -	unsigned int			mclk_offset;
 -	unsigned int			bclk_offset;
- 	unsigned int			fmt_offset;
  
  	/* Register fields for i2s */
+ 	struct reg_field		field_clkdiv_mclk_en;
 @@ -163,6 +163,7 @@ struct sun4i_i2s_quirks {
  	struct reg_field		field_fmt_bclk;
  	struct reg_field		field_fmt_lrclk;
@@ -1366,28 +1365,8 @@ index bc128e2..2e3fc59 100644
  	default:
  		dev_err(dai->dev, "Unsupported physical sample width: %d\n",
  			params_physical_width(params));
-@@ -405,7 +504,18 @@ static int sun4i_i2s_hw_params(struct snd_pcm_substream *substream,
- 		sr = 0;
- 		wss = 0;
- 		break;
--
-+	case 20:
-+		sr = 1;
-+		wss = 1;
-+		break;
-+	case 24:
-+		sr = 2;
-+		wss = 2;
-+		break;
-+	case 32:
-+		sr = 4;
-+		wss = 4;
-+		break;
- 	default:
- 		dev_err(dai->dev, "Unsupported sample width: %d\n",
- 			params_width(params));
 @@ -418,14 +528,14 @@ static int sun4i_i2s_hw_params(struct snd_pcm_substream *substream,
- 			   sr + i2s->variant->fmt_offset);
+ 	regmap_field_write(i2s->field_fmt_sr, sr);
  
  	return sun4i_i2s_set_clk_rate(dai, params_rate(params),
 -				      params_width(params));
@@ -1555,9 +1534,9 @@ index bc128e2..2e3fc59 100644
  	.sun4i_i2s_regmap	= &sun8i_i2s_regmap_config,
 -	.mclk_offset		= 1,
 -	.bclk_offset		= 2,
- 	.fmt_offset		= 3,
  	.has_fmt_set_lrck_period = true,
  	.has_chcfg		= true,
+ 	.has_chsel_tx_chen	= true,
 @@ -948,6 +1081,7 @@ static const struct sun4i_i2s_quirks sun8i_h3_i2s_quirks = {
  	.field_fmt_bclk		= REG_FIELD(SUN4I_I2S_FMT0_REG, 7, 7),
  	.field_fmt_lrclk	= REG_FIELD(SUN4I_I2S_FMT0_REG, 19, 19),
