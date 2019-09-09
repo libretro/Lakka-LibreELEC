@@ -1,14 +1,14 @@
-From 1a02e726f50ae2ce007854ee473a9f69617e2947 Mon Sep 17 00:00:00 2001
+From 6d97fb902d7e69a9b706664223bf53ab3b2f9054 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Sat, 22 Jun 2019 16:08:25 +0000
 Subject: [PATCH] rkmppdec: set mastering display and content light side data
 
 ---
- libavcodec/rkmppdec.c | 62 +++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 62 insertions(+)
+ libavcodec/rkmppdec.c | 64 +++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 64 insertions(+)
 
 diff --git a/libavcodec/rkmppdec.c b/libavcodec/rkmppdec.c
-index 48016bc681..74938443df 100644
+index 48016bc681..faae23c064 100644
 --- a/libavcodec/rkmppdec.c
 +++ b/libavcodec/rkmppdec.c
 @@ -35,6 +35,7 @@
@@ -19,11 +19,11 @@ index 48016bc681..74938443df 100644
  #include "libavutil/imgutils.h"
  #include "libavutil/log.h"
  
-@@ -319,6 +320,59 @@ static void rkmpp_release_frame(void *opaque, uint8_t *data)
+@@ -319,6 +320,61 @@ static void rkmpp_release_frame(void *opaque, uint8_t *data)
      av_free(desc);
  }
  
-+static void rkmpp_hevc_mastering_display(AVFrame *frame, MppFrameMasteringDisplayMetadata mastering_display)
++static int rkmpp_hevc_mastering_display(AVFrame *frame, MppFrameMasteringDisplayMetadata mastering_display)
 +{
 +    // HEVC uses a g,b,r ordering, which we convert to a more natural r,g,b
 +    AVMasteringDisplayMetadata *metadata;
@@ -58,9 +58,10 @@ index 48016bc681..74938443df 100644
 +    metadata->min_luminance.den = luma_den;
 +    metadata->has_luminance = 1;
 +    metadata->has_primaries = 1;
++    return 0;
 +}
 +
-+static void rkmpp_hevc_content_light(AVFrame *frame, MppFrameContentLightMetadata content_light)
++static int rkmpp_hevc_content_light(AVFrame *frame, MppFrameContentLightMetadata content_light)
 +{
 +    AVContentLightMetadata *metadata;
 +
@@ -74,12 +75,13 @@ index 48016bc681..74938443df 100644
 +
 +    metadata->MaxCLL  = content_light.MaxCLL;
 +    metadata->MaxFALL = content_light.MaxFALL;
++    return 0;
 +}
 +
  static int rkmpp_retrieve_frame(AVCodecContext *avctx, AVFrame *frame)
  {
      RKMPPDecodeContext *rk_context = avctx->priv_data;
-@@ -352,6 +406,11 @@ static int rkmpp_retrieve_frame(AVCodecContext *avctx, AVFrame *frame)
+@@ -352,6 +408,11 @@ static int rkmpp_retrieve_frame(AVCodecContext *avctx, AVFrame *frame)
              avctx->width = mpp_frame_get_width(mppframe);
              avctx->height = mpp_frame_get_height(mppframe);
  
@@ -91,7 +93,7 @@ index 48016bc681..74938443df 100644
              decoder->mpi->control(decoder->ctx, MPP_DEC_SET_INFO_CHANGE_READY, NULL);
  
              av_buffer_unref(&decoder->frames_ref);
-@@ -410,6 +469,9 @@ static int rkmpp_retrieve_frame(AVCodecContext *avctx, AVFrame *frame)
+@@ -410,6 +471,9 @@ static int rkmpp_retrieve_frame(AVCodecContext *avctx, AVFrame *frame)
              MppFrameRational dar = mpp_frame_get_sar(mppframe);
              frame->sample_aspect_ratio = av_div_q((AVRational) { dar.num, dar.den },
                                                    (AVRational) { frame->width, frame->height });
