@@ -33,6 +33,7 @@ targets="\
 	Generic|x86_64||| \
 	Generic_VK_nvidia|x86_64||| \
 	RPi|arm||| \
+	RPi|arm|||GPICase \
 	RPi2|arm||| \
 	RPi2|arm|||RPi4 \
 	Allwinner|arm||Bananapi| \
