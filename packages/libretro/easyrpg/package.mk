@@ -19,13 +19,13 @@
 ################################################################################
 
 PKG_NAME="easyrpg"
-PKG_VERSION="9e18a98"
+PKG_VERSION="00ad8ab"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
-PKG_SITE="https://github.com/libretro/easyrpg-libretro"
+PKG_SITE="https://github.com/easyrpg/player"
 PKG_GIT_URL="$PKG_SITE"
-PKG_DEPENDS_TARGET="toolchain zlib"
+PKG_DEPENDS_TARGET="toolchain zlib liblcf pixman libspeexdsp mpg123 libsndfile libvorbis opusfile wildmidi libxmp-lite"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="An unofficial libretro port of the EasyRPG/Player."
@@ -33,13 +33,16 @@ PKG_LONGDESC="An unofficial libretro port of the EasyRPG/Player."
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-PKG_USE_CMAKE="no"
+PKG_USE_CMAKE="yes"
 
-make_target() {
-  make -C ../builds/libretro -f Makefile.libretro
+PKG_CMAKE_OPTS_TARGET="-DPLAYER_TARGET_PLATFORM=libretro -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=Release"
+
+pre_make_target() {
+  find $PKG_BUILD -name flags.make -exec sed -i "s:isystem :I:g" \{} \;
+  find $PKG_BUILD -name build.ninja -exec sed -i "s:isystem :I:g" \{} \;
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp ../builds/libretro/easyrpg_libretro.so $INSTALL/usr/lib/libretro/
+  cp $PKG_BUILD/.$TARGET_NAME/easyrpg_libretro.so $INSTALL/usr/lib/libretro/
 }

@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="melonds"
-PKG_VERSION="f3a42da"
+PKG_VERSION="33d8466"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
@@ -37,6 +37,14 @@ PKG_USE_CMAKE="no"
 
 configure_target() {
   cd $PKG_BUILD
+}
+
+make_target() {
+  if [ "$OPENGL" != "no" ]; then
+    make HAVE_OPENGL=1
+  else
+    make HAVE_OPENGL=0
+  fi
 }
 
 makeinstall_target() {
