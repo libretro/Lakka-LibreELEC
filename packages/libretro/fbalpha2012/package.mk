@@ -18,38 +18,30 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="pcsx_rearmed"
-PKG_VERSION="4b7520c"
-PKG_REV="1"
+PKG_NAME="fbalpha2012"
+PKG_VERSION="43d7c91"
 PKG_ARCH="any"
-PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/libretro/pcsx_rearmed"
+PKG_LICENSE="Non-commercial"
+PKG_SITE="https://github.com/libretro/fbalpha2012"
 PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="ARM optimized PCSX fork"
-PKG_LONGDESC="PCSX ReARMed is yet another PCSX fork based on the PCSX-Reloaded project, which itself contains code from PCSX, PCSX-df and PCSX-Revolution."
+PKG_SHORTDESC="Port of Final Burn Alpha 2012 to Libretro"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-configure_target() {
-  strip_gold
-}
-
 make_target() {
-  cd $PKG_BUILD
-  if [[ "$TARGET_FPU" =~ "neon" ]]; then
-    make -f Makefile.libretro HAVE_NEON=1 USE_DYNAREC=1 BUILTIN_GPU=neon
-  elif [ "$ARCH" == "arm" ]; then
-    make -f Makefile.libretro HAVE_NEON=0 USE_DYNAREC=1 BUILTIN_GPU=unai
+  cd svn-current/trunk
+  if [ "$ARCH" == "arm" ]; then
+    make -f makefile.libretro platform=armv CC=$CC CXX=$CXX
   else
-    make -f Makefile.libretro
+    make -f makefile.libretro CC=$CC CXX=$CXX
   fi
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp pcsx_rearmed_libretro.so $INSTALL/usr/lib/libretro/
+  cp fbalpha2012_libretro.so $INSTALL/usr/lib/libretro/
 }

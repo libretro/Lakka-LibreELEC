@@ -198,6 +198,11 @@ post_patch() {
       [ -f "$f" ] && cp -v $f $PKG_BUILD/arch/$TARGET_KERNEL_ARCH/boot/dts/overlays || true
     done
   fi
+  if [ -n "$BOARD" ]; then
+    for f in $PROJECT_DIR/$PROJECT/boards/$BOARD/config/*-overlay.dts; do
+      [ -f "$f" ] && cp -v $f $PKG_BUILD/arch/$TARGET_KERNEL_ARCH/boot/dts/overlays || true
+    done
+  fi
 }
 
 makeinstall_host() {
