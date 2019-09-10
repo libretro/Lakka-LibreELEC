@@ -235,11 +235,9 @@ makeinstall_target() {
     sed -i -e "s/# video_font_size = 32/video_font_size = 16/" $INSTALL/etc/retroarch.cfg
     sed -i -e "s/# video_scale_integer = false/video_scale_integer = true/" $INSTALL/etc/retroarch.cfg
   fi
-
   
   # System overlay
   mkdir -p $INSTALL/usr/share/retroarch-system
->>>>>>> libretro update
 }
 
 post_install() {  
