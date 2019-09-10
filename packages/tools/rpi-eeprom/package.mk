@@ -2,8 +2,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="rpi-eeprom"
-PKG_VERSION="ffec4bd48ff2ab753da10bd42b2fd7b904d8dca5"
-PKG_SHA256="94eba989f3776c6d2f06cf021fffb1cb4c2f550fa325e5a08cab2fdd4a4e00bd"
+PKG_VERSION="b360b29ab64bb1cbf223d21aa6086d6541675471"
+PKG_SHA256="58196f74d9b9b62f22f966441a7822962ff28c6633578e4863ab356a9d6a8ba7"
 PKG_ARCH="arm"
 PKG_LICENSE="BSD-3/custom"
 PKG_SITE="https://github.com/raspberrypi/rpi-eeprom"
@@ -16,15 +16,13 @@ makeinstall_target() {
   DESTDIR=${INSTALL}/$(get_kernel_overlay_dir)/lib/firmware/raspberrypi/bootloader
 
   mkdir -p ${DESTDIR}
-    mkdir -p ${DESTDIR}/${_dir}
-      cp -PRv ${PKG_BUILD}/firmware/recovery.bin ${DESTDIR}
-
     _dirs="critical"
     [ "$LIBREELEC_VERSION" = "devel" ] && _dirs+=" beta"
     for _dir in ${_dirs}; do
       if [ -n "$(ls -1 ${PKG_BUILD}/firmware/${_dir}/pieeprom-* 2>/dev/null)" ]; then
         mkdir -p ${DESTDIR}/${_dir}
           cp -PRv $(ls -1 ${PKG_BUILD}/firmware/${_dir}/pieeprom-* | tail -1) ${DESTDIR}/${_dir}
+          cp -PRv ${PKG_BUILD}/firmware/${_dir}/recovery.bin ${DESTDIR}/${_dir}
       fi
     done
 
