@@ -40,6 +40,7 @@ targets="\
 	Rockchip|RK3399|arm \
 	Rockchip|TinkerBoard|arm \
 	RPi|Gamegirl|arm \
+	RPi|GPICase|arm \
 	RPi|RPi|arm \
 	RPi|RPi2|arm \
 	RPi|RPi4|arm \
