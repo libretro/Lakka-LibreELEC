@@ -55,7 +55,7 @@ make_target() {
       make platform=armv-neon-hardfloat
       ;;
     Generic)
-      make -f Makefile.libretro
+      make -f Makefile.libretro PTR64=1
       ;;
     *)
       make platform=armv
