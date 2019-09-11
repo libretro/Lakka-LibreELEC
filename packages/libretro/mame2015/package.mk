@@ -16,16 +16,16 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="mame2014"
+PKG_NAME="mame2015"
 PKG_VERSION="d43c94f"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/libretro/mame2014-libretro"
+PKG_SITE="https://github.com/libretro/mame2015-libretro"
 PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="Late 2014 version of MAME (0.159-ish) for libretro and MAME 0.159 romsets"
+PKG_SHORTDESC="Late 2014/Early 2015 version of MAME (0.160-ish) for libretro. Compatible with MAME 0.160 romsets."
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
@@ -65,5 +65,5 @@ make_target() {
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp mame2014_libretro.so $INSTALL/usr/lib/libretro/
+  cp mame2015_libretro.so $INSTALL/usr/lib/libretro/
 }
