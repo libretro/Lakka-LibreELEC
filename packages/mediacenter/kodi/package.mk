@@ -289,6 +289,8 @@ post_makeinstall_target() {
   mkdir -p $INSTALL/usr/bin
     cp $PKG_DIR/scripts/kodi-remote $INSTALL/usr/bin
     cp $PKG_DIR/scripts/setwakeup.sh $INSTALL/usr/bin
+    cp $PKG_DIR/scripts/pastekodi $INSTALL/usr/bin
+    ln -sf /usr/bin/pastekodi $INSTALL/usr/bin/pastecrash
 
   mkdir -p $INSTALL/usr/share/kodi/addons
     cp -R $PKG_DIR/config/os.openelec.tv $INSTALL/usr/share/kodi/addons
