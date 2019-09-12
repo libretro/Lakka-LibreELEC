@@ -21,7 +21,7 @@
 PKG_NAME="beetle-psx"
 PKG_VERSION="fc06bbe"
 PKG_REV="1"
-PKG_ARCH="x86_64 i386 aarch64"
+PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-psx-libretro"
 PKG_GIT_URL="$PKG_SITE"
@@ -35,12 +35,14 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  if [ "$OPENGL" != "no" ] && [ "$VULKAN" != "no" ]; then
+  if [ "$OPENGL_SUPPORT" = yes ] && [ "$VULKAN_SUPPORT" = yes ]; then
     make HAVE_HW=1
-  elif [ "$OPENGL" != "no" ]; then
+  elif [ "$OPENGL_SUPPORT" = yes ]; then
     make HAVE_OPENGL=1
-  elif [ "$VULKAN" != "no" ]; then
+  elif [ "$VULKAN_SUPPORT" = yes ] || [ "$OPENGLES" = "mali-rockchip" ]; then
     make HAVE_VULKAN=1
+  elif [ "$OPENGLES_SUPPORT" = yes ]; then
+    make platform=unix-gles HAVE_OPENGL=1
   else
     make
   fi
