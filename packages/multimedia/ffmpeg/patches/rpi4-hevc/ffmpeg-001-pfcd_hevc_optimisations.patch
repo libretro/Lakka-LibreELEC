@@ -1020,10 +1020,10 @@ index 0000000000..6a1d95f195
 +#endif // __CTRL_FILES_H__
 diff --git a/libavcodec/rpi_hevc.c b/libavcodec/rpi_hevc.c
 new file mode 100644
-index 0000000000..fcf03d849c
+index 0000000000..c56e0439ec
 --- /dev/null
 +++ b/libavcodec/rpi_hevc.c
-@@ -0,0 +1,1075 @@
+@@ -0,0 +1,1083 @@
 +// FFMPEG HEVC decoder hardware accelerator
 +// Andrew Holme, Argon Design Ltd
 +// Copyright (c) June 2017 Raspberry Pi Ltd
@@ -1042,6 +1042,7 @@ index 0000000000..fcf03d849c
 +#include "rpi_qpu.h"
 +
 +#include "rpi_ctrl_ffmpeg.h"
++#include "rpi_mailbox.h"
 +//////////////////////////////////////////////////////////////////////////////
 +
 +// Array of constants for scaling factors
@@ -2029,6 +2030,9 @@ index 0000000000..fcf03d849c
 +        return AVERROR_EXTERNAL;
 +    }
 +
++    rpi->mbox_fd = mbox_open();
++    mbox_request_clock(rpi->mbox_fd);
++
 +#ifdef RPI_DISPLAY
 +  #include "rpi_zc.h"
 +    // Whilst FFmpegs init fn is only called once the close fn is called as
@@ -2060,6 +2064,10 @@ index 0000000000..fcf03d849c
 +    pthread_mutex_destroy(&rpi->mutex_phase1);
 +    pthread_mutex_destroy(&rpi->mutex_phase2);
 +    if (rpi->id && rpi->ctrl_ffmpeg_free) rpi->ctrl_ffmpeg_free(rpi->id);
++
++    mbox_release_clock(rpi->mbox_fd);
++    mbox_close(rpi->mbox_fd);
++
 +    return 0;
 +}
 +
@@ -2101,10 +2109,10 @@ index 0000000000..fcf03d849c
 +}
 diff --git a/libavcodec/rpi_hevc.h b/libavcodec/rpi_hevc.h
 new file mode 100644
-index 0000000000..f54657a957
+index 0000000000..41a71294f9
 --- /dev/null
 +++ b/libavcodec/rpi_hevc.h
-@@ -0,0 +1,219 @@
+@@ -0,0 +1,220 @@
 +// FFMPEG HEVC decoder hardware accelerator
 +// Andrew Holme, Argon Design Ltd
 +// Copyright (c) June 2017 Raspberry Pi Ltd
@@ -2304,6 +2312,7 @@ index 0000000000..f54657a957
 +    int         collocated_ref_idx;
 +    int         wpp_entry_x;
 +    int         wpp_entry_y;
++    int         mbox_fd;
 +
 +    void *      dl_handle;
 +    void *      id;
@@ -2326,10 +2335,10 @@ index 0000000000..f54657a957
 +} RPI_T;
 diff --git a/libavcodec/rpi_mailbox.c b/libavcodec/rpi_mailbox.c
 new file mode 100644
-index 0000000000..1b3532ba02
+index 0000000000..5377000a6b
 --- /dev/null
 +++ b/libavcodec/rpi_mailbox.c
-@@ -0,0 +1,150 @@
+@@ -0,0 +1,198 @@
 +/*
 +Copyright (c) 2012, Broadcom Europe Ltd.
 +All rights reserved.
@@ -2462,6 +2471,33 @@ index 0000000000..1b3532ba02
 +    return rv;
 +}
 +
++
++#define SET_CLOCK_RATE 0x00038002
++#define GET_MAX_CLOCK 0x00030004
++#define CLOCK_HEVC 11
++
++static int mbox_property_generic(int fd, unsigned command, unsigned *word0, unsigned *word1)
++{
++    uint32_t buf[32];
++    uint32_t * p = buf;
++    int rv;
++
++    *p++ = 0; // size
++    *p++ = 0; // process request
++    *p++ = command;
++    *p++ = 8;
++    *p++ = 8;
++    *p++ = *word0;
++    *p++ = *word1;
++    *p++ = 0;  // End tag
++    buf[0] = (p - buf) * sizeof(*p);
++
++    rv = mbox_property(fd, buf);
++    *word0 = buf[6];
++    *word1 = buf[7];
++    return rv;
++}
++
 +int mbox_open() {
 +   int file_desc;
 +
@@ -2478,14 +2514,35 @@ index 0000000000..1b3532ba02
 +  close(file_desc);
 +}
 +
-+#endif
++int mbox_request_clock(int fd) {
++   int rv;
++   unsigned word0, word1 = 0;
++   word0 = CLOCK_HEVC;
++   rv = mbox_property_generic(fd, GET_MAX_CLOCK, &word0, &word1);
++   if (rv != 0)
++      return rv;
++   word1 = word0;
++   word0 = CLOCK_HEVC;
++   rv = mbox_property_generic(fd, SET_CLOCK_RATE, &word0, &word1);
++   return rv;
++}
 +
++int mbox_release_clock(int fd) {
++  int rv;
++  unsigned word0, word1 = 0;
++  word0 = CLOCK_HEVC;
++  word1 = 0;
++  rv = mbox_property_generic(fd, SET_CLOCK_RATE, &word0, &word1);
++  return rv;
++}
++
++#endif
 diff --git a/libavcodec/rpi_mailbox.h b/libavcodec/rpi_mailbox.h
 new file mode 100644
-index 0000000000..b3168788d2
+index 0000000000..559613a1e2
 --- /dev/null
 +++ b/libavcodec/rpi_mailbox.h
-@@ -0,0 +1,58 @@
+@@ -0,0 +1,61 @@
 +#ifndef RPI_MAILBOX_H
 +#define RPI_MAILBOX_H
 +
@@ -2542,6 +2599,9 @@ index 0000000000..b3168788d2
 +extern unsigned mbox_mem_unlock(int file_desc, unsigned handle);
 +
 +int mbox_get_image_params(int fd, VC_IMAGE_T * img);
++
++int mbox_request_clock(int fd);
++int mbox_release_clock(int fd);
 +
 +#endif
 diff --git a/libavcodec/rpi_qpu.c b/libavcodec/rpi_qpu.c
