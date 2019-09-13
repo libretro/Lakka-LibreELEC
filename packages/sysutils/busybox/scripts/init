@@ -41,9 +41,6 @@ GRUB_DEFAULT=""
 NBD_DEVS="0"
 FLASH_FREE_MIN="5"
 
-INSTALLED_MEMORY=$(cat /proc/meminfo | grep 'MemTotal:' | awk '{print $2}')
-SYSTEM_TORAM_LIMIT=1024000
-
 LIVE="no"
 
 BREAK_TRIPPED="no"
@@ -919,11 +916,11 @@ check_update() {
 prepare_sysroot() {
   progress "Preparing system"
 
-  if [ "$SYSTEM_TORAM" = "no" -o "$INSTALLED_MEMORY" -lt "$SYSTEM_TORAM_LIMIT" ]; then
-    mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
-  else
+  if [ "$SYSTEM_TORAM" = "yes" ]; then
     cp /flash/$IMAGE_SYSTEM /dev/$IMAGE_SYSTEM
     mount_part "/dev/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
+  else
+    mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
   fi
 
   mount --move /flash /sysroot/flash
@@ -1024,11 +1021,8 @@ for arg in $(cat /proc/cmdline); do
     nosplash)
       SPLASH=no
       ;;
-    noram)
-      SYSTEM_TORAM=no
-      ;;
-    ramlimit=*)
-      SYSTEM_TORAM_LIMIT="${arg#*=}"
+    toram)
+      SYSTEM_TORAM=yes
       ;;
     live)
       LIVE=yes
