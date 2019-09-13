@@ -4,7 +4,7 @@
 PKG_NAME="game.libretro.mupen64plus"
 PKG_VERSION="2.5.0.6-Leia"
 PKG_SHA256="bad6dd3e677ac1fa897bbad2508e3e3c1b90f0ac390fadac6cd967863557e8ad"
-PKG_REV="114"
+PKG_REV="115"
 # no openGL suport in retroplayer yet
 PKG_ARCH="none"
 PKG_LICENSE="GPL"
