@@ -261,14 +261,10 @@ mount_sysroot() {
 
 # mount the specified SYSTEM file and output arch from /etc/os-release
 get_project_arch() {
-  mount_part "$1" "/update" "ro,loop" || return
-
-  if [ -f /update/etc/os-release ]; then
-    . /update/etc/os-release
+  if [ -f ${1}/etc/os-release ]; then
+    . ${1}/etc/os-release
     echo "${LIBREELEC_ARCH:-${OPENELEC_ARCH}}"
   fi
-
-  umount /update
 }
 
 # If the project/arch of current matches the upgrade, then it is considered compatible.
@@ -278,16 +274,12 @@ get_project_arch() {
 is_compatible() {
   local result=1
 
-  if [ "${2}" = "${3}" ]; then
+  if [ "${1}" = "${2}" ]; then
     result=0
   else
-    mount_part "$1" "/update" "ro,loop"
-
     if [ -f /update/usr/share/bootloader/canupdate.sh ]; then
-      sh /update/usr/share/bootloader/canupdate.sh "${2}" "${3}" && result=0
+      sh /update/usr/share/bootloader/canupdate.sh "${1}" "${2}" && result=0
     fi
-
-    umount /update
   fi
 
   return ${result}
@@ -296,17 +288,15 @@ is_compatible() {
 # determine if the new SYSTEM file is compatible with the current SYSTEM file
 check_is_compatible() {
   local update_filename="${1}"
-  local old_system="${2}"
-  local new_system="${3}"
   local old_project_arch new_project_arch
 
-  old_project_arch="$(get_project_arch "${old_system}")" || return
-  new_project_arch="$(get_project_arch "${new_system}")" || return
+  old_project_arch="$(get_project_arch "/sysroot")" || return
+  new_project_arch="$(get_project_arch "/update")" || return
 
   # If old or new project/arch isn't available then could be very old (pre-/etc/os-release) build - have to trust it
   if [ -n "${old_project_arch}" -a -n "${new_project_arch}" ]; then
     # If the old project/arch is not compatible with the new project/arch then abort...
-    if ! is_compatible "${new_system}" "${old_project_arch}" "${new_project_arch}"; then
+    if ! is_compatible "${old_project_arch}" "${new_project_arch}"; then
       echo ""
       echo "ERROR: $(basename "${update_filename}") is not compatible with ${old_project_arch} hardware - update cancelled."
       echo ""
@@ -359,8 +349,6 @@ update_bootloader() {
   export BOOT_ROOT="/flash"
   export SYSTEM_ROOT="/update"
 
-  mount_part "/flash/$IMAGE_SYSTEM" "$SYSTEM_ROOT" "ro,loop"
-
   if [ -f $SYSTEM_ROOT/usr/share/bootloader/update.sh ]; then
     StartProgress spinner "Updating Boot Files... "
       result="$(sh $SYSTEM_ROOT/usr/share/bootloader/update.sh 2>&1)"
@@ -368,8 +356,6 @@ update_bootloader() {
       StopProgress "done"
     [ -n "${result}" ] && echo "${result}"
   fi
-
-  umount $SYSTEM_ROOT
 }
 
 load_modules() {
@@ -875,10 +861,12 @@ check_update() {
     fi
   fi
 
+  mount_part "$UPDATE_DIR/$UPDATE_SYSTEM" "/update" "ro,loop"
+
   # Verify that the new upgrade is compatible with the current system - this should avoid creating
   # non-booting systems after (for example) an RPi tar is incorrectly applied to an RPi2 system.
   if [ ! -f "$UPDATE_ROOT/.nocompat" ]; then
-    if ! check_is_compatible "$UPDATE_FILENAME" "/flash/$IMAGE_SYSTEM" "$UPDATE_DIR/$UPDATE_SYSTEM"; then
+    if ! check_is_compatible "$UPDATE_FILENAME"; then
       do_cleanup
       StartProgress countdown "Normal startup in 60s... " 60 "NOW"
       return 0
@@ -932,6 +920,7 @@ check_update() {
   umount /sysroot
   update_file "System" "$UPDATE_SYSTEM" "/flash/$IMAGE_SYSTEM"
   update_bootloader
+  umount /update
   do_cleanup
   do_reboot
 }
@@ -1093,10 +1082,10 @@ for BOOT_STEP in \
     set_consolefont \
     check_disks \
     mount_flash \
-    mount_sysroot \
     cleanup_flash \
     update_bootmenu \
     load_splash \
+    mount_sysroot \
     mount_storage \
     check_update \
     prepare_sysroot; do
