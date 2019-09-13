@@ -34,6 +34,69 @@ case "${UBOOT_SYSTEM}" in
     dd if=$DESTDIR/u-boot.gxbb of=$DESTDIR/u-boot.bin.sd.bin conv=fsync,notrunc bs=512 seek=97
     ;;
 
+  odroid-n2)
+    chmod +x $FIPDIR/blx_fix.sh
+    cp $FIPDIR/bl301.bin $DESTDIR/
+    cp $FIPDIR/acs.bin $DESTDIR/
+    cp $FIPDIR/aml_ddr.fw $DESTDIR/
+    cp $FIPDIR/bl2.bin $DESTDIR/
+    cp $FIPDIR/bl30.bin $DESTDIR/
+    cp $FIPDIR/bl31.img $DESTDIR/
+    cp $FIPDIR/blx_fix.sh $DESTDIR/
+    cp $FIPDIR/ddr3_1d.fw $DESTDIR/
+    cp $FIPDIR/ddr4_1d.fw $DESTDIR/
+    cp $FIPDIR/ddr4_2d.fw $DESTDIR/
+    cp $FIPDIR/diag_lpddr4.fw $DESTDIR/
+    cp $FIPDIR/lpddr4_1d.fw $DESTDIR/
+    cp $FIPDIR/lpddr4_2d.fw $DESTDIR/
+    cp $FIPDIR/piei.fw $DESTDIR/
+    cp $(get_build_dir $BOOTLOADER)/u-boot.bin $DESTDIR/bl33.bin
+
+    $FIPDIR/blx_fix.sh $DESTDIR/bl30.bin \
+                       $DESTDIR/zero_tmp \
+                       $DESTDIR/bl30_zero.bin \
+                       $DESTDIR/bl301.bin \
+                       $DESTDIR/bl301_zero.bin \
+                       $DESTDIR/bl30_new.bin bl30
+
+    $FIPDIR/blx_fix.sh $DESTDIR/bl2.bin \
+                       $DESTDIR/zero_tmp \
+                       $DESTDIR/bl2_zero.bin \
+                       $DESTDIR/acs.bin \
+                       $DESTDIR/bl21_zero.bin \
+                       $DESTDIR/bl2_new.bin bl2
+
+    $FIPDIR/aml_encrypt_g12b --bl30sig --input $DESTDIR/bl30_new.bin \
+                                       --output $DESTDIR/bl30_new.bin.g12a.enc \
+                                       --level v3
+    $FIPDIR/aml_encrypt_g12b --bl3sig  --input $DESTDIR/bl30_new.bin.g12a.enc \
+                                       --output $DESTDIR/bl30_new.bin.enc \
+                                       --level v3 --type bl30
+    $FIPDIR/aml_encrypt_g12b --bl3sig  --input $DESTDIR/bl31.img \
+                                       --output $DESTDIR/bl31.img.enc \
+                                       --level v3 --type bl31
+    $FIPDIR/aml_encrypt_g12b --bl3sig  --input $DESTDIR/bl33.bin --compress lz4 \
+                                       --output $DESTDIR/bl33.bin.enc \
+                                       --level v3 --type bl33 --compress lz4
+    $FIPDIR/aml_encrypt_g12b --bl2sig  --input $DESTDIR/bl2_new.bin \
+                                       --output $DESTDIR/bl2.n.bin.sig
+    $FIPDIR/aml_encrypt_g12b --bootmk \
+                             --output $DESTDIR/u-boot.bin \
+                             --bl2 $DESTDIR/bl2.n.bin.sig \
+                             --bl30 $DESTDIR/bl30_new.bin.enc \
+                             --bl31 $DESTDIR/bl31.img.enc \
+                             --bl33 $DESTDIR/bl33.bin.enc \
+                             --ddrfw1 $DESTDIR/ddr4_1d.fw \
+                             --ddrfw2 $DESTDIR/ddr4_2d.fw \
+                             --ddrfw3 $DESTDIR/ddr3_1d.fw \
+                             --ddrfw4 $DESTDIR/piei.fw \
+                             --ddrfw5 $DESTDIR/lpddr4_1d.fw \
+                             --ddrfw6 $DESTDIR/lpddr4_2d.fw \
+                             --ddrfw7 $DESTDIR/diag_lpddr4.fw \
+                             --ddrfw8 $DESTDIR/aml_ddr.fw \
+                             --level v3
+    ;;
+
   nanopi-k2)
     cp $FIPDIR/gxb/bl2.bin $DESTDIR/
     cp $FIPDIR/gxb/acs.bin $DESTDIR/
@@ -58,8 +121,8 @@ case "${UBOOT_SYSTEM}" in
     $FIPDIR/fip_create --dump $DESTDIR/fip.bin
 
     python2 $FIPDIR/acs_tool.pyc $DESTDIR/bl2.bin \
-                                $DESTDIR/bl2_acs.bin \
-                                $DESTDIR/acs.bin 0
+                                 $DESTDIR/bl2_acs.bin \
+                                 $DESTDIR/acs.bin 0
 
     $FIPDIR/blx_fix.sh $DESTDIR/bl2_acs.bin \
                        $DESTDIR/zero_tmp \
@@ -102,19 +165,24 @@ case "${UBOOT_SYSTEM}" in
     $FIPDIR/gxl/aml_encrypt_gxl --bl3enc --input $DESTDIR/bl31.img
     $FIPDIR/gxl/aml_encrypt_gxl --bl3enc --input $DESTDIR/bl33.bin
     $FIPDIR/gxl/aml_encrypt_gxl --bl2sig --input $DESTDIR/bl2_new.bin --output $DESTDIR/bl2.n.bin.sig
-    $FIPDIR/gxl/aml_encrypt_gxl --bootmk --output $DESTDIR/u-boot.bin.sd.bin --bl2 $DESTDIR/bl2.n.bin.sig --bl30 $DESTDIR/bl30_new.bin.enc --bl31 $DESTDIR/bl31.img.enc --bl33 $DESTDIR/bl33.bin.enc
+    $FIPDIR/gxl/aml_encrypt_gxl --bootmk --output $DESTDIR/u-boot.bin --bl2 $DESTDIR/bl2.n.bin.sig --bl30 $DESTDIR/bl30_new.bin.enc --bl31 $DESTDIR/bl31.img.enc --bl33 $DESTDIR/bl33.bin.enc
     ;;
 
 esac
 
 # Clean up after previous build
 rm -rf $INSTALL/usr/share/bootloader/boot.ini
-rm -rf $INSTALL/usr/share/bootloader/u-boot.bin.sd.bin
+rm -rf $INSTALL/usr/share/bootloader/u-boot*
 
+# Install u-boot
 mkdir -p $INSTALL/usr/share/bootloader
-
-if [ -f $DESTDIR/u-boot.bin.sd.bin ] ; then
-  cp -av $DESTDIR/u-boot.bin.sd.bin $INSTALL/usr/share/bootloader
+if [ $UBOOT_SYSTEM != "box" ]; then
+  if [ -f $DESTDIR/u-boot.bin.sd.bin ]; then
+    cp -av $DESTDIR/u-boot.bin.sd.bin $INSTALL/usr/share/bootloader
+  fi
+  if [ -f $DESTDIR/u-boot.bin ]; then
+    cp -av $DESTDIR/u-boot.bin $INSTALL/usr/share/bootloader
+  fi
 fi
 
 # Install boot.ini if it exists

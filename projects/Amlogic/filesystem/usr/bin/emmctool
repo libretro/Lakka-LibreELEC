@@ -1,0 +1,99 @@
+#!/bin/bash
+
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
+
+BOOT=$(grep /flash /proc/mounts | awk '{print $1}' | sed 's/p[012]//g')
+EMMC=$(ls /dev/mmcblk*rpmb | sed 's/rpmb//g' | head -n 1)
+
+do_checkboot(){
+  case $(dtname) in
+    khadas,vim|khadas,vim2|libretech*)
+      if [ "$BOOT" = "$EMMC" ]; then
+        echo "error: You are booted from the eMMC module!"
+        exit 1
+      fi
+      ;;
+    *)
+      echo "error: Your device is not supported for eMMC boot!"
+      exit 1
+      ;;
+  esac
+}
+
+do_detect(){
+  echo "info: rebinding d0074000.mmc"
+  echo -n d0074000.mmc > /sys/bus/platform/drivers/meson-gx-mmc/unbind
+  echo -n d0074000.mmc > /sys/bus/platform/drivers/meson-gx-mmc/bind
+  sleep 1
+  parted -s $EMMC unit s print
+}
+
+do_info(){
+  echo ""
+  echo "info: boot device is $BOOT"
+  echo "info: emmc device is $EMMC"
+  echo ""
+  parted -s $EMMC print
+}
+
+do_resize(){
+  for mount in $(grep ${EMMC}p2 /proc/mounts | awk '{print $1}'); do
+    echo "info: unmounting $mount"
+    umount -f "$mount"
+    sleep 1
+  done
+  echo "info: resizing ${EMMC}p2 to 100%"
+  parted -s -m $EMMC resizepart 2 100%
+  partprobe
+  sleep 1
+  echo "info: remounting ${EMMC}p2 to /var/media/STORAGE"
+  mount ${EMMC}p2 /var/media/STORAGE
+  sleep 1
+  if [ -f /var/media/STORAGE/.please_resize_me ]; then
+    rm /var/media/STORAGE/.please_resize_me
+  fi
+  parted -s $EMMC unit s print
+}
+
+do_zero(){
+  for mount in $(grep ${EMMC}p /proc/mounts | awk '{print $1}'); do
+    echo "info: unmounting $mount"
+    umount -f "$mount"
+    sleep 1
+  done
+  dd if=/dev/zero of=$EMMC bs=1M
+}
+
+do_help(){
+  echo ""
+  echo "usage: emmctool -d : (detect) detects a module attached after boot"
+  echo "       emmctool -r : (resize) expands the storage partition to 100%"
+  echo "       emmctool -i : (info) show information about the emmc module"
+  echo "       emmctool -z : (zero) erases/wipes the module"
+  echo "       emmctool -h : (help) displays this message"
+  echo ""
+}
+
+case $1 in
+  --detect|-d|detect)
+    do_checkboot
+    do_detect
+    ;;
+  --info|-i|info)
+    do_info
+    ;;
+  --resize|-r|resize)
+    do_checkboot
+    do_resize
+    ;;
+  --zero|-z|zero)
+    do_checkboot
+    do_zero
+    ;;
+  *)
+    do_help
+    ;;
+esac
+
+exit

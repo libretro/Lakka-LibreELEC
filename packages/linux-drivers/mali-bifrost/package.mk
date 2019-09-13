@@ -2,8 +2,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mali-bifrost"
-PKG_VERSION="c56ef20e65d361a1964e3b86c03afad1f56491ae" # BX301A01B-SW-99002-r16p0-01rel0_meson-g12b
-PKG_SHA256="8ba6db7448ea175c06c3f6d50ab5d35180dd7467fcc8ec6d2b4636bcad28531b"
+PKG_VERSION="61bf5319dfd266b72a96c9c2d518dbbde8514d66" # BX301A01B-SW-99002-r16p0-01rel0
+PKG_SHA256="b21d840586f24638d76d5a9684b812a4cb9415006f320a34db6f8b389cfb0a1c"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://developer.arm.com/products/software/mali-drivers/bifrost-kernel"

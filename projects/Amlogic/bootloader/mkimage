@@ -1,30 +1,80 @@
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
-. config/options $1
+. config/options ""
 
-case "${UBOOT_SYSTEM}" in
-  box|"")
-    DTB="@@DTB_NAME@@"
-    ;;
+DTB="$(${SCRIPTS}/uboot_helper ${PROJECT} ${DEVICE} ${UBOOT_SYSTEM} dtb)"
 
-  *)
-    echo "image: writing u-boot to $(basename $DISK)"
-    dd if="$INSTALL/usr/share/bootloader/u-boot.bin.sd.bin" of="$DISK" conv=fsync,notrunc bs=1 count=112 >"$SAVE_ERROR" 2>&1 || show_error
-    dd if="$INSTALL/usr/share/bootloader/u-boot.bin.sd.bin" of="$DISK" conv=fsync,notrunc bs=512 skip=1 seek=1 >"$SAVE_ERROR" 2>&1 || show_error
+mkimage_uboot(){
+  echo "image: writing u-boot to $(basename $DISK)"
+  dd if="$INSTALL/usr/share/bootloader/u-boot.bin.sd.bin" of="$DISK" conv=fsync,notrunc bs=1 count=444 >"$SAVE_ERROR" 2>&1 || show_error
+  dd if="$INSTALL/usr/share/bootloader/u-boot.bin.sd.bin" of="$DISK" conv=fsync,notrunc bs=512 skip=1 seek=1 >"$SAVE_ERROR" 2>&1 || show_error
+}
 
-    DTB="$(${SCRIPTS}/uboot_helper ${PROJECT} ${DEVICE} ${UBOOT_SYSTEM} dtb)"
-    ;;
-esac
+mkimage_autoscripts(){
+  echo "image: copying autoscript files"
+  mcopy -s -o ${RELEASE_DIR}/3rdparty/bootloader/*script ::
+  mcopy -s -o ${RELEASE_DIR}/3rdparty/bootloader/*.scr ::
+  touch "$RELEASE_DIR/3rdparty/bootloader/aml_autoscript.zip"
+}
 
-echo "image: creating uEnv.ini"
+mkimage_bootini(){
+  if [ -f ${RELEASE_DIR}/3rdparty/bootloader/boot.ini ]; then
+    echo "image: copying boot.ini"
+    mcopy -s -o ${RELEASE_DIR}/3rdparty/bootloader/boot.ini ::
+  fi
+}
+
+mkimage_uEnv(){
+  echo "image: creating uEnv.ini"
 cat << EOF > "${LE_TMP}/uEnv.ini"
 dtb_name=/dtb/${DTB}
 bootargs=boot=UUID=${UUID_SYSTEM} disk=UUID=${UUID_STORAGE} quiet ${EXTRA_CMDLINE}
 EOF
-mcopy -s "${LE_TMP}/uEnv.ini" ::
+  mcopy -s "${LE_TMP}/uEnv.ini" ::
+}
 
-touch "$RELEASE_DIR/3rdparty/bootloader/aml_autoscript.zip"
+mkimage_extlinux(){
+  echo "image: copying exlinux.conf"
+  mkdir -p "${LE_TMP}/extlinux"
+  cat << EOF > "${LE_TMP}/extlinux/extlinux.conf"
+LABEL ${DISTRO}
+  LINUX /${KERNEL_NAME}
+  FDT /${DTB}
+  APPEND boot=LABEL=LIBREELEC disk=LABEL=STORAGE quiet ${EXTRA_CMDLINE}
+EOF
+  mcopy -s -o "${LE_TMP}/extlinux" ::
+}
 
-echo "image: copying autoscript files and device trees"
-mcopy -s ${RELEASE_DIR}/3rdparty/bootloader/* ::
+mkimage_dtb(){
+  if [ "$DTB" != "@@DTB_NAME@@" ]; then
+    echo "image: copying device tree"
+    mcopy -s -o "${RELEASE_DIR}/3rdparty/bootloader/dtb/$DTB" ::
+  else
+    echo "image: copying device trees"
+    mcopy -s -o "${RELEASE_DIR}/3rdparty/bootloader/dtb" ::
+  fi
+}
+
+case "${UBOOT_SYSTEM}" in
+  box|"")
+    DTB="@@DTB_NAME@@"
+    mkimage_uEnv
+    mkimage_autoscripts
+    mkimage_bootini
+    mkimage_dtb
+    ;;
+  khadas*|lepotato|nanopi-k2|odroid*)
+    mkimage_uboot
+    mkimage_extlinux
+    mkimage_dtb
+    ;;
+  *)
+    mkimage_uEnv
+    mkimage_autoscripts
+    mkimage_bootini
+    mkimage_extlinux
+    mkimage_uboot
+    mkimage_dtb
+    ;;
+esac
