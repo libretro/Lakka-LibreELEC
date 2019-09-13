@@ -4,7 +4,7 @@
 PKG_NAME="imagedecoder.raw"
 PKG_VERSION="2.0.1-Leia"
 PKG_SHA256="bbc8c6f5c3e9d418616a7f614973bc425eb8748cd8643623065bb2071e54c78b"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/imagedecoder.raw"

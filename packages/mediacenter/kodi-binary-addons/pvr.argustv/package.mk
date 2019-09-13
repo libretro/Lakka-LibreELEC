@@ -5,7 +5,7 @@
 PKG_NAME="pvr.argustv"
 PKG_VERSION="3.5.4-Leia"
 PKG_SHA256="2d0fae3721715a17e1c1454dd7029eb8d18e7f761ed65e00f8c488c7c08433e8"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-pvr/pvr.argustv"

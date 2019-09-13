@@ -5,7 +5,7 @@
 PKG_NAME="pvr.vbox"
 PKG_VERSION="4.4.8-Leia"
 PKG_SHA256="7063ee14c222ed797ce6dddca3908d2558ee94b3a2a29fed68bde4ff8f55cd19"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-pvr/pvr.vbox"

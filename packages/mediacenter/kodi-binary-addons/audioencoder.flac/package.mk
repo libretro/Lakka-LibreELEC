@@ -5,7 +5,7 @@
 PKG_NAME="audioencoder.flac"
 PKG_VERSION="v2.0.1"
 PKG_SHA256="782f49f7905da48fda1357c41c62a5bbcce23e1f410bd30b69fb0ef0924e0048"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audioencoder.flac"
