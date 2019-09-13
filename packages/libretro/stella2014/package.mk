@@ -18,12 +18,12 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="stella"
-PKG_VERSION="b0b6361"
+PKG_NAME="stella2014"
+PKG_VERSION="a181878"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/libretro/stella-libretro"
+PKG_SITE="https://github.com/libretro/stella2014-libretro"
 PKG_URL="$PKG_SITE.git"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
@@ -36,5 +36,5 @@ PKG_AUTORECONF="no"
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp stella_libretro.so $INSTALL/usr/lib/libretro/
+  cp stella2014_libretro.so $INSTALL/usr/lib/libretro/
 }

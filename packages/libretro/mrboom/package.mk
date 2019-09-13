@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="mrboom"
-PKG_VERSION="2ea24c0"
+PKG_VERSION="d6a1a24"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
@@ -33,6 +33,14 @@ PKG_LONGDESC="Mr.Boom is a 8 players Bomberman clone for RetroArch/Libretro"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+make_target() {
+  if [[ "$TARGET_FPU" =~ "neon" ]]; then
+    make HAVE_NEON=1
+  else
+    make
+  fi
+}
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro

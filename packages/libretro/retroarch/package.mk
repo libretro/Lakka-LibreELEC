@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="retroarch"
-PKG_VERSION="3064d0d"
+PKG_VERSION="561a4cd"
 PKG_REV="11"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
@@ -94,11 +94,14 @@ fi
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
                            --disable-sdl \
+                           --disable-sdl2 \
                            --disable-ssl \
                            $RETROARCH_GL \
                            $RETROARCH_NEON \
                            --enable-zlib \
-                           --enable-freetype"
+                           --enable-freetype \
+                           --enable-translate \
+                           --enable-cdrom"
 
 pre_configure_target() {
   TARGET_CONFIGURE_OPTS=""
@@ -107,10 +110,14 @@ pre_configure_target() {
 
 pre_make_target() {
   if [ "$OPENGLES" == "bcm2835-driver" ]; then
-    CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads \
-                    -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
+    CFLAGS+=" -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads \
+              -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
   elif [ "$OPENGLES" == "gpu-viv-bin-mx6q" ] || [ "$OPENGLES" == "imx-gpu-viv" ]; then
-    CFLAGS="$CFLAGS -DLINUX -DEGL_API_FB"
+    CFLAGS+=" -DLINUX -DEGL_API_FB"
+  fi
+
+  if [ "$LAKKA_NIGHTLY" = yes ]; then
+    CFLAGS+=" -DHAVE_LAKKA_NIGHTLY"
   fi
 }
 
@@ -249,6 +256,9 @@ makeinstall_target() {
     sed -i -e "s/# video_font_size = 32/video_font_size = 16/" $INSTALL/etc/retroarch.cfg
     sed -i -e "s/# video_scale_integer = false/video_scale_integer = true/" $INSTALL/etc/retroarch.cfg
   fi
+
+  # System overlay
+  mkdir -p $INSTALL/usr/share/retroarch-system
 }
 
 post_install() {  

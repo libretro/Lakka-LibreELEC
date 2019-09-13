@@ -19,9 +19,9 @@
 ################################################################################
 
 PKG_NAME="flycast"
-PKG_VERSION="bbf5888"
+PKG_VERSION="446ec55"
 PKG_REV="1"
-PKG_ARCH="any"
+PKG_ARCH="arm aarch64 x86_64"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/flycast"
 PKG_URL="$PKG_SITE.git"
@@ -55,9 +55,9 @@ make_target() {
     [ "$OPENGLES_SUPPORT" = yes ] && FLYCAST_GL="FORCE_GLES=1"
     if [ "$ARCH" == "arm" ]; then
       if [ "$DEVICE" = "RPi4" ]; then
-        make platform=rpi4-gles-neon HAVE_OPENMP=0
+        make AS=${AS} CC_AS=${CC} platform=rpi4-gles-neon HAVE_OPENMP=0
       else
-        make platform=rpi $FLYCAST_GL HAVE_OPENMP=0
+        make AS=${AS} CC_AS=${CC} platform=rpi $FLYCAST_GL HAVE_OPENMP=0
       fi
     else
       make AS=${AS} CC_AS=${AS} ARCH=${ARCH} $FLYCAST_GL HAVE_OPENMP=0
