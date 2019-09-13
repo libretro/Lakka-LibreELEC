@@ -15,6 +15,9 @@
 /usr/bin/busybox mkdir -p /sysroot
 /usr/bin/busybox mkdir -p /storage
 
+# temp mountpoint for updates
+/usr/bin/busybox mkdir -p /update
+
 # mount all needed special filesystems
 /usr/bin/busybox mount -t devtmpfs devtmpfs /dev
 /usr/bin/busybox mount -t proc proc /proc
@@ -243,16 +246,29 @@ mount_part() {
   $MOUNT_CMD "$MOUNT_TARGET" "$2" "$3" "$4"
 }
 
+mount_sysroot() {
+  if [ "$SYSTEM_TORAM" = "yes" ]; then
+    cp /flash/$IMAGE_SYSTEM /dev/$IMAGE_SYSTEM
+    mount_part "/dev/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
+  else
+    mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
+  fi
+
+  if [ -f /flash/post-sysroot.sh ]; then
+    . /flash/post-sysroot.sh
+  fi
+}
+
 # mount the specified SYSTEM file and output arch from /etc/os-release
 get_project_arch() {
-  mount_part "$1" "/sysroot" "ro,loop" || return
+  mount_part "$1" "/update" "ro,loop" || return
 
-  if [ -f /sysroot/etc/os-release ]; then
-    . /sysroot/etc/os-release
+  if [ -f /update/etc/os-release ]; then
+    . /update/etc/os-release
     echo "${LIBREELEC_ARCH:-${OPENELEC_ARCH}}"
   fi
 
-  umount /sysroot
+  umount /update
 }
 
 # If the project/arch of current matches the upgrade, then it is considered compatible.
@@ -265,13 +281,13 @@ is_compatible() {
   if [ "${2}" = "${3}" ]; then
     result=0
   else
-    mount_part "$1" "/sysroot" "ro,loop"
+    mount_part "$1" "/update" "ro,loop"
 
-    if [ -f /sysroot/usr/share/bootloader/canupdate.sh ]; then
-      sh /sysroot/usr/share/bootloader/canupdate.sh "${2}" "${3}" && result=0
+    if [ -f /update/usr/share/bootloader/canupdate.sh ]; then
+      sh /update/usr/share/bootloader/canupdate.sh "${2}" "${3}" && result=0
     fi
 
-    umount /sysroot
+    umount /update
   fi
 
   return ${result}
@@ -341,9 +357,9 @@ update_bootloader() {
   local result
 
   export BOOT_ROOT="/flash"
-  export SYSTEM_ROOT="/sysroot"
+  export SYSTEM_ROOT="/update"
 
-  mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
+  mount_part "/flash/$IMAGE_SYSTEM" "$SYSTEM_ROOT" "ro,loop"
 
   if [ -f $SYSTEM_ROOT/usr/share/bootloader/update.sh ]; then
     StartProgress spinner "Updating Boot Files... "
@@ -353,7 +369,7 @@ update_bootloader() {
     [ -n "${result}" ] && echo "${result}"
   fi
 
-  umount /sysroot
+  umount $SYSTEM_ROOT
 }
 
 load_modules() {
@@ -913,6 +929,7 @@ check_update() {
   else
     update_file "Kernel" "$UPDATE_KERNEL" "/flash/$IMAGE_KERNEL"
   fi
+  umount /sysroot
   update_file "System" "$UPDATE_SYSTEM" "/flash/$IMAGE_SYSTEM"
   update_bootloader
   do_cleanup
@@ -921,13 +938,6 @@ check_update() {
 
 prepare_sysroot() {
   progress "Preparing system"
-
-  if [ "$SYSTEM_TORAM" = "yes" ]; then
-    cp /flash/$IMAGE_SYSTEM /dev/$IMAGE_SYSTEM
-    mount_part "/dev/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
-  else
-    mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
-  fi
 
   mount --move /flash /sysroot/flash
   mount --move /storage /sysroot/storage
@@ -1083,6 +1093,7 @@ for BOOT_STEP in \
     set_consolefont \
     check_disks \
     mount_flash \
+    mount_sysroot \
     cleanup_flash \
     update_bootmenu \
     load_splash \
