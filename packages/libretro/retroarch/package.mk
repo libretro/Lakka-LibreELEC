@@ -259,6 +259,7 @@ makeinstall_target() {
 
   # System overlay
   mkdir -p $INSTALL/usr/share/retroarch-system
+    touch $INSTALL/usr/share/retroarch-system/.placeholder
 }
 
 post_install() {  
