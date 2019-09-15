@@ -24,6 +24,9 @@
 # by default do not bail out after failed build
 [ -z "${BAILOUT_FAILED}" ] && BAILOUT_FAILED="no"
 
+# by default do not use version in build folder
+[ -z "${IGNORE_VERSION}" ] && iv=1 || iv=0
+
 rm -rf target/
 
 # list of targets/platforms in structure PROJECT|DEVICE|ARCH|OUTPUT
@@ -81,7 +84,7 @@ do
 	then
 		# show logs during build (non-dashboard build)
 		echo "Starting build of ${target_name}"
-		make ${out} PROJECT=${project} DEVICE=${device} ARCH=${arch} ${tc}
+		make ${out} PROJECT=${project} DEVICE=${device} ARCH=${arch} IGNORE_VERSION=${iv} ${tc}
 		non_db_ret=${?}
 		if [ ${non_db_ret} -gt 0 -a "${BAILOUT_FAILED}" != "no" ]
 		then
@@ -93,7 +96,7 @@ do
 		# remove the old dashboard, so we don't show old/stale dashboard
 		rm -f ${statusfile}
 		# start the build process in background
-		make ${out} PROJECT=${project} DEVICE=${device} ARCH=${arch} ${tc} &>/dev/null &
+		make ${out} PROJECT=${project} DEVICE=${device} ARCH=${arch} IGNORE_VERSION=${iv} ${tc} &>/dev/null &
 		# store the pid
 		pid=${!}
 		finished=0
