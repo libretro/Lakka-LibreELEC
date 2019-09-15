@@ -151,7 +151,7 @@ do
 					then
 						echo "Build job for ${target_name} was probably not started (no dashboard file found)."
 						echo "Try running the build manually:"
-						echo "PROJECT=${project} DEVICE=${device} ARCH=${arch} make ${out}"
+						echo "PROJECT=${project} DEVICE=${device} ARCH=${arch} IGNORE_VERSION=${iv} make ${out}"
 						exit 127
 					fi
 				fi
