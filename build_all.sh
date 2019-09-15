@@ -53,9 +53,10 @@ targets="\
 total=$(echo ${targets} | wc -w)
 declare -i current=0
 
-# initialize variables for list and count of failed builds
+# initialize variables for list and count of failed builds and count of good jobs
 failed_targets=""
 declare -i failed_jobs=0
+declare -i good_jobs=0
 
 # number of buildthreads = two times number of cpu threads
 tc=""
@@ -105,6 +106,9 @@ do
 			# check if the build process is still running
 			ps -q ${pid} &>/dev/null
 			ret=${?}
+			[ ${failed_jobs} -gt 1 -o ${failed_jobs} -eq 0 ] && s_failed="s" || s_failed=""
+			[ ${good_jobs} -gt 1 -o ${good_jobs} -eq 0 ] && s_good="s" || s_good=""
+			statusline=$(printf "Build job %d/%d, so far %d successful build%s, %d failed build%s" ${current} ${total} ${good_jobs} ${s_good} ${failed_jobs} ${s_failed})
 			if [ ${ret} -eq 0 ]
 			then
 				# build process is still running, show the dashboard
@@ -114,7 +118,7 @@ do
 					if [ $(cat ${statusfile} | wc -l) -gt 2 ]
 					then
 						echo ""
-						echo "Build job $current/$total"
+						echo "${statusline}"
 					fi
 					sleep 0.1s
 				fi
@@ -126,7 +130,7 @@ do
 					# show the dashboard
 					cat ${statusfile}
 					echo ""
-					echo "Build job $current/$total"
+					echo "${statusline}"
 					# check if there are any failed jobs in the dashboard
 					failed_count=$(cat ${statusfile} | grep "^\[" | cut -d' ' -f 2 | grep FAILED | wc -l)
 					if [ ${failed_count} -gt 0 ]
@@ -172,6 +176,7 @@ do
 		failed_targets+="${target_name} - ${failed_packages}\n"
 	else
 		# store the release files in platform/target folder
+		good_jobs+=1
 		cd target
 		mkdir -p ${target_name}
 		# add md5 checksums to system and kernel files
