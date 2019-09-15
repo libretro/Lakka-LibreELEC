@@ -46,6 +46,10 @@ targets="\
 	Qualcomm|Dragonboard|arm|image \
 	"
 
+# set the number of total build jobs and initialize counter for current build job
+total=$(echo ${targets} | wc -w)
+declare -i current=0
+
 # initialize variables for list and count of failed builds
 failed_targets=""
 declare -i failed_jobs=0
@@ -71,6 +75,7 @@ do
 	non_db_ret=0
 	# initialize result variable for dashboard job
 	failed_dashboard=0
+	current+=1
 
 	if [ "${DASHBOARD_MODE}" != "yes" ]
 	then
@@ -103,6 +108,11 @@ do
 				if [ -f ${statusfile} ]
 				then
 					cat ${statusfile}
+					if [ $(cat ${statusfile} | wc -l) -gt 2 ]
+					then
+						echo ""
+						echo "Build job $current/$total"
+					fi
 					sleep 0.1s
 				fi
 			else
@@ -112,6 +122,8 @@ do
 				then
 					# show the dashboard
 					cat ${statusfile}
+					echo ""
+					echo "Build job $current/$total"
 					# check if there are any failed jobs in the dashboard
 					failed_count=$(cat ${statusfile} | grep "^\[" | cut -d' ' -f 2 | grep FAILED | wc -l)
 					if [ ${failed_count} -gt 0 ]
@@ -119,7 +131,12 @@ do
 						failed_dashboard=1
 						if [ "${BAILOUT_FAILED}" != "no" ]
 						then
-							echo "Build of some package(s) failed."
+							echo "Build of some package(s) failed:"
+							echo ""
+							echo "Job id | Package name"
+							echo "------.+------------------"
+							cat ${statusfile} | grep "FAILED" | sed -e "s/^\[/ /" | sed -e "s/\]\ /  /" | sed -e "s/\// /" | cut -d' ' -f 3,8 | sed -e "s/\ /   | /" | sed -e "s/^/ /"
+							echo ""
 							echo "Check the logs in build.${distro}.${target_name}*/.threads/logs/<job_id>/"
 							exit ${failed_count}
 						fi
@@ -143,7 +160,13 @@ do
 	then
 		# record the failed build
 		failed_jobs+=1
-		failed_targets+="${target_name}\n"
+		failed_packages=""
+		list=$(cat ${statusfile} | grep "FAILED" | cut -d' ' -f 5)
+		for pkg in ${list}
+		do
+			failed_packages+="${pkg} "
+		done
+		failed_targets+="${target_name} - ${failed_packages}\n"
 	else
 		# store the release files in platform/target folder
 		cd target
