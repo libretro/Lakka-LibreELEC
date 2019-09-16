@@ -6,6 +6,8 @@ export IGNORE_VERSION=1
 
 >&2 echo "Generic.x86_64"
 PROJECT=Generic ARCH=x86_64 make image
+>&2 echo "Generic_VK_nvidia.x86_64"
+PROJECT=Generic_VK_nvidia ARCH=x86_64 make image
 >&2 echo "Generic.i386"
 PROJECT=Generic ARCH=i386 make image
 >&2 echo "RPi.arm + noobs"
@@ -86,7 +88,7 @@ done
 
 for f in target/*; do
   dir=`echo $f | sed -e 's/target\/Lakka-\(.*\)-\(.*\)-devel-\(.*\)/\1/'`
-  #dir=`echo $f | sed -e 's/target\/Lakka-\(.*\)-2.1\(.*\)/\1/'`
+  #dir=`echo $f | sed -e 's/target\/Lakka-\(.*\)-2.3\(.*\)/\1/'`
   mkdir -p target/$dir
   mv $f target/$dir/
 done
