@@ -34,6 +34,10 @@ PKG_LONGDESC="Standalone port of Mednafen Saturn to libretro."
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+make_target() {
+  make HAVE_CDROM=1
+}
+
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
   cp mednafen_saturn_libretro.so $INSTALL/usr/lib/libretro/

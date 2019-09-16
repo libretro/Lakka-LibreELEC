@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="flycast"
-PKG_VERSION="446ec55"
+PKG_VERSION="652e1af"
 PKG_REV="1"
 PKG_ARCH="arm aarch64 x86_64"
 PKG_LICENSE="GPLv2"
@@ -41,12 +41,14 @@ pre_configure_target() {
 make_target() {
   if [ "$ARCH" == "arm" ]; then
     if [ "$BOARD" == "RPi4" ]; then
-      make AS=${AS} CC_AS=${CC} platform=rpi4-gles-neon HAVE_OPENMP=0
+      make AS=${AS} CC_AS=${CC} platform=rpi4-gles-neon HAVE_OPENMP=0 LDFLAGS=-lrt
+    elif [ "$PROJECT" == "RPi2" ]; then
+      make AS=${AS} CC_AS=${CC} platform=rpi FORCE_GLES=1 HAVE_OPENMP=0 LDFLAGS=-lrt
     else
-      make AS=${AS} CC_AS=${CC} platform=rpi FORCE_GLES=1 HAVE_OPENMP=0
+      make AS=${AS} CC_AS=${CC} platform=armv-gles-neon FORCE_GLES=1 HAVE_OPENMP=0 LDFLAGS=-lrt
     fi
   else
-    make AS=${AS} CC_AS=${AS} ARCH=${ARCH} HAVE_OPENMP=0
+    make AS=${AS} CC_AS=${AS} ARCH=${ARCH} HAVE_OPENMP=0 LDFLAGS=-lrt
   fi
 }
 
