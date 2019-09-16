@@ -36,13 +36,13 @@ PKG_AUTORECONF="no"
 
 make_target() {
   if [ "$ARCH" == "aarch64" ]; then
-    make -f Makefile.libretro NO_OPTIMIZE=1
+    make -f Makefile.libretro NO_OPTIMIZE=1 HAVE_CDROM=1
   else
     if [ "$ARCH" == "arm" ]; then
       CFLAGS="$CFLAGS -DALIGN_LONG"
     fi
 
-    make -f Makefile.libretro
+    make -f Makefile.libretro HAVE_CDROM=1
   fi
 }
 
