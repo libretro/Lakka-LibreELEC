@@ -114,15 +114,17 @@ Build flags implement often used build options. Normally these are activated be 
 
 Set the variable `PKG_BUILD_FLAGS` in the `package.mk` to enable/disable the single flags. It is a space separated list. The flags can enabled with a `+` prefix, and disabled with a `-`.
 
-| flag     | default  | affected stage | description |
-|----------|----------|----------------|-------------|
-| pic      | disabled | target/init    | [Position Independent Code](https://en.wikipedia.org/wiki/Position-independent_code) |
-| pic:host | disabled | host/bootstrap | see above |
-| lto      | disabled | target/init    | enable LTO (Link Time optimization) in the compiler and linker unless disabled via `LTO_SUPPORT`. Compiles non-fat LTO objects (only bytecode) and performs single-threaded optimization at link stage |
-| lto-parallel | disabled | target/init | same as `lto` but enable parallel optimization at link stage. Only enable this if the package build doesn't run multiple linkers in parallel otherwise this can result in lots of parallel processes! |
-| lto-fat  | disabled | target/init | same as `lto` but compile fat LTO objects (bytecode plus optimized assembly). This increases compile time but can be useful to create static libraries suitable both for LTO and non-LTO linking |
-| lto-off  | disabled | target/init | explicitly disable LTO in the compiler and linker |
-| gold     | depend on `GOLD_SUPPORT` | target/init | can only disabled, use of the GOLD-Linker |
+| flag     | default  | affected stage(s) | description |
+|----------|----------|-------------------|-------------|
+| pic      | disabled | target, init      | [Position Independent Code](https://en.wikipedia.org/wiki/Position-independent_code) |
+| pic:host | disabled | host, bootstrap   | see above |
+| speed    | disabled | target, init      | replaces default `-O2` compiler optimization with `-O3` (can only enable; overrules size) |
+| size     | disabled | target, init      | replaces default `-O2` compiler optimization with `-Os` (can only enable) |
+| lto      | disabled | target, init      | enable LTO (Link Time optimization) in the compiler and linker unless disabled via `LTO_SUPPORT`. Compiles non-fat LTO objects (only bytecode) and performs single-threaded optimization at link stage |
+| lto-parallel | disabled | target, init  | same as `lto` but enables parallel optimization at link stage. Only enable this if the package build doesn't run multiple linkers in parallel otherwise this can result in lots of parallel processes! |
+| lto-fat  | disabled | target, init      | same as `lto` but compile fat LTO objects (bytecode plus optimized assembly). This increases compile time but can be useful to create static libraries suitable both for LTO and non-LTO linking |
+| lto-off  | disabled | target, init      | explicitly disable LTO in the compiler and linker |
+| gold     | enabled by `GOLD_SUPPORT` | target, init | do not use GOLD-Llinker (can only disable) |
 | parallel | enabled  | all | `make` or `ninja` builds with multiple threads/processes (or not) |
 | strip    | enabled  | target | strips executables (or not) |
 
@@ -133,8 +135,8 @@ PKG_BUILD_FLAGS="-parallel"
 ```
 
 ## Functions
-All build steps in the LibreELEC build system, a done by shell function.
-These functions can overwritten in the `package.mk`. But this raises problems, when the build system is updated. To reduce the problem, most function was extended by `pre_` and `post_` scripts, to use instead.
+All build steps in the LibreELEC build system are done by shell function.
+These functions can be overwritten in the `package.mk`. However, this raises problems when the build system is updated. To reduce the impact, most functions are extended by `pre_` and `post_` scripts to use instead.
 
 When it is nesseary to replace configure, make and makeinstall, please use `PKG_TOOLCHAIN="manual"`.
 
