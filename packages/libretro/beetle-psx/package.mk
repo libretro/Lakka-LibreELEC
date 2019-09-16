@@ -36,13 +36,13 @@ PKG_AUTORECONF="no"
 
 make_target() {
   if [ "$OPENGL" != "no" ] && [ "$VULKAN" != "no" ]; then
-    make HAVE_HW=1
+    make HAVE_HW=1 HAVE_CDROM=1
   elif [ "$OPENGL" != "no" ]; then
-    make HAVE_OPENGL=1
+    make HAVE_OPENGL=1 HAVE_CDROM=1
   elif [ "$VULKAN" != "no" ]; then
-    make HAVE_VULKAN=1
+    make HAVE_VULKAN=1 HAVE_CDROM=1
   else
-    make
+    make HAVE_CDROM=1
   fi
 }
 
