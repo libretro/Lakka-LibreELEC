@@ -32,15 +32,17 @@
 
 # number of buildthreads = two times number of cpu threads, unless specified otherwise
 tc=""
+bt=""
 if [ -z "${THREADCOUNT}" ]
 then
 	if [ -n "$(which nproc)" ]
 	then
-		tc="THREADCOUNT=$(($(nproc)*2))"
+		bt=$(($(nproc)*2))
 	fi
 else
-	tc="THREADCOUNT=${THREADCOUNT}"
+	bt="${THREADCOUNT}"
 fi
+tc="THREADCOUNT=${bt}"
 
 # set / unset verbose mode for some commands
 [ "${DASHBOARD_MODE}" = "yes" ] && v="" || v="-v"
@@ -139,7 +141,23 @@ do
 						echo ""
 						echo "${statusline}"
 					fi
-					sleep ${rr}
+					# check if all build threads are idle = build of packages is finished
+					idle=$(cat ${statusfile} | cut -d' ' -f 2 | grep IDLE | wc -l)
+					if [ -n "${bt}" ]
+					then
+						if [ ${bt} -eq ${idle} ]
+						then
+							finished=1
+							# show the dashboard and status line one last time
+							cat ${statusfile}
+							echo ""
+							echo "${statusline}"
+						else
+							sleep ${rr}
+						fi
+					else
+						sleep ${rr}
+					fi
 				fi
 			else
 				# build process is not running anymore
@@ -180,6 +198,22 @@ do
 				fi
 			fi
 		done
+
+		# in case the build job is still running, it means it is creating the release files/images
+		if [ ${ret} -eq 0 ]
+		then
+			echo -n "Creating release files / images..."
+			wait ${pid}
+			ret=$?
+			count=$(ls target/${distro}-${target_name}-* 2>/dev/null | wc -l)
+			if [ ${count} -gt 0 ]
+			then
+				echo "done!"
+			else
+				echo "failed - no release files found!" || echo "WARNING: No releaase files / images were found, skipping md5 checksum / mv to release folder!"
+			fi
+		fi
+
 	fi
 
 	if [ ${non_db_ret} -gt 0 -o ${failed_dashboard} -eq 1 ]
@@ -193,7 +227,8 @@ do
 			failed_packages+="${pkg} "
 		done
 		failed_targets+="${target_name} - ${failed_packages}\n"
-	else
+	elif [ ${count} -gt 0 ]
+	then
 		# store the release files in platform/target folder
 		good_jobs+=1
 		cd target
