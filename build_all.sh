@@ -25,11 +25,36 @@
 [ -z "${BAILOUT_FAILED}" ] && BAILOUT_FAILED="no"
 
 # by default do not use version in build folder
-[ -z "${IGNORE_VERSION}" ] && iv=1 || iv=0
+[ -z "${IGNORE_VERSION}" ] && iv="1" || iv="${IGNORE_VERSION}"
 
+# by default reload dashboard / status file every 0.5 seconds
+[ -z "${REFRESH_RATE}" ] && rr="0.5s" || rr="${REFRESH_RATE}"
+
+# number of buildthreads = two times number of cpu threads, unless specified otherwise
+tc=""
+if [ -z "${THREADCOUNT}" ]
+then
+	if [ -n "$(which nproc)" ]
+	then
+		tc="THREADCOUNT=$(($(nproc)*2))"
+	fi
+else
+	tc="THREADCOUNT=${THREADCOUNT}"
+fi
+
+# redirect output to null in case of dashboard mode
+if [ "${DASHBOARD_MODE}" = "yes" ]
+then
+	null="&>/dev/null"
+else
+	null=""
+fi
+
+# remove any existing images / release files
 rm -rf target/
 
-# list of targets/platforms in structure PROJECT|DEVICE|ARCH|OUTPUT
+# list of targets/platforms in structure PROJECT|DEVICE|ARCH|make_rule
+
 targets="\
 	Allwinner|A64|arm|image \
 	Allwinner|H3|arm|image \
@@ -58,15 +83,10 @@ failed_targets=""
 declare -i failed_jobs=0
 declare -i good_jobs=0
 
-# number of buildthreads = two times number of cpu threads
-tc=""
-if [ -n "$(which nproc)" ]
-then
-	tc="THREADCOUNT=$(($(nproc)*2))"
-fi
-
 for target in ${targets}
 do
+	current+=1
+
 	distro="Lakka"
 	IFS='|' read -r -a build  <<< "${target}"
 	project=${build[0]}
@@ -77,9 +97,9 @@ do
 
 	# initialize return value of the non-dashboard job
 	non_db_ret=0
+
 	# initialize result variable for dashboard job
 	failed_dashboard=0
-	current+=1
 
 	if [ "${DASHBOARD_MODE}" != "yes" ]
 	then
@@ -97,18 +117,21 @@ do
 		# remove the old dashboard, so we don't show old/stale dashboard
 		rm -f ${statusfile}
 		# start the build process in background
-		make ${out} PROJECT=${project} DEVICE=${device} ARCH=${arch} IGNORE_VERSION=${iv} ${tc} &>/dev/null &
+		make ${out} PROJECT=${project} DEVICE=${device} ARCH=${arch} IGNORE_VERSION=${iv} ${tc} ${null} &
 		# store the pid
 		pid=${!}
 		finished=0
+
 		while [ ${finished} -eq 0 ]
 		do
 			# check if the build process is still running
-			ps -q ${pid} &>/dev/null
+			ps -q ${pid} ${null}
 			ret=${?}
-			[ ${failed_jobs} -gt 1 -o ${failed_jobs} -eq 0 ] && s_failed="s" || s_failed=""
-			[ ${good_jobs} -gt 1 -o ${good_jobs} -eq 0 ] && s_good="s" || s_good=""
-			statusline=$(printf "Build job %d/%d, so far %d successful build%s, %d failed build%s" ${current} ${total} ${good_jobs} ${s_good} ${failed_jobs} ${s_failed})
+			s_failed="s"
+			[ ${failed_jobs} -eq 1 ] && s_failed=""
+			s_good="s"
+			[ ${good_jobs} -eq 1 ] && s_good=""
+			statusline="Build job ${current}/${total}, so far ${good_jobs} successful build${s_good}, ${failed_jobs} failed build${s_failed}"
 			if [ ${ret} -eq 0 ]
 			then
 				# build process is still running, show the dashboard
@@ -120,7 +143,7 @@ do
 						echo ""
 						echo "${statusline}"
 					fi
-					sleep 0.1s
+					sleep ${rr}
 				fi
 			else
 				# build process is not running anymore
@@ -187,10 +210,10 @@ do
 		# move release files to the folder
 		for file in Lakka-${target_name}-*{.img.gz,-noobs.tar,.kernel,.system}*
 		do
-			mv -v ${file} ${target_name}/
+			mv -v ${file} ${target_name}/ ${null}
 		done
 		# remove files we do not use
-		rm -vf Lakka-${target_name}-*.{tar,ova}*
+		rm -vf Lakka-${target_name}-*.{tar,ova}* ${null}
 		cd ..
 	fi
 done
