@@ -42,13 +42,8 @@ else
 	tc="THREADCOUNT=${THREADCOUNT}"
 fi
 
-# redirect output to null in case of dashboard mode
-if [ "${DASHBOARD_MODE}" = "yes" ]
-then
-	null="&>/dev/null"
-else
-	null=""
-fi
+# set / unset verbose mode for some commands
+[ "${DASHBOARD_MODE}" = "yes" ] && v="" || v="-v"
 
 # remove any existing images / release files
 rm -rf target/
@@ -101,6 +96,9 @@ do
 	# initialize result variable for dashboard job
 	failed_dashboard=0
 
+	# set status file
+	statusfile="build.${distro}-${target_name}*/.threads/status"
+
 	if [ "${DASHBOARD_MODE}" != "yes" ]
 	then
 		# show logs during build (non-dashboard build)
@@ -112,12 +110,10 @@ do
 			exit ${non_db_ret}
 		fi
 	else
-		# show dashboard during build
-		statusfile="build.${distro}-${target_name}*/.threads/status"
 		# remove the old dashboard, so we don't show old/stale dashboard
 		rm -f ${statusfile}
 		# start the build process in background
-		make ${out} PROJECT=${project} DEVICE=${device} ARCH=${arch} IGNORE_VERSION=${iv} ${tc} ${null} &
+		make ${out} PROJECT=${project} DEVICE=${device} ARCH=${arch} IGNORE_VERSION=${iv} ${tc} &>/dev/null &
 		# store the pid
 		pid=${!}
 		finished=0
@@ -125,7 +121,7 @@ do
 		while [ ${finished} -eq 0 ]
 		do
 			# check if the build process is still running
-			ps -q ${pid} ${null}
+			ps -q ${pid} &>/dev/null
 			ret=${?}
 			s_failed="s"
 			[ ${failed_jobs} -eq 1 ] && s_failed=""
@@ -203,17 +199,24 @@ do
 		cd target
 		mkdir -p ${target_name}
 		# add md5 checksums to system and kernel files
+		[ "${DASHBOARD_MODE}" = "yes" ] && echo -n "Creating md5 checksums for kernel and system..."
 		for file in Lakka-${target_name}-*.{kernel,system}
 		do
-			md5sum ${file} > ${file}.md5
+			[ -f "${file}" ] && md5sum ${file} > ${file}.md5
 		done
+		[ "${DASHBOARD_MODE}" = "yes" ] && echo "done!"
+
 		# move release files to the folder
+		[ "${DASHBOARD_MODE}" = "yes" ] && echo -n "Moving release files (.img.gz, .kernel, .system, -noobs.tar) to subfolder..."
 		for file in Lakka-${target_name}-*{.img.gz,-noobs.tar,.kernel,.system}*
 		do
-			mv -v ${file} ${target_name}/ ${null}
+			[ -f "${file}" ] && mv ${v} ${file} ${target_name}/
 		done
+		[ "${DASHBOARD_MODE}" = "yes" ] && echo "done!"
 		# remove files we do not use
-		rm -vf Lakka-${target_name}-*.{tar,ova}* ${null}
+		[ "${DASHBOARD_MODE}" = "yes" ] && echo -n "Removing unused files (.tar, .ova)..."
+		rm -f ${v} Lakka-${target_name}-*.{tar,ova}*
+		[ "${DASHBOARD_MODE}" = "yes" ] && echo "done!"
 		cd ..
 	fi
 done
