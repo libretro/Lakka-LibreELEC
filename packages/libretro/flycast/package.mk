@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="flycast"
-PKG_VERSION="446ec55"
+PKG_VERSION="652e1af"
 PKG_REV="1"
 PKG_ARCH="arm aarch64 x86_64"
 PKG_LICENSE="GPLv2"
@@ -46,21 +46,23 @@ fi
 make_target() {
   if [ "$OPENGL_SUPPORT" = yes ]; then
     if [ "$ARCH" = "arm" ]; then
-      make HAVE_OPENMP=0
+      make HAVE_OPENMP=0 LDFLAGS=-lrt
     else
-      make AS=${AS} CC_AS=${AS} ARCH=${ARCH} HAVE_OPENMP=0
+      make AS=${AS} CC_AS=${AS} ARCH=${ARCH} HAVE_OPENMP=0 LDFLAGS=-lrt
     fi
   else
     FLYCAST_GL=""
     [ "$OPENGLES_SUPPORT" = yes ] && FLYCAST_GL="FORCE_GLES=1"
     if [ "$ARCH" == "arm" ]; then
       if [ "$DEVICE" = "RPi4" ]; then
-        make AS=${AS} CC_AS=${CC} platform=rpi4-gles-neon HAVE_OPENMP=0
+        make AS=${AS} CC_AS=${CC} platform=rpi4-gles-neon HAVE_OPENMP=0 LDFLAGS=-lrt
+      elif [ "$DEVICE" = "RPi2" ]; then
+        make AS=${AS} CC_AS=${CC} platform=rpi $FLYCAST_GL HAVE_OPENMP=0 LDFLAGS=-lrt
       else
-        make AS=${AS} CC_AS=${CC} platform=rpi $FLYCAST_GL HAVE_OPENMP=0
+        make AS=${AS} CC_AS=${CC} platform=armv-gles-neon $FLYCAST_GL HAVE_OPENMP=0 LDFLAGS=-lrt
       fi
     else
-      make AS=${AS} CC_AS=${AS} ARCH=${ARCH} $FLYCAST_GL HAVE_OPENMP=0
+      make AS=${AS} CC_AS=${AS} ARCH=${ARCH} $FLYCAST_GL HAVE_OPENMP=0 LDFLAGS=-lrt
     fi
   fi
 }

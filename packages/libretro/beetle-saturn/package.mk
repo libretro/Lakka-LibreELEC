@@ -30,9 +30,12 @@ PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="Standalone port of Mednafen Saturn to libretro."
 PKG_LONGDESC="Standalone port of Mednafen Saturn to libretro."
+PKG_TOOLCHAIN="make"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+PKG_MAKE_OPTS_TARGET="HAVE_CDROM=1"
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
