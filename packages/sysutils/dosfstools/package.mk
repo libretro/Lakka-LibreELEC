@@ -41,4 +41,7 @@ makeinstall_host() {
   mkdir -p $TOOLCHAIN/sbin
     cp mkfs.fat $TOOLCHAIN/sbin
     ln -sf mkfs.fat $TOOLCHAIN/sbin/mkfs.vfat
+    cp fsck.fat $TOOLCHAIN/sbin
+    ln -sf fsck.fat $TOOLCHAIN/sbin/fsck.vfat
+    cp fatlabel $TOOLCHAIN/sbin
 }

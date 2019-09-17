@@ -3,7 +3,17 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
 
+if [ -f /storage/.config/suspend-modules.conf ]; then
+    . /storage/.config/suspend-modules.conf
+    custom_modules="${SUSPEND_MODULES}"
+    SUSPEND_MODULES=""
+fi
+
 . /etc/suspend-modules.conf
+
+if [ -n "${custom_modules}" ]; then
+    SUSPEND_MODULES="${SUSPEND_MODULES} ${custom_modules}"
+fi
 
 modunload()
 {
