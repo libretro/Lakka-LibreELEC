@@ -1,24 +1,27 @@
-From d80cbc949372d6f19dc8c3b5f97b336864bd259c Mon Sep 17 00:00:00 2001
+From be39d2e3e5228cdc2cf355d85f5566205f6cb65d Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@siol.net>
 Date: Thu, 14 Feb 2019 23:20:05 +0100
-Subject: [PATCH 6/6] Add and use private linux headers for V4L2 request API
- ctrls
+Subject: [PATCH] Add and use private linux headers for V4L2 request API ctrls
 
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
 ---
- configure                       |   4 +-
- libavcodec/h264-ctrls.h         | 197 +++++++++++++++++++++++++++++++
- libavcodec/hevc-ctrls.h         | 203 ++++++++++++++++++++++++++++++++
+ configure                       |   6 +-
+ libavcodec/h264-ctrls.h         | 210 ++++++++++++++++++++++++++++++++
+ libavcodec/hevc-ctrls.h         | 203 ++++++++++++++++++++++++++++++
  libavcodec/mpeg2-ctrls.h        |  82 +++++++++++++
  libavcodec/v4l2_request_h264.c  |   1 +
  libavcodec/v4l2_request_hevc.c  |   1 +
  libavcodec/v4l2_request_mpeg2.c |   1 +
- 7 files changed, 487 insertions(+), 2 deletions(-)
+ libavcodec/v4l2_request_vp8.c   |   1 +
+ libavcodec/vp8-ctrls.h          | 112 +++++++++++++++++
+ 9 files changed, 614 insertions(+), 3 deletions(-)
  create mode 100644 libavcodec/h264-ctrls.h
  create mode 100644 libavcodec/hevc-ctrls.h
  create mode 100644 libavcodec/mpeg2-ctrls.h
+ create mode 100644 libavcodec/vp8-ctrls.h
 
 diff --git a/configure b/configure
-index 2d39cecbdf..23b1e57882 100755
+index 46bcf32d3d..0c842b920f 100755
 --- a/configure
 +++ b/configure
 @@ -2804,7 +2804,7 @@ h264_dxva2_hwaccel_deps="dxva2"
@@ -39,12 +42,21 @@ index 2d39cecbdf..23b1e57882 100755
  hevc_v4l2request_hwaccel_select="hevc_decoder"
  hevc_vaapi_hwaccel_deps="vaapi VAPictureParameterBufferHEVC"
  hevc_vaapi_hwaccel_select="hevc_decoder"
+@@ -2884,7 +2884,7 @@ vp8_nvdec_hwaccel_deps="nvdec"
+ vp8_nvdec_hwaccel_select="vp8_decoder"
+ vp8_vaapi_hwaccel_deps="vaapi VAPictureParameterBufferVP8"
+ vp8_vaapi_hwaccel_select="vp8_decoder"
+-vp8_v4l2request_hwaccel_deps="v4l2_request vp8_v4l2_request"
++vp8_v4l2request_hwaccel_deps="v4l2_request"
+ vp8_v4l2request_hwaccel_select="vp8_decoder"
+ vp9_d3d11va_hwaccel_deps="d3d11va DXVA_PicParams_VP9"
+ vp9_d3d11va_hwaccel_select="vp9_decoder"
 diff --git a/libavcodec/h264-ctrls.h b/libavcodec/h264-ctrls.h
 new file mode 100644
-index 0000000000..e1404d78d6
+index 0000000000..e877bf1d53
 --- /dev/null
 +++ b/libavcodec/h264-ctrls.h
-@@ -0,0 +1,197 @@
+@@ -0,0 +1,210 @@
 +/* SPDX-License-Identifier: GPL-2.0 */
 +/*
 + * These are the H.264 state controls for use with stateless H.264
@@ -61,7 +73,7 @@ index 0000000000..e1404d78d6
 +#include <linux/videodev2.h>
 +
 +/* Our pixel format isn't stable at the moment */
-+#define V4L2_PIX_FMT_H264_SLICE_RAW v4l2_fourcc('S', '2', '6', '4') /* H264 parsed slices */
++#define V4L2_PIX_FMT_H264_SLICE v4l2_fourcc('S', '2', '6', '4') /* H264 parsed slices */
 +
 +/*
 + * This is put insanely high to avoid conflicting with controls that
@@ -73,6 +85,8 @@ index 0000000000..e1404d78d6
 +#define V4L2_CID_MPEG_VIDEO_H264_SCALING_MATRIX	(V4L2_CID_MPEG_BASE+1002)
 +#define V4L2_CID_MPEG_VIDEO_H264_SLICE_PARAMS	(V4L2_CID_MPEG_BASE+1003)
 +#define V4L2_CID_MPEG_VIDEO_H264_DECODE_PARAMS	(V4L2_CID_MPEG_BASE+1004)
++#define V4L2_CID_MPEG_VIDEO_H264_DECODE_MODE	(V4L2_CID_MPEG_BASE+1005)
++#define V4L2_CID_MPEG_VIDEO_H264_START_CODE	(V4L2_CID_MPEG_BASE+1006)
 +
 +/* enum v4l2_ctrl_type type values */
 +#define V4L2_CTRL_TYPE_H264_SPS			0x0110
@@ -80,6 +94,16 @@ index 0000000000..e1404d78d6
 +#define V4L2_CTRL_TYPE_H264_SCALING_MATRIX	0x0112
 +#define V4L2_CTRL_TYPE_H264_SLICE_PARAMS	0x0113
 +#define V4L2_CTRL_TYPE_H264_DECODE_PARAMS	0x0114
++
++enum v4l2_mpeg_video_h264_decode_mode {
++	V4L2_MPEG_VIDEO_H264_DECODE_MODE_SLICE_BASED,
++	V4L2_MPEG_VIDEO_H264_DECODE_MODE_FRAME_BASED,
++};
++
++enum v4l2_mpeg_video_h264_start_code {
++	V4L2_MPEG_VIDEO_H264_START_CODE_NONE,
++	V4L2_MPEG_VIDEO_H264_START_CODE_ANNEX_B,
++};
 +
 +#define V4L2_H264_SPS_CONSTRAINT_SET0_FLAG			0x01
 +#define V4L2_H264_SPS_CONSTRAINT_SET1_FLAG			0x02
@@ -172,6 +196,10 @@ index 0000000000..e1404d78d6
 +struct v4l2_ctrl_h264_slice_params {
 +	/* Size in bytes, including header */
 +	__u32 size;
++
++	/* Offset in bytes to the start of slice in the OUTPUT buffer. */
++	__u32 start_byte_offset;
++
 +	/* Offset in bits to slice_data() from the beginning of this slice. */
 +	__u32 header_bit_size;
 +
@@ -233,9 +261,6 @@ index 0000000000..e1404d78d6
 +	struct v4l2_h264_dpb_entry dpb[16];
 +	__u16 num_slices;
 +	__u16 nal_ref_idc;
-+	__u8 ref_pic_list_p0[32];
-+	__u8 ref_pic_list_b0[32];
-+	__u8 ref_pic_list_b1[32];
 +	__s32 top_field_order_cnt;
 +	__s32 bottom_field_order_cnt;
 +	__u32 flags; /* V4L2_H264_DECODE_PARAM_FLAG_* */
@@ -540,7 +565,7 @@ index 0000000000..6601455b3d
 +
 +#endif
 diff --git a/libavcodec/v4l2_request_h264.c b/libavcodec/v4l2_request_h264.c
-index 3687325fad..2145a974eb 100644
+index fb9913922d..b826c9d356 100644
 --- a/libavcodec/v4l2_request_h264.c
 +++ b/libavcodec/v4l2_request_h264.c
 @@ -19,6 +19,7 @@
@@ -575,6 +600,133 @@ index 782b9c2471..37a4eae62c 100644
  
  typedef struct V4L2RequestControlsMPEG2 {
      struct v4l2_ctrl_mpeg2_slice_params slice_params;
--- 
-2.21.0
-
+diff --git a/libavcodec/v4l2_request_vp8.c b/libavcodec/v4l2_request_vp8.c
+index d24252c5e5..c290fe8b9a 100644
+--- a/libavcodec/v4l2_request_vp8.c
++++ b/libavcodec/v4l2_request_vp8.c
+@@ -19,6 +19,7 @@
+ #include "hwaccel.h"
+ #include "v4l2_request.h"
+ #include "vp8.h"
++#include "vp8-ctrls.h"
+ 
+ typedef struct V4L2RequestControlsVP8 {
+ 	struct v4l2_ctrl_vp8_frame_header ctrl;
+diff --git a/libavcodec/vp8-ctrls.h b/libavcodec/vp8-ctrls.h
+new file mode 100644
+index 0000000000..53cba826e4
+--- /dev/null
++++ b/libavcodec/vp8-ctrls.h
+@@ -0,0 +1,112 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/*
++ * These are the VP8 state controls for use with stateless VP8
++ * codec drivers.
++ *
++ * It turns out that these structs are not stable yet and will undergo
++ * more changes. So keep them private until they are stable and ready to
++ * become part of the official public API.
++ */
++
++#ifndef _VP8_CTRLS_H_
++#define _VP8_CTRLS_H_
++
++#include <linux/types.h>
++
++#define V4L2_PIX_FMT_VP8_FRAME v4l2_fourcc('V', 'P', '8', 'F')
++
++#define V4L2_CID_MPEG_VIDEO_VP8_FRAME_HEADER (V4L2_CID_MPEG_BASE + 2000)
++#define V4L2_CTRL_TYPE_VP8_FRAME_HEADER 0x301
++
++#define V4L2_VP8_SEGMENT_HEADER_FLAG_ENABLED              0x01
++#define V4L2_VP8_SEGMENT_HEADER_FLAG_UPDATE_MAP           0x02
++#define V4L2_VP8_SEGMENT_HEADER_FLAG_UPDATE_FEATURE_DATA  0x04
++#define V4L2_VP8_SEGMENT_HEADER_FLAG_DELTA_VALUE_MODE     0x08
++
++struct v4l2_vp8_segment_header {
++	__s8 quant_update[4];
++	__s8 lf_update[4];
++	__u8 segment_probs[3];
++	__u8 padding;
++	__u32 flags;
++};
++
++#define V4L2_VP8_LF_HEADER_ADJ_ENABLE	0x01
++#define V4L2_VP8_LF_HEADER_DELTA_UPDATE	0x02
++#define V4L2_VP8_LF_FILTER_TYPE_SIMPLE	0x04
++struct v4l2_vp8_loopfilter_header {
++	__s8 ref_frm_delta[4];
++	__s8 mb_mode_delta[4];
++	__u8 sharpness_level;
++	__u8 level;
++	__u16 padding;
++	__u32 flags;
++};
++
++struct v4l2_vp8_quantization_header {
++	__u8 y_ac_qi;
++	__s8 y_dc_delta;
++	__s8 y2_dc_delta;
++	__s8 y2_ac_delta;
++	__s8 uv_dc_delta;
++	__s8 uv_ac_delta;
++	__u16 padding;
++};
++
++struct v4l2_vp8_entropy_header {
++	__u8 coeff_probs[4][8][3][11];
++	__u8 y_mode_probs[4];
++	__u8 uv_mode_probs[3];
++	__u8 mv_probs[2][19];
++	__u8 padding[3];
++};
++
++struct v4l2_vp8_entropy_coder_state {
++	__u8 range;
++	__u8 value;
++	__u8 bit_count;
++	__u8 padding;
++};
++
++#define V4L2_VP8_FRAME_HEADER_FLAG_KEY_FRAME		0x01
++#define V4L2_VP8_FRAME_HEADER_FLAG_EXPERIMENTAL		0x02
++#define V4L2_VP8_FRAME_HEADER_FLAG_SHOW_FRAME		0x04
++#define V4L2_VP8_FRAME_HEADER_FLAG_MB_NO_SKIP_COEFF	0x08
++#define V4L2_VP8_FRAME_HEADER_FLAG_SIGN_BIAS_GOLDEN	0x10
++#define V4L2_VP8_FRAME_HEADER_FLAG_SIGN_BIAS_ALT	0x20
++
++#define VP8_FRAME_IS_KEY_FRAME(hdr) \
++	(!!((hdr)->flags & V4L2_VP8_FRAME_HEADER_FLAG_KEY_FRAME))
++
++struct v4l2_ctrl_vp8_frame_header {
++	struct v4l2_vp8_segment_header segment_header;
++	struct v4l2_vp8_loopfilter_header lf_header;
++	struct v4l2_vp8_quantization_header quant_header;
++	struct v4l2_vp8_entropy_header entropy_header;
++	struct v4l2_vp8_entropy_coder_state coder_state;
++
++	__u16 width;
++	__u16 height;
++
++	__u8 horizontal_scale;
++	__u8 vertical_scale;
++
++	__u8 version;
++	__u8 prob_skip_false;
++	__u8 prob_intra;
++	__u8 prob_last;
++	__u8 prob_gf;
++	__u8 num_dct_parts;
++
++	__u32 first_part_size;
++	__u32 first_part_header_bits;
++	__u32 dct_part_sizes[8];
++
++	__u64 last_frame_ts;
++	__u64 golden_frame_ts;
++	__u64 alt_frame_ts;
++
++	__u64 flags;
++};
++
++#endif

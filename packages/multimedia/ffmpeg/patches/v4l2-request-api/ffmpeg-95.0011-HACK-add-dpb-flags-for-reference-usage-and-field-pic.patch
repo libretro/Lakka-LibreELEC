@@ -1,0 +1,56 @@
+From 45df99d31062e068073cf899dce559e334c9127f Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Fri, 24 May 2019 22:58:24 +0000
+Subject: [PATCH] HACK: add dpb flags for reference usage and field picture
+
+This or something similar needs to be upstreamed to kernel h264 ctrls
+
+Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
+---
+ libavcodec/h264-ctrls.h        | 4 ++++
+ libavcodec/v4l2_request_h264.c | 6 +++++-
+ 2 files changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/libavcodec/h264-ctrls.h b/libavcodec/h264-ctrls.h
+index e877bf1d53..76020ebd1e 100644
+--- a/libavcodec/h264-ctrls.h
++++ b/libavcodec/h264-ctrls.h
+@@ -185,6 +185,10 @@ struct v4l2_ctrl_h264_slice_params {
+ #define V4L2_H264_DPB_ENTRY_FLAG_VALID		0x01
+ #define V4L2_H264_DPB_ENTRY_FLAG_ACTIVE		0x02
+ #define V4L2_H264_DPB_ENTRY_FLAG_LONG_TERM	0x04
++#define V4L2_H264_DPB_ENTRY_FLAG_FIELD_PICTURE	0x08
++#define V4L2_H264_DPB_ENTRY_FLAG_REF_TOP	0x10
++#define V4L2_H264_DPB_ENTRY_FLAG_REF_BOTTOM	0x20
++#define V4L2_H264_DPB_ENTRY_FLAG_REF_FRAME	0x30
+ 
+ struct v4l2_h264_dpb_entry {
+ 	__u64 reference_ts;
+diff --git a/libavcodec/v4l2_request_h264.c b/libavcodec/v4l2_request_h264.c
+index 229df6969d..7f345b1955 100644
+--- a/libavcodec/v4l2_request_h264.c
++++ b/libavcodec/v4l2_request_h264.c
+@@ -65,10 +65,13 @@ static void fill_dpb_entry(struct v4l2_h264_dpb_entry *entry, const H264Picture
+     entry->frame_num = pic->frame_num;
+     entry->pic_num = pic->pic_id;
+     entry->flags = V4L2_H264_DPB_ENTRY_FLAG_VALID;
++    entry->flags |= (pic->reference & 3) << 4;
+     if (pic->reference)
+         entry->flags |= V4L2_H264_DPB_ENTRY_FLAG_ACTIVE;
+     if (pic->long_ref)
+         entry->flags |= V4L2_H264_DPB_ENTRY_FLAG_LONG_TERM;
++    if (pic->field_picture)
++        entry->flags |= V4L2_H264_DPB_ENTRY_FLAG_FIELD_PICTURE;
+     if (pic->field_poc[0] != INT_MAX)
+         entry->top_field_order_cnt = pic->field_poc[0];
+     if (pic->field_poc[1] != INT_MAX)
+@@ -108,7 +111,8 @@ static uint8_t get_dpb_index(struct v4l2_ctrl_h264_decode_params *decode, const
+         struct v4l2_h264_dpb_entry *entry = &decode->dpb[i];
+         if ((entry->flags & V4L2_H264_DPB_ENTRY_FLAG_VALID) &&
+             entry->reference_ts == timestamp)
+-            return i;
++            // TODO: signal reference type, possible using top 2 bits
++            return i | ((ref->reference & 3) << 6);
+     }
+ 
+     return 0;

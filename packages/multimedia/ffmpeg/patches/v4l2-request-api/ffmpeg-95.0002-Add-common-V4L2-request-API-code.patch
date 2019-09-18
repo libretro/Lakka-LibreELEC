@@ -1,21 +1,21 @@
-From 0ba3c868e1d828520b8facaa4ce36d9b80339cc6 Mon Sep 17 00:00:00 2001
+From b810081f898fc4faec35519c6e7e9d275bf2bbcf Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Sat, 15 Dec 2018 22:32:16 +0100
-Subject: [PATCH 2/6] Add common V4L2 request API code
+Subject: [PATCH] Add common V4L2 request API code
 
 Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
 ---
  configure                 |  12 +
  libavcodec/Makefile       |   1 +
  libavcodec/hwaccel.h      |   2 +
- libavcodec/v4l2_request.c | 888 ++++++++++++++++++++++++++++++++++++++
- libavcodec/v4l2_request.h |  65 +++
- 5 files changed, 968 insertions(+)
+ libavcodec/v4l2_request.c | 919 ++++++++++++++++++++++++++++++++++++++
+ libavcodec/v4l2_request.h |  69 +++
+ 5 files changed, 1003 insertions(+)
  create mode 100644 libavcodec/v4l2_request.c
  create mode 100644 libavcodec/v4l2_request.h
 
 diff --git a/configure b/configure
-index 172611bb4a..6401cae9e7 100755
+index 15e6c321b1..7f9e7e7b25 100755
 --- a/configure
 +++ b/configure
 @@ -264,6 +264,7 @@ External library support:
@@ -112,10 +112,10 @@ index 3aaa92571c..2eefc91e7e 100644
  #endif /* AVCODEC_HWACCEL_H */
 diff --git a/libavcodec/v4l2_request.c b/libavcodec/v4l2_request.c
 new file mode 100644
-index 0000000000..4589209e60
+index 0000000000..bf9d049eff
 --- /dev/null
 +++ b/libavcodec/v4l2_request.c
-@@ -0,0 +1,888 @@
+@@ -0,0 +1,919 @@
 +/*
 + * This file is part of FFmpeg.
 + *
@@ -183,6 +183,37 @@ index 0000000000..4589209e60
 +        return 0;
 +
 +    return ioctl(ctx->video_fd, VIDIOC_S_EXT_CTRLS, &controls);
++}
++
++int ff_v4l2_request_set_controls(AVCodecContext *avctx, struct v4l2_ext_control *control, int count)
++{
++    V4L2RequestContext *ctx = avctx->internal->hwaccel_priv_data;
++    int ret;
++
++    ret = v4l2_request_set_controls(ctx, -1, control, count);
++    if (ret < 0) {
++        av_log(avctx, AV_LOG_ERROR, "%s: set controls failed, %s (%d)\n", __func__, strerror(errno), errno);
++        return AVERROR(EINVAL);
++    }
++
++    return ret;
++}
++
++int ff_v4l2_request_query_control_default_value(AVCodecContext *avctx, uint32_t id)
++{
++    int ret;
++    V4L2RequestContext *ctx = avctx->internal->hwaccel_priv_data;
++    struct v4l2_queryctrl control = {
++        .id = id,
++    };
++
++    ret = ioctl(ctx->video_fd, VIDIOC_QUERYCTRL, &control);
++    if (ret < 0) {
++        av_log(avctx, AV_LOG_ERROR, "%s: query control failed, %s (%d)\n", __func__, strerror(errno), errno);
++        return AVERROR(EINVAL);
++    }
++
++    return control.default_value;
 +}
 +
 +static int v4l2_request_queue_buffer(V4L2RequestContext *ctx, int request_fd, V4L2RequestBuffer *buf)
@@ -779,7 +810,7 @@ index 0000000000..4589209e60
 +
 +    if (avctx->hw_frames_ctx) {
 +        AVHWFramesContext *hwfc = (AVHWFramesContext*)avctx->hw_frames_ctx->data;
-+        av_buffer_pool_reclaim(hwfc->pool);
++        av_buffer_pool_flush(hwfc->pool);
 +    }
 +
 +    if (ctx->video_fd >= 0)
@@ -962,7 +993,7 @@ index 0000000000..4589209e60
 +{
 +    av_log(NULL, AV_LOG_DEBUG, "%s: hwfc=%p pool=%p\n", __func__, hwfc, hwfc->pool);
 +
-+    av_buffer_pool_reclaim(hwfc->pool);
++    av_buffer_pool_flush(hwfc->pool);
 +    av_buffer_pool_uninit(&hwfc->pool);
 +}
 +
@@ -1006,10 +1037,10 @@ index 0000000000..4589209e60
 +}
 diff --git a/libavcodec/v4l2_request.h b/libavcodec/v4l2_request.h
 new file mode 100644
-index 0000000000..688962ca94
+index 0000000000..1f45772d8b
 --- /dev/null
 +++ b/libavcodec/v4l2_request.h
-@@ -0,0 +1,65 @@
+@@ -0,0 +1,69 @@
 +/*
 + * This file is part of FFmpeg.
 + *
@@ -1066,6 +1097,10 @@ index 0000000000..688962ca94
 +
 +int ff_v4l2_request_append_output_buffer(AVCodecContext *avctx, AVFrame *frame, const uint8_t *data, uint32_t size);
 +
++int ff_v4l2_request_set_controls(AVCodecContext *avctx, struct v4l2_ext_control *control, int count);
++
++int ff_v4l2_request_query_control_default_value(AVCodecContext *avctx, uint32_t id);
++
 +int ff_v4l2_request_decode_frame(AVCodecContext *avctx, AVFrame *frame, struct v4l2_ext_control *control, int count);
 +
 +int ff_v4l2_request_init(AVCodecContext *avctx, uint32_t pixelformat, uint32_t buffersize, struct v4l2_ext_control *control, int count);
@@ -1075,6 +1110,3 @@ index 0000000000..688962ca94
 +int ff_v4l2_request_frame_params(AVCodecContext *avctx, AVBufferRef *hw_frames_ctx);
 +
 +#endif /* AVCODEC_V4L2_REQUEST_H */
--- 
-2.21.0
-
