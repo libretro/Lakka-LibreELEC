@@ -1,0 +1,63 @@
+#!/bin/sh
+
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
+
+FLAG_FILE="/storage/.rpi_flash_firmware"
+
+. /usr/lib/libreelec/functions
+
+hidecursor
+
+if ! mount -o remount,rw /flash 2>/dev/null; then
+  # Remove flag file and bail out
+  rm -f "${FLAG_FILE}"
+  sync
+
+  echo "ERROR: Unable to mount /flash as a read/write file system."
+  echo
+  echo "Aborting Flash update process - please proceed with a manual update."
+  echo
+
+  StartProgress countdown "Rebooting in 15s... " 15 "NOW"
+fi
+
+if [ -f "${FLAG_FILE}" ]; then
+  . ${FLAG_FILE}
+
+  # Prepare flashing environment
+  if [ "${MODE}" = "init" ]; then
+    # Install new SPI bootloader files to /flash (if required)
+    if [ "${BOOTLOADER}" = "yes" ]; then
+      USE_FLASHROM=0 /usr/bin/.rpi-eeprom-update.real -a
+    fi
+
+    # Bump process to next step
+    sed -e 's/^MODE=.*/MODE="update"/' -i "${FLAG_FILE}"
+    sync
+  else
+    rm -f "${FLAG_FILE}"
+    sync
+
+    if [ "${MODE}" = "update" ]; then
+      # Display current bootloader status
+      if [ "${BOOTLOADER}" = "yes" ]; then
+        USE_FLASHROM=0 /usr/bin/.rpi-eeprom-update.real
+      fi
+
+      # Apply VIA USB3 update
+#      if [ "${USB3}" = "yes" ]; then
+#        /usr/bin/vl805
+#      fi
+
+      sync
+      echo ""
+      StartProgress countdown "Rebooting in 15s... " 15 "NOW"
+    fi
+  fi
+
+  sync
+  mount -o remount,ro /flash
+fi
+
+reboot -f &>/dev/null
