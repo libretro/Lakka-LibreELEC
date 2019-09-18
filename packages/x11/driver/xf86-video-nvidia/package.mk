@@ -34,7 +34,7 @@ make_target() {
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/${XORG_PATH_MODULES}/drivers
-    cp -P nvidia_drv.so           ${INSTALL}/${XORG_PATH_MODULES}/drivers/nvidia-main_drv.so
+    cp -P nvidia_drv.so ${INSTALL}/${XORG_PATH_MODULES}/drivers/nvidia-main_drv.so
     ln -sf /var/lib/nvidia_drv.so ${INSTALL}/${XORG_PATH_MODULES}/drivers/nvidia_drv.so
 
   mkdir -p ${INSTALL}/${XORG_PATH_MODULES}/extensions
@@ -45,28 +45,28 @@ makeinstall_target() {
     cp ${PKG_DIR}/config/*.conf ${INSTALL}/etc/X11
 
   mkdir -p ${INSTALL}/usr/lib
-    cp -P libnvidia-glcore.so.${PKG_VERSION}   ${INSTALL}/usr/lib
-    cp -P libnvidia-ml.so.${PKG_VERSION}       ${INSTALL}/usr/lib
-    ln -sf /var/lib/libnvidia-ml.so.1          ${INSTALL}/usr/lib/libnvidia-ml.so.1
-    cp -P libnvidia-tls.so.${PKG_VERSION}      ${INSTALL}/usr/lib
-    cp -P libGLX_nvidia.so.${PKG_VERSION}      ${INSTALL}/usr/lib/libGLX_nvidia.so.0
+    cp -P libnvidia-glcore.so.${PKG_VERSION} ${INSTALL}/usr/lib
+    cp -P libnvidia-ml.so.${PKG_VERSION} ${INSTALL}/usr/lib
+    ln -sf /var/lib/libnvidia-ml.so.1 ${INSTALL}/usr/lib/libnvidia-ml.so.1
+    cp -P libnvidia-tls.so.${PKG_VERSION} ${INSTALL}/usr/lib
+    cp -P libGLX_nvidia.so.${PKG_VERSION} ${INSTALL}/usr/lib/libGLX_nvidia.so.0
 
   mkdir -p ${INSTALL}/$(get_full_module_dir)/nvidia
-    ln -sf /var/lib/nvidia.ko      ${INSTALL}/$(get_full_module_dir)/nvidia/nvidia.ko
-    cp -P kernel/nvidia-uvm.ko     ${INSTALL}/$(get_full_module_dir)/nvidia
+    ln -sf /var/lib/nvidia.ko ${INSTALL}/$(get_full_module_dir)/nvidia/nvidia.ko
+    cp -P kernel/nvidia-uvm.ko ${INSTALL}/$(get_full_module_dir)/nvidia
     cp -P kernel/nvidia-modeset.ko ${INSTALL}/$(get_full_module_dir)/nvidia
 
   mkdir -p ${INSTALL}/usr/lib/nvidia
     cp -P kernel/nvidia.ko ${INSTALL}/usr/lib/nvidia
 
   mkdir -p ${INSTALL}/usr/bin
-    ln -s /var/lib/nvidia-smi     ${INSTALL}/usr/bin/nvidia-smi
-    cp nvidia-smi                 ${INSTALL}/usr/bin/nvidia-main-smi
+    ln -s /var/lib/nvidia-smi ${INSTALL}/usr/bin/nvidia-smi
+    cp nvidia-smi ${INSTALL}/usr/bin/nvidia-main-smi
     ln -s /var/lib/nvidia-xconfig ${INSTALL}/usr/bin/nvidia-xconfig
-    cp nvidia-xconfig             ${INSTALL}/usr/bin/nvidia-main-xconfig
+    cp nvidia-xconfig ${INSTALL}/usr/bin/nvidia-main-xconfig
 
   mkdir -p ${INSTALL}/usr/lib/vdpau
-    cp libvdpau_nvidia.so*               ${INSTALL}/usr/lib/vdpau/libvdpau_nvidia-main.so.1
-    ln -sf /var/lib/libvdpau_nvidia.so   ${INSTALL}/usr/lib/vdpau/libvdpau_nvidia.so
+    cp libvdpau_nvidia.so* ${INSTALL}/usr/lib/vdpau/libvdpau_nvidia-main.so.1
+    ln -sf /var/lib/libvdpau_nvidia.so ${INSTALL}/usr/lib/vdpau/libvdpau_nvidia.so
     ln -sf /var/lib/libvdpau_nvidia.so.1 ${INSTALL}/usr/lib/vdpau/libvdpau_nvidia.so.1
 }
