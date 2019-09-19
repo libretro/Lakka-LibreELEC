@@ -268,8 +268,47 @@ setup_toolchain() {
     export MAKEFLAGS="$MAKEFLAGS V=1 VERBOSE=1"
   fi
 
-  case "$1" in
-    target|init)
+  case "$1:$2" in
+    target:meson)
+      export DESTIMAGE="target"
+      export AWK="gawk"
+      export CC="$TOOLCHAIN/bin/host-gcc"
+      export CXX="$TOOLCHAIN/bin/host-g++"
+      export CPP="cpp"
+      export LD="ld"
+      export AS="as"
+      export AR="ar"
+      export NM="nm"
+      export RANLIB="ranlib"
+      export OBJCOPY="objcopy"
+      export OBJDUMP="objdump"
+      export STRIP="strip"
+      export CPPFLAGS="$HOST_CPPFLAGS"
+      export CFLAGS="$HOST_CFLAGS"
+      export CXXFLAGS="$HOST_CXXFLAGS"
+      export LDFLAGS="$HOST_LDFLAGS"
+      setup_pkg_config_target
+      export TARGET_CC="${TARGET_PREFIX}gcc"
+      export TARGET_CXX="${TARGET_PREFIX}g++"
+      export TARGET_AR="${TARGET_PREFIX}ar"
+      export TARGET_STRIP="${TARGET_PREFIX}strip"
+      export TARGET_CFLAGS="$TARGET_CFLAGS"
+      export TARGET_CXXFLAGS="$TARGET_CXXFLAGS"
+      export TARGET_LDFLAGS="$TARGET_LDFLAGS"
+      export HOST_CC="$CC"
+      export HOST_CXX="$CXX"
+      export HOSTCC="$CC"
+      export HOSTCXX="$CXX"
+      export CC_FOR_BUILD="$CC"
+      export CXX_FOR_BUILD="$CXX"
+      export BUILD_CC="$CC"
+      export BUILD_CXX="$CXX"
+      export _python_sysroot="$SYSROOT_PREFIX"
+      export _python_prefix=/usr
+      export _python_exec_prefix=/usr
+      ;;
+
+    target:*|init:*)
       export DESTIMAGE="target"
       export CC="${TARGET_PREFIX}gcc"
       export CXX="${TARGET_PREFIX}g++"
@@ -315,7 +354,7 @@ setup_toolchain() {
       export _python_prefix=/usr
       export _python_exec_prefix=/usr
       ;;
-    host|bootstrap)
+    host:*|bootstrap:*)
       export DESTIMAGE="host"
       export AWK="gawk"
       export CC="$TOOLCHAIN/bin/host-gcc"
@@ -366,15 +405,8 @@ setup_toolchain() {
   esac
 }
 
-create_meson_conf() {
-  local endian root properties
-  case "$1" in
-    target|init)    root="$SYSROOT_PREFIX/usr"
-                    ;;
-    host|bootstrap) root="$TOOLCHAIN"
-                    ;;
-  esac
-
+create_meson_conf_host() {
+  local properties
   properties="PKG_MESON_PROPERTIES_${1^^}"
 
   cat > $2 <<EOF
@@ -394,7 +426,7 @@ cpu = '$TARGET_SUBARCH'
 endian = 'little'
 
 [properties]
-root = '$root'
+root = '$TOOLCHAIN'
 $(python -c "import os; print('c_args = {}'.format([x for x in os.getenv('CFLAGS').split()]))")
 $(python -c "import os; print('c_link_args = {}'.format([x for x in os.getenv('LDFLAGS').split()]))")
 $(python -c "import os; print('cpp_args = {}'.format([x for x in os.getenv('CXXFLAGS').split()]))")
@@ -402,6 +434,37 @@ $(python -c "import os; print('cpp_link_args = {}'.format([x for x in os.getenv(
 ${!properties}
 EOF
 }
+
+create_meson_conf_target() {
+  local properties
+  properties="PKG_MESON_PROPERTIES_${1^^}"
+
+  cat > $2 <<EOF
+[binaries]
+c = '$TARGET_CC'
+cpp = '$TARGET_CXX'
+ar = '$TARGET_AR'
+strip = '$TARGET_STRIP'
+pkgconfig = '$PKG_CONFIG'
+llvm-config = '$SYSROOT_PREFIX/usr/bin/llvm-config-host'
+libgcrypt-config = '$SYSROOT_PREFIX/usr/bin/libgcrypt-config'
+
+[host_machine]
+system = 'linux'
+cpu_family = '$TARGET_ARCH'
+cpu = '$TARGET_SUBARCH'
+endian = 'little'
+
+[properties]
+root = '$SYSROOT_PREFIX/usr'
+$(python -c "import os; print('c_args = {}'.format([x for x in os.getenv('TARGET_CFLAGS').split()]))")
+$(python -c "import os; print('c_link_args = {}'.format([x for x in os.getenv('TARGET_LDFLAGS').split()]))")
+$(python -c "import os; print('cpp_args = {}'.format([x for x in os.getenv('TARGET_CXXFLAGS').split()]))")
+$(python -c "import os; print('cpp_link_args = {}'.format([x for x in os.getenv('TARGET_LDFLAGS').split()]))")
+${!properties}
+EOF
+}
+
 
 # unset all PKG_* vars apart from those exported by setup_toolchain, then set default values
 reset_pkg_vars() {
