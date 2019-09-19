@@ -491,24 +491,42 @@ force_fsck() {
 check_disks() {
   if [ "$RUN_FSCK" = "yes" -a -n "$RUN_FSCK_DISKS" ]; then
     progress "Checking disk(s): $RUN_FSCK_DISKS"
-    /usr/sbin/fsck -T -M -p -a $RUN_FSCK_DISKS > /dev/null 2>&1
-    FSCK_RET=$?
+    echo "Checking disk(s): $RUN_FSCK_DISKS" >/dev/kmsg
+    for i in 20 19 18 17 16 15 14 13 12 11 10 9 8 7 6 5 4 3 2 1 0; do
+      /usr/sbin/fsck -T -M -p -a $RUN_FSCK_DISKS >/dev/fsck.latest 2>&1
+      FSCK_RET=$?
+      cat /dev/fsck.latest >>/dev/fsck.log
 
-    # FSCK_RET is the bit-wise OR of the exit codes for each filesystem that is checked.
-    if [ $(( $FSCK_RET & 4 )) -eq 4 ]; then
-      # errors left
-      force_fsck
-    elif [ $(( $FSCK_RET & 2 )) -eq 2 ]; then
-      # reboot needed
-      echo "Filesystem repaired, reboot needed..."
-      do_reboot
-    elif [ $(( $FSCK_RET & 1 )) -eq 1 ]; then
-      # filesystem errors corrected
-      progress "Filesystem errors corrected , continuing..."
-    elif [ $(( $FSCK_RET & 0 )) -eq 0 ]; then
-      # no errors found
-      progress "No filesystem errors found, continuing..."
-    fi
+      # FSCK_RET is the bit-wise OR of the exit codes for each filesystem that is checked.
+      if [ $FSCK_RET -ge 16 ]; then
+        progress "General error, continuing..."
+        break
+      elif [ $(( $FSCK_RET & 8 )) -eq 8 ]; then
+        # device not found
+        if [ $i -eq 0 ]; then
+          progress "Device not found, continuing..."
+        else
+          usleep 500000
+        fi
+      elif [ $(( $FSCK_RET & 4 )) -eq 4 ]; then
+        # errors left
+        force_fsck
+      elif [ $(( $FSCK_RET & 2 )) -eq 2 ]; then
+        # reboot needed
+        echo "Filesystem repaired, reboot needed..."
+        do_reboot
+      elif [ $(( $FSCK_RET & 1 )) -eq 1 ]; then
+        # filesystem errors corrected
+        progress "Filesystem errors corrected , continuing..."
+        break
+      elif [ $FSCK_RET -eq 0 ]; then
+        # no errors found
+        progress "No filesystem errors found, continuing..."
+        break
+      fi
+    done
+    sed -e '/^$/d' -e 's/^/fsck: /' </dev/fsck.latest >/dev/kmsg
+    rm -f /dev/fsck.latest
   fi
 }
 
