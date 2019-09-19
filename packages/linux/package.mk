@@ -5,7 +5,7 @@
 PKG_NAME="linux"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kernel.org"
-PKG_DEPENDS_HOST="ccache:host openssl:host"
+PKG_DEPENDS_HOST="ccache:host rsync:host openssl:host"
 PKG_DEPENDS_TARGET="toolchain linux:host cpio:host kmod:host xz:host wireless-regdb keyutils $KERNEL_EXTRA_DEPENDS_TARGET"
 PKG_DEPENDS_INIT="toolchain"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
@@ -31,14 +31,14 @@ case "$LINUX" in
     PKG_BUILD_PERF="no"
     ;;
   raspberrypi)
-    PKG_VERSION="1eb8d4d37ec7330414020773806497ccd23e0203" # 5.2.13
-    PKG_SHA256="1e4843f3e1cbcbbf081de1729b679c648ae13c951372e118021f36d436eae96d"
+    PKG_VERSION="e24f334452d6b2f123e5e277102eba1a52d28cee" # 5.3.0
+    PKG_SHA256="88ba63f4ae5ca4e47175cfe5d988b005343a2ef3854d45c1e23241b9fb9af7ff"
     PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     ;;
   *)
-    PKG_VERSION="5.2.13"
-    PKG_SHA256="17b60f55241dee4b9a2919a653de144ef1002e2de49ccf5d15225b1f07bc178a"
+    PKG_VERSION="5.3"
+    PKG_SHA256="78f3c397513cf4ff0f96aa7d09a921d003e08fa97c09e0bb71d88211b40567b2"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v5.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     PKG_PATCH_DIRS="default"
     ;;
