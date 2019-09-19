@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="bsnes_hd"
-PKG_VERSION="e3b2e93"
+PKG_VERSION="31849fe"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
@@ -34,7 +34,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  make -C bsnes -f GNUmakefile target="libretro"
+  make -C bsnes -f GNUmakefile target="libretro" local=false compiler="$CXX" CXXFLAGS="$CXXFLAGS" platform=linux
 }
 
 makeinstall_target() {
