@@ -59,13 +59,14 @@ diff --git a/drivers/staging/media/sunxi/cedrus/cedrus.c b/drivers/staging/media
 index 70642834f351..01860f247aa6 100644
 --- a/drivers/staging/media/sunxi/cedrus/cedrus.c
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus.c
-@@ -88,6 +88,12 @@ static const struct cedrus_control cedrus_controls[] = {
+@@ -88,6 +88,13 @@ static const struct cedrus_control cedrus_controls[] = {
  		.codec		= CEDRUS_CODEC_H265,
  		.required	= true,
  	},
 +	{
-+		.id		= V4L2_CID_MPEG_VIDEO_HEVC_SCALING_MATRIX,
-+		.elem_size	= sizeof(struct v4l2_ctrl_hevc_scaling_matrix),
++		.cfg = {
++			.id		= V4L2_CID_MPEG_VIDEO_HEVC_SCALING_MATRIX,
++		},
 +		.codec		= CEDRUS_CODEC_H265,
 +		.required	= true,
 +	},
@@ -156,7 +157,7 @@ index fd4d86b02156..82d29c59b787 100644
 -	       field * ctx->codec.h265.mv_col_buf_unit_size / 2;
 +	struct cedrus_buffer *cedrus_buf;
 +
-+	cedrus_buf = vb2_to_cedrus_buffer(ctx->dst_bufs[index]);
++	cedrus_buf = vb2_to_cedrus_buffer(ctx->fh.m2m_ctx->cap_q_ctx.q.bufs[index]);
 +
 +	return cedrus_buf->mv_col_buf_dma;
  }
@@ -512,7 +513,7 @@ index fd4d86b02156..82d29c59b787 100644
  
  	/* Output frame. */
  
-+	cedrus_buf = vb2_to_cedrus_buffer(ctx->dst_bufs[run->dst->vb2_buf.index]);
++	cedrus_buf = vb2_to_cedrus_buffer(ctx->fh.m2m_ctx->cap_q_ctx.q.bufs[run->dst->vb2_buf.index]);
 +	if (!cedrus_buf->mv_col_buf_size) {
 +		unsigned int ctb_size_luma, width_in_ctb_luma;
 +		unsigned int log2_max_luma_coding_block_size;
@@ -662,26 +663,39 @@ diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_video.c b/drivers/staging
 index dbe6f9510641..a0817cae1d69 100644
 --- a/drivers/staging/media/sunxi/cedrus/cedrus_video.c
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus_video.c
-@@ -433,8 +433,18 @@ static void cedrus_buf_cleanup(struct vb2_buffer *vb)
- 	struct vb2_queue *vq = vb->vb2_queue;
- 	struct cedrus_ctx *ctx = vb2_get_drv_priv(vq);
+@@ -433,6 +433,24 @@ static void cedrus_queue_cleanup(struct vb2_queue *vq, u32 state)
+ 	}
+ }
  
--	if (!V4L2_TYPE_IS_OUTPUT(vq->type))
++static void cedrus_buf_cleanup(struct vb2_buffer *vb)
++{
++	struct vb2_queue *vq = vb->vb2_queue;
++	struct cedrus_ctx *ctx = vb2_get_drv_priv(vq);
++
 +	if (!V4L2_TYPE_IS_OUTPUT(vq->type)) {
 +		struct cedrus_buffer *cedrus_buf;
 +
-+		cedrus_buf = vb2_to_cedrus_buffer(ctx->dst_bufs[vb->index]);
++		cedrus_buf = vb2_to_cedrus_buffer(vq->bufs[vb->index]);
 +
 +		if (cedrus_buf->mv_col_buf_size)
 +			dma_free_coherent(ctx->dev->dev,
 +					  cedrus_buf->mv_col_buf_size,
 +					  cedrus_buf->mv_col_buf,
 +					  cedrus_buf->mv_col_buf_dma);
- 		ctx->dst_bufs[vb->index] = NULL;
 +	}
- }
- 
++}
++
  static int cedrus_buf_out_validate(struct vb2_buffer *vb)
+ {
+ 	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
+@@ -517,6 +497,7 @@ static void cedrus_buf_request_complete(struct vb2_buffer *vb)
+ static struct vb2_ops cedrus_qops = {
+ 	.queue_setup		= cedrus_queue_setup,
+ 	.buf_prepare		= cedrus_buf_prepare,
++	.buf_cleanup		= cedrus_buf_cleanup,
+ 	.buf_queue		= cedrus_buf_queue,
+ 	.buf_out_validate	= cedrus_buf_out_validate,
+ 	.buf_request_complete	= cedrus_buf_request_complete,
 diff --git a/include/media/hevc-ctrls.h b/include/media/hevc-ctrls.h
 index 2de83d9f6d47..19469097c6d4 100644
 --- a/include/media/hevc-ctrls.h

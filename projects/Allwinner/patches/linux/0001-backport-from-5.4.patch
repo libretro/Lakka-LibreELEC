@@ -4862,3 +4862,826 @@ index a6a3f772fdf0..d0a8d5810c0a 100644
 -- 
 2.23.0
 
+From 633eadc9ba1e9a56be09ef94f14578a9839d3634 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Thu, 30 May 2019 18:15:13 -0300
+Subject: [PATCH] media: cedrus: Remove dst_bufs from context
+
+This array is just duplicated capture buffer queue. Remove it and adjust
+code to look into capture buffer queue instead.
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+Acked-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Acked-by: Paul Kocialkowski <paul.kocialkowski@bootlin.com>
+Reviewed-by: Ezequiel Garcia <ezequiel@collabora.com>
+Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
+---
+ drivers/staging/media/sunxi/cedrus/cedrus.h   |  4 +---
+ .../staging/media/sunxi/cedrus/cedrus_h264.c  |  4 ++--
+ .../staging/media/sunxi/cedrus/cedrus_video.c | 22 -------------------
+ 3 files changed, 3 insertions(+), 27 deletions(-)
+
+diff --git a/drivers/staging/media/sunxi/cedrus/cedrus.h b/drivers/staging/media/sunxi/cedrus/cedrus.h
+index 3f476d0fd981..d8e6777e5e27 100644
+--- a/drivers/staging/media/sunxi/cedrus/cedrus.h
++++ b/drivers/staging/media/sunxi/cedrus/cedrus.h
+@@ -100,8 +100,6 @@ struct cedrus_ctx {
+ 	struct v4l2_ctrl_handler	hdl;
+ 	struct v4l2_ctrl		**ctrls;
+ 
+-	struct vb2_buffer		*dst_bufs[VIDEO_MAX_FRAME];
+-
+ 	union {
+ 		struct {
+ 			void		*mv_col_buf;
+@@ -187,7 +185,7 @@ static inline dma_addr_t cedrus_dst_buf_addr(struct cedrus_ctx *ctx,
+ 	if (index < 0)
+ 		return 0;
+ 
+-	buf = ctx->dst_bufs[index];
++	buf = ctx->fh.m2m_ctx->cap_q_ctx.q.bufs[index];
+ 	return buf ? cedrus_buf_addr(buf, &ctx->dst_fmt, plane) : 0;
+ }
+ 
+diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_h264.c b/drivers/staging/media/sunxi/cedrus/cedrus_h264.c
+index a30bb283f69f..d6a782703c9b 100644
+--- a/drivers/staging/media/sunxi/cedrus/cedrus_h264.c
++++ b/drivers/staging/media/sunxi/cedrus/cedrus_h264.c
+@@ -118,7 +118,7 @@ static void cedrus_write_frame_list(struct cedrus_ctx *ctx,
+ 		if (buf_idx < 0)
+ 			continue;
+ 
+-		cedrus_buf = vb2_to_cedrus_buffer(ctx->dst_bufs[buf_idx]);
++		cedrus_buf = vb2_to_cedrus_buffer(cap_q->bufs[buf_idx]);
+ 		position = cedrus_buf->codec.h264.position;
+ 		used_dpbs |= BIT(position);
+ 
+@@ -193,7 +193,7 @@ static void _cedrus_write_ref_list(struct cedrus_ctx *ctx,
+ 		if (buf_idx < 0)
+ 			continue;
+ 
+-		ref_buf = to_vb2_v4l2_buffer(ctx->dst_bufs[buf_idx]);
++		ref_buf = to_vb2_v4l2_buffer(cap_q->bufs[buf_idx]);
+ 		cedrus_buf = vb2_v4l2_to_cedrus_buffer(ref_buf);
+ 		position = cedrus_buf->codec.h264.position;
+ 
+diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_video.c b/drivers/staging/media/sunxi/cedrus/cedrus_video.c
+index e2b530b1a956..681dfe3367a6 100644
+--- a/drivers/staging/media/sunxi/cedrus/cedrus_video.c
++++ b/drivers/staging/media/sunxi/cedrus/cedrus_video.c
+@@ -411,26 +411,6 @@ static void cedrus_queue_cleanup(struct vb2_queue *vq, u32 state)
+ 	}
+ }
+ 
+-static int cedrus_buf_init(struct vb2_buffer *vb)
+-{
+-	struct vb2_queue *vq = vb->vb2_queue;
+-	struct cedrus_ctx *ctx = vb2_get_drv_priv(vq);
+-
+-	if (!V4L2_TYPE_IS_OUTPUT(vq->type))
+-		ctx->dst_bufs[vb->index] = vb;
+-
+-	return 0;
+-}
+-
+-static void cedrus_buf_cleanup(struct vb2_buffer *vb)
+-{
+-	struct vb2_queue *vq = vb->vb2_queue;
+-	struct cedrus_ctx *ctx = vb2_get_drv_priv(vq);
+-
+-	if (!V4L2_TYPE_IS_OUTPUT(vq->type))
+-		ctx->dst_bufs[vb->index] = NULL;
+-}
+-
+ static int cedrus_buf_out_validate(struct vb2_buffer *vb)
+ {
+ 	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
+@@ -517,8 +497,6 @@ static void cedrus_buf_request_complete(struct vb2_buffer *vb)
+ static struct vb2_ops cedrus_qops = {
+ 	.queue_setup		= cedrus_queue_setup,
+ 	.buf_prepare		= cedrus_buf_prepare,
+-	.buf_init		= cedrus_buf_init,
+-	.buf_cleanup		= cedrus_buf_cleanup,
+ 	.buf_queue		= cedrus_buf_queue,
+ 	.buf_out_validate	= cedrus_buf_out_validate,
+ 	.buf_request_complete	= cedrus_buf_request_complete,
+-- 
+2.23.0
+
+From 7bb3c32abd7bafd346f667cccb7dfe9686f14ddd Mon Sep 17 00:00:00 2001
+From: Ezequiel Garcia <ezequiel@collabora.com>
+Date: Fri, 16 Aug 2019 13:01:23 -0300
+Subject: [PATCH] media: uapi: h264: Rename pixel format
+
+The V4L2_PIX_FMT_H264_SLICE_RAW name was originally suggested
+because the pixel format would represent H264 slices without any
+start code.
+
+However, as we will now introduce a start code menu control,
+give the pixel format a more meaningful name, while it's
+still early enough to do so.
+
+Signed-off-by: Ezequiel Garcia <ezequiel@collabora.com>
+Tested-by: Philipp Zabel <p.zabel@pengutronix.de>
+Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
+---
+ Documentation/media/uapi/v4l/pixfmt-compressed.rst | 4 ++--
+ drivers/media/v4l2-core/v4l2-ioctl.c               | 2 +-
+ drivers/staging/media/sunxi/cedrus/cedrus_dec.c    | 2 +-
+ drivers/staging/media/sunxi/cedrus/cedrus_video.c  | 6 +++---
+ include/media/h264-ctrls.h                         | 2 +-
+ 5 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/Documentation/media/uapi/v4l/pixfmt-compressed.rst b/Documentation/media/uapi/v4l/pixfmt-compressed.rst
+index f52a7b67023d..9b65473a2288 100644
+--- a/Documentation/media/uapi/v4l/pixfmt-compressed.rst
++++ b/Documentation/media/uapi/v4l/pixfmt-compressed.rst
+@@ -52,9 +52,9 @@ Compressed Formats
+       - ``V4L2_PIX_FMT_H264_MVC``
+       - 'M264'
+       - H264 MVC video elementary stream.
+-    * .. _V4L2-PIX-FMT-H264-SLICE-RAW:
++    * .. _V4L2-PIX-FMT-H264-SLICE:
+ 
+-      - ``V4L2_PIX_FMT_H264_SLICE_RAW``
++      - ``V4L2_PIX_FMT_H264_SLICE``
+       - 'S264'
+       - H264 parsed slice data, without the start code and as
+ 	extracted from the H264 bitstream.  This format is adapted for
+diff --git a/drivers/media/v4l2-core/v4l2-ioctl.c b/drivers/media/v4l2-core/v4l2-ioctl.c
+index bb5b4926538a..39f10621c91b 100644
+--- a/drivers/media/v4l2-core/v4l2-ioctl.c
++++ b/drivers/media/v4l2-core/v4l2-ioctl.c
+@@ -1343,7 +1343,7 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
+ 		case V4L2_PIX_FMT_H264:		descr = "H.264"; break;
+ 		case V4L2_PIX_FMT_H264_NO_SC:	descr = "H.264 (No Start Codes)"; break;
+ 		case V4L2_PIX_FMT_H264_MVC:	descr = "H.264 MVC"; break;
+-		case V4L2_PIX_FMT_H264_SLICE_RAW:	descr = "H.264 Parsed Slice Data"; break;
++		case V4L2_PIX_FMT_H264_SLICE:	descr = "H.264 Parsed Slice Data"; break;
+ 		case V4L2_PIX_FMT_H263:		descr = "H.263"; break;
+ 		case V4L2_PIX_FMT_MPEG1:	descr = "MPEG-1 ES"; break;
+ 		case V4L2_PIX_FMT_MPEG2:	descr = "MPEG-2 ES"; break;
+diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_dec.c b/drivers/staging/media/sunxi/cedrus/cedrus_dec.c
+index bdad87eb9d79..56ca4c9ad01c 100644
+--- a/drivers/staging/media/sunxi/cedrus/cedrus_dec.c
++++ b/drivers/staging/media/sunxi/cedrus/cedrus_dec.c
+@@ -46,7 +46,7 @@ void cedrus_device_run(void *priv)
+ 			V4L2_CID_MPEG_VIDEO_MPEG2_QUANTIZATION);
+ 		break;
+ 
+-	case V4L2_PIX_FMT_H264_SLICE_RAW:
++	case V4L2_PIX_FMT_H264_SLICE:
+ 		run.h264.decode_params = cedrus_find_control_data(ctx,
+ 			V4L2_CID_MPEG_VIDEO_H264_DECODE_PARAMS);
+ 		run.h264.pps = cedrus_find_control_data(ctx,
+diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_video.c b/drivers/staging/media/sunxi/cedrus/cedrus_video.c
+index 681dfe3367a6..eeee3efd247b 100644
+--- a/drivers/staging/media/sunxi/cedrus/cedrus_video.c
++++ b/drivers/staging/media/sunxi/cedrus/cedrus_video.c
+@@ -38,7 +38,7 @@ static struct cedrus_format cedrus_formats[] = {
+ 		.directions	= CEDRUS_DECODE_SRC,
+ 	},
+ 	{
+-		.pixelformat	= V4L2_PIX_FMT_H264_SLICE_RAW,
++		.pixelformat	= V4L2_PIX_FMT_H264_SLICE,
+ 		.directions	= CEDRUS_DECODE_SRC,
+ 	},
+ 	{
+@@ -104,7 +104,7 @@ static void cedrus_prepare_format(struct v4l2_pix_format *pix_fmt)
+ 
+ 	switch (pix_fmt->pixelformat) {
+ 	case V4L2_PIX_FMT_MPEG2_SLICE:
+-	case V4L2_PIX_FMT_H264_SLICE_RAW:
++	case V4L2_PIX_FMT_H264_SLICE:
+ 		/* Zero bytes per line for encoded source. */
+ 		bytesperline = 0;
+ 
+@@ -449,7 +449,7 @@ static int cedrus_start_streaming(struct vb2_queue *vq, unsigned int count)
+ 		ctx->current_codec = CEDRUS_CODEC_MPEG2;
+ 		break;
+ 
+-	case V4L2_PIX_FMT_H264_SLICE_RAW:
++	case V4L2_PIX_FMT_H264_SLICE:
+ 		ctx->current_codec = CEDRUS_CODEC_H264;
+ 		break;
+ 
+diff --git a/include/media/h264-ctrls.h b/include/media/h264-ctrls.h
+index e1404d78d6ff..6160a69c0143 100644
+--- a/include/media/h264-ctrls.h
++++ b/include/media/h264-ctrls.h
+@@ -14,7 +14,7 @@
+ #include <linux/videodev2.h>
+ 
+ /* Our pixel format isn't stable at the moment */
+-#define V4L2_PIX_FMT_H264_SLICE_RAW v4l2_fourcc('S', '2', '6', '4') /* H264 parsed slices */
++#define V4L2_PIX_FMT_H264_SLICE v4l2_fourcc('S', '2', '6', '4') /* H264 parsed slices */
+ 
+ /*
+  * This is put insanely high to avoid conflicting with controls that
+-- 
+2.23.0
+
+From 3f715c64be6e6e1e1bb140fb1179ab0a712f94c3 Mon Sep 17 00:00:00 2001
+From: Ezequiel Garcia <ezequiel@collabora.com>
+Date: Fri, 16 Aug 2019 13:01:27 -0300
+Subject: [PATCH] media: cedrus: Cleanup control initialization
+
+In order to introduce other controls, the control initialization
+needs to support an initial struct v4l2_ctrl_control.
+
+While here, let's cleanup the control initialization,
+removing unneeded fields.
+
+Signed-off-by: Ezequiel Garcia <ezequiel@collabora.com>
+Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
+---
+ drivers/staging/media/sunxi/cedrus/cedrus.c | 45 +++++++++++----------
+ drivers/staging/media/sunxi/cedrus/cedrus.h |  3 +-
+ 2 files changed, 25 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/staging/media/sunxi/cedrus/cedrus.c b/drivers/staging/media/sunxi/cedrus/cedrus.c
+index 370937edfc14..7bdc413bf727 100644
+--- a/drivers/staging/media/sunxi/cedrus/cedrus.c
++++ b/drivers/staging/media/sunxi/cedrus/cedrus.c
+@@ -29,44 +29,51 @@
+ 
+ static const struct cedrus_control cedrus_controls[] = {
+ 	{
+-		.id		= V4L2_CID_MPEG_VIDEO_MPEG2_SLICE_PARAMS,
+-		.elem_size	= sizeof(struct v4l2_ctrl_mpeg2_slice_params),
++		.cfg = {
++			.id	= V4L2_CID_MPEG_VIDEO_MPEG2_SLICE_PARAMS,
++		},
+ 		.codec		= CEDRUS_CODEC_MPEG2,
+ 		.required	= true,
+ 	},
+ 	{
+-		.id		= V4L2_CID_MPEG_VIDEO_MPEG2_QUANTIZATION,
+-		.elem_size	= sizeof(struct v4l2_ctrl_mpeg2_quantization),
++		.cfg = {
++			.id	= V4L2_CID_MPEG_VIDEO_MPEG2_QUANTIZATION,
++		},
+ 		.codec		= CEDRUS_CODEC_MPEG2,
+ 		.required	= false,
+ 	},
+ 	{
+-		.id		= V4L2_CID_MPEG_VIDEO_H264_DECODE_PARAMS,
+-		.elem_size	= sizeof(struct v4l2_ctrl_h264_decode_params),
++		.cfg = {
++			.id	= V4L2_CID_MPEG_VIDEO_H264_DECODE_PARAMS,
++		},
+ 		.codec		= CEDRUS_CODEC_H264,
+ 		.required	= true,
+ 	},
+ 	{
+-		.id		= V4L2_CID_MPEG_VIDEO_H264_SLICE_PARAMS,
+-		.elem_size	= sizeof(struct v4l2_ctrl_h264_slice_params),
++		.cfg = {
++			.id	= V4L2_CID_MPEG_VIDEO_H264_SLICE_PARAMS,
++		},
+ 		.codec		= CEDRUS_CODEC_H264,
+ 		.required	= true,
+ 	},
+ 	{
+-		.id		= V4L2_CID_MPEG_VIDEO_H264_SPS,
+-		.elem_size	= sizeof(struct v4l2_ctrl_h264_sps),
++		.cfg = {
++			.id	= V4L2_CID_MPEG_VIDEO_H264_SPS,
++		},
+ 		.codec		= CEDRUS_CODEC_H264,
+ 		.required	= true,
+ 	},
+ 	{
+-		.id		= V4L2_CID_MPEG_VIDEO_H264_PPS,
+-		.elem_size	= sizeof(struct v4l2_ctrl_h264_pps),
++		.cfg = {
++			.id	= V4L2_CID_MPEG_VIDEO_H264_PPS,
++		},
+ 		.codec		= CEDRUS_CODEC_H264,
+ 		.required	= true,
+ 	},
+ 	{
+-		.id		= V4L2_CID_MPEG_VIDEO_H264_SCALING_MATRIX,
+-		.elem_size	= sizeof(struct v4l2_ctrl_h264_scaling_matrix),
++		.cfg = {
++			.id	= V4L2_CID_MPEG_VIDEO_H264_SCALING_MATRIX,
++		},
+ 		.codec		= CEDRUS_CODEC_H264,
+ 		.required	= true,
+ 	},
+@@ -106,12 +113,8 @@ static int cedrus_init_ctrls(struct cedrus_dev *dev, struct cedrus_ctx *ctx)
+ 		return -ENOMEM;
+ 
+ 	for (i = 0; i < CEDRUS_CONTROLS_COUNT; i++) {
+-		struct v4l2_ctrl_config cfg = {};
+-
+-		cfg.elem_size = cedrus_controls[i].elem_size;
+-		cfg.id = cedrus_controls[i].id;
+-
+-		ctrl = v4l2_ctrl_new_custom(hdl, &cfg, NULL);
++		ctrl = v4l2_ctrl_new_custom(hdl, &cedrus_controls[i].cfg,
++					    NULL);
+ 		if (hdl->error) {
+ 			v4l2_err(&dev->v4l2_dev,
+ 				 "Failed to create new custom control\n");
+@@ -178,7 +181,7 @@ static int cedrus_request_validate(struct media_request *req)
+ 			continue;
+ 
+ 		ctrl_test = v4l2_ctrl_request_hdl_ctrl_find(hdl,
+-							    cedrus_controls[i].id);
++							    cedrus_controls[i].cfg.id);
+ 		if (!ctrl_test) {
+ 			v4l2_info(&ctx->dev->v4l2_dev,
+ 				  "Missing required codec control\n");
+diff --git a/drivers/staging/media/sunxi/cedrus/cedrus.h b/drivers/staging/media/sunxi/cedrus/cedrus.h
+index d8e6777e5e27..2f017a651848 100644
+--- a/drivers/staging/media/sunxi/cedrus/cedrus.h
++++ b/drivers/staging/media/sunxi/cedrus/cedrus.h
+@@ -49,8 +49,7 @@ enum cedrus_h264_pic_type {
+ };
+ 
+ struct cedrus_control {
+-	u32			id;
+-	u32			elem_size;
++	struct v4l2_ctrl_config cfg;
+ 	enum cedrus_codec	codec;
+ 	unsigned char		required:1;
+ };
+-- 
+2.23.0
+
+From 341772b82a3b83e7a7a2c0605c8c728e81b38319 Mon Sep 17 00:00:00 2001
+From: Ezequiel Garcia <ezequiel@collabora.com>
+Date: Fri, 16 Aug 2019 13:01:28 -0300
+Subject: [PATCH] media: cedrus: Specify H264 startcode and decoding mode
+
+The cedrus VPU is slice-based and expects V4L2_PIX_FMT_H264_SLICE
+buffers to contain H264 slices with no start code.
+
+Expose this to userspace with the newly added menu control.
+
+These two controls are specified as mandatory for applications,
+but we mark them as non-required on the driver side for
+backwards compatibility.
+
+Signed-off-by: Ezequiel Garcia <ezequiel@collabora.com>
+Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
+---
+ drivers/staging/media/sunxi/cedrus/cedrus.c | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/drivers/staging/media/sunxi/cedrus/cedrus.c b/drivers/staging/media/sunxi/cedrus/cedrus.c
+index 7bdc413bf727..2d3ea8b74dfd 100644
+--- a/drivers/staging/media/sunxi/cedrus/cedrus.c
++++ b/drivers/staging/media/sunxi/cedrus/cedrus.c
+@@ -77,6 +77,24 @@ static const struct cedrus_control cedrus_controls[] = {
+ 		.codec		= CEDRUS_CODEC_H264,
+ 		.required	= true,
+ 	},
++	{
++		.cfg = {
++			.id	= V4L2_CID_MPEG_VIDEO_H264_DECODE_MODE,
++			.max	= V4L2_MPEG_VIDEO_H264_DECODE_MODE_SLICE_BASED,
++			.def	= V4L2_MPEG_VIDEO_H264_DECODE_MODE_SLICE_BASED,
++		},
++		.codec		= CEDRUS_CODEC_H264,
++		.required	= false,
++	},
++	{
++		.cfg = {
++			.id	= V4L2_CID_MPEG_VIDEO_H264_START_CODE,
++			.max	= V4L2_MPEG_VIDEO_H264_START_CODE_NONE,
++			.def	= V4L2_MPEG_VIDEO_H264_START_CODE_NONE,
++		},
++		.codec		= CEDRUS_CODEC_H264,
++		.required	= false,
++	},
+ };
+ 
+ #define CEDRUS_CONTROLS_COUNT	ARRAY_SIZE(cedrus_controls)
+-- 
+2.23.0
+
+From 5604be66a56867a784e162299a48c214921ffa1b Mon Sep 17 00:00:00 2001
+From: Boris Brezillon <boris.brezillon@collabora.com>
+Date: Fri, 16 Aug 2019 13:01:24 -0300
+Subject: [PATCH] media: uapi: h264: Add the concept of decoding mode
+
+Some stateless decoders don't support per-slice decoding granularity
+(or at least not in a way that would make them efficient or easy to use).
+
+Expose a menu to control the supported decoding modes. Drivers are
+allowed to support only one decoding but they can support both too.
+
+To fully specify the decoding operation, we need to introduce
+a start_byte_offset, to indicate where slices start.
+
+Signed-off-by: Boris Brezillon <boris.brezillon@collabora.com>
+Reviewed-by: Paul Kocialkowski <paul.kocialkowski@bootlin.com>
+Tested-by: Philipp Zabel <p.zabel@pengutronix.de>
+Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
+---
+ .../media/uapi/v4l/ext-ctrls-codec.rst        | 57 ++++++++++++++++++-
+ .../media/uapi/v4l/pixfmt-compressed.rst      |  6 +-
+ drivers/media/v4l2-core/v4l2-ctrls.c          |  9 +++
+ include/media/h264-ctrls.h                    | 10 ++++
+ 4 files changed, 79 insertions(+), 3 deletions(-)
+
+diff --git a/Documentation/media/uapi/v4l/ext-ctrls-codec.rst b/Documentation/media/uapi/v4l/ext-ctrls-codec.rst
+index c5f39dd50043..1da17a2c94d7 100644
+--- a/Documentation/media/uapi/v4l/ext-ctrls-codec.rst
++++ b/Documentation/media/uapi/v4l/ext-ctrls-codec.rst
+@@ -1747,6 +1747,14 @@ enum v4l2_mpeg_video_h264_hierarchical_coding_type -
+     * - __u32
+       - ``size``
+       -
++    * - __u32
++      - ``start_byte_offset``
++        Offset (in bytes) from the beginning of the OUTPUT buffer to the start
++        of the slice. If the slice starts with a start code, then this is the
++        offset to such start code. When operating in slice-based decoding mode
++        (see :c:type:`v4l2_mpeg_video_h264_decode_mode`), this field should
++        be set to 0. When operating in frame-based decoding mode, this field
++        should be 0 for the first slice.
+     * - __u32
+       - ``header_bit_size``
+       -
+@@ -1930,7 +1938,10 @@ enum v4l2_mpeg_video_h264_hierarchical_coding_type -
+       -
+     * - __u16
+       - ``num_slices``
+-      - Number of slices needed to decode the current frame
++      - Number of slices needed to decode the current frame/field. When
++        operating in slice-based decoding mode (see
++        :c:type:`v4l2_mpeg_video_h264_decode_mode`), this field
++        should always be set to one.
+     * - __u16
+       - ``nal_ref_idc``
+       - NAL reference ID value coming from the NAL Unit header
+@@ -2021,6 +2032,50 @@ enum v4l2_mpeg_video_h264_hierarchical_coding_type -
+       - 0x00000004
+       - The DPB entry is a long term reference frame
+ 
++``V4L2_CID_MPEG_VIDEO_H264_DECODE_MODE (enum)``
++    Specifies the decoding mode to use. Currently exposes slice-based and
++    frame-based decoding but new modes might be added later on.
++    This control is used as a modifier for V4L2_PIX_FMT_H264_SLICE
++    pixel format. Applications that support V4L2_PIX_FMT_H264_SLICE
++    are required to set this control in order to specify the decoding mode
++    that is expected for the buffer.
++    Drivers may expose a single or multiple decoding modes, depending
++    on what they can support.
++
++    .. note::
++
++       This menu control is not yet part of the public kernel API and
++       it is expected to change.
++
++.. c:type:: v4l2_mpeg_video_h264_decode_mode
++
++.. cssclass:: longtable
++
++.. flat-table::
++    :header-rows:  0
++    :stub-columns: 0
++    :widths:       1 1 2
++
++    * - ``V4L2_MPEG_VIDEO_H264_DECODE_MODE_SLICE_BASED``
++      - 0
++      - Decoding is done at the slice granularity.
++        In this mode, ``num_slices`` field in struct
++        :c:type:`v4l2_ctrl_h264_decode_params` should be set to 1,
++        and ``start_byte_offset`` in struct
++        :c:type:`v4l2_ctrl_h264_slice_params` should be set to 0.
++        The OUTPUT buffer must contain a single slice.
++    * - ``V4L2_MPEG_VIDEO_H264_DECODE_MODE_FRAME_BASED``
++      - 1
++      - Decoding is done at the frame granularity.
++        In this mode, ``num_slices`` field in struct
++        :c:type:`v4l2_ctrl_h264_decode_params` should be set to the number
++        of slices in the frame, and ``start_byte_offset`` in struct
++        :c:type:`v4l2_ctrl_h264_slice_params` should be set accordingly
++        for each slice. For the first slice, ``start_byte_offset`` should
++        be zero.
++        The OUTPUT buffer must contain all slices needed to decode the
++        frame. The OUTPUT buffer must also contain both fields.
++
+ .. _v4l2-mpeg-mpeg2:
+ 
+ ``V4L2_CID_MPEG_VIDEO_MPEG2_SLICE_PARAMS (struct)``
+diff --git a/Documentation/media/uapi/v4l/pixfmt-compressed.rst b/Documentation/media/uapi/v4l/pixfmt-compressed.rst
+index 9b65473a2288..d666eb51741a 100644
+--- a/Documentation/media/uapi/v4l/pixfmt-compressed.rst
++++ b/Documentation/media/uapi/v4l/pixfmt-compressed.rst
+@@ -60,8 +60,10 @@ Compressed Formats
+ 	extracted from the H264 bitstream.  This format is adapted for
+ 	stateless video decoders that implement an H264 pipeline
+ 	(using the :ref:`mem2mem` and :ref:`media-request-api`).
+-	Metadata associated with the frame to decode are required to
+-	be passed through the ``V4L2_CID_MPEG_VIDEO_H264_SPS``,
++	This pixelformat has a modifier that must be set at least once
++	through the ``V4L2_CID_MPEG_VIDEO_H264_DECODE_MODE`` control.
++	In addition, metadata associated with the frame to decode are
++	required to be passed through the ``V4L2_CID_MPEG_VIDEO_H264_SPS``,
+ 	``V4L2_CID_MPEG_VIDEO_H264_PPS``,
+ 	``V4L2_CID_MPEG_VIDEO_H264_SCALING_MATRIX``,
+ 	``V4L2_CID_MPEG_VIDEO_H264_SLICE_PARAMS`` and
+diff --git a/drivers/media/v4l2-core/v4l2-ctrls.c b/drivers/media/v4l2-core/v4l2-ctrls.c
+index cd1ae016706f..2c67f9fc4d5b 100644
+--- a/drivers/media/v4l2-core/v4l2-ctrls.c
++++ b/drivers/media/v4l2-core/v4l2-ctrls.c
+@@ -402,6 +402,11 @@ const char * const *v4l2_ctrl_get_menu(u32 id)
+ 		"Explicit",
+ 		NULL,
+ 	};
++	static const char * const h264_decode_mode[] = {
++		"Slice-Based",
++		"Frame-Based",
++		NULL,
++	};
+ 	static const char * const mpeg_mpeg2_level[] = {
+ 		"Low",
+ 		"Main",
+@@ -633,6 +638,8 @@ const char * const *v4l2_ctrl_get_menu(u32 id)
+ 		return h264_fp_arrangement_type;
+ 	case V4L2_CID_MPEG_VIDEO_H264_FMO_MAP_TYPE:
+ 		return h264_fmo_map_type;
++	case V4L2_CID_MPEG_VIDEO_H264_DECODE_MODE:
++		return h264_decode_mode;
+ 	case V4L2_CID_MPEG_VIDEO_MPEG2_LEVEL:
+ 		return mpeg_mpeg2_level;
+ 	case V4L2_CID_MPEG_VIDEO_MPEG2_PROFILE:
+@@ -852,6 +859,7 @@ const char *v4l2_ctrl_get_name(u32 id)
+ 	case V4L2_CID_MPEG_VIDEO_H264_SCALING_MATRIX:		return "H264 Scaling Matrix";
+ 	case V4L2_CID_MPEG_VIDEO_H264_SLICE_PARAMS:		return "H264 Slice Parameters";
+ 	case V4L2_CID_MPEG_VIDEO_H264_DECODE_PARAMS:		return "H264 Decode Parameters";
++	case V4L2_CID_MPEG_VIDEO_H264_DECODE_MODE:		return "H264 Decode Mode";
+ 	case V4L2_CID_MPEG_VIDEO_MPEG2_LEVEL:			return "MPEG2 Level";
+ 	case V4L2_CID_MPEG_VIDEO_MPEG2_PROFILE:			return "MPEG2 Profile";
+ 	case V4L2_CID_MPEG_VIDEO_MPEG4_I_FRAME_QP:		return "MPEG4 I-Frame QP Value";
+@@ -1220,6 +1228,7 @@ void v4l2_ctrl_fill(u32 id, const char **name, enum v4l2_ctrl_type *type,
+ 	case V4L2_CID_MPEG_VIDEO_H264_VUI_SAR_IDC:
+ 	case V4L2_CID_MPEG_VIDEO_H264_SEI_FP_ARRANGEMENT_TYPE:
+ 	case V4L2_CID_MPEG_VIDEO_H264_FMO_MAP_TYPE:
++	case V4L2_CID_MPEG_VIDEO_H264_DECODE_MODE:
+ 	case V4L2_CID_MPEG_VIDEO_MPEG2_LEVEL:
+ 	case V4L2_CID_MPEG_VIDEO_MPEG2_PROFILE:
+ 	case V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL:
+diff --git a/include/media/h264-ctrls.h b/include/media/h264-ctrls.h
+index 6160a69c0143..928c48c57282 100644
+--- a/include/media/h264-ctrls.h
++++ b/include/media/h264-ctrls.h
+@@ -26,6 +26,7 @@
+ #define V4L2_CID_MPEG_VIDEO_H264_SCALING_MATRIX	(V4L2_CID_MPEG_BASE+1002)
+ #define V4L2_CID_MPEG_VIDEO_H264_SLICE_PARAMS	(V4L2_CID_MPEG_BASE+1003)
+ #define V4L2_CID_MPEG_VIDEO_H264_DECODE_PARAMS	(V4L2_CID_MPEG_BASE+1004)
++#define V4L2_CID_MPEG_VIDEO_H264_DECODE_MODE	(V4L2_CID_MPEG_BASE+1005)
+ 
+ /* enum v4l2_ctrl_type type values */
+ #define V4L2_CTRL_TYPE_H264_SPS			0x0110
+@@ -34,6 +35,11 @@
+ #define V4L2_CTRL_TYPE_H264_SLICE_PARAMS	0x0113
+ #define V4L2_CTRL_TYPE_H264_DECODE_PARAMS	0x0114
+ 
++enum v4l2_mpeg_video_h264_decode_mode {
++	V4L2_MPEG_VIDEO_H264_DECODE_MODE_SLICE_BASED,
++	V4L2_MPEG_VIDEO_H264_DECODE_MODE_FRAME_BASED,
++};
++
+ #define V4L2_H264_SPS_CONSTRAINT_SET0_FLAG			0x01
+ #define V4L2_H264_SPS_CONSTRAINT_SET1_FLAG			0x02
+ #define V4L2_H264_SPS_CONSTRAINT_SET2_FLAG			0x04
+@@ -125,6 +131,10 @@ struct v4l2_h264_pred_weight_table {
+ struct v4l2_ctrl_h264_slice_params {
+ 	/* Size in bytes, including header */
+ 	__u32 size;
++
++	/* Offset in bytes to the start of slice in the OUTPUT buffer. */
++	__u32 start_byte_offset;
++
+ 	/* Offset in bits to slice_data() from the beginning of this slice. */
+ 	__u32 header_bit_size;
+ 
+-- 
+2.23.0
+
+From 8cae93e090113e46bd29a99c1727d8f13ea12fdf Mon Sep 17 00:00:00 2001
+From: Ezequiel Garcia <ezequiel@collabora.com>
+Date: Fri, 16 Aug 2019 13:01:25 -0300
+Subject: [PATCH] media: uapi: h264: Add the concept of start code
+
+Stateless decoders have different expectations about the
+start code that is prepended on H264 slices. Add a
+menu control to express the supported start code types
+(including no start code).
+
+Drivers are allowed to support only one start code type,
+but they can support both too.
+
+Note that this is independent of the H264 decoding mode,
+which specifies the granularity of the decoding operations.
+Either in frame-based or slice-based mode, this new control
+will allow to define the start code expected on H264 slices.
+
+Signed-off-by: Ezequiel Garcia <ezequiel@collabora.com>
+Tested-by: Philipp Zabel <p.zabel@pengutronix.de>
+Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
+---
+ .../media/uapi/v4l/ext-ctrls-codec.rst        | 33 +++++++++++++++++++
+ .../media/uapi/v4l/pixfmt-compressed.rst      |  5 +--
+ drivers/media/v4l2-core/v4l2-ctrls.c          |  9 +++++
+ include/media/h264-ctrls.h                    |  6 ++++
+ 4 files changed, 51 insertions(+), 2 deletions(-)
+
+diff --git a/Documentation/media/uapi/v4l/ext-ctrls-codec.rst b/Documentation/media/uapi/v4l/ext-ctrls-codec.rst
+index 1da17a2c94d7..810ae9bb6f7c 100644
+--- a/Documentation/media/uapi/v4l/ext-ctrls-codec.rst
++++ b/Documentation/media/uapi/v4l/ext-ctrls-codec.rst
+@@ -2076,6 +2076,39 @@ enum v4l2_mpeg_video_h264_hierarchical_coding_type -
+         The OUTPUT buffer must contain all slices needed to decode the
+         frame. The OUTPUT buffer must also contain both fields.
+ 
++``V4L2_CID_MPEG_VIDEO_H264_START_CODE (enum)``
++    Specifies the H264 slice start code expected for each slice.
++    This control is used as a modifier for V4L2_PIX_FMT_H264_SLICE
++    pixel format. Applications that support V4L2_PIX_FMT_H264_SLICE
++    are required to set this control in order to specify the start code
++    that is expected for the buffer.
++    Drivers may expose a single or multiple start codes, depending
++    on what they can support.
++
++    .. note::
++
++       This menu control is not yet part of the public kernel API and
++       it is expected to change.
++
++.. c:type:: v4l2_mpeg_video_h264_start_code
++
++.. cssclass:: longtable
++
++.. flat-table::
++    :header-rows:  0
++    :stub-columns: 0
++    :widths:       1 1 2
++
++    * - ``V4L2_MPEG_VIDEO_H264_START_CODE_NONE``
++      - 0
++      - Selecting this value specifies that H264 slices are passed
++        to the driver without any start code.
++    * - ``V4L2_MPEG_VIDEO_H264_START_CODE_ANNEX_B``
++      - 1
++      - Selecting this value specifies that H264 slices are expected
++        to be prefixed by Annex B start codes. According to :ref:`h264`
++        valid start codes can be 3-bytes 0x000001 or 4-bytes 0x00000001.
++
+ .. _v4l2-mpeg-mpeg2:
+ 
+ ``V4L2_CID_MPEG_VIDEO_MPEG2_SLICE_PARAMS (struct)``
+diff --git a/Documentation/media/uapi/v4l/pixfmt-compressed.rst b/Documentation/media/uapi/v4l/pixfmt-compressed.rst
+index d666eb51741a..493b6020107d 100644
+--- a/Documentation/media/uapi/v4l/pixfmt-compressed.rst
++++ b/Documentation/media/uapi/v4l/pixfmt-compressed.rst
+@@ -60,8 +60,9 @@ Compressed Formats
+ 	extracted from the H264 bitstream.  This format is adapted for
+ 	stateless video decoders that implement an H264 pipeline
+ 	(using the :ref:`mem2mem` and :ref:`media-request-api`).
+-	This pixelformat has a modifier that must be set at least once
+-	through the ``V4L2_CID_MPEG_VIDEO_H264_DECODE_MODE`` control.
++	This pixelformat has two modifiers that must be set at least once
++	through the ``V4L2_CID_MPEG_VIDEO_H264_DECODE_MODE``
++        and ``V4L2_CID_MPEG_VIDEO_H264_START_CODE`` controls.
+ 	In addition, metadata associated with the frame to decode are
+ 	required to be passed through the ``V4L2_CID_MPEG_VIDEO_H264_SPS``,
+ 	``V4L2_CID_MPEG_VIDEO_H264_PPS``,
+diff --git a/drivers/media/v4l2-core/v4l2-ctrls.c b/drivers/media/v4l2-core/v4l2-ctrls.c
+index 2c67f9fc4d5b..1d8f38824631 100644
+--- a/drivers/media/v4l2-core/v4l2-ctrls.c
++++ b/drivers/media/v4l2-core/v4l2-ctrls.c
+@@ -407,6 +407,11 @@ const char * const *v4l2_ctrl_get_menu(u32 id)
+ 		"Frame-Based",
+ 		NULL,
+ 	};
++	static const char * const h264_start_code[] = {
++		"No Start Code",
++		"Annex B Start Code",
++		NULL,
++	};
+ 	static const char * const mpeg_mpeg2_level[] = {
+ 		"Low",
+ 		"Main",
+@@ -640,6 +645,8 @@ const char * const *v4l2_ctrl_get_menu(u32 id)
+ 		return h264_fmo_map_type;
+ 	case V4L2_CID_MPEG_VIDEO_H264_DECODE_MODE:
+ 		return h264_decode_mode;
++	case V4L2_CID_MPEG_VIDEO_H264_START_CODE:
++		return h264_start_code;
+ 	case V4L2_CID_MPEG_VIDEO_MPEG2_LEVEL:
+ 		return mpeg_mpeg2_level;
+ 	case V4L2_CID_MPEG_VIDEO_MPEG2_PROFILE:
+@@ -860,6 +867,7 @@ const char *v4l2_ctrl_get_name(u32 id)
+ 	case V4L2_CID_MPEG_VIDEO_H264_SLICE_PARAMS:		return "H264 Slice Parameters";
+ 	case V4L2_CID_MPEG_VIDEO_H264_DECODE_PARAMS:		return "H264 Decode Parameters";
+ 	case V4L2_CID_MPEG_VIDEO_H264_DECODE_MODE:		return "H264 Decode Mode";
++	case V4L2_CID_MPEG_VIDEO_H264_START_CODE:		return "H264 Start Code";
+ 	case V4L2_CID_MPEG_VIDEO_MPEG2_LEVEL:			return "MPEG2 Level";
+ 	case V4L2_CID_MPEG_VIDEO_MPEG2_PROFILE:			return "MPEG2 Profile";
+ 	case V4L2_CID_MPEG_VIDEO_MPEG4_I_FRAME_QP:		return "MPEG4 I-Frame QP Value";
+@@ -1229,6 +1237,7 @@ void v4l2_ctrl_fill(u32 id, const char **name, enum v4l2_ctrl_type *type,
+ 	case V4L2_CID_MPEG_VIDEO_H264_SEI_FP_ARRANGEMENT_TYPE:
+ 	case V4L2_CID_MPEG_VIDEO_H264_FMO_MAP_TYPE:
+ 	case V4L2_CID_MPEG_VIDEO_H264_DECODE_MODE:
++	case V4L2_CID_MPEG_VIDEO_H264_START_CODE:
+ 	case V4L2_CID_MPEG_VIDEO_MPEG2_LEVEL:
+ 	case V4L2_CID_MPEG_VIDEO_MPEG2_PROFILE:
+ 	case V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL:
+diff --git a/include/media/h264-ctrls.h b/include/media/h264-ctrls.h
+index 928c48c57282..ba2876a64cf6 100644
+--- a/include/media/h264-ctrls.h
++++ b/include/media/h264-ctrls.h
+@@ -27,6 +27,7 @@
+ #define V4L2_CID_MPEG_VIDEO_H264_SLICE_PARAMS	(V4L2_CID_MPEG_BASE+1003)
+ #define V4L2_CID_MPEG_VIDEO_H264_DECODE_PARAMS	(V4L2_CID_MPEG_BASE+1004)
+ #define V4L2_CID_MPEG_VIDEO_H264_DECODE_MODE	(V4L2_CID_MPEG_BASE+1005)
++#define V4L2_CID_MPEG_VIDEO_H264_START_CODE	(V4L2_CID_MPEG_BASE+1006)
+ 
+ /* enum v4l2_ctrl_type type values */
+ #define V4L2_CTRL_TYPE_H264_SPS			0x0110
+@@ -40,6 +41,11 @@ enum v4l2_mpeg_video_h264_decode_mode {
+ 	V4L2_MPEG_VIDEO_H264_DECODE_MODE_FRAME_BASED,
+ };
+ 
++enum v4l2_mpeg_video_h264_start_code {
++	V4L2_MPEG_VIDEO_H264_START_CODE_NONE,
++	V4L2_MPEG_VIDEO_H264_START_CODE_ANNEX_B,
++};
++
+ #define V4L2_H264_SPS_CONSTRAINT_SET0_FLAG			0x01
+ #define V4L2_H264_SPS_CONSTRAINT_SET1_FLAG			0x02
+ #define V4L2_H264_SPS_CONSTRAINT_SET2_FLAG			0x04
+-- 
+2.23.0
+
+From c3adb85745ca6cc19532b2ee197d7abece1ac732 Mon Sep 17 00:00:00 2001
+From: Boris Brezillon <boris.brezillon@collabora.com>
+Date: Fri, 16 Aug 2019 13:01:26 -0300
+Subject: [PATCH] media: uapi: h264: Get rid of the p0/b0/b1 ref-lists
+
+Those lists can be extracted from the dpb, let's simplify userspace
+life and build that list kernel-side (generic helpers will be provided
+for drivers that need this list).
+
+Signed-off-by: Boris Brezillon <boris.brezillon@collabora.com>
+Reviewed-by: Nicolas Dufresne <nicolas.dufresne@collabora.com>
+Reviewed-by: Ezequiel Garcia <ezequiel@collabora.com>
+Reviewed-by: Paul Kocialkowski <paul.kocialkowski@bootlin.com>
+Tested-by: Philipp Zabel <p.zabel@pengutronix.de>
+Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
+---
+ Documentation/media/uapi/v4l/ext-ctrls-codec.rst | 9 ---------
+ include/media/h264-ctrls.h                       | 3 ---
+ 2 files changed, 12 deletions(-)
+
+diff --git a/Documentation/media/uapi/v4l/ext-ctrls-codec.rst b/Documentation/media/uapi/v4l/ext-ctrls-codec.rst
+index 810ae9bb6f7c..bc5dd8e76567 100644
+--- a/Documentation/media/uapi/v4l/ext-ctrls-codec.rst
++++ b/Documentation/media/uapi/v4l/ext-ctrls-codec.rst
+@@ -1945,15 +1945,6 @@ enum v4l2_mpeg_video_h264_hierarchical_coding_type -
+     * - __u16
+       - ``nal_ref_idc``
+       - NAL reference ID value coming from the NAL Unit header
+-    * - __u8
+-      - ``ref_pic_list_p0[32]``
+-      - Backward reference list used by P-frames in the original bitstream order
+-    * - __u8
+-      - ``ref_pic_list_b0[32]``
+-      - Backward reference list used by B-frames in the original bitstream order
+-    * - __u8
+-      - ``ref_pic_list_b1[32]``
+-      - Forward reference list used by B-frames in the original bitstream order
+     * - __s32
+       - ``top_field_order_cnt``
+       - Picture Order Count for the coded top field
+diff --git a/include/media/h264-ctrls.h b/include/media/h264-ctrls.h
+index ba2876a64cf6..e877bf1d537c 100644
+--- a/include/media/h264-ctrls.h
++++ b/include/media/h264-ctrls.h
+@@ -202,9 +202,6 @@ struct v4l2_ctrl_h264_decode_params {
+ 	struct v4l2_h264_dpb_entry dpb[16];
+ 	__u16 num_slices;
+ 	__u16 nal_ref_idc;
+-	__u8 ref_pic_list_p0[32];
+-	__u8 ref_pic_list_b0[32];
+-	__u8 ref_pic_list_b1[32];
+ 	__s32 top_field_order_cnt;
+ 	__s32 bottom_field_order_cnt;
+ 	__u32 flags; /* V4L2_H264_DECODE_PARAM_FLAG_* */
+-- 
+2.23.0
+
