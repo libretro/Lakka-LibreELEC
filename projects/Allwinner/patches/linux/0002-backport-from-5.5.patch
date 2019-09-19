@@ -1,0 +1,157 @@
+From c41784b042ac9cf97f2e871aceef3e06eff14140 Mon Sep 17 00:00:00 2001
+From: Cheng-Yi Chiang <cychiang@chromium.org>
+Date: Mon, 2 Sep 2019 11:54:35 +0800
+Subject: [PATCH] drm: dw-hdmi-i2s: enable audio clock in audio_startup
+
+In the designware databook, the sequence of enabling audio clock and
+setting format is not clearly specified.
+Currently, audio clock is enabled in the end of hw_param ops after
+setting format.
+
+On some monitors, there is a possibility that audio does not come out.
+Fix this by enabling audio clock in audio_startup ops
+before hw_param ops setting format.
+
+Signed-off-by: Cheng-Yi Chiang <cychiang@chromium.org>
+Reviewed-by: Douglas Anderson <dianders@chromium.org>
+Reviewed-by: Jonas Karlman <jonas@kwiboo.se>
+Tested-by: Douglas Anderson <dianders@chromium.org>
+Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20190902035435.44463-1-cychiang@chromium.org
+---
+ drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
+index 1d15cf9b6821..34d8e837555f 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
+@@ -109,6 +109,14 @@ static int dw_hdmi_i2s_hw_params(struct device *dev, void *data,
+ 	hdmi_write(audio, conf0, HDMI_AUD_CONF0);
+ 	hdmi_write(audio, conf1, HDMI_AUD_CONF1);
+ 
++	return 0;
++}
++
++static int dw_hdmi_i2s_audio_startup(struct device *dev, void *data)
++{
++	struct dw_hdmi_i2s_audio_data *audio = data;
++	struct dw_hdmi *hdmi = audio->hdmi;
++
+ 	dw_hdmi_audio_enable(hdmi);
+ 
+ 	return 0;
+@@ -153,6 +161,7 @@ static int dw_hdmi_i2s_get_dai_id(struct snd_soc_component *component,
+ 
+ static struct hdmi_codec_ops dw_hdmi_i2s_ops = {
+ 	.hw_params	= dw_hdmi_i2s_hw_params,
++	.audio_startup  = dw_hdmi_i2s_audio_startup,
+ 	.audio_shutdown	= dw_hdmi_i2s_audio_shutdown,
+ 	.get_eld	= dw_hdmi_i2s_get_eld,
+ 	.get_dai_id	= dw_hdmi_i2s_get_dai_id,
+-- 
+2.23.0
+
+From 3250cdf938dce5447cf4f895bb3ec3b929a95e09 Mon Sep 17 00:00:00 2001
+From: Yakir Yang <ykk@rock-chips.com>
+Date: Wed, 11 Sep 2019 16:26:46 +0800
+Subject: [PATCH] drm: bridge/dw_hdmi: add audio sample channel status setting
+
+When transmitting IEC60985 linear PCM audio, we configure the
+Aduio Sample Channel Status information in the IEC60958 frame.
+The status bit is already available in iec.status of hdmi_codec_params.
+
+This fix the issue that audio does not come out on some monitors
+(e.g. LG 22CV241)
+
+Note that these registers are only for interfaces:
+I2S audio interface, General Purpose Audio (GPA), or AHB audio DMA
+(AHBAUDDMA).
+For S/PDIF interface this information comes from the stream.
+
+Currently this function dw_hdmi_set_channel_status is only called
+from dw-hdmi-i2s-audio in I2S setup.
+
+Signed-off-by: Yakir Yang <ykk@rock-chips.com>
+Signed-off-by: Cheng-Yi Chiang <cychiang@chromium.org>
+Reviewed-by: Jonas Karlman <jonas@kwiboo.se>
+Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20190911082646.134347-1-cychiang@chromium.org
+---
+ .../drm/bridge/synopsys/dw-hdmi-i2s-audio.c   |  1 +
+ drivers/gpu/drm/bridge/synopsys/dw-hdmi.c     | 20 +++++++++++++++++++
+ drivers/gpu/drm/bridge/synopsys/dw-hdmi.h     |  2 ++
+ include/drm/bridge/dw_hdmi.h                  |  1 +
+ 4 files changed, 24 insertions(+)
+
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
+index 34d8e837555f..20f4f92dd866 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
+@@ -102,6 +102,7 @@ static int dw_hdmi_i2s_hw_params(struct device *dev, void *data,
+ 	}
+ 
+ 	dw_hdmi_set_sample_rate(hdmi, hparms->sample_rate);
++	dw_hdmi_set_channel_status(hdmi, hparms->iec.status);
+ 	dw_hdmi_set_channel_count(hdmi, hparms->channels);
+ 	dw_hdmi_set_channel_allocation(hdmi, hparms->cea.channel_allocation);
+ 
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
+index bd65d0479683..aa7efd4da1c8 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
+@@ -582,6 +582,26 @@ static unsigned int hdmi_compute_n(unsigned int freq, unsigned long pixel_clk)
+ 	return n;
+ }
+ 
++/*
++ * When transmitting IEC60958 linear PCM audio, these registers allow to
++ * configure the channel status information of all the channel status
++ * bits in the IEC60958 frame. For the moment this configuration is only
++ * used when the I2S audio interface, General Purpose Audio (GPA),
++ * or AHB audio DMA (AHBAUDDMA) interface is active
++ * (for S/PDIF interface this information comes from the stream).
++ */
++void dw_hdmi_set_channel_status(struct dw_hdmi *hdmi,
++				u8 *channel_status)
++{
++	/*
++	 * Set channel status register for frequency and word length.
++	 * Use default values for other registers.
++	 */
++	hdmi_writeb(hdmi, channel_status[3], HDMI_FC_AUDSCHNLS7);
++	hdmi_writeb(hdmi, channel_status[4], HDMI_FC_AUDSCHNLS8);
++}
++EXPORT_SYMBOL_GPL(dw_hdmi_set_channel_status);
++
+ static void hdmi_set_clk_regenerator(struct dw_hdmi *hdmi,
+ 	unsigned long pixel_clk, unsigned int sample_rate)
+ {
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.h b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.h
+index 6988f12d89d9..fcff5059db24 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.h
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.h
+@@ -158,6 +158,8 @@
+ #define HDMI_FC_SPDDEVICEINF                    0x1062
+ #define HDMI_FC_AUDSCONF                        0x1063
+ #define HDMI_FC_AUDSSTAT                        0x1064
++#define HDMI_FC_AUDSCHNLS7                      0x106e
++#define HDMI_FC_AUDSCHNLS8                      0x106f
+ #define HDMI_FC_DATACH0FILL                     0x1070
+ #define HDMI_FC_DATACH1FILL                     0x1071
+ #define HDMI_FC_DATACH2FILL                     0x1072
+diff --git a/include/drm/bridge/dw_hdmi.h b/include/drm/bridge/dw_hdmi.h
+index cf528c289857..4b3e863c4f8a 100644
+--- a/include/drm/bridge/dw_hdmi.h
++++ b/include/drm/bridge/dw_hdmi.h
+@@ -156,6 +156,7 @@ void dw_hdmi_setup_rx_sense(struct dw_hdmi *hdmi, bool hpd, bool rx_sense);
+ 
+ void dw_hdmi_set_sample_rate(struct dw_hdmi *hdmi, unsigned int rate);
+ void dw_hdmi_set_channel_count(struct dw_hdmi *hdmi, unsigned int cnt);
++void dw_hdmi_set_channel_status(struct dw_hdmi *hdmi, u8 *channel_status);
+ void dw_hdmi_set_channel_allocation(struct dw_hdmi *hdmi, unsigned int ca);
+ void dw_hdmi_audio_enable(struct dw_hdmi *hdmi);
+ void dw_hdmi_audio_disable(struct dw_hdmi *hdmi);
+-- 
+2.23.0
+

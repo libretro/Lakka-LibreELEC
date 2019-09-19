@@ -1,0 +1,4864 @@
+From fc81bf6b49bea503653e5cdba5392ffd878c1453 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Thu, 27 Jun 2019 19:30:44 +0200
+Subject: [PATCH 1/4] drm/sun4i: Introduce color encoding and range properties
+
+In order to correctly convert YUV color space to RGB, we have to know
+color encoding and range.
+
+Introduce these two properties using helper method.
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+---
+ drivers/gpu/drm/sun4i/sun8i_vi_layer.c | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
+
+diff --git a/drivers/gpu/drm/sun4i/sun8i_vi_layer.c b/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
+index bd0e6a52d1d8..240a800217df 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
++++ b/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
+@@ -441,6 +441,7 @@ struct sun8i_vi_layer *sun8i_vi_layer_init_one(struct drm_device *drm,
+ 					       struct sun8i_mixer *mixer,
+ 					       int index)
+ {
++	u32 supported_encodings, supported_ranges;
+ 	struct sun8i_vi_layer *layer;
+ 	unsigned int plane_cnt;
+ 	int ret;
+@@ -469,6 +470,22 @@ struct sun8i_vi_layer *sun8i_vi_layer_init_one(struct drm_device *drm,
+ 		return ERR_PTR(ret);
+ 	}
+ 
++	supported_encodings = BIT(DRM_COLOR_YCBCR_BT601) |
++			      BIT(DRM_COLOR_YCBCR_BT709);
++
++	supported_ranges = BIT(DRM_COLOR_YCBCR_LIMITED_RANGE) |
++			   BIT(DRM_COLOR_YCBCR_FULL_RANGE);
++
++	ret = drm_plane_create_color_properties(&layer->plane,
++						supported_encodings,
++						supported_ranges,
++						DRM_COLOR_YCBCR_BT709,
++						DRM_COLOR_YCBCR_LIMITED_RANGE);
++	if (ret) {
++		dev_err(drm->dev, "Couldn't add encoding and range properties!\n");
++		return ERR_PTR(ret);
++	}
++
+ 	drm_plane_helper_add(&layer->plane, &sun8i_vi_layer_helper_funcs);
+ 	layer->mixer = mixer;
+ 	layer->channel = index;
+-- 
+2.22.0
+
+
+From 0067d439358510393ac42d454a2c9efee2546cd9 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Thu, 27 Jun 2019 19:33:54 +0200
+Subject: [PATCH 2/4] drm/sun4i: sun8i_csc: Simplify register writes
+
+It turns out addition of 0x200 to constant parts (+0.5) is not really
+necessary. Besides, we can consider that before and fix value in CSC
+matrix.
+
+This simplifies register writes quiet a bit.
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+---
+ drivers/gpu/drm/sun4i/sun8i_csc.c | 11 +++--------
+ 1 file changed, 3 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/sun4i/sun8i_csc.c b/drivers/gpu/drm/sun4i/sun8i_csc.c
+index b8c059f1a118..e07b7876d89b 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_csc.c
++++ b/drivers/gpu/drm/sun4i/sun8i_csc.c
+@@ -69,7 +69,7 @@ static void sun8i_csc_set_coefficients(struct regmap *map, u32 base,
+ 				       enum sun8i_csc_mode mode)
+ {
+ 	const u32 *table;
+-	int i, data;
++	u32 base_reg;
+ 
+ 	switch (mode) {
+ 	case SUN8I_CSC_MODE_YUV2RGB:
+@@ -83,13 +83,8 @@ static void sun8i_csc_set_coefficients(struct regmap *map, u32 base,
+ 		return;
+ 	}
+ 
+-	for (i = 0; i < 12; i++) {
+-		data = table[i];
+-		/* For some reason, 0x200 must be added to constant parts */
+-		if (((i + 1) & 3) == 0)
+-			data += 0x200;
+-		regmap_write(map, SUN8I_CSC_COEFF(base, i), data);
+-	}
++	base_reg = SUN8I_CSC_COEFF(base, 0);
++	regmap_bulk_write(map, base_reg, table, 12);
+ }
+ 
+ static void sun8i_de3_ccsc_set_coefficients(struct regmap *map, int layer,
+-- 
+2.22.0
+
+
+From b0533429bd778930fa71683f9f8b241895b9e239 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Thu, 27 Jun 2019 19:21:16 +0200
+Subject: [PATCH 3/4] drm/sun4i: sun8i-csc: Add support for color encoding and
+ range
+
+Conversion from YUV to RGB depends on range (limited or full) and
+encoding (BT.601 or BT.709). Current code doesn't consider this and
+always uses BT.601 encoding and limited range.
+
+Fix this by introducing new CSC matrices, which are selected based on
+range and encoding parameters.
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+---
+ drivers/gpu/drm/sun4i/sun8i_csc.c      | 144 ++++++++++++++++++++-----
+ drivers/gpu/drm/sun4i/sun8i_csc.h      |   6 +-
+ drivers/gpu/drm/sun4i/sun8i_vi_layer.c |   4 +-
+ 3 files changed, 126 insertions(+), 28 deletions(-)
+
+diff --git a/drivers/gpu/drm/sun4i/sun8i_csc.c b/drivers/gpu/drm/sun4i/sun8i_csc.c
+index e07b7876d89b..70c792d052fe 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_csc.c
++++ b/drivers/gpu/drm/sun4i/sun8i_csc.c
+@@ -18,16 +18,59 @@ static const u32 ccsc_base[2][2] = {
+  * First tree values in each line are multiplication factor and last
+  * value is constant, which is added at the end.
+  */
+-static const u32 yuv2rgb[] = {
+-	0x000004A8, 0x00000000, 0x00000662, 0xFFFC845A,
+-	0x000004A8, 0xFFFFFE6F, 0xFFFFFCBF, 0x00021DF4,
+-	0x000004A8, 0x00000813, 0x00000000, 0xFFFBAC4A,
++
++static const u32 yuv2rgb[2][2][12] = {
++	[DRM_COLOR_YCBCR_LIMITED_RANGE] = {
++		[DRM_COLOR_YCBCR_BT601] = {
++			0x000004A8, 0x00000000, 0x00000662, 0xFFFC8451,
++			0x000004A8, 0xFFFFFE6F, 0xFFFFFCC0, 0x00021E4D,
++			0x000004A8, 0x00000811, 0x00000000, 0xFFFBACA9,
++		},
++		[DRM_COLOR_YCBCR_BT709] = {
++			0x000004A8, 0x00000000, 0x0000072B, 0xFFFC1F99,
++			0x000004A8, 0xFFFFFF26, 0xFFFFFDDF, 0x00013383,
++			0x000004A8, 0x00000873, 0x00000000, 0xFFFB7BEF,
++		}
++	},
++	[DRM_COLOR_YCBCR_FULL_RANGE] = {
++		[DRM_COLOR_YCBCR_BT601] = {
++			0x00000400, 0x00000000, 0x0000059B, 0xFFFD322E,
++			0x00000400, 0xFFFFFEA0, 0xFFFFFD25, 0x00021DD5,
++			0x00000400, 0x00000716, 0x00000000, 0xFFFC74BD,
++		},
++		[DRM_COLOR_YCBCR_BT709] = {
++			0x00000400, 0x00000000, 0x0000064C, 0xFFFCD9B4,
++			0x00000400, 0xFFFFFF41, 0xFFFFFE21, 0x00014F96,
++			0x00000400, 0x0000076C, 0x00000000, 0xFFFC49EF,
++		}
++	},
+ };
+ 
+-static const u32 yvu2rgb[] = {
+-	0x000004A8, 0x00000662, 0x00000000, 0xFFFC845A,
+-	0x000004A8, 0xFFFFFCBF, 0xFFFFFE6F, 0x00021DF4,
+-	0x000004A8, 0x00000000, 0x00000813, 0xFFFBAC4A,
++static const u32 yvu2rgb[2][2][12] = {
++	[DRM_COLOR_YCBCR_LIMITED_RANGE] = {
++		[DRM_COLOR_YCBCR_BT601] = {
++			0x000004A8, 0x00000662, 0x00000000, 0xFFFC8451,
++			0x000004A8, 0xFFFFFCC0, 0xFFFFFE6F, 0x00021E4D,
++			0x000004A8, 0x00000000, 0x00000811, 0xFFFBACA9,
++		},
++		[DRM_COLOR_YCBCR_BT709] = {
++			0x000004A8, 0x0000072B, 0x00000000, 0xFFFC1F99,
++			0x000004A8, 0xFFFFFDDF, 0xFFFFFF26, 0x00013383,
++			0x000004A8, 0x00000000, 0x00000873, 0xFFFB7BEF,
++		}
++	},
++	[DRM_COLOR_YCBCR_FULL_RANGE] = {
++		[DRM_COLOR_YCBCR_BT601] = {
++			0x00000400, 0x0000059B, 0x00000000, 0xFFFD322E,
++			0x00000400, 0xFFFFFD25, 0xFFFFFEA0, 0x00021DD5,
++			0x00000400, 0x00000000, 0x00000716, 0xFFFC74BD,
++		},
++		[DRM_COLOR_YCBCR_BT709] = {
++			0x00000400, 0x0000064C, 0x00000000, 0xFFFCD9B4,
++			0x00000400, 0xFFFFFE21, 0xFFFFFF41, 0x00014F96,
++			0x00000400, 0x00000000, 0x0000076C, 0xFFFC49EF,
++		}
++	},
+ };
+ 
+ /*
+@@ -53,30 +96,74 @@ static const u32 yvu2rgb[] = {
+  * c20 c21 c22 [d2 const2]
+  */
+ 
+-static const u32 yuv2rgb_de3[] = {
+-	0x0002542a, 0x00000000, 0x0003312a, 0xffc00000,
+-	0x0002542a, 0xffff376b, 0xfffe5fc3, 0xfe000000,
+-	0x0002542a, 0x000408d3, 0x00000000, 0xfe000000,
++static const u32 yuv2rgb_de3[2][2][12] = {
++	[DRM_COLOR_YCBCR_LIMITED_RANGE] = {
++		[DRM_COLOR_YCBCR_BT601] = {
++			0x0002542A, 0x00000000, 0x0003312A, 0xFFC00000,
++			0x0002542A, 0xFFFF376B, 0xFFFE5FC3, 0xFE000000,
++			0x0002542A, 0x000408D2, 0x00000000, 0xFE000000,
++		},
++		[DRM_COLOR_YCBCR_BT709] = {
++			0x0002542A, 0x00000000, 0x000395E2, 0xFFC00000,
++			0x0002542A, 0xFFFF92D2, 0xFFFEEF27, 0xFE000000,
++			0x0002542A, 0x0004398C, 0x00000000, 0xFE000000,
++		}
++	},
++	[DRM_COLOR_YCBCR_FULL_RANGE] = {
++		[DRM_COLOR_YCBCR_BT601] = {
++			0x00020000, 0x00000000, 0x0002CDD2, 0x00000000,
++			0x00020000, 0xFFFF4FCE, 0xFFFE925D, 0xFE000000,
++			0x00020000, 0x00038B43, 0x00000000, 0xFE000000,
++		},
++		[DRM_COLOR_YCBCR_BT709] = {
++			0x00020000, 0x00000000, 0x0003264C, 0x00000000,
++			0x00020000, 0xFFFFA018, 0xFFFF1053, 0xFE000000,
++			0x00020000, 0x0003B611, 0x00000000, 0xFE000000,
++		}
++	},
+ };
+ 
+-static const u32 yvu2rgb_de3[] = {
+-	0x0002542a, 0x0003312a, 0x00000000, 0xffc00000,
+-	0x0002542a, 0xfffe5fc3, 0xffff376b, 0xfe000000,
+-	0x0002542a, 0x00000000, 0x000408d3, 0xfe000000,
++static const u32 yvu2rgb_de3[2][2][12] = {
++	[DRM_COLOR_YCBCR_LIMITED_RANGE] = {
++		[DRM_COLOR_YCBCR_BT601] = {
++			0x0002542A, 0x0003312A, 0x00000000, 0xFFC00000,
++			0x0002542A, 0xFFFE5FC3, 0xFFFF376B, 0xFE000000,
++			0x0002542A, 0x00000000, 0x000408D2, 0xFE000000,
++		},
++		[DRM_COLOR_YCBCR_BT709] = {
++			0x0002542A, 0x000395E2, 0x00000000, 0xFFC00000,
++			0x0002542A, 0xFFFEEF27, 0xFFFF92D2, 0xFE000000,
++			0x0002542A, 0x00000000, 0x0004398C, 0xFE000000,
++		}
++	},
++	[DRM_COLOR_YCBCR_FULL_RANGE] = {
++		[DRM_COLOR_YCBCR_BT601] = {
++			0x00020000, 0x0002CDD2, 0x00000000, 0x00000000,
++			0x00020000, 0xFFFE925D, 0xFFFF4FCE, 0xFE000000,
++			0x00020000, 0x00000000, 0x00038B43, 0xFE000000,
++		},
++		[DRM_COLOR_YCBCR_BT709] = {
++			0x00020000, 0x0003264C, 0x00000000, 0x00000000,
++			0x00020000, 0xFFFF1053, 0xFFFFA018, 0xFE000000,
++			0x00020000, 0x00000000, 0x0003B611, 0xFE000000,
++		}
++	},
+ };
+ 
+ static void sun8i_csc_set_coefficients(struct regmap *map, u32 base,
+-				       enum sun8i_csc_mode mode)
++				       enum sun8i_csc_mode mode,
++				       enum drm_color_encoding encoding,
++				       enum drm_color_range range)
+ {
+ 	const u32 *table;
+ 	u32 base_reg;
+ 
+ 	switch (mode) {
+ 	case SUN8I_CSC_MODE_YUV2RGB:
+-		table = yuv2rgb;
++		table = yuv2rgb[range][encoding];
+ 		break;
+ 	case SUN8I_CSC_MODE_YVU2RGB:
+-		table = yvu2rgb;
++		table = yvu2rgb[range][encoding];
+ 		break;
+ 	default:
+ 		DRM_WARN("Wrong CSC mode specified.\n");
+@@ -88,17 +175,19 @@ static void sun8i_csc_set_coefficients(struct regmap *map, u32 base,
+ }
+ 
+ static void sun8i_de3_ccsc_set_coefficients(struct regmap *map, int layer,
+-					    enum sun8i_csc_mode mode)
++					    enum sun8i_csc_mode mode,
++					    enum drm_color_encoding encoding,
++					    enum drm_color_range range)
+ {
+ 	const u32 *table;
+ 	u32 base_reg;
+ 
+ 	switch (mode) {
+ 	case SUN8I_CSC_MODE_YUV2RGB:
+-		table = yuv2rgb_de3;
++		table = yuv2rgb_de3[range][encoding];
+ 		break;
+ 	case SUN8I_CSC_MODE_YVU2RGB:
+-		table = yvu2rgb_de3;
++		table = yvu2rgb_de3[range][encoding];
+ 		break;
+ 	default:
+ 		DRM_WARN("Wrong CSC mode specified.\n");
+@@ -137,19 +226,22 @@ static void sun8i_de3_ccsc_enable(struct regmap *map, int layer, bool enable)
+ }
+ 
+ void sun8i_csc_set_ccsc_coefficients(struct sun8i_mixer *mixer, int layer,
+-				     enum sun8i_csc_mode mode)
++				     enum sun8i_csc_mode mode,
++				     enum drm_color_encoding encoding,
++				     enum drm_color_range range)
+ {
+ 	u32 base;
+ 
+ 	if (mixer->cfg->is_de3) {
+-		sun8i_de3_ccsc_set_coefficients(mixer->engine.regs,
+-						layer, mode);
++		sun8i_de3_ccsc_set_coefficients(mixer->engine.regs, layer,
++						mode, encoding, range);
+ 		return;
+ 	}
+ 
+ 	base = ccsc_base[mixer->cfg->ccsc][layer];
+ 
+-	sun8i_csc_set_coefficients(mixer->engine.regs, base, mode);
++	sun8i_csc_set_coefficients(mixer->engine.regs, base,
++				   mode, encoding, range);
+ }
+ 
+ void sun8i_csc_enable_ccsc(struct sun8i_mixer *mixer, int layer, bool enable)
+diff --git a/drivers/gpu/drm/sun4i/sun8i_csc.h b/drivers/gpu/drm/sun4i/sun8i_csc.h
+index dce4c444bcd6..f42441b1b14d 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_csc.h
++++ b/drivers/gpu/drm/sun4i/sun8i_csc.h
+@@ -6,6 +6,8 @@
+ #ifndef _SUN8I_CSC_H_
+ #define _SUN8I_CSC_H_
+ 
++#include <drm/drm_color_mgmt.h>
++
+ struct sun8i_mixer;
+ 
+ /* VI channel CSC units offsets */
+@@ -26,7 +28,9 @@ enum sun8i_csc_mode {
+ };
+ 
+ void sun8i_csc_set_ccsc_coefficients(struct sun8i_mixer *mixer, int layer,
+-				     enum sun8i_csc_mode mode);
++				     enum sun8i_csc_mode mode,
++				     enum drm_color_encoding encoding,
++				     enum drm_color_range range);
+ void sun8i_csc_enable_ccsc(struct sun8i_mixer *mixer, int layer, bool enable);
+ 
+ #endif
+diff --git a/drivers/gpu/drm/sun4i/sun8i_vi_layer.c b/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
+index 240a800217df..011924a75263 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
++++ b/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
+@@ -232,7 +232,9 @@ static int sun8i_vi_layer_update_formats(struct sun8i_mixer *mixer, int channel,
+ 			   SUN8I_MIXER_CHAN_VI_LAYER_ATTR_FBFMT_MASK, val);
+ 
+ 	if (fmt_info->csc != SUN8I_CSC_MODE_OFF) {
+-		sun8i_csc_set_ccsc_coefficients(mixer, channel, fmt_info->csc);
++		sun8i_csc_set_ccsc_coefficients(mixer, channel, fmt_info->csc,
++						state->color_encoding,
++						state->color_range);
+ 		sun8i_csc_enable_ccsc(mixer, channel, true);
+ 	} else {
+ 		sun8i_csc_enable_ccsc(mixer, channel, false);
+-- 
+2.22.0
+
+From: Ondrej Jirman <megous@megous.com>
+Subject: [PATCH v8 3/4] drm: sun4i: Add support for enabling DDC I2C bus to
+ sun8i_dw_hdmi glue
+Date: Tue,  6 Aug 2019 17:57:42 +0200
+Content-Type: text/plain; charset="us-ascii"
+
+Orange Pi 3 board requires enabling a voltage shifting circuit via GPIO
+for the DDC bus to be usable.
+
+Add support for hdmi-connector node's optional ddc-en-gpios property to
+support this use case.
+
+Signed-off-by: Ondrej Jirman <megous@megous.com>
+Reviewed-by: Jernej Skrabec <jernej.skrabec@siol.net>
+---
+ drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c | 54 +++++++++++++++++++++++++--
+ drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h |  2 +
+ 2 files changed, 52 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c b/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c
+index 8ca5af0c912f..a44dca4b0219 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c
++++ b/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c
+@@ -97,10 +97,34 @@ static u32 sun8i_dw_hdmi_find_possible_crtcs(struct drm_device *drm,
+ 	return crtcs;
+ }
+ 
++static int sun8i_dw_hdmi_find_connector_pdev(struct device *dev,
++					     struct platform_device **pdev_out)
++{
++	struct platform_device *pdev;
++	struct device_node *remote;
++
++	remote = of_graph_get_remote_node(dev->of_node, 1, -1);
++	if (!remote)
++		return -ENODEV;
++
++	if (!of_device_is_compatible(remote, "hdmi-connector")) {
++		of_node_put(remote);
++		return -ENODEV;
++	}
++
++	pdev = of_find_device_by_node(remote);
++	of_node_put(remote);
++	if (!pdev)
++		return -ENODEV;
++
++	*pdev_out = pdev;
++	return 0;
++}
++
+ static int sun8i_dw_hdmi_bind(struct device *dev, struct device *master,
+ 			      void *data)
+ {
+-	struct platform_device *pdev = to_platform_device(dev);
++	struct platform_device *pdev = to_platform_device(dev), *connector_pdev;
+ 	struct dw_hdmi_plat_data *plat_data;
+ 	struct drm_device *drm = data;
+ 	struct device_node *phy_node;
+@@ -150,16 +174,30 @@ static int sun8i_dw_hdmi_bind(struct device *dev, struct device *master,
+ 		return PTR_ERR(hdmi->regulator);
+ 	}
+ 
++	ret = sun8i_dw_hdmi_find_connector_pdev(dev, &connector_pdev);
++	if (!ret) {
++		hdmi->ddc_en = gpiod_get_optional(&connector_pdev->dev,
++						  "ddc-en", GPIOD_OUT_HIGH);
++		platform_device_put(connector_pdev);
++
++		if (IS_ERR(hdmi->ddc_en)) {
++			dev_err(dev, "Couldn't get ddc-en gpio\n");
++			return PTR_ERR(hdmi->ddc_en);
++		}
++	}
++
+ 	ret = regulator_enable(hdmi->regulator);
+ 	if (ret) {
+ 		dev_err(dev, "Failed to enable regulator\n");
+-		return ret;
++		goto err_unref_ddc_en;
+ 	}
+ 
++	gpiod_set_value(hdmi->ddc_en, 1);
++
+ 	ret = reset_control_deassert(hdmi->rst_ctrl);
+ 	if (ret) {
+ 		dev_err(dev, "Could not deassert ctrl reset control\n");
+-		goto err_disable_regulator;
++		goto err_disable_ddc_en;
+ 	}
+ 
+ 	ret = clk_prepare_enable(hdmi->clk_tmds);
+@@ -212,8 +250,12 @@ static int sun8i_dw_hdmi_bind(struct device *dev, struct device *master,
+ 	clk_disable_unprepare(hdmi->clk_tmds);
+ err_assert_ctrl_reset:
+ 	reset_control_assert(hdmi->rst_ctrl);
+-err_disable_regulator:
++err_disable_ddc_en:
++	gpiod_set_value(hdmi->ddc_en, 0);
+ 	regulator_disable(hdmi->regulator);
++err_unref_ddc_en:
++	if (hdmi->ddc_en)
++		gpiod_put(hdmi->ddc_en);
+ 
+ 	return ret;
+ }
+@@ -227,7 +269,11 @@ static void sun8i_dw_hdmi_unbind(struct device *dev, struct device *master,
+ 	sun8i_hdmi_phy_remove(hdmi);
+ 	clk_disable_unprepare(hdmi->clk_tmds);
+ 	reset_control_assert(hdmi->rst_ctrl);
++	gpiod_set_value(hdmi->ddc_en, 0);
+ 	regulator_disable(hdmi->regulator);
++
++	if (hdmi->ddc_en)
++		gpiod_put(hdmi->ddc_en);
+ }
+ 
+ static const struct component_ops sun8i_dw_hdmi_ops = {
+diff --git a/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h b/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h
+index 720c5aa8adc1..d707c9171824 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h
++++ b/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h
+@@ -9,6 +9,7 @@
+ #include <drm/bridge/dw_hdmi.h>
+ #include <drm/drm_encoder.h>
+ #include <linux/clk.h>
++#include <linux/gpio/consumer.h>
+ #include <linux/regmap.h>
+ #include <linux/regulator/consumer.h>
+ #include <linux/reset.h>
+@@ -190,6 +191,7 @@ struct sun8i_dw_hdmi {
+ 	struct regulator		*regulator;
+ 	const struct sun8i_dw_hdmi_quirks *quirks;
+ 	struct reset_control		*rst_ctrl;
++	struct gpio_desc		*ddc_en;
+ };
+ 
+ static inline struct sun8i_dw_hdmi *
+From: Ondrej Jirman <megous@megous.com>
+Subject: [PATCH v8 4/4] arm64: dts: allwinner: orange-pi-3: Enable HDMI output
+Date: Tue,  6 Aug 2019 17:57:43 +0200
+Content-Type: text/plain; charset="us-ascii"
+
+Orange Pi 3 has a DDC_CEC_EN signal connected to PH2, that enables the DDC
+I2C bus voltage shifter. Before EDID can be read, we need to pull PH2 high.
+This is realized by the ddc-en-gpios property.
+
+Signed-off-by: Ondrej Jirman <megous@megous.com>
+---
+ .../dts/allwinner/sun50i-h6-orangepi-3.dts    | 26 +++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi-3.dts b/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi-3.dts
+index 2c6807b74ff6..01bb1bafe284 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi-3.dts
++++ b/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi-3.dts
+@@ -22,6 +22,18 @@
+ 		stdout-path = "serial0:115200n8";
+ 	};
+ 
++	connector {
++		compatible = "hdmi-connector";
++		ddc-en-gpios = <&pio 7 2 GPIO_ACTIVE_HIGH>; /* PH2 */
++		type = "a";
++
++		port {
++			hdmi_con_in: endpoint {
++				remote-endpoint = <&hdmi_out_con>;
++			};
++		};
++	};
++
+ 	leds {
+ 		compatible = "gpio-leds";
+ 
+@@ -72,6 +84,10 @@
+ 	cpu-supply = <&reg_dcdca>;
+ };
+ 
++&de {
++	status = "okay";
++};
++
+ &ehci0 {
+ 	status = "okay";
+ };
+@@ -91,6 +107,16 @@
+ 	status = "okay";
+ };
+ 
++&hdmi {
++	status = "okay";
++};
++
++&hdmi_out {
++	hdmi_out_con: endpoint {
++		remote-endpoint = <&hdmi_con_in>;
++	};
++};
++
+ &mmc0 {
+ 	vmmc-supply = <&reg_cldo1>;
+ 	cd-gpios = <&pio 5 6 GPIO_ACTIVE_LOW>; /* PF6 */
+
+From 6b197cb5b4dc7be463599daeb28dfb8d24674746 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Cl=C3=A9ment=20P=C3=A9ron?= <peron.clem@gmail.com>
+Date: Fri, 7 Jun 2019 20:10:49 -0300
+Subject: [PATCH 1/3] media: rc: Introduce sunxi_ir_quirks
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This driver is used in various Allwinner SoC with different configuration.
+
+Introduce a quirks struct to know the fifo size and if a reset is required.
+
+Signed-off-by: Clément Péron <peron.clem@gmail.com>
+Acked-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Signed-off-by: Sean Young <sean@mess.org>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
+---
+ drivers/media/rc/sunxi-cir.c | 61 +++++++++++++++++++++++++++---------
+ 1 file changed, 47 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/media/rc/sunxi-cir.c b/drivers/media/rc/sunxi-cir.c
+index aa719d0ae6b0..29fe152fd9bc 100644
+--- a/drivers/media/rc/sunxi-cir.c
++++ b/drivers/media/rc/sunxi-cir.c
+@@ -72,6 +72,17 @@
+ /* Time after which device stops sending data in ms */
+ #define SUNXI_IR_TIMEOUT      120
+ 
++/**
++ * struct sunxi_ir_quirks - Differences between SoC variants.
++ *
++ * @has_reset: SoC needs reset deasserted.
++ * @fifo_size: size of the fifo.
++ */
++struct sunxi_ir_quirks {
++	bool		has_reset;
++	int		fifo_size;
++};
++
+ struct sunxi_ir {
+ 	spinlock_t      ir_lock;
+ 	struct rc_dev   *rc;
+@@ -134,6 +145,7 @@ static int sunxi_ir_probe(struct platform_device *pdev)
+ 
+ 	struct device *dev = &pdev->dev;
+ 	struct device_node *dn = dev->of_node;
++	const struct sunxi_ir_quirks *quirks;
+ 	struct resource *res;
+ 	struct sunxi_ir *ir;
+ 	u32 b_clk_freq = SUNXI_IR_BASE_CLK;
+@@ -142,12 +154,15 @@ static int sunxi_ir_probe(struct platform_device *pdev)
+ 	if (!ir)
+ 		return -ENOMEM;
+ 
++	quirks = of_device_get_match_data(&pdev->dev);
++	if (!quirks) {
++		dev_err(&pdev->dev, "Failed to determine the quirks to use\n");
++		return -ENODEV;
++	}
++
+ 	spin_lock_init(&ir->ir_lock);
+ 
+-	if (of_device_is_compatible(dn, "allwinner,sun5i-a13-ir"))
+-		ir->fifo_size = 64;
+-	else
+-		ir->fifo_size = 16;
++	ir->fifo_size = quirks->fifo_size;
+ 
+ 	/* Clock */
+ 	ir->apb_clk = devm_clk_get(dev, "apb");
+@@ -164,13 +179,15 @@ static int sunxi_ir_probe(struct platform_device *pdev)
+ 	/* Base clock frequency (optional) */
+ 	of_property_read_u32(dn, "clock-frequency", &b_clk_freq);
+ 
+-	/* Reset (optional) */
+-	ir->rst = devm_reset_control_get_optional_exclusive(dev, NULL);
+-	if (IS_ERR(ir->rst))
+-		return PTR_ERR(ir->rst);
+-	ret = reset_control_deassert(ir->rst);
+-	if (ret)
+-		return ret;
++	/* Reset */
++	if (quirks->has_reset) {
++		ir->rst = devm_reset_control_get_exclusive(dev, NULL);
++		if (IS_ERR(ir->rst))
++			return PTR_ERR(ir->rst);
++		ret = reset_control_deassert(ir->rst);
++		if (ret)
++			return ret;
++	}
+ 
+ 	ret = clk_set_rate(ir->clk, b_clk_freq);
+ 	if (ret) {
+@@ -306,10 +323,26 @@ static int sunxi_ir_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
++static const struct sunxi_ir_quirks sun4i_a10_ir_quirks = {
++	.has_reset = false,
++	.fifo_size = 16,
++};
++
++static const struct sunxi_ir_quirks sun5i_a13_ir_quirks = {
++	.has_reset = false,
++	.fifo_size = 64,
++};
++
+ static const struct of_device_id sunxi_ir_match[] = {
+-	{ .compatible = "allwinner,sun4i-a10-ir", },
+-	{ .compatible = "allwinner,sun5i-a13-ir", },
+-	{},
++	{
++		.compatible = "allwinner,sun4i-a10-ir",
++		.data = &sun4i_a10_ir_quirks,
++	},
++	{
++		.compatible = "allwinner,sun5i-a13-ir",
++		.data = &sun5i_a13_ir_quirks,
++	},
++	{}
+ };
+ MODULE_DEVICE_TABLE(of, sunxi_ir_match);
+ 
+-- 
+2.22.0
+
+
+From 87d0609801ebcdf18639bb30ec5ec9a380f15be8 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Cl=C3=A9ment=20P=C3=A9ron?= <peron.clem@gmail.com>
+Date: Fri, 7 Jun 2019 20:10:50 -0300
+Subject: [PATCH 2/3] media: rc: sunxi: Add A31 compatible
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Allwiner A31 has a different memory mapping so add the compatible
+we will need it later.
+
+Signed-off-by: Clément Péron <peron.clem@gmail.com>
+Acked-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Signed-off-by: Sean Young <sean@mess.org>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
+---
+ drivers/media/rc/sunxi-cir.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/drivers/media/rc/sunxi-cir.c b/drivers/media/rc/sunxi-cir.c
+index 29fe152fd9bc..e9b9c582f818 100644
+--- a/drivers/media/rc/sunxi-cir.c
++++ b/drivers/media/rc/sunxi-cir.c
+@@ -333,6 +333,11 @@ static const struct sunxi_ir_quirks sun5i_a13_ir_quirks = {
+ 	.fifo_size = 64,
+ };
+ 
++static const struct sunxi_ir_quirks sun6i_a31_ir_quirks = {
++	.has_reset = true,
++	.fifo_size = 64,
++};
++
+ static const struct of_device_id sunxi_ir_match[] = {
+ 	{
+ 		.compatible = "allwinner,sun4i-a10-ir",
+@@ -342,6 +347,10 @@ static const struct of_device_id sunxi_ir_match[] = {
+ 		.compatible = "allwinner,sun5i-a13-ir",
+ 		.data = &sun5i_a13_ir_quirks,
+ 	},
++	{
++		.compatible = "allwinner,sun6i-a31-ir",
++		.data = &sun6i_a31_ir_quirks,
++	},
+ 	{}
+ };
+ MODULE_DEVICE_TABLE(of, sunxi_ir_match);
+-- 
+2.22.0
+
+
+From b136d72cb89dc2bd11ba001c90cdc65b5f5a1034 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Cl=C3=A9ment=20P=C3=A9ron?= <peron.clem@gmail.com>
+Date: Fri, 7 Jun 2019 20:10:51 -0300
+Subject: [PATCH 3/3] media: rc: sunxi: Add RXSTA bits definition
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+We are using RXINT bits definition when looking at RXSTA register.
+
+These bits are equal but it's not really proper.
+
+Introduce the RXSTA bits and use them to have coherency.
+
+Signed-off-by: Clément Péron <peron.clem@gmail.com>
+Acked-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Signed-off-by: Sean Young <sean@mess.org>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
+---
+ drivers/media/rc/sunxi-cir.c | 18 ++++++++++++------
+ 1 file changed, 12 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/media/rc/sunxi-cir.c b/drivers/media/rc/sunxi-cir.c
+index e9b9c582f818..f91154c2f45c 100644
+--- a/drivers/media/rc/sunxi-cir.c
++++ b/drivers/media/rc/sunxi-cir.c
+@@ -39,11 +39,11 @@
+ 
+ /* Rx Interrupt Enable */
+ #define SUNXI_IR_RXINT_REG    0x2C
+-/* Rx FIFO Overflow */
++/* Rx FIFO Overflow Interrupt Enable */
+ #define REG_RXINT_ROI_EN		BIT(0)
+-/* Rx Packet End */
++/* Rx Packet End Interrupt Enable */
+ #define REG_RXINT_RPEI_EN		BIT(1)
+-/* Rx FIFO Data Available */
++/* Rx FIFO Data Available Interrupt Enable */
+ #define REG_RXINT_RAI_EN		BIT(4)
+ 
+ /* Rx FIFO available byte level */
+@@ -51,6 +51,12 @@
+ 
+ /* Rx Interrupt Status */
+ #define SUNXI_IR_RXSTA_REG    0x30
++/* Rx FIFO Overflow */
++#define REG_RXSTA_ROI			REG_RXINT_ROI_EN
++/* Rx Packet End */
++#define REG_RXSTA_RPE			REG_RXINT_RPEI_EN
++/* Rx FIFO Data Available */
++#define REG_RXSTA_RA			REG_RXINT_RAI_EN
+ /* RX FIFO Get Available Counter */
+ #define REG_RXSTA_GET_AC(val) (((val) >> 8) & (ir->fifo_size * 2 - 1))
+ /* Clear all interrupt status value */
+@@ -110,7 +116,7 @@ static irqreturn_t sunxi_ir_irq(int irqno, void *dev_id)
+ 	/* clean all pending statuses */
+ 	writel(status | REG_RXSTA_CLEARALL, ir->base + SUNXI_IR_RXSTA_REG);
+ 
+-	if (status & (REG_RXINT_RAI_EN | REG_RXINT_RPEI_EN)) {
++	if (status & (REG_RXSTA_RA | REG_RXSTA_RPE)) {
+ 		/* How many messages in fifo */
+ 		rc  = REG_RXSTA_GET_AC(status);
+ 		/* Sanity check */
+@@ -126,9 +132,9 @@ static irqreturn_t sunxi_ir_irq(int irqno, void *dev_id)
+ 		}
+ 	}
+ 
+-	if (status & REG_RXINT_ROI_EN) {
++	if (status & REG_RXSTA_ROI) {
+ 		ir_raw_event_reset(ir->rc);
+-	} else if (status & REG_RXINT_RPEI_EN) {
++	} else if (status & REG_RXSTA_RPE) {
+ 		ir_raw_event_set_idle(ir->rc, true);
+ 		ir_raw_event_handle(ir->rc);
+ 	}
+-- 
+2.22.0
+
+From 342d23a7dacf9c254c6b98b9b211e566820b7bad Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Cl=C3=A9ment=20P=C3=A9ron?= <peron.clem@gmail.com>
+Date: Sat, 8 Jun 2019 01:10:52 +0200
+Subject: [PATCH 1/6] ARM: dts: sunxi: Prefer A31 bindings for IR
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Since A31, memory mapping of the IR driver has changed.
+
+Prefer the A31 bindings instead of A13.
+
+Signed-off-by: Clément Péron <peron.clem@gmail.com>
+Acked-by: Sean Young <sean@mess.org>
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+---
+ arch/arm/boot/dts/sun6i-a31.dtsi  | 2 +-
+ arch/arm/boot/dts/sun8i-a83t.dtsi | 2 +-
+ arch/arm/boot/dts/sun9i-a80.dtsi  | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm/boot/dts/sun6i-a31.dtsi b/arch/arm/boot/dts/sun6i-a31.dtsi
+index dcddc3392460..9ddde111f675 100644
+--- a/arch/arm/boot/dts/sun6i-a31.dtsi
++++ b/arch/arm/boot/dts/sun6i-a31.dtsi
+@@ -1364,7 +1364,7 @@
+ 		};
+ 
+ 		ir: ir@1f02000 {
+-			compatible = "allwinner,sun5i-a13-ir";
++			compatible = "allwinner,sun6i-a31-ir";
+ 			clocks = <&apb0_gates 1>, <&ir_clk>;
+ 			clock-names = "apb", "ir";
+ 			resets = <&apb0_rst 1>;
+diff --git a/arch/arm/boot/dts/sun8i-a83t.dtsi b/arch/arm/boot/dts/sun8i-a83t.dtsi
+index 8de139521451..13bc83191899 100644
+--- a/arch/arm/boot/dts/sun8i-a83t.dtsi
++++ b/arch/arm/boot/dts/sun8i-a83t.dtsi
+@@ -1096,7 +1096,7 @@
+ 
+ 		r_cir: ir@1f02000 {
+ 			compatible = "allwinner,sun8i-a83t-ir",
+-				"allwinner,sun5i-a13-ir";
++				"allwinner,sun6i-a31-ir";
+ 			clocks = <&r_ccu CLK_APB0_IR>, <&r_ccu CLK_IR>;
+ 			clock-names = "apb", "ir";
+ 			resets = <&r_ccu RST_APB0_IR>;
+diff --git a/arch/arm/boot/dts/sun9i-a80.dtsi b/arch/arm/boot/dts/sun9i-a80.dtsi
+index 0c1eec9000e3..310cd972ee5b 100644
+--- a/arch/arm/boot/dts/sun9i-a80.dtsi
++++ b/arch/arm/boot/dts/sun9i-a80.dtsi
+@@ -1167,7 +1167,7 @@
+ 		};
+ 
+ 		r_ir: ir@8002000 {
+-			compatible = "allwinner,sun5i-a13-ir";
++			compatible = "allwinner,sun6i-a31-ir";
+ 			interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
+ 			pinctrl-names = "default";
+ 			pinctrl-0 = <&r_ir_pins>;
+-- 
+2.22.0
+
+
+From 8fa345e711bfdb69a18f548b717d5eb502b9892a Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Cl=C3=A9ment=20P=C3=A9ron?= <peron.clem@gmail.com>
+Date: Sat, 8 Jun 2019 01:10:53 +0200
+Subject: [PATCH 2/6] ARM: dts: sunxi: Prefer A31 bindings for IR
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Since A31, memory mapping of the IR driver has changed.
+
+Prefer the A31 bindings instead of A13.
+
+Signed-off-by: Clément Péron <peron.clem@gmail.com>
+Acked-by: Sean Young <sean@mess.org>
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+---
+ arch/arm/boot/dts/sunxi-h3-h5.dtsi | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/sunxi-h3-h5.dtsi b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
+index b4a6035ae9f5..97550a40b6e1 100644
+--- a/arch/arm/boot/dts/sunxi-h3-h5.dtsi
++++ b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
+@@ -822,7 +822,7 @@
+ 		};
+ 
+ 		ir: ir@1f02000 {
+-			compatible = "allwinner,sun5i-a13-ir";
++			compatible = "allwinner,sun6i-a31-ir";
+ 			clocks = <&r_ccu CLK_APB0_IR>, <&r_ccu CLK_IR>;
+ 			clock-names = "apb", "ir";
+ 			resets = <&r_ccu RST_APB0_IR>;
+-- 
+2.22.0
+
+
+From 44a4f416c8388449fc5f9263788857d449e2a65f Mon Sep 17 00:00:00 2001
+From: Igors Makejevs <git_bb@bwzone.com>
+Date: Sat, 8 Jun 2019 01:10:55 +0200
+Subject: [PATCH 3/6] arm64: dts: allwinner: a64: Add IR node
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+IR peripheral is completely compatible with A31 one.
+
+Signed-off-by: Igors Makejevs <git_bb@bwzone.com>
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+Signed-off-by: Clément Péron <peron.clem@gmail.com>
+Acked-by: Sean Young <sean@mess.org>
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+---
+ arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
+index aa9897f270ba..ddb6f11e89df 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
++++ b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
+@@ -1094,6 +1094,19 @@
+ 			#size-cells = <0>;
+ 		};
+ 
++		r_ir: ir@1f02000 {
++			compatible = "allwinner,sun50i-a64-ir",
++				     "allwinner,sun6i-a31-ir";
++			reg = <0x01f02000 0x400>;
++			clocks = <&r_ccu CLK_APB0_IR>, <&r_ccu CLK_IR>;
++			clock-names = "apb", "ir";
++			resets = <&r_ccu RST_APB0_IR>;
++			interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
++			pinctrl-names = "default";
++			pinctrl-0 = <&r_ir_rx_pin>;
++			status = "disabled";
++		};
++
+ 		r_pwm: pwm@1f03800 {
+ 			compatible = "allwinner,sun50i-a64-pwm",
+ 				     "allwinner,sun5i-a13-pwm";
+@@ -1121,6 +1134,11 @@
+ 				function = "s_i2c";
+ 			};
+ 
++			r_ir_rx_pin: r-ir-rx-pin {
++				pins = "PL11";
++				function = "s_cir_rx";
++			};
++
+ 			r_pwm_pin: r-pwm-pin {
+ 				pins = "PL10";
+ 				function = "s_pwm";
+-- 
+2.22.0
+
+
+From 63eb1e149576294717e3e5de48e902ca9d2f080d Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Sat, 8 Jun 2019 01:10:56 +0200
+Subject: [PATCH 4/6] arm64: dts: allwinner: a64: Enable IR on Orange Pi Win
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+OrangePi Win board contains IR receiver. Enable it.
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+Signed-off-by: Clément Péron <peron.clem@gmail.com>
+Acked-by: Sean Young <sean@mess.org>
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+---
+ arch/arm64/boot/dts/allwinner/sun50i-a64-orangepi-win.dts | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64-orangepi-win.dts b/arch/arm64/boot/dts/allwinner/sun50i-a64-orangepi-win.dts
+index 5ef3c62c765e..04446e4716c4 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-a64-orangepi-win.dts
++++ b/arch/arm64/boot/dts/allwinner/sun50i-a64-orangepi-win.dts
+@@ -190,6 +190,10 @@
+ 	status = "okay";
+ };
+ 
++&r_ir {
++	status = "okay";
++};
++
+ &r_rsb {
+ 	status = "okay";
+ 
+-- 
+2.22.0
+
+
+From 9267811aad3524c857cf2e16bbadd8c569e15ab9 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Cl=C3=A9ment=20P=C3=A9ron?= <peron.clem@gmail.com>
+Date: Sat, 8 Jun 2019 01:10:58 +0200
+Subject: [PATCH 5/6] arm64: dts: allwinner: h6: Add IR receiver node
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Allwinner H6 IR is similar to A31 and can use same driver.
+
+Add support for it.
+
+Signed-off-by: Clément Péron <peron.clem@gmail.com>
+Acked-by: Sean Young <sean@mess.org>
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+---
+ arch/arm64/boot/dts/allwinner/sun50i-h6.dtsi | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h6.dtsi b/arch/arm64/boot/dts/allwinner/sun50i-h6.dtsi
+index 35942bae0a34..e8bed58e7246 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-h6.dtsi
++++ b/arch/arm64/boot/dts/allwinner/sun50i-h6.dtsi
+@@ -675,6 +675,25 @@
+ 				pins = "PL0", "PL1";
+ 				function = "s_i2c";
+ 			};
++
++			r_ir_rx_pin: r-ir-rx-pin {
++				pins = "PL9";
++				function = "s_cir_rx";
++			};
++		};
++
++		r_ir: ir@7040000 {
++				compatible = "allwinner,sun50i-h6-ir",
++					     "allwinner,sun6i-a31-ir";
++				reg = <0x07040000 0x400>;
++				interrupts = <GIC_SPI 109 IRQ_TYPE_LEVEL_HIGH>;
++				clocks = <&r_ccu CLK_R_APB1_IR>,
++					 <&r_ccu CLK_IR>;
++				clock-names = "apb", "ir";
++				resets = <&r_ccu RST_R_APB1_IR>;
++				pinctrl-names = "default";
++				pinctrl-0 = <&r_ir_rx_pin>;
++				status = "disabled";
+ 		};
+ 
+ 		r_i2c: i2c@7081400 {
+-- 
+2.22.0
+
+
+From 86be740845e3811c4517de1a8a36121190155e22 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Cl=C3=A9ment=20P=C3=A9ron?= <peron.clem@gmail.com>
+Date: Sat, 8 Jun 2019 01:10:59 +0200
+Subject: [PATCH 6/6] arm64: dts: allwinner: h6: Enable IR on H6 boards
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Beelink GS1, OrangePi H6 boards and Pine H64 have an IR receiver.
+
+Enable it in their device-tree.
+
+Signed-off-by: Clément Péron <peron.clem@gmail.com>
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+---
+ arch/arm64/boot/dts/allwinner/sun50i-h6-beelink-gs1.dts | 4 ++++
+ arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi.dtsi   | 4 ++++
+ arch/arm64/boot/dts/allwinner/sun50i-h6-pine-h64.dts    | 4 ++++
+ 3 files changed, 12 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h6-beelink-gs1.dts b/arch/arm64/boot/dts/allwinner/sun50i-h6-beelink-gs1.dts
+index 0dc33c90dd60..680dc29cb089 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-h6-beelink-gs1.dts
++++ b/arch/arm64/boot/dts/allwinner/sun50i-h6-beelink-gs1.dts
+@@ -232,6 +232,10 @@
+ 	};
+ };
+ 
++&r_ir {
++	status = "okay";
++};
++
+ &r_pio {
+ 	/*
+ 	 * PL0 and PL1 are used for PMIC I2C
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi.dtsi b/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi.dtsi
+index 62e27948a3fa..ec9b6a578e3f 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi.dtsi
++++ b/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi.dtsi
+@@ -189,6 +189,10 @@
+ 	};
+ };
+ 
++&r_ir {
++	status = "okay";
++};
++
+ &uart0 {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&uart0_ph_pins>;
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h6-pine-h64.dts b/arch/arm64/boot/dts/allwinner/sun50i-h6-pine-h64.dts
+index 189834518391..30102daf83cc 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-h6-pine-h64.dts
++++ b/arch/arm64/boot/dts/allwinner/sun50i-h6-pine-h64.dts
+@@ -255,6 +255,10 @@
+ 	};
+ };
+ 
++&r_ir {
++	status = "okay";
++};
++
+ &r_pio {
+ 	vcc-pm-supply = <&reg_aldo1>;
+ };
+-- 
+2.22.0
+
+From fdbdcc83ffd7d00265a531e71f1d166566c09d66 Mon Sep 17 00:00:00 2001
+From: Neil Armstrong <narmstrong@baylibre.com>
+Date: Wed, 12 Jun 2019 10:51:47 +0200
+Subject: [PATCH] drm/bridge: dw-hdmi: Use automatic CTS generation mode when
+ using non-AHB audio
+
+When using an I2S source using a different clock source (usually the I2S
+audio HW uses dedicated PLLs, different from the HDMI PHY PLL), fixed
+CTS values will cause some frequent audio drop-out and glitches as
+reported on Amlogic, Allwinner and Rockchip SoCs setups.
+
+Setting the CTS in automatic mode will let the HDMI controller generate
+automatically the CTS value to match the input audio clock.
+
+The DesignWare DW-HDMI User Guide explains:
+  For Automatic CTS generation
+  Write "0" on the bit field "CTS_manual", Register 0x3205: AUD_CTS3
+
+The DesignWare DW-HDMI Databook explains :
+  If "CTS_manual" bit equals 0b this registers contains "audCTS[19:0]"
+  generated by the Cycle time counter according to specified timing.
+
+Cc: Jernej Skrabec <jernej.skrabec@siol.net>
+Cc: Maxime Ripard <maxime.ripard@bootlin.com>
+Cc: Jonas Karlman <jonas@kwiboo.se>
+Cc: Heiko Stuebner <heiko@sntech.de>
+Cc: Jerome Brunet <jbrunet@baylibre.com>
+Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+Tested-by: Jernej Skrabec <jernej.skrabec@siol.net>
+Reviewed-by: Jernej Skrabec <jernej.skrabec@siol.net>
+Tested-by: Douglas Anderson <dianders@chromium.org>
+Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20190612085147.26971-1-narmstrong@baylibre.com
+---
+ drivers/gpu/drm/bridge/synopsys/dw-hdmi.c | 45 +++++++++++++++--------
+ 1 file changed, 30 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
+index c6490949d9db..218a7b2308f7 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
+@@ -508,8 +508,14 @@ static void hdmi_set_cts_n(struct dw_hdmi *hdmi, unsigned int cts,
+ 	/* nshift factor = 0 */
+ 	hdmi_modb(hdmi, 0, HDMI_AUD_CTS3_N_SHIFT_MASK, HDMI_AUD_CTS3);
+ 
+-	hdmi_writeb(hdmi, ((cts >> 16) & HDMI_AUD_CTS3_AUDCTS19_16_MASK) |
+-		    HDMI_AUD_CTS3_CTS_MANUAL, HDMI_AUD_CTS3);
++	/* Use automatic CTS generation mode when CTS is not set */
++	if (cts)
++		hdmi_writeb(hdmi, ((cts >> 16) &
++				   HDMI_AUD_CTS3_AUDCTS19_16_MASK) |
++				  HDMI_AUD_CTS3_CTS_MANUAL,
++			    HDMI_AUD_CTS3);
++	else
++		hdmi_writeb(hdmi, 0, HDMI_AUD_CTS3);
+ 	hdmi_writeb(hdmi, (cts >> 8) & 0xff, HDMI_AUD_CTS2);
+ 	hdmi_writeb(hdmi, cts & 0xff, HDMI_AUD_CTS1);
+ 
+@@ -579,24 +585,33 @@ static void hdmi_set_clk_regenerator(struct dw_hdmi *hdmi,
+ {
+ 	unsigned long ftdms = pixel_clk;
+ 	unsigned int n, cts;
++	u8 config3;
+ 	u64 tmp;
+ 
+ 	n = hdmi_compute_n(sample_rate, pixel_clk);
+ 
+-	/*
+-	 * Compute the CTS value from the N value.  Note that CTS and N
+-	 * can be up to 20 bits in total, so we need 64-bit math.  Also
+-	 * note that our TDMS clock is not fully accurate; it is accurate
+-	 * to kHz.  This can introduce an unnecessary remainder in the
+-	 * calculation below, so we don't try to warn about that.
+-	 */
+-	tmp = (u64)ftdms * n;
+-	do_div(tmp, 128 * sample_rate);
+-	cts = tmp;
++	config3 = hdmi_readb(hdmi, HDMI_CONFIG3_ID);
+ 
+-	dev_dbg(hdmi->dev, "%s: fs=%uHz ftdms=%lu.%03luMHz N=%d cts=%d\n",
+-		__func__, sample_rate, ftdms / 1000000, (ftdms / 1000) % 1000,
+-		n, cts);
++	/* Only compute CTS when using internal AHB audio */
++	if (config3 & HDMI_CONFIG3_AHBAUDDMA) {
++		/*
++		 * Compute the CTS value from the N value.  Note that CTS and N
++		 * can be up to 20 bits in total, so we need 64-bit math.  Also
++		 * note that our TDMS clock is not fully accurate; it is
++		 * accurate to kHz.  This can introduce an unnecessary remainder
++		 * in the calculation below, so we don't try to warn about that.
++		 */
++		tmp = (u64)ftdms * n;
++		do_div(tmp, 128 * sample_rate);
++		cts = tmp;
++
++		dev_dbg(hdmi->dev, "%s: fs=%uHz ftdms=%lu.%03luMHz N=%d cts=%d\n",
++			__func__, sample_rate,
++			ftdms / 1000000, (ftdms / 1000) % 1000,
++			n, cts);
++	} else {
++		cts = 0;
++	}
+ 
+ 	spin_lock_irq(&hdmi->audio_lock);
+ 	hdmi->audio_n = n;
+-- 
+2.23.0
+
+From 65818ad0815f3a2ba6a41327cce8b600ee04be32 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Wed, 14 Aug 2019 08:08:48 +0200
+Subject: [PATCH] clk: sunxi-ng: h6: Allow I2S to change parent rate
+
+I2S doesn't work if parent rate couldn't be change. Difference between
+wanted and actual rate is too big.
+
+Fix this by adding CLK_SET_RATE_PARENT flag to I2S clocks.
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+Signed-off-by: Marcus Cooper <codekipper@gmail.com>
+Signed-off-by: Chen-Yu Tsai <wens@csie.org>
+---
+ drivers/clk/sunxi-ng/ccu-sun50i-h6.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/clk/sunxi-ng/ccu-sun50i-h6.c b/drivers/clk/sunxi-ng/ccu-sun50i-h6.c
+index aebef4af9861..d89353a3cdec 100644
+--- a/drivers/clk/sunxi-ng/ccu-sun50i-h6.c
++++ b/drivers/clk/sunxi-ng/ccu-sun50i-h6.c
+@@ -505,7 +505,7 @@ static struct ccu_div i2s3_clk = {
+ 		.hw.init	= CLK_HW_INIT_PARENTS("i2s3",
+ 						      audio_parents,
+ 						      &ccu_div_ops,
+-						      0),
++						      CLK_SET_RATE_PARENT),
+ 	},
+ };
+ 
+@@ -518,7 +518,7 @@ static struct ccu_div i2s0_clk = {
+ 		.hw.init	= CLK_HW_INIT_PARENTS("i2s0",
+ 						      audio_parents,
+ 						      &ccu_div_ops,
+-						      0),
++						      CLK_SET_RATE_PARENT),
+ 	},
+ };
+ 
+@@ -531,7 +531,7 @@ static struct ccu_div i2s1_clk = {
+ 		.hw.init	= CLK_HW_INIT_PARENTS("i2s1",
+ 						      audio_parents,
+ 						      &ccu_div_ops,
+-						      0),
++						      CLK_SET_RATE_PARENT),
+ 	},
+ };
+ 
+@@ -544,7 +544,7 @@ static struct ccu_div i2s2_clk = {
+ 		.hw.init	= CLK_HW_INIT_PARENTS("i2s2",
+ 						      audio_parents,
+ 						      &ccu_div_ops,
+-						      0),
++						      CLK_SET_RATE_PARENT),
+ 	},
+ };
+ 
+-- 
+2.23.0
+
+From f46f408c152ac925e56c0f38138ae49ba16bbc23 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Cl=C3=A9ment=20P=C3=A9ron?= <peron.clem@gmail.com>
+Date: Mon, 12 Aug 2019 12:23:55 +0200
+Subject: [PATCH] arm64: dts: allwinner: Enable DDC regulator for Beelink GS1
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Beelink GS1 has a DDC I2C bus voltage shifter. This is actually missing
+and video is limited to 1024x768 due to missing EDID information.
+
+Add the DDC regulator in the device-tree.
+
+Signed-off-by: Clément Péron <peron.clem@gmail.com>
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+---
+ arch/arm64/boot/dts/allwinner/sun50i-h6-beelink-gs1.dts | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h6-beelink-gs1.dts b/arch/arm64/boot/dts/allwinner/sun50i-h6-beelink-gs1.dts
+index 675c602b0e33..1d05d570142f 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-h6-beelink-gs1.dts
++++ b/arch/arm64/boot/dts/allwinner/sun50i-h6-beelink-gs1.dts
+@@ -25,6 +25,7 @@
+ 	connector {
+ 		compatible = "hdmi-connector";
+ 		type = "a";
++		ddc-en-gpios = <&pio 7 2 GPIO_ACTIVE_HIGH>; /* PH2 */
+ 
+ 		port {
+ 			hdmi_con_in: endpoint {
+-- 
+2.23.0
+
+From d4cbdbc0f88bc4aa3643063f391559868886d315 Mon Sep 17 00:00:00 2001
+From: Ondrej Jirman <megous@megous.com>
+Date: Tue, 20 Aug 2019 17:19:33 +0200
+Subject: [PATCH] rtc: sun6i: Add support for H6 RTC
+
+RTC on H6 is mostly the same as on H5 and H3. It has slight differences
+mostly in features that are not yet supported by this driver.
+
+Some differences are already stated in the comments in existing code.
+One other difference is that H6 has extra bit in LOSC_CTRL_REG, called
+EXT_LOSC_EN to enable/disable external low speed crystal oscillator.
+
+It also has bit EXT_LOSC_STA in LOSC_AUTO_SWT_STA_REG, to check whether
+external low speed oscillator is working correctly.
+
+This patch adds support for enabling LOSC when necessary:
+
+- during reparenting
+- when probing the clock
+
+H6 also has capacbility to automatically reparent RTC clock from
+external crystal oscillator, to internal RC oscillator, if external
+oscillator fails. This is enabled by default. Disable it during
+probe.
+
+Signed-off-by: Ondrej Jirman <megous@megous.com>
+Reviewed-by: Chen-Yu Tsai <wens@csie.org>
+Link: https://lore.kernel.org/r/20190820151934.3860-3-megous@megous.com
+Signed-off-by: Alexandre Belloni <alexandre.belloni@bootlin.com>
+---
+ drivers/rtc/rtc-sun6i.c | 40 ++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 38 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/rtc/rtc-sun6i.c b/drivers/rtc/rtc-sun6i.c
+index dbd676db431e..956c0846201f 100644
+--- a/drivers/rtc/rtc-sun6i.c
++++ b/drivers/rtc/rtc-sun6i.c
+@@ -32,9 +32,11 @@
+ /* Control register */
+ #define SUN6I_LOSC_CTRL				0x0000
+ #define SUN6I_LOSC_CTRL_KEY			(0x16aa << 16)
++#define SUN6I_LOSC_CTRL_AUTO_SWT_BYPASS		BIT(15)
+ #define SUN6I_LOSC_CTRL_ALM_DHMS_ACC		BIT(9)
+ #define SUN6I_LOSC_CTRL_RTC_HMS_ACC		BIT(8)
+ #define SUN6I_LOSC_CTRL_RTC_YMD_ACC		BIT(7)
++#define SUN6I_LOSC_CTRL_EXT_LOSC_EN		BIT(4)
+ #define SUN6I_LOSC_CTRL_EXT_OSC			BIT(0)
+ #define SUN6I_LOSC_CTRL_ACC_MASK		GENMASK(9, 7)
+ 
+@@ -128,6 +130,8 @@ struct sun6i_rtc_clk_data {
+ 	unsigned int has_prescaler : 1;
+ 	unsigned int has_out_clk : 1;
+ 	unsigned int export_iosc : 1;
++	unsigned int has_losc_en : 1;
++	unsigned int has_auto_swt : 1;
+ };
+ 
+ struct sun6i_rtc_dev {
+@@ -190,6 +194,10 @@ static int sun6i_rtc_osc_set_parent(struct clk_hw *hw, u8 index)
+ 	val &= ~SUN6I_LOSC_CTRL_EXT_OSC;
+ 	val |= SUN6I_LOSC_CTRL_KEY;
+ 	val |= index ? SUN6I_LOSC_CTRL_EXT_OSC : 0;
++	if (rtc->data->has_losc_en) {
++		val &= ~SUN6I_LOSC_CTRL_EXT_LOSC_EN;
++		val |= index ? SUN6I_LOSC_CTRL_EXT_LOSC_EN : 0;
++	}
+ 	writel(val, rtc->base + SUN6I_LOSC_CTRL);
+ 	spin_unlock_irqrestore(&rtc->lock, flags);
+ 
+@@ -215,6 +223,7 @@ static void __init sun6i_rtc_clk_init(struct device_node *node,
+ 	const char *iosc_name = "rtc-int-osc";
+ 	const char *clkout_name = "osc32k-out";
+ 	const char *parents[2];
++	u32 reg;
+ 
+ 	rtc = kzalloc(sizeof(*rtc), GFP_KERNEL);
+ 	if (!rtc)
+@@ -235,9 +244,18 @@ static void __init sun6i_rtc_clk_init(struct device_node *node,
+ 		goto err;
+ 	}
+ 
++	reg = SUN6I_LOSC_CTRL_KEY;
++	if (rtc->data->has_auto_swt) {
++		/* Bypass auto-switch to int osc, on ext losc failure */
++		reg |= SUN6I_LOSC_CTRL_AUTO_SWT_BYPASS;
++		writel(reg, rtc->base + SUN6I_LOSC_CTRL);
++	}
++
+ 	/* Switch to the external, more precise, oscillator */
+-	writel(SUN6I_LOSC_CTRL_KEY | SUN6I_LOSC_CTRL_EXT_OSC,
+-	       rtc->base + SUN6I_LOSC_CTRL);
++	reg |= SUN6I_LOSC_CTRL_EXT_OSC;
++	if (rtc->data->has_losc_en)
++		reg |= SUN6I_LOSC_CTRL_EXT_LOSC_EN;
++	writel(reg, rtc->base + SUN6I_LOSC_CTRL);
+ 
+ 	/* Yes, I know, this is ugly. */
+ 	sun6i_rtc = rtc;
+@@ -345,6 +363,23 @@ CLK_OF_DECLARE_DRIVER(sun8i_h3_rtc_clk, "allwinner,sun8i-h3-rtc",
+ CLK_OF_DECLARE_DRIVER(sun50i_h5_rtc_clk, "allwinner,sun50i-h5-rtc",
+ 		      sun8i_h3_rtc_clk_init);
+ 
++static const struct sun6i_rtc_clk_data sun50i_h6_rtc_data = {
++	.rc_osc_rate = 16000000,
++	.fixed_prescaler = 32,
++	.has_prescaler = 1,
++	.has_out_clk = 1,
++	.export_iosc = 1,
++	.has_losc_en = 1,
++	.has_auto_swt = 1,
++};
++
++static void __init sun50i_h6_rtc_clk_init(struct device_node *node)
++{
++	sun6i_rtc_clk_init(node, &sun50i_h6_rtc_data);
++}
++CLK_OF_DECLARE_DRIVER(sun50i_h6_rtc_clk, "allwinner,sun50i-h6-rtc",
++		      sun50i_h6_rtc_clk_init);
++
+ static const struct sun6i_rtc_clk_data sun8i_v3_rtc_data = {
+ 	.rc_osc_rate = 32000,
+ 	.has_out_clk = 1,
+@@ -673,6 +708,7 @@ static const struct of_device_id sun6i_rtc_dt_ids[] = {
+ 	{ .compatible = "allwinner,sun8i-r40-rtc" },
+ 	{ .compatible = "allwinner,sun8i-v3-rtc" },
+ 	{ .compatible = "allwinner,sun50i-h5-rtc" },
++	{ .compatible = "allwinner,sun50i-h6-rtc" },
+ 	{ /* sentinel */ },
+ };
+ MODULE_DEVICE_TABLE(of, sun6i_rtc_dt_ids);
+-- 
+2.23.0
+
+From 4cdc12a3ef424361f81bb30a34a3148b03df640c Mon Sep 17 00:00:00 2001
+From: Ondrej Jirman <megous@megous.com>
+Date: Tue, 20 Aug 2019 17:19:34 +0200
+Subject: [PATCH] arm64: dts: allwinner: h6: Add support for RTC and fix the
+ clock tree
+
+This patch adds RTC node and fixes the clock properties and nodes
+to reflect the real clock tree.
+
+The device nodes for the internal oscillator and osc32k are removed,
+as these clocks are now provided by the RTC device. Clock references
+are fixed accordingly, too.
+
+Signed-off-by: Ondrej Jirman <megous@megous.com>
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+---
+ arch/arm64/boot/dts/allwinner/sun50i-h6.dtsi | 30 +++++++++++---------
+ 1 file changed, 16 insertions(+), 14 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h6.dtsi b/arch/arm64/boot/dts/allwinner/sun50i-h6.dtsi
+index 67b732e34091..67f920e0fc33 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-h6.dtsi
++++ b/arch/arm64/boot/dts/allwinner/sun50i-h6.dtsi
+@@ -56,14 +56,6 @@
+ 		status = "disabled";
+ 	};
+ 
+-	iosc: internal-osc-clk {
+-		#clock-cells = <0>;
+-		compatible = "fixed-clock";
+-		clock-frequency = <16000000>;
+-		clock-accuracy = <300000000>;
+-		clock-output-names = "iosc";
+-	};
+-
+ 	osc24M: osc24M_clk {
+ 		#clock-cells = <0>;
+ 		compatible = "fixed-clock";
+@@ -71,11 +63,11 @@
+ 		clock-output-names = "osc24M";
+ 	};
+ 
+-	osc32k: osc32k_clk {
++	ext_osc32k: ext_osc32k_clk {
+ 		#clock-cells = <0>;
+ 		compatible = "fixed-clock";
+ 		clock-frequency = <32768>;
+-		clock-output-names = "osc32k";
++		clock-output-names = "ext_osc32k";
+ 	};
+ 
+ 	psci {
+@@ -197,7 +189,7 @@
+ 		ccu: clock@3001000 {
+ 			compatible = "allwinner,sun50i-h6-ccu";
+ 			reg = <0x03001000 0x1000>;
+-			clocks = <&osc24M>, <&osc32k>, <&iosc>;
++			clocks = <&osc24M>, <&rtc 0>, <&rtc 2>;
+ 			clock-names = "hosc", "losc", "iosc";
+ 			#clock-cells = <1>;
+ 			#reset-cells = <1>;
+@@ -236,7 +228,7 @@
+ 				     <GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH>,
+ 				     <GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>,
+ 				     <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>;
+-			clocks = <&ccu CLK_APB1>, <&osc24M>, <&osc32k>;
++			clocks = <&ccu CLK_APB1>, <&osc24M>, <&rtc 0>;
+ 			clock-names = "apb", "hosc", "losc";
+ 			gpio-controller;
+ 			#gpio-cells = <3>;
+@@ -710,10 +702,20 @@
+ 			};
+ 		};
+ 
++		rtc: rtc@7000000 {
++			compatible = "allwinner,sun50i-h6-rtc";
++			reg = <0x07000000 0x400>;
++			interrupts = <GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>;
++			clock-output-names = "osc32k", "osc32k-out", "iosc";
++			clocks = <&ext_osc32k>;
++			#clock-cells = <1>;
++		};
++
+ 		r_ccu: clock@7010000 {
+ 			compatible = "allwinner,sun50i-h6-r-ccu";
+ 			reg = <0x07010000 0x400>;
+-			clocks = <&osc24M>, <&osc32k>, <&iosc>,
++			clocks = <&osc24M>, <&rtc 0>, <&rtc 2>,
+ 				 <&ccu CLK_PLL_PERIPH0>;
+ 			clock-names = "hosc", "losc", "iosc", "pll-periph";
+ 			#clock-cells = <1>;
+@@ -741,7 +743,7 @@
+ 			reg = <0x07022000 0x400>;
+ 			interrupts = <GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>,
+ 				     <GIC_SPI 111 IRQ_TYPE_LEVEL_HIGH>;
+-			clocks = <&r_ccu CLK_R_APB1>, <&osc24M>, <&osc32k>;
++			clocks = <&r_ccu CLK_R_APB1>, <&osc24M>, <&rtc 0>;
+ 			clock-names = "apb", "hosc", "losc";
+ 			gpio-controller;
+ 			#gpio-cells = <3>;
+-- 
+2.23.0
+
+From 15ede97054889c0bec09f1f9b71beffecf06fc67 Mon Sep 17 00:00:00 2001
+From: Ondrej Jirman <megous@megous.com>
+Date: Fri, 23 Aug 2019 11:42:28 +0200
+Subject: [PATCH] arm64: dts: allwinner: orange-pi-3: Enable WiFi
+
+Orange Pi 3 has AP6256 WiFi/BT module. WiFi part of the module is called
+bcm43356 and can be used with the brcmfmac driver. The module is powered by
+the two always on regulators (not AXP805).
+
+WiFi uses a PG port with 1.8V voltage level signals. SoC needs to be
+configured so that it sets up an 1.8V input bias on this port. This is done
+by the pio driver by reading the vcc-pg-supply voltage.
+
+You'll need a fw_bcm43456c5_ag.bin firmware file and nvram.txt
+configuration that can be found in the Xulongs's repository for H6:
+
+https://github.com/orangepi-xunlong/OrangePiH6_external/tree/master/ap6256
+
+Mainline brcmfmac driver expects the firmware and nvram at the following
+paths relative to the firmware directory:
+
+  brcm/brcmfmac43456-sdio.bin
+  brcm/brcmfmac43456-sdio.txt
+
+Signed-off-by: Ondrej Jirman <megous@megous.com>
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+---
+ .../dts/allwinner/sun50i-h6-orangepi-3.dts    | 46 +++++++++++++++++++
+ 1 file changed, 46 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi-3.dts b/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi-3.dts
+index eda9d5f640b9..eb379cd402ac 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi-3.dts
++++ b/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi-3.dts
+@@ -56,6 +56,34 @@
+ 		regulator-max-microvolt = <5000000>;
+ 		regulator-always-on;
+ 	};
++
++	reg_vcc33_wifi: vcc33-wifi {
++		/* Always on 3.3V regulator for WiFi and BT */
++		compatible = "regulator-fixed";
++		regulator-name = "vcc33-wifi";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		regulator-always-on;
++		vin-supply = <&reg_vcc5v>;
++	};
++
++	reg_vcc_wifi_io: vcc-wifi-io {
++		/* Always on 1.8V/300mA regulator for WiFi and BT IO */
++		compatible = "regulator-fixed";
++		regulator-name = "vcc-wifi-io";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		regulator-always-on;
++		vin-supply = <&reg_vcc33_wifi>;
++	};
++
++	wifi_pwrseq: wifi-pwrseq {
++		compatible = "mmc-pwrseq-simple";
++		clocks = <&rtc 1>;
++		clock-names = "ext_clock";
++		reset-gpios = <&r_pio 1 3 GPIO_ACTIVE_LOW>; /* PM3 */
++		post-power-on-delay-ms = <200>;
++	};
+ };
+ 
+ &cpu0 {
+@@ -91,6 +119,23 @@
+ 	status = "okay";
+ };
+ 
++&mmc1 {
++	vmmc-supply = <&reg_vcc33_wifi>;
++	vqmmc-supply = <&reg_vcc_wifi_io>;
++	mmc-pwrseq = <&wifi_pwrseq>;
++	bus-width = <4>;
++	non-removable;
++	status = "okay";
++
++	brcm: sdio-wifi@1 {
++		reg = <1>;
++		compatible = "brcm,bcm4329-fmac";
++		interrupt-parent = <&r_pio>;
++		interrupts = <1 0 IRQ_TYPE_LEVEL_LOW>; /* PM0 */
++		interrupt-names = "host-wake";
++	};
++};
++
+ &ohci0 {
+ 	status = "okay";
+ };
+@@ -102,6 +147,7 @@
+ &pio {
+ 	vcc-pc-supply = <&reg_bldo2>;
+ 	vcc-pd-supply = <&reg_cldo1>;
++	vcc-pg-supply = <&reg_vcc_wifi_io>;
+ };
+ 
+ &r_i2c {
+-- 
+2.23.0
+
+From 652a458eb92018c5126701e721255356fdab94a9 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Fri, 16 Aug 2019 22:53:42 +0200
+Subject: [PATCH] arm64: dts: allwinner: h6: Introduce Tanix TX6 board
+
+Tanix TX6 is an Allwinner H6 based TV box, which supports:
+- Allwinner H6 Quad-core 64-bit ARM Cortex-A53
+- GPU Mali-T720
+- 4GiB DDR3 RAM (3GiB useable)
+- 100Mbps EMAC via AC200 EPHY
+- Cdtech 47822BS Wifi/BT
+- 2x USB 2.0 Host and 1x USB 3.0 Host
+- HDMI port
+- IR receiver
+- 64GiB eMMC
+- 5V/2A DC power supply
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+---
+ arch/arm64/boot/dts/allwinner/Makefile        |   1 +
+ .../dts/allwinner/sun50i-h6-tanix-tx6.dts     | 100 ++++++++++++++++++
+ 2 files changed, 101 insertions(+)
+ create mode 100644 arch/arm64/boot/dts/allwinner/sun50i-h6-tanix-tx6.dts
+
+diff --git a/arch/arm64/boot/dts/allwinner/Makefile b/arch/arm64/boot/dts/allwinner/Makefile
+index f6db0611cb85..395fe76f6819 100644
+--- a/arch/arm64/boot/dts/allwinner/Makefile
++++ b/arch/arm64/boot/dts/allwinner/Makefile
+@@ -25,3 +25,4 @@ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h6-orangepi-3.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h6-orangepi-lite2.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h6-orangepi-one-plus.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h6-pine-h64.dtb
++dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h6-tanix-tx6.dtb
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h6-tanix-tx6.dts b/arch/arm64/boot/dts/allwinner/sun50i-h6-tanix-tx6.dts
+new file mode 100644
+index 000000000000..7e7cb10e3d96
+--- /dev/null
++++ b/arch/arm64/boot/dts/allwinner/sun50i-h6-tanix-tx6.dts
+@@ -0,0 +1,100 @@
++// SPDX-License-Identifier: (GPL-2.0+ or MIT)
++/*
++ * Copyright (c) 2019 Jernej Skrabec <jernej.skrabec@siol.net>
++ */
++
++/dts-v1/;
++
++#include "sun50i-h6.dtsi"
++
++#include <dt-bindings/gpio/gpio.h>
++
++/ {
++	model = "Tanix TX6";
++	compatible = "oranth,tanix-tx6", "allwinner,sun50i-h6";
++
++	aliases {
++		serial0 = &uart0;
++	};
++
++	chosen {
++		stdout-path = "serial0:115200n8";
++	};
++
++	connector {
++		compatible = "hdmi-connector";
++		ddc-en-gpios = <&pio 7 2 GPIO_ACTIVE_HIGH>; /* PH2 */
++		type = "a";
++
++		port {
++			hdmi_con_in: endpoint {
++				remote-endpoint = <&hdmi_out_con>;
++			};
++		};
++	};
++
++	reg_vcc3v3: vcc3v3 {
++		compatible = "regulator-fixed";
++		regulator-name = "vcc3v3";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++	};
++};
++
++&de {
++	status = "okay";
++};
++
++&ehci0 {
++	status = "okay";
++};
++
++&ehci3 {
++	status = "okay";
++};
++
++&hdmi {
++	status = "okay";
++};
++
++&hdmi_out {
++	hdmi_out_con: endpoint {
++		remote-endpoint = <&hdmi_con_in>;
++	};
++};
++
++&mmc0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&mmc0_pins>;
++	vmmc-supply = <&reg_vcc3v3>;
++	cd-gpios = <&pio 5 6 GPIO_ACTIVE_LOW>;
++	bus-width = <4>;
++	status = "okay";
++};
++
++&ohci0 {
++	status = "okay";
++};
++
++&ohci3 {
++	status = "okay";
++};
++
++&r_ir {
++	status = "okay";
++};
++
++&uart0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart0_ph_pins>;
++	status = "okay";
++};
++
++&usb2otg {
++	dr_mode = "host";
++	status = "okay";
++};
++
++&usb2phy {
++	status = "okay";
++};
+-- 
+2.23.0
+
+From 9e037bdf743cc081858423ad4123824e846b2358 Mon Sep 17 00:00:00 2001
+From: Joe Perches <joe@perches.com>
+Date: Wed, 10 Jul 2019 01:04:24 -0400
+Subject: [PATCH] media: staging: media: cedrus: Fix misuse of GENMASK macro
+
+Arguments are supposed to be ordered high then low.
+
+Signed-off-by: Joe Perches <joe@perches.com>
+Acked-by: Paul Kocialkowski <paul.kocialkowski@bootlin.com>
+Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
+---
+ drivers/staging/media/sunxi/cedrus/cedrus_regs.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_regs.h b/drivers/staging/media/sunxi/cedrus/cedrus_regs.h
+index 3e9931416e45..ddd29788d685 100644
+--- a/drivers/staging/media/sunxi/cedrus/cedrus_regs.h
++++ b/drivers/staging/media/sunxi/cedrus/cedrus_regs.h
+@@ -110,7 +110,7 @@
+ #define VE_DEC_MPEG_MBADDR			(VE_ENGINE_DEC_MPEG + 0x10)
+ 
+ #define VE_DEC_MPEG_MBADDR_X(w)			(((w) << 8) & GENMASK(15, 8))
+-#define VE_DEC_MPEG_MBADDR_Y(h)			(((h) << 0) & GENMASK(0, 7))
++#define VE_DEC_MPEG_MBADDR_Y(h)			(((h) << 0) & GENMASK(7, 0))
+ 
+ #define VE_DEC_MPEG_CTRL			(VE_ENGINE_DEC_MPEG + 0x14)
+ 
+-- 
+2.23.0
+
+From b557b5073194d63bcd2850c009f9326250b4bd97 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Thu, 30 May 2019 18:15:14 -0300
+Subject: [PATCH] media: cedrus: Don't set chroma size for scale & rotation
+
+Scale and rotation are currently not implemented, so it makes no sense to
+set chroma size for it.
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+Acked-by: Paul Kocialkowski <paul.kocialkowski@bootlin.com>
+Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
+---
+ drivers/staging/media/sunxi/cedrus/cedrus_hw.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_hw.c b/drivers/staging/media/sunxi/cedrus/cedrus_hw.c
+index c34aec7c6e40..fc8579b90dab 100644
+--- a/drivers/staging/media/sunxi/cedrus/cedrus_hw.c
++++ b/drivers/staging/media/sunxi/cedrus/cedrus_hw.c
+@@ -79,9 +79,6 @@ void cedrus_dst_format_set(struct cedrus_dev *dev,
+ 		reg = VE_PRIMARY_OUT_FMT_NV12;
+ 		cedrus_write(dev, VE_PRIMARY_OUT_FMT, reg);
+ 
+-		reg = VE_CHROMA_BUF_LEN_SDRT(chroma_size / 2);
+-		cedrus_write(dev, VE_CHROMA_BUF_LEN, reg);
+-
+ 		reg = chroma_size / 2;
+ 		cedrus_write(dev, VE_PRIMARY_CHROMA_BUF_LEN, reg);
+ 
+-- 
+2.23.0
+From 8067f62bccaff4d5c7e0900431e8ab4372dcb8ab Mon Sep 17 00:00:00 2001
+From: Jerome Brunet <jbrunet@baylibre.com>
+Date: Mon, 12 Aug 2019 14:07:19 +0200
+Subject: [PATCH] drm/bridge: dw-hdmi-i2s: support more i2s format
+
+The dw-hdmi-i2s supports more formats than just regular i2s.
+Add support for left justified, right justified and dsp modes
+A and B.
+
+Reviewed-by: Jonas Karlman <jonas@kwiboo.se>
+Signed-off-by: Jerome Brunet <jbrunet@baylibre.com>
+Reviewed-by: Neil Armstrong <narmstrong@baylibre.com>
+Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20190812120726.1528-2-jbrunet@baylibre.com
+---
+ .../drm/bridge/synopsys/dw-hdmi-i2s-audio.c   | 26 ++++++++++++++++---
+ drivers/gpu/drm/bridge/synopsys/dw-hdmi.h     |  6 +++--
+ 2 files changed, 27 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
+index 5cbb71a866d5..2b624cff541d 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
+@@ -44,9 +44,8 @@ static int dw_hdmi_i2s_hw_params(struct device *dev, void *data,
+ 	u8 inputclkfs = 0;
+ 
+ 	/* it cares I2S only */
+-	if ((fmt->fmt != HDMI_I2S) ||
+-	    (fmt->bit_clk_master | fmt->frame_clk_master)) {
+-		dev_err(dev, "unsupported format/settings\n");
++	if (fmt->bit_clk_master | fmt->frame_clk_master) {
++		dev_err(dev, "unsupported clock settings\n");
+ 		return -EINVAL;
+ 	}
+ 
+@@ -63,6 +62,27 @@ static int dw_hdmi_i2s_hw_params(struct device *dev, void *data,
+ 		break;
+ 	}
+ 
++	switch (fmt->fmt) {
++	case HDMI_I2S:
++		conf1 |= HDMI_AUD_CONF1_MODE_I2S;
++		break;
++	case HDMI_RIGHT_J:
++		conf1 |= HDMI_AUD_CONF1_MODE_RIGHT_J;
++		break;
++	case HDMI_LEFT_J:
++		conf1 |= HDMI_AUD_CONF1_MODE_LEFT_J;
++		break;
++	case HDMI_DSP_A:
++		conf1 |= HDMI_AUD_CONF1_MODE_BURST_1;
++		break;
++	case HDMI_DSP_B:
++		conf1 |= HDMI_AUD_CONF1_MODE_BURST_2;
++		break;
++	default:
++		dev_err(dev, "unsupported format\n");
++		return -EINVAL;
++	}
++
+ 	dw_hdmi_set_sample_rate(hdmi, hparms->sample_rate);
+ 
+ 	hdmi_write(audio, inputclkfs, HDMI_AUD_INPUTCLKFS);
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.h b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.h
+index 4e3ec09d3ca4..091d7c28aa17 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.h
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.h
+@@ -869,8 +869,10 @@ enum {
+ 
+ /* AUD_CONF1 field values */
+ 	HDMI_AUD_CONF1_MODE_I2S = 0x00,
+-	HDMI_AUD_CONF1_MODE_RIGHT_J = 0x02,
+-	HDMI_AUD_CONF1_MODE_LEFT_J = 0x04,
++	HDMI_AUD_CONF1_MODE_RIGHT_J = 0x20,
++	HDMI_AUD_CONF1_MODE_LEFT_J = 0x40,
++	HDMI_AUD_CONF1_MODE_BURST_1 = 0x60,
++	HDMI_AUD_CONF1_MODE_BURST_2 = 0x80,
+ 	HDMI_AUD_CONF1_WIDTH_16 = 0x10,
+ 	HDMI_AUD_CONF1_WIDTH_24 = 0x18,
+ 
+-- 
+2.23.0
+
+From 2a2a3d2ff799d62f25a9d222ad0fc73753c8a6c6 Mon Sep 17 00:00:00 2001
+From: Jerome Brunet <jbrunet@baylibre.com>
+Date: Mon, 12 Aug 2019 14:07:20 +0200
+Subject: [PATCH] drm/bridge: dw-hdmi: move audio channel setup out of ahb
+
+Part of the channel count setup done in dw-hdmi ahb should
+actually be done whatever the interface providing the data.
+
+Let's move it to dw-hdmi driver instead.
+
+Reviewed-by: Jonas Karlman <jonas@kwiboo.se>
+Signed-off-by: Jerome Brunet <jbrunet@baylibre.com>
+Reviewed-by: Neil Armstrong <narmstrong@baylibre.com>
+Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20190812120726.1528-3-jbrunet@baylibre.com
+---
+ .../drm/bridge/synopsys/dw-hdmi-ahb-audio.c   | 20 +++---------
+ drivers/gpu/drm/bridge/synopsys/dw-hdmi.c     | 32 +++++++++++++++++++
+ include/drm/bridge/dw_hdmi.h                  |  2 ++
+ 3 files changed, 38 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-ahb-audio.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-ahb-audio.c
+index a494186ae6ce..2b7539701b42 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-ahb-audio.c
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-ahb-audio.c
+@@ -63,10 +63,6 @@ enum {
+ 	HDMI_REVISION_ID = 0x0001,
+ 	HDMI_IH_AHBDMAAUD_STAT0 = 0x0109,
+ 	HDMI_IH_MUTE_AHBDMAAUD_STAT0 = 0x0189,
+-	HDMI_FC_AUDICONF2 = 0x1027,
+-	HDMI_FC_AUDSCONF = 0x1063,
+-	HDMI_FC_AUDSCONF_LAYOUT1 = 1 << 0,
+-	HDMI_FC_AUDSCONF_LAYOUT0 = 0 << 0,
+ 	HDMI_AHB_DMA_CONF0 = 0x3600,
+ 	HDMI_AHB_DMA_START = 0x3601,
+ 	HDMI_AHB_DMA_STOP = 0x3602,
+@@ -403,7 +399,7 @@ static int dw_hdmi_prepare(struct snd_pcm_substream *substream)
+ {
+ 	struct snd_pcm_runtime *runtime = substream->runtime;
+ 	struct snd_dw_hdmi *dw = substream->private_data;
+-	u8 threshold, conf0, conf1, layout, ca;
++	u8 threshold, conf0, conf1, ca;
+ 
+ 	/* Setup as per 3.0.5 FSL 4.1.0 BSP */
+ 	switch (dw->revision) {
+@@ -434,20 +430,12 @@ static int dw_hdmi_prepare(struct snd_pcm_substream *substream)
+ 	conf1 = default_hdmi_channel_config[runtime->channels - 2].conf1;
+ 	ca = default_hdmi_channel_config[runtime->channels - 2].ca;
+ 
+-	/*
+-	 * For >2 channel PCM audio, we need to select layout 1
+-	 * and set an appropriate channel map.
+-	 */
+-	if (runtime->channels > 2)
+-		layout = HDMI_FC_AUDSCONF_LAYOUT1;
+-	else
+-		layout = HDMI_FC_AUDSCONF_LAYOUT0;
+-
+ 	writeb_relaxed(threshold, dw->data.base + HDMI_AHB_DMA_THRSLD);
+ 	writeb_relaxed(conf0, dw->data.base + HDMI_AHB_DMA_CONF0);
+ 	writeb_relaxed(conf1, dw->data.base + HDMI_AHB_DMA_CONF1);
+-	writeb_relaxed(layout, dw->data.base + HDMI_FC_AUDSCONF);
+-	writeb_relaxed(ca, dw->data.base + HDMI_FC_AUDICONF2);
++
++	dw_hdmi_set_channel_count(dw->data.hdmi, runtime->channels);
++	dw_hdmi_set_channel_allocation(dw->data.hdmi, ca);
+ 
+ 	switch (runtime->format) {
+ 	case SNDRV_PCM_FORMAT_IEC958_SUBFRAME_LE:
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
+index 83b94b66e464..ae46b770943e 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
+@@ -645,6 +645,38 @@ void dw_hdmi_set_sample_rate(struct dw_hdmi *hdmi, unsigned int rate)
+ }
+ EXPORT_SYMBOL_GPL(dw_hdmi_set_sample_rate);
+ 
++void dw_hdmi_set_channel_count(struct dw_hdmi *hdmi, unsigned int cnt)
++{
++	u8 layout;
++
++	mutex_lock(&hdmi->audio_mutex);
++
++	/*
++	 * For >2 channel PCM audio, we need to select layout 1
++	 * and set an appropriate channel map.
++	 */
++	if (cnt > 2)
++		layout = HDMI_FC_AUDSCONF_AUD_PACKET_LAYOUT_LAYOUT1;
++	else
++		layout = HDMI_FC_AUDSCONF_AUD_PACKET_LAYOUT_LAYOUT0;
++
++	hdmi_modb(hdmi, layout, HDMI_FC_AUDSCONF_AUD_PACKET_LAYOUT_MASK,
++		  HDMI_FC_AUDSCONF);
++
++	mutex_unlock(&hdmi->audio_mutex);
++}
++EXPORT_SYMBOL_GPL(dw_hdmi_set_channel_count);
++
++void dw_hdmi_set_channel_allocation(struct dw_hdmi *hdmi, unsigned int ca)
++{
++	mutex_lock(&hdmi->audio_mutex);
++
++	hdmi_writeb(hdmi, ca, HDMI_FC_AUDICONF2);
++
++	mutex_unlock(&hdmi->audio_mutex);
++}
++EXPORT_SYMBOL_GPL(dw_hdmi_set_channel_allocation);
++
+ static void hdmi_enable_audio_clk(struct dw_hdmi *hdmi, bool enable)
+ {
+ 	if (enable)
+diff --git a/include/drm/bridge/dw_hdmi.h b/include/drm/bridge/dw_hdmi.h
+index c402364aec0d..cf528c289857 100644
+--- a/include/drm/bridge/dw_hdmi.h
++++ b/include/drm/bridge/dw_hdmi.h
+@@ -155,6 +155,8 @@ void dw_hdmi_resume(struct dw_hdmi *hdmi);
+ void dw_hdmi_setup_rx_sense(struct dw_hdmi *hdmi, bool hpd, bool rx_sense);
+ 
+ void dw_hdmi_set_sample_rate(struct dw_hdmi *hdmi, unsigned int rate);
++void dw_hdmi_set_channel_count(struct dw_hdmi *hdmi, unsigned int cnt);
++void dw_hdmi_set_channel_allocation(struct dw_hdmi *hdmi, unsigned int ca);
+ void dw_hdmi_audio_enable(struct dw_hdmi *hdmi);
+ void dw_hdmi_audio_disable(struct dw_hdmi *hdmi);
+ void dw_hdmi_set_high_tmds_clock_ratio(struct dw_hdmi *hdmi);
+-- 
+2.23.0
+
+From da5f5bc92f49f5b3acf8b07d95fb7d8a8f098d25 Mon Sep 17 00:00:00 2001
+From: Jerome Brunet <jbrunet@baylibre.com>
+Date: Mon, 12 Aug 2019 14:07:21 +0200
+Subject: [PATCH] drm/bridge: dw-hdmi: set channel count in the infoframes
+
+Set the number of channel in the infoframes
+
+Reviewed-by: Jonas Karlman <jonas@kwiboo.se>
+Signed-off-by: Jerome Brunet <jbrunet@baylibre.com>
+Reviewed-by: Neil Armstrong <narmstrong@baylibre.com>
+Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20190812120726.1528-4-jbrunet@baylibre.com
+---
+ drivers/gpu/drm/bridge/synopsys/dw-hdmi.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
+index ae46b770943e..4e57b984b244 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
+@@ -663,6 +663,10 @@ void dw_hdmi_set_channel_count(struct dw_hdmi *hdmi, unsigned int cnt)
+ 	hdmi_modb(hdmi, layout, HDMI_FC_AUDSCONF_AUD_PACKET_LAYOUT_MASK,
+ 		  HDMI_FC_AUDSCONF);
+ 
++	/* Set the audio infoframes channel count */
++	hdmi_modb(hdmi, (cnt - 1) << HDMI_FC_AUDICONF0_CC_OFFSET,
++		  HDMI_FC_AUDICONF0_CC_MASK, HDMI_FC_AUDICONF0);
++
+ 	mutex_unlock(&hdmi->audio_mutex);
+ }
+ EXPORT_SYMBOL_GPL(dw_hdmi_set_channel_count);
+-- 
+2.23.0
+
+From 17a1e555b608a847c903e093718d0a768843c586 Mon Sep 17 00:00:00 2001
+From: Jerome Brunet <jbrunet@baylibre.com>
+Date: Mon, 12 Aug 2019 14:07:22 +0200
+Subject: [PATCH] drm/bridge: dw-hdmi-i2s: enable lpcm multi channels
+
+Properly setup the channel count and layout in dw-hdmi i2s driver so
+we are not limited to 2 channels.
+
+Also correct the maximum channel reported by the DAI from 6 to 8 ch
+
+Reviewed-by: Jonas Karlman <jonas@kwiboo.se>
+Signed-off-by: Jerome Brunet <jbrunet@baylibre.com>
+Reviewed-by: Neil Armstrong <narmstrong@baylibre.com>
+Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20190812120726.1528-5-jbrunet@baylibre.com
+---
+ drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
+index 2b624cff541d..caf8aed78fea 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
+@@ -84,6 +84,7 @@ static int dw_hdmi_i2s_hw_params(struct device *dev, void *data,
+ 	}
+ 
+ 	dw_hdmi_set_sample_rate(hdmi, hparms->sample_rate);
++	dw_hdmi_set_channel_count(hdmi, hparms->channels);
+ 
+ 	hdmi_write(audio, inputclkfs, HDMI_AUD_INPUTCLKFS);
+ 	hdmi_write(audio, conf0, HDMI_AUD_CONF0);
+@@ -139,7 +140,7 @@ static int snd_dw_hdmi_probe(struct platform_device *pdev)
+ 
+ 	pdata.ops		= &dw_hdmi_i2s_ops;
+ 	pdata.i2s		= 1;
+-	pdata.max_i2s_channels	= 6;
++	pdata.max_i2s_channels	= 8;
+ 	pdata.data		= audio;
+ 
+ 	memset(&pdevinfo, 0, sizeof(pdevinfo));
+-- 
+2.23.0
+
+From 0c6098859176ffa250b196498722dc7844e41048 Mon Sep 17 00:00:00 2001
+From: Jerome Brunet <jbrunet@baylibre.com>
+Date: Mon, 12 Aug 2019 14:07:23 +0200
+Subject: [PATCH] drm/bridge: dw-hdmi-i2s: set the channel allocation
+
+setup the channel allocation provided by the generic hdmi-codec driver
+
+Reviewed-by: Jonas Karlman <jonas@kwiboo.se>
+Signed-off-by: Jerome Brunet <jbrunet@baylibre.com>
+Reviewed-by: Neil Armstrong <narmstrong@baylibre.com>
+Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20190812120726.1528-6-jbrunet@baylibre.com
+---
+ drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
+index caf8aed78fea..0864dee8d180 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
+@@ -85,6 +85,7 @@ static int dw_hdmi_i2s_hw_params(struct device *dev, void *data,
+ 
+ 	dw_hdmi_set_sample_rate(hdmi, hparms->sample_rate);
+ 	dw_hdmi_set_channel_count(hdmi, hparms->channels);
++	dw_hdmi_set_channel_allocation(hdmi, hparms->cea.channel_allocation);
+ 
+ 	hdmi_write(audio, inputclkfs, HDMI_AUD_INPUTCLKFS);
+ 	hdmi_write(audio, conf0, HDMI_AUD_CONF0);
+-- 
+2.23.0
+
+From 46cecde310bba81243f906955f5fd6f64d5668f0 Mon Sep 17 00:00:00 2001
+From: Jerome Brunet <jbrunet@baylibre.com>
+Date: Mon, 12 Aug 2019 14:07:24 +0200
+Subject: [PATCH] drm/bridge: dw-hdmi-i2s: reset audio fifo before applying new
+ params
+
+When changing the audio hw params, reset the audio fifo to make sure
+any old remaining data is flushed.
+
+The databook mentions that such reset should be followed by a reset of
+the i2s block to make sure the samples stay aligned
+
+Reviewed-by: Jonas Karlman <jonas@kwiboo.se>
+Signed-off-by: Jerome Brunet <jbrunet@baylibre.com>
+Reviewed-by: Neil Armstrong <narmstrong@baylibre.com>
+Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20190812120726.1528-7-jbrunet@baylibre.com
+---
+ drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c | 6 ++++--
+ drivers/gpu/drm/bridge/synopsys/dw-hdmi.h           | 1 +
+ 2 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
+index 0864dee8d180..41bee0099578 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
+@@ -49,6 +49,10 @@ static int dw_hdmi_i2s_hw_params(struct device *dev, void *data,
+ 		return -EINVAL;
+ 	}
+ 
++	/* Reset the FIFOs before applying new params */
++	hdmi_write(audio, HDMI_AUD_CONF0_SW_RESET, HDMI_AUD_CONF0);
++	hdmi_write(audio, (u8)~HDMI_MC_SWRSTZ_I2SSWRST_REQ, HDMI_MC_SWRSTZ);
++
+ 	inputclkfs	= HDMI_AUD_INPUTCLKFS_64FS;
+ 	conf0		= HDMI_AUD_CONF0_I2S_ALL_ENABLE;
+ 
+@@ -102,8 +106,6 @@ static void dw_hdmi_i2s_audio_shutdown(struct device *dev, void *data)
+ 	struct dw_hdmi *hdmi = audio->hdmi;
+ 
+ 	dw_hdmi_audio_disable(hdmi);
+-
+-	hdmi_write(audio, HDMI_AUD_CONF0_SW_RESET, HDMI_AUD_CONF0);
+ }
+ 
+ static int dw_hdmi_i2s_get_dai_id(struct snd_soc_component *component,
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.h b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.h
+index 091d7c28aa17..a272fa393ae6 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.h
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.h
+@@ -940,6 +940,7 @@ enum {
+ 	HDMI_MC_CLKDIS_PIXELCLK_DISABLE = 0x1,
+ 
+ /* MC_SWRSTZ field values */
++	HDMI_MC_SWRSTZ_I2SSWRST_REQ = 0x08,
+ 	HDMI_MC_SWRSTZ_TMDSSWRST_REQ = 0x02,
+ 
+ /* MC_FLOWCTRL field values */
+-- 
+2.23.0
+
+From 43e88f670a5e4618609822853a5f659631c32505 Mon Sep 17 00:00:00 2001
+From: Jerome Brunet <jbrunet@baylibre.com>
+Date: Mon, 12 Aug 2019 14:07:25 +0200
+Subject: [PATCH] drm/bridge: dw-hdmi-i2s: enable only the required i2s lanes
+
+Enable the i2s lanes depending on the number of channel in the stream
+
+Reviewed-by: Jonas Karlman <jonas@kwiboo.se>
+Signed-off-by: Jerome Brunet <jbrunet@baylibre.com>
+Reviewed-by: Neil Armstrong <narmstrong@baylibre.com>
+Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20190812120726.1528-8-jbrunet@baylibre.com
+---
+ .../gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c   | 15 ++++++++++++++-
+ drivers/gpu/drm/bridge/synopsys/dw-hdmi.h         |  6 +++++-
+ 2 files changed, 19 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
+index 41bee0099578..b8ece9c1ba2c 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
+@@ -54,7 +54,20 @@ static int dw_hdmi_i2s_hw_params(struct device *dev, void *data,
+ 	hdmi_write(audio, (u8)~HDMI_MC_SWRSTZ_I2SSWRST_REQ, HDMI_MC_SWRSTZ);
+ 
+ 	inputclkfs	= HDMI_AUD_INPUTCLKFS_64FS;
+-	conf0		= HDMI_AUD_CONF0_I2S_ALL_ENABLE;
++	conf0		= (HDMI_AUD_CONF0_I2S_SELECT | HDMI_AUD_CONF0_I2S_EN0);
++
++	/* Enable the required i2s lanes */
++	switch (hparms->channels) {
++	case 7 ... 8:
++		conf0 |= HDMI_AUD_CONF0_I2S_EN3;
++		/* Fall-thru */
++	case 5 ... 6:
++		conf0 |= HDMI_AUD_CONF0_I2S_EN2;
++		/* Fall-thru */
++	case 3 ... 4:
++		conf0 |= HDMI_AUD_CONF0_I2S_EN1;
++		/* Fall-thru */
++	}
+ 
+ 	switch (hparms->sample_width) {
+ 	case 16:
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.h b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.h
+index a272fa393ae6..6988f12d89d9 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.h
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.h
+@@ -865,7 +865,11 @@ enum {
+ 
+ /* AUD_CONF0 field values */
+ 	HDMI_AUD_CONF0_SW_RESET = 0x80,
+-	HDMI_AUD_CONF0_I2S_ALL_ENABLE = 0x2F,
++	HDMI_AUD_CONF0_I2S_SELECT = 0x20,
++	HDMI_AUD_CONF0_I2S_EN3 = 0x08,
++	HDMI_AUD_CONF0_I2S_EN2 = 0x04,
++	HDMI_AUD_CONF0_I2S_EN1 = 0x02,
++	HDMI_AUD_CONF0_I2S_EN0 = 0x01,
+ 
+ /* AUD_CONF1 field values */
+ 	HDMI_AUD_CONF1_MODE_I2S = 0x00,
+-- 
+2.23.0
+
+From fc1ca6e01d0a71fd4bd7a5a7cb8309a9dd48ddbc Mon Sep 17 00:00:00 2001
+From: Jerome Brunet <jbrunet@baylibre.com>
+Date: Mon, 12 Aug 2019 14:50:16 +0200
+Subject: [PATCH] drm/bridge: dw-hdmi-i2s: add .get_eld support
+
+Provide the eld to the generic hdmi-codec driver.
+This will let the driver enforce the maximum channel number and set the
+channel allocation depending on the hdmi sink.
+
+Cc: Jonas Karlman <jonas@kwiboo.se>
+Signed-off-by: Jerome Brunet <jbrunet@baylibre.com>
+Reviewed-by: Jonas Karlman <jonas@kwiboo.se>
+Reviewed-by: Neil Armstrong <narmstrong@baylibre.com>
+Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20190812125016.20169-1-jbrunet@baylibre.com
+---
+ drivers/gpu/drm/bridge/synopsys/dw-hdmi-audio.h     |  1 +
+ drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c | 11 +++++++++++
+ drivers/gpu/drm/bridge/synopsys/dw-hdmi.c           |  1 +
+ 3 files changed, 13 insertions(+)
+
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-audio.h b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-audio.h
+index 63b5756f463b..cb07dc0da5a7 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-audio.h
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-audio.h
+@@ -14,6 +14,7 @@ struct dw_hdmi_audio_data {
+ 
+ struct dw_hdmi_i2s_audio_data {
+ 	struct dw_hdmi *hdmi;
++	u8 *eld;
+ 
+ 	void (*write)(struct dw_hdmi *hdmi, u8 val, int offset);
+ 	u8 (*read)(struct dw_hdmi *hdmi, int offset);
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
+index b8ece9c1ba2c..1d15cf9b6821 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
+@@ -10,6 +10,7 @@
+ #include <linux/module.h>
+ 
+ #include <drm/bridge/dw_hdmi.h>
++#include <drm/drm_crtc.h>
+ 
+ #include <sound/hdmi-codec.h>
+ 
+@@ -121,6 +122,15 @@ static void dw_hdmi_i2s_audio_shutdown(struct device *dev, void *data)
+ 	dw_hdmi_audio_disable(hdmi);
+ }
+ 
++static int dw_hdmi_i2s_get_eld(struct device *dev, void *data, uint8_t *buf,
++			       size_t len)
++{
++	struct dw_hdmi_i2s_audio_data *audio = data;
++
++	memcpy(buf, audio->eld, min_t(size_t, MAX_ELD_BYTES, len));
++	return 0;
++}
++
+ static int dw_hdmi_i2s_get_dai_id(struct snd_soc_component *component,
+ 				  struct device_node *endpoint)
+ {
+@@ -144,6 +154,7 @@ static int dw_hdmi_i2s_get_dai_id(struct snd_soc_component *component,
+ static struct hdmi_codec_ops dw_hdmi_i2s_ops = {
+ 	.hw_params	= dw_hdmi_i2s_hw_params,
+ 	.audio_shutdown	= dw_hdmi_i2s_audio_shutdown,
++	.get_eld	= dw_hdmi_i2s_get_eld,
+ 	.get_dai_id	= dw_hdmi_i2s_get_dai_id,
+ };
+ 
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
+index 4e57b984b244..4044071090c4 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
+@@ -2799,6 +2799,7 @@ __dw_hdmi_probe(struct platform_device *pdev,
+ 		struct dw_hdmi_i2s_audio_data audio;
+ 
+ 		audio.hdmi	= hdmi;
++		audio.eld	= hdmi->connector.eld;
+ 		audio.write	= hdmi_writeb;
+ 		audio.read	= hdmi_readb;
+ 		hdmi->enable_audio = dw_hdmi_i2s_audio_enable;
+-- 
+2.23.0
+
+From bf283a05c09b58db83afbb1a8a3c6a684c56c1bb Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@bootlin.com>
+Date: Mon, 19 Aug 2019 21:25:08 +0200
+Subject: [PATCH] ASoC: sun4i-i2s: Register regmap and PCM before our component
+
+So far the regmap and the dmaengine PCM are registered after our component
+has been, which means that our driver isn't properly initialised by then.
+
+Let's fix that.
+
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Link: https://lore.kernel.org/r/67e303f37f141ef73ce9ed47d7f831b63c694424.1566242458.git-series.maxime.ripard@bootlin.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/sunxi/sun4i-i2s.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/sound/soc/sunxi/sun4i-i2s.c b/sound/soc/sunxi/sun4i-i2s.c
+index 7fa5c61169db..85c3b2c8cd77 100644
+--- a/sound/soc/sunxi/sun4i-i2s.c
++++ b/sound/soc/sunxi/sun4i-i2s.c
+@@ -1148,11 +1148,9 @@ static int sun4i_i2s_probe(struct platform_device *pdev)
+ 			goto err_pm_disable;
+ 	}
+ 
+-	ret = devm_snd_soc_register_component(&pdev->dev,
+-					      &sun4i_i2s_component,
+-					      &sun4i_i2s_dai, 1);
++	ret = sun4i_i2s_init_regmap_fields(&pdev->dev, i2s);
+ 	if (ret) {
+-		dev_err(&pdev->dev, "Could not register DAI\n");
++		dev_err(&pdev->dev, "Could not initialise regmap fields\n");
+ 		goto err_suspend;
+ 	}
+ 
+@@ -1162,9 +1160,11 @@ static int sun4i_i2s_probe(struct platform_device *pdev)
+ 		goto err_suspend;
+ 	}
+ 
+-	ret = sun4i_i2s_init_regmap_fields(&pdev->dev, i2s);
++	ret = devm_snd_soc_register_component(&pdev->dev,
++					      &sun4i_i2s_component,
++					      &sun4i_i2s_dai, 1);
+ 	if (ret) {
+-		dev_err(&pdev->dev, "Could not initialise regmap fields\n");
++		dev_err(&pdev->dev, "Could not register DAI\n");
+ 		goto err_suspend;
+ 	}
+ 
+-- 
+2.23.0
+
+From a49d24e7d8d4fd4edf59e6373983e0bf4a2cca15 Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@bootlin.com>
+Date: Mon, 19 Aug 2019 21:25:09 +0200
+Subject: [PATCH] ASoC: sun4i-i2s: Switch to devm for PCM register
+
+Since the introduction of the driver, a new managed helper for the
+dmaengine PCM registration has been created. Let's use it to simplify a bit
+our probe and remove functions.
+
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Link: https://lore.kernel.org/r/606d271187091e858e8c15e20555af0b79798fe1.1566242458.git-series.maxime.ripard@bootlin.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/sunxi/sun4i-i2s.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/sound/soc/sunxi/sun4i-i2s.c b/sound/soc/sunxi/sun4i-i2s.c
+index d97d694c48df..70608fa30bf2 100644
+--- a/sound/soc/sunxi/sun4i-i2s.c
++++ b/sound/soc/sunxi/sun4i-i2s.c
+@@ -1154,7 +1154,7 @@ static int sun4i_i2s_probe(struct platform_device *pdev)
+ 		goto err_suspend;
+ 	}
+ 
+-	ret = snd_dmaengine_pcm_register(&pdev->dev, NULL, 0);
++	ret = devm_snd_dmaengine_pcm_register(&pdev->dev, NULL, 0);
+ 	if (ret) {
+ 		dev_err(&pdev->dev, "Could not register PCM\n");
+ 		goto err_suspend;
+@@ -1183,8 +1183,6 @@ static int sun4i_i2s_remove(struct platform_device *pdev)
+ {
+ 	struct sun4i_i2s *i2s = dev_get_drvdata(&pdev->dev);
+ 
+-	snd_dmaengine_pcm_unregister(&pdev->dev);
+-
+ 	pm_runtime_disable(&pdev->dev);
+ 	if (!pm_runtime_status_suspended(&pdev->dev))
+ 		sun4i_i2s_runtime_suspend(&pdev->dev);
+-- 
+2.23.0
+
+From 7df8f9a20196072162d9dc8fe99943f2d35f23d5 Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@bootlin.com>
+Date: Mon, 19 Aug 2019 21:25:14 +0200
+Subject: [PATCH] ASoC: sun4i-i2s: Don't use the oversample to calculate BCLK
+
+The BCLK divider should be calculated using the parameters that actually
+make the BCLK rate: the number of channels, the sampling rate and the
+sample width.
+
+We've been using the oversample_rate previously because in the former SoCs,
+the BCLK's parent is MCLK, which in turn is being used to generate the
+oversample rate, so we end up with something like this:
+
+oversample = mclk_rate / sampling_rate
+bclk_div = oversample / word_size / channels
+
+So, bclk_div = mclk_rate / sampling_rate / word_size / channels.
+
+And this is actually better, since the oversampling ratio only plays a role
+because the MCLK is its parent, not because of what BCLK is supposed to be.
+
+Furthermore, that assumption of MCLK being the parent has been broken on
+newer SoCs, so let's use the proper formula, and have the parent rate as an
+argument.
+
+Fixes: 7d2993811a1e ("ASoC: sun4i-i2s: Add support for H3")
+Fixes: 21faaea1343f ("ASoC: sun4i-i2s: Add support for A83T")
+Fixes: 66ecce332538 ("ASoC: sun4i-i2s: Add compatibility with A64 codec I2S")
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Link: https://lore.kernel.org/r/c3595e3a9788c2ef2dcc30aa3c8c4953bb5cc249.1566242458.git-series.maxime.ripard@bootlin.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/sunxi/sun4i-i2s.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/sound/soc/sunxi/sun4i-i2s.c b/sound/soc/sunxi/sun4i-i2s.c
+index 70608fa30bf2..d879db581073 100644
+--- a/sound/soc/sunxi/sun4i-i2s.c
++++ b/sound/soc/sunxi/sun4i-i2s.c
+@@ -222,10 +222,11 @@ static const struct sun4i_i2s_clk_div sun4i_i2s_mclk_div[] = {
+ };
+ 
+ static int sun4i_i2s_get_bclk_div(struct sun4i_i2s *i2s,
+-				  unsigned int oversample_rate,
++				  unsigned long parent_rate,
++				  unsigned int sampling_rate,
+ 				  unsigned int word_size)
+ {
+-	int div = oversample_rate / word_size / 2;
++	int div = parent_rate / sampling_rate / word_size / 2;
+ 	int i;
+ 
+ 	for (i = 0; i < ARRAY_SIZE(sun4i_i2s_bclk_div); i++) {
+@@ -315,8 +316,8 @@ static int sun4i_i2s_set_clk_rate(struct snd_soc_dai *dai,
+ 		return -EINVAL;
+ 	}
+ 
+-	bclk_div = sun4i_i2s_get_bclk_div(i2s, oversample_rate,
+-					  word_size);
++	bclk_div = sun4i_i2s_get_bclk_div(i2s, i2s->mclk_freq,
++					  rate, word_size);
+ 	if (bclk_div < 0) {
+ 		dev_err(dai->dev, "Unsupported BCLK divider: %d\n", bclk_div);
+ 		return -EINVAL;
+-- 
+2.23.0
+
+From c7dd0828c088a71f30de8d249f63b2fa9f0d322d Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@bootlin.com>
+Date: Mon, 19 Aug 2019 21:25:10 +0200
+Subject: [PATCH] ASoC: sun4i-i2s: Replace call to params_channels by local
+ variable
+
+The sun4i_i2s_hw_params already has a variable holding the value returned
+by params_channels, so let's just use that variable instead of calling
+params_channels multiple times.
+
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Link: https://lore.kernel.org/r/c0faaac69ad40248f24eed3c3b2fa1ccc4a85b70.1566242458.git-series.maxime.ripard@bootlin.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/sunxi/sun4i-i2s.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/sound/soc/sunxi/sun4i-i2s.c b/sound/soc/sunxi/sun4i-i2s.c
+index d879db581073..77b7b81daf74 100644
+--- a/sound/soc/sunxi/sun4i-i2s.c
++++ b/sound/soc/sunxi/sun4i-i2s.c
+@@ -412,10 +412,9 @@ static int sun4i_i2s_hw_params(struct snd_pcm_substream *substream,
+ 
+ 	/* Configure the channels */
+ 	regmap_field_write(i2s->field_txchansel,
+-			   SUN4I_I2S_CHAN_SEL(params_channels(params)));
+-
++			   SUN4I_I2S_CHAN_SEL(channels));
+ 	regmap_field_write(i2s->field_rxchansel,
+-			   SUN4I_I2S_CHAN_SEL(params_channels(params)));
++			   SUN4I_I2S_CHAN_SEL(channels));
+ 
+ 	if (i2s->variant->has_chsel_tx_chen)
+ 		regmap_update_bits(i2s->regmap, SUN8I_I2S_TX_CHAN_SEL_REG,
+-- 
+2.23.0
+
+From 8bcf62b73e5421df94deca95d7d7c152997fe5b4 Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@bootlin.com>
+Date: Mon, 19 Aug 2019 21:25:13 +0200
+Subject: [PATCH] ASoC: sun4i-i2s: Rework MCLK divider calculation
+
+The MCLK divider calculation is currently computing the ideal divider using
+the oversample rate, the sample rate and the parent rate.
+
+However, since we have access to the frequency is supposed to be running at
+already, and as it turns out we're using it to compute the oversample rate,
+we can just use the ratio between the parent rate and the MCLK rate to
+simplify a bit the formula.
+
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Link: https://lore.kernel.org/r/dcc5deb2eb650758d268bddd20f60ba58856d024.1566242458.git-series.maxime.ripard@bootlin.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/sunxi/sun4i-i2s.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
+
+diff --git a/sound/soc/sunxi/sun4i-i2s.c b/sound/soc/sunxi/sun4i-i2s.c
+index 77b7b81daf74..0a5fb9d4b289 100644
+--- a/sound/soc/sunxi/sun4i-i2s.c
++++ b/sound/soc/sunxi/sun4i-i2s.c
+@@ -240,11 +240,10 @@ static int sun4i_i2s_get_bclk_div(struct sun4i_i2s *i2s,
+ }
+ 
+ static int sun4i_i2s_get_mclk_div(struct sun4i_i2s *i2s,
+-				  unsigned int oversample_rate,
+-				  unsigned int module_rate,
+-				  unsigned int sampling_rate)
++				  unsigned long parent_rate,
++				  unsigned long mclk_rate)
+ {
+-	int div = module_rate / sampling_rate / oversample_rate;
++	int div = parent_rate / mclk_rate;
+ 	int i;
+ 
+ 	for (i = 0; i < ARRAY_SIZE(sun4i_i2s_mclk_div); i++) {
+@@ -323,8 +322,7 @@ static int sun4i_i2s_set_clk_rate(struct snd_soc_dai *dai,
+ 		return -EINVAL;
+ 	}
+ 
+-	mclk_div = sun4i_i2s_get_mclk_div(i2s, oversample_rate,
+-					  clk_rate, rate);
++	mclk_div = sun4i_i2s_get_mclk_div(i2s, clk_rate, i2s->mclk_freq);
+ 	if (mclk_div < 0) {
+ 		dev_err(dai->dev, "Unsupported MCLK divider: %d\n", mclk_div);
+ 		return -EINVAL;
+-- 
+2.23.0
+
+From d70be625f25af7a2bc91b7d17d205f6071f08f2f Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@bootlin.com>
+Date: Mon, 19 Aug 2019 21:25:11 +0200
+Subject: [PATCH] ASoC: sun4i-i2s: Move the channel configuration to a callback
+
+The two main generations of our I2S controller require a slightly different
+channel configuration, mostly because of a quite different register layout
+and some additional registers being needed on the newer generation.
+
+This used to be controlled through a bunch of booleans, however this proved
+to be quite impractical, especially since a bunch of SoCs forgot to set
+those parameters and therefore were broken from that point of view.
+
+Fixes: 21faaea1343f ("ASoC: sun4i-i2s: Add support for A83T")
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Link: https://lore.kernel.org/r/6414463de69584e8227fa495b13aa5f4798e1f0e.1566242458.git-series.maxime.ripard@bootlin.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/sunxi/sun4i-i2s.c | 156 ++++++++++++++++--------------------
+ 1 file changed, 69 insertions(+), 87 deletions(-)
+
+diff --git a/sound/soc/sunxi/sun4i-i2s.c b/sound/soc/sunxi/sun4i-i2s.c
+index 2c909c6cafa9..42e45c9a947a 100644
+--- a/sound/soc/sunxi/sun4i-i2s.c
++++ b/sound/soc/sunxi/sun4i-i2s.c
+@@ -80,6 +80,7 @@
+ #define SUN4I_I2S_TX_CNT_REG		0x2c
+ 
+ #define SUN4I_I2S_TX_CHAN_SEL_REG	0x30
++#define SUN4I_I2S_CHAN_SEL_MASK			GENMASK(2, 0)
+ #define SUN4I_I2S_CHAN_SEL(num_chan)		(((num_chan) - 1) << 0)
+ 
+ #define SUN4I_I2S_TX_CHAN_MAP_REG	0x34
+@@ -122,8 +123,6 @@ struct sun4i_i2s;
+  * @has_reset: SoC needs reset deasserted.
+  * @has_slave_select_bit: SoC has a bit to enable slave mode.
+  * @has_fmt_set_lrck_period: SoC requires lrclk period to be set.
+- * @has_chcfg: tx and rx slot number need to be set.
+- * @has_chsel_tx_chen: SoC requires that the tx channels are enabled.
+  * @has_chsel_offset: SoC uses offset for selecting dai operational mode.
+  * @reg_offset_txdata: offset of the tx fifo.
+  * @sun4i_i2s_regmap: regmap config to use.
+@@ -135,17 +134,11 @@ struct sun4i_i2s;
+  * @field_fmt_bclk: regmap field to set clk polarity.
+  * @field_fmt_lrclk: regmap field to set frame polarity.
+  * @field_fmt_mode: regmap field to set the operational mode.
+- * @field_txchanmap: location of the tx channel mapping register.
+- * @field_rxchanmap: location of the rx channel mapping register.
+- * @field_txchansel: location of the tx channel select bit fields.
+- * @field_rxchansel: location of the rx channel select bit fields.
+  */
+ struct sun4i_i2s_quirks {
+ 	bool				has_reset;
+ 	bool				has_slave_select_bit;
+ 	bool				has_fmt_set_lrck_period;
+-	bool				has_chcfg;
+-	bool				has_chsel_tx_chen;
+ 	bool				has_chsel_offset;
+ 	unsigned int			reg_offset_txdata;	/* TX FIFO */
+ 	const struct regmap_config	*sun4i_i2s_regmap;
+@@ -159,13 +152,11 @@ struct sun4i_i2s_quirks {
+ 	struct reg_field		field_fmt_bclk;
+ 	struct reg_field		field_fmt_lrclk;
+ 	struct reg_field		field_fmt_mode;
+-	struct reg_field		field_txchanmap;
+-	struct reg_field		field_rxchanmap;
+-	struct reg_field		field_txchansel;
+-	struct reg_field		field_rxchansel;
+ 
+ 	s8	(*get_sr)(const struct sun4i_i2s *, int);
+ 	s8	(*get_wss)(const struct sun4i_i2s *, int);
++	int	(*set_chan_cfg)(const struct sun4i_i2s *,
++				const struct snd_pcm_hw_params *);
+ };
+ 
+ struct sun4i_i2s {
+@@ -186,10 +177,6 @@ struct sun4i_i2s {
+ 	struct regmap_field	*field_fmt_bclk;
+ 	struct regmap_field	*field_fmt_lrclk;
+ 	struct regmap_field	*field_fmt_mode;
+-	struct regmap_field	*field_txchanmap;
+-	struct regmap_field	*field_rxchanmap;
+-	struct regmap_field	*field_txchansel;
+-	struct regmap_field	*field_rxchansel;
+ 
+ 	const struct sun4i_i2s_quirks	*variant;
+ };
+@@ -380,44 +367,77 @@ static s8 sun8i_i2s_get_sr_wss(const struct sun4i_i2s *i2s, int width)
+ 	return (width - 8) / 4 + 1;
+ }
+ 
+-static int sun4i_i2s_hw_params(struct snd_pcm_substream *substream,
+-			       struct snd_pcm_hw_params *params,
+-			       struct snd_soc_dai *dai)
++static int sun4i_i2s_set_chan_cfg(const struct sun4i_i2s *i2s,
++				  const struct snd_pcm_hw_params *params)
+ {
+-	struct sun4i_i2s *i2s = snd_soc_dai_get_drvdata(dai);
+-	int sr, wss, channels;
+-	u32 width;
++	unsigned int channels = params_channels(params);
+ 
+-	channels = params_channels(params);
+-	if (channels != 2) {
+-		dev_err(dai->dev, "Unsupported number of channels: %d\n",
+-			channels);
++	if (channels != 2)
+ 		return -EINVAL;
+-	}
+ 
+-	if (i2s->variant->has_chcfg) {
+-		regmap_update_bits(i2s->regmap, SUN8I_I2S_CHAN_CFG_REG,
+-				   SUN8I_I2S_CHAN_CFG_TX_SLOT_NUM_MASK,
+-				   SUN8I_I2S_CHAN_CFG_TX_SLOT_NUM(channels));
+-		regmap_update_bits(i2s->regmap, SUN8I_I2S_CHAN_CFG_REG,
+-				   SUN8I_I2S_CHAN_CFG_RX_SLOT_NUM_MASK,
+-				   SUN8I_I2S_CHAN_CFG_RX_SLOT_NUM(channels));
+-	}
++	/* Map the channels for playback and capture */
++	regmap_write(i2s->regmap, SUN4I_I2S_TX_CHAN_MAP_REG, 0x76543210);
++	regmap_write(i2s->regmap, SUN4I_I2S_RX_CHAN_MAP_REG, 0x00003210);
++
++	/* Configure the channels */
++	regmap_update_bits(i2s->regmap, SUN4I_I2S_TX_CHAN_SEL_REG,
++			   SUN4I_I2S_CHAN_SEL_MASK,
++			   SUN4I_I2S_CHAN_SEL(channels));
++	regmap_update_bits(i2s->regmap, SUN4I_I2S_RX_CHAN_SEL_REG,
++			   SUN4I_I2S_CHAN_SEL_MASK,
++			   SUN4I_I2S_CHAN_SEL(channels));
++
++	return 0;
++}
++
++static int sun8i_i2s_set_chan_cfg(const struct sun4i_i2s *i2s,
++				  const struct snd_pcm_hw_params *params)
++{
++	unsigned int channels = params_channels(params);
++
++	if (channels != 2)
++		return -EINVAL;
+ 
+ 	/* Map the channels for playback and capture */
+-	regmap_field_write(i2s->field_txchanmap, 0x76543210);
+-	regmap_field_write(i2s->field_rxchanmap, 0x00003210);
++	regmap_write(i2s->regmap, SUN8I_I2S_TX_CHAN_MAP_REG, 0x76543210);
++	regmap_write(i2s->regmap, SUN8I_I2S_RX_CHAN_MAP_REG, 0x76543210);
+ 
+ 	/* Configure the channels */
+-	regmap_field_write(i2s->field_txchansel,
++	regmap_update_bits(i2s->regmap, SUN8I_I2S_TX_CHAN_SEL_REG,
++			   SUN4I_I2S_CHAN_SEL_MASK,
+ 			   SUN4I_I2S_CHAN_SEL(channels));
+-	regmap_field_write(i2s->field_rxchansel,
++
++	regmap_update_bits(i2s->regmap, SUN8I_I2S_RX_CHAN_SEL_REG,
++			   SUN4I_I2S_CHAN_SEL_MASK,
+ 			   SUN4I_I2S_CHAN_SEL(channels));
+ 
+-	if (i2s->variant->has_chsel_tx_chen)
+-		regmap_update_bits(i2s->regmap, SUN8I_I2S_TX_CHAN_SEL_REG,
+-				   SUN8I_I2S_TX_CHAN_EN_MASK,
+-				   SUN8I_I2S_TX_CHAN_EN(channels));
++	regmap_update_bits(i2s->regmap, SUN8I_I2S_CHAN_CFG_REG,
++			   SUN8I_I2S_CHAN_CFG_TX_SLOT_NUM_MASK,
++			   SUN8I_I2S_CHAN_CFG_TX_SLOT_NUM(channels));
++	regmap_update_bits(i2s->regmap, SUN8I_I2S_CHAN_CFG_REG,
++			   SUN8I_I2S_CHAN_CFG_RX_SLOT_NUM_MASK,
++			   SUN8I_I2S_CHAN_CFG_RX_SLOT_NUM(channels));
++
++	regmap_update_bits(i2s->regmap, SUN8I_I2S_TX_CHAN_SEL_REG,
++			   SUN8I_I2S_TX_CHAN_EN_MASK,
++			   SUN8I_I2S_TX_CHAN_EN(channels));
++
++	return 0;
++}
++
++static int sun4i_i2s_hw_params(struct snd_pcm_substream *substream,
++			       struct snd_pcm_hw_params *params,
++			       struct snd_soc_dai *dai)
++{
++	struct sun4i_i2s *i2s = snd_soc_dai_get_drvdata(dai);
++	int ret, sr, wss;
++	u32 width;
++
++	ret = i2s->variant->set_chan_cfg(i2s, params);
++	if (ret < 0) {
++		dev_err(dai->dev, "Invalid channel configuration\n");
++		return ret;
++	}
+ 
+ 	switch (params_physical_width(params)) {
+ 	case 16:
+@@ -915,12 +935,9 @@ static const struct sun4i_i2s_quirks sun4i_a10_i2s_quirks = {
+ 	.field_fmt_lrclk	= REG_FIELD(SUN4I_I2S_FMT0_REG, 7, 7),
+ 	.has_slave_select_bit	= true,
+ 	.field_fmt_mode		= REG_FIELD(SUN4I_I2S_FMT0_REG, 0, 1),
+-	.field_txchanmap	= REG_FIELD(SUN4I_I2S_TX_CHAN_MAP_REG, 0, 31),
+-	.field_rxchanmap	= REG_FIELD(SUN4I_I2S_RX_CHAN_MAP_REG, 0, 31),
+-	.field_txchansel	= REG_FIELD(SUN4I_I2S_TX_CHAN_SEL_REG, 0, 2),
+-	.field_rxchansel	= REG_FIELD(SUN4I_I2S_RX_CHAN_SEL_REG, 0, 2),
+ 	.get_sr			= sun4i_i2s_get_sr,
+ 	.get_wss		= sun4i_i2s_get_wss,
++	.set_chan_cfg		= sun4i_i2s_set_chan_cfg,
+ };
+ 
+ static const struct sun4i_i2s_quirks sun6i_a31_i2s_quirks = {
+@@ -934,12 +951,9 @@ static const struct sun4i_i2s_quirks sun6i_a31_i2s_quirks = {
+ 	.field_fmt_lrclk	= REG_FIELD(SUN4I_I2S_FMT0_REG, 7, 7),
+ 	.has_slave_select_bit	= true,
+ 	.field_fmt_mode		= REG_FIELD(SUN4I_I2S_FMT0_REG, 0, 1),
+-	.field_txchanmap	= REG_FIELD(SUN4I_I2S_TX_CHAN_MAP_REG, 0, 31),
+-	.field_rxchanmap	= REG_FIELD(SUN4I_I2S_RX_CHAN_MAP_REG, 0, 31),
+-	.field_txchansel	= REG_FIELD(SUN4I_I2S_TX_CHAN_SEL_REG, 0, 2),
+-	.field_rxchansel	= REG_FIELD(SUN4I_I2S_RX_CHAN_SEL_REG, 0, 2),
+ 	.get_sr			= sun4i_i2s_get_sr,
+ 	.get_wss		= sun4i_i2s_get_wss,
++	.set_chan_cfg		= sun4i_i2s_set_chan_cfg,
+ };
+ 
+ static const struct sun4i_i2s_quirks sun8i_a83t_i2s_quirks = {
+@@ -953,12 +967,9 @@ static const struct sun4i_i2s_quirks sun8i_a83t_i2s_quirks = {
+ 	.field_fmt_lrclk	= REG_FIELD(SUN4I_I2S_FMT0_REG, 7, 7),
+ 	.has_slave_select_bit	= true,
+ 	.field_fmt_mode		= REG_FIELD(SUN4I_I2S_FMT0_REG, 0, 1),
+-	.field_txchanmap	= REG_FIELD(SUN4I_I2S_TX_CHAN_MAP_REG, 0, 31),
+-	.field_rxchanmap	= REG_FIELD(SUN4I_I2S_RX_CHAN_MAP_REG, 0, 31),
+-	.field_txchansel	= REG_FIELD(SUN4I_I2S_TX_CHAN_SEL_REG, 0, 2),
+-	.field_rxchansel	= REG_FIELD(SUN4I_I2S_RX_CHAN_SEL_REG, 0, 2),
+ 	.get_sr			= sun8i_i2s_get_sr_wss,
+ 	.get_wss		= sun8i_i2s_get_sr_wss,
++	.set_chan_cfg		= sun8i_i2s_set_chan_cfg,
+ };
+ 
+ static const struct sun4i_i2s_quirks sun8i_h3_i2s_quirks = {
+@@ -968,8 +979,6 @@ static const struct sun4i_i2s_quirks sun8i_h3_i2s_quirks = {
+ 	.mclk_offset		= 1,
+ 	.bclk_offset		= 2,
+ 	.has_fmt_set_lrck_period = true,
+-	.has_chcfg		= true,
+-	.has_chsel_tx_chen	= true,
+ 	.has_chsel_offset	= true,
+ 	.field_clkdiv_mclk_en	= REG_FIELD(SUN4I_I2S_CLK_DIV_REG, 8, 8),
+ 	.field_fmt_wss		= REG_FIELD(SUN4I_I2S_FMT0_REG, 0, 2),
+@@ -977,12 +986,9 @@ static const struct sun4i_i2s_quirks sun8i_h3_i2s_quirks = {
+ 	.field_fmt_bclk		= REG_FIELD(SUN4I_I2S_FMT0_REG, 7, 7),
+ 	.field_fmt_lrclk	= REG_FIELD(SUN4I_I2S_FMT0_REG, 19, 19),
+ 	.field_fmt_mode		= REG_FIELD(SUN4I_I2S_CTRL_REG, 4, 5),
+-	.field_txchanmap	= REG_FIELD(SUN8I_I2S_TX_CHAN_MAP_REG, 0, 31),
+-	.field_rxchanmap	= REG_FIELD(SUN8I_I2S_RX_CHAN_MAP_REG, 0, 31),
+-	.field_txchansel	= REG_FIELD(SUN8I_I2S_TX_CHAN_SEL_REG, 0, 2),
+-	.field_rxchansel	= REG_FIELD(SUN8I_I2S_RX_CHAN_SEL_REG, 0, 2),
+ 	.get_sr			= sun8i_i2s_get_sr_wss,
+ 	.get_wss		= sun8i_i2s_get_sr_wss,
++	.set_chan_cfg		= sun8i_i2s_set_chan_cfg,
+ };
+ 
+ static const struct sun4i_i2s_quirks sun50i_a64_codec_i2s_quirks = {
+@@ -996,12 +1002,9 @@ static const struct sun4i_i2s_quirks sun50i_a64_codec_i2s_quirks = {
+ 	.field_fmt_bclk		= REG_FIELD(SUN4I_I2S_FMT0_REG, 6, 6),
+ 	.field_fmt_lrclk	= REG_FIELD(SUN4I_I2S_FMT0_REG, 7, 7),
+ 	.field_fmt_mode		= REG_FIELD(SUN4I_I2S_FMT0_REG, 0, 1),
+-	.field_txchanmap	= REG_FIELD(SUN4I_I2S_TX_CHAN_MAP_REG, 0, 31),
+-	.field_rxchanmap	= REG_FIELD(SUN4I_I2S_RX_CHAN_MAP_REG, 0, 31),
+-	.field_txchansel	= REG_FIELD(SUN4I_I2S_TX_CHAN_SEL_REG, 0, 2),
+-	.field_rxchansel	= REG_FIELD(SUN4I_I2S_RX_CHAN_SEL_REG, 0, 2),
+ 	.get_sr			= sun4i_i2s_get_sr,
+ 	.get_wss		= sun4i_i2s_get_wss,
++	.set_chan_cfg		= sun4i_i2s_set_chan_cfg,
+ };
+ 
+ static int sun4i_i2s_init_regmap_fields(struct device *dev,
+@@ -1043,28 +1046,7 @@ static int sun4i_i2s_init_regmap_fields(struct device *dev,
+ 	if (IS_ERR(i2s->field_fmt_mode))
+ 		return PTR_ERR(i2s->field_fmt_mode);
+ 
+-	i2s->field_txchanmap =
+-			devm_regmap_field_alloc(dev, i2s->regmap,
+-						i2s->variant->field_txchanmap);
+-	if (IS_ERR(i2s->field_txchanmap))
+-		return PTR_ERR(i2s->field_txchanmap);
+-
+-	i2s->field_rxchanmap =
+-			devm_regmap_field_alloc(dev, i2s->regmap,
+-						i2s->variant->field_rxchanmap);
+-	if (IS_ERR(i2s->field_rxchanmap))
+-		return PTR_ERR(i2s->field_rxchanmap);
+-
+-	i2s->field_txchansel =
+-			devm_regmap_field_alloc(dev, i2s->regmap,
+-						i2s->variant->field_txchansel);
+-	if (IS_ERR(i2s->field_txchansel))
+-		return PTR_ERR(i2s->field_txchansel);
+-
+-	i2s->field_rxchansel =
+-			devm_regmap_field_alloc(dev, i2s->regmap,
+-						i2s->variant->field_rxchansel);
+-	return PTR_ERR_OR_ZERO(i2s->field_rxchansel);
++	return 0;
+ }
+ 
+ static int sun4i_i2s_probe(struct platform_device *pdev)
+-- 
+2.23.0
+
+From 71137bcd0a9a778f9407a3bee46c62fcccee4f83 Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@bootlin.com>
+Date: Mon, 19 Aug 2019 21:25:12 +0200
+Subject: [PATCH] ASoC: sun4i-i2s: Move the format configuration to a callback
+
+The two main generations of our I2S controller require a slightly different
+format configuration, mostly because of a quite different register layout
+and some additional registers being needed on the newer generation.
+
+This used to be controlled through a bunch of booleans, however this proved
+to be quite impractical, especially since a bunch of SoCs forgot to set
+those parameters and therefore were broken from that point of view.
+
+Fixes: 21faaea1343f ("ASoC: sun4i-i2s: Add support for A83T")
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Link: https://lore.kernel.org/r/dc818644c3e40734e7a97247c994b1fca1c3c047.1566242458.git-series.maxime.ripard@bootlin.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/sunxi/sun4i-i2s.c | 199 +++++++++++++++++++-----------------
+ 1 file changed, 106 insertions(+), 93 deletions(-)
+
+diff --git a/sound/soc/sunxi/sun4i-i2s.c b/sound/soc/sunxi/sun4i-i2s.c
+index 42e45c9a947a..93ea627e2f1f 100644
+--- a/sound/soc/sunxi/sun4i-i2s.c
++++ b/sound/soc/sunxi/sun4i-i2s.c
+@@ -93,6 +93,11 @@
+ #define SUN8I_I2S_CTRL_BCLK_OUT			BIT(18)
+ #define SUN8I_I2S_CTRL_LRCK_OUT			BIT(17)
+ 
++#define SUN8I_I2S_CTRL_MODE_MASK		GENMASK(5, 4)
++#define SUN8I_I2S_CTRL_MODE_RIGHT		(2 << 4)
++#define SUN8I_I2S_CTRL_MODE_LEFT		(1 << 4)
++#define SUN8I_I2S_CTRL_MODE_PCM			(0 << 4)
++
+ #define SUN8I_I2S_FMT0_LRCK_PERIOD_MASK		GENMASK(17, 8)
+ #define SUN8I_I2S_FMT0_LRCK_PERIOD(period)	((period - 1) << 8)
+ 
+@@ -121,9 +126,7 @@ struct sun4i_i2s;
+  * struct sun4i_i2s_quirks - Differences between SoC variants.
+  *
+  * @has_reset: SoC needs reset deasserted.
+- * @has_slave_select_bit: SoC has a bit to enable slave mode.
+  * @has_fmt_set_lrck_period: SoC requires lrclk period to be set.
+- * @has_chsel_offset: SoC uses offset for selecting dai operational mode.
+  * @reg_offset_txdata: offset of the tx fifo.
+  * @sun4i_i2s_regmap: regmap config to use.
+  * @mclk_offset: Value by which mclkdiv needs to be adjusted.
+@@ -133,13 +136,10 @@ struct sun4i_i2s;
+  * @field_fmt_sr: regmap field to set sample resolution.
+  * @field_fmt_bclk: regmap field to set clk polarity.
+  * @field_fmt_lrclk: regmap field to set frame polarity.
+- * @field_fmt_mode: regmap field to set the operational mode.
+  */
+ struct sun4i_i2s_quirks {
+ 	bool				has_reset;
+-	bool				has_slave_select_bit;
+ 	bool				has_fmt_set_lrck_period;
+-	bool				has_chsel_offset;
+ 	unsigned int			reg_offset_txdata;	/* TX FIFO */
+ 	const struct regmap_config	*sun4i_i2s_regmap;
+ 	unsigned int			mclk_offset;
+@@ -151,12 +151,12 @@ struct sun4i_i2s_quirks {
+ 	struct reg_field		field_fmt_sr;
+ 	struct reg_field		field_fmt_bclk;
+ 	struct reg_field		field_fmt_lrclk;
+-	struct reg_field		field_fmt_mode;
+ 
+ 	s8	(*get_sr)(const struct sun4i_i2s *, int);
+ 	s8	(*get_wss)(const struct sun4i_i2s *, int);
+ 	int	(*set_chan_cfg)(const struct sun4i_i2s *,
+ 				const struct snd_pcm_hw_params *);
++	int	(*set_fmt)(const struct sun4i_i2s *, unsigned int);
+ };
+ 
+ struct sun4i_i2s {
+@@ -176,7 +176,6 @@ struct sun4i_i2s {
+ 	struct regmap_field	*field_fmt_sr;
+ 	struct regmap_field	*field_fmt_bclk;
+ 	struct regmap_field	*field_fmt_lrclk;
+-	struct regmap_field	*field_fmt_mode;
+ 
+ 	const struct sun4i_i2s_quirks	*variant;
+ };
+@@ -465,52 +464,117 @@ static int sun4i_i2s_hw_params(struct snd_pcm_substream *substream,
+ 				      params_width(params));
+ }
+ 
+-static int sun4i_i2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
++static int sun4i_i2s_set_soc_fmt(const struct sun4i_i2s *i2s,
++				 unsigned int fmt)
+ {
+-	struct sun4i_i2s *i2s = snd_soc_dai_get_drvdata(dai);
+ 	u32 val;
+-	u32 offset = 0;
+-	u32 bclk_polarity = SUN4I_I2S_FMT0_POLARITY_NORMAL;
+-	u32 lrclk_polarity = SUN4I_I2S_FMT0_POLARITY_NORMAL;
+ 
+ 	/* DAI Mode */
+ 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
+ 	case SND_SOC_DAIFMT_I2S:
+ 		val = SUN4I_I2S_FMT0_FMT_I2S;
+-		offset = 1;
+ 		break;
++
+ 	case SND_SOC_DAIFMT_LEFT_J:
+ 		val = SUN4I_I2S_FMT0_FMT_LEFT_J;
+ 		break;
++
+ 	case SND_SOC_DAIFMT_RIGHT_J:
+ 		val = SUN4I_I2S_FMT0_FMT_RIGHT_J;
+ 		break;
++
+ 	default:
+-		dev_err(dai->dev, "Unsupported format: %d\n",
+-			fmt & SND_SOC_DAIFMT_FORMAT_MASK);
+ 		return -EINVAL;
+ 	}
+ 
+-	if (i2s->variant->has_chsel_offset) {
+-		/*
+-		 * offset being set indicates that we're connected to an i2s
+-		 * device, however offset is only used on the sun8i block and
+-		 * i2s shares the same setting with the LJ format. Increment
+-		 * val so that the bit to value to write is correct.
+-		 */
+-		if (offset > 0)
+-			val++;
+-		/* blck offset determines whether i2s or LJ */
+-		regmap_update_bits(i2s->regmap, SUN8I_I2S_TX_CHAN_SEL_REG,
+-				   SUN8I_I2S_TX_CHAN_OFFSET_MASK,
+-				   SUN8I_I2S_TX_CHAN_OFFSET(offset));
+-
+-		regmap_update_bits(i2s->regmap, SUN8I_I2S_RX_CHAN_SEL_REG,
+-				   SUN8I_I2S_TX_CHAN_OFFSET_MASK,
+-				   SUN8I_I2S_TX_CHAN_OFFSET(offset));
++	regmap_update_bits(i2s->regmap, SUN4I_I2S_FMT0_REG,
++			   SUN4I_I2S_FMT0_FMT_MASK, val);
++
++	/* DAI clock master masks */
++	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
++	case SND_SOC_DAIFMT_CBS_CFS:
++		/* BCLK and LRCLK master */
++		val = SUN4I_I2S_CTRL_MODE_MASTER;
++		break;
++
++	case SND_SOC_DAIFMT_CBM_CFM:
++		/* BCLK and LRCLK slave */
++		val = SUN4I_I2S_CTRL_MODE_SLAVE;
++		break;
++
++	default:
++		return -EINVAL;
+ 	}
++	regmap_update_bits(i2s->regmap, SUN4I_I2S_CTRL_REG,
++			   SUN4I_I2S_CTRL_MODE_MASK, val);
++	return 0;
++}
+ 
+-	regmap_field_write(i2s->field_fmt_mode, val);
++static int sun8i_i2s_set_soc_fmt(const struct sun4i_i2s *i2s,
++				 unsigned int fmt)
++{
++	u32 mode, val;
++	u8 offset;
++
++	/* DAI Mode */
++	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
++	case SND_SOC_DAIFMT_I2S:
++		mode = SUN8I_I2S_CTRL_MODE_LEFT;
++		offset = 1;
++		break;
++
++	case SND_SOC_DAIFMT_LEFT_J:
++		mode = SUN8I_I2S_CTRL_MODE_LEFT;
++		offset = 0;
++		break;
++
++	case SND_SOC_DAIFMT_RIGHT_J:
++		mode = SUN8I_I2S_CTRL_MODE_RIGHT;
++		offset = 0;
++		break;
++
++	default:
++		return -EINVAL;
++	}
++
++	regmap_update_bits(i2s->regmap, SUN4I_I2S_CTRL_REG,
++			   SUN8I_I2S_CTRL_MODE_MASK, mode);
++	regmap_update_bits(i2s->regmap, SUN8I_I2S_TX_CHAN_SEL_REG,
++			   SUN8I_I2S_TX_CHAN_OFFSET_MASK,
++			   SUN8I_I2S_TX_CHAN_OFFSET(offset));
++	regmap_update_bits(i2s->regmap, SUN8I_I2S_RX_CHAN_SEL_REG,
++			   SUN8I_I2S_TX_CHAN_OFFSET_MASK,
++			   SUN8I_I2S_TX_CHAN_OFFSET(offset));
++
++	/* DAI clock master masks */
++	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
++	case SND_SOC_DAIFMT_CBS_CFS:
++		/* BCLK and LRCLK master */
++		val = SUN8I_I2S_CTRL_BCLK_OUT |	SUN8I_I2S_CTRL_LRCK_OUT;
++		break;
++
++	case SND_SOC_DAIFMT_CBM_CFM:
++		/* BCLK and LRCLK slave */
++		val = 0;
++		break;
++
++	default:
++		return -EINVAL;
++	}
++
++	regmap_update_bits(i2s->regmap, SUN4I_I2S_CTRL_REG,
++			   SUN8I_I2S_CTRL_BCLK_OUT | SUN8I_I2S_CTRL_LRCK_OUT,
++			   val);
++
++	return 0;
++}
++
++static int sun4i_i2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
++{
++	struct sun4i_i2s *i2s = snd_soc_dai_get_drvdata(dai);
++	u32 bclk_polarity = SUN4I_I2S_FMT0_POLARITY_NORMAL;
++	u32 lrclk_polarity = SUN4I_I2S_FMT0_POLARITY_NORMAL;
++	int ret;
+ 
+ 	/* DAI clock polarity */
+ 	switch (fmt & SND_SOC_DAIFMT_INV_MASK) {
+@@ -538,50 +602,10 @@ static int sun4i_i2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
+ 	regmap_field_write(i2s->field_fmt_bclk, bclk_polarity);
+ 	regmap_field_write(i2s->field_fmt_lrclk, lrclk_polarity);
+ 
+-	if (i2s->variant->has_slave_select_bit) {
+-		/* DAI clock master masks */
+-		switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
+-		case SND_SOC_DAIFMT_CBS_CFS:
+-			/* BCLK and LRCLK master */
+-			val = SUN4I_I2S_CTRL_MODE_MASTER;
+-			break;
+-		case SND_SOC_DAIFMT_CBM_CFM:
+-			/* BCLK and LRCLK slave */
+-			val = SUN4I_I2S_CTRL_MODE_SLAVE;
+-			break;
+-		default:
+-			dev_err(dai->dev, "Unsupported slave setting: %d\n",
+-				fmt & SND_SOC_DAIFMT_MASTER_MASK);
+-			return -EINVAL;
+-		}
+-		regmap_update_bits(i2s->regmap, SUN4I_I2S_CTRL_REG,
+-				   SUN4I_I2S_CTRL_MODE_MASK,
+-				   val);
+-	} else {
+-		/*
+-		 * The newer i2s block does not have a slave select bit,
+-		 * instead the clk pins are configured as inputs.
+-		 */
+-		/* DAI clock master masks */
+-		switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
+-		case SND_SOC_DAIFMT_CBS_CFS:
+-			/* BCLK and LRCLK master */
+-			val = SUN8I_I2S_CTRL_BCLK_OUT |
+-				SUN8I_I2S_CTRL_LRCK_OUT;
+-			break;
+-		case SND_SOC_DAIFMT_CBM_CFM:
+-			/* BCLK and LRCLK slave */
+-			val = 0;
+-			break;
+-		default:
+-			dev_err(dai->dev, "Unsupported slave setting: %d\n",
+-				fmt & SND_SOC_DAIFMT_MASTER_MASK);
+-			return -EINVAL;
+-		}
+-		regmap_update_bits(i2s->regmap, SUN4I_I2S_CTRL_REG,
+-				   SUN8I_I2S_CTRL_BCLK_OUT |
+-				   SUN8I_I2S_CTRL_LRCK_OUT,
+-				   val);
++	ret = i2s->variant->set_fmt(i2s, fmt);
++	if (ret) {
++		dev_err(dai->dev, "Unsupported format configuration\n");
++		return ret;
+ 	}
+ 
+ 	/* Set significant bits in our FIFOs */
+@@ -933,11 +957,10 @@ static const struct sun4i_i2s_quirks sun4i_a10_i2s_quirks = {
+ 	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 5),
+ 	.field_fmt_bclk		= REG_FIELD(SUN4I_I2S_FMT0_REG, 6, 6),
+ 	.field_fmt_lrclk	= REG_FIELD(SUN4I_I2S_FMT0_REG, 7, 7),
+-	.has_slave_select_bit	= true,
+-	.field_fmt_mode		= REG_FIELD(SUN4I_I2S_FMT0_REG, 0, 1),
+ 	.get_sr			= sun4i_i2s_get_sr,
+ 	.get_wss		= sun4i_i2s_get_wss,
+ 	.set_chan_cfg		= sun4i_i2s_set_chan_cfg,
++	.set_fmt		= sun4i_i2s_set_soc_fmt,
+ };
+ 
+ static const struct sun4i_i2s_quirks sun6i_a31_i2s_quirks = {
+@@ -949,11 +972,10 @@ static const struct sun4i_i2s_quirks sun6i_a31_i2s_quirks = {
+ 	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 5),
+ 	.field_fmt_bclk		= REG_FIELD(SUN4I_I2S_FMT0_REG, 6, 6),
+ 	.field_fmt_lrclk	= REG_FIELD(SUN4I_I2S_FMT0_REG, 7, 7),
+-	.has_slave_select_bit	= true,
+-	.field_fmt_mode		= REG_FIELD(SUN4I_I2S_FMT0_REG, 0, 1),
+ 	.get_sr			= sun4i_i2s_get_sr,
+ 	.get_wss		= sun4i_i2s_get_wss,
+ 	.set_chan_cfg		= sun4i_i2s_set_chan_cfg,
++	.set_fmt		= sun4i_i2s_set_soc_fmt,
+ };
+ 
+ static const struct sun4i_i2s_quirks sun8i_a83t_i2s_quirks = {
+@@ -965,11 +987,10 @@ static const struct sun4i_i2s_quirks sun8i_a83t_i2s_quirks = {
+ 	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 5),
+ 	.field_fmt_bclk		= REG_FIELD(SUN4I_I2S_FMT0_REG, 6, 6),
+ 	.field_fmt_lrclk	= REG_FIELD(SUN4I_I2S_FMT0_REG, 7, 7),
+-	.has_slave_select_bit	= true,
+-	.field_fmt_mode		= REG_FIELD(SUN4I_I2S_FMT0_REG, 0, 1),
+ 	.get_sr			= sun8i_i2s_get_sr_wss,
+ 	.get_wss		= sun8i_i2s_get_sr_wss,
+ 	.set_chan_cfg		= sun8i_i2s_set_chan_cfg,
++	.set_fmt		= sun8i_i2s_set_soc_fmt,
+ };
+ 
+ static const struct sun4i_i2s_quirks sun8i_h3_i2s_quirks = {
+@@ -979,32 +1000,30 @@ static const struct sun4i_i2s_quirks sun8i_h3_i2s_quirks = {
+ 	.mclk_offset		= 1,
+ 	.bclk_offset		= 2,
+ 	.has_fmt_set_lrck_period = true,
+-	.has_chsel_offset	= true,
+ 	.field_clkdiv_mclk_en	= REG_FIELD(SUN4I_I2S_CLK_DIV_REG, 8, 8),
+ 	.field_fmt_wss		= REG_FIELD(SUN4I_I2S_FMT0_REG, 0, 2),
+ 	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 6),
+ 	.field_fmt_bclk		= REG_FIELD(SUN4I_I2S_FMT0_REG, 7, 7),
+ 	.field_fmt_lrclk	= REG_FIELD(SUN4I_I2S_FMT0_REG, 19, 19),
+-	.field_fmt_mode		= REG_FIELD(SUN4I_I2S_CTRL_REG, 4, 5),
+ 	.get_sr			= sun8i_i2s_get_sr_wss,
+ 	.get_wss		= sun8i_i2s_get_sr_wss,
+ 	.set_chan_cfg		= sun8i_i2s_set_chan_cfg,
++	.set_fmt		= sun8i_i2s_set_soc_fmt,
+ };
+ 
+ static const struct sun4i_i2s_quirks sun50i_a64_codec_i2s_quirks = {
+ 	.has_reset		= true,
+ 	.reg_offset_txdata	= SUN8I_I2S_FIFO_TX_REG,
+ 	.sun4i_i2s_regmap	= &sun4i_i2s_regmap_config,
+-	.has_slave_select_bit	= true,
+ 	.field_clkdiv_mclk_en	= REG_FIELD(SUN4I_I2S_CLK_DIV_REG, 7, 7),
+ 	.field_fmt_wss		= REG_FIELD(SUN4I_I2S_FMT0_REG, 2, 3),
+ 	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 5),
+ 	.field_fmt_bclk		= REG_FIELD(SUN4I_I2S_FMT0_REG, 6, 6),
+ 	.field_fmt_lrclk	= REG_FIELD(SUN4I_I2S_FMT0_REG, 7, 7),
+-	.field_fmt_mode		= REG_FIELD(SUN4I_I2S_FMT0_REG, 0, 1),
+ 	.get_sr			= sun4i_i2s_get_sr,
+ 	.get_wss		= sun4i_i2s_get_wss,
+ 	.set_chan_cfg		= sun4i_i2s_set_chan_cfg,
++	.set_fmt		= sun4i_i2s_set_soc_fmt,
+ };
+ 
+ static int sun4i_i2s_init_regmap_fields(struct device *dev,
+@@ -1040,12 +1059,6 @@ static int sun4i_i2s_init_regmap_fields(struct device *dev,
+ 	if (IS_ERR(i2s->field_fmt_lrclk))
+ 		return PTR_ERR(i2s->field_fmt_lrclk);
+ 
+-	i2s->field_fmt_mode =
+-			devm_regmap_field_alloc(dev, i2s->regmap,
+-						i2s->variant->field_fmt_mode);
+-	if (IS_ERR(i2s->field_fmt_mode))
+-		return PTR_ERR(i2s->field_fmt_mode);
+-
+ 	return 0;
+ }
+ 
+-- 
+2.23.0
+
+From fb19739d7f688142b61d0fca476188c4fd9e937a Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@bootlin.com>
+Date: Mon, 19 Aug 2019 21:25:15 +0200
+Subject: [PATCH] ASoC: sun4i-i2s: Use module clock as BCLK parent on newer
+ SoCs
+
+On the first generation of Allwinner SoCs (A10-A31), the i2s controller was
+using the MCLK as BCLK parent. However, this changed since the introduction
+of the A83t and BCLK now uses the module clock as its parent.
+
+Let's introduce a hook to get the parent rate and use that in our divider
+calculations.
+
+Fixes: 7d2993811a1e ("ASoC: sun4i-i2s: Add support for H3")
+Fixes: 21faaea1343f ("ASoC: sun4i-i2s: Add support for A83T")
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Link: https://lore.kernel.org/r/0b6665be216b3bd0e7bc43724818f05f3f8ee881.1566242458.git-series.maxime.ripard@bootlin.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/sunxi/sun4i-i2s.c | 21 +++++++++++++++++++--
+ 1 file changed, 19 insertions(+), 2 deletions(-)
+
+diff --git a/sound/soc/sunxi/sun4i-i2s.c b/sound/soc/sunxi/sun4i-i2s.c
+index 93ea627e2f1f..acfcdb26086a 100644
+--- a/sound/soc/sunxi/sun4i-i2s.c
++++ b/sound/soc/sunxi/sun4i-i2s.c
+@@ -152,6 +152,7 @@ struct sun4i_i2s_quirks {
+ 	struct reg_field		field_fmt_bclk;
+ 	struct reg_field		field_fmt_lrclk;
+ 
++	unsigned long (*get_bclk_parent_rate)(const struct sun4i_i2s *);
+ 	s8	(*get_sr)(const struct sun4i_i2s *, int);
+ 	s8	(*get_wss)(const struct sun4i_i2s *, int);
+ 	int	(*set_chan_cfg)(const struct sun4i_i2s *,
+@@ -207,6 +208,16 @@ static const struct sun4i_i2s_clk_div sun4i_i2s_mclk_div[] = {
+ 	/* TODO - extend divide ratio supported by newer SoCs */
+ };
+ 
++static unsigned long sun4i_i2s_get_bclk_parent_rate(const struct sun4i_i2s *i2s)
++{
++	return i2s->mclk_freq;
++}
++
++static unsigned long sun8i_i2s_get_bclk_parent_rate(const struct sun4i_i2s *i2s)
++{
++	return clk_get_rate(i2s->mod_clk);
++}
++
+ static int sun4i_i2s_get_bclk_div(struct sun4i_i2s *i2s,
+ 				  unsigned long parent_rate,
+ 				  unsigned int sampling_rate,
+@@ -259,7 +270,7 @@ static int sun4i_i2s_set_clk_rate(struct snd_soc_dai *dai,
+ 				  unsigned int word_size)
+ {
+ 	struct sun4i_i2s *i2s = snd_soc_dai_get_drvdata(dai);
+-	unsigned int oversample_rate, clk_rate;
++	unsigned int oversample_rate, clk_rate, bclk_parent_rate;
+ 	int bclk_div, mclk_div;
+ 	int ret;
+ 
+@@ -301,7 +312,8 @@ static int sun4i_i2s_set_clk_rate(struct snd_soc_dai *dai,
+ 		return -EINVAL;
+ 	}
+ 
+-	bclk_div = sun4i_i2s_get_bclk_div(i2s, i2s->mclk_freq,
++	bclk_parent_rate = i2s->variant->get_bclk_parent_rate(i2s);
++	bclk_div = sun4i_i2s_get_bclk_div(i2s, bclk_parent_rate,
+ 					  rate, word_size);
+ 	if (bclk_div < 0) {
+ 		dev_err(dai->dev, "Unsupported BCLK divider: %d\n", bclk_div);
+@@ -957,6 +969,7 @@ static const struct sun4i_i2s_quirks sun4i_a10_i2s_quirks = {
+ 	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 5),
+ 	.field_fmt_bclk		= REG_FIELD(SUN4I_I2S_FMT0_REG, 6, 6),
+ 	.field_fmt_lrclk	= REG_FIELD(SUN4I_I2S_FMT0_REG, 7, 7),
++	.get_bclk_parent_rate	= sun4i_i2s_get_bclk_parent_rate,
+ 	.get_sr			= sun4i_i2s_get_sr,
+ 	.get_wss		= sun4i_i2s_get_wss,
+ 	.set_chan_cfg		= sun4i_i2s_set_chan_cfg,
+@@ -972,6 +985,7 @@ static const struct sun4i_i2s_quirks sun6i_a31_i2s_quirks = {
+ 	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 5),
+ 	.field_fmt_bclk		= REG_FIELD(SUN4I_I2S_FMT0_REG, 6, 6),
+ 	.field_fmt_lrclk	= REG_FIELD(SUN4I_I2S_FMT0_REG, 7, 7),
++	.get_bclk_parent_rate	= sun4i_i2s_get_bclk_parent_rate,
+ 	.get_sr			= sun4i_i2s_get_sr,
+ 	.get_wss		= sun4i_i2s_get_wss,
+ 	.set_chan_cfg		= sun4i_i2s_set_chan_cfg,
+@@ -987,6 +1001,7 @@ static const struct sun4i_i2s_quirks sun8i_a83t_i2s_quirks = {
+ 	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 5),
+ 	.field_fmt_bclk		= REG_FIELD(SUN4I_I2S_FMT0_REG, 6, 6),
+ 	.field_fmt_lrclk	= REG_FIELD(SUN4I_I2S_FMT0_REG, 7, 7),
++	.get_bclk_parent_rate	= sun8i_i2s_get_bclk_parent_rate,
+ 	.get_sr			= sun8i_i2s_get_sr_wss,
+ 	.get_wss		= sun8i_i2s_get_sr_wss,
+ 	.set_chan_cfg		= sun8i_i2s_set_chan_cfg,
+@@ -1005,6 +1020,7 @@ static const struct sun4i_i2s_quirks sun8i_h3_i2s_quirks = {
+ 	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 6),
+ 	.field_fmt_bclk		= REG_FIELD(SUN4I_I2S_FMT0_REG, 7, 7),
+ 	.field_fmt_lrclk	= REG_FIELD(SUN4I_I2S_FMT0_REG, 19, 19),
++	.get_bclk_parent_rate	= sun8i_i2s_get_bclk_parent_rate,
+ 	.get_sr			= sun8i_i2s_get_sr_wss,
+ 	.get_wss		= sun8i_i2s_get_sr_wss,
+ 	.set_chan_cfg		= sun8i_i2s_set_chan_cfg,
+@@ -1020,6 +1036,7 @@ static const struct sun4i_i2s_quirks sun50i_a64_codec_i2s_quirks = {
+ 	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 5),
+ 	.field_fmt_bclk		= REG_FIELD(SUN4I_I2S_FMT0_REG, 6, 6),
+ 	.field_fmt_lrclk	= REG_FIELD(SUN4I_I2S_FMT0_REG, 7, 7),
++	.get_bclk_parent_rate	= sun4i_i2s_get_bclk_parent_rate,
+ 	.get_sr			= sun4i_i2s_get_sr,
+ 	.get_wss		= sun4i_i2s_get_wss,
+ 	.set_chan_cfg		= sun4i_i2s_set_chan_cfg,
+-- 
+2.23.0
+
+From c1d3a921d72bd21f266ca28c15213fbe78160a4b Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@bootlin.com>
+Date: Mon, 19 Aug 2019 21:25:16 +0200
+Subject: [PATCH] ASoC: sun4i-i2s: Fix the MCLK and BCLK dividers on newer SoCs
+
+From: Marcus Cooper <codekipper@gmail.com>
+
+The clock division dividers have changed between the older (A10/A31) and
+newer (H3, A64, etc) SoCs.
+
+While this was addressed through an offset on some SoCs, it was missing
+some dividers as well, so the support wasn't perfect. Let's introduce a
+pointer in the quirk structure for the divider calculation functions to use
+so we can have the proper range now.
+
+Signed-off-by: Marcus Cooper <codekipper@gmail.com>
+[Maxime: Fix the commit log, use a field in the quirk structure]
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Link: https://lore.kernel.org/r/0e5b4abf06cd3202354315201c6af44caeb20236.1566242458.git-series.maxime.ripard@bootlin.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/sunxi/sun4i-i2s.c | 63 ++++++++++++++++++++++++++++---------
+ 1 file changed, 49 insertions(+), 14 deletions(-)
+
+diff --git a/sound/soc/sunxi/sun4i-i2s.c b/sound/soc/sunxi/sun4i-i2s.c
+index acfcdb26086a..0a7f1d0f7371 100644
+--- a/sound/soc/sunxi/sun4i-i2s.c
++++ b/sound/soc/sunxi/sun4i-i2s.c
+@@ -129,8 +129,6 @@ struct sun4i_i2s;
+  * @has_fmt_set_lrck_period: SoC requires lrclk period to be set.
+  * @reg_offset_txdata: offset of the tx fifo.
+  * @sun4i_i2s_regmap: regmap config to use.
+- * @mclk_offset: Value by which mclkdiv needs to be adjusted.
+- * @bclk_offset: Value by which bclkdiv needs to be adjusted.
+  * @field_clkdiv_mclk_en: regmap field to enable mclk output.
+  * @field_fmt_wss: regmap field to set word select size.
+  * @field_fmt_sr: regmap field to set sample resolution.
+@@ -142,8 +140,6 @@ struct sun4i_i2s_quirks {
+ 	bool				has_fmt_set_lrck_period;
+ 	unsigned int			reg_offset_txdata;	/* TX FIFO */
+ 	const struct regmap_config	*sun4i_i2s_regmap;
+-	unsigned int			mclk_offset;
+-	unsigned int			bclk_offset;
+ 
+ 	/* Register fields for i2s */
+ 	struct reg_field		field_clkdiv_mclk_en;
+@@ -152,6 +148,11 @@ struct sun4i_i2s_quirks {
+ 	struct reg_field		field_fmt_bclk;
+ 	struct reg_field		field_fmt_lrclk;
+ 
++	const struct sun4i_i2s_clk_div	*bclk_dividers;
++	unsigned int			num_bclk_dividers;
++	const struct sun4i_i2s_clk_div	*mclk_dividers;
++	unsigned int			num_mclk_dividers;
++
+ 	unsigned long (*get_bclk_parent_rate)(const struct sun4i_i2s *);
+ 	s8	(*get_sr)(const struct sun4i_i2s *, int);
+ 	s8	(*get_wss)(const struct sun4i_i2s *, int);
+@@ -208,6 +209,24 @@ static const struct sun4i_i2s_clk_div sun4i_i2s_mclk_div[] = {
+ 	/* TODO - extend divide ratio supported by newer SoCs */
+ };
+ 
++static const struct sun4i_i2s_clk_div sun8i_i2s_clk_div[] = {
++	{ .div = 1, .val = 1 },
++	{ .div = 2, .val = 2 },
++	{ .div = 4, .val = 3 },
++	{ .div = 6, .val = 4 },
++	{ .div = 8, .val = 5 },
++	{ .div = 12, .val = 6 },
++	{ .div = 16, .val = 7 },
++	{ .div = 24, .val = 8 },
++	{ .div = 32, .val = 9 },
++	{ .div = 48, .val = 10 },
++	{ .div = 64, .val = 11 },
++	{ .div = 96, .val = 12 },
++	{ .div = 128, .val = 13 },
++	{ .div = 176, .val = 14 },
++	{ .div = 192, .val = 15 },
++};
++
+ static unsigned long sun4i_i2s_get_bclk_parent_rate(const struct sun4i_i2s *i2s)
+ {
+ 	return i2s->mclk_freq;
+@@ -223,11 +242,12 @@ static int sun4i_i2s_get_bclk_div(struct sun4i_i2s *i2s,
+ 				  unsigned int sampling_rate,
+ 				  unsigned int word_size)
+ {
++	const struct sun4i_i2s_clk_div *dividers = i2s->variant->bclk_dividers;
+ 	int div = parent_rate / sampling_rate / word_size / 2;
+ 	int i;
+ 
+-	for (i = 0; i < ARRAY_SIZE(sun4i_i2s_bclk_div); i++) {
+-		const struct sun4i_i2s_clk_div *bdiv = &sun4i_i2s_bclk_div[i];
++	for (i = 0; i < i2s->variant->num_bclk_dividers; i++) {
++		const struct sun4i_i2s_clk_div *bdiv = &dividers[i];
+ 
+ 		if (bdiv->div == div)
+ 			return bdiv->val;
+@@ -240,11 +260,12 @@ static int sun4i_i2s_get_mclk_div(struct sun4i_i2s *i2s,
+ 				  unsigned long parent_rate,
+ 				  unsigned long mclk_rate)
+ {
++	const struct sun4i_i2s_clk_div *dividers = i2s->variant->mclk_dividers;
+ 	int div = parent_rate / mclk_rate;
+ 	int i;
+ 
+-	for (i = 0; i < ARRAY_SIZE(sun4i_i2s_mclk_div); i++) {
+-		const struct sun4i_i2s_clk_div *mdiv = &sun4i_i2s_mclk_div[i];
++	for (i = 0; i < i2s->variant->num_mclk_dividers; i++) {
++		const struct sun4i_i2s_clk_div *mdiv = &dividers[i];
+ 
+ 		if (mdiv->div == div)
+ 			return mdiv->val;
+@@ -326,10 +347,6 @@ static int sun4i_i2s_set_clk_rate(struct snd_soc_dai *dai,
+ 		return -EINVAL;
+ 	}
+ 
+-	/* Adjust the clock division values if needed */
+-	bclk_div += i2s->variant->bclk_offset;
+-	mclk_div += i2s->variant->mclk_offset;
+-
+ 	regmap_write(i2s->regmap, SUN4I_I2S_CLK_DIV_REG,
+ 		     SUN4I_I2S_CLK_DIV_BCLK(bclk_div) |
+ 		     SUN4I_I2S_CLK_DIV_MCLK(mclk_div));
+@@ -969,6 +986,10 @@ static const struct sun4i_i2s_quirks sun4i_a10_i2s_quirks = {
+ 	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 5),
+ 	.field_fmt_bclk		= REG_FIELD(SUN4I_I2S_FMT0_REG, 6, 6),
+ 	.field_fmt_lrclk	= REG_FIELD(SUN4I_I2S_FMT0_REG, 7, 7),
++	.bclk_dividers		= sun4i_i2s_bclk_div,
++	.num_bclk_dividers	= ARRAY_SIZE(sun4i_i2s_bclk_div),
++	.mclk_dividers		= sun4i_i2s_mclk_div,
++	.num_mclk_dividers	= ARRAY_SIZE(sun4i_i2s_mclk_div),
+ 	.get_bclk_parent_rate	= sun4i_i2s_get_bclk_parent_rate,
+ 	.get_sr			= sun4i_i2s_get_sr,
+ 	.get_wss		= sun4i_i2s_get_wss,
+@@ -985,6 +1006,10 @@ static const struct sun4i_i2s_quirks sun6i_a31_i2s_quirks = {
+ 	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 5),
+ 	.field_fmt_bclk		= REG_FIELD(SUN4I_I2S_FMT0_REG, 6, 6),
+ 	.field_fmt_lrclk	= REG_FIELD(SUN4I_I2S_FMT0_REG, 7, 7),
++	.bclk_dividers		= sun4i_i2s_bclk_div,
++	.num_bclk_dividers	= ARRAY_SIZE(sun4i_i2s_bclk_div),
++	.mclk_dividers		= sun4i_i2s_mclk_div,
++	.num_mclk_dividers	= ARRAY_SIZE(sun4i_i2s_mclk_div),
+ 	.get_bclk_parent_rate	= sun4i_i2s_get_bclk_parent_rate,
+ 	.get_sr			= sun4i_i2s_get_sr,
+ 	.get_wss		= sun4i_i2s_get_wss,
+@@ -1001,6 +1026,10 @@ static const struct sun4i_i2s_quirks sun8i_a83t_i2s_quirks = {
+ 	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 5),
+ 	.field_fmt_bclk		= REG_FIELD(SUN4I_I2S_FMT0_REG, 6, 6),
+ 	.field_fmt_lrclk	= REG_FIELD(SUN4I_I2S_FMT0_REG, 7, 7),
++	.bclk_dividers		= sun8i_i2s_clk_div,
++	.num_bclk_dividers	= ARRAY_SIZE(sun8i_i2s_clk_div),
++	.mclk_dividers		= sun8i_i2s_clk_div,
++	.num_mclk_dividers	= ARRAY_SIZE(sun8i_i2s_clk_div),
+ 	.get_bclk_parent_rate	= sun8i_i2s_get_bclk_parent_rate,
+ 	.get_sr			= sun8i_i2s_get_sr_wss,
+ 	.get_wss		= sun8i_i2s_get_sr_wss,
+@@ -1012,14 +1041,16 @@ static const struct sun4i_i2s_quirks sun8i_h3_i2s_quirks = {
+ 	.has_reset		= true,
+ 	.reg_offset_txdata	= SUN8I_I2S_FIFO_TX_REG,
+ 	.sun4i_i2s_regmap	= &sun8i_i2s_regmap_config,
+-	.mclk_offset		= 1,
+-	.bclk_offset		= 2,
+ 	.has_fmt_set_lrck_period = true,
+ 	.field_clkdiv_mclk_en	= REG_FIELD(SUN4I_I2S_CLK_DIV_REG, 8, 8),
+ 	.field_fmt_wss		= REG_FIELD(SUN4I_I2S_FMT0_REG, 0, 2),
+ 	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 6),
+ 	.field_fmt_bclk		= REG_FIELD(SUN4I_I2S_FMT0_REG, 7, 7),
+ 	.field_fmt_lrclk	= REG_FIELD(SUN4I_I2S_FMT0_REG, 19, 19),
++	.bclk_dividers		= sun8i_i2s_clk_div,
++	.num_bclk_dividers	= ARRAY_SIZE(sun8i_i2s_clk_div),
++	.mclk_dividers		= sun8i_i2s_clk_div,
++	.num_mclk_dividers	= ARRAY_SIZE(sun8i_i2s_clk_div),
+ 	.get_bclk_parent_rate	= sun8i_i2s_get_bclk_parent_rate,
+ 	.get_sr			= sun8i_i2s_get_sr_wss,
+ 	.get_wss		= sun8i_i2s_get_sr_wss,
+@@ -1036,6 +1067,10 @@ static const struct sun4i_i2s_quirks sun50i_a64_codec_i2s_quirks = {
+ 	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 5),
+ 	.field_fmt_bclk		= REG_FIELD(SUN4I_I2S_FMT0_REG, 6, 6),
+ 	.field_fmt_lrclk	= REG_FIELD(SUN4I_I2S_FMT0_REG, 7, 7),
++	.bclk_dividers		= sun4i_i2s_bclk_div,
++	.num_bclk_dividers	= ARRAY_SIZE(sun4i_i2s_bclk_div),
++	.mclk_dividers		= sun4i_i2s_mclk_div,
++	.num_mclk_dividers	= ARRAY_SIZE(sun4i_i2s_mclk_div),
+ 	.get_bclk_parent_rate	= sun4i_i2s_get_bclk_parent_rate,
+ 	.get_sr			= sun4i_i2s_get_sr,
+ 	.get_wss		= sun4i_i2s_get_wss,
+-- 
+2.23.0
+
+From cf2c0e1ce9544df42170fb921f12da82dc0cc8d6 Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@bootlin.com>
+Date: Mon, 19 Aug 2019 21:25:17 +0200
+Subject: [PATCH] ASoC: sun4i-i2s: RX and TX counter registers are swapped
+
+The RX and TX counters registers offset have been swapped, fix that.
+
+Fixes: fa7c0d13cb26 ("ASoC: sunxi: Add Allwinner A10 Digital Audio driver")
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Link: https://lore.kernel.org/r/8b26477560ad5fd8f69e037b167c5e61de5c26a3.1566242458.git-series.maxime.ripard@bootlin.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/sunxi/sun4i-i2s.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/sound/soc/sunxi/sun4i-i2s.c b/sound/soc/sunxi/sun4i-i2s.c
+index 0a7f1d0f7371..53c95e5289f5 100644
+--- a/sound/soc/sunxi/sun4i-i2s.c
++++ b/sound/soc/sunxi/sun4i-i2s.c
+@@ -76,8 +76,8 @@
+ #define SUN4I_I2S_CLK_DIV_MCLK_MASK		GENMASK(3, 0)
+ #define SUN4I_I2S_CLK_DIV_MCLK(mclk)			((mclk) << 0)
+ 
+-#define SUN4I_I2S_RX_CNT_REG		0x28
+-#define SUN4I_I2S_TX_CNT_REG		0x2c
++#define SUN4I_I2S_TX_CNT_REG		0x28
++#define SUN4I_I2S_RX_CNT_REG		0x2c
+ 
+ #define SUN4I_I2S_TX_CHAN_SEL_REG	0x30
+ #define SUN4I_I2S_CHAN_SEL_MASK			GENMASK(2, 0)
+-- 
+2.23.0
+
+From 515fcfbc773632e160f4b94e8df8d278a8d704f7 Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@bootlin.com>
+Date: Mon, 19 Aug 2019 21:25:19 +0200
+Subject: [PATCH] ASoC: sun4i-i2s: Fix LRCK and BCLK polarity offsets on newer
+ SoCs
+
+The LRCK and BCLK polarity offsets on newer SoCs has been
+changed, yet the driver didn't take it into account for all of them.
+
+This was taken into account for the H3, but not the A83t. This was handled
+using a reg_field for the H3.
+
+However, the value in that field will not be the same, so reg_field is not
+adapted in that case. Let's change for proper calls with the regular
+values.
+
+Fixes: 21faaea1343f ("ASoC: sun4i-i2s: Add support for A83T")
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Link: https://lore.kernel.org/r/9cbdde80a299288878e58225df4d7884e0301348.1566242458.git-series.maxime.ripard@bootlin.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/sunxi/sun4i-i2s.c | 118 ++++++++++++++++++------------------
+ 1 file changed, 60 insertions(+), 58 deletions(-)
+
+diff --git a/sound/soc/sunxi/sun4i-i2s.c b/sound/soc/sunxi/sun4i-i2s.c
+index 53c95e5289f5..e3eadfe38aaf 100644
+--- a/sound/soc/sunxi/sun4i-i2s.c
++++ b/sound/soc/sunxi/sun4i-i2s.c
+@@ -46,8 +46,6 @@
+ #define SUN4I_I2S_FMT0_FMT_RIGHT_J			(2 << 0)
+ #define SUN4I_I2S_FMT0_FMT_LEFT_J			(1 << 0)
+ #define SUN4I_I2S_FMT0_FMT_I2S				(0 << 0)
+-#define SUN4I_I2S_FMT0_POLARITY_INVERTED		(1)
+-#define SUN4I_I2S_FMT0_POLARITY_NORMAL			(0)
+ 
+ #define SUN4I_I2S_FMT1_REG		0x08
+ #define SUN4I_I2S_FIFO_TX_REG		0x0c
+@@ -98,8 +96,14 @@
+ #define SUN8I_I2S_CTRL_MODE_LEFT		(1 << 4)
+ #define SUN8I_I2S_CTRL_MODE_PCM			(0 << 4)
+ 
++#define SUN8I_I2S_FMT0_LRCLK_POLARITY_MASK	BIT(19)
++#define SUN8I_I2S_FMT0_LRCLK_POLARITY_INVERTED		(1 << 19)
++#define SUN8I_I2S_FMT0_LRCLK_POLARITY_NORMAL		(0 << 19)
+ #define SUN8I_I2S_FMT0_LRCK_PERIOD_MASK		GENMASK(17, 8)
+ #define SUN8I_I2S_FMT0_LRCK_PERIOD(period)	((period - 1) << 8)
++#define SUN8I_I2S_FMT0_BCLK_POLARITY_MASK	BIT(7)
++#define SUN8I_I2S_FMT0_BCLK_POLARITY_INVERTED		(1 << 7)
++#define SUN8I_I2S_FMT0_BCLK_POLARITY_NORMAL		(0 << 7)
+ 
+ #define SUN8I_I2S_INT_STA_REG		0x0c
+ #define SUN8I_I2S_FIFO_TX_REG		0x20
+@@ -132,8 +136,6 @@ struct sun4i_i2s;
+  * @field_clkdiv_mclk_en: regmap field to enable mclk output.
+  * @field_fmt_wss: regmap field to set word select size.
+  * @field_fmt_sr: regmap field to set sample resolution.
+- * @field_fmt_bclk: regmap field to set clk polarity.
+- * @field_fmt_lrclk: regmap field to set frame polarity.
+  */
+ struct sun4i_i2s_quirks {
+ 	bool				has_reset;
+@@ -145,8 +147,6 @@ struct sun4i_i2s_quirks {
+ 	struct reg_field		field_clkdiv_mclk_en;
+ 	struct reg_field		field_fmt_wss;
+ 	struct reg_field		field_fmt_sr;
+-	struct reg_field		field_fmt_bclk;
+-	struct reg_field		field_fmt_lrclk;
+ 
+ 	const struct sun4i_i2s_clk_div	*bclk_dividers;
+ 	unsigned int			num_bclk_dividers;
+@@ -176,8 +176,6 @@ struct sun4i_i2s {
+ 	struct regmap_field	*field_clkdiv_mclk_en;
+ 	struct regmap_field	*field_fmt_wss;
+ 	struct regmap_field	*field_fmt_sr;
+-	struct regmap_field	*field_fmt_bclk;
+-	struct regmap_field	*field_fmt_lrclk;
+ 
+ 	const struct sun4i_i2s_quirks	*variant;
+ };
+@@ -498,6 +496,33 @@ static int sun4i_i2s_set_soc_fmt(const struct sun4i_i2s *i2s,
+ {
+ 	u32 val;
+ 
++	/* DAI clock polarity */
++	switch (fmt & SND_SOC_DAIFMT_INV_MASK) {
++	case SND_SOC_DAIFMT_IB_IF:
++		/* Invert both clocks */
++		val = SUN4I_I2S_FMT0_BCLK_POLARITY_INVERTED |
++		      SUN4I_I2S_FMT0_LRCLK_POLARITY_INVERTED;
++		break;
++	case SND_SOC_DAIFMT_IB_NF:
++		/* Invert bit clock */
++		val = SUN4I_I2S_FMT0_BCLK_POLARITY_INVERTED;
++		break;
++	case SND_SOC_DAIFMT_NB_IF:
++		/* Invert frame clock */
++		val = SUN4I_I2S_FMT0_LRCLK_POLARITY_INVERTED;
++		break;
++	case SND_SOC_DAIFMT_NB_NF:
++		val = 0;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	regmap_update_bits(i2s->regmap, SUN4I_I2S_FMT0_REG,
++			   SUN4I_I2S_FMT0_LRCLK_POLARITY_MASK |
++			   SUN4I_I2S_FMT0_BCLK_POLARITY_MASK,
++			   val);
++
+ 	/* DAI Mode */
+ 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
+ 	case SND_SOC_DAIFMT_I2S:
+@@ -545,6 +570,33 @@ static int sun8i_i2s_set_soc_fmt(const struct sun4i_i2s *i2s,
+ 	u32 mode, val;
+ 	u8 offset;
+ 
++	/* DAI clock polarity */
++	switch (fmt & SND_SOC_DAIFMT_INV_MASK) {
++	case SND_SOC_DAIFMT_IB_IF:
++		/* Invert both clocks */
++		val = SUN8I_I2S_FMT0_BCLK_POLARITY_INVERTED |
++		      SUN8I_I2S_FMT0_LRCLK_POLARITY_INVERTED;
++		break;
++	case SND_SOC_DAIFMT_IB_NF:
++		/* Invert bit clock */
++		val = SUN8I_I2S_FMT0_BCLK_POLARITY_INVERTED;
++		break;
++	case SND_SOC_DAIFMT_NB_IF:
++		/* Invert frame clock */
++		val = SUN8I_I2S_FMT0_LRCLK_POLARITY_INVERTED;
++		break;
++	case SND_SOC_DAIFMT_NB_NF:
++		val = 0;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	regmap_update_bits(i2s->regmap, SUN4I_I2S_FMT0_REG,
++			   SUN8I_I2S_FMT0_LRCLK_POLARITY_MASK |
++			   SUN8I_I2S_FMT0_BCLK_POLARITY_MASK,
++			   val);
++
+ 	/* DAI Mode */
+ 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
+ 	case SND_SOC_DAIFMT_I2S:
+@@ -601,36 +653,8 @@ static int sun8i_i2s_set_soc_fmt(const struct sun4i_i2s *i2s,
+ static int sun4i_i2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
+ {
+ 	struct sun4i_i2s *i2s = snd_soc_dai_get_drvdata(dai);
+-	u32 bclk_polarity = SUN4I_I2S_FMT0_POLARITY_NORMAL;
+-	u32 lrclk_polarity = SUN4I_I2S_FMT0_POLARITY_NORMAL;
+ 	int ret;
+ 
+-	/* DAI clock polarity */
+-	switch (fmt & SND_SOC_DAIFMT_INV_MASK) {
+-	case SND_SOC_DAIFMT_IB_IF:
+-		/* Invert both clocks */
+-		bclk_polarity = SUN4I_I2S_FMT0_POLARITY_INVERTED;
+-		lrclk_polarity = SUN4I_I2S_FMT0_POLARITY_INVERTED;
+-		break;
+-	case SND_SOC_DAIFMT_IB_NF:
+-		/* Invert bit clock */
+-		bclk_polarity = SUN4I_I2S_FMT0_POLARITY_INVERTED;
+-		break;
+-	case SND_SOC_DAIFMT_NB_IF:
+-		/* Invert frame clock */
+-		lrclk_polarity = SUN4I_I2S_FMT0_POLARITY_INVERTED;
+-		break;
+-	case SND_SOC_DAIFMT_NB_NF:
+-		break;
+-	default:
+-		dev_err(dai->dev, "Unsupported clock polarity: %d\n",
+-			fmt & SND_SOC_DAIFMT_INV_MASK);
+-		return -EINVAL;
+-	}
+-
+-	regmap_field_write(i2s->field_fmt_bclk, bclk_polarity);
+-	regmap_field_write(i2s->field_fmt_lrclk, lrclk_polarity);
+-
+ 	ret = i2s->variant->set_fmt(i2s, fmt);
+ 	if (ret) {
+ 		dev_err(dai->dev, "Unsupported format configuration\n");
+@@ -984,8 +1008,6 @@ static const struct sun4i_i2s_quirks sun4i_a10_i2s_quirks = {
+ 	.field_clkdiv_mclk_en	= REG_FIELD(SUN4I_I2S_CLK_DIV_REG, 7, 7),
+ 	.field_fmt_wss		= REG_FIELD(SUN4I_I2S_FMT0_REG, 2, 3),
+ 	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 5),
+-	.field_fmt_bclk		= REG_FIELD(SUN4I_I2S_FMT0_REG, 6, 6),
+-	.field_fmt_lrclk	= REG_FIELD(SUN4I_I2S_FMT0_REG, 7, 7),
+ 	.bclk_dividers		= sun4i_i2s_bclk_div,
+ 	.num_bclk_dividers	= ARRAY_SIZE(sun4i_i2s_bclk_div),
+ 	.mclk_dividers		= sun4i_i2s_mclk_div,
+@@ -1004,8 +1026,6 @@ static const struct sun4i_i2s_quirks sun6i_a31_i2s_quirks = {
+ 	.field_clkdiv_mclk_en	= REG_FIELD(SUN4I_I2S_CLK_DIV_REG, 7, 7),
+ 	.field_fmt_wss		= REG_FIELD(SUN4I_I2S_FMT0_REG, 2, 3),
+ 	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 5),
+-	.field_fmt_bclk		= REG_FIELD(SUN4I_I2S_FMT0_REG, 6, 6),
+-	.field_fmt_lrclk	= REG_FIELD(SUN4I_I2S_FMT0_REG, 7, 7),
+ 	.bclk_dividers		= sun4i_i2s_bclk_div,
+ 	.num_bclk_dividers	= ARRAY_SIZE(sun4i_i2s_bclk_div),
+ 	.mclk_dividers		= sun4i_i2s_mclk_div,
+@@ -1024,8 +1044,6 @@ static const struct sun4i_i2s_quirks sun8i_a83t_i2s_quirks = {
+ 	.field_clkdiv_mclk_en	= REG_FIELD(SUN4I_I2S_CLK_DIV_REG, 7, 7),
+ 	.field_fmt_wss		= REG_FIELD(SUN4I_I2S_FMT0_REG, 2, 3),
+ 	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 5),
+-	.field_fmt_bclk		= REG_FIELD(SUN4I_I2S_FMT0_REG, 6, 6),
+-	.field_fmt_lrclk	= REG_FIELD(SUN4I_I2S_FMT0_REG, 7, 7),
+ 	.bclk_dividers		= sun8i_i2s_clk_div,
+ 	.num_bclk_dividers	= ARRAY_SIZE(sun8i_i2s_clk_div),
+ 	.mclk_dividers		= sun8i_i2s_clk_div,
+@@ -1045,8 +1063,6 @@ static const struct sun4i_i2s_quirks sun8i_h3_i2s_quirks = {
+ 	.field_clkdiv_mclk_en	= REG_FIELD(SUN4I_I2S_CLK_DIV_REG, 8, 8),
+ 	.field_fmt_wss		= REG_FIELD(SUN4I_I2S_FMT0_REG, 0, 2),
+ 	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 6),
+-	.field_fmt_bclk		= REG_FIELD(SUN4I_I2S_FMT0_REG, 7, 7),
+-	.field_fmt_lrclk	= REG_FIELD(SUN4I_I2S_FMT0_REG, 19, 19),
+ 	.bclk_dividers		= sun8i_i2s_clk_div,
+ 	.num_bclk_dividers	= ARRAY_SIZE(sun8i_i2s_clk_div),
+ 	.mclk_dividers		= sun8i_i2s_clk_div,
+@@ -1065,8 +1081,6 @@ static const struct sun4i_i2s_quirks sun50i_a64_codec_i2s_quirks = {
+ 	.field_clkdiv_mclk_en	= REG_FIELD(SUN4I_I2S_CLK_DIV_REG, 7, 7),
+ 	.field_fmt_wss		= REG_FIELD(SUN4I_I2S_FMT0_REG, 2, 3),
+ 	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 5),
+-	.field_fmt_bclk		= REG_FIELD(SUN4I_I2S_FMT0_REG, 6, 6),
+-	.field_fmt_lrclk	= REG_FIELD(SUN4I_I2S_FMT0_REG, 7, 7),
+ 	.bclk_dividers		= sun4i_i2s_bclk_div,
+ 	.num_bclk_dividers	= ARRAY_SIZE(sun4i_i2s_bclk_div),
+ 	.mclk_dividers		= sun4i_i2s_mclk_div,
+@@ -1099,18 +1113,6 @@ static int sun4i_i2s_init_regmap_fields(struct device *dev,
+ 	if (IS_ERR(i2s->field_fmt_sr))
+ 		return PTR_ERR(i2s->field_fmt_sr);
+ 
+-	i2s->field_fmt_bclk =
+-			devm_regmap_field_alloc(dev, i2s->regmap,
+-						i2s->variant->field_fmt_bclk);
+-	if (IS_ERR(i2s->field_fmt_bclk))
+-		return PTR_ERR(i2s->field_fmt_bclk);
+-
+-	i2s->field_fmt_lrclk =
+-			devm_regmap_field_alloc(dev, i2s->regmap,
+-						i2s->variant->field_fmt_lrclk);
+-	if (IS_ERR(i2s->field_fmt_lrclk))
+-		return PTR_ERR(i2s->field_fmt_lrclk);
+-
+ 	return 0;
+ }
+ 
+-- 
+2.23.0
+
+From dd657eae8164f7e4bafe8b875031a7c6c50646a9 Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@bootlin.com>
+Date: Mon, 19 Aug 2019 21:25:20 +0200
+Subject: [PATCH] ASoC: sun4i-i2s: Fix the LRCK polarity
+
+The LRCK polarity "normal" polarity in the I2S/TDM specs and in the
+Allwinner datasheet are not the same. In the case where the i2s controller
+is being used as the LRCK master, it's pretty clear when looked at under a
+scope.
+
+Let's fix this, and add a comment to clear up as much the confusion as
+possible.
+
+Fixes: 7d2993811a1e ("ASoC: sun4i-i2s: Add support for H3")
+Fixes: 21faaea1343f ("ASoC: sun4i-i2s: Add support for A83T")
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Link: https://lore.kernel.org/r/e03fb6b2a916223070b9f18405b0ef117a452ff4.1566242458.git-series.maxime.ripard@bootlin.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/sunxi/sun4i-i2s.c | 18 ++++++++++++------
+ 1 file changed, 12 insertions(+), 6 deletions(-)
+
+diff --git a/sound/soc/sunxi/sun4i-i2s.c b/sound/soc/sunxi/sun4i-i2s.c
+index e3eadfe38aaf..29b5eacd3abe 100644
+--- a/sound/soc/sunxi/sun4i-i2s.c
++++ b/sound/soc/sunxi/sun4i-i2s.c
+@@ -570,23 +570,29 @@ static int sun8i_i2s_set_soc_fmt(const struct sun4i_i2s *i2s,
+ 	u32 mode, val;
+ 	u8 offset;
+ 
+-	/* DAI clock polarity */
++	/*
++	 * DAI clock polarity
++	 *
++	 * The setup for LRCK contradicts the datasheet, but under a
++	 * scope it's clear that the LRCK polarity is reversed
++	 * compared to the expected polarity on the bus.
++	 */
+ 	switch (fmt & SND_SOC_DAIFMT_INV_MASK) {
+ 	case SND_SOC_DAIFMT_IB_IF:
+ 		/* Invert both clocks */
+-		val = SUN8I_I2S_FMT0_BCLK_POLARITY_INVERTED |
+-		      SUN8I_I2S_FMT0_LRCLK_POLARITY_INVERTED;
++		val = SUN8I_I2S_FMT0_BCLK_POLARITY_INVERTED;
+ 		break;
+ 	case SND_SOC_DAIFMT_IB_NF:
+ 		/* Invert bit clock */
+-		val = SUN8I_I2S_FMT0_BCLK_POLARITY_INVERTED;
++		val = SUN8I_I2S_FMT0_BCLK_POLARITY_INVERTED |
++		      SUN8I_I2S_FMT0_LRCLK_POLARITY_INVERTED;
+ 		break;
+ 	case SND_SOC_DAIFMT_NB_IF:
+ 		/* Invert frame clock */
+-		val = SUN8I_I2S_FMT0_LRCLK_POLARITY_INVERTED;
++		val = 0;
+ 		break;
+ 	case SND_SOC_DAIFMT_NB_NF:
+-		val = 0;
++		val = SUN8I_I2S_FMT0_LRCLK_POLARITY_INVERTED;
+ 		break;
+ 	default:
+ 		return -EINVAL;
+-- 
+2.23.0
+
+From 2e04fc4dbf50195262aa5a2ae6d35baa5b598cae Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@bootlin.com>
+Date: Mon, 19 Aug 2019 21:25:21 +0200
+Subject: [PATCH] ASoC: sun4i-i2s: Fix WSS and SR fields for the A83t
+
+The A83t has the same bit fields offsets than the A10 and A31, while this
+was the first device with the new layout, fix that.
+
+Fixes: 21faaea1343f ("ASoC: sun4i-i2s: Add support for A83T")
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Link: https://lore.kernel.org/r/d93f0943cc39d880750daf459a0eeab34c63518e.1566242458.git-series.maxime.ripard@bootlin.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/sunxi/sun4i-i2s.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/sound/soc/sunxi/sun4i-i2s.c b/sound/soc/sunxi/sun4i-i2s.c
+index 29b5eacd3abe..59d809df8d2a 100644
+--- a/sound/soc/sunxi/sun4i-i2s.c
++++ b/sound/soc/sunxi/sun4i-i2s.c
+@@ -1048,8 +1048,8 @@ static const struct sun4i_i2s_quirks sun8i_a83t_i2s_quirks = {
+ 	.reg_offset_txdata	= SUN8I_I2S_FIFO_TX_REG,
+ 	.sun4i_i2s_regmap	= &sun4i_i2s_regmap_config,
+ 	.field_clkdiv_mclk_en	= REG_FIELD(SUN4I_I2S_CLK_DIV_REG, 7, 7),
+-	.field_fmt_wss		= REG_FIELD(SUN4I_I2S_FMT0_REG, 2, 3),
+-	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 5),
++	.field_fmt_wss		= REG_FIELD(SUN4I_I2S_FMT0_REG, 0, 2),
++	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 6),
+ 	.bclk_dividers		= sun8i_i2s_clk_div,
+ 	.num_bclk_dividers	= ARRAY_SIZE(sun8i_i2s_clk_div),
+ 	.mclk_dividers		= sun8i_i2s_clk_div,
+-- 
+2.23.0
+
+From bf943d527987c38f6fb11f9515e0cf2839286eb8 Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@bootlin.com>
+Date: Mon, 19 Aug 2019 21:25:22 +0200
+Subject: [PATCH] ASoC: sun4i-i2s: Fix MCLK Enable bit offset on A83t
+
+The A83t, unlike previous SoCs, has the MCLK enable bit at the 8th bit of
+the CLK_DIV register, unlike what is declared in the driver.
+
+Fixes: 21faaea1343f ("ASoC: sun4i-i2s: Add support for A83T")
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Link: https://lore.kernel.org/r/43b07f8cd8e0e280c64ce61d57c307678c923e9b.1566242458.git-series.maxime.ripard@bootlin.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/sunxi/sun4i-i2s.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/sound/soc/sunxi/sun4i-i2s.c b/sound/soc/sunxi/sun4i-i2s.c
+index 59d809df8d2a..0fce3c476772 100644
+--- a/sound/soc/sunxi/sun4i-i2s.c
++++ b/sound/soc/sunxi/sun4i-i2s.c
+@@ -1047,7 +1047,7 @@ static const struct sun4i_i2s_quirks sun8i_a83t_i2s_quirks = {
+ 	.has_reset		= true,
+ 	.reg_offset_txdata	= SUN8I_I2S_FIFO_TX_REG,
+ 	.sun4i_i2s_regmap	= &sun4i_i2s_regmap_config,
+-	.field_clkdiv_mclk_en	= REG_FIELD(SUN4I_I2S_CLK_DIV_REG, 7, 7),
++	.field_clkdiv_mclk_en	= REG_FIELD(SUN4I_I2S_CLK_DIV_REG, 8, 8),
+ 	.field_fmt_wss		= REG_FIELD(SUN4I_I2S_FMT0_REG, 0, 2),
+ 	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 6),
+ 	.bclk_dividers		= sun8i_i2s_clk_div,
+-- 
+2.23.0
+
+From 69e450e50ca6dde566f3ac3f2c329fb0492441ef Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@bootlin.com>
+Date: Mon, 19 Aug 2019 21:25:23 +0200
+Subject: [PATCH] ASoC: sun4i-i2s: Fix the LRCK period on A83t
+
+Unlike the previous SoCs, the A83t, like the newer ones, need the LRCK
+bitfield to be set. Let's add it.
+
+Fixes: 21faaea1343f ("ASoC: sun4i-i2s: Add support for A83T")
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Link: https://lore.kernel.org/r/6a0ee0bc1375bcb53840d3fb2d2f3d9732b8e57e.1566242458.git-series.maxime.ripard@bootlin.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/sunxi/sun4i-i2s.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/sound/soc/sunxi/sun4i-i2s.c b/sound/soc/sunxi/sun4i-i2s.c
+index 0fce3c476772..9468584f4eb0 100644
+--- a/sound/soc/sunxi/sun4i-i2s.c
++++ b/sound/soc/sunxi/sun4i-i2s.c
+@@ -1047,6 +1047,7 @@ static const struct sun4i_i2s_quirks sun8i_a83t_i2s_quirks = {
+ 	.has_reset		= true,
+ 	.reg_offset_txdata	= SUN8I_I2S_FIFO_TX_REG,
+ 	.sun4i_i2s_regmap	= &sun4i_i2s_regmap_config,
++	.has_fmt_set_lrck_period = true,
+ 	.field_clkdiv_mclk_en	= REG_FIELD(SUN4I_I2S_CLK_DIV_REG, 8, 8),
+ 	.field_fmt_wss		= REG_FIELD(SUN4I_I2S_FMT0_REG, 0, 2),
+ 	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 6),
+-- 
+2.23.0
+
+From 3e9acd7ac6933cdc20c441bbf9a38ed9e42e1490 Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@bootlin.com>
+Date: Mon, 19 Aug 2019 21:25:24 +0200
+Subject: [PATCH] ASoC: sun4i-i2s: Remove duplicated quirks structure
+
+The A83t and H3 have the same quirks, so it doesn't make sense to duplicate
+the quirks structure.
+
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Link: https://lore.kernel.org/r/5ade5de27d23918c5ef30387c23aead951d5ad64.1566242458.git-series.maxime.ripard@bootlin.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/sunxi/sun4i-i2s.c | 21 +--------------------
+ 1 file changed, 1 insertion(+), 20 deletions(-)
+
+diff --git a/sound/soc/sunxi/sun4i-i2s.c b/sound/soc/sunxi/sun4i-i2s.c
+index 9468584f4eb0..4c636f1cf7dc 100644
+--- a/sound/soc/sunxi/sun4i-i2s.c
++++ b/sound/soc/sunxi/sun4i-i2s.c
+@@ -1062,25 +1062,6 @@ static const struct sun4i_i2s_quirks sun8i_a83t_i2s_quirks = {
+ 	.set_fmt		= sun8i_i2s_set_soc_fmt,
+ };
+ 
+-static const struct sun4i_i2s_quirks sun8i_h3_i2s_quirks = {
+-	.has_reset		= true,
+-	.reg_offset_txdata	= SUN8I_I2S_FIFO_TX_REG,
+-	.sun4i_i2s_regmap	= &sun8i_i2s_regmap_config,
+-	.has_fmt_set_lrck_period = true,
+-	.field_clkdiv_mclk_en	= REG_FIELD(SUN4I_I2S_CLK_DIV_REG, 8, 8),
+-	.field_fmt_wss		= REG_FIELD(SUN4I_I2S_FMT0_REG, 0, 2),
+-	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 6),
+-	.bclk_dividers		= sun8i_i2s_clk_div,
+-	.num_bclk_dividers	= ARRAY_SIZE(sun8i_i2s_clk_div),
+-	.mclk_dividers		= sun8i_i2s_clk_div,
+-	.num_mclk_dividers	= ARRAY_SIZE(sun8i_i2s_clk_div),
+-	.get_bclk_parent_rate	= sun8i_i2s_get_bclk_parent_rate,
+-	.get_sr			= sun8i_i2s_get_sr_wss,
+-	.get_wss		= sun8i_i2s_get_sr_wss,
+-	.set_chan_cfg		= sun8i_i2s_set_chan_cfg,
+-	.set_fmt		= sun8i_i2s_set_soc_fmt,
+-};
+-
+ static const struct sun4i_i2s_quirks sun50i_a64_codec_i2s_quirks = {
+ 	.has_reset		= true,
+ 	.reg_offset_txdata	= SUN8I_I2S_FIFO_TX_REG,
+@@ -1262,7 +1243,7 @@ static const struct of_device_id sun4i_i2s_match[] = {
+ 	},
+ 	{
+ 		.compatible = "allwinner,sun8i-h3-i2s",
+-		.data = &sun8i_h3_i2s_quirks,
++		.data = &sun8i_a83t_i2s_quirks,
+ 	},
+ 	{
+ 		.compatible = "allwinner,sun50i-a64-codec-i2s",
+-- 
+2.23.0
+
+From 0083a507a78fdfa868acc0709408b59e72488a61 Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@bootlin.com>
+Date: Mon, 19 Aug 2019 21:25:25 +0200
+Subject: [PATCH] ASoC: sun4i-i2s: Pass the channels number as an argument
+
+The channels number have been hardcoded to 2 so far, while the controller
+supports more than that.
+
+Remove the instance where it has been hardcoded to compute the BCLK
+divider, and pass it through as an argument to ease further support of more
+channels.
+
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Link: https://lore.kernel.org/r/48887cf7abfaab6597db233b24d7a088a913e48a.1566242458.git-series.maxime.ripard@bootlin.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/sunxi/sun4i-i2s.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/sound/soc/sunxi/sun4i-i2s.c b/sound/soc/sunxi/sun4i-i2s.c
+index 4c636f1cf7dc..6b172dfbc25d 100644
+--- a/sound/soc/sunxi/sun4i-i2s.c
++++ b/sound/soc/sunxi/sun4i-i2s.c
+@@ -238,10 +238,11 @@ static unsigned long sun8i_i2s_get_bclk_parent_rate(const struct sun4i_i2s *i2s)
+ static int sun4i_i2s_get_bclk_div(struct sun4i_i2s *i2s,
+ 				  unsigned long parent_rate,
+ 				  unsigned int sampling_rate,
++				  unsigned int channels,
+ 				  unsigned int word_size)
+ {
+ 	const struct sun4i_i2s_clk_div *dividers = i2s->variant->bclk_dividers;
+-	int div = parent_rate / sampling_rate / word_size / 2;
++	int div = parent_rate / sampling_rate / word_size / channels;
+ 	int i;
+ 
+ 	for (i = 0; i < i2s->variant->num_bclk_dividers; i++) {
+@@ -286,6 +287,7 @@ static bool sun4i_i2s_oversample_is_valid(unsigned int oversample)
+ 
+ static int sun4i_i2s_set_clk_rate(struct snd_soc_dai *dai,
+ 				  unsigned int rate,
++				  unsigned int channels,
+ 				  unsigned int word_size)
+ {
+ 	struct sun4i_i2s *i2s = snd_soc_dai_get_drvdata(dai);
+@@ -333,7 +335,7 @@ static int sun4i_i2s_set_clk_rate(struct snd_soc_dai *dai,
+ 
+ 	bclk_parent_rate = i2s->variant->get_bclk_parent_rate(i2s);
+ 	bclk_div = sun4i_i2s_get_bclk_div(i2s, bclk_parent_rate,
+-					  rate, word_size);
++					  rate, channels, word_size);
+ 	if (bclk_div < 0) {
+ 		dev_err(dai->dev, "Unsupported BCLK divider: %d\n", bclk_div);
+ 		return -EINVAL;
+@@ -488,7 +490,7 @@ static int sun4i_i2s_hw_params(struct snd_pcm_substream *substream,
+ 	regmap_field_write(i2s->field_fmt_sr, sr);
+ 
+ 	return sun4i_i2s_set_clk_rate(dai, params_rate(params),
+-				      params_width(params));
++				      2, params_width(params));
+ }
+ 
+ static int sun4i_i2s_set_soc_fmt(const struct sun4i_i2s *i2s,
+-- 
+2.23.0
+
+From bbf9a127abca4aac5cc75f882bc7efcc398e86ae Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@bootlin.com>
+Date: Mon, 19 Aug 2019 21:25:26 +0200
+Subject: [PATCH] ASoC: sun4i-i2s: Support more channels
+
+We've been limited to 2 channels in the driver while the controller
+supports from 1 to 8 channels, in both capture and playback. let's remove
+the hardcoded checks and numbers, and extend the range of channel numbers
+we can use.
+
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Link: https://lore.kernel.org/r/27d9de5cd56f3a544851b8cd8af08bf836d19637.1566242458.git-series.maxime.ripard@bootlin.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/sunxi/sun4i-i2s.c | 17 ++++++-----------
+ 1 file changed, 6 insertions(+), 11 deletions(-)
+
+diff --git a/sound/soc/sunxi/sun4i-i2s.c b/sound/soc/sunxi/sun4i-i2s.c
+index 6b172dfbc25d..9e691baee1e8 100644
+--- a/sound/soc/sunxi/sun4i-i2s.c
++++ b/sound/soc/sunxi/sun4i-i2s.c
+@@ -400,9 +400,6 @@ static int sun4i_i2s_set_chan_cfg(const struct sun4i_i2s *i2s,
+ {
+ 	unsigned int channels = params_channels(params);
+ 
+-	if (channels != 2)
+-		return -EINVAL;
+-
+ 	/* Map the channels for playback and capture */
+ 	regmap_write(i2s->regmap, SUN4I_I2S_TX_CHAN_MAP_REG, 0x76543210);
+ 	regmap_write(i2s->regmap, SUN4I_I2S_RX_CHAN_MAP_REG, 0x00003210);
+@@ -423,9 +420,6 @@ static int sun8i_i2s_set_chan_cfg(const struct sun4i_i2s *i2s,
+ {
+ 	unsigned int channels = params_channels(params);
+ 
+-	if (channels != 2)
+-		return -EINVAL;
+-
+ 	/* Map the channels for playback and capture */
+ 	regmap_write(i2s->regmap, SUN8I_I2S_TX_CHAN_MAP_REG, 0x76543210);
+ 	regmap_write(i2s->regmap, SUN8I_I2S_RX_CHAN_MAP_REG, 0x76543210);
+@@ -458,6 +452,7 @@ static int sun4i_i2s_hw_params(struct snd_pcm_substream *substream,
+ 			       struct snd_soc_dai *dai)
+ {
+ 	struct sun4i_i2s *i2s = snd_soc_dai_get_drvdata(dai);
++	unsigned int channels = params_channels(params);
+ 	int ret, sr, wss;
+ 	u32 width;
+ 
+@@ -490,7 +485,7 @@ static int sun4i_i2s_hw_params(struct snd_pcm_substream *substream,
+ 	regmap_field_write(i2s->field_fmt_sr, sr);
+ 
+ 	return sun4i_i2s_set_clk_rate(dai, params_rate(params),
+-				      2, params_width(params));
++				      channels, params_width(params));
+ }
+ 
+ static int sun4i_i2s_set_soc_fmt(const struct sun4i_i2s *i2s,
+@@ -814,15 +809,15 @@ static struct snd_soc_dai_driver sun4i_i2s_dai = {
+ 	.probe = sun4i_i2s_dai_probe,
+ 	.capture = {
+ 		.stream_name = "Capture",
+-		.channels_min = 2,
+-		.channels_max = 2,
++		.channels_min = 1,
++		.channels_max = 8,
+ 		.rates = SNDRV_PCM_RATE_8000_192000,
+ 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+ 	},
+ 	.playback = {
+ 		.stream_name = "Playback",
+-		.channels_min = 2,
+-		.channels_max = 2,
++		.channels_min = 1,
++		.channels_max = 8,
+ 		.rates = SNDRV_PCM_RATE_8000_192000,
+ 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+ 	},
+-- 
+2.23.0
+
+From 137befe19f310400a8b20fd8a4ce8c4141aafde0 Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@bootlin.com>
+Date: Mon, 19 Aug 2019 21:25:27 +0200
+Subject: [PATCH] ASoC: sun4i-i2s: Add support for TDM slots
+
+The i2s controller supports TDM, for up to 8 slots. Let's support the TDM
+API.
+
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Link: https://lore.kernel.org/r/26392af30b3e7b31ee48d5b867d45be8675db046.1566242458.git-series.maxime.ripard@bootlin.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/sunxi/sun4i-i2s.c | 40 +++++++++++++++++++++++++++++++------
+ 1 file changed, 34 insertions(+), 6 deletions(-)
+
+diff --git a/sound/soc/sunxi/sun4i-i2s.c b/sound/soc/sunxi/sun4i-i2s.c
+index 9e691baee1e8..8326b8cfa569 100644
+--- a/sound/soc/sunxi/sun4i-i2s.c
++++ b/sound/soc/sunxi/sun4i-i2s.c
+@@ -168,6 +168,8 @@ struct sun4i_i2s {
+ 	struct reset_control *rst;
+ 
+ 	unsigned int	mclk_freq;
++	unsigned int	slots;
++	unsigned int	slot_width;
+ 
+ 	struct snd_dmaengine_dai_dma_data	capture_dma_data;
+ 	struct snd_dmaengine_dai_dma_data	playback_dma_data;
+@@ -287,7 +289,7 @@ static bool sun4i_i2s_oversample_is_valid(unsigned int oversample)
+ 
+ static int sun4i_i2s_set_clk_rate(struct snd_soc_dai *dai,
+ 				  unsigned int rate,
+-				  unsigned int channels,
++				  unsigned int slots,
+ 				  unsigned int word_size)
+ {
+ 	struct sun4i_i2s *i2s = snd_soc_dai_get_drvdata(dai);
+@@ -335,7 +337,7 @@ static int sun4i_i2s_set_clk_rate(struct snd_soc_dai *dai,
+ 
+ 	bclk_parent_rate = i2s->variant->get_bclk_parent_rate(i2s);
+ 	bclk_div = sun4i_i2s_get_bclk_div(i2s, bclk_parent_rate,
+-					  rate, channels, word_size);
++					  rate, slots, word_size);
+ 	if (bclk_div < 0) {
+ 		dev_err(dai->dev, "Unsupported BCLK divider: %d\n", bclk_div);
+ 		return -EINVAL;
+@@ -419,6 +421,10 @@ static int sun8i_i2s_set_chan_cfg(const struct sun4i_i2s *i2s,
+ 				  const struct snd_pcm_hw_params *params)
+ {
+ 	unsigned int channels = params_channels(params);
++	unsigned int slots = channels;
++
++	if (i2s->slots)
++		slots = i2s->slots;
+ 
+ 	/* Map the channels for playback and capture */
+ 	regmap_write(i2s->regmap, SUN8I_I2S_TX_CHAN_MAP_REG, 0x76543210);
+@@ -428,7 +434,6 @@ static int sun8i_i2s_set_chan_cfg(const struct sun4i_i2s *i2s,
+ 	regmap_update_bits(i2s->regmap, SUN8I_I2S_TX_CHAN_SEL_REG,
+ 			   SUN4I_I2S_CHAN_SEL_MASK,
+ 			   SUN4I_I2S_CHAN_SEL(channels));
+-
+ 	regmap_update_bits(i2s->regmap, SUN8I_I2S_RX_CHAN_SEL_REG,
+ 			   SUN4I_I2S_CHAN_SEL_MASK,
+ 			   SUN4I_I2S_CHAN_SEL(channels));
+@@ -452,10 +457,18 @@ static int sun4i_i2s_hw_params(struct snd_pcm_substream *substream,
+ 			       struct snd_soc_dai *dai)
+ {
+ 	struct sun4i_i2s *i2s = snd_soc_dai_get_drvdata(dai);
++	unsigned int word_size = params_width(params);
+ 	unsigned int channels = params_channels(params);
++	unsigned int slots = channels;
+ 	int ret, sr, wss;
+ 	u32 width;
+ 
++	if (i2s->slots)
++		slots = i2s->slots;
++
++	if (i2s->slot_width)
++		word_size = i2s->slot_width;
++
+ 	ret = i2s->variant->set_chan_cfg(i2s, params);
+ 	if (ret < 0) {
+ 		dev_err(dai->dev, "Invalid channel configuration\n");
+@@ -477,15 +490,14 @@ static int sun4i_i2s_hw_params(struct snd_pcm_substream *substream,
+ 	if (sr < 0)
+ 		return -EINVAL;
+ 
+-	wss = i2s->variant->get_wss(i2s, params_width(params));
++	wss = i2s->variant->get_wss(i2s, word_size);
+ 	if (wss < 0)
+ 		return -EINVAL;
+ 
+ 	regmap_field_write(i2s->field_fmt_wss, wss);
+ 	regmap_field_write(i2s->field_fmt_sr, sr);
+ 
+-	return sun4i_i2s_set_clk_rate(dai, params_rate(params),
+-				      channels, params_width(params));
++	return sun4i_i2s_set_clk_rate(dai, params_rate(params), slots, word_size);
+ }
+ 
+ static int sun4i_i2s_set_soc_fmt(const struct sun4i_i2s *i2s,
+@@ -785,10 +797,26 @@ static int sun4i_i2s_set_sysclk(struct snd_soc_dai *dai, int clk_id,
+ 	return 0;
+ }
+ 
++static int sun4i_i2s_set_tdm_slot(struct snd_soc_dai *dai,
++				  unsigned int tx_mask, unsigned int rx_mask,
++				  int slots, int slot_width)
++{
++	struct sun4i_i2s *i2s = snd_soc_dai_get_drvdata(dai);
++
++	if (slots > 8)
++		return -EINVAL;
++
++	i2s->slots = slots;
++	i2s->slot_width = slot_width;
++
++	return 0;
++}
++
+ static const struct snd_soc_dai_ops sun4i_i2s_dai_ops = {
+ 	.hw_params	= sun4i_i2s_hw_params,
+ 	.set_fmt	= sun4i_i2s_set_fmt,
+ 	.set_sysclk	= sun4i_i2s_set_sysclk,
++	.set_tdm_slot	= sun4i_i2s_set_tdm_slot,
+ 	.trigger	= sun4i_i2s_trigger,
+ };
+ 
+-- 
+2.23.0
+
+From 5389f4765789e4ecf9831bc968562befdd2f3bee Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@bootlin.com>
+Date: Wed, 21 Aug 2019 15:06:53 +0200
+Subject: [PATCH] ASoC: sun4i-i2s: Use the physical / slot width for the clocks
+
+The clock dividers function has been using the word size to compute the
+clock rate at which it's supposed to be running, but the proper formula
+would be to use the physical width and / or slot width in TDM.
+
+It doesn't make any difference at the moment since all the formats
+supported have the same sample width and physical width, but it's not going
+to last forever.
+
+Fixes: 7d2993811a1e ("ASoC: sun4i-i2s: Add support for H3")
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Link: https://lore.kernel.org/r/41a359d9885f397e066816961e5e3236afcbe0a1.1566392800.git-series.maxime.ripard@bootlin.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/sunxi/sun4i-i2s.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/sound/soc/sunxi/sun4i-i2s.c b/sound/soc/sunxi/sun4i-i2s.c
+index 8326b8cfa569..cdc3fa60ff33 100644
+--- a/sound/soc/sunxi/sun4i-i2s.c
++++ b/sound/soc/sunxi/sun4i-i2s.c
+@@ -290,7 +290,7 @@ static bool sun4i_i2s_oversample_is_valid(unsigned int oversample)
+ static int sun4i_i2s_set_clk_rate(struct snd_soc_dai *dai,
+ 				  unsigned int rate,
+ 				  unsigned int slots,
+-				  unsigned int word_size)
++				  unsigned int slot_width)
+ {
+ 	struct sun4i_i2s *i2s = snd_soc_dai_get_drvdata(dai);
+ 	unsigned int oversample_rate, clk_rate, bclk_parent_rate;
+@@ -337,7 +337,7 @@ static int sun4i_i2s_set_clk_rate(struct snd_soc_dai *dai,
+ 
+ 	bclk_parent_rate = i2s->variant->get_bclk_parent_rate(i2s);
+ 	bclk_div = sun4i_i2s_get_bclk_div(i2s, bclk_parent_rate,
+-					  rate, slots, word_size);
++					  rate, slots, slot_width);
+ 	if (bclk_div < 0) {
+ 		dev_err(dai->dev, "Unsupported BCLK divider: %d\n", bclk_div);
+ 		return -EINVAL;
+@@ -458,6 +458,7 @@ static int sun4i_i2s_hw_params(struct snd_pcm_substream *substream,
+ {
+ 	struct sun4i_i2s *i2s = snd_soc_dai_get_drvdata(dai);
+ 	unsigned int word_size = params_width(params);
++	unsigned int slot_width = params_physical_width(params);
+ 	unsigned int channels = params_channels(params);
+ 	unsigned int slots = channels;
+ 	int ret, sr, wss;
+@@ -467,7 +468,7 @@ static int sun4i_i2s_hw_params(struct snd_pcm_substream *substream,
+ 		slots = i2s->slots;
+ 
+ 	if (i2s->slot_width)
+-		word_size = i2s->slot_width;
++		slot_width = i2s->slot_width;
+ 
+ 	ret = i2s->variant->set_chan_cfg(i2s, params);
+ 	if (ret < 0) {
+@@ -490,14 +491,15 @@ static int sun4i_i2s_hw_params(struct snd_pcm_substream *substream,
+ 	if (sr < 0)
+ 		return -EINVAL;
+ 
+-	wss = i2s->variant->get_wss(i2s, word_size);
++	wss = i2s->variant->get_wss(i2s, slot_width);
+ 	if (wss < 0)
+ 		return -EINVAL;
+ 
+ 	regmap_field_write(i2s->field_fmt_wss, wss);
+ 	regmap_field_write(i2s->field_fmt_sr, sr);
+ 
+-	return sun4i_i2s_set_clk_rate(dai, params_rate(params), slots, word_size);
++	return sun4i_i2s_set_clk_rate(dai, params_rate(params),
++				      slots, slot_width);
+ }
+ 
+ static int sun4i_i2s_set_soc_fmt(const struct sun4i_i2s *i2s,
+-- 
+2.23.0
+
+From 9e8a93ac27d101e0ace024196a4bc3386568cc00 Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@bootlin.com>
+Date: Wed, 21 Aug 2019 15:06:54 +0200
+Subject: [PATCH] ASoC: sun4i-i2s: Use the actual format width instead of an
+ hardcoded one
+
+The LRCK period field in the FMT0 register holds the number of LRCK period
+for one channel in I2S mode.
+
+This has been hardcoded to 32, while it really should be the physical width
+of the format, which creates an improper clock when using a 16bit format,
+with the i2s controller as LRCK master.
+
+Fixes: 7d2993811a1e ("ASoC: sun4i-i2s: Add support for H3")
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Link: https://lore.kernel.org/r/f08a0c3605cd1d79752b38d704690190183f7865.1566392800.git-series.maxime.ripard@bootlin.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/sunxi/sun4i-i2s.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/sound/soc/sunxi/sun4i-i2s.c b/sound/soc/sunxi/sun4i-i2s.c
+index cdc3fa60ff33..9ef784b8867c 100644
+--- a/sound/soc/sunxi/sun4i-i2s.c
++++ b/sound/soc/sunxi/sun4i-i2s.c
+@@ -359,7 +359,7 @@ static int sun4i_i2s_set_clk_rate(struct snd_soc_dai *dai,
+ 	if (i2s->variant->has_fmt_set_lrck_period)
+ 		regmap_update_bits(i2s->regmap, SUN4I_I2S_FMT0_REG,
+ 				   SUN8I_I2S_FMT0_LRCK_PERIOD_MASK,
+-				   SUN8I_I2S_FMT0_LRCK_PERIOD(32));
++				   SUN8I_I2S_FMT0_LRCK_PERIOD(slot_width));
+ 
+ 	return 0;
+ }
+-- 
+2.23.0
+
+From 84884c7ad5e8794aa19e48eaa8de93f4e1d26af9 Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@bootlin.com>
+Date: Wed, 21 Aug 2019 15:06:55 +0200
+Subject: [PATCH] ASoC: sun4i-i2s: Replace call to params_width by local
+ variable
+
+The sun4i_i2s_hw_params function already has a variable holding the value
+returned by params_width, so let's just use that variable instead of
+calling params_width multiple times.
+
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Link: https://lore.kernel.org/r/f85a1c1e014080a4bbc3abd19bc8fdcb86f0981a.1566392800.git-series.maxime.ripard@bootlin.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/sunxi/sun4i-i2s.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/sound/soc/sunxi/sun4i-i2s.c b/sound/soc/sunxi/sun4i-i2s.c
+index 9ef784b8867c..69162af9fd65 100644
+--- a/sound/soc/sunxi/sun4i-i2s.c
++++ b/sound/soc/sunxi/sun4i-i2s.c
+@@ -487,7 +487,7 @@ static int sun4i_i2s_hw_params(struct snd_pcm_substream *substream,
+ 	}
+ 	i2s->playback_dma_data.addr_width = width;
+ 
+-	sr = i2s->variant->get_sr(i2s, params_width(params));
++	sr = i2s->variant->get_sr(i2s, word_size);
+ 	if (sr < 0)
+ 		return -EINVAL;
+ 
+-- 
+2.23.0
+
+From 7ae7834ec446e5f7fed9bb990d16354853a206d0 Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@bootlin.com>
+Date: Wed, 21 Aug 2019 15:06:56 +0200
+Subject: [PATCH] ASoC: sun4i-i2s: Add support for DSP formats
+
+In addition to the I2S format, the controller also supports the DSP_*
+formats.
+
+This requires some extra care on the LRCK period calculation, since the
+controller, with the PCM formats, require that the value set is no longer
+the periods of LRCK for a single channel, but for all of them.
+
+Let's add the code to deal with this, and support the DSP_A and DSP_B
+formats.
+
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Link: https://lore.kernel.org/r/5562db1ac8759f12b1b87c3258223eed629ef771.1566392800.git-series.maxime.ripard@bootlin.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/sunxi/sun4i-i2s.c | 44 +++++++++++++++++++++++++++++--------
+ 1 file changed, 35 insertions(+), 9 deletions(-)
+
+diff --git a/sound/soc/sunxi/sun4i-i2s.c b/sound/soc/sunxi/sun4i-i2s.c
+index 69162af9fd65..57bf2a33753e 100644
+--- a/sound/soc/sunxi/sun4i-i2s.c
++++ b/sound/soc/sunxi/sun4i-i2s.c
+@@ -130,7 +130,6 @@ struct sun4i_i2s;
+  * struct sun4i_i2s_quirks - Differences between SoC variants.
+  *
+  * @has_reset: SoC needs reset deasserted.
+- * @has_fmt_set_lrck_period: SoC requires lrclk period to be set.
+  * @reg_offset_txdata: offset of the tx fifo.
+  * @sun4i_i2s_regmap: regmap config to use.
+  * @field_clkdiv_mclk_en: regmap field to enable mclk output.
+@@ -139,7 +138,6 @@ struct sun4i_i2s;
+  */
+ struct sun4i_i2s_quirks {
+ 	bool				has_reset;
+-	bool				has_fmt_set_lrck_period;
+ 	unsigned int			reg_offset_txdata;	/* TX FIFO */
+ 	const struct regmap_config	*sun4i_i2s_regmap;
+ 
+@@ -167,6 +165,7 @@ struct sun4i_i2s {
+ 	struct regmap	*regmap;
+ 	struct reset_control *rst;
+ 
++	unsigned int	format;
+ 	unsigned int	mclk_freq;
+ 	unsigned int	slots;
+ 	unsigned int	slot_width;
+@@ -355,12 +354,6 @@ static int sun4i_i2s_set_clk_rate(struct snd_soc_dai *dai,
+ 
+ 	regmap_field_write(i2s->field_clkdiv_mclk_en, 1);
+ 
+-	/* Set sync period */
+-	if (i2s->variant->has_fmt_set_lrck_period)
+-		regmap_update_bits(i2s->regmap, SUN4I_I2S_FMT0_REG,
+-				   SUN8I_I2S_FMT0_LRCK_PERIOD_MASK,
+-				   SUN8I_I2S_FMT0_LRCK_PERIOD(slot_width));
+-
+ 	return 0;
+ }
+ 
+@@ -422,6 +415,7 @@ static int sun8i_i2s_set_chan_cfg(const struct sun4i_i2s *i2s,
+ {
+ 	unsigned int channels = params_channels(params);
+ 	unsigned int slots = channels;
++	unsigned int lrck_period;
+ 
+ 	if (i2s->slots)
+ 		slots = i2s->slots;
+@@ -445,6 +439,26 @@ static int sun8i_i2s_set_chan_cfg(const struct sun4i_i2s *i2s,
+ 			   SUN8I_I2S_CHAN_CFG_RX_SLOT_NUM_MASK,
+ 			   SUN8I_I2S_CHAN_CFG_RX_SLOT_NUM(channels));
+ 
++	switch (i2s->format & SND_SOC_DAIFMT_FORMAT_MASK) {
++	case SND_SOC_DAIFMT_DSP_A:
++	case SND_SOC_DAIFMT_DSP_B:
++	case SND_SOC_DAIFMT_LEFT_J:
++	case SND_SOC_DAIFMT_RIGHT_J:
++		lrck_period = params_physical_width(params) * slots;
++		break;
++
++	case SND_SOC_DAIFMT_I2S:
++		lrck_period = params_physical_width(params);
++		break;
++
++	default:
++		return -EINVAL;
++	}
++
++	regmap_update_bits(i2s->regmap, SUN4I_I2S_FMT0_REG,
++			   SUN8I_I2S_FMT0_LRCK_PERIOD_MASK,
++			   SUN8I_I2S_FMT0_LRCK_PERIOD(lrck_period));
++
+ 	regmap_update_bits(i2s->regmap, SUN8I_I2S_TX_CHAN_SEL_REG,
+ 			   SUN8I_I2S_TX_CHAN_EN_MASK,
+ 			   SUN8I_I2S_TX_CHAN_EN(channels));
+@@ -616,6 +630,16 @@ static int sun8i_i2s_set_soc_fmt(const struct sun4i_i2s *i2s,
+ 
+ 	/* DAI Mode */
+ 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
++	case SND_SOC_DAIFMT_DSP_A:
++		mode = SUN8I_I2S_CTRL_MODE_PCM;
++		offset = 1;
++		break;
++
++	case SND_SOC_DAIFMT_DSP_B:
++		mode = SUN8I_I2S_CTRL_MODE_PCM;
++		offset = 0;
++		break;
++
+ 	case SND_SOC_DAIFMT_I2S:
+ 		mode = SUN8I_I2S_CTRL_MODE_LEFT;
+ 		offset = 1;
+@@ -684,6 +708,9 @@ static int sun4i_i2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
+ 			   SUN4I_I2S_FIFO_CTRL_RX_MODE_MASK,
+ 			   SUN4I_I2S_FIFO_CTRL_TX_MODE(1) |
+ 			   SUN4I_I2S_FIFO_CTRL_RX_MODE(1));
++
++	i2s->format = fmt;
++
+ 	return 0;
+ }
+ 
+@@ -1074,7 +1101,6 @@ static const struct sun4i_i2s_quirks sun8i_a83t_i2s_quirks = {
+ 	.has_reset		= true,
+ 	.reg_offset_txdata	= SUN8I_I2S_FIFO_TX_REG,
+ 	.sun4i_i2s_regmap	= &sun4i_i2s_regmap_config,
+-	.has_fmt_set_lrck_period = true,
+ 	.field_clkdiv_mclk_en	= REG_FIELD(SUN4I_I2S_CLK_DIV_REG, 8, 8),
+ 	.field_fmt_wss		= REG_FIELD(SUN4I_I2S_FMT0_REG, 0, 2),
+ 	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 6),
+-- 
+2.23.0
+
+From 455b1d42e82c6027b9763f0055b54e45ff6cd7fd Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@bootlin.com>
+Date: Tue, 27 Aug 2019 11:32:05 +0200
+Subject: [PATCH] ASoC: sunxi: Revert initial A83t support
+
+This reverts commit 3e9acd7ac6933c (ASoC: sun4i-i2s: Remove
+duplicated quirks structure").
+
+It turns out that while one I2S controller is described in the A83t
+datasheet, the driver supports another, undocumented, one that has been
+inherited from the older SoCs, while the documented one uses the new
+design.
+
+Fixes: 3e9acd7ac693 ("ASoC: sun4i-i2s: Remove duplicated quirks structure")
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Link: https://lore.kernel.org/r/20190827093206.17919-1-mripard@kernel.org
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/sunxi/sun4i-i2s.c | 25 ++++++++++++++++++++++++-
+ 1 file changed, 24 insertions(+), 1 deletion(-)
+
+diff --git a/sound/soc/sunxi/sun4i-i2s.c b/sound/soc/sunxi/sun4i-i2s.c
+index 57bf2a33753e..a6a3f772fdf0 100644
+--- a/sound/soc/sunxi/sun4i-i2s.c
++++ b/sound/soc/sunxi/sun4i-i2s.c
+@@ -1097,6 +1097,11 @@ static const struct sun4i_i2s_quirks sun6i_a31_i2s_quirks = {
+ 	.set_fmt		= sun4i_i2s_set_soc_fmt,
+ };
+ 
++/*
++ * This doesn't describe the TDM controller documented in the A83t
++ * datasheet, but the three undocumented I2S controller that use the
++ * older design.
++ */
+ static const struct sun4i_i2s_quirks sun8i_a83t_i2s_quirks = {
+ 	.has_reset		= true,
+ 	.reg_offset_txdata	= SUN8I_I2S_FIFO_TX_REG,
+@@ -1115,6 +1120,24 @@ static const struct sun4i_i2s_quirks sun8i_a83t_i2s_quirks = {
+ 	.set_fmt		= sun8i_i2s_set_soc_fmt,
+ };
+ 
++static const struct sun4i_i2s_quirks sun8i_h3_i2s_quirks = {
++	.has_reset		= true,
++	.reg_offset_txdata	= SUN8I_I2S_FIFO_TX_REG,
++	.sun4i_i2s_regmap	= &sun8i_i2s_regmap_config,
++	.field_clkdiv_mclk_en	= REG_FIELD(SUN4I_I2S_CLK_DIV_REG, 8, 8),
++	.field_fmt_wss		= REG_FIELD(SUN4I_I2S_FMT0_REG, 0, 2),
++	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 6),
++	.bclk_dividers		= sun8i_i2s_clk_div,
++	.num_bclk_dividers	= ARRAY_SIZE(sun8i_i2s_clk_div),
++	.mclk_dividers		= sun8i_i2s_clk_div,
++	.num_mclk_dividers	= ARRAY_SIZE(sun8i_i2s_clk_div),
++	.get_bclk_parent_rate	= sun8i_i2s_get_bclk_parent_rate,
++	.get_sr			= sun8i_i2s_get_sr_wss,
++	.get_wss		= sun8i_i2s_get_sr_wss,
++	.set_chan_cfg		= sun8i_i2s_set_chan_cfg,
++	.set_fmt		= sun8i_i2s_set_soc_fmt,
++};
++
+ static const struct sun4i_i2s_quirks sun50i_a64_codec_i2s_quirks = {
+ 	.has_reset		= true,
+ 	.reg_offset_txdata	= SUN8I_I2S_FIFO_TX_REG,
+@@ -1296,7 +1319,7 @@ static const struct of_device_id sun4i_i2s_match[] = {
+ 	},
+ 	{
+ 		.compatible = "allwinner,sun8i-h3-i2s",
+-		.data = &sun8i_a83t_i2s_quirks,
++		.data = &sun8i_h3_i2s_quirks,
+ 	},
+ 	{
+ 		.compatible = "allwinner,sun50i-a64-codec-i2s",
+-- 
+2.23.0
+
+From 9ec05d4723bf83dd272cef5ccf508e5fe4d30fa3 Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@bootlin.com>
+Date: Tue, 27 Aug 2019 14:31:31 +0200
+Subject: [PATCH] ASoC: sun4i: Revert A83t description
+
+The last set of reworks included some fixes to change the A83t behaviour
+and "fix" it.
+
+It turns out that the controller described in the datasheet and the one
+supported here are not the same, yet the A83t has the two of them, and the
+one supported in the driver wasn't the one described in the datasheet.
+
+Fix this by reintroducing the proper quirks.
+
+Fixes: 69e450e50ca6 ("ASoC: sun4i-i2s: Fix the LRCK period on A83t")
+Fixes: bf943d527987 ("ASoC: sun4i-i2s: Fix MCLK Enable bit offset on A83t")
+Fixes: 2e04fc4dbf50 ("ASoC: sun4i-i2s: Fix WSS and SR fields for the A83t")
+Fixes: 515fcfbc7736 ("ASoC: sun4i-i2s: Fix LRCK and BCLK polarity offsets on newer SoCs")
+Fixes: c1d3a921d72b ("ASoC: sun4i-i2s: Fix the MCLK and BCLK dividers on newer SoCs")
+Fixes: fb19739d7f68 ("ASoC: sun4i-i2s: Use module clock as BCLK parent on newer SoCs")
+Fixes: 71137bcd0a9a ("ASoC: sun4i-i2s: Move the format configuration to a callback")
+Fixes: d70be625f25a ("ASoC: sun4i-i2s: Move the channel configuration to a callback")
+Reported-by: Chen-Yu Tsai <wens@csie.org>
+Tested-by: Chen-Yu Tsai <wens@csie.org>
+Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Link: https://lore.kernel.org/r/20190827123131.29129-2-mripard@kernel.org
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/sunxi/sun4i-i2s.c | 24 ++++++++++++------------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/sound/soc/sunxi/sun4i-i2s.c b/sound/soc/sunxi/sun4i-i2s.c
+index a6a3f772fdf0..d0a8d5810c0a 100644
+--- a/sound/soc/sunxi/sun4i-i2s.c
++++ b/sound/soc/sunxi/sun4i-i2s.c
+@@ -1106,18 +1106,18 @@ static const struct sun4i_i2s_quirks sun8i_a83t_i2s_quirks = {
+ 	.has_reset		= true,
+ 	.reg_offset_txdata	= SUN8I_I2S_FIFO_TX_REG,
+ 	.sun4i_i2s_regmap	= &sun4i_i2s_regmap_config,
+-	.field_clkdiv_mclk_en	= REG_FIELD(SUN4I_I2S_CLK_DIV_REG, 8, 8),
+-	.field_fmt_wss		= REG_FIELD(SUN4I_I2S_FMT0_REG, 0, 2),
+-	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 6),
+-	.bclk_dividers		= sun8i_i2s_clk_div,
+-	.num_bclk_dividers	= ARRAY_SIZE(sun8i_i2s_clk_div),
+-	.mclk_dividers		= sun8i_i2s_clk_div,
+-	.num_mclk_dividers	= ARRAY_SIZE(sun8i_i2s_clk_div),
+-	.get_bclk_parent_rate	= sun8i_i2s_get_bclk_parent_rate,
+-	.get_sr			= sun8i_i2s_get_sr_wss,
+-	.get_wss		= sun8i_i2s_get_sr_wss,
+-	.set_chan_cfg		= sun8i_i2s_set_chan_cfg,
+-	.set_fmt		= sun8i_i2s_set_soc_fmt,
++	.field_clkdiv_mclk_en	= REG_FIELD(SUN4I_I2S_CLK_DIV_REG, 7, 7),
++	.field_fmt_wss		= REG_FIELD(SUN4I_I2S_FMT0_REG, 2, 3),
++	.field_fmt_sr		= REG_FIELD(SUN4I_I2S_FMT0_REG, 4, 5),
++	.bclk_dividers		= sun4i_i2s_bclk_div,
++	.num_bclk_dividers	= ARRAY_SIZE(sun4i_i2s_bclk_div),
++	.mclk_dividers		= sun4i_i2s_mclk_div,
++	.num_mclk_dividers	= ARRAY_SIZE(sun4i_i2s_mclk_div),
++	.get_bclk_parent_rate	= sun4i_i2s_get_bclk_parent_rate,
++	.get_sr			= sun4i_i2s_get_sr,
++	.get_wss		= sun4i_i2s_get_wss,
++	.set_chan_cfg		= sun4i_i2s_set_chan_cfg,
++	.set_fmt		= sun4i_i2s_set_soc_fmt,
+ };
+ 
+ static const struct sun4i_i2s_quirks sun8i_h3_i2s_quirks = {
+-- 
+2.23.0
+
