@@ -21,16 +21,6 @@ make_init() {
   : # reuse make_target()
 }
 
-pre_build_host() {
-  mkdir -p $PKG_BUILD/.$HOST_NAME
-  cp -RP $PKG_BUILD/* $PKG_BUILD/.$HOST_NAME
-}
-
-make_host() {
-  cd $PKG_BUILD/.$HOST_NAME
-  make PREFIX=/usr
-}
-
 makeinstall_init() {
   mkdir -p $INSTALL/usr/sbin
     cp ../.install_pkg/usr/sbin/fsck.fat $INSTALL/usr/sbin
