@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="retroarch"
-PKG_VERSION="3064d0d"
+PKG_VERSION="ea7e682"
 PKG_REV="11"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
@@ -94,11 +94,14 @@ fi
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
                            --disable-sdl \
+                           --disable-sdl2 \
                            --disable-ssl \
                            $RETROARCH_GL \
                            $RETROARCH_NEON \
                            --enable-zlib \
-                           --enable-freetype"
+                           --enable-freetype \
+                           --enable-translate \
+                           --enable-cdrom"
 
 pre_configure_target() {
   TARGET_CONFIGURE_OPTS=""
@@ -107,10 +110,14 @@ pre_configure_target() {
 
 pre_make_target() {
   if [ "$OPENGLES" == "bcm2835-driver" ]; then
-    CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads \
-                    -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
+    CFLAGS+=" -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads \
+              -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
   elif [ "$OPENGLES" == "gpu-viv-bin-mx6q" ] || [ "$OPENGLES" == "imx-gpu-viv" ]; then
-    CFLAGS="$CFLAGS -DLINUX -DEGL_API_FB"
+    CFLAGS+=" -DLINUX -DEGL_API_FB"
+  fi
+
+  if [ "$LAKKA_NIGHTLY" = yes ]; then
+    CFLAGS+=" -DHAVE_LAKKA_NIGHTLY"
   fi
 }
 
@@ -224,7 +231,7 @@ makeinstall_target() {
   fi
 
   # Gamegirl
-  if [ "$DEVICE" == "Gamegirl" ]; then
+  if [ "$PROJECT" == "RPi" ] && [ "$DEVICE" == "Gamegirl" ]; then
     echo "xmb_theme = 3" >> $INSTALL/etc/retroarch.cfg
     echo "xmb_menu_color_theme = 9" >> $INSTALL/etc/retroarch.cfg
     echo "video_font_size = 10" >> $INSTALL/etc/retroarch.cfg
@@ -236,6 +243,23 @@ makeinstall_target() {
     sed -i -e "s/video_smooth = false/video_smooth = true/" $INSTALL/etc/retroarch.cfg
     sed -i -e "s/video_font_path =\/usr\/share\/retroarch-assets\/xmb\/monochrome\/font.ttf//" $INSTALL/etc/retroarch.cfg
   fi
+
+  # GPICase
+  if [ "$PROJECT" == "RPi" ] && [ "$DEVICE" == "GPICase" ]; then
+    echo "audio_device = \"default:CARD=ALSA\"" >> $INSTALL/etc/retroarch.cfg
+    echo "menu_timedate_enable = false" >> $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/input_menu_toggle_gamepad_combo = 2/input_menu_toggle_gamepad_combo = 4/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/menu_driver = \"xmb\"/menu_driver = \"rgui\"/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/video_threaded = true/video_threaded = false/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/# aspect_ratio_index = 19/aspect_ratio_index = 21/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/# audio_out_rate = 48000/audio_out_rate = 44100/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/# video_font_size = 32/video_font_size = 16/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/# video_scale_integer = false/video_scale_integer = true/" $INSTALL/etc/retroarch.cfg
+  fi
+
+  # System overlay
+  mkdir -p $INSTALL/usr/share/retroarch-system
+    touch $INSTALL/usr/share/retroarch-system/.placeholder
 }
 
 post_install() {  

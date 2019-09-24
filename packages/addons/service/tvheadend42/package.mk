@@ -2,10 +2,10 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="tvheadend42"
-PKG_VERSION="5c218500579d5bd1c1f7e7a4b5f7f0fb35baa626"
-PKG_SHA256="a9fe5a4c36aa185e3f0a73a709f0dc05794ae9c12f5d888985b559ff68a2508d"
-PKG_VERSION_NUMBER="4.2.7-44"
-PKG_REV="119"
+PKG_VERSION="5c1b37b50e99f9bf91d38f08f7bd358ee270660f"
+PKG_SHA256="cfce42a6534eec1728b4e84906f845d4805618e584624d1777d038f9377eed98"
+PKG_VERSION_NUMBER="4.2.8-27"
+PKG_REV="120"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.tvheadend.org"
@@ -83,17 +83,17 @@ pre_configure_target() {
 
 # pass ffmpegx to build
   PKG_CONFIG_PATH="$(get_build_dir ffmpegx)/.INSTALL_PKG/usr/local/lib/pkgconfig"
-  CFLAGS="$CFLAGS -I$(get_build_dir ffmpegx)/.INSTALL_PKG/usr/local/include"
-  LDFLAGS="$LDFLAGS -L$(get_build_dir ffmpegx)/.INSTALL_PKG/usr/local/lib"
+  CFLAGS+=" -I$(get_build_dir ffmpegx)/.INSTALL_PKG/usr/local/include"
+  LDFLAGS+=" -L$(get_build_dir ffmpegx)/.INSTALL_PKG/usr/local/lib"
 
 # pass gnutls to build
   LDFLAGS="$LDFLAGS -L$(get_build_dir gnutls)/.INSTALL_PKG/usr/lib"
 
 # pass libhdhomerun to build
-  CFLAGS="$CFLAGS -I$(get_build_dir libhdhomerun)"
+  CFLAGS+=" -I$(get_build_dir libhdhomerun)"
 
   export CROSS_COMPILE="$TARGET_PREFIX"
-  export CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/iconv -L$SYSROOT_PREFIX/usr/lib/iconv"
+  export CFLAGS+=" -I$SYSROOT_PREFIX/usr/include/iconv -L$SYSROOT_PREFIX/usr/lib/iconv"
 }
 
 post_make_target() {

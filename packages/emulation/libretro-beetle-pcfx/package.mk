@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-beetle-pcfx"
-PKG_VERSION="84b7ca6af37525af126069f812d53784bc1702fe"
-PKG_SHA256="30b85929a9b9d23c730c26ea823ba9a3a9963f4db18698025874e247ed9473fa"
+PKG_VERSION="41c76e6ddaf7e0a622408da26377ee9ba92f3785"
+PKG_SHA256="3e87228ed61e204a4b717ae064b317fe305622bcb1ae144038f6098e8e135d21"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-pcfx-libretro"
 PKG_URL="https://github.com/libretro/beetle-pcfx-libretro/archive/$PKG_VERSION.tar.gz"

@@ -35,6 +35,10 @@ if [ "$DEVICE" = "Gamegirl" ]; then
   PKG_DEPENDS_TARGET+=" gamegirl-joypad"
 fi
 
+if [ "$DEVICE" = "GPICase" ]; then
+  PKG_DEPENDS_TARGET+=" gpicase-safeshutdown"
+fi
+
 PKG_PRIORITY="optional"
 PKG_SECTION="virtual"
 PKG_SHORTDESC="Lakka metapackage for RPi devices"
@@ -42,3 +46,9 @@ PKG_LONGDESC=""
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+post_install() {
+  if [ "$DEVICE" = "GPICase" ]; then
+    enable_service disable-hdmi.service
+  fi
+}

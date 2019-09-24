@@ -2,10 +2,11 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.melonds"
-PKG_VERSION="0.6.0.2-Leia"
-PKG_SHA256="c337fd53512bc1a56af60c98fa4c34cc9b6764cb6e8fce35e4294634e32f2672"
-PKG_REV="108"
-PKG_ARCH="any"
+PKG_VERSION="0.8.2.5-Leia"
+PKG_SHA256="cda4fc5949c46a6d42ae00aecf532f3abf793486ac379f31509ba83a6faf1be8"
+PKG_REV="1"
+# no openGL suport in retroplayer yet
+PKG_ARCH="none"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.melonds"
 PKG_URL="https://github.com/kodi-game/game.libretro.melonds/archive/$PKG_VERSION.tar.gz"

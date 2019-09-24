@@ -10,5 +10,9 @@ PKG_URL="http://downloads.sourceforge.net/sourceforge/mpg123/mpg123-$PKG_VERSION
 PKG_DEPENDS_TARGET="toolchain alsa-lib"
 PKG_LONGDESC="A console based real time MPEG Audio Player for Layer 1, 2 and 3."
 
+if [ "$ARCH" = "x86_64" ];then
+  PKG_BUILD_FLAGS="+pic"
+fi
+
 PKG_CONFIGURE_OPTS_TARGET="--disable-shared \
                            --enable-static"

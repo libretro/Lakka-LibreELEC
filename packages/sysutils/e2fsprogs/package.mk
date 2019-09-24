@@ -20,7 +20,24 @@ fi
 
 PKG_CONFIGURE_OPTS_HOST="--prefix=$TOOLCHAIN/ \
                          --bindir=$TOOLCHAIN/bin \
-                         --sbindir=$TOOLCHAIN/sbin"
+                         --sbindir=$TOOLCHAIN/sbin \
+                         --enable-verbose-makecmds \
+                         --disable-symlink-install \
+                         --disable-symlink-build \
+                         --disable-subset \
+                         --disable-debugfs \
+                         --disable-imager \
+                         --disable-resizer \
+                         --disable-defrag \
+                         --disable-fsck \
+                         --disable-e2initrd-helper \
+                         --enable-tls \
+                         --disable-uuid \
+                         --disable-uuidd \
+                         --disable-nls \
+                         --disable-rpath \
+                         --disable-fuse2fs \
+                         --with-gnu-ld"
 
 pre_configure() {
   PKG_CONFIGURE_OPTS_INIT="BUILD_CC=$HOST_CC \
@@ -83,12 +100,11 @@ makeinstall_init() {
   fi
 }
 
-make_host() {
-  make -C lib/et
-  make -C lib/ext2fs
-}
-
 makeinstall_host() {
   make -C lib/et LIBMODE=644 install
   make -C lib/ext2fs LIBMODE=644 install
+  mkdir -p $TOOLCHAIN/sbin
+  cp e2fsck/e2fsck $TOOLCHAIN/sbin
+  cp misc/mke2fs $TOOLCHAIN/sbin
+  cp misc/tune2fs $TOOLCHAIN/sbin
 }

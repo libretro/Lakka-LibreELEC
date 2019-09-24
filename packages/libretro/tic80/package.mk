@@ -19,11 +19,11 @@
 ################################################################################
 
 PKG_NAME="tic80"
-PKG_VERSION="3c50d57"
+PKG_VERSION="cfa72df"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
-PKG_SITE="https://github.com/nesbox/TIC-80"
+PKG_SITE="https://github.com/libretro/TIC-80"
 PKG_URL="$PKG_SITE.git"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"

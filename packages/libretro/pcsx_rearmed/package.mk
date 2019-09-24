@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="pcsx_rearmed"
-PKG_VERSION="4b7520c"
+PKG_VERSION="915cd7d"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
@@ -49,7 +49,7 @@ make_target() {
   if [[ "$TARGET_FPU" =~ "neon" ]]; then
     make -f Makefile.libretro HAVE_NEON=1 USE_DYNAREC=1 BUILTIN_GPU=neon
   elif [ "$ARCH" == "arm" ]; then
-    make -f Makefile.libretro HAVE_NEON=0 USE_DYNAREC=1
+    make -f Makefile.libretro HAVE_NEON=0 USE_DYNAREC=1 BUILTIN_GPU=unai
   else
     make -f Makefile.libretro
   fi

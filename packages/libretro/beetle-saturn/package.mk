@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="beetle-saturn"
-PKG_VERSION="052f6d6"
+PKG_VERSION="35e8cd7"
 PKG_REV="1"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPLv2"
@@ -30,9 +30,12 @@ PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="Standalone port of Mednafen Saturn to libretro."
 PKG_LONGDESC="Standalone port of Mednafen Saturn to libretro."
+PKG_TOOLCHAIN="make"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+PKG_MAKE_OPTS_TARGET="HAVE_CDROM=1"
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro

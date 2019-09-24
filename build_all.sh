@@ -15,6 +15,7 @@ targets="\
 	Rockchip|RK3399|arm|image \
 	Rockchip|TinkerBoard|arm|image \
 	RPi|Gamegirl|arm|image \
+	RPi|GPICase|arm|noobs \
 	RPi|RPi|arm|noobs \
 	RPi|RPi2|arm|noobs \
 	RPi|RPi4|arm|noobs \

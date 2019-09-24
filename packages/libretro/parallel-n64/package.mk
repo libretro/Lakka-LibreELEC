@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="parallel-n64"
-PKG_VERSION="ab155da"
+PKG_VERSION="017d864"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
@@ -48,6 +48,10 @@ make_target() {
 
   if [ "$ARCH" == "i386" ]; then
     DYNAREC=x86
+  fi
+
+  if [ "$ARCH" = "arm" -o "$ARCH" = "aarch64" ]; then
+    CFLAGS="$CFLAGS -DARM_FIX"
   fi
 
   if [ "$DEVICE" == "RPi" -o "$DEVICE" == "Gamegirl" ]; then
