@@ -89,6 +89,7 @@ PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
                        -Dkmod-path=/usr/bin/kmod \
                        -Dmount-path=/usr/bin/mount \
                        -Dumount-path=/usr/bin/umount \
+                       -Ddebug-tty=$DEBUG_TTY \
                        -Dversion-tag=${PKG_VERSION}"
 
 pre_configure_target() {
@@ -128,9 +129,6 @@ post_makeinstall_target() {
   safe_remove $INSTALL/usr/lib/udev/rules.d/71-seat.rules
   safe_remove $INSTALL/usr/lib/udev/rules.d/73-seat-late.rules
 
-  # remove debug-shell.service, we install our own
-  safe_remove $INSTALL/usr/lib/systemd/system/debug-shell.service
-
   # remove getty units, we dont want a console
   safe_remove $INSTALL/usr/lib/systemd/system/autovt@.service
   safe_remove $INSTALL/usr/lib/systemd/system/console-getty.service
@@ -158,8 +156,19 @@ post_makeinstall_target() {
   safe_remove $INSTALL/usr/bin/systemd-nspawn
   safe_remove $INSTALL/usr/lib/systemd/system/systemd-nspawn@.service
 
-  # remove genetators/catalog
-  safe_remove $INSTALL/usr/lib/systemd/system-generators
+  # remove unneeded generators
+  for gen in $INSTALL/usr/lib/systemd/system-generators/*; do
+    case "$gen" in
+      */systemd-debug-generator)
+        # keep it
+        ;;
+      *)
+        safe_remove "$gen"
+        ;;
+    esac
+  done
+
+  # remove catalog
   safe_remove $INSTALL/usr/lib/systemd/catalog
 
   # remove partition
