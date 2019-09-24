@@ -156,8 +156,19 @@ post_makeinstall_target() {
   safe_remove $INSTALL/usr/bin/systemd-nspawn
   safe_remove $INSTALL/usr/lib/systemd/system/systemd-nspawn@.service
 
-  # remove genetators/catalog
-  safe_remove $INSTALL/usr/lib/systemd/system-generators
+  # remove unneeded generators
+  for gen in $INSTALL/usr/lib/systemd/system-generators/*; do
+    case "$gen" in
+      */systemd-debug-generator)
+        # keep it
+        ;;
+      *)
+        safe_remove "$gen"
+        ;;
+    esac
+  done
+
+  # remove catalog
   safe_remove $INSTALL/usr/lib/systemd/catalog
 
   # remove partition
@@ -257,5 +268,4 @@ post_install() {
   enable_service usercache.service
   enable_service kernel-overlays.service
   enable_service hwdb.service
-  enable_service debug-shell.service
 }
