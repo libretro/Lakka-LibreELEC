@@ -32,9 +32,11 @@ post_unpack() {
   mv $PKG_BUILD/$PKG_NAME/* $PKG_BUILD/
 
   sed -e 's|.*common-agent/etc/config/Makefile.*||' -i $PKG_BUILD/configure.ac
-  sed -e "s|libvmbackup_la_LIBADD =$|libvmbackup_la_LIBADD = -L$PKG_BUILD/.$TARGET_NAME/libvmtools/.libs|g" -i $PKG_BUILD/services/plugins/vmbackup/Makefile.am
 
   mkdir -p $PKG_BUILD/common-agent/etc/config
+
+  # Hack to allow package to be bumped without linking against old libraries
+  rm -f ${SYSROOT_PREFIX}/usr/lib/libvmtools*
 }
 
 pre_configure_target() {
