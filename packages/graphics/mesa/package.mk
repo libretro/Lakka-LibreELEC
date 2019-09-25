@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mesa"
-PKG_VERSION="19.1.7"
-PKG_SHA256="97c9f6a6127bee5ab21c3fe63ff3e0bd73a7966415f92f66500b0b276b7150da"
+PKG_VERSION="19.2.0"
+PKG_SHA256="759b49948e61e4312ae12c7bb905b0ec6d385535dc44fe346c334e5a4807e0cd"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
 PKG_URL="https://github.com/mesa3d/mesa/archive/mesa-${PKG_VERSION}.tar.gz"
@@ -33,7 +33,6 @@ PKG_MESON_OPTS_TARGET="-Ddri-drivers=${DRI_DRIVERS// /,} \
                        -Dopengl=true \
                        -Dgbm=true \
                        -Degl=true \
-                       -Dasm=true \
                        -Dvalgrind=false \
                        -Dlibunwind=false \
                        -Dlmsensors=false \
