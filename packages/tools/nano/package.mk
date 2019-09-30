@@ -3,8 +3,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="nano"
-PKG_VERSION="4.3"
-PKG_SHA256="00d3ad1a287a85b4bf83e5f06cedd0a9f880413682bebd52b4b1e2af8cfc0d81"
+PKG_VERSION="4.4"
+PKG_SHA256="2af222e0354848ffaa3af31b5cd0a77917e9cb7742cd073d762f3c32f0f582c7"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.nano-editor.org/"
 PKG_URL="http://ftpmirror.gnu.org/nano/${PKG_NAME}-${PKG_VERSION}.tar.xz"
@@ -22,7 +22,7 @@ post_makeinstall_target() {
   mkdir -p ${INSTALL}/etc
   cp -a ${PKG_DIR}/config/* ${INSTALL}/etc/
 
-  mkdir -p ${INSTALL}/usr/share/nano 
+  mkdir -p ${INSTALL}/usr/share/nano
   for FILE_TYPES in \
     css \
     html \
