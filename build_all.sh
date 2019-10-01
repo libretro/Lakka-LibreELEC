@@ -48,7 +48,21 @@ tc="THREADCOUNT=${bt}"
 [ "${DASHBOARD_MODE}" = "yes" ] && v="" || v="-v"
 
 # remove any existing images / release files
-rm -rf target/
+check=$(ls target/ | wc -l)
+if [ ${check} -gt 0 ]
+then
+	echo -en "\nWARNING!!!\nThere are ${check} item(s) in target/, really remove them?\n(press y to confirm, anything else to abort) "
+	read -rn1 keypress
+	if [ "${keypress}" = "y" -o "${keypress}" = "Y" ]
+	then
+		echo -en "\nCleaning up target/ ... "
+		rm -rf target/
+		echo "done."
+	else
+		echo -e "\nAborted!"
+		exit
+	fi
+fi
 
 # list of targets/platforms in structure PROJECT|DEVICE|ARCH|make_rule
 
