@@ -128,7 +128,7 @@ diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_h265.c b/drivers/staging/
 index fd4d86b02156..82d29c59b787 100644
 --- a/drivers/staging/media/sunxi/cedrus/cedrus_h265.c
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus_h265.c
-@@ -77,24 +77,25 @@ static void cedrus_h265_sram_write_offset(struct cedrus_dev *dev, u32 offset)
+@@ -77,24 +77,32 @@ static void cedrus_h265_sram_write_offset(struct cedrus_dev *dev, u32 offset)
  	cedrus_write(dev, VE_DEC_H265_SRAM_OFFSET, offset);
  }
  
@@ -155,11 +155,18 @@ index fd4d86b02156..82d29c59b787 100644
 -	return ctx->codec.h265.mv_col_buf_addr + index *
 -	       ctx->codec.h265.mv_col_buf_unit_size +
 -	       field * ctx->codec.h265.mv_col_buf_unit_size / 2;
-+	struct cedrus_buffer *cedrus_buf;
++	struct cedrus_buffer *cedrus_buf = NULL;
++	struct vb2_buffer *buf = NULL;
++	struct vb2_queue *vq;
 +
-+	cedrus_buf = vb2_to_cedrus_buffer(ctx->fh.m2m_ctx->cap_q_ctx.q.bufs[index]);
++	vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx, V4L2_BUF_TYPE_VIDEO_CAPTURE);
++	if (vq)
++		buf = vb2_get_buffer(vq, index);
 +
-+	return cedrus_buf->mv_col_buf_dma;
++	if (buf)
++		cedrus_buf = vb2_to_cedrus_buffer(buf);
++
++	return cedrus_buf ? cedrus_buf->mv_col_buf_dma : 0;
  }
  
  static void cedrus_h265_frame_info_write_single(struct cedrus_ctx *ctx,
@@ -508,7 +515,7 @@ index fd4d86b02156..82d29c59b787 100644
 +	cedrus_write(dev, VE_DEC_H265_LOW_ADDR, 0);
 +
  	/* Write decoded picture buffer in pic list. */
- 	cedrus_h265_frame_info_write_dpb(ctx, slice_params->dpb,
+ 	cedrus_h265_frame_info_write_dpb(ctx, run->dst->vb2_buf.index, slice_params->dpb,
  					 slice_params->num_active_dpb_entries);
  
  	/* Output frame. */
@@ -749,3 +756,26 @@ index 2de83d9f6d47..19469097c6d4 100644
 -- 
 2.21.0
 
+diff --git a/drivers/staging/media/sunxi/cedrus/cedrus.h b/drivers/staging/media/sunxi/cedrus/cedrus.h
+index 2f017a651848..7ca216591c9c 100644
+--- a/drivers/staging/media/sunxi/cedrus/cedrus.h
++++ b/drivers/staging/media/sunxi/cedrus/cedrus.h
+@@ -179,12 +179,16 @@ static inline dma_addr_t cedrus_buf_addr(struct vb2_buffer *buf,
+ static inline dma_addr_t cedrus_dst_buf_addr(struct cedrus_ctx *ctx,
+ 					     int index, unsigned int plane)
+ {
+-	struct vb2_buffer *buf;
++	struct vb2_buffer *buf = NULL;
++	struct vb2_queue *vq;
+ 
+ 	if (index < 0)
+ 		return 0;
+ 
+-	buf = ctx->fh.m2m_ctx->cap_q_ctx.q.bufs[index];
++	vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx, V4L2_BUF_TYPE_VIDEO_CAPTURE);
++	if (vq)
++		buf = vb2_get_buffer(vq, index);
++
+ 	return buf ? cedrus_buf_addr(buf, &ctx->dst_fmt, plane) : 0;
+ }
+ 
