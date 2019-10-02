@@ -107,10 +107,13 @@ do
 	target_name=${device:-$project}.${arch}
 
 	# initialize return value of the non-dashboard job
-	non_db_ret=0
+	ret_nondb=0
 
 	# initialize result variable for dashboard job
-	failed_dashboard=0
+	ret_dashboard=0
+
+	# initialize result variable for release files
+	ret_release=0
 
 	# set status file
 	statusfile="build.${distro}-${target_name}*/.threads/status"
@@ -120,10 +123,10 @@ do
 		# show logs during build (non-dashboard build)
 		echo "Starting build of ${target_name}"
 		make ${out} PROJECT=${project} DEVICE=${device} ARCH=${arch} IGNORE_VERSION=${iv} ${tc}
-		non_db_ret=${?}
-		if [ ${non_db_ret} -gt 0 -a "${BAILOUT_FAILED}" != "no" ]
+		ret_nondb=${?}
+		if [ ${ret_nondb} -gt 0 -a "${BAILOUT_FAILED}" != "no" ]
 		then
-			exit ${non_db_ret}
+			exit ${ret_nondb}
 		fi
 	else
 		# remove the old dashboard, so we don't show old/stale dashboard
@@ -138,13 +141,13 @@ do
 		do
 			# check if the build process is still running
 			ps -q ${pid} &>/dev/null
-			ret=${?}
+			ret_ps=${?}
 			s_failed="s"
 			[ ${failed_jobs} -eq 1 ] && s_failed=""
 			s_good="s"
 			[ ${good_jobs} -eq 1 ] && s_good=""
 			statusline="Build job ${current}/${total}, so far ${good_jobs} successful build${s_good}, ${failed_jobs} failed build${s_failed}"
-			if [ ${ret} -eq 0 ]
+			if [ ${ret_ps} -eq 0 ]
 			then
 				# build process is still running, show the dashboard
 				if [ -f ${statusfile} ]
@@ -186,7 +189,7 @@ do
 					failed_count=$(cat ${statusfile} | grep "^\[" | cut -d' ' -f 2 | grep FAILED | wc -l)
 					if [ ${failed_count} -gt 0 ]
 					then
-						failed_dashboard=1
+						ret_dashboard=1
 						if [ "${BAILOUT_FAILED}" != "no" ]
 						then
 							echo "Build of some package(s) failed:"
@@ -201,7 +204,7 @@ do
 					fi
 				else
 					# no dashboard and build process finished - we did not build anything
-					failed_dashboard=1
+					ret_dashboard=1
 					if [ "${BAILOUT_FAILED}" != "no" ]
 					then
 						echo "Build job for ${target_name} was probably not started (no dashboard file found)."
@@ -214,23 +217,30 @@ do
 		done
 
 		# in case the build job is still running, it means it is creating the release files/images
-		if [ ${ret} -eq 0 ]
+		if [ ${ret_ps} -eq 0 ]
 		then
 			echo -n "Creating release files / images..."
 			wait ${pid}
-			ret=$?
-			count=$(ls target/${distro}-${target_name}-* 2>/dev/null | wc -l)
-			if [ ${count} -gt 0 ]
+			ret_release=${?}
+			count=$(ls target/${distro}-${target_name}-*{.img.gz,kernel,system}* 2>/dev/null | wc -l)
+			if [ ${count} -gt 0 -a ${ret_release} -eq 0 ]
 			then
 				echo "done!"
 			else
-				echo "failed - no release files found!" || echo "WARNING: No releaase files / images were found, skipping md5 checksum / mv to release folder!"
+				if [ ${count} -eq 0 ]
+				then
+					echo "failed - no release files found!"
+					echo -e "\nWARNING: No releaase files / images were found, skipping md5 checksum / mv to release folder!"
+				else
+					echo "failed - some release files were not created!"
+					echo -e "\nWARNING: Some releaase files / images may be missing!"
+				fi
 			fi
 		fi
 
 	fi
 
-	if [ ${non_db_ret} -gt 0 -o ${failed_dashboard} -eq 1 ]
+	if [ ${ret_nondb} -gt 0 -o ${ret_dashboard} -gt 0 ]
 	then
 		# record the failed build
 		failed_jobs+=1
@@ -244,7 +254,13 @@ do
 	elif [ ${count} -gt 0 ]
 	then
 		# store the release files in platform/target folder
-		good_jobs+=1
+		if [ ${ret_release} -gt 0 ]
+		then
+			failed_jobs+=1
+			failed_targets+="${target_name} - check release files!\n"
+		else
+			good_jobs+=1
+		fi
 		cd target
 		mkdir -p ${target_name}
 		# add md5 checksums to system and kernel files
@@ -267,6 +283,10 @@ do
 		rm -f ${v} Lakka-${target_name}-*.{tar,ova}*
 		[ "${DASHBOARD_MODE}" = "yes" ] && echo "done!"
 		cd ..
+	else
+		# build OK, but no release files were created
+		failed_jobs+=1
+		failed_targets+="${target_name} - no release files!\n"
 	fi
 done
 
