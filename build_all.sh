@@ -48,7 +48,7 @@ tc="THREADCOUNT=${bt}"
 [ "${DASHBOARD_MODE}" = "yes" ] && v="" || v="-v"
 
 # remove any existing images / release files
-check=$(ls target/ | wc -l)
+check=$(ls target/ 2>/dev/null | wc -l)
 if [ ${check} -gt 0 ]
 then
 	echo -en "\nWARNING!!!\nThere are ${check} item(s) in target/, really remove them?\n(press y to confirm, anything else to abort) "
