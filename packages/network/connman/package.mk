@@ -93,7 +93,6 @@ post_makeinstall_target() {
         -e "s|^# PreferredTechnologies.*|PreferredTechnologies = ethernet,wifi,cellular|g" \
         -e "s|^# TetheringTechnologies.*|TetheringTechnologies = wifi|g" \
         -e "s|^# AllowHostnameUpdates.*|AllowHostnameUpdates = false|g" \
-        -e "s|^# PersistentTetheringMode.*|PersistentTetheringMode = true|g" \
         -e "s|^# NetworkInterfaceBlacklist = vmnet,vboxnet,virbr,ifb|NetworkInterfaceBlacklist = vmnet,vboxnet,virbr,ifb,docker,veth|g"
 
   mkdir -p $INSTALL/usr/config
