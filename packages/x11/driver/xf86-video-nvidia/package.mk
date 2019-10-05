@@ -27,7 +27,7 @@ make_target() {
   unset LDFLAGS
 
   cd kernel
-    make module CC=${CC} SYSSRC=$(kernel_path) SYSOUT=$(kernel_path)
+    make module CC=${CC} LD=${LD} SYSSRC=$(kernel_path) SYSOUT=$(kernel_path)
     ${STRIP} --strip-debug nvidia.ko
   cd ..
 }
