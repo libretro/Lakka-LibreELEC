@@ -36,13 +36,14 @@ RUN apt-get update \
 		sed \
 		tar \
 		texinfo \
-		u-boot-tools \		
+		u-boot-tools \
 		unzip \
 		wget \
 		xfonts-utils \
 		xsltproc \
 		xz-utils \
 		zip \
+		zlib1g-dev \
 	&& rm -rf /var/lib/apt/lists/*
 
 ENV HOME /root
