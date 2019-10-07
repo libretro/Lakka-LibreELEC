@@ -154,7 +154,7 @@ makeinstall_host() {
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/bin
-    [ $TARGET_ARCH = x86_64 ] && cp $PKG_DIR/scripts/getedid $INSTALL/usr/bin
+    [ $TARGET_ARCH = x86_64 -o $TARGET_ARCH = i386 ] && cp $PKG_DIR/scripts/getedid $INSTALL/usr/bin
     cp $PKG_DIR/scripts/createlog $INSTALL/usr/bin/
     cp $PKG_DIR/scripts/lsb_release $INSTALL/usr/bin/
     cp $PKG_DIR/scripts/apt-get $INSTALL/usr/bin/
