@@ -1,0 +1,145 @@
+From fafd20f67dec9f5891838435ecde1dedb77ab742 Mon Sep 17 00:00:00 2001
+From: Dylan Baker <dylan@pnwbakers.com>
+Date: Wed, 25 Sep 2019 23:25:27 +0000
+Subject: [PATCH] meson: fix logic for generating .pc files with old glvnd
+
+We want to generate PC files for non-glvnd builds and for builds with
+old glvnd, but the current logic doesn't do that, it builds them
+unconditionally, and for GLES it builds the shared libraries, which is
+also not what we want. This does not generate .pc files for gles1 or
+gles2. Which it we weren't doing before either, making this not a
+regression but a return to status-quo.o
+
+Closes: https://gitlab.freedesktop.org/mesa/mesa/issues/1838
+Fixes: 93df862b6affb6b8507e40601212a58012bfa873
+       ("meson: re-add incorrect pkg-config files with GLVND for backward compatibility")
+Reviewed-by: Matt Turner <mattst88@gmail.com>
+---
+ meson.build          |  9 +++++----
+ src/egl/meson.build  | 30 ++++++++++++++++--------------
+ src/mapi/meson.build |  2 +-
+ src/meson.build      |  4 ++--
+ 4 files changed, 24 insertions(+), 21 deletions(-)
+
+diff --git a/meson.build b/meson.build
+index 0e46fde5edc..da4a07538df 100644
+--- a/meson.build
++++ b/meson.build
+@@ -100,7 +100,7 @@ endif
+ 
+ # shared-glapi is required if at least two OpenGL APIs are being built
+ if not with_shared_glapi
+-  if ((with_gles1 == 'true' and with_gles2 == 'true') or 
++  if ((with_gles1 == 'true' and with_gles2 == 'true') or
+       (with_gles1 == 'true' and with_opengl) or
+       (with_gles2 == 'true' and with_opengl))
+     error('shared-glapi required for building two or more of OpenGL, OpenGL ES 1.x, OpenGL ES 2.x')
+@@ -397,7 +397,7 @@ endif
+ if with_glx != 'disabled'
+   if not (with_platform_x11 and with_any_opengl)
+     error('Cannot build GLX support without X11 platform support and at least one OpenGL API')
+-  elif with_glx == 'gallium-xlib' 
++  elif with_glx == 'gallium-xlib'
+     if not with_gallium
+       error('Gallium-xlib based GLX requires at least one gallium driver')
+     elif not with_gallium_softpipe
+@@ -405,7 +405,7 @@ if with_glx != 'disabled'
+     elif with_dri
+       error('gallium-xlib conflicts with any dri driver')
+     endif
+-  elif with_glx == 'xlib' 
++  elif with_glx == 'xlib'
+     if with_dri
+       error('xlib conflicts with any dri driver')
+     endif
+@@ -1326,6 +1326,7 @@ else
+ endif
+ 
+ dep_glvnd = null_dep
++glvnd_missing_pc_files = false
+ if with_glvnd
+   dep_glvnd = dependency('libglvnd', version : '>= 0.2.0')
+   # GLVND until commit 0dfaea2bcb7cdcc785f9 ("Add pkg-config files for EGL, GL,
+@@ -1462,7 +1463,7 @@ if with_platform_x11
+   if with_glx == 'dri' or with_glx == 'gallium-xlib'
+     dep_glproto = dependency('glproto', version : '>= 1.4.14')
+   endif
+-  if with_glx == 'dri' 
++  if with_glx == 'dri'
+     if with_dri_platform == 'drm'
+       dep_dri2proto = dependency('dri2proto', version : '>= 2.8')
+       dep_xxf86vm = dependency('xxf86vm')
+diff --git a/src/egl/meson.build b/src/egl/meson.build
+index 7038a68e955..7d738e2ebd1 100644
+--- a/src/egl/meson.build
++++ b/src/egl/meson.build
+@@ -176,21 +176,23 @@ libegl = shared_library(
+ # If using glvnd the pkg-config header should not point to EGL_mesa, it should
+ # point to EGL. glvnd is only available on unix like platforms so adding -l
+ # should be safe here
+-if with_glvnd and glvnd_missing_pc_files
+-  _egl = '-L${libdir} -lEGL'
+-else
+-  _egl = libegl
+-endif
++if not with_glvnd or glvnd_missing_pc_files
++  if glvnd_missing_pc_files
++    _egl = '-L${libdir} -lEGL'
++  else
++    _egl = libegl
++  endif
+ 
+-pkg.generate(
+-  name : 'egl',
+-  description : 'Mesa EGL Library',
+-  version : meson.project_version(),
+-  libraries : _egl,
+-  libraries_private: gl_priv_libs,
+-  requires_private : gl_priv_reqs,
+-  extra_cflags : gl_pkgconfig_c_flags,
+-)
++  pkg.generate(
++    name : 'egl',
++    description : 'Mesa EGL Library',
++    version : meson.project_version(),
++    libraries : _egl,
++    libraries_private: gl_priv_libs,
++    requires_private : gl_priv_reqs,
++    extra_cflags : gl_pkgconfig_c_flags,
++  )
++endif
+ 
+ if with_tests and prog_nm.found()
+   if with_glvnd
+diff --git a/src/mapi/meson.build b/src/mapi/meson.build
+index 39c1dba7ce0..2c79a04f1df 100644
+--- a/src/mapi/meson.build
++++ b/src/mapi/meson.build
+@@ -35,7 +35,7 @@ if with_shared_glapi
+ else
+   libglapi = []
+ endif
+-if not with_glvnd or glvnd_missing_pc_files
++if not with_glvnd
+   if with_gles1
+     subdir('es1api')
+   endif
+diff --git a/src/meson.build b/src/meson.build
+index ddbcd7f3ae4..d01f84c0d46 100644
+--- a/src/meson.build
++++ b/src/meson.build
+@@ -111,12 +111,12 @@ endif
+ 
+ # This must be after at least mesa, glx, and gallium, since libgl will be
+ # defined in one of those subdirs depending on the glx provider.
+-if with_glx != 'disabled'
++if with_glx != 'disabled' and (not with_glvnd or glvnd_missing_pc_files)
+   # If using glvnd the pkg-config header should not point to GL_mesa, it should
+   # point to GL. glvnd is only available on unix like platforms so adding -l
+   # should be safe here
+   # TODO: in the glvnd case glvnd itself should really be providing this.
+-  if with_glvnd and glvnd_missing_pc_files
++  if glvnd_missing_pc_files
+     _gl = '-L${libdir} -lGL'
+   else
+     _gl = libgl
