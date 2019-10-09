@@ -19,22 +19,25 @@
 ################################################################################
 
 PKG_NAME="bsnes"
-PKG_VERSION="490abb0"
+PKG_VERSION="0c82cc3"
 PKG_REV="1"
-PKG_ARCH="x86_64 i386"
+PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
-PKG_SITE="https://github.com/libretro/bsnes-libretro"
+PKG_SITE="https://github.com/libretro/bsnes"
 PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="Libretro fork of bsnes. As close to upstream as possible."
-PKG_LONGDESC="Libretro fork of bsnes. As close to upstream as possible."
+PKG_SHORTDESC="Super Nintendo (Super Famicom) emulator"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+make_target() {
+  make -C bsnes -f GNUmakefile target="libretro" local=false compiler="$CXX" CXXFLAGS="$CXXFLAGS" platform=linux
+}
+
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp out/bsnes_accuracy_libretro.so $INSTALL/usr/lib/libretro/
+  cp bsnes/out/bsnes_libretro.so $INSTALL/usr/lib/libretro/
 }
