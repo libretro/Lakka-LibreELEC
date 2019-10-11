@@ -11,7 +11,7 @@ PKG_URL="http://tukaani.org/xz/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_HOST="ccache:host"
 PKG_DEPENDS_TARGET="gcc:host"
 PKG_LONGDESC="A free general-purpose data compression software with high compression ratio."
-PKG_BUILD_FLAGS="+pic"
+PKG_BUILD_FLAGS="+pic +pic:host"
 
 # never build shared or k0p happens when building
 # on fedora due to host selinux/liblzma
