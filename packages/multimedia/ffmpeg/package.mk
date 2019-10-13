@@ -16,39 +16,39 @@ PKG_BUILD_FLAGS="-gold"
 # Dependencies
 get_graphicdrivers
 
-if [ "$V4L2_SUPPORT" = "yes" ]; then
+if [ "${V4L2_SUPPORT}" = "yes" ]; then
   PKG_PATCH_DIRS+=" v4l2"
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libdrm"
+  PKG_DEPENDS_TARGET="${PKG_DEPENDS_TARGET} libdrm"
   PKG_FFMPEG_V4L2="--enable-v4l2_m2m --enable-libdrm"
 else
   PKG_FFMPEG_V4L2="--disable-v4l2_m2m"
 fi
 
-if [ "$VAAPI_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libva"
+if [ "${VAAPI_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_TARGET="${PKG_DEPENDS_TARGET} libva"
   PKG_FFMPEG_VAAPI="--enable-vaapi"
 else
   PKG_FFMPEG_VAAPI="--disable-vaapi"
 fi
 
-if [ "$VDPAU_SUPPORT" = "yes" -a "$DISPLAYSERVER" = "x11" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libvdpau"
+if [ "${VDPAU_SUPPORT}" = "yes" -a "${DISPLAYSERVER}" = "x11" ]; then
+  PKG_DEPENDS_TARGET="${PKG_DEPENDS_TARGET} libvdpau"
   PKG_FFMPEG_VDPAU="--enable-vdpau"
 else
   PKG_FFMPEG_VDPAU="--disable-vdpau"
 fi
 
-if [ "$PROJECT" = "Rockchip" ]; then
+if [ "${PROJECT}" = "Rockchip" ]; then
   PKG_PATCH_DIRS+=" rkmpp"
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET rkmpp"
+  PKG_DEPENDS_TARGET="${PKG_DEPENDS_TARGET} rkmpp"
   PKG_FFMPEG_RKMPP="--enable-rkmpp --enable-libdrm --enable-version3"
 else
   PKG_FFMPEG_RKMPP="--disable-rkmpp"
 fi
 
-if [ "$PROJECT" = "Allwinner" ]; then
+if [ "${PROJECT}" = "Allwinner" ]; then
   PKG_PATCH_DIRS+=" v4l2-request-api"
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libdrm systemd" # systemd is needed for libudev
+  PKG_DEPENDS_TARGET="${PKG_DEPENDS_TARGET} libdrm systemd" # systemd is needed for libudev
   PKG_FFMPEG_V4L2_REQUEST="--enable-v4l2-request --enable-libudev --enable-libdrm"
 fi
 
@@ -58,8 +58,8 @@ else
   PKG_FFMPEG_DEBUG="--disable-debug --enable-stripping"
 fi
 
-if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"
+if [ "${KODIPLAYER_DRIVER}" = "bcm2835-driver" ]; then
+  PKG_DEPENDS_TARGET="${PKG_DEPENDS_TARGET} bcm2835-driver"
   PKG_PATCH_DIRS+=" rpi-hevc"
 fi
 
@@ -69,7 +69,7 @@ else
   PKG_FFMPEG_FPU="--disable-neon"
 fi
 
-if [ "$TARGET_ARCH" = "x86_64" ]; then
+if [ "${TARGET_ARCH}" = "x86_64" ]; then
   PKG_DEPENDS_TARGET+=" nasm:host"
 fi
 
@@ -79,10 +79,10 @@ if target_has_feature "(neon|sse)"; then
 fi
 
 pre_configure_target() {
-  cd $PKG_BUILD
-  rm -rf .$TARGET_NAME
+  cd ${PKG_BUILD}
+  rm -rf .${TARGET_NAME}
 
-  if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
+  if [ "${KODIPLAYER_DRIVER}" = "bcm2835-driver" ]; then
     PKG_FFMPEG_LIBS="-lbcm_host -lvcos -lvchiq_arm -lmmal -lmmal_core -lmmal_util -lvcsm"
     PKG_FFMPEG_RPI="--enable-rpi"
   fi
@@ -90,33 +90,33 @@ pre_configure_target() {
 
 configure_target() {
   ./configure --prefix="/usr" \
-              --cpu="$TARGET_CPU" \
-              --arch="$TARGET_ARCH" \
+              --cpu="${TARGET_CPU}" \
+              --arch="${TARGET_ARCH}" \
               --enable-cross-compile \
-              --cross-prefix="$TARGET_PREFIX" \
-              --sysroot="$SYSROOT_PREFIX" \
-              --sysinclude="$SYSROOT_PREFIX/usr/include" \
+              --cross-prefix="${TARGET_PREFIX}" \
+              --sysroot="${SYSROOT_PREFIX}" \
+              --sysinclude="${SYSROOT_PREFIX}/usr/include" \
               --target-os="linux" \
-              --nm="$NM" \
-              --ar="$AR" \
-              --as="$CC" \
-              --cc="$CC" \
-              --ld="$CC" \
-              --host-cc="$HOST_CC" \
-              --host-cflags="$HOST_CFLAGS" \
-              --host-ldflags="$HOST_LDFLAGS" \
-              --extra-cflags="$CFLAGS" \
-              --extra-ldflags="$LDFLAGS" \
-              --extra-libs="$PKG_FFMPEG_LIBS" \
+              --nm="${NM}" \
+              --ar="${AR}" \
+              --as="${CC}" \
+              --cc="${CC}" \
+              --ld="${CC}" \
+              --host-cc="${HOST_CC}" \
+              --host-cflags="${HOST_CFLAGS}" \
+              --host-ldflags="${HOST_LDFLAGS}" \
+              --extra-cflags="${CFLAGS}" \
+              --extra-ldflags="${LDFLAGS}" \
+              --extra-libs="${PKG_FFMPEG_LIBS}" \
               --disable-static \
               --enable-shared \
               --enable-gpl \
               --disable-version3 \
               --enable-logging \
               --disable-doc \
-              $PKG_FFMPEG_DEBUG \
+              ${PKG_FFMPEG_DEBUG} \
               --enable-pic \
-              --pkg-config="$TOOLCHAIN/bin/pkg-config" \
+              --pkg-config="${TOOLCHAIN}/bin/pkg-config" \
               --enable-optimizations \
               --disable-extra-warnings \
               --disable-programs \
@@ -138,12 +138,12 @@ configure_target() {
               --enable-mdct \
               --enable-rdft \
               --disable-crystalhd \
-              $PKG_FFMPEG_V4L2 \
-              $PKG_FFMPEG_VAAPI \
-              $PKG_FFMPEG_VDPAU \
-              $PKG_FFMPEG_RPI \
-              $PKG_FFMPEG_RKMPP \
-              $PKG_FFMPEG_V4L2_REQUEST \
+              ${PKG_FFMPEG_V4L2} \
+              ${PKG_FFMPEG_VAAPI} \
+              ${PKG_FFMPEG_VDPAU} \
+              ${PKG_FFMPEG_RPI} \
+              ${PKG_FFMPEG_RKMPP} \
+              ${PKG_FFMPEG_V4L2_REQUEST} \
               --enable-runtime-cpudetect \
               --disable-hardcoded-tables \
               --disable-encoders \
@@ -180,7 +180,7 @@ configure_target() {
               --disable-libmp3lame \
               --disable-libopenjpeg \
               --disable-librtmp \
-              $PKG_FFMPEG_AV1 \
+              ${PKG_FFMPEG_AV1} \
               --enable-libspeex \
               --disable-libtheora \
               --disable-libvo-amrwbenc \
@@ -192,10 +192,10 @@ configure_target() {
               --enable-zlib \
               --enable-asm \
               --disable-altivec \
-              $PKG_FFMPEG_FPU \
+              ${PKG_FFMPEG_FPU} \
               --disable-symver
 }
 
 post_makeinstall_target() {
-  rm -rf $INSTALL/usr/share/ffmpeg/examples
+  rm -rf ${INSTALL}/usr/share/ffmpeg/examples
 }
