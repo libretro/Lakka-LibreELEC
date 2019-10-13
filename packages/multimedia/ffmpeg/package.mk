@@ -18,21 +18,21 @@ get_graphicdrivers
 
 if [ "${V4L2_SUPPORT}" = "yes" ]; then
   PKG_PATCH_DIRS+=" v4l2"
-  PKG_DEPENDS_TARGET="${PKG_DEPENDS_TARGET} libdrm"
+  PKG_DEPENDS_TARGET+=" libdrm"
   PKG_FFMPEG_V4L2="--enable-v4l2_m2m --enable-libdrm"
 else
   PKG_FFMPEG_V4L2="--disable-v4l2_m2m"
 fi
 
 if [ "${VAAPI_SUPPORT}" = "yes" ]; then
-  PKG_DEPENDS_TARGET="${PKG_DEPENDS_TARGET} libva"
+  PKG_DEPENDS_TARGET+=" libva"
   PKG_FFMPEG_VAAPI="--enable-vaapi"
 else
   PKG_FFMPEG_VAAPI="--disable-vaapi"
 fi
 
 if [ "${VDPAU_SUPPORT}" = "yes" -a "${DISPLAYSERVER}" = "x11" ]; then
-  PKG_DEPENDS_TARGET="${PKG_DEPENDS_TARGET} libvdpau"
+  PKG_DEPENDS_TARGET+=" libvdpau"
   PKG_FFMPEG_VDPAU="--enable-vdpau"
 else
   PKG_FFMPEG_VDPAU="--disable-vdpau"
@@ -40,7 +40,7 @@ fi
 
 if [ "${PROJECT}" = "Rockchip" ]; then
   PKG_PATCH_DIRS+=" rkmpp"
-  PKG_DEPENDS_TARGET="${PKG_DEPENDS_TARGET} rkmpp"
+  PKG_DEPENDS_TARGET+=" rkmpp"
   PKG_FFMPEG_RKMPP="--enable-rkmpp --enable-libdrm --enable-version3"
 else
   PKG_FFMPEG_RKMPP="--disable-rkmpp"
@@ -48,7 +48,7 @@ fi
 
 if [ "${PROJECT}" = "Allwinner" ]; then
   PKG_PATCH_DIRS+=" v4l2-request-api"
-  PKG_DEPENDS_TARGET="${PKG_DEPENDS_TARGET} libdrm systemd" # systemd is needed for libudev
+  PKG_DEPENDS_TARGET+=" libdrm systemd" # systemd is needed for libudev
   PKG_FFMPEG_V4L2_REQUEST="--enable-v4l2-request --enable-libudev --enable-libdrm"
 fi
 
@@ -59,7 +59,7 @@ else
 fi
 
 if [ "${KODIPLAYER_DRIVER}" = "bcm2835-driver" ]; then
-  PKG_DEPENDS_TARGET="${PKG_DEPENDS_TARGET} bcm2835-driver"
+  PKG_DEPENDS_TARGET+=" bcm2835-driver"
   PKG_PATCH_DIRS+=" rpi-hevc"
 fi
 
