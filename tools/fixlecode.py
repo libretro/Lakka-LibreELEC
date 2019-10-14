@@ -129,17 +129,35 @@ def fix_backticks(line, changed):
   changes = 0
   newline = ''
   intick = False
+  iscomment = False
+  c = 0
 
-  for c in line:
-    if c == '`':
-      if not intick:
+  # Don't fix backticks in comments as more likely to be markdown
+  if line.startswith('#'):
+    return line
+
+  while c < len(line):
+    char = line[c:c+1]
+    charn = line[c+1:c+2]
+
+    # Don't convert "embedded" comments such as `# blah blah`
+    if not intick and char == '`' and charn == '#':
+      iscomment = True
+
+    if char == '`' and (intick or charn != '#'):
+      if iscomment:
+        newline += char
+        iscomment = False
+      elif not intick:
         newline += '$('
         changes += 1
       else:
         newline += ')'
       intick = not intick
     else:
-      newline += c
+      newline += char
+
+    c += 1
 
   changed['backticks'] += changes
   changed['isdirty'] = (changed['isdirty'] or changes != 0)
