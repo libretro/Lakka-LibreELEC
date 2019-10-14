@@ -2,11 +2,11 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ffmpegx"
-PKG_VERSION="4.1"
-PKG_SHA256="7afb163d6974693cdad742aa1224c33683c50845c67ee5ae35506efc631ac121"
+PKG_VERSION="4.1.4"
+PKG_SHA256="f1f049a82fcfbf156564e73a3935d7e750891fab2abf302e735104fd4050a7e1"
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://ffmpeg.org"
-PKG_URL="https://github.com/FFmpeg/FFmpeg/archive/n${PKG_VERSION}.tar.gz"
+PKG_URL="https://ffmpeg.org/releases/ffmpeg-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain aom bzip2 gnutls libvorbis opus x264 zlib"
 PKG_LONGDESC="FFmpegx is an complete FFmpeg build to support encoding and decoding."
 PKG_BUILD_FLAGS="-gold"
@@ -34,7 +34,7 @@ fi
 pre_configure_target() {
   cd $PKG_BUILD
   rm -rf .$TARGET_NAME
-  
+
   # pass gnutls to build
   PKG_CONFIG_PATH="$(get_build_dir gnutls)/.INSTALL_PKG/usr/lib/pkgconfig"
   CFLAGS="$CFLAGS -I$(get_build_dir gnutls)/.INSTALL_PKG/usr/include"
@@ -138,7 +138,6 @@ configure_target() {
     \
     `#Licensing options` \
     --enable-gpl \
-    --disable-nonfree \
     \
     `#Documentation options` \
     --disable-doc \
