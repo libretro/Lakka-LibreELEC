@@ -26,8 +26,8 @@ case $KODI_VENDOR in
     PKG_SOURCE_NAME="kodi-$KODI_VENDOR-$PKG_VERSION.tar.gz"
     ;;
   *)
-    PKG_VERSION="18.4-Leia"
-    PKG_SHA256="bf2be186d8ae5b5377e43c06a538012bb9f51a0e98f8244b70a401006861d110"
+    PKG_VERSION="e31d257e4b6a9c5a622bb280d4abc4e44dc9eca5" # kodi19-pre-python3
+    PKG_SHA256="d8647c883661685bbcae6fd9f3312298636f4cacfb1b2ee53d4d349028579ffa"
     PKG_URL="https://github.com/xbmc/xbmc/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="kodi-$PKG_VERSION.tar.gz"
     ;;
