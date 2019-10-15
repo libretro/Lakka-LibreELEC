@@ -3,8 +3,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="xf86-video-ati"
-PKG_VERSION="19.0.1"
-PKG_SHA256="5cb6015d8664546ad1311bc9c363d7bc41ebf60e7046ceb44dd38e5b707961b0"
+PKG_VERSION="19.1.0"
+PKG_SHA256="659f5a1629eea5f5334d9b39b18e6807a63aa1efa33c1236d9cc53acbb223c49"
 PKG_ARCH="x86_64"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.x.org/"
