@@ -83,7 +83,7 @@ configure_package() {
                       --without-ldb-lmdb \
                       --nopyc --nopyo"
 
-  PKG_SAMBA_TARGET="smbclient,client/smbclient,smbtree,testparm"
+  PKG_SAMBA_TARGET="smbclient,client/smbclient,smbtree,nmblookup,testparm"
 
   if [ "$SAMBA_SERVER" = "yes" ]; then
     PKG_SAMBA_TARGET+=",smbd/smbd,nmbd,smbpasswd"
@@ -143,6 +143,7 @@ post_makeinstall_target() {
   mkdir -p $INSTALL/usr/bin
     cp -PR bin/default/source3/client/smbclient $INSTALL/usr/bin
     cp -PR bin/default/source3/utils/smbtree $INSTALL/usr/bin
+    cp -PR bin/default/source3/utils/nmblookup $INSTALL/usr/bin
     cp -PR bin/default/source3/utils/testparm $INSTALL/usr/bin
 
   if [ "$SAMBA_SERVER" = "yes" ]; then
