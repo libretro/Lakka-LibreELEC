@@ -3,9 +3,9 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.openmpt"
-PKG_VERSION="2.0.1-Leia"
-PKG_SHA256="40779e34403fecb17fa1c58bbca3392b15cba91722a41665b0f9dcbae5bd853d"
-PKG_REV="4"
+PKG_VERSION="2.0.2-Leia"
+PKG_SHA256="9d0206416a478b35ac74b9b400e2c7820f7e3e0ace014428e74f85b59b2437f6"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.openmpt"
