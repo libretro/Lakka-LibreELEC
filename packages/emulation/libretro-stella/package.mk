@@ -10,7 +10,7 @@ PKG_URL="https://github.com/libretro/stella-libretro/archive/$PKG_VERSION.tar.gz
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_LONGDESC="game.libretro.stella: Stella for Kodi"
 
-PKG_LIBNAME="stella_libretro.so"
+PKG_LIBNAME="stella2014_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"
 PKG_LIBVAR="STELLA_LIB"
 
