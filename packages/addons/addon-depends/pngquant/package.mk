@@ -7,7 +7,7 @@ PKG_SHA256="0e540c64bb58c05f2a05b4eaf1d3d165f0d3278500f15abfeac47f93f8fa8fa8"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://pngquant.org"
 PKG_URL="http://pngquant.org/pngquant-${PKG_VERSION}-src.tar.gz"
-PKG_DEPENDS_HOST="toolchain libpng:host zlib:host"
+PKG_DEPENDS_HOST="toolchain:host libpng:host zlib:host"
 PKG_LONGDESC="A lossy PNG compressor."
 
 configure_host() {

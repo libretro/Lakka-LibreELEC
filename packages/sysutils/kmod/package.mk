@@ -7,7 +7,7 @@ PKG_SHA256="610b8d1df172acc39a4fdf1eaa47a57b04873c82f32152e7a62e29b6ff9cb397"
 PKG_LICENSE="GPL"
 PKG_SITE="http://git.profusion.mobi/cgit.cgi/kmod.git/"
 PKG_URL="https://www.kernel.org/pub/linux/utils/kernel/kmod/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_HOST="toolchain"
+PKG_DEPENDS_HOST="toolchain:host"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="kmod offers the needed flexibility and fine grained control over insertion, removal, configuration and listing of kernel modules."
 
