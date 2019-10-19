@@ -28,8 +28,8 @@ case "$PROJECT" in
     PKG_PATCH_DIRS="rockchip"
     ;;
   *)
-    PKG_VERSION="2019.07"
-    PKG_SHA256="bff4fa77e8da17521c030ca4c5b947a056c1b1be4d3e6ee8637020b8d50251d0"
+    PKG_VERSION="2019.10"
+    PKG_SHA256="8d6d6070739522dd236cba7055b8736bfe92b4fac0ea18ad809829ca79667014"
     PKG_URL="http://ftp.denx.de/pub/u-boot/u-boot-$PKG_VERSION.tar.bz2"
     ;;
 esac
