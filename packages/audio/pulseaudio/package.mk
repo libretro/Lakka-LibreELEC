@@ -10,75 +10,60 @@ PKG_SITE="http://pulseaudio.org/"
 PKG_URL="http://www.freedesktop.org/software/pulseaudio/releases/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain alsa-lib dbus libcap libsndfile libtool openssl soxr systemd glib:host"
 PKG_LONGDESC="PulseAudio is a sound system for POSIX OSes, meaning that it is a proxy for your sound applications."
-PKG_TOOLCHAIN="configure"
+PKG_TOOLCHAIN="meson"
 
 if [ "$BLUETOOTH_SUPPORT" = "yes" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET sbc"
-  PKG_PULSEAUDIO_BLUETOOTH="--enable-bluez5"
+  PKG_PULSEAUDIO_BLUETOOTH="-Dbluez5=true"
 else
-  PKG_PULSEAUDIO_BLUETOOTH="--disable-bluez5"
+  PKG_PULSEAUDIO_BLUETOOTH="-Dbluez5=false"
 fi
 
 if [ "$AVAHI_DAEMON" = "yes" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET avahi"
-  PKG_PULSEAUDIO_AVAHI="--enable-avahi"
+  PKG_PULSEAUDIO_AVAHI="-Davahi=enabled"
 else
-  PKG_PULSEAUDIO_AVAHI="--disable-avahi"
+  PKG_PULSEAUDIO_AVAHI="-Davahi=disabled"
 fi
 
-# PulseAudio fails to build on aarch64 when NEON is enabled, so don't enable NEON for aarch64 until upstream supports it
-if [ "$TARGET_ARCH" = "arm" ] && target_has_feature neon; then
-  PKG_PULSEAUDIO_NEON="--enable-neon-opt"
-else
-  PKG_PULSEAUDIO_NEON="--disable-neon-opt"
-fi
-
-PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
-                           --disable-nls \
-                           --enable-largefile \
-                           --disable-rpath \
-                           $PKG_PULSEAUDIO_NEON \
-                           --disable-x11 \
-                           --disable-tests \
-                           --disable-samplerate \
-                           --disable-oss-output \
-                           --disable-oss-wrapper \
-                           --disable-coreaudio-output \
-                           --enable-alsa \
-                           --disable-esound \
-                           --disable-solaris \
-                           --disable-waveout \
-                           --enable-glib2 \
-                           --disable-gtk3 \
-                           --disable-gconf \
-                           $PKG_PULSEAUDIO_AVAHI \
-                           --disable-jack \
-                           --disable-asyncns \
-                           --disable-tcpwrap \
-                           --disable-lirc \
-                           --enable-dbus \
-                           --disable-bluez4 \
-                           $PKG_PULSEAUDIO_BLUETOOTH \
-                           --disable-bluez5-ofono-headset \
-                           --disable-bluez5-native-headset \
-                           --enable-udev \
-                           --with-udev-rules-dir=/usr/lib/udev/rules.d \
-                           --disable-hal-compat \
-                           --enable-ipv6 \
-                           --enable-openssl \
-                           --disable-orc \
-                           --disable-manpages \
-                           --disable-per-user-esound-socket \
-                           --disable-default-build-tests \
-                           --disable-legacy-database-entry-format \
-                           --with-system-user=root \
-                           --with-system-group=root \
-                           --with-access-group=root \
-                           --without-caps \
-                           --without-fftw \
-                           --without-speex \
-                           --with-soxr \
-                           --with-module-dir=/usr/lib/pulse"
+PKG_MESON_OPTS_TARGET="-Dgcov=false \
+                       -Dman=false \
+                       -Dtests=false \
+                       -Dsystem_user=root \
+                       -Dsystem_group=root \
+                       -Daccess_group=root \
+                       -Ddatabase=simple \
+                       -Dlegacy-database-entry-format=false \
+                       -Drunning-from-build-tree=false \
+                       -Datomic-arm-linux-helpers=true \
+                       -Datomic-arm-memory-barrier=false \
+                       -Dmodlibexecdir=/usr/lib/pulse \
+                       -Dudevrulesdir=/usr/lib/udev/rules.d \
+                       -Dalsa=enabled \
+                       -Dasyncns=disabled \
+                       $PKG_PULSEAUDIO_AVAHI \
+                       $PKG_PULSEAUDIO_BLUETOOTH \
+                       -Dbluez5-native-headset=false \
+                       -Dbluez5-ofono-headset=false \
+                       -Ddbus=enabled \
+                       -Dfftw=disabled \
+                       -Dglib=enabled \
+                       -Dgsettings=disabled \
+                       -Dgtk=disabled \
+                       -Dhal-compat=false \
+                       -Dipv6=true \
+                       -Djack=disabled \
+                       -Dlirc=disabled \
+                       -Dopenssl=enabled \
+                       -Dorc=disabled \
+                       -Dsamplerate=disabled \
+                       -Dsoxr=enabled \
+                       -Dspeex=disabled \
+                       -Dsystemd=enabled \
+                       -Dudev=enabled \
+                       -Dx11=disabled \
+                       -Dadrian-aec=true \
+                       -Dwebrtc-aec=disabled"
 
 pre_configure_target() {
   sed -e 's|; remixing-use-all-sink-channels = yes|; remixing-use-all-sink-channels = no|' \
