@@ -71,14 +71,13 @@ pre_configure_target() {
 }
 
 post_makeinstall_target() {
-  rm -rf $INSTALL/usr/bin/esdcompat
-  rm -rf $INSTALL/usr/include
-  rm -rf $INSTALL/usr/lib/cmake
-  rm -rf $INSTALL/usr/lib/pkgconfig
-  rm -rf $INSTALL/usr/lib/systemd
-  rm -rf $INSTALL/usr/share/vala
-  rm -rf $INSTALL/usr/share/zsh
-  rm -rf $INSTALL/usr/share/bash-completion
+  safe_remove $INSTALL/usr/include
+  safe_remove $INSTALL/usr/lib/cmake
+  safe_remove $INSTALL/usr/lib/pkgconfig
+  safe_remove $INSTALL/usr/lib/systemd
+  safe_remove $INSTALL/usr/share/vala
+  safe_remove $INSTALL/usr/share/zsh
+  safe_remove $INSTALL/usr/share/bash-completion
 
   cp $PKG_DIR/config/system.pa $INSTALL/etc/pulse/
   cp $PKG_DIR/config/pulseaudio-system.conf $INSTALL/etc/dbus-1/system.d/
