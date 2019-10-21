@@ -17,10 +17,6 @@ PKG_MESON_OPTS_TARGET="-Ddeprecated=false \
                        -Ddocs=false \
                        -Ddefault_library=static"
 
-pre_configure_target() {
-  export CFLAGS="$CFLAGS -DFRIBIDI_CHUNK_SIZE=4080"
-}
-
 post_makeinstall_target() {
   mkdir -p $SYSROOT_PREFIX/usr/bin
     cp -f $PKG_DIR/scripts/fribidi-config $SYSROOT_PREFIX/usr/bin
