@@ -31,8 +31,8 @@ case "$LINUX" in
     PKG_BUILD_PERF="no"
     ;;
   raspberrypi)
-    PKG_VERSION="2a085c9b42ea9df3a26c35577159525c99b7be87" # 5.3.5
-    PKG_SHA256="04740e92fda290fc441e5c313853f24a8f6f0423a17a9fb0b90f46b5877070a1"
+    PKG_VERSION="aa4c02b03ba8ff81064f6f25192aaff979ebb039" # 5.3.7
+    PKG_SHA256="a1e2f58ae469e6ab4ccd3b2f495899c621d63da08182f3ea008b787cc3e43b52"
     PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     ;;
