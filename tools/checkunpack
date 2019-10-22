@@ -1,0 +1,95 @@
+#!/bin/bash
+
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
+
+. ./config/options ""
+
+MD5SUM="$(echo ${BUILD} | md5sum | awk '{ print $1 }')"
+RESTART_FILE=/tmp/checkunpack.progress.${MD5SUM}
+
+usage() {
+  cat <<EOF
+Usage: $0 [-f "regex"] [-c] [-v] [-S] [-h]
+
+  -f regex    Filter based on regex, eg. -f "RTL.*|^kodi-" would match all
+              Realtek drivers and any package beginning with kodi-.
+              Using a filter ignores any existing progress file.
+  -c          Remove restartable progress file at beginning of this run
+  -v          Verbose output, view failed output from scripts/unpack
+  -S          Display skipped/ignored packages
+  -h          This help message
+
+By default previously processed packages that unpacked successfully will be skipped,
+unless their stamp has been subsequently modified. Use -c to ignore any previous
+progress, and (re-)process every package again.
+
+Current progress file: ${RESTART_FILE}
+EOF
+  exit
+}
+
+FILTER="."
+RMPROGRESS="no"
+VERBOSE="no"
+SHOW_SKIPPED="no"
+USING_FILTER="no"
+
+while getopts "f:cvSh" opt; do
+  case ${opt} in
+    f) FILTER="${OPTARG}"; USING_FILTER="yes";;
+    c) RMPROGRESS="yes";;
+    v) VERBOSE="yes";;
+    S) SHOW_SKIPPED="yes";;
+    h) usage;;
+    *) usage;;
+  esac
+done
+
+TMP_FILE=$(mktemp)
+trap "rm -f ${TMP_FILE}" EXIT
+
+[ "${RMPROGRESS}" = "yes" ] && rm -f "${RESTART_FILE}"
+
+TXRED="$(tput setaf 1 bold)"
+TXGREEN="$(tput setaf 2 bold)"
+TXRESET="$(tput sgr0)"
+
+SKIPPED="$(cut -d' ' -f1 ${RESTART_FILE} 2>/dev/null | sort -u | wc -l || true)"
+[ "${USING_FILTER}" = "no" -a "${SKIPPED:-0}" -ne 0 ] && echo -e "WARNING: skipping ${SKIPPED} packages.\n" >&2
+
+for pkg_name in $(get_all_package_names | grep -E "${FILTER}"); do
+  stamp=$(source_package ${pkg_name}; calculate_stamp)
+  if [ -z "${stamp}" ]; then
+    [ "${SHOW_SKIPPED}" = "yes" ] && printf "Checking: %-40s IGNORED\n" "${pkg_name}"
+    continue
+  fi
+
+  if [ "${USING_FILTER}" = "no" ] && grep -qE "^${pkg_name} ${stamp}$" ${RESTART_FILE} 2>/dev/null; then
+    [ "${SHOW_SKIPPED}" = "yes" ] && printf "Checking: %-40s SKIPPED\n" "${pkg_name}"
+    continue
+  fi
+
+  printf "Checking: %-40s" "${pkg_name}"
+
+  rm -rf "${BUILD}/"* ${BUILD}/.unpack
+
+  OUTPUT="$(scripts/unpack "${pkg_name}" 2>&1)" && res=0 || res=1
+
+  if [ ${res} -eq 0 ]; then
+    echo " ${TXGREEN}OK${TXRESET}"
+    [ "${USING_FILTER}" = "no" ] && echo "${pkg_name} ${stamp}" >>${RESTART_FILE}
+  else
+    echo " ${TXRED}FAILED${TXRESET}"
+    echo "${pkg_name}" >>${TMP_FILE}
+    [ "${VERBOSE}" = "yes" -a -n "${OUTPUT}" ] && echo "${OUTPUT}"
+  fi
+  rm -rf "${BUILD}/"* ${BUILD}/.unpack
+done
+
+if [ -s "${TMP_FILE}" ]; then
+  echo
+  echo "The following packages failed to unpack:"
+  cat ${TMP_FILE}
+  exit 1
+fi
