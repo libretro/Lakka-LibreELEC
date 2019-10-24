@@ -9,7 +9,7 @@ PKG_LICENSE="OSS"
 PKG_SITE="http://www.python.org/"
 PKG_URL="http://www.python.org/ftp/python/$PKG_VERSION/${PKG_NAME::-1}-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_HOST="zlib:host bzip2:host libffi:host util-linux:host xz:host"
-PKG_DEPENDS_TARGET="toolchain Python3:host sqlite expat zlib bzip2 openssl libffi readline ncurses"
+PKG_DEPENDS_TARGET="toolchain Python3:host sqlite expat zlib bzip2 xz openssl libffi readline ncurses"
 PKG_LONGDESC="Python3 is an interpreted object-oriented programming language."
 PKG_TOOLCHAIN="autotools"
 
@@ -66,7 +66,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_prog_HAS_HG=/bin/false
                            --enable-readline
                            --enable-bzip2
                            --enable-zlib
-                           --disable-xz
+                           --enable-xz
                            --disable-tk
                            --enable-curses
                            --disable-pydoc
