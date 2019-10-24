@@ -8,7 +8,7 @@ PKG_SHA256="14d249bd02f0227156dd77cf98e57cfef8fc5a9ec85e03873737cea7c386350a"
 PKG_LICENSE="GPLv3+"
 PKG_SITE="https://www.samba.org"
 PKG_URL="https://download.samba.org/pub/samba/stable/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain attr heimdal:host e2fsprogs Python2 zlib readline popt libaio connman"
+PKG_DEPENDS_TARGET="toolchain attr heimdal:host e2fsprogs Python3 zlib readline popt libaio connman"
 PKG_NEED_UNPACK="$(get_pkg_directory heimdal) $(get_pkg_directory e2fsprogs)"
 PKG_LONGDESC="A free SMB / CIFS fileserver and client."
 PKG_BUILD_FLAGS="-gold"
@@ -108,9 +108,9 @@ configure_target() {
   cp $PKG_DIR/config/samba4-cache.txt $PKG_BUILD/cache.txt
     echo "Checking uname machine type: \"$TARGET_ARCH\"" >> $PKG_BUILD/cache.txt
 
-  PYTHON_CONFIG="$SYSROOT_PREFIX/usr/bin/python-config" \
+  PYTHON_CONFIG="$SYSROOT_PREFIX/usr/bin/python3-config" \
   python_LDFLAGS="" python_LIBDIR="" \
-  ./configure $PKG_CONFIGURE_OPTS
+  PYTHON=${TOOLCHAIN}/bin/python3 ./configure $PKG_CONFIGURE_OPTS
 }
 
 make_target() {

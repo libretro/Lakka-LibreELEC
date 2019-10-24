@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # taken from http://stackoverflow.com/a/14879370 with minor modifications
 
