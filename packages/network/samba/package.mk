@@ -3,10 +3,11 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="samba"
-PKG_VERSION="4.9.14"
-PKG_SHA256="14d249bd02f0227156dd77cf98e57cfef8fc5a9ec85e03873737cea7c386350a"
+PKG_VERSION="4.10.9"
+PKG_SHA256="366df54dc43ff8cb2d3f94fad2a8e8561a398d94ab64b86761778843b5e61678"
 PKG_LICENSE="GPLv3+"
 PKG_SITE="https://www.samba.org"
+#PKG_URL="https://github.com/samba-team/samba/archive/${PKG_VERSION}.tar.gz"
 PKG_URL="https://download.samba.org/pub/samba/stable/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain attr heimdal:host e2fsprogs Python3 zlib readline popt libaio connman"
 PKG_NEED_UNPACK="$(get_pkg_directory heimdal) $(get_pkg_directory e2fsprogs)"
@@ -54,7 +55,6 @@ configure_package() {
                       $SMB_AESNI \
                       --disable-cups \
                       --disable-iprint \
-                      --disable-gnutls \
                       --with-relro \
                       --with-sendfile-support \
                       --without-acl-support \
@@ -79,7 +79,7 @@ configure_package() {
                       --bundled-libraries='ALL,!asn1_compile,!compile_et,!zlib' \
                       --without-quotas \
                       --with-syslog  \
-                      --without-json-audit \
+                      --without-json \
                       --without-ldb-lmdb \
                       --nopyc --nopyo"
 
