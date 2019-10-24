@@ -14,7 +14,7 @@ PKG_LONGDESC="A free SMB / CIFS fileserver and client."
 PKG_BUILD_FLAGS="-gold"
 
 configure_package() {
-  PKG_MAKE_OPTS_TARGET="V=1"
+  #PKG_WAF_VERBOSE="-v"
 
   if [ "$AVAHI_DAEMON" = yes ]; then
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET avahi"
@@ -117,12 +117,12 @@ configure_target() {
 }
 
 make_target() {
-  ./buildtools/bin/waf build --targets=$PKG_SAMBA_TARGET -j$CONCURRENCY_MAKE_LEVEL
+  ./buildtools/bin/waf build ${PKG_WAF_VERBOSE} --targets=$PKG_SAMBA_TARGET -j$CONCURRENCY_MAKE_LEVEL
 }
 
 makeinstall_target() {
-  ./buildtools/bin/waf install --destdir=$SYSROOT_PREFIX --targets=smbclient -j$CONCURRENCY_MAKE_LEVEL
-  ./buildtools/bin/waf install --destdir=$INSTALL --targets=$PKG_SAMBA_TARGET -j$CONCURRENCY_MAKE_LEVEL
+  ./buildtools/bin/waf install ${PKG_WAF_VERBOSE} --destdir=$SYSROOT_PREFIX --targets=smbclient -j$CONCURRENCY_MAKE_LEVEL
+  ./buildtools/bin/waf install ${PKG_WAF_VERBOSE} --destdir=$INSTALL --targets=$PKG_SAMBA_TARGET -j$CONCURRENCY_MAKE_LEVEL
 }
 
 post_makeinstall_target() {
