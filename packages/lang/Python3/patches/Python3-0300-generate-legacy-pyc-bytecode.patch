@@ -1,0 +1,42 @@
+From dc39d0d93427a92c387e3c1944368d7f08299c06 Mon Sep 17 00:00:00 2001
+From: MilhouseVH <milhouseVH.github@nmacleod.com>
+Date: Sun, 20 Oct 2019 02:32:03 +0100
+Subject: [PATCH] Always generate legacy bytecode (allows removal of py source
+ code)
+
+We want to create compiled bytecode for modules in the read-only
+squashfs, and we also want to avoid distributing the py source code
+which is a waste of space.
+
+Unfortunately, after PEP3147, it's no longer possible to distribute
+pyc bytecode without the corresponding py source code unless the
+bytecode is generated using the "legacy" layout (ie. not using __pycache__).
+
+Since all packages process their Python source code in different ways,
+but ultimately all compile it via a call to py_compile.compile(), the
+easiest solution is to patch py_compile.compile() so that it only
+generates legacy bytecode.
+
+https://www.python.org/dev/peps/pep-3147/#case-4-legacy-pyc-files-and-source-less-imports
+---
+ Lib/py_compile.py | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/Lib/py_compile.py b/Lib/py_compile.py
+index 8e9dd57..d4b7f4f 100644
+--- a/Lib/py_compile.py
++++ b/Lib/py_compile.py
+@@ -119,6 +119,10 @@ def compile(file, cfile=None, dfile=None, doraise=False, optimize=-1,
+     the resulting file would be regular and thus not the same type of file as
+     it was previously.
+     """
++
++    if cfile:
++      cfile = file + 'c'
++
+     if invalidation_mode is None:
+         invalidation_mode = _get_default_invalidation_mode()
+     if cfile is None:
+-- 
+2.7.4
+
