@@ -124,7 +124,37 @@ makeinstall_target() {
   ./buildtools/bin/waf install ${PKG_WAF_VERBOSE} --destdir=$INSTALL --targets=$PKG_SAMBA_TARGET -j$CONCURRENCY_MAKE_LEVEL
 }
 
+copy_directory_of_links() {
+  local _tmp link
+  for link in "${1}/"*.so*; do
+    if [ -L ${link} ]; then
+      _tmp="$(readlink -m "${link}")"
+      cp -P ${_tmp} ${2}
+      cp -P ${_tmp}.* ${2} 2>/dev/null || true
+    else
+      cp -P ${link} ${2}
+    fi
+  done
+}
+
+perform_manual_install() {
+  mkdir -p ${SYSROOT_PREFIX}/usr/lib
+    copy_directory_of_links ${PKG_BUILD}/bin/shared ${SYSROOT_PREFIX}/usr/lib
+
+  mkdir -p ${INSTALL}/usr/lib
+    copy_directory_of_links ${PKG_BUILD}/bin/shared ${INSTALL}/usr/lib
+    copy_directory_of_links ${PKG_BUILD}/bin/shared/private ${INSTALL}/usr/lib
+
+  if [ "$SAMBA_SERVER" = "yes" ]; then
+    mkdir -p ${INSTALL}/usr/sbin
+      cp -L ${PKG_BUILD}/bin/smbd ${INSTALL}/usr/sbin
+      cp -L ${PKG_BUILD}/bin/nmbd ${INSTALL}/usr/sbin
+  fi
+}
+
 post_makeinstall_target() {
+  perform_manual_install
+
   rm -rf $INSTALL/usr/bin
   rm -rf $INSTALL/usr/lib/python*
   rm -rf $INSTALL/usr/share/perl*
