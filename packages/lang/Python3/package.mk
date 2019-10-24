@@ -128,8 +128,7 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin/python*-config
   rm -rf $INSTALL/usr/bin/smtpd.py $INSTALL/usr/bin/smtpd.py.*
 
-  $TOOLCHAIN/bin/python3 -Wi -t -B $TOOLCHAIN/lib/$PKG_PYTHON_VERSION/compileall.py -d ${PKG_INSTALL_PATH_LIB#${INSTALL}} -b -f $PKG_INSTALL_PATH_LIB
-  find $PKG_INSTALL_PATH_LIB -name "*.py" -exec rm -f {} \; &>/dev/null
+  python_compile $PKG_INSTALL_PATH_LIB
 
   # strip
   chmod u+w $INSTALL/usr/lib/libpython*.so.*

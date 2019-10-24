@@ -25,6 +25,7 @@ makeinstall_target() {
 }
 
 post_makeinstall_target() {
-  find $INSTALL/usr/lib -name "*.py" -exec rm -rf "{}" ";"
+  python_remove_source
+
   rm -rf $INSTALL/usr/lib/python*/site-packages/*/tests
 }

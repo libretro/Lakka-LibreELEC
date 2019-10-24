@@ -352,6 +352,9 @@ post_makeinstall_target() {
       cp $PKG_DIR/fonts/*.ttf $INSTALL/usr/share/kodi/media/Fonts
   fi
 
+  # Compile kodi Python site-packages to .pyc bytecode, and remove .py source code
+  python_compile $INSTALL/usr/lib/$PKG_PYTHON_VERSION/site-packages/kodi
+
   debug_strip $INSTALL/usr/lib/kodi/kodi.bin
 }
 

@@ -19,7 +19,7 @@ pre_configure_target() {
 }
 
 post_makeinstall_target() {
-  find $INSTALL/usr/lib -name "*.py" -exec rm -rf "{}" ";"
+  python_remove_source
 
   rm -rf $INSTALL/usr/bin
   rm -rf $INSTALL/usr/share/pygobject

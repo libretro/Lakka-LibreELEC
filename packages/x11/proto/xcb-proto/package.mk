@@ -10,3 +10,7 @@ PKG_SITE="http://www.X.org"
 PKG_URL="http://xcb.freedesktop.org/dist/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain util-macros Python3:host"
 PKG_LONGDESC="X C-language Bindings protocol headers."
+
+post_makeinstall_target() {
+  python_remove_source
+}
