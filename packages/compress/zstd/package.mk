@@ -10,7 +10,8 @@ PKG_URL="https://github.com/facebook/zstd/releases/download/v${PKG_VERSION}/${PK
 PKG_DEPENDS_HOST="gcc:host ninja:host"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A fast real-time compression algorithm."
+PKG_TOOLCHAIN="meson"
 
 configure_package() {
-  PKG_CMAKE_SCRIPT="${PKG_BUILD}/build/cmake/CMakeLists.txt"
+  PKG_MESON_SCRIPT="${PKG_BUILD}/build/meson/meson.build"
 }
