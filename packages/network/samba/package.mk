@@ -32,7 +32,7 @@ configure_package() {
   PKG_CONFIGURE_OPTS="--prefix=/usr \
                       --sysconfdir=/etc \
                       --localstatedir=/var \
-                      --with-lockdir=/var/lock \
+                      --with-lockdir=/var/lock-samba \
                       --with-logfilebase=/var/log \
                       --with-piddir=/run/samba \
                       --with-privatedir=/run/samba \
