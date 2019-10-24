@@ -8,7 +8,7 @@ PKG_SHA256="961b23ca1acfd28f2bc87414c27bb40e12436efcf2158d29721b1e89f3f28057"
 PKG_LICENSE="GPL"
 PKG_SITE="http://pulseaudio.org/"
 PKG_URL="http://www.freedesktop.org/software/pulseaudio/releases/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET="toolchain alsa-lib dbus libcap libsndfile libtool openssl soxr systemd glib:host"
+PKG_DEPENDS_TARGET="toolchain alsa-lib dbus libcap libsndfile libtool openssl soxr speexdsp systemd glib:host"
 PKG_LONGDESC="PulseAudio is a sound system for POSIX OSes, meaning that it is a proxy for your sound applications."
 PKG_TOOLCHAIN="meson"
 
@@ -58,7 +58,7 @@ PKG_MESON_OPTS_TARGET="-Dgcov=false \
                        -Dorc=disabled \
                        -Dsamplerate=disabled \
                        -Dsoxr=enabled \
-                       -Dspeex=disabled \
+                       -Dspeex=enabled \
                        -Dsystemd=enabled \
                        -Dudev=enabled \
                        -Dx11=disabled \
