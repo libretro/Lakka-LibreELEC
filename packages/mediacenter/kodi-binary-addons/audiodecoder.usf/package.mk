@@ -17,4 +17,4 @@ PKG_LONGDESC="audiodecoder.usf"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.audiodecoder"
-PKG_ADDON_PROJECTS="any !RPi1"
+PKG_ADDON_PROJECTS="any !RPi1 !Slice"
