@@ -108,6 +108,9 @@ configure_target() {
   cp $PKG_DIR/config/samba4-cache.txt $PKG_BUILD/cache.txt
     echo "Checking uname machine type: \"$TARGET_ARCH\"" >> $PKG_BUILD/cache.txt
 
+  export COMPILE_ET=$TOOLCHAIN/bin/heimdal_compile_et
+  export ASN1_COMPILE=$TOOLCHAIN/bin/heimdal_asn1_compile
+
   PYTHON_CONFIG="$SYSROOT_PREFIX/usr/bin/python3-config" \
   python_LDFLAGS="" python_LIBDIR="" \
   PYTHON=${TOOLCHAIN}/bin/python3 ./configure $PKG_CONFIGURE_OPTS
