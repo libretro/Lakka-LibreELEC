@@ -83,6 +83,8 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_prog_HAS_HG=/bin/false
 "
 
 pre_configure_host() {
+  export PYTHON_MODULES_INCLUDE="$HOST_INCDIR"
+  export PYTHON_MODULES_LIB="$HOST_LIBDIR"
   export DISABLED_EXTENSIONS="readline _curses _curses_panel $PKG_PY_DISABLED_MODULES"
 }
 
@@ -104,6 +106,8 @@ post_makeinstall_host() {
 }
 
 pre_configure_target() {
+  export PYTHON_MODULES_INCLUDE="$TARGET_INCDIR"
+  export PYTHON_MODULES_LIB="$TARGET_LIBDIR"
   export DISABLED_EXTENSIONS="$PKG_PY_DISABLED_MODULES"
 }
 
