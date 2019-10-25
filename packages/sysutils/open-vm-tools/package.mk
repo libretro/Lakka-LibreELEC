@@ -48,6 +48,8 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/share
   rm -rf $INSTALL/etc/vmware-tools/scripts/vmware/network
 
+  chmod -x $INSTALL/usr/lib/udev/rules.d/*.rules
+
   find $INSTALL/etc/vmware-tools/ -type f | xargs sed -i '/.*expr.*/d'
 }
 
