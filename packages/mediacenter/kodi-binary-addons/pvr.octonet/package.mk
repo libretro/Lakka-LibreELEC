@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.octonet"
-PKG_VERSION="0.7.0-Leia"
-PKG_SHA256="ad78297e5934915bbcaafafbd2bfcccc187984a53ce88a2732831a82f0114140"
-PKG_REV="4"
+PKG_VERSION="1.2.1-Matrix"
+PKG_SHA256="200b3b24ccf608fd18cd4bbb56655dd35dcc5c8e3647a753485104dc995c952a"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/DigitalDevices/pvr.octonet"
