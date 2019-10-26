@@ -46,17 +46,15 @@ makeinstall_target() {
 }
 
 create_multi_keymap() {
-  local f name protocols
+  local f name map
   name="$1"
-  protocols="$2"
-  shift 2
+  shift 1
   (
-    echo "# table $name, type: $protocols"
     for f in "$@" ; do
-      echo "# $f"
-      grep -v "^#" $INSTALL/usr/lib/udev/rc_keymaps/$f
+      map="${INSTALL}/usr/lib/udev/rc_keymaps/${f}.toml"
+      [ -e "${map}" ] && cat "${map}"
     done
-  ) > $INSTALL/usr/lib/udev/rc_keymaps/$name
+  ) > ${INSTALL}/usr/lib/udev/rc_keymaps/${name}.toml
 }
 
 post_makeinstall_target() {
@@ -84,8 +82,8 @@ post_makeinstall_target() {
   )
 
   # create multi keymap to support several remotes OOTB
-  if [ -n "$IR_REMOTE_PROTOCOLS" -a -n "$IR_REMOTE_KEYMAPS" ]; then
-    create_multi_keymap libreelec_multi "$IR_REMOTE_PROTOCOLS" $IR_REMOTE_KEYMAPS
+  if [ -n "$IR_REMOTE_KEYMAPS" ]; then
+    create_multi_keymap libreelec_multi $IR_REMOTE_KEYMAPS
 
     # use multi-keymap instead of default one
     sed -i '/^\*\s*rc-rc6-mce\s*rc6_mce/d' $INSTALL/etc/rc_maps.cfg
@@ -95,10 +93,10 @@ post_makeinstall_target() {
 # Custom LibreELEC configuration starts here
 #
 # use combined multi-table on MCE receivers
-# *		rc-rc6-mce	rc6_mce
-*		rc-rc6-mce	libreelec_multi
+# *		rc-rc6-mce	rc6_mce.toml
+*		rc-rc6-mce	libreelec_multi.toml
 # multi-table for amlogic devices
-meson-ir	rc-empty	libreelec_multi
+meson-ir	rc-empty	libreelec_multi.toml
 EOF
 
   fi
