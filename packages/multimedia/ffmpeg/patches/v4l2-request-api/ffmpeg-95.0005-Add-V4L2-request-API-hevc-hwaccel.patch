@@ -1,7 +1,7 @@
-From 0cd5948e34df8acdbc84efc7ce662eee03ce88e3 Mon Sep 17 00:00:00 2001
+From 2511b50434e37a56af86bd38b76a6b5cf4d3117b Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@siol.net>
 Date: Sat, 15 Dec 2018 22:32:16 +0100
-Subject: [PATCH] Add V4L2 request API hevc hwaccel
+Subject: [PATCH 05/12] Add V4L2 request API hevc hwaccel
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
 Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
@@ -10,8 +10,8 @@ Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
  libavcodec/Makefile            |   1 +
  libavcodec/hevcdec.c           |  10 +
  libavcodec/hwaccels.h          |   1 +
- libavcodec/v4l2_request_hevc.c | 391 +++++++++++++++++++++++++++++++++
- 5 files changed, 406 insertions(+)
+ libavcodec/v4l2_request_hevc.c | 527 +++++++++++++++++++++++++++++++++
+ 5 files changed, 542 insertions(+)
  create mode 100644 libavcodec/v4l2_request_hevc.c
 
 diff --git a/configure b/configure
@@ -103,10 +103,10 @@ index 003200edea..d183675abe 100644
  extern const AVHWAccel ff_hevc_videotoolbox_hwaccel;
 diff --git a/libavcodec/v4l2_request_hevc.c b/libavcodec/v4l2_request_hevc.c
 new file mode 100644
-index 0000000000..38969d77fb
+index 0000000000..da1fd666d7
 --- /dev/null
 +++ b/libavcodec/v4l2_request_hevc.c
-@@ -0,0 +1,391 @@
+@@ -0,0 +1,527 @@
 +/*
 + * This file is part of FFmpeg.
 + *
@@ -133,8 +133,16 @@ index 0000000000..38969d77fb
 +    struct v4l2_ctrl_hevc_sps sps;
 +    struct v4l2_ctrl_hevc_pps pps;
 +    struct v4l2_ctrl_hevc_scaling_matrix scaling_matrix;
-+    struct v4l2_ctrl_hevc_slice_params slice_params;
++    struct v4l2_ctrl_hevc_slice_params slice_params[16];
++    int first_slice;
++    int num_slices; //TODO: this should be in control
 +} V4L2RequestControlsHEVC;
++
++typedef struct V4L2RequestContextHEVC {
++    V4L2RequestContext base;
++    int decode_mode;
++    int start_code;
++} V4L2RequestContextHEVC;
 +
 +static void v4l2_request_hevc_fill_pred_table(const HEVCContext *h, struct v4l2_hevc_pred_weight_table *table)
 +{
@@ -233,6 +241,9 @@ index 0000000000..38969d77fb
 +        .bit_size = 0,
 +        .data_bit_offset = get_bits_count(&h->HEVClc->gb),
 +
++        /* ISO/IEC 23008-2, ITU-T Rec. H.265: General slice segment header */
++        .slice_segment_addr = sh->slice_segment_addr,
++
 +        /* ISO/IEC 23008-2, ITU-T Rec. H.265: NAL unit header */
 +        .nal_unit_type = h->nal_unit_type,
 +        .nuh_temporal_id_plus1 = h->temporal_id + 1,
@@ -241,27 +252,18 @@ index 0000000000..38969d77fb
 +        .slice_type = sh->slice_type,
 +        .colour_plane_id = sh->colour_plane_id,
 +        .slice_pic_order_cnt = pic->poc,
-+        .slice_sao_luma_flag = sh->slice_sample_adaptive_offset_flag[0],
-+        .slice_sao_chroma_flag = sh->slice_sample_adaptive_offset_flag[1],
-+        .slice_temporal_mvp_enabled_flag = sh->slice_temporal_mvp_enabled_flag,
 +        .num_ref_idx_l0_active_minus1 = sh->nb_refs[L0] ? sh->nb_refs[L0] - 1 : 0,
 +        .num_ref_idx_l1_active_minus1 = sh->nb_refs[L1] ? sh->nb_refs[L1] - 1 : 0,
-+        .mvd_l1_zero_flag = sh->mvd_l1_zero_flag,
-+        .cabac_init_flag = sh->cabac_init_flag,
-+        .collocated_from_l0_flag = sh->collocated_list == L0 ? 1 : 0,
 +        .collocated_ref_idx = sh->slice_temporal_mvp_enabled_flag ? sh->collocated_ref_idx : 0,
 +        .five_minus_max_num_merge_cand = sh->slice_type == HEVC_SLICE_I ? 0 : 5 - sh->max_num_merge_cand,
-+        .use_integer_mv_flag = 0,
 +        .slice_qp_delta = sh->slice_qp_delta,
 +        .slice_cb_qp_offset = sh->slice_cb_qp_offset,
 +        .slice_cr_qp_offset = sh->slice_cr_qp_offset,
 +        .slice_act_y_qp_offset = 0,
 +        .slice_act_cb_qp_offset = 0,
 +        .slice_act_cr_qp_offset = 0,
-+        .slice_deblocking_filter_disabled_flag = sh->disable_deblocking_filter_flag,
 +        .slice_beta_offset_div2 = sh->beta_offset / 2,
 +        .slice_tc_offset_div2 = sh->tc_offset / 2,
-+        .slice_loop_filter_across_slices_enabled_flag = sh->slice_loop_filter_across_slices_enabled_flag,
 +
 +        /* ISO/IEC 23008-2, ITU-T Rec. H.265: Picture timing SEI message */
 +        .pic_struct = h->sei.picture_timing.picture_struct,
@@ -270,10 +272,31 @@ index 0000000000..38969d77fb
 +        .num_rps_poc_st_curr_before = h->rps[ST_CURR_BEF].nb_refs,
 +        .num_rps_poc_st_curr_after = h->rps[ST_CURR_AFT].nb_refs,
 +        .num_rps_poc_lt_curr = h->rps[LT_CURR].nb_refs,
-+
-+        .slice_segment_addr = sh->slice_segment_addr,
-+        .first_slice_segment_in_pic_flag = sh->first_slice_in_pic_flag,
 +    };
++
++    if (sh->slice_sample_adaptive_offset_flag[0])
++        slice_params->flags |= V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_SAO_LUMA;
++
++    if (sh->slice_sample_adaptive_offset_flag[1])
++        slice_params->flags |= V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_SAO_CHROMA;
++
++    if (sh->slice_temporal_mvp_enabled_flag)
++        slice_params->flags |= V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_TEMPORAL_MVP_ENABLED;
++
++    if (sh->mvd_l1_zero_flag)
++        slice_params->flags |= V4L2_HEVC_SLICE_PARAMS_FLAG_MVD_L1_ZERO;
++
++    if (sh->cabac_init_flag)
++        slice_params->flags |= V4L2_HEVC_SLICE_PARAMS_FLAG_CABAC_INIT;
++
++    if (sh->collocated_list == L0)
++        slice_params->flags |= V4L2_HEVC_SLICE_PARAMS_FLAG_COLLOCATED_FROM_L0;
++
++    if (sh->disable_deblocking_filter_flag)
++        slice_params->flags |= V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_DEBLOCKING_FILTER_DISABLED;
++
++    if (sh->slice_loop_filter_across_slices_enabled_flag)
++        slice_params->flags |= V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_LOOP_FILTER_ACROSS_SLICES_ENABLED;
 +
 +    for (i = 0; i < FF_ARRAY_ELEMS(h->DPB); i++) {
 +        const HEVCFrame *frame = &h->DPB[i];
@@ -332,7 +355,6 @@ index 0000000000..38969d77fb
 +    /* ISO/IEC 23008-2, ITU-T Rec. H.265: Sequence parameter set */
 +    controls->sps = (struct v4l2_ctrl_hevc_sps) {
 +        .chroma_format_idc = sps->chroma_format_idc,
-+        .separate_colour_plane_flag = sps->separate_colour_plane_flag,
 +        .pic_width_in_luma_samples = sps->width,
 +        .pic_height_in_luma_samples = sps->height,
 +        .bit_depth_luma_minus8 = sps->bit_depth - 8,
@@ -347,21 +369,40 @@ index 0000000000..38969d77fb
 +        .log2_diff_max_min_luma_transform_block_size = sps->log2_max_trafo_size - sps->log2_min_tb_size,
 +        .max_transform_hierarchy_depth_inter = sps->max_transform_hierarchy_depth_inter,
 +        .max_transform_hierarchy_depth_intra = sps->max_transform_hierarchy_depth_intra,
-+        .scaling_list_enabled_flag = sps->scaling_list_enable_flag,
-+        .amp_enabled_flag = sps->amp_enabled_flag,
-+        .sample_adaptive_offset_enabled_flag = sps->sao_enabled,
-+        .pcm_enabled_flag = sps->pcm_enabled_flag,
 +        .pcm_sample_bit_depth_luma_minus1 = sps->pcm.bit_depth - 1,
 +        .pcm_sample_bit_depth_chroma_minus1 = sps->pcm.bit_depth_chroma - 1,
 +        .log2_min_pcm_luma_coding_block_size_minus3 = sps->pcm.log2_min_pcm_cb_size - 3,
 +        .log2_diff_max_min_pcm_luma_coding_block_size = sps->pcm.log2_max_pcm_cb_size - sps->pcm.log2_min_pcm_cb_size,
-+        .pcm_loop_filter_disabled_flag = sps->pcm.loop_filter_disable_flag,
 +        .num_short_term_ref_pic_sets = sps->nb_st_rps,
-+        .long_term_ref_pics_present_flag = sps->long_term_ref_pics_present_flag,
 +        .num_long_term_ref_pics_sps = sps->num_long_term_ref_pics_sps,
-+        .sps_temporal_mvp_enabled_flag = sps->sps_temporal_mvp_enabled_flag,
-+        .strong_intra_smoothing_enabled_flag = sps->sps_strong_intra_smoothing_enable_flag,
 +    };
++
++    if (sps->separate_colour_plane_flag)
++        controls->sps.flags |= V4L2_HEVC_SPS_FLAG_SEPARATE_COLOUR_PLANE;
++
++    if (sps->scaling_list_enable_flag)
++        controls->sps.flags |= V4L2_HEVC_SPS_FLAG_SCALING_LIST_ENABLED;
++
++    if (sps->amp_enabled_flag)
++        controls->sps.flags |= V4L2_HEVC_SPS_FLAG_AMP_ENABLED;
++
++    if (sps->sao_enabled)
++        controls->sps.flags |= V4L2_HEVC_SPS_FLAG_SAMPLE_ADAPTIVE_OFFSET;
++
++    if (sps->pcm_enabled_flag)
++        controls->sps.flags |= V4L2_HEVC_SPS_FLAG_PCM_ENABLED;
++
++    if (sps->pcm.loop_filter_disable_flag)
++        controls->sps.flags |= V4L2_HEVC_SPS_FLAG_PCM_LOOP_FILTER_DISABLED;
++
++    if (sps->long_term_ref_pics_present_flag)
++        controls->sps.flags |= V4L2_HEVC_SPS_FLAG_LONG_TERM_REF_PICS_PRESENT;
++
++    if (sps->sps_temporal_mvp_enabled_flag)
++        controls->sps.flags |= V4L2_HEVC_SPS_FLAG_SPS_TEMPORAL_MVP_ENABLED;
++
++    if (sps->sps_strong_intra_smoothing_enable_flag)
++        controls->sps.flags |= V4L2_HEVC_SPS_FLAG_STRONG_INTRA_SMOOTHING_ENABLED;
 +
 +    if (sl) {
 +        for (int i = 0; i < 6; i++) {
@@ -381,41 +422,79 @@ index 0000000000..38969d77fb
 +
 +    /* ISO/IEC 23008-2, ITU-T Rec. H.265: Picture parameter set */
 +    controls->pps = (struct v4l2_ctrl_hevc_pps) {
-+        .dependent_slice_segment_flag = pps->dependent_slice_segments_enabled_flag,
-+        .output_flag_present_flag = pps->output_flag_present_flag,
 +        .num_extra_slice_header_bits = pps->num_extra_slice_header_bits,
-+        .sign_data_hiding_enabled_flag = pps->sign_data_hiding_flag,
-+        .cabac_init_present_flag = pps->cabac_init_present_flag,
 +        .init_qp_minus26 = pps->pic_init_qp_minus26,
-+        .constrained_intra_pred_flag = pps->constrained_intra_pred_flag,
-+        .transform_skip_enabled_flag = pps->transform_skip_enabled_flag,
-+        .cu_qp_delta_enabled_flag = pps->cu_qp_delta_enabled_flag,
 +        .diff_cu_qp_delta_depth = pps->diff_cu_qp_delta_depth,
 +        .pps_cb_qp_offset = pps->cb_qp_offset,
 +        .pps_cr_qp_offset = pps->cr_qp_offset,
-+        .pps_slice_chroma_qp_offsets_present_flag = pps->pic_slice_level_chroma_qp_offsets_present_flag,
-+        .weighted_pred_flag = pps->weighted_pred_flag,
-+        .weighted_bipred_flag = pps->weighted_bipred_flag,
-+        .transquant_bypass_enabled_flag = pps->transquant_bypass_enable_flag,
-+        .tiles_enabled_flag = pps->tiles_enabled_flag,
-+        .entropy_coding_sync_enabled_flag = pps->entropy_coding_sync_enabled_flag,
-+        .loop_filter_across_tiles_enabled_flag = pps->loop_filter_across_tiles_enabled_flag,
-+        .pps_loop_filter_across_slices_enabled_flag = pps->seq_loop_filter_across_slices_enabled_flag,
-+        .deblocking_filter_override_enabled_flag = pps->deblocking_filter_override_enabled_flag,
-+        .pps_disable_deblocking_filter_flag = pps->disable_dbf,
 +        .pps_beta_offset_div2 = pps->beta_offset / 2,
 +        .pps_tc_offset_div2 = pps->tc_offset / 2,
-+        .lists_modification_present_flag = pps->lists_modification_present_flag,
 +        .log2_parallel_merge_level_minus2 = pps->log2_parallel_merge_level - 2,
-+        .slice_segment_header_extension_present_flag = pps->slice_header_extension_present_flag,
-+        .scaling_list_enable_flag = pps->scaling_list_data_present_flag, // pps_scaling_list_data_present_flag
 +    };
++
++    if (pps->dependent_slice_segments_enabled_flag)
++        controls->pps.flags |= V4L2_HEVC_PPS_FLAG_DEPENDENT_SLICE_SEGMENT;
++
++    if (pps->output_flag_present_flag)
++        controls->pps.flags |= V4L2_HEVC_PPS_FLAG_OUTPUT_FLAG_PRESENT;
++
++    if (pps->sign_data_hiding_flag)
++        controls->pps.flags |= V4L2_HEVC_PPS_FLAG_SIGN_DATA_HIDING_ENABLED;
++
++    if (pps->cabac_init_present_flag)
++        controls->pps.flags |= V4L2_HEVC_PPS_FLAG_CABAC_INIT_PRESENT;
++
++    if (pps->constrained_intra_pred_flag)
++        controls->pps.flags |= V4L2_HEVC_PPS_FLAG_CONSTRAINED_INTRA_PRED;
++
++    if (pps->transform_skip_enabled_flag)
++        controls->pps.flags |= V4L2_HEVC_PPS_FLAG_TRANSFORM_SKIP_ENABLED;
++
++    if (pps->cu_qp_delta_enabled_flag)
++        controls->pps.flags |= V4L2_HEVC_PPS_FLAG_CU_QP_DELTA_ENABLED;
++
++    if (pps->pic_slice_level_chroma_qp_offsets_present_flag)
++        controls->pps.flags |= V4L2_HEVC_PPS_FLAG_PPS_SLICE_CHROMA_QP_OFFSETS_PRESENT;
++
++    if (pps->weighted_pred_flag)
++        controls->pps.flags |= V4L2_HEVC_PPS_FLAG_WEIGHTED_PRED;
++
++    if (pps->weighted_bipred_flag)
++        controls->pps.flags |= V4L2_HEVC_PPS_FLAG_WEIGHTED_BIPRED;
++
++    if (pps->transquant_bypass_enable_flag)
++        controls->pps.flags |= V4L2_HEVC_PPS_FLAG_TRANSQUANT_BYPASS_ENABLED;
++
++    if (pps->tiles_enabled_flag)
++        controls->pps.flags |= V4L2_HEVC_PPS_FLAG_TILES_ENABLED;
++
++    if (pps->entropy_coding_sync_enabled_flag)
++        controls->pps.flags |= V4L2_HEVC_PPS_FLAG_ENTROPY_CODING_SYNC_ENABLED;
++
++    if (pps->loop_filter_across_tiles_enabled_flag)
++        controls->pps.flags |= V4L2_HEVC_PPS_FLAG_LOOP_FILTER_ACROSS_TILES_ENABLED;
++
++    if (pps->seq_loop_filter_across_slices_enabled_flag)
++        controls->pps.flags |= V4L2_HEVC_PPS_FLAG_PPS_LOOP_FILTER_ACROSS_SLICES_ENABLED;
++
++    if (pps->deblocking_filter_override_enabled_flag)
++        controls->pps.flags |= V4L2_HEVC_PPS_FLAG_DEBLOCKING_FILTER_OVERRIDE_ENABLED;
++
++    if (pps->disable_dbf)
++        controls->pps.flags |= V4L2_HEVC_PPS_FLAG_PPS_DISABLE_DEBLOCKING_FILTER;
++
++    if (pps->lists_modification_present_flag)
++        controls->pps.flags |= V4L2_HEVC_PPS_FLAG_LISTS_MODIFICATION_PRESENT;
++
++    if (pps->slice_header_extension_present_flag)
++        controls->pps.flags |= V4L2_HEVC_PPS_FLAG_SLICE_SEGMENT_HEADER_EXTENSION_PRESENT;
 +
 +    if (pps->tiles_enabled_flag) {
 +        controls->pps.num_tile_columns_minus1 = pps->num_tile_columns - 1;
 +        controls->pps.num_tile_rows_minus1 = pps->num_tile_rows - 1;
 +
-+        av_log(avctx, AV_LOG_DEBUG, "%s: avctx=%p tiles_enabled_flag=%d num_tile_columns=%d num_tile_rows=%d\n", __func__, avctx, pps->tiles_enabled_flag, pps->num_tile_columns, pps->num_tile_rows);
++        av_log(avctx, AV_LOG_DEBUG, "%s: avctx=%p tiles_enabled_flag=%d num_tile_columns=%d num_tile_rows=%d\n",
++	       __func__, avctx, pps->tiles_enabled_flag, pps->num_tile_columns, pps->num_tile_rows);
 +
 +        for (int i = 0; i < pps->num_tile_columns; i++)
 +            controls->pps.column_width_minus1[i] = pps->column_width[i] - 1;
@@ -424,14 +503,17 @@ index 0000000000..38969d77fb
 +            controls->pps.row_height_minus1[i] = pps->row_height[i] - 1;
 +    }
 +
++    controls->first_slice = 1;
++    controls->num_slices = 0;
++
 +    return ff_v4l2_request_reset_frame(avctx, h->ref->frame);
 +}
 +
-+static int v4l2_request_hevc_end_frame(AVCodecContext *avctx)
++static int v4l2_request_hevc_queue_decode(AVCodecContext *avctx, int last_slice)
 +{
 +    const HEVCContext *h = avctx->priv_data;
 +    V4L2RequestControlsHEVC *controls = h->ref->hwaccel_picture_private;
-+    V4L2RequestDescriptor *req = (V4L2RequestDescriptor*)h->ref->frame->data[0];
++    V4L2RequestContextHEVC *ctx = avctx->internal->hwaccel_priv_data;
 +
 +    struct v4l2_ext_control control[] = {
 +        {
@@ -452,13 +534,19 @@ index 0000000000..38969d77fb
 +        {
 +            .id = V4L2_CID_MPEG_VIDEO_HEVC_SLICE_PARAMS,
 +            .ptr = &controls->slice_params,
-+            .size = sizeof(controls->slice_params),
++            .size = sizeof(controls->slice_params[0]) * FFMIN(controls->num_slices, 16),
 +        },
 +    };
 +
-+    controls->slice_params.bit_size = req->output.used * 8;
++    if (ctx->decode_mode == V4L2_MPEG_VIDEO_HEVC_DECODE_MODE_SLICE_BASED)
++        return ff_v4l2_request_decode_slice(avctx, h->ref->frame, control, FF_ARRAY_ELEMS(control), controls->first_slice, last_slice);
 +
 +    return ff_v4l2_request_decode_frame(avctx, h->ref->frame, control, FF_ARRAY_ELEMS(control));
++}
++
++static int v4l2_request_hevc_end_frame(AVCodecContext *avctx)
++{
++    return v4l2_request_hevc_queue_decode(avctx, 1);
 +}
 +
 +static int v4l2_request_hevc_decode_slice(AVCodecContext *avctx, const uint8_t *buffer, uint32_t size)
@@ -466,21 +554,69 @@ index 0000000000..38969d77fb
 +    const HEVCContext *h = avctx->priv_data;
 +    V4L2RequestControlsHEVC *controls = h->ref->hwaccel_picture_private;
 +    V4L2RequestDescriptor *req = (V4L2RequestDescriptor*)h->ref->frame->data[0];
++    V4L2RequestContextHEVC *ctx = avctx->internal->hwaccel_priv_data;
++    int ret, slice = FFMIN(controls->num_slices, 15);
 +
-+    // HACK: trigger decode per slice
-+    if (req->output.used) {
-+        v4l2_request_hevc_end_frame(avctx);
-+        ff_v4l2_request_reset_frame(avctx, h->ref->frame);
++    if (ctx->decode_mode == V4L2_MPEG_VIDEO_HEVC_DECODE_MODE_SLICE_BASED && slice) {
++        ret = v4l2_request_hevc_queue_decode(avctx, 0);
++        if (ret)
++            return ret;
++
++	ff_v4l2_request_reset_frame(avctx, h->ref->frame);
++        slice = controls->num_slices = 0;
++        controls->first_slice = 0;
 +    }
 +
-+    v4l2_request_hevc_fill_slice_params(h, &controls->slice_params);
++    v4l2_request_hevc_fill_slice_params(h, &controls->slice_params[slice]);
 +
-+    return ff_v4l2_request_append_output_buffer(avctx, h->ref->frame, buffer, size);
++    ret = ff_v4l2_request_append_output_buffer(avctx, h->ref->frame, buffer, size);
++    if (ret)
++        return ret;
++
++    controls->slice_params[slice].bit_size = req->output.used * 8; //FIXME
++    controls->num_slices++;
++
++    return 0;
++}
++
++static int v4l2_request_hevc_set_controls(AVCodecContext *avctx)
++{
++    V4L2RequestContextHEVC *ctx = avctx->internal->hwaccel_priv_data;
++
++    struct v4l2_ext_control control[] = {
++        { .id = V4L2_CID_MPEG_VIDEO_HEVC_DECODE_MODE, },
++        { .id = V4L2_CID_MPEG_VIDEO_HEVC_START_CODE, },
++    };
++
++    ctx->decode_mode = ff_v4l2_request_query_control_default_value(avctx, V4L2_CID_MPEG_VIDEO_HEVC_DECODE_MODE);
++    if (ctx->decode_mode != V4L2_MPEG_VIDEO_HEVC_DECODE_MODE_SLICE_BASED &&
++        ctx->decode_mode != V4L2_MPEG_VIDEO_HEVC_DECODE_MODE_FRAME_BASED) {
++        av_log(avctx, AV_LOG_ERROR, "%s: unsupported decode mode, %d\n", __func__, ctx->decode_mode);
++        return AVERROR(EINVAL);
++    }
++
++    ctx->start_code = ff_v4l2_request_query_control_default_value(avctx, V4L2_CID_MPEG_VIDEO_HEVC_START_CODE);
++    if (ctx->start_code != V4L2_MPEG_VIDEO_HEVC_START_CODE_NONE &&
++        ctx->start_code != V4L2_MPEG_VIDEO_HEVC_START_CODE_ANNEX_B) {
++        av_log(avctx, AV_LOG_ERROR, "%s: unsupported start code, %d\n", __func__, ctx->start_code);
++        return AVERROR(EINVAL);
++    }
++
++    control[0].value = ctx->decode_mode;
++    control[1].value = ctx->start_code;
++
++    return ff_v4l2_request_set_controls(avctx, control, FF_ARRAY_ELEMS(control));
 +}
 +
 +static int v4l2_request_hevc_init(AVCodecContext *avctx)
 +{
-+    return ff_v4l2_request_init(avctx, V4L2_PIX_FMT_HEVC_SLICE, 3 * 1024 * 1024, NULL, 0);
++    int ret;
++
++    ret = ff_v4l2_request_init(avctx, V4L2_PIX_FMT_HEVC_SLICE, 3 * 1024 * 1024, NULL, 0);
++    if (ret)
++        return ret;
++
++    return v4l2_request_hevc_set_controls(avctx);
 +}
 +
 +const AVHWAccel ff_hevc_v4l2request_hwaccel = {
@@ -494,7 +630,10 @@ index 0000000000..38969d77fb
 +    .frame_priv_data_size = sizeof(V4L2RequestControlsHEVC),
 +    .init           = v4l2_request_hevc_init,
 +    .uninit         = ff_v4l2_request_uninit,
-+    .priv_data_size = sizeof(V4L2RequestContext),
++    .priv_data_size = sizeof(V4L2RequestContextHEVC),
 +    .frame_params   = ff_v4l2_request_frame_params,
 +    .caps_internal  = HWACCEL_CAP_ASYNC_SAFE,
 +};
+-- 
+2.24.0
+

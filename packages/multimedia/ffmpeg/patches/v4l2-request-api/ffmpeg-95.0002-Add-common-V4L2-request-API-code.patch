@@ -1,16 +1,16 @@
-From b810081f898fc4faec35519c6e7e9d275bf2bbcf Mon Sep 17 00:00:00 2001
+From 457a74f059e5467f7f24f15be1b0e87a34e8cabc Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Sat, 15 Dec 2018 22:32:16 +0100
-Subject: [PATCH] Add common V4L2 request API code
+Subject: [PATCH 02/12] Add common V4L2 request API code
 
 Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
 ---
  configure                 |  12 +
  libavcodec/Makefile       |   1 +
  libavcodec/hwaccel.h      |   2 +
- libavcodec/v4l2_request.c | 919 ++++++++++++++++++++++++++++++++++++++
- libavcodec/v4l2_request.h |  69 +++
- 5 files changed, 1003 insertions(+)
+ libavcodec/v4l2_request.c | 943 ++++++++++++++++++++++++++++++++++++++
+ libavcodec/v4l2_request.h |  72 +++
+ 5 files changed, 1030 insertions(+)
  create mode 100644 libavcodec/v4l2_request.c
  create mode 100644 libavcodec/v4l2_request.h
 
@@ -112,10 +112,10 @@ index 3aaa92571c..2eefc91e7e 100644
  #endif /* AVCODEC_HWACCEL_H */
 diff --git a/libavcodec/v4l2_request.c b/libavcodec/v4l2_request.c
 new file mode 100644
-index 0000000000..bf9d049eff
+index 0000000000..1dabf77689
 --- /dev/null
 +++ b/libavcodec/v4l2_request.c
-@@ -0,0 +1,919 @@
+@@ -0,0 +1,943 @@
 +/*
 + * This file is part of FFmpeg.
 + *
@@ -216,7 +216,7 @@ index 0000000000..bf9d049eff
 +    return control.default_value;
 +}
 +
-+static int v4l2_request_queue_buffer(V4L2RequestContext *ctx, int request_fd, V4L2RequestBuffer *buf)
++static int v4l2_request_queue_buffer(V4L2RequestContext *ctx, int request_fd, V4L2RequestBuffer *buf, uint32_t flags)
 +{
 +    struct v4l2_plane planes[1] = {};
 +    struct v4l2_buffer buffer = {
@@ -226,7 +226,7 @@ index 0000000000..bf9d049eff
 +        .timestamp.tv_usec = buf->index + 1,
 +        .bytesused = buf->used,
 +        .request_fd = request_fd,
-+        .flags = (request_fd >= 0) ? V4L2_BUF_FLAG_REQUEST_FD : 0,
++        .flags = ((request_fd >= 0) ? V4L2_BUF_FLAG_REQUEST_FD : 0) | flags,
 +    };
 +
 +    if (V4L2_TYPE_IS_MULTIPLANAR(buf->buffer.type)) {
@@ -308,7 +308,7 @@ index 0000000000..bf9d049eff
 +    return 0;
 +}
 +
-+int ff_v4l2_request_decode_frame(AVCodecContext *avctx, AVFrame *frame, struct v4l2_ext_control *control, int count)
++static int v4l2_request_queue_decode(AVCodecContext *avctx, AVFrame *frame, struct v4l2_ext_control *control, int count, int first_slice, int last_slice)
 +{
 +    V4L2RequestContext *ctx = avctx->internal->hwaccel_priv_data;
 +    V4L2RequestDescriptor *req = (V4L2RequestDescriptor*)frame->data[0];
@@ -316,7 +316,7 @@ index 0000000000..bf9d049eff
 +    fd_set except_fds;
 +    int ret;
 +
-+    av_log(avctx, AV_LOG_DEBUG, "%s: avctx=%p used=%u controls=%d index=%d fd=%d request_fd=%d\n", __func__, avctx, req->output.used, count, req->capture.index, req->capture.fd, req->request_fd);
++    av_log(avctx, AV_LOG_DEBUG, "%s: avctx=%p used=%u controls=%d index=%d fd=%d request_fd=%d first_slice=%d last_slice=%d\n", __func__, avctx, req->output.used, count, req->capture.index, req->capture.fd, req->request_fd, first_slice, last_slice);
 +
 +    ret = v4l2_request_set_controls(ctx, req->request_fd, control, count);
 +    if (ret < 0) {
@@ -326,16 +326,18 @@ index 0000000000..bf9d049eff
 +
 +    memset(req->output.addr + req->output.used, 0, AV_INPUT_BUFFER_PADDING_SIZE);
 +
-+    ret = v4l2_request_queue_buffer(ctx, req->request_fd, &req->output);
++    ret = v4l2_request_queue_buffer(ctx, req->request_fd, &req->output, last_slice ? 0 : V4L2_BUF_FLAG_M2M_HOLD_CAPTURE_BUF);
 +    if (ret < 0) {
 +        av_log(avctx, AV_LOG_ERROR, "%s: queue output buffer %d failed for request %d, %s (%d)\n", __func__, req->output.index, req->request_fd, strerror(errno), errno);
 +        return -1;
 +    }
 +
-+    ret = v4l2_request_queue_buffer(ctx, -1, &req->capture);
-+    if (ret < 0) {
-+        av_log(avctx, AV_LOG_ERROR, "%s: queue capture buffer %d failed for request %d, %s (%d)\n", __func__, req->capture.index, req->request_fd, strerror(errno), errno);
-+        return -1;
++    if (first_slice) {
++        ret = v4l2_request_queue_buffer(ctx, -1, &req->capture, 0);
++        if (ret < 0) {
++            av_log(avctx, AV_LOG_ERROR, "%s: queue capture buffer %d failed for request %d, %s (%d)\n", __func__, req->capture.index, req->request_fd, strerror(errno), errno);
++            return -1;
++        }
 +    }
 +
 +    // NOTE: do we need to dequeue when request fails/timeout?
@@ -365,10 +367,12 @@ index 0000000000..bf9d049eff
 +        return -1;
 +    }
 +
-+    ret = v4l2_request_dequeue_buffer(ctx, &req->capture);
-+    if (ret < 0) {
-+        av_log(avctx, AV_LOG_ERROR, "%s: dequeue capture buffer %d failed for request %d, %s (%d)\n", __func__, req->capture.index, req->request_fd, strerror(errno), errno);
-+        return -1;
++    if (last_slice) {
++        ret = v4l2_request_dequeue_buffer(ctx, &req->capture);
++        if (ret < 0) {
++            av_log(avctx, AV_LOG_ERROR, "%s: dequeue capture buffer %d failed for request %d, %s (%d)\n", __func__, req->capture.index, req->request_fd, strerror(errno), errno);
++            return -1;
++        }
 +    }
 +
 +    // TODO: check errors
@@ -380,7 +384,10 @@ index 0000000000..bf9d049eff
 +        return -1;
 +    }
 +
-+    return v4l2_request_set_drm_descriptor(req, &ctx->format);
++    if (last_slice)
++        return v4l2_request_set_drm_descriptor(req, &ctx->format);
++
++    return 0;
 +
 +fail:
 +    ret = v4l2_request_dequeue_buffer(ctx, &req->output);
@@ -396,6 +403,22 @@ index 0000000000..bf9d049eff
 +        av_log(avctx, AV_LOG_ERROR, "%s: reinit request %d failed, %s (%d)\n", __func__, req->request_fd, strerror(errno), errno);
 +
 +    return -1;
++}
++
++int ff_v4l2_request_decode_slice(AVCodecContext *avctx, AVFrame *frame, struct v4l2_ext_control *control, int count, int first_slice, int last_slice)
++{
++    V4L2RequestDescriptor *req = (V4L2RequestDescriptor*)frame->data[0];
++
++    // fall back to queue each slice as a full frame
++    if ((req->output.capabilities & V4L2_BUF_CAP_SUPPORTS_M2M_HOLD_CAPTURE_BUF) != V4L2_BUF_CAP_SUPPORTS_M2M_HOLD_CAPTURE_BUF)
++        return v4l2_request_queue_decode(avctx, frame, control, count, 1, 1);
++
++    return v4l2_request_queue_decode(avctx, frame, control, count, first_slice, last_slice);
++}
++
++int ff_v4l2_request_decode_frame(AVCodecContext *avctx, AVFrame *frame, struct v4l2_ext_control *control, int count)
++{
++    return v4l2_request_queue_decode(avctx, frame, control, count, 1, 1);
 +}
 +
 +static int v4l2_request_try_format(AVCodecContext *avctx, enum v4l2_buf_type type, uint32_t pixelformat)
@@ -866,6 +889,7 @@ index 0000000000..bf9d049eff
 +    }
 +
 +    buf->index = buffers.index;
++    buf->capabilities = buffers.capabilities;
 +    buf->used = 0;
 +
 +    buf->buffer.type = type;
@@ -1037,10 +1061,10 @@ index 0000000000..bf9d049eff
 +}
 diff --git a/libavcodec/v4l2_request.h b/libavcodec/v4l2_request.h
 new file mode 100644
-index 0000000000..1f45772d8b
+index 0000000000..d4146bd4ee
 --- /dev/null
 +++ b/libavcodec/v4l2_request.h
-@@ -0,0 +1,69 @@
+@@ -0,0 +1,72 @@
 +/*
 + * This file is part of FFmpeg.
 + *
@@ -1081,6 +1105,7 @@ index 0000000000..1f45772d8b
 +    uint32_t height;
 +    uint32_t size;
 +    uint32_t used;
++    uint32_t capabilities;
 +    struct v4l2_buffer buffer;
 +} V4L2RequestBuffer;
 +
@@ -1101,6 +1126,8 @@ index 0000000000..1f45772d8b
 +
 +int ff_v4l2_request_query_control_default_value(AVCodecContext *avctx, uint32_t id);
 +
++int ff_v4l2_request_decode_slice(AVCodecContext *avctx, AVFrame *frame, struct v4l2_ext_control *control, int count, int first_slice, int last_slice);
++
 +int ff_v4l2_request_decode_frame(AVCodecContext *avctx, AVFrame *frame, struct v4l2_ext_control *control, int count);
 +
 +int ff_v4l2_request_init(AVCodecContext *avctx, uint32_t pixelformat, uint32_t buffersize, struct v4l2_ext_control *control, int count);
@@ -1110,3 +1137,6 @@ index 0000000000..1f45772d8b
 +int ff_v4l2_request_frame_params(AVCodecContext *avctx, AVBufferRef *hw_frames_ctx);
 +
 +#endif /* AVCODEC_V4L2_REQUEST_H */
+-- 
+2.24.0
+
