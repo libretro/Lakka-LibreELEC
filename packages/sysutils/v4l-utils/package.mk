@@ -5,8 +5,8 @@
 # with 1.0.0 repeat delay is broken. test on upgrade
 
 PKG_NAME="v4l-utils"
-PKG_VERSION="1.14.2"
-PKG_SHA256="e6b962c4b1253cf852c31da13fd6b5bb7cbe5aa9e182881aec55123bae680692"
+PKG_VERSION="1.18.0"
+PKG_SHA256="6cb60d822eeed20486a03cc23e0fc65956fbc1e85e0c1a7477f68bbd9802880d"
 PKG_LICENSE="GPL"
 PKG_SITE="http://linuxtv.org/"
 PKG_URL="http://linuxtv.org/downloads/v4l-utils/$PKG_NAME-$PKG_VERSION.tar.bz2"
@@ -14,6 +14,7 @@ PKG_DEPENDS_TARGET="toolchain alsa-lib systemd"
 PKG_LONGDESC="Linux V4L2 and DVB API utilities and v4l libraries (libv4l)."
 
 PKG_CONFIGURE_OPTS_TARGET="--without-jpeg \
+	--disable-bpf \
 	--enable-static \
 	--disable-shared"
 
@@ -45,17 +46,15 @@ makeinstall_target() {
 }
 
 create_multi_keymap() {
-  local f name protocols
+  local f name map
   name="$1"
-  protocols="$2"
-  shift 2
+  shift 1
   (
-    echo "# table $name, type: $protocols"
     for f in "$@" ; do
-      echo "# $f"
-      grep -v "^#" $INSTALL/usr/lib/udev/rc_keymaps/$f
+      map="${INSTALL}/usr/lib/udev/rc_keymaps/${f}.toml"
+      [ -e "${map}" ] && cat "${map}"
     done
-  ) > $INSTALL/usr/lib/udev/rc_keymaps/$name
+  ) > ${INSTALL}/usr/lib/udev/rc_keymaps/${name}.toml
 }
 
 post_makeinstall_target() {
@@ -83,8 +82,8 @@ post_makeinstall_target() {
   )
 
   # create multi keymap to support several remotes OOTB
-  if [ -n "$IR_REMOTE_PROTOCOLS" -a -n "$IR_REMOTE_KEYMAPS" ]; then
-    create_multi_keymap libreelec_multi "$IR_REMOTE_PROTOCOLS" $IR_REMOTE_KEYMAPS
+  if [ -n "$IR_REMOTE_KEYMAPS" ]; then
+    create_multi_keymap libreelec_multi $IR_REMOTE_KEYMAPS
 
     # use multi-keymap instead of default one
     sed -i '/^\*\s*rc-rc6-mce\s*rc6_mce/d' $INSTALL/etc/rc_maps.cfg
@@ -94,12 +93,10 @@ post_makeinstall_target() {
 # Custom LibreELEC configuration starts here
 #
 # use combined multi-table on MCE receivers
-# *		rc-rc6-mce	rc6_mce
-*		rc-rc6-mce	libreelec_multi
-# table for Xbox DVD Playback Kit
-*		rc-xbox-dvd	xbox_dvd
+# *		rc-rc6-mce	rc6_mce.toml
+*		rc-rc6-mce	libreelec_multi.toml
 # multi-table for amlogic devices
-meson-ir	rc-empty	libreelec_multi
+meson-ir	rc-empty	libreelec_multi.toml
 EOF
 
   fi
