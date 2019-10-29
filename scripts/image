@@ -173,6 +173,17 @@ EOF
 
 ln -sf /etc/issue ${INSTALL}/etc/motd
 
+# Copy DISTRO related files to filesystem
+if [ -d "${DISTRO_DIR}/${DISTRO}/filesystem" ]; then
+  cp -PR ${DISTRO_DIR}/${DISTRO}/filesystem/* ${INSTALL}
+  # Install distro specific systemd services
+  for service in ${DISTRO_DIR}/${DISTRO}/filesystem/usr/lib/systemd/system/*.service; do
+    if [ -f "${service}" ]; then
+      enable_service $(basename ${service})
+    fi
+  done
+fi
+
 # Copy PROJECT related files to filesystem
 if [ -d "${PROJECT_DIR}/${PROJECT}/filesystem" ]; then
   cp -PR ${PROJECT_DIR}/${PROJECT}/filesystem/* ${INSTALL}
@@ -434,6 +445,16 @@ if [ "${1}" = "release" -o "${1}" = "mkimage" -o "${1}" = "noobs" ]; then
     # Create filesystem tarballs
     ${TOOLCHAIN}/bin/fakeroot tar cJf ${RELEASE_DIR}/${NOOBS_DISTRO}/System.tar.xz -C ${RELEASE_DIR}/${NOOBS_DISTRO}/System/ .
     ${TOOLCHAIN}/bin/fakeroot tar cJf ${RELEASE_DIR}/${NOOBS_DISTRO}/Storage.tar.xz -C ${RELEASE_DIR}/${NOOBS_DISTRO}/Storage/ .
+
+    # Add PINN specific details to noobs release
+    NOOBS_SYSTEM_SIZE=$(stat --printf="%s" ${RELEASE_DIR}/${NOOBS_DISTRO}/System.tar.xz)
+    NOOBS_STORAGE_SIZE=$(stat --printf="%s" ${RELEASE_DIR}/${NOOBS_DISTRO}/Storage.tar.xz)
+    PINN_DOWNLOAD_SIZE=$((NOOBS_SYSTEM_SIZE+NOOBS_STORAGE_SIZE))
+
+    sed -e "s%@PINN_URL@%${DISTRO_WEBSITE}%g" \
+        -e "s%@PINN_GROUP@%${DISTRO_PINN_GROUP}%g" \
+        -e "s%@PINN_DOWNLOAD_SIZE@%${PINN_DOWNLOAD_SIZE}%g" \
+        -i ${RELEASE_DIR}/${NOOBS_DISTRO}/os.json
 
     # Remove filesystem dirs
     rm -rf ${RELEASE_DIR}/${NOOBS_DISTRO}/System
