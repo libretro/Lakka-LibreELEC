@@ -7,7 +7,7 @@ PKG_SHA256="f939a6242c03950cc568d0efdfa3db7a9c29e0e8f5abd01f2908bdd344c054ff"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.lm-sensors.org/wiki/I2CTools"
 PKG_URL="http://fossies.org/linux/misc/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain Python2 distutilscross:host"
+PKG_DEPENDS_TARGET="toolchain Python3 distutilscross:host"
 PKG_LONGDESC="A heterogeneous set of I2C tools for Linux."
 
 pre_make_target() {

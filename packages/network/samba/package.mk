@@ -3,18 +3,18 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="samba"
-PKG_VERSION="4.9.14"
-PKG_SHA256="14d249bd02f0227156dd77cf98e57cfef8fc5a9ec85e03873737cea7c386350a"
+PKG_VERSION="4.11.2"
+PKG_SHA256="d27bf1b7cf5f25fb5587896fccb73747a705f7cf7ee352b5cbab82841db09f1f"
 PKG_LICENSE="GPLv3+"
 PKG_SITE="https://www.samba.org"
 PKG_URL="https://download.samba.org/pub/samba/stable/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain attr heimdal:host e2fsprogs Python2 zlib readline popt libaio connman"
+PKG_DEPENDS_TARGET="toolchain attr heimdal:host e2fsprogs Python3 zlib readline popt libaio connman gnutls"
 PKG_NEED_UNPACK="$(get_pkg_directory heimdal) $(get_pkg_directory e2fsprogs)"
 PKG_LONGDESC="A free SMB / CIFS fileserver and client."
 PKG_BUILD_FLAGS="-gold"
 
 configure_package() {
-  PKG_MAKE_OPTS_TARGET="V=1"
+  #PKG_WAF_VERBOSE="-v"
 
   if [ "$AVAHI_DAEMON" = yes ]; then
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET avahi"
@@ -32,7 +32,7 @@ configure_package() {
   PKG_CONFIGURE_OPTS="--prefix=/usr \
                       --sysconfdir=/etc \
                       --localstatedir=/var \
-                      --with-lockdir=/var/lock \
+                      --with-lockdir=/var/lock-samba \
                       --with-logfilebase=/var/log \
                       --with-piddir=/run/samba \
                       --with-privatedir=/run/samba \
@@ -54,7 +54,6 @@ configure_package() {
                       $SMB_AESNI \
                       --disable-cups \
                       --disable-iprint \
-                      --disable-gnutls \
                       --with-relro \
                       --with-sendfile-support \
                       --without-acl-support \
@@ -79,7 +78,7 @@ configure_package() {
                       --bundled-libraries='ALL,!asn1_compile,!compile_et,!zlib' \
                       --without-quotas \
                       --with-syslog  \
-                      --without-json-audit \
+                      --without-json \
                       --without-ldb-lmdb \
                       --nopyc --nopyo"
 
@@ -96,7 +95,7 @@ pre_configure_target() {
     rm -rf .$TARGET_NAME
 
 # work around link issues
-  export LDFLAGS="$LDFLAGS -lreadline"
+  export LDFLAGS="$LDFLAGS -lreadline -lncurses"
 
 # support 64-bit offsets and seeks on 32-bit platforms
   if [ "$TARGET_ARCH" = "arm" ]; then
@@ -108,21 +107,54 @@ configure_target() {
   cp $PKG_DIR/config/samba4-cache.txt $PKG_BUILD/cache.txt
     echo "Checking uname machine type: \"$TARGET_ARCH\"" >> $PKG_BUILD/cache.txt
 
-  PYTHON_CONFIG="$SYSROOT_PREFIX/usr/bin/python-config" \
+  export COMPILE_ET=$TOOLCHAIN/bin/heimdal_compile_et
+  export ASN1_COMPILE=$TOOLCHAIN/bin/heimdal_asn1_compile
+
+  PYTHON_CONFIG="$SYSROOT_PREFIX/usr/bin/python3-config" \
   python_LDFLAGS="" python_LIBDIR="" \
-  ./configure $PKG_CONFIGURE_OPTS
+  PYTHON=${TOOLCHAIN}/bin/python3 ./configure $PKG_CONFIGURE_OPTS
 }
 
 make_target() {
-  ./buildtools/bin/waf build --targets=$PKG_SAMBA_TARGET -j$CONCURRENCY_MAKE_LEVEL
+  ./buildtools/bin/waf build ${PKG_WAF_VERBOSE} --targets=$PKG_SAMBA_TARGET -j$CONCURRENCY_MAKE_LEVEL
 }
 
 makeinstall_target() {
-  ./buildtools/bin/waf install --destdir=$SYSROOT_PREFIX --targets=smbclient -j$CONCURRENCY_MAKE_LEVEL
-  ./buildtools/bin/waf install --destdir=$INSTALL --targets=$PKG_SAMBA_TARGET -j$CONCURRENCY_MAKE_LEVEL
+  ./buildtools/bin/waf install ${PKG_WAF_VERBOSE} --destdir=$SYSROOT_PREFIX --targets=smbclient -j$CONCURRENCY_MAKE_LEVEL
+  ./buildtools/bin/waf install ${PKG_WAF_VERBOSE} --destdir=$INSTALL --targets=$PKG_SAMBA_TARGET -j$CONCURRENCY_MAKE_LEVEL
+}
+
+copy_directory_of_links() {
+  local _tmp link
+  for link in "${1}/"*.so*; do
+    if [ -L ${link} ]; then
+      _tmp="$(readlink -m "${link}")"
+      cp -P ${_tmp} ${2}
+      cp -P ${_tmp}.* ${2} 2>/dev/null || true
+    else
+      cp -P ${link} ${2}
+    fi
+  done
+}
+
+perform_manual_install() {
+  mkdir -p ${SYSROOT_PREFIX}/usr/lib
+    copy_directory_of_links ${PKG_BUILD}/bin/shared ${SYSROOT_PREFIX}/usr/lib
+
+  mkdir -p ${INSTALL}/usr/lib
+    copy_directory_of_links ${PKG_BUILD}/bin/shared ${INSTALL}/usr/lib
+    copy_directory_of_links ${PKG_BUILD}/bin/shared/private ${INSTALL}/usr/lib
+
+  if [ "$SAMBA_SERVER" = "yes" ]; then
+    mkdir -p ${INSTALL}/usr/sbin
+      cp -L ${PKG_BUILD}/bin/smbd ${INSTALL}/usr/sbin
+      cp -L ${PKG_BUILD}/bin/nmbd ${INSTALL}/usr/sbin
+  fi
 }
 
 post_makeinstall_target() {
+  perform_manual_install
+
   rm -rf $INSTALL/usr/bin
   rm -rf $INSTALL/usr/lib/python*
   rm -rf $INSTALL/usr/share/perl*

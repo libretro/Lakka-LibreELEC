@@ -1,13 +1,14 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="boost"
-PKG_VERSION="1_65_1"
-PKG_SHA256="9807a5d16566c57fd74fb522764e0b134a8bbe6b6e8967b83afefd30dcd3be81"
+PKG_VERSION="1.71.0"
+PKG_SHA256="d73a8da01e8bf8c7eda40b4c84915071a8c8a0df4a6734537ddde4a8580524ee"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.boost.org/"
-PKG_URL="$SOURCEFORGE_SRC/boost/boost/1.65.1/${PKG_NAME}_${PKG_VERSION}.tar.bz2"
-PKG_DEPENDS_TARGET="toolchain boost:host Python2 zlib bzip2"
+PKG_URL="https://dl.bintray.com/boostorg/release/${PKG_VERSION}/source/${PKG_NAME}_${PKG_VERSION//./_}.tar.bz2"
+PKG_DEPENDS_TARGET="toolchain boost:host Python3 zlib bzip2"
 PKG_LONGDESC="boost: Peer-reviewed STL style libraries for C++"
 PKG_TOOLCHAIN="manual"
 PKG_BUILD_FLAGS="+pic"
@@ -19,7 +20,7 @@ make_host() {
 
 makeinstall_host() {
   mkdir -p $TOOLCHAIN/bin
-    cp bin.*/bjam $TOOLCHAIN/bin
+    cp bjam $TOOLCHAIN/bin
 }
 
 pre_configure_target() {

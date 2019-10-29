@@ -494,7 +494,7 @@ reset_pkg_vars() {
   PKG_LICENSE="unknown"
   PKG_TOOLCHAIN="auto"
   PKG_IS_ADDON="no"
-  PKG_PYTHON_VERSION="python2.7"
+  PKG_PYTHON_VERSION="${DEFAULT_PYTHON_VERSION}"
 }
 
 set_debug_depends() {
@@ -1046,6 +1046,36 @@ source_package() {
   fi
 }
 
+# arg1: file, or directory to recursively compile.
+python_compile() {
+  local path="${1:-${INSTALL}/usr/lib/${PKG_PYTHON_VERSION}}"
+  ${TOOLCHAIN}/bin/python3 -Wi -t -B ${TOOLCHAIN}/lib/${PKG_PYTHON_VERSION}/compileall.py -f -d "${path#${INSTALL}}" "${path}"
+  python_remove_source "${path}"
+}
+
+# arg1: file, or directory from which to recursively remove all py source code
+python_remove_source() {
+  local path="${1:-${INSTALL}/usr/lib/${PKG_PYTHON_VERSION}}"
+  if [ -d "${path}" ]; then
+    find "${path}" -type f -name '*.py' -delete
+  else
+    rm -f "${path}"
+  fi
+}
+
+# arg1: directory to process recursively
+# strip incorrect build-host ABI from native Python3 modules (see PEP3149)
+python_fix_abi() {
+  local pymodule pyname
+
+  for pymodule in $(find ${1} -type f -name '*.cpython-*.so' 2>/dev/null); do
+    pyname=${pymodule##*/}
+    pyname=${pyname%.so} # strip extension
+    pyname=${pyname%.*}  # strip incorrect ABI
+    echo "python_fix_abi: Removing ABI from ${pymodule} -> ${pyname}.so"
+    mv ${pymodule} ${pymodule%/*}/${pyname}.so
+  done
+}
 
 ### KERNEL HELPERS ###
 kernel_path() {
@@ -1248,6 +1278,7 @@ install_addon_files() {
   install_addon_source "$1"
   install_addon_images "$1"
   create_addon_xml "$1"
+  python_fix_abi "$1"
 }
 
 install_driver_addon_files() {

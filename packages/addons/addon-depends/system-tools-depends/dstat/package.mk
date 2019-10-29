@@ -7,7 +7,7 @@ PKG_SHA256="2b2f4ef3a0d1dc6d0a4bc2f54a57ba6f1e278333881a07df7e55aec502a48c7c"
 PKG_LICENSE="GPL"
 PKG_SITE="http://dag.wiee.rs/home-made/dstat"
 PKG_URL="https://github.com/dagwieers/dstat/archive/$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain Python2"
+PKG_DEPENDS_TARGET="toolchain Python3"
 PKG_LONGDESC="Versatile resource statistics tool."
 PKG_TOOLCHAIN="manual"
 

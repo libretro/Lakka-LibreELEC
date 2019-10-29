@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # taken from http://stackoverflow.com/a/14879370 with minor modifications
 
@@ -18,17 +18,19 @@ class hashabledict(dict):
 class XMLCombiner(object):
     def __init__(self, filenames):
         if len(filenames) == 0:
-          raise Exception('No filenames!')
+            raise Exception('No filenames!')
 
         try:
-          self.roots = [et.parse(f).getroot() for f in filenames]
+            self.roots = []
+            for f in filenames:
+              self.roots.append(et.parse(f).getroot())
         except xml.etree.ElementTree.ParseError:
-          printerr("ERROR: Unable to parse XML file %s" % f)
-          raise
+            printerr("ERROR: Unable to parse XML file %s" % f)
+            raise
 
     def prettyPrint(self, etree_xml):
         minidom = xml.dom.minidom.parseString(et.tostring(etree_xml))
-        return "\n".join([line for line in minidom.toprettyxml(indent="  ", encoding="utf-8").split('\n') if line.strip() != ""])
+        return "\n".join([line for line in minidom.toprettyxml(indent="  ", encoding="utf-8").decode('utf-8').split('\n') if line.strip() != ""])
 
     def combine(self):
         for r in self.roots[1:]:

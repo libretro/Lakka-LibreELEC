@@ -1,0 +1,68 @@
+From 3f91ffafa84bccf04ac0cfecb37f96bbcee6173e Mon Sep 17 00:00:00 2001
+From: MilhouseVH <milhouseVH.github@nmacleod.com>
+Date: Wed, 16 Oct 2019 23:11:57 +0100
+Subject: [PATCH] 001-xcompile.patch
+
+---
+ Makefile.pre.in | 4 ++++
+ setup.py        | 9 ++++++++-
+ 2 files changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/Makefile.pre.in b/Makefile.pre.in
+index 31dc7c3..db3a9f6 100644
+--- a/Makefile.pre.in
++++ b/Makefile.pre.in
+@@ -622,10 +622,12 @@ sharedmods: $(BUILDPYTHON) pybuilddir.txt Modules/_math.o
+ 	esac; \
+ 	echo "$(RUNSHARED) CC='$(CC)' LDSHARED='$(BLDSHARED)' OPT='$(OPT)' \
+ 		_TCLTK_INCLUDES='$(TCLTK_INCLUDES)' _TCLTK_LIBS='$(TCLTK_LIBS)' \
++		PYTHONXCPREFIX='$(DESTDIR)$(prefix)' \
+ 		DISABLED_EXTENSIONS="$(DISABLED_EXTENSIONS)" \
+ 		$(PYTHON_FOR_BUILD) $(srcdir)/setup.py $$quiet build"; \
+ 	$(RUNSHARED) CC='$(CC)' LDSHARED='$(BLDSHARED)' OPT='$(OPT)' \
+ 		_TCLTK_INCLUDES='$(TCLTK_INCLUDES)' _TCLTK_LIBS='$(TCLTK_LIBS)' \
++		PYTHONXCPREFIX='$(DESTDIR)$(prefix)' \
+ 		$(PYTHON_FOR_BUILD) $(srcdir)/setup.py $$quiet build
+ 
+ 
+@@ -1592,8 +1594,10 @@ libainstall:	@DEF_MAKE_RULE@ python-config
+ # Install the dynamically loadable modules
+ # This goes into $(exec_prefix)
+ sharedinstall: sharedmods
++	CC='$(CC)' LDSHARED='$(BLDSHARED)' OPT='$(OPT)' \
+ 	$(RUNSHARED) DISABLED_EXTENSIONS="$(DISABLED_EXTENSIONS)" \
+ 		$(PYTHON_FOR_BUILD) $(srcdir)/setup.py install \
++		--skip-build \
+ 	   	--prefix=$(prefix) \
+ 		--install-scripts=$(BINDIR) \
+ 		--install-platlib=$(DESTSHARED) \
+diff --git a/setup.py b/setup.py
+index 94a327b..8a1279d 100644
+--- a/setup.py
++++ b/setup.py
+@@ -16,7 +16,7 @@ from distutils.command.install_lib import install_lib
+ from distutils.command.build_scripts import build_scripts
+ from distutils.spawn import find_executable
+ 
+-cross_compiling = "_PYTHON_HOST_PLATFORM" in os.environ
++cross_compiling = ("_PYTHON_HOST_PLATFORM" in os.environ) or ('PYTHONXCPREFIX' in os.environ)
+ 
+ # Set common compiler and linker flags derived from the Makefile,
+ # reserved for building the interpreter and the stdlib modules.
+@@ -445,6 +445,13 @@ class PyBuildExt(build_ext):
+                 ext.name, level=1)
+             return
+ 
++        # Inport check will not work when cross-compiling.
++        if 'PYTHONXCPREFIX' in os.environ:
++            self.announce(
++                'WARNING: skipping inport check for cross-compiled: "%s"' %
++                ext.name)
++            return
++
+         # Workaround for Mac OS X: The Carbon-based modules cannot be
+         # reliably imported into a command-line Python
+         if 'Carbon' in ext.extra_link_args:
+-- 
+2.7.4
+
