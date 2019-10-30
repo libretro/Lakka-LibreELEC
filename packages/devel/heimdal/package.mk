@@ -13,7 +13,8 @@ PKG_LONGDESC="Kerberos 5, PKIX, CMS, GSS-API, SPNEGO, NTLM, Digest-MD5 and, SASL
 PKG_TOOLCHAIN="autotools"
 PKG_BUILD_FLAGS="-parallel"
 
-PKG_CONFIGURE_OPTS_HOST="--enable-static --disable-shared \
+PKG_CONFIGURE_OPTS_HOST="ac_cv_prog_COMPILE_ET=no \
+                         --enable-static --disable-shared \
                          --without-openldap \
                          --without-capng \
                          --without-sqlite3 \
