@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.sidplay"
-PKG_VERSION="2.1.0-Matrix"
-PKG_SHA256="fa2183a21afe76c8500fb20291bbe9b7d62ea002a3c91ce685fcac86793cd8aa"
+PKG_VERSION="2.1.1-Matrix"
+PKG_SHA256="31a4f62ff4b5a00eabb91a4bba989e5fddc8abb03a70d825b84cb7ebdff02310"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
