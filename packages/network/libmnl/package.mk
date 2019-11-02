@@ -9,5 +9,3 @@ PKG_SITE="http://netfilter.org/projects/libmnl"
 PKG_URL="http://netfilter.org/projects/libmnl/files/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A minimalistic user-space library oriented to Netlink developers."
-
-PKG_CONFIGURE_OPTS_TARGET="--disable-shared --enable-static"
