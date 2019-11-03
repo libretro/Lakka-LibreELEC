@@ -25,9 +25,11 @@ post_makeinstall_target() {
 
   ADDON_INSTALL_DIR=$INSTALL/usr/share/kodi/addons/service.libreelec.settings
 
-  #python_compile $ADDON_INSTALL_DIR/resources/lib/
+  python_compile $ADDON_INSTALL_DIR/resources/lib/
 
-  #python_compile $ADDON_INSTALL_DIR/oe.py
+  python_compile $ADDON_INSTALL_DIR/defaults.py
+
+  python_compile $ADDON_INSTALL_DIR/oe.py
 }
 
 post_install() {
