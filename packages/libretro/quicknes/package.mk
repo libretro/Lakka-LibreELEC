@@ -35,10 +35,10 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  make -C libretro
+  make
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp libretro/quicknes_libretro.so $INSTALL/usr/lib/libretro/
+  cp quicknes_libretro.so $INSTALL/usr/lib/libretro/
 }
