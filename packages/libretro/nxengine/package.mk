@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="nxengine"
-PKG_VERSION="b8a9e5b"
+PKG_VERSION="48ba500"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
