@@ -3,11 +3,11 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="connman"
-PKG_VERSION="1.37"
-PKG_SHA256="6ce29b3eb0bb16a7387bc609c39455fd13064bdcde5a4d185fab3a0c71946e16"
+PKG_VERSION="9c781b75657bb72a9d65ba7cc73aa5111ae13eb2" # pre 1.38
+PKG_SHA256="384ac276b593e919614f8615da8641dac4268c8e6ebc1166b78b3d260d5ca242"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.connman.net"
-PKG_URL="https://www.kernel.org/pub/linux/network/connman/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://git.kernel.org/pub/scm/network/connman/connman.git/snapshot/connman-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain glib readline dbus iptables wpa_supplicant"
 PKG_LONGDESC="A modular network connection manager."
 PKG_TOOLCHAIN="autotools"
@@ -46,7 +46,14 @@ PKG_CONFIGURE_OPTS_TARGET="WPASUPPLICANT=/usr/bin/wpa_supplicant \
                            --with-systemdunitdir=/usr/lib/systemd/system \
                            --disable-silent-rules"
 
+if [ "$WIREGUARD_SUPPORT" = "yes" ]; then
+  PKG_CONFIGURE_OPTS_TARGET+=" --enable-wireguard=builtin"
+else
+  PKG_CONGIGURE_OPTS_TARGET+=" --disable-wireguard"
+fi
+
 PKG_MAKE_OPTS_TARGET="storagedir=/storage/.cache/connman \
+                      vpn_storagedir=/storage/.config/wireguard \
                       statedir=/run/connman"
 
 post_makeinstall_target() {
@@ -81,4 +88,7 @@ post_install() {
   add_group system 430
 
   enable_service connman.service
+  if [ "$WIREGUARD_SUPPORT" = "yes" ]; then
+    enable_service connman-vpn.service
+  fi
 }
