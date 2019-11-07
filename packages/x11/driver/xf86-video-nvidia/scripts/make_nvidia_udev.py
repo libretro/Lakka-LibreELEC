@@ -1,8 +1,13 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-import os
+import os, sys
 import requests
-from lxml import html
+
+try:
+  from lxml import html
+except:
+  print('lxml module not installed.\n\nOn Ubuntu, use "sudo apt install python3-lxml"')
+  sys.exit(1)
 
 __cwd__     = os.path.dirname(os.path.realpath(__file__))
 __rules__    = __cwd__ + '/../udev.d/96-nvidia.rules'
