@@ -12,13 +12,6 @@ PKG_DEPENDS_HOST="toolchain"
 PKG_LONGDESC="An programming language that makes it easy to build simple, reliable, and efficient software."
 PKG_TOOLCHAIN="manual"
 
-####################################################################
-# On Fedora `dnf install golang` will install go to /usr/lib/golang
-#
-# On Ubuntu you need to install golang:
-# $ sudo apt install golang-go
-####################################################################
-
 configure_host() {
   export GOOS=linux
   export GOROOT_FINAL=${TOOLCHAIN}/lib/golang
@@ -28,6 +21,18 @@ configure_host() {
     export GOROOT_BOOTSTRAP=/usr/lib/golang
   fi
   export GOARCH=amd64
+
+  if [ ! -d $GOROOT_BOOTSTRAP ]; then
+    cat <<EOF
+####################################################################
+# On Fedora 'dnf install golang' will install go to /usr/lib/golang
+#
+# On Ubuntu you need to install golang:
+# $ sudo apt install golang-go
+####################################################################
+EOF
+    return 1
+  fi
 }
 
 make_host() {
