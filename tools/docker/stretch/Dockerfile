@@ -19,10 +19,9 @@ RUN adduser --disabled-password --gecos '' docker \
  && echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
 RUN apt-get update && apt-get install -y \
-    wget bash bc gcc sed patch patchutils tar bzip2 gzip perl gawk gperf zip unzip diffutils texinfo lzop python python3 \
-    g++ xfonts-utils xfonts-utils xfonts-utils xsltproc default-jre-headless \
+    wget bash bc gcc sed patch patchutils tar bzip2 gzip perl gawk gperf zip unzip diffutils lzop python3 \
+    g++ xfonts-utils xsltproc default-jre-headless \
     libc6-dev libncurses5-dev \
-    u-boot-tools \
     xz-utils make file libxml-parser-perl \
     libjson-perl \
     golang-go \
