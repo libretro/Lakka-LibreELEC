@@ -41,103 +41,6 @@ index 17d496990108..93bdd33694fb 100644
 -- 
 2.22.0
 
-From 2a87073bd0857fd9707de2ac96cb04d6d9e0e288 Mon Sep 17 00:00:00 2001
-From: Icenowy Zheng <icenowy@aosc.io>
-Date: Tue, 9 Jan 2018 23:58:12 +0800
-Subject: [PATCH 10/34] net: stmmac: sun8i: force select external PHY when no
- internal one
-
-From e6d3f7e02d211522c7f1cc09df946292601b55b6 Mon Sep 17 00:00:00 2001
-From: Ondrej Jirman <megous@megous.com>
-Date: Wed, 27 Mar 2019 13:21:06 +0100
-Subject: [PATCH 13/34] arm64: dts: allwinner: orange-pi-3: Enable ethernet
-
-Orange Pi 3 has two regulators that power the Realtek RTL8211E. According
-to the phy datasheet, both regulators need to be enabled at the same time,
-but we can only specify a single phy-supply in the DT.
-
-This can be achieved by making one regulator depedning on the other via
-vin-supply. While it's not a technically correct description of the
-hardware, it achieves the purpose.
-
-All values of RX/TX delay were tested exhaustively and a middle one of the
-working values was chosen.
-
-Signed-off-by: Ondrej Jirman <megous@megous.com>
----
- .../dts/allwinner/sun50i-h6-orangepi-3.dts    | 44 +++++++++++++++++++
- 1 file changed, 44 insertions(+)
-
-diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi-3.dts b/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi-3.dts
-index 17d4969901086..6d6b1f66796d9 100644
---- a/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi-3.dts
-+++ b/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi-3.dts
-@@ -15,6 +15,7 @@
- 	aliases {
- 		serial0 = &uart0;
- 		serial1 = &uart1;
-+		ethernet0 = &emac;
- 	};
- 
- 	chosen {
-@@ -44,6 +45,27 @@
- 		regulator-max-microvolt = <5000000>;
- 		regulator-always-on;
- 	};
-+
-+	/*
-+	 * The board uses 2.5V RGMII signalling. Power sequence to enable
-+	 * the phy is to enable GMAC-2V5 and GMAC-3V3 (aldo2) power rails
-+	 * at the same time and to wait 100ms.
-+	 */
-+	reg_gmac_2v5: gmac-2v5 {
-+		compatible = "regulator-fixed";
-+		regulator-name = "gmac-2v5";
-+		regulator-min-microvolt = <2500000>;
-+		regulator-max-microvolt = <2500000>;
-+		startup-delay-us = <100000>;
-+		enable-active-high;
-+		gpio = <&pio 3 6 GPIO_ACTIVE_HIGH>; /* PD6 */
-+
-+		/* The real parent of gmac-2v5 is reg_vcc5v, but we need to
-+		 * enable two regulators to power the phy. This is one way
-+		 * to achieve that.
-+		 */
-+		vin-supply = <&reg_aldo2>; /* GMAC-3V3 */
-+	};
- };
- 
- &cpu0 {
-@@ -58,6 +80,28 @@
- 	status = "okay";
- };
- 
-+&emac {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&ext_rgmii_pins>;
-+	phy-mode = "rgmii";
-+	phy-handle = <&ext_rgmii_phy>;
-+	phy-supply = <&reg_gmac_2v5>;
-+	allwinner,rx-delay-ps = <1500>;
-+	allwinner,tx-delay-ps = <700>;
-+	status = "okay";
-+};
-+
-+&mdio {
-+	ext_rgmii_phy: ethernet-phy@1 {
-+		compatible = "ethernet-phy-ieee802.3-c22";
-+		reg = <1>;
-+
-+		reset-gpios = <&pio 3 14 GPIO_ACTIVE_LOW>; /* PD14 */
-+		reset-assert-us = <15000>;
-+		reset-deassert-us = <40000>;
-+	};
-+};
-+
- &mmc0 {
- 	vmmc-supply = <&reg_cldo1>;
- 	cd-gpios = <&pio 5 6 GPIO_ACTIVE_LOW>; /* PF6 */
-
 From 5141fbafc9bf5f1a7cbb6923bc719f595ce54dae Mon Sep 17 00:00:00 2001
 From: Icenowy Zheng <icenowy@aosc.io>
 Date: Mon, 25 Dec 2017 12:10:06 +0800
@@ -238,3 +141,472 @@ index d9e8610b5f83f..afee79fb88f18 100644
 +        phy-supply = <&reg_vcc5v>;
 +        status = "okay";
 +};
+From 0b2bbc6708ef986e2f8d281f65e0c1ca3ff14562 Mon Sep 17 00:00:00 2001
+From: Ondrej Jirman <megous@megous.com>
+Date: Wed, 27 Mar 2019 13:21:06 +0100
+Subject: [PATCH 1/5] net: stmmac: sun8i: Use devm_regulator_get for PHY
+ regulator
+
+Use devm_regulator_get instead of devm_regulator_get_optional and rely
+on dummy supply. This avoids NULL checks before regulator_enable/disable
+calls.
+
+This path also improves error reporting, because we now report both
+use of dummy supply and error during registration with more detail,
+instead of generic info level message "No regulator found" that
+was reported previously on errors and lack of regulator property in DT.
+
+Finally, we'll be adding further optional regulators, and the overall
+code will be simpler.
+
+Signed-off-by: Ondrej Jirman <megous@megous.com>
+---
+ .../net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 23 ++++++++-----------
+ 1 file changed, 10 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+index ddcc191febdb..906d46e2d166 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+@@ -528,12 +528,10 @@ static int sun8i_dwmac_init(struct platform_device *pdev, void *priv)
+ 	struct sunxi_priv_data *gmac = priv;
+ 	int ret;
+ 
+-	if (gmac->regulator) {
+-		ret = regulator_enable(gmac->regulator);
+-		if (ret) {
+-			dev_err(&pdev->dev, "Fail to enable regulator\n");
+-			return ret;
+-		}
++	ret = regulator_enable(gmac->regulator);
++	if (ret) {
++		dev_err(&pdev->dev, "Fail to enable regulator\n");
++		return ret;
+ 	}
+ 
+ 	ret = clk_prepare_enable(gmac->tx_clk);
+@@ -998,8 +996,7 @@ static void sun8i_dwmac_exit(struct platform_device *pdev, void *priv)
+ 
+ 	clk_disable_unprepare(gmac->tx_clk);
+ 
+-	if (gmac->regulator)
+-		regulator_disable(gmac->regulator);
++	regulator_disable(gmac->regulator);
+ }
+ 
+ static void sun8i_dwmac_set_mac_loopback(void __iomem *ioaddr, bool enable)
+@@ -1135,12 +1132,12 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	/* Optional regulator for PHY */
+-	gmac->regulator = devm_regulator_get_optional(dev, "phy");
++	gmac->regulator = devm_regulator_get(dev, "phy");
+ 	if (IS_ERR(gmac->regulator)) {
+-		if (PTR_ERR(gmac->regulator) == -EPROBE_DEFER)
+-			return -EPROBE_DEFER;
+-		dev_info(dev, "No regulator found\n");
+-		gmac->regulator = NULL;
++		ret = PTR_ERR(gmac->regulator);
++		if (ret != -EPROBE_DEFER)
++			dev_err(dev, "Failed to get PHY regulator (%d)\n", ret);
++		return ret;
+ 	}
+ 
+ 	/* The "GMAC clock control" register might be located in the
+-- 
+2.24.0
+
+
+From 4335e41db5678cf2a766c19e4fa79ffa5e4dca81 Mon Sep 17 00:00:00 2001
+From: Ondrej Jirman <megous@megous.com>
+Date: Tue, 20 Aug 2019 14:29:29 +0200
+Subject: [PATCH 2/5] net: stmmac: sun8i: Rename PHY regulator variable to
+ regulator_phy
+
+We'll be adding further optional regulators, and this makes it clearer
+what the regulator is for.
+
+Signed-off-by: Ondrej Jirman <megous@megous.com>
+---
+ .../net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 32 ++++++++++---------
+ 1 file changed, 17 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+index 906d46e2d166..5d4ee99ca80e 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+@@ -57,19 +57,21 @@ struct emac_variant {
+ };
+ 
+ /* struct sunxi_priv_data - hold all sunxi private data
+- * @tx_clk:	reference to MAC TX clock
+- * @ephy_clk:	reference to the optional EPHY clock for the internal PHY
+- * @regulator:	reference to the optional regulator
+- * @rst_ephy:	reference to the optional EPHY reset for the internal PHY
+- * @variant:	reference to the current board variant
+- * @regmap:	regmap for using the syscon
+- * @internal_phy_powered: Does the internal PHY is enabled
+- * @mux_handle:	Internal pointer used by mdio-mux lib
++ * @tx_clk:			reference to MAC TX clock
++ * @ephy_clk:			reference to the optional EPHY clock for
++ *				the internal PHY
++ * @regulator_phy:		reference to the optional regulator
++ * @rst_ephy:			reference to the optional EPHY reset for
++ *				the internal PHY
++ * @variant:			reference to the current board variant
++ * @regmap:			regmap for using the syscon
++ * @internal_phy_powered:	Does the internal PHY is enabled
++ * @mux_handle:			Internal pointer used by mdio-mux lib
+  */
+ struct sunxi_priv_data {
+ 	struct clk *tx_clk;
+ 	struct clk *ephy_clk;
+-	struct regulator *regulator;
++	struct regulator *regulator_phy;
+ 	struct reset_control *rst_ephy;
+ 	const struct emac_variant *variant;
+ 	struct regmap_field *regmap_field;
+@@ -528,9 +530,9 @@ static int sun8i_dwmac_init(struct platform_device *pdev, void *priv)
+ 	struct sunxi_priv_data *gmac = priv;
+ 	int ret;
+ 
+-	ret = regulator_enable(gmac->regulator);
++	ret = regulator_enable(gmac->regulator_phy);
+ 	if (ret) {
+-		dev_err(&pdev->dev, "Fail to enable regulator\n");
++		dev_err(&pdev->dev, "Fail to enable PHY regulator\n");
+ 		return ret;
+ 	}
+ 
+@@ -996,7 +998,7 @@ static void sun8i_dwmac_exit(struct platform_device *pdev, void *priv)
+ 
+ 	clk_disable_unprepare(gmac->tx_clk);
+ 
+-	regulator_disable(gmac->regulator);
++	regulator_disable(gmac->regulator_phy);
+ }
+ 
+ static void sun8i_dwmac_set_mac_loopback(void __iomem *ioaddr, bool enable)
+@@ -1132,9 +1134,9 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	/* Optional regulator for PHY */
+-	gmac->regulator = devm_regulator_get(dev, "phy");
+-	if (IS_ERR(gmac->regulator)) {
+-		ret = PTR_ERR(gmac->regulator);
++	gmac->regulator_phy = devm_regulator_get(dev, "phy");
++	if (IS_ERR(gmac->regulator_phy)) {
++		ret = PTR_ERR(gmac->regulator_phy);
+ 		if (ret != -EPROBE_DEFER)
+ 			dev_err(dev, "Failed to get PHY regulator (%d)\n", ret);
+ 		return ret;
+-- 
+2.24.0
+
+
+From 5f2f079f8bec44f9a5d07767b12d3eb7ad247012 Mon Sep 17 00:00:00 2001
+From: Ondrej Jirman <megous@megous.com>
+Date: Tue, 20 Aug 2019 14:31:38 +0200
+Subject: [PATCH 3/5] net: stmmac: sun8i: Add support for enabling a regulator
+ for PHY I/O pins
+
+Orange Pi 3 has two regulators that power the Realtek RTL8211E. According
+to the phy datasheet, both regulators need to be enabled at the same time.
+
+Add support for the second optional regulator, "phy-io", to the glue
+driver.
+
+Signed-off-by: Ondrej Jirman <megous@megous.com>
+---
+ .../net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 30 ++++++++++++++++---
+ 1 file changed, 26 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+index 5d4ee99ca80e..a7ffee494488 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+@@ -61,6 +61,8 @@ struct emac_variant {
+  * @ephy_clk:			reference to the optional EPHY clock for
+  *				the internal PHY
+  * @regulator_phy:		reference to the optional regulator
++ * @regulator_phy_io:		reference to the optional regulator for
++ *				PHY I/O pins
+  * @rst_ephy:			reference to the optional EPHY reset for
+  *				the internal PHY
+  * @variant:			reference to the current board variant
+@@ -72,6 +74,7 @@ struct sunxi_priv_data {
+ 	struct clk *tx_clk;
+ 	struct clk *ephy_clk;
+ 	struct regulator *regulator_phy;
++	struct regulator *regulator_phy_io;
+ 	struct reset_control *rst_ephy;
+ 	const struct emac_variant *variant;
+ 	struct regmap_field *regmap_field;
+@@ -530,21 +533,30 @@ static int sun8i_dwmac_init(struct platform_device *pdev, void *priv)
+ 	struct sunxi_priv_data *gmac = priv;
+ 	int ret;
+ 
++	ret = regulator_enable(gmac->regulator_phy_io);
++	if (ret) {
++		dev_err(&pdev->dev, "Fail to enable PHY I/O regulator\n");
++		return ret;
++	}
++
+ 	ret = regulator_enable(gmac->regulator_phy);
+ 	if (ret) {
+ 		dev_err(&pdev->dev, "Fail to enable PHY regulator\n");
+-		return ret;
++		goto err_disable_regulator_phy_io;
+ 	}
+ 
+ 	ret = clk_prepare_enable(gmac->tx_clk);
+ 	if (ret) {
+-		if (gmac->regulator)
+-			regulator_disable(gmac->regulator);
+ 		dev_err(&pdev->dev, "Could not enable AHB clock\n");
+-		return ret;
++		goto err_disable_regulator_phy;
+ 	}
+ 
+ 	return 0;
++err_disable_regulator_phy:
++	regulator_disable(gmac->regulator_phy);
++err_disable_regulator_phy_io:
++	regulator_disable(gmac->regulator_phy_io);
++	return ret;
+ }
+ 
+ static void sun8i_dwmac_core_init(struct mac_device_info *hw,
+@@ -999,6 +1011,7 @@ static void sun8i_dwmac_exit(struct platform_device *pdev, void *priv)
+ 	clk_disable_unprepare(gmac->tx_clk);
+ 
+ 	regulator_disable(gmac->regulator_phy);
++	regulator_disable(gmac->regulator_phy_io);
+ }
+ 
+ static void sun8i_dwmac_set_mac_loopback(void __iomem *ioaddr, bool enable)
+@@ -1142,6 +1155,15 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
+ 		return ret;
+ 	}
+ 
++	/* Optional regulator for PHY I/O pins */
++	gmac->regulator_phy_io = devm_regulator_get(dev, "phy-io");
++	if (IS_ERR(gmac->regulator_phy_io)) {
++		ret = PTR_ERR(gmac->regulator_phy_io);
++		if (ret != -EPROBE_DEFER)
++			dev_err(dev, "Failed to get PHY I/O regulator (%d)\n", ret);
++		return ret;
++	}
++
+ 	/* The "GMAC clock control" register might be located in the
+ 	 * CCU address range (on the R40), or the system control address
+ 	 * range (on most other sun8i and later SoCs).
+-- 
+2.24.0
+
+
+From 1bb9d9c95dc6fdb5cc7f9f39166274cd47365f9a Mon Sep 17 00:00:00 2001
+From: Ondrej Jirman <megous@megous.com>
+Date: Tue, 20 Aug 2019 14:54:48 +0200
+Subject: [PATCH 4/5] arm64: dts: allwinner: orange-pi-3: Enable ethernet
+
+Orange Pi 3 has two regulators that power the Realtek RTL8211E
+PHY. According to the datasheet, both regulators need to be enabled
+at the same time, or that "phy-io" should be enabled slightly earlier
+than "phy" regulator.
+
+RTL8211E/RTL8211EG datasheet says:
+
+  Note 4: 2.5V (or 1.8/1.5V) RGMII power should be risen simultaneously
+  or slightly earlier than 3.3V power. Rising 2.5V (or 1.8/1.5V) power
+  later than 3.3V power may lead to errors.
+
+The driver ensures the regulator enable ordering. The timing is set
+in DT via startup-delay-us.
+
+We also need to wait at least 30ms after power-up/reset, before
+accessing the PHY registers.
+
+All values of RX/TX delay were tested exhaustively and a middle one
+of the range of working values was chosen.
+
+Signed-off-by: Ondrej Jirman <megous@megous.com>
+---
+ .../dts/allwinner/sun50i-h6-orangepi-3.dts    | 40 +++++++++++++++++++
+ 1 file changed, 40 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi-3.dts b/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi-3.dts
+index eb379cd402ac..b5dc419d92de 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi-3.dts
++++ b/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi-3.dts
+@@ -15,6 +15,7 @@ / {
+ 	aliases {
+ 		serial0 = &uart0;
+ 		serial1 = &uart1;
++		ethernet0 = &emac;
+ 	};
+ 
+ 	chosen {
+@@ -57,6 +58,15 @@ reg_vcc5v: vcc5v {
+ 		regulator-always-on;
+ 	};
+ 
++	reg_gmac_2v5: gmac-2v5 {
++		compatible = "regulator-fixed";
++		regulator-name = "gmac-2v5";
++		regulator-min-microvolt = <2500000>;
++		regulator-max-microvolt = <2500000>;
++		enable-active-high;
++		gpio = <&pio 3 6 GPIO_ACTIVE_HIGH>; /* PD6 */
++	};
++
+ 	reg_vcc33_wifi: vcc33-wifi {
+ 		/* Always on 3.3V regulator for WiFi and BT */
+ 		compatible = "regulator-fixed";
+@@ -112,6 +122,35 @@ hdmi_out_con: endpoint {
+ 	};
+ };
+ 
++&emac {
++	pinctrl-names = "default";
++	pinctrl-0 = <&ext_rgmii_pins>;
++	phy-mode = "rgmii";
++	phy-handle = <&ext_rgmii_phy>;
++	/*
++	 * The board uses 2.5V RGMII signalling. Power sequence to enable
++	 * the phy is to enable GMAC-2V5 and GMAC-3V (aldo2) power rails
++	 * at the same time and to wait 100ms. The driver enables phy-io
++	 * first. Delay is achieved with enable-ramp-delay on reg_aldo2.
++	 */
++	phy-supply = <&reg_aldo2>;
++	phy-io-supply = <&reg_gmac_2v5>;
++	allwinner,rx-delay-ps = <1500>;
++	allwinner,tx-delay-ps = <700>;
++	status = "okay";
++};
++
++&mdio {
++	ext_rgmii_phy: ethernet-phy@1 {
++		compatible = "ethernet-phy-ieee802.3-c22";
++		reg = <1>;
++
++		reset-gpios = <&pio 3 14 GPIO_ACTIVE_LOW>; /* PD14 */
++		reset-assert-us = <15000>;
++		reset-deassert-us = <40000>;
++	};
++};
++
+ &mmc0 {
+ 	vmmc-supply = <&reg_cldo1>;
+ 	cd-gpios = <&pio 5 6 GPIO_ACTIVE_LOW>; /* PF6 */
+@@ -182,6 +221,7 @@ reg_aldo2: aldo2 {
+ 				regulator-min-microvolt = <3300000>;
+ 				regulator-max-microvolt = <3300000>;
+ 				regulator-name = "vcc33-audio-tv-ephy-mac";
++				regulator-enable-ramp-delay = <100000>;
+ 			};
+ 
+ 			/* ALDO3 is shorted to CLDO1 */
+-- 
+2.24.0
+
+
+From e6700b102c319f31165de2361830c24f182f69b6 Mon Sep 17 00:00:00 2001
+From: Ondrej Jirman <megous@megous.com>
+Date: Tue, 20 Aug 2019 14:34:57 +0200
+Subject: [PATCH 5/5] net: stmmac: sun8i: Fix reboot issue with ethernet on
+ Orange Pi 3
+
+We disable both phy regulators before reboot, so that they are in a
+known state on the next boot. This should be done in u-boot, but
+it doesn't support AXP806 yet, thus this workaround.
+
+Signed-off-by: Ondrej Jirman <megous@megous.com>
+---
+ .../net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 22 +++++++++++++++++++
+ 1 file changed, 22 insertions(+)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+index a7ffee494488..f7c7d89da7f8 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+@@ -17,6 +17,7 @@
+ #include <linux/phy.h>
+ #include <linux/platform_device.h>
+ #include <linux/regulator/consumer.h>
++#include <linux/reboot.h>
+ #include <linux/regmap.h>
+ #include <linux/stmmac.h>
+ 
+@@ -80,6 +81,7 @@ struct sunxi_priv_data {
+ 	struct regmap_field *regmap_field;
+ 	bool internal_phy_powered;
+ 	void *mux_handle;
++	struct notifier_block reboot_nb;
+ };
+ 
+ /* EMAC clock register @ 0x30 in the "system control" address range */
+@@ -1111,6 +1113,19 @@ static struct regmap *sun8i_dwmac_get_syscon_from_dev(struct device_node *node)
+ 	return regmap;
+ }
+ 
++
++static int sun8i_dwmac_reboot_notifier(struct notifier_block *nb,
++				       unsigned long action, void *data)
++{
++	struct sunxi_priv_data *gmac = container_of(nb, struct sunxi_priv_data,
++						    reboot_nb);
++
++	regulator_disable(gmac->regulator_phy);
++	regulator_disable(gmac->regulator_phy_io);
++
++	return NOTIFY_DONE;
++}
++
+ static int sun8i_dwmac_probe(struct platform_device *pdev)
+ {
+ 	struct plat_stmmacenet_data *plat_dat;
+@@ -1164,6 +1179,13 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
+ 		return ret;
+ 	}
+ 
++	gmac->reboot_nb.notifier_call = sun8i_dwmac_reboot_notifier;
++	ret = devm_register_reboot_notifier(dev, &gmac->reboot_nb);
++	if (ret) {
++		dev_err(dev, "Failed to register reboot notifier (%d)\n", ret);
++		return ret;
++	}
++
+ 	/* The "GMAC clock control" register might be located in the
+ 	 * CCU address range (on the R40), or the system control address
+ 	 * range (on most other sun8i and later SoCs).
+-- 
+2.24.0
+
+From: Andre Heider <a.heider@gmail.com>
+Subject: [PATCH] arm64: dts: allwinner: orange-pi-3: Enable IR receiver
+Date: Sat,  9 Nov 2019 12:34:36 +0100
+
+Orange Pi 3 has an on-board IR receiver, enable it.
+
+Signed-off-by: Andre Heider <a.heider@gmail.com>
+Acked-by: Jernej Skrabec <jernej.skrabec@siol.net>
+---
+ arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi-3.dts | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi-3.dts b/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi-3.dts
+index eb379cd402ac..d3e30a67587c 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi-3.dts
++++ b/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi-3.dts
+@@ -263,6 +263,10 @@
+ 	};
+ };
+ 
++&r_ir {
++	status = "okay";
++};
++
+ &uart0 {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&uart0_ph_pins>;
