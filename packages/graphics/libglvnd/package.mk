@@ -11,8 +11,6 @@ PKG_DEPENDS_TARGET="toolchain libX11 libXext xorgproto"
 PKG_LONGDESC="libglvnd is a vendor-neutral dispatch layer for arbitrating OpenGL API calls between multiple vendors."
 PKG_TOOLCHAIN="autotools"
 
-PKG_CONFIGURE_OPTS_TARGET="--disable-headers"
-
 if [ "$OPENGLES_SUPPORT" = "no" ]; then
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-gles"
 fi
