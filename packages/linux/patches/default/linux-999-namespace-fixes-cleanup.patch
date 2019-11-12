@@ -1,0 +1,957 @@
+From patchwork Fri Sep 27 09:35:57 2019
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Masahiro Yamada <yamada.masahiro@socionext.com>
+X-Patchwork-Id: 1131974
+Return-Path: <SRS0=WTd2=XW=vger.kernel.org=linux-kernel-owner@kernel.org>
+Received: from mail.kernel.org (mail.kernel.org [198.145.29.99])
+	by smtp.lore.kernel.org (Postfix) with ESMTP id CF6D9C4360C
+	for <linux-kernel@archiver.kernel.org>; Fri, 27 Sep 2019 09:37:23 +0000 (UTC)
+Received: from vger.kernel.org (vger.kernel.org [209.132.180.67])
+	by mail.kernel.org (Postfix) with ESMTP id A32A821906
+	for <linux-kernel@archiver.kernel.org>; Fri, 27 Sep 2019 09:37:23 +0000 (UTC)
+Authentication-Results: mail.kernel.org;
+	dkim=pass (2048-bit key) header.d=nifty.com header.i=@nifty.com
+ header.b="a/t82mTw"
+Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
+        id S1727164AbfI0JhW (ORCPT
+        <rfc822;linux-kernel@archiver.kernel.org>);
+        Fri, 27 Sep 2019 05:37:22 -0400
+Received: from conuserg-07.nifty.com ([210.131.2.74]:33057 "EHLO
+        conuserg-07.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1726438AbfI0JhC (ORCPT
+        <rfc822;linux-kernel@vger.kernel.org>);
+        Fri, 27 Sep 2019 05:37:02 -0400
+Received: from localhost.localdomain (p14092-ipngnfx01kyoto.kyoto.ocn.ne.jp
+ [153.142.97.92]) (authenticated)
+        by conuserg-07.nifty.com with ESMTP id x8R9a5ub001372;
+        Fri, 27 Sep 2019 18:36:07 +0900
+DKIM-Filter: OpenDKIM Filter v2.10.3 conuserg-07.nifty.com x8R9a5ub001372
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=nifty.com;
+        s=dec2015msa; t=1569576967;
+        bh=vJzF8WlgUqc1RsR95UB9lwwYV0dr5aBFLgK7a4VpJl0=;
+        h=From:To:Cc:Subject:Date:In-Reply-To:References:From;
+        b=a/t82mTwbwWZPr0/tQv9F1qEmfxY+FFesX4KbzmGMTG21vQhlXMBP7rrvpG/Gvk6w
+         EC+o8FZKVJbbAVEZoykh5cD2QqCDz/m+73YH1vmQ2Up3QMvK99h0chvD0XxdoYMafC
+         uOsZH+QvFnmPwiHz1IRaSCJXFXASiKeDWhOTxiFDswTY2pRWlD9V3c//TfIpSFUCwr
+         Rz0S84dpoQubEEROWm9wXT/T9ga6jnFTjaA5V4G6/pBsqw1cEZTCcCRkj3XXFk4KLL
+         2mhnuT7X3lne5Abip9GRwCQrTuntCf8So9MR7YqWsmfYyqDEW/17TOx+STvRxZF6TM
+         Cy6NJ4OYl1HKw==
+X-Nifty-SrcIP: [153.142.97.92]
+From: Masahiro Yamada <yamada.masahiro@socionext.com>
+To: Jessica Yu <jeyu@kernel.org>
+Cc: Matthias Maennich <maennich@google.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Joel Fernandes <joel@joelfernandes.org>,
+        Martijn Coenen <maco@android.com>,
+        Will Deacon <will.deacon@arm.com>,
+        Masahiro Yamada <yamada.masahiro@socionext.com>,
+        Michal Marek <michal.lkml@markovi.net>,
+        linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org
+Subject: [PATCH 1/7] modpost: fix broken sym->namespace for external module
+ builds
+Date: Fri, 27 Sep 2019 18:35:57 +0900
+Message-Id: <20190927093603.9140-2-yamada.masahiro@socionext.com>
+X-Mailer: git-send-email 2.17.1
+In-Reply-To: <20190927093603.9140-1-yamada.masahiro@socionext.com>
+References: <20190927093603.9140-1-yamada.masahiro@socionext.com>
+Sender: linux-kernel-owner@vger.kernel.org
+Precedence: bulk
+List-ID: <linux-kernel.vger.kernel.org>
+X-Mailing-List: linux-kernel@vger.kernel.org
+
+Currently, external module builds produce tons of false-positives:
+
+  WARNING: module <mod> uses symbol <sym> from namespace <ns>, but does not import it.
+
+Here, the <ns> part shows a random string.
+
+When you build external modules, the symbol info of vmlinux and
+in-kernel modules are read from $(objtree)/Module.symvers, but
+read_dump() is buggy in multiple ways:
+
+[1] When the modpost is run for vmlinux and in-kernel modules,
+sym_extract_namespace() correctly allocates memory for the namespace.
+On the other hand, read_dump() does not, then sym->namespace will
+point to somewhere in the line buffer of get_next_line(). The data
+in the buffer will be replaced soon, and sym->namespace will end up
+with pointing to unrelated data. As a result, check_exports() will
+show random strings in the warning messages.
+
+[2] When there is no namespace, sym_extract_namespace() returns NULL.
+On the other hand, read_dump() sets namespace to an empty string "".
+(but, it will be later replaced with unrelated data due to bug [1].)
+The check_exports() shows a warning unless exp->namespace is NULL,
+so every symbol read from read_dump() emits the warning, which is
+mostly false positive.
+
+To address [1], I added NOFAIL(strdup(...)) to allocate memory.
+For [2], I changed the if-conditional in check_exports().
+
+Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
+Reviewed-by: Matthias Maennich <maennich@google.com>
+---
+
+ scripts/mod/modpost.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/scripts/mod/modpost.c b/scripts/mod/modpost.c
+index 3961941e8e7a..5c628a7d80f7 100644
+--- a/scripts/mod/modpost.c
++++ b/scripts/mod/modpost.c
+@@ -2195,7 +2195,7 @@ static int check_exports(struct module *mod)
+ 		else
+ 			basename = mod->name;
+ 
+-		if (exp->namespace) {
++		if (exp->namespace && exp->namespace[0]) {
+ 			add_namespace(&mod->required_namespaces,
+ 				      exp->namespace);
+ 
+@@ -2453,7 +2453,7 @@ static void read_dump(const char *fname, unsigned int kernel)
+ 			mod = new_module(modname);
+ 			mod->skip = 1;
+ 		}
+-		s = sym_add_exported(symname, namespace, mod,
++		s = sym_add_exported(symname, NOFAIL(strdup(namespace)), mod,
+ 				     export_no(export));
+ 		s->kernel    = kernel;
+ 		s->preloaded = 1;
+
+From patchwork Fri Sep 27 09:35:58 2019
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Masahiro Yamada <yamada.masahiro@socionext.com>
+X-Patchwork-Id: 1131972
+Return-Path: <SRS0=WTd2=XW=vger.kernel.org=linux-kernel-owner@kernel.org>
+Received: from mail.kernel.org (mail.kernel.org [198.145.29.99])
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 6F487C352AB
+	for <linux-kernel@archiver.kernel.org>; Fri, 27 Sep 2019 09:37:16 +0000 (UTC)
+Received: from vger.kernel.org (vger.kernel.org [209.132.180.67])
+	by mail.kernel.org (Postfix) with ESMTP id 40D38207E0
+	for <linux-kernel@archiver.kernel.org>; Fri, 27 Sep 2019 09:37:16 +0000 (UTC)
+Authentication-Results: mail.kernel.org;
+	dkim=pass (2048-bit key) header.d=nifty.com header.i=@nifty.com
+ header.b="2NU1Uj+G"
+Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
+        id S1727114AbfI0JhP (ORCPT
+        <rfc822;linux-kernel@archiver.kernel.org>);
+        Fri, 27 Sep 2019 05:37:15 -0400
+Received: from conuserg-07.nifty.com ([210.131.2.74]:33064 "EHLO
+        conuserg-07.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1726444AbfI0JhC (ORCPT
+        <rfc822;linux-kernel@vger.kernel.org>);
+        Fri, 27 Sep 2019 05:37:02 -0400
+Received: from localhost.localdomain (p14092-ipngnfx01kyoto.kyoto.ocn.ne.jp
+ [153.142.97.92]) (authenticated)
+        by conuserg-07.nifty.com with ESMTP id x8R9a5uc001372;
+        Fri, 27 Sep 2019 18:36:08 +0900
+DKIM-Filter: OpenDKIM Filter v2.10.3 conuserg-07.nifty.com x8R9a5uc001372
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=nifty.com;
+        s=dec2015msa; t=1569576968;
+        bh=k0hBXKWoJkYYxdDyuOyeX7IT6hvCtlLoJTUWwkZpHoo=;
+        h=From:To:Cc:Subject:Date:In-Reply-To:References:From;
+        b=2NU1Uj+GZgATSlHQ/wpNiFGS13yTeurDYkQ5oWGWobbFSPBjB+S2L6Fw/LgnWkTAq
+         hWIRQQ41fCSLUNCBf+HYJZpbU959wGqrEA72oxHXEOjKJMSWh0zUo3N/sSGmjzhqzA
+         D32uDOKQCjHot8mwF7RjQ3ysW8A3joNSk4qE8q1zcFV/svc+eMf4VFKUt2JxAYJCKw
+         rysk1hb7vz3OotkLSrzSX5ezVfEFv12Sr9ojoceyMo6VmsPBBWJhLrk4vNps7///3U
+         yEBu+i2JGF6ZOMzg2oRMYSRJkvsMvIqDtV92F3sTt+tEvDeBMXe70++/0/ZmSO0rt4
+         ozmoh+j5CsHlw==
+X-Nifty-SrcIP: [153.142.97.92]
+From: Masahiro Yamada <yamada.masahiro@socionext.com>
+To: Jessica Yu <jeyu@kernel.org>
+Cc: Matthias Maennich <maennich@google.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Joel Fernandes <joel@joelfernandes.org>,
+        Martijn Coenen <maco@android.com>,
+        Will Deacon <will.deacon@arm.com>,
+        Masahiro Yamada <yamada.masahiro@socionext.com>,
+        Michal Marek <michal.lkml@markovi.net>,
+        Will Deacon <will@kernel.org>, linux-kbuild@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Subject: [PATCH 2/7] module: swap the order of symbol.namespace
+Date: Fri, 27 Sep 2019 18:35:58 +0900
+Message-Id: <20190927093603.9140-3-yamada.masahiro@socionext.com>
+X-Mailer: git-send-email 2.17.1
+In-Reply-To: <20190927093603.9140-1-yamada.masahiro@socionext.com>
+References: <20190927093603.9140-1-yamada.masahiro@socionext.com>
+Sender: linux-kernel-owner@vger.kernel.org
+Precedence: bulk
+List-ID: <linux-kernel.vger.kernel.org>
+X-Mailing-List: linux-kernel@vger.kernel.org
+
+Currently, EXPORT_SYMBOL_NS(_GPL) constructs the kernel symbol as
+follows:
+
+  __ksymtab_SYMBOL.NAMESPACE
+
+The sym_extract_namespace() in modpost allocates memory for the part
+SYMBOL.NAMESPACE when '.' is contained. One problem is that the pointer
+returned by strdup() is lost because the symbol name will be copied to
+malloc'ed memory by alloc_symbol(). No one will keep track of the
+pointer of strdup'ed memory.
+
+sym->namespace still points to the NAMESPACE part. So, if you like,
+you can free it with complicated code like this:
+
+   free(sym->namespace - strlen(sym->name) - 1);
+
+I would not say it is fatal since we seldom bother to manually free
+memory in host programs. But, I can fix it in an elegant way.
+
+I swapped the order of the symbol and the namespace as follows:
+
+  __ksymtab_NAMESPACE.SYMBOL
+
+then, simplified sym_extract_namespace() so that it allocates memory
+only for the NAMESPACE part.
+
+I prefer this order because it is intuitive and also matches to major
+languages. For example, NAMESPACE::NAME in C++, MODULE.NAME in Python.
+
+Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
+Reviewed-by: Matthias Maennich <maennich@google.com>
+---
+
+ include/linux/export.h |  4 ++--
+ scripts/mod/modpost.c  | 16 +++++++---------
+ 2 files changed, 9 insertions(+), 11 deletions(-)
+
+diff --git a/include/linux/export.h b/include/linux/export.h
+index 95f55b7f83a0..0695d4e847d9 100644
+--- a/include/linux/export.h
++++ b/include/linux/export.h
+@@ -52,7 +52,7 @@ extern struct module __this_module;
+ 	__ADDRESSABLE(sym)						\
+ 	asm("	.section \"___ksymtab" sec "+" #sym "\", \"a\"	\n"	\
+ 	    "	.balign	4					\n"	\
+-	    "__ksymtab_" #sym NS_SEPARATOR #ns ":		\n"	\
++	    "__ksymtab_" #ns NS_SEPARATOR #sym ":		\n"	\
+ 	    "	.long	" #sym "- .				\n"	\
+ 	    "	.long	__kstrtab_" #sym "- .			\n"	\
+ 	    "	.long	__kstrtab_ns_" #sym "- .		\n"	\
+@@ -76,7 +76,7 @@ struct kernel_symbol {
+ #else
+ #define __KSYMTAB_ENTRY_NS(sym, sec, ns)				\
+ 	static const struct kernel_symbol __ksymtab_##sym##__##ns	\
+-	asm("__ksymtab_" #sym NS_SEPARATOR #ns)				\
++	asm("__ksymtab_" #ns NS_SEPARATOR #sym)				\
+ 	__attribute__((section("___ksymtab" sec "+" #sym), used))	\
+ 	__aligned(sizeof(void *))					\
+ 	= { (unsigned long)&sym, __kstrtab_##sym, __kstrtab_ns_##sym }
+diff --git a/scripts/mod/modpost.c b/scripts/mod/modpost.c
+index 5c628a7d80f7..d171b0cffb05 100644
+--- a/scripts/mod/modpost.c
++++ b/scripts/mod/modpost.c
+@@ -350,18 +350,16 @@ static enum export export_from_sec(struct elf_info *elf, unsigned int sec)
+ 
+ static const char *sym_extract_namespace(const char **symname)
+ {
+-	size_t n;
+-	char *dupsymname;
++	char *namespace = NULL;
++	char *ns_separator;
+ 
+-	n = strcspn(*symname, ".");
+-	if (n < strlen(*symname) - 1) {
+-		dupsymname = NOFAIL(strdup(*symname));
+-		dupsymname[n] = '\0';
+-		*symname = dupsymname;
+-		return dupsymname + n + 1;
++	ns_separator = strchr(*symname, '.');
++	if (ns_separator) {
++		namespace = NOFAIL(strndup(*symname, ns_separator - *symname));
++		*symname = ns_separator + 1;
+ 	}
+ 
+-	return NULL;
++	return namespace;
+ }
+ 
+ /**
+
+From patchwork Fri Sep 27 09:35:59 2019
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Masahiro Yamada <yamada.masahiro@socionext.com>
+X-Patchwork-Id: 1131975
+Return-Path: <SRS0=WTd2=XW=vger.kernel.org=linux-kernel-owner@kernel.org>
+Received: from mail.kernel.org (mail.kernel.org [198.145.29.99])
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 2FA71C4360C
+	for <linux-kernel@archiver.kernel.org>; Fri, 27 Sep 2019 09:37:27 +0000 (UTC)
+Received: from vger.kernel.org (vger.kernel.org [209.132.180.67])
+	by mail.kernel.org (Postfix) with ESMTP id E8AAC207E0
+	for <linux-kernel@archiver.kernel.org>; Fri, 27 Sep 2019 09:37:26 +0000 (UTC)
+Authentication-Results: mail.kernel.org;
+	dkim=pass (2048-bit key) header.d=nifty.com header.i=@nifty.com
+ header.b="NKUk7uGl"
+Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
+        id S1727198AbfI0Jh0 (ORCPT
+        <rfc822;linux-kernel@archiver.kernel.org>);
+        Fri, 27 Sep 2019 05:37:26 -0400
+Received: from conuserg-07.nifty.com ([210.131.2.74]:33056 "EHLO
+        conuserg-07.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1726339AbfI0JhB (ORCPT
+        <rfc822;linux-kernel@vger.kernel.org>);
+        Fri, 27 Sep 2019 05:37:01 -0400
+Received: from localhost.localdomain (p14092-ipngnfx01kyoto.kyoto.ocn.ne.jp
+ [153.142.97.92]) (authenticated)
+        by conuserg-07.nifty.com with ESMTP id x8R9a5ud001372;
+        Fri, 27 Sep 2019 18:36:09 +0900
+DKIM-Filter: OpenDKIM Filter v2.10.3 conuserg-07.nifty.com x8R9a5ud001372
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=nifty.com;
+        s=dec2015msa; t=1569576969;
+        bh=Fynp0G6evPgfPqhsg7r4WZQkR9spuRzwJdxpkYdeONU=;
+        h=From:To:Cc:Subject:Date:In-Reply-To:References:From;
+        b=NKUk7uGll+V8LdUDPB1GVeeJOolszILWQCZ7SBQwkVdpbGuFn/6kDpUjNB0/QnynN
+         2qtuscgntP19CTgrkmvl5MSiiiCNBM8MTMvqvOQ4ZMK6qxLZECMooRQMg6/8GhwHCg
+         4qU/g9rGsuM3KtYDnkAKAF8mdbt1DU2+OHsXQWxPZbNlhE1f7JA0E0NXhTwlDXPVww
+         4avl6+5iYDzdjgiBkx4qQI4Jn3n3WKQrBxF1+7k8g8hxJW9+fKH4EYxiht2YQCla4r
+         xGD/ItNo3FzzIpks94EAkkrKdxQaT80bh4XJSdYX5FJ+9Eyq/pDWRgWKZzoce+x0d1
+         X55tIS908scnw==
+X-Nifty-SrcIP: [153.142.97.92]
+From: Masahiro Yamada <yamada.masahiro@socionext.com>
+To: Jessica Yu <jeyu@kernel.org>
+Cc: Matthias Maennich <maennich@google.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Joel Fernandes <joel@joelfernandes.org>,
+        Martijn Coenen <maco@android.com>,
+        Will Deacon <will.deacon@arm.com>,
+        Masahiro Yamada <yamada.masahiro@socionext.com>,
+        Will Deacon <will@kernel.org>, linux-kernel@vger.kernel.org
+Subject: [PATCH 3/7] module: rename __kstrtab_ns_* to __kstrtabns_* to avoid
+ symbol conflict
+Date: Fri, 27 Sep 2019 18:35:59 +0900
+Message-Id: <20190927093603.9140-4-yamada.masahiro@socionext.com>
+X-Mailer: git-send-email 2.17.1
+In-Reply-To: <20190927093603.9140-1-yamada.masahiro@socionext.com>
+References: <20190927093603.9140-1-yamada.masahiro@socionext.com>
+Sender: linux-kernel-owner@vger.kernel.org
+Precedence: bulk
+List-ID: <linux-kernel.vger.kernel.org>
+X-Mailing-List: linux-kernel@vger.kernel.org
+
+The module namespace produces __strtab_ns_<sym> symbols to store
+namespace strings, but it does not guarantee the name uniqueness.
+This is a potential problem because we have exported symbols staring
+with "ns_".
+
+For example, kernel/capability.c exports the following symbols:
+
+  EXPORT_SYMBOL(ns_capable);
+  EXPORT_SYMBOL(capable);
+
+Assume a situation where those are converted as follows:
+
+  EXPORT_SYMBOL_NS(ns_capable, some_namespace);
+  EXPORT_SYMBOL_NS(capable, some_namespace);
+
+The former expands to "__kstrtab_ns_capable" and "__kstrtab_ns_ns_capable",
+and the latter to "__kstrtab_capable" and "__kstrtab_ns_capable".
+Then, we have the duplication for "__kstrtab_ns_capable".
+
+To ensure the uniqueness, rename "__kstrtab_ns_*" to "__kstrtabns_*".
+
+Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
+Reviewed-by: Matthias Maennich <maennich@google.com>
+---
+
+ include/linux/export.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/include/linux/export.h b/include/linux/export.h
+index 0695d4e847d9..621158ecd2e2 100644
+--- a/include/linux/export.h
++++ b/include/linux/export.h
+@@ -55,7 +55,7 @@ extern struct module __this_module;
+ 	    "__ksymtab_" #ns NS_SEPARATOR #sym ":		\n"	\
+ 	    "	.long	" #sym "- .				\n"	\
+ 	    "	.long	__kstrtab_" #sym "- .			\n"	\
+-	    "	.long	__kstrtab_ns_" #sym "- .		\n"	\
++	    "	.long	__kstrtabns_" #sym "- .			\n"	\
+ 	    "	.previous					\n")
+ 
+ #define __KSYMTAB_ENTRY(sym, sec)					\
+@@ -79,7 +79,7 @@ struct kernel_symbol {
+ 	asm("__ksymtab_" #ns NS_SEPARATOR #sym)				\
+ 	__attribute__((section("___ksymtab" sec "+" #sym), used))	\
+ 	__aligned(sizeof(void *))					\
+-	= { (unsigned long)&sym, __kstrtab_##sym, __kstrtab_ns_##sym }
++	= { (unsigned long)&sym, __kstrtab_##sym, __kstrtabns_##sym }
+ 
+ #define __KSYMTAB_ENTRY(sym, sec)					\
+ 	static const struct kernel_symbol __ksymtab_##sym		\
+@@ -112,7 +112,7 @@ struct kernel_symbol {
+ /* For every exported symbol, place a struct in the __ksymtab section */
+ #define ___EXPORT_SYMBOL_NS(sym, sec, ns)				\
+ 	___export_symbol_common(sym, sec);				\
+-	static const char __kstrtab_ns_##sym[]				\
++	static const char __kstrtabns_##sym[]				\
+ 	__attribute__((section("__ksymtab_strings"), used, aligned(1)))	\
+ 	= #ns;								\
+ 	__KSYMTAB_ENTRY_NS(sym, sec, ns)
+
+From patchwork Fri Sep 27 09:36:00 2019
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Masahiro Yamada <yamada.masahiro@socionext.com>
+X-Patchwork-Id: 1131970
+Return-Path: <SRS0=WTd2=XW=vger.kernel.org=linux-kernel-owner@kernel.org>
+Received: from mail.kernel.org (mail.kernel.org [198.145.29.99])
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 5D966C4360C
+	for <linux-kernel@archiver.kernel.org>; Fri, 27 Sep 2019 09:37:09 +0000 (UTC)
+Received: from vger.kernel.org (vger.kernel.org [209.132.180.67])
+	by mail.kernel.org (Postfix) with ESMTP id 2A589207E0
+	for <linux-kernel@archiver.kernel.org>; Fri, 27 Sep 2019 09:37:09 +0000 (UTC)
+Authentication-Results: mail.kernel.org;
+	dkim=pass (2048-bit key) header.d=nifty.com header.i=@nifty.com
+ header.b="B0R09e0l"
+Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
+        id S1726978AbfI0JhE (ORCPT
+        <rfc822;linux-kernel@archiver.kernel.org>);
+        Fri, 27 Sep 2019 05:37:04 -0400
+Received: from conuserg-07.nifty.com ([210.131.2.74]:33058 "EHLO
+        conuserg-07.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1725946AbfI0JhC (ORCPT
+        <rfc822;linux-kernel@vger.kernel.org>);
+        Fri, 27 Sep 2019 05:37:02 -0400
+Received: from localhost.localdomain (p14092-ipngnfx01kyoto.kyoto.ocn.ne.jp
+ [153.142.97.92]) (authenticated)
+        by conuserg-07.nifty.com with ESMTP id x8R9a5ue001372;
+        Fri, 27 Sep 2019 18:36:09 +0900
+DKIM-Filter: OpenDKIM Filter v2.10.3 conuserg-07.nifty.com x8R9a5ue001372
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=nifty.com;
+        s=dec2015msa; t=1569576970;
+        bh=rsB4h06qUtfwfDPTJVMKf592jd7/Pnx6aEXTAIEd2KQ=;
+        h=From:To:Cc:Subject:Date:In-Reply-To:References:From;
+        b=B0R09e0lhFhBsdHnZKZbSPkPCeaxl+CutXvTjvjYBVKQU6KfUokdgT6QnYPVYx9wb
+         xAd/Fv3g/mfSwGtaTAxLBxI0MBNqFfbWzXBvBHZDBuDAX7qag5oUXZFIPClKjPjlxp
+         ly8cVPCH0Cp5U086RNQcP6jOioiNfOR4p99a8FEL2hN3iy5qKWy0Zgbyim33YVDDrQ
+         /qGdifZtVgss0BFFcDYhsC2Blr+ZrYDH7zXPihfT1eeOpJZSHsKxTVwgG8wtRfAHoS
+         Ij28vs2WB3r/nyt+Fisu8vTIOE6fD1AMQ4wsotlJs1AhLopuFrNqG8FbluLbYQWEJ+
+         uT96h2QAFsYNg==
+X-Nifty-SrcIP: [153.142.97.92]
+From: Masahiro Yamada <yamada.masahiro@socionext.com>
+To: Jessica Yu <jeyu@kernel.org>
+Cc: Matthias Maennich <maennich@google.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Joel Fernandes <joel@joelfernandes.org>,
+        Martijn Coenen <maco@android.com>,
+        Will Deacon <will.deacon@arm.com>,
+        Masahiro Yamada <yamada.masahiro@socionext.com>,
+        Will Deacon <will@kernel.org>, linux-kernel@vger.kernel.org
+Subject: [PATCH 4/7] module: avoid code duplication in include/linux/export.h
+Date: Fri, 27 Sep 2019 18:36:00 +0900
+Message-Id: <20190927093603.9140-5-yamada.masahiro@socionext.com>
+X-Mailer: git-send-email 2.17.1
+In-Reply-To: <20190927093603.9140-1-yamada.masahiro@socionext.com>
+References: <20190927093603.9140-1-yamada.masahiro@socionext.com>
+Sender: linux-kernel-owner@vger.kernel.org
+Precedence: bulk
+List-ID: <linux-kernel.vger.kernel.org>
+X-Mailing-List: linux-kernel@vger.kernel.org
+
+include/linux/export.h has lots of code duplication between
+EXPORT_SYMBOL and EXPORT_SYMBOL_NS.
+
+To improve the maintainability and readability, unify the
+implementation.
+
+When the symbol has no namespace, pass the empty string "" to
+the 'ns' parameter.
+
+The drawback of this change is, it grows the code size.
+When the symbol has no namespace, sym->namespace was previously
+NULL, but it is now am empty string "". So, it increases 1 byte
+for every no namespace EXPORT_SYMBOL.
+
+A typical kernel configuration has 10K exported symbols, so it
+increases 10KB in rough estimation.
+
+I did not come up with a good idea to refactor it without increasing
+the code size.
+
+I am not sure how big a deal it is, but at least include/linux/export.h
+looks nicer.
+
+Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
+---
+
+ include/linux/export.h | 100 +++++++++++++----------------------------
+ kernel/module.c        |   2 +-
+ 2 files changed, 33 insertions(+), 69 deletions(-)
+
+diff --git a/include/linux/export.h b/include/linux/export.h
+index 621158ecd2e2..55245a405a2f 100644
+--- a/include/linux/export.h
++++ b/include/linux/export.h
+@@ -48,45 +48,28 @@ extern struct module __this_module;
+  * absolute relocations that require runtime processing on relocatable
+  * kernels.
+  */
+-#define __KSYMTAB_ENTRY_NS(sym, sec, ns)				\
++#define __KSYMTAB_ENTRY(sym, sec, ns)					\
+ 	__ADDRESSABLE(sym)						\
+ 	asm("	.section \"___ksymtab" sec "+" #sym "\", \"a\"	\n"	\
+ 	    "	.balign	4					\n"	\
+-	    "__ksymtab_" #ns NS_SEPARATOR #sym ":		\n"	\
++	    "__ksymtab_" ns NS_SEPARATOR #sym ":		\n"	\
+ 	    "	.long	" #sym "- .				\n"	\
+ 	    "	.long	__kstrtab_" #sym "- .			\n"	\
+ 	    "	.long	__kstrtabns_" #sym "- .			\n"	\
+ 	    "	.previous					\n")
+ 
+-#define __KSYMTAB_ENTRY(sym, sec)					\
+-	__ADDRESSABLE(sym)						\
+-	asm("	.section \"___ksymtab" sec "+" #sym "\", \"a\"	\n"	\
+-	    "	.balign 4					\n"	\
+-	    "__ksymtab_" #sym ":				\n"	\
+-	    "	.long	" #sym "- .				\n"	\
+-	    "	.long	__kstrtab_" #sym "- .			\n"	\
+-	    "	.long	0					\n"	\
+-	    "	.previous					\n")
+-
+ struct kernel_symbol {
+ 	int value_offset;
+ 	int name_offset;
+ 	int namespace_offset;
+ };
+ #else
+-#define __KSYMTAB_ENTRY_NS(sym, sec, ns)				\
+-	static const struct kernel_symbol __ksymtab_##sym##__##ns	\
+-	asm("__ksymtab_" #ns NS_SEPARATOR #sym)				\
+-	__attribute__((section("___ksymtab" sec "+" #sym), used))	\
+-	__aligned(sizeof(void *))					\
+-	= { (unsigned long)&sym, __kstrtab_##sym, __kstrtabns_##sym }
+-
+-#define __KSYMTAB_ENTRY(sym, sec)					\
++#define __KSYMTAB_ENTRY(sym, sec, ns)					\
+ 	static const struct kernel_symbol __ksymtab_##sym		\
+-	asm("__ksymtab_" #sym)						\
++	asm("__ksymtab_" ns NS_SEPARATOR #sym)				\
+ 	__attribute__((section("___ksymtab" sec "+" #sym), used))	\
+ 	__aligned(sizeof(void *))					\
+-	= { (unsigned long)&sym, __kstrtab_##sym, NULL }
++	= { (unsigned long)&sym, __kstrtab_##sym, __kstrtabns_##sym }
+ 
+ struct kernel_symbol {
+ 	unsigned long value;
+@@ -97,29 +80,21 @@ struct kernel_symbol {
+ 
+ #ifdef __GENKSYMS__
+ 
+-#define ___EXPORT_SYMBOL(sym,sec)	__GENKSYMS_EXPORT_SYMBOL(sym)
+-#define ___EXPORT_SYMBOL_NS(sym,sec,ns)	__GENKSYMS_EXPORT_SYMBOL(sym)
++#define ___EXPORT_SYMBOL(sym, sec, ns)	__GENKSYMS_EXPORT_SYMBOL(sym)
+ 
+ #else
+ 
+-#define ___export_symbol_common(sym, sec)				\
++/* For every exported symbol, place a struct in the __ksymtab section */
++#define ___EXPORT_SYMBOL(sym, sec, ns)				\
+ 	extern typeof(sym) sym;						\
+ 	__CRC_SYMBOL(sym, sec);						\
+ 	static const char __kstrtab_##sym[]				\
+ 	__attribute__((section("__ksymtab_strings"), used, aligned(1)))	\
+-	= #sym								\
+-
+-/* For every exported symbol, place a struct in the __ksymtab section */
+-#define ___EXPORT_SYMBOL_NS(sym, sec, ns)				\
+-	___export_symbol_common(sym, sec);				\
++	= #sym;								\
+ 	static const char __kstrtabns_##sym[]				\
+ 	__attribute__((section("__ksymtab_strings"), used, aligned(1)))	\
+-	= #ns;								\
+-	__KSYMTAB_ENTRY_NS(sym, sec, ns)
+-
+-#define ___EXPORT_SYMBOL(sym, sec)					\
+-	___export_symbol_common(sym, sec);				\
+-	__KSYMTAB_ENTRY(sym, sec)
++	= ns;								\
++	__KSYMTAB_ENTRY(sym, sec, ns)
+ 
+ #endif
+ 
+@@ -130,8 +105,7 @@ struct kernel_symbol {
+  * be reused in other execution contexts such as the UEFI stub or the
+  * decompressor.
+  */
+-#define __EXPORT_SYMBOL_NS(sym, sec, ns)
+-#define __EXPORT_SYMBOL(sym, sec)
++#define __EXPORT_SYMBOL(sym, sec, ns)
+ 
+ #elif defined(CONFIG_TRIM_UNUSED_KSYMS)
+ 
+@@ -147,48 +121,38 @@ struct kernel_symbol {
+ #define __ksym_marker(sym)	\
+ 	static int __ksym_marker_##sym[0] __section(".discard.ksym") __used
+ 
+-#define __EXPORT_SYMBOL(sym, sec)				\
++#define __EXPORT_SYMBOL(sym, sec, ns)				\
+ 	__ksym_marker(sym);					\
+-	__cond_export_sym(sym, sec, __is_defined(__KSYM_##sym))
+-#define __cond_export_sym(sym, sec, conf)			\
+-	___cond_export_sym(sym, sec, conf)
+-#define ___cond_export_sym(sym, sec, enabled)			\
+-	__cond_export_sym_##enabled(sym, sec)
+-#define __cond_export_sym_1(sym, sec) ___EXPORT_SYMBOL(sym, sec)
+-#define __cond_export_sym_0(sym, sec) /* nothing */
+-
+-#define __EXPORT_SYMBOL_NS(sym, sec, ns)				\
+-	__ksym_marker(sym);						\
+-	__cond_export_ns_sym(sym, sec, ns, __is_defined(__KSYM_##sym))
+-#define __cond_export_ns_sym(sym, sec, ns, conf)			\
+-	___cond_export_ns_sym(sym, sec, ns, conf)
+-#define ___cond_export_ns_sym(sym, sec, ns, enabled)			\
+-	__cond_export_ns_sym_##enabled(sym, sec, ns)
+-#define __cond_export_ns_sym_1(sym, sec, ns) ___EXPORT_SYMBOL_NS(sym, sec, ns)
+-#define __cond_export_ns_sym_0(sym, sec, ns) /* nothing */
++	__cond_export_sym(sym, sec, ns, __is_defined(__KSYM_##sym))
++#define __cond_export_sym(sym, sec, ns, conf)			\
++	___cond_export_sym(sym, sec, ns, conf)
++#define ___cond_export_sym(sym, sec, ns, enabled)		\
++	__cond_export_sym_##enabled(sym, sec, ns)
++#define __cond_export_sym_1(sym, sec, ns) ___EXPORT_SYMBOL(sym, sec, ns)
++#define __cond_export_sym_0(sym, sec, ns) /* nothing */
+ 
+ #else
+ 
+-#define __EXPORT_SYMBOL_NS(sym,sec,ns)	___EXPORT_SYMBOL_NS(sym,sec,ns)
+-#define __EXPORT_SYMBOL(sym,sec)	___EXPORT_SYMBOL(sym,sec)
++#define __EXPORT_SYMBOL(sym, sec, ns)	___EXPORT_SYMBOL(sym, sec, ns)
+ 
+ #endif /* CONFIG_MODULES */
+ 
+ #ifdef DEFAULT_SYMBOL_NAMESPACE
+-#undef __EXPORT_SYMBOL
+-#define __EXPORT_SYMBOL(sym, sec)				\
+-	__EXPORT_SYMBOL_NS(sym, sec, DEFAULT_SYMBOL_NAMESPACE)
++#include <linux/stringify.h>
++#define _EXPORT_SYMBOL(sym, sec)	__EXPORT_SYMBOL(sym, sec, __stringify(DEFAULT_SYMBOL_NAMESPACE))
++#else
++#define _EXPORT_SYMBOL(sym, sec)	__EXPORT_SYMBOL(sym, sec, "")
+ #endif
+ 
+-#define EXPORT_SYMBOL(sym)		__EXPORT_SYMBOL(sym, "")
+-#define EXPORT_SYMBOL_GPL(sym)		__EXPORT_SYMBOL(sym, "_gpl")
+-#define EXPORT_SYMBOL_GPL_FUTURE(sym)	__EXPORT_SYMBOL(sym, "_gpl_future")
+-#define EXPORT_SYMBOL_NS(sym, ns)	__EXPORT_SYMBOL_NS(sym, "", ns)
+-#define EXPORT_SYMBOL_NS_GPL(sym, ns)	__EXPORT_SYMBOL_NS(sym, "_gpl", ns)
++#define EXPORT_SYMBOL(sym)		_EXPORT_SYMBOL(sym, "")
++#define EXPORT_SYMBOL_GPL(sym)		_EXPORT_SYMBOL(sym, "_gpl")
++#define EXPORT_SYMBOL_GPL_FUTURE(sym)	_EXPORT_SYMBOL(sym, "_gpl_future")
++#define EXPORT_SYMBOL_NS(sym, ns)	__EXPORT_SYMBOL(sym, "", #ns)
++#define EXPORT_SYMBOL_NS_GPL(sym, ns)	__EXPORT_SYMBOL(sym, "_gpl", #ns)
+ 
+ #ifdef CONFIG_UNUSED_SYMBOLS
+-#define EXPORT_UNUSED_SYMBOL(sym)	__EXPORT_SYMBOL(sym, "_unused")
+-#define EXPORT_UNUSED_SYMBOL_GPL(sym)	__EXPORT_SYMBOL(sym, "_unused_gpl")
++#define EXPORT_UNUSED_SYMBOL(sym)	_EXPORT_SYMBOL(sym, "_unused")
++#define EXPORT_UNUSED_SYMBOL_GPL(sym)	_EXPORT_SYMBOL(sym, "_unused_gpl")
+ #else
+ #define EXPORT_UNUSED_SYMBOL(sym)
+ #define EXPORT_UNUSED_SYMBOL_GPL(sym)
+diff --git a/kernel/module.c b/kernel/module.c
+index 32873bcce738..73f69ff86db5 100644
+--- a/kernel/module.c
++++ b/kernel/module.c
+@@ -1399,7 +1399,7 @@ static int verify_namespace_is_imported(const struct load_info *info,
+ 	char *imported_namespace;
+ 
+ 	namespace = kernel_symbol_namespace(sym);
+-	if (namespace) {
++	if (namespace && namespace[0]) {
+ 		imported_namespace = get_modinfo(info, "import_ns");
+ 		while (imported_namespace) {
+ 			if (strcmp(namespace, imported_namespace) == 0)
+
+From patchwork Fri Sep 27 09:36:01 2019
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Masahiro Yamada <yamada.masahiro@socionext.com>
+X-Patchwork-Id: 1131971
+Return-Path: <SRS0=WTd2=XW=vger.kernel.org=linux-kernel-owner@kernel.org>
+Received: from mail.kernel.org (mail.kernel.org [198.145.29.99])
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 89BFFC32774
+	for <linux-kernel@archiver.kernel.org>; Fri, 27 Sep 2019 09:37:11 +0000 (UTC)
+Received: from vger.kernel.org (vger.kernel.org [209.132.180.67])
+	by mail.kernel.org (Postfix) with ESMTP id 5C04721848
+	for <linux-kernel@archiver.kernel.org>; Fri, 27 Sep 2019 09:37:11 +0000 (UTC)
+Authentication-Results: mail.kernel.org;
+	dkim=pass (2048-bit key) header.d=nifty.com header.i=@nifty.com
+ header.b="EM8WpQlH"
+Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
+        id S1726896AbfI0JhD (ORCPT
+        <rfc822;linux-kernel@archiver.kernel.org>);
+        Fri, 27 Sep 2019 05:37:03 -0400
+Received: from conuserg-07.nifty.com ([210.131.2.74]:33065 "EHLO
+        conuserg-07.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1726473AbfI0JhC (ORCPT
+        <rfc822;linux-kernel@vger.kernel.org>);
+        Fri, 27 Sep 2019 05:37:02 -0400
+Received: from localhost.localdomain (p14092-ipngnfx01kyoto.kyoto.ocn.ne.jp
+ [153.142.97.92]) (authenticated)
+        by conuserg-07.nifty.com with ESMTP id x8R9a5uf001372;
+        Fri, 27 Sep 2019 18:36:10 +0900
+DKIM-Filter: OpenDKIM Filter v2.10.3 conuserg-07.nifty.com x8R9a5uf001372
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=nifty.com;
+        s=dec2015msa; t=1569576971;
+        bh=PdteufK64PUrtistqDZxQfPkOhODuQM4/dZUBLfPgTA=;
+        h=From:To:Cc:Subject:Date:In-Reply-To:References:From;
+        b=EM8WpQlHl/RRg5lRspAhRnXuVP7NMRwN3vND8I4as8aaLPekCtI2sURqIXOQUzDqJ
+         TJHa0dr1aSxHTVohjmVKh7oax8Y6aHX6vl0frGNzHY2Kajqt1EupmVDFm5uVTT36nI
+         WTqmMnV47W4d6qBAKQZwm29A4ypO1YqbCZQRbrrvANW8PLu1Z4gsMkTGzAkFJ/v6aw
+         HY/TlIH66PvW6R/IEv69y/UWP17UXOHEpE7VWJKN4aqBCdnNEQwkFNCXzd0B4zz7VG
+         d5miMuXHwDAUjJBe6WWgZaWnkP07YEIXzgMDUvwQxkliu+OIVfQBRM26Bg370XpJOe
+         0pyYPUk423uwg==
+X-Nifty-SrcIP: [153.142.97.92]
+From: Masahiro Yamada <yamada.masahiro@socionext.com>
+To: Jessica Yu <jeyu@kernel.org>
+Cc: Matthias Maennich <maennich@google.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Joel Fernandes <joel@joelfernandes.org>,
+        Martijn Coenen <maco@android.com>,
+        Will Deacon <will.deacon@arm.com>,
+        Masahiro Yamada <yamada.masahiro@socionext.com>,
+        Michal Marek <michal.lkml@markovi.net>,
+        linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org
+Subject: [PATCH 5/7] kbuild: fix build error of 'make nsdeps' in clean tree
+Date: Fri, 27 Sep 2019 18:36:01 +0900
+Message-Id: <20190927093603.9140-6-yamada.masahiro@socionext.com>
+X-Mailer: git-send-email 2.17.1
+In-Reply-To: <20190927093603.9140-1-yamada.masahiro@socionext.com>
+References: <20190927093603.9140-1-yamada.masahiro@socionext.com>
+Sender: linux-kernel-owner@vger.kernel.org
+Precedence: bulk
+List-ID: <linux-kernel.vger.kernel.org>
+X-Mailing-List: linux-kernel@vger.kernel.org
+
+Running 'make nsdeps' in a clean source tree fails as follows:
+
+$ make -s clean; make -s defconfig; make nsdeps
+   [ snip ]
+awk: fatal: cannot open file `init/modules.order' for reading (No such file or directory)
+make: *** [Makefile;1307: modules.order] Error 2
+make: *** Deleting file 'modules.order'
+make: *** Waiting for unfinished jobs....
+
+The cause of the error is 'make nsdeps' does not build modules at all.
+Set KBUILD_MODULES to fix it.
+
+Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
+Reviewed-by: Matthias Maennich <maennich@google.com>
+---
+
+ Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Makefile b/Makefile
+index d456746da347..80ba8efd56bb 100644
+--- a/Makefile
++++ b/Makefile
+@@ -616,7 +616,7 @@ endif
+ # in addition to whatever we do anyway.
+ # Just "make" or "make all" shall build modules as well
+ 
+-ifneq ($(filter all _all modules,$(MAKECMDGOALS)),)
++ifneq ($(filter all _all modules nsdeps,$(MAKECMDGOALS)),)
+   KBUILD_MODULES := 1
+ endif
+ 
+
+From patchwork Fri Sep 27 09:36:02 2019
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Masahiro Yamada <yamada.masahiro@socionext.com>
+X-Patchwork-Id: 1131968
+Return-Path: <SRS0=WTd2=XW=vger.kernel.org=linux-kernel-owner@kernel.org>
+Received: from mail.kernel.org (mail.kernel.org [198.145.29.99])
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 25162C4360C
+	for <linux-kernel@archiver.kernel.org>; Fri, 27 Sep 2019 09:37:03 +0000 (UTC)
+Received: from vger.kernel.org (vger.kernel.org [209.132.180.67])
+	by mail.kernel.org (Postfix) with ESMTP id ECEED21848
+	for <linux-kernel@archiver.kernel.org>; Fri, 27 Sep 2019 09:37:02 +0000 (UTC)
+Authentication-Results: mail.kernel.org;
+	dkim=pass (2048-bit key) header.d=nifty.com header.i=@nifty.com
+ header.b="frbgdxeG"
+Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
+        id S1726730AbfI0JhC (ORCPT
+        <rfc822;linux-kernel@archiver.kernel.org>);
+        Fri, 27 Sep 2019 05:37:02 -0400
+Received: from conuserg-07.nifty.com ([210.131.2.74]:33054 "EHLO
+        conuserg-07.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1726385AbfI0JhB (ORCPT
+        <rfc822;linux-kernel@vger.kernel.org>);
+        Fri, 27 Sep 2019 05:37:01 -0400
+Received: from localhost.localdomain (p14092-ipngnfx01kyoto.kyoto.ocn.ne.jp
+ [153.142.97.92]) (authenticated)
+        by conuserg-07.nifty.com with ESMTP id x8R9a5ug001372;
+        Fri, 27 Sep 2019 18:36:12 +0900
+DKIM-Filter: OpenDKIM Filter v2.10.3 conuserg-07.nifty.com x8R9a5ug001372
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=nifty.com;
+        s=dec2015msa; t=1569576972;
+        bh=UQ6bH4/qZBZ6u3bYLv57zfd3f4RxEgvS4K1+jdI01bE=;
+        h=From:To:Cc:Subject:Date:In-Reply-To:References:From;
+        b=frbgdxeGGQj1AAOjEhqLFlCDcjeLt7cStOzPH2l82NztyjA71sxo14Zi/bXCzvh4P
+         9kwGdlzThgqbZ5CzsQdWDHGtrdB9yVtVpy5U1E7UswRYGVcjPc0tI+RKVhIb6drVlP
+         ytCFvoZbIb64pCdDTruU+ag/LDUV+50pjhDetlTWyp8DFje/JNuoquAbcFNwlWw2GC
+         wiGq7O8KYRo0/d/OJBomxqPpMxuswzr450Tbaau6QB7nrV6HzL4rkxGg0xrB/NddBz
+         +gXUFIRw3MPzkk2lypyO98bt6neq0ofHuGCZqKUpFvH9K9bOSqQF+kDIgy6RdYXUfy
+         ELHedr+p7EVNQ==
+X-Nifty-SrcIP: [153.142.97.92]
+From: Masahiro Yamada <yamada.masahiro@socionext.com>
+To: Jessica Yu <jeyu@kernel.org>
+Cc: Matthias Maennich <maennich@google.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Joel Fernandes <joel@joelfernandes.org>,
+        Martijn Coenen <maco@android.com>,
+        Will Deacon <will.deacon@arm.com>,
+        Masahiro Yamada <yamada.masahiro@socionext.com>,
+        linux-kernel@vger.kernel.org
+Subject: [PATCH 6/7] nsdeps: fix hashbang of scripts/nsdeps
+Date: Fri, 27 Sep 2019 18:36:02 +0900
+Message-Id: <20190927093603.9140-7-yamada.masahiro@socionext.com>
+X-Mailer: git-send-email 2.17.1
+In-Reply-To: <20190927093603.9140-1-yamada.masahiro@socionext.com>
+References: <20190927093603.9140-1-yamada.masahiro@socionext.com>
+Sender: linux-kernel-owner@vger.kernel.org
+Precedence: bulk
+List-ID: <linux-kernel.vger.kernel.org>
+X-Mailing-List: linux-kernel@vger.kernel.org
+
+This script does not use bash-extension. I am guessing this hashbang
+was copied from scripts/coccicheck, which really uses bash-extension.
+
+/bin/sh is enough for this script.
+
+Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
+Reviewed-by: Matthias Maennich <maennich@google.com>
+---
+
+ scripts/nsdeps | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/scripts/nsdeps b/scripts/nsdeps
+index ac2b6031dd13..964b7fb8c546 100644
+--- a/scripts/nsdeps
++++ b/scripts/nsdeps
+@@ -1,4 +1,4 @@
+-#!/bin/bash
++#!/bin/sh
+ # SPDX-License-Identifier: GPL-2.0
+ # Linux kernel symbol namespace import generator
+ #
+
+From patchwork Fri Sep 27 09:36:03 2019
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Masahiro Yamada <yamada.masahiro@socionext.com>
+X-Patchwork-Id: 1131973
+Return-Path: <SRS0=WTd2=XW=vger.kernel.org=linux-kernel-owner@kernel.org>
+Received: from mail.kernel.org (mail.kernel.org [198.145.29.99])
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 18E37C4360C
+	for <linux-kernel@archiver.kernel.org>; Fri, 27 Sep 2019 09:37:20 +0000 (UTC)
+Received: from vger.kernel.org (vger.kernel.org [209.132.180.67])
+	by mail.kernel.org (Postfix) with ESMTP id E582321906
+	for <linux-kernel@archiver.kernel.org>; Fri, 27 Sep 2019 09:37:19 +0000 (UTC)
+Authentication-Results: mail.kernel.org;
+	dkim=pass (2048-bit key) header.d=nifty.com header.i=@nifty.com
+ header.b="uoWzyLR7"
+Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
+        id S1727135AbfI0JhT (ORCPT
+        <rfc822;linux-kernel@archiver.kernel.org>);
+        Fri, 27 Sep 2019 05:37:19 -0400
+Received: from conuserg-07.nifty.com ([210.131.2.74]:33055 "EHLO
+        conuserg-07.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1726423AbfI0JhC (ORCPT
+        <rfc822;linux-kernel@vger.kernel.org>);
+        Fri, 27 Sep 2019 05:37:02 -0400
+Received: from localhost.localdomain (p14092-ipngnfx01kyoto.kyoto.ocn.ne.jp
+ [153.142.97.92]) (authenticated)
+        by conuserg-07.nifty.com with ESMTP id x8R9a5uh001372;
+        Fri, 27 Sep 2019 18:36:13 +0900
+DKIM-Filter: OpenDKIM Filter v2.10.3 conuserg-07.nifty.com x8R9a5uh001372
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=nifty.com;
+        s=dec2015msa; t=1569576973;
+        bh=8Z1yZcx7lt82yK82hKDWaRuslS2lyBCS5/OQGziEcvs=;
+        h=From:To:Cc:Subject:Date:In-Reply-To:References:From;
+        b=uoWzyLR7WPO97Yw+7t2zQ6Bn+mWJ4wLoAivcRWkOp71OIQ4a7nclOHfnfEZcMfLq2
+         gsfADMWqfz6bC+Epby+QMFO9UMLLAPmaOoQiOYb4pN843ldf5QrkWkPYAZ6B4KFLrT
+         EHjvPttNsdP+0/CAKOdTvY3Xf4STusL1CBVtA2fcq1OK8Cg9yfWAdPAWeW/HbjcZ5n
+         OtN0uNov4PROdyIluCGO1s+S4YLwJN+stI+hpC18A8xDmwkxfwzvczxj5ajXXyzHRu
+         AYi7QmobHJr+rFXav0f1osZ59d0aD+l8SF0fF46Q3Cp3f7aXef+eMDSH6iHp7z5uGT
+         ekA/bWw/6OMew==
+X-Nifty-SrcIP: [153.142.97.92]
+From: Masahiro Yamada <yamada.masahiro@socionext.com>
+To: Jessica Yu <jeyu@kernel.org>
+Cc: Matthias Maennich <maennich@google.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Joel Fernandes <joel@joelfernandes.org>,
+        Martijn Coenen <maco@android.com>,
+        Will Deacon <will.deacon@arm.com>,
+        Masahiro Yamada <yamada.masahiro@socionext.com>,
+        linux-kernel@vger.kernel.org
+Subject: [PATCH 7/7] nsdeps: make generated patches independent of locale
+Date: Fri, 27 Sep 2019 18:36:03 +0900
+Message-Id: <20190927093603.9140-8-yamada.masahiro@socionext.com>
+X-Mailer: git-send-email 2.17.1
+In-Reply-To: <20190927093603.9140-1-yamada.masahiro@socionext.com>
+References: <20190927093603.9140-1-yamada.masahiro@socionext.com>
+Sender: linux-kernel-owner@vger.kernel.org
+Precedence: bulk
+List-ID: <linux-kernel.vger.kernel.org>
+X-Mailing-List: linux-kernel@vger.kernel.org
+
+scripts/nsdeps automatically generates a patch to add MODULE_IMPORT_NS
+tags, and what is nicer, it sorts the lines alphabetically with the
+"sort" command. However, the output from the "sort" command depends
+on locale.
+
+Especially when namespaces contain underscores, the result is
+different depending on the locale.
+
+For example, I got this:
+
+$ { echo usbcommon; echo usb_common; } | LANG=en_US.UTF-8 sort
+usbcommon
+usb_common
+$ { echo usbcommon; echo usb_common; } | LANG=C sort
+usb_common
+usbcommon
+
+So, this means people might potentially send different patches.
+
+This kind of issue was reported in the past, for example,
+commit f55f2328bb28 ("kbuild: make sorting initramfs contents
+independent of locale").
+
+Adding "LANG=C" is a conventional way of fixing when a deterministic
+result is desirable.
+
+Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
+Reviewed-by: Matthias Maennich <maennich@google.com>
+---
+
+ scripts/nsdeps | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/scripts/nsdeps b/scripts/nsdeps
+index 964b7fb8c546..3754dac13b31 100644
+--- a/scripts/nsdeps
++++ b/scripts/nsdeps
+@@ -41,7 +41,7 @@ generate_deps() {
+ 		for source_file in $mod_source_files; do
+ 			sed '/MODULE_IMPORT_NS/Q' $source_file > ${source_file}.tmp
+ 			offset=$(wc -l ${source_file}.tmp | awk '{print $1;}')
+-			cat $source_file | grep MODULE_IMPORT_NS | sort -u >> ${source_file}.tmp
++			cat $source_file | grep MODULE_IMPORT_NS | LANG=C sort -u >> ${source_file}.tmp
+ 			tail -n +$((offset +1)) ${source_file} | grep -v MODULE_IMPORT_NS >> ${source_file}.tmp
+ 			if ! diff -q ${source_file} ${source_file}.tmp; then
+ 				mv ${source_file}.tmp ${source_file}
