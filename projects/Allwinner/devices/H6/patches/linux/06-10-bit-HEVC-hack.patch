@@ -1,20 +1,20 @@
-From d117460aed81ee5cd384045a1189c9de758d17c6 Mon Sep 17 00:00:00 2001
+From 60808cc1810d47f91c368de8ffb7db59cabceaf9 Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@siol.net>
 Date: Tue, 28 May 2019 21:05:34 +0200
 Subject: [PATCH] 10-bit HEVC hack
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
 ---
- drivers/staging/media/sunxi/cedrus/cedrus_h265.c  | 12 ++++++++++++
- drivers/staging/media/sunxi/cedrus/cedrus_regs.h  |  4 ++++
- drivers/staging/media/sunxi/cedrus/cedrus_video.c | 13 +++++++++++--
- 3 files changed, 27 insertions(+), 2 deletions(-)
+ .../staging/media/sunxi/cedrus/cedrus_h265.c  | 12 +++++++++++
+ .../staging/media/sunxi/cedrus/cedrus_regs.h  |  4 ++++
+ .../staging/media/sunxi/cedrus/cedrus_video.c | 20 ++++++++++++++-----
+ 3 files changed, 31 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_h265.c b/drivers/staging/media/sunxi/cedrus/cedrus_h265.c
-index 8bbbe69ae51f..04ba7d60ebcd 100644
+index 97dce6ffbbc5..d866662cd5a5 100644
 --- a/drivers/staging/media/sunxi/cedrus/cedrus_h265.c
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus_h265.c
-@@ -453,6 +453,18 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
+@@ -520,6 +520,18 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
  
  	cedrus_write(dev, VE_DEC_H265_DEC_PCM_CTRL, reg);
  
@@ -30,14 +30,14 @@ index 8bbbe69ae51f..04ba7d60ebcd 100644
 +		cedrus_write(dev, VE_DEC_H265_10BIT_CONFIGURE, ALIGN(reg, 32));
 +	}
 +
+ 	/* PPS. */
+ 
  	reg = VE_DEC_H265_DEC_PPS_CTRL0_PPS_CR_QP_OFFSET(pps->pps_cr_qp_offset) |
- 	      VE_DEC_H265_DEC_PPS_CTRL0_PPS_CB_QP_OFFSET(pps->pps_cb_qp_offset) |
- 	      VE_DEC_H265_DEC_PPS_CTRL0_INIT_QP_MINUS26(pps->init_qp_minus26) |
 diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_regs.h b/drivers/staging/media/sunxi/cedrus/cedrus_regs.h
-index d1f010ae49ef..dd69031a2779 100644
+index df1cceef8d93..150eae2d92d2 100644
 --- a/drivers/staging/media/sunxi/cedrus/cedrus_regs.h
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus_regs.h
-@@ -505,6 +505,10 @@
+@@ -498,6 +498,10 @@
  
  #define VE_DEC_H265_LOW_ADDR			(VE_ENGINE_DEC_H265 + 0x80)
  
@@ -46,25 +46,25 @@ index d1f010ae49ef..dd69031a2779 100644
 +#define VE_DEC_H265_10BIT_CONFIGURE		(VE_ENGINE_DEC_H265 + 0x8c)
 +
  #define VE_DEC_H265_LOW_ADDR_PRIMARY_CHROMA(a) \
- 	(((a) << 24) & GENMASK(31, 24))
+ 	SHIFT_AND_MASK_BITS(a, 31, 24)
  #define VE_DEC_H265_LOW_ADDR_SECONDARY_CHROMA(a) \
 diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_video.c b/drivers/staging/media/sunxi/cedrus/cedrus_video.c
-index d27a9e82ff91..2c2288319c9d 100644
+index 497b1199d3fe..178ad45b79d8 100644
 --- a/drivers/staging/media/sunxi/cedrus/cedrus_video.c
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus_video.c
-@@ -372,6 +372,7 @@ static int cedrus_queue_setup(struct vb2_queue *vq, unsigned int *nbufs,
+@@ -367,17 +367,27 @@ static int cedrus_queue_setup(struct vb2_queue *vq, unsigned int *nbufs,
+ {
  	struct cedrus_ctx *ctx = vb2_get_drv_priv(vq);
- 	struct cedrus_dev *dev = ctx->dev;
  	struct v4l2_pix_format *pix_fmt;
 +	unsigned int extra_size = 0;
- 	u32 directions;
  
- 	if (V4L2_TYPE_IS_OUTPUT(vq->type)) {
-@@ -380,6 +381,14 @@ static int cedrus_queue_setup(struct vb2_queue *vq, unsigned int *nbufs,
- 	} else {
- 		directions = CEDRUS_DECODE_DST;
+-	if (V4L2_TYPE_IS_OUTPUT(vq->type))
++	if (V4L2_TYPE_IS_OUTPUT(vq->type)) {
+ 		pix_fmt = &ctx->src_fmt;
+-	else
++	} else {
  		pix_fmt = &ctx->dst_fmt;
-+
+ 
 +		/* The HEVC decoder needs extra size on the output buffer. */
 +		if (ctx->src_fmt.pixelformat == V4L2_PIX_FMT_HEVC_SLICE) {
 +			extra_size = DIV_ROUND_UP(pix_fmt->width, 4);
@@ -72,20 +72,19 @@ index d27a9e82ff91..2c2288319c9d 100644
 +			extra_size *= ALIGN(pix_fmt->height, 16) * 3;
 +			extra_size /= 2;
 +		}
- 	}
- 
- 	if (!cedrus_check_format(pix_fmt->pixelformat, directions,
-@@ -387,8 +396,8 @@ static int cedrus_queue_setup(struct vb2_queue *vq, unsigned int *nbufs,
- 		return -EINVAL;
- 
++	}
++
  	if (*nplanes) {
 -		if (sizes[0] < pix_fmt->sizeimage)
 -			return -EINVAL;
 +		if (sizes[0] < (pix_fmt->sizeimage + extra_size))
 +			sizes[0] = pix_fmt->sizeimage + extra_size;
  	} else {
- 		sizes[0] = pix_fmt->sizeimage;
+-		sizes[0] = pix_fmt->sizeimage;
++		sizes[0] = pix_fmt->sizeimage + extra_size;
  		*nplanes = 1;
+ 	}
+ 
 -- 
-2.21.0
+2.23.0
 

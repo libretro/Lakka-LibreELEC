@@ -1,7 +1,7 @@
-From 389f6557715439d5fa974f0cc55e1fa68735ec61 Mon Sep 17 00:00:00 2001
+From fb59440a268d956bffa40604e4422420453b4605 Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@siol.net>
 Date: Sat, 15 Dec 2018 22:32:16 +0100
-Subject: [PATCH] Add V4L2 request API h264 hwaccel
+Subject: [PATCH 04/12] Add V4L2 request API h264 hwaccel
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
 Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
@@ -11,8 +11,8 @@ Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
  libavcodec/h264_slice.c        |   4 +
  libavcodec/h264dec.c           |   3 +
  libavcodec/hwaccels.h          |   1 +
- libavcodec/v4l2_request_h264.c | 420 +++++++++++++++++++++++++++++++++
- 6 files changed, 432 insertions(+)
+ libavcodec/v4l2_request_h264.c | 443 +++++++++++++++++++++++++++++++++
+ 6 files changed, 455 insertions(+)
  create mode 100644 libavcodec/v4l2_request_h264.c
 
 diff --git a/configure b/configure
@@ -98,10 +98,10 @@ index ef54de2a3b..003200edea 100644
  extern const AVHWAccel ff_h264_videotoolbox_hwaccel;
 diff --git a/libavcodec/v4l2_request_h264.c b/libavcodec/v4l2_request_h264.c
 new file mode 100644
-index 0000000000..fb9913922d
+index 0000000000..81b3c4b092
 --- /dev/null
 +++ b/libavcodec/v4l2_request_h264.c
-@@ -0,0 +1,420 @@
+@@ -0,0 +1,443 @@
 +/*
 + * This file is part of FFmpeg.
 + *
@@ -130,6 +130,7 @@ index 0000000000..fb9913922d
 +    struct v4l2_ctrl_h264_scaling_matrix scaling_matrix;
 +    struct v4l2_ctrl_h264_decode_params decode_params;
 +    struct v4l2_ctrl_h264_slice_params slice_params[16];
++    int first_slice;
 +} V4L2RequestControlsH264;
 +
 +typedef struct V4L2RequestContextH264 {
@@ -297,13 +298,22 @@ index 0000000000..fb9913922d
 +{
 +    const H264Context *h = avctx->priv_data;
 +    const PPS *pps = h->ps.pps;
++    const SPS *sps = h->ps.sps;
 +    V4L2RequestControlsH264 *controls = h->cur_pic_ptr->hwaccel_picture_private;
 +
 +    fill_sps(&controls->sps, h);
 +    fill_pps(&controls->pps, h);
 +
 +    memcpy(controls->scaling_matrix.scaling_list_4x4, pps->scaling_matrix4, sizeof(controls->scaling_matrix.scaling_list_4x4));
-+    memcpy(controls->scaling_matrix.scaling_list_8x8, pps->scaling_matrix8, sizeof(controls->scaling_matrix.scaling_list_8x8));
++    memcpy(controls->scaling_matrix.scaling_list_8x8[0], pps->scaling_matrix8[0], sizeof(controls->scaling_matrix.scaling_list_8x8[0]));
++    memcpy(controls->scaling_matrix.scaling_list_8x8[1], pps->scaling_matrix8[3], sizeof(controls->scaling_matrix.scaling_list_8x8[1]));
++
++    if (sps->chroma_format_idc == 3) {
++        memcpy(controls->scaling_matrix.scaling_list_8x8[2], pps->scaling_matrix8[1], sizeof(controls->scaling_matrix.scaling_list_8x8[2]));
++        memcpy(controls->scaling_matrix.scaling_list_8x8[3], pps->scaling_matrix8[4], sizeof(controls->scaling_matrix.scaling_list_8x8[3]));
++        memcpy(controls->scaling_matrix.scaling_list_8x8[4], pps->scaling_matrix8[2], sizeof(controls->scaling_matrix.scaling_list_8x8[4]));
++        memcpy(controls->scaling_matrix.scaling_list_8x8[5], pps->scaling_matrix8[5], sizeof(controls->scaling_matrix.scaling_list_8x8[5]));
++    }
 +
 +    controls->decode_params = (struct v4l2_ctrl_h264_decode_params) {
 +        .num_slices = 0,
@@ -317,13 +327,16 @@ index 0000000000..fb9913922d
 +
 +    fill_dpb(&controls->decode_params, h);
 +
++    controls->first_slice = !FIELD_PICTURE(h) || h->first_field;
++
 +    return ff_v4l2_request_reset_frame(avctx, h->cur_pic_ptr->f);
 +}
 +
-+static int v4l2_request_h264_end_frame(AVCodecContext *avctx)
++static int v4l2_request_h264_queue_decode(AVCodecContext *avctx, int last_slice)
 +{
 +    const H264Context *h = avctx->priv_data;
 +    V4L2RequestControlsH264 *controls = h->cur_pic_ptr->hwaccel_picture_private;
++    V4L2RequestContextH264 *ctx = avctx->internal->hwaccel_priv_data;
 +
 +    struct v4l2_ext_control control[] = {
 +        {
@@ -353,6 +366,9 @@ index 0000000000..fb9913922d
 +        },
 +    };
 +
++    if (ctx->decode_mode == V4L2_MPEG_VIDEO_H264_DECODE_MODE_SLICE_BASED)
++        return ff_v4l2_request_decode_slice(avctx, h->cur_pic_ptr->f, control, FF_ARRAY_ELEMS(control), controls->first_slice, last_slice);
++
 +    return ff_v4l2_request_decode_frame(avctx, h->cur_pic_ptr->f, control, FF_ARRAY_ELEMS(control));
 +}
 +
@@ -367,12 +383,13 @@ index 0000000000..fb9913922d
 +    int i, ret, count, slice = FFMIN(controls->decode_params.num_slices, 15);
 +
 +    if (ctx->decode_mode == V4L2_MPEG_VIDEO_H264_DECODE_MODE_SLICE_BASED && slice) {
-+        ret = v4l2_request_h264_end_frame(avctx);
++        ret = v4l2_request_h264_queue_decode(avctx, 0);
 +        if (ret)
 +            return ret;
 +
 +        ff_v4l2_request_reset_frame(avctx, h->cur_pic_ptr->f);
 +        slice = controls->decode_params.num_slices = 0;
++        controls->first_slice = 0;
 +    }
 +
 +    controls->slice_params[slice] = (struct v4l2_ctrl_h264_slice_params) {
@@ -446,6 +463,12 @@ index 0000000000..fb9913922d
 +    controls->slice_params[slice].size = req->output.used - controls->slice_params[slice].start_byte_offset;
 +    controls->decode_params.num_slices++;
 +    return 0;
++}
++
++static int v4l2_request_h264_end_frame(AVCodecContext *avctx)
++{
++    const H264Context *h = avctx->priv_data;
++    return v4l2_request_h264_queue_decode(avctx, !FIELD_PICTURE(h) || !h->first_field);
 +}
 +
 +static int v4l2_request_h264_set_controls(AVCodecContext *avctx)
@@ -522,3 +545,6 @@ index 0000000000..fb9913922d
 +    .frame_params   = ff_v4l2_request_frame_params,
 +    .caps_internal  = HWACCEL_CAP_ASYNC_SAFE,
 +};
+-- 
+2.24.0
+
