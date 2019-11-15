@@ -1,4 +1,4 @@
-FROM ubuntu:bionic
+FROM ubuntu:eoan
 
 ARG DEBIAN_FRONTEND=noninteractive
 

@@ -1,15 +1,18 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv
-
-from __future__ import print_function
 
 import re
 import os
 import requests
 import sys
-from lxml import html
+
+try:
+  from lxml import html
+except:
+  print('lxml module not installed.\n\nOn Ubuntu, use "sudo apt install python3-lxml"')
+  sys.exit(1)
 
 category = {
              1: 'Nvidia Geforce GPUs',
