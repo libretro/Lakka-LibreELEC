@@ -154,6 +154,7 @@ Full list of overwrittable functions.
 | make_\[stage]<br>pre_make_\[stage]<br>post_make_\[stage] | yes | Build of the package |
 | makeinstall_\[stage]<br>pre_makeinstall_\[stage]<br>post_makeinstall_\[stage] | yes | Installation of the files in the correct pathes<br>host: TOOLCHAIN<br>target: SYSROOT and IMAGE<br>bootstrap and init: temporary destination
 | addon                   | -      | Copy all files together for addon creation. This is requiered for addons |
+| post_install_addon      | -      | Post processing of installed addon files in `${INSTALL}` directory |
 
 ## Late Binding variable assignment
 
