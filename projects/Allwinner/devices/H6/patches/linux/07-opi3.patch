@@ -610,3 +610,62 @@ index eb379cd402ac..d3e30a67587c 100644
  &uart0 {
  	pinctrl-names = "default";
  	pinctrl-0 = <&uart0_ph_pins>;
+
+
+From: Andre Heider <a.heider@gmail.com>
+Date: Tue, 19 Nov 2019 09:35:10 +0100
+Subject: [PATCH 2/2] WIP: Bluetooth: Accept
+ HCI_QUIRK_INVALID_BDADDR|HCI_QUIRK_USE_BDADDR_PROPERTY
+
+Don't bail out if the former is set (in case of bcm: default controller
+address), but an address was supplied because of the latter.
+---
+ net/bluetooth/hci_core.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
+index 04bc79359a17..7bc384be89f8 100644
+--- a/net/bluetooth/hci_core.c
++++ b/net/bluetooth/hci_core.c
+@@ -1470,7 +1470,8 @@ static int hci_dev_do_open(struct hci_dev *hdev)
+ 		 * start up as unconfigured.
+ 		 */
+ 		if (test_bit(HCI_QUIRK_EXTERNAL_CONFIG, &hdev->quirks) ||
+-		    test_bit(HCI_QUIRK_INVALID_BDADDR, &hdev->quirks))
++		    (test_bit(HCI_QUIRK_INVALID_BDADDR, &hdev->quirks) &&
++		     !test_bit(HCI_QUIRK_USE_BDADDR_PROPERTY, &hdev->quirks)))
+ 			hci_dev_set_flag(hdev, HCI_UNCONFIGURED);
+ 
+ 		/* For an unconfigured controller it is required to
+-- 
+2.24.0
+
+
+From: Andre Heider <a.heider@gmail.com>
+Date: Sun, 17 Nov 2019 20:31:17 +0100
+Subject: [PATCH 1/2] bluetooth: bcm: Use HCI_QUIRK_USE_BDADDR_PROPERTY
+
+Some devices ship with the controller default address, like the
+Orange Pi 3 (BCM4345C5).
+
+Allow the bootloader to set a valid address through the device tree.
+
+Signed-off-by: Andre Heider <a.heider@gmail.com>
+---
+ drivers/bluetooth/btbcm.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/bluetooth/btbcm.c b/drivers/bluetooth/btbcm.c
+index 2d2e6d862068..9d16162d01ea 100644
+--- a/drivers/bluetooth/btbcm.c
++++ b/drivers/bluetooth/btbcm.c
+@@ -439,6 +439,7 @@ int btbcm_finalize(struct hci_dev *hdev)
+ 	btbcm_check_bdaddr(hdev);
+ 
+ 	set_bit(HCI_QUIRK_STRICT_DUPLICATE_FILTER, &hdev->quirks);
++	set_bit(HCI_QUIRK_USE_BDADDR_PROPERTY, &hdev->quirks);
+ 
+ 	return 0;
+ }
+-- 
+2.24.0
