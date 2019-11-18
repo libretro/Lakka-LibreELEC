@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audioencoder.lame"
-PKG_VERSION="2.0.2-Leia"
-PKG_SHA256="cdbceeb3de7b0c7ed1d4f5fd416e371fbf395ad08d79c7096e6af8ee1f1a769d"
+PKG_VERSION="2.0.3-Leia"
+PKG_SHA256="c9c0e700012e2763eb6d9ffcc80ccd87faf991e5cf58b30cabd51b435fd48614"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

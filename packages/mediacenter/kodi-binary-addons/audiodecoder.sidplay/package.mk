@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.sidplay"
-PKG_VERSION="1.2.0-Leia"
-PKG_SHA256="45dee2b2bcbe04cdeabb79d66a445949caa3d96a44b527d30710b262f3ea7189"
+PKG_VERSION="1.2.1-Leia"
+PKG_SHA256="0dbff020e1988261680f2329fb6a29a034fede467885158ee63bae7e763d8e87"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
