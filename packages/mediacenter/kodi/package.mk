@@ -48,7 +48,7 @@ configure_package() {
 
   if [ "$DISPLAYSERVER" = "x11" ]; then
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libX11 libXext libdrm libXrandr"
-    KODI_XORG="-DCORE_PLATFORM_NAME=x11"
+    KODI_XORG="-DCORE_PLATFORM_NAME=x11 -DX11_RENDER_SYSTEM=gl"
   elif [ "$DISPLAYSERVER" = "weston" ]; then
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET wayland waylandpp"
     CFLAGS="$CFLAGS -DMESA_EGL_NO_X11_HEADERS"
