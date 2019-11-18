@@ -18,29 +18,31 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="core-info"
-PKG_VERSION="aae46d3"
+PKG_NAME="vitaquake2"
+PKG_VERSION="ea11305"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/libretro/libretro-super"
+PKG_LICENSE="GPLv2"
+PKG_SITE="https://github.com/libretro/vitaquake2"
 PKG_GIT_URL="$PKG_SITE"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="Info files for libretro cores"
-PKG_LONGDESC="Super repo for other libretro projects. Fetches, builds and installs."
+PKG_SHORTDESC="Quake II port for PSVITA."
+PKG_LONGDESC="Quake II port for PSVITA."
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  :
+  if [ "$OPENGL_SUPPORT" = yes ]; then
+    make HAVE_OPENGL=1
+  else
+    make HAVE_OPENGL=0
+  fi
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp dist/info/*.info $INSTALL/usr/lib/libretro/
-  cp $PKG_DIR/files/*.info $INSTALL/usr/lib/libretro/
+  cp vitaquake2_libretro.so $INSTALL/usr/lib/libretro/
 }
-
