@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ffmpegx"
-PKG_VERSION="4.1.4"
-PKG_SHA256="f1f049a82fcfbf156564e73a3935d7e750891fab2abf302e735104fd4050a7e1"
+PKG_VERSION="4.2.1"
+PKG_SHA256="cec7c87e9b60d174509e263ac4011b522385fd0775292e1670ecc1180c9bb6d4"
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://ffmpeg.org"
 PKG_URL="https://ffmpeg.org/releases/ffmpeg-$PKG_VERSION.tar.xz"
@@ -66,14 +66,14 @@ pre_configure_target() {
   if [[ "$TARGET_ARCH" = "x86_64" ]]; then
     PKG_FFMPEG_HW_ENCODERS_GENERIC="\
     `#Video encoders` \
-    --enable-encoder=h264_nvenc \
     --enable-encoder=h264_vaapi \
-    --enable-encoder=hevc_nvenc \
     --enable-encoder=hevc_vaapi \
     --enable-encoder=mjpeg_vaapi \
     --enable-encoder=mpeg2_vaapi \
     --enable-encoder=vp8_vaapi \
     --enable-encoder=vp9_vaapi \
+    --disable-encoder=h264_nvenc \
+    --disable-encoder=hevc_nvenc \
     \
     `#Video hwaccel` \
     --enable-hwaccel=h263_vaapi \
