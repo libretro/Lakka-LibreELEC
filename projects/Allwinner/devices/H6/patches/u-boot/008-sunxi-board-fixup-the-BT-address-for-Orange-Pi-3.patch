@@ -1,0 +1,60 @@
+From c7e886b9f2a39fe2ce98a16c6e7359171bac8c65 Mon Sep 17 00:00:00 2001
+From: Andre Heider <a.heider@gmail.com>
+Date: Sun, 17 Nov 2019 20:24:43 +0100
+Subject: [PATCH] sunxi: board: fixup the BT address for Orange Pi 3
+
+The BCM4345C5 of the Orange Pi 3 ships with the controller default
+address. Fix it up so it can function properly.
+
+The used address is "ethaddr" with the LSB flipped.
+
+Signed-off-by: Andre Heider <a.heider@gmail.com>
+---
+ board/sunxi/board.c | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+
+diff --git a/board/sunxi/board.c b/board/sunxi/board.c
+index e3b2d13892..a0e08dc9b8 100644
+--- a/board/sunxi/board.c
++++ b/board/sunxi/board.c
+@@ -864,6 +864,28 @@ int misc_init_r(void)
+ 	return 0;
+ }
+ 
++static void fixup_bdaddr(void *blob)
++{
++#if defined(CONFIG_MACH_SUN50I_H6)
++	uchar mac[ETH_ALEN], bdaddr[ETH_ALEN];
++	int i;
++
++	if (!of_machine_is_compatible("xunlong,orangepi-3"))
++		return;
++
++	if (!eth_env_get_enetaddr("ethaddr", mac))
++		return;
++
++	for (i = 0; i < sizeof(mac); ++i)
++		bdaddr[i] = mac[ETH_ALEN - i - 1];
++
++	bdaddr[0] ^= 0x01;
++
++	do_fixup_by_compat(blob, "brcm,bcm4345c5",
++			   "local-bd-address", bdaddr, ETH_ALEN, 1);
++#endif
++}
++
+ int ft_board_setup(void *blob, bd_t *bd)
+ {
+ 	int __maybe_unused r;
+@@ -874,6 +896,8 @@ int ft_board_setup(void *blob, bd_t *bd)
+ 	 */
+ 	setup_environment(blob);
+ 
++	fixup_bdaddr(blob);
++
+ #ifdef CONFIG_VIDEO_DT_SIMPLEFB
+ 	r = sunxi_simplefb_setup(blob);
+ 	if (r)
+-- 
+2.24.0
+
