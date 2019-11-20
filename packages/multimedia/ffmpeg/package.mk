@@ -66,7 +66,9 @@ fi
 if [ "${KODIPLAYER_DRIVER}" = "bcm2835-driver" ]; then
   PKG_DEPENDS_TARGET+=" bcm2835-driver"
   PKG_NEED_UNPACK+=" $(get_pkg_directory bcm2835-driver)"
-  PKG_PATCH_DIRS+=" rpi-hevc"
+  if [ "${KODI_VENDOR}" = "raspberrypi" ]; then
+    PKG_PATCH_DIRS+=" rpi-hevc"
+  fi
 fi
 
 if target_has_feature neon; then
@@ -91,7 +93,9 @@ pre_configure_target() {
 
   if [ "${KODIPLAYER_DRIVER}" = "bcm2835-driver" ]; then
     PKG_FFMPEG_LIBS="-lbcm_host -lvcos -lvchiq_arm -lmmal -lmmal_core -lmmal_util -lvcsm"
-    PKG_FFMPEG_RPI="--enable-rpi"
+    if [ "${KODI_VENDOR}" = "raspberrypi" ]; then
+      PKG_FFMPEG_RPI="--enable-rpi"
+    fi
   fi
 }
 
