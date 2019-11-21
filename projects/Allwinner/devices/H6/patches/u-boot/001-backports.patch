@@ -1,0 +1,1391 @@
+From 506a6889998b34598209e0b9838a606d10aec642 Mon Sep 17 00:00:00 2001
+From: Andre Heider <a.heider@gmail.com>
+Date: Tue, 26 Nov 2019 12:38:46 +0100
+Subject: [PATCH 1/4] sunxi: board: extract creating a unique sid into a helper
+ function
+
+Refactor setup_environment() so we can use the created sid for a
+Bluetooth address too.
+
+Signed-off-by: Andre Heider <a.heider@gmail.com>
+Acked-by: Maxime Ripard <mripard@kernel.org>
+---
+ board/sunxi/board.c | 105 ++++++++++++++++++++++++--------------------
+ 1 file changed, 58 insertions(+), 47 deletions(-)
+
+diff --git a/board/sunxi/board.c b/board/sunxi/board.c
+index 6afea6ef42..e670793479 100644
+--- a/board/sunxi/board.c
++++ b/board/sunxi/board.c
+@@ -770,6 +770,38 @@ static void parse_spl_header(const uint32_t spl_addr)
+ 	env_set_hex("fel_scriptaddr", spl->fel_script_address);
+ }
+ 
++static bool get_unique_sid(unsigned int *sid)
++{
++	if (sunxi_get_sid(sid) != 0)
++		return false;
++
++	if (!sid[0])
++		return false;
++
++	/*
++	 * The single words 1 - 3 of the SID have quite a few bits
++	 * which are the same on many models, so we take a crc32
++	 * of all 3 words, to get a more unique value.
++	 *
++	 * Note we only do this on newer SoCs as we cannot change
++	 * the algorithm on older SoCs since those have been using
++	 * fixed mac-addresses based on only using word 3 for a
++	 * long time and changing a fixed mac-address with an
++	 * u-boot update is not good.
++	 */
++#if !defined(CONFIG_MACH_SUN4I) && !defined(CONFIG_MACH_SUN5I) && \
++    !defined(CONFIG_MACH_SUN6I) && !defined(CONFIG_MACH_SUN7I) && \
++    !defined(CONFIG_MACH_SUN8I_A23) && !defined(CONFIG_MACH_SUN8I_A33)
++	sid[3] = crc32(0, (unsigned char *)&sid[1], 12);
++#endif
++
++	/* Ensure the NIC specific bytes of the mac are not all 0 */
++	if ((sid[3] & 0xffffff) == 0)
++		sid[3] |= 0x800000;
++
++	return true;
++}
++
+ /*
+  * Note this function gets called multiple times.
+  * It must not make any changes to env variables which already exist.
+@@ -780,61 +812,40 @@ static void setup_environment(const void *fdt)
+ 	unsigned int sid[4];
+ 	uint8_t mac_addr[6];
+ 	char ethaddr[16];
+-	int i, ret;
++	int i;
+ 
+-	ret = sunxi_get_sid(sid);
+-	if (ret == 0 && sid[0] != 0) {
+-		/*
+-		 * The single words 1 - 3 of the SID have quite a few bits
+-		 * which are the same on many models, so we take a crc32
+-		 * of all 3 words, to get a more unique value.
+-		 *
+-		 * Note we only do this on newer SoCs as we cannot change
+-		 * the algorithm on older SoCs since those have been using
+-		 * fixed mac-addresses based on only using word 3 for a
+-		 * long time and changing a fixed mac-address with an
+-		 * u-boot update is not good.
+-		 */
+-#if !defined(CONFIG_MACH_SUN4I) && !defined(CONFIG_MACH_SUN5I) && \
+-    !defined(CONFIG_MACH_SUN6I) && !defined(CONFIG_MACH_SUN7I) && \
+-    !defined(CONFIG_MACH_SUN8I_A23) && !defined(CONFIG_MACH_SUN8I_A33)
+-		sid[3] = crc32(0, (unsigned char *)&sid[1], 12);
+-#endif
+-
+-		/* Ensure the NIC specific bytes of the mac are not all 0 */
+-		if ((sid[3] & 0xffffff) == 0)
+-			sid[3] |= 0x800000;
++	if (!get_unique_sid(sid))
++		return;
+ 
+-		for (i = 0; i < 4; i++) {
+-			sprintf(ethaddr, "ethernet%d", i);
+-			if (!fdt_get_alias(fdt, ethaddr))
+-				continue;
++	for (i = 0; i < 4; i++) {
++		sprintf(ethaddr, "ethernet%d", i);
++		if (!fdt_get_alias(fdt, ethaddr))
++			continue;
+ 
+-			if (i == 0)
+-				strcpy(ethaddr, "ethaddr");
+-			else
+-				sprintf(ethaddr, "eth%daddr", i);
++		if (i == 0)
++			strcpy(ethaddr, "ethaddr");
++		else
++			sprintf(ethaddr, "eth%daddr", i);
+ 
+-			if (env_get(ethaddr))
+-				continue;
++		if (env_get(ethaddr))
++			continue;
+ 
+-			/* Non OUI / registered MAC address */
+-			mac_addr[0] = (i << 4) | 0x02;
+-			mac_addr[1] = (sid[0] >>  0) & 0xff;
+-			mac_addr[2] = (sid[3] >> 24) & 0xff;
+-			mac_addr[3] = (sid[3] >> 16) & 0xff;
+-			mac_addr[4] = (sid[3] >>  8) & 0xff;
+-			mac_addr[5] = (sid[3] >>  0) & 0xff;
++		/* Non OUI / registered MAC address */
++		mac_addr[0] = (i << 4) | 0x02;
++		mac_addr[1] = (sid[0] >>  0) & 0xff;
++		mac_addr[2] = (sid[3] >> 24) & 0xff;
++		mac_addr[3] = (sid[3] >> 16) & 0xff;
++		mac_addr[4] = (sid[3] >>  8) & 0xff;
++		mac_addr[5] = (sid[3] >>  0) & 0xff;
+ 
+-			eth_env_set_enetaddr(ethaddr, mac_addr);
+-		}
++		eth_env_set_enetaddr(ethaddr, mac_addr);
++	}
+ 
+-		if (!env_get("serial#")) {
+-			snprintf(serial_string, sizeof(serial_string),
+-				"%08x%08x", sid[0], sid[3]);
++	if (!env_get("serial#")) {
++		snprintf(serial_string, sizeof(serial_string),
++			"%08x%08x", sid[0], sid[3]);
+ 
+-			env_set("serial#", serial_string);
+-		}
++		env_set("serial#", serial_string);
+ 	}
+ }
+ 
+-- 
+2.24.1
+
+From b032ba7c92543040f11670fe17132d9a2a8a46b5 Mon Sep 17 00:00:00 2001
+From: Andre Heider <a.heider@gmail.com>
+Date: Sun, 17 Nov 2019 20:24:43 +0100
+Subject: [PATCH 2/4] arm: sunxi: add a config option to fixup a Bluetooth
+ address
+
+Some Bluetooth controllers, like the BCM4345C5 of the Orange Pi 3,
+ship with the controller default address.
+
+Add a config option to fix it up so it can function properly.
+
+Signed-off-by: Andre Heider <a.heider@gmail.com>
+Tested-by: Ondrej Jirman <megous@megous.com>
+Acked-by: Maxime Ripard <mripard@kernel.org>
+---
+ arch/arm/mach-sunxi/Kconfig | 11 +++++++++++
+ board/sunxi/board.c         | 34 ++++++++++++++++++++++++++++++++++
+ 2 files changed, 45 insertions(+)
+
+diff --git a/arch/arm/mach-sunxi/Kconfig b/arch/arm/mach-sunxi/Kconfig
+index 3a3b673430..4c6977e8fb 100644
+--- a/arch/arm/mach-sunxi/Kconfig
++++ b/arch/arm/mach-sunxi/Kconfig
+@@ -1010,4 +1010,15 @@ config PINE64_DT_SELECTION
+ 	  option, the device tree selection code specific to Pine64 which
+ 	  utilizes the DRAM size will be enabled.
+ 
++config FIXUP_BDADDR
++	string "Fixup the Bluetooth controller address"
++	default ""
++	help
++	  This option specifies the DT compatible name of the Bluetooth
++	  controller for which to set the "local-bd-address" property.
++	  Set this option if your device ships with the Bluetooth controller
++	  default address.
++	  The used address is "bdaddr" if set, and "ethaddr" with the LSB
++	  flipped elsewise.
++
+ endif
+diff --git a/board/sunxi/board.c b/board/sunxi/board.c
+index e670793479..c05682a331 100644
+--- a/board/sunxi/board.c
++++ b/board/sunxi/board.c
+@@ -878,6 +878,38 @@ int misc_init_r(void)
+ 	return 0;
+ }
+ 
++static void fixup_bd_address(void *blob)
++{
++	/* Some devices ship with a Bluetooth controller default address.
++	 * Set a valid address through the device tree.
++	 */
++	uchar tmp[ETH_ALEN], bdaddr[ETH_ALEN];
++	unsigned int sid[4];
++	int i;
++
++	if (!CONFIG_FIXUP_BDADDR[0])
++		return;
++
++	if (eth_env_get_enetaddr("bdaddr", tmp)) {
++		/* Convert between the binary formats of the corresponding stacks */
++		for (i = 0; i < ETH_ALEN; ++i)
++			bdaddr[i] = tmp[ETH_ALEN - i - 1];
++	} else {
++		if (!get_unique_sid(sid))
++			return;
++
++		bdaddr[0] = ((sid[3] >>  0) & 0xff) ^ 1;
++		bdaddr[1] = (sid[3] >>  8) & 0xff;
++		bdaddr[2] = (sid[3] >> 16) & 0xff;
++		bdaddr[3] = (sid[3] >> 24) & 0xff;
++		bdaddr[4] = (sid[0] >>  0) & 0xff;
++		bdaddr[5] = 0x02;
++	}
++
++	do_fixup_by_compat(blob, CONFIG_FIXUP_BDADDR,
++			   "local-bd-address", bdaddr, ETH_ALEN, 1);
++}
++
+ int ft_board_setup(void *blob, bd_t *bd)
+ {
+ 	int __maybe_unused r;
+@@ -888,6 +920,8 @@ int ft_board_setup(void *blob, bd_t *bd)
+ 	 */
+ 	setup_environment(blob);
+ 
++	fixup_bd_address(blob);
++
+ #ifdef CONFIG_VIDEO_DT_SIMPLEFB
+ 	r = sunxi_simplefb_setup(blob);
+ 	if (r)
+-- 
+2.24.1
+
+From 66d40d7dd5fa29aa592590a3b820ebe656707c5d Mon Sep 17 00:00:00 2001
+From: Andre Heider <a.heider@gmail.com>
+Date: Mon, 18 Nov 2019 10:52:52 +0100
+Subject: [PATCH 3/4] arm64: dts: sync Allwinner H6 files
+
+Taken from the linux-next commit:
+98d25b0b266d Merge branch 'sunxi/dt-for-5.6' into sunxi/for-next
+
+Drop the /omit-if-no-ref/ keyword as it's not supported by u-boot.
+
+Signed-off-by: Andre Heider <a.heider@gmail.com>
+Acked-by: Maxime Ripard <mripard@kernel.org>
+---
+ arch/arm/dts/sun50i-h6-beelink-gs1.dts       |  48 +++-
+ arch/arm/dts/sun50i-h6-orangepi-lite2.dts    |   6 +-
+ arch/arm/dts/sun50i-h6-orangepi-one-plus.dts |   8 +-
+ arch/arm/dts/sun50i-h6-orangepi.dtsi         |  18 +-
+ arch/arm/dts/sun50i-h6-pine-h64.dts          |  33 ++-
+ arch/arm/dts/sun50i-h6.dtsi                  | 262 +++++++++++++++++--
+ 6 files changed, 328 insertions(+), 47 deletions(-)
+
+diff --git a/arch/arm/dts/sun50i-h6-beelink-gs1.dts b/arch/arm/dts/sun50i-h6-beelink-gs1.dts
+index 0dc33c90dd..df6d872c34 100644
+--- a/arch/arm/dts/sun50i-h6-beelink-gs1.dts
++++ b/arch/arm/dts/sun50i-h6-beelink-gs1.dts
+@@ -1,7 +1,5 @@
+-// SPDX-License-Identifier: (GPL-2.0+ or MIT)
+-/*
+- * Copyright (C) 2019 Clément Péron <peron.clem@gmail.com>
+- */
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++// Copyright (C) 2019 Clément Péron <peron.clem@gmail.com>
+ 
+ /dts-v1/;
+ 
+@@ -25,6 +23,7 @@
+ 	connector {
+ 		compatible = "hdmi-connector";
+ 		type = "a";
++		ddc-en-gpios = <&pio 7 2 GPIO_ACTIVE_HIGH>; /* PH2 */
+ 
+ 		port {
+ 			hdmi_con_in: endpoint {
+@@ -51,12 +50,34 @@
+ 		regulator-max-microvolt = <5000000>;
+ 		regulator-always-on;
+ 	};
++
++	sound-spdif {
++		compatible = "simple-audio-card";
++		simple-audio-card,name = "sun50i-h6-spdif";
++
++		simple-audio-card,cpu {
++			sound-dai = <&spdif>;
++		};
++
++		simple-audio-card,codec {
++			sound-dai = <&spdif_out>;
++		};
++	};
++
++	spdif_out: spdif-out {
++		#sound-dai-cells = <0>;
++		compatible = "linux,spdif-dit";
++	};
+ };
+ 
+ &de {
+ 	status = "okay";
+ };
+ 
++&dwc3 {
++	status = "okay";
++};
++
+ &ehci0 {
+ 	status = "okay";
+ };
+@@ -70,6 +91,11 @@
+ 	status = "okay";
+ };
+ 
++&gpu {
++	mali-supply = <&reg_dcdcc>;
++	status = "okay";
++};
++
+ &hdmi {
+ 	status = "okay";
+ };
+@@ -206,6 +232,7 @@
+ 			};
+ 
+ 			reg_dcdcc: dcdcc {
++				regulator-enable-ramp-delay = <32000>;
+ 				regulator-min-microvolt = <810000>;
+ 				regulator-max-microvolt = <1080000>;
+ 				regulator-name = "vdd-gpu";
+@@ -232,6 +259,11 @@
+ 	};
+ };
+ 
++&r_ir {
++	linux,rc-map-name = "rc-beelink-gs1";
++	status = "okay";
++};
++
+ &r_pio {
+ 	/*
+ 	 * PL0 and PL1 are used for PMIC I2C
+@@ -243,6 +275,10 @@
+ 	vcc-pm-supply = <&reg_aldo1>;
+ };
+ 
++&spdif {
++	status = "okay";
++};
++
+ &uart0 {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&uart0_ph_pins>;
+@@ -258,3 +294,7 @@
+ 	usb0_vbus-supply = <&reg_vcc5v>;
+ 	status = "okay";
+ };
++
++&usb3phy {
++	status = "okay";
++};
+diff --git a/arch/arm/dts/sun50i-h6-orangepi-lite2.dts b/arch/arm/dts/sun50i-h6-orangepi-lite2.dts
+index e098a2475f..e7ca75c0d0 100644
+--- a/arch/arm/dts/sun50i-h6-orangepi-lite2.dts
++++ b/arch/arm/dts/sun50i-h6-orangepi-lite2.dts
+@@ -1,7 +1,5 @@
+-// SPDX-License-Identifier: (GPL-2.0+ or MIT)
+-/*
+- * Copyright (C) 2018 Jagan Teki <jagan@openedev.com>
+- */
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++// Copyright (C) 2018 Jagan Teki <jagan@openedev.com>
+ 
+ #include "sun50i-h6-orangepi.dtsi"
+ 
+diff --git a/arch/arm/dts/sun50i-h6-orangepi-one-plus.dts b/arch/arm/dts/sun50i-h6-orangepi-one-plus.dts
+index 12e17567ab..83aab73688 100644
+--- a/arch/arm/dts/sun50i-h6-orangepi-one-plus.dts
++++ b/arch/arm/dts/sun50i-h6-orangepi-one-plus.dts
+@@ -1,8 +1,6 @@
+-// SPDX-License-Identifier: (GPL-2.0+ or MIT)
+-/*
+- * Copyright (C) 2018 Amarula Solutions
+- * Author: Jagan Teki <jagan@amarulasolutions.com>
+- */
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++// Copyright (C) 2018 Amarula Solutions
++// Author: Jagan Teki <jagan@amarulasolutions.com>
+ 
+ #include "sun50i-h6-orangepi.dtsi"
+ 
+diff --git a/arch/arm/dts/sun50i-h6-orangepi.dtsi b/arch/arm/dts/sun50i-h6-orangepi.dtsi
+index 62e27948a3..37f4c57597 100644
+--- a/arch/arm/dts/sun50i-h6-orangepi.dtsi
++++ b/arch/arm/dts/sun50i-h6-orangepi.dtsi
+@@ -1,8 +1,6 @@
+-// SPDX-License-Identifier: (GPL-2.0+ or MIT)
+-/*
+- * Copyright (C) 2018 Amarula Solutions
+- * Author: Jagan Teki <jagan@amarulasolutions.com>
+- */
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++// Copyright (C) 2018 Amarula Solutions
++// Author: Jagan Teki <jagan@amarulasolutions.com>
+ 
+ /dts-v1/;
+ 
+@@ -55,6 +53,11 @@
+ 	status = "okay";
+ };
+ 
++&gpu {
++	mali-supply = <&reg_dcdcc>;
++	status = "okay";
++};
++
+ &mmc0 {
+ 	vmmc-supply = <&reg_cldo1>;
+ 	cd-gpios = <&pio 5 6 GPIO_ACTIVE_LOW>;
+@@ -163,6 +166,7 @@
+ 			};
+ 
+ 			reg_dcdcc: dcdcc {
++				regulator-enable-ramp-delay = <32000>;
+ 				regulator-min-microvolt = <810000>;
+ 				regulator-max-microvolt = <1080000>;
+ 				regulator-name = "vdd-gpu";
+@@ -189,6 +193,10 @@
+ 	};
+ };
+ 
++&r_ir {
++	status = "okay";
++};
++
+ &uart0 {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&uart0_ph_pins>;
+diff --git a/arch/arm/dts/sun50i-h6-pine-h64.dts b/arch/arm/dts/sun50i-h6-pine-h64.dts
+index 1898345183..d1c2aa5b3a 100644
+--- a/arch/arm/dts/sun50i-h6-pine-h64.dts
++++ b/arch/arm/dts/sun50i-h6-pine-h64.dts
+@@ -1,7 +1,5 @@
+-// SPDX-License-Identifier: (GPL-2.0+ or MIT)
+-/*
+- * Copyright (c) 2017 Icenowy Zheng <icenowy@aosc.io>
+- */
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++// Copyright (c) 2017 Icenowy Zheng <icenowy@aosc.io>
+ 
+ /dts-v1/;
+ 
+@@ -10,7 +8,7 @@
+ #include <dt-bindings/gpio/gpio.h>
+ 
+ / {
+-	model = "Pine H64";
++	model = "Pine H64 model A";
+ 	compatible = "pine64,pine-h64", "allwinner,sun50i-h6";
+ 
+ 	aliases {
+@@ -22,9 +20,10 @@
+ 		stdout-path = "serial0:115200n8";
+ 	};
+ 
+-	connector {
++	hdmi_connector: connector {
+ 		compatible = "hdmi-connector";
+ 		type = "a";
++		ddc-en-gpios = <&pio 7 2 GPIO_ACTIVE_HIGH>; /* PH2 */
+ 
+ 		port {
+ 			hdmi_con_in: endpoint {
+@@ -52,6 +51,16 @@
+ 		};
+ 	};
+ 
++	reg_gmac_3v3: gmac-3v3 {
++		compatible = "regulator-fixed";
++		regulator-name = "vcc-gmac-3v3";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		startup-delay-us = <100000>;
++		gpio = <&pio 2 16 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++	};
++
+ 	reg_usb_vbus: vbus {
+ 		compatible = "regulator-fixed";
+ 		regulator-name = "usb-vbus";
+@@ -68,7 +77,7 @@
+ 	pinctrl-0 = <&ext_rgmii_pins>;
+ 	phy-mode = "rgmii";
+ 	phy-handle = <&ext_rgmii_phy>;
+-	phy-supply = <&reg_aldo2>;
++	phy-supply = <&reg_gmac_3v3>;
+ 	allwinner,rx-delay-ps = <200>;
+ 	allwinner,tx-delay-ps = <200>;
+ 	status = "okay";
+@@ -85,6 +94,11 @@
+ 	status = "okay";
+ };
+ 
++&gpu {
++	mali-supply = <&reg_dcdcc>;
++	status = "okay";
++};
++
+ &hdmi {
+ 	status = "okay";
+ };
+@@ -221,6 +235,7 @@
+ 			};
+ 
+ 			reg_dcdcc: dcdcc {
++				regulator-enable-ramp-delay = <32000>;
+ 				regulator-min-microvolt = <810000>;
+ 				regulator-max-microvolt = <1080000>;
+ 				regulator-name = "vdd-gpu";
+@@ -255,6 +270,10 @@
+ 	};
+ };
+ 
++&r_ir {
++	status = "okay";
++};
++
+ &r_pio {
+ 	vcc-pm-supply = <&reg_aldo1>;
+ };
+diff --git a/arch/arm/dts/sun50i-h6.dtsi b/arch/arm/dts/sun50i-h6.dtsi
+index a117f479ae..148bf0107b 100644
+--- a/arch/arm/dts/sun50i-h6.dtsi
++++ b/arch/arm/dts/sun50i-h6.dtsi
+@@ -1,7 +1,5 @@
+-// SPDX-License-Identifier: (GPL-2.0+ or MIT)
+-/*
+- * Copyright (C) 2017 Icenowy Zheng <icenowy@aosc.io>
+- */
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++// Copyright (C) 2017 Icenowy Zheng <icenowy@aosc.io>
+ 
+ #include <dt-bindings/interrupt-controller/arm-gic.h>
+ #include <dt-bindings/clock/sun50i-h6-ccu.h>
+@@ -11,6 +9,7 @@
+ #include <dt-bindings/reset/sun50i-h6-ccu.h>
+ #include <dt-bindings/reset/sun50i-h6-r-ccu.h>
+ #include <dt-bindings/reset/sun8i-de2.h>
++#include <dt-bindings/thermal/thermal.h>
+ 
+ / {
+ 	interrupt-parent = <&gic>;
+@@ -56,14 +55,6 @@
+ 		status = "disabled";
+ 	};
+ 
+-	iosc: internal-osc-clk {
+-		#clock-cells = <0>;
+-		compatible = "fixed-clock";
+-		clock-frequency = <16000000>;
+-		clock-accuracy = <300000000>;
+-		clock-output-names = "iosc";
+-	};
+-
+ 	osc24M: osc24M_clk {
+ 		#clock-cells = <0>;
+ 		compatible = "fixed-clock";
+@@ -71,11 +62,21 @@
+ 		clock-output-names = "osc24M";
+ 	};
+ 
+-	osc32k: osc32k_clk {
++	ext_osc32k: ext_osc32k_clk {
+ 		#clock-cells = <0>;
+ 		compatible = "fixed-clock";
+ 		clock-frequency = <32768>;
+-		clock-output-names = "osc32k";
++		clock-output-names = "ext_osc32k";
++	};
++
++	pmu {
++		compatible = "arm,cortex-a53-pmu",
++			     "arm,armv8-pmuv3";
++		interrupts = <GIC_SPI 140 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 141 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 142 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 143 IRQ_TYPE_LEVEL_HIGH>;
++		interrupt-affinity = <&cpu0>, <&cpu1>, <&cpu2>, <&cpu3>;
+ 	};
+ 
+ 	psci {
+@@ -157,6 +158,29 @@
+ 			allwinner,sram = <&ve_sram 1>;
+ 		};
+ 
++		gpu: gpu@1800000 {
++			compatible = "allwinner,sun50i-h6-mali",
++				     "arm,mali-t720";
++			reg = <0x01800000 0x4000>;
++			interrupts = <GIC_SPI 84 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>;
++			interrupt-names = "job", "mmu", "gpu";
++			clocks = <&ccu CLK_GPU>, <&ccu CLK_BUS_GPU>;
++			clock-names = "core", "bus";
++			resets = <&ccu RST_BUS_GPU>;
++			status = "disabled";
++		};
++
++		crypto: crypto@1904000 {
++			compatible = "allwinner,sun50i-h6-crypto";
++			reg = <0x01904000 0x1000>;
++			interrupts = <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_CE>, <&ccu CLK_CE>, <&ccu CLK_MBUS_CE>;
++			clock-names = "bus", "mod", "ram";
++			resets = <&ccu RST_BUS_CE>;
++		};
++
+ 		syscon: syscon@3000000 {
+ 			compatible = "allwinner,sun50i-h6-system-control",
+ 				     "allwinner,sun50i-a64-system-control";
+@@ -197,7 +221,7 @@
+ 		ccu: clock@3001000 {
+ 			compatible = "allwinner,sun50i-h6-ccu";
+ 			reg = <0x03001000 0x1000>;
+-			clocks = <&osc24M>, <&osc32k>, <&iosc>;
++			clocks = <&osc24M>, <&rtc 0>, <&rtc 2>;
+ 			clock-names = "hosc", "losc", "iosc";
+ 			#clock-cells = <1>;
+ 			#reset-cells = <1>;
+@@ -215,9 +239,15 @@
+ 			#dma-cells = <1>;
+ 		};
+ 
+-		sid: sid@3006000 {
++		sid: efuse@3006000 {
+ 			compatible = "allwinner,sun50i-h6-sid";
+ 			reg = <0x03006000 0x400>;
++			#address-cells = <1>;
++			#size-cells = <1>;
++
++			ths_calibration: thermal-sensor-calibration@14 {
++				reg = <0x14 0x8>;
++			};
+ 		};
+ 
+ 		watchdog: watchdog@30090a0 {
+@@ -225,10 +255,21 @@
+ 				     "allwinner,sun6i-a31-wdt";
+ 			reg = <0x030090a0 0x20>;
+ 			interrupts = <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&osc24M>;
+ 			/* Broken on some H6 boards */
+ 			status = "disabled";
+ 		};
+ 
++		pwm: pwm@300a000 {
++			compatible = "allwinner,sun50i-h6-pwm";
++			reg = <0x0300a000 0x400>;
++			clocks = <&osc24M>, <&ccu CLK_BUS_PWM>;
++			clock-names = "mod", "bus";
++			resets = <&ccu RST_BUS_PWM>;
++			#pwm-cells = <3>;
++			status = "disabled";
++		};
++
+ 		pio: pinctrl@300b000 {
+ 			compatible = "allwinner,sun50i-h6-pinctrl";
+ 			reg = <0x0300b000 0x400>;
+@@ -236,7 +277,7 @@
+ 				     <GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH>,
+ 				     <GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>,
+ 				     <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>;
+-			clocks = <&ccu CLK_APB1>, <&osc24M>, <&osc32k>;
++			clocks = <&ccu CLK_APB1>, <&osc24M>, <&rtc 0>;
+ 			clock-names = "apb", "hosc", "losc";
+ 			gpio-controller;
+ 			#gpio-cells = <3>;
+@@ -256,6 +297,21 @@
+ 				function = "hdmi";
+ 			};
+ 
++			i2c0_pins: i2c0-pins {
++				pins = "PD25", "PD26";
++				function = "i2c0";
++			};
++
++			i2c1_pins: i2c1-pins {
++				pins = "PH5", "PH6";
++				function = "i2c1";
++			};
++
++			i2c2_pins: i2c2-pins {
++				pins = "PD23", "PD24";
++				function = "i2c2";
++			};
++
+ 			mmc0_pins: mmc0-pins {
+ 				pins = "PF0", "PF1", "PF2", "PF3",
+ 				       "PF4", "PF5";
+@@ -285,10 +341,25 @@
+ 				bias-pull-up;
+ 			};
+ 
++			spdif_tx_pin: spdif-tx-pin {
++				pins = "PH7";
++				function = "spdif";
++			};
++
+ 			uart0_ph_pins: uart0-ph-pins {
+ 				pins = "PH0", "PH1";
+ 				function = "uart0";
+ 			};
++
++			uart1_pins: uart1-pins {
++				pins = "PG6", "PG7";
++				function = "uart1";
++			};
++
++			uart1_rts_cts_pins: uart1-rts-cts-pins {
++				pins = "PG8", "PG9";
++				function = "uart1";
++			};
+ 		};
+ 
+ 		gic: interrupt-controller@3021000 {
+@@ -394,6 +465,48 @@
+ 			status = "disabled";
+ 		};
+ 
++		i2c0: i2c@5002000 {
++			compatible = "allwinner,sun50i-h6-i2c",
++				     "allwinner,sun6i-a31-i2c";
++			reg = <0x05002000 0x400>;
++			interrupts = <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_I2C0>;
++			resets = <&ccu RST_BUS_I2C0>;
++			pinctrl-names = "default";
++			pinctrl-0 = <&i2c0_pins>;
++			status = "disabled";
++			#address-cells = <1>;
++			#size-cells = <0>;
++		};
++
++		i2c1: i2c@5002400 {
++			compatible = "allwinner,sun50i-h6-i2c",
++				     "allwinner,sun6i-a31-i2c";
++			reg = <0x05002400 0x400>;
++			interrupts = <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_I2C1>;
++			resets = <&ccu RST_BUS_I2C1>;
++			pinctrl-names = "default";
++			pinctrl-0 = <&i2c1_pins>;
++			status = "disabled";
++			#address-cells = <1>;
++			#size-cells = <0>;
++		};
++
++		i2c2: i2c@5002800 {
++			compatible = "allwinner,sun50i-h6-i2c",
++				     "allwinner,sun6i-a31-i2c";
++			reg = <0x05002800 0x400>;
++			interrupts = <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_I2C2>;
++			resets = <&ccu RST_BUS_I2C2>;
++			pinctrl-names = "default";
++			pinctrl-0 = <&i2c2_pins>;
++			status = "disabled";
++			#address-cells = <1>;
++			#size-cells = <0>;
++		};
++
+ 		emac: ethernet@5020000 {
+ 			compatible = "allwinner,sun50i-h6-emac",
+ 				     "allwinner,sun50i-a64-emac";
+@@ -414,6 +527,21 @@
+ 			};
+ 		};
+ 
++		spdif: spdif@5093000 {
++			#sound-dai-cells = <0>;
++			compatible = "allwinner,sun50i-h6-spdif";
++			reg = <0x05093000 0x400>;
++			interrupts = <GIC_SPI 21 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_SPDIF>, <&ccu CLK_SPDIF>;
++			clock-names = "apb", "spdif";
++			resets = <&ccu RST_BUS_SPDIF>;
++			dmas = <&dma 2>;
++			dma-names = "tx";
++			pinctrl-names = "default";
++			pinctrl-0 = <&spdif_tx_pin>;
++			status = "disabled";
++		};
++
+ 		usb2otg: usb@5100000 {
+ 			compatible = "allwinner,sun50i-h6-musb",
+ 				     "allwinner,sun8i-a33-musb";
+@@ -470,6 +598,38 @@
+ 			status = "disabled";
+ 		};
+ 
++		dwc3: dwc3@5200000 {
++			compatible = "snps,dwc3";
++			reg = <0x05200000 0x10000>;
++			interrupts = <GIC_SPI 26 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_XHCI>,
++				 <&ccu CLK_BUS_XHCI>,
++				 <&rtc 0>;
++			clock-names = "ref", "bus_early", "suspend";
++			resets = <&ccu RST_BUS_XHCI>;
++			/*
++			 * The datasheet of the chip doesn't declare the
++			 * peripheral function, and there's no boards known
++			 * to have a USB Type-B port routed to the port.
++			 * In addition, no one has tested the peripheral
++			 * function yet.
++			 * So set the dr_mode to "host" in the DTSI file.
++			 */
++			dr_mode = "host";
++			phys = <&usb3phy>;
++			phy-names = "usb3-phy";
++			status = "disabled";
++		};
++
++		usb3phy: phy@5210000 {
++			compatible = "allwinner,sun50i-h6-usb3-phy";
++			reg = <0x5210000 0x10000>;
++			clocks = <&ccu CLK_USB_PHY1>;
++			resets = <&ccu RST_USB_PHY1>;
++			#phy-cells = <0>;
++			status = "disabled";
++		};
++
+ 		ehci3: usb@5311000 {
+ 			compatible = "allwinner,sun50i-h6-ehci", "generic-ehci";
+ 			reg = <0x05311000 0x100>;
+@@ -480,6 +640,7 @@
+ 			resets = <&ccu RST_BUS_OHCI3>,
+ 				 <&ccu RST_BUS_EHCI3>;
+ 			phys = <&usb2phy 3>;
++			phy-names = "usb";
+ 			status = "disabled";
+ 		};
+ 
+@@ -491,6 +652,7 @@
+ 				 <&ccu CLK_USB_OHCI3>;
+ 			resets = <&ccu RST_BUS_OHCI3>;
+ 			phys = <&usb2phy 3>;
++			phy-names = "usb";
+ 			status = "disabled";
+ 		};
+ 
+@@ -507,7 +669,7 @@
+ 			resets = <&ccu RST_BUS_HDMI_SUB>, <&ccu RST_BUS_HDCP>;
+ 			reset-names = "ctrl", "hdcp";
+ 			phys = <&hdmi_phy>;
+-			phy-names = "hdmi-phy";
++			phy-names = "phy";
+ 			pinctrl-names = "default";
+ 			pinctrl-0 = <&hdmi_pins>;
+ 			status = "disabled";
+@@ -549,7 +711,6 @@
+ 				      "tcon-tv0";
+ 			clock-output-names = "tcon-top-tv0";
+ 			resets = <&ccu RST_BUS_TCON_TOP>;
+-			reset-names = "rst";
+ 			#clock-cells = <1>;
+ 
+ 			ports {
+@@ -636,10 +797,20 @@
+ 			};
+ 		};
+ 
++		rtc: rtc@7000000 {
++			compatible = "allwinner,sun50i-h6-rtc";
++			reg = <0x07000000 0x400>;
++			interrupts = <GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>;
++			clock-output-names = "osc32k", "osc32k-out", "iosc";
++			clocks = <&ext_osc32k>;
++			#clock-cells = <1>;
++		};
++
+ 		r_ccu: clock@7010000 {
+ 			compatible = "allwinner,sun50i-h6-r-ccu";
+ 			reg = <0x07010000 0x400>;
+-			clocks = <&osc24M>, <&osc32k>, <&iosc>,
++			clocks = <&osc24M>, <&rtc 0>, <&rtc 2>,
+ 				 <&ccu CLK_PLL_PERIPH0>;
+ 			clock-names = "hosc", "losc", "iosc", "pll-periph";
+ 			#clock-cells = <1>;
+@@ -651,6 +822,7 @@
+ 				     "allwinner,sun6i-a31-wdt";
+ 			reg = <0x07020400 0x20>;
+ 			interrupts = <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&osc24M>;
+ 		};
+ 
+ 		r_intc: interrupt-controller@7021000 {
+@@ -667,7 +839,7 @@
+ 			reg = <0x07022000 0x400>;
+ 			interrupts = <GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>,
+ 				     <GIC_SPI 111 IRQ_TYPE_LEVEL_HIGH>;
+-			clocks = <&r_ccu CLK_R_APB1>, <&osc24M>, <&osc32k>;
++			clocks = <&r_ccu CLK_R_APB1>, <&osc24M>, <&rtc 0>;
+ 			clock-names = "apb", "hosc", "losc";
+ 			gpio-controller;
+ 			#gpio-cells = <3>;
+@@ -678,10 +850,30 @@
+ 				pins = "PL0", "PL1";
+ 				function = "s_i2c";
+ 			};
++
++			r_ir_rx_pin: r-ir-rx-pin {
++				pins = "PL9";
++				function = "s_cir_rx";
++			};
++		};
++
++		r_ir: ir@7040000 {
++				compatible = "allwinner,sun50i-h6-ir",
++					     "allwinner,sun6i-a31-ir";
++				reg = <0x07040000 0x400>;
++				interrupts = <GIC_SPI 109 IRQ_TYPE_LEVEL_HIGH>;
++				clocks = <&r_ccu CLK_R_APB1_IR>,
++					 <&r_ccu CLK_IR>;
++				clock-names = "apb", "ir";
++				resets = <&r_ccu RST_R_APB1_IR>;
++				pinctrl-names = "default";
++				pinctrl-0 = <&r_ir_rx_pin>;
++				status = "disabled";
+ 		};
+ 
+ 		r_i2c: i2c@7081400 {
+-			compatible = "allwinner,sun6i-a31-i2c";
++			compatible = "allwinner,sun50i-h6-i2c",
++				     "allwinner,sun6i-a31-i2c";
+ 			reg = <0x07081400 0x400>;
+ 			interrupts = <GIC_SPI 107 IRQ_TYPE_LEVEL_HIGH>;
+ 			clocks = <&r_ccu CLK_R_APB2_I2C>;
+@@ -692,5 +884,31 @@
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+ 		};
++
++		ths: thermal-sensor@5070400 {
++			compatible = "allwinner,sun50i-h6-ths";
++			reg = <0x05070400 0x100>;
++			interrupts = <GIC_SPI 15 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_THS>;
++			clock-names = "bus";
++			resets = <&ccu RST_BUS_THS>;
++			nvmem-cells = <&ths_calibration>;
++			nvmem-cell-names = "calibration";
++			#thermal-sensor-cells = <1>;
++		};
++	};
++
++	thermal-zones {
++		cpu-thermal {
++			polling-delay-passive = <0>;
++			polling-delay = <0>;
++			thermal-sensors = <&ths 0>;
++		};
++
++		gpu-thermal {
++			polling-delay-passive = <0>;
++			polling-delay = <0>;
++			thermal-sensors = <&ths 1>;
++		};
+ 	};
+ };
+-- 
+2.24.1
+
+From 80ad66ba5e6fbb4e2758643b09d911d8aba6a068 Mon Sep 17 00:00:00 2001
+From: Andre Heider <a.heider@gmail.com>
+Date: Mon, 18 Nov 2019 09:54:43 +0100
+Subject: [PATCH 4/4] arm64: dts: sun50i: Add support for Orange Pi 3
+
+The dts is taken from the linux-next commit:
+98d25b0b266d Merge branch 'sunxi/dt-for-5.6' into sunxi/for-next
+
+The Bluetooth controller of this device ships with a default adress,
+use the new CONFIG_FIXUP_BDADDR option to fix it up.
+
+Signed-off-by: Andre Heider <a.heider@gmail.com>
+Acked-by: Maxime Ripard <mripard@kernel.org>
+---
+ arch/arm/dts/Makefile                 |   1 +
+ arch/arm/dts/sun50i-h6-orangepi-3.dts | 322 ++++++++++++++++++++++++++
+ board/sunxi/MAINTAINERS               |   5 +
+ configs/orangepi_3_defconfig          |  18 ++
+ 4 files changed, 346 insertions(+)
+ create mode 100644 arch/arm/dts/sun50i-h6-orangepi-3.dts
+ create mode 100644 configs/orangepi_3_defconfig
+
+diff --git a/arch/arm/dts/Makefile b/arch/arm/dts/Makefile
+index 6915783d9c..c1b891d06b 100644
+--- a/arch/arm/dts/Makefile
++++ b/arch/arm/dts/Makefile
+@@ -556,6 +556,7 @@ dtb-$(CONFIG_MACH_SUN50I_H5) += \
+ 	sun50i-h5-orangepi-zero-plus2.dtb
+ dtb-$(CONFIG_MACH_SUN50I_H6) += \
+ 	sun50i-h6-beelink-gs1.dtb \
++	sun50i-h6-orangepi-3.dtb \
+ 	sun50i-h6-orangepi-lite2.dtb \
+ 	sun50i-h6-orangepi-one-plus.dtb \
+ 	sun50i-h6-pine-h64.dtb
+diff --git a/arch/arm/dts/sun50i-h6-orangepi-3.dts b/arch/arm/dts/sun50i-h6-orangepi-3.dts
+new file mode 100644
+index 0000000000..c311eee52a
+--- /dev/null
++++ b/arch/arm/dts/sun50i-h6-orangepi-3.dts
+@@ -0,0 +1,322 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++// Copyright (C) 2019 Ondřej Jirman <megous@megous.com>
++
++/dts-v1/;
++
++#include "sun50i-h6.dtsi"
++
++#include <dt-bindings/gpio/gpio.h>
++
++/ {
++	model = "OrangePi 3";
++	compatible = "xunlong,orangepi-3", "allwinner,sun50i-h6";
++
++	aliases {
++		serial0 = &uart0;
++		serial1 = &uart1;
++	};
++
++	chosen {
++		stdout-path = "serial0:115200n8";
++	};
++
++	connector {
++		compatible = "hdmi-connector";
++		ddc-en-gpios = <&pio 7 2 GPIO_ACTIVE_HIGH>; /* PH2 */
++		type = "a";
++
++		port {
++			hdmi_con_in: endpoint {
++				remote-endpoint = <&hdmi_out_con>;
++			};
++		};
++	};
++
++	leds {
++		compatible = "gpio-leds";
++
++		power {
++			label = "orangepi:red:power";
++			gpios = <&r_pio 0 4 GPIO_ACTIVE_HIGH>; /* PL4 */
++			default-state = "on";
++		};
++
++		status {
++			label = "orangepi:green:status";
++			gpios = <&r_pio 0 7 GPIO_ACTIVE_HIGH>; /* PL7 */
++		};
++	};
++
++	reg_vcc5v: vcc5v {
++		/* board wide 5V supply directly from the DC jack */
++		compatible = "regulator-fixed";
++		regulator-name = "vcc-5v";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		regulator-always-on;
++	};
++
++	reg_vcc33_wifi: vcc33-wifi {
++		/* Always on 3.3V regulator for WiFi and BT */
++		compatible = "regulator-fixed";
++		regulator-name = "vcc33-wifi";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		regulator-always-on;
++		vin-supply = <&reg_vcc5v>;
++	};
++
++	reg_vcc_wifi_io: vcc-wifi-io {
++		/* Always on 1.8V/300mA regulator for WiFi and BT IO */
++		compatible = "regulator-fixed";
++		regulator-name = "vcc-wifi-io";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		regulator-always-on;
++		vin-supply = <&reg_vcc33_wifi>;
++	};
++
++	wifi_pwrseq: wifi-pwrseq {
++		compatible = "mmc-pwrseq-simple";
++		clocks = <&rtc 1>;
++		clock-names = "ext_clock";
++		reset-gpios = <&r_pio 1 3 GPIO_ACTIVE_LOW>; /* PM3 */
++		post-power-on-delay-ms = <200>;
++	};
++};
++
++&cpu0 {
++	cpu-supply = <&reg_dcdca>;
++};
++
++&de {
++	status = "okay";
++};
++
++&dwc3 {
++	status = "okay";
++};
++
++&ehci0 {
++	status = "okay";
++};
++
++&ehci3 {
++	status = "okay";
++};
++
++&gpu {
++	mali-supply = <&reg_dcdcc>;
++	status = "okay";
++};
++
++&hdmi {
++	status = "okay";
++};
++
++&hdmi_out {
++	hdmi_out_con: endpoint {
++		remote-endpoint = <&hdmi_con_in>;
++	};
++};
++
++&mmc0 {
++	vmmc-supply = <&reg_cldo1>;
++	cd-gpios = <&pio 5 6 GPIO_ACTIVE_LOW>; /* PF6 */
++	bus-width = <4>;
++	status = "okay";
++};
++
++&mmc1 {
++	vmmc-supply = <&reg_vcc33_wifi>;
++	vqmmc-supply = <&reg_vcc_wifi_io>;
++	mmc-pwrseq = <&wifi_pwrseq>;
++	bus-width = <4>;
++	non-removable;
++	status = "okay";
++
++	brcm: sdio-wifi@1 {
++		reg = <1>;
++		compatible = "brcm,bcm4329-fmac";
++		interrupt-parent = <&r_pio>;
++		interrupts = <1 0 IRQ_TYPE_LEVEL_LOW>; /* PM0 */
++		interrupt-names = "host-wake";
++	};
++};
++
++&ohci0 {
++	status = "okay";
++};
++
++&ohci3 {
++	status = "okay";
++};
++
++&pio {
++	vcc-pc-supply = <&reg_bldo2>;
++	vcc-pd-supply = <&reg_cldo1>;
++	vcc-pg-supply = <&reg_vcc_wifi_io>;
++};
++
++&r_i2c {
++	status = "okay";
++
++	axp805: pmic@36 {
++		compatible = "x-powers,axp805", "x-powers,axp806";
++		reg = <0x36>;
++		interrupt-parent = <&r_intc>;
++		interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
++		interrupt-controller;
++		#interrupt-cells = <1>;
++		x-powers,self-working-mode;
++		vina-supply = <&reg_vcc5v>;
++		vinb-supply = <&reg_vcc5v>;
++		vinc-supply = <&reg_vcc5v>;
++		vind-supply = <&reg_vcc5v>;
++		vine-supply = <&reg_vcc5v>;
++		aldoin-supply = <&reg_vcc5v>;
++		bldoin-supply = <&reg_vcc5v>;
++		cldoin-supply = <&reg_vcc5v>;
++
++		regulators {
++			reg_aldo1: aldo1 {
++				regulator-always-on;
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-name = "vcc-pl-led-ir";
++			};
++
++			reg_aldo2: aldo2 {
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-name = "vcc33-audio-tv-ephy-mac";
++			};
++
++			/* ALDO3 is shorted to CLDO1 */
++			reg_aldo3: aldo3 {
++				regulator-always-on;
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-name = "vcc33-io-pd-emmc-sd-usb-uart-1";
++			};
++
++			reg_bldo1: bldo1 {
++				regulator-always-on;
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc18-dram-bias-pll";
++			};
++
++			reg_bldo2: bldo2 {
++				regulator-always-on;
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc-efuse-pcie-hdmi-pc";
++			};
++
++			bldo3 {
++				/* unused */
++			};
++
++			bldo4 {
++				/* unused */
++			};
++
++			reg_cldo1: cldo1 {
++				regulator-always-on;
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-name = "vcc33-io-pd-emmc-sd-usb-uart-2";
++			};
++
++			cldo2 {
++				/* unused */
++			};
++
++			cldo3 {
++				/* unused */
++			};
++
++			reg_dcdca: dcdca {
++				regulator-always-on;
++				regulator-min-microvolt = <800000>;
++				regulator-max-microvolt = <1160000>;
++				regulator-name = "vdd-cpu";
++			};
++
++			reg_dcdcc: dcdcc {
++				regulator-enable-ramp-delay = <32000>;
++				regulator-min-microvolt = <810000>;
++				regulator-max-microvolt = <1080000>;
++				regulator-name = "vdd-gpu";
++			};
++
++			reg_dcdcd: dcdcd {
++				regulator-always-on;
++				regulator-min-microvolt = <960000>;
++				regulator-max-microvolt = <960000>;
++				regulator-name = "vdd-sys";
++			};
++
++			reg_dcdce: dcdce {
++				regulator-always-on;
++				regulator-min-microvolt = <1200000>;
++				regulator-max-microvolt = <1200000>;
++				regulator-name = "vcc-dram";
++			};
++
++			sw {
++				/* unused */
++			};
++		};
++	};
++};
++
++&r_ir {
++	status = "okay";
++};
++
++&uart0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart0_ph_pins>;
++	status = "okay";
++};
++
++/* There's the BT part of the AP6256 connected to that UART */
++&uart1 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart1_pins>, <&uart1_rts_cts_pins>;
++	uart-has-rtscts;
++	status = "okay";
++
++	bluetooth {
++		compatible = "brcm,bcm4345c5";
++		clocks = <&rtc 1>;
++		clock-names = "lpo";
++		device-wakeup-gpios = <&r_pio 1 2 GPIO_ACTIVE_HIGH>; /* PM2 */
++		host-wakeup-gpios = <&r_pio 1 1 GPIO_ACTIVE_HIGH>; /* PM1 */
++		shutdown-gpios = <&r_pio 1 4 GPIO_ACTIVE_HIGH>; /* PM4 */
++		max-speed = <1500000>;
++	};
++};
++
++&usb2otg {
++	/*
++	 * This board doesn't have a controllable VBUS even though it
++	 * does have an ID pin. Using it as anything but a USB host is
++	 * unsafe.
++	 */
++	dr_mode = "host";
++	status = "okay";
++};
++
++&usb2phy {
++	usb0_id_det-gpios = <&pio 2 15 GPIO_ACTIVE_HIGH>; /* PC15 */
++	usb0_vbus-supply = <&reg_vcc5v>;
++	usb3_vbus-supply = <&reg_vcc5v>;
++	status = "okay";
++};
++
++&usb3phy {
++	status = "okay";
++};
+diff --git a/board/sunxi/MAINTAINERS b/board/sunxi/MAINTAINERS
+index 1180b86db3..c725af2046 100644
+--- a/board/sunxi/MAINTAINERS
++++ b/board/sunxi/MAINTAINERS
+@@ -385,6 +385,11 @@ M:	Icenowy Zheng <icenowy@aosc.io>
+ S:	Maintained
+ F:	configs/teres_i_defconfig
+ 
++ORANGEPI 3 BOARD
++M:	Andre Heider <a.heider@gmail.com>
++S:	Maintained
++F:	configs/orangepi_3_defconfig
++
+ ORANGEPI LITE2 BOARD
+ M:	Jagan Teki <jagan@amarulasolutions.com>
+ S:	Maintained
+diff --git a/configs/orangepi_3_defconfig b/configs/orangepi_3_defconfig
+new file mode 100644
+index 0000000000..c9db0abb77
+--- /dev/null
++++ b/configs/orangepi_3_defconfig
+@@ -0,0 +1,18 @@
++CONFIG_ARM=y
++CONFIG_ARCH_SUNXI=y
++CONFIG_NR_DRAM_BANKS=1
++CONFIG_SPL=y
++CONFIG_MACH_SUN50I_H6=y
++CONFIG_SUNXI_DRAM_H6_LPDDR3=y
++CONFIG_MMC0_CD_PIN="PF6"
++CONFIG_MMC_SUNXI_SLOT_EXTRA=2
++CONFIG_FIXUP_BDADDR="brcm,bcm4345c5"
++# CONFIG_PSCI_RESET is not set
++# CONFIG_SYS_MALLOC_CLEAR_ON_INIT is not set
++CONFIG_USE_PREBOOT=y
++# CONFIG_CMD_FLASH is not set
++# CONFIG_SPL_DOS_PARTITION is not set
++# CONFIG_SPL_EFI_PARTITION is not set
++CONFIG_DEFAULT_DEVICE_TREE="sun50i-h6-orangepi-3"
++CONFIG_USB_EHCI_HCD=y
++CONFIG_USB_OHCI_HCD=y
+-- 
+2.24.1
+
