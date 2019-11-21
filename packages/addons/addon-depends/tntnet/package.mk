@@ -8,7 +8,7 @@ PKG_LICENSE="GPL-2"
 PKG_SITE="http://www.tntnet.org/"
 PKG_URL="http://www.tntnet.org/download/${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_HOST="cxxtools:host zlib:host"
-PKG_DEPENDS_TARGET="toolchain tntnet:host libtool cxxtools"
+PKG_DEPENDS_TARGET="toolchain tntnet:host libtool cxxtools zlib"
 PKG_LONGDESC="A web application server for C++."
 
 PKG_CONFIGURE_OPTS_HOST="--disable-unittest \

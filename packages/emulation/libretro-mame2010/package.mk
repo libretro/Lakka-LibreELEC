@@ -7,7 +7,7 @@ PKG_SHA256="36ab11541233c9a4240baf6f0a529d8d335dce23f25b66b950e18373fd8e65fb"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mame2010-libretro"
 PKG_URL="https://github.com/libretro/mame2010-libretro/archive/$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain zlib"
 PKG_LONGDESC="Late 2010 version of MAME (0.139) for libretro"
 
 PKG_LIBNAME="mame2010_libretro.so"
