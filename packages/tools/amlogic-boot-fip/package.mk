@@ -58,3 +58,7 @@ case "$UBOOT_SYSTEM" in
     PKG_SOURCE_DIR="fip"
     ;;
 esac
+
+post_unpack() {
+  rm -f $PKG_BUILD/acs_tool.pyc
+}
