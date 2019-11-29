@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Lukas Rusak (lrusak@libreelec.tv)
+# Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 import os
 import subprocess
@@ -187,31 +188,31 @@ def print_notification(json_data):
     if __addon__.getSetting('notifications') is '0': # default
         if docker_events[json_data['Type']]['event'][json_data['Action']]['enabled']:
             try:
-                message = unicode(' '.join([__addon__.getLocalizedString(30010),
-                                            json_data['Actor']['Attributes']['name'],
-                                            '|',
-                                            __addon__.getLocalizedString(30012),
-                                            __addon__.getLocalizedString(event_string)]))
+                message = ' '.join([__addon__.getLocalizedString(30010),
+                                    json_data['Actor']['Attributes']['name'],
+                                    '|',
+                                    __addon__.getLocalizedString(30012),
+                                    __addon__.getLocalizedString(event_string)])
             except KeyError as e:
-                message = unicode(' '.join([__addon__.getLocalizedString(30011),
-                                            json_data['Type'],
-                                            '|',
-                                            __addon__.getLocalizedString(30012),
-                                            __addon__.getLocalizedString(event_string)]))
+                message = ' '.join([__addon__.getLocalizedString(30011),
+                                    json_data['Type'],
+                                    '|',
+                                    __addon__.getLocalizedString(30012),
+                                    __addon__.getLocalizedString(event_string)])
 
     elif __addon__.getSetting('notifications') is '1': # all
         try:
-            message = unicode(' '.join([__addon__.getLocalizedString(30010),
-                                        json_data['Actor']['Attributes']['name'],
-                                        '|',
-                                        __addon__.getLocalizedString(30012),
-                                        __addon__.getLocalizedString(event_string)]))
+            message = ' '.join([__addon__.getLocalizedString(30010),
+                                json_data['Actor']['Attributes']['name'],
+                                '|',
+                                __addon__.getLocalizedString(30012),
+                                __addon__.getLocalizedString(event_string)])
         except KeyError as e:
-            message = unicode(' '.join([__addon__.getLocalizedString(30011),
-                                        json_data['Type'],
-                                        '|',
-                                        __addon__.getLocalizedString(30012),
-                                        __addon__.getLocalizedString(event_string)]))
+            message = ' '.join([__addon__.getLocalizedString(30011),
+                                json_data['Type'],
+                                '|',
+                                __addon__.getLocalizedString(30012),
+                                __addon__.getLocalizedString(event_string)])
 
     elif __addon__.getSetting('notifications') is '2': # none
         pass
@@ -219,24 +220,24 @@ def print_notification(json_data):
     elif __addon__.getSetting('notifications') is '3': # custom
         if __addon__.getSetting(json_data['Action']) == 'true':
             try:
-                message = unicode(' '.join([__addon__.getLocalizedString(30010),
-                                            json_data['Actor']['Attributes']['name'],
-                                            '|',
-                                            __addon__.getLocalizedString(30012),
-                                            __addon__.getLocalizedString(event_string)]))
+                message = ' '.join([__addon__.getLocalizedString(30010),
+                                    json_data['Actor']['Attributes']['name'],
+                                    '|',
+                                    __addon__.getLocalizedString(30012),
+                                    __addon__.getLocalizedString(event_string)])
             except KeyError as e:
-                message = unicode(' '.join([__addon__.getLocalizedString(30011),
-                                            json_data['Type'],
-                                            '|',
-                                            __addon__.getLocalizedString(30012),
-                                            __addon__.getLocalizedString(event_string)]))
+                message = ' '.join([__addon__.getLocalizedString(30011),
+                                    json_data['Type'],
+                                    '|',
+                                    __addon__.getLocalizedString(30012),
+                                    __addon__.getLocalizedString(event_string)])
 
     dialog = xbmcgui.Dialog()
     try:
         if message is not '':
             length = int(__addon__.getSetting('notification_length')) * 1000
             dialog.notification('Docker', message, '/storage/.kodi/addons/service.system.docker/resources/icon.png', length)
-            xbmc.log('## service.system.docker ## ' + unicode(message))
+            xbmc.log('## service.system.docker ## %s' % message)
     except NameError as e:
         pass
 
