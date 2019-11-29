@@ -157,14 +157,16 @@ index eb9e5d8..d079bde 100644
  }
  
  static int dw_hdmi_connector_get_modes(struct drm_connector *connector)
-@@ -2301,10 +2309,6 @@ static irqreturn_t dw_hdmi_irq(int irq, void *dev_id)
+@@ -2301,12 +2309,6 @@ static irqreturn_t dw_hdmi_irq(int irq, void *dev_id)
  		dw_hdmi_setup_rx_sense(hdmi,
  				       phy_stat & HDMI_PHY_HPD,
  				       phy_stat & HDMI_PHY_RX_SENSE);
 -
--		if ((phy_stat & (HDMI_PHY_RX_SENSE | HDMI_PHY_HPD)) == 0)
--			cec_notifier_set_phys_addr(hdmi->cec_notifier,
--						   CEC_PHYS_ADDR_INVALID);
+-		if ((phy_stat & (HDMI_PHY_RX_SENSE | HDMI_PHY_HPD)) == 0) {
+-			mutex_lock(&hdmi->cec_notifier_mutex);
+-			cec_notifier_phys_addr_invalidate(hdmi->cec_notifier);
+-			mutex_unlock(&hdmi->cec_notifier_mutex);
+-		}
  	}
  
  	if (intr_stat & HDMI_IH_PHY_STAT0_HPD) {
@@ -294,9 +296,9 @@ index fb2f0ac..bfb1519 100644
 --- a/sound/soc/codecs/hdmi-codec.c
 +++ b/sound/soc/codecs/hdmi-codec.c
 @@ -285,6 +285,8 @@ struct hdmi_codec_priv {
- 	struct snd_pcm_chmap *chmap_info;
- 	unsigned int chmap_idx;
  	struct mutex lock;
+ 	struct snd_soc_jack *jack;
+ 	unsigned int jack_status;
 +	struct snd_card *snd_card;
 +	struct snd_kcontrol *kctl;
  };
