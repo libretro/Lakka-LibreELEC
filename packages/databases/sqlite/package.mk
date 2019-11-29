@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="sqlite"
-PKG_VERSION="autoconf-3290000"
-PKG_SHA256="8e7c1e2950b5b04c5944a981cb31fffbf9d2ddda939d536838ebc854481afd5b"
+PKG_VERSION="autoconf-3300100"
+PKG_SHA256="8c5a50db089bd2a1b08dbc5b00d2027602ca7ff238ba7658fabca454d4298e60"
 PKG_LICENSE="PublicDomain"
 PKG_SITE="https://www.sqlite.org/"
 PKG_URL="https://www.sqlite.org/2019/$PKG_NAME-$PKG_VERSION.tar.gz"
@@ -29,9 +29,9 @@ pre_configure_target() {
 # This option adds additional logic to the ANALYZE command and to the query planner
 # that can help SQLite to chose a better query plan under certain situations. The
 # ANALYZE command is enhanced to collect histogram data from each index and store
-# that data in the sqlite_stat3 table. The query planner will then use the histogram
+# that data in the sqlite_stat4 table. The query planner will then use the histogram
 # data to help it make better index choices.
-  CFLAGS="$CFLAGS -DSQLITE_ENABLE_STAT3"
+  CFLAGS="$CFLAGS -DSQLITE_ENABLE_STAT4"
 
 # When this C-preprocessor macro is defined, SQLite includes some additional APIs
 # that provide convenient access to meta-data about tables and queries. The APIs that
