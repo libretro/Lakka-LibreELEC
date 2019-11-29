@@ -71,12 +71,6 @@ post_makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/connman
     cp -P $PKG_DIR/scripts/connman-setup $INSTALL/usr/lib/connman
 
-  mkdir -p $INSTALL/etc
-    ln -sf /run/connman/resolv.conf $INSTALL/etc/resolv.conf
-
-    # /etc/hosts must be writeable
-    ln -sf /run/connman/hosts $INSTALL/etc/hosts
-
   mkdir -p $INSTALL/etc/connman
     cp ../src/main.conf $INSTALL/etc/connman
     sed -i $INSTALL/etc/connman/main.conf \
@@ -89,9 +83,6 @@ post_makeinstall_target() {
         -e "s|^# AllowHostnameUpdates.*|AllowHostnameUpdates = false|g" \
         -e "s|^# PersistentTetheringMode.*|PersistentTetheringMode = true|g" \
         -e "s|^# NetworkInterfaceBlacklist = vmnet,vboxnet,virbr,ifb|NetworkInterfaceBlacklist = vmnet,vboxnet,virbr,ifb,docker,veth,zt|g"
-
-  mkdir -p $INSTALL/usr/config
-    cp $PKG_DIR/config/hosts.conf $INSTALL/usr/config
 
   mkdir -p $INSTALL/usr/share/connman/
     cp $PKG_DIR/config/settings $INSTALL/usr/share/connman/
