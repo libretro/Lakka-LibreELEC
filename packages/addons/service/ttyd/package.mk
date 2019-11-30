@@ -20,7 +20,7 @@ PKG_ADDON_TYPE="xbmc.service"
 
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
-  cp -P $PKG_BUILD/.install_pkg/usr/bin/ttyd $ADDON_BUILD/$PKG_ADDON_ID/bin
+  cp -P $PKG_INSTALL/usr/bin/ttyd $ADDON_BUILD/$PKG_ADDON_ID/bin
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib
   cp -p $(get_build_dir json-c)/.install_pkg/usr/lib/libjson-c.so $ADDON_BUILD/$PKG_ADDON_ID/lib

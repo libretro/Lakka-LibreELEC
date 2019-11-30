@@ -40,9 +40,9 @@ addon() {
 
   cp -PR $PKG_DIR/resources $ADDON_BUILD/$PKG_ADDON_ID
 
-  cp -PR $PKG_BUILD/.install_pkg/etc/LCDd.conf $ADDON_BUILD/$PKG_ADDON_ID/config/
-  cp -PR $PKG_BUILD/.install_pkg/usr/lib       $ADDON_BUILD/$PKG_ADDON_ID/lib/
-  cp -PR $PKG_BUILD/.install_pkg/usr/sbin      $ADDON_BUILD/$PKG_ADDON_ID/bin/
+  cp -PR $PKG_INSTALL/etc/LCDd.conf $ADDON_BUILD/$PKG_ADDON_ID/config/
+  cp -PR $PKG_INSTALL/usr/lib       $ADDON_BUILD/$PKG_ADDON_ID/lib/
+  cp -PR $PKG_INSTALL/usr/sbin      $ADDON_BUILD/$PKG_ADDON_ID/bin/
 
   cp -L $(get_build_dir serdisplib)/.install_pkg/usr/lib/libserdisp.so.1 $ADDON_BUILD/$PKG_ADDON_ID/lib/
 
