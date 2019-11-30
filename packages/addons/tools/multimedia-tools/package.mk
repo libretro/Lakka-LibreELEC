@@ -36,10 +36,10 @@ addon() {
     cp -P $(get_build_dir mediainfo)/Project/GNU/CLI/mediainfo $ADDON_BUILD/$PKG_ADDON_ID/bin
 
     # mpg123
-    cp -P $(get_build_dir mpg123)/.install_pkg/usr/bin/* $ADDON_BUILD/$PKG_ADDON_ID/bin/
+    cp -P $(get_install_dir mpg123)/usr/bin/* $ADDON_BUILD/$PKG_ADDON_ID/bin/
 
     # opencaster
-    cp -P $(get_build_dir opencaster)/.install_pkg/* $ADDON_BUILD/$PKG_ADDON_ID/bin/
+    cp -P $(get_install_dir opencaster)/* $ADDON_BUILD/$PKG_ADDON_ID/bin/
 
     # squeezelite
     cp -P $(get_build_dir squeezelite)/squeezelite $ADDON_BUILD/$PKG_ADDON_ID/bin/
