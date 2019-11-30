@@ -23,6 +23,6 @@ addon() {
   cp -P $PKG_INSTALL/usr/bin/ttyd $ADDON_BUILD/$PKG_ADDON_ID/bin
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib
-  cp -p $(get_build_dir json-c)/.install_pkg/usr/lib/libjson-c.so $ADDON_BUILD/$PKG_ADDON_ID/lib
-  cp -p $(get_build_dir libwebsockets)/.install_pkg/usr/lib/libwebsockets.so.14 $ADDON_BUILD/$PKG_ADDON_ID/lib
+  cp -p $(get_install_dir json-c)/usr/lib/libjson-c.so $ADDON_BUILD/$PKG_ADDON_ID/lib
+  cp -p $(get_install_dir libwebsockets)/usr/lib/libwebsockets.so.14 $ADDON_BUILD/$PKG_ADDON_ID/lib
 }
