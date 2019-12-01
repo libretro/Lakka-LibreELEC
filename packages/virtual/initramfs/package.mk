@@ -9,7 +9,7 @@ PKG_SITE="http://www.openelec.tv"
 PKG_URL=""
 PKG_DEPENDS_TARGET="toolchain libc:init busybox:init plymouth-lite:init util-linux:init e2fsprogs:init dosfstools:init fakeroot:host terminus-font:init"
 PKG_SECTION="virtual"
-PKG_LONGDESC="debug is a Metapackage for installing initramfs"
+PKG_LONGDESC="Metapackage for installing initramfs"
 
 if [ "$ISCSI_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET open-iscsi:init"
