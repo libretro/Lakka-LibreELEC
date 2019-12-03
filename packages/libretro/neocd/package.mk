@@ -25,7 +25,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/neocd_libretro"
 PKG_GIT_URL="$PKG_SITE"
-PKG_DEPENDS_TARGET="toolchain flac"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="Neo Geo CD emulator for libretro"
@@ -33,18 +33,14 @@ PKG_LONGDESC="Neo Geo CD emulator for libretro"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-PKG_USE_CMAKE="yes"
+PKG_USE_CMAKE="no"
 
-PKG_CMAKE_SCRIPT="$PKG_BUILD/CMakeLists.txt"
-
-PKG_CMAKE_OPTS_TARGET="-DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_C_COMPILER=${CC}"
-
-pre_make_target() {
-  # build fix for cross-compiling Dolphin, from Dolphin forums
-  find $PKG_BUILD -name flags.make -exec sed -i "s:isystem :I:g" \{} \;
+make_target() {
+  cd $PKG_BUILD
+  make
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp $PKG_BUILD/.$TARGET_NAME/libneocd_libretro.so $INSTALL/usr/lib/libretro/
+  cp $PKG_BUILD/neocd_libretro.so $INSTALL/usr/lib/libretro/
 }
