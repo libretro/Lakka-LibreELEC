@@ -124,6 +124,7 @@ makeinstall_host() {
 pre_make_target() {
   ( cd $ROOT
     rm -rf $BUILD/initramfs
+    rm -f ${STAMPS_INSTALL}/initramfs/install_target ${STAMPS_INSTALL}/*/install_init
     $SCRIPTS/install initramfs
   )
   pkg_lock_status "ACTIVE" "linux:target" "build"
