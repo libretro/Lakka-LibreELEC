@@ -2,7 +2,7 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="rust"
-PKG_VERSION="1.36.0"
+PKG_VERSION="1.39.0"
 PKG_LICENSE="MIT"
 PKG_SITE="https://www.rust-lang.org"
 PKG_DEPENDS_TARGET="toolchain rustup.rs"
@@ -10,40 +10,43 @@ PKG_LONGDESC="A systems programming language that prevents segfaults, and guaran
 PKG_TOOLCHAIN="manual"
 
 make_target() {
-  export CARGO_HOME="$TOOLCHAIN/.cargo"
+  export CARGO_HOME="$PKG_BUILD/cargo"
   export RUSTUP_HOME="$CARGO_HOME"
   export PATH="$CARGO_HOME/bin:$PATH"
-  rm -rf "$CARGO_HOME"
-  $(get_build_dir rustup.rs)/rustup-init.sh --no-modify-path -y
-  rustup default "$PKG_VERSION"
   case "$TARGET_ARCH" in
     aarch64)
-      RUST_TRIPLE="aarch64-unknown-linux-gnu"
+      RUST_TARGET_TRIPLE="aarch64-unknown-linux-gnu"
       ;;
     arm)
-      RUST_TRIPLE="arm-unknown-linux-gnueabihf"
+      RUST_TARGET_TRIPLE="arm-unknown-linux-gnueabihf"
       ;;
     x86_64)
-      RUST_TRIPLE="x86_64-unknown-linux-gnu"
+      RUST_TARGET_TRIPLE="x86_64-unknown-linux-gnu"
       ;;
   esac
-  if [ "$TARGET_ARCH" != "x86_64" ]; then
-    rustup target add "$RUST_TRIPLE"
-  fi
+  "$(get_build_dir rustup.rs)/rustup-init.sh" \
+    --default-toolchain "$PKG_VERSION" \
+    --no-modify-path \
+    --profile minimal \
+    --target "$RUST_TARGET_TRIPLE" \
+    -y
 
   cat <<EOF >"$CARGO_HOME/config"
-[target.$RUST_TRIPLE]
+[build]
+target = "$RUST_TARGET_TRIPLE"
+
+[target.$RUST_TARGET_TRIPLE]
+ar = "$AR"
 linker = "$CC"
 EOF
 
-  cat <<'EOF' >"$CARGO_HOME/env"
-export CARGO_HOME="$TOOLCHAIN/.cargo"
-export CARGO_TARGET_DIR="$PKG_BUILD/.$TARGET_NAME"
-export PATH="$CARGO_HOME/bin:$PATH"
-export RUSTUP_HOME="$CARGO_HOME"
-mkdir -p "$CARGO_TARGET_DIR"
+  cat <<EOF >"$CARGO_HOME/env"
+CARGO_BUILD="env -i CARGO_HOME=$CARGO_HOME \
+                    CARGO_TARGET_DIR=\$PKG_BUILD/.\$TARGET_NAME \
+                    PATH=$CARGO_HOME/bin:$PATH \
+                    PKG_CONFIG_ALLOW_CROSS=1 \
+                    PKG_CONFIG_PATH=$PKG_CONFIG_LIBDIR \
+                    RUSTUP_HOME=$CARGO_HOME \
+                    cargo build --release"
 EOF
-
-  echo "CARGO_BUILD=\"cargo build --release --target $RUST_TRIPLE\"" \
-       >>"$CARGO_HOME/env"
 }
