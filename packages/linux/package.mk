@@ -50,7 +50,8 @@ if [ "$PKG_BUILD_PERF" != "no" ] && grep -q ^CONFIG_PERF_EVENTS= $PKG_KERNEL_CFG
 fi
 
 if [ "$TARGET_ARCH" = "x86_64" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET intel-ucode:host kernel-firmware elfutils:host pciutils"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET elfutils:host pciutils"
+  PKG_DEPENDS_UNPACK+=" intel-ucode kernel-firmware"
 fi
 
 if [[ "$KERNEL_TARGET" = uImage* ]]; then
