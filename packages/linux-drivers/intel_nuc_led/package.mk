@@ -8,8 +8,6 @@ PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/milesp20/intel_nuc_led/"
 PKG_URL="https://github.com/milesp20/intel_nuc_led/archive/$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain linux"
-PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_LONGDESC="Intel NUC7i[x]BN and NUC6CAY LED Control for Linux"
 PKG_IS_KERNEL_PKG="yes"
 
