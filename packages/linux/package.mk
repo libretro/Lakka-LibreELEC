@@ -250,9 +250,7 @@ makeinstall_target() {
     done
     cp -p arch/$TARGET_KERNEL_ARCH/boot/dts/overlays/README $INSTALL/usr/share/bootloader/overlays
   fi
-}
 
-post_install() {
   mkdir -p $INSTALL/$(get_full_firmware_dir)/
 
   # regdb and signature is now loaded as firmware by 4.15+
