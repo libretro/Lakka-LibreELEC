@@ -82,9 +82,9 @@ pre_configure_target() {
   rm -rf .$TARGET_NAME
 
 # pass ffmpegx to build
-  PKG_CONFIG_PATH="$(get_build_dir ffmpegx)/.INSTALL_PKG/usr/local/lib/pkgconfig"
-  CFLAGS+=" -I$(get_build_dir ffmpegx)/.INSTALL_PKG/usr/local/include"
-  LDFLAGS+=" -L$(get_build_dir ffmpegx)/.INSTALL_PKG/usr/local/lib"
+  PKG_CONFIG_PATH="$(get_install_dir ffmpegx)/usr/local/lib/pkgconfig"
+  CFLAGS+=" -I$(get_install_dir ffmpegx)/usr/local/include"
+  LDFLAGS+=" -L$(get_install_dir ffmpegx)/usr/local/lib"
 
 # pass libhdhomerun to build
   CFLAGS+=" -I$(get_build_dir libhdhomerun)"
