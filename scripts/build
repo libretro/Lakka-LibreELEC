@@ -380,10 +380,13 @@ pkg_call_exists pre_makeinstall_${TARGET} && pkg_call pre_makeinstall_${TARGET}
 if pkg_call_exists makeinstall_${TARGET}; then
   pkg_call makeinstall_${TARGET}
 else
+  flag_enabled "sysroot" "yes" && INSTALL_TO_SYSROOT="yes" || INSTALL_TO_SYSROOT="no"
+
   case "${PKG_TOOLCHAIN}:${TARGET}" in
     # ninja based builds
     "meson:target"|"cmake:target")
-      DESTDIR=${SYSROOT_PREFIX} ninja install ${PKG_MAKEINSTALL_OPTS_TARGET}
+      [ "${INSTALL_TO_SYSROOT}" = "yes" ] && \
+        DESTDIR=${SYSROOT_PREFIX} ninja install ${PKG_MAKEINSTALL_OPTS_TARGET}
       DESTDIR=${INSTALL} ninja install ${PKG_MAKEINSTALL_OPTS_TARGET}
       ;;
     "meson:host"|"cmake:host")
@@ -398,7 +401,8 @@ else
 
     # make based builds
     "configure:target"|"cmake-make:target"|"autotools:target"|"make:target")
-      make install DESTDIR=${SYSROOT_PREFIX} -j1 ${PKG_MAKEINSTALL_OPTS_TARGET}
+      [ "${INSTALL_TO_SYSROOT}" = "yes" ] && \
+        make install DESTDIR=${SYSROOT_PREFIX} -j1 ${PKG_MAKEINSTALL_OPTS_TARGET}
       make install DESTDIR=${INSTALL} ${PKG_MAKEINSTALL_OPTS_TARGET}
       ;;
     "configure:host"|"cmake-make:host"|"autotools:host"|"make:host")
