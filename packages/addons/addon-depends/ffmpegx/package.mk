@@ -9,7 +9,7 @@ PKG_SITE="https://ffmpeg.org"
 PKG_URL="https://ffmpeg.org/releases/ffmpeg-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain aom bzip2 gnutls libvorbis opus x264 zlib"
 PKG_LONGDESC="FFmpegx is an complete FFmpeg build to support encoding and decoding."
-PKG_BUILD_FLAGS="-gold"
+PKG_BUILD_FLAGS="-gold -sysroot"
 
 # Dependencies
 get_graphicdrivers
@@ -175,8 +175,4 @@ configure_target() {
     `#Advanced options` \
     --disable-hardcoded-tables \
 
-}
-
-makeinstall_target() {
-  make install DESTDIR="$INSTALL/../.INSTALL_PKG"
 }

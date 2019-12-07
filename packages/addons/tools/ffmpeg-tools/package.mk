@@ -19,5 +19,5 @@ PKG_ADDON_TYPE="xbmc.python.script"
 
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin/
-  cp -L $(get_build_dir ffmpegx)/.INSTALL_PKG/usr/local/bin/* $ADDON_BUILD/$PKG_ADDON_ID/bin
+  cp -L $(get_install_dir ffmpegx)/usr/local/bin/* $ADDON_BUILD/$PKG_ADDON_ID/bin
 }
