@@ -62,7 +62,7 @@ addon() {
   cp -PL $(get_build_dir at-spi2-core)/.$TARGET_NAME/atspi/libatspi.so.0 $ADDON_BUILD/$PKG_ADDON_ID/lib 
 
   # libcups
-  cp -PL $(get_build_dir cups)/cups/libcups.so.2 $ADDON_BUILD/$PKG_ADDON_ID/lib
+  cp -PL $(get_install_dir cups)/usr/lib/libcups.so.2 $ADDON_BUILD/$PKG_ADDON_ID/lib
 
   # libxcb
   cp -PL $(get_build_dir chrome-libxcb)/.$TARGET_NAME/src/.libs/libxcb.so.1 $ADDON_BUILD/$PKG_ADDON_ID/lib  
