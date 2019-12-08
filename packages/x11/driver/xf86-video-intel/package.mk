@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="xf86-video-intel"
-PKG_VERSION="6afed33b2d673d88674f0c76efe500ae414e8e1b"
-PKG_SHA256="d492fffa561b215b94e403011144165b80a84cf8ee2109ce243f4939c0943681"
+PKG_VERSION="e628d22673dfa494230e6f79ceff7d178137c71a"
+PKG_SHA256="b2a8d6dca0b4da44032d3715ecc04ef89a227eb878c21d2012f3d4a797f294ce"
 PKG_ARCH="x86_64"
 PKG_LICENSE="OSS"
 PKG_SITE="http://intellinuxgraphics.org/"
