@@ -16,6 +16,10 @@ PKG_TOOLCHAIN="configure"
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --disable-shared \
                            --disable-mdi \
+                           --disable-jbig \
+                           --disable-lzma \
+                           --disable-zstd \
+                           --disable-webp \
                            --enable-cxx \
                            --with-jpeg-lib-dir=$SYSROOT_PREFIX/usr/lib \
                            --with-jpeg-include-dir=$SYSROOT_PREFIX/usr/include \
