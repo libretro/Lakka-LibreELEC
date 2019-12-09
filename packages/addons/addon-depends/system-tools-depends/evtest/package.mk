@@ -10,7 +10,4 @@ PKG_URL="http://cgit.freedesktop.org/evtest/snapshot/$PKG_NAME-$PKG_VERSION.tar.
 PKG_DEPENDS_TARGET="toolchain libxml2"
 PKG_LONGDESC="A simple tool for input event debugging."
 PKG_TOOLCHAIN="autotools"
-
-makeinstall_target() {
-  : # nop
-}
+PKG_BUILD_FLAGS="-sysroot"

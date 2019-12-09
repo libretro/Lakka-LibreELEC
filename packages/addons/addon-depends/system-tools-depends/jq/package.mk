@@ -9,13 +9,10 @@ PKG_SITE="http://stedolan.github.io/jq/"
 PKG_URL="https://github.com/stedolan/jq/releases/download/$PKG_NAME-$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain oniguruma"
 PKG_LONGDESC="A like sed for JSON data."
+PKG_BUILD_FLAGS="-sysroot"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-shared \
                            --enable-static \
                            --disable-docs \
                            --disable-maintainer-mode \
                            --disable-valgrind"
-
-makeinstall_target() {
-  :
-}

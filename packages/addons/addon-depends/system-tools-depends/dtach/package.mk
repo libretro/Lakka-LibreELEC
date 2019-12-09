@@ -9,7 +9,9 @@ PKG_SITE="http://dtach.sourceforge.net"
 PKG_URL="https://github.com/crigler/dtach/archive/v${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A program that emulates the detach feature of screen."
+PKG_BUILD_FLAGS="-sysroot"
 
 makeinstall_target() {
-  :
+  mkdir -p $INSTALL/usr/bin
+  cp -p dtach $INSTALL/usr/bin
 }

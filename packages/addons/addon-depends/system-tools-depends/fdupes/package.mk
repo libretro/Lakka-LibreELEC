@@ -9,7 +9,7 @@ PKG_SITE="http://premium.caribe.net/~adrian2/fdupes.html"
 PKG_URL="https://github.com/adrianlopezroche/fdupes/archive/v${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A program for identifying or deleting duplicate files residing within specified directories."
+PKG_BUILD_FLAGS="-sysroot"
 
-makeinstall_target() {
-  : # nop
-}
+PKG_MAKE_OPTS_TARGET="PREFIX=/usr"
+PKG_MAKEINSTALL_OPTS_TARGET="${PKG_MAKE_OPTS_TARGET}"

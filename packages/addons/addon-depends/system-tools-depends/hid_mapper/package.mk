@@ -9,7 +9,9 @@ PKG_SITE="https://github.com/s-leroux/hid_mapper"
 PKG_URL="https://github.com/s-leroux/hid_mapper/archive/v${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A Generic HID mapper."
+PKG_BUILD_FLAGS="-sysroot"
 
 makeinstall_target() {
-  : # nope
+  mkdir -p $INSTALL/usr/bin
+  cp -p hid_mapper $INSTALL/usr/bin
 }

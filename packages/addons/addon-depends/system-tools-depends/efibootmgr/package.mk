@@ -10,6 +10,7 @@ PKG_SITE="https://github.com/rhboot/efibootmgr"
 PKG_URL="https://github.com/rhboot/efibootmgr/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain efivar pciutils zlib"
 PKG_LONGDESC="Tool to modify UEFI Firmware Boot Manager Variables."
+PKG_BUILD_FLAGS="-sysroot"
 
 make_target() {
   export CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include -I$SYSROOT_PREFIX/usr/include/efivar -fgnu89-inline -Wno-pointer-sign"
@@ -21,5 +22,6 @@ make_target() {
 }
 
 makeinstall_target() {
-  : # nop
+  mkdir -p $INSTALL/usr/bin
+  cp -p src/efibootmgr $INSTALL/usr/bin
 }
