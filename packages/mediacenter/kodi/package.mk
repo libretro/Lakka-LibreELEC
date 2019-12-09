@@ -309,6 +309,9 @@ post_makeinstall_target() {
     cp -R $PKG_DIR/config/repository.kodi.game $INSTALL/usr/share/kodi/addons
 
   mkdir -p $INSTALL/usr/share/kodi/config
+
+  ln -sf /run/libreelec/cacert.pem $INSTALL/usr/share/kodi/system/certs/cacert.pem
+
   mkdir -p $INSTALL/usr/share/kodi/system/settings
 
   $PKG_DIR/scripts/xml_merge.py $PKG_DIR/config/guisettings.xml \
