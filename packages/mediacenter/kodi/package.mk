@@ -13,8 +13,8 @@ PKG_PATCH_DIRS="$KODI_VENDOR"
 
 case $KODI_VENDOR in
   raspberrypi)
-    PKG_VERSION="60bef867ee45a6eba15abc7cd021220cc30d6910" # kodi19-pre-Python3
-    PKG_SHA256="1804b2e494472810a71e604fc9e05b2a47fe7d0d775e42f91ac180ec417dde9a"
+    PKG_VERSION="5f134adfcee6fd031c7b8f905bce892dc6d88f7a" # kodi19-pre-Python3
+    PKG_SHA256="9acec0b04f802b8bcd24922a1664ee47198f384b6ba8f0704718dde176a81858"
     PKG_URL="https://github.com/popcornmix/xbmc/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="kodi-$KODI_VENDOR-$PKG_VERSION.tar.gz"
     ;;
