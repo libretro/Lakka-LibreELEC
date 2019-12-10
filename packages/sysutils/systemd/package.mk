@@ -49,7 +49,7 @@ PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
                        -Ddefault-dnssec=no \
                        -Dimportd=false \
                        -Dremote=false \
-                       -Dutmp=false \
+                       -Dutmp=true \
                        -Dhibernate=false \
                        -Denvironment-d=false \
                        -Dbinfmt=false \
