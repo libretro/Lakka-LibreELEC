@@ -87,7 +87,7 @@ pre_configure_target() {
   LDFLAGS+=" -L$(get_install_dir ffmpegx)/usr/local/lib"
 
 # pass libhdhomerun to build
-  CFLAGS+=" -I$(get_build_dir libhdhomerun)"
+  CFLAGS+=" -I$SYSROOT_PREFIX/usr/include/hdhomerun"
 
   export CROSS_COMPILE="$TARGET_PREFIX"
   export CFLAGS+=" -I$SYSROOT_PREFIX/usr/include/iconv -L$SYSROOT_PREFIX/usr/lib/iconv"
