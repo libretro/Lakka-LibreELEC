@@ -10,6 +10,7 @@ PKG_URL="https://github.com/jpr5/ngrep/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libpcap"
 PKG_LONGDESC="A tool like GNU grep applied to the network layer."
 PKG_TOOLCHAIN="autotools"
+PKG_BUILD_FLAGS="-sysroot"
 
 PKG_CONFIGURE_OPTS_TARGET="--with-pcap-includes=$SYSROOT_PREFIX/usr/include \
                            --enable-ipv6 \
@@ -18,8 +19,4 @@ PKG_CONFIGURE_OPTS_TARGET="--with-pcap-includes=$SYSROOT_PREFIX/usr/include \
 pre_build_target() {
   mkdir -p $PKG_BUILD/.$TARGET_NAME
   cp -RP $PKG_BUILD/* $PKG_BUILD/.$TARGET_NAME
-}
-
-makeinstall_target() {
-  :
 }

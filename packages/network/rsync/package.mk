@@ -10,7 +10,11 @@ PKG_URL="https://download.samba.org/pub/rsync/src/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_HOST="autotools:host"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A very fast method for bringing remote files into sync."
+PKG_BUILD_FLAGS="-sysroot"
 
 PKG_CONFIGURE_OPTS_HOST="--with-included-popt \
                          --with-included-zlib"
 
+PKG_CONFIGURE_OPTS_TARGET="--disable-acl-support \
+                           --disable-xattr-support \
+                           --with-included-popt"

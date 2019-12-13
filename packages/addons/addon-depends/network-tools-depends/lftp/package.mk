@@ -9,13 +9,10 @@ PKG_SITE="http://lftp.yar.ru/"
 PKG_URL="http://lftp.yar.ru/ftp/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain readline openssl zlib libidn2"
 PKG_LONGDESC="A sophisticated ftp/http client, and a file transfer program supporting a number of network protocols."
+PKG_BUILD_FLAGS="-sysroot"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-nls \
                            --without-gnutls \
                            --with-openssl \
                            --with-readline=$SYSROOT_PREFIX/usr \
                            --with-zlib=$SYSROOT_PREFIX/usr"
-
-makeinstall_target() {
-  :
-}

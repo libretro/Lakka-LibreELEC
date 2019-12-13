@@ -9,6 +9,7 @@ PKG_SITE="http://www.ncftp.com/ncftp/"
 PKG_URL="ftp://ftp.ncftp.com/ncftp/ncftp-${PKG_VERSION}-src.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="NcFTP is a set of application programs implementing the File Transfer Protocol."
+PKG_BUILD_FLAGS="-sysroot"
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_header_librtmp_rtmp_h=yes \
             --enable-readline \
@@ -23,8 +24,4 @@ pre_configure_target() {
 pre_build_target() {
   mkdir -p $PKG_BUILD/.$TARGET_NAME
   cp -RP $PKG_BUILD/* $PKG_BUILD/.$TARGET_NAME
-}
-
-makeinstall_target() {
-  :
 }
