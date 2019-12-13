@@ -141,10 +141,10 @@ addon() {
     cp -P $(get_build_dir nmon)/nmon $ADDON_BUILD/$PKG_ADDON_ID/bin/
 
     # p7zip
-    cp -P $(get_build_dir p7zip)/bin/7z.so $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp -PR $(get_build_dir p7zip)/bin/Codecs $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp -P $(get_build_dir p7zip)/bin/7z $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp -P $(get_build_dir p7zip)/bin/7za $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_build_dir p7zip)/.$TARGET_NAME/bin/7z.so $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -PR $(get_build_dir p7zip)/.$TARGET_NAME/bin/Codecs $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_build_dir p7zip)/.$TARGET_NAME/bin/7z $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_build_dir p7zip)/.$TARGET_NAME/bin/7za $ADDON_BUILD/$PKG_ADDON_ID/bin
 
     # patch
     cp -P $(get_build_dir patch)/.$TARGET_NAME/src/patch $ADDON_BUILD/$PKG_ADDON_ID/bin
