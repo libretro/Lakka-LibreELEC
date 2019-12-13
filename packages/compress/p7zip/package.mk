@@ -12,15 +12,27 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="p7zip is a port of 7za.exe for POSIX systems like Unix."
 PKG_TOOLCHAIN="manual"
 
-make_host() {
-  make CXX=$CXX CC=$CC 7za
+pre_build_host() {
+  rm -fr $PKG_BUILD/.$HOST_NAME
+  mkdir -p $PKG_BUILD/.$HOST_NAME
+  cp -RP $PKG_BUILD/* $PKG_BUILD/.$HOST_NAME
 }
 
-make_target() {
-  make CXX=$CXX CC=$CC 7z 7za
+make_host() {
+  make CXX=$CXX CC=$CC -C $PKG_BUILD/.$HOST_NAME 7za
 }
 
 makeinstall_host() {
   mkdir -p $TOOLCHAIN/bin
-    cp bin/7za $TOOLCHAIN/bin
+    cp $PKG_BUILD/.$HOST_NAME/bin/7za $TOOLCHAIN/bin
+}
+
+pre_build_target() {
+  rm -fr $PKG_BUILD/.$TARGET_NAME
+  mkdir -p $PKG_BUILD/.$TARGET_NAME
+  cp -RP $PKG_BUILD/* $PKG_BUILD/.$TARGET_NAME
+}
+
+make_target() {
+  make CXX=$CXX CC=$CC -C $PKG_BUILD/.$TARGET_NAME 7z 7za
 }
