@@ -10,15 +10,11 @@ PKG_SITE="https://github.com/kynesim/tstools"
 PKG_URL="https://github.com/kynesim/tstools/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="This is a set of cross-platform command line tools for working with MPEG data."
+PKG_BUILD_FLAGS="-sysroot"
+
+PKG_MAKE_OPTS_TARGET="CROSS_COMPILE=$TARGET_PREFIX prefix=/usr"
+PKG_MAKEINSTALL_OPTS_TARGET="${PKG_MAKE_OPTS_TARGET}"
 
 pre_make_target() {
   make builddirs
-}
-
-make_target() {
-  make CROSS_COMPILE=$TARGET_PREFIX
-}
-
-makeinstall_target() {
-  :
 }

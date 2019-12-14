@@ -8,13 +8,18 @@ PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/ralph-irving/squeezelite"
 PKG_URL="https://github.com/ralph-irving/squeezelite/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain faad2 ffmpeg flac libmad libvorbis mpg123 soxr libogg"
+PKG_DEPENDS_CONFIG="mpg123"
 PKG_LONGDESC="A client for the Logitech Media Server."
+PKG_BUILD_FLAGS="-sysroot"
 
-pre_make_target() {
-  export OPTS="-DDSD -DFFMPEG -DRESAMPLE -DVISEXPORT -DLINKALL"
-  export LDFLAGS="$LDFLAGS -lFLAC -lvorbisfile -lvorbis -logg"
+make_target() {
+  make \
+    OPTS="-DDSD -DFFMPEG -DRESAMPLE -DVISEXPORT -DLINKALL" \
+    CFLAGS="$CFLAGS $(pkg-config --cflags libmpg123 vorbisfile vorbis ogg)" \
+    LDFLAGS="$LDFLAGS $(pkg-config --libs libmpg123 vorbisfile vorbis ogg)"
 }
 
 makeinstall_target() {
-  :
+  mkdir -p $INSTALL/usr/bin
+  cp -p squeezelite $INSTALL/usr/bin
 }

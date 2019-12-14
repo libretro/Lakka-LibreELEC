@@ -10,8 +10,9 @@ PKG_URL="http://mediaarea.net/download/source/libzen/${PKG_VERSION}/libzen_${PKG
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="MediaInfo is a convenient unified display of the most relevant technical and tag data for video and audio files"
 PKG_TOOLCHAIN="manual"
+PKG_BUILD_FLAGS="-sysroot"
 
-make_target() {
+configure_target() {
   cd Project/GNU/Library
   do_autoreconf
   ./configure \
@@ -20,16 +21,19 @@ make_target() {
         --enable-static \
         --disable-shared \
         --prefix=/usr
+}
 
+make_target() {
   make
 }
 
-post_makeinstall_target() {
-  mkdir -p $SYSROOT_PREFIX/usr/include/ZenLib
-  cp -aP ../../../Source/ZenLib/*.h $SYSROOT_PREFIX/usr/include/ZenLib
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/include/ZenLib $INSTALL/usr/lib/pkgconfig
+  cp -aP ../../../Source/ZenLib/*.h $INSTALL/usr/include/ZenLib
   for i in HTTP_Client Format/Html Format/Http ; do
-    mkdir -p $SYSROOT_PREFIX/usr/include/ZenLib/$i/
-    cp -aP ../../../Source/ZenLib/$i/*.h $SYSROOT_PREFIX/usr/include/ZenLib/$i/
+    mkdir -p $INSTALL/usr/include/ZenLib/$i/
+    cp -aP ../../../Source/ZenLib/$i/*.h $INSTALL/usr/include/ZenLib/$i/
   done
-  cp -P libzen-config $TOOLCHAIN/bin
+  cp -P .libs/* $INSTALL/usr/lib
+  cp -P libzen.pc $INSTALL/usr/lib/pkgconfig
 }

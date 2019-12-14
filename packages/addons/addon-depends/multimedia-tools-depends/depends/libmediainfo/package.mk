@@ -8,10 +8,12 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://mediaarea.net/en/MediaInfo/Download/Source"
 PKG_URL="http://mediaarea.net/download/source/libmediainfo/${PKG_VERSION}/libmediainfo_${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain libzen zlib"
+PKG_DEPENDS_CONFIG="libzen"
 PKG_LONGDESC="MediaInfo is a convenient unified display of the most relevant technical and tag data for video and audio files"
 PKG_TOOLCHAIN="manual"
+PKG_BUILD_FLAGS="-sysroot"
 
-make_target() {
+configure_target() {
   cd Project/GNU/Library
   do_autoreconf
   ./configure \
@@ -21,15 +23,19 @@ make_target() {
         --disable-shared \
         --prefix=/usr \
         --enable-visibility
+}
+
+make_target() {
   make
 }
 
-post_makeinstall_target() {
-  mkdir -p $SYSROOT_PREFIX/usr/include/MediaInfo
-  cp -aP ../../../Source/MediaInfo/* $SYSROOT_PREFIX/usr/include/MediaInfo
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/include/MediaInfo $INSTALL/usr/lib/pkgconfig
+  cp -aP ../../../Source/MediaInfo/*.h $INSTALL/usr/include/MediaInfo
   for i in Archive Audio Duplicate Export Image Multiple Reader Tag Text Video ; do
-    mkdir -p $SYSROOT_PREFIX/usr/include/MediaInfo/$i/
-    cp -aP ../../../Source/MediaInfo/$i/*.h $SYSROOT_PREFIX/usr/include/MediaInfo/$i/
+    mkdir -p $INSTALL/usr/include/MediaInfo/$i/
+    cp -aP ../../../Source/MediaInfo/$i/*.h $INSTALL/usr/include/MediaInfo/$i/
   done
-  cp -P libmediainfo-config $TOOLCHAIN/bin
+  cp -P .libs/* $INSTALL/usr/lib
+  cp -P libmediainfo.pc $INSTALL/usr/lib/pkgconfig
 }

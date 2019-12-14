@@ -8,21 +8,24 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://mediaarea.net/en/MediaInfo/Download/Source"
 PKG_URL="http://mediaarea.net/download/source/mediainfo/${PKG_VERSION}/mediainfo_${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain libmediainfo"
+PKG_DEPENDS_CONFIG="libzen libmediainfo"
 PKG_LONGDESC="A convenient unified display of the most relevant technical and tag data for video and audio files."
 PKG_TOOLCHAIN="manual"
+PKG_BUILD_FLAGS="-sysroot"
 
-pre_configure_target() {
-  export LDFLAGS="$LDFLAGS -L$(get_build_dir libmediainfo)/Project/GNU/Library/.libs -L$(get_build_dir libzen)/Project/GNU/Library/.libs"
-  export LIBS="-lmediainfo -lzen"
-}
-
-make_target() {
+configure_target() {
   cd Project/GNU/CLI
   do_autoreconf
-  echo $PATH
   ./configure \
         --host=$TARGET_NAME \
         --build=$HOST_NAME \
         --prefix=/usr
+}
+
+make_target() {
   make
+}
+
+makeinstall_target() {
+  make install DESTDIR=$INSTALL
 }

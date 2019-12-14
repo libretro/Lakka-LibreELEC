@@ -10,6 +10,9 @@ PKG_SITE="http://georgi.unixsol.org/programs/tsdecrypt"
 PKG_URL="http://georgi.unixsol.org/programs/tsdecrypt/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain libdvbcsa openssl"
 PKG_LONGDESC="A tool that reads incoming mpeg transport stream over UDP/RTP and then decrypts it using libdvbcsa/ffdecsa."
+PKG_BUILD_FLAGS="-sysroot"
+
+PKG_MAKEINSTALL_OPTS_TARGET="PREFIX=/usr"
 
 make_target() {
   make CC=$CC LINK="$LD -o"
@@ -17,8 +20,4 @@ make_target() {
 
 post_make_target() {
   make strip STRIP=$STRIP
-}
-
-makeinstall_target() {
-  : # nop
 }
