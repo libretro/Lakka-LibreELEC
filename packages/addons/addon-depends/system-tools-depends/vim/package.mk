@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="vim"
-PKG_VERSION="8.0.0684"
-PKG_SHA256="edee3a85471d8e299428971a399cf5fee29febd8eb081f12b241b6ddbf3264f0"
+PKG_VERSION="8.1.2384"
+PKG_SHA256="f17462971e577063552cd4dbbebeb84e77a9fb47cd40c6234969e7672aebcd59"
 PKG_LICENSE="VIM"
 PKG_SITE="http://www.vim.org/"
 PKG_URL="https://github.com/vim/vim/archive/v$PKG_VERSION.tar.gz"
@@ -14,7 +14,7 @@ PKG_CONFIGURE_OPTS_TARGET="vim_cv_getcwd_broken=no \
                            vim_cv_memmove_handles_overlap=yes \
                            vim_cv_stat_ignores_slash=yes \
                            vim_cv_terminfo=yes \
-                           vim_cv_tgent=zero \
+                           vim_cv_tgetent=zero \
                            vim_cv_toupper_broken=no \
                            vim_cv_tty_group=world \
                            vim_cv_tty_mode=0620 \
