@@ -205,6 +205,7 @@ post_makeinstall_target() {
   cp $PKG_DIR/scripts/systemd-machine-id-setup $INSTALL/usr/bin
   cp $PKG_DIR/scripts/userconfig-setup $INSTALL/usr/bin
   cp $PKG_DIR/scripts/usercache-setup $INSTALL/usr/bin
+  cp $PKG_DIR/scripts/environment-setup $INSTALL/usr/bin
 
   # use systemd to set cpufreq governor and tunables
   find_file_path scripts/cpufreq && cp -PRv $FOUND_PATH $INSTALL/usr/bin
@@ -217,6 +218,7 @@ post_makeinstall_target() {
   # /etc/resolv.conf and /etc/hosts must be writable
   ln -sf /run/libreelec/resolv.conf $INSTALL/etc/resolv.conf
   ln -sf /run/libreelec/hosts $INSTALL/etc/hosts
+  ln -sf /run/libreelec/environment $INSTALL/etc/environment
 
   # provide 'halt', 'shutdown', 'reboot' & co.
   ln -sf /usr/bin/systemctl $INSTALL/usr/sbin/halt
@@ -276,6 +278,7 @@ post_install() {
   enable_service debugconfig.service
   enable_service userconfig.service
   enable_service usercache.service
+  enable_service envconfig.service
   enable_service kernel-overlays.service
   enable_service hwdb.service
   enable_service cpufreq.service
