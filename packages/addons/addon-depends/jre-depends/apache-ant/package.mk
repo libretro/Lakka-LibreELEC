@@ -7,7 +7,7 @@ PKG_SHA256="a4adf371696089e1730d4f55fd4d0c6f3784dea1eee402fcc981f2330f8d6fc1"
 PKG_LICENSE="Apache License 2.0"
 PKG_SITE="https://ant.apache.org/"
 PKG_URL="https://archive.apache.org/dist/ant/source/${PKG_NAME}-${PKG_VERSION}-src.tar.xz"
-PKG_DEPENDS_HOST="jdk-x86_64-zulu:host"
+PKG_DEPENDS_UNPACK="jdk-x86_64-zulu"
 PKG_LONGDESC="Apache Ant is a Java library and command-line tool that help building software."
 PKG_TOOLCHAIN="manual"
 
