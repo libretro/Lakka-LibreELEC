@@ -10,16 +10,18 @@ PKG_URL="https://github.com/badaix/snapcast/archive/v$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain aixlog alsa-lib asio avahi flac libvorbis popl"
 PKG_LONGDESC="Synchronous multi-room audio player."
 PKG_TOOLCHAIN="make"
+PKG_BUILD_FLAGS="-sysroot"
 
 pre_configure_target() {
   cd ..
   rm -rf .$TARGET_NAME
   CXXFLAGS="$CXXFLAGS -pthread \
-                      -I$(get_build_dir aixlog)/include \
-                      -I$(get_build_dir asio)/asio/include \
-                      -I$(get_build_dir popl)/include"
+                      -I$(get_install_dir aixlog)/usr/include \
+                      -I$(get_install_dir asio)/usr/include \
+                      -I$(get_install_dir popl)/usr/include"
 }
 
 makeinstall_target() {
-  :
+  mkdir -p $INSTALL/usr/bin
+  cp -p server/snapserver client/snapclient $INSTALL/usr/bin
 }
