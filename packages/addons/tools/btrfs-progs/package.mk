@@ -14,6 +14,7 @@ PKG_SECTION="tools"
 PKG_SHORTDESC="tools for the btrfs filesystem"
 PKG_LONGDESC="tools for the btrfs filesystem"
 PKG_TOOLCHAIN="configure"
+PKG_BUILD_FLAGS="-sysroot"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="BTRFS Tools"
@@ -27,11 +28,7 @@ pre_configure_target() {
   ./autogen.sh
 }
 
-makeinstall_target() {
-  :
-}
-
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin/
-    cp -P $(get_build_dir btrfs-progs)/{btrfs,btrfsck,btrfstune,btrfs-zero-log,fsck.btrfs,mkfs.btrfs} $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $PKG_INSTALL/usr/bin/{btrfs,btrfsck,btrfstune,btrfs-zero-log,fsck.btrfs,mkfs.btrfs} $ADDON_BUILD/$PKG_ADDON_ID/bin
 }
