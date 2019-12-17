@@ -8,15 +8,13 @@ PKG_SHA256="8b753c60df2a7f5dcda2db72c38e448ca300c3b4f6000c1501fcb0bd5df414f2"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.lirc.org"
 PKG_URL="https://sourceforge.net/projects/lirc/files/LIRC/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS_TARGET="toolchain libftdi1 libusb-compat libxslt"
+PKG_DEPENDS_TARGET="toolchain libftdi1 libusb-compat libxslt alsa-lib"
 PKG_LONGDESC="LIRC is a package that allows you to decode and send infra-red signals."
 PKG_TOOLCHAIN="autotools"
 
 PKG_PYTHON_WANTED=Python2
 
-PKG_CONFIGURE_OPTS_TARGET="ac_cv_header_alsa_asoundlib_h=no \
-                           ac_cv_lib_asound_snd_async_del_handler=no \
-                           --enable-devinput \
+PKG_CONFIGURE_OPTS_TARGET="--enable-devinput \
                            --enable-uinput \
                            --with-gnu-ld \
                            --without-x \
