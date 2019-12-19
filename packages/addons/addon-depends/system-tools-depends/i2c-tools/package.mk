@@ -21,6 +21,8 @@ make_target() {
         AR="$TARGET_AR" \
         CFLAGS="$TARGET_CFLAGS" \
         CPPFLAGS="$TARGET_CPPFLAGS -I${SYSROOT_PREFIX}/usr/include/$PKG_PYTHON_VERSION"
+
+  python_fix_abi .
 }
 
 makeinstall_target() {
