@@ -35,6 +35,7 @@ To control the build behaviour of your package, use variables in the top-down or
 | PKG_BUILD_FLAGS | -   | no  | A space separated list of flags with which to fine-tune the build process. Flags can be enabled or disabled with a `+` or `-` prefix. For detailed information, see the [Reference](#build_flags-options). |
 | PKG_PYTHON_VERSION | python3.7 | no | Define the Python version to be used. |
 | PKG_IS_KERNEL_PKG | - | no  | Set to `yes` for packages that include Linux kernel modules |
+| PKG_DEPENDS_CONFIG | - | no  | Space separated list of packages to add to PKG_CONFIG_PATH. Use this to build with support for `-sysroot` packages (See [reference](BUILD_FLAGS options). |
 
 #### Meson Options
 | Variable    | Default | Required |Description |
