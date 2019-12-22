@@ -16,12 +16,12 @@ PKG_ADDON_TYPE="xbmc.service"
 
 addon() {
   mkdir -p "$ADDON_BUILD/$PKG_ADDON_ID/bin"
-  cp -PR "$(get_build_dir glibc)/.$TARGET_NAME/locale/localedef" \
+  cp -PR "$(get_install_dir glibc)/.noinstall/localedef" \
          "$ADDON_BUILD/$PKG_ADDON_ID/bin"
 
   mkdir -p "$ADDON_BUILD/$PKG_ADDON_ID/i18n"
-  cp -PR "$(get_build_dir glibc)/localedata/charmaps" \
-         "$(get_build_dir glibc)/localedata/locales" \
+  cp -PR "$(get_install_dir glibc)/.noinstall/charmaps" \
+         "$(get_install_dir glibc)/.noinstall/locales" \
          "$ADDON_BUILD/$PKG_ADDON_ID/i18n"
 
   mkdir -p "$ADDON_BUILD/$PKG_ADDON_ID/locpath"

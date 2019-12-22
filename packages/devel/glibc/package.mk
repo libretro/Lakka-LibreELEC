@@ -97,15 +97,20 @@ build-programs=yes
 EOF
 
   # binaries to install into target
-  GLIBC_INCLUDE_BIN="getent ldd locale"
-
-  # Generic "installer" needs localedef to define drawing chars
-  if [ "$PROJECT" = "Generic" ]; then
-    GLIBC_INCLUDE_BIN+=" localedef"
-  fi
+  GLIBC_INCLUDE_BIN="getent ldd locale localedef"
 }
 
 post_makeinstall_target() {
+  mkdir -p $INSTALL/.noinstall
+    cp -p $INSTALL/usr/bin/localedef $INSTALL/.noinstall
+    cp -a $INSTALL/usr/share/i18n/locales $INSTALL/.noinstall
+    mv $INSTALL/usr/share/i18n/charmaps $INSTALL/.noinstall
+
+  # Generic "installer" needs localedef to define drawing chars
+  if [ "$PROJECT" != "Generic" ]; then
+    rm $INSTALL/usr/bin/localedef
+  fi
+
 # we are linking against ld.so, so symlink
   ln -sf $(basename $INSTALL/usr/lib/ld-*.so) $INSTALL/usr/lib/ld.so
 
@@ -121,9 +126,6 @@ post_makeinstall_target() {
   safe_remove $INSTALL/usr/lib/*.o
   safe_remove $INSTALL/usr/lib/*.map
   safe_remove $INSTALL/var
-
-# remove locales and charmaps
-  safe_remove $INSTALL/usr/share/i18n/charmaps
 
 # add UTF-8 charmap for Generic (charmap is needed for installer)
   if [ "$PROJECT" = "Generic" ]; then
