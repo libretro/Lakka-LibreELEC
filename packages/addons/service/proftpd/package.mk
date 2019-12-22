@@ -14,6 +14,7 @@ PKG_DEPENDS_TARGET="toolchain libcap openssl ncurses pcre whois"
 PKG_SECTION="service"
 PKG_SHORTDESC="ProFTPD: a FTP server for linux"
 PKG_LONGDESC="ProFTPD ($PKG_VERSION): is a secure and configurable FTP server with SSL/TLS support"
+PKG_BUILD_FLAGS="-sysroot"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="ProFTPD Server"
@@ -33,30 +34,26 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --enable-ipv6 \
                            --enable-nls \
                            --enable-pcre \
-                           --enable-largefile"
-
-pre_build_target() {
-  mkdir -p $PKG_BUILD/.$TARGET_NAME
-  cp -RP $PKG_BUILD/* $PKG_BUILD/.$TARGET_NAME
-}
+                           --enable-largefile \
+                           install_user=$(id -u) \
+                           install_group=$(id -g)"
 
 pre_configure_target() {
-  export CFLAGS="$CFLAGS -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -I$PKG_BUILD/.$TARGET_NAME/include/"
-  export LDFLAGS="$LDFLAGS -L$PKG_BUILD/.$TARGET_NAME/lib"
-}
-
-makeinstall_target() {
-  : # nop
+  export CFLAGS="$CFLAGS -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64"
+  cd ..
+  rm -rf .$TARGET_NAME
 }
 
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp $PKG_BUILD/.$TARGET_NAME/proftpd   $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp $PKG_BUILD/.$TARGET_NAME/ftpwho  $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp $PKG_BUILD/.$TARGET_NAME/ftptop  $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp $PKG_INSTALL/usr/sbin/proftpd $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp $PKG_INSTALL/usr/bin/ftpwho $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp $PKG_INSTALL/usr/bin/ftptop $ADDON_BUILD/$PKG_ADDON_ID/bin
 
-    cp $(get_build_dir whois)/mkpasswd $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp $(get_install_dir whois)/usr/bin/mkpasswd $ADDON_BUILD/$PKG_ADDON_ID/bin
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/locale
-    cp $PKG_BUILD/.$TARGET_NAME/locale/* $ADDON_BUILD/$PKG_ADDON_ID/locale
+    for i in $PKG_INSTALL/storage/.kodi/addons/$PKG_ADDON_ID/locale/*; do
+      cp $i/LC_MESSAGES/proftpd.mo $ADDON_BUILD/$PKG_ADDON_ID/locale/$(basename $i).mo
+    done
 }
