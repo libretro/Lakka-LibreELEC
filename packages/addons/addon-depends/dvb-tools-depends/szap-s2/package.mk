@@ -9,7 +9,9 @@ PKG_SITE="https://bitbucket.org/updatelee/tune-s2"
 PKG_URL="https://bitbucket.org/CrazyCat/szap-s2/get/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="szap-s2 is a simple zapping tool for the Linux DVB S2 API"
+PKG_BUILD_FLAGS="-sysroot"
 
 makeinstall_target() {
-  :
+  mkdir -p $INSTALL/usr/bin
+  make install BIND=$INSTALL/usr/bin
 }

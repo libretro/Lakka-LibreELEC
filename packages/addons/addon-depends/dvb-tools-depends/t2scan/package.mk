@@ -9,7 +9,4 @@ PKG_SITE="https://github.com/mighty-p/t2scan"
 PKG_URL="https://github.com/mighty-p/t2scan/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A small channel scan tool which generates DVB-T/T2 channels.conf files."
-
-makeinstall_target() {
-  :
-}
+PKG_BUILD_FLAGS="-sysroot"

@@ -10,7 +10,4 @@ PKG_URL="http://wirbel.htpc-forum.de/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A channel scan tool which generates ATSC, DVB-C, DVB-S/S2 and DVB-T channels.conf files."
 PKG_TOOLCHAIN="autotools"
-
-makeinstall_target() {
-  :
-}
+PKG_BUILD_FLAGS="-sysroot"

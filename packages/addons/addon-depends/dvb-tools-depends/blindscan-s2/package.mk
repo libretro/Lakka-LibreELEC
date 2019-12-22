@@ -9,7 +9,9 @@ PKG_SITE="https://bitbucket.org/majortom/blindscan-s2"
 PKG_URL="https://github.com/PLi-metas/blindscan-s2/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="blindscan-s2 is a program to blindscan digital satellite signals"
+PKG_BUILD_FLAGS="-sysroot"
 
 makeinstall_target() {
-  :
+  mkdir -p $INSTALL/usr/bin
+  make install BIND=$INSTALL/usr/bin
 }
