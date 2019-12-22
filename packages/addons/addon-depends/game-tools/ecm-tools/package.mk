@@ -9,7 +9,4 @@ PKG_SITE="https://github.com/alucryd/ecm-tools"
 PKG_URL="https://github.com/alucryd/ecm-tools/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Error Code Modeler.s"
-
-makeinstall_target() {
-  :
-}
+PKG_BUILD_FLAGS="-sysroot"

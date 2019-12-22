@@ -26,17 +26,17 @@ PKG_DEPENDS_TARGET="toolchain \
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin/
     # bchunk
-    cp -P $(get_build_dir bchunk)/bchunk $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir bchunk)/usr/bin/bchunk $ADDON_BUILD/$PKG_ADDON_ID/bin
 
     # ecm-tools
-    cp -P $(get_build_dir ecm-tools)/bin2ecm $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir ecm-tools)/usr/bin/bin2ecm $ADDON_BUILD/$PKG_ADDON_ID/bin
     ln -s bin2ecm $ADDON_BUILD/$PKG_ADDON_ID/bin/ecm2bin
 
     # iat
-    cp -P $(get_build_dir iat)/.$TARGET_NAME/src/iat $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir iat)/usr/bin/iat $ADDON_BUILD/$PKG_ADDON_ID/bin
 
     # linuxconsoletools
-    cp -P $(get_build_dir linuxconsoletools)/utils/fftest $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp -P $(get_build_dir linuxconsoletools)/utils/jscal $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp -P $(get_build_dir linuxconsoletools)/utils/jstest $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir linuxconsoletools)/usr/bin/fftest $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir linuxconsoletools)/usr/bin/jscal $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir linuxconsoletools)/usr/bin/jstest $ADDON_BUILD/$PKG_ADDON_ID/bin
 }
