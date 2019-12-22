@@ -31,5 +31,5 @@ addon() {
       -i $ADDON_BUILD/$PKG_ADDON_ID/addon.xml
 
   cp $(get_install_dir tslib)/usr/bin/* $ADDON_BUILD/$PKG_ADDON_ID/bin
-  cp $(get_build_dir evtest)/.$TARGET_NAME/evtest  $ADDON_BUILD/$PKG_ADDON_ID/bin
+  cp $(get_install_dir evtest)/usr/bin/evtest $ADDON_BUILD/$PKG_ADDON_ID/bin
 }
