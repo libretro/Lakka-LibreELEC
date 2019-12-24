@@ -3,8 +3,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="samba"
-PKG_VERSION="4.9.10"
-PKG_SHA256="f81ab92924b2f3c368ab64a381c1bb2befc7ddc90043dbb10b02d85cca27df61"
+PKG_VERSION="4.9.15"
+PKG_SHA256="377102b80b97941bf0d131b828cae8415190e5bdd2928c2e2c954e29f1904496"
 PKG_LICENSE="GPLv3+"
 PKG_SITE="https://www.samba.org"
 PKG_URL="https://download.samba.org/pub/samba/stable/$PKG_NAME-$PKG_VERSION.tar.gz"
@@ -83,7 +83,7 @@ configure_package() {
                       --without-ldb-lmdb \
                       --nopyc --nopyo"
 
-  PKG_SAMBA_TARGET="smbclient,client/smbclient,smbtree,testparm"
+  PKG_SAMBA_TARGET="smbclient,client/smbclient,smbtree,nmblookup,testparm"
 
   if [ "$SAMBA_SERVER" = "yes" ]; then
     PKG_SAMBA_TARGET+=",smbd/smbd,nmbd,smbpasswd"
@@ -143,6 +143,7 @@ post_makeinstall_target() {
   mkdir -p $INSTALL/usr/bin
     cp -PR bin/default/source3/client/smbclient $INSTALL/usr/bin
     cp -PR bin/default/source3/utils/smbtree $INSTALL/usr/bin
+    cp -PR bin/default/source3/utils/nmblookup $INSTALL/usr/bin
     cp -PR bin/default/source3/utils/testparm $INSTALL/usr/bin
 
   if [ "$SAMBA_SERVER" = "yes" ]; then

@@ -3,9 +3,9 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.fluidsynth"
-PKG_VERSION="2.0.0-Leia"
-PKG_SHA256="8c3d62f3e5821db8bfb9c893f132e024fa74aaa93e365384741c831079f7d13d"
-PKG_REV="4"
+PKG_VERSION="2.1.0-Leia"
+PKG_SHA256="3fd8177fbae4abd323d6e5f0378a4ddf1d45f40f0e2329c9d67b4535218fccef"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.fluidsynth"
