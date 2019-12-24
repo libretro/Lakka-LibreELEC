@@ -20,6 +20,8 @@ PKG_CONFIGURE_OPTS_TARGET="vim_cv_getcwd_broken=no \
                            vim_cv_tty_mode=0620 \
                            ac_cv_sizeof_int=4 \
                            ac_cv_small_wchar_t=no \
+                           --datarootdir=/storage/.kodi/addons/virtual.system-tools/data \
+                           --disable-nls \
                            --enable-selinux=no \
                            --enable-gui=no \
                            --with-compiledby=LibreELEC \
@@ -34,4 +36,12 @@ pre_configure_target() {
 
 make_target() {
   :
+}
+
+post_makeinstall_target() {
+  (
+  cd $INSTALL/storage/.kodi/addons/virtual.system-tools/data/vim/vim*
+  rm -r doc tutor gvimrc_example.vim
+  mv vimrc_example.vim ../vimrc
+  )
 }

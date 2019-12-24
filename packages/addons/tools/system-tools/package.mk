@@ -172,4 +172,5 @@ addon() {
 
     # vim
     cp -P $(get_build_dir vim)/.install_pkg/usr/bin/vim $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -Pa $(get_build_dir vim)/.install_pkg/storage/.kodi/addons/virtual.system-tools/data/vim/ $ADDON_BUILD/$PKG_ADDON_ID/data
 }
