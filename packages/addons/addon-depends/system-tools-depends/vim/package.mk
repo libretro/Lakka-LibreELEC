@@ -29,6 +29,8 @@ PKG_CONFIGURE_OPTS_TARGET="vim_cv_getcwd_broken=no \
                            --with-tlib=ncurses \
                            --without-x"
 
+PKG_MAKEINSTALL_OPTS_TARGET=VIMRTDIR=
+
 pre_configure_target() {
   cd ..
   rm -rf .$TARGET_NAME
@@ -40,8 +42,8 @@ make_target() {
 
 post_makeinstall_target() {
   (
-  cd $INSTALL/storage/.kodi/addons/virtual.system-tools/data/vim/vim*
+  cd $INSTALL/storage/.kodi/addons/virtual.system-tools/data/vim
   rm -r doc tutor gvimrc_example.vim
-  mv vimrc_example.vim ../vimrc
+  mv vimrc_example.vim vimrc
   )
 }
