@@ -1401,9 +1401,8 @@ pkg_lock() {
     if [ -d "${THREAD_CONTROL}/logs" ]; then
 cat <<EOF
 
-The following logs for this failure are available:
-  stdout: ${THREAD_CONTROL}/logs/${fail_seq}/stdout
-  stderr: ${THREAD_CONTROL}/logs/${fail_seq}/stderr
+The following log for this failure is available:
+  ${THREAD_CONTROL}/logs/${fail_seq}.log
 
 EOF
     fi
@@ -1451,17 +1450,17 @@ update_dashboard() {
   [ "${MTWITHLOCKS}" != "yes" ] && return 0
 
   local status="$1" pkg="$2" task="$3" msg="$4"
-  local line sedline preamble num elapsed projdevarch
+  local line preamble num elapsed projdevarch
   local boldred boldgreen boldyellow endcolor idwidth
 
-  sedline=$((MTJOBID + 2))
+  [ "${THREADCOUNT}" = "0" ] && idwidth=${#MTMAXSLOT} || idwidth=2
 
-  [ "${THREADCOUNT}" = "0" ] && idwidth=${#MTMAXJOBS} || idwidth=2
-
-  num=$(< "${THREAD_CONTROL}/status.max")
-  if [ ${num} -lt ${sedline} ]; then
-    echo ${sedline} >"${THREAD_CONTROL}/status.max"
-    for i in $(seq $((num + 1)) ${sedline}); do echo "" >>"${THREAD_CONTROL}/status"; done
+  if [ ! -s ${THREAD_CONTROL}/status ]; then
+    echo "" >"${THREAD_CONTROL}/status"
+    echo "" >>"${THREAD_CONTROL}/status"
+    for i in $(seq 1 $((MTMAXSLOT))); do
+      printf "[%0*d/%0*d] %-7s\n" ${idwidth} ${i} ${#MTMAXJOBS} 0 "IDLE" >>"${THREAD_CONTROL}/status"
+    done
   fi
 
   num=$(< "${THREAD_CONTROL}/progress.prev")
@@ -1492,7 +1491,7 @@ update_dashboard() {
   printf -v line "[%0*d\/%0*d] %b%-7s%b %-7s %-35s" ${idwidth} ${MTJOBID} ${#MTMAXJOBS} ${PARALLEL_SEQ:-0} "${color}" "${status//\//\\/}" "${endcolor}" "${task}" "${pkg}"
   [ -n "${msg}" ] && line+=" ${msg//\//\\/}"
 
-  sed -e "1s/.*/${preamble}/;${sedline}s/.*/${line}/" -i "${THREAD_CONTROL}/status"
+  sed -e "1s/.*/${preamble}/;$((MTJOBID + 2))s/.*/${line}/" -i "${THREAD_CONTROL}/status"
 }
 
 # Thread concurrency helpers to avoid concurrency issues with some code,
