@@ -19,10 +19,10 @@
 ################################################################################
 
 PKG_NAME="play"
-PKG_VERSION="fedc1e1"
+PKG_VERSION="094253a"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/libretro/Play-"
+PKG_SITE="https://github.com/lakkatv/Play-" # TODO: use upstream when the libretro PR is merged
 PKG_URL="$PKG_SITE.git"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
