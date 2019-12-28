@@ -53,7 +53,6 @@ fi
 
 if [ "${LLVM_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" elfutils llvm"
-  export LLVM_CONFIG="${SYSROOT_PREFIX}/usr/bin/llvm-config-host"
   PKG_MESON_OPTS_TARGET+=" -Dllvm=true"
 else
   PKG_MESON_OPTS_TARGET+=" -Dllvm=false"
