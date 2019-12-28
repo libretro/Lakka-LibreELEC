@@ -354,6 +354,9 @@ parser.add_argument("--hide-wants", action="store_false", dest="show_wants", def
 parser.add_argument("--ignore-invalid", action="store_true", \
                     help="Ignore invalid packages.")
 
+parser.add_argument("--with-json", metavar="FILE", \
+                    help="File into which JSON formatted plan will be written.")
+
 args = parser.parse_args()
 
 ALL_PACKAGES = loadPackages()
@@ -373,6 +376,17 @@ eprint("Packages loaded : %d" % loaded)
 eprint("Build trigger(s): %d [%s]" % (len(args.build), " ".join(args.build)))
 eprint("Package steps   : %d" % len(steps))
 eprint("")
+
+# Write the JSON build plan (with dependencies)
+if args.with_json:
+    plan = []
+    for step in steps:
+        plan.append({"task": step[0],
+                     "name": step[1],
+                     "deps": [d.fqname for d in REQUIRED_PKGS[step[1]].edges]})
+
+    with open(args.with_json, "w") as out:
+        print(json.dumps(plan, indent=2, sort_keys=False), file=out)
 
 # Output build/install steps
 if args.show_wants:
