@@ -1373,8 +1373,11 @@ enable_service() {
 ### MULTI-THREADED FUNCTION HELPERS ###
 # Test build type so that these functions are a no-op during non-multithreaded builds.
 
-# Prevent concurrent modifications to a package (unpack) or
-# package:target (install/build).
+# Prevent concurrent modifications to a package during certain activities.
+# With dynamic scheduling we now only need to acquire the lock
+# during unpack and reconf, all other activities do not need to acquire a
+# lock as there should be no concurrent access however the existing code path
+# potentially generates useful logging for minimal cost so keep it.
 #
 # If a package is already locked and the owner is ourselves
 # then assume we already have the required lock.
@@ -1384,34 +1387,20 @@ pkg_lock() {
   local pkg="$1" task="$2" parent_pkg="$3"
   local this_job="${MTJOBID}"
   local lock_job lock_seq lock_task lock_pkg locked=no idwidth
-  local fail_seq
 
-  exec 98>"${THREAD_CONTROL}/locks/${pkg}.${task}"
-  while [ : ]; do
-    read -r lock_job lock_seq lock_task lock_pkg <<<$(cat "${THREAD_CONTROL}/locks/${pkg}.${task}.owner" 2>/dev/null)
-    [ -n "${lock_job}" ] && break
-    flock --wait 1 --exclusive 98 && locked=yes && break
-  done
+  if [ "${task}" = "unpack" -o "${task}" = "reconf" ]; then
+    exec 98>"${THREAD_CONTROL}/locks/${pkg}.${task}"
+    while [ : ]; do
+      read -r lock_job lock_seq lock_task lock_pkg <<<$(cat "${THREAD_CONTROL}/locks/${pkg}.${task}.owner" 2>/dev/null)
+      [ -n "${lock_job}" ] && break
+      flock --wait 1 --exclusive 98 && locked=yes && break
+    done
 
-  if [ "${locked}" = "no" -a "${lock_job}/${lock_seq}" != "${this_job}/${PARALLEL_SEQ}" ]; then
-    [ "${THREADCOUNT}" = "0" ] && idwidth=${#MTMAXJOBS} || idwidth=2
-    pkg_lock_status "STALLED" "${parent_pkg}" "${task}" "$(printf "waiting on [%0*d] %s %s" ${idwidth} ${lock_job} "${lock_task}" "${lock_pkg}")"
-    flock --exclusive 98
-  fi
-
-  # As we now have the lock, if .failed still exists then a previous process must have failed
-  if [ -f "${THREAD_CONTROL}/locks/${pkg}.${task}.failed" ]; then
-    fail_seq="$(< "${THREAD_CONTROL}/locks/${pkg}.${task}.failed")"
-    print_color CLR_ERROR "FAILURE: ${pkg}.${task}.failed exists, a previous dependency process has failed (seq: ${fail_seq})\n"
-    if [ -d "${THREAD_CONTROL}/logs" ]; then
-cat <<EOF
-
-The following log for this failure is available:
-  ${THREAD_CONTROL}/logs/${fail_seq}.log
-
-EOF
+    if [ "${locked}" = "no" -a "${lock_job}/${lock_seq}" != "${this_job}/${PARALLEL_SEQ}" ]; then
+      [ "${THREADCOUNT}" = "0" ] && idwidth=${#MTMAXJOBS} || idwidth=2
+      pkg_lock_status "STALLED" "${parent_pkg}" "${task}" "$(printf "waiting on [%0*d] %s %s" ${idwidth} ${lock_job} "${lock_task}" "${lock_pkg}")"
+      flock --exclusive 98
     fi
-    return 1
   fi
 
   pkg_lock_status "LOCKED" "${pkg}" "${task}"
@@ -1447,11 +1436,9 @@ pkg_lock_status() {
   ) 94>"${THREAD_CONTROL}/locks/.history"
 
   if [ "${status}" = "LOCKED" ]; then
-    echo "${PARALLEL_SEQ}" > "${THREAD_CONTROL}/locks/${pkg}.${task}.failed"
     echo "${this_job} ${PARALLEL_SEQ} ${task} ${pkg}" >"${THREAD_CONTROL}/locks/${pkg}.${task}.owner"
   elif [ "${status}" = "UNLOCK" ]; then
     rm "${THREAD_CONTROL}/locks/${pkg}.${task}.owner"
-    rm "${THREAD_CONTROL}/locks/${pkg}.${task}.failed"
   fi
 
   return 0
