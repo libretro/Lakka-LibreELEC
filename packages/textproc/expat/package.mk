@@ -12,6 +12,13 @@ PKG_DEPENDS_HOST="toolchain:host"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Expat is an XML parser library written in C."
 
-PKG_CMAKE_OPTS_TARGET="-DBUILD_doc=OFF -DBUILD_tools=OFF -DBUILD_examples=OFF -DBUILD_tests=OFF -DBUILD_shared=ON"
-PKG_CMAKE_OPTS_HOST="-DBUILD_doc=OFF -DBUILD_tools=OFF -DBUILD_examples=OFF -DBUILD_tests=OFF -DBUILD_shared=ON"
-
+PKG_CMAKE_OPTS_TARGET="-DEXPAT_BUILD_DOCS=OFF \
+                       -DEXPAT_BUILD_TOOLS=OFF \
+                       -DEXPAT_BUILD_EXAMPLES=OFF \
+                       -DEXPAT_BUILD_TESTS=OFF \
+                       -DEXPAT_SHARED_LIBS=ON"
+PKG_CMAKE_OPTS_HOST="-DEXPAT_BUILD_DOCS=OFF \
+                     -DEXPAT_BUILD_TOOLS=OFF \
+                     -DEXPAT_BUILD_EXAMPLES=OFF \
+                     -DEXPAT_BUILD_TESTS=OFF \
+                     -DEXPAT_SHARED_LIBS=ON"
