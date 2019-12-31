@@ -18,9 +18,9 @@ pre_configure_target() {
   export argtable2_LIBS="-L$(get_build_dir argtable2)/src/.libs -largtable2"
 
 # pass ffmpegx to build
-  PKG_CONFIG_PATH="$(get_build_dir ffmpegx)/.INSTALL_PKG/usr/local/lib/pkgconfig"
-  CFLAGS+=" -I$(get_build_dir ffmpegx)/.INSTALL_PKG/usr/local/include"
-  LDFLAGS+=" -L$(get_build_dir ffmpegx)/.INSTALL_PKG/usr/local/lib"
+  PKG_CONFIG_PATH="$(get_install_dir ffmpegx)/usr/local/lib/pkgconfig"
+  CFLAGS+=" -I$(get_install_dir ffmpegx)/usr/local/include"
+  LDFLAGS+=" -L$(get_install_dir ffmpegx)/usr/local/lib"
 }
 
 make_target() {
