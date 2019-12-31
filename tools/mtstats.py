@@ -5,8 +5,15 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 import sys, os, codecs, datetime, time
+import copy
+
+ALL_STATUSES = ["ACTIVE", "FAILED", "GETPKG", "IDLE", "LOCKED", "MUTEX", "MUTEX/W", "STALLED", "UNLOCK"]
+BUSY_STATUSES = ["ACTIVE", "MUTEX", "GETPKG"]
+STALLED_STATUSES = ["STALLED", "MUTEX/W"]
 
 EPOCH = datetime.datetime(1970, 1, 1)
+
+MAXSLOTS = None
 
 class HistoryEvent:
     def __init__(self, event):
@@ -17,15 +24,37 @@ class HistoryEvent:
         (self.slot, self.seq) = items[3][1:-1].split("/")
         self.status = items[4]
         self.task = items[5] if len(items) > 5 else ""
+        self.task = items[5] if len(items) > 5 else ""
+        self.package = items[6] if len(items) > 6 else ""
+        self.msg = ' '.join(items[7:]) if len(items) > 7 else ""
         self.secs = None
 
     def __repr__(self):
-        return "%s; %s; %s; %s; %s" % (self.datetime, self.slot, self.seq, self.status, self.task)
+        return "%s; %s; %s; %s; %s; %s; %s;" % (self.datetime, self.slot, self.seq, self.status, self.task, self.package, self.msg)
 
     def get_time_secs(self):
         if self.secs == None:
             self.secs = (datetime.datetime.strptime(self.datetime, "%Y-%m-%d %H:%M:%S.%f") - EPOCH).total_seconds()
         return self.secs
+
+    def isConfig(self):
+        return (self.task == "config")
+
+    def getConfig(self, item, default=None):
+        if self.isConfig():
+            pairs = self.msg.split(";")
+            for pair in pairs:
+                (key, value) = pair.split("=")
+                if key == item:
+                    return(value)
+        return default
+
+def pct_brackets(pct):
+    spct = "%04.1f" % pct
+    if float(spct) >= 100.0:
+        return "( %s%%)" % spct[:-2]
+    else:
+        return "(%s%%)" % spct
 
 def secs_to_hms(seconds, blankzero=False):
     hours = "%02d" % int(seconds / 3600)
@@ -37,8 +66,8 @@ def secs_to_hms(seconds, blankzero=False):
         mins = "  "
     return "%2s:%2s:%s" % (hours, mins, secs)
 
-def get_slot_val(slot):
-    return slots[slot]["total"]
+def get_busy_total(slot):
+    return summary[slot]["busy"]["total"]
 
 def get_concurrent_val(concurrent):
     return concurrency[concurrent]["total"]
@@ -48,6 +77,10 @@ def get_concurrent_val(concurrent):
 events = []
 for event in sys.stdin: events.append(HistoryEvent(event))
 
+if len(events) > 0 and events[0].isConfig():
+    MAXSLOTS = events[0].getConfig("slots")
+    del events[0]
+
 if len(events) == 0:
     sys.exit(1)
 
@@ -55,66 +88,180 @@ started = events[0].get_time_secs()
 ended = events[-1].get_time_secs()
 now = time.time()
 
-slots = {}
+last_active = ended
+incomplete = False
+
 concurrency = {}
 active = peak = 0
-for event in events:
-    slot = slots.get(event.slot, {"active": False,
-                                  "start": 0.0,
-                                  "total": 0.0})
 
-    if event.status in ["ACTIVE", "MUTEX", "GETPKG"]:
-        if slot["active"] == False:
+slotn = {}
+if MAXSLOTS:
+    for s in range(1, int(MAXSLOTS) + 1):
+        slotn["%0*d" % (len(events[0].slot),s)] = 0
+else:
+    for event in events:
+        slotn[event.slot] = 0
+
+# Acumulate information in this hash - meh
+data = {"previous_status": None, "isactive": False, "statuses": {}}
+for status in ALL_STATUSES:
+    data["statuses"][status] = {"enabled": False, "count": 0, "start": 0.0, "total": 0.0}
+data["statuses"]["IDLE"]["start"] = started
+
+# For each slot allocate data storage
+slots = {}
+for slot in slotn:
+    slots[slot] = copy.deepcopy(data)
+
+# Process all events, accumulating counts and elapsed time for each status by slot
+for event in events:
+    slot = slots[event.slot]
+
+    # Record accumulated time for the previous event
+    previous = slot["previous_status"]
+
+    if previous and slot["statuses"][previous]["enabled"] == True:
+        prev_status = slot["statuses"][previous]
+        prev_status["enabled"] = False
+        prev_status["total"] += (event.get_time_secs() - prev_status["start"])
+
+    # Determine max concurrency
+    if event.status in BUSY_STATUSES:
+        if previous == None or previous not in BUSY_STATUSES:
             active += 1
             concurrent = concurrency.get(active, {"start": 0.0, "total": 0.0})
             concurrent["start"] = event.get_time_secs()
             concurrency[active] = concurrent
-
-            slot["active"] = True
-            slot["start"] = event.get_time_secs()
-            slots[event.slot] = slot
-
             if active > peak:
                 peak = active
-
-    elif slot["active"] == True:
+    elif previous in BUSY_STATUSES:
         concurrency[active]["total"] += (event.get_time_secs() - concurrency[active]["start"])
         active -= 1
-        slot["active"] = False
-        slot["total"] += (event.get_time_secs() - slot["start"])
-        slots[event.slot] = slot
 
-# If any slots remain active, either the build failed or the build is ongoing, in
-# which case "close" the active slots with the current time.
-for slotn in slots:
-    slot = slots[slotn]
-    if slot["active"] == True:
-        ended = now
-        slot["total"] += (now - slot["start"])
+    # Record details for the new event
+    this_status = slot["statuses"][event.status]
+    this_status["enabled"] = True
+    this_status["count"] += 1
+    this_status["start"] = event.get_time_secs()
+    slot["previous_status"] = event.status
+
+# If any slots remain active then either the build has failed or the build is
+# ongoing in which case "close" the active slots with the current time.
+# For IDLE states, "close" the event with the elapsed time to the last known event.
+for slot in slots:
+    for status in slots[slot]["statuses"]:
+        if status == "IDLE":
+            slots[slot]["statuses"][status]["total"] += (last_active - slots[slot]["statuses"][status]["start"])
+        elif slots[slot]["statuses"][status]["enabled"] == True:
+            if status != "FAILED":
+                incomplete = True
+                slots[slot]["isactive"] = True
+                slots[slot]["statuses"][status]["total"] += (now - slots[slot]["statuses"][status]["start"])
+                ended = now
+
+# Summarise slot data by various criteria
+summary = {}
+cumaltive_total = 0
+for slot in slots:
+    acount = atotal = 0
+    scount = stotal = 0
+    ccount = ctotal = 0
+
+    for status in BUSY_STATUSES:
+        if status in slots[slot]["statuses"]:
+            acount += slots[slot]["statuses"][status]["count"]
+            atotal += slots[slot]["statuses"][status]["total"]
+
+    for status in STALLED_STATUSES:
+        if status in slots[slot]["statuses"]:
+            scount += slots[slot]["statuses"][status]["count"]
+            stotal += slots[slot]["statuses"][status]["total"]
+
+    for status in slots[slot]["statuses"]:
+        ccount += slots[slot]["statuses"][status]["count"]
+        ctotal += slots[slot]["statuses"][status]["total"]
+    cumaltive_total += ctotal
+
+    summary[slot] = {"busy":    {"count": acount, "total": atotal},
+                     "stalled": {"count": scount, "total": stotal},
+                     "cumulative": {"count": ccount, "total": ctotal}}
+
+# Accumulate stalled stats
+stalled_count = stalled_total = 0
+for slot in summary:
+    stalled_count += summary[slot]["stalled"]["count"]
+    stalled_total += summary[slot]["stalled"]["total"]
 
 elapsed = (ended - started)
 
-print("Total Build Time: %s\n" % secs_to_hms(elapsed, blankzero=False))
+print("Total Build Time: %s (wall clock)" % secs_to_hms(elapsed, blankzero=False))
+print("Accum Build Time: %s (%d slots)\n" % (secs_to_hms(cumaltive_total, blankzero=False), len(slots)))
+
+if incomplete:
+    print("*** WARNING: active slots detected - build may be in progress/incomplete ***\n")
+
+cum_total = cum_count = cum_pct = 0
+print("Breakdown by status (all slots):\n")
+print("  Status   Usage         ( Pct )  Count  State")
+for status in sorted(ALL_STATUSES):
+    total = 0
+    count = 0
+    for slot in slots:
+        if status in slots[slot]["statuses"]:
+            count += slots[slot]["statuses"][status]["count"]
+            total += slots[slot]["statuses"][status]["total"]
+
+    pct = (100 * total / elapsed / len(slots)) if elapsed > 0.0 else 0.0
+    cum_pct += pct
+
+    if status in BUSY_STATUSES:
+        stype = "busy"
+    elif status in STALLED_STATUSES:
+        stype = "stall"
+    else:
+        stype = ""
+    print("  %-7s  %12s  %-7s  %-5d  %-5s" % (status, secs_to_hms(total, blankzero=True), pct_brackets(pct),  count, stype))
+    cum_count += count
+    cum_total += total
+print("  -------------------------------------")
+print("  %-7s  %12s  %-7s  %-5d" % ("TOTAL", secs_to_hms(cum_total, blankzero=True), pct_brackets(cum_pct), cum_count))
+print("")
 
 print("Peak concurrency: %d out of %d slots\n" % (peak, len(slots)))
 
-print("Slot usage (time in an \"active\" state):  | Concurrency breakdown:\n")
-print("#Rank  Slot  Usage        ( Pct )          # of Slots  Usage        ( Pct )")
+print("%d job slots were held in a \"stall\" state for %s\n" % (stalled_count, secs_to_hms(stalled_total)))
+
+print('Slot usage (time in a "busy" state):     | Concurrency breakdown ("busy"):')
+print("                                         |")
+print("#Rank  Slot  Usage        ( Pct )        | # of Slots  Usage        ( Pct )")
 
 lines = []
 
-for rank, slotn in enumerate(sorted(slots, key=get_slot_val, reverse=True)):
-    slot = slots[slotn]
-    pct = (100 * slot["total"] / elapsed) if elapsed > 0.0 else 0.0
-    state = " active" if slot["active"] else "       "
-    stime = secs_to_hms(slot["total"], blankzero=True)
-    lines.append("%s   %s (%04.1f%%)%s" % (slotn, stime, pct, state))
+busy_total = 0
+busy_pct = 0
+for rank, slot in enumerate(sorted(summary, key=get_busy_total, reverse=True)):
+    pct = (100 * summary[slot]["busy"]["total"] / elapsed / len(slots)) if elapsed > 0.0 else 0.0
+    state = "active" if slots[slot]["isactive"] == True else " "
+    stime = secs_to_hms(summary[slot]["busy"]["total"], blankzero=True)
+    busy_total += summary[slot]["busy"]["total"]
+    busy_pct += pct
+    lines.append("%s   %s %-7s %6s |" % (slot, stime, pct_brackets(pct), state))
 
+concurrent_total = 0
+concurrent_pct = 0.0
 for rank, concurrentn in enumerate(sorted(concurrency, key=get_concurrent_val, reverse=True)):
     concurrent = concurrency[concurrentn]
-    pct = (100 * concurrent["total"] / elapsed) if elapsed > 0.0 else 0.0
+    pct = (100 * concurrent["total"] / elapsed / len(slots)) if elapsed > 0.0 else 0.0
     stime = secs_to_hms(concurrent["total"], blankzero=True)
-    lines[rank] += "       %02d      %s (%04.1f%%)" % (concurrentn, stime, pct)
+    concurrent_total += concurrent["total"]
+    concurrent_pct += pct
+    lines[rank] += "     %02d      %s %-7s" % (concurrentn, stime, pct_brackets(pct))
 
 for rank, line in enumerate(lines):
     print(" #%02d    %s" % (rank + 1, line))
+
+bpct = spct = "%04.1f" % pct
+print("-----------------------------------------+---------------------------------")
+print(" TOTALS      %s %-7s                      %s %-7s" %
+      (secs_to_hms(busy_total, blankzero=True), pct_brackets(busy_pct),
+       secs_to_hms(concurrent_total, blankzero=True), pct_brackets(concurrent_pct)))
