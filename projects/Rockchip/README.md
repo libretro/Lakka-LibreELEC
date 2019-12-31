@@ -5,8 +5,8 @@ This project is for Rockchip SoC devices
 ## Devices
 
 **RK3288**
-* [ASUS Tinker Board](devices/TinkerBoard)
-* [mqmaker MiQi](devices/MiQi)
+* [ASUS Tinker Board](devices/RK3288)
+* [mqmaker MiQi](devices/RK3288)
 
 **RK3328**
 * [PINE64 ROCK64](devices/RK3328)

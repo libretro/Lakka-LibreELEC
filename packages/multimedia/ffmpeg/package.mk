@@ -41,16 +41,7 @@ else
   PKG_FFMPEG_VDPAU="--disable-vdpau"
 fi
 
-if [ "${PROJECT}" = "Rockchip" ]; then
-  PKG_DEPENDS_TARGET+=" rkmpp"
-  PKG_NEED_UNPACK+=" $(get_pkg_directory rkmpp)"
-  PKG_PATCH_DIRS+=" rkmpp"
-  PKG_FFMPEG_RKMPP="--enable-rkmpp --enable-libdrm --enable-version3"
-else
-  PKG_FFMPEG_RKMPP="--disable-rkmpp"
-fi
-
-if [ "${PROJECT}" = "Allwinner" ]; then
+if [ "${PROJECT}" = "Allwinner" -o "${PROJECT}" = "Rockchip" ]; then
   PKG_DEPENDS_TARGET+=" libdrm systemd" # systemd is needed for libudev
   PKG_NEED_UNPACK+=" $(get_pkg_directory libdrm) $(get_pkg_directory systemd)"
   PKG_PATCH_DIRS+=" v4l2-request-api"
@@ -153,7 +144,6 @@ configure_target() {
               ${PKG_FFMPEG_VAAPI} \
               ${PKG_FFMPEG_VDPAU} \
               ${PKG_FFMPEG_RPI} \
-              ${PKG_FFMPEG_RKMPP} \
               ${PKG_FFMPEG_V4L2_REQUEST} \
               --enable-runtime-cpudetect \
               --disable-hardcoded-tables \
