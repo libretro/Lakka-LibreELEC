@@ -41,7 +41,7 @@ else
   PKG_FFMPEG_VDPAU="--disable-vdpau"
 fi
 
-if [ "${PROJECT}" = "Rockchip" ]; then
+if [ "${PROJECT}" = "Rockchip" -a "${LINUX}" = "rockchip-4.4" ]; then
   PKG_DEPENDS_TARGET+=" rkmpp"
   PKG_NEED_UNPACK+=" $(get_pkg_directory rkmpp)"
   PKG_PATCH_DIRS+=" rkmpp"
@@ -50,7 +50,7 @@ else
   PKG_FFMPEG_RKMPP="--disable-rkmpp"
 fi
 
-if [ "${PROJECT}" = "Allwinner" ]; then
+if [ "${PROJECT}" = "Allwinner" -o "${PROJECT}" = "Rockchip" ]; then
   PKG_DEPENDS_TARGET+=" libdrm systemd" # systemd is needed for libudev
   PKG_NEED_UNPACK+=" $(get_pkg_directory libdrm) $(get_pkg_directory systemd)"
   PKG_PATCH_DIRS+=" v4l2-request-api"
