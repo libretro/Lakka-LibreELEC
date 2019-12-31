@@ -18,6 +18,7 @@ make_target() {
   CROSS_COMPILE="$TARGET_KERNEL_PREFIX" LDFLAGS="" CFLAGS="" make PLAT=$ATF_PLATFORM bl31
 }
 
-post_make_target() {
-  cp -av build/$ATF_PLATFORM/release/bl31.bin .
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/share/bootloader
+  cp -a build/$ATF_PLATFORM/release/bl31.bin $INSTALL/usr/share/bootloader
 }
