@@ -14,6 +14,7 @@ PKG_DEPENDS_TARGET="toolchain dvb-apps libdvbcsa libxml2 openssl"
 PKG_SECTION="service"
 PKG_SHORTDESC="minisatip: a Sat>IP streaming server for Linux"
 PKG_LONGDESC="minisatip($PKG_VERSION_NUMBER): is a Sat>IP streaming server for Linux supporting DVB-C, DVB-S/S2, DVB-T/T2, ATSC and ISDB-T"
+PKG_BUILD_FLAGS="-sysroot"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Minisatip"
@@ -24,15 +25,15 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --enable-dvbca \
                            --enable-dvbaes \
                            --enable-dvbcsa \
-                           --with-xml2=$(get_build_dir libxml2)"
+                           --with-xml2=$(get_install_dir libxml2)/usr/include/libxml2"
 
 pre_configure_target() {
   cd $PKG_BUILD
     rm -rf .$TARGET_NAME
 
   # enables Common Interface (DVBEN50221)
-  CFLAGS+=" -I$(get_build_dir dvb-apps)/lib"
-  LDFLAGS+=" -L$(get_build_dir dvb-apps)/lib/libdvbapi -L$(get_build_dir dvb-apps)/lib/libdvben50221 -L$(get_build_dir dvb-apps)/lib/libucsi"
+  CFLAGS+=" -I$(get_install_dir dvb-apps)/usr/include"
+  LDFLAGS+=" -L$(get_install_dir dvb-apps)/usr/lib"
 }
 
 makeinstall_target() {
