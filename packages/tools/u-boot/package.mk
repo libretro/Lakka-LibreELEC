@@ -10,7 +10,7 @@ PKG_DEPENDS_TARGET="toolchain Python3:host swig:host"
 PKG_LONGDESC="Das U-Boot is a cross-platform bootloader for embedded systems."
 
 PKG_IS_KERNEL_PKG="yes"
-PKG_STAMP="$UBOOT_SYSTEM"
+PKG_STAMP="$UBOOT_SYSTEM $UBOOT_TARGET"
 
 if [ -n "$UBOOT_FIRMWARE" ]; then
   PKG_DEPENDS_TARGET+=" $UBOOT_FIRMWARE"
