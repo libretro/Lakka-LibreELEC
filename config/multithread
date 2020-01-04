@@ -3,46 +3,8 @@
 
 THREADCOUNT=${THREADCOUNT:-$(nproc)}
 
-# This function is passed a list of package.mk paths to be processed.
-# Each package.mk is sourced with relevant variables output in JSON format.
-json_worker() {
-  local packages="$@"
-  local pkgpath hierarchy exited
-
-  exit() { exited=1; }
-
-  . config/options ""
-
-  for pkgpath in ${packages}; do
-    pkgpath="${pkgpath%%@*}"
-
-    exited=0
-    if ! source_package "${pkgpath}/package.mk" &>/dev/null; then
-      unset -f exit
-      die "$(print_color CLR_ERROR "FAILURE: sourcing package ${pkgpath}/package.mk")"
-    fi
-
-    [ ${exited} -eq 1 ] && continue
-
-    [[ ${pkgpath} =~ ^${ROOT}/${PACKAGES}/ ]] && hierarchy="global" || hierarchy="local"
-
-    cat <<EOF
-  {
-    "name": "${PKG_NAME}",
-    "hierarchy": "${hierarchy}",
-    "section": "${PKG_SECTION}",
-    "bootstrap": "${PKG_DEPENDS_BOOTSTRAP}",
-    "init": "${PKG_DEPENDS_INIT}",
-    "host": "${PKG_DEPENDS_HOST}",
-    "target": "${PKG_DEPENDS_TARGET}"
-  },
-EOF
-  done
-}
-export -f json_worker
-
 start_multithread_build() {
-  local buildopts bootstrap result=0
+  local buildopts result=0
 
   # init thread control folder
   rm -rf "${THREAD_CONTROL}"
@@ -57,11 +19,9 @@ start_multithread_build() {
   # create a single log file by default for a single threaded build (or the builder is a masochist)
   if [ ${THREADCOUNT} -eq 1 -a "${ONELOG,,}" != "no" ] || [ "${ONELOG,,}" = "yes" ]; then
     buildopts+=" --no-log-burst"
-    bootstrap="&1"
   else
     mkdir -p "${THREAD_CONTROL}/logs"
     buildopts+=" --log-burst"
-    bootstrap="${THREAD_CONTROL}/logs/0.log"
   fi
   buildopts+=" --log-combine ${LOGCOMBINE:-always}"
 
@@ -78,20 +38,10 @@ start_multithread_build() {
 
   buildopts+=" --stats-interval ${MTINTERVAL:-60}"
 
-  # Bootstrap GNU parallel
-  if MTWITHLOCKS=no $SCRIPTS/build parallel:host 2>&1 &>${bootstrap}; then
-    [ "${LOGCOMBINE}" = "always" -a -f "${bootstrap}" ] && cat "${bootstrap}"
-  else
-    [ "${LOGCOMBINE}" != "never" -a -f "${bootstrap}" ] && cat "${bootstrap}"
-    die "Unable to bootstrap parallel package"
-  fi
-
   # pipefail: return value of a pipeline is the value of the last (rightmost) command to exit with a non-zero status
   set -o pipefail
 
-  cat ${_CACHE_PACKAGE_GLOBAL} ${_CACHE_PACKAGE_LOCAL} | \
-    ${TOOLCHAIN}/bin/parallel --plain --no-notice --max-args 30 --halt now,fail=1 json_worker | \
-    ${SCRIPTS}/genbuildplan.py --show-wants --with-json "${THREAD_CONTROL}"/plan.json \
+  ${SCRIPTS}/pkgjson | ${SCRIPTS}/genbuildplan.py --show-wants --with-json "${THREAD_CONTROL}"/plan.json \
       --build ${@} > "${THREAD_CONTROL}"/plan || result=1
 
   if [ ${result} -eq 0 ]; then

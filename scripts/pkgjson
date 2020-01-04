@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
+
+. config/options ""
+
+# This function is passed a list of package.mk paths to be processed.
+# Each package.mk is sourced with relevant variables output in JSON format.
+json_worker() {
+  local packages="$@"
+  local pkgpath hierarchy exited
+
+  exit() { exited=1; }
+
+  for pkgpath in ${packages}; do
+    pkgpath="${pkgpath%%@*}"
+
+    exited=0
+    if ! source_package "${pkgpath}/package.mk" &>/dev/null; then
+      unset -f exit
+      die "$(print_color CLR_ERROR "FAILURE: sourcing package ${pkgpath}/package.mk")"
+    fi
+
+    [ ${exited} -eq 1 ] && continue
+
+    [[ ${pkgpath} =~ ^${ROOT}/${PACKAGES}/ ]] && hierarchy="global" || hierarchy="local"
+
+    cat <<EOF
+  {
+    "name": "${PKG_NAME}",
+    "hierarchy": "${hierarchy}",
+    "section": "${PKG_SECTION}",
+    "bootstrap": "${PKG_DEPENDS_BOOTSTRAP}",
+    "init": "${PKG_DEPENDS_INIT}",
+    "host": "${PKG_DEPENDS_HOST}",
+    "target": "${PKG_DEPENDS_TARGET}"
+  },
+EOF
+  done
+  unset -f exit
+}
+
+if [ "$1" = "--worker" ]; then
+  shift
+  json_worker "$*"
+  exit $?
+fi
+
+# pipefail: return value of a pipeline is the value of the last (rightmost) command to exit with a non-zero status
+set -o pipefail
+
+cat ${_CACHE_PACKAGE_GLOBAL} ${_CACHE_PACKAGE_LOCAL} | \
+  xargs --max-args=64 --max-procs="$(nproc)" "$0" --worker
+exit $?
