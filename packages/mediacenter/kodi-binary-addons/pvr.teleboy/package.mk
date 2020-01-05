@@ -2,8 +2,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.teleboy"
-PKG_VERSION="18.0.25-Leia"
-PKG_SHA256="7d55dc063e33fe63bdf7b5ec1caf00cc0cd433cff139ecbbc668d72cd59b14f1"
+PKG_VERSION="18.1.8-Leia"
+PKG_SHA256="57f2f77e825f267d1d0acfddb54aacd76b738c6f25b2e94cfb1442d3d1c3aeab"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
