@@ -866,7 +866,7 @@ diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c b/drivers/gpu/drm/bridge/
 index 16a21460f481..d77fb8af61b8 100644
 --- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
 +++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
-@@ -581,6 +581,26 @@ static unsigned int hdmi_compute_n(unsigned int freq, unsigned long pixel_clk)
+@@ -591,6 +591,26 @@ static unsigned int hdmi_compute_n(unsigned int freq, unsigned long pixel_clk)
  	return n;
  }
  
@@ -2519,15 +2519,15 @@ diff --git a/drivers/media/platform/meson/ao-cec-g12a.c b/drivers/media/platform
 index 3b39e875292e..70f875b4a01e 100644
 --- a/drivers/media/platform/meson/ao-cec-g12a.c
 +++ b/drivers/media/platform/meson/ao-cec-g12a.c
-@@ -736,7 +736,7 @@ static int meson_ao_cec_g12a_probe(struct platform_device *pdev)
- 	clk_disable_unprepare(ao_cec->core);
+@@ -733,7 +733,7 @@ static int meson_ao_cec_g12a_probe(struct platform_device *pdev)
+ 	return 0;
  
  out_probe_notify:
 -	cec_notifier_cec_adap_unregister(ao_cec->notify);
 +	cec_notifier_cec_adap_unregister(ao_cec->notify, ao_cec->adap);
  
- out_probe_adapter:
- 	cec_delete_adapter(ao_cec->adap);
+ out_probe_core_clk:
+ 	clk_disable_unprepare(ao_cec->core);
 @@ -752,7 +752,7 @@ static int meson_ao_cec_g12a_remove(struct platform_device *pdev)
  
  	clk_disable_unprepare(ao_cec->core);
@@ -2541,15 +2541,15 @@ diff --git a/drivers/media/platform/meson/ao-cec.c b/drivers/media/platform/meso
 index 64ed549bf012..92859a6d006f 100644
 --- a/drivers/media/platform/meson/ao-cec.c
 +++ b/drivers/media/platform/meson/ao-cec.c
-@@ -688,7 +688,7 @@ static int meson_ao_cec_probe(struct platform_device *pdev)
- 	clk_disable_unprepare(ao_cec->core);
+@@ -685,7 +685,7 @@ static int meson_ao_cec_probe(struct platform_device *pdev)
+ 	return 0;
  
  out_probe_notify:
 -	cec_notifier_cec_adap_unregister(ao_cec->notify);
 +	cec_notifier_cec_adap_unregister(ao_cec->notify, ao_cec->adap);
  
- out_probe_adapter:
- 	cec_delete_adapter(ao_cec->adap);
+ out_probe_clk:
+ 	clk_disable_unprepare(ao_cec->core);
 @@ -704,7 +704,7 @@ static int meson_ao_cec_remove(struct platform_device *pdev)
  
  	clk_disable_unprepare(ao_cec->core);
@@ -2594,7 +2594,7 @@ index 9cd60fe1867c..54b0d51e9c55 100644
  err_delete_adapter:
  	cec_delete_adapter(secocec->cec_adap);
  err:
-@@ -692,7 +692,7 @@ static int secocec_remove(struct platform_device *pdev)
+@@ -693,7 +693,7 @@ static int secocec_remove(struct platform_device *pdev)
  
  		dev_dbg(&pdev->dev, "IR disabled");
  	}
@@ -2673,61 +2673,6 @@ index f161f8a493ac..985afea1ee36 100644
  {
  }
  
-
-From 52f95b4aeeb11cedfba0705a005106b0cfd4785f Mon Sep 17 00:00:00 2001
-From: Matthias Kaehlcke <mka@chromium.org>
-Date: Wed, 2 Oct 2019 12:44:06 -0700
-Subject: [PATCH] drm/bridge: dw-hdmi: Refuse DDC/CI transfers on the internal
- I2C controller
-
-The DDC/CI protocol involves sending a multi-byte request to the
-display via I2C, which is typically followed by a multi-byte
-response. The internal I2C controller only allows single byte
-reads/writes or reads of 8 sequential bytes, hence DDC/CI is not
-supported when the internal I2C controller is used. The I2C
-transfers complete without errors, however the data in the response
-is garbage. Abort transfers to/from slave address 0x37 (DDC) with
--EOPNOTSUPP, to make it evident that the communication is failing.
-
-Signed-off-by: Matthias Kaehlcke <mka@chromium.org>
-Reviewed-by: Douglas Anderson <dianders@chromium.org>
-Reviewed-by: Sean Paul <sean@poorly.run>
-Acked-by: Neil Armstrong <narmstrong@baylibre.com>
-Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
-Link: https://patchwork.freedesktop.org/patch/msgid/20191002124354.v2.1.I709dfec496f5f0b44a7b61dcd4937924da8d8382@changeid
-(cherry picked from commit bee447e224b2645911c5d06e35dc90d8433fcef6)
----
- drivers/gpu/drm/bridge/synopsys/dw-hdmi.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
-
-diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
-index d77fb8af61b8..a15fbf71b9d7 100644
---- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
-+++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
-@@ -37,6 +37,7 @@
- #include "dw-hdmi-cec.h"
- #include "dw-hdmi.h"
- 
-+#define DDC_CI_ADDR		0x37
- #define DDC_SEGMENT_ADDR	0x30
- 
- #define HDMI_EDID_LEN		512
-@@ -399,6 +400,15 @@ static int dw_hdmi_i2c_xfer(struct i2c_adapter *adap,
- 	u8 addr = msgs[0].addr;
- 	int i, ret = 0;
- 
-+	if (addr == DDC_CI_ADDR)
-+		/*
-+		 * The internal I2C controller does not support the multi-byte
-+		 * read and write operations needed for DDC/CI.
-+		 * TOFIX: Blacklist the DDC/CI address until we filter out
-+		 * unsupported I2C operations.
-+		 */
-+		return -EOPNOTSUPP;
-+
- 	dev_dbg(hdmi->dev, "xfer: num: %d, addr: %#x\n", num, addr);
- 
- 	for (i = 0; i < num; i++) {
 
 From 70c8f3b12f466b6a53e88f43f7da12ef04cb4ad2 Mon Sep 17 00:00:00 2001
 From: Douglas Anderson <dianders@chromium.org>
@@ -4093,47 +4038,6 @@ index efbdff6a2484..7a9d979c8d5d 100644
  };
  
  static const struct vop_misc rk3328_misc = {
-
-From 25f6e77b2033ba8f0af8c547d6ace6ec70b8482b Mon Sep 17 00:00:00 2001
-From: Daniel Kurtz <djkurtz@chromium.org>
-Date: Tue, 8 Oct 2019 18:21:45 +0800
-Subject: [PATCH] drm/bridge: dw-hdmi: Restore audio when setting a mode
-
-When setting a new display mode, dw_hdmi_setup() calls
-dw_hdmi_enable_video_path(), which disables all hdmi clocks, including
-the audio clock.
-
-We should only (re-)enable the audio clock if audio was already enabled
-when setting the new mode.
-
-Without this patch, on RK3288, there will be HDMI audio on some monitors
-if i2s was played to headphone when the monitor was plugged.
-ACER H277HU and ASUS PB278 are two of the monitors showing this issue.
-
-Signed-off-by: Cheng-Yi Chiang <cychiang@chromium.org>
-Signed-off-by: Daniel Kurtz <djkurtz@chromium.org>
-Signed-off-by: Yakir Yang <ykk@rock-chips.com>
-Reviewed-by: Neil Armstrong <narmstrong@baylibre.com>
-Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
-Link: https://patchwork.freedesktop.org/patch/msgid/20191008102145.55134-1-cychiang@chromium.org
-(cherry picked from commit fadfee3f9d8f114435a8a3e9f83a227600d89de7)
----
- drivers/gpu/drm/bridge/synopsys/dw-hdmi.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
-index fdc29869d75a..dbe38a54870b 100644
---- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
-+++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
-@@ -2090,7 +2090,7 @@ static int dw_hdmi_setup(struct dw_hdmi *hdmi, struct drm_display_mode *mode)
- 
- 		/* HDMI Initialization Step E - Configure audio */
- 		hdmi_clk_regenerator_update_pixel_clock(hdmi);
--		hdmi_enable_audio_clk(hdmi, true);
-+		hdmi_enable_audio_clk(hdmi, hdmi->audio_enable);
- 	}
- 
- 	/* not for DVI mode */
 
 From a5b2731ba8ddaa259c55eed691ca68f2f21fb2f9 Mon Sep 17 00:00:00 2001
 From: Johan Jonker <jbx6244@gmail.com>
@@ -13365,7 +13269,7 @@ diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm
 index 4139f129eafb..0bdf2e1e889c 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-@@ -4837,7 +4837,13 @@ static int to_drm_connector_type(enum signal_type st)
+@@ -4842,7 +4842,13 @@ static int to_drm_connector_type(enum signal_type st)
  
  static struct drm_encoder *amdgpu_dm_connector_to_encoder(struct drm_connector *connector)
  {
@@ -13532,7 +13436,7 @@ diff --git a/drivers/gpu/drm/nouveau/dispnv50/disp.c b/drivers/gpu/drm/nouveau/d
 index b46be8a091e9..a13924ae1992 100644
 --- a/drivers/gpu/drm/nouveau/dispnv50/disp.c
 +++ b/drivers/gpu/drm/nouveau/dispnv50/disp.c
-@@ -2392,7 +2392,7 @@ nv50_display_create(struct drm_device *dev)
+@@ -2412,7 +2412,7 @@ nv50_display_create(struct drm_device *dev)
  
  	/* cull any connectors we created that don't have an encoder */
  	list_for_each_entry_safe(connector, tmp, &dev->mode_config.connector_list, head) {
@@ -13717,3 +13621,27 @@ index 681cb590f952..c6e993e78dbd 100644
 +				  (connector)->possible_encoders)
  
  #endif
+From a819406b547a71a78fa0a3402e03e795b58a7c04 Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Mon, 6 Jan 2020 10:49:11 +0000
+Subject: [PATCH] Revert "net: stmmac: platform: Fix MDIO init for platforms
+ without PHY"
+
+This reverts commit bfdbfd28f76028b960458d107dc4ae9240c928b3.
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 1f230bd854c4..170c3a052b14 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -320,7 +320,7 @@ static int stmmac_mtl_setup(struct platform_device *pdev,
+ static int stmmac_dt_phy(struct plat_stmmacenet_data *plat,
+ 			 struct device_node *np, struct device *dev)
+ {
+-	bool mdio = false;
++	bool mdio = true;
+ 	static const struct of_device_id need_mdio_ids[] = {
+ 		{ .compatible = "snps,dwc-qos-ethernet-4.10" },
+ 		{},
