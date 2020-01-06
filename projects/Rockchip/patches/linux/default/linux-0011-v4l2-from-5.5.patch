@@ -825,7 +825,7 @@ index b72b8385067b..2c291447807e 100644
  static unsigned int deb_mean_win_size = 3;
  module_param(deb_mean_win_size, uint, 0000);
  MODULE_PARM_DESC(deb_mean_win_size, " the window size to calculate the mean.\n"
-@@ -491,44 +487,40 @@ static const struct v4l2_subdev_internal_ops vimc_deb_int_ops = {
+@@ -492,44 +488,40 @@ static const struct v4l2_subdev_internal_ops vimc_deb_int_ops = {
  	.release = vimc_deb_release,
  };
  
@@ -880,7 +880,7 @@ index b72b8385067b..2c291447807e 100644
  
  	/* Initialize the frame format */
  	vdeb->sink_fmt = sink_fmt_default;
-@@ -541,46 +533,5 @@ static int vimc_deb_comp_bind(struct device *comp, struct device *master,
+@@ -542,46 +534,5 @@ static int vimc_deb_comp_bind(struct device *comp, struct device *master,
  	vdeb->src_code = MEDIA_BUS_FMT_RGB888_1X24;
  	vdeb->set_rgb_src = vimc_deb_set_rgb_mbus_fmt_rgb888_1x24;
  
@@ -952,7 +952,7 @@ index 49ab8d9dd9c9..f72200de2535 100644
  static unsigned int sca_mult = 3;
  module_param(sca_mult, uint, 0000);
  MODULE_PARM_DESC(sca_mult, " the image size multiplier");
-@@ -350,89 +345,43 @@ static const struct v4l2_subdev_internal_ops vimc_sca_int_ops = {
+@@ -351,89 +346,43 @@ static const struct v4l2_subdev_internal_ops vimc_sca_int_ops = {
  	.release = vimc_sca_release,
  };
  
@@ -1077,7 +1077,7 @@ index 6c53b9fc1617..1f15637ca8bb 100644
  struct vimc_sen_device {
  	struct vimc_ent_device ved;
  	struct v4l2_subdev sd;
-@@ -304,13 +298,11 @@ static const struct v4l2_subdev_internal_ops vimc_sen_int_ops = {
+@@ -300,13 +294,11 @@ static const struct v4l2_subdev_internal_ops vimc_sen_int_ops = {
  	.release = vimc_sen_release,
  };
  
@@ -1094,7 +1094,7 @@ index 6c53b9fc1617..1f15637ca8bb 100644
  	vimc_ent_sd_unregister(ved, &vsen->sd);
  }
  
-@@ -331,18 +323,17 @@ static const struct v4l2_ctrl_config vimc_sen_ctrl_test_pattern = {
+@@ -327,18 +319,17 @@ static const struct v4l2_ctrl_config vimc_sen_ctrl_test_pattern = {
  	.qmenu = tpg_pattern_strings,
  };
  
@@ -1117,7 +1117,7 @@ index 6c53b9fc1617..1f15637ca8bb 100644
  
  	v4l2_ctrl_handler_init(&vsen->hdl, 4);
  
-@@ -368,7 +359,7 @@ static int vimc_sen_comp_bind(struct device *comp, struct device *master,
+@@ -364,7 +355,7 @@ static int vimc_sen_comp_bind(struct device *comp, struct device *master,
  
  	/* Initialize ved and sd */
  	ret = vimc_ent_sd_register(&vsen->ved, &vsen->sd, v4l2_dev,
@@ -1126,7 +1126,7 @@ index 6c53b9fc1617..1f15637ca8bb 100644
  				   MEDIA_ENT_F_CAM_SENSOR, 1,
  				   (const unsigned long[1]) {MEDIA_PAD_FL_SOURCE},
  				   &vimc_sen_int_ops, &vimc_sen_ops);
-@@ -376,8 +367,7 @@ static int vimc_sen_comp_bind(struct device *comp, struct device *master,
+@@ -372,8 +363,7 @@ static int vimc_sen_comp_bind(struct device *comp, struct device *master,
  		goto err_free_hdl;
  
  	vsen->ved.process_frame = vimc_sen_process_frame;
@@ -1136,7 +1136,7 @@ index 6c53b9fc1617..1f15637ca8bb 100644
  
  	/* Initialize the frame format */
  	vsen->mbus_format = fmt_default;
-@@ -389,7 +379,7 @@ static int vimc_sen_comp_bind(struct device *comp, struct device *master,
+@@ -385,7 +375,7 @@ static int vimc_sen_comp_bind(struct device *comp, struct device *master,
  	if (ret)
  		goto err_unregister_ent_sd;
  
@@ -1145,7 +1145,7 @@ index 6c53b9fc1617..1f15637ca8bb 100644
  
  err_unregister_ent_sd:
  	vimc_ent_sd_unregister(&vsen->ved,  &vsen->sd);
-@@ -398,46 +388,5 @@ static int vimc_sen_comp_bind(struct device *comp, struct device *master,
+@@ -394,46 +384,5 @@ static int vimc_sen_comp_bind(struct device *comp, struct device *master,
  err_free_vsen:
  	kfree(vsen);
  
@@ -1204,130 +1204,6 @@ index 048d770e498b..faa2879c25df 100644
 -#include <linux/module.h>
  #include <linux/freezer.h>
  #include <linux/kthread.h>
- 
-
-From 5ae32d4958c0976b86dd7ae4cda70c34a1cebf6d Mon Sep 17 00:00:00 2001
-From: Shuah Khan <skhan@linuxfoundation.org>
-Date: Tue, 17 Sep 2019 13:35:09 -0300
-Subject: [PATCH] media: vimc: Fix gpf in rmmod path when stream is active
-
-If vimc module is removed while streaming is in progress, sensor subdev
-unregister runs into general protection fault when it tries to unregister
-media entities. This is a common subdev problem related to releasing
-pads from v4l2_device_unregister_subdev() before calling unregister.
-Unregister references pads during unregistering subdev.
-
-The sd release handler is the right place for releasing all sd resources
-including pads. The release handlers currently release all resources
-except the pads.
-
-Fix v4l2_device_unregister_subdev() not release pads and release pads
-from the sd_int_op release handlers.
-
-kernel: [ 4136.715839] general protection fault: 0000 [#1] SMP PTI
-kernel: [ 4136.715847] CPU: 2 PID: 1972 Comm: bash Not tainted 5.3.0-rc2+ #4
-kernel: [ 4136.715850] Hardware name: Dell Inc. OptiPlex 790/0HY9JP, BIOS A18 09/24/2013
-kernel: [ 4136.715858] RIP: 0010:media_gobj_destroy.part.16+0x1f/0x60
-kernel: [ 4136.715863] Code: ff 66 2e 0f 1f 84 00 00 00 00 00 66 66 66 66 90 55 48 89 fe 48 89 e5 53 48 89 fb 48 c7 c7 00 7f cf b0 e8 24 fa ff ff 48 8b 03 <48> 83 80 a0 00 00 00 01 48 8b 43 18 48 8b 53 10 48 89 42 08 48 89
-kernel: [ 4136.715866] RSP: 0018:ffff9b2248fe3cb0 EFLAGS: 00010246
-kernel: [ 4136.715870] RAX: bcf2bfbfa0d63c2f RBX: ffff88c3eb37e9c0 RCX: 00000000802a0018
-kernel: [ 4136.715873] RDX: ffff88c3e4f6a078 RSI: ffff88c3eb37e9c0 RDI: ffffffffb0cf7f00
-kernel: [ 4136.715876] RBP: ffff9b2248fe3cb8 R08: 0000000001000002 R09: ffffffffb0492b00
-kernel: [ 4136.715879] R10: ffff9b2248fe3c28 R11: 0000000000000001 R12: 0000000000000038
-kernel: [ 4136.715881] R13: ffffffffc09a1628 R14: ffff88c3e4f6a028 R15: fffffffffffffff2
-kernel: [ 4136.715885] FS:  00007f8389647740(0000) GS:ffff88c465500000(0000) knlGS:0000000000000000
-kernel: [ 4136.715888] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-kernel: [ 4136.715891] CR2: 000055d008f80fd8 CR3: 00000001996ec005 CR4: 00000000000606e0
-kernel: [ 4136.715894] Call Trace:
-kernel: [ 4136.715903]  media_gobj_destroy+0x14/0x20
-kernel: [ 4136.715908]  __media_device_unregister_entity+0xb3/0xe0
-kernel: [ 4136.715915]  media_device_unregister_entity+0x30/0x40
-kernel: [ 4136.715920]  v4l2_device_unregister_subdev+0xa8/0xe0
-kernel: [ 4136.715928]  vimc_ent_sd_unregister+0x1e/0x30 [vimc]
-kernel: [ 4136.715933]  vimc_sen_rm+0x16/0x20 [vimc]
-kernel: [ 4136.715938]  vimc_remove+0x3e/0xa0 [vimc]
-kernel: [ 4136.715945]  platform_drv_remove+0x25/0x50
-kernel: [ 4136.715951]  device_release_driver_internal+0xe0/0x1b0
-kernel: [ 4136.715956]  device_driver_detach+0x14/0x20
-kernel: [ 4136.715960]  unbind_store+0xd1/0x130
-kernel: [ 4136.715965]  drv_attr_store+0x27/0x40
-kernel: [ 4136.715971]  sysfs_kf_write+0x48/0x60
-kernel: [ 4136.715976]  kernfs_fop_write+0x128/0x1b0
-kernel: [ 4136.715982]  __vfs_write+0x1b/0x40
-kernel: [ 4136.715987]  vfs_write+0xc3/0x1d0
-kernel: [ 4136.715993]  ksys_write+0xaa/0xe0
-kernel: [ 4136.715999]  __x64_sys_write+0x1a/0x20
-kernel: [ 4136.716005]  do_syscall_64+0x5a/0x130
-kernel: [ 4136.716010]  entry_SYSCALL_64_after_hwframe+0x4
-
-Signed-off-by: Shuah Khan <skhan@linuxfoundation.org>
-Acked-by: Helen Koike <helen.koike@collabora.com>
-Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
-Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
-(cherry picked from commit d7fb5c361c2a2666d20e044206e1756bc8e87df2)
----
- drivers/media/platform/vimc/vimc-common.c  | 3 +--
- drivers/media/platform/vimc/vimc-debayer.c | 1 +
- drivers/media/platform/vimc/vimc-scaler.c  | 1 +
- drivers/media/platform/vimc/vimc-sensor.c  | 1 +
- 4 files changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/media/platform/vimc/vimc-common.c b/drivers/media/platform/vimc/vimc-common.c
-index 7e1ae0b12f1e..a3120f4f7a90 100644
---- a/drivers/media/platform/vimc/vimc-common.c
-+++ b/drivers/media/platform/vimc/vimc-common.c
-@@ -375,7 +375,7 @@ int vimc_ent_sd_register(struct vimc_ent_device *ved,
- {
- 	int ret;
- 
--	/* Allocate the pads */
-+	/* Allocate the pads. Should be released from the sd_int_op release */
- 	ved->pads = vimc_pads_init(num_pads, pads_flag);
- 	if (IS_ERR(ved->pads))
- 		return PTR_ERR(ved->pads);
-@@ -424,7 +424,6 @@ EXPORT_SYMBOL_GPL(vimc_ent_sd_register);
- void vimc_ent_sd_unregister(struct vimc_ent_device *ved, struct v4l2_subdev *sd)
- {
- 	media_entity_cleanup(ved->ent);
--	vimc_pads_cleanup(ved->pads);
- 	v4l2_device_unregister_subdev(sd);
- }
- EXPORT_SYMBOL_GPL(vimc_ent_sd_unregister);
-diff --git a/drivers/media/platform/vimc/vimc-debayer.c b/drivers/media/platform/vimc/vimc-debayer.c
-index 2c291447807e..4125159e8f31 100644
---- a/drivers/media/platform/vimc/vimc-debayer.c
-+++ b/drivers/media/platform/vimc/vimc-debayer.c
-@@ -480,6 +480,7 @@ static void vimc_deb_release(struct v4l2_subdev *sd)
- 	struct vimc_deb_device *vdeb =
- 				container_of(sd, struct vimc_deb_device, sd);
- 
-+	vimc_pads_cleanup(vdeb->ved.pads);
- 	kfree(vdeb);
- }
- 
-diff --git a/drivers/media/platform/vimc/vimc-scaler.c b/drivers/media/platform/vimc/vimc-scaler.c
-index f72200de2535..1a593d81ea7c 100644
---- a/drivers/media/platform/vimc/vimc-scaler.c
-+++ b/drivers/media/platform/vimc/vimc-scaler.c
-@@ -338,6 +338,7 @@ static void vimc_sca_release(struct v4l2_subdev *sd)
- 	struct vimc_sca_device *vsca =
- 				container_of(sd, struct vimc_sca_device, sd);
- 
-+	vimc_pads_cleanup(vsca->ved.pads);
- 	kfree(vsca);
- }
- 
-diff --git a/drivers/media/platform/vimc/vimc-sensor.c b/drivers/media/platform/vimc/vimc-sensor.c
-index 1f15637ca8bb..46dc6a535abe 100644
---- a/drivers/media/platform/vimc/vimc-sensor.c
-+++ b/drivers/media/platform/vimc/vimc-sensor.c
-@@ -291,6 +291,7 @@ static void vimc_sen_release(struct v4l2_subdev *sd)
- 
- 	v4l2_ctrl_handler_free(&vsen->hdl);
- 	tpg_free(&vsen->tpg);
-+	vimc_pads_cleanup(vsen->ved.pads);
- 	kfree(vsen);
- }
  
 
 From 20a2fc9e8748cae89c526ffb493efa4d482b133e Mon Sep 17 00:00:00 2001
@@ -1509,53 +1385,6 @@ index 406417680db5..d567046b6a55 100644
  
          Window size to calculate the mean. Note: the window size needs to be an
          odd number, as the main pixel stays in the center of the window,
-
-From a24b65dec356843b9044db3b15c812fd8a6ef116 Mon Sep 17 00:00:00 2001
-From: Hans Verkuil <hverkuil-cisco@xs4all.nl>
-Date: Fri, 30 Aug 2019 06:26:22 -0300
-Subject: [PATCH] media: cedrus: fill in bus_info for media device
-
-Fixes this compliance warning:
-
-$ v4l2-compliance -m0
-v4l2-compliance SHA: b514d615166bdc0901a4c71261b87db31e89f464, 32 bits
-
-Compliance test for cedrus device /dev/media0:
-
-Media Driver Info:
-        Driver name      : cedrus
-        Model            : cedrus
-        Serial           :
-        Bus info         :
-        Media version    : 5.3.0
-        Hardware revision: 0x00000000 (0)
-        Driver version   : 5.3.0
-
-Required ioctls:
-                warn: v4l2-test-media.cpp(51): empty bus_info
-        test MEDIA_IOC_DEVICE_INFO: OK
-
-Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
-Reviewed-by: Jernej Skrabec <jernej.skrabec@siol.net>
-Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
-(cherry picked from commit ae0688f659adb17ae6ae5710c886b20b5406e5c4)
----
- drivers/staging/media/sunxi/cedrus/cedrus.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/staging/media/sunxi/cedrus/cedrus.c b/drivers/staging/media/sunxi/cedrus/cedrus.c
-index 2d3ea8b74dfd..3439f6ad6338 100644
---- a/drivers/staging/media/sunxi/cedrus/cedrus.c
-+++ b/drivers/staging/media/sunxi/cedrus/cedrus.c
-@@ -357,6 +357,8 @@ static int cedrus_probe(struct platform_device *pdev)
- 
- 	dev->mdev.dev = &pdev->dev;
- 	strscpy(dev->mdev.model, CEDRUS_NAME, sizeof(dev->mdev.model));
-+	strscpy(dev->mdev.bus_info, "platform:" CEDRUS_NAME,
-+		sizeof(dev->mdev.bus_info));
- 
- 	media_device_init(&dev->mdev);
- 	dev->mdev.ops = &cedrus_m2m_media_ops;
 
 From 532a1e7c0cee8bfb21b67dac8160ed9dd7d819d3 Mon Sep 17 00:00:00 2001
 From: Hans Verkuil <hverkuil-cisco@xs4all.nl>
@@ -1933,73 +1762,6 @@ index bc5dd8e76567..de5990038bb2 100644
        - ``pic_order_cnt_bit_size``
        -
 
-From 4b6fd09782bd268b20177a5e476af1946e059aed Mon Sep 17 00:00:00 2001
-From: Kefeng Wang <wangkefeng.wang@huawei.com>
-Date: Sun, 8 Sep 2019 01:12:54 -0300
-Subject: [PATCH] media: vim2m: Fix BUG_ON in vim2m_device_release()
-
-If v4l2_m2m_init() fails, m2m_dev pointer will be set ERR_PTR(-ENOMEM),
-then kfree m2m_dev will trigger BUG_ON, see below, fix it by setting m2m_dev
-to NULL.
-
-  vim2m vim2m.0: Failed to init mem2mem device
-  ------------[ cut here ]------------
-  kernel BUG at mm/slub.c:3944!
-  invalid opcode: 0000 [#1] SMP PTI
-  CPU: 11 PID: 9061 Comm: insmod Tainted: G            E     5.2.0-rc2 #81
-  Hardware name: Red Hat KVM, BIOS 0.5.1 01/01/2011
-  RIP: 0010:kfree+0x11a/0x160
-
-  Call Trace:
-   vim2m_device_release+0x3f/0x50 [vim2m]
-   device_release+0x27/0x80
-   kobject_release+0x68/0x190
-   vim2m_probe+0x20f/0x280 [vim2m]
-   platform_drv_probe+0x37/0x90
-   really_probe+0xef/0x3d0
-   driver_probe_device+0x110/0x120
-   device_driver_attach+0x4f/0x60
-   __driver_attach+0x9a/0x140
-   ? device_driver_attach+0x60/0x60
-   bus_for_each_dev+0x76/0xc0
-   ? klist_add_tail+0x57/0x70
-   bus_add_driver+0x141/0x210
-   driver_register+0x5b/0xe0
-   vim2m_init+0x29/0x1000 [vim2m]
-   do_one_initcall+0x46/0x1f4
-   ? __slab_alloc+0x1c/0x30
-   ? kmem_cache_alloc_trace+0x167/0x1b0
-   do_init_module+0x5b/0x21f
-   load_module+0x1add/0x1fb0
-   ? __do_sys_finit_module+0xe9/0x110
-   __do_sys_finit_module+0xe9/0x110
-   do_syscall_64+0x5b/0x1c0
-   entry_SYSCALL_64_after_hwframe+0x44/0xa9
-
-Fixes: ea6c7e34f3b2 ("media: vim2m: replace devm_kzalloc by kzalloc")
-Reported-by: Hulk Robot <hulkci@huawei.com>
-Cc: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
-Signed-off-by: Kefeng Wang <wangkefeng.wang@huawei.com>
-Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
-Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
-(cherry picked from commit 2455d417c03aa0cbafed04c46cbb354643238318)
----
- drivers/media/platform/vim2m.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/media/platform/vim2m.c b/drivers/media/platform/vim2m.c
-index acd3bd48c7e2..eb8f398d41f4 100644
---- a/drivers/media/platform/vim2m.c
-+++ b/drivers/media/platform/vim2m.c
-@@ -1343,6 +1343,7 @@ static int vim2m_probe(struct platform_device *pdev)
- 	if (IS_ERR(dev->m2m_dev)) {
- 		v4l2_err(&dev->v4l2_dev, "Failed to init mem2mem device\n");
- 		ret = PTR_ERR(dev->m2m_dev);
-+		dev->m2m_dev = NULL;
- 		goto error_dev;
- 	}
- 
-
 From ff9b57fbae4052b5128f96ccf4cfea3ad839c300 Mon Sep 17 00:00:00 2001
 From: Hans Verkuil <hverkuil-cisco@xs4all.nl>
 Date: Mon, 9 Sep 2019 04:16:27 -0300
@@ -2028,95 +1790,6 @@ index 4f23e939ead0..0607a5d0d051 100644
  		bt->width, bt->height, bt->interlaced ? "i" : "p",
  		fps / 100, fps % 100, htot, vtot);
  
-
-From e68ab52ad1839e1b4749703f05106a99de1daf44 Mon Sep 17 00:00:00 2001
-From: Vandana BN <bnvandana@gmail.com>
-Date: Mon, 9 Sep 2019 06:43:31 -0300
-Subject: [PATCH] media: vivid: Set vid_cap_streaming and vid_out_streaming to
- true
-
-When vbi stream is started, followed by video streaming,
-the vid_cap_streaming and vid_out_streaming were not being set to true,
-which would cause the video stream to stop when vbi stream is stopped.
-This patch allows to set vid_cap_streaming and vid_out_streaming to true.
-According to Hans Verkuil it appears that these 'if (dev->kthread_vid_cap)'
-checks are a left-over from the original vivid development and should never
-have been there.
-
-Signed-off-by: Vandana BN <bnvandana@gmail.com>
-Cc: <stable@vger.kernel.org>      # for v3.18 and up
-Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
-Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
-(cherry picked from commit b4add02d2236fd5f568db141cfd8eb4290972eb3)
----
- drivers/media/platform/vivid/vivid-vid-cap.c | 3 ---
- drivers/media/platform/vivid/vivid-vid-out.c | 3 ---
- 2 files changed, 6 deletions(-)
-
-diff --git a/drivers/media/platform/vivid/vivid-vid-cap.c b/drivers/media/platform/vivid/vivid-vid-cap.c
-index 8cbaa0c998ed..2d030732feac 100644
---- a/drivers/media/platform/vivid/vivid-vid-cap.c
-+++ b/drivers/media/platform/vivid/vivid-vid-cap.c
-@@ -223,9 +223,6 @@ static int vid_cap_start_streaming(struct vb2_queue *vq, unsigned count)
- 	if (vb2_is_streaming(&dev->vb_vid_out_q))
- 		dev->can_loop_video = vivid_vid_can_loop(dev);
- 
--	if (dev->kthread_vid_cap)
--		return 0;
--
- 	dev->vid_cap_seq_count = 0;
- 	dprintk(dev, 1, "%s\n", __func__);
- 	for (i = 0; i < VIDEO_MAX_FRAME; i++)
-diff --git a/drivers/media/platform/vivid/vivid-vid-out.c b/drivers/media/platform/vivid/vivid-vid-out.c
-index 148b663a6075..a0364ac497f9 100644
---- a/drivers/media/platform/vivid/vivid-vid-out.c
-+++ b/drivers/media/platform/vivid/vivid-vid-out.c
-@@ -161,9 +161,6 @@ static int vid_out_start_streaming(struct vb2_queue *vq, unsigned count)
- 	if (vb2_is_streaming(&dev->vb_vid_cap_q))
- 		dev->can_loop_video = vivid_vid_can_loop(dev);
- 
--	if (dev->kthread_vid_out)
--		return 0;
--
- 	dev->vid_out_seq_count = 0;
- 	dprintk(dev, 1, "%s\n", __func__);
- 	if (dev->start_streaming_error) {
-
-From b13ac824c228d23a4668ed8411e56e792c4877d1 Mon Sep 17 00:00:00 2001
-From: Jernej Skrabec <jernej.skrabec@siol.net>
-Date: Thu, 12 Sep 2019 15:55:55 -0300
-Subject: [PATCH] media: vim2m: Fix abort issue
-
-Currently, if start streaming -> stop streaming -> start streaming
-sequence is executed, driver will end job prematurely, if ctx->translen
-is higher than 1, because "aborting" flag is still set from previous
-stop streaming command.
-
-Fix that by clearing "aborting" flag in start streaming handler.
-
-Fixes: 96d8eab5d0a1 ("V4L/DVB: [v5,2/2] v4l: Add a mem-to-mem videobuf framework test device")
-Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
-Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
-Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
-(cherry picked from commit c362f77a243bfd1daec21b6c36491c061ee2f31b)
----
- drivers/media/platform/vim2m.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/drivers/media/platform/vim2m.c b/drivers/media/platform/vim2m.c
-index eb8f398d41f4..e17792f837f8 100644
---- a/drivers/media/platform/vim2m.c
-+++ b/drivers/media/platform/vim2m.c
-@@ -1073,6 +1073,9 @@ static int vim2m_start_streaming(struct vb2_queue *q, unsigned int count)
- 	if (!q_data)
- 		return -EINVAL;
- 
-+	if (V4L2_TYPE_IS_OUTPUT(q->type))
-+		ctx->aborting = 0;
-+
- 	q_data->sequence = 0;
- 	return 0;
- }
 
 From a263fce916fc52e3e6123d333fb339a876eccbd7 Mon Sep 17 00:00:00 2001
 From: Hans Verkuil <hverkuil-cisco@xs4all.nl>
@@ -2205,7 +1878,7 @@ diff --git a/drivers/staging/media/hantro/hantro_g1_h264_dec.c b/drivers/staging
 index 7ab534936843..d42c4004fe35 100644
 --- a/drivers/staging/media/hantro/hantro_g1_h264_dec.c
 +++ b/drivers/staging/media/hantro/hantro_g1_h264_dec.c
-@@ -251,7 +251,7 @@ static void set_buffers(struct hantro_ctx *ctx)
+@@ -253,7 +253,7 @@ static void set_buffers(struct hantro_ctx *ctx)
  		size_t mv_offset = round_up(pic_size, 8);
  
  		if (ctrls->slices[0].flags & V4L2_H264_SLICE_FLAG_BOTTOM_FIELD)
@@ -2463,7 +2136,7 @@ diff --git a/drivers/staging/media/hantro/hantro_g1_h264_dec.c b/drivers/staging
 index d42c4004fe35..29130946dea4 100644
 --- a/drivers/staging/media/hantro/hantro_g1_h264_dec.c
 +++ b/drivers/staging/media/hantro/hantro_g1_h264_dec.c
-@@ -220,10 +220,9 @@ static void set_ref(struct hantro_ctx *ctx)
+@@ -222,10 +222,9 @@ static void set_ref(struct hantro_ctx *ctx)
  
  	/* Set up addresses of DPB buffers. */
  	for (i = 0; i < HANTRO_H264_DPB_SIZE; i++) {
@@ -3275,7 +2948,7 @@ index 219d8aeefa20..96cab2e173d3 100644
  	default:
  		if (type < V4L2_CTRL_COMPOUND_TYPES)
  			elem_size = sizeof(s32);
-@@ -4116,6 +4125,18 @@ int __v4l2_ctrl_s_ctrl_string(struct v4l2_ctrl *ctrl, const char *s)
+@@ -4121,6 +4130,18 @@ int __v4l2_ctrl_s_ctrl_string(struct v4l2_ctrl *ctrl, const char *s)
  }
  EXPORT_SYMBOL(__v4l2_ctrl_s_ctrl_string);
  
@@ -4566,7 +4239,7 @@ diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_h264.c b/drivers/staging/
 index d6a782703c9b..cd85668f9c80 100644
 --- a/drivers/staging/media/sunxi/cedrus/cedrus_h264.c
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus_h264.c
-@@ -301,6 +301,8 @@ static void cedrus_set_params(struct cedrus_ctx *ctx,
+@@ -305,6 +305,8 @@ static void cedrus_set_params(struct cedrus_ctx *ctx,
  	dma_addr_t src_buf_addr;
  	u32 offset = slice->header_bit_size;
  	u32 len = (slice->size * 8) - offset;
@@ -4575,7 +4248,7 @@ index d6a782703c9b..cd85668f9c80 100644
  	u32 reg;
  
  	cedrus_write(dev, VE_H264_VLD_LEN, len);
-@@ -370,12 +372,20 @@ static void cedrus_set_params(struct cedrus_ctx *ctx,
+@@ -374,12 +376,20 @@ static void cedrus_set_params(struct cedrus_ctx *ctx,
  		reg |= VE_H264_SPS_DIRECT_8X8_INFERENCE;
  	cedrus_write(dev, VE_H264_SPS, reg);
  
@@ -5627,7 +5300,7 @@ index 53315c8dd2bb..a44984536ad0 100644
  };
  
  /* -----------------------------------------------------------------
-@@ -818,6 +836,9 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
+@@ -821,6 +839,9 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
  			dev->has_scaler_out ? 'Y' : 'N');
  	}
  
@@ -5637,7 +5310,7 @@ index 53315c8dd2bb..a44984536ad0 100644
  	/* end detecting feature set */
  
  	if (dev->has_vid_cap) {
-@@ -875,6 +896,16 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
+@@ -878,6 +899,16 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
  		dev->radio_tx_caps = V4L2_CAP_RDS_OUTPUT | V4L2_CAP_MODULATOR |
  				     V4L2_CAP_READWRITE;
  
@@ -5654,7 +5327,7 @@ index 53315c8dd2bb..a44984536ad0 100644
  	ret = -ENOMEM;
  	/* initialize the test pattern generator */
  	tpg_init(&dev->tpg, 640, 360);
-@@ -934,6 +965,9 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
+@@ -937,6 +968,9 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
  		v4l2_disable_ioctl(&dev->vbi_cap_dev, VIDIOC_S_AUDIO);
  		v4l2_disable_ioctl(&dev->vbi_cap_dev, VIDIOC_G_AUDIO);
  		v4l2_disable_ioctl(&dev->vbi_cap_dev, VIDIOC_ENUMAUDIO);
@@ -5664,7 +5337,7 @@ index 53315c8dd2bb..a44984536ad0 100644
  	}
  	if (!dev->has_audio_outputs) {
  		v4l2_disable_ioctl(&dev->vid_out_dev, VIDIOC_S_AUDOUT);
-@@ -959,12 +993,16 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
+@@ -962,12 +996,16 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
  		v4l2_disable_ioctl(&dev->vid_cap_dev, VIDIOC_G_FREQUENCY);
  		v4l2_disable_ioctl(&dev->vbi_cap_dev, VIDIOC_S_FREQUENCY);
  		v4l2_disable_ioctl(&dev->vbi_cap_dev, VIDIOC_G_FREQUENCY);
@@ -5681,7 +5354,7 @@ index 53315c8dd2bb..a44984536ad0 100644
  	}
  	if (in_type_counter[HDMI] == 0) {
  		v4l2_disable_ioctl(&dev->vid_cap_dev, VIDIOC_S_EDID);
-@@ -990,6 +1028,7 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
+@@ -993,6 +1031,7 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
  	v4l2_disable_ioctl(&dev->vid_cap_dev, VIDIOC_S_HW_FREQ_SEEK);
  	v4l2_disable_ioctl(&dev->vbi_cap_dev, VIDIOC_S_HW_FREQ_SEEK);
  	v4l2_disable_ioctl(&dev->sdr_cap_dev, VIDIOC_S_HW_FREQ_SEEK);
@@ -5689,7 +5362,7 @@ index 53315c8dd2bb..a44984536ad0 100644
  	v4l2_disable_ioctl(&dev->vid_out_dev, VIDIOC_S_FREQUENCY);
  	v4l2_disable_ioctl(&dev->vid_out_dev, VIDIOC_G_FREQUENCY);
  	v4l2_disable_ioctl(&dev->vid_out_dev, VIDIOC_ENUM_FRAMESIZES);
-@@ -1078,6 +1117,7 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
+@@ -1081,6 +1120,7 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
  	INIT_LIST_HEAD(&dev->vbi_cap_active);
  	INIT_LIST_HEAD(&dev->vbi_out_active);
  	INIT_LIST_HEAD(&dev->sdr_cap_active);
@@ -5697,7 +5370,7 @@ index 53315c8dd2bb..a44984536ad0 100644
  
  	INIT_LIST_HEAD(&dev->cec_work_list);
  	spin_lock_init(&dev->cec_slock);
-@@ -1225,6 +1265,27 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
+@@ -1228,6 +1268,27 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
  				dev->fb_info.node);
  	}
  
@@ -5725,7 +5398,7 @@ index 53315c8dd2bb..a44984536ad0 100644
  #ifdef CONFIG_VIDEO_VIVID_CEC
  	if (dev->has_vid_cap && in_type_counter[HDMI]) {
  		struct cec_adapter *adap;
-@@ -1265,6 +1326,7 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
+@@ -1268,6 +1329,7 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
  	v4l2_ctrl_handler_setup(&dev->ctrl_hdl_radio_rx);
  	v4l2_ctrl_handler_setup(&dev->ctrl_hdl_radio_tx);
  	v4l2_ctrl_handler_setup(&dev->ctrl_hdl_sdr_cap);
@@ -5733,7 +5406,7 @@ index 53315c8dd2bb..a44984536ad0 100644
  
  	/* finally start creating the device nodes */
  	if (dev->has_vid_cap) {
-@@ -1492,6 +1554,35 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
+@@ -1495,6 +1557,35 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
  					  video_device_node_name(vfd));
  	}
  
@@ -5769,7 +5442,7 @@ index 53315c8dd2bb..a44984536ad0 100644
  #ifdef CONFIG_MEDIA_CONTROLLER
  	/* Register the media device */
  	ret = media_device_register(&dev->mdev);
-@@ -1508,6 +1599,7 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
+@@ -1511,6 +1602,7 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
  	return 0;
  
  unreg_dev:
@@ -5777,7 +5450,7 @@ index 53315c8dd2bb..a44984536ad0 100644
  	video_unregister_device(&dev->radio_tx_dev);
  	video_unregister_device(&dev->radio_rx_dev);
  	video_unregister_device(&dev->sdr_cap_dev);
-@@ -1624,6 +1716,11 @@ static int vivid_remove(struct platform_device *pdev)
+@@ -1626,6 +1718,11 @@ static int vivid_remove(struct platform_device *pdev)
  			unregister_framebuffer(&dev->fb_info);
  			vivid_fb_release_buffers(dev);
  		}
@@ -6055,7 +5728,7 @@ index 003319d7816d..9f981e8bae6e 100644
  	dev->dqbuf_error = false;
  
  update_mv:
-@@ -835,6 +857,7 @@ static int vivid_thread_vid_cap(void *data)
+@@ -839,6 +861,7 @@ static int vivid_thread_vid_cap(void *data)
  		dev->cap_seq_count = buffers_since_start + dev->cap_seq_offset;
  		dev->vid_cap_seq_count = dev->cap_seq_count - dev->vid_cap_seq_start;
  		dev->vbi_cap_seq_count = dev->cap_seq_count - dev->vbi_cap_seq_start;
@@ -6063,7 +5736,7 @@ index 003319d7816d..9f981e8bae6e 100644
  
  		vivid_thread_vid_cap_tick(dev, dropped_bufs);
  
-@@ -883,8 +906,10 @@ int vivid_start_generating_vid_cap(struct vivid_dev *dev, bool *pstreaming)
+@@ -887,8 +910,10 @@ int vivid_start_generating_vid_cap(struct vivid_dev *dev, bool *pstreaming)
  
  		if (pstreaming == &dev->vid_cap_streaming)
  			dev->vid_cap_seq_start = seq_count;
@@ -6075,7 +5748,7 @@ index 003319d7816d..9f981e8bae6e 100644
  		*pstreaming = true;
  		return 0;
  	}
-@@ -894,6 +919,7 @@ int vivid_start_generating_vid_cap(struct vivid_dev *dev, bool *pstreaming)
+@@ -898,6 +923,7 @@ int vivid_start_generating_vid_cap(struct vivid_dev *dev, bool *pstreaming)
  
  	dev->vid_cap_seq_start = dev->seq_wrap * 128;
  	dev->vbi_cap_seq_start = dev->seq_wrap * 128;
@@ -6083,7 +5756,7 @@ index 003319d7816d..9f981e8bae6e 100644
  
  	dev->kthread_vid_cap = kthread_run(vivid_thread_vid_cap, dev,
  			"%s-vid-cap", dev->v4l2_dev.name);
-@@ -951,7 +977,23 @@ void vivid_stop_generating_vid_cap(struct vivid_dev *dev, bool *pstreaming)
+@@ -955,7 +981,23 @@ void vivid_stop_generating_vid_cap(struct vivid_dev *dev, bool *pstreaming)
  		}
  	}
  
@@ -6634,7 +6307,7 @@ index a44984536ad0..dadfc59c92c5 100644
  };
  
  /* -----------------------------------------------------------------
-@@ -839,6 +853,9 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
+@@ -842,6 +856,9 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
  	/* do we create a meta capture device */
  	dev->has_meta_cap = node_type & 0x20000;
  
@@ -6644,7 +6317,7 @@ index a44984536ad0..dadfc59c92c5 100644
  	/* end detecting feature set */
  
  	if (dev->has_vid_cap) {
-@@ -905,6 +922,13 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
+@@ -908,6 +925,13 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
  		if (in_type_counter[TV])
  			dev->meta_cap_caps |= V4L2_CAP_TUNER;
  	}
@@ -6658,7 +6331,7 @@ index a44984536ad0..dadfc59c92c5 100644
  
  	ret = -ENOMEM;
  	/* initialize the test pattern generator */
-@@ -976,6 +1000,9 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
+@@ -979,6 +1003,9 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
  		v4l2_disable_ioctl(&dev->vbi_out_dev, VIDIOC_S_AUDOUT);
  		v4l2_disable_ioctl(&dev->vbi_out_dev, VIDIOC_G_AUDOUT);
  		v4l2_disable_ioctl(&dev->vbi_out_dev, VIDIOC_ENUMAUDOUT);
@@ -6668,7 +6341,7 @@ index a44984536ad0..dadfc59c92c5 100644
  	}
  	if (!in_type_counter[TV] && !in_type_counter[SVID]) {
  		v4l2_disable_ioctl(&dev->vid_cap_dev, VIDIOC_S_STD);
-@@ -1035,6 +1062,8 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
+@@ -1038,6 +1065,8 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
  	v4l2_disable_ioctl(&dev->vid_out_dev, VIDIOC_ENUM_FRAMEINTERVALS);
  	v4l2_disable_ioctl(&dev->vbi_out_dev, VIDIOC_S_FREQUENCY);
  	v4l2_disable_ioctl(&dev->vbi_out_dev, VIDIOC_G_FREQUENCY);
@@ -6677,7 +6350,7 @@ index a44984536ad0..dadfc59c92c5 100644
  
  	/* configure internal data */
  	dev->fmt_cap = &vivid_formats[0];
-@@ -1118,6 +1147,7 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
+@@ -1121,6 +1150,7 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
  	INIT_LIST_HEAD(&dev->vbi_out_active);
  	INIT_LIST_HEAD(&dev->sdr_cap_active);
  	INIT_LIST_HEAD(&dev->meta_cap_active);
@@ -6685,7 +6358,7 @@ index a44984536ad0..dadfc59c92c5 100644
  
  	INIT_LIST_HEAD(&dev->cec_work_list);
  	spin_lock_init(&dev->cec_slock);
-@@ -1286,6 +1316,27 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
+@@ -1289,6 +1319,27 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
  			goto unreg_dev;
  	}
  
@@ -6713,7 +6386,7 @@ index a44984536ad0..dadfc59c92c5 100644
  #ifdef CONFIG_VIDEO_VIVID_CEC
  	if (dev->has_vid_cap && in_type_counter[HDMI]) {
  		struct cec_adapter *adap;
-@@ -1327,6 +1378,7 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
+@@ -1330,6 +1381,7 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
  	v4l2_ctrl_handler_setup(&dev->ctrl_hdl_radio_tx);
  	v4l2_ctrl_handler_setup(&dev->ctrl_hdl_sdr_cap);
  	v4l2_ctrl_handler_setup(&dev->ctrl_hdl_meta_cap);
@@ -6721,7 +6394,7 @@ index a44984536ad0..dadfc59c92c5 100644
  
  	/* finally start creating the device nodes */
  	if (dev->has_vid_cap) {
-@@ -1583,6 +1635,36 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
+@@ -1586,6 +1638,36 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
  			  video_device_node_name(vfd));
  	}
  
@@ -6758,7 +6431,7 @@ index a44984536ad0..dadfc59c92c5 100644
  #ifdef CONFIG_MEDIA_CONTROLLER
  	/* Register the media device */
  	ret = media_device_register(&dev->mdev);
-@@ -1599,6 +1681,7 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
+@@ -1602,6 +1684,7 @@ static int vivid_create_instance(struct platform_device *pdev, int inst)
  	return 0;
  
  unreg_dev:
@@ -6766,7 +6439,7 @@ index a44984536ad0..dadfc59c92c5 100644
  	video_unregister_device(&dev->meta_cap_dev);
  	video_unregister_device(&dev->radio_tx_dev);
  	video_unregister_device(&dev->radio_rx_dev);
-@@ -1721,6 +1804,11 @@ static int vivid_remove(struct platform_device *pdev)
+@@ -1723,6 +1806,11 @@ static int vivid_remove(struct platform_device *pdev)
  				  video_device_node_name(&dev->meta_cap_dev));
  			video_unregister_device(&dev->meta_cap_dev);
  		}
@@ -6940,7 +6613,7 @@ index ce5bcda2348c..c974235d7de3 100644
  	dev->out_seq_resync = false;
  
  	for (;;) {
-@@ -178,6 +201,7 @@ static int vivid_thread_vid_out(void *data)
+@@ -182,6 +205,7 @@ static int vivid_thread_vid_out(void *data)
  		dev->out_seq_count = buffers_since_start + dev->out_seq_offset;
  		dev->vid_out_seq_count = dev->out_seq_count - dev->vid_out_seq_start;
  		dev->vbi_out_seq_count = dev->out_seq_count - dev->vbi_out_seq_start;
@@ -6948,7 +6621,7 @@ index ce5bcda2348c..c974235d7de3 100644
  
  		vivid_thread_vid_out_tick(dev);
  		mutex_unlock(&dev->mutex);
-@@ -229,8 +253,10 @@ int vivid_start_generating_vid_out(struct vivid_dev *dev, bool *pstreaming)
+@@ -233,8 +257,10 @@ int vivid_start_generating_vid_out(struct vivid_dev *dev, bool *pstreaming)
  
  		if (pstreaming == &dev->vid_out_streaming)
  			dev->vid_out_seq_start = seq_count;
@@ -6960,7 +6633,7 @@ index ce5bcda2348c..c974235d7de3 100644
  		*pstreaming = true;
  		return 0;
  	}
-@@ -239,6 +265,7 @@ int vivid_start_generating_vid_out(struct vivid_dev *dev, bool *pstreaming)
+@@ -243,6 +269,7 @@ int vivid_start_generating_vid_out(struct vivid_dev *dev, bool *pstreaming)
  	dev->jiffies_vid_out = jiffies;
  	dev->vid_out_seq_start = dev->seq_wrap * 128;
  	dev->vbi_out_seq_start = dev->seq_wrap * 128;
@@ -6968,7 +6641,7 @@ index ce5bcda2348c..c974235d7de3 100644
  
  	dev->kthread_vid_out = kthread_run(vivid_thread_vid_out, dev,
  			"%s-vid-out", dev->v4l2_dev.name);
-@@ -296,7 +323,23 @@ void vivid_stop_generating_vid_out(struct vivid_dev *dev, bool *pstreaming)
+@@ -300,7 +327,23 @@ void vivid_stop_generating_vid_out(struct vivid_dev *dev, bool *pstreaming)
  		}
  	}
  
@@ -7227,120 +6900,6 @@ index a0364ac497f9..ee3446e3217c 100644
  	vivid_update_format_out(dev);
  
  	v4l2_ctrl_activate(dev->ctrl_display_present, vivid_is_hdmi_out(dev));
-
-From 5e1b29e32e378f895353c5692416afade0645abf Mon Sep 17 00:00:00 2001
-From: Paul Kocialkowski <paul.kocialkowski@bootlin.com>
-Date: Tue, 22 Oct 2019 12:26:50 -0300
-Subject: [PATCH] media: cedrus: Fix undefined shift with a SHIFT_AND_MASK_BITS
- macro
-
-We need to shift and mask values at different occasions to fill up
-cedrus registers. This was done using macros that don't explicitly
-treat arguments as unsigned, leading to possibly undefined behavior.
-
-Introduce the SHIFT_AND_MASK_BITS macro and use it where possible.
-In cases where it doesn't apply as-is, explicitly cast to unsigned
-instead.
-
-This macro should be moved to include/linux/bits.h eventually.
-
-Signed-off-by: Paul Kocialkowski <paul.kocialkowski@bootlin.com>
-Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
-Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
-(cherry picked from commit 06eff2150d4db991ca236f3d05a9dc0101475aea)
----
- drivers/staging/media/sunxi/cedrus/cedrus_regs.h | 31 +++++++++++++-----------
- 1 file changed, 17 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_regs.h b/drivers/staging/media/sunxi/cedrus/cedrus_regs.h
-index ddd29788d685..f9dd8cbf3458 100644
---- a/drivers/staging/media/sunxi/cedrus/cedrus_regs.h
-+++ b/drivers/staging/media/sunxi/cedrus/cedrus_regs.h
-@@ -10,6 +10,9 @@
- #ifndef _CEDRUS_REGS_H_
- #define _CEDRUS_REGS_H_
- 
-+#define SHIFT_AND_MASK_BITS(v, h, l) \
-+	(((unsigned long)(v) << (l)) & GENMASK(h, l))
-+
- /*
-  * Common acronyms and contractions used in register descriptions:
-  * * VLD : Variable-Length Decoder
-@@ -37,8 +40,8 @@
- #define VE_PRIMARY_CHROMA_BUF_LEN		0xc4
- #define VE_PRIMARY_FB_LINE_STRIDE		0xc8
- 
--#define VE_PRIMARY_FB_LINE_STRIDE_CHROMA(s)	(((s) << 16) & GENMASK(31, 16))
--#define VE_PRIMARY_FB_LINE_STRIDE_LUMA(s)	(((s) << 0) & GENMASK(15, 0))
-+#define VE_PRIMARY_FB_LINE_STRIDE_CHROMA(s)	SHIFT_AND_MASK_BITS(s, 31, 16)
-+#define VE_PRIMARY_FB_LINE_STRIDE_LUMA(s)	SHIFT_AND_MASK_BITS(s, 15, 0)
- 
- #define VE_CHROMA_BUF_LEN			0xe8
- 
-@@ -46,7 +49,7 @@
- #define VE_SECONDARY_OUT_FMT_EXT		(0x01 << 30)
- #define VE_SECONDARY_OUT_FMT_YU12		(0x02 << 30)
- #define VE_SECONDARY_OUT_FMT_YV12		(0x03 << 30)
--#define VE_CHROMA_BUF_LEN_SDRT(l)		((l) & GENMASK(27, 0))
-+#define VE_CHROMA_BUF_LEN_SDRT(l)		SHIFT_AND_MASK_BITS(l, 27, 0)
- 
- #define VE_PRIMARY_OUT_FMT			0xec
- 
-@@ -69,15 +72,15 @@
- 
- #define VE_DEC_MPEG_MP12HDR			(VE_ENGINE_DEC_MPEG + 0x00)
- 
--#define VE_DEC_MPEG_MP12HDR_SLICE_TYPE(t)	(((t) << 28) & GENMASK(30, 28))
-+#define VE_DEC_MPEG_MP12HDR_SLICE_TYPE(t)	SHIFT_AND_MASK_BITS(t, 30, 28)
- #define VE_DEC_MPEG_MP12HDR_F_CODE_SHIFT(x, y)	(24 - 4 * (y) - 8 * (x))
- #define VE_DEC_MPEG_MP12HDR_F_CODE(__x, __y, __v) \
--	(((__v) & GENMASK(3, 0)) << VE_DEC_MPEG_MP12HDR_F_CODE_SHIFT(__x, __y))
-+	(((unsigned long)(__v) & GENMASK(3, 0)) << VE_DEC_MPEG_MP12HDR_F_CODE_SHIFT(__x, __y))
- 
- #define VE_DEC_MPEG_MP12HDR_INTRA_DC_PRECISION(p) \
--	(((p) << 10) & GENMASK(11, 10))
-+	SHIFT_AND_MASK_BITS(p, 11, 10)
- #define VE_DEC_MPEG_MP12HDR_INTRA_PICTURE_STRUCTURE(s) \
--	(((s) << 8) & GENMASK(9, 8))
-+	SHIFT_AND_MASK_BITS(s, 9, 8)
- #define VE_DEC_MPEG_MP12HDR_TOP_FIELD_FIRST(v) \
- 	((v) ? BIT(7) : 0)
- #define VE_DEC_MPEG_MP12HDR_FRAME_PRED_FRAME_DCT(v) \
-@@ -98,19 +101,19 @@
- #define VE_DEC_MPEG_PICCODEDSIZE		(VE_ENGINE_DEC_MPEG + 0x08)
- 
- #define VE_DEC_MPEG_PICCODEDSIZE_WIDTH(w) \
--	((DIV_ROUND_UP((w), 16) << 8) & GENMASK(15, 8))
-+	SHIFT_AND_MASK_BITS(DIV_ROUND_UP((w), 16), 15, 8)
- #define VE_DEC_MPEG_PICCODEDSIZE_HEIGHT(h) \
--	((DIV_ROUND_UP((h), 16) << 0) & GENMASK(7, 0))
-+	SHIFT_AND_MASK_BITS(DIV_ROUND_UP((h), 16), 7, 0)
- 
- #define VE_DEC_MPEG_PICBOUNDSIZE		(VE_ENGINE_DEC_MPEG + 0x0c)
- 
--#define VE_DEC_MPEG_PICBOUNDSIZE_WIDTH(w)	(((w) << 16) & GENMASK(27, 16))
--#define VE_DEC_MPEG_PICBOUNDSIZE_HEIGHT(h)	(((h) << 0) & GENMASK(11, 0))
-+#define VE_DEC_MPEG_PICBOUNDSIZE_WIDTH(w)	SHIFT_AND_MASK_BITS(w, 27, 16)
-+#define VE_DEC_MPEG_PICBOUNDSIZE_HEIGHT(h)	SHIFT_AND_MASK_BITS(h, 11, 0)
- 
- #define VE_DEC_MPEG_MBADDR			(VE_ENGINE_DEC_MPEG + 0x10)
- 
--#define VE_DEC_MPEG_MBADDR_X(w)			(((w) << 8) & GENMASK(15, 8))
--#define VE_DEC_MPEG_MBADDR_Y(h)			(((h) << 0) & GENMASK(7, 0))
-+#define VE_DEC_MPEG_MBADDR_X(w)			SHIFT_AND_MASK_BITS(w, 15, 8)
-+#define VE_DEC_MPEG_MBADDR_Y(h)			SHIFT_AND_MASK_BITS(h, 7, 0)
- 
- #define VE_DEC_MPEG_CTRL			(VE_ENGINE_DEC_MPEG + 0x14)
- 
-@@ -225,7 +228,7 @@
- #define VE_DEC_MPEG_IQMINPUT_FLAG_INTRA		(0x01 << 14)
- #define VE_DEC_MPEG_IQMINPUT_FLAG_NON_INTRA	(0x00 << 14)
- #define VE_DEC_MPEG_IQMINPUT_WEIGHT(i, v) \
--	(((v) & GENMASK(7, 0)) | (((i) << 8) & GENMASK(13, 8)))
-+	(SHIFT_AND_MASK_BITS(i, 13, 8) | SHIFT_AND_MASK_BITS(v, 7, 0))
- 
- #define VE_DEC_MPEG_ERROR			(VE_ENGINE_DEC_MPEG + 0xc4)
- #define VE_DEC_MPEG_CRTMBADDR			(VE_ENGINE_DEC_MPEG + 0xc8)
 
 From 914dd00a8d57fd0050d02296d24c5b888c82c90c Mon Sep 17 00:00:00 2001
 From: Paul Kocialkowski <paul.kocialkowski@bootlin.com>
@@ -10033,7 +9592,7 @@ diff --git a/drivers/media/platform/vimc/vimc-sensor.c b/drivers/media/platform/
 index 46dc6a535abe..ee2306c08569 100644
 --- a/drivers/media/platform/vimc/vimc-sensor.c
 +++ b/drivers/media/platform/vimc/vimc-sensor.c
-@@ -358,6 +358,13 @@ struct vimc_ent_device *vimc_sen_add(struct vimc_device *vimc,
+@@ -353,6 +353,13 @@ struct vimc_ent_device *vimc_sen_add(struct vimc_device *vimc,
  		goto err_free_vsen;
  	}
  
@@ -10047,7 +9606,7 @@ index 46dc6a535abe..ee2306c08569 100644
  	/* Initialize ved and sd */
  	ret = vimc_ent_sd_register(&vsen->ved, &vsen->sd, v4l2_dev,
  				   vcfg_name,
-@@ -365,7 +372,7 @@ struct vimc_ent_device *vimc_sen_add(struct vimc_device *vimc,
+@@ -360,7 +367,7 @@ struct vimc_ent_device *vimc_sen_add(struct vimc_device *vimc,
  				   (const unsigned long[1]) {MEDIA_PAD_FL_SOURCE},
  				   &vimc_sen_int_ops, &vimc_sen_ops);
  	if (ret)
@@ -10056,7 +9615,7 @@ index 46dc6a535abe..ee2306c08569 100644
  
  	vsen->ved.process_frame = vimc_sen_process_frame;
  	vsen->dev = &vimc->pdev.dev;
-@@ -373,17 +380,10 @@ struct vimc_ent_device *vimc_sen_add(struct vimc_device *vimc,
+@@ -368,17 +375,10 @@ struct vimc_ent_device *vimc_sen_add(struct vimc_device *vimc,
  	/* Initialize the frame format */
  	vsen->mbus_format = fmt_default;
  
@@ -10158,7 +9717,7 @@ diff --git a/drivers/media/platform/vimc/vimc-sensor.c b/drivers/media/platform/
 index ee2306c08569..63fe024ccea5 100644
 --- a/drivers/media/platform/vimc/vimc-sensor.c
 +++ b/drivers/media/platform/vimc/vimc-sensor.c
-@@ -291,6 +291,7 @@ static void vimc_sen_release(struct v4l2_subdev *sd)
+@@ -286,6 +286,7 @@ static void vimc_sen_release(struct v4l2_subdev *sd)
  
  	v4l2_ctrl_handler_free(&vsen->hdl);
  	tpg_free(&vsen->tpg);
@@ -10255,7 +9814,7 @@ diff --git a/drivers/media/platform/vimc/vimc-sensor.c b/drivers/media/platform/
 index 63fe024ccea5..14838362d871 100644
 --- a/drivers/media/platform/vimc/vimc-sensor.c
 +++ b/drivers/media/platform/vimc/vimc-sensor.c
-@@ -305,7 +305,7 @@ void vimc_sen_rm(struct vimc_device *vimc, struct vimc_ent_device *ved)
+@@ -300,7 +300,7 @@ void vimc_sen_rm(struct vimc_device *vimc, struct vimc_ent_device *ved)
  	struct vimc_sen_device *vsen;
  
  	vsen = container_of(ved, struct vimc_sen_device, ved);
@@ -10774,7 +10333,7 @@ diff --git a/drivers/media/platform/vimc/vimc-sensor.c b/drivers/media/platform/
 index 14838362d871..b41e24a7d029 100644
 --- a/drivers/media/platform/vimc/vimc-sensor.c
 +++ b/drivers/media/platform/vimc/vimc-sensor.c
-@@ -24,6 +24,7 @@ struct vimc_sen_device {
+@@ -23,6 +23,7 @@ struct vimc_sen_device {
  	/* The active format */
  	struct v4l2_mbus_framefmt mbus_format;
  	struct v4l2_ctrl_handler hdl;
@@ -10782,7 +10341,7 @@ index 14838362d871..b41e24a7d029 100644
  };
  
  static const struct v4l2_mbus_framefmt fmt_default = {
-@@ -292,7 +293,6 @@ static void vimc_sen_release(struct v4l2_subdev *sd)
+@@ -287,7 +288,6 @@ static void vimc_sen_release(struct v4l2_subdev *sd)
  	v4l2_ctrl_handler_free(&vsen->hdl);
  	tpg_free(&vsen->tpg);
  	media_entity_cleanup(vsen->ved.ent);
@@ -10790,7 +10349,7 @@ index 14838362d871..b41e24a7d029 100644
  	kfree(vsen);
  }
  
-@@ -367,10 +367,10 @@ struct vimc_ent_device *vimc_sen_add(struct vimc_device *vimc,
+@@ -362,10 +362,10 @@ struct vimc_ent_device *vimc_sen_add(struct vimc_device *vimc,
  		goto err_free_hdl;
  
  	/* Initialize ved and sd */
@@ -11027,9 +10586,9 @@ index b41e24a7d029..25ee89a067f7 100644
  	struct v4l2_subdev sd;
 -	struct device *dev;
  	struct tpg_data tpg;
- 	struct task_struct *kthread_sen;
  	u8 *frame;
-@@ -159,7 +158,7 @@ static int vimc_sen_set_fmt(struct v4l2_subdev *sd,
+ 	/* The active format */
+@@ -158,7 +157,7 @@ static int vimc_sen_set_fmt(struct v4l2_subdev *sd,
  	/* Set the new format */
  	vimc_sen_adjust_fmt(&fmt->format);
  
@@ -11038,7 +10597,7 @@ index b41e24a7d029..25ee89a067f7 100644
  		"old:%dx%d (0x%x, %d, %d, %d, %d) "
  		"new:%dx%d (0x%x, %d, %d, %d, %d)\n", vsen->sd.name,
  		/* old */
-@@ -376,7 +375,7 @@ struct vimc_ent_device *vimc_sen_add(struct vimc_device *vimc,
+@@ -371,7 +370,7 @@ struct vimc_ent_device *vimc_sen_add(struct vimc_device *vimc,
  		goto err_free_tpg;
  
  	vsen->ved.process_frame = vimc_sen_process_frame;
@@ -11878,87 +11437,6 @@ index f725cd9b66b9..9e987c0f840e 100644
  	if (which == V4L2_SUBDEV_FORMAT_TRY && !cfg)
  		return -EINVAL;
 
-From eebe559cf4fc3bfbf6f562f7fb2d78c5903d4d64 Mon Sep 17 00:00:00 2001
-From: Vandana BN <bnvandana@gmail.com>
-Date: Tue, 22 Oct 2019 04:51:40 -0300
-Subject: [PATCH] media: v4l2-core: fix touch support in v4l_g_fmt
-
-v4l_s_fmt, for VFL_TYPE_TOUCH, sets unneeded members of
-the v4l2_pix_format structure to default values.This was
-missing in v4l_g_fmt, which would lead to failures in
-v4l2-compliance tests.
-
-Signed-off-by: Vandana BN <bnvandana@gmail.com>
-Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
-Signed-off-by: Mauro Carvalho Chehab <mchehab@kernel.org>
-(cherry picked from commit 545b618cfb5cadacd00c25066b9a36540e5ca9e9)
----
- drivers/media/v4l2-core/v4l2-ioctl.c | 33 ++++++++++++++++++---------------
- 1 file changed, 18 insertions(+), 15 deletions(-)
-
-diff --git a/drivers/media/v4l2-core/v4l2-ioctl.c b/drivers/media/v4l2-core/v4l2-ioctl.c
-index d26c83d4c255..315ac12c3e0a 100644
---- a/drivers/media/v4l2-core/v4l2-ioctl.c
-+++ b/drivers/media/v4l2-core/v4l2-ioctl.c
-@@ -1478,10 +1478,26 @@ static int v4l_enum_fmt(const struct v4l2_ioctl_ops *ops,
- 	return ret;
- }
- 
-+static void v4l_pix_format_touch(struct v4l2_pix_format *p)
-+{
-+	/*
-+	 * The v4l2_pix_format structure contains fields that make no sense for
-+	 * touch. Set them to default values in this case.
-+	 */
-+
-+	p->field = V4L2_FIELD_NONE;
-+	p->colorspace = V4L2_COLORSPACE_RAW;
-+	p->flags = 0;
-+	p->ycbcr_enc = 0;
-+	p->quantization = 0;
-+	p->xfer_func = 0;
-+}
-+
- static int v4l_g_fmt(const struct v4l2_ioctl_ops *ops,
- 				struct file *file, void *fh, void *arg)
- {
- 	struct v4l2_format *p = arg;
-+	struct video_device *vfd = video_devdata(file);
- 	int ret = check_fmt(file, p->type);
- 
- 	if (ret)
-@@ -1519,6 +1535,8 @@ static int v4l_g_fmt(const struct v4l2_ioctl_ops *ops,
- 		ret = ops->vidioc_g_fmt_vid_cap(file, fh, arg);
- 		/* just in case the driver zeroed it again */
- 		p->fmt.pix.priv = V4L2_PIX_FMT_PRIV_MAGIC;
-+		if (vfd->vfl_type == VFL_TYPE_TOUCH)
-+			v4l_pix_format_touch(&p->fmt.pix);
- 		return ret;
- 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
- 		return ops->vidioc_g_fmt_vid_cap_mplane(file, fh, arg);
-@@ -1556,21 +1574,6 @@ static int v4l_g_fmt(const struct v4l2_ioctl_ops *ops,
- 	return -EINVAL;
- }
- 
--static void v4l_pix_format_touch(struct v4l2_pix_format *p)
--{
--	/*
--	 * The v4l2_pix_format structure contains fields that make no sense for
--	 * touch. Set them to default values in this case.
--	 */
--
--	p->field = V4L2_FIELD_NONE;
--	p->colorspace = V4L2_COLORSPACE_RAW;
--	p->flags = 0;
--	p->ycbcr_enc = 0;
--	p->quantization = 0;
--	p->xfer_func = 0;
--}
--
- static int v4l_s_fmt(const struct v4l2_ioctl_ops *ops,
- 				struct file *file, void *fh, void *arg)
- {
-
 From a2aafcb26e867be0d8c02cb86996bf89107e7b1d Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?N=C3=ADcolas=20F=2E=20R=2E=20A=2E=20Prado?=
  <nfraprado@protonmail.com>
@@ -12190,107 +11668,6 @@ index c75401a36312..bf729fcde6a9 100644
 +int vimc_vdev_link_validate(struct media_link *link);
  
  #endif
-
-From 859e7f78eac0c673786b229e49019db55006e8ac Mon Sep 17 00:00:00 2001
-From: Hans Verkuil <hverkuil-cisco@xs4all.nl>
-Date: Sat, 2 Nov 2019 14:35:41 -0300
-Subject: [PATCH] media: vivid: media_device_cleanup was called too early
-
-Running the contrib/test/test-media script in v4l-utils with the vivid argument
-will cause this kernel warning:
-
-[  104.748720] videodev: v4l2_release
-[  104.748731] ------------[ cut here ]------------
-[  104.748750] DEBUG_LOCKS_WARN_ON(lock->magic != lock)
-[  104.748790] WARNING: CPU: 6 PID: 1823 at kernel/locking/mutex.c:938 __mutex_lock+0x919/0xc10
-[  104.748800] Modules linked in: rc_cec vivid v4l2_tpg videobuf2_dma_contig cec rc_core v4l2_dv_timings videobuf2_vmalloc videobuf2_memops
-videobuf2_v4l2 videobuf2_common videodev mc vmw_balloon vmw_vmci button vmwgfx
-[  104.748845] CPU: 6 PID: 1823 Comm: sleep Not tainted 5.4.0-rc1-test-no #150
-[  104.748853] Hardware name: VMware, Inc. VMware Virtual Platform/440BX Desktop Reference Platform, BIOS 6.00 07/29/2019
-[  104.748867] RIP: 0010:__mutex_lock+0x919/0xc10
-[  104.748878] Code: 59 83 e8 9a fc 16 ff 44 8b 05 23 61 38 01 45 85 c0 0f 85 ef f7 ff ff 48 c7 c6 a0 1f 87 82 48 c7 c7 a0 1e 87 82 e8 cd bb
-f7 fe <0f> 0b e9 d5 f7 ff ff f6 c3 04 0f 84 3b fd ff ff 49 89 df 41 83 e7
-[  104.748886] RSP: 0018:ffff88811a357b80 EFLAGS: 00010286
-[  104.748895] RAX: 0000000000000000 RBX: 0000000000000000 RCX: 0000000000000000
-[  104.748902] RDX: 0000000000000003 RSI: 0000000000000004 RDI: ffffed102346af62
-[  104.748910] RBP: ffff88811a357cf0 R08: ffffffff81217c91 R09: fffffbfff061c271
-[  104.748917] R10: fffffbfff061c270 R11: ffffffff830e1383 R12: ffff8881a46103c0
-[  104.748924] R13: 0000000000000000 R14: ffff8881a4614f90 R15: ffff8881a46153d0
-[  104.748933] FS:  0000000000000000(0000) GS:ffff8881b6780000(0000) knlGS:0000000000000000
-[  104.748940] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[  104.748949] CR2: 00007f163fc9ca20 CR3: 0000000003013004 CR4: 00000000001606e0
-[  104.749036] Call Trace:
-[  104.749051]  ? _raw_spin_unlock+0x1f/0x30
-[  104.749067]  ? llist_add_batch+0x33/0x50
-[  104.749081]  ? tick_nohz_tick_stopped+0x19/0x30
-[  104.749130]  ? v4l2_release.cold+0x6c/0xd6 [videodev]
-[  104.749143]  ? mutex_lock_io_nested+0xb80/0xb80
-[  104.749153]  ? vprintk_emit+0xf2/0x220
-[  104.749191]  ? vivid_req_validate+0x40/0x40 [vivid]
-[  104.749201]  ? printk+0xad/0xde
-[  104.749211]  ? kmsg_dump_rewind_nolock+0x54/0x54
-[  104.749226]  ? locks_remove_file+0x78/0x2b0
-[  104.749248]  ? __fsnotify_update_child_dentry_flags.part.0+0x170/0x170
-[  104.749281]  ? vivid_req_validate+0x40/0x40 [vivid]
-[  104.749321]  ? v4l2_release.cold+0x6c/0xd6 [videodev]
-[  104.749361]  v4l2_release.cold+0x6c/0xd6 [videodev]
-[  104.749378]  __fput+0x15a/0x390
-[  104.749393]  task_work_run+0xb2/0xe0
-[  104.749407]  do_exit+0x4d0/0x1200
-[  104.749422]  ? do_user_addr_fault+0x367/0x610
-[  104.749431]  ? release_task+0x990/0x990
-[  104.749449]  ? rwsem_spin_on_owner+0x170/0x170
-[  104.749463]  ? vmacache_find+0xb2/0x100
-[  104.749476]  do_group_exit+0x85/0x130
-[  104.749487]  __x64_sys_exit_group+0x23/0x30
-[  104.749500]  do_syscall_64+0x5e/0x1c0
-[  104.749511]  entry_SYSCALL_64_after_hwframe+0x44/0xa9
-[  104.749520] RIP: 0033:0x7f163fc5c9d6
-[  104.749536] Code: Bad RIP value.
-[  104.749543] RSP: 002b:00007ffe6f3bec58 EFLAGS: 00000246 ORIG_RAX: 00000000000000e7
-[  104.749553] RAX: ffffffffffffffda RBX: 00007f163fd4d760 RCX: 00007f163fc5c9d6
-[  104.749560] RDX: 0000000000000000 RSI: 000000000000003c RDI: 0000000000000000
-[  104.749567] RBP: 0000000000000000 R08: 00000000000000e7 R09: ffffffffffffff80
-[  104.749574] R10: 00007ffe6f3beb24 R11: 0000000000000246 R12: 00007f163fd4d760
-[  104.749581] R13: 0000000000000002 R14: 00007f163fd56428 R15: 0000000000000000
-[  104.749597] ---[ end trace 66f20f73fc0daf79 ]---
-
-This is caused by media_device_cleanup() which destroys
-v4l2_dev->mdev->req_queue_mutex. But v4l2_release() tries to lock
-that mutex after media_device_cleanup() is called.
-
-By moving media_device_cleanup() to the v4l2_device's release function it is
-guaranteed that the mutex is valid whenever v4l2_release is called.
-
-Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
-Signed-off-by: Mauro Carvalho Chehab <mchehab@kernel.org>
-(cherry picked from commit 8ffd573c25e5fac1daeeffc592e2ed6bc6a3d947)
----
- drivers/media/platform/vivid/vivid-core.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/media/platform/vivid/vivid-core.c b/drivers/media/platform/vivid/vivid-core.c
-index dadfc59c92c5..b204c636dba6 100644
---- a/drivers/media/platform/vivid/vivid-core.c
-+++ b/drivers/media/platform/vivid/vivid-core.c
-@@ -648,6 +648,9 @@ static void vivid_dev_release(struct v4l2_device *v4l2_dev)
- 
- 	vivid_free_controls(dev);
- 	v4l2_device_unregister(&dev->v4l2_dev);
-+#ifdef CONFIG_MEDIA_CONTROLLER
-+	media_device_cleanup(&dev->mdev);
-+#endif
- 	vfree(dev->scaled_line);
- 	vfree(dev->blended_line);
- 	vfree(dev->edid);
-@@ -1755,7 +1758,6 @@ static int vivid_remove(struct platform_device *pdev)
- 
- #ifdef CONFIG_MEDIA_CONTROLLER
- 		media_device_unregister(&dev->mdev);
--		media_device_cleanup(&dev->mdev);
- #endif
- 
- 		if (dev->has_vid_cap) {
 
 From c72ded8a4b7c12c5743f1ace3f651e42f2bb88f7 Mon Sep 17 00:00:00 2001
 From: Hans Verkuil <hverkuil-cisco@xs4all.nl>
@@ -12746,131 +12123,6 @@ index d57066ed31f0..59192b67231c 100644
  	bool				can_loop_video;
  
 
-From 993f6e56dd4cda73394308756ef5366e51dc2625 Mon Sep 17 00:00:00 2001
-From: Alexander Popov <alex.popov@linux.com>
-Date: Sun, 3 Nov 2019 23:17:19 +0100
-Subject: [PATCH] media: vivid: Fix wrong locking that causes race conditions
- on streaming stop
-
-There is the same incorrect approach to locking implemented in
-vivid_stop_generating_vid_cap(), vivid_stop_generating_vid_out() and
-sdr_cap_stop_streaming().
-
-These functions are called during streaming stopping with vivid_dev.mutex
-locked. And they all do the same mistake while stopping their kthreads,
-which need to lock this mutex as well. See the example from
-vivid_stop_generating_vid_cap():
-  /* shutdown control thread */
-  vivid_grab_controls(dev, false);
-  mutex_unlock(&dev->mutex);
-  kthread_stop(dev->kthread_vid_cap);
-  dev->kthread_vid_cap = NULL;
-  mutex_lock(&dev->mutex);
-
-But when this mutex is unlocked, another vb2_fop_read() can lock it
-instead of vivid_thread_vid_cap() and manipulate the buffer queue.
-That causes a use-after-free access later.
-
-To fix those issues let's:
-  1. avoid unlocking the mutex in vivid_stop_generating_vid_cap(),
-vivid_stop_generating_vid_out() and sdr_cap_stop_streaming();
-  2. use mutex_trylock() with schedule_timeout_uninterruptible() in
-the loops of the vivid kthread handlers.
-
-Signed-off-by: Alexander Popov <alex.popov@linux.com>
-Acked-by: Linus Torvalds <torvalds@linux-foundation.org>
-Tested-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
-Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
-Cc: <stable@vger.kernel.org>      # for v3.18 and up
-Signed-off-by: Mauro Carvalho Chehab <mchehab@kernel.org>
-(cherry picked from commit 6dcd5d7a7a29c1e4b8016a06aed78cd650cd8c27)
----
- drivers/media/platform/vivid/vivid-kthread-cap.c | 8 +++++---
- drivers/media/platform/vivid/vivid-kthread-out.c | 8 +++++---
- drivers/media/platform/vivid/vivid-sdr-cap.c     | 8 +++++---
- 3 files changed, 15 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/media/platform/vivid/vivid-kthread-cap.c b/drivers/media/platform/vivid/vivid-kthread-cap.c
-index 9f981e8bae6e..01a9d671b947 100644
---- a/drivers/media/platform/vivid/vivid-kthread-cap.c
-+++ b/drivers/media/platform/vivid/vivid-kthread-cap.c
-@@ -818,7 +818,11 @@ static int vivid_thread_vid_cap(void *data)
- 		if (kthread_should_stop())
- 			break;
- 
--		mutex_lock(&dev->mutex);
-+		if (!mutex_trylock(&dev->mutex)) {
-+			schedule_timeout_uninterruptible(1);
-+			continue;
-+		}
-+
- 		cur_jiffies = jiffies;
- 		if (dev->cap_seq_resync) {
- 			dev->jiffies_vid_cap = cur_jiffies;
-@@ -998,8 +1002,6 @@ void vivid_stop_generating_vid_cap(struct vivid_dev *dev, bool *pstreaming)
- 
- 	/* shutdown control thread */
- 	vivid_grab_controls(dev, false);
--	mutex_unlock(&dev->mutex);
- 	kthread_stop(dev->kthread_vid_cap);
- 	dev->kthread_vid_cap = NULL;
--	mutex_lock(&dev->mutex);
- }
-diff --git a/drivers/media/platform/vivid/vivid-kthread-out.c b/drivers/media/platform/vivid/vivid-kthread-out.c
-index c974235d7de3..6780687978f9 100644
---- a/drivers/media/platform/vivid/vivid-kthread-out.c
-+++ b/drivers/media/platform/vivid/vivid-kthread-out.c
-@@ -166,7 +166,11 @@ static int vivid_thread_vid_out(void *data)
- 		if (kthread_should_stop())
- 			break;
- 
--		mutex_lock(&dev->mutex);
-+		if (!mutex_trylock(&dev->mutex)) {
-+			schedule_timeout_uninterruptible(1);
-+			continue;
-+		}
-+
- 		cur_jiffies = jiffies;
- 		if (dev->out_seq_resync) {
- 			dev->jiffies_vid_out = cur_jiffies;
-@@ -344,8 +348,6 @@ void vivid_stop_generating_vid_out(struct vivid_dev *dev, bool *pstreaming)
- 
- 	/* shutdown control thread */
- 	vivid_grab_controls(dev, false);
--	mutex_unlock(&dev->mutex);
- 	kthread_stop(dev->kthread_vid_out);
- 	dev->kthread_vid_out = NULL;
--	mutex_lock(&dev->mutex);
- }
-diff --git a/drivers/media/platform/vivid/vivid-sdr-cap.c b/drivers/media/platform/vivid/vivid-sdr-cap.c
-index 9acc709b0740..2b7522e16efc 100644
---- a/drivers/media/platform/vivid/vivid-sdr-cap.c
-+++ b/drivers/media/platform/vivid/vivid-sdr-cap.c
-@@ -141,7 +141,11 @@ static int vivid_thread_sdr_cap(void *data)
- 		if (kthread_should_stop())
- 			break;
- 
--		mutex_lock(&dev->mutex);
-+		if (!mutex_trylock(&dev->mutex)) {
-+			schedule_timeout_uninterruptible(1);
-+			continue;
-+		}
-+
- 		cur_jiffies = jiffies;
- 		if (dev->sdr_cap_seq_resync) {
- 			dev->jiffies_sdr_cap = cur_jiffies;
-@@ -303,10 +307,8 @@ static void sdr_cap_stop_streaming(struct vb2_queue *vq)
- 	}
- 
- 	/* shutdown control thread */
--	mutex_unlock(&dev->mutex);
- 	kthread_stop(dev->kthread_sdr_cap);
- 	dev->kthread_sdr_cap = NULL;
--	mutex_lock(&dev->mutex);
- }
- 
- static void sdr_cap_buf_request_complete(struct vb2_buffer *vb)
-
 From c1d6ff706ab25b9c8c4d513e379c43546ba0ce4d Mon Sep 17 00:00:00 2001
 From: Ricardo Ribalda Delgado <ribalda@kernel.org>
 Date: Mon, 4 Nov 2019 14:09:18 +0100
@@ -13220,7 +12472,7 @@ index cd85668f9c80..db336449c4f2 100644
  #include <linux/types.h>
  
  #include <media/videobuf2-dma-contig.h>
-@@ -289,6 +290,28 @@ static void cedrus_write_pred_weight_table(struct cedrus_ctx *ctx,
+@@ -293,6 +294,28 @@ static void cedrus_write_pred_weight_table(struct cedrus_ctx *ctx,
  	}
  }
  
@@ -13249,7 +12501,7 @@ index cd85668f9c80..db336449c4f2 100644
  static void cedrus_set_params(struct cedrus_ctx *ctx,
  			      struct cedrus_run *run)
  {
-@@ -299,14 +322,13 @@ static void cedrus_set_params(struct cedrus_ctx *ctx,
+@@ -303,14 +326,13 @@ static void cedrus_set_params(struct cedrus_ctx *ctx,
  	struct vb2_buffer *src_buf = &run->src->vb2_buf;
  	struct cedrus_dev *dev = ctx->dev;
  	dma_addr_t src_buf_addr;
@@ -13266,7 +12518,7 @@ index cd85668f9c80..db336449c4f2 100644
  
  	src_buf_addr = vb2_dma_contig_plane_dma_addr(src_buf, 0);
  	cedrus_write(dev, VE_H264_VLD_END,
-@@ -325,6 +347,8 @@ static void cedrus_set_params(struct cedrus_ctx *ctx,
+@@ -329,6 +351,8 @@ static void cedrus_set_params(struct cedrus_ctx *ctx,
  	cedrus_write(dev, VE_H264_TRIGGER_TYPE,
  		     VE_H264_TRIGGER_TYPE_INIT_SWDEC);
  
@@ -13296,86 +12548,6 @@ index 6fc28d21a6c7..4275a307d282 100644
  
  #define VE_H264_STATUS_INT_MASK			VE_H264_CTRL_INT_MASK
  
-
-From a65339816a53f30b59e47f70a6872ff6b0071ba7 Mon Sep 17 00:00:00 2001
-From: Jernej Skrabec <jernej.skrabec@siol.net>
-Date: Sat, 26 Oct 2019 09:27:52 +0200
-Subject: [PATCH] media: cedrus: Use helpers to access capture queue
-
-Accessing capture queue structue directly is not safe. Use helpers for
-that.
-
-Acked-by: Paul Kocialkowski <paul.kocialkowski@bootlin.com>
-Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
-Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
-Signed-off-by: Mauro Carvalho Chehab <mchehab@kernel.org>
-(cherry picked from commit 1fd50a2c294457508f06b8b631d01a58de81cdd2)
----
- drivers/staging/media/sunxi/cedrus/cedrus.h      | 8 ++++++--
- drivers/staging/media/sunxi/cedrus/cedrus_h264.c | 8 ++++++--
- 2 files changed, 12 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/staging/media/sunxi/cedrus/cedrus.h b/drivers/staging/media/sunxi/cedrus/cedrus.h
-index 986e059e3202..c45fb9a7ad07 100644
---- a/drivers/staging/media/sunxi/cedrus/cedrus.h
-+++ b/drivers/staging/media/sunxi/cedrus/cedrus.h
-@@ -197,12 +197,16 @@ static inline dma_addr_t cedrus_buf_addr(struct vb2_buffer *buf,
- static inline dma_addr_t cedrus_dst_buf_addr(struct cedrus_ctx *ctx,
- 					     int index, unsigned int plane)
- {
--	struct vb2_buffer *buf;
-+	struct vb2_buffer *buf = NULL;
-+	struct vb2_queue *vq;
- 
- 	if (index < 0)
- 		return 0;
- 
--	buf = ctx->fh.m2m_ctx->cap_q_ctx.q.bufs[index];
-+	vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx, V4L2_BUF_TYPE_VIDEO_CAPTURE);
-+	if (vq)
-+		buf = vb2_get_buffer(vq, index);
-+
- 	return buf ? cedrus_buf_addr(buf, &ctx->dst_fmt, plane) : 0;
- }
- 
-diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_h264.c b/drivers/staging/media/sunxi/cedrus/cedrus_h264.c
-index db336449c4f2..7487f6ab7576 100644
---- a/drivers/staging/media/sunxi/cedrus/cedrus_h264.c
-+++ b/drivers/staging/media/sunxi/cedrus/cedrus_h264.c
-@@ -97,7 +97,7 @@ static void cedrus_write_frame_list(struct cedrus_ctx *ctx,
- 	const struct v4l2_ctrl_h264_decode_params *decode = run->h264.decode_params;
- 	const struct v4l2_ctrl_h264_slice_params *slice = run->h264.slice_params;
- 	const struct v4l2_ctrl_h264_sps *sps = run->h264.sps;
--	struct vb2_queue *cap_q = &ctx->fh.m2m_ctx->cap_q_ctx.q;
-+	struct vb2_queue *cap_q;
- 	struct cedrus_buffer *output_buf;
- 	struct cedrus_dev *dev = ctx->dev;
- 	unsigned long used_dpbs = 0;
-@@ -105,6 +105,8 @@ static void cedrus_write_frame_list(struct cedrus_ctx *ctx,
- 	unsigned int output = 0;
- 	unsigned int i;
- 
-+	cap_q = v4l2_m2m_get_vq(ctx->fh.m2m_ctx, V4L2_BUF_TYPE_VIDEO_CAPTURE);
-+
- 	memset(pic_list, 0, sizeof(pic_list));
- 
- 	for (i = 0; i < ARRAY_SIZE(decode->dpb); i++) {
-@@ -168,12 +170,14 @@ static void _cedrus_write_ref_list(struct cedrus_ctx *ctx,
- 				   enum cedrus_h264_sram_off sram)
- {
- 	const struct v4l2_ctrl_h264_decode_params *decode = run->h264.decode_params;
--	struct vb2_queue *cap_q = &ctx->fh.m2m_ctx->cap_q_ctx.q;
-+	struct vb2_queue *cap_q;
- 	struct cedrus_dev *dev = ctx->dev;
- 	u8 sram_array[CEDRUS_MAX_REF_IDX];
- 	unsigned int i;
- 	size_t size;
- 
-+	cap_q = v4l2_m2m_get_vq(ctx->fh.m2m_ctx, V4L2_BUF_TYPE_VIDEO_CAPTURE);
-+
- 	memset(sram_array, 0, sizeof(sram_array));
- 
- 	for (i = 0; i < num_ref; i++) {
 
 From 6831d4cad08fdaed8bb38bfc04fc489d3f02fcbe Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
@@ -13606,153 +12778,6 @@ index c0bdd6c02520..f8db6fcaad73 100644
  			.step_height = MB_DIM,
  		},
  	},
-
-From 0c7eff93ce35911709a39148c20421bef7413fc5 Mon Sep 17 00:00:00 2001
-From: Francois Buergisser <fbuergisser@chromium.org>
-Date: Tue, 29 Oct 2019 02:24:47 +0100
-Subject: [PATCH] media: hantro: Fix motion vectors usage condition
-
-The setting of the motion vectors usage and the setting of motion
-vectors address are currently done under different conditions.
-
-When decoding pre-recorded videos, this results of leaving the motion
-vectors address unset, resulting in faulty memory accesses. Fix it
-by using the same condition everywhere, which matches the profiles
-that support motion vectors.
-
-Fixes: dea0a82f3d22 ("media: hantro: Add support for H264 decoding on G1")
-Signed-off-by: Francois Buergisser <fbuergisser@chromium.org>
-Signed-off-by: Ezequiel Garcia <ezequiel@collabora.com>
-Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
-Reviewed-by: Boris Brezillon <boris.brezillon@collabora.com>
-Tested-by: Boris Brezillon <boris.brezillon@collabora.com>
-Cc: <stable@vger.kernel.org>      # for v5.4 and up
-Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
-Signed-off-by: Mauro Carvalho Chehab <mchehab@kernel.org>
-(cherry picked from commit 658f9d9921d7e76af03f689b5f0ffde042b8bf5b)
----
- drivers/staging/media/hantro/hantro_g1_h264_dec.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/staging/media/hantro/hantro_g1_h264_dec.c b/drivers/staging/media/hantro/hantro_g1_h264_dec.c
-index 29130946dea4..a1cb18680200 100644
---- a/drivers/staging/media/hantro/hantro_g1_h264_dec.c
-+++ b/drivers/staging/media/hantro/hantro_g1_h264_dec.c
-@@ -35,7 +35,7 @@ static void set_params(struct hantro_ctx *ctx)
- 	if (sps->flags & V4L2_H264_SPS_FLAG_MB_ADAPTIVE_FRAME_FIELD)
- 		reg |= G1_REG_DEC_CTRL0_SEQ_MBAFF_E;
- 	reg |= G1_REG_DEC_CTRL0_PICORD_COUNT_E;
--	if (dec_param->nal_ref_idc)
-+	if (sps->profile_idc > 66 && dec_param->nal_ref_idc)
- 		reg |= G1_REG_DEC_CTRL0_WRITE_MVS_E;
- 
- 	if (!(sps->flags & V4L2_H264_SPS_FLAG_FRAME_MBS_ONLY) &&
-@@ -245,7 +245,7 @@ static void set_buffers(struct hantro_ctx *ctx)
- 	vdpu_write_relaxed(vpu, dst_dma, G1_REG_ADDR_DST);
- 
- 	/* Higher profiles require DMV buffer appended to reference frames. */
--	if (ctrls->sps->profile_idc > 66) {
-+	if (ctrls->sps->profile_idc > 66 && ctrls->decode->nal_ref_idc) {
- 		size_t pic_size = ctx->h264_dec.pic_size;
- 		size_t mv_offset = round_up(pic_size, 8);
- 
-
-From ef162c3e58d4a48435620f87ca02f5b4f6416d9f Mon Sep 17 00:00:00 2001
-From: Francois Buergisser <fbuergisser@chromium.org>
-Date: Tue, 29 Oct 2019 02:24:48 +0100
-Subject: [PATCH] media: hantro: Fix picture order count table enable
-
-The picture order count table only makes sense for profiles
-higher than Baseline. This is confirmed by the H.264 specification
-(See 8.2.1 Decoding process for picture order count), which
-clarifies how POC are used for features not present in Baseline.
-
-"""
-Picture order counts are used to determine initial picture orderings
-for reference pictures in the decoding of B slices, to represent picture
-order differences between frames or fields for motion vector derivation
-in temporal direct mode, for implicit mode weighted prediction in B slices,
-and for decoder conformance checking.
-"""
-
-As a side note, this change matches various vendors downstream codebases,
-including ChromiumOS and IMX VPU libraries.
-
-Fixes: dea0a82f3d22 ("media: hantro: Add support for H264 decoding on G1")
-Signed-off-by: Francois Buergisser <fbuergisser@chromium.org>
-Signed-off-by: Ezequiel Garcia <ezequiel@collabora.com>
-Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
-Reviewed-by: Boris Brezillon <boris.brezillon@collabora.com>
-Tested-by: Boris Brezillon <boris.brezillon@collabora.com>
-Cc: <stable@vger.kernel.org>      # for v5.4 and up
-Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
-Signed-off-by: Mauro Carvalho Chehab <mchehab@kernel.org>
-(cherry picked from commit 58c93a548b0248fad6437f8c8921f9b031c3892a)
----
- drivers/staging/media/hantro/hantro_g1_h264_dec.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/staging/media/hantro/hantro_g1_h264_dec.c b/drivers/staging/media/hantro/hantro_g1_h264_dec.c
-index a1cb18680200..70a6b5b26477 100644
---- a/drivers/staging/media/hantro/hantro_g1_h264_dec.c
-+++ b/drivers/staging/media/hantro/hantro_g1_h264_dec.c
-@@ -34,9 +34,11 @@ static void set_params(struct hantro_ctx *ctx)
- 	reg = G1_REG_DEC_CTRL0_DEC_AXI_WR_ID(0x0);
- 	if (sps->flags & V4L2_H264_SPS_FLAG_MB_ADAPTIVE_FRAME_FIELD)
- 		reg |= G1_REG_DEC_CTRL0_SEQ_MBAFF_E;
--	reg |= G1_REG_DEC_CTRL0_PICORD_COUNT_E;
--	if (sps->profile_idc > 66 && dec_param->nal_ref_idc)
--		reg |= G1_REG_DEC_CTRL0_WRITE_MVS_E;
-+	if (sps->profile_idc > 66) {
-+		reg |= G1_REG_DEC_CTRL0_PICORD_COUNT_E;
-+		if (dec_param->nal_ref_idc)
-+			reg |= G1_REG_DEC_CTRL0_WRITE_MVS_E;
-+	}
- 
- 	if (!(sps->flags & V4L2_H264_SPS_FLAG_FRAME_MBS_ONLY) &&
- 	    (sps->flags & V4L2_H264_SPS_FLAG_MB_ADAPTIVE_FRAME_FIELD ||
-
-From 87b9ef86e59eb1de41f378529a773ce077e0e10d Mon Sep 17 00:00:00 2001
-From: Dafna Hirschfeld <dafna.hirschfeld@collabora.com>
-Date: Tue, 5 Nov 2019 18:53:17 +0100
-Subject: [PATCH] media: vimc: sen: remove unused kthread_sen field
-
-The field kthread_sen in the vimc_sen_device is
-not set and used. So remove the field and
-the code that check if it is non NULL
-
-Signed-off-by: Dafna Hirschfeld <dafna.hirschfeld@collabora.com>
-Cc: <stable@vger.kernel.org>      # for v5.4 and up
-Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
-Signed-off-by: Mauro Carvalho Chehab <mchehab@kernel.org>
-(cherry picked from commit 3ea35d5db448c27807acbcc7a2306cf65c5e6397)
----
- drivers/media/platform/vimc/vimc-sensor.c | 5 -----
- 1 file changed, 5 deletions(-)
-
-diff --git a/drivers/media/platform/vimc/vimc-sensor.c b/drivers/media/platform/vimc/vimc-sensor.c
-index 25ee89a067f7..32380f504591 100644
---- a/drivers/media/platform/vimc/vimc-sensor.c
-+++ b/drivers/media/platform/vimc/vimc-sensor.c
-@@ -18,7 +18,6 @@ struct vimc_sen_device {
- 	struct vimc_ent_device ved;
- 	struct v4l2_subdev sd;
- 	struct tpg_data tpg;
--	struct task_struct *kthread_sen;
- 	u8 *frame;
- 	/* The active format */
- 	struct v4l2_mbus_framefmt mbus_format;
-@@ -202,10 +201,6 @@ static int vimc_sen_s_stream(struct v4l2_subdev *sd, int enable)
- 		const struct vimc_pix_map *vpix;
- 		unsigned int frame_size;
- 
--		if (vsen->kthread_sen)
--			/* tpg is already executing */
--			return 0;
--
- 		/* Calculate the frame size */
- 		vpix = vimc_pix_map_by_code(vsen->mbus_format.code);
- 		frame_size = vsen->mbus_format.width * vpix->bpp *
 
 From c3083480946f5288ef3c7cb4a7b8418a7d921345 Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@siol.net>
@@ -14061,80 +13086,6 @@ index 60453b21a855..4e700583659b 100644
  		return ops->vidioc_try_fmt_sdr_out(file, fh, arg);
  	case V4L2_BUF_TYPE_META_CAPTURE:
  		if (unlikely(!ops->vidioc_try_fmt_meta_cap))
-
-From 32980a8e0329a5e1cff741284e1eefdaf595fd30 Mon Sep 17 00:00:00 2001
-From: Pi-Hsun Shih <pihsun@chromium.org>
-Date: Sun, 10 Nov 2019 07:29:10 +0100
-Subject: [PATCH] media: v4l2-ctrl: Lock main_hdl on operations of
- requests_queued.
-
-There's a race condition between the list_del_init in the
-v4l2_ctrl_request_complete, and the list_add_tail in the
-v4l2_ctrl_request_queue, since they can be called in different thread
-and the requests_queued list is not protected by a lock. This can lead
-to that the v4l2_ctrl_handler is still in the requests_queued list while
-the request_is_queued is already set to false, which would cause
-use-after-free if the v4l2_ctrl_handler is later released.
-
-Fix this by locking the ->lock of main_hdl (which is the owner of the
-requests_queued list) when doing list operations on the
-->requests_queued list.
-
-Signed-off-by: Pi-Hsun Shih <pihsun@chromium.org>
-Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
-Signed-off-by: Mauro Carvalho Chehab <mchehab@kernel.org>
-(cherry picked from commit df4a3e7f88e3b0d7ae46d70b9ff8e3c0ea730785)
----
- drivers/media/v4l2-core/v4l2-ctrls.c | 7 +++++++
- 1 file changed, 7 insertions(+)
-
-diff --git a/drivers/media/v4l2-core/v4l2-ctrls.c b/drivers/media/v4l2-core/v4l2-ctrls.c
-index a565ae3ba7e4..2928c5e0a73d 100644
---- a/drivers/media/v4l2-core/v4l2-ctrls.c
-+++ b/drivers/media/v4l2-core/v4l2-ctrls.c
-@@ -3302,6 +3302,7 @@ static void v4l2_ctrl_request_queue(struct media_request_object *obj)
- 	struct v4l2_ctrl_handler *prev_hdl = NULL;
- 	struct v4l2_ctrl_ref *ref_ctrl, *ref_ctrl_prev = NULL;
- 
-+	mutex_lock(main_hdl->lock);
- 	if (list_empty(&main_hdl->requests_queued))
- 		goto queue;
- 
-@@ -3333,18 +3334,22 @@ static void v4l2_ctrl_request_queue(struct media_request_object *obj)
- queue:
- 	list_add_tail(&hdl->requests_queued, &main_hdl->requests_queued);
- 	hdl->request_is_queued = true;
-+	mutex_unlock(main_hdl->lock);
- }
- 
- static void v4l2_ctrl_request_unbind(struct media_request_object *obj)
- {
- 	struct v4l2_ctrl_handler *hdl =
- 		container_of(obj, struct v4l2_ctrl_handler, req_obj);
-+	struct v4l2_ctrl_handler *main_hdl = obj->priv;
- 
- 	list_del_init(&hdl->requests);
-+	mutex_lock(main_hdl->lock);
- 	if (hdl->request_is_queued) {
- 		list_del_init(&hdl->requests_queued);
- 		hdl->request_is_queued = false;
- 	}
-+	mutex_unlock(main_hdl->lock);
- }
- 
- static void v4l2_ctrl_request_release(struct media_request_object *obj)
-@@ -4298,9 +4303,11 @@ void v4l2_ctrl_request_complete(struct media_request *req,
- 		v4l2_ctrl_unlock(ctrl);
- 	}
- 
-+	mutex_lock(main_hdl->lock);
- 	WARN_ON(!hdl->request_is_queued);
- 	list_del_init(&hdl->requests_queued);
- 	hdl->request_is_queued = false;
-+	mutex_unlock(main_hdl->lock);
- 	media_request_object_complete(obj);
- 	media_request_object_put(obj);
- }
 
 From 538378c5a4b78d449f2a4003fd0bf51941aea310 Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@siol.net>
@@ -14495,293 +13446,6 @@ index cc15a5cf107d..15cf1f10221b 100644
  
  static struct cedrus_format cedrus_formats[] = {
  	{
-
-From 2bde57c192c63d5f6eb619e6409834f91937f22a Mon Sep 17 00:00:00 2001
-From: Hans Verkuil <hverkuil-cisco@xs4all.nl>
-Date: Sat, 9 Nov 2019 14:03:08 +0100
-Subject: [PATCH] media: vim2m: media_device_cleanup was called too early
-
-Running the contrib/test/test-media script in v4l-utils with the vim2m argument
-will cause this kernel warning:
-
-[  554.430157] ------------[ cut here ]------------
-[  554.433034] DEBUG_LOCKS_WARN_ON(lock->magic != lock)
-[  554.433064] WARNING: CPU: 0 PID: 616 at kernel/locking/mutex.c:938 __mutex_lock+0xd7a/0x1380
-[  554.439736] Modules linked in: vim2m v4l2_mem2mem vivid rc_cec videobuf2_dma_contig v4l2_dv_timings cec videobuf2_vmalloc videobuf2_memops v4l2_tpg videobuf2_v4l2 videobuf2_common videodev mc rc_core [last unloaded: vivid]
-[  554.445794] CPU: 0 PID: 616 Comm: sleep Not tainted 5.4.0-rc1-virtme #1
-[  554.448481] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.12.0-0-ga698c8995f-prebuilt.qemu.org 04/01/2014
-[  554.453088] RIP: 0010:__mutex_lock+0xd7a/0x1380
-[  554.454955] Code: d2 0f 85 de 05 00 00 44 8b 05 82 d9 f7 00 45 85 c0 0f 85 bf f3 ff ff 48 c7 c6 e0 30 a6 b7 48 c7 c7 e0 2e a6 b7 e8 5c 76 36 fe <0f> 0b e9 a5 f3 ff ff 65 48 8b 1c 25 80 ef 01 00 be 08 00 00 00 48
-[  554.462836] RSP: 0018:ffff88803a4cfad0 EFLAGS: 00010282
-[  554.465129] RAX: 0000000000000000 RBX: 0000000000000000 RCX: ffffffffb5a3d24f
-[  554.468143] RDX: 0000000000000000 RSI: 0000000000000004 RDI: ffffffffb85273f4
-[  554.471000] RBP: ffff88803a4cfc50 R08: fffffbfff701e681 R09: fffffbfff701e681
-[  554.473990] R10: fffffbfff701e680 R11: ffffffffb80f3403 R12: 0000000000000000
-[  554.476831] R13: dffffc0000000000 R14: ffffffffb9714f00 R15: ffff888053103fc8
-[  554.479622] FS:  00007fac6358a540(0000) GS:ffff88805d000000(0000) knlGS:0000000000000000
-[  554.482673] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[  554.484949] CR2: 00007fac6343faf0 CR3: 0000000036c22000 CR4: 00000000003406f0
-[  554.487811] Call Trace:
-[  554.488860]  ? v4l2_release+0x1b8/0x390 [videodev]
-[  554.490818]  ? do_exit+0x946/0x2980
-[  554.492269]  ? mutex_lock_io_nested+0x1250/0x1250
-[  554.494128]  ? __lock_acquire+0xe90/0x3c30
-[  554.495774]  ? fsnotify_first_mark+0x120/0x120
-[  554.497487]  ? vim2m_device_release+0x50/0x50 [vim2m]
-[  554.499469]  ? v4l2_release+0x1b8/0x390 [videodev]
-[  554.501493]  v4l2_release+0x1b8/0x390 [videodev]
-[  554.503430]  __fput+0x256/0x790
-[  554.504711]  task_work_run+0x109/0x190
-[  554.506145]  do_exit+0x95e/0x2980
-[  554.507421]  ? vfs_lock_file+0x21/0xf0
-[  554.509013]  ? find_held_lock+0x33/0x1c0
-[  554.510382]  ? __close_fd+0xee/0x190
-[  554.511862]  ? release_task.part.21+0x1310/0x1310
-[  554.513701]  ? lock_downgrade+0x6d0/0x6d0
-[  554.515299]  do_group_exit+0xeb/0x2d0
-[  554.516862]  __x64_sys_exit_group+0x35/0x40
-[  554.518610]  do_syscall_64+0x90/0x450
-[  554.520142]  entry_SYSCALL_64_after_hwframe+0x49/0xbe
-[  554.522289] RIP: 0033:0x7fac6348ecf6
-[  554.523876] Code: Bad RIP value.
-[  554.525294] RSP: 002b:00007ffe6373dc58 EFLAGS: 00000246 ORIG_RAX: 00000000000000e7
-[  554.528555] RAX: ffffffffffffffda RBX: 00007fac6357f760 RCX: 00007fac6348ecf6
-[  554.531537] RDX: 0000000000000000 RSI: 000000000000003c RDI: 0000000000000000
-[  554.534709] RBP: 0000000000000000 R08: 00000000000000e7 R09: ffffffffffffff80
-[  554.536752] R10: 00007ffe6373db24 R11: 0000000000000246 R12: 00007fac6357f760
-[  554.538643] R13: 0000000000000002 R14: 00007fac63588428 R15: 0000000000000000
-[  554.540634] irq event stamp: 21731
-[  554.541618] hardirqs last  enabled at (21731): [<ffffffffb75b3cd4>] _raw_spin_unlock_irq+0x24/0x30
-[  554.544145] hardirqs last disabled at (21730): [<ffffffffb75b3ada>] _raw_spin_lock_irq+0xa/0x40
-[  554.547027] softirqs last  enabled at (20148): [<ffffffffb780064d>] __do_softirq+0x64d/0x906
-[  554.550385] softirqs last disabled at (19857): [<ffffffffb5926bd5>] irq_exit+0x175/0x1a0
-[  554.553668] ---[ end trace a389c80c2ca84244 ]---
-
-This is caused by media_device_cleanup() which destroys
-v4l2_dev->mdev->req_queue_mutex. But v4l2_release() tries to lock
-that mutex after media_device_cleanup() is called.
-
-By moving media_device_cleanup() to the video_device's release function it is
-guaranteed that the mutex is valid whenever v4l2_release is called.
-
-Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
-Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
-(cherry picked from commit 9f22e88a4bba270d3427684cee84dfbf67489e86)
----
- drivers/media/platform/vim2m.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/media/platform/vim2m.c b/drivers/media/platform/vim2m.c
-index e17792f837f8..8d6b09623d88 100644
---- a/drivers/media/platform/vim2m.c
-+++ b/drivers/media/platform/vim2m.c
-@@ -1275,6 +1275,9 @@ static void vim2m_device_release(struct video_device *vdev)
- 
- 	v4l2_device_unregister(&dev->v4l2_dev);
- 	v4l2_m2m_release(dev->m2m_dev);
-+#ifdef CONFIG_MEDIA_CONTROLLER
-+	media_device_cleanup(&dev->mdev);
-+#endif
- 	kfree(dev);
- }
- 
-@@ -1399,7 +1402,6 @@ static int vim2m_remove(struct platform_device *pdev)
- #ifdef CONFIG_MEDIA_CONTROLLER
- 	media_device_unregister(&dev->mdev);
- 	v4l2_m2m_unregister_media_controller(dev->m2m_dev);
--	media_device_cleanup(&dev->mdev);
- #endif
- 	video_unregister_device(&dev->vfd);
- 
-
-From 2be33bcf4943c063365c97bd0945f776ef49a0c6 Mon Sep 17 00:00:00 2001
-From: Hans Verkuil <hverkuil-cisco@xs4all.nl>
-Date: Sat, 9 Nov 2019 15:06:18 +0100
-Subject: [PATCH] media: vicodec: media_device_cleanup was called too early
-
-Running the contrib/test/test-media script in v4l-utils with the vicodec argument
-will cause this kernel warning:
-
-[  372.298824] ------------[ cut here ]------------
-[  372.298848] DEBUG_LOCKS_WARN_ON(lock->magic != lock)
-[  372.298896] WARNING: CPU: 11 PID: 2220 at kernel/locking/mutex.c:938 __mutex_lock+0x919/0xc10
-[  372.298907] Modules linked in: vicodec v4l2_mem2mem vivid rc_cec v4l2_tpg videobuf2_dma_contig cec rc_core v4l2_dv_timings videobuf2_vmalloc videobuf2_memops videobuf2_v4l2 videobuf2_common videodev mc vmw_balloon vmw_vmci button vmwgfx [last unloaded: vimc]
-[  372.298961] CPU: 11 PID: 2220 Comm: sleep Not tainted 5.4.0-rc1-test-no #150
-[  372.298970] Hardware name: VMware, Inc. VMware Virtual Platform/440BX Desktop Reference Platform, BIOS 6.00 07/29/2019
-[  372.298983] RIP: 0010:__mutex_lock+0x919/0xc10
-[  372.298995] Code: 59 83 e8 9a fc 16 ff 44 8b 05 23 61 38 01 45 85 c0 0f 85 ef f7 ff ff 48 c7 c6 a0 1f 87 82 48 c7 c7 a0 1e 87 82 e8 cd bb f7 fe <0f> 0b e9 d5 f7 ff ff f6 c3 04 0f 84 3b fd ff ff 49 89 df 41 83 e7
-[  372.299004] RSP: 0018:ffff8881b400fb80 EFLAGS: 00010286
-[  372.299014] RAX: 0000000000000000 RBX: 0000000000000000 RCX: 0000000000000000
-[  372.299022] RDX: 0000000000000003 RSI: 0000000000000004 RDI: ffffed1036801f62
-[  372.299030] RBP: ffff8881b400fcf0 R08: ffffffff81217c91 R09: fffffbfff061c271
-[  372.299038] R10: fffffbfff061c270 R11: ffffffff830e1383 R12: ffff88814761dc80
-[  372.299046] R13: 0000000000000000 R14: ffff88814761cbf0 R15: ffff88814761d030
-[  372.299055] FS:  0000000000000000(0000) GS:ffff8881b68c0000(0000) knlGS:0000000000000000
-[  372.299063] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[  372.299071] CR2: 00007f606d78aa20 CR3: 0000000003013002 CR4: 00000000001606e0
-[  372.299153] Call Trace:
-[  372.299176]  ? __kasan_slab_free+0x12f/0x180
-[  372.299187]  ? kmem_cache_free+0x9b/0x250
-[  372.299200]  ? do_exit+0xcdf/0x1200
-[  372.299210]  ? do_group_exit+0x85/0x130
-[  372.299220]  ? __x64_sys_exit_group+0x23/0x30
-[  372.299231]  ? do_syscall_64+0x5e/0x1c0
-[  372.299241]  ? entry_SYSCALL_64_after_hwframe+0x44/0xa9
-[  372.299295]  ? v4l2_release+0xed/0x190 [videodev]
-[  372.299309]  ? mutex_lock_io_nested+0xb80/0xb80
-[  372.299323]  ? find_held_lock+0x85/0xa0
-[  372.299335]  ? fsnotify+0x5b0/0x600
-[  372.299351]  ? locks_remove_file+0x78/0x2b0
-[  372.299363]  ? __fsnotify_update_child_dentry_flags.part.0+0x170/0x170
-[  372.299383]  ? vidioc_querycap+0x50/0x50 [vicodec]
-[  372.299426]  ? v4l2_release+0xed/0x190 [videodev]
-[  372.299467]  v4l2_release+0xed/0x190 [videodev]
-[  372.299484]  __fput+0x15a/0x390
-[  372.299499]  task_work_run+0xb2/0xe0
-[  372.299512]  do_exit+0x4d0/0x1200
-[  372.299528]  ? do_user_addr_fault+0x367/0x610
-[  372.299538]  ? release_task+0x990/0x990
-[  372.299552]  ? rwsem_spin_on_owner+0x170/0x170
-[  372.299567]  ? vmacache_find+0xb2/0x100
-[  372.299580]  do_group_exit+0x85/0x130
-[  372.299592]  __x64_sys_exit_group+0x23/0x30
-[  372.299602]  do_syscall_64+0x5e/0x1c0
-[  372.299614]  entry_SYSCALL_64_after_hwframe+0x44/0xa9
-[  372.299624] RIP: 0033:0x7f606d74a9d6
-[  372.299640] Code: Bad RIP value.
-[  372.299648] RSP: 002b:00007fff65364468 EFLAGS: 00000246 ORIG_RAX: 00000000000000e7
-[  372.299658] RAX: ffffffffffffffda RBX: 00007f606d83b760 RCX: 00007f606d74a9d6
-[  372.299666] RDX: 0000000000000000 RSI: 000000000000003c RDI: 0000000000000000
-[  372.299673] RBP: 0000000000000000 R08: 00000000000000e7 R09: ffffffffffffff80
-[  372.299681] R10: 00007fff65364334 R11: 0000000000000246 R12: 00007f606d83b760
-[  372.299689] R13: 0000000000000002 R14: 00007f606d844428 R15: 0000000000000000
-[  372.299704] ---[ end trace add7d62ca4bc65e3 ]---
-
-This is caused by media_device_cleanup() which destroys
-v4l2_dev->mdev->req_queue_mutex. But v4l2_release() tries to lock
-that mutex after media_device_cleanup() is called.
-
-By moving media_device_cleanup() to the v4l2_device's release function it is
-guaranteed that the mutex is valid whenever v4l2_release is called.
-
-Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
-Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
-(cherry picked from commit 693c5f144aeb9636ae161a3c61a838c50b2ae41c)
----
- drivers/media/platform/vicodec/vicodec-core.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/media/platform/vicodec/vicodec-core.c b/drivers/media/platform/vicodec/vicodec-core.c
-index 0ee143ae0f6b..82350097503e 100644
---- a/drivers/media/platform/vicodec/vicodec-core.c
-+++ b/drivers/media/platform/vicodec/vicodec-core.c
-@@ -2139,6 +2139,9 @@ static void vicodec_v4l2_dev_release(struct v4l2_device *v4l2_dev)
- 	v4l2_m2m_release(dev->stateful_enc.m2m_dev);
- 	v4l2_m2m_release(dev->stateful_dec.m2m_dev);
- 	v4l2_m2m_release(dev->stateless_dec.m2m_dev);
-+#ifdef CONFIG_MEDIA_CONTROLLER
-+	media_device_cleanup(&dev->mdev);
-+#endif
- 	kfree(dev);
- }
- 
-@@ -2250,7 +2253,6 @@ static int vicodec_remove(struct platform_device *pdev)
- 	v4l2_m2m_unregister_media_controller(dev->stateful_enc.m2m_dev);
- 	v4l2_m2m_unregister_media_controller(dev->stateful_dec.m2m_dev);
- 	v4l2_m2m_unregister_media_controller(dev->stateless_dec.m2m_dev);
--	media_device_cleanup(&dev->mdev);
- #endif
- 
- 	video_unregister_device(&dev->stateful_enc.vfd);
-
-From a3415fcc470a3f53c951b98acca487c0ddd2d306 Mon Sep 17 00:00:00 2001
-From: Ezequiel Garcia <ezequiel@collabora.com>
-Date: Mon, 7 Oct 2019 19:45:02 +0200
-Subject: [PATCH] media: hantro: Fix s_fmt for dynamic resolution changes
-
-Commit 953aaa1492c53 ("media: rockchip/vpu: Prepare things to support decoders")
-changed the conditions under S_FMT was allowed for OUTPUT
-CAPTURE buffers.
-
-However, and according to the mem-to-mem stateless decoder specification,
-in order to support dynamic resolution changes, S_FMT should be allowed
-even if OUTPUT buffers have been allocated.
-
-Relax decoder S_FMT restrictions on OUTPUT buffers, allowing a
-resolution modification, provided the pixel format stays the same.
-
-Tested on RK3288 platforms using ChromiumOS Video Decode/Encode
-Accelerator Unittests.
-
-[hverkuil: fix typo: In other -> In order]
-
-Fixes: 953aaa1492c53 ("media: rockchip/vpu: Prepare things to support decoders")
-Signed-off-by: Ezequiel Garcia <ezequiel@collabora.com>
-Reviewed-by: Boris Brezillon <boris.brezillon@collabora.com>
-Cc: <stable@vger.kernel.org>      # for v5.4 and up
-Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
-Signed-off-by: Mauro Carvalho Chehab <mchehab@kernel.org>
-(cherry picked from commit ae02d49493b5d32bb3e035fdeb1655346f5e1ea5)
----
- drivers/staging/media/hantro/hantro_v4l2.c | 28 +++++++++++++++++++---------
- 1 file changed, 19 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/staging/media/hantro/hantro_v4l2.c b/drivers/staging/media/hantro/hantro_v4l2.c
-index 3dae52abb96c..fcf95c1d39ca 100644
---- a/drivers/staging/media/hantro/hantro_v4l2.c
-+++ b/drivers/staging/media/hantro/hantro_v4l2.c
-@@ -367,19 +367,26 @@ vidioc_s_fmt_out_mplane(struct file *file, void *priv, struct v4l2_format *f)
- {
- 	struct v4l2_pix_format_mplane *pix_mp = &f->fmt.pix_mp;
- 	struct hantro_ctx *ctx = fh_to_ctx(priv);
-+	struct vb2_queue *vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx, f->type);
- 	const struct hantro_fmt *formats;
- 	unsigned int num_fmts;
--	struct vb2_queue *vq;
- 	int ret;
- 
--	/* Change not allowed if queue is busy. */
--	vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx, f->type);
--	if (vb2_is_busy(vq))
--		return -EBUSY;
-+	ret = vidioc_try_fmt_out_mplane(file, priv, f);
-+	if (ret)
-+		return ret;
- 
- 	if (!hantro_is_encoder_ctx(ctx)) {
- 		struct vb2_queue *peer_vq;
- 
-+		/*
-+		 * In order to support dynamic resolution change,
-+		 * the decoder admits a resolution change, as long
-+		 * as the pixelformat remains. Can't be done if streaming.
-+		 */
-+		if (vb2_is_streaming(vq) || (vb2_is_busy(vq) &&
-+		    pix_mp->pixelformat != ctx->src_fmt.pixelformat))
-+			return -EBUSY;
- 		/*
- 		 * Since format change on the OUTPUT queue will reset
- 		 * the CAPTURE queue, we can't allow doing so
-@@ -389,12 +396,15 @@ vidioc_s_fmt_out_mplane(struct file *file, void *priv, struct v4l2_format *f)
- 					  V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
- 		if (vb2_is_busy(peer_vq))
- 			return -EBUSY;
-+	} else {
-+		/*
-+		 * The encoder doesn't admit a format change if
-+		 * there are OUTPUT buffers allocated.
-+		 */
-+		if (vb2_is_busy(vq))
-+			return -EBUSY;
- 	}
- 
--	ret = vidioc_try_fmt_out_mplane(file, priv, f);
--	if (ret)
--		return ret;
--
- 	formats = hantro_get_formats(ctx, &num_fmts);
- 	ctx->vpu_src_fmt = hantro_find_format(formats, num_fmts,
- 					      pix_mp->pixelformat);
 
 From a658b212463bb2d125e5dff85adb96842848204b Mon Sep 17 00:00:00 2001
 From: Ricardo Ribalda Delgado <ribalda@kernel.org>
