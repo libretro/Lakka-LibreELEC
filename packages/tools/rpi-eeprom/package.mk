@@ -2,8 +2,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="rpi-eeprom"
-PKG_VERSION="7d9512c741162b19fecfcfa15b46dd4e73a3cd19"
-PKG_SHA256="291db0258ce00cb45ec9a2c01746324d62cbf553930d0fca84fd2295f821b8f5"
+PKG_VERSION="e9290b3bfcb92863da3495cf8f97f6b6fc2a88b2"
+PKG_SHA256="d4da87891ca1cc5b78e2ead30ef13185c421909b293f10dc20528e11aece668a"
 PKG_ARCH="arm"
 PKG_LICENSE="BSD-3/custom"
 PKG_SITE="https://github.com/raspberrypi/rpi-eeprom"
@@ -27,11 +27,8 @@ makeinstall_target() {
         [ -n "${PKG_FW_FILE}" ] && cp -PRv "${PKG_FW_FILE}" ${DESTDIR}/${_dir}
 
         # VIA USB3
-        if [ -f ${PKG_BUILD}/firmware/${_dir}/vl805.latest ]; then
-          PKG_FW_FILE="$(tail -1 ${PKG_BUILD}/firmware/${_dir}/vl805.latest)"
-          cp -PRv ${PKG_BUILD}/firmware/${_dir}/vl805-${PKG_FW_FILE}.bin ${DESTDIR}/${_dir}
-          cp -PRv ${PKG_BUILD}/firmware/${_dir}/vl805.latest ${DESTDIR}/${_dir}
-        fi
+        PKG_FW_FILE="$(ls -1 ${PKG_BUILD}/firmware/${_dir}/vl805-*.bin 2>/dev/null | tail -1)"
+        [ -n "${PKG_FW_FILE}" ] && cp -PRv "${PKG_FW_FILE}" ${DESTDIR}/${_dir}
     done
 
   mkdir -p ${INSTALL}/usr/bin
