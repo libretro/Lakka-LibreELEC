@@ -270,7 +270,7 @@ Issue | Level | Meaning |
     * when it extend an existing package, add it there to the `PKG_DEPENDS_TARGET`/`PKG_DEPENDS_HOST` etc.
     * take a look into the path `packages/virtual`, there you should find a virtual packages, that match your new package (misc-packages should be the last option)
 5. Now you can build your image
-    * after the build, inside the `build-*` folder you should find a directory with your package name and -version, eg. `widget-1.2.3`.
+    * after the build, inside the `BUILD_DIR` (normally build.*) folder you should find a directory with your package name and -version, eg. `widget-1.2.3`.
 
 ## Example
 ```
