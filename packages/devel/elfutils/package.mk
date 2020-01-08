@@ -14,14 +14,35 @@ PKG_LONGDESC="A collection of utilities to handle ELF objects."
 PKG_TOOLCHAIN="autotools"
 PKG_BUILD_FLAGS="+pic"
 
+if [ "${LIBREELEC_VERSION}" = "devel" ]; then
+  PKG_PROGRAMS="--enable-programs --program-prefix="
+  PKG_PROGRAMS_LIST="readelf"
+else
+  PKG_PROGRAMS="--disable-programs"
+  PKG_PROGRAMS_LIST=
+fi
+
+PKG_CONFIGURE_OPTS_HOST="utrace_cv_cc_biarch=false \
+                         --disable-programs \
+                         --disable-nls \
+                         --with-zlib \
+                         --without-bzlib \
+                         --without-lzma"
+
 PKG_CONFIGURE_OPTS_TARGET="utrace_cv_cc_biarch=false \
+                           ${PKG_PROGRAMS} \
                            --disable-nls \
                            --with-zlib \
                            --without-bzlib \
                            --without-lzma"
 
-PKG_CONFIGURE_OPTS_HOST="utrace_cv_cc_biarch=false \
-                           --disable-nls \
-                           --with-zlib \
-                           --without-bzlib \
-                           --without-lzma"
+post_makeinstall_target() {
+  # don't install progs into sysroot
+  rm -fr ${SYSROOT_PREFIX}/usr/bin
+
+  if [ -n "${PKG_PROGRAMS_LIST}" ]; then
+    for PKG_TEMP in $(find ${INSTALL}/usr/bin -type f); do
+      listcontains "${PKG_PROGRAMS_LIST}" ${PKG_TEMP#${INSTALL}/usr/bin/} || rm ${PKG_TEMP}
+    done
+  fi
+}
