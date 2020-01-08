@@ -14,3 +14,8 @@ PKG_CONFIGURE_OPTS_TARGET="--with-curses \
                            --enable-readline \
                            --without-bash-malloc \
                            --with-installed-readline"
+
+pre_make_target() {
+  # precreate this generated header because it may be created too late
+  make pathnames.h
+}
