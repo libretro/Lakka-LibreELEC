@@ -1,22 +1,22 @@
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
-PKG_NAME="gcc-arm-aarch64-linux-gnu"
-PKG_VERSION="8.3-2019.03"
-PKG_SHA256="8ce3e7688a47d8cd2d8e8323f147104ae1c8139520eca50ccf8a7fa933002731"
+PKG_NAME="gcc-arm-aarch64-none-linux-gnu"
+PKG_VERSION="9.2-2019.12"
+PKG_SHA256="8dfe681531f0bd04fb9c53cf3c0a3368c616aa85d48938eebe2b516376e06a66"
 PKG_LICENSE="GPL"
-PKG_SITE=""
-PKG_URL="https://developer.arm.com/-/media/Files/downloads/gnu-a/${PKG_VERSION}/binrel/gcc-arm-${PKG_VERSION}-x86_64-aarch64-linux-gnu.tar.xz"
+PKG_SITE="https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-a"
+PKG_URL="https://developer.arm.com/-/media/Files/downloads/gnu-a/${PKG_VERSION}/binrel/gcc-arm-${PKG_VERSION}-x86_64-aarch64-none-linux-gnu.tar.xz"
 PKG_DEPENDS_HOST="ccache:host"
 PKG_LONGDESC="ARM Aarch64 GNU Linux Binary Toolchain"
 PKG_TOOLCHAIN="manual"
 
 makeinstall_host() {
-  mkdir -p $TOOLCHAIN/lib/gcc-arm-aarch64-linux-gnu/
-    cp -a * $TOOLCHAIN/lib/gcc-arm-aarch64-linux-gnu
+  mkdir -p $TOOLCHAIN/lib/gcc-arm-aarch64-none-linux-gnu/
+    cp -a * $TOOLCHAIN/lib/gcc-arm-aarch64-none-linux-gnu
 
   # wrap gcc and g++ with ccache like in gcc package.mk
-  PKG_GCC_PREFIX="$TOOLCHAIN/lib/gcc-arm-aarch64-linux-gnu/bin/aarch64-linux-gnu-"
+  PKG_GCC_PREFIX="$TOOLCHAIN/lib/gcc-arm-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-"
 
   cp "${PKG_GCC_PREFIX}gcc" "${PKG_GCC_PREFIX}gcc.real"
 cat > "${PKG_GCC_PREFIX}gcc" << EOF
