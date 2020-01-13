@@ -2,8 +2,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="rpi-eeprom"
-PKG_VERSION="eab1f6852733e323f7a5bc31843418d56ee407e3"
-PKG_SHA256="0e7e19fb2b98154d0efa4d279cb3940b2afe445d80f6e8cedb6d0c6fe168eb5a"
+PKG_VERSION="04d5bbfa212a2f3140d878828017579d0d60be88"
+PKG_SHA256="f0073c033e7a4bdbe20d5bd4a68c802ff632ff6c56466dec761f99171a0dab44"
 PKG_ARCH="arm"
 PKG_LICENSE="BSD-3/custom"
 PKG_SITE="https://github.com/raspberrypi/rpi-eeprom"
@@ -18,17 +18,24 @@ makeinstall_target() {
   mkdir -p ${DESTDIR}
     _dirs="critical"
     [ "$LIBREELEC_VERSION" = "devel" ] && _dirs+=" beta"
-    for _dir in ${_dirs}; do
-      mkdir -p ${DESTDIR}/${_dir}
-        cp -PRv ${PKG_BUILD}/firmware/${_dir}/recovery.bin ${DESTDIR}/${_dir}
 
-        # Bootloader SPI
-        PKG_FW_FILE="$(ls -1 ${PKG_BUILD}/firmware/${_dir}/pieeprom-* 2>/dev/null | tail -1)"
-        [ -n "${PKG_FW_FILE}" ] && cp -PRv "${PKG_FW_FILE}" ${DESTDIR}/${_dir}
+    for _maindir in ${_dirs}; do
+      for _dir in ${PKG_BUILD}/firmware/${_maindir} ${PKG_BUILD}/firmware/{_maindir}-*; do
+        [ -d "${_dir}" ] || continue
 
-        # VIA USB3
-        PKG_FW_FILE="$(ls -1 ${PKG_BUILD}/firmware/${_dir}/vl805-*.bin 2>/dev/null | tail -1)"
-        [ -n "${PKG_FW_FILE}" ] && cp -PRv "${PKG_FW_FILE}" ${DESTDIR}/${_dir}
+	_basedir="$(basename "${_dir}")"
+
+        mkdir -p ${DESTDIR}/${_basedir}
+          cp -PRv ${_dir}/recovery.bin ${DESTDIR}/${_basedir}
+
+          # Bootloader SPI
+          PKG_FW_FILE="$(ls -1 /${_dir}/pieeprom-* 2>/dev/null | tail -1)"
+          [ -n "${PKG_FW_FILE}" ] && cp -PRv "${PKG_FW_FILE}" ${DESTDIR}/${_basedir}
+
+          # VIA USB3
+          PKG_FW_FILE="$(ls -1 ${_dir}/vl805-*.bin 2>/dev/null | tail -1)"
+          [ -n "${PKG_FW_FILE}" ] && cp -PRv "${PKG_FW_FILE}" ${DESTDIR}/${_basedir}
+      done
     done
 
   mkdir -p ${INSTALL}/usr/bin
