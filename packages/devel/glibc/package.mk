@@ -8,7 +8,7 @@ PKG_SHA256="e2c4114e569afbe7edbc29131a43be833850ab9a459d81beb2588016d2bbb8af"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/libc/"
 PKG_URL="http://ftp.gnu.org/pub/gnu/glibc/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET="ccache:host autotools:host linux:host gcc:bootstrap pigz:host"
+PKG_DEPENDS_TARGET="ccache:host autotools:host linux:host gcc:bootstrap pigz:host Python3:host"
 PKG_DEPENDS_INIT="glibc"
 PKG_LONGDESC="The Glibc package contains the main C library."
 PKG_BUILD_FLAGS="-gold"
@@ -44,6 +44,10 @@ if build_with_debug; then
 else
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --disable-debug"
 fi
+
+post_unpack() {
+  find "${PKG_BUILD}" -type f -name '*.py' -exec sed -e '1s,^#![[:space:]]*/usr/bin/python.*,#!/usr/bin/env python3,' -i {} \;
+}
 
 pre_build_target() {
   cd $PKG_BUILD
