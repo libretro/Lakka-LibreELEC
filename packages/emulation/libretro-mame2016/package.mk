@@ -15,24 +15,19 @@ PKG_LIBNAME="mame2016_libretro.so"
 PKG_LIBPATH="${PKG_LIBNAME}"
 PKG_LIBVAR="MAME2016_LIB"
 
-make_target() {
-  if [ "${ARCH}" = "arm" ]; then
-    PKG_NOASM="1"
-  else
-    PKG_NOASM="0"
-  fi
+pre_make_target() {
+  PKG_MAKE_OPTS_TARGET=" \
+    REGENIE=1 VERBOSE=1 NOWERROR=1 PYTHON_EXECUTABLE=python3 CONFIG=libretro \
+    LIBRETRO_OS="unix" ARCH="" PROJECT="" LIBRETRO_CPU="${ARCH}" DISTRO="debian-stable" \
+    CROSS_BUILD="1" OVERRIDE_CC="${CC}" OVERRIDE_CXX="${CXX}" \
+    TARGET="mame" SUBTARGET="arcade" PLATFORM="${ARCH}" RETRO=1 OSD="retro" \
+    GIT_VERSION=${PKG_VERSION:0:7}"
 
-  if [ "${ARCH}" = "x86_64" ]; then
-    PKG_PTR64="1"
-  else
-    PKG_PTR64="0"
+  if [ "$ARCH" = "arm" ]; then
+    PKG_MAKE_OPTS_TARGET+=" NOASM="1" ARCHITECTURE="""
+  elif [ "$ARCH" = "x86_64" ]; then
+    PKG_MAKE_OPTS_TARGET+=" NOASM="0" PTR64="1""
   fi
-
-  make REGENIE=1 VERBOSE=1 NOWERROR=1 PYTHON_EXECUTABLE=python3 CONFIG=libretro \
-       LIBRETRO_OS="unix" ARCH="" PROJECT="" LIBRETRO_CPU="${ARCH}" DISTRO="debian-stable" \
-       CROSS_BUILD="1" OVERRIDE_CC="${CC}" OVERRIDE_CXX="${CXX}" \
-       PTR64="${PKG_PTR64}" NOASM="${PKG_NOASM}" TARGET="mame" \
-       SUBTARGET="arcade" PLATFORM="${ARCH}" RETRO=1 OSD="retro" GIT_VERSION=${PKG_VERSION:0:7}
 }
 
 post_make_target() {
