@@ -35,7 +35,6 @@ PKG_CONFIGURE_OPTS_HOST="--prefix=$TOOLCHAIN/ \
                          --disable-fsck \
                          --disable-e2initrd-helper \
                          --enable-tls \
-                         --disable-uuid \
                          --disable-uuidd \
                          --disable-nls \
                          --disable-rpath \
