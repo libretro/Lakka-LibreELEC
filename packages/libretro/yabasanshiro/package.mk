@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="yabasanshiro"
-PKG_VERSION="4055aa4"
+PKG_VERSION="8406a5c"
 PKG_GIT_BRANCH="yabasanshiro"
 PKG_REV="1"
 PKG_ARCH="any"

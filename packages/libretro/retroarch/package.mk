@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="retroarch"
-PKG_VERSION="bfdc8e6"
+PKG_VERSION="16f25c2"
 PKG_REV="11"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
@@ -97,7 +97,8 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
                            --enable-zlib \
                            --enable-freetype \
                            --enable-translate \
-                           --enable-cdrom"
+                           --enable-cdrom \
+                           --disable-discord"
 
 pre_configure_target() {
   cd $PKG_BUILD

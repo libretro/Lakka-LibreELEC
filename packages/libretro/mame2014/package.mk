@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="mame2014"
-PKG_VERSION="e3a2839"
+PKG_VERSION="37333ed"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"

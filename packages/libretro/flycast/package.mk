@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="flycast"
-PKG_VERSION="8cbfd81"
+PKG_VERSION="a37ee3c"
 PKG_REV="1"
 PKG_ARCH="arm aarch64 x86_64"
 PKG_LICENSE="GPLv2"

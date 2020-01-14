@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="vitaquake3"
-PKG_VERSION="ab48d35"
+PKG_VERSION="bee3d54"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="GPLv2"

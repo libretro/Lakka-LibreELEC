@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="vitaquake2"
-PKG_VERSION="ea11305"
+PKG_VERSION="a4dfb6c"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"

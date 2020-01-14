@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="bsnes"
-PKG_VERSION="42708aa"
+PKG_VERSION="09239d1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
