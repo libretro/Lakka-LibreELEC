@@ -16,6 +16,7 @@ PKG_DEPENDS_UNPACK="rpi_ws281x"
 PKG_SECTION="service"
 PKG_SHORTDESC="Hyperion: an AmbiLight controller"
 PKG_LONGDESC="Hyperion($PKG_VERSION_DATE) is an modern opensource AmbiLight implementation."
+PKG_BUILD_FLAGS="-sysroot"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Hyperion"
@@ -59,14 +60,10 @@ pre_configure_target() {
   echo "" > ../cmake/FindGitVersion.cmake
 }
 
-makeinstall_target() {
-  : # nothing to do here
-}
-
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp $PKG_BUILD/.$TARGET_NAME/bin/* $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp $PKG_INSTALL/usr/bin/* $ADDON_BUILD/$PKG_ADDON_ID/bin
 
-  cp -PR $PKG_BUILD/assets/webconfig $ADDON_BUILD/$PKG_ADDON_ID
-  cp -PR $PKG_BUILD/effects $ADDON_BUILD/$PKG_ADDON_ID
+  cp -PR $PKG_INSTALL/usr/share/hyperion/webconfig $ADDON_BUILD/$PKG_ADDON_ID
+  cp -PR $PKG_INSTALL/usr/share/hyperion/effects $ADDON_BUILD/$PKG_ADDON_ID
 }
