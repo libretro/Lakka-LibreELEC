@@ -41,12 +41,12 @@ linker = "$CC"
 EOF
 
   cat <<EOF >"$CARGO_HOME/env"
-CARGO_BUILD="env -i CARGO_HOME=$CARGO_HOME \
-                    CARGO_TARGET_DIR=\$PKG_BUILD/.\$TARGET_NAME \
-                    PATH=$CARGO_HOME/bin:$PATH \
-                    PKG_CONFIG_ALLOW_CROSS=1 \
-                    PKG_CONFIG_PATH=$PKG_CONFIG_LIBDIR \
-                    RUSTUP_HOME=$CARGO_HOME \
-                    cargo build --release"
+export CARGO_HOME="$CARGO_HOME"
+export CARGO_TARGET_DIR="\$PKG_BUILD/.\$TARGET_NAME"
+export PATH="$CARGO_HOME/bin:$PATH"
+export PKG_CONFIG_ALLOW_CROSS="1"
+export PKG_CONFIG_PATH="$PKG_CONFIG_LIBDIR"
+export RUSTUP_HOME="$CARGO_HOME"
+unset CFLAGS
 EOF
 }
