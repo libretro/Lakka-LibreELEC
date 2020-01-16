@@ -49,6 +49,12 @@ class HistoryEvent:
                     return(value)
         return default
 
+def calc_pct(a, b):
+  if b > 0.0:
+      return (a / b) * 100
+  else:
+      return 0.0
+
 def pct_brackets(pct):
     spct = "%04.1f" % pct
     if float(spct) >= 100.0:
@@ -151,7 +157,10 @@ for event in events:
 for slot in slots:
     for status in slots[slot]["statuses"]:
         if status == "IDLE":
-            slots[slot]["statuses"][status]["total"] += (last_active - slots[slot]["statuses"][status]["start"])
+            if slots[slot]["statuses"]["FAILED"]["enabled"] == True:
+                slots[slot]["statuses"][status]["total"] += (last_active - slots[slot]["statuses"]["FAILED"]["start"])
+            else:
+                slots[slot]["statuses"][status]["total"] += (last_active - slots[slot]["statuses"][status]["start"])
         elif slots[slot]["statuses"][status]["enabled"] == True:
             if status != "FAILED":
                 incomplete = True
@@ -161,7 +170,7 @@ for slot in slots:
 
 # Summarise slot data by various criteria
 summary = {}
-cumaltive_total = 0
+cumulative_count = cumulative_total = 0
 for slot in slots:
     acount = atotal = 0
     scount = stotal = 0
@@ -180,7 +189,8 @@ for slot in slots:
     for status in slots[slot]["statuses"]:
         ccount += slots[slot]["statuses"][status]["count"]
         ctotal += slots[slot]["statuses"][status]["total"]
-    cumaltive_total += ctotal
+    cumulative_count += ccount
+    cumulative_total += ctotal
 
     summary[slot] = {"busy":    {"count": acount, "total": atotal},
                      "stalled": {"count": scount, "total": stotal},
@@ -195,12 +205,12 @@ for slot in summary:
 elapsed = (ended - started)
 
 print("Total Build Time: %s (wall clock)" % secs_to_hms(elapsed, blankzero=False))
-print("Accum Build Time: %s (%d slots)\n" % (secs_to_hms(cumaltive_total, blankzero=False), len(slots)))
+print("Accum Build Time: %s (%d slots)\n" % (secs_to_hms(cumulative_total, blankzero=False), len(slots)))
 
 if incomplete:
     print("*** WARNING: active slots detected - build may be in progress/incomplete ***\n")
 
-cum_total = cum_count = cum_pct = 0
+cum_total = 0.0
 print("Breakdown by status (all slots):\n")
 print("  Status   Usage         ( Pct )  Count  State")
 for status in sorted(ALL_STATUSES):
@@ -211,8 +221,8 @@ for status in sorted(ALL_STATUSES):
             count += slots[slot]["statuses"][status]["count"]
             total += slots[slot]["statuses"][status]["total"]
 
-    pct = (100 * total / elapsed / len(slots)) if elapsed > 0.0 else 0.0
-    cum_pct += pct
+    pct = calc_pct(total, cumulative_total)
+    cum_total += total
 
     if status in BUSY_STATUSES:
         stype = "busy"
@@ -221,10 +231,9 @@ for status in sorted(ALL_STATUSES):
     else:
         stype = ""
     print("  %-7s  %12s  %-7s  %-5d  %-5s" % (status, secs_to_hms(total, blankzero=True), pct_brackets(pct),  count, stype))
-    cum_count += count
-    cum_total += total
 print("  -------------------------------------")
-print("  %-7s  %12s  %-7s  %-5d" % ("TOTAL", secs_to_hms(cum_total, blankzero=True), pct_brackets(cum_pct), cum_count))
+print("  %-7s  %12s  %-7s  %-5d" % ("TOTAL", secs_to_hms(cumulative_total, blankzero=True), \
+       pct_brackets(calc_pct(cum_total, cumulative_total)), cumulative_count))
 print("")
 
 print("Peak concurrency: %d out of %d slots\n" % (peak, len(slots)))
@@ -238,30 +247,25 @@ print("#Rank  Slot  Usage        ( Pct )        | # of Slots  Usage        ( Pct
 lines = []
 
 busy_total = 0
-busy_pct = 0
 for rank, slot in enumerate(sorted(summary, key=get_busy_total, reverse=True)):
-    pct = (100 * summary[slot]["busy"]["total"] / elapsed / len(slots)) if elapsed > 0.0 else 0.0
+    pct = calc_pct(summary[slot]["busy"]["total"], cumulative_total)
     state = "active" if slots[slot]["isactive"] == True else " "
     stime = secs_to_hms(summary[slot]["busy"]["total"], blankzero=True)
     busy_total += summary[slot]["busy"]["total"]
-    busy_pct += pct
     lines.append("%s   %s %-7s %6s |" % (slot, stime, pct_brackets(pct), state))
 
 concurrent_total = 0
-concurrent_pct = 0.0
 for rank, concurrentn in enumerate(sorted(concurrency, key=get_concurrent_val, reverse=True)):
     concurrent = concurrency[concurrentn]
-    pct = (100 * concurrent["total"] / elapsed / len(slots)) if elapsed > 0.0 else 0.0
+    pct = calc_pct(concurrent["total"], cumulative_total)
     stime = secs_to_hms(concurrent["total"], blankzero=True)
     concurrent_total += concurrent["total"]
-    concurrent_pct += pct
     lines[rank] += "     %02d      %s %-7s" % (concurrentn, stime, pct_brackets(pct))
 
 for rank, line in enumerate(lines):
     print(" #%02d    %s" % (rank + 1, line))
 
-bpct = spct = "%04.1f" % pct
 print("-----------------------------------------+---------------------------------")
 print(" TOTALS      %s %-7s                      %s %-7s" %
-      (secs_to_hms(busy_total, blankzero=True), pct_brackets(busy_pct),
-       secs_to_hms(concurrent_total, blankzero=True), pct_brackets(concurrent_pct)))
+      (secs_to_hms(busy_total, blankzero=True), pct_brackets(calc_pct(busy_total, cumulative_total)),
+       secs_to_hms(concurrent_total, blankzero=True), pct_brackets(calc_pct(concurrent_total, cumulative_total))))
