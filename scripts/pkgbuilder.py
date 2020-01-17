@@ -363,22 +363,21 @@ class Builder:
     # Return False once all jobs have been queued, and finished building.
     def queueWork(self):
         try:
-            for process in self.processes:
-                if not process.isActive():
-                    job = self.generator.getNextJob()
+            for i in range(self.generator.activeJobCount(), self.threadcount):
+                job = self.generator.getNextJob()
 
-                    if self.verbose:
-                        self.vprint("INIT", "submit", job["name"])
+                if self.verbose:
+                    self.vprint("INIT", "submit", job["name"])
 
-                    if self.debug:
-                        DEBUG("Queueing Job: %s %s" % (job["task"], job["name"]))
+                if self.debug:
+                    DEBUG("Queueing Job: %s %s" % (job["task"], job["name"]))
 
-                    self.wseq += 1
-                    job["seq"] = self.wseq
-                    if self.log_burst:
-                        job["logfile"] = "%s/logs/%d.log" % (THREAD_CONTROL, job["seq"])
+                self.wseq += 1
+                job["seq"] = self.wseq
+                if self.log_burst:
+                    job["logfile"] = "%s/logs/%d.log" % (THREAD_CONTROL, job["seq"])
 
-                    self.work.put(job)
+                self.work.put(job)
 
             if self.verbose:
                 self.vprint("ACTV", "active", ", ".join(self.generator.activeJobNames()))
