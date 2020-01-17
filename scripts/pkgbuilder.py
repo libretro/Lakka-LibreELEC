@@ -283,8 +283,8 @@ class Builder:
         self.color_code["DONE"] = "\033[0;32m" #green
         self.color_code["FAIL"] = "\033[1;31m" #bold red
         self.color_code["ACTV"] = "\033[0;33m" #yellow
-        self.color_code["IDLE"] = "\033[0;33m" #yellow
-        self.color_code["INIT"] = "\033[0;33m" #yellow
+        self.color_code["IDLE"] = "\033[0;35m" #magenta
+        self.color_code["INIT"] = "\033[0;36m" #cyan
 
         self.work = queue.Queue()
         self.complete = queue.Queue()
