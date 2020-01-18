@@ -18,19 +18,23 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="OdroidC1"
+PKG_NAME="libretro-cores"
 PKG_VERSION=""
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/lakkatv/Lakka"
 PKG_URL=""
-PKG_DEPENDS_TARGET="retroarch libretro-cores"
 PKG_PRIORITY="optional"
 PKG_SECTION="virtual"
-PKG_SHORTDESC="Lakka metapackage for OdroidC1"
+PKG_SHORTDESC="Lakka metapackage for libretro cores"
 PKG_LONGDESC=""
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+PKG_DEPENDS_TARGET="$LIBRETRO_CORES"
+
+if [ "$OPENGL" != "no" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $OPENGL_LIBRETRO_CORES"
+fi
