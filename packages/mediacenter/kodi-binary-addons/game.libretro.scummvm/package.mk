@@ -15,3 +15,7 @@ PKG_LONGDESC="game.libretro.scummvm: scummvm for Kodi"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.gameclient"
+
+pre_configure_target() {
+  export LDFLAGS=`echo $LDFLAGS | sed -e "s|-Wl,--as-needed||"`
+}
