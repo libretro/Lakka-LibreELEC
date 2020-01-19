@@ -14,3 +14,8 @@ PKG_LONGDESC="A new nl80211 based CLI configuration utility for wireless devices
 pre_configure_target() {
   export LDFLAGS="$LDFLAGS -pthread"
 }
+
+post_makeinstall_target() {
+  mkdir -p $INSTALL/usr/lib/iw
+    cp $PKG_DIR/scripts/setregdomain $INSTALL/usr/lib/iw
+}
