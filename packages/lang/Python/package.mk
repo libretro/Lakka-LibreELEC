@@ -91,7 +91,7 @@ pre_configure_target() {
 }
 
 make_target() {
-  make  -j1 CC="$CC" LDFLAGS="$TARGET_LDFLAGS -L." \
+  make  -j1 CC="$CC" CFLAGS="$CFLAGS -fPIC" LDFLAGS="$TARGET_LDFLAGS -L." \
         PYTHON_DISABLE_MODULES="$PY_DISABLED_MODULES" \
         PYTHON_MODULES_INCLUDE="$TARGET_INCDIR" \
         PYTHON_MODULES_LIB="$TARGET_LIBDIR"

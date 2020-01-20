@@ -19,13 +19,12 @@
 ################################################################################
 
 PKG_NAME="dosbox-svn"
-PKG_VERSION="404b4ae"
+PKG_VERSION="780d6a3"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/dosbox-svn"
 PKG_GIT_URL="$PKG_SITE"
-PKG_GIT_BRANCH="libretro"
 PKG_DEPENDS_TARGET="toolchain SDL SDL_net"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"

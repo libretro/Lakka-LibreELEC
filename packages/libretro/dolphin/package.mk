@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="dolphin"
-PKG_VERSION="11a7ed4"
+PKG_VERSION="1fbd599"
 PKG_REV="1"
 PKG_ARCH="x86_64 aarch64"
 PKG_LICENSE="GPLv2"

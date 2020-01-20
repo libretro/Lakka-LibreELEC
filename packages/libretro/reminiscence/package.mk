@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="reminiscence"
-PKG_VERSION="ac2e543"
+PKG_VERSION="6888c01"
 PKG_ARCH="any"
 PKG_SITE="https://github.com/libretro/REminiscence"
 PKG_GIT_URL="$PKG_SITE"
@@ -31,15 +31,11 @@ PKG_LONGDESC="Port of Gregory Montoir's Flashback emulator, running as a libretr
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+PKG_USE_CMAKE="yes"
 
-configure_target () {
-  : # nothing to do
-}
+PKG_CMAKE_SCRIPT="$PKG_BUILD/CMakeLists.txt"
 
-make_target() {
-  cd $PKG_BUILD
-  make
-}
+PKG_CMAKE_OPTS_TARGET="-DBUILD_CORE=ON -DBUILD_EXE=OFF -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_C_COMPILER=${CC}"
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
