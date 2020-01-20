@@ -775,6 +775,11 @@ do_autoreconf() {
   fi
 }
 
+# True if this is a sequential build, false if multithreaded
+is_sequential_build() {
+  [ "${MTWITHLOCKS}" != "yes" ] && return 0 || return 1
+}
+
 
 ### PACKAGE HELPERS ###
 # get variable ($2) for package ($1).
@@ -1380,48 +1385,43 @@ enable_service() {
 
 
 ### MULTI-THREADED FUNCTION HELPERS ###
-# Test MTWITHLOCKS so that these functions are a no-op during non-multithreaded builds.
+# flocks: 94 (pkg_lock_status)
+#         95 (scripts/pkgbuild)
+#         96 (acquire_exclusive_lock)
+#         97 (acquire_update_lock)
+#         98 (pkg_lock)
+#         99 (scripts/get)
 
-# Prevent concurrent modifications to a package (unpack) or
-# package:target (install/build).
+# Test build type so that these functions are a no-op during non-multithreaded builds.
+
+# Prevent concurrent modifications to a package during certain activities.
+# With dynamic scheduling we now only need to acquire the lock
+# during unpack and reconf, all other activities do not need to acquire a
+# lock as there should be no concurrent access however the existing code path
+# potentially generates useful logging for minimal cost so keep it.
 #
 # If a package is already locked and the owner is ourselves
 # then assume we already have the required lock.
 pkg_lock() {
-  [ "${MTWITHLOCKS}" != "yes" ] && return 0
+  is_sequential_build && return 0
 
   local pkg="$1" task="$2" parent_pkg="$3"
   local this_job="${MTJOBID}"
   local lock_job lock_seq lock_task lock_pkg locked=no idwidth
-  local fail_seq
 
-  exec 98>"${THREAD_CONTROL}/locks/${pkg}.${task}"
-  while [ : ]; do
-    read -r lock_job lock_seq lock_task lock_pkg <<<$(cat "${THREAD_CONTROL}/locks/${pkg}.${task}.owner" 2>/dev/null)
-    [ -n "${lock_job}" ] && break
-    flock --wait 1 --exclusive 98 && locked=yes && break
-  done
+  if [ "${task}" = "unpack" -o "${task}" = "reconf" ]; then
+    exec 98>"${THREAD_CONTROL}/locks/${pkg}.${task}"
+    while [ : ]; do
+      read -r lock_job lock_seq lock_task lock_pkg <<<$(cat "${THREAD_CONTROL}/locks/${pkg}.${task}.owner" 2>/dev/null)
+      [ -n "${lock_job}" ] && break
+      flock --wait 1 --exclusive 98 && locked=yes && break
+    done
 
-  if [ "${locked}" = "no" -a "${lock_job}/${lock_seq}" != "${this_job}/${PARALLEL_SEQ}" ]; then
-    [ "${THREADCOUNT}" = "0" ] && idwidth=${#MTMAXJOBS} || idwidth=2
-    pkg_lock_status "STALLED" "${parent_pkg}" "${task}" "$(printf "waiting on [%0*d] %s %s" ${idwidth} ${lock_job} "${lock_task}" "${lock_pkg}")"
-    flock --exclusive 98
-  fi
-
-  # As we now have the lock, if .failed still exists then a previous process must have failed
-  if [ -f "${THREAD_CONTROL}/locks/${pkg}.${task}.failed" ]; then
-    fail_seq="$(< "${THREAD_CONTROL}/locks/${pkg}.${task}.failed")"
-    print_color CLR_ERROR "FAILURE: ${pkg}.${task}.failed exists, a previous dependency process has failed (seq: ${fail_seq})\n"
-    if [ -d "${THREAD_CONTROL}/logs" ]; then
-cat <<EOF
-
-The following logs for this failure are available:
-  stdout: ${THREAD_CONTROL}/logs/${fail_seq}/stdout
-  stderr: ${THREAD_CONTROL}/logs/${fail_seq}/stderr
-
-EOF
+    if [ "${locked}" = "no" -a "${lock_job}/${lock_seq}" != "${this_job}/${PARALLEL_SEQ}" ]; then
+      [ "${THREADCOUNT}" = "0" ] && idwidth=${#MTMAXJOBS} || idwidth=2
+      pkg_lock_status "STALLED" "${parent_pkg}" "${task}" "$(printf "waiting on [%0*d] %s %s" ${idwidth} ${lock_job} "${lock_task}" "${lock_pkg}")"
+      flock --exclusive 98
     fi
-    return 1
   fi
 
   pkg_lock_status "LOCKED" "${pkg}" "${task}"
@@ -1429,7 +1429,7 @@ EOF
 
 # Log additional information for a locked package.
 pkg_lock_status() {
-  [ "${MTWITHLOCKS}" != "yes" ] && return 0
+  is_sequential_build && return 0
 
   local status="$1" pkg="$2" task="$3" msg="$4"
   local this_job="${MTJOBID}" line idwidth
@@ -1438,6 +1438,12 @@ pkg_lock_status() {
 
   (
     flock --exclusive 94
+
+    # Write the configured number of slots to history to improve accuracy of later analysis
+    if [ ! -f "${THREAD_CONTROL}/history" ]; then
+      printf "%s: <%06d> [%0*d/%0*d] %-7s %-7s %s %s\n" \
+        "$(date +%Y-%m-%d\ %H:%M:%S.%N)" $$ ${idwidth} 0 ${#MTMAXJOBS} 0 "IDLE" "config" "info" "slots=${MTMAXSLOT};jobs=${MTMAXJOBS}" >>"${THREAD_CONTROL}/history"
+    fi
 
     printf -v line "%s: <%06d> [%0*d/%0*d] %-7s %-7s %-35s" \
       "$(date +%Y-%m-%d\ %H:%M:%S.%N)" $$ ${idwidth} ${this_job} ${#MTMAXJOBS} ${PARALLEL_SEQ:-0} "${status}" "${task}" "${pkg}"
@@ -1451,31 +1457,29 @@ pkg_lock_status() {
   ) 94>"${THREAD_CONTROL}/locks/.history"
 
   if [ "${status}" = "LOCKED" ]; then
-    echo "${PARALLEL_SEQ}" > "${THREAD_CONTROL}/locks/${pkg}.${task}.failed"
     echo "${this_job} ${PARALLEL_SEQ} ${task} ${pkg}" >"${THREAD_CONTROL}/locks/${pkg}.${task}.owner"
   elif [ "${status}" = "UNLOCK" ]; then
     rm "${THREAD_CONTROL}/locks/${pkg}.${task}.owner"
-    rm "${THREAD_CONTROL}/locks/${pkg}.${task}.failed"
   fi
 
   return 0
 }
 
 update_dashboard() {
-  [ "${MTWITHLOCKS}" != "yes" ] && return 0
+  is_sequential_build && return 0
 
   local status="$1" pkg="$2" task="$3" msg="$4"
-  local line sedline preamble num elapsed projdevarch
+  local line preamble num elapsed projdevarch
   local boldred boldgreen boldyellow endcolor idwidth
 
-  sedline=$((MTJOBID + 2))
+  [ "${THREADCOUNT}" = "0" ] && idwidth=${#MTMAXSLOT} || idwidth=2
 
-  [ "${THREADCOUNT}" = "0" ] && idwidth=${#MTMAXJOBS} || idwidth=2
-
-  num=$(< "${THREAD_CONTROL}/status.max")
-  if [ ${num} -lt ${sedline} ]; then
-    echo ${sedline} >"${THREAD_CONTROL}/status.max"
-    for i in $(seq $((num + 1)) ${sedline}); do echo "" >>"${THREAD_CONTROL}/status"; done
+  if [ ! -s ${THREAD_CONTROL}/status ]; then
+    echo "" >"${THREAD_CONTROL}/status"
+    echo "" >>"${THREAD_CONTROL}/status"
+    for i in $(seq 1 $((MTMAXSLOT))); do
+      printf "[%0*d/%0*d] %-7s\n" ${idwidth} ${i} ${#MTMAXJOBS} 0 "IDLE" >>"${THREAD_CONTROL}/status"
+    done
   fi
 
   num=$(< "${THREAD_CONTROL}/progress.prev")
@@ -1506,13 +1510,13 @@ update_dashboard() {
   printf -v line "[%0*d\/%0*d] %b%-7s%b %-7s %-35s" ${idwidth} ${MTJOBID} ${#MTMAXJOBS} ${PARALLEL_SEQ:-0} "${color}" "${status//\//\\/}" "${endcolor}" "${task}" "${pkg}"
   [ -n "${msg}" ] && line+=" ${msg//\//\\/}"
 
-  sed -e "1s/.*/${preamble}/;${sedline}s/.*/${line}/" -i "${THREAD_CONTROL}/status"
+  sed -e "1s/.*/${preamble}/;$((MTJOBID + 2))s/.*/${line}/" -i "${THREAD_CONTROL}/status"
 }
 
 # Thread concurrency helpers to avoid concurrency issues with some code,
 # eg. when Python installs directly into $TOOLCHAIN.
 acquire_exclusive_lock() {
-  [ "${MTWITHLOCKS}" != "yes" ] && return 0
+  is_sequential_build && return 0
 
   local pkg="$1" task="$2" lockfile="${3:-global}"
   local this_job="${MTJOBID}"
@@ -1537,7 +1541,7 @@ acquire_exclusive_lock() {
 }
 
 release_exclusive_lock() {
-  [ "${MTWITHLOCKS}" != "yes" ] && return 0
+  is_sequential_build && return 0
 
   local pkg="$1" task="$2" lockfile="${3:-global}"
 
@@ -1555,6 +1559,20 @@ exec_thread_safe() {
   result=$?
   release_exclusive_lock "${PKG_NAME:exec}" "execcmd"
   return ${result}
+}
+
+# A lightweight target specific lock (eg. image, sysroot)
+acquire_update_lock() {
+  is_sequential_build && return 0
+
+  exec 97>"${THREAD_CONTROL}/locks/.update.${1}"
+  flock --exclusive 97
+}
+
+release_update_lock() {
+  is_sequential_build && return 0
+
+  flock --unlock 97 2>/dev/null
 }
 
 # Use distribution functions if any

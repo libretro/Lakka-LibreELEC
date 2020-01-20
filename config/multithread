@@ -1,162 +1,62 @@
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
-THREADCOUNT=${THREADCOUNT:-100%}
-
-# This function is passed a list of package.mk paths to be processed.
-# Each package.mk is sourced with relevant variables output in JSON format.
-json_worker() {
-  local packages="$@"
-  local pkgpath hierarchy exited
-
-  exit() { exited=1; }
-
-  . config/options ""
-
-  for pkgpath in ${packages}; do
-    pkgpath="${pkgpath%%@*}"
-
-    exited=0
-    if ! source_package "${pkgpath}/package.mk" &>/dev/null; then
-      unset -f exit
-      die "$(print_color CLR_ERROR "FAILURE: sourcing package ${pkgpath}/package.mk")"
-    fi
-
-    [ ${exited} -eq 1 ] && continue
-
-    [[ ${pkgpath} =~ ^${ROOT}/${PACKAGES}/ ]] && hierarchy="global" || hierarchy="local"
-
-    cat <<EOF
-  {
-    "name": "${PKG_NAME}",
-    "hierarchy": "${hierarchy}",
-    "section": "${PKG_SECTION}",
-    "bootstrap": "${PKG_DEPENDS_BOOTSTRAP}",
-    "init": "${PKG_DEPENDS_INIT}",
-    "host": "${PKG_DEPENDS_HOST}",
-    "target": "${PKG_DEPENDS_TARGET}"
-  },
-EOF
-  done
-}
-export -f json_worker
-
-# This function is passed the build instruction for a single job.
-# The function will run either "build <package>" or "install <package>".
-# ${slot} is the job slot number, ie. 1-8 when THREADCOUNT=8.
-# ${job} is the sequence within the total number of ${jobs}.
-package_worker() {
-  local slot=$1 job=$2 jobs=$3 args="$4"
-  local task pkgname result status
-  local addon istarget isaddon
-
-  export MTJOBID=${slot} MTMAXJOBS=${jobs}
-
-  read -r task pkgname <<< "${args}"
-
-  . config/options "${pkgname}"
-
-  [ ! -f "${THREAD_CONTROL}/parallel.pid" ] && echo "${PARALLEL_PID}" >"${THREAD_CONTROL}/parallel.pid"
-
-  ${SCRIPTS}/${task} ${pkgname} 2>&1 && result=0 || result=1
-
-  [[ ${pkgname} =~ :target$ || "${pkgname//:/}" = "${pkgname}" ]] && istarget="yes" || istarget="no"
-
-  [[ "${MTADDONBUILD}" = "yes" && ( "${PKG_IS_ADDON}" = "yes" || "${PKG_IS_ADDON}" = "embedded" ) ]] && isaddon="yes" || isaddon="no"
-
-  if [ "${isaddon}" = "yes" -a "${istarget}" = "yes" ]; then
-    if [ ${result} -eq 0 ]; then
-      ${SCRIPTS}/install_addon ${pkgname} 2>&1 && result=0 || result=1
-    fi
-
-    if [ ${result} -ne 0 ]; then
-      if [ -d "${THREAD_CONTROL}/logs" ]; then
-        echo "${PKG_NAME} ${THREAD_CONTROL}/logs/${job}/stdout" >>"${THREAD_CONTROL}/addons.failed"
-      else
-        echo "${PKG_NAME}" >>"${THREAD_CONTROL}/addons.failed"
-      fi
-    fi
-  fi
-
-  (
-    flock --exclusive 95
-    [ ${result} -eq 0 ] && status="DONE" || status="FAIL"
-    num=$(< "${THREAD_CONTROL}/progress")
-    mv "${THREAD_CONTROL}/progress" "${THREAD_CONTROL}/progress.prev"
-    num=$((num + 1))
-    echo ${num} >"${THREAD_CONTROL}/progress"
-    printf "[%0*d/%0*d] [%-4s] %-7s %s\n" ${#jobs} ${num} ${#jobs} ${jobs} "${status}" "${task}" "${pkgname}" >&2
-  ) 95>"${THREAD_CONTROL}/locks/.progress"
-
-  if [ ${result} -eq 0 ]; then
-    pkg_lock_status "IDLE"
-  else
-    pkg_lock_status "FAILED" "${pkgname}" "${task}"
-
-    print_color CLR_ERROR "FAILURE: $SCRIPTS/${task} ${pkgname} has failed!\n"
-
-    if [ -d "${THREAD_CONTROL}/logs" ]; then
-      cat >&2 <<EOF
-
-The following logs for this failure are available:
-  stdout: ${THREAD_CONTROL}/logs/${job}/stdout
-  stderr: ${THREAD_CONTROL}/logs/${job}/stderr
-
-EOF
-    fi
-  fi
-
-  return ${result}
-}
-export -f package_worker
+THREADCOUNT=${THREADCOUNT:-$(nproc)}
 
 start_multithread_build() {
-  local singlethread buildopts result=0
+  local buildopts result=0
 
   # init thread control folder
   rm -rf "${THREAD_CONTROL}"
   mkdir -p "${THREAD_CONTROL}/locks"
   echo -1 >"${THREAD_CONTROL}/progress.prev"
   echo 0 >"${THREAD_CONTROL}/progress"
-  echo 0 >"${THREAD_CONTROL}/status.max"
   touch "${THREAD_CONTROL}/status"
 
   # Increase file descriptors if building one thread/package
   [ "${THREADCOUNT}" = "0" ] && ulimit -n ${ULIMITN:-10240}
 
-  # Bootstrap GNU parallel
-  MTWITHLOCKS=no $SCRIPTS/build parallel:host 2>&1 || die "Unable to bootstrap parallel package"
-
-  # determine number of available slots for the given THREADCOUNT - optimise logging for single threaded builds
-  [ $(seq 1 32 | ${TOOLCHAIN}/bin/parallel --plain --no-notice --max-procs ${THREADCOUNT} echo {%} | sort -n | tail -1) -eq 1 ] && singlethread=yes || singlethread=no
-
   # create a single log file by default for a single threaded build (or the builder is a masochist)
-  if [ "${singlethread}" = "yes" -a "${ONELOG,,}" != "no" ] || [ "${ONELOG,,}" = "yes" ]; then
-    buildopts+=" --ungroup"
+  if [ ${THREADCOUNT} -eq 1 -a "${ONELOG,,}" != "no" ] || [ "${ONELOG,,}" = "yes" ]; then
+    buildopts+=" --no-log-burst"
   else
     mkdir -p "${THREAD_CONTROL}/logs"
-    buildopts+=" --group --results ${THREAD_CONTROL}/logs/{#}/"
+    buildopts+=" --log-burst"
   fi
+  buildopts+=" --log-combine ${LOGCOMBINE:-always}"
 
   # When building addons, don't halt on error - keep building all packages/addons
-  [ "${MTADDONBUILD}" = "yes" ] && buildopts+=" --halt never" || buildopts+=" --halt now,fail=1"
+  [ "${MTADDONBUILD}" = "yes" ] && buildopts+=" --continue-on-error" || buildopts+=" --halt-on-error"
+
+  [ "${MTVERBOSE}" = "yes" ] && buildopts+=" --verbose"
+  [ "${MTDEBUG}" = "yes" ] && buildopts+=" --debug"
+  if [ "${DISABLE_COLORS}" = "yes" ]; then
+    buildopts+=" --colors=never"
+  else
+    buildopts+=" --colors=${MTCOLORS:-auto}"
+  fi
+
+  buildopts+=" --stats-interval ${MTINTERVAL:-60}"
 
   # pipefail: return value of a pipeline is the value of the last (rightmost) command to exit with a non-zero status
   set -o pipefail
 
-  cat ${_CACHE_PACKAGE_GLOBAL} ${_CACHE_PACKAGE_LOCAL} | \
-    ${TOOLCHAIN}/bin/parallel --plain --no-notice --max-args 30 --halt now,fail=1 json_worker | \
-    ${SCRIPTS}/genbuildplan.py --no-reorder --show-wants --build ${@} > "${THREAD_CONTROL}"/plan || result=1
+  ${SCRIPTS}/pkgjson | ${SCRIPTS}/genbuildplan.py --show-wants --with-json "${THREAD_CONTROL}"/plan.json \
+      --build ${@} > "${THREAD_CONTROL}"/plan || result=1
 
   if [ ${result} -eq 0 ]; then
     save_build_config
 
-    cat "${THREAD_CONTROL}"/plan | awk '{print $1 " " $2}' | \
-      MTBUILDSTART=$(date +%s) MTWITHLOCKS=yes ${TOOLCHAIN}/bin/parallel \
-        --plain --no-notice --max-procs ${THREADCOUNT} --joblog="${THREAD_CONTROL}/joblog" --plus ${buildopts} \
-        package_worker {%} {#} {##} {} || result=1
+    # export the following vars so that they will be available to subprocesses of pkgbuilder.py
+    export ROOT SCRIPTS THREAD_CONTROL
 
-    [ -f "${THREAD_CONTROL}"/history ] && echo && cat "${THREAD_CONTROL}"/history | ${ROOT}/tools/mtstats.py
+    MTBUILDSTART=$(date +%s) MTWITHLOCKS=yes ${SCRIPTS}/pkgbuilder.py \
+        --plan "${THREAD_CONTROL}"/plan.json \
+        --joblog "${THREAD_CONTROL}"/joblog \
+        --loadstats "${THREAD_CONTROL}"/loadstats \
+        --max-procs ${THREADCOUNT} ${buildopts} || result=1
+
+    [ ${result} -eq 0 -a -f "${THREAD_CONTROL}"/history ] && echo && cat "${THREAD_CONTROL}"/history | ${ROOT}/tools/mtstats.py
 
     rm -f "${THREAD_CONTROL}/parallel.pid"
   fi
