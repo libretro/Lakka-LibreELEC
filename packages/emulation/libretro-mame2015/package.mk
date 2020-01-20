@@ -32,6 +32,11 @@ pre_configure_target() {
   export LD=${CXX}
 }
 
+pre_make_target() {
+  # precreate the build directories because they may be created too late
+  make ${PKG_MAKE_OPTS_TARGET} maketree
+}
+
 makeinstall_target() {
   mkdir -p ${SYSROOT_PREFIX}/usr/lib/cmake/${PKG_NAME}
   cp ${PKG_LIBPATH} ${SYSROOT_PREFIX}/usr/lib/${PKG_LIBNAME}

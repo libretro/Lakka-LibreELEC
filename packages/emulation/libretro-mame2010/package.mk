@@ -14,31 +14,31 @@ PKG_LIBNAME="mame2010_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"
 PKG_LIBVAR="MAME2010_LIB"
 
-pre_make_target() {
+pre_configure_target() {
   export CFLAGS="$CFLAGS -fpermissive"
   export CXXFLAGS="$CXXFLAGS -fpermissive"
   export LD="$CXX"
-}
 
-make_target() {
   case $TARGET_CPU in
     arm1176jzf-s)
-      make platform=armv6-hardfloat-$TARGET_CPU
+      PKG_MAKE_OPTS_TARGET="platform=armv6-hardfloat-$TARGET_CPU"
       ;;
     cortex-a7|cortex-a9)
-      make platform=armv7-neon-hardfloat-$TARGET_CPU
+      PKG_MAKE_OPTS_TARGET="platform=armv7-neon-hardfloat-$TARGET_CPU"
       ;;
     *cortex-a53|cortex-a17)
       if [ "$TARGET_ARCH" = "aarch64" ]; then
-        make platform=aarch64
+        PKG_MAKE_OPTS_TARGET="platform=aarch64"
       else
-        make platform=armv7-neon-hardfloat-cortex-a9
+        PKG_MAKE_OPTS_TARGET="platform=armv7-neon-hardfloat-cortex-a9"
       fi
       ;;
-    x86-64)
-      make
-      ;;
   esac
+}
+
+pre_make_target() {
+  # precreate the build directories because they may be created too late
+  make ${PKG_MAKE_OPTS_TARGET} maketree
 }
 
 makeinstall_target() {

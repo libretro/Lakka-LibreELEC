@@ -11,7 +11,7 @@ PKG_DEPENDS_TARGET="toolchain systemd lirc"
 PKG_NEED_UNPACK="$(get_pkg_directory lirc)"
 PKG_LONGDESC="libirman library for lircd"
 PKG_TOOLCHAIN="autotools"
-PKG_BUILD_FLAGS="+pic"
+PKG_BUILD_FLAGS="+pic -parallel"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-swtest"
 
