@@ -40,6 +40,10 @@ make_target() {
   :
 }
 
+pre_makeinstall_target() {
+  mkdir -p $INSTALL/usr/bin
+}
+
 post_makeinstall_target() {
   (
   cd $INSTALL/storage/.kodi/addons/virtual.system-tools/data/vim
