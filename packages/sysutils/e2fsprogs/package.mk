@@ -20,6 +20,9 @@ fi
 
 PKG_CONFIGURE_OPTS_HOST="--prefix=$TOOLCHAIN/ \
                          --bindir=$TOOLCHAIN/bin \
+                         --with-udev-rules-dir=no \
+                         --with-crond-dir=no \
+                         --with-systemd-unit-dir=no \
                          --sbindir=$TOOLCHAIN/sbin \
                          --enable-verbose-makecmds \
                          --disable-symlink-install \
@@ -32,7 +35,6 @@ PKG_CONFIGURE_OPTS_HOST="--prefix=$TOOLCHAIN/ \
                          --disable-fsck \
                          --disable-e2initrd-helper \
                          --enable-tls \
-                         --disable-uuid \
                          --disable-uuidd \
                          --disable-nls \
                          --disable-rpath \
@@ -41,6 +43,9 @@ PKG_CONFIGURE_OPTS_HOST="--prefix=$TOOLCHAIN/ \
 
 pre_configure() {
   PKG_CONFIGURE_OPTS_INIT="BUILD_CC=$HOST_CC \
+                           --with-udev-rules-dir=no \
+                           --with-crond-dir=no \
+                           --with-systemd-unit-dir=no \
                            --enable-verbose-makecmds \
                            --enable-symlink-install \
                            --enable-symlink-build \
