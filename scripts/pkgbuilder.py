@@ -256,7 +256,7 @@ class BuildProcess(threading.Thread):
 
 class Builder:
     def __init__(self, maxthreadcount, inputfilename, jobglog, loadstats, stats_interval, \
-                 haltonerror=True, log_burst=True, log_combine="always", \
+                 haltonerror=True, log_burst=True, log_combine="always", bookends=True, \
                  debug=False, verbose=False, colors=False):
         if inputfilename == "-":
             plan = json.load(sys.stdin)
@@ -277,6 +277,7 @@ class Builder:
         self.log_combine = log_combine
         self.debug = debug
         self.verbose = verbose
+        self.bookends = bookends
 
         self.colors = (colors == "always" or (colors == "auto" and sys.stderr.isatty()))
         self.color_code = {}
@@ -481,6 +482,9 @@ class Builder:
 
         if job["logfile"]:
             if self.log_combine == "always" or (job["failed"] and self.log_combine == "fail"):
+                if self.bookends:
+                    print("<<< %s seq %s <<<" % (job["name"], job["seq"]))
+
                 try:
                     with open(job["logfile"], "r", encoding="utf-8", errors="replace") as logfile:
                         for line in logfile:
@@ -493,15 +497,25 @@ class Builder:
                 if job["failed"]:
                     print("\nThe following log for this failure is available:\n  %s\n" % job["logfile"])
 
+                if self.bookends:
+                    print(">>> %s seq %s >>>" % (job["name"], job["seq"]))
+
                 sys.stdout.flush()
                 log_processed = True
 
         elif job["cmdproc"]:
             if self.log_combine == "always" or (job["failed"] and self.log_combine == "fail"):
+                if self.bookends:
+                    print("<<< %s" % job["name"])
+
                 for line in job["cmdproc"].stdout:
-                    print(line, end="", file=sys.stdout)
+                    print(line, end="")
                     if self.debug:
                         log_size += len(line)
+
+                if self.bookends:
+                    print(">>> %s" % job["name"])
+
                 sys.stdout.flush()
                 log_processed = True
 
@@ -571,11 +585,16 @@ group.add_argument("--log-burst", action="store_true", default=True, \
 group.add_argument("--no-log-burst", action="store_false", dest="log_burst", \
                     help="Disable --log-burst, job output is only written to stdout.")
 
-group =  parser.add_mutually_exclusive_group()
-group.add_argument("--log-combine", choices=["always", "never", "fail"], default="always", \
+parser.add_argument("--log-combine", choices=["always", "never", "fail"], default="always", \
                     help='Choose when to send job output to stdout. "fail" will send to stdout the ' \
                          'log of failed jobs only, while "never" will not send any logs to stdout. ' \
                          'Default is "always".')
+
+group =  parser.add_mutually_exclusive_group()
+group.add_argument("--with-bookends", action="store_true", default=True, \
+                    help="Top & tail combined logs with searchable markers. Default is enabled.")
+group.add_argument("--without-bookends", action="store_false", dest="with_bookends", \
+                    help="Disable --with-bookends")
 
 group =  parser.add_mutually_exclusive_group()
 group.add_argument("--halt-on-error", action="store_true", default=True, \
@@ -613,7 +632,7 @@ with open("%s/parallel.pid" % THREAD_CONTROL, "w") as pid:
 try:
     result = Builder(args.max_procs, args.plan, args.joblog, args.loadstats, args.stats_interval, \
                      haltonerror=args.halt_on_error, \
-                     log_burst=args.log_burst, log_combine=args.log_combine, \
+                     log_burst=args.log_burst, log_combine=args.log_combine, bookends=args.with_bookends, \
                      colors=args.colors, debug=args.debug, verbose=args.verbose).build()
 
     if DEBUG_LOG:
