@@ -5,10 +5,21 @@
 
 . config/options "${1}"
 
+pkg_lock "${PKG_NAME}" "packadd"
+pkg_lock_status "ACTIVE" "${PKG_NAME}" "packadd"
+
+# cleanup old install path
+rm -rf "${ADDON_BUILD}"
+
+# install addon parts
+if pkg_call_exists addon; then
+  pkg_call addon
+else
+  install_binary_addon "${PKG_ADDON_ID}"
+fi
+
 # Make sure we have a value for STRIP
 setup_toolchain target
-
-[ -n "${2}" ] && PKG_ADDON_ID=${2}
 
 ADDON_DIRECTORY="${ADDON_BUILD}/${PKG_ADDON_ID}"
 
@@ -25,6 +36,7 @@ if [ -f ${ADDON_INSTALL_DIR}/${PKG_ADDON_ID}-${ADDONVER}.zip ]; then
     rm ${ADDON_INSTALL_DIR}/${PKG_ADDON_ID}-${ADDONVER}.zip
   else
     build_msg "CLR_WARNING" "*** WARNING: ${PKG_ADDON_ID}-${ADDONVER}.zip already exists. Not overwriting it. ***"
+    pkg_lock_status "UNLOCK" "${PKG_NAME}" "packadd" "already packed"
     exit 0
   fi
 fi
@@ -74,3 +86,5 @@ if [ "${ADDON_JENKINS}" = "yes" ]; then
 else
   build_msg "CLR_INFO" "*** creating  ${PKG_ADDON_ID} complete ***"
 fi
+
+pkg_lock_status "UNLOCK" "${PKG_NAME}" "packadd" "packed"

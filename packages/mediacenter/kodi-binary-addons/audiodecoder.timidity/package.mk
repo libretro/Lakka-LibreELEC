@@ -22,5 +22,5 @@ addon() {
   install_binary_addon $PKG_ADDON_ID
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID
-    cp -P $PKG_BUILD/.$TARGET_NAME/lib/timidity/libtimidity.so $ADDON_BUILD/$PKG_ADDON_ID/
+    cp -P $PKG_BUILD/.$TARGET_NAME/lib/timidity/libtimidity_*.so $ADDON_BUILD/$PKG_ADDON_ID/
 }
