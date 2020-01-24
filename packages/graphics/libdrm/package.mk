@@ -15,37 +15,11 @@ PKG_TOOLCHAIN="meson"
 
 get_graphicdrivers
 
-PKG_DRM_CONFIG="-Dnouveau=false \
-                -Domap=false \
-                -Dexynos=false \
-                -Dtegra=false"
-
-listcontains "$GRAPHIC_DRIVERS" "nouveau" &&
-  PKG_DRM_CONFIG="${PKG_DRM_CONFIG//-Dnouveau=false/}"
-
-listcontains "$GRAPHIC_DRIVERS" "(i915|i965)" &&
-  PKG_DRM_CONFIG+=" -Dintel=true" || PKG_DRM_CONFIG+=" -Dintel=false"
-
-listcontains "$GRAPHIC_DRIVERS" "(r200|r300|r600|radeonsi)" &&
-  PKG_DRM_CONFIG+=" -Dradeon=true" || PKG_DRM_CONFIG+=" -Dradeon=false"
-
-listcontains "$GRAPHIC_DRIVERS" "radeonsi" &&
-  PKG_DRM_CONFIG+=" -Damdgpu=true" || PKG_DRM_CONFIG+=" -Damdgpu=false"
-
-listcontains "$GRAPHIC_DRIVERS" "vmware" &&
-  PKG_DRM_CONFIG+=" -Dvmwgfx=true" || PKG_DRM_CONFIG+=" -Dvmwgfx=false"
-
-listcontains "$GRAPHIC_DRIVERS" "vc4" &&
-  PKG_DRM_CONFIG+=" -Dvc4=true" || PKG_DRM_CONFIG+=" -Dvc4=false"
-
-listcontains "$GRAPHIC_DRIVERS" "freedreno" &&
-  PKG_DRM_CONFIG+=" -Dfreedreno=true" || PKG_DRM_CONFIG+=" -Dfreedreno=false"
-
-listcontains "$GRAPHIC_DRIVERS" "etnaviv" &&
-  PKG_DRM_CONFIG+=" -Detnaviv=true" || PKG_DRM_CONFIG+=" -Detnaviv=false"
-
 PKG_MESON_OPTS_TARGET="-Dlibkms=false \
-                       $PKG_DRM_CONFIG \
+                       -Dnouveau=false \
+                       -Domap=false \
+                       -Dexynos=false \
+                       -Dtegra=false \
                        -Dcairo-tests=false \
                        -Dman-pages=false \
                        -Dvalgrind=false \
@@ -53,10 +27,28 @@ PKG_MESON_OPTS_TARGET="-Dlibkms=false \
                        -Dinstall-test-programs=false \
                        -Dudev=false"
 
-[ "$DISTRO" = "Lakka" ] &&
-  PKG_MESON_OPTS_TARGET="${PKG_MESON_OPTS_TARGET//-Dlibkms=false/}"
+listcontains "${GRAPHIC_DRIVERS}" "(iris|i915|i965)" &&
+  PKG_MESON_OPTS_TARGET+=" -Dintel=true" || PKG_MESON_OPTS_TARGET+=" -Dintel=false"
+
+listcontains "${GRAPHIC_DRIVERS}" "(r200|r300|r600|radeonsi)" &&
+  PKG_MESON_OPTS_TARGET+=" -Dradeon=true" || PKG_MESON_OPTS_TARGET+=" -Dradeon=false"
+
+listcontains "${GRAPHIC_DRIVERS}" "radeonsi" &&
+  PKG_MESON_OPTS_TARGET+=" -Damdgpu=true" || PKG_MESON_OPTS_TARGET+=" -Damdgpu=false"
+
+listcontains "${GRAPHIC_DRIVERS}" "vmware" &&
+  PKG_MESON_OPTS_TARGET+=" -Dvmwgfx=true" || PKG_MESON_OPTS_TARGET+=" -Dvmwgfx=false"
+
+listcontains "${GRAPHIC_DRIVERS}" "vc4" &&
+  PKG_MESON_OPTS_TARGET+=" -Dvc4=true" || PKG_MESON_OPTS_TARGET+=" -Dvc4=false"
+
+listcontains "${GRAPHIC_DRIVERS}" "freedreno" &&
+  PKG_MESON_OPTS_TARGET+=" -Dfreedreno=true" || PKG_MESON_OPTS_TARGET+=" -Dfreedreno=false"
+
+listcontains "${GRAPHIC_DRIVERS}" "etnaviv" &&
+  PKG_MESON_OPTS_TARGET+=" -Detnaviv=true" || PKG_MESON_OPTS_TARGET+=" -Detnaviv=false"
 
 post_makeinstall_target() {
-  mkdir -p $INSTALL/usr/bin
-    cp -a $PKG_BUILD/.$TARGET_NAME/tests/modetest/modetest $INSTALL/usr/bin/
+  mkdir -p ${INSTALL}/usr/bin
+    cp -a ${PKG_BUILD}/.${TARGET_NAME}/tests/modetest/modetest ${INSTALL}/usr/bin/
 }
