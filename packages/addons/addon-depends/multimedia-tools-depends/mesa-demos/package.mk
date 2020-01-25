@@ -15,5 +15,8 @@ PKG_TOOLCHAIN="autotools"
 PKG_CONFIGURE_OPTS_TARGET="--without-glut"
 
 makeinstall_target() {
-  : # nop
+  mkdir -p $INSTALL/usr/bin
+    cp -P src/xdemos/glxdemo $INSTALL/usr/bin
+    cp -P src/xdemos/glxgears $INSTALL/usr/bin
+    cp -P src/xdemos/glxinfo $INSTALL/usr/bin
 }
