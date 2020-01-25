@@ -11,7 +11,7 @@ PKG_URL="http://ftp.gnu.org/pub/gnu/gettext/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_HOST="ccache:host"
 PKG_LONGDESC="A program internationalization library and tools."
 
-PKG_CONFIGURE_OPTS_HOST="--enable-static --disable-shared \
+PKG_CONFIGURE_OPTS_HOST="--disable-static --enable-shared \
                          --disable-rpath \
                          --with-gnu-ld \
                          --disable-java \
