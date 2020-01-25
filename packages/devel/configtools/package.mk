@@ -3,11 +3,11 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="configtools"
-PKG_VERSION="706fbe5"
-PKG_SHA256="185511fd06ccbb892e14d6c593f68f0f1fd7c713b21a8d8bd3c7fd949e9c5979"
+PKG_VERSION="5256817ace8493502ec88501a19e4051c2e220b0"
+PKG_SHA256="3856ff9a2a9382a3396549c047c28e0f05b7e4822239ffe91ce2e59b0a0284db"
 PKG_LICENSE="GPL"
 PKG_SITE="http://git.savannah.gnu.org/cgit/config.git"
-PKG_URL="http://git.savannah.gnu.org/cgit/config.git/snapshot/$PKG_VERSION.tar.xz"
+PKG_URL="http://git.savannah.gnu.org/cgit/config.git/snapshot/config-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_HOST=""
 PKG_LONGDESC="configtools"
 PKG_TOOLCHAIN="manual"
