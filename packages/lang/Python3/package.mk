@@ -72,7 +72,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_prog_HAS_HG=/bin/false
                            --enable-curses
                            --disable-pydoc
                            --disable-test-modules
-                           --disable-lib2to3
+                           --enable-lib2to3
                            --disable-idle3
                            --without-cxx-main
                            --with-expat=system
@@ -120,7 +120,7 @@ post_makeinstall_target() {
 
   PKG_INSTALL_PATH_LIB=$INSTALL/usr/lib/$PKG_PYTHON_VERSION
 
-  for dir in config compiler sysconfigdata lib-dynload/sysconfigdata lib2to3 test; do
+  for dir in config compiler sysconfigdata lib-dynload/sysconfigdata lib2to3/tests test; do
     rm -rf $PKG_INSTALL_PATH_LIB/$dir
   done
 
