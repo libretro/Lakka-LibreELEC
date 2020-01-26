@@ -450,7 +450,7 @@ class Builder:
                   self.generator.activeJobCount(), ",".join(self.generator.activeJobNames())), \
                   file=self.loadstatsfile, flush=True)
 
-        return (self.nextstats - time.time())
+        return (self.nextstats - now)
 
     # Output progress info, and links to any relevant logs
     def displayJobStatus(self, job):
