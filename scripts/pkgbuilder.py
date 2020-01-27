@@ -150,6 +150,10 @@ class Generator:
     def failedJobCount(self):
         return len(self.failed)
 
+    def failedJobs(self):
+        for name in self.failed:
+            yield self.failed[name]
+
     def totalJobCount(self):
         return len(self.plan)
 
@@ -256,7 +260,7 @@ class BuildProcess(threading.Thread):
 
 class Builder:
     def __init__(self, maxthreadcount, inputfilename, jobglog, loadstats, stats_interval, \
-                 haltonerror=True, log_burst=True, log_combine="always", bookends=True, \
+                 haltonerror=True, failimmediately=True, log_burst=True, log_combine="always", bookends=True, \
                  debug=False, verbose=False, colors=False):
         if inputfilename == "-":
             plan = json.load(sys.stdin)
@@ -273,6 +277,7 @@ class Builder:
             self.stats_interval = 60
 
         self.haltonerror = haltonerror
+        self.failimmediately = failimmediately
         self.log_burst = log_burst
         self.log_combine = log_combine
         self.debug = debug
@@ -286,6 +291,7 @@ class Builder:
         self.color_code["ACTV"] = "\033[0;33m" #yellow
         self.color_code["IDLE"] = "\033[0;35m" #magenta
         self.color_code["INIT"] = "\033[0;36m" #cyan
+        self.color_code["WAIT"] = "\033[0;35m" #magenta
 
         self.work = queue.Queue()
         self.complete = queue.Queue()
@@ -345,9 +351,6 @@ class Builder:
             job["cmdproc"] = None
             job = None
 
-            if self.generator.failedJobCount() != 0 and self.haltonerror:
-                break
-
         self.captureStats(finished=True)
         self.stopProcesses()
 
@@ -357,12 +360,36 @@ class Builder:
         if self.loadstatsfile:
             self.loadstatsfile.close()
 
-        return (self.generator.failedJobCount() == 0)
+        if self.generator.failedJobCount() != 0:
+            if self.haltonerror and not self.failimmediately:
+                failed = [job for job in self.generator.failedJobs() if job["logfile"]]
+                if failed != []:
+                    print("\nThe following log(s) for this failure are available:", file=sys.stdout)
+                    for job in failed:
+                        print("  %s => %s" % (job["name"], job["logfile"]), file=sys.stdout)
+                    print("", file=sys.stdout)
+                    sys.stdout.flush()
+            return False
+
+        return True
 
     # Fill work queue with enough jobs to keep all processes busy.
     # Return True while jobs remain available to build, or queued jobs are still building.
     # Return False once all jobs have been queued, and finished building.
     def queueWork(self):
+
+        # If an error has occurred and we are not ignoring errors, then return True
+        # (but don't schedule new work) if we are to exit after all currently
+        # active jobs have finished, otherwise return False.
+        if self.haltonerror and self.generator.failedJobCount() != 0:
+            if not self.failimmediately and self.generator.activeJobCount() != 0:
+                freeslots = self.threadcount - self.generator.activeJobCount()
+                self.vprint("WAIT", "waiting", ", ".join(self.generator.activeJobNames()))
+                DEBUG("Waiting for : %d active, %d idle [%s]" % (self.generator.activeJobCount(), freeslots, ", ".join(self.generator.activeJobNames())))
+                return True
+            else:
+                return False
+
         try:
             for i in range(self.generator.activeJobCount(), self.threadcount):
                 job = self.generator.getNextJob()
@@ -455,9 +482,7 @@ class Builder:
     # Output progress info, and links to any relevant logs
     def displayJobStatus(self, job):
         self.cseq += 1
-        print("[%0*d/%0*d] [%s] %-7s %s" %
-              (self.twidth, self.cseq, self.twidth, self.jobtotal,
-               self.colorise(job["status"]), job["task"], job["name"]), file=sys.stderr, flush=True)
+        self.vprint(job["status"], job["task"], job["name"], p1=self.cseq, p2=self.jobtotal)
 
         if job["failed"]:
             if job["logfile"]:
@@ -602,6 +627,13 @@ group.add_argument("--halt-on-error", action="store_true", default=True, \
 group.add_argument("--continue-on-error", action="store_false", dest="halt_on_error", \
                     help="Disable --halt-on-error and continue building.")
 
+group =  parser.add_mutually_exclusive_group()
+group.add_argument("--fail-immediately", action="store_true", default=True, \
+                    help="With --halt-on-error, the build can either fail immediately or only after all " \
+                         "other active jobs have finished. Default is to fail immediately.")
+group.add_argument("--fail-after-active", action="store_false", dest="fail_immediately", \
+                    help="With --halt-on-error, when an error occurs fail after all other active jobs have finished.")
+
 parser.add_argument("--verbose", action="store_true", default=False, \
                     help="Output verbose information to stderr.")
 
@@ -631,7 +663,7 @@ with open("%s/parallel.pid" % THREAD_CONTROL, "w") as pid:
 
 try:
     result = Builder(args.max_procs, args.plan, args.joblog, args.loadstats, args.stats_interval, \
-                     haltonerror=args.halt_on_error, \
+                     haltonerror=args.halt_on_error, failimmediately=args.fail_immediately, \
                      log_burst=args.log_burst, log_combine=args.log_combine, bookends=args.with_bookends, \
                      colors=args.colors, debug=args.debug, verbose=args.verbose).build()
 
