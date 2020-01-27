@@ -15,6 +15,7 @@ pre_configure_target() {
   export LDFLAGS="$LDFLAGS -pthread"
 }
 
-makeinstall_target() {
-  : # meh
+post_makeinstall_target() {
+  mkdir -p $INSTALL/usr/lib/iw
+    cp $PKG_DIR/scripts/setregdomain $INSTALL/usr/lib/iw
 }
