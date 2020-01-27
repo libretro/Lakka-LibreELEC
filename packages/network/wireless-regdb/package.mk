@@ -10,3 +10,10 @@ PKG_SITE="http://wireless.kernel.org/en/developers/Regulatory"
 PKG_URL="https://www.kernel.org/pub/software/network/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_LONGDESC="wireless-regdb is a regulatory database"
 PKG_TOOLCHAIN="manual"
+
+makeinstall_target() {
+  FW_TARGET_DIR=$INSTALL/$(get_full_firmware_dir)
+
+  mkdir -p ${FW_TARGET_DIR}
+    cp ${PKG_BUILD}/regulatory.db ${PKG_BUILD}/regulatory.db.p7s ${FW_TARGET_DIR}
+}
