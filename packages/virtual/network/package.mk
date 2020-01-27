@@ -4,9 +4,9 @@
 PKG_NAME="network"
 PKG_VERSION=""
 PKG_LICENSE="various"
-PKG_SITE="http://www.openelec.tv"
+PKG_SITE="https://libreelec.tv"
 PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain connman netbase ethtool openssh"
+PKG_DEPENDS_TARGET="toolchain connman netbase ethtool openssh iw"
 PKG_SECTION="virtual"
 PKG_LONGDESC="Metapackage for various packages to install network support"
 
