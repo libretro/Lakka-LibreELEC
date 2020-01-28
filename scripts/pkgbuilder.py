@@ -10,7 +10,6 @@ import datetime, time
 import argparse
 import json
 import codecs
-import copy
 import threading
 import queue
 import subprocess
@@ -58,9 +57,9 @@ class GeneratorStalled(Exception):
 
 class Generator:
     def __init__(self, plan):
-        self.plan = plan
+        self.work = plan
 
-        self.work = copy.deepcopy(self.plan)
+        self.totalJobs = len(plan)
         self.building = {}
         self.built = {}
         self.failed = {}
@@ -155,7 +154,7 @@ class Generator:
             yield self.failed[name]
 
     def totalJobCount(self):
-        return len(self.plan)
+        return self.totalJobs
 
     def completed(self, job):
         del self.building[job["name"]]
@@ -228,7 +227,7 @@ class BuildProcess(threading.Thread):
                                      stdin=subprocess.PIPE, stdout=logfile, stderr=subprocess.STDOUT,
                                      universal_newlines=True, shell=False)
                 returncode = cmd.returncode
-                job["cmdproc" ] = cmd
+                job["cmdproc"] = cmd
             else:
                 try:
                     cmd = rusage_run(job["args"], cwd=ROOT,
@@ -236,7 +235,7 @@ class BuildProcess(threading.Thread):
                                      universal_newlines=True, shell=False,
                                      encoding="utf-8", errors="replace")
                     returncode = cmd.returncode
-                    job["cmdproc" ] = cmd
+                    job["cmdproc"] = cmd
                 except UnicodeDecodeError:
                     print('\nPKGBUILDER ERROR: UnicodeDecodeError while reading cmd.stdout from "%s %s"\n' % (job["task"], job["name"]), file=sys.stderr, flush=True)
         except Exception as e:
