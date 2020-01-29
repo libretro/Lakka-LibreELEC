@@ -3,8 +3,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="iwlwifi-firmware"
-PKG_VERSION="caaa6ccba6ebfa06b40d58e94b808202a735520c"
-PKG_SHA256="a9846956d89557e2608df467a8c6911e26dbbd09cadf4d307d52e930fc323cd2"
+PKG_VERSION="19ce5372ff369fe90ba70a0b8ef7e4ffa80a068b"
+PKG_SHA256="26b09c74ff5bb19eb1891e1f150759cd3cae10dce3a167fc120f3c81276cac95"
 PKG_LICENSE="Free-to-use"
 PKG_SITE="https://github.com/LibreELEC/iwlwifi-firmware"
 PKG_URL="https://github.com/LibreELEC/iwlwifi-firmware/archive/$PKG_VERSION.tar.gz"
