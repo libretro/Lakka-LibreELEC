@@ -23,8 +23,8 @@ case "$LINUX" in
     PKG_PATCH_DIRS="amlogic"
     ;;
   raspberrypi)
-    PKG_VERSION="b07ea0df1c5f4bc1b38ada8bbaab2dde7ca10cc5" # 5.4.13 with HifiBerry DAC+HD
-    PKG_SHA256="44aaba4403d060c14289cdfe21125c8182b27b16dafee623766a2f5d55459a2e"
+    PKG_VERSION="5a68e4e6d858e8a4ef0790f1da4f70d2a3240cf7" # (5.4.13 with RPi4 SD regulator updates)
+    PKG_SHA256="f54ed61f43c01d1e7e197d8e126ebf02e0ccd0d8af6068767f8e21b78cc13133"
     PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     ;;
