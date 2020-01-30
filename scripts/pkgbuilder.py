@@ -318,7 +318,8 @@ class Builder:
                 self.threadcount = int(maxthreadcount)
 
         self.threadcount = 1 if self.threadcount < 1 else self.threadcount
-        self.threadcount = self.jobtotal if self.jobtotal <= self.threadcount else self.threadcount
+        self.threadcount = min(self.jobtotal, self.threadcount)
+        self.threadcount = max(1, self.threadcount)
 
         if args.debug:
             DEBUG("THREADCOUNT#: input arg: %s, computed: %d" % (maxthreadcount, self.threadcount))
