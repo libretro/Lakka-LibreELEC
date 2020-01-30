@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-beetle-vb"
-PKG_VERSION="00accc8a7c3482e5e464c5bb5f0679478024a0dc"
-PKG_SHA256="f42baa7896d906f385e4aaa60d9f39066eb84bcad67b8f94366c8ff0f8bcef7f"
+PKG_VERSION="9a4e604a7320a3c6ed30601989fe0bc417fa9ad3"
+PKG_SHA256="25a53560105b71797fd5172834b3f5a792962c26af876ab3821924bfa71b2ce2"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-vb-libretro"
 PKG_URL="https://github.com/libretro/beetle-vb-libretro/archive/$PKG_VERSION.tar.gz"

@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-hatari"
-PKG_VERSION="42388bbdf042824d1d7d3b6db64a6b719c707682"
-PKG_SHA256="38ebb5bf1e3e60de71cce695a4f4bbb443bb08852262c10e6e1d11754f4a3fe2"
+PKG_VERSION="ec1b59c4b6c7ca7d0d23d60cfe2cb61911b11173"
+PKG_SHA256="4deea8ba40e7ce026db731b511e01bea5caa5a51b3499aa4473405841cbedd67"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/hatari"
 PKG_URL="https://github.com/libretro/hatari/archive/$PKG_VERSION.tar.gz"

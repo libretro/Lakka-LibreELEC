@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-bnes"
-PKG_VERSION="598c123771c885f8c48967f82b3a496b9e105b79"
-PKG_SHA256="6e8d04517908593c7c3260d5358da4de0caffeb9dd5457b0097555a144f4c757"
+PKG_VERSION="8e26e89a93bef8eb8992d1921b539dce1792660a"
+PKG_SHA256="c151e1296b8f6c035014dc62919692097feeebb19ae73294f1b9781edf1921b1"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/bnes-libretro"
 PKG_URL="https://github.com/libretro/bnes-libretro/archive/$PKG_VERSION.tar.gz"
