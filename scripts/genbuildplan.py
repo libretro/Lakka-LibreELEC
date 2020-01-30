@@ -19,12 +19,16 @@ class LibreELEC_Package:
         self.wants = []
         self.wantedby = []
 
+        self.unpacks = []
+
     def __repr__(self):
         s = "%-9s: %s" % ("name", self.name)
         s = "%s\n%-9s: %s" % (s, "section", self.section)
 
         for t in self.deps:
             s = "%s\n%-9s: %s" % (s, t, self.deps[t])
+
+        s = "%s\n%-9s: %s" % (s, "UNPACKS", self.unpacks)
 
         s = "%s\n%-9s: %s" % (s, "NEEDS", self.wants)
         s = "%s\n%-9s: %s" % (s, "WANTED BY", self.wantedby)
@@ -54,6 +58,10 @@ class LibreELEC_Package:
         name = package.split(":")[0]
         if name in self.wantedby:
             self.wantedby.remove(name)
+
+    def addUnpack(self, packages):
+        if packages.strip():
+            self.unpacks = packages.strip().split()
 
     def isReferenced(self):
         return False if self.wants == [] else True
@@ -106,7 +114,8 @@ class Node:
         return self.name if self.target == "target" else "%s:%s" % (self.name, self.target)
 
     def addEdge(self, node):
-        self.edges.append(node)
+        if node not in self.edges:
+            self.edges.append(node)
 
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
@@ -135,6 +144,8 @@ def initPackage(package):
 
     for target in ["bootstrap", "init", "host", "target"]:
         pkg.addDependencies(target, package[target])
+
+    pkg.addUnpack(package["unpack"])
 
     return pkg
 
@@ -236,7 +247,8 @@ def processPackages(args, packages):
             "bootstrap": "",
             "init": "",
             "host": " ".join(get_packages_by_target("host", args.build)),
-            "target": " ".join(get_packages_by_target("target", args.build))
+            "target": " ".join(get_packages_by_target("target", args.build)),
+            "unpack": ""
           }
 
     packages[pkg["name"]] = initPackage(pkg)
@@ -366,9 +378,12 @@ eprint("")
 if args.with_json:
     plan = []
     for step in steps:
+        (pkg_name, target) = split_package(step[1])
         plan.append({"task": step[0],
                      "name": step[1],
-                     "deps": [d.fqname for d in REQUIRED_PKGS[step[1]].edges]})
+                     "section": ALL_PACKAGES[pkg_name].section,
+                     "wants": [d.fqname for d in REQUIRED_PKGS[step[1]].edges],
+                     "unpacks": ALL_PACKAGES[pkg_name].unpacks if pkg_name in ALL_PACKAGES else []})
 
     with open(args.with_json, "w") as out:
         print(json.dumps(plan, indent=2, sort_keys=False), file=out)
