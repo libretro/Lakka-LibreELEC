@@ -2,6 +2,7 @@
 
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2017 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2020-present Team LibreELEC (https://libreelec.tv)
 
 SMB_CONF="/run/samba/smb.conf"
 SMB_TMP="$(mktemp -p /run/samba)"
@@ -52,17 +53,13 @@ ADD_CONFIG="${ADD_CONFIG}  server max protocol = ${SAMBA_MAXPROTOCOL/SMB1/NT1}\n
 # Add extra config after [global], escaping spaces so that all are retained by sed
 sed -e "/\[global\]/ a ${ADD_CONFIG// /\\ }" -i $SMB_TMP
 
-# only letters & numbers permitted for username & password
-  SAMBA_USERNAME=`echo $SAMBA_USERNAME | sed "s/[^a-zA-Z0-9]//g;"`
-  SAMBA_PASSWORD=`echo $SAMBA_PASSWORD | sed "s/[^a-zA-Z0-9]//g;"`
-
 if [ "$SAMBA_SECURE" == "true" -a ! "$SAMBA_USERNAME" == "" -a ! "$SAMBA_PASSWORD" == "" ] ; then
   # username map: first line makes sure plain root does not work all the time
   # processing continues, so if user chooses root as username, second line overrides the first
   # this is done always in case user uses passwords in userconf.
   # many thanks to viljoviitanen for this
-  echo -e "$SAMBA_PASSWORD\n$SAMBA_PASSWORD" | smbpasswd -s -a root >/dev/null 2>&1
-  echo -e "nobody = root\nroot = $SAMBA_USERNAME" > /run/samba/samba.map
+  printf "%s\n%s" "$SAMBA_PASSWORD" "$SAMBA_PASSWORD" | smbpasswd -s -a root >/dev/null 2>&1
+  printf "nobody = root\nroot = %s" "$SAMBA_USERNAME" > /run/samba/samba.map
 
   sed -e 's|^.[ \t]*.public.=.*|  public = no |' \
       -e 's|^.[ \t]*.username map.=.*||' \
