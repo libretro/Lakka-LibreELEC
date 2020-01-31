@@ -3,8 +3,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="dbus-python"
-PKG_VERSION="1.2.12"
-PKG_SHA256="cdd4de2c4f5e58f287b12013ed7b41dee81d503c8d0d2397c5bd2fb01badf260"
+PKG_VERSION="1.2.16"
+PKG_SHA256="11238f1d86c995d8aed2e22f04a1e3779f0d70e587caffeab4857f3c662ed5a4"
 PKG_LICENSE="GPL"
 PKG_SITE="https://freedesktop.org/wiki/Software/dbus"
 PKG_URL="https://dbus.freedesktop.org/releases/dbus-python/$PKG_NAME-$PKG_VERSION.tar.gz"
