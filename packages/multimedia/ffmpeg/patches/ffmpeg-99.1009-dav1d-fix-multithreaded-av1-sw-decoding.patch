@@ -1,36 +1,25 @@
-From 0ae5ba3567a896af2b272e3a52ca574b7f41ec5a Mon Sep 17 00:00:00 2001
-From: Lukas Rusak <lorusak@gmail.com>
-Date: Wed, 10 Apr 2019 13:40:07 -0700
-Subject: [PATCH 0/1] *** SUBJECT HERE ***
+commit 578b5ee8c0fe7d9ef09ef91ffcafc916f1d7d97b
+Author: Lukas Rusak <lorusak@gmail.com>
+Date:   Wed Apr 10 13:39:21 2019 -0700
 
-*** BLURB HERE ***
-
-Lukas Rusak (1):
-  libavcodec/libdav1d: add libdav1d_get_format method in order to call
-    ff_get_format
-
- libavcodec/libdav1d.c | 12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
-
--- 
-2.20.1
-
-From 0ae5ba3567a896af2b272e3a52ca574b7f41ec5a Mon Sep 17 00:00:00 2001
-From: Lukas Rusak <lorusak@gmail.com>
-Date: Wed, 10 Apr 2019 13:39:21 -0700
-Subject: [PATCH 1/1] libavcodec/libdav1d: add libdav1d_get_format method in
- order to call ff_get_format
-
----
- libavcodec/libdav1d.c | 12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
+    libavcodec/libdav1d: add libdav1d_get_format method to call ff_get_format
+    
+    This will allow applications to properly init the decoder in
+    cases where a hardware decoder is tried first and and software
+    decoder is tried after by calling the get_format callback.
+    
+    Even though there is no hardware pixel formats available
+    we still need to return the software pixel format.
+    
+    Tested with Kodi by checking if multithreaded software
+    decoding is properly activated.
 
 diff --git a/libavcodec/libdav1d.c b/libavcodec/libdav1d.c
-index 30c6eccfef..fa71834543 100644
+index 12c63245f8..1bbb83eda3 100644
 --- a/libavcodec/libdav1d.c
 +++ b/libavcodec/libdav1d.c
-@@ -48,6 +48,16 @@ static const enum AVPixelFormat pix_fmt[][3] = {
-     [DAV1D_PIXEL_LAYOUT_I444] = { AV_PIX_FMT_YUV444P, AV_PIX_FMT_YUV444P10, AV_PIX_FMT_YUV444P12 },
+@@ -53,6 +53,16 @@ static const enum AVPixelFormat pix_fmt_rgb[3] = {
+     AV_PIX_FMT_GBRP, AV_PIX_FMT_GBRP10, AV_PIX_FMT_GBRP12,
  };
  
 +static enum AVPixelFormat libdav1d_get_format(AVCodecContext *avctx, const Dav1dPicture *p)
@@ -46,15 +35,11 @@ index 30c6eccfef..fa71834543 100644
  static void libdav1d_log_callback(void *opaque, const char *fmt, va_list vl)
  {
      AVCodecContext *c = opaque;
-@@ -214,7 +224,7 @@ static int libdav1d_receive_frame(AVCodecContext *c, AVFrame *frame)
-     frame->linesize[2] = p->stride[1];
- 
+@@ -229,6 +239,7 @@ static int libdav1d_receive_frame(AVCodecContext *c, AVFrame *frame)
      c->profile = p->seq_hdr->profile;
--    frame->format = c->pix_fmt = pix_fmt[p->p.layout][p->seq_hdr->hbd];
+     c->level = ((p->seq_hdr->operating_points[0].major_level - 2) << 2)
+                | p->seq_hdr->operating_points[0].minor_level;
 +    frame->format = c->pix_fmt = libdav1d_get_format(c, p);
      frame->width = p->p.w;
      frame->height = p->p.h;
      if (c->width != p->p.w || c->height != p->p.h) {
--- 
-2.20.1
-

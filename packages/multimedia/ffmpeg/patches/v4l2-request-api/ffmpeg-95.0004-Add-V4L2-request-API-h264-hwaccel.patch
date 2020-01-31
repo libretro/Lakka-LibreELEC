@@ -1,4 +1,4 @@
-From fb59440a268d956bffa40604e4422420453b4605 Mon Sep 17 00:00:00 2001
+From da483a0eb4802714d9ad3a07ea17c2ec0f65c2a5 Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@siol.net>
 Date: Sat, 15 Dec 2018 22:32:16 +0100
 Subject: [PATCH 04/12] Add V4L2 request API h264 hwaccel
@@ -16,10 +16,10 @@ Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
  create mode 100644 libavcodec/v4l2_request_h264.c
 
 diff --git a/configure b/configure
-index 6088e8d00c..a967ae0afb 100755
+index e88c201cce..576a79ff09 100755
 --- a/configure
 +++ b/configure
-@@ -2804,6 +2804,8 @@ h264_dxva2_hwaccel_deps="dxva2"
+@@ -2895,6 +2895,8 @@ h264_dxva2_hwaccel_deps="dxva2"
  h264_dxva2_hwaccel_select="h264_decoder"
  h264_nvdec_hwaccel_deps="nvdec"
  h264_nvdec_hwaccel_select="h264_decoder"
@@ -28,19 +28,19 @@ index 6088e8d00c..a967ae0afb 100755
  h264_vaapi_hwaccel_deps="vaapi"
  h264_vaapi_hwaccel_select="h264_decoder"
  h264_vdpau_hwaccel_deps="vdpau"
-@@ -6243,6 +6245,7 @@ check_cc vp8_v4l2_m2m linux/videodev2.h "int i = V4L2_PIX_FMT_VP8;"
+@@ -6457,6 +6459,7 @@ check_cc vp8_v4l2_m2m linux/videodev2.h "int i = V4L2_PIX_FMT_VP8;"
  check_cc vp9_v4l2_m2m linux/videodev2.h "int i = V4L2_PIX_FMT_VP9;"
  
  check_func_headers "linux/media.h linux/videodev2.h" v4l2_timeval_to_ns
 +check_cc h264_v4l2_request linux/videodev2.h "int i = V4L2_PIX_FMT_H264_SLICE;"
  check_cc mpeg2_v4l2_request linux/videodev2.h "int i = V4L2_PIX_FMT_MPEG2_SLICE;"
  
- check_header sys/videoio.h
+ check_headers sys/videoio.h
 diff --git a/libavcodec/Makefile b/libavcodec/Makefile
-index 9b945e3f64..2bdfaabb5f 100644
+index 864f24a2af..58bd444934 100644
 --- a/libavcodec/Makefile
 +++ b/libavcodec/Makefile
-@@ -852,6 +852,7 @@ OBJS-$(CONFIG_H264_D3D11VA_HWACCEL)       += dxva2_h264.o
+@@ -872,6 +872,7 @@ OBJS-$(CONFIG_H264_D3D11VA_HWACCEL)       += dxva2_h264.o
  OBJS-$(CONFIG_H264_DXVA2_HWACCEL)         += dxva2_h264.o
  OBJS-$(CONFIG_H264_NVDEC_HWACCEL)         += nvdec_h264.o
  OBJS-$(CONFIG_H264_QSV_HWACCEL)           += qsvdec_h2645.o
@@ -49,10 +49,10 @@ index 9b945e3f64..2bdfaabb5f 100644
  OBJS-$(CONFIG_H264_VDPAU_HWACCEL)         += vdpau_h264.o
  OBJS-$(CONFIG_H264_VIDEOTOOLBOX_HWACCEL)  += videotoolbox.o
 diff --git a/libavcodec/h264_slice.c b/libavcodec/h264_slice.c
-index af9ec9789b..f1e11003af 100644
+index fc4e65bf01..9912ede703 100644
 --- a/libavcodec/h264_slice.c
 +++ b/libavcodec/h264_slice.c
-@@ -758,6 +758,7 @@ static enum AVPixelFormat get_pixel_format(H264Context *h, int force_callback)
+@@ -765,6 +765,7 @@ static enum AVPixelFormat get_pixel_format(H264Context *h, int force_callback)
  #define HWACCEL_MAX (CONFIG_H264_DXVA2_HWACCEL + \
                       (CONFIG_H264_D3D11VA_HWACCEL * 2) + \
                       CONFIG_H264_NVDEC_HWACCEL + \
@@ -60,7 +60,7 @@ index af9ec9789b..f1e11003af 100644
                       CONFIG_H264_VAAPI_HWACCEL + \
                       CONFIG_H264_VIDEOTOOLBOX_HWACCEL + \
                       CONFIG_H264_VDPAU_HWACCEL)
-@@ -842,6 +843,9 @@ static enum AVPixelFormat get_pixel_format(H264Context *h, int force_callback)
+@@ -849,6 +850,9 @@ static enum AVPixelFormat get_pixel_format(H264Context *h, int force_callback)
  #endif
  #if CONFIG_H264_VIDEOTOOLBOX_HWACCEL
              *fmt++ = AV_PIX_FMT_VIDEOTOOLBOX;
@@ -71,10 +71,10 @@ index af9ec9789b..f1e11003af 100644
              if (h->avctx->codec->pix_fmts)
                  choices = h->avctx->codec->pix_fmts;
 diff --git a/libavcodec/h264dec.c b/libavcodec/h264dec.c
-index 33e1056d87..3ccfa60621 100644
+index 03c87b59bd..dbcceb915a 100644
 --- a/libavcodec/h264dec.c
 +++ b/libavcodec/h264dec.c
-@@ -1078,6 +1078,9 @@ AVCodec ff_h264_decoder = {
+@@ -1081,6 +1081,9 @@ AVCodec ff_h264_decoder = {
  #endif
  #if CONFIG_H264_VIDEOTOOLBOX_HWACCEL
                                 HWACCEL_VIDEOTOOLBOX(h264),
@@ -545,6 +545,3 @@ index 0000000000..81b3c4b092
 +    .frame_params   = ff_v4l2_request_frame_params,
 +    .caps_internal  = HWACCEL_CAP_ASYNC_SAFE,
 +};
--- 
-2.24.0
-
