@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-bluemsx"
-PKG_VERSION="65a9f35867f70d211ea7873b24727088378b9cc2"
-PKG_SHA256="4f9361eb3a201cc625a294844e85912cd767a85c61bd8d3c3d7f643dae628252"
+PKG_VERSION="aace4ae8acf5dbe8b02e6fb49b703fdcb6c5603a"
+PKG_SHA256="6969eb0eeffdc3a978e6137b7b212bf0969aaa81b8e46951253b29e623b072f5"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/blueMSX-libretro"
 PKG_URL="https://github.com/libretro/blueMSX-libretro/archive/$PKG_VERSION.tar.gz"
