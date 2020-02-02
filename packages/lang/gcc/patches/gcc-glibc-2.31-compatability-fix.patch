@@ -1,0 +1,110 @@
+From 57adaad06d71d82c77a592d68ec60bfc0e8d3c61 Mon Sep 17 00:00:00 2001
+From: Jakub Jelinek <jakub@redhat.com>
+Date: Fri, 8 Nov 2019 19:53:18 +0100
+Subject: [PATCH] backport: re PR sanitizer/92154 (new glibc breaks arm
+ bootstrap due to libsanitizer)
+
+	Backported from mainline
+	2019-10-22  Tamar Christina  <tamar.christina@arm.com>
+
+	PR sanitizer/92154
+	* sanitizer_common/sanitizer_platform_limits_posix.cc:
+	Cherry-pick compiler-rt revision r375220.
+
+From-SVN: r277981
+
+backport: re PR sanitizer/92154 (new glibc breaks arm bootstrap due to libsanitizer)
+
+	Backported from mainline
+	2019-11-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/92154
+	* sanitizer_common/sanitizer_platform_limits_posix.h: Cherry-pick
+	llvm-project revision 947f9692440836dcb8d88b74b69dd379d85974ce.
+	* sanitizer_common/sanitizer_platform_limits_posix.cc: Likewise.
+
+From-SVN: r279653
+---
+ libsanitizer/ChangeLog                        | 19 +++++++++++++++++++
+ .../sanitizer_platform_limits_posix.cc        |  5 +++--
+ .../sanitizer_platform_limits_posix.h         | 15 +--------------
+ 3 files changed, 23 insertions(+), 16 deletions(-)
+
+diff --git a/libsanitizer/ChangeLog b/libsanitizer/ChangeLog
+index c7d3cf4..65cbd35 100644
+--- a/libsanitizer/ChangeLog
++++ b/libsanitizer/ChangeLog
+@@ -1,3 +1,22 @@
++2019-12-20  Jakub Jelinek  <jakub@redhat.com>
++
++	Backported from mainline
++	2019-11-26  Jakub Jelinek  <jakub@redhat.com>
++
++	PR sanitizer/92154
++	* sanitizer_common/sanitizer_platform_limits_posix.h: Cherry-pick
++	llvm-project revision 947f9692440836dcb8d88b74b69dd379d85974ce.
++	* sanitizer_common/sanitizer_platform_limits_posix.cc: Likewise.
++
++2019-11-08  Jakub Jelinek  <jakub@redhat.com>
++
++	Backported from mainline
++	2019-10-22  Tamar Christina  <tamar.christina@arm.com>
++
++	PR sanitizer/92154
++	* sanitizer_common/sanitizer_platform_limits_posix.cc:
++	Cherry-pick compiler-rt revision r375220.
++
+ 2019-08-12  Release Manager
+ 
+ 	* GCC 9.2.0 released.
+diff --git a/libsanitizer/sanitizer_common/sanitizer_platform_limits_posix.cc b/libsanitizer/sanitizer_common/sanitizer_platform_limits_posix.cc
+index 6cd4a5b..d823a12 100644
+--- a/libsanitizer/sanitizer_common/sanitizer_platform_limits_posix.cc
++++ b/libsanitizer/sanitizer_common/sanitizer_platform_limits_posix.cc
+@@ -1156,8 +1156,9 @@ CHECK_SIZE_AND_OFFSET(ipc_perm, uid);
+ CHECK_SIZE_AND_OFFSET(ipc_perm, gid);
+ CHECK_SIZE_AND_OFFSET(ipc_perm, cuid);
+ CHECK_SIZE_AND_OFFSET(ipc_perm, cgid);
+-#if !defined(__aarch64__) || !SANITIZER_LINUX || __GLIBC_PREREQ (2, 21)
+-/* On aarch64 glibc 2.20 and earlier provided incorrect mode field.  */
++#if !SANITIZER_LINUX || __GLIBC_PREREQ (2, 31)
++/* glibc 2.30 and earlier provided 16-bit mode field instead of 32-bit
++   on many architectures.  */
+ CHECK_SIZE_AND_OFFSET(ipc_perm, mode);
+ #endif
+ 
+diff --git a/libsanitizer/sanitizer_common/sanitizer_platform_limits_posix.h b/libsanitizer/sanitizer_common/sanitizer_platform_limits_posix.h
+index 73af92a..6a673a7 100644
+--- a/libsanitizer/sanitizer_common/sanitizer_platform_limits_posix.h
++++ b/libsanitizer/sanitizer_common/sanitizer_platform_limits_posix.h
+@@ -211,26 +211,13 @@ namespace __sanitizer {
+     u64 __unused1;
+     u64 __unused2;
+ #elif defined(__sparc__)
+-#if defined(__arch64__)
+     unsigned mode;
+-    unsigned short __pad1;
+-#else
+-    unsigned short __pad1;
+-    unsigned short mode;
+     unsigned short __pad2;
+-#endif
+     unsigned short __seq;
+     unsigned long long __unused1;
+     unsigned long long __unused2;
+-#elif defined(__mips__) || defined(__aarch64__) || defined(__s390x__)
+-    unsigned int mode;
+-    unsigned short __seq;
+-    unsigned short __pad1;
+-    unsigned long __unused1;
+-    unsigned long __unused2;
+ #else
+-    unsigned short mode;
+-    unsigned short __pad1;
++    unsigned int mode;
+     unsigned short __seq;
+     unsigned short __pad2;
+ #if defined(__x86_64__) && !defined(_LP64)
+-- 
+2.20.1
+
