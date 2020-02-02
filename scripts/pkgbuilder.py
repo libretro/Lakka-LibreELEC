@@ -14,6 +14,7 @@ import threading
 import queue
 import subprocess
 import multiprocessing
+import signal
 
 # Ensure we can output any old crap to stdout and stderr
 sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
@@ -33,9 +34,10 @@ class RusagePopen(subprocess.Popen):
             self.rusage = ru
         return (pid, sts)
 
-def rusage_run(*popenargs, timeout=None, **kwargs):
+def rusage_run(*popenargs, parent=None, timeout=None, **kwargs):
     with RusagePopen(*popenargs, **kwargs) as process:
         try:
+            parent.child = process
             stdout, stderr = process.communicate(None, timeout=timeout)
         except subprocess.TimeoutExpired as exc:
             process.kill()
@@ -47,6 +49,7 @@ def rusage_run(*popenargs, timeout=None, **kwargs):
         retcode = process.poll()
     res = subprocess.CompletedProcess(process.args, retcode, stdout, stderr)
     res.rusage = process.rusage
+    parent.child = None
     return res
 
 class GeneratorEmpty(Exception):
@@ -255,11 +258,19 @@ class BuildProcess(threading.Thread):
 
         self.active = False
 
+        self.child = None
+
         self.stopping = False
 
     def stop(self):
         self.stopping = True
         self.work.put(None)
+        if self.child:
+            try:
+                os.killpg(os.getpgid(self.child.pid), signal.SIGTERM)
+                self.child.wait()
+            except:
+                pass
 
     def isActive(self):
         return self.active == True
@@ -305,14 +316,14 @@ class BuildProcess(threading.Thread):
                 with open(job["logfile"], "w") as logfile:
                     cmd = rusage_run(job["args"], cwd=ROOT,
                                      stdin=subprocess.PIPE, stdout=logfile, stderr=subprocess.STDOUT,
-                                     universal_newlines=True, shell=False)
+                                     universal_newlines=True, shell=False, parent=self, start_new_session=True)
                 returncode = cmd.returncode
                 job["cmdproc"] = cmd
             else:
                 try:
                     cmd = rusage_run(job["args"], cwd=ROOT,
                                      stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                     universal_newlines=True, shell=False,
+                                     universal_newlines=True, shell=False, parent=self, start_new_session=True,
                                      encoding="utf-8", errors="replace")
                     returncode = cmd.returncode
                     job["cmdproc"] = cmd
@@ -434,7 +445,6 @@ class Builder:
             job = None
 
         self.captureStats(finished=True)
-        self.stopProcesses()
 
         if self.joblogfile:
             self.joblogfile.close()
@@ -678,8 +688,13 @@ class Builder:
             process.start()
 
     def stopProcesses(self):
-        for process in self.processes:
-            process.stop()
+        if self.processes:
+            for process in self.processes:
+                process.stop()
+            self.processes = None
+
+    def cleanup(self):
+        self.stopProcesses()
 
     def vprint(self, status, task, data, p1=None, p2=None):
        p1 = (self.threadcount - self.generator.activeJobCount()) if p1 == None else p1
@@ -777,17 +792,22 @@ with open("%s/parallel.pid" % THREAD_CONTROL, "w") as pid:
     print("%d" % os.getpid(), file=pid)
 
 try:
-    result = Builder(args.max_procs, args.plan, args.joblog, args.loadstats, args.stats_interval, \
-                     haltonerror=args.halt_on_error, failimmediately=args.fail_immediately, \
-                     log_burst=args.log_burst, log_combine=args.log_combine, bookends=args.with_bookends, \
-                     autoremove=args.auto_remove, colors=args.colors, \
-                     debug=args.debug, verbose=args.verbose).build()
+    builder = Builder(args.max_procs, args.plan, args.joblog, args.loadstats, args.stats_interval, \
+                      haltonerror=args.halt_on_error, failimmediately=args.fail_immediately, \
+                      log_burst=args.log_burst, log_combine=args.log_combine, bookends=args.with_bookends, \
+                      autoremove=args.auto_remove, colors=args.colors, progress=args.progress, \
+                      debug=args.debug, verbose=args.verbose)
+
+    result = builder.build()
 
     if DEBUG_LOG:
         DEBUG_LOG.close()
 
     sys.exit(0 if result else 1)
 except (KeyboardInterrupt, SystemExit) as e:
+    if builder:
+        builder.cleanup()
+
     if type(e) == SystemExit:
         sys.exit(int(str(e)))
     else:
