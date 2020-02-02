@@ -3,11 +3,11 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="busybox"
-PKG_VERSION="1.31.1"
-PKG_SHA256="d0f940a72f648943c1f2211e0e3117387c31d765137d92bd8284a3fb9752a998"
+PKG_VERSION="9e2a5668fd38db169d9d91b13089a99df4c9bd37"
+PKG_SHA256="f2a7bd25e84fddd445022fe4057ea95c466512fc0320c6ce0695d5480e6716de"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.busybox.net"
-PKG_URL="http://busybox.net/downloads/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_URL="https://git.busybox.net/busybox/snapshot/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_HOST="toolchain:host"
 PKG_DEPENDS_TARGET="toolchain busybox:host hdparm dosfstools e2fsprogs zip unzip usbutils parted procps-ng gptfdisk libtirpc"
 PKG_DEPENDS_INIT="toolchain libtirpc"
