@@ -27,6 +27,11 @@ case "$PROJECT" in
     PKG_URL="https://github.com/rockchip-linux/u-boot/archive/$PKG_VERSION.tar.gz"
     PKG_PATCH_DIRS="rockchip"
     ;;
+if [ "$DEVICE" != "RK3326" ]; then
+    PKG_VERSION="231c0fa3f704286644a52755daa4e00316670dbb"
+    PKG_URL="https://github.com/hardkernel/u-boot/archive/$PKG_VERSION.tar.gz"
+    ;;
+fi
   *)
     PKG_VERSION="2019.04"
     PKG_SHA256="76b7772d156b3ddd7644c8a1736081e55b78828537ff714065d21dbade229bef"

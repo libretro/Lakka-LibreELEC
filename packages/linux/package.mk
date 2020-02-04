@@ -22,6 +22,12 @@ case "$LINUX" in
     PKG_URL="https://github.com/rockchip-linux/kernel/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     ;;
+  odroidgoa-4.4)
+    PKG_VERSION="0060d908cc4ba21167d8cf00675518d18529b800"
+    PKG_SHA256="94f9ccdd0e9a8925a84a1d576c7134e7f1ef29b67130238c020b7a4fb07d22c5"
+    PKG_URL="https://github.com/hardkernel/linux/archive/$PKG_VERSION.tar.gz"
+    PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
+    ;;
   raspberrypi)
     PKG_VERSION="3c235dcfe80a7c7ba360219e4a3ecb256f294376" # 4.19.83
     PKG_SHA256="23a222d8864107b296b3bf580106421899964af879bb7f1c440e875e565fd6f3"
