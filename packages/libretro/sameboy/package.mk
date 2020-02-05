@@ -19,13 +19,12 @@
 ################################################################################
 
 PKG_NAME="sameboy"
-PKG_VERSION="da29506"
+PKG_VERSION="c9e547c"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/libretro/sameboy"
 PKG_URL="$PKG_SITE.git"
-PKG_GIT_CLONE_BRANCH="buildbot"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
