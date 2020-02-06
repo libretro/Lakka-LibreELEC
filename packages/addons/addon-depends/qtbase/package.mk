@@ -3,12 +3,12 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="qtbase"
-PKG_VERSION="5.6.2"
-PKG_SHA256="2f6eae93c5d982fe0a387a01aeb3435571433e23e9d9d9246741faf51f1ee787"
+PKG_VERSION="5.14.0"
+PKG_SHA256="4ef921c0f208a1624439801da8b3f4344a3793b660ce1095f2b7f5c4246b9463"
 PKG_LICENSE="GPL"
 PKG_SITE="http://qt-project.org"
-PKG_URL="http://download.qt.io/official_releases/qt/5.6/$PKG_VERSION/submodules/$PKG_NAME-opensource-src-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET="pcre zlib"
+PKG_URL="http://download.qt.io/archive/qt/${PKG_VERSION%.*}/$PKG_VERSION/submodules/$PKG_NAME-everywhere-src-$PKG_VERSION.tar.xz"
+PKG_DEPENDS_TARGET="freetype libjpeg-turbo libpng openssl sqlite zlib"
 PKG_LONGDESC="A cross-platform application and UI framework."
 
 PKG_CONFIGURE_OPTS_TARGET="-prefix /usr
@@ -17,39 +17,50 @@ PKG_CONFIGURE_OPTS_TARGET="-prefix /usr
                            -device linux-libreelec-g++
                            -opensource -confirm-license
                            -release
+                           -optimize-size
+                           -strip
                            -static
-                           -make libs
-                           -force-pkg-config
-                           -no-accessibility
-                           -no-sql-sqlite
-                           -no-sql-mysql
-                           -no-qml-debug
-                           -system-zlib
-                           -no-mtdev
-                           -no-gif
-                           -no-libpng
-                           -no-libjpeg
-                           -no-harfbuzz
-                           -no-openssl
-                           -no-libproxy
-                           -system-pcre
-                           -no-glib
-                           -no-pulseaudio
-                           -no-alsa
                            -silent
-                           -no-cups
-                           -no-iconv
-                           -no-evdev
-                           -no-tslib
-                           -no-icu
-                           -no-strip
-                           -no-fontconfig
+                           -force-pkg-config
+                           -make libs
                            -no-dbus
+                           -no-accessibility
+                           -no-glib
+                           -no-iconv
+                           -no-icu
+                           -qt-pcre
+                           -system-zlib
+                           -openssl-linked
+                           -no-libproxy
+                           -no-cups
+                           -no-fontconfig
+                           -system-freetype
+                           -no-harfbuzz
                            -no-opengl
+                           -no-egl
+                           -no-eglfs
+                           -no-gbm
+                           -no-kms
+                           -no-linuxfb
+                           -no-xcb
+                           -no-feature-vnc
+                           -no-feature-sessionmanager
+                           -no-feature-easingcurve
+                           -no-feature-effects
+                           -no-feature-gestures
+                           -no-feature-itemmodel
                            -no-libudev
+                           -no-evdev
                            -no-libinput
-                           -no-gstreamer
-                           -no-eglfs"
+                           -no-mtdev
+                           -no-tslib
+                           -no-xkbcommon
+                           -no-gif
+                           -no-ico
+                           -system-libpng
+                           -system-libjpeg
+                           -no-sql-mysql
+                           -system-sqlite"
 
 configure_target() {
   QMAKE_CONF_DIR="mkspecs/devices/linux-libreelec-g++"
@@ -85,10 +96,4 @@ EOF
 
   unset CC CXX LD RANLIB AR AS CPPFLAGS CFLAGS LDFLAGS CXXFLAGS
   ./configure ${PKG_CONFIGURE_OPTS_TARGET}
-}
-
-post_makeinstall_target() {
-  # Qt installs directly to $SYSROOT_PREFIX so don't rely on scripts/build fixing this up
-  # PKG_ORIG_SYSROOT_PREFIX will be undefined when performing a legacy build
-  sed -e "s:\(['= ]\)/usr:\\1${PKG_ORIG_SYSROOT_PREFIX:-${SYSROOT_PREFIX}}/usr:g" -i "${PKG_ORIG_SYSROOT_PREFIX:-${SYSROOT_PREFIX}}/usr/lib"/libQt*.la
 }
