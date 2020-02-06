@@ -19,6 +19,29 @@ else
   PKG_FLOAT="hardfp"
 fi
 
+post_unpack() {
+  # do not build GLES stuff when not using as GLES driver
+  if [ "${OPENGLES}" != "bcm2835-driver" -a "${OPENGL}" != "bcm2835-driver" ]; then
+    rm -v $PKG_BUILD/$PKG_FLOAT/opt/vc/lib/pkgconfig/brcmegl.pc
+    rm -v $PKG_BUILD/$PKG_FLOAT/opt/vc/lib/pkgconfig/egl.pc
+    rm -v $PKG_BUILD/$PKG_FLOAT/opt/vc/lib/pkgconfig/brcmglesv2.pc
+    rm -v $PKG_BUILD/$PKG_FLOAT/opt/vc/lib/pkgconfig/glesv2.pc
+
+    rm -v $PKG_BUILD/$PKG_FLOAT/opt/vc/lib/libbrcmEGL.so
+    rm -v $PKG_BUILD/$PKG_FLOAT/opt/vc/lib/libbrcmGLESv2.so
+    rm -v $PKG_BUILD/$PKG_FLOAT/opt/vc/lib/libEGL.so
+    rm -v $PKG_BUILD/$PKG_FLOAT/opt/vc/lib/libGLESv1_CM.so
+    rm -v $PKG_BUILD/$PKG_FLOAT/opt/vc/lib/libGLESv2.so
+
+    rm -v $PKG_BUILD/$PKG_FLOAT/opt/vc/lib/libEGL_static.a
+    rm -v $PKG_BUILD/$PKG_FLOAT/opt/vc/lib/libGLESv2_static.a
+
+    rm -vrf $PKG_BUILD/$PKG_FLOAT/opt/vc/include/EGL
+    rm -vrf $PKG_BUILD/$PKG_FLOAT/opt/vc/include/GLES
+    rm -vrf $PKG_BUILD/$PKG_FLOAT/opt/vc/include/GLES2
+  fi
+}
+
 makeinstall_target() {
   # Install vendor header files
   mkdir -p ${SYSROOT_PREFIX}/usr/include
