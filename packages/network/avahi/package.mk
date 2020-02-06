@@ -56,8 +56,6 @@ pre_configure_target() {
 }
 
 post_makeinstall_target() {
-# for some reason avai can fail to start see: http://forums.gentoo.org/viewtopic-p-7322172.html#7322172
-  sed -e "s,^.*disallow-other-stacks=.*$,disallow-other-stacks=yes,g" -i $INSTALL/etc/avahi/avahi-daemon.conf
 # disable wide-area
   sed -e "s,^.*enable-wide-area=.*$,enable-wide-area=no,g" -i $INSTALL/etc/avahi/avahi-daemon.conf
 # publish-hinfo

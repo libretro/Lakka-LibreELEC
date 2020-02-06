@@ -3,8 +3,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="bcm2835-driver"
-PKG_VERSION="66bafab005569e3eb92ec54cd3efeee3da338738"
-PKG_SHA256="262b2eab4af814ada6d7806a23dd720b5e6c5706a19cfe46ea30c19f76fdc11b"
+PKG_VERSION="8e688a44332268ee4f1e3d70d67b81e0567cbe71"
+PKG_SHA256="cccc552006cc4dfe698650a9a6d70c542f4e3ffcd02ac6403e14bf6394281179"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.broadcom.com"
 PKG_URL="${DISTRO_SRC}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
@@ -18,29 +18,6 @@ if [ "${TARGET_FLOAT}" = "soft" ]; then
 else
   PKG_FLOAT="hardfp"
 fi
-
-post_unpack() {
-  # do not build GLES stuff when not using as GLES driver
-  if [ "${OPENGLES}" != "bcm2835-driver" -a "${OPENGL}" != "bcm2835-driver" ]; then
-    rm -v $PKG_BUILD/$PKG_FLOAT/opt/vc/lib/pkgconfig/brcmegl.pc
-    rm -v $PKG_BUILD/$PKG_FLOAT/opt/vc/lib/pkgconfig/egl.pc
-    rm -v $PKG_BUILD/$PKG_FLOAT/opt/vc/lib/pkgconfig/brcmglesv2.pc
-    rm -v $PKG_BUILD/$PKG_FLOAT/opt/vc/lib/pkgconfig/glesv2.pc
-
-    rm -v $PKG_BUILD/$PKG_FLOAT/opt/vc/lib/libbrcmEGL.so
-    rm -v $PKG_BUILD/$PKG_FLOAT/opt/vc/lib/libbrcmGLESv2.so
-    rm -v $PKG_BUILD/$PKG_FLOAT/opt/vc/lib/libEGL.so
-    rm -v $PKG_BUILD/$PKG_FLOAT/opt/vc/lib/libGLESv1_CM.so
-    rm -v $PKG_BUILD/$PKG_FLOAT/opt/vc/lib/libGLESv2.so
-
-    rm -v $PKG_BUILD/$PKG_FLOAT/opt/vc/lib/libEGL_static.a
-    rm -v $PKG_BUILD/$PKG_FLOAT/opt/vc/lib/libGLESv2_static.a
-
-    rm -vrf $PKG_BUILD/$PKG_FLOAT/opt/vc/include/EGL
-    rm -vrf $PKG_BUILD/$PKG_FLOAT/opt/vc/include/GLES
-    rm -vrf $PKG_BUILD/$PKG_FLOAT/opt/vc/include/GLES2
-  fi
-}
 
 makeinstall_target() {
   # Install vendor header files
@@ -101,11 +78,13 @@ makeinstall_target() {
     ln -s dtoverlay                            ${INSTALL}/usr/bin/dtparam
     cp -PRv ${PKG_FLOAT}/opt/vc/bin/vcdbg      ${INSTALL}/usr/bin
     cp -PRv ${PKG_FLOAT}/opt/vc/bin/vcgencmd   ${INSTALL}/usr/bin
+    cp -PRv ${PKG_FLOAT}/opt/vc/bin/vcmailbox  ${INSTALL}/usr/bin
     cp -PRv ${PKG_FLOAT}/opt/vc/bin/tvservice  ${INSTALL}/usr/bin
     cp -PRv ${PKG_FLOAT}/opt/vc/bin/edidparser ${INSTALL}/usr/bin
 
   # Create symlinks to /opt/vc to satisfy hardcoded lib paths
   mkdir -p ${INSTALL}/opt/vc
+    ln -sf /usr/bin ${INSTALL}/opt/vc/bin
     ln -sf /usr/lib ${INSTALL}/opt/vc/lib
 }
 

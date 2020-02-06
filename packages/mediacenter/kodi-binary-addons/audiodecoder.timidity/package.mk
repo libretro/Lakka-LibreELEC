@@ -3,9 +3,9 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.timidity"
-PKG_VERSION="2.0.1-Leia"
-PKG_SHA256="a289c49ec58b34697efd499e081e3f6580c2958e7e6801e2617e7d3f2d648a1d"
-PKG_REV="4"
+PKG_VERSION="2.0.3-Leia"
+PKG_SHA256="bc6dea6dca0949571a3123e26f27dc73c78b8a876362fc8e95649280f2557bc0"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.timidity"
@@ -22,5 +22,5 @@ addon() {
   install_binary_addon $PKG_ADDON_ID
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID
-    cp -P $PKG_BUILD/.$TARGET_NAME/lib/timidity/libtimidity.so $ADDON_BUILD/$PKG_ADDON_ID/
+    cp -P $PKG_BUILD/.$TARGET_NAME/lib/timidity/libtimidity_*.so $ADDON_BUILD/$PKG_ADDON_ID/
 }

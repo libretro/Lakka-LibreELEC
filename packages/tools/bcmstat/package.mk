@@ -2,8 +2,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="bcmstat"
-PKG_VERSION="0.5.2"
-PKG_SHA256="55dec681b8dddb3b4d98e339644fa68ff3d0f05d287b09037cbad4d450df7a3a"
+PKG_VERSION="0.5.3"
+PKG_SHA256="eec3ddccefe9cc31c51f163e5ed7257e97efdde91eda6c5f7e60734736390cf3"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/MilhouseVH/bcmstat"
 PKG_URL="https://github.com/MilhouseVH/$PKG_NAME/archive/$PKG_VERSION.tar.gz"

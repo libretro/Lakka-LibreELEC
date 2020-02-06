@@ -102,7 +102,7 @@ makeinstall_target() {
 post_makeinstall_target() {
   rm -fr $PKG_BUILD/.$TARGET_NAME/build/temp.*
 
-  for dir in bsddb idlelib lib-tk lib2to3 msilib pydoc_data test unittest; do
+  for dir in bsddb idlelib lib-tk lib2to3/tests msilib pydoc_data test unittest; do
     rm -rf $INSTALL/usr/lib/python*/$dir
   done
 

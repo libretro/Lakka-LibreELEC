@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="sundtek-mediatv"
 PKG_VERSION="7.0"
@@ -8,7 +9,7 @@ PKG_ARCH="any"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://support.sundtek.com/"
 PKG_URL=""
-PKG_DEPENDS_TARGET=""
+PKG_DEPENDS_TARGET="xmlstarlet:host p7zip:host"
 PKG_SECTION="driver/dvb"
 PKG_SHORTDESC="Sundtek MediaTV: a Linux driver to add support for SUNDTEK USB DVB devices"
 PKG_LONGDESC="Install this to add support for Sundtek USB DVB devices."

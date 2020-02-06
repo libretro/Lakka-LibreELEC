@@ -3,9 +3,9 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.upse"
-PKG_VERSION="2.0.0-Leia"
-PKG_SHA256="a9879b970e53156dad2b937e9c366fb77aa7e85bf8d2702175469f68ad4569cb"
-PKG_REV="4"
+PKG_VERSION="2.0.1-Leia"
+PKG_SHA256="990d71bb8d0ef6178634441af6f429ae9570dc34f5ea06a16de9ab8868776905"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.upse"

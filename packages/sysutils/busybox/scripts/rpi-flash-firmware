@@ -1,0 +1,42 @@
+#!/bin/sh
+
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
+
+FLAG_FILE="/storage/.rpi_flash_firmware"
+
+. /usr/lib/libreelec/functions
+
+hidecursor
+
+if [ -f "${FLAG_FILE}" ]; then
+  . ${FLAG_FILE}
+  rm -f "${FLAG_FILE}"
+
+  if ! mount -o remount,rw /flash 2>/dev/null; then
+    echo "ERROR: Unable to mount /flash as a read/write file system."
+    echo
+    echo "Aborting Flash update process - please proceed with a manual update."
+    echo
+
+    StartProgress countdown "Rebooting in 15s... " 15 "NOW"
+    reboot -f &>/dev/null
+  fi
+
+  # Install new bootloader and/or USB3 firmware files to /flash
+  # Firmware flashing will occur during the next boot, after
+  # which the system will again reboot.
+  # Old firmware files will be automatically removed by init.
+  CMD_ARGS=""
+  [ "${BOOTLOADER}" = "yes" ] && CMD_ARGS="${CMD_ARGS} -A bootloader"
+  [ "${VL805}" = "yes" ] && CMD_ARGS="${CMD_ARGS} -A vl805"
+
+  if [ -n "${CMD_ARGS}" ]; then
+    USE_FLASHROM=0 /usr/bin/.rpi-eeprom-update.real ${CMD_ARGS}
+  fi
+
+  sync
+  mount -o remount,ro /flash
+fi
+
+reboot -f &>/dev/null

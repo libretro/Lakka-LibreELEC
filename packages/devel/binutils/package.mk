@@ -9,7 +9,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/binutils/"
 PKG_URL="http://ftpmirror.gnu.org/binutils/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_HOST="ccache:host bison:host flex:host linux:host"
-PKG_DEPENDS_TARGET="toolchain binutils:host"
+PKG_DEPENDS_TARGET="toolchain zlib binutils:host"
 PKG_LONGDESC="A GNU collection of binary utilities."
 
 PKG_CONFIGURE_OPTS_HOST="--target=$TARGET_NAME \
@@ -31,6 +31,7 @@ PKG_CONFIGURE_OPTS_HOST="--target=$TARGET_NAME \
 PKG_CONFIGURE_OPTS_TARGET="--target=$TARGET_NAME \
                          --with-sysroot=$SYSROOT_PREFIX \
                          --with-lib-path=$SYSROOT_PREFIX/lib:$SYSROOT_PREFIX/usr/lib \
+                         --with-system-zlib \
                          --without-ppl \
                          --without-cloog \
                          --enable-static \
@@ -67,6 +68,7 @@ make_target() {
   make -C libiberty
   make -C bfd
   make -C opcodes
+  make -C binutils strings
 }
 
 makeinstall_target() {
@@ -74,4 +76,7 @@ makeinstall_target() {
     cp libiberty/libiberty.a $SYSROOT_PREFIX/usr/lib
   make DESTDIR="$SYSROOT_PREFIX" -C bfd install
   make DESTDIR="$SYSROOT_PREFIX" -C opcodes install
+
+  mkdir -p ${INSTALL}/usr/bin
+    cp binutils/strings ${INSTALL}/usr/bin
 }
