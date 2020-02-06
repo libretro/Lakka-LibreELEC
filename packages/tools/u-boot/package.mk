@@ -22,16 +22,19 @@ PKG_NEED_UNPACK="$PROJECT_DIR/$PROJECT/bootloader"
 
 case "$PROJECT" in
   Rockchip)
-    PKG_VERSION="8659d08d2b589693d121c1298484e861b7dafc4f"
-    PKG_SHA256="3f9f2bbd0c28be6d7d6eb909823fee5728da023aca0ce37aef3c8f67d1179ec1"
-    PKG_URL="https://github.com/rockchip-linux/u-boot/archive/$PKG_VERSION.tar.gz"
-    PKG_PATCH_DIRS="rockchip"
+    case "$DEVICE" in
+      OdroidGoAdvance)
+        PKG_VERSION="231c0fa3f704286644a52755daa4e00316670dbb"
+        PKG_URL="https://github.com/hardkernel/u-boot/archive/$PKG_VERSION.tar.gz"
+        ;;
+      *)
+        PKG_VERSION="8659d08d2b589693d121c1298484e861b7dafc4f"
+        PKG_SHA256="3f9f2bbd0c28be6d7d6eb909823fee5728da023aca0ce37aef3c8f67d1179ec1"
+        PKG_URL="https://github.com/rockchip-linux/u-boot/archive/$PKG_VERSION.tar.gz"
+        PKG_PATCH_DIRS="rockchip"
+        ;;
+    esac
     ;;
-if [ "$DEVICE" != "RK3326" ]; then
-    PKG_VERSION="231c0fa3f704286644a52755daa4e00316670dbb"
-    PKG_URL="https://github.com/hardkernel/u-boot/archive/$PKG_VERSION.tar.gz"
-    ;;
-fi
   *)
     PKG_VERSION="2019.04"
     PKG_SHA256="76b7772d156b3ddd7644c8a1736081e55b78828537ff714065d21dbade229bef"
