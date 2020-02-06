@@ -32,7 +32,7 @@ PKG_CONFIGURE_OPTS_TARGET="--without-ada \
                            --without-dmalloc \
                            --disable-rpath \
                            --disable-database \
-                           --with-fallbacks=linux,screen,xterm,xterm-color \
+                           --with-fallbacks=linux,screen,xterm,xterm-color,dumb \
                            --with-termpath=/storage/.config/termcap \
                            --disable-big-core \
                            --enable-termcap \
