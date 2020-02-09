@@ -130,6 +130,8 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin/python*-config
   rm -rf $INSTALL/usr/bin/smtpd.py $INSTALL/usr/bin/smtpd.py.*
 
+  find $INSTALL -name '*.o' -delete
+
   python_compile $PKG_INSTALL_PATH_LIB
 
   # strip
