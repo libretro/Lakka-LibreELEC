@@ -158,6 +158,12 @@ Full list of overwrittable functions.
 | addon                   | -      | Copy all files together for addon creation. This is requiered for addons |
 | post_install_addon      | -      | Post processing of installed addon files in `${INSTALL}` directory |
 
+## Directory structure
+Every package has its own set of build and install directories. The sources are extracted and built in the former, and build artifacts are installed to the latter.
+Usually an install target provided by the package build system will populate the install directory automatically, but it's important that you use the standard `usr/lib/`, `usr/bin/` etc. structure when doing so manually, because the contents of the install directory will be part of the final image (with the exception of top level hidden directories).
+
+Sometimes it's necessary to access build artifacts from different packages - like an addon collecting files of various other packages. In that case you need to access the files using the package's install directories (and not their build directories since they might not exist anymore). If you need additional files which should not be part of the final image, you can use a hidden directory for those - grep for `.noinstall` for some examples.
+
 ## Late Binding variable assignment
 
 A package will be loaded only once, by the call to `config/options`. During this process, additional package specific variables will be initialised, such as:
