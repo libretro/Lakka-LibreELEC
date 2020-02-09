@@ -12,11 +12,13 @@ PKG_SITE="http://linuxtv.org/"
 PKG_URL="http://linuxtv.org/downloads/v4l-utils/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain alsa-lib systemd"
 PKG_LONGDESC="Linux V4L2 and DVB API utilities and v4l libraries (libv4l)."
+PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--without-jpeg \
 	--disable-bpf \
 	--enable-static \
-	--disable-shared"
+	--disable-shared \
+	--disable-doxygen-doc"
 
 pre_configure_target() {
   # cec-ctl fails to build in subdirs
