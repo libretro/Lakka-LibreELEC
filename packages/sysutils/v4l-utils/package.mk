@@ -45,6 +45,7 @@ makeinstall_target() {
   fi
   make install DESTDIR=$INSTALL PREFIX=/usr -C utils/dvb
   make install DESTDIR=$INSTALL PREFIX=/usr -C utils/v4l2-ctl
+  cp ${PKG_BUILD}/contrib/lircd2toml.py ${INSTALL}/usr/bin/
 }
 
 create_multi_keymap() {
