@@ -1,0 +1,336 @@
+diff --git a/kernel/common/inc/nv-linux.h b/kernel/common/inc/nv-linux.h
+index e235842..805e525 100644
+--- a/kernel/common/inc/nv-linux.h
++++ b/kernel/common/inc/nv-linux.h
+@@ -531,7 +531,11 @@ static inline void *nv_ioremap(NvU64 phys, NvU64 size)
+ 
+ static inline void *nv_ioremap_nocache(NvU64 phys, NvU64 size)
+ {
++#if defined(NV_IOREMAP_NOCACHE_PRESENT)
+     void *ptr = ioremap_nocache(phys, size);
++#else
++    void *ptr = ioremap(phys, size);
++#endif
+     if (ptr)
+         NV_MEMDBG_ADD(ptr, size);
+     return ptr;
+diff --git a/kernel/common/inc/nv-procfs.h b/kernel/common/inc/nv-procfs.h
+index 8b53f86..4c5aceb 100644
+--- a/kernel/common/inc/nv-procfs.h
++++ b/kernel/common/inc/nv-procfs.h
+@@ -28,6 +28,18 @@
+ 
+ #define IS_EXERCISE_ERROR_FORWARDING_ENABLED() (EXERCISE_ERROR_FORWARDING)
+ 
++#if defined(NV_HAVE_PROC_OPS)
++#define NV_CREATE_PROC_FILE(filename,parent,__name,__data)               \
++   ({                                                                    \
++        struct proc_dir_entry *__entry;                                  \
++        int mode = (S_IFREG | S_IRUGO);                                  \
++        const struct proc_ops *fops = &nv_procfs_##__name##_fops;        \
++        if (fops->proc_write != 0)                                       \
++            mode |= S_IWUSR;                                             \
++        __entry = proc_create_data(filename, mode, parent, fops, __data);\
++        __entry;                                                         \
++    })
++#else
+ #define NV_CREATE_PROC_FILE(filename,parent,__name,__data)               \
+    ({                                                                    \
+         struct proc_dir_entry *__entry;                                  \
+@@ -38,6 +50,7 @@
+         __entry = proc_create_data(filename, mode, parent, fops, __data);\
+         __entry;                                                         \
+     })
++#endif
+ 
+ /*
+  * proc_mkdir_mode exists in Linux 2.6.9, but isn't exported until Linux 3.0.
+@@ -77,6 +90,44 @@
+     remove_proc_entry(entry->name, entry->parent);
+ #endif
+ 
++#if defined(NV_HAVE_PROC_OPS)
++#define NV_DEFINE_SINGLE_PROCFS_FILE(name, open_callback, close_callback)     \
++    static int nv_procfs_open_##name(                                         \
++        struct inode *inode,                                                  \
++        struct file *filep                                                    \
++    )                                                                         \
++    {                                                                         \
++        int ret;                                                              \
++        ret = single_open(filep, nv_procfs_read_##name,                       \
++                          NV_PDE_DATA(inode));                                \
++        if (ret < 0)                                                          \
++        {                                                                     \
++            return ret;                                                       \
++        }                                                                     \
++        ret = open_callback();                                                \
++        if (ret < 0)                                                          \
++        {                                                                     \
++            single_release(inode, filep);                                     \
++        }                                                                     \
++        return ret;                                                           \
++    }                                                                         \
++                                                                              \
++    static int nv_procfs_release_##name(                                      \
++        struct inode *inode,                                                  \
++        struct file *filep                                                    \
++    )                                                                         \
++    {                                                                         \
++        close_callback();                                                     \
++        return single_release(inode, filep);                                  \
++    }                                                                         \
++                                                                              \
++    static const struct proc_ops nv_procfs_##name##_fops = {                  \
++        .proc_open       = nv_procfs_open_##name,                             \
++        .proc_read       = seq_read,                                          \
++        .proc_lseek      = seq_lseek,                                         \
++        .proc_release    = nv_procfs_release_##name,                          \
++    };
++#else
+ #define NV_DEFINE_SINGLE_PROCFS_FILE(name, open_callback, close_callback)     \
+     static int nv_procfs_open_##name(                                         \
+         struct inode *inode,                                                  \
+@@ -114,6 +165,7 @@
+         .llseek     = seq_lseek,                                              \
+         .release    = nv_procfs_release_##name,                               \
+     };
++#endif
+ 
+ #endif  /* CONFIG_PROC_FS */
+ 
+diff --git a/kernel/conftest.sh b/kernel/conftest.sh
+index 57d85a4..4902248 100755
+--- a/kernel/conftest.sh
++++ b/kernel/conftest.sh
+@@ -780,6 +780,22 @@ compile_test() {
+             compile_check_conftest "$CODE" "NV_IOREMAP_CACHE_PRESENT" "" "functions"
+         ;;
+ 
++        ioremap_nocache)
++            #
++            # Determine if the ioremap_nocache() function is present.
++            #
++            # Removed by commit 4bdc0d676a64 ("remove ioremap_nocache and
++            # devm_ioremap_nocache") in v5.6 (2020-01-06)
++            #
++            CODE="
++            #include <asm/io.h>
++            void conftest_ioremap_nocache(void) {
++                ioremap_nocache();
++            }"
++
++            compile_check_conftest "$CODE" "NV_IOREMAP_NOCACHE_PRESENT" "" "functions"
++        ;;
++
+         ioremap_wc)
+             #
+             # Determine if the ioremap_wc() function is present.
+@@ -806,6 +822,16 @@ compile_test() {
+             compile_check_conftest "$CODE" "NV_FILE_OPERATIONS_HAS_IOCTL" "" "types"
+         ;;
+ 
++        proc_ops)
++            CODE="
++            #include <linux/proc_fs.h>
++            int conftest_proc_ops(void) {
++                return offsetof(struct proc_ops, proc_open);
++            }"
++
++            compile_check_conftest "$CODE" "NV_HAVE_PROC_OPS" "" "types"
++        ;;
++
+         sg_alloc_table)
+             #
+             # sg_alloc_table_from_pages added by commit efc42bc98058
+diff --git a/kernel/nvidia/nv-procfs.c b/kernel/nvidia/nv-procfs.c
+index 064d727..a7308d3 100644
+--- a/kernel/nvidia/nv-procfs.c
++++ b/kernel/nvidia/nv-procfs.c
+@@ -452,6 +452,15 @@ done:
+     return ((status < 0) ? status : (int)count);
+ }
+ 
++#if defined(NV_HAVE_PROC_OPS)
++static struct proc_ops nv_procfs_registry_fops = {
++    .proc_open    = nv_procfs_open_registry,
++    .proc_read    = seq_read,
++    .proc_write   = nv_procfs_write_file,
++    .proc_lseek   = seq_lseek,
++    .proc_release = nv_procfs_close_registry,
++};
++#else
+ static struct file_operations nv_procfs_registry_fops = {
+     .owner   = THIS_MODULE,
+     .open    = nv_procfs_open_registry,
+@@ -460,6 +469,7 @@ static struct file_operations nv_procfs_registry_fops = {
+     .llseek  = seq_lseek,
+     .release = nv_procfs_close_registry,
+ };
++#endif
+ 
+ #if defined(CONFIG_PM)
+ static int
+@@ -531,6 +541,15 @@ nv_procfs_open_suspend_depth(
+     return single_open(file, nv_procfs_show_suspend_depth, NULL);
+ }
+ 
++#if defined(NV_HAVE_PROC_OPS)
++static struct proc_ops nv_procfs_suspend_depth_fops = {
++    .proc_open    = nv_procfs_open_suspend_depth,
++    .proc_read    = seq_read,
++    .proc_write   = nv_procfs_write_suspend_depth,
++    .proc_lseek   = seq_lseek,
++    .proc_release = single_release
++};
++#else
+ static struct file_operations nv_procfs_suspend_depth_fops = {
+     .owner   = THIS_MODULE,
+     .open    = nv_procfs_open_suspend_depth,
+@@ -539,6 +558,7 @@ static struct file_operations nv_procfs_suspend_depth_fops = {
+     .llseek  = seq_lseek,
+     .release = single_release
+ };
++#endif
+ 
+ static int
+ nv_procfs_show_suspend(
+@@ -613,6 +633,15 @@ nv_procfs_open_suspend(
+     return single_open(file, nv_procfs_show_suspend, NULL);
+ }
+ 
++#if defined(NV_HAVE_PROC_OPS)
++static struct proc_ops nv_procfs_suspend_fops = {
++    .proc_open    = nv_procfs_open_suspend,
++    .proc_read    = seq_read,
++    .proc_write   = nv_procfs_write_suspend,
++    .proc_lseek   = seq_lseek,
++    .proc_release = single_release
++};
++#else
+ static struct file_operations nv_procfs_suspend_fops = {
+     .owner   = THIS_MODULE,
+     .open    = nv_procfs_open_suspend,
+@@ -622,6 +651,7 @@ static struct file_operations nv_procfs_suspend_fops = {
+     .release = single_release
+ };
+ #endif
++#endif
+ 
+ /*
+  * Forwards error to nv_log_error which exposes data to vendor callback
+@@ -724,12 +754,20 @@ done:
+     return status;
+ }
+ 
++#if defined(NV_HAVE_PROC_OPS)
++static struct proc_ops nv_procfs_exercise_error_forwarding_fops = {
++    .proc_open    = nv_procfs_open_exercise_error_forwarding,
++    .proc_write   = nv_procfs_write_file,
++    .proc_release = nv_procfs_close_exercise_error_forwarding,
++};
++#else
+ static struct file_operations nv_procfs_exercise_error_forwarding_fops = {
+     .owner   = THIS_MODULE,
+     .open    = nv_procfs_open_exercise_error_forwarding,
+     .write   = nv_procfs_write_file,
+     .release = nv_procfs_close_exercise_error_forwarding,
+ };
++#endif
+ 
+ static int
+ nv_procfs_read_unbind_lock(
+@@ -851,6 +889,15 @@ done:
+     return rc;
+ }
+ 
++#if defined(NV_HAVE_PROC_OPS)
++static struct proc_ops nv_procfs_unbind_lock_fops = {
++    .proc_open    = nv_procfs_open_unbind_lock,
++    .proc_read    = seq_read,
++    .proc_write   = nv_procfs_write_file,
++    .proc_lseek   = seq_lseek,
++    .proc_release = nv_procfs_close_unbind_lock,
++};
++#else
+ static struct file_operations nv_procfs_unbind_lock_fops = {
+     .owner   = THIS_MODULE,
+     .open    = nv_procfs_open_unbind_lock,
+@@ -859,6 +906,7 @@ static struct file_operations nv_procfs_unbind_lock_fops = {
+     .llseek  = seq_lseek,
+     .release = nv_procfs_close_unbind_lock,
+ };
++#endif
+ 
+ static const char*
+ numa_status_describe(nv_numa_status_t state)
+@@ -1187,6 +1235,22 @@ done:
+     return retval;
+ }
+ 
++#if defined(NV_HAVE_PROC_OPS)
++static const struct proc_ops nv_procfs_numa_status_fops = {
++    .proc_open    = nv_procfs_open_numa_status,
++    .proc_read    = seq_read,
++    .proc_write   = nv_procfs_write_file,
++    .proc_lseek   = seq_lseek,
++    .proc_release = nv_procfs_close_numa_status,
++};
++
++static const struct proc_ops nv_procfs_offline_pages_fops = {
++    .proc_open    = nv_procfs_open_offline_pages,
++    .proc_read    = seq_read,
++    .proc_lseek   = seq_lseek,
++    .proc_release = nv_procfs_close_offline_pages,
++};
++#else
+ static const struct file_operations nv_procfs_numa_status_fops = {
+     .owner   = THIS_MODULE,
+     .open    = nv_procfs_open_numa_status,
+@@ -1203,6 +1267,7 @@ static const struct file_operations nv_procfs_offline_pages_fops = {
+     .llseek  = seq_lseek,
+     .release = nv_procfs_close_offline_pages,
+ };
++#endif
+ 
+ static int
+ nv_procfs_read_text_file(
+diff --git a/kernel/nvidia/nvidia.Kbuild b/kernel/nvidia/nvidia.Kbuild
+index 5ec3e65..2897e31 100644
+--- a/kernel/nvidia/nvidia.Kbuild
++++ b/kernel/nvidia/nvidia.Kbuild
+@@ -104,6 +104,7 @@ NV_CONFTEST_FUNCTION_COMPILE_TESTS += set_memory_array_uc
+ NV_CONFTEST_FUNCTION_COMPILE_TESTS += acquire_console_sem
+ NV_CONFTEST_FUNCTION_COMPILE_TESTS += console_lock
+ NV_CONFTEST_FUNCTION_COMPILE_TESTS += ioremap_cache
++NV_CONFTEST_FUNCTION_COMPILE_TESTS += ioremap_nocache
+ NV_CONFTEST_FUNCTION_COMPILE_TESTS += ioremap_wc
+ NV_CONFTEST_FUNCTION_COMPILE_TESTS += acpi_walk_namespace
+ NV_CONFTEST_FUNCTION_COMPILE_TESTS += sg_alloc_table
+@@ -150,6 +151,7 @@ NV_CONFTEST_SYMBOL_COMPILE_TESTS += is_export_symbol_present_swiotlb_dma_ops
+ NV_CONFTEST_TYPE_COMPILE_TESTS += acpi_op_remove
+ NV_CONFTEST_TYPE_COMPILE_TESTS += outer_flush_all
+ NV_CONFTEST_TYPE_COMPILE_TESTS += file_operations
++NV_CONFTEST_TYPE_COMPILE_TESTS += proc_ops
+ NV_CONFTEST_TYPE_COMPILE_TESTS += file_inode
+ NV_CONFTEST_TYPE_COMPILE_TESTS += kuid_t
+ NV_CONFTEST_TYPE_COMPILE_TESTS += dma_ops
+diff --git a/kernel/nvidia/os-interface.c b/kernel/nvidia/os-interface.c
+index 07f1b77..a8f1d85 100644
+--- a/kernel/nvidia/os-interface.c
++++ b/kernel/nvidia/os-interface.c
+@@ -477,9 +477,15 @@ NV_STATUS NV_API_CALL os_get_current_time(
+ 
+ void NV_API_CALL os_get_current_tick(NvU64 *nseconds)
+ {
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 5, 0)
++    struct timespec64 ts;
++
++    jiffies_to_timespec64(jiffies, &ts);
++#else
+     struct timespec ts;
+ 
+     jiffies_to_timespec(jiffies, &ts);
++#endif
+ 
+     *nseconds = ((NvU64)ts.tv_sec * NSEC_PER_SEC + (NvU64)ts.tv_nsec);
+ }
