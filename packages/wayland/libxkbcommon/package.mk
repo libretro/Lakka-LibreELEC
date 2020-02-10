@@ -14,9 +14,11 @@ PKG_LONGDESC="xkbcommon is a library to handle keyboard descriptions."
 PKG_MESON_OPTS_TARGET="-Denable-docs=false"
 
 if [ "${DISPLAYSERVER}" = "x11" ]; then
+  PKG_DEPENDS_TARGET+=" libXau"
   PKG_MESON_OPTS_TARGET+=" -Denable-x11=true \
                            -Denable-wayland=false"
 elif [ "${DISPLAYSERVER}" = "weston" ]; then
+  PKG_DEPENDS_TARGET+=" wayland"
   PKG_MESON_OPTS_TARGET+=" -Denable-x11=false \
                            -Denable-wayland=true"
 else
