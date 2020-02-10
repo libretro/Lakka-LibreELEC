@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="intel_nuc_led"
-PKG_VERSION="637c07a"
-PKG_SHA256="b6c3c6f8a1a306f853f521bd0b6ab3cc876cd10ae8f6d152a72056e93e2866d4"
+PKG_VERSION="6a3850eadff554053ca7d95e830a624b28c53670"
+PKG_SHA256="14313183b1ef547dcc43cf943695f227bb456b8acd634fe12b4345e471b53b36"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/milesp20/intel_nuc_led/"
@@ -16,7 +16,7 @@ pre_make_target() {
 }
 
 make_target() {
-  kernel_make KDIR=$(kernel_path)
+  kernel_make KDIR=$(kernel_path) default
 }
 
 makeinstall_target() {
