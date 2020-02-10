@@ -1,0 +1,101 @@
+From 5224fb9bcb82733be5f7d4e41134578f48399a9b Mon Sep 17 00:00:00 2001
+From: MilhouseVH <milhouseVH.github@nmacleod.com>
+Date: Mon, 10 Feb 2020 11:34:46 +0000
+Subject: [PATCH 1/2] proc_create_data: fix 5.6-rc1
+ d56c0d45f0e27f814e87a1676b6bdccccbc252e9
+
+---
+ x86-64/src/wl/sys/wl_linux.c | 18 +++++++++++++-----
+ 1 file changed, 13 insertions(+), 5 deletions(-)
+
+diff --git a/x86-64/src/wl/sys/wl_linux.c b/x86-64/src/wl/sys/wl_linux.c
+index 0d05100..cbca645 100644
+--- a/x86-64/src/wl/sys/wl_linux.c
++++ b/x86-64/src/wl/sys/wl_linux.c
+@@ -3334,7 +3334,12 @@ wl_proc_write(struct file *filp, const char __user *buff, size_t length, loff_t
+ 	return length;
+ }
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
++static const struct proc_ops wl_pops = {
++	.proc_read	= wl_proc_read,
++	.proc_write	= wl_proc_write,
++};
++#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
+ static const struct file_operations wl_fops = {
+ 	.owner	= THIS_MODULE,
+ 	.read	= wl_proc_read,
+@@ -3347,12 +3352,15 @@ wl_reg_proc_entry(wl_info_t *wl)
+ {
+ 	char tmp[32];
+ 	sprintf(tmp, "%s%d", HYBRID_PROC, wl->pub->unit);
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
+-	if ((wl->proc_entry = create_proc_entry(tmp, 0644, NULL)) == NULL) {
+-		WL_ERROR(("%s: create_proc_entry %s failed\n", __FUNCTION__, tmp));
+-#else
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
++	if ((wl->proc_entry = proc_create_data(tmp, 0644, NULL, &wl_pops, wl)) == NULL) {
++		WL_ERROR(("%s: proc_create_data %s failed\n", __FUNCTION__, tmp));
++#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
+ 	if ((wl->proc_entry = proc_create_data(tmp, 0644, NULL, &wl_fops, wl)) == NULL) {
+ 		WL_ERROR(("%s: proc_create_data %s failed\n", __FUNCTION__, tmp));
++#else
++	if ((wl->proc_entry = create_proc_entry(tmp, 0644, NULL)) == NULL) {
++		WL_ERROR(("%s: create_proc_entry %s failed\n", __FUNCTION__, tmp));
+ #endif
+ 		ASSERT(0);
+ 		return -1;
+-- 
+2.20.1
+
+
+From 8d32f5792ec56b0088d5b5e3b21d4cbc97389728 Mon Sep 17 00:00:00 2001
+From: MilhouseVH <milhouseVH.github@nmacleod.com>
+Date: Mon, 10 Feb 2020 11:46:35 +0000
+Subject: [PATCH 2/2] ioremap_nocache: fix 5.6-rc1
+ 6a1000bd27035bba17ede9dc915166276a811edb
+
+---
+ x86-64/src/shared/linux_osl.c | 2 +-
+ x86-64/src/wl/sys/wl_linux.c  | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/x86-64/src/shared/linux_osl.c b/x86-64/src/shared/linux_osl.c
+index 6157d18..8237ec7 100644
+--- a/x86-64/src/shared/linux_osl.c
++++ b/x86-64/src/shared/linux_osl.c
+@@ -942,7 +942,7 @@ osl_getcycles(void)
+ void *
+ osl_reg_map(uint32 pa, uint size)
+ {
+-	return (ioremap_nocache((unsigned long)pa, (unsigned long)size));
++	return (ioremap((unsigned long)pa, (unsigned long)size));
+ }
+ 
+ void
+diff --git a/x86-64/src/wl/sys/wl_linux.c b/x86-64/src/wl/sys/wl_linux.c
+index cbca645..4bb0162 100644
+--- a/x86-64/src/wl/sys/wl_linux.c
++++ b/x86-64/src/wl/sys/wl_linux.c
+@@ -582,7 +582,7 @@ wl_attach(uint16 vendor, uint16 device, ulong regs,
+ 	}
+ 	wl->bcm_bustype = bustype;
+ 
+-	if ((wl->regsva = ioremap_nocache(dev->base_addr, PCI_BAR0_WINSZ)) == NULL) {
++	if ((wl->regsva = ioremap(dev->base_addr, PCI_BAR0_WINSZ)) == NULL) {
+ 		WL_ERROR(("wl%d: ioremap() failed\n", unit));
+ 		goto fail;
+ 	}
+@@ -772,7 +772,7 @@ wl_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	if ((val & 0x0000ff00) != 0)
+ 		pci_write_config_dword(pdev, 0x40, val & 0xffff00ff);
+ 		bar1_size = pci_resource_len(pdev, 2);
+-		bar1_addr = (uchar *)ioremap_nocache(pci_resource_start(pdev, 2),
++		bar1_addr = (uchar *)ioremap(pci_resource_start(pdev, 2),
+ 			bar1_size);
+ 	wl = wl_attach(pdev->vendor, pdev->device, pci_resource_start(pdev, 0), PCI_BUS, pdev,
+ 		pdev->irq, bar1_addr, bar1_size);
+-- 
+2.20.1
+
