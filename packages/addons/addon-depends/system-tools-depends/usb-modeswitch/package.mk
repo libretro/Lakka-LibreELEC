@@ -9,7 +9,4 @@ PKG_SITE="http://www.draisberghof.de/usb_modeswitch/"
 PKG_URL="http://www.draisberghof.de/usb_modeswitch/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain libusb"
 PKG_LONGDESC="USB_ModeSwitch - Handling Mode-Switching USB Devices on Linux"
-
-makeinstall_target() {
-  :
-}
+PKG_BUILD_FLAGS="-sysroot"

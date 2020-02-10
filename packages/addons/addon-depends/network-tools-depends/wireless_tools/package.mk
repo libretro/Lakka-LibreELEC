@@ -9,6 +9,7 @@ PKG_SITE="https://github.com/HewlettPackard/wireless-tools"
 PKG_URL="https://hewlettpackard.github.io/wireless-tools/$PKG_NAME.$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="The Wireless Tools (WT) is a set of tools allowing to manipulate the Wireless Extensions."
+PKG_BUILD_FLAGS="-sysroot"
 
 make_target() {
   make PREFIX=/usr CC="$CC" AR="$AR" \
@@ -16,5 +17,5 @@ make_target() {
 }
 
 makeinstall_target() {
-  :
+  make PREFIX=$INSTALL/usr install-iwmulticall
 }

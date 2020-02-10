@@ -9,11 +9,8 @@ PKG_SITE="http://ezix.org/project/wiki/HardwareLiSter"
 PKG_URL="http://ezix.org/software/files/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A small tool to provide detailed information on the hardware configuration of the machine."
+PKG_BUILD_FLAGS="-sysroot"
 
 make_target() {
   make CXX=$CXX -C src/
-}
-
-makeinstall_target() {
-  : # nop
 }

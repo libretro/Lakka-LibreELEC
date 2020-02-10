@@ -10,7 +10,4 @@ PKG_URL="https://github.com/persianpros/dvbsnoop/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="dvbsnoop is a DVB/MPEG stream analyzer program"
 PKG_TOOLCHAIN="autotools"
-
-makeinstall_target() {
-  :
-}
+PKG_BUILD_FLAGS="-sysroot"

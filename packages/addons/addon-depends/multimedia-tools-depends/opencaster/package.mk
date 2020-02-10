@@ -9,11 +9,13 @@ PKG_SITE="http://www.avalpa.com/the-key-values/15-free-software/33-opencaster"
 PKG_URL="http://ftp.de.debian.org/debian/pool/main/o/opencaster/opencaster_${PKG_VERSION}+dfsg.orig.tar.gz"
 PKG_DEPENDS_TARGET="toolchain zlib"
 PKG_LONGDESC="A free and open source MPEG2 transport stream data generator and packet manipulator."
+PKG_BUILD_FLAGS="-sysroot"
 
 pre_configure_target() {
   PKG_MAKE_OPTS_TARGET="CC=$CC"
 }
 
-pre_makeinstall_target() {
-  mkdir -p $INSTALL
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/bin
+  make install DESTDIR=$INSTALL/usr/bin
 }

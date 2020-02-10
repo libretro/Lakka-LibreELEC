@@ -10,6 +10,7 @@ PKG_URL="https://github.com/axibase/nmon/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain ncurses"
 PKG_LONGDESC="Systems administrator, tuner, benchmark tool gives you a huge amount of important performance information in one go."
 PKG_TOOLCHAIN="manual"
+PKG_BUILD_FLAGS="-sysroot"
 
 make_target() {
   case $ARCH in
@@ -23,4 +24,9 @@ make_target() {
   CFLAGS="$CFLAGS -g -O3 -Wall -D JFS -D GETUSER -D LARGEMEM"
   LDFLAGS="$LDFLAGS -lncurses -lm -g"
   $CC -o nmon lmon*.c $CFLAGS $LDFLAGS -D $arch -D KERNEL_2_6_18
+}
+
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/bin
+  cp -p nmon $INSTALL/usr/bin
 }

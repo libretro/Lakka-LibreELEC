@@ -8,21 +8,13 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.kaashoek.com/comskip/"
 PKG_URL="https://github.com/erikkaashoek/Comskip/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain argtable2 ffmpegx"
+PKG_DEPENDS_CONFIG="argtable2 ffmpegx"
 PKG_LONGDESC="Comskip detects commercial breaks from a video stream. It can be used for post-processing recordings."
 PKG_TOOLCHAIN="autotools"
+PKG_BUILD_FLAGS="-sysroot"
 
 pre_configure_target() {
-  LDFLAGS+=" -ldl"
-
-  export argtable2_CFLAGS="-I$(get_build_dir argtable2)/src"
-  export argtable2_LIBS="-L$(get_build_dir argtable2)/src/.libs -largtable2"
-
-# pass ffmpegx to build
-  PKG_CONFIG_PATH="$(get_install_dir ffmpegx)/usr/local/lib/pkgconfig"
+  # pass ffmpegx to build
   CFLAGS+=" -I$(get_install_dir ffmpegx)/usr/local/include"
   LDFLAGS+=" -L$(get_install_dir ffmpegx)/usr/local/lib"
-}
-
-make_target() {
- :
 }

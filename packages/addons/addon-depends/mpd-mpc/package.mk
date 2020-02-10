@@ -10,7 +10,4 @@ PKG_URL="https://www.musicpd.org/download/mpc/0/mpc-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain libiconv libmpdclient"
 PKG_LONGDESC="Command-line client for MPD."
 PKG_TOOLCHAIN="meson"
-
-makeinstall_target() {
-  :
-}
+PKG_BUILD_FLAGS="-sysroot"

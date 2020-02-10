@@ -10,11 +10,7 @@ PKG_SITE="http://www.X.org"
 PKG_URL="https://xorg.freedesktop.org/archive/individual/lib/libXft-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain fontconfig freetype libXrender util-macros xorgproto"
 PKG_LONGDESC="X FreeType library."
-PKG_BUILD_FLAGS="+pic"
+PKG_BUILD_FLAGS="+pic -sysroot"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --disable-shared"
-
-makeinstall_target() {
-  :
-}

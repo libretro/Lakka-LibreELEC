@@ -10,6 +10,7 @@ PKG_SITE="http://www.midnight-commander.org"
 PKG_URL="http://ftp.midnight-commander.org/mc-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain gettext:host glib libssh2 libtool:host ncurses pcre"
 PKG_LONGDESC="Midnight Commander is a text based filemanager that emulates Norton Commander."
+PKG_BUILD_FLAGS="-sysroot"
 
 PKG_CONFIGURE_OPTS_TARGET=" \
   --datadir=/storage/.kodi/addons/virtual.system-tools/data \
@@ -44,5 +45,5 @@ post_makeinstall_target() {
   rm -rf $INSTALL/storage/.kodi/addons/virtual.system-tools/data/mc/help/mc.hlp.*
   mv $INSTALL/usr/bin/mc $INSTALL/usr/bin/mc-bin
   rm -f $INSTALL/usr/bin/{mcedit,mcview}
-  cp $PKG_DIR/wrapper/* $INSTALL/usr/bin
+  cp -p $PKG_DIR/wrapper/* $INSTALL/usr/bin
 }

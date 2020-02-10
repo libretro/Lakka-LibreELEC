@@ -9,6 +9,7 @@ PKG_SITE="http://nmap.org/"
 PKG_URL="http://nmap.org/dist/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain openssl"
 PKG_LONGDESC="Free Security Scanned for Network."
+PKG_BUILD_FLAGS="-sysroot"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --with-pcap=linux \
@@ -25,8 +26,4 @@ pre_configure_target() {
     rm -rf .$TARGET_NAME
 
   export CPPFLAGS="$CPPFLAGS -Iliblua"
-}
-
-makeinstall_target() {
-  :
 }

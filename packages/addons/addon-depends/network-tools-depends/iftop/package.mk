@@ -10,6 +10,7 @@ PKG_URL="http://www.ex-parrot.com/pdw/iftop/download/$PKG_NAME-$PKG_VERSION.tar.
 PKG_DEPENDS_TARGET="toolchain ncurses libpcap libnl"
 PKG_LONGDESC="A tool to display bandwidth usage on an interface."
 PKG_TOOLCHAIN="autotools"
+PKG_BUILD_FLAGS="-sysroot"
 
 pre_build_target() {
   mkdir -p $PKG_BUILD/.$TARGET_NAME
@@ -18,8 +19,4 @@ pre_build_target() {
 
 pre_configure_target() {
   export LIBS="-lpcap -lnl-3 -lnl-genl-3 -lncurses"
-}
-
-makeinstall_target() {
-  : # nop
 }

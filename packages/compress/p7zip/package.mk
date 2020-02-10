@@ -36,3 +36,11 @@ pre_build_target() {
 make_target() {
   make CXX=$CXX CC=$CC -C $PKG_BUILD/.$TARGET_NAME 7z 7za
 }
+
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/bin
+    cp -p $PKG_BUILD/.$TARGET_NAME/bin/7z.so $INSTALL/usr/bin
+    cp -pr $PKG_BUILD/.$TARGET_NAME/bin/Codecs $INSTALL/usr/bin
+    cp -p $PKG_BUILD/.$TARGET_NAME/bin/7z $INSTALL/usr/bin
+    cp -p $PKG_BUILD/.$TARGET_NAME/bin/7za $INSTALL/usr/bin
+}

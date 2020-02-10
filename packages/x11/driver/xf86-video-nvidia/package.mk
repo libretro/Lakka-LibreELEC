@@ -12,10 +12,11 @@ PKG_ARCH="x86_64"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.nvidia.com/"
 PKG_URL="http://us.download.nvidia.com/XFree86/Linux-x86_64/${PKG_VERSION}/NVIDIA-Linux-x86_64-${PKG_VERSION}-no-compat32.run"
-PKG_DEPENDS_TARGET="toolchain util-macros linux xorg-server libvdpau libglvnd"
-PKG_NEED_UNPACK="${LINUX_DEPENDS}"
+PKG_DEPENDS_TARGET="util-macros xorg-server libvdpau libglvnd"
 PKG_LONGDESC="The Xorg driver for NVIDIA video chips."
 PKG_TOOLCHAIN="manual"
+
+PKG_IS_KERNEL_PKG="yes"
 
 unpack() {
   [ -d ${PKG_BUILD} ] && rm -rf ${PKG_BUILD}

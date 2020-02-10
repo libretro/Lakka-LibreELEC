@@ -10,7 +10,7 @@ PKG_URL="http://www.rarlab.com/rar/unrarsrc-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="unrar extract, test and view RAR archives"
 PKG_TOOLCHAIN="manual"
-PKG_BUILD_FLAGS="+pic"
+PKG_BUILD_FLAGS="+pic -sysroot"
 
 make_target() {
   make CXX="$CXX" \
@@ -31,4 +31,11 @@ make_target() {
 
 post_make_target() {
   rm -f libunrar.so
+}
+
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/include/unrar  $INSTALL/usr/lib $INSTALL/usr/bin
+  cp -p *.hpp $INSTALL/usr/include/unrar/
+  cp -p libunrar.a $INSTALL/usr/lib/
+  cp -p unrar $INSTALL/usr/bin/
 }

@@ -10,8 +10,7 @@ PKG_SITE="http://secure.netroedge.com/~lm78/"
 PKG_URL="https://github.com/groeck/lm-sensors/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Provides user-space support for the hardware monitoring drivers."
-
-PKG_MAKEINSTALL_OPTS_TARGET="PREFIX=/usr"
+PKG_BUILD_FLAGS="-sysroot"
 
 pre_make_target() {
   PKG_MAKE_OPTS_TARGET="PREFIX=/usr CC=$CC AR=$AR"
@@ -20,6 +19,6 @@ pre_make_target() {
   export CPPFLAGS="$TARGET_CPPFLAGS"
 }
 
-makeinstall_target() {
-  :
+pre_makeinstall_target() {
+  PKG_MAKEINSTALL_OPTS_TARGET="PREFIX=/usr CC=$CC AR=$AR"
 }

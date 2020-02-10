@@ -10,3 +10,8 @@ PKG_URL="https://github.com/tvheadend/dtv-scan-tables/archive/$PKG_VERSION.tar.g
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Digital TV scan tables, a fork from Tvh to support more recent tables."
 PKG_TOOLCHAIN="manual"
+PKG_BUILD_FLAGS="-sysroot"
+
+makeinstall_target() {
+  make install DATADIR=$INSTALL/usr/share
+}

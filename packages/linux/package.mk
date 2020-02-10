@@ -50,7 +50,8 @@ if [ "$PKG_BUILD_PERF" != "no" ] && grep -q ^CONFIG_PERF_EVENTS= $PKG_KERNEL_CFG
 fi
 
 if [ "$TARGET_ARCH" = "x86_64" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET intel-ucode:host kernel-firmware elfutils:host pciutils"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET elfutils:host pciutils"
+  PKG_DEPENDS_UNPACK+=" intel-ucode kernel-firmware"
 fi
 
 if [[ "$KERNEL_TARGET" = uImage* ]]; then
@@ -100,6 +101,15 @@ post_patch() {
   if [ "$OPENGLES" = "libmali" ]; then
     sed -e "s|^CONFIG_DRM_LIMA=.*$|# CONFIG_DRM_LIMA is not set|" -i $PKG_BUILD/.config
     sed -e "s|^CONFIG_DRM_PANFROST=.*$|# CONFIG_DRM_PANFROST is not set|" -i $PKG_BUILD/.config
+  fi
+
+  # prepare the tree for kernel packages if the build dir has been removed and linux get unpacked again
+  if [ -d $PKG_INSTALL/.image ]; then
+    kernel_make -C $PKG_BUILD oldconfig
+    kernel_make -C $PKG_BUILD prepare
+
+    # restore the required Module.symvers from an earlier build
+    cp -p $PKG_INSTALL/.image/Module.symvers $PKG_BUILD
   fi
 }
 
@@ -228,7 +238,7 @@ make_target() {
 
 makeinstall_target() {
   mkdir -p $INSTALL/.image
-  cp -p arch/${TARGET_KERNEL_ARCH}/boot/${KERNEL_TARGET} System.map $INSTALL/.image/
+  cp -p arch/${TARGET_KERNEL_ARCH}/boot/${KERNEL_TARGET} System.map Module.symvers $INSTALL/.image/
 
   kernel_make INSTALL_MOD_PATH=$INSTALL/$(get_kernel_overlay_dir) modules_install
   rm -f $INSTALL/$(get_kernel_overlay_dir)/lib/modules/*/build

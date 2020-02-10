@@ -10,6 +10,7 @@ PKG_URL="https://github.com/mpv-player/mpv/archive/v$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain waf:host alsa ffmpeg libass libdrm"
 PKG_LONGDESC="A media player based on MPlayer and mplayer2. It supports a wide variety of video file formats, audio and video codecs, and subtitle types."
 PKG_TOOLCHAIN="manual"
+PKG_BUILD_FLAGS="-sysroot"
 
 PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
                            --disable-libsmbclient \

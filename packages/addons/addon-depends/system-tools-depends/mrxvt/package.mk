@@ -11,6 +11,7 @@ PKG_URL="$SOURCEFORGE_SRC/materm/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libX11"
 PKG_LONGDESC="A lightweight and powerful multi-tabbed X terminal emulator based on the popular rxvt and aterm."
 PKG_TOOLCHAIN="autotools"
+PKG_BUILD_FLAGS="-sysroot"
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_setpgrp_void=no \
             --enable-minimal \
@@ -47,7 +48,3 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_setpgrp_void=no \
             --disable-xim \
             --disable-utempter\
             --with-term=xterm"
-
-makeinstall_target() {
-  : # nop
-}

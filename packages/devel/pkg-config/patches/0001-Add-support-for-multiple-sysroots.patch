@@ -1,0 +1,256 @@
+From 64a39cd046040552729d32caef2a753b7f3dfc9c Mon Sep 17 00:00:00 2001
+From: Andre Heider <a.heider@gmail.com>
+Date: Thu, 19 Dec 2019 17:42:01 +0100
+Subject: [PATCH] Add support for multiple sysroots
+
+Introduce PKG_CONFIG_SYSROOT_BASE, which can be set to a base directory
+under which multiple install prefixes exist.
+
+Now it's possible to:
+* configure and install libfoo with --prefix=/base/foo/usr
+* configure and install libbar with --prefix=/base/bar/usr
+* export PKG_CONFIG_SYSROOT_BASE=/base
+
+and pkg-config attempts to detect the sysroot directory for each .pc
+file located under the base directory, and sets its sysroot accordingly.
+
+Example with libfoo.pc and libbar.pc both contain includedir=/usr/include
+
+$ PKG_CONFIG_PATH=/base/foo/usr/lib/pkg-config:/base/bar/usr/lib/pkgconfig \
+  PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=1 \
+  pkg-config --cflags libfoo libbar
+
+Will print "-I/base/foo/usr/include -I/base/bar/usr/include"
+---
+ main.c  |  5 ++++
+ parse.c |  2 ++
+ pkg.c   | 78 ++++++++++++++++++++++++++++++++++++++++++++++++++++++---
+ pkg.h   |  2 ++
+ 4 files changed, 84 insertions(+), 3 deletions(-)
+
+diff --git a/main.c b/main.c
+index 9b27d9a..409d474 100644
+--- a/main.c
++++ b/main.c
+@@ -35,6 +35,7 @@
+ #undef STRICT
+ #endif
+ 
++GString *pcsysrootbase = NULL;
+ char *pcsysrootdir = NULL;
+ char *pkg_config_pc_path = NULL;
+ 
+@@ -531,6 +532,8 @@ main (int argc, char **argv)
+       add_search_dirs(pkg_config_pc_path, G_SEARCHPATH_SEPARATOR_S);
+     }
+ 
++  pcsysrootbase = g_string_new(getenv("PKG_CONFIG_SYSROOT_BASE"));
++
+   pcsysrootdir = getenv ("PKG_CONFIG_SYSROOT_DIR");
+   if (pcsysrootdir)
+     {
+@@ -834,5 +837,7 @@ main (int argc, char **argv)
+   if (need_newline)
+     printf ("\n");
+ 
++  g_string_free(pcsysrootbase, FALSE);
++
+   return 0;
+ }
+diff --git a/parse.c b/parse.c
+index 6e9907c..bea87f3 100644
+--- a/parse.c
++++ b/parse.c
+@@ -634,6 +634,7 @@ static void _do_parse_libs (Package *pkg, int argc, char **argv)
+   while (i < argc)
+     {
+       Flag *flag = g_new (Flag, 1);
++      flag->pkg = pkg;
+       char *tmp = trim_string (argv[i]);
+       char *arg = strdup_escape_shell(tmp);
+       char *p;
+@@ -837,6 +838,7 @@ parse_cflags (Package *pkg, const char *str, const char *path)
+   while (i < argc)
+     {
+       Flag *flag = g_new (Flag, 1);
++      flag->pkg = pkg;
+       char *tmp = trim_string (argv[i]);
+       char *arg = strdup_escape_shell(tmp);
+       char *p = arg;
+diff --git a/pkg.c b/pkg.c
+index f29ecc7..ecae401 100644
+--- a/pkg.c
++++ b/pkg.c
+@@ -408,6 +408,9 @@ flag_list_strip_duplicates (GList *list)
+ 
+       if (cur->type == prev->type && g_strcmp0 (cur->arg, prev->arg) == 0)
+         {
++          if (cur->type & (CFLAGS_I | LIBS_L) && cur->pkg != prev->pkg)
++            continue;
++
+           /* Remove the duplicate flag from the list and move to the last
+            * element to prepare for the next iteration. */
+           GList *dup = tmp;
+@@ -421,19 +424,75 @@ flag_list_strip_duplicates (GList *list)
+   return list;
+ }
+ 
++static const struct _suffix {
++  const char * const suffix;
++  const size_t len;
++} suffixes[] = {
++  {
++    "/usr/local/lib/pkgconfig",
++    24,
++  },
++  {
++    "/usr/local/share/pkgconfig",
++    26,
++  },
++  {
++    "/usr/lib/pkgconfig",
++    18,
++  },
++  {
++    "/usr/share/pkgconfig",
++    20,
++  },
++  {
++    "/lib/pkgconfig",
++    14,
++  },
++  {
++    "/share/pkgconfig",
++    16,
++  },
++};
++
++static void
++get_sysroot(const Package *pkg, GString *dst)
++{
++  if (pcsysrootbase->len && !strncmp(pkg->pcfiledir, pcsysrootbase->str, pcsysrootbase->len))
++  {
++    size_t len = strlen(pkg->pcfiledir);
++
++    for (int i = 0; i < sizeof(suffixes) / sizeof(*suffixes); i++)
++    {
++      const struct _suffix *x = &suffixes[i];
++
++      if (len > x->len && !strcmp(pkg->pcfiledir + len - x->len, x->suffix))
++      {
++        g_string_assign(dst, pkg->pcfiledir);
++        g_string_truncate(dst, dst->len - x->len);
++        return;
++      }
++    }
++  }
++
++  g_string_assign(dst, pcsysrootdir ? pcsysrootdir : "");
++}
++
+ static char *
+ flag_list_to_string (GList *list)
+ {
+   GList *tmp;
+   GString *str = g_string_new ("");
++  GString *sysroot = g_string_new ("");
++  GString *cmp = g_string_new(pcsysrootbase->len ? pcsysrootbase->str : pcsysrootdir);
+   char *retval;
+   
+   tmp = list;
+   while (tmp != NULL) {
+     Flag *flag = tmp->data;
++    get_sysroot(flag->pkg, sysroot);
+     char *tmpstr = flag->arg;
+ 
+-    if (pcsysrootdir != NULL && flag->type & (CFLAGS_I | LIBS_L)) {
++    if (sysroot->len && flag->type & (CFLAGS_I | LIBS_L) && strncmp(tmpstr + 2, cmp->str, cmp->len)) {
+       /* Handle non-I Cflags like -isystem */
+       if (flag->type & CFLAGS_I && strncmp (tmpstr, "-I", 2) != 0) {
+         char *space = strchr (tmpstr, ' ');
+@@ -441,14 +500,17 @@ flag_list_to_string (GList *list)
+         /* Ensure this has a separate arg */
+         g_assert (space != NULL && space[1] != '\0');
+         g_string_append_len (str, tmpstr, space - tmpstr + 1);
+-        g_string_append (str, pcsysrootdir);
++        g_string_append (str, sysroot->str);
+         g_string_append (str, space + 1);
+       } else {
+         g_string_append_c (str, '-');
+         g_string_append_c (str, tmpstr[1]);
+-        g_string_append (str, pcsysrootdir);
++        g_string_append (str, sysroot->str);
+         g_string_append (str, tmpstr+2);
+       }
++    } else if (sysroot->len && !strncmp(tmpstr, "/usr", 4) && strncmp(tmpstr, cmp->str, cmp->len)) {
++      g_string_append (str, sysroot->str);
++      g_string_append (str, tmpstr);
+     } else {
+       g_string_append (str, tmpstr);
+     }
+@@ -458,6 +520,8 @@ flag_list_to_string (GList *list)
+ 
+   retval = str->str;
+   g_string_free (str, FALSE);
++  g_string_free (cmp, FALSE);
++  g_string_free (sysroot, TRUE);
+ 
+   return retval;
+ }
+@@ -1046,6 +1110,8 @@ packages_get_var (GList      *pkgs,
+ {
+   GList *tmp;
+   GString *str;
++  GString *sysroot = g_string_new ("");
++  GString *cmp = g_string_new(pcsysrootbase->len ? pcsysrootbase->str : pcsysrootdir);
+ 
+   str = g_string_new (NULL);
+ 
+@@ -1055,11 +1121,14 @@ packages_get_var (GList      *pkgs,
+       Package *pkg = tmp->data;
+       char *var;
+ 
++      get_sysroot(pkg, sysroot);
+       var = parse_package_variable (pkg, varname);
+       if (var)
+         {
+           if (str->len > 0)
+             g_string_append_c (str, ' ');
++          if (sysroot->len && (!strcmp(varname, "includedir") || !strcmp(varname, "libdir")) && strncmp(var, sysroot->str, sysroot->len))
++            g_string_append(str, sysroot->str);
+           g_string_append (str, var);
+           g_free (var);
+         }
+@@ -1067,6 +1136,9 @@ packages_get_var (GList      *pkgs,
+       tmp = g_list_next (tmp);
+     }
+ 
++  g_string_free(cmp, FALSE);
++  g_string_free(sysroot, TRUE);
++
+   return g_string_free (str, FALSE);
+ }
+ 
+diff --git a/pkg.h b/pkg.h
+index c6732bd..58edf38 100644
+--- a/pkg.h
++++ b/pkg.h
+@@ -53,6 +53,7 @@ struct Flag_
+ {
+   FlagType type;
+   char *arg;
++  Package *pkg;
+ };
+ 
+ struct RequiredVersion_
+@@ -126,6 +127,7 @@ void disable_requires_private(void);
+ /* If TRUE, do not automatically prefer uninstalled versions */
+ extern gboolean disable_uninstalled;
+ 
++extern GString *pcsysrootbase;
+ extern char *pcsysrootdir;
+ 
+ /* pkg-config default search path. On Windows the current pkg-config install
+-- 
+2.24.0
+

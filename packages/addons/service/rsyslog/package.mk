@@ -13,6 +13,7 @@ PKG_DEPENDS_TARGET="toolchain curl libestr libfastjson libgcrypt liblogging libl
 PKG_SECTION="service"
 PKG_SHORTDESC="Rsyslog: a rocket-fast system for log processing."
 PKG_LONGDESC="Rsyslog ($PKG_VERSION) offers high-performance, great security features and a modular design."
+PKG_BUILD_FLAGS="-sysroot"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Rsyslog"
@@ -28,17 +29,13 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-default-tests \
 
 export LIBGCRYPT_CONFIG="$SYSROOT_PREFIX/usr/bin/libgcrypt-config"
 
-makeinstall_target() {
-  :
-}
-
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
-  cp $PKG_BUILD/.$TARGET_NAME/tools/rsyslogd \
+  cp $PKG_INSTALL/usr/sbin/rsyslogd \
      $ADDON_BUILD/$PKG_ADDON_ID/bin/
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib/rsyslog
-  for l in $(find $PKG_BUILD/.$TARGET_NAME -name *.so)
+  for l in $(find $PKG_INSTALL/usr/lib -name *.so)
   do
     cp $l $ADDON_BUILD/$PKG_ADDON_ID/lib/rsyslog/
   done

@@ -10,10 +10,7 @@ PKG_URL="https://github.com/esnet/iperf/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain openssl"
 PKG_LONGDESC="A tool to measuring maximum TCP and UDP bandwidth performance."
 PKG_TOOLCHAIN="autotools"
+PKG_BUILD_FLAGS="-sysroot"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --disable-shared"
-
-makeinstall_target() {
-  :
-}

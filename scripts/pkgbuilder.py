@@ -63,18 +63,71 @@ class Generator:
         self.building = {}
         self.built = {}
         self.failed = {}
+        self.removedPackages = {}
 
         self.check_no_deps = True
 
+        # Transform unpack info from package:target to just package - simplifying refcount generation
+        # Create a map for sections, as we don't autoremove "virtual" packages
+        self.unpacks = {}
+        self.sections = {}
+        for job in self.work:
+            (pkg_name, target) = job["name"].split(":")
+            if pkg_name not in self.unpacks:
+                self.unpacks[pkg_name] = job["unpacks"]
+                self.sections[pkg_name] = job["section"]
+                for unpack in job["unpacks"]:
+                    if unpack not in self.sections:
+                        self.sections[unpack] = "" # don't know section, assume not virtual
+
+        # Count number of times each package is referenced by package:target (including itself) and
+        # then recursively accumulate counts for any other packages that may be referenced
+        # by "PKG_DEPENDS_UNPACK".
+        # Once the refcount is zero for a package, the source directory can be removed.
+        self.refcount = {}
+        for job in self.work:
+            (pkg_name, target) = job["name"].split(":")
+            self.refcount[pkg_name] = self.refcount.get(pkg_name, 0) + 1
+            for pkg_name in job["unpacks"]:
+                self.addRefCounts(pkg_name)
+
     def canBuildJob(self, job):
-        for dep in job["deps"]:
+        for dep in job["wants"]:
             if dep not in self.built:
                 return False
 
         return True
 
+    def getPackagesToRemove(self, job):
+        packages = {}
+
+        pkg_name = job["name"].split(":")[0]
+        packages[pkg_name] = True
+        for pkg_name in job["unpacks"]:
+            self.addUnpackPackages(pkg_name, packages)
+
+        for pkg_name in packages:
+            if self.refcount[pkg_name] == 0 and \
+                self.sections[pkg_name] != "virtual" and \
+                pkg_name not in self.removedPackages:
+                yield pkg_name
+
+    def getPackageReferenceCounts(self, job):
+        packages = {}
+
+        pkg_name = job["name"].split(":")[0]
+        packages[pkg_name] = True
+        for pkg_name in job["unpacks"]:
+            self.addUnpackPackages(pkg_name, packages)
+
+        for pkg_name in packages:
+            tokens = ""
+            tokens += "[v]" if self.sections[pkg_name] == "virtual" else ""
+            tokens += "[r]" if pkg_name in self.removedPackages else ""
+            yield("%s:%d%s" % (pkg_name, self.refcount[pkg_name], tokens))
+
     def getFirstFailedJob(self, job):
-        for dep in job["deps"]:
+        for dep in job["wants"]:
             if dep in self.failed:
                 failedjob = self.getFirstFailedJob(self.failed[dep])
                 if not failedjob:
@@ -86,7 +139,7 @@ class Generator:
 
     def getAllFailedJobs(self, job):
         flist = {}
-        for dep in job["deps"]:
+        for dep in job["wants"]:
             if dep in self.failed:
                 failedjob = self.getFirstFailedJob(self.failed[dep])
                 if failedjob:
@@ -104,7 +157,7 @@ class Generator:
         # until we're sure there's none left...
         if self.check_no_deps:
             for i, job in enumerate(self.work):
-                if job["deps"] == []:
+                if job["wants"] == []:
                     self.building[job["name"]] = True
                     del self.work[i]
                     job["failedjobs"] = self.getAllFailedJobs(job)
@@ -133,11 +186,11 @@ class Generator:
     # currently building jobs are complete.
     def getStallInfo(self):
         for job in self.work:
-            for dep in job["deps"]:
+            for dep in job["wants"]:
                 if dep not in self.building and dep not in self.built:
                     break
             else:
-                yield (job["name"], [d for d in job["deps"] if d in self.building])
+                yield (job["name"], [d for d in job["wants"] if d in self.building])
 
     def activeJobCount(self):
         return len(self.building)
@@ -157,10 +210,37 @@ class Generator:
         return self.totalJobs
 
     def completed(self, job):
-        del self.building[job["name"]]
         self.built[job["name"]] = job
+        del self.building[job["name"]]
+
         if job["failed"]:
             self.failed[job["name"]] = job
+        else:
+            self.refcount[job["name"].split(":")[0]] -= 1
+
+        for pkg_name in job["unpacks"]:
+            self.delRefCounts(pkg_name)
+
+    def removed(self, pkg_name):
+        self.removedPackages[pkg_name] = True
+
+    def addUnpackPackages(self, pkg_name, packages):
+        packages[pkg_name] = True
+        if pkg_name in self.unpacks:
+            for p in self.unpacks[pkg_name]:
+                self.addUnpackPackages(p, packages)
+
+    def addRefCounts(self, pkg_name):
+        self.refcount[pkg_name] = self.refcount.get(pkg_name, 0) + 1
+        if pkg_name in self.unpacks:
+            for p in self.unpacks[pkg_name]:
+                self.addRefCounts(p)
+
+    def delRefCounts(self, pkg_name):
+        self.refcount[pkg_name] = self.refcount.get(pkg_name, 0) - 1
+        if pkg_name in self.unpacks:
+            for p in self.unpacks[pkg_name]:
+                self.delRefCounts(p)
 
 class BuildProcess(threading.Thread):
     def __init__(self, slot, maxslot, jobtotal, haltonerror, work, complete):
@@ -259,8 +339,8 @@ class BuildProcess(threading.Thread):
 
 class Builder:
     def __init__(self, maxthreadcount, inputfilename, jobglog, loadstats, stats_interval, \
-                 haltonerror=True, failimmediately=True, log_burst=True, log_combine="always", bookends=True, \
-                 debug=False, verbose=False, colors=False):
+                 haltonerror=True, failimmediately=True, log_burst=True, log_combine="always", \
+                 autoremove=False, bookends=True, colors=False, debug=False, verbose=False):
         if inputfilename == "-":
             plan = json.load(sys.stdin)
         else:
@@ -282,6 +362,7 @@ class Builder:
         self.debug = debug
         self.verbose = verbose
         self.bookends = bookends
+        self.autoremove = autoremove
 
         self.colors = (colors == "always" or (colors == "auto" and sys.stderr.isatty()))
         self.color_code = {}
@@ -345,6 +426,7 @@ class Builder:
             job = self.getCompletedJob()
 
             self.writeJobLog(job)
+            self.autoRemovePackages(job)
             self.processJobOutput(job)
             self.displayJobStatus(job)
 
@@ -538,6 +620,13 @@ class Builder:
                     if self.debug:
                         log_size += len(line)
 
+                if "autoremove" in job:
+                    for line in job["autoremove"].stdout:
+                        print(line, end="")
+                        if self.debug:
+                            log_size += len(line)
+                    job["autoremove"] = None
+
                 if self.bookends:
                     print(">>> %s" % job["name"])
 
@@ -560,6 +649,29 @@ class Builder:
                   .format(job["logfile"] if job["logfile"] else "",
                           j=job, prec=4, width=self.twidth),
                   file=self.joblogfile, flush=True)
+
+    # Remove any source code directories that are no longer required.
+    # Output from the subprocess is either appended to the burst logfile
+    # or is captured for later output to stdout (after the correspnding logfile).
+    def autoRemovePackages(self, job):
+        if self.autoremove:
+            if self.debug:
+                DEBUG("Cleaning Pkg: %s (%s)" % (job["name"], ", ".join(self.generator.getPackageReferenceCounts(job))))
+
+            for pkg_name in self.generator.getPackagesToRemove(job):
+                DEBUG("Removing Pkg: %s" % pkg_name)
+                args = ["%s/%s/autoremove" % (ROOT, SCRIPTS), pkg_name]
+                if job["logfile"]:
+                    with open(job["logfile"], "a") as logfile:
+                        cmd = subprocess.run(args, cwd=ROOT,
+                                             stdin=subprocess.PIPE, stdout=logfile, stderr=subprocess.STDOUT,
+                                             universal_newlines=True, shell=False)
+                else:
+                    job["autoremove"] = subprocess.run(args, cwd=ROOT,
+                                             stdin=subprocess.PIPE, capture_output=True,
+                                             universal_newlines=True, shell=False)
+
+                self.generator.removed(pkg_name)
 
     def startProcesses(self):
         for process in self.processes:
@@ -634,6 +746,9 @@ group.add_argument("--fail-immediately", action="store_true", default=True, \
 group.add_argument("--fail-after-active", action="store_false", dest="fail_immediately", \
                     help="With --halt-on-error, when an error occurs fail after all other active jobs have finished.")
 
+parser.add_argument("--auto-remove", action="store_true", default=False, \
+                    help="Automatically remove redundant source code directories. Default is disabled.")
+
 parser.add_argument("--verbose", action="store_true", default=False, \
                     help="Output verbose information to stderr.")
 
@@ -665,7 +780,8 @@ try:
     result = Builder(args.max_procs, args.plan, args.joblog, args.loadstats, args.stats_interval, \
                      haltonerror=args.halt_on_error, failimmediately=args.fail_immediately, \
                      log_burst=args.log_burst, log_combine=args.log_combine, bookends=args.with_bookends, \
-                     colors=args.colors, debug=args.debug, verbose=args.verbose).build()
+                     autoremove=args.auto_remove, colors=args.colors, \
+                     debug=args.debug, verbose=args.verbose).build()
 
     if DEBUG_LOG:
         DEBUG_LOG.close()

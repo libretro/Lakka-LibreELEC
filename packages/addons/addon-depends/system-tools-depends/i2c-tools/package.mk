@@ -9,6 +9,7 @@ PKG_SITE="http://www.lm-sensors.org/wiki/I2CTools"
 PKG_URL="http://fossies.org/linux/misc/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain Python3 distutilscross:host"
 PKG_LONGDESC="A heterogeneous set of I2C tools for Linux."
+PKG_BUILD_FLAGS="-sysroot"
 
 pre_make_target() {
   export PYTHONXCPREFIX="$SYSROOT_PREFIX/usr"
@@ -20,11 +21,14 @@ make_target() {
         CC="$CC" \
         AR="$TARGET_AR" \
         CFLAGS="$TARGET_CFLAGS" \
-        CPPFLAGS="$TARGET_CPPFLAGS -I${SYSROOT_PREFIX}/usr/include/$PKG_PYTHON_VERSION"
-
-  python_fix_abi .
+        CPPFLAGS="$TARGET_CPPFLAGS -I${SYSROOT_PREFIX}/usr/include/$PKG_PYTHON_VERSION" \
+        PYTHON=${TOOLCHAIN}/bin/python3
 }
 
 makeinstall_target() {
-  : # nop
+  make  DESTDIR=${INSTALL} \
+        prefix="/usr" \
+        EXTRA="py-smbus" \
+        PYTHON=${TOOLCHAIN}/bin/python3 \
+        install
 }
