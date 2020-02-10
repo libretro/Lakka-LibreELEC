@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="retroarch"
-PKG_VERSION="ea7e682"
+PKG_VERSION="9e25601" # v1.8.4
 PKG_REV="11"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
@@ -60,9 +60,23 @@ if [ "$AVAHI_DAEMON" = yes ]; then
   PKG_DEPENDS_TARGET+=" avahi nss-mdns"
 fi
 
+if [ "$DISPLAYSERVER" != "no" ]; then
+  PKG_DEPENDS_TARGET+=" $DISPLAYSERVER"
+fi
+
+if [ "$DISPLAYSERVER" == "x11" ]; then
+  PKG_DEPENDS_TARGET+=" libXxf86vm"
+fi
+
 RETROARCH_GL=""
 
-if [ "$VULKAN" == "nvidia-driver" ]; then
+if [ "$DISPLAYSERVER" == "x11" ]; then
+  # for now only odroidgo2 uses xorg so we can safely enable gles
+  RETROARCH_GL="--disable-kms --enable-x11 --disable-wayland --enable-opengles --disable-mali_fbdev"
+elif [ "$DISPLAYSERVER" == "weston" ]; then
+  # for now only odroidgo2 uses weston so we can safely enable gles
+  RETROARCH_GL="--disable-kms --disable-x11 --enable-wayland --enable-opengles --disable-mali_fbdev"
+elif [ "$VULKAN" == "nvidia-driver" ]; then
   RETROARCH_GL="--enable-vulkan --disable-x11 --disable-kms --disable-egl"
 elif [ "$OPENGL_SUPPORT" == "yes" ]; then
   RETROARCH_GL="--enable-kms"
