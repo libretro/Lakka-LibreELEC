@@ -2,13 +2,14 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="weston"
-PKG_VERSION="3.0.0"
-PKG_SHA256="cde1d55e8dd70c3cbb3d1ec72f60e60000041579caa1d6a262bd9c35e93723a5"
+PKG_VERSION="6.0.0"
 PKG_LICENSE="OSS"
 PKG_SITE="https://wayland.freedesktop.org/"
 PKG_URL="https://wayland.freedesktop.org/releases/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain wayland-protocols libdrm libxkbcommon libinput cairo libjpeg-turbo dbus"
 PKG_LONGDESC="Reference implementation of a Wayland compositor"
+
+PKG_TOOLCHAIN="configure"
 
 PKG_CONFIGURE_OPTS_TARGET="CFLAGS=-DMESA_EGL_NO_X11_HEADERS \
                            LIBS=-lturbojpeg \
@@ -28,7 +29,8 @@ PKG_CONFIGURE_OPTS_TARGET="CFLAGS=-DMESA_EGL_NO_X11_HEADERS \
                            --disable-weston-launch \
                            --disable-fullscreen-shell \
                            --disable-demo-clients-install \
-                           --enable-systemd-notify"
+                           --enable-systemd-notify \
+                           --enable-autotools"
 
 post_makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/weston
