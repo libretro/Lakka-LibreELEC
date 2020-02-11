@@ -12,6 +12,13 @@ PKG_LONGDESC="a display server protocol"
 
 PKG_TOOLCHAIN="configure"
 
+# Odroid Go Advance uses libmali's wayland-egl
+# so we need to make sure that libmali is installed
+# to serve the wayland-egl package correctly
+if [ "$DEVICE" == "OdroidGoAdvance" ]; then
+  PKG_DEPENDS_TARGET+=" libmali"
+fi
+
 PKG_CONFIGURE_OPTS_HOST="--enable-shared \
                          --disable-static \
                          --disable-libraries \
