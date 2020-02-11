@@ -68,6 +68,10 @@ if [ "$DISPLAYSERVER" == "x11" ]; then
   PKG_DEPENDS_TARGET+=" libXxf86vm"
 fi
 
+if [ "$DISPLAYSERVER" == "weston" ]; then
+  PKG_DEPENDS_TARGET+=" wayland"
+fi
+
 RETROARCH_GL=""
 
 if [ "$DISPLAYSERVER" == "x11" ]; then
