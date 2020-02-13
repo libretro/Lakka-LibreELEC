@@ -69,7 +69,7 @@ if [ "$DISPLAYSERVER" == "x11" ]; then
 fi
 
 if [ "$DISPLAYSERVER" == "weston" ]; then
-  PKG_DEPENDS_TARGET+=" wayland"
+  PKG_DEPENDS_TARGET+=" wayland wayland-protocols"
 fi
 
 RETROARCH_GL=""
@@ -119,7 +119,8 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
                            --enable-zlib \
                            --enable-freetype \
                            --enable-translate \
-                           --enable-cdrom"
+                           --enable-cdrom \
+                           --datarootdir=$SYSROOT_PREFIX/usr/share" # don't use host /usr/share!
 
 pre_configure_target() {
   TARGET_CONFIGURE_OPTS=""

@@ -37,7 +37,11 @@ post_makeinstall_target() {
     cp $PKG_DIR/scripts/weston-config $INSTALL/usr/lib/weston
 
   mkdir -p $INSTALL/usr/share/weston
-    cp $PKG_DIR/config/weston.ini $INSTALL/usr/share/weston
+    if [ -f $PKG_DIR/config/$DEVICE.ini ]; then
+      cp $PKG_DIR/config/$DEVICE.ini $INSTALL/usr/share/weston/weston.ini
+    else
+      cp $PKG_DIR/config/weston.ini $INSTALL/usr/share/weston
+    fi
 
   rm -r $INSTALL/usr/share/wayland-sessions
   rm -r $INSTALL/usr/lib/weston-simple-im
