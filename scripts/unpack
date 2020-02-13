@@ -55,7 +55,8 @@ fi
 
 pkg_lock_status "ACTIVE" "${PKG_NAME}" "unpack"
 
-if [ -d "${SOURCES}/${PKG_NAME}" -o -d "${PKG_DIR}/sources" ] || pkg_call_exists unpack; then
+if [ -d "${SOURCES}/${PKG_NAME}" -o -d "${PKG_DIR}/sources" ] || pkg_call_exists_opt unpack; then
+  pkg_call_finish
   build_msg "CLR_UNPACK" "UNPACK" "${PKG_NAME}" "indent"
 
   # unpack into a unique location as unpacking into a single ${BUILD} directory is not thread-safe
@@ -68,14 +69,15 @@ if [ -d "${SOURCES}/${PKG_NAME}" -o -d "${PKG_DIR}/sources" ] || pkg_call_exists
   PKG_BUILD_ORIG="${PKG_BUILD}"
   PKG_BUILD="${PKG_UNPACK_DIR}/${PKG_NAME}-${PKG_VERSION}"
 
-  pkg_call_exists pre_unpack && pkg_call pre_unpack
+  pkg_call_exists_opt pre_unpack && pkg_call
 
   if pkg_call_exists unpack; then
-    pkg_call unpack
+    pkg_call
   else
     if [ -n "${PKG_URL}" ]; then
       ${SCRIPTS}/extract "${PKG_NAME}" "${PKG_UNPACK_DIR}"
     fi
+    pkg_call_finish
   fi
 
   if [ -z "${PKG_SOURCE_DIR}" -a -d "${PKG_UNPACK_DIR}/${PKG_NAME}-${PKG_VERSION}"* ]; then
@@ -110,10 +112,10 @@ if [ -d "${SOURCES}/${PKG_NAME}" -o -d "${PKG_DIR}/sources" ] || pkg_call_exists
   # cleanup
   rm -rf "${PKG_UNPACK_DIR}"
 
-  pkg_call_exists post_unpack && pkg_call post_unpack
+  pkg_call_exists_opt post_unpack && pkg_call
 
   if [ "${PKG_SKIP_PATCHES}" != "yes" ]; then
-    pkg_call_exists pre_patch && pkg_call pre_patch
+    pkg_call_exists_opt pre_patch && pkg_call
 
     if [ "${TARGET_ARCH}" = "x86_64" ]; then
       PATCH_ARCH="x86"
@@ -187,7 +189,7 @@ if [ -d "${SOURCES}/${PKG_NAME}" -o -d "${PKG_DIR}/sources" ] || pkg_call_exists
       fi
     done
 
-    pkg_call_exists post_patch && pkg_call post_patch
+    pkg_call_exists_opt post_patch && pkg_call
   fi
 
   if [ ! "${PKG_NAME}" = "configtools" ] ; then
@@ -201,6 +203,7 @@ if [ -d "${SOURCES}/${PKG_NAME}" -o -d "${PKG_DIR}/sources" ] || pkg_call_exists
     done
   fi
 fi
+pkg_call_finish
 
 if [ "${PKG_SECTION}" != "virtual" ]; then
   mkdir -p "${PKG_BUILD}"
