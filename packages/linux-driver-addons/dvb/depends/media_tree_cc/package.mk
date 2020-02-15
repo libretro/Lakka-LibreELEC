@@ -2,8 +2,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="media_tree_cc"
-PKG_VERSION="2019-07-10"
-PKG_SHA256="c1d4467a7771d4a3e3f80cdce7065b4a1a9b61a306f35586e4c198812661e883"
+PKG_VERSION="2020-02-14"
+PKG_SHA256="c81d0412c8f237ecf30100ba1260625ca25df463102af331b063f4a7dca164f5"
 PKG_LICENSE="GPL"
 PKG_SITE="https://bitbucket.org/CrazyCat/media_build/downloads/"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.bz2"
