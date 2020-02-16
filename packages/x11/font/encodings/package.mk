@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2020-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="encodings"
-PKG_VERSION="1.0.4"
-PKG_SHA256="ced6312988a45d23812c2ac708b4595f63fd7a49c4dcd9f66bdcd50d1057d539"
+PKG_VERSION="1.0.5"
+PKG_SHA256="bd96e16143a044b19e87f217cf6a3763a70c561d1076aad6f6d862ec41774a31"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/font/$PKG_NAME-$PKG_VERSION.tar.bz2"
