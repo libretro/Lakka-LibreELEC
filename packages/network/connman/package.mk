@@ -3,8 +3,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="connman"
-PKG_VERSION="9c781b75657bb72a9d65ba7cc73aa5111ae13eb2" # pre 1.38
-PKG_SHA256="384ac276b593e919614f8615da8641dac4268c8e6ebc1166b78b3d260d5ca242"
+PKG_VERSION="1ee420ace2b8edb0d4025f469aaa3d00d220dc98" # 1.38
+PKG_SHA256="2688c7d1f4b947f4b616157bad9d50234d86d5151a1e1a9e8d51acad2b1481c6"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.connman.net"
 PKG_URL="https://git.kernel.org/pub/scm/network/connman/connman.git/snapshot/connman-$PKG_VERSION.tar.gz"
