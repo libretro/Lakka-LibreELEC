@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.beetle-pce-fast"
-PKG_VERSION="0.9.38.4-Leia"
-PKG_SHA256="b23ccabaf0963120d004019705820de9b6f1d18ac58d0aea2abd0e2a304f693c"
+PKG_VERSION="0.9.38.6-Leia"
+PKG_SHA256="9dd43ee8215742331efcfd95e17482de3353f31970e1c6f520acfea73c760b94"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

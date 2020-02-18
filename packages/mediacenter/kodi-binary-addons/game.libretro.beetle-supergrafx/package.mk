@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.beetle-supergrafx"
-PKG_VERSION="0.9.41.4-Leia"
-PKG_SHA256="0f55b4e821fca8497af4cdc88904aee35d68210873455982e107ff4626228bca"
+PKG_VERSION="1.23.0.6-Leia"
+PKG_SHA256="4bd93dbcce83f40f60044fb9d31ae1a3c808380a6ecfbae364b0a15d6769b1ee"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

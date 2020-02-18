@@ -2,8 +2,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-mesen"
-PKG_VERSION="278ca034b2bbe8c3e931458a63d12a7559770f17"
-PKG_SHA256="1d5743a4ff7d4fbedd9b1a0063e51fad5f961274cf3f007bc1d4537450753d45"
+PKG_VERSION="66eb9ad84427d3b849dd725dfda0c79f115793d5"
+PKG_SHA256="abeb59b73de67641cd6c28fc4f4dc55e75405acb0adfd3ba52526db30ce6b658"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/SourMesen/Mesen/"
 PKG_URL="https://github.com/SourMesen/Mesen/archive/$PKG_VERSION.tar.gz"

@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.hatari"
-PKG_VERSION="1.8.0.5-Leia"
-PKG_SHA256="da1feebc77beb5d4811112108b318674379735016c81793a363fa4afad1c86f5"
+PKG_VERSION="1.8.0.6-Leia"
+PKG_SHA256="dd01efac2c7a5ba178dfc9d9fcaf76ca9d5bc8d95d097f318b828bc8485c602d"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
