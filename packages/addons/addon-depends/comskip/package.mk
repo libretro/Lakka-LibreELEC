@@ -16,5 +16,5 @@ PKG_BUILD_FLAGS="-sysroot"
 pre_configure_target() {
   # pass ffmpegx to build
   CFLAGS+=" -I$(get_install_dir ffmpegx)/usr/local/include"
-  LDFLAGS+=" -L$(get_install_dir ffmpegx)/usr/local/lib"
+  LDFLAGS+=" -L$(get_install_dir ffmpegx)/usr/local/lib -ldl"
 }

@@ -66,50 +66,50 @@ for pkg in $(get_pkg_variable initramfs PKG_DEPENDS_TARGET); do
 done
 
 post_patch() {
-  cp $PKG_KERNEL_CFG_FILE $PKG_BUILD/.config
-
-  sed -i -e "s|@INITRAMFS_SOURCE@|$BUILD/image/initramfs.cpio|" $PKG_BUILD/.config
-
-  # set default hostname based on $DISTRONAME
-    sed -i -e "s|@DISTRONAME@|$DISTRONAME|g" $PKG_BUILD/.config
-
-  # disable swap support if not enabled
-  if [ ! "$SWAP_SUPPORT" = yes ]; then
-    sed -i -e "s|^CONFIG_SWAP=.*$|# CONFIG_SWAP is not set|" $PKG_BUILD/.config
-  fi
-
-  # disable nfs support if not enabled
-  if [ ! "$NFS_SUPPORT" = yes ]; then
-    sed -i -e "s|^CONFIG_NFS_FS=.*$|# CONFIG_NFS_FS is not set|" $PKG_BUILD/.config
-  fi
-
-  # disable cifs support if not enabled
-  if [ ! "$SAMBA_SUPPORT" = yes ]; then
-    sed -i -e "s|^CONFIG_CIFS=.*$|# CONFIG_CIFS is not set|" $PKG_BUILD/.config
-  fi
-
-  # disable iscsi support if not enabled
-  if [ ! "$ISCSI_SUPPORT" = yes ]; then
-    sed -i -e "s|^CONFIG_SCSI_ISCSI_ATTRS=.*$|# CONFIG_SCSI_ISCSI_ATTRS is not set|" $PKG_BUILD/.config
-    sed -i -e "s|^CONFIG_ISCSI_TCP=.*$|# CONFIG_ISCSI_TCP is not set|" $PKG_BUILD/.config
-    sed -i -e "s|^CONFIG_ISCSI_BOOT_SYSFS=.*$|# CONFIG_ISCSI_BOOT_SYSFS is not set|" $PKG_BUILD/.config
-    sed -i -e "s|^CONFIG_ISCSI_IBFT_FIND=.*$|# CONFIG_ISCSI_IBFT_FIND is not set|" $PKG_BUILD/.config
-    sed -i -e "s|^CONFIG_ISCSI_IBFT=.*$|# CONFIG_ISCSI_IBFT is not set|" $PKG_BUILD/.config
-  fi
-
-  # disable lima/panfrost if libmali is configured
-  if [ "$OPENGLES" = "libmali" ]; then
-    sed -e "s|^CONFIG_DRM_LIMA=.*$|# CONFIG_DRM_LIMA is not set|" -i $PKG_BUILD/.config
-    sed -e "s|^CONFIG_DRM_PANFROST=.*$|# CONFIG_DRM_PANFROST is not set|" -i $PKG_BUILD/.config
-  fi
-
-  # prepare the tree for kernel packages if the build dir has been removed and linux get unpacked again
+  # linux was already built and its build dir autoremoved - prepare it again for kernel packages
   if [ -d $PKG_INSTALL/.image ]; then
-    kernel_make -C $PKG_BUILD oldconfig
+    cp -p $PKG_INSTALL/.image/.config $PKG_BUILD
     kernel_make -C $PKG_BUILD prepare
 
     # restore the required Module.symvers from an earlier build
     cp -p $PKG_INSTALL/.image/Module.symvers $PKG_BUILD
+  else
+    cp $PKG_KERNEL_CFG_FILE $PKG_BUILD/.config
+
+    sed -i -e "s|@INITRAMFS_SOURCE@|$BUILD/image/initramfs.cpio|" $PKG_BUILD/.config
+
+    # set default hostname based on $DISTRONAME
+      sed -i -e "s|@DISTRONAME@|$DISTRONAME|g" $PKG_BUILD/.config
+
+    # disable swap support if not enabled
+    if [ ! "$SWAP_SUPPORT" = yes ]; then
+      sed -i -e "s|^CONFIG_SWAP=.*$|# CONFIG_SWAP is not set|" $PKG_BUILD/.config
+    fi
+
+    # disable nfs support if not enabled
+    if [ ! "$NFS_SUPPORT" = yes ]; then
+      sed -i -e "s|^CONFIG_NFS_FS=.*$|# CONFIG_NFS_FS is not set|" $PKG_BUILD/.config
+    fi
+
+    # disable cifs support if not enabled
+    if [ ! "$SAMBA_SUPPORT" = yes ]; then
+      sed -i -e "s|^CONFIG_CIFS=.*$|# CONFIG_CIFS is not set|" $PKG_BUILD/.config
+    fi
+
+    # disable iscsi support if not enabled
+    if [ ! "$ISCSI_SUPPORT" = yes ]; then
+      sed -i -e "s|^CONFIG_SCSI_ISCSI_ATTRS=.*$|# CONFIG_SCSI_ISCSI_ATTRS is not set|" $PKG_BUILD/.config
+      sed -i -e "s|^CONFIG_ISCSI_TCP=.*$|# CONFIG_ISCSI_TCP is not set|" $PKG_BUILD/.config
+      sed -i -e "s|^CONFIG_ISCSI_BOOT_SYSFS=.*$|# CONFIG_ISCSI_BOOT_SYSFS is not set|" $PKG_BUILD/.config
+      sed -i -e "s|^CONFIG_ISCSI_IBFT_FIND=.*$|# CONFIG_ISCSI_IBFT_FIND is not set|" $PKG_BUILD/.config
+      sed -i -e "s|^CONFIG_ISCSI_IBFT=.*$|# CONFIG_ISCSI_IBFT is not set|" $PKG_BUILD/.config
+    fi
+
+    # disable lima/panfrost if libmali is configured
+    if [ "$OPENGLES" = "libmali" ]; then
+      sed -e "s|^CONFIG_DRM_LIMA=.*$|# CONFIG_DRM_LIMA is not set|" -i $PKG_BUILD/.config
+      sed -e "s|^CONFIG_DRM_PANFROST=.*$|# CONFIG_DRM_PANFROST is not set|" -i $PKG_BUILD/.config
+    fi
   fi
 }
 
@@ -238,7 +238,7 @@ make_target() {
 
 makeinstall_target() {
   mkdir -p $INSTALL/.image
-  cp -p arch/${TARGET_KERNEL_ARCH}/boot/${KERNEL_TARGET} System.map Module.symvers $INSTALL/.image/
+  cp -p arch/${TARGET_KERNEL_ARCH}/boot/${KERNEL_TARGET} System.map .config Module.symvers $INSTALL/.image/
 
   kernel_make INSTALL_MOD_PATH=$INSTALL/$(get_kernel_overlay_dir) modules_install
   rm -f $INSTALL/$(get_kernel_overlay_dir)/lib/modules/*/build

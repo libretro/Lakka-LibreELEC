@@ -17,14 +17,12 @@ unpack() {
 }
 
 pre_configure_target() {
+  export JAVA_HOME="$(get_build_dir jdk-x86_64-zulu)"
+
   # build also jar
   PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET/disable-bdjava-jar/enable-bdjava-jar}"
 }
 
 make_target() {
-  (
-  export JAVA_HOME="$(get_build_dir jdk-x86_64-zulu)"
-
   make all-local
-  )
 }
