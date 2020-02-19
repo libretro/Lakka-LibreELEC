@@ -376,7 +376,6 @@ class Builder:
             else:
                 self.threadcount = int(maxthreadcount)
 
-        self.threadcount = 1 if self.threadcount < 1 else self.threadcount
         self.threadcount = min(self.jobtotal, self.threadcount)
         self.threadcount = max(1, self.threadcount)
 
