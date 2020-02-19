@@ -10,6 +10,26 @@ die() {
   exit "${2:-1}"
 }
 
+onexitcleanup() {
+  [ $? -eq 0 ] && return
+
+  local _BASH_COMMAND="${BASH_COMMAND}"
+ 
+  if [ -n "${PKG_CURRENT_CALL}" ]; then
+    print_color CLR_ERROR "FAILURE: $* during ${PKG_CURRENT_CALL} (${PKG_CURRENT_CALL_TYPE})"
+    echo
+  fi
+
+  if [ -n "${_BASH_COMMAND}" ]; then
+    if [[ ! ${_BASH_COMMAND} =~ ^exit\  ]] && [[ ! ${_BASH_COMMAND} =~ ^return\  ]]; then
+      echo "*********** FAILED COMMAND ***********"
+      echo "${_BASH_COMMAND}"
+      echo "**************************************"
+    fi
+  fi
+}
+trap "onexitcleanup $0 $@" EXIT
+
 # return 0 if $2 in space-separated list $1, otherwise return 1
 listcontains() {
   if [ -n "$1" -a -n "$2" ]; then
@@ -952,15 +972,40 @@ find_dir_path() {
 # p1: name of function to test for
 # return 0 if function exists, 1 if not
 pkg_call_exists() {
-  [ "$(type -t ${1})" = "function" ] && return 0 || return 1
+  PKG_CURRENT_CALL="${1}"
+  if [ "$(type -t ${1})" = "function" ]; then
+    PKG_CURRENT_CALL_TYPE="package.mk"
+    return 0
+  else
+    PKG_CURRENT_CALL_TYPE="default"
+    return 1
+  fi
 }
 
-# p1: name of function to execute unconditionally
+# Optional variant of pkg_call_exists()
+# Clear PKG_CURRENT_CALL when function is not implemented.
+pkg_call_exists_opt() {
+  if pkg_call_exists $1; then
+    return 0
+  else
+    pkg_call_finish
+    return 1
+  fi
+}
+
+# Function to be called is set by pkg_call_exists/pkg_call_exists_opt
+# Args: whatever the called function expects
 # testing the exit code value of this function is likely to break set -e fail-on-error behaviour
 pkg_call() {
-  [ -n "${PKG_NAME}" ] || die "$(print_color CLR_ERROR "FAILURE: Cannot call ${1} package function when package is not known!")"
+  [ -n "${PKG_CURRENT_CALL}" ] || die "$(print_color CLR_ERROR "PKG_CURRENT_CALL is not set!")"
+  [ -n "${PKG_NAME}" ] || die "$(print_color CLR_ERROR "FAILURE: Cannot call ${PKG_CURRENT_CALL} package function when package is not known!")"
 
-  "${@}"
+  ${PKG_CURRENT_CALL} "${@}"
+  pkg_call_finish
+}
+
+pkg_call_finish() {
+  PKG_CURRENT_CALL=""
 }
 
 unset_functions() {
@@ -1081,8 +1126,8 @@ source_package() {
   # that we may have initialised after sourcing the package, typically
   # PKG_BUILD etc.
   if [ -n "${PKG_NAME}" ]; then
-    if pkg_call_exists configure_package; then
-      pkg_call configure_package
+    if pkg_call_exists_opt configure_package; then
+      pkg_call
     fi
   fi
 }
@@ -1321,8 +1366,8 @@ install_addon_files() {
   create_addon_xml "$1"
   python_fix_abi "$1"
 
-  if pkg_call_exists post_install_addon; then
-    INSTALL="$1" pkg_call post_install_addon
+  if pkg_call_exists_opt post_install_addon; then
+    INSTALL="$1" pkg_call
   fi
 }
 
