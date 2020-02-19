@@ -19,7 +19,11 @@ if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
 fi
 
 if [ "$TARGET_ARCH" = "x86_64" ]; then
-  PKG_DEPENDS_TARGET+=" nasm:host intel-vaapi-driver x265"
+  PKG_DEPENDS_TARGET+=" nasm:host x265"
+
+  if listcontains "$GRAPHIC_DRIVERS" "(iris|i915|i965)"; then
+    PKG_DEPENDS_TARGET+=" intel-vaapi-driver"
+  fi
 fi
 
 if [[ ! $TARGET_ARCH = arm ]] || target_has_feature neon; then
