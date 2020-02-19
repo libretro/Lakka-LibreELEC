@@ -30,7 +30,8 @@ unset LD_LIBRARY_PATH
 rm -f "${STAMP_URL}" "${STAMP_SHA}"
 
 NBWGET=10
-while [ ${NBWGET} -gt 0 ]; do
+NBCHKS=2
+while [ ${NBWGET} -gt 0 -a ${NBCHKS} -gt 0 ]; do
   for url in "${PKG_URL}" "${PACKAGE_MIRROR}"; do
     rm -f "${PACKAGE}"
     if ${WGET_CMD} "${url}"; then
@@ -39,12 +40,13 @@ while [ ${NBWGET} -gt 0 ]; do
       [ -z "${PKG_SHA256}" -o "${PKG_SHA256}" = "${CALC_SHA256}" ] && break 2
 
       build_msg "CLR_WARNING" "WARNING" "Incorrect checksum calculated on downloaded file: got ${CALC_SHA256} wanted ${PKG_SHA256}"
+      NBCHKS=$((NBCHKS - 1))
     fi
   done
   NBWGET=$((NBWGET - 1))
 done
 
-if [ ${NBWGET} -eq 0 ]; then
+if [ ${NBWGET} -eq 0 -o ${NBCHKS} -eq 0 ]; then
   die "\nCannot get ${1} sources : ${PKG_URL}\nTry later!"
 else
   build_msg "CLR_INFO" "INFO" "Calculated checksum: ${CALC_SHA256}"
