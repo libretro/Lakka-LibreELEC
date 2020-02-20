@@ -22,6 +22,7 @@ PKG_CONFIGURE_OPTS_TARGET="bash_cv_have_mbstate_t=set \
                            --with-intel-pt=no \
                            --with-babeltrace=no \
                            --with-expat=yes \
+                           --with-libexpat-prefix=${SYSROOT_PREFIX}/usr \
                            --disable-source-highlight \
                            --disable-nls \
                            --disable-sim \
