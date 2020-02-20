@@ -195,6 +195,12 @@ makeinstall_target() {
   sed -i -e "s/# video_filter_dir =/video_filter_dir =\/usr\/share\/video_filters/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# video_gpu_screenshot = true/video_gpu_screenshot = false/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# video_fullscreen = false/video_fullscreen = true/" $INSTALL/etc/retroarch.cfg
+  
+  # Set fullscreen resolution for the Odroid Go Advance to avoid crashing
+  if [ "$DEVICE" == "OdroidGoAdvance" ]; then
+	sed -i -e "s/# video_fullscreen_x = 0/video_fullscreen_x = 480/" $INSTALL/etc/retroarch.cfg
+	sed -i -e "s/# video_fullscreen_y = 0/video_fullscreen_y = 320/" $INSTALL/etc/retroarch.cfg
+  fi
 
   # Audio
   if [ "$DEVICE" = "RPi4" ]; then
