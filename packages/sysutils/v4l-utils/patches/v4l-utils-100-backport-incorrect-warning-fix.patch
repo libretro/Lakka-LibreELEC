@@ -1,0 +1,140 @@
+From 6013e359b70236f36d4f395d845ecc766c2230ba Mon Sep 17 00:00:00 2001
+From: Sean Young <sean@mess.org>
+Date: Mon, 14 Oct 2019 11:46:31 +0100
+Subject: [PATCH] keytable: do not warn if keymap not found in
+ IR_KEYTABLE_USER_DIR
+
+The following error is logged even though imon_rsc.toml is found at
+/lib/udev/rc_keymaps/imon_rsc.toml:
+
+$ ir-keytable -a /etc/rc_maps.cfg
+/etc/rc_keymaps/imon_rsc.toml: error: cannot open: No such file or directory
+
+Signed-off-by: Sean Young <sean@mess.org>
+---
+ utils/keytable/keytable.c | 81 +++++++++++++++++++++++----------------
+ 1 file changed, 48 insertions(+), 33 deletions(-)
+
+diff --git a/utils/keytable/keytable.c b/utils/keytable/keytable.c
+index 6cb0217a..e2a1bfe1 100644
+--- a/utils/keytable/keytable.c
++++ b/utils/keytable/keytable.c
+@@ -1954,6 +1954,38 @@ int bpf_param(struct protocol_param *protocol_param, const char *name, int *val)
+ 	return -ENOENT;
+ }
+ 
++char* keymap_to_filename(const char *fname)
++{
++	struct stat st;
++	char *p;
++
++	if (fname[0] == '/' || ((fname[0] == '.') && strchr(fname, '/')))
++		return strdup(fname);
++
++	if (asprintf(&p, IR_KEYTABLE_USER_DIR "/%s", fname) < 0) {
++		fprintf(stderr, _("asprintf failed: %m\n"));
++		return NULL;
++	}
++
++	if (!stat(p, &st))
++		return p;
++
++	free(p);
++	if (asprintf(&p, IR_KEYTABLE_SYSTEM_DIR "/%s", fname) < 0) {
++		fprintf(stderr, _("asprintf failed: %m\n"));
++		return NULL;
++	}
++
++	if (!stat(p, &st))
++		return p;
++
++	free(p);
++
++	fprintf(stderr, _("error: Unable to find keymap %s in %s or %s\n"), fname, IR_KEYTABLE_USER_DIR, IR_KEYTABLE_SYSTEM_DIR);
++
++	return NULL;
++}
++
+ int main(int argc, char *argv[])
+ {
+ 	int dev_from_class = 0, write_cnt;
+@@ -2003,6 +2035,7 @@ int main(int argc, char *argv[])
+ 
+ 	if (cfg.next) {
+ 		struct cfgfile *cur;
++		struct keymap *map;
+ 		char *fname;
+ 		int rc;
+ 		int matches = 0;
+@@ -2014,53 +2047,35 @@ int main(int argc, char *argv[])
+ 				continue;
+ 
+ 			if (debug)
+-				fprintf(stderr, _("Table for %s, %s is on %s file.\n"),
++				fprintf(stderr, _("Keymap for %s, %s is on %s file.\n"),
+ 					rc_dev.drv_name, rc_dev.keytable_name,
+ 					cur->fname);
+ 
+-			if (cur->fname[0] == '/' || ((cur->fname[0] == '.') && strchr(cur->fname, '/'))) {
+-				struct keymap *map;
+-				fname = cur->fname;
+-				rc = parse_keymap(fname, &map, debug);
+-				if (rc < 0) {
+-					fprintf(stderr, _("Can't load %s table\n"), fname);
+-					return -1;
+-				}
+-				add_keymap(map, fname);
+-				free_keymap(map);
+-			} else {
+-				struct keymap *map;
+-				fname = malloc(strlen(cur->fname) + strlen(IR_KEYTABLE_USER_DIR) + 2);
+-				strcpy(fname, IR_KEYTABLE_USER_DIR);
+-				strcat(fname, "/");
+-				strcat(fname, cur->fname);
+-				rc = parse_keymap(fname, &map, debug);
+-				if (rc != 0) {
+-					fname = malloc(strlen(cur->fname) + strlen(IR_KEYTABLE_SYSTEM_DIR) + 2);
+-					strcpy(fname, IR_KEYTABLE_SYSTEM_DIR);
+-					strcat(fname, "/");
+-					strcat(fname, cur->fname);
+-					rc = parse_keymap(fname, &map, debug);
+-				}
+-				if (rc != 0) {
+-					fprintf(stderr, _("Can't load %s table from %s or %s\n"), cur->fname, IR_KEYTABLE_USER_DIR, IR_KEYTABLE_SYSTEM_DIR);
+-					return -1;
+-				}
++			fname = keymap_to_filename(cur->fname);
++			if (!fname)
++				return -1;
+ 
+-				add_keymap(map, fname);
+-				free_keymap(map);
++			rc = parse_keymap(fname, &map, debug);
++			if (rc < 0) {
++				fprintf(stderr, _("Can't load %s keymap\n"), fname);
++				free(fname);
++				return -1;
+ 			}
++			add_keymap(map, fname);
++			free_keymap(map);
+ 			if (!keytable) {
+-				fprintf(stderr, _("Empty table %s\n"), fname);
++				fprintf(stderr, _("Empty keymap %s\n"), fname);
++				free(fname);
+ 				return -1;
+ 			}
++			free(fname);
+ 			clear = 1;
+ 			matches++;
+ 		}
+ 
+ 		if (!matches) {
+ 			if (debug)
+-				fprintf(stderr, _("Table for %s, %s not found. Keep as-is\n"),
++				fprintf(stderr, _("Keymap for %s, %s not found. Keep as-is\n"),
+ 				       rc_dev.drv_name, rc_dev.keytable_name);
+ 			return 0;
+ 		}
+-- 
+2.20.1
+
