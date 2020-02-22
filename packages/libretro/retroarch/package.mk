@@ -74,12 +74,8 @@ fi
 
 RETROARCH_GL=""
 
-if [ "$DISPLAYSERVER" == "x11" ]; then
-  # for now only odroidgo2 uses xorg so we can safely enable gles
-  RETROARCH_GL="--disable-kms --enable-x11 --disable-wayland --enable-opengles --disable-mali_fbdev"
-elif [ "$DISPLAYSERVER" == "weston" ]; then
-  # for now only odroidgo2 uses weston so we can safely enable gles
-  RETROARCH_GL="--disable-kms --disable-x11 --enable-wayland --enable-opengles --disable-mali_fbdev"
+if [ "$DEVICE" == "OdroidGoAdvance" ]; then
+  RETROARCH_GL="--enable-kms --disable-x11 --disable-wayland --enable-opengles --enable-opengles3 --disable-mali_fbdev"
 elif [ "$VULKAN" == "nvidia-driver" ]; then
   RETROARCH_GL="--enable-vulkan --disable-x11 --disable-kms --disable-egl"
 elif [ "$OPENGL_SUPPORT" == "yes" ]; then
