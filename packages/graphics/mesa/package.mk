@@ -3,20 +3,14 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mesa"
-PKG_VERSION="19.3.4"
-PKG_SHA256="b58df8181414e3a2b46cb61935079413e6ac30e742013bb6208b42e7523f90f2"
+PKG_VERSION="20.0.0"
+PKG_SHA256="b37868825ac87698e6c7474c62876605094898d7d09c56fdff0f13b103f0c7cc"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
 PKG_URL="https://github.com/mesa3d/mesa/archive/mesa-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain expat libdrm Mako:host"
 PKG_LONGDESC="Mesa is a 3-D graphics library with an API."
 PKG_TOOLCHAIN="meson"
-
-if listcontains "${GRAPHIC_DRIVERS}" "(lima|panfrost)"; then
-  PKG_VERSION="71dd52e0560e3d32dd040301ae99e0ae2da4384e" # master-20.0
-  PKG_SHA256="200e8ce31b71e62e42259a9f0bf5e6ce197bc059d6c9d3d389a77112405842b6"
-  PKG_URL="https://gitlab.freedesktop.org/mesa/mesa/-/archive/$PKG_VERSION/mesa-$PKG_VERSION.tar.gz"
-fi
 
 get_graphicdrivers
 
