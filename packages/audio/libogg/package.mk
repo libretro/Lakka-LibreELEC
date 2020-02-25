@@ -3,8 +3,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libogg"
-PKG_VERSION="1.3.3"
-PKG_SHA256="4f3fc6178a533d392064f14776b23c397ed4b9f48f5de297aba73b643f955c08"
+PKG_VERSION="1.3.4"
+PKG_SHA256="c163bc12bc300c401b6aa35907ac682671ea376f13ae0969a220f7ddf71893fe"
 PKG_LICENSE="BSD"
 PKG_SITE="https://www.xiph.org/ogg/"
 PKG_URL="http://downloads.xiph.org/releases/ogg/libogg-$PKG_VERSION.tar.xz"

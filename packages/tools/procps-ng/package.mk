@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="procps-ng"
-PKG_VERSION="3.3.15"
-PKG_SHA256="191391fde24a1d3b9b0030d26f8dfdcbf641d36297aab7ecf2f941c5ca927e21"
+PKG_VERSION="3.3.16"
+PKG_SHA256="720caf307ab5dfe6d1cf4fc3e6ce786d749c69baa088627dbe1b01828f2528b1"
 PKG_LICENSE="GPL"
 PKG_SITE="https://gitlab.com/procps-ng/procps"
 PKG_URL="https://gitlab.com/procps-ng/procps/-/archive/v${PKG_VERSION}/procps-v${PKG_VERSION}.tar.bz2"
