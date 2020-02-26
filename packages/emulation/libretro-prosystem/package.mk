@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-prosystem"
-PKG_VERSION="108d9950881d487a7215c045e7cb2c30824ac286"
-PKG_SHA256="d9995f10aed014c2e37cf842670de7a68d852be27f108cd886c47b9eac8f0d9f"
+PKG_VERSION="6f7e34aea89db5ba2fbf674e5ff0ad6fc68a198e"
+PKG_SHA256="e77431df23402614618ea0242e31a7f8e1cc330f6232830a2a2b046412f3f09f"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/prosystem-libretro"
 PKG_URL="https://github.com/libretro/prosystem-libretro/archive/$PKG_VERSION.tar.gz"
