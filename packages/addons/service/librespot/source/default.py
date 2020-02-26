@@ -49,6 +49,7 @@ class Player(threading.Thread, xbmc.Player):
     def __init__(self):
         log('player started')
         super(Player, self).__init__()
+        self.aborted = False
         self.isLibrespotStarted = True
         self.listitem = xbmcgui.ListItem()
         self.listitem.addStreamInfo('audio', {'codec': STREAM_CODEC})
@@ -63,6 +64,7 @@ class Player(threading.Thread, xbmc.Player):
 
     def abort(self):
         log('aborting player')
+        self.aborted = True
         with open(FIFO, 'w') as fifo:
             fifo.close()
         self.join()
@@ -96,8 +98,7 @@ class Player(threading.Thread, xbmc.Player):
             log('pausing librespot playback')
             self.pause()
 
-    def playLibrespot(self, spotify_id):
-        type, id = spotify_id.split()
+    def playLibrespot(self, type, id):
         info = self.spotify.getInfo(type, id)
         self.listitem.setArt(info.getArt())
         self.listitem.setInfo('music', info.getInfo())
@@ -115,19 +116,20 @@ class Player(threading.Thread, xbmc.Player):
             os.unlink(FIFO)
         except OSError:
             pass
-        os.mkfifo(FIFO)
-        while (os.path.exists(FIFO) and
-               stat.S_ISFIFO(os.stat(FIFO).st_mode)):
+        while not self.aborted:
+            if not os.path.exists(FIFO):
+                os.mkfifo(FIFO)
             with open(FIFO, 'r') as fifo:
-                command = fifo.read().splitlines()
-                log('control pipe {}'.format(str(command)))
-                if len(command) == 0:
-                    break
-                elif command[0] in ['3', '5', '6']:
+                command = fifo.readline()
+                log('control pipe {}'.format(command))
+                if command == '':
+                    continue
+                command = command.split()
+                if command[0] in ['Paused']:
                     self.pauseLibrespot()
-                elif command[0] in ['1', '2', '4']:
-                    self.playLibrespot(command[1])
-                elif command[0] in ['7']:
+                elif command[0] in ['Playing']:
+                    self.playLibrespot(command[1], command[2])
+                elif command[0] in ['Stopped']:
                     self.stopLibrespot()
         try:
             os.unlink(FIFO)
