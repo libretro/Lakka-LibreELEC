@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="inputstream.adaptive"
-PKG_VERSION="2.4.2-Leia"
-PKG_SHA256="e47263240ac9276546ead439ba14ee26c3f3b45f2882351a9081e5502e296329"
+PKG_VERSION="2.4.3-Leia"
+PKG_SHA256="83c3d1c45ed5f63d95ca8fa93fcf57fb249586987f9fe74ef4857ca660ed2f64"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
