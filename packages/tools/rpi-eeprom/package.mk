@@ -2,8 +2,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="rpi-eeprom"
-PKG_VERSION="99e88912af108d46e4edd5f168634b84883c1d86"
-PKG_SHA256="13057de869bbfef78138c67c4315a43370e6409cf1798d0828de01a879b91c4d"
+PKG_VERSION="30905b49096df59e50694fab05bcca55b66be5ef"
+PKG_SHA256="8f9f77424ff5d8ff97250ac9ed9fea9de3f6cf7b57c7d8e86a5f935648c3abec"
 PKG_ARCH="arm"
 PKG_LICENSE="BSD-3/custom"
 PKG_SITE="https://github.com/raspberrypi/rpi-eeprom"
@@ -18,20 +18,24 @@ makeinstall_target() {
   mkdir -p ${DESTDIR}
     _dirs="critical"
     [ "$LIBREELEC_VERSION" = "devel" ] && _dirs+=" beta"
-    for _dir in ${_dirs}; do
-      mkdir -p ${DESTDIR}/${_dir}
-        cp -PRv ${PKG_BUILD}/firmware/${_dir}/recovery.bin ${DESTDIR}/${_dir}
 
-        # Bootloader SPI
-        PKG_FW_FILE="$(ls -1 ${PKG_BUILD}/firmware/${_dir}/pieeprom-* 2>/dev/null | tail -1)"
-        [ -n "${PKG_FW_FILE}" ] && cp -PRv "${PKG_FW_FILE}" ${DESTDIR}/${_dir}
+    for _maindir in ${_dirs}; do
+      for _dir in ${PKG_BUILD}/firmware/${_maindir} ${PKG_BUILD}/firmware/{_maindir}-*; do
+        [ -d "${_dir}" ] || continue
 
-        # VIA USB3
-        if [ -f ${PKG_BUILD}/firmware/${_dir}/vl805.latest ]; then
-          PKG_FW_FILE="$(tail -1 ${PKG_BUILD}/firmware/${_dir}/vl805.latest)"
-          cp -PRv ${PKG_BUILD}/firmware/${_dir}/vl805-${PKG_FW_FILE}.bin ${DESTDIR}/${_dir}
-          cp -PRv ${PKG_BUILD}/firmware/${_dir}/vl805.latest ${DESTDIR}/${_dir}
-        fi
+	_basedir="$(basename "${_dir}")"
+
+        mkdir -p ${DESTDIR}/${_basedir}
+          cp -PRv ${_dir}/recovery.bin ${DESTDIR}/${_basedir}
+
+          # Bootloader SPI
+          PKG_FW_FILE="$(ls -1 /${_dir}/pieeprom-* 2>/dev/null | tail -1)"
+          [ -n "${PKG_FW_FILE}" ] && cp -PRv "${PKG_FW_FILE}" ${DESTDIR}/${_basedir}
+
+          # VIA USB3
+          PKG_FW_FILE="$(ls -1 ${_dir}/vl805-*.bin 2>/dev/null | tail -1)"
+          [ -n "${PKG_FW_FILE}" ] && cp -PRv "${PKG_FW_FILE}" ${DESTDIR}/${_basedir}
+      done
     done
 
   mkdir -p ${INSTALL}/usr/bin
