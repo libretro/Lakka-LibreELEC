@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.ncsf"
-PKG_VERSION="2.0.1-Leia"
-PKG_SHA256="8dfba46aae7e7aed372fc8b733a6765ec43510f7e97e68e2cc02e36e9babc159"
+PKG_VERSION="2.0.3-Leia"
+PKG_SHA256="f2023484bb12510c054e75419f680a803e841fa5d695270f96eebbf854bd4adf"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
