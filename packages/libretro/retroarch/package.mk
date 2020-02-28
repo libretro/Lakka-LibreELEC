@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="retroarch"
-PKG_VERSION="9e25601" # v1.8.4
+PKG_VERSION="a10db7c"
 PKG_REV="11"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
@@ -75,7 +75,8 @@ fi
 RETROARCH_GL=""
 
 if [ "$DEVICE" == "OdroidGoAdvance" ]; then
-  RETROARCH_GL="--enable-kms --disable-x11 --disable-wayland --enable-opengles --enable-opengles3 --disable-mali_fbdev"
+  PKG_DEPENDS_TARGET+=" librga libpng"
+  RETROARCH_GL="--enable-kms --enable-odroidgo2 --disable-x11 --disable-wayland --enable-opengles --enable-opengles3 --disable-mali_fbdev"
 elif [ "$VULKAN" == "nvidia-driver" ]; then
   RETROARCH_GL="--enable-vulkan --disable-x11 --disable-kms --disable-egl"
 elif [ "$OPENGL_SUPPORT" == "yes" ]; then
@@ -257,6 +258,10 @@ makeinstall_target() {
     sed -i -e "s/input_menu_toggle_gamepad_combo = 2/input_menu_toggle_gamepad_combo = 4/" $INSTALL/etc/retroarch.cfg
     sed -i -e "s/video_smooth = false/video_smooth = true/" $INSTALL/etc/retroarch.cfg
     sed -i -e "s/video_font_path =\/usr\/share\/retroarch-assets\/xmb\/monochrome\/font.ttf//" $INSTALL/etc/retroarch.cfg
+  fi
+  
+  if [ "$DEVICE" == "OdroidGoAdvance" ]; then
+    echo "xmb_theme = 3" >> $INSTALL/etc/retroarch.cfg
   fi
 
   # GPICase
