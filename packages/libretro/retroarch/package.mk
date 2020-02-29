@@ -261,7 +261,7 @@ makeinstall_target() {
   fi
   
   if [ "$DEVICE" == "OdroidGoAdvance" ]; then
-    echo "xmb_theme = 3" >> $INSTALL/etc/retroarch.cfg
+    echo "xmb_layout = 2" >> $INSTALL/etc/retroarch.cfg
   fi
 
   # GPICase
