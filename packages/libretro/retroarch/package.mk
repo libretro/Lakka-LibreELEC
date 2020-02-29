@@ -262,6 +262,8 @@ makeinstall_target() {
   
   if [ "$DEVICE" == "OdroidGoAdvance" ]; then
     echo "xmb_layout = 2" >> $INSTALL/etc/retroarch.cfg
+    echo "menu_widget_scale_auto = false" >> $INSTALL/etc/retroarch.cfg
+    echo "menu_widget_scale_factor = 2.25" >> $INSTALL/etc/retroarch.cfg
   fi
 
   # GPICase
