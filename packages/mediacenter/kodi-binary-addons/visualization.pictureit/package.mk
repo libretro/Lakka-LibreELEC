@@ -5,7 +5,7 @@
 PKG_NAME="visualization.pictureit"
 PKG_VERSION="3.0.1-Leia"
 PKG_SHA256="fb10cd200e2f682cf0e5e715a4bb61da88b51eb2402724cf1d5ca5f7d4f17edf"
-PKG_REV="1"
+PKG_REV="6"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
