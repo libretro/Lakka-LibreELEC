@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.wsr"
-PKG_VERSION="2.1.2-Matrix"
-PKG_SHA256="a3365c1bc963c5a69f906ca50dfead1a0cb79f7f1d0a2b0a35145e7749efd089"
+PKG_VERSION="2.1.3-Matrix"
+PKG_SHA256="9549e97f60a50071c6a44148c07b14c52b428058602e6d9a35fedf3a054367d7"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
