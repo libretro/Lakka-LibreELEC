@@ -19,8 +19,10 @@ PKG_CMAKE_OPTS_TARGET="-DBUILD_SHARED_LIBS=1 \
                        -DHAVE_AOCEC_API=0 -DHAVE_AMLOGIC_API=0 \
                        -DHAVE_GIT_BIN=0"
 
-if [ "$PROJECT" = "RPi" ]; then
+if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"
+else
+  PKG_CMAKE_OPTS_TARGET+=" -DHAVE_RPI_LIB=0"
 fi
 
 # libX11 and xrandr to read the sink's EDID, used to determine the PC's HDMI physical address
@@ -35,7 +37,7 @@ else
 fi
 
 pre_configure_target() {
-  if [ "$PROJECT" = "RPi" ]; then
+  if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
     # detecting RPi support fails without -lvchiq_arm
     export LDFLAGS="$LDFLAGS -lvchiq_arm"
   fi
