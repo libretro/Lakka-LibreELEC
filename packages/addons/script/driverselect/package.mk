@@ -2,8 +2,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="driverselect"
-PKG_VERSION="ee784f2d79bc5b3125dd77733b55f0227f2f5914"
-PKG_SHA256="9ae121a31f1a204fac9888bca327a8e876be3dfaf2924ccf88a6c0192bb1fa9c"
+PKG_VERSION="8fe0e3dce8e717f00d8c0e5e4dadb7e9306be624"
+PKG_SHA256="42ca062bbb885f84472f91fa0b3354fff6ffb7ace3ae37cddca0b9923d066c8a"
 PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
