@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="systemd"
-PKG_VERSION="244"
-PKG_SHA256="2207ceece44108a04bdd5459aa74413d765a829848109da6f5f836c25aa393aa"
+PKG_VERSION="245"
+PKG_SHA256="f34f1dc52b2dc60563c2deb6db86d78f6a97bceb29aa0511436844b2fc618040"
 PKG_LICENSE="LGPL2.1+"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/systemd"
 PKG_URL="https://github.com/systemd/systemd/archive/v$PKG_VERSION.tar.gz"
@@ -25,8 +25,10 @@ PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
                        -Dacl=false \
                        -Daudit=false \
                        -Dblkid=true \
+                       -Dfdisk=false \
                        -Dkmod=true \
                        -Dpam=false \
+                       -Dpwquality=false \
                        -Dmicrohttpd=false \
                        -Dlibcryptsetup=false \
                        -Dlibcurl=false \
@@ -37,6 +39,7 @@ PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
                        -Dgcrypt=false \
                        -Dgnutls=false \
                        -Dopenssl=false \
+                       -Dp11kit=false \
                        -Delfutils=false \
                        -Dzlib=false \
                        -Dbzip2=false \
@@ -53,12 +56,16 @@ PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
                        -Dhibernate=false \
                        -Denvironment-d=false \
                        -Dbinfmt=false \
+                       -Drepart=false \
                        -Dcoredump=false \
                        -Dresolve=false \
                        -Dlogind=true \
                        -Dhostnamed=true \
                        -Dlocaled=false \
                        -Dmachined=false \
+                       -Dportabled=false \
+                       -Duserdb=false \
+                       -Dhomed=false \
                        -Dnetworkd=false \
                        -Dtimedated=false \
                        -Dtimesyncd=true \
@@ -84,6 +91,9 @@ PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
                        -Dnss-systemd=false \
                        -Dman=false \
                        -Dhtml=false \
+                       -Dlink-udev-shared=true \
+                       -Dlink-systemctl-shared=true \
+                       -Dlink-networkd-shared=false \
                        -Dbashcompletiondir=no \
                        -Dzshcompletiondir=no \
                        -Dkmod-path=/usr/bin/kmod \
