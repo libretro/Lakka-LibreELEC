@@ -16,7 +16,7 @@ makeinstall_target() {
   DESTDIR=${INSTALL}/$(get_kernel_overlay_dir)/lib/firmware/raspberrypi/bootloader
 
   mkdir -p ${DESTDIR}
-    _dirs="critical"
+    _dirs="critical stable"
     [ "$LIBREELEC_VERSION" = "devel" ] && _dirs+=" beta"
 
     for _maindir in ${_dirs}; do
