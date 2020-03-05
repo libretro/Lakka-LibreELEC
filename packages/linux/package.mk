@@ -6,7 +6,7 @@ PKG_NAME="linux"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kernel.org"
 PKG_DEPENDS_HOST="ccache:host rsync:host openssl:host"
-PKG_DEPENDS_TARGET="toolchain linux:host cpio:host kmod:host xz:host keyutils $KERNEL_EXTRA_DEPENDS_TARGET"
+PKG_DEPENDS_TARGET="toolchain linux:host kmod:host xz:host keyutils $KERNEL_EXTRA_DEPENDS_TARGET"
 PKG_NEED_UNPACK="$LINUX_DEPENDS $(get_pkg_directory initramfs) $(get_pkg_variable initramfs PKG_NEED_UNPACK)"
 PKG_LONGDESC="This package contains a precompiled kernel image and the modules."
 PKG_IS_KERNEL_PKG="yes"
@@ -76,7 +76,7 @@ post_patch() {
   else
     cp $PKG_KERNEL_CFG_FILE $PKG_BUILD/.config
 
-    sed -i -e "s|@INITRAMFS_SOURCE@|$BUILD/image/initramfs.cpio|" $PKG_BUILD/.config
+    sed -i -e "s|@INITRAMFS_SOURCE@|$(kernel_initramfs_confs) $BUILD/initramfs|" $PKG_BUILD/.config
 
     # set default hostname based on $DISTRONAME
       sed -i -e "s|@DISTRONAME@|$DISTRONAME|g" $PKG_BUILD/.config
