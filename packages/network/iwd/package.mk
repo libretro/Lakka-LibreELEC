@@ -15,7 +15,7 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-client \
                            --enable-monitor \
                            --enable-systemd-service \
                            --enable-dbus-policy \
-                           --disable-docs"
+                           --disable-manual-pages"
 
 pre_configure_target() {
   export LIBS="-lncurses"
