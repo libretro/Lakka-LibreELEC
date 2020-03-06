@@ -1,21 +1,41 @@
-# SPDX-License-Identifier: GPL-2.0
-# Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
+################################################################################
+#      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
+#
+#  OpenELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  OpenELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
 
 PKG_NAME="weston"
-PKG_VERSION="6.0.0"
+PKG_VERSION="3.0.0"
+PKG_REV="1"
+PKG_ARCH="any"
 PKG_LICENSE="OSS"
-PKG_SITE="https://wayland.freedesktop.org/"
-PKG_URL="https://wayland.freedesktop.org/releases/${PKG_NAME}-${PKG_VERSION}.tar.xz"
-PKG_DEPENDS_TARGET="toolchain wayland-protocols libdrm libxkbcommon libinput cairo libjpeg-turbo dbus"
-PKG_LONGDESC="Reference implementation of a Wayland compositor"
+PKG_SITE="http://wayland.freedesktop.org/"
+PKG_URL="http://wayland.freedesktop.org/releases/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+PKG_DEPENDS_TARGET="toolchain libinput cairo-weston libjpeg-turbo wayland-protocols libdrm"
+PKG_PRIORITY="optional"
+PKG_SECTION="wayland"
+PKG_SHORTDESC=""
+PKG_LONGDESC=""
 
-PKG_TOOLCHAIN="configure"
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="CFLAGS=-DMESA_EGL_NO_X11_HEADERS \
-                           LIBS=-lturbojpeg \
-                           --with-cairo-glesv2 \
                            --disable-xwayland \
                            --disable-x11-compositor \
+                           --enable-drm-compositor \
                            --disable-xwayland-test \
                            --disable-libunwind \
                            --disable-colord \
@@ -23,25 +43,24 @@ PKG_CONFIGURE_OPTS_TARGET="CFLAGS=-DMESA_EGL_NO_X11_HEADERS \
                            --disable-fbdev-compositor \
                            --disable-rdp-compositor \
                            --disable-screen-sharing \
-                           --disable-vaapi-recorder \
                            --disable-headless-compositor \
                            --enable-systemd-login \
                            --disable-weston-launch \
                            --disable-fullscreen-shell \
                            --disable-demo-clients-install \
-                           --enable-systemd-notify \
-                           --enable-autotools"
+                           --disable-simple-egl-clients \
+                           --enable-systemd-notify"
+
+pre_configure_target() {
+  export LIBS="-lturbojpeg"
+}
 
 post_makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/weston
     cp $PKG_DIR/scripts/weston-config $INSTALL/usr/lib/weston
 
   mkdir -p $INSTALL/usr/share/weston
-    if [ -f $PKG_DIR/config/$DEVICE.ini ]; then
-      cp $PKG_DIR/config/$DEVICE.ini $INSTALL/usr/share/weston/weston.ini
-    else
-      cp $PKG_DIR/config/weston.ini $INSTALL/usr/share/weston
-    fi
+    cp $PKG_DIR/config/weston.ini $INSTALL/usr/share/weston
 
   rm -r $INSTALL/usr/share/wayland-sessions
   rm -r $INSTALL/usr/lib/weston-simple-im
