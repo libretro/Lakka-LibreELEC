@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.argustv"
-PKG_VERSION="4.1.0-Matrix"
-PKG_SHA256="66d7d893d8c8a5cb93fd6eba2b731db4258688bbd513fa27504bc0c8535e7274"
+PKG_VERSION="4.1.1-Matrix"
+PKG_SHA256="faabf2e4179672fe21c0aaf93c28ffd19dba8d126421518ff93c606c4e6593b2"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

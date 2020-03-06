@@ -2,8 +2,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="vfs.sftp"
-PKG_VERSION="1.0.3-Leia"
-PKG_SHA256="f78561c460c7bf67be476eb485eaa0ac4497a6d1831b9955da46daa11219f53b"
+PKG_VERSION="1.1.2-Matrix"
+PKG_SHA256="52454f7a82995f2cb34a6e2c471372317cd395e6311959a5445f35d084e591ea"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
