@@ -1,4 +1,4 @@
-From 457a74f059e5467f7f24f15be1b0e87a34e8cabc Mon Sep 17 00:00:00 2001
+From ca0440a82038ebe56c467d89787291f55535d03d Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Sat, 15 Dec 2018 22:32:16 +0100
 Subject: [PATCH 02/12] Add common V4L2 request API code
@@ -15,18 +15,18 @@ Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
  create mode 100644 libavcodec/v4l2_request.h
 
 diff --git a/configure b/configure
-index 15e6c321b1..7f9e7e7b25 100755
+index 34c2adb4a4..6b41344dfd 100755
 --- a/configure
 +++ b/configure
-@@ -264,6 +264,7 @@ External library support:
+@@ -271,6 +271,7 @@ External library support:
    --enable-libtls          enable LibreSSL (via libtls), needed for https support
-                            if openssl or gnutls is not used [no]
+                            if openssl, gnutls or mbedtls is not used [no]
    --enable-libtwolame      enable MP2 encoding via libtwolame [no]
 +  --enable-libudev         enable libudev [no]
    --enable-libv4l2         enable libv4l2/v4l-utils [no]
    --enable-libvidstab      enable video stabilization using vid.stab [no]
    --enable-libvmaf         enable vmaf filter via libvmaf [no]
-@@ -324,6 +325,7 @@ External library support:
+@@ -337,6 +338,7 @@ External library support:
    --enable-omx-rpi         enable OpenMAX IL code for Raspberry Pi [no]
    --enable-rkmpp           enable Rockchip Media Process Platform code [no]
    --disable-v4l2-m2m       disable V4L2 mem2mem code [autodetect]
@@ -34,7 +34,7 @@ index 15e6c321b1..7f9e7e7b25 100755
    --disable-vaapi          disable Video Acceleration API (mainly Unix/Intel) code [autodetect]
    --disable-vdpau          disable Nvidia Video Decode and Presentation API for Unix code [autodetect]
    --disable-videotoolbox   disable VideoToolbox code [autodetect]
-@@ -1732,6 +1734,7 @@ EXTERNAL_LIBRARY_LIST="
+@@ -1797,6 +1799,7 @@ EXTERNAL_LIBRARY_LIST="
      libtesseract
      libtheora
      libtwolame
@@ -42,7 +42,7 @@ index 15e6c321b1..7f9e7e7b25 100755
      libv4l2
      libvorbis
      libvpx
-@@ -1782,6 +1785,7 @@ HWACCEL_LIBRARY_LIST="
+@@ -1851,6 +1854,7 @@ HWACCEL_LIBRARY_LIST="
      mmal
      omx
      opencl
@@ -50,23 +50,23 @@ index 15e6c321b1..7f9e7e7b25 100755
  "
  
  DOCUMENT_LIST="
-@@ -2783,6 +2787,7 @@ d3d11va_deps="dxva_h ID3D11VideoDecoder ID3D11VideoContext"
+@@ -2873,6 +2877,7 @@ d3d11va_deps="dxva_h ID3D11VideoDecoder ID3D11VideoContext"
  dxva2_deps="dxva2api_h DXVA2_ConfigPictureDecode ole32 user32"
  ffnvcodec_deps_any="libdl LoadLibrary"
  nvdec_deps="ffnvcodec"
 +v4l2_request_deps="linux_videodev2_h linux_media_h v4l2_timeval_to_ns libdrm libudev"
+ vaapi_x11_deps="xlib"
  videotoolbox_hwaccel_deps="videotoolbox pthreads"
  videotoolbox_hwaccel_extralibs="-framework QuartzCore"
- xvmc_deps="X11_extensions_XvMClib_h"
-@@ -6063,6 +6068,7 @@ enabled libtls            && require_pkg_config libtls libtls tls.h tls_configur
+@@ -6270,6 +6275,7 @@ enabled libtls            && require_pkg_config libtls libtls tls.h tls_configur
  enabled libtwolame        && require libtwolame twolame.h twolame_init -ltwolame &&
                               { check_lib libtwolame twolame.h twolame_encode_buffer_float32_interleaved -ltwolame ||
                                 die "ERROR: libtwolame must be installed and version must be >= 0.3.10"; }
 +enabled libudev           && require_pkg_config libudev libudev libudev.h udev_new
  enabled libv4l2           && require_pkg_config libv4l2 libv4l2 libv4l2.h v4l2_ioctl
  enabled libvidstab        && require_pkg_config libvidstab "vidstab >= 0.98" vid.stab/libvidstab.h vsMotionDetectInit
- enabled libvmaf           && require_pkg_config libvmaf "libvmaf >= 0.6.2" libvmaf.h compute_vmaf
-@@ -6153,6 +6159,10 @@ enabled rkmpp             && { require_pkg_config rkmpp rockchip_mpp  rockchip/r
+ enabled libvmaf           && require_pkg_config libvmaf "libvmaf >= 1.3.9" libvmaf.h compute_vmaf
+@@ -6365,6 +6371,10 @@ enabled rkmpp             && { require_pkg_config rkmpp rockchip_mpp  rockchip/r
                                 { enabled libdrm ||
                                   die "ERROR: rkmpp requires --enable-libdrm"; }
                               }
@@ -74,23 +74,23 @@ index 15e6c321b1..7f9e7e7b25 100755
 +                               die "ERROR: v4l2-request requires --enable-libdrm"; } &&
 +                             { enabled libudev ||
 +                               die "ERROR: v4l2-request requires --enable-libudev"; }
+ enabled vapoursynth       && require_pkg_config vapoursynth "vapoursynth-script >= 42" VSScript.h vsscript_init
  
- if enabled gcrypt; then
-     GCRYPT_CONFIG="${cross_prefix}libgcrypt-config"
-@@ -6230,6 +6240,8 @@ check_cc h264_v4l2_m2m linux/videodev2.h "int i = V4L2_PIX_FMT_H264;"
+ 
+@@ -6444,6 +6454,8 @@ check_cc h264_v4l2_m2m linux/videodev2.h "int i = V4L2_PIX_FMT_H264;"
  check_cc vp8_v4l2_m2m linux/videodev2.h "int i = V4L2_PIX_FMT_VP8;"
  check_cc vp9_v4l2_m2m linux/videodev2.h "int i = V4L2_PIX_FMT_VP9;"
  
 +check_func_headers "linux/media.h linux/videodev2.h" v4l2_timeval_to_ns
 +
- check_header sys/videoio.h
+ check_headers sys/videoio.h
  test_code cc sys/videoio.h "struct v4l2_frmsizeenum vfse; vfse.discrete.width = 0;" && enable_sanitized struct_v4l2_frmivalenum_discrete
  
 diff --git a/libavcodec/Makefile b/libavcodec/Makefile
-index 4b8ad121db..48f6e06545 100644
+index 3cd73fbcc6..9e847eeadc 100644
 --- a/libavcodec/Makefile
 +++ b/libavcodec/Makefile
-@@ -143,6 +143,7 @@ OBJS-$(CONFIG_VP3DSP)                  += vp3dsp.o
+@@ -147,6 +147,7 @@ OBJS-$(CONFIG_VP3DSP)                  += vp3dsp.o
  OBJS-$(CONFIG_VP56DSP)                 += vp56dsp.o
  OBJS-$(CONFIG_VP8DSP)                  += vp8dsp.o
  OBJS-$(CONFIG_V4L2_M2M)                += v4l2_m2m.o v4l2_context.o v4l2_buffers.o v4l2_fmt.o
@@ -1137,6 +1137,3 @@ index 0000000000..d4146bd4ee
 +int ff_v4l2_request_frame_params(AVCodecContext *avctx, AVBufferRef *hw_frames_ctx);
 +
 +#endif /* AVCODEC_V4L2_REQUEST_H */
--- 
-2.24.0
-

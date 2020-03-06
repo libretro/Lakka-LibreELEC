@@ -1,5 +1,192 @@
+From 27e3340bc0e488abde669f91dfae5d5bf535ad02 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Fri, 31 Jan 2020 11:27:22 +0000
+Subject: [PATCH] pi: hevc acclerated support by pfcd/jc
+
+---
+ .gitignore                                    |    2 +
+ configure                                     |    7 +
+ fftools/ffmpeg.c                              |  291 +-
+ fftools/ffmpeg_filter.c                       |    4 +-
+ fftools/ffmpeg_opt.c                          |    8 +
+ libavcodec/Makefile                           |   37 +
+ libavcodec/allcodecs.c                        |   36 +
+ libavcodec/arm/Makefile                       |   16 +
+ libavcodec/arm/cabac.h                        |  262 +-
+ libavcodec/arm/rpi_hevc_cabac.h               |  605 ++
+ libavcodec/arm/rpi_hevc_idct_fn_neon.S        |  161 +
+ libavcodec/arm/rpi_hevc_misc_neon.S           |  238 +
+ libavcodec/arm/rpi_hevc_misc_neon.h           |  438 ++
+ libavcodec/arm/rpi_hevc_mv_arm.h              |   64 +
+ libavcodec/arm/rpi_hevcdsp_arm.h              |   26 +
+ libavcodec/arm/rpi_hevcdsp_deblock_neon.S     | 1633 +++++
+ libavcodec/arm/rpi_hevcdsp_idct_neon.S        |  183 +
+ libavcodec/arm/rpi_hevcdsp_init_arm.c         |   32 +
+ libavcodec/arm/rpi_hevcdsp_init_neon.c        |  467 ++
+ libavcodec/arm/rpi_hevcdsp_res16_neon.S       |  591 ++
+ libavcodec/arm/rpi_hevcdsp_res8_neon.S        |  712 ++
+ libavcodec/arm/rpi_hevcdsp_sao_neon.S         | 2245 ++++++
+ libavcodec/arm/rpi_hevcpred_arm.h             |   28 +
+ libavcodec/arm/rpi_hevcpred_init_arm.c        |   35 +
+ libavcodec/arm/rpi_hevcpred_init_neon.c       |  210 +
+ .../arm/rpi_hevcpred_intra_angular_neon.S     | 2975 ++++++++
+ libavcodec/arm/rpi_hevcpred_intra_dc_neon.S   |  695 ++
+ .../arm/rpi_hevcpred_intra_filter_neon.S      |  872 +++
+ libavcodec/arm/rpi_hevcpred_intra_hv_neon.S   |  911 +++
+ .../arm/rpi_hevcpred_intra_planar_neon.S      | 1034 +++
+ libavcodec/avcodec.h                          |   19 +-
+ libavcodec/cabac.h                            |    9 +-
+ libavcodec/mmaldec.c                          |    4 +
+ libavcodec/raw.c                              |    4 +
+ libavcodec/rawenc.c                           |   62 +
+ libavcodec/rpi_hevc_cabac.c                   | 2255 ++++++
+ libavcodec/rpi_hevc_cabac_fns.h               |  191 +
+ libavcodec/rpi_hevc_data.c                    |   75 +
+ libavcodec/rpi_hevc_data.h                    |   31 +
+ libavcodec/rpi_hevc_filter.c                  | 1206 ++++
+ libavcodec/rpi_hevc_mv.h                      |   71 +
+ libavcodec/rpi_hevc_mvs.c                     |  486 ++
+ libavcodec/rpi_hevc_parse.c                   |  142 +
+ libavcodec/rpi_hevc_parse.h                   |   36 +
+ libavcodec/rpi_hevc_ps.c                      | 1936 ++++++
+ libavcodec/rpi_hevc_ps.h                      |  447 ++
+ libavcodec/rpi_hevc_refs.c                    |  485 ++
+ libavcodec/rpi_hevc_sei.c                     |  368 +
+ libavcodec/rpi_hevc_sei.h                     |  135 +
+ libavcodec/rpi_hevc_shader.c                  | 1537 +++++
+ libavcodec/rpi_hevc_shader.h                  |   63 +
+ libavcodec/rpi_hevc_shader.qasm               | 1821 +++++
+ libavcodec/rpi_hevc_shader_cmd.h              |  128 +
+ libavcodec/rpi_hevc_shader_template.c         |   61 +
+ libavcodec/rpi_hevc_shader_template.h         |   22 +
+ libavcodec/rpi_hevc_shader_template_fn.h      |  475 ++
+ libavcodec/rpi_hevc_transform.s               |  444 ++
+ libavcodec/rpi_hevc_transform10.h             |   94 +
+ libavcodec/rpi_hevc_transform8.h              |   94 +
+ libavcodec/rpi_hevcdec.c                      | 6016 +++++++++++++++++
+ libavcodec/rpi_hevcdec.h                      | 1087 +++
+ libavcodec/rpi_hevcdsp.c                      |  450 ++
+ libavcodec/rpi_hevcdsp.h                      |  177 +
+ libavcodec/rpi_hevcdsp_template.c             | 2278 +++++++
+ libavcodec/rpi_hevcpred.c                     |  166 +
+ libavcodec/rpi_hevcpred.h                     |  121 +
+ libavcodec/rpi_hevcpred_template.c            | 1522 +++++
+ libavcodec/rpi_mailbox.c                      |  107 +
+ libavcodec/rpi_mailbox.h                      |   55 +
+ libavcodec/rpi_qpu.c                          |  957 +++
+ libavcodec/rpi_qpu.h                          |  229 +
+ libavcodec/rpi_zc.c                           |  741 ++
+ libavcodec/rpi_zc.h                           |  105 +
+ libavfilter/Makefile                          |    1 +
+ libavfilter/allfilters.c                      |    1 +
+ libavfilter/avfiltergraph.c                   |   86 +-
+ libavfilter/buffersrc.c                       |    2 +-
+ libavfilter/vf_unsand.c                       |  232 +
+ libavformat/utils.c                           |   65 +-
+ libavutil/Makefile                            |    1 +
+ libavutil/arm/Makefile                        |    1 +
+ libavutil/arm/rpi_sand_neon.S                 |   40 +
+ libavutil/buffer.c                            |    6 +
+ libavutil/buffer.h                            |    3 +
+ libavutil/frame.c                             |   11 +
+ libavutil/frame.h                             |   10 +
+ libavutil/pixdesc.c                           |   24 +
+ libavutil/pixfmt.h                            |    4 +
+ libavutil/rpi_sand_fn_pw.h                    |  182 +
+ libavutil/rpi_sand_fns.c                      |  151 +
+ libavutil/rpi_sand_fns.h                      |  136 +
+ pi-util/BUILD.txt                             |   25 +
+ pi-util/conf_h265.2016.csv                    |  195 +
+ pi-util/conf_h265.2016_HEVC_v1.csv            |  147 +
+ pi-util/conf_h265.csv                         |  144 +
+ pi-util/conf_pi1.sh                           |   30 +
+ pi-util/conf_pi2.sh                           |   32 +
+ pi-util/ffconf.py                             |  175 +
+ pi-util/ffperf.py                             |  125 +
+ pi-util/make_array.py                         |   23 +
+ pi-util/perfcmp.py                            |  101 +
+ pi-util/qem.sh                                |    9 +
+ pi-util/v3dusage.py                           |  128 +
+ 103 files changed, 43525 insertions(+), 95 deletions(-)
+ create mode 100644 libavcodec/arm/rpi_hevc_cabac.h
+ create mode 100644 libavcodec/arm/rpi_hevc_idct_fn_neon.S
+ create mode 100644 libavcodec/arm/rpi_hevc_misc_neon.S
+ create mode 100644 libavcodec/arm/rpi_hevc_misc_neon.h
+ create mode 100644 libavcodec/arm/rpi_hevc_mv_arm.h
+ create mode 100644 libavcodec/arm/rpi_hevcdsp_arm.h
+ create mode 100644 libavcodec/arm/rpi_hevcdsp_deblock_neon.S
+ create mode 100644 libavcodec/arm/rpi_hevcdsp_idct_neon.S
+ create mode 100644 libavcodec/arm/rpi_hevcdsp_init_arm.c
+ create mode 100644 libavcodec/arm/rpi_hevcdsp_init_neon.c
+ create mode 100644 libavcodec/arm/rpi_hevcdsp_res16_neon.S
+ create mode 100644 libavcodec/arm/rpi_hevcdsp_res8_neon.S
+ create mode 100644 libavcodec/arm/rpi_hevcdsp_sao_neon.S
+ create mode 100644 libavcodec/arm/rpi_hevcpred_arm.h
+ create mode 100644 libavcodec/arm/rpi_hevcpred_init_arm.c
+ create mode 100644 libavcodec/arm/rpi_hevcpred_init_neon.c
+ create mode 100644 libavcodec/arm/rpi_hevcpred_intra_angular_neon.S
+ create mode 100644 libavcodec/arm/rpi_hevcpred_intra_dc_neon.S
+ create mode 100644 libavcodec/arm/rpi_hevcpred_intra_filter_neon.S
+ create mode 100644 libavcodec/arm/rpi_hevcpred_intra_hv_neon.S
+ create mode 100644 libavcodec/arm/rpi_hevcpred_intra_planar_neon.S
+ create mode 100644 libavcodec/rpi_hevc_cabac.c
+ create mode 100644 libavcodec/rpi_hevc_cabac_fns.h
+ create mode 100644 libavcodec/rpi_hevc_data.c
+ create mode 100644 libavcodec/rpi_hevc_data.h
+ create mode 100644 libavcodec/rpi_hevc_filter.c
+ create mode 100644 libavcodec/rpi_hevc_mv.h
+ create mode 100644 libavcodec/rpi_hevc_mvs.c
+ create mode 100644 libavcodec/rpi_hevc_parse.c
+ create mode 100644 libavcodec/rpi_hevc_parse.h
+ create mode 100644 libavcodec/rpi_hevc_ps.c
+ create mode 100644 libavcodec/rpi_hevc_ps.h
+ create mode 100644 libavcodec/rpi_hevc_refs.c
+ create mode 100644 libavcodec/rpi_hevc_sei.c
+ create mode 100644 libavcodec/rpi_hevc_sei.h
+ create mode 100644 libavcodec/rpi_hevc_shader.c
+ create mode 100644 libavcodec/rpi_hevc_shader.h
+ create mode 100644 libavcodec/rpi_hevc_shader.qasm
+ create mode 100644 libavcodec/rpi_hevc_shader_cmd.h
+ create mode 100644 libavcodec/rpi_hevc_shader_template.c
+ create mode 100644 libavcodec/rpi_hevc_shader_template.h
+ create mode 100644 libavcodec/rpi_hevc_shader_template_fn.h
+ create mode 100644 libavcodec/rpi_hevc_transform.s
+ create mode 100644 libavcodec/rpi_hevc_transform10.h
+ create mode 100644 libavcodec/rpi_hevc_transform8.h
+ create mode 100644 libavcodec/rpi_hevcdec.c
+ create mode 100644 libavcodec/rpi_hevcdec.h
+ create mode 100644 libavcodec/rpi_hevcdsp.c
+ create mode 100644 libavcodec/rpi_hevcdsp.h
+ create mode 100644 libavcodec/rpi_hevcdsp_template.c
+ create mode 100644 libavcodec/rpi_hevcpred.c
+ create mode 100644 libavcodec/rpi_hevcpred.h
+ create mode 100644 libavcodec/rpi_hevcpred_template.c
+ create mode 100644 libavcodec/rpi_mailbox.c
+ create mode 100644 libavcodec/rpi_mailbox.h
+ create mode 100644 libavcodec/rpi_qpu.c
+ create mode 100644 libavcodec/rpi_qpu.h
+ create mode 100644 libavcodec/rpi_zc.c
+ create mode 100644 libavcodec/rpi_zc.h
+ create mode 100644 libavfilter/vf_unsand.c
+ create mode 100644 libavutil/arm/rpi_sand_neon.S
+ create mode 100644 libavutil/rpi_sand_fn_pw.h
+ create mode 100644 libavutil/rpi_sand_fns.c
+ create mode 100644 libavutil/rpi_sand_fns.h
+ create mode 100644 pi-util/BUILD.txt
+ create mode 100644 pi-util/conf_h265.2016.csv
+ create mode 100644 pi-util/conf_h265.2016_HEVC_v1.csv
+ create mode 100644 pi-util/conf_h265.csv
+ create mode 100755 pi-util/conf_pi1.sh
+ create mode 100755 pi-util/conf_pi2.sh
+ create mode 100755 pi-util/ffconf.py
+ create mode 100755 pi-util/ffperf.py
+ create mode 100755 pi-util/make_array.py
+ create mode 100644 pi-util/perfcmp.py
+ create mode 100755 pi-util/qem.sh
+ create mode 100755 pi-util/v3dusage.py
+
 diff --git a/.gitignore b/.gitignore
-index 0e57cb0b4c..b2e3374fea 100644
+index 2450ee8fc5..4bcc3ae643 100644
 --- a/.gitignore
 +++ b/.gitignore
 @@ -1,6 +1,7 @@
@@ -19,10 +206,10 @@ index 0e57cb0b4c..b2e3374fea 100644
  /ffplay
  /ffprobe
 diff --git a/configure b/configure
-index 827abfe694..28f630068e 100755
+index 34c2adb4a4..531c7e754f 100755
 --- a/configure
 +++ b/configure
-@@ -318,6 +318,7 @@ External library support:
+@@ -331,6 +331,7 @@ External library support:
    --enable-libmfx          enable Intel MediaSDK (AKA Quick Sync Video) code via libmfx [no]
    --enable-libnpp          enable Nvidia Performance Primitives-based code [no]
    --enable-mmal            enable Broadcom Multi-Media Abstraction Layer (Raspberry Pi) via MMAL [no]
@@ -30,7 +217,7 @@ index 827abfe694..28f630068e 100755
    --disable-nvdec          disable Nvidia video decoding acceleration (via hwaccel) [autodetect]
    --disable-nvenc          disable Nvidia video encoding code [autodetect]
    --enable-omx             enable OpenMAX IL code [no]
-@@ -1776,6 +1777,7 @@ FEATURE_LIST="
+@@ -1866,6 +1867,7 @@ FEATURE_LIST="
      gray
      hardcoded_tables
      omx_rpi
@@ -38,15 +225,15 @@ index 827abfe694..28f630068e 100755
      runtime_cpudetect
      safe_bitstream_reader
      shared
-@@ -2293,6 +2295,7 @@ CONFIG_EXTRA="
+@@ -2390,6 +2392,7 @@ CONFIG_EXTRA="
      rtpdec
      rtpenc_chain
      rv34dsp
 +    sand
+     scene_sad
      sinewin
      snappy
-     srtp
-@@ -2610,6 +2613,8 @@ hap_decoder_select="snappy texturedsp"
+@@ -2715,6 +2718,8 @@ hap_decoder_select="snappy texturedsp"
  hap_encoder_deps="libsnappy"
  hap_encoder_select="texturedspenc"
  hevc_decoder_select="bswapdsp cabac golomb hevcparse videodsp"
@@ -54,18 +241,18 @@ index 827abfe694..28f630068e 100755
 +hevc_rpi_decoder_select="hevc_decoder sand"
  huffyuv_decoder_select="bswapdsp huffyuvdsp llviddsp"
  huffyuv_encoder_select="bswapdsp huffman huffyuvencdsp llvidencdsp"
- iac_decoder_select="imc_decoder"
-@@ -3393,6 +3398,8 @@ tinterlace_filter_deps="gpl"
- tinterlace_merge_test_deps="tinterlace_filter"
- tinterlace_pad_test_deps="tinterlace_filter"
- tonemap_filter_deps="const_nan"
+ hymt_decoder_select="huffyuv_decoder"
+@@ -3543,6 +3548,8 @@ tonemap_filter_deps="const_nan"
+ tonemap_opencl_filter_deps="opencl const_nan"
+ transpose_opencl_filter_deps="opencl"
+ transpose_vaapi_filter_deps="vaapi VAProcPipelineCaps_rotation_flags"
 +unsand_filter_deps="rpi"
 +unsand_filter_select="sand"
  unsharp_opencl_filter_deps="opencl"
  uspp_filter_deps="gpl avcodec"
  vaguedenoiser_filter_deps="gpl"
 diff --git a/fftools/ffmpeg.c b/fftools/ffmpeg.c
-index c0214c42d8..faaea5772a 100644
+index 01f04103cf..80dc56d0c6 100644
 --- a/fftools/ffmpeg.c
 +++ b/fftools/ffmpeg.c
 @@ -24,6 +24,12 @@
@@ -107,7 +294,7 @@ index c0214c42d8..faaea5772a 100644
  #if HAVE_SYS_RESOURCE_H
  #include <sys/time.h>
  #include <sys/types.h>
-@@ -162,6 +187,241 @@ static int restore_tty;
+@@ -168,6 +193,241 @@ static int restore_tty;
  static void free_input_threads(void);
  #endif
  
@@ -349,7 +536,7 @@ index c0214c42d8..faaea5772a 100644
  /* sub2video hack:
     Convert subtitles to video with alpha to insert them in filter graphs.
     This is a temporary solution until libavfilter gets real subtitles support.
-@@ -583,6 +843,11 @@ static void ffmpeg_cleanup(int ret)
+@@ -589,6 +849,11 @@ static void ffmpeg_cleanup(int ret)
          avformat_close_input(&input_files[i]->ctx);
          av_freep(&input_files[i]);
      }
@@ -361,7 +548,7 @@ index c0214c42d8..faaea5772a 100644
      for (i = 0; i < nb_input_streams; i++) {
          InputStream *ist = input_streams[i];
  
-@@ -594,7 +859,9 @@ static void ffmpeg_cleanup(int ret)
+@@ -600,7 +865,9 @@ static void ffmpeg_cleanup(int ret)
          av_freep(&ist->filters);
          av_freep(&ist->hwaccel_device);
          av_freep(&ist->dts_buffer);
@@ -372,7 +559,7 @@ index c0214c42d8..faaea5772a 100644
          avcodec_free_context(&ist->dec_ctx);
  
          av_freep(&input_streams[i]);
-@@ -625,6 +892,7 @@ static void ffmpeg_cleanup(int ret)
+@@ -631,6 +898,7 @@ static void ffmpeg_cleanup(int ret)
      }
      term_exit();
      ffmpeg_exited = 1;
@@ -380,7 +567,7 @@ index c0214c42d8..faaea5772a 100644
  }
  
  void remove_avoptions(AVDictionary **a, AVDictionary *b)
-@@ -1060,6 +1328,17 @@ static void do_video_out(OutputFile *of,
+@@ -1070,6 +1338,17 @@ static void do_video_out(OutputFile *of,
      if (ost->source_index >= 0)
          ist = input_streams[ost->source_index];
  
@@ -398,7 +585,7 @@ index c0214c42d8..faaea5772a 100644
      frame_rate = av_buffersink_get_frame_rate(filter);
      if (frame_rate.num > 0 && frame_rate.den > 0)
          duration = 1/(av_q2d(frame_rate) * av_q2d(enc->time_base));
-@@ -2132,8 +2411,8 @@ static int ifilter_send_frame(InputFilter *ifilter, AVFrame *frame)
+@@ -2141,8 +2420,8 @@ static int ifilter_send_frame(InputFilter *ifilter, AVFrame *frame)
                         ifilter->channel_layout != frame->channel_layout;
          break;
      case AVMEDIA_TYPE_VIDEO:
@@ -409,7 +596,7 @@ index c0214c42d8..faaea5772a 100644
          break;
      }
  
-@@ -2891,6 +3170,12 @@ static int init_input_stream(int ist_index, char *error, int error_len)
+@@ -2906,6 +3185,12 @@ static int init_input_stream(int ist_index, char *error, int error_len)
          ist->dec_ctx->opaque                = ist;
          ist->dec_ctx->get_format            = get_format;
          ist->dec_ctx->get_buffer2           = get_buffer;
@@ -423,10 +610,10 @@ index c0214c42d8..faaea5772a 100644
  
          av_opt_set_int(ist->dec_ctx, "refcounted_frames", 1, 0);
 diff --git a/fftools/ffmpeg_filter.c b/fftools/ffmpeg_filter.c
-index 877fd670e6..1efd3a43a8 100644
+index 72838de1e2..6922cedc5d 100644
 --- a/fftools/ffmpeg_filter.c
 +++ b/fftools/ffmpeg_filter.c
-@@ -1179,8 +1179,8 @@ int ifilter_parameters_from_frame(InputFilter *ifilter, const AVFrame *frame)
+@@ -1188,8 +1188,8 @@ int ifilter_parameters_from_frame(InputFilter *ifilter, const AVFrame *frame)
  
      ifilter->format = frame->format;
  
@@ -438,10 +625,10 @@ index 877fd670e6..1efd3a43a8 100644
  
      ifilter->sample_rate         = frame->sample_rate;
 diff --git a/fftools/ffmpeg_opt.c b/fftools/ffmpeg_opt.c
-index d7a7eb0662..3949c9e76b 100644
+index f5ca18aa64..483bb86b54 100644
 --- a/fftools/ffmpeg_opt.c
 +++ b/fftools/ffmpeg_opt.c
-@@ -684,11 +684,19 @@ static AVCodec *choose_decoder(OptionsContext *o, AVFormatContext *s, AVStream *
+@@ -698,11 +698,19 @@ static AVCodec *choose_decoder(OptionsContext *o, AVFormatContext *s, AVStream *
  
      MATCH_PER_STREAM_OPT(codec_names, str, codec_name, s, st);
      if (codec_name) {
@@ -462,7 +649,7 @@ index d7a7eb0662..3949c9e76b 100644
  
  /* Add all the streams from the given input file to the global
 diff --git a/libavcodec/Makefile b/libavcodec/Makefile
-index 4b8ad121db..f6e6784e5a 100644
+index 3cd73fbcc6..aa15d411cd 100644
 --- a/libavcodec/Makefile
 +++ b/libavcodec/Makefile
 @@ -6,6 +6,7 @@ HEADERS = ac3_parser.h                                                  \
@@ -473,7 +660,7 @@ index 4b8ad121db..f6e6784e5a 100644
            d3d11va.h                                                     \
            dirac.h                                                       \
            dv_profile.h                                                  \
-@@ -128,6 +129,7 @@ OBJS-$(CONFIG_QSVDEC)                  += qsvdec.o
+@@ -132,6 +133,7 @@ OBJS-$(CONFIG_QSVDEC)                  += qsvdec.o
  OBJS-$(CONFIG_QSVENC)                  += qsvenc.o
  OBJS-$(CONFIG_RANGECODER)              += rangecoder.o
  OBJS-$(CONFIG_RDFT)                    += rdft.o
@@ -481,7 +668,7 @@ index 4b8ad121db..f6e6784e5a 100644
  OBJS-$(CONFIG_RV34DSP)                 += rv34dsp.o
  OBJS-$(CONFIG_SHARED)                  += log2_tab.o reverse.o
  OBJS-$(CONFIG_SINEWIN)                 += sinewin.o sinewin_fixed.o
-@@ -360,6 +362,13 @@ OBJS-$(CONFIG_HAP_ENCODER)             += hapenc.o hap.o
+@@ -368,6 +370,13 @@ OBJS-$(CONFIG_HCOM_DECODER)            += hcom.o
  OBJS-$(CONFIG_HEVC_DECODER)            += hevcdec.o hevc_mvs.o \
                                            hevc_cabac.o hevc_refs.o hevcpred.o    \
                                            hevcdsp.o hevc_filter.o hevc_data.o
@@ -495,7 +682,7 @@ index 4b8ad121db..f6e6784e5a 100644
  OBJS-$(CONFIG_HEVC_AMF_ENCODER)        += amfenc_hevc.o
  OBJS-$(CONFIG_HEVC_CUVID_DECODER)      += cuviddec.o
  OBJS-$(CONFIG_HEVC_MEDIACODEC_DECODER) += mediacodecdec.o
-@@ -1188,3 +1197,31 @@ $(SUBDIR)qdm2.o: $(SUBDIR)qdm2_tables.h
+@@ -1223,3 +1232,31 @@ $(SUBDIR)qdm2.o: $(SUBDIR)qdm2_tables.h
  $(SUBDIR)sinewin.o: $(SUBDIR)sinewin_tables.h
  $(SUBDIR)sinewin_fixed.o: $(SUBDIR)sinewin_fixed_tables.h
  endif
@@ -528,10 +715,10 @@ index 4b8ad121db..f6e6784e5a 100644
 +$(SUBDIR)rpi_hevcdec.o $(SUBDIR)rpi_shader_template.o $(SUBDIR)rpi_qpu.o: $(SUBDIR)rpi_hevc_shader.h
 +endif
 diff --git a/libavcodec/allcodecs.c b/libavcodec/allcodecs.c
-index 4d4ef530e4..fba8776c9f 100644
+index d2f9a39ce5..cc87600a2a 100644
 --- a/libavcodec/allcodecs.c
 +++ b/libavcodec/allcodecs.c
-@@ -142,6 +142,7 @@ extern AVCodec ff_h264_qsv_decoder;
+@@ -145,6 +145,7 @@ extern AVCodec ff_h264_qsv_decoder;
  extern AVCodec ff_h264_rkmpp_decoder;
  extern AVCodec ff_hap_encoder;
  extern AVCodec ff_hap_decoder;
@@ -539,7 +726,7 @@ index 4d4ef530e4..fba8776c9f 100644
  extern AVCodec ff_hevc_decoder;
  extern AVCodec ff_hevc_qsv_decoder;
  extern AVCodec ff_hevc_rkmpp_decoder;
-@@ -833,6 +834,41 @@ static enum AVCodecID remap_deprecated_codec_id(enum AVCodecID id)
+@@ -861,6 +862,41 @@ static enum AVCodecID remap_deprecated_codec_id(enum AVCodecID id)
      }
  }
  
@@ -15183,10 +15370,10 @@ index 0000000000..e35896a102
 +
 +endfunc
 diff --git a/libavcodec/avcodec.h b/libavcodec/avcodec.h
-index fb0c6fae70..9f2ebb16f3 100644
+index d234271c5b..a36b675fba 100644
 --- a/libavcodec/avcodec.h
 +++ b/libavcodec/avcodec.h
-@@ -3208,7 +3208,13 @@ typedef struct AVCodecContext {
+@@ -3273,7 +3273,13 @@ typedef struct AVCodecContext {
  #endif
  
      /**
@@ -15201,7 +15388,7 @@ index fb0c6fae70..9f2ebb16f3 100644
       * the end of the audio. I.e. this number of decoded samples must be
       * discarded by the caller from the end of the stream to get the original
       * audio without any trailing padding.
-@@ -4593,6 +4599,17 @@ void av_packet_rescale_ts(AVPacket *pkt, AVRational tb_src, AVRational tb_dst);
+@@ -4666,6 +4672,17 @@ void av_packet_rescale_ts(AVPacket *pkt, AVRational tb_src, AVRational tb_dst);
   */
  AVCodec *avcodec_find_decoder(enum AVCodecID id);
  
@@ -15262,10 +15449,10 @@ index 647a22ef7c..4ed35d1126 100644
  
  #include "avcodec.h"
 diff --git a/libavcodec/raw.c b/libavcodec/raw.c
-index 8da2a9735e..9089f9b4ea 100644
+index b6fb91c1c6..e99dacbb1c 100644
 --- a/libavcodec/raw.c
 +++ b/libavcodec/raw.c
-@@ -283,6 +283,10 @@ const PixelFormatTag ff_raw_pix_fmt_tags[] = {
+@@ -289,6 +289,10 @@ const PixelFormatTag ff_raw_pix_fmt_tags[] = {
      { AV_PIX_FMT_YUV444P16LE, MKTAG('I', '4', 'F', 'L') },
      { AV_PIX_FMT_YUV444P16BE, MKTAG('I', '4', 'F', 'B') },
  
@@ -19729,7 +19916,7 @@ index 0000000000..221755fb6e
 +
 diff --git a/libavcodec/rpi_hevc_parse.c b/libavcodec/rpi_hevc_parse.c
 new file mode 100644
-index 0000000000..04f9231acc
+index 0000000000..36affa9afa
 --- /dev/null
 +++ b/libavcodec/rpi_hevc_parse.c
 @@ -0,0 +1,142 @@
@@ -19764,7 +19951,7 @@ index 0000000000..04f9231acc
 +    int ret = 0;
 +    H2645Packet pkt = { 0 };
 +
-+    ret = ff_h2645_packet_split(&pkt, buf, buf_size, logctx, is_nalff, nal_length_size, AV_CODEC_ID_HEVC, 1);
++    ret = ff_h2645_packet_split(&pkt, buf, buf_size, logctx, is_nalff, nal_length_size, AV_CODEC_ID_HEVC, 1, 0);
 +    if (ret < 0) {
 +        goto done;
 +    }
@@ -28119,7 +28306,7 @@ index 0000000000..1128a2c054
 +};
 diff --git a/libavcodec/rpi_hevcdec.c b/libavcodec/rpi_hevcdec.c
 new file mode 100644
-index 0000000000..39a63c77de
+index 0000000000..c874222ebb
 --- /dev/null
 +++ b/libavcodec/rpi_hevcdec.c
 @@ -0,0 +1,6016 @@
@@ -33552,7 +33739,7 @@ index 0000000000..39a63c77de
 +    /* split the input packet into NAL units, so we know the upper bound on the
 +     * number of slices in the frame */
 +    ret = ff_h2645_packet_split(&s->pkt, buf, length, s->avctx, s->is_nalff,
-+                                s->nal_length_size, s->avctx->codec_id, 0);
++                                s->nal_length_size, s->avctx->codec_id, 0, 0);
 +    if (ret < 0) {
 +        av_log(s->avctx, AV_LOG_ERROR,
 +               "Error splitting the input into NAL units.\n");
@@ -42213,11 +42400,11 @@ index 0000000000..26fb3be999
 +#endif
 +
 diff --git a/libavfilter/Makefile b/libavfilter/Makefile
-index bcd5d437ff..ccb49ec8c0 100644
+index 455c809b15..087cab98ee 100644
 --- a/libavfilter/Makefile
 +++ b/libavfilter/Makefile
-@@ -346,6 +346,7 @@ OBJS-$(CONFIG_TONEMAP_FILTER)                += vf_tonemap.o
- OBJS-$(CONFIG_TRANSPOSE_FILTER)              += vf_transpose.o
+@@ -406,6 +406,7 @@ OBJS-$(CONFIG_TRANSPOSE_OPENCL_FILTER)       += vf_transpose_opencl.o opencl.o o
+ OBJS-$(CONFIG_TRANSPOSE_VAAPI_FILTER)        += vf_transpose_vaapi.o vaapi_vpp.o
  OBJS-$(CONFIG_TRIM_FILTER)                   += trim.o
  OBJS-$(CONFIG_UNPREMULTIPLY_FILTER)          += vf_premultiply.o framesync.o
 +OBJS-$(CONFIG_UNSAND_FILTER)                 += vf_unsand.o
@@ -42225,10 +42412,10 @@ index bcd5d437ff..ccb49ec8c0 100644
  OBJS-$(CONFIG_UNSHARP_OPENCL_FILTER)         += vf_unsharp_opencl.o opencl.o \
                                                  opencl/unsharp.o
 diff --git a/libavfilter/allfilters.c b/libavfilter/allfilters.c
-index 68b2992027..3b059fce4e 100644
+index 04a3df7d56..8d1470dd34 100644
 --- a/libavfilter/allfilters.c
 +++ b/libavfilter/allfilters.c
-@@ -338,6 +338,7 @@ extern AVFilter ff_vf_transpose;
+@@ -387,6 +387,7 @@ extern AVFilter ff_vf_transpose_vaapi;
  extern AVFilter ff_vf_trim;
  extern AVFilter ff_vf_unpremultiply;
  extern AVFilter ff_vf_unsharp;
@@ -42237,7 +42424,7 @@ index 68b2992027..3b059fce4e 100644
  extern AVFilter ff_vf_uspp;
  extern AVFilter ff_vf_vaguedenoiser;
 diff --git a/libavfilter/avfiltergraph.c b/libavfilter/avfiltergraph.c
-index 4cc6892404..9db92322a4 100644
+index a149f8fb6d..776e3bb9ab 100644
 --- a/libavfilter/avfiltergraph.c
 +++ b/libavfilter/avfiltergraph.c
 @@ -32,6 +32,9 @@
@@ -42375,18 +42562,18 @@ index 4cc6892404..9db92322a4 100644
                      (!ff_merge_samplerates(inlink->in_samplerates,
                                             inlink->out_samplerates) ||
 diff --git a/libavfilter/buffersrc.c b/libavfilter/buffersrc.c
-index cd56f8ca45..813a682aa1 100644
+index e0ff7e4dd8..77bc3d83fe 100644
 --- a/libavfilter/buffersrc.c
 +++ b/libavfilter/buffersrc.c
-@@ -207,7 +207,7 @@ static int av_buffersrc_add_frame_internal(AVFilterContext *ctx,
+@@ -213,7 +213,7 @@ static int av_buffersrc_add_frame_internal(AVFilterContext *ctx,
  
-     switch (ctx->outputs[0]->type) {
-     case AVMEDIA_TYPE_VIDEO:
--        CHECK_VIDEO_PARAM_CHANGE(ctx, s, frame->width, frame->height,
-+        CHECK_VIDEO_PARAM_CHANGE(ctx, s, av_frame_cropped_width(frame), av_frame_cropped_height(frame),
-                                  frame->format);
-         break;
-     case AVMEDIA_TYPE_AUDIO:
+         switch (ctx->outputs[0]->type) {
+         case AVMEDIA_TYPE_VIDEO:
+-            CHECK_VIDEO_PARAM_CHANGE(ctx, s, frame->width, frame->height,
++            CHECK_VIDEO_PARAM_CHANGE(ctx, s, av_frame_cropped_width(frame), av_frame_cropped_height(frame),
+                                      frame->format, frame->pts);
+             break;
+         case AVMEDIA_TYPE_AUDIO:
 diff --git a/libavfilter/vf_unsand.c b/libavfilter/vf_unsand.c
 new file mode 100644
 index 0000000000..64578b7ac4
@@ -42626,10 +42813,10 @@ index 0000000000..64578b7ac4
 +};
 +
 diff --git a/libavformat/utils.c b/libavformat/utils.c
-index c25eab4d49..4db44315c7 100644
+index 6c6f4e1bd1..c6332d3e46 100644
 --- a/libavformat/utils.c
 +++ b/libavformat/utils.c
-@@ -3005,6 +3005,40 @@ static int has_codec_parameters(AVStream *st, const char **errmsg_ptr)
+@@ -3013,6 +3013,40 @@ static int has_codec_parameters(AVStream *st, const char **errmsg_ptr)
      return 1;
  }
  
@@ -42670,7 +42857,7 @@ index c25eab4d49..4db44315c7 100644
  /* returns 1 or 0 if or if not decoded data was returned, or a negative error */
  static int try_decode_frame(AVFormatContext *s, AVStream *st, AVPacket *avpkt,
                              AVDictionary **options)
-@@ -3039,7 +3073,11 @@ static int try_decode_frame(AVFormatContext *s, AVStream *st, AVPacket *avpkt,
+@@ -3047,7 +3081,11 @@ static int try_decode_frame(AVFormatContext *s, AVStream *st, AVPacket *avpkt,
          av_dict_set(options ? options : &thread_opt, "threads", "1", 0);
          if (s->codec_whitelist)
              av_dict_set(options ? options : &thread_opt, "codec_whitelist", s->codec_whitelist, 0);
@@ -42683,7 +42870,7 @@ index c25eab4d49..4db44315c7 100644
          if (!options)
              av_dict_free(&thread_opt);
          if (ret < 0) {
-@@ -3070,6 +3108,14 @@ static int try_decode_frame(AVFormatContext *s, AVStream *st, AVPacket *avpkt,
+@@ -3078,6 +3116,14 @@ static int try_decode_frame(AVFormatContext *s, AVStream *st, AVPacket *avpkt,
          if (avctx->codec_type == AVMEDIA_TYPE_VIDEO ||
              avctx->codec_type == AVMEDIA_TYPE_AUDIO) {
              ret = avcodec_send_packet(avctx, &pkt);
@@ -42698,7 +42885,7 @@ index c25eab4d49..4db44315c7 100644
              if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF)
                  break;
              if (ret >= 0)
-@@ -3663,9 +3709,20 @@ FF_ENABLE_DEPRECATION_WARNINGS
+@@ -3671,9 +3717,20 @@ FF_ENABLE_DEPRECATION_WARNINGS
          // Try to just open decoders, in case this is enough to get parameters.
          if (!has_codec_parameters(st, NULL) && st->request_probe <= 0) {
              if (codec && !avctx->codec)
@@ -42723,13 +42910,13 @@ index c25eab4d49..4db44315c7 100644
          if (!options)
              av_dict_free(&thread_opt);
 diff --git a/libavutil/Makefile b/libavutil/Makefile
-index a63ba523c9..4f9a19e800 100644
+index 8a7a44e4b5..6bfc885796 100644
 --- a/libavutil/Makefile
 +++ b/libavutil/Makefile
-@@ -164,6 +164,7 @@ OBJS-$(CONFIG_QSV)                   += hwcontext_qsv.o
- OBJS-$(CONFIG_LIBDRM)                   += hwcontext_drm.o
- OBJS-$(CONFIG_LZO)                      += lzo.o
+@@ -170,6 +170,7 @@ OBJS-$(CONFIG_LZO)                      += lzo.o
+ OBJS-$(CONFIG_MEDIACODEC)               += hwcontext_mediacodec.o
  OBJS-$(CONFIG_OPENCL)                   += hwcontext_opencl.o
+ OBJS-$(CONFIG_QSV)                      += hwcontext_qsv.o
 +OBJS-$(CONFIG_SAND)                     += rpi_sand_fns.o
  OBJS-$(CONFIG_VAAPI)                    += hwcontext_vaapi.o
  OBJS-$(CONFIG_VIDEOTOOLBOX)             += hwcontext_videotoolbox.o
@@ -42818,7 +43005,7 @@ index 73b6bd0b14..d907de3f1c 100644
   * @}
   */
 diff --git a/libavutil/frame.c b/libavutil/frame.c
-index 00215ac29a..d068f437e7 100644
+index dcf1fc3d17..dd0876f5a9 100644
 --- a/libavutil/frame.c
 +++ b/libavutil/frame.c
 @@ -16,6 +16,8 @@
@@ -42840,7 +43027,7 @@ index 00215ac29a..d068f437e7 100644
  
  #if FF_API_FRAME_GET_SET
  MAKE_ACCESSORS(AVFrame, frame, int64_t, best_effort_timestamp)
-@@ -885,6 +890,12 @@ int av_frame_apply_cropping(AVFrame *frame, int flags)
+@@ -893,6 +898,12 @@ int av_frame_apply_cropping(AVFrame *frame, int flags)
          (frame->crop_top + frame->crop_bottom) >= frame->height)
          return AVERROR(ERANGE);
  
@@ -42854,10 +43041,10 @@ index 00215ac29a..d068f437e7 100644
      if (!desc)
          return AVERROR_BUG;
 diff --git a/libavutil/frame.h b/libavutil/frame.h
-index 9d57d6ce66..1ade7bd707 100644
+index 5d3231e7bb..e250f420a2 100644
 --- a/libavutil/frame.h
 +++ b/libavutil/frame.h
-@@ -886,6 +886,16 @@ int av_frame_apply_cropping(AVFrame *frame, int flags);
+@@ -964,6 +964,16 @@ int av_frame_apply_cropping(AVFrame *frame, int flags);
   */
  const char *av_frame_side_data_name(enum AVFrameSideDataType type);
  
@@ -42875,12 +43062,12 @@ index 9d57d6ce66..1ade7bd707 100644
   * @}
   */
 diff --git a/libavutil/pixdesc.c b/libavutil/pixdesc.c
-index 8ed52751c1..71d6dd4250 100644
+index b97b0665b0..e3f21b1137 100644
 --- a/libavutil/pixdesc.c
 +++ b/libavutil/pixdesc.c
-@@ -2185,6 +2185,30 @@ static const AVPixFmtDescriptor av_pix_fmt_descriptors[AV_PIX_FMT_NB] = {
-         .name  = "opencl",
-         .flags = AV_PIX_FMT_FLAG_HWACCEL,
+@@ -2344,6 +2344,30 @@ static const AVPixFmtDescriptor av_pix_fmt_descriptors[AV_PIX_FMT_NB] = {
+         },
+         .flags = AV_PIX_FMT_FLAG_PLANAR,
      },
 +    [AV_PIX_FMT_SAND128] = {
 +        .name = "sand128",
@@ -42910,21 +43097,20 @@ index 8ed52751c1..71d6dd4250 100644
  #if FF_API_PLUS1_MINUS1
  FF_ENABLE_DEPRECATION_WARNINGS
 diff --git a/libavutil/pixfmt.h b/libavutil/pixfmt.h
-index e184a56672..1078c192a6 100644
+index 8b54c9415b..9f74f7b335 100644
 --- a/libavutil/pixfmt.h
 +++ b/libavutil/pixfmt.h
-@@ -330,6 +330,11 @@ enum AVPixelFormat {
-      */
-     AV_PIX_FMT_OPENCL,
+@@ -347,6 +347,10 @@ enum AVPixelFormat {
  
+     AV_PIX_FMT_NV24,      ///< planar YUV 4:4:4, 24bpp, 1 plane for Y and 1 plane for the UV components, which are interleaved (first byte U and the following byte V)
+     AV_PIX_FMT_NV42,      ///< as above, but U and V bytes are swapped
 +    // RPI - not on ifdef so can be got at by calling progs
 +    AV_PIX_FMT_SAND128,    ///< 4:2:0  8-bit 128x*Y stripe, 64x*UV stripe, then next x stripe, mysterious padding
 +    AV_PIX_FMT_SAND64_10,  ///< 4:2:0 10-bit  64x*Y stripe, 32x*UV stripe, then next x stripe, mysterious padding
 +    AV_PIX_FMT_SAND64_16,  ///< 4:2:0 16-bit  64x*Y stripe, 32x*UV stripe, then next x stripe, mysterious padding
-+
+ 
      AV_PIX_FMT_NB         ///< number of pixel formats, DO NOT USE THIS if you want to link with shared libav* because the number of formats might differ between versions
  };
- 
 diff --git a/libavutil/rpi_sand_fn_pw.h b/libavutil/rpi_sand_fn_pw.h
 new file mode 100644
 index 0000000000..52d52a2a83
@@ -43445,7 +43631,7 @@ index 0000000000..b1e99a6a89
 +
 diff --git a/pi-util/conf_h265.2016.csv b/pi-util/conf_h265.2016.csv
 new file mode 100644
-index 0000000000..3e90f6893f
+index 0000000000..17fb09be58
 --- /dev/null
 +++ b/pi-util/conf_h265.2016.csv
 @@ -0,0 +1,195 @@
@@ -43646,7 +43832,7 @@ index 0000000000..3e90f6893f
 +1,local/intra_pred_21_laps,intra_pred_21_laps.265,intra_pred_21_laps.md5
 diff --git a/pi-util/conf_h265.2016_HEVC_v1.csv b/pi-util/conf_h265.2016_HEVC_v1.csv
 new file mode 100644
-index 0000000000..6082641271
+index 0000000000..b482907fcb
 --- /dev/null
 +++ b/pi-util/conf_h265.2016_HEVC_v1.csv
 @@ -0,0 +1,147 @@
@@ -43799,7 +43985,7 @@ index 0000000000..6082641271
 +1,WPP_F_ericsson_MAIN_2,WPP_F_ericsson_MAIN_2.bit,WPP_F_ericsson_MAIN_2_yuv.md5
 diff --git a/pi-util/conf_h265.csv b/pi-util/conf_h265.csv
 new file mode 100644
-index 0000000000..fc14f2a3c2
+index 0000000000..113528cfb0
 --- /dev/null
 +++ b/pi-util/conf_h265.csv
 @@ -0,0 +1,144 @@
@@ -44618,3 +44804,6 @@ index 0000000000..5935a11ca5
 +
 +    do_logparse(args.logfile)
 +
+-- 
+2.20.1
+

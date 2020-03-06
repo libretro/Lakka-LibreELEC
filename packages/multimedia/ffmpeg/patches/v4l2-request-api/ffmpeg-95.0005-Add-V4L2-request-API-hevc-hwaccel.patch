@@ -1,4 +1,4 @@
-From 2511b50434e37a56af86bd38b76a6b5cf4d3117b Mon Sep 17 00:00:00 2001
+From 521d06aec85d55a28e946a222f591747a1d3f2f5 Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@siol.net>
 Date: Sat, 15 Dec 2018 22:32:16 +0100
 Subject: [PATCH 05/12] Add V4L2 request API hevc hwaccel
@@ -15,10 +15,10 @@ Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
  create mode 100644 libavcodec/v4l2_request_hevc.c
 
 diff --git a/configure b/configure
-index a967ae0afb..d07cd27d88 100755
+index 576a79ff09..d51ee62a70 100755
 --- a/configure
 +++ b/configure
-@@ -2820,6 +2820,8 @@ hevc_dxva2_hwaccel_deps="dxva2 DXVA_PicParams_HEVC"
+@@ -2911,6 +2911,8 @@ hevc_dxva2_hwaccel_deps="dxva2 DXVA_PicParams_HEVC"
  hevc_dxva2_hwaccel_select="hevc_decoder"
  hevc_nvdec_hwaccel_deps="nvdec"
  hevc_nvdec_hwaccel_select="hevc_decoder"
@@ -27,19 +27,19 @@ index a967ae0afb..d07cd27d88 100755
  hevc_vaapi_hwaccel_deps="vaapi VAPictureParameterBufferHEVC"
  hevc_vaapi_hwaccel_select="hevc_decoder"
  hevc_vdpau_hwaccel_deps="vdpau VdpPictureInfoHEVC"
-@@ -6246,6 +6248,7 @@ check_cc vp9_v4l2_m2m linux/videodev2.h "int i = V4L2_PIX_FMT_VP9;"
+@@ -6460,6 +6462,7 @@ check_cc vp9_v4l2_m2m linux/videodev2.h "int i = V4L2_PIX_FMT_VP9;"
  
  check_func_headers "linux/media.h linux/videodev2.h" v4l2_timeval_to_ns
  check_cc h264_v4l2_request linux/videodev2.h "int i = V4L2_PIX_FMT_H264_SLICE;"
 +check_cc hevc_v4l2_request linux/videodev2.h "int i = V4L2_PIX_FMT_HEVC_SLICE;"
  check_cc mpeg2_v4l2_request linux/videodev2.h "int i = V4L2_PIX_FMT_MPEG2_SLICE;"
  
- check_header sys/videoio.h
+ check_headers sys/videoio.h
 diff --git a/libavcodec/Makefile b/libavcodec/Makefile
-index 2bdfaabb5f..a4c959e0f5 100644
+index 58bd444934..2b53d2b650 100644
 --- a/libavcodec/Makefile
 +++ b/libavcodec/Makefile
-@@ -860,6 +860,7 @@ OBJS-$(CONFIG_HEVC_D3D11VA_HWACCEL)       += dxva2_hevc.o
+@@ -880,6 +880,7 @@ OBJS-$(CONFIG_HEVC_D3D11VA_HWACCEL)       += dxva2_hevc.o
  OBJS-$(CONFIG_HEVC_DXVA2_HWACCEL)         += dxva2_hevc.o
  OBJS-$(CONFIG_HEVC_NVDEC_HWACCEL)         += nvdec_hevc.o
  OBJS-$(CONFIG_HEVC_QSV_HWACCEL)           += qsvdec_h2645.o
@@ -48,10 +48,10 @@ index 2bdfaabb5f..a4c959e0f5 100644
  OBJS-$(CONFIG_HEVC_VDPAU_HWACCEL)         += vdpau_hevc.o
  OBJS-$(CONFIG_MJPEG_NVDEC_HWACCEL)        += nvdec_mjpeg.o
 diff --git a/libavcodec/hevcdec.c b/libavcodec/hevcdec.c
-index 2c33a1ff57..d717850eeb 100644
+index 8f1c162ace..4c9c92bfc2 100644
 --- a/libavcodec/hevcdec.c
 +++ b/libavcodec/hevcdec.c
-@@ -362,6 +362,7 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
+@@ -373,6 +373,7 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
  #define HWACCEL_MAX (CONFIG_HEVC_DXVA2_HWACCEL + \
                       CONFIG_HEVC_D3D11VA_HWACCEL * 2 + \
                       CONFIG_HEVC_NVDEC_HWACCEL + \
@@ -59,7 +59,7 @@ index 2c33a1ff57..d717850eeb 100644
                       CONFIG_HEVC_VAAPI_HWACCEL + \
                       CONFIG_HEVC_VIDEOTOOLBOX_HWACCEL + \
                       CONFIG_HEVC_VDPAU_HWACCEL)
-@@ -388,6 +389,9 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
+@@ -399,6 +400,9 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
  #endif
  #if CONFIG_HEVC_VIDEOTOOLBOX_HWACCEL
          *fmt++ = AV_PIX_FMT_VIDEOTOOLBOX;
@@ -69,7 +69,7 @@ index 2c33a1ff57..d717850eeb 100644
  #endif
          break;
      case AV_PIX_FMT_YUV420P10:
-@@ -406,6 +410,9 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
+@@ -417,6 +421,9 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
  #endif
  #if CONFIG_HEVC_NVDEC_HWACCEL
          *fmt++ = AV_PIX_FMT_CUDA;
@@ -78,8 +78,8 @@ index 2c33a1ff57..d717850eeb 100644
 +        *fmt++ = AV_PIX_FMT_DRM_PRIME;
  #endif
          break;
-     case AV_PIX_FMT_YUV420P12:
-@@ -3566,6 +3573,9 @@ AVCodec ff_hevc_decoder = {
+     case AV_PIX_FMT_YUV444P:
+@@ -3592,6 +3599,9 @@ AVCodec ff_hevc_decoder = {
  #endif
  #if CONFIG_HEVC_VIDEOTOOLBOX_HWACCEL
                                 HWACCEL_VIDEOTOOLBOX(hevc),
@@ -634,6 +634,3 @@ index 0000000000..da1fd666d7
 +    .frame_params   = ff_v4l2_request_frame_params,
 +    .caps_internal  = HWACCEL_CAP_ASYNC_SAFE,
 +};
--- 
-2.24.0
-

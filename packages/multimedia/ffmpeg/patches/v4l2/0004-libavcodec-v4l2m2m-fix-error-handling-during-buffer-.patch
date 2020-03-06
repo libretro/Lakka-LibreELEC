@@ -1,0 +1,84 @@
+From db39d4579d36266a3f3b87312303d5097543633d Mon Sep 17 00:00:00 2001
+From: Jorge Ramirez-Ortiz <jramirez@baylibre.com>
+Date: Sun, 6 May 2018 19:56:30 +0200
+Subject: [PATCH 04/14] libavcodec: v4l2m2m: fix error handling during buffer
+ init
+
+Signed-off-by: Jorge Ramirez-Ortiz <jramirez@baylibre.com>
+---
+ libavcodec/v4l2_context.c | 19 ++++++++++++++++---
+ libavcodec/v4l2_m2m_dec.c |  9 +++++++--
+ 2 files changed, 23 insertions(+), 5 deletions(-)
+
+diff --git a/libavcodec/v4l2_context.c b/libavcodec/v4l2_context.c
+index 9457fadb1e..12d40d597e 100644
+--- a/libavcodec/v4l2_context.c
++++ b/libavcodec/v4l2_context.c
+@@ -263,6 +263,12 @@ static V4L2Buffer* v4l2_dequeue_v4l2buf(V4L2Context *ctx, int timeout)
+     /* if we are draining and there are no more capture buffers queued in the driver we are done */
+     if (!V4L2_TYPE_IS_OUTPUT(ctx->type) && ctx_to_m2mctx(ctx)->draining) {
+         for (i = 0; i < ctx->num_buffers; i++) {
++            /* capture buffer initialization happens during decode hence
++             * detection happens at runtime
++             */
++            if (!ctx->buffers)
++                break;
++
+             if (ctx->buffers[i].status == V4L2BUF_IN_DRIVER)
+                 goto start;
+         }
+@@ -724,9 +730,8 @@ int ff_v4l2_context_init(V4L2Context* ctx)
+         ctx->buffers[i].context = ctx;
+         ret = ff_v4l2_buffer_initialize(&ctx->buffers[i], i);
+         if (ret < 0) {
+-            av_log(logger(ctx), AV_LOG_ERROR, "%s buffer initialization (%s)\n", ctx->name, av_err2str(ret));
+-            av_free(ctx->buffers);
+-            return ret;
++            av_log(logger(ctx), AV_LOG_ERROR, "%s buffer[%d] initialization (%s)\n", ctx->name, i, av_err2str(ret));
++            goto error;
+         }
+     }
+ 
+@@ -739,4 +744,12 @@ int ff_v4l2_context_init(V4L2Context* ctx)
+         V4L2_TYPE_IS_MULTIPLANAR(ctx->type) ? ctx->format.fmt.pix_mp.plane_fmt[0].bytesperline : ctx->format.fmt.pix.bytesperline);
+ 
+     return 0;
++
++error:
++    v4l2_release_buffers(ctx);
++
++    av_free(ctx->buffers);
++    ctx->buffers = NULL;
++
++    return ret;
+ }
+diff --git a/libavcodec/v4l2_m2m_dec.c b/libavcodec/v4l2_m2m_dec.c
+index b28f4e236a..fb5406a74e 100644
+--- a/libavcodec/v4l2_m2m_dec.c
++++ b/libavcodec/v4l2_m2m_dec.c
+@@ -92,8 +92,8 @@ static int v4l2_try_start(AVCodecContext *avctx)
+     if (!capture->buffers) {
+         ret = ff_v4l2_context_init(capture);
+         if (ret) {
+-            av_log(avctx, AV_LOG_DEBUG, "can't request output buffers\n");
+-            return ret;
++            av_log(avctx, AV_LOG_ERROR, "can't request capture buffers\n");
++            return AVERROR(ENOMEM);
+         }
+     }
+ 
+@@ -157,6 +157,11 @@ static int v4l2_receive_frame(AVCodecContext *avctx, AVFrame *frame)
+         ret = v4l2_try_start(avctx);
+         if (ret) {
+             av_packet_unref(&avpkt);
++
++            /* cant recover */
++            if (ret == AVERROR(ENOMEM))
++                return ret;
++
+             return 0;
+         }
+     }
+-- 
+2.24.1
+
