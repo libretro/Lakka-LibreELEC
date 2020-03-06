@@ -1,40 +1,14 @@
-################################################################################
-#      This file is part of OpenELEC - http://www.openelec.tv
-#      Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
-#
-#  OpenELEC is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 2 of the License, or
-#  (at your option) any later version.
-#
-#  OpenELEC is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
-################################################################################
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="wayland-protocols"
 PKG_VERSION="1.12"
-PKG_REV="1"
-PKG_ARCH="any"
+PKG_SHA256="3b19e8a9e1e19474756a7069db23b90ca9b8ebb438448c6063b4a7fc89b7c8b2"
 PKG_LICENSE="OSS"
-PKG_SITE="http://wayland.freedesktop.org/"
-PKG_URL="http://wayland.freedesktop.org/releases/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+PKG_SITE="https://wayland.freedesktop.org/"
+PKG_URL="https://wayland.freedesktop.org/releases/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_PRIORITY="optional"
-PKG_SECTION="wayland"
-PKG_SHORTDESC=""
-PKG_LONGDESC=""
-
-PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
-
-pre_makeinstall_target() {
-  sed "s|prefix=/usr|prefix=$SYSROOT_PREFIX/usr|" -i wayland-protocols.pc
-}
+PKG_LONGDESC="Specifications of extended Wayland protocols"
 
 post_makeinstall_target() {
   rm -rf $INSTALL
