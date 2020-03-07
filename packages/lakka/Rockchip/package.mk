@@ -33,7 +33,3 @@ PKG_LONGDESC=""
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-
-post_install() {
-  enable_service serial-console.service
-}
