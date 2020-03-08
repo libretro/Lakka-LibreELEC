@@ -1,0 +1,257 @@
+commit 29b1265c75d65900b25ae2dfd90e9a55565ea4c7
+Author: chewitt <christianshewitt@gmail.com>
+Date:   Fri Dec 6 06:00:59 2019 +0000
+
+    ARM: dts: Import Khadas VIM3L  DT from Linux 5.5-rc1
+
+diff --git a/arch/arm/dts/Makefile b/arch/arm/dts/Makefile
+index 3dc9c4d41c..b6c9f821ee 100644
+--- a/arch/arm/dts/Makefile
++++ b/arch/arm/dts/Makefile
+@@ -152,6 +152,7 @@ dtb-$(CONFIG_ARCH_MESON) += \
+ 	meson-g12a-sei510.dtb \
+ 	meson-g12b-odroid-n2.dtb \
+ 	meson-g12b-a311d-khadas-vim3.dtb \
++	meson-sm1-khadas-vim3l.dtb \
+ 	meson-sm1-sei610.dtb
+ dtb-$(CONFIG_TEGRA) += tegra20-harmony.dtb \
+ 	tegra20-medcom-wide.dtb \
+diff --git a/arch/arm/dts/meson-sm1-khadas-vim3l.dts b/arch/arm/dts/meson-sm1-khadas-vim3l.dts
+new file mode 100644
+index 0000000000..dbbf29a0db
+--- /dev/null
++++ b/arch/arm/dts/meson-sm1-khadas-vim3l.dts
+@@ -0,0 +1,95 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++/*
++ * Copyright (c) 2019 BayLibre, SAS
++ * Author: Neil Armstrong <narmstrong@baylibre.com>
++ */
++
++/dts-v1/;
++
++#include "meson-sm1.dtsi"
++#include "meson-khadas-vim3.dtsi"
++
++/ {
++	compatible = "khadas,vim3l", "amlogic,sm1";
++	model = "Khadas VIM3L";
++
++	vddcpu: regulator-vddcpu {
++		/*
++		 * Silergy SY8030DEC Regulator.
++		 */
++		compatible = "pwm-regulator";
++
++		regulator-name = "VDDCPU";
++		regulator-min-microvolt = <690000>;
++		regulator-max-microvolt = <1050000>;
++
++		vin-supply = <&vsys_3v3>;
++
++		pwms = <&pwm_AO_cd 1 1250 0>;
++		pwm-dutycycle-range = <100 0>;
++
++		regulator-boot-on;
++		regulator-always-on;
++	};
++};
++
++&cpu0 {
++	cpu-supply = <&vddcpu>;
++	operating-points-v2 = <&cpu_opp_table>;
++	clocks = <&clkc CLKID_CPU_CLK>;
++	clock-latency = <50000>;
++};
++
++&cpu1 {
++	cpu-supply = <&vddcpu>;
++	operating-points-v2 = <&cpu_opp_table>;
++	clocks = <&clkc CLKID_CPU1_CLK>;
++	clock-latency = <50000>;
++};
++
++&cpu2 {
++	cpu-supply = <&vddcpu>;
++	operating-points-v2 = <&cpu_opp_table>;
++	clocks = <&clkc CLKID_CPU2_CLK>;
++	clock-latency = <50000>;
++};
++
++&cpu3 {
++	cpu-supply = <&vddcpu>;
++	operating-points-v2 = <&cpu_opp_table>;
++	clocks = <&clkc CLKID_CPU3_CLK>;
++	clock-latency = <50000>;
++};
++
++&pwm_AO_cd {
++	pinctrl-0 = <&pwm_ao_d_e_pins>;
++	pinctrl-names = "default";
++	clocks = <&xtal>;
++	clock-names = "clkin1";
++	status = "okay";
++};
++
++/*
++ * The VIM3 on-board  MCU can mux the PCIe/USB3.0 shared differential
++ * lines using a FUSB340TMX USB 3.1 SuperSpeed Data Switch between
++ * an USB3.0 Type A connector and a M.2 Key M slot.
++ * The PHY driving these differential lines is shared between
++ * the USB3.0 controller and the PCIe Controller, thus only
++ * a single controller can use it.
++ * If the MCU is configured to mux the PCIe/USB3.0 differential lines
++ * to the M.2 Key M slot, uncomment the following block to disable
++ * USB3.0 from the USB Complex and enable the PCIe controller.
++ * The End User is not expected to uncomment the following except for
++ * testing purposes, but instead rely on the firmware/bootloader to
++ * update these nodes accordingly if PCIe mode is selected by the MCU.
++ */
++/*
++&pcie {
++	status = "okay";
++};
++
++&usb {
++	phys = <&usb2_phy0>, <&usb2_phy1>;
++	phy-names = "usb2-phy0", "usb2-phy1";
++};
++ */
+diff --git a/board/amlogic/w400/README.khadas-vim3l b/board/amlogic/w400/README.khadas-vim3l
+new file mode 100644
+index 0000000000..a9b01ef85b
+--- /dev/null
++++ b/board/amlogic/w400/README.khadas-vim3l
+@@ -0,0 +1,132 @@
++U-Boot for Khadas VIM3L
++=======================
++
++Khadas VIM3 is a single board computer manufactured by Shenzhen Wesion
++Technology Co., Ltd. with the following specifications:
++
++ - Amlogic S905D3 Arm Cortex-A55 quad-core SoC
++ - 2GB LPDDR4 SDRAM
++ - Gigabit Ethernet
++ - HDMI 2.1 display
++ - 40-pin GPIO header
++ - 1 x USB 3.0 Host, 1 x USB 2.0 Host
++ - eMMC, microSD
++ - M.2
++ - Infrared receiver
++
++Schematics are available on the manufacturer website.
++
++Currently the U-Boot port supports the following devices:
++ - serial
++ - eMMC, microSD
++ - Ethernet
++ - I2C
++ - Regulators
++ - Reset controller
++ - Clock controller
++ - ADC
++
++u-boot compilation
++==================
++
++ > export ARCH=arm
++ > export CROSS_COMPILE=aarch64-none-elf-
++ > make khadas-vim3l_defconfig
++ > make
++
++Image creation
++==============
++
++Amlogic doesn't provide sources for the firmware and for tools needed
++to create the bootloader image, so it is necessary to obtain them from
++the git tree published by the board vendor:
++
++ > wget https://releases.linaro.org/archive/13.11/components/toolchain/binaries/gcc-linaro-aarch64-none-elf-4.8-2013.11_linux.tar.xz
++ > wget https://releases.linaro.org/archive/13.11/components/toolchain/binaries/gcc-linaro-arm-none-eabi-4.8-2013.11_linux.tar.xz
++ > tar xvfJ gcc-linaro-aarch64-none-elf-4.8-2013.11_linux.tar.xz
++ > tar xvfJ gcc-linaro-arm-none-eabi-4.8-2013.11_linux.tar.xz
++ > export PATH=$PWD/gcc-linaro-aarch64-none-elf-4.8-2013.11_linux/bin:$PWD/gcc-linaro-arm-none-eabi-4.8-2013.11_linux/bin:$PATH
++
++ > DIR=vim3l-u-boot
++ > git clone --depth 1 \
++       https://github.com/khadas/u-boot.git -b khadas-vims-v2015.01 \
++       $DIR
++
++ > cd vim3-u-boot
++ > make kvim3l_defconfig
++ > make
++ > export UBOOTDIR=$PWD
++
++ Go back to mainline U-Boot source tree then :
++ > mkdir fip
++
++ > cp $UBOOTDIR/build/scp_task/bl301.bin fip/
++ > cp $UBOOTDIR/build/board/khadas/kvim3/firmware/acs.bin fip/
++ > cp $UBOOTDIR/fip/g12b/bl2.bin fip/
++ > cp $UBOOTDIR/fip/g12b/bl30.bin fip/
++ > cp $UBOOTDIR/fip/g12b/bl31.img fip/
++ > cp $UBOOTDIR/fip/g12b/ddr3_1d.fw fip/
++ > cp $UBOOTDIR/fip/g12b/ddr4_1d.fw fip/
++ > cp $UBOOTDIR/fip/g12b/ddr4_2d.fw fip/
++ > cp $UBOOTDIR/fip/g12b/diag_lpddr4.fw fip/
++ > cp $UBOOTDIR/fip/g12b/lpddr3_1d.fw fip/
++ > cp $UBOOTDIR/fip/g12b/lpddr4_1d.fw fip/
++ > cp $UBOOTDIR/fip/g12b/lpddr4_2d.fw fip/
++ > cp $UBOOTDIR/fip/g12b/piei.fw fip/
++ > cp $UBOOTDIR/fip/g12b/aml_ddr.fw fip/
++ > cp u-boot.bin fip/bl33.bin
++
++ > sh fip/blx_fix.sh \
++	fip/bl30.bin \
++	fip/zero_tmp \
++	fip/bl30_zero.bin \
++	fip/bl301.bin \
++	fip/bl301_zero.bin \
++	fip/bl30_new.bin \
++	bl30
++
++ > sh fip/blx_fix.sh \
++	fip/bl2.bin \
++	fip/zero_tmp \
++	fip/bl2_zero.bin \
++	fip/acs.bin \
++	fip/bl21_zero.bin \
++	fip/bl2_new.bin \
++	bl2
++
++ > $UBOOTDIR/fip/g12a/aml_encrypt_g12a --bl30sig --input fip/bl30_new.bin \
++					--output fip/bl30_new.bin.g12a.enc \
++					--level v3
++ > $UBOOTDIR/fip/g12a/aml_encrypt_g12a --bl3sig --input fip/bl30_new.bin.g12a.enc \
++					--output fip/bl30_new.bin.enc \
++					--level v3 --type bl30
++ > $UBOOTDIR/fip/g12a/aml_encrypt_g12a --bl3sig --input fip/bl31.img \
++					--output fip/bl31.img.enc \
++					--level v3 --type bl31
++ > $UBOOTDIR/fip/g12a/aml_encrypt_g12a --bl3sig --input fip/bl33.bin --compress lz4 \
++					--output fip/bl33.bin.enc \
++					--level v3 --type bl33 --compress lz4
++ > $UBOOTDIR/fip/g12a/aml_encrypt_g12a --bl2sig --input fip/bl2_new.bin \
++					--output fip/bl2.n.bin.sig
++ > $UBOOTDIR/fip/g12a/aml_encrypt_g12a --bootmk \
++		--output fip/u-boot.bin \
++		--bl2 fip/bl2.n.bin.sig \
++		--bl30 fip/bl30_new.bin.enc \
++		--bl31 fip/bl31.img.enc \
++		--bl33 fip/bl33.bin.enc \
++		--ddrfw1 fip/ddr4_1d.fw \
++		--ddrfw2 fip/ddr4_2d.fw \
++		--ddrfw3 fip/ddr3_1d.fw \
++		--ddrfw4 fip/piei.fw \
++		--ddrfw5 fip/lpddr4_1d.fw \
++		--ddrfw6 fip/lpddr4_2d.fw \
++		--ddrfw7 fip/diag_lpddr4.fw \
++		--ddrfw8 fip/aml_ddr.fw \
++		--ddrfw9 fip/lpddr3_1d.fw \
++		--level v3
++
++and then write the image to SD with:
++
++ > DEV=/dev/your_sd_device
++ > dd if=fip/u-boot.bin.sd.bin of=$DEV conv=fsync,notrunc bs=512 skip=1 seek=1
++ > dd if=fip/u-boot.bin.sd.bin of=$DEV conv=fsync,notrunc bs=1 count=444
