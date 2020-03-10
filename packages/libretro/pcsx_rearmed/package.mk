@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="pcsx_rearmed"
-PKG_VERSION="915cd7d"
+PKG_VERSION="8fda5dd"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
@@ -47,7 +47,12 @@ fi
 make_target() {
   cd $PKG_BUILD
   if [[ "$TARGET_FPU" =~ "neon" ]]; then
-    make -f Makefile.libretro HAVE_NEON=1 USE_DYNAREC=1 BUILTIN_GPU=neon
+  if [ "$DEVICE" == "OdroidGoAdvance" ]; then
+		sed -i "s|armv8-a|armv8-a+crc|" Makefile.libretro
+		make -f Makefile.libretro HAVE_NEON=1 USE_DYNAREC=1 BUILTIN_GPU=neon platform=classic_armv8_a35
+    else
+		make -f Makefile.libretro HAVE_NEON=1 USE_DYNAREC=1 BUILTIN_GPU=neon
+    fi
   elif [ "$ARCH" == "arm" ]; then
     make -f Makefile.libretro HAVE_NEON=0 USE_DYNAREC=1 BUILTIN_GPU=unai
   else
