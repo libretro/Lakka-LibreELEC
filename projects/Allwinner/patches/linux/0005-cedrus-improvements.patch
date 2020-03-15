@@ -1,7 +1,44 @@
-From 4d25b2ae236bf42f5f9ef1d57cbc2523222a4422 Mon Sep 17 00:00:00 2001
+From d36b4160d693a3640be95ebc3aef1dfc9e69ba68 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Sun, 15 Mar 2020 09:26:28 +0100
+Subject: [PATCH 01/11] media: cedrus: h264: Fix 4K decoding on H6
+
+Due to unknown reason, H6 needs larger intraprediction buffer for 4K
+videos than other SoCs. This was discovered by playing 4096x2304 video,
+which is maximum what H6 VPU is supposed to support.
+
+Fixes: 03e612e701a6 ("media: cedrus: Fix H264 4k support")
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+---
+ drivers/staging/media/sunxi/cedrus/cedrus_h264.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_h264.c b/drivers/staging/media/sunxi/cedrus/cedrus_h264.c
+index bfb4a4820a67..54ee2aa423e2 100644
+--- a/drivers/staging/media/sunxi/cedrus/cedrus_h264.c
++++ b/drivers/staging/media/sunxi/cedrus/cedrus_h264.c
+@@ -610,8 +610,12 @@ static int cedrus_h264_start(struct cedrus_ctx *ctx)
+ 			goto err_mv_col_buf;
+ 		}
+ 
++		/*
++		 * NOTE: Multiplying by two deviates from CedarX logic, but it
++		 * is for some unknown reason needed for H264 4K decoding on H6.
++		 */
+ 		ctx->codec.h264.intra_pred_buf_size =
+-			ALIGN(ctx->src_fmt.width, 64) * 5;
++			ALIGN(ctx->src_fmt.width, 64) * 5 * 2;
+ 		ctx->codec.h264.intra_pred_buf =
+ 			dma_alloc_coherent(dev->dev,
+ 					   ctx->codec.h264.intra_pred_buf_size,
+-- 
+2.25.1
+
+
+From 51af8e7381275e9b047857bb1269544fa4751ba7 Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@siol.net>
 Date: Sat, 26 Oct 2019 13:55:15 +0200
-Subject: [PATCH 04/14] media: uapi: hevc: Add scaling matrix control
+Subject: [PATCH 02/11] media: uapi: hevc: Add scaling matrix control
 
 HEVC has a scaling matrix concept. Add support for it.
 
@@ -14,10 +51,10 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
  4 files changed, 63 insertions(+)
 
 diff --git a/Documentation/media/uapi/v4l/ext-ctrls-codec.rst b/Documentation/media/uapi/v4l/ext-ctrls-codec.rst
-index a1209f68c5e8..382e85e16444 100644
+index d4fc5f25aa14..e8e707642336 100644
 --- a/Documentation/media/uapi/v4l/ext-ctrls-codec.rst
 +++ b/Documentation/media/uapi/v4l/ext-ctrls-codec.rst
-@@ -4176,6 +4176,47 @@ enum v4l2_mpeg_video_hevc_size_of_length_field -
+@@ -4196,6 +4196,47 @@ enum v4l2_mpeg_video_hevc_size_of_length_field -
        - ``padding[6]``
        - Applications and drivers must set this to zero.
  
@@ -78,7 +115,7 @@ index 561bda112809..3aabc322daa4 100644
  	Buffers associated with this pixel format must contain the appropriate
  	number of macroblocks to decode a full corresponding frame.
 diff --git a/drivers/media/v4l2-core/v4l2-ctrls.c b/drivers/media/v4l2-core/v4l2-ctrls.c
-index b4caf2d4d076..2803165cbc6a 100644
+index 93d33d1db4e8..94c3e64ffb8b 100644
 --- a/drivers/media/v4l2-core/v4l2-ctrls.c
 +++ b/drivers/media/v4l2-core/v4l2-ctrls.c
 @@ -975,6 +975,7 @@ const char *v4l2_ctrl_get_name(u32 id)
@@ -99,7 +136,7 @@ index b4caf2d4d076..2803165cbc6a 100644
  	case V4L2_CID_UNIT_CELL_SIZE:
  		*type = V4L2_CTRL_TYPE_AREA;
  		*flags |= V4L2_CTRL_FLAG_READ_ONLY;
-@@ -1856,6 +1860,9 @@ static int std_validate_compound(const struct v4l2_ctrl *ctrl, u32 idx,
+@@ -1857,6 +1861,9 @@ static int std_validate_compound(const struct v4l2_ctrl *ctrl, u32 idx,
  		zero_padding(*p_hevc_slice_params);
  		break;
  
@@ -109,7 +146,7 @@ index b4caf2d4d076..2803165cbc6a 100644
  	case V4L2_CTRL_TYPE_AREA:
  		area = p;
  		if (!area->width || !area->height)
-@@ -2545,6 +2552,9 @@ static struct v4l2_ctrl *v4l2_ctrl_new(struct v4l2_ctrl_handler *hdl,
+@@ -2546,6 +2553,9 @@ static struct v4l2_ctrl *v4l2_ctrl_new(struct v4l2_ctrl_handler *hdl,
  	case V4L2_CTRL_TYPE_HEVC_SLICE_PARAMS:
  		elem_size = sizeof(struct v4l2_ctrl_hevc_slice_params);
  		break;
@@ -154,13 +191,13 @@ index 1009cf0891cc..1592e52c3614 100644
 +
  #endif
 -- 
-2.24.0
+2.25.1
 
 
-From 000a33e20cc53fa82e3bc116d411135e93d5ab95 Mon Sep 17 00:00:00 2001
+From ba9500a50714666da11622d44f42a5512b5002d1 Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@siol.net>
 Date: Sat, 26 Oct 2019 13:58:49 +0200
-Subject: [PATCH 05/14] media: cedrus: hevc: Add support for scaling matrix
+Subject: [PATCH 03/11] media: cedrus: hevc: Add support for scaling matrix
 
 HEVC frames may use scaling list feature. Add support for it.
 
@@ -174,7 +211,7 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
  5 files changed, 81 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/staging/media/sunxi/cedrus/cedrus.c b/drivers/staging/media/sunxi/cedrus/cedrus.c
-index c6ddd46eff82..bf68bc6b20c8 100644
+index 05a85517ff60..d813d32a6755 100644
 --- a/drivers/staging/media/sunxi/cedrus/cedrus.c
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus.c
 @@ -116,6 +116,13 @@ static const struct cedrus_control cedrus_controls[] = {
@@ -217,10 +254,10 @@ index 4a2fc33a1d79..327ed6c264dc 100644
  
  	default:
 diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_h265.c b/drivers/staging/media/sunxi/cedrus/cedrus_h265.c
-index 6945dc74e1d7..888bfd5ca224 100644
+index ce497d0197df..0031b7517f6e 100644
 --- a/drivers/staging/media/sunxi/cedrus/cedrus_h265.c
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus_h265.c
-@@ -220,6 +220,69 @@ static void cedrus_h265_pred_weight_write(struct cedrus_dev *dev,
+@@ -238,6 +238,69 @@ static void cedrus_h265_skip_bits(struct cedrus_dev *dev, int num)
  	}
  }
  
@@ -290,7 +327,7 @@ index 6945dc74e1d7..888bfd5ca224 100644
  static void cedrus_h265_setup(struct cedrus_ctx *ctx,
  			      struct cedrus_run *run)
  {
-@@ -499,7 +562,12 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
+@@ -519,7 +582,12 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
  
  	/* Scaling list. */
  
@@ -305,10 +342,10 @@ index 6945dc74e1d7..888bfd5ca224 100644
  
  	/* Neightbor information address. */
 diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_regs.h b/drivers/staging/media/sunxi/cedrus/cedrus_regs.h
-index 7beb03d3bb39..0d9449fe2b28 100644
+index 66b152f18d17..df1cceef8d93 100644
 --- a/drivers/staging/media/sunxi/cedrus/cedrus_regs.h
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus_regs.h
-@@ -492,6 +492,8 @@
+@@ -493,6 +493,8 @@
  #define VE_DEC_H265_ENTRY_POINT_OFFSET_ADDR	(VE_ENGINE_DEC_H265 + 0x64)
  #define VE_DEC_H265_TILE_START_CTB		(VE_ENGINE_DEC_H265 + 0x68)
  #define VE_DEC_H265_TILE_END_CTB		(VE_ENGINE_DEC_H265 + 0x6c)
@@ -318,13 +355,13 @@ index 7beb03d3bb39..0d9449fe2b28 100644
  #define VE_DEC_H265_LOW_ADDR			(VE_ENGINE_DEC_H265 + 0x80)
  
 -- 
-2.24.0
+2.25.1
 
 
-From 48f70ba58e4df3bd9b9cb9c7969ba93f95e25e75 Mon Sep 17 00:00:00 2001
+From 6aef32eebe853485da686ae866cf43a45627476b Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@siol.net>
 Date: Sat, 26 Oct 2019 15:42:28 +0200
-Subject: [PATCH 06/14] media: uapi: hevc: Add segment address field
+Subject: [PATCH 04/11] media: uapi: hevc: Add segment address field
 
 If HEVC frame consists of multiple slices, segment address has to be
 known in order to properly decode it.
@@ -338,10 +375,10 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
  2 files changed, 8 insertions(+), 2 deletions(-)
 
 diff --git a/Documentation/media/uapi/v4l/ext-ctrls-codec.rst b/Documentation/media/uapi/v4l/ext-ctrls-codec.rst
-index 382e85e16444..99e4a7099614 100644
+index e8e707642336..0d85a3ec0a45 100644
 --- a/Documentation/media/uapi/v4l/ext-ctrls-codec.rst
 +++ b/Documentation/media/uapi/v4l/ext-ctrls-codec.rst
-@@ -3971,6 +3971,9 @@ enum v4l2_mpeg_video_hevc_size_of_length_field -
+@@ -3991,6 +3991,9 @@ enum v4l2_mpeg_video_hevc_size_of_length_field -
      * - __u32
        - ``data_bit_offset``
        - Offset (in bits) to the video data in the current slice data.
@@ -351,7 +388,7 @@ index 382e85e16444..99e4a7099614 100644
      * - __u8
        - ``nal_unit_type``
        -
-@@ -4048,7 +4051,7 @@ enum v4l2_mpeg_video_hevc_size_of_length_field -
+@@ -4068,7 +4071,7 @@ enum v4l2_mpeg_video_hevc_size_of_length_field -
        - ``num_rps_poc_lt_curr``
        - The number of reference pictures in the long-term set.
      * - __u8
@@ -384,13 +421,13 @@ index 1592e52c3614..3e2e32098312 100644
  	/* ISO/IEC 23008-2, ITU-T Rec. H.265: General slice segment header */
  	struct v4l2_hevc_dpb_entry dpb[V4L2_HEVC_DPB_ENTRIES_NUM_MAX];
 -- 
-2.24.0
+2.25.1
 
 
-From 468a7019d3475a6dbdf368519c75f9e6625f2a1a Mon Sep 17 00:00:00 2001
+From e1fcee0fecc71d23b14daa1a5c89d2d6d8274d8e Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@siol.net>
 Date: Sat, 26 Oct 2019 15:44:15 +0200
-Subject: [PATCH 07/14] media: cedrus: hevc: Add support for multiple slices
+Subject: [PATCH 05/11] media: cedrus: hevc: Add support for multiple slices
 
 Now that segment address is available, support for multi-slice frames
 can be easily added.
@@ -402,10 +439,10 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
  2 files changed, 17 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_h265.c b/drivers/staging/media/sunxi/cedrus/cedrus_h265.c
-index 888bfd5ca224..109d3289418c 100644
+index 0031b7517f6e..ff590d4e871a 100644
 --- a/drivers/staging/media/sunxi/cedrus/cedrus_h265.c
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus_h265.c
-@@ -291,6 +291,8 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
+@@ -309,6 +309,8 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
  	const struct v4l2_ctrl_hevc_pps *pps;
  	const struct v4l2_ctrl_hevc_slice_params *slice_params;
  	const struct v4l2_hevc_pred_weight_table *pred_weight_table;
@@ -414,7 +451,7 @@ index 888bfd5ca224..109d3289418c 100644
  	dma_addr_t src_buf_addr;
  	dma_addr_t src_buf_end_addr;
  	u32 chroma_log2_weight_denom;
-@@ -303,15 +305,17 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
+@@ -321,15 +323,17 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
  	slice_params = run->h265.slice_params;
  	pred_weight_table = &slice_params->pred_weight_table;
  
@@ -437,7 +474,7 @@ index 888bfd5ca224..109d3289418c 100644
  
  		/*
  		 * Each CTB requires a MV col buffer with a specific unit size.
-@@ -366,15 +370,17 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
+@@ -383,15 +387,17 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
  	reg = VE_DEC_H265_BITS_END_ADDR_BASE(src_buf_end_addr);
  	cedrus_write(dev, VE_DEC_H265_BITS_END_ADDR, reg);
  
@@ -458,7 +495,7 @@ index 888bfd5ca224..109d3289418c 100644
  
  	/* Initialize bitstream access. */
  	cedrus_write(dev, VE_DEC_H265_TRIGGER, VE_DEC_H265_TRIGGER_INIT_SWDEC);
-@@ -523,8 +529,8 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
+@@ -543,8 +549,8 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
  				V4L2_HEVC_PPS_FLAG_DEPENDENT_SLICE_SEGMENT,
  				pps->flags);
  
@@ -482,13 +519,13 @@ index 15cf1f10221b..497b1199d3fe 100644
  			VB2_V4L2_FL_SUPPORTS_M2M_HOLD_CAPTURE_BUF;
  		break;
 -- 
-2.24.0
+2.25.1
 
 
-From cf4ceb6095f67569dc22b09a150176d42ded09a5 Mon Sep 17 00:00:00 2001
+From e75f9802ba0fc3d7a000b9a159961ac8a4dbc07e Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@siol.net>
 Date: Sat, 26 Oct 2019 21:23:55 +0200
-Subject: [PATCH 09/14] media: cedrus: hevc: tiles hack
+Subject: [PATCH 06/11] media: cedrus: hevc: tiles hack
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
 ---
@@ -511,10 +548,10 @@ index d945f4f0ff2d..1204e32d83bc 100644
  	} codec;
  };
 diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_h265.c b/drivers/staging/media/sunxi/cedrus/cedrus_h265.c
-index 5a207f1e137c..97dce6ffbbc5 100644
+index ff590d4e871a..bc56130d2f17 100644
 --- a/drivers/staging/media/sunxi/cedrus/cedrus_h265.c
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus_h265.c
-@@ -284,6 +284,61 @@ static void cedrus_h265_write_scaling_list(struct cedrus_ctx *ctx,
+@@ -301,6 +301,61 @@ static void cedrus_h265_write_scaling_list(struct cedrus_ctx *ctx,
  		}
  }
  
@@ -573,9 +610,9 @@ index 5a207f1e137c..97dce6ffbbc5 100644
 +	}
 +}
 +
- static void cedrus_h265_skip_bits(struct cedrus_dev *dev, int num)
+ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
+ 			      struct cedrus_run *run)
  {
- 	int count = 0;
 @@ -311,6 +366,7 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
  	const struct v4l2_hevc_pred_weight_table *pred_weight_table;
  	unsigned int width_in_ctb_luma, ctb_size_luma;
@@ -608,7 +645,7 @@ index 5a207f1e137c..97dce6ffbbc5 100644
  
  	/* Clear the number of correctly-decoded coding tree blocks. */
  	if (ctx->fh.m2m_ctx->new_frame)
-@@ -496,7 +559,9 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
+@@ -497,7 +560,9 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
  				V4L2_HEVC_PPS_FLAG_ENTROPY_CODING_SYNC_ENABLED,
  				pps->flags);
  
@@ -619,7 +656,7 @@ index 5a207f1e137c..97dce6ffbbc5 100644
  
  	reg |= VE_DEC_H265_FLAG(VE_DEC_H265_DEC_PPS_CTRL1_FLAG_TRANSQUANT_BYPASS_ENABLED,
  				V4L2_HEVC_PPS_FLAG_TRANSQUANT_BYPASS_ENABLED,
-@@ -572,12 +637,14 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
+@@ -573,12 +638,14 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
  
  	chroma_log2_weight_denom = pred_weight_table->luma_log2_weight_denom +
  				   pred_weight_table->delta_chroma_log2_weight_denom;
@@ -635,7 +672,7 @@ index 5a207f1e137c..97dce6ffbbc5 100644
  	/* Decoded picture size. */
  
  	reg = VE_DEC_H265_DEC_PIC_SIZE_WIDTH(ctx->src_fmt.width) |
-@@ -671,6 +738,17 @@ static int cedrus_h265_start(struct cedrus_ctx *ctx)
+@@ -672,6 +739,17 @@ static int cedrus_h265_start(struct cedrus_ctx *ctx)
  	if (!ctx->codec.h265.neighbor_info_buf)
  		return -ENOMEM;
  
@@ -653,7 +690,7 @@ index 5a207f1e137c..97dce6ffbbc5 100644
  	return 0;
  }
  
-@@ -689,6 +767,9 @@ static void cedrus_h265_stop(struct cedrus_ctx *ctx)
+@@ -690,6 +768,9 @@ static void cedrus_h265_stop(struct cedrus_ctx *ctx)
  	dma_free_coherent(dev->dev, CEDRUS_H265_NEIGHBOR_INFO_BUF_SIZE,
  			  ctx->codec.h265.neighbor_info_buf,
  			  ctx->codec.h265.neighbor_info_buf_addr);
@@ -687,13 +724,13 @@ index 3e2e32098312..d1b094c8aaeb 100644
  	/* ISO/IEC 23008-2, ITU-T Rec. H.265: General slice segment header */
  	struct v4l2_hevc_dpb_entry dpb[V4L2_HEVC_DPB_ENTRIES_NUM_MAX];
 -- 
-2.24.0
+2.25.1
 
 
-From 42b71243ef0c15e1d940583ef3fce99ec79a1975 Mon Sep 17 00:00:00 2001
+From 8da7946b350d6e951eea38f9b920628b6abead01 Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@siol.net>
 Date: Thu, 14 Feb 2019 22:50:12 +0100
-Subject: [PATCH 10/14] media: cedrus: H264 interlace hack
+Subject: [PATCH 07/11] media: cedrus: H264 interlace hack
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
 ---
@@ -701,7 +738,7 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
  1 file changed, 16 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_h264.c b/drivers/staging/media/sunxi/cedrus/cedrus_h264.c
-index ab83a6f1f921..b0ee4aed79f9 100644
+index 54ee2aa423e2..ba723d5af35c 100644
 --- a/drivers/staging/media/sunxi/cedrus/cedrus_h264.c
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus_h264.c
 @@ -102,7 +102,7 @@ static void cedrus_write_frame_list(struct cedrus_ctx *ctx,
@@ -773,13 +810,13 @@ index ab83a6f1f921..b0ee4aed79f9 100644
  	}
  
 -- 
-2.24.0
+2.25.1
 
 
-From 187e20b079317e312a1be425ff4c19f838b9e625 Mon Sep 17 00:00:00 2001
+From 464ef73deba86cb59d14a5094604f4bb30ac1ce7 Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@siol.net>
 Date: Sat, 9 Nov 2019 13:06:15 +0100
-Subject: [PATCH 12/14] media: cedrus: Add callback for buffer cleanup
+Subject: [PATCH 08/11] media: cedrus: Add callback for buffer cleanup
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
 ---
@@ -831,13 +868,13 @@ index 497b1199d3fe..7f95216a552e 100644
  	.buf_out_validate	= cedrus_buf_out_validate,
  	.buf_request_complete	= cedrus_buf_request_complete,
 -- 
-2.24.0
+2.25.1
 
 
-From 024630941ade1aa57b4c16a5577ee9cf4f62be18 Mon Sep 17 00:00:00 2001
+From 9840ecff1bba7863e848ac47ac162091560b6d9f Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@siol.net>
 Date: Sat, 9 Nov 2019 13:22:05 +0100
-Subject: [PATCH 13/14] media: cedrus: hevc: Improve buffer management
+Subject: [PATCH 09/11] media: cedrus: hevc: Improve buffer management
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
 ---
@@ -873,7 +910,7 @@ index 9298aa5f229d..d8a4f8e83f94 100644
  			dma_addr_t	neighbor_info_buf_addr;
  			void		*entry_points_buf;
 diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_h265.c b/drivers/staging/media/sunxi/cedrus/cedrus_h265.c
-index 89e269cc066d..7c806ef6e8ef 100644
+index bc56130d2f17..4569d906979c 100644
 --- a/drivers/staging/media/sunxi/cedrus/cedrus_h265.c
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus_h265.c
 @@ -91,26 +91,66 @@ static void cedrus_h265_sram_write_data(struct cedrus_dev *dev, void *data,
@@ -1074,13 +1111,13 @@ index 89e269cc066d..7c806ef6e8ef 100644
 +	.buf_cleanup	= cedrus_h265_buf_cleanup,
  };
 -- 
-2.24.0
+2.25.1
 
 
-From b38b517739880462a43a1f4b36cf9384ffdae66c Mon Sep 17 00:00:00 2001
+From 3c39cc9b8c5605419f7fe5385b77129d860b5a2b Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@siol.net>
 Date: Sat, 9 Nov 2019 14:12:42 +0100
-Subject: [PATCH 14/14] media: cedrus: h264: Improve buffer management
+Subject: [PATCH 10/11] media: cedrus: h264: Improve buffer management
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
 ---
@@ -1103,7 +1140,7 @@ index d8a4f8e83f94..f8264953dd04 100644
  		struct {
  			void		*mv_col_buf;
 diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_h264.c b/drivers/staging/media/sunxi/cedrus/cedrus_h264.c
-index b0ee4aed79f9..aa5bd181cdaf 100644
+index ba723d5af35c..c336366f6e19 100644
 --- a/drivers/staging/media/sunxi/cedrus/cedrus_h264.c
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus_h264.c
 @@ -55,16 +55,14 @@ static void cedrus_h264_write_sram(struct cedrus_dev *dev,
@@ -1232,8 +1269,8 @@ index b0ee4aed79f9..aa5bd181cdaf 100644
 +			goto err_neighbor_buf;
  		}
  
- 		ctx->codec.h264.intra_pred_buf_size =
-@@ -638,11 +624,6 @@ static int cedrus_h264_start(struct cedrus_ctx *ctx)
+ 		/*
+@@ -642,11 +628,6 @@ static int cedrus_h264_start(struct cedrus_ctx *ctx)
  			  ctx->codec.h264.deblk_buf,
  			  ctx->codec.h264.deblk_buf_dma);
  
@@ -1245,7 +1282,7 @@ index b0ee4aed79f9..aa5bd181cdaf 100644
  err_neighbor_buf:
  	dma_free_coherent(dev->dev, CEDRUS_NEIGHBOR_INFO_BUF_SIZE,
  			  ctx->codec.h264.neighbor_info_buf,
-@@ -659,9 +640,6 @@ static void cedrus_h264_stop(struct cedrus_ctx *ctx)
+@@ -663,9 +644,6 @@ static void cedrus_h264_stop(struct cedrus_ctx *ctx)
  {
  	struct cedrus_dev *dev = ctx->dev;
  
@@ -1255,7 +1292,7 @@ index b0ee4aed79f9..aa5bd181cdaf 100644
  	dma_free_coherent(dev->dev, CEDRUS_NEIGHBOR_INFO_BUF_SIZE,
  			  ctx->codec.h264.neighbor_info_buf,
  			  ctx->codec.h264.neighbor_info_buf_dma);
-@@ -686,6 +664,16 @@ static void cedrus_h264_trigger(struct cedrus_ctx *ctx)
+@@ -690,6 +668,16 @@ static void cedrus_h264_trigger(struct cedrus_ctx *ctx)
  		     VE_H264_TRIGGER_TYPE_AVC_SLICE_DECODE);
  }
  
@@ -1272,12 +1309,170 @@ index b0ee4aed79f9..aa5bd181cdaf 100644
  struct cedrus_dec_ops cedrus_dec_ops_h264 = {
  	.irq_clear	= cedrus_h264_irq_clear,
  	.irq_disable	= cedrus_h264_irq_disable,
-@@ -694,4 +682,5 @@ struct cedrus_dec_ops cedrus_dec_ops_h264 = {
+@@ -698,4 +686,5 @@ struct cedrus_dec_ops cedrus_dec_ops_h264 = {
  	.start		= cedrus_h264_start,
  	.stop		= cedrus_h264_stop,
  	.trigger	= cedrus_h264_trigger,
 +	.buf_cleanup	= cedrus_h264_buf_cleanup,
  };
 -- 
-2.24.0
+2.25.1
+
+
+From c3dd710398e6d0697bb2583c1ebc76a40a8e8c79 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Sun, 15 Mar 2020 21:35:39 +0100
+Subject: [PATCH 11/11] WIp: 10-bit HEVC support
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+---
+ drivers/staging/media/sunxi/cedrus/cedrus.c   |  4 +--
+ .../staging/media/sunxi/cedrus/cedrus_h265.c  | 12 ++++++++
+ .../staging/media/sunxi/cedrus/cedrus_regs.h  |  4 +++
+ .../staging/media/sunxi/cedrus/cedrus_video.c | 28 ++++++++++++++++---
+ .../staging/media/sunxi/cedrus/cedrus_video.h |  2 +-
+ 5 files changed, 43 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/staging/media/sunxi/cedrus/cedrus.c b/drivers/staging/media/sunxi/cedrus/cedrus.c
+index d813d32a6755..e92d55331d08 100644
+--- a/drivers/staging/media/sunxi/cedrus/cedrus.c
++++ b/drivers/staging/media/sunxi/cedrus/cedrus.c
+@@ -288,7 +288,7 @@ static int cedrus_open(struct file *file)
+ 		goto err_ctrls;
+ 	}
+ 	ctx->dst_fmt.pixelformat = V4L2_PIX_FMT_SUNXI_TILED_NV12;
+-	cedrus_prepare_format(&ctx->dst_fmt);
++	cedrus_prepare_format(&ctx->dst_fmt, 0);
+ 	ctx->src_fmt.pixelformat = V4L2_PIX_FMT_MPEG2_SLICE;
+ 	/*
+ 	 * TILED_NV12 has more strict requirements, so copy the width and
+@@ -296,7 +296,7 @@ static int cedrus_open(struct file *file)
+ 	 */
+ 	ctx->src_fmt.width = ctx->dst_fmt.width;
+ 	ctx->src_fmt.height = ctx->dst_fmt.height;
+-	cedrus_prepare_format(&ctx->src_fmt);
++	cedrus_prepare_format(&ctx->src_fmt, 0);
+ 
+ 	v4l2_fh_add(&ctx->fh);
+ 
+diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_h265.c b/drivers/staging/media/sunxi/cedrus/cedrus_h265.c
+index 4569d906979c..8861e1535886 100644
+--- a/drivers/staging/media/sunxi/cedrus/cedrus_h265.c
++++ b/drivers/staging/media/sunxi/cedrus/cedrus_h265.c
+@@ -532,6 +532,18 @@ static void cedrus_h265_setup(struct cedrus_ctx *ctx,
+ 
+ 	cedrus_write(dev, VE_DEC_H265_DEC_PCM_CTRL, reg);
+ 
++	if (sps->bit_depth_luma_minus8 == 2) {
++		unsigned int size;
++
++		size = ALIGN(ctx->src_fmt.width, 16) * ALIGN(ctx->src_fmt.height, 16);
++
++		reg = (size * 3) / 2;
++		cedrus_write(dev, VE_DEC_H265_OFFSET_ADDR_FIRST_OUT, reg);
++
++		reg = DIV_ROUND_UP(ctx->src_fmt.width, 4);
++		cedrus_write(dev, VE_DEC_H265_10BIT_CONFIGURE, ALIGN(reg, 32));
++	}
++
+ 	/* PPS. */
+ 
+ 	reg = VE_DEC_H265_DEC_PPS_CTRL0_PPS_CR_QP_OFFSET(pps->pps_cr_qp_offset) |
+diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_regs.h b/drivers/staging/media/sunxi/cedrus/cedrus_regs.h
+index df1cceef8d93..150eae2d92d2 100644
+--- a/drivers/staging/media/sunxi/cedrus/cedrus_regs.h
++++ b/drivers/staging/media/sunxi/cedrus/cedrus_regs.h
+@@ -498,6 +498,10 @@
+ 
+ #define VE_DEC_H265_LOW_ADDR			(VE_ENGINE_DEC_H265 + 0x80)
+ 
++#define VE_DEC_H265_OFFSET_ADDR_FIRST_OUT	(VE_ENGINE_DEC_H265 + 0x84)
++#define VE_DEC_H265_OFFSET_ADDR_SECOND_OUT	(VE_ENGINE_DEC_H265 + 0x88)
++#define VE_DEC_H265_10BIT_CONFIGURE		(VE_ENGINE_DEC_H265 + 0x8c)
++
+ #define VE_DEC_H265_LOW_ADDR_PRIMARY_CHROMA(a) \
+ 	SHIFT_AND_MASK_BITS(a, 31, 24)
+ #define VE_DEC_H265_LOW_ADDR_SECONDARY_CHROMA(a) \
+diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_video.c b/drivers/staging/media/sunxi/cedrus/cedrus_video.c
+index 7f95216a552e..daff14d0a1ae 100644
+--- a/drivers/staging/media/sunxi/cedrus/cedrus_video.c
++++ b/drivers/staging/media/sunxi/cedrus/cedrus_video.c
+@@ -91,7 +91,7 @@ static struct cedrus_format *cedrus_find_format(u32 pixelformat, u32 directions,
+ 	return &cedrus_formats[i];
+ }
+ 
+-void cedrus_prepare_format(struct v4l2_pix_format *pix_fmt)
++void cedrus_prepare_format(struct v4l2_pix_format *pix_fmt, int extended)
+ {
+ 	unsigned int width = pix_fmt->width;
+ 	unsigned int height = pix_fmt->height;
+@@ -145,6 +145,17 @@ void cedrus_prepare_format(struct v4l2_pix_format *pix_fmt)
+ 		break;
+ 	}
+ 
++	if (extended) {
++		unsigned int extra_size;
++
++		extra_size = DIV_ROUND_UP(pix_fmt->width, 4);
++		extra_size = ALIGN(extra_size, 32);
++		extra_size *= ALIGN(pix_fmt->height, 16) * 3;
++		extra_size /= 2;
++
++		sizeimage += extra_size;
++	}
++
+ 	pix_fmt->width = width;
+ 	pix_fmt->height = height;
+ 
+@@ -237,15 +248,25 @@ static int cedrus_try_fmt_vid_cap(struct file *file, void *priv,
+ 	struct cedrus_ctx *ctx = cedrus_file2ctx(file);
+ 	struct cedrus_dev *dev = ctx->dev;
+ 	struct v4l2_pix_format *pix_fmt = &f->fmt.pix;
++	const struct v4l2_ctrl_hevc_sps *sps;
+ 	struct cedrus_format *fmt =
+ 		cedrus_find_format(pix_fmt->pixelformat, CEDRUS_DECODE_DST,
+ 				   dev->capabilities);
++	int extended;
+ 
+ 	if (!fmt)
+ 		return -EINVAL;
+ 
++	sps = cedrus_find_control_data(ctx, V4L2_CID_MPEG_VIDEO_HEVC_SPS);
++
++	/* The 10-bitHEVC decoder needs extra size on the output buffer. */
++	extended = ctx->src_fmt.pixelformat == V4L2_PIX_FMT_HEVC_SLICE &&
++	sps->bit_depth_luma_minus8 == 2;
++
+ 	pix_fmt->pixelformat = fmt->pixelformat;
+-	cedrus_prepare_format(pix_fmt);
++
++	pix_fmt->pixelformat = fmt->pixelformat;
++	cedrus_prepare_format(pix_fmt, extended);
+ 
+ 	return 0;
+ }
+@@ -263,8 +284,7 @@ static int cedrus_try_fmt_vid_out(struct file *file, void *priv,
+ 	if (!fmt)
+ 		return -EINVAL;
+ 
+-	pix_fmt->pixelformat = fmt->pixelformat;
+-	cedrus_prepare_format(pix_fmt);
++	cedrus_prepare_format(pix_fmt, 0);
+ 
+ 	return 0;
+ }
+diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_video.h b/drivers/staging/media/sunxi/cedrus/cedrus_video.h
+index 05050c0a0921..d42e4ebf6cad 100644
+--- a/drivers/staging/media/sunxi/cedrus/cedrus_video.h
++++ b/drivers/staging/media/sunxi/cedrus/cedrus_video.h
+@@ -26,6 +26,6 @@ extern const struct v4l2_ioctl_ops cedrus_ioctl_ops;
+ 
+ int cedrus_queue_init(void *priv, struct vb2_queue *src_vq,
+ 		      struct vb2_queue *dst_vq);
+-void cedrus_prepare_format(struct v4l2_pix_format *pix_fmt);
++void cedrus_prepare_format(struct v4l2_pix_format *pix_fmt, int extended);
+ 
+ #endif
+-- 
+2.25.1
 
