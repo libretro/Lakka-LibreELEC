@@ -32,6 +32,7 @@ post_makeinstall_target() {
       -e 's|^\(ReadWritePaths=.*\)$|#\1|g' \
       -e 's|^\(ProtectControlGroups=.*\)$|#\1|g' \
       -e 's|^\(ProtectKernelModules=.*\)$|#\1|g' \
+      -e 's|^\(ConfigurationDirectory=.*\)$|#\1|g' \
       -i $INSTALL/usr/lib/systemd/system/iwd.service
 }
 
