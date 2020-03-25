@@ -5,7 +5,7 @@
 PKG_NAME="visualization.projectm"
 PKG_VERSION="2.3.5-Leia"
 PKG_SHA256="69085611ee6af255a95c759e43e64b54ff350f2be87699c255d7db54cd4bfea2"
-PKG_REV="2"
+PKG_REV="3"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/visualization.projectm"
@@ -24,5 +24,4 @@ fi
 
 pre_configure_target() {
   export LDFLAGS=`echo $LDFLAGS | sed -e "s|-Wl,--as-needed||"`
-  sed -i "s|\${PROJECTM_PREFIX}|$SYSROOT_PREFIX\/usr|" -i $PKG_BUILD/FindProjectM.cmake
 }
