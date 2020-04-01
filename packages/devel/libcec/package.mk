@@ -29,8 +29,9 @@ if [ "$DISPLAYSERVER" = "x11" ]; then
 fi
 
 if [ "$CEC_FRAMEWORK_SUPPORT" = "yes" ]; then
-  PKG_PATCH_DIRS="cec-framework"
   PKG_CMAKE_OPTS_TARGET="$PKG_CMAKE_OPTS_TARGET -DHAVE_LINUX_API=1"
+else
+  PKG_CMAKE_OPTS_TARGET="$PKG_CMAKE_OPTS_TARGET -DHAVE_LINUX_API=0"
 fi
 
 pre_configure_target() {
