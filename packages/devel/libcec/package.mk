@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libcec"
-PKG_VERSION="416e1369417ba05a6a64e7ff01def0ac40234d8b"
-PKG_SHA256="11be4f0b5220f1605e7112cca4deea0d25828a1cc8600271654820a24a37cdd6"
+PKG_VERSION="8b0393ad27cf4f1bf51c228bdf82365ea9bfe90a"
+PKG_SHA256="b6aaa2e59817a814208c04f655d3891c1095d4376e9d85a17caebee5eee48f0f"
 PKG_LICENSE="GPL"
 PKG_SITE="http://libcec.pulse-eight.com/"
 PKG_URL="https://github.com/Pulse-Eight/libcec/archive/$PKG_VERSION.tar.gz"
