@@ -17,7 +17,8 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-shared \
                            --enable-static \
                            --disable-qt \
                            --disable-pulseaudio \
-                           --disable-jack"
+                           --disable-jack \
+                           --enable-preset-subdirs"
 
 # workaround due broken release files, remove at next bump
 pre_configure_target() {
