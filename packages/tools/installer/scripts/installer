@@ -206,10 +206,18 @@ do_install_quick() {
     partsize_storage_end=-1024
 
     msg_progress_install "10" "Creating partition on $INSTALL_DEVICE"
-    parted -s $INSTALL_DEVICE unit s mkpart primary fat32 -- $partsize_system_start $partsize_system_end >> $LOGFILE 2>&1
+    if [ "$GPT" = "1" ]; then
+      parted -s $INSTALL_DEVICE unit s mkpart $DISKLABEL_SYSTEM fat16 -- $partsize_system_start $partsize_system_end >> $LOGFILE 2>&1
+    else
+      parted -s $INSTALL_DEVICE unit s mkpart primary fat16 -- $partsize_system_start $partsize_system_end >> $LOGFILE 2>&1
+    fi
 
     msg_progress_install "13" "Creating partition on $INSTALL_DEVICE"
-    parted -s $INSTALL_DEVICE unit s mkpart primary ext4 -- $partsize_storage_start $partsize_storage_end >> $LOGFILE 2>&1
+    if [ "$GPT" = "1" ]; then
+      parted -s $INSTALL_DEVICE unit s mkpart $DISKLABEL_STORAGE ext4 -- $partsize_storage_start $partsize_storage_end >> $LOGFILE 2>&1
+    else
+      parted -s $INSTALL_DEVICE unit s mkpart primary ext4 -- $partsize_storage_start $partsize_storage_end >> $LOGFILE 2>&1
+    fi
 
     msg_progress_install "16" "Setup bootflag on partition 1 of $INSTALL_DEVICE"
     parted -s $INSTALL_DEVICE set 1 boot on >> $LOGFILE 2>&1
@@ -222,7 +230,7 @@ do_install_quick() {
 
     # create filesystem
     msg_progress_install "23" "Creating filesystem on ${INSTALL_DEVICE}1"
-    mkfs.vfat ${INSTALL_DEVICE}${PART1} >> $LOGFILE 2>&1
+    mkfs.vfat -F 16 ${INSTALL_DEVICE}${PART1} >> $LOGFILE 2>&1
 
     msg_progress_install "25" "Set uuid and disklabel $DISKLABEL_SYSTEM on ${INSTALL_DEVICE}${PART1}"
     dosfslabel ${INSTALL_DEVICE}${PART1}  $DISKLABEL_SYSTEM >> $LOGFILE 2>&1
