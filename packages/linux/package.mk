@@ -28,6 +28,10 @@ case "$LINUX" in
     PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     ;;
+  odroidxu3-5.4)
+    PKG_VERSION="7ed9082e87649dacb3819f6608c55614d10d6972"
+    PKG_URL="https://github.com/hardkernel/linux/archive/$PKG_VERSION.tar.gz"
+    ;;
   *)
     PKG_VERSION="5.1.18"
     PKG_SHA256="6013e7dcf59d7c1b168d8edce3dbd61ce340ff289541f920dbd0958bef98f36a"
@@ -148,6 +152,7 @@ pre_make_target() {
 
 make_target() {
   kernel_make modules
+  touch modules.builtin.modinfo
   kernel_make INSTALL_MOD_PATH=$INSTALL/$(get_kernel_overlay_dir) modules_install
   rm -f $INSTALL/$(get_kernel_overlay_dir)/lib/modules/*/build
   rm -f $INSTALL/$(get_kernel_overlay_dir)/lib/modules/*/source
