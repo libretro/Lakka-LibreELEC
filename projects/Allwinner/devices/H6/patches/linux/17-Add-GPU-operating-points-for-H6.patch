@@ -123,3 +123,195 @@ index 6aad06095c40..decf7b56e2df 100644
  			status = "disabled";
  		};
  
+From:   =?UTF-8?q?Cl=C3=A9ment=20P=C3=A9ron?= <peron.clem@gmail.com>
+To:     Rob Herring <robh@kernel.org>,
+        Tomeu Vizoso <tomeu.vizoso@collabora.com>,
+        Steven Price <steven.price@arm.com>,
+        Alyssa Rosenzweig <alyssa.rosenzweig@collabora.com>,
+        Viresh Kumar <vireshk@kernel.org>, Nishanth Menon <nm@ti.com>,
+        Stephen Boyd <sboyd@kernel.org>
+Cc:     dri-devel@lists.freedesktop.org, linux-kernel@vger.kernel.org,
+        =?UTF-8?q?Cl=C3=A9ment=20P=C3=A9ron?= <peron.clem@gmail.com>
+Subject: [PATCH 1/2] drm/panfrost: missing remove opp table in case of failure
+Date:   Sat, 11 Apr 2020 22:06:31 +0200
+Message-Id: <20200411200632.4045-1-peron.clem@gmail.com>
+X-Mailer: git-send-email 2.20.1
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Sender: linux-kernel-owner@vger.kernel.org
+Precedence: bulk
+List-ID: <linux-kernel.vger.kernel.org>
+X-Mailing-List: linux-kernel@vger.kernel.org
+Archived-At: <https://lore.kernel.org/lkml/20200411200632.4045-1-peron.clem@gmail.com/>
+List-Archive: <https://lore.kernel.org/lkml/>
+List-Post: <mailto:linux-kernel@vger.kernel.org>
+
+In case of failure we need to remove OPP table.
+
+Use Linux classic error handling with goto usage.
+
+Signed-off-by: Clément Péron <peron.clem@gmail.com>
+---
+ drivers/gpu/drm/panfrost/panfrost_devfreq.c | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/panfrost/panfrost_devfreq.c b/drivers/gpu/drm/panfrost/panfrost_devfreq.c
+index 413987038fbf..62541f4edd81 100644
+--- a/drivers/gpu/drm/panfrost/panfrost_devfreq.c
++++ b/drivers/gpu/drm/panfrost/panfrost_devfreq.c
+@@ -90,8 +90,11 @@ int panfrost_devfreq_init(struct panfrost_device *pfdev)
+ 	cur_freq = clk_get_rate(pfdev->clock);
+ 
+ 	opp = devfreq_recommended_opp(dev, &cur_freq, 0);
+-	if (IS_ERR(opp))
+-		return PTR_ERR(opp);
++	if (IS_ERR(opp)) {
++		DRM_DEV_ERROR(dev, "Failed to set recommended OPP\n");
++		ret = PTR_ERR(opp);
++		goto err_opp;
++	}
+ 
+ 	panfrost_devfreq_profile.initial_freq = cur_freq;
+ 	dev_pm_opp_put(opp);
+@@ -100,8 +103,8 @@ int panfrost_devfreq_init(struct panfrost_device *pfdev)
+ 					  DEVFREQ_GOV_SIMPLE_ONDEMAND, NULL);
+ 	if (IS_ERR(devfreq)) {
+ 		DRM_DEV_ERROR(dev, "Couldn't initialize GPU devfreq\n");
+-		dev_pm_opp_of_remove_table(dev);
+-		return PTR_ERR(devfreq);
++		ret = PTR_ERR(devfreq);
++		goto err_opp;
+ 	}
+ 	pfdev->devfreq.devfreq = devfreq;
+ 
+@@ -112,6 +115,11 @@ int panfrost_devfreq_init(struct panfrost_device *pfdev)
+ 		pfdev->devfreq.cooling = cooling;
+ 
+ 	return 0;
++
++err_opp:
++	dev_pm_opp_of_remove_table(dev);
++
++	return ret;
+ }
+ 
+ void panfrost_devfreq_fini(struct panfrost_device *pfdev)
+-- 
+2.20.1
+
+
+From:   =?UTF-8?q?Cl=C3=A9ment=20P=C3=A9ron?= <peron.clem@gmail.com>
+To:     Rob Herring <robh@kernel.org>,
+        Tomeu Vizoso <tomeu.vizoso@collabora.com>,
+        Steven Price <steven.price@arm.com>,
+        Alyssa Rosenzweig <alyssa.rosenzweig@collabora.com>,
+        Viresh Kumar <vireshk@kernel.org>, Nishanth Menon <nm@ti.com>,
+        Stephen Boyd <sboyd@kernel.org>
+Cc:     dri-devel@lists.freedesktop.org, linux-kernel@vger.kernel.org,
+        =?UTF-8?q?Cl=C3=A9ment=20P=C3=A9ron?= <peron.clem@gmail.com>
+Subject: [PATCH 2/2] drm/panfrost: add devfreq regulator support
+Date:   Sat, 11 Apr 2020 22:06:32 +0200
+Message-Id: <20200411200632.4045-2-peron.clem@gmail.com>
+X-Mailer: git-send-email 2.20.1
+In-Reply-To: <20200411200632.4045-1-peron.clem@gmail.com>
+References: <20200411200632.4045-1-peron.clem@gmail.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Sender: linux-kernel-owner@vger.kernel.org
+Precedence: bulk
+List-ID: <linux-kernel.vger.kernel.org>
+X-Mailing-List: linux-kernel@vger.kernel.org
+Archived-At: <https://lore.kernel.org/lkml/20200411200632.4045-2-peron.clem@gmail.com/>
+List-Archive: <https://lore.kernel.org/lkml/>
+List-Post: <mailto:linux-kernel@vger.kernel.org>
+
+OPP table can defined both frequency and voltage.
+
+Register the mali regulator if it exist.
+
+Signed-off-by: Clément Péron <peron.clem@gmail.com>
+---
+ drivers/gpu/drm/panfrost/panfrost_devfreq.c | 34 ++++++++++++++++++---
+ drivers/gpu/drm/panfrost/panfrost_device.h  |  1 +
+ 2 files changed, 31 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/panfrost/panfrost_devfreq.c b/drivers/gpu/drm/panfrost/panfrost_devfreq.c
+index 62541f4edd81..2dc8e2355358 100644
+--- a/drivers/gpu/drm/panfrost/panfrost_devfreq.c
++++ b/drivers/gpu/drm/panfrost/panfrost_devfreq.c
+@@ -78,12 +78,26 @@ int panfrost_devfreq_init(struct panfrost_device *pfdev)
+ 	struct device *dev = &pfdev->pdev->dev;
+ 	struct devfreq *devfreq;
+ 	struct thermal_cooling_device *cooling;
++	const char *mali = "mali";
++	struct opp_table *opp_table = NULL;
++
++	/* Regulator is optional */
++	opp_table = dev_pm_opp_set_regulators(dev, &mali, 1);
++	if (IS_ERR(opp_table)) {
++		ret = PTR_ERR(opp_table);
++		if (ret != -ENODEV) {
++			DRM_DEV_ERROR(dev, "Failed to set regulator: %d\n", ret);
++			return ret;
++		}
++	}
++	pfdev->devfreq.opp_table = opp_table;
+ 
+ 	ret = dev_pm_opp_of_add_table(dev);
+-	if (ret == -ENODEV) /* Optional, continue without devfreq */
+-		return 0;
+-	else if (ret)
+-		return ret;
++	if (ret) {
++		if (ret == -ENODEV) /* Optional, continue without devfreq */
++			ret = 0;
++		goto err_opp_reg;
++	}
+ 
+ 	panfrost_devfreq_reset(pfdev);
+ 
+@@ -119,6 +133,12 @@ int panfrost_devfreq_init(struct panfrost_device *pfdev)
+ err_opp:
+ 	dev_pm_opp_of_remove_table(dev);
+ 
++err_opp_reg:
++	if (pfdev->devfreq.opp_table) {
++		dev_pm_opp_put_regulators(pfdev->devfreq.opp_table);
++		pfdev->devfreq.opp_table = NULL;
++	}
++
+ 	return ret;
+ }
+ 
+@@ -126,7 +146,13 @@ void panfrost_devfreq_fini(struct panfrost_device *pfdev)
+ {
+ 	if (pfdev->devfreq.cooling)
+ 		devfreq_cooling_unregister(pfdev->devfreq.cooling);
++
+ 	dev_pm_opp_of_remove_table(&pfdev->pdev->dev);
++
++	if (pfdev->devfreq.opp_table) {
++		dev_pm_opp_put_regulators(pfdev->devfreq.opp_table);
++		pfdev->devfreq.opp_table = NULL;
++	}
+ }
+ 
+ void panfrost_devfreq_resume(struct panfrost_device *pfdev)
+diff --git a/drivers/gpu/drm/panfrost/panfrost_device.h b/drivers/gpu/drm/panfrost/panfrost_device.h
+index 06713811b92c..f6b0c779dfe5 100644
+--- a/drivers/gpu/drm/panfrost/panfrost_device.h
++++ b/drivers/gpu/drm/panfrost/panfrost_device.h
+@@ -86,6 +86,7 @@ struct panfrost_device {
+ 	struct {
+ 		struct devfreq *devfreq;
+ 		struct thermal_cooling_device *cooling;
++		struct opp_table *opp_table;
+ 		ktime_t busy_time;
+ 		ktime_t idle_time;
+ 		ktime_t time_last_update;
+-- 
+2.20.1
+
+
