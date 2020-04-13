@@ -110,6 +110,11 @@ post_patch() {
       sed -e "s|^CONFIG_DRM_LIMA=.*$|# CONFIG_DRM_LIMA is not set|" -i $PKG_BUILD/.config
       sed -e "s|^CONFIG_DRM_PANFROST=.*$|# CONFIG_DRM_PANFROST is not set|" -i $PKG_BUILD/.config
     fi
+
+    # disable wireguard support if not enabled
+    if [ ! "$WIREGUARD_SUPPORT" = yes ]; then
+      sed -e "s|^CONFIG_WIREGUARD=.*$|# CONFIG_WIREGUARD is not set|" -i $PKG_BUILD/.config
+    fi
   fi
 }
 
