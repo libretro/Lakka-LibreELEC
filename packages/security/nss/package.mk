@@ -20,8 +20,19 @@ make_host() {
   make clean || true
   rm -rf $PKG_BUILD/dist
 
+  local HOST_USE_32_OR_64=""
+  case $(getconf LONG_BIT) in
+    64 )
+      HOST_USE_32_OR_64="USE_64=1";
+    ;;
+    32 )
+      HOST_USE_32_OR_64="USE_X32=1";
+    ;;
+  esac
+
+
   INCLUDES="-I$TOOLCHAIN/include" \
-  make BUILD_OPT=1 USE_64=1 \
+  make BUILD_OPT=1 $HOST_USE_32_OR_64 \
      PREFIX=$TOOLCHAIN \
      NSPR_INCLUDE_DIR=$TOOLCHAIN/include/nspr \
      USE_SYSTEM_ZLIB=1 ZLIB_LIBS="-lz -L$TOOLCHAIN/lib" \
