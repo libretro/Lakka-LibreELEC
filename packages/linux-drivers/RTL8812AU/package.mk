@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="RTL8812AU"
-PKG_VERSION="45ea063b03846e8a8c9fc04b2f9c2090bbe9b46b"
-PKG_SHA256="99e407dac59bab34262f2f2f10db314a733c0644e940d7ed7759f65858db1dd9"
+PKG_VERSION="d88d8b2e2a1b33ebdd62b8a5de307b37c39d8477"
+PKG_SHA256="c5b2fcc6cbf6901e63f75ece49a8ce3219004536cfc585b9815b34d943c9f311"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/MilhouseVH/RTL8812AU"
 PKG_URL="https://github.com/MilhouseVH/RTL8812AU/archive/$PKG_VERSION.tar.gz"
