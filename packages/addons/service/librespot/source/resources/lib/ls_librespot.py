@@ -1,3 +1,4 @@
+import pipes
 import shlex
 import subprocess
 import threading
@@ -33,9 +34,9 @@ MAX_PANICS = 3
 class Librespot(xbmc.Player):
 
     def __init__(self):
-        super().__init__()
+        super(Librespot, self).__init__()
         settings = get_settings()
-        quoted = {k: shlex.quote(v) for (k, v) in settings.items()}
+        quoted = {k: pipes.quote(v) for (k, v) in settings.items()}
         command = LIBRESPOT
         if settings['autoplay'] == 'true':
             command += LIBRESPOT_AUTOPLAY
@@ -118,11 +119,13 @@ class Librespot(xbmc.Player):
                 cwd=ADDON_HOME,
                 env=ADDON_ENVT,
                 stderr=subprocess.STDOUT,
-                stdout=subprocess.PIPE,
-                text=True)
+                stdout=subprocess.PIPE)
             log('librespot started')
             with self.librespot.stdout:
-                for line in self.librespot.stdout:
+                while True:
+                    line = self.librespot.stdout.readline()
+                    if line == '':
+                        break
                     words = line.split()
                     if words[0] == '@Playing':
                         self.on_event_playing(words[1], words[2])
@@ -151,7 +154,7 @@ class Librespot(xbmc.Player):
         if self.is_playing_librespot and not self.is_aborted:
             log('stopping librespot playback')
             self.is_playing_librespot = False
-            super().stop()
+            super(Librespot, self).stop()
 
     def stop_librespot(self, restart=False):
         self.restart = restart

@@ -4,7 +4,7 @@ from ls_addon import log as log
 
 
 def run(command):
-    return subprocess.check_output(command.split(), text=True)
+    return subprocess.check_output(command.split())
 
 
 class Pulseaudio:
