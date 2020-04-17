@@ -3,8 +3,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="nano"
-PKG_VERSION="4.8"
-PKG_SHA256="c348f61c68ab1d573b308398212a09cd68c60fbee20f01a5bd4b50071a258e63"
+PKG_VERSION="4.9.2"
+PKG_SHA256="d8a25eea942ecee2d57b8e037eb4b28f030f818b78773b8fcb994ed5835d2ef6"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.nano-editor.org/"
 PKG_URL="http://ftpmirror.gnu.org/nano/${PKG_NAME}-${PKG_VERSION}.tar.xz"
