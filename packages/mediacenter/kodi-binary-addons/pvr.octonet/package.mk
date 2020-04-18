@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.octonet"
-PKG_VERSION="1.2.1-Matrix"
-PKG_SHA256="200b3b24ccf608fd18cd4bbb56655dd35dcc5c8e3647a753485104dc995c952a"
+PKG_VERSION="1.2.4-Matrix"
+PKG_SHA256="375f5b35a0e4cd468136989448657848cc6ddf7c250de92f452823e3455bb90f"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
