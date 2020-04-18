@@ -228,6 +228,7 @@ configure_package() {
                          -DENABLE_LDGOLD=ON \
                          -DENABLE_DEBUGFISSION=OFF \
                          -DENABLE_APP_AUTONAME=OFF \
+                         -DENABLE_TESTING=OFF \
                          -DENABLE_INTERNAL_FLATBUFFERS=OFF \
                          $PKG_KODI_USE_LTO \
                          $KODI_ARCH \
