@@ -45,6 +45,8 @@ makeinstall_target() {
       [[ ${fwline} =~ ^#.* ]] && continue
       [[ ${fwline} =~ ^[[:space:]] ]] && continue
 
+      eval "(cd ${PKG_FW_SOURCE} && find "${fwline}" >/dev/null)" || die "ERROR: Firmware pattern does not exist: ${fwline}"
+
       while read -r fwfile; do
         [ -d "${PKG_FW_SOURCE}/${fwfile}" ] && continue
 
