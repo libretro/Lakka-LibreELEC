@@ -13,8 +13,8 @@ PKG_PATCH_DIRS="$KODI_VENDOR"
 
 case $KODI_VENDOR in
   raspberrypi)
-    PKG_VERSION="78f79b5700b90f402da48190ee00dd08d3d6c594"
-    PKG_SHA256="e4638c5bcd0325709bb5eaa5ca47765652df89bd91446558b9a936740cc4c95c"
+    PKG_VERSION="newclock5_20200419"
+    PKG_SHA256="f50ea08a4f7f4dc2083c8470115063eaeb67c9b8682ecc6bfaf42dafcb69fd5c"
     PKG_URL="https://github.com/popcornmix/xbmc/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="kodi-$KODI_VENDOR-$PKG_VERSION.tar.gz"
     ;;
