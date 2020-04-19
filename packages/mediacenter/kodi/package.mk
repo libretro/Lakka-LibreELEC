@@ -5,7 +5,7 @@
 PKG_NAME="kodi"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
-PKG_DEPENDS_TARGET="toolchain JsonSchemaBuilder:host TexturePacker:host Python3 zlib systemd lzo pcre swig:host libass curl fontconfig fribidi tinyxml libjpeg-turbo freetype libcdio taglib libxml2 libxslt rapidjson sqlite ffmpeg crossguid giflib libdvdnav libhdhomerun libfmt lirc libfstrcmp flatbuffers:host flatbuffers"
+PKG_DEPENDS_TARGET="toolchain JsonSchemaBuilder:host TexturePacker:host Python3 zlib systemd lzo pcre swig:host libass curl fontconfig fribidi tinyxml libjpeg-turbo freetype libcdio taglib libxml2 libxslt rapidjson sqlite ffmpeg crossguid giflib libdvdnav libhdhomerun libfmt lirc libfstrcmp flatbuffers:host flatbuffers libudfread spdlog"
 PKG_LONGDESC="A free and open source cross-platform media player."
 PKG_BUILD_FLAGS="+speed"
 
@@ -13,14 +13,14 @@ PKG_PATCH_DIRS="$KODI_VENDOR"
 
 case $KODI_VENDOR in
   raspberrypi)
-    PKG_VERSION="78f79b5700b90f402da48190ee00dd08d3d6c594"
-    PKG_SHA256="e4638c5bcd0325709bb5eaa5ca47765652df89bd91446558b9a936740cc4c95c"
+    PKG_VERSION="newclock5_20200419"
+    PKG_SHA256="f50ea08a4f7f4dc2083c8470115063eaeb67c9b8682ecc6bfaf42dafcb69fd5c"
     PKG_URL="https://github.com/popcornmix/xbmc/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="kodi-$KODI_VENDOR-$PKG_VERSION.tar.gz"
     ;;
   *)
-    PKG_VERSION="3375a26606b3a6913bea18f4ef7b85a72b724915"
-    PKG_SHA256="995c9f78143d1c96a0ae1d6dc4ad8c49e9a2f24047f9569130675dfc08797cb2"
+    PKG_VERSION="392dcf7331e06afda77d957d12664d3e1dc6c714"
+    PKG_SHA256="7ecc55d7c2930efbf0156d74a341a58b8580dd05226bef63768702ae3892b7ae"
     PKG_URL="https://github.com/xbmc/xbmc/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="kodi-$PKG_VERSION.tar.gz"
     ;;
@@ -210,12 +210,15 @@ configure_package() {
                          -DWITH_TEXTUREPACKER=$TOOLCHAIN/bin/TexturePacker \
                          -DWITH_JSONSCHEMABUILDER=$TOOLCHAIN/bin/JsonSchemaBuilder \
                          -DDEPENDS_PATH=$PKG_BUILD/depends \
+                         -DSWIG_EXECUTABLE=$TOOLCHAIN/bin/swig \
                          -DPYTHON_EXECUTABLE=$TOOLCHAIN/bin/$PKG_PYTHON_VERSION \
                          -DPYTHON_INCLUDE_DIRS=$SYSROOT_PREFIX/usr/include/$PKG_PYTHON_VERSION \
                          -DGIT_VERSION=$PKG_VERSION \
                          -DFFMPEG_PATH=$SYSROOT_PREFIX/usr \
                          -DENABLE_INTERNAL_FFMPEG=OFF \
                          -DENABLE_INTERNAL_CROSSGUID=OFF \
+                         -DENABLE_INTERNAL_UDFREAD=OFF \
+                         -DENABLE_INTERNAL_SPDLOG=OFF \
                          -DENABLE_UDEV=ON \
                          -DENABLE_DBUS=ON \
                          -DENABLE_XSLT=ON \
@@ -225,6 +228,7 @@ configure_package() {
                          -DENABLE_LDGOLD=ON \
                          -DENABLE_DEBUGFISSION=OFF \
                          -DENABLE_APP_AUTONAME=OFF \
+                         -DENABLE_TESTING=OFF \
                          -DENABLE_INTERNAL_FLATBUFFERS=OFF \
                          $PKG_KODI_USE_LTO \
                          $KODI_ARCH \
