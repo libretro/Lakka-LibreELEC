@@ -16,7 +16,7 @@ PKG_BUILD_FLAGS="+pic"
 
 pre_configure_target() {
   export CXXFLAGS="$CXXFLAGS -Wno-narrowing"
-  export LIBS="-L$SYSROOT_PREFIX/usr/lib/iconv -lpcre -lpcrecpp -lssl -lcrypto"
+  export LIBS="-L$SYSROOT_PREFIX/usr/lib/iconv -lpcre -lpcrecpp -lssl -lcrypto -lbz2"
 }
 
 make_target() {
