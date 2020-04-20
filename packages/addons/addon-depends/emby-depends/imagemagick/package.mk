@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="imagemagick"
-PKG_VERSION="7.0.8-60"
-PKG_SHA256="a0ffa621051aa66b4eec919761d1a741aefea8b993acc2425e3ed5855c540156"
+PKG_VERSION="7.0.10-6"
+PKG_SHA256="37d36f4d736eb16e0dd43c50302e1d01d1bb1125165333df8273508a22f8a64d"
 PKG_LICENSE="http://www.imagemagick.org/script/license.php"
 PKG_SITE="http://www.imagemagick.org/"
 PKG_URL="https://github.com/ImageMagick/ImageMagick/archive/$PKG_VERSION.tar.gz"
