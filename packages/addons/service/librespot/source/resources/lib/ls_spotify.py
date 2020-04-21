@@ -23,7 +23,7 @@ def get(info, indices, default):
     try:
         for index in indices:
             info = info[index]
-        return info
+        return info.encode('utf-8')
     except LookupError:
         return default
 
