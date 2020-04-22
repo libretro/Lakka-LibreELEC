@@ -9,10 +9,11 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/gdb/"
 PKG_URL="https://ftp.gnu.org/gnu/gdb/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain zlib ncurses expat"
+PKG_DEPENDS_HOST="toolchain:host zlib:host ncurses:host expat:host"
 PKG_LONGDESC="GNU Project debugger, allows you to see what is going on inside another program while it executes."
 PKG_BUILD_FLAGS="+size"
 
-PKG_CONFIGURE_OPTS_TARGET="bash_cv_have_mbstate_t=set \
+PKG_CONFIGURE_OPTS_COMMON="bash_cv_have_mbstate_t=set \
                            --disable-shared \
                            --enable-static \
                            --with-auto-load-safe-path=/ \
@@ -22,7 +23,6 @@ PKG_CONFIGURE_OPTS_TARGET="bash_cv_have_mbstate_t=set \
                            --with-intel-pt=no \
                            --with-babeltrace=no \
                            --with-expat=yes \
-                           --with-libexpat-prefix=${SYSROOT_PREFIX}/usr \
                            --disable-source-highlight \
                            --disable-nls \
                            --disable-sim \
@@ -35,6 +35,12 @@ PKG_CONFIGURE_OPTS_TARGET="bash_cv_have_mbstate_t=set \
                            --enable-libada \
                            --enable-libssp \
                            --disable-werror"
+
+PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_COMMON} \
+                           --with-libexpat-prefix=${SYSROOT_PREFIX}/usr"
+
+PKG_CONFIGURE_OPTS_HOST="${PKG_CONFIGURE_OPTS_COMMON} \
+                         --target=${TARGET_NAME}"
 
 pre_configure_target() {
   CC_FOR_BUILD="$HOST_CC"
