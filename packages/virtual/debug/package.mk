@@ -24,3 +24,7 @@ fi
 if build_with_debug && [ "$VALGRIND" = "yes" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET valgrind"
 fi
+
+if [ "$REMOTE_GDB" = "yes" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gdb:host"
+fi
