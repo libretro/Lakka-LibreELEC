@@ -265,7 +265,8 @@ makeinstall_target() {
     rm -f $INSTALL/usr/share/bootloader/bcm283*.dtb
 
     # install overlay dtbs
-    for dtb in arch/$TARGET_KERNEL_ARCH/boot/dts/overlays/*.dtbo; do
+    for dtb in arch/$TARGET_KERNEL_ARCH/boot/dts/overlays/*.dtb \
+               arch/$TARGET_KERNEL_ARCH/boot/dts/overlays/*.dtbo; do
       cp $dtb $INSTALL/usr/share/bootloader/overlays 2>/dev/null || :
     done
     cp -p arch/$TARGET_KERNEL_ARCH/boot/dts/overlays/README $INSTALL/usr/share/bootloader/overlays
