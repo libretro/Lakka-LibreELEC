@@ -57,7 +57,7 @@ make_target() {
       make platform=rpi2 GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
       ;;
     RPi4)
-      make platform=unix WITH_DYNAREC=arm HAVE_NEON=1 GLES3=1 FORCE_GLES3=1
+      make platform=rpi4 WITH_DYNAREC=arm HAVE_NEON=1 GLES3=1 FORCE_GLES3=1
       ;;
     imx6)
       CFLAGS="$CFLAGS -DLINUX -DEGL_API_FB"
