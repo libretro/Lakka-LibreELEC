@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2020-present Team LibreELEC (https://libreelec.tv)
+
+. config/options ""
+
+mkimage_uboot(){
+  echo "image: writing u-boot to $(basename $DISK)"
+  dd if="$INSTALL/usr/share/bootloader/bl1.bin.hardkernel" of="$DISK" bs=512 seek=1 conv=notrunc >"$SAVE_ERROR" 2>&1 || show_error
+  dd if="$INSTALL/usr/share/bootloader/bl2.bin.hardkernel.720k_uboot" of="$DISK" bs=512 seek=31 conv=notrunc >"$SAVE_ERROR" 2>&1 || show_error
+  dd if="$INSTALL/usr/share/bootloader/u-boot-dtb.bin" of="$DISK" bs=512 seek=63 conv=notrunc >"$SAVE_ERROR" 2>&1 || show_error
+  dd if="$INSTALL/usr/share/bootloader/tzsw.bin.hardkernel" of="$DISK" bs=512 seek=1503 conv=notrunc >"$SAVE_ERROR" 2>&1 || show_error
+  mcopy -s -o "$INSTALL/usr/share/bootloader/u-boot-dtb.bin" ::
+}
+
+mkimage_extlinux(){
+  echo "image: copying exlinux.conf"
+  mkdir -p "${LE_TMP}/extlinux"
+  cat << EOF > "${LE_TMP}/extlinux/extlinux.conf"
+LABEL ${DISTRO}
+  LINUX /${KERNEL_NAME}
+  FDT /${DTB}
+  APPEND boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} ${EXTRA_CMDLINE}
+EOF
+  mcopy -s -o "${LE_TMP}/extlinux" ::
+}
+
+mkimage_dtb(){
+  if [ "$DTB" != "@@DTB_NAME@@" ]; then
+    echo "image: copying device tree"
+    mcopy -s -o "${RELEASE_DIR}/3rdparty/bootloader/dtb/$DTB" ::
+  else
+    echo "image: copying device trees"
+    mcopy -s -o "${RELEASE_DIR}/3rdparty/bootloader/dtb" ::
+  fi
+}
+
+case "${UBOOT_SYSTEM}" in
+  odroid*)
+    mkimage_uboot
+    mkimage_extlinux
+    mkimage_dtb
+    ;;
+esac
