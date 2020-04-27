@@ -11,7 +11,7 @@ PKG_DEPENDS_TARGET="toolchain userspace-rcu"
 PKG_LONGDESC="LTTng is an open source tracing framework for Linux"
 PKG_TOOLCHAIN="autotools"
 
-PKG_CONFIGURE_OPTS_TARGET="--disable-man-pages"
+PKG_CONFIGURE_OPTS_TARGET="--disable-man-pages --disable-numa"
 
 makeinstall_target() {
   make install DESTDIR=$INSTALL $PKG_MAKEINSTALL_OPTS_TARGET
