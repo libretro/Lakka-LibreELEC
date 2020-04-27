@@ -3,7 +3,7 @@
 
 PKG_NAME="chrome"
 PKG_VERSION="1.0"
-PKG_REV="101"
+PKG_REV="102"
 PKG_ARCH="x86_64"
 PKG_LICENSE="Custom"
 PKG_SITE="http://www.google.com/chrome"
@@ -66,6 +66,7 @@ addon() {
 
   # libxcb
   cp -PL $(get_build_dir chrome-libxcb)/.$TARGET_NAME/src/.libs/libxcb.so.1 $ADDON_BUILD/$PKG_ADDON_ID/lib
+  cp -PL $(get_build_dir chrome-libxcb)/.$TARGET_NAME/src/.libs/libxcb-dri3.so.0 $ADDON_BUILD/$PKG_ADDON_ID/lib
 
   # libXcomposite
   cp -PL $(get_build_dir chrome-libXcomposite)/.$TARGET_NAME/src/.libs/libXcomposite.so.1 $ADDON_BUILD/$PKG_ADDON_ID/lib
