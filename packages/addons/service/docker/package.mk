@@ -23,86 +23,63 @@ PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Docker"
 PKG_ADDON_TYPE="xbmc.service"
 
+PKG_DOCKER_BUILDTAGS="daemon \
+                      autogen \
+                      exclude_graphdriver_devicemapper \
+                      exclude_graphdriver_aufs \
+                      exclude_graphdriver_btrfs \
+                      journald"
+
 configure_target() {
-  export DOCKER_BUILDTAGS="daemon \
-                           autogen \
-                           exclude_graphdriver_devicemapper \
-                           exclude_graphdriver_aufs \
-                           exclude_graphdriver_btrfs \
-                           journald"
+  go_configure
 
-  case ${TARGET_ARCH} in
-    x86_64)
-      export GOARCH=amd64
-      ;;
-    arm)
-      export GOARCH=arm
+  PKG_GOPATH_ENGINE=${GOPATH}
+  PKG_GOPATH_CLI=${GOPATH}_cli
+  export GOPATH=${PKG_GOPATH_CLI}:${PKG_GOPATH_ENGINE}
 
-      case ${TARGET_CPU} in
-        arm1176jzf-s)
-          export GOARM=6
-          ;;
-        *)
-          export GOARM=7
-          ;;
-      esac
-      ;;
-    aarch64)
-      export GOARCH=arm64
-      ;;
-  esac
-
-  export GOOS=linux
-  export CGO_ENABLED=1
-  export CGO_NO_EMULATION=1
-  export CGO_CFLAGS=${CFLAGS}
   export LDFLAGS="-w -linkmode external -extldflags -Wl,--unresolved-symbols=ignore-in-shared-libs -extld $CC"
-  export GOLANG=${TOOLCHAIN}/lib/golang/bin/go
-  export GOPATH=${PKG_BUILD}/.gopath_cli:${PKG_BUILD}/.gopath
-  export GOROOT=${TOOLCHAIN}/lib/golang
-  export PATH=${PATH}:${GOROOT}/bin
 
-  mkdir -p ${PKG_BUILD}/.gopath
-  mkdir -p ${PKG_BUILD}/.gopath_cli
+  mkdir -p ${PKG_GOPATH_ENGINE}
+  mkdir -p ${PKG_GOPATH_CLI}
 
   PKG_ENGINE_PATH=${PKG_BUILD}/components/engine
   PKG_CLI_PATH=${PKG_BUILD}/components/cli
 
   if [ -d ${PKG_ENGINE_PATH}/vendor ]; then
-    mv ${PKG_ENGINE_PATH}/vendor ${PKG_BUILD}/.gopath/src
+    mv ${PKG_ENGINE_PATH}/vendor ${PKG_GOPATH_ENGINE}/src
   fi
 
   if [ -d ${PKG_CLI_PATH}/vendor ]; then
-    mv ${PKG_CLI_PATH}/vendor ${PKG_BUILD}/.gopath_cli/src
+    mv ${PKG_CLI_PATH}/vendor ${PKG_GOPATH_CLI}/src
   fi
 
   # Fix missing/incompatible .go files
-  cp -rf ${PKG_BUILD}/.gopath/src/github.com/moby/buildkit/frontend/*               ${PKG_BUILD}/.gopath_cli/src/github.com/moby/buildkit/frontend
-  cp -rf ${PKG_BUILD}/.gopath/src/github.com/moby/buildkit/frontend/gateway/*       ${PKG_BUILD}/.gopath_cli/src/github.com/moby/buildkit/frontend/gateway
-  cp -rf ${PKG_BUILD}/.gopath/src/github.com/moby/buildkit/solver/*                 ${PKG_BUILD}/.gopath_cli/src/github.com/moby/buildkit/solver
-  cp -rf ${PKG_BUILD}/.gopath/src/github.com/moby/buildkit/util/progress/*          ${PKG_BUILD}/.gopath_cli/src/github.com/moby/buildkit/util/progress
-  cp -rf ${PKG_BUILD}/.gopath/src/github.com/docker/swarmkit/manager/*              ${PKG_BUILD}/.gopath_cli/src/github.com/docker/swarmkit/manager
-  cp -rf ${PKG_BUILD}/.gopath/src/github.com/coreos/etcd/raft/*                     ${PKG_BUILD}/.gopath_cli/src/github.com/coreos/etcd/raft
-  cp -rf ${PKG_BUILD}/.gopath/src/golang.org/x/*                                    ${PKG_BUILD}/.gopath_cli/src/golang.org/x
-  cp -rf ${PKG_BUILD}/.gopath/src/github.com/opencontainers/runtime-spec/specs-go/* ${PKG_BUILD}/.gopath_cli/src/github.com/opencontainers/runtime-spec/specs-go
+  cp -rf ${PKG_GOPATH_ENGINE}/src/github.com/moby/buildkit/frontend/*               ${PKG_GOPATH_CLI}/src/github.com/moby/buildkit/frontend
+  cp -rf ${PKG_GOPATH_ENGINE}/src/github.com/moby/buildkit/frontend/gateway/*       ${PKG_GOPATH_CLI}/src/github.com/moby/buildkit/frontend/gateway
+  cp -rf ${PKG_GOPATH_ENGINE}/src/github.com/moby/buildkit/solver/*                 ${PKG_GOPATH_CLI}/src/github.com/moby/buildkit/solver
+  cp -rf ${PKG_GOPATH_ENGINE}/src/github.com/moby/buildkit/util/progress/*          ${PKG_GOPATH_CLI}/src/github.com/moby/buildkit/util/progress
+  cp -rf ${PKG_GOPATH_ENGINE}/src/github.com/docker/swarmkit/manager/*              ${PKG_GOPATH_CLI}/src/github.com/docker/swarmkit/manager
+  cp -rf ${PKG_GOPATH_ENGINE}/src/github.com/coreos/etcd/raft/*                     ${PKG_GOPATH_CLI}/src/github.com/coreos/etcd/raft
+  cp -rf ${PKG_GOPATH_ENGINE}/src/golang.org/x/*                                    ${PKG_GOPATH_CLI}/src/golang.org/x
+  cp -rf ${PKG_GOPATH_ENGINE}/src/github.com/opencontainers/runtime-spec/specs-go/* ${PKG_GOPATH_CLI}/src/github.com/opencontainers/runtime-spec/specs-go
 
-  rm -rf   ${PKG_BUILD}/.gopath_cli/src/github.com/containerd/containerd
-  mkdir -p ${PKG_BUILD}/.gopath_cli/src/github.com/containerd/containerd
-  cp -rf   ${PKG_BUILD}/.gopath/src/github.com/containerd/containerd/* ${PKG_BUILD}/.gopath_cli/src/github.com/containerd/containerd
+  rm -rf   ${PKG_GOPATH_CLI}/src/github.com/containerd/containerd
+  mkdir -p ${PKG_GOPATH_CLI}/src/github.com/containerd/containerd
+  cp -rf   ${PKG_GOPATH_ENGINE}/src/github.com/containerd/containerd/* ${PKG_GOPATH_CLI}/src/github.com/containerd/containerd
 
-  rm -rf   ${PKG_BUILD}/.gopath_cli/src/github.com/containerd/continuity
-  mkdir -p ${PKG_BUILD}/.gopath_cli/src/github.com/containerd/continuity
-  cp -rf   ${PKG_BUILD}/.gopath/src/github.com/containerd/continuity/* ${PKG_BUILD}/.gopath_cli/src/github.com/containerd/continuity
+  rm -rf   ${PKG_GOPATH_CLI}/src/github.com/containerd/continuity
+  mkdir -p ${PKG_GOPATH_CLI}/src/github.com/containerd/continuity
+  cp -rf   ${PKG_GOPATH_ENGINE}/src/github.com/containerd/continuity/* ${PKG_GOPATH_CLI}/src/github.com/containerd/continuity
 
-  mkdir -p ${PKG_BUILD}/.gopath_cli/src/github.com/docker/docker/builder
-  cp -rf   ${PKG_ENGINE_PATH}/builder/* ${PKG_BUILD}/.gopath_cli/src/github.com/docker/docker/builder
+  mkdir -p ${PKG_GOPATH_CLI}/src/github.com/docker/docker/builder
+  cp -rf   ${PKG_ENGINE_PATH}/builder/* ${PKG_GOPATH_CLI}/src/github.com/docker/docker/builder
 
-  if [ ! -L ${PKG_BUILD}/.gopath/src/github.com/docker/docker ];then
-    ln -fs  ${PKG_ENGINE_PATH} ${PKG_BUILD}/.gopath/src/github.com/docker/docker
+  if [ ! -L ${PKG_GOPATH_ENGINE}/src/github.com/docker/docker ];then
+    ln -fs  ${PKG_ENGINE_PATH} ${PKG_GOPATH_ENGINE}/src/github.com/docker/docker
   fi
 
-  if [ ! -L ${PKG_BUILD}/.gopath_cli/src/github.com/docker/cli ];then
-    ln -fs ${PKG_CLI_PATH} ${PKG_BUILD}/.gopath_cli/src/github.com/docker/cli
+  if [ ! -L ${PKG_GOPATH_CLI}/src/github.com/docker/cli ];then
+    ln -fs ${PKG_CLI_PATH} ${PKG_GOPATH_CLI}/src/github.com/docker/cli
   fi
 
   # used for docker version
@@ -120,8 +97,8 @@ make_target() {
   PKG_CLI_FLAGS="-X 'github.com/docker/cli/cli/version.Version=${VERSION}'"
   PKG_CLI_FLAGS="${PKG_CLI_FLAGS} -X 'github.com/docker/cli/cli/version.GitCommit=${GITCOMMIT}'"
   PKG_CLI_FLAGS="${PKG_CLI_FLAGS} -X 'github.com/docker/cli/cli/version.BuildTime=${BUILDTIME}'"
-  ${GOLANG} build -v -o bin/docker -a -tags "${DOCKER_BUILDTAGS}" -ldflags "${LDFLAGS} ${PKG_CLI_FLAGS}" ./components/cli/cmd/docker
-  ${GOLANG} build -v -o bin/dockerd -a -tags "${DOCKER_BUILDTAGS}" -ldflags "${LDFLAGS}" ./components/engine/cmd/dockerd
+  ${GOLANG} build -v -o bin/docker -a -tags "${PKG_DOCKER_BUILDTAGS}" -ldflags "${LDFLAGS} ${PKG_CLI_FLAGS}" ./components/cli/cmd/docker
+  ${GOLANG} build -v -o bin/dockerd -a -tags "${PKG_DOCKER_BUILDTAGS}" -ldflags "${LDFLAGS}" ./components/engine/cmd/dockerd
 }
 
 makeinstall_target() {

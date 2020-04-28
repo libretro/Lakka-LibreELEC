@@ -13,43 +13,17 @@ PKG_LONGDESC="A native Go implementation for connecting containers."
 PKG_TOOLCHAIN="manual"
 
 pre_make_target() {
-  case $TARGET_ARCH in
-    x86_64)
-      export GOARCH=amd64
-      ;;
-    arm)
-      export GOARCH=arm
+  go_configure
 
-      case $TARGET_CPU in
-        arm1176jzf-s)
-          export GOARM=6
-          ;;
-        *)
-          export GOARM=7
-          ;;
-      esac
-      ;;
-    aarch64)
-      export GOARCH=arm64
-      ;;
-  esac
-
-  export GOOS=linux
   export CGO_ENABLED=0
-  export CGO_NO_EMULATION=1
-  export CGO_CFLAGS=$CFLAGS
   export LDFLAGS="-extld $CC"
-  export GOLANG=$TOOLCHAIN/lib/golang/bin/go
-  export GOPATH=$PKG_BUILD/.gopath
-  export GOROOT=$TOOLCHAIN/lib/golang
-  export PATH=$PATH:$GOROOT/bin
 
-  mkdir -p $PKG_BUILD/.gopath
+  mkdir -p ${GOPATH}
   if [ -d $PKG_BUILD/vendor ]; then
-    mv $PKG_BUILD/vendor $PKG_BUILD/.gopath/src
+    mv $PKG_BUILD/vendor ${GOPATH}/src
   fi
 
-  ln -fs $PKG_BUILD $PKG_BUILD/.gopath/src/github.com/docker/libnetwork
+  ln -fs $PKG_BUILD ${GOPATH}/src/github.com/docker/libnetwork
 }
 
 make_target() {

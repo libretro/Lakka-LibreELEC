@@ -21,35 +21,9 @@ PKG_ADDON_TYPE="xbmc.service"
 PKG_MAINTAINER="Anton Voyl (awiouy)"
 
 configure_target() {
-  export CGO_CFLAGS=${CFLAGS}
-  export CGO_ENABLED=1
-  export CGO_NO_EMULATION=1
-  export GOLANG=${TOOLCHAIN}/lib/golang/bin/go
-  export GOOS=linux
-  export GOROOT=${TOOLCHAIN}/lib/golang
+  go_configure
   export LDFLAGS="-w -linkmode external -extldflags -Wl,--unresolved-symbols=ignore-in-shared-libs -extld ${CC} \
                   -X github.com/syncthing/syncthing/lib/build.Version=v${PKG_VERSION}"
-  export PATH=${PATH}:${GOROOT}/bin
-
-  case $TARGET_ARCH in
-    x86_64)
-      export GOARCH=amd64
-      ;;
-    aarch64)
-      export GOARCH=arm64
-      ;;
-    arm)
-      export GOARCH=arm
-      case $TARGET_CPU in
-        arm1176jzf-s)
-          export GOARM=6
-          ;;
-        *)
-          export GOARM=7
-          ;;
-      esac
-      ;;
-  esac
 }
 
 make_target() {
