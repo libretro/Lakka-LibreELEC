@@ -23,8 +23,8 @@ case "$LINUX" in
     PKG_PATCH_DIRS="amlogic"
     ;;
   raspberrypi)
-    PKG_VERSION="67d4589da4940159e2ded20e4bf5fa90b370b4c3" # 5.4.28
-    PKG_SHA256="7ece38b077d609adf0c5e0504469ccfaa4c0309e702d7a637674748d8185cf7f"
+    PKG_VERSION="cda6aaf08ad0f88926611ec50e7de4c4b4f88832" # 5.4.35 with ISP
+    PKG_SHA256="b14f6aab5a4c32d71e203bb745bd78bc24c4daf04c5b29114fab30b177276bf2"
     PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     ;;
@@ -265,7 +265,8 @@ makeinstall_target() {
     rm -f $INSTALL/usr/share/bootloader/bcm283*.dtb
 
     # install overlay dtbs
-    for dtb in arch/$TARGET_KERNEL_ARCH/boot/dts/overlays/*.dtbo; do
+    for dtb in arch/$TARGET_KERNEL_ARCH/boot/dts/overlays/*.dtb \
+               arch/$TARGET_KERNEL_ARCH/boot/dts/overlays/*.dtbo; do
       cp $dtb $INSTALL/usr/share/bootloader/overlays 2>/dev/null || :
     done
     cp -p arch/$TARGET_KERNEL_ARCH/boot/dts/overlays/README $INSTALL/usr/share/bootloader/overlays
