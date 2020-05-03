@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="syncthing"
-PKG_VERSION="1.2.0"
-PKG_SHA256="0339877effdcf3bf8aa7d4d1e50b878992792e4752ff778f27788bf71eccecd0"
-PKG_REV="108"
+PKG_VERSION="1.4.2"
+PKG_SHA256="061af43c1bbfcdf949499cdc50a325fff7cd67fb48f9d270adb52b4decbab899"
+PKG_REV="109"
 PKG_ARCH="any"
 PKG_LICENSE="MPLv2"
 PKG_SITE="https://syncthing.net/"
@@ -21,19 +21,15 @@ PKG_ADDON_TYPE="xbmc.service"
 PKG_MAINTAINER="Anton Voyl (awiouy)"
 
 configure_target() {
-  export GOLANG=$TOOLCHAIN/lib/golang/bin/go
-
-  cd $PKG_BUILD
-  $GOLANG generate -v ./lib/auto ./cmd/strelaypoolsrv/auto
-
-  export GOOS=linux
+  export CGO_CFLAGS=${CFLAGS}
   export CGO_ENABLED=1
   export CGO_NO_EMULATION=1
-  export CGO_CFLAGS=$CFLAGS
-  export LDFLAGS="-w -linkmode external -extldflags -Wl,--unresolved-symbols=ignore-in-shared-libs -extld $CC -X main.Version=v$PKG_VERSION"
-  export GOPATH=$PKG_BUILD:$PKG_BUILD/Godeps/_workspace
-  export GOROOT=$TOOLCHAIN/lib/golang
-  export PATH=$PATH:$GOROOT/bin
+  export GOLANG=${TOOLCHAIN}/lib/golang/bin/go
+  export GOOS=linux
+  export GOROOT=${TOOLCHAIN}/lib/golang
+  export LDFLAGS="-w -linkmode external -extldflags -Wl,--unresolved-symbols=ignore-in-shared-libs -extld ${CC} \
+                  -X github.com/syncthing/syncthing/lib/build.Version=v${PKG_VERSION}"
+  export PATH=${PATH}:${GOROOT}/bin
 
   case $TARGET_ARCH in
     x86_64)
@@ -57,14 +53,10 @@ configure_target() {
 }
 
 make_target() {
-  mkdir -p $PKG_BUILD/src/github.com/syncthing
-  ln -sf $PKG_BUILD $PKG_BUILD/src/github.com/syncthing/syncthing
-  cd $PKG_BUILD/src/github.com/syncthing/syncthing
-  mkdir bin
-  $GOLANG build -v -o bin/syncthing -a -ldflags "$LDFLAGS" ./cmd/syncthing
+  ${GOLANG} build -v -o bin/syncthing -a -ldflags "${LDFLAGS}" ./cmd/syncthing
 }
 
 addon() {
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
-  cp -P $PKG_BUILD/bin/syncthing $ADDON_BUILD/$PKG_ADDON_ID/bin
+  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+  cp -P ${PKG_BUILD}/bin/syncthing ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 }
