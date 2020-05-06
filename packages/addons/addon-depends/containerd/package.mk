@@ -16,46 +16,20 @@ PKG_TOOLCHAIN="manual"
 PKG_GIT_COMMIT="a4bc1d432a2c33aa2eed37f338dceabb93641310"
 
 pre_make_target() {
-  case ${TARGET_ARCH} in
-    x86_64)
-      export GOARCH=amd64
-      ;;
-    arm)
-      export GOARCH=arm
 
-      case ${TARGET_CPU} in
-        arm1176jzf-s)
-          export GOARM=6
-          ;;
-        *)
-          export GOARM=7
-          ;;
-      esac
-      ;;
-    aarch64)
-      export GOARCH=arm64
-      ;;
-  esac
+  go_configure
 
-  export GOOS=linux
-  export CGO_ENABLED=1
-  export CGO_NO_EMULATION=1
-  export CGO_CFLAGS=${CFLAGS}
   export CONTAINERD_VERSION=${PKG_VERSION}
   export CONTAINERD_REVISION=${PKG_GIT_COMMIT}
   export CONTAINERD_PKG=github.com/containerd/containerd
   export LDFLAGS="-w -extldflags -static -X ${CONTAINERD_PKG}/version.Version=${CONTAINERD_VERSION} -X ${CONTAINERD_PKG}/version.Revision=${CONTAINERD_REVISION} -X ${CONTAINERD_PKG}/version.Package=${CONTAINERD_PKG} -extld $CC"
-  export GOLANG=${TOOLCHAIN}/lib/golang/bin/go
-  export GOPATH=${PKG_BUILD}/.gopath
-  export GOROOT=${TOOLCHAIN}/lib/golang
-  export PATH=${PATH}:${GOROOT}/bin
 
-  mkdir -p ${PKG_BUILD}/.gopath
+  mkdir -p ${GOPATH}
   if [ -d ${PKG_BUILD}/vendor ]; then
-    mv ${PKG_BUILD}/vendor ${PKG_BUILD}/.gopath/src
+    mv ${PKG_BUILD}/vendor ${GOPATH}/src
   fi
 
-  ln -fs ${PKG_BUILD} ${PKG_BUILD}/.gopath/src/github.com/containerd/containerd
+  ln -fs ${PKG_BUILD} ${GOPATH}/src/github.com/containerd/containerd
 }
 
 make_target() {
