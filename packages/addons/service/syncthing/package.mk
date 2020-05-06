@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="syncthing"
-PKG_VERSION="1.4.2"
-PKG_SHA256="061af43c1bbfcdf949499cdc50a325fff7cd67fb48f9d270adb52b4decbab899"
-PKG_REV="109"
+PKG_VERSION="1.5.0"
+PKG_SHA256="4b4e3c9bbe9dd796919d300118b6817edfe3db9513b067a58591524b3c5a248d"
+PKG_REV="110"
 PKG_ARCH="any"
 PKG_LICENSE="MPLv2"
 PKG_SITE="https://syncthing.net/"
@@ -12,7 +12,7 @@ PKG_URL="https://github.com/syncthing/syncthing/releases/download/v${PKG_VERSION
 PKG_DEPENDS_TARGET="toolchain go:host"
 PKG_SECTION="service/system"
 PKG_SHORTDESC="Syncthing: open source continuous file synchronization"
-PKG_LONGDESC="Syncthing ($PKG_VERSION) replaces proprietary sync and cloud services with something open, trustworthy and decentralized. Your data is your data alone and you deserve to choose where it is stored, if it is shared with some third party and how it's transmitted over the Internet."
+PKG_LONGDESC="Syncthing (${PKG_VERSION}) replaces proprietary sync and cloud services with something open, trustworthy and decentralized. Your data is your data alone and you deserve to choose where it is stored, if it is shared with some third party and how it's transmitted over the Internet."
 PKG_TOOLCHAIN="manual"
 
 PKG_IS_ADDON="yes"
@@ -27,10 +27,11 @@ configure_target() {
 }
 
 make_target() {
-  ${GOLANG} build -v -o bin/syncthing -a -ldflags "${LDFLAGS}" ./cmd/syncthing
+  ${GOLANG} build -a -ldflags "${LDFLAGS}" -o bin/syncthing -v ./cmd/syncthing
 }
 
 addon() {
   mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
-  cp -P ${PKG_BUILD}/bin/syncthing ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+    cp -P ${PKG_BUILD}/bin/syncthing \
+        ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 }
