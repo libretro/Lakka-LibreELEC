@@ -14,14 +14,14 @@ case "$ARCH" in
     ;;
   "x86_64")
     PKG_NC_ARCH="x64"
-    PKG_SHA256="776d8573f37d89ee8ba9ac09d83b31656eb4c8ca9cb3a7829ce865d040b49c3d"
-    PKG_URL="https://download.visualstudio.microsoft.com/download/pr/1229b766-b66b-478e-b49d-59c46e21cad9/0e9a1cf3c56ef85c8fff20abc6db780c/dotnet-runtime-3.1.3-linux-musl-x64.tar.gz"
+    PKG_SHA256="e0a9d4a206caece4de6d39e7d95245b2357ae69280b1f3e1b19fb9de8e1c1174"
+    PKG_URL="https://download.visualstudio.microsoft.com/download/pr/c1d419e7-4312-4464-b272-27bee7676560/22e7bb584ff56f3089c85d98b21c0445/dotnet-runtime-3.1.3-linux-x64.tar.gz"
     ;;
 esac
 
 PKG_NAME="dotnet-runtime"
 PKG_VERSION="3.1.3"
-PKG_REV="108"
+PKG_REV="109"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://dotnet.github.io/"
