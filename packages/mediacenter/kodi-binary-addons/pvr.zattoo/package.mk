@@ -2,8 +2,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.zattoo"
-PKG_VERSION="18.1.16-Leia"
-PKG_SHA256="080860854d0b2e6b7b7ea604cebc9de2b555087c975684bfa7430d2e71ae673d"
+PKG_VERSION="18.1.17-Leia"
+PKG_SHA256="3bf466e4d477b57b313689bbcdbef8b1e017d3e6687cd87edc3a7da25daf6a51"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
