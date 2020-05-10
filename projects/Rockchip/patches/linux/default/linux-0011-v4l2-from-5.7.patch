@@ -1,0 +1,1555 @@
+From 65ae268d0fe4e36470530427b6ceda4520757294 Mon Sep 17 00:00:00 2001
+From: Hirokazu Honda <hiroh@chromium.org>
+Date: Fri, 22 Nov 2019 06:16:08 +0100
+Subject: [PATCH] media: hantro: Support H264 profile control
+
+The Hantro G1 decoder supports H.264 profiles from Baseline to High, with
+the exception of the Extended profile.
+
+Expose the V4L2_CID_MPEG_VIDEO_H264_PROFILE control, so that the
+applications can query the driver for the list of supported profiles.
+
+Signed-off-by: Hirokazu Honda <hiroh@chromium.org>
+Reviewed-by: Ezequiel Garcia <ezequiel@collabora.com>
+Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+huawei@kernel.org>
+(cherry picked from commit 858eff03578c621728d219acfcc96b64938b0350)
+---
+ drivers/staging/media/hantro/hantro_drv.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/drivers/staging/media/hantro/hantro_drv.c b/drivers/staging/media/hantro/hantro_drv.c
+index c98835326135..ca8b133e2e46 100644
+--- a/drivers/staging/media/hantro/hantro_drv.c
++++ b/drivers/staging/media/hantro/hantro_drv.c
+@@ -361,6 +361,16 @@ static const struct hantro_ctrl controls[] = {
+ 			.def = V4L2_MPEG_VIDEO_H264_START_CODE_ANNEX_B,
+ 			.max = V4L2_MPEG_VIDEO_H264_START_CODE_ANNEX_B,
+ 		},
++	}, {
++		.codec = HANTRO_H264_DECODER,
++		.cfg = {
++			.id = V4L2_CID_MPEG_VIDEO_H264_PROFILE,
++			.min = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE,
++			.max = V4L2_MPEG_VIDEO_H264_PROFILE_HIGH,
++			.menu_skip_mask =
++			BIT(V4L2_MPEG_VIDEO_H264_PROFILE_EXTENDED),
++			.def = V4L2_MPEG_VIDEO_H264_PROFILE_MAIN,
++		}
+ 	}, {
+ 	},
+ };
+
+From fa5b68fc7ad885d769cc2929760efcede9ad6372 Mon Sep 17 00:00:00 2001
+From: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Date: Mon, 3 Feb 2020 12:41:09 +0100
+Subject: [PATCH] media: rename VFL_TYPE_GRABBER to _VIDEO
+
+We currently have the following devnode types:
+
+enum vfl_devnode_type {
+        VFL_TYPE_GRABBER        = 0,
+        VFL_TYPE_VBI,
+        VFL_TYPE_RADIO,
+        VFL_TYPE_SUBDEV,
+        VFL_TYPE_SDR,
+        VFL_TYPE_TOUCH,
+        VFL_TYPE_MAX /* Shall be the last one */
+};
+
+They all make sense, except for the first: GRABBER really refers to /dev/videoX
+devices, which can be capture, output or m2m, so 'grabber' doesn't even refer to
+their function anymore.
+
+Let's call a spade a spade and rename this to VFL_TYPE_VIDEO.
+
+Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Acked-by: Sakari Ailus <sakari.ailus@linux.intel.com>
+Reviewed-by: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+huawei@kernel.org>
+(cherry picked from commit 238e4a5baa361256ae1641ad9455bb2bb359273f)
+---
+ Documentation/media/kapi/v4l2-dev.rst                          |  4 ++--
+ .../translations/zh_CN/video4linux/v4l2-framework.txt          |  4 ++--
+ drivers/media/v4l2-core/v4l2-dev.c                             | 10 +++++-----
+ drivers/media/v4l2-core/v4l2-ioctl.c                           |  4 ++--
+ include/media/v4l2-dev.h                                       |  6 ++++--
+ samples/v4l/v4l2-pci-skeleton.c                                |  2 +-
+ 6 files changed, 16 insertions(+), 14 deletions(-)
+
+diff --git a/Documentation/media/kapi/v4l2-dev.rst b/Documentation/media/kapi/v4l2-dev.rst
+index 4c5a15c53dbf..63c064837c00 100644
+--- a/Documentation/media/kapi/v4l2-dev.rst
++++ b/Documentation/media/kapi/v4l2-dev.rst
+@@ -185,7 +185,7 @@ This will create the character device for you.
+ 
+ .. code-block:: c
+ 
+-	err = video_register_device(vdev, VFL_TYPE_GRABBER, -1);
++	err = video_register_device(vdev, VFL_TYPE_VIDEO, -1);
+ 	if (err) {
+ 		video_device_release(vdev); /* or kfree(my_vdev); */
+ 		return err;
+@@ -201,7 +201,7 @@ types exist:
+ ========================== ====================	 ==============================
+ :c:type:`vfl_devnode_type` Device name		 Usage
+ ========================== ====================	 ==============================
+-``VFL_TYPE_GRABBER``       ``/dev/videoX``       for video input/output devices
++``VFL_TYPE_VIDEO``         ``/dev/videoX``       for video input/output devices
+ ``VFL_TYPE_VBI``           ``/dev/vbiX``         for vertical blank data (i.e.
+ 						 closed captions, teletext)
+ ``VFL_TYPE_RADIO``         ``/dev/radioX``       for radio tuners
+diff --git a/Documentation/translations/zh_CN/video4linux/v4l2-framework.txt b/Documentation/translations/zh_CN/video4linux/v4l2-framework.txt
+index 66c7c568bd86..9c39ee58ea50 100644
+--- a/Documentation/translations/zh_CN/video4linux/v4l2-framework.txt
++++ b/Documentation/translations/zh_CN/video4linux/v4l2-framework.txt
+@@ -649,7 +649,7 @@ video_device注册
+ 
+ 接下来你需要注册视频设备：这会为你创建一个字符设备。
+ 
+-	err = video_register_device(vdev, VFL_TYPE_GRABBER, -1);
++	err = video_register_device(vdev, VFL_TYPE_VIDEO, -1);
+ 	if (err) {
+ 		video_device_release(vdev); /* or kfree(my_vdev); */
+ 		return err;
+@@ -660,7 +660,7 @@ video_device注册
+ 
+ 注册哪种设备是根据类型（type）参数。存在以下类型：
+ 
+-VFL_TYPE_GRABBER: 用于视频输入/输出设备的 videoX
++VFL_TYPE_VIDEO: 用于视频输入/输出设备的 videoX
+ VFL_TYPE_VBI: 用于垂直消隐数据的 vbiX (例如，隐藏式字幕，图文电视)
+ VFL_TYPE_RADIO: 用于广播调谐器的 radioX
+ 
+diff --git a/drivers/media/v4l2-core/v4l2-dev.c b/drivers/media/v4l2-core/v4l2-dev.c
+index da42d172714a..97b6a3af1361 100644
+--- a/drivers/media/v4l2-core/v4l2-dev.c
++++ b/drivers/media/v4l2-core/v4l2-dev.c
+@@ -542,13 +542,13 @@ static void determine_valid_ioctls(struct video_device *vdev)
+ 			      V4L2_CAP_META_OUTPUT;
+ 	DECLARE_BITMAP(valid_ioctls, BASE_VIDIOC_PRIVATE);
+ 	const struct v4l2_ioctl_ops *ops = vdev->ioctl_ops;
+-	bool is_vid = vdev->vfl_type == VFL_TYPE_GRABBER &&
++	bool is_vid = vdev->vfl_type == VFL_TYPE_VIDEO &&
+ 		      (vdev->device_caps & vid_caps);
+ 	bool is_vbi = vdev->vfl_type == VFL_TYPE_VBI;
+ 	bool is_radio = vdev->vfl_type == VFL_TYPE_RADIO;
+ 	bool is_sdr = vdev->vfl_type == VFL_TYPE_SDR;
+ 	bool is_tch = vdev->vfl_type == VFL_TYPE_TOUCH;
+-	bool is_meta = vdev->vfl_type == VFL_TYPE_GRABBER &&
++	bool is_meta = vdev->vfl_type == VFL_TYPE_VIDEO &&
+ 		       (vdev->device_caps & meta_caps);
+ 	bool is_rx = vdev->vfl_dir != VFL_DIR_TX;
+ 	bool is_tx = vdev->vfl_dir != VFL_DIR_RX;
+@@ -783,7 +783,7 @@ static int video_register_media_controller(struct video_device *vdev)
+ 	vdev->entity.function = MEDIA_ENT_F_UNKNOWN;
+ 
+ 	switch (vdev->vfl_type) {
+-	case VFL_TYPE_GRABBER:
++	case VFL_TYPE_VIDEO:
+ 		intf_type = MEDIA_INTF_T_V4L_VIDEO;
+ 		vdev->entity.function = MEDIA_ENT_F_IO_V4L;
+ 		break;
+@@ -891,7 +891,7 @@ int __video_register_device(struct video_device *vdev,
+ 
+ 	/* Part 1: check device type */
+ 	switch (type) {
+-	case VFL_TYPE_GRABBER:
++	case VFL_TYPE_VIDEO:
+ 		name_base = "video";
+ 		break;
+ 	case VFL_TYPE_VBI:
+@@ -935,7 +935,7 @@ int __video_register_device(struct video_device *vdev,
+ 	 * of 128-191 and just pick the first free minor there
+ 	 * (new style). */
+ 	switch (type) {
+-	case VFL_TYPE_GRABBER:
++	case VFL_TYPE_VIDEO:
+ 		minor_offset = 0;
+ 		minor_cnt = 64;
+ 		break;
+diff --git a/drivers/media/v4l2-core/v4l2-ioctl.c b/drivers/media/v4l2-core/v4l2-ioctl.c
+index aaf83e254272..fbcc7a20eedf 100644
+--- a/drivers/media/v4l2-core/v4l2-ioctl.c
++++ b/drivers/media/v4l2-core/v4l2-ioctl.c
+@@ -941,12 +941,12 @@ static int check_fmt(struct file *file, enum v4l2_buf_type type)
+ 			      V4L2_CAP_META_OUTPUT;
+ 	struct video_device *vfd = video_devdata(file);
+ 	const struct v4l2_ioctl_ops *ops = vfd->ioctl_ops;
+-	bool is_vid = vfd->vfl_type == VFL_TYPE_GRABBER &&
++	bool is_vid = vfd->vfl_type == VFL_TYPE_VIDEO &&
+ 		      (vfd->device_caps & vid_caps);
+ 	bool is_vbi = vfd->vfl_type == VFL_TYPE_VBI;
+ 	bool is_sdr = vfd->vfl_type == VFL_TYPE_SDR;
+ 	bool is_tch = vfd->vfl_type == VFL_TYPE_TOUCH;
+-	bool is_meta = vfd->vfl_type == VFL_TYPE_GRABBER &&
++	bool is_meta = vfd->vfl_type == VFL_TYPE_VIDEO &&
+ 		       (vfd->device_caps & meta_caps);
+ 	bool is_rx = vfd->vfl_dir != VFL_DIR_TX;
+ 	bool is_tx = vfd->vfl_dir != VFL_DIR_RX;
+diff --git a/include/media/v4l2-dev.h b/include/media/v4l2-dev.h
+index 48531e57cc5a..5e7c0f8acd05 100644
+--- a/include/media/v4l2-dev.h
++++ b/include/media/v4l2-dev.h
+@@ -24,7 +24,8 @@
+ /**
+  * enum vfl_devnode_type - type of V4L2 device node
+  *
+- * @VFL_TYPE_GRABBER:	for video input/output devices
++ * @VFL_TYPE_VIDEO:	for video input/output devices
++ * @VFL_TYPE_GRABBER:	deprecated, same as VFL_TYPE_VIDEO
+  * @VFL_TYPE_VBI:	for vertical blank data (i.e. closed captions, teletext)
+  * @VFL_TYPE_RADIO:	for radio tuners
+  * @VFL_TYPE_SUBDEV:	for V4L2 subdevices
+@@ -33,7 +34,8 @@
+  * @VFL_TYPE_MAX:	number of VFL types, must always be last in the enum
+  */
+ enum vfl_devnode_type {
+-	VFL_TYPE_GRABBER	= 0,
++	VFL_TYPE_VIDEO,
++	VFL_TYPE_GRABBER = VFL_TYPE_VIDEO,
+ 	VFL_TYPE_VBI,
+ 	VFL_TYPE_RADIO,
+ 	VFL_TYPE_SUBDEV,
+diff --git a/samples/v4l/v4l2-pci-skeleton.c b/samples/v4l/v4l2-pci-skeleton.c
+index f6a551bd57ef..3fa6582b4a68 100644
+--- a/samples/v4l/v4l2-pci-skeleton.c
++++ b/samples/v4l/v4l2-pci-skeleton.c
+@@ -879,7 +879,7 @@ static int skeleton_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	vdev->tvnorms = SKEL_TVNORMS;
+ 	video_set_drvdata(vdev, skel);
+ 
+-	ret = video_register_device(vdev, VFL_TYPE_GRABBER, -1);
++	ret = video_register_device(vdev, VFL_TYPE_VIDEO, -1);
+ 	if (ret)
+ 		goto free_hdl;
+ 
+
+From cb4f585d3c48529eea7f789ff1292e9661b10423 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@collabora.com>
+Date: Mon, 27 Jan 2020 15:30:07 +0100
+Subject: [PATCH] media: hantro: Use standard luma quantization table
+
+The table is actually different in the document than in this file, so align
+this file with the document.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@collabora.com>
+Tested-by: Ezequiel Garcia <ezequiel@collabora.com>
+Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+huawei@kernel.org>
+(cherry picked from commit 801fccf48940c6733aad922f7b9e81f6d7f84cf6)
+---
+ drivers/staging/media/hantro/hantro_jpeg.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/staging/media/hantro/hantro_jpeg.c b/drivers/staging/media/hantro/hantro_jpeg.c
+index 125eb41f2ede..d3b381d00b23 100644
+--- a/drivers/staging/media/hantro/hantro_jpeg.c
++++ b/drivers/staging/media/hantro/hantro_jpeg.c
+@@ -23,17 +23,17 @@
+ #define HUFF_CHROMA_AC_OFF	409
+ 
+ /* Default tables from JPEG ITU-T.81
+- * (ISO/IEC 10918-1) Annex K.3, I
++ * (ISO/IEC 10918-1) Annex K, tables K.1 and K.2
+  */
+ static const unsigned char luma_q_table[] = {
+-	0x10, 0x0b, 0x0a, 0x10, 0x7c, 0x8c, 0x97, 0xa1,
+-	0x0c, 0x0c, 0x0e, 0x13, 0x7e, 0x9e, 0xa0, 0x9b,
+-	0x0e, 0x0d, 0x10, 0x18, 0x8c, 0x9d, 0xa9, 0x9c,
+-	0x0e, 0x11, 0x16, 0x1d, 0x97, 0xbb, 0xb4, 0xa2,
+-	0x12, 0x16, 0x25, 0x38, 0xa8, 0x6d, 0x67, 0xb1,
+-	0x18, 0x23, 0x37, 0x40, 0xb5, 0x68, 0x71, 0xc0,
++	0x10, 0x0b, 0x0a, 0x10, 0x18, 0x28, 0x33, 0x3d,
++	0x0c, 0x0c, 0x0e, 0x13, 0x1a, 0x3a, 0x3c, 0x37,
++	0x0e, 0x0d, 0x10, 0x18, 0x28, 0x39, 0x45, 0x38,
++	0x0e, 0x11, 0x16, 0x1d, 0x33, 0x57, 0x50, 0x3e,
++	0x12, 0x16, 0x25, 0x38, 0x44, 0x6d, 0x67, 0x4d,
++	0x18, 0x23, 0x37, 0x40, 0x51, 0x68, 0x71, 0x5c,
+ 	0x31, 0x40, 0x4e, 0x57, 0x67, 0x79, 0x78, 0x65,
+-	0x48, 0x5c, 0x5f, 0x62, 0x70, 0x64, 0x67, 0xc7,
++	0x48, 0x5c, 0x5f, 0x62, 0x70, 0x64, 0x67, 0x63
+ };
+ 
+ static const unsigned char chroma_q_table[] = {
+
+From c66796788e68145a9ad54d24950bc7113ab58355 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@collabora.com>
+Date: Mon, 27 Jan 2020 15:30:08 +0100
+Subject: [PATCH] media: hantro: Write the quantization tables in proper order
+
+The quantization tables as defined in the file (luma_q_table,
+chroma_q_table) are in fact in linear order. The JPEG file header, which is
+not generated by the hardware, but must be programatically created with the
+CPU, expects the table in zigzag order. On the other hand, the hardware
+doesn't expect neither linear, nor zigzag order. Instead it expects the
+quantization tables in vertical groups of four quantization parameters,
+and the groups are organized in blocks of two vertically adjacent groups.
+On top of that the blocks must be provided to the hardware in this order:
+leftmost top block, leftmost bottom block, second leftmost top block,
+second leftmost bottom block and so on. So, if this is the quantization
+table in linear order:
+
+0x10, 0x0b, 0x0a, 0x10, 0x18, 0x28, 0x33, 0x3d,
+0x0c, 0x0c, 0x0e, 0x13, 0x1a, 0x3a, 0x3c, 0x37,
+0x0e, 0x0d, 0x10, 0x18, 0x28, 0x39, 0x45, 0x38,
+0x0e, 0x11, 0x16, 0x1d, 0x33, 0x57, 0x50, 0x3e,
+0x12, 0x16, 0x25, 0x38, 0x44, 0x6d, 0x67, 0x4d,
+0x18, 0x23, 0x37, 0x40, 0x51, 0x68, 0x71, 0x5c,
+0x31, 0x40, 0x4e, 0x57, 0x67, 0x79, 0x78, 0x65,
+0x48, 0x5c, 0x5f, 0x62, 0x70, 0x64, 0x67, 0x63
+
+then the hardware expects this in its consecutive registers:
+
+0x100c0e0e,
+0x0b0c0d11,
+0x12183148,
+0x1623405c,
+0x0a0e1016,
+0x1013181d,
+0x25374e5f,
+0x38405762,
+
+and so on.
+
+Consequently, the same area of memory cannot be used both for dumping it
+into the JPEG file header and writing its contents to the hardware
+registers. Instead, a separate pair of arrays is added for properly
+reordered quantization tables, to be read with get_unaligned_be32()
+and linearly written to the registers.
+
+The "ctx" parameter is not needed any more for hantro_jpeg_get_qtable().
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@collabora.com>
+Tested-by: Ezequiel Garcia <ezequiel@collabora.com>
+Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+huawei@kernel.org>
+(cherry picked from commit 85bdcb7eaae7c39dba9420de6df1cb227cf05732)
+---
+ drivers/staging/media/hantro/hantro_h1_jpeg_enc.c  |  4 +-
+ drivers/staging/media/hantro/hantro_jpeg.c         | 60 +++++++++++++++++-----
+ drivers/staging/media/hantro/hantro_jpeg.h         |  2 +-
+ .../staging/media/hantro/rk3399_vpu_hw_jpeg_enc.c  |  9 ++--
+ 4 files changed, 55 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/staging/media/hantro/hantro_h1_jpeg_enc.c b/drivers/staging/media/hantro/hantro_h1_jpeg_enc.c
+index 4f72d92cd98f..f62ab96078c6 100644
+--- a/drivers/staging/media/hantro/hantro_h1_jpeg_enc.c
++++ b/drivers/staging/media/hantro/hantro_h1_jpeg_enc.c
+@@ -108,8 +108,8 @@ void hantro_h1_jpeg_enc_run(struct hantro_ctx *ctx)
+ 	hantro_h1_set_src_img_ctrl(vpu, ctx);
+ 	hantro_h1_jpeg_enc_set_buffers(vpu, ctx, &src_buf->vb2_buf);
+ 	hantro_h1_jpeg_enc_set_qtable(vpu,
+-				      hantro_jpeg_get_qtable(&jpeg_ctx, 0),
+-				      hantro_jpeg_get_qtable(&jpeg_ctx, 1));
++				      hantro_jpeg_get_qtable(0),
++				      hantro_jpeg_get_qtable(1));
+ 
+ 	reg = H1_REG_AXI_CTRL_OUTPUT_SWAP16
+ 		| H1_REG_AXI_CTRL_INPUT_SWAP16
+diff --git a/drivers/staging/media/hantro/hantro_jpeg.c b/drivers/staging/media/hantro/hantro_jpeg.c
+index d3b381d00b23..36c140fc6a36 100644
+--- a/drivers/staging/media/hantro/hantro_jpeg.c
++++ b/drivers/staging/media/hantro/hantro_jpeg.c
+@@ -36,6 +36,8 @@ static const unsigned char luma_q_table[] = {
+ 	0x48, 0x5c, 0x5f, 0x62, 0x70, 0x64, 0x67, 0x63
+ };
+ 
++static unsigned char luma_q_table_reordered[ARRAY_SIZE(luma_q_table)];
++
+ static const unsigned char chroma_q_table[] = {
+ 	0x11, 0x12, 0x18, 0x2f, 0x63, 0x63, 0x63, 0x63,
+ 	0x12, 0x15, 0x1a, 0x42, 0x63, 0x63, 0x63, 0x63,
+@@ -47,6 +49,30 @@ static const unsigned char chroma_q_table[] = {
+ 	0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63
+ };
+ 
++static unsigned char chroma_q_table_reordered[ARRAY_SIZE(chroma_q_table)];
++
++static const unsigned char zigzag[64] = {
++	 0,  1,  8, 16,  9,  2,  3, 10,
++	17, 24, 32, 25, 18, 11,  4,  5,
++	12, 19, 26, 33, 40, 48, 41, 34,
++	27, 20, 13,  6,  7, 14, 21, 28,
++	35, 42, 49, 56, 57, 50, 43, 36,
++	29, 22, 15, 23, 30, 37, 44, 51,
++	58, 59, 52, 45, 38, 31, 39, 46,
++	53, 60, 61, 54, 47, 55, 62, 63
++};
++
++static const u32 hw_reorder[64] = {
++	 0,  8, 16, 24,  1,  9, 17, 25,
++	32, 40, 48, 56, 33, 41, 49, 57,
++	 2, 10, 18, 26,  3, 11, 19, 27,
++	34, 42, 50, 58, 35, 43, 51, 59,
++	 4, 12, 20, 28,  5, 13, 21, 29,
++	36, 44, 52, 60, 37, 45, 53, 61,
++	 6, 14, 22, 30,  7, 15, 23, 31,
++	38, 46, 54, 62, 39, 47, 55, 63
++};
++
+ /* Huffman tables are shared with CODA */
+ static const unsigned char luma_dc_table[] = {
+ 	0x00, 0x01, 0x05, 0x01, 0x01, 0x01, 0x01, 0x01,
+@@ -225,20 +251,29 @@ static const unsigned char hantro_jpeg_header[JPEG_HEADER_SIZE] = {
+ 	0x11, 0x03, 0x11, 0x00, 0x3f, 0x00,
+ };
+ 
++static unsigned char jpeg_scale_qp(const unsigned char qp, int scale)
++{
++	unsigned int temp;
++
++	temp = DIV_ROUND_CLOSEST((unsigned int)qp * scale, 100);
++	if (temp <= 0)
++		temp = 1;
++	if (temp > 255)
++		temp = 255;
++
++	return (unsigned char)temp;
++}
++
+ static void
+-jpeg_scale_quant_table(unsigned char *q_tab,
++jpeg_scale_quant_table(unsigned char *file_q_tab,
++		       unsigned char *reordered_q_tab,
+ 		       const unsigned char *tab, int scale)
+ {
+-	unsigned int temp;
+ 	int i;
+ 
+ 	for (i = 0; i < 64; i++) {
+-		temp = DIV_ROUND_CLOSEST((unsigned int)tab[i] * scale, 100);
+-		if (temp <= 0)
+-			temp = 1;
+-		if (temp > 255)
+-			temp = 255;
+-		q_tab[i] = (unsigned char)temp;
++		file_q_tab[i] = jpeg_scale_qp(tab[zigzag[i]], scale);
++		reordered_q_tab[i] = jpeg_scale_qp(tab[hw_reorder[i]], scale);
+ 	}
+ }
+ 
+@@ -256,17 +291,18 @@ static void jpeg_set_quality(unsigned char *buffer, int quality)
+ 		scale = 200 - 2 * quality;
+ 
+ 	jpeg_scale_quant_table(buffer + LUMA_QUANT_OFF,
++			       luma_q_table_reordered,
+ 			       luma_q_table, scale);
+ 	jpeg_scale_quant_table(buffer + CHROMA_QUANT_OFF,
++			       chroma_q_table_reordered,
+ 			       chroma_q_table, scale);
+ }
+ 
+-unsigned char *
+-hantro_jpeg_get_qtable(struct hantro_jpeg_ctx *ctx, int index)
++unsigned char *hantro_jpeg_get_qtable(int index)
+ {
+ 	if (index == 0)
+-		return ctx->buffer + LUMA_QUANT_OFF;
+-	return ctx->buffer + CHROMA_QUANT_OFF;
++		return luma_q_table_reordered;
++	return chroma_q_table_reordered;
+ }
+ 
+ void hantro_jpeg_header_assemble(struct hantro_jpeg_ctx *ctx)
+diff --git a/drivers/staging/media/hantro/hantro_jpeg.h b/drivers/staging/media/hantro/hantro_jpeg.h
+index 9e8397c71388..9474a00277f8 100644
+--- a/drivers/staging/media/hantro/hantro_jpeg.h
++++ b/drivers/staging/media/hantro/hantro_jpeg.h
+@@ -9,5 +9,5 @@ struct hantro_jpeg_ctx {
+ 	unsigned char *buffer;
+ };
+ 
+-unsigned char *hantro_jpeg_get_qtable(struct hantro_jpeg_ctx *ctx, int index);
++unsigned char *hantro_jpeg_get_qtable(int index);
+ void hantro_jpeg_header_assemble(struct hantro_jpeg_ctx *ctx);
+diff --git a/drivers/staging/media/hantro/rk3399_vpu_hw_jpeg_enc.c b/drivers/staging/media/hantro/rk3399_vpu_hw_jpeg_enc.c
+index a85c4f9fd10a..d248979908c3 100644
+--- a/drivers/staging/media/hantro/rk3399_vpu_hw_jpeg_enc.c
++++ b/drivers/staging/media/hantro/rk3399_vpu_hw_jpeg_enc.c
+@@ -18,9 +18,8 @@
+  *
+  * Quantization luma table values are written to registers
+  * VEPU_swreg_0-VEPU_swreg_15, and chroma table values to
+- * VEPU_swreg_16-VEPU_swreg_31.
+- *
+- * JPEG zigzag order is expected on the quantization tables.
++ * VEPU_swreg_16-VEPU_swreg_31. A special order is needed, neither
++ * zigzag, nor linear.
+  */
+ 
+ #include <asm/unaligned.h>
+@@ -139,8 +138,8 @@ void rk3399_vpu_jpeg_enc_run(struct hantro_ctx *ctx)
+ 	rk3399_vpu_set_src_img_ctrl(vpu, ctx);
+ 	rk3399_vpu_jpeg_enc_set_buffers(vpu, ctx, &src_buf->vb2_buf);
+ 	rk3399_vpu_jpeg_enc_set_qtable(vpu,
+-				       hantro_jpeg_get_qtable(&jpeg_ctx, 0),
+-				       hantro_jpeg_get_qtable(&jpeg_ctx, 1));
++				       hantro_jpeg_get_qtable(0),
++				       hantro_jpeg_get_qtable(1));
+ 
+ 	reg = VEPU_REG_OUTPUT_SWAP32
+ 		| VEPU_REG_OUTPUT_SWAP16
+
+From 15aea2f74cb178f3b61d00bab1512495ba24a7df Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@collabora.com>
+Date: Mon, 27 Jan 2020 15:30:09 +0100
+Subject: [PATCH] media: hantro: Write quantization table registers in
+ increasing addresses order
+
+Luma and chroma qtables need to be written into two 16-register blocks,
+each table consisting of 64 bytes total. The blocks are contiguous and
+start at offset 0 for luma and at offset 0x40 for chroma.
+
+The seemingly innocent optimization of writing the two blocks using one
+loop causes side effects which result in improper values of quantization
+tables being used by the hardware during encoding. Visually this results
+in macroblocking artifacts around contrasting edges in encoded images. The
+artifacts look like horizontally flipped shadows of the said edges.
+Changing the write operations to non-relaxed variant doesn't help.
+
+This patch removes this premature optimization and after this change the
+macroblocking artifacts around contrasting edges are gone.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@collabora.com>
+Tested-by: Ezequiel Garcia <ezequiel@collabora.com>
+Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+huawei@kernel.org>
+(cherry picked from commit 1b3bb574569e5fe5aeb0a9c73848430b7e271c20)
+---
+ drivers/staging/media/hantro/hantro_h1_jpeg_enc.c     | 6 ++++++
+ drivers/staging/media/hantro/rk3399_vpu_hw_jpeg_enc.c | 6 ++++++
+ 2 files changed, 12 insertions(+)
+
+diff --git a/drivers/staging/media/hantro/hantro_h1_jpeg_enc.c b/drivers/staging/media/hantro/hantro_h1_jpeg_enc.c
+index f62ab96078c6..b22418436823 100644
+--- a/drivers/staging/media/hantro/hantro_h1_jpeg_enc.c
++++ b/drivers/staging/media/hantro/hantro_h1_jpeg_enc.c
+@@ -73,10 +73,16 @@ hantro_h1_jpeg_enc_set_qtable(struct hantro_dev *vpu,
+ 	luma_qtable_p = (__be32 *)luma_qtable;
+ 	chroma_qtable_p = (__be32 *)chroma_qtable;
+ 
++	/*
++	 * Quantization table registers must be written in contiguous blocks.
++	 * DO NOT collapse the below two "for" loops into one.
++	 */
+ 	for (i = 0; i < H1_JPEG_QUANT_TABLE_COUNT; i++) {
+ 		reg = get_unaligned_be32(&luma_qtable_p[i]);
+ 		vepu_write_relaxed(vpu, reg, H1_REG_JPEG_LUMA_QUAT(i));
++	}
+ 
++	for (i = 0; i < H1_JPEG_QUANT_TABLE_COUNT; i++) {
+ 		reg = get_unaligned_be32(&chroma_qtable_p[i]);
+ 		vepu_write_relaxed(vpu, reg, H1_REG_JPEG_CHROMA_QUAT(i));
+ 	}
+diff --git a/drivers/staging/media/hantro/rk3399_vpu_hw_jpeg_enc.c b/drivers/staging/media/hantro/rk3399_vpu_hw_jpeg_enc.c
+index d248979908c3..3498e6124acd 100644
+--- a/drivers/staging/media/hantro/rk3399_vpu_hw_jpeg_enc.c
++++ b/drivers/staging/media/hantro/rk3399_vpu_hw_jpeg_enc.c
+@@ -103,10 +103,16 @@ rk3399_vpu_jpeg_enc_set_qtable(struct hantro_dev *vpu,
+ 	luma_qtable_p = (__be32 *)luma_qtable;
+ 	chroma_qtable_p = (__be32 *)chroma_qtable;
+ 
++	/*
++	 * Quantization table registers must be written in contiguous blocks.
++	 * DO NOT collapse the below two "for" loops into one.
++	 */
+ 	for (i = 0; i < VEPU_JPEG_QUANT_TABLE_COUNT; i++) {
+ 		reg = get_unaligned_be32(&luma_qtable_p[i]);
+ 		vepu_write_relaxed(vpu, reg, VEPU_REG_JPEG_LUMA_QUAT(i));
++	}
+ 
++	for (i = 0; i < VEPU_JPEG_QUANT_TABLE_COUNT; i++) {
+ 		reg = get_unaligned_be32(&chroma_qtable_p[i]);
+ 		vepu_write_relaxed(vpu, reg, VEPU_REG_JPEG_CHROMA_QUAT(i));
+ 	}
+
+From ed202f83aba7970cd283c7d0e2b4e66984e42d0c Mon Sep 17 00:00:00 2001
+From: Ezequiel Garcia <ezequiel@collabora.com>
+Date: Wed, 29 Jan 2020 22:06:08 +0100
+Subject: [PATCH] media: hantro: Prevent encoders from using post-processing
+
+The post-processing feature is meant to be used by decoding
+only. Prevent encoding jobs from enabling it.
+
+Fixes: 8c2d66b036c77 ("media: hantro: Support color conversion via post-processing")
+Signed-off-by: Ezequiel Garcia <ezequiel@collabora.com>
+Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+huawei@kernel.org>
+(cherry picked from commit 986eee3a5234fa43b94928f63b9fd8b513cd96e7)
+---
+ drivers/staging/media/hantro/hantro.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/staging/media/hantro/hantro.h b/drivers/staging/media/hantro/hantro.h
+index b0faa43b3f79..327ddef45345 100644
+--- a/drivers/staging/media/hantro/hantro.h
++++ b/drivers/staging/media/hantro/hantro.h
+@@ -423,7 +423,7 @@ hantro_get_dst_buf(struct hantro_ctx *ctx)
+ static inline bool
+ hantro_needs_postproc(struct hantro_ctx *ctx, const struct hantro_fmt *fmt)
+ {
+-	return fmt->fourcc != V4L2_PIX_FMT_NV12;
++	return !hantro_is_encoder_ctx(ctx) && fmt->fourcc != V4L2_PIX_FMT_NV12;
+ }
+ 
+ static inline dma_addr_t
+
+From 56d94cc78751960b830cc2e3cba078b39a437d30 Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Thu, 20 Feb 2020 17:30:11 +0100
+Subject: [PATCH] media: uapi: h264: Add DPB entry field reference flags
+
+Using the field information attached to v4l2 buffers is not enough to
+determine the type of field referenced by a DPB entry: the decoded
+frame might contain the full picture (both top and bottom fields)
+but the reference only point to one of them.
+Let's add new V4L2_H264_DPB_ENTRY_FLAG_ flags to express that.
+
+[Keep only 2 flags and add some details about they mean]
+
+Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
+Signed-off-by: Boris Brezillon <boris.brezillon@collabora.com>
+Signed-off-by: Ezequiel Garcia <ezequiel@collabora.com>
+Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+huawei@kernel.org>
+(cherry picked from commit 5e815fe05d0b3e4e4fcde2e09d5f362b3d65010f)
+---
+ Documentation/media/uapi/v4l/ext-ctrls-codec.rst | 16 ++++++++++++++++
+ include/media/h264-ctrls.h                       |  2 ++
+ 2 files changed, 18 insertions(+)
+
+diff --git a/Documentation/media/uapi/v4l/ext-ctrls-codec.rst b/Documentation/media/uapi/v4l/ext-ctrls-codec.rst
+index 28313c0f4e7c..d4fc5f25aa14 100644
+--- a/Documentation/media/uapi/v4l/ext-ctrls-codec.rst
++++ b/Documentation/media/uapi/v4l/ext-ctrls-codec.rst
+@@ -2028,6 +2028,22 @@ enum v4l2_mpeg_video_h264_hierarchical_coding_type -
+     * - ``V4L2_H264_DPB_ENTRY_FLAG_LONG_TERM``
+       - 0x00000004
+       - The DPB entry is a long term reference frame
++    * - ``V4L2_H264_DPB_ENTRY_FLAG_FIELD``
++      - 0x00000008
++      - The DPB entry is a field reference, which means only one of the field
++        will be used when decoding the new frame/field. When not set the DPB
++        entry is a frame reference (both fields will be used). Note that this
++        flag does not say anything about the number of fields contained in the
++        reference frame, it just describes the one used to decode the new
++        field/frame
++    * - ``V4L2_H264_DPB_ENTRY_FLAG_BOTTOM_FIELD``
++      - 0x00000010
++      - The DPB entry is a bottom field reference (only the bottom field of the
++        reference frame is needed to decode the new frame/field). Only valid if
++        V4L2_H264_DPB_ENTRY_FLAG_FIELD is set. When
++        V4L2_H264_DPB_ENTRY_FLAG_FIELD is set but
++        V4L2_H264_DPB_ENTRY_FLAG_BOTTOM_FIELD is not, that means the
++        DPB entry is a top field reference
+ 
+ ``V4L2_CID_MPEG_VIDEO_H264_DECODE_MODE (enum)``
+     Specifies the decoding mode to use. Currently exposes slice-based and
+diff --git a/include/media/h264-ctrls.h b/include/media/h264-ctrls.h
+index e877bf1d537c..1c6ff7d63bca 100644
+--- a/include/media/h264-ctrls.h
++++ b/include/media/h264-ctrls.h
+@@ -185,6 +185,8 @@ struct v4l2_ctrl_h264_slice_params {
+ #define V4L2_H264_DPB_ENTRY_FLAG_VALID		0x01
+ #define V4L2_H264_DPB_ENTRY_FLAG_ACTIVE		0x02
+ #define V4L2_H264_DPB_ENTRY_FLAG_LONG_TERM	0x04
++#define V4L2_H264_DPB_ENTRY_FLAG_FIELD		0x08
++#define V4L2_H264_DPB_ENTRY_FLAG_BOTTOM_FIELD	0x10
+ 
+ struct v4l2_h264_dpb_entry {
+ 	__u64 reference_ts;
+
+From 271580fc684a36422cb999561ec83cb51fcc56e5 Mon Sep 17 00:00:00 2001
+From: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Date: Tue, 3 Mar 2020 11:34:48 +0100
+Subject: [PATCH] media: v4l2-ctrls: v4l2_ctrl_request_complete() should always
+ set ref->req
+
+When the request is completed, all controls are copied to the request object.
+However, when VIDIOC_G_EXT_CTRLS attempts to read control values from the
+request it will read the current value instead for any control reference that
+has a NULL ref->req pointer. But that's wrong: after completing the request
+*all* controls should have a non-NULL ref->req pointer since they are after
+all copied to the request.
+
+So set ref->req if it wasn't set already.
+
+Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Reported-by: Paul Kocialkowski <paul.kocialkowski@bootlin.com>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+huawei@kernel.org>
+(cherry picked from commit 2fae4d6aabc8fb2d49f40b12a8f82bf730216f99)
+---
+ drivers/media/v4l2-core/v4l2-ctrls.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/v4l2-core/v4l2-ctrls.c b/drivers/media/v4l2-core/v4l2-ctrls.c
+index 2928c5e0a73d..93d33d1db4e8 100644
+--- a/drivers/media/v4l2-core/v4l2-ctrls.c
++++ b/drivers/media/v4l2-core/v4l2-ctrls.c
+@@ -4296,10 +4296,17 @@ void v4l2_ctrl_request_complete(struct media_request *req,
+ 			continue;
+ 
+ 		v4l2_ctrl_lock(ctrl);
+-		if (ref->req)
++		if (ref->req) {
+ 			ptr_to_ptr(ctrl, ref->req->p_req, ref->p_req);
+-		else
++		} else {
+ 			ptr_to_ptr(ctrl, ctrl->p_cur, ref->p_req);
++			/*
++			 * Set ref->req to ensure that when userspace wants to
++			 * obtain the controls of this request it will take
++			 * this value and not the current value of the control.
++			 */
++			ref->req = ref;
++		}
+ 		v4l2_ctrl_unlock(ctrl);
+ 	}
+ 
+
+From b23608af3428470f2e11b1bd55c10d5e7261e23d Mon Sep 17 00:00:00 2001
+From: Neil Armstrong <narmstrong@baylibre.com>
+Date: Tue, 3 Mar 2020 15:33:17 +0100
+Subject: [PATCH] media: v4l2-mem2mem: handle draining, stopped and
+ next-buf-is-last states
+
+Since the draining and stop phase of the HW decoder mem2mem bahaviour is
+now clearly defined, we can move handling of the following states to the
+common v4l2-mem2mem core code:
+- draining
+- stopped
+- next-buf-is-last
+
+By introducing the following v4l2-mem2mem APIs:
+- v4l2_m2m_encoder_cmd/v4l2_m2m_ioctl_encoder_cmd to handle start/stop command
+- v4l2_m2m_decoder_cmd/v4l2_m2m_ioctl_decoder_cmd to handle start/stop command
+- v4l2_m2m_update_start_streaming_state to update state on start of streaming
+of the de/encoder queue
+- v4l2_m2m_update_stop_streaming_state to update state on stop of streaming
+of the de/encoder queue
+- v4l2_m2m_last_buffer_done to make the current dest buffer as the last one
+
+And inline helpers:
+- v4l2_m2m_mark_stopped to mark the de/encoding process as stopped
+- v4l2_m2m_clear_state to clear the de/encoding state
+- v4l2_m2m_dst_buf_is_last to detect the current dequeued dst_buf is the last
+- v4l2_m2m_has_stopped to detect the de/encoding stopped state
+- v4l2_m2m_is_last_draining_src_buf to detect the current source buffer should
+ be the last processing before stopping the de/encoding process
+
+The special next-buf-is-last when min_buffers != 1 case is also handled
+in v4l2_m2m_qbuf() by reusing the other introduced APIs.
+
+This state management has been stolen from the vicodec implementation,
+and is no-op for drivers not calling the v4l2_m2m_encoder_cmd or
+v4l2_m2m_decoder_cmd and v4l2_m2m_update_start/stop_streaming_state.
+
+The vicodec will be the first one to be converted as an example.
+
+Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+huawei@kernel.org>
+(cherry picked from commit 2b48e113866a6735de3a99531183afb6217c2a60)
+---
+ drivers/media/v4l2-core/v4l2-mem2mem.c | 221 ++++++++++++++++++++++++++++++++-
+ include/media/v4l2-mem2mem.h           | 133 ++++++++++++++++++++
+ 2 files changed, 352 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/v4l2-core/v4l2-mem2mem.c b/drivers/media/v4l2-core/v4l2-mem2mem.c
+index cc34c5ab7009..8986c31176e9 100644
+--- a/drivers/media/v4l2-core/v4l2-mem2mem.c
++++ b/drivers/media/v4l2-core/v4l2-mem2mem.c
+@@ -340,6 +340,11 @@ static void __v4l2_m2m_try_queue(struct v4l2_m2m_dev *m2m_dev,
+ 		m2m_ctx->new_frame = !dst->vb2_buf.copied_timestamp ||
+ 			dst->vb2_buf.timestamp != src->vb2_buf.timestamp;
+ 
++	if (m2m_ctx->has_stopped) {
++		dprintk("Device has stopped\n");
++		goto job_unlock;
++	}
++
+ 	if (m2m_dev->m2m_ops->job_ready
+ 		&& (!m2m_dev->m2m_ops->job_ready(m2m_ctx->priv))) {
+ 		dprintk("Driver not ready\n");
+@@ -556,6 +561,140 @@ int v4l2_m2m_querybuf(struct file *file, struct v4l2_m2m_ctx *m2m_ctx,
+ }
+ EXPORT_SYMBOL_GPL(v4l2_m2m_querybuf);
+ 
++/*
++ * This will add the LAST flag and mark the buffer management
++ * state as stopped.
++ * This is called when the last capture buffer must be flagged as LAST
++ * in draining mode from the encoder/decoder driver buf_queue() callback
++ * or from v4l2_update_last_buf_state() when a capture buffer is available.
++ */
++void v4l2_m2m_last_buffer_done(struct v4l2_m2m_ctx *m2m_ctx,
++			       struct vb2_v4l2_buffer *vbuf)
++{
++	vbuf->flags |= V4L2_BUF_FLAG_LAST;
++	vb2_buffer_done(&vbuf->vb2_buf, VB2_BUF_STATE_DONE);
++
++	v4l2_m2m_mark_stopped(m2m_ctx);
++}
++EXPORT_SYMBOL_GPL(v4l2_m2m_last_buffer_done);
++
++/* When stop command is issued, update buffer management state */
++static int v4l2_update_last_buf_state(struct v4l2_m2m_ctx *m2m_ctx)
++{
++	struct vb2_v4l2_buffer *next_dst_buf;
++
++	if (m2m_ctx->is_draining)
++		return -EBUSY;
++
++	if (m2m_ctx->has_stopped)
++		return 0;
++
++	m2m_ctx->last_src_buf = v4l2_m2m_last_src_buf(m2m_ctx);
++	m2m_ctx->is_draining = true;
++
++	/*
++	 * The processing of the last output buffer queued before
++	 * the STOP command is expected to mark the buffer management
++	 * state as stopped with v4l2_m2m_mark_stopped().
++	 */
++	if (m2m_ctx->last_src_buf)
++		return 0;
++
++	/*
++	 * In case the output queue is empty, try to mark the last capture
++	 * buffer as LAST.
++	 */
++	next_dst_buf = v4l2_m2m_dst_buf_remove(m2m_ctx);
++	if (!next_dst_buf) {
++		/*
++		 * Wait for the next queued one in encoder/decoder driver
++		 * buf_queue() callback using the v4l2_m2m_dst_buf_is_last()
++		 * helper or in v4l2_m2m_qbuf() if encoder/decoder is not yet
++		 * streaming.
++		 */
++		m2m_ctx->next_buf_last = true;
++		return 0;
++	}
++
++	v4l2_m2m_last_buffer_done(m2m_ctx, next_dst_buf);
++
++	return 0;
++}
++
++/*
++ * Updates the encoding/decoding buffer management state, should
++ * be called from encoder/decoder drivers start_streaming()
++ */
++void v4l2_m2m_update_start_streaming_state(struct v4l2_m2m_ctx *m2m_ctx,
++					   struct vb2_queue *q)
++{
++	/* If start streaming again, untag the last output buffer */
++	if (V4L2_TYPE_IS_OUTPUT(q->type))
++		m2m_ctx->last_src_buf = NULL;
++}
++EXPORT_SYMBOL_GPL(v4l2_m2m_update_start_streaming_state);
++
++/*
++ * Updates the encoding/decoding buffer management state, should
++ * be called from encoder/decoder driver stop_streaming()
++ */
++void v4l2_m2m_update_stop_streaming_state(struct v4l2_m2m_ctx *m2m_ctx,
++					  struct vb2_queue *q)
++{
++	if (V4L2_TYPE_IS_OUTPUT(q->type)) {
++		/*
++		 * If in draining state, either mark next dst buffer as
++		 * done or flag next one to be marked as done either
++		 * in encoder/decoder driver buf_queue() callback using
++		 * the v4l2_m2m_dst_buf_is_last() helper or in v4l2_m2m_qbuf()
++		 * if encoder/decoder is not yet streaming
++		 */
++		if (m2m_ctx->is_draining) {
++			struct vb2_v4l2_buffer *next_dst_buf;
++
++			m2m_ctx->last_src_buf = NULL;
++			next_dst_buf = v4l2_m2m_dst_buf_remove(m2m_ctx);
++			if (!next_dst_buf)
++				m2m_ctx->next_buf_last = true;
++			else
++				v4l2_m2m_last_buffer_done(m2m_ctx,
++							  next_dst_buf);
++		}
++	} else {
++		v4l2_m2m_clear_state(m2m_ctx);
++	}
++}
++EXPORT_SYMBOL_GPL(v4l2_m2m_update_stop_streaming_state);
++
++static void v4l2_m2m_force_last_buf_done(struct v4l2_m2m_ctx *m2m_ctx,
++					 struct vb2_queue *q)
++{
++	struct vb2_buffer *vb;
++	struct vb2_v4l2_buffer *vbuf;
++	unsigned int i;
++
++	if (WARN_ON(q->is_output))
++		return;
++	if (list_empty(&q->queued_list))
++		return;
++
++	vb = list_first_entry(&q->queued_list, struct vb2_buffer, queued_entry);
++	for (i = 0; i < vb->num_planes; i++)
++		vb2_set_plane_payload(vb, i, 0);
++
++	/*
++	 * Since the buffer hasn't been queued to the ready queue,
++	 * mark is active and owned before marking it LAST and DONE
++	 */
++	vb->state = VB2_BUF_STATE_ACTIVE;
++	atomic_inc(&q->owned_by_drv_count);
++
++	vbuf = to_vb2_v4l2_buffer(vb);
++	vbuf->field = V4L2_FIELD_NONE;
++
++	v4l2_m2m_last_buffer_done(m2m_ctx, vbuf);
++}
++
+ int v4l2_m2m_qbuf(struct file *file, struct v4l2_m2m_ctx *m2m_ctx,
+ 		  struct v4l2_buffer *buf)
+ {
+@@ -570,11 +709,25 @@ int v4l2_m2m_qbuf(struct file *file, struct v4l2_m2m_ctx *m2m_ctx,
+ 			__func__);
+ 		return -EPERM;
+ 	}
++
+ 	ret = vb2_qbuf(vq, vdev->v4l2_dev->mdev, buf);
+-	if (!ret && !(buf->flags & V4L2_BUF_FLAG_IN_REQUEST))
++	if (ret)
++		return ret;
++
++	/*
++	 * If the capture queue is streaming, but streaming hasn't started
++	 * on the device, but was asked to stop, mark the previously queued
++	 * buffer as DONE with LAST flag since it won't be queued on the
++	 * device.
++	 */
++	if (!V4L2_TYPE_IS_OUTPUT(vq->type) &&
++	    vb2_is_streaming(vq) && !vb2_start_streaming_called(vq) &&
++	   (v4l2_m2m_has_stopped(m2m_ctx) || v4l2_m2m_dst_buf_is_last(m2m_ctx)))
++		v4l2_m2m_force_last_buf_done(m2m_ctx, vq);
++	else if (!(buf->flags & V4L2_BUF_FLAG_IN_REQUEST))
+ 		v4l2_m2m_try_schedule(m2m_ctx);
+ 
+-	return ret;
++	return 0;
+ }
+ EXPORT_SYMBOL_GPL(v4l2_m2m_qbuf);
+ 
+@@ -1225,6 +1378,70 @@ int v4l2_m2m_ioctl_try_decoder_cmd(struct file *file, void *fh,
+ }
+ EXPORT_SYMBOL_GPL(v4l2_m2m_ioctl_try_decoder_cmd);
+ 
++/*
++ * Updates the encoding state on ENC_CMD_STOP/ENC_CMD_START
++ * Should be called from the encoder driver encoder_cmd() callback
++ */
++int v4l2_m2m_encoder_cmd(struct file *file, struct v4l2_m2m_ctx *m2m_ctx,
++			 struct v4l2_encoder_cmd *ec)
++{
++	if (ec->cmd != V4L2_ENC_CMD_STOP && ec->cmd != V4L2_ENC_CMD_START)
++		return -EINVAL;
++
++	if (ec->cmd == V4L2_ENC_CMD_STOP)
++		return v4l2_update_last_buf_state(m2m_ctx);
++
++	if (m2m_ctx->is_draining)
++		return -EBUSY;
++
++	if (m2m_ctx->has_stopped)
++		m2m_ctx->has_stopped = false;
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(v4l2_m2m_encoder_cmd);
++
++/*
++ * Updates the decoding state on DEC_CMD_STOP/DEC_CMD_START
++ * Should be called from the decoder driver decoder_cmd() callback
++ */
++int v4l2_m2m_decoder_cmd(struct file *file, struct v4l2_m2m_ctx *m2m_ctx,
++			 struct v4l2_decoder_cmd *dc)
++{
++	if (dc->cmd != V4L2_DEC_CMD_STOP && dc->cmd != V4L2_DEC_CMD_START)
++		return -EINVAL;
++
++	if (dc->cmd == V4L2_DEC_CMD_STOP)
++		return v4l2_update_last_buf_state(m2m_ctx);
++
++	if (m2m_ctx->is_draining)
++		return -EBUSY;
++
++	if (m2m_ctx->has_stopped)
++		m2m_ctx->has_stopped = false;
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(v4l2_m2m_decoder_cmd);
++
++int v4l2_m2m_ioctl_encoder_cmd(struct file *file, void *priv,
++			       struct v4l2_encoder_cmd *ec)
++{
++	struct v4l2_fh *fh = file->private_data;
++
++	return v4l2_m2m_encoder_cmd(file, fh->m2m_ctx, ec);
++}
++EXPORT_SYMBOL_GPL(v4l2_m2m_ioctl_encoder_cmd);
++
++int v4l2_m2m_ioctl_decoder_cmd(struct file *file, void *priv,
++			       struct v4l2_decoder_cmd *dc)
++{
++	struct v4l2_fh *fh = file->private_data;
++
++	return v4l2_m2m_decoder_cmd(file, fh->m2m_ctx, dc);
++}
++EXPORT_SYMBOL_GPL(v4l2_m2m_ioctl_decoder_cmd);
++
+ int v4l2_m2m_ioctl_stateless_try_decoder_cmd(struct file *file, void *fh,
+ 					     struct v4l2_decoder_cmd *dc)
+ {
+diff --git a/include/media/v4l2-mem2mem.h b/include/media/v4l2-mem2mem.h
+index 1d85e24791e4..98753f00df7e 100644
+--- a/include/media/v4l2-mem2mem.h
++++ b/include/media/v4l2-mem2mem.h
+@@ -80,6 +80,10 @@ struct v4l2_m2m_queue_ctx {
+  *		for an existing frame. This is always true unless
+  *		V4L2_BUF_CAP_SUPPORTS_M2M_HOLD_CAPTURE_BUF is set, which
+  *		indicates slicing support.
++ * @is_draining: indicates device is in draining phase
++ * @last_src_buf: indicate the last source buffer for draining
++ * @next_buf_last: next capture queud buffer will be tagged as last
++ * @has_stopped: indicate the device has been stopped
+  * @m2m_dev: opaque pointer to the internal data to handle M2M context
+  * @cap_q_ctx: Capture (output to memory) queue context
+  * @out_q_ctx: Output (input from memory) queue context
+@@ -98,6 +102,11 @@ struct v4l2_m2m_ctx {
+ 
+ 	bool				new_frame;
+ 
++	bool				is_draining;
++	struct vb2_v4l2_buffer		*last_src_buf;
++	bool				next_buf_last;
++	bool				has_stopped;
++
+ 	/* internal use only */
+ 	struct v4l2_m2m_dev		*m2m_dev;
+ 
+@@ -215,6 +224,86 @@ v4l2_m2m_buf_done(struct vb2_v4l2_buffer *buf, enum vb2_buffer_state state)
+ 	vb2_buffer_done(&buf->vb2_buf, state);
+ }
+ 
++/**
++ * v4l2_m2m_clear_state() - clear encoding/decoding state
++ *
++ * @m2m_ctx: m2m context assigned to the instance given by struct &v4l2_m2m_ctx
++ */
++static inline void
++v4l2_m2m_clear_state(struct v4l2_m2m_ctx *m2m_ctx)
++{
++	m2m_ctx->next_buf_last = false;
++	m2m_ctx->is_draining = false;
++	m2m_ctx->has_stopped = false;
++}
++
++/**
++ * v4l2_m2m_mark_stopped() - set current encoding/decoding state as stopped
++ *
++ * @m2m_ctx: m2m context assigned to the instance given by struct &v4l2_m2m_ctx
++ */
++static inline void
++v4l2_m2m_mark_stopped(struct v4l2_m2m_ctx *m2m_ctx)
++{
++	m2m_ctx->next_buf_last = false;
++	m2m_ctx->is_draining = false;
++	m2m_ctx->has_stopped = true;
++}
++
++/**
++ * v4l2_m2m_dst_buf_is_last() - return the current encoding/decoding session
++ * draining management state of next queued capture buffer
++ *
++ * This last capture buffer should be tagged with V4L2_BUF_FLAG_LAST to notify
++ * the end of the capture session.
++ *
++ * @m2m_ctx: m2m context assigned to the instance given by struct &v4l2_m2m_ctx
++ */
++static inline bool
++v4l2_m2m_dst_buf_is_last(struct v4l2_m2m_ctx *m2m_ctx)
++{
++	return m2m_ctx->is_draining && m2m_ctx->next_buf_last;
++}
++
++/**
++ * v4l2_m2m_has_stopped() - return the current encoding/decoding session
++ * stopped state
++ *
++ * @m2m_ctx: m2m context assigned to the instance given by struct &v4l2_m2m_ctx
++ */
++static inline bool
++v4l2_m2m_has_stopped(struct v4l2_m2m_ctx *m2m_ctx)
++{
++	return m2m_ctx->has_stopped;
++}
++
++/**
++ * v4l2_m2m_is_last_draining_src_buf() - return the output buffer draining
++ * state in the current encoding/decoding session
++ *
++ * This will identify the last output buffer queued before a session stop
++ * was required, leading to an actual encoding/decoding session stop state
++ * in the encoding/decoding process after being processed.
++ *
++ * @m2m_ctx: m2m context assigned to the instance given by struct &v4l2_m2m_ctx
++ * @vbuf: pointer to struct &v4l2_buffer
++ */
++static inline bool
++v4l2_m2m_is_last_draining_src_buf(struct v4l2_m2m_ctx *m2m_ctx,
++				  struct vb2_v4l2_buffer *vbuf)
++{
++	return m2m_ctx->is_draining && vbuf == m2m_ctx->last_src_buf;
++}
++
++/**
++ * v4l2_m2m_last_buffer_done() - marks the buffer with LAST flag and DONE
++ *
++ * @m2m_ctx: m2m context assigned to the instance given by struct &v4l2_m2m_ctx
++ * @vbuf: pointer to struct &v4l2_buffer
++ */
++void v4l2_m2m_last_buffer_done(struct v4l2_m2m_ctx *m2m_ctx,
++			       struct vb2_v4l2_buffer *vbuf);
++
+ /**
+  * v4l2_m2m_reqbufs() - multi-queue-aware REQBUFS multiplexer
+  *
+@@ -312,6 +401,46 @@ int v4l2_m2m_streamon(struct file *file, struct v4l2_m2m_ctx *m2m_ctx,
+ int v4l2_m2m_streamoff(struct file *file, struct v4l2_m2m_ctx *m2m_ctx,
+ 		       enum v4l2_buf_type type);
+ 
++/**
++ * v4l2_m2m_update_start_streaming_state() - update the encoding/decoding
++ * session state when a start of streaming of a video queue is requested
++ *
++ * @m2m_ctx: m2m context assigned to the instance given by struct &v4l2_m2m_ctx
++ * @q: queue
++ */
++void v4l2_m2m_update_start_streaming_state(struct v4l2_m2m_ctx *m2m_ctx,
++					   struct vb2_queue *q);
++
++/**
++ * v4l2_m2m_update_stop_streaming_state() -  update the encoding/decoding
++ * session state when a stop of streaming of a video queue is requested
++ *
++ * @m2m_ctx: m2m context assigned to the instance given by struct &v4l2_m2m_ctx
++ * @q: queue
++ */
++void v4l2_m2m_update_stop_streaming_state(struct v4l2_m2m_ctx *m2m_ctx,
++					  struct vb2_queue *q);
++
++/**
++ * v4l2_m2m_encoder_cmd() - execute an encoder command
++ *
++ * @file: pointer to struct &file
++ * @m2m_ctx: m2m context assigned to the instance given by struct &v4l2_m2m_ctx
++ * @ec: pointer to the encoder command
++ */
++int v4l2_m2m_encoder_cmd(struct file *file, struct v4l2_m2m_ctx *m2m_ctx,
++			 struct v4l2_encoder_cmd *ec);
++
++/**
++ * v4l2_m2m_decoder_cmd() - execute a decoder command
++ *
++ * @file: pointer to struct &file
++ * @m2m_ctx: m2m context assigned to the instance given by struct &v4l2_m2m_ctx
++ * @dc: pointer to the decoder command
++ */
++int v4l2_m2m_decoder_cmd(struct file *file, struct v4l2_m2m_ctx *m2m_ctx,
++			 struct v4l2_decoder_cmd *dc);
++
+ /**
+  * v4l2_m2m_poll() - poll replacement, for destination buffers only
+  *
+@@ -704,6 +833,10 @@ int v4l2_m2m_ioctl_streamon(struct file *file, void *fh,
+ 				enum v4l2_buf_type type);
+ int v4l2_m2m_ioctl_streamoff(struct file *file, void *fh,
+ 				enum v4l2_buf_type type);
++int v4l2_m2m_ioctl_encoder_cmd(struct file *file, void *fh,
++			       struct v4l2_encoder_cmd *ec);
++int v4l2_m2m_ioctl_decoder_cmd(struct file *file, void *fh,
++			       struct v4l2_decoder_cmd *dc);
+ int v4l2_m2m_ioctl_try_encoder_cmd(struct file *file, void *fh,
+ 				   struct v4l2_encoder_cmd *ec);
+ int v4l2_m2m_ioctl_try_decoder_cmd(struct file *file, void *fh,
+
+From 30bcb22538b1f7350e76ddd2c31a1ea082496c12 Mon Sep 17 00:00:00 2001
+From: Kaaira Gupta <kgupta@es.iitr.ac.in>
+Date: Sat, 14 Mar 2020 03:24:06 +0530
+Subject: [PATCH] staging: media: hantro: remove parentheses
+
+Remove unnecessary parentheses in file hantro_postproc.c. Check reported
+by coccinelle.
+
+Signed-off-by: Kaaira Gupta <kgupta@es.iitr.ac.in>
+Reviewed-by: Stefano Brivio <sbrivio@redhat.com>
+Link: https://lore.kernel.org/r/20200313215406.2485-5-kgupta@es.iitr.ac.in
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit ba839b32d6f76a68919ed838e9375c47ca05a91a)
+---
+ drivers/staging/media/hantro/hantro_postproc.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/staging/media/hantro/hantro_postproc.c b/drivers/staging/media/hantro/hantro_postproc.c
+index 28a85d301d7f..44062ffceaea 100644
+--- a/drivers/staging/media/hantro/hantro_postproc.c
++++ b/drivers/staging/media/hantro/hantro_postproc.c
+@@ -14,16 +14,16 @@
+ 
+ #define HANTRO_PP_REG_WRITE(vpu, reg_name, val) \
+ { \
+-	hantro_reg_write((vpu), \
+-			 &((vpu)->variant->postproc_regs->reg_name), \
+-			 (val)); \
++	hantro_reg_write(vpu, \
++			 &(vpu)->variant->postproc_regs->reg_name, \
++			 val); \
+ }
+ 
+ #define HANTRO_PP_REG_WRITE_S(vpu, reg_name, val) \
+ { \
+-	hantro_reg_write_s((vpu), \
+-			   &((vpu)->variant->postproc_regs->reg_name), \
+-			   (val)); \
++	hantro_reg_write_s(vpu, \
++			   &(vpu)->variant->postproc_regs->reg_name, \
++			   val); \
+ }
+ 
+ #define VPU_PP_IN_YUYV			0x0
+
+From 0896f591162d36f51484e51febcffb5ed6511108 Mon Sep 17 00:00:00 2001
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 20 Mar 2020 14:12:54 +0100
+Subject: [PATCH] media: hantro: add initial i.MX8MQ support
+
+This enables h.264, MPEG-2, and VP8 decoding on the Hantro G1 on
+i.MX8MQ, with post-processing support.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+huawei@kernel.org>
+(cherry picked from commit 8e4aaa68786319ea02ad30e55c1f753bf83418ab)
+---
+ drivers/staging/media/hantro/Kconfig        |  16 +-
+ drivers/staging/media/hantro/Makefile       |   3 +
+ drivers/staging/media/hantro/hantro_drv.c   |   3 +
+ drivers/staging/media/hantro/hantro_hw.h    |   1 +
+ drivers/staging/media/hantro/imx8m_vpu_hw.c | 220 ++++++++++++++++++++++++++++
+ 5 files changed, 239 insertions(+), 4 deletions(-)
+ create mode 100644 drivers/staging/media/hantro/imx8m_vpu_hw.c
+
+diff --git a/drivers/staging/media/hantro/Kconfig b/drivers/staging/media/hantro/Kconfig
+index de77fe6554e7..99aed9a5b0b9 100644
+--- a/drivers/staging/media/hantro/Kconfig
++++ b/drivers/staging/media/hantro/Kconfig
+@@ -1,19 +1,27 @@
+ # SPDX-License-Identifier: GPL-2.0
+ config VIDEO_HANTRO
+ 	tristate "Hantro VPU driver"
+-	depends on ARCH_ROCKCHIP || COMPILE_TEST
++	depends on ARCH_MXC || ARCH_ROCKCHIP || COMPILE_TEST
+ 	depends on VIDEO_DEV && VIDEO_V4L2 && MEDIA_CONTROLLER
+ 	depends on MEDIA_CONTROLLER_REQUEST_API
+ 	select VIDEOBUF2_DMA_CONTIG
+ 	select VIDEOBUF2_VMALLOC
+ 	select V4L2_MEM2MEM_DEV
+ 	help
+-	  Support for the Hantro IP based Video Processing Unit present on
+-	  Rockchip SoC, which accelerates video and image encoding and
+-	  decoding.
++	  Support for the Hantro IP based Video Processing Units present on
++	  Rockchip and NXP i.MX8M SoCs, which accelerate video and image
++	  encoding and decoding.
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called hantro-vpu.
+ 
++config VIDEO_HANTRO_IMX8M
++	bool "Hantro VPU i.MX8M support"
++	depends on VIDEO_HANTRO
++	depends on ARCH_MXC || COMPILE_TEST
++	default y
++	help
++	  Enable support for i.MX8M SoCs.
++
+ config VIDEO_HANTRO_ROCKCHIP
+ 	bool "Hantro VPU Rockchip support"
+ 	depends on VIDEO_HANTRO
+diff --git a/drivers/staging/media/hantro/Makefile b/drivers/staging/media/hantro/Makefile
+index 496b30c3c396..68c29a9c4946 100644
+--- a/drivers/staging/media/hantro/Makefile
++++ b/drivers/staging/media/hantro/Makefile
+@@ -16,6 +16,9 @@ hantro-vpu-y += \
+ 		hantro_mpeg2.o \
+ 		hantro_vp8.o
+ 
++hantro-vpu-$(CONFIG_VIDEO_HANTRO_IMX8M) += \
++		imx8m_vpu_hw.o
++
+ hantro-vpu-$(CONFIG_VIDEO_HANTRO_ROCKCHIP) += \
+ 		rk3288_vpu_hw.o \
+ 		rk3399_vpu_hw.o
+diff --git a/drivers/staging/media/hantro/hantro_drv.c b/drivers/staging/media/hantro/hantro_drv.c
+index ca8b133e2e46..e5aeb69b3536 100644
+--- a/drivers/staging/media/hantro/hantro_drv.c
++++ b/drivers/staging/media/hantro/hantro_drv.c
+@@ -498,6 +498,9 @@ static const struct of_device_id of_hantro_match[] = {
+ 	{ .compatible = "rockchip,rk3399-vpu", .data = &rk3399_vpu_variant, },
+ 	{ .compatible = "rockchip,rk3328-vpu", .data = &rk3328_vpu_variant, },
+ 	{ .compatible = "rockchip,rk3288-vpu", .data = &rk3288_vpu_variant, },
++#endif
++#ifdef CONFIG_VIDEO_HANTRO_IMX8M
++	{ .compatible = "nxp,imx8mq-vpu", .data = &imx8mq_vpu_variant, },
+ #endif
+ 	{ /* sentinel */ }
+ };
+diff --git a/drivers/staging/media/hantro/hantro_hw.h b/drivers/staging/media/hantro/hantro_hw.h
+index 2398d4c1f207..7dfc9bad7297 100644
+--- a/drivers/staging/media/hantro/hantro_hw.h
++++ b/drivers/staging/media/hantro/hantro_hw.h
+@@ -151,6 +151,7 @@ enum hantro_enc_fmt {
+ extern const struct hantro_variant rk3399_vpu_variant;
+ extern const struct hantro_variant rk3328_vpu_variant;
+ extern const struct hantro_variant rk3288_vpu_variant;
++extern const struct hantro_variant imx8mq_vpu_variant;
+ 
+ extern const struct hantro_postproc_regs hantro_g1_postproc_regs;
+ 
+diff --git a/drivers/staging/media/hantro/imx8m_vpu_hw.c b/drivers/staging/media/hantro/imx8m_vpu_hw.c
+new file mode 100644
+index 000000000000..cb2420c5526e
+--- /dev/null
++++ b/drivers/staging/media/hantro/imx8m_vpu_hw.c
+@@ -0,0 +1,220 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Hantro VPU codec driver
++ *
++ * Copyright (C) 2019 Pengutronix, Philipp Zabel <kernel@pengutronix.de>
++ */
++
++#include <linux/clk.h>
++#include <linux/delay.h>
++
++#include "hantro.h"
++#include "hantro_jpeg.h"
++#include "hantro_g1_regs.h"
++
++#define CTRL_SOFT_RESET		0x00
++#define RESET_G1		BIT(1)
++#define RESET_G2		BIT(0)
++
++#define CTRL_CLOCK_ENABLE	0x04
++#define CLOCK_G1		BIT(1)
++#define CLOCK_G2		BIT(0)
++
++#define CTRL_G1_DEC_FUSE	0x08
++#define CTRL_G1_PP_FUSE		0x0c
++#define CTRL_G2_DEC_FUSE	0x10
++
++static void imx8m_soft_reset(struct hantro_dev *vpu, u32 reset_bits)
++{
++	u32 val;
++
++	/* Assert */
++	val = readl(vpu->ctrl_base + CTRL_SOFT_RESET);
++	val &= ~reset_bits;
++	writel(val, vpu->ctrl_base + CTRL_SOFT_RESET);
++
++	udelay(2);
++
++	/* Release */
++	val = readl(vpu->ctrl_base + CTRL_SOFT_RESET);
++	val |= reset_bits;
++	writel(val, vpu->ctrl_base + CTRL_SOFT_RESET);
++}
++
++static void imx8m_clk_enable(struct hantro_dev *vpu, u32 clock_bits)
++{
++	u32 val;
++
++	val = readl(vpu->ctrl_base + CTRL_CLOCK_ENABLE);
++	val |= clock_bits;
++	writel(val, vpu->ctrl_base + CTRL_CLOCK_ENABLE);
++}
++
++static int imx8mq_runtime_resume(struct hantro_dev *vpu)
++{
++	int ret;
++
++	ret = clk_bulk_prepare_enable(vpu->variant->num_clocks, vpu->clocks);
++	if (ret) {
++		dev_err(vpu->dev, "Failed to enable clocks\n");
++		return ret;
++	}
++
++	imx8m_soft_reset(vpu, RESET_G1 | RESET_G2);
++	imx8m_clk_enable(vpu, CLOCK_G1 | CLOCK_G2);
++
++	/* Set values of the fuse registers */
++	writel(0xffffffff, vpu->ctrl_base + CTRL_G1_DEC_FUSE);
++	writel(0xffffffff, vpu->ctrl_base + CTRL_G1_PP_FUSE);
++	writel(0xffffffff, vpu->ctrl_base + CTRL_G2_DEC_FUSE);
++
++	clk_bulk_disable_unprepare(vpu->variant->num_clocks, vpu->clocks);
++
++	return 0;
++}
++
++/*
++ * Supported formats.
++ */
++
++static const struct hantro_fmt imx8m_vpu_postproc_fmts[] = {
++	{
++		.fourcc = V4L2_PIX_FMT_YUYV,
++		.codec_mode = HANTRO_MODE_NONE,
++	},
++};
++
++static const struct hantro_fmt imx8m_vpu_dec_fmts[] = {
++	{
++		.fourcc = V4L2_PIX_FMT_NV12,
++		.codec_mode = HANTRO_MODE_NONE,
++	},
++	{
++		.fourcc = V4L2_PIX_FMT_MPEG2_SLICE,
++		.codec_mode = HANTRO_MODE_MPEG2_DEC,
++		.max_depth = 2,
++		.frmsize = {
++			.min_width = 48,
++			.max_width = 1920,
++			.step_width = MB_DIM,
++			.min_height = 48,
++			.max_height = 1088,
++			.step_height = MB_DIM,
++		},
++	},
++	{
++		.fourcc = V4L2_PIX_FMT_VP8_FRAME,
++		.codec_mode = HANTRO_MODE_VP8_DEC,
++		.max_depth = 2,
++		.frmsize = {
++			.min_width = 48,
++			.max_width = 3840,
++			.step_width = 16,
++			.min_height = 48,
++			.max_height = 2160,
++			.step_height = 16,
++		},
++	},
++	{
++		.fourcc = V4L2_PIX_FMT_H264_SLICE,
++		.codec_mode = HANTRO_MODE_H264_DEC,
++		.max_depth = 2,
++		.frmsize = {
++			.min_width = 48,
++			.max_width = 3840,
++			.step_width = MB_DIM,
++			.min_height = 48,
++			.max_height = 2160,
++			.step_height = MB_DIM,
++		},
++	},
++};
++
++static irqreturn_t imx8m_vpu_g1_irq(int irq, void *dev_id)
++{
++	struct hantro_dev *vpu = dev_id;
++	enum vb2_buffer_state state;
++	u32 status;
++
++	status = vdpu_read(vpu, G1_REG_INTERRUPT);
++	state = (status & G1_REG_INTERRUPT_DEC_RDY_INT) ?
++		 VB2_BUF_STATE_DONE : VB2_BUF_STATE_ERROR;
++
++	vdpu_write(vpu, 0, G1_REG_INTERRUPT);
++	vdpu_write(vpu, G1_REG_CONFIG_DEC_CLK_GATE_E, G1_REG_CONFIG);
++
++	hantro_irq_done(vpu, 0, state);
++
++	return IRQ_HANDLED;
++}
++
++static int imx8mq_vpu_hw_init(struct hantro_dev *vpu)
++{
++	vpu->dec_base = vpu->reg_bases[0];
++	vpu->ctrl_base = vpu->reg_bases[vpu->variant->num_regs - 1];
++
++	return 0;
++}
++
++static void imx8m_vpu_g1_reset(struct hantro_ctx *ctx)
++{
++	struct hantro_dev *vpu = ctx->dev;
++
++	imx8m_soft_reset(vpu, RESET_G1);
++}
++
++/*
++ * Supported codec ops.
++ */
++
++static const struct hantro_codec_ops imx8mq_vpu_codec_ops[] = {
++	[HANTRO_MODE_MPEG2_DEC] = {
++		.run = hantro_g1_mpeg2_dec_run,
++		.reset = imx8m_vpu_g1_reset,
++		.init = hantro_mpeg2_dec_init,
++		.exit = hantro_mpeg2_dec_exit,
++	},
++	[HANTRO_MODE_VP8_DEC] = {
++		.run = hantro_g1_vp8_dec_run,
++		.reset = imx8m_vpu_g1_reset,
++		.init = hantro_vp8_dec_init,
++		.exit = hantro_vp8_dec_exit,
++	},
++	[HANTRO_MODE_H264_DEC] = {
++		.run = hantro_g1_h264_dec_run,
++		.reset = imx8m_vpu_g1_reset,
++		.init = hantro_h264_dec_init,
++		.exit = hantro_h264_dec_exit,
++	},
++};
++
++/*
++ * VPU variants.
++ */
++
++static const struct hantro_irq imx8mq_irqs[] = {
++	{ "g1", imx8m_vpu_g1_irq },
++	{ "g2", NULL /* TODO: imx8m_vpu_g2_irq */ },
++};
++
++static const char * const imx8mq_clk_names[] = { "g1", "g2", "bus" };
++static const char * const imx8mq_reg_names[] = { "g1", "g2", "ctrl" };
++
++const struct hantro_variant imx8mq_vpu_variant = {
++	.dec_fmts = imx8m_vpu_dec_fmts,
++	.num_dec_fmts = ARRAY_SIZE(imx8m_vpu_dec_fmts),
++	.postproc_fmts = imx8m_vpu_postproc_fmts,
++	.num_postproc_fmts = ARRAY_SIZE(imx8m_vpu_postproc_fmts),
++	.postproc_regs = &hantro_g1_postproc_regs,
++	.codec = HANTRO_MPEG2_DECODER | HANTRO_VP8_DECODER |
++		 HANTRO_H264_DECODER,
++	.codec_ops = imx8mq_vpu_codec_ops,
++	.init = imx8mq_vpu_hw_init,
++	.runtime_resume = imx8mq_runtime_resume,
++	.irqs = imx8mq_irqs,
++	.num_irqs = ARRAY_SIZE(imx8mq_irqs),
++	.clk_names = imx8mq_clk_names,
++	.num_clocks = ARRAY_SIZE(imx8mq_clk_names),
++	.reg_names = imx8mq_reg_names,
++	.num_regs = ARRAY_SIZE(imx8mq_reg_names)
++};

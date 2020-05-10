@@ -1,0 +1,2580 @@
+From 9aa9f5735d151accd75268a8de1a510e343c22ee Mon Sep 17 00:00:00 2001
+From: Johan Jonker <jbx6244@gmail.com>
+Date: Fri, 3 Apr 2020 16:22:34 +0200
+Subject: [PATCH] dt-bindings: display: convert rockchip vop bindings to yaml
+
+Current dts files with 'vop' nodes are manually verified.
+In order to automate this process rockchip-vop.txt
+has to be converted to yaml.
+
+Signed-off-by: Johan Jonker <jbx6244@gmail.com>
+Reviewed-by: Rob Herring <robh@kernel.org>
+Signed-off-by: Sam Ravnborg <sam@ravnborg.org>
+Link: https://patchwork.freedesktop.org/patch/msgid/20200403142235.8870-1-jbx6244@gmail.com
+(cherry picked from commit 4e78ba278722480fa1fa933caa6ff24a53b441c8)
+---
+ .../bindings/display/rockchip/rockchip-vop.txt     |  74 -------------
+ .../bindings/display/rockchip/rockchip-vop.yaml    | 123 +++++++++++++++++++++
+ 2 files changed, 123 insertions(+), 74 deletions(-)
+ delete mode 100644 Documentation/devicetree/bindings/display/rockchip/rockchip-vop.txt
+ create mode 100644 Documentation/devicetree/bindings/display/rockchip/rockchip-vop.yaml
+
+diff --git a/Documentation/devicetree/bindings/display/rockchip/rockchip-vop.txt b/Documentation/devicetree/bindings/display/rockchip/rockchip-vop.txt
+deleted file mode 100644
+index 8b3a5f514205..000000000000
+--- a/Documentation/devicetree/bindings/display/rockchip/rockchip-vop.txt
++++ /dev/null
+@@ -1,74 +0,0 @@
+-device-tree bindings for rockchip soc display controller (vop)
+-
+-VOP (Visual Output Processor) is the Display Controller for the Rockchip
+-series of SoCs which transfers the image data from a video memory
+-buffer to an external LCD interface.
+-
+-Required properties:
+-- compatible: value should be one of the following
+-		"rockchip,rk3036-vop";
+-		"rockchip,rk3126-vop";
+-		"rockchip,px30-vop-lit";
+-		"rockchip,px30-vop-big";
+-		"rockchip,rk3066-vop";
+-		"rockchip,rk3188-vop";
+-		"rockchip,rk3288-vop";
+-		"rockchip,rk3368-vop";
+-		"rockchip,rk3366-vop";
+-		"rockchip,rk3399-vop-big";
+-		"rockchip,rk3399-vop-lit";
+-		"rockchip,rk3228-vop";
+-		"rockchip,rk3328-vop";
+-
+-- reg: Must contain one entry corresponding to the base address and length
+-	of the register space. Can optionally contain a second entry
+-	corresponding to the CRTC gamma LUT address.
+-
+-- interrupts: should contain a list of all VOP IP block interrupts in the
+-		 order: VSYNC, LCD_SYSTEM. The interrupt specifier
+-		 format depends on the interrupt controller used.
+-
+-- clocks: must include clock specifiers corresponding to entries in the
+-		clock-names property.
+-
+-- clock-names: Must contain
+-		aclk_vop: for ddr buffer transfer.
+-		hclk_vop: for ahb bus to R/W the phy regs.
+-		dclk_vop: pixel clock.
+-
+-- resets: Must contain an entry for each entry in reset-names.
+-  See ../reset/reset.txt for details.
+-- reset-names: Must include the following entries:
+-  - axi
+-  - ahb
+-  - dclk
+-
+-- iommus: required a iommu node
+-
+-- port: A port node with endpoint definitions as defined in
+-  Documentation/devicetree/bindings/media/video-interfaces.txt.
+-
+-Example:
+-SoC specific DT entry:
+-	vopb: vopb@ff930000 {
+-		compatible = "rockchip,rk3288-vop";
+-		reg = <0x0 0xff930000 0x0 0x19c>, <0x0 0xff931000 0x0 0x1000>;
+-		interrupts = <GIC_SPI 15 IRQ_TYPE_LEVEL_HIGH>;
+-		clocks = <&cru ACLK_VOP0>, <&cru DCLK_VOP0>, <&cru HCLK_VOP0>;
+-		clock-names = "aclk_vop", "dclk_vop", "hclk_vop";
+-		resets = <&cru SRST_LCDC1_AXI>, <&cru SRST_LCDC1_AHB>, <&cru SRST_LCDC1_DCLK>;
+-		reset-names = "axi", "ahb", "dclk";
+-		iommus = <&vopb_mmu>;
+-		vopb_out: port {
+-			#address-cells = <1>;
+-			#size-cells = <0>;
+-			vopb_out_edp: endpoint@0 {
+-				reg = <0>;
+-				remote-endpoint=<&edp_in_vopb>;
+-			};
+-			vopb_out_hdmi: endpoint@1 {
+-				reg = <1>;
+-				remote-endpoint=<&hdmi_in_vopb>;
+-			};
+-		};
+-	};
+diff --git a/Documentation/devicetree/bindings/display/rockchip/rockchip-vop.yaml b/Documentation/devicetree/bindings/display/rockchip/rockchip-vop.yaml
+new file mode 100644
+index 000000000000..42ee2b5c31e1
+--- /dev/null
++++ b/Documentation/devicetree/bindings/display/rockchip/rockchip-vop.yaml
+@@ -0,0 +1,123 @@
++# SPDX-License-Identifier: GPL-2.0
++%YAML 1.2
++---
++$id: http://devicetree.org/schemas/display/rockchip/rockchip-vop.yaml#
++$schema: http://devicetree.org/meta-schemas/core.yaml#
++
++title: Rockchip SoC display controller (VOP)
++
++description:
++  VOP (Video Output Processor) is the display controller for the Rockchip
++  series of SoCs which transfers the image data from a video memory
++  buffer to an external LCD interface.
++
++maintainers:
++  - Sandy Huang <hjc@rock-chips.com>
++  - Heiko Stuebner <heiko@sntech.de>
++
++properties:
++  compatible:
++    enum:
++      - rockchip,px30-vop-big
++      - rockchip,px30-vop-lit
++      - rockchip,rk3036-vop
++      - rockchip,rk3066-vop
++      - rockchip,rk3126-vop
++      - rockchip,rk3188-vop
++      - rockchip,rk3228-vop
++      - rockchip,rk3288-vop
++      - rockchip,rk3328-vop
++      - rockchip,rk3366-vop
++      - rockchip,rk3368-vop
++      - rockchip,rk3399-vop-big
++      - rockchip,rk3399-vop-lit
++
++  reg:
++    minItems: 1
++    items:
++      - description:
++          Must contain one entry corresponding to the base address and length
++          of the register space.
++      - description:
++          Can optionally contain a second entry corresponding to
++          the CRTC gamma LUT address.
++
++  interrupts:
++    maxItems: 1
++    description:
++      The VOP interrupt is shared by several interrupt sources, such as
++      frame start (VSYNC), line flag and other status interrupts.
++
++  clocks:
++    items:
++      - description: Clock for ddr buffer transfer.
++      - description: Pixel clock.
++      - description: Clock for the ahb bus to R/W the phy regs.
++
++  clock-names:
++    items:
++      - const: aclk_vop
++      - const: dclk_vop
++      - const: hclk_vop
++
++  resets:
++    maxItems: 3
++
++  reset-names:
++    items:
++      - const: axi
++      - const: ahb
++      - const: dclk
++
++  port:
++    type: object
++    description:
++      A port node with endpoint definitions as defined in
++      Documentation/devicetree/bindings/media/video-interfaces.txt.
++
++  iommus:
++    maxItems: 1
++
++required:
++  - compatible
++  - reg
++  - interrupts
++  - clocks
++  - clock-names
++  - resets
++  - reset-names
++  - port
++
++additionalProperties: false
++
++examples:
++  - |
++    #include <dt-bindings/clock/rk3288-cru.h>
++    #include <dt-bindings/interrupt-controller/arm-gic.h>
++    vopb: vopb@ff930000 {
++      compatible = "rockchip,rk3288-vop";
++      reg = <0x0 0xff930000 0x0 0x19c>,
++            <0x0 0xff931000 0x0 0x1000>;
++      interrupts = <GIC_SPI 15 IRQ_TYPE_LEVEL_HIGH>;
++      clocks = <&cru ACLK_VOP0>,
++               <&cru DCLK_VOP0>,
++               <&cru HCLK_VOP0>;
++      clock-names = "aclk_vop", "dclk_vop", "hclk_vop";
++      resets = <&cru SRST_LCDC1_AXI>,
++               <&cru SRST_LCDC1_AHB>,
++               <&cru SRST_LCDC1_DCLK>;
++      reset-names = "axi", "ahb", "dclk";
++      iommus = <&vopb_mmu>;
++      vopb_out: port {
++        #address-cells = <1>;
++        #size-cells = <0>;
++        vopb_out_edp: endpoint@0 {
++          reg = <0>;
++          remote-endpoint=<&edp_in_vopb>;
++        };
++        vopb_out_hdmi: endpoint@1 {
++          reg = <1>;
++          remote-endpoint=<&hdmi_in_vopb>;
++        };
++      };
++    };
+
+From 082ebdee06e1e5203434425e9f644a884fe6c999 Mon Sep 17 00:00:00 2001
+From: Johan Jonker <jbx6244@gmail.com>
+Date: Fri, 3 Apr 2020 16:22:35 +0200
+Subject: [PATCH] dt-bindings: display: rockchip-vop: add additional properties
+
+In the old txt situation we add/describe only properties that are used
+by the driver/hardware itself. With yaml it also filters things in a
+node that are used by other drivers like 'assigned-clocks' and
+'assigned-clock-rates' for rk3399 and 'power-domains' for most
+Rockchip Socs in 'vop' nodes, so add them to 'rockchip-vop.yaml'.
+
+Signed-off-by: Johan Jonker <jbx6244@gmail.com>
+Reviewed-by: Rob Herring <robh@kernel.org>
+Signed-off-by: Sam Ravnborg <sam@ravnborg.org>
+Link: https://patchwork.freedesktop.org/patch/msgid/20200403142235.8870-2-jbx6244@gmail.com
+(cherry picked from commit 0706cd0f94d4d8dd71fad7f70dcbf19d514391ef)
+---
+ .../devicetree/bindings/display/rockchip/rockchip-vop.yaml    | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/display/rockchip/rockchip-vop.yaml b/Documentation/devicetree/bindings/display/rockchip/rockchip-vop.yaml
+index 42ee2b5c31e1..1695e3e4bcec 100644
+--- a/Documentation/devicetree/bindings/display/rockchip/rockchip-vop.yaml
++++ b/Documentation/devicetree/bindings/display/rockchip/rockchip-vop.yaml
+@@ -75,9 +75,18 @@ properties:
+       A port node with endpoint definitions as defined in
+       Documentation/devicetree/bindings/media/video-interfaces.txt.
+ 
++  assigned-clocks:
++    maxItems: 2
++
++  assigned-clock-rates:
++    maxItems: 2
++
+   iommus:
+     maxItems: 1
+ 
++  power-domains:
++    maxItems: 1
++
+ required:
+   - compatible
+   - reg
+@@ -94,6 +103,7 @@ examples:
+   - |
+     #include <dt-bindings/clock/rk3288-cru.h>
+     #include <dt-bindings/interrupt-controller/arm-gic.h>
++    #include <dt-bindings/power/rk3288-power.h>
+     vopb: vopb@ff930000 {
+       compatible = "rockchip,rk3288-vop";
+       reg = <0x0 0xff930000 0x0 0x19c>,
+@@ -103,6 +113,7 @@ examples:
+                <&cru DCLK_VOP0>,
+                <&cru HCLK_VOP0>;
+       clock-names = "aclk_vop", "dclk_vop", "hclk_vop";
++      power-domains = <&power RK3288_PD_VIO>;
+       resets = <&cru SRST_LCDC1_AXI>,
+                <&cru SRST_LCDC1_AHB>,
+                <&cru SRST_LCDC1_DCLK>;
+
+From 5aacedce61aed00aaf4064382e2e81bc9e8cbd2e Mon Sep 17 00:00:00 2001
+From: Justin Swartz <justin.swartz@risingedge.co.za>
+Date: Tue, 14 Jan 2020 16:25:02 +0000
+Subject: [PATCH] clk: rockchip: fix incorrect configuration of rk3228
+ aclk_gpu* clocks
+
+The following changes prevent the unrecoverable freezes and rcu_sched
+stall warnings experienced in each of my attempts to take advantage of
+lima.
+
+Replace the COMPOSITE_NOGATE definition of aclk_gpu_pre with a
+COMPOSITE that retains the selection of HDMIPHY as the PLL source, but
+instead makes uses of the aclk_gpu PLL source gate and parent names
+defined by mux_pll_src_4plls_p rather than mux_aclk_gpu_pre_p.
+
+Remove the now unused mux_aclk_gpu_pre_p and the four named but also
+unused definitions (cpll_gpu, gpll_gpu, hdmiphy_gpu and usb480m_gpu)
+of the aclk_gpu PLL source gate.
+
+Use the correct gate offset for aclk_gpu and aclk_gpu_noc.
+
+Fixes: 307a2e9ac524 ("clk: rockchip: add clock controller for rk3228")
+Cc: stable@vger.kernel.org
+Signed-off-by: Justin Swartz <justin.swartz@risingedge.co.za>
+[double-checked against SoC manual and added fixes tag]
+Link: https://lore.kernel.org/r/20200114162503.7548-1-justin.swartz@risingedge.co.za
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+(cherry picked from commit cec9d101d70a3509da9bd2e601e0b242154ce616)
+---
+ drivers/clk/rockchip/clk-rk3228.c | 17 ++++-------------
+ 1 file changed, 4 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/clk/rockchip/clk-rk3228.c b/drivers/clk/rockchip/clk-rk3228.c
+index d17cfb7a3ff4..d7243c09cc84 100644
+--- a/drivers/clk/rockchip/clk-rk3228.c
++++ b/drivers/clk/rockchip/clk-rk3228.c
+@@ -156,8 +156,6 @@ PNAME(mux_i2s_out_p)		= { "i2s1_pre", "xin12m" };
+ PNAME(mux_i2s2_p)		= { "i2s2_src", "i2s2_frac", "xin12m" };
+ PNAME(mux_sclk_spdif_p)		= { "sclk_spdif_src", "spdif_frac", "xin12m" };
+ 
+-PNAME(mux_aclk_gpu_pre_p)	= { "cpll_gpu", "gpll_gpu", "hdmiphy_gpu", "usb480m_gpu" };
+-
+ PNAME(mux_uart0_p)		= { "uart0_src", "uart0_frac", "xin24m" };
+ PNAME(mux_uart1_p)		= { "uart1_src", "uart1_frac", "xin24m" };
+ PNAME(mux_uart2_p)		= { "uart2_src", "uart2_frac", "xin24m" };
+@@ -468,16 +466,9 @@ static struct rockchip_clk_branch rk3228_clk_branches[] __initdata = {
+ 			RK2928_CLKSEL_CON(24), 6, 10, DFLAGS,
+ 			RK2928_CLKGATE_CON(2), 8, GFLAGS),
+ 
+-	GATE(0, "cpll_gpu", "cpll", 0,
+-			RK2928_CLKGATE_CON(3), 13, GFLAGS),
+-	GATE(0, "gpll_gpu", "gpll", 0,
+-			RK2928_CLKGATE_CON(3), 13, GFLAGS),
+-	GATE(0, "hdmiphy_gpu", "hdmiphy", 0,
+-			RK2928_CLKGATE_CON(3), 13, GFLAGS),
+-	GATE(0, "usb480m_gpu", "usb480m", 0,
++	COMPOSITE(0, "aclk_gpu_pre", mux_pll_src_4plls_p, 0,
++			RK2928_CLKSEL_CON(34), 5, 2, MFLAGS, 0, 5, DFLAGS,
+ 			RK2928_CLKGATE_CON(3), 13, GFLAGS),
+-	COMPOSITE_NOGATE(0, "aclk_gpu_pre", mux_aclk_gpu_pre_p, 0,
+-			RK2928_CLKSEL_CON(34), 5, 2, MFLAGS, 0, 5, DFLAGS),
+ 
+ 	COMPOSITE(SCLK_SPI0, "sclk_spi0", mux_pll_src_2plls_p, 0,
+ 			RK2928_CLKSEL_CON(25), 8, 1, MFLAGS, 0, 7, DFLAGS,
+@@ -582,8 +573,8 @@ static struct rockchip_clk_branch rk3228_clk_branches[] __initdata = {
+ 	GATE(0, "pclk_peri_noc", "pclk_peri", CLK_IGNORE_UNUSED, RK2928_CLKGATE_CON(12), 2, GFLAGS),
+ 
+ 	/* PD_GPU */
+-	GATE(ACLK_GPU, "aclk_gpu", "aclk_gpu_pre", 0, RK2928_CLKGATE_CON(13), 14, GFLAGS),
+-	GATE(0, "aclk_gpu_noc", "aclk_gpu_pre", 0, RK2928_CLKGATE_CON(13), 15, GFLAGS),
++	GATE(ACLK_GPU, "aclk_gpu", "aclk_gpu_pre", 0, RK2928_CLKGATE_CON(7), 14, GFLAGS),
++	GATE(0, "aclk_gpu_noc", "aclk_gpu_pre", 0, RK2928_CLKGATE_CON(7), 15, GFLAGS),
+ 
+ 	/* PD_BUS */
+ 	GATE(0, "sclk_initmem_mbist", "aclk_cpu", 0, RK2928_CLKGATE_CON(8), 1, GFLAGS),
+
+From f861dcc0933168fefda7e58f0dee67c2dcb1a3d4 Mon Sep 17 00:00:00 2001
+From: Heiko Stuebner <heiko.stuebner@theobroma-systems.com>
+Date: Wed, 29 Jan 2020 17:38:19 +0100
+Subject: [PATCH] clk: rockchip: convert rk3399 pll type to use
+ readl_relaxed_poll_timeout
+
+Instead of open coding the polling of the lock status, use the handy
+readl_relaxed_poll_timeout for this. As the pll locking is normally
+blazingly fast and we don't want to incur additional delays, we're
+not doing any sleeps similar to for example the imx clk-pllv4
+and define a very safe but still short timeout of 1ms.
+
+Suggested-by: Stephen Boyd <sboyd@kernel.org>
+Signed-off-by: Heiko Stuebner <heiko.stuebner@theobroma-systems.com>
+Reviewed-by: Stephen Boyd <sboyd@kernel.org>
+Link: https://lore.kernel.org/r/20200129163821.1547295-1-heiko@sntech.de
+(cherry picked from commit a504d1b30bd6124c286a2f1ffeaff5e29f4023a0)
+---
+ drivers/clk/rockchip/clk-pll.c | 23 ++++++++++++-----------
+ 1 file changed, 12 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/clk/rockchip/clk-pll.c b/drivers/clk/rockchip/clk-pll.c
+index 10560d963baf..28b04aad31ad 100644
+--- a/drivers/clk/rockchip/clk-pll.c
++++ b/drivers/clk/rockchip/clk-pll.c
+@@ -589,19 +589,20 @@ static const struct clk_ops rockchip_rk3066_pll_clk_ops = {
+ static int rockchip_rk3399_pll_wait_lock(struct rockchip_clk_pll *pll)
+ {
+ 	u32 pllcon;
+-	int delay = 24000000;
++	int ret;
+ 
+-	/* poll check the lock status in rk3399 xPLLCON2 */
+-	while (delay > 0) {
+-		pllcon = readl_relaxed(pll->reg_base + RK3399_PLLCON(2));
+-		if (pllcon & RK3399_PLLCON2_LOCK_STATUS)
+-			return 0;
++	/*
++	 * Lock time typical 250, max 500 input clock cycles @24MHz
++	 * So define a very safe maximum of 1000us, meaning 24000 cycles.
++	 */
++	ret = readl_relaxed_poll_timeout(pll->reg_base + RK3399_PLLCON(2),
++					 pllcon,
++					 pllcon & RK3399_PLLCON2_LOCK_STATUS,
++					 0, 1000);
++	if (ret)
++		pr_err("%s: timeout waiting for pll to lock\n", __func__);
+ 
+-		delay--;
+-	}
+-
+-	pr_err("%s: timeout waiting for pll to lock\n", __func__);
+-	return -ETIMEDOUT;
++	return ret;
+ }
+ 
+ static void rockchip_rk3399_pll_get_params(struct rockchip_clk_pll *pll,
+
+From 35fffcf550e6df55be05d66e53268b8791a458a1 Mon Sep 17 00:00:00 2001
+From: Heiko Stuebner <heiko.stuebner@theobroma-systems.com>
+Date: Wed, 29 Jan 2020 17:38:20 +0100
+Subject: [PATCH] clk: rockchip: convert basic pll lock_wait to use
+ regmap_read_poll_timeout
+
+Instead of open coding the polling of the lock status, use the
+handy regmap_read_poll_timeout for this. As the pll locking is
+normally blazingly fast and we don't want to incur additional
+delays, we're not doing any sleeps similar to for example the imx
+clk-pllv4 and define a very safe but still short timeout of 1ms.
+
+Suggested-by: Stephen Boyd <sboyd@kernel.org>
+Signed-off-by: Heiko Stuebner <heiko.stuebner@theobroma-systems.com>
+Reviewed-by: Stephen Boyd <sboyd@kernel.org>
+Link: https://lore.kernel.org/r/20200129163821.1547295-2-heiko@sntech.de
+(cherry picked from commit 883265d871b3e1ab389d698f99713871dfac0003)
+---
+ drivers/clk/rockchip/clk-pll.c | 21 ++++++---------------
+ 1 file changed, 6 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/clk/rockchip/clk-pll.c b/drivers/clk/rockchip/clk-pll.c
+index 28b04aad31ad..945f8b2cacc1 100644
+--- a/drivers/clk/rockchip/clk-pll.c
++++ b/drivers/clk/rockchip/clk-pll.c
+@@ -86,23 +86,14 @@ static int rockchip_pll_wait_lock(struct rockchip_clk_pll *pll)
+ {
+ 	struct regmap *grf = pll->ctx->grf;
+ 	unsigned int val;
+-	int delay = 24000000, ret;
+-
+-	while (delay > 0) {
+-		ret = regmap_read(grf, pll->lock_offset, &val);
+-		if (ret) {
+-			pr_err("%s: failed to read pll lock status: %d\n",
+-			       __func__, ret);
+-			return ret;
+-		}
++	int ret;
+ 
+-		if (val & BIT(pll->lock_shift))
+-			return 0;
+-		delay--;
+-	}
++	ret = regmap_read_poll_timeout(grf, pll->lock_offset, val,
++				       val & BIT(pll->lock_shift), 0, 1000);
++	if (ret)
++		pr_err("%s: timeout waiting for pll to lock\n", __func__);
+ 
+-	pr_err("%s: timeout waiting for pll to lock\n", __func__);
+-	return -ETIMEDOUT;
++	return ret;
+ }
+ 
+ /**
+
+From 60036f4fef0474724f8cb22f94c1b9e67ece6c6a Mon Sep 17 00:00:00 2001
+From: Heiko Stuebner <heiko.stuebner@theobroma-systems.com>
+Date: Wed, 29 Jan 2020 17:38:21 +0100
+Subject: [PATCH] clk: rockchip: convert rk3036 pll type to use internal lock
+ status
+
+The rk3036 pll type exposes its lock status in both its pllcon registers
+as well as the General Register Files. To remove one dependency convert
+it to the "internal" lock status, similar to how rk3399 handles it.
+
+Signed-off-by: Heiko Stuebner <heiko.stuebner@theobroma-systems.com>
+Reviewed-by: Stephen Boyd <sboyd@kernel.org>
+Link: https://lore.kernel.org/r/20200129163821.1547295-3-heiko@sntech.de
+(cherry picked from commit 7b5c597083e78fea79be0d9316e1de018e12ad9c)
+---
+ drivers/clk/rockchip/clk-pll.c | 26 +++++++++++++++++++++++---
+ 1 file changed, 23 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/clk/rockchip/clk-pll.c b/drivers/clk/rockchip/clk-pll.c
+index 945f8b2cacc1..4c6c9167ef50 100644
+--- a/drivers/clk/rockchip/clk-pll.c
++++ b/drivers/clk/rockchip/clk-pll.c
+@@ -12,6 +12,7 @@
+ #include <linux/io.h>
+ #include <linux/delay.h>
+ #include <linux/clk-provider.h>
++#include <linux/iopoll.h>
+ #include <linux/regmap.h>
+ #include <linux/clk.h>
+ #include "clk.h"
+@@ -109,12 +110,31 @@ static int rockchip_pll_wait_lock(struct rockchip_clk_pll *pll)
+ #define RK3036_PLLCON1_REFDIV_SHIFT		0
+ #define RK3036_PLLCON1_POSTDIV2_MASK		0x7
+ #define RK3036_PLLCON1_POSTDIV2_SHIFT		6
++#define RK3036_PLLCON1_LOCK_STATUS		BIT(10)
+ #define RK3036_PLLCON1_DSMPD_MASK		0x1
+ #define RK3036_PLLCON1_DSMPD_SHIFT		12
++#define RK3036_PLLCON1_PWRDOWN			BIT(13)
+ #define RK3036_PLLCON2_FRAC_MASK		0xffffff
+ #define RK3036_PLLCON2_FRAC_SHIFT		0
+ 
+-#define RK3036_PLLCON1_PWRDOWN			(1 << 13)
++static int rockchip_rk3036_pll_wait_lock(struct rockchip_clk_pll *pll)
++{
++	u32 pllcon;
++	int ret;
++
++	/*
++	 * Lock time typical 250, max 500 input clock cycles @24MHz
++	 * So define a very safe maximum of 1000us, meaning 24000 cycles.
++	 */
++	ret = readl_relaxed_poll_timeout(pll->reg_base + RK3036_PLLCON(1),
++					 pllcon,
++					 pllcon & RK3036_PLLCON1_LOCK_STATUS,
++					 0, 1000);
++	if (ret)
++		pr_err("%s: timeout waiting for pll to lock\n", __func__);
++
++	return ret;
++}
+ 
+ static void rockchip_rk3036_pll_get_params(struct rockchip_clk_pll *pll,
+ 					struct rockchip_pll_rate_table *rate)
+@@ -212,7 +232,7 @@ static int rockchip_rk3036_pll_set_params(struct rockchip_clk_pll *pll,
+ 	writel_relaxed(pllcon, pll->reg_base + RK3036_PLLCON(2));
+ 
+ 	/* wait for the pll to lock */
+-	ret = rockchip_pll_wait_lock(pll);
++	ret = rockchip_rk3036_pll_wait_lock(pll);
+ 	if (ret) {
+ 		pr_warn("%s: pll update unsuccessful, trying to restore old params\n",
+ 			__func__);
+@@ -251,7 +271,7 @@ static int rockchip_rk3036_pll_enable(struct clk_hw *hw)
+ 
+ 	writel(HIWORD_UPDATE(0, RK3036_PLLCON1_PWRDOWN, 0),
+ 	       pll->reg_base + RK3036_PLLCON(1));
+-	rockchip_pll_wait_lock(pll);
++	rockchip_rk3036_pll_wait_lock(pll);
+ 
+ 	return 0;
+ }
+
+From 9fbb089988034b4ff0c540a46f9fa366c4feea7c Mon Sep 17 00:00:00 2001
+From: Geert Uytterhoeven <geert+renesas@glider.be>
+Date: Wed, 12 Feb 2020 11:08:27 +0100
+Subject: [PATCH] ARM: rockchip: Replace <linux/clk-provider.h> by
+ <linux/of_clk.h>
+
+The Rockchip platform code is not a clock provider, and just needs to
+call of_clk_init().
+
+Hence it can include <linux/of_clk.h> instead of <linux/clk-provider.h>.
+
+Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+Reviewed-by: Stephen Boyd <sboyd@kernel.org>
+Link: https://lore.kernel.org/r/20200212100830.446-5-geert+renesas@glider.be
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+(cherry picked from commit 37aed36cfec3b35469be3dc5fb52c8a459414cff)
+---
+ arch/arm/mach-rockchip/rockchip.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/mach-rockchip/rockchip.c b/arch/arm/mach-rockchip/rockchip.c
+index f9797a2b5d0d..beea4564eed4 100644
+--- a/arch/arm/mach-rockchip/rockchip.c
++++ b/arch/arm/mach-rockchip/rockchip.c
+@@ -9,9 +9,9 @@
+ #include <linux/kernel.h>
+ #include <linux/init.h>
+ #include <linux/io.h>
++#include <linux/of_clk.h>
+ #include <linux/of_platform.h>
+ #include <linux/irqchip.h>
+-#include <linux/clk-provider.h>
+ #include <linux/clocksource.h>
+ #include <linux/mfd/syscon.h>
+ #include <linux/regmap.h>
+
+From 0a6395e3e1484c148c398c6cf2035acfbbb6d436 Mon Sep 17 00:00:00 2001
+From: Colin Ian King <colin.king@canonical.com>
+Date: Thu, 23 Jan 2020 00:48:07 +0000
+Subject: [PATCH] ARM: rockchip: fix spelling mistake "to" -> "too"
+
+There is a spelling mistake in a pr_err message. Fix it.
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Link: https://lore.kernel.org/r/20200123004807.2833556-1-colin.king@canonical.com
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+(cherry picked from commit 0b973c65d2f2da049252bc8370e4cf037b99c7e9)
+---
+ arch/arm/mach-rockchip/platsmp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/mach-rockchip/platsmp.c b/arch/arm/mach-rockchip/platsmp.c
+index 649e0a54784c..d60856898d97 100644
+--- a/arch/arm/mach-rockchip/platsmp.c
++++ b/arch/arm/mach-rockchip/platsmp.c
+@@ -180,7 +180,7 @@ static int __init rockchip_smp_prepare_sram(struct device_node *node)
+ 
+ 	rsize = resource_size(&res);
+ 	if (rsize < trampoline_sz) {
+-		pr_err("%s: reserved block with size 0x%x is to small for trampoline size 0x%x\n",
++		pr_err("%s: reserved block with size 0x%x is too small for trampoline size 0x%x\n",
+ 		       __func__, rsize, trampoline_sz);
+ 		return -EINVAL;
+ 	}
+
+From 470e05fb423f194503b492216e1d756c658af1fb Mon Sep 17 00:00:00 2001
+From: Robin Murphy <robin.murphy@arm.com>
+Date: Fri, 17 Apr 2020 13:08:34 +0100
+Subject: [PATCH] arm64: dts: rockchip: Correct PMU compatibles for PX30 and
+ RK3308
+
+A proper binding for the Cortex-A35 PMU actually predates these DTs
+being upstreamed, so use it.
+
+Signed-off-by: Robin Murphy <robin.murphy@arm.com>
+Link: https://lore.kernel.org/r/6dfed94a99780c2314b38ff2b55a7efa0be4edbc.1587125314.git.robin.murphy@arm.com
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+(cherry picked from commit 5944eb7a1ec7eb8b86233f71838535e8a8870656)
+---
+ arch/arm64/boot/dts/rockchip/px30.dtsi   | 2 +-
+ arch/arm64/boot/dts/rockchip/rk3308.dtsi | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/px30.dtsi b/arch/arm64/boot/dts/rockchip/px30.dtsi
+index f809dd6d5dc3..adc9b8bf5eaa 100644
+--- a/arch/arm64/boot/dts/rockchip/px30.dtsi
++++ b/arch/arm64/boot/dts/rockchip/px30.dtsi
+@@ -143,7 +143,7 @@
+ 	};
+ 
+ 	arm-pmu {
+-		compatible = "arm,cortex-a53-pmu";
++		compatible = "arm,cortex-a35-pmu";
+ 		interrupts = <GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>,
+ 			     <GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>,
+ 			     <GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>,
+diff --git a/arch/arm64/boot/dts/rockchip/rk3308.dtsi b/arch/arm64/boot/dts/rockchip/rk3308.dtsi
+index ac43bc3f7031..ac7f694079d0 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3308.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3308.dtsi
+@@ -127,7 +127,7 @@
+ 	};
+ 
+ 	arm-pmu {
+-		compatible = "arm,cortex-a53-pmu";
++		compatible = "arm,cortex-a35-pmu";
+ 		interrupts = <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>,
+ 			     <GIC_SPI 84 IRQ_TYPE_LEVEL_HIGH>,
+ 			     <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>,
+
+From 0b78bf20d7b750d295c1a7aca5e9cc467e4cc314 Mon Sep 17 00:00:00 2001
+From: Tobias Schramm <t.schramm@manjaro.org>
+Date: Tue, 14 Apr 2020 18:39:51 +0200
+Subject: [PATCH] arm64: dts: rockchip: fix inverted headphone detection on
+ Pinebook Pro
+
+On the Pinebook Pro the headphone jack is dual use. It can be used either
+as a normal headphone jack or as a debug serial connection. This
+functionality is controlled via a small hardware switch on the mainboard.
+Unfortunately flipping this switch biases the headphone detection switch
+inside the headphone jack at 3.3 V if in `debug UART` position but
+to GND when in `headphone out` position.
+This results in an inversion of the headphone detection logic depending
+on the switch position.
+Since the headphone jack can only be used for audio when in
+`headphone out` position this commit changes the headphone detect GPIO
+logic to be correct for that case rather than for the debug UART.
+
+Fixes: 5a65505a6988 ("arm64: dts: rockchip: Add initial support for Pinebook Pro")
+Signed-off-by: Tobias Schramm <t.schramm@manjaro.org>
+Link: https://lore.kernel.org/r/20200414163952.1093784-2-t.schramm@manjaro.org
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+(cherry picked from commit 40df91a894e9298d0f052acb6960f12ace5bee24)
+---
+ arch/arm64/boot/dts/rockchip/rk3399-pinebook-pro.dts | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3399-pinebook-pro.dts b/arch/arm64/boot/dts/rockchip/rk3399-pinebook-pro.dts
+index 5ea281b55fe2..c3f15f5bd550 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3399-pinebook-pro.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3399-pinebook-pro.dts
+@@ -147,7 +147,7 @@
+ 			"Speaker", "Speaker Amplifier OUTL",
+ 			"Speaker", "Speaker Amplifier OUTR";
+ 
+-		simple-audio-card,hp-det-gpio = <&gpio0 RK_PB0 GPIO_ACTIVE_LOW>;
++		simple-audio-card,hp-det-gpio = <&gpio0 RK_PB0 GPIO_ACTIVE_HIGH>;
+ 		simple-audio-card,aux-devs = <&speaker_amp>;
+ 		simple-audio-card,pin-switches = "Speaker";
+ 
+@@ -794,7 +794,7 @@
+ 
+ 	es8316 {
+ 		hp_det_gpio: hp-det-gpio {
+-			rockchip,pins = <0 RK_PB0 RK_FUNC_GPIO &pcfg_pull_down>;
++			rockchip,pins = <0 RK_PB0 RK_FUNC_GPIO &pcfg_pull_up>;
+ 		};
+ 	};
+ 
+
+From 0343f0b706c94aee427fb9bd620b50ddd169a927 Mon Sep 17 00:00:00 2001
+From: Tobias Schramm <t.schramm@manjaro.org>
+Date: Tue, 14 Apr 2020 18:39:52 +0200
+Subject: [PATCH] arm64: dts: rockchip: enable DC charger detection pullup on
+ Pinebook Pro
+
+On the Pinebook Pro the DC charger is detected via an open collector
+transistor attached to a GPIO. This GPIO requires its pullup to be
+enabled for the detection to work reliably.
+
+Fixes: 5a65505a6988 ("arm64: dts: rockchip: Add initial support for Pinebook Pro")
+Signed-off-by: Tobias Schramm <t.schramm@manjaro.org>
+Link: https://lore.kernel.org/r/20200414163952.1093784-3-t.schramm@manjaro.org
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+(cherry picked from commit 7a87adbc4afe7585e27b4a4f97002e9a24f2e745)
+---
+ arch/arm64/boot/dts/rockchip/rk3399-pinebook-pro.dts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3399-pinebook-pro.dts b/arch/arm64/boot/dts/rockchip/rk3399-pinebook-pro.dts
+index c3f15f5bd550..294d21bf45f5 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3399-pinebook-pro.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3399-pinebook-pro.dts
+@@ -788,7 +788,7 @@
+ 
+ 	dc-charger {
+ 		dc_det_gpio: dc-det-gpio {
+-			rockchip,pins = <4 RK_PD0 RK_FUNC_GPIO &pcfg_pull_none>;
++			rockchip,pins = <4 RK_PD0 RK_FUNC_GPIO &pcfg_pull_up>;
+ 		};
+ 	};
+ 
+
+From 39a54c483579bb29c1a75f5db4d2008b6ff46f9a Mon Sep 17 00:00:00 2001
+From: Chen-Yu Tsai <wens@csie.org>
+Date: Fri, 27 Mar 2020 11:04:10 +0800
+Subject: [PATCH] arm64: dts: rockchip: Replace RK805 PMIC node name with
+ "pmic" on rk3328 boards
+
+In some board device tree files, "rk805" was used for the RK805 PMIC's
+node name. However the policy for device trees is that generic names
+should be used.
+
+Replace the "rk805" node name with the generic "pmic" name.
+
+Fixes: 1e28037ec88e ("arm64: dts: rockchip: add rk805 node for rk3328-evb")
+Fixes: 955bebde057e ("arm64: dts: rockchip: add rk3328-rock64 board")
+Signed-off-by: Chen-Yu Tsai <wens@csie.org>
+Link: https://lore.kernel.org/r/20200327030414.5903-3-wens@kernel.org
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+(cherry picked from commit 83b994129fb4c18a8460fd395864a28740e5e7fb)
+---
+ arch/arm64/boot/dts/rockchip/rk3328-evb.dts    | 2 +-
+ arch/arm64/boot/dts/rockchip/rk3328-rock64.dts | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3328-evb.dts b/arch/arm64/boot/dts/rockchip/rk3328-evb.dts
+index 49c4b96da3d4..6abc6f4a86cf 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3328-evb.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3328-evb.dts
+@@ -92,7 +92,7 @@
+ &i2c1 {
+ 	status = "okay";
+ 
+-	rk805: rk805@18 {
++	rk805: pmic@18 {
+ 		compatible = "rockchip,rk805";
+ 		reg = <0x18>;
+ 		interrupt-parent = <&gpio2>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3328-rock64.dts b/arch/arm64/boot/dts/rockchip/rk3328-rock64.dts
+index bf3e546f5266..ebf3eb222e1f 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3328-rock64.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3328-rock64.dts
+@@ -170,7 +170,7 @@
+ &i2c1 {
+ 	status = "okay";
+ 
+-	rk805: rk805@18 {
++	rk805: pmic@18 {
+ 		compatible = "rockchip,rk805";
+ 		reg = <0x18>;
+ 		interrupt-parent = <&gpio2>;
+
+From 9c025b05e76b99f95c7468cea37d47fde7c9bc97 Mon Sep 17 00:00:00 2001
+From: Chen-Yu Tsai <wens@csie.org>
+Date: Fri, 27 Mar 2020 11:04:11 +0800
+Subject: [PATCH] arm64: dts: rockchip: drop non-existent gmac2phy pinmux
+ options from rk3328
+
+When gmac2phy was added, a whole bunch of pinmux options were added.
+Turns out some of these don't exist on the actual product, based on
+the publicly available TRM.
+
+Remove them.
+
+Signed-off-by: Chen-Yu Tsai <wens@csie.org>
+Link: https://lore.kernel.org/r/20200327030414.5903-4-wens@kernel.org
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+(cherry picked from commit e559bb846ac3770f18485ea4734c0a84c069e79e)
+---
+ arch/arm64/boot/dts/rockchip/rk3328.dtsi | 16 ----------------
+ 1 file changed, 16 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3328.dtsi b/arch/arm64/boot/dts/rockchip/rk3328.dtsi
+index 7e88d88aab98..b861b4fd75e6 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3328.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3328.dtsi
+@@ -1794,10 +1794,6 @@
+ 		};
+ 
+ 		gmac2phy {
+-			fephyled_speed100: fephyled-speed100 {
+-				rockchip,pins = <0 RK_PD7 1 &pcfg_pull_none>;
+-			};
+-
+ 			fephyled_speed10: fephyled-speed10 {
+ 				rockchip,pins = <0 RK_PD6 1 &pcfg_pull_none>;
+ 			};
+@@ -1806,18 +1802,6 @@
+ 				rockchip,pins = <0 RK_PD6 2 &pcfg_pull_none>;
+ 			};
+ 
+-			fephyled_rxm0: fephyled-rxm0 {
+-				rockchip,pins = <0 RK_PD5 1 &pcfg_pull_none>;
+-			};
+-
+-			fephyled_txm0: fephyled-txm0 {
+-				rockchip,pins = <0 RK_PD5 2 &pcfg_pull_none>;
+-			};
+-
+-			fephyled_linkm0: fephyled-linkm0 {
+-				rockchip,pins = <0 RK_PD4 1 &pcfg_pull_none>;
+-			};
+-
+ 			fephyled_rxm1: fephyled-rxm1 {
+ 				rockchip,pins = <2 RK_PD1 2 &pcfg_pull_none>;
+ 			};
+
+From f3387e221eeb1295caa8882b00c1ba8cb515c4bf Mon Sep 17 00:00:00 2001
+From: Chen-Yu Tsai <wens@csie.org>
+Date: Fri, 27 Mar 2020 11:04:12 +0800
+Subject: [PATCH] arm64: dts: rockchip: drop #address-cells, #size-cells from
+ rk3328 grf node
+
+The device tree compiler gives the following warning:
+
+    /syscon@ff100000: unnecessary #address-cells/#size-cells without
+    "ranges" or child "reg" property
+
+Since none of the grf node's direct child nodes have any reg properties,
+remove the two properties from the grf node to silence the warning.
+
+Signed-off-by: Chen-Yu Tsai <wens@csie.org>
+Link: https://lore.kernel.org/r/20200327030414.5903-5-wens@kernel.org
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+(cherry picked from commit 743a646a05affe12e5545e59e7162dd14e84b425)
+---
+ arch/arm64/boot/dts/rockchip/rk3328.dtsi | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3328.dtsi b/arch/arm64/boot/dts/rockchip/rk3328.dtsi
+index b861b4fd75e6..a4d591d91533 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3328.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3328.dtsi
+@@ -299,8 +299,6 @@
+ 	grf: syscon@ff100000 {
+ 		compatible = "rockchip,rk3328-grf", "syscon", "simple-mfd";
+ 		reg = <0x0 0xff100000 0x0 0x1000>;
+-		#address-cells = <1>;
+-		#size-cells = <1>;
+ 
+ 		io_domains: io-domains {
+ 			compatible = "rockchip,rk3328-io-voltage-domain";
+
+From d94787f4475820546c232db618566657084c2637 Mon Sep 17 00:00:00 2001
+From: Chen-Yu Tsai <wens@csie.org>
+Date: Fri, 27 Mar 2020 11:04:13 +0800
+Subject: [PATCH] arm64: dts: rockchip: drop #address-cells, #size-cells from
+ rk3399 pmugrf node
+
+The device tree compiler gives the following warning:
+
+    /syscon@ff100000: unnecessary #address-cells/#size-cells without
+    "ranges" or child "reg" property
+
+Since the pmygrf node only has an io-domains child node that has no
+reg property, remove the two properties from the pmugrf node to silence
+the warning.
+
+Signed-off-by: Chen-Yu Tsai <wens@csie.org>
+Link: https://lore.kernel.org/r/20200327030414.5903-6-wens@kernel.org
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+(cherry picked from commit 59782311b24d93cd6c8944ba86130744ab857429)
+---
+ arch/arm64/boot/dts/rockchip/rk3399.dtsi | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3399.dtsi b/arch/arm64/boot/dts/rockchip/rk3399.dtsi
+index 74f2c3d49095..3499d1497127 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3399.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3399.dtsi
+@@ -1124,8 +1124,6 @@
+ 	pmugrf: syscon@ff320000 {
+ 		compatible = "rockchip,rk3399-pmugrf", "syscon", "simple-mfd";
+ 		reg = <0x0 0xff320000 0x0 0x1000>;
+-		#address-cells = <1>;
+-		#size-cells = <1>;
+ 
+ 		pmu_io_domains: io-domains {
+ 			compatible = "rockchip,rk3399-pmu-io-voltage-domain";
+
+From 9d1a7273099fab0c502d8b2292f2bcb0e7b38957 Mon Sep 17 00:00:00 2001
+From: Chen-Yu Tsai <wens@csie.org>
+Date: Fri, 27 Mar 2020 11:04:14 +0800
+Subject: [PATCH] arm64: dts: rockchip: Rename dwc3 device nodes on rk3399 to
+ make dtc happy
+
+The device tree compiler complains that the dwc3 nodes have regs
+properties but no matching unit addresses.
+
+Add the unit addresses to the device node name. While at it, also rename
+the nodes from "dwc3" to "usb", as guidelines require device nodes have
+generic names.
+
+Fixes: 7144224f2c2b ("arm64: dts: rockchip: support dwc3 USB for rk3399")
+Signed-off-by: Chen-Yu Tsai <wens@csie.org>
+Link: https://lore.kernel.org/r/20200327030414.5903-7-wens@kernel.org
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+(cherry picked from commit 190c7f6fd43a776d4a6da1dac44408104649e9b7)
+---
+ arch/arm64/boot/dts/rockchip/rk3399.dtsi | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3399.dtsi b/arch/arm64/boot/dts/rockchip/rk3399.dtsi
+index 3499d1497127..90c27723cec5 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3399.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3399.dtsi
+@@ -403,7 +403,7 @@
+ 		reset-names = "usb3-otg";
+ 		status = "disabled";
+ 
+-		usbdrd_dwc3_0: dwc3 {
++		usbdrd_dwc3_0: usb@fe800000 {
+ 			compatible = "snps,dwc3";
+ 			reg = <0x0 0xfe800000 0x0 0x100000>;
+ 			interrupts = <GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH 0>;
+@@ -439,7 +439,7 @@
+ 		reset-names = "usb3-otg";
+ 		status = "disabled";
+ 
+-		usbdrd_dwc3_1: dwc3 {
++		usbdrd_dwc3_1: usb@fe900000 {
+ 			compatible = "snps,dwc3";
+ 			reg = <0x0 0xfe900000 0x0 0x100000>;
+ 			interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH 0>;
+
+From 96add3121829974457d3b54f3e6907c6657f72ab Mon Sep 17 00:00:00 2001
+From: Johan Jonker <jbx6244@gmail.com>
+Date: Fri, 3 Apr 2020 15:36:30 +0200
+Subject: [PATCH] dt-bindings: display: convert rockchip rk3066 hdmi bindings
+ to yaml
+
+Current dts files with 'hdmi' nodes for rk3066 are manually verified.
+In order to automate this process rockchip,rk3066-hdmi.txt
+has to be converted to yaml.
+
+Signed-off-by: Johan Jonker <jbx6244@gmail.com>
+Reviewed-by: Rob Herring <robh@kernel.org>
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+Link: https://patchwork.freedesktop.org/patch/msgid/20200403133630.7377-1-jbx6244@gmail.com
+(cherry picked from commit 8eea6e26fc2eda6922e5008ccb7f55bc1775d5b3)
+---
+ .../display/rockchip/rockchip,rk3066-hdmi.txt      |  72 -----------
+ .../display/rockchip/rockchip,rk3066-hdmi.yaml     | 140 +++++++++++++++++++++
+ 2 files changed, 140 insertions(+), 72 deletions(-)
+ delete mode 100644 Documentation/devicetree/bindings/display/rockchip/rockchip,rk3066-hdmi.txt
+ create mode 100644 Documentation/devicetree/bindings/display/rockchip/rockchip,rk3066-hdmi.yaml
+
+diff --git a/Documentation/devicetree/bindings/display/rockchip/rockchip,rk3066-hdmi.txt b/Documentation/devicetree/bindings/display/rockchip/rockchip,rk3066-hdmi.txt
+deleted file mode 100644
+index d1ad31bca8d9..000000000000
+--- a/Documentation/devicetree/bindings/display/rockchip/rockchip,rk3066-hdmi.txt
++++ /dev/null
+@@ -1,72 +0,0 @@
+-Rockchip specific extensions for rk3066 HDMI
+-============================================
+-
+-Required properties:
+-- compatible:
+-	"rockchip,rk3066-hdmi";
+-- reg:
+-	Physical base address and length of the controller's registers.
+-- clocks, clock-names:
+-	Phandle to HDMI controller clock, name should be "hclk".
+-- interrupts:
+-	HDMI interrupt number.
+-- power-domains:
+-	Phandle to the RK3066_PD_VIO power domain.
+-- rockchip,grf:
+-	This soc uses GRF regs to switch the HDMI TX input between vop0 and vop1.
+-- ports:
+-	Contains one port node with two endpoints, numbered 0 and 1,
+-	connected respectively to vop0 and vop1.
+-	Contains one port node with one endpoint
+-	connected to a hdmi-connector node.
+-- pinctrl-0, pinctrl-name:
+-	Switch the iomux for the HPD/I2C pins to HDMI function.
+-
+-Example:
+-	hdmi: hdmi@10116000 {
+-		compatible = "rockchip,rk3066-hdmi";
+-		reg = <0x10116000 0x2000>;
+-		interrupts = <GIC_SPI 64 IRQ_TYPE_LEVEL_HIGH>;
+-		clocks = <&cru HCLK_HDMI>;
+-		clock-names = "hclk";
+-		power-domains = <&power RK3066_PD_VIO>;
+-		rockchip,grf = <&grf>;
+-		pinctrl-names = "default";
+-		pinctrl-0 = <&hdmii2c_xfer>, <&hdmi_hpd>;
+-
+-		ports {
+-			#address-cells = <1>;
+-			#size-cells = <0>;
+-			hdmi_in: port@0 {
+-				reg = <0>;
+-				#address-cells = <1>;
+-				#size-cells = <0>;
+-				hdmi_in_vop0: endpoint@0 {
+-					reg = <0>;
+-					remote-endpoint = <&vop0_out_hdmi>;
+-				};
+-				hdmi_in_vop1: endpoint@1 {
+-					reg = <1>;
+-					remote-endpoint = <&vop1_out_hdmi>;
+-				};
+-			};
+-			hdmi_out: port@1 {
+-				reg = <1>;
+-				hdmi_out_con: endpoint {
+-					remote-endpoint = <&hdmi_con_in>;
+-				};
+-			};
+-		};
+-	};
+-
+-&pinctrl {
+-		hdmi {
+-			hdmi_hpd: hdmi-hpd {
+-				rockchip,pins = <0 RK_PA0 1 &pcfg_pull_default>;
+-			};
+-			hdmii2c_xfer: hdmii2c-xfer {
+-				rockchip,pins = <0 RK_PA1 1 &pcfg_pull_none>,
+-						<0 RK_PA2 1 &pcfg_pull_none>;
+-			};
+-		};
+-};
+diff --git a/Documentation/devicetree/bindings/display/rockchip/rockchip,rk3066-hdmi.yaml b/Documentation/devicetree/bindings/display/rockchip/rockchip,rk3066-hdmi.yaml
+new file mode 100644
+index 000000000000..4110d003ce1f
+--- /dev/null
++++ b/Documentation/devicetree/bindings/display/rockchip/rockchip,rk3066-hdmi.yaml
+@@ -0,0 +1,140 @@
++# SPDX-License-Identifier: GPL-2.0
++%YAML 1.2
++---
++$id: http://devicetree.org/schemas/display/rockchip/rockchip,rk3066-hdmi.yaml#
++$schema: http://devicetree.org/meta-schemas/core.yaml#
++
++title: Rockchip rk3066 HDMI controller
++
++maintainers:
++  - Sandy Huang <hjc@rock-chips.com>
++  - Heiko Stuebner <heiko@sntech.de>
++
++properties:
++  compatible:
++    const: rockchip,rk3066-hdmi
++
++  reg:
++    maxItems: 1
++
++  interrupts:
++    maxItems: 1
++
++  clocks:
++    maxItems: 1
++
++  clock-names:
++    const: hclk
++
++  pinctrl-0:
++    maxItems: 2
++
++  pinctrl-names:
++    const: default
++    description:
++      Switch the iomux for the HPD/I2C pins to HDMI function.
++
++  power-domains:
++    maxItems: 1
++
++  rockchip,grf:
++    $ref: /schemas/types.yaml#/definitions/phandle
++    description:
++      This soc uses GRF regs to switch the HDMI TX input between vop0 and vop1.
++
++  ports:
++    type: object
++
++    properties:
++      "#address-cells":
++        const: 1
++
++      "#size-cells":
++        const: 0
++
++      port@0:
++        type: object
++        description:
++          Port node with two endpoints, numbered 0 and 1,
++          connected respectively to vop0 and vop1.
++
++      port@1:
++        type: object
++        description:
++          Port node with one endpoint connected to a hdmi-connector node.
++
++    required:
++      - "#address-cells"
++      - "#size-cells"
++      - port@0
++      - port@1
++
++    additionalProperties: false
++
++required:
++  - compatible
++  - reg
++  - interrupts
++  - clocks
++  - clock-names
++  - pinctrl-0
++  - pinctrl-names
++  - power-domains
++  - rockchip,grf
++  - ports
++
++additionalProperties: false
++
++examples:
++  - |
++    #include <dt-bindings/clock/rk3066a-cru.h>
++    #include <dt-bindings/interrupt-controller/arm-gic.h>
++    #include <dt-bindings/pinctrl/rockchip.h>
++    #include <dt-bindings/power/rk3066-power.h>
++    hdmi: hdmi@10116000 {
++      compatible = "rockchip,rk3066-hdmi";
++      reg = <0x10116000 0x2000>;
++      interrupts = <GIC_SPI 64 IRQ_TYPE_LEVEL_HIGH>;
++      clocks = <&cru HCLK_HDMI>;
++      clock-names = "hclk";
++      pinctrl-0 = <&hdmii2c_xfer>, <&hdmi_hpd>;
++      pinctrl-names = "default";
++      power-domains = <&power RK3066_PD_VIO>;
++      rockchip,grf = <&grf>;
++
++      ports {
++        #address-cells = <1>;
++        #size-cells = <0>;
++        hdmi_in: port@0 {
++          reg = <0>;
++          #address-cells = <1>;
++          #size-cells = <0>;
++          hdmi_in_vop0: endpoint@0 {
++            reg = <0>;
++            remote-endpoint = <&vop0_out_hdmi>;
++          };
++          hdmi_in_vop1: endpoint@1 {
++            reg = <1>;
++            remote-endpoint = <&vop1_out_hdmi>;
++          };
++        };
++        hdmi_out: port@1 {
++          reg = <1>;
++          hdmi_out_con: endpoint {
++            remote-endpoint = <&hdmi_con_in>;
++          };
++        };
++      };
++    };
++
++    pinctrl {
++      hdmi {
++        hdmi_hpd: hdmi-hpd {
++          rockchip,pins = <0 RK_PA0 1 &pcfg_pull_default>;
++        };
++        hdmii2c_xfer: hdmii2c-xfer {
++          rockchip,pins = <0 RK_PA1 1 &pcfg_pull_none>,
++                          <0 RK_PA2 1 &pcfg_pull_none>;
++        };
++      };
++    };
+
+From b70576a38a44178852ef9b07490d5f2dadbee92f Mon Sep 17 00:00:00 2001
+From: Tobias Schramm <t.schramm@manjaro.org>
+Date: Thu, 16 Apr 2020 16:55:34 +0200
+Subject: [PATCH] arm64: dts: rockchip: add micro SD card regulator to
+ rockpro64
+
+This patch adds the RockPro64's micro SD card regulator to the
+RockPro64 dtsi. The regulator is present on all revisions of the
+device.
+Previously the regular was missing, resulting in unreliable boot
+behaviour when booting from SD card.
+
+Signed-off-by: Tobias Schramm <t.schramm@manjaro.org>
+Link: https://lore.kernel.org/r/20200416145534.1263575-1-t.schramm@manjaro.org
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+(cherry picked from commit 1f5a3e1679353fb53e955afd8801a7f4f60877ff)
+---
+ arch/arm64/boot/dts/rockchip/rk3399-rockpro64.dtsi | 27 ++++++++++++++++++++++
+ 1 file changed, 27 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3399-rockpro64.dtsi b/arch/arm64/boot/dts/rockchip/rk3399-rockpro64.dtsi
+index 9bca25801260..6788ab28f89a 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3399-rockpro64.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3399-rockpro64.dtsi
+@@ -96,6 +96,24 @@
+ 		vin-supply = <&vcc_1v8>;
+ 	};
+ 
++	/* micro SD card power */
++	vcc3v0_sd: vcc3v0-sd {
++		compatible = "regulator-fixed";
++		enable-active-high;
++		gpio = <&gpio0 RK_PA1 GPIO_ACTIVE_HIGH>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&sdmmc0_pwr_h>;
++		regulator-name = "vcc3v0_sd";
++		regulator-always-on;
++		regulator-min-microvolt = <3000000>;
++		regulator-max-microvolt = <3000000>;
++		vin-supply = <&vcc3v3_sys>;
++
++		regulator-state-mem {
++			regulator-off-in-suspend;
++		};
++	};
++
+ 	vcc3v3_pcie: vcc3v3-pcie-regulator {
+ 		compatible = "regulator-fixed";
+ 		enable-active-high;
+@@ -603,6 +621,13 @@
+ 		};
+ 	};
+ 
++	sdcard {
++		sdmmc0_pwr_h: sdmmc0-pwr-h {
++			rockchip,pins = <0 RK_PA1 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++
++	};
++
+ 	sdio-pwrseq {
+ 		wifi_enable_h: wifi-enable-h {
+ 			rockchip,pins = <0 RK_PB2 RK_FUNC_GPIO &pcfg_pull_none>;
+@@ -661,6 +686,8 @@
+ 	max-frequency = <150000000>;
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&sdmmc_clk &sdmmc_cmd &sdmmc_bus4>;
++	vmmc-supply = <&vcc3v0_sd>;
++	vqmmc-supply = <&vcc_sdio>;
+ 	status = "okay";
+ };
+ 
+
+From 8b1d9481dc46be9be43ce5ef32719df881410cc5 Mon Sep 17 00:00:00 2001
+From: Johan Jonker <jbx6244@gmail.com>
+Date: Wed, 15 Apr 2020 15:10:57 +0200
+Subject: [PATCH] arm64: dts: rockchip: remove bus-width from mmc nodes in
+ rk3308-roc-cc
+
+The 'bus-width' property for mmc nodes is defined both in
+'rk3308.dtsi' and 'rk3308-roc-cc.dts'.
+'bus-width' and pinctrl containing the bus-pins
+should be in the same file, so remove all entries
+from mmc nodes in 'rk3308-roc-cc.dts'.
+
+Signed-off-by: Johan Jonker <jbx6244@gmail.com>
+Link: https://lore.kernel.org/r/20200415131057.2366-1-jbx6244@gmail.com
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+(cherry picked from commit 051083dddf07a4472bc1720d5c2b1909e0865890)
+---
+ arch/arm64/boot/dts/rockchip/rk3308-roc-cc.dts | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3308-roc-cc.dts b/arch/arm64/boot/dts/rockchip/rk3308-roc-cc.dts
+index aa256350b18f..8011e9b12347 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3308-roc-cc.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3308-roc-cc.dts
+@@ -123,7 +123,6 @@
+ };
+ 
+ &emmc {
+-	bus-width = <8>;
+ 	cap-mmc-highspeed;
+ 	disable-wp;
+ 	mmc-hs200-1_8v;
+@@ -171,7 +170,6 @@
+ };
+ 
+ &sdmmc {
+-	bus-width = <4>;
+ 	cap-mmc-highspeed;
+ 	cap-sd-highspeed;
+ 	card-detect-delay = <300>;
+
+From 586c16668802de5aa8ad1843ba9f32c74d8f1d16 Mon Sep 17 00:00:00 2001
+From: Heiko Stuebner <heiko.stuebner@theobroma-systems.com>
+Date: Tue, 14 Apr 2020 10:29:36 +0200
+Subject: [PATCH] arm64: dts: rockchip: add core devicetree for rk3326
+
+The rk3326 is basically a px30 without the second display controller.
+So add a dtsi based on that, that just removes the affected nodes.
+
+Signed-off-by: Heiko Stuebner <heiko.stuebner@theobroma-systems.com>
+Link: https://lore.kernel.org/r/20200414082938.2977572-1-heiko@sntech.de
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+(cherry picked from commit df07f7df7e5a61d06b21f89c4ab744fb4e4c2222)
+---
+ arch/arm64/boot/dts/rockchip/rk3326.dtsi | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+ create mode 100644 arch/arm64/boot/dts/rockchip/rk3326.dtsi
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3326.dtsi b/arch/arm64/boot/dts/rockchip/rk3326.dtsi
+new file mode 100644
+index 000000000000..2ba6da125137
+--- /dev/null
++++ b/arch/arm64/boot/dts/rockchip/rk3326.dtsi
+@@ -0,0 +1,15 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++/*
++ * Copyright (c) 2020 Fuzhou Rockchip Electronics Co., Ltd
++ */
++
++#include "px30.dtsi"
++
++&display_subsystem {
++	ports = <&vopb_out>;
++};
++
++/delete-node/ &dsi_in_vopl;
++/delete-node/ &lvds_vopl_in;
++/delete-node/ &vopl;
++/delete-node/ &vopl_mmu;
+
+From 5902e773f0bfedb39fca3d23e1aa8608ee150a1a Mon Sep 17 00:00:00 2001
+From: Heiko Stuebner <heiko.stuebner@theobroma-systems.com>
+Date: Tue, 14 Apr 2020 10:29:37 +0200
+Subject: [PATCH] dt-bindings: Add binding for Hardkernel Odroid Go Advance
+
+Add a compatible for the Odroid Go Advance from Hardkernel.
+The compatible used by the vendor already is odroid-go2, to distinguish
+it from the previous (microcontroller-based) Odroid Go, so we're keeping
+that, also to not cause unnecessary incompatibilites.
+
+Signed-off-by: Heiko Stuebner <heiko.stuebner@theobroma-systems.com>
+Acked-by: Rob Herring <robh@kernel.org>
+Link: https://lore.kernel.org/r/20200414082938.2977572-2-heiko@sntech.de
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+(cherry picked from commit 98412e1e57ea776b4581077a68fe6ed598bfba99)
+---
+ Documentation/devicetree/bindings/arm/rockchip.yaml | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/arm/rockchip.yaml b/Documentation/devicetree/bindings/arm/rockchip.yaml
+index 715586dea9bb..d4a4045092df 100644
+--- a/Documentation/devicetree/bindings/arm/rockchip.yaml
++++ b/Documentation/devicetree/bindings/arm/rockchip.yaml
+@@ -358,6 +358,11 @@ properties:
+           - const: haoyu,marsboard-rk3066
+           - const: rockchip,rk3066a
+ 
++      - description: Hardkernel Odroid Go Advance
++        items:
++          - const: hardkernel,rk3326-odroid-go2
++          - const: rockchip,rk3326
++
+       - description: Hugsun X99 TV Box
+         items:
+           - const: hugsun,x99
+
+From f3642fbb37bd3ca1d3fb160eaf3d482f86275b32 Mon Sep 17 00:00:00 2001
+From: Heiko Stuebner <heiko.stuebner@theobroma-systems.com>
+Date: Tue, 14 Apr 2020 10:29:38 +0200
+Subject: [PATCH] arm64: dts: rockchip: add Odroid Advance Go
+
+The Odroid Advance Go is a handheld based on Rockchip's rk3326 soc
+with a DSI display and some handheld controls including an analog
+joystick connected to the saradc.
+
+Signed-off-by: Heiko Stuebner <heiko.stuebner@theobroma-systems.com>
+Link: https://lore.kernel.org/r/20200414082938.2977572-3-heiko@sntech.de
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+(cherry picked from commit ce33988fb69828dfcb5825f9086d9dc2b37a9282)
+---
+ arch/arm64/boot/dts/rockchip/Makefile              |   1 +
+ arch/arm64/boot/dts/rockchip/rk3326-odroid-go2.dts | 560 +++++++++++++++++++++
+ 2 files changed, 561 insertions(+)
+ create mode 100644 arch/arm64/boot/dts/rockchip/rk3326-odroid-go2.dts
+
+diff --git a/arch/arm64/boot/dts/rockchip/Makefile b/arch/arm64/boot/dts/rockchip/Makefile
+index ae7621309e92..b87b1f773083 100644
+--- a/arch/arm64/boot/dts/rockchip/Makefile
++++ b/arch/arm64/boot/dts/rockchip/Makefile
+@@ -2,6 +2,7 @@
+ dtb-$(CONFIG_ARCH_ROCKCHIP) += px30-evb.dtb
+ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3308-evb.dtb
+ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3308-roc-cc.dtb
++dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3326-odroid-go2.dtb
+ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3328-a1.dtb
+ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3328-evb.dtb
+ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3328-rock64.dtb
+diff --git a/arch/arm64/boot/dts/rockchip/rk3326-odroid-go2.dts b/arch/arm64/boot/dts/rockchip/rk3326-odroid-go2.dts
+new file mode 100644
+index 000000000000..cf20aac5f2fe
+--- /dev/null
++++ b/arch/arm64/boot/dts/rockchip/rk3326-odroid-go2.dts
+@@ -0,0 +1,560 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++/*
++ * Copyright (c) 2019 Hardkernel Co., Ltd
++ * Copyright (c) 2020 Theobroma Systems Design und Consulting GmbH
++ */
++
++/dts-v1/;
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/input/input.h>
++#include <dt-bindings/pinctrl/rockchip.h>
++#include "rk3326.dtsi"
++
++/ {
++	model = "ODROID-GO Advance";
++	compatible = "hardkernel,rk3326-odroid-go2", "rockchip,rk3326";
++
++	chosen {
++		stdout-path = "serial2:115200n8";
++	};
++
++	backlight: backlight {
++		compatible = "pwm-backlight";
++		power-supply = <&vcc_bl>;
++		pwms = <&pwm1 0 25000 0>;
++	};
++
++	gpio-keys {
++		compatible = "gpio-keys";
++		pinctrl-names = "default";
++		pinctrl-0 = <&btn_pins>;
++
++		/*
++		 *      *** ODROIDGO2-Advance Switch layout ***
++		 * |------------------------------------------------|
++		 * | sw15                                      sw16 |
++		 * |------------------------------------------------|
++		 * |     sw1      |-------------------|      sw8    |
++		 * |  sw3   sw4   |                   |   sw7   sw5 |
++		 * |     sw2      |    LCD Display    |      sw6    |
++		 * |              |                   |             |
++		 * |              |-------------------|             |
++		 * |         sw9 sw10   sw11 sw12   sw13 sw14       |
++		 * |------------------------------------------------|
++		 */
++
++		sw1 {
++			gpios = <&gpio1 RK_PB4 GPIO_ACTIVE_LOW>;
++			label = "DPAD-UP";
++			linux,code = <BTN_DPAD_UP>;
++		};
++		sw2 {
++			gpios = <&gpio1 RK_PB5 GPIO_ACTIVE_LOW>;
++			label = "DPAD-DOWN";
++			linux,code = <BTN_DPAD_DOWN>;
++		};
++		sw3 {
++			gpios = <&gpio1 RK_PB6 GPIO_ACTIVE_LOW>;
++			label = "DPAD-LEFT";
++			linux,code = <BTN_DPAD_LEFT>;
++		};
++		sw4 {
++			gpios = <&gpio1 RK_PB7 GPIO_ACTIVE_LOW>;
++			label = "DPAD-RIGHT";
++			linux,code = <BTN_DPAD_RIGHT>;
++		};
++		sw5 {
++			gpios = <&gpio1 RK_PA2 GPIO_ACTIVE_LOW>;
++			label = "BTN-A";
++			linux,code = <BTN_EAST>;
++		};
++		sw6 {
++			gpios = <&gpio1 RK_PA5 GPIO_ACTIVE_LOW>;
++			label = "BTN-B";
++			linux,code = <BTN_SOUTH>;
++		};
++		sw7 {
++			gpios = <&gpio1 RK_PA6 GPIO_ACTIVE_LOW>;
++			label = "BTN-Y";
++			linux,code = <BTN_WEST>;
++		};
++		sw8 {
++			gpios = <&gpio1 RK_PA7 GPIO_ACTIVE_LOW>;
++			label = "BTN-X";
++			linux,code = <BTN_NORTH>;
++		};
++		sw9 {
++			gpios = <&gpio2 RK_PA0 GPIO_ACTIVE_LOW>;
++			label = "F1";
++			linux,code = <BTN_TRIGGER_HAPPY1>;
++		};
++		sw10 {
++			gpios = <&gpio2 RK_PA1 GPIO_ACTIVE_LOW>;
++			label = "F2";
++			linux,code = <BTN_TRIGGER_HAPPY2>;
++		};
++		sw11 {
++			gpios = <&gpio2 RK_PA2 GPIO_ACTIVE_LOW>;
++			label = "F3";
++			linux,code = <BTN_TRIGGER_HAPPY3>;
++		};
++		sw12 {
++			gpios = <&gpio2 RK_PA3 GPIO_ACTIVE_LOW>;
++			label = "F4";
++			linux,code = <BTN_TRIGGER_HAPPY4>;
++		};
++		sw13 {
++			gpios = <&gpio2 RK_PA4 GPIO_ACTIVE_LOW>;
++			label = "F5";
++			linux,code = <BTN_TRIGGER_HAPPY5>;
++		};
++		sw14 {
++			gpios = <&gpio2 RK_PA5 GPIO_ACTIVE_LOW>;
++			label = "F6";
++			linux,code = <BTN_TRIGGER_HAPPY6>;
++		};
++		sw15 {
++			gpios = <&gpio2 RK_PA6 GPIO_ACTIVE_LOW>;
++			label = "TOP-LEFT";
++			linux,code = <BTN_TL>;
++		};
++		sw16 {
++			gpios = <&gpio2 RK_PA7 GPIO_ACTIVE_LOW>;
++			label = "TOP-RIGHT";
++			linux,code = <BTN_TR>;
++		};
++	};
++
++	leds: gpio-leds {
++		compatible = "gpio-leds";
++		pinctrl-names = "led_pins";
++		pinctrl-0 = <&led_pins>;
++
++		led-0 {
++			label = "blue:heartbeat";
++			gpios = <&gpio0 RK_PC1 GPIO_ACTIVE_HIGH>;
++			linux,default-trigger = "heartbeat";
++		};
++	};
++
++	vccsys: vccsys {
++		compatible = "regulator-fixed";
++		regulator-name = "vcc3v8_sys";
++		regulator-always-on;
++		regulator-min-microvolt = <3800000>;
++		regulator-max-microvolt = <3800000>;
++	};
++
++	vcc_host: vcc_host {
++		compatible = "regulator-fixed";
++		regulator-name = "vcc_host";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++
++		gpio = <&gpio0 RK_PB7 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-always-on;
++		vin-supply = <&vccsys>;
++	};
++};
++
++&cpu0 {
++	cpu-supply = <&vdd_arm>;
++};
++
++&cpu1 {
++	cpu-supply = <&vdd_arm>;
++};
++
++&cpu2 {
++	cpu-supply = <&vdd_arm>;
++};
++
++&cpu3 {
++	cpu-supply = <&vdd_arm>;
++};
++
++&cru {
++	assigned-clocks = <&cru PLL_NPLL>,
++		<&cru ACLK_BUS_PRE>, <&cru ACLK_PERI_PRE>,
++		<&cru HCLK_BUS_PRE>, <&cru HCLK_PERI_PRE>,
++		<&cru PCLK_BUS_PRE>, <&cru SCLK_GPU>,
++		<&cru PLL_CPLL>;
++
++	assigned-clock-rates = <1188000000>,
++		<200000000>, <200000000>,
++		<150000000>, <150000000>,
++		<100000000>, <200000000>,
++		<17000000>;
++};
++
++&display_subsystem {
++	status = "okay";
++};
++
++&dsi {
++	status = "okay";
++
++	ports {
++		mipi_out: port@1 {
++			reg = <1>;
++
++			mipi_out_panel: endpoint {
++				remote-endpoint = <&mipi_in_panel>;
++			};
++		};
++	};
++
++	panel@0 {
++		compatible = "elida,kd35t133";
++		reg = <0>;
++		backlight = <&backlight>;
++		iovcc-supply = <&vcc_lcd>;
++		reset-gpios = <&gpio3 RK_PC0 GPIO_ACTIVE_LOW>;
++		vdd-supply = <&vcc_lcd>;
++
++		port {
++			mipi_in_panel: endpoint {
++				remote-endpoint = <&mipi_out_panel>;
++			};
++		};
++	};
++};
++
++&dsi_dphy {
++	status = "okay";
++};
++
++&gpu {
++	mali-supply = <&vdd_logic>;
++	status = "okay";
++};
++
++&i2c0 {
++	clock-frequency = <400000>;
++	i2c-scl-falling-time-ns = <16>;
++	i2c-scl-rising-time-ns = <280>;
++	status = "okay";
++
++	rk817: pmic@20 {
++		compatible = "rockchip,rk817";
++		reg = <0x20>;
++		interrupt-parent = <&gpio0>;
++		interrupts = <RK_PB2 IRQ_TYPE_LEVEL_LOW>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&pmic_int>;
++		rockchip,system-power-controller;
++		wakeup-source;
++		#clock-cells = <1>;
++		clock-output-names = "rk808-clkout1", "xin32k";
++
++		vcc1-supply = <&vccsys>;
++		vcc2-supply = <&vccsys>;
++		vcc3-supply = <&vccsys>;
++		vcc4-supply = <&vccsys>;
++		vcc5-supply = <&vccsys>;
++		vcc6-supply = <&vccsys>;
++		vcc7-supply = <&vccsys>;
++
++		regulators {
++			vdd_logic: DCDC_REG1 {
++				regulator-name = "vdd_logic";
++				regulator-min-microvolt = <950000>;
++				regulator-max-microvolt = <1150000>;
++				regulator-ramp-delay = <6001>;
++				regulator-always-on;
++				regulator-boot-on;
++
++				regulator-state-mem {
++					regulator-on-in-suspend;
++					regulator-suspend-microvolt = <950000>;
++				};
++			};
++
++			vdd_arm: DCDC_REG2 {
++				regulator-name = "vdd_arm";
++				regulator-min-microvolt = <950000>;
++				regulator-max-microvolt = <1350000>;
++				regulator-ramp-delay = <6001>;
++				regulator-always-on;
++				regulator-boot-on;
++
++				regulator-state-mem {
++					regulator-off-in-suspend;
++					regulator-suspend-microvolt = <950000>;
++				};
++			};
++
++			vcc_ddr: DCDC_REG3 {
++				regulator-name = "vcc_ddr";
++				regulator-always-on;
++				regulator-boot-on;
++
++				regulator-state-mem {
++					regulator-on-in-suspend;
++				};
++			};
++
++			vcc_3v3: DCDC_REG4 {
++				regulator-name = "vcc_3v3";
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-always-on;
++				regulator-boot-on;
++
++				regulator-state-mem {
++					regulator-off-in-suspend;
++					regulator-suspend-microvolt = <3300000>;
++				};
++			};
++
++			vcc_1v8: LDO_REG2 {
++				regulator-name = "vcc_1v8";
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-always-on;
++				regulator-boot-on;
++
++				regulator-state-mem {
++					regulator-on-in-suspend;
++					regulator-suspend-microvolt = <1800000>;
++				};
++			};
++
++			vdd_1v0: LDO_REG3 {
++				regulator-name = "vdd_1v0";
++				regulator-min-microvolt = <1000000>;
++				regulator-max-microvolt = <1000000>;
++				regulator-always-on;
++				regulator-boot-on;
++
++				regulator-state-mem {
++					regulator-on-in-suspend;
++					regulator-suspend-microvolt = <1000000>;
++				};
++			};
++
++			vcc3v3_pmu: LDO_REG4 {
++				regulator-name = "vcc3v3_pmu";
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-always-on;
++				regulator-boot-on;
++
++				regulator-state-mem {
++					regulator-on-in-suspend;
++					regulator-suspend-microvolt = <3300000>;
++				};
++			};
++
++			vccio_sd: LDO_REG5 {
++				regulator-name = "vccio_sd";
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-always-on;
++				regulator-boot-on;
++
++				regulator-state-mem {
++					regulator-on-in-suspend;
++					regulator-suspend-microvolt = <3300000>;
++				};
++			};
++
++			vcc_sd: LDO_REG6 {
++				regulator-name = "vcc_sd";
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-boot-on;
++
++				regulator-state-mem {
++					regulator-on-in-suspend;
++					regulator-suspend-microvolt = <3300000>;
++				};
++			};
++
++			vcc_bl: LDO_REG7 {
++				regulator-name = "vcc_bl";
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++
++				regulator-state-mem {
++					regulator-off-in-suspend;
++					regulator-suspend-microvolt = <3300000>;
++				};
++			};
++
++			vcc_lcd: LDO_REG8 {
++				regulator-name = "vcc_lcd";
++				regulator-min-microvolt = <2800000>;
++				regulator-max-microvolt = <2800000>;
++
++				regulator-state-mem {
++					regulator-off-in-suspend;
++					regulator-suspend-microvolt = <2800000>;
++				};
++			};
++
++			vcc_cam: LDO_REG9 {
++				regulator-name = "vcc_cam";
++				regulator-min-microvolt = <3000000>;
++				regulator-max-microvolt = <3000000>;
++
++				regulator-state-mem {
++					regulator-off-in-suspend;
++					regulator-suspend-microvolt = <3000000>;
++				};
++			};
++		};
++	};
++};
++
++/* EXT Header(P2): 7(SCL:GPIO0.C2), 8(SDA:GPIO0.C3) */
++&i2c1 {
++	clock-frequency = <400000>;
++	status = "okay";
++};
++
++/* I2S 1 Channel Used */
++&i2s1_2ch {
++	status = "okay";
++};
++
++&io_domains {
++	vccio1-supply = <&vcc_3v3>;
++	vccio2-supply = <&vccio_sd>;
++	vccio3-supply = <&vcc_3v3>;
++	vccio4-supply = <&vcc_3v3>;
++	vccio5-supply = <&vcc_3v3>;
++	vccio6-supply = <&vcc_3v3>;
++	status = "okay";
++};
++
++&pmu_io_domains {
++	pmuio1-supply = <&vcc3v3_pmu>;
++	pmuio2-supply = <&vcc3v3_pmu>;
++	status = "okay";
++};
++
++&pwm1 {
++	status = "okay";
++};
++
++&saradc {
++	vref-supply = <&vcc_1v8>;
++	status = "okay";
++};
++
++&sdmmc {
++	bus-width = <4>;
++	cap-sd-highspeed;
++	card-detect-delay = <200>;
++	cd-gpios = <&gpio0 RK_PA3 GPIO_ACTIVE_LOW>; /*[> CD GPIO <]*/
++	sd-uhs-sdr12;
++	sd-uhs-sdr25;
++	sd-uhs-sdr50;
++	sd-uhs-sdr104;
++	vmmc-supply = <&vcc_sd>;
++	vqmmc-supply = <&vccio_sd>;
++	status = "okay";
++};
++
++&tsadc {
++	status = "okay";
++};
++
++&u2phy {
++	status = "okay";
++
++	u2phy_host: host-port {
++		status = "okay";
++	};
++
++	u2phy_otg: otg-port {
++		status = "disabled";
++	};
++};
++
++&usb20_otg {
++	status = "okay";
++};
++
++/* EXT Header(P2): 2(RXD:GPIO1.C0),3(TXD:.C1),4(CTS:.C2),5(RTS:.C3) */
++&uart1 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart1_xfer &uart1_cts>;
++	status = "okay";
++};
++
++&uart2 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart2m1_xfer>;
++	status = "okay";
++};
++
++&vopb {
++	status = "okay";
++};
++
++&vopb_mmu {
++	status = "okay";
++};
++
++&pinctrl {
++	btns {
++		btn_pins: btn-pins {
++			rockchip,pins = <1 RK_PA2 RK_FUNC_GPIO &pcfg_pull_up>,
++					<1 RK_PA5 RK_FUNC_GPIO &pcfg_pull_up>,
++					<1 RK_PA6 RK_FUNC_GPIO &pcfg_pull_up>,
++					<1 RK_PA7 RK_FUNC_GPIO &pcfg_pull_up>,
++					<1 RK_PB4 RK_FUNC_GPIO &pcfg_pull_up>,
++					<1 RK_PB5 RK_FUNC_GPIO &pcfg_pull_up>,
++					<1 RK_PB6 RK_FUNC_GPIO &pcfg_pull_up>,
++					<1 RK_PB7 RK_FUNC_GPIO &pcfg_pull_up>,
++					<2 RK_PA0 RK_FUNC_GPIO &pcfg_pull_up>,
++					<2 RK_PA1 RK_FUNC_GPIO &pcfg_pull_up>,
++					<2 RK_PA2 RK_FUNC_GPIO &pcfg_pull_up>,
++					<2 RK_PA3 RK_FUNC_GPIO &pcfg_pull_up>,
++					<2 RK_PA4 RK_FUNC_GPIO &pcfg_pull_up>,
++					<2 RK_PA5 RK_FUNC_GPIO &pcfg_pull_up>,
++					<2 RK_PA6 RK_FUNC_GPIO &pcfg_pull_up>,
++					<2 RK_PA7 RK_FUNC_GPIO &pcfg_pull_up>;
++		};
++	};
++
++	headphone {
++		hp_det: hp-det {
++			rockchip,pins = <2 RK_PC6 RK_FUNC_GPIO &pcfg_pull_down>;
++		};
++	};
++
++	leds {
++		led_pins: led-pins {
++			rockchip,pins = <0 RK_PC1 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++	};
++
++	pmic {
++		dc_det: dc-det {
++			rockchip,pins = <0 RK_PB3 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++
++		pmic_int: pmic-int {
++			rockchip,pins = <0 RK_PB2 RK_FUNC_GPIO &pcfg_pull_up>;
++		};
++
++		soc_slppin_gpio: soc_slppin_gpio {
++			rockchip,pins =
++				<0 RK_PA4 RK_FUNC_GPIO &pcfg_output_low>;
++		};
++
++		soc_slppin_rst: soc_slppin_rst {
++			rockchip,pins =
++				<0 RK_PA4 RK_FUNC_2 &pcfg_pull_none>;
++		};
++
++		soc_slppin_slp: soc_slppin_slp {
++			rockchip,pins =
++				<0 RK_PA4 RK_FUNC_1 &pcfg_pull_none>;
++		};
++	};
++};
+
+From dc025cfedd0f62ac1e134e9e9ca26fbd7908a80c Mon Sep 17 00:00:00 2001
+From: Enric Balletbo i Serra <enric.balletbo@collabora.com>
+Date: Sun, 26 Apr 2020 18:16:53 +0200
+Subject: [PATCH] drm/rockchip: cdn-dp-core: Make cdn_dp_core_suspend/resume
+ static
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This fixes the following warning detected when running make with W=1
+
+    drivers/gpu/drm/rockchip//cdn-dp-core.c:1112:5: warning: no previous
+    prototype for ‘cdn_dp_suspend’ [-Wmissing-prototypes]
+
+    drivers/gpu/drm/rockchip//cdn-dp-core.c:1126:5: warning: no previous
+    prototype for ‘cdn_dp_resume’ [-Wmissing-prototypes]
+
+Signed-off-by: Enric Balletbo i Serra <enric.balletbo@collabora.com>
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+Link: https://patchwork.freedesktop.org/patch/msgid/20200426161653.7710-1-enric.balletbo@collabora.com
+(cherry picked from commit 7c49abb4c2f8853520abc05b7f7e8b751fbb3086)
+---
+ drivers/gpu/drm/rockchip/cdn-dp-core.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/rockchip/cdn-dp-core.c b/drivers/gpu/drm/rockchip/cdn-dp-core.c
+index eed594bd38d3..4fa00af89cca 100644
+--- a/drivers/gpu/drm/rockchip/cdn-dp-core.c
++++ b/drivers/gpu/drm/rockchip/cdn-dp-core.c
+@@ -1109,7 +1109,7 @@ static const struct component_ops cdn_dp_component_ops = {
+ 	.unbind = cdn_dp_unbind,
+ };
+ 
+-int cdn_dp_suspend(struct device *dev)
++static int cdn_dp_suspend(struct device *dev)
+ {
+ 	struct cdn_dp_device *dp = dev_get_drvdata(dev);
+ 	int ret = 0;
+@@ -1123,7 +1123,7 @@ int cdn_dp_suspend(struct device *dev)
+ 	return ret;
+ }
+ 
+-int cdn_dp_resume(struct device *dev)
++static int cdn_dp_resume(struct device *dev)
+ {
+ 	struct cdn_dp_device *dp = dev_get_drvdata(dev);
+ 
+
+From 85cdd24a6d6765fe011f037f994fce60ed8ca489 Mon Sep 17 00:00:00 2001
+From: Zheng Bin <zhengbin13@huawei.com>
+Date: Fri, 24 Apr 2020 15:44:10 +0800
+Subject: [PATCH] drm/rockchip: Remove unneeded semicolon
+
+Fixes coccicheck warning:
+
+drivers/gpu/drm/rockchip/cdn-dp-reg.c:604:2-3: Unneeded semicolon
+drivers/gpu/drm/rockchip/cdn-dp-reg.c:622:2-3: Unneeded semicolon
+drivers/gpu/drm/rockchip/cdn-dp-reg.c:703:2-3: Unneeded semicolon
+
+Reported-by: Hulk Robot <hulkci@huawei.com>
+Signed-off-by: Zheng Bin <zhengbin13@huawei.com>
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+Link: https://patchwork.freedesktop.org/patch/msgid/20200424074410.1070-1-zhengbin13@huawei.com
+(cherry picked from commit 611e22b1d9f61a8742c99433de9ff40795574c61)
+---
+ drivers/gpu/drm/rockchip/cdn-dp-reg.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/rockchip/cdn-dp-reg.c b/drivers/gpu/drm/rockchip/cdn-dp-reg.c
+index 7361c07cb4a7..9d2163ef4d6e 100644
+--- a/drivers/gpu/drm/rockchip/cdn-dp-reg.c
++++ b/drivers/gpu/drm/rockchip/cdn-dp-reg.c
+@@ -601,7 +601,7 @@ static int cdn_dp_get_msa_misc(struct video_info *video,
+ 	case YCBCR_4_2_0:
+ 		val[0] = 5;
+ 		break;
+-	};
++	}
+ 
+ 	switch (video->color_depth) {
+ 	case 6:
+@@ -619,7 +619,7 @@ static int cdn_dp_get_msa_misc(struct video_info *video,
+ 	case 16:
+ 		val[1] = 4;
+ 		break;
+-	};
++	}
+ 
+ 	msa_misc = 2 * val[0] + 32 * val[1] +
+ 		   ((video->color_fmt == Y_ONLY) ? (1 << 14) : 0);
+@@ -700,7 +700,7 @@ int cdn_dp_config_video(struct cdn_dp_device *dp)
+ 	case 16:
+ 		val = BCS_16;
+ 		break;
+-	};
++	}
+ 
+ 	val += video->color_fmt << 8;
+ 	ret = cdn_dp_reg_write(dp, DP_FRAMER_PXL_REPR, val);
+
+From b0d2daf985816c686be9ef0a3ec2fe33d81632c1 Mon Sep 17 00:00:00 2001
+From: Johan Jonker <jbx6244@gmail.com>
+Date: Thu, 16 Apr 2020 19:03:20 +0200
+Subject: [PATCH] ARM: dts: rockchip: fix phy nodename for rk3228-evb
+
+A test with the command below gives for example this error:
+
+arch/arm/boot/dts/rk3228-evb.dt.yaml: phy@0:
+'#phy-cells' is a required property
+
+The phy nodename is normally used by a phy-handle.
+This node is however compatible with
+"ethernet-phy-id1234.d400", "ethernet-phy-ieee802.3-c22"
+which is just been added to 'ethernet-phy.yaml'.
+So change nodename to 'ethernet-phy' for which '#phy-cells'
+is not a required property
+
+make ARCH=arm dtbs_check
+DT_SCHEMA_FILES=~/.local/lib/python3.5/site-packages/dtschema/schemas/
+phy/phy-provider.yaml
+
+Signed-off-by: Johan Jonker <jbx6244@gmail.com>
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+Link: https://lore.kernel.org/r/20200416170321.4216-1-jbx6244@gmail.com
+(cherry picked from commit 287e0d538fcec2f6e8eb1e565bf0749f3b90186d)
+---
+ arch/arm/boot/dts/rk3228-evb.dts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/rk3228-evb.dts b/arch/arm/boot/dts/rk3228-evb.dts
+index 5670b33fd1bd..aed879db6c15 100644
+--- a/arch/arm/boot/dts/rk3228-evb.dts
++++ b/arch/arm/boot/dts/rk3228-evb.dts
+@@ -46,7 +46,7 @@
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
+ 
+-		phy: phy@0 {
++		phy: ethernet-phy@0 {
+ 			compatible = "ethernet-phy-id1234.d400", "ethernet-phy-ieee802.3-c22";
+ 			reg = <0>;
+ 			clocks = <&cru SCLK_MAC_PHY>;
+
+From 9ccfeed2365b9bc93282f2eb2b5f220a621214f4 Mon Sep 17 00:00:00 2001
+From: Johan Jonker <jbx6244@gmail.com>
+Date: Thu, 16 Apr 2020 19:03:21 +0200
+Subject: [PATCH] ARM: dts: rockchip: fix phy nodename for rk3229-xms6
+
+A test with the command below gives for example this error:
+
+arch/arm/boot/dts/rk3229-xms6.dt.yaml: phy@0:
+'#phy-cells' is a required property
+
+The phy nodename is normally used by a phy-handle.
+This node is however compatible with
+"ethernet-phy-id1234.d400", "ethernet-phy-ieee802.3-c22"
+which is just been added to 'ethernet-phy.yaml'.
+So change nodename to 'ethernet-phy' for which '#phy-cells'
+is not a required property
+
+make ARCH=arm dtbs_check
+DT_SCHEMA_FILES=~/.local/lib/python3.5/site-packages/dtschema/schemas/
+phy/phy-provider.yaml
+
+Signed-off-by: Johan Jonker <jbx6244@gmail.com>
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+Link: https://lore.kernel.org/r/20200416170321.4216-2-jbx6244@gmail.com
+(cherry picked from commit 621c8d0c233e260232278a4cfd3380caa3c1da29)
+---
+ arch/arm/boot/dts/rk3229-xms6.dts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/rk3229-xms6.dts b/arch/arm/boot/dts/rk3229-xms6.dts
+index 679fc2b00e5a..933ef69da32a 100644
+--- a/arch/arm/boot/dts/rk3229-xms6.dts
++++ b/arch/arm/boot/dts/rk3229-xms6.dts
+@@ -150,7 +150,7 @@
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
+ 
+-		phy: phy@0 {
++		phy: ethernet-phy@0 {
+ 			compatible = "ethernet-phy-id1234.d400",
+ 			             "ethernet-phy-ieee802.3-c22";
+ 			reg = <0>;
+
+From 447fc29b3964aa00929572327078e0601eb20755 Mon Sep 17 00:00:00 2001
+From: Johan Jonker <jbx6244@gmail.com>
+Date: Sat, 25 Apr 2020 14:23:44 +0200
+Subject: [PATCH] arm64: dts: rockchip: remove extra assigned-clocks property
+ from &gmac2phy node in rk3328-evb.dts
+
+There are 2 'assigned-clocks' properties in the '&gmac2phy'
+node in 'rk3328-evb.dts', so remove one of them.
+
+Info from clk-rk3328.c:
+
+MUXGRF(SCLK_MAC2PHY, "clk_mac2phy", mux_mac2phy_src_p,
+CLK_SET_RATE_NO_REPARENT,
+RK3328_GRF_MAC_CON2, 10, 1, MFLAGS),
+
+Signed-off-by: Johan Jonker <jbx6244@gmail.com>
+Link: https://lore.kernel.org/r/20200425122345.12902-1-jbx6244@gmail.com
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+(cherry picked from commit f73a28284e2a89a7ca1e10e04514aedd33290c76)
+---
+ arch/arm64/boot/dts/rockchip/rk3328-evb.dts | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3328-evb.dts b/arch/arm64/boot/dts/rockchip/rk3328-evb.dts
+index 6abc6f4a86cf..6ce75f625c6b 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3328-evb.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3328-evb.dts
+@@ -82,7 +82,6 @@
+ &gmac2phy {
+ 	phy-supply = <&vcc_phy>;
+ 	clock_in_out = "output";
+-	assigned-clocks = <&cru SCLK_MAC2PHY_SRC>;
+ 	assigned-clock-rate = <50000000>;
+ 	assigned-clocks = <&cru SCLK_MAC2PHY>;
+ 	assigned-clock-parents = <&cru SCLK_MAC2PHY_SRC>;
+
+From 31b3d20b0ae56dc053a04a27ce389b845bc3c5a4 Mon Sep 17 00:00:00 2001
+From: Johan Jonker <jbx6244@gmail.com>
+Date: Sat, 25 Apr 2020 14:23:45 +0200
+Subject: [PATCH] arm64: dts: rockchip: fix status for &gmac2phy in
+ rk3328-evb.dts
+
+The status was removed of the '&gmac2phy' node with the apply
+of a patch long time ago, so fix status for '&gmac2phy'
+in 'rk3328-evb.dts'.
+
+Signed-off-by: Johan Jonker <jbx6244@gmail.com>
+Link: https://lore.kernel.org/r/20200425122345.12902-2-jbx6244@gmail.com
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+(cherry picked from commit c617ed88502d0b05149e7f32f3b3fd8a0663f7e2)
+---
+ arch/arm64/boot/dts/rockchip/rk3328-evb.dts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3328-evb.dts b/arch/arm64/boot/dts/rockchip/rk3328-evb.dts
+index 6ce75f625c6b..ac29c2744d08 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3328-evb.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3328-evb.dts
+@@ -85,7 +85,7 @@
+ 	assigned-clock-rate = <50000000>;
+ 	assigned-clocks = <&cru SCLK_MAC2PHY>;
+ 	assigned-clock-parents = <&cru SCLK_MAC2PHY_SRC>;
+-
++	status = "okay";
+ };
+ 
+ &i2c1 {
+
+From b10a4d53c72c7d02a7e8dab19f74f7d024c92628 Mon Sep 17 00:00:00 2001
+From: Johan Jonker <jbx6244@gmail.com>
+Date: Sat, 25 Apr 2020 16:38:37 +0200
+Subject: [PATCH] arm64: dts: rockchip: swap interrupts interrupt-names rk3399
+ gpu node
+
+Dts files with Rockchip rk3399 'gpu' nodes were manually verified.
+In order to automate this process arm,mali-midgard.txt
+has been converted to yaml. In the new setup dtbs_check with
+arm,mali-midgard.yaml expects interrupts and interrupt-names values
+in the same order. Fix this for rk3399.
+
+make ARCH=arm64 dtbs_check
+DT_SCHEMA_FILES=Documentation/devicetree/bindings/gpu/
+arm,mali-midgard.yaml
+
+Signed-off-by: Johan Jonker <jbx6244@gmail.com>
+Link: https://lore.kernel.org/r/20200425143837.18706-1-jbx6244@gmail.com
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+(cherry picked from commit c604fd810bda667bdc20b2c041917baa7803e0fb)
+---
+ arch/arm64/boot/dts/rockchip/rk3399.dtsi | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3399.dtsi b/arch/arm64/boot/dts/rockchip/rk3399.dtsi
+index 90c27723cec5..1448f358ed0a 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3399.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3399.dtsi
+@@ -1881,10 +1881,10 @@
+ 	gpu: gpu@ff9a0000 {
+ 		compatible = "rockchip,rk3399-mali", "arm,mali-t860";
+ 		reg = <0x0 0xff9a0000 0x0 0x10000>;
+-		interrupts = <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH 0>,
+-			     <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH 0>,
+-			     <GIC_SPI 21 IRQ_TYPE_LEVEL_HIGH 0>;
+-		interrupt-names = "gpu", "job", "mmu";
++		interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH 0>,
++			     <GIC_SPI 21 IRQ_TYPE_LEVEL_HIGH 0>,
++			     <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH 0>;
++		interrupt-names = "job", "mmu", "gpu";
+ 		clocks = <&cru ACLK_GPU>;
+ 		#cooling-cells = <2>;
+ 		power-domains = <&power RK3399_PD_GPU>;
+
+From ab682e9e28fe2cf52bf18fd3b966f8ad70d23162 Mon Sep 17 00:00:00 2001
+From: Johan Jonker <jbx6244@gmail.com>
+Date: Sat, 25 Apr 2020 21:25:00 +0200
+Subject: [PATCH] ARM: dts: rockchip: swap clock-names of gpu nodes
+
+Dts files with Rockchip 'gpu' nodes were manually verified.
+In order to automate this process arm,mali-utgard.txt
+has been converted to yaml. In the new setup dtbs_check with
+arm,mali-utgard.yaml expects clock-names values
+in the same order, so fix that.
+
+Signed-off-by: Johan Jonker <jbx6244@gmail.com>
+Link: https://lore.kernel.org/r/20200425192500.1808-1-jbx6244@gmail.com
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+(cherry picked from commit b14f3898d2c25a9b47a61fb879d0b1f3af92c59b)
+---
+ arch/arm/boot/dts/rk3036.dtsi | 2 +-
+ arch/arm/boot/dts/rk322x.dtsi | 2 +-
+ arch/arm/boot/dts/rk3xxx.dtsi | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm/boot/dts/rk3036.dtsi b/arch/arm/boot/dts/rk3036.dtsi
+index 781ac7583522..d9a0c9a29b68 100644
+--- a/arch/arm/boot/dts/rk3036.dtsi
++++ b/arch/arm/boot/dts/rk3036.dtsi
+@@ -128,7 +128,7 @@
+ 		assigned-clocks = <&cru SCLK_GPU>;
+ 		assigned-clock-rates = <100000000>;
+ 		clocks = <&cru SCLK_GPU>, <&cru SCLK_GPU>;
+-		clock-names = "core", "bus";
++		clock-names = "bus", "core";
+ 		resets = <&cru SRST_GPU>;
+ 		status = "disabled";
+ 	};
+diff --git a/arch/arm/boot/dts/rk322x.dtsi b/arch/arm/boot/dts/rk322x.dtsi
+index 06172ebbf0ce..ca95a4065aec 100644
+--- a/arch/arm/boot/dts/rk322x.dtsi
++++ b/arch/arm/boot/dts/rk322x.dtsi
+@@ -555,7 +555,7 @@
+ 				  "pp1",
+ 				  "ppmmu1";
+ 		clocks = <&cru ACLK_GPU>, <&cru ACLK_GPU>;
+-		clock-names = "core", "bus";
++		clock-names = "bus", "core";
+ 		resets = <&cru SRST_GPU_A>;
+ 		status = "disabled";
+ 	};
+diff --git a/arch/arm/boot/dts/rk3xxx.dtsi b/arch/arm/boot/dts/rk3xxx.dtsi
+index f9fcb7e9657b..d929b60517ab 100644
+--- a/arch/arm/boot/dts/rk3xxx.dtsi
++++ b/arch/arm/boot/dts/rk3xxx.dtsi
+@@ -84,7 +84,7 @@
+ 		compatible = "arm,mali-400";
+ 		reg = <0x10090000 0x10000>;
+ 		clocks = <&cru ACLK_GPU>, <&cru ACLK_GPU>;
+-		clock-names = "core", "bus";
++		clock-names = "bus", "core";
+ 		assigned-clocks = <&cru ACLK_GPU>;
+ 		assigned-clock-rates = <100000000>;
+ 		resets = <&cru SRST_GPU>;
+
+From fc9297440088a6a977bce327e7794cbddbecf1f7 Mon Sep 17 00:00:00 2001
+From: Johan Jonker <jbx6244@gmail.com>
+Date: Fri, 24 Apr 2020 17:55:59 +0200
+Subject: [PATCH] arm64: dts: rockchip: remove #sound-dai-cells from &i2s1 node
+ of rk3399-pinebook-pro.dts
+
+The '#sound-dai-cells' property is already defined in rk3399.dtsi
+at the 'i2s1' node, so remove it from the '&i2s1' node in
+'rk3399-pinebook-pro.dts'.
+
+Signed-off-by: Johan Jonker <jbx6244@gmail.com>
+Link: https://lore.kernel.org/r/20200424155600.24254-1-jbx6244@gmail.com
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+(cherry picked from commit e565dd298c6bc9f53f0b07d96b019e000777c1fe)
+---
+ arch/arm64/boot/dts/rockchip/rk3399-pinebook-pro.dts | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3399-pinebook-pro.dts b/arch/arm64/boot/dts/rockchip/rk3399-pinebook-pro.dts
+index 294d21bf45f5..8fae334356a2 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3399-pinebook-pro.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3399-pinebook-pro.dts
+@@ -743,7 +743,6 @@
+ };
+ 
+ &i2s1 {
+-	#sound-dai-cells = <0>;
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&i2s_8ch_mclk_gpio>, <&i2s1_2ch_bus>;
+ 	rockchip,capture-channels = <8>;
+
+From 515f58b5fb38d9b261df464fb336ef847c5e8a3a Mon Sep 17 00:00:00 2001
+From: Johan Jonker <jbx6244@gmail.com>
+Date: Fri, 24 Apr 2020 17:56:00 +0200
+Subject: [PATCH] arm64: dts: rockchip: remove #sound-dai-cells from &spdif
+ node of rk3399-hugsun-x99.dts
+
+The '#sound-dai-cells' property is already defined in rk3399.dtsi
+at the 'spdif' node, so remove it from the '&spdif' node in
+'rk3399-hugsun-x99.dts'.
+
+Signed-off-by: Johan Jonker <jbx6244@gmail.com>
+Link: https://lore.kernel.org/r/20200424155600.24254-2-jbx6244@gmail.com
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+(cherry picked from commit de70083cbaabb86c282f421b070b041236ba6f4b)
+---
+ arch/arm64/boot/dts/rockchip/rk3399-hugsun-x99.dts | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3399-hugsun-x99.dts b/arch/arm64/boot/dts/rockchip/rk3399-hugsun-x99.dts
+index aee484a05181..4b4a38e59283 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3399-hugsun-x99.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3399-hugsun-x99.dts
+@@ -633,7 +633,6 @@
+ &spdif {
+ 	status = "okay";
+ 	pinctrl-0 = <&spdif_bus_1>;
+-	#sound-dai-cells = <0>;
+ };
+ 
+ &spi1 {
+
+From 1e162c08c61b06e3e747a7e1d50aed15d8626a98 Mon Sep 17 00:00:00 2001
+From: Robin Murphy <robin.murphy@arm.com>
+Date: Fri, 24 Apr 2020 14:56:19 +0100
+Subject: [PATCH] arm64: dts: rockchip: Fix Pinebook Pro FUSB302 interrupt
+
+Although the FUSB302 driver has apparently supported the "fcs,int_n"
+property since the beginning, the DT binding has never documented it,
+and in fact defines a standard "interrupts" property as required. It's
+also questionable whether the GPIO specifier with GPIO_ACTIVE_HIGH is
+even correct, since the FUSB302 datasheet says INT_N is an "Active-LOW
+open-drain interrupt output", and the Pinebook Pro schematic shows it
+wired directly to the GPIO pin.
+
+Just use the standard property like all the other RK3399 boards sharing
+the same design.
+
+Signed-off-by: Robin Murphy <robin.murphy@arm.com>
+Link: https://lore.kernel.org/r/f731122c5ccde4e3d6d149a9d7bf01708b4279f7.1587736459.git.robin.murphy@arm.com
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+(cherry picked from commit 89ee3ace7292d94539aae156fb6fee65460b8bc0)
+---
+ arch/arm64/boot/dts/rockchip/rk3399-pinebook-pro.dts | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3399-pinebook-pro.dts b/arch/arm64/boot/dts/rockchip/rk3399-pinebook-pro.dts
+index 8fae334356a2..d44c73521218 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3399-pinebook-pro.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3399-pinebook-pro.dts
+@@ -690,7 +690,8 @@
+ 	fusb0: fusb30x@22 {
+ 		compatible = "fcs,fusb302";
+ 		reg = <0x22>;
+-		fcs,int_n = <&gpio1 RK_PA2 GPIO_ACTIVE_HIGH>;
++		interrupt-parent = <&gpio1>;
++		interrupts = <RK_PA2 IRQ_TYPE_LEVEL_LOW>;
+ 		pinctrl-names = "default";
+ 		pinctrl-0 = <&fusb0_int_gpio>;
+ 		vbus-supply = <&vbus_typec>;
+
+From 1badacb67758dc199cd45ffed030e6a50b1607d9 Mon Sep 17 00:00:00 2001
+From: Johan Jonker <jbx6244@gmail.com>
+Date: Fri, 24 Apr 2020 14:39:23 +0200
+Subject: [PATCH] ARM: dts: rockchip: fix pinctrl sub nodename for spi in
+ rk322x.dtsi
+
+A test with the command below gives these errors:
+
+arch/arm/boot/dts/rk3229-evb.dt.yaml: spi-0:
+'#address-cells' is a required property
+arch/arm/boot/dts/rk3229-evb.dt.yaml: spi-1:
+'#address-cells' is a required property
+arch/arm/boot/dts/rk3229-xms6.dt.yaml: spi-0:
+'#address-cells' is a required property
+arch/arm/boot/dts/rk3229-xms6.dt.yaml: spi-1:
+'#address-cells' is a required property
+
+The $nodename pattern for spi nodes is
+"^spi(@.*|-[0-9a-f])*$". To prevent warnings rename
+'spi-0' and 'spi-1' pinctrl sub nodenames to
+'spi0' and 'spi1' in 'rk322x.dtsi'.
+
+make ARCH=arm dtbs_check
+DT_SCHEMA_FILES=Documentation/devicetree/bindings/spi/spi-controller.yaml
+
+Signed-off-by: Johan Jonker <jbx6244@gmail.com>
+Link: https://lore.kernel.org/r/20200424123923.8192-1-jbx6244@gmail.com
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+(cherry picked from commit 855bdca1781c79eb661f89c8944c4a719ce720e8)
+---
+ arch/arm/boot/dts/rk322x.dtsi | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/boot/dts/rk322x.dtsi b/arch/arm/boot/dts/rk322x.dtsi
+index ca95a4065aec..5485a9918da6 100644
+--- a/arch/arm/boot/dts/rk322x.dtsi
++++ b/arch/arm/boot/dts/rk322x.dtsi
+@@ -1020,7 +1020,7 @@
+ 			};
+ 		};
+ 
+-		spi-0 {
++		spi0 {
+ 			spi0_clk: spi0-clk {
+ 				rockchip,pins = <0 RK_PB1 2 &pcfg_pull_up>;
+ 			};
+@@ -1038,7 +1038,7 @@
+ 			};
+ 		};
+ 
+-		spi-1 {
++		spi1 {
+ 			spi1_clk: spi1-clk {
+ 				rockchip,pins = <0 RK_PC7 2 &pcfg_pull_up>;
+ 			};
+
+From ed1080bd1bddc67ced3a01468d47b7224ab4c611 Mon Sep 17 00:00:00 2001
+From: Boris Brezillon <boris.brezillon@collabora.com>
+Date: Fri, 3 Apr 2020 19:13:45 -0300
+Subject: [PATCH] arm64: dts: rockchip: Define the rockchip Video Decoder node
+ on rk3399
+
+RK3399 has a Video decoder, define the node in the dtsi. We also add
+the missing power-domain in mmu node and enable the block.
+
+Signed-off-by: Boris Brezillon <boris.brezillon@collabora.com>
+Signed-off-by: Ezequiel Garcia <ezequiel@collabora.com>
+Link: https://lore.kernel.org/r/20200403221345.16702-6-ezequiel@collabora.com
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+(cherry picked from commit cbd7214402ecf7ecc59e21862ea3c901be48e831)
+---
+ arch/arm64/boot/dts/rockchip/rk3399.dtsi | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3399.dtsi b/arch/arm64/boot/dts/rockchip/rk3399.dtsi
+index 1448f358ed0a..de53f145c4fa 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3399.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3399.dtsi
+@@ -1269,6 +1269,18 @@
+ 		power-domains = <&power RK3399_PD_VCODEC>;
+ 	};
+ 
++	vdec: video-codec@ff660000 {
++		compatible = "rockchip,rk3399-vdec";
++		reg = <0x0 0xff660000 0x0 0x400>;
++		interrupts = <GIC_SPI 116 IRQ_TYPE_LEVEL_HIGH 0>;
++		interrupt-names = "vdpu";
++		clocks = <&cru ACLK_VDU>, <&cru HCLK_VDU>,
++			 <&cru SCLK_VDU_CA>, <&cru SCLK_VDU_CORE>;
++		clock-names = "axi", "ahb", "cabac", "core";
++		iommus = <&vdec_mmu>;
++		power-domains = <&power RK3399_PD_VDU>;
++	};
++
+ 	vdec_mmu: iommu@ff660480 {
+ 		compatible = "rockchip,iommu";
+ 		reg = <0x0 0xff660480 0x0 0x40>, <0x0 0xff6604c0 0x0 0x40>;
+@@ -1276,8 +1288,8 @@
+ 		interrupt-names = "vdec_mmu";
+ 		clocks = <&cru ACLK_VDU>, <&cru HCLK_VDU>;
+ 		clock-names = "aclk", "iface";
++		power-domains = <&power RK3399_PD_VDU>;
+ 		#iommu-cells = <0>;
+-		status = "disabled";
+ 	};
+ 
+ 	iep_mmu: iommu@ff670800 {
