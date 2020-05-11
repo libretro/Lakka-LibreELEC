@@ -29,8 +29,8 @@ case "$LINUX" in
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     ;;
   *)
-    PKG_VERSION="5.7-rc3"
-    PKG_SHA256="861dec2280e325d7bdc1d21278df4c8c5c3aa01cb825e5062da85ff17f5b043f"
+    PKG_VERSION="5.7-rc4"
+    PKG_SHA256="6bdbef0aa3e1964d84ec388ca40159753b7377291acc6293549188aea2b4d3d6"
     PKG_URL="https://git.kernel.org/torvalds/t/$PKG_NAME-$PKG_VERSION.tar.gz"
     PKG_PATCH_DIRS="default"
     ;;
