@@ -2,8 +2,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="imagedecoder.mpo"
-PKG_VERSION="1.1.0-Leia"
-PKG_SHA256="1aa166cfad9feb1521a7cc4432900a1f9f0b0afc686c25358ab65f1d32c60621"
+PKG_VERSION="1.1.2-Leia"
+PKG_SHA256="e0eaad1ff7ffbca13bf4d38be2c7c1acf8127c6c55f3d06940166f4775e6c2ab"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
