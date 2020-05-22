@@ -277,7 +277,9 @@ post_install() {
   add_group disk 6
   add_group floppy 19
   add_group kmem 9
+  add_group kvm 10
   add_group lp 7
+  add_group render 12
   add_group tape 33
   add_group tty 5
   add_group video 39
