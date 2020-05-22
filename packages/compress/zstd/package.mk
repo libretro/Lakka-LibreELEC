@@ -2,8 +2,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="zstd"
-PKG_VERSION="1.4.4"
-PKG_SHA256="59ef70ebb757ffe74a7b3fe9c305e2ba3350021a918d168a046c6300aeea9315"
+PKG_VERSION="1.4.5"
+PKG_SHA256="98e91c7c6bf162bf90e4e70fdbc41a8188b9fa8de5ad840c401198014406ce9e"
 PKG_LICENSE="BSD/GPLv2"
 PKG_SITE="http://www.zstd.net"
 PKG_URL="https://github.com/facebook/zstd/releases/download/v${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.gz"
