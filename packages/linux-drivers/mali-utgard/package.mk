@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mali-utgard"
-PKG_VERSION="5d89e2a946c7e4dbd7e627202e7bd7c3ed49954a"
-PKG_SHA256="c3e6199f58807558eb665357a35e2f86c161fc1a55f27988e604671bc27e98c7"
+PKG_VERSION="e8419af528f62a7e44c966b6853b59a2e78c47bf"
+PKG_SHA256="18e034cf2b131fa54c5579534ee09e5a054906051130e5e425d6d49f8d8f9eca"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://developer.arm.com/products/software/mali-drivers/utgard-kernel"
