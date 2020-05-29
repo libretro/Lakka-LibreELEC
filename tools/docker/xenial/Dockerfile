@@ -21,7 +21,7 @@ RUN apt-get update && apt-get install -y \
     wget bash bc gcc sed patch patchutils tar bzip2 gzip xz-utils perl gawk gperf zip unzip diffutils lzop make file \
     g++ xfonts-utils xsltproc default-jre-headless python3 \
     libc6-dev libncurses5-dev \
-    libjson-perl libxml-parser-perl \
+    libjson-perl libxml-parser-perl libparse-yapp-perl \
     golang-go \
     git openssh-client \
     --no-install-recommends \
