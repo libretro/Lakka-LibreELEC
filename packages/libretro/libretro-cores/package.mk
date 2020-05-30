@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0
-# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
+# Copyright (C) 208-present Team LibreELEC (https://libreelec.tv)
 # Copyright (C) 2020 Team Lakka
 
 PKG_NAME="libretro-cores"
-PKG_VERSION="1"
+PKG_VERSION=""
 PKG_ARCH="any"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="libretro cores metapackage"
