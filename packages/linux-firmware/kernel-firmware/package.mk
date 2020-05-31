@@ -11,6 +11,18 @@ PKG_NEED_UNPACK="${PROJECT_DIR}/${PROJECT}/packages/${PKG_NAME} ${PROJECT_DIR}/$
 PKG_LONGDESC="kernel-firmware: kernel related firmware"
 PKG_TOOLCHAIN="manual"
 
+configure_package() {
+  PKG_FW_SOURCE=${PKG_BUILD}/.copied-firmware
+}
+
+post_patch() {
+  (
+    cd ${PKG_BUILD}
+    mkdir -p "${PKG_FW_SOURCE}"
+      ./copy-firmware.sh --verbose "${PKG_FW_SOURCE}"
+  )
+}
+
 # Install additional miscellaneous drivers
 makeinstall_target() {
   FW_TARGET_DIR=$INSTALL/$(get_full_firmware_dir)
@@ -33,17 +45,19 @@ makeinstall_target() {
       [[ ${fwline} =~ ^#.* ]] && continue
       [[ ${fwline} =~ ^[[:space:]] ]] && continue
 
-      while read -r fwfile; do
-        [ -d "${PKG_BUILD}/${fwfile}" ] && continue
+      eval "(cd ${PKG_FW_SOURCE} && find "${fwline}" >/dev/null)" || die "ERROR: Firmware pattern does not exist: ${fwline}"
 
-        if [ -f "${PKG_BUILD}/${fwfile}" ]; then
+      while read -r fwfile; do
+        [ -d "${PKG_FW_SOURCE}/${fwfile}" ] && continue
+
+        if [ -f "${PKG_FW_SOURCE}/${fwfile}" ]; then
           mkdir -p "$(dirname "${FW_TARGET_DIR}/${fwfile}")"
-            cp -Lv "${PKG_BUILD}/${fwfile}" "${FW_TARGET_DIR}/${fwfile}"
+            cp -Lv "${PKG_FW_SOURCE}/${fwfile}" "${FW_TARGET_DIR}/${fwfile}"
         else
           echo "ERROR: Firmware file ${fwfile} does not exist - aborting"
           exit 1
         fi
-      done <<< "$(cd ${PKG_BUILD} && eval "find "${fwline}"")"
+      done <<< "$(cd ${PKG_FW_SOURCE} && eval "find "${fwline}"")"
     done < "${fwlist}"
   done
 
