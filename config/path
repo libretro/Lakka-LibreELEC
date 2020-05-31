@@ -42,16 +42,6 @@ SYSROOT_PREFIX=$TOOLCHAIN/$TARGET_NAME/sysroot
 LIB_PREFIX=$SYSROOT_PREFIX/usr
 TARGET_PREFIX=$TOOLCHAIN/bin/$TARGET_NAME-
 
-# use ARM toolchain on 64/32 split builds
-if [ -z "$KERNEL_TOOLCHAIN" -a "$TARGET_KERNEL_ARCH" = "arm64" -a "$TARGET_ARCH" = "arm" ]; then
-  KERNEL_TOOLCHAIN="aarch64-none-linux-gnu"
-fi
-if [ -n "$KERNEL_TOOLCHAIN" ]; then
-  TARGET_KERNEL_PREFIX=$TOOLCHAIN/lib/gcc-arm-$KERNEL_TOOLCHAIN/bin/$KERNEL_TOOLCHAIN-
-else
-  TARGET_KERNEL_PREFIX=$TARGET_PREFIX
-fi
-
 FAKEROOT_SCRIPT=$BUILD/.fakeroot
 
 if [ -z "$INSTALL" ]; then
@@ -70,6 +60,22 @@ XORG_PATH_MODULES=/usr/lib/xorg/modules
 XORG_PATH_DRIVERS=/usr/lib/xorg/modules/drivers
 
 . config/optimize
+
+# use ARM toolchain on 64/32 split builds
+if [ -z "$KERNEL_TOOLCHAIN" -a "$TARGET_KERNEL_ARCH" = "arm64" -a "$TARGET_ARCH" = "arm" ]; then
+  if [ "${MACHINE_HARDWARE_NAME}" = "x86_64" ]; then
+  KERNEL_TOOLCHAIN="aarch64-none-linux-gnu"
+  elif [ "${MACHINE_HARDWARE_NAME}" = "aarch64" ]; then
+    KERNEL_TOOLCHAIN="aarch64-none-elf"
+  else
+    die "No known toolchain available for ${MACHINE_HARDWARE_NAME}."
+  fi
+fi
+if [ -n "$KERNEL_TOOLCHAIN" ]; then
+  TARGET_KERNEL_PREFIX=$TOOLCHAIN/lib/gcc-arm-$KERNEL_TOOLCHAIN/bin/$KERNEL_TOOLCHAIN-
+else
+  TARGET_KERNEL_PREFIX=$TARGET_PREFIX
+fi
 
 if [ -z "$CCACHE_DIR" ]; then
   export CCACHE_DIR=$BUILD/.ccache
