@@ -1,17 +1,27 @@
 # Build container
 
-**Clone repo**
+**Build docker image**
 
-* `cd ~/`
-* `git clone https://github.com/LibreELEC/LibreELEC.tv.git LibreELEC`
+Use the following command to create a docker image and tag it with `libreelec`.
 
-**Build container**
+```
+docker build --pull -t libreelec tools/docker/focal
+```
 
-* `cd ~/LibreELEC`
-* `docker build --pull -t libreelec tools/docker/bionic`
+See https://docs.docker.com/engine/reference/commandline/build/ for details on `docker build` usage.
 
-**Build image inside container**
+**Build LibreELEC image inside a container**
 
-* `docker run -v ~/:/home/docker -h libreelec -it libreelec`
-* `cd ~/LibreELEC`
-* `make image`
+Use the following command to build LibreELEC images inside a new container based on the docker image tagged with `libreelec`.
+
+```
+docker run --rm -v `pwd`:/build -w /build -it libreelec make image
+```
+
+Use `--env`, `-e` or `--env-file` to pass environment variables used by the LibreELEC buildsystem.
+
+```
+docker run --rm -v `pwd`:/build -w /build -it -e PROJECT=RPi -e DEVICE=RPi4 -e ARCH=arm libreelec make image
+```
+
+See https://docs.docker.com/engine/reference/commandline/run/ for details on `docker run` usage.

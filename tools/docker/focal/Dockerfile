@@ -1,4 +1,4 @@
-FROM ubuntu:bionic
+FROM ubuntu:focal
 
 ARG DEBIAN_FRONTEND=noninteractive
 
