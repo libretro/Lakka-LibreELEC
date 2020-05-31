@@ -208,6 +208,7 @@ setup_pkg_config_host() {
 }
 
 setup_toolchain() {
+  local have_gold="no"
   if [ "$LTO_SUPPORT" = "yes" ]; then
     if flag_enabled "lto-parallel" "no"; then
       TARGET_CFLAGS+=" $FLAGS_OPTIM_LTO_PARALLEL $FLAGS_OPTIM_LTO_NO_FAT"
@@ -233,13 +234,20 @@ setup_toolchain() {
   # gold flag
   if flag_enabled "gold" "$GOLD_SUPPORT" "only-disable"; then
     TARGET_LDFLAGS+=" $LDFLAGS_OPTIM_GOLD"
+    have_gold="yes"
   fi
 
   # compiler optimization, descending priority: speed, size, default
   if [ "${BUILD_WITH_DEBUG}" = "yes" ]; then
-    TARGET_CFLAGS+=" $CFLAGS_OPTIM_DEBUG"
-    TARGET_CXXFLAGS+=" $CXXFLAGS_OPTIM_DEBUG"
-    TARGET_LDFLAGS+=" $LDFLAGS_OPTIM_DEBUG"
+    if [ "${SPLIT_DEBUG_INFO}" = "yes" -a "${have_gold}" = "yes" ]; then
+      TARGET_CFLAGS+=" $CFLAGS_OPTIM_DEBUG_SPLIT"
+      TARGET_CXXFLAGS+=" $CXXFLAGS_OPTIM_DEBUG_SPLIT"
+      TARGET_LDFLAGS+=" $LDFLAGS_OPTIM_DEBUG_SPLIT"
+    else
+      TARGET_CFLAGS+=" $CFLAGS_OPTIM_DEBUG"
+      TARGET_CXXFLAGS+=" $CXXFLAGS_OPTIM_DEBUG"
+      TARGET_LDFLAGS+=" $LDFLAGS_OPTIM_DEBUG"
+    fi
   elif flag_enabled "speed" "no"; then
     TARGET_CFLAGS+=" $CFLAGS_OPTIM_SPEED"
     TARGET_CXXFLAGS+=" $CXXFLAGS_OPTIM_SPEED"

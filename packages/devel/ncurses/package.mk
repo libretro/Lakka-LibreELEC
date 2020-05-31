@@ -60,6 +60,12 @@ PKG_CONFIGURE_OPTS_TARGET="--without-ada \
                            --disable-home-terminfo \
                            --disable-assertions"
 
+PKG_CONFIGURE_OPTS_HOST="--enable-termcap \
+                         --with-termlib \
+                         --with-shared \
+                         --enable-pc-files \
+                         --without-manpages"
+
 post_makeinstall_target() {
   cp misc/ncurses-config $TOOLCHAIN/bin
   chmod +x $TOOLCHAIN/bin/ncurses-config
