@@ -16,11 +16,28 @@ PKG_BUILD_FLAGS="-gold"
 # Dependencies
 get_graphicdrivers
 
+PKG_FFMPEG_HWACCEL="--enable-hwaccels"
+
 if [ "${V4L2_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" libdrm"
   PKG_NEED_UNPACK+=" $(get_pkg_directory libdrm)"
-  PKG_PATCH_DIRS+=" v4l2"
   PKG_FFMPEG_V4L2="--enable-v4l2_m2m --enable-libdrm"
+
+  if [ "${PROJECT}" = "RPi" ]; then
+    PKG_PATCH_DIRS+=" v4l2-rpi"
+    PKG_FFMPEG_RPI="--disable-rpi --disable-mmal"
+    if [ "${DEVICE}" = "RPi4" ]; then
+      PKG_DEPENDS_TARGET+=" systemd"
+      PKG_NEED_UNPACK+=" $(get_pkg_directory systemd)"
+      PKG_FFMPEG_V4L2+=" --enable-libudev \
+		         --enable-v4l2-request"
+      PKG_FFMPEG_HWACCEL="--disable-hwaccel=h264_v4l2request \
+	                  --disable-hwaccel=mpeg2_v4l2request \
+		          --disable-hwaccel=vp8_v4l2request"
+    fi
+  else
+    PKG_PATCH_DIRS+=" v4l2"
+  fi
 else
   PKG_FFMPEG_V4L2="--disable-v4l2_m2m"
 fi
@@ -58,6 +75,8 @@ if [ "${KODIPLAYER_DRIVER}" = "bcm2835-driver" ]; then
   PKG_DEPENDS_TARGET+=" bcm2835-driver"
   PKG_NEED_UNPACK+=" $(get_pkg_directory bcm2835-driver)"
   PKG_PATCH_DIRS+=" rpi-hevc"
+  PKG_FFMPEG_LIBS="-lbcm_host -lvcos -lvchiq_arm -lmmal -lmmal_core -lmmal_util -lvcsm"
+  PKG_FFMPEG_RPI="--enable-rpi --enable-mmal"
 fi
 
 if target_has_feature neon; then
@@ -79,11 +98,6 @@ fi
 pre_configure_target() {
   cd ${PKG_BUILD}
   rm -rf .${TARGET_NAME}
-
-  if [ "${KODIPLAYER_DRIVER}" = "bcm2835-driver" ]; then
-    PKG_FFMPEG_LIBS="-lbcm_host -lvcos -lvchiq_arm -lmmal -lmmal_core -lmmal_util -lvcsm"
-    PKG_FFMPEG_RPI="--enable-rpi"
-  fi
 }
 
 configure_target() {
@@ -149,7 +163,7 @@ configure_target() {
               --enable-encoder=wmav2 \
               --enable-encoder=mjpeg \
               --enable-encoder=png \
-              --enable-hwaccels \
+              ${PKG_FFMPEG_HWACCEL} \
               --disable-muxers \
               --enable-muxer=spdif \
               --enable-muxer=adts \
