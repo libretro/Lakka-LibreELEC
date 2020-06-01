@@ -240,6 +240,7 @@ configure_package() {
                          -DENABLE_DEBUGFISSION=OFF \
                          -DENABLE_APP_AUTONAME=OFF \
                          -DENABLE_INTERNAL_FLATBUFFERS=OFF \
+                         -DENABLE_LCMS2=OFF \
                          $PKG_KODI_USE_LTO \
                          $KODI_ARCH \
                          $KODI_NEON \
