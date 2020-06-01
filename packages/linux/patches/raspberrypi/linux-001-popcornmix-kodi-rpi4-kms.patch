@@ -1,0 +1,120 @@
+From c7852992ed9c4973e83d961fcf92b6be316e6b60 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Mon, 16 Mar 2020 20:38:37 +0000
+Subject: [PATCH 1/3] vc4_hdmi: Reduce max pixel rate to hide 4k modes
+
+vc4_hdmi: Increase pixel clock to 162MHz for 1920x1200@60
+---
+ drivers/gpu/drm/vc4/vc4_hdmi.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/vc4/vc4_hdmi.c b/drivers/gpu/drm/vc4/vc4_hdmi.c
+index 2d608cf9dff9..152c9d8c2898 100644
+--- a/drivers/gpu/drm/vc4/vc4_hdmi.c
++++ b/drivers/gpu/drm/vc4/vc4_hdmi.c
+@@ -1791,7 +1791,7 @@ static const struct vc4_hdmi_variant bcm2835_variant = {
+ static const struct vc4_hdmi_variant bcm2711_hdmi0_variant = {
+ 	.id			= 0,
+ 	.audio_available	= true,
+-	.max_pixel_clock	= 297000000,
++	.max_pixel_clock	= 162000000,
+ 	.cec_input_clock	= 27000000,
+ 	.registers		= vc5_hdmi_hdmi0_fields,
+ 	.num_registers		= ARRAY_SIZE(vc5_hdmi_hdmi0_fields),
+@@ -1819,7 +1819,7 @@ static const struct vc4_hdmi_variant bcm2711_hdmi0_variant = {
+ static const struct vc4_hdmi_variant bcm2711_hdmi1_variant = {
+ 	.id			= 1,
+ 	.audio_available	= true,
+-	.max_pixel_clock	= 297000000,
++	.max_pixel_clock	= 162000000,
+ 	.cec_input_clock	= 27000000,
+ 	.registers		= vc5_hdmi_hdmi1_fields,
+ 	.num_registers		= ARRAY_SIZE(vc5_hdmi_hdmi1_fields),
+-- 
+2.20.1
+
+
+From cc54619b00f89058791d3211843d043caad0cf0c Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Tue, 10 Mar 2020 22:19:51 +0000
+Subject: [PATCH 2/3] vc4_hdmi: Set channel mapping as expected by kodi
+
+---
+ drivers/gpu/drm/vc4/vc4_hdmi.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/gpu/drm/vc4/vc4_hdmi.c b/drivers/gpu/drm/vc4/vc4_hdmi.c
+index 152c9d8c2898..057595ec853d 100644
+--- a/drivers/gpu/drm/vc4/vc4_hdmi.c
++++ b/drivers/gpu/drm/vc4/vc4_hdmi.c
+@@ -775,6 +775,10 @@ static u32 vc4_hdmi_channel_map(struct vc4_hdmi *vc4_hdmi, u32 channel_mask)
+ 	int i;
+ 	u32 channel_map = 0;
+ 
++	/* hack: return the mapping expected by kodi until we have a way of configuring this */
++	if (channel_mask == 0xff)
++		return 0xb13f88;
++
+ 	for (i = 0; i < 8; i++) {
+ 		if (channel_mask & BIT(i))
+ 			channel_map |= i << (3 * i);
+@@ -787,6 +791,10 @@ static u32 vc5_hdmi_channel_map(struct vc4_hdmi *vc4_hdmi, u32 channel_mask)
+ 	int i;
+ 	u32 channel_map = 0;
+ 
++	/* hack: return the mapping expected by kodi until we have a way of configuring this */
++	if (channel_mask == 0xff)
++		return 0x54237610;
++
+ 	for (i = 0; i < 8; i++) {
+ 		if (channel_mask & BIT(i))
+ 			channel_map |= i << (4 * i);
+-- 
+2.20.1
+
+
+From c8d2ab620ecb95cd12708876000a76fc003990bb Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Tue, 10 Mar 2020 23:07:11 +0000
+Subject: [PATCH 3/3] vc4_hdmi: Set channel_allocation to something plausible
+
+---
+ drivers/gpu/drm/vc4/vc4_hdmi.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/drivers/gpu/drm/vc4/vc4_hdmi.c b/drivers/gpu/drm/vc4/vc4_hdmi.c
+index 057595ec853d..2a733ab5343c 100644
+--- a/drivers/gpu/drm/vc4/vc4_hdmi.c
++++ b/drivers/gpu/drm/vc4/vc4_hdmi.c
+@@ -329,6 +329,17 @@ static void vc4_hdmi_set_spd_infoframe(struct drm_encoder *encoder)
+ 
+ static void vc4_hdmi_set_audio_infoframe(struct drm_encoder *encoder)
+ {
++	static const u8 cea_map[] = {
++		0xff, // 0
++		0xff, // 1
++		0x00, // 2.0
++		0x01, // 2.1
++		0x03, // 3.1
++		0x09, // 4.1
++		0x0b, // 5.1
++		0x12, // 7.0
++		0x13, // 7.1
++	};
+ 	struct vc4_hdmi *vc4_hdmi = encoder_to_vc4_hdmi(encoder);
+ 	union hdmi_infoframe frame;
+ 	int ret;
+@@ -339,6 +350,10 @@ static void vc4_hdmi_set_audio_infoframe(struct drm_encoder *encoder)
+ 	frame.audio.sample_frequency = HDMI_AUDIO_SAMPLE_FREQUENCY_STREAM;
+ 	frame.audio.sample_size = HDMI_AUDIO_SAMPLE_SIZE_STREAM;
+ 	frame.audio.channels = vc4_hdmi->audio.channels;
++	if (frame.audio.channels < 2 || frame.audio.channels > 8)
++		DRM_ERROR("Unable to map channels: %d\n", frame.audio.channels);
++	else
++		frame.audio.channel_allocation = cea_map[frame.audio.channels];
+ 
+ 	vc4_hdmi_write_infoframe(encoder, &frame);
+ }
+-- 
+2.20.1
+
