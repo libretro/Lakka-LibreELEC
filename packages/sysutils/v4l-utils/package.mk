@@ -5,8 +5,8 @@
 # with 1.0.0 repeat delay is broken. test on upgrade
 
 PKG_NAME="v4l-utils"
-PKG_VERSION="1.18.1"
-PKG_SHA256="25fc42253722401f8742f04dc50a444dfa9b75378e7d09b55035bcbb44c5f342"
+PKG_VERSION="1.20.0"
+PKG_SHA256="956118713f7ccb405c55c7088a6a2490c32d54300dd9a30d8d5008c28d3726f7"
 PKG_LICENSE="GPL"
 PKG_SITE="http://linuxtv.org/"
 PKG_URL="http://linuxtv.org/downloads/v4l-utils/$PKG_NAME-$PKG_VERSION.tar.bz2"
@@ -30,6 +30,7 @@ make_target() {
   make -C utils/keytable CFLAGS="$TARGET_CFLAGS"
   make -C utils/ir-ctl CFLAGS="$TARGET_CFLAGS"
   if [ "$CEC_FRAMEWORK_SUPPORT" = "yes" ]; then
+    make -C utils/libcecutil CFLAGS="$TARGET_CFLAGS"
     make -C utils/cec-ctl CFLAGS="$TARGET_CFLAGS"
   fi
   make -C lib CFLAGS="$TARGET_CFLAGS"

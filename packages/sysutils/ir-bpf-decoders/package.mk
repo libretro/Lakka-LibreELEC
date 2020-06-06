@@ -2,8 +2,8 @@
 # Copyright (C) 2020-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ir-bpf-decoders"
-PKG_VERSION="v4l-utils-1.18.0"
-PKG_SHA256="7d8777708ba861dcf46e26d5c04dc9f6e6181b4cb6a82cf836d1e015818a76e9"
+PKG_VERSION="v4l-utils-1.20.0"
+PKG_SHA256="aaf2b3d0cf3086317a4ee9c2a80af2520b59b303a71238742ee8bc20c4f2bbb6"
 PKG_LICENSE="GPLv2+"
 PKG_SITE="https://linuxtv.org/"
 PKG_URL="https://github.com/LibreELEC/ir-bpf-decoders/archive/$PKG_VERSION.tar.gz"
