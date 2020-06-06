@@ -33,6 +33,8 @@ PROJECT=Allwinner SYSTEM=nanopi_m1_plus ARCH=arm make image
 PROJECT=imx6 SYSTEM=cuboxi ARCH=arm make image
 >&2 echo "imx6.udoo.arm"
 PROJECT=imx6 SYSTEM=udoo ARCH=arm make image
+>&2 echo "imx6.wandboard.arm"
+PROJECT=imx6 SYSTEM=wandboard ARCH=arm make image
 >&2 echo "OdroidC1.arm"
 PROJECT=OdroidC1 ARCH=arm make image
 >&2 echo "Odroid_C2.arm"

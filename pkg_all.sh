@@ -38,6 +38,7 @@ targets="\
 	RPi2|arm|||RPi4 \
 	Allwinner|arm||Bananapi| \
 	imx6|arm||cuboxi| \
+	imx6|arm||wandboard| \
 	OdroidC1|arm||| \
 	Odroid_C2|arm||| \
 	OdroidXU3|arm||| \

@@ -76,6 +76,14 @@ case "$LINUX" in
     PKG_SOURCE_DIR="xbian-sources-kernel-${PKG_COMMIT}*"
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET imx6-status-led imx6-soc-fan irqbalanced"
     ;;
+  imx6-4.9-wb)
+    PKG_VERSION="4.9-wb"
+    PKG_COMMIT="8cddbd3"
+    PKG_SITE="https://github.com/wandboard-org/linux"
+    PKG_URL="https://github.com/wandboard-org/linux/archive/$PKG_COMMIT.tar.gz"
+    PKG_SOURCE_NAME="$PKG_NAME-$LINUX-$PKG_COMMIT.tar.gz"
+    PKG_SOURCE_DIR="$PKG_NAME-${PKG_COMMIT}*"
+    ;;
   default-rpi)
     PKG_VERSION="ffd7bf4085b09447e5db96edd74e524f118ca3fe" #4.9.80
     PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
