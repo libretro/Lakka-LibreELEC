@@ -44618,3 +44618,74 @@ index 0000000000..5935a11ca5
 +
 +    do_logparse(args.logfile)
 +
+From 8dda09dc660f4d29cc560e6ef82eb0bd82b52a0a Mon Sep 17 00:00:00 2001
+From: John Cox <jc@kynesim.co.uk>
+Date: Tue, 9 Jun 2020 14:52:07 +0100
+Subject: [PATCH] Fix Pi3 hevc_rpi cache flush overflow
+
+Cache flushs rounded height up to CTB size (in this case 64) and
+failed to limit by pic height. The code that actually operated
+on that area applied the limits correctly so nothing was corrupted.
+This fix, in fact, marginally simplifies the code as it ends up being
+able to remove a couple of later limit checks having got the numbers
+right in the first place.
+---
+ libavcodec/rpi_hevc_filter.c | 12 ++++++------
+ libavcodec/rpi_hevcdec.c     |  3 +++
+ 2 files changed, 9 insertions(+), 6 deletions(-)
+
+diff --git a/libavcodec/rpi_hevc_filter.c b/libavcodec/rpi_hevc_filter.c
+index c8a22bd3d8..5125d1eb6b 100644
+--- a/libavcodec/rpi_hevc_filter.c
++++ b/libavcodec/rpi_hevc_filter.c
+@@ -624,10 +624,10 @@ static void deblock_y_blk(const HEVCRpiContext * const s, const RpiBlk bounds, c
+     const unsigned int log2_ctb_size = s->ps.sps->log2_ctb_size;
+     const unsigned int log2_min_cb_size  = s->ps.sps->log2_min_cb_size;
+     const unsigned int ctb_size = (1 << log2_ctb_size);
+-    const unsigned int cb_r = FFMIN(bounds.x + bounds.w, s->ps.sps->width) - (end_x ? 0 :  1);
++    const unsigned int cb_r = bounds.x + bounds.w - (end_x ? 0 :  1);
+     const unsigned int ctb_n = (bounds.x + bounds.y * s->ps.sps->ctb_width) >> log2_ctb_size;
+     const DBParams * cb_dbp = s->deblock + ctb_n;
+-    const unsigned int b_b = FFMIN(bounds.y + bounds.h, s->ps.sps->height) - (end_y ? 0 : 8);
++    const unsigned int b_b = bounds.y + bounds.h - (end_y ? 0 : 8);
+ 
+     unsigned int cb_x;
+ 
+@@ -734,10 +734,10 @@ static void deblock_uv_blk(const HEVCRpiContext * const s, const RpiBlk bounds,
+     const unsigned int log2_ctb_size = s->ps.sps->log2_ctb_size;
+     const unsigned int log2_min_cb_size  = s->ps.sps->log2_min_cb_size;
+     const unsigned int ctb_size = (1 << log2_ctb_size);
+-    const unsigned int cb_r = FFMIN(bounds.x + bounds.w, s->ps.sps->width) - (end_x ? 0 :  8);
++    const unsigned int cb_r = bounds.x + bounds.w - (end_x ? 0 :  8);
+     const unsigned int ctb_n = (bounds.x + bounds.y * s->ps.sps->ctb_width) >> log2_ctb_size;
+     const DBParams * dbp = s->deblock + ctb_n;
+-    const unsigned int b_b = FFMIN(bounds.y + bounds.h, s->ps.sps->height) - (end_y ? 0 : 8);
++    const unsigned int b_b = bounds.y + bounds.h - (end_y ? 0 : 8);
+     const uint8_t * const tcq_u = s->ps.pps->qp_dblk_x[1];
+     const uint8_t * const tcq_v = s->ps.pps->qp_dblk_x[2];
+ 
+@@ -1129,8 +1129,8 @@ int ff_hevc_rpi_hls_filter_blk(const HEVCRpiContext * const s, const RpiBlk boun
+     const int ctb_size = (1 << s->ps.sps->log2_ctb_size);
+     int x, y;
+ 
+-    const unsigned int br = FFMIN(bounds.x + bounds.w, s->ps.sps->width);
+-    const unsigned int bb = FFMIN(bounds.y + bounds.h, s->ps.sps->height);
++    const unsigned int br = bounds.x + bounds.w;
++    const unsigned int bb = bounds.y + bounds.h;
+ 
+     const int x_end = (br >= s->ps.sps->width);
+     const int y_end = (bb >= s->ps.sps->height);
+diff --git a/libavcodec/rpi_hevcdec.c b/libavcodec/rpi_hevcdec.c
+index 6d92c1dceb..2cc2ffbd13 100644
+--- a/libavcodec/rpi_hevcdec.c
++++ b/libavcodec/rpi_hevcdec.c
+@@ -3915,6 +3915,9 @@ static void job_gen_bounds(const HEVCRpiContext * const s, HEVCRpiJob * const jb
+     bounds->y = (rs0 / ctb_width) << s->ps.sps->log2_ctb_size;
+     bounds->w = ((rs1 - rs0) % ctb_width + 1) << s->ps.sps->log2_ctb_size;
+     bounds->h = ((rs1 - rs0) / ctb_width + 1) << s->ps.sps->log2_ctb_size;
++
++    bounds->w = FFMIN(bounds->w, s->ps.sps->width - bounds->x);
++    bounds->h = FFMIN(bounds->h, s->ps.sps->height - bounds->y);
+ }
+ 
+ #if RPI_PASSES == 2
