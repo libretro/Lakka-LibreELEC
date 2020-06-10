@@ -8,7 +8,7 @@ PKG_SHA256="f34f1dc52b2dc60563c2deb6db86d78f6a97bceb29aa0511436844b2fc618040"
 PKG_LICENSE="LGPL2.1+"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/systemd"
 PKG_URL="https://github.com/systemd/systemd/archive/v$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain libcap kmod util-linux entropy libidn2"
+PKG_DEPENDS_TARGET="toolchain libcap kmod util-linux entropy libidn2 wait-time-sync"
 PKG_LONGDESC="A system and session manager for Linux, compatible with SysV and LSB init scripts."
 
 PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
@@ -194,6 +194,10 @@ post_makeinstall_target() {
 
   # remove networkd
   safe_remove $INSTALL/usr/lib/systemd/network
+
+  # remove systemd-time-wait-sync (not detecting slew time updates, using package wait-time-sync)
+  safe_remove $INSTALL/usr/lib/systemd/system/systemd-time-wait-sync.service
+  safe_remove $INSTALL/usr/lib/systemd/systemd-time-wait-sync
 
   # tune journald.conf
   sed -e "s,^.*Compress=.*$,Compress=no,g" -i $INSTALL/etc/systemd/journald.conf
