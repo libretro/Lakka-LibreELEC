@@ -19,8 +19,8 @@ case $KODI_VENDOR in
     PKG_SOURCE_NAME="kodi-$KODI_VENDOR-$PKG_VERSION.tar.gz"
     ;;
   *)
-    PKG_VERSION="941afd2aacdcc27c459dbf9889f532b9935aa526"
-    PKG_SHA256="83bd3487d62d71cb5ad241ed7cb4891839d983f641220eb0638afc5feebc8a92"
+    PKG_VERSION="06d904b5aab0ede4a777ac644051fc52fd74dc61"
+    PKG_SHA256="51634aadfbe2e7ce5c5295673336f9be1f351dee320275bd39661aa01dfb13d1"
     PKG_URL="https://github.com/xbmc/xbmc/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="kodi-$PKG_VERSION.tar.gz"
     ;;
