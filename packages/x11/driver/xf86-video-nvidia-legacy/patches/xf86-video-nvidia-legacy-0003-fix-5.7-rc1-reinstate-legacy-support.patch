@@ -1,0 +1,156 @@
+From a955b00bb4fc5f60f2b17f33e96d110bf0a605e1 Mon Sep 17 00:00:00 2001
+From: MilhouseVH <milhouseVH.github@nmacleod.com>
+Date: Mon, 13 Apr 2020 01:47:06 +0100
+Subject: [PATCH] HACK: implement the pci/agp support marked legacy in 5.7-rc1
+
+drm_get_pci_dev: https://github.com/torvalds/linux/commit/c393fbae0226e9ad8719a516bec66bb2b8bbfcb6
+drm_pci_agp_init: https://github.com/torvalds/linux/commit/ee21ec7767621c1adb0a388e0e7d841674cdc43f
+---
+ kernel/nv-drm.c | 131 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 131 insertions(+)
+
+diff --git a/kernel/nv-drm.c b/kernel/nv-drm.c
+index 2e4b867..059f258 100644
+--- a/kernel/nv-drm.c
++++ b/kernel/nv-drm.c
+@@ -51,6 +51,137 @@
+ #define nv_drm_pci_init drm_legacy_pci_init
+ #define nv_drm_pci_exit drm_legacy_pci_exit
+ #elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
++
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
++#include <drm/drm_agpsupport.h>
++
++struct drm_agp_mem {
++	unsigned long handle;
++	struct agp_memory *memory;
++	unsigned long bound;
++	int pages;
++	struct list_head head;
++};
++
++/**
++ * drm_legacy_agp_clear - Clear AGP resource list
++ * @dev: DRM device
++ *
++ * Iterate over all AGP resources and remove them. But keep the AGP head
++ * intact so it can still be used. It is safe to call this if AGP is disabled or
++ * was already removed.
++ *
++ * Cleanup is only done for drivers who have DRIVER_LEGACY set.
++ */
++void drm_legacy_agp_clear(struct drm_device *dev)
++{
++	struct drm_agp_mem *entry, *tempe;
++
++	if (!dev->agp)
++		return;
++	if (!drm_core_check_feature(dev, DRIVER_LEGACY))
++		return;
++
++	list_for_each_entry_safe(entry, tempe, &dev->agp->memory, head) {
++		if (entry->bound)
++			agp_unbind_memory(entry->memory);
++		agp_free_memory(entry->memory);
++		kfree(entry);
++	}
++	INIT_LIST_HEAD(&dev->agp->memory);
++
++	if (dev->agp->acquired)
++		drm_agp_release(dev);
++
++	dev->agp->acquired = 0;
++	dev->agp->enabled = 0;
++}
++
++static void drm_pci_agp_init(struct drm_device *dev)
++{
++	if (drm_core_check_feature(dev, DRIVER_USE_AGP)) {
++		if (pci_find_capability(dev->pdev, PCI_CAP_ID_AGP))
++			dev->agp = drm_agp_init(dev);
++		if (dev->agp) {
++			dev->agp->agp_mtrr = arch_phys_wc_add(
++				dev->agp->agp_info.aper_base,
++				dev->agp->agp_info.aper_size *
++				1024 * 1024);
++		}
++	}
++}
++
++void drm_pci_agp_destroy(struct drm_device *dev)
++{
++	if (dev->agp) {
++		arch_phys_wc_del(dev->agp->agp_mtrr);
++		drm_legacy_agp_clear(dev);
++		kfree(dev->agp);
++		dev->agp = NULL;
++	}
++}
++
++/**
++ * drm_get_pci_dev - Register a PCI device with the DRM subsystem
++ * @pdev: PCI device
++ * @ent: entry from the PCI ID table that matches @pdev
++ * @driver: DRM device driver
++ *
++ * Attempt to gets inter module "drm" information. If we are first
++ * then register the character device and inter module information.
++ * Try and register, if we fail to register, backout previous work.
++ *
++ * NOTE: This function is deprecated, please use drm_dev_alloc() and
++ * drm_dev_register() instead and remove your &drm_driver.load callback.
++ *
++ * Return: 0 on success or a negative error code on failure.
++ */
++int drm_get_pci_dev(struct pci_dev *pdev, const struct pci_device_id *ent,
++		    struct drm_driver *driver)
++{
++	struct drm_device *dev;
++	int ret;
++
++	DRM_DEBUG("\n");
++
++	dev = drm_dev_alloc(driver, &pdev->dev);
++	if (IS_ERR(dev))
++		return PTR_ERR(dev);
++
++	ret = pci_enable_device(pdev);
++	if (ret)
++		goto err_free;
++
++	dev->pdev = pdev;
++#ifdef __alpha__
++	dev->hose = pdev->sysdata;
++#endif
++
++	if (drm_core_check_feature(dev, DRIVER_MODESET))
++		pci_set_drvdata(pdev, dev);
++
++	drm_pci_agp_init(dev);
++
++	ret = drm_dev_register(dev, ent->driver_data);
++	if (ret)
++		goto err_agp;
++
++	/* No locking needed since shadow-attach is single-threaded since it may
++	 * only be called from the per-driver module init hook. */
++	if (drm_core_check_feature(dev, DRIVER_LEGACY))
++		list_add_tail(&dev->legacy_dev_list, &driver->legacy_dev_list);
++
++	return 0;
++
++err_agp:
++	drm_pci_agp_destroy(dev);
++	pci_disable_device(pdev);
++err_free:
++	drm_dev_put(dev);
++	return ret;
++}
++#endif
++
+ int nv_drm_pci_init(struct drm_driver *driver, struct pci_driver *pdriver)
+ {
+ 	struct pci_dev *pdev = NULL;
+-- 
+2.20.1
+
