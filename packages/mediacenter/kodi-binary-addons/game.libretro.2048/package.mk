@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.2048"
-PKG_VERSION="1.0.0.108-Leia"
-PKG_SHA256="9e29b6f3e55cf8f674b816ba1dfe39aee4dfc841e297c4eff6c238ac71a2ecaf"
+PKG_VERSION="1.0.0.111-Leia"
+PKG_SHA256="be0e4daf7aee22f55310f57b6eee64e601c7aedb891d6d349a50fffd83325c40"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

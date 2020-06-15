@@ -3,9 +3,9 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="screensaver.asterwave"
-PKG_VERSION="3.0.3-Leia"
-PKG_SHA256="ff018b5bdd353747a4e962c72ec622a74232e05eae1742a116259273f1db0552"
-PKG_REV="2"
+PKG_VERSION="3.0.4-Leia"
+PKG_SHA256="44fb4189afefec6ab5cff04d205425bed26b127c02625ae176b409cb67207e5f"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/screensaver.asterwave"

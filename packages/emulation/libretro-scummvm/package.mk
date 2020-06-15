@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-scummvm"
-PKG_VERSION="9b1220886385b41a6f86b96faa3b9cfc77dcc57c"
-PKG_SHA256="0e831775438a29c550e6e2595eca429ad1d62c12e92ca7182ab3775390c0c244"
+PKG_VERSION="440d5d37ed8b4e0f7d0e312b74cae1bf3506a8fd"
+PKG_SHA256="e7cc8ef3979d62911ada5917fa1dd46c799dd937dfb6e23b60fa15b2ee0bc06f"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/scummvm"
 PKG_URL="https://github.com/libretro/scummvm/archive/$PKG_VERSION.tar.gz"

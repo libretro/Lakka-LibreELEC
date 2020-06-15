@@ -2,8 +2,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-mame2003_plus"
-PKG_VERSION="382cb6fe4af15a9b2259fc4687bde8a69f1234f5"
-PKG_SHA256="fa7ef014606d81d134c9a59f4fdf75a8671fa3846322b488b1a8d08f62b067c3"
+PKG_VERSION="0134c428b75882aa474f78dbbf2c6ecde49b97b7"
+PKG_SHA256="ecd4e6be29eea975543590864ef06e177313c963e5274ec2622fbc1c57d50ef0"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mame2003-plus-libretro"
 PKG_URL="https://github.com/libretro/mame2003-plus-libretro/archive/$PKG_VERSION.tar.gz"
