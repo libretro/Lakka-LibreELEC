@@ -1,0 +1,62 @@
+From 115a3328123c060b9e4d5f35c3774aa17c73276a Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Mon, 26 Jun 2017 20:17:09 +0100
+Subject: [PATCH] MMAL: Add hevc support by allowing 4 planes
+
+---
+ xbmc/cores/VideoPlayer/Buffers/VideoBuffer.h                   | 2 +-
+ xbmc/cores/VideoPlayer/DVDCodecs/Video/MMALFFmpeg.cpp          | 3 +++
+ .../VideoPlayer/VideoRenderers/HwDecRender/MMALRenderer.cpp    | 3 +++
+ 3 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/VideoPlayer/Buffers/VideoBuffer.h b/xbmc/cores/VideoPlayer/Buffers/VideoBuffer.h
+index 1c1ba21c48..86a71bb558 100644
+--- a/xbmc/cores/VideoPlayer/Buffers/VideoBuffer.h
++++ b/xbmc/cores/VideoPlayer/Buffers/VideoBuffer.h
+@@ -23,7 +23,7 @@ extern "C" {
+ 
+ struct YuvImage
+ {
+-  static const int MAX_PLANES = 3;
++  static const int MAX_PLANES = 4;
+ 
+   uint8_t* plane[MAX_PLANES];
+   int planesize[MAX_PLANES];
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/MMALFFmpeg.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/MMALFFmpeg.cpp
+index 779a839690..a1a1ab1795 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/MMALFFmpeg.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/MMALFFmpeg.cpp
+@@ -77,6 +77,8 @@ void CMMALYUVBuffer::GetStrides(int(&strides)[YuvImage::MAX_PLANES])
+   strides[0] = geo.getStrideY();
+   strides[1] = geo.getStrideC();
+   strides[2] = geo.getStrideC();
++  if (geo.getStripes() > 1)
++    strides[3] = geo.getHeightY() + geo.getHeightC();      // abuse: strides[3] = stripe stride
+ }
+ 
+ void CMMALYUVBuffer::SetDimensions(int width, int height, const int (&strides)[YuvImage::MAX_PLANES], const int (&planeOffsets)[YuvImage::MAX_PLANES])
+@@ -284,6 +286,7 @@ CDVDVideoCodec::VCReturn CDecoder::Decode(AVCodecContext* avctx, AVFrame* frame)
+   if (frame)
+   {
+     if ((frame->format != AV_PIX_FMT_YUV420P && frame->format != AV_PIX_FMT_YUV420P10 && frame->format != AV_PIX_FMT_YUV420P12 && frame->format != AV_PIX_FMT_YUV420P14 && frame->format != AV_PIX_FMT_YUV420P16 &&
++        frame->format != AV_PIX_FMT_SAND128 && frame->format != AV_PIX_FMT_SAND64_10 && frame->format != AV_PIX_FMT_SAND64_16 &&
+         frame->format != AV_PIX_FMT_BGR0 && frame->format != AV_PIX_FMT_RGB565LE) ||
+         frame->buf[1] != nullptr || frame->buf[0] == nullptr)
+     {
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/MMALRenderer.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/MMALRenderer.cpp
+index 9b23ddb7fa..e55babf4d3 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/MMALRenderer.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/MMALRenderer.cpp
+@@ -192,6 +192,9 @@ std::vector<CMMALPool::MMALEncodingTable> CMMALPool::mmal_encoding_table =
+   { AV_PIX_FMT_YUV420P12,MMAL_ENCODING_I420_16, },
+   { AV_PIX_FMT_YUV420P14,MMAL_ENCODING_I420_16, },
+   { AV_PIX_FMT_YUV420P16,MMAL_ENCODING_I420_16, },
++  { AV_PIX_FMT_SAND128,  MMAL_ENCODING_YUVUV128 },
++  { AV_PIX_FMT_SAND64_10,MMAL_ENCODING_YUVUV64_16 },
++  { AV_PIX_FMT_SAND64_16,MMAL_ENCODING_YUVUV64_16 },
+   { AV_PIX_FMT_RGBA,     MMAL_ENCODING_RGBA, },
+   { AV_PIX_FMT_BGRA,     MMAL_ENCODING_BGRA },
+   { AV_PIX_FMT_RGB0,     MMAL_ENCODING_RGBA },
+-- 
+2.20.1
+

@@ -1,0 +1,49 @@
+From 372718db53f3397dc0e972985202416fffe15ff4 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Thu, 7 May 2015 15:35:43 +0100
+Subject: [PATCH] rbp: Support zero copy interface with hevc acceleration
+
+---
+ .../VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp  | 9 +++++++++
+ xbmc/cores/VideoPlayer/DVDCodecs/Video/MMALFFmpeg.cpp    | 5 +++--
+ 2 files changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+index 0af254029e..e1263012aa 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+@@ -366,6 +366,15 @@ bool CDVDVideoCodecFFmpeg::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options
+     if (m_decoderState == STATE_NONE)
+     {
+       m_decoderState = STATE_HW_SINGLE;
++#ifdef TARGET_RASPBERRY_PI
++      int num_threads = CServiceBroker::GetCPUInfo()->GetCPUCount() * 3 / 2;
++      num_threads = std::max(1, std::min(num_threads, 16));
++      if (pCodec->id == AV_CODEC_ID_HEVC)
++        num_threads = 8;
++      m_pCodecContext->thread_count = num_threads;
++      m_pCodecContext->thread_safe_callbacks = 0;
++      CLog::Log(LOGDEBUG, "CDVDVideoCodecFFmpeg - open frame threaded with %d threads", num_threads);
++#endif
+     }
+     else
+     {
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/MMALFFmpeg.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/MMALFFmpeg.cpp
+index 28eff23f16..779a839690 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/MMALFFmpeg.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/MMALFFmpeg.cpp
+@@ -298,8 +298,9 @@ CDVDVideoCodec::VCReturn CDecoder::Decode(AVCodecContext* avctx, AVFrame* frame)
+ 
+     CGPUMEM *m_gmem = (CGPUMEM *)av_buffer_get_opaque(frame->buf[0]);
+     assert(m_gmem);
+-    // need to flush ARM cache so GPU can see it
+-    m_gmem->Flush();
++    // need to flush ARM cache so GPU can see it (HEVC will have already done this)
++    if (avctx->codec_id != AV_CODEC_ID_HEVC)
++      m_gmem->Flush();
+     m_renderBuffer = static_cast<CMMALYUVBuffer*>(m_gmem->m_opaque);
+     assert(m_renderBuffer && m_renderBuffer->mmal_buffer);
+     if (m_renderBuffer)
+-- 
+2.20.1
+

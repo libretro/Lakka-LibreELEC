@@ -26,6 +26,10 @@ case $KODI_VENDOR in
     ;;
 esac
 
+if [ "$KODIPLAYER_DRIVER" = bcm2835-driver -a "$KODI_VENDOR" = "default" ]; then
+  PKG_PATCH_DIRS+=" rpi-hevc"
+fi
+
 configure_package() {
   # Single threaded LTO is very slow so rely on Kodi for parallel LTO support
   if [ "$LTO_SUPPORT" = "yes" ] && ! build_with_debug; then
