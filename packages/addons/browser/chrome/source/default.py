@@ -35,6 +35,7 @@ def startchrome(args):
     new_env['VAAPI_MODE'] = __addon__.getSetting('VAAPI_MODE')
     new_env['WINDOW_MODE'] = __addon__.getSetting('WINDOW_MODE')
     new_env['RASTER_MODE'] = __addon__.getSetting('RASTER_MODE')
+    new_env['DARK_MODE'] = __addon__.getSetting('DARK_MODE')
 
     new_env['ALSA_DEVICE'] = ''
     if __addon__.getSetting('USE_CUST_AUDIODEVICE') == 'true':
