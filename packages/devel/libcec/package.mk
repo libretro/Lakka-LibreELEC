@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libcec"
-PKG_VERSION="libcec-4.0.4"
-PKG_SHA256="4382a964bf8c511c22c03cdab5ba2d81c241536e6479072a61516966804f400a"
+PKG_VERSION="libcec-4.0.5"
+PKG_SHA256="e4d749430ebcf3a35ec3a3f6675afcc5755afc1e5801c12121e54d80eb187743"
 PKG_LICENSE="GPL"
 PKG_SITE="http://libcec.pulse-eight.com/"
 PKG_URL="https://github.com/Pulse-Eight/libcec/archive/$PKG_VERSION.tar.gz"
@@ -29,8 +29,9 @@ if [ "$DISPLAYSERVER" = "x11" ]; then
 fi
 
 if [ "$CEC_FRAMEWORK_SUPPORT" = "yes" ]; then
-  PKG_PATCH_DIRS="cec-framework"
   PKG_CMAKE_OPTS_TARGET="$PKG_CMAKE_OPTS_TARGET -DHAVE_LINUX_API=1"
+else
+  PKG_CMAKE_OPTS_TARGET="$PKG_CMAKE_OPTS_TARGET -DHAVE_LINUX_API=0"
 fi
 
 pre_configure_target() {
