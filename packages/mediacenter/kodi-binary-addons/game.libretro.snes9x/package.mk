@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.snes9x"
-PKG_VERSION="1.60.0.8-Leia"
-PKG_SHA256="a868e4eda0698f7b175bb317e4ee4cabd8f9de03a1176b94b5a6086f4b621943"
+PKG_VERSION="1.60.0.11-Leia"
+PKG_SHA256="fc2067ea092f0173a884fec87a5923ae2d118a98cf13488ecc7eb21698fe1d15"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

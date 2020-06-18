@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-pcsx-rearmed"
-PKG_VERSION="915cd7d7a2b7d4c5f3dd53219b36f62184d68c65"
-PKG_SHA256="7f38e236ce085aaf3fa2402b22c97b147a044c2d27ebfbacee222bdb741789dc"
+PKG_VERSION="3c4ac5bb44b41d23eec217369eaa34f4e155f733"
+PKG_SHA256="9ab6a392266319b8897f2129dff88f025990218fb4a47354879649c2e9e4befe"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/pcsx_rearmed"
 PKG_URL="https://github.com/libretro/pcsx_rearmed/archive/$PKG_VERSION.tar.gz"

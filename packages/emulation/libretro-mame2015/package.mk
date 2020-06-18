@@ -2,8 +2,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-mame2015"
-PKG_VERSION="d43c94fde66ce419800882a344002a2736d163df"
-PKG_SHA256="dcda8f6d416132b810be84187cc525ce3223d18c7609f1f2b29dba45a4cd8564"
+PKG_VERSION="e1362eac25aa84a3864492c8175b4c48605d7d70"
+PKG_SHA256="88a12bb7b0d3ead20178b3b5ab0ccfa31874805ce3eee826e4e6f37bb541f3e5"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mame2015-libretro"
 PKG_URL="https://github.com/libretro/mame2015-libretro/archive/${PKG_VERSION}.tar.gz"

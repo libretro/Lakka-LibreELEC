@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="emby4"
-PKG_VERSION="4.2.1.0"
-PKG_SHA256="684a47c36700063141257c6325bbb2519ba11a7c7711e54e128d96f30adecdff"
-PKG_REV="105"
+PKG_VERSION="4.4.2.0"
+PKG_SHA256="36c65cfbd41ec83d415c098384032cd414da4f670e77013da7eb901bd16afe27"
+PKG_REV="107"
 PKG_ARCH="any"
 PKG_LICENSE="prop."
 PKG_SITE="http://emby.media"
@@ -13,7 +13,7 @@ PKG_SOURCE_DIR="system"
 PKG_DEPENDS_TARGET="toolchain imagemagick"
 PKG_SECTION="service"
 PKG_SHORTDESC="Emby Server: a personal media server"
-PKG_LONGDESC="Emby Server ($PKG_VERSION) brings your home videos, music, and photos together, automatically converting and streaming your media on-the-fly to any device"
+PKG_LONGDESC="Emby Server ($PKG_VERSION) brings your home videos, music, and photos together, automatically converting and streaming your media on-the-fly to any device."
 PKG_TOOLCHAIN="manual"
 
 PKG_IS_ADDON="yes"
