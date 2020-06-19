@@ -3,27 +3,19 @@
 # Copyright (C) 2020-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="apache-ant"
-PKG_VERSION="1.10.7"
-PKG_SHA256="c8d68b396d9e44b49668bafe0c82f8c89497915254b5395d73d6f6e41d7a0e25"
+PKG_VERSION="1.10.8"
+PKG_SHA256="8be685aacf2bfe8515a1249fbebb0ccd861dfe05ee2c027c89fd7912c1ce2c2a"
 PKG_LICENSE="Apache License 2.0"
 PKG_SITE="https://ant.apache.org/"
-PKG_URL="https://archive.apache.org/dist/ant/source/${PKG_NAME}-${PKG_VERSION}-src.tar.xz"
+PKG_URL="https://downloads.apache.org/ant/binaries/${PKG_NAME}-${PKG_VERSION}-bin.tar.xz"
 PKG_DEPENDS_UNPACK="jdk-x86_64-zulu"
 PKG_LONGDESC="Apache Ant is a Java library and command-line tool that help building software."
 PKG_TOOLCHAIN="manual"
 
-make_host() {
-  (
-  export JAVA_HOME=$(get_build_dir jdk-x86_64-zulu)
-
-  ./bootstrap.sh
-  ./bootstrap/bin/ant -f fetch.xml -Ddest=optional
-  ./build.sh -Ddist.dir=${PKG_BUILD}/binary dist
-  )
-}
-
 makeinstall_host() {
-  mkdir -p ${TOOLCHAIN}/bin
-    cp binary/bin/ant ${TOOLCHAIN}/bin
-    cp -r binary/lib ${TOOLCHAIN}
+  mkdir -p ${TOOLCHAIN}/apache-ant/bin
+  mkdir -p ${TOOLCHAIN}/apache-ant/lib
+    cp bin/ant ${TOOLCHAIN}/apache-ant/bin
+    cp lib/*.jar ${TOOLCHAIN}/apache-ant/lib
+    ln -sf ${TOOLCHAIN}/apache-ant/bin/ant ${TOOLCHAIN}/bin/ant
 }
