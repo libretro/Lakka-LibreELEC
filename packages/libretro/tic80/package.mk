@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="tic80"
-PKG_VERSION="b1800d2"
+PKG_VERSION="6d86918"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
@@ -30,6 +30,7 @@ PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="TIC-80 is a fantasy computer for making, playing and sharing tiny games."
 PKG_LONGDESC="TIC-80 is a fantasy computer for making, playing and sharing tiny games."
+PKG_TOOLCHAIN="cmake"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"

@@ -19,13 +19,13 @@
 ################################################################################
 
 PKG_NAME="easyrpg"
-PKG_VERSION="00ad8ab"
+PKG_VERSION="96fdac3"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/easyrpg/player"
 PKG_URL="$PKG_SITE.git"
-PKG_DEPENDS_TARGET="toolchain zlib liblcf pixman libspeexdsp mpg123 libsndfile libvorbis opusfile wildmidi libxmp-lite"
+PKG_DEPENDS_TARGET="toolchain zlib libfmt liblcf pixman libspeexdsp mpg123 libsndfile libvorbis opusfile wildmidi libxmp-lite"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="An unofficial libretro port of the EasyRPG/Player."
