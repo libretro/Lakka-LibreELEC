@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="gcc"
-PKG_VERSION="9.3.0"
-PKG_SHA256="71e197867611f6054aa1119b13a0c0abac12834765fe2d81f35ac57f84f742d1"
+PKG_VERSION="10.1.0"
+PKG_SHA256="b6898a23844b656f1b68691c5c012036c2e694ac4b53a8918d4712ad876e7ea2"
 PKG_LICENSE="GPL"
 PKG_SITE="http://gcc.gnu.org/"
 PKG_URL="http://ftpmirror.gnu.org/gcc/$PKG_NAME-$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.xz"
@@ -39,11 +39,11 @@ GCC_COMMON_CONFIGURE_OPTS="--target=$TARGET_NAME \
                            --disable-libquadmath \
                            --disable-libgomp \
                            --disable-libmpx \
-                           --disable-libssp"
+                           --disable-libssp \
+                           --enable-__cxa_atexit"
 
 PKG_CONFIGURE_OPTS_BOOTSTRAP="$GCC_COMMON_CONFIGURE_OPTS \
                               --enable-languages=c \
-                              --disable-__cxa_atexit \
                               --disable-libsanitizer \
                               --enable-cloog-backend=isl \
                               --disable-shared \
@@ -55,7 +55,6 @@ PKG_CONFIGURE_OPTS_BOOTSTRAP="$GCC_COMMON_CONFIGURE_OPTS \
 
 PKG_CONFIGURE_OPTS_HOST="$GCC_COMMON_CONFIGURE_OPTS \
                          --enable-languages=c,c++ \
-                         --enable-__cxa_atexit \
                          --enable-decimal-float \
                          --enable-tls \
                          --enable-shared \
@@ -87,7 +86,7 @@ post_makeinstall_host() {
   cp -PR $TARGET_NAME/libstdc++-v3/src/.libs/libstdc++.so* $SYSROOT_PREFIX/usr/lib
 
   GCC_VERSION=`$TOOLCHAIN/bin/${TARGET_NAME}-gcc -dumpversion`
-  DATE="0501`echo $GCC_VERSION | sed 's/\([0-9]\)/0\1/g' | sed 's/\.//g'`"
+  DATE="0501`echo $GCC_VERSION | sed 's/\./0/g'`"
   CROSS_CC=${TARGET_PREFIX}gcc-${GCC_VERSION}
   CROSS_CXX=${TARGET_PREFIX}g++-${GCC_VERSION}
 
