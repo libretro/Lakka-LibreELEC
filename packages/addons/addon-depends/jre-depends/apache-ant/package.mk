@@ -17,5 +17,6 @@ makeinstall_host() {
   mkdir -p ${TOOLCHAIN}/apache-ant/lib
     cp bin/ant ${TOOLCHAIN}/apache-ant/bin
     cp lib/*.jar ${TOOLCHAIN}/apache-ant/lib
+  mkdir -p ${TOOLCHAIN}/bin
     ln -sf ${TOOLCHAIN}/apache-ant/bin/ant ${TOOLCHAIN}/bin/ant
 }
