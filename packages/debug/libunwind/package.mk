@@ -2,8 +2,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libunwind"
-PKG_VERSION="1.3.1"
-PKG_SHA256="43997a3939b6ccdf2f669b50fdb8a4d3205374728c2923ddc2354c65260214f8"
+PKG_VERSION="1.4.0"
+PKG_SHA256="df59c931bd4d7ebfd83ee481c943edf015138089b8e50abed8d9c57ba9338435"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.nongnu.org/libunwind/"
 PKG_URL="http://download.savannah.nongnu.org/releases/libunwind/libunwind-${PKG_VERSION}.tar.gz"
