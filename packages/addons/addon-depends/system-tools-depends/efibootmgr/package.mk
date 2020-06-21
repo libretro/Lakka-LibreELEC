@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="efibootmgr"
-PKG_VERSION="d9eb7f1536ed6262fc8c6518c6afe6053a450e9d"
-PKG_SHA256="4c86873c09849b94358859f4cceb27b6c5a3a8576146e282fa22af7a06c137ec"
+PKG_VERSION="edc8b9b6ec1c7751ccb9a483405c99141ba237fc"
+PKG_SHA256="e951ce9e0534c63bb71ba8b2a3830d4402e51440cb4d524d18c1ef40ae5ee218"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/rhboot/efibootmgr"
