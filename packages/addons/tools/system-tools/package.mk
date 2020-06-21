@@ -165,7 +165,7 @@ addon() {
     cp -P $(get_install_dir stress-ng)/usr/bin/stress-ng $ADDON_BUILD/$PKG_ADDON_ID/bin
 
     # unrar
-    cp -P $(get_install_dir unrar)/usr/bin/unrar $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir unrar)/unrar/unrar $ADDON_BUILD/$PKG_ADDON_ID/bin
 
     # usb-modeswitch
     cp -P $(get_install_dir usb-modeswitch)/usr/sbin/usb_modeswitch $ADDON_BUILD/$PKG_ADDON_ID/bin
