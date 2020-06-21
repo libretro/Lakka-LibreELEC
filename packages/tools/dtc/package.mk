@@ -3,8 +3,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="dtc"
-PKG_VERSION="1.5.1"
-PKG_SHA256="c7a565ea4ea6d2b1fc866698940ee33a303bb6b59076167b0374f125ae2a8420"
+PKG_VERSION="1.6.0"
+PKG_SHA256="af720893485b02441f8812773484b286f969d1b8c98769d435a75c6ad524104b"
 PKG_LICENSE="GPL"
 PKG_SITE="https://git.kernel.org/pub/scm/utils/dtc/dtc.git/"
 PKG_URL="https://git.kernel.org/pub/scm/utils/dtc/dtc.git/snapshot/$PKG_VERSION.tar.gz"
