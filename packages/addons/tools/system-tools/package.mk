@@ -3,7 +3,7 @@
 
 PKG_NAME="system-tools"
 PKG_VERSION="1.0"
-PKG_REV="113"
+PKG_REV="114"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://libreelec.tv"
@@ -11,7 +11,7 @@ PKG_URL=""
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="virtual"
 PKG_SHORTDESC="A bundle of system tools and programs"
-PKG_LONGDESC="This bundle currently includes autossh, diffutils, dstat, dtach, efibootmgr, encfs, evtest, fdupes, file, getscancodes, hddtemp, hd-idle, hid_mapper, htop, i2c-tools, inotify-tools, jq, lm_sensors, lshw, mc, mrxvt, mtpfs, nmon, p7zip, patch, pv, screen, smartmontools, strace, stress-ng, unrar, usb-modeswitch and vim."
+PKG_LONGDESC="This bundle currently includes autossh, diffutils, dstat, dtach, efibootmgr, encfs, evtest, fdupes, file, getscancodes, hddtemp, hd-idle, hid_mapper, htop, i2c-tools, inotify-tools, jq, lm_sensors, lshw, mc, mrxvt, mtpfs, nmon, p7zip, patch, pv, screen, smartmontools, strace, stress-ng, unrar, usb-modeswitch, vim and ytop."
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="System Tools"
@@ -48,7 +48,8 @@ PKG_DEPENDS_TARGET="toolchain \
                     stress-ng \
                     unrar \
                     usb-modeswitch \
-                    vim"
+                    vim \
+                    ytop"
 
 if [ "$TARGET_ARCH" = "x86_64" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET efibootmgr mrxvt"
@@ -165,7 +166,7 @@ addon() {
     cp -P $(get_install_dir stress-ng)/usr/bin/stress-ng $ADDON_BUILD/$PKG_ADDON_ID/bin
 
     # unrar
-    cp -P $(get_install_dir unrar)/unrar/unrar $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir unrar)/usr/bin/unrar $ADDON_BUILD/$PKG_ADDON_ID/bin
 
     # usb-modeswitch
     cp -P $(get_install_dir usb-modeswitch)/usr/sbin/usb_modeswitch $ADDON_BUILD/$PKG_ADDON_ID/bin
@@ -173,4 +174,7 @@ addon() {
     # vim
     cp -P $(get_install_dir vim)/usr/bin/vim $ADDON_BUILD/$PKG_ADDON_ID/bin
     cp -Pa $(get_install_dir vim)/storage/.kodi/addons/virtual.system-tools/data/vim/ $ADDON_BUILD/$PKG_ADDON_ID/data
+
+    # ytop
+    cp -P $(get_install_dir ytop)/ytop $ADDON_BUILD/$PKG_ADDON_ID/bin
 }
