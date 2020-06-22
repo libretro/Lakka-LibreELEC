@@ -29,6 +29,10 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-default-tests \
 
 export LIBGCRYPT_CONFIG="$SYSROOT_PREFIX/usr/bin/libgcrypt-config"
 
+pre_configure_target() {
+  CFLAGS="$CFLAGS -fcommon"
+}
+
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
   cp $PKG_INSTALL/usr/sbin/rsyslogd \
