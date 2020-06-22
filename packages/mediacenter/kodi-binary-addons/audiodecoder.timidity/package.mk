@@ -18,6 +18,10 @@ PKG_LONGDESC="audiodecoder.timidity"
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.audiodecoder"
 
+pre_configure_target() {
+  CFLAGS="$CFLAGS -fcommon"
+}
+
 addon() {
   install_binary_addon $PKG_ADDON_ID
 
