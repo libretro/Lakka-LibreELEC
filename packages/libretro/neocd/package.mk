@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="neocd"
-PKG_VERSION="b90144e"
+PKG_VERSION="e58c46d"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="LGPLv3"

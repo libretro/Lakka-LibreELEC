@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="xrick"
-PKG_VERSION="5099ffa"
+PKG_VERSION="8ad7c58"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"

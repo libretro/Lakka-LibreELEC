@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="retroarch-joypad-autoconfig"
-PKG_VERSION="7d6c1d4"
+PKG_VERSION="e94d88b"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
