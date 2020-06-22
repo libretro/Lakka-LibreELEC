@@ -16,6 +16,7 @@ PKG_LIBPATH="$PKG_LIBNAME"
 PKG_LIBVAR="UAE_LIB"
 
 pre_configure_target() {
+  CFLAGS="$CFLAGS -fcommon"
   if [ "$TARGET_ARCH" = "arm" ]; then
     CFLAGS="$CFLAGS -DARM -marm"
   fi
