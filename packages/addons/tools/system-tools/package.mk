@@ -133,8 +133,9 @@ addon() {
     cp -P $(get_install_dir nmon)/usr/bin/nmon $ADDON_BUILD/$PKG_ADDON_ID/bin/
 
     # p7zip
-    cp -P $(get_install_dir p7zip)/usr/bin/{7z,7za,7z.so} $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp -PR $(get_install_dir p7zip)/usr/bin/Codecs $ADDON_BUILD/$PKG_ADDON_ID/bin
+    mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib/p7zip
+    cp -P $(get_install_dir p7zip)/usr/bin/{7z,7za,7z.so} $ADDON_BUILD/$PKG_ADDON_ID/lib/p7zip
+    cp -PR $(get_install_dir p7zip)/usr/bin/Codecs $ADDON_BUILD/$PKG_ADDON_ID/lib/p7zip
 
     # patch
     cp -P $(get_install_dir patch)/usr/bin/patch $ADDON_BUILD/$PKG_ADDON_ID/bin
