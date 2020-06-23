@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="bitstream"
-PKG_VERSION="1.4"
-PKG_SHA256="b2484940d3b8733bec9dd1ec1731de428261dff31c9f95874264be9dc9ce786b"
+PKG_VERSION="1.5"
+PKG_SHA256="45fc5a5a6e4537a69fa8440821e87b76252135180a3070c631b0b36ce0a3b90a"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.videolan.org"
 PKG_URL="http://download.videolan.org/pub/videolan/bitstream/${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
