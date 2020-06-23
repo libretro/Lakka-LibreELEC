@@ -23,6 +23,7 @@ make_target() {
      CXXFLAGS="$TARGET_CXXFLAGS" \
      RANLIB="$RANLIB" \
      AR="$AR" \
+     STRIP="$STRIP" \
      -C unrar \
      -f makefile
 
