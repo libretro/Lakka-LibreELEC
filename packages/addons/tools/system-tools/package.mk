@@ -11,7 +11,7 @@ PKG_URL=""
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="virtual"
 PKG_SHORTDESC="A bundle of system tools and programs"
-PKG_LONGDESC="This bundle currently includes autossh, diffutils, dstat, dtach, efibootmgr, encfs, evtest, fdupes, file, getscancodes, hddtemp, hd-idle, hid_mapper, htop, i2c-tools, inotify-tools, jq, lm_sensors, lshw, mc, mrxvt, mtpfs, nmon, p7zip, patch, pv, screen, smartmontools, strace, stress-ng, unrar, usb-modeswitch, vim and ytop."
+PKG_LONGDESC="This bundle currently includes autossh, diffutils, dstat, dtach, efibootmgr, encfs, evtest, fdupes, file, getscancodes, hddtemp, hd-idle, hid_mapper, htop, i2c-tools, inotify-tools, jq, lm_sensors, lshw, mc, mtpfs, nmon, p7zip, patch, pv, screen, smartmontools, strace, stress-ng, unrar, usb-modeswitch, vim and ytop."
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="System Tools"
@@ -52,7 +52,7 @@ PKG_DEPENDS_TARGET="toolchain \
                     ytop"
 
 if [ "$TARGET_ARCH" = "x86_64" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET efibootmgr mrxvt"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET efibootmgr"
 fi
 
 addon() {
@@ -122,9 +122,6 @@ addon() {
     # mc
     cp -Pa $(get_install_dir mc)/usr/bin/* $ADDON_BUILD/$PKG_ADDON_ID/bin/
     cp -Pa $(get_install_dir mc)/storage/.kodi/addons/virtual.system-tools/* $ADDON_BUILD/$PKG_ADDON_ID
-
-    # mrxvt
-    cp -P $(get_install_dir mrxvt)/usr/bin/mrxvt $ADDON_BUILD/$PKG_ADDON_ID/bin 2>/dev/null || :
 
     # mtpfs
     cp -P $(get_install_dir mtpfs)/usr/bin/mtpfs $ADDON_BUILD/$PKG_ADDON_ID/bin/
