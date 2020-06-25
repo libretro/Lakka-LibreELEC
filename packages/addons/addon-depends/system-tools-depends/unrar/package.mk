@@ -10,7 +10,7 @@ PKG_URL="http://www.rarlab.com/rar/unrarsrc-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="unrar extract, test and view RAR archives"
 PKG_TOOLCHAIN="manual"
-PKG_BUILD_FLAGS="+pic -sysroot"
+PKG_BUILD_FLAGS="+pic -sysroot -parallel"
 
 unpack() {
   mkdir -p $PKG_BUILD/unrar lib
