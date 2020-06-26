@@ -16,6 +16,10 @@ make_host() {
   make -C src/ include/efivar/efivar-guids.h
 }
 
+pre_make_target() {
+  sed -e 's/-Werror//' -i gcc.specs
+}
+
 make_target() {
   make -C src/ libefivar.a libefiboot.a efivar.h efivar
 }
