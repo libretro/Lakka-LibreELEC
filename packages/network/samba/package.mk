@@ -115,6 +115,13 @@ configure_target() {
   PYTHON=${TOOLCHAIN}/bin/python3 ./configure $PKG_CONFIGURE_OPTS
 }
 
+# disable icu, there is no buildswitch to disable
+pre_make_target() {
+  sed -e '/#define HAVE_ICU_I18N 1/d' \
+      -e '/#define HAVE_LIBICUI.* 1/d' \
+      -i bin/default/include/config.h
+}
+
 make_target() {
   ./buildtools/bin/waf build ${PKG_WAF_VERBOSE} --targets=$PKG_SAMBA_TARGET -j$CONCURRENCY_MAKE_LEVEL
 }
