@@ -146,7 +146,6 @@ makeinstall_target() {
   mkdir -p $INSTALL/etc
     cp $PKG_DIR/config/profile $INSTALL/etc
     cp $PKG_DIR/config/inputrc $INSTALL/etc
-    cp $PKG_DIR/config/httpd.conf $INSTALL/etc
     cp $PKG_DIR/config/suspend-modules.conf $INSTALL/etc
 
   # /etc/fstab is needed by...
@@ -160,13 +159,6 @@ makeinstall_target() {
 
   # create /etc/hostname
     ln -sf /proc/sys/kernel/hostname $INSTALL/etc/hostname
-
-  # add webroot
-    mkdir -p $INSTALL/usr/www
-      echo "It works" > $INSTALL/usr/www/index.html
-
-    mkdir -p $INSTALL/usr/www/error
-      echo "404" > $INSTALL/usr/www/error/404.html
 }
 
 post_install() {
