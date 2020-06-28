@@ -15,6 +15,7 @@ PKG_TOOLCHAIN="manual"
 pre_configure_target() {
   export PYTHONXCPREFIX="$SYSROOT_PREFIX/usr"
   export LDSHARED="$CC -shared"
+  export CFLAGS="$CFLAGS -fcommon"
   export CPPFLAGS="$TARGET_CPPFLAGS -I${SYSROOT_PREFIX}/usr/include/$PKG_PYTHON_VERSION"
 }
 
