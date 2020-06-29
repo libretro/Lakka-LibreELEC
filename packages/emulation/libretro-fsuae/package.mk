@@ -24,6 +24,8 @@ fi
 pre_configure_target() {
   cd $PKG_BUILD
   rm -rf .$TARGET_NAME
+  # check if this flag is still needed when this package is updated
+  export CFLAGS="$CFLAGS -fcommon"
   export ac_cv_func_realloc_0_nonnull=yes
 }
 
