@@ -5018,90 +5018,6 @@ index 000000000000..2fc9f46b6910
 +extern const struct rkvdec_coded_fmt_ops rkvdec_h264_fmt_ops;
 +#endif /* RKVDEC_H_ */
 
-From 7a27afb0d95fcf110ac1c06da08579a6a41e2ae7 Mon Sep 17 00:00:00 2001
-From: Hans Verkuil <hverkuil-cisco@xs4all.nl>
-Date: Tue, 3 Mar 2020 12:01:59 +0100
-Subject: [PATCH] media: v4l2-ctrls: v4l2_ctrl_g/s_ctrl*(): don't continue when
- WARN_ON
-
-If the v4l2_ctrl_g_ctrl*() or __v4l2_ctrl_s_ctrl*() functions
-are called for the wrong control type then they call WARN_ON
-since that is a driver error. But they still continue, potentially
-overwriting data. Change this to return an error (s_ctrl) or 0
-(g_ctrl), just to be safe.
-
-Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
-Signed-off-by: Mauro Carvalho Chehab <mchehab+huawei@kernel.org>
-(cherry picked from commit 7c3bae3f430af6b4fcbdb7272e191e266fd94b45)
----
- drivers/media/v4l2-core/v4l2-ctrls.c | 18 ++++++++++++------
- 1 file changed, 12 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/media/v4l2-core/v4l2-ctrls.c b/drivers/media/v4l2-core/v4l2-ctrls.c
-index 0186ba85aac7..77b0132d9f6f 100644
---- a/drivers/media/v4l2-core/v4l2-ctrls.c
-+++ b/drivers/media/v4l2-core/v4l2-ctrls.c
-@@ -3799,7 +3799,8 @@ s32 v4l2_ctrl_g_ctrl(struct v4l2_ctrl *ctrl)
- 	struct v4l2_ext_control c;
- 
- 	/* It's a driver bug if this happens. */
--	WARN_ON(!ctrl->is_int);
-+	if (WARN_ON(!ctrl->is_int))
-+		return 0;
- 	c.value = 0;
- 	get_ctrl(ctrl, &c);
- 	return c.value;
-@@ -3811,7 +3812,8 @@ s64 v4l2_ctrl_g_ctrl_int64(struct v4l2_ctrl *ctrl)
- 	struct v4l2_ext_control c;
- 
- 	/* It's a driver bug if this happens. */
--	WARN_ON(ctrl->is_ptr || ctrl->type != V4L2_CTRL_TYPE_INTEGER64);
-+	if (WARN_ON(ctrl->is_ptr || ctrl->type != V4L2_CTRL_TYPE_INTEGER64))
-+		return 0;
- 	c.value64 = 0;
- 	get_ctrl(ctrl, &c);
- 	return c.value64;
-@@ -4220,7 +4222,8 @@ int __v4l2_ctrl_s_ctrl(struct v4l2_ctrl *ctrl, s32 val)
- 	lockdep_assert_held(ctrl->handler->lock);
- 
- 	/* It's a driver bug if this happens. */
--	WARN_ON(!ctrl->is_int);
-+	if (WARN_ON(!ctrl->is_int))
-+		return -EINVAL;
- 	ctrl->val = val;
- 	return set_ctrl(NULL, ctrl, 0);
- }
-@@ -4231,7 +4234,8 @@ int __v4l2_ctrl_s_ctrl_int64(struct v4l2_ctrl *ctrl, s64 val)
- 	lockdep_assert_held(ctrl->handler->lock);
- 
- 	/* It's a driver bug if this happens. */
--	WARN_ON(ctrl->is_ptr || ctrl->type != V4L2_CTRL_TYPE_INTEGER64);
-+	if (WARN_ON(ctrl->is_ptr || ctrl->type != V4L2_CTRL_TYPE_INTEGER64))
-+		return -EINVAL;
- 	*ctrl->p_new.p_s64 = val;
- 	return set_ctrl(NULL, ctrl, 0);
- }
-@@ -4242,7 +4246,8 @@ int __v4l2_ctrl_s_ctrl_string(struct v4l2_ctrl *ctrl, const char *s)
- 	lockdep_assert_held(ctrl->handler->lock);
- 
- 	/* It's a driver bug if this happens. */
--	WARN_ON(ctrl->type != V4L2_CTRL_TYPE_STRING);
-+	if (WARN_ON(ctrl->type != V4L2_CTRL_TYPE_STRING))
-+		return -EINVAL;
- 	strscpy(ctrl->p_new.p_char, s, ctrl->maximum + 1);
- 	return set_ctrl(NULL, ctrl, 0);
- }
-@@ -4254,7 +4259,8 @@ int __v4l2_ctrl_s_ctrl_area(struct v4l2_ctrl *ctrl,
- 	lockdep_assert_held(ctrl->handler->lock);
- 
- 	/* It's a driver bug if this happens. */
--	WARN_ON(ctrl->type != V4L2_CTRL_TYPE_AREA);
-+	if (WARN_ON(ctrl->type != V4L2_CTRL_TYPE_AREA))
-+		return -EINVAL;
- 	*ctrl->p_new.p_area = *area;
- 	return set_ctrl(NULL, ctrl, 0);
- }
-
 From 663f227c908199937a37cea794b3387725dc953b Mon Sep 17 00:00:00 2001
 From: Hans Verkuil <hverkuil-cisco@xs4all.nl>
 Date: Tue, 3 Mar 2020 12:02:00 +0100
@@ -5574,40 +5490,6 @@ index 92c3e39efc28..4273d56dac65 100644
  
  #define dprintk(vdev, fmt, arg...) do {					\
  	if (!WARN_ON(!(vdev)) && ((vdev)->dev_debug & V4L2_DEV_DEBUG_CTRL)) \
-
-From 4b054d75be72ba60f23a1721c5aeb51030af7e27 Mon Sep 17 00:00:00 2001
-From: Jonas Karlman <jonas@kwiboo.se>
-Date: Wed, 27 May 2020 00:25:15 +0200
-Subject: [PATCH] media: v4l2-ctrls: Unset correct HEVC loop filter flag
-
-Wrong loop filter flag is unset when tiles enabled flag is not set,
-this cause HEVC decoding issues with Rockchip Video Decoder.
-
-Fix this by unsetting the loop filter across tiles enabled flag instead of
-the pps loop filter across slices enabled flag when tiles are disabled.
-
-Fixes: 256fa3920874 ("media: v4l: Add definitions for HEVC stateless decoding")
-Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
-Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
-Signed-off-by: Mauro Carvalho Chehab <mchehab+huawei@kernel.org>
-(cherry picked from commit 88441917dc6cd995cb993df603e264f5b88be50c)
----
- drivers/media/v4l2-core/v4l2-ctrls.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/media/v4l2-core/v4l2-ctrls.c b/drivers/media/v4l2-core/v4l2-ctrls.c
-index 4273d56dac65..47b195a974e6 100644
---- a/drivers/media/v4l2-core/v4l2-ctrls.c
-+++ b/drivers/media/v4l2-core/v4l2-ctrls.c
-@@ -1843,7 +1843,7 @@ static int std_validate_compound(const struct v4l2_ctrl *ctrl, u32 idx,
- 			       sizeof(p_hevc_pps->row_height_minus1));
- 
- 			p_hevc_pps->flags &=
--				~V4L2_HEVC_PPS_FLAG_PPS_LOOP_FILTER_ACROSS_SLICES_ENABLED;
-+				~V4L2_HEVC_PPS_FLAG_LOOP_FILTER_ACROSS_TILES_ENABLED;
- 		}
- 
- 		if (p_hevc_pps->flags &
 
 From 7e2b4a7ef9b0d8f5613de16bfbbf9a28058f7444 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
