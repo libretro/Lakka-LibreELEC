@@ -36,7 +36,7 @@ PKG_AUTORECONF="no"
 PKG_TOOLCHAIN="make"
 
 make_target() {
-  make -C bsnes -f GNUmakefile target="libretro" local=false compiler="$CXX" CXXFLAGS="$CXXFLAGS" platform=linux
+  make -C bsnes -f GNUmakefile target="libretro" compiler="$CXX" CXXFLAGS="$CXXFLAGS" platform=linux
 }
 
 makeinstall_target() {
