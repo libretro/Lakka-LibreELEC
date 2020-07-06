@@ -2,11 +2,11 @@
 # Copyright (C) 2020-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="qca-firmware"
-PKG_VERSION="39d025c6d52085c529568c4e110ca6d0b290fef6"
-PKG_SHA256="7af9e815f0cc5136819c9f7e02c548ea736d34c9a67ca065e5a693f4fdadb312"
+PKG_VERSION="09e2d02d9b767ec3aedf89ca11ff2bd9d94a96e0"
+PKG_SHA256="d068ef23a5d6401c9d0182575ecb50960da37689fe26394a0e2708cd4b0c0af0"
 PKG_LICENSE="QCA"
 PKG_URL="https://github.com/LibreELEC/qca-firmware/archive/$PKG_VERSION.tar.gz"
-PKG_LONGDESC="qca-firmware: WiFi/BT firmware for QCA9377 SDIO modules"
+PKG_LONGDESC="qca-firmware: BT firmware for QCA9377 SDIO modules"
 PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {

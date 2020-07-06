@@ -15,13 +15,6 @@ PKG_STAMP="$KERNEL_TARGET $KERNEL_MAKE_EXTRACMD"
 PKG_PATCH_DIRS="$LINUX"
 
 case "$LINUX" in
-  amlogic)
-    PKG_VERSION="98d54f81e36ba3bf92172791eba5ca5bd813989b" # 5.6-rc4
-    PKG_SHA256="93d86760f8c2bc694c3a0ac6ceaa78034fe7d4026221d8480cd9696074d59a46"
-    PKG_URL="https://github.com/torvalds/linux/archive/$PKG_VERSION.tar.gz"
-    PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
-    PKG_PATCH_DIRS="amlogic"
-    ;;
   raspberrypi)
     PKG_VERSION="d00cdd80abb2a8c201cae2f6bd80e27eb2f7d347" # 5.4.45
     PKG_SHA256="4c6e5c458dfd07c8557afaedb54ad037f8d35c741f297a1b92ed796c69dec9de"
