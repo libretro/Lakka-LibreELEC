@@ -24,7 +24,6 @@ if [ "${V4L2_SUPPORT}" = "yes" ]; then
   PKG_FFMPEG_V4L2="--enable-v4l2_m2m --enable-libdrm"
 
   if [ "${PROJECT}" = "RPi" ]; then
-    PKG_PATCH_DIRS+=" v4l2-rpi"
     PKG_FFMPEG_RPI="--disable-rpi --disable-mmal"
     if [ "${DEVICE}" = "RPi4" ]; then
       PKG_DEPENDS_TARGET+=" systemd"
@@ -35,8 +34,6 @@ if [ "${V4L2_SUPPORT}" = "yes" ]; then
 	                  --disable-hwaccel=mpeg2_v4l2request \
 		          --disable-hwaccel=vp8_v4l2request"
     fi
-  else
-    PKG_PATCH_DIRS+=" v4l2"
   fi
 else
   PKG_FFMPEG_V4L2="--disable-v4l2_m2m"
@@ -61,7 +58,6 @@ fi
 if [ "${PROJECT}" = "Allwinner" -o "${PROJECT}" = "Rockchip" ]; then
   PKG_DEPENDS_TARGET+=" libdrm systemd" # systemd is needed for libudev
   PKG_NEED_UNPACK+=" $(get_pkg_directory libdrm) $(get_pkg_directory systemd)"
-  PKG_PATCH_DIRS+=" v4l2-request-api"
   PKG_FFMPEG_V4L2_REQUEST="--enable-v4l2-request --enable-libudev --enable-libdrm"
 fi
 
