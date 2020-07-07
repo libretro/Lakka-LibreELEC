@@ -3,11 +3,11 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="Pillow"
-PKG_VERSION="7.0.0"
-PKG_SHA256="4d9ed9a64095e031435af120d3c910148067087541131e82b3e8db302f4c8946"
+PKG_VERSION="7.2.0"
+PKG_SHA256="0fd19382a1d76d3296f333223ed9429d2110cc0b44ad20b10c5f6255ce9a3bf4"
 PKG_LICENSE="BSD"
 PKG_SITE="http://www.pythonware.com/products/pil/"
-PKG_URL="https://files.pythonhosted.org/packages/source/${PKG_NAME:0:1}/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/python-pillow/${PKG_NAME}/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain Python3 distutilscross:host zlib freetype libjpeg-turbo tiff"
 PKG_LONGDESC="The Python Imaging Library adds image processing capabilities to your Python interpreter."
 PKG_TOOLCHAIN="manual"
