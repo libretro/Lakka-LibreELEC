@@ -3,9 +3,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ffmpeg"
-# Current branch is: release/4.2-kodi
-PKG_VERSION="4.2.2-Matrix-Alpha1"
-PKG_SHA256="0dba571f9809588cfbdc29d6a551dab4cd5736701653d9263847c9ac67bcde86"
+PKG_VERSION="4.3-Matrix-Alpha1"
+PKG_SHA256="8e159cdf1dfd3de2ac838fdaecb1fbb315e47f2ee2c542cd9d6efeb545c2b916"
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://ffmpeg.org"
 PKG_URL="https://github.com/xbmc/FFmpeg/archive/${PKG_VERSION}.tar.gz"
