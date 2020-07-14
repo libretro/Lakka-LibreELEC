@@ -58,6 +58,8 @@ make_target() {
         make AS=${AS} CC_AS=${CC} platform=rpi4-gles-neon HAVE_OPENMP=0 LDFLAGS=-lrt
       elif [ "$DEVICE" = "RPi2" ]; then
         make AS=${AS} CC_AS=${CC} platform=rpi $FLYCAST_GL HAVE_OPENMP=0 LDFLAGS=-lrt
+      elif [ "$DEVICE" = "OdroidGoAdvance" ]; then
+        make AS=${AS} CC_AS=${CC} platform=classic_armv8_a35 $FLYCAST_GL HAVE_OPENMP=0 LDFLAGS=-lrt
       else
         make AS=${AS} CC_AS=${CC} platform=armv-gles-neon $FLYCAST_GL HAVE_OPENMP=0 LDFLAGS=-lrt
       fi

@@ -39,7 +39,11 @@ PKG_AUTORECONF="no"
 make_target() {
   export CXXFLAGS="$CXXFLAGS -DHAVE_POSIX_MEMALIGN=1"
   cd ../backends/platform/libretro/build/
+if [ "$DEVICE" == "OdroidGoAdvance" ]; then
+  make platform=oga_a35_neon_hardfloat
+else
   make
+fi
 }
 
 makeinstall_target() {
