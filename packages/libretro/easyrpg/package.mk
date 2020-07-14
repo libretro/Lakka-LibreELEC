@@ -19,11 +19,10 @@
 ################################################################################
 
 PKG_NAME="easyrpg"
-PKG_VERSION="620278c"
-PKG_REV="2"
+PKG_VERSION="be726b2"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
-PKG_SITE="https://github.com/easyrpg/player"
+PKG_SITE="https://github.com/EasyRPG/Player"
 PKG_URL="$PKG_SITE.git"
 PKG_DEPENDS_TARGET="toolchain zlib libfmt liblcf pixman libspeexdsp mpg123 libsndfile libvorbis opusfile wildmidi libxmp-lite"
 PKG_PRIORITY="optional"
