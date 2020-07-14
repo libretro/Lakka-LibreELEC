@@ -30,21 +30,31 @@ PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="Port of Final Burn Neo to Libretro"
 PKG_LONGDESC="Currently, FB Neo supports games on Capcom CPS-1 and CPS-2 hardware, SNK Neo-Geo hardware, Toaplan hardware, Cave hardware, and various games on miscellaneous hardware. "
-PKG_TOOLCHAIN="manual"
+PKG_TOOLCHAIN="make"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
+
+PKG_MAKE_OPTS_TARGET=" -C ./src/burner/libretro CC=$CC CXX=$CXX USE_CYCLONE=1"
+
   if [ "$ARCH" == "arm" ]; then
+      PKG_MAKE_OPTS_TARGET+=" profile=performance"
+  
     if [[ "$TARGET_FPU" =~ "neon" ]]; then
-      make -C src/burner/libretro CC=$CC CXX=$CXX HAVE_NEON=1 profile=performance
-    else
-      make -C src/burner/libretro CC=$CC CXX=$CXX profile=performance
+      PKG_MAKE_OPTS_TARGET+=" HAVE_NEON=1"
     fi
+    
+    if [ "$DEVICE" == "OdroidGoAdvance" ]; then
+      sed -i "s|armv8-a|armv8-a+crc|" ./src/burner/libretro/Makefile 
+      sed -i "s|LDFLAGS += -static-libgcc -static-libstdc++|LDFLAGS += -static-libgcc|"  ./src/burner/libretro/Makefile 
+      PKG_MAKE_OPTS_TARGET+=" platform=classic_armv8_a35"
+	fi
   else
-    make -C src/burner/libretro CC=$CC CXX=$CXX profile=accuracy
+      PKG_MAKE_OPTS_TARGET+=" profile=accuracy" 
   fi
+  make $PKG_MAKE_OPTS_TARGET
 }
 
 makeinstall_target() {

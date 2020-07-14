@@ -60,9 +60,24 @@ if [ "$AVAHI_DAEMON" = yes ]; then
   PKG_DEPENDS_TARGET+=" avahi nss-mdns"
 fi
 
+if [ "$DISPLAYSERVER" != "no" ]; then
+  PKG_DEPENDS_TARGET+=" $DISPLAYSERVER"
+fi
+
+if [ "$DISPLAYSERVER" == "x11" ]; then
+  PKG_DEPENDS_TARGET+=" libXxf86vm"
+fi
+
+if [ "$DISPLAYSERVER" == "weston" ]; then
+  PKG_DEPENDS_TARGET+=" wayland wayland-protocols"
+fi
+
 RETROARCH_GL=""
 
-if [ "$VULKAN" == "nvidia-driver" ]; then
+if [ "$DEVICE" == "OdroidGoAdvance" ]; then
+  PKG_DEPENDS_TARGET+=" librga libpng"
+  RETROARCH_GL="--enable-kms --enable-odroidgo2 --disable-x11 --disable-wayland --enable-opengles --enable-opengles3 --disable-mali_fbdev"
+elif [ "$VULKAN" == "nvidia-driver" ]; then
   RETROARCH_GL="--enable-vulkan --disable-x11 --disable-kms --disable-egl"
 elif [ "$OPENGL_SUPPORT" == "yes" ]; then
   RETROARCH_GL="--enable-kms"
@@ -101,7 +116,8 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
                            --enable-zlib \
                            --enable-freetype \
                            --enable-translate \
-                           --enable-cdrom"
+                           --enable-cdrom \
+                           --datarootdir=$SYSROOT_PREFIX/usr/share" # don't use host /usr/share!
 
 pre_configure_target() {
   TARGET_CONFIGURE_OPTS=""
@@ -242,6 +258,12 @@ makeinstall_target() {
     sed -i -e "s/input_menu_toggle_gamepad_combo = 2/input_menu_toggle_gamepad_combo = 4/" $INSTALL/etc/retroarch.cfg
     sed -i -e "s/video_smooth = false/video_smooth = true/" $INSTALL/etc/retroarch.cfg
     sed -i -e "s/video_font_path =\/usr\/share\/retroarch-assets\/xmb\/monochrome\/font.ttf//" $INSTALL/etc/retroarch.cfg
+  fi
+  
+  if [ "$DEVICE" == "OdroidGoAdvance" ]; then
+    echo "xmb_layout = 2" >> $INSTALL/etc/retroarch.cfg
+    echo "menu_widget_scale_auto = false" >> $INSTALL/etc/retroarch.cfg
+    echo "menu_widget_scale_factor = 2.25" >> $INSTALL/etc/retroarch.cfg
   fi
 
   # GPICase

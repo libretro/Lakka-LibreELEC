@@ -39,7 +39,12 @@ make_target() {
   if [ "$ARCH" == "arm" ]; then
     CXXFLAGS="$CXXFLAGS -DARM"
   fi
-  make -C libretro
+  
+  if [ "$DEVICE" == "OdroidGoAdvance" ];then 
+	make -C libretro platform=classic_armv8_a35
+  else
+	make -C libretro
+  fi
 }
 
 makeinstall_target() {
