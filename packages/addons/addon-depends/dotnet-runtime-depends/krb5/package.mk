@@ -2,8 +2,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="krb5"
-PKG_VERSION="1.18.1-final"
-PKG_SHA256="5d11bfcc8151a8a752177636e10cdcc6ace88407662949b5f031dd44ec42ffc7"
+PKG_VERSION="1.18.2-final"
+PKG_SHA256="3a92fb44d06a60a79c71a031a528246bf4cf3badad150a2b91dfa7c4702c6c19"
 PKG_LICENSE="MIT"
 PKG_SITE="http://web.mit.edu/kerberos/"
 PKG_URL="https://github.com/krb5/krb5/archive/krb5-$PKG_VERSION.tar.gz"
