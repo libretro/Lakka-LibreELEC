@@ -18,12 +18,12 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="redream"
-PKG_VERSION="ffb7302"
+PKG_NAME="retrodream"
+PKG_VERSION="bf4d812"
 PKG_REV="1"
 PKG_ARCH="arm i386 x86_64"
 PKG_LICENSE="MIT"
-PKG_SITE="https://github.com/inolen/redream"
+PKG_SITE="https://github.com/libretro/retrodream"
 PKG_URL="$PKG_SITE.git"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
@@ -46,5 +46,5 @@ make_target() {
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp redream_libretro.so $INSTALL/usr/lib/libretro/
+  cp retrodream_libretro.so $INSTALL/usr/lib/libretro/
 }
