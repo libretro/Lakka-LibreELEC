@@ -37,7 +37,7 @@ PKG_AUTORECONF="no"
 
 make_target() {
 
-PKG_MAKE_OPTS_TARGET=" -C ./src/burner/libretro CC=$CC CXX=$CXX USE_CYCLONE=1"
+PKG_MAKE_OPTS_TARGET=" -C ./src/burner/libretro CC=$CC CXX=$CXX"
 
   if [ "$ARCH" == "arm" ]; then
       PKG_MAKE_OPTS_TARGET+=" profile=performance"
@@ -49,8 +49,9 @@ PKG_MAKE_OPTS_TARGET=" -C ./src/burner/libretro CC=$CC CXX=$CXX USE_CYCLONE=1"
     if [ "$DEVICE" == "OdroidGoAdvance" ]; then
       sed -i "s|armv8-a|armv8-a+crc|" ./src/burner/libretro/Makefile 
       sed -i "s|LDFLAGS += -static-libgcc -static-libstdc++|LDFLAGS += -static-libgcc|"  ./src/burner/libretro/Makefile 
-      PKG_MAKE_OPTS_TARGET+=" platform=classic_armv8_a35"
-	fi
+      PKG_MAKE_OPTS_TARGET+=" platform=classic_armv8_a35 USE_CYCLONE=1"
+    fi
+
   else
       PKG_MAKE_OPTS_TARGET+=" profile=accuracy" 
   fi
