@@ -2,11 +2,11 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pycryptodome"
-PKG_VERSION="3.9.4"
-PKG_SHA256="a168e73879619b467072509a223282a02c8047d932a48b74fbd498f27224aa04"
+PKG_VERSION="3.9.8"
+PKG_SHA256="d20cf8a4355a21e8dfd33372e7fab22af91d81cbcb48f413b4052820a631e2dd"
 PKG_LICENSE="BSD"
 PKG_SITE="https://pypi.org/project/pycryptodome"
-PKG_URL="https://files.pythonhosted.org/packages/source/${PKG_NAME:0:1}/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/Legrandin/${PKG_NAME}/archive/v${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain Python3 distutilscross:host"
 PKG_LONGDESC="PyCryptodome is a self-contained Python package of low-level cryptographic primitives."
 PKG_TOOLCHAIN="manual"

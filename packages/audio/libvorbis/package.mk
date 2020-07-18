@@ -3,8 +3,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libvorbis"
-PKG_VERSION="1.3.6"
-PKG_SHA256="af00bb5a784e7c9e69f56823de4637c350643deedaf333d0fa86ecdba6fcb415"
+PKG_VERSION="1.3.7"
+PKG_SHA256="b33cc4934322bcbf6efcbacf49e3ca01aadbea4114ec9589d1b1e9d20f72954b"
 PKG_LICENSE="BSD"
 PKG_SITE="http://www.vorbis.com/"
 PKG_URL="http://downloads.xiph.org/releases/vorbis/libvorbis-$PKG_VERSION.tar.xz"
