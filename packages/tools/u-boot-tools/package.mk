@@ -3,7 +3,7 @@
 
 PKG_NAME="u-boot-tools"
 PKG_VERSION="2019.10"
-PKG_SHA256="50bd7e5a466ab828914d080d5f6a432345b500e8fba1ad3b7b61e95e60d51c22"
+PKG_SHA256="8d6d6070739522dd236cba7055b8736bfe92b4fac0ea18ad809829ca79667014"
 PKG_LICENSE="GPL"
 PKG_SITE="https://www.denx.de/wiki/U-Boot"
 PKG_URL="http://ftp.denx.de/pub/u-boot/u-boot-$PKG_VERSION.tar.bz2"
