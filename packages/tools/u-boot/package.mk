@@ -24,8 +24,8 @@ case "$PROJECT" in
   Rockchip)
     case "$DEVICE" in
       OdroidGoAdvance)
-        PKG_VERSION="e7b255b54c42c8a805dee7a9409a8838cfa13586"
-        PKG_SHA256="a3c9d17c363cdedb43ec34f3965594d82bf499cc1d70334610afe477adcdf9b6"
+        PKG_VERSION="8273f6996fd8c275ee6ede942b48bbc4c1142cd3"
+        PKG_SHA256="4547d7e98643193ff4cb5fe87f20554a6f413c5eabbe12859fdbc8df1f258500"
         PKG_URL="https://github.com/hardkernel/u-boot/archive/$PKG_VERSION.tar.gz"
         ;;
       *)
