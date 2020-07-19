@@ -26,10 +26,6 @@ case $KODI_VENDOR in
     ;;
 esac
 
-if [ "$KODIPLAYER_DRIVER" = bcm2835-driver -a "$KODI_VENDOR" = "default" ]; then
-  PKG_PATCH_DIRS+=" rpi-hevc"
-fi
-
 configure_package() {
   # Single threaded LTO is very slow so rely on Kodi for parallel LTO support
   if [ "$LTO_SUPPORT" = "yes" ] && ! build_with_debug; then
@@ -197,9 +193,7 @@ configure_package() {
 
   if [ ! "$KODIPLAYER_DRIVER" = default ]; then
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $KODIPLAYER_DRIVER libinput libxkbcommon"
-    if [ "$KODIPLAYER_DRIVER" = bcm2835-driver ]; then
-      KODI_PLAYER="-DCORE_PLATFORM_NAME=rbpi"
-    elif [ "$OPENGLES_SUPPORT" = yes -a "$KODIPLAYER_DRIVER" = "$OPENGLES" ]; then
+    if [ "$OPENGLES_SUPPORT" = yes -a "$KODIPLAYER_DRIVER" = "$OPENGLES" ]; then
       KODI_PLAYER="-DCORE_PLATFORM_NAME=gbm -DGBM_RENDER_SYSTEM=gles"
       CFLAGS="$CFLAGS -DEGL_NO_X11"
       CXXFLAGS="$CXXFLAGS -DEGL_NO_X11"

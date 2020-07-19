@@ -17,13 +17,8 @@ PKG_CMAKE_OPTS_TARGET="-DBUILD_SHARED_LIBS=1 \
                        -DSKIP_PYTHON_WRAPPER=1 \
                        -DHAVE_IMX_API=0 \
                        -DHAVE_AOCEC_API=0 -DHAVE_AMLOGIC_API=0 \
-                       -DHAVE_GIT_BIN=0"
-
-if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"
-else
-  PKG_CMAKE_OPTS_TARGET+=" -DHAVE_RPI_LIB=0"
-fi
+                       -DHAVE_GIT_BIN=0 \
+                       -DHAVE_RPI_LIB=0"
 
 # libX11 and xrandr to read the sink's EDID, used to determine the PC's HDMI physical address
 if [ "$DISPLAYSERVER" = "x11" ]; then
@@ -35,13 +30,6 @@ if [ "$CEC_FRAMEWORK_SUPPORT" = "yes" ]; then
 else
   PKG_CMAKE_OPTS_TARGET="$PKG_CMAKE_OPTS_TARGET -DHAVE_LINUX_API=0"
 fi
-
-pre_configure_target() {
-  if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
-    # detecting RPi support fails without -lvchiq_arm
-    export LDFLAGS="$LDFLAGS -lvchiq_arm"
-  fi
-}
 
 post_makeinstall_target() {
   # Remove the Python3 demo - useless for us
