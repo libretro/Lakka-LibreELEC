@@ -49,12 +49,12 @@ make_target() {
   if [[ "$TARGET_FPU" =~ "neon" ]]; then
   if [ "$DEVICE" == "OdroidGoAdvance" ]; then
 		sed -i "s|armv8-a|armv8-a+crc|" Makefile.libretro
-		make -f Makefile.libretro HAVE_NEON=1 USE_DYNAREC=1 BUILTIN_GPU=neon platform=classic_armv8_a35
+		make -f Makefile.libretro HAVE_NEON=1 USE_DYNAREC=1 DYNAREC=ari64 ARCH=arm BUILTIN_GPU=neon platform=classic_armv8_a35
     else
-		make -f Makefile.libretro HAVE_NEON=1 USE_DYNAREC=1 BUILTIN_GPU=neon
+		make -f Makefile.libretro HAVE_NEON=1 USE_DYNAREC=1 DYNAREC=ari64 ARCH=arm BUILTIN_GPU=neon
     fi
   elif [ "$ARCH" == "arm" ]; then
-    make -f Makefile.libretro HAVE_NEON=0 USE_DYNAREC=1 BUILTIN_GPU=unai
+    make -f Makefile.libretro HAVE_NEON=0 USE_DYNAREC=1 DYNAREC=ari64 ARCH=arm BUILTIN_GPU=unai
   else
     make -f Makefile.libretro
   fi
