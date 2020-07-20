@@ -34,6 +34,14 @@ PKG_LONGDESC="Snes9x 2002. Port of SNES9x 1.39 for libretro (was previously call
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+make_target() {
+  if [ "$DEVICE" = "RPi" -o "$DEVICE" = "Gamegirl" -o "$DEVICE" = "GPICase" ]; then
+    make ARM_ASM=1 platform=unix
+  else
+    make platform=unix
+  fi
+}
+
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
   cp snes9x2002_libretro.so $INSTALL/usr/lib/libretro/
