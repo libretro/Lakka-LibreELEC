@@ -35,7 +35,7 @@ case "$LINUX" in
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     ;;
   odroidxu3-5.4)
-    PKG_VERSION="7ed9082e87649dacb3819f6608c55614d10d6972"
+    PKG_VERSION="5e12d570f207e48f321029b15026ae7c4ab21217"
     PKG_URL="https://github.com/hardkernel/linux/archive/$PKG_VERSION.tar.gz"
     ;;
   *)
