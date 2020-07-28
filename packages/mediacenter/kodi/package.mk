@@ -3,28 +3,14 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="kodi"
+PKG_VERSION="19.0a1-Matrix"
+PKG_SHA256="3c66715448e18f95bc5e8a3075f95e643f3b2c0bae3957f2abb5b567b7e7eceb"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
+PKG_URL="https://github.com/xbmc/xbmc/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain JsonSchemaBuilder:host TexturePacker:host Python3 zlib systemd lzo pcre swig:host libass curl fontconfig fribidi tinyxml libjpeg-turbo freetype libcdio taglib libxml2 libxslt rapidjson sqlite ffmpeg crossguid giflib libdvdnav libhdhomerun libfmt lirc libfstrcmp flatbuffers:host flatbuffers libudfread spdlog"
 PKG_LONGDESC="A free and open source cross-platform media player."
 PKG_BUILD_FLAGS="+speed"
-
-PKG_PATCH_DIRS="$KODI_VENDOR"
-
-case $KODI_VENDOR in
-  raspberrypi)
-    PKG_VERSION="newclock5_20200419"
-    PKG_SHA256="f50ea08a4f7f4dc2083c8470115063eaeb67c9b8682ecc6bfaf42dafcb69fd5c"
-    PKG_URL="https://github.com/popcornmix/xbmc/archive/$PKG_VERSION.tar.gz"
-    PKG_SOURCE_NAME="kodi-$KODI_VENDOR-$PKG_VERSION.tar.gz"
-    ;;
-  *)
-    PKG_VERSION="19.0a1-Matrix"
-    PKG_SHA256="3c66715448e18f95bc5e8a3075f95e643f3b2c0bae3957f2abb5b567b7e7eceb"
-    PKG_URL="https://github.com/xbmc/xbmc/archive/$PKG_VERSION.tar.gz"
-    PKG_SOURCE_NAME="kodi-$PKG_VERSION.tar.gz"
-    ;;
-esac
 
 configure_package() {
   # Single threaded LTO is very slow so rely on Kodi for parallel LTO support
