@@ -14,10 +14,6 @@ PKG_BUILD_FLAGS="-gold -sysroot"
 # Dependencies
 get_graphicdrivers
 
-if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"
-fi
-
 if [ "$TARGET_ARCH" = "x86_64" ]; then
   PKG_DEPENDS_TARGET+=" nasm:host x265"
 
@@ -39,27 +35,7 @@ pre_configure_target() {
   cd $PKG_BUILD
   rm -rf .$TARGET_NAME
 
-  if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
-    CFLAGS="$CFLAGS -DRPI=1 -I$SYSROOT_PREFIX/usr/include/IL"
-    PKG_FFMPEG_LIBS="-lbcm_host -ldl -lmmal -lmmal_core -lmmal_util -lvchiq_arm -lvcos -lvcsm"
-  fi
-
 # HW encoders
-
-  # RPi 0-3
-  if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
-    PKG_FFMPEG_HW_ENCODERS_RPi="\
-    `#Video encoders` \
-    --enable-omx-rpi \
-    --enable-mmal \
-    --enable-encoder=h264_omx \
-    \
-    `#Video hwaccel` \
-    --enable-hwaccel=h264_mmal \
-    --enable-hwaccel=mpeg2_mmal \
-    --enable-hwaccel=mpeg4_mmal \
-    --enable-hwaccel=vc1_mmal"
-  fi
 
   # Generic
   if [[ "$TARGET_ARCH" = "x86_64" ]]; then
@@ -142,7 +118,6 @@ configure_target() {
     --disable-doc \
     \
     `#Hardware accelerated decoding encoding` \
-    $PKG_FFMPEG_HW_ENCODERS_RPi \
     $PKG_FFMPEG_HW_ENCODERS_GENERIC \
     \
     `#General options` \
