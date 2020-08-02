@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="nettle"
-PKG_VERSION="3.4.1"
-PKG_SHA256="f941cf1535cd5d1819be5ccae5babef01f6db611f9b5a777bae9c7604b8a92ad"
+PKG_VERSION="3.6"
+PKG_SHA256="d24c0d0f2abffbc8f4f34dcf114b0f131ec3774895f3555922fe2f40f3d5e3f1"
 PKG_LICENSE="GPL2"
 PKG_SITE="http://www.lysator.liu.se/~nisse/nettle"
 PKG_URL="http://ftpmirror.gnu.org/gnu/nettle/nettle-$PKG_VERSION.tar.gz"
