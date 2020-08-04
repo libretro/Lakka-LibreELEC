@@ -33,6 +33,7 @@ PKG_LONGDESC="Emux is a cross-platform emulator project supporting various machi
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+PKG_TOOLCHAIN="manual"
 
 make_target() {
   make -C libretro -f Makefile.lakka MACHINE=sms
