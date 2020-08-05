@@ -25,6 +25,9 @@ make_target() {
    else
     export HAVE_NEON=0
   fi
+
+  # check if this flag is still needed when this package is updated
+  export CFLAGS="$CFLAGS -fcommon"
   
   case $TARGET_ARCH in
     aarch64)
