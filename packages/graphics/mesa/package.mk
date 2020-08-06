@@ -46,7 +46,7 @@ if [ "$TARGET_ARCH" = "i386" ]; then
 fi
 
 if [ "$DISPLAYSERVER" = "x11" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET xorgproto libXext libXdamage libXfixes libXxf86vm libxcb libX11 libxshmfence libXrandr"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET xorgproto libXext libXdamage libXfixes libXxf86vm libxcb libX11 libxshmfence libXrandr libglvnd"
   export X11_INCLUDES=
   PKG_MESON_OPTS_TARGET+=" -Dplatforms=x11,drm -Ddri3=true -Dglx=dri"
 elif [ "$DISPLAYSERVER" = "weston" ]; then
@@ -93,25 +93,3 @@ if [ "$OPENGLES_SUPPORT" = "yes" ]; then
 else
   PKG_MESON_OPTS_TARGET+=" -Dgles1=false -Dgles2=false"
 fi
-
-# Temporary workaround:
-# Listed libraries are static, while mesa expects shared ones. This breaks the
-# dependency tracking. The following has some ideas on how to address that.
-# https://github.com/LibreELEC/LibreELEC.tv/pull/2163
-pre_configure_target() {
-  if [ "$DISPLAYSERVER" = "x11" ]; then
-    export LIBS="-lxcb-dri3 -lxcb-dri2 -lxcb-xfixes -lxcb-present -lxcb-sync -lxshmfence -lz"
-  fi
-}
-
-post_makeinstall_target() {
-  # Similar hack is needed on EGL, GLES* front. Might as well drop it and test the GLVND?
-  if [ "$DISPLAYSERVER" = "x11" ]; then
-    # rename and relink for cooperate with nvidia drivers
-    rm -rf $INSTALL/usr/lib/libGL.so
-    rm -rf $INSTALL/usr/lib/libGL.so.1
-    ln -sf libGL.so.1 $INSTALL/usr/lib/libGL.so
-    ln -sf /var/lib/libGL.so $INSTALL/usr/lib/libGL.so.1
-    mv $INSTALL/usr/lib/libGL.so.1.2.0 $INSTALL/usr/lib/libGL_mesa.so.1
-  fi
-}
