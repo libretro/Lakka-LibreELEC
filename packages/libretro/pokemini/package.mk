@@ -24,6 +24,7 @@ PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/pokemini"
+PKG_URL="$PKG_SITE.git"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -32,6 +33,11 @@ PKG_LONGDESC="Obscure nintendo handheld emulator (functional,no color files or s
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+PKG_TOOLCHAIN="make"
+
+make_target() {
+    make -f Makefile.libretro
+}
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
