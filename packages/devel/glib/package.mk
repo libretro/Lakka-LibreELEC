@@ -18,11 +18,11 @@
 ################################################################################
 
 PKG_NAME="glib"
-PKG_VERSION="2.46.2"
+PKG_VERSION="2.56.4"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.gtk.org/"
-PKG_URL="http://ftp.gnome.org/pub/gnome/sources/glib/2.46/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="http://ftp.gnome.org/pub/gnome/sources/glib/2.56/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain zlib libffi Python:host"
 PKG_DEPENDS_HOST="libffi:host"
 PKG_SECTION="devel"
@@ -32,7 +32,7 @@ PKG_LONGDESC="GLib is a library which includes support routines for C such as li
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-PKG_CONFIGURE_OPTS_HOST="--enable-static --disable-shared"
+PKG_CONFIGURE_OPTS_HOST="--enable-static --disable-shared --disable-libmount --with-pcre=internal"
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_mmap_fixed_mapped=yes \
                            ac_cv_func_posix_getpwuid_r=yes \
                            ac_cv_func_posix_getgrgid_r=yes \
@@ -60,7 +60,7 @@ pre_configure_target() {
 }
 
 pre_configure_host() {
-  export CFLAGS="$CFLAGS -Wno-error=format-nonliteral"
+  export CFLAGS="$CFLAGS -Wno-error=format-nonliteral -Wno-error=format-overflow"
 }
 
 post_makeinstall_target() {

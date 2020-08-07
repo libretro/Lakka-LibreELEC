@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="e2fsprogs"
-PKG_VERSION="1.43.4"
+PKG_VERSION="1.43.5"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://e2fsprogs.sourceforge.net/"
