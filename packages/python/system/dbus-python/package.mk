@@ -15,7 +15,7 @@ PKG_BUILD_FLAGS="+lto"
 pre_configure_target() {
   export PYTHON_CONFIG="$SYSROOT_PREFIX/usr/bin/python3-config"
   export PYTHON_INCLUDES="$($SYSROOT_PREFIX/usr/bin/python3-config --includes)"
-  export PYTHON_LIBS="$($SYSROOT_PREFIX/usr/bin/python3-config --ldflags)"
+  export PYTHON_LIBS="$($SYSROOT_PREFIX/usr/bin/python3-config --ldflags --embed)"
 }
 
 post_makeinstall_target() {
