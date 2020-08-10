@@ -39,5 +39,5 @@ configure_target() {
 }
 
 makeinstall_target() {
-  make install INSTALLDIR="$INSTALL/etc/retroarch-joypad-autoconfig"
+  make install INSTALLDIR="$INSTALL/etc/retroarch-joypad-autoconfig" DOC_DIR="$INSTALL/etc/doc/."
 }
