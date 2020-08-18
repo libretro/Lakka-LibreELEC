@@ -7,8 +7,8 @@ PKG_NAME="bcm2835-bootloader"
 # use latest master firmware on RPi4 and latest pre-common
 # firmware on RPi0-3
 if [ "$DEVICE" = "RPi4" ]; then
-  PKG_VERSION="66fc5eaac3d0af1d5a7ffa616086cbfaefd72e98"
-  PKG_SHA256="fe7fe713409120768c37dbbe02a7a06c0e808b0e60dad09ea054d7006947b76d"
+  PKG_VERSION="2b76cfc6f57d4943144b9ceb5b57d3d455d6a8fd"
+  PKG_SHA256="8e3197667d80bd4e6faccf1e77dbb546c884467298edc7ce46db241ca6c137fc"
 else
   PKG_VERSION="9e3c23ce779e8cf44c33d6a25bba249319207f68"
   PKG_SHA256="7ab85b6d7082be87556bc02353b97f97bb1d4af304e4004a3d7ad2a17bb8a696"
