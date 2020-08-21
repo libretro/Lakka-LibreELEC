@@ -53,7 +53,7 @@ configure_target() {
 
 make_target() {
   if [ "$ARCH" == "arm" ]; then
-    make -C .. -f Makefile.libretro platform=armv neon
+    make -C .. -f Makefile.libretro platform=armv
   elif [ "$ARCH" == "aarch64" ]; then
     make -C .. -f Makefile.libretro platform=aarch64
   else
