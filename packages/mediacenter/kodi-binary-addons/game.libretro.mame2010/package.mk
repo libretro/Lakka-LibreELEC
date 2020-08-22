@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.mame2010"
-PKG_VERSION="0.139.0.5-Leia"
-PKG_SHA256="bb2212cda950e522be026c3777c9ecc193dd6f41cb48279cee275f8887e66e77"
+PKG_VERSION="0.139.0.6-Leia"
+PKG_SHA256="28114443b5316ffa2a62e261afa31e6c0013206e823759a7a29a9b9160b676d2"
 PKG_REV="1"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.mame2010"

@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.dumb"
-PKG_VERSION="2.1.3-Matrix"
-PKG_SHA256="b369e798cc0e895687e5183d2676a34df458f63b7e8243b2c485e24ee7f65f38"
+PKG_VERSION="3.0.0-Matrix"
+PKG_SHA256="716f4560ea5b90df3079f363047cf43c0a1f9a23a888cc4bb11db3f7b7fd9d78"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -14,6 +14,7 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION=""
 PKG_SHORTDESC="audiodecoder.dumb"
 PKG_LONGDESC="audiodecoder.dumb"
+PKG_BUILD_FLAGS="pic"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.audiodecoder"
