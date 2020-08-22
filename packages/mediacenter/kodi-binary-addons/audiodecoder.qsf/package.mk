@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.qsf"
-PKG_VERSION="2.2.2-Matrix"
-PKG_SHA256="e351080ab031ae63af3d727d322b97c82bc08e40d81ae877394af5648d13af9c"
+PKG_VERSION="3.0.0-Matrix"
+PKG_SHA256="eb44ac9f9eca1e2249c2af411815f592ed36979ce44cae8432433b4c0765dd68"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

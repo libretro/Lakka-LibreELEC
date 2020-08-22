@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.asap"
-PKG_VERSION="2.2.2-Matrix"
-PKG_SHA256="233f1d82bccd477398a73e88cf8a4ddd4f8d5380f4238e8f30987e5aeb69e428"
+PKG_VERSION="3.0.0-Matrix"
+PKG_SHA256="f2fa996bfd84a5bbdcf3a2114720d5b9e7d9e598d66cd5504b57e0ddd8d001a7"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
