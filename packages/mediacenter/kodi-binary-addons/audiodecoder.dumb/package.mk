@@ -14,6 +14,7 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION=""
 PKG_SHORTDESC="audiodecoder.dumb"
 PKG_LONGDESC="audiodecoder.dumb"
+PKG_BUILD_FLAGS="pic"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="kodi.audiodecoder"
