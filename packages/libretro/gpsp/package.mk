@@ -35,11 +35,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  if [ "$ARCH" == "arm" ]; then
-    make CC=$CC platform=armv
-  else
-    make CC=$CC
-  fi  
+    make CC=$CC platform=unix
 }
 
 makeinstall_target() {
