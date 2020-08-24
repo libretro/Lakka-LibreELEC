@@ -8,8 +8,7 @@ assignees: ''
 ---
 
 ### Describe the bug
-<!--- A clear description of what the bug is.
-Add a kodi.log (https://libreelec.wiki/how_to/provide_logfile) that we can search for errors. -->
+<!--- A clear description of what the bug is. -->
 
 ### To Reproduce
 Steps to reproduce the behavior:
@@ -20,6 +19,9 @@ Steps to reproduce the behavior:
 ### Informations
  - LE Version: [e.g. 9.2.1]
  - Hardware Platform: [e.g. RPi3]
+
+### Log file
+<!-- Add log files (https://libreelec.wiki/how_to/provide_logfile) that we can search for errors. -->
 
 ### Additional context
 <!--- Add any other context about the problem here. -->
