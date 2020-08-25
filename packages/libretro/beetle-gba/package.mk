@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="beetle-gba"
-PKG_VERSION="30ee792"
+PKG_VERSION="d89f181"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"

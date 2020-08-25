@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="beetle-ngp"
-PKG_VERSION="3d31f4a"
+PKG_VERSION="dfe8693"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
