@@ -144,6 +144,9 @@ makeinstall_target() {
       cp $PKG_DIR/scripts/rpi-flash-firmware $INSTALL/usr/lib/libreelec
     fi
 
+  mkdir -p $INSTALL/usr/lib/systemd/system-generators/
+    cp $PKG_DIR/scripts/libreelec-target-generator $INSTALL/usr/lib/systemd/system-generators/
+
   mkdir -p $INSTALL/etc
     cp $PKG_DIR/config/profile $INSTALL/etc
     cp $PKG_DIR/config/inputrc $INSTALL/etc
