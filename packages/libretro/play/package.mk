@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="play"
-PKG_VERSION="80bfc0a"
+PKG_VERSION="3b9cfd4"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/jpd002/Play-"
