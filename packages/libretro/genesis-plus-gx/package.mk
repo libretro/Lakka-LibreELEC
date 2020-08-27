@@ -19,11 +19,11 @@
 ################################################################################
 
 PKG_NAME="genesis-plus-gx"
-PKG_VERSION="7fa34f2"
+PKG_VERSION="f8a8046"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"
-PKG_SITE="https://github.com/libretro/Genesis-Plus-GX"
+PKG_SITE="https://github.com/ekeeke/Genesis-Plus-GX"
 PKG_URL="$PKG_SITE.git"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"

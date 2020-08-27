@@ -19,16 +19,16 @@
 ################################################################################
 
 PKG_NAME="vbam"
-PKG_VERSION="36b011c"
+PKG_VERSION="3ee26c0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/libretro/vbam-libretro"
+PKG_SITE="https://github.com/visualboyadvance-m/visualboyadvance-m"
 PKG_URL="$PKG_SITE.git"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="A fork of VBA-M with libretro integration"
+PKG_SHORTDESC="VBA-M with libretro integration"
 PKG_LONGDESC="VBA-M is a [Super] Game Boy [Color / Advance] emulator for Windows, Linux & Mac."
 PKG_TOOLCHAIN="make"
 
