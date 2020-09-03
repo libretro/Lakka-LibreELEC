@@ -2,7 +2,7 @@
 # Copyright (C) 2020-present Team Lakka
 
 PKG_NAME="firmware-realtek"
-PKG_VERSION="1abec9a2b1a2b766268a45ff4d6f993f6eeb2bfa"
+PKG_VERSION="a02fef66bdd7765a1cdd9dd488a7b9b4ecb12d75"
 PKG_LICENSE="Free-to-use"
 PKG_SITE="https://github.com/Ntemis/firmware-realtek"
 PKG_URL="https://github.com/Ntemis/firmware-realtek/archive/$PKG_VERSION.tar.gz"
