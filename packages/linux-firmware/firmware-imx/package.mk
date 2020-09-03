@@ -7,10 +7,10 @@ PKG_VERSION="5.4"
 PKG_SHA256="c5bd4bff48cce9715a5d6d2c190ff3cd2262c7196f7facb9b0eda231c92cc223"
 PKG_ARCH="arm"
 PKG_LICENSE="other"
-PKG_SITE="http://www.freescale.com"
-PKG_URL="http://www.nxp.com/lgfiles/NMG/MAD/YOCTO/${PKG_NAME}-${PKG_VERSION}.bin"
+PKG_SITE="https://www.nxp.com"
+PKG_URL="https://www.nxp.com/lgfiles/NMG/MAD/YOCTO/${PKG_NAME}-${PKG_VERSION}.bin"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_LONGDESC="firmware-imx: Freescale IMX firmware such as for the VPU"
+PKG_LONGDESC="NXP iMX firmware such as for the VPU"
 PKG_TOOLCHAIN="manual"
 
 unpack() {
@@ -19,7 +19,7 @@ unpack() {
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/$(get_full_firmware_dir)/vpu
-    cp -P firmware/vpu/vpu_fw_imx6d.bin $INSTALL/$(get_full_firmware_dir)/vpu
-    cp -P firmware/vpu/vpu_fw_imx6q.bin $INSTALL/$(get_full_firmware_dir)/vpu
+  mkdir -p $INSTALL/$(get_full_firmware_dir)
+    cp -P firmware/vpu/vpu_fw_imx6d.bin $INSTALL/$(get_full_firmware_dir)
+    cp -P firmware/vpu/vpu_fw_imx6q.bin $INSTALL/$(get_full_firmware_dir)
 }
