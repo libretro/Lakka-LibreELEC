@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="dolphin"
-PKG_VERSION="2dd20d2"
+PKG_VERSION="f4f4947"
 PKG_REV="1"
 PKG_ARCH="x86_64 aarch64"
 PKG_LICENSE="GPLv2"
@@ -47,17 +47,7 @@ if [ "$OPENGLES_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET+=" $OPENGLES"
 fi
 
-PKG_CMAKE_OPTS_TARGET="-DCLANG=ON -DLIBRETRO=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_C_COMPILER=${CC} -DENABLE_X11=OFF"
-
-if [ "$PROJECT" == "Generic_VK_nvidia" ]; then
-  PKG_VERSION="a5bce7d"
-fi
-
-pre_make_target() {
-  # build fix for cross-compiling Dolphin, from Dolphin forums
-  find $PKG_BUILD -name flags.make -exec sed -i "s:isystem :I:g" \{} \;
-  find $PKG_BUILD -name build.ninja -exec sed -i "s:isystem :I:g" \{} \;
-}
+PKG_CMAKE_OPTS_TARGET="-DENABLE_X11=OFF -DLIBRETRO=ON -DENABLE_NOGUI=OFF -DENABLE_QT=OFF -DENABLE_TESTS=OFF -DUSE_DISCORD_PRESENCE=OFF -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release"
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
