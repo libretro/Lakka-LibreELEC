@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.vba-next"
-PKG_VERSION="1.0.2.7-Leia"
-PKG_SHA256="8d5f5c17872cd7c235f71daa6e89f10d150ca5b1c184e2835441a7bf84e721ed"
+PKG_VERSION="1.0.2.8-Leia"
+PKG_SHA256="4c6008011b8f39e83dfcd79638c40843d986d3c1e4346967d299f1ad1ef137f2"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

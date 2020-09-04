@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.mame"
-PKG_VERSION="0.219.0.5-Leia"
-PKG_SHA256="664e4aa4e734524ae25fcf13257ca7e30c35c8265c1abfb137cfd40a105fbf54"
+PKG_VERSION="0.224.0.6-Leia"
+PKG_SHA256="e516b446c0d790d5dc12aa8ae12c050ab1fcc48dddcfb59f0440711d5798fc77"
 PKG_REV="1"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"

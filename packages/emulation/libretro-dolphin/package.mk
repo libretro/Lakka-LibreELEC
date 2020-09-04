@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-dolphin"
-PKG_VERSION="9ef58b5"
-PKG_SHA256="b9a040233219bdb2bfb2b67f4bc6ea63faf0b9b85bf22893408710a62df4c2da"
+PKG_VERSION="1a7d1bc867e62f85598e79ed8d704259869c773e"
+PKG_SHA256="3acfdb0dee34773cfc67b045f135465f5e96e4de7b2912dfe61c6ea7c7d7e4d2"
 PKG_ARCH="none"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/dolphin"
