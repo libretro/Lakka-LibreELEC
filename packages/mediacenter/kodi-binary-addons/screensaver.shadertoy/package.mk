@@ -3,8 +3,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="screensaver.shadertoy"
-PKG_VERSION="3.0.2-Matrix"
-PKG_SHA256="fe6b898d1c96be1a8130e92a9308082547dda8ff4e33aea21f4f9ac4706ca245"
+PKG_VERSION="3.1.0-Matrix"
+PKG_SHA256="05eddd69eb3eae5b88d6032dda8fd51f31e1fa43a6314bccc6a8d0f930704d4a"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
