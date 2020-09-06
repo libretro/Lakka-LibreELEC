@@ -103,7 +103,11 @@ fi
 RETROARCH_NEON=""
 
 if [[ "$TARGET_FPU" =~ "neon" ]]; then
-  RETROARCH_NEON="--enable-neon"
+  if [ "$ARCH" = "aarch64" ]; then
+    RETROARCH_NEON=""
+  else
+    RETROARCH_NEON="--enable-neon"
+  fi
 fi
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
