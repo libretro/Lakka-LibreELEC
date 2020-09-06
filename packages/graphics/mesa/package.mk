@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mesa"
-PKG_VERSION="19.3.5"
-PKG_SHA256="d115c046a0e5bd316b107d47245471dc826491709f37b524c133d09ae5c9ffbb"
+PKG_VERSION="20.1.7"
+PKG_SHA256="2d73aa2664a2aa6af4956f154455df025e4b2cde5659a161ede2d9d0e54112ab"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
 PKG_URL="https://github.com/mesa3d/mesa/archive/mesa-$PKG_VERSION.tar.gz"
@@ -35,10 +35,6 @@ PKG_MESON_OPTS_TARGET="-Ddri-drivers=${DRI_DRIVERS// /,} \
                        -Dbuild-tests=false \
                        -Dselinux=false \
                        -Dosmesa=none"
-
-if [ "$DISTRO" = "Lakka" ]; then
-  VAAPI_SUPPORT=no
-fi
 
 if [ "$TARGET_ARCH" = "i386" ]; then
   PKG_MESON_OPTS_TARGET="${PKG_MESON_OPTS_TARGET//-Dvulkan-drivers=auto/-Dvulkan-drivers=}"
