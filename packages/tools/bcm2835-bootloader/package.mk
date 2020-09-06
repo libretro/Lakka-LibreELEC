@@ -19,10 +19,12 @@ makeinstall_target() {
     cp -PRv bootcode.bin $INSTALL/usr/share/bootloader
     if [ "$DEVICE" = "RPi4" ]; then
       cp -PRv fixup4x.dat $INSTALL/usr/share/bootloader/fixup.dat
+      cp -PRv fixup4.dat $INSTALL/usr/share/bootloader/fixup4.dat
       cp -PRv start4x.elf $INSTALL/usr/share/bootloader/start.elf
     else
       cp -PRv fixup_x.dat $INSTALL/usr/share/bootloader/fixup.dat
       cp -PRv start_x.elf $INSTALL/usr/share/bootloader/start.elf
+      cp -PRv fixup4.dat $INSTALL/usr/share/bootloader/fixup4.dat
     fi
 
     find_file_path config/dt-blob.bin && cp -PRv $FOUND_PATH $INSTALL/usr/share/bootloader

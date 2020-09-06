@@ -16,6 +16,7 @@ mount -o remount,rw $BOOT_ROOT
 cp -p $SYSTEM_ROOT/usr/share/bootloader/LICENCE* $BOOT_ROOT
 cp -p $SYSTEM_ROOT/usr/share/bootloader/bootcode.bin $BOOT_ROOT
 cp -p $SYSTEM_ROOT/usr/share/bootloader/fixup.dat $BOOT_ROOT
+cp -p $SYSTEM_ROOT/usr/share/bootloader/fixup4.dat $BOOT_ROOT
 cp -p $SYSTEM_ROOT/usr/share/bootloader/start.elf $BOOT_ROOT
 [ -f $SYSTEM_ROOT/usr/share/bootloader/dt-blob.bin ] && cp -p $SYSTEM_ROOT/usr/share/bootloader/dt-blob.bin $BOOT_ROOT
 
