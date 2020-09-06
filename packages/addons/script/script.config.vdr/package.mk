@@ -21,7 +21,6 @@ PKG_ADDON_TYPE="dummy"
 
 make_target() {
   sed -e "s|@ADDON_VERSION@|$ADDON_VERSION|g" \
-      -e "s|@OS_VERSION@|$OS_VERSION|g" \
       -i addon.xml
 }
 
