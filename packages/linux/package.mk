@@ -151,6 +151,17 @@ pre_make_target() {
 
     FW_LIST="$(find $PKG_BUILD/external-firmware \( -type f -o -type l \) \( -iname '*.bin' -o -iname '*.fw' -o -path '*/intel-ucode/*' \) | sed 's|.*external-firmware/||' | sort | xargs)"
     sed -i "s|CONFIG_EXTRA_FIRMWARE=.*|CONFIG_EXTRA_FIRMWARE=\"${FW_LIST}\"|" $PKG_BUILD/.config
+
+  elif [ "$TARGET_ARCH" = "arm" ]; then
+    if [ "$DEVICE" = "iMX6"  ]; then
+      mkdir -p $PKG_BUILD/external-firmware
+        cp -a $(get_build_dir kernel-firmware)/imx $PKG_BUILD/external-firmware
+
+      FW_LIST="$(find $PKG_BUILD/external-firmware -iname '*.bin' | sed 's|.*external-firmware/||' | sort | xargs)"
+
+      sed -i "s|CONFIG_EXTRA_FIRMWARE=.*|CONFIG_EXTRA_FIRMWARE=\"${FW_LIST}\"|" $PKG_BUILD/.config
+      sed -i "s|CONFIG_EXTRA_FIRMWARE_DIR=.*|CONFIG_EXTRA_FIRMWARE_DIR=\"external-firmware\"|" $PKG_BUILD/.config
+    fi
   fi
 
   kernel_make olddefconfig
