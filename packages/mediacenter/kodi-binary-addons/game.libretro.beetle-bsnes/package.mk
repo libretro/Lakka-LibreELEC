@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.beetle-bsnes"
-PKG_VERSION="0.9.26.7-Leia"
-PKG_SHA256="4fc1772740ac349154248bfda5882c8f4ca461c5a313cfd2afc6d186c1da69b2"
+PKG_VERSION="0.9.26.8-Leia"
+PKG_SHA256="1d2a318e0ae8867e47e65f291c9e701b261207307e0773d84e1c140477aefc63"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

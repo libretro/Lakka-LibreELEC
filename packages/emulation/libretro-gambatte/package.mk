@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-gambatte"
-PKG_VERSION="132f36e990dfc6effdafa6cf261373432464f9bf"
-PKG_SHA256="ff56bb165b49de091c53d5dc25db2beadc334319f3b02c392702565c1200312f"
+PKG_VERSION="21547dc439675a7ae70c99baf09caeca72c40ce7"
+PKG_SHA256="14fee0e5f8c8598a9f18103f0dbe14c41349c84ca4bd5f01a6601330f185df04"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/gambatte-libretro"
 PKG_URL="https://github.com/libretro/gambatte-libretro/archive/$PKG_VERSION.tar.gz"

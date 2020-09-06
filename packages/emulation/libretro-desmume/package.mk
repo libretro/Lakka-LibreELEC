@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-desmume"
-PKG_VERSION="e8cf461f83eebb195f09e70090f57b07d1bcdd9f"
-PKG_SHA256="71b3fe478d5773f16a9c1a52787c89535eec7b565479f58dd4de8ae8162dd456"
+PKG_VERSION="6f520c816303a00a777817dc6a1a8d04ced336ea"
+PKG_SHA256="6e816690808af78f9d5712633bc8f67ba406cd6dc97602433417739a60b06c4a"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/desmume"
 PKG_URL="https://github.com/libretro/desmume/archive/$PKG_VERSION.tar.gz"

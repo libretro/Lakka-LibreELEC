@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.dinothawr"
-PKG_VERSION="1.0.0.8-Leia"
-PKG_SHA256="9a0eae45381541d283858cdcac66b4e85a3cbbded19bf79ea7b7928c05ee5b91"
+PKG_VERSION="1.0.0.9-Leia"
+PKG_SHA256="4d710b008348ec7f4d6b5b438e7f75207cf08f19f233f54f3cc0c1cf46d74c11"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

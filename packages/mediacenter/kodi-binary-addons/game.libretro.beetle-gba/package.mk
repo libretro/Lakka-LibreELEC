@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.beetle-gba"
-PKG_VERSION="0.9.36.6-Leia"
-PKG_SHA256="1fb08219575c862ed9b10f194fb7a6f3bd0c9e92ccc8949c15779d7b21401ffd"
+PKG_VERSION="0.9.36.7-Leia"
+PKG_SHA256="30bbf0356410b08e6c5257da80fae7a52098cd7c4e8d5cd0083620272bcde550"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
