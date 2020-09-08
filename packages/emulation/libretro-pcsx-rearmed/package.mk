@@ -21,19 +21,20 @@ make_target() {
   
   if target_has_feature neon; then
     export HAVE_NEON=1
+    export BUILTIN_GPU=neon
    else
     export HAVE_NEON=0
   fi
   
   case $TARGET_ARCH in
     aarch64)
-      make -f Makefile.libretro platform=aarch64 GIT_VERSION=$PKG_VERSION
+      make -f Makefile.libretro DYNAREC=lightrec platform=aarch64 GIT_VERSION=$PKG_VERSION
       ;;
     arm)
-      make -f Makefile.libretro USE_DYNAREC=1 GIT_VERSION=$PKG_VERSION
+      make -f Makefile.libretro DYNAREC=ari64 GIT_VERSION=$PKG_VERSION
       ;;
     x86_64)
-      make -f Makefile.libretro GIT_VERSION=$PKG_VERSION
+      make -f Makefile.libretro DYNAREC=lightrec GIT_VERSION=$PKG_VERSION
       ;;
   esac
 }
