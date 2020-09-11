@@ -3,11 +3,11 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="fribidi"
-PKG_VERSION="1.0.8"
-PKG_SHA256="94c7b68d86ad2a9613b4dcffe7bbeb03523d63b5b37918bdf2e4ef34195c1e6c"
+PKG_VERSION="1.0.10"
+PKG_SHA256="7f1c687c7831499bcacae5e8675945a39bacbad16ecaa945e9454a32df653c01"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://fribidi.freedesktop.org/"
-PKG_URL="https://github.com/fribidi/fribidi/releases/download/v$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_URL="https://github.com/fribidi/fribidi/releases/download/v$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A bidirectional algorithm library."
 PKG_TOOLCHAIN="meson"
