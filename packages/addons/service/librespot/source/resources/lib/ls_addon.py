@@ -40,7 +40,7 @@ def get_settings():
 
 
 def log(message):
-    xbmc.log('{}: {}'.format(ADDON_NAME, message), xbmc.LOGNOTICE)
+    xbmc.log('{}: {}'.format(ADDON_NAME, message), xbmc.LOGINFO)
 
 
 def notification(message):

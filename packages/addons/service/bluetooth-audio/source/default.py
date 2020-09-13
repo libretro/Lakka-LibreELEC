@@ -61,7 +61,7 @@ class BluetoothAudioClient(object):
 
   def __init__(self):
 
-    xbmc.log('%s: starting add-on' % __addonid__, xbmc.LOGNOTICE)
+    xbmc.log('%s: starting add-on' % __addonid__, xbmc.LOGINFO)
 
     self.devices = {}
     self.signal_added = None
@@ -75,7 +75,7 @@ class BluetoothAudioClient(object):
 
   def quit(self):
 
-    xbmc.log('%s: stopping add-on' % __addonid__, xbmc.LOGNOTICE)
+    xbmc.log('%s: stopping add-on' % __addonid__, xbmc.LOGINFO)
 
     self.kodi.select_default()
 
@@ -133,8 +133,8 @@ class BluetoothAudioClient(object):
         self.devices[device_path]['Connected'] = audio_device_iface.Get('org.bluez.Device1', 'Connected')
 
         if self.devices[device_path]['Class'] & (1 << 21):
-          xbmc.log('%s: bluetooth audio device connected' % __addonid__, xbmc.LOGNOTICE)
-          xbmc.log('%s: switching to bluetooth audio device' % __addonid__, xbmc.LOGNOTICE)
+          xbmc.log('%s: bluetooth audio device connected' % __addonid__, xbmc.LOGINFO)
+          xbmc.log('%s: switching to bluetooth audio device' % __addonid__, xbmc.LOGINFO)
           self.kodi.select_pulse()
 
       elif kwargs['signal'] == 'InterfacesRemoved':
@@ -147,15 +147,15 @@ class BluetoothAudioClient(object):
             self.devices[device_path]['Connected'] = audio_device_iface.Get('org.bluez.Device1', 'Connected')
             time.sleep(0.1)
 
-          xbmc.log('%s: bluetooth audio device disconnected' % __addonid__, xbmc.LOGNOTICE)
-          xbmc.log('%s: checking for other connected devices' % __addonid__, xbmc.LOGNOTICE)
+          xbmc.log('%s: bluetooth audio device disconnected' % __addonid__, xbmc.LOGINFO)
+          xbmc.log('%s: checking for other connected devices' % __addonid__, xbmc.LOGINFO)
 
           for path in self.devices:
             if self.devices[path]['Connected'] and self.devices[path]['Class'] & (1 << 21):
-              xbmc.log('%s: found connected bluetooth audio device' % __addonid__, xbmc.LOGNOTICE)
+              xbmc.log('%s: found connected bluetooth audio device' % __addonid__, xbmc.LOGINFO)
               return
 
-          xbmc.log('%s: switching to default audio device' % __addonid__, xbmc.LOGNOTICE)
+          xbmc.log('%s: switching to default audio device' % __addonid__, xbmc.LOGINFO)
           self.kodi.select_default()
 
     except (TypeError, KeyError, dbus.exceptions.DBusException) as e:

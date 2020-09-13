@@ -142,7 +142,7 @@ class SlicePlayer(xbmc.Player):
 
     self.speed = 1
     patterns.play('startup', False, 0.02)
-    xbmc.log('service.slice add-on started', xbmc.LOGNOTICE)
+    xbmc.log('service.slice add-on started', xbmc.LOGINFO)
 
   def onPlayBackEnded(self):
     'Will be called when Kodi stops playing a file'
