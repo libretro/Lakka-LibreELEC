@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="uae4arm"
-PKG_VERSION="9d5f3da"
+PKG_VERSION="bfb7b97"
 PKG_REV="1"
 PKG_ARCH="arm"
 PKG_LICENSE="GPL"
@@ -38,9 +38,10 @@ PKG_AUTORECONF="no"
 make_target() {
   CFLAGS="$CFLAGS -DARM -marm"
   if [[ "$TARGET_FPU" =~ "neon" ]]; then
-    CFLAGS="-D__NEON_OPT"
+    make HAVE_NEON=1 USE_PICASSO96=1
+  else
+    make
   fi
-  make HAVE_NEON=1 USE_PICASSO96=1
 }
 
 makeinstall_target() {
