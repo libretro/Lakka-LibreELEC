@@ -1,0 +1,47 @@
+From 8cf1d1a9aa05c5bc3b85d6a87e3097c1c0400766 Mon Sep 17 00:00:00 2001
+From: Neil Armstrong <narmstrong@baylibre.com>
+Date: Mon, 15 Mar 2021 10:55:41 +0000
+Subject: [PATCH 43/88] FROMLIST(v1): tty: serial: meson: retrieve port FIFO
+ size from DT
+
+Now the DT bindings has a property to get the FIFO size for a particular port,
+retrieve it and use to setup the FIFO interrupts threshold.
+
+Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+---
+ drivers/tty/serial/meson_uart.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/tty/serial/meson_uart.c b/drivers/tty/serial/meson_uart.c
+index 69eeef9edfa5..7244b12aefab 100644
+--- a/drivers/tty/serial/meson_uart.c
++++ b/drivers/tty/serial/meson_uart.c
+@@ -717,6 +717,7 @@ static int meson_uart_probe(struct platform_device *pdev)
+ {
+ 	struct resource *res_mem, *res_irq;
+ 	struct uart_port *port;
++	u32 fifosize = 64; /* Default is 64, 128 for EE UART_0 */
+ 	int ret = 0;
+ 	int id = -1;
+ 
+@@ -743,6 +744,8 @@ static int meson_uart_probe(struct platform_device *pdev)
+ 	if (!res_irq)
+ 		return -ENODEV;
+ 
++	of_property_read_u32(pdev->dev.of_node, "amlogic,uart-fifosize", &fifosize);
++
+ 	if (meson_ports[pdev->id]) {
+ 		dev_err(&pdev->dev, "port %d already allocated\n", pdev->id);
+ 		return -EBUSY;
+@@ -772,7 +775,7 @@ static int meson_uart_probe(struct platform_device *pdev)
+ 	port->type = PORT_MESON;
+ 	port->x_char = 0;
+ 	port->ops = &meson_uart_ops;
+-	port->fifosize = 64;
++	port->fifosize = fifosize;
+ 
+ 	meson_ports[pdev->id] = port;
+ 	platform_set_drvdata(pdev, port);
+-- 
+2.17.1
+
