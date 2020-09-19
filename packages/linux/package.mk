@@ -38,8 +38,8 @@ case "$LINUX" in
     PKG_URL="https://github.com/hardkernel/linux/archive/$PKG_VERSION.tar.gz"
     ;;
     mainline-5.4)
-    PKG_VERSION="5.4.63"
-    PKG_SHA256="e0260dae0da01163b1a3289ad9c5cc6ee4226720e199e8a1d982e24efda7ffc0"
+    PKG_VERSION="5.4.66"
+    PKG_SHA256="ff1930376774f4c1fc884d82184b5ebea6628f0a37ed9be781c0b119c4cfdab2"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v5.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     PKG_PATCH_DIRS="default"
     ;;
