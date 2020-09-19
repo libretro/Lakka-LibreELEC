@@ -1,0 +1,42 @@
+From 557ca56ff23234e2cd8fce4d3aa1c752bedded9e Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?= <u.kleine-koenig@pengutronix.de>
+Date: Mon, 20 Sep 2021 09:44:05 +0200
+Subject: [PATCH 24/60] FROMLIST(v1): hwrng: meson - Improve error handling for
+ core clock
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+-ENOENT (ie. "there is no clock") is fine to ignore for an optional
+clock, other values are not supposed to be ignored and should be
+escalated to the caller (e.g. -EPROBE_DEFER). Ignore -ENOENT by using
+devm_clk_get_optional().
+
+While touching this code also add an error message for the fatal errors.
+
+Signed-off-by: Uwe Kleine-König <u.kleine-koenig@pengutronix.de>
+Reviewed-by: Neil Armstrong <narmstrong@baylibre.com>
+---
+ drivers/char/hw_random/meson-rng.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/char/hw_random/meson-rng.c b/drivers/char/hw_random/meson-rng.c
+index e446236e81f2..8bb30282ca46 100644
+--- a/drivers/char/hw_random/meson-rng.c
++++ b/drivers/char/hw_random/meson-rng.c
+@@ -54,9 +54,10 @@ static int meson_rng_probe(struct platform_device *pdev)
+ 	if (IS_ERR(data->base))
+ 		return PTR_ERR(data->base);
+ 
+-	data->core_clk = devm_clk_get(dev, "core");
++	data->core_clk = devm_clk_get_optional(dev, "core");
+ 	if (IS_ERR(data->core_clk))
+-		data->core_clk = NULL;
++		return dev_err_probe(dev, PTR_ERR(data->core_clk),
++				     "Failed to get core clock\n");
+ 
+ 	if (data->core_clk) {
+ 		ret = clk_prepare_enable(data->core_clk);
+-- 
+2.17.1
+
