@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="mk_arcade_joystick_rpi"
-PKG_VERSION="6a9fb02"
+PKG_VERSION="a52ea53"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/Turro75/mk_arcade_joystick_rpi"
@@ -26,7 +26,7 @@ PKG_SOURCE_DIR="${PKG_NAME}-${PKG_VERSION}"
 PKG_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_SECTION="driver"
-PKG_SHORTDESC="test building"
+PKG_SHORTDESC="test building for RPI4"
 PKG_TOOLCHAIN="manual"
 
 PKG_IS_ADDON="no"
