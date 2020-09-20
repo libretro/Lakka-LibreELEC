@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="mk_arcade_joystick_rpi"
-PKG_VERSION="be5211f"
+PKG_VERSION="534bba3"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/Turro75/mk_arcade_joystick_rpi"
