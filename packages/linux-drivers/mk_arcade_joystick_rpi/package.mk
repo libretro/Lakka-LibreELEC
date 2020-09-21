@@ -26,7 +26,7 @@ PKG_SOURCE_DIR="${PKG_NAME}-${PKG_VERSION}"
 PKG_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_SECTION="driver"
-PKG_SHORTDESC="test building for RPI4"
+PKG_SHORTDESC="Generic GPIO rpi joystick driver"
 PKG_TOOLCHAIN="manual"
 
 PKG_IS_ADDON="no"
