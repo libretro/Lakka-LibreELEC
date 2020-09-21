@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="mk_arcade_joystick_rpi"
-PKG_VERSION="0a70997"
+PKG_VERSION="a3bb277"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/Turro75/mk_arcade_joystick_rpi"
@@ -38,13 +38,6 @@ if [ "$TARGET_KERNEL_ARCH" = "arm64" -a "$TARGET_ARCH" = "arm" ]; then
   TARGET_PREFIX=aarch64-elf-
 fi
 
-MYFLAG=""
-case $DEVICE in
-    RPi2) MYFLAG="-DRPI2"
-    ;;
-    RPi4) MYFLAG="-DRPI4"
-    ;;
-esac
 
 pre_make_target() {
   unset LDFLAGS
@@ -58,7 +51,6 @@ make_target() {
        CROSS_COMPILE=$TARGET_PREFIX \
        CONFIG_POWER_SAVING=n \
        ARCH="$ARCH" \
-       CFLAGS_mk_arcade_joystick_rpi.o="$MYFLAG" \
        -f Makefile.cross
 }
 
