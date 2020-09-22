@@ -33,13 +33,6 @@ case "$LINUX" in
     PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     ;;
-  rpi4-5.4)
-    PKG_VERSION="65caf603f3b1c43f4c92939f7fbb7149e054f486" # 5.4.64
-    PKG_SHA256="05e07b2869f7de3058166de3658344d660eabd9eb9a3d8a55d4e88da609ba5db"
-    PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
-    PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
-    PKG_PATCH_DIRS="rpi4"
-    ;;
   odroidxu3-5.4)
     PKG_VERSION="5e12d570f207e48f321029b15026ae7c4ab21217"
     PKG_URL="https://github.com/hardkernel/linux/archive/$PKG_VERSION.tar.gz"
