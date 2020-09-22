@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.beetle-ngp"
-PKG_VERSION="0.9.36.9-Leia"
-PKG_SHA256="f3fc2b897914bc48365a5bad4d5e3b20bc62e216bc144fff2281be54cb99a605"
+PKG_VERSION="0.9.36.10-Leia"
+PKG_SHA256="1366d1ea8099b61ed95565d44fa068f876868973096033fb78b85c420bfde2b5"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
