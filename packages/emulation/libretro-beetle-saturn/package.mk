@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-beetle-saturn"
-PKG_VERSION="29522eee5182280f4221eaca36e18947373b8dad"
-PKG_SHA256="860eafa94f356d1d5db99dd930bcaf9d386b0f8cd8a33dcf1d17bb82ca65c524"
+PKG_VERSION="24c62b7c4f23741176f8c7d25c52fb5ab06c4da2"
+PKG_SHA256="c4c75073e7fff55a7a4ec99200f171decd9bcfe5887b0740d8941eea98f03c76"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/beetle-saturn-libretro"
 PKG_URL="https://github.com/libretro/beetle-saturn-libretro/archive/$PKG_VERSION.tar.gz"

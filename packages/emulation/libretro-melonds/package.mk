@@ -2,8 +2,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-melonds"
-PKG_VERSION="566d7d15f3f4fc516f7efe499416540646f2d2a9"
-PKG_SHA256="4bcceb00f576b7bbd0abab4b03295f4954dd92b0d547b575782a4f6f2b70fb5e"
+PKG_VERSION="de32019be9dd7c1b3d9ee12081ae6e7f4f666656"
+PKG_SHA256="b419cff22782c63c1f2359a2bbf31b3d638527b7194ff4c2bba805c66ce770d0"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/melonds"
 PKG_URL="https://github.com/libretro/melonds/archive/$PKG_VERSION.tar.gz"
