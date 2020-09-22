@@ -27,8 +27,8 @@ PKG_SITE="https://github.com/libretro/Lakka-LibreELEC"
 PKG_URL=""
 PKG_DEPENDS_TARGET="retroarch"
 
-if [ "$DEVICE" = "RPi" -o "$DEVICE" = "RPi2" ] ; then
-  PKG_DEPENDS_TARGET+=" wii-u-gc-adapter wiringPi"
+if [ "$DEVICE" = "RPi" -o "$DEVICE" = "RPi2" -o "$DEVICE" = "RPi4" ] ; then
+  PKG_DEPENDS_TARGET+=" wii-u-gc-adapter wiringPi mk_arcade_joystick_rpi"
 fi
 
 if [ "$DEVICE" = "Gamegirl" ]; then
