@@ -2,8 +2,8 @@
 # Copyright (C) 2020-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="visualization.goom"
-PKG_VERSION="2.2.1-Leia"
-PKG_SHA256="a02dfd844cfd5ff24f735e614a2a4727771112ce15642957a2511061f724392a"
+PKG_VERSION="2.2.3-Leia"
+PKG_SHA256="fdd656721f6d1b1962fd0a1e240eafb4710237ba70809dd0391cd10cacf4417c"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

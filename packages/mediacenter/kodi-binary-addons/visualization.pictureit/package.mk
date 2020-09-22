@@ -3,9 +3,9 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="visualization.pictureit"
-PKG_VERSION="3.0.1-Leia"
-PKG_SHA256="fb10cd200e2f682cf0e5e715a4bb61da88b51eb2402724cf1d5ca5f7d4f17edf"
-PKG_REV="6"
+PKG_VERSION="3.0.2-Leia"
+PKG_SHA256="74cae23879759c43fe0fe66df73ae3862b941e336517c84a0241df6c29416f0a"
+PKG_REV="1"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
