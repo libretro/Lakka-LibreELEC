@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="screensaver.asteroids"
-PKG_VERSION="2.3.2-Leia"
-PKG_SHA256="c359f8bb6a2e9b42dcfb063cdf965ce0b3fc95761816d98160000aea33894241"
+PKG_VERSION="2.3.3-Leia"
+PKG_SHA256="f4b54ed79eedd1a39e24dcbe8d372dbfc9edbc9358499ea9ab28777dd9082ee3"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
