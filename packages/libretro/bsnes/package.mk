@@ -20,11 +20,11 @@
 
 PKG_NAME="bsnes"
 PKG_VERSION="487e6ab"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/bsnes"
 PKG_URL="$PKG_SITE.git"
+PKG_BRANCH="master"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -36,7 +36,7 @@ PKG_AUTORECONF="no"
 PKG_TOOLCHAIN="make"
 
 make_target() {
-  make -C bsnes -f GNUmakefile target="libretro" compiler="$CXX" CXXFLAGS="$CXXFLAGS" platform=linux
+ make -C bsnes -f GNUmakefile target="libretro" compiler="$CXX" CXXFLAGS="$CXXFLAGS" platform=linux local=false
 }
 
 makeinstall_target() {
