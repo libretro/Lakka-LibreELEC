@@ -3,31 +3,27 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libva"
-PKG_VERSION="2.5.0"
-PKG_SHA256="9b6264dade6b6d3edb59c6c4f3c9217d1d5a195635fc07da875d565f58624418"
+PKG_VERSION="2.7.1"
+PKG_SHA256="9a3167c9af8c0ce10c4a46791557f934457b78fcc625111dcefaa7f30b7eb289"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://01.org/linuxmedia"
 PKG_URL="https://github.com/intel/libva/archive/$PKG_VERSION.tar.gz"
 PKG_LONGDESC="Libva is an implementation for VA-API (VIdeo Acceleration API)."
-PKG_TOOLCHAIN="autotools"
+PKG_TOOLCHAIN="meson"
 
 if [ "$DISPLAYSERVER" = "x11" ]; then
   PKG_DEPENDS_TARGET="toolchain libX11 libXext libXfixes libdrm"
-  DISPLAYSERVER_LIBVA="--enable-x11 --disable-glx --disable-wayland"
+  DISPLAYSERVER_LIBVA="-Dwith_x11=yes -Dwith_glx=no -Dwith_wayland=no"
 elif [ "$DISPLAYSERVER" = "weston" ]; then
-  DISPLAYSERVER_LIBVA="--disable-x11 --disable-glx --enable-wayland"
+  DISPLAYSERVER_LIBVA="-Dwith_x11=no -Dwith_glx=no -Dwith_wayland=yes"
   PKG_DEPENDS_TARGET="toolchain libdrm wayland"
-elif [ "$DISTRO" = "Lakka" ]; then
-  PKG_DEPENDS_TARGET="toolchain libX11 libXext libXfixes libdrm"
-  DISPLAYSERVER_LIBVA="--enable-x11 --enable-glx --enable-egl --disable-wayland"
 else
   PKG_DEPENDS_TARGET="toolchain libdrm"
-  DISPLAYSERVER_LIBVA="--disable-x11 --disable-glx --disable-wayland"
+  DISPLAYSERVER_LIBVA="-Dwith_x11=no -Dwith_glx=no -Dwith_wayland=no"
 fi
 
-
-PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
-                           --disable-docs \
-                           --enable-drm \
-                           $DISPLAYSERVER_LIBVA"
+PKG_MESON_OPTS_TARGET="-Ddisable_drm=false \
+                       -Denable_docs=false \
+                       -Denable_va_messaging=true \
+                       $DISPLAYSERVER_LIBVA"
