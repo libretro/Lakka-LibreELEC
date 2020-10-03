@@ -3,12 +3,10 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 import sys
-import dbus
-import dbus.mainloop.glib
-import gobject
 import time
 
-gobject.threads_init()
+import asyncio
+import ravel
 
 class BluetoothAudioClient(object):
 
@@ -19,87 +17,54 @@ class BluetoothAudioClient(object):
     self.signal_removed = None
 
     self._setup_loop()
-    self._setup_bus()
-    self._setup_signals()
-
-  def quit(self):
-
-    self.signal_added.remove()
-    self.signal_removed.remove()
-
-    self._loop.quit()
 
   def _setup_loop(self):
 
-    self._loop = gobject.MainLoop()
+    self._loop = asyncio.new_event_loop()
+
+    self.bus = ravel.system_bus()
+    self.bus.attach_asyncio(self._loop)
+    self.bus.listen_objects_added(self.object_added)
+    self.bus.listen_objects_removed(self.object_removed)
 
   def run(self):
-    self._loop.run()
+    self._loop.run_forever()
 
-  def _setup_bus(self):
+  @ravel.signal(name = "InterfacesAdded", in_signature = "oa{sa{sv}}",
+                arg_keys = ("device_path", "args"))
+  def object_added(self, device_path, args) :
+    if 'org.bluez.MediaTransport1' in args:
+      self.devices[device_path] = {
+        'Connected': '',
+        'Device': str(args['org.bluez.MediaTransport1']['Device'][1]),
+        'Class': '',
+      }
 
-    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
-    self._bus = dbus.SystemBus()
+      audio_device_iface = self.bus['org.bluez'][self.devices[device_path]['Device']].get_interface('org.bluez.Device1')
+      self.devices[device_path]['Class'] = audio_device_iface.Class
+      self.devices[device_path]['Connected'] = audio_device_iface.Connected
 
-  def _setup_signals(self):
+      if self.devices[device_path]['Class'] & (1 << 21):
+        print('bluetooth')
+        sys.stdout.flush()
 
-    self.signal_added = self._bus.add_signal_receiver(handler_function=self.switch_audio,
-                                                      signal_name='InterfacesAdded',
-                                                      dbus_interface='org.freedesktop.DBus.ObjectManager',
-                                                      bus_name='org.bluez',
-                                                      member_keyword='signal')
+  @ravel.signal(name = "InterfacesRemoved", in_signature = "oas",
+                arg_keys = ("device_path", "args"))
+  def object_removed(self, device_path, args) :
+    if device_path in self.devices and self.devices[device_path]['Class'] & (1 << 21):
+      audio_device_iface = self.bus['org.bluez'][self.devices[device_path]['Device']].get_interface('org.bluez.Device1')
+      self.devices[device_path]['Connected'] = audio_device_iface.Connected
 
-    self.signal_removed = self._bus.add_signal_receiver(handler_function=self.switch_audio,
-                                                        signal_name='InterfacesRemoved',
-                                                        dbus_interface='org.freedesktop.DBus.ObjectManager',
-                                                        bus_name='org.bluez',
-                                                        member_keyword='signal')
+      while self.devices[device_path]['Connected']:
+        self.devices[device_path]['Connected'] = audio_device_iface.Connected
+        time.sleep(0.1)
 
-  def switch_audio(self, *args, **kwargs):
+      for path in self.devices:
+        if self.devices[path]['Connected'] and self.devices[path]['Class'] & (1 << 21):
+          return
 
-    device_path = args[0]
-
-    try:
-      if kwargs['signal'] == 'InterfacesAdded':
-
-        self.devices[device_path] = {
-                                      'Connected': '',
-                                      'Device': '',
-                                      'Class': '',
-                                    }
-
-        device = self._bus.get_object('org.bluez', device_path)
-        device_iface = dbus.Interface(device, dbus.PROPERTIES_IFACE)
-        self.devices[device_path]['Device'] = device_iface.Get('org.bluez.MediaTransport1', 'Device')
-
-        audio_device_path = self._bus.get_object('org.bluez', self.devices[device_path]['Device'])
-        audio_device_iface = dbus.Interface(audio_device_path, dbus.PROPERTIES_IFACE)
-        self.devices[device_path]['Class'] = audio_device_iface.Get('org.bluez.Device1', 'Class')
-        self.devices[device_path]['Connected'] = audio_device_iface.Get('org.bluez.Device1', 'Connected')
-
-        if self.devices[device_path]['Class'] & (1 << 21):
-          print('bluetooth')
-          sys.stdout.flush()
-
-      elif kwargs['signal'] == 'InterfacesRemoved':
-        if self.devices[device_path]['Device'] is not None and self.devices[device_path]['Class'] & (1 << 21):
-          audio_device_path = self._bus.get_object('org.bluez', self.devices[device_path]['Device'])
-          audio_device_iface = dbus.Interface(audio_device_path, dbus.PROPERTIES_IFACE)
-          self.devices[device_path]['Connected'] = audio_device_iface.Get('org.bluez.Device1', 'Connected')
-
-          while self.devices[device_path]['Connected']:
-            self.devices[device_path]['Connected'] = audio_device_iface.Get('org.bluez.Device1', 'Connected')
-            time.sleep(0.1)
-
-          for path in self.devices:
-            if self.devices[path]['Connected'] and self.devices[path]['Class'] & (1 << 21):
-              return
-
-          print('default')
-          sys.stdout.flush()
-
-    except (TypeError, KeyError, dbus.exceptions.DBusException) as e:
-      print('%s: ' % str(e), file=sys.stderr)
+      print('default')
+      sys.stdout.flush()
 
 
 client = BluetoothAudioClient()
