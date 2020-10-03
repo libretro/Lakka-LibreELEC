@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="systemd"
-PKG_VERSION="245"
-PKG_SHA256="f34f1dc52b2dc60563c2deb6db86d78f6a97bceb29aa0511436844b2fc618040"
+PKG_VERSION="246"
+PKG_SHA256="4268bd88037806c61c5cd1c78d869f7f20bf7e7368c63916d47b5d1c3411bd6f"
 PKG_LICENSE="LGPL2.1+"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/systemd"
 PKG_URL="https://github.com/systemd/systemd/archive/v$PKG_VERSION.tar.gz"
@@ -121,7 +121,6 @@ post_makeinstall_target() {
   safe_remove $INSTALL/usr/lib/tmpfiles.d/etc.conf
   safe_remove $INSTALL/usr/lib/tmpfiles.d/home.conf
   safe_remove $INSTALL/usr/share/factory
-  safe_remove $INSTALL/usr/share/zsh
 
   # clean up hwdb
   safe_remove $INSTALL/usr/lib/udev/hwdb.d/20-OUI.hwdb
@@ -134,15 +133,12 @@ post_makeinstall_target() {
   # remove Network adaper renaming rule, this is confusing
   safe_remove $INSTALL/usr/lib/udev/rules.d/80-net-setup-link.rules
 
-  # remove the uaccess rules as we don't build systemd with ACL (see https://github.com/systemd/systemd/issues/4107)
-  safe_remove $INSTALL/usr/lib/udev/rules.d/70-uaccess.rules
   safe_remove $INSTALL/usr/lib/udev/rules.d/71-seat.rules
   safe_remove $INSTALL/usr/lib/udev/rules.d/73-seat-late.rules
 
   # remove getty units, we dont want a console
   safe_remove $INSTALL/usr/lib/systemd/system/autovt@.service
   safe_remove $INSTALL/usr/lib/systemd/system/console-getty.service
-  safe_remove $INSTALL/usr/lib/systemd/system/console-shell.service
   safe_remove $INSTALL/usr/lib/systemd/system/container-getty@.service
   safe_remove $INSTALL/usr/lib/systemd/system/getty.target
   safe_remove $INSTALL/usr/lib/systemd/system/getty@.service
@@ -154,13 +150,8 @@ post_makeinstall_target() {
   safe_remove $INSTALL/usr/lib/systemd/system/systemd-update-done.service
   safe_remove $INSTALL/usr/lib/systemd/system/*.target.wants/systemd-update-done.service
 
-  # remove systemd-udev-hwdb-update. we have own hwdb.service
-  safe_remove $INSTALL/usr/lib/systemd/system/systemd-udev-hwdb-update.service
-  safe_remove $INSTALL/usr/lib/systemd/system/*.target.wants/systemd-udev-hwdb-update.service
-
-  # remove systemd-user-sessions
-  safe_remove $INSTALL/usr/lib/systemd/system/systemd-user-sessions.service
-  safe_remove $INSTALL/usr/lib/systemd/system/*.target.wants/systemd-user-sessions.service
+  # remove systemd-hwdb-update. we have own hwdb.service
+  safe_remove $INSTALL/usr/lib/systemd/system/systemd-hwdb-update.service
 
   # remove nspawn
   safe_remove $INSTALL/usr/bin/systemd-nspawn
@@ -211,7 +202,6 @@ post_makeinstall_target() {
   sed -e "s,^.*HandlePowerKey=.*$,HandlePowerKey=ignore,g" -i $INSTALL/etc/systemd/logind.conf
 
   # replace systemd-machine-id-setup with ours
-  safe_remove $INSTALL/usr/lib/systemd/systemd-machine-id-commit
   safe_remove $INSTALL/usr/lib/systemd/system/systemd-machine-id-commit.service
   safe_remove $INSTALL/usr/lib/systemd/system/*.target.wants/systemd-machine-id-commit.service
   safe_remove $INSTALL/usr/bin/systemd-machine-id-setup
@@ -251,9 +241,7 @@ post_makeinstall_target() {
 
   safe_remove $INSTALL/etc/modules-load.d
   ln -sf /storage/.config/modules-load.d $INSTALL/etc/modules-load.d
-  safe_remove $INSTALL/etc/systemd/logind.conf.d
   ln -sf /storage/.config/logind.conf.d $INSTALL/etc/systemd/logind.conf.d
-  safe_remove $INSTALL/etc/systemd/sleep.conf.d
   ln -sf /storage/.config/sleep.conf.d $INSTALL/etc/systemd/sleep.conf.d
   ln -sf /storage/.config/timesyncd.conf.d $INSTALL/etc/systemd/timesyncd.conf.d
   safe_remove $INSTALL/etc/sysctl.d
