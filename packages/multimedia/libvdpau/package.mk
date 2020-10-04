@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libvdpau"
-PKG_VERSION="1.3"
-PKG_SHA256="b5a52eeac9417edbc396f26c40591ba5df0cd18285f68d84614ef8f06196e50e"
+PKG_VERSION="1.4"
+PKG_SHA256="4258824c5a4555ef31de0a7d82b3caf19e75a16a13949f1edafc5f6fb2d33f30"
 PKG_LICENSE="MIT"
 PKG_SITE="https://wiki.freedesktop.org/www/Software/VDPAU/"
 PKG_URL="https://gitlab.freedesktop.org/vdpau/libvdpau/-/archive/${PKG_VERSION}/libvdpau-${PKG_VERSION}.tar.bz2"
