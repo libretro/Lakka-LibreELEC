@@ -103,7 +103,11 @@ fi
 RETROARCH_NEON=""
 
 if [[ "$TARGET_FPU" =~ "neon" ]]; then
-  RETROARCH_NEON="--enable-neon"
+  if [ "$ARCH" = "aarch64" ]; then
+    RETROARCH_NEON=""
+  else
+    RETROARCH_NEON="--enable-neon"
+  fi
 fi
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
@@ -201,9 +205,6 @@ makeinstall_target() {
   sed -i -e "s/# audio_filter_dir =/audio_filter_dir =\/usr\/share\/audio_filters/" $INSTALL/etc/retroarch.cfg
   if [ "$PROJECT" = "OdroidXU3" -o "$DEVICE" = "RPi4" ]; then # workaround the 55fps bug + fix no audio for RPi4
     sed -i -e "s/# audio_out_rate = 48000/audio_out_rate = 44100/" $INSTALL/etc/retroarch.cfg
-  fi
-  if [ "$DEVICE" = "RPi4" ]; then
-    sed -i -e "s/# audio_device =/audio_device = \"hw:0,1\"/" $INSTALL/etc/retroarch.cfg
   fi
 
   # Saving

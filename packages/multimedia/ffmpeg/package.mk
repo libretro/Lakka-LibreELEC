@@ -61,7 +61,7 @@ else
   PKG_FFMPEG_DEBUG="--disable-debug --enable-stripping"
 fi
 
-if [ "$PROJECT" = "RPi" ]; then
+if [ "$PROJECT" = "RPi" ] && [ "$ARCH" = "arm" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"
   if [ "$DEVICE" = "RPi4" ]; then
    PKG_PATCH_DIRS+=" rpi4-hevc"
@@ -89,7 +89,7 @@ pre_configure_target() {
   cd $PKG_BUILD
   rm -rf .$TARGET_NAME
 
-  if [ "$PROJECT" = "RPi" ]; then
+  if [ "$PROJECT" = "RPi" ] && [ "$ARCH" = "arm" ]; then
     PKG_FFMPEG_LIBS="-lbcm_host -lvcos -lvchiq_arm -lmmal -lmmal_core -lmmal_util -lvcsm"
     PKG_FFMPEG_RPI="--enable-rpi"
   fi

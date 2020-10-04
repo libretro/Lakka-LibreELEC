@@ -283,7 +283,11 @@ makeinstall_target() {
 
     # install platform dtbs, but remove upstream kernel dtbs (i.e. without downstream
     # drivers and decent USB support) as these are not required by LibreELEC
-    cp -p arch/$TARGET_KERNEL_ARCH/boot/dts/*.dtb $INSTALL/usr/share/bootloader
+    if [ "$PLATFORM" != "RPi4" ] && [ "$ARCH" != "aarch64" ]; then
+      cp -p arch/$TARGET_KERNEL_ARCH/boot/dts/*.dtb $INSTALL/usr/share/bootloader
+    else
+      cp -p arch/$TARGET_KERNEL_ARCH/boot/dts/broadcom/*.dtb $INSTALL/usr/share/bootloader
+    fi
     rm -f $INSTALL/usr/share/bootloader/bcm283*.dtb
 
     # install overlay dtbs

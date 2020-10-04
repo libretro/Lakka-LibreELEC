@@ -5,7 +5,7 @@
 PKG_NAME="bcm2835-bootloader"
 PKG_VERSION="a34f263ce6a9e35f3c1d62f6195f9f45f4f547e7"
 PKG_SHA256="db698fb520c122a408330253d3720c8c3111108d47c4f82e097c718c4a98fdf7"
-PKG_ARCH="arm"
+PKG_ARCH="arm aarch64"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.broadcom.com"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
@@ -19,10 +19,12 @@ makeinstall_target() {
     cp -PRv bootcode.bin $INSTALL/usr/share/bootloader
     if [ "$DEVICE" = "RPi4" ]; then
       cp -PRv fixup4x.dat $INSTALL/usr/share/bootloader/fixup.dat
+      cp -PRv fixup4.dat $INSTALL/usr/share/bootloader/fixup4.dat
       cp -PRv start4x.elf $INSTALL/usr/share/bootloader/start.elf
     else
       cp -PRv fixup_x.dat $INSTALL/usr/share/bootloader/fixup.dat
       cp -PRv start_x.elf $INSTALL/usr/share/bootloader/start.elf
+      cp -PRv fixup4.dat $INSTALL/usr/share/bootloader/fixup4.dat
     fi
 
     find_file_path config/dt-blob.bin && cp -PRv $FOUND_PATH $INSTALL/usr/share/bootloader
