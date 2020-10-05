@@ -19,8 +19,9 @@
 ################################################################################
 
 PKG_NAME="melonds"
-PKG_VERSION="de32019"
+PKG_VERSION="27582dc"
 PKG_ARCH="x86_64"
+PKG_ARCH="x86_64 aarch64"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/melonds"
 PKG_URL="$PKG_SITE.git"
@@ -39,7 +40,9 @@ configure_target() {
 }
 
 make_target() {
-  if [ "$OPENGL_SUPPORT" = yes ]; then
+  if [ "$DEVICE" = RPi4 -a "$ARCH" = aarch64 ]; then
+    make platform=rpi4_64
+  elif [ "$OPENGL_SUPPORT" = yes ]; then
     make HAVE_OPENGL=1
   else
     make HAVE_OPENGL=0
