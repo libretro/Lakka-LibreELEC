@@ -64,7 +64,11 @@ make_target() {
         make AS=${AS} CC_AS=${CC} platform=armv-gles-neon $FLYCAST_GL HAVE_OPENMP=0 LDFLAGS=-lrt
       fi
     else
-      make AS=${AS} CC_AS=${AS} ARCH=${ARCH} $FLYCAST_GL HAVE_OPENMP=0 LDFLAGS=-lrt
+      if [ "$DEVICE" = "RPi4" -a "$ARCH" = "aarch64" ]; then
+        make AS=${AS} CC_AS=${CC} platform=rpi4_64-gles-neon HAVE_OPENMP=0 LDFLAGS=-lrt
+      else
+        make AS=${AS} CC_AS=${AS} ARCH=${ARCH} $FLYCAST_GL HAVE_OPENMP=0 LDFLAGS=-lrt
+      fi
     fi
   fi
 }
