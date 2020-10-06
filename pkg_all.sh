@@ -27,23 +27,28 @@ case $1 in
 		;;
 esac
 
-# existing targets in format PROJECT|ARCH|DEVICE|SYSTEM|BOARD|OUTPUT
+# existing targets in format PROJECT|DEVICE|ARCH
 targets="\
 	Allwinner|A64|arm \
 	Allwinner|H3|arm \
 	Allwinner|H6|arm \
+	Amlogic|AMLG12|arm \
 	Amlogic|AMLGX|arm \
 	Generic||x86_64 \
 	Generic||i386 \
+	NXP|iMX6|arm \
+	OdroidXU3||arm \
 	Rockchip|MiQi|arm \
+	Rockchip|OdroidGoAdvance|arm \
 	Rockchip|RK3328|arm \
 	Rockchip|RK3399|arm \
 	Rockchip|TinkerBoard|arm \
-	RPi|Gamegirl|arm \
 	RPi|GPICase|arm \
 	RPi|RPi|arm \
 	RPi|RPi2|arm \
 	RPi|RPi4|arm \
+	RPi|RPi4|aarch64 \
+	Qualcomm|Dragonboard|arm \
 	"
 
 package=$2
