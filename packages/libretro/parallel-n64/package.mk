@@ -58,7 +58,11 @@ make_target() {
     make platform=rpi
   elif [ "$DEVICE" = "RPi4" ]; then
     LDFLAGS="$LDFLAGS -lpthread"
-    make platform=armv-neon WITH_DYNAREC=$DYNAREC HAVE_PARALLEL=1
+    if [ "$ARCH" = "aarch64" ]; then
+      make WITH_DYNAREC=$DYNAREC FORCE_GLES=1 HAVE_PARALLEL=1
+    else
+      make platform=armv-neon WITH_DYNAREC=$DYNAREC HAVE_PARALLEL=1
+    fi
   elif [[ "$PROJECT" == "Generic_VK_nvidia" ]]; then
     LDFLAGS="$LDFLAGS -lpthread"
     make WITH_DYNAREC=$DYNAREC HAVE_PARALLEL=1 HAVE_OPENGL=0
