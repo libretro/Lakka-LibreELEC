@@ -25,8 +25,6 @@ makeinstall_target() {
       cp -PRv start_x.elf $INSTALL/usr/share/bootloader/start.elf
     fi
 
-    find_file_path config/dt-blob.bin && cp -PRv $FOUND_PATH $INSTALL/usr/share/bootloader
-
     find_file_path bootloader/update.sh && cp -PRv $FOUND_PATH $INSTALL/usr/share/bootloader
     find_file_path bootloader/canupdate.sh && cp -PRv $FOUND_PATH $INSTALL/usr/share/bootloader
 
