@@ -15,3 +15,9 @@ PKG_TOOLCHAIN="meson"
 configure_package() {
   PKG_MESON_SCRIPT="${PKG_BUILD}/build/meson/meson.build"
 }
+
+PKG_MESON_OPTS_HOST="-Dlegacy_level=0 \
+                     -Dbin_programs=false \
+                     -Dzlib=disabled \
+                     -Dlzma=disabled \
+                     -Dlz4=disabled"
