@@ -14,6 +14,13 @@ PKG_TOOLCHAIN="meson"
 
 get_graphicdrivers
 
+if [ "${TARGET_ARCH}" = "aarch64" ] && [ "${DEVICE}" = "RPi4" ] && [ "${VULKAN_SUPPORT}" = "yes" ]; then
+  # Left sha256 empty so always retrieve latest version without fail.
+  PKG_SHA256=""
+  PKG_URL="https://gitlab.freedesktop.org/apinheiro/mesa/-/archive/wip/igalia/v3dv/mesa-wip-igalia-v3dv.tar.gz"
+  PKG_DEPENDS_TARGET+=" vulkan-loader vulkan-tools"
+fi
+
 PKG_MESON_OPTS_TARGET="-Ddri-drivers=${DRI_DRIVERS// /,} \
                        -Dgallium-drivers=${GALLIUM_DRIVERS// /,} \
                        -Dgallium-extra-hud=false \
@@ -40,6 +47,10 @@ if [ "$TARGET_ARCH" = "i386" ]; then
   PKG_MESON_OPTS_TARGET="${PKG_MESON_OPTS_TARGET//-Dvulkan-drivers=auto/-Dvulkan-drivers=}"
 fi
 
+if [ "${TARGET_ARCH}" = "aarch64" ] && [ "${DEVICE}" = "RPi4" ] && [ "${VULKAN_SUPPORT}" = "yes" ]; then
+  PKG_MESON_OPTS_TARGET="${PKG_MESON_OPTS_TARGET//-Dvulkan-drivers=auto/-Dvulkan-drivers=broadcom}"
+fi
+
 if [ "$DISPLAYSERVER" = "x11" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET xorgproto libXext libXdamage libXfixes libXxf86vm libxcb libX11 libxshmfence libXrandr libglvnd"
   export X11_INCLUDES=
@@ -50,7 +61,11 @@ elif [ "$DISPLAYSERVER" = "weston" ]; then
 elif [ "$DISTRO" = "Lakka" ]; then
   PKG_DEPENDS_TARGET+=" glproto dri2proto dri3proto presentproto xorgproto libXext libXdamage libXfixes libXxf86vm libxcb libX11 libxshmfence xrandr systemd openssl"
   export X11_INCLUDES=
-  PKG_MESON_OPTS_TARGET+=" -Dplatforms=x11,drm -Ddri3=true -Dglx=dri"
+  if [ "${TARGET_ARCH}" = "aarch64" ] && [ "${DEVICE}" = "RPi4" ] && [ "${VULKAN_SUPPORT}" = "yes" ]; then
+    PKG_MESON_OPTS_TARGET+=" -Dplatforms=drm -Ddri3=true -Dglx=disabled"
+  else
+    PKG_MESON_OPTS_TARGET+=" -Dplatforms=x11,drm -Ddri3=true -Dglx=dri"
+  fi
 else
   PKG_MESON_OPTS_TARGET+=" -Dplatforms=drm -Ddri3=false -Dglx=disabled"
 fi
