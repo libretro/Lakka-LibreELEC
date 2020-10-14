@@ -2,19 +2,26 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="rsync"
-PKG_VERSION="3.1.3"
-PKG_SHA256="55cc554efec5fdaad70de921cd5a5eeb6c29a95524c715f3bbf849235b0800c0"
+PKG_VERSION="3.2.3"
+PKG_SHA256="becc3c504ceea499f4167a260040ccf4d9f2ef9499ad5683c179a697146ce50e"
 PKG_LICENSE="GPLv3"
 PKG_SITE="http://www.samba.org/ftp/rsync/rsync.html"
 PKG_URL="https://download.samba.org/pub/rsync/src/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS_HOST="autotools:host"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_HOST="autotools:host zlib:host zstd:host"
+PKG_DEPENDS_TARGET="toolchain zlib"
 PKG_LONGDESC="A very fast method for bringing remote files into sync."
 PKG_BUILD_FLAGS="-sysroot"
 
 PKG_CONFIGURE_OPTS_HOST="--with-included-popt \
-                         --with-included-zlib"
+                         --without-included-zlib \
+                         --disable-lz4 \
+                         --enable-zstd \
+                         --disable-xxhash"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-acl-support \
                            --disable-xattr-support \
-                           --with-included-popt"
+                           --with-included-popt \
+                           --without-include-zlib \
+                           --disable-lz4 \
+                           --disable-zstd \
+                           --disable-xxhash"
