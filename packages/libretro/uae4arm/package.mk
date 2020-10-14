@@ -19,13 +19,13 @@
 ################################################################################
 
 PKG_NAME="uae4arm"
-PKG_VERSION="bfb7b97"
+PKG_VERSION="920f779"
 PKG_REV="1"
 PKG_ARCH="arm"
 PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/libretro/uae4arm-libretro"
+PKG_SITE="https://github.com/Chips-fr/uae4arm-rpi"
 PKG_URL="$PKG_SITE.git"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain flac mpg123 zlib"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="Port of uae4arm for libretro (rpi/android)"
@@ -35,12 +35,13 @@ PKG_BUILD_FLAGS="-lto"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+
 make_target() {
   CFLAGS="$CFLAGS -DARM -marm"
   if [[ "$TARGET_FPU" =~ "neon" ]]; then
-    make HAVE_NEON=1 USE_PICASSO96=1
+    make -f Makefile.libretro platform=unix-neon
   else
-    make
+    make -f Makefile.libretro platform=unix
   fi
 }
 
