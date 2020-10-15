@@ -1,0 +1,545 @@
+From 1afffb9c0536c6b49cad590fe3a1125838649fb1 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Zbigniew=20J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Mon, 3 Aug 2020 11:39:25 +0200
+Subject: [PATCH 1/5] core: reset bus error before reuse
+
+From a report in https://bugzilla.redhat.com/show_bug.cgi?id=1861463:
+usb-gadget.target: Failed to load configuration: No such file or directory
+usb-gadget.target: Failed to load configuration: No such file or directory
+usb-gadget.target: Trying to enqueue job usb-gadget.target/start/fail
+usb-gadget.target: Failed to load configuration: No such file or directory
+Assertion '!bus_error_is_dirty(e)' failed at src/libsystemd/sd-bus/bus-error.c:239, function bus_error_setfv(). Ignoring.
+sys-devices-platform-soc-2100000.bus-2184000.usb-ci_hdrc.0-udc-ci_hdrc.0.device: Failed to enqueue SYSTEMD_WANTS= job, ignoring: Unit usb-gadget.target not found.
+
+I *think* this is the place where the reuse occurs: we call
+bus_unit_validate_load_state(unit, e) twice in a row.
+---
+ src/core/transaction.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/core/transaction.c b/src/core/transaction.c
+index 4a57b8e3f9..958243bc94 100644
+--- a/src/core/transaction.c
++++ b/src/core/transaction.c
+@@ -966,6 +966,7 @@ int transaction_add_job_and_dependencies(
+                  * Given building up the transaction is a synchronous operation, attempt
+                  * to load the unit immediately. */
+                 if (r < 0 && manager_unit_file_maybe_loadable_from_cache(unit)) {
++                        sd_bus_error_free(e);
+                         unit->load_state = UNIT_STUB;
+                         r = unit_load(unit);
+                         if (r < 0 || unit->load_state == UNIT_STUB)
+-- 
+2.20.1
+
+
+From b2e690917fac3e4225f032e4f1bbd4ba3ae80938 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Zbigniew=20J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Fri, 28 Aug 2020 10:32:39 +0200
+Subject: [PATCH 2/5] core: rename
+ manager_unit_file_maybe_loadable_from_cache()
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The name is misleading, since we aren't really loading the unit from cache — if
+this function returns true, we'll try to load the unit from disk, updating the
+cache in the process.
+---
+ src/core/manager.c     | 12 +++++++++---
+ src/core/manager.h     |  2 +-
+ src/core/transaction.c |  5 +++--
+ src/core/unit.c        |  6 +++---
+ 4 files changed, 16 insertions(+), 9 deletions(-)
+
+diff --git a/src/core/manager.c b/src/core/manager.c
+index 41e0d73736..01eb31e129 100644
+--- a/src/core/manager.c
++++ b/src/core/manager.c
+@@ -1937,18 +1937,24 @@ unsigned manager_dispatch_load_queue(Manager *m) {
+         return n;
+ }
+ 
+-bool manager_unit_file_maybe_loadable_from_cache(Unit *u) {
++bool manager_unit_cache_should_retry_load(Unit *u) {
+         assert(u);
+ 
++        /* Automatic reloading from disk only applies to units which were not found sometime in the past, and
++         * the not-found stub is kept pinned in the unit graph by dependencies. For units that were
++         * previously loaded, we don't do automatic reloading, and daemon-reload is necessary to update. */
+         if (u->load_state != UNIT_NOT_FOUND)
+                 return false;
+ 
+         if (u->manager->unit_cache_mtime == 0)
+                 return false;
+ 
++        /* The cache has been updated since the last time we tried to load the unit. There might be new
++         * fragment paths to read. */
+         if (u->manager->unit_cache_mtime > u->fragment_loadtime)
+                 return true;
+ 
++        /* The cache needs to be updated because there are modifications on disk. */
+         return !lookup_paths_mtime_good(&u->manager->lookup_paths, u->manager->unit_cache_mtime);
+ }
+ 
+@@ -1998,10 +2004,10 @@ int manager_load_unit_prepare(
+                  * first if anything in the usual paths was modified since the last time
+                  * the cache was loaded. Also check if the last time an attempt to load the
+                  * unit was made was before the most recent cache refresh, so that we know
+-                 * we need to try again - even if the cache is current, it might have been
++                 * we need to try again — even if the cache is current, it might have been
+                  * updated in a different context before we had a chance to retry loading
+                  * this particular unit. */
+-                if (manager_unit_file_maybe_loadable_from_cache(ret))
++                if (manager_unit_cache_should_retry_load(ret))
+                         ret->load_state = UNIT_STUB;
+                 else {
+                         *_ret = ret;
+diff --git a/src/core/manager.h b/src/core/manager.h
+index 81b0c13a95..d15c05c963 100644
+--- a/src/core/manager.h
++++ b/src/core/manager.h
+@@ -463,7 +463,7 @@ Unit *manager_get_unit(Manager *m, const char *name);
+ 
+ int manager_get_job_from_dbus_path(Manager *m, const char *s, Job **_j);
+ 
+-bool manager_unit_file_maybe_loadable_from_cache(Unit *u);
++bool manager_unit_cache_should_retry_load(Unit *u);
+ int manager_load_unit_prepare(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **_ret);
+ int manager_load_unit(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **_ret);
+ int manager_load_startable_unit_or_warn(Manager *m, const char *name, const char *path, Unit **ret);
+diff --git a/src/core/transaction.c b/src/core/transaction.c
+index 958243bc94..0fa419787e 100644
+--- a/src/core/transaction.c
++++ b/src/core/transaction.c
+@@ -960,12 +960,13 @@ int transaction_add_job_and_dependencies(
+                  * first if anything in the usual paths was modified since the last time
+                  * the cache was loaded. Also check if the last time an attempt to load the
+                  * unit was made was before the most recent cache refresh, so that we know
+-                 * we need to try again - even if the cache is current, it might have been
++                 * we need to try again — even if the cache is current, it might have been
+                  * updated in a different context before we had a chance to retry loading
+                  * this particular unit.
++                 *
+                  * Given building up the transaction is a synchronous operation, attempt
+                  * to load the unit immediately. */
+-                if (r < 0 && manager_unit_file_maybe_loadable_from_cache(unit)) {
++                if (r < 0 && manager_unit_cache_should_retry_load(unit)) {
+                         sd_bus_error_free(e);
+                         unit->load_state = UNIT_STUB;
+                         r = unit_load(unit);
+diff --git a/src/core/unit.c b/src/core/unit.c
+index 2c09def06f..d5968f36f8 100644
+--- a/src/core/unit.c
++++ b/src/core/unit.c
+@@ -1674,8 +1674,8 @@ int unit_load(Unit *u) {
+         return 0;
+ 
+ fail:
+-        /* We convert ENOEXEC errors to the UNIT_BAD_SETTING load state here. Configuration parsing code should hence
+-         * return ENOEXEC to ensure units are placed in this state after loading */
++        /* We convert ENOEXEC errors to the UNIT_BAD_SETTING load state here. Configuration parsing code
++         * should hence return ENOEXEC to ensure units are placed in this state after loading. */
+ 
+         u->load_state = u->load_state == UNIT_STUB ? UNIT_NOT_FOUND :
+                                      r == -ENOEXEC ? UNIT_BAD_SETTING :
+@@ -1683,7 +1683,7 @@ fail:
+         u->load_error = r;
+ 
+         /* Record the last time we tried to load the unit, so that if the cache gets updated between now
+-         * and the next time an attempt is made to load this unit, we know we need to check again */
++         * and the next time an attempt is made to load this unit, we know we need to check again. */
+         if (u->load_state == UNIT_NOT_FOUND)
+                 u->fragment_loadtime = now(CLOCK_REALTIME);
+ 
+-- 
+2.20.1
+
+
+From 302f8f40c7b4ebf2669d20fa3fcdd709b069d768 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Zbigniew=20J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Fri, 28 Aug 2020 11:19:38 +0200
+Subject: [PATCH 3/5] pid1: use the cache mtime not clock to "mark" load
+ attempts
+
+We really only care if the cache has been reloaded between the time when we
+last attempted to load this unit and now. So instead of recording the actual
+time we try to load the unit, just store the timestamp of the cache. This has
+the advantage that we'll notice if the cache mtime jumps forward or backward.
+
+Also rename fragment_loadtime to fragment_not_found_time. It only gets set when
+we failed to load the unit and the old name was suggesting it is always set.
+
+In https://bugzilla.redhat.com/show_bug.cgi?id=1871327
+(and most likely https://bugzilla.redhat.com/show_bug.cgi?id=1867930
+and most likely https://bugzilla.redhat.com/show_bug.cgi?id=1872068) we try
+to load a non-existent unit over and over from transaction_add_job_and_dependencies().
+My understanding is that the clock was in the future during inital boot,
+so cache_mtime is always in the future (since we don't touch the fs after initial boot),
+so no matter how many times we try to load the unit and set
+fragment_loadtime / fragment_not_found_time, it is always higher than cache_mtime,
+so manager_unit_cache_should_retry_load() always returns true.
+---
+ src/core/manager.c | 2 +-
+ src/core/unit.c    | 6 +++---
+ src/core/unit.h    | 2 +-
+ 3 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/src/core/manager.c b/src/core/manager.c
+index 01eb31e129..1a70634cb9 100644
+--- a/src/core/manager.c
++++ b/src/core/manager.c
+@@ -1951,7 +1951,7 @@ bool manager_unit_cache_should_retry_load(Unit *u) {
+ 
+         /* The cache has been updated since the last time we tried to load the unit. There might be new
+          * fragment paths to read. */
+-        if (u->manager->unit_cache_mtime > u->fragment_loadtime)
++        if (u->manager->unit_cache_mtime != u->fragment_not_found_time)
+                 return true;
+ 
+         /* The cache needs to be updated because there are modifications on disk. */
+diff --git a/src/core/unit.c b/src/core/unit.c
+index d5968f36f8..ea445e61f3 100644
+--- a/src/core/unit.c
++++ b/src/core/unit.c
+@@ -1682,10 +1682,10 @@ fail:
+                                                      UNIT_ERROR;
+         u->load_error = r;
+ 
+-        /* Record the last time we tried to load the unit, so that if the cache gets updated between now
+-         * and the next time an attempt is made to load this unit, we know we need to check again. */
++        /* Record the timestamp on the cache, so that if the cache gets updated between now and the next time
++         * an attempt is made to load this unit, we know we need to check again. */
+         if (u->load_state == UNIT_NOT_FOUND)
+-                u->fragment_loadtime = now(CLOCK_REALTIME);
++                u->fragment_not_found_time = u->manager->unit_cache_mtime;
+ 
+         unit_add_to_dbus_queue(u);
+         unit_add_to_gc_queue(u);
+diff --git a/src/core/unit.h b/src/core/unit.h
+index d5e4c65989..d348df7d47 100644
+--- a/src/core/unit.h
++++ b/src/core/unit.h
+@@ -136,7 +136,7 @@ typedef struct Unit {
+         char *source_path; /* if converted, the source file */
+         char **dropin_paths;
+ 
+-        usec_t fragment_loadtime;
++        usec_t fragment_not_found_time;
+         usec_t fragment_mtime;
+         usec_t source_mtime;
+         usec_t dropin_mtime;
+-- 
+2.20.1
+
+
+From eb88ded216bc8b5d1d287c6b62759f515ea0a971 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Zbigniew=20J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Mon, 31 Aug 2020 20:44:00 +0200
+Subject: [PATCH 4/5] core: always try to reload not-found unit
+
+This check was added in d904afc730268d50502f764dfd55b8cf4906c46f. It would only
+apply in the case where the cache hasn't been loaded yet. I think we pretty
+much always have the cache loaded when we reach this point, but even if we
+didn't, it seems better to try to reload the unit. So let's drop this check.
+---
+ src/core/manager.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/src/core/manager.c b/src/core/manager.c
+index 1a70634cb9..43e7b10f2c 100644
+--- a/src/core/manager.c
++++ b/src/core/manager.c
+@@ -1946,9 +1946,6 @@ bool manager_unit_cache_should_retry_load(Unit *u) {
+         if (u->load_state != UNIT_NOT_FOUND)
+                 return false;
+ 
+-        if (u->manager->unit_cache_mtime == 0)
+-                return false;
+-
+         /* The cache has been updated since the last time we tried to load the unit. There might be new
+          * fragment paths to read. */
+         if (u->manager->unit_cache_mtime != u->fragment_not_found_time)
+-- 
+2.20.1
+
+
+From 24ce9e9032fce66855859875f896c6e830fc1930 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Zbigniew=20J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Fri, 28 Aug 2020 12:21:48 +0200
+Subject: [PATCH 5/5] Rework how we cache mtime to figure out if units changed
+
+Instead of assuming that more-recently modified directories have higher mtime,
+just look for any mtime changes, up or down. Since we don't want to remember
+individual mtimes, hash them to obtain a single value.
+
+This should help us behave properly in the case when the time jumps backwards
+during boot: various files might have mtimes that in the future, but we won't
+care. This fixes the following scenario:
+
+We have /etc/systemd/system with T1. T1 is initially far in the past.
+We have /run/systemd/generator with time T2.
+The time is adjusted backwards, so T2 will be always in the future for a while.
+Now the user writes new files to /etc/systemd/system, and T1 is updated to T1'.
+Nevertheless, T1 < T1' << T2.
+We would consider our cache to be up-to-date, falsely.
+---
+ src/basic/siphash24.h    |  6 +++++
+ src/core/load-fragment.c |  2 +-
+ src/core/manager.c       |  6 ++---
+ src/core/manager.h       |  2 +-
+ src/core/unit.c          |  2 +-
+ src/core/unit.h          |  2 +-
+ src/shared/unit-file.c   | 51 ++++++++++++++++++++++------------------
+ src/shared/unit-file.h   | 12 +++++-----
+ 8 files changed, 47 insertions(+), 36 deletions(-)
+
+diff --git a/src/basic/siphash24.h b/src/basic/siphash24.h
+index 7f799ede3d..fe43256882 100644
+--- a/src/basic/siphash24.h
++++ b/src/basic/siphash24.h
+@@ -6,6 +6,8 @@
+ #include <string.h>
+ #include <sys/types.h>
+ 
++#include "time-util.h"
++
+ struct siphash {
+         uint64_t v0;
+         uint64_t v1;
+@@ -25,6 +27,10 @@ static inline void siphash24_compress_boolean(bool in, struct siphash *state) {
+         siphash24_compress(&i, sizeof i, state);
+ }
+ 
++static inline void siphash24_compress_usec_t(usec_t in, struct siphash *state) {
++        siphash24_compress(&in, sizeof in, state);
++}
++
+ static inline void siphash24_compress_string(const char *in, struct siphash *state) {
+         if (!in)
+                 return;
+diff --git a/src/core/load-fragment.c b/src/core/load-fragment.c
+index 3036aa8ba4..fe5cfb21ad 100644
+--- a/src/core/load-fragment.c
++++ b/src/core/load-fragment.c
+@@ -4943,7 +4943,7 @@ int unit_load_fragment(Unit *u) {
+ 
+         /* Possibly rebuild the fragment map to catch new units */
+         r = unit_file_build_name_map(&u->manager->lookup_paths,
+-                                     &u->manager->unit_cache_mtime,
++                                     &u->manager->unit_cache_timestamp_hash,
+                                      &u->manager->unit_id_map,
+                                      &u->manager->unit_name_map,
+                                      &u->manager->unit_path_cache);
+diff --git a/src/core/manager.c b/src/core/manager.c
+index 43e7b10f2c..6b7908fc6c 100644
+--- a/src/core/manager.c
++++ b/src/core/manager.c
+@@ -703,7 +703,7 @@ static void manager_free_unit_name_maps(Manager *m) {
+         m->unit_id_map = hashmap_free(m->unit_id_map);
+         m->unit_name_map = hashmap_free(m->unit_name_map);
+         m->unit_path_cache = set_free(m->unit_path_cache);
+-        m->unit_cache_mtime =  0;
++        m->unit_cache_timestamp_hash = 0;
+ }
+ 
+ static int manager_setup_run_queue(Manager *m) {
+@@ -1948,11 +1948,11 @@ bool manager_unit_cache_should_retry_load(Unit *u) {
+ 
+         /* The cache has been updated since the last time we tried to load the unit. There might be new
+          * fragment paths to read. */
+-        if (u->manager->unit_cache_mtime != u->fragment_not_found_time)
++        if (u->manager->unit_cache_timestamp_hash != u->fragment_not_found_timestamp_hash)
+                 return true;
+ 
+         /* The cache needs to be updated because there are modifications on disk. */
+-        return !lookup_paths_mtime_good(&u->manager->lookup_paths, u->manager->unit_cache_mtime);
++        return !lookup_paths_timestamp_hash_same(&u->manager->lookup_paths, u->manager->unit_cache_timestamp_hash, NULL);
+ }
+ 
+ int manager_load_unit_prepare(
+diff --git a/src/core/manager.h b/src/core/manager.h
+index d15c05c963..6b29d48fae 100644
+--- a/src/core/manager.h
++++ b/src/core/manager.h
+@@ -233,7 +233,7 @@ struct Manager {
+         Hashmap *unit_id_map;
+         Hashmap *unit_name_map;
+         Set *unit_path_cache;
+-        usec_t unit_cache_mtime;
++        uint64_t unit_cache_timestamp_hash;
+ 
+         char **transient_environment;  /* The environment, as determined from config files, kernel cmdline and environment generators */
+         char **client_environment;     /* Environment variables created by clients through the bus API */
+diff --git a/src/core/unit.c b/src/core/unit.c
+index ea445e61f3..1bda568560 100644
+--- a/src/core/unit.c
++++ b/src/core/unit.c
+@@ -1685,7 +1685,7 @@ fail:
+         /* Record the timestamp on the cache, so that if the cache gets updated between now and the next time
+          * an attempt is made to load this unit, we know we need to check again. */
+         if (u->load_state == UNIT_NOT_FOUND)
+-                u->fragment_not_found_time = u->manager->unit_cache_mtime;
++                u->fragment_not_found_timestamp_hash = u->manager->unit_cache_timestamp_hash;
+ 
+         unit_add_to_dbus_queue(u);
+         unit_add_to_gc_queue(u);
+diff --git a/src/core/unit.h b/src/core/unit.h
+index d348df7d47..4130cd50a9 100644
+--- a/src/core/unit.h
++++ b/src/core/unit.h
+@@ -136,7 +136,7 @@ typedef struct Unit {
+         char *source_path; /* if converted, the source file */
+         char **dropin_paths;
+ 
+-        usec_t fragment_not_found_time;
++        usec_t fragment_not_found_timestamp_hash;
+         usec_t fragment_mtime;
+         usec_t source_mtime;
+         usec_t dropin_mtime;
+diff --git a/src/shared/unit-file.c b/src/shared/unit-file.c
+index ed4affd668..0f030ae431 100644
+--- a/src/shared/unit-file.c
++++ b/src/shared/unit-file.c
+@@ -1,5 +1,7 @@
+ /* SPDX-License-Identifier: LGPL-2.1+ */
+ 
++#include "sd-id128.h"
++
+ #include "dirent-util.h"
+ #include "fd-util.h"
+ #include "fs-util.h"
+@@ -199,9 +201,14 @@ static bool lookup_paths_mtime_exclude(const LookupPaths *lp, const char *path)
+                streq_ptr(path, lp->runtime_control);
+ }
+ 
+-bool lookup_paths_mtime_good(const LookupPaths *lp, usec_t mtime) {
+-        char **dir;
++#define HASH_KEY SD_ID128_MAKE(4e,86,1b,e3,39,b3,40,46,98,5d,b8,11,34,8f,c3,c1)
++
++bool lookup_paths_timestamp_hash_same(const LookupPaths *lp, uint64_t timestamp_hash, uint64_t *ret_new) {
++        struct siphash state;
+ 
++        siphash24_init(&state, HASH_KEY.bytes);
++
++        char **dir;
+         STRV_FOREACH(dir, (char**) lp->search_path) {
+                 struct stat st;
+ 
+@@ -217,18 +224,20 @@ bool lookup_paths_mtime_good(const LookupPaths *lp, usec_t mtime) {
+                         continue;
+                 }
+ 
+-                if (timespec_load(&st.st_mtim) > mtime) {
+-                        log_debug_errno(errno, "Unit dir %s has changed, need to update cache.", *dir);
+-                        return false;
+-                }
++                siphash24_compress_usec_t(timespec_load(&st.st_mtim), &state);
+         }
+ 
+-        return true;
++        uint64_t updated = siphash24_finalize(&state);
++        if (ret_new)
++                *ret_new = updated;
++        if (updated != timestamp_hash)
++                log_debug("Modification times have changed, need to update cache.");
++        return updated == timestamp_hash;
+ }
+ 
+ int unit_file_build_name_map(
+                 const LookupPaths *lp,
+-                usec_t *cache_mtime,
++                uint64_t *cache_timestamp_hash,
+                 Hashmap **unit_ids_map,
+                 Hashmap **unit_names_map,
+                 Set **path_cache) {
+@@ -245,14 +254,18 @@ int unit_file_build_name_map(
+ 
+         _cleanup_hashmap_free_ Hashmap *ids = NULL, *names = NULL;
+         _cleanup_set_free_free_ Set *paths = NULL;
++        uint64_t timestamp_hash;
+         char **dir;
+         int r;
+-        usec_t mtime = 0;
+ 
+-        /* Before doing anything, check if the mtime that was passed is still valid. If
+-         * yes, do nothing. If *cache_time == 0, always build the cache. */
+-        if (cache_mtime && *cache_mtime > 0 && lookup_paths_mtime_good(lp, *cache_mtime))
+-                return 0;
++        /* Before doing anything, check if the timestamp hash that was passed is still valid.
++         * If yes, do nothing. */
++        if (cache_timestamp_hash &&
++            lookup_paths_timestamp_hash_same(lp, *cache_timestamp_hash, &timestamp_hash))
++                        return 0;
++
++        /* The timestamp hash is now set based on the mtimes from before when we start reading files.
++         * If anything is modified concurrently, we'll consider the cache outdated. */
+ 
+         if (path_cache) {
+                 paths = set_new(&path_hash_ops_free);
+@@ -263,7 +276,6 @@ int unit_file_build_name_map(
+         STRV_FOREACH(dir, (char**) lp->search_path) {
+                 struct dirent *de;
+                 _cleanup_closedir_ DIR *d = NULL;
+-                struct stat st;
+ 
+                 d = opendir(*dir);
+                 if (!d) {
+@@ -272,13 +284,6 @@ int unit_file_build_name_map(
+                         continue;
+                 }
+ 
+-                /* Determine the latest lookup path modification time */
+-                if (fstat(dirfd(d), &st) < 0)
+-                        return log_error_errno(errno, "Failed to fstat %s: %m", *dir);
+-
+-                if (!lookup_paths_mtime_exclude(lp, *dir))
+-                        mtime = MAX(mtime, timespec_load(&st.st_mtim));
+-
+                 FOREACH_DIRENT_ALL(de, d, log_warning_errno(errno, "Failed to read \"%s\", ignoring: %m", *dir)) {
+                         char *filename;
+                         _cleanup_free_ char *_filename_free = NULL, *simplified = NULL;
+@@ -417,8 +422,8 @@ int unit_file_build_name_map(
+                                                  basename(dst), src);
+         }
+ 
+-        if (cache_mtime)
+-                *cache_mtime = mtime;
++        if (cache_timestamp_hash)
++                *cache_timestamp_hash = timestamp_hash;
+ 
+         hashmap_free_and_replace(*unit_ids_map, ids);
+         hashmap_free_and_replace(*unit_names_map, names);
+diff --git a/src/shared/unit-file.h b/src/shared/unit-file.h
+index d6d041d714..d36bb07cc2 100644
+--- a/src/shared/unit-file.h
++++ b/src/shared/unit-file.h
+@@ -43,19 +43,19 @@ bool unit_type_may_template(UnitType type) _const_;
+ int unit_symlink_name_compatible(const char *symlink, const char *target, bool instance_propagation);
+ int unit_validate_alias_symlink_and_warn(const char *filename, const char *target);
+ 
+-bool lookup_paths_mtime_good(const LookupPaths *lp, usec_t mtime);
++bool lookup_paths_timestamp_hash_same(const LookupPaths *lp, uint64_t timestamp_hash, uint64_t *ret_new);
+ int unit_file_build_name_map(
+                 const LookupPaths *lp,
+-                usec_t *ret_time,
+-                Hashmap **ret_unit_ids_map,
+-                Hashmap **ret_unit_names_map,
+-                Set **ret_path_cache);
++                uint64_t *cache_timestamp_hash,
++                Hashmap **unit_ids_map,
++                Hashmap **unit_names_map,
++                Set **path_cache);
+ 
+ int unit_file_find_fragment(
+                 Hashmap *unit_ids_map,
+                 Hashmap *unit_name_map,
+                 const char *unit_name,
+                 const char **ret_fragment_path,
+-                Set **names);
++                Set **ret_names);
+ 
+ const char* runlevel_to_target(const char *rl);
+-- 
+2.20.1
+
