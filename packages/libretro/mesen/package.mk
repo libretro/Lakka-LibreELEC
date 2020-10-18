@@ -19,11 +19,11 @@
 ################################################################################
 
 PKG_NAME="mesen"
-PKG_VERSION="86326e8"
+PKG_VERSION="aa2f444"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64 arm"
 PKG_LICENSE="GPLv3"
-PKG_SITE="https://github.com/SourMesen/Mesen"
+PKG_SITE="https://github.com/libretro/Mesen"
 PKG_URL="$PKG_SITE.git"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
