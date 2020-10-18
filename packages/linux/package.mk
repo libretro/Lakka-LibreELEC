@@ -34,8 +34,8 @@ case "$LINUX" in
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     ;;
   rpi4-5.4)
-    PKG_VERSION="0cb2a1174a38633a707232dffab0c15ad9d8debb" # 5.4.65
-    PKG_SHA256="158b7bce15902ea6747a7d80e5b8b44d3d909b10a6ef5e16f47f648797ca654d"
+    PKG_VERSION="edc21a35b9b7b427716564c3b744ed2a89fcd19a" # 5.4.71
+    PKG_SHA256="bce0429841ef280d5ae991a261954f90ad6de35a091b59714f1535c8d1f3334e"
     PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     PKG_PATCH_DIRS="rpi4"
