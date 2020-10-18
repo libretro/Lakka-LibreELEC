@@ -3,14 +3,14 @@
 
 import urllib, os, zipfile
 from urllib2 import URLError
-import xbmc, xbmcgui, xbmcaddon
+import xbmc, xbmcvfs, xbmcgui, xbmcaddon
 import shutil
 import sys
 
 url = 'https://github.com/tvheadend/dtv-scan-tables/archive/tvheadend.zip'
-temp = xbmc.translatePath('special://temp')
+temp = xbmcvfs.translatePath('special://temp')
 temp_folder = os.path.join(temp, 'dtv-scan-tables-tvheadend')
-dest_folder = os.path.join(xbmc.translatePath(xbmcaddon.Addon().getAddonInfo('path')), 'dvb-scan')
+dest_folder = os.path.join(xbmcvfs.translatePath(xbmcaddon.Addon().getAddonInfo('path')), 'dvb-scan')
 archive = os.path.join(temp, 'dtv_scantables.zip')
 
 ADDON_NAME = xbmcaddon.Addon().getAddonInfo('name')
