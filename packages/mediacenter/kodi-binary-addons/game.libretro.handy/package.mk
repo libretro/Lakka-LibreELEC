@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.handy"
-PKG_VERSION="0.97.0.8-Leia"
-PKG_SHA256="f4c3c27d4f6ebaf3f80e71e3a7b1611fc94a9f3fa946c30b955749080ea4b52f"
+PKG_VERSION="0.97.0.9-Leia"
+PKG_SHA256="3a812a13ed43b82a1c4bc2cc12476b8bae2b366ff73a63702cccdaaf39f99348"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

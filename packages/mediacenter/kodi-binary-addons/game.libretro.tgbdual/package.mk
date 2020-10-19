@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.tgbdual"
-PKG_VERSION="0.8.3.8-Leia"
-PKG_SHA256="fa15f2936ce70bd196ea06f8edcb54a4ddc1f1738146f4927cee1185780a7ff3"
+PKG_VERSION="0.8.3.9-Leia"
+PKG_SHA256="71268c2547cfa4cfd497f3c4681319f4558ac72177a69b018a5404560c49e035"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
