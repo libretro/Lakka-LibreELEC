@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.nestopia"
-PKG_VERSION="1.50.0.10-Leia"
-PKG_SHA256="1aa70ec894a76666b8b2c6ea3c9a51bae60e4fcaacdbd935a1e2840153319659"
+PKG_VERSION="1.50.0.11-Leia"
+PKG_SHA256="4418beb48b03a604ef922b7c3f827fc591ecf8e32db0d8848b465d23d0882c0b"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.scummvm"
-PKG_VERSION="2.1.1.8-Leia"
-PKG_SHA256="10a6689c8c11ce0a96663f249ff350543420c983400165c8d8237801de2f5d31"
+PKG_VERSION="2.1.1.9-Leia"
+PKG_SHA256="ab63d613f1d2d5bdbfb2f1fbd234afae6d96c2c2ba1ca4cadf7c312d0529e70c"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
