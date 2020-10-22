@@ -2,7 +2,7 @@
 
 # base ffmpeg version
 KODI_FFMPEG_REPO="https://github.com/xbmc/FFmpeg"
-KODI_FFMPEG_VERSION="4.3-Matrix-Alpha1"
+KODI_FFMPEG_VERSION="4.3.1-Matrix-Alpha1-1"
 
 ALL_FEATURE_SETS="v4l2-drmprime v4l2-request libreelec rpi"
 
@@ -29,7 +29,7 @@ create_patch() {
       ;;
     v4l2-request)
       REPO="https://github.com/Kwiboo/FFmpeg"
-      REFSPEC="v4l2-request-hwaccel-4.3"
+      REFSPEC="v4l2-request-hwaccel-4.3.1"
       ;;
     libreelec)
       REPO="https://github.com/LibreELEC/FFmpeg"
