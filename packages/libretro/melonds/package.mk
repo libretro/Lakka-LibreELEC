@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="melonds"
-PKG_VERSION="27582dc"
+PKG_VERSION="289d544"
 PKG_ARCH="x86_64"
 PKG_ARCH="x86_64 aarch64"
 PKG_LICENSE="GPLv3"
