@@ -73,6 +73,8 @@ fi
 
 if [ "$TARGET_ARCH" = "x86_64" -o "$TARGET_ARCH" = "i386" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET intel-ucode:host kernel-firmware elfutils:host pciutils"
+elif [ "$TARGET_ARCH" = "arm" -a "$DEVICE" = "iMX6" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET kernel-firmware"
 fi
 
 if [[ "$KERNEL_TARGET" = uImage* ]]; then
