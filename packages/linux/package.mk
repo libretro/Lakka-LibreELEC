@@ -73,6 +73,8 @@ fi
 
 if [ "$TARGET_ARCH" = "x86_64" -o "$TARGET_ARCH" = "i386" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET intel-ucode:host kernel-firmware elfutils:host pciutils"
+elif [ "$TARGET_ARCH" = "arm" -a "$DEVICE" = "iMX6" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET kernel-firmware"
 fi
 
 if [[ "$KERNEL_TARGET" = uImage* ]]; then
@@ -83,7 +85,7 @@ post_patch() {
   cp $PKG_KERNEL_CFG_FILE $PKG_BUILD/.config
 
   sed -i -e "s|^CONFIG_INITRAMFS_SOURCE=.*$|CONFIG_INITRAMFS_SOURCE=\"$BUILD/image/initramfs.cpio\"|" $PKG_BUILD/.config
-  sed -i -e '/^CONFIG_INITRAMFS_SOURCE=*./ a CONFIG_INITRAMFS_ROOT_UID=0\nCONFIG_INITRAMFS_ROOT_GID=0' $PKG_BUILD/.config
+  sed -i -e "/CONFIG_INITRAMFS_ROOT_UID/d" -e "/CONFIG_INITRAMFS_ROOT_GID/d" -e "/CONFIG_INITRAMFS_SOURCE=.../a CONFIG_INITRAMFS_ROOT_UID=0\nCONFIG_INITRAMFS_ROOT_GID=0" $PKG_BUILD/.config
 
   # set default hostname based on $DISTRONAME
     sed -i -e "s|@DISTRONAME@|$DISTRONAME|g" $PKG_BUILD/.config
@@ -153,22 +155,16 @@ pre_make_target() {
     # copy some extra firmware to linux tree
     mkdir -p $PKG_BUILD/external-firmware
       cp -a $(get_build_dir kernel-firmware)/{amdgpu,amd-ucode,i915,nvidia,radeon,e100,rtl_nic} $PKG_BUILD/external-firmware
-
-    cp -a $(get_build_dir intel-ucode)/intel-ucode $PKG_BUILD/external-firmware
-
-    FW_LIST="$(find $PKG_BUILD/external-firmware \( -type f -o -type l \) \( -iname '*.bin' -o -iname '*.fw' -o -path '*/intel-ucode/*' \) | sed 's|.*external-firmware/||' | sort | xargs)"
-    sed -i "s|CONFIG_EXTRA_FIRMWARE=.*|CONFIG_EXTRA_FIRMWARE=\"${FW_LIST}\"|" $PKG_BUILD/.config
-
-  elif [ "$TARGET_ARCH" = "arm" ]; then
-    if [ "$DEVICE" = "iMX6"  ]; then
+      cp -a $(get_build_dir intel-ucode)/intel-ucode $PKG_BUILD/external-firmware
+  elif [ "$TARGET_ARCH" = "arm" -a "$DEVICE" = "iMX6" ]; then
       mkdir -p $PKG_BUILD/external-firmware
         cp -a $(get_build_dir kernel-firmware)/imx $PKG_BUILD/external-firmware
+  fi
 
-      FW_LIST="$(find $PKG_BUILD/external-firmware -iname '*.bin' | sed 's|.*external-firmware/||' | sort | xargs)"
-
-      sed -i "s|CONFIG_EXTRA_FIRMWARE=.*|CONFIG_EXTRA_FIRMWARE=\"${FW_LIST}\"|" $PKG_BUILD/.config
-      sed -i "s|CONFIG_EXTRA_FIRMWARE_DIR=.*|CONFIG_EXTRA_FIRMWARE_DIR=\"external-firmware\"|" $PKG_BUILD/.config
-    fi
+  if [ -d $PKG_BUILD/external-firmware/ ]; then
+    FW_LIST="$(find $PKG_BUILD/external-firmware \( -type f -o -type l \) \( -iname '*.bin' -o -iname '*.fw' -o -path '*/intel-ucode/*' \) | sed 's|.*external-firmware/||' | sort | xargs)"
+    sed -i "s|CONFIG_EXTRA_FIRMWARE=.*|CONFIG_EXTRA_FIRMWARE=\"${FW_LIST}\"|" $PKG_BUILD/.config
+    sed -i -e "/CONFIG_EXTRA_FIRMWARE_DIR/d" -e "/CONFIG_EXTRA_FIRMWARE=.../a CONFIG_EXTRA_FIRMWARE_DIR=\"external-firmware\"" $PKG_BUILD/.config
   fi
 
   kernel_make olddefconfig
