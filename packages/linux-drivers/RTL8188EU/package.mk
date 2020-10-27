@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="RTL8188EU"
-PKG_VERSION="a0fff49c4114241a314571b57e3b32c9b0a4c656"
-PKG_SHA256="76026dc8eb17accde69f9c10a7485d637f01fd7a36f3c54aeda1e51b3abe5ada"
+PKG_VERSION="c9280272bcc358e52d57b3f88e42596795b8f6c1"
+PKG_SHA256="e403c5cd3007cdc0d07b062a374e37c808caec914abbd3aa11e7bcfda9feab74"
 PKG_LICENSE="GPL"
 # realtek: PKG_SITE="http://www.realtek.com.tw/downloads/downloadsView.aspx?Langid=1&PFid=48&Level=5&Conn=4&ProdID=274&DownTypeID=3&GetDown=false&Downloads=true"
 PKG_SITE="https://github.com/lwfinger/rtl8188eu"
@@ -17,7 +17,7 @@ pre_make_target() {
 }
 
 make_target() {
-  make V=1 \
+  make modules \
        ARCH=$TARGET_KERNEL_ARCH \
        KSRC=$(kernel_path) \
        CROSS_COMPILE=$TARGET_KERNEL_PREFIX \
