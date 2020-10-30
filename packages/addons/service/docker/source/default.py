@@ -185,7 +185,7 @@ docker_events = {
 
 def print_notification(json_data):
     event_string = docker_events[json_data['Type']]['event'][json_data['Action']]['string']
-    if __addon__.getSetting('notifications') is '0': # default
+    if __addon__.getSetting('notifications') == '0': # default
         if docker_events[json_data['Type']]['event'][json_data['Action']]['enabled']:
             try:
                 message = ' '.join([__addon__.getLocalizedString(30010),
@@ -200,7 +200,7 @@ def print_notification(json_data):
                                     __addon__.getLocalizedString(30012),
                                     __addon__.getLocalizedString(event_string)])
 
-    elif __addon__.getSetting('notifications') is '1': # all
+    elif __addon__.getSetting('notifications') == '1': # all
         try:
             message = ' '.join([__addon__.getLocalizedString(30010),
                                 json_data['Actor']['Attributes']['name'],
@@ -214,10 +214,10 @@ def print_notification(json_data):
                                 __addon__.getLocalizedString(30012),
                                 __addon__.getLocalizedString(event_string)])
 
-    elif __addon__.getSetting('notifications') is '2': # none
+    elif __addon__.getSetting('notifications') == '2': # none
         pass
 
-    elif __addon__.getSetting('notifications') is '3': # custom
+    elif __addon__.getSetting('notifications') == '3': # custom
         if __addon__.getSetting(json_data['Action']) == 'true':
             try:
                 message = ' '.join([__addon__.getLocalizedString(30010),
@@ -234,7 +234,7 @@ def print_notification(json_data):
 
     dialog = xbmcgui.Dialog()
     try:
-        if message is not '':
+        if message != '':
             length = int(__addon__.getSetting('notification_length')) * 1000
             dialog.notification('Docker', message, '/storage/.kodi/addons/service.system.docker/resources/icon.png', length)
             xbmc.log('## service.system.docker ## %s' % message)
