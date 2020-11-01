@@ -11,11 +11,11 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_LONGDESC="game.libretro.beetle-bsnes-performance: Beetle bSNES for Kodi"
 
 PKG_LIBNAME="bsnes_mercury_performance_libretro.so"
-PKG_LIBPATH="out/$PKG_LIBNAME"
+PKG_LIBPATH="$PKG_LIBNAME"
 PKG_LIBVAR="BSNES-MERCURY-PERFORMANCE_LIB"
 
 make_target() {
-  make profile=performance
+  make PROFILE=performance
 }
 
 makeinstall_target() {

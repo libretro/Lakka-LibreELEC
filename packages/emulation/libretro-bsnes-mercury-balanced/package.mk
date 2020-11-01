@@ -11,11 +11,11 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_LONGDESC="game.libretro.beetle-bsnes-balanced: Beetle bSNES for Kodi"
 
 PKG_LIBNAME="bsnes_mercury_balanced_libretro.so"
-PKG_LIBPATH="out/$PKG_LIBNAME"
+PKG_LIBPATH="$PKG_LIBNAME"
 PKG_LIBVAR="BSNES-MERCURY-BALANCED_LIB"
 
 make_target() {
-  make profile=balanced
+  make PROFILE=balanced
 }
 
 makeinstall_target() {

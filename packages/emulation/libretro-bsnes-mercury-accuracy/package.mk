@@ -11,11 +11,11 @@ PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_LONGDESC="game.libretro.beetle-bsnes-accuracy: Beetle bSNES for Kodi"
 
 PKG_LIBNAME="bsnes_mercury_accuracy_libretro.so"
-PKG_LIBPATH="out/$PKG_LIBNAME"
+PKG_LIBPATH="$PKG_LIBNAME"
 PKG_LIBVAR="BSNES-MERCURY-ACCURACY_LIB"
 
 make_target() {
-  make profile=accuracy
+  make PROFILE=accuracy
 }
 
 makeinstall_target() {
