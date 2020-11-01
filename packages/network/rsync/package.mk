@@ -19,9 +19,12 @@ PKG_CONFIGURE_OPTS_HOST="--with-included-popt \
                          --disable-xxhash"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-acl-support \
-                           --disable-xattr-support \
-                           --with-included-popt \
-                           --without-include-zlib \
+                           --disable-asm \
                            --disable-lz4 \
+                           --disable-md2man \
+                           --disable-simd \
+                           --disable-xattr-support \
+                           --disable-xxhash \
                            --disable-zstd \
-                           --disable-xxhash"
+                           --with-included-popt \
+                           --without-included-zlib"
