@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-fmsx"
-PKG_VERSION="0ab86cfe7f722da312ffc60feb56555d1bd68f76"
-PKG_SHA256="c033e1bb81ba07e0bea29622ff31e39b411b0670e8b3d84b08268b2a148c8c2e"
+PKG_VERSION="fdc6a2f5f40428f2b38d5e533f542e2a9206b080"
+PKG_SHA256="2b3a68ca3f0c3f2a6e65dac5d661958e7fd779d24890ac1fb2270da2e948644b"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/fmsx-libretro"
 PKG_URL="https://github.com/libretro/fmsx-libretro/archive/$PKG_VERSION.tar.gz"
