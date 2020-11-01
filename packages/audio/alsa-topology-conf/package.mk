@@ -2,8 +2,8 @@
 # Copyright (C) 2020-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="alsa-topology-conf"
-PKG_VERSION="1.2.3"
-PKG_SHA256="833f99b2cbda34e0cfef867ef1d2e6a74fe276bb7fc525a573be32077f629dff"
+PKG_VERSION="1.2.4"
+PKG_SHA256="55e0e6e42eca4cc7656c257af2440cdc65b83689dca49fc60ca0194db079ed07"
 PKG_LICENSE="BSD-3c"
 PKG_SITE="http://www.alsa-project.org/"
 PKG_URL="ftp://ftp.alsa-project.org/pub/lib/alsa-topology-conf-$PKG_VERSION.tar.bz2"
