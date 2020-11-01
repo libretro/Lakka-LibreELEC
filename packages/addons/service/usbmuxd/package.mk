@@ -2,13 +2,13 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="usbmuxd"
-PKG_VERSION="1.1.0"
-PKG_SHA256="3e8948b4fe4250ee5c4bd41ccd1b83c09b8a6f5518a7d131a66fd38bd461b42d"
-PKG_REV="101"
+PKG_VERSION="1.1.1"
+PKG_SHA256="c0ec9700172bf635ccb5bed98daae607d2925c2bc3597f25706ecd9dfbfd2d9e"
+PKG_REV="102"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.libimobiledevice.org"
-PKG_URL="http://www.libimobiledevice.org/downloads/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_URL="https://github.com/libimobiledevice/usbmuxd/releases/download/${PKG_VERSION}/usbmuxd-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain libusb libimobiledevice"
 PKG_SECTION="service"
 PKG_SHORTDESC="USB Multiplex Daemon"
