@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="inputstream.adaptive"
-PKG_VERSION="cd40c1c79d2c3f2bbf356d32194718a4a758bf71"
-PKG_SHA256="dc24fe8c8465d48fc219cd24033a6eaa1fad83cf1ff7347de0c9823ffd05e0e0"
-PKG_REV="2"
+PKG_VERSION="2.6.4-Matrix"
+PKG_SHA256="4db1967226ffb15b11ad2d1d68910bcbda32b1e072af0c12d7d48c4f8d0052f4"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/peak3d/inputstream.adaptive"

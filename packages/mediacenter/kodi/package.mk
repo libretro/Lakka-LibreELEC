@@ -3,8 +3,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="kodi"
-PKG_VERSION="6384782d19e14fbeb85e9d3f2e22e0242200dbeb"
-PKG_SHA256="28a9e52ef2147730aec79e1c1204957d0a5d5608e279a81440a7ba08cdca37ae"
+PKG_VERSION="bb0699db41d50a613de88f2bbe8124d4edf269d3"
+PKG_SHA256="28bd28a85e47995d4965ac402228374662bb85ba0644c94c52f371d97c87db1b"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
 PKG_URL="https://github.com/xbmc/xbmc/archive/$PKG_VERSION.tar.gz"
@@ -28,13 +28,13 @@ configure_package() {
 
   if [ "$DISPLAYSERVER" = "x11" ]; then
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libX11 libXext libdrm libXrandr"
-    KODI_XORG="-DCORE_PLATFORM_NAME=x11 -DX11_RENDER_SYSTEM=gl"
+    KODI_XORG="-DCORE_PLATFORM_NAME=x11 -DAPP_RENDER_SYSTEM=gl"
   elif [ "$DISPLAYSERVER" = "weston" ]; then
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET wayland waylandpp"
     CFLAGS="$CFLAGS -DMESA_EGL_NO_X11_HEADERS"
     CXXFLAGS="$CXXFLAGS -DMESA_EGL_NO_X11_HEADERS"
     KODI_XORG="-DCORE_PLATFORM_NAME=wayland \
-               -DWAYLAND_RENDER_SYSTEM=gles \
+               -DAPP_RENDER_SYSTEM=gles \
                -DWAYLANDPP_PROTOCOLS_DIR=${SYSROOT_PREFIX}/usr/share/waylandpp/protocols"
   fi
 
@@ -172,9 +172,10 @@ configure_package() {
   if [ ! "$KODIPLAYER_DRIVER" = default ]; then
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $KODIPLAYER_DRIVER libinput libxkbcommon"
     if [ "$OPENGLES_SUPPORT" = yes -a "$KODIPLAYER_DRIVER" = "$OPENGLES" ]; then
-      KODI_PLAYER="-DCORE_PLATFORM_NAME=gbm -DGBM_RENDER_SYSTEM=gles"
+      KODI_PLAYER="-DCORE_PLATFORM_NAME=gbm -DAPP_RENDER_SYSTEM=gles"
       CFLAGS="$CFLAGS -DEGL_NO_X11"
       CXXFLAGS="$CXXFLAGS -DEGL_NO_X11"
+      PKG_APPLIANCE_XML="$PKG_DIR/config/appliance-gbm.xml"
     fi
   fi
 
@@ -309,6 +310,7 @@ post_makeinstall_target() {
                                 > $INSTALL/usr/share/kodi/system/advancedsettings.xml
 
   $PKG_DIR/scripts/xml_merge.py $PKG_DIR/config/appliance.xml \
+                                $PKG_APPLIANCE_XML \
                                 $PROJECT_DIR/$PROJECT/kodi/appliance.xml \
                                 $PROJECT_DIR/$PROJECT/devices/$DEVICE/kodi/appliance.xml \
                                 > $INSTALL/usr/share/kodi/system/settings/appliance.xml

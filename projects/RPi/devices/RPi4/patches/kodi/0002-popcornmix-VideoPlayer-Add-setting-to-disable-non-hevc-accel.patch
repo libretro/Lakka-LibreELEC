@@ -1,21 +1,21 @@
-From 598151eb44cb9eec05a6403a1eee1efbd6ab0f61 Mon Sep 17 00:00:00 2001
+From d87d1e05d69794262bec8ef54b9edeae5d476414 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 27 Mar 2020 15:14:11 +0000
 Subject: [PATCH] VideoPlayer: Add setting to disable non-hevc accel
 
 ---
- addons/resource.language.en_gb/resources/strings.po    | 10 ++++++++++
- system/settings/gbm.xml                                |  6 ++++++
- .../DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp          |  7 +++++++
- xbmc/settings/Settings.cpp                             |  2 ++
- xbmc/settings/Settings.h                               |  1 +
- 5 files changed, 26 insertions(+)
+ addons/resource.language.en_gb/resources/strings.po  | 10 ++++++++++
+ system/settings/linux.xml                            | 12 ++++++++++++
+ .../DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp        |  5 +++++
+ xbmc/settings/Settings.cpp                           |  2 ++
+ xbmc/settings/Settings.h                             |  1 +
+ 5 files changed, 30 insertions(+)
 
 diff --git a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
-index 6beae9269ef1..a7331a4f4cf6 100644
+index 85bd4ff2ad..2e714eba87 100644
 --- a/addons/resource.language.en_gb/resources/strings.po
 +++ b/addons/resource.language.en_gb/resources/strings.po
-@@ -7275,6 +7275,16 @@ msgctxt "#13467"
+@@ -7280,6 +7280,16 @@ msgctxt "#13467"
  msgid "Unlimited / 1080 (>30Hz)"
  msgstr ""
  
@@ -32,46 +32,64 @@ index 6beae9269ef1..a7331a4f4cf6 100644
  #empty strings from id 13468 to 13504
  
  #: system/settings/settings.xml
-diff --git a/system/settings/gbm.xml b/system/settings/gbm.xml
-index cdc6c2b284d8..fa6a14d4c6ce 100644
---- a/system/settings/gbm.xml
-+++ b/system/settings/gbm.xml
-@@ -26,6 +26,12 @@
+diff --git a/system/settings/linux.xml b/system/settings/linux.xml
+index 6d1fb9cd49..691a84e65e 100644
+--- a/system/settings/linux.xml
++++ b/system/settings/linux.xml
+@@ -168,6 +168,18 @@
            <default>true</default>
            <control type="toggle" />
          </setting>
-+        <setting id="videoplayer.disablenonhevc" type="boolean" label="13500" help="13501">
-+          <visible>true</visible>
-+          <level>2</level>
++        <setting id="videoplayer.disablenonhevc" type="boolean" parent="videoplayer.useprimedecoderforhw" label="13500" help="13501">
++          <requirement>HAS_GLES</requirement>
++          <visible>false</visible>
++          <dependencies>
++            <dependency type="enable">
++              <condition setting="videoplayer.useprimedecoderforhw" operator="is">true</condition>
++            </dependency>
++          </dependencies>
++          <level>3</level>
 +          <default>true</default>
 +          <control type="toggle" />
 +        </setting>
          <setting id="videoplayer.useprimerenderer" type="integer" label="13462" help="13463">
+           <requirement>HAS_GLES</requirement>
            <visible>false</visible>
-           <level>2</level>
 diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp
-index ba3c93d89d48..0abcc90e72d5 100644
+index a12ef9ec1e..1366bd7fbf 100644
 --- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp
 +++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp
-@@ -221,6 +221,13 @@ int CDVDVideoCodecDRMPRIME::GetBuffer(struct AVCodecContext* avctx, AVFrame* fra
- 
- bool CDVDVideoCodecDRMPRIME::Open(CDVDStreamInfo& hints, CDVDCodecOptions& options)
+@@ -37,6 +37,7 @@ namespace
  {
-+  if (CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(CSettings::SETTING_VIDEOPLAYER_DISABLE_NON_HEVC) && hints.codec != AV_CODEC_ID_HEVC)
-+  {
-+    CLog::Log(LOGINFO, "CDVDVideoCodecDRMPRIME::{} - codec {} disallowed",
-+              __FUNCTION__, hints.codec);
-+    return false;
-+  }
-+
-   const AVCodec* pCodec = FindDecoder(hints);
-   if (!pCodec)
-   {
+ 
+ constexpr const char* SETTING_VIDEOPLAYER_USEPRIMEDECODERFORHW{"videoplayer.useprimedecoderforhw"};
++constexpr const char* SETTING_VIDEOPLAYER_DISABLENONHEVC{"videoplayer.disablenonhevc"};
+ 
+ static void ReleaseBuffer(void* opaque, uint8_t* data)
+ {
+@@ -100,6 +101,7 @@ void CDVDVideoCodecDRMPRIME::Register()
+ 
+   settings->GetSetting(CSettings::SETTING_VIDEOPLAYER_USEPRIMEDECODER)->SetVisible(true);
+   settings->GetSetting(SETTING_VIDEOPLAYER_USEPRIMEDECODERFORHW)->SetVisible(true);
++  settings->GetSetting(SETTING_VIDEOPLAYER_DISABLENONHEVC)->SetVisible(true);
+ 
+   CDVDFactoryCodec::RegisterHWVideoCodec("drm_prime", CDVDVideoCodecDRMPRIME::Create);
+ }
+@@ -122,6 +124,9 @@ static const AVCodecHWConfig* FindHWConfig(const AVCodec* codec)
+   if (!CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(
+           SETTING_VIDEOPLAYER_USEPRIMEDECODERFORHW))
+     return nullptr;
++  if (CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(
++          SETTING_VIDEOPLAYER_DISABLENONHEVC) && codec->id != AV_CODEC_ID_HEVC)
++    return nullptr;
+ 
+   const AVCodecHWConfig* config = nullptr;
+   for (int n = 0; (config = avcodec_get_hw_config(codec, n)); n++)
 diff --git a/xbmc/settings/Settings.cpp b/xbmc/settings/Settings.cpp
-index 8036a9086842..eb771c984c19 100644
+index d5af5c7cc0..eb5dc4ccd0 100644
 --- a/xbmc/settings/Settings.cpp
 +++ b/xbmc/settings/Settings.cpp
-@@ -132,6 +132,7 @@ const std::string CSettings::SETTING_VIDEOPLAYER_RENDERMETHOD = "videoplayer.ren
+@@ -146,6 +146,7 @@ const std::string CSettings::SETTING_VIDEOPLAYER_RENDERMETHOD = "videoplayer.ren
  const std::string CSettings::SETTING_VIDEOPLAYER_HQSCALERS = "videoplayer.hqscalers";
  const std::string CSettings::SETTING_VIDEOPLAYER_USEMEDIACODEC = "videoplayer.usemediacodec";
  const std::string CSettings::SETTING_VIDEOPLAYER_USEMEDIACODECSURFACE = "videoplayer.usemediacodecsurface";
@@ -79,7 +97,7 @@ index 8036a9086842..eb771c984c19 100644
  const std::string CSettings::SETTING_VIDEOPLAYER_USEVDPAU = "videoplayer.usevdpau";
  const std::string CSettings::SETTING_VIDEOPLAYER_USEVDPAUMIXER = "videoplayer.usevdpaumixer";
  const std::string CSettings::SETTING_VIDEOPLAYER_USEVDPAUMPEG2 = "videoplayer.usevdpaumpeg2";
-@@ -947,6 +948,7 @@ void CSettings::InitializeISettingCallbacks()
+@@ -971,6 +972,7 @@ void CSettings::InitializeISettingCallbacks()
    settingSet.insert(CSettings::SETTING_VIDEOSCREEN_TESTPATTERN);
    settingSet.insert(CSettings::SETTING_VIDEOPLAYER_USEMEDIACODEC);
    settingSet.insert(CSettings::SETTING_VIDEOPLAYER_USEMEDIACODECSURFACE);
@@ -88,10 +106,10 @@ index 8036a9086842..eb771c984c19 100644
    settingSet.insert(CSettings::SETTING_SOURCE_VIDEOS);
    settingSet.insert(CSettings::SETTING_SOURCE_MUSIC);
 diff --git a/xbmc/settings/Settings.h b/xbmc/settings/Settings.h
-index 518d3c19ccf5..d74f8cc8da36 100644
+index a5e419964c..49e2f62eb6 100644
 --- a/xbmc/settings/Settings.h
 +++ b/xbmc/settings/Settings.h
-@@ -100,6 +100,7 @@ class CSettings : public CSettingsBase, public CSettingCreator, public CSettingC
+@@ -107,6 +107,7 @@ public:
    static const std::string SETTING_VIDEOPLAYER_HQSCALERS;
    static const std::string SETTING_VIDEOPLAYER_USEMEDIACODEC;
    static const std::string SETTING_VIDEOPLAYER_USEMEDIACODECSURFACE;
@@ -99,3 +117,6 @@ index 518d3c19ccf5..d74f8cc8da36 100644
    static const std::string SETTING_VIDEOPLAYER_USEVDPAU;
    static const std::string SETTING_VIDEOPLAYER_USEVDPAUMIXER;
    static const std::string SETTING_VIDEOPLAYER_USEVDPAUMPEG2;
+-- 
+2.20.1
+
