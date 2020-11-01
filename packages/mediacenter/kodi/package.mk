@@ -175,6 +175,7 @@ configure_package() {
       KODI_PLAYER="-DCORE_PLATFORM_NAME=gbm -DGBM_RENDER_SYSTEM=gles"
       CFLAGS="$CFLAGS -DEGL_NO_X11"
       CXXFLAGS="$CXXFLAGS -DEGL_NO_X11"
+      PKG_APPLIANCE_XML="$PKG_DIR/config/appliance-gbm.xml"
     fi
   fi
 
@@ -309,6 +310,7 @@ post_makeinstall_target() {
                                 > $INSTALL/usr/share/kodi/system/advancedsettings.xml
 
   $PKG_DIR/scripts/xml_merge.py $PKG_DIR/config/appliance.xml \
+                                $PKG_APPLIANCE_XML \
                                 $PROJECT_DIR/$PROJECT/kodi/appliance.xml \
                                 $PROJECT_DIR/$PROJECT/devices/$DEVICE/kodi/appliance.xml \
                                 > $INSTALL/usr/share/kodi/system/settings/appliance.xml
