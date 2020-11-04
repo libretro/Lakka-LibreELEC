@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="strace"
-PKG_VERSION="5.7"
-PKG_SHA256="b284b59f9bcd95b9728cea5bd5c0edc5ebe360af73dc76fbf6334f11c777ccd8"
+PKG_VERSION="5.9"
+PKG_SHA256="39473eb8465546c3e940fb663cb381eba5613160c7302794699d194a4d5d66d9"
 PKG_LICENSE="BSD"
 PKG_SITE="https://strace.io/"
 PKG_URL="https://strace.io/files/$PKG_VERSION/strace-$PKG_VERSION.tar.xz"
