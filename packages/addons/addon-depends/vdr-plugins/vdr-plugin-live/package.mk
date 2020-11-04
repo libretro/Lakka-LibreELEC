@@ -12,7 +12,7 @@ PKG_DEPENDS_TARGET="toolchain vdr tntnet pcre:host pcre"
 PKG_NEED_UNPACK="$(get_pkg_directory vdr)"
 PKG_LONGDESC="Allows a comfortable operation of VDR and some of its plugins trough a web interface."
 PKG_TOOLCHAIN="manual"
-PKG_BUILD_FLAGS="+pic"
+PKG_BUILD_FLAGS="+pic -parallel"
 
 pre_configure_target() {
   export LDFLAGS="$LDFLAGS -L$SYSROOT_PREFIX/usr/lib/iconv"
