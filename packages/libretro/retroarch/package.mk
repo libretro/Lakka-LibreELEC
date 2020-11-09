@@ -279,6 +279,14 @@ makeinstall_target() {
     sed -i -e "s/# video_scale_integer = false/video_scale_integer = true/" $INSTALL/etc/retroarch.cfg
   fi
 
+  if [ "$PROJECT" == "NXP" -a "$DEVICE" == "iMX6" ]; then
+    sed -i -e "s/# audio_device =/audio_device = \"default:CARD=DWHDMI\"/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/# audio_enable_menu = false/audio_enable_menu = true/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/# audio_enable_menu_ok = false/audio_enable_menu_ok = true/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/# audio_enable_menu_cancel = false/audio_enable_menu_cancel = true/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/# audio_enable_menu_notice = false/audio_enable_menu_notice = true/" $INSTALL/etc/retroarch.cfg
+  fi
+
   # System overlay
   mkdir -p $INSTALL/usr/share/retroarch-system
     touch $INSTALL/usr/share/retroarch-system/.placeholder
