@@ -123,6 +123,9 @@ post_patch() {
       [ -f "$f" ] && cp -v $f $PKG_BUILD/arch/$TARGET_KERNEL_ARCH/boot/dts/overlays || true
     done
   fi
+
+  #host gcc 10 build issue
+  sed -i '/YYLTYPE yylloc/d' $PKG_BUILD/scripts/dtc/dtc-lexer.l
 }
 
 make_host() {
