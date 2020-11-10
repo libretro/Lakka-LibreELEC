@@ -34,6 +34,10 @@ PKG_TOOLCHAIN="make"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+if [ "$TARGET_ARCH" = "x86_64" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET mesa"
+fi
+
 configure_target() {
   cd $PKG_BUILD
 }
