@@ -30,7 +30,7 @@ PKG_PRIORITY="optional"
 PKG_SECTION="tools"
 PKG_SHORTDESC="Uinput joypad for Gamegirl"
 PKG_LONGDESC="Uinput joypad for Gamegirl"
-
+PKG_TOOLCHAIN="manual"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
