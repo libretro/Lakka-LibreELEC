@@ -122,6 +122,11 @@ do
 
 	if [ "${DASHBOARD_MODE}" != "yes" ]
 	then
+		rm -rf build.${distro}-${target_name}*/.stamps
+		rm -rf build.${distro}-${target_name}*/image
+		rm -rf build.${distro}-${target_name}*/toolchain
+		rm -rf build.${distro}-${target_name}*/nss*
+		rm -rf build.${distro}-${target_name}*/avahi*
 		# show logs during build (non-dashboard build)
 		echo "Starting build of ${target_name}"
 		make ${out} PROJECT=${project} DEVICE=${device} ARCH=${arch} IGNORE_VERSION=${iv} ${tc}
@@ -133,6 +138,11 @@ do
 	else
 		# remove the old dashboard, so we don't show old/stale dashboard
 		rm -f ${statusfile}
+		rm -rf build.${distro}-${target_name}*/.stamps
+		rm -rf build.${distro}-${target_name}*/image
+		rm -rf build.${distro}-${target_name}*/toolchain
+		rm -rf build.${distro}-${target_name}*/nss*
+		rm -rf build.${distro}-${target_name}*/avahi*
 		# start the build process in background
 		make ${out} PROJECT=${project} DEVICE=${device} ARCH=${arch} IGNORE_VERSION=${iv} ${tc} &>/dev/null &
 		# store the pid
