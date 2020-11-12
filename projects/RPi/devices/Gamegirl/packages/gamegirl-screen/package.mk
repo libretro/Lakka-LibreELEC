@@ -31,11 +31,11 @@ PKG_PRIORITY="optional"
 PKG_SECTION="tools"
 PKG_SHORTDESC="Enable RGB565 for the Gamegirl screen"
 PKG_LONGDESC="Enable RGB565 for the Gamegirl screen"
-
+PKG_TOOLCHAIN="manual"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-make_init() {
+make_target() {
   make enable_rgb565 LDLIBS="$LDLIBS $SYSROOT_PREFIX/usr/lib/libwiringPi.a -lpthread -lrt -lm"
 }
 

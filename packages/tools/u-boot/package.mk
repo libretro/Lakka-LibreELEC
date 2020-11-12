@@ -50,6 +50,14 @@ post_patch() {
       cat $FOUND_PATH >> "$PKG_CONFIG_FILE"
     fi
   fi
+  #host gcc 10 build issue
+  if [ -f $PKG_BUILD/scripts/dtc/dtc-lexer.l ]; then
+    sed -i '/YYLTYPE yylloc/d' $PKG_BUILD/scripts/dtc/dtc-lexer.l
+  fi
+  #Rockchip u-boot fix
+  if [ -f $PKG_BUILD/scripts/dtc/dtc-lexer.lex.c_shipped ]; then
+    sed -i '/YYLTYPE yylloc/d' $PKG_BUILD/scripts/dtc/dtc-lexer.lex.c_shipped
+  fi
 }
 
 make_target() {
