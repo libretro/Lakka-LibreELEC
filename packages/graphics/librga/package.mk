@@ -3,6 +3,7 @@
 
 PKG_NAME="librga"
 PKG_VERSION="72e7764"
+PKG_GIT_CLONE_BRANCH="master"
 PKG_ARCH="any"
 PKG_SITE="https://github.com/rockchip-linux/linux-rga"
 PKG_URL="$PKG_SITE.git"
