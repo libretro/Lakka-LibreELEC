@@ -9,9 +9,7 @@ import xbmcaddon
 import subprocess
 import json
 
-sys.path.append('/usr/share/kodi/addons/@DISTRO_PKG_SETTINGS_ID@')
-
-import oe
+import xbmc
 
 __addon__ = xbmcaddon.Addon();
 __path__  = os.path.join(__addon__.getAddonInfo('path'), 'bin') + '/'
@@ -49,7 +47,7 @@ def startchrome(args):
                     __addon__.getSetting('HOMEPAGE')
     subprocess.call(__path__ + 'chrome-start ' + chrome_params, shell=True, env=new_env)
   except Exception as e:
-    oe.dbg_log('chrome', e)
+    xbmc.log('## Chrome Error:' + repr(e), xbmc.LOGERROR)
 
 def isRuning(pname):
   tmp = os.popen("ps -Af").read()
@@ -101,3 +99,4 @@ else:
       time.sleep(1)
     resumeXbmc()
 
+del __addon__
