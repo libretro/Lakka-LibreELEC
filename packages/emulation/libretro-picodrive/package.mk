@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-picodrive"
-PKG_VERSION="5f95cd403db17045ae5bc676fb6b19936abd71c5"
-PKG_SHA256="32779f5682906842538990c7c77ce3c6d7e866c609ec1763d76108df3df7fdcf"
+PKG_VERSION="67cdfb8c5d407c5a4e8f25ffa0ee7fac716b0690"
+PKG_SHA256="39871c4c5d2af833a4ae56ef83cfe21102edc563b728f00c56d50de9857cbf1e"
 PKG_LICENSE="MAME"
 PKG_SITE="https://github.com/libretro/picodrive"
 PKG_URL="https://github.com/libretro/picodrive/archive/$PKG_VERSION.tar.gz"

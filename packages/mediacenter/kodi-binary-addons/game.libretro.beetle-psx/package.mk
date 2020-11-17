@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.beetle-psx"
-PKG_VERSION="0.9.44.17-Matrix"
-PKG_SHA256="91cdfac78007ad6749fc9b684fcfa1e78e2d15e47f90d8732164c44779aa0d26"
+PKG_VERSION="0.9.44.19-Matrix"
+PKG_SHA256="3954497bf53dd366a3c7e2f7cc2d8e18d82d9b0c3e38ba1e80f2ced1a6dc3954"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
