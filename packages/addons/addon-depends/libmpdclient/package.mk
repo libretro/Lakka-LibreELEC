@@ -2,8 +2,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libmpdclient"
-PKG_VERSION="2.18"
-PKG_SHA256="4cb01e1f567e0169aca94875fb6e1200e7f5ce35b63a4df768ec1591fb1081fa"
+PKG_VERSION="2.19"
+PKG_SHA256="158aad4c2278ab08e76a3f2b0166c99b39fae00ee17231bd225c5a36e977a189"
 PKG_LICENSE="BSD-3c"
 PKG_SITE="https://www.musicpd.org"
 PKG_URL="https://www.musicpd.org/download/libmpdclient/2/libmpdclient-${PKG_VERSION}.tar.xz"
