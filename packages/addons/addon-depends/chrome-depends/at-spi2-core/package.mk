@@ -12,7 +12,8 @@ PKG_DEPENDS_TARGET="toolchain atk dbus glib libXtst"
 PKG_LONGDESC="Protocol definitions and daemon for D-Bus at-spi."
 
 PKG_MESON_OPTS_TARGET="-Denable_docs=false \
-                       -Denable-introspection=no"
+                       -Denable-introspection=no \
+                       -Ddbus_daemon=/usr/bin/dbus-daemon"
 
 pre_configure_target() {
   TARGET_LDFLAGS="$LDFLAGS -lXext"

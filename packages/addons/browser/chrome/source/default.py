@@ -7,11 +7,9 @@ import sys
 import time
 import xbmcaddon
 import subprocess
-from xml.dom.minidom import parse
+import json
 
-sys.path.append('/usr/share/kodi/addons/@DISTRO_PKG_SETTINGS_ID@')
-
-import oe
+import xbmc
 
 __addon__ = xbmcaddon.Addon();
 __path__  = os.path.join(__addon__.getAddonInfo('path'), 'bin') + '/'
@@ -49,7 +47,7 @@ def startchrome(args):
                     __addon__.getSetting('HOMEPAGE')
     subprocess.call(__path__ + 'chrome-start ' + chrome_params, shell=True, env=new_env)
   except Exception as e:
-    oe.dbg_log('chrome', e)
+    xbmc.log('## Chrome Error:' + repr(e), xbmc.LOGERROR)
 
 def isRuning(pname):
   tmp = os.popen("ps -Af").read()
@@ -59,21 +57,22 @@ def isRuning(pname):
   return False
 
 def getAudioDevice():
-  try:
-    dom = parse("/storage/.kodi/userdata/guisettings.xml")
-    audiooutput=dom.getElementsByTagName('audiooutput')
-    for node in audiooutput:
-      dev = node.getElementsByTagName('audiodevice')[0].childNodes[0].nodeValue
-    if dev.startswith("ALSA:"):
-      dev = dev.split("ALSA:")[1]
-      if dev == "@":
-        return None
-      if dev.startswith("@:"):
-        dev = dev.split("@:")[1]
-    else:
-      # not ALSA
+  dev = json.loads(xbmc.executeJSONRPC(json.dumps({
+                      "jsonrpc": "2.0",
+                      "method": "Settings.GetSettingValue",
+                      "params": {
+                                  "setting": "audiooutput.audiodevice",
+                                },
+                      "id": 1,
+                   })))['result']['value']
+  if dev.startswith("ALSA:"):
+    dev = dev.split("ALSA:")[1]
+    if dev == "@":
       return None
-  except:
+    if dev.startswith("@:"):
+      dev = dev.split("@:")[1]
+  else:
+    # not ALSA
     return None
   if dev.startswith("CARD="):
     dev = "plughw:" + dev
@@ -100,3 +99,4 @@ else:
       time.sleep(1)
     resumeXbmc()
 
+del __addon__
