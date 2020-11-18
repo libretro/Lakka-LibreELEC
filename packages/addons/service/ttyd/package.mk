@@ -2,9 +2,9 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ttyd"
-PKG_VERSION="1.4.4"
-PKG_SHA256="b910a33ddaa474c369991ba345187a8a2f4aa420389083671ba3a6c305a491d6"
-PKG_REV="100"
+PKG_VERSION="1.6.1"
+PKG_SHA256="d72dcca3dec00cda87b80a0a25ae4fee2f8b9098c1cdb558508dcb14fbb6fafc"
+PKG_REV="101"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/tsl0922/ttyd"
@@ -23,6 +23,7 @@ addon() {
   cp -P $PKG_INSTALL/usr/bin/ttyd $ADDON_BUILD/$PKG_ADDON_ID/bin
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib
-  cp -p $(get_install_dir json-c)/usr/lib/libjson-c.so $ADDON_BUILD/$PKG_ADDON_ID/lib
-  cp -p $(get_install_dir libwebsockets)/usr/lib/libwebsockets.so.14 $ADDON_BUILD/$PKG_ADDON_ID/lib
+  cp -p $(get_install_dir json-c)/usr/lib/libjson-c.so.5 $ADDON_BUILD/$PKG_ADDON_ID/lib
+  cp -p $(get_install_dir libwebsockets)/usr/lib/libwebsockets.so.16 $ADDON_BUILD/$PKG_ADDON_ID/lib
+  cp -p $(get_install_dir libuv)/usr/lib/libuv.so.1 $ADDON_BUILD/$PKG_ADDON_ID/lib
 }
