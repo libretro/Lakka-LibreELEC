@@ -2,8 +2,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="xorg-intel-gpu-tools"
-PKG_VERSION="1.24"
-PKG_SHA256="d8db92f1151e46b74b149bb9efa745f73c080c12841bb2b9de22d65403dc601f"
+PKG_VERSION="1.25"
+PKG_SHA256="2257a73d6a5d431dfbea4dec0dae07397b1e3269416049ced978550853616a2b"
 PKG_LICENSE="GPL"
 PKG_DEPENDS_TARGET="toolchain cairo procps-ng"
 PKG_SITE="https://github.com/freedesktop/xorg-intel-gpu-tools"
