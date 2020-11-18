@@ -1,19 +1,16 @@
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
-import dbus
-import dbus.mainloop.glib
-import gobject
 import json
+import subprocess
 import threading
-import time
 import xbmc
+import xbmcvfs
 import xbmcaddon
 
 __addon__ = xbmcaddon.Addon()
 __addonid__ = __addon__.getAddonInfo('id')
-
-gobject.threads_init()
+__addonpath__ = xbmcvfs.translatePath(xbmcaddon.Addon().getAddonInfo('path'))
 
 class KodiFunctions(object):
 
@@ -45,6 +42,7 @@ class KodiFunctions(object):
       self.audiodevice = __addon__.getSetting('audiodevice')
     self.pulsedevice = 'PULSE:Default'
 
+    xbmc.log('%s: setting default audio device "%s" on start' % (__addonid__, self.audiodevice), xbmc.LOGINFO)
     self.select_default()
 
   def select_default(self):
@@ -63,103 +61,41 @@ class BluetoothAudioClient(object):
 
     xbmc.log('%s: starting add-on' % __addonid__, xbmc.LOGINFO)
 
-    self.devices = {}
-    self.signal_added = None
-    self.signal_removed = None
-
     self.kodi = KodiFunctions()
+    self.path = __addonpath__ + 'bin/dbusservice.py'
 
-    self._setup_loop()
-    self._setup_bus()
-    self._setup_signals()
+    self.service = subprocess.Popen([self.path], stdout=subprocess.PIPE)
+
+    self._thread = threading.Thread(target=self.loop)
+    self._thread.start()
+
+
+  def loop(self):
+
+    while True:
+      line = self.service.stdout.readline()
+      if line == b'':
+        break
+      if line == b'bluetooth\n':
+        xbmc.log('%s: switching to bluetooth audio device' % __addonid__, xbmc.LOGINFO)
+        self.kodi.select_pulse()
+        continue
+      if line == b'default\n':
+        xbmc.log('%s: switching to default audio device' % __addonid__, xbmc.LOGINFO)
+        self.kodi.select_default()
+        continue
+      xbmc.log('%s: unexpected input: %s' % (__addonid__, line), xbmc.LOGERROR)
+
 
   def quit(self):
 
     xbmc.log('%s: stopping add-on' % __addonid__, xbmc.LOGINFO)
 
+    self.service.terminate()
+    self._thread.join()
+    del self.service
     self.kodi.select_default()
 
-    self.signal_added.remove()
-    self.signal_removed.remove()
-
-    self._loop.quit()
-
-  def _setup_loop(self):
-
-    self._loop = gobject.MainLoop()
-
-    self._thread = threading.Thread(target=self._loop.run)
-    self._thread.start()
-
-  def _setup_bus(self):
-
-    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
-    self._bus = dbus.SystemBus()
-
-  def _setup_signals(self):
-
-    self.signal_added = self._bus.add_signal_receiver(handler_function=self.switch_audio,
-                                                      signal_name='InterfacesAdded',
-                                                      dbus_interface='org.freedesktop.DBus.ObjectManager',
-                                                      bus_name='org.bluez',
-                                                      member_keyword='signal')
-
-    self.signal_removed = self._bus.add_signal_receiver(handler_function=self.switch_audio,
-                                                        signal_name='InterfacesRemoved',
-                                                        dbus_interface='org.freedesktop.DBus.ObjectManager',
-                                                        bus_name='org.bluez',
-                                                        member_keyword='signal')
-
-  def switch_audio(self, *args, **kwargs):
-
-    device_path = args[0]
-
-    try:
-      if kwargs['signal'] == 'InterfacesAdded':
-
-        self.devices[device_path] = {
-                                      'Connected': '',
-                                      'Device': '',
-                                      'Class': '',
-                                    }
-
-        device = self._bus.get_object('org.bluez', device_path)
-        device_iface = dbus.Interface(device, dbus.PROPERTIES_IFACE)
-        self.devices[device_path]['Device'] = device_iface.Get('org.bluez.MediaTransport1', 'Device')
-
-        audio_device_path = self._bus.get_object('org.bluez', self.devices[device_path]['Device'])
-        audio_device_iface = dbus.Interface(audio_device_path, dbus.PROPERTIES_IFACE)
-        self.devices[device_path]['Class'] = audio_device_iface.Get('org.bluez.Device1', 'Class')
-        self.devices[device_path]['Connected'] = audio_device_iface.Get('org.bluez.Device1', 'Connected')
-
-        if self.devices[device_path]['Class'] & (1 << 21):
-          xbmc.log('%s: bluetooth audio device connected' % __addonid__, xbmc.LOGINFO)
-          xbmc.log('%s: switching to bluetooth audio device' % __addonid__, xbmc.LOGINFO)
-          self.kodi.select_pulse()
-
-      elif kwargs['signal'] == 'InterfacesRemoved':
-        if self.devices[device_path]['Device'] is not None and self.devices[device_path]['Class'] & (1 << 21):
-          audio_device_path = self._bus.get_object('org.bluez', self.devices[device_path]['Device'])
-          audio_device_iface = dbus.Interface(audio_device_path, dbus.PROPERTIES_IFACE)
-          self.devices[device_path]['Connected'] = audio_device_iface.Get('org.bluez.Device1', 'Connected')
-
-          while self.devices[device_path]['Connected']:
-            self.devices[device_path]['Connected'] = audio_device_iface.Get('org.bluez.Device1', 'Connected')
-            time.sleep(0.1)
-
-          xbmc.log('%s: bluetooth audio device disconnected' % __addonid__, xbmc.LOGINFO)
-          xbmc.log('%s: checking for other connected devices' % __addonid__, xbmc.LOGINFO)
-
-          for path in self.devices:
-            if self.devices[path]['Connected'] and self.devices[path]['Class'] & (1 << 21):
-              xbmc.log('%s: found connected bluetooth audio device' % __addonid__, xbmc.LOGINFO)
-              return
-
-          xbmc.log('%s: switching to default audio device' % __addonid__, xbmc.LOGINFO)
-          self.kodi.select_default()
-
-    except (TypeError, KeyError, dbus.exceptions.DBusException) as e:
-      xbmc.log('%s: ' % __addonid__ + unicode(e), xbmc.LOGERROR)
 
 class BluetoothMonitor(xbmc.Monitor):
 
