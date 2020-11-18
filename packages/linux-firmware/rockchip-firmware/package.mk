@@ -12,6 +12,8 @@ PKG_LONGDESC="rockchip firmware"
 PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
+  acquire_exclusive_lock "${PKG_NAME:install}" "exclusive-install" "firmware-install"
+
   mkdir -p $INSTALL/usr/lib/libreelec
     cp $PKG_DIR/scripts/* $INSTALL/usr/lib/libreelec
 
@@ -41,4 +43,6 @@ makeinstall_target() {
 
   mkdir -p $INSTALL/$(get_full_firmware_dir)/rockchip
     cp -v $(get_build_dir rkbin)/firmware/rockchip/dptx.bin $INSTALL/$(get_full_firmware_dir)/rockchip
+
+  release_exclusive_lock "${PKG_NAME:install}" "exclusive-install" "firmware-install"
 }
