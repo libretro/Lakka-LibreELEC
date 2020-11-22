@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ntfs-3g_ntfsprogs"
-PKG_VERSION="2017.3.23"
-PKG_SHA256="3e5a021d7b761261836dcb305370af299793eedbded731df3d6943802e1262d5"
+PKG_VERSION="2017.3.23AR.5"
+PKG_SHA256="04ccf583b495806cefb71850e5899e50aed5e7bf23365259f2badaa9af21e5ed"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.ntfs-3g.org/"
-PKG_URL="http://tuxera.com/opensource/$PKG_NAME-$PKG_VERSION.tgz"
+PKG_SITE="https://jp-andre.pagesperso-orange.fr/"
+PKG_URL="https://jp-andre.pagesperso-orange.fr/$PKG_NAME-$PKG_VERSION.tgz"
 PKG_DEPENDS_TARGET="toolchain fuse libgcrypt"
 PKG_LONGDESC="A NTFS driver with read and write support."
 PKG_TOOLCHAIN="autotools"
