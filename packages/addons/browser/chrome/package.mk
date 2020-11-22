@@ -3,13 +3,13 @@
 
 PKG_NAME="chrome"
 PKG_VERSION="1.0"
-PKG_REV="103"
+PKG_REV="104"
 PKG_ARCH="x86_64"
 PKG_LICENSE="Custom"
 PKG_SITE="http://www.google.com/chrome"
 PKG_DEPENDS_TARGET="toolchain at-spi2-atk atk cairo chrome-libXcomposite \
                     chrome-libXdamage chrome-libXfixes chrome-libXi chrome-libXrender \
-                    chrome-libXtst chrome-libxcb cups gdk-pixbuf gtk3 harfbuzz \
+                    chrome-libXtst chrome-libxcb chrome-libxkbcommon cups gdk-pixbuf gtk3 harfbuzz \
                     libXcursor libxss nss pango scrnsaverproto unclutter"
 PKG_SECTION="browser"
 PKG_SHORTDESC="Google Chrome Browser"
@@ -82,6 +82,9 @@ addon() {
 
   # libXi
   cp -PL $(get_install_dir chrome-libXi)/usr/lib/libXi.so.6 $ADDON_BUILD/$PKG_ADDON_ID/lib
+
+  # libxkbcommon
+  cp -PL $(get_install_dir chrome-libxkbcommon)/usr/lib/libxkbcommon.so.0 $ADDON_BUILD/$PKG_ADDON_ID/lib
 
   # libXrender
   cp -PL $(get_install_dir chrome-libXrender)/usr/lib/libXrender.so.1 $ADDON_BUILD/$PKG_ADDON_ID/lib
