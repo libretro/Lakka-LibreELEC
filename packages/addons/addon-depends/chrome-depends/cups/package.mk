@@ -15,6 +15,7 @@ PKG_BUILD_FLAGS="+pic -sysroot"
 PKG_CONFIGURE_OPTS_TARGET="--libdir=/usr/lib \
                            --disable-gssapi \
                            --disable-avahi \
+                           --disable-dnssd \
                            --disable-systemd \
                            --disable-launchd \
                            --disable-unit-tests"
