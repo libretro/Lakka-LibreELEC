@@ -2,9 +2,12 @@
 
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 [ -z "$BOOT_ROOT" ] && BOOT_ROOT="/flash"
 [ -z "$SYSTEM_ROOT" ] && SYSTEM_ROOT=""
+
+MIN_CONFIG_TXT_VERSION=1
 
 # mount $BOOT_ROOT r/w
 mount -o remount,rw $BOOT_ROOT
@@ -30,10 +33,18 @@ rm -rf $BOOT_ROOT/start_x.elf
 # some config.txt magic
 if [ ! -f $BOOT_ROOT/config.txt ]; then
   cp -p $SYSTEM_ROOT/usr/share/bootloader/config.txt $BOOT_ROOT
-elif [ -z "`grep "^[ ]*gpu_mem.*" $BOOT_ROOT/config.txt`" ]; then
-  mv $BOOT_ROOT/config.txt $BOOT_ROOT/config.txt.bk
-  cat $SYSTEM_ROOT/usr/share/bootloader/config.txt \
-        $BOOT_ROOT/config.txt.bk > $BOOT_ROOT/config.txt
+else
+  CONFIG_TXT_VERSION=$( \
+    grep "^# config.txt version v[0-9]\+" $BOOT_ROOT/config.txt | \
+    head -n 1 | \
+    sed 's/^# config.txt version v\([0-9]\+\) .*$/\1/' \
+  )
+  if [ ${CONFIG_TXT_VERSION:-0} -lt $MIN_CONFIG_TXT_VERSION ]; then
+    mv -f $BOOT_ROOT/config.txt $BOOT_ROOT/config.txt.old
+    cp -p $SYSTEM_ROOT/usr/share/bootloader/config.txt $BOOT_ROOT/config.txt
+    echo "WARNING incompatible config.txt detected, replacing with default."
+    echo "Previous config.txt has been moved to config.txt.old"
+  fi
 fi
 
 # Add distro config file
