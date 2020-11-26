@@ -2,11 +2,11 @@
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 
 PKG_NAME="lame"
-PKG_VERSION="3.99.5"
-PKG_SHA256="24346b4158e4af3bd9f2e194bb23eb473c75fb7377011523353196b19b9a23ff"
+PKG_VERSION="3.100"
+PKG_SHA256="ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://lame.sourceforge.net/"
-PKG_URL="$SOURCEFORGE_SRC/lame/lame/3.99/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="$SOURCEFORGE_SRC/lame/lame/3.100/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A high quality MPEG Audio Layer III (MP3) encoder."
 PKG_BUILD_FLAGS="-parallel +pic"
