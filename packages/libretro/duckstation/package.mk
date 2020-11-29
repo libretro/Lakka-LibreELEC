@@ -19,9 +19,9 @@
 ################################################################################
 
 PKG_NAME="duckstation"
-PKG_VERSION="101907a"
+PKG_VERSION="d1a42df"
 PKG_REV="1"
-PKG_ARCH="x86_64 aarch64"
+PKG_ARCH="x86_64 arm aarch64"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/stenzek/duckstation"
 PKG_URL="$PKG_SITE.git"
