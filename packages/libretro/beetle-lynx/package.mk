@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="beetle-lynx"
-PKG_VERSION="a43fa47"
+PKG_VERSION="bffe355"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"

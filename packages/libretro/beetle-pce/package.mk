@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="beetle-pce"
-PKG_VERSION="b1399db"
+PKG_VERSION="1492251"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"

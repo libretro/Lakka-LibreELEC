@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="mupen64plus_next"
-PKG_VERSION="e63112a"
+PKG_VERSION="01d2d9c"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"

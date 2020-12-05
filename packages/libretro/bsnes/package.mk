@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="bsnes"
-PKG_VERSION="487e6ab"
+PKG_VERSION="76f508f"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/bsnes"

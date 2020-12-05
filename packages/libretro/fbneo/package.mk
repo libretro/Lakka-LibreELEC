@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="fbneo"
-PKG_VERSION="8d8ed51"
+PKG_VERSION="c093309"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"

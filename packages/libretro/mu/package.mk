@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="mu"
-PKG_VERSION="4ac4068"
+PKG_VERSION="1705a0d"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"
@@ -30,16 +30,13 @@ PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="A new Palm OS emulator targeting compatibility, speed and accuracy in that order."
 PKG_LONGDESC="A new Palm OS emulator targeting compatibility, speed and accuracy in that order."
-PKG_TOOLCHAIN="make"
+PKG_TOOLCHAIN="cmake"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-make_target() {
-  make -C libretroBuildSystem
-}
-
 makeinstall_target() {
+  pwd
   mkdir -p $INSTALL/usr/lib/libretro
-  cp libretroBuildSystem/mu_libretro.so $INSTALL/usr/lib/libretro/
+  cp libretroBuildSystem/libmu-libretro.so $INSTALL/usr/lib/libretro/mu_libretro.so
 }

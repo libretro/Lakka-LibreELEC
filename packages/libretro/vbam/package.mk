@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="vbam"
-PKG_VERSION="3ee26c0"
+PKG_VERSION="7aa0509"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
