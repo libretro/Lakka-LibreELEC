@@ -37,7 +37,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_CMAKE_OPTS_TARGET="-DPLAYER_TARGET_PLATFORM=libretro \
-		       -DPLAYER_WITH_FREETYPE=OFF \
+                       -DPLAYER_WITH_FREETYPE=OFF \
                        -DBUILD_SHARED_LIBS=ON \
                        -DCMAKE_BUILD_TYPE=Release"
 
