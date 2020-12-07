@@ -4,7 +4,7 @@
 PKG_NAME="inputstream.adaptive"
 PKG_VERSION="2.6.6-Matrix"
 PKG_SHA256="0fe366b9e5db692b98d58dfa76fa111a4ce510c6466c3b6bad50d138bed62428"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/peak3d/inputstream.adaptive"

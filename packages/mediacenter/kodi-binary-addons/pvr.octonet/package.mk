@@ -4,7 +4,7 @@
 PKG_NAME="pvr.octonet"
 PKG_VERSION="4.0.1-Matrix"
 PKG_SHA256="fcf094b8fde8a2ff516945ff69ff4570500af5fd3b4d4e761c87bf33f8d703ba"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/DigitalDevices/pvr.octonet"

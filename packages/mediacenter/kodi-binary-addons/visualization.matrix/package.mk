@@ -4,7 +4,7 @@
 PKG_NAME="visualization.matrix"
 PKG_VERSION="f7bef981e20b0fd967e128c7726213330819b2c8"
 PKG_SHA256="955ee74e0e0fc9e98c79274d715115e84c04cb3e22172b625816bbdaf936e4f5"
-PKG_REV="2"
+PKG_REV="3"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/visualization.matrix"
 PKG_URL="https://github.com/xbmc/visualization.matrix/archive/$PKG_VERSION.tar.gz"

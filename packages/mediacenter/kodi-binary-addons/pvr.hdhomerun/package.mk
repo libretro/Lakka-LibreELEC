@@ -5,7 +5,7 @@
 PKG_NAME="pvr.hdhomerun"
 PKG_VERSION="7.0.0-Matrix"
 PKG_SHA256="16c8bf801e3c4d804e8a7c2b8449abd9960dcce9a2985272ceccf89386a3df98"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-pvr/pvr.hdhomerun"

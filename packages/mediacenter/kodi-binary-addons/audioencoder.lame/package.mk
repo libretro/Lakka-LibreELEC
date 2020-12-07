@@ -5,7 +5,7 @@
 PKG_NAME="audioencoder.lame"
 PKG_VERSION="3.0.1-Matrix"
 PKG_SHA256="c883944ff79b079f0a6d88a80468968f46a3ac12c05f786d666e12dd8428d517"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audioencoder.lame"
