@@ -80,21 +80,17 @@ elif [ "$VULKAN" == "nvidia-driver" ]; then
   RETROARCH_GL="--enable-vulkan --disable-x11 --disable-kms --disable-egl"
 elif [ "$OPENGL_SUPPORT" == "yes" ]; then
   RETROARCH_GL="--enable-kms"
-elif [ "$OPENGLES" == "bcm2835-driver" ]; then
-  RETROARCH_GL="--enable-opengles --disable-kms --disable-x11"
-elif [ "$OPENGLES" == "odroidc1-mali" ] || [ "$OPENGLES" == "opengl-meson" ] || [ "$OPENGLES" == "opengl-meson8" ] || [ "$OPENGLES" == "opengl-meson-t82x" ]; then
+elif [ "$OPENGLES" == "odroidc1-mali" ] || [ "$OPENGLES" == "opengl-meson" ] || [ "$OPENGLES" == "opengl-meson8" ] || [ "$OPENGLES" == "opengl-meson-t82x" ] || [ "$OPENGLES" == "allwinner-fb-mali" ]; then
   RETROARCH_GL="--enable-opengles --disable-kms --disable-x11 --enable-mali_fbdev"
 elif [ "$OPENGLES" == "gpu-viv-bin-mx6q" ] || [ "$OPENGLES" == "imx-gpu-viv" ]; then
   RETROARCH_GL="--enable-opengles --disable-kms --disable-x11 --enable-vivante_fbdev"
-elif [ "$OPENGLES" == "libmali" ]; then
+elif [ "$OPENGLES" == "libmali" ] || [ "$OPENGLES" == "bcm2835-driver" ]; then
   RETROARCH_GL="--enable-opengles --enable-kms --disable-x11 --disable-wayland"
-elif [ "$OPENGLES" == "allwinner-fb-mali" ]; then
-   RETROARCH_GL="--enable-opengles --disable-kms --disable-x11 --enable-mali_fbdev"
 elif [ "$OPENGLES" == "allwinner-mali" ] || [ "$OPENGLES" == "odroidxu3-mali" ]; then
   RETROARCH_GL="--enable-opengles --enable-kms --disable-x11"
 elif [ "$OPENGLES" == "mesa" ]; then
   if [ "$DEVICE" == "RPi4" ]; then
-    RETROARCH_GL="--disable-x11 --enable-opengles --enable-opengles3_1 --disable-opengles3_2 --disable-videocore --enable-kms --enable-egl --disable-wayland"
+    RETROARCH_GL="--disable-x11 --enable-opengles --disable-videocore --enable-kms --enable-egl --disable-wayland"
   else
     RETROARCH_GL="--enable-opengles --enable-kms --disable-x11"
   fi
