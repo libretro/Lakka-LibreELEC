@@ -5,7 +5,7 @@
 PKG_NAME="pvr.argustv"
 PKG_VERSION="7.0.0-Matrix"
 PKG_SHA256="089eb141ea10711303b29d6192b36ba212093be89c605da4602d2b818ad5a748"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-pvr/pvr.argustv"

@@ -5,7 +5,7 @@
 PKG_NAME="audiodecoder.dumb"
 PKG_VERSION="3.0.0-Matrix"
 PKG_SHA256="716f4560ea5b90df3079f363047cf43c0a1f9a23a888cc4bb11db3f7b7fd9d78"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.dumb"

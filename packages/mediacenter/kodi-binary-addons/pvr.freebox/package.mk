@@ -4,7 +4,7 @@
 PKG_NAME="pvr.freebox"
 PKG_VERSION="6.0.1-Matrix"
 PKG_SHA256="e87a458dd736db84135b2ee9ff14d8a3c928613188d85b72665604c0c233c70c"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/aassif/pvr.freebox"

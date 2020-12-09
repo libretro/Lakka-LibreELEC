@@ -5,7 +5,7 @@
 PKG_NAME="pvr.stalker"
 PKG_VERSION="7.0.0-Matrix"
 PKG_SHA256="9c9209b8edd490c72178105d7faa8bc500435c7933104c9850b489a7231c2524"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-pvr/pvr.stalker"

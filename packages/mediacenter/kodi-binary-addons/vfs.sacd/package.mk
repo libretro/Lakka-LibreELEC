@@ -4,7 +4,7 @@
 PKG_NAME="vfs.sacd"
 PKG_VERSION="2.0.0-Matrix"
 PKG_SHA256="acf71cd462cf34921573a1047504926f43d7867c939702f97527712de0baf2fd"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/vfs.sacd"

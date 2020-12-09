@@ -1,21 +1,21 @@
-From 3e61b48460b0d6e6ebfeee997dd0ec6caeac14d3 Mon Sep 17 00:00:00 2001
+From 276f11db060cc2967377187e2e53138242a43937 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 27 Mar 2020 15:14:11 +0000
 Subject: [PATCH] VideoPlayer: Add setting to disable non-hevc accel
 
 ---
- addons/resource.language.en_gb/resources/strings.po  | 10 ++++++++++
- system/settings/linux.xml                            | 12 ++++++++++++
- .../DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp        |  5 +++++
- xbmc/settings/Settings.cpp                           |  2 ++
- xbmc/settings/Settings.h                             |  1 +
- 5 files changed, 30 insertions(+)
+ addons/resource.language.en_gb/resources/strings.po | 10 ++++++++++
+ system/settings/linux.xml                           | 12 ++++++++++++
+ .../DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp       | 13 +++++++++++++
+ xbmc/settings/Settings.cpp                          |  2 ++
+ xbmc/settings/Settings.h                            |  1 +
+ 5 files changed, 38 insertions(+)
 
 diff --git a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
-index dc73e73828..51ab80f35b 100644
+index 8fa3fe34dc..1a518905e3 100644
 --- a/addons/resource.language.en_gb/resources/strings.po
 +++ b/addons/resource.language.en_gb/resources/strings.po
-@@ -7280,6 +7280,16 @@ msgctxt "#13467"
+@@ -7282,6 +7282,16 @@ msgctxt "#13467"
  msgid "Unlimited / 1080 (>30Hz)"
  msgstr ""
  
@@ -56,7 +56,7 @@ index 6d1fb9cd49..691a84e65e 100644
            <requirement>HAS_GLES</requirement>
            <visible>false</visible>
 diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp
-index a12ef9ec1e..1366bd7fbf 100644
+index 8024c20816..74c29ba3b9 100644
 --- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp
 +++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp
 @@ -37,6 +37,7 @@ namespace
@@ -67,15 +67,23 @@ index a12ef9ec1e..1366bd7fbf 100644
  
  static void ReleaseBuffer(void* opaque, uint8_t* data)
  {
-@@ -100,6 +101,7 @@ void CDVDVideoCodecDRMPRIME::Register()
+@@ -123,6 +124,15 @@ void CDVDVideoCodecDRMPRIME::Register()
  
-   settings->GetSetting(CSettings::SETTING_VIDEOPLAYER_USEPRIMEDECODER)->SetVisible(true);
-   settings->GetSetting(SETTING_VIDEOPLAYER_USEPRIMEDECODERFORHW)->SetVisible(true);
-+  settings->GetSetting(SETTING_VIDEOPLAYER_DISABLENONHEVC)->SetVisible(true);
+   setting->SetVisible(true);
  
++  setting = settings->GetSetting(SETTING_VIDEOPLAYER_DISABLENONHEVC);
++  if (!setting)
++  {
++    CLog::Log(LOGERROR, "Failed to load setting for: {}", SETTING_VIDEOPLAYER_DISABLENONHEVC);
++    return;
++  }
++
++  setting->SetVisible(true);
++
    CDVDFactoryCodec::RegisterHWVideoCodec("drm_prime", CDVDVideoCodecDRMPRIME::Create);
  }
-@@ -122,6 +124,9 @@ static const AVCodecHWConfig* FindHWConfig(const AVCodec* codec)
+ 
+@@ -144,6 +154,9 @@ static const AVCodecHWConfig* FindHWConfig(const AVCodec* codec)
    if (!CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(
            SETTING_VIDEOPLAYER_USEPRIMEDECODERFORHW))
      return nullptr;
@@ -86,7 +94,7 @@ index a12ef9ec1e..1366bd7fbf 100644
    const AVCodecHWConfig* config = nullptr;
    for (int n = 0; (config = avcodec_get_hw_config(codec, n)); n++)
 diff --git a/xbmc/settings/Settings.cpp b/xbmc/settings/Settings.cpp
-index d4bd941376..1bb9df378c 100644
+index 2b487339d6..b9fbe306ce 100644
 --- a/xbmc/settings/Settings.cpp
 +++ b/xbmc/settings/Settings.cpp
 @@ -140,6 +140,7 @@ constexpr const char* CSettings::SETTING_VIDEOPLAYER_RENDERMETHOD;
@@ -97,7 +105,7 @@ index d4bd941376..1bb9df378c 100644
  constexpr const char* CSettings::SETTING_VIDEOPLAYER_USEVDPAU;
  constexpr const char* CSettings::SETTING_VIDEOPLAYER_USEVDPAUMIXER;
  constexpr const char* CSettings::SETTING_VIDEOPLAYER_USEVDPAUMPEG2;
-@@ -963,6 +964,7 @@ void CSettings::InitializeISettingCallbacks()
+@@ -982,6 +983,7 @@ void CSettings::InitializeISettingCallbacks()
    settingSet.insert(CSettings::SETTING_VIDEOSCREEN_TESTPATTERN);
    settingSet.insert(CSettings::SETTING_VIDEOPLAYER_USEMEDIACODEC);
    settingSet.insert(CSettings::SETTING_VIDEOPLAYER_USEMEDIACODECSURFACE);

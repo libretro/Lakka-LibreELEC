@@ -5,7 +5,7 @@
 PKG_NAME="pvr.filmon"
 PKG_VERSION="6.0.0-Matrix"
 PKG_SHA256="4bb2da456469cfeea0641deb90fbcf559d3937a179069e98e5be434635cf5533"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-pvr/pvr.filmon"

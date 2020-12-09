@@ -4,7 +4,7 @@
 PKG_NAME="pvr.zattoo"
 PKG_VERSION="19.5.1-Matrix"
 PKG_SHA256="f062ba079779147b40be1bda3a49196381827eb8ecae1e732e9edb800914618c"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/rbuehlma/pvr.zattoo"
