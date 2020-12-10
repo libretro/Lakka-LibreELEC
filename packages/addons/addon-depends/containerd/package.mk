@@ -3,8 +3,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="containerd"
-PKG_VERSION="1.3.7"
-PKG_SHA256="d30d59e143697aa4f0960205b3f5ac59c573b332f20507740ef2dc0fb5ae8ded"
+PKG_VERSION="1.3.9"
+PKG_SHA256="9244212589c84b12262769dca6fb985c0c680cb5259c8904b29c511d81fd62d0"
 PKG_LICENSE="APL"
 PKG_SITE="https://containerd.tools/"
 PKG_URL="https://github.com/containerd/containerd/archive/v$PKG_VERSION.tar.gz"

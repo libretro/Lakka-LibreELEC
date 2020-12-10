@@ -3,9 +3,9 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="docker"
-PKG_VERSION="19.03.13"
-PKG_SHA256="b2ff08675738031b6d6d59a90226657c16726851957c11b5fb85a4598b933b92"
-PKG_REV="130"
+PKG_VERSION="19.03.14"
+PKG_SHA256="0b8838b0da1f1368fc1a0809a2ed11840bd7d58df1f090e668de209faddcef7c"
+PKG_REV="131"
 PKG_ARCH="any"
 PKG_LICENSE="ASL"
 PKG_SITE="http://www.docker.com/"
