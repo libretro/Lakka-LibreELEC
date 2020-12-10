@@ -6,9 +6,10 @@
 . /etc/profile
 oe_setup_addon browser.chrome
 
-ICON=$ADDON_DIR/resources/icon.png
-CONTROL_FILE=/tmp/curl.done
-DATA_FILE=/tmp/curl.data
+ICON="$ADDON_DIR/resources/icon.png"
+CONTROL_FILE="/tmp/curl.done"
+DATA_FILE="/tmp/curl.data"
+CHROME_FILE="google-chrome-stable_@CHROME_VERSION@-1_amd64.deb"
 
 # check for enough free disk space
 if [ $(df . | awk 'END {print $4}') -lt 400000 ]; then
@@ -38,12 +39,12 @@ echo "Downloading Chrome"
 # download chrome
 rm -f ${CONTROL_FILE} ${DATA_FILE}
 (
-  curl -# -O -C - https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb 2>${DATA_FILE}
+  curl -# -O -C - https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/${CHROME_FILE} 2>${DATA_FILE}
   touch ${CONTROL_FILE}
 ) | \
   while [ : ]; do
     [ -f ${DATA_FILE} ] && prog="$(tr '\r' '\n' < ${DATA_FILE} | tail -n 1 | sed -r 's/^[# ]+/#/;s/^[^0-9]*//g')" || prog=
-    kodi-send --action="Notification(Downloading Chrome,"${prog:-0.0%}",3000,${ICON})" >/dev/null
+    kodi-send --action="Notification(Downloading Chrome,\"${prog:-0.0%}\",3000,${ICON})" >/dev/null
     [ -f ${CONTROL_FILE} ] && break
     sleep 4
   done
@@ -53,13 +54,14 @@ rm -f ${CONTROL_FILE} ${DATA_FILE}
 ## extract chrome
 # extrat chrome.deb
 kodi-send --action="Notification(Extracting Chrome,starting,1000,${ICON})" >/dev/null
-ar -x google-chrome-stable_current_amd64.deb
+ar -x ${CHROME_FILE}
 
 # extract data.tar.xz to chrome-bin directory
 mkdir $ADDON_DIR/chrome-bin
 tar xf data.tar.xz --strip-components=4 -C $ADDON_DIR/chrome-bin ./opt/google/chrome
 
 # cleanup
+cd $ADDON_DIR
 rm -rf $ADDON_DIR/tmp_download
 touch $ADDON_DIR/extract.ok
 kodi-send --action="Notification(Extracting Chrome,finished,1000,${ICON})" >/dev/null
