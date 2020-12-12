@@ -1,0 +1,176 @@
+--- a/drivers/hid/Makefile
++++ b/drivers/hid/Makefile
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for the HID driver
+ #
+-hid-y			:= hid-core.o hid-input.o
++hid-y			:= hid-core.o hid-input.o hid-rg351p.o
+ hid-$(CONFIG_DEBUG_FS)		+= hid-debug.o
+ 
+ obj-$(CONFIG_HID)		+= hid.o
+--- /dev/null
++++ b/drivers/hid/hid-rg351p.c
+@@ -0,0 +1,162 @@
++/*
++ *  PWM feedback HID hack for RG351P console
++ *
++ *  Copyright (c) 2020 David Guillen Fandos <david@davidgf.net>
++ *
++ *  Based on other ff memless drivers like hid-sjoy.c
++ *   Copyright (c) 2009 Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
++ */
++
++/*
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
++ */
++
++#include <linux/input.h>
++#include <linux/slab.h>
++#include <linux/hid.h>
++#include <linux/module.h>
++#include <linux/pwm.h>
++
++static const struct hid_device_id rg351p_devices[] = {
++	{ HID_USB_DEVICE(0x1209, 0x3100) },
++	{ }
++};
++MODULE_DEVICE_TABLE(hid, rg351p_devices);
++
++struct rg351p_device {
++	struct pwm_device *pwmdev;
++};
++
++static int hid_rg351p_play(struct input_dev *dev, void *data,
++			 struct ff_effect *effect)
++{
++	struct rg351p_device *devinfo = *(struct rg351p_device**)data;
++	u32 weak, strong, intensity;
++
++	/* Map intensity from 0 to 1000 */
++	strong = effect->u.rumble.strong_magnitude;
++	weak = effect->u.rumble.weak_magnitude;
++	intensity = (weak + 2 * strong) / 3;
++	intensity = (1000 * intensity) >> 16;
++
++	if (devinfo->pwmdev)
++		pwm_config(devinfo->pwmdev, 1000 - intensity, 1000);
++
++	return 0;
++}
++
++static int rg351p_init(struct hid_device *hid)
++{
++	struct hid_input *hidinput = list_first_entry(&hid->inputs, struct hid_input, list);
++	struct input_dev *dev = hidinput->input;
++	struct rg351p_device *intdev = NULL, **devptr = NULL;
++	int i, error;
++
++	hid_info(hid, "PWM feedback HID hack for RG351P device\n");
++
++	for (i = 0; i < ARRAY_SIZE(rg351p_devices); i++) {
++		if (dev->id.vendor == rg351p_devices[i].vendor &&
++			dev->id.product == rg351p_devices[i].product) {
++			
++			/* Set FF_RUMBLE bit so users can discover and use it */
++			set_bit(FF_RUMBLE, dev->ffbit);
++
++			intdev = kzalloc(sizeof(struct rg351p_device), GFP_KERNEL);
++			if (!intdev)
++				return -ENOMEM;
++
++			devptr = kzalloc(sizeof(void*), GFP_KERNEL);
++			if (!devptr) {
++				kfree(intdev);
++				return -ENOMEM;
++			}
++
++			/* Any data passed as private here will be auto-free'd */
++			*devptr = intdev;
++			error = input_ff_create_memless(dev, devptr, hid_rg351p_play);
++			if (error) {
++				kfree(intdev);
++				kfree(devptr);
++				return error;
++			}
++
++			hid_set_drvdata(hid, intdev);
++
++			break;
++		}
++	}
++
++	/* Check whether the PWM device is present */
++	intdev->pwmdev = pwm_request(0, "rumble-pwm");
++	if (IS_ERR(intdev->pwmdev)) {
++		hid_info(hid, "rumble-pwm device request failed with error %d\n",
++			(int)PTR_ERR(intdev->pwmdev));
++		intdev->pwmdev = NULL;
++	}
++	else if (intdev->pwmdev) {
++		pwm_config(intdev->pwmdev, 1000, 1000);
++		pwm_enable(intdev->pwmdev);
++		hid_info(hid, "rumble-pwm device intialized, rumble feedback ready\n");
++	}
++
++	return 0;
++}
++
++static int rg351p_probe(struct hid_device *hdev, const struct hid_device_id *id)
++{
++	int ret;
++
++	ret = hid_parse(hdev);
++	if (ret) {
++		hid_err(hdev, "parse failed\n");
++		goto err;
++	}
++
++	ret = hid_hw_start(hdev, HID_CONNECT_DEFAULT & ~HID_CONNECT_FF);
++	if (ret) {
++		hid_err(hdev, "hw start failed\n");
++		goto err;
++	}
++
++	rg351p_init(hdev);
++
++	return 0;
++err:
++	return ret;
++}
++
++void rg351p_remove(struct hid_device *hid)
++{
++	struct rg351p_device *devinfo = hid_get_drvdata(hid);
++	hid_hw_stop(hid);
++
++	if (devinfo->pwmdev)
++		pwm_free(devinfo->pwmdev);
++
++	kfree(devinfo);
++}
++
++
++static struct hid_driver rg351p_driver = {
++	.name = "rg351p-gamepad",
++	.id_table = rg351p_devices,
++	.probe = rg351p_probe,
++	.remove = rg351p_remove,
++};
++module_hid_driver(rg351p_driver);
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("David Guillen Fandos");
++
