@@ -7,7 +7,7 @@ PKG_VERSION=""
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.openelec.tv"
 PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain libc:init busybox:init plymouth-lite:init util-linux:init e2fsprogs:init dosfstools:init fakeroot:host terminus-font:init"
+PKG_DEPENDS_TARGET="toolchain libc:init busybox:init plymouth-lite:init util-linux:init e2fsprogs:init dosfstools:init terminus-font:init"
 PKG_SECTION="virtual"
 PKG_LONGDESC="debug is a Metapackage for installing initramfs"
 
@@ -23,20 +23,3 @@ if [ "$PROJECT" = "Gamegirl" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gamegirl-screen:init"
 fi
 
-post_install() {
-  ( cd $BUILD/initramfs
-    if [ "$TARGET_ARCH" = "x86_64" ]; then
-      ln -sfn /usr/lib $BUILD/initramfs/lib64
-      mkdir -p $BUILD/initramfs/usr
-      ln -sfn /usr/lib $BUILD/initramfs/usr/lib64
-    fi
-
-    ln -sfn /usr/lib $BUILD/initramfs/lib
-    ln -sfn /usr/bin $BUILD/initramfs/bin
-    ln -sfn /usr/sbin $BUILD/initramfs/sbin
-
-    mkdir -p $BUILD/image/
-    fakeroot -- sh -c \
-      "mkdir -p dev; mknod -m 600 dev/console c 5 1; find . | cpio -H newc -ov -R 0:0 > $BUILD/image/initramfs.cpio"
-  )
-}
