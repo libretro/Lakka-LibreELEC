@@ -1,0 +1,132 @@
+#!/bin/bash
+
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2020-present Team LibreELEC (https://libreelec.tv)
+
+. config/options "${1}"
+
+command -v quilt >/dev/null 2>&1 || die "please install quilt"
+
+if [ -z "${1}" ]; then
+  die "usage: ${0} package_name"
+fi
+
+if [ -z "${PKG_NAME}" ]; then
+  die "$(print_color CLR_ERROR "${1}: no package.mk file found")"
+fi
+
+${SCRIPTS}/get "${PKG_NAME}"
+
+mkdir -p ${BUILD}/build
+
+build_msg "CLR_UNPACK" "REFRESH" "${PKG_NAME}"
+
+PKG_UNPACK_DIR="${BUILD}/.unpack/${PKG_NAME}"
+rm -rf "${PKG_UNPACK_DIR}"
+mkdir -p "${PKG_UNPACK_DIR}"
+
+PKG_BUILD="${PKG_UNPACK_DIR}/refresh-${PKG_NAME}-${PKG_VERSION}"
+
+pkg_call_exists_opt pre_unpack && pkg_call
+
+if pkg_call_exists unpack; then
+  pkg_call
+else
+  if [ -n "${PKG_URL}" ]; then
+    ${SCRIPTS}/extract "${PKG_NAME}" "${PKG_UNPACK_DIR}"
+  fi
+  pkg_call_finish
+fi
+
+if [ -z "${PKG_SOURCE_DIR}" -a -d "${PKG_UNPACK_DIR}/${PKG_NAME}-${PKG_VERSION}"* ]; then
+  mv "${PKG_UNPACK_DIR}/${PKG_NAME}-${PKG_VERSION}"* "${PKG_UNPACK_DIR}/.intermediate"
+fi
+
+if [ ! -d "${PKG_UNPACK_DIR}/.intermediate" ]; then
+  if [ -n "${PKG_SOURCE_DIR}" ]; then
+    if [ -d "${PKG_UNPACK_DIR}"/${PKG_SOURCE_DIR} ]; then
+      mv "${PKG_UNPACK_DIR}"/${PKG_SOURCE_DIR} "${PKG_UNPACK_DIR}/.intermediate"
+    else
+      # fallback
+      mv "${BUILD}"/${PKG_SOURCE_DIR} "${PKG_UNPACK_DIR}/.intermediate"
+    fi
+  fi
+fi
+
+[ ! -d "${PKG_UNPACK_DIR}/.intermediate" ] && mkdir -p "${PKG_UNPACK_DIR}/.intermediate"
+
+if [ -d "${PKG_DIR}/sources" ]; then
+  cp -PRf "${PKG_DIR}/sources/"* "${PKG_UNPACK_DIR}/.intermediate"
+fi
+
+mv "${PKG_UNPACK_DIR}/.intermediate" "${PKG_BUILD}"
+
+pkg_call_exists_opt post_unpack && pkg_call
+
+pkg_call_exists_opt pre_patch && pkg_call
+
+if [ "${TARGET_ARCH}" = "x86_64" ]; then
+  PATCH_ARCH="x86"
+else
+  PATCH_ARCH="${TARGET_PATCH_ARCH:-${TARGET_ARCH}}"
+fi
+
+PATCH_DIRS_PKG=""
+PATCH_DIRS_PRJ=""
+if [ -n "${PKG_PATCH_DIRS}" ]; then
+  for patch_dir in ${PKG_PATCH_DIRS}; do
+    if [[ ${patch_dir} =~ ^/ ]]; then
+      [ -f ${patch_dir} ] && PATCH_DIRS_PKG+=" ${patch_dir}"
+      [ -d ${patch_dir} ] && PATCH_DIRS_PKG+=" ${patch_dir}/*.patch"
+    else
+      [ -d ${PKG_DIR}/patches/${patch_dir} ] && PATCH_DIRS_PKG+=" ${PKG_DIR}/patches/${patch_dir}/*.patch"
+      [ -d ${PROJECT_DIR}/${PROJECT}/patches/${PKG_NAME}/${patch_dir} ] && PATCH_DIRS_PRJ+=" ${PROJECT_DIR}/${PROJECT}/patches/${PKG_NAME}/${patch_dir}/*.patch"
+      [ -d ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/patches/${PKG_NAME}/${patch_dir} ] && PATCH_DIRS_PRJ+=" ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/patches/${PKG_NAME}/${patch_dir}/*.patch"
+    fi
+  done
+fi
+
+rm -rf "${PKG_BUILD}/patches"
+mkdir -p "${PKG_BUILD}/patches"
+
+for i in ${PKG_DIR}/patches/*.patch \
+         ${PKG_DIR}/patches/${PATCH_ARCH}/*.patch \
+         ${PATCH_DIRS_PKG} \
+         ${PKG_DIR}/patches/${PKG_VERSION}/*.patch \
+         ${PKG_DIR}/patches/${PKG_VERSION}/${PATCH_ARCH}/*.patch \
+         ${PROJECT_DIR}/${PROJECT}/patches/${PKG_NAME}/*.patch \
+         ${PROJECT_DIR}/${PROJECT}/patches/${PKG_NAME}/${PATCH_ARCH}/*.patch \
+         ${PATCH_DIRS_PRJ} \
+         ${PROJECT_DIR}/${PROJECT}/patches/${PKG_NAME}/${PKG_VERSION}/*.patch \
+         ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/patches/${PKG_NAME}/*.patch; do
+  if [ -f "${i}" ]; then
+    PATCH="${i#${ROOT}/}"
+    mkdir -p "$(dirname ${PKG_BUILD}/patches/${PATCH})"
+    ln -s "${i}" "${PKG_BUILD}/patches/${PATCH}"
+    echo "${PATCH}" >> "${PKG_BUILD}/patches/series"
+  fi
+done
+
+quilt_cmd() {
+  quilt --quiltrc=- $*
+}
+
+cd "${PKG_BUILD}"
+while quilt_cmd next >/dev/null 2>&1; do
+  if ! quilt_cmd push; then
+    PATCH="$(quilt_cmd next)"
+    if patch -R -f --dry-run -p1 -i "patches/${PATCH}" >/dev/null 2>&1; then
+      build_msg "CLR_UNPACK" "REFRESH" "${PKG_NAME} Removing already applied patch ${PATCH}\n"
+      rm -f $(readlink "patches/${PATCH}")
+      quilt_cmd delete -n -r
+      continue
+    else
+      exit 1
+    fi
+  fi
+
+  QUILT_DIFF_OPTS="-p" quilt_cmd refresh -p ab --no-index --no-timestamps
+done
+
+# cleanup
+rm -rf "${PKG_UNPACK_DIR}"
