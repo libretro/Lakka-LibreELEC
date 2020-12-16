@@ -3,8 +3,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="samba"
-PKG_VERSION="4.13.2"
-PKG_SHA256="276464396a05d88b775bda01ac2eb1e5a636ccf7010b0fd28efc3d85583af2b4"
+PKG_VERSION="4.13.3"
+PKG_SHA256="c10585d43f33656fe4e1f9ff8bf40ea57d8d5b653521c1cc198fbf4922756541"
 PKG_LICENSE="GPLv3+"
 PKG_SITE="https://www.samba.org"
 PKG_URL="https://download.samba.org/pub/samba/stable/$PKG_NAME-$PKG_VERSION.tar.gz"
