@@ -10,9 +10,10 @@ PKG_URL="https://github.com/lz4/lz4/archive/v$PKG_VERSION.tar.gz"
 PKG_DEPENDS_HOST="toolchain:host"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="lz4 data compressor/decompressor"
+PKG_TOOLCHAIN="cmake"
 
 configure_package() {
-  PKG_CMAKE_SCRIPT="$PKG_BUILD/contrib/cmake_unofficial/CMakeLists.txt"
+  PKG_CMAKE_SCRIPT="$PKG_BUILD/build/cmake/CMakeLists.txt"
 
   PKG_CMAKE_OPTS_TARGET="-DBUILD_SHARED_LIBS=0 -DCMAKE_POSITION_INDEPENDENT_CODE=0"
 }
