@@ -19,8 +19,8 @@ PKG_FFMPEG_HWACCEL="--enable-hwaccels"
 
 PKG_FFMPEG_RPI="--disable-mmal"
 
-if [ "${PROJECT}" = "RPi" -a "${DEVICE}" = "RPi4" ]; then
-  PKG_PATCH_DIRS="rpi v4l2-drmprime"
+if [ "${PROJECT}" = "RPi" ]; then
+  PKG_PATCH_DIRS="rpi"
   PKG_FFMPEG_RPI+=" --disable-rpi --enable-sand"
 else
   PKG_PATCH_DIRS="v4l2-request v4l2-drmprime"
