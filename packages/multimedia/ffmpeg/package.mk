@@ -19,7 +19,7 @@ PKG_FFMPEG_HWACCEL="--enable-hwaccels"
 
 PKG_FFMPEG_RPI="--disable-mmal"
 
-if [ "${PROJECT}" = "RPi" -a "${DEVICE}" = "RPi4" ]; then
+if [ "${PROJECT}" = "RPi" ]; then
   PKG_PATCH_DIRS="rpi"
   PKG_FFMPEG_RPI+=" --disable-rpi --enable-sand"
 else
