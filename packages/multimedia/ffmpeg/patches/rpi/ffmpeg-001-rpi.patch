@@ -18,8 +18,69 @@ index 2450ee8fc5..4bcc3ae643 100644
  /ffmpeg
  /ffplay
  /ffprobe
+diff --git a/BUILD.txt b/BUILD.txt
+new file mode 100644
+index 0000000000..49ed1f119d
+--- /dev/null
++++ b/BUILD.txt
+@@ -0,0 +1,55 @@
++# Setup & Build instructions for testing Argon30 mesa support (on Pi4)
++
++# These assume that the drm_mmal test for Sand8 has been built on this Pi
++# as build relies on many of the same files
++
++# 1st get everything required to build ffmpeg
++# If sources aren't already enabled on your Pi then enable them
++sudo su
++sed "s/#deb-src/deb-src/" /etc/apt/sources.list > /tmp/sources.list
++sed "s/#deb-src/deb-src/" /etc/apt/sources.list.d/raspi.list > /tmp/raspi.list
++mv /tmp/sources.list /etc/apt/
++mv /tmp/raspi.list /etc/apt/sources.list.d/
++apt update
++
++# Get dependancies
++sudo apt build-dep ffmpeg
++
++# Enable H265 V4L2 request decoder
++sudo su
++echo dtoverlay=rpivid-v4l2 >> /boot/config.txt
++reboot
++# Check it has turned up
++ls -la /dev/video*
++# This should include video19
++# crw-rw----+ 1 root video 81, 7 Aug  4 17:25 /dev/video19
++
++# Config
++pi-util/conf_native.sh
++
++# Build (this is a bit dull)
++# If you want to poke the source the libavdevice/egl_vout.c contains the
++# output code -
++make -j6
++
++# Grab test streams
++wget http://www.jell.yfish.us/media/jellyfish-3-mbps-hd-h264.mkv
++wget http://www.jell.yfish.us/media/jellyfish-3-mbps-hd-hevc.mkv
++wget http://www.jell.yfish.us/media/jellyfish-3-mbps-hd-hevc-10bit.mkv
++
++# Test i420 output (works currently)
++./ffmpeg -no_cvt_hw -vcodec h264_v4l2m2m -i jellyfish-3-mbps-hd-h264.mkv -f vout_egl -
++
++# Test Sand8 output - doesn't currently work but should once you have
++# Sand8 working in drm_mmal. I can't guarantee that this will work as
++# I can't test this path with a known working format, but the debug looks
++# good.  If this doesn't work & drm_mmal does with sand8 then come back to me
++./ffmpeg -no_cvt_hw -hwaccel drm -vcodec hevc -i jellyfish-3-mbps-hd-hevc.mkv -f vout_egl -
++
++# Test Sand30 - doesn't currently work
++# (Beware that when FFmpeg errors out it often leaves your teminal window
++# in a state where you need to reset it)
++./ffmpeg -no_cvt_hw -hwaccel drm -vcodec hevc -i jellyfish-3-mbps-hd-hevc-10bit.mkv -f vout_egl -
++
++
++
 diff --git a/configure b/configure
-index 8569a60bf8..96b3527650 100755
+index 8569a60bf8..277d36cf9a 100755
 --- a/configure
 +++ b/configure
 @@ -274,6 +274,7 @@ External library support:
@@ -30,13 +91,14 @@ index 8569a60bf8..96b3527650 100755
    --enable-libv4l2         enable libv4l2/v4l-utils [no]
    --enable-libvidstab      enable video stabilization using vid.stab [no]
    --enable-libvmaf         enable vmaf filter via libvmaf [no]
-@@ -336,12 +337,16 @@ External library support:
+@@ -336,12 +337,17 @@ External library support:
    --enable-libmfx          enable Intel MediaSDK (AKA Quick Sync Video) code via libmfx [no]
    --enable-libnpp          enable Nvidia Performance Primitives-based code [no]
    --enable-mmal            enable Broadcom Multi-Media Abstraction Layer (Raspberry Pi) via MMAL [no]
 +  --enable-rpi             enable other rpi specific stuff [no]
 +  --enable-sand            enable sand video formats [rpi]
 +  --enable-vout-drm        enable the vout_drm module - for internal testing only [no]
++  --enable-vout-egl        enable the vout_egl module - for internal testing only [no]
    --disable-nvdec          disable Nvidia video decoding acceleration (via hwaccel) [autodetect]
    --disable-nvenc          disable Nvidia video encoding code [autodetect]
    --enable-omx             enable OpenMAX IL code [no]
@@ -47,7 +109,15 @@ index 8569a60bf8..96b3527650 100755
    --disable-vaapi          disable Video Acceleration API (mainly Unix/Intel) code [autodetect]
    --disable-vdpau          disable Nvidia Video Decode and Presentation API for Unix code [autodetect]
    --disable-videotoolbox   disable VideoToolbox code [autodetect]
-@@ -1807,6 +1812,7 @@ EXTERNAL_LIBRARY_LIST="
+@@ -1771,6 +1777,7 @@ EXTERNAL_LIBRARY_LIST="
+     libdav1d
+     libdc1394
+     libdrm
++    epoxy
+     libflite
+     libfontconfig
+     libfreetype
+@@ -1807,6 +1814,7 @@ EXTERNAL_LIBRARY_LIST="
      libtesseract
      libtheora
      libtwolame
@@ -55,7 +125,7 @@ index 8569a60bf8..96b3527650 100755
      libv4l2
      libvorbis
      libvpx
-@@ -1861,7 +1867,10 @@ HWACCEL_LIBRARY_LIST="
+@@ -1861,7 +1869,10 @@ HWACCEL_LIBRARY_LIST="
      mmal
      omx
      opencl
@@ -66,7 +136,7 @@ index 8569a60bf8..96b3527650 100755
  "
  
  DOCUMENT_LIST="
-@@ -1877,12 +1886,15 @@ FEATURE_LIST="
+@@ -1877,12 +1888,16 @@ FEATURE_LIST="
      gray
      hardcoded_tables
      omx_rpi
@@ -79,10 +149,11 @@ index 8569a60bf8..96b3527650 100755
      static
      swscale_alpha
 +    vout_drm
++    vout_egl
  "
  
  # this list should be kept in linking order
-@@ -1923,6 +1935,7 @@ SUBSYSTEM_LIST="
+@@ -1923,6 +1938,7 @@ SUBSYSTEM_LIST="
      pixelutils
      network
      rdft
@@ -90,7 +161,7 @@ index 8569a60bf8..96b3527650 100755
  "
  
  # COMPONENT_LIST needs to come last to ensure correct dependency checking
-@@ -2405,9 +2418,11 @@ CONFIG_EXTRA="
+@@ -2405,9 +2421,11 @@ CONFIG_EXTRA="
      rangecoder
      riffdec
      riffenc
@@ -102,7 +173,7 @@ index 8569a60bf8..96b3527650 100755
      scene_sad
      sinewin
      snappy
-@@ -2737,6 +2752,8 @@ hap_decoder_select="snappy texturedsp"
+@@ -2737,6 +2755,8 @@ hap_decoder_select="snappy texturedsp"
  hap_encoder_deps="libsnappy"
  hap_encoder_select="texturedspenc"
  hevc_decoder_select="bswapdsp cabac golomb hevcparse videodsp"
@@ -111,7 +182,7 @@ index 8569a60bf8..96b3527650 100755
  huffyuv_decoder_select="bswapdsp huffyuvdsp llviddsp"
  huffyuv_encoder_select="bswapdsp huffman huffyuvencdsp llvidencdsp"
  hymt_decoder_select="huffyuv_decoder"
-@@ -2903,6 +2920,7 @@ d3d11va_deps="dxva_h ID3D11VideoDecoder ID3D11VideoContext"
+@@ -2903,6 +2923,7 @@ d3d11va_deps="dxva_h ID3D11VideoDecoder ID3D11VideoContext"
  dxva2_deps="dxva2api_h DXVA2_ConfigPictureDecode ole32 user32"
  ffnvcodec_deps_any="libdl LoadLibrary"
  nvdec_deps="ffnvcodec"
@@ -119,7 +190,7 @@ index 8569a60bf8..96b3527650 100755
  vaapi_x11_deps="xlib"
  videotoolbox_hwaccel_deps="videotoolbox pthreads"
  videotoolbox_hwaccel_extralibs="-framework QuartzCore"
-@@ -2920,6 +2938,8 @@ h264_dxva2_hwaccel_deps="dxva2"
+@@ -2920,6 +2941,8 @@ h264_dxva2_hwaccel_deps="dxva2"
  h264_dxva2_hwaccel_select="h264_decoder"
  h264_nvdec_hwaccel_deps="nvdec"
  h264_nvdec_hwaccel_select="h264_decoder"
@@ -128,20 +199,20 @@ index 8569a60bf8..96b3527650 100755
  h264_vaapi_hwaccel_deps="vaapi"
  h264_vaapi_hwaccel_select="h264_decoder"
  h264_vdpau_hwaccel_deps="vdpau"
-@@ -2934,6 +2954,12 @@ hevc_dxva2_hwaccel_deps="dxva2 DXVA_PicParams_HEVC"
+@@ -2934,6 +2957,12 @@ hevc_dxva2_hwaccel_deps="dxva2 DXVA_PicParams_HEVC"
  hevc_dxva2_hwaccel_select="hevc_decoder"
  hevc_nvdec_hwaccel_deps="nvdec"
  hevc_nvdec_hwaccel_select="hevc_decoder"
++hevc_v4l2request_hwaccel_deps="v4l2_request"
++hevc_v4l2request_hwaccel_select="hevc_decoder"
 +hevc_rpi4_10_hwaccel_deps="rpi"
 +hevc_rpi4_10_hwaccel_select="hevc_decoder"
 +hevc_rpi4_8_hwaccel_deps="rpi"
 +hevc_rpi4_8_hwaccel_select="hevc_decoder"
-+hevc_v4l2request_hwaccel_deps="v4l2_request"
-+hevc_v4l2request_hwaccel_select="hevc_decoder"
  hevc_vaapi_hwaccel_deps="vaapi VAPictureParameterBufferHEVC"
  hevc_vaapi_hwaccel_select="hevc_decoder"
  hevc_vdpau_hwaccel_deps="vdpau VdpPictureInfoHEVC"
-@@ -2962,6 +2988,8 @@ mpeg2_dxva2_hwaccel_deps="dxva2"
+@@ -2962,6 +2991,8 @@ mpeg2_dxva2_hwaccel_deps="dxva2"
  mpeg2_dxva2_hwaccel_select="mpeg2video_decoder"
  mpeg2_nvdec_hwaccel_deps="nvdec"
  mpeg2_nvdec_hwaccel_select="mpeg2video_decoder"
@@ -150,7 +221,7 @@ index 8569a60bf8..96b3527650 100755
  mpeg2_vaapi_hwaccel_deps="vaapi"
  mpeg2_vaapi_hwaccel_select="mpeg2video_decoder"
  mpeg2_vdpau_hwaccel_deps="vdpau"
-@@ -2992,6 +3020,8 @@ vc1_vdpau_hwaccel_deps="vdpau"
+@@ -2992,6 +3023,8 @@ vc1_vdpau_hwaccel_deps="vdpau"
  vc1_vdpau_hwaccel_select="vc1_decoder"
  vp8_nvdec_hwaccel_deps="nvdec"
  vp8_nvdec_hwaccel_select="vp8_decoder"
@@ -159,7 +230,7 @@ index 8569a60bf8..96b3527650 100755
  vp8_vaapi_hwaccel_deps="vaapi"
  vp8_vaapi_hwaccel_select="vp8_decoder"
  vp9_d3d11va_hwaccel_deps="d3d11va DXVA_PicParams_VP9"
-@@ -3002,6 +3032,8 @@ vp9_dxva2_hwaccel_deps="dxva2 DXVA_PicParams_VP9"
+@@ -3002,6 +3035,8 @@ vp9_dxva2_hwaccel_deps="dxva2 DXVA_PicParams_VP9"
  vp9_dxva2_hwaccel_select="vp9_decoder"
  vp9_nvdec_hwaccel_deps="nvdec"
  vp9_nvdec_hwaccel_select="vp9_decoder"
@@ -168,17 +239,22 @@ index 8569a60bf8..96b3527650 100755
  vp9_vaapi_hwaccel_deps="vaapi VADecPictureParameterBufferVP9_bit_depth"
  vp9_vaapi_hwaccel_select="vp9_decoder"
  vp9_vdpau_hwaccel_deps="vdpau VdpPictureInfoVP9"
-@@ -3403,6 +3435,9 @@ v4l2_indev_deps_any="linux_videodev2_h sys_videoio_h"
+@@ -3401,8 +3436,14 @@ sndio_indev_deps="sndio"
+ sndio_outdev_deps="sndio"
+ v4l2_indev_deps_any="linux_videodev2_h sys_videoio_h"
  v4l2_indev_suggest="libv4l2"
++v4l2_outdev_deps="libdrm"
  v4l2_outdev_deps_any="linux_videodev2_h sys_videoio_h"
  v4l2_outdev_suggest="libv4l2"
 +vout_drm_outdev_deps="libdrm vout_drm"
++vout_egl_outdev_deps="vout_egl"
++vout_egl_outdev_select="epoxy"
 +vout_rpi_outdev_deps="rpi"
 +vout_rpi_outdev_select="sand"
  vfwcap_indev_deps="vfw32 vfwcap_defines"
  xcbgrab_indev_deps="libxcb"
  xcbgrab_indev_suggest="libxcb_shm libxcb_shape libxcb_xfixes"
-@@ -3618,6 +3653,8 @@ tonemap_vaapi_filter_deps="vaapi VAProcFilterParameterBufferHDRToneMapping"
+@@ -3618,6 +3659,8 @@ tonemap_vaapi_filter_deps="vaapi VAProcFilterParameterBufferHDRToneMapping"
  tonemap_opencl_filter_deps="opencl const_nan"
  transpose_opencl_filter_deps="opencl"
  transpose_vaapi_filter_deps="vaapi VAProcPipelineCaps_rotation_flags"
@@ -187,7 +263,15 @@ index 8569a60bf8..96b3527650 100755
  unsharp_opencl_filter_deps="opencl"
  uspp_filter_deps="gpl avcodec"
  vaguedenoiser_filter_deps="gpl"
-@@ -6376,6 +6413,7 @@ enabled libtls            && require_pkg_config libtls libtls tls.h tls_configur
+@@ -6299,6 +6342,7 @@ enabled libdav1d          && require_pkg_config libdav1d "dav1d >= 0.4.0" "dav1d
+ enabled libdavs2          && require_pkg_config libdavs2 "davs2 >= 1.6.0" davs2.h davs2_decoder_open
+ enabled libdc1394         && require_pkg_config libdc1394 libdc1394-2 dc1394/dc1394.h dc1394_new
+ enabled libdrm            && require_pkg_config libdrm libdrm xf86drm.h drmGetVersion
++enabled epoxy             && require_pkg_config epoxy epoxy epoxy/egl.h epoxy_egl_version
+ enabled libfdk_aac        && { check_pkg_config libfdk_aac fdk-aac "fdk-aac/aacenc_lib.h" aacEncOpen ||
+                                { require libfdk_aac fdk-aac/aacenc_lib.h aacEncOpen -lfdk-aac &&
+                                  warn "using libfdk without pkg-config"; } }
+@@ -6376,6 +6420,7 @@ enabled libtls            && require_pkg_config libtls libtls tls.h tls_configur
  enabled libtwolame        && require libtwolame twolame.h twolame_init -ltwolame &&
                               { check_lib libtwolame twolame.h twolame_encode_buffer_float32_interleaved -ltwolame ||
                                 die "ERROR: libtwolame must be installed and version must be >= 0.3.10"; }
@@ -195,7 +279,7 @@ index 8569a60bf8..96b3527650 100755
  enabled libv4l2           && require_pkg_config libv4l2 libv4l2 libv4l2.h v4l2_ioctl
  enabled libvidstab        && require_pkg_config libvidstab "vidstab >= 0.98" vid.stab/libvidstab.h vsMotionDetectInit
  enabled libvmaf           && require_pkg_config libvmaf "libvmaf >= 1.3.9" libvmaf.h compute_vmaf
-@@ -6430,11 +6468,12 @@ enabled mbedtls           && { check_pkg_config mbedtls mbedtls mbedtls/x509_crt
+@@ -6430,11 +6475,12 @@ enabled mbedtls           && { check_pkg_config mbedtls mbedtls mbedtls/x509_crt
                                 check_lib mbedtls mbedtls/ssl.h mbedtls_ssl_init -lmbedtls -lmbedx509 -lmbedcrypto ||
                                 die "ERROR: mbedTLS not found"; }
  enabled mediacodec        && { enabled jni || die "ERROR: mediacodec requires --enable-jni"; }
@@ -210,7 +294,7 @@ index 8569a60bf8..96b3527650 100755
                                 die "ERROR: mmal not found" &&
                                 check_func_headers interface/mmal/mmal.h "MMAL_PARAMETER_VIDEO_MAX_NUM_CALLBACKS"; }
  enabled openal            && { { for al_extralibs in "${OPENAL_LIBS}" "-lopenal" "-lOpenAL32"; do
-@@ -6475,6 +6514,10 @@ enabled rkmpp             && { require_pkg_config rkmpp rockchip_mpp  rockchip/r
+@@ -6475,6 +6521,10 @@ enabled rkmpp             && { require_pkg_config rkmpp rockchip_mpp  rockchip/r
                                 { enabled libdrm ||
                                   die "ERROR: rkmpp requires --enable-libdrm"; }
                               }
@@ -221,7 +305,7 @@ index 8569a60bf8..96b3527650 100755
  enabled vapoursynth       && require_pkg_config vapoursynth "vapoursynth-script >= 42" VSScript.h vsscript_init
  
  
-@@ -6556,6 +6599,13 @@ if enabled v4l2_m2m; then
+@@ -6556,6 +6606,13 @@ if enabled v4l2_m2m; then
      check_cc vp9_v4l2_m2m linux/videodev2.h "int i = V4L2_PIX_FMT_VP9;"
  fi
  
@@ -15427,10 +15511,10 @@ index 1fda619ee7..b4650f9ec9 100644
   *
 diff --git a/libavcodec/h264-ctrls.h b/libavcodec/h264-ctrls.h
 new file mode 100644
-index 0000000000..080fd1293c
+index 0000000000..ec47991544
 --- /dev/null
 +++ b/libavcodec/h264-ctrls.h
-@@ -0,0 +1,218 @@
+@@ -0,0 +1,231 @@
 +/* SPDX-License-Identifier: GPL-2.0 */
 +/*
 + * These are the H.264 state controls for use with stateless H.264
@@ -15452,6 +15536,8 @@ index 0000000000..080fd1293c
 + */
 +#define V4L2_H264_NUM_DPB_ENTRIES 16
 +
++#define V4L2_H264_REF_LIST_LEN (2 * V4L2_H264_NUM_DPB_ENTRIES)
++
 +/* Our pixel format isn't stable at the moment */
 +#define V4L2_PIX_FMT_H264_SLICE v4l2_fourcc('S', '2', '6', '4') /* H264 parsed slices */
 +
@@ -15467,6 +15553,7 @@ index 0000000000..080fd1293c
 +#define V4L2_CID_MPEG_VIDEO_H264_DECODE_PARAMS	(V4L2_CID_MPEG_BASE+1004)
 +#define V4L2_CID_MPEG_VIDEO_H264_DECODE_MODE	(V4L2_CID_MPEG_BASE+1005)
 +#define V4L2_CID_MPEG_VIDEO_H264_START_CODE	(V4L2_CID_MPEG_BASE+1006)
++#define V4L2_CID_MPEG_VIDEO_H264_PRED_WEIGHTS	(V4L2_CID_MPEG_BASE+1007)
 +
 +/* enum v4l2_ctrl_type type values */
 +#define V4L2_CTRL_TYPE_H264_SPS			0x0110
@@ -15474,6 +15561,7 @@ index 0000000000..080fd1293c
 +#define V4L2_CTRL_TYPE_H264_SCALING_MATRIX	0x0112
 +#define V4L2_CTRL_TYPE_H264_SLICE_PARAMS	0x0113
 +#define V4L2_CTRL_TYPE_H264_DECODE_PARAMS	0x0114
++#define V4L2_CTRL_TYPE_H264_PRED_WEIGHTS	0x0115
 +
 +enum v4l2_mpeg_video_h264_decode_mode {
 +	V4L2_MPEG_VIDEO_H264_DECODE_MODE_SLICE_BASED,
@@ -15528,7 +15616,7 @@ index 0000000000..080fd1293c
 +#define V4L2_H264_PPS_FLAG_CONSTRAINED_INTRA_PRED			0x0010
 +#define V4L2_H264_PPS_FLAG_REDUNDANT_PIC_CNT_PRESENT			0x0020
 +#define V4L2_H264_PPS_FLAG_TRANSFORM_8X8_MODE				0x0040
-+#define V4L2_H264_PPS_FLAG_PIC_SCALING_MATRIX_PRESENT			0x0080
++#define V4L2_H264_PPS_FLAG_SCALING_MATRIX_PRESENT			0x0080
 +
 +struct v4l2_ctrl_h264_pps {
 +	__u8 pic_parameter_set_id;
@@ -15556,7 +15644,14 @@ index 0000000000..080fd1293c
 +	__s16 chroma_offset[32][2];
 +};
 +
-+struct v4l2_h264_pred_weight_table {
++#define V4L2_H264_CTRL_PRED_WEIGHTS_REQUIRED(pps, slice) \
++	((((pps)->flags & V4L2_H264_PPS_FLAG_WEIGHTED_PRED) && \
++	 ((slice)->slice_type == V4L2_H264_SLICE_TYPE_P || \
++	  (slice)->slice_type == V4L2_H264_SLICE_TYPE_SP)) || \
++	 ((pps)->weighted_bipred_idc == 1 && \
++	  (slice)->slice_type == V4L2_H264_SLICE_TYPE_B))
++
++struct v4l2_ctrl_h264_pred_weights {
 +	__u16 luma_log2_weight_denom;
 +	__u16 chroma_log2_weight_denom;
 +	struct v4l2_h264_weight_factors weight_factors[2];
@@ -15568,39 +15663,29 @@ index 0000000000..080fd1293c
 +#define V4L2_H264_SLICE_TYPE_SP				3
 +#define V4L2_H264_SLICE_TYPE_SI				4
 +
-+#define V4L2_H264_SLICE_FLAG_FIELD_PIC			0x01
-+#define V4L2_H264_SLICE_FLAG_BOTTOM_FIELD		0x02
-+#define V4L2_H264_SLICE_FLAG_DIRECT_SPATIAL_MV_PRED	0x04
-+#define V4L2_H264_SLICE_FLAG_SP_FOR_SWITCH		0x08
++#define V4L2_H264_SLICE_FLAG_DIRECT_SPATIAL_MV_PRED	0x01
++#define V4L2_H264_SLICE_FLAG_SP_FOR_SWITCH		0x02
++
++#define V4L2_H264_TOP_FIELD_REF				0x1
++#define V4L2_H264_BOTTOM_FIELD_REF			0x2
++#define V4L2_H264_FRAME_REF				0x3
++
++struct v4l2_h264_reference {
++	__u8 fields;
++
++	/* Index into v4l2_ctrl_h264_decode_params.dpb[] */
++	__u8 index;
++};
 +
 +struct v4l2_ctrl_h264_slice_params {
-+	/* Size in bytes, including header */
-+	__u32 size;
-+
-+	/* Offset in bytes to the start of slice in the OUTPUT buffer. */
-+	__u32 start_byte_offset;
-+
 +	/* Offset in bits to slice_data() from the beginning of this slice. */
 +	__u32 header_bit_size;
 +
-+	__u16 first_mb_in_slice;
++	__u32 first_mb_in_slice;
++
 +	__u8 slice_type;
-+	__u8 pic_parameter_set_id;
 +	__u8 colour_plane_id;
 +	__u8 redundant_pic_cnt;
-+	__u16 frame_num;
-+	__u16 idr_pic_id;
-+	__u16 pic_order_cnt_lsb;
-+	__s32 delta_pic_order_cnt_bottom;
-+	__s32 delta_pic_order_cnt0;
-+	__s32 delta_pic_order_cnt1;
-+
-+	struct v4l2_h264_pred_weight_table pred_weight_table;
-+	/* Size in bits of dec_ref_pic_marking() syntax element. */
-+	__u32 dec_ref_pic_marking_bit_size;
-+	/* Size in bits of pic order count syntax. */
-+	__u32 pic_order_cnt_bit_size;
-+
 +	__u8 cabac_init_idc;
 +	__s8 slice_qp_delta;
 +	__s8 slice_qs_delta;
@@ -15609,14 +15694,11 @@ index 0000000000..080fd1293c
 +	__s8 slice_beta_offset_div2;
 +	__u8 num_ref_idx_l0_active_minus1;
 +	__u8 num_ref_idx_l1_active_minus1;
-+	__u32 slice_group_change_cycle;
 +
-+	/*
-+	 * Entries on each list are indices into
-+	 * v4l2_ctrl_h264_decode_params.dpb[].
-+	 */
-+	__u8 ref_pic_list0[32];
-+	__u8 ref_pic_list1[32];
++	__u8 reserved;
++
++	struct v4l2_h264_reference ref_pic_list0[V4L2_H264_REF_LIST_LEN];
++	struct v4l2_h264_reference ref_pic_list1[V4L2_H264_REF_LIST_LEN];
 +
 +	__u32 flags;
 +};
@@ -15625,32 +15707,47 @@ index 0000000000..080fd1293c
 +#define V4L2_H264_DPB_ENTRY_FLAG_ACTIVE		0x02
 +#define V4L2_H264_DPB_ENTRY_FLAG_LONG_TERM	0x04
 +#define V4L2_H264_DPB_ENTRY_FLAG_FIELD		0x08
-+#define V4L2_H264_DPB_ENTRY_FLAG_BOTTOM_FIELD	0x10
 +
 +struct v4l2_h264_dpb_entry {
 +	__u64 reference_ts;
++	__u32 pic_num;
 +	__u16 frame_num;
-+	__u16 pic_num;
++	__u8 fields;
++	__u8 reserved[5];
 +	/* Note that field is indicated by v4l2_buffer.field */
 +	__s32 top_field_order_cnt;
 +	__s32 bottom_field_order_cnt;
 +	__u32 flags; /* V4L2_H264_DPB_ENTRY_FLAG_* */
 +};
 +
-+#define V4L2_H264_DECODE_PARAM_FLAG_IDR_PIC	0x01
++#define V4L2_H264_DECODE_PARAM_FLAG_IDR_PIC		0x01
++#define V4L2_H264_DECODE_PARAM_FLAG_FIELD_PIC		0x02
++#define V4L2_H264_DECODE_PARAM_FLAG_BOTTOM_FIELD	0x04
 +
 +struct v4l2_ctrl_h264_decode_params {
 +	struct v4l2_h264_dpb_entry dpb[V4L2_H264_NUM_DPB_ENTRIES];
-+	__u16 num_slices;
 +	__u16 nal_ref_idc;
++	__u16 frame_num;
 +	__s32 top_field_order_cnt;
 +	__s32 bottom_field_order_cnt;
++	__u16 idr_pic_id;
++	__u16 pic_order_cnt_lsb;
++	__s32 delta_pic_order_cnt_bottom;
++	__s32 delta_pic_order_cnt0;
++	__s32 delta_pic_order_cnt1;
++	/* Size in bits of dec_ref_pic_marking() syntax element. */
++	__u32 dec_ref_pic_marking_bit_size;
++	/* Size in bits of pic order count syntax. */
++	__u32 pic_order_cnt_bit_size;
++	__u32 slice_group_change_cycle;
++
++	__u32 reserved;
 +	__u32 flags; /* V4L2_H264_DECODE_PARAM_FLAG_* */
 +};
 +
 +#endif
 diff --git a/libavcodec/h264_slice.c b/libavcodec/h264_slice.c
-index db8363e4cc..c3896cfd90 100644
+index db8363e4cc..39ae8fabfd 100644
 --- a/libavcodec/h264_slice.c
 +++ b/libavcodec/h264_slice.c
 @@ -759,6 +759,7 @@ static enum AVPixelFormat get_pixel_format(H264Context *h, int force_callback)
@@ -15661,7 +15758,37 @@ index db8363e4cc..c3896cfd90 100644
                       CONFIG_H264_VAAPI_HWACCEL + \
                       CONFIG_H264_VIDEOTOOLBOX_HWACCEL + \
                       CONFIG_H264_VDPAU_HWACCEL)
-@@ -843,6 +844,9 @@ static enum AVPixelFormat get_pixel_format(H264Context *h, int force_callback)
+@@ -784,10 +785,17 @@ static enum AVPixelFormat get_pixel_format(H264Context *h, int force_callback)
+                 *fmt++ = AV_PIX_FMT_GBRP10;
+             } else
+                 *fmt++ = AV_PIX_FMT_YUV444P10;
+-        } else if (CHROMA422(h))
++        } else if (CHROMA422(h)) {
++#if CONFIG_H264_V4L2REQUEST_HWACCEL
++            *fmt++ = AV_PIX_FMT_DRM_PRIME;
++#endif
+             *fmt++ = AV_PIX_FMT_YUV422P10;
+-        else
++        } else {
++#if CONFIG_H264_V4L2REQUEST_HWACCEL
++            *fmt++ = AV_PIX_FMT_DRM_PRIME;
++#endif
+             *fmt++ = AV_PIX_FMT_YUV420P10;
++        }
+         break;
+     case 12:
+         if (CHROMA444(h)) {
+@@ -826,6 +834,9 @@ static enum AVPixelFormat get_pixel_format(H264Context *h, int force_callback)
+             else
+                 *fmt++ = AV_PIX_FMT_YUV444P;
+         } else if (CHROMA422(h)) {
++#if CONFIG_H264_V4L2REQUEST_HWACCEL
++                *fmt++ = AV_PIX_FMT_DRM_PRIME;
++#endif
+             if (h->avctx->color_range == AVCOL_RANGE_JPEG)
+                 *fmt++ = AV_PIX_FMT_YUVJ422P;
+             else
+@@ -843,6 +854,9 @@ static enum AVPixelFormat get_pixel_format(H264Context *h, int force_callback)
  #endif
  #if CONFIG_H264_VIDEOTOOLBOX_HWACCEL
              *fmt++ = AV_PIX_FMT_VIDEOTOOLBOX;
@@ -15671,7 +15798,7 @@ index db8363e4cc..c3896cfd90 100644
  #endif
              if (h->avctx->codec->pix_fmts)
                  choices = h->avctx->codec->pix_fmts;
-@@ -1736,7 +1740,7 @@ static int h264_slice_header_parse(const H264Context *h, H264SliceContext *sl,
+@@ -1736,7 +1750,7 @@ static int h264_slice_header_parse(const H264Context *h, H264SliceContext *sl,
      unsigned int slice_type, tmp, i;
      int field_pic_flag, bottom_field_flag;
      int first_slice = sl == h->slice_ctx && !h->current_slice;
@@ -15680,7 +15807,7 @@ index db8363e4cc..c3896cfd90 100644
  
      if (first_slice)
          av_assert0(!h->setup_finished);
-@@ -1818,8 +1822,9 @@ static int h264_slice_header_parse(const H264Context *h, H264SliceContext *sl,
+@@ -1818,8 +1832,9 @@ static int h264_slice_header_parse(const H264Context *h, H264SliceContext *sl,
      }
  
      if (nal->type == H264_NAL_IDR_SLICE)
@@ -15691,7 +15818,7 @@ index db8363e4cc..c3896cfd90 100644
      if (sps->poc_type == 0) {
          sl->poc_lsb = get_bits(&sl->gb, sps->log2_max_poc_lsb);
  
-@@ -1833,6 +1838,7 @@ static int h264_slice_header_parse(const H264Context *h, H264SliceContext *sl,
+@@ -1833,6 +1848,7 @@ static int h264_slice_header_parse(const H264Context *h, H264SliceContext *sl,
          if (pps->pic_order_present == 1 && picture_structure == PICT_FRAME)
              sl->delta_poc[1] = get_se_golomb(&sl->gb);
      }
@@ -15699,7 +15826,7 @@ index db8363e4cc..c3896cfd90 100644
  
      sl->redundant_pic_count = 0;
      if (pps->redundant_pic_cnt_present)
-@@ -1872,9 +1878,11 @@ static int h264_slice_header_parse(const H264Context *h, H264SliceContext *sl,
+@@ -1872,9 +1888,11 @@ static int h264_slice_header_parse(const H264Context *h, H264SliceContext *sl,
  
      sl->explicit_ref_marking = 0;
      if (nal->ref_idc) {
@@ -15989,7 +16116,7 @@ index 0000000000..13698d3f33
 +
 +#endif
 diff --git a/libavcodec/hevcdec.c b/libavcodec/hevcdec.c
-index 0772608a30..c30fb2a83f 100644
+index 0772608a30..91a7536ee5 100644
 --- a/libavcodec/hevcdec.c
 +++ b/libavcodec/hevcdec.c
 @@ -372,14 +372,20 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
@@ -16059,14 +16186,14 @@ index 0772608a30..c30fb2a83f 100644
  #if CONFIG_HEVC_VIDEOTOOLBOX_HWACCEL
                                 HWACCEL_VIDEOTOOLBOX(hevc),
 +#endif
++#if CONFIG_HEVC_V4L2REQUEST_HWACCEL
++                               HWACCEL_V4L2REQUEST(hevc),
++#endif
 +#if CONFIG_HEVC_RPI4_8_HWACCEL
 +                               HWACCEL_RPI4_8(hevc),
 +#endif
 +#if CONFIG_HEVC_RPI4_10_HWACCEL
 +                               HWACCEL_RPI4_10(hevc),
-+#endif
-+#if CONFIG_HEVC_V4L2REQUEST_HWACCEL
-+                               HWACCEL_V4L2REQUEST(hevc),
  #endif
                                 NULL
                             },
@@ -16121,7 +16248,7 @@ index 6109c89bd6..30927fda99 100644
  
  #endif /* AVCODEC_HWACCELS_H */
 diff --git a/libavcodec/hwconfig.h b/libavcodec/hwconfig.h
-index f421dc909f..66b001e333 100644
+index f421dc909f..ed44e01de4 100644
 --- a/libavcodec/hwconfig.h
 +++ b/libavcodec/hwconfig.h
 @@ -24,6 +24,7 @@
@@ -16136,12 +16263,12 @@ index f421dc909f..66b001e333 100644
      HW_CONFIG_HWACCEL(0, 0, 1, D3D11VA_VLD,  NONE,         ff_ ## codec ## _d3d11va_hwaccel)
  #define HWACCEL_XVMC(codec) \
      HW_CONFIG_HWACCEL(0, 0, 1, XVMC,         NONE,         ff_ ## codec ## _xvmc_hwaccel)
++#define HWACCEL_V4L2REQUEST(codec) \
++    HW_CONFIG_HWACCEL(1, 0, 0, DRM_PRIME,    DRM,          ff_ ## codec ## _v4l2request_hwaccel)
 +#define HWACCEL_RPI4_8(codec) \
 +    HW_CONFIG_HWACCEL(0, 0, 1, RPI4_8,       NONE,         ff_ ## codec ## _rpi4_8_hwaccel)
 +#define HWACCEL_RPI4_10(codec) \
 +    HW_CONFIG_HWACCEL(0, 0, 1, RPI4_10,      NONE,         ff_ ## codec ## _rpi4_10_hwaccel)
-+#define HWACCEL_V4L2REQUEST(codec) \
-+    HW_CONFIG_HWACCEL(1, 0, 0, DRM_PRIME,    DRM,          ff_ ## codec ## _v4l2request_hwaccel)
  
  #define HW_CONFIG_ENCODER(device, frames, ad_hoc, format, device_type_) \
      &(const AVCodecHWConfigInternal) { \
@@ -29384,10 +29511,10 @@ index 0000000000..1128a2c054
 +};
 diff --git a/libavcodec/rpi_hevcdec.c b/libavcodec/rpi_hevcdec.c
 new file mode 100644
-index 0000000000..5e28b3978f
+index 0000000000..e651e5c565
 --- /dev/null
 +++ b/libavcodec/rpi_hevcdec.c
-@@ -0,0 +1,6132 @@
+@@ -0,0 +1,6134 @@
 +/*
 + * HEVC video Decoder
 + *
@@ -35148,11 +35275,6 @@ index 0000000000..5e28b3978f
 +        goto fail;
 +    s->HEVClcList[0] = s->HEVClc;
 +
-+    // Whilst FFmpegs init fn is only called once the close fn is called as
-+    // many times as we have threads (init_thread_copy is called for the
-+    // threads).  So to match init & term put the init here where it will be
-+    // called by both init & copy
-+
 +    if (vpu_qpu_init() != 0)
 +        goto fail;
 +    s->qpu_init_ok = 1;
@@ -35214,11 +35336,12 @@ index 0000000000..5e28b3978f
 +    HEVCRpiContext *s0 = src->priv_data;
 +    int i, ret;
 +
-+    if (!s->context_initialized) {
-+        ret = hevc_init_context(dst);
-+        if (ret < 0)
-+            return ret;
-+    }
++    av_assert0(s->context_initialized);
++
++    // dst == src can happen according to the comments and in that case
++    // there is nothing to do here
++    if (dst == src)
++        return 0;
 +
 +    for (i = 0; i < FF_ARRAY_ELEMS(s->DPB); i++) {
 +        ff_hevc_rpi_unref_frame(s, &s->DPB[i], ~0);
@@ -35315,45 +35438,47 @@ index 0000000000..5e28b3978f
 +    int ret;
 +
 +    if (!qpu_ok())
-+        return -1;
++        return AVERROR_DECODER_NOT_FOUND;
 +
 +    if ((ret = hevc_init_context(avctx)) < 0)
 +        return ret;
++
++    // If we are a child context then stop now
++    // Everything after this point is either 1st decode setup or global alloc
++    // that must not be repeated
++    // Global info will be copied into children in update_thread_context (we
++    // can't do it here as we have no way of finding the parent context)
++    if (avctx->internal->is_copy)
++        return 0;
 +
 +    // Job allocation requires VCSM alloc to work so ensure that we have it
 +    // initialised by this point
 +    {
 +        HEVCRpiJobGlobal * const jbg = jbg_new(FFMAX(avctx->thread_count * 3, 5));
-+        if (jbg == NULL)
-+        {
++        if (jbg == NULL) {
 +            av_log(s->avctx, AV_LOG_ERROR, "%s: Job global init failed\n", __func__);
-+            return -1;
++            ret = AVERROR(ENOMEM);
++            goto fail;
 +        }
 +
-+        if ((s->jbc = rpi_job_ctl_new(jbg)) == NULL)
-+        {
++        if ((s->jbc = rpi_job_ctl_new(jbg)) == NULL) {
 +            av_log(s->avctx, AV_LOG_ERROR, "%s: Job ctl init failed\n", __func__);
-+            return -1;
++            ret = AVERROR(ENOMEM);
++            goto fail;
 +        }
 +    }
 +
 +    hevc_init_worker(s);
 +
-+    s->sei.picture_timing.picture_struct = 0;
 +    s->eos = 1;
 +
-+    atomic_init(&s->wpp_err, 0);
-+
 +    if (avctx->extradata_size > 0 && avctx->extradata) {
-+        ret = hevc_rpi_decode_extradata(s, avctx->extradata, avctx->extradata_size, 1);
++        if ((ret = hevc_rpi_decode_extradata(s, avctx->extradata, avctx->extradata_size, 1)) < 0)
++            goto fail;
 +
-+        if (ret == 0 && !all_sps_supported(s))
++        if (!all_sps_supported(s)) {
 +            ret = AVERROR_DECODER_NOT_FOUND;
-+
-+        if (ret < 0)
-+        {
-+            hevc_decode_free(avctx);
-+            return ret;
++            goto fail;
 +        }
 +    }
 +
@@ -35363,6 +35488,10 @@ index 0000000000..5e28b3978f
 +        s->threads_type = 0;
 +
 +    return 0;
++
++fail:
++    hevc_decode_free(avctx);
++    return ret;
 +}
 +
 +static void hevc_decode_flush(AVCodecContext *avctx)
@@ -35522,10 +35651,10 @@ index 0000000000..5e28b3978f
 +
 diff --git a/libavcodec/rpi_hevcdec.h b/libavcodec/rpi_hevcdec.h
 new file mode 100644
-index 0000000000..5001a3853b
+index 0000000000..1f94d18673
 --- /dev/null
 +++ b/libavcodec/rpi_hevcdec.h
-@@ -0,0 +1,1093 @@
+@@ -0,0 +1,1091 @@
 +/*
 + * HEVC video decoder
 + *
@@ -36298,8 +36427,6 @@ index 0000000000..5001a3853b
 +    /** used on BE to byteswap the lines for checksumming */
 +    uint8_t *checksum_buf;
 +    int      checksum_buf_size;
-+
-+    atomic_int wpp_err;
 +
 +    const uint8_t *data;
 +
@@ -44029,10 +44156,10 @@ index 0000000000..37be9a0f49
 +
 diff --git a/libavcodec/rpi_zc.h b/libavcodec/rpi_zc.h
 new file mode 100644
-index 0000000000..18e71314bb
+index 0000000000..f00a7c962c
 --- /dev/null
 +++ b/libavcodec/rpi_zc.h
-@@ -0,0 +1,174 @@
+@@ -0,0 +1,228 @@
 +/*
 +Copyright (c) 2018 Raspberry Pi (Trading) Ltd.
 +All rights reserved.
@@ -44106,10 +44233,15 @@ index 0000000000..18e71314bb
 +    unsigned int video_height;  // Requested height
 +} AVRpiZcFrameGeometry;
 +
-+
++// Get expected MMAL geometry for a given format, width & height
 +AVRpiZcFrameGeometry av_rpi_zc_frame_geometry(
 +    const int format,
 +    const unsigned int video_width, const unsigned int video_height);
++
++//----------------------------------------------------------------------------
++//
++// Calls that extract info from a ZC frame whether internally or externally
++// allocated
 +
 +// Generate a ZC reference to the buffer(s) in this frame
 +// If the buffer doesn't appear to be one allocated by ZC
@@ -44121,6 +44253,10 @@ index 0000000000..18e71314bb
 +// If maycopy == 0 then ZC may be NULL
 +AVRpiZcRefPtr av_rpi_zc_ref(void * const logging_context, const AVZcEnvPtr zc,
 +    const struct AVFrame * const frame, const enum AVPixelFormat expected_format, const int maycopy);
++
++// Unreference the buffer refed/allocated by _zc_ref
++// If fr_ref is NULL then this will NOP
++void av_rpi_zc_unref(AVRpiZcRefPtr fr_ref);
 +
 +// Get the vc_handle from the frame ref
 +// Returns -1 if ref doesn't look valid
@@ -44139,12 +44275,31 @@ index 0000000000..18e71314bb
 +// Geometry this frame was allocated with
 +const AVRpiZcFrameGeometry * av_rpi_zc_geometry(const AVRpiZcRefPtr fr_ref);
 +
-+// Unreference the buffer refed/allocated by _zc_ref
-+// If fr_ref is NULL then this will NOP
-+void av_rpi_zc_unref(AVRpiZcRefPtr fr_ref);
++//----------------------------------------------------------------------------
++//
++// Calls for external frame allocation
 +
-+// Test to see if the context is using zc (checks get_buffer2)
-+int av_rpi_zc_in_use(const struct AVCodecContext * const s);
++// Callbacks registered in av_rpi_zc_init2
++
++// Callback to allocate a buf for a frame
++// The frame itself is generated in the calling code
++//
++// Parameters:
++//   pool_env  value passed to av-rpi_zc_init2
++//   size      size wanted
++//   geo       geometry of the frame to be allocated
++// Returns:
++//   NULL      Alloc failed
++//   ptr       AVBufferBuf* of allocated buffer
++//             In most cases av_rpi_zc_buf will be called by this function
++//             and this will be the buf returned by that.
++typedef AVBufferRef * av_rpi_zc_alloc_buf_fn_t(void * pool_env, size_t size,
++                                               const AVRpiZcFrameGeometry * geo);
++
++// Callback once ffmpeg is completely done with this pool
++// Called once all allocated buffers have been derefed and ffmpegs ref to this
++// pool has been dropped
++typedef void av_rpi_zc_free_pool_fn_t(void * pool_env);
 +
 +// Init ZC into a context
 +// Sets opaque, get_buffer2, thread_safe_callbacks
@@ -44152,11 +44307,6 @@ index 0000000000..18e71314bb
 +// all decoders
 +// RPI HEVC decoders will allocate appropriate VCSM buffers which can be taken
 +// apart by av_rpi_zc_xxx calls without this
-+
-+typedef AVBufferRef * av_rpi_zc_alloc_buf_fn_t(void * pool_env, size_t size,
-+                                               const AVRpiZcFrameGeometry * geo);
-+typedef void av_rpi_zc_free_pool_fn_t(void * pool_env);
-+
 +int av_rpi_zc_init2(struct AVCodecContext * const s,
 +                    void * pool_env, av_rpi_zc_alloc_buf_fn_t * alloc_buf_fn,
 +                    av_rpi_zc_free_pool_fn_t * free_pool_fn);
@@ -44164,10 +44314,52 @@ index 0000000000..18e71314bb
 +// Free ZC from a context
 +void av_rpi_zc_uninit2(struct AVCodecContext * const s);
 +
++// Get minimum pool size in frames - valid by the time the first alloc request
++// occurs.  Takes into account thread requests and DPB sizes derived from SPS
++// rather than just adding a worst case DPB size.
++unsigned int av_rpi_zc_get_decoder_pool_size(const AVZcEnvPtr zc);
++
++typedef struct av_rpi_zc_buf_fn_tab_s {
++    // This AVBuffer is being freed by ffmpeg - return memory
++    // to external pool. Memory may be, but need not be, unmapped.
++    // v is the ptr passed in av_rpi_zc_buf
++    void (* free)(void * v);
++
++    // Return appropriate handles / mappings
++    // v is the ptr passed in av_rpi_zc_buf
++    unsigned int (* vcsm_handle)(void * v);
++    unsigned int (* vc_handle)(void * v);
++    void * (* map_arm)(void * v);
++    unsigned int (* map_vc)(void * v);
++} av_rpi_zc_buf_fn_tab_t;
++
++// Allocate a ZC AVBufferRef and set its callback table
++// Doesn't take a buffer address directly - relies on callbacks to return
++// addresses as they are required.  Mappings need not be generated until
++// the map callbacks are called but they should persist from then until
++// the buffer is freed.
++//
++// Parameters:
++//   numbytes    Size of the buffer
++//   addr_offset Offset to first usable byte of buffer (for alignment)
++//               normally 0
++//   v           Pointer passed to callbacks
++//   fn_tab      Function table
++AVBufferRef * av_rpi_zc_buf(size_t numbytes, int addr_offset, void * v, const av_rpi_zc_buf_fn_tab_t * fn_tab);
++
++// Get v ptr set in in av_rpi_zc_buf
++void * av_rpi_zc_buf_v(AVBufferRef * const buf);
++
++//----------------------------------------------------------------------------
++//
++// Mostly internal calls but might possibly be wanted by outside code
++
 +void av_rpi_zc_int_env_freep(AVZcEnvPtr * zc);
 +AVZcEnvPtr av_rpi_zc_int_env_alloc(void * const logctx);
 +void av_rpi_zc_set_decoder_pool_size(const AVZcEnvPtr zc, const unsigned int pool_size);
-+unsigned int av_rpi_zc_get_decoder_pool_size(const AVZcEnvPtr zc);
++
++// Test to see if the context is using zc (checks get_buffer2)
++int av_rpi_zc_in_use(const struct AVCodecContext * const s);
 +
 +// Get buffer generates placeholders for later alloc
 +int av_rpi_zc_get_buffer(const AVZcEnvPtr zc, AVFrame * const frame);
@@ -44185,17 +44377,6 @@ index 0000000000..18e71314bb
 +int av_rpi_zc_set_broken_frame(AVFrame * const frame);
 +
 +
-+typedef struct av_rpi_zc_buf_fn_tab_s {
-+    void (* free)(void * v);
-+
-+    unsigned int (* vcsm_handle)(void * v);
-+    unsigned int (* vc_handle)(void * v);
-+    void * (* map_arm)(void * v);
-+    unsigned int (* map_vc)(void * v);
-+} av_rpi_zc_buf_fn_tab_t;
-+
-+AVBufferRef * av_rpi_zc_buf(size_t numbytes, int addr_offset, void * v, const av_rpi_zc_buf_fn_tab_t * fn_tab);
-+void * av_rpi_zc_buf_v(AVBufferRef * const buf);
 +
 +
 +AVZcEnvPtr av_rpi_zc_env_alloc(void * logctx,
@@ -44357,10 +44538,10 @@ index 0000000000..9b7b6536a4
 +#endif
 diff --git a/libavcodec/rpivid_hevc.c b/libavcodec/rpivid_hevc.c
 new file mode 100644
-index 0000000000..95550b106b
+index 0000000000..a6b5e8a189
 --- /dev/null
 +++ b/libavcodec/rpivid_hevc.c
-@@ -0,0 +1,2032 @@
+@@ -0,0 +1,2033 @@
 +// FFMPEG HEVC decoder hardware accelerator
 +// Andrew Holme, Argon Design Ltd
 +// Copyright (c) June 2017 Raspberry Pi Ltd
@@ -44369,6 +44550,7 @@ index 0000000000..95550b106b
 +#include <fcntl.h>
 +#include <pthread.h>
 +#include <semaphore.h>
++#include <unistd.h>
 +#include <sys/mman.h>
 +
 +#include "fftools/ffmpeg.h"
@@ -46393,6 +46575,1466 @@ index 0000000000..95550b106b
 +    .caps_internal  = HWACCEL_CAP_ASYNC_SAFE | HWACCEL_CAP_MT_SAFE,
 +};
 +
+diff --git a/libavcodec/v4l2_buffers.c b/libavcodec/v4l2_buffers.c
+index 02f23d954b..522009ccfb 100644
+--- a/libavcodec/v4l2_buffers.c
++++ b/libavcodec/v4l2_buffers.c
+@@ -21,6 +21,7 @@
+  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+  */
+ 
++#include <drm_fourcc.h>
+ #include <linux/videodev2.h>
+ #include <sys/ioctl.h>
+ #include <sys/mman.h>
+@@ -30,12 +31,13 @@
+ #include "libavcodec/avcodec.h"
+ #include "libavcodec/internal.h"
+ #include "libavutil/pixdesc.h"
++#include "libavutil/hwcontext.h"
+ #include "v4l2_context.h"
+ #include "v4l2_buffers.h"
+ #include "v4l2_m2m.h"
+ 
+ #define USEC_PER_SEC 1000000
+-static AVRational v4l2_timebase = { 1, USEC_PER_SEC };
++static const AVRational v4l2_timebase = { 1, USEC_PER_SEC };
+ 
+ static inline V4L2m2mContext *buf_to_m2mctx(V4L2Buffer *buf)
+ {
+@@ -52,10 +54,8 @@ static inline AVCodecContext *logger(V4L2Buffer *buf)
+ static inline AVRational v4l2_get_timebase(V4L2Buffer *avbuf)
+ {
+     V4L2m2mContext *s = buf_to_m2mctx(avbuf);
+-
+-    if (s->avctx->pkt_timebase.num)
+-        return s->avctx->pkt_timebase;
+-    return s->avctx->time_base;
++    const AVRational tb = s->avctx->pkt_timebase.num ? s->avctx->pkt_timebase : s->avctx->time_base;
++    return tb.num && tb.den ? tb : v4l2_timebase;
+ }
+ 
+ static inline void v4l2_set_pts(V4L2Buffer *out, int64_t pts)
+@@ -210,7 +210,79 @@ static enum AVColorTransferCharacteristic v4l2_get_color_trc(V4L2Buffer *buf)
+     return AVCOL_TRC_UNSPECIFIED;
+ }
+ 
+-static void v4l2_free_buffer(void *opaque, uint8_t *unused)
++static uint8_t * v4l2_get_drm_frame(V4L2Buffer *avbuf)
++{
++    AVDRMFrameDescriptor *drm_desc = &avbuf->drm_frame;
++    AVDRMLayerDescriptor *layer;
++
++    /* fill the DRM frame descriptor */
++    drm_desc->nb_objects = avbuf->num_planes;
++    drm_desc->nb_layers = 1;
++
++    layer = &drm_desc->layers[0];
++    layer->nb_planes = avbuf->num_planes;
++
++    for (int i = 0; i < avbuf->num_planes; i++) {
++        layer->planes[i].object_index = i;
++        layer->planes[i].offset = 0;
++        layer->planes[i].pitch = avbuf->plane_info[i].bytesperline;
++    }
++
++    switch (avbuf->context->av_pix_fmt) {
++    case AV_PIX_FMT_YUYV422:
++
++        layer->format = DRM_FORMAT_YUYV;
++        layer->nb_planes = 1;
++
++        break;
++
++    case AV_PIX_FMT_NV12:
++    case AV_PIX_FMT_NV21:
++
++        layer->format = avbuf->context->av_pix_fmt == AV_PIX_FMT_NV12 ?
++            DRM_FORMAT_NV12 : DRM_FORMAT_NV21;
++
++        if (avbuf->num_planes > 1)
++            break;
++
++        layer->nb_planes = 2;
++
++        layer->planes[1].object_index = 0;
++        layer->planes[1].offset = avbuf->plane_info[0].bytesperline *
++            avbuf->context->format.fmt.pix.height;
++        layer->planes[1].pitch = avbuf->plane_info[0].bytesperline;
++        break;
++
++    case AV_PIX_FMT_YUV420P:
++
++        layer->format = DRM_FORMAT_YUV420;
++
++        if (avbuf->num_planes > 1)
++            break;
++
++        layer->nb_planes = 3;
++
++        layer->planes[1].object_index = 0;
++        layer->planes[1].offset = avbuf->plane_info[0].bytesperline *
++            avbuf->context->format.fmt.pix.height;
++        layer->planes[1].pitch = avbuf->plane_info[0].bytesperline >> 1;
++
++        layer->planes[2].object_index = 0;
++        layer->planes[2].offset = layer->planes[1].offset +
++            ((avbuf->plane_info[0].bytesperline *
++              avbuf->context->format.fmt.pix.height) >> 2);
++        layer->planes[2].pitch = avbuf->plane_info[0].bytesperline >> 1;
++        break;
++
++    default:
++        drm_desc->nb_layers = 0;
++        break;
++    }
++
++    return (uint8_t *) drm_desc;
++}
++
++static void v4l2_free_buffer(void *opaque, uint8_t *data)
+ {
+     V4L2Buffer* avbuf = opaque;
+     V4L2m2mContext *s = buf_to_m2mctx(avbuf);
+@@ -226,14 +298,52 @@ static void v4l2_free_buffer(void *opaque, uint8_t *unused)
+                 /* no need to queue more buffers to the driver */
+                 avbuf->status = V4L2BUF_AVAILABLE;
+             }
+-            else if (avbuf->context->streamon)
++            else if (avbuf->context->streamon) {
++                avbuf->buf.timestamp.tv_sec = 0;
++                avbuf->buf.timestamp.tv_usec = 0;
+                 ff_v4l2_buffer_enqueue(avbuf);
++            }
++            else {
++                av_log(logger(avbuf), AV_LOG_ERROR, "=== %s: Buffer freed but streamoff\n", avbuf->context->name);
++            }
+         }
+ 
+         av_buffer_unref(&avbuf->context_ref);
+     }
+ }
+ 
++static int v4l2_buffer_export_drm(V4L2Buffer* avbuf)
++{
++    struct v4l2_exportbuffer expbuf;
++    int i, ret;
++
++    for (i = 0; i < avbuf->num_planes; i++) {
++        memset(&expbuf, 0, sizeof(expbuf));
++
++        expbuf.index = avbuf->buf.index;
++        expbuf.type = avbuf->buf.type;
++        expbuf.plane = i;
++
++        ret = ioctl(buf_to_m2mctx(avbuf)->fd, VIDIOC_EXPBUF, &expbuf);
++        if (ret < 0)
++            return AVERROR(errno);
++
++        if (V4L2_TYPE_IS_MULTIPLANAR(avbuf->buf.type)) {
++            /* drm frame */
++            avbuf->drm_frame.objects[i].size = avbuf->buf.m.planes[i].length;
++            avbuf->drm_frame.objects[i].fd = expbuf.fd;
++            avbuf->drm_frame.objects[i].format_modifier = DRM_FORMAT_MOD_LINEAR;
++        } else {
++            /* drm frame */
++            avbuf->drm_frame.objects[0].size = avbuf->buf.length;
++            avbuf->drm_frame.objects[0].fd = expbuf.fd;
++            avbuf->drm_frame.objects[0].format_modifier = DRM_FORMAT_MOD_LINEAR;
++        }
++    }
++
++    return 0;
++}
++
+ static int v4l2_buf_increase_ref(V4L2Buffer *in)
+ {
+     V4L2m2mContext *s = buf_to_m2mctx(in);
+@@ -254,6 +364,24 @@ static int v4l2_buf_increase_ref(V4L2Buffer *in)
+     return 0;
+ }
+ 
++static int v4l2_buf_to_bufref_drm(V4L2Buffer *in, AVBufferRef **buf)
++{
++    int ret;
++
++    *buf = av_buffer_create((uint8_t *) &in->drm_frame,
++                            sizeof(in->drm_frame),
++                            v4l2_free_buffer,
++                            in, AV_BUFFER_FLAG_READONLY);
++    if (!*buf)
++        return AVERROR(ENOMEM);
++
++    ret = v4l2_buf_increase_ref(in);
++    if (ret)
++         av_buffer_unref(buf);
++
++    return ret;
++}
++
+ static int v4l2_buf_to_bufref(V4L2Buffer *in, int plane, AVBufferRef **buf)
+ {
+     int ret;
+@@ -274,7 +402,18 @@ static int v4l2_buf_to_bufref(V4L2Buffer *in, int plane, AVBufferRef **buf)
+     return ret;
+ }
+ 
+-static int v4l2_bufref_to_buf(V4L2Buffer *out, int plane, const uint8_t* data, int size, int offset, AVBufferRef* bref)
++static void set_buf_length(V4L2Buffer *out, unsigned int plane, uint32_t bytesused, uint32_t length)
++{
++    if (V4L2_TYPE_IS_MULTIPLANAR(out->buf.type)) {
++        out->planes[plane].bytesused = bytesused;
++        out->planes[plane].length = length;
++    } else {
++        out->buf.bytesused = bytesused;
++        out->buf.length = length;
++    }
++}
++
++static int v4l2_bufref_to_buf(V4L2Buffer *out, int plane, const uint8_t* data, int size, int offset)
+ {
+     unsigned int bytesused, length;
+ 
+@@ -286,13 +425,7 @@ static int v4l2_bufref_to_buf(V4L2Buffer *out, int plane, const uint8_t* data, i
+ 
+     memcpy((uint8_t*)out->plane_info[plane].mm_addr+offset, data, FFMIN(size, length-offset));
+ 
+-    if (V4L2_TYPE_IS_MULTIPLANAR(out->buf.type)) {
+-        out->planes[plane].bytesused = bytesused;
+-        out->planes[plane].length = length;
+-    } else {
+-        out->buf.bytesused = bytesused;
+-        out->buf.length = length;
+-    }
++    set_buf_length(out, plane, bytesused, length);
+ 
+     return 0;
+ }
+@@ -303,13 +436,25 @@ static int v4l2_buffer_buf_to_swframe(AVFrame *frame, V4L2Buffer *avbuf)
+ 
+     frame->format = avbuf->context->av_pix_fmt;
+ 
+-    for (i = 0; i < avbuf->num_planes; i++) {
+-        ret = v4l2_buf_to_bufref(avbuf, i, &frame->buf[i]);
++    if (buf_to_m2mctx(avbuf)->output_drm) {
++        /* 1. get references to the actual data */
++        ret = v4l2_buf_to_bufref_drm(avbuf, &frame->buf[0]);
+         if (ret)
+             return ret;
+ 
+-        frame->linesize[i] = avbuf->plane_info[i].bytesperline;
+-        frame->data[i] = frame->buf[i]->data;
++        frame->data[0] = (uint8_t *) v4l2_get_drm_frame(avbuf);
++        frame->format = AV_PIX_FMT_DRM_PRIME;
++        frame->hw_frames_ctx = av_buffer_ref(avbuf->context->frames_ref);
++    } else {
++        /* 1. get references to the actual data */
++        for (i = 0; i < avbuf->num_planes; i++) {
++            ret = v4l2_buf_to_bufref(avbuf, i, &frame->buf[i]);
++            if (ret)
++                return ret;
++
++            frame->linesize[i] = avbuf->plane_info[i].bytesperline;
++            frame->data[i] = frame->buf[i]->data;
++        }
+     }
+ 
+     /* fixup special cases */
+@@ -338,68 +483,95 @@ static int v4l2_buffer_buf_to_swframe(AVFrame *frame, V4L2Buffer *avbuf)
+     return 0;
+ }
+ 
+-static int v4l2_buffer_swframe_to_buf(const AVFrame *frame, V4L2Buffer *out)
++static void cpy_2d(uint8_t * dst, int dst_stride, const uint8_t * src, int src_stride, int w, int h)
+ {
+-    int i, ret;
+-    struct v4l2_format fmt = out->context->format;
+-    int pixel_format = V4L2_TYPE_IS_MULTIPLANAR(fmt.type) ?
+-                       fmt.fmt.pix_mp.pixelformat : fmt.fmt.pix.pixelformat;
+-    int height       = V4L2_TYPE_IS_MULTIPLANAR(fmt.type) ?
+-                       fmt.fmt.pix_mp.height : fmt.fmt.pix.height;
+-    int is_planar_format = 0;
+-
+-    switch (pixel_format) {
+-    case V4L2_PIX_FMT_YUV420M:
+-    case V4L2_PIX_FMT_YVU420M:
+-#ifdef V4L2_PIX_FMT_YUV422M
+-    case V4L2_PIX_FMT_YUV422M:
+-#endif
+-#ifdef V4L2_PIX_FMT_YVU422M
+-    case V4L2_PIX_FMT_YVU422M:
+-#endif
+-#ifdef V4L2_PIX_FMT_YUV444M
+-    case V4L2_PIX_FMT_YUV444M:
+-#endif
+-#ifdef V4L2_PIX_FMT_YVU444M
+-    case V4L2_PIX_FMT_YVU444M:
+-#endif
+-    case V4L2_PIX_FMT_NV12M:
+-    case V4L2_PIX_FMT_NV21M:
+-    case V4L2_PIX_FMT_NV12MT_16X16:
+-    case V4L2_PIX_FMT_NV12MT:
+-    case V4L2_PIX_FMT_NV16M:
+-    case V4L2_PIX_FMT_NV61M:
+-        is_planar_format = 1;
++    if (dst_stride == src_stride && w + 32 >= dst_stride) {
++        memcpy(dst, src, dst_stride * h);
++    }
++    else {
++        while (--h >= 0) {
++            memcpy(dst, src, w);
++            dst += dst_stride;
++            src += src_stride;
++        }
+     }
++}
+ 
+-    if (!is_planar_format) {
+-        const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(frame->format);
+-        int planes_nb = 0;
+-        int offset = 0;
++static int is_chroma(const AVPixFmtDescriptor *desc, int i, int num_planes)
++{
++    return i != 0  && !(i == num_planes - 1 && (desc->flags & AV_PIX_FMT_FLAG_ALPHA));
++}
++
++static int v4l2_buffer_swframe_to_buf(const AVFrame *frame, V4L2Buffer *out)
++{
++    int i;
++    int num_planes = 0;
++    int pel_strides[4] = {0};
++
++    const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(frame->format);
++
++    if ((desc->flags & AV_PIX_FMT_FLAG_HWACCEL) != 0) {
++        av_log(NULL, AV_LOG_ERROR, "%s: HWACCEL cannot be copied\n", __func__);
++        return -1;
++    }
+ 
+-        for (i = 0; i < desc->nb_components; i++)
+-            planes_nb = FFMAX(planes_nb, desc->comp[i].plane + 1);
++    for (i = 0; i != desc->nb_components; ++i) {
++        if (desc->comp[i].plane >= num_planes)
++            num_planes = desc->comp[i].plane + 1;
++        pel_strides[desc->comp[i].plane] = desc->comp[i].step;
++    }
+ 
+-        for (i = 0; i < planes_nb; i++) {
+-            int size, h = height;
+-            if (i == 1 || i == 2) {
++    if (out->num_planes > 1) {
++        if (num_planes != out->num_planes) {
++            av_log(NULL, AV_LOG_ERROR, "%s: Num planes mismatch: %d != %d\n", __func__, num_planes, out->num_planes);
++            return -1;
++        }
++        for (i = 0; i != num_planes; ++i) {
++            int w = frame->width;
++            int h = frame->height;
++            if (is_chroma(desc, i, num_planes)) {
++                w = AV_CEIL_RSHIFT(w, desc->log2_chroma_w);
+                 h = AV_CEIL_RSHIFT(h, desc->log2_chroma_h);
+             }
+-            size = frame->linesize[i] * h;
+-            ret = v4l2_bufref_to_buf(out, 0, frame->data[i], size, offset, frame->buf[i]);
+-            if (ret)
+-                return ret;
+-            offset += size;
++
++            cpy_2d(out->plane_info[i].mm_addr, out->plane_info[i].bytesperline,
++                   frame->data[i], frame->linesize[i],
++                   w * pel_strides[i], h);
++            set_buf_length(out, i, out->plane_info[i].bytesperline * h, out->plane_info[i].length);
+         }
+-        return 0;
+     }
++    else
++    {
++        unsigned int offset = 0;
++
++        for (i = 0; i != num_planes; ++i) {
++            int w = frame->width;
++            int h = frame->height;
++            int dst_stride = out->plane_info[0].bytesperline;
++            uint8_t * const dst = (uint8_t *)out->plane_info[0].mm_addr + offset;
++
++            if (is_chroma(desc, i, num_planes)) {
++                // Is chroma
++                dst_stride >>= desc->log2_chroma_w;
++                offset += dst_stride * (out->context->height >> desc->log2_chroma_h);
++                w = AV_CEIL_RSHIFT(w, desc->log2_chroma_w);
++                h = AV_CEIL_RSHIFT(h, desc->log2_chroma_h);
++            }
++            else {
++                // Is luma or alpha
++                offset += dst_stride * out->context->height;
++            }
++            if (offset > out->plane_info[0].length) {
++                av_log(NULL, AV_LOG_ERROR, "%s: Plane total %d > buffer size %d\n", __func__, offset, out->plane_info[0].length);
++                return -1;
++            }
+ 
+-    for (i = 0; i < out->num_planes; i++) {
+-        ret = v4l2_bufref_to_buf(out, i, frame->buf[i]->data, frame->buf[i]->size, 0, frame->buf[i]);
+-        if (ret)
+-            return ret;
++            cpy_2d(dst, dst_stride,
++                   frame->data[i], frame->linesize[i],
++                   w * pel_strides[i], h);
++        }
++        set_buf_length(out, 0, offset, out->plane_info[0].length);
+     }
+-
+     return 0;
+ }
+ 
+@@ -475,11 +647,17 @@ int ff_v4l2_buffer_buf_to_avpkt(AVPacket *pkt, V4L2Buffer *avbuf)
+     return 0;
+ }
+ 
+-int ff_v4l2_buffer_avpkt_to_buf(const AVPacket *pkt, V4L2Buffer *out)
++int ff_v4l2_buffer_avpkt_to_buf_ext(const AVPacket *pkt, V4L2Buffer *out, const void *extdata, size_t extlen)
+ {
+     int ret;
+ 
+-    ret = v4l2_bufref_to_buf(out, 0, pkt->data, pkt->size, 0, pkt->buf);
++    if (extlen) {
++        ret = v4l2_bufref_to_buf(out, 0, extdata, extlen, 0);
++        if (ret)
++            return ret;
++    }
++
++    ret = v4l2_bufref_to_buf(out, 0, pkt->data, pkt->size, extlen);
+     if (ret)
+         return ret;
+ 
+@@ -491,6 +669,11 @@ int ff_v4l2_buffer_avpkt_to_buf(const AVPacket *pkt, V4L2Buffer *out)
+     return 0;
+ }
+ 
++int ff_v4l2_buffer_avpkt_to_buf(const AVPacket *pkt, V4L2Buffer *out)
++{
++    return ff_v4l2_buffer_avpkt_to_buf_ext(pkt, out, NULL, 0);
++}
++
+ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
+ {
+     V4L2Context *ctx = avbuf->context;
+@@ -500,6 +683,27 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
+     avbuf->buf.type = ctx->type;
+     avbuf->buf.index = index;
+ 
++    if (buf_to_m2mctx(avbuf)->output_drm) {
++        AVHWFramesContext *hwframes;
++
++        av_buffer_unref(&ctx->frames_ref);
++
++        ctx->frames_ref = av_hwframe_ctx_alloc(buf_to_m2mctx(avbuf)->device_ref);
++        if (!ctx->frames_ref) {
++            ret = AVERROR(ENOMEM);
++            return ret;
++        }
++
++        hwframes = (AVHWFramesContext*)ctx->frames_ref->data;
++        hwframes->format = AV_PIX_FMT_DRM_PRIME;
++        hwframes->sw_format = ctx->av_pix_fmt;
++        hwframes->width = ctx->width;
++        hwframes->height = ctx->height;
++        ret = av_hwframe_ctx_init(ctx->frames_ref);
++        if (ret < 0)
++            return ret;
++    }
++
+     if (V4L2_TYPE_IS_MULTIPLANAR(ctx->type)) {
+         avbuf->buf.length = VIDEO_MAX_PLANES;
+         avbuf->buf.m.planes = avbuf->planes;
+@@ -527,14 +731,22 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
+ 
+         if (V4L2_TYPE_IS_MULTIPLANAR(ctx->type)) {
+             avbuf->plane_info[i].length = avbuf->buf.m.planes[i].length;
+-            avbuf->plane_info[i].mm_addr = mmap(NULL, avbuf->buf.m.planes[i].length,
+-                                           PROT_READ | PROT_WRITE, MAP_SHARED,
+-                                           buf_to_m2mctx(avbuf)->fd, avbuf->buf.m.planes[i].m.mem_offset);
++
++            if ((V4L2_TYPE_IS_OUTPUT(ctx->type) && buf_to_m2mctx(avbuf)->output_drm) ||
++                !buf_to_m2mctx(avbuf)->output_drm) {
++                avbuf->plane_info[i].mm_addr = mmap(NULL, avbuf->buf.m.planes[i].length,
++                                               PROT_READ | PROT_WRITE, MAP_SHARED,
++                                               buf_to_m2mctx(avbuf)->fd, avbuf->buf.m.planes[i].m.mem_offset);
++            }
+         } else {
+             avbuf->plane_info[i].length = avbuf->buf.length;
+-            avbuf->plane_info[i].mm_addr = mmap(NULL, avbuf->buf.length,
+-                                          PROT_READ | PROT_WRITE, MAP_SHARED,
+-                                          buf_to_m2mctx(avbuf)->fd, avbuf->buf.m.offset);
++
++            if ((V4L2_TYPE_IS_OUTPUT(ctx->type) && buf_to_m2mctx(avbuf)->output_drm) ||
++                !buf_to_m2mctx(avbuf)->output_drm) {
++                avbuf->plane_info[i].mm_addr = mmap(NULL, avbuf->buf.length,
++                                               PROT_READ | PROT_WRITE, MAP_SHARED,
++                                               buf_to_m2mctx(avbuf)->fd, avbuf->buf.m.offset);
++            }
+         }
+ 
+         if (avbuf->plane_info[i].mm_addr == MAP_FAILED)
+@@ -543,9 +755,6 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
+ 
+     avbuf->status = V4L2BUF_AVAILABLE;
+ 
+-    if (V4L2_TYPE_IS_OUTPUT(ctx->type))
+-        return 0;
+-
+     if (V4L2_TYPE_IS_MULTIPLANAR(ctx->type)) {
+         avbuf->buf.m.planes = avbuf->planes;
+         avbuf->buf.length   = avbuf->num_planes;
+@@ -555,6 +764,15 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
+         avbuf->buf.length    = avbuf->planes[0].length;
+     }
+ 
++    if (V4L2_TYPE_IS_OUTPUT(ctx->type))
++        return 0;
++
++    if (buf_to_m2mctx(avbuf)->output_drm) {
++        ret = v4l2_buffer_export_drm(avbuf);
++        if (ret)
++                return ret;
++    }
++
+     return ff_v4l2_buffer_enqueue(avbuf);
+ }
+ 
+@@ -568,6 +786,9 @@ int ff_v4l2_buffer_enqueue(V4L2Buffer* avbuf)
+     if (ret < 0)
+         return AVERROR(errno);
+ 
++    ++avbuf->context->q_count;
++    av_log(logger(avbuf), AV_LOG_DEBUG, "--- %s VIDIOC_QBUF: index %d, count=%d\n", avbuf->context->name, avbuf->buf.index, avbuf->context->q_count);
++
+     avbuf->status = V4L2BUF_IN_DRIVER;
+ 
+     return 0;
+diff --git a/libavcodec/v4l2_buffers.h b/libavcodec/v4l2_buffers.h
+index 8dbc7fc104..7baf618c66 100644
+--- a/libavcodec/v4l2_buffers.h
++++ b/libavcodec/v4l2_buffers.h
+@@ -27,6 +27,7 @@
+ #include <stdatomic.h>
+ #include <linux/videodev2.h>
+ 
++#include "libavutil/hwcontext_drm.h"
+ #include "avcodec.h"
+ 
+ enum V4L2Buffer_status {
+@@ -42,6 +43,9 @@ typedef struct V4L2Buffer {
+     /* each buffer needs to have a reference to its context */
+     struct V4L2Context *context;
+ 
++    /* DRM descriptor */
++    AVDRMFrameDescriptor drm_frame;
++
+     /* This object is refcounted per-plane, so we need to keep track
+      * of how many context-refs we are holding. */
+     AVBufferRef *context_ref;
+@@ -98,6 +102,8 @@ int ff_v4l2_buffer_buf_to_avpkt(AVPacket *pkt, V4L2Buffer *buf);
+  */
+ int ff_v4l2_buffer_avpkt_to_buf(const AVPacket *pkt, V4L2Buffer *out);
+ 
++int ff_v4l2_buffer_avpkt_to_buf_ext(const AVPacket *pkt, V4L2Buffer *out, const void *extdata, size_t extlen);
++
+ /**
+  * Extracts the data from an AVFrame to a V4L2Buffer
+  *
+diff --git a/libavcodec/v4l2_context.c b/libavcodec/v4l2_context.c
+index 29b144ed73..11ee533cb6 100644
+--- a/libavcodec/v4l2_context.c
++++ b/libavcodec/v4l2_context.c
+@@ -173,7 +173,8 @@ static int v4l2_handle_event(V4L2Context *ctx)
+     }
+ 
+     if (evt.type == V4L2_EVENT_EOS) {
+-        ctx->done = 1;
++//        ctx->done = 1;
++        av_log(logger(ctx), AV_LOG_TRACE, "%s VIDIOC_EVENT_EOS\n", ctx->name);
+         return 0;
+     }
+ 
+@@ -280,6 +281,21 @@ static int v4l2_stop_encode(V4L2Context *ctx)
+     return 0;
+ }
+ 
++static int count_in_driver(const V4L2Context * const ctx)
++{
++    int i;
++    int n = 0;
++
++    if (!ctx->buffers)
++        return -1;
++
++    for (i = 0; i < ctx->num_buffers; ++i) {
++        if (ctx->buffers[i].status == V4L2BUF_IN_DRIVER)
++            ++n;
++    }
++    return n;
++}
++
+ static V4L2Buffer* v4l2_dequeue_v4l2buf(V4L2Context *ctx, int timeout)
+ {
+     struct v4l2_plane planes[VIDEO_MAX_PLANES];
+@@ -296,11 +312,13 @@ static V4L2Buffer* v4l2_dequeue_v4l2buf(V4L2Context *ctx, int timeout)
+             if (ctx->buffers[i].status == V4L2BUF_IN_DRIVER)
+                 break;
+         }
++#if 1
+         if (i == ctx->num_buffers)
+-            av_log(logger(ctx), AV_LOG_WARNING, "All capture buffers returned to "
++            av_log(logger(ctx), AV_LOG_WARNING, "All capture buffers (%d) returned to "
+                                                 "userspace. Increase num_capture_buffers "
+                                                 "to prevent device deadlock or dropped "
+-                                                "packets/frames.\n");
++                                                "packets/frames.\n", i);
++#endif
+     }
+ 
+     /* if we are draining and there are no more capture buffers queued in the driver we are done */
+@@ -329,11 +347,16 @@ start:
+     }
+ 
+     for (;;) {
+-        ret = poll(&pfd, 1, timeout);
++        int t2 = timeout < 0 ? 3000 : timeout;
++        int e = pfd.events;
++        ret = poll(&pfd, 1, t2);
+         if (ret > 0)
+             break;
+         if (errno == EINTR)
+             continue;
++        if (timeout == -1) {
++            av_log(logger(ctx), AV_LOG_ERROR, "=== poll unexpected TIMEOUT: events=%#x, cap buffers=%d\n", e, count_in_driver(ctx));;
++        }
+         return NULL;
+     }
+ 
+@@ -398,23 +421,43 @@ dequeue:
+         if (ret) {
+             if (errno != EAGAIN) {
+                 ctx->done = 1;
+-                if (errno != EPIPE)
++//                if (errno != EPIPE)
+                     av_log(logger(ctx), AV_LOG_DEBUG, "%s VIDIOC_DQBUF, errno (%s)\n",
+                         ctx->name, av_err2str(AVERROR(errno)));
+             }
+             return NULL;
+         }
++        --ctx->q_count;
++        av_log(logger(ctx), AV_LOG_TRACE, "--- %s VIDIOC_DQBUF OK: index=%d, count=%d\n",
++               ctx->name, buf.index, ctx->q_count);
++
+ 
+         if (ctx_to_m2mctx(ctx)->draining && !V4L2_TYPE_IS_OUTPUT(ctx->type)) {
+             int bytesused = V4L2_TYPE_IS_MULTIPLANAR(buf.type) ?
+                             buf.m.planes[0].bytesused : buf.bytesused;
+             if (bytesused == 0) {
++                av_log(logger(ctx), AV_LOG_TRACE, "Buffer empty - reQ\n");
++
++                // Must reQ so we don't leak
++                ret = ioctl(ctx_to_m2mctx(ctx)->fd, VIDIOC_QBUF, &buf);
++                if (ret) {
++                    av_log(logger(ctx), AV_LOG_WARNING, "%s VIDIOC_QBUF, errno (%s): reQ empty buf failed\n",
++                        ctx->name, av_err2str(AVERROR(errno)));
++                }
++                else {
++                    ++ctx->q_count;
++                    av_log(logger(ctx), AV_LOG_TRACE, "--- %s VIDIOC_QBUF OK: index=%d, count=%d\n",
++                           ctx->name, buf.index, ctx->q_count);
++                }
++
+                 ctx->done = 1;
+                 return NULL;
+             }
+ #ifdef V4L2_BUF_FLAG_LAST
+-            if (buf.flags & V4L2_BUF_FLAG_LAST)
++            if (buf.flags & V4L2_BUF_FLAG_LAST){
++                av_log(logger(ctx), AV_LOG_TRACE, "FLAG_LAST set\n");
+                 ctx->done = 1;
++            }
+ #endif
+         }
+ 
+@@ -455,22 +498,54 @@ static int v4l2_release_buffers(V4L2Context* ctx)
+     struct v4l2_requestbuffers req = {
+         .memory = V4L2_MEMORY_MMAP,
+         .type = ctx->type,
+-        .count = 0, /* 0 -> unmaps buffers from the driver */
++        .count = 0, /* 0 -> unmap all buffers from the driver */
+     };
+-    int i, j;
++    int ret, i, j;
+ 
+     for (i = 0; i < ctx->num_buffers; i++) {
+         V4L2Buffer *buffer = &ctx->buffers[i];
+ 
+         for (j = 0; j < buffer->num_planes; j++) {
+             struct V4L2Plane_info *p = &buffer->plane_info[j];
++
++            if (V4L2_TYPE_IS_OUTPUT(ctx->type)) {
++                /* output buffers are not EXPORTED */
++                goto unmap;
++            }
++
++            if (ctx_to_m2mctx(ctx)->output_drm) {
++                /* use the DRM frame to close */
++                if (buffer->drm_frame.objects[j].fd >= 0) {
++                    if (close(buffer->drm_frame.objects[j].fd) < 0) {
++                        av_log(logger(ctx), AV_LOG_ERROR, "%s close drm fd "
++                            "[buffer=%2d, plane=%d, fd=%2d] - %s \n",
++                            ctx->name, i, j, buffer->drm_frame.objects[j].fd,
++                            av_err2str(AVERROR(errno)));
++                    }
++                }
++            }
++unmap:
+             if (p->mm_addr && p->length)
+                 if (munmap(p->mm_addr, p->length) < 0)
+-                    av_log(logger(ctx), AV_LOG_ERROR, "%s unmap plane (%s))\n", ctx->name, av_err2str(AVERROR(errno)));
++                    av_log(logger(ctx), AV_LOG_ERROR, "%s unmap plane (%s))\n",
++                        ctx->name, av_err2str(AVERROR(errno)));
+         }
+     }
+ 
+-    return ioctl(ctx_to_m2mctx(ctx)->fd, VIDIOC_REQBUFS, &req);
++    ret = ioctl(ctx_to_m2mctx(ctx)->fd, VIDIOC_REQBUFS, &req);
++    if (ret < 0) {
++            av_log(logger(ctx), AV_LOG_ERROR, "release all %s buffers (%s)\n",
++                ctx->name, av_err2str(AVERROR(errno)));
++
++            if (ctx_to_m2mctx(ctx)->output_drm)
++                av_log(logger(ctx), AV_LOG_ERROR,
++                    "Make sure the DRM client releases all FB/GEM objects before closing the codec (ie):\n"
++                    "for all buffers: \n"
++                    "  1. drmModeRmFB(..)\n"
++                    "  2. drmIoctl(.., DRM_IOCTL_GEM_CLOSE,... )\n");
++    }
++
++    return ret;
+ }
+ 
+ static inline int v4l2_try_raw_format(V4L2Context* ctx, enum AVPixelFormat pixfmt)
+@@ -499,6 +574,8 @@ static inline int v4l2_try_raw_format(V4L2Context* ctx, enum AVPixelFormat pixfm
+ 
+ static int v4l2_get_raw_format(V4L2Context* ctx, enum AVPixelFormat *p)
+ {
++    V4L2m2mContext* s = ctx_to_m2mctx(ctx);
++    V4L2m2mPriv *priv = s->avctx->priv_data;
+     enum AVPixelFormat pixfmt = ctx->av_pix_fmt;
+     struct v4l2_fmtdesc fdesc;
+     int ret;
+@@ -517,6 +594,13 @@ static int v4l2_get_raw_format(V4L2Context* ctx, enum AVPixelFormat *p)
+         if (ret)
+             return AVERROR(EINVAL);
+ 
++        if (priv->pix_fmt != AV_PIX_FMT_NONE) {
++            if (fdesc.pixelformat != ff_v4l2_format_avfmt_to_v4l2(priv->pix_fmt)) {
++                fdesc.index++;
++                continue;
++            }
++        }
++
+         pixfmt = ff_v4l2_format_v4l2_to_avfmt(fdesc.pixelformat, AV_CODEC_ID_RAWVIDEO);
+         ret = v4l2_try_raw_format(ctx, pixfmt);
+         if (ret){
+@@ -608,7 +692,7 @@ int ff_v4l2_context_enqueue_frame(V4L2Context* ctx, const AVFrame* frame)
+     return ff_v4l2_buffer_enqueue(avbuf);
+ }
+ 
+-int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt)
++int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt, const void * extdata, size_t extlen)
+ {
+     V4L2m2mContext *s = ctx_to_m2mctx(ctx);
+     V4L2Buffer* avbuf;
+@@ -626,7 +710,7 @@ int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt)
+     if (!avbuf)
+         return AVERROR(EAGAIN);
+ 
+-    ret = ff_v4l2_buffer_avpkt_to_buf(pkt, avbuf);
++    ret = ff_v4l2_buffer_avpkt_to_buf_ext(pkt, avbuf, extdata, extlen);
+     if (ret)
+         return ret;
+ 
+diff --git a/libavcodec/v4l2_context.h b/libavcodec/v4l2_context.h
+index 22a9532444..e459c72c45 100644
+--- a/libavcodec/v4l2_context.h
++++ b/libavcodec/v4l2_context.h
+@@ -92,6 +92,9 @@ typedef struct V4L2Context {
+      */
+     int done;
+ 
++    AVBufferRef *frames_ref;
++    int q_count;
++
+ } V4L2Context;
+ 
+ /**
+@@ -170,7 +173,7 @@ int ff_v4l2_context_dequeue_frame(V4L2Context* ctx, AVFrame* f, int timeout);
+  * @param[in] pkt A pointer to an AVPacket.
+  * @return 0 in case of success, a negative error otherwise.
+  */
+-int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt);
++int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt, const void * ext_data, size_t ext_size);
+ 
+ /**
+  * Enqueues a buffer to a V4L2Context from an AVFrame
+diff --git a/libavcodec/v4l2_m2m.c b/libavcodec/v4l2_m2m.c
+index e48b3a8ccf..5543ac77ba 100644
+--- a/libavcodec/v4l2_m2m.c
++++ b/libavcodec/v4l2_m2m.c
+@@ -338,6 +338,13 @@ int ff_v4l2_m2m_codec_end(V4L2m2mPriv *priv)
+     V4L2m2mContext *s = priv->context;
+     int ret;
+ 
++    if (!s)
++        return 0;
++
++    if (av_codec_is_decoder(s->avctx->codec))
++        av_packet_unref(&s->buf_pkt);
++
++    if (s->fd >= 0) {
+     ret = ff_v4l2_context_set_status(&s->output, VIDIOC_STREAMOFF);
+     if (ret)
+         av_log(s->avctx, AV_LOG_ERROR, "VIDIOC_STREAMOFF %s\n", s->output.name);
+@@ -345,11 +352,16 @@ int ff_v4l2_m2m_codec_end(V4L2m2mPriv *priv)
+     ret = ff_v4l2_context_set_status(&s->capture, VIDIOC_STREAMOFF);
+     if (ret)
+         av_log(s->avctx, AV_LOG_ERROR, "VIDIOC_STREAMOFF %s\n", s->capture.name);
++    }
+ 
+     ff_v4l2_context_release(&s->output);
+ 
+     s->self_ref = NULL;
++    // This is only called on avctx close so after this point we don't have that
++    // Crash sooner if we find we are using it (can still log with avctx = NULL)
++    s->avctx = NULL;
+     av_buffer_unref(&priv->context_ref);
++    priv->context = NULL;
+ 
+     return 0;
+ }
+diff --git a/libavcodec/v4l2_m2m.h b/libavcodec/v4l2_m2m.h
+index 456281f48c..b08a5b38ac 100644
+--- a/libavcodec/v4l2_m2m.h
++++ b/libavcodec/v4l2_m2m.h
+@@ -30,6 +30,7 @@
+ #include <linux/videodev2.h>
+ 
+ #include "libavcodec/avcodec.h"
++#include "libavutil/pixfmt.h"
+ #include "v4l2_context.h"
+ 
+ #define container_of(ptr, type, member) ({ \
+@@ -38,7 +39,18 @@
+ 
+ #define V4L_M2M_DEFAULT_OPTS \
+     { "num_output_buffers", "Number of buffers in the output context",\
+-        OFFSET(num_output_buffers), AV_OPT_TYPE_INT, { .i64 = 16 }, 6, INT_MAX, FLAGS }
++        OFFSET(num_output_buffers), AV_OPT_TYPE_INT, { .i64 = 16 }, 2, INT_MAX, FLAGS }
++
++#define FF_V4L2_M2M_TRACK_SIZE 128
++typedef struct V4L2m2mTrackEl {
++    int     discard;   // If we see this buffer its been flushed, so discard
++    int     pkt_size;
++    int64_t pts;
++    int64_t reordered_opaque;
++    int64_t pkt_pos;
++    int64_t pkt_duration;
++    int64_t track_pts;
++} V4L2m2mTrackEl;
+ 
+ typedef struct V4L2m2mContext {
+     char devname[PATH_MAX];
+@@ -63,6 +75,23 @@ typedef struct V4L2m2mContext {
+ 
+     /* reference back to V4L2m2mPriv */
+     void *priv;
++
++    AVBufferRef *device_ref;
++
++    /* generate DRM frames */
++    int output_drm;
++
++    /* Frame tracking */
++    int64_t last_pkt_dts;
++    int64_t last_opaque;
++    unsigned int track_no;
++    V4L2m2mTrackEl track_els[FF_V4L2_M2M_TRACK_SIZE];
++
++    /* req pkt */
++    int req_pkt;
++
++    /* Ext data sent */
++    int extdata_sent;
+ } V4L2m2mContext;
+ 
+ typedef struct V4L2m2mPriv {
+@@ -73,6 +102,7 @@ typedef struct V4L2m2mPriv {
+ 
+     int num_output_buffers;
+     int num_capture_buffers;
++    enum AVPixelFormat pix_fmt;
+ } V4L2m2mPriv;
+ 
+ /**
+diff --git a/libavcodec/v4l2_m2m_dec.c b/libavcodec/v4l2_m2m_dec.c
+index 3e17e0fcac..351df8b9ee 100644
+--- a/libavcodec/v4l2_m2m_dec.c
++++ b/libavcodec/v4l2_m2m_dec.c
+@@ -23,6 +23,9 @@
+ 
+ #include <linux/videodev2.h>
+ #include <sys/ioctl.h>
++
++#include "libavutil/hwcontext.h"
++#include "libavutil/hwcontext_drm.h"
+ #include "libavutil/pixfmt.h"
+ #include "libavutil/pixdesc.h"
+ #include "libavutil/opt.h"
+@@ -30,26 +33,48 @@
+ #include "libavcodec/decode.h"
+ #include "libavcodec/internal.h"
+ 
++#include "libavcodec/hwaccels.h"
++#include "libavcodec/internal.h"
++#include "libavcodec/hwconfig.h"
++
+ #include "v4l2_context.h"
+ #include "v4l2_m2m.h"
+ #include "v4l2_fmt.h"
+ 
++static int check_output_streamon(AVCodecContext *const avctx, V4L2m2mContext *const s)
++{
++    int ret;
++    struct v4l2_decoder_cmd cmd = {
++        .cmd = V4L2_DEC_CMD_START,
++        .flags = 0,
++    };
++
++    if (s->output.streamon)
++        return 0;
++
++    ret = ff_v4l2_context_set_status(&s->output, VIDIOC_STREAMON);
++    if (ret < 0)
++        av_log(avctx, AV_LOG_ERROR, "VIDIOC_STREAMON on output context\n");
++
++    if (!s->capture.streamon || ret < 0)
++        return ret;
++
++    ret = ioctl(s->fd, VIDIOC_DECODER_CMD, &cmd);
++    if (ret < 0)
++        av_log(avctx, AV_LOG_ERROR, "VIDIOC_DECODER_CMD start error: %d\n", errno);
++    return ret;
++}
++
+ static int v4l2_try_start(AVCodecContext *avctx)
+ {
+     V4L2m2mContext *s = ((V4L2m2mPriv*)avctx->priv_data)->context;
+     V4L2Context *const capture = &s->capture;
+-    V4L2Context *const output = &s->output;
+     struct v4l2_selection selection = { 0 };
+     int ret;
+ 
+     /* 1. start the output process */
+-    if (!output->streamon) {
+-        ret = ff_v4l2_context_set_status(output, VIDIOC_STREAMON);
+-        if (ret < 0) {
+-            av_log(avctx, AV_LOG_DEBUG, "VIDIOC_STREAMON on output context\n");
+-            return ret;
+-        }
+-    }
++    if ((ret = check_output_streamon(avctx, s)) != 0)
++        return ret;
+ 
+     if (capture->streamon)
+         return 0;
+@@ -63,8 +88,14 @@ static int v4l2_try_start(AVCodecContext *avctx)
+     }
+ 
+     /* 2.1 update the AVCodecContext */
+-    avctx->pix_fmt = ff_v4l2_format_v4l2_to_avfmt(capture->format.fmt.pix_mp.pixelformat, AV_CODEC_ID_RAWVIDEO);
+-    capture->av_pix_fmt = avctx->pix_fmt;
++    capture->av_pix_fmt =
++        ff_v4l2_format_v4l2_to_avfmt(capture->format.fmt.pix_mp.pixelformat, AV_CODEC_ID_RAWVIDEO);
++    if (s->output_drm) {
++        avctx->pix_fmt = AV_PIX_FMT_DRM_PRIME;
++        avctx->sw_pix_fmt = capture->av_pix_fmt;
++    }
++    else
++        avctx->pix_fmt = capture->av_pix_fmt;
+ 
+     /* 3. set the crop parameters */
+     selection.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+@@ -133,28 +164,257 @@ static int v4l2_prepare_decoder(V4L2m2mContext *s)
+     return 0;
+ }
+ 
++#define XLAT_PTS 1
++
++static inline int64_t track_to_pts(AVCodecContext *avctx, unsigned int n)
++{
++    const AVRational t = avctx->pkt_timebase.num ? avctx->pkt_timebase : avctx->time_base;
++    return !t.num || !t.den ? (int64_t)n * 1000000 : ((int64_t)n * t.den) / (t.num);
++}
++
++static inline unsigned int pts_to_track(AVCodecContext *avctx, const int64_t pts)
++{
++    const AVRational t = avctx->pkt_timebase.num ? avctx->pkt_timebase : avctx->time_base;
++    return (unsigned int)(!t.num || !t.den ? pts / 1000000 : (pts * t.num) / t.den);
++}
++
++static void
++xlat_pts_in(AVCodecContext *const avctx, V4L2m2mContext *const s, AVPacket *const avpkt)
++{
++#if XLAT_PTS
++    int64_t track_pts;
++
++    // Avoid 0
++    if (++s->track_no == 0)
++        s->track_no = 1;
++
++    track_pts = track_to_pts(avctx, s->track_no);
++
++    av_log(avctx, AV_LOG_TRACE, "In PTS=%" PRId64 ", DTS=%" PRId64 ", track=%" PRId64 ", n=%u\n", avpkt->pts, avpkt->dts, track_pts, s->track_no);
++    s->last_pkt_dts = avpkt->dts;
++    s->track_els[s->track_no  % FF_V4L2_M2M_TRACK_SIZE] = (V4L2m2mTrackEl){
++        .discard          = 0,
++        .pkt_size         = avpkt->size,
++        .pts              = avpkt->pts,
++        .reordered_opaque = avctx->reordered_opaque,
++        .pkt_pos          = avpkt->pos,
++        .pkt_duration     = avpkt->duration,
++        .track_pts        = track_pts
++    };
++    avpkt->pts = track_pts;
++#endif
++}
++
++// Returns -1 if we should discard the frame
++static int
++xlat_pts_out(AVCodecContext *const avctx, V4L2m2mContext *const s, AVFrame *const frame)
++{
++#if XLAT_PTS
++    unsigned int n = pts_to_track(avctx, frame->pts) % FF_V4L2_M2M_TRACK_SIZE;
++    const V4L2m2mTrackEl *const t = s->track_els + n;
++    if (frame->pts == AV_NOPTS_VALUE || frame->pts != t->track_pts)
++    {
++        av_log(avctx, AV_LOG_INFO, "Tracking failure: pts=%" PRId64 ", track[%d]=%" PRId64 "\n", frame->pts, n, t->track_pts);
++        frame->pts              = AV_NOPTS_VALUE;
++        frame->pkt_dts          = s->last_pkt_dts;
++        frame->reordered_opaque = s->last_opaque;
++        frame->pkt_pos          = -1;
++        frame->pkt_duration     = 0;
++        frame->pkt_size         = -1;
++    }
++    else if (!t->discard)
++    {
++        frame->pts              = t->pts;
++        frame->pkt_dts          = s->last_pkt_dts;
++        frame->reordered_opaque = t->reordered_opaque;
++        frame->pkt_pos          = t->pkt_pos;
++        frame->pkt_duration     = t->pkt_duration;
++        frame->pkt_size         = t->pkt_size;
++
++        s->last_opaque = s->track_els[n].reordered_opaque;
++        s->track_els[n].pts = AV_NOPTS_VALUE;  // If we hit this again deny accurate knowledge of PTS
++    }
++    else
++    {
++        av_log(avctx, AV_LOG_DEBUG, "Discard frame (flushed): pts=%" PRId64 ", track[%d]=%" PRId64 "\n", frame->pts, n, t->track_pts);
++        return -1;
++    }
++
++#if FF_API_PKT_PTS
++FF_DISABLE_DEPRECATION_WARNINGS
++    frame->pkt_pts = frame->pts;
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
++    frame->best_effort_timestamp = frame->pts;
++    frame->pkt_dts               = frame->pts;  // We can't emulate what s/w does in a useful manner?
++    av_log(avctx, AV_LOG_TRACE, "Out PTS=%" PRId64 ", DTS=%" PRId64 "\n", frame->pts, frame->pkt_dts);
++#endif
++    return 0;
++}
++
++static inline int stream_started(const V4L2m2mContext * const s) {
++    return s->capture.streamon && s->output.streamon;
++}
++
++
++// -ve  Error
++// 0    OK
++// 1    Dst full (retry if we think V4L2 Q has space now)
++// 2    Src empty (do not retry)
++// 3    Not started (do not retry, do not attempt capture dQ)
++
++static int try_enqueue_src(AVCodecContext * const avctx, V4L2m2mContext * const s)
++{
++    AVPacket avpkt = {0};
++    int ret = 0;
++    int ret2 = 0;
++
++    if (s->buf_pkt.size) {
++        av_packet_move_ref(&avpkt, &s->buf_pkt);
++    } else {
++        ret = ff_decode_get_packet(avctx, &avpkt);
++        if (ret == AVERROR(EAGAIN)) {
++            if (!stream_started(s)) {
++                av_log(avctx, AV_LOG_TRACE, "%s: receive_frame before 1st coded packet\n", __func__);
++                return 3;
++            }
++            return 2;
++        }
++
++        if (ret == AVERROR_EOF || avpkt.size == 0) {
++            // EOF - enter drain mode
++            av_log(avctx, AV_LOG_TRACE, "--- EOS req: ret=%d, size=%d, started=%d, drain=%d\n", ret, avpkt.size, stream_started(s), s->draining);
++            if (!stream_started(s)) {
++                av_log(avctx, AV_LOG_DEBUG, "EOS on flushed stream\n");
++                s->draining = 1;
++                s->capture.done = 1;
++                return AVERROR_EOF;
++            }
++
++            if (!s->draining) {
++                // On the offchance that get_packet left something that needs freeing in here
++                av_packet_unref(&avpkt);
++                // Calling enqueue with an empty pkt starts drain
++                ret = ff_v4l2_context_enqueue_packet(&s->output, &avpkt, NULL, 0);
++                if (ret) {
++                    av_log(avctx, AV_LOG_ERROR, "Failed to start drain: ret=%d\n", ret);
++                    return ret;
++                }
++            }
++            return 2;
++        }
++
++        if (ret < 0)
++            return ret;
++
++        xlat_pts_in(avctx, s, &avpkt);
++    }
++
++    if ((ret = check_output_streamon(avctx, s)) != 0)
++        return ret;
++
++    ret = ff_v4l2_context_enqueue_packet(&s->output, &avpkt,
++                                         avctx->extradata, s->extdata_sent ? 0 : avctx->extradata_size);
++    s->extdata_sent = 1;
++
++    if (ret == AVERROR(EAGAIN)) {
++        // Out of input buffers - stash
++        av_packet_move_ref(&s->buf_pkt, &avpkt);
++        ret = 1;
++    }
++    else {
++        // In all other cases we are done with this packet
++        av_packet_unref(&avpkt);
++
++        if (ret) {
++            av_log(avctx, AV_LOG_ERROR, "Packet enqueue failure: err=%d\n", ret);
++            return ret;
++        }
++    }
++
++    // Start if we haven't
++    ret2 = v4l2_try_start(avctx);
++    if (ret2) {
++        av_log(avctx, AV_LOG_DEBUG, "Start failure: err=%d\n", ret2);
++        ret = (ret2 == AVERROR(ENOMEM)) ? ret2 : 3;
++    }
++
++    return ret;
++}
++
+ static int v4l2_receive_frame(AVCodecContext *avctx, AVFrame *frame)
+ {
++#if 1
++    V4L2m2mContext *const s = ((V4L2m2mPriv*)avctx->priv_data)->context;
++    int src_rv;
++    int dst_rv = 1;
++
++    do {
++        src_rv = try_enqueue_src(avctx, s);
++
++        if (src_rv < 0) {
++            av_log(avctx, AV_LOG_ERROR, "Packet enqueue failure: err=%d\n", src_rv);
++        }
++
++        if (s->req_pkt && src_rv == 2 && !s->draining)
++            break;
++
++        if (src_rv == 1 && dst_rv == AVERROR(EAGAIN)) {
++            av_log(avctx, AV_LOG_WARNING, "Poll says src Q has space but enqueue fail");
++            src_rv = 2;
++        }
++
++        if (src_rv >= 0 && src_rv <= 2 && dst_rv != 0) {
++            do {
++                // Dequeue frame will unref any previous contents of frame
++                // so we don't need an explicit unref when discarding
++                dst_rv = ff_v4l2_context_dequeue_frame(&s->capture, frame, -1);
++
++                if (dst_rv < 0) {
++                    av_log(avctx, AV_LOG_ERROR, "Packet dequeue failure: draining=%d, cap.done=%d, err=%d\n", s->draining, s->capture.done, dst_rv);
++                }
++
++            } while (dst_rv == 0 && xlat_pts_out(avctx, s, frame));
++        }
++    } while (src_rv == 0 || (src_rv == 1 && dst_rv == AVERROR(EAGAIN)) );
++
++    if (dst_rv)
++        av_frame_unref(frame);
++
++    // If we got a frame this time ask for a pkt next time
++    s->req_pkt = (dst_rv == 0);
++
++    return dst_rv == 0 ? 0 :
++        src_rv < 0 ? src_rv :
++        dst_rv < 0 ? dst_rv :
++            AVERROR(EAGAIN);
++
++#else
+     V4L2m2mContext *s = ((V4L2m2mPriv*)avctx->priv_data)->context;
+     V4L2Context *const capture = &s->capture;
+     V4L2Context *const output = &s->output;
+     AVPacket avpkt = {0};
+-    int ret;
++    int ret = 0;
+ 
+     if (s->buf_pkt.size) {
+-        avpkt = s->buf_pkt;
+-        memset(&s->buf_pkt, 0, sizeof(AVPacket));
++        av_packet_move_ref(&avpkt, &s->buf_pkt);
+     } else {
+         ret = ff_decode_get_packet(avctx, &avpkt);
+-        if (ret < 0 && ret != AVERROR_EOF)
++        if (ret < 0 && ret != AVERROR_EOF && ret != AVERROR(EAGAIN))
+             return ret;
++        if (ret == 0)
++            xlat_pts_in(avctx, s, &avpkt);
+     }
+ 
+-    if (s->draining)
++    if (ret)
+         goto dequeue;
+ 
+-    ret = ff_v4l2_context_enqueue_packet(output, &avpkt);
++//    av_log(avctx, AV_LOG_INFO, "Extdata len=%d, sent=%d\n", avctx->extradata_size, s->extdata_sent);
++    ret = ff_v4l2_context_enqueue_packet(output, &avpkt,
++                                         avctx->extradata, s->extdata_sent ? 0 : avctx->extradata_size);
++    s->extdata_sent = 1;
+     if (ret < 0) {
++        av_log(avctx, AV_LOG_ERROR, "Packet enqueue failure: err=%d\n", ret);
+         if (ret != AVERROR(EAGAIN))
+            return ret;
+ 
+@@ -178,9 +438,36 @@ static int v4l2_receive_frame(AVCodecContext *avctx, AVFrame *frame)
+ dequeue:
+     if (!s->buf_pkt.size)
+         av_packet_unref(&avpkt);
+-    return ff_v4l2_context_dequeue_frame(capture, frame, -1);
++
++    ret = ff_v4l2_context_dequeue_frame(capture, frame, -1);
++    if (!ret)
++        xlat_pts_out(avctx, s, frame);
++    return ret;
++#endif
+ }
+ 
++#if 0
++#include <time.h>
++static int64_t us_time(void)
++{
++    struct timespec ts;
++    clock_gettime(CLOCK_MONOTONIC, &ts);
++    return (int64_t)ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
++}
++
++static int v4l2_receive_frame(AVCodecContext *avctx, AVFrame *frame)
++{
++    int ret;
++    const int64_t now = us_time();
++    int64_t done;
++    av_log(avctx, AV_LOG_TRACE, "<<< %s\n", __func__);
++    ret = v4l2_receive_frame2(avctx, frame);
++    done = us_time();
++    av_log(avctx, AV_LOG_TRACE, ">>> %s: rx time=%" PRId64 ", rv=%d\n", __func__, done - now, ret);
++    return ret;
++}
++#endif
++
+ static av_cold int v4l2_decode_init(AVCodecContext *avctx)
+ {
+     V4L2Context *capture, *output;
+@@ -188,6 +475,9 @@ static av_cold int v4l2_decode_init(AVCodecContext *avctx)
+     V4L2m2mPriv *priv = avctx->priv_data;
+     int ret;
+ 
++    av_log(avctx, AV_LOG_TRACE, "<<< %s\n", __func__);
++    avctx->pix_fmt = AV_PIX_FMT_DRM_PRIME;
++
+     ret = ff_v4l2_m2m_create_context(priv, &s);
+     if (ret < 0)
+         return ret;
+@@ -208,13 +498,32 @@ static av_cold int v4l2_decode_init(AVCodecContext *avctx)
+     capture->av_codec_id = AV_CODEC_ID_RAWVIDEO;
+     capture->av_pix_fmt = avctx->pix_fmt;
+ 
++    /* the client requests the codec to generate DRM frames:
++     *   - data[0] will therefore point to the returned AVDRMFrameDescriptor
++     *       check the ff_v4l2_buffer_to_avframe conversion function.
++     *   - the DRM frame format is passed in the DRM frame descriptor layer.
++     *       check the v4l2_get_drm_frame function.
++     */
++    switch (ff_get_format(avctx, avctx->codec->pix_fmts)) {
++    default:
++        s->output_drm = 1;
++        break;
++    }
++
++    s->device_ref = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_DRM);
++    if (!s->device_ref) {
++        ret = AVERROR(ENOMEM);
++        return ret;
++    }
++
++    ret = av_hwdevice_ctx_init(s->device_ref);
++    if (ret < 0)
++        return ret;
++
+     s->avctx = avctx;
+     ret = ff_v4l2_m2m_codec_init(priv);
+     if (ret) {
+         av_log(avctx, AV_LOG_ERROR, "can't configure decoder\n");
+-        s->self_ref = NULL;
+-        av_buffer_unref(&priv->context_ref);
+-
+         return ret;
+     }
+ 
+@@ -223,10 +532,68 @@ static av_cold int v4l2_decode_init(AVCodecContext *avctx)
+ 
+ static av_cold int v4l2_decode_close(AVCodecContext *avctx)
+ {
++    av_log(avctx, AV_LOG_TRACE, "<<< %s\n", __func__);
++    return ff_v4l2_m2m_codec_end(avctx->priv_data);
++    av_log(avctx, AV_LOG_TRACE, ">>> %s\n", __func__);
++}
++
++static void v4l2_decode_flush(AVCodecContext *avctx)
++{
++
++#if 0
++    v4l2_decode_close(avctx);
++    v4l2_decode_init(avctx);
++#else
+     V4L2m2mPriv *priv = avctx->priv_data;
+-    V4L2m2mContext *s = priv->context;
+-    av_packet_unref(&s->buf_pkt);
+-    return ff_v4l2_m2m_codec_end(priv);
++    V4L2m2mContext* s = priv->context;
++    V4L2Context* output = &s->output;
++    V4L2Context* capture = &s->capture;
++    int ret, i;
++
++    av_log(avctx, AV_LOG_TRACE, "<<< %s\n", __func__);
++
++    ret = ff_v4l2_context_set_status(output, VIDIOC_STREAMOFF);
++    if (ret < 0)
++        av_log(avctx, AV_LOG_ERROR, "VIDIOC_STREAMOFF %s error: %d\n", output->name, ret);
++
++    for (i = 0; i < output->num_buffers; i++) {
++        if (output->buffers[i].status == V4L2BUF_IN_DRIVER)
++            output->buffers[i].status = V4L2BUF_AVAILABLE;
++    }
++
++    for (i = 0; i != FF_V4L2_M2M_TRACK_SIZE; ++i)
++        s->track_els[i].discard = 1;
++
++#if 0
++
++    ret = ff_v4l2_context_set_status(capture, VIDIOC_STREAMOFF);
++    if (ret < 0)
++        av_log(avctx, AV_LOG_ERROR, "VIDIOC_STREAMOFF %s error: %d\n", capture->name, ret);
++
++
++    ret = ff_v4l2_context_set_status(capture, VIDIOC_STREAMON);
++    if (ret < 0)
++        av_log(avctx, AV_LOG_ERROR, "VIDIOC_STREAMON %s error: %d\n", capture->name, ret);
++    ret = ff_v4l2_context_set_status(output, VIDIOC_STREAMON);
++    if (ret < 0)
++        av_log(avctx, AV_LOG_ERROR, "VIDIOC_STREAMON %s error: %d\n", output->name, ret);
++
++    struct v4l2_decoder_cmd cmd = {
++        .cmd = V4L2_DEC_CMD_START,
++        .flags = 0,
++    };
++
++    ret = ioctl(s->fd, VIDIOC_DECODER_CMD, &cmd);
++    if (ret < 0)
++        av_log(avctx, AV_LOG_ERROR, "VIDIOC_DECODER_CMD start error: %d\n", errno);
++#endif
++
++    s->draining = 0;
++    s->extdata_sent = 0;
++    output->done = 0;
++    capture->done = 0;
++#endif
++    av_log(avctx, AV_LOG_TRACE, ">>> %s\n", __func__);
+ }
+ 
+ #define OFFSET(x) offsetof(V4L2m2mPriv, x)
+@@ -235,10 +602,16 @@ static av_cold int v4l2_decode_close(AVCodecContext *avctx)
+ static const AVOption options[] = {
+     V4L_M2M_DEFAULT_OPTS,
+     { "num_capture_buffers", "Number of buffers in the capture context",
+-        OFFSET(num_capture_buffers), AV_OPT_TYPE_INT, {.i64 = 20}, 20, INT_MAX, FLAGS },
++        OFFSET(num_capture_buffers), AV_OPT_TYPE_INT, {.i64 = 20}, 2, INT_MAX, FLAGS },
++    { "pixel_format", "Pixel format to be used by the decoder", OFFSET(pix_fmt), AV_OPT_TYPE_PIXEL_FMT, {.i64 = AV_PIX_FMT_NONE}, AV_PIX_FMT_NONE, AV_PIX_FMT_NB, FLAGS },
+     { NULL},
+ };
+ 
++static const AVCodecHWConfigInternal *v4l2_m2m_hw_configs[] = {
++    HW_CONFIG_INTERNAL(DRM_PRIME),
++    NULL
++};
++
+ #define M2MDEC_CLASS(NAME) \
+     static const AVClass v4l2_m2m_ ## NAME ## _dec_class = { \
+         .class_name = #NAME "_v4l2m2m_decoder", \
+@@ -259,9 +632,14 @@ static const AVOption options[] = {
+         .init           = v4l2_decode_init, \
+         .receive_frame  = v4l2_receive_frame, \
+         .close          = v4l2_decode_close, \
++        .flush          = v4l2_decode_flush, \
+         .bsfs           = bsf_name, \
+         .capabilities   = AV_CODEC_CAP_HARDWARE | AV_CODEC_CAP_DELAY | AV_CODEC_CAP_AVOID_PROBING, \
+-        .caps_internal  = FF_CODEC_CAP_SETS_PKT_DTS, \
++        .caps_internal  = FF_CODEC_CAP_SETS_PKT_DTS | FF_CODEC_CAP_INIT_CLEANUP, \
++        .pix_fmts       = (const enum AVPixelFormat[]) { AV_PIX_FMT_DRM_PRIME, \
++                                                         AV_PIX_FMT_NV12, \
++                                                         AV_PIX_FMT_NONE}, \
++        .hw_configs     = v4l2_m2m_hw_configs, \
+         .wrapper_name   = "v4l2m2m", \
+     }
+ 
+diff --git a/libavcodec/v4l2_m2m_enc.c b/libavcodec/v4l2_m2m_enc.c
+index 32321f392f..9f1b2c2ffc 100644
+--- a/libavcodec/v4l2_m2m_enc.c
++++ b/libavcodec/v4l2_m2m_enc.c
+@@ -416,6 +416,7 @@ static const AVCodecDefault v4l2_m2m_defaults[] = {
+         .close          = v4l2_encode_close, \
+         .defaults       = v4l2_m2m_defaults, \
+         .capabilities   = AV_CODEC_CAP_HARDWARE | AV_CODEC_CAP_DELAY, \
++        .caps_internal  = FF_CODEC_CAP_INIT_CLEANUP, \
+         .wrapper_name   = "v4l2m2m", \
+     }
+ 
 diff --git a/libavcodec/v4l2_phase.c b/libavcodec/v4l2_phase.c
 new file mode 100644
 index 0000000000..0a7f6abd33
@@ -46584,10 +48226,10 @@ index 0000000000..392f22b988
 +#endif
 diff --git a/libavcodec/v4l2_request.c b/libavcodec/v4l2_request.c
 new file mode 100644
-index 0000000000..4ca42d29ec
+index 0000000000..06beeda0da
 --- /dev/null
 +++ b/libavcodec/v4l2_request.c
-@@ -0,0 +1,1054 @@
+@@ -0,0 +1,1093 @@
 +/*
 + * This file is part of FFmpeg.
 + *
@@ -46621,10 +48263,26 @@ index 0000000000..4ca42d29ec
 +#include "v4l2_request.h"
 +#include "v4l2_phase.h"
 +
++#ifndef DRM_FORMAT_NV15
++#define DRM_FORMAT_NV15 fourcc_code('N', 'V', '1', '5')
++#endif
++
++#ifndef DRM_FORMAT_NV20
++#define DRM_FORMAT_NV20 fourcc_code('N', 'V', '2', '0')
++#endif
++
 +// P030 should be defined in drm_fourcc.h and hopefully will be sometime
 +// in the future but until then...
 +#ifndef DRM_FORMAT_P030
 +#define DRM_FORMAT_P030 fourcc_code('P', '0', '3', '0')
++#endif
++
++#ifndef DRM_FORMAT_NV15
++#define DRM_FORMAT_NV15 fourcc_code('N', 'V', '1', '5')
++#endif
++
++#ifndef DRM_FORMAT_NV20
++#define DRM_FORMAT_NV20 fourcc_code('N', 'V', '2', '0')
 +#endif
 +
 +uint64_t ff_v4l2_request_get_capture_timestamp(AVFrame *frame)
@@ -46803,6 +48461,13 @@ index 0000000000..4ca42d29ec
 +#ifdef DRM_FORMAT_MOD_ALLWINNER_TILED
 +    V4L2_PIX_FMT_SUNXI_TILED_NV12,
 +#endif
++#if defined(V4L2_PIX_FMT_NV15) && defined(DRM_FORMAT_NV15)
++    V4L2_PIX_FMT_NV15,
++#endif
++    V4L2_PIX_FMT_NV16,
++#if defined(V4L2_PIX_FMT_NV20) && defined(DRM_FORMAT_NV20)
++    V4L2_PIX_FMT_NV20,
++#endif
 +};
 +
 +static int v4l2_request_set_drm_descriptor(V4L2RequestDescriptor *req, struct v4l2_format *format)
@@ -46830,6 +48495,22 @@ index 0000000000..4ca42d29ec
 +    case V4L2_PIX_FMT_SUNXI_TILED_NV12:
 +        layer->format = DRM_FORMAT_NV12;
 +        desc->objects[0].format_modifier = DRM_FORMAT_MOD_ALLWINNER_TILED;
++        break;
++#endif
++#if defined(V4L2_PIX_FMT_NV15) && defined(DRM_FORMAT_NV15)
++    case V4L2_PIX_FMT_NV15:
++        layer->format = DRM_FORMAT_NV15;
++        desc->objects[0].format_modifier = DRM_FORMAT_MOD_LINEAR;
++        break;
++#endif
++    case V4L2_PIX_FMT_NV16:
++        layer->format = DRM_FORMAT_NV16;
++        desc->objects[0].format_modifier = DRM_FORMAT_MOD_LINEAR;
++        break;
++#if defined(V4L2_PIX_FMT_NV20) && defined(DRM_FORMAT_NV20)
++    case V4L2_PIX_FMT_NV20:
++        layer->format = DRM_FORMAT_NV20;
++        desc->objects[0].format_modifier = DRM_FORMAT_MOD_LINEAR;
 +        break;
 +#endif
 +    default:
@@ -47164,16 +48845,16 @@ index 0000000000..4ca42d29ec
 +        goto fail;
 +    }
 +
-+    ret = v4l2_request_set_controls(ctx, -1, control, count);
++    ret = v4l2_request_set_format(avctx, ctx->output_type, pixelformat, buffersize);
 +    if (ret < 0) {
-+        av_log(avctx, AV_LOG_ERROR, "%s: set controls failed, %s (%d)\n", __func__, strerror(errno), errno);
++        av_log(avctx, AV_LOG_ERROR, "%s: set output format failed, %s (%d)\n", __func__, strerror(errno), errno);
 +        ret = AVERROR(EINVAL);
 +        goto fail;
 +    }
 +
-+    ret = v4l2_request_set_format(avctx, ctx->output_type, pixelformat, buffersize);
++    ret = v4l2_request_set_controls(ctx, -1, control, count);
 +    if (ret < 0) {
-+        av_log(avctx, AV_LOG_ERROR, "%s: set output format failed, %s (%d)\n", __func__, strerror(errno), errno);
++        av_log(avctx, AV_LOG_ERROR, "%s: set controls failed, %s (%d)\n", __func__, strerror(errno), errno);
 +        ret = AVERROR(EINVAL);
 +        goto fail;
 +    }
@@ -47746,10 +49427,10 @@ index 0000000000..20b56cfbfb
 +#endif /* AVCODEC_V4L2_REQUEST_H */
 diff --git a/libavcodec/v4l2_request_h264.c b/libavcodec/v4l2_request_h264.c
 new file mode 100644
-index 0000000000..5b0f21a60d
+index 0000000000..d6332c01c7
 --- /dev/null
 +++ b/libavcodec/v4l2_request_h264.c
-@@ -0,0 +1,468 @@
+@@ -0,0 +1,456 @@
 +/*
 + * This file is part of FFmpeg.
 + *
@@ -47778,15 +49459,17 @@ index 0000000000..5b0f21a60d
 +    struct v4l2_ctrl_h264_pps pps;
 +    struct v4l2_ctrl_h264_scaling_matrix scaling_matrix;
 +    struct v4l2_ctrl_h264_decode_params decode_params;
-+    struct v4l2_ctrl_h264_slice_params slice_params[MAX_SLICES];
++    struct v4l2_ctrl_h264_slice_params slice_params;
++    struct v4l2_ctrl_h264_pred_weights pred_weights;
++    int pred_weights_required;
 +    int first_slice;
++    int num_slices;
 +} V4L2RequestControlsH264;
 +
 +typedef struct V4L2RequestContextH264 {
 +    V4L2RequestContext base;
 +    int decode_mode;
 +    int start_code;
-+    int max_slices;
 +} V4L2RequestContextH264;
 +
 +static uint8_t nalu_slice_start_code[] = { 0x00, 0x00, 0x01 };
@@ -47816,19 +49499,16 @@ index 0000000000..5b0f21a60d
 +static void fill_dpb_entry(struct v4l2_h264_dpb_entry *entry, const H264Picture *pic)
 +{
 +    entry->reference_ts = ff_v4l2_request_get_capture_timestamp(pic->f);
-+    entry->frame_num = pic->frame_num;
 +    entry->pic_num = pic->pic_id;
++    entry->frame_num = pic->frame_num;
++    entry->fields = pic->reference & V4L2_H264_FRAME_REF;
 +    entry->flags = V4L2_H264_DPB_ENTRY_FLAG_VALID;
-+    if (pic->reference) {
++    if (entry->fields)
 +        entry->flags |= V4L2_H264_DPB_ENTRY_FLAG_ACTIVE;
-+        if (pic->reference != PICT_FRAME) {
-+            entry->flags |= V4L2_H264_DPB_ENTRY_FLAG_FIELD;
-+            if (pic->reference == PICT_BOTTOM_FIELD)
-+                entry->flags |= V4L2_H264_DPB_ENTRY_FLAG_BOTTOM_FIELD;
-+        }
-+    }
 +    if (pic->long_ref)
 +        entry->flags |= V4L2_H264_DPB_ENTRY_FLAG_LONG_TERM;
++    if (pic->field_picture)
++        entry->flags |= V4L2_H264_DPB_ENTRY_FLAG_FIELD;
 +    if (pic->field_poc[0] != INT_MAX)
 +        entry->top_field_order_cnt = pic->field_poc[0];
 +    if (pic->field_poc[1] != INT_MAX)
@@ -47855,24 +49535,24 @@ index 0000000000..5b0f21a60d
 +    }
 +}
 +
-+static uint8_t get_dpb_index(struct v4l2_ctrl_h264_decode_params *decode, const H264Ref *ref)
++static void fill_ref_list(struct v4l2_h264_reference *reference, struct v4l2_ctrl_h264_decode_params *decode, const H264Ref *ref)
 +{
 +    uint64_t timestamp;
 +
 +    if (!ref->parent)
-+        return 0;
++        return;
 +
 +    timestamp = ff_v4l2_request_get_capture_timestamp(ref->parent->f);
 +
 +    for (uint8_t i = 0; i < FF_ARRAY_ELEMS(decode->dpb); i++) {
 +        struct v4l2_h264_dpb_entry *entry = &decode->dpb[i];
 +        if ((entry->flags & V4L2_H264_DPB_ENTRY_FLAG_VALID) &&
-+            entry->reference_ts == timestamp)
-+            // TODO: signal reference type, possible using top 2 bits
-+            return i | ((ref->reference & 3) << 6);
++            entry->reference_ts == timestamp) {
++            reference->fields = ref->reference & V4L2_H264_FRAME_REF;
++            reference->index = i;
++            return;
++        }
 +    }
-+
-+    return 0;
 +}
 +
 +static void fill_sps(struct v4l2_ctrl_h264_sps *ctrl, const H264Context *h)
@@ -47892,12 +49572,14 @@ index 0000000000..5b0f21a60d
 +        .log2_max_pic_order_cnt_lsb_minus4 = sps->log2_max_poc_lsb - 4,
 +        .max_num_ref_frames = sps->ref_frame_count,
 +        .num_ref_frames_in_pic_order_cnt_cycle = sps->poc_cycle_length,
-+        //.offset_for_ref_frame[255] - not required? not set by libva-v4l2-request - copy sps->offset_for_ref_frame
 +        .offset_for_non_ref_pic = sps->offset_for_non_ref_pic,
 +        .offset_for_top_to_bottom_field = sps->offset_for_top_to_bottom_field,
 +        .pic_width_in_mbs_minus1 = h->mb_width - 1,
 +        .pic_height_in_map_units_minus1 = sps->frame_mbs_only_flag ? h->mb_height - 1 : h->mb_height / 2 - 1,
 +    };
++
++    if (sps->poc_cycle_length > 0 && sps->poc_cycle_length <= 255)
++        memcpy(ctrl->offset_for_ref_frame, sps->offset_for_ref_frame, sps->poc_cycle_length * sizeof(ctrl->offset_for_ref_frame[0]));
 +
 +    if (sps->residual_color_transform_flag)
 +        ctrl->flags |= V4L2_H264_SPS_FLAG_SEPARATE_COLOUR_PLANE;
@@ -47949,6 +49631,8 @@ index 0000000000..5b0f21a60d
 +        ctrl->flags |= V4L2_H264_PPS_FLAG_REDUNDANT_PIC_CNT_PRESENT;
 +    if (pps->transform_8x8_mode)
 +        ctrl->flags |= V4L2_H264_PPS_FLAG_TRANSFORM_8X8_MODE;
++    /* FFmpeg always provide a scaling matrix */
++    ctrl->flags |= V4L2_H264_PPS_FLAG_SCALING_MATRIX_PRESENT;
 +}
 +
 +static int v4l2_request_h264_start_frame(AVCodecContext *avctx,
@@ -47958,6 +49642,7 @@ index 0000000000..5b0f21a60d
 +    const H264Context *h = avctx->priv_data;
 +    const PPS *pps = h->ps.pps;
 +    const SPS *sps = h->ps.sps;
++    const H264SliceContext *sl = &h->slice_ctx[0];
 +    V4L2RequestControlsH264 *controls = h->cur_pic_ptr->hwaccel_picture_private;
 +
 +    fill_sps(&controls->sps, h);
@@ -47975,18 +49660,33 @@ index 0000000000..5b0f21a60d
 +    }
 +
 +    controls->decode_params = (struct v4l2_ctrl_h264_decode_params) {
-+        .num_slices = 0,
 +        .nal_ref_idc = h->nal_ref_idc,
++        .frame_num = h->poc.frame_num,
 +        .top_field_order_cnt = h->cur_pic_ptr->field_poc[0] != INT_MAX ? h->cur_pic_ptr->field_poc[0] : 0,
 +        .bottom_field_order_cnt = h->cur_pic_ptr->field_poc[1] != INT_MAX ? h->cur_pic_ptr->field_poc[1] : 0,
++        .idr_pic_id = sl->idr_pic_id,
++        .pic_order_cnt_lsb = sl->poc_lsb,
++        .delta_pic_order_cnt_bottom = sl->delta_poc_bottom,
++        .delta_pic_order_cnt0 = sl->delta_poc[0],
++        .delta_pic_order_cnt1 = sl->delta_poc[1],
++        /* Size in bits of dec_ref_pic_marking() syntax element. */
++        .dec_ref_pic_marking_bit_size = sl->ref_pic_marking_size_in_bits,
++        /* Size in bits of pic order count syntax. */
++        .pic_order_cnt_bit_size = sl->pic_order_cnt_bit_size,
++        .slice_group_change_cycle = 0, /* slice group not supported by FFmpeg */
 +    };
 +
 +    if (h->picture_idr)
 +        controls->decode_params.flags |= V4L2_H264_DECODE_PARAM_FLAG_IDR_PIC;
++    if (FIELD_PICTURE(h))
++        controls->decode_params.flags |= V4L2_H264_DECODE_PARAM_FLAG_FIELD_PIC;
++    if (h->picture_structure == PICT_BOTTOM_FIELD)
++        controls->decode_params.flags |= V4L2_H264_DECODE_PARAM_FLAG_BOTTOM_FIELD;
 +
 +    fill_dpb(&controls->decode_params, h);
 +
 +    controls->first_slice = !FIELD_PICTURE(h) || h->first_field;
++    controls->num_slices = 0;
 +
 +    return ff_v4l2_request_reset_frame(avctx, h->cur_pic_ptr->f);
 +}
@@ -48014,21 +49714,28 @@ index 0000000000..5b0f21a60d
 +            .size = sizeof(controls->scaling_matrix),
 +        },
 +        {
-+            .id = V4L2_CID_MPEG_VIDEO_H264_SLICE_PARAMS,
-+            .ptr = &controls->slice_params,
-+            .size = sizeof(controls->slice_params[0]) * FFMAX(FFMIN(controls->decode_params.num_slices, MAX_SLICES), ctx->max_slices),
-+        },
-+        {
 +            .id = V4L2_CID_MPEG_VIDEO_H264_DECODE_PARAMS,
 +            .ptr = &controls->decode_params,
 +            .size = sizeof(controls->decode_params),
 +        },
++        {
++            .id = V4L2_CID_MPEG_VIDEO_H264_SLICE_PARAMS,
++            .ptr = &controls->slice_params,
++            .size = sizeof(controls->slice_params),
++        },
++        {
++            .id = V4L2_CID_MPEG_VIDEO_H264_PRED_WEIGHTS,
++            .ptr = &controls->pred_weights,
++            .size = sizeof(controls->pred_weights),
++        },
 +    };
 +
-+    if (ctx->decode_mode == V4L2_MPEG_VIDEO_H264_DECODE_MODE_SLICE_BASED)
-+        return ff_v4l2_request_decode_slice(avctx, h->cur_pic_ptr->f, control, FF_ARRAY_ELEMS(control), controls->first_slice, last_slice);
++    if (ctx->decode_mode == V4L2_MPEG_VIDEO_H264_DECODE_MODE_SLICE_BASED) {
++        int count = FF_ARRAY_ELEMS(control) - (controls->pred_weights_required ? 0 : 1);
++        return ff_v4l2_request_decode_slice(avctx, h->cur_pic_ptr->f, control, count, controls->first_slice, last_slice);
++    }
 +
-+    return ff_v4l2_request_decode_frame(avctx, h->cur_pic_ptr->f, control, FF_ARRAY_ELEMS(control));
++    return ff_v4l2_request_decode_frame(avctx, h->cur_pic_ptr->f, control, FF_ARRAY_ELEMS(control) - 2);
 +}
 +
 +static int v4l2_request_h264_decode_slice(AVCodecContext *avctx, const uint8_t *buffer, uint32_t size)
@@ -48038,76 +49745,16 @@ index 0000000000..5b0f21a60d
 +    const H264SliceContext *sl = &h->slice_ctx[0];
 +    V4L2RequestControlsH264 *controls = h->cur_pic_ptr->hwaccel_picture_private;
 +    V4L2RequestContextH264 *ctx = avctx->internal->hwaccel_priv_data;
-+    V4L2RequestDescriptor *req = (V4L2RequestDescriptor*)h->cur_pic_ptr->f->data[0];
-+    int i, ret, count, slice = FFMIN(controls->decode_params.num_slices, MAX_SLICES - 1);
++    int i, ret, count;
 +
-+    if (ctx->decode_mode == V4L2_MPEG_VIDEO_H264_DECODE_MODE_SLICE_BASED && slice) {
++    if (ctx->decode_mode == V4L2_MPEG_VIDEO_H264_DECODE_MODE_SLICE_BASED && controls->num_slices) {
 +        ret = v4l2_request_h264_queue_decode(avctx, 0);
 +        if (ret)
 +            return ret;
 +
 +        ff_v4l2_request_reset_frame(avctx, h->cur_pic_ptr->f);
-+        slice = controls->decode_params.num_slices = 0;
 +        controls->first_slice = 0;
 +    }
-+
-+    controls->slice_params[slice] = (struct v4l2_ctrl_h264_slice_params) {
-+        /* Size in bytes, including header */
-+        .size = 0,
-+        .start_byte_offset = req->output.used,
-+        /* Offset in bits to slice_data() from the beginning of this slice. */
-+        .header_bit_size = get_bits_count(&sl->gb),
-+
-+        .first_mb_in_slice = sl->first_mb_addr,
-+        .slice_type = ff_h264_get_slice_type(sl),
-+        .pic_parameter_set_id = sl->pps_id,
-+        .colour_plane_id = 0, /* what is this? */
-+        .frame_num = h->poc.frame_num,
-+        .idr_pic_id = sl->idr_pic_id,
-+        .pic_order_cnt_lsb = sl->poc_lsb,
-+        .delta_pic_order_cnt_bottom = sl->delta_poc_bottom,
-+        .delta_pic_order_cnt0 = sl->delta_poc[0],
-+        .delta_pic_order_cnt1 = sl->delta_poc[1],
-+        .redundant_pic_cnt = sl->redundant_pic_count,
-+
-+        /* Size in bits of dec_ref_pic_marking() syntax element. */
-+        .dec_ref_pic_marking_bit_size = sl->ref_pic_marking_size_in_bits,
-+        /* Size in bits of pic order count syntax. */
-+        .pic_order_cnt_bit_size = sl->pic_order_cnt_bit_size,
-+
-+        .cabac_init_idc = sl->cabac_init_idc,
-+        .slice_qp_delta = sl->qscale - pps->init_qp,
-+        .slice_qs_delta = 0, /* XXX not implemented by FFmpeg */
-+        .disable_deblocking_filter_idc = sl->deblocking_filter < 2 ? !sl->deblocking_filter : sl->deblocking_filter,
-+        .slice_alpha_c0_offset_div2 = sl->slice_alpha_c0_offset / 2,
-+        .slice_beta_offset_div2 = sl->slice_beta_offset / 2,
-+        .slice_group_change_cycle = 0, /* what is this? */
-+
-+        .num_ref_idx_l0_active_minus1 = sl->list_count > 0 ? sl->ref_count[0] - 1 : 0,
-+        .num_ref_idx_l1_active_minus1 = sl->list_count > 1 ? sl->ref_count[1] - 1 : 0,
-+    };
-+
-+    if (FIELD_PICTURE(h))
-+        controls->slice_params[slice].flags |= V4L2_H264_SLICE_FLAG_FIELD_PIC;
-+    if (h->picture_structure == PICT_BOTTOM_FIELD)
-+        controls->slice_params[slice].flags |= V4L2_H264_SLICE_FLAG_BOTTOM_FIELD;
-+    if (sl->slice_type == AV_PICTURE_TYPE_B && sl->direct_spatial_mv_pred)
-+        controls->slice_params[slice].flags |= V4L2_H264_SLICE_FLAG_DIRECT_SPATIAL_MV_PRED;
-+
-+    controls->slice_params[slice].pred_weight_table.chroma_log2_weight_denom = sl->pwt.chroma_log2_weight_denom;
-+    controls->slice_params[slice].pred_weight_table.luma_log2_weight_denom = sl->pwt.luma_log2_weight_denom;
-+
-+    count = sl->list_count > 0 ? sl->ref_count[0] : 0;
-+    for (i = 0; i < count; i++)
-+        controls->slice_params[slice].ref_pic_list0[i] = get_dpb_index(&controls->decode_params, &sl->ref_list[0][i]);
-+    if (count)
-+        fill_weight_factors(&controls->slice_params[slice].pred_weight_table.weight_factors[0], 0, sl);
-+
-+    count = sl->list_count > 1 ? sl->ref_count[1] : 0;
-+    for (i = 0; i < count; i++)
-+        controls->slice_params[slice].ref_pic_list1[i] = get_dpb_index(&controls->decode_params, &sl->ref_list[1][i]);
-+    if (count)
-+        fill_weight_factors(&controls->slice_params[slice].pred_weight_table.weight_factors[1], 1, sl);
 +
 +    if (ctx->start_code == V4L2_MPEG_VIDEO_H264_START_CODE_ANNEX_B) {
 +        ret = ff_v4l2_request_append_output_buffer(avctx, h->cur_pic_ptr->f, nalu_slice_start_code, 3);
@@ -48119,8 +49766,51 @@ index 0000000000..5b0f21a60d
 +    if (ret)
 +        return ret;
 +
-+    controls->slice_params[slice].size = req->output.used - controls->slice_params[slice].start_byte_offset;
-+    controls->decode_params.num_slices++;
++    if (ctx->decode_mode != V4L2_MPEG_VIDEO_H264_DECODE_MODE_SLICE_BASED)
++        return 0;
++
++    controls->slice_params = (struct v4l2_ctrl_h264_slice_params) {
++        /* Offset in bits to slice_data() from the beginning of this slice. */
++        .header_bit_size = get_bits_count(&sl->gb),
++
++        .first_mb_in_slice = sl->first_mb_addr,
++
++        .slice_type = ff_h264_get_slice_type(sl),
++        .colour_plane_id = 0, /* separate colour plane not supported by FFmpeg */
++        .redundant_pic_cnt = sl->redundant_pic_count,
++        .cabac_init_idc = sl->cabac_init_idc,
++        .slice_qp_delta = sl->qscale - pps->init_qp,
++        .slice_qs_delta = 0, /* not implemented by FFmpeg */
++        .disable_deblocking_filter_idc = sl->deblocking_filter < 2 ? !sl->deblocking_filter : sl->deblocking_filter,
++        .slice_alpha_c0_offset_div2 = sl->slice_alpha_c0_offset / 2,
++        .slice_beta_offset_div2 = sl->slice_beta_offset / 2,
++        .num_ref_idx_l0_active_minus1 = sl->list_count > 0 ? sl->ref_count[0] - 1 : 0,
++        .num_ref_idx_l1_active_minus1 = sl->list_count > 1 ? sl->ref_count[1] - 1 : 0,
++    };
++
++    if (sl->slice_type == AV_PICTURE_TYPE_B && sl->direct_spatial_mv_pred)
++        controls->slice_params.flags |= V4L2_H264_SLICE_FLAG_DIRECT_SPATIAL_MV_PRED;
++    /* V4L2_H264_SLICE_FLAG_SP_FOR_SWITCH: not implemented by FFmpeg */
++
++    controls->pred_weights_required = V4L2_H264_CTRL_PRED_WEIGHTS_REQUIRED(&controls->pps, &controls->slice_params);
++    if (controls->pred_weights_required) {
++        controls->pred_weights.chroma_log2_weight_denom = sl->pwt.chroma_log2_weight_denom;
++        controls->pred_weights.luma_log2_weight_denom = sl->pwt.luma_log2_weight_denom;
++    }
++
++    count = sl->list_count > 0 ? sl->ref_count[0] : 0;
++    for (i = 0; i < count; i++)
++        fill_ref_list(&controls->slice_params.ref_pic_list0[i], &controls->decode_params, &sl->ref_list[0][i]);
++    if (count && controls->pred_weights_required)
++        fill_weight_factors(&controls->pred_weights.weight_factors[0], 0, sl);
++
++    count = sl->list_count > 1 ? sl->ref_count[1] : 0;
++    for (i = 0; i < count; i++)
++        fill_ref_list(&controls->slice_params.ref_pic_list1[i], &controls->decode_params, &sl->ref_list[1][i]);
++    if (count && controls->pred_weights_required)
++        fill_weight_factors(&controls->pred_weights.weight_factors[1], 1, sl);
++
++    controls->num_slices++;
 +    return 0;
 +}
 +
@@ -48133,14 +49823,10 @@ index 0000000000..5b0f21a60d
 +static int v4l2_request_h264_set_controls(AVCodecContext *avctx)
 +{
 +    V4L2RequestContextH264 *ctx = avctx->internal->hwaccel_priv_data;
-+    int ret;
 +
 +    struct v4l2_ext_control control[] = {
 +        { .id = V4L2_CID_MPEG_VIDEO_H264_DECODE_MODE, },
 +        { .id = V4L2_CID_MPEG_VIDEO_H264_START_CODE, },
-+    };
-+    struct v4l2_query_ext_ctrl slice_params = {
-+        .id = V4L2_CID_MPEG_VIDEO_H264_SLICE_PARAMS,
 +    };
 +
 +    ctx->decode_mode = ff_v4l2_request_query_control_default_value(avctx, V4L2_CID_MPEG_VIDEO_H264_DECODE_MODE);
@@ -48157,16 +49843,6 @@ index 0000000000..5b0f21a60d
 +        return AVERROR(EINVAL);
 +    }
 +
-+    ret = ff_v4l2_request_query_control(avctx, &slice_params);
-+    if (ret)
-+        return ret;
-+
-+    ctx->max_slices = slice_params.elems;
-+    if (ctx->max_slices > MAX_SLICES) {
-+        av_log(avctx, AV_LOG_ERROR, "%s: unsupported max slices, %d\n", __func__, ctx->max_slices);
-+        return AVERROR(EINVAL);
-+    }
-+
 +    control[0].value = ctx->decode_mode;
 +    control[1].value = ctx->start_code;
 +
@@ -48177,7 +49853,6 @@ index 0000000000..5b0f21a60d
 +{
 +    const H264Context *h = avctx->priv_data;
 +    struct v4l2_ctrl_h264_sps sps;
-+    struct v4l2_ctrl_h264_pps pps;
 +    int ret;
 +
 +    struct v4l2_ext_control control[] = {
@@ -48186,15 +49861,9 @@ index 0000000000..5b0f21a60d
 +            .ptr = &sps,
 +            .size = sizeof(sps),
 +        },
-+        {
-+            .id = V4L2_CID_MPEG_VIDEO_H264_PPS,
-+            .ptr = &pps,
-+            .size = sizeof(pps),
-+        },
 +    };
 +
 +    fill_sps(&sps, h);
-+    fill_pps(&pps, h);
 +
 +    ret = ff_v4l2_request_init(avctx, V4L2_PIX_FMT_H264_SLICE, 4 * 1024 * 1024, control, FF_ARRAY_ELEMS(control));
 +    if (ret)
@@ -50244,27 +51913,29 @@ index 54726df742..fee3568736 100644
          uint8_t pred_prob[3];
          struct {
 diff --git a/libavdevice/Makefile b/libavdevice/Makefile
-index 6ea62b914e..19f7f5353c 100644
+index 6ea62b914e..c8c9eeb22b 100644
 --- a/libavdevice/Makefile
 +++ b/libavdevice/Makefile
-@@ -45,6 +45,8 @@ OBJS-$(CONFIG_SNDIO_INDEV)               += sndio_dec.o sndio.o
+@@ -45,6 +45,9 @@ OBJS-$(CONFIG_SNDIO_INDEV)               += sndio_dec.o sndio.o
  OBJS-$(CONFIG_SNDIO_OUTDEV)              += sndio_enc.o sndio.o
  OBJS-$(CONFIG_V4L2_INDEV)                += v4l2.o v4l2-common.o timefilter.o
  OBJS-$(CONFIG_V4L2_OUTDEV)               += v4l2enc.o v4l2-common.o
 +OBJS-$(CONFIG_VOUT_DRM_OUTDEV)           += drm_vout.o
++OBJS-$(CONFIG_VOUT_EGL_OUTDEV)           += egl_vout.o
 +OBJS-$(CONFIG_VOUT_RPI_OUTDEV)           += rpi_vout.o
  OBJS-$(CONFIG_VFWCAP_INDEV)              += vfwcap.o
  OBJS-$(CONFIG_XCBGRAB_INDEV)             += xcbgrab.o
  OBJS-$(CONFIG_XV_OUTDEV)                 += xv.o
 diff --git a/libavdevice/alldevices.c b/libavdevice/alldevices.c
-index 8633433254..1df47be492 100644
+index 8633433254..bc15112a00 100644
 --- a/libavdevice/alldevices.c
 +++ b/libavdevice/alldevices.c
-@@ -52,6 +52,8 @@ extern AVOutputFormat ff_sndio_muxer;
+@@ -52,6 +52,9 @@ extern AVOutputFormat ff_sndio_muxer;
  extern AVInputFormat  ff_v4l2_demuxer;
  extern AVOutputFormat ff_v4l2_muxer;
  extern AVInputFormat  ff_vfwcap_demuxer;
 +extern AVOutputFormat ff_vout_drm_muxer;
++extern AVOutputFormat ff_vout_egl_muxer;
 +extern AVOutputFormat ff_vout_rpi_muxer;
  extern AVInputFormat  ff_xcbgrab_demuxer;
  extern AVOutputFormat ff_xv_muxer;
@@ -50883,6 +52554,794 @@ index 0000000000..8f93619651
 +    .init           = drm_vout_init,
 +    .deinit         = drm_vout_deinit,
 +};
+diff --git a/libavdevice/egl_vout.c b/libavdevice/egl_vout.c
+new file mode 100644
+index 0000000000..85bda396d7
+--- /dev/null
++++ b/libavdevice/egl_vout.c
+@@ -0,0 +1,782 @@
++/*
++ * Copyright (c) 2020 John Cox for Raspberry Pi Trading
++ *
++ * This file is part of FFmpeg.
++ *
++ * FFmpeg is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ *
++ * FFmpeg is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with FFmpeg; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
++ */
++
++
++// *** This module is a work in progress and its utility is strictly
++//     limited to testing.
++//     Amongst other issues it doesn't wait for the pic to be displayed before
++//     returning the buffer so flikering does occur.
++
++#include <epoxy/gl.h>
++#include <epoxy/egl.h>
++
++#include "libavutil/opt.h"
++#include "libavutil/avassert.h"
++#include "libavutil/pixdesc.h"
++#include "libavutil/imgutils.h"
++#include "libavutil/hwcontext_drm.h"
++#include "libavformat/internal.h"
++#include "avdevice.h"
++
++#include "pthread.h"
++#include <semaphore.h>
++#include <stdatomic.h>
++
++#include "drm_fourcc.h"
++#include <drm.h>
++#include <drm_mode.h>
++#include <xf86drm.h>
++#include <xf86drmMode.h>
++#include <X11/Xlib.h>
++#include <X11/Xutil.h>
++#include <X11/Xlib-xcb.h>
++#include <xcb/xcb.h>
++#include <xcb/dri3.h>
++
++#include "libavutil/rpi_sand_fns.h"
++
++#define TRACE_ALL 1
++
++struct egl_setup {
++   int conId;
++
++   Display *dpy;
++   EGLDisplay egl_dpy;
++   EGLContext ctx;
++   EGLSurface surf;
++   Window win;
++
++   uint32_t crtcId;
++   int crtcIdx;
++   uint32_t planeId;
++   struct {
++       int x, y, width, height;
++   } compose;
++};
++
++typedef struct egl_aux_s {
++    int fd;
++    GLuint texture;
++
++} egl_aux_t;
++
++typedef struct egl_display_env_s
++{
++    AVClass *class;
++
++    struct egl_setup setup;
++    enum AVPixelFormat avfmt;
++
++    egl_aux_t aux[32];
++
++    pthread_t q_thread;
++    pthread_mutex_t q_lock;
++    sem_t display_start_sem;
++    sem_t q_sem;
++    int q_terminate;
++    AVFrame * q_this;
++    AVFrame * q_next;
++
++} egl_display_env_t;
++
++
++/**
++ * Remove window border/decorations.
++ */
++static void
++no_border( Display *dpy, Window w)
++{
++   static const unsigned MWM_HINTS_DECORATIONS = (1 << 1);
++   static const int PROP_MOTIF_WM_HINTS_ELEMENTS = 5;
++
++   typedef struct
++   {
++      unsigned long       flags;
++      unsigned long       functions;
++      unsigned long       decorations;
++      long                inputMode;
++      unsigned long       status;
++   } PropMotifWmHints;
++
++   PropMotifWmHints motif_hints;
++   Atom prop, proptype;
++   unsigned long flags = 0;
++
++   /* setup the property */
++   motif_hints.flags = MWM_HINTS_DECORATIONS;
++   motif_hints.decorations = flags;
++
++   /* get the atom for the property */
++   prop = XInternAtom( dpy, "_MOTIF_WM_HINTS", True );
++   if (!prop) {
++      /* something went wrong! */
++      return;
++   }
++
++   /* not sure this is correct, seems to work, XA_WM_HINTS didn't work */
++   proptype = prop;
++
++   XChangeProperty( dpy, w,                         /* display, window */
++                    prop, proptype,                 /* property, type */
++                    32,                             /* format: 32-bit datums */
++                    PropModeReplace,                /* mode */
++                    (unsigned char *) &motif_hints, /* data */
++                    PROP_MOTIF_WM_HINTS_ELEMENTS    /* nelements */
++                  );
++}
++
++
++/*
++ * Create an RGB, double-buffered window.
++ * Return the window and context handles.
++ */
++static int
++make_window(struct AVFormatContext * const s,
++            Display *dpy, EGLDisplay egl_dpy, const char *name,
++            int x, int y, int width, int height,
++            Window *winRet, EGLContext *ctxRet, EGLSurface *surfRet)
++{
++   int scrnum = DefaultScreen( dpy );
++   XSetWindowAttributes attr;
++   unsigned long mask;
++   Window root = RootWindow( dpy, scrnum );
++   Window win;
++   EGLContext ctx;
++   bool fullscreen = false; /* Hook this up to a command line arg */
++
++   if (fullscreen) {
++      int scrnum = DefaultScreen(dpy);
++
++      x = 0; y = 0;
++      width = DisplayWidth(dpy, scrnum);
++      height = DisplayHeight(dpy, scrnum);
++   }
++
++   static const EGLint attribs[] = {
++      EGL_RED_SIZE, 1,
++      EGL_GREEN_SIZE, 1,
++      EGL_BLUE_SIZE, 1,
++      EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
++      EGL_NONE
++   };
++   EGLConfig config;
++   EGLint num_configs;
++   if (!eglChooseConfig(egl_dpy, attribs, &config, 1, &num_configs)) {
++      av_log(s, AV_LOG_ERROR, "Error: couldn't get an EGL visual config\n");
++      return -1;
++   }
++
++   EGLint vid;
++   if (!eglGetConfigAttrib(egl_dpy, config, EGL_NATIVE_VISUAL_ID, &vid)) {
++      av_log(s, AV_LOG_ERROR, "Error: eglGetConfigAttrib() failed\n");
++      return -1;
++   }
++
++   XVisualInfo visTemplate = {
++      .visualid = vid,
++   };
++   int num_visuals;
++   XVisualInfo *visinfo = XGetVisualInfo(dpy, VisualIDMask,
++                                         &visTemplate, &num_visuals);
++
++   /* window attributes */
++   attr.background_pixel = 0;
++   attr.border_pixel = 0;
++   attr.colormap = XCreateColormap( dpy, root, visinfo->visual, AllocNone);
++   attr.event_mask = StructureNotifyMask | ExposureMask | KeyPressMask;
++   /* XXX this is a bad way to get a borderless window! */
++   mask = CWBackPixel | CWBorderPixel | CWColormap | CWEventMask;
++
++   win = XCreateWindow( dpy, root, x, y, width, height,
++                        0, visinfo->depth, InputOutput,
++                        visinfo->visual, mask, &attr );
++
++   if (fullscreen)
++      no_border(dpy, win);
++
++   /* set hints and properties */
++   {
++      XSizeHints sizehints;
++      sizehints.x = x;
++      sizehints.y = y;
++      sizehints.width  = width;
++      sizehints.height = height;
++      sizehints.flags = USSize | USPosition;
++      XSetNormalHints(dpy, win, &sizehints);
++      XSetStandardProperties(dpy, win, name, name,
++                              None, (char **)NULL, 0, &sizehints);
++   }
++
++   eglBindAPI(EGL_OPENGL_ES_API);
++
++   static const EGLint ctx_attribs[] = {
++      EGL_CONTEXT_CLIENT_VERSION, 2,
++      EGL_NONE
++   };
++   ctx = eglCreateContext(egl_dpy, config, EGL_NO_CONTEXT, ctx_attribs );
++   if (!ctx) {
++      av_log(s, AV_LOG_ERROR, "Error: eglCreateContext failed\n");
++      return -1;
++   }
++
++   XFree(visinfo);
++
++   XMapWindow(dpy, win);
++
++   EGLSurface surf = eglCreateWindowSurface(egl_dpy, config,
++                                            (void *)(uintptr_t)win, NULL);
++   if (!surf) {
++      av_log(s, AV_LOG_ERROR, "Error: eglCreateWindowSurface failed\n");
++      return -1;
++   }
++
++   if (!eglMakeCurrent(egl_dpy, surf, surf, ctx)) {
++      av_log(s, AV_LOG_ERROR, "Error: eglCreateContext failed\n");
++      return -1;
++   }
++
++   *winRet = win;
++   *ctxRet = ctx;
++   *surfRet = surf;
++
++   return 0;
++}
++
++static GLint
++compile_shader(struct AVFormatContext * const avctx, GLenum target, const char *source)
++{
++   GLuint s = glCreateShader(target);
++
++   if (s == 0) {
++      av_log(avctx, AV_LOG_ERROR, "Failed to create shader\n");
++      return 0;
++   }
++
++   glShaderSource(s, 1, (const GLchar **) &source, NULL);
++   glCompileShader(s);
++
++   GLint ok;
++   glGetShaderiv(s, GL_COMPILE_STATUS, &ok);
++
++   if (!ok) {
++      GLchar *info;
++      GLint size;
++
++      glGetShaderiv(s, GL_INFO_LOG_LENGTH, &size);
++      info = malloc(size);
++
++      glGetShaderInfoLog(s, size, NULL, info);
++      av_log(avctx, AV_LOG_ERROR, "Failed to compile shader: %ssource:\n%s\n", info, source);
++
++      return 0;
++   }
++
++   return s;
++}
++
++static GLuint link_program(struct AVFormatContext * const s, GLint vs, GLint fs)
++{
++   GLuint prog = glCreateProgram();
++
++   if (prog == 0) {
++      av_log(s, AV_LOG_ERROR, "Failed to create program\n");
++      return 0;
++   }
++
++   glAttachShader(prog, vs);
++   glAttachShader(prog, fs);
++   glLinkProgram(prog);
++
++   GLint ok;
++   glGetProgramiv(prog, GL_LINK_STATUS, &ok);
++   if (!ok) {
++      /* Some drivers return a size of 1 for an empty log.  This is the size
++       * of a log that contains only a terminating NUL character.
++       */
++      GLint size;
++      GLchar *info = NULL;
++      glGetProgramiv(prog, GL_INFO_LOG_LENGTH, &size);
++      if (size > 1) {
++         info = malloc(size);
++         glGetProgramInfoLog(prog, size, NULL, info);
++      }
++
++      av_log(s, AV_LOG_ERROR, "Failed to link: %s\n",
++              (info != NULL) ? info : "<empty log>");
++      return 0;
++   }
++
++   return prog;
++}
++
++static int
++gl_setup(struct AVFormatContext * const s)
++{
++   const char *vs =
++      "attribute vec4 pos;\n"
++      "varying vec2 texcoord;\n"
++      "\n"
++      "void main() {\n"
++      "  gl_Position = pos;\n"
++      "  texcoord.x = (pos.x + 1.0) / 2.0;\n"
++      "  texcoord.y = (-pos.y + 1.0) / 2.0;\n"
++      "}\n";
++   const char *fs =
++      "#extension GL_OES_EGL_image_external : enable\n"
++      "precision mediump float;\n"
++      "uniform samplerExternalOES s;\n"
++      "varying vec2 texcoord;\n"
++      "void main() {\n"
++      "  gl_FragColor = texture2D(s, texcoord);\n"
++      "}\n";
++
++   GLuint vs_s;
++   GLuint fs_s;
++   GLuint prog;
++
++   if (!(vs_s = compile_shader(s, GL_VERTEX_SHADER, vs)) ||
++       !(fs_s = compile_shader(s, GL_FRAGMENT_SHADER, fs)) ||
++       !(prog = link_program(s, vs_s, fs_s)))
++      return -1;
++
++   glUseProgram(prog);
++
++   static const float verts[] = {
++      -1, -1,
++      1, -1,
++      1, 1,
++      -1, 1,
++   };
++   glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, verts);
++   glEnableVertexAttribArray(0);
++   return 0;
++}
++
++static int egl_vout_write_trailer(AVFormatContext *s)
++{
++#if TRACE_ALL
++    av_log(s, AV_LOG_INFO, "%s\n", __func__);
++#endif
++
++    return 0;
++}
++
++static int egl_vout_write_header(AVFormatContext *s)
++{
++    const AVCodecParameters * const par = s->streams[0]->codecpar;
++
++#if TRACE_ALL
++    av_log(s, AV_LOG_INFO, "%s\n", __func__);
++#endif
++    if (   s->nb_streams > 1
++        || par->codec_type != AVMEDIA_TYPE_VIDEO
++        || par->codec_id   != AV_CODEC_ID_WRAPPED_AVFRAME) {
++        av_log(s, AV_LOG_ERROR, "Only supports one wrapped avframe stream\n");
++        return AVERROR(EINVAL);
++    }
++
++    return 0;
++}
++
++
++static int do_display(AVFormatContext * const s, egl_display_env_t * const de, AVFrame * const frame)
++{
++    const AVDRMFrameDescriptor *desc = (AVDRMFrameDescriptor*)frame->data[0];
++    egl_aux_t * da = NULL;
++    unsigned int i;
++
++#if TRACE_ALL
++    av_log(s, AV_LOG_INFO, "<<< %s\n", __func__);
++#endif
++
++    for (i = 0; i != 32; ++i) {
++        if (de->aux[i].fd == -1 || de->aux[i].fd == desc->objects[0].fd) {
++            da = de->aux + i;
++            break;
++        }
++    }
++
++    if (da == NULL) {
++        av_log(s, AV_LOG_INFO, "%s: Out of handles\n", __func__);
++        return AVERROR(EINVAL);
++    }
++
++    if (da->texture == 0) {
++        EGLint attribs[50];
++        EGLint * a = attribs;
++        int i, j;
++        static const EGLint anames[] = {
++           EGL_DMA_BUF_PLANE0_FD_EXT,
++           EGL_DMA_BUF_PLANE0_OFFSET_EXT,
++           EGL_DMA_BUF_PLANE0_PITCH_EXT,
++           EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT,
++           EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT,
++           EGL_DMA_BUF_PLANE1_FD_EXT,
++           EGL_DMA_BUF_PLANE1_OFFSET_EXT,
++           EGL_DMA_BUF_PLANE1_PITCH_EXT,
++           EGL_DMA_BUF_PLANE1_MODIFIER_LO_EXT,
++           EGL_DMA_BUF_PLANE1_MODIFIER_HI_EXT,
++           EGL_DMA_BUF_PLANE2_FD_EXT,
++           EGL_DMA_BUF_PLANE2_OFFSET_EXT,
++           EGL_DMA_BUF_PLANE2_PITCH_EXT,
++           EGL_DMA_BUF_PLANE2_MODIFIER_LO_EXT,
++           EGL_DMA_BUF_PLANE2_MODIFIER_HI_EXT,
++        };
++        const EGLint * b = anames;
++
++        *a++ = EGL_WIDTH;
++        *a++ = av_frame_cropped_width(frame);
++        *a++ = EGL_HEIGHT;
++        *a++ = av_frame_cropped_height(frame);
++        *a++ = EGL_LINUX_DRM_FOURCC_EXT;
++        *a++ = desc->layers[0].format;
++
++        for (i = 0; i < desc->nb_layers; ++i) {
++            for (j = 0; j < desc->layers[i].nb_planes; ++j) {
++                const AVDRMPlaneDescriptor * const p = desc->layers[i].planes + j;
++                const AVDRMObjectDescriptor * const obj = desc->objects + p->object_index;
++                *a++ = *b++;
++                *a++ = obj->fd;
++                *a++ = *b++;
++                *a++ = p->offset;
++                *a++ = *b++;
++                *a++ = p->pitch;
++                if (obj->format_modifier == 0) {
++                   b += 2;
++                }
++                else {
++                   *a++ = *b++;
++                   *a++ = (EGLint)(obj->format_modifier & 0xFFFFFFFF);
++                   *a++ = *b++;
++                   *a++ = (EGLint)(obj->format_modifier >> 32);
++                }
++            }
++        }
++
++        *a = EGL_NONE;
++
++        for (a = attribs, i = 0; *a != EGL_NONE; a += 2, ++i) {
++           av_log(s, AV_LOG_INFO, "[%2d] %4x: %d\n", i, a[0], a[1]);
++        }
++
++        EGLImage image = eglCreateImageKHR(de->setup.egl_dpy,
++                                           EGL_NO_CONTEXT,
++                                           EGL_LINUX_DMA_BUF_EXT,
++                                           NULL, attribs);
++        if (!image) {
++           fprintf(stderr, "Failed to import fd %d\n", desc->objects[0].fd);
++           exit(1);
++        }
++
++        glGenTextures(1, &da->texture);
++        glBindTexture(GL_TEXTURE_EXTERNAL_OES, da->texture);
++        glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
++        glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
++        glEGLImageTargetTexture2DOES(GL_TEXTURE_EXTERNAL_OES, image);
++
++        eglDestroyImageKHR(de->setup.egl_dpy, image);
++
++        da->fd = desc->objects[0].fd;
++
++#if 0
++        av_log(s, AV_LOG_INFO, "%dx%d, fmt: %x, boh=%d,%d,%d,%d, pitch=%d,%d,%d,%d,"
++               " offset=%d,%d,%d,%d, mod=%llx,%llx,%llx,%llx\n",
++               av_frame_cropped_width(frame),
++               av_frame_cropped_height(frame),
++               desc->layers[0].format,
++               bo_plane_handles[0],
++               bo_plane_handles[1],
++               bo_plane_handles[2],
++               bo_plane_handles[3],
++               pitches[0],
++               pitches[1],
++               pitches[2],
++               pitches[3],
++               offsets[0],
++               offsets[1],
++               offsets[2],
++               offsets[3],
++               (long long)modifiers[0],
++               (long long)modifiers[1],
++               (long long)modifiers[2],
++               (long long)modifiers[3]
++               );
++#endif
++    }
++
++    glClearColor(0.5, 0.5, 0.5, 0.5);
++    glClear(GL_COLOR_BUFFER_BIT);
++
++    glBindTexture(GL_TEXTURE_EXTERNAL_OES, da->texture);
++    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
++    eglSwapBuffers(de->setup.egl_dpy, de->setup.surf);
++
++    return 0;
++}
++
++static void * display_thread(void * v)
++{
++    AVFormatContext * const s = v;
++    egl_display_env_t * const de = s->priv_data;
++
++#if TRACE_ALL
++    av_log(s, AV_LOG_INFO, "<<< %s\n", __func__);
++#endif
++    {
++       EGLint egl_major, egl_minor;
++
++       de->setup.dpy = XOpenDisplay(NULL);
++       if (!de->setup.dpy) {
++          av_log(s, AV_LOG_ERROR, "Couldn't open X display\n");
++          goto fail;
++       }
++
++       de->setup.egl_dpy = eglGetDisplay(de->setup.dpy);
++       if (!de->setup.egl_dpy) {
++          av_log(s, AV_LOG_ERROR, "eglGetDisplay() failed\n");
++          goto fail;
++       }
++
++       if (!eglInitialize(de->setup.egl_dpy, &egl_major, &egl_minor)) {
++           av_log(s, AV_LOG_ERROR, "Error: eglInitialize() failed\n");
++           goto fail;
++       }
++
++       av_log(s, AV_LOG_INFO, "EGL version %d.%d\n", egl_major, egl_minor);
++
++       if (!epoxy_has_egl_extension(de->setup.egl_dpy, "EGL_KHR_image_base")) {
++          av_log(s, AV_LOG_ERROR, "Missing EGL KHR image extension\n");
++          goto fail;
++       }
++    }
++
++    if (make_window(s, de->setup.dpy, de->setup.egl_dpy, "ffmpeg-vout",
++                0, 0, 1280, 720, &de->setup.win, &de->setup.ctx, &de->setup.surf)) {
++       av_log(s, AV_LOG_ERROR, "%s: make_window failed\n", __func__);
++       goto fail;
++    }
++
++    if (gl_setup(s)) {
++       av_log(s, AV_LOG_ERROR, "%s: gl_setup failed\n", __func__);
++       goto fail;
++    }
++
++    av_log(s, AV_LOG_INFO, "--- %s: Start done\n", __func__);
++    sem_post(&de->display_start_sem);
++
++    for (;;) {
++        AVFrame * frame;
++
++        while (sem_wait(&de->q_sem) != 0) {
++            av_assert0(errno == EINTR);
++        }
++
++        if (de->q_terminate)
++            break;
++
++        pthread_mutex_lock(&de->q_lock);
++        frame = de->q_next;
++        de->q_next = NULL;
++        pthread_mutex_unlock(&de->q_lock);
++
++        do_display(s, de, frame);
++
++        av_frame_free(&de->q_this);
++        de->q_this = frame;
++    }
++
++#if TRACE_ALL
++    av_log(s, AV_LOG_INFO, ">>> %s\n", __func__);
++#endif
++
++    return NULL;
++
++fail:
++#if TRACE_ALL
++    av_log(s, AV_LOG_INFO, ">>> %s: FAIL\n", __func__);
++#endif
++    de->q_terminate = 1;
++    sem_post(&de->display_start_sem);
++
++    return NULL;
++}
++
++static int egl_vout_write_packet(AVFormatContext *s, AVPacket *pkt)
++{
++    const AVFrame * const src_frame = (AVFrame *)pkt->data;
++    AVFrame * frame;
++    egl_display_env_t * const de = s->priv_data;
++
++#if TRACE_ALL
++    av_log(s, AV_LOG_INFO, "%s\n", __func__);
++#endif
++
++    if (src_frame->format == AV_PIX_FMT_DRM_PRIME) {
++        frame = av_frame_alloc();
++        av_frame_ref(frame, src_frame);
++    }
++    else if (src_frame->format == AV_PIX_FMT_VAAPI) {
++        frame = av_frame_alloc();
++        frame->format = AV_PIX_FMT_DRM_PRIME;
++        if (av_hwframe_map(frame, src_frame, 0) != 0)
++        {
++            av_log(s, AV_LOG_WARNING, "Failed to map frame (format=%d) to DRM_PRiME\n", src_frame->format);
++            av_frame_free(&frame);
++            return AVERROR(EINVAL);
++        }
++    }
++    else {
++        av_log(s, AV_LOG_WARNING, "Frame (format=%d) not DRM_PRiME\n", src_frame->format);
++        return AVERROR(EINVAL);
++    }
++
++
++    pthread_mutex_lock(&de->q_lock);
++    {
++        AVFrame * const t = de->q_next;
++        de->q_next = frame;
++        frame = t;
++    }
++    pthread_mutex_unlock(&de->q_lock);
++
++    if (frame == NULL)
++        sem_post(&de->q_sem);
++    else
++        av_frame_free(&frame);
++
++    return 0;
++}
++
++static int egl_vout_write_frame(AVFormatContext *s, int stream_index, AVFrame **ppframe,
++                          unsigned flags)
++{
++#if TRACE_ALL
++    av_log(s, AV_LOG_INFO, "%s: idx=%d, flags=%#x\n", __func__, stream_index, flags);
++#endif
++
++    /* egl_vout_write_header() should have accepted only supported formats */
++    if ((flags & AV_WRITE_UNCODED_FRAME_QUERY))
++        return 0;
++
++    return 0;
++}
++
++static int egl_vout_control_message(AVFormatContext *s, int type, void *data, size_t data_size)
++{
++#if TRACE_ALL
++    av_log(s, AV_LOG_INFO, "%s: %d\n", __func__, type);
++#endif
++    switch(type) {
++    case AV_APP_TO_DEV_WINDOW_REPAINT:
++        return 0;
++    default:
++        break;
++    }
++    return AVERROR(ENOSYS);
++}
++
++// deinit is called if init fails so no need to clean up explicity here
++static int egl_vout_init(struct AVFormatContext * s)
++{
++    egl_display_env_t * const de = s->priv_data;
++    unsigned int i;
++
++    av_log(s, AV_LOG_INFO, "<<< %s\n", __func__);
++
++    de->setup = (struct egl_setup){0};
++
++    for (i = 0; i != 32; ++i) {
++        de->aux[i].fd = -1;
++    }
++
++    de->q_terminate = 0;
++    pthread_mutex_init(&de->q_lock, NULL);
++    sem_init(&de->q_sem, 0, 0);
++    sem_init(&de->display_start_sem, 0, 0);
++    av_assert0(pthread_create(&de->q_thread, NULL, display_thread, s) == 0);
++
++    sem_wait(&de->display_start_sem);
++    if (de->q_terminate) {
++       av_log(s, AV_LOG_ERROR, "%s: Display startup failure\n", __func__);
++       return -1;
++    }
++
++    av_log(s, AV_LOG_INFO, ">>> %s\n", __func__);
++
++    return 0;
++}
++
++static void egl_vout_deinit(struct AVFormatContext * s)
++{
++    egl_display_env_t * const de = s->priv_data;
++
++    av_log(s, AV_LOG_INFO, "<<< %s\n", __func__);
++
++    de->q_terminate = 1;
++    sem_post(&de->q_sem);
++    pthread_join(de->q_thread, NULL);
++    sem_destroy(&de->q_sem);
++    pthread_mutex_destroy(&de->q_lock);
++
++    av_frame_free(&de->q_next);
++    av_frame_free(&de->q_this);
++
++    av_log(s, AV_LOG_INFO, ">>> %s\n", __func__);
++}
++
++#define OFFSET(x) offsetof(egl_display_env_t, x)
++static const AVOption options[] = {
++#if 0
++    { "display_name", "set display name",       OFFSET(display_name), AV_OPT_TYPE_STRING, {.str = NULL }, 0, 0, AV_OPT_FLAG_ENCODING_PARAM },
++    { "window_id",    "set existing window id", OFFSET(window_id),    AV_OPT_TYPE_INT64,  {.i64 = 0 }, 0, INT64_MAX, AV_OPT_FLAG_ENCODING_PARAM },
++    { "window_size",  "set window forced size", OFFSET(window_width), AV_OPT_TYPE_IMAGE_SIZE, {.str = NULL}, 0, 0, AV_OPT_FLAG_ENCODING_PARAM },
++    { "window_title", "set window title",       OFFSET(window_title), AV_OPT_TYPE_STRING, {.str = NULL }, 0, 0, AV_OPT_FLAG_ENCODING_PARAM },
++    { "window_x",     "set window x offset",    OFFSET(window_x),     AV_OPT_TYPE_INT,    {.i64 = 0 }, -INT_MAX, INT_MAX, AV_OPT_FLAG_ENCODING_PARAM },
++    { "window_y",     "set window y offset",    OFFSET(window_y),     AV_OPT_TYPE_INT,    {.i64 = 0 }, -INT_MAX, INT_MAX, AV_OPT_FLAG_ENCODING_PARAM },
++#endif
++    { NULL }
++
++};
++
++static const AVClass egl_vout_class = {
++    .class_name = "egl vid outdev",
++    .item_name  = av_default_item_name,
++    .option     = options,
++    .version    = LIBAVUTIL_VERSION_INT,
++    .category   = AV_CLASS_CATEGORY_DEVICE_VIDEO_OUTPUT,
++};
++
++AVOutputFormat ff_vout_egl_muxer = {
++    .name           = "vout_egl",
++    .long_name      = NULL_IF_CONFIG_SMALL("Egl video output device"),
++    .priv_data_size = sizeof(egl_display_env_t),
++    .audio_codec    = AV_CODEC_ID_NONE,
++    .video_codec    = AV_CODEC_ID_WRAPPED_AVFRAME,
++    .write_header   = egl_vout_write_header,
++    .write_packet   = egl_vout_write_packet,
++    .write_uncoded_frame = egl_vout_write_frame,
++    .write_trailer  = egl_vout_write_trailer,
++    .control_message = egl_vout_control_message,
++    .flags          = AVFMT_NOFILE | AVFMT_VARIABLE_FPS | AVFMT_NOTIMESTAMPS,
++    .priv_class     = &egl_vout_class,
++    .init           = egl_vout_init,
++    .deinit         = egl_vout_deinit,
++};
++
 diff --git a/libavdevice/rpi_vout.c b/libavdevice/rpi_vout.c
 new file mode 100644
 index 0000000000..60fe8a7075
@@ -51839,7 +54298,7 @@ index 0000000000..fbea56dd09
 +};
 +
 diff --git a/libavformat/utils.c b/libavformat/utils.c
-index 667249362c..436b98c4ff 100644
+index ba8aaebfb7..4c7bd7f5e1 100644
 --- a/libavformat/utils.c
 +++ b/libavformat/utils.c
 @@ -3044,6 +3044,40 @@ static int has_codec_parameters(AVStream *st, const char **errmsg_ptr)
@@ -51979,10 +54438,10 @@ index 5da44b0542..b74b7c4e2f 100644
 +             arm/rpi_sand_neon.o                                        \
 diff --git a/libavutil/arm/rpi_sand_neon.S b/libavutil/arm/rpi_sand_neon.S
 new file mode 100644
-index 0000000000..750af9064f
+index 0000000000..80890fe985
 --- /dev/null
 +++ b/libavutil/arm/rpi_sand_neon.S
-@@ -0,0 +1,69 @@
+@@ -0,0 +1,768 @@
 +/*
 +Copyright (c) 2018 Raspberry Pi (Trading) Ltd.
 +All rights reserved.
@@ -52014,11 +54473,34 @@ index 0000000000..750af9064f
 +
 +#include "libavutil/arm/asm.S"
 +
-+@ void rpi_sand128b_stripe_to_8_10(
-+@   uint8_t * dest,             [r0]
-+@   const uint8_t * src1,       [r1]
-+@   const uint8_t * src2,       [r2]
-+@   unsigned int lines);        [r3]
++
++@ General notes:
++@ Having done some timing on this in sand8->y8 (Pi4)
++@  vst1 (680fps) is a bit faster than vstm (660fps)
++@  vldm (680fps) is noticably faster than vld1 (480fps)
++@  (or it might be that a mix is what is required)
++@
++@ At least on a Pi4 it is no more expensive to have a single auto-inc register
++@ for dest address than it is to have 2 used alternately (On Pi3 Ben asserted
++@ the latter was better)
++@
++@ vstm will bus error on unaligned access (so will vldm), vst1 is safe unless
++@ the memory is uncached.
++@ As these are Sand -> planar we can assume that src is going to be aligned but
++@ it is possible that dest isn't (converting to .yuv or other packed format).
++@ Luckily vst1 is faster than vstm :-) so all is well
++@ vst1 has alignment requirements of el size so maybe splitting vst1.32 into 4
++@ .8 stores would let us do non-word aligned stores into uncached but it
++@ probably isn't worth it.
++
++
++
++
++@ void ff_rpi_sand128b_stripe_to_8_10(
++@   uint8_t * dest,             // [r0]
++@   const uint8_t * src1,       // [r1]
++@   const uint8_t * src2,       // [r2]
++@   unsigned int lines);        // [r3]
 +
 +.macro  stripe2_to_8, bit_depth
 +        vpush    {q4-q7}
@@ -52048,9 +54530,790 @@ index 0000000000..750af9064f
 +        bx       lr
 +.endm
 +
-+function rpi_sand128b_stripe_to_8_10, export=1
++function ff_rpi_sand128b_stripe_to_8_10, export=1
 +        stripe2_to_8     10
 +endfunc
++
++@ void ff_rpi_sand8_lines_to_planar_y8(
++@   uint8_t * dest,             // [r0]
++@   unsigned int dst_stride,    // [r1]
++@   const uint8_t * src,        // [r2]
++@   unsigned int src_stride1,   // [r3]      Ignored - assumed 128
++@   unsigned int src_stride2,   // [sp, #0]  -> r3
++@   unsigned int _x,            // [sp, #4]  Ignored - 0
++@   unsigned int y,             // [sp, #8]  (r7 in prefix)
++@   unsigned int _w,            // [sp, #12] -> r6 (cur r5)
++@   unsigned int h);            // [sp, #16] -> r7
++@
++@ Assumes that we are starting on a stripe boundary and that overreading
++@ within the stripe is OK. However it does respect the dest size for writing
++
++function ff_rpi_sand8_lines_to_planar_y8, export=1
++                push            {r4-r8, lr}     @ +24            L
++                ldr             r3,  [sp, #24]
++                ldr             r6,  [sp, #36]
++                ldr             r7,  [sp, #32]  @ y
++                lsl             r3,  #7
++                sub             r1,  r6
++                add             r8,  r2,  r7,  lsl #7
++                ldr             r7,  [sp, #40]
++
++10:
++                mov             r2,  r8
++                add             r4,  r0,  #24
++                mov             r5,  r6
++                mov             lr,  #0
++1:
++                vldm            r2,  {q8-q15}
++                add             r2,  r3
++                subs            r5,  #128
++                blt             2f
++                vst1.8          {d16, d17, d18, d19}, [r0]!
++                vst1.8          {d20, d21, d22, d23}, [r0]!
++                vst1.8          {d24, d25, d26, d27}, [r0]!
++                vst1.8          {d28, d29, d30, d31}, [r0]!
++                bne             1b
++11:
++                subs            r7,  #1
++                add             r0,  r1
++                add             r8,  #128
++                bne             10b
++
++                pop             {r4-r8, pc}
++
++@ Partial final write
++2:
++                cmp             r5,  #64-128
++                blt             1f
++                vst1.8          {d16, d17, d18, d19}, [r0]!
++                vst1.8          {d20, d21, d22, d23}, [r0]!
++                beq             11b
++                vmov            q8,  q12
++                vmov            q9,  q13
++                sub             r5,  #64
++                vmov            q10, q14
++                vmov            q11, q15
++1:
++                cmp             r5,  #32-128
++                blt             1f
++                vst1.8          {d16, d17, d18, d19}, [r0]!
++                beq             11b
++                vmov            q8,  q10
++                sub             r5,  #32
++                vmov            q9,  q11
++1:
++                cmp             r5,  #16-128
++                blt             1f
++                vst1.8          {d16, d17}, [r0]!
++                beq             11b
++                sub             r5,  #16
++                vmov            q8,  q9
++1:
++                cmp             r5,  #8-128
++                blt             1f
++                vst1.8          {d16}, [r0]!
++                beq             11b
++                sub             r5,  #8
++                vmov            d16, d17
++1:
++                cmp             r5,  #4-128
++                blt             1f
++                vst1.32         {d16[0]}, [r0]!
++                beq             11b
++                sub             r5,  #4
++                vshr.u64        d16, #32
++1:
++                cmp             r5,  #2-128
++                blt             1f
++                vst1.16         {d16[0]}, [r0]!
++                beq             11b
++                vst1.8          {d16[2]}, [r0]!
++                b               11b
++1:
++                vst1.8          {d16[0]}, [r0]!
++                b               11b
++endfunc
++
++@ void ff_rpi_sand8_lines_to_planar_c8(
++@   uint8_t * dst_u,            // [r0]
++@   unsigned int dst_stride_u,  // [r1]
++@   uint8_t * dst_v,            // [r2]
++@   unsigned int dst_stride_v,  // [r3]
++@   const uint8_t * src,        // [sp, #0]  -> r4, r5
++@   unsigned int stride1,       // [sp, #4]  128
++@   unsigned int stride2,       // [sp, #8]  -> r8
++@   unsigned int _x,            // [sp, #12] 0
++@   unsigned int y,             // [sp, #16] (r7 in prefix)
++@   unsigned int _w,            // [sp, #20] -> r12, r6
++@   unsigned int h);            // [sp, #24] -> r7
++@
++@ Assumes that we are starting on a stripe boundary and that overreading
++@ within the stripe is OK. However it does respect the dest size for writing
++
++function ff_rpi_sand8_lines_to_planar_c8, export=1
++                push            {r4-r8, lr}     @ +24
++
++                ldr             r5,  [sp, #24]
++                ldr             r8,  [sp, #32]
++                ldr             r7,  [sp, #40]
++                ldr             r6,  [sp, #44]
++                lsl             r8,  #7
++                add             r5,  r5,  r7,  lsl #7
++                sub             r1,  r1,  r6
++                sub             r3,  r3,  r6
++                ldr             r7,  [sp, #48]
++                vpush           {q4-q7}
++
++10:
++                mov             r4,  r5
++                mov             r12, r6
++1:
++                subs            r12, #64
++                vldm            r4,  {q0-q7}
++                add             r4,  r8
++                it              gt
++                vldmgt          r4,  {q8-q15}
++                add             r4,  r8
++
++                vuzp.8          q0,  q1
++                vuzp.8          q2,  q3
++                vuzp.8          q4,  q5
++                vuzp.8          q6,  q7
++
++                vuzp.8          q8,  q9
++                vuzp.8          q10, q11
++                vuzp.8          q12, q13
++                vuzp.8          q14, q15
++                subs            r12, #64
++
++                @ Rearrange regs so we can use vst1 with 4 regs
++                vswp            q1,  q2
++                vswp            q5,  q6
++                vswp            q9,  q10
++                vswp            q13, q14
++                blt             2f
++
++                vst1.8          {d0,  d1,  d2,  d3 }, [r0]!
++                vst1.8          {d8,  d9,  d10, d11}, [r0]!
++                vst1.8          {d16, d17, d18, d19}, [r0]!
++                vst1.8          {d24, d25, d26, d27}, [r0]!
++
++                vst1.8          {d4,  d5,  d6,  d7 }, [r2]!
++                vst1.8          {d12, d13, d14, d15}, [r2]!
++                vst1.8          {d20, d21, d22, d23}, [r2]!
++                vst1.8          {d28, d29, d30, d31}, [r2]!
++                bne             1b
++11:
++                subs            r7,  #1
++                add             r5,  #128
++                add             r0,  r1
++                add             r2,  r3
++                bne             10b
++                vpop            {q4-q7}
++                pop             {r4-r8,pc}
++
++2:
++                cmp             r12, #64-128
++                blt             1f
++                vst1.8          {d0,  d1,  d2,  d3 }, [r0]!
++                vst1.8          {d8,  d9,  d10, d11}, [r0]!
++                vst1.8          {d4,  d5,  d6,  d7 }, [r2]!
++                vst1.8          {d12, d13, d14, d15}, [r2]!
++                beq             11b
++                sub             r12, #64
++                vmov            q0,  q8
++                vmov            q1,  q9
++                vmov            q2,  q10
++                vmov            q3,  q11
++                vmov            q4,  q12
++                vmov            q5,  q13
++                vmov            q6,  q14
++                vmov            q7,  q15
++1:
++                cmp             r12, #32-128
++                blt             1f
++                vst1.8          {d0,  d1,  d2,  d3 }, [r0]!
++                vst1.8          {d4,  d5,  d6,  d7 }, [r2]!
++                beq             11b
++                sub             r12, #32
++                vmov            q0,  q4
++                vmov            q1,  q5
++                vmov            q2,  q6
++                vmov            q3,  q7
++1:
++                cmp             r12, #16-128
++                blt             1f
++                vst1.8          {d0,  d1 }, [r0]!
++                vst1.8          {d4,  d5 }, [r2]!
++                beq             11b
++                sub             r12, #16
++                vmov            q0,  q1
++                vmov            q2,  q3
++1:
++                cmp             r12, #8-128
++                blt             1f
++                vst1.8          {d0}, [r0]!
++                vst1.8          {d4}, [r2]!
++                beq             11b
++                sub             r12, #8
++                vmov            d0,  d1
++                vmov            d4,  d5
++1:
++                cmp             r12, #4-128
++                blt             1f
++                vst1.32         {d0[0]}, [r0]!
++                vst1.32         {d4[0]}, [r2]!
++                beq             11b
++                sub             r12, #4
++                vmov            s0,  s1
++                vmov            s8,  s9
++1:
++                cmp             r12, #2-128
++                blt             1f
++                vst1.16         {d0[0]}, [r0]!
++                vst1.16         {d4[0]}, [r2]!
++                beq             11b
++                vst1.8          {d0[2]}, [r0]!
++                vst1.8          {d4[2]}, [r2]!
++                b               11b
++1:
++                vst1.8          {d0[0]}, [r0]!
++                vst1.8          {d4[0]}, [r2]!
++                b               11b
++endfunc
++
++
++
++@ void ff_rpi_sand30_lines_to_planar_y16(
++@   uint8_t * dest,             // [r0]
++@   unsigned int dst_stride,    // [r1]
++@   const uint8_t * src,        // [r2]
++@   unsigned int src_stride1,   // [r3]      Ignored - assumed 128
++@   unsigned int src_stride2,   // [sp, #0]  -> r3
++@   unsigned int _x,            // [sp, #4]  Ignored - 0
++@   unsigned int y,             // [sp, #8]  (r7 in prefix)
++@   unsigned int _w,            // [sp, #12] -> r6 (cur r5)
++@   unsigned int h);            // [sp, #16] -> r7
++@
++@ Assumes that we are starting on a stripe boundary and that overreading
++@ within the stripe is OK. However it does respect the dest size for writing
++
++function ff_rpi_sand30_lines_to_planar_y16, export=1
++                push            {r4-r8, lr}     @ +24
++                ldr             r3,  [sp, #24]
++                ldr             r6,  [sp, #36]
++                ldr             r7,  [sp, #32]  @ y
++                mov             r12, #48
++                vmov.u16        q15, #0x3ff
++                sub             r3,  #1
++                lsl             r3,  #7
++                sub             r1,  r1,  r6,  lsl #1
++                add             r8,  r2,  r7,  lsl #7
++                ldr             r7,  [sp, #40]
++
++10:
++                mov             r2,  r8
++                add             r4,  r0,  #24
++                mov             r5,  r6
++                mov             lr,  #0
++1:
++                vldm            r2!, {q10-q13}
++                add             lr,  #64
++
++                vshr.u32        q14, q10, #20    @ Cannot vshrn.u32 #20!
++                ands            lr,  #127
++                vshrn.u32       d2,  q10, #10
++                vmovn.u32       d0,  q10
++                vmovn.u32       d4,  q14
++
++                vshr.u32        q14, q11, #20
++                it              eq
++                addeq           r2,  r3
++                vshrn.u32       d3,  q11, #10
++                vmovn.u32       d1,  q11
++                vmovn.u32       d5,  q14
++
++                subs            r5,  #48
++                vand            q0,  q15
++                vand            q1,  q15
++                vand            q2,  q15
++
++                vshr.u32        q14, q12, #20
++                vshrn.u32       d18, q12, #10
++                vmovn.u32       d16, q12
++                vmovn.u32       d20, q14
++
++                vshr.u32        q14, q13, #20
++                vshrn.u32       d19, q13, #10
++                vmovn.u32       d17, q13
++                vmovn.u32       d21, q14
++
++                vand            q8,  q15
++                vand            q9,  q15
++                vand            q10, q15
++                blt             2f
++
++                vst3.16         {d0,  d2,  d4},  [r0], r12
++                vst3.16         {d1,  d3,  d5},  [r4], r12
++                vst3.16         {d16, d18, d20}, [r0], r12
++                vst3.16         {d17, d19, d21}, [r4], r12
++
++                bne             1b
++
++11:
++                subs            r7,  #1
++                add             r0,  r1
++                add             r8,  #128
++                bne             10b
++
++                pop             {r4-r8, pc}
++
++@ Partial final write
++2:
++                cmp             r5,  #24-48
++                blt             1f
++                vst3.16         {d0,  d2,  d4},  [r0], r12
++                vst3.16         {d1,  d3,  d5},  [r4]
++                beq             11b
++                vmov            q0,  q8
++                sub             r5,  #24
++                vmov            q1,  q9
++                vmov            q2,  q10
++1:
++                cmp             r5,  #12-48
++                blt             1f
++                vst3.16         {d0,  d2,  d4},  [r0]!
++                beq             11b
++                vmov            d0, d1
++                sub             r5, #12
++                vmov            d2, d3
++                vmov            d4, d5
++1:
++                cmp             r5,  #6-48
++                add             r4,  r0,  #6    @ avoid [r0]! on sequential instructions
++                blt             1f
++                vst3.16         {d0[0], d2[0], d4[0]}, [r0]
++                vst3.16         {d0[1], d2[1], d4[1]}, [r4]
++                add             r0,  #12
++                beq             11b
++                vmov            s0,  s1
++                sub             r5,  #6
++                vmov            s4,  s5
++                vmov            s8,  s9
++1:
++                cmp             r5, #3-48
++                blt             1f
++                vst3.16         {d0[0], d2[0], d4[0]}, [r0]!
++                beq             11b
++                sub             r5, #3
++                vshr.u32        d0, #16
++                vshr.u32        d2, #16
++1:
++                cmp             r5, #2-48
++                blt             1f
++                vst2.16         {d0[0], d2[0]}, [r0]!
++                b               11b
++1:
++                vst1.16         {d0[0]}, [r0]!
++                b               11b
++
++endfunc
++
++
++@ void ff_rpi_sand30_lines_to_planar_c16(
++@   uint8_t * dst_u,            // [r0]
++@   unsigned int dst_stride_u,  // [r1]
++@   uint8_t * dst_v,            // [r2]
++@   unsigned int dst_stride_v,  // [r3]
++@   const uint8_t * src,        // [sp, #0]  -> r4, r5
++@   unsigned int stride1,       // [sp, #4]  128
++@   unsigned int stride2,       // [sp, #8]  -> r8
++@   unsigned int _x,            // [sp, #12] 0
++@   unsigned int y,             // [sp, #16] (r7 in prefix)
++@   unsigned int _w,            // [sp, #20] -> r6, r9
++@   unsigned int h);            // [sp, #24] -> r7
++@
++@ Assumes that we are starting on a stripe boundary and that overreading
++@ within the stripe is OK. However it does respect the dest size for writing
++
++function ff_rpi_sand30_lines_to_planar_c16, export=1
++                push            {r4-r10, lr}    @ +32
++                ldr             r5,  [sp, #32]
++                ldr             r8,  [sp, #40]
++                ldr             r7,  [sp, #48]
++                ldr             r9,  [sp, #52]
++                mov             r12, #48
++                vmov.u16        q15, #0x3ff
++                sub             r8,  #1
++                lsl             r8,  #7
++                add             r5,  r5,  r7,  lsl #7
++                sub             r1,  r1,  r9,  lsl #1
++                sub             r3,  r3,  r9,  lsl #1
++                ldr             r7,  [sp, #56]
++10:
++                mov             lr,  #0
++                mov             r4,  r5
++                mov             r6,  r9
++1:
++                vldm            r4!, {q0-q3}
++                add             lr,  #64
++
++                @ N.B. unpack [0,1,2] -> (reg order) 1, 0, 2
++                vshr.u32        q14, q0,  #20
++                vshrn.u32       d16, q0,  #10
++                vmovn.u32       d18, q0
++                ands            lr,  #127
++                vmovn.u32       d20, q14
++
++                vshr.u32        q14, q1,  #20
++                vshrn.u32       d17, q1,  #10
++                vmovn.u32       d19, q1
++                vmovn.u32       d21, q14
++
++                vshr.u32        q14, q2,  #20
++                vshrn.u32       d22, q2,  #10
++                vmovn.u32       d24, q2
++                vmovn.u32       d26, q14
++
++                vshr.u32        q14, q3,  #20
++                vshrn.u32       d23, q3,  #10
++                vmovn.u32       d25, q3
++                add             r10, r0,  #24
++                vmovn.u32       d27, q14
++
++                it              eq
++                addeq           r4,  r8
++                vuzp.16         q8,  q11
++                vuzp.16         q9,  q12
++                vuzp.16         q10, q13
++
++                @ q8   V0, V3,.. -> q0
++                @ q9   U0, U3...
++                @ q10  U1, U4...
++                @ q11  U2, U5,..
++                @ q12  V1, V4,.. -> q1
++                @ q13  V2, V5,.. -> q2
++
++                subs            r6,  #24
++                vand            q11, q15
++                vand            q9,  q15
++                vand            q10, q15
++                vand            q0,  q8,  q15
++                vand            q1,  q12, q15
++                vand            q2,  q13, q15
++
++                blt             2f
++
++                vst3.16         {d18, d20, d22}, [r0],  r12
++                vst3.16         {d19, d21, d23}, [r10]
++                add             r10, r2,  #24
++                vst3.16         {d0,  d2,  d4},  [r2],  r12
++                vst3.16         {d1,  d3,  d5},  [r10]
++
++                bne             1b
++
++11:
++                subs            r7,  #1
++                add             r5,  #128
++                add             r0,  r1
++                add             r2,  r3
++                bne             10b
++
++                pop             {r4-r10, pc}
++
++@ Partial final write
++2:
++                cmp             r6,  #-12
++                blt             1f
++                vst3.16         {d18, d20, d22}, [r0]!
++                vst3.16         {d0,  d2,  d4},  [r2]!
++                beq             11b
++                vmov            d18, d19
++                vmov            d20, d21
++                vmov            d22, d23
++                sub             r6,  #12
++                vmov            d0,  d1
++                vmov            d2,  d3
++                vmov            d4,  d5
++1:
++                cmp             r6,  #-18
++                @ Rezip here as it makes the remaining tail handling easier
++                vzip.16         d0,  d18
++                vzip.16         d2,  d20
++                vzip.16         d4,  d22
++                blt             1f
++                vst3.16         {d0[1],  d2[1],  d4[1]},  [r0]!
++                vst3.16         {d0[0],  d2[0],  d4[0]},  [r2]!
++                vst3.16         {d0[3],  d2[3],  d4[3]},  [r0]!
++                vst3.16         {d0[2],  d2[2],  d4[2]},  [r2]!
++                beq             11b
++                vmov            d0,  d18
++                vmov            d2,  d20
++                sub             r6,  #6
++                vmov            d4,  d22
++1:
++                cmp             r6,  #-21
++                blt             1f
++                vst3.16         {d0[1], d2[1], d4[1]}, [r0]!
++                vst3.16         {d0[0], d2[0], d4[0]}, [r2]!
++                beq             11b
++                vmov            s4,  s5
++                sub             r6,  #3
++                vmov            s0,  s1
++1:
++                cmp             r6,  #-22
++                blt             1f
++                vst2.16         {d0[1], d2[1]}, [r0]!
++                vst2.16         {d0[0], d2[0]}, [r2]!
++                b               11b
++1:
++                vst1.16         {d0[1]}, [r0]!
++                vst1.16         {d0[0]}, [r2]!
++                b               11b
++
++endfunc
++
++@ void ff_rpi_sand30_lines_to_planar_p010(
++@   uint8_t * dest,             // [r0]
++@   unsigned int dst_stride,    // [r1]
++@   const uint8_t * src,        // [r2]
++@   unsigned int src_stride1,   // [r3]      Ignored - assumed 128
++@   unsigned int src_stride2,   // [sp, #0]  -> r3
++@   unsigned int _x,            // [sp, #4]  Ignored - 0
++@   unsigned int y,             // [sp, #8]  (r7 in prefix)
++@   unsigned int _w,            // [sp, #12] -> r6 (cur r5)
++@   unsigned int h);            // [sp, #16] -> r7
++@
++@ Assumes that we are starting on a stripe boundary and that overreading
++@ within the stripe is OK. However it does respect the dest size for writing
++
++function ff_rpi_sand30_lines_to_planar_p010, export=1
++                push            {r4-r8, lr}     @ +24
++                ldr             r3,  [sp, #24]
++                ldr             r6,  [sp, #36]
++                ldr             r7,  [sp, #32]  @ y
++                mov             r12, #48
++                vmov.u16        q15, #0xffc0
++                sub             r3,  #1
++                lsl             r3,  #7
++                sub             r1,  r1,  r6,  lsl #1
++                add             r8,  r2,  r7,  lsl #7
++                ldr             r7,  [sp, #40]
++
++10:
++                mov             r2,  r8
++                add             r4,  r0,  #24
++                mov             r5,  r6
++                mov             lr,  #0
++1:
++                vldm            r2!, {q10-q13}
++                add             lr,  #64
++
++                vshl.u32        q14, q10, #6
++                ands            lr,  #127
++                vshrn.u32       d4,  q10, #14
++                vshrn.u32       d2,  q10, #4
++                vmovn.u32       d0,  q14
++
++                vshl.u32        q14, q11, #6
++                it              eq
++                addeq           r2,  r3
++                vshrn.u32       d5,  q11, #14
++                vshrn.u32       d3,  q11, #4
++                vmovn.u32       d1,  q14
++
++                subs            r5,  #48
++                vand            q2,  q15
++                vand            q1,  q15
++                vand            q0,  q15
++
++                vshl.u32        q14, q12, #6
++                vshrn.u32       d20, q12, #14
++                vshrn.u32       d18, q12, #4
++                vmovn.u32       d16, q14
++
++                vshl.u32        q14, q13, #6
++                vshrn.u32       d21, q13, #14
++                vshrn.u32       d19, q13, #4
++                vmovn.u32       d17, q14
++
++                vand            q10, q15
++                vand            q9,  q15
++                vand            q8,  q15
++                blt             2f
++
++                vst3.16         {d0,  d2,  d4},  [r0], r12
++                vst3.16         {d1,  d3,  d5},  [r4], r12
++                vst3.16         {d16, d18, d20}, [r0], r12
++                vst3.16         {d17, d19, d21}, [r4], r12
++
++                bne             1b
++
++11:
++                subs            r7,  #1
++                add             r0,  r1
++                add             r8,  #128
++                bne             10b
++
++                pop             {r4-r8, pc}
++
++@ Partial final write
++2:
++                cmp             r5,  #24-48
++                blt             1f
++                vst3.16         {d0,  d2,  d4},  [r0], r12
++                vst3.16         {d1,  d3,  d5},  [r4]
++                beq             11b
++                vmov            q0,  q8
++                sub             r5,  #24
++                vmov            q1,  q9
++                vmov            q2,  q10
++1:
++                cmp             r5,  #12-48
++                blt             1f
++                vst3.16         {d0,  d2,  d4},  [r0]!
++                beq             11b
++                vmov            d0, d1
++                sub             r5, #12
++                vmov            d2, d3
++                vmov            d4, d5
++1:
++                cmp             r5,  #6-48
++                add             r4,  r0,  #6    @ avoid [r0]! on sequential instructions
++                blt             1f
++                vst3.16         {d0[0], d2[0], d4[0]}, [r0]
++                vst3.16         {d0[1], d2[1], d4[1]}, [r4]
++                add             r0,  #12
++                beq             11b
++                vmov            s0,  s1
++                sub             r5,  #6
++                vmov            s4,  s5
++                vmov            s8,  s9
++1:
++                cmp             r5, #3-48
++                blt             1f
++                vst3.16         {d0[0], d2[0], d4[0]}, [r0]!
++                beq             11b
++                sub             r5, #3
++                vshr.u32        d0, #16
++                vshr.u32        d2, #16
++1:
++                cmp             r5, #2-48
++                blt             1f
++                vst2.16         {d0[0], d2[0]}, [r0]!
++                b               11b
++1:
++                vst1.16         {d0[0]}, [r0]!
++                b               11b
++
++endfunc
++
++
++
+diff --git a/libavutil/arm/rpi_sand_neon.h b/libavutil/arm/rpi_sand_neon.h
+new file mode 100644
+index 0000000000..447f367bea
+--- /dev/null
++++ b/libavutil/arm/rpi_sand_neon.h
+@@ -0,0 +1,99 @@
++/*
++Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
++All rights reserved.
++
++Redistribution and use in source and binary forms, with or without
++modification, are permitted provided that the following conditions are met:
++    * Redistributions of source code must retain the above copyright
++      notice, this list of conditions and the following disclaimer.
++    * Redistributions in binary form must reproduce the above copyright
++      notice, this list of conditions and the following disclaimer in the
++      documentation and/or other materials provided with the distribution.
++    * Neither the name of the copyright holder nor the
++      names of its contributors may be used to endorse or promote products
++      derived from this software without specific prior written permission.
++
++THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
++ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
++WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY
++DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
++LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
++ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++
++Authors: John Cox
++*/
++
++#ifndef AVUTIL_ARM_SAND_NEON_H
++#define AVUTIL_ARM_SAND_NEON_H
++
++void ff_rpi_sand128b_stripe_to_8_10(
++  uint8_t * dest,             // [r0]
++  const uint8_t * src1,       // [r1]
++  const uint8_t * src2,       // [r2]
++  unsigned int lines);        // [r3]
++
++void ff_rpi_sand8_lines_to_planar_y8(
++  uint8_t * dest,             // [r0]
++  unsigned int dst_stride,    // [r1]
++  const uint8_t * src,        // [r2]
++  unsigned int src_stride1,   // [r3]      Ignored - assumed 128
++  unsigned int src_stride2,   // [sp, #0]  -> r3
++  unsigned int _x,            // [sp, #4]  Ignored - 0
++  unsigned int y,             // [sp, #8]  (r7 in prefix)
++  unsigned int _w,            // [sp, #12] -> r6 (cur r5)
++  unsigned int h);            // [sp, #16] -> r7
++
++void ff_rpi_sand8_lines_to_planar_c8(
++  uint8_t * dst_u,            // [r0]
++  unsigned int dst_stride_u,  // [r1]
++  uint8_t * dst_v,            // [r2]
++  unsigned int dst_stride_v,  // [r3]
++  const uint8_t * src,        // [sp, #0]  -> r4, r5
++  unsigned int stride1,       // [sp, #4]  128
++  unsigned int stride2,       // [sp, #8]  -> r8
++  unsigned int _x,            // [sp, #12] 0
++  unsigned int y,             // [sp, #16] (r7 in prefix)
++  unsigned int _w,            // [sp, #20] -> r12, r6
++  unsigned int h);            // [sp, #24] -> r7
++
++void ff_rpi_sand30_lines_to_planar_y16(
++  uint8_t * dest,             // [r0]
++  unsigned int dst_stride,    // [r1]
++  const uint8_t * src,        // [r2]
++  unsigned int src_stride1,   // [r3]      Ignored - assumed 128
++  unsigned int src_stride2,   // [sp, #0]  -> r3
++  unsigned int _x,            // [sp, #4]  Ignored - 0
++  unsigned int y,             // [sp, #8]  (r7 in prefix)
++  unsigned int _w,            // [sp, #12] -> r6 (cur r5)
++  unsigned int h);            // [sp, #16] -> r7
++
++void ff_rpi_sand30_lines_to_planar_c16(
++  uint8_t * dst_u,            // [r0]
++  unsigned int dst_stride_u,  // [r1]
++  uint8_t * dst_v,            // [r2]
++  unsigned int dst_stride_v,  // [r3]
++  const uint8_t * src,        // [sp, #0]  -> r4, r5
++  unsigned int stride1,       // [sp, #4]  128
++  unsigned int stride2,       // [sp, #8]  -> r8
++  unsigned int _x,            // [sp, #12] 0
++  unsigned int y,             // [sp, #16] (r7 in prefix)
++  unsigned int _w,            // [sp, #20] -> r6, r9
++  unsigned int h);            // [sp, #24] -> r7
++
++void ff_rpi_sand30_lines_to_planar_p010(
++  uint8_t * dest,             // [r0]
++  unsigned int dst_stride,    // [r1]
++  const uint8_t * src,        // [r2]
++  unsigned int src_stride1,   // [r3]      Ignored - assumed 128
++  unsigned int src_stride2,   // [sp, #0]  -> r3
++  unsigned int _x,            // [sp, #4]  Ignored - 0
++  unsigned int y,             // [sp, #8]  (r7 in prefix)
++  unsigned int _w,            // [sp, #12] -> r6 (cur r5)
++  unsigned int h);            // [sp, #16] -> r7
++
++#endif // AVUTIL_ARM_SAND_NEON_H
 +
 diff --git a/libavutil/buffer.c b/libavutil/buffer.c
 index 38a554208a..b0fedabc3e 100644
@@ -52415,10 +55678,10 @@ index 1c625cfc8a..3400390a77 100644
  };
 diff --git a/libavutil/rpi_sand_fn_pw.h b/libavutil/rpi_sand_fn_pw.h
 new file mode 100644
-index 0000000000..3133fe41ac
+index 0000000000..0d5d203dc3
 --- /dev/null
 +++ b/libavutil/rpi_sand_fn_pw.h
-@@ -0,0 +1,211 @@
+@@ -0,0 +1,227 @@
 +/*
 +Copyright (c) 2018 Raspberry Pi (Trading) Ltd.
 +All rights reserved.
@@ -52475,6 +55738,14 @@ index 0000000000..3133fe41ac
 +    const unsigned int w = _w;
 +    const unsigned int mask = stride1 - 1;
 +
++#if PW == 1 && HAVE_SAND_ASM
++    if (_x == 0) {
++        ff_rpi_sand8_lines_to_planar_y8(dst, dst_stride,
++                                     src, stride1, stride2, _x, y, _w, h);
++        return;
++    }
++#endif
++
 +    if ((x & ~mask) == ((x + w) & ~mask)) {
 +        // All in one sand stripe
 +        const uint8_t * p = src + (x & mask) + y * stride1 + (x & ~mask) * stride2;
@@ -52518,6 +55789,14 @@ index 0000000000..3133fe41ac
 +    const unsigned int x = _x * 2;
 +    const unsigned int w = _w * 2;
 +    const unsigned int mask = stride1 - 1;
++
++#if PW == 1 && HAVE_SAND_ASM
++    if (_x == 0) {
++        ff_rpi_sand8_lines_to_planar_c8(dst_u, dst_stride_u, dst_v, dst_stride_v,
++                                     src, stride1, stride2, _x, y, _w, h);
++        return;
++    }
++#endif
 +
 +    if ((x & ~mask) == ((x + w) & ~mask)) {
 +        // All in one sand stripe
@@ -52632,10 +55911,10 @@ index 0000000000..3133fe41ac
 +
 diff --git a/libavutil/rpi_sand_fns.c b/libavutil/rpi_sand_fns.c
 new file mode 100644
-index 0000000000..7cb40c0de0
+index 0000000000..ed0261b02f
 --- /dev/null
 +++ b/libavutil/rpi_sand_fns.c
-@@ -0,0 +1,335 @@
+@@ -0,0 +1,353 @@
 +/*
 +Copyright (c) 2018 Raspberry Pi (Trading) Ltd.
 +All rights reserved.
@@ -52672,6 +55951,13 @@ index 0000000000..7cb40c0de0
 +#include "avassert.h"
 +#include "frame.h"
 +
++#if ARCH_ARM && HAVE_NEON
++#include "arm/rpi_sand_neon.h"
++#define HAVE_SAND_ASM 1
++#else
++#define HAVE_SAND_ASM 0
++#endif
++
 +#define PW 1
 +#include "rpi_sand_fn_pw.h"
 +#undef PW
@@ -52679,10 +55965,6 @@ index 0000000000..7cb40c0de0
 +#define PW 2
 +#include "rpi_sand_fn_pw.h"
 +#undef PW
-+
-+#if ARCH_ARM && HAVE_NEON
-+void rpi_sand128b_stripe_to_8_10(uint8_t * dest, const uint8_t * src1, const uint8_t * src2, unsigned int lines);
-+#endif
 +
 +#if 1
 +// Simple round
@@ -52727,6 +56009,13 @@ index 0000000000..7cb40c0de0
 +    const unsigned int mask = stride1 - 1;
 +    const uint8_t * p0 = src + (x0 & mask) + y * stride1 + (x0 & ~mask) * stride2;
 +    const unsigned int slice_inc = ((stride2 - 1) * stride1) >> 2;  // RHS of a stripe to LHS of next in words
++
++#if HAVE_SAND_ASM
++    if (_x == 0) {
++        ff_rpi_sand30_lines_to_planar_y16(dst, dst_stride, src, stride1, stride2, _x, y, _w, h);
++        return;
++    }
++#endif
 +
 +    if (x0 == x1) {
 +        // *******************
@@ -52786,6 +56075,14 @@ index 0000000000..7cb40c0de0
 +    const unsigned int mask = stride1 - 1;
 +    const uint8_t * p0 = src + (x0 & mask) + y * stride1 + (x0 & ~mask) * stride2;
 +    const unsigned int slice_inc = ((stride2 - 1) * stride1) >> 2;  // RHS of a stripe to LHS of next in words
++
++#if HAVE_SAND_ASM
++    if (_x == 0) {
++        ff_rpi_sand30_lines_to_planar_c16(dst_u, dst_stride_u, dst_v, dst_stride_v,
++                                       src, stride1, stride2, _x, y, _w, h);
++        return;
++    }
++#endif
 +
 +    if (x0 == x1) {
 +        // *******************
@@ -52870,7 +56167,7 @@ index 0000000000..7cb40c0de0
 +            const uint8_t * s1 = src + j * 2 * src_stride2;
 +            const uint8_t * s2 = s1 + src_stride1 * src_stride2;
 +
-+            rpi_sand128b_stripe_to_8_10(d, s1, s2, h);
++            ff_rpi_sand128b_stripe_to_8_10(d, s1, s2, h);
 +        }
 +    }
 +    else
@@ -53270,6 +56567,57 @@ index 0000000000..fcce72226a
 +Display should be a proper device rather than a kludge in ffmpeg.c
 +
 +
+diff --git a/pi-util/conf_arm64_native.sh b/pi-util/conf_arm64_native.sh
+new file mode 100644
+index 0000000000..9e3bbfa190
+--- /dev/null
++++ b/pi-util/conf_arm64_native.sh
+@@ -0,0 +1,45 @@
++echo "Configure for ARM64 native build"
++
++#RPI_KEEPS="-save-temps=obj"
++
++SHARED_LIBS="--enable-shared"
++if [ "$1" == "--noshared" ]; then
++  SHARED_LIBS="--disable-shared"
++  echo Static libs
++  OUT=out/arm64-static-rel
++else
++  echo Shared libs
++  OUT=out/arm64-shared-rel
++fi
++
++mkdir -p $OUT
++cd $OUT
++
++A=aarch64-linux-gnu
++USR_PREFIX=`pwd`/install
++LIB_PREFIX=$USR_PREFIX/lib/$A
++INC_PREFIX=$USR_PREFIX/include/$A
++
++../../configure \
++ --prefix=$USR_PREFIX\
++ --libdir=$LIB_PREFIX\
++ --incdir=$INC_PREFIX\
++ --disable-stripping\
++ --disable-thumb\
++ --disable-mmal\
++ --enable-sand\
++ --enable-v4l2-request\
++ --enable-libdrm\
++ --enable-epoxy\
++ --enable-libudev\
++ --enable-vout-drm\
++ --enable-vout-egl\
++ $SHARED_LIBS\
++ --extra-cflags="-ggdb"
++
++# --enable-decoder=hevc_rpi\
++# --enable-extra-warnings\
++# --arch=armv71\
++
++# gcc option for getting asm listing
++# -Wa,-ahls
 diff --git a/pi-util/conf_h265.2016.csv b/pi-util/conf_h265.2016.csv
 new file mode 100644
 index 0000000000..4efd5d1c67
@@ -53775,12 +57123,14 @@ index 0000000000..fc14f2a3c2
 +1,WPP_F_ericsson_MAIN10_2,WPP_F_ericsson_MAIN10_2.bit,WPP_F_ericsson_MAIN10_yuv.md5
 +1,WPP_F_ericsson_MAIN_2,WPP_F_ericsson_MAIN_2.bit,WPP_F_ericsson_MAIN_2_yuv.md5
 diff --git a/pi-util/conf_native.sh b/pi-util/conf_native.sh
-new file mode 100644
-index 0000000000..285bc1b99c
+new file mode 100755
+index 0000000000..063edbf8af
 --- /dev/null
 +++ b/pi-util/conf_native.sh
-@@ -0,0 +1,41 @@
+@@ -0,0 +1,56 @@
 +echo "Configure for native build"
++
++FFSRC=`pwd`
 +
 +RPI_OPT_VC=/opt/vc
 +RPI_INCLUDES="-I$RPI_OPT_VC/include -I$RPI_OPT_VC/include/interface/vcos/pthreads -I$RPI_OPT_VC/include/interface/vmcs_host/linux"
@@ -53789,11 +57139,24 @@ index 0000000000..285bc1b99c
 +#RPI_KEEPS="-save-temps=obj"
 +RPI_KEEPS=""
 +
-+USR_PREFIX=`pwd`/install
++SHARED_LIBS="--enable-shared"
++if [ "$1" == "--noshared" ]; then
++  SHARED_LIBS="--disable-shared"
++  OUT=out/armv7-static-rel
++  echo Static libs
++else
++  echo Shared libs
++  OUT=out/armv7-shared-rel
++fi
++
++USR_PREFIX=$FFSRC/$OUT/install
 +LIB_PREFIX=$USR_PREFIX/lib/arm-linux-gnueabihf
 +INC_PREFIX=$USR_PREFIX/include/arm-linux-gnueabihf
 +
-+./configure \
++mkdir -p $FFSRC/$OUT
++cd $FFSRC/$OUT
++
++$FFSRC/configure \
 + --prefix=$USR_PREFIX\
 + --libdir=$LIB_PREFIX\
 + --incdir=$INC_PREFIX\
@@ -53805,28 +57168,28 @@ index 0000000000..285bc1b99c
 + --enable-rpi\
 + --enable-v4l2-request\
 + --enable-libdrm\
++ --enable-epoxy\
 + --enable-libudev\
 + --enable-vout-drm\
++ --enable-vout-egl\
++ $SHARED_LIBS\
 + --extra-cflags="-ggdb $RPI_KEEPS $RPI_DEFINES $RPI_INCLUDES"\
 + --extra-cxxflags="$RPI_DEFINES $RPI_INCLUDES"\
 + --extra-ldflags="$RPI_LIBDIRS"\
 + --extra-libs="-Wl,--start-group -lbcm_host -lmmal -lmmal_util -lmmal_core -lvcos -lvcsm -lvchostif -lvchiq_arm"\
 +
-+# --enable-shared\
-+
 +# --enable-decoder=hevc_rpi\
 +# --enable-extra-warnings\
 +# --arch=armv71\
-+# --enable-shared\
 +
 +# gcc option for getting asm listing
 +# -Wa,-ahls
 diff --git a/pi-util/conf_pi1.sh b/pi-util/conf_pi1.sh
 new file mode 100755
-index 0000000000..400e7adcbf
+index 0000000000..29fa9fa68d
 --- /dev/null
 +++ b/pi-util/conf_pi1.sh
-@@ -0,0 +1,31 @@
+@@ -0,0 +1,39 @@
 +echo "Configure for Pi1"
 +
 +RPI_TOOLROOT=`pwd`/../tools/arm-bcm2708/arm-rpi-4.9.3-linux-gnueabihf
@@ -53837,6 +57200,14 @@ index 0000000000..400e7adcbf
 +#RPI_KEEPS="-save-temps=obj"
 +RPI_KEEPS=""
 +
++SHARED_LIBS="--enable-shared"
++if [ "$1" == "--noshared" ]; then
++  SHARED_LIBS="--disable-shared"
++  echo Static libs
++else
++  echo Shared libs
++fi
++
 +./configure --enable-cross-compile\
 + --cpu=arm1176jzf-s\
 + --arch=arm\
@@ -53844,7 +57215,7 @@ index 0000000000..400e7adcbf
 + --target-os=linux\
 + --disable-stripping\
 + --enable-mmal\
-+ --enable-shared\
++ $SHARED_LIBS\
 + --extra-cflags="-g $RPI_KEEPS $RPI_INCLUDES"\
 + --extra-cxxflags="$RPI_INCLUDES"\
 + --extra-ldflags="$RPI_LIBDIRS -Wl,-rpath=/opt/vc/lib,-rpath-link=$RPI_OPT_VC/lib,-rpath=/lib,-rpath=/usr/lib,-rpath-link=$RPI_TOOLROOT/lib,-rpath-link=$RPI_TOOLROOT/lib"\
@@ -53860,10 +57231,10 @@ index 0000000000..400e7adcbf
 +# -Wa,-ahls
 diff --git a/pi-util/conf_pi2.sh b/pi-util/conf_pi2.sh
 new file mode 100755
-index 0000000000..e44c6857eb
+index 0000000000..3dd5edcf83
 --- /dev/null
 +++ b/pi-util/conf_pi2.sh
-@@ -0,0 +1,41 @@
+@@ -0,0 +1,50 @@
 +echo "Configure for Pi2/3"
 +
 +RPI_TOOLROOT=`pwd`/../tools/arm-bcm2708/arm-rpi-4.9.3-linux-gnueabihf
@@ -53879,6 +57250,14 @@ index 0000000000..e44c6857eb
 +LIB_PREFIX=$USR_PREFIX/lib/arm-linux-gnueabihf
 +INC_PREFIX=$USR_PREFIX/include/arm-linux-gnueabihf
 +
++SHARED_LIBS="--enable-shared"
++if [ "$1" == "--noshared" ]; then
++  SHARED_LIBS="--disable-shared"
++  echo Static libs
++else
++  echo Shared libs
++fi
++
 +./configure --enable-cross-compile\
 + --prefix=$USR_PREFIX\
 + --libdir=$LIB_PREFIX\
@@ -53890,6 +57269,7 @@ index 0000000000..e44c6857eb
 + --disable-thumb\
 + --enable-mmal\
 + --enable-rpi\
++ $SHARED_LIBS\
 + --extra-cflags="-ggdb $RPI_KEEPS $RPI_DEFINES $RPI_INCLUDES"\
 + --extra-cxxflags="$RPI_DEFINES $RPI_INCLUDES"\
 + --extra-ldflags="$RPI_LIBDIRS -Wl,-rpath=/opt/vc/lib,-rpath-link=$RPI_OPT_VC/lib,-rpath=/lib,-rpath=/usr/lib,-rpath-link=$RPI_TOOLROOT/lib,-rpath-link=$RPI_TOOLROOT/lib"\
@@ -54261,7 +57641,7 @@ index 0000000000..2fabe98c32
 +    exit(main())
 +
 diff --git a/pi-util/genpatch.sh b/pi-util/genpatch.sh
-new file mode 100644
+new file mode 100755
 index 0000000000..0948a68a7a
 --- /dev/null
 +++ b/pi-util/genpatch.sh
@@ -54341,6 +57721,21 @@ index 0000000000..271a39e846
 +make install
 +
 +cp -r install/* ../vlc/sysroot/raspian_stretch_pi1-sysroot/usr
+diff --git a/pi-util/patkodi.sh b/pi-util/patkodi.sh
+new file mode 100644
+index 0000000000..dcd05a606e
+--- /dev/null
++++ b/pi-util/patkodi.sh
+@@ -0,0 +1,9 @@
++set -e
++KODIBASE=/home/jc/rpi/kodi/xbmc
++JOBS=-j20
++make $JOBS
++git diff xbmc/release/4.3-kodi > $KODIBASE/tools/depends/target/ffmpeg/pfcd_hevc_optimisations.patch
++make -C $KODIBASE/tools/depends/target/ffmpeg $JOBS
++make -C $KODIBASE/build install
++
++
 diff --git a/pi-util/perfcmp.py b/pi-util/perfcmp.py
 new file mode 100755
 index 0000000000..e44cfa0c3c
