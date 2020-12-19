@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="RTL8192CU"
-PKG_VERSION="0f37bd7f97573f835e4dedb4b2628c1ceedd71ad"
-PKG_SHA256="0291b11b11b0949769270ba28b279194c3f77a407922cb1221d06c13cbbb5a13"
+PKG_VERSION="7a15cb42e568b0f9c3c872bd6a06cdcab9f0ffd0"
+PKG_SHA256="93cd979956ab3f60618707cd11395549ecff17135fa969e25f031a1f06453a7d"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/pvaret/rtl8192cu-fixes"
 PKG_URL="$PKG_SITE/archive/$PKG_VERSION.tar.gz"
