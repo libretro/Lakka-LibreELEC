@@ -2,8 +2,8 @@
 # Copyright (C) 2020-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libudfread"
-PKG_VERSION="1.1.0"
-PKG_SHA256="5ad9f95c53e8f29853c1fefa0a20a301be4045e2c7ae49d1164bc74d94155627"
+PKG_VERSION="1.1.1"
+PKG_SHA256="5d237ff81caa46856dc75b8ddd1f17c0e262eea08ef59a466cc850585f1680dc"
 PKG_LICENSE="LGPLv2.1"
 PKG_SITE="https://code.videolan.org/videolan/libudfread"
 PKG_URL="https://code.videolan.org/videolan/$PKG_NAME/-/archive/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.gz"
