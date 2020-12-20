@@ -29,7 +29,3 @@ configure_package() {
 
   PKG_CONFIGURE_SCRIPT="${PKG_BUILD}/source/configure"
 }
-
-post_makeinstall_target() {
-  rm -rf $INSTALL
-}
