@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libraw"
-PKG_VERSION="0.19.5"
-PKG_SHA256="40a262d7cc71702711a0faec106118ee004f86c86cc228281d12d16da03e02f5"
+PKG_VERSION="0.20.2"
+PKG_SHA256="dc1b486c2003435733043e4e05273477326e51c3ea554c6864a4eafaff1004a6"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.libraw.org/"
 PKG_URL="http://www.libraw.org/data/LibRaw-$PKG_VERSION.tar.gz"
