@@ -27,6 +27,13 @@ fi
     fi
   done
 
+# update Device Tree Overlays
+  if [ -d $SYSTEM_ROOT/usr/share/bootloader/overlays ]; then
+    echo "*** updating Device Tree Overlays ..."
+    mkdir -p /flash/overlays
+    cp -p $SYSTEM_ROOT/usr/share/bootloader/overlays/* /flash/overlays
+  fi
+
 # update bootloader files
   if [ -f $SYSTEM_ROOT/usr/share/bootloader/u-boot-sunxi-with-spl.bin ]; then
     echo "*** updating U-Boot on: $BOOT_DISK ..."
