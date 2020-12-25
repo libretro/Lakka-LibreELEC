@@ -52,7 +52,7 @@ PKG_DEPENDS_TARGET="toolchain \
                     ytop"
 
 if [ "$TARGET_ARCH" = "x86_64" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET efibootmgr"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET efibootmgr st"
 fi
 
 addon() {
@@ -145,6 +145,9 @@ addon() {
 
     # smartmontools
     cp -P $(get_install_dir smartmontools)/usr/sbin/smartctl $ADDON_BUILD/$PKG_ADDON_ID/bin
+
+    # st
+    cp -P $(get_build_dir st)/st $ADDON_BUILD/$PKG_ADDON_ID/bin 2>/dev/null || :
 
     # strace
     cp -P $(get_install_dir strace)/usr/bin/strace $ADDON_BUILD/$PKG_ADDON_ID/bin
