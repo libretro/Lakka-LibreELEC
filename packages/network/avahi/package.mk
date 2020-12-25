@@ -1,13 +1,14 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="avahi"
-PKG_VERSION="0.7"
-PKG_SHA256="fd45480cef0559b3eab965ea3ad4fe2d7a8f27db32c851a032ee0b487c378329"
+PKG_VERSION="0.8"
+PKG_SHA256="c15e750ef7c6df595fb5f2ce10cac0fee2353649600e6919ad08ae8871e4945f"
 PKG_LICENSE="GPL"
 PKG_SITE="http://avahi.org/"
 PKG_URL="https://github.com/lathiat/avahi/archive/v$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain expat libdaemon dbus connman"
+PKG_DEPENDS_TARGET="toolchain expat libdaemon dbus connman libevent gettext"
 PKG_LONGDESC="Service Discovery for Linux using mDNS/DNS-SD, compatible with Bonjour."
 PKG_TOOLCHAIN="configure"
 
@@ -19,6 +20,7 @@ PKG_CONFIGURE_OPTS_TARGET="py_cv_mod_gtk_=yes \
                            --disable-gobject \
                            --disable-qt3 \
                            --disable-qt4 \
+                           --disable-qt5 \
                            --disable-gtk \
                            --disable-gtk3 \
                            --enable-dbus \
