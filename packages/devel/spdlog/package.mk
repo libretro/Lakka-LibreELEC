@@ -2,8 +2,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="spdlog"
-PKG_VERSION="1.8.1"
-PKG_SHA256="5197b3147cfcfaa67dd564db7b878e4a4b3d9f3443801722b3915cdeced656cb"
+PKG_VERSION="1.8.2"
+PKG_SHA256="e20e6bd8f57e866eaf25a5417f0a38a116e537f1a77ac7b5409ca2b180cec0d5"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/gabime/spdlog"
 PKG_URL="https://github.com/gabime/spdlog/archive/v$PKG_VERSION.tar.gz"
