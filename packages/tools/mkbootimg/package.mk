@@ -3,7 +3,7 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mkbootimg"
-PKG_VERSION="6668fc2"
+PKG_VERSION="6668fc24a3130ab003aae9fda95bcd4110617de9"
 PKG_SHA256="d84870e055414d638a3e7eb4b7a3ebf415899841218f24cb3647d06ecf6ddb17"
 PKG_LICENSE="GPL"
 PKG_SITE="https://android.googlesource.com/platform/system/core/+/master/mkbootimg/"

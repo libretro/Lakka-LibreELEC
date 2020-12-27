@@ -2,7 +2,7 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="dstat"
-PKG_VERSION="77e9347"
+PKG_VERSION="77e9347cf16a2cb08c7b79b40255b4700be81609"
 PKG_SHA256="2b2f4ef3a0d1dc6d0a4bc2f54a57ba6f1e278333881a07df7e55aec502a48c7c"
 PKG_LICENSE="GPL"
 PKG_SITE="http://dag.wiee.rs/home-made/dstat"

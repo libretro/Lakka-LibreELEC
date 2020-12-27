@@ -2,7 +2,7 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.vram-test"
-PKG_VERSION="92e1146"
+PKG_VERSION="92e114661d10b508aaa578a54afb5fb6c4f03ec0"
 PKG_SHA256="ab866d1cc455c4fdba6f67b44dff850cd6e713c964ef0afd366d3ee526504288"
 PKG_REV="101"
 PKG_ARCH="any"
