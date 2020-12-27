@@ -3,7 +3,7 @@
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 
 PKG_NAME="open-iscsi"
-PKG_VERSION="bf39941"
+PKG_VERSION="bf399411ed8a2f4047f928653ac8dd02ffd0f662"
 PKG_SHA256="92b9f0a27a9a373b14eab7b12f1bfff5d4857695a688dc4434df8e7623354588"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/mikechristie/open-iscsi"

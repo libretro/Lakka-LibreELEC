@@ -2,7 +2,7 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ecm-tools"
-PKG_VERSION="55365b0"
+PKG_VERSION="55365b02f237f079334f207133dd85b45270ecd9"
 PKG_SHA256="39c2d0e36b1cba33fa9fee1c0a2a63f851b561fceb59dc99550a1e8e580d3b5a"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/alucryd/ecm-tools"

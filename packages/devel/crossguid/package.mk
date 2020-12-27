@@ -2,7 +2,7 @@
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 
 PKG_NAME="crossguid"
-PKG_VERSION="8f399e8"
+PKG_VERSION="8f399e8bd4252be9952f3dfa8199924cc8487ca4"
 PKG_SHA256="022c9f02cc36e865cd8fd0111a597ff2bd91988deeb348dbe2aba64aed1abd99"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/graeme-hill/crossguid"

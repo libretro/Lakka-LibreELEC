@@ -3,7 +3,7 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="tstools"
-PKG_VERSION="db1f79f"
+PKG_VERSION="db1f79f409818fa0476ecf8593079a7ca3dbafd2"
 PKG_SHA256="f204229016c9deafcc75fe602c390339878312126134edbfcebf239e093dc4ff"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kynesim/tstools"
