@@ -2,11 +2,11 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="wireguard-tools"
-PKG_VERSION="v1.0.20200827"
+PKG_VERSION="1.0.20200827"
 PKG_SHA256="ec08772216da73a2f6a925927ce794fe9686ba169bb774e451d34199db19795c"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://www.wireguard.com"
-PKG_URL="https://git.zx2c4.com/wireguard-tools/snapshot/wireguard-tools-$PKG_VERSION.tar.xz"
+PKG_URL="https://git.zx2c4.com/wireguard-tools/snapshot/wireguard-tools-v$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_LONGDESC="WireGuard VPN userspace tools"
