@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="bash"
-PKG_VERSION="4.3.46"
-PKG_SHA256="fc7131bbc3139db143ec9fe03fd4e6bd3636bdf53e6956065b261f034b6af74b"
+PKG_VERSION="5.0.18"
+PKG_SHA256="83adb589317d3295e73e86f6816f6670d7f089344538f9f516ce25bfb5fd3a0b"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/bash/bash.html"
 PKG_URL="ftp://ftp.cwru.edu/pub/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.gz"
