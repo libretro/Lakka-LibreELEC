@@ -3,10 +3,10 @@
 
 PKG_NAME="tinyxml"
 PKG_VERSION="2.6.2"
-PKG_SHA256="15bdfdcec58a7da30adc87ac2b078e4417dbe5392f3afb719f9ba6d062645593"
+PKG_SHA256="8164c9ad48b9028667768a584d62f7760cfbfb90d0dd6214ad174403058da10c"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.grinninglizard.com/tinyxml/"
-PKG_URL="https://downloads.sourceforge.net/tinyxml/tinyxml_${PKG_VERSION//./_}.tar.gz"
+PKG_URL="http://mirrors.xbmc.org/build-deps/sources/$PKG_NAME-${PKG_VERSION}_2.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="TinyXML is a simple, small, C++ XML parser."
 PKG_TOOLCHAIN="autotools"
