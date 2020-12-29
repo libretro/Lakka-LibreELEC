@@ -9,6 +9,8 @@
 #include <errno.h>
 #include <limits.h>
 
+#define POLL_FREQ 10
+
 void usage(char *name)
 {
   if (!name)
@@ -31,9 +33,9 @@ int main(int argc, char** argv)
     if (strcmp(argv[1], "-t") && strcmp(argv[1], "--timeout"))
       usage(argv[0]);
     val = strtoul(argv[2], &p, 0);
-    if (*p || val == 0 || val >= UINT_MAX/3)
+    if (*p || val == 0 || val >= UINT_MAX / POLL_FREQ)
       usage(argv[0]);
-    timeout = (unsigned)val * 3;
+    timeout = (unsigned)val * POLL_FREQ;
   }
   else if (argc != 1)
     usage(argv[0]);
@@ -45,7 +47,7 @@ int main(int argc, char** argv)
     rc = adjtimex(&tx);
     if (rc != TIME_ERROR)
       break;
-    usleep(1000000U/3);
+    usleep(1000000U / POLL_FREQ);
   }
 
   return rc == -1 ? errno : !timeout;
