@@ -2,11 +2,11 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="file"
-PKG_VERSION="87731415de945660b00f02207d8e9d986ef9b82e"
-PKG_SHA256="8cb394b99ff9979bfa042e2daff404e9f65df18ec0045b901e91c024583e3f15"
+PKG_VERSION="5.39"
+PKG_SHA256="6c136f512bf4851b06de4d829ba4df8cbffc1ab1ecfbc1a4ded88a7c4f8c4180"
 PKG_LICENSE="BSD"
 PKG_SITE="http://www.darwinsys.com/file/"
-PKG_URL="https://github.com/file/file/archive/${PKG_VERSION}.tar.gz"
+PKG_URL="https://github.com/file/file/archive/FILE${PKG_VERSION/./_}.tar.gz"
 PKG_DEPENDS_HOST="toolchain:host"
 PKG_DEPENDS_TARGET="toolchain file:host zlib"
 PKG_LONGDESC="The file utility is used to determine the types of various files."
