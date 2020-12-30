@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="lftp"
-PKG_VERSION="4.8.4"
-PKG_SHA256="4ebc271e9e5cea84a683375a0f7e91086e5dac90c5d51bb3f169f75386107a62"
+PKG_VERSION="4.9.2"
+PKG_SHA256="c517c4f4f9c39bd415d7313088a2b1e313b2d386867fe40b7692b83a20f0670d"
 PKG_LICENSE="GPLv3"
 PKG_SITE="http://lftp.yar.ru/"
 PKG_URL="http://lftp.yar.ru/ftp/${PKG_NAME}-${PKG_VERSION}.tar.xz"
