@@ -18,6 +18,9 @@ if [ -n "$UBOOT_FIRMWARE" ]; then
   PKG_DEPENDS_UNPACK+=" $UBOOT_FIRMWARE"
 fi
 
+CRUST_CONFIG=$($ROOT/$SCRIPTS/uboot_helper $PROJECT $DEVICE $UBOOT_SYSTEM crust_config)
+[ -n "$CRUST_CONFIG" ] && PKG_DEPENDS_TARGET+=" crust"
+
 PKG_NEED_UNPACK="$PROJECT_DIR/$PROJECT/bootloader"
 [ -n "$DEVICE" ] && PKG_NEED_UNPACK+=" $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader"
 
@@ -29,8 +32,8 @@ case "$PROJECT" in
     PKG_PATCH_DIRS="rockchip"
     ;;
   *)
-    PKG_VERSION="v2020.10"
-    PKG_SHA256="0c022ca6796aa8c0689faae8b515eb62ac84519c31de3153257a9ee0f446618f"
+    PKG_VERSION="v2021.01-rc4"
+    PKG_SHA256="9e05a96f0cac4f8b6fdea5cdf10f0d814e6a0d7141243a6eb9862385c7ddeb14"
     PKG_URL="https://github.com/u-boot/u-boot/archive/$PKG_VERSION.tar.gz"
     ;;
 esac
@@ -50,7 +53,8 @@ make_target() {
     echo "see './scripts/uboot_helper' for more information"
   else
     [ "${BUILD_WITH_DEBUG}" = "yes" ] && PKG_DEBUG=1 || PKG_DEBUG=0
-    [ -n "$UBOOT_FIRMWARE" ] && find_file_path bootloader/firmware && . ${FOUND_PATH}
+    [ -n "$ATF_PLATFORM" ] && cp -av $(get_install_dir atf)/usr/share/bootloader/bl31.bin .
+    [ -n "$CRUST_CONFIG" ] && cp -av $(get_install_dir crust)/usr/share/bootloader/scp.bin .
     DEBUG=${PKG_DEBUG} CROSS_COMPILE="$TARGET_KERNEL_PREFIX" LDFLAGS="" ARCH=arm make mrproper
     DEBUG=${PKG_DEBUG} CROSS_COMPILE="$TARGET_KERNEL_PREFIX" LDFLAGS="" ARCH=arm make $($ROOT/$SCRIPTS/uboot_helper $PROJECT $DEVICE $UBOOT_SYSTEM config)
     DEBUG=${PKG_DEBUG} CROSS_COMPILE="$TARGET_KERNEL_PREFIX" LDFLAGS="" ARCH=arm _python_sysroot="$TOOLCHAIN" _python_prefix=/ _python_exec_prefix=/ make $UBOOT_TARGET HOSTCC="$HOST_CC" HOSTLDFLAGS="-L$TOOLCHAIN/lib" HOSTSTRIP="true" CONFIG_MKIMAGE_DTC_PATH="scripts/dtc/dtc"

@@ -31,6 +31,10 @@ esac
 
 PKG_KERNEL_CFG_FILE=$(kernel_config_path) || die
 
+if [ -n "$($ROOT/$SCRIPTS/uboot_helper $PROJECT $DEVICE $UBOOT_SYSTEM crust_config)" ]; then
+    PKG_PATCH_DIRS="$PKG_PATCH_DIRS crust"
+fi
+
 if [ -n "$KERNEL_TOOLCHAIN" ]; then
   PKG_DEPENDS_HOST="$PKG_DEPENDS_HOST gcc-arm-$KERNEL_TOOLCHAIN:host"
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gcc-arm-$KERNEL_TOOLCHAIN:host"
