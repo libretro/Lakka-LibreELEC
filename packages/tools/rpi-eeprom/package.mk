@@ -23,7 +23,7 @@ makeinstall_target() {
       for _dir in ${PKG_BUILD}/firmware/${_maindir} ${PKG_BUILD}/firmware/{_maindir}-*; do
         [ -d "${_dir}" ] || continue
 
-	_basedir="$(basename "${_dir}")"
+        _basedir="$(basename "${_dir}")"
 
         mkdir -p ${DESTDIR}/${_basedir}
           cp -PRv ${_dir}/recovery.bin ${DESTDIR}/${_basedir}
