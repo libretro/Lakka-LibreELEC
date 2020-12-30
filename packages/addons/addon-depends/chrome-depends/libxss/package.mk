@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libxss"
-PKG_VERSION="1.2.2"
-PKG_SHA256="8ff1efa7341c7f34bcf9b17c89648d6325ddaae22e3904e091794e0b4426ce1d"
+PKG_VERSION="1.2.3"
+PKG_SHA256="f917075a1b7b5a38d67a8b0238eaab14acd2557679835b154cf2bca576e89bf8"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
 PKG_URL="https://xorg.freedesktop.org/archive/individual/lib/libXScrnSaver-$PKG_VERSION.tar.bz2"
