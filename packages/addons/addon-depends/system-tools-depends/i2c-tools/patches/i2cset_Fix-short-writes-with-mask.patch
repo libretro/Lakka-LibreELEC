@@ -1,0 +1,98 @@
+From 11a1738e83bbb093f22e38ad11ba9f0e73ae9248 Mon Sep 17 00:00:00 2001
+From: Jean Delvare <jdelvare@suse.de>
+Date: Tue, 8 Sep 2020 17:22:33 +0200
+Subject: i2cset: Fix short writes with mask
+
+Short writes used "daddress" for the value, but the masking code did
+not expect that, and instead applied the mask to a variable that was
+never used.
+
+So change short writes to use "value" for the value, as all other
+commands do. Adjust all code paths accordingly.
+
+Reported by David Jedynak.
+
+Signed-off-by: Jean Delvare <jdelvare@suse.de>
+Reviewed-by: Wolfram Sang <wsa+renesas@sang-engineering.com>
+Tested-by: Wolfram Sang <wsa+renesas@sang-engineering.com>
+---
+ CHANGES        |  1 +
+ tools/i2cset.c | 25 +++++++++++++------------
+ 2 files changed, 14 insertions(+), 12 deletions(-)
+
+diff --git a/tools/i2cset.c b/tools/i2cset.c
+index e143b65..84925d2 100644
+--- a/tools/i2cset.c
++++ b/tools/i2cset.c
+@@ -123,11 +123,11 @@ static int confirm(const char *filename, int address, int size, int daddress,
+ 	}
+ 
+ 	fprintf(stderr, "I will write to device file %s, chip address "
+-		"0x%02x, data address\n0x%02x, ", filename, address, daddress);
+-	if (size == I2C_SMBUS_BYTE)
+-		fprintf(stderr, "no data.\n");
+-	else if (size == I2C_SMBUS_BLOCK_DATA ||
+-		 size == I2C_SMBUS_I2C_BLOCK_DATA) {
++		"0x%02x,\n", filename, address);
++	if (size != I2C_SMBUS_BYTE)
++		fprintf(stderr, "data address 0x%02x, ", daddress);
++	if (size == I2C_SMBUS_BLOCK_DATA ||
++	    size == I2C_SMBUS_I2C_BLOCK_DATA) {
+ 		int i;
+ 
+ 		fprintf(stderr, "data");
+@@ -138,7 +138,7 @@ static int confirm(const char *filename, int address, int size, int daddress,
+ 	} else
+ 		fprintf(stderr, "data 0x%02x%s, mode %s.\n", value,
+ 			vmask ? " (masked)" : "",
+-			size == I2C_SMBUS_BYTE_DATA ? "byte" : "word");
++			size == I2C_SMBUS_WORD_DATA ? "word" : "byte");
+ 	if (pec)
+ 		fprintf(stderr, "PEC checking enabled.\n");
+ 
+@@ -261,6 +261,10 @@ int main(int argc, char *argv[])
+ 
+ 	/* read values from command line */
+ 	switch (size) {
++	case I2C_SMBUS_BYTE:
++		/* short write: data address was not really data address */
++		value = daddress;
++		break;
+ 	case I2C_SMBUS_BYTE_DATA:
+ 	case I2C_SMBUS_WORD_DATA:
+ 		value = strtol(argv[flags+4], &end, 0);
+@@ -341,12 +345,10 @@ int main(int argc, char *argv[])
+ 
+ 		if (!yes) {
+ 			fprintf(stderr, "Old value 0x%0*x, write mask "
+-				"0x%0*x: Will write 0x%0*x to register "
+-				"0x%02x\n",
++				"0x%0*x, will write 0x%0*x\n",
+ 				size == I2C_SMBUS_WORD_DATA ? 4 : 2, oldvalue,
+ 				size == I2C_SMBUS_WORD_DATA ? 4 : 2, vmask,
+-				size == I2C_SMBUS_WORD_DATA ? 4 : 2, value,
+-				daddress);
++				size == I2C_SMBUS_WORD_DATA ? 4 : 2, value);
+ 
+ 			fprintf(stderr, "Continue? [Y/n] ");
+ 			fflush(stderr);
+@@ -366,7 +368,7 @@ int main(int argc, char *argv[])
+ 
+ 	switch (size) {
+ 	case I2C_SMBUS_BYTE:
+-		res = i2c_smbus_write_byte(file, daddress);
++		res = i2c_smbus_write_byte(file, value);
+ 		break;
+ 	case I2C_SMBUS_WORD_DATA:
+ 		res = i2c_smbus_write_word_data(file, daddress, value);
+@@ -404,7 +406,6 @@ int main(int argc, char *argv[])
+ 	switch (size) {
+ 	case I2C_SMBUS_BYTE:
+ 		res = i2c_smbus_read_byte(file);
+-		value = daddress;
+ 		break;
+ 	case I2C_SMBUS_WORD_DATA:
+ 		res = i2c_smbus_read_word_data(file, daddress);
+-- 
+cgit 1.2.3-1.el7
+
