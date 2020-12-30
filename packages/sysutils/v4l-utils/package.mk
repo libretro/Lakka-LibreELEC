@@ -15,10 +15,10 @@ PKG_LONGDESC="Linux V4L2 and DVB API utilities and v4l libraries (libv4l)."
 PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--without-jpeg \
-	--enable-bpf \
-	--enable-static \
-	--disable-shared \
-	--disable-doxygen-doc"
+        --enable-bpf \
+        --enable-static \
+        --disable-shared \
+        --disable-doxygen-doc"
 
 pre_configure_target() {
   # cec-ctl fails to build in subdirs
