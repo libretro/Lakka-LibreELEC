@@ -2,11 +2,11 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libde265"
-PKG_VERSION="50987014f7b041079ac1961352781904b691cf7b"
-PKG_SHA256="5cdefeb099141608331efe9a9bd33dad271e5810438b654e53e4d2359acdc12a"
+PKG_VERSION="1.0.8"
+PKG_SHA256="24c791dd334fa521762320ff54f0febfd3c09fc978880a8c5fbc40a88f21d905"
 PKG_LICENSE="LGPLv3"
 PKG_SITE="http://www.libde265.org"
-PKG_URL="https://github.com/strukturag/libde265/archive/$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/strukturag/libde265/releases/download/v${PKG_VERSION}/${PKG_NAME}-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Open h.265 video codec implementation."
 PKG_BUILD_FLAGS="+pic"
