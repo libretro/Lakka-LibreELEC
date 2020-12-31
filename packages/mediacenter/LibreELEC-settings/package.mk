@@ -3,8 +3,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="LibreELEC-settings"
-PKG_VERSION="29bf2370f13354183e40aea0707d4d2c752c49a7"
-PKG_SHA256="ef8e57541d4177ca38e43010dc12f429835e91acf1d1770618e284bfd0bbf857"
+PKG_VERSION="e7559693978aa2adc9854f968bf955eeeab62de4"
+PKG_SHA256="3135fecfcd78f0fc7760735eff17ebdffe603de7ba4f1c3230633c11a3237d3a"
 PKG_LICENSE="GPL"
 PKG_SITE="https://libreelec.tv"
 PKG_URL="https://github.com/LibreELEC/service.libreelec.settings/archive/${PKG_VERSION}.tar.gz"
