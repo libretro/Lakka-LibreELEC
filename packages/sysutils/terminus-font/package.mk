@@ -2,11 +2,11 @@
 # Copyright (C) 2019 Matthias Reichl <hias@horus.com>
 
 PKG_NAME="terminus-font"
-PKG_VERSION="4.48"
-PKG_SHA256="34799c8dd5cec7db8016b4a615820dfb43b395575afbb24fc17ee19c869c94af"
+PKG_VERSION="4.49.1"
+PKG_SHA256="d961c1b781627bf417f9b340693d64fc219e0113ad3a3af1a3424c7aa373ef79"
 PKG_LICENSE="OFL1_1"
-PKG_SITE="https://terminus-font.sourceforge.net/"
-PKG_URL="https://downloads.sourceforge.net/project/${PKG_NAME}/${PKG_NAME}-${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.gz"
+PKG_SITE="http://terminus-font.sourceforge.net"
+PKG_URL="https://downloads.sourceforge.net/project/${PKG_NAME}/${PKG_NAME}-${PKG_VERSION:0:4}/${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_INIT="toolchain Python3:host"
 PKG_LONGDESC="This package contains the Terminus Font"
 PKG_TOOLCHAIN="manual"
