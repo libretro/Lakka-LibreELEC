@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="wireless-regdb"
-PKG_VERSION="2020.04.29"
-PKG_SHA256="89fd031aed5977c219a71501e144375a10e7c90d1005d5d086ea7972886a2c7a"
+PKG_VERSION="2020.11.20"
+PKG_SHA256="b4164490d82ff7b0086e812ac42ab27baf57be24324d4c0ee1c5dd6ba27f2a52"
 PKG_LICENSE="GPL"
 PKG_SITE="http://wireless.kernel.org/en/developers/Regulatory"
 PKG_URL="https://www.kernel.org/pub/software/network/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.xz"
