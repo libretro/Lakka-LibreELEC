@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libpcap"
-PKG_VERSION="1.9.1"
-PKG_SHA256="635237637c5b619bcceba91900666b64d56ecb7be63f298f601ec786ce087094"
+PKG_VERSION="1.10.0"
+PKG_SHA256="8d12b42623eeefee872f123bd0dc85d535b00df4d42e865f993c40f7bfc92b1e"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.tcpdump.org/"
 PKG_URL="http://www.tcpdump.org/release/libpcap-${PKG_VERSION}.tar.gz"
