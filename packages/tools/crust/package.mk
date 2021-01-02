@@ -18,12 +18,16 @@ pre_configure_target() {
 }
 
 make_target() {
-  CRUST_CONFIG=$($ROOT/$SCRIPTS/uboot_helper $PROJECT $DEVICE $UBOOT_SYSTEM crust_config)
+  if [ -z "$UBOOT_SYSTEM" ]; then
+    echo "crust is only built when building an image"
+    exit 0
+  fi
 
+  CRUST_CONFIG=$($ROOT/$SCRIPTS/uboot_helper $PROJECT $DEVICE $UBOOT_SYSTEM crust_config)
   if [ -z "$CRUST_CONFIG" ]; then
-    echo "crust_config must be set to build an image"
+    echo "crust_config must be set to build crust firmware"
     echo "see './scripts/uboot_helper' for more information"
-    exit 1
+    exit 0
   fi
 
   make distclean
