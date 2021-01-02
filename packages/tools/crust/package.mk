@@ -11,6 +11,7 @@ PKG_URL="https://github.com/crust-firmware/crust/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="gcc-or1k-linux:host"
 PKG_LONGDESC="Crust: Libre SCP firmware for Allwinner sunxi SoCs"
 PKG_TOOLCHAIN="manual"
+PKG_STAMP="$UBOOT_SYSTEM"
 
 pre_configure_target() {
   export CROSS_COMPILE="$TOOLCHAIN/lib/gcc-or1k-linux/bin/or1k-linux-"
