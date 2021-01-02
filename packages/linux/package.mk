@@ -30,10 +30,9 @@ case "$LINUX" in
 esac
 
 PKG_KERNEL_CFG_FILE=$(kernel_config_path) || die
-if [ -n "$UBOOT_SYSTEM" ]; then
-  if [ -n "$($ROOT/$SCRIPTS/uboot_helper $PROJECT $DEVICE $UBOOT_SYSTEM crust_config)" ]; then
-    PKG_PATCH_DIRS="$PKG_PATCH_DIRS crust"
-  fi
+
+if listcontains "${UBOOT_FIRMWARE}" "crust"; then
+  PKG_PATCH_DIRS+=" crust"
 fi
 
 if [ -n "$KERNEL_TOOLCHAIN" ]; then
