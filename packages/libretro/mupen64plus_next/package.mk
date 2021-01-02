@@ -45,6 +45,11 @@ if [ "$OPENGLES_SUPPORT" = yes ]; then
 fi
 
 make_target() {
+  if [ "$OPENGLES" = "libmali" ]; then
+    CXXFLAGS+=" -DGL_USE_DLSYM"
+    LDFLAGS+=" -ldl"
+  fi
+
   case ${DEVICE:-$PROJECT} in
     RPi|Gamegirl)
       CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads \
