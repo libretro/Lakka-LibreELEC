@@ -11,7 +11,7 @@
  obj-$(CONFIG_HID)		+= hid.o
 --- /dev/null
 +++ b/drivers/hid/hid-rg351p.c
-@@ -0,0 +1,162 @@
+@@ -0,0 +1,166 @@
 +/*
 + *  PWM feedback HID hack for RG351P console
 + *
@@ -51,6 +51,7 @@
 +
 +struct rg351p_device {
 +	struct pwm_device *pwmdev;
++	struct mutex lock;
 +};
 +
 +static int hid_rg351p_play(struct input_dev *dev, void *data,
@@ -59,14 +60,16 @@
 +	struct rg351p_device *devinfo = *(struct rg351p_device**)data;
 +	u32 weak, strong, intensity;
 +
-+	/* Map intensity from 0 to 1000 */
++	/* Map intensity from 0 to 65535 */
 +	strong = effect->u.rumble.strong_magnitude;
 +	weak = effect->u.rumble.weak_magnitude;
 +	intensity = (weak + 2 * strong) / 3;
-+	intensity = (1000 * intensity) >> 16;
++	intensity = (65535 * intensity) >> 16;
 +
++	mutex_lock(&devinfo->lock);
 +	if (devinfo->pwmdev)
-+		pwm_config(devinfo->pwmdev, 1000 - intensity, 1000);
++		pwm_config(devinfo->pwmdev, 65535 - intensity, 65535);
++	mutex_unlock(&devinfo->lock);
 +
 +	return 0;
 +}
@@ -90,6 +93,7 @@
 +			intdev = kzalloc(sizeof(struct rg351p_device), GFP_KERNEL);
 +			if (!intdev)
 +				return -ENOMEM;
++			mutex_init(&intdev->lock);
 +
 +			devptr = kzalloc(sizeof(void*), GFP_KERNEL);
 +			if (!devptr) {
@@ -120,7 +124,7 @@
 +		intdev->pwmdev = NULL;
 +	}
 +	else if (intdev->pwmdev) {
-+		pwm_config(intdev->pwmdev, 1000, 1000);
++		pwm_config(intdev->pwmdev, 65535, 65535);
 +		pwm_enable(intdev->pwmdev);
 +		hid_info(hid, "rumble-pwm device intialized, rumble feedback ready\n");
 +	}
