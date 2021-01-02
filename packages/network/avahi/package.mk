@@ -8,7 +8,7 @@ PKG_SHA256="c15e750ef7c6df595fb5f2ce10cac0fee2353649600e6919ad08ae8871e4945f"
 PKG_LICENSE="GPL"
 PKG_SITE="http://avahi.org/"
 PKG_URL="https://github.com/lathiat/avahi/archive/v$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain expat libdaemon dbus connman libevent gettext"
+PKG_DEPENDS_TARGET="toolchain expat libdaemon dbus connman gettext"
 PKG_LONGDESC="Service Discovery for Linux using mDNS/DNS-SD, compatible with Bonjour."
 PKG_TOOLCHAIN="configure"
 
@@ -46,6 +46,7 @@ PKG_CONFIGURE_OPTS_TARGET="py_cv_mod_gtk_=yes \
                            --disable-manpages \
                            --disable-xmltoman \
                            --disable-tests \
+                           --disable-libevent \
                            --enable-compat-libdns_sd \
                            --disable-compat-howl \
                            --with-xml=expat \
