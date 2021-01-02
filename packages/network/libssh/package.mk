@@ -28,5 +28,6 @@ makeinstall_target() {
 
   mkdir -p $SYSROOT_PREFIX/usr/include/libssh
     cp $PKG_BUILD/include/libssh/{callbacks.h,legacy.h,libssh.h,server.h,sftp.h,ssh2.h} \
+       $PKG_BUILD/.$TARGET_NAME/include/libssh/libssh_version.h \
     $SYSROOT_PREFIX/usr/include/libssh
 }
