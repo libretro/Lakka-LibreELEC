@@ -21,16 +21,13 @@ PKG_CMAKE_OPTS_TARGET="-DBUILD_SHARED_LIBS=OFF \
 makeinstall_target() {
 # install static library only
   mkdir -p $SYSROOT_PREFIX/usr/lib
-    cp src/libssh.a $SYSROOT_PREFIX/usr/lib
+    cp $PKG_BUILD/.$TARGET_NAME/src/libssh.a $SYSROOT_PREFIX/usr/lib
 
   mkdir -p $SYSROOT_PREFIX/usr/lib/pkgconfig
-    cp libssh.pc $SYSROOT_PREFIX/usr/lib/pkgconfig
+    cp $PKG_BUILD/.$TARGET_NAME/libssh.pc $SYSROOT_PREFIX/usr/lib/pkgconfig
 
   mkdir -p $SYSROOT_PREFIX/usr/include/libssh
-    cp ../include/libssh/callbacks.h $SYSROOT_PREFIX/usr/include/libssh
-    cp ../include/libssh/legacy.h $SYSROOT_PREFIX/usr/include/libssh
-    cp ../include/libssh/libssh.h $SYSROOT_PREFIX/usr/include/libssh
-    cp ../include/libssh/server.h $SYSROOT_PREFIX/usr/include/libssh
-    cp ../include/libssh/sftp.h $SYSROOT_PREFIX/usr/include/libssh
-    cp ../include/libssh/ssh2.h $SYSROOT_PREFIX/usr/include/libssh
+    cp $PKG_BUILD/include/libssh/{callbacks.h,legacy.h,libssh.h,server.h,sftp.h,ssh2.h} \
+       $PKG_BUILD/.$TARGET_NAME/include/libssh/libssh_version.h \
+    $SYSROOT_PREFIX/usr/include/libssh
 }
