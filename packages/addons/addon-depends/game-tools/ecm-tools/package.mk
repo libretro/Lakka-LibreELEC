@@ -2,11 +2,11 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ecm-tools"
-PKG_VERSION="55365b02f237f079334f207133dd85b45270ecd9"
-PKG_SHA256="39c2d0e36b1cba33fa9fee1c0a2a63f851b561fceb59dc99550a1e8e580d3b5a"
+PKG_VERSION="1.0.3"
+PKG_SHA256="7b7475789603e64c7ae3ddcb0e95f09640ba37a7f13b29c8e8f2f4087bd872c9"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/alucryd/ecm-tools"
-PKG_URL="https://github.com/alucryd/ecm-tools/archive/$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/alucryd/ecm-tools/archive/v$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Error Code Modeler.s"
 PKG_BUILD_FLAGS="-sysroot"
