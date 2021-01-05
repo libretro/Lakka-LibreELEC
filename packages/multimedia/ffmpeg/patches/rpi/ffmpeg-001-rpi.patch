@@ -47144,7 +47144,7 @@ index 8dbc7fc104..7baf618c66 100644
   * Extracts the data from an AVFrame to a V4L2Buffer
   *
 diff --git a/libavcodec/v4l2_context.c b/libavcodec/v4l2_context.c
-index 29b144ed73..11ee533cb6 100644
+index 29b144ed73..e87b5a4432 100644
 --- a/libavcodec/v4l2_context.c
 +++ b/libavcodec/v4l2_context.c
 @@ -173,7 +173,8 @@ static int v4l2_handle_event(V4L2Context *ctx)
@@ -47341,7 +47341,26 @@ index 29b144ed73..11ee533cb6 100644
          pixfmt = ff_v4l2_format_v4l2_to_avfmt(fdesc.pixelformat, AV_CODEC_ID_RAWVIDEO);
          ret = v4l2_try_raw_format(ctx, pixfmt);
          if (ret){
-@@ -608,7 +692,7 @@ int ff_v4l2_context_enqueue_frame(V4L2Context* ctx, const AVFrame* frame)
+@@ -575,10 +659,16 @@ int ff_v4l2_context_set_status(V4L2Context* ctx, uint32_t cmd)
+     int ret;
+ 
+     ret = ioctl(ctx_to_m2mctx(ctx)->fd, cmd, &type);
+-    if (ret < 0)
+-        return AVERROR(errno);
++    if (ret < 0) {
++        const int err = errno;
++        av_log(logger(ctx), AV_LOG_ERROR, "%s set status %d (%s) failed: err=%d\n", ctx->name,
++               cmd, (cmd == VIDIOC_STREAMON) ? "ON" : "OFF", err);
++        return AVERROR(err);
++    }
+ 
+     ctx->streamon = (cmd == VIDIOC_STREAMON);
++    av_log(logger(ctx), AV_LOG_DEBUG, "%s set status %d (%s) OK\n", ctx->name,
++           cmd, (cmd == VIDIOC_STREAMON) ? "ON" : "OFF");
+ 
+     return 0;
+ }
+@@ -608,7 +698,7 @@ int ff_v4l2_context_enqueue_frame(V4L2Context* ctx, const AVFrame* frame)
      return ff_v4l2_buffer_enqueue(avbuf);
  }
  
@@ -47350,7 +47369,7 @@ index 29b144ed73..11ee533cb6 100644
  {
      V4L2m2mContext *s = ctx_to_m2mctx(ctx);
      V4L2Buffer* avbuf;
-@@ -626,7 +710,7 @@ int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt)
+@@ -626,7 +716,7 @@ int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt)
      if (!avbuf)
          return AVERROR(EAGAIN);
  
@@ -47482,7 +47501,7 @@ index 456281f48c..b08a5b38ac 100644
  
  /**
 diff --git a/libavcodec/v4l2_m2m_dec.c b/libavcodec/v4l2_m2m_dec.c
-index 3e17e0fcac..351df8b9ee 100644
+index 3e17e0fcac..c397f2ca2f 100644
 --- a/libavcodec/v4l2_m2m_dec.c
 +++ b/libavcodec/v4l2_m2m_dec.c
 @@ -23,6 +23,9 @@
@@ -47495,7 +47514,7 @@ index 3e17e0fcac..351df8b9ee 100644
  #include "libavutil/pixfmt.h"
  #include "libavutil/pixdesc.h"
  #include "libavutil/opt.h"
-@@ -30,26 +33,48 @@
+@@ -30,26 +33,51 @@
  #include "libavcodec/decode.h"
  #include "libavcodec/internal.h"
  
@@ -47528,6 +47547,9 @@ index 3e17e0fcac..351df8b9ee 100644
 +    ret = ioctl(s->fd, VIDIOC_DECODER_CMD, &cmd);
 +    if (ret < 0)
 +        av_log(avctx, AV_LOG_ERROR, "VIDIOC_DECODER_CMD start error: %d\n", errno);
++    else
++        av_log(avctx, AV_LOG_DEBUG, "VIDIOC_DECODER_CMD start OK\n", errno);
++
 +    return ret;
 +}
 +
@@ -47552,7 +47574,7 @@ index 3e17e0fcac..351df8b9ee 100644
  
      if (capture->streamon)
          return 0;
-@@ -63,8 +88,14 @@ static int v4l2_try_start(AVCodecContext *avctx)
+@@ -63,8 +91,14 @@ static int v4l2_try_start(AVCodecContext *avctx)
      }
  
      /* 2.1 update the AVCodecContext */
@@ -47569,7 +47591,7 @@ index 3e17e0fcac..351df8b9ee 100644
  
      /* 3. set the crop parameters */
      selection.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-@@ -133,28 +164,257 @@ static int v4l2_prepare_decoder(V4L2m2mContext *s)
+@@ -133,28 +167,257 @@ static int v4l2_prepare_decoder(V4L2m2mContext *s)
      return 0;
  }
  
@@ -47833,7 +47855,7 @@ index 3e17e0fcac..351df8b9ee 100644
          if (ret != AVERROR(EAGAIN))
             return ret;
  
-@@ -178,9 +438,36 @@ static int v4l2_receive_frame(AVCodecContext *avctx, AVFrame *frame)
+@@ -178,9 +441,36 @@ static int v4l2_receive_frame(AVCodecContext *avctx, AVFrame *frame)
  dequeue:
      if (!s->buf_pkt.size)
          av_packet_unref(&avpkt);
@@ -47871,7 +47893,7 @@ index 3e17e0fcac..351df8b9ee 100644
  static av_cold int v4l2_decode_init(AVCodecContext *avctx)
  {
      V4L2Context *capture, *output;
-@@ -188,6 +475,9 @@ static av_cold int v4l2_decode_init(AVCodecContext *avctx)
+@@ -188,6 +478,9 @@ static av_cold int v4l2_decode_init(AVCodecContext *avctx)
      V4L2m2mPriv *priv = avctx->priv_data;
      int ret;
  
@@ -47881,7 +47903,7 @@ index 3e17e0fcac..351df8b9ee 100644
      ret = ff_v4l2_m2m_create_context(priv, &s);
      if (ret < 0)
          return ret;
-@@ -208,13 +498,32 @@ static av_cold int v4l2_decode_init(AVCodecContext *avctx)
+@@ -208,13 +501,32 @@ static av_cold int v4l2_decode_init(AVCodecContext *avctx)
      capture->av_codec_id = AV_CODEC_ID_RAWVIDEO;
      capture->av_pix_fmt = avctx->pix_fmt;
  
@@ -47917,7 +47939,7 @@ index 3e17e0fcac..351df8b9ee 100644
          return ret;
      }
  
-@@ -223,10 +532,68 @@ static av_cold int v4l2_decode_init(AVCodecContext *avctx)
+@@ -223,10 +535,68 @@ static av_cold int v4l2_decode_init(AVCodecContext *avctx)
  
  static av_cold int v4l2_decode_close(AVCodecContext *avctx)
  {
@@ -47989,7 +48011,7 @@ index 3e17e0fcac..351df8b9ee 100644
  }
  
  #define OFFSET(x) offsetof(V4L2m2mPriv, x)
-@@ -235,10 +602,16 @@ static av_cold int v4l2_decode_close(AVCodecContext *avctx)
+@@ -235,10 +605,16 @@ static av_cold int v4l2_decode_close(AVCodecContext *avctx)
  static const AVOption options[] = {
      V4L_M2M_DEFAULT_OPTS,
      { "num_capture_buffers", "Number of buffers in the capture context",
@@ -48007,7 +48029,7 @@ index 3e17e0fcac..351df8b9ee 100644
  #define M2MDEC_CLASS(NAME) \
      static const AVClass v4l2_m2m_ ## NAME ## _dec_class = { \
          .class_name = #NAME "_v4l2m2m_decoder", \
-@@ -259,9 +632,14 @@ static const AVOption options[] = {
+@@ -259,9 +635,14 @@ static const AVOption options[] = {
          .init           = v4l2_decode_init, \
          .receive_frame  = v4l2_receive_frame, \
          .close          = v4l2_decode_close, \
@@ -48226,10 +48248,10 @@ index 0000000000..392f22b988
 +#endif
 diff --git a/libavcodec/v4l2_request.c b/libavcodec/v4l2_request.c
 new file mode 100644
-index 0000000000..06beeda0da
+index 0000000000..2306c21836
 --- /dev/null
 +++ b/libavcodec/v4l2_request.c
-@@ -0,0 +1,1093 @@
+@@ -0,0 +1,1094 @@
 +/*
 + * This file is part of FFmpeg.
 + *
@@ -48449,6 +48471,7 @@ index 0000000000..06beeda0da
 +        return ret;
 +
 +    buf->buffer.timestamp = buffer.timestamp;
++    buf->buffer.flags     = buffer.flags;
 +    return 0;
 +}
 +
@@ -49889,10 +49912,10 @@ index 0000000000..d6332c01c7
 +};
 diff --git a/libavcodec/v4l2_request_hevc.c b/libavcodec/v4l2_request_hevc.c
 new file mode 100644
-index 0000000000..3f813b8520
+index 0000000000..1c675d6dee
 --- /dev/null
 +++ b/libavcodec/v4l2_request_hevc.c
-@@ -0,0 +1,606 @@
+@@ -0,0 +1,652 @@
 +/*
 + * This file is part of FFmpeg.
 + *
@@ -49911,6 +49934,7 @@ index 0000000000..3f813b8520
 + * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 + */
 +
++#include "decode.h"
 +#include "hevcdec.h"
 +#include "hwconfig.h"
 +#include "v4l2_request.h"
@@ -50406,6 +50430,50 @@ index 0000000000..3f813b8520
 +    return rv;
 +}
 +
++// Called before finally returning the frame to the user
++// Set corrupt flag here as this is actually the frame structure that
++// is going to the user (in MT land each thread has its own pool)
++static int v4l2_request_post_process(void *logctx, AVFrame *frame)
++{
++    V4L2RequestDescriptor *req = (V4L2RequestDescriptor*)frame->data[0];
++    if (req) {
++        av_log(logctx, AV_LOG_DEBUG, "%s: flags=%#x, ts=%ld.%06ld\n", __func__, req->capture.buffer.flags,
++               req->capture.buffer.timestamp.tv_sec, req->capture.buffer.timestamp.tv_usec);
++        frame->flags = (req->capture.buffer.flags & V4L2_BUF_FLAG_ERROR) == 0 ? 0 : AV_FRAME_FLAG_CORRUPT;
++    }
++
++    return 0;
++}
++
++static int v4l2_request_hevc_alloc_frame(AVCodecContext * avctx, AVFrame *frame)
++{
++    int ret;
++
++    // This dups the remainder of ff_get_buffer but adds a post_process callback
++    ret = avctx->get_buffer2(avctx, frame, AV_GET_BUFFER_FLAG_REF);
++    if (ret < 0)
++        goto fail;
++
++    ret = ff_attach_decode_data(frame);
++    if (ret < 0)
++        goto fail;
++
++    {
++        FrameDecodeData *fdd = (FrameDecodeData*)frame->private_ref->data;
++        fdd->post_process = v4l2_request_post_process;
++    }
++
++    return 0;
++
++fail:
++    if (ret < 0) {
++        av_log(avctx, AV_LOG_ERROR, "%s failed\n", __func__);
++        av_frame_unref(frame);
++    }
++
++    return ret;
++}
++
 +static int v4l2_request_hevc_set_controls(AVCodecContext *avctx)
 +{
 +    V4L2RequestContextHEVC *ctx = avctx->internal->hwaccel_priv_data;
@@ -50488,6 +50556,7 @@ index 0000000000..3f813b8520
 +    .type           = AVMEDIA_TYPE_VIDEO,
 +    .id             = AV_CODEC_ID_HEVC,
 +    .pix_fmt        = AV_PIX_FMT_DRM_PRIME,
++    .alloc_frame    = v4l2_request_hevc_alloc_frame,
 +    .start_frame    = v4l2_request_hevc_start_frame,
 +    .decode_slice   = v4l2_request_hevc_decode_slice,
 +    .end_frame      = v4l2_request_hevc_end_frame,
@@ -51942,10 +52011,10 @@ index 8633433254..bc15112a00 100644
  
 diff --git a/libavdevice/drm_vout.c b/libavdevice/drm_vout.c
 new file mode 100644
-index 0000000000..8f93619651
+index 0000000000..c427b60d30
 --- /dev/null
 +++ b/libavdevice/drm_vout.c
-@@ -0,0 +1,608 @@
+@@ -0,0 +1,613 @@
 +/*
 + * Copyright (c) 2020 John Cox for Raspberry Pi Trading
 + *
@@ -52217,6 +52286,11 @@ index 0000000000..8f93619651
 +#if TRACE_ALL
 +    av_log(s, AV_LOG_INFO, "%s\n", __func__);
 +#endif
++
++    if ((src_frame->flags & AV_FRAME_FLAG_CORRUPT) != 0) {
++        av_log(s, AV_LOG_WARNING, "Discard corrupt frame: ts=%" PRId64 "\n", src_frame->format, src_frame->pts);
++        return 0;
++    }
 +
 +    if (src_frame->format == AV_PIX_FMT_DRM_PRIME) {
 +        frame = av_frame_alloc();
