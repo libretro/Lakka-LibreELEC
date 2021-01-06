@@ -11,7 +11,7 @@ PKG_LICENSE="Custom"
 PKG_SITE="http://www.google.com/chrome"
 PKG_DEPENDS_TARGET="toolchain at-spi2-atk atk cairo chrome-libXcomposite \
                     chrome-libXdamage chrome-libXfixes chrome-libXi chrome-libXrender \
-                    chrome-libXtst chrome-libxcb chrome-libxkbcommon cups gdk-pixbuf gtk3 harfbuzz \
+                    chrome-libXtst chrome-libxcb chrome-libxkbcommon cups gdk-pixbuf gtk3 harfbuzz-icu \
                     libXcursor libxss nss pango scrnsaverproto unclutter"
 PKG_SECTION="browser"
 PKG_SHORTDESC="Google Chrome Browser"
@@ -44,7 +44,7 @@ addon() {
          $(get_install_dir cairo)/usr/lib/{libcairo-gobject.so.2,libcairo.so.2} \
          $(get_install_dir gdk-pixbuf)/usr/lib/libgdk_pixbuf-2.0.so.0 \
          $(get_install_dir gtk3)/usr/lib/{libgtk-3.so.0,libgdk-3.so.0} \
-         $(get_install_dir harfbuzz)/usr/lib/{libharfbuzz.so.0,libharfbuzz-icu.so*} \
+         $(get_install_dir harfbuzz-icu)/usr/lib/{libharfbuzz.so.0,libharfbuzz-icu.so*} \
          $(get_install_dir at-spi2-atk)/usr/lib/libatk-bridge-2.0.so.0 \
          $(get_install_dir at-spi2-core)/usr/lib/libatspi.so.0 \
          $(get_install_dir cups)/usr/lib/libcups.so.2 \
