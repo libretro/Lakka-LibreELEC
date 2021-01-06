@@ -3,8 +3,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mpfr"
-PKG_VERSION="4.0.2"
-PKG_SHA256="1d3be708604eae0e42d578ba93b390c2a145f17743a744d8f3f8c2ad5855a38a"
+PKG_VERSION="4.1.0"
+PKG_SHA256="0c98a3f1732ff6ca4ea690552079da9c597872d30e96ec28414ee23c95558a7f"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.mpfr.org/"
 PKG_URL="http://ftpmirror.gnu.org/mpfr/$PKG_NAME-$PKG_VERSION.tar.xz"
