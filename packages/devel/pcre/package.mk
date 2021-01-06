@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pcre"
-PKG_VERSION="8.43"
-PKG_SHA256="91e762520003013834ac1adb4a938d53b22a216341c061b0cf05603b290faf6b"
+PKG_VERSION="8.44"
+PKG_SHA256="19108658b23b3ec5058edc9f66ac545ea19f9537234be1ec62b714c84399366d"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.pcre.org/"
 PKG_URL="https://ftp.pcre.org/pub/pcre/$PKG_NAME-$PKG_VERSION.tar.bz2"
