@@ -1,0 +1,96 @@
+From c8216074411efbc484d2e308451477fa9f4e342c Mon Sep 17 00:00:00 2001
+From: Andre Heider <a.heider@gmail.com>
+Date: Sun, 17 Nov 2019 20:24:43 +0100
+Subject: [PATCH 2/3] arm: sunxi: add a config option to fixup a Bluetooth
+ address
+
+Some Bluetooth controllers, like the BCM4345C5 of the Orange Pi 3,
+ship with the controller default address.
+
+Add a config option to fix it up so it can function properly.
+
+Signed-off-by: Andre Heider <a.heider@gmail.com>
+Tested-by: Ondrej Jirman <megous@megous.com>
+Acked-by: Maxime Ripard <mripard@kernel.org>
+[rebased]
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+---
+ arch/arm/mach-sunxi/Kconfig | 11 +++++++++++
+ board/sunxi/board.c         | 34 ++++++++++++++++++++++++++++++++++
+ 2 files changed, 45 insertions(+)
+
+diff --git a/arch/arm/mach-sunxi/Kconfig b/arch/arm/mach-sunxi/Kconfig
+index 49ef217f08c0..269aef5f01a1 100644
+--- a/arch/arm/mach-sunxi/Kconfig
++++ b/arch/arm/mach-sunxi/Kconfig
+@@ -1016,4 +1016,15 @@ config PINEPHONE_DT_SELECTION
+ 	  Enable this option to automatically select the device tree for the
+ 	  correct PinePhone hardware revision during boot.
+ 
++config FIXUP_BDADDR
++	string "Fixup the Bluetooth controller address"
++	default ""
++	help
++	  This option specifies the DT compatible name of the Bluetooth
++	  controller for which to set the "local-bd-address" property.
++	  Set this option if your device ships with the Bluetooth controller
++	  default address.
++	  The used address is "bdaddr" if set, and "ethaddr" with the LSB
++	  flipped elsewise.
++
+ endif
+diff --git a/board/sunxi/board.c b/board/sunxi/board.c
+index 4a29e351141b..d19119b7eb36 100644
+--- a/board/sunxi/board.c
++++ b/board/sunxi/board.c
+@@ -908,6 +908,38 @@ int misc_init_r(void)
+ 	return 0;
+ }
+ 
++static void fixup_bd_address(void *blob)
++{
++	/* Some devices ship with a Bluetooth controller default address.
++	 * Set a valid address through the device tree.
++	 */
++	uchar tmp[ETH_ALEN], bdaddr[ETH_ALEN];
++	unsigned int sid[4];
++	int i;
++
++	if (!CONFIG_FIXUP_BDADDR[0])
++		return;
++
++	if (eth_env_get_enetaddr("bdaddr", tmp)) {
++		/* Convert between the binary formats of the corresponding stacks */
++		for (i = 0; i < ETH_ALEN; ++i)
++			bdaddr[i] = tmp[ETH_ALEN - i - 1];
++	} else {
++		if (!get_unique_sid(sid))
++			return;
++
++		bdaddr[0] = ((sid[3] >>  0) & 0xff) ^ 1;
++		bdaddr[1] = (sid[3] >>  8) & 0xff;
++		bdaddr[2] = (sid[3] >> 16) & 0xff;
++		bdaddr[3] = (sid[3] >> 24) & 0xff;
++		bdaddr[4] = (sid[0] >>  0) & 0xff;
++		bdaddr[5] = 0x02;
++	}
++
++	do_fixup_by_compat(blob, CONFIG_FIXUP_BDADDR,
++			   "local-bd-address", bdaddr, ETH_ALEN, 1);
++}
++
+ int ft_board_setup(void *blob, struct bd_info *bd)
+ {
+ 	int __maybe_unused r;
+@@ -918,6 +950,8 @@ int ft_board_setup(void *blob, struct bd_info *bd)
+ 	 */
+ 	setup_environment(blob);
+ 
++	fixup_bd_address(blob);
++
+ #ifdef CONFIG_VIDEO_DT_SIMPLEFB
+ 	r = sunxi_simplefb_setup(blob);
+ 	if (r)
+-- 
+2.30.0
+
