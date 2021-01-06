@@ -11,6 +11,7 @@ PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/$PKG_NAME-$PKG_VERSI
 PKG_DEPENDS_HOST="toolchain:host"
 PKG_DEPENDS_TARGET="toolchain util-macros"
 PKG_LONGDESC="Pixman is a generic library for manipulating pixel regions, contains low-level pixel manipulation routines."
+PKG_TOOLCHAIN="configure"
 
 if [ "$TARGET_ARCH" = arm ]; then
   if target_has_feature neon; then
