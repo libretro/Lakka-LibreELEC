@@ -2,8 +2,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="dotnet-runtime"
-PKG_VERSION="3.1.9"
-PKG_REV="111"
+PKG_VERSION="3.1.10"
+PKG_REV="112"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://dotnet.github.io/"
@@ -21,16 +21,16 @@ PKG_MAINTAINER="Anton Voyl (awiouy)"
 
 case "${ARCH}" in
   "aarch64")
-    PKG_SHA256="1ffe06b0012feb52d75e748438695e11905343890de73a594e6540d535fd084c"
-    PKG_URL="https://download.visualstudio.microsoft.com/download/pr/dffd493f-9eb8-483f-81c7-a9e2201574ef/54e7464241e01e7031fd89e6fe88e6da/aspnetcore-runtime-3.1.9-linux-arm64.tar.gz"
+    PKG_SHA256="ef11a880d59b19f1df355b3c9c8b35ea1aa37e72d179850051cad963cb72358f"
+    PKG_URL="https://download.visualstudio.microsoft.com/download/pr/936a9563-1dad-4c4b-b366-c7fcc3e28215/a1edcaf4c35bce760d07e3f1f3d0b9cf/aspnetcore-runtime-3.1.10-linux-arm64.tar.gz"
     ;;
   "arm")
-    PKG_SHA256="496247dc5098a506accb0c3286f82e497a6da30f4d0b8262c29484c096d5f717"
-    PKG_URL="https://download.visualstudio.microsoft.com/download/pr/c8cd43dd-e9de-4ff9-9cea-2f02fba6869c/d5c653c12ec93cb71e30b21856acea66/aspnetcore-runtime-3.1.9-linux-arm.tar.gz"
+    PKG_SHA256="29c6aa914739dce59e04d1fc7dceb33e97dfec6624ec3c297a8375f66aece092"
+    PKG_URL="https://download.visualstudio.microsoft.com/download/pr/a2223d1f-c138-4586-8cd1-274c5387e975/623ece755546aca8f4be268f525683c5/aspnetcore-runtime-3.1.10-linux-arm.tar.gz"
     ;;
   "x86_64")
-    PKG_SHA256="b47a882277d4ef42d3cfebbd1f334559b8345fe8a8b05e2a7d83a37ffe5f775e"
-    PKG_URL="https://download.visualstudio.microsoft.com/download/pr/933b0cb8-3494-4ca4-8c9e-1bcfd3568ab0/8704eef073efdfecdaaad4a18beb05ac/aspnetcore-runtime-3.1.9-linux-x64.tar.gz"
+    PKG_SHA256="b58376e76c68f03e142ac9a771b782cb7be926a16e920d83c711903b82608f3a"
+    PKG_URL="https://download.visualstudio.microsoft.com/download/pr/eca743d3-030f-4b1b-bd15-3573091f1c02/f3e464abc31deb7bc2747ed6cc1a8f5c/aspnetcore-runtime-3.1.10-linux-x64.tar.gz"
     ;;
 esac
 PKG_SOURCE_NAME="aspnetcore-runtime_${PKG_VERSION}_${ARCH}.tar.gz"
