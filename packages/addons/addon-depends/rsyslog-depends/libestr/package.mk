@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libestr"
-PKG_VERSION="0.1.10"
-PKG_SHA256="e8756b071540314abef25c044f893d6b5d249e46709329a4b3e7361403c29a1e"
+PKG_VERSION="0.1.11"
+PKG_SHA256="46b53b80f875fd82981d927a45f0c9df9d17ee1d0e29efab76aaa9cd54a46bb4"
 PKG_LICENSE="GPL"
 PKG_SITE="http://libestr.adiscon.com"
 PKG_URL="https://github.com/rsyslog/libestr/archive/v$PKG_VERSION.tar.gz"
