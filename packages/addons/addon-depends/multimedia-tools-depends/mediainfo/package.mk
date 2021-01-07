@@ -2,11 +2,11 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mediainfo"
-PKG_VERSION="18.05"
-PKG_SHA256="d94093aaf910759f302fb6b5ac23540a217eb940cfbb21834de2381de975fa65"
+PKG_VERSION="20.09"
+PKG_SHA256="39327ef83caa38a96114d1b90654012b9ef727538fe82c37dd67aea2cf4f0f67"
 PKG_LICENSE="GPL"
-PKG_SITE="http://mediaarea.net/en/MediaInfo/Download/Source"
-PKG_URL="http://mediaarea.net/download/source/mediainfo/${PKG_VERSION}/mediainfo_${PKG_VERSION}.tar.xz"
+PKG_SITE="https://mediaarea.net/en/MediaInfo/Download/Source"
+PKG_URL="https://mediaarea.net/download/source/mediainfo/${PKG_VERSION}/mediainfo_${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain libmediainfo"
 PKG_DEPENDS_CONFIG="libzen libmediainfo"
 PKG_LONGDESC="A convenient unified display of the most relevant technical and tag data for video and audio files."
