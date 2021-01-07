@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="irssi"
-PKG_VERSION="1.1.2"
-PKG_SHA256="5ccc2b89a394e91bea0aa83a951c3b1d471c76da87b4169ec435530a31bf9732"
+PKG_VERSION="1.2.2"
+PKG_SHA256="6727060c918568ba2ff4295ad736128dba0b995d7b20491bca11f593bd857578"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.irssi.org/"
 PKG_URL="https://github.com/irssi/irssi/releases/download/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.xz"
