@@ -1,0 +1,46 @@
+From 2b4135907c1aa27edeb397e62b67386ff5d7d3d5 Mon Sep 17 00:00:00 2001
+From: Jean Delvare <jdelvare@suse.de>
+Date: Thu, 23 Jun 2016 18:59:07 +0200
+Subject: decode-dimms: Correctly check for out-of-bounds vendor ID
+
+---
+ CHANGES             | 3 +++
+ eeprom/decode-dimms | 8 +++++---
+ 2 files changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/CHANGES b/CHANGES
+index 69f9853..9d0acd7 100644
+--- a/CHANGES
++++ b/CHANGES
+@@ -1,6 +1,9 @@
+ i2c-tools CHANGES
+ -----------------
+ 
++3.1.3 (work in progress)
++  decode-dimms: Correctly check for out-of-bounds vendor ID
++
+ 3.1.2 (2015-06-17)
+   decode-dimms: Fix DDR3 extended temp range refresh rate decoding
+   py-smbus: Add support for python 3
+diff --git a/eeprom/decode-dimms b/eeprom/decode-dimms
+index a088ba0..4a15fd7 100755
+--- a/eeprom/decode-dimms
++++ b/eeprom/decode-dimms
+@@ -343,9 +343,11 @@ sub manufacturer_ddr3($$)
+ {
+ 	my ($count, $code) = @_;
+ 	return "Invalid" if parity($count) != 1;
+-	return "Invalid" if parity($code) != 1;
+-	return (($code & 0x7F) - 1 > $vendors[$count & 0x7F]) ? "Unknown" :
+-		$vendors[$count & 0x7F][($code & 0x7F) - 1];
++	return "Invalid" if parity($code) != 1
++			 or ($code & 0x7F) == 0;
++	return "Unknown" if ($count & 0x7F) >= @vendors
++			 or ($code & 0x7F) - 1 >= @{$vendors[$count & 0x7F]};
++	return $vendors[$count & 0x7F][($code & 0x7F) - 1];
+ }
+ 
+ sub manufacturer(@)
+-- 
+cgit 1.2.3-1.el7
+

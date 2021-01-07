@@ -3,10 +3,10 @@
 
 PKG_NAME="i2c-tools"
 PKG_VERSION="3.1.2"
-PKG_SHA256="f939a6242c03950cc568d0efdfa3db7a9c29e0e8f5abd01f2908bdd344c054ff"
+PKG_SHA256="6d6079153cd49a62d4addacef4c092db1a46ba60b2807070a3fbe050262aef87"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.lm-sensors.org/wiki/I2CTools"
-PKG_URL="http://fossies.org/linux/misc/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_SITE="https://i2c.wiki.kernel.org/index.php/I2C_Tools"
+PKG_URL="https://www.kernel.org/pub/software/utils/i2c-tools/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain Python3 distutilscross:host"
 PKG_LONGDESC="A heterogeneous set of I2C tools for Linux."
 PKG_BUILD_FLAGS="-sysroot"

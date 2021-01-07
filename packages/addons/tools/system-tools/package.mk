@@ -3,7 +3,7 @@
 
 PKG_NAME="system-tools"
 PKG_VERSION="1.0"
-PKG_REV="116"
+PKG_REV="117"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://libreelec.tv"
@@ -110,7 +110,7 @@ addon() {
 
     # jq
     cp -P $(get_install_dir jq)/usr/bin/jq $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp -P $(get_install_dir oniguruma)/usr/lib/libonig.so $ADDON_BUILD/$PKG_ADDON_ID/lib
+    cp -P $(get_install_dir oniguruma)/usr/lib/{libonig.so,libonig.so.5,libonig.so.5.1.0} $ADDON_BUILD/$PKG_ADDON_ID/lib
 
     # lm_sensors
     cp -P $(get_install_dir lm_sensors)/usr/bin/sensors $ADDON_BUILD/$PKG_ADDON_ID/bin 2>/dev/null || :
