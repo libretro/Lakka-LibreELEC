@@ -9,10 +9,10 @@
 
 PKG_NAME="libepoxy"
 PKG_VERSION="1.5.5"
-PKG_SHA256="261663db21bcc1cc232b07ea683252ee6992982276536924271535875f5b0556"
+PKG_SHA256="5d80a43a6524a1ebdd0c9c5d5105295546a0794681853c636a0c70f8f9c658ce"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/anholt/libepoxy"
-PKG_URL="https://github.com/anholt/libepoxy/releases/download/${PKG_VERSION}/libepoxy-${PKG_VERSION}.tar.xz"
+PKG_URL="https://github.com/anholt/libepoxy/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Epoxy is a library for handling OpenGL function pointer management for you."
 
