@@ -3,11 +3,11 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libdnet"
-PKG_VERSION="8029bf9788d306b8aad95f11ecaea511cb6b3146"
-PKG_SHA256="1e41cbe5e4884108b08fa92964305354f1662b7e889f62736b3749845d7a8c56"
+PKG_VERSION="1.14"
+PKG_SHA256="592599c54a57102a177270f3a2caabda2c2ac7768b977d7458feba97da923dfe"
 PKG_LICENSE="BSD"
-PKG_SITE="https://github.com/sgeto/libdnet"
-PKG_URL="https://github.com/sgeto/libdnet/archive/$PKG_VERSION.tar.gz"
+PKG_SITE="https://github.com/ofalk/libdnet"
+PKG_URL="https://github.com/ofalk/libdnet/archive/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A simplified, portable interface to several low-level networking routines"
 PKG_TOOLCHAIN="autotools"
