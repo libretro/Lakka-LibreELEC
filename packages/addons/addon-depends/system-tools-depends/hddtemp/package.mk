@@ -2,7 +2,7 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="hddtemp"
-PKG_VERSION="e16aed6d0145d7ad8b3308dd0b9199fc701c0417"
+PKG_VERSION="e16aed6d0145d7ad8b3308dd0b9199fc701c0417" # Jul 6, 2010
 PKG_SHA256="5d5af74ba7449b6e56a8f872a0e10d654a512ed65d62beaef1575b0c1826d9f3"
 PKG_LICENSE="GPL"
 PKG_SITE="https://savannah.nongnu.org/projects/hddtemp"
