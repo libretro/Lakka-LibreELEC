@@ -2,11 +2,11 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="dstat"
-PKG_VERSION="77e9347cf16a2cb08c7b79b40255b4700be81609"
-PKG_SHA256="2b2f4ef3a0d1dc6d0a4bc2f54a57ba6f1e278333881a07df7e55aec502a48c7c"
+PKG_VERSION="e428c7dc7137f81f8ca6bef8854b37a4ddd4f337" # 19 Jun 2020
+PKG_SHA256="3315f5cefc7cd4e968430baa19247fc32af36dd42c9ad3edf5962ae4f597013f"
 PKG_LICENSE="GPL"
 PKG_SITE="http://dag.wiee.rs/home-made/dstat"
-PKG_URL="https://github.com/dagwieers/dstat/archive/$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/dstat-real/dstat/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain Python3"
 PKG_LONGDESC="Versatile resource statistics tool."
 PKG_TOOLCHAIN="manual"
