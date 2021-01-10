@@ -3,11 +3,11 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="keyutils"
-PKG_VERSION="1.6"
-PKG_SHA256="d3aef20cec0005c0fa6b4be40079885567473185b1a57b629b030e67942c7115"
+PKG_VERSION="1.6.3"
+PKG_SHA256="a61d5706136ae4c05bd48f86186bcfdbd88dd8bd5107e3e195c924cfc1b39bb4"
 PKG_LICENSE="GPL"
-PKG_SITE="http://people.redhat.com/~dhowells/keyutils/"
-PKG_URL="http://people.redhat.com/~dhowells/keyutils/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_SITE="https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/keyutils.git/"
+PKG_URL="https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/keyutils.git/snapshot/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Keyutils is a set of utilities for managing the key retention facility in the kernel."
 PKG_BUILD_FLAGS="+pic"
