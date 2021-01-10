@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libdvbcsa"
-PKG_VERSION="aae3d0c13fdda03597087ad9e3963e8f4ca8a974"
-PKG_SHA256="2c0b69a5ca70c5032f9375a57bcec449ecdf93b5459f60f087f5fa06c605c7c1"
+PKG_VERSION="2a1e61e569a621c55c2426f235f42c2398b7f18f" # 2018-01-29
+PKG_SHA256="0cca50576222475afd6945fc883ee19870656a73353eb0b219078671abaf3fbb"
 PKG_LICENSE="LGPL"
-PKG_SITE="http://www.videolan.org/developers/libdvbcsa.html"
-PKG_SITE="https://github.com/glenvt18/libdvbcsa/"
+PKG_SITE="https://www.videolan.org/developers/libdvbcsa.html"
 PKG_URL="https://github.com/glenvt18/libdvbcsa/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A implementation of DVB/CSA, with encryption and decryption capabilities."
