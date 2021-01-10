@@ -3,8 +3,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="dvblast"
-PKG_VERSION="6fa5ef52443280d293e606510991917ddfbff705"
-PKG_SHA256="d1d686399644e4823ae891d0a995597f23c20c47072d15ea5d5561d8b48fe64d"
+PKG_VERSION="4270dcae7b754b25ad27332bb1c55b6b23b85b0d" # 2021-01-07
+PKG_SHA256="6f613b9c5e2582b7bc48458c531c926170726a094a5a93f8d9142a2382c09c58"
 PKG_LICENSE="GPL"
 PKG_SITE="https://www.videolan.org/projects/dvblast.html"
 PKG_URL="http://repo.or.cz/dvblast.git/snapshot/${PKG_VERSION}.tar.gz"
