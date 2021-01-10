@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ngrep"
-PKG_VERSION="9b5946822a5c9c617d937245fdc9049c5740ae09"
-PKG_SHA256="db3ea041ad490a90d38ce4623ad9f3e7c9798734bdcaf900d3cf319fce16aa81"
+PKG_VERSION="2a9603bc67dface9606a658da45e1f5c65170444" # 2019-01-29
+PKG_SHA256="500c29914dd26f5aa6df07446388d49b60249622c9b0fd1f266f62a5706f056c"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/jpr5/ngrep"
 PKG_URL="https://github.com/jpr5/ngrep/archive/${PKG_VERSION}.tar.gz"
