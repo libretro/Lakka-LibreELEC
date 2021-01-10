@@ -13,7 +13,7 @@ PKG_LONGDESC="This package contains various utilities for inspecting and setting
 PKG_TOOLCHAIN="configure"
 
 pre_configure_target() {
-    ./autogen.sh
+  do_autoreconf
 }
 
 post_makeinstall_target() {
