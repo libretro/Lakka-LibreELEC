@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="genesis-plus-gx"
-PKG_VERSION="8c43029"
+PKG_VERSION="58758ae"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"
@@ -35,7 +35,7 @@ PKG_TOOLCHAIN="make"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_MAKE_OPTS_TARGET="-f Makefile.libretro HAVE_CDROM=1"
+PKG_MAKE_OPTS_TARGET="-f Makefile.libretro"
 
 if [ "$ARCH" = "aarch64" ]; then
   PKG_MAKE_OPTS_TARGET+=" NO_OPTIMIZE=1"
