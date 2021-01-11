@@ -2,11 +2,11 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="blindscan-s2"
-PKG_VERSION="192eaf0b3eccfb9721b3d49b9010b5c1447776e0"
-PKG_SHA256="c9e5bd07672765b30dac758844e2eb87ab68d5dc6bc731e9df6394159acddcbb"
+PKG_VERSION="28c50c6c3789ea3fcc11b992723d652378c0e925"
+PKG_SHA256="ac766d04bf1a32cf9c74a7ba12070ddf7c4c15bc0a94a0da60d104f2b76f0f9e"
 PKG_LICENSE="GPL"
-PKG_SITE="https://bitbucket.org/majortom/blindscan-s2"
-PKG_URL="https://github.com/PLi-metas/blindscan-s2/archive/$PKG_VERSION.tar.gz"
+PKG_SITE="https://github.com/OpenVisionE2/blindscan-s2/"
+PKG_URL="https://github.com/OpenVisionE2/blindscan-s2/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="blindscan-s2 is a program to blindscan digital satellite signals"
 PKG_BUILD_FLAGS="-sysroot"
