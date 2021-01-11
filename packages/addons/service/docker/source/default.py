@@ -5,20 +5,16 @@
 import os
 import subprocess
 import sys
-import threading
 import time
 import xbmc
 import xbmcaddon
 import xbmcgui
 
-sys.path.append('/usr/share/kodi/addons/@DISTRO_PKG_SETTINGS_ID@')
-import oe
-
 __author__      = 'lrusak'
 __addon__       = xbmcaddon.Addon()
 __path__        = __addon__.getAddonInfo('path')
 
-sys.path.append(__path__ + '/lib')
+sys.path.append(__path__ + 'lib')
 import dockermon
 
 # docker events for api 1.23 (docker version 1.11.x)
@@ -236,23 +232,10 @@ def print_notification(json_data):
     try:
         if message != '':
             length = int(__addon__.getSetting('notification_length')) * 1000
-            dialog.notification('Docker', message, '/storage/.kodi/addons/service.system.docker/resources/icon.png', length)
+            dialog.notification('Docker', message, __path__ + 'resources/icon.png', length)
             xbmc.log('## service.system.docker ## %s' % message)
     except NameError as e:
         pass
-
-class dockermonThread(threading.Thread):
-
-    def __init__(self):
-        threading.Thread.__init__(self)
-        self._is_running = True
-
-    def run(self):
-        while self._is_running:
-            dockermon.watch(print_notification)
-
-    def stop(self):
-        self._is_running = False
 
 class Main(object):
 
@@ -284,8 +267,8 @@ class Main(object):
                 restart_docker = True
 
         if restart_docker:
-            oe.execute('systemctl enable  /storage/.kodi/addons/service.system.docker/system.d/service.system.docker.service')
-            oe.execute('systemctl restart /storage/.kodi/addons/service.system.docker/system.d/service.system.docker.service')
+            subprocess.run(['systemctl','enable','/storage/.kodi/addons/service.system.docker/system.d/service.system.docker.service'], close_fds=True)
+            subprocess.run(['systemctl','restart','service.system.docker.service'], close_fds=True)
 
         # end temp cleanup
         #############################
@@ -293,9 +276,11 @@ class Main(object):
         monitor = DockerMonitor(self)
 
         while not monitor.abortRequested():
-            if monitor.waitForAbort():
-                # we don't want to stop or disable docker while it's installed
-                pass
+            try:
+                dockermon.watch(print_notification, run=lambda: not monitor.abortRequested())
+            except Exception:
+                monitor.waitForAbort(1)
+        del monitor
 
 class DockerMonitor(xbmc.Monitor):
 
@@ -306,8 +291,6 @@ class DockerMonitor(xbmc.Monitor):
         pass
 
 if ( __name__ == "__main__" ):
-    dockermonThread().start()
     Main()
 
-    del DockerMonitor
-    dockermonThread().stop()
+del __addon__

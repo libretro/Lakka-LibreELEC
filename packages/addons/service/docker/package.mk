@@ -5,7 +5,7 @@
 PKG_NAME="docker"
 PKG_VERSION="19.03.14"
 PKG_SHA256="0b8838b0da1f1368fc1a0809a2ed11840bd7d58df1f090e668de209faddcef7c"
-PKG_REV="131"
+PKG_REV="132"
 PKG_ARCH="any"
 PKG_LICENSE="ASL"
 PKG_SITE="http://www.docker.com/"
