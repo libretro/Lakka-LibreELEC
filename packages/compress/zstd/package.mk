@@ -2,11 +2,11 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="zstd"
-PKG_VERSION="1.4.9"
-PKG_SHA256="29ac74e19ea28659017361976240c4b5c5c24db3b89338731a6feb97c038d293"
+PKG_VERSION="1.5.0"
+PKG_SHA256="9aa8dfc1ca17f358b28988ca1f6e00ffe1c6f3198853f8d2022799e6f0669180"
 PKG_LICENSE="BSD/GPLv2"
 PKG_SITE="http://www.zstd.net"
-PKG_URL="https://github.com/facebook/zstd/releases/download/v${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.gz"
+PKG_URL="https://github.com/facebook/zstd/releases/download/v${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.zst"
 PKG_DEPENDS_HOST="ccache:host meson:host ninja:host"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A fast real-time compression algorithm."
