@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="gpiozero"
-PKG_VERSION="1.5.0"
-PKG_SHA256="5075c93f61e1ca4f7813544a9e7ef238e77482b47a5602b8e40c71f177930585"
+PKG_VERSION="1.5.1"
+PKG_SHA256="ae1a8dc4e6e793ffd8f900968f3290d218052c46347fa0c0503c65fabe422e4d"
 PKG_ARCH="arm"
 PKG_LICENSE="BSD"
 PKG_SITE="https://github.com/RPi-Distro/python-gpiozero"
