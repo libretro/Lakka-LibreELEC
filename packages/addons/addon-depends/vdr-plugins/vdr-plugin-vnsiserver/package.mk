@@ -3,11 +3,11 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="vdr-plugin-vnsiserver"
-PKG_VERSION="49003f036609ee2a0b8d819979c063d8f8d348c8"
-PKG_SHA256="fc64c343685bf87e4cc14018bcf642cba9aa637adfe1ab21725a19945c620737"
+PKG_VERSION="908684b58a3ebd4a447bc4b0a82b0bd8059bf605"
+PKG_SHA256="6c39a2e9854632274cec2b11e4eaaea9edc4095856941672f40d0633ece506df"
 PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/FernetMenta/vdr-plugin-vnsiserver"
-PKG_URL="https://github.com/FernetMenta/vdr-plugin-vnsiserver/archive/$PKG_VERSION.tar.gz"
+PKG_SITE="https://github.com/mdre77/vdr-plugin-vnsiserver"
+PKG_URL="https://github.com/mdre77/vdr-plugin-vnsiserver/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain vdr"
 PKG_NEED_UNPACK="$(get_pkg_directory vdr)"
 PKG_LONGDESC="VDR plugin to handle Kodi clients."
