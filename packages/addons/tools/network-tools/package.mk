@@ -3,7 +3,7 @@
 
 PKG_NAME="network-tools"
 PKG_VERSION="1.0"
-PKG_REV="107"
+PKG_REV="108"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://libreelec.tv"
@@ -75,7 +75,7 @@ addon() {
     cp -P $(get_install_dir sshfs)/usr/bin/sshfs $ADDON_BUILD/$PKG_ADDON_ID/bin
 
     # tcpdump
-    cp -P $(get_install_dir tcpdump)/usr/sbin/tcpdump $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir tcpdump)/usr/bin/tcpdump $ADDON_BUILD/$PKG_ADDON_ID/bin
 
     # udpxy
     cp -P $(get_install_dir udpxy)/usr/bin/udpxy $ADDON_BUILD/$PKG_ADDON_ID/bin
