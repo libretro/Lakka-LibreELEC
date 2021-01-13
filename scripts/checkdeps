@@ -90,6 +90,19 @@ perl_map=(
   [XML::Parser]=libxml-parser-perl
 )
 
+### PROJECT SPECIFIC REQUIREMENTS ###
+# Extend build scripts to look for distro/project/device checkdep scripts before adding further checks here
+# Native aarch64 on debian(?) host Rockchip needs to support rkbin
+if [ "$(uname -m)" = "aarch64" -a "${PROJECT}" = "Rockchip" ]; then
+  dep_map[qemu-x86_64]=qemu-user-binfmt
+  if [ ! -f /lib64/ld-linux-x86-64.so.2 -o ! -f /lib/x86_64-linux-gnu/libc.so.6 ]; then
+    echo -e "Copy from a working x86_64 system:\n\t/lib64/ld-linux-x86-64.so.2\n\t/lib/x86_64-linux-gnu/libc.so.6"
+  fi
+  file_map[/lib64/ld-linux-x86-64.so.2]="libc6:amd64"
+  file_map[/lib/x86_64-linux-gnu/libc.so.6]="libc6:amd64"
+fi
+
+# remap or add [depend]=package needs based on host distro
 case "${DISTRO}" in
     fedora|centos|rhel)
       dep_map+=(
@@ -197,36 +210,7 @@ case "${DISTRO}" in
       ;;
 esac
 
-# EXTRA_* won't work without sourcing config/options in this script
-# project specific dependencies
-if [ "${#EXTRA_DEP_MAP[@]}" -gt 0 ]; then
-  echo "${EXTRA_DEP_MAP[@]}"
-  for key in "${!EXTRA_DEP_MAP[@]}"; do
-    dep_map["${key}"]="${EXTRA_DEP_MAP[${key}]}"
-  done
-fi
-
-# project specific file needs
-if [ "${#EXTRA_FILE_MAP[@]}" -gt 0 ]; then
-  for key in "${!EXTRA_FILE_MAP[@]}"; do
-    file_map["${key}"]="${EXTRA_FILE_MAP[${key}]}"
-  done
-fi
-
-# project specific perl modules
-if [ "${#EXTRA_PERL_MAP[@]}" -gt 0 ]; then
-  for key in "${!EXTRA_PERL_MAP[@]}"; do
-    perl_map["${key}"]="${EXTRA_PERL_MAP[${key}]}"
-  done
-fi
-
-# distro specific dependencies
-if [ "${#DISTRO_DEP_MAP[@]}" -gt 0 ]; then
-  for key in "${!DISTRO_DEP_MAP[@]}"; do
-    dep_map["${key}"]="${DISTRO_DEP_MAP[${key}]}"
-  done
-fi
-
+### DEPENDENCY CHECKING AND INSTALLATION ###
 get_deps
 
 if [ "${#need_map[@]}" -gt 0 ]; then
