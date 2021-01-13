@@ -29,9 +29,9 @@ case "$PROJECT" in
     PKG_PATCH_DIRS="rockchip"
     ;;
   *)
-    PKG_VERSION="v2021.01-rc4"
-    PKG_SHA256="9e05a96f0cac4f8b6fdea5cdf10f0d814e6a0d7141243a6eb9862385c7ddeb14"
-    PKG_URL="https://github.com/u-boot/u-boot/archive/$PKG_VERSION.tar.gz"
+    PKG_VERSION="2021.01"
+    PKG_SHA256="b407e1510a74e863b8b5cb42a24625344f0e0c2fc7582d8c866bd899367d0454"
+    PKG_URL="http://ftp.denx.de/pub/u-boot/$PKG_NAME-$PKG_VERSION.tar.bz2"
     ;;
 esac
 
