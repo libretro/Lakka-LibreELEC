@@ -24,6 +24,6 @@ addon() {
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib
   cp -p $(get_install_dir json-c)/usr/lib/libjson-c.so.5 $ADDON_BUILD/$PKG_ADDON_ID/lib
-  cp -p $(get_install_dir libwebsockets)/usr/lib/libwebsockets.so.16 $ADDON_BUILD/$PKG_ADDON_ID/lib
+  cp -p $(get_install_dir libwebsockets)/usr/lib/libwebsockets.so.17 $ADDON_BUILD/$PKG_ADDON_ID/lib
   cp -p $(get_install_dir libuv)/usr/lib/libuv.so.1 $ADDON_BUILD/$PKG_ADDON_ID/lib
 }
