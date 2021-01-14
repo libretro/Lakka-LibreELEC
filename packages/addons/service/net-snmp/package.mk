@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="net-snmp"
-PKG_VERSION="5.8"
-PKG_SHA256="b2fc3500840ebe532734c4786b0da4ef0a5f67e51ef4c86b3345d697e4976adf"
-PKG_REV="106"
+PKG_VERSION="5.9"
+PKG_SHA256="04303a66f85d6d8b16d3cc53bde50428877c82ab524e17591dfceaeb94df6071"
+PKG_REV="107"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://www.net-snmp.org"
