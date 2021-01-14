@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="grub"
-PKG_VERSION="2df291226638261d50fadcab1f5edb6c12ab6cfd"
-PKG_SHA256="d9a5be34e11e61295fd1e542fd5f213bf1e954a0eaf55d836dbc187b85aa64ee"
+PKG_VERSION="635ef55ed1252f92fe3bf70caefd185dcc507c43" # 2020-12-18
+PKG_SHA256="e099d18bdeef5312765f20c6de3384ca9ff03f776f1c7632b1e4bc4d1715a961"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://www.gnu.org/software/grub/index.html"
