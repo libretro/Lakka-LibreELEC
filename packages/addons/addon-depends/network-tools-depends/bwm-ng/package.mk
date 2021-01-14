@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="bwm-ng"
-PKG_VERSION="0.6.2"
-PKG_SHA256="906a2d561f2ec9e0dd68b7f51b302908e99515ea1216d0ecaf14d873ef54ae70"
+PKG_VERSION="0.6.3"
+PKG_SHA256="c1a552b6ff48ea3e4e10110a7c188861abc4750befc67c6caaba8eb3ecf67f46"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gropp.org/?id=projects&sub=bwm-ng"
 PKG_URL="https://github.com/vgropp/bwm-ng/archive/v$PKG_VERSION.tar.gz"

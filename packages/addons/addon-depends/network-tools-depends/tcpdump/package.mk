@@ -2,13 +2,15 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="tcpdump"
-PKG_VERSION="4.9.3"
-PKG_SHA256="2cd47cb3d460b6ff75f4a9940f594317ad456cfbf2bd2c8e5151e16559db6410"
+PKG_VERSION="4.99.0"
+PKG_SHA256="8cf2f17a9528774a7b41060323be8b73f76024f7778f59c34efa65d49d80b842"
 PKG_SITE="http://www.tcpdump.org/"
 PKG_URL="http://www.tcpdump.org/release/tcpdump-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libpcap libtirpc"
 PKG_LONGDESC="A program that allows you to dump the traffic on a network."
 PKG_BUILD_FLAGS="-sysroot"
+# use configure, not cmake. review cmake in future release.
+PKG_TOOLCHAIN="configure"
 
 PKG_CONFIGURE_OPTS_TARGET="--with-crypto=no"
 
