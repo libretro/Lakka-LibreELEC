@@ -3,9 +3,9 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.filmon"
-PKG_VERSION="6.0.0-Matrix"
-PKG_SHA256="4bb2da456469cfeea0641deb90fbcf559d3937a179069e98e5be434635cf5533"
-PKG_REV="2"
+PKG_VERSION="6.1.0-Matrix"
+PKG_SHA256="7c2998bdde04acee5c147cb9f82939cfb13af57e5ecf46a4343dcfee15eb02e2"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-pvr/pvr.filmon"
