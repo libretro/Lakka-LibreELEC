@@ -2,8 +2,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="rpi-eeprom"
-PKG_VERSION="2318f44baa57a6b2c877b7cd7cbdedca07bd4f28"
-PKG_SHA256="07b9d860903e0bfc2857561e4262362e84bd4497cad56aa890cd61882a3e8ae1"
+PKG_VERSION="54cadc816ba739afd08ead6d679e647de028a65c"
+PKG_SHA256="582c3a3af2c5e34824bae530b7d8b218c2b43813f98fe203df91e8b55ca23174"
 PKG_ARCH="arm"
 PKG_LICENSE="BSD-3/custom"
 PKG_SITE="https://github.com/raspberrypi/rpi-eeprom"
@@ -37,6 +37,9 @@ makeinstall_target() {
           [ -n "${PKG_FW_FILE}" ] && cp -PRv "${PKG_FW_FILE}" ${DESTDIR}/${_basedir}
       done
     done
+
+    # also copy default and latest symlinks
+    cp -Prv ${PKG_BUILD}/firmware/{default,latest} ${DESTDIR}
 
   mkdir -p ${INSTALL}/usr/bin
     cp -PRv ${PKG_DIR}/source/rpi-eeprom-update ${INSTALL}/usr/bin
