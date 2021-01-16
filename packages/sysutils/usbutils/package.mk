@@ -10,11 +10,7 @@ PKG_SITE="http://www.linux-usb.org/"
 PKG_URL="http://kernel.org/pub/linux/utils/usb/usbutils/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain libusb systemd"
 PKG_LONGDESC="This package contains various utilities for inspecting and setting of devices connected to the USB bus."
-PKG_TOOLCHAIN="configure"
-
-pre_configure_target() {
-  do_autoreconf
-}
+PKG_TOOLCHAIN="autotools"
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin/lsusb.py
