@@ -1,16 +1,16 @@
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
-import urllib, os, zipfile
-from urllib2 import URLError
-import xbmc, xbmcgui, xbmcaddon
+import urllib.request, urllib.parse, urllib.error, os, zipfile
+from urllib.error import URLError
+import xbmc, xbmcvfs, xbmcgui, xbmcaddon
 import shutil
 import sys
 
 url = 'https://github.com/tvheadend/dtv-scan-tables/archive/tvheadend.zip'
-temp = xbmc.translatePath('special://temp')
+temp = xbmcvfs.translatePath('special://temp')
 temp_folder = os.path.join(temp, 'dtv-scan-tables-tvheadend')
-dest_folder = os.path.join(xbmc.translatePath(xbmcaddon.Addon().getAddonInfo('path')), 'dvb-scan')
+dest_folder = os.path.join(xbmcvfs.translatePath(xbmcaddon.Addon().getAddonInfo('path')), 'dvb-scan')
 archive = os.path.join(temp, 'dtv_scantables.zip')
 
 ADDON_NAME = xbmcaddon.Addon().getAddonInfo('name')
@@ -25,7 +25,7 @@ class DownLoader():
     def download(self, url, dest):
         try:
             self.dp.create(ADDON_NAME, LS(30042))
-            urllib.urlretrieve(url, dest, reporthook=self._pbhook)
+            urllib.request.urlretrieve(url, dest, reporthook=self._pbhook)
             self.dp.close()
             zip = zipfile.ZipFile(archive)
             if zip.testzip() is not None: raise zipfile.BadZipfile
@@ -44,7 +44,7 @@ class DownLoader():
                 shutil.copytree(os.path.join(temp_folder, folder), os.path.join(dest_folder, folder))
 
             xbmcgui.Dialog().notification(ADDON_NAME, LS(30039), xbmcgui.NOTIFICATION_INFO)
-        except URLError, e:
+        except URLError as e:
             xbmc.log('Could not download file: %s' % e.reason, xbmc.LOGERROR)
             self.dp.close()
             xbmcgui.Dialog().notification(ADDON_NAME, LS(30040), xbmcgui.NOTIFICATION_ERROR)
