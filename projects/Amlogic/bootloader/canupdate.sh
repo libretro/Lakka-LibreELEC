@@ -4,11 +4,13 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 # detect legacy kernel installs and abort to prevent upgrades
-if [ "$(uname -r)" = "3.14.29" ]; then
-  echo "Update from 3.14 is not supported!"
-  sleep 10
-  exit 1
-fi
+case $(uname -r) in
+  3.14*|4.9*)
+    echo "Updates from Amlogic vendor kernels are not supported!"
+    sleep 10
+    exit 1
+    ;;
+esac
 
 # allow upgrades between aarch64 and arm images
 PROJECT=$("$1" | cut -d. -f1)
