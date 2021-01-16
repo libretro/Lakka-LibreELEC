@@ -3,9 +3,9 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.dvbviewer"
-PKG_VERSION="7.1.0-Matrix"
-PKG_SHA256="2bd0fef44a43439d8b0d52586a1f721201398e015d77db354c520838eed5868c"
-PKG_REV="2"
+PKG_VERSION="7.2.0-Matrix"
+PKG_SHA256="aa81c0a59c00aa13bc1ea3adc078e2910fde42bc86ad3a78ecefc6e4c3d5de59"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-pvr/pvr.dvbviewer"

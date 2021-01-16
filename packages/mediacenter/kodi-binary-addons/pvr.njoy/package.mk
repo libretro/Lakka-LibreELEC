@@ -3,9 +3,9 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.njoy"
-PKG_VERSION="7.0.0-Matrix"
-PKG_SHA256="4b81c127ffd28d25f21b5a5564a416c6ece1dc8ff21ed30c1f69dcbe0af4268f"
-PKG_REV="2"
+PKG_VERSION="7.1.0-Matrix"
+PKG_SHA256="26134e815efd38fa09507a6119e6463c4785a78a417e253558d23a94a9989613"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-pvr/pvr.njoy"
