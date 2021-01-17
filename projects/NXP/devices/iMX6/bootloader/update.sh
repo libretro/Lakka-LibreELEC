@@ -18,23 +18,21 @@
 # mount $BOOT_ROOT r/w
   mount -o remount,rw $BOOT_ROOT
 
-# update Device Tree Blobs
-  for all_dtb in /flash/*.dtb; do
-    dtb=$(basename $all_dtb)
-    if [ -f $SYSTEM_ROOT/usr/share/bootloader/$dtb ]; then
-      echo "*** updating Device Tree Blob: $dtb ..."
-      cp -p $SYSTEM_ROOT/usr/share/bootloader/$dtb $BOOT_ROOT
-    fi
+# update extlinux device trees
+  for dtbfile in $BOOT_ROOT/*.dtb; do
+    dtb=$(basename $dtbfile)
+    echo "Updating $dtb"
+    cp -p $SYSTEM_ROOT/usr/share/bootloader/$dtb $BOOT_ROOT/ 2>/dev/null || true
   done
 
 # update bootloader
   if [ -f $SYSTEM_ROOT/usr/share/bootloader/SPL ]; then
-    echo "*** updating u-boot SPL Blob on $BOOT_DISK ..."
+    echo "Updating u-boot SPL on $BOOT_DISK"
     dd if=$SYSTEM_ROOT/usr/share/bootloader/SPL of=$BOOT_DISK bs=1k seek=1 conv=fsync &>/dev/null
   fi
 
   if [ -f $SYSTEM_ROOT/usr/share/bootloader/u-boot.img ]; then
-    echo -n "*** updating u-boot image on $BOOT_DISK ..."
+    echo "Updating u-boot image on $BOOT_DISK"
     dd if=$SYSTEM_ROOT/usr/share/bootloader/u-boot.img of=$BOOT_DISK bs=1k seek=69 conv=fsync &>/dev/null
     echo "done"
   fi
