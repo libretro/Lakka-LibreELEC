@@ -2,11 +2,11 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="iftop"
-PKG_VERSION="1.0pre4"
-PKG_SHA256="f733eeea371a7577f8fe353d86dd88d16f5b2a2e702bd96f5ffb2c197d9b4f97"
+PKG_VERSION="77901c8c53e01359d83b8090aacfe62214658183"
+PKG_SHA256="f2728741f1bd2099d325271b4b2564a696dbce7c23401360ac6c9841cbda1108"
 PKG_LICENSE="GPL"
-PKG_SITE="http://htop.sourceforge.net/"
-PKG_URL="http://www.ex-parrot.com/pdw/iftop/download/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_SITE="http://www.ex-parrot.com/pdw/iftop/"
+PKG_URL="https://code.blinkace.com/pdw/iftop/-/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain ncurses libpcap libnl"
 PKG_LONGDESC="A tool to display bandwidth usage on an interface."
 PKG_TOOLCHAIN="autotools"
