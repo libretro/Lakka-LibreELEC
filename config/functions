@@ -207,6 +207,25 @@ setup_pkg_config_host() {
   unset PKG_CONFIG_ALLOW_SYSTEM_LIBS
 }
 
+check_toolchain_config() {
+  local target=${1^^}
+  local toolchain=${2^^}
+  local var
+  if [ "${toolchain}" == "AUTOTOOLS" ]; then
+    toolchain="CONFIGURE"
+  fi
+  for var in "${!PKG_@}"; do
+    if [[ "${var}" =~ INSTALL_OPTS_ || "${var}" =~ _MAKE_OPTS ]]; then
+      continue
+    fi
+    if [[ "${var}" =~ _OPTS_${target}$ \
+            && ! "${var}" =~ _${toolchain}_OPTS_${target}$
+          || "${var}" =~ _OPTS$ && ! "${var}" =~ _${toolchain}_OPTS$ ]]; then
+      die "ERROR: using $2 toolchain but ${var} is configured."
+    fi
+  done
+}
+
 setup_toolchain() {
   local have_gold="no"
   if [ "$LTO_SUPPORT" = "yes" ]; then
