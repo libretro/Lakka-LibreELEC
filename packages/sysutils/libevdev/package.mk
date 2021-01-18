@@ -3,8 +3,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libevdev"
-PKG_VERSION="1.10.0"
-PKG_SHA256="3522c26e2c148be0ad68ce26fbced408a4185dea90bfe8079dc82b8ace962d4a"
+PKG_VERSION="1.10.1"
+PKG_SHA256="0330fe8357ece915db9366c1b9a6648941aea6f724b73ad6e71401127aa08932"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/libevdev/"
 PKG_URL="http://www.freedesktop.org/software/libevdev/$PKG_NAME-$PKG_VERSION.tar.xz"
