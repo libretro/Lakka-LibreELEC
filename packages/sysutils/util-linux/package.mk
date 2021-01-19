@@ -6,7 +6,7 @@ PKG_NAME="util-linux"
 PKG_VERSION="2.36.1"
 PKG_SHA256="09fac242172cd8ec27f0739d8d192402c69417617091d8c6e974841568f37eed"
 PKG_LICENSE="GPL"
-PKG_URL="http://www.kernel.org/pub/linux/utils/util-linux/v$(get_pkg_version_maj_min)/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="http://www.kernel.org/pub/linux/utils/util-linux/v$(get_pkg_version_maj_min)/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_HOST="ccache:host autoconf:host automake:host intltool:host libtool:host pkg-config:host"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_DEPENDS_INIT="toolchain"
@@ -45,7 +45,7 @@ UTILLINUX_CONFIG_DEFAULT="--disable-gtk-doc \
                           --without-python \
                           --without-systemdsystemunitdir"
 
-PKG_CONFIGURE_OPTS_TARGET="$UTILLINUX_CONFIG_DEFAULT \
+PKG_CONFIGURE_OPTS_TARGET="${UTILLINUX_CONFIG_DEFAULT} \
                            --enable-libuuid \
                            --enable-libblkid \
                            --enable-libmount \
@@ -56,40 +56,40 @@ PKG_CONFIGURE_OPTS_TARGET="$UTILLINUX_CONFIG_DEFAULT \
                            --enable-blkid \
                            --enable-lscpu"
 
-if [ "$SWAP_SUPPORT" = "yes" ]; then
-  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-swapon"
+if [ "${SWAP_SUPPORT}" = "yes" ]; then
+  PKG_CONFIGURE_OPTS_TARGET+=" --enable-swapon"
 fi
 
 PKG_CONFIGURE_OPTS_HOST="--enable-static \
                          --disable-shared \
-                         $UTILLINUX_CONFIG_DEFAULT \
+                         ${UTILLINUX_CONFIG_DEFAULT} \
                          --enable-uuidgen \
                          --enable-libuuid"
 
-PKG_CONFIGURE_OPTS_INIT="$UTILLINUX_CONFIG_DEFAULT \
+PKG_CONFIGURE_OPTS_INIT="${UTILLINUX_CONFIG_DEFAULT} \
                          --enable-libblkid \
                          --enable-libmount \
                          --enable-fsck"
 
-if [ "$INITRAMFS_PARTED_SUPPORT" = "yes" ]; then
-  PKG_CONFIGURE_OPTS_INIT="$PKG_CONFIGURE_OPTS_INIT --enable-mkfs --enable-libuuid"
+if [ "${INITRAMFS_PARTED_SUPPORT}" = "yes" ]; then
+  PKG_CONFIGURE_OPTS_INIT+=" --enable-mkfs --enable-libuuid"
 fi
 
 post_makeinstall_target() {
-  if [ "$SWAP_SUPPORT" = "yes" ]; then
-    mkdir -p $INSTALL/usr/lib/libreelec
-      cp -PR $PKG_DIR/scripts/mount-swap $INSTALL/usr/lib/libreelec
+  if [ "${SWAP_SUPPORT}" = "yes" ]; then
+    mkdir -p ${INSTALL}/usr/lib/libreelec
+      cp -PR ${PKG_DIR}/scripts/mount-swap ${INSTALL}/usr/lib/libreelec
 
-    mkdir -p $INSTALL/etc
-      cat $PKG_DIR/config/swap.conf | \
-        sed -e "s,@SWAPFILESIZE@,$SWAPFILESIZE,g" \
-            -e "s,@SWAP_ENABLED_DEFAULT@,$SWAP_ENABLED_DEFAULT,g" \
-            > $INSTALL/etc/swap.conf
+    mkdir -p ${INSTALL}/etc
+      cat ${PKG_DIR}/config/swap.conf | \
+        sed -e "s,@SWAPFILESIZE@,${SWAPFILESIZE},g" \
+            -e "s,@SWAP_ENABLED_DEFAULT@,${SWAP_ENABLED_DEFAULT},g" \
+            > ${INSTALL}/etc/swap.conf
   fi
 }
 
 post_install () {
-  if [ "$SWAP_SUPPORT" = "yes" ]; then
+  if [ "${SWAP_SUPPORT}" = "yes" ]; then
     enable_service swap.service
   fi
 }

@@ -13,6 +13,6 @@ PKG_LONGDESC="The libusb project's aim is to create a Library for use by user le
 PKG_CONFIGURE_OPTS_TARGET="--disable-log --disable-debug-log --disable-examples-build"
 
 post_makeinstall_target() {
-  rm -rf $INSTALL/usr/bin
-  sed -e "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" -i $SYSROOT_PREFIX/usr/bin/libusb-config
+  rm -rf ${INSTALL}/usr/bin
+  sed -e "s:\(['= ]\)/usr:\\1${SYSROOT_PREFIX}/usr:g" -i ${SYSROOT_PREFIX}/usr/bin/libusb-config
 }

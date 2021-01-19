@@ -7,7 +7,7 @@ PKG_VERSION="4.1"
 PKG_SHA256="e6b2aca70ccc3fe3687365009dd94a2e18e82b688ed4e260e04b7412471cc173"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/dosfstools/dosfstools"
-PKG_URL="https://github.com/dosfstools/dosfstools/releases/download/v$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://github.com/dosfstools/dosfstools/releases/download/v${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_HOST="toolchain:host"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_DEPENDS_INIT="toolchain dosfstools"
@@ -26,17 +26,17 @@ make_init() {
 }
 
 makeinstall_init() {
-  mkdir -p $INSTALL/usr/sbin
-    cp $(get_install_dir dosfstools:target)/usr/sbin/fsck.fat $INSTALL/usr/sbin
-    ln -sf fsck.fat $INSTALL/usr/sbin/fsck.msdos
-    ln -sf fsck.fat $INSTALL/usr/sbin/fsck.vfat
+  mkdir -p ${INSTALL}/usr/sbin
+    cp $(get_install_dir dosfstools:target)/usr/sbin/fsck.fat ${INSTALL}/usr/sbin
+    ln -sf fsck.fat ${INSTALL}/usr/sbin/fsck.msdos
+    ln -sf fsck.fat ${INSTALL}/usr/sbin/fsck.vfat
 }
 
 makeinstall_host() {
-  mkdir -p $TOOLCHAIN/sbin
-    cp src/mkfs.fat $TOOLCHAIN/sbin
-    ln -sf mkfs.fat $TOOLCHAIN/sbin/mkfs.vfat
-    cp src/fsck.fat $TOOLCHAIN/sbin
-    ln -sf fsck.fat $TOOLCHAIN/sbin/fsck.vfat
-    cp src/fatlabel $TOOLCHAIN/sbin
+  mkdir -p ${TOOLCHAIN}/sbin
+    cp src/mkfs.fat ${TOOLCHAIN}/sbin
+    ln -sf mkfs.fat ${TOOLCHAIN}/sbin/mkfs.vfat
+    cp src/fsck.fat ${TOOLCHAIN}/sbin
+    ln -sf fsck.fat ${TOOLCHAIN}/sbin/fsck.vfat
+    cp src/fatlabel ${TOOLCHAIN}/sbin
 }
