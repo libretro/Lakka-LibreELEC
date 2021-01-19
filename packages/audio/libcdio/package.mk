@@ -7,7 +7,7 @@ PKG_VERSION="2.1.0"
 PKG_SHA256="8550e9589dbd594bfac93b81ecf129b1dc9d0d51e90f9696f1b2f9b2af32712b"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://www.gnu.org/software/libcdio/"
-PKG_URL="http://ftpmirror.gnu.org/libcdio/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_URL="http://ftpmirror.gnu.org/libcdio/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A CD-ROM reading and control library."
 PKG_BUILD_FLAGS="+pic"
@@ -32,5 +32,5 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-cxx \
                            --with-gnu-ld"
 
 post_makeinstall_target() {
-  rm -rf $INSTALL/usr/bin
+  rm -rf ${INSTALL}/usr/bin
 }
