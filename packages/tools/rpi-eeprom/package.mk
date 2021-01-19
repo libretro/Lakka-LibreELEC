@@ -17,7 +17,7 @@ makeinstall_target() {
 
   mkdir -p ${DESTDIR}
     _dirs="critical stable"
-    [ "$LIBREELEC_VERSION" = "devel" ] && _dirs+=" beta"
+    [ "${LIBREELEC_VERSION}" = "devel" ] && _dirs+=" beta"
 
     for _maindir in ${_dirs}; do
       for _dir in ${PKG_BUILD}/firmware/${_maindir} ${PKG_BUILD}/firmware/{_maindir}-*; do
