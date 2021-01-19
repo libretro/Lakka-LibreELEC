@@ -12,16 +12,16 @@ PKG_LONGDESC="ARM Aarch64 GNU Linux Binary Toolchain"
 PKG_TOOLCHAIN="manual"
 
 makeinstall_host() {
-  mkdir -p $TOOLCHAIN/lib/gcc-arm-aarch64-none-linux-gnu/
-    cp -a * $TOOLCHAIN/lib/gcc-arm-aarch64-none-linux-gnu
+  mkdir -p ${TOOLCHAIN}/lib/gcc-arm-aarch64-none-linux-gnu/
+    cp -a * ${TOOLCHAIN}/lib/gcc-arm-aarch64-none-linux-gnu
 
   # wrap gcc and g++ with ccache like in gcc package.mk
-  PKG_GCC_PREFIX="$TOOLCHAIN/lib/gcc-arm-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-"
+  PKG_GCC_PREFIX="${TOOLCHAIN}/lib/gcc-arm-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-"
 
   cp "${PKG_GCC_PREFIX}gcc" "${PKG_GCC_PREFIX}gcc.real"
 cat > "${PKG_GCC_PREFIX}gcc" << EOF
 #!/bin/sh
-$TOOLCHAIN/bin/ccache ${PKG_GCC_PREFIX}gcc.real "\$@"
+${TOOLCHAIN}/bin/ccache ${PKG_GCC_PREFIX}gcc.real "\$@"
 EOF
 
   chmod +x "${PKG_GCC_PREFIX}gcc"
@@ -29,7 +29,7 @@ EOF
   cp "${PKG_GCC_PREFIX}g++" "${PKG_GCC_PREFIX}g++.real"
 cat > "${PKG_GCC_PREFIX}g++" << EOF
 #!/bin/sh
-$TOOLCHAIN/bin/ccache ${PKG_GCC_PREFIX}g++.real "\$@"
+${TOOLCHAIN}/bin/ccache ${PKG_GCC_PREFIX}g++.real "\$@"
 EOF
 
   chmod +x "${PKG_GCC_PREFIX}g++"

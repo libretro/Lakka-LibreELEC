@@ -7,7 +7,7 @@ PKG_VERSION="3.8.7"
 PKG_SHA256="ddcc1df16bb5b87aa42ec5d20a5b902f2d088caa269b28e01590f97a798ec50a"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.python.org/"
-PKG_URL="http://www.python.org/ftp/python/$PKG_VERSION/${PKG_NAME::-1}-$PKG_VERSION.tar.xz"
+PKG_URL="http://www.python.org/ftp/python/${PKG_VERSION}/${PKG_NAME::-1}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_HOST="zlib:host bzip2:host libffi:host util-linux:host xz:host"
 PKG_DEPENDS_TARGET="toolchain Python3:host sqlite expat zlib bzip2 xz openssl libffi readline ncurses util-linux"
 PKG_LONGDESC="Python3 is an interpreted object-oriented programming language."
@@ -85,56 +85,56 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_prog_HAS_HG=/bin/false
 "
 
 pre_configure_host() {
-  export PYTHON_MODULES_INCLUDE="$HOST_INCDIR"
-  export PYTHON_MODULES_LIB="$HOST_LIBDIR"
-  export DISABLED_EXTENSIONS="readline _curses _curses_panel $PKG_PY_DISABLED_MODULES"
+  export PYTHON_MODULES_INCLUDE="${HOST_INCDIR}"
+  export PYTHON_MODULES_LIB="${HOST_LIBDIR}"
+  export DISABLED_EXTENSIONS="readline _curses _curses_panel ${PKG_PY_DISABLED_MODULES}"
 }
 
 post_make_host() {
-  # python distutils per default adds -L$LIBDIR when linking binary extensions
-  sed -e "s|^ 'LIBDIR':.*| 'LIBDIR': '/usr/lib',|g" -i $(find $PKG_BUILD/.$HOST_NAME -not -path '*/__pycache__/*' -name '_sysconfigdata__*.py')
+  # python distutils per default adds -L${LIBDIR} when linking binary extensions
+  sed -e "s|^ 'LIBDIR':.*| 'LIBDIR': '/usr/lib',|g" -i $(find ${PKG_BUILD}/.${HOST_NAME} -not -path '*/__pycache__/*' -name '_sysconfigdata__*.py')
 }
 
 post_makeinstall_host() {
-  ln -sf $PKG_PYTHON_VERSION $TOOLCHAIN/bin/python
+  ln -sf ${PKG_PYTHON_VERSION} ${TOOLCHAIN}/bin/python
 
-  rm -f $TOOLCHAIN/bin/smtpd.py*
-  rm -f $TOOLCHAIN/bin/pyvenv
-  rm -f $TOOLCHAIN/bin/pydoc*
+  rm -f ${TOOLCHAIN}/bin/smtpd.py*
+  rm -f ${TOOLCHAIN}/bin/pyvenv
+  rm -f ${TOOLCHAIN}/bin/pydoc*
 
-  rm -fr $PKG_BUILD/.$HOST_NAME/build/temp.*
+  rm -fr ${PKG_BUILD}/.${HOST_NAME}/build/temp.*
 
-  cp $PKG_BUILD/Tools/scripts/reindent.py $TOOLCHAIN/lib/$PKG_PYTHON_VERSION
+  cp ${PKG_BUILD}/Tools/scripts/reindent.py ${TOOLCHAIN}/lib/${PKG_PYTHON_VERSION}
 }
 
 pre_configure_target() {
-  export PYTHON_MODULES_INCLUDE="$TARGET_INCDIR"
-  export PYTHON_MODULES_LIB="$TARGET_LIBDIR"
-  export DISABLED_EXTENSIONS="$PKG_PY_DISABLED_MODULES"
+  export PYTHON_MODULES_INCLUDE="${TARGET_INCDIR}"
+  export PYTHON_MODULES_LIB="${TARGET_LIBDIR}"
+  export DISABLED_EXTENSIONS="${PKG_PY_DISABLED_MODULES}"
 }
 
 post_makeinstall_target() {
-  ln -sf $PKG_PYTHON_VERSION $INSTALL/usr/bin/python
+  ln -sf ${PKG_PYTHON_VERSION} ${INSTALL}/usr/bin/python
 
-  rm -fr $PKG_BUILD/.$TARGET_NAME/build/temp.*
+  rm -fr ${PKG_BUILD}/.${TARGET_NAME}/build/temp.*
 
-  PKG_INSTALL_PATH_LIB=$INSTALL/usr/lib/$PKG_PYTHON_VERSION
+  PKG_INSTALL_PATH_LIB=${INSTALL}/usr/lib/${PKG_PYTHON_VERSION}
 
   for dir in config compiler sysconfigdata lib-dynload/sysconfigdata lib2to3/tests test; do
-    rm -rf $PKG_INSTALL_PATH_LIB/$dir
+    rm -rf ${PKG_INSTALL_PATH_LIB}/${dir}
   done
 
-  rm -rf $PKG_INSTALL_PATH_LIB/distutils/command/*.exe
+  rm -rf ${PKG_INSTALL_PATH_LIB}/distutils/command/*.exe
 
-  rm -rf $INSTALL/usr/bin/pyvenv
-  rm -rf $INSTALL/usr/bin/python*-config
-  rm -rf $INSTALL/usr/bin/smtpd.py $INSTALL/usr/bin/smtpd.py.*
+  rm -rf ${INSTALL}/usr/bin/pyvenv
+  rm -rf ${INSTALL}/usr/bin/python*-config
+  rm -rf ${INSTALL}/usr/bin/smtpd.py ${INSTALL}/usr/bin/smtpd.py.*
 
-  find $INSTALL -name '*.o' -delete
+  find ${INSTALL} -name '*.o' -delete
 
-  python_compile $PKG_INSTALL_PATH_LIB
+  python_compile ${PKG_INSTALL_PATH_LIB}
 
   # strip
-  chmod u+w $INSTALL/usr/lib/libpython*.so.*
-  debug_strip $INSTALL/usr
+  chmod u+w ${INSTALL}/usr/lib/libpython*.so.*
+  debug_strip ${INSTALL}/usr
 }
