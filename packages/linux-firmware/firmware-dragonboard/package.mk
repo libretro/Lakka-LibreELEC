@@ -13,9 +13,9 @@ PKG_LONGDESC="Additional firmware for Dragonboard 410c"
 PKG_TOOLCHAIN="manual"
 
 unpack() {
-  mkdir -p $PKG_BUILD
-    cd $PKG_BUILD
-    sh $SOURCES/$PKG_NAME/$PKG_NAME-$PKG_VERSION.bin --auto-accept
+  mkdir -p ${PKG_BUILD}
+    cd ${PKG_BUILD}
+    sh ${SOURCES}/${PKG_NAME}/${PKG_NAME}-${PKG_VERSION}.bin --auto-accept
 }
 
 make_target() {
@@ -23,14 +23,14 @@ make_target() {
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/$(get_full_firmware_dir)/qcom/venus-1.8/
-    cp -a linux-board-support-package-v${PKG_VERSION%.0}/proprietary-linux/* $INSTALL/$(get_full_firmware_dir)
-    cp -a linux-board-support-package-v${PKG_VERSION%.0}/proprietary-linux/venus* $INSTALL/$(get_full_firmware_dir)/qcom/venus-1.8/
-    rm $INSTALL/$(get_full_firmware_dir)/firmware.tar
+  mkdir -p ${INSTALL}/$(get_full_firmware_dir)/qcom/venus-1.8/
+    cp -a linux-board-support-package-v${PKG_VERSION%.0}/proprietary-linux/* ${INSTALL}/$(get_full_firmware_dir)
+    cp -a linux-board-support-package-v${PKG_VERSION%.0}/proprietary-linux/venus* ${INSTALL}/$(get_full_firmware_dir)/qcom/venus-1.8/
+    rm ${INSTALL}/$(get_full_firmware_dir)/firmware.tar
 
     MTOOLS_SKIP_CHECK=1 mcopy -n -i linux-board-support-package-v${PKG_VERSION%.0}/bootloaders-linux/NON-HLOS.bin \
                                     ::image/modem.* \
                                     ::image/mba.mbn \
                                     ::image/wcnss.* \
-                                    $INSTALL/$(get_full_firmware_dir)
+                                    ${INSTALL}/$(get_full_firmware_dir)
 }

@@ -6,7 +6,7 @@ PKG_VERSION="20201218"
 PKG_SHA256="d60a418260bc083df8c7d3359aa207b48181ec8354b6c8545cac28ff19ce8950"
 PKG_LICENSE="other"
 PKG_SITE="https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/"
-PKG_URL="https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/snapshot/$PKG_VERSION.tar.gz"
+PKG_URL="https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/snapshot/${PKG_VERSION}.tar.gz"
 PKG_NEED_UNPACK="${PROJECT_DIR}/${PROJECT}/packages/${PKG_NAME} ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/packages/${PKG_NAME}"
 PKG_LONGDESC="kernel-firmware: kernel related firmware"
 PKG_TOOLCHAIN="manual"
@@ -25,7 +25,7 @@ post_patch() {
 
 # Install additional miscellaneous drivers
 makeinstall_target() {
-  FW_TARGET_DIR=$INSTALL/$(get_full_firmware_dir)
+  FW_TARGET_DIR=${INSTALL}/$(get_full_firmware_dir)
 
   if find_file_path config/kernel-firmware.dat; then
     FW_LISTS="${FOUND_PATH}"
@@ -67,12 +67,12 @@ makeinstall_target() {
   # They are also not required at all if the kernel is not suitably configured.
   if listcontains "${FIRMWARE}" "brcmfmac_sdio-firmware-rpi" || \
      ! grep -q "^CONFIG_BRCMFMAC_SDIO=y" ${PKG_KERNEL_CFG_FILE}; then
-    rm -fr $FW_TARGET_DIR/brcm/brcmfmac43430*-sdio.*
-    rm -fr $FW_TARGET_DIR/brcm/brcmfmac43455*-sdio.*
+    rm -fr ${FW_TARGET_DIR}/brcm/brcmfmac43430*-sdio.*
+    rm -fr ${FW_TARGET_DIR}/brcm/brcmfmac43455*-sdio.*
   fi
 
   # brcm pcie firmware is only needed by x86_64
-  [ "$TARGET_ARCH" != "x86_64" ] && rm -fr $FW_TARGET_DIR/brcm/*-pcie.*
+  [ "${TARGET_ARCH}" != "x86_64" ] && rm -fr ${FW_TARGET_DIR}/brcm/*-pcie.*
 
   # Cleanup - which may be project or device specific
   find_file_path scripts/cleanup.sh && ${FOUND_PATH} ${FW_TARGET_DIR} || true
