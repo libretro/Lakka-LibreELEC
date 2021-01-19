@@ -7,7 +7,7 @@ PKG_VERSION="2.67.2"
 PKG_SHA256="b41d42d6c572e1e420ffc38a077e0157e0b53b5a94c9647a3dc3701043c3b69b"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.gtk.org/"
-PKG_URL="http://ftp.gnome.org/pub/gnome/sources/glib/$(get_pkg_version_maj_min)/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="http://ftp.gnome.org/pub/gnome/sources/glib/$(get_pkg_version_maj_min)/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_HOST="libffi:host Python3:host meson:host ninja:host"
 PKG_DEPENDS_TARGET="toolchain pcre zlib libffi Python3:host util-linux"
 PKG_LONGDESC="A library which includes support routines for C such as lists, trees, hashes, memory allocation."
@@ -40,9 +40,9 @@ growing_stack=false
 va_val_copy=false"
 
 post_makeinstall_target() {
-  rm -rf $INSTALL/usr/bin
-  rm -rf $INSTALL/usr/lib/gdbus-2.0
-  rm -rf $INSTALL/usr/lib/glib-2.0
-  rm -rf $INSTALL/usr/lib/installed-tests
-  rm -rf $INSTALL/usr/share
+  rm -rf ${INSTALL}/usr/bin
+  rm -rf ${INSTALL}/usr/lib/gdbus-2.0
+  rm -rf ${INSTALL}/usr/lib/glib-2.0
+  rm -rf ${INSTALL}/usr/lib/installed-tests
+  rm -rf ${INSTALL}/usr/share
 }

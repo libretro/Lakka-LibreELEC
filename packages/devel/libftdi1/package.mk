@@ -19,12 +19,12 @@ PKG_CMAKE_OPTS_TARGET="-DSTATICLIBS=ON \
                        -DPYTHON_BINDINGS=FALSE"
 
 makeinstall_target() {
-  mkdir -p $SYSROOT_PREFIX/usr/include/libftdi1
-    cp ../src/ftdi.h $SYSROOT_PREFIX/usr/include/libftdi1
+  mkdir -p ${SYSROOT_PREFIX}/usr/include/libftdi1
+    cp ../src/ftdi.h ${SYSROOT_PREFIX}/usr/include/libftdi1
 
-  mkdir -p $SYSROOT_PREFIX/usr/lib
-    cp src/libftdi1.a $SYSROOT_PREFIX/usr/lib
+  mkdir -p ${SYSROOT_PREFIX}/usr/lib
+    cp src/libftdi1.a ${SYSROOT_PREFIX}/usr/lib
 
-  mkdir -p $SYSROOT_PREFIX/usr/lib/pkgconfig
-    cp libftdi1.pc $SYSROOT_PREFIX/usr/lib/pkgconfig
+  mkdir -p ${SYSROOT_PREFIX}/usr/lib/pkgconfig
+    cp libftdi1.pc ${SYSROOT_PREFIX}/usr/lib/pkgconfig
 }

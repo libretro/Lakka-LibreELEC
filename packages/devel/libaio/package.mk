@@ -16,9 +16,9 @@ make_target() {
 }
 
 makeinstall_target() {
-  mkdir -p $SYSROOT_PREFIX/usr/lib
-    cp -PR src/libaio.a $SYSROOT_PREFIX/usr/lib
+  mkdir -p ${SYSROOT_PREFIX}/usr/lib
+    cp -PR src/libaio.a ${SYSROOT_PREFIX}/usr/lib
 
-  mkdir -p $SYSROOT_PREFIX/usr/include
-    cp -PR src/libaio.h $SYSROOT_PREFIX/usr/include
+  mkdir -p ${SYSROOT_PREFIX}/usr/include
+    cp -PR src/libaio.h ${SYSROOT_PREFIX}/usr/include
 }

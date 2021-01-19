@@ -6,7 +6,7 @@ PKG_VERSION="1.12.0"
 PKG_SHA256="62f2223fb9181d1d6338451375628975775f7522185266cd5296571ac152bc45"
 PKG_LICENSE="Apache-2.0"
 PKG_SITE="https://github.com/google/flatbuffers"
-PKG_URL="https://github.com/google/flatbuffers/archive/v$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/google/flatbuffers/archive/v${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_HOST="toolchain:host"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="An efficient cross platform serialization library for games and other memory constrained apps."
@@ -30,10 +30,10 @@ PKG_CMAKE_OPTS_TARGET="-DFLATBUFFERS_CODE_COVERAGE=OFF \
                        -DFLATBUFFERS_BUILD_SHAREDLIB=OFF"
 
 pre_configure_host() {
-  export CXXFLAGS="$CXXFLAGS -std=c++11"
+  export CXXFLAGS="${CXXFLAGS} -std=c++11"
 }
 
 post_makeinstall_host() {
-  mkdir -p $TOOLCHAIN/bin
-    cp -PR $PKG_BUILD/.$HOST_NAME/flatc $TOOLCHAIN/bin
+  mkdir -p ${TOOLCHAIN}/bin
+    cp -PR ${PKG_BUILD}/.${HOST_NAME}/flatc ${TOOLCHAIN}/bin
 }

@@ -7,14 +7,14 @@ PKG_VERSION="2.35.1"
 PKG_SHA256="3ced91db9bf01182b7e420eab68039f2083aed0a214c0424e257eae3ddee8607"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/binutils/"
-PKG_URL="http://ftp.gnu.org/gnu/binutils/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="http://ftp.gnu.org/gnu/binutils/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_HOST="ccache:host bison:host flex:host linux:host"
 PKG_DEPENDS_TARGET="toolchain zlib binutils:host"
 PKG_LONGDESC="A GNU collection of binary utilities."
 
-PKG_CONFIGURE_OPTS_HOST="--target=$TARGET_NAME \
-                         --with-sysroot=$SYSROOT_PREFIX \
-                         --with-lib-path=$SYSROOT_PREFIX/lib:$SYSROOT_PREFIX/usr/lib \
+PKG_CONFIGURE_OPTS_HOST="--target=${TARGET_NAME} \
+                         --with-sysroot=${SYSROOT_PREFIX} \
+                         --with-lib-path=${SYSROOT_PREFIX}/lib:${SYSROOT_PREFIX}/usr/lib \
                          --without-ppl \
                          --without-cloog \
                          --disable-werror \
@@ -28,9 +28,9 @@ PKG_CONFIGURE_OPTS_HOST="--target=$TARGET_NAME \
                          --enable-lto \
                          --disable-nls"
 
-PKG_CONFIGURE_OPTS_TARGET="--target=$TARGET_NAME \
-                         --with-sysroot=$SYSROOT_PREFIX \
-                         --with-lib-path=$SYSROOT_PREFIX/lib:$SYSROOT_PREFIX/usr/lib \
+PKG_CONFIGURE_OPTS_TARGET="--target=${TARGET_NAME} \
+                         --with-sysroot=${SYSROOT_PREFIX} \
+                         --with-lib-path=${SYSROOT_PREFIX}/lib:${SYSROOT_PREFIX}/usr/lib \
                          --with-system-zlib \
                          --without-ppl \
                          --without-cloog \
@@ -59,7 +59,7 @@ make_host() {
 }
 
 makeinstall_host() {
-  cp -v ../include/libiberty.h $SYSROOT_PREFIX/usr/include
+  cp -v ../include/libiberty.h ${SYSROOT_PREFIX}/usr/include
   make install
 }
 
@@ -72,10 +72,10 @@ make_target() {
 }
 
 makeinstall_target() {
-  mkdir -p $SYSROOT_PREFIX/usr/lib
-    cp libiberty/libiberty.a $SYSROOT_PREFIX/usr/lib
-  make DESTDIR="$SYSROOT_PREFIX" -C bfd install
-  make DESTDIR="$SYSROOT_PREFIX" -C opcodes install
+  mkdir -p ${SYSROOT_PREFIX}/usr/lib
+    cp libiberty/libiberty.a ${SYSROOT_PREFIX}/usr/lib
+  make DESTDIR="${SYSROOT_PREFIX}" -C bfd install
+  make DESTDIR="${SYSROOT_PREFIX}" -C opcodes install
 
   mkdir -p ${INSTALL}/usr/bin
     cp binutils/strings ${INSTALL}/usr/bin

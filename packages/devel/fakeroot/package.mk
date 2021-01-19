@@ -15,6 +15,6 @@ PKG_TOOLCHAIN="configure"
 PKG_CONFIGURE_OPTS_HOST="--with-gnu-ld"
 
 pre_configure_host() {
-  cd $PKG_BUILD
+  cd ${PKG_BUILD}
   ./bootstrap
 }
