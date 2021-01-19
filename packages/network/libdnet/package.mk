@@ -7,7 +7,7 @@ PKG_VERSION="1.14"
 PKG_SHA256="592599c54a57102a177270f3a2caabda2c2ac7768b977d7458feba97da923dfe"
 PKG_LICENSE="BSD"
 PKG_SITE="https://github.com/ofalk/libdnet"
-PKG_URL="https://github.com/ofalk/libdnet/archive/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/ofalk/libdnet/archive/${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A simplified, portable interface to several low-level networking routines"
 PKG_TOOLCHAIN="autotools"
@@ -20,10 +20,10 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_strlcat=no \
                            --disable-python"
 
 pre_configure_target() {
-  export CFLAGS+=" -I$PKG_BUILD/include"
+  export CFLAGS+=" -I${PKG_BUILD}/include"
 }
 
 post_makeinstall_target() {
-  cp $SYSROOT_PREFIX/usr/bin/dnet-config \
-     $TOOLCHAIN/bin/dnet-config
+  cp ${SYSROOT_PREFIX}/usr/bin/dnet-config \
+     ${TOOLCHAIN}/bin/dnet-config
 }
