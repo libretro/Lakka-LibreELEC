@@ -16,6 +16,6 @@ make_target() {
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/bin
-  cp memtester $INSTALL/usr/bin
+  mkdir -p ${INSTALL}/usr/bin
+  cp memtester ${INSTALL}/usr/bin
 }
