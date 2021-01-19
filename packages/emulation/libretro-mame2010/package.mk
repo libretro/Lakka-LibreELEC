@@ -6,28 +6,28 @@ PKG_VERSION="2d2e86b5d8dced24a390bbb3b44d913833a1f6fa"
 PKG_SHA256="5a084d988b314b9cbfc3e697f330f0a436a572481ca66ce91b0b7baafb37a8b7"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mame2010-libretro"
-PKG_URL="https://github.com/libretro/mame2010-libretro/archive/$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/libretro/mame2010-libretro/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain zlib"
 PKG_LONGDESC="Late 2010 version of MAME (0.139) for libretro"
 
 PKG_LIBNAME="mame2010_libretro.so"
-PKG_LIBPATH="$PKG_LIBNAME"
+PKG_LIBPATH="${PKG_LIBNAME}"
 PKG_LIBVAR="MAME2010_LIB"
 
 pre_configure_target() {
-  export CFLAGS="$CFLAGS -fpermissive"
-  export CXXFLAGS="$CXXFLAGS -fpermissive"
-  export LD="$CXX"
+  export CFLAGS="${CFLAGS} -fpermissive"
+  export CXXFLAGS="${CXXFLAGS} -fpermissive"
+  export LD="${CXX}"
 
-  case $TARGET_CPU in
+  case ${TARGET_CPU} in
     arm1176jzf-s)
-      PKG_MAKE_OPTS_TARGET="platform=armv6-hardfloat-$TARGET_CPU"
+      PKG_MAKE_OPTS_TARGET="platform=armv6-hardfloat-${TARGET_CPU}"
       ;;
     cortex-a7|cortex-a8|cortex-a9)
-      PKG_MAKE_OPTS_TARGET="platform=armv7-neon-hardfloat-$TARGET_CPU"
+      PKG_MAKE_OPTS_TARGET="platform=armv7-neon-hardfloat-${TARGET_CPU}"
       ;;
     *cortex-a53|cortex-a17)
-      if [ "$TARGET_ARCH" = "aarch64" ]; then
+      if [ "${TARGET_ARCH}" = "aarch64" ]; then
         PKG_MAKE_OPTS_TARGET="platform=aarch64"
       else
         PKG_MAKE_OPTS_TARGET="platform=armv7-neon-hardfloat-cortex-a9"
@@ -42,7 +42,7 @@ pre_make_target() {
 }
 
 makeinstall_target() {
-  mkdir -p $SYSROOT_PREFIX/usr/lib/cmake/$PKG_NAME
-  cp $PKG_LIBPATH $SYSROOT_PREFIX/usr/lib/$PKG_LIBNAME
-  echo "set($PKG_LIBVAR $SYSROOT_PREFIX/usr/lib/$PKG_LIBNAME)" > $SYSROOT_PREFIX/usr/lib/cmake/$PKG_NAME/$PKG_NAME-config.cmake
+  mkdir -p ${SYSROOT_PREFIX}/usr/lib/cmake/${PKG_NAME}
+  cp ${PKG_LIBPATH} ${SYSROOT_PREFIX}/usr/lib/${PKG_LIBNAME}
+  echo "set(${PKG_LIBVAR} ${SYSROOT_PREFIX}/usr/lib/${PKG_LIBNAME})" > ${SYSROOT_PREFIX}/usr/lib/cmake/${PKG_NAME}/${PKG_NAME}-config.cmake
 }
