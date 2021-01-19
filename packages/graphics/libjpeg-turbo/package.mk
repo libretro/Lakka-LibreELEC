@@ -7,7 +7,7 @@ PKG_VERSION="2.0.6"
 PKG_SHA256="005aee2fcdca252cee42271f7f90574dda64ca6505d9f8b86ae61abc2b426371"
 PKG_LICENSE="GPL"
 PKG_SITE="https://libjpeg-turbo.org/"
-PKG_URL="https://github.com/libjpeg-turbo/libjpeg-turbo/archive/$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/libjpeg-turbo/libjpeg-turbo/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_HOST="toolchain:host"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A high-speed version of libjpeg for x86 and x86-64 processors which uses SIMD."
@@ -28,11 +28,11 @@ else
   PKG_CMAKE_OPTS_TARGET+=" -DWITH_SIMD=OFF"
 fi
 
-if [ $TARGET_ARCH = "x86_64" ]; then
+if [ ${TARGET_ARCH} = "x86_64" ]; then
   PKG_DEPENDS_HOST+=" nasm:host"
   PKG_DEPENDS_TARGET+=" nasm:host"
 fi
 
 post_makeinstall_target() {
-  rm -rf $INSTALL/usr/bin
+  rm -rf ${INSTALL}/usr/bin
 }

@@ -10,9 +10,9 @@ PKG_URL="https://gitlab.freedesktop.org/mesa/kmscube/-/archive/master/kmscube-${
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Example KMS/GBM/EGL application"
 
-if [ "$OPENGLES_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS_TARGET+=" $OPENGLES"
-elif [ "$OPENGL_SUPPORT" = "yes" ]; then
+if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" ${OPENGLES}"
+elif [ "${OPENGL_SUPPORT}" = "yes" ]; then
   echo "kmscube only supports OpenGLESv2"
   exit 0
 fi
