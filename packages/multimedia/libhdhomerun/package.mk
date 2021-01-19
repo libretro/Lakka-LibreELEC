@@ -11,18 +11,18 @@ PKG_URL="https://github.com/Silicondust/libhdhomerun/archive/${PKG_VERSION}.tar.
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="The library provides functionality to setup the HDHomeRun."
 
-PKG_MAKE_OPTS_TARGET="CROSS_COMPILE=$TARGET_PREFIX"
+PKG_MAKE_OPTS_TARGET="CROSS_COMPILE=${TARGET_PREFIX}"
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/bin
-    cp -PR hdhomerun_config $INSTALL/usr/bin
+  mkdir -p ${INSTALL}/usr/bin
+    cp -PR hdhomerun_config ${INSTALL}/usr/bin
 
-  mkdir -p $INSTALL/usr/lib/
-    cp -PR libhdhomerun.so $INSTALL/usr/lib/
+  mkdir -p ${INSTALL}/usr/lib/
+    cp -PR libhdhomerun.so ${INSTALL}/usr/lib/
 
-  mkdir -p $SYSROOT_PREFIX/usr/include/hdhomerun
-    cp *.h $SYSROOT_PREFIX/usr/include/hdhomerun
+  mkdir -p ${SYSROOT_PREFIX}/usr/include/hdhomerun
+    cp *.h ${SYSROOT_PREFIX}/usr/include/hdhomerun
 
-  mkdir -p $SYSROOT_PREFIX/usr/lib
-    cp libhdhomerun.so $SYSROOT_PREFIX/usr/lib
+  mkdir -p ${SYSROOT_PREFIX}/usr/lib
+    cp libhdhomerun.so ${SYSROOT_PREFIX}/usr/lib
 }

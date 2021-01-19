@@ -16,7 +16,7 @@ PKG_CMAKE_OPTS_TARGET="-DENABLE_CCACHE=1 \
                        -DENABLE_TESTS=0 \
                        -DENABLE_TOOLS=0"
 
-if [ "$TARGET_ARCH" = "x86_64" ]; then
+if [ "${TARGET_ARCH}" = "x86_64" ]; then
   PKG_DEPENDS_TARGET+=" nasm:host"
 fi
 
