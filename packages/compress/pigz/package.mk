@@ -20,6 +20,6 @@ make_host() {
 }
 
 makeinstall_host() {
-  mkdir -p $TOOLCHAIN/bin
+  mkdir -p ${TOOLCHAIN}/bin
     cp pigz ${TOOLCHAIN}/bin
 }
