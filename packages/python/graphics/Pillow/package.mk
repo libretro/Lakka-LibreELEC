@@ -13,8 +13,8 @@ PKG_LONGDESC="The Python Imaging Library adds image processing capabilities to y
 PKG_TOOLCHAIN="manual"
 
 pre_make_target() {
-  export PYTHONXCPREFIX="$SYSROOT_PREFIX/usr"
-  export LDSHARED="$CC -shared"
+  export PYTHONXCPREFIX="${SYSROOT_PREFIX}/usr"
+  export LDSHARED="${CC} -shared"
 }
 
 make_target() {
@@ -22,11 +22,11 @@ make_target() {
 }
 
 makeinstall_target() {
-  python3 setup.py install --root=$INSTALL --prefix=/usr
+  python3 setup.py install --root=${INSTALL} --prefix=/usr
 }
 
 post_makeinstall_target() {
   python_remove_source
 
-  rm -rf $INSTALL/usr/bin
+  rm -rf ${INSTALL}/usr/bin
 }
