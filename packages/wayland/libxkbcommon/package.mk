@@ -26,6 +26,6 @@ fi
 
 pre_configure_target() {
   if [ "${DISPLAYSERVER}" = "x11" ]; then
-    TARGET_LDFLAGS="$LDFLAGS -lXau -lxcb"
+    TARGET_LDFLAGS="${LDFLAGS} -lXau -lxcb"
   fi
 }
