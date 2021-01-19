@@ -6,7 +6,7 @@ PKG_VERSION="1.1.2"
 PKG_SHA256="b8e77940e4e1769dc47ef1805918d8c9be37c708735832a07204258bacc11794"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
-PKG_URL="http://xorg.freedesktop.org/archive/individual/font/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_URL="http://xorg.freedesktop.org/archive/individual/font/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain util-macros font-util font-cursor-misc"
 PKG_LONGDESC="A misc. public domain font."
 
@@ -29,14 +29,14 @@ PKG_CONFIGURE_OPTS_TARGET="--with-fontrootdir=/usr/share/fonts \
                            --disable-koi8-r \
                            --disable-jisx0201"
 
-PKG_MAKE_OPTS_TARGET="UTIL_DIR=$SYSROOT_PREFIX/usr/share/fonts/util/"
+PKG_MAKE_OPTS_TARGET="UTIL_DIR=${SYSROOT_PREFIX}/usr/share/fonts/util/"
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/share/fonts/misc
-    cp 6x13-ISO8859-1.pcf.gz $INSTALL/usr/share/fonts/misc
+  mkdir -p ${INSTALL}/usr/share/fonts/misc
+    cp 6x13-ISO8859-1.pcf.gz ${INSTALL}/usr/share/fonts/misc
 }
 
 post_install() {
-  mkfontdir $INSTALL/usr/share/fonts/misc
-  mkfontscale $INSTALL/usr/share/fonts/misc
+  mkfontdir ${INSTALL}/usr/share/fonts/misc
+  mkfontscale ${INSTALL}/usr/share/fonts/misc
 }

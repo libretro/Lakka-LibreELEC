@@ -7,7 +7,7 @@ PKG_VERSION="1.1.4"
 PKG_SHA256="0008dbd7ecf717e1e507eed1856ab0d9cf946d03201b85d5dcf61489bb02d720"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
-PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain util-macros libXext"
 PKG_LONGDESC="libXinerama is the Xinerama library."
 
