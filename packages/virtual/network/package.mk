@@ -10,23 +10,23 @@ PKG_DEPENDS_TARGET="toolchain connman netbase ethtool openssh iw wireless-regdb"
 PKG_SECTION="virtual"
 PKG_LONGDESC="Metapackage for various packages to install network support"
 
-if [ "$BLUETOOTH_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bluez"
+if [ "${BLUETOOTH_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" bluez"
 fi
 
-if [ "$SAMBA_SERVER" = "yes" ] || [ "$SAMBA_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET samba"
+if [ "${SAMBA_SERVER}" = "yes" ] || [ "${SAMBA_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" samba"
 fi
 
-if [ "$OPENVPN_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET openvpn"
+if [ "${OPENVPN_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" openvpn"
 fi
 
-if [ "$WIREGUARD_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET wireguard-tools"
+if [ "${WIREGUARD_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" wireguard-tools"
 fi
 
 # nss needed by inputstream.adaptive, chromium etc.
-if [ "$TARGET_ARCH" = "x86_64" ] || [ "$TARGET_ARCH" = "arm" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET nss"
+if [ "${TARGET_ARCH}" = "x86_64" ] || [ "${TARGET_ARCH}" = "arm" ]; then
+  PKG_DEPENDS_TARGET+=" nss"
 fi

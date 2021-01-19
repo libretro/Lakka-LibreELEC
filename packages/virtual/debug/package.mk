@@ -13,18 +13,18 @@ PKG_LONGDESC="debug is a Metapackage for installing debugging tools"
 # configure GPU drivers and dependencies:
   get_graphicdrivers
 
-if [ "$VDPAU_SUPPORT" = "yes" -a "$DISPLAYSERVER" = "x11" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET vdpauinfo"
+if [ "${VDPAU_SUPPORT}" = "yes" -a "${DISPLAYSERVER}" = "x11" ]; then
+  PKG_DEPENDS_TARGET+=" vdpauinfo"
 fi
 
-if [ "$VAAPI_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libva-utils"
+if [ "${VAAPI_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" libva-utils"
 fi
 
-if build_with_debug && [ "$VALGRIND" = "yes" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET valgrind"
+if build_with_debug && [ "${VALGRIND}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" valgrind"
 fi
 
-if [ "$REMOTE_GDB" = "yes" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gdb:host"
+if [ "${REMOTE_GDB}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" gdb:host"
 fi

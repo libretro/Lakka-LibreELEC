@@ -12,14 +12,14 @@ PKG_DEPENDS_TARGET="toolchain initramfs:init"
 PKG_SECTION="virtual"
 PKG_LONGDESC="Metapackage for installing initramfs"
 
-if [ "$ISCSI_SUPPORT" = yes ]; then
+if [ "${ISCSI_SUPPORT}" = yes ]; then
   PKG_DEPENDS_INIT+=" open-iscsi:init"
 fi
 
-if [ "$INITRAMFS_PARTED_SUPPORT" = yes ]; then
+if [ "${INITRAMFS_PARTED_SUPPORT}" = yes ]; then
   PKG_DEPENDS_INIT+=" parted:init"
 fi
 
-for i in $PKG_DEPENDS_INIT; do
-  PKG_NEED_UNPACK+=" $(get_pkg_directory $i)"
+for i in ${PKG_DEPENDS_INIT}; do
+  PKG_NEED_UNPACK+=" $(get_pkg_directory ${i})"
 done

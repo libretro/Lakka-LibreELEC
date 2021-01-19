@@ -12,4 +12,4 @@ PKG_LONGDESC="virtual is a Meta package to install Virtual project extra depende
 
 get_graphicdrivers
 
-listcontains "$GRAPHIC_DRIVERS" "vmware" && PKG_DEPENDS_TARGET+=" open-vm-tools" || true
+listcontains "${GRAPHIC_DRIVERS}" "vmware" && PKG_DEPENDS_TARGET+=" open-vm-tools" || true
