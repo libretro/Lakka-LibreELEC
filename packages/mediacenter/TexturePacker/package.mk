@@ -7,18 +7,18 @@ PKG_VERSION="0"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
 PKG_DEPENDS_HOST="lzo:host libpng:host libjpeg-turbo:host giflib:host"
-PKG_DEPENDS_UNPACK="$MEDIACENTER"
+PKG_DEPENDS_UNPACK="${MEDIACENTER}"
 PKG_LONGDESC="kodi-platform:"
 
-PKG_CMAKE_SCRIPT="$(get_build_dir $MEDIACENTER)/tools/depends/native/TexturePacker/CMakeLists.txt"
+PKG_CMAKE_SCRIPT="$(get_build_dir ${MEDIACENTER})/tools/depends/native/TexturePacker/CMakeLists.txt"
 
 PKG_CMAKE_OPTS_HOST="-Wno-dev"
 
 pre_configure_host() {
-  export CXXFLAGS="$CXXFLAGS -std=c++11 -DTARGET_POSIX -DTARGET_LINUX -D_LINUX -I$(get_build_dir $MEDIACENTER)/xbmc/platform/linux"
+  export CXXFLAGS="${CXXFLAGS} -std=c++11 -DTARGET_POSIX -DTARGET_LINUX -D_LINUX -I$(get_build_dir ${MEDIACENTER})/xbmc/platform/linux"
 }
 
 makeinstall_host() {
-  mkdir -p $TOOLCHAIN/bin
-    cp TexturePacker $TOOLCHAIN/bin
+  mkdir -p ${TOOLCHAIN}/bin
+    cp TexturePacker ${TOOLCHAIN}/bin
 }

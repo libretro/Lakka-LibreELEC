@@ -25,7 +25,7 @@ post_makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libreelec
     cp ${PKG_DIR}/scripts/* ${INSTALL}/usr/lib/libreelec
     sed -e "s/@DISTRONAME@/${DISTRONAME}/g" \
-      -i $INSTALL/usr/lib/libreelec/backup-restore
+      -i ${INSTALL}/usr/lib/libreelec/backup-restore
 
   ADDON_INSTALL_DIR=${INSTALL}/usr/share/kodi/addons/service.libreelec.settings
   python_compile ${ADDON_INSTALL_DIR}/resources/lib/

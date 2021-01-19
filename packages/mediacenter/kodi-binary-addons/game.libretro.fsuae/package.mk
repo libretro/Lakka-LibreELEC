@@ -8,7 +8,7 @@ PKG_REV="105"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.fsuae"
-PKG_URL="https://github.com/kodi-game/game.libretro.fsuae/archive/$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/kodi-game/game.libretro.fsuae/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-fsuae"
 PKG_LONGDESC="game.libretro.fsuae: fsuae emulator for Kodi"
 
