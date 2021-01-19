@@ -47,7 +47,7 @@ PKG_CONFIGURE_OPTS_TARGET="--srcdir=.. \
 if [ "$WIREGUARD_SUPPORT" = "yes" ]; then
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-wireguard=builtin"
 else
-  PKG_CONGIGURE_OPTS_TARGET+=" --disable-wireguard"
+  PKG_CONFIGURE_OPTS_TARGET+=" --disable-wireguard"
 fi
 
 case "$WIRELESS_DAEMON" in
