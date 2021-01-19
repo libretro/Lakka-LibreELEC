@@ -13,6 +13,6 @@ PKG_LONGDESC="x265 is a H.265/HEVC video encoder application library"
 PKG_TOOLCHAIN="make"
 
 pre_configure_target() {
-  LDFLAGS="$LDFLAGS -ldl"
+  LDFLAGS+=" -ldl"
   cmake -G "Unix Makefiles" ./source
 }

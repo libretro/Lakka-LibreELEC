@@ -19,12 +19,12 @@ PKG_ADDON_NAME="LinuxServer.io Repository"
 PKG_ADDON_TYPE="xbmc.addon.repository"
 
 make_target() {
-  sed -e "s|@PKG_VERSION@|$PKG_VERSION|g" \
-      -e "s|@PKG_REV@|$PKG_REV|g" \
+  sed -e "s|@PKG_VERSION@|${PKG_VERSION}|g" \
+      -e "s|@PKG_REV@|${PKG_REV}|g" \
       -i addon.xml
 }
 
 addon() {
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID
-  cp -R $PKG_BUILD/* $ADDON_BUILD/$PKG_ADDON_ID
+  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}
+  cp -R ${PKG_BUILD}/* ${ADDON_BUILD}/${PKG_ADDON_ID}
 }

@@ -17,8 +17,8 @@ configure_target() {
   cd Project/GNU/CLI
   do_autoreconf
   ./configure \
-        --host=$TARGET_NAME \
-        --build=$HOST_NAME \
+        --host=${TARGET_NAME} \
+        --build=${HOST_NAME} \
         --prefix=/usr
 }
 
@@ -27,5 +27,5 @@ make_target() {
 }
 
 makeinstall_target() {
-  make install DESTDIR=$INSTALL
+  make install DESTDIR=${INSTALL}
 }

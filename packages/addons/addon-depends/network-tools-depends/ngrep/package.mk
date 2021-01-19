@@ -12,11 +12,11 @@ PKG_LONGDESC="A tool like GNU grep applied to the network layer."
 PKG_TOOLCHAIN="autotools"
 PKG_BUILD_FLAGS="-sysroot -parallel"
 
-PKG_CONFIGURE_OPTS_TARGET="--with-pcap-includes=$SYSROOT_PREFIX/usr/include \
+PKG_CONFIGURE_OPTS_TARGET="--with-pcap-includes=${SYSROOT_PREFIX}/usr/include \
                            --enable-ipv6 \
                            --disable-dropprivs"
 
 pre_build_target() {
-  mkdir -p $PKG_BUILD/.$TARGET_NAME
-  cp -RP $PKG_BUILD/* $PKG_BUILD/.$TARGET_NAME
+  mkdir -p ${PKG_BUILD}/.${TARGET_NAME}
+  cp -RP ${PKG_BUILD}/* ${PKG_BUILD}/.${TARGET_NAME}
 }

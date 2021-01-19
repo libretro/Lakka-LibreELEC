@@ -16,17 +16,17 @@ pre_make_target() {
   go_configure
 
   export CGO_ENABLED=0
-  export LDFLAGS="-extld $CC"
+  export LDFLAGS="-extld ${CC}"
 
   mkdir -p ${GOPATH}
-  if [ -d $PKG_BUILD/vendor ]; then
-    mv $PKG_BUILD/vendor ${GOPATH}/src
+  if [ -d ${PKG_BUILD}/vendor ]; then
+    mv ${PKG_BUILD}/vendor ${GOPATH}/src
   fi
 
-  ln -fs $PKG_BUILD ${GOPATH}/src/github.com/docker/libnetwork
+  ln -fs ${PKG_BUILD} ${GOPATH}/src/github.com/docker/libnetwork
 }
 
 make_target() {
   mkdir -p bin
-  $GOLANG build -v -o bin/docker-proxy -a -ldflags "$LDFLAGS" ./cmd/proxy
+  ${GOLANG} build -v -o bin/docker-proxy -a -ldflags "${LDFLAGS}" ./cmd/proxy
 }

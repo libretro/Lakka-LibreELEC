@@ -15,9 +15,9 @@ PKG_BUILD_FLAGS="-sysroot"
 PKG_MAKEINSTALL_OPTS_TARGET="PREFIX=/usr"
 
 make_target() {
-  make CC=$CC LINK="$LD -o"
+  make CC=${CC} LINK="${LD} -o"
 }
 
 post_make_target() {
-  make strip STRIP=$STRIP
+  make strip STRIP=${STRIP}
 }

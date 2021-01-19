@@ -14,7 +14,7 @@ PKG_DEPENDS_TARGET="toolchain alsa-lib avahi boost curl faad2 ffmpeg flac glib l
                     libmad libmpdclient libsamplerate libvorbis libnfs libogg mpd-mpc opus pulseaudio samba yajl libgcrypt"
 PKG_SECTION="service.multimedia"
 PKG_SHORTDESC="Music Player Daemon (MPD): a free and open Music Player Server"
-PKG_LONGDESC="Music Player Daemon ($PKG_VERSION) is a flexible and powerful server-side application for playing music"
+PKG_LONGDESC="Music Player Daemon (${PKG_VERSION}) is a flexible and powerful server-side application for playing music"
 PKG_BUILD_FLAGS="-sysroot"
 
 PKG_IS_ADDON="yes"
@@ -98,12 +98,12 @@ PKG_MESON_OPTS_TARGET=" \
   -Dzzip=disabled"
 
 addon() {
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
-  cp -P $PKG_INSTALL/usr/bin/mpd $ADDON_BUILD/$PKG_ADDON_ID/bin
+  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+  cp -P ${PKG_INSTALL}/usr/bin/mpd ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
   # copy mpd cli binary
-  cp -P $(get_install_dir mpd-mpc)/usr/bin/mpc $ADDON_BUILD/$PKG_ADDON_ID/bin
+  cp -P $(get_install_dir mpd-mpc)/usr/bin/mpc ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib
-  cp -p $(get_install_dir libmpdclient)/usr/lib/libmpdclient.so $ADDON_BUILD/$PKG_ADDON_ID/lib
-  cp -p $(get_install_dir libmpdclient)/usr/lib/libmpdclient.so.2 $ADDON_BUILD/$PKG_ADDON_ID/lib
+  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/lib
+  cp -p $(get_install_dir libmpdclient)/usr/lib/libmpdclient.so ${ADDON_BUILD}/${PKG_ADDON_ID}/lib
+  cp -p $(get_install_dir libmpdclient)/usr/lib/libmpdclient.so.2 ${ADDON_BUILD}/${PKG_ADDON_ID}/lib
 }

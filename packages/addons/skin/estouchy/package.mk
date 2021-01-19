@@ -19,6 +19,6 @@ PKG_ADDON_NAME="Estouchy"
 PKG_ADDON_TYPE="xbmc.gui.skin"
 
 addon() {
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID
-    cp -a $(get_install_dir kodi)/.noinstall/skin.estouchy/* $ADDON_BUILD/$PKG_ADDON_ID
+  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}
+    cp -a $(get_install_dir kodi)/.noinstall/skin.estouchy/* ${ADDON_BUILD}/${PKG_ADDON_ID}
 }

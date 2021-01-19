@@ -13,8 +13,8 @@ PKG_LONGDESC="A simple terminal implementation for X"
 PKG_BUILD_FLAGS="-sysroot"
 
 PKG_MAKE_OPTS_TARGET="X11INC=$(get_build_dir libXft)/include \
-                      X11LIB=$(get_build_dir libXft)/.$TARGET_NAME/src/.libs"
+                      X11LIB=$(get_build_dir libXft)/.${TARGET_NAME}/src/.libs"
 
 pre_configure_target() {
-  LDFLAGS="-lXrender $LDFLAGS"
+  LDFLAGS="-lXrender ${LDFLAGS}"
 }

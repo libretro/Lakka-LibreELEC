@@ -10,7 +10,7 @@ PKG_SITE="https://dotnet.github.io/"
 PKG_DEPENDS_TARGET="toolchain icu"
 PKG_SECTION="tools"
 PKG_SHORTDESC=".NET Core Runtime"
-PKG_LONGDESC=".NET Core Runtime ($PKG_VERSION) runs applications built with .NET Core, a cross-platform .NET implementation."
+PKG_LONGDESC=".NET Core Runtime (${PKG_VERSION}) runs applications built with .NET Core, a cross-platform .NET implementation."
 PKG_TOOLCHAIN="manual"
 
 PKG_IS_ADDON="yes"
@@ -36,11 +36,11 @@ esac
 PKG_SOURCE_NAME="aspnetcore-runtime_${PKG_VERSION}_${ARCH}.tar.gz"
 
 addon() {
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp -r $PKG_BUILD/* \
-          $ADDON_BUILD/$PKG_ADDON_ID/bin
+  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+    cp -r ${PKG_BUILD}/* \
+          ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib
+  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/lib
     cp -L $(get_install_dir icu)/usr/lib/lib*.so.?? \
-          $ADDON_BUILD/$PKG_ADDON_ID/lib/
+          ${ADDON_BUILD}/${PKG_ADDON_ID}/lib/
 }

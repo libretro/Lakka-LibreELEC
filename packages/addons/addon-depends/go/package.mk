@@ -22,7 +22,7 @@ configure_host() {
   fi
   export GOARCH=amd64
 
-  if [ ! -d $GOROOT_BOOTSTRAP ]; then
+  if [ ! -d ${GOROOT_BOOTSTRAP} ]; then
     cat <<EOF
 ####################################################################
 # On Fedora 'dnf install golang' will install go to /usr/lib/golang

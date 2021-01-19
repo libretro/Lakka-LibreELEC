@@ -7,13 +7,13 @@ PKG_SHA256="016dfae596b691c8d38e488f8bfac3ba437befc260a6f32e60dd390595c9f3e9"
 PKG_ARCH="x86_64"
 PKG_LICENSE="LGPL"
 PKG_SITE="https://github.com/rhboot/efivar"
-PKG_URL="https://github.com/rhboot/efivar/archive/$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/rhboot/efivar/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_HOST="toolchain:host"
 PKG_DEPENDS_TARGET="toolchain efivar:host"
 PKG_LONGDESC="Tools and library to manipulate EFI variables."
 
 pre_make_host() {
-  export TOPDIR=$PKG_BUILD
+  export TOPDIR=${PKG_BUILD}
 }
 
 make_host() {
@@ -22,7 +22,7 @@ make_host() {
 
 pre_make_target() {
   sed -e 's/-Werror//' -i src/include/gcc.specs
-  export TOPDIR=$PKG_BUILD
+  export TOPDIR=${PKG_BUILD}
 }
 
 make_target() {
@@ -34,9 +34,9 @@ makeinstall_host() {
 }
 
 makeinstall_target() {
-  mkdir -p $SYSROOT_PREFIX/usr/lib
-    cp -P src/libefivar.a src/libefiboot.a $SYSROOT_PREFIX/usr/lib/
+  mkdir -p ${SYSROOT_PREFIX}/usr/lib
+    cp -P src/libefivar.a src/libefiboot.a ${SYSROOT_PREFIX}/usr/lib/
 
-  mkdir -p $SYSROOT_PREFIX/usr/include/efivar
-    cp -P src/include/efivar/*.h $SYSROOT_PREFIX/usr/include/efivar
+  mkdir -p ${SYSROOT_PREFIX}/usr/include/efivar
+    cp -P src/include/efivar/*.h ${SYSROOT_PREFIX}/usr/include/efivar
 }

@@ -11,5 +11,5 @@ PKG_LONGDESC="Zulu, the open Java(TM) platform from Azul Systems."
 PKG_TOOLCHAIN="manual"
 
 post_unpack() {
-  rm -f $PKG_BUILD/src.zip
+  rm -f ${PKG_BUILD}/src.zip
 }

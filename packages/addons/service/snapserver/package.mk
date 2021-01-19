@@ -9,7 +9,7 @@ PKG_LICENSE="GPLv3"
 PKG_DEPENDS_TARGET="toolchain shairport-sync snapcast"
 PKG_SECTION="service"
 PKG_SHORTDESC="Snapserver: Synchronous multi-room audio server"
-PKG_LONGDESC="Snapclient ($PKG_VERSION) is a Snapcast server. Snapcast is a multi-room client-server audio system, where all clients are time synchronized with the server to play perfectly synced audioplays."
+PKG_LONGDESC="Snapclient (${PKG_VERSION}) is a Snapcast server. Snapcast is a multi-room client-server audio system, where all clients are time synchronized with the server to play perfectly synced audioplays."
 PKG_TOOLCHAIN="manual"
 
 PKG_IS_ADDON="yes"
@@ -19,8 +19,8 @@ PKG_ADDON_REQUIRES="service.librespot:0.0.0"
 PKG_MAINTAINER="Anton Voyl (awiouy)"
 
 addon() {
-  mkdir -p "$ADDON_BUILD/$PKG_ADDON_ID/bin"
+  mkdir -p "${ADDON_BUILD}/${PKG_ADDON_ID}/bin"
   cp "$(get_install_dir shairport-sync)/usr/bin/shairport-sync" \
      "$(get_install_dir snapcast)/usr/bin/snapserver" \
-     "$ADDON_BUILD/$PKG_ADDON_ID/bin"
+     "${ADDON_BUILD}/${PKG_ADDON_ID}/bin"
 }

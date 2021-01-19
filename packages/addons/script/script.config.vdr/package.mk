@@ -9,7 +9,7 @@ PKG_REV="104"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="https://libreelec.tv"
-PKG_URL="https://github.com/LibreELEC/script.config.vdr/archive/$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/LibreELEC/script.config.vdr/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="xmlstarlet:host p7zip:host"
 PKG_SECTION=""
 PKG_SHORTDESC="script.config.vdr"
@@ -20,13 +20,13 @@ PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="dummy"
 
 make_target() {
-  sed -e "s|@ADDON_VERSION@|$ADDON_VERSION|g" \
+  sed -e "s|@ADDON_VERSION@|${ADDON_VERSION}|g" \
       -i addon.xml
 }
 
 addon() {
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID
-  cp -PR $PKG_BUILD/* $ADDON_BUILD/$PKG_ADDON_ID
-  cp $PKG_DIR/changelog.txt $ADDON_BUILD/$PKG_ADDON_ID
-  cp $PKG_DIR/icon/icon.png $ADDON_BUILD/$PKG_ADDON_ID/resources
+  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}
+  cp -PR ${PKG_BUILD}/* ${ADDON_BUILD}/${PKG_ADDON_ID}
+  cp ${PKG_DIR}/changelog.txt ${ADDON_BUILD}/${PKG_ADDON_ID}
+  cp ${PKG_DIR}/icon/icon.png ${ADDON_BUILD}/${PKG_ADDON_ID}/resources
 }

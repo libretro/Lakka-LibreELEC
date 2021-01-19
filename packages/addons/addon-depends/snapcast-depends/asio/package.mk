@@ -16,5 +16,5 @@ PKG_BUILD_FLAGS="-sysroot"
 PKG_CONFIGURE_OPTS_TARGET="--without-boost --without-openssl"
 
 post_unpack() {
-  mv $PKG_BUILD/asio/* $PKG_BUILD
+  mv ${PKG_BUILD}/asio/* ${PKG_BUILD}
 }

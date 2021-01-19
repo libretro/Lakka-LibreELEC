@@ -17,8 +17,8 @@ configure_target() {
   cd Project/GNU/Library
   do_autoreconf
   ./configure \
-        --host=$TARGET_NAME \
-        --build=$HOST_NAME \
+        --host=${TARGET_NAME} \
+        --build=${HOST_NAME} \
         --enable-static \
         --disable-shared \
         --prefix=/usr \
@@ -30,12 +30,12 @@ make_target() {
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/include/MediaInfo $INSTALL/usr/lib/pkgconfig
-  cp -aP ../../../Source/MediaInfo/*.h $INSTALL/usr/include/MediaInfo
-  for i in Archive Audio Duplicate Export Image Multiple Reader Tag Text Video ; do
-    mkdir -p $INSTALL/usr/include/MediaInfo/$i/
-    cp -aP ../../../Source/MediaInfo/$i/*.h $INSTALL/usr/include/MediaInfo/$i/
+  mkdir -p ${INSTALL}/usr/include/MediaInfo ${INSTALL}/usr/lib/pkgconfig
+  cp -aP ../../../Source/MediaInfo/*.h ${INSTALL}/usr/include/MediaInfo
+  for i in Archive Audio Duplicate Export Image Multiple Reader Tag Text Video; do
+    mkdir -p ${INSTALL}/usr/include/MediaInfo/${i}/
+    cp -aP ../../../Source/MediaInfo/${i}/*.h ${INSTALL}/usr/include/MediaInfo/${i}/
   done
-  cp -P .libs/* $INSTALL/usr/lib
-  cp -P libmediainfo.pc $INSTALL/usr/lib/pkgconfig
+  cp -P .libs/* ${INSTALL}/usr/lib
+  cp -P libmediainfo.pc ${INSTALL}/usr/lib/pkgconfig
 }

@@ -18,10 +18,10 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_header_librtmp_rtmp_h=yes \
             --without-curses"
 
 pre_configure_target() {
-  export CFLAGS="$CFLAGS -I../"
+  export CFLAGS="${CFLAGS} -I../"
 }
 
 pre_build_target() {
-  mkdir -p $PKG_BUILD/.$TARGET_NAME
-  cp -RP $PKG_BUILD/* $PKG_BUILD/.$TARGET_NAME
+  mkdir -p ${PKG_BUILD}/.${TARGET_NAME}
+  cp -RP ${PKG_BUILD}/* ${PKG_BUILD}/.${TARGET_NAME}
 }

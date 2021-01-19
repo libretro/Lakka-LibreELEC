@@ -8,7 +8,7 @@ PKG_REV="102"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://btrfs.wiki.kernel.org/index.php/Main_Page"
-PKG_URL="https://github.com/kdave/btrfs-progs/archive/v$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/kdave/btrfs-progs/archive/v${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain util-linux zlib lzo zstd"
 PKG_SECTION="tools"
 PKG_SHORTDESC="tools for the btrfs filesystem"
@@ -30,6 +30,6 @@ pre_configure_target() {
 }
 
 addon() {
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin/
-    cp -P $PKG_INSTALL/usr/bin/{btrfs,btrfsck,btrfstune,btrfs-zero-log,fsck.btrfs,mkfs.btrfs} $ADDON_BUILD/$PKG_ADDON_ID/bin
+  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/
+    cp -P ${PKG_INSTALL}/usr/bin/{btrfs,btrfsck,btrfstune,btrfs-zero-log,fsck.btrfs,mkfs.btrfs} ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 }

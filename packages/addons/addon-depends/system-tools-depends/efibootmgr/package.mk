@@ -7,14 +7,14 @@ PKG_SHA256="e951ce9e0534c63bb71ba8b2a3830d4402e51440cb4d524d18c1ef40ae5ee218"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/rhboot/efibootmgr"
-PKG_URL="https://github.com/rhboot/efibootmgr/archive/$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/rhboot/efibootmgr/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain efivar pciutils zlib"
 PKG_LONGDESC="Tool to modify UEFI Firmware Boot Manager Variables."
 PKG_BUILD_FLAGS="-sysroot"
 
 make_target() {
-  export CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include -I$SYSROOT_PREFIX/usr/include/efivar -fgnu89-inline -Wno-pointer-sign"
-  export LDFLAGS="$LDFLAGS -L$SYSROOT_PREFIX/usr/lib -ludev -ldl"
+  export CFLAGS="${CFLAGS} -I${SYSROOT_PREFIX}/usr/include -I${SYSROOT_PREFIX}/usr/include/efivar -fgnu89-inline -Wno-pointer-sign"
+  export LDFLAGS="${LDFLAGS} -L${SYSROOT_PREFIX}/usr/lib -ludev -ldl"
 
   make EFIDIR=BOOT EFI_LOADER=bootx64.efi PKG_CONFIG=true \
     LDLIBS="-lefiboot -lefivar" \
@@ -22,6 +22,6 @@ make_target() {
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/bin
-  cp -p src/efibootmgr $INSTALL/usr/bin
+  mkdir -p ${INSTALL}/usr/bin
+  cp -p src/efibootmgr ${INSTALL}/usr/bin
 }

@@ -10,12 +10,12 @@ PKG_REV="112"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/hyperion-project/hyperion"
-PKG_URL="https://github.com/hyperion-project/hyperion/archive/$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/hyperion-project/hyperion/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain Python3 libusb qtbase protobuf rpi_ws281x"
 PKG_DEPENDS_UNPACK="rpi_ws281x"
 PKG_SECTION="service"
 PKG_SHORTDESC="Hyperion: an AmbiLight controller"
-PKG_LONGDESC="Hyperion($PKG_VERSION_DATE) is an modern opensource AmbiLight implementation."
+PKG_LONGDESC="Hyperion(${PKG_VERSION_DATE}) is an modern opensource AmbiLight implementation."
 PKG_BUILD_FLAGS="-sysroot"
 
 PKG_IS_ADDON="yes"
@@ -26,16 +26,16 @@ PKG_DISPMANX_SUPPORT="-DENABLE_DISPMANX=OFF"
 PKG_FB_SUPPORT="-DENABLE_FB=ON"
 PKG_X11_SUPPORT="-DENABLE_X11=OFF"
 
-if [ "$DISPLAYSERVER" = "x11" ]; then
+if [ "${DISPLAYSERVER}" = "x11" ]; then
   PKG_DEPENDS_TARGET+=" xorg-server xrandr"
   PKG_X11_SUPPORT="-DENABLE_X11=ON"
 fi
 
 PKG_CMAKE_OPTS_TARGET="-DCMAKE_NO_SYSTEM_FROM_IMPORTED=ON \
-                       -DHYPERION_VERSION_ID="$PKG_VERSION" \
+                       -DHYPERION_VERSION_ID="${PKG_VERSION}" \
                        -DENABLE_AMLOGIC=OFF \
-                       $PKG_DISPMANX_SUPPORT \
-                       $PKG_FB_SUPPORT \
+                       ${PKG_DISPMANX_SUPPORT} \
+                       ${PKG_FB_SUPPORT} \
                        -DENABLE_OSX=OFF \
                        -DUSE_SYSTEM_PROTO_LIBS=ON \
                        -DENABLE_SPIDEV=ON \
@@ -43,13 +43,13 @@ PKG_CMAKE_OPTS_TARGET="-DCMAKE_NO_SYSTEM_FROM_IMPORTED=ON \
                        -DENABLE_V4L2=ON \
                        -DENABLE_WS2812BPWM=OFF \
                        -DENABLE_WS281XPWM=ON \
-                       $PKG_X11_SUPPORT \
+                       ${PKG_X11_SUPPORT} \
                        -DENABLE_QT5=ON \
                        -DENABLE_TESTS=OFF \
                        -Wno-dev"
 
 pre_build_target() {
-  cp -a $(get_build_dir rpi_ws281x)/* $PKG_BUILD/dependencies/external/rpi_ws281x
+  cp -a $(get_build_dir rpi_ws281x)/* ${PKG_BUILD}/dependencies/external/rpi_ws281x
 }
 
 pre_configure_target() {
@@ -57,9 +57,9 @@ pre_configure_target() {
 }
 
 addon() {
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp $PKG_INSTALL/usr/bin/* $ADDON_BUILD/$PKG_ADDON_ID/bin
+  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+    cp ${PKG_INSTALL}/usr/bin/* ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
-  cp -PR $PKG_INSTALL/usr/share/hyperion/webconfig $ADDON_BUILD/$PKG_ADDON_ID
-  cp -PR $PKG_INSTALL/usr/share/hyperion/effects $ADDON_BUILD/$PKG_ADDON_ID
+  cp -PR ${PKG_INSTALL}/usr/share/hyperion/webconfig ${ADDON_BUILD}/${PKG_ADDON_ID}
+  cp -PR ${PKG_INSTALL}/usr/share/hyperion/effects ${ADDON_BUILD}/${PKG_ADDON_ID}
 }

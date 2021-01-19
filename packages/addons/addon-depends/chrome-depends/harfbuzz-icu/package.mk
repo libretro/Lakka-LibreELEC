@@ -22,6 +22,6 @@ PKG_MESON_OPTS_TARGET="-Dcairo=enabled \
                        -Dicu=enabled"
 
 unpack() {
-  mkdir -p $PKG_BUILD
-  tar --strip-components=1 -xf $SOURCES/${PKG_NAME:0:8}/${PKG_NAME:0:8}-$PKG_VERSION.tar.xz -C $PKG_BUILD
+  mkdir -p ${PKG_BUILD}
+  tar --strip-components=1 -xf ${SOURCES}/${PKG_NAME:0:8}/${PKG_NAME:0:8}-${PKG_VERSION}.tar.xz -C ${PKG_BUILD}
 }

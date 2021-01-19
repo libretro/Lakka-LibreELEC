@@ -15,13 +15,13 @@ PKG_TOOLCHAIN="manual"
 PKG_BUILD_FLAGS="+pic"
 
 pre_configure_target() {
-  export CXXFLAGS="$CXXFLAGS -Wno-narrowing"
-  export LIBS="-L$SYSROOT_PREFIX/usr/lib/iconv -lpcre -lpcrecpp -lssl -lcrypto -lbz2"
+  export CXXFLAGS="${CXXFLAGS} -Wno-narrowing"
+  export LIBS="-L${SYSROOT_PREFIX}/usr/lib/iconv -lpcre -lpcrecpp -lssl -lcrypto -lbz2"
 }
 
 make_target() {
   VDR_DIR=$(get_build_dir vdr)
-  make VDRDIR=$VDR_DIR \
+  make VDRDIR=${VDR_DIR} \
     LIBDIR="." \
     LOCALEDIR="./locale"
 }
@@ -30,5 +30,5 @@ post_make_target() {
   cd dist/epgdata2xmltv
   make -j1
   cd -
-  $STRIP dist/epgdata2xmltv/epgdata2xmltv
+  ${STRIP} dist/epgdata2xmltv/epgdata2xmltv
 }

@@ -14,6 +14,6 @@ PKG_BUILD_FLAGS="-sysroot"
 PKG_CONFIGURE_OPTS_TARGET="--with-db-path=/storage/.kodi/addons/virtual.system-tools/data/hddtemp.db"
 
 post_makeinstall_target() {
-  mkdir -p $INSTALL/usr/share/misc
-  cp $PKG_DIR/db/* $INSTALL/usr/share/misc
+  mkdir -p ${INSTALL}/usr/share/misc
+  cp ${PKG_DIR}/db/* ${INSTALL}/usr/share/misc
 }

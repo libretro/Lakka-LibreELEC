@@ -17,11 +17,11 @@ PKG_CONFIGURE_OPTS_HOST="--disable-demos --with-atomictype=pthread --disable-uni
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --disable-demos --with-atomictype=pthread --disable-unittest"
 
 post_makeinstall_host() {
-  rm -rf $TOOLCHAIN/bin/cxxtools-config
+  rm -rf ${TOOLCHAIN}/bin/cxxtools-config
 }
 
 post_makeinstall_target() {
-  sed -e "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" -i $SYSROOT_PREFIX/usr/bin/cxxtools-config
+  sed -e "s:\(['= ]\)/usr:\\1${SYSROOT_PREFIX}/usr:g" -i ${SYSROOT_PREFIX}/usr/bin/cxxtools-config
 
-  rm -rf $INSTALL/usr/bin
+  rm -rf ${INSTALL}/usr/bin
 }

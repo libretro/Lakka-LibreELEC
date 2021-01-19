@@ -12,6 +12,6 @@ PKG_LONGDESC="A Generic HID mapper."
 PKG_BUILD_FLAGS="-sysroot"
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/bin
-  cp -p hid_mapper $INSTALL/usr/bin
+  mkdir -p ${INSTALL}/usr/bin
+  cp -p hid_mapper ${INSTALL}/usr/bin
 }

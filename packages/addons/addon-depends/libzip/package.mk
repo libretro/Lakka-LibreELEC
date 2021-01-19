@@ -23,5 +23,5 @@ PKG_CMAKE_OPTS_TARGET="-DENABLE_COMMONCRYPTO=OFF \
                        -DBUILD_SHARED_LIBS=OFF"
 
 post_makeinstall_target() {
-  rm -rf $INSTALL/usr/lib
+  rm -rf ${INSTALL}/usr/lib
 }
