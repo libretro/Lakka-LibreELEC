@@ -20,7 +20,7 @@ PKG_ADDON_VERSION="${ADDON_VERSION}.${PKG_REV}"
 
 PKG_KERNEL_CFG_FILE=$(kernel_config_path) || die
 
-if ! grep -q ^CONFIG_USB_PCI= ${PKG_KERNEL_CFG_FILE} ; then
+if ! grep -q ^CONFIG_USB_PCI= ${PKG_KERNEL_CFG_FILE}; then
   PKG_PATCH_DIRS="disable-pci"
 fi
 
@@ -30,14 +30,14 @@ pre_make_target() {
 }
 
 make_target() {
-  cp -RP $(get_build_dir media_tree)/* $PKG_BUILD/linux
+  cp -RP $(get_build_dir media_tree)/* ${PKG_BUILD}/linux
 
   # make config all
-  kernel_make VER=$KERNEL_VER SRCDIR=$(kernel_path) allyesconfig
+  kernel_make VER=${KERNEL_VER} SRCDIR=$(kernel_path) allyesconfig
 
-  kernel_make VER=$KERNEL_VER SRCDIR=$(kernel_path)
+  kernel_make VER=${KERNEL_VER} SRCDIR=$(kernel_path)
 }
 
 makeinstall_target() {
-  install_driver_addon_files "$PKG_BUILD/v4l/"
+  install_driver_addon_files "${PKG_BUILD}/v4l/"
 }

@@ -16,8 +16,8 @@ configure_target() {
   cd Project/GNU/Library
   do_autoreconf
   ./configure \
-        --host=$TARGET_NAME \
-        --build=$HOST_NAME \
+        --host=${TARGET_NAME} \
+        --build=${HOST_NAME} \
         --enable-static \
         --disable-shared \
         --prefix=/usr
@@ -28,12 +28,12 @@ make_target() {
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/include/ZenLib $INSTALL/usr/lib/pkgconfig
-  cp -aP ../../../Source/ZenLib/*.h $INSTALL/usr/include/ZenLib
-  for i in HTTP_Client Format/Html Format/Http ; do
-    mkdir -p $INSTALL/usr/include/ZenLib/$i/
-    cp -aP ../../../Source/ZenLib/$i/*.h $INSTALL/usr/include/ZenLib/$i/
+  mkdir -p ${INSTALL}/usr/include/ZenLib ${INSTALL}/usr/lib/pkgconfig
+  cp -aP ../../../Source/ZenLib/*.h ${INSTALL}/usr/include/ZenLib
+  for i in HTTP_Client Format/Html Format/Http; do
+    mkdir -p ${INSTALL}/usr/include/ZenLib/${i}/
+    cp -aP ../../../Source/ZenLib/${i}/*.h ${INSTALL}/usr/include/ZenLib/${i}/
   done
-  cp -P .libs/* $INSTALL/usr/lib
-  cp -P libzen.pc $INSTALL/usr/lib/pkgconfig
+  cp -P .libs/* ${INSTALL}/usr/lib
+  cp -P libzen.pc ${INSTALL}/usr/lib/pkgconfig
 }

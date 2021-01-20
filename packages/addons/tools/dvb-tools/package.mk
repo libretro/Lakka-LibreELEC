@@ -29,42 +29,42 @@ PKG_DEPENDS_TARGET="toolchain \
                     w_scan"
 
 addon() {
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin/
+  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/
 
     # blindscan-s2
-    cp -P $(get_install_dir blindscan-s2)/usr/bin/blindscan-s2 $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir blindscan-s2)/usr/bin/blindscan-s2 ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
     # dvb-apps
-    cp -P $(get_install_dir dvb-apps)/usr/bin/dvbdate $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp -P $(get_install_dir dvb-apps)/usr/bin/dvbnet $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp -P $(get_install_dir dvb-apps)/usr/bin/dvbscan $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp -P $(get_install_dir dvb-apps)/usr/bin/dvbtraffic $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp -P $(get_install_dir dvb-apps)/usr/bin/femon $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp -P $(get_install_dir dvb-apps)/usr/bin/scan $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp -P $(get_install_dir dvb-apps)/usr/bin/azap $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp -P $(get_install_dir dvb-apps)/usr/bin/czap $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp -P $(get_install_dir dvb-apps)/usr/bin/szap $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp -P $(get_install_dir dvb-apps)/usr/bin/tzap $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp -P $(get_install_dir dvb-apps)/usr/bin/zap $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir dvb-apps)/usr/bin/dvbdate ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+    cp -P $(get_install_dir dvb-apps)/usr/bin/dvbnet ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+    cp -P $(get_install_dir dvb-apps)/usr/bin/dvbscan ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+    cp -P $(get_install_dir dvb-apps)/usr/bin/dvbtraffic ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+    cp -P $(get_install_dir dvb-apps)/usr/bin/femon ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+    cp -P $(get_install_dir dvb-apps)/usr/bin/scan ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+    cp -P $(get_install_dir dvb-apps)/usr/bin/azap ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+    cp -P $(get_install_dir dvb-apps)/usr/bin/czap ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+    cp -P $(get_install_dir dvb-apps)/usr/bin/szap ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+    cp -P $(get_install_dir dvb-apps)/usr/bin/tzap ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+    cp -P $(get_install_dir dvb-apps)/usr/bin/zap ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
     # dvblast
-    cp -P $(get_install_dir dvblast)/usr/bin/dvblast $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir dvblast)/usr/bin/dvblast ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
     # dvbsnoop
-    cp -P $(get_install_dir dvbsnoop)/usr/bin/dvbsnoop $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir dvbsnoop)/usr/bin/dvbsnoop ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
     # mumudvb
-    cp -P $(get_install_dir mumudvb)/usr/bin/mumudvb $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir mumudvb)/usr/bin/mumudvb ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
     # szap-s2
-    cp -P $(get_install_dir szap-s2)/usr/bin/szap-s2 $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir szap-s2)/usr/bin/szap-s2 ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
     # tune-s2
-    cp -P $(get_install_dir tune-s2)/usr/bin/tune-s2 $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir tune-s2)/usr/bin/tune-s2 ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
     # t2scan
-    cp -P $(get_install_dir t2scan)/usr/bin/t2scan $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir t2scan)/usr/bin/t2scan ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
     # w_scan
-    cp -P $(get_install_dir w_scan)/usr/bin/w_scan $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir w_scan)/usr/bin/w_scan ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 }

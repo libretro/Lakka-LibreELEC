@@ -20,10 +20,10 @@ PKG_ADDON_NAME="Sundtek MediaTV"
 PKG_ADDON_TYPE="xbmc.service"
 
 make_target() {
-  mkdir -p $PKG_BUILD
-  cd $PKG_BUILD
+  mkdir -p ${PKG_BUILD}
+  cd ${PKG_BUILD}
 
-  case $TARGET_ARCH in
+  case ${TARGET_ARCH} in
     x86_64)
       INSTALLER_URL="http://sundtek.de/media/netinst/64bit/installer.tar.gz"
       ;;
@@ -35,7 +35,7 @@ make_target() {
       ;;
   esac
 
-  wget -O installer.tar.gz $INSTALLER_URL
+  wget -O installer.tar.gz ${INSTALLER_URL}
 
   tar -xzf installer.tar.gz
 
@@ -49,10 +49,10 @@ make_target() {
 }
 
 addon() {
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/config/
-  cp -P $PKG_DIR/config/* $ADDON_BUILD/$PKG_ADDON_ID/config/
-  cp -P $PKG_DIR/settings-default.xml $ADDON_BUILD/$PKG_ADDON_ID/
-  cp -Pa $PKG_BUILD/opt/bin $ADDON_BUILD/$PKG_ADDON_ID/
-  cp -Pa $PKG_BUILD/opt/lib $ADDON_BUILD/$PKG_ADDON_ID/
-  cp $PKG_BUILD/version.used $ADDON_BUILD/$PKG_ADDON_ID/
+  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/config/
+  cp -P ${PKG_DIR}/config/* ${ADDON_BUILD}/${PKG_ADDON_ID}/config/
+  cp -P ${PKG_DIR}/settings-default.xml ${ADDON_BUILD}/${PKG_ADDON_ID}/
+  cp -Pa ${PKG_BUILD}/opt/bin ${ADDON_BUILD}/${PKG_ADDON_ID}/
+  cp -Pa ${PKG_BUILD}/opt/lib ${ADDON_BUILD}/${PKG_ADDON_ID}/
+  cp ${PKG_BUILD}/version.used ${ADDON_BUILD}/${PKG_ADDON_ID}/
 }

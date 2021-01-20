@@ -18,17 +18,17 @@ PKG_GIT_COMMIT="ff819c7e9184c13b7c2607fe6c30ae19403a7aff"
 pre_make_target() {
   go_configure
 
-  export LDFLAGS="-w -extldflags -static -X main.gitCommit=${PKG_GIT_COMMIT} -X main.version=$(cat ./VERSION) -extld $CC"
+  export LDFLAGS="-w -extldflags -static -X main.gitCommit=${PKG_GIT_COMMIT} -X main.version=$(cat ./VERSION) -extld ${CC}"
 
   mkdir -p ${GOPATH}
-  if [ -d $PKG_BUILD/vendor ]; then
-    mv $PKG_BUILD/vendor ${GOPATH}/src
+  if [ -d ${PKG_BUILD}/vendor ]; then
+    mv ${PKG_BUILD}/vendor ${GOPATH}/src
   fi
 
-  ln -fs $PKG_BUILD ${GOPATH}/src/github.com/opencontainers/runc
+  ln -fs ${PKG_BUILD} ${GOPATH}/src/github.com/opencontainers/runc
 }
 
 make_target() {
   mkdir -p bin
-  $GOLANG build -v -o bin/runc -a -tags "cgo static_build" -ldflags "$LDFLAGS" ./
+  ${GOLANG} build -v -o bin/runc -a -tags "cgo static_build" -ldflags "${LDFLAGS}" ./
 }

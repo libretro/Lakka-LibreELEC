@@ -7,7 +7,7 @@ PKG_VERSION="2.3.3"
 PKG_SHA256="fe298713aad0cbb861de24760f140851122caae9f34d480dbfff0bd9211d961a"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.cups.org"
-PKG_URL="https://github.com/apple/cups/archive/v$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/apple/cups/archive/v${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain openssl zlib"
 PKG_LONGDESC="CUPS printing system."
 PKG_BUILD_FLAGS="+pic -sysroot"
@@ -22,9 +22,9 @@ PKG_CONFIGURE_OPTS_TARGET="--libdir=/usr/lib \
 
 pre_configure_target() {
   cd ..
-  rm -rf .$TARGET_NAME
+  rm -rf .${TARGET_NAME}
 }
 
 makeinstall_target() {
-  make BUILDROOT="$INSTALL" install
+  make BUILDROOT="${INSTALL}" install
 }

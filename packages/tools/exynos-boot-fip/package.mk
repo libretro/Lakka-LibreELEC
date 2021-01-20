@@ -9,11 +9,11 @@ PKG_SITE="https://github.com/chewitt/exynos-boot-fip"
 PKG_URL="https://github.com/chewitt/exynos-boot-fip/archive/${PKG_VERSION}.tar.gz"
 PKG_LONGDESC="Firmware Image Package (FIP) sources used with Exynos u-boot binaries in LibreELEC images"
 PKG_TOOLCHAIN="manual"
-PKG_STAMP="$UBOOT_SYSTEM"
+PKG_STAMP="${UBOOT_SYSTEM}"
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/boot
-    cp -P $PKG_BUILD/bl1.bin.hardkernel $INSTALL/usr/boot
-    cp -P $PKG_BUILD/bl2.bin.hardkernel.720k_uboot $INSTALL/usr/boot
-    cp -P $PKG_BUILD/tzsw.bin.hardkernel $INSTALL/usr/boot
+  mkdir -p ${INSTALL}/usr/boot
+    cp -P ${PKG_BUILD}/bl1.bin.hardkernel ${INSTALL}/usr/boot
+    cp -P ${PKG_BUILD}/bl2.bin.hardkernel.720k_uboot ${INSTALL}/usr/boot
+    cp -P ${PKG_BUILD}/tzsw.bin.hardkernel ${INSTALL}/usr/boot
 }

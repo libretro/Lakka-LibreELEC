@@ -6,7 +6,7 @@ PKG_VERSION="0.4.4"
 PKG_SHA256="ce8c51fd4d589cda7be56e75b42188deeb258c66fc911a9b3a70a3945c157739"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/IgnorantGuru/udevil"
-PKG_URL="https://github.com/IgnorantGuru/udevil/raw/pkg/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://github.com/IgnorantGuru/udevil/raw/pkg/${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain systemd glib"
 PKG_LONGDESC="Mounts and unmounts removable devices and networks without a password."
 
@@ -21,11 +21,11 @@ makeinstall_target() {
 }
 
 post_makeinstall_target() {
-  mkdir -p $INSTALL/etc/udevil
-    cp $PKG_DIR/config/udevil.conf $INSTALL/etc/udevil
+  mkdir -p ${INSTALL}/etc/udevil
+    cp ${PKG_DIR}/config/udevil.conf ${INSTALL}/etc/udevil
 
-  mkdir -p $INSTALL/usr/bin
-    cp -PR src/udevil $INSTALL/usr/bin
+  mkdir -p ${INSTALL}/usr/bin
+    cp -PR src/udevil ${INSTALL}/usr/bin
 }
 
 post_install() {

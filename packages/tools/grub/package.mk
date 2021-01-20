@@ -7,7 +7,7 @@ PKG_SHA256="e099d18bdeef5312765f20c6de3384ca9ff03f776f1c7632b1e4bc4d1715a961"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://www.gnu.org/software/grub/index.html"
-PKG_URL="http://git.savannah.gnu.org/cgit/grub.git/snapshot/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="http://git.savannah.gnu.org/cgit/grub.git/snapshot/${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain flex freetype:host gettext:host"
 PKG_DEPENDS_UNPACK="gnulib"
 PKG_LONGDESC="GRUB is a Multiboot boot loader."
@@ -24,29 +24,29 @@ pre_configure_target() {
   unset LDFLAGS
   unset CPP
 
-  cd $PKG_BUILD
+  cd ${PKG_BUILD}
     # keep grub synced with gnulib
     ./bootstrap --gnulib-srcdir=$(get_build_dir gnulib) --copy --no-git --no-bootstrap-sync --skip-po
 }
 
 make_target() {
-  make CC=$CC \
-       AR=$AR \
-       RANLIB=$RANLIB \
-       CFLAGS="-I$SYSROOT_PREFIX/usr/include -fomit-frame-pointer -D_FILE_OFFSET_BITS=64" \
-       LDFLAGS="-L$SYSROOT_PREFIX/usr/lib"
+  make CC=${CC} \
+       AR=${AR} \
+       RANLIB=${RANLIB} \
+       CFLAGS="-I${SYSROOT_PREFIX}/usr/include -fomit-frame-pointer -D_FILE_OFFSET_BITS=64" \
+       LDFLAGS="-L${SYSROOT_PREFIX}/usr/lib"
 }
 
 makeinstall_target() {
-  cd $PKG_BUILD/grub-core
-     $PKG_BUILD/grub-mkimage -d . -o bootia32.efi -O i386-efi -p /EFI/BOOT \
+  cd ${PKG_BUILD}/grub-core
+     ${PKG_BUILD}/grub-mkimage -d . -o bootia32.efi -O i386-efi -p /EFI/BOOT \
                                 boot chain configfile ext2 fat linux search \
                                 efi_gop efi_uga part_gpt gzio \
                                 gettext loadenv loadbios memrw
 
-  mkdir -p $INSTALL/usr/share/grub
-     cp -P $PKG_BUILD/grub-core/bootia32.efi $INSTALL/usr/share/grub
+  mkdir -p ${INSTALL}/usr/share/grub
+     cp -P ${PKG_BUILD}/grub-core/bootia32.efi ${INSTALL}/usr/share/grub
 
-  mkdir -p $TOOLCHAIN/share/grub
-     cp -P $PKG_BUILD/grub-core/bootia32.efi $TOOLCHAIN/share/grub
+  mkdir -p ${TOOLCHAIN}/share/grub
+     cp -P ${PKG_BUILD}/grub-core/bootia32.efi ${TOOLCHAIN}/share/grub
 }

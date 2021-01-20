@@ -13,6 +13,6 @@ PKG_LONGDESC="DVBlast is a simple and powerful MPEG-2/TS demux and streaming app
 PKG_BUILD_FLAGS="-sysroot"
 
 pre_configure_target() {
-  export LDFLAGS="$LDFLAGS -lm"
+  export LDFLAGS="${LDFLAGS} -lm"
   export PREFIX="/usr"
 }

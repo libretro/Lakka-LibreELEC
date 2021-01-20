@@ -6,7 +6,7 @@ PKG_VERSION="8.2.2293"
 PKG_SHA256="20f9bc8b170fd278a6f319fde0edf5698f2707a395ebaafa9b1de9327f5a0775"
 PKG_LICENSE="VIM"
 PKG_SITE="http://www.vim.org/"
-PKG_URL="https://github.com/vim/vim/archive/v$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/vim/vim/archive/v${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain ncurses"
 PKG_LONGDESC="Vim is a highly configurable text editor built to enable efficient text editing."
 PKG_BUILD_FLAGS="-sysroot"
@@ -34,7 +34,7 @@ PKG_MAKEINSTALL_OPTS_TARGET=VIMRTDIR=
 
 pre_configure_target() {
   cd ..
-  rm -rf .$TARGET_NAME
+  rm -rf .${TARGET_NAME}
 }
 
 make_target() {
@@ -42,12 +42,12 @@ make_target() {
 }
 
 pre_makeinstall_target() {
-  mkdir -p $INSTALL/usr/bin
+  mkdir -p ${INSTALL}/usr/bin
 }
 
 post_makeinstall_target() {
   (
-  cd $INSTALL/storage/.kodi/addons/virtual.system-tools/data/vim
+  cd ${INSTALL}/storage/.kodi/addons/virtual.system-tools/data/vim
   rm -r doc tutor gvimrc_example.vim
   mv vimrc_example.vim vimrc
   )

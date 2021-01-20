@@ -8,14 +8,14 @@ PKG_SHA256="659f5a1629eea5f5334d9b39b18e6807a63aa1efa33c1236d9cc53acbb223c49"
 PKG_ARCH="x86_64"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.x.org/"
-PKG_URL="http://xorg.freedesktop.org/archive/individual/driver/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_URL="http://xorg.freedesktop.org/archive/individual/driver/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain xorg-server"
 PKG_LONGDESC="The ati driver supports various ATi, know AMD, video chips."
 PKG_TOOLCHAIN="autotools"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-glamor --with-xorg-module-dir=$XORG_PATH_MODULES"
+PKG_CONFIGURE_OPTS_TARGET="--enable-glamor --with-xorg-module-dir=${XORG_PATH_MODULES}"
 
 post_makeinstall_target() {
-  mkdir -p $INSTALL/etc/X11
-    cp $PKG_DIR/config/*.conf $INSTALL/etc/X11
+  mkdir -p ${INSTALL}/etc/X11
+    cp ${PKG_DIR}/config/*.conf ${INSTALL}/etc/X11
 }

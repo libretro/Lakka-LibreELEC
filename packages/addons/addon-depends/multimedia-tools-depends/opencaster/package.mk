@@ -12,10 +12,10 @@ PKG_LONGDESC="A free and open source MPEG2 transport stream data generator and p
 PKG_BUILD_FLAGS="-sysroot"
 
 pre_configure_target() {
-  PKG_MAKE_OPTS_TARGET="CC=$CC"
+  PKG_MAKE_OPTS_TARGET="CC=${CC}"
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/bin
-  make install DESTDIR=$INSTALL/usr/bin
+  mkdir -p ${INSTALL}/usr/bin
+  make install DESTDIR=${INSTALL}/usr/bin
 }

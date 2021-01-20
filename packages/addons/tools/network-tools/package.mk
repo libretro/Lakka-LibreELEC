@@ -34,56 +34,56 @@ PKG_DEPENDS_TARGET="toolchain \
                     wireless_tools"
 
 addon() {
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
+  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
     # bwm-ng
-    cp -P $(get_install_dir bwm-ng)/usr/bin/bwm-ng $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir bwm-ng)/usr/bin/bwm-ng ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
     # iftop
-    cp -P $(get_install_dir iftop)/usr/sbin/iftop $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir iftop)/usr/sbin/iftop ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
     # iperf
-    cp -P $(get_install_dir iperf)/usr/bin/iperf3 $ADDON_BUILD/$PKG_ADDON_ID/bin
-    ln -s iperf3 $ADDON_BUILD/$PKG_ADDON_ID/bin/iperf
+    cp -P $(get_install_dir iperf)/usr/bin/iperf3 ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+    ln -s iperf3 ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/iperf
 
     # irssi
-    cp -P $(get_install_dir irssi)/usr/bin/irssi $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir irssi)/usr/bin/irssi ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
     # lftp
-    cp -P $(get_install_dir lftp)/usr/bin/lftp $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir lftp)/usr/bin/lftp ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
     # ncftp
-    cp -P $(get_install_dir ncftp)/usr/bin/ncftp $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp -P $(get_install_dir ncftp)/usr/bin/ncftpbatch $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp -P $(get_install_dir ncftp)/usr/bin/ncftpget $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp -P $(get_install_dir ncftp)/usr/bin/ncftpls $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp -P $(get_install_dir ncftp)/usr/bin/ncftpput $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir ncftp)/usr/bin/ncftp ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+    cp -P $(get_install_dir ncftp)/usr/bin/ncftpbatch ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+    cp -P $(get_install_dir ncftp)/usr/bin/ncftpget ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+    cp -P $(get_install_dir ncftp)/usr/bin/ncftpls ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+    cp -P $(get_install_dir ncftp)/usr/bin/ncftpput ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
     # ngrep
-    cp -P $(get_install_dir ngrep)/usr/bin/ngrep $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir ngrep)/usr/bin/ngrep ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
     # nmap
-    cp -P $(get_install_dir nmap)/usr/bin/nmap $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir nmap)/usr/bin/nmap ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
     # rar2fs
-    cp -P $(get_install_dir rar2fs)/usr/bin/mkr2i $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp -P $(get_install_dir rar2fs)/usr/bin/rar2fs $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir rar2fs)/usr/bin/mkr2i ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+    cp -P $(get_install_dir rar2fs)/usr/bin/rar2fs ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
     # rsync
-    cp -P $(get_install_dir rsync)/usr/bin/rsync $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir rsync)/usr/bin/rsync ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
     # sshfs
-    cp -P $(get_install_dir sshfs)/usr/bin/sshfs $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir sshfs)/usr/bin/sshfs ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
     # tcpdump
-    cp -P $(get_install_dir tcpdump)/usr/bin/tcpdump $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir tcpdump)/usr/bin/tcpdump ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
     # udpxy
-    cp -P $(get_install_dir udpxy)/usr/bin/udpxy $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir udpxy)/usr/bin/udpxy ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
     # wireless_tools
-    cp -P $(get_install_dir wireless_tools)/usr/sbin/iwconfig $ADDON_BUILD/$PKG_ADDON_ID/bin
-    ln -s iwconfig $ADDON_BUILD/$PKG_ADDON_ID/bin/iwgetid
-    ln -s iwconfig $ADDON_BUILD/$PKG_ADDON_ID/bin/iwlist
-    ln -s iwconfig $ADDON_BUILD/$PKG_ADDON_ID/bin/iwspy
-    ln -s iwconfig $ADDON_BUILD/$PKG_ADDON_ID/bin/iwpriv
+    cp -P $(get_install_dir wireless_tools)/usr/sbin/iwconfig ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+    ln -s iwconfig ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/iwgetid
+    ln -s iwconfig ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/iwlist
+    ln -s iwconfig ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/iwspy
+    ln -s iwconfig ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/iwpriv
 }

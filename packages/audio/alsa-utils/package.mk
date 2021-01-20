@@ -7,7 +7,7 @@ PKG_VERSION="1.2.4"
 PKG_SHA256="98ffc2d599de0577d423a48fa5f20a992ca0b82d812ed1f2e58ade49ac6da426"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.alsa-project.org/"
-PKG_URL="ftp://ftp.alsa-project.org/pub/utils/alsa-utils-$PKG_VERSION.tar.bz2"
+PKG_URL="ftp://ftp.alsa-project.org/pub/utils/alsa-utils-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain alsa-lib ncurses systemd"
 PKG_LONGDESC="This package includes the utilities for ALSA, like alsamixer, aplay, arecord, alsactl, iecset and speaker-test."
 
@@ -21,20 +21,20 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-alsaconf \
                            --disable-xmlto"
 
 post_makeinstall_target() {
-  rm -rf $INSTALL/lib $INSTALL/var
-  rm -rf $INSTALL/usr/share/alsa/speaker-test
-  rm -rf $INSTALL/usr/share/sounds
-  rm -rf $INSTALL/usr/lib/systemd/system
+  rm -rf ${INSTALL}/lib ${INSTALL}/var
+  rm -rf ${INSTALL}/usr/share/alsa/speaker-test
+  rm -rf ${INSTALL}/usr/share/sounds
+  rm -rf ${INSTALL}/usr/lib/systemd/system
 
 # remove default udev rule to restore mixer configs, we install our own.
 # so we avoid resetting our soundconfig
-  rm -rf $INSTALL/usr/lib/udev/rules.d/90-alsa-restore.rules
+  rm -rf ${INSTALL}/usr/lib/udev/rules.d/90-alsa-restore.rules
 
-  mkdir -p $INSTALL/.noinstall
+  mkdir -p ${INSTALL}/.noinstall
   for i in aconnect alsamixer amidi aplaymidi arecord arecordmidi aseqdump aseqnet iecset; do
-    mv $INSTALL/usr/bin/$i $INSTALL/.noinstall
+    mv ${INSTALL}/usr/bin/${i} ${INSTALL}/.noinstall
   done
 
-  mkdir -p $INSTALL/usr/lib/udev
-    cp $PKG_DIR/scripts/soundconfig $INSTALL/usr/lib/udev
+  mkdir -p ${INSTALL}/usr/lib/udev
+    cp ${PKG_DIR}/scripts/soundconfig ${INSTALL}/usr/lib/udev
 }

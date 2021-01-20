@@ -7,12 +7,12 @@ PKG_VERSION="4.0.2"
 PKG_SHA256="d53be9730d8d58a16bf0cbd1f8ac0c0c3e1090573168bfa151b01eb47fa906fc"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.swig.org"
-PKG_URL="$SOURCEFORGE_SRC/swig/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="${SOURCEFORGE_SRC}/swig/${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_HOST="ccache:host"
 PKG_LONGDESC="SWIG is a software development tool that connects programs written in C and C++ with a variety of high-level programming languages."
 
 PKG_CONFIGURE_OPTS_HOST="--program-suffix=4.0 \
-                         --with-pcre-prefix=$TOOLCHAIN \
+                         --with-pcre-prefix=${TOOLCHAIN} \
                          --with-boost=no \
                          --without-pcre \
                          --without-x \
@@ -40,5 +40,5 @@ PKG_CONFIGURE_OPTS_HOST="--program-suffix=4.0 \
                          --without-d"
 
 post_makeinstall_host() {
-  ln -sf swig4.0 $TOOLCHAIN/bin/swig
+  ln -sf swig4.0 ${TOOLCHAIN}/bin/swig
 }

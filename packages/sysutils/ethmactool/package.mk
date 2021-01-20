@@ -8,8 +8,8 @@ PKG_LONGDESC="ethmactool: udev rule for obtaining real MAC address or creating a
 PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/bin
-    cp $PKG_DIR/scripts/ethmactool-config $INSTALL/usr/bin
+  mkdir -p ${INSTALL}/usr/bin
+    cp ${PKG_DIR}/scripts/ethmactool-config ${INSTALL}/usr/bin
 }
 
 post_install() {

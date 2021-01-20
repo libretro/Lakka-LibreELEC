@@ -7,7 +7,7 @@ PKG_VERSION="4.0.7"
 PKG_SHA256="bcd92c376993a5721d346edcc09eb17289451f9156b1d1d113c9663c2046315a"
 PKG_LICENSE="GPL"
 PKG_SITE="http://libcec.pulse-eight.com/"
-PKG_URL="https://github.com/Pulse-Eight/libcec/archive/libcec-$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/Pulse-Eight/libcec/archive/libcec-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain systemd p8-platform swig:host"
 PKG_LONGDESC="libCEC is an open-source dual licensed library designed for communicating with the Pulse-Eight USB - CEC Adaptor."
 
@@ -21,22 +21,22 @@ PKG_CMAKE_OPTS_TARGET="-DBUILD_SHARED_LIBS=1 \
                        -DHAVE_RPI_LIB=0"
 
 # libX11 and xrandr to read the sink's EDID, used to determine the PC's HDMI physical address
-if [ "$DISPLAYSERVER" = "x11" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libX11 libXrandr"
+if [ "${DISPLAYSERVER}" = "x11" ]; then
+  PKG_DEPENDS_TARGET+=" libX11 libXrandr"
 fi
 
-if [ "$CEC_FRAMEWORK_SUPPORT" = "yes" ]; then
-  PKG_CMAKE_OPTS_TARGET="$PKG_CMAKE_OPTS_TARGET -DHAVE_LINUX_API=1"
+if [ "${CEC_FRAMEWORK_SUPPORT}" = "yes" ]; then
+  PKG_CMAKE_OPTS_TARGET+=" -DHAVE_LINUX_API=1"
 else
-  PKG_CMAKE_OPTS_TARGET="$PKG_CMAKE_OPTS_TARGET -DHAVE_LINUX_API=0"
+  PKG_CMAKE_OPTS_TARGET+=" -DHAVE_LINUX_API=0"
 fi
 
 post_makeinstall_target() {
   # Remove the Python3 demo - useless for us
-  rm -f $INSTALL/usr/bin/pyCecClient
+  rm -f ${INSTALL}/usr/bin/pyCecClient
 
-  PYTHON_DIR=$INSTALL/usr/lib/$PKG_PYTHON_VERSION
-  if [ -d $PYTHON_DIR/dist-packages ]; then
-    mv $PYTHON_DIR/dist-packages $PYTHON_DIR/site-packages
+  PYTHON_DIR=${INSTALL}/usr/lib/${PKG_PYTHON_VERSION}
+  if [ -d ${PYTHON_DIR}/dist-packages ]; then
+    mv ${PYTHON_DIR}/dist-packages ${PYTHON_DIR}/site-packages
   fi
 }

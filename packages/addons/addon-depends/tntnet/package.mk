@@ -20,7 +20,7 @@ PKG_CONFIGURE_OPTS_HOST="--disable-unittest \
                          --with-stressjob=no"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-unittest \
-                           --with-sysroot=$SYSROOT_PREFIX \
+                           --with-sysroot=${SYSROOT_PREFIX} \
                            --with-server=no \
                            --with-sdk=no \
                            --with-demos=no \
@@ -29,8 +29,8 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-unittest \
                            --with-stressjob=no"
 
 post_makeinstall_target() {
-  sed -e "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" -i $SYSROOT_PREFIX/usr/bin/tntnet-config
+  sed -e "s:\(['= ]\)/usr:\\1${SYSROOT_PREFIX}/usr:g" -i ${SYSROOT_PREFIX}/usr/bin/tntnet-config
 
-  rm -rf $INSTALL/usr/bin
-  rm -rf $INSTALL/usr/share
+  rm -rf ${INSTALL}/usr/bin
+  rm -rf ${INSTALL}/usr/share
 }

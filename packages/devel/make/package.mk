@@ -7,14 +7,14 @@ PKG_VERSION="4.3"
 PKG_SHA256="e05fdde47c5f7ca45cb697e973894ff4f5d79e13b750ed57d7b66d8defc78e19"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://www.gnu.org/software/make/"
-PKG_URL="http://ftpmirror.gnu.org/make/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="http://ftpmirror.gnu.org/make/${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_HOST=""
 PKG_LONGDESC="Utility to maintain groups of programs."
 
 pre_configure_host() {
-  export CC=$LOCAL_CC
+  export CC=${LOCAL_CC}
 }
 
 post_makeinstall_host() {
-  ln -sf make $TOOLCHAIN/bin/gmake
+  ln -sf make ${TOOLCHAIN}/bin/gmake
 }

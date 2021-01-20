@@ -16,7 +16,7 @@ make_target() {
 }
 
 makeinstall_target() {
-  python3 setup.py install --root=$INSTALL --prefix=/usr
+  python3 setup.py install --root=${INSTALL} --prefix=/usr
 }
 
 post_makeinstall_target() {

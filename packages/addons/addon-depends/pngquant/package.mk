@@ -15,13 +15,13 @@ configure_host() {
 }
 
 make_host() {
-  cd $PKG_BUILD
-  BIN=$PKG_BUILD/pngquant make
+  cd ${PKG_BUILD}
+  BIN=${PKG_BUILD}/pngquant make
 
-  $STRIP $PKG_BUILD/pngquant
+  ${STRIP} ${PKG_BUILD}/pngquant
 }
 
 makeinstall_host() {
-  mkdir -p $TOOLCHAIN/bin
-    cp $PKG_BUILD/pngquant $TOOLCHAIN/bin
+  mkdir -p ${TOOLCHAIN}/bin
+    cp ${PKG_BUILD}/pngquant ${TOOLCHAIN}/bin
 }

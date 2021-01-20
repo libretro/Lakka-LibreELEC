@@ -37,7 +37,7 @@ configure_target() {
   PKG_GOPATH_CLI=${GOPATH}_cli
   export GOPATH=${PKG_GOPATH_CLI}:${PKG_GOPATH_ENGINE}
 
-  export LDFLAGS="-w -linkmode external -extldflags -Wl,--unresolved-symbols=ignore-in-shared-libs -extld $CC"
+  export LDFLAGS="-w -linkmode external -extldflags -Wl,--unresolved-symbols=ignore-in-shared-libs -extld ${CC}"
 
   mkdir -p ${PKG_GOPATH_ENGINE}
   mkdir -p ${PKG_GOPATH_CLI}
@@ -74,11 +74,11 @@ configure_target() {
   mkdir -p ${PKG_GOPATH_CLI}/src/github.com/docker/docker/builder
   cp -rf   ${PKG_ENGINE_PATH}/builder/* ${PKG_GOPATH_CLI}/src/github.com/docker/docker/builder
 
-  if [ ! -L ${PKG_GOPATH_ENGINE}/src/github.com/docker/docker ];then
+  if [ ! -L ${PKG_GOPATH_ENGINE}/src/github.com/docker/docker ]; then
     ln -fs  ${PKG_ENGINE_PATH} ${PKG_GOPATH_ENGINE}/src/github.com/docker/docker
   fi
 
-  if [ ! -L ${PKG_GOPATH_CLI}/src/github.com/docker/cli ];then
+  if [ ! -L ${PKG_GOPATH_CLI}/src/github.com/docker/cli ]; then
     ln -fs ${PKG_CLI_PATH} ${PKG_GOPATH_CLI}/src/github.com/docker/cli
   fi
 
@@ -95,8 +95,8 @@ configure_target() {
 make_target() {
   mkdir -p bin
   PKG_CLI_FLAGS="-X 'github.com/docker/cli/cli/version.Version=${VERSION}'"
-  PKG_CLI_FLAGS="${PKG_CLI_FLAGS} -X 'github.com/docker/cli/cli/version.GitCommit=${GITCOMMIT}'"
-  PKG_CLI_FLAGS="${PKG_CLI_FLAGS} -X 'github.com/docker/cli/cli/version.BuildTime=${BUILDTIME}'"
+  PKG_CLI_FLAGS+=" -X 'github.com/docker/cli/cli/version.GitCommit=${GITCOMMIT}'"
+  PKG_CLI_FLAGS+=" -X 'github.com/docker/cli/cli/version.BuildTime=${BUILDTIME}'"
   ${GOLANG} build -v -o bin/docker -a -tags "${PKG_DOCKER_BUILDTAGS}" -ldflags "${LDFLAGS} ${PKG_CLI_FLAGS}" ./components/cli/cmd/docker
   ${GOLANG} build -v -o bin/dockerd -a -tags "${PKG_DOCKER_BUILDTAGS}" -ldflags "${LDFLAGS}" ./components/engine/cmd/dockerd
 }

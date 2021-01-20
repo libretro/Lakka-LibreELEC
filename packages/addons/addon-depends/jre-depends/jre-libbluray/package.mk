@@ -12,8 +12,8 @@ PKG_PATCH_DIRS+=" $(get_pkg_directory libbluray)/patches"
 PKG_BUILD_FLAGS="-sysroot"
 
 unpack() {
-  mkdir -p $PKG_BUILD
-  tar --strip-components=1 -xf $SOURCES/${PKG_NAME:4}/${PKG_NAME:4}-$PKG_VERSION.tar.bz2 -C $PKG_BUILD
+  mkdir -p ${PKG_BUILD}
+  tar --strip-components=1 -xf ${SOURCES}/${PKG_NAME:4}/${PKG_NAME:4}-${PKG_VERSION}.tar.bz2 -C ${PKG_BUILD}
 }
 
 pre_configure_target() {

@@ -26,14 +26,14 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-docs \
                            --without-icu \
                            --without-kernel-modules \
                            --with-udev-rules-dir=/usr/lib/udev/rules.d/ \
-                           --with-sysroot=$SYSROOT_PREFIX"
+                           --with-sysroot=${SYSROOT_PREFIX}"
 
 post_unpack() {
-  mv $PKG_BUILD/$PKG_NAME/* $PKG_BUILD/
+  mv ${PKG_BUILD}/${PKG_NAME}/* ${PKG_BUILD}/
 
-  sed -e 's|.*common-agent/etc/config/Makefile.*||' -i $PKG_BUILD/configure.ac
+  sed -e 's|.*common-agent/etc/config/Makefile.*||' -i ${PKG_BUILD}/configure.ac
 
-  mkdir -p $PKG_BUILD/common-agent/etc/config
+  mkdir -p ${PKG_BUILD}/common-agent/etc/config
 
   # Hack to allow package to be bumped without linking against old libraries
   rm -f ${SYSROOT_PREFIX}/usr/lib/libvmtools*
@@ -44,13 +44,13 @@ pre_configure_target() {
 }
 
 post_makeinstall_target() {
-  rm -rf $INSTALL/sbin
-  rm -rf $INSTALL/usr/share
-  rm -rf $INSTALL/etc/vmware-tools/scripts/vmware/network
+  rm -rf ${INSTALL}/sbin
+  rm -rf ${INSTALL}/usr/share
+  rm -rf ${INSTALL}/etc/vmware-tools/scripts/vmware/network
 
-  chmod -x $INSTALL/usr/lib/udev/rules.d/*.rules
+  chmod -x ${INSTALL}/usr/lib/udev/rules.d/*.rules
 
-  find $INSTALL/etc/vmware-tools/ -type f | xargs sed -i '/.*expr.*/d'
+  find ${INSTALL}/etc/vmware-tools/ -type f | xargs sed -i '/.*expr.*/d'
 }
 
 post_install() {

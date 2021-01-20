@@ -12,16 +12,16 @@ PKG_LONGDESC="OpenRISC 1000 GNU Linux Binary Toolchain"
 PKG_TOOLCHAIN="manual"
 
 makeinstall_host() {
-  mkdir -p $TOOLCHAIN/lib/gcc-or1k-linux/
-    cp -a * $TOOLCHAIN/lib/gcc-or1k-linux
+  mkdir -p ${TOOLCHAIN}/lib/gcc-or1k-linux/
+    cp -a * ${TOOLCHAIN}/lib/gcc-or1k-linux
 
   # wrap gcc and g++ with ccache like in gcc package.mk
-  PKG_GCC_PREFIX="$TOOLCHAIN/lib/gcc-or1k-linux/bin/or1k-linux-"
+  PKG_GCC_PREFIX="${TOOLCHAIN}/lib/gcc-or1k-linux/bin/or1k-linux-"
 
   rm -f "${PKG_GCC_PREFIX}gcc"
 cat > "${PKG_GCC_PREFIX}gcc" << EOF
 #!/bin/sh
-$TOOLCHAIN/bin/ccache $TOOLCHAIN/lib/gcc-or1k-linux/bin/or1k-buildroot-linux-musl-gcc "\$@"
+${TOOLCHAIN}/bin/ccache ${TOOLCHAIN}/lib/gcc-or1k-linux/bin/or1k-buildroot-linux-musl-gcc "\$@"
 EOF
 
   chmod +x "${PKG_GCC_PREFIX}gcc"
@@ -29,7 +29,7 @@ EOF
   rm -f "${PKG_GCC_PREFIX}g++"
 cat > "${PKG_GCC_PREFIX}g++" << EOF
 #!/bin/sh
-$TOOLCHAIN/bin/ccache $TOOLCHAIN/lib/gcc-or1k-linux/bin/or1k-buildroot-linux-musl-g++ "\$@"
+${TOOLCHAIN}/bin/ccache ${TOOLCHAIN}/lib/gcc-or1k-linux/bin/or1k-buildroot-linux-musl-g++ "\$@"
 EOF
 
   chmod +x "${PKG_GCC_PREFIX}g++"

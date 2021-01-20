@@ -20,31 +20,31 @@ make_host() {
 }
 
 makeinstall_host() {
-  mkdir -p $TOOLCHAIN/bin
-    cp bjam $TOOLCHAIN/bin
+  mkdir -p ${TOOLCHAIN}/bin
+    cp bjam ${TOOLCHAIN}/bin
 }
 
 pre_configure_target() {
-  export CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/$PKG_PYTHON_VERSION"
-  export CXXFLAGS="$CXXFLAGS -I$SYSROOT_PREFIX/usr/include/$PKG_PYTHON_VERSION"
+  export CFLAGS="${CFLAGS} -I${SYSROOT_PREFIX}/usr/include/${PKG_PYTHON_VERSION}"
+  export CXXFLAGS="${CXXFLAGS} -I${SYSROOT_PREFIX}/usr/include/${PKG_PYTHON_VERSION}"
 }
 
 configure_target() {
   sh bootstrap.sh --prefix=/usr \
-                  --with-bjam=$TOOLCHAIN/bin/bjam \
-                  --with-python=$TOOLCHAIN/bin/python \
-                  --with-python-root=$SYSROOT_PREFIX/usr
+                  --with-bjam=${TOOLCHAIN}/bin/bjam \
+                  --with-python=${TOOLCHAIN}/bin/python \
+                  --with-python-root=${SYSROOT_PREFIX}/usr
 
-  echo "using gcc : `$CC -v 2>&1  | tail -n 1 |awk '{print $3}'` : $CC  : <compileflags>\"$CFLAGS\" <linkflags>\"$LDFLAGS\" ;" \
+  echo "using gcc : $(${CC} -v 2>&1  | tail -n 1 |awk '{print $3}') : ${CC}  : <compileflags>\"${CFLAGS}\" <linkflags>\"${LDFLAGS}\" ;" \
     > tools/build/src/user-config.jam
-  echo "using python : ${PKG_PYTHON_VERSION/#python} : $TOOLCHAIN : $SYSROOT_PREFIX/usr/include : $SYSROOT_PREFIX/usr/lib ;" \
+  echo "using python : ${PKG_PYTHON_VERSION/#python} : ${TOOLCHAIN} : ${SYSROOT_PREFIX}/usr/include : ${SYSROOT_PREFIX}/usr/lib ;" \
     >> tools/build/src/user-config.jam
 }
 
 makeinstall_target() {
-  $TOOLCHAIN/bin/bjam -d2 --ignore-site-config \
+  ${TOOLCHAIN}/bin/bjam -d2 --ignore-site-config \
                           --layout=system \
-                          --prefix=$SYSROOT_PREFIX/usr \
+                          --prefix=${SYSROOT_PREFIX}/usr \
                           --toolset=gcc link=static \
                           --with-chrono \
                           --with-date_time \
@@ -52,7 +52,7 @@ makeinstall_target() {
                           --with-iostreams \
                           --with-python \
                           --with-random \
-                          --with-regex -sICU_PATH="$SYSROOT_PREFIX/usr" \
+                          --with-regex -sICU_PATH="${SYSROOT_PREFIX}/usr" \
                           --with-serialization \
                           --with-system \
                           --with-thread \

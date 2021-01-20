@@ -7,20 +7,20 @@ PKG_VERSION="14.0"
 PKG_SHA256="a834775d9382b055504e5ee7625dc50768daac29329531deb6597bf05e06c261"
 PKG_LICENSE="GPL"
 PKG_SITE="http://pulseaudio.org/"
-PKG_URL="http://www.freedesktop.org/software/pulseaudio/releases/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="http://www.freedesktop.org/software/pulseaudio/releases/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain alsa-lib dbus libcap libsndfile libtool openssl soxr speexdsp systemd glib:host glib"
 PKG_LONGDESC="PulseAudio is a sound system for POSIX OSes, meaning that it is a proxy for your sound applications."
 PKG_TOOLCHAIN="meson"
 
-if [ "$BLUETOOTH_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET sbc"
+if [ "${BLUETOOTH_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" sbc"
   PKG_PULSEAUDIO_BLUETOOTH="-Dbluez5=true"
 else
   PKG_PULSEAUDIO_BLUETOOTH="-Dbluez5=false"
 fi
 
-if [ "$AVAHI_DAEMON" = "yes" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET avahi"
+if [ "${AVAHI_DAEMON}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" avahi"
   PKG_PULSEAUDIO_AVAHI="-Davahi=enabled"
 else
   PKG_PULSEAUDIO_AVAHI="-Davahi=disabled"
@@ -41,8 +41,8 @@ PKG_MESON_OPTS_TARGET="-Dgcov=false \
                        -Dudevrulesdir=/usr/lib/udev/rules.d \
                        -Dalsa=enabled \
                        -Dasyncns=disabled \
-                       $PKG_PULSEAUDIO_AVAHI \
-                       $PKG_PULSEAUDIO_BLUETOOTH \
+                       ${PKG_PULSEAUDIO_AVAHI} \
+                       ${PKG_PULSEAUDIO_BLUETOOTH} \
                        -Dbluez5-native-headset=false \
                        -Dbluez5-ofono-headset=false \
                        -Ddbus=enabled \
@@ -67,25 +67,25 @@ PKG_MESON_OPTS_TARGET="-Dgcov=false \
 
 pre_configure_target() {
   sed -e 's|; remixing-use-all-sink-channels = yes|; remixing-use-all-sink-channels = no|' \
-      -i $PKG_BUILD/src/daemon/daemon.conf.in
+      -i ${PKG_BUILD}/src/daemon/daemon.conf.in
 }
 
 post_makeinstall_target() {
-  safe_remove $INSTALL/usr/include
-  safe_remove $INSTALL/usr/lib/cmake
-  safe_remove $INSTALL/usr/lib/pkgconfig
-  safe_remove $INSTALL/usr/lib/systemd
-  safe_remove $INSTALL/usr/share/vala
-  safe_remove $INSTALL/usr/share/zsh
-  safe_remove $INSTALL/usr/share/bash-completion
+  safe_remove ${INSTALL}/usr/include
+  safe_remove ${INSTALL}/usr/lib/cmake
+  safe_remove ${INSTALL}/usr/lib/pkgconfig
+  safe_remove ${INSTALL}/usr/lib/systemd
+  safe_remove ${INSTALL}/usr/share/vala
+  safe_remove ${INSTALL}/usr/share/zsh
+  safe_remove ${INSTALL}/usr/share/bash-completion
 
-  cp $PKG_DIR/config/system.pa $INSTALL/etc/pulse/
-  cp $PKG_DIR/config/pulseaudio-system.conf $INSTALL/etc/dbus-1/system.d/
+  cp ${PKG_DIR}/config/system.pa ${INSTALL}/etc/pulse/
+  cp ${PKG_DIR}/config/pulseaudio-system.conf ${INSTALL}/etc/dbus-1/system.d/
 
-  mkdir -p $INSTALL/usr/config
-    cp -PR $PKG_DIR/config/pulse-daemon.conf.d $INSTALL/usr/config
+  mkdir -p ${INSTALL}/usr/config
+    cp -PR ${PKG_DIR}/config/pulse-daemon.conf.d ${INSTALL}/usr/config
 
-  ln -sf /storage/.config/pulse-daemon.conf.d $INSTALL/etc/pulse/daemon.conf.d
+  ln -sf /storage/.config/pulse-daemon.conf.d ${INSTALL}/etc/pulse/daemon.conf.d
 }
 
 post_install() {

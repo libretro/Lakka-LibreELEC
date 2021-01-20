@@ -7,7 +7,7 @@ PKG_VERSION="2.0.4"
 PKG_SHA256="6d151b3368e5035efede4b6264c0fdc6662c1c99dbc2de425e3480cababc69e6"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
-PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain util-macros xtrans freetype libfontenc"
 PKG_LONGDESC="X font Library"
 

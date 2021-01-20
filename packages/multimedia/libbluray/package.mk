@@ -7,17 +7,17 @@ PKG_VERSION="1.1.2"
 PKG_SHA256="a3dd452239b100dc9da0d01b30e1692693e2a332a7d29917bf84bb10ea7c0b42"
 PKG_LICENSE="LGPL"
 PKG_SITE="https://www.videolan.org/developers/libbluray.html"
-PKG_URL="http://download.videolan.org/pub/videolan/libbluray/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_URL="http://download.videolan.org/pub/videolan/libbluray/${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain fontconfig freetype libxml2"
 PKG_LONGDESC="libbluray is an open-source library designed for Blu-Ray Discs playback for media players."
 PKG_TOOLCHAIN="autotools"
 
-if [ "$BLURAY_AACS_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libaacs"
+if [ "${BLURAY_AACS_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" libaacs"
 fi
 
-if [ "$BLURAY_BDPLUS_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libbdplus"
+if [ "${BLURAY_BDPLUS_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" libbdplus"
 fi
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-werror \

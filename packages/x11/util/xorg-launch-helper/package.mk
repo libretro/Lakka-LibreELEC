@@ -17,7 +17,7 @@ pre_configure_target() {
 
 post_makeinstall_target() {
   # do not install systemd services
-  rm -rf $INSTALL/usr/lib
-  mkdir -p $INSTALL/usr/bin
-  cp -P $PKG_DIR/scripts/xorg-launch $INSTALL/usr/bin
+  rm -rf ${INSTALL}/usr/lib
+  mkdir -p ${INSTALL}/usr/bin
+  cp -P ${PKG_DIR}/scripts/xorg-launch ${INSTALL}/usr/bin
 }

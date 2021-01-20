@@ -14,13 +14,13 @@ PKG_LONGDESC="Allows to access many internals of the VDR via a restful API."
 PKG_TOOLCHAIN="manual"
 
 pre_build_target() {
-  cp $(get_build_dir vdr-plugin-wirbelscan)/wirbelscan_services.h $PKG_BUILD/wirbelscan/
+  cp $(get_build_dir vdr-plugin-wirbelscan)/wirbelscan_services.h ${PKG_BUILD}/wirbelscan/
 }
 
 make_target() {
   VDR_DIR=$(get_build_dir vdr)
-  export PKG_CONFIG_PATH=$VDR_DIR:$PKG_CONFIG_PATH
-  export CPLUS_INCLUDE_PATH=$VDR_DIR/include
+  export PKG_CONFIG_PATH=${VDR_DIR}:${PKG_CONFIG_PATH}
+  export CPLUS_INCLUDE_PATH=${VDR_DIR}/include
 
   make \
     LIBDIR="." \
@@ -31,8 +31,8 @@ make_target() {
 
 post_make_target() {
   VDR_DIR=$(get_build_dir vdr)
-  VDR_APIVERSION=`sed -ne '/define APIVERSION/s/^.*"\(.*\)".*$/\1/p' $VDR_DIR/config.h`
+  VDR_APIVERSION=$(sed -ne '/define APIVERSION/s/^.*"\(.*\)".*$/\1/p' ${VDR_DIR}/config.h)
   LIB_NAME=lib${PKG_NAME/-plugin/}
 
-  cp --remove-destination $PKG_BUILD/${LIB_NAME}.so $PKG_BUILD/${LIB_NAME}.so.${VDR_APIVERSION}
+  cp --remove-destination ${PKG_BUILD}/${LIB_NAME}.so ${PKG_BUILD}/${LIB_NAME}.so.${VDR_APIVERSION}
 }

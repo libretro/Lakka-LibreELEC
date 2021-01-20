@@ -18,6 +18,6 @@ PKG_ADDON_NAME="FFmpeg Tools"
 PKG_ADDON_TYPE="xbmc.python.script"
 
 addon() {
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin/
-  cp -L $(get_install_dir ffmpegx)/usr/local/bin/* $ADDON_BUILD/$PKG_ADDON_ID/bin
+  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/
+  cp -L $(get_install_dir ffmpegx)/usr/local/bin/* ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 }

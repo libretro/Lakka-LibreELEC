@@ -8,7 +8,7 @@ PKG_SHA256="93240defef3abba7d42a7420e55ae4f8b90cc99ef16044fdfb8b5820a17e766d"
 PKG_ARCH="arm"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/bavison/arm-mem"
-PKG_URL="https://github.com/bavison/arm-mem/archive/$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/bavison/arm-mem/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_DEPENDS_INIT="toolchain arm-mem"
 PKG_LONGDESC="arm-mem is a ARM-accelerated versions of selected functions from string.h"
@@ -20,10 +20,10 @@ else
   PKG_LIB_ARM_MEM="libarmmem-v6l.so"
 fi
 
-PKG_MAKE_OPTS_TARGET="$PKG_LIB_ARM_MEM"
+PKG_MAKE_OPTS_TARGET="${PKG_LIB_ARM_MEM}"
 
 pre_make_target() {
-  export CROSS_COMPILE=$TARGET_PREFIX
+  export CROSS_COMPILE=${TARGET_PREFIX}
 }
 
 make_init() {
@@ -31,17 +31,17 @@ make_init() {
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/lib
-    cp -P $PKG_LIB_ARM_MEM $INSTALL/usr/lib
+  mkdir -p ${INSTALL}/usr/lib
+    cp -P ${PKG_LIB_ARM_MEM} ${INSTALL}/usr/lib
 
-  mkdir -p $INSTALL/etc
-    echo "/usr/lib/$PKG_LIB_ARM_MEM" >> $INSTALL/etc/ld.so.preload
+  mkdir -p ${INSTALL}/etc
+    echo "/usr/lib/${PKG_LIB_ARM_MEM}" >> ${INSTALL}/etc/ld.so.preload
 }
 
 makeinstall_init() {
-  mkdir -p $INSTALL/usr/lib
-    cp -P $PKG_LIB_ARM_MEM $INSTALL/usr/lib
+  mkdir -p ${INSTALL}/usr/lib
+    cp -P ${PKG_LIB_ARM_MEM} ${INSTALL}/usr/lib
 
-  mkdir -p $INSTALL/etc
-    echo "/usr/lib/$PKG_LIB_ARM_MEM" >> $INSTALL/etc/ld.so.preload
+  mkdir -p ${INSTALL}/etc
+    echo "/usr/lib/${PKG_LIB_ARM_MEM}" >> ${INSTALL}/etc/ld.so.preload
 }

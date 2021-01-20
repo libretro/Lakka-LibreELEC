@@ -27,25 +27,25 @@ PKG_DEPENDS_TARGET="toolchain \
                     tstools"
 
 addon() {
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin/
+  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/
     # alsamixer
-    cp -P $(get_install_dir alsa-utils)/.noinstall/alsamixer $ADDON_BUILD/$PKG_ADDON_ID/bin/
+    cp -P $(get_install_dir alsa-utils)/.noinstall/alsamixer ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/
 
     # mediainfo
-    cp -P $(get_install_dir mediainfo)/usr/bin/mediainfo $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir mediainfo)/usr/bin/mediainfo ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
     # mpg123
-    cp -P $(get_install_dir mpg123)/usr/bin/* $ADDON_BUILD/$PKG_ADDON_ID/bin/
+    cp -P $(get_install_dir mpg123)/usr/bin/* ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/
 
     # opencaster
-    cp -P $(get_install_dir opencaster)/usr/bin/* $ADDON_BUILD/$PKG_ADDON_ID/bin/
+    cp -P $(get_install_dir opencaster)/usr/bin/* ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/
 
     # squeezelite
-    cp -P $(get_install_dir squeezelite)/usr/bin/squeezelite $ADDON_BUILD/$PKG_ADDON_ID/bin/
+    cp -P $(get_install_dir squeezelite)/usr/bin/squeezelite ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/
 
     # tsdecrypt
-    cp -P $(get_install_dir tsdecrypt)/usr/bin/tsdecrypt $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_install_dir tsdecrypt)/usr/bin/tsdecrypt ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
     # tstools
-    cp -P $(get_install_dir tstools)/usr/bin/* $ADDON_BUILD/$PKG_ADDON_ID/bin/
+    cp -P $(get_install_dir tstools)/usr/bin/* ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/
 }

@@ -6,20 +6,20 @@ PKG_VERSION="0.15.1b"
 PKG_SHA256="bbfac3ed6bfbc2823d3775ebb931087371e142bb0e9bb1bee51a76a6e0078690"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.mars.org/home/rob/proj/mpeg/"
-PKG_URL="$SOURCEFORGE_SRC/mad/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="${SOURCEFORGE_SRC}/mad/${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A high-quality MPEG audio decoder."
 PKG_TOOLCHAIN="autotools"
 
 # package specific configure options
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"
-if [ "$TARGET_ARCH" = "x86_64" ] ; then
-  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-accuracy --enable-fpm=64bit"
+if [ "${TARGET_ARCH}" = "x86_64" ]; then
+  PKG_CONFIGURE_OPTS_TARGET+=" --enable-accuracy --enable-fpm=64bit"
 fi
 
 post_makeinstall_target() {
-  mkdir -p $SYSROOT_PREFIX/usr/lib/pkgconfig
-  cat > $SYSROOT_PREFIX/usr/lib/pkgconfig/mad.pc << "EOF"
+  mkdir -p ${SYSROOT_PREFIX}/usr/lib/pkgconfig
+  cat > ${SYSROOT_PREFIX}/usr/lib/pkgconfig/mad.pc << "EOF"
 prefix=/usr
 exec_prefix=${prefix}
 libdir=${exec_prefix}/lib

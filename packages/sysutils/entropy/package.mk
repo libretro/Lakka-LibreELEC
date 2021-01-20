@@ -11,11 +11,11 @@ PKG_LONGDESC="A simple way to add entropy at boot"
 PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/lib/entropy
-    cp add-entropy $INSTALL/usr/lib/entropy
-    cp add-random-at-shutdown $INSTALL/usr/lib/entropy
+  mkdir -p ${INSTALL}/usr/lib/entropy
+    cp add-entropy ${INSTALL}/usr/lib/entropy
+    cp add-random-at-shutdown ${INSTALL}/usr/lib/entropy
 
-  chmod +x $INSTALL/usr/lib/entropy/*
+  chmod +x ${INSTALL}/usr/lib/entropy/*
 }
 
 post_install() {

@@ -21,10 +21,10 @@ PKG_ADDON_PROJECTS="RPi ARM"
 
 
 addon() {
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib/RPi/
-    cp -PR $(get_build_dir RPi.GPIO)/build/lib.linux-*/RPi/* $ADDON_BUILD/$PKG_ADDON_ID/lib/RPi
-    cp -PR $(get_build_dir gpiozero)/gpiozero $ADDON_BUILD/$PKG_ADDON_ID/lib/
+  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/lib/RPi/
+    cp -PR $(get_build_dir RPi.GPIO)/build/lib.linux-*/RPi/* ${ADDON_BUILD}/${PKG_ADDON_ID}/lib/RPi
+    cp -PR $(get_build_dir gpiozero)/gpiozero ${ADDON_BUILD}/${PKG_ADDON_ID}/lib/
 
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin/
-    cp -P $(get_build_dir lan951x-led-ctl)/lan951x-led-ctl $ADDON_BUILD/$PKG_ADDON_ID/bin
+  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/
+    cp -P $(get_build_dir lan951x-led-ctl)/lan951x-led-ctl ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 }

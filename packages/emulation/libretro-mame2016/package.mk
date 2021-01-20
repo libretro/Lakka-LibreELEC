@@ -23,9 +23,9 @@ pre_make_target() {
     TARGET="mame" SUBTARGET="arcade" PLATFORM="${ARCH}" RETRO=1 OSD="retro" \
     GIT_VERSION=${PKG_VERSION:0:7}"
 
-  if [ "$ARCH" = "arm" ]; then
+  if [ "${ARCH}" = "arm" ]; then
     PKG_MAKE_OPTS_TARGET+=" NOASM="1" ARCHITECTURE="""
-  elif [ "$ARCH" = "x86_64" ]; then
+  elif [ "${ARCH}" = "x86_64" ]; then
     PKG_MAKE_OPTS_TARGET+=" NOASM="0" PTR64="1""
   fi
 }

@@ -7,7 +7,7 @@ PKG_VERSION="3.24.23"
 PKG_SHA256="5d864d248357a2251545b3387b35942de5f66e4c66013f0962eb5cb6f8dae2b1"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.gtk.org/"
-PKG_URL="https://ftp.gnome.org/pub/gnome/sources/gtk+/${PKG_VERSION:0:4}/gtk+-$PKG_VERSION.tar.xz"
+PKG_URL="https://ftp.gnome.org/pub/gnome/sources/gtk+/${PKG_VERSION:0:4}/gtk+-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain at-spi2-atk atk cairo gdk-pixbuf glib libX11 libXi libXrandr libepoxy pango"
 PKG_DEPENDS_CONFIG="libXft pango gdk-pixbuf shared-mime-info"
 PKG_LONGDESC="A library for creating graphical user interfaces for the X Window System."
@@ -31,7 +31,7 @@ PKG_MESON_OPTS_TARGET="-Dbroadway_backend=false \
                        -Dx11_backend=true"
 
 pre_configure_target() {
-  # $TOOLCHAIN/bin/glib-compile-resources requires $TOOLCHAIN/lib/libffi.so.6
-  export LD_LIBRARY_PATH="$TOOLCHAIN/lib:$LD_LIBRARY_PATH"
+  # ${TOOLCHAIN}/bin/glib-compile-resources requires ${TOOLCHAIN}/lib/libffi.so.6
+  export LD_LIBRARY_PATH="${TOOLCHAIN}/lib:${LD_LIBRARY_PATH}"
   export GLIB_COMPILE_RESOURCES=glib-compile-resources GLIB_MKENUMS=glib-mkenums GLIB_GENMARSHAL=glib-genmarshal
 }

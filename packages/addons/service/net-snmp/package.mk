@@ -8,7 +8,7 @@ PKG_REV="107"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://www.net-snmp.org"
-PKG_URL="https://sourceforge.net/projects/net-snmp/files/$PKG_NAME/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="https://sourceforge.net/projects/net-snmp/files/${PKG_NAME}/${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libnl openssl"
 PKG_SECTION="service"
 PKG_SHORTDESC="Simple Network Management Protocol utilities."
@@ -41,7 +41,7 @@ configure_package() {
         --sbindir=/storage/.kodi/addons/${PKG_ADDON_ID}/bin \
         --libdir=/storage/.kodi/addons/${PKG_ADDON_ID}/lib \
         --disable-embedded-perl \
-        --with-sysroot=$SYSROOT_PREFIX"
+        --with-sysroot=${SYSROOT_PREFIX}"
 }
 
 make_target() {
@@ -49,10 +49,10 @@ make_target() {
 }
 
 makeinstall_target() {
-  make install INSTALL_PREFIX=$INSTALL
+  make install INSTALL_PREFIX=${INSTALL}
 }
 
 addon() {
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib
-  cp -r $PKG_INSTALL/storage/.kodi/addons/${PKG_ADDON_ID}/bin $PKG_INSTALL/storage/.kodi/userdata/addon_data/${PKG_ADDON_ID}/share $ADDON_BUILD/$PKG_ADDON_ID/
+  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/lib
+  cp -r ${PKG_INSTALL}/storage/.kodi/addons/${PKG_ADDON_ID}/bin ${PKG_INSTALL}/storage/.kodi/userdata/addon_data/${PKG_ADDON_ID}/share ${ADDON_BUILD}/${PKG_ADDON_ID}/
 }

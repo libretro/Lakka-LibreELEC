@@ -16,10 +16,10 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            ac_cv_func_realloc_0_nonnull=yes"
 
 pre_configure_target() {
-  export CFLAGS="$CFLAGS -I."
+  export CFLAGS="${CFLAGS} -I."
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/bin
-  cp -p autossh $INSTALL/usr/bin
+  mkdir -p ${INSTALL}/usr/bin
+  cp -p autossh ${INSTALL}/usr/bin
 }

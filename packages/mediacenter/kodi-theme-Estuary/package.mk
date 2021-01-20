@@ -11,6 +11,6 @@ PKG_LONGDESC="Kodi Mediacenter default theme."
 PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/share/kodi/addons/
-    cp -a $(get_install_dir kodi)/.noinstall/skin.estuary $INSTALL/usr/share/kodi/addons/
+  mkdir -p ${INSTALL}/usr/share/kodi/addons/
+    cp -a $(get_install_dir kodi)/.noinstall/skin.estuary ${INSTALL}/usr/share/kodi/addons/
 }

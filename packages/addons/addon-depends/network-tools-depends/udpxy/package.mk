@@ -14,9 +14,9 @@ PKG_BUILD_FLAGS="-sysroot"
 PKG_MAKEINSTALL_OPTS_TARGET="PREFIX=/usr"
 
 post_unpack() {
-  mv $PKG_BUILD/README $PKG_BUILD/README-
-  mv $PKG_BUILD/chipmunk/* $PKG_BUILD
-  rmdir $PKG_BUILD/chipmunk
+  mv ${PKG_BUILD}/README ${PKG_BUILD}/README-
+  mv ${PKG_BUILD}/chipmunk/* ${PKG_BUILD}
+  rmdir ${PKG_BUILD}/chipmunk
 }
 
 configure_target() {

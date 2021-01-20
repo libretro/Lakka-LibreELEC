@@ -23,17 +23,17 @@ makeinstall_target() {
   # Install vendor header files except proprietary GL headers
   mkdir -p ${SYSROOT_PREFIX}/usr/include
     for f in $(cd ${PKG_FLOAT}/opt/vc/include; ls | grep -v "GL"); do
-      cp -PRv ${PKG_FLOAT}/opt/vc/include/$f ${SYSROOT_PREFIX}/usr/include
+      cp -PRv ${PKG_FLOAT}/opt/vc/include/${f} ${SYSROOT_PREFIX}/usr/include
     done
 
   # Install vendor libs & pkgconfigs except proprietary GL libs
   mkdir -p ${SYSROOT_PREFIX}/usr/lib
     for f in $(cd ${PKG_FLOAT}/opt/vc/lib; ls *.so *.a | grep -Ev "^lib(EGL|GL)"); do
-      cp -PRv ${PKG_FLOAT}/opt/vc/lib/$f              ${SYSROOT_PREFIX}/usr/lib
+      cp -PRv ${PKG_FLOAT}/opt/vc/lib/${f}              ${SYSROOT_PREFIX}/usr/lib
     done
     mkdir -p ${SYSROOT_PREFIX}/usr/lib/pkgconfig
       for f in $(cd ${PKG_FLOAT}/opt/vc/lib/pkgconfig; ls | grep -v "gl"); do
-        cp -PRv ${PKG_FLOAT}/opt/vc/lib/pkgconfig/$f  ${SYSROOT_PREFIX}/usr/lib/pkgconfig
+        cp -PRv ${PKG_FLOAT}/opt/vc/lib/pkgconfig/${f}  ${SYSROOT_PREFIX}/usr/lib/pkgconfig
       done
 
   # Update prefix in vendor pkgconfig files
@@ -49,7 +49,7 @@ makeinstall_target() {
   # Install vendor libs except proprietary GL
   mkdir -p ${INSTALL}/usr/lib
     for f in $(cd ${PKG_FLOAT}/opt/vc/lib; ls *.so | grep -Ev "^lib(EGL|GL)"); do
-      cp -PRv ${PKG_FLOAT}/opt/vc/lib/$f ${INSTALL}/usr/lib
+      cp -PRv ${PKG_FLOAT}/opt/vc/lib/${f} ${INSTALL}/usr/lib
     done
 
   # Install useful tools

@@ -7,7 +7,7 @@ PKG_VERSION="10.1"
 PKG_SHA256="f82f1eceeec14a3afa2de8d9b0d3c91d5a3820e23e0a01bbb70ef9f0276b62c0"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/gdb/"
-PKG_URL="https://ftp.gnu.org/gnu/gdb/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://ftp.gnu.org/gnu/gdb/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain zlib ncurses expat"
 PKG_DEPENDS_HOST="toolchain:host zlib:host ncurses:host expat:host"
 PKG_LONGDESC="GNU Project debugger, allows you to see what is going on inside another program while it executes."
@@ -43,14 +43,14 @@ PKG_CONFIGURE_OPTS_HOST="${PKG_CONFIGURE_OPTS_COMMON} \
                          --target=${TARGET_NAME}"
 
 pre_configure_target() {
-  CC_FOR_BUILD="$HOST_CC"
-  CFLAGS_FOR_BUILD="$HOST_CFLAGS"
+  CC_FOR_BUILD="${HOST_CC}"
+  CFLAGS_FOR_BUILD="${HOST_CFLAGS}"
 }
 
 makeinstall_target() {
-  make DESTDIR=$INSTALL install
+  make DESTDIR=${INSTALL} install
 }
 
 post_makeinstall_target() {
-  rm -rf $INSTALL/usr/share/gdb/python
+  rm -rf ${INSTALL}/usr/share/gdb/python
 }

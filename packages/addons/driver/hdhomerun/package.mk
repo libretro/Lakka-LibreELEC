@@ -19,7 +19,7 @@ PKG_ADDON_NAME="HDHomeRun"
 PKG_ADDON_TYPE="xbmc.python.script"
 
 addon() {
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/config/
-  cp -P $PKG_DIR/config/* $ADDON_BUILD/$PKG_ADDON_ID/config/
-  cp -P $PKG_DIR/settings-default.xml $ADDON_BUILD/$PKG_ADDON_ID/
+  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/config/
+  cp -P ${PKG_DIR}/config/* ${ADDON_BUILD}/${PKG_ADDON_ID}/config/
+  cp -P ${PKG_DIR}/settings-default.xml ${ADDON_BUILD}/${PKG_ADDON_ID}/
 }

@@ -12,6 +12,6 @@ PKG_LONGDESC="A program that emulates the detach feature of screen."
 PKG_BUILD_FLAGS="-sysroot"
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/bin
-  cp -p dtach $INSTALL/usr/bin
+  mkdir -p ${INSTALL}/usr/bin
+  cp -p dtach ${INSTALL}/usr/bin
 }

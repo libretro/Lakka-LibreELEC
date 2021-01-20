@@ -11,9 +11,9 @@ PKG_LONGDESC="Zulu, the open Java(TM) platform from Azul Systems."
 PKG_TOOLCHAIN="manual"
 
 post_unpack() {
-  rm -f $PKG_BUILD/src.zip
+  rm -f ${PKG_BUILD}/src.zip
 
   # libbluray needs arm/server
-  mv $PKG_BUILD/jre/lib/aarch32    $PKG_BUILD/jre/lib/arm
-  mv $PKG_BUILD/jre/lib/arm/client $PKG_BUILD/jre/lib/arm/server
+  mv ${PKG_BUILD}/jre/lib/aarch32    ${PKG_BUILD}/jre/lib/arm
+  mv ${PKG_BUILD}/jre/lib/arm/client ${PKG_BUILD}/jre/lib/arm/server
 }

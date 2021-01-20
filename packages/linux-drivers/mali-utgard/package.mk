@@ -12,7 +12,7 @@ PKG_LONGDESC="mali-utgard: Linux drivers for Mali Utgard GPUs"
 PKG_TOOLCHAIN="manual"
 PKG_IS_KERNEL_PKG="yes"
 
-case $PROJECT in
+case ${PROJECT} in
   Allwinner)
     PKG_MALI_PLATFORM="sunxi"
     ;;
@@ -27,14 +27,14 @@ case $PROJECT in
 esac
 
 make_target() {
-  kernel_make -C $(kernel_path) M=$PKG_BUILD/driver/src/devicedrv/mali \
+  kernel_make -C $(kernel_path) M=${PKG_BUILD}/driver/src/devicedrv/mali \
     MALI_PLATFORM_FILES=platform/${PKG_MALI_PLATFORM}/${PKG_MALI_PLATFORM}.c GIT_REV="" \
     EXTRA_CFLAGS="-DMALI_FAKE_PLATFORM_DEVICE=1 -DCONFIG_MALI_DMA_BUF_MAP_ON_ATTACH -DCONFIG_MALI400=1 -DCONFIG_MALI450=1 -DCONFIG_MALI470=1 ${PKG_EXTRA_CFLAGS}" \
     CONFIG_MALI400=m CONFIG_MALI450=y CONFIG_MALI470=y CONFIG_MALI_DMA_BUF_MAP_ON_ATTACH=y ${PKG_CONFIGS}
 }
 
 makeinstall_target() {
-  kernel_make -C $(kernel_path) M=$PKG_BUILD/driver/src/devicedrv/mali/ \
-    INSTALL_MOD_PATH=$INSTALL/$(get_kernel_overlay_dir) INSTALL_MOD_STRIP=1 DEPMOD=: \
+  kernel_make -C $(kernel_path) M=${PKG_BUILD}/driver/src/devicedrv/mali/ \
+    INSTALL_MOD_PATH=${INSTALL}/$(get_kernel_overlay_dir) INSTALL_MOD_STRIP=1 DEPMOD=: \
     modules_install
 }

@@ -10,7 +10,7 @@ PKG_SITE="https://github.com/DigitalDevices/dddvb/"
 PKG_URL="https://github.com/DigitalDevices/dddvb/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain linux"
 PKG_BUILD_DEPENDS_TARGET="toolchain linux"
-PKG_NEED_UNPACK="$LINUX_DEPENDS"
+PKG_NEED_UNPACK="${LINUX_DEPENDS}"
 PKG_SECTION="driver.dvb"
 PKG_LONGDESC="DVB driver for Digital Devices cards"
 
@@ -25,5 +25,5 @@ make_target() {
 }
 
 makeinstall_target() {
-  install_driver_addon_files "$PKG_BUILD/ddbridge $PKG_BUILD/dvb-core $PKG_BUILD/frontends"
+  install_driver_addon_files "${PKG_BUILD}/ddbridge ${PKG_BUILD}/dvb-core ${PKG_BUILD}/frontends"
 }

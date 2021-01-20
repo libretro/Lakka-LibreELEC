@@ -17,5 +17,5 @@ make_target() {
 }
 
 makeinstall_target() {
-  make install BASEDIR=$INSTALL
+  make install BASEDIR=${INSTALL}
 }

@@ -18,7 +18,7 @@ PKG_CONFIGURE_OPTS_TARGET=" \
   --with-homedir=/storage/.kodi/userdata/addon_data/virtual.system-tools \
   --sysconfdir=/storage/.kodi/addons/virtual.system-tools/etc \
   --with-screen=ncurses \
-  --with-sysroot=$SYSROOT_PREFIX \
+  --with-sysroot=${SYSROOT_PREFIX} \
   --disable-aspell \
   --without-diff-viewer \
   --disable-doxygen-doc \
@@ -37,13 +37,13 @@ PKG_CONFIGURE_OPTS_TARGET=" \
   --without-x"
 
 pre_configure_target() {
-  LDFLAGS="$LDFLAGS -lcrypto -lssl"
+  LDFLAGS+=" -lcrypto -lssl"
 }
 
 post_makeinstall_target() {
-  rm -rf $INSTALL/storage/.kodi/addons/virtual.system-tools/data/locale
-  rm -rf $INSTALL/storage/.kodi/addons/virtual.system-tools/data/mc/help/mc.hlp.*
-  mv $INSTALL/usr/bin/mc $INSTALL/usr/bin/mc-bin
-  rm -f $INSTALL/usr/bin/{mcedit,mcview}
-  cp -p $PKG_DIR/wrapper/* $INSTALL/usr/bin
+  rm -rf ${INSTALL}/storage/.kodi/addons/virtual.system-tools/data/locale
+  rm -rf ${INSTALL}/storage/.kodi/addons/virtual.system-tools/data/mc/help/mc.hlp.*
+  mv ${INSTALL}/usr/bin/mc ${INSTALL}/usr/bin/mc-bin
+  rm -f ${INSTALL}/usr/bin/{mcedit,mcview}
+  cp -p ${PKG_DIR}/wrapper/* ${INSTALL}/usr/bin
 }

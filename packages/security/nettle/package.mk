@@ -7,7 +7,7 @@ PKG_VERSION="3.7"
 PKG_SHA256="f001f64eb444bf13dd91bceccbc20acbc60c4311d6e2b20878452eb9a9cec75a"
 PKG_LICENSE="GPL2"
 PKG_SITE="http://www.lysator.liu.se/~nisse/nettle"
-PKG_URL="http://ftpmirror.gnu.org/gnu/nettle/nettle-$PKG_VERSION.tar.gz"
+PKG_URL="http://ftpmirror.gnu.org/gnu/nettle/nettle-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain gmp"
 PKG_LONGDESC="A low-level cryptographic library."
 
@@ -19,5 +19,5 @@ if target_has_feature neon; then
 fi
 
 post_makeinstall_target() {
-  rm -rf $INSTALL/usr/bin
+  rm -rf ${INSTALL}/usr/bin
 }

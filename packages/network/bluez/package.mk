@@ -19,7 +19,7 @@ else
   BLUEZ_CONFIG="--disable-debug"
 fi
 
-BLUEZ_CONFIG="$BLUEZ_CONFIG --enable-monitor --enable-test"
+BLUEZ_CONFIG+=" --enable-monitor --enable-test"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-dependency-tracking \
                            --disable-silent-rules \
@@ -34,35 +34,35 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-dependency-tracking \
                            --disable-experimental \
                            --enable-sixaxis \
                            --with-gnu-ld \
-                           $BLUEZ_CONFIG \
+                           ${BLUEZ_CONFIG} \
                            storagedir=/storage/.cache/bluetooth"
 
 pre_configure_target() {
 # bluez fails to build in subdirs
-  cd $PKG_BUILD
-    rm -rf .$TARGET_NAME
+  cd ${PKG_BUILD}
+    rm -rf .${TARGET_NAME}
 
   export LIBS="-lncurses"
 }
 
 post_makeinstall_target() {
-  rm -rf $INSTALL/usr/lib/systemd
-  rm -rf $INSTALL/usr/bin/bccmd
-  rm -rf $INSTALL/usr/bin/bluemoon
-  rm -rf $INSTALL/usr/bin/ciptool
-  rm -rf $INSTALL/usr/share/dbus-1
+  rm -rf ${INSTALL}/usr/lib/systemd
+  rm -rf ${INSTALL}/usr/bin/bccmd
+  rm -rf ${INSTALL}/usr/bin/bluemoon
+  rm -rf ${INSTALL}/usr/bin/ciptool
+  rm -rf ${INSTALL}/usr/share/dbus-1
 
-  mkdir -p $INSTALL/etc/bluetooth
-    cp src/main.conf $INSTALL/etc/bluetooth
-    sed -i $INSTALL/etc/bluetooth/main.conf \
+  mkdir -p ${INSTALL}/etc/bluetooth
+    cp src/main.conf ${INSTALL}/etc/bluetooth
+    sed -i ${INSTALL}/etc/bluetooth/main.conf \
         -e "s|^#\[Policy\]|\[Policy\]|g" \
         -e "s|^#AutoEnable.*|AutoEnable=true|g"
 
-  mkdir -p $INSTALL/usr/share/services
-    cp -P $PKG_DIR/default.d/*.conf $INSTALL/usr/share/services
+  mkdir -p ${INSTALL}/usr/share/services
+    cp -P ${PKG_DIR}/default.d/*.conf ${INSTALL}/usr/share/services
 
   # bluez looks in /etc/firmware/
-    ln -sf /usr/lib/firmware $INSTALL/etc/firmware
+    ln -sf /usr/lib/firmware ${INSTALL}/etc/firmware
 }
 
 post_install() {

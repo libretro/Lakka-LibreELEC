@@ -18,7 +18,7 @@ unpack() {
 }
 
 make_target() {
-  case $ARCH in
+  case ${ARCH} in
     x86_64)
       arch="X86"
       ;;
@@ -28,12 +28,12 @@ make_target() {
   esac
   # original makefile is located at
   # - https://downloads.sourceforge.net/project/nmon/makefile
-  CFLAGS="$CFLAGS -g -O3 -Wall -D JFS -D GETUSER -D LARGEMEM"
-  LDFLAGS="$LDFLAGS -lncurses -lm -g"
-  $CC -o nmon nmon-${PKG_VERSION}.c $CFLAGS $LDFLAGS -D $arch -DUBUNTU
+  CFLAGS+=" -g -O3 -Wall -D JFS -D GETUSER -D LARGEMEM"
+  LDFLAGS+=" -lncurses -lm -g"
+  ${CC} -o nmon nmon-${PKG_VERSION}.c ${CFLAGS} ${LDFLAGS} -D ${arch} -DUBUNTU
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/bin
-  cp -p nmon $INSTALL/usr/bin
+  mkdir -p ${INSTALL}/usr/bin
+  cp -p nmon ${INSTALL}/usr/bin
 }

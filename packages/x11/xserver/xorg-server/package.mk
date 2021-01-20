@@ -7,7 +7,7 @@ PKG_VERSION="1.20.10"
 PKG_SHA256="977420c082450dc808de301ef56af4856d653eea71519a973c3490a780cb7c99"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
-PKG_URL="http://xorg.freedesktop.org/archive/individual/xserver/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_URL="http://xorg.freedesktop.org/archive/individual/xserver/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain util-macros font-util xorgproto libpciaccess libX11 libXfont2 libXinerama libxshmfence libxkbfile libdrm openssl freetype pixman systemd xorg-launch-helper"
 PKG_NEED_UNPACK="$(get_pkg_directory xf86-video-nvidia) $(get_pkg_directory xf86-video-nvidia-legacy)"
 PKG_LONGDESC="Xorg is a full featured X server running on Intel x86 hardware."
@@ -15,15 +15,15 @@ PKG_TOOLCHAIN="autotools"
 
 get_graphicdrivers
 
-if [ "$COMPOSITE_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libXcomposite"
+if [ "${COMPOSITE_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" libXcomposite"
   XORG_COMPOSITE="--enable-composite"
 else
   XORG_COMPOSITE="--disable-composite"
 fi
 
-if [ ! "$OPENGL" = "no" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $OPENGL libepoxy"
+if [ ! "${OPENGL}" = "no" ]; then
+  PKG_DEPENDS_TARGET+=" ${OPENGL} libepoxy"
   XORG_MESA="--enable-glx --enable-dri --enable-glamor"
 else
   XORG_MESA="--disable-glx --disable-dri --disable-glamor"
@@ -37,7 +37,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
                            --disable-unit-tests \
                            --disable-sparkle \
                            --disable-xselinux \
-                           $XORG_COMPOSITE \
+                           ${XORG_COMPOSITE} \
                            --enable-mitshm \
                            --enable-xres \
                            --enable-record \
@@ -47,7 +47,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
                            --disable-screensaver \
                            --disable-xdmcp \
                            --disable-xdm-auth-1 \
-                           $XORG_MESA \
+                           ${XORG_MESA} \
                            --enable-dri2 \
                            --enable-dri3 \
                            --enable-present \
@@ -100,8 +100,8 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
                            --with-sha1=libcrypto \
                            --without-systemd-daemon \
                            --with-os-vendor=LibreELEC.tv \
-                           --with-module-dir=$XORG_PATH_MODULES \
-                           --with-xkb-path=$XORG_PATH_XKB \
+                           --with-module-dir=${XORG_PATH_MODULES} \
+                           --with-xkb-path=${XORG_PATH_XKB} \
                            --with-xkb-output=/var/cache/xkb \
                            --with-log-dir=/var/log \
                            --with-fontrootdir=/usr/share/fonts \
@@ -112,29 +112,29 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
 
 pre_configure_target() {
 # hack to prevent a build error
-  CFLAGS=`echo $CFLAGS | sed -e "s|-O3|-O2|" -e "s|-Ofast|-O2|"`
-  LDFLAGS=`echo $LDFLAGS | sed -e "s|-O3|-O2|" -e "s|-Ofast|-O2|"`
+  CFLAGS=$(echo ${CFLAGS} | sed -e "s|-O3|-O2|" -e "s|-Ofast|-O2|")
+  LDFLAGS=$(echo ${LDFLAGS} | sed -e "s|-O3|-O2|" -e "s|-Ofast|-O2|")
 }
 
 post_makeinstall_target() {
-  rm -rf $INSTALL/var/cache/xkb
+  rm -rf ${INSTALL}/var/cache/xkb
 
-  mkdir -p $INSTALL/usr/lib/xorg
-    cp -P $PKG_DIR/scripts/xorg-configure $INSTALL/usr/lib/xorg
-      sed -i -e "s|@NVIDIA_VERSION@|$(get_pkg_version xf86-video-nvidia)|g" $INSTALL/usr/lib/xorg/xorg-configure
-      sed -i -e "s|@NVIDIA_LEGACY_VERSION@|$(get_pkg_version xf86-video-nvidia-legacy)|g" $INSTALL/usr/lib/xorg/xorg-configure
+  mkdir -p ${INSTALL}/usr/lib/xorg
+    cp -P ${PKG_DIR}/scripts/xorg-configure ${INSTALL}/usr/lib/xorg
+      sed -i -e "s|@NVIDIA_VERSION@|$(get_pkg_version xf86-video-nvidia)|g" ${INSTALL}/usr/lib/xorg/xorg-configure
+      sed -i -e "s|@NVIDIA_LEGACY_VERSION@|$(get_pkg_version xf86-video-nvidia-legacy)|g" ${INSTALL}/usr/lib/xorg/xorg-configure
 
-  if [ ! "$OPENGL" = "no" ]; then
-    if [ -f $INSTALL/usr/lib/xorg/modules/extensions/libglx.so ]; then
-      mv $INSTALL/usr/lib/xorg/modules/extensions/libglx.so \
-         $INSTALL/usr/lib/xorg/modules/extensions/libglx_mesa.so # rename for cooperate with nvidia drivers
-      ln -sf /var/lib/libglx.so $INSTALL/usr/lib/xorg/modules/extensions/libglx.so
+  if [ ! "${OPENGL}" = "no" ]; then
+    if [ -f ${INSTALL}/usr/lib/xorg/modules/extensions/libglx.so ]; then
+      mv ${INSTALL}/usr/lib/xorg/modules/extensions/libglx.so \
+         ${INSTALL}/usr/lib/xorg/modules/extensions/libglx_mesa.so # rename for cooperate with nvidia drivers
+      ln -sf /var/lib/libglx.so ${INSTALL}/usr/lib/xorg/modules/extensions/libglx.so
     fi
   fi
 
-  mkdir -p $INSTALL/etc/X11
-    if find_file_path config/xorg.conf ; then
-      cp $FOUND_PATH $INSTALL/etc/X11
+  mkdir -p ${INSTALL}/etc/X11
+    if find_file_path config/xorg.conf; then
+      cp ${FOUND_PATH} ${INSTALL}/etc/X11
     fi
 }
 
