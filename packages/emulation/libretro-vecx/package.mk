@@ -15,7 +15,11 @@ PKG_LIBPATH="${PKG_LIBNAME}"
 PKG_LIBVAR="VECX_LIB"
 
 make_target() {
-  make
+  if [ "$OPENGL_SUPPORT" = no ]; then
+    HAS_GLES=1 make
+  else
+    make
+  fi
 }
 
 makeinstall_target() {
