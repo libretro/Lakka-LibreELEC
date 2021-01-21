@@ -25,8 +25,6 @@ post_patch() {
 
 # Install additional miscellaneous drivers
 makeinstall_target() {
-  acquire_exclusive_lock "${PKG_NAME:install}" "exclusive-install" "firmware-install"
-
   FW_TARGET_DIR=$INSTALL/$(get_full_firmware_dir)
 
   if find_file_path config/kernel-firmware.dat; then
@@ -78,6 +76,4 @@ makeinstall_target() {
 
   # Cleanup - which may be project or device specific
   find_file_path scripts/cleanup.sh && ${FOUND_PATH} ${FW_TARGET_DIR} || true
-
-  release_exclusive_lock "${PKG_NAME:install}" "exclusive-install" "firmware-install"
 }

@@ -13,11 +13,7 @@ PKG_LONGDESC="Firmware for brcm bluetooth chips used on RaspberryPi devices."
 PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
-  acquire_exclusive_lock "${PKG_NAME:install}" "exclusive-install" "firmware-install"
-
   DESTDIR=$INSTALL/$(get_kernel_overlay_dir) ./install
-
-  release_exclusive_lock "${PKG_NAME:install}" "exclusive-install" "firmware-install"
 }
 
 post_makeinstall_target() {

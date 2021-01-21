@@ -19,11 +19,7 @@ unpack() {
 }
 
 makeinstall_target() {
-  acquire_exclusive_lock "${PKG_NAME:install}" "exclusive-install" "firmware-install"
-
   mkdir -p $INSTALL/$(get_full_firmware_dir)
     cp -P firmware/vpu/vpu_fw_imx6d.bin $INSTALL/$(get_full_firmware_dir)
     cp -P firmware/vpu/vpu_fw_imx6q.bin $INSTALL/$(get_full_firmware_dir)
-
-  release_exclusive_lock "${PKG_NAME:install}" "exclusive-install" "firmware-install"
 }

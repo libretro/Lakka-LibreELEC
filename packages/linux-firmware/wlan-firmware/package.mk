@@ -12,9 +12,5 @@ PKG_LONGDESC="wlan-firmware: firmwares for various WLAN drivers"
 PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
-  acquire_exclusive_lock "${PKG_NAME:install}" "exclusive-install" "firmware-install"
-
   DESTDIR=$INSTALL/$(get_kernel_overlay_dir) ./install
-
-  release_exclusive_lock "${PKG_NAME:install}" "exclusive-install" "firmware-install"
 }

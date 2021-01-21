@@ -12,8 +12,6 @@ PKG_LONGDESC="meson-firmware: Amlogic microcode firmware for the V4L2 mem2mem vd
 PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
-  acquire_exclusive_lock "${PKG_NAME:install}" "exclusive-install" "firmware-install"
-
   FW_TARGET_DIR=$INSTALL/$(get_full_firmware_dir)
 
   if find_file_path config/$PKG_NAME.dat; then
@@ -42,6 +40,4 @@ makeinstall_target() {
       done
     done < ${fwlist}
   done
-
-  release_exclusive_lock "${PKG_NAME:install}" "exclusive-install" "firmware-install"
 }

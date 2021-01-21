@@ -23,8 +23,6 @@ make_target() {
 }
 
 makeinstall_target() {
-  acquire_exclusive_lock "${PKG_NAME:install}" "exclusive-install" "firmware-install"
-
   mkdir -p $INSTALL/$(get_full_firmware_dir)/qcom/venus-1.8/
     cp -a linux-board-support-package-v${PKG_VERSION%.0}/proprietary-linux/* $INSTALL/$(get_full_firmware_dir)
     cp -a linux-board-support-package-v${PKG_VERSION%.0}/proprietary-linux/venus* $INSTALL/$(get_full_firmware_dir)/qcom/venus-1.8/
@@ -35,6 +33,4 @@ makeinstall_target() {
                                     ::image/mba.mbn \
                                     ::image/wcnss.* \
                                     $INSTALL/$(get_full_firmware_dir)
-
-  release_exclusive_lock "${PKG_NAME:install}" "exclusive-install" "firmware-install"
 }
