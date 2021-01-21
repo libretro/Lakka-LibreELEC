@@ -2,8 +2,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="rar2fs"
-PKG_VERSION="1.29.3"
-PKG_SHA256="e813ad62cccdc6081f00c081eb09b435e6ed58422a8f83e222e1aa9d7a0f0866"
+PKG_VERSION="1.29.5"
+PKG_SHA256="a56e9f2fd3d5037087b8405cff85ce7ffb74a904176f33f55b7bd15117cff2be"
 PKG_LICENSE="GPL3"
 PKG_SITE="https://github.com/hasse69/rar2fs"
 PKG_URL="https://github.com/hasse69/rar2fs/releases/download/v${PKG_VERSION}/rar2fs-${PKG_VERSION}.tar.gz"
