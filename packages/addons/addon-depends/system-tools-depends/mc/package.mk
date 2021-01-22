@@ -3,8 +3,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mc"
-PKG_VERSION="4.8.25"
-PKG_SHA256="ffc19617f20ebb23330acd3998b7fd559a042d172fa55746d53d246697b2548a"
+PKG_VERSION="4.8.26"
+PKG_SHA256="c6deadc50595f2d9a22dc6c299a9f28b393e358346ebf6ca444a8469dc166c27"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.midnight-commander.org"
 PKG_URL="http://ftp.midnight-commander.org/mc-${PKG_VERSION}.tar.xz"
