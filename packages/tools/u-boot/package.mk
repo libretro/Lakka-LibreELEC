@@ -32,6 +32,7 @@ case "${PROJECT}" in
     PKG_VERSION="2021.01"
     PKG_SHA256="b407e1510a74e863b8b5cb42a24625344f0e0c2fc7582d8c866bd899367d0454"
     PKG_URL="http://ftp.denx.de/pub/u-boot/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
+    PKG_PATCH_DIRS="default"
     ;;
 esac
 
