@@ -2,8 +2,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pigz"
-PKG_VERSION="2.4"
-PKG_SHA256="e228e7d18b34c4ece8d596eb6eee97bde533c6beedbb728d07d3abe90b4b1b52"
+PKG_VERSION="2.5"
+PKG_SHA256="13b9945999c0b20052f320943302f3160e2639bcc362e5e4182b198ea0e88b0a"
 PKG_LICENSE="Other"
 PKG_SITE="https://zlib.net/pigz/"
 PKG_URL="https://github.com/madler/pigz/archive/v${PKG_VERSION}.tar.gz"
