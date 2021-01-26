@@ -17,18 +17,26 @@ pre_make_target() {
 }
 
 make_target() {
+  make  CC="${CC}" \
+        AR="${AR}" \
+        CFLAGS="${TARGET_CFLAGS}" \
+        CPPFLAGS="${TARGET_CPPFLAGS} -I${SYSROOT_PREFIX}/usr/include/${PKG_PYTHON_VERSION}" \
+        PYTHON=${TOOLCHAIN}/bin/python3 \
+        all
+
   make  EXTRA="py-smbus" \
         CC="${CC}" \
         AR="${AR}" \
         CFLAGS="${TARGET_CFLAGS}" \
         CPPFLAGS="${TARGET_CPPFLAGS} -I${SYSROOT_PREFIX}/usr/include/${PKG_PYTHON_VERSION}" \
-        PYTHON=${TOOLCHAIN}/bin/python3
+        PYTHON=${TOOLCHAIN}/bin/python3 \
+        all-python
 }
 
 makeinstall_target() {
-  make  DESTDIR=${INSTALL} \
+  make  EXTRA="py-smbus" \
+        DESTDIR=${INSTALL} \
         PREFIX="/usr" \
-        EXTRA="py-smbus" \
         PYTHON=${TOOLCHAIN}/bin/python3 \
         install
 }
