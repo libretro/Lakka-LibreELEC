@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libfastjson"
-PKG_VERSION="0.99.8"
-PKG_SHA256="3544c757668b4a257825b3cbc26f800f59ef3c1ff2a260f40f96b48ab1d59e07"
+PKG_VERSION="0.99.9"
+PKG_SHA256="a330e1bdef3096b7ead53b4bad1a6158f19ba9c9ec7c36eda57de7729d84aaee"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.rsyslog.com/tag/libfastjson"
 PKG_URL="http://download.rsyslog.com/libfastjson/${PKG_NAME}-${PKG_VERSION}.tar.gz"
