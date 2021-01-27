@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libnftnl"
-PKG_VERSION="1.1.8"
-PKG_SHA256="04a3fa5b08b736268f7e65836b9f05d9d5f438181467bee3c76c3c4a4f3ab711"
+PKG_VERSION="1.1.9"
+PKG_SHA256="e9b21a6f9a41f9e72aff696cc842e4a9a78ec8d281aec188f3e2b7a21db94b9a"
 PKG_LICENSE="GPL"
 PKG_SITE="http://netfilter.org/projects/libnftnl"
 PKG_URL="http://netfilter.org/projects/libnftnl/files/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
