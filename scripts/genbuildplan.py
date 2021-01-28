@@ -22,16 +22,16 @@ class LibreELEC_Package:
         self.unpacks = []
 
     def __repr__(self):
-        s = "%-9s: %s" % ("name", self.name)
-        s = "%s\n%-9s: %s" % (s, "section", self.section)
+        s = f"{name:<9}: {self.name}"
+        s = f"{s}\n{section:<9}: {self.section}"
 
         for t in self.deps:
-            s = "%s\n%-9s: %s" % (s, t, self.deps[t])
+            s = f"{s}\n{t:<9}: {self.deps[t]}"
 
-        s = "%s\n%-9s: %s" % (s, "UNPACKS", self.unpacks)
+        s = f"{s}\n{'UNPACKS':<9}: {self.unpacks}"
 
-        s = "%s\n%-9s: %s" % (s, "NEEDS", self.wants)
-        s = "%s\n%-9s: %s" % (s, "WANTED BY", self.wantedby)
+        s = f"{s}\n{'NEEDS':<9}: {self.wants}"
+        s = f"{s}\n{'WANTED BY':<9}: {self.wantedby}"
 
         return s
 
@@ -79,7 +79,7 @@ class Node:
         self.name = name
         self.target = target
         self.section = section
-        self.fqname = "%s:%s" % (name, target)
+        self.fqname = f"{name}:{target}"
         self.edges = []
 
     def appendEdges(self, node):
@@ -99,19 +99,19 @@ class Node:
         return True
 
     def __repr__(self):
-        s = "%-9s: %s" % ("name", self.name)
-        s = "%s\n%-9s: %s" % (s, "target", self.target)
-        s = "%s\n%-9s: %s" % (s, "fqname", self.fqname)
-        s = "%s\n%-9s: %s" % (s, "common", self.commonName())
-        s = "%s\n%-9s: %s" % (s, "section", self.section)
+        s = f"{'name':<9}: {self.name}"
+        s = f"{s}\n{'target':<9}: {self.target}"
+        s = f"{s}\n{'fqname':<9}: {self.fqname}"
+        s = f"{s}\n{'common':<9}: {self.commonName()}"
+        s = f"{s}\n{'section':<9}: {self.section}"
 
         for e in self.edges:
-            s = "%s\nEDGE: %s" % (s, e.fqname)
+            s = f"{s}\nEDGE: {e.fqname}"
 
         return s
 
     def commonName(self):
-        return self.name if self.target == "target" else "%s:%s" % (self.name, self.target)
+        return self.name if self.target == "target" else f"{self.name}:{self.target}"
 
     def addEdge(self, node):
         if node not in self.edges:
@@ -120,9 +120,9 @@ class Node:
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
-# Read a JSON list of all possible packages from stdin
+# Read a JSON list of all possible packages from stdin, removing newlines
 def loadPackages():
-    jdata = json.loads("[%s]" % sys.stdin.read().replace('\n','')[:-1])
+    jdata = json.loads(f"[{sys.stdin.read().replace(chr(10),'')[:-1]}]")
 
     map = {}
 
@@ -195,8 +195,10 @@ def dep_resolve(node, resolved, unresolved):
     for edge in node.edges:
         if edge not in resolved:
             if edge in unresolved:
-                raise Exception('Circular reference detected: %s -> %s\nRemove %s from %s package.mk::PKG_DEPENDS_%s' % \
-                                (node.fqname, edge.commonName(), edge.commonName(), node.name, node.target.upper()))
+                raise Exception((
+                    f"Circular reference detected: {nod.fqname} -> {edge.commonName()}\n"
+                    f"Remove {edge.commonName()} from {node.name} package.mk::PKG_DEPENDS_{node.target.upper()}"
+                    ))
             dep_resolve(edge, resolved, unresolved)
 
     if node not in resolved:
@@ -219,7 +221,7 @@ def get_build_steps(args, nodes):
 
     for pkgname in [x for x in args.build if x]:
         if pkgname.find(":") == -1:
-            pkgname = "%s:target" % pkgname
+            pkgname = f"{pkgname}:target"
 
         if pkgname in nodes:
             dep_resolve(nodes[pkgname], resolved, unresolved)
@@ -228,7 +230,7 @@ def get_build_steps(args, nodes):
     if unresolved != []:
         eprint("The following dependencies have not been resolved:")
         for dep in unresolved:
-            eprint("  %s" % dep)
+            eprint(f"  {dep}")
         raise("Unresolved references")
 
     # Output list of resolved dependencies
@@ -289,9 +291,9 @@ def processPackages(args, packages):
             for t in pkg.deps:
                 for d in pkg.deps[t]:
                     if split_package(d)[0] not in needed_map:
-                        msg = 'Invalid package reference: dependency %s in package %s::PKG_DEPENDS_%s is not valid' % (d, pkgname, t.upper())
+                        msg = f'Invalid package reference: dependency {d} in package {pkgname}::PKG_DEPENDS_{t.upper()} is not valid'
                         if args.warn_invalid:
-                            eprint("WARNING: %s" % msg)
+                            eprint(f"WARNING: {msg}")
                         else:
                             raise Exception(msg)
 
@@ -310,14 +312,14 @@ def processPackages(args, packages):
         pkg = needed_map[pkgname]
         for target in pkg.deps:
             for dep in pkg.deps[target]:
-                dfq = dep if dep.find(":") != -1 else "%s:target" % dep
+                dfq = dep if dep.find(":") != -1 else f"{dep}:target"
                 if dfq not in node_map:
                     (dfq_p, dfq_t) = split_package(dfq)
                     if dfq_p in packages:
                         dpkg = packages[dfq_p]
                         node_map[dfq] = Node(dfq_p, dfq_t, dpkg.section)
                     elif not args.ignore_invalid:
-                        raise Exception("Invalid package! Package %s cannot be found for this PROJECT/DEVICE/ARCH" % dfq_p)
+                        raise Exception(f"Invalid package! Package {dfq_p} cannot be found for this PROJECT/DEVICE/ARCH")
 
     # To each target-specific node, add the corresponding
     # target-specific dependency nodes ("edges")
@@ -327,9 +329,9 @@ def processPackages(args, packages):
             if args.warn_invalid:
                 continue
             else:
-                raise Exception("Invalid package! Package %s cannot be found for this PROJECT/DEVICE/ARCH" % node.name)
+                raise Exception(f"Invalid package! Package {node.name} cannot be found for this PROJECT/DEVICE/ARCH")
         for dep in needed_map[node.name].deps[node.target]:
-            dfq = dep if dep.find(":") != -1 else "%s:target" % dep
+            dfq = dep if dep.find(":") != -1 else f"{dep}:target"
             if dfq in node_map:
                 node.addEdge(node_map[dfq])
 
@@ -369,9 +371,9 @@ REQUIRED_PKGS = processPackages(args, ALL_PACKAGES)
 # Identify list of packages to build/install
 steps = [step for step in get_build_steps(args, REQUIRED_PKGS)]
 
-eprint("Packages loaded : %d" % loaded)
-eprint("Build trigger(s): %d [%s]" % (len(args.build), " ".join(args.build)))
-eprint("Package steps   : %d" % len(steps))
+eprint(f"Packages loaded : {loaded}")
+eprint(f"Build trigger(s): {len(args.build)} [{' '.join(args.build)}]")
+eprint(f"Package steps   : {len(steps)}")
 eprint("")
 
 # Write the JSON build plan (with dependencies)
@@ -393,7 +395,7 @@ if args.show_wants:
     for step in steps:
         node = (REQUIRED_PKGS[step[1]])
         wants = [edge.fqname for edge in node.edges]
-        print("%-7s %-25s (wants: %s)" % (step[0], step[1].replace(":target",""), ", ".join(wants).replace(":target","")))
+        print(f"{step[0]:<7} {step[1].replace(':target',''):<25} (wants: {', '.join(wants).replace(':target','')})")
 else:
     for step in steps:
-        print("%-7s %s" % (step[0], step[1].replace(":target","")))
+        print(f"{step[0]:<7} {step[1].replace(':target','')}")
