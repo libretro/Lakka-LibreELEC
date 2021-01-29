@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="e2fsprogs"
-PKG_VERSION="1.45.7"
-PKG_SHA256="62d49c86d9d4becf305093edd65464484dc9ea41c6ff9ae4f536e4a341b171a2"
+PKG_VERSION="1.46.4"
+PKG_SHA256="b11042533c1b1dcf17512f0da48e05b0c573dada1dd8b762864d10f4dc399713"
 PKG_LICENSE="GPL"
 PKG_SITE="http://e2fsprogs.sourceforge.net/"
 PKG_URL="https://www.kernel.org/pub/linux/kernel/people/tytso/${PKG_NAME}/v${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
@@ -16,26 +16,27 @@ PKG_BUILD_FLAGS="-parallel"
 
 PKG_CONFIGURE_OPTS_HOST="--prefix=${TOOLCHAIN}/ \
                          --bindir=${TOOLCHAIN}/bin \
-                         --with-udev-rules-dir=no \
-                         --with-crond-dir=no \
-                         --with-systemd-unit-dir=no \
                          --sbindir=${TOOLCHAIN}/sbin \
-                         --enable-verbose-makecmds \
-                         --disable-symlink-install \
-                         --disable-symlink-build \
-                         --disable-subset \
                          --disable-debugfs \
-                         --disable-imager \
-                         --disable-resizer \
                          --disable-defrag \
-                         --disable-fsck \
                          --disable-e2initrd-helper \
+                         --disable-fsck \
+                         --disable-fuse2fs \
+                         --disable-imager \
+                         --disable-nls \
+                         --disable-resizer \
+                         --disable-rpath \
+                         --disable-subset \
+                         --disable-symlink-build \
+                         --disable-symlink-install \
                          --enable-tls \
                          --disable-uuidd \
-                         --disable-nls \
-                         --disable-rpath \
-                         --disable-fuse2fs \
-                         --with-gnu-ld"
+                         --enable-verbose-makecmds \
+                         --with-crond-dir=no \
+                         --with-gnu-ld \
+                         --without-pthread \
+                         --with-systemd-unit-dir=no \
+                         --with-udev-rules-dir=no"
 
 post_unpack() {
   # Increase minimal inode size to avoid:
@@ -45,32 +46,33 @@ post_unpack() {
 
 pre_configure() {
   PKG_CONFIGURE_OPTS_INIT="BUILD_CC=${HOST_CC} \
-                           --with-udev-rules-dir=no \
-                           --with-crond-dir=no \
-                           --with-systemd-unit-dir=no \
-                           --enable-verbose-makecmds \
-                           --enable-symlink-install \
-                           --enable-symlink-build \
-                           --disable-subset \
-                           --disable-elf-shlibs \
-                           --disable-bsd-shlibs \
-                           --disable-profile \
-                           --disable-jbd-debug \
                            --disable-blkid-debug \
-                           --disable-testio-debug \
-                           --enable-libuuid \
-                           --enable-libblkid \
+                           --disable-bsd-shlibs \
                            --disable-debugfs \
-                           --disable-imager \
-                           --enable-resizer \
-                           --enable-fsck \
                            --disable-e2initrd-helper \
+                           --disable-elf-shlibs \
+                           --enable-fsck \
+                           --disable-fuse2fs \
+                           --disable-imager \
+                           --disable-jbd-debug \
+                           --enable-libblkid \
+                           --enable-libuuid \
+                           --disable-nls \
+                           --disable-profile \
+                           --enable-resizer \
+                           --disable-rpath \
+                           --disable-subset \
+                           --enable-symlink-build \
+                           --enable-symlink-install \
+                           --disable-testio-debug \
                            --enable-tls \
                            --disable-uuidd \
-                           --disable-nls \
-                           --disable-rpath \
-                           --disable-fuse2fs \
-                           --with-gnu-ld"
+                           --enable-verbose-makecmds \
+                           --with-crond-dir=no \
+                           --with-gnu-ld \
+                           --without-pthread \
+                           --with-systemd-unit-dir=no \
+                           --with-udev-rules-dir=no"
 
   PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_INIT}"
 }
