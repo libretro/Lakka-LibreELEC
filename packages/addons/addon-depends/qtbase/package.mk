@@ -31,6 +31,7 @@ PKG_CONFIGURE_OPTS_TARGET="-prefix /usr
                            -no-icu
                            -qt-pcre
                            -system-zlib
+                           -no-zstd
                            -openssl-linked
                            -no-libproxy
                            -no-cups
