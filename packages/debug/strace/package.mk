@@ -11,6 +11,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="strace is a diagnostic, debugging and instructional userspace utility"
 PKG_TOOLCHAIN="autotools"
 
-if [ "${TARGET_ARCH}" = x86_64 ]; then
+if [ "${TARGET_ARCH}" = x86_64 -o "${TARGET_ARCH}" = "aarch64" ]; then
   PKG_CONFIGURE_OPTS_TARGET="--enable-mpers=no"
 fi
