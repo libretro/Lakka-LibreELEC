@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-nestopia"
-PKG_VERSION="02e7c03f933333bb9ce79b2c0e5ebb936a9536e2"
-PKG_SHA256="f3fd8e18899a6b46aadb4436c3b58f2aeb844d0d22ea904017dbc9c112b8fd5d"
+PKG_VERSION="f0e1e701c125847e61008af84ac05f040a85eeb8"
+PKG_SHA256="b9eee745c918b9192861cb6af2ceffbb02a81af06900f2ec93a35d9327eb545c"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/nestopia"
 PKG_URL="https://github.com/libretro/nestopia/archive/${PKG_VERSION}.tar.gz"
