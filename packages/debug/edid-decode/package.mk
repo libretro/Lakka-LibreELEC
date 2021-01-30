@@ -2,17 +2,21 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="edid-decode"
-PKG_VERSION="15df4aebf06da579241c58949493b866139d0e2b"
-PKG_SHA256="58743c8ba768134ef1421e1ce9f4edf0eafdae29377fe5b8f4cb285f16dc142e"
+PKG_VERSION="770cfb947ea9d9eb5cda57a87dc66d13c60cfefc"
+PKG_SHA256="eb6a766b89ef5f7d06d6649fc442ee57377ee7add801cde0a5ba6b636da78075"
 PKG_LICENSE="None"
 PKG_SITE="https://git.linuxtv.org/edid-decode.git/"
-PKG_URL="https://git.linuxtv.org/edid-decode.git/snapshot/${PKG_VERSION}.tar.xz"
+PKG_URL="https://repo.or.cz/edid-decode.git/snapshot/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Decode EDID data in human-readable format"
 
+EDID_SOURCES="edid-decode.cpp parse-base-block.cpp parse-cta-block.cpp \
+              parse-displayid-block.cpp parse-ls-ext-block.cpp \
+              parse-di-ext-block.cpp parse-vtb-ext-block.cpp"
+
 make_target() {
-  echo "${CC} ${CFLAGS} -Wall ${LDFLAGS} -o edid-decode edid-decode.c -lm"
-  ${CC} ${CFLAGS} -Wall ${LDFLAGS} -o edid-decode edid-decode.c -lm
+  echo "${CXX} ${CPPFLAGS} -Wall ${LDFLAGS} -g -DSHA=${PKG_VERSION:0:12} -o edid-decode ${EDID_SOURCES} -lm"
+  ${CXX} ${CPPFLAGS} -Wall ${LDFLAGS} -g -DSHA=${PKG_VERSION:0:12} -o edid-decode ${EDID_SOURCES} -lm
 }
 
 makeinstall_target() {
