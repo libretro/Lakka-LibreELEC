@@ -3,8 +3,8 @@
 # Copyright (C) 2020-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="parted"
-PKG_VERSION="3.3"
-PKG_SHA256="57e2b4bd87018625c515421d4524f6e3b55175b472302056391c5f7eccb83d44"
+PKG_VERSION="3.4"
+PKG_SHA256="e1298022472da5589b7f2be1d5ee3c1b66ec3d96dfbad03dc642afd009da5342"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/parted/"
 PKG_URL="http://ftpmirror.gnu.org/parted/${PKG_NAME}-${PKG_VERSION}.tar.xz"
