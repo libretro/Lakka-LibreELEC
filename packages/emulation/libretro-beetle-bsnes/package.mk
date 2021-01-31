@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-beetle-bsnes"
-PKG_VERSION="0d6221a5fca708b36fa090d1c261663910d1e67e"
-PKG_SHA256="46a20d9c16f853deff45b61ec50ea312b0afb1e2c3aaa024e57cdc78a2ad79fe"
+PKG_VERSION="b65ded5bde278c18af538c687db9b72c995b220a"
+PKG_SHA256="d595ced2999dc6d1de0976b658f66c19b551633da991256a20bc76e5266fd221"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-bsnes-libretro"
 PKG_URL="https://github.com/libretro/beetle-bsnes-libretro/archive/${PKG_VERSION}.tar.gz"

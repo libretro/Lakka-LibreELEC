@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.o2em"
-PKG_VERSION="1.18.0.13-Matrix"
-PKG_SHA256="d615772ebe9b067d825d1ad88cad970fc5b9a1745cf9df3c864b395f41f40ca0"
+PKG_VERSION="1.18.0.15-Matrix"
+PKG_SHA256="77a50ffe062ea141830baf2738073b3351e292dda2e2224bafb3cabfffa7da65"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

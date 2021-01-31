@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-yabause"
-PKG_VERSION="f515e5a49336195c61b751e539aadae72fbe0aa7"
-PKG_SHA256="c76134a37e6cb1e20579b257ce8b119f6edde64a080db7320f81d076db5fcd74"
+PKG_VERSION="1e981f18e763c0897e4dd2ec79fab927a483e626"
+PKG_SHA256="8ac011d06908ced1536f792246fdc6218fddfdfec07da7d8a5d78c9b6949eab9"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/yabause"
 PKG_URL="https://github.com/libretro/yabause/archive/${PKG_VERSION}.tar.gz"

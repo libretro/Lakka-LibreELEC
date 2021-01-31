@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-fuse"
-PKG_VERSION="33710427a519c82bb38654c5a098272e14fc1823"
-PKG_SHA256="dde8486f541b942682bf7ffdcd0b4537c8391db44f6a78d2f6e6dfce499d1b3e"
+PKG_VERSION="8da83b597724763728ef3d9c2c877317bd7342df"
+PKG_SHA256="28b141f8d3b08e74a08d134e2cd7cdc700f833eb7c57a3478ce78b89c62f901b"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/fuse-libretro"
 PKG_URL="https://github.com/libretro/fuse-libretro/archive/${PKG_VERSION}.tar.gz"
