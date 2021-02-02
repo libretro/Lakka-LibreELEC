@@ -3,11 +3,11 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="glibc"
-PKG_VERSION="2.32"
-PKG_SHA256="1627ea54f5a1a8467032563393e0901077626dc66f37f10ee6363bb722222836"
+PKG_VERSION="2.33"
+PKG_SHA256="2e2556000e105dbd57f0b6b2a32ff2cf173bde4f0d85dffccfd8b7e51a0677ff"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.gnu.org/software/libc/"
-PKG_URL="http://ftp.gnu.org/pub/gnu/glibc/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+PKG_SITE="https://www.gnu.org/software/libc/"
+PKG_URL="https://ftp.gnu.org/pub/gnu/glibc/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="ccache:host autotools:host linux:host gcc:bootstrap pigz:host Python3:host"
 PKG_DEPENDS_INIT="glibc"
 PKG_LONGDESC="The Glibc package contains the main C library."
@@ -19,6 +19,7 @@ PKG_CONFIGURE_OPTS_TARGET="BASH_SHELL=/bin/sh \
                            --libexecdir=/usr/lib/glibc \
                            --cache-file=config.cache \
                            --disable-profile \
+                           --disable-werror \
                            --disable-sanity-checks \
                            --enable-add-ons \
                            --enable-bind-now \
@@ -32,7 +33,6 @@ PKG_CONFIGURE_OPTS_TARGET="BASH_SHELL=/bin/sh \
                            --without-gd \
                            --disable-build-nscd \
                            --disable-nscd \
-                           --enable-lock-elision \
                            --disable-timezone-tools"
 
 if build_with_debug; then
