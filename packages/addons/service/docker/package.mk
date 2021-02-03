@@ -3,9 +3,9 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="docker"
-PKG_VERSION="19.03.14"
-PKG_SHA256="0b8838b0da1f1368fc1a0809a2ed11840bd7d58df1f090e668de209faddcef7c"
-PKG_REV="132"
+PKG_VERSION="19.03.15"
+PKG_SHA256="f2f31dd4137eaa735a26e590c9718fb06867afff4d8415cc80feb6cdc9e4a8cd"
+PKG_REV="133"
 PKG_ARCH="any"
 PKG_LICENSE="ASL"
 PKG_SITE="http://www.docker.com/"
@@ -17,7 +17,7 @@ PKG_LONGDESC="Docker containers can encapsulate any payload, and will run consis
 PKG_TOOLCHAIN="manual"
 
 # Git commit of the matching release https://github.com/docker/docker-ce/releases
-export PKG_GIT_COMMIT="4484c46d9d1a2d10b8fc662923ad586daeedb04f"
+export PKG_GIT_COMMIT="99e3ed89195c4e551e87aad1e7453b65456b03ad"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Docker"
@@ -73,6 +73,9 @@ configure_target() {
 
   mkdir -p ${PKG_GOPATH_CLI}/src/github.com/docker/docker/builder
   cp -rf   ${PKG_ENGINE_PATH}/builder/* ${PKG_GOPATH_CLI}/src/github.com/docker/docker/builder
+
+  mkdir -p ${PKG_GOPATH_CLI}/src/github.com/docker/docker/pkg/idtools
+  cp -rf   ${PKG_ENGINE_PATH}/pkg/idtools/* ${PKG_GOPATH_CLI}/src/github.com/docker/docker/pkg/idtools
 
   if [ ! -L ${PKG_GOPATH_ENGINE}/src/github.com/docker/docker ]; then
     ln -fs  ${PKG_ENGINE_PATH} ${PKG_GOPATH_ENGINE}/src/github.com/docker/docker
