@@ -136,6 +136,9 @@ makeinstall_target() {
     cp ${PKG_DIR}/scripts/pastebinit ${INSTALL}/usr/bin/
       ln -sf pastebinit ${INSTALL}/usr/bin/paste
 
+  mkdir -p ${INSTALL}/usr/sbin
+    cp ${PKG_DIR}/scripts/kernel-overlays-setup ${INSTALL}/usr/sbin
+
   mkdir -p ${INSTALL}/usr/lib/libreelec
     cp ${PKG_DIR}/scripts/functions ${INSTALL}/usr/lib/libreelec
     cp ${PKG_DIR}/scripts/fs-resize ${INSTALL}/usr/lib/libreelec

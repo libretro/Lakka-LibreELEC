@@ -214,7 +214,6 @@ post_makeinstall_target() {
   find_file_path scripts/cpufreq && cp -PRv ${FOUND_PATH} ${INSTALL}/usr/bin
 
   mkdir -p ${INSTALL}/usr/sbin
-  cp ${PKG_DIR}/scripts/kernel-overlays-setup ${INSTALL}/usr/sbin
   cp ${PKG_DIR}/scripts/network-base-setup ${INSTALL}/usr/sbin
   cp ${PKG_DIR}/scripts/systemd-timesyncd-setup ${INSTALL}/usr/sbin
 
@@ -282,7 +281,6 @@ post_install() {
   enable_service userconfig.service
   enable_service usercache.service
   enable_service envconfig.service
-  enable_service kernel-overlays.service
   enable_service hwdb.service
   enable_service cpufreq.service
   enable_service network-base.service
