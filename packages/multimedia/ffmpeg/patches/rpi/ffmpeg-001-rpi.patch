@@ -47543,7 +47543,7 @@ index 22a9532444..5588e4a460 100644
  /**
   * Enqueues a buffer to a V4L2Context from an AVFrame
 diff --git a/libavcodec/v4l2_m2m.c b/libavcodec/v4l2_m2m.c
-index e48b3a8ccf..b994e39ad6 100644
+index e48b3a8ccf..092b750dc4 100644
 --- a/libavcodec/v4l2_m2m.c
 +++ b/libavcodec/v4l2_m2m.c
 @@ -328,7 +328,10 @@ static void v4l2_m2m_destroy_context(void *opaque, uint8_t *context)
@@ -47577,7 +47577,7 @@ index e48b3a8ccf..b994e39ad6 100644
 +        av_packet_unref(&s->buf_pkt);
 +
 +    if (s->fd >= 0) {
-+            ret = ff_v4l2_context_set_status(&s->output, VIDIOC_STREAMOFF);
++        ret = ff_v4l2_context_set_status(&s->output, VIDIOC_STREAMOFF);
 +        if (ret)
 +            av_log(s->avctx, AV_LOG_ERROR, "VIDIOC_STREAMOFF %s\n", s->output.name);
 +
@@ -47664,7 +47664,7 @@ index 456281f48c..b08a5b38ac 100644
  
  /**
 diff --git a/libavcodec/v4l2_m2m_dec.c b/libavcodec/v4l2_m2m_dec.c
-index 3e17e0fcac..e774532e36 100644
+index 3e17e0fcac..a02012bf44 100644
 --- a/libavcodec/v4l2_m2m_dec.c
 +++ b/libavcodec/v4l2_m2m_dec.c
 @@ -23,6 +23,10 @@
@@ -47958,10 +47958,7 @@ index 3e17e0fcac..e774532e36 100644
 +            return ret;
 +        }
 +    }
- 
--            /* cant recover */
--            if (ret == AVERROR(ENOMEM))
--                return ret;
++
 +    // Start if we haven't
 +    {
 +        const int ret2 = v4l2_try_start(avctx);
@@ -47971,7 +47968,9 @@ index 3e17e0fcac..e774532e36 100644
 +        }
 +    }
  
--            return 0;
+-            /* cant recover */
+-            if (ret == AVERROR(ENOMEM))
+-                return ret;
 +    return ret;
 +}
 +
@@ -48018,7 +48017,8 @@ index 3e17e0fcac..e774532e36 100644
 +                // Go again if we got a frame that we need to discard
 +            } while (dst_rv == 0 && xlat_pts_out(avctx, s, frame));
 +        }
-+
+ 
+-            return 0;
 +        // Continue trying to enqueue packets if either
 +        // (a) we succeeded last time OR
 +        // (b) enqueue failed due to input Q full AND there is now room
@@ -48052,8 +48052,8 @@ index 3e17e0fcac..e774532e36 100644
 +        src_rv < 0 ? src_rv :
 +        dst_rv < 0 ? dst_rv :
 +            AVERROR(EAGAIN);
-+}
-+
+ }
+ 
 +#if 0
 +#include <time.h>
 +static int64_t us_time(void)
@@ -48061,8 +48061,8 @@ index 3e17e0fcac..e774532e36 100644
 +    struct timespec ts;
 +    clock_gettime(CLOCK_MONOTONIC, &ts);
 +    return (int64_t)ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
- }
- 
++}
++
 +static int v4l2_receive_frame(AVCodecContext *avctx, AVFrame *frame)
 +{
 +    int ret;
@@ -48125,10 +48125,14 @@ index 3e17e0fcac..e774532e36 100644
          return ret;
      }
  
-@@ -223,10 +519,59 @@ static av_cold int v4l2_decode_init(AVCodecContext *avctx)
+@@ -223,10 +519,58 @@ static av_cold int v4l2_decode_init(AVCodecContext *avctx)
  
  static av_cold int v4l2_decode_close(AVCodecContext *avctx)
  {
+-    V4L2m2mPriv *priv = avctx->priv_data;
+-    V4L2m2mContext *s = priv->context;
+-    av_packet_unref(&s->buf_pkt);
+-    return ff_v4l2_m2m_codec_end(priv);
 +    int rv;
 +    av_log(avctx, AV_LOG_TRACE, "<<< %s\n", __func__);
 +    rv = ff_v4l2_m2m_codec_end(avctx->priv_data);
@@ -48146,19 +48150,17 @@ index 3e17e0fcac..e774532e36 100644
 +    // possibly limited h/w resources and fails on a Pi for this reason unless
 +    // more GPU mem is allocated than is the default.
 +
-     V4L2m2mPriv *priv = avctx->priv_data;
--    V4L2m2mContext *s = priv->context;
--    av_packet_unref(&s->buf_pkt);
--    return ff_v4l2_m2m_codec_end(priv);
-+    V4L2m2mContext* s = priv->context;
-+    V4L2Context* output = &s->output;
-+    V4L2Context* capture = &s->capture;
++    V4L2m2mPriv * const priv = avctx->priv_data;
++    V4L2m2mContext * const s = priv->context;
++    V4L2Context * const output = &s->output;
++    V4L2Context * const capture = &s->capture;
 +    int ret, i;
 +
 +    av_log(avctx, AV_LOG_TRACE, "<<< %s: streamon=%d\n", __func__, output->streamon);
 +
-+    if (!output->streamon)
-+        goto done;
++    // Reflushing everything is benign, quick and avoids having to worry about
++    // states like EOS processing so don't try to optimize out (having got it
++    // wrong once)
 +
 +    ret = ff_v4l2_context_set_status(output, VIDIOC_STREAMOFF);
 +    if (ret < 0)
@@ -48182,13 +48184,11 @@ index 3e17e0fcac..e774532e36 100644
 +    capture->done = 0;
 +
 +    // Stream on will occur when we actually submit a new frame
-+
-+done:
 +    av_log(avctx, AV_LOG_TRACE, ">>> %s\n", __func__);
  }
  
  #define OFFSET(x) offsetof(V4L2m2mPriv, x)
-@@ -235,10 +580,16 @@ static av_cold int v4l2_decode_close(AVCodecContext *avctx)
+@@ -235,10 +579,16 @@ static av_cold int v4l2_decode_close(AVCodecContext *avctx)
  static const AVOption options[] = {
      V4L_M2M_DEFAULT_OPTS,
      { "num_capture_buffers", "Number of buffers in the capture context",
@@ -48206,7 +48206,7 @@ index 3e17e0fcac..e774532e36 100644
  #define M2MDEC_CLASS(NAME) \
      static const AVClass v4l2_m2m_ ## NAME ## _dec_class = { \
          .class_name = #NAME "_v4l2m2m_decoder", \
-@@ -259,9 +610,14 @@ static const AVOption options[] = {
+@@ -259,9 +609,14 @@ static const AVOption options[] = {
          .init           = v4l2_decode_init, \
          .receive_frame  = v4l2_receive_frame, \
          .close          = v4l2_decode_close, \
@@ -54715,10 +54715,10 @@ index 5613813ba8..ab8bcfcf34 100644
 +
 diff --git a/libavutil/aarch64/rpi_sand_neon.S b/libavutil/aarch64/rpi_sand_neon.S
 new file mode 100644
-index 0000000000..641242dd8f
+index 0000000000..1981e7d46f
 --- /dev/null
 +++ b/libavutil/aarch64/rpi_sand_neon.S
-@@ -0,0 +1,239 @@
+@@ -0,0 +1,498 @@
 +/*
 +Copyright (c) 2021 Michael Eiler
 +
@@ -54838,7 +54838,7 @@ index 0000000000..641242dd8f
 +    add w11, w11, #128
 +    // increment the row counter
 +    add w12, w12, #1
-+
++    
 +    // process the next row if we haven't finished yet
 +    cmp w15, w12
 +    bgt row_loop
@@ -54957,13 +54957,272 @@ index 0000000000..641242dd8f
 +    ret
 +endfunc
 +
++//void ff_rpi_sand30_lines_to_planar_y16(
++//  uint8_t * dest,             // [x0]
++//  unsigned int dst_stride,    // [w1] -> assumed to be equal to _w
++//  const uint8_t * src,        // [x2]
++//  unsigned int src_stride1,   // [w3] -> 128
++//  unsigned int src_stride2,   // [w4]
++//  unsigned int _x,            // [w5]
++//  unsigned int y,             // [w6]
++//  unsigned int _w,            // [w7]
++//  unsigned int h);            // [sp, #0]
++
++function ff_rpi_sand30_lines_to_planar_y16, export=1
++    str x19, [sp, #-8]
++    str x20, [sp, #-16]
++    str x21, [sp, #-24]
++    str x22, [sp, #-32]
++    str x23, [sp, #-40]
++    
++    // w6 = argument h
++    ldr w6, [sp, #0]
++
++    // slice_inc = ((stride2 - 1) * stride1)
++    mov w5, w4
++    sub w5, w5, #1
++    lsl w5, w5, #7
++
++    // total number of bytes per row = (width / 3) * 4
++    mov w8, w7
++    mov w9, #3
++    udiv w8, w8, w9
++    lsl w8, w8, #2
++
++    // number of full 128 byte blocks to be processed
++    mov w9, #96
++    udiv w9, w7, w9 // = (width * 4) / (3*128) = width/96
++
++    // w10 = number of full integers to process (4 bytes)
++    // w11 = remaning zero to two 10bit values still to copy over
++    mov w12, #96
++    mul w12, w9, w12
++    sub w12, w7, w12  // width - blocks*96 = remaining points per row
++    mov w11, #3
++    udiv w10, w12, w11 // full integers to process = w12 / 3 
++    mul w11, w10, w11  // #integers *3
++    sub w11, w12, w11  // remaining 0-2 points = remaining points - integers*3
++
++    // increase w9 by one if w10+w11 is not zero, and decrease the row count by one
++    // this is to efficiently copy incomplete blocks at the end of the rows
++    // the last row is handled explicitly to avoid writing out of bounds
++    add w22, w10, w11
++    cmp w22, #0
++    cset w22, ne // 1 iff w10+w11 not zero, 0 otherwise
++    add w9, w9, w22
++    sub w6, w6, #1
++
++    // store the number of bytes in w20 which we copy too much for every row
++    // when the width of the frame is not a multiple of 96 (128bytes storing 96 10bit values)
++    mov w20, #3
++    mul w21, w10, w20
++    mov w20, #96
++    sub w20, w20, w21 // w20 = 96 - #integers*3
++    sub w20, w20, w11 // w20 = 96 - #integers*3 - rem. points
++    cmp w20, #96
++    cset w21, eq
++    mov w23, #96
++    mul w23, w23, w21 // 0 or 1 * 96
++    sub w20, w20, w23 // = w20 mod 96
++    lsl w20, w20, #1  // convert to bytes (*2 since we store 16bits per value)
++    
++    mov w23, #0 // flag to check whether the last line had already been processed
++    
++    // bitmask to clear the uppper 6bits of the result values
++    mov x19, #0x03ff03ff03ff03ff
++    dup v22.2d, x19
++
++    // row counter = 0
++    eor w12, w12, w12
++row_loop_y16:
++    cmp w12, w6               // jump to row_loop_y16_fin if we processed all rows
++    bge row_loop_y16_fin
++
++    mov x13, x2               // row src
++    eor w14, w14, w14         // full block counter
++block_loop_y16:
++    cmp w14, w9
++    bge block_loop_y16_fin
++
++    // load 64 bytes
++    ld1 { v0.4s,  v1.4s, v2.4s, v3.4s }, [x13], #64
++   
++    // process v0 and v1
++    xtn v16.4h, v0.4s
++    ushr v0.4s, v0.4s, #10
++    xtn v17.4h, v0.4s
++    ushr v0.4s, v0.4s, #10
++    xtn v18.4h, v0.4s
++   
++    xtn2 v16.8h, v1.4s
++    and v16.16b, v16.16b, v22.16b
++    ushr v1.4s, v1.4s, #10
++    xtn2 v17.8h, v1.4s
++    and v17.16b, v17.16b, v22.16b
++    ushr v1.4s, v1.4s, #10
++    xtn2 v18.8h, v1.4s
++    and v18.16b, v18.16b, v22.16b
++
++    st3 { v16.8h, v17.8h, v18.8h }, [x0], #48
++
++    // process v2 and v3
++    xtn v23.4h, v2.4s
++    ushr v2.4s, v2.4s, #10
++    xtn v24.4h, v2.4s
++    ushr v2.4s, v2.4s, #10
++    xtn v25.4h, v2.4s
++    
++    xtn2 v23.8h, v3.4s
++    and v23.16b, v23.16b, v22.16b
++    ushr v3.4s, v3.4s, #10
++    xtn2 v24.8h, v3.4s
++    and v24.16b, v24.16b, v22.16b
++    ushr v3.4s, v3.4s, #10
++    xtn2 v25.8h, v3.4s
++    and v25.16b, v25.16b, v22.16b
++
++    st3 { v23.8h, v24.8h, v25.8h }, [x0], #48
++
++    // load the second half of the block -> 64 bytes into registers v4-v7
++    ld1 { v4.4s,  v5.4s,  v6.4s,  v7.4s }, [x13], #64
++    
++    // process v4 and v5
++    xtn v16.4h, v4.4s
++    ushr v4.4s, v4.4s, #10
++    xtn v17.4h, v4.4s
++    ushr v4.4s, v4.4s, #10
++    xtn v18.4h, v4.4s
++   
++    xtn2 v16.8h, v5.4s 
++    and v16.16b, v16.16b, v22.16b
++    ushr v5.4s, v5.4s, #10
++    xtn2 v17.8h, v5.4s
++    and v17.16b, v17.16b, v22.16b
++    ushr v5.4s, v5.4s, #10
++    xtn2 v18.8h, v5.4s
++    and v18.16b, v18.16b, v22.16b
++
++    st3 { v16.8h, v17.8h, v18.8h }, [x0], #48
++
++    // v6 and v7
++    xtn v23.4h, v6.4s
++    ushr v6.4s, v6.4s, #10
++    xtn v24.4h, v6.4s
++    ushr v6.4s, v6.4s, #10
++    xtn v25.4h, v6.4s
++   
++    xtn2 v23.8h, v7.4s 
++    and v23.16b, v23.16b, v22.16b
++    ushr v7.4s, v7.4s, #10
++    xtn2 v24.8h, v7.4s
++    and v24.16b, v24.16b, v22.16b
++    ushr v7.4s, v7.4s, #10
++    xtn2 v25.8h, v7.4s
++    and v25.16b, v25.16b, v22.16b
++
++    st3 { v23.8h, v24.8h, v25.8h }, [x0], #48
++ 
++    add x13, x13, x5          // row src += slice_inc
++    add w14, w14, #1
++    b block_loop_y16
++block_loop_y16_fin:
++
++    
++
++
++    add x2, x2, #128          // src += stride1 (start of the next row)
++    sub x0, x0, x20           // subtract the bytes we copied too much from dst
++    add w12, w12, #1
++    b row_loop_y16
++row_loop_y16_fin:
++
++    // check whether we have incomplete blocks at the end of every row
++    // in that case decrease row block count by one
++    // change height back to it's original value (meaning increase it by 1)
++    // and jump back to another iteration of row_loop_y16
++
++    cmp w23, #1
++    beq row_loop_y16_fin2 // don't continue here if we already processed the last row
++    add w6, w6, #1    // increase height to the original value
++    sub w9, w9, w22   // block count - 1 or 0, depending on the remaining bytes count
++    mov w23, #1
++    b row_loop_y16
++row_loop_y16_fin2:
++
++    add x0, x0, x20 // with the last row we didn't actually move the dst ptr to far ahead, therefore readd the diference
++
++    // now we've got to handle the last block in the last row
++    eor w12, w12, w12 // w12 = 0 = counter
++integer_loop_y16:
++    cmp w12, w10
++    bge integer_loop_y16_fin
++    ldr w14, [x2], #4
++    and w15, w14, #0x3ff
++    strh w15, [x0], #2
++    lsr w14, w14, #10
++    and w15, w14, #0x3ff
++    strh w15, [x0], #2
++    lsr w14, w14, #10
++    and w15, w14, #0x3ff
++    strh w15, [x0], #2
++    add w12, w12, #1
++    b integer_loop_y16
++integer_loop_y16_fin:
++
++final_values_y16:
++    // remaining point count = w11
++    ldr w14, [x2], #4
++    cmp w11, #0
++    beq final_values_y16_fin
++    and w15, w14, #0x3ff
++    strh w15, [x0], #2
++    cmp w11, #1
++    beq final_values_y16_fin
++    lsr w14, w14, #10
++    and w15, w14, #0x3ff
++    strh w15, [x0], #2
++final_values_y16_fin:
++
++    ldr x23, [sp, #-40]
++    ldr x22, [sp, #-32]
++    ldr x21, [sp, #-24]
++    ldr x20, [sp, #-16]
++    ldr x19, [sp, #-8]
++
++    ret
++endfunc
++
++//void ff_rpi_sand30_lines_to_planar_c16(
++//  uint8_t * dst_u,
++//  unsigned int dst_stride_u,
++//  uint8_t * dst_v,
++//  unsigned int dst_stride_v,
++//  const uint8_t * src,
++//  unsigned int stride1,
++//  unsigned int stride2,
++//  unsigned int _x,
++//  unsigned int y,
++//  unsigned int _w,
++//  unsigned int h);
++
++//void ff_rpi_sand30_lines_to_planar_p010(
++//  uint8_t * dest,
++//  unsigned int dst_stride,
++//  const uint8_t * src,
++//  unsigned int src_stride1,
++//  unsigned int src_stride2,
++//  unsigned int _x,
++//  unsigned int y,
++//  unsigned int _w,
++//  unsigned int h);
++
 +
 diff --git a/libavutil/aarch64/rpi_sand_neon.h b/libavutil/aarch64/rpi_sand_neon.h
 new file mode 100644
-index 0000000000..2894ce5aa3
+index 0000000000..d820057624
 --- /dev/null
 +++ b/libavutil/aarch64/rpi_sand_neon.h
-@@ -0,0 +1,47 @@
+@@ -0,0 +1,51 @@
 +/*
 +Copyright (c) 2021 Michael Eiler
 +
@@ -55006,6 +55265,10 @@ index 0000000000..2894ce5aa3
 +  uint8_t * dst_v, unsigned int dst_stride_v, const uint8_t * src,
 +  unsigned int stride1, unsigned int stride2, unsigned int _x, unsigned int y,
 +  unsigned int _w, unsigned int h);
++
++void ff_rpi_sand30_lines_to_planar_y16(uint8_t * dest, unsigned int dst_stride,
++  const uint8_t * src, unsigned int src_stride1, unsigned int src_stride2,
++  unsigned int _x, unsigned int y, unsigned int _w, unsigned int h);
 +
 +#ifdef __cplusplus
 +}
@@ -56495,7 +56758,7 @@ index 0000000000..0324f6826d
 +
 diff --git a/libavutil/rpi_sand_fns.c b/libavutil/rpi_sand_fns.c
 new file mode 100644
-index 0000000000..038c306877
+index 0000000000..64c34ced56
 --- /dev/null
 +++ b/libavutil/rpi_sand_fns.c
 @@ -0,0 +1,357 @@
@@ -56598,7 +56861,7 @@ index 0000000000..038c306877
 +    const uint8_t * p0 = src + (x0 & mask) + y * stride1 + (x0 & ~mask) * stride2;
 +    const unsigned int slice_inc = ((stride2 - 1) * stride1) >> 2;  // RHS of a stripe to LHS of next in words
 +
-+#if HAVE_SAND_ASM
++#if HAVE_SAND_ASM || HAVE_SAND_ASM64
 +    if (_x == 0) {
 +        ff_rpi_sand30_lines_to_planar_y16(dst, dst_stride, src, stride1, stride2, _x, y, _w, h);
 +        return;
