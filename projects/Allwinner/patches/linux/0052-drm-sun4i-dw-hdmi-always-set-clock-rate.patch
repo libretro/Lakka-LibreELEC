@@ -1,0 +1,49 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@siol.net>
+Date: Wed, 3 Feb 2021 23:25:13 +0100
+Subject: [PATCH] drm/sun4i: dw-hdmi: always set clock rate
+
+As expected, HDMI controller clock should always match pixel clock. In
+the past, changing HDMI controller rate would seemingly worsen
+situation. However, that was the result of other bugs which are now
+fixed.
+
+Fix that by removing set_rate quirk and always set clock rate.
+
+Fixes: 40bb9d3147b2 ("drm/sun4i: Add support for H6 DW HDMI controller")
+Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+---
+ drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c | 4 +---
+ drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h | 1 -
+ 2 files changed, 1 insertion(+), 4 deletions(-)
+
+--- a/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c
++++ b/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c
+@@ -21,8 +21,7 @@ static void sun8i_dw_hdmi_encoder_mode_s
+ {
+ 	struct sun8i_dw_hdmi *hdmi = encoder_to_sun8i_dw_hdmi(encoder);
+ 
+-	if (hdmi->quirks->set_rate)
+-		clk_set_rate(hdmi->clk_tmds, mode->crtc_clock * 1000);
++	clk_set_rate(hdmi->clk_tmds, mode->crtc_clock * 1000);
+ }
+ 
+ static const struct drm_encoder_helper_funcs
+@@ -295,7 +294,6 @@ static int sun8i_dw_hdmi_remove(struct p
+ 
+ static const struct sun8i_dw_hdmi_quirks sun8i_a83t_quirks = {
+ 	.mode_valid = sun8i_dw_hdmi_mode_valid_a83t,
+-	.set_rate = true,
+ };
+ 
+ static const struct sun8i_dw_hdmi_quirks sun50i_h6_quirks = {
+--- a/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h
++++ b/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h
+@@ -179,7 +179,6 @@ struct sun8i_dw_hdmi_quirks {
+ 	enum drm_mode_status (*mode_valid)(struct dw_hdmi *hdmi, void *data,
+ 					   const struct drm_display_info *info,
+ 					   const struct drm_display_mode *mode);
+-	unsigned int set_rate : 1;
+ 	unsigned int use_drm_infoframe : 1;
+ };
+ 
