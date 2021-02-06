@@ -2,8 +2,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="gcc-arm-aarch64-none-elf"
-PKG_VERSION="9.2-2019.12"
-PKG_SHA256="041ca53bdd434b1a48f32161e957da1b84543c373d1881e2fd84a1579f87f243"
+PKG_VERSION="10.2-2020.11"
+PKG_SHA256="4f9f060e2ca993ec9564054e17b6fdeacb47260e983f766f84f157d00345bf29"
 PKG_LICENSE="GPL"
 PKG_SITE="https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-a"
 PKG_URL="https://developer.arm.com/-/media/Files/downloads/gnu-a/${PKG_VERSION}/binrel/gcc-arm-${PKG_VERSION}-aarch64-aarch64-none-elf.tar.xz"
