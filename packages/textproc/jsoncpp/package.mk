@@ -13,4 +13,8 @@ PKG_LONGDESC="A C++ library for interacting with JSON."
 PKG_TOOLCHAIN="cmake"
 PKG_BUILD_FLAGS="+pic"
 
-PKG_CMAKE_OPTS_TARGET="-DJSONCPP_WITH_TESTS=OFF -DJSONCPP_WITH_EXAMPLE=OFF"
+PKG_CMAKE_OPTS_TARGET="-DJSONCPP_WITH_TESTS=OFF \
+                       -DJSONCPP_WITH_EXAMPLE=OFF \
+                       -DBUILD_SHARED_LIBS=OFF \
+                       -DBUILD_STATIC_LIBS=ON \
+                       -DBUILD_OBJECT_LIBS=OFF"
