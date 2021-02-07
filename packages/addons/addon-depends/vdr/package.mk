@@ -27,7 +27,7 @@ pre_make_target() {
   PREFIX = /usr
   VIDEODIR = /storage/videos
   CONFDIR = /storage/.config/vdr
-  LOCDIR = /usr/share/locale
+  LOCDIR = ./locale
   LIBS += -liconv
   NO_KBD=yes
   VDR_USER=root
@@ -36,5 +36,6 @@ EOF
 
 make_target() {
   make vdr vdr.pc
+  make LOCDIR=./dummylocale install-i18n
   make include-dir
 }

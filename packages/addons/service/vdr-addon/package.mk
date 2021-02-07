@@ -5,7 +5,7 @@
 
 PKG_NAME="vdr-addon"
 PKG_VERSION="2.4.6"
-PKG_REV="114"
+PKG_REV="115"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://libreelec.tv"
@@ -25,7 +25,7 @@ PKG_ADDON_REQUIRES="pvr.vdr.vnsi:0.0.0 script.config.vdr:0.0.0"
 
 addon() {
   # create dirs
-  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/{bin,lib,plugin}
+  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/{bin,lib,plugin,locale}
   mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/config/epgsources
   mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/config/plugins/{eepg,epgfixer,epgsearch,streamdev-server,vnsiserver}
   mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/res/plugins/{live,restfulapi}
@@ -53,13 +53,22 @@ addon() {
     cp -PR $(get_build_dir vdr-plugin-${pkg})/libvdr*.so.* ${ADDON_BUILD}/${PKG_ADDON_ID}/plugin
   done
 
+  # copy locale (omit ddci, dummydevice, robotv)
+  for pkg in dvbapi eepg epgfixer epgsearch iptv live restfulapi satip vnsiserver wirbelscan wirbelscancontrol xmltv2vdr; do
+    cp -PR $(get_build_dir vdr-plugin-${pkg})/locale/* ${ADDON_BUILD}/${PKG_ADDON_ID}/locale
+  done
+
   cp -P $(get_build_dir vdr-plugin-streamdev)/client/libvdr*.so.* \
         $(get_build_dir vdr-plugin-streamdev)/server/libvdr*.so.* \
         ${ADDON_BUILD}/${PKG_ADDON_ID}/plugin
+  cp -PR $(get_build_dir vdr-plugin-streamdev)/client/locale/* \
+        $(get_build_dir vdr-plugin-streamdev)/server/locale/* \
+        ${ADDON_BUILD}/${PKG_ADDON_ID}/locale
 
   cp -PL $(get_install_dir tntnet)/usr/lib/libtntnet.so.12 ${ADDON_BUILD}/${PKG_ADDON_ID}/lib
 
   cp -P $(get_build_dir vdr)/vdr ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/vdr.bin
+  cp -PR $(get_build_dir vdr)/locale/* ${ADDON_BUILD}/${PKG_ADDON_ID}/locale
 
   cp -P $(get_build_dir vdr-plugin-xmltv2vdr)/dist/epgdata2xmltv/epgdata2xmltv ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 }

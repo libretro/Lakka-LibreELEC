@@ -9,9 +9,14 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/mdre77/vdr-plugin-vnsiserver"
 PKG_URL="https://github.com/mdre77/vdr-plugin-vnsiserver/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain vdr"
-PKG_NEED_UNPACK="$(get_pkg_directory vdr)"
+PKG_NEED_UNPACK="$(get_pkg_directory vdr) $(get_pkg_directory vdr-plugin-wirbelscan)"
 PKG_LONGDESC="VDR plugin to handle Kodi clients."
 PKG_TOOLCHAIN="manual"
+
+pre_build_target() {
+  WIRBELSCAN_DIR=$(get_build_dir vdr-plugin-wirbelscan)
+  ln -sf ${WIRBELSCAN_DIR}/wirbelscan_services.h $PKG_BUILD
+}
 
 make_target() {
   VDR_DIR=$(get_build_dir vdr)

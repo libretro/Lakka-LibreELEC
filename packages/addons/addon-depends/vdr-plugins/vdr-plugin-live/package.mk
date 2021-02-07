@@ -26,7 +26,8 @@ make_target() {
 
   make VDRDIR=${VDR_DIR} \
     LIBDIR="." \
-    LOCALEDIR="./locale"
+    LOCALEDIR="./locale" \
+    all install-i18n
 
   cp --remove-destination ${PKG_BUILD}/${LIB_NAME}.so ${PKG_BUILD}/${LIB_NAME}.so.${VDR_APIVERSION}
 }
