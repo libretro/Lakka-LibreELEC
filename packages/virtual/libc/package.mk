@@ -12,7 +12,7 @@ PKG_DEPENDS_INIT="toolchain glibc:init"
 PKG_SECTION="virtual"
 PKG_LONGDESC="Meta package for installing various tools and libs needed for libc"
 
-if [ "${TARGET_ARCH}" = "arm" ]; then
+if [ "${ARM_MEM_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" arm-mem"
   PKG_DEPENDS_INIT+=" arm-mem:init"
 fi
