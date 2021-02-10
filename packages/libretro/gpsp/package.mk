@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="gpsp"
-PKG_VERSION="856af16"
+PKG_VERSION="6254bbb"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
@@ -35,7 +35,11 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-    make CC=$CC platform=unix
+  if [ "$ARCH" == "arm" ]; then
+    make CC=$CC platform=armv
+  else
+    make CC=$CC
+  fi  
 }
 
 makeinstall_target() {
