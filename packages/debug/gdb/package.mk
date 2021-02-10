@@ -19,7 +19,7 @@ PKG_CONFIGURE_OPTS_TARGET="bash_cv_have_mbstate_t=set \
                            --disable-nls \
                            --disable-sim \
                            --without-x \
-                           --disable-tui \
+                           --enable-tui \
                            --disable-libada \
                            --without-lzma \
                            --disable-libquadmath \
