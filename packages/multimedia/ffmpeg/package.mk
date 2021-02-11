@@ -33,7 +33,7 @@ if [ "${V4L2_SUPPORT}" = "yes" ]; then
   PKG_NEED_UNPACK+=" $(get_pkg_directory libdrm)"
   PKG_FFMPEG_V4L2="--enable-v4l2_m2m --enable-libdrm"
 
-  if [ "${PROJECT}" = "Allwinner" -o "${PROJECT}" = "Rockchip" ]; then
+  if [ "${PROJECT}" = "Allwinner" -o "${PROJECT}" = "Rockchip" -o "${DEVICE}" = "iMX8" ]; then
     PKG_V4L2_REQUEST="yes"
   elif [ "${PROJECT}" = "RPi" -a "${DEVICE}" = "RPi4" ]; then
     PKG_V4L2_REQUEST="yes"
