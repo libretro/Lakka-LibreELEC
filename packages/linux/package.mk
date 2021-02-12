@@ -190,7 +190,7 @@ make_target() {
     KERNEL_TARGET="${KERNEL_TARGET/uImage/Image}"
   fi
 
-  kernel_make DTC_FLAGS=-@ ${KERNEL_TARGET} ${KERNEL_MAKE_EXTRACMD} modules
+  DTC_FLAGS=-@ kernel_make ${KERNEL_TARGET} ${KERNEL_MAKE_EXTRACMD} modules
 
   if [ "${PKG_BUILD_PERF}" = "yes" ]; then
     ( cd tools/perf
