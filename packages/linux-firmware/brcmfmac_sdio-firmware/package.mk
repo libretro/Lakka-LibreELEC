@@ -11,8 +11,6 @@ PKG_LONGDESC="Broadcom SDIO firmware used with LibreELEC"
 PKG_TOOLCHAIN="manual"
 
 post_makeinstall_target() {
-  acquire_exclusive_lock "${PKG_NAME:install}" "exclusive-install" "firmware-install"
-
   FW_TARGET_DIR=$INSTALL/$(get_full_firmware_dir)
 
   if find_file_path firmwares/$PKG_NAME.dat; then
@@ -43,8 +41,6 @@ post_makeinstall_target() {
 
   mkdir -p $INSTALL/usr/bin
     cp $PKG_DIR/scripts/brcmfmac-firmware-setup $INSTALL/usr/bin
-
-  release_exclusive_lock "${PKG_NAME:install}" "exclusive-install" "firmware-install"
 }
 
 post_install() {

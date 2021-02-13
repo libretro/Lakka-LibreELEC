@@ -5,7 +5,7 @@
 PKG_NAME="linux"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kernel.org"
-PKG_DEPENDS_HOST="ccache:host openssl:host"
+PKG_DEPENDS_HOST="ccache:host rsync:host openssl:host"
 PKG_DEPENDS_TARGET="toolchain linux:host kmod:host xz:host wireless-regdb keyutils $KERNEL_EXTRA_DEPENDS_TARGET"
 PKG_DEPENDS_INIT="toolchain"
 PKG_NEED_UNPACK="$LINUX_DEPENDS $(get_pkg_directory busybox)"
@@ -28,25 +28,24 @@ case "$LINUX" in
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     ;;
   raspberrypi)
-    PKG_VERSION="cc39f1c9f82f6fe5a437836811d906c709e0661c" # 4.19.127
-    PKG_SHA256="3a66daa41e7ed240f853542a63b542d4d7eff65c4fac2825b135bf5711ffa913"
-    PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
-    PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
-    ;;
-  rpi-5.4)
     PKG_VERSION="edc21a35b9b7b427716564c3b744ed2a89fcd19a" # 5.4.71
     PKG_SHA256="bce0429841ef280d5ae991a261954f90ad6de35a091b59714f1535c8d1f3334e"
     PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     PKG_PATCH_DIRS="rpi"
     ;;
+  odroidxu4-4.14)
+    PKG_VERSION="864c4519b77763274b61a035b33bc92f71084b59"
+    PKG_SHA256="4cbafde263437b5c9ab5c4a2496866eb19922fb4c80cf5c6ef3c8b65cf1936be"
+    PKG_URL="https://github.com/hardkernel/linux/archive/$PKG_VERSION.tar.gz"
+    ;;
   odroidxu3-5.4)
     PKG_VERSION="5e12d570f207e48f321029b15026ae7c4ab21217"
     PKG_URL="https://github.com/hardkernel/linux/archive/$PKG_VERSION.tar.gz"
     ;;
-    mainline-5.9)
-    PKG_VERSION="5.9.14"
-    PKG_SHA256="39fcfb41dcdf71b6b42b88eff3d8cedbe7523830ccae847f3914c0b97e1e6b49"
+  mainline-5.10)
+    PKG_VERSION="5.10.12"
+    PKG_SHA256="1d454f2817ab4f34cf313ea680ab75e20f79c6431b3bd3ea3bcd39353030c4aa"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v5.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     PKG_PATCH_DIRS="default"
     ;;
@@ -163,11 +162,11 @@ pre_make_target() {
   if [ "$TARGET_ARCH" = "x86_64" -o "$TARGET_ARCH" = "i386" ]; then
     # copy some extra firmware to linux tree
     mkdir -p $PKG_BUILD/external-firmware
-      cp -a $(get_build_dir kernel-firmware)/{amdgpu,amd-ucode,i915,nvidia,radeon,e100,rtl_nic} $PKG_BUILD/external-firmware
+      cp -a $(get_build_dir kernel-firmware)/.copied-firmware/{amdgpu,amd-ucode,i915,nvidia,radeon,e100,rtl_nic} $PKG_BUILD/external-firmware
       cp -a $(get_build_dir intel-ucode)/intel-ucode $PKG_BUILD/external-firmware
   elif [ "$TARGET_ARCH" = "arm" -a "$DEVICE" = "iMX6" ]; then
       mkdir -p $PKG_BUILD/external-firmware
-        cp -a $(get_build_dir kernel-firmware)/imx $PKG_BUILD/external-firmware
+        cp -a $(get_build_dir kernel-firmware)/.copied-firmware/imx $PKG_BUILD/external-firmware
   fi
 
   if [ -d $PKG_BUILD/external-firmware/ ]; then

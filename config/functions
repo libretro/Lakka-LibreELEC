@@ -699,6 +699,11 @@ do_autoreconf() {
   fi
 }
 
+# True if this is a sequential build, false if multithreaded
+is_sequential_build() {
+  [ "${MTWITHLOCKS}" != "yes" ] && return 0 || return 1
+}
+
 
 ### PACKAGE HELPERS ###
 # get variable ($2) for package ($1).
@@ -1255,7 +1260,14 @@ enable_service() {
 
 
 ### MULTI-THREADED FUNCTION HELPERS ###
-# Test MTWITHLOCKS so that these functions are a no-op during non-multithreaded builds.
+# flocks: 94 (pkg_lock_status)
+#         95 (scripts/pkgbuild)
+#         96 (acquire_exclusive_lock)
+#         97 (acquire_update_lock)
+#         98 (pkg_lock)
+#         99 (scripts/get)
+
+# Test build type so that these functions are a no-op during non-multithreaded builds.
 
 # Prevent concurrent modifications to a package (unpack) or
 # package:target (install/build).
@@ -1263,7 +1275,7 @@ enable_service() {
 # If a package is already locked and the owner is ourselves
 # then assume we already have the required lock.
 pkg_lock() {
-  [ "${MTWITHLOCKS}" != "yes" ] && return 0
+  is_sequential_build && return 0
 
   local pkg="$1" task="$2" parent_pkg="$3"
   local this_job="${MTJOBID}"
@@ -1304,7 +1316,7 @@ EOF
 
 # Log additional information for a locked package.
 pkg_lock_status() {
-  [ "${MTWITHLOCKS}" != "yes" ] && return 0
+  is_sequential_build && return 0
 
   local status="$1" pkg="$2" task="$3" msg="$4"
   local this_job="${MTJOBID}" line idwidth
@@ -1337,7 +1349,7 @@ pkg_lock_status() {
 }
 
 update_dashboard() {
-  [ "${MTWITHLOCKS}" != "yes" ] && return 0
+  is_sequential_build && return 0
 
   local status="$1" pkg="$2" task="$3" msg="$4"
   local line sedline preamble num elapsed projdevarch
@@ -1387,7 +1399,7 @@ update_dashboard() {
 # Thread concurrency helpers to avoid concurrency issues with some code,
 # eg. when Python installs directly into $TOOLCHAIN.
 acquire_exclusive_lock() {
-  [ "${MTWITHLOCKS}" != "yes" ] && return 0
+  is_sequential_build && return 0
 
   local pkg="$1" task="$2" lockfile="${3:-global}"
   local this_job="${MTJOBID}"
@@ -1412,7 +1424,7 @@ acquire_exclusive_lock() {
 }
 
 release_exclusive_lock() {
-  [ "${MTWITHLOCKS}" != "yes" ] && return 0
+  is_sequential_build && return 0
 
   local pkg="$1" task="$2" lockfile="${3:-global}"
 
@@ -1430,6 +1442,20 @@ exec_thread_safe() {
   result=$?
   release_exclusive_lock "${PKG_NAME:exec}" "execcmd"
   return ${result}
+}
+
+# A lightweight target specific lock (eg. image, sysroot)
+acquire_update_lock() {
+  is_sequential_build && return 0
+
+  exec 97>"${THREAD_CONTROL}/locks/.update.${1}"
+  flock --exclusive 97
+}
+
+release_update_lock() {
+  is_sequential_build && return 0
+
+  flock --unlock 97 2>/dev/null
 }
 
 # Use distribution functions if any

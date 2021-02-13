@@ -3,12 +3,12 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="llvm"
-PKG_VERSION="11.0.0"
-PKG_SHA256="913f68c898dfb4a03b397c5e11c6a2f39d0f22ed7665c9cefa87a34423a72469"
+PKG_VERSION="11.0.1"
+PKG_SHA256="ccd87c254b6aebc5077e4e6977d08d4be888e7eb672c6630a26a15d58b59b528"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="Apache-2.0"
 PKG_SITE="http://llvm.org/"
-PKG_URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-11.0.0/llvm-${PKG_VERSION}.src.tar.xz"
+PKG_URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-11.0.1/llvm-${PKG_VERSION}.src.tar.xz"
 PKG_DEPENDS_HOST="toolchain:host"
 PKG_DEPENDS_TARGET="toolchain llvm:host zlib"
 PKG_LONGDESC="Low-Level Virtual Machine (LLVM) is a compiler infrastructure."

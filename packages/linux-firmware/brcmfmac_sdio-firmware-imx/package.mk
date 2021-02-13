@@ -11,13 +11,9 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Firmware for brcm bluetooth chips used in some Freescale iMX based devices."
 
 makeinstall_target() {
-  acquire_exclusive_lock "${PKG_NAME:install}" "exclusive-install" "firmware-install"
-
   mkdir -p $INSTALL/usr/bin
     cp -av brcm_patchram_plus $INSTALL/usr/bin/
 
   mkdir -p $INSTALL/$(get_kernel_overlay_dir)/lib/firmware/
     cp -av firmware/brcm $INSTALL/$(get_kernel_overlay_dir)/lib/firmware/
-
-  release_exclusive_lock "${PKG_NAME:install}" "exclusive-install" "firmware-install"
 }

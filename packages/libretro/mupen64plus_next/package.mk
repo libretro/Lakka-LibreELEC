@@ -45,16 +45,21 @@ if [ "$OPENGLES_SUPPORT" = yes ]; then
 fi
 
 make_target() {
+  if [ "$OPENGLES" = "libmali" ]; then
+    CXXFLAGS+=" -DGL_USE_DLSYM"
+    LDFLAGS+=" -ldl"
+  fi
+
   case ${DEVICE:-$PROJECT} in
     RPi|Gamegirl)
       CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads \
-	              -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
-      make platform=rpi GLES=1 FORCE_GLES=1 WITH_DYNAREC=arm
+                      -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
+      make platform=rpi_mesa GLES=1 FORCE_GLES=1 WITH_DYNAREC=arm
       ;;
     RPi2)
       CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads \
                       -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
-      make platform=rpi2 GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
+      make platform=rpi2_mesa GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
       ;;
     RPi4)
       make platform=rpi4 GLES3=1 FORCE_GLES3=1

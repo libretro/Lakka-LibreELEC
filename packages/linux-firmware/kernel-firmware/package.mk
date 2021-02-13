@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="kernel-firmware"
-PKG_VERSION="20201118"
-PKG_SHA256="3b9023af5c82fee480482c118b4d0d532e2eda317e900359c2848d99566c665d"
+PKG_VERSION="20201218"
+PKG_SHA256="d60a418260bc083df8c7d3359aa207b48181ec8354b6c8545cac28ff19ce8950"
 PKG_LICENSE="other"
 PKG_SITE="https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/"
 PKG_URL="https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/snapshot/$PKG_VERSION.tar.gz"
@@ -11,10 +11,20 @@ PKG_NEED_UNPACK="${PROJECT_DIR}/${PROJECT}/packages/${PKG_NAME} ${PROJECT_DIR}/$
 PKG_LONGDESC="kernel-firmware: kernel related firmware"
 PKG_TOOLCHAIN="manual"
 
+configure_package() {
+  PKG_FW_SOURCE=${PKG_BUILD}/.copied-firmware
+}
+
+post_patch() {
+  (
+    cd ${PKG_BUILD}
+    mkdir -p "${PKG_FW_SOURCE}"
+      ./copy-firmware.sh --verbose "${PKG_FW_SOURCE}"
+  )
+}
+
 # Install additional miscellaneous drivers
 makeinstall_target() {
-  acquire_exclusive_lock "${PKG_NAME:install}" "exclusive-install" "firmware-install"
-
   FW_TARGET_DIR=$INSTALL/$(get_full_firmware_dir)
 
   if find_file_path config/kernel-firmware.dat; then
@@ -35,17 +45,19 @@ makeinstall_target() {
       [[ ${fwline} =~ ^#.* ]] && continue
       [[ ${fwline} =~ ^[[:space:]] ]] && continue
 
-      while read -r fwfile; do
-        [ -d "${PKG_BUILD}/${fwfile}" ] && continue
+      eval "(cd ${PKG_FW_SOURCE} && find "${fwline}" >/dev/null)" || die "ERROR: Firmware pattern does not exist: ${fwline}"
 
-        if [ -f "${PKG_BUILD}/${fwfile}" ]; then
+      while read -r fwfile; do
+        [ -d "${PKG_FW_SOURCE}/${fwfile}" ] && continue
+
+        if [ -f "${PKG_FW_SOURCE}/${fwfile}" ]; then
           mkdir -p "$(dirname "${FW_TARGET_DIR}/${fwfile}")"
-            cp -Lv "${PKG_BUILD}/${fwfile}" "${FW_TARGET_DIR}/${fwfile}"
+            cp -Lv "${PKG_FW_SOURCE}/${fwfile}" "${FW_TARGET_DIR}/${fwfile}"
         else
           echo "ERROR: Firmware file ${fwfile} does not exist - aborting"
           exit 1
         fi
-      done <<< "$(cd ${PKG_BUILD} && eval "find "${fwline}"")"
+      done <<< "$(cd ${PKG_FW_SOURCE} && eval "find "${fwline}"")"
     done < "${fwlist}"
   done
 
@@ -64,6 +76,4 @@ makeinstall_target() {
 
   # Cleanup - which may be project or device specific
   find_file_path scripts/cleanup.sh && ${FOUND_PATH} ${FW_TARGET_DIR} || true
-
-  release_exclusive_lock "${PKG_NAME:install}" "exclusive-install" "firmware-install"
 }
