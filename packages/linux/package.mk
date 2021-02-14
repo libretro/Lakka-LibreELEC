@@ -78,48 +78,6 @@ post_patch() {
 
     # restore the required Module.symvers from an earlier build
     cp -p ${PKG_INSTALL}/.image/Module.symvers ${PKG_BUILD}
-  else
-    cp ${PKG_KERNEL_CFG_FILE} ${PKG_BUILD}/.config
-
-    sed -i -e "s|@INITRAMFS_SOURCE@|$(kernel_initramfs_confs) ${BUILD}/initramfs|" ${PKG_BUILD}/.config
-
-    # set default hostname based on ${DISTRONAME}
-      sed -i -e "s|@DISTRONAME@|${DISTRONAME}|g" ${PKG_BUILD}/.config
-
-    # disable swap support if not enabled
-    if [ ! "${SWAP_SUPPORT}" = yes ]; then
-      sed -i -e "s|^CONFIG_SWAP=.*$|# CONFIG_SWAP is not set|" ${PKG_BUILD}/.config
-    fi
-
-    # disable nfs support if not enabled
-    if [ ! "${NFS_SUPPORT}" = yes ]; then
-      sed -i -e "s|^CONFIG_NFS_FS=.*$|# CONFIG_NFS_FS is not set|" ${PKG_BUILD}/.config
-    fi
-
-    # disable cifs support if not enabled
-    if [ ! "${SAMBA_SUPPORT}" = yes ]; then
-      sed -i -e "s|^CONFIG_CIFS=.*$|# CONFIG_CIFS is not set|" ${PKG_BUILD}/.config
-    fi
-
-    # disable iscsi support if not enabled
-    if [ ! "${ISCSI_SUPPORT}" = yes ]; then
-      sed -i -e "s|^CONFIG_SCSI_ISCSI_ATTRS=.*$|# CONFIG_SCSI_ISCSI_ATTRS is not set|" ${PKG_BUILD}/.config
-      sed -i -e "s|^CONFIG_ISCSI_TCP=.*$|# CONFIG_ISCSI_TCP is not set|" ${PKG_BUILD}/.config
-      sed -i -e "s|^CONFIG_ISCSI_BOOT_SYSFS=.*$|# CONFIG_ISCSI_BOOT_SYSFS is not set|" ${PKG_BUILD}/.config
-      sed -i -e "s|^CONFIG_ISCSI_IBFT_FIND=.*$|# CONFIG_ISCSI_IBFT_FIND is not set|" ${PKG_BUILD}/.config
-      sed -i -e "s|^CONFIG_ISCSI_IBFT=.*$|# CONFIG_ISCSI_IBFT is not set|" ${PKG_BUILD}/.config
-    fi
-
-    # disable lima/panfrost if libmali is configured
-    if [ "${OPENGLES}" = "libmali" ]; then
-      sed -e "s|^CONFIG_DRM_LIMA=.*$|# CONFIG_DRM_LIMA is not set|" -i ${PKG_BUILD}/.config
-      sed -e "s|^CONFIG_DRM_PANFROST=.*$|# CONFIG_DRM_PANFROST is not set|" -i ${PKG_BUILD}/.config
-    fi
-
-    # disable wireguard support if not enabled
-    if [ ! "${WIREGUARD_SUPPORT}" = yes ]; then
-      sed -e "s|^CONFIG_WIREGUARD=.*$|# CONFIG_WIREGUARD is not set|" -i ${PKG_BUILD}/.config
-    fi
   fi
 }
 
@@ -156,6 +114,49 @@ pre_make_target() {
   )
   pkg_lock_status "ACTIVE" "linux:target" "build"
 
+  cp ${PKG_KERNEL_CFG_FILE} ${PKG_BUILD}/.config
+
+  # set initramfs source
+  ${PKG_BUILD}/scripts/config --set-str CONFIG_INITRAMFS_SOURCE "$(kernel_initramfs_confs) ${BUILD}/initramfs"
+
+  # set default hostname based on ${DISTRONAME}
+  ${PKG_BUILD}/scripts/config --set-str CONFIG_DEFAULT_HOSTNAME "${DISTRONAME}"
+
+  # disable swap support if not enabled
+  if [ ! "${SWAP_SUPPORT}" = yes ]; then
+    ${PKG_BUILD}/scripts/config --disable CONFIG_SWAP
+  fi
+
+  # disable nfs support if not enabled
+  if [ ! "${NFS_SUPPORT}" = yes ]; then
+    ${PKG_BUILD}/scripts/config --disable CONFIG_NFS_FS
+  fi
+
+  # disable cifs support if not enabled
+  if [ ! "${SAMBA_SUPPORT}" = yes ]; then
+    ${PKG_BUILD}/scripts/config --disable CONFIG_CIFS
+  fi
+
+  # disable iscsi support if not enabled
+  if [ ! "${ISCSI_SUPPORT}" = yes ]; then
+    ${PKG_BUILD}/scripts/config --disable CONFIG_SCSI_ISCSI_ATTRS
+    ${PKG_BUILD}/scripts/config --disable CONFIG_ISCSI_TCP
+    ${PKG_BUILD}/scripts/config --disable CONFIG_ISCSI_BOOT_SYSFS
+    ${PKG_BUILD}/scripts/config --disable CONFIG_ISCSI_IBFT_FIND
+    ${PKG_BUILD}/scripts/config --disable CONFIG_ISCSI_IBFT
+  fi
+
+  # disable lima/panfrost if libmali is configured
+  if [ "${OPENGLES}" = "libmali" ]; then
+    ${PKG_BUILD}/scripts/config --disable CONFIG_DRM_LIMA
+    ${PKG_BUILD}/scripts/config --disable CONFIG_DRM_PANFROST
+  fi
+
+  # disable wireguard support if not enabled
+  if [ ! "${WIREGUARD_SUPPORT}" = yes ]; then
+    ${PKG_BUILD}/scripts/config --disable CONFIG_WIREGUARD
+  fi
+
   if [ "${TARGET_ARCH}" = "x86_64" ]; then
     # copy some extra firmware to linux tree
     mkdir -p ${PKG_BUILD}/external-firmware
@@ -164,7 +165,9 @@ pre_make_target() {
     cp -a $(get_build_dir intel-ucode)/intel-ucode ${PKG_BUILD}/external-firmware
 
     FW_LIST="$(find ${PKG_BUILD}/external-firmware \( -type f -o -type l \) \( -iname '*.bin' -o -iname '*.fw' -o -path '*/intel-ucode/*' \) | sed 's|.*external-firmware/||' | sort | xargs)"
-    sed -i "s|CONFIG_EXTRA_FIRMWARE=.*|CONFIG_EXTRA_FIRMWARE=\"${FW_LIST}\"|" ${PKG_BUILD}/.config
+
+    ${PKG_BUILD}/scripts/config --set-str CONFIG_EXTRA_FIRMWARE "${FW_LIST}"
+    ${PKG_BUILD}/scripts/config --set-str CONFIG_EXTRA_FIRMWARE_DIR "external-firmware"
 
   elif [ "${TARGET_ARCH}" = "arm" -a "${DEVICE}" = "iMX6" ]; then
     mkdir -p ${PKG_BUILD}/external-firmware/imx/sdma
@@ -172,8 +175,9 @@ pre_make_target() {
       cp -a $(get_build_dir firmware-imx)/firmware/vpu/*imx6*.bin ${PKG_BUILD}/external-firmware
 
     FW_LIST="$(find ${PKG_BUILD}/external-firmware -type f | sed 's|.*external-firmware/||' | sort | xargs)"
-    sed -i -e "s|^CONFIG_EXTRA_FIRMWARE=.*$|CONFIG_EXTRA_FIRMWARE=\"${FW_LIST}\"|" ${PKG_BUILD}/.config
-    sed -i -e "/CONFIG_EXTRA_FIRMWARE_DIR/d" -e "/CONFIG_EXTRA_FIRMWARE=.../a CONFIG_EXTRA_FIRMWARE_DIR=\"external-firmware\"" ${PKG_BUILD}/.config
+
+    ${PKG_BUILD}/scripts/config --set-str CONFIG_EXTRA_FIRMWARE "${FW_LIST}"
+    ${PKG_BUILD}/scripts/config --set-str CONFIG_EXTRA_FIRMWARE_DIR "external-firmware"
   fi
 
   kernel_make oldconfig
