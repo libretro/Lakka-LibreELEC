@@ -7,22 +7,12 @@ PKG_SHA256="8ac17e4e3b32c1af3d5508acfffb838640669b4274606b7892aa796ca9d7467f"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.openal.org/"
 PKG_URL="https://github.com/kcat/openal-soft/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_HOST="toolchain:host"
-PKG_DEPENDS_TARGET="toolchain openal-soft:host alsa-lib"
-PKG_LONGDESC="OpenAL the Open Audio Library"
+PKG_DEPENDS_TARGET="toolchain alsa-lib"
+PKG_LONGDESC="OpenAL Soft is a software implementation of the OpenAL 3D audio API."
 
-configure_package() {
-  PKG_CMAKE_OPTS_HOST="-DALSOFT_BACKEND_OSS=off \
+PKG_CMAKE_OPTS_TARGET="-DALSOFT_BACKEND_OSS=off \
+                       -DALSOFT_BACKEND_PULSEAUDIO=off \
                        -DALSOFT_BACKEND_WAVE=off \
                        -DALSOFT_EXAMPLES=off \
-                       -DALSOFT_TESTS=off \
                        -DALSOFT_UTILS=off"
 
-  PKG_CMAKE_OPTS_TARGET="-DALSOFT_NATIVE_TOOLS_PATH=${PKG_BUILD}/.${HOST_NAME}/native-tools/ \
-                         -DALSOFT_BACKEND_OSS=off \
-                         -DALSOFT_BACKEND_WAVE=off \
-                         -DALSOFT_BACKEND_PULSEAUDIO=off \
-                         -DALSOFT_EXAMPLES=off \
-                         -DALSOFT_TESTS=off \
-                         -DALSOFT_UTILS=off"
-}
