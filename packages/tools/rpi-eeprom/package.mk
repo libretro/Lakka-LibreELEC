@@ -2,13 +2,13 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="rpi-eeprom"
-PKG_VERSION="b9c255df582b2c33a9af58d1973e83b3e8998f8f"
-PKG_SHA256="04beaf3a5ef86641a04bcd0c3f92a81d7cd5057ae2b756c026bc4a9a6fc193d5"
+PKG_VERSION="3129546271da09dde04da5c9715db909b8e1e417"
+PKG_SHA256="8ae34dd286d777484e670284883c91831ca8bdd15cc90a069009fdf1016de40b"
 PKG_ARCH="arm"
 PKG_LICENSE="BSD-3/custom"
 PKG_SITE="https://github.com/raspberrypi/rpi-eeprom"
 PKG_URL="https://github.com/raspberrypi/rpi-eeprom/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="flashrom"
+PKG_DEPENDS_TARGET="pciutils"
 PKG_LONGDESC="rpi-eeprom: firmware, config and scripts to update RPi4 SPI bootloader"
 PKG_TOOLCHAIN="manual"
 
@@ -45,7 +45,6 @@ makeinstall_target() {
     cp -PRv ${PKG_DIR}/source/rpi-eeprom-update ${INSTALL}/usr/bin
     cp -PRv ${PKG_BUILD}/rpi-eeprom-update ${INSTALL}/usr/bin/.rpi-eeprom-update.real
     cp -PRv ${PKG_BUILD}/rpi-eeprom-config ${INSTALL}/usr/bin
-    cp -PRv ${PKG_BUILD}/firmware/vl805 ${INSTALL}/usr/bin
 
   mkdir -p ${INSTALL}/etc/default
     cp -PRv ${PKG_DIR}/config/* ${INSTALL}/etc/default
