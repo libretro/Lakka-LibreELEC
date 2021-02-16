@@ -47232,7 +47232,7 @@ index 8dbc7fc104..46ca85ce65 100644
   * Extracts the data from an AVFrame to a V4L2Buffer
   *
 diff --git a/libavcodec/v4l2_context.c b/libavcodec/v4l2_context.c
-index 29b144ed73..97956eeb2b 100644
+index 29b144ed73..a8590d0ea1 100644
 --- a/libavcodec/v4l2_context.c
 +++ b/libavcodec/v4l2_context.c
 @@ -173,7 +173,8 @@ static int v4l2_handle_event(V4L2Context *ctx)
@@ -47245,6 +47245,24 @@ index 29b144ed73..97956eeb2b 100644
          return 0;
      }
  
+@@ -196,15 +197,15 @@ static int v4l2_handle_event(V4L2Context *ctx)
+     if (full_reinit) {
+         s->output.height = v4l2_get_height(&out_fmt);
+         s->output.width = v4l2_get_width(&out_fmt);
+-        s->output.sample_aspect_ratio = v4l2_get_sar(&s->output);
+     }
++    s->output.sample_aspect_ratio = v4l2_get_sar(&s->output);
+ 
+     reinit = v4l2_resolution_changed(&s->capture, &cap_fmt);
+     if (reinit) {
+         s->capture.height = v4l2_get_height(&cap_fmt);
+         s->capture.width = v4l2_get_width(&cap_fmt);
+-        s->capture.sample_aspect_ratio = v4l2_get_sar(&s->capture);
+     }
++    s->capture.sample_aspect_ratio = v4l2_get_sar(&s->capture);
+ 
+     if (full_reinit || reinit)
+         s->reinit = 1;
 @@ -280,6 +281,21 @@ static int v4l2_stop_encode(V4L2Context *ctx)
      return 0;
  }
@@ -50089,10 +50107,10 @@ index 0000000000..d6332c01c7
 +};
 diff --git a/libavcodec/v4l2_request_hevc.c b/libavcodec/v4l2_request_hevc.c
 new file mode 100644
-index 0000000000..1c675d6dee
+index 0000000000..2e21145328
 --- /dev/null
 +++ b/libavcodec/v4l2_request_hevc.c
-@@ -0,0 +1,652 @@
+@@ -0,0 +1,675 @@
 +/*
 + * This file is part of FFmpeg.
 + *
@@ -50226,6 +50244,24 @@ index 0000000000..1c675d6dee
 +    return 0;
 +}
 +
++static const uint8_t * ptr_from_index(const uint8_t * b, unsigned int idx)
++{
++    unsigned int z = 0;
++    while (idx--) {
++        if (*b++ == 0) {
++            ++z;
++            if (z >= 2 && *b == 3) {
++                ++b;
++                z = 0;
++            }
++        }
++        else {
++            z = 0;
++        }
++    }
++    return b;
++}
++
 +static void v4l2_request_hevc_fill_slice_params(const HEVCContext *h,
 +                                                struct v4l2_ctrl_hevc_slice_params *slice_params)
 +{
@@ -50235,8 +50271,8 @@ index 0000000000..1c675d6dee
 +    RefPicList *rpl;
 +
 +    *slice_params = (struct v4l2_ctrl_hevc_slice_params) {
-+        .bit_size = 0,
-+        .data_bit_offset = get_bits_count(&h->HEVClc->gb),
++        .bit_size = 0, // Set later
++        .data_bit_offset = 0, // Set later
 +
 +        /* ISO/IEC 23008-2, ITU-T Rec. H.265: General slice segment header */
 +        .slice_segment_addr = sh->slice_segment_addr,
@@ -50564,6 +50600,8 @@ index 0000000000..1c675d6dee
 +    V4L2RequestContextHEVC *ctx = avctx->internal->hwaccel_priv_data;
 +    V4L2RequestDescriptor *req = (V4L2RequestDescriptor*)h->ref->frame->data[0];
 +    int ret, slice = FFMIN(controls->num_slices, MAX_SLICES - 1);
++    int bcount = get_bits_count(&h->HEVClc->gb);
++    uint32_t boff = (ptr_from_index(buffer, bcount/8 + 1) - (buffer + bcount/8 + 1)) * 8 + bcount;
 +
 +    if (ctx->decode_mode == V4L2_MPEG_VIDEO_HEVC_DECODE_MODE_SLICE_BASED && slice) {
 +        ret = v4l2_request_hevc_queue_decode(avctx, 0);
@@ -50578,16 +50616,19 @@ index 0000000000..1c675d6dee
 +    v4l2_request_hevc_fill_slice_params(h, &controls->slice_params[slice]);
 +
 +    if (ctx->start_code == V4L2_MPEG_VIDEO_HEVC_START_CODE_ANNEX_B) {
++        // ?? Do we really not need the nal type ??
 +        ret = ff_v4l2_request_append_output_buffer(avctx, h->ref->frame, nalu_slice_start_code, 3);
 +        if (ret)
 +            return ret;
 +    }
++    boff += req->output.used * 8;
 +
 +    ret = ff_v4l2_request_append_output_buffer(avctx, h->ref->frame, buffer, size);
 +    if (ret)
 +        return ret;
 +
 +    controls->slice_params[slice].bit_size = req->output.used * 8; //FIXME
++    controls->slice_params[slice].data_bit_offset = boff; //FIXME
 +    controls->num_slices++;
 +    return 0;
 +}
@@ -54715,10 +54756,10 @@ index 5613813ba8..ab8bcfcf34 100644
 +
 diff --git a/libavutil/aarch64/rpi_sand_neon.S b/libavutil/aarch64/rpi_sand_neon.S
 new file mode 100644
-index 0000000000..1981e7d46f
+index 0000000000..5922d6eaf5
 --- /dev/null
 +++ b/libavutil/aarch64/rpi_sand_neon.S
-@@ -0,0 +1,498 @@
+@@ -0,0 +1,681 @@
 +/*
 +Copyright (c) 2021 Michael Eiler
 +
@@ -55156,7 +55197,7 @@ index 0000000000..1981e7d46f
 +integer_loop_y16:
 +    cmp w12, w10
 +    bge integer_loop_y16_fin
-+    ldr w14, [x2], #4
++    ldr w14, [x13], #4
 +    and w15, w14, #0x3ff
 +    strh w15, [x0], #2
 +    lsr w14, w14, #10
@@ -55171,7 +55212,7 @@ index 0000000000..1981e7d46f
 +
 +final_values_y16:
 +    // remaining point count = w11
-+    ldr w14, [x2], #4
++    ldr w14, [x13], #4
 +    cmp w11, #0
 +    beq final_values_y16_fin
 +    and w15, w14, #0x3ff
@@ -55193,17 +55234,201 @@ index 0000000000..1981e7d46f
 +endfunc
 +
 +//void ff_rpi_sand30_lines_to_planar_c16(
-+//  uint8_t * dst_u,
-+//  unsigned int dst_stride_u,
-+//  uint8_t * dst_v,
-+//  unsigned int dst_stride_v,
-+//  const uint8_t * src,
-+//  unsigned int stride1,
-+//  unsigned int stride2,
-+//  unsigned int _x,
-+//  unsigned int y,
-+//  unsigned int _w,
-+//  unsigned int h);
++//  uint8_t * dst_u,            // [x0]
++//  unsigned int dst_stride_u,  // [w1] == _w*2
++//  uint8_t * dst_v,            // [x2]
++//  unsigned int dst_stride_v,  // [w3] == _w*2
++//  const uint8_t * src,        // [x4]
++//  unsigned int stride1,       // [w5] == 128
++//  unsigned int stride2,       // [w6] 
++//  unsigned int _x,            // [w7] == 0
++//  unsigned int y,             // [sp, #0] == 0
++//  unsigned int _w,            // [sp, #8] -> w3
++//  unsigned int h);            // [sp, #16] -> w7
++
++.macro rpi_sand30_lines_to_planar_c16_block_half
++    ld1 { v0.4s,  v1.4s, v2.4s, v3.4s }, [x13], #64
++
++    xtn v4.4h, v0.4s
++    ushr v0.4s, v0.4s, #10
++    xtn v5.4h, v0.4s
++    ushr v0.4s, v0.4s, #10
++    xtn v6.4h, v0.4s
++    xtn2 v4.8h, v1.4s
++    ushr v1.4s, v1.4s, #10
++    xtn2 v5.8h, v1.4s
++    ushr v1.4s, v1.4s, #10
++    xtn2 v6.8h, v1.4s
++    and v4.16b, v4.16b, v16.16b
++    and v5.16b, v5.16b, v16.16b
++    and v6.16b, v6.16b, v16.16b
++    st3 { v4.8h, v5.8h, v6.8h }, [sp], #48
++    
++    xtn v4.4h, v2.4s
++    ushr v2.4s, v2.4s, #10
++    xtn v5.4h, v2.4s
++    ushr v2.4s, v2.4s, #10
++    xtn v6.4h, v2.4s
++    xtn2 v4.8h, v3.4s
++    ushr v3.4s, v3.4s, #10
++    xtn2 v5.8h, v3.4s
++    ushr v3.4s, v3.4s, #10
++    xtn2 v6.8h, v3.4s
++    and v4.16b, v4.16b, v16.16b
++    and v5.16b, v5.16b, v16.16b
++    and v6.16b, v6.16b, v16.16b
++    st3 { v4.8h, v5.8h, v6.8h }, [sp]
++    sub sp, sp, #48
++.endm
++
++function ff_rpi_sand30_lines_to_planar_c16, export=1
++    str x19, [sp, #-8]
++    str x20, [sp, #-16]
++    str x21, [sp, #-24]
++    str x22, [sp, #-32]
++    str x23, [sp, #-40]
++
++    ldr w3, [sp, #8]    // w3 = width
++    ldr w7, [sp, #16]   // w7 = height
++
++    // reserve space on the stack for intermediate results
++    sub sp, sp, #256
++
++    // number of 128byte blocks per row, w8 = width / 48
++    mov w9, #48
++    udiv w8, w3, w9
++
++    // remaining pixels (rem_pix) per row, w9 = width - w8 * 48
++    mul w9, w8, w9
++    sub w9, w3, w9
++
++    // row offset, the beginning of the next row to process
++    eor w10, w10, w10
++
++    // offset to the beginning of the next block, w11 = stride2 * 128 - 128
++    lsl w11, w6, #7
++    sub w11, w11, #128
++
++    // decrease the height by one and in case of remaining pixels increase the block count by one
++    sub w7, w7, #1
++    cmp w9, #0
++    cset w19, ne    // w19 == 1 iff reamining pixels != 0
++    add w8, w8, w19
++
++    // bytes we have to move dst back by at the end of every row
++    mov w21, #48
++    mul w21, w21, w19 
++    sub w21, w21, w9
++    lsl w21, w21, #1    // w21 = (#48 * w19 - rem_pix) * 2
++
++    mov w20, #0     // w20 = flag, last row processed
++
++    mov x12, #0x03ff03ff03ff03ff
++    dup v16.2d, x12
++
++    // iterate through rows, row counter = w12 = 0
++    eor w12, w12, w12
++row_loop_c16:
++    cmp w12, w7
++    bge row_loop_c16_fin
++
++    // address of row data = src + row_offset
++    mov x13, x4
++    add x13, x13, x10
++
++    eor w14, w14, w14
++block_loop_c16:
++    cmp w14, w8
++    bge block_loop_c16_fin
++
++    rpi_sand30_lines_to_planar_c16_block_half
++
++    ld2 { v0.8h, v1.8h }, [sp], #32
++    ld2 { v2.8h, v3.8h }, [sp], #32
++    ld2 { v4.8h, v5.8h }, [sp]
++    sub sp, sp, #64
++
++    st1 { v0.8h }, [x0], #16
++    st1 { v2.8h }, [x0], #16
++    st1 { v4.8h }, [x0], #16
++    st1 { v1.8h }, [x2], #16
++    st1 { v3.8h }, [x2], #16
++    st1 { v5.8h }, [x2], #16
++
++    rpi_sand30_lines_to_planar_c16_block_half
++
++    ld2 { v0.8h, v1.8h }, [sp], #32
++    ld2 { v2.8h, v3.8h }, [sp], #32
++    ld2 { v4.8h, v5.8h }, [sp]
++    sub sp, sp, #64
++
++    st1 { v0.8h }, [x0], #16
++    st1 { v2.8h }, [x0], #16
++    st1 { v4.8h }, [x0], #16
++    st1 { v1.8h }, [x2], #16
++    st1 { v3.8h }, [x2], #16
++    st1 { v5.8h }, [x2], #16
++
++    add x13, x13, x11 // offset to next block
++    add w14, w14, #1
++    b block_loop_c16
++block_loop_c16_fin:
++
++    add w10, w10, #128
++    add w12, w12, #1
++    sub x0, x0, x21  // move dst pointers back by x21
++    sub x2, x2, x21
++    b row_loop_c16
++row_loop_c16_fin:
++
++    cmp w20, #1
++    beq row_loop_c16_fin2
++    mov w20, #1
++    sub w8, w8, w19 // decrease block count by w19
++    add w7, w7, #1 // increase height
++    b row_loop_c16
++
++row_loop_c16_fin2:
++    add x0, x0, x21 // readd x21 in case of the last row
++    add x2, x2, x21 // so that we can write out the few remaining pixels
++
++    // last incomplete block to be finished
++    // read operations are fine, stride2 is more than large enough even if rem_pix is 0
++    rpi_sand30_lines_to_planar_c16_block_half
++    ld2 { v0.8h, v1.8h }, [sp], #32
++    ld2 { v2.8h, v3.8h }, [sp], #32
++    ld2 { v4.8h, v5.8h }, [sp], #32
++    rpi_sand30_lines_to_planar_c16_block_half
++    ld2 { v0.8h, v1.8h }, [sp], #32
++    ld2 { v2.8h, v3.8h }, [sp], #32
++    ld2 { v4.8h, v5.8h }, [sp]
++    sub sp, sp, #160
++
++    mov x4, sp
++    eor w20, w20, w20
++rem_pix_c16_loop:
++    cmp w20, w9
++    bge rem_pix_c16_fin
++
++    ldr w22, [x4], #4
++    str w22, [x0], #2
++    lsr w22, w22, #16
++    str w22, [x2], #2 
++
++    add w20, w20, #1
++    b rem_pix_c16_loop
++rem_pix_c16_fin:
++
++    add sp, sp, #256
++    ldr x23, [sp, #-40]
++    ldr x22, [sp, #-32]
++    ldr x21, [sp, #-24]
++    ldr x20, [sp, #-16]
++    ldr x19, [sp, #-8]
++    ret
++endfunc
++
++
 +
 +//void ff_rpi_sand30_lines_to_planar_p010(
 +//  uint8_t * dest,
@@ -55216,13 +55441,12 @@ index 0000000000..1981e7d46f
 +//  unsigned int _w,
 +//  unsigned int h);
 +
-+
 diff --git a/libavutil/aarch64/rpi_sand_neon.h b/libavutil/aarch64/rpi_sand_neon.h
 new file mode 100644
-index 0000000000..d820057624
+index 0000000000..b3aa481ea4
 --- /dev/null
 +++ b/libavutil/aarch64/rpi_sand_neon.h
-@@ -0,0 +1,51 @@
+@@ -0,0 +1,55 @@
 +/*
 +Copyright (c) 2021 Michael Eiler
 +
@@ -55269,6 +55493,10 @@ index 0000000000..d820057624
 +void ff_rpi_sand30_lines_to_planar_y16(uint8_t * dest, unsigned int dst_stride,
 +  const uint8_t * src, unsigned int src_stride1, unsigned int src_stride2,
 +  unsigned int _x, unsigned int y, unsigned int _w, unsigned int h);
++
++void ff_rpi_sand30_lines_to_planar_c16(uint8_t * dst_u, unsigned int dst_stride_u,
++  uint8_t * dst_v, unsigned int dst_stride_v, const uint8_t * src, unsigned int stride1,
++  unsigned int stride2, unsigned int _x, unsigned int y, unsigned int _w, unsigned int h);
 +
 +#ifdef __cplusplus
 +}
@@ -56758,7 +56986,7 @@ index 0000000000..0324f6826d
 +
 diff --git a/libavutil/rpi_sand_fns.c b/libavutil/rpi_sand_fns.c
 new file mode 100644
-index 0000000000..64c34ced56
+index 0000000000..4256adf9c8
 --- /dev/null
 +++ b/libavutil/rpi_sand_fns.c
 @@ -0,0 +1,357 @@
@@ -56927,7 +57155,7 @@ index 0000000000..64c34ced56
 +    const uint8_t * p0 = src + (x0 & mask) + y * stride1 + (x0 & ~mask) * stride2;
 +    const unsigned int slice_inc = ((stride2 - 1) * stride1) >> 2;  // RHS of a stripe to LHS of next in words
 +
-+#if HAVE_SAND_ASM
++#if HAVE_SAND_ASM || HAVE_SAND_ASM64
 +    if (_x == 0) {
 +        ff_rpi_sand30_lines_to_planar_c16(dst_u, dst_stride_u, dst_v, dst_stride_v,
 +                                       src, stride1, stride2, _x, y, _w, h);
