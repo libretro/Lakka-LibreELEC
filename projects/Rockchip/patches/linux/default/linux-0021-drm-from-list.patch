@@ -232,3 +232,456 @@ index 80053d91a301..2c55e1852c3d 100644
  	.rb_swap = VOP_REG(RK3288_WIN0_CTRL0, 0x1, 12),
  	.y_mir_en = VOP_REG(RK3288_WIN0_CTRL0, 0x1, 22),
  	.act_info = VOP_REG(RK3288_WIN0_ACT_INFO, 0x1fff1fff, 0),
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Qinglang Miao <miaoqinglang@huawei.com>
+Date: Tue, 1 Dec 2020 20:54:57 +0800
+Subject: [PATCH] drm/rockchip: cdn-dp: fix reference leak when
+ pm_runtime_get_sync fails
+
+The PM reference count is not expected to be incremented on
+return in cdn_dp_clk_enable.
+
+However, pm_runtime_get_sync will increment the PM reference
+count even failed. Forgetting to putting operation will result
+in a reference leak here.
+
+Replace it with pm_runtime_resume_and_get to keep usage
+counter balanced.
+
+Fixes: efe0220fc2d2 ("drm/rockchip: cdn-dp: Fix error handling")
+Reported-by: Hulk Robot <hulkci@huawei.com>
+Signed-off-by: Qinglang Miao <miaoqinglang@huawei.com>
+---
+ drivers/gpu/drm/rockchip/cdn-dp-core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/rockchip/cdn-dp-core.c b/drivers/gpu/drm/rockchip/cdn-dp-core.c
+index a4a45daf93f2..9b4406191470 100644
+--- a/drivers/gpu/drm/rockchip/cdn-dp-core.c
++++ b/drivers/gpu/drm/rockchip/cdn-dp-core.c
+@@ -98,7 +98,7 @@ static int cdn_dp_clk_enable(struct cdn_dp_device *dp)
+ 		goto err_core_clk;
+ 	}
+ 
+-	ret = pm_runtime_get_sync(dp->dev);
++	ret = pm_runtime_resume_and_get(dp->dev);
+ 	if (ret < 0) {
+ 		DRM_DEV_ERROR(dp->dev, "cannot get pm runtime %d\n", ret);
+ 		goto err_pm_runtime_get;
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Qinglang Miao <miaoqinglang@huawei.com>
+Date: Tue, 1 Dec 2020 20:54:58 +0800
+Subject: [PATCH] drm/rockchip: vop: fix reference leak when
+ pm_runtime_get_sync fails
+
+The PM reference count is not expected to be incremented on
+return in functions vop_enable and vop_enable.
+
+However, pm_runtime_get_sync will increment the PM reference
+count even failed. Forgetting to putting operation will result
+in a reference leak here.
+
+Replace it with pm_runtime_resume_and_get to keep usage
+counter balanced.
+
+Fixes: 5e570373c015 ("drm/rockchip: vop: Enable pm domain before vop_initial")
+Reported-by: Hulk Robot <hulkci@huawei.com>
+Signed-off-by: Qinglang Miao <miaoqinglang@huawei.com>
+---
+ drivers/gpu/drm/rockchip/rockchip_drm_vop.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/rockchip/rockchip_drm_vop.c b/drivers/gpu/drm/rockchip/rockchip_drm_vop.c
+index eb663e25ad9e..c6c76e8ab66c 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_drm_vop.c
++++ b/drivers/gpu/drm/rockchip/rockchip_drm_vop.c
+@@ -602,7 +602,7 @@ static int vop_enable(struct drm_crtc *crtc, struct drm_crtc_state *old_state)
+ 	struct vop *vop = to_vop(crtc);
+ 	int ret, i;
+ 
+-	ret = pm_runtime_get_sync(vop->dev);
++	ret = pm_runtime_resume_and_get(vop->dev);
+ 	if (ret < 0) {
+ 		DRM_DEV_ERROR(vop->dev, "failed to get pm runtime: %d\n", ret);
+ 		return ret;
+@@ -1933,7 +1933,7 @@ static int vop_initial(struct vop *vop)
+ 		return PTR_ERR(vop->dclk);
+ 	}
+ 
+-	ret = pm_runtime_get_sync(vop->dev);
++	ret = pm_runtime_resume_and_get(vop->dev);
+ 	if (ret < 0) {
+ 		DRM_DEV_ERROR(vop->dev, "failed to get pm runtime: %d\n", ret);
+ 		return ret;
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Qinglang Miao <miaoqinglang@huawei.com>
+Date: Tue, 1 Dec 2020 20:54:59 +0800
+Subject: [PATCH] drm/rockchip: lvds: fix reference leak when
+ pm_runtime_get_sync fails
+
+The PM reference count is not expected to be incremented on
+return in functions rk3288_lvds_poweron and px30_lvds_poweron.
+
+However, pm_runtime_get_sync will increment the PM reference
+count even failed. Forgetting to putting operation will result
+in a reference leak here.
+
+Replace it with pm_runtime_resume_and_get to keep usage
+counter balanced.
+
+Fixes: cca1705c3d89 ("drm/rockchip: lvds: Add PX30 support")
+Reported-by: Hulk Robot <hulkci@huawei.com>
+Signed-off-by: Qinglang Miao <miaoqinglang@huawei.com>
+---
+ drivers/gpu/drm/rockchip/rockchip_lvds.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/rockchip/rockchip_lvds.c b/drivers/gpu/drm/rockchip/rockchip_lvds.c
+index 41edd0a421b2..4d463d50a63a 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_lvds.c
++++ b/drivers/gpu/drm/rockchip/rockchip_lvds.c
+@@ -145,7 +145,7 @@ static int rk3288_lvds_poweron(struct rockchip_lvds *lvds)
+ 		DRM_DEV_ERROR(lvds->dev, "failed to enable lvds pclk %d\n", ret);
+ 		return ret;
+ 	}
+-	ret = pm_runtime_get_sync(lvds->dev);
++	ret = pm_runtime_resume_and_get(lvds->dev);
+ 	if (ret < 0) {
+ 		DRM_DEV_ERROR(lvds->dev, "failed to get pm runtime: %d\n", ret);
+ 		clk_disable(lvds->pclk);
+@@ -329,7 +329,7 @@ static int px30_lvds_poweron(struct rockchip_lvds *lvds)
+ {
+ 	int ret;
+ 
+-	ret = pm_runtime_get_sync(lvds->dev);
++	ret = pm_runtime_resume_and_get(lvds->dev);
+ 	if (ret < 0) {
+ 		DRM_DEV_ERROR(lvds->dev, "failed to get pm runtime: %d\n", ret);
+ 		return ret;
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Lukasz Luba <lukasz.luba@arm.com>
+Date: Tue, 5 Jan 2021 16:41:11 +0000
+Subject: [PATCH] drm/panfrost: Use delayed timer as default in devfreq profile
+
+Devfreq framework supports 2 modes for monitoring devices.
+Use delayed timer as default instead of deferrable timer
+in order to monitor the GPU status regardless of CPU idle.
+
+Signed-off-by: Lukasz Luba <lukasz.luba@arm.com>
+Reviewed-by: Steven Price <steven.price@arm.com>
+---
+ drivers/gpu/drm/panfrost/panfrost_devfreq.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/panfrost/panfrost_devfreq.c b/drivers/gpu/drm/panfrost/panfrost_devfreq.c
+index 913eaa6d0bc6..17d5fa6e0b83 100644
+--- a/drivers/gpu/drm/panfrost/panfrost_devfreq.c
++++ b/drivers/gpu/drm/panfrost/panfrost_devfreq.c
+@@ -76,6 +76,7 @@ static int panfrost_devfreq_get_dev_status(struct device *dev,
+ }
+ 
+ static struct devfreq_dev_profile panfrost_devfreq_profile = {
++	.timer = DEVFREQ_TIMER_DELAYED,
+ 	.polling_ms = 50, /* ~3 frames */
+ 	.target = panfrost_devfreq_target,
+ 	.get_dev_status = panfrost_devfreq_get_dev_status,
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Lukasz Luba <lukasz.luba@arm.com>
+Date: Thu, 21 Jan 2021 17:04:45 +0000
+Subject: [PATCH] drm/panfrost: Add governor data with pre-defined thresholds
+
+The simple_ondemand devfreq governor uses two thresholds to decide about
+the frequency change: upthreshold, downdifferential. These two tunable
+change the behavior of the governor decision, e.g. how fast to increase
+the frequency or how rapidly limit the frequency. This patch adds needed
+governor data with thresholds values gathered experimentally in different
+workloads.
+
+Signed-off-by: Lukasz Luba <lukasz.luba@arm.com>
+---
+ drivers/gpu/drm/panfrost/panfrost_devfreq.c | 10 +++++++++-
+ drivers/gpu/drm/panfrost/panfrost_devfreq.h |  2 ++
+ 2 files changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/panfrost/panfrost_devfreq.c b/drivers/gpu/drm/panfrost/panfrost_devfreq.c
+index 17d5fa6e0b83..53e0188ce8e8 100644
+--- a/drivers/gpu/drm/panfrost/panfrost_devfreq.c
++++ b/drivers/gpu/drm/panfrost/panfrost_devfreq.c
+@@ -130,8 +130,16 @@ int panfrost_devfreq_init(struct panfrost_device *pfdev)
+ 	panfrost_devfreq_profile.initial_freq = cur_freq;
+ 	dev_pm_opp_put(opp);
+ 
++	/*
++	 * Setup default thresholds for the simple_ondemand governor.
++	 * The values are chosen based on experiments.
++	 */
++	pfdevfreq->gov_data.upthreshold = 45;
++	pfdevfreq->gov_data.downdifferential = 5;
++
+ 	devfreq = devm_devfreq_add_device(dev, &panfrost_devfreq_profile,
+-					  DEVFREQ_GOV_SIMPLE_ONDEMAND, NULL);
++					  DEVFREQ_GOV_SIMPLE_ONDEMAND,
++					  &pfdevfreq->gov_data);
+ 	if (IS_ERR(devfreq)) {
+ 		DRM_DEV_ERROR(dev, "Couldn't initialize GPU devfreq\n");
+ 		ret = PTR_ERR(devfreq);
+diff --git a/drivers/gpu/drm/panfrost/panfrost_devfreq.h b/drivers/gpu/drm/panfrost/panfrost_devfreq.h
+index db6ea48e21f9..1e2a4de941aa 100644
+--- a/drivers/gpu/drm/panfrost/panfrost_devfreq.h
++++ b/drivers/gpu/drm/panfrost/panfrost_devfreq.h
+@@ -4,6 +4,7 @@
+ #ifndef __PANFROST_DEVFREQ_H__
+ #define __PANFROST_DEVFREQ_H__
+ 
++#include <linux/devfreq.h>
+ #include <linux/spinlock.h>
+ #include <linux/ktime.h>
+ 
+@@ -17,6 +18,7 @@ struct panfrost_devfreq {
+ 	struct devfreq *devfreq;
+ 	struct opp_table *regulators_opp_table;
+ 	struct thermal_cooling_device *cooling;
++	struct devfreq_simple_ondemand_data gov_data;
+ 	bool opp_of_table_added;
+ 
+ 	ktime_t busy_time;
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Boris Brezillon <boris.brezillon@collabora.com>
+Date: Fri, 5 Feb 2021 12:17:55 +0100
+Subject: [PATCH] drm/panfrost: Clear MMU irqs before handling the fault
+
+When a fault is handled it will unblock the GPU which will continue
+executing its shader and might fault almost immediately on a different
+page. If we clear interrupts after handling the fault we might miss new
+faults, so clear them before.
+
+Cc: <stable@vger.kernel.org>
+Fixes: 187d2929206e ("drm/panfrost: Add support for GPU heap allocations")
+Signed-off-by: Boris Brezillon <boris.brezillon@collabora.com>
+Reviewed-by: Steven Price <steven.price@arm.com>
+---
+ drivers/gpu/drm/panfrost/panfrost_mmu.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/panfrost/panfrost_mmu.c b/drivers/gpu/drm/panfrost/panfrost_mmu.c
+index be8d68fb0e11..e5f7f647430f 100644
+--- a/drivers/gpu/drm/panfrost/panfrost_mmu.c
++++ b/drivers/gpu/drm/panfrost/panfrost_mmu.c
+@@ -600,6 +600,8 @@ static irqreturn_t panfrost_mmu_irq_handler_thread(int irq, void *data)
+ 		access_type = (fault_status >> 8) & 0x3;
+ 		source_id = (fault_status >> 16);
+ 
++		mmu_write(pfdev, MMU_INT_CLEAR, mask);
++
+ 		/* Page fault only */
+ 		ret = -1;
+ 		if ((status & mask) == BIT(i) && (exception_type & 0xF8) == 0xC0)
+@@ -623,8 +625,6 @@ static irqreturn_t panfrost_mmu_irq_handler_thread(int irq, void *data)
+ 				access_type, access_type_name(pfdev, fault_status),
+ 				source_id);
+ 
+-		mmu_write(pfdev, MMU_INT_CLEAR, mask);
+-
+ 		status &= ~mask;
+ 	}
+ 
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Boris Brezillon <boris.brezillon@collabora.com>
+Date: Fri, 5 Feb 2021 12:17:56 +0100
+Subject: [PATCH] drm/panfrost: Don't try to map pages that are already mapped
+
+We allocate 2MB chunks at a time, so it might appear that a page fault
+has already been handled by a previous page fault when we reach
+panfrost_mmu_map_fault_addr(). Bail out in that case to avoid mapping the
+same area twice.
+
+Cc: <stable@vger.kernel.org>
+Fixes: 187d2929206e ("drm/panfrost: Add support for GPU heap allocations")
+Signed-off-by: Boris Brezillon <boris.brezillon@collabora.com>
+Reviewed-by: Steven Price <steven.price@arm.com>
+---
+ drivers/gpu/drm/panfrost/panfrost_mmu.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/panfrost/panfrost_mmu.c b/drivers/gpu/drm/panfrost/panfrost_mmu.c
+index e5f7f647430f..198686216317 100644
+--- a/drivers/gpu/drm/panfrost/panfrost_mmu.c
++++ b/drivers/gpu/drm/panfrost/panfrost_mmu.c
+@@ -495,8 +495,14 @@ static int panfrost_mmu_map_fault_addr(struct panfrost_device *pfdev, int as,
+ 		}
+ 		bo->base.pages = pages;
+ 		bo->base.pages_use_count = 1;
+-	} else
++	} else {
+ 		pages = bo->base.pages;
++		if (pages[page_offset]) {
++			/* Pages are already mapped, bail out. */
++			mutex_unlock(&bo->base.pages_lock);
++			goto out;
++		}
++	}
+ 
+ 	mapping = bo->base.base.filp->f_mapping;
+ 	mapping_set_unevictable(mapping);
+@@ -529,6 +535,7 @@ static int panfrost_mmu_map_fault_addr(struct panfrost_device *pfdev, int as,
+ 
+ 	dev_dbg(pfdev->dev, "mapped page fault @ AS%d %llx", as, addr);
+ 
++out:
+ 	panfrost_gem_mapping_put(bomapping);
+ 
+ 	return 0;
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Boris Brezillon <boris.brezillon@collabora.com>
+Date: Fri, 5 Feb 2021 12:17:57 +0100
+Subject: [PATCH] drm/panfrost: Stay in the threaded MMU IRQ handler until
+ we've handled all IRQs
+
+Doing a hw-irq -> threaded-irq round-trip is counter-productive, stay
+in the threaded irq handler as long as we can.
+
+v2:
+* Rework the loop to avoid a goto
+
+Signed-off-by: Boris Brezillon <boris.brezillon@collabora.com>
+Reviewed-by: Steven Price <steven.price@arm.com>
+Reviewed-by: Rob Herring <robh@kernel.org>
+---
+ drivers/gpu/drm/panfrost/panfrost_mmu.c | 26 +++++++++++++------------
+ 1 file changed, 14 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/gpu/drm/panfrost/panfrost_mmu.c b/drivers/gpu/drm/panfrost/panfrost_mmu.c
+index 198686216317..5a3d18c05802 100644
+--- a/drivers/gpu/drm/panfrost/panfrost_mmu.c
++++ b/drivers/gpu/drm/panfrost/panfrost_mmu.c
+@@ -585,22 +585,20 @@ static irqreturn_t panfrost_mmu_irq_handler_thread(int irq, void *data)
+ {
+ 	struct panfrost_device *pfdev = data;
+ 	u32 status = mmu_read(pfdev, MMU_INT_RAWSTAT);
+-	int i, ret;
++	int ret;
+ 
+-	for (i = 0; status; i++) {
+-		u32 mask = BIT(i) | BIT(i + 16);
++	while (status) {
++		u32 as = ffs(status | (status >> 16)) - 1;
++		u32 mask = BIT(as) | BIT(as + 16);
+ 		u64 addr;
+ 		u32 fault_status;
+ 		u32 exception_type;
+ 		u32 access_type;
+ 		u32 source_id;
+ 
+-		if (!(status & mask))
+-			continue;
+-
+-		fault_status = mmu_read(pfdev, AS_FAULTSTATUS(i));
+-		addr = mmu_read(pfdev, AS_FAULTADDRESS_LO(i));
+-		addr |= (u64)mmu_read(pfdev, AS_FAULTADDRESS_HI(i)) << 32;
++		fault_status = mmu_read(pfdev, AS_FAULTSTATUS(as));
++		addr = mmu_read(pfdev, AS_FAULTADDRESS_LO(as));
++		addr |= (u64)mmu_read(pfdev, AS_FAULTADDRESS_HI(as)) << 32;
+ 
+ 		/* decode the fault status */
+ 		exception_type = fault_status & 0xFF;
+@@ -611,8 +609,8 @@ static irqreturn_t panfrost_mmu_irq_handler_thread(int irq, void *data)
+ 
+ 		/* Page fault only */
+ 		ret = -1;
+-		if ((status & mask) == BIT(i) && (exception_type & 0xF8) == 0xC0)
+-			ret = panfrost_mmu_map_fault_addr(pfdev, i, addr);
++		if ((status & mask) == BIT(as) && (exception_type & 0xF8) == 0xC0)
++			ret = panfrost_mmu_map_fault_addr(pfdev, as, addr);
+ 
+ 		if (ret)
+ 			/* terminal fault, print info about the fault */
+@@ -624,7 +622,7 @@ static irqreturn_t panfrost_mmu_irq_handler_thread(int irq, void *data)
+ 				"exception type 0x%X: %s\n"
+ 				"access type 0x%X: %s\n"
+ 				"source id 0x%X\n",
+-				i, addr,
++				as, addr,
+ 				"TODO",
+ 				fault_status,
+ 				(fault_status & (1 << 10) ? "DECODER FAULT" : "SLAVE FAULT"),
+@@ -633,6 +631,10 @@ static irqreturn_t panfrost_mmu_irq_handler_thread(int irq, void *data)
+ 				source_id);
+ 
+ 		status &= ~mask;
++
++		/* If we received new MMU interrupts, process them before returning. */
++		if (!status)
++			status = mmu_read(pfdev, MMU_INT_RAWSTAT);
+ 	}
+ 
+ 	mmu_write(pfdev, MMU_INT_MASK, ~0);
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Christian Hewitt <christianshewitt@gmail.com>
+Date: Wed, 27 Jan 2021 19:40:47 +0000
+Subject: [PATCH] drm/lima: add governor data with pre-defined thresholds
+
+This patch adapts the panfrost pre-defined thresholds change [0] to the
+lima driver to improve real-world performance. The upthreshold value has
+been set to ramp GPU frequency to max freq faster (compared to panfrost)
+to compensate for the lower overall performance of utgard devices.
+
+[0] https://patchwork.kernel.org/project/dri-devel/patch/20210121170445.19761-1-lukasz.luba@arm.com/
+
+Signed-off-by: Christian Hewitt <christianshewitt@gmail.com>
+Reviewed-by: Lukasz Luba <lukasz.luba@arm.com>
+Reviewed-by: Qiang Yu <yuq825@gmail.com>
+---
+ drivers/gpu/drm/lima/lima_devfreq.c | 10 +++++++++-
+ drivers/gpu/drm/lima/lima_devfreq.h |  2 ++
+ 2 files changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/lima/lima_devfreq.c b/drivers/gpu/drm/lima/lima_devfreq.c
+index 5686ad4aaf7c..c9854315a0b5 100644
+--- a/drivers/gpu/drm/lima/lima_devfreq.c
++++ b/drivers/gpu/drm/lima/lima_devfreq.c
+@@ -163,8 +163,16 @@ int lima_devfreq_init(struct lima_device *ldev)
+ 	lima_devfreq_profile.initial_freq = cur_freq;
+ 	dev_pm_opp_put(opp);
+ 
++	/*
++	 * Setup default thresholds for the simple_ondemand governor.
++	 * The values are chosen based on experiments.
++	 */
++	ldevfreq->gov_data.upthreshold = 30;
++	ldevfreq->gov_data.downdifferential = 5;
++
+ 	devfreq = devm_devfreq_add_device(dev, &lima_devfreq_profile,
+-					  DEVFREQ_GOV_SIMPLE_ONDEMAND, NULL);
++					  DEVFREQ_GOV_SIMPLE_ONDEMAND,
++					  &ldevfreq->gov_data);
+ 	if (IS_ERR(devfreq)) {
+ 		dev_err(dev, "Couldn't initialize GPU devfreq\n");
+ 		ret = PTR_ERR(devfreq);
+diff --git a/drivers/gpu/drm/lima/lima_devfreq.h b/drivers/gpu/drm/lima/lima_devfreq.h
+index 2d9b3008ce77..b0c7c736e81a 100644
+--- a/drivers/gpu/drm/lima/lima_devfreq.h
++++ b/drivers/gpu/drm/lima/lima_devfreq.h
+@@ -4,6 +4,7 @@
+ #ifndef __LIMA_DEVFREQ_H__
+ #define __LIMA_DEVFREQ_H__
+ 
++#include <linux/devfreq.h>
+ #include <linux/spinlock.h>
+ #include <linux/ktime.h>
+ 
+@@ -18,6 +19,7 @@ struct lima_devfreq {
+ 	struct opp_table *clkname_opp_table;
+ 	struct opp_table *regulators_opp_table;
+ 	struct thermal_cooling_device *cooling;
++	struct devfreq_simple_ondemand_data gov_data;
+ 
+ 	ktime_t busy_time;
+ 	ktime_t idle_time;
