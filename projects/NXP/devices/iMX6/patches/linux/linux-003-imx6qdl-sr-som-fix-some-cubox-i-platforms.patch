@@ -1,0 +1,59 @@
+From 2cc0bfc9c12784188482a8f3d751d44af45b0d97 Mon Sep 17 00:00:00 2001
+From: Russell King <rmk+kernel@armlinux.org.uk>
+Date: Thu, 14 Jan 2021 10:53:06 +0000
+Subject: [PATCH] ARM: dts: imx6qdl-sr-som: fix some cubox-i platforms
+
+The PHY address bit 2 is configured by the LED pin. Attaching a LED
+to this pin is not sufficient to guarantee this configuration pin is
+correctly read. This leads to some platforms having their PHY at
+address 0 and others at address 4.
+
+If there is no phy-handle specified, the FEC driver will scan the PHY
+bus for a PHY and use that. Consequently, adding the DT configuration
+of the PHY and the phy properties to the FEC driver broke some boards.
+
+Fix this by removing the phy-handle property, and listing two PHY
+entries for both possible PHY addresses, so that the DT configuration
+for the PHY can be found by the PHY driver.
+
+Fixes: 86b08bd5b994 ("ARM: dts: imx6-sr-som: add ethernet PHY configuration")
+Reported-by: Christoph Mattheis <christoph.mattheis@arcor.de>
+Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+Signed-off-by: Shawn Guo <shawnguo@kernel.org>
+---
+ arch/arm/boot/dts/imx6qdl-sr-som.dtsi | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/boot/dts/imx6qdl-sr-som.dtsi b/arch/arm/boot/dts/imx6qdl-sr-som.dtsi
+index b06577808ff4e..7e4e5fd0143a1 100644
+--- a/arch/arm/boot/dts/imx6qdl-sr-som.dtsi
++++ b/arch/arm/boot/dts/imx6qdl-sr-som.dtsi
+@@ -53,7 +53,6 @@
+ &fec {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&pinctrl_microsom_enet_ar8035>;
+-	phy-handle = <&phy>;
+ 	phy-mode = "rgmii-id";
+ 	phy-reset-duration = <2>;
+ 	phy-reset-gpios = <&gpio4 15 GPIO_ACTIVE_LOW>;
+@@ -63,10 +62,19 @@
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
+ 
+-		phy: ethernet-phy@0 {
++		/*
++		 * The PHY can appear at either address 0 or 4 due to the
++		 * configuration (LED) pin not being pulled sufficiently.
++		 */
++		ethernet-phy@0 {
+ 			reg = <0>;
+ 			qca,clk-out-frequency = <125000000>;
+ 		};
++
++		ethernet-phy@4 {
++			reg = <4>;
++			qca,clk-out-frequency = <125000000>;
++		};
+ 	};
+ };
+ 
