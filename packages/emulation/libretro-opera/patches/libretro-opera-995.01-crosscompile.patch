@@ -1,0 +1,148 @@
+From a845c2c44e2bed070b1f6db5b0fda5a7a84485e6 Mon Sep 17 00:00:00 2001
+From: SupervisedThinking <supervisedthinking@gmail.com>
+Date: Thu, 18 Feb 2021 13:21:30 +0100
+Subject: [PATCH] Makefile: only define cc, cxx, ar, ld if not predefined
+
+---
+ Makefile | 52 ++++++++++++++++++++++++++--------------------------
+ 1 file changed, 26 insertions(+), 26 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index f588a3c..27c5461 100644
+--- a/Makefile
++++ b/Makefile
+@@ -49,8 +49,8 @@ unixpath = $(subst \,/,$1)
+ unixcygpath = /$(subst :,,$(call unixpath,$1))
+ 
+ ifneq (,$(findstring unix,$(platform)))
+-    AR = ${CC_PREFIX}ar
+-    CC = ${CC_PREFIX}gcc
++    AR ?= ${CC_PREFIX}ar
++    CC ?= ${CC_PREFIX}gcc
+ 
+     TARGET := $(TARGET_NAME)_libretro.so
+     fpic := -fPIC
+@@ -138,8 +138,8 @@ else ifeq ($(platform), classic_armv7_a7)
+ 
+ # ARM
+ else ifneq (,$(findstring armv,$(platform)))
+-    AR = ${CC_PREFIX}ar
+-    CC = ${CC_PREFIX}gcc
++    AR ?= ${CC_PREFIX}ar
++    CC ?= ${CC_PREFIX}gcc
+ 
+     TARGET := $(TARGET_NAME)_libretro.so
+     fpic := -fPIC
+@@ -180,9 +180,9 @@ ifeq ($(IOSSDK),)
+    IOSSDK := $(shell xcodebuild -version -sdk iphoneos Path)
+ endif
+ ifeq ($(platform),ios-arm64)
+-   CC = cc -arch arm64 -isysroot $(IOSSDK)
++   CC ?= cc -arch arm64 -isysroot $(IOSSDK)
+ else
+-   CC = cc -arch armv7 -isysroot $(IOSSDK)
++   CC ?= cc -arch armv7 -isysroot $(IOSSDK)
+ endif
+ ifeq ($(platform),$(filter $(platform),ios9 ios-arm64))
+    SHARED += -miphoneos-version-min=8.0
+@@ -213,18 +213,18 @@ else ifeq ($(platform), qnx)
+    TARGET := $(TARGET_NAME)_libretro_$(platform).so
+    fpic := -fPIC
+    SHARED := -shared -Wl,--no-undefined -Wl,--version-script=link.T
+-   CC = qcc -Vgcc_ntoarmv7le
++   CC ?= qcc -Vgcc_ntoarmv7le
+ else ifeq ($(platform), ps3)
+    TARGET := $(TARGET_NAME)_libretro_$(platform).a
+-   CC = $(CELL_SDK)/host-win32/ppu/bin/ppu-lv2-gcc.exe
+-   AR = $(CELL_SDK)/host-win32/ppu/bin/ppu-lv2-ar.exe
++   CC ?= $(CELL_SDK)/host-win32/ppu/bin/ppu-lv2-gcc.exe
++   AR ?= $(CELL_SDK)/host-win32/ppu/bin/ppu-lv2-ar.exe
+    STATIC_LINKING = 1
+    FLAGS += -DMSB_FIRST -D__CELLOS_LV2__
+    OLD_GCC = 1
+ else ifeq ($(platform), sncps3)
+    TARGET := $(TARGET_NAME)_libretro_ps3.a
+-   CC = $(CELL_SDK)/host-win32/sn/bin/ps3ppusnc.exe
+-   AR = $(CELL_SDK)/host-win32/sn/bin/ps3snarl.exe
++   CC ?= $(CELL_SDK)/host-win32/sn/bin/ps3ppusnc.exe
++   AR ?= $(CELL_SDK)/host-win32/sn/bin/ps3snarl.exe
+    STATIC_LINKING = 1
+    FLAGS += -DMSB_FIRST
+    NO_GCC = 1
+@@ -232,25 +232,25 @@ else ifeq ($(platform), sncps3)
+ # PSP1
+ else ifeq ($(platform), psp1)
+    TARGET := $(TARGET_NAME)_libretro_$(platform).a
+-   CC = psp-gcc$(EXE_EXT)
+-   AR = psp-ar$(EXE_EXT)
++   CC ?= psp-gcc$(EXE_EXT)
++   AR ?= psp-ar$(EXE_EXT)
+    STATIC_LINKING = 1
+    FLAGS += -G0
+ 
+ # Vita
+ else ifeq ($(platform), vita)
+    TARGET := $(TARGET_NAME)_libretro_$(platform).a
+-   CC = arm-vita-eabi-gcc$(EXE_EXT)
+-   AR = arm-vita-eabi-ar$(EXE_EXT)
++   CC ?= arm-vita-eabi-gcc$(EXE_EXT)
++   AR ?= arm-vita-eabi-ar$(EXE_EXT)
+    STATIC_LINKING = 1
+    FLAGS += -DVITA
+ 
+ # CTR (3DS)
+ else ifeq ($(platform), ctr)
+    TARGET := $(TARGET_NAME)_libretro_$(platform).a
+-   CC = $(DEVKITARM)/bin/arm-none-eabi-gcc$(EXE_EXT)
+-   CXX = $(DEVKITARM)/bin/arm-none-eabi-g++$(EXE_EXT)
+-   AR = $(DEVKITARM)/bin/arm-none-eabi-ar$(EXE_EXT)
++   CC ?= $(DEVKITARM)/bin/arm-none-eabi-gcc$(EXE_EXT)
++   CXX ?=$(DEVKITARM)/bin/arm-none-eabi-g++$(EXE_EXT)
++   AR ?= $(DEVKITARM)/bin/arm-none-eabi-ar$(EXE_EXT)
+    FLAGS += -march=armv6k -mtune=mpcore -mfloat-abi=hard
+    FLAGS += -Wall -mword-relocations
+    FLAGS += -fomit-frame-pointer -ffast-math
+@@ -308,8 +308,8 @@ else ifeq ($(platform), emscripten)
+ # Windows MSVC 2003 Xbox 1
+ else ifeq ($(platform), xbox1_msvc2003)
+ TARGET := $(TARGET_NAME)_libretro_xdk1.lib
+-CC = CL.exe
+-LD = lib.exe
++CC ?= CL.exe
++LD ?= lib.exe
+ 
+ export INCLUDE := $(XDK)/xbox/include
+ export LIB := $(XDK)/xbox/lib
+@@ -322,8 +322,8 @@ HAS_GCC := 0
+ else ifeq ($(platform), xbox360_msvc2010)
+ TARGET := $(TARGET_NAME)_libretro_xdk360.lib
+ MSVCBINDIRPREFIX = $(XEDK)/bin/win32
+-CC = "$(MSVCBINDIRPREFIX)/cl.exe"
+-LD = "$(MSVCBINDIRPREFIX)/lib.exe"
++CC ?= "$(MSVCBINDIRPREFIX)/cl.exe"
++LD ?= "$(MSVCBINDIRPREFIX)/lib.exe"
+ 
+ export INCLUDE := $(XEDK)/include/xbox
+ export LIB := $(XEDK)/lib/xbox
+@@ -456,9 +456,9 @@ else ifneq (,$(findstring windows_msvc2017,$(platform)))
+ 
+ 	TargetArchMoniker = $(subst $(WinPartition)_,,$(PlatformSuffix))
+ 
+-	CC  = cl.exe
+-	CXX = cl.exe
+-	LD = link.exe
++	CC  ?= cl.exe
++	CXX ?= cl.exe
++	LD ?= link.exe
+ 
+ 	reg_query = $(call filter_out2,$(subst $2,,$(shell reg query "$2" -v "$1" 2>nul)))
+ 	fix_path = $(subst $(SPACE),\ ,$(subst \,/,$1))
+@@ -612,7 +612,7 @@ ifeq ($(STATIC_LINKING),1)
+ 	LD ?= lib.exe
+ 	STATIC_LINKING=0
+ else
+-	LD = link.exe
++	LD ?= link.exe
+ endif
+ else
+ 	LD = $(CC)
