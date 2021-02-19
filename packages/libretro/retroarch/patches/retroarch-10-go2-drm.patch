@@ -1,0 +1,68 @@
+--- b/gfx/drivers_context/drm_go2_ctx.c
++++ a/gfx/drivers_context/drm_go2_ctx.c
+@@ -118,10 +118,21 @@
+    if (!drm)
+       return NULL;
+ 
+-   drm->native_width  = 480;
+-   drm->native_height = 320;
+-
+    drm->display       = go2_display_create();
++
++   drm->native_width  = go2_display_height_get(drm->display);
++   drm->native_height = go2_display_width_get(drm->display);
++   RARCH_LOG("[GO2 DRM]: Screen size %ux%u.\n", drm->native_width, drm->native_height);
++
++   /* This driver should only be used on rotated screens */
++   if (drm->native_width < drm->native_height)
++   {
++      /* This ought be improved having a generic post-processing driver */
++      go2_display_destroy(drm->display);
++      free(drm);
++      return NULL;
++   }
++
+    drm->presenter     = go2_presenter_create(drm->display,
+          DRM_FORMAT_RGB565, 0xff000000, true);
+ 
+@@ -311,8 +321,8 @@
+    if (out_w != src_w || out_h != src_h)
+    {
+        out_w = out_h * video_driver_get_aspect_ratio();
+-       out_w = (out_w > 480) ? 480 : out_w;
+-       out_x = (480 - out_w) / 2;
++       out_w = (out_w > drm->native_width) ? drm->native_width : out_w;
++       out_x = (drm->native_width - out_w) / 2;
+        if (out_x < 0)
+            out_x = 0;
+     }
+--- a/retroarch.c
++++ b/retroarch.c
+@@ -642,9 +642,8 @@
+ #if defined(HAVE_KMS)
+ #if defined(HAVE_ODROIDGO2)
+    &gfx_ctx_go2_drm,
+-#else
+-   &gfx_ctx_drm,
+ #endif
++   &gfx_ctx_drm,
+ #endif
+ #if defined(ANDROID)
+    &gfx_ctx_android,
+--- a/Makefile.common
++++ b/Makefile.common
+@@ -1231,12 +1231,12 @@
+ 
+ ifeq ($(HAVE_KMS), 1)
+    HAVE_AND_WILL_USE_DRM = 1
++   OBJ += gfx/drivers_context/drm_ctx.o
+ 
+ ifeq ($(HAVE_ODROIDGO2), 1)
+    OBJ += gfx/drivers_context/drm_go2_ctx.o
+-else
+-   OBJ += gfx/drivers_context/drm_ctx.o
+ endif
++
+    DEF_FLAGS += $(GBM_CFLAGS) $(DRM_CFLAGS)
+    LIBS += $(GBM_LIBS) $(DRM_LIBS)
+ endif
