@@ -5,7 +5,7 @@
 PKG_NAME="pvr.hts"
 PKG_VERSION="8.2.2-Matrix"
 PKG_SHA256="ec291b5717c19dfd639131d195c64043746043d4f85189accaf29e9b1547fbba"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-pvr/pvr.hts"

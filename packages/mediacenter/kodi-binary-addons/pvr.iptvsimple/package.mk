@@ -5,7 +5,7 @@
 PKG_NAME="pvr.iptvsimple"
 PKG_VERSION="7.4.2-Matrix"
 PKG_SHA256="d583ae9904879ccc3e0c00dbda51eb3d36c67587d427a37963dd3750e013e90d"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-pvr/pvr.iptvsimple"
