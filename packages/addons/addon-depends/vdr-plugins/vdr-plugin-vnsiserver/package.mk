@@ -15,7 +15,7 @@ PKG_TOOLCHAIN="manual"
 
 pre_build_target() {
   WIRBELSCAN_DIR=$(get_build_dir vdr-plugin-wirbelscan)
-  ln -sf ${WIRBELSCAN_DIR}/wirbelscan_services.h $PKG_BUILD
+  ln -sf ${WIRBELSCAN_DIR}/wirbelscan_services.h ${PKG_BUILD}
 }
 
 make_target() {
