@@ -20,7 +20,6 @@ pre_configure_host() {
     --localstatedir=$TOOLCHAIN/var \
     --prefix=$TOOLCHAIN \
     --sbindir=$TOOLCHAIN/sbin \
-    --static \
     --sysconfdir=$TOOLCHAIN/etc \
     --enable-tools \
     --disable-attr \
