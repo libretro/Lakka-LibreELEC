@@ -4,7 +4,7 @@
 PKG_NAME="game.libretro.melonds"
 PKG_VERSION="0.9.0.14-Matrix"
 PKG_SHA256="7e2de12de9bd0c8b2cb3bc6370582740dbb7a1de3ef7985ebdefbeb241fef9f9"
-PKG_REV="1"
+PKG_REV="2"
 # no openGL suport in retroplayer yet
 PKG_ARCH="none"
 PKG_LICENSE="GPL"
