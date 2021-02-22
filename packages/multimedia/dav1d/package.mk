@@ -2,8 +2,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="dav1d"
-PKG_VERSION="0.8.1"
-PKG_SHA256="842da2945afcf54e651d17112bf2823a238e6c935a6c8dff3a8e96a2eb740269"
+PKG_VERSION="0.8.2"
+PKG_SHA256="78ec7a1714d98a8f4ecbc4255e83e6c4c944cdd881871ea234ce40153fd3df04"
 PKG_LICENSE="BSD"
 PKG_SITE="http://www.jbkempf.com/blog/post/2018/Introducing-dav1d"
 PKG_URL="https://code.videolan.org/videolan/dav1d/-/archive/${PKG_VERSION}/dav1d-${PKG_VERSION}.tar.bz2"
