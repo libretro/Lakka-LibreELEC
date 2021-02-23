@@ -48,4 +48,5 @@ make_target() {
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
   cp uae4arm_libretro.so $INSTALL/usr/lib/libretro/
+  cp capsimg.so $INSTALL/usr/lib/
 }
