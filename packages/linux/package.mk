@@ -275,12 +275,18 @@ makeinstall_target() {
 
     # install platform dtbs, but remove upstream kernel dtbs (i.e. without downstream
     # drivers and decent USB support) as these are not required by LibreELEC
-    cp -p arch/${TARGET_KERNEL_ARCH}/boot/dts/*.dtb ${INSTALL}/usr/share/bootloader
+    for dtb in arch/${TARGET_KERNEL_ARCH}/boot/dts/*.dtb arch/${TARGET_KERNEL_ARCH}/boot/dts/*/*.dtb; do
+      if [ -f ${dtb} ]; then
+        cp -v ${dtb} ${INSTALL}/usr/share/bootloader
+      fi
+    done
     rm -f ${INSTALL}/usr/share/bootloader/bcm283*.dtb
+    # duplicated in overlays below
+    safe_remove ${INSTALL}/usr/share/bootloader/overlay_map.dtb
 
     # install overlay dtbs
-    for dtb in arch/${TARGET_KERNEL_ARCH}/boot/dts/overlays/*.dtb \
-               arch/${TARGET_KERNEL_ARCH}/boot/dts/overlays/*.dtbo; do
+    for dtb in arch/arm/boot/dts/overlays/*.dtb \
+               arch/arm/boot/dts/overlays/*.dtbo; do
       cp ${dtb} ${INSTALL}/usr/share/bootloader/overlays 2>/dev/null || :
     done
     cp -p arch/${TARGET_KERNEL_ARCH}/boot/dts/overlays/README ${INSTALL}/usr/share/bootloader/overlays
