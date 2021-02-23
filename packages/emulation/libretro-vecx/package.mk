@@ -15,7 +15,7 @@ PKG_LIBPATH="${PKG_LIBNAME}"
 PKG_LIBVAR="VECX_LIB"
 
 make_target() {
-  if [ "$OPENGL_SUPPORT" = no ]; then
+  if [ "${OPENGL_SUPPORT}" = no ]; then
     HAS_GLES=1 make
   else
     make

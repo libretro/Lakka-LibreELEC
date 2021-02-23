@@ -11,6 +11,6 @@ PKG_DEPENDS_TARGET="dtc:host"
 PKG_LONGDESC="The Device Tree Overlays"
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/share/bootloader/overlays
-    cp -p overlays/*/*.dtbo $INSTALL/usr/share/bootloader/overlays
+  mkdir -p ${INSTALL}/usr/share/bootloader/overlays
+    cp -p overlays/*/*.dtbo ${INSTALL}/usr/share/bootloader/overlays
 }
