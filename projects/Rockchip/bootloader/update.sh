@@ -21,10 +21,38 @@ fi
 # update device tree
   for all_dtb in ${BOOT_ROOT}/*.dtb; do
     dtb=$(basename ${all_dtb})
-    if [ -f ${SYSTEM_ROOT}/usr/share/bootloader/${dtb} ]; then
-      echo -n "Updating ${dtb}... "
-      cp -p ${SYSTEM_ROOT}/usr/share/bootloader/${dtb} ${BOOT_ROOT}
+
+    # device tree mappings for update from vendor to mainline kernel
+    case "${dtb}" in
+      rk3288-miniarm.dtb)
+        new_dtb=rk3288-tinker.dtb
+        ;;
+      rk3328-box.dtb|rk3328-box-trn9.dtb|rk3328-box-z28.dtb|rk3328-rockbox.dtb)
+        new_dtb=rk3328-a1.dtb
+        ;;
+      rk3399-rock-pi-4.dtb)
+        new_dtb=rk3399-rock-pi-4a.dtb
+        ;;
+      *)
+        new_dtb="${dtb}"
+        ;;
+    esac
+
+    if [ "${dtb}" != "${new_dtb}" -a -f ${SYSTEM_ROOT}/usr/share/bootloader/${new_dtb} ]; then
+      echo -n "Replacing ${dtb} with ${new_dtb} ... "
+      cp -p ${SYSTEM_ROOT}/usr/share/bootloader/${new_dtb} ${BOOT_ROOT} && \
+      sed -e "s/FDT \/${dtb}/FDT \/${new_dtb}/g" \
+          -i ${BOOT_ROOT}/extlinux/extlinux.conf && \
+      rm -f ${BOOT_ROOT}/${dtb}
       echo "done"
+    else
+      if [ -f ${SYSTEM_ROOT}/usr/share/bootloader/${dtb} ]; then
+        echo -n "Updating ${dtb}... "
+        cp -p ${SYSTEM_ROOT}/usr/share/bootloader/${dtb} ${BOOT_ROOT}
+        echo "done"
+      elif [ "$(grep -c "FDT /${dtb}" ${BOOT_ROOT}/extlinux/extlinux.conf)" -ne 0 ]; then
+	 non_existend_dtb="${dtb}"
+      fi
     fi
   done
 
@@ -48,3 +76,12 @@ fi
 # mount ${BOOT_ROOT} r/o
   sync
   mount -o remount,ro ${BOOT_ROOT}
+
+# warning if device tree was not updated
+  if [ -n "${non_existend_dtb}" ]; then
+    echo "The device tree ${non_existend_dtb} your installation uses does not exist in this update package."
+    echo "The updated system will continue to use the device tree from the previous system and your installation might be broken."
+    echo "Please check documentation to find out which boards are supported by this package."
+    sleep 10
+  fi
+
