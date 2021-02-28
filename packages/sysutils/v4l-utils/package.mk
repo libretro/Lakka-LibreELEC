@@ -36,6 +36,10 @@ make_target() {
   make -C lib CFLAGS="${TARGET_CFLAGS}"
   make -C utils/dvb CFLAGS="${TARGET_CFLAGS}"
   make -C utils/v4l2-ctl CFLAGS="${TARGET_CFLAGS}"
+
+  if [ "${LIBREELEC_VERSION}" == "devel" ]; then
+    make -C utils/v4l2-compliance CFLAGS="${TARGET_CFLAGS}"
+  fi
 }
 
 makeinstall_target() {
@@ -46,6 +50,11 @@ makeinstall_target() {
   fi
   make install DESTDIR=${INSTALL} PREFIX=/usr -C utils/dvb
   make install DESTDIR=${INSTALL} PREFIX=/usr -C utils/v4l2-ctl
+
+  if [ "${LIBREELEC_VERSION}" == "devel" ]; then
+    make install DESTDIR=${INSTALL} PREFIX=/usr -C utils/v4l2-compliance
+  fi
+
   cp ${PKG_BUILD}/contrib/lircd2toml.py ${INSTALL}/usr/bin/
 }
 
