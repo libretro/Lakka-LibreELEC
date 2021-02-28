@@ -1,17 +1,15 @@
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
-# detect legacy kernel installs and abort to prevent upgrades
-case $(uname -r) in
-  4.4*)
-    echo "Updates from legacy kernels are not supported!"
-    sleep 10
-    exit 1
-    ;;
-esac
+# devices have been renamed after LE9.2
+if [ "${1}" = "TinkerBoard.arm" -o "${1}" = "MiQi.arm" ]; then
+  if [ "${2}" = "RK3288.arm" ]; then
+    exit 0
+  fi
+fi
 
 # Allow upgrades between arm and aarch64
-if [ "$1" = "@PROJECT@.arm" -o "$1" = "@PROJECT@.aarch64" ]; then
+if [ "${1}" = "@PROJECT@.arm" -o "${1}" = "@PROJECT@.aarch64" ]; then
   exit 0
 else
   exit 1
