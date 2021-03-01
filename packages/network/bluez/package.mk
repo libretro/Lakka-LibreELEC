@@ -56,7 +56,8 @@ post_makeinstall_target() {
     cp src/main.conf ${INSTALL}/etc/bluetooth
     sed -i ${INSTALL}/etc/bluetooth/main.conf \
         -e "s|^#\[Policy\]|\[Policy\]|g" \
-        -e "s|^#AutoEnable.*|AutoEnable=true|g"
+        -e "s|^#AutoEnable.*|AutoEnable=true|g" \
+        -e "s|^#JustWorksRepairing.*|JustWorksRepairing=always|g"
 
   mkdir -p ${INSTALL}/usr/share/services
     cp -P ${PKG_DIR}/default.d/*.conf ${INSTALL}/usr/share/services
