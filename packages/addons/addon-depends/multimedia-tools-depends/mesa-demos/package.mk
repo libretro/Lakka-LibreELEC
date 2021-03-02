@@ -4,7 +4,7 @@
 PKG_NAME="mesa-demos"
 PKG_VERSION="8.4.0"
 PKG_SHA256="01e99c94a0184e63e796728af89bfac559795fb2a0d6f506fa900455ca5fff7d"
-PKG_ARCH="i386 x86_64"
+PKG_ARCH="x86_64"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
 PKG_URL="ftp://ftp.freedesktop.org/pub/mesa/demos/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
