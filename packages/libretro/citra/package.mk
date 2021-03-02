@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="citra"
-PKG_VERSION="76caa68"
+PKG_VERSION="d74099c"
 PKG_REV="1"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPLv2+"

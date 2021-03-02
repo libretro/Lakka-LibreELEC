@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="craft"
-PKG_VERSION="347d2ef"
+PKG_VERSION="d348b66"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
