@@ -3,8 +3,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="bluez"
-PKG_VERSION="5.55"
-PKG_SHA256="8863717113c4897e2ad3271fc808ea245319e6fd95eed2e934fae8e0894e9b88"
+PKG_VERSION="5.56"
+PKG_SHA256="59c4dba9fc8aae2a6a5f8f12f19bc1b0c2dc27355c7ca3123eed3fe6bd7d0b9d"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.bluez.org/"
 PKG_URL="https://www.kernel.org/pub/linux/bluetooth/${PKG_NAME}-${PKG_VERSION}.tar.xz"
@@ -56,7 +56,8 @@ post_makeinstall_target() {
     cp src/main.conf ${INSTALL}/etc/bluetooth
     sed -i ${INSTALL}/etc/bluetooth/main.conf \
         -e "s|^#\[Policy\]|\[Policy\]|g" \
-        -e "s|^#AutoEnable.*|AutoEnable=true|g"
+        -e "s|^#AutoEnable.*|AutoEnable=true|g" \
+        -e "s|^#JustWorksRepairing.*|JustWorksRepairing=always|g"
 
   mkdir -p ${INSTALL}/usr/share/services
     cp -P ${PKG_DIR}/default.d/*.conf ${INSTALL}/usr/share/services
