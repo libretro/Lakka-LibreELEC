@@ -26,7 +26,7 @@
   for dtbfile in $BOOT_ROOT/dtb/*.dtb ; do
     dtb=$(basename $dtbfile)
     echo "Updating $dtb"
-    cp -p $SYSTEM_ROOT/usr/share/bootloader/$dtb $BOOT_ROOT/dtb/ 2>/dev/null || true
+    cp -p $SYSTEM_ROOT/usr/share/bootloader/$dtb $BOOT_ROOT/ 2>/dev/null || true
   done
 
 # update u-boot scripts
