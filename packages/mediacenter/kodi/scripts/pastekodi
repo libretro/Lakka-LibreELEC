@@ -14,6 +14,18 @@ cat_file() {
   fi
 }
 
+ls_dir() {
+  if [ -d "${1}" ]; then
+    ls -lA "${1}" | cat_data "${1}"
+  fi
+}
+
+ls_dir_recursive() {
+  if [ -d "${1}" ]; then
+    ls -lAR "${1}" | cat_data "${1}"
+  fi
+}
+
 usage() {
   [ -n "${1}" ] && echo "Unknown argument: ${1}"
   cat <<EOF
@@ -65,17 +77,15 @@ fi
   fi
   if [ "${LIBREELEC_PROJECT}" = "RPi" ]; then
     echo "RPi Hardware Revision: $(vcgencmd otp_dump | grep 30: | cut -d: -f2)"
+    echo "RPi $(vcgencmd get_throttled)"
   fi
 
   cat_file "${LOG_FILE}"
 
-  journalctl -a | cat_data "journalctl -a"
+  journalctl -a -o short-precise | cat_data "journalctl -a"
 
   if [ "${LIBREELEC_PROJECT}" = "RPi" ]; then
-    bootloader_version="$(vcgencmd bootloader_version)"
-    if ! echo "${bootloader_version}" | grep -q "Command not registered"; then
-      echo  "${bootloader_version}" | cat_data "Bootloader version"
-    fi
+    vcgencmd bootloader_version | cat_data "Bootloader version"
   fi
 
   cat_file "/flash/config.txt" # RPi
@@ -91,6 +101,10 @@ fi
   cat_file "${KODI_ROOT}/.smb/smb.conf"
   cat_file "${KODI_ROOT}/.smb/user.conf"
   cat_file "/run/samba/smb.conf"
+
+  ls_dir /storage/.config
+  ls_dir_recursive /storage/.config/system.d
+  ls_dir /storage/.config/udev.rules.d
 
   pem_sys="$(sha256sum /etc/ssl/cacert.pem.system | cut -d' ' -f1)"
   pem_run="$(sha256sum /run/libreelec/cacert.pem | cut -d' ' -f1)"
