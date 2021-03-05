@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2021-present Team LibreELEC (https://libreelec.tv)
+
+. config/options linux
+
+${SCRIPTS}/unpack linux
+
+if [ -f "${DISTRO_DIR}/${DISTRO}/kernel_options" ]; then
+  while read OPTION; do
+    [ -z "$OPTION" -o -n "$(echo "$OPTION" | grep '^#')" ] && continue
+
+    if [ "${OPTION##*=}" == "m" ]; then
+      echo "[m] ${OPTION%%=*}"
+      $PKG_BUILD/scripts/config --file $PKG_KERNEL_CFG_FILE --module ${OPTION%%=*}
+    fi
+
+    if [ "${OPTION##*=}" == "y" ]; then
+      echo "[y] ${OPTION%%=*}"
+      $PKG_BUILD/scripts/config --file $PKG_KERNEL_CFG_FILE --enable ${OPTION%%=*}
+    fi
+
+    if [ "${OPTION##*=}" == "n" ]; then
+      echo "[n] ${OPTION%%=*}"
+      $PKG_BUILD/scripts/config --file $PKG_KERNEL_CFG_FILE --disable ${OPTION%%=*}
+    fi
+
+  done < ${DISTRO_DIR}/${DISTRO}/kernel_options
+else
+  echo "kernel options file doesn't exist: ${DISTRO_DIR}/${DISTRO}/kernel_options"
+fi
