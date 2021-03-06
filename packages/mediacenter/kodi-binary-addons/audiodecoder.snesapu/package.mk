@@ -5,7 +5,7 @@
 PKG_NAME="audiodecoder.snesapu"
 PKG_VERSION="3.0.0-Matrix"
 PKG_SHA256="3537b735acfbbacaada2aa1d2035acbc698f37cc7626375f408e967ca612b2d0"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.snesapu"

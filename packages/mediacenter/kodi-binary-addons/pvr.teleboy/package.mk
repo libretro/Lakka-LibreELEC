@@ -4,7 +4,7 @@
 PKG_NAME="pvr.teleboy"
 PKG_VERSION="19.8.0-Matrix"
 PKG_SHA256="71516e5f90b2ccb24ddff9f577f4521da61808347ad6ef3e852fb17c5f1a978e"
-PKG_REV="2"
+PKG_REV="3"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/rbuehlma/pvr.teleboy"

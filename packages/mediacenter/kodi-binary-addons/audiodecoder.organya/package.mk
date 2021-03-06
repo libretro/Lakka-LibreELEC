@@ -5,7 +5,7 @@
 PKG_NAME="audiodecoder.organya"
 PKG_VERSION="3.0.0-Matrix"
 PKG_SHA256="01320cb45995db26230ddd975a802114e7e8dee7e78baa76241119a330eec7d3"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.organya"

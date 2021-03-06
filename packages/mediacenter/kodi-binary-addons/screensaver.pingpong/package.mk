@@ -5,7 +5,7 @@
 PKG_NAME="screensaver.pingpong"
 PKG_VERSION="2.4.0-Matrix"
 PKG_SHA256="c38cda571b345d61882b43cea839536fa6fbfbb08e07231e8d8bc8adb8d28c08"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/screensaver.pingpong"

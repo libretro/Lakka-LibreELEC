@@ -5,7 +5,7 @@
 PKG_NAME="screensaver.pyro"
 PKG_VERSION="3.3.0-Matrix"
 PKG_SHA256="83a3375166d6aaed01939bc370981ad46909fe1f1365fe7af22d4614fa6d06e6"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/screensaver.pyro"

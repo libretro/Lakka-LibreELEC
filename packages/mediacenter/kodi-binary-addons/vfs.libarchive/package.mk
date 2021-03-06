@@ -4,7 +4,7 @@
 PKG_NAME="vfs.libarchive"
 PKG_VERSION="2.0.0-Matrix"
 PKG_SHA256="6fd70f0e2775e9c4eef2e8b529396f1e739fe3e43e0d4202d7f08ab4a30fa760"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/vfs.libarchive"

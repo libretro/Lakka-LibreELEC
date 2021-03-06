@@ -4,7 +4,7 @@
 PKG_NAME="imagedecoder.mpo"
 PKG_VERSION="2.0.1-Matrix"
 PKG_SHA256="6f93361ba15b44ca86d7bb46772c0116e2a820ca2bf0021e6392be11fc372576"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/imagedecoder.mpo"

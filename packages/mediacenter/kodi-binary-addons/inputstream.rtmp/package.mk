@@ -4,7 +4,7 @@
 PKG_NAME="inputstream.rtmp"
 PKG_VERSION="3.4.0-Matrix"
 PKG_SHA256="efaaa9b07c18810582a3826df476fc36a2aac82be7512271545073c3f6cc0212"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/inputstream.rtmp"

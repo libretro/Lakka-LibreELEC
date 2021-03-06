@@ -5,7 +5,7 @@
 PKG_NAME="screensaver.asterwave"
 PKG_VERSION="3.3.0-Matrix"
 PKG_SHA256="4645ea5923df5a2cae84887b743c3963940344439c37ca2e18896d082ac76b1d"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/screensaver.asterwave"

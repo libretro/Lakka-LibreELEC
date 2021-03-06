@@ -5,7 +5,7 @@
 PKG_NAME="audiodecoder.openmpt"
 PKG_VERSION="3.0.0-Matrix"
 PKG_SHA256="3cff81a4b06d1298c2d62118bcfb2067140d7122aa68dc6558fe5eb9949def2a"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.openmpt"

@@ -5,7 +5,7 @@
 PKG_NAME="audiodecoder.asap"
 PKG_VERSION="3.0.1-Matrix"
 PKG_SHA256="9a4d8aa11380443c0bbf0b43ce0b4f5b3097e300daa247c322e6e585394a9d89"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.asap"

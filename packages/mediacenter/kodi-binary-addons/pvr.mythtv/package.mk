@@ -5,7 +5,7 @@
 PKG_NAME="pvr.mythtv"
 PKG_VERSION="7.3.0-Matrix"
 PKG_SHA256="fa741677fc2d58689111d18c8eb1114115f4c33bc99267bb761f225e82fdc588"
-PKG_REV="2"
+PKG_REV="3"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/janbar/pvr.mythtv"
