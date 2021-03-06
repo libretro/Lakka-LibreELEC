@@ -4,7 +4,7 @@
 PKG_NAME="game.libretro.tgbdual"
 PKG_VERSION="0.8.3.13-Matrix"
 PKG_SHA256="1b7950721528102a13ede2189e157003dce495bb09ad500d75c15db8de22f629"
-PKG_REV="2"
+PKG_REV="3"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.tgbdual"

@@ -4,7 +4,7 @@
 PKG_NAME="game.libretro.fsuae"
 PKG_VERSION="dadbb8343699666d601ab316fcd748741a021961"
 PKG_SHA256="e606284a0f86128ddae40a18d5e4e5c105658d751e2016fd56e43b382121f354"
-PKG_REV="106"
+PKG_REV="107"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.fsuae"
