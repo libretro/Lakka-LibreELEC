@@ -25,7 +25,7 @@ fi
     # device tree mappings for update from vendor to mainline kernel
     case "${dtb}" in
       rk3288-miniarm.dtb)
-        new_dtb=rk3288-tinker.dtb
+        new_dtb=rk3288-tinker-s.dtb
         ;;
       rk3328-box.dtb|rk3328-box-trn9.dtb|rk3328-box-z28.dtb|rk3328-rockbox.dtb)
         new_dtb=rk3328-a1.dtb

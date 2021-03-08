@@ -3028,3 +3028,72 @@ index 72f34205fd20..9358d302f5e4 100644
  			<50000000>, <100000000>,
  			<100000000>, <100000000>,
  			<50000000>, <50000000>,
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bee <knaerzche@gmail.com>
+Date: Mon, 1 Mar 2021 20:31:15 +0100
+Subject: [PATCH] clk: rockchip: rk3288: use common PLL setting for 594 MHz in
+ NPLL table
+
+The settings in the NPLL table (which were obviously copied from RK3368) don't
+provide a stable signal for 594 MHz, what leads to random short-term black
+screen periods (@2160p@60Hz) on some sensetive HDMI sinks when using this PLL
+as the source for VOPs dclk.
+Using the PLL settings from the common PLL table for this frequency fixes
+this.
+---
+ drivers/clk/rockchip/clk-rk3288.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/clk/rockchip/clk-rk3288.c b/drivers/clk/rockchip/clk-rk3288.c
+index b3247a3a7290..f5617529dbb5 100644
+--- a/drivers/clk/rockchip/clk-rk3288.c
++++ b/drivers/clk/rockchip/clk-rk3288.c
+@@ -122,7 +122,7 @@ static struct rockchip_pll_rate_table rk3288_pll_rates[] = {
+ };
+ 
+ static struct rockchip_pll_rate_table rk3288_npll_rates[] = {
+-	RK3066_PLL_RATE_NB(594000000, 1, 99, 4, 32),
++	RK3066_PLL_RATE_NB(594000000, 1, 198, 8, 1),
+ 	RK3066_PLL_RATE_NB(585000000, 6, 585, 4, 32),
+ 	RK3066_PLL_RATE_NB(432000000, 3, 216, 4, 32),
+ 	RK3066_PLL_RATE_NB(426000000, 3, 213, 4, 32),
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bee <knaerzche@gmail.com>
+Date: Wed, 3 Mar 2021 18:27:40 +0100
+Subject: [PATCH] HACK: drm/bridge: prefer RGB output over YUV422/YUV444 in
+ dw-hdmi
+
+---
+ drivers/gpu/drm/bridge/synopsys/dw-hdmi.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
+index f86b8fa40ab6..00ca09956545 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
+@@ -2664,6 +2664,14 @@ static u32 *dw_hdmi_bridge_atomic_get_output_bus_fmts(struct drm_bridge *bridge,
+ 			output_fmts[i++] = MEDIA_BUS_FMT_RGB101010_1X30;
+ 	}
+ 
++	/* Hack: prefer output of RGB over YUV422/YUV444 for Rockchip,
++	 * since color space conversion produces wrong results here
++	 * TODO: investigate
++	 */
++
++	if (is_tmds_allowed(info, mode, MEDIA_BUS_FMT_RGB888_1X24))
++                output_fmts[i++] = MEDIA_BUS_FMT_RGB888_1X24;
++
+ 	if ((info->color_formats & DRM_COLOR_FORMAT_YCRCB422) &&
+ 	    is_tmds_allowed(info, mode, MEDIA_BUS_FMT_UYVY8_1X16))
+ 		output_fmts[i++] = MEDIA_BUS_FMT_UYVY8_1X16;
+@@ -2672,10 +2680,6 @@ static u32 *dw_hdmi_bridge_atomic_get_output_bus_fmts(struct drm_bridge *bridge,
+ 	    is_tmds_allowed(info, mode, MEDIA_BUS_FMT_YUV8_1X24))
+ 		output_fmts[i++] = MEDIA_BUS_FMT_YUV8_1X24;
+ 
+-	/* Default 8bit RGB fallback */
+-	if (is_tmds_allowed(info, mode, MEDIA_BUS_FMT_RGB888_1X24))
+-		output_fmts[i++] = MEDIA_BUS_FMT_RGB888_1X24;
+-
+ 	*num_output_fmts = i;
+ 
+ 	return output_fmts;
