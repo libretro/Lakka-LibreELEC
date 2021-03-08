@@ -17,12 +17,12 @@ class MyMonitor(xbmc.Monitor):
             
 # addon
 __addon__ = xbmcaddon.Addon(id='service.net-snmp')
-__addonpath__ = xbmc.translatePath(__addon__.getAddonInfo('path'))
-__addonhome__ = xbmc.translatePath(__addon__.getAddonInfo('profile'))
-if not xbmcvfs.exists(xbmc.translatePath(__addonhome__ + 'share/snmp/')):
-    xbmcvfs.mkdirs(xbmc.translatePath(__addonhome__ + 'share/snmp/'))
-config = xbmc.translatePath(__addonhome__ + 'share/snmp/snmpd.conf')
-persistent = xbmc.translatePath(__addonhome__ + 'snmpd.conf')
+__addonpath__ = xbmcvfs.translatePath(__addon__.getAddonInfo('path'))
+__addonhome__ = xbmcvfs.translatePath(__addon__.getAddonInfo('profile'))
+if not xbmcvfs.exists(xbmcvfs.translatePath(__addonhome__ + 'share/snmp/')):
+    xbmcvfs.mkdirs(xbmcvfs.translatePath(__addonhome__ + 'share/snmp/'))
+config = xbmcvfs.translatePath(__addonhome__ + 'share/snmp/snmpd.conf')
+persistent = xbmcvfs.translatePath(__addonhome__ + 'snmpd.conf')
 
 
 def writeconfig():
