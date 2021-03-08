@@ -4,7 +4,7 @@
 PKG_NAME="imagedecoder.raw"
 PKG_VERSION="3.0.1-Matrix"
 PKG_SHA256="aeb18567485681631eb518876555555999464480a9854434f465354914ef66c2"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/imagedecoder.raw"

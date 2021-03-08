@@ -5,7 +5,7 @@
 PKG_NAME="pvr.vbox"
 PKG_VERSION="8.1.0-Matrix"
 PKG_SHA256="b30548dfbf892f7bedbf191b5a9d93fa978fb794f897268876a1e607518e15af"
-PKG_REV="2"
+PKG_REV="3"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-pvr/pvr.vbox"

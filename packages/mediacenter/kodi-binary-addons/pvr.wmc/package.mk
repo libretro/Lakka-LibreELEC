@@ -5,7 +5,7 @@
 PKG_NAME="pvr.wmc"
 PKG_VERSION="6.1.1-Matrix"
 PKG_SHA256="b58b4d6d2358faf5887133ea1794a2d3f8b35f77411aacafa569d45f7bc4bb3a"
-PKG_REV="2"
+PKG_REV="3"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-pvr/pvr.wmc"

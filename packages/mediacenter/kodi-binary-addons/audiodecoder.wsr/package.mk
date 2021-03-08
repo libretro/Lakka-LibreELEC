@@ -5,7 +5,7 @@
 PKG_NAME="audiodecoder.wsr"
 PKG_VERSION="3.0.1-Matrix"
 PKG_SHA256="e9b72b08b0ab4f0f5bed0bb3ad8a150f568cd0ec5385659aebdceaed7a9f7940"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.wsr"

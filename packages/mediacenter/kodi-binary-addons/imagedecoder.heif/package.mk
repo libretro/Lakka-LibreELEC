@@ -4,7 +4,7 @@
 PKG_NAME="imagedecoder.heif"
 PKG_VERSION="1.3.0-Matrix"
 PKG_SHA256="bb75fa34382443f6320bd7ab0a623834c1bd98743464de05029eb31fb5ac6494"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/imagedecoder.heif"

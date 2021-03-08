@@ -5,7 +5,7 @@
 PKG_NAME="audiodecoder.fluidsynth"
 PKG_VERSION="3.0.0-Matrix"
 PKG_SHA256="73d5f5dba2e67df7864fda3f550520d8e50187484175bb637162be6f2edb8271"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.fluidsynth"

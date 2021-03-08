@@ -4,7 +4,7 @@
 PKG_NAME="game.libretro.beetle-bsnes"
 PKG_VERSION="0.9.26.10-Matrix"
 PKG_SHA256="ff2bf9f29bc9c6f4cdd1d10ffe4b6f05723c73956851964081b60abe5fc9ab6b"
-PKG_REV="2"
+PKG_REV="3"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.beetle-bsnes"

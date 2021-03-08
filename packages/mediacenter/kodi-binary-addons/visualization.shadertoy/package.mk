@@ -5,7 +5,7 @@
 PKG_NAME="visualization.shadertoy"
 PKG_VERSION="2.3.0-Matrix"
 PKG_SHA256="fbee4d8d4a41013705848eb89d4dcd55fe915a1ff997a60c800aa1bdd157530b"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/visualization.shadertoy"

@@ -5,7 +5,7 @@
 PKG_NAME="audiodecoder.usf"
 PKG_VERSION="4.0.0-Matrix"
 PKG_SHA256="0de1946c9ea8e99832f8ac69d7d0f4d8aef7c2ac6b3a0ade3e9588627bc16d51"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.usf"

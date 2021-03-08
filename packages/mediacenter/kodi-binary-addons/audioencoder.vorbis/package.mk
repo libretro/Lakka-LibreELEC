@@ -5,7 +5,7 @@
 PKG_NAME="audioencoder.vorbis"
 PKG_VERSION="3.0.1-Matrix"
 PKG_SHA256="ba4e6bf402e31096c1fd791db8db26d0eea575998ae414a74c797e868fd08000"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audioencoder.vorbis"

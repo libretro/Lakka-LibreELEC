@@ -5,7 +5,7 @@
 PKG_NAME="audiodecoder.gme"
 PKG_VERSION="3.0.0-Matrix"
 PKG_SHA256="17c34b28dec26f4cbe529d5f5537eec47f74f48f7cec1eb4fd54a067913c2939"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.gme"

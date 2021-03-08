@@ -5,7 +5,7 @@
 PKG_NAME="visualization.spectrum"
 PKG_VERSION="3.4.0-Matrix"
 PKG_SHA256="0b08b99c0289a421425a5d3b39eafdf6262021e213bd3093e98704efb410d348"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/visualization.spectrum"

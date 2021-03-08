@@ -5,7 +5,7 @@
 PKG_NAME="audiodecoder.ssf"
 PKG_VERSION="3.0.0-Matrix"
 PKG_SHA256="6dc07c96869b5a0fea30359d8adf7b2c3be71acce8871539a23bd856fbc43af9"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.ssf"
