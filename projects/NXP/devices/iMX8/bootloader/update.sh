@@ -30,9 +30,20 @@ fi
   done
 
 # update bootloader files
-  if [ -f $SYSTEM_ROOT/usr/share/bootloader/flash.bin ]; then
-    echo "*** updating u-boot image on: $BOOT_DISK ..."
-    dd if=$SYSTEM_ROOT/usr/share/bootloader/flash.bin of="$BOOT_DISK" bs=1024 seek=33 conv=fsync &>/dev/null
+  UBOOT="${SYSTEM_ROOT}/usr/share/bootloader/flash.bin"
+  if [ -f "${UBOOT}" ]; then
+    DEVICE="$(basename ${BOOT_DISK})"
+    if grep -q "MMC" /sys/class/block/${DEVICE}/device/type; then
+      echo 0 > /sys/block/${DEVICE}boot0/force_ro
+      echo "*** updating u-boot image on: ${BOOT_DISK}boot0 ..."
+      dd if="${UBOOT}" of="${DEVICE}boot0" bs=1024 seek=33 conv=fsync > /dev/null 2>&1
+      echo 0 > /sys/block/${DEVICE}boot1/force_ro
+      echo "*** updating u-boot image on: ${BOOT_DISK}boot1 ..."
+      dd if="${UBOOT}" of="${DEVICE}boot1" bs=1024 seek=33 conv=fsync > /dev/null 2>&1
+    else
+      echo "*** updating u-boot image on: ${BOOT_DISK} ..."
+      dd if="${UBOOT}" of="$BOOT_DISK" bs=1024 seek=33 conv=fsync &>/dev/null
+    fi
   fi
 
 # mount $BOOT_ROOT r/o
