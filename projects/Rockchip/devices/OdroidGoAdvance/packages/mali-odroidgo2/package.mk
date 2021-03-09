@@ -15,8 +15,14 @@ post_makeinstall_target() {
 	# remove all the extra blobs, we only need one
 	rm -rf $INSTALL/usr
 
+	if [ "$ARCH" == "arm" ]; then
+		MALI_BLOB="libmali-rk3326-gbm_arm32_r13p0_with_vulkan_and_cl.so"
+	else
+		MALI_BLOB="libmali-rk3326-gbm_arm64_r13p0_with_vulkan_and_cl.so"
+	fi
+
 	mkdir -p $INSTALL/usr/lib/
-	cp $PKG_BUILD/libmali-rk3326-gbm_arm32_r13p0_with_vulkan_and_cl.so $INSTALL/usr/lib/libmali.so.1.9.0
+	cp $PKG_BUILD/$MALI_BLOB $INSTALL/usr/lib/libmali.so.1.9.0
 
 	ln -sf libmali.so.1.9.0 $INSTALL/usr/lib/libmali.so.1
 	ln -sf libmali.so.1.9.0 $INSTALL/usr/lib/libmali.so
@@ -37,7 +43,7 @@ post_makeinstall_target() {
 	cp $PKG_BUILD/include/KHR/mali_khrplatform.h $SYSROOT_PREFIX/usr/include/KHR/khrplatform.h
 	
 	mkdir -p $SYSROOT_PREFIX/usr/lib
-	cp -PR $PKG_BUILD/lib/arm-linux-gnueabihf/libmali-bifrost-g31-rxp0-gbm.so $SYSROOT_PREFIX/usr/lib/libmali.so
+	cp -PR $PKG_BUILD/$MALI_BLOB $SYSROOT_PREFIX/usr/lib/libmali.so
 
 	ln -sf libmali.so $SYSROOT_PREFIX/usr/lib/libEGL.so
 	ln -sf libmali.so $SYSROOT_PREFIX/usr/lib/libEGL.so.1
