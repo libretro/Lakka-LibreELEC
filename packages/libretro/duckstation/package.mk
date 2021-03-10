@@ -19,11 +19,11 @@
 ################################################################################
 
 PKG_NAME="duckstation"
-PKG_VERSION="d1a42df"
+PKG_VERSION="abb7631"
 PKG_REV="1"
 PKG_ARCH="x86_64 arm aarch64"
 PKG_LICENSE="GPLv3"
-PKG_SITE="https://github.com/stenzek/duckstation"
+PKG_SITE="https://github.com/libretro/duckstation"
 PKG_URL="$PKG_SITE.git"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"

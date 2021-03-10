@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="mu"
-PKG_VERSION="4ac4068"
+PKG_VERSION="ff746b8"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"
@@ -36,10 +36,10 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  make -C libretroBuildSystem
+  make -C ../libretroBuildSystem
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp libretroBuildSystem/mu_libretro.so $INSTALL/usr/lib/libretro/
+  cp ../libretroBuildSystem/mu_libretro.so $INSTALL/usr/lib/libretro/mu_libretro.so
 }

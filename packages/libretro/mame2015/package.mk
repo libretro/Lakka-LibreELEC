@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="mame2015"
-PKG_VERSION="969bf4a"
+PKG_VERSION="ef41361"
 PKG_REV="1"
 PKG_ARCH="x86_64 aarch64 arm"
 PKG_LICENSE="GPLv2"

@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="vecx"
-PKG_VERSION="e572e5e"
+PKG_VERSION="9af0702"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2|LGPLv2.1"
@@ -35,7 +35,15 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  make -f Makefile.libretro
+  if [ "$PROJECT" == "RPi" ]; then
+    if [ "$DEVICE" == "RPi4" ]; then
+	make platform=rpi-mesa -f Makefile.libretro # Use mesa gl/gles
+    else
+	make platform=rpi -f Makefile.libretro # broadcom gl/gles
+    fi
+ else
+    make -f Makefile.libretro
+ fi
 }
 
 makeinstall_target() {

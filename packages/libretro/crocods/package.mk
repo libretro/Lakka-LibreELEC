@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="crocods"
-PKG_VERSION="8d8443c"
+PKG_VERSION="922368c"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"

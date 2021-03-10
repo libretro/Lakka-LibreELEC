@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="tic80"
-PKG_VERSION="8bfb0de"
+PKG_VERSION="6c71b11"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"

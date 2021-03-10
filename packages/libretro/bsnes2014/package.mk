@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="bsnes2014"
-PKG_VERSION="feb8c10"
+PKG_VERSION="1c2216f"
 PKG_REV="1"
 PKG_ARCH="x86_64 i386"
 PKG_LICENSE="GPLv3"
@@ -36,5 +36,5 @@ PKG_AUTORECONF="no"
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp out/bsnes2014_accuracy_libretro.so $INSTALL/usr/lib/libretro/
+  cp bsnes2014_performance_libretro.so $INSTALL/usr/lib/libretro/
 }
