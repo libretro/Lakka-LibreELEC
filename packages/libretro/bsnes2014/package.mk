@@ -36,5 +36,5 @@ PKG_AUTORECONF="no"
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp out/bsnes2014_accuracy_libretro.so $INSTALL/usr/lib/libretro/
+  cp bsnes2014_performance_libretro.so $INSTALL/usr/lib/libretro/
 }
