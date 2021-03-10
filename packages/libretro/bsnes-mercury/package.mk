@@ -40,5 +40,5 @@ make_target() {
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp out/bsnes_mercury_balanced_libretro.so $INSTALL/usr/lib/libretro/bsnes_mercury_balanced_libretro.so
+  cp bsnes_mercury_performance_libretro.so $INSTALL/usr/lib/libretro/bsnes_mercury_balanced_libretro.so
 }
