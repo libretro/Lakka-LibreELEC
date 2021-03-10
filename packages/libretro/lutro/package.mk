@@ -34,6 +34,12 @@ PKG_LONGDESC="An experimental lua game framework for libretro inspired by LÖVE"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+pre_make_target() {
+  if target_has_feature neon; then
+    export HAVE_NEON=1
+  fi
+}
+
 make_target() {
   PTR_SIZE="-m32"
   if [ "$ARCH" == "x86_64" ]; then
