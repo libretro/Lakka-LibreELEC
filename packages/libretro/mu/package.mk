@@ -30,13 +30,16 @@ PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="A new Palm OS emulator targeting compatibility, speed and accuracy in that order."
 PKG_LONGDESC="A new Palm OS emulator targeting compatibility, speed and accuracy in that order."
-PKG_TOOLCHAIN="cmake"
+PKG_TOOLCHAIN="make"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+make_target() {
+  make -C ../libretroBuildSystem
+}
+
 makeinstall_target() {
-  pwd
   mkdir -p $INSTALL/usr/lib/libretro
-  cp libretroBuildSystem/libmu-libretro.so $INSTALL/usr/lib/libretro/mu_libretro.so
+  cp ../libretroBuildSystem/mu_libretro.so $INSTALL/usr/lib/libretro/mu_libretro.so
 }
