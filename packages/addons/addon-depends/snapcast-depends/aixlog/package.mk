@@ -3,7 +3,7 @@
 
 PKG_NAME="aixlog"
 PKG_VERSION="1.5.0"
-PKG_SHA256="1d9d344448493c1e74e0baa5e76fc175b9e4497012d6d17591ca49c2e511fbe8"
+PKG_SHA256="c32b2b2e7ed2632fab53aba01f731fce1e7b150fe7d08bccdafc250e5cb836a8"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/badaix/aixlog"
 PKG_URL="https://github.com/badaix/aixlog/archive/v${PKG_VERSION}.tar.gz"
