@@ -2,8 +2,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="gptfdisk"
-PKG_VERSION="1.0.6"
-PKG_SHA256="ddc551d643a53f0bd4440345d3ae32c49b04a797e9c01036ea460b6bb4168ca8"
+PKG_VERSION="1.0.8"
+PKG_SHA256="95d19856f004dabc4b8c342b2612e8d0a9eebdd52004297188369f152e9dc6df"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.rodsbooks.com/gdisk/"
 PKG_URL="https://downloads.sourceforge.net/project/${PKG_NAME}/${PKG_NAME}/${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.gz"
