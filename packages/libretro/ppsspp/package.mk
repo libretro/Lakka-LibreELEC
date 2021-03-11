@@ -25,7 +25,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/hrydgard/ppsspp"
 PKG_URL="$PKG_SITE.git"
-PKG_DEPENDS_TARGET="toolchain ffmpeg"
+PKG_DEPENDS_TARGET="toolchain ffmpeg libzip libpng"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="Libretro port of PPSSPP"
@@ -48,6 +48,8 @@ PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=yes \
                        -DCMAKE_BUILD_TYPE=Release \
                        -DUSE_FFMPEG=yes \
                        -DUSE_SYSTEM_FFMPEG=yes \
+                       -DUSE_DISCORD=no \
+                       -DUSE_MINIUPNPC=no \
                        --target ppsspp_libretro"
 
 if [ "$OPENGL_SUPPORT" = no -a "$OPENGLES_SUPPORT" = yes ]; then
