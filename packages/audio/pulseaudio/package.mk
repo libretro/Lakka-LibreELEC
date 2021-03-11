@@ -80,7 +80,8 @@ post_makeinstall_target() {
   safe_remove ${INSTALL}/usr/share/bash-completion
 
   cp ${PKG_DIR}/config/system.pa ${INSTALL}/etc/pulse/
-  cp ${PKG_DIR}/config/pulseaudio-system.conf ${INSTALL}/etc/dbus-1/system.d/
+
+  sed 's/user="pulse"/user="root"/' -i ${INSTALL}/etc/dbus-1/system.d/pulseaudio-system.conf
 
   mkdir -p ${INSTALL}/usr/config
     cp -PR ${PKG_DIR}/config/pulse-daemon.conf.d ${INSTALL}/usr/config
