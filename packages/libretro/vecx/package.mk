@@ -34,6 +34,14 @@ PKG_LONGDESC="libretro adaptation of vecx"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+if [ "$OPENGL_SUPPORT" = yes ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGL"
+fi
+
+if [ "$OPENGLES_SUPPORT" = yes ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGLES"
+fi
+
 make_target() {
   if [ "$PROJECT" == "RPi" ]; then
     if [ "$DEVICE" == "RPi4" ]; then
@@ -41,7 +49,9 @@ make_target() {
     else
 	make platform=rpi -f Makefile.libretro # broadcom gl/gles
     fi
- else
+  elif [ "$OPENGLES_SUPPORT" = "yes" ]; then
+    make HAS_GLES=1 GLES=1 -f Makefile.libretro
+  else
     make -f Makefile.libretro
  fi
 }
