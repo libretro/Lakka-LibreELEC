@@ -35,6 +35,10 @@ PKG_TOOLCHAIN="make"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+if [ "${DEVICE}" = "OdroidGoAdvance" ]; then
+  PKG_BUILD_FLAGS="-gold"
+fi
+
 make_target() {
 
 PKG_MAKE_OPTS_TARGET=" -C ./src/burner/libretro CC=$CC CXX=$CXX"
