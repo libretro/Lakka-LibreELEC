@@ -44,6 +44,10 @@ if [ "$ARCH" == "arm" ]; then
     PKG_MAKE_OPTS_TARGET+=" HAVE_NEON=1"
   fi
 
+  if [ "$DEVICE" = "OdroidGoAdvance" ]; then
+    PKG_MAKE_OPTS_TARGET+=" USE_CYCLONE=1"
+  fi
+
 else
   PKG_MAKE_OPTS_TARGET+=" profile=accuracy"
 fi
