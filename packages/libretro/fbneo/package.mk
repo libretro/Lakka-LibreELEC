@@ -35,32 +35,18 @@ PKG_TOOLCHAIN="make"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-if [ "${DEVICE}" = "OdroidGoAdvance" ]; then
-  PKG_BUILD_FLAGS="-gold"
-fi
+PKG_MAKE_OPTS_TARGET=" -C ./src/burner/libretro"
 
-make_target() {
+if [ "$ARCH" == "arm" ]; then
+  PKG_MAKE_OPTS_TARGET+=" profile=performance"
 
-PKG_MAKE_OPTS_TARGET=" -C ./src/burner/libretro CC=$CC CXX=$CXX"
-
-  if [ "$ARCH" == "arm" ]; then
-      PKG_MAKE_OPTS_TARGET+=" profile=performance"
-  
-    if [[ "$TARGET_FPU" =~ "neon" ]]; then
-      PKG_MAKE_OPTS_TARGET+=" HAVE_NEON=1"
-    fi
-    
-    if [ "$DEVICE" == "OdroidGoAdvance" ]; then
-      sed -i "s|armv8-a|armv8-a+crc|" ./src/burner/libretro/Makefile 
-      sed -i "s|LDFLAGS += -static-libgcc -static-libstdc++|LDFLAGS += -static-libgcc|"  ./src/burner/libretro/Makefile 
-      PKG_MAKE_OPTS_TARGET+=" platform=classic_armv8_a35 USE_CYCLONE=1"
-    fi
-
-  else
-      PKG_MAKE_OPTS_TARGET+=" profile=accuracy" 
+  if [[ "$TARGET_FPU" =~ "neon" ]]; then
+    PKG_MAKE_OPTS_TARGET+=" HAVE_NEON=1"
   fi
-  make $PKG_MAKE_OPTS_TARGET
-}
+
+else
+  PKG_MAKE_OPTS_TARGET+=" profile=accuracy"
+fi
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
