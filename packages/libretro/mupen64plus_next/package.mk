@@ -64,12 +64,12 @@ make_target() {
     RPi4)
       make platform=rpi4 GLES3=1 FORCE_GLES3=1
       ;;
-    imx6)
+    iMX6)
       CFLAGS="$CFLAGS -DLINUX -DEGL_API_FB"
       CPPFLAGS="$CPPFLAGS -DLINUX -DEGL_API_FB"
       make platform=unix GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
       ;;
-    Generic*)
+    Generic)
       case $ARCH in
         x86_64)
           make WITH_DYNAREC=x86_64
@@ -79,14 +79,23 @@ make_target() {
 	  ;;
       esac
       ;;
-    OdroidC1)
-      make platform=odroid BOARD=ODROIDC1 GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
-      ;;
     OdroidXU3)
-      make platform=odroid BOARD=ODROID-XU3 GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
+      make platform=odroid BOARD=ODROID-XU GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
       ;;
-    S905|S912)
+    AMLG12|AMLGX)
       make platform=amlogic GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
+      ;;
+    OdroidGoAdvance)
+      make platform=unix-gles BOARD=ODROIDGOA GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
+      ;;
+    RK3328)
+      make platform=RK3328 GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
+      ;;
+    RK3399)
+      make platform=RK3399 GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
+      ;;
+    MiQi|TinkerBoard)
+      make platform=RK3288 GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
       ;;
     *)
       make platform=unix-gles GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
