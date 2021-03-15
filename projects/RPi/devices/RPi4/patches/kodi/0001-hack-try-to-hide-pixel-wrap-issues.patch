@@ -1,15 +1,15 @@
-From cbafa5c050c24d8d0517a4398837d0b670060dcb Mon Sep 17 00:00:00 2001
+From 7220f2de9c3f29f4bd005ef442a656047a69561b Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 8 Apr 2020 11:19:22 +0100
 Subject: [PATCH] pi4: hack: Try to hide pixel wrap issue
 
 ---
- .../HwDecRender/VideoLayerBridgeDRMPRIME.cpp   | 18 +++++++++++++++---
- xbmc/windowing/gbm/drm/DRMAtomic.cpp           | 10 ++++++++--
- 2 files changed, 23 insertions(+), 5 deletions(-)
+ .../HwDecRender/VideoLayerBridgeDRMPRIME.cpp  | 22 ++++++++++++++-----
+ xbmc/windowing/gbm/drm/DRMAtomic.cpp          | 10 +++++++--
+ 2 files changed, 25 insertions(+), 7 deletions(-)
 
 diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/VideoLayerBridgeDRMPRIME.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/VideoLayerBridgeDRMPRIME.cpp
-index c78636b680..dcb1f1d5f2 100644
+index c78636b680..ed737820f1 100644
 --- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/VideoLayerBridgeDRMPRIME.cpp
 +++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/VideoLayerBridgeDRMPRIME.cpp
 @@ -11,6 +11,7 @@
@@ -20,47 +20,50 @@ index c78636b680..dcb1f1d5f2 100644
  
  #include <utility>
  
-@@ -264,13 +265,24 @@ void CVideoLayerBridgeDRMPRIME::SetVideoPlane(CVideoBufferDRMPRIME* buffer, cons
+@@ -264,14 +265,25 @@ void CVideoLayerBridgeDRMPRIME::SetVideoPlane(CVideoBufferDRMPRIME* buffer, cons
    auto plane = m_DRM->GetVideoPlane();
    m_DRM->AddProperty(plane, "FB_ID", buffer->m_fb_id);
    m_DRM->AddProperty(plane, "CRTC_ID", m_DRM->GetCrtc()->GetCrtcId());
 +
-+  uint32_t srcw = buffer->GetWidth() << 16;
++  uint32_t srcw = buffer->GetWidth();
 +  uint32_t dstw = static_cast<uint32_t>(destRect.Width());
-+  uint32_t dstx = static_cast<int32_t>(destRect.x1);
++  int32_t dstx = static_cast<int32_t>(destRect.x1);
 +  double scalex = (double)srcw / (double)dstw;
 +  RESOLUTION_INFO &res = CDisplaySettings::GetInstance().GetCurrentResolutionInfo();
-+  if (dstw > 2 && dstx + dstw > (uint32_t)res.iScreenWidth - 2)
++  if (dstw > 1 && dstx + dstw > (uint32_t)res.iScreenWidth - 1)
 +  {
-+    dstw -= 2;
-+    srcw = (uint32_t)(srcw - 2.0 * scalex + 0.5);
++    dstw -= 1;
++    srcw = (uint32_t)(srcw - 1.0 * scalex + 0.5);
 +  }
    m_DRM->AddProperty(plane, "SRC_X", 0);
    m_DRM->AddProperty(plane, "SRC_Y", 0);
 -  m_DRM->AddProperty(plane, "SRC_W", buffer->GetWidth() << 16);
-+  m_DRM->AddProperty(plane, "SRC_W", srcw);
++  m_DRM->AddProperty(plane, "SRC_W", srcw << 16);
    m_DRM->AddProperty(plane, "SRC_H", buffer->GetHeight() << 16);
 -  m_DRM->AddProperty(plane, "CRTC_X", static_cast<int32_t>(destRect.x1) & ~1);
-+  m_DRM->AddProperty(plane, "CRTC_X", (dstx + 1) & ~1);
-   m_DRM->AddProperty(plane, "CRTC_Y", static_cast<int32_t>(destRect.y1) & ~1);
+-  m_DRM->AddProperty(plane, "CRTC_Y", static_cast<int32_t>(destRect.y1) & ~1);
 -  m_DRM->AddProperty(plane, "CRTC_W", (static_cast<uint32_t>(destRect.Width()) + 1) & ~1);
-+  m_DRM->AddProperty(plane, "CRTC_W", (dstw + 1) & ~1);
-   m_DRM->AddProperty(plane, "CRTC_H", (static_cast<uint32_t>(destRect.Height()) + 1) & ~1);
+-  m_DRM->AddProperty(plane, "CRTC_H", (static_cast<uint32_t>(destRect.Height()) + 1) & ~1);
++  m_DRM->AddProperty(plane, "CRTC_X", dstx);
++  m_DRM->AddProperty(plane, "CRTC_Y", static_cast<int32_t>(destRect.y1));
++  m_DRM->AddProperty(plane, "CRTC_W", dstw);
++  m_DRM->AddProperty(plane, "CRTC_H", static_cast<uint32_t>(destRect.Height()));
  }
  
+ void CVideoLayerBridgeDRMPRIME::UpdateVideoPlane()
 diff --git a/xbmc/windowing/gbm/drm/DRMAtomic.cpp b/xbmc/windowing/gbm/drm/DRMAtomic.cpp
-index 5d61a699d4..1e87ebddf2 100644
+index 5d61a699d4..de02d84758 100644
 --- a/xbmc/windowing/gbm/drm/DRMAtomic.cpp
 +++ b/xbmc/windowing/gbm/drm/DRMAtomic.cpp
 @@ -92,13 +92,19 @@ void CDRMAtomic::DrmAtomicCommit(int fb_id, int flags, bool rendered, bool video
        return;
    }
  
-+  uint32_t srcw = m_width << 16;
++  uint32_t srcw = m_width;
 +  uint32_t dstw = m_mode->hdisplay;
 +  double scalex = (double)srcw / (double)dstw;
-+  dstw -= 2;
-+  srcw = (uint32_t)(srcw - 2.0 * scalex + 0.5);
++  dstw -= 1;
++  srcw = (uint32_t)(srcw - 1.0 * scalex + 0.5);
 +
    if (rendered)
    {
@@ -69,7 +72,7 @@ index 5d61a699d4..1e87ebddf2 100644
      AddProperty(m_gui_plane, "SRC_X", 0);
      AddProperty(m_gui_plane, "SRC_Y", 0);
 -    AddProperty(m_gui_plane, "SRC_W", m_width << 16);
-+    AddProperty(m_gui_plane, "SRC_W", srcw);
++    AddProperty(m_gui_plane, "SRC_W", srcw << 16);
      AddProperty(m_gui_plane, "SRC_H", m_height << 16);
      AddProperty(m_gui_plane, "CRTC_X", 0);
      AddProperty(m_gui_plane, "CRTC_Y", 0);
