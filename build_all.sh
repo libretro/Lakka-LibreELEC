@@ -74,7 +74,10 @@ targets="\
 	Amlogic|AMLGX|arm|image \
 	Generic||x86_64|image \
 	Generic||i386|image \
+	NXP|iMX6|arm|image \
+	OdroidXU3||arm|image \
 	Rockchip|MiQi|arm|image \
+	Rockchip|OdroidGoAdvance|arm|image \
 	Rockchip|RK3328|arm|image \
 	Rockchip|RK3399|arm|image \
 	Rockchip|TinkerBoard|arm|image \
@@ -84,7 +87,6 @@ targets="\
 	RPi|RPi2|arm|noobs \
 	RPi|RPi4|arm|noobs \
 	Qualcomm|Dragonboard|arm|image \
-	NXP|iMX6|arm|image \
 	"
 
 # set the number of total build jobs and initialize counter for current build job
