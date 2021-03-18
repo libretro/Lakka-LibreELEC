@@ -44,7 +44,7 @@ if [ "$OPENGLES_SUPPORT" = yes ]; then
 fi
 
 make_target() {
-  if [ "$ARCH" = "arm" ]; then
+  if [ "$ARCH" = "arm" -o "$ARCH" = "aarch64" ]; then
     make -C yabause/src/libretro HAVE_SSE=0
   else
     make -C yabause/src/libretro
