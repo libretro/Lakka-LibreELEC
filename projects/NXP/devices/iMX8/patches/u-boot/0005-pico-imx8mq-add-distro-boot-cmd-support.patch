@@ -1,0 +1,97 @@
+From ee72c64b4ad8ef5aaefb8ab7e2f5288a9655dd3a Mon Sep 17 00:00:00 2001
+From: Lukas Rusak <lorusak@gmail.com>
+Date: Tue, 9 Mar 2021 10:13:23 -0800
+Subject: [PATCH 5/5] pico-imx8mq add distro boot cmd support
+
+---
+ configs/pico-imx8mq_defconfig |  1 +
+ include/configs/pico-imx8mq.h | 64 +++++++++--------------------------
+ 2 files changed, 17 insertions(+), 48 deletions(-)
+
+diff --git a/configs/pico-imx8mq_defconfig b/configs/pico-imx8mq_defconfig
+index e2e3a15da1..d70d7fc1cc 100644
+--- a/configs/pico-imx8mq_defconfig
++++ b/configs/pico-imx8mq_defconfig
+@@ -57,3 +57,4 @@ CONFIG_DM_REGULATOR_GPIO=y
+ CONFIG_DM_RESET=y
+ CONFIG_MXC_UART=y
+ CONFIG_DM_THERMAL=y
++CONFIG_DISTRO_DEFAULTS=y
+diff --git a/include/configs/pico-imx8mq.h b/include/configs/pico-imx8mq.h
+index 7a5891652f..e301bc736d 100644
+--- a/include/configs/pico-imx8mq.h
++++ b/include/configs/pico-imx8mq.h
+@@ -71,54 +71,22 @@
+ #define CONFIG_PHY_ATHEROS
+ #endif
+ 
+-/* Initial environment variables */
+-#define CONFIG_EXTRA_ENV_SETTINGS					\
+-	"script=boot.scr\0"						\
+-	"image=Image\0"							\
+-	"console=ttymxc0,115200\0"					\
+-	"fdt_addr=0x43000000\0"						\
+-	"fdt_high=0xffffffffffffffff\0"					\
+-	"fdt_file=imx8mq-pico-pi.dtb\0"					\
+-	"initrd_addr=0x43800000\0"					\
+-	"initrd_high=0xffffffffffffffff\0"				\
+-	"mmcdev=" __stringify(CONFIG_SYS_MMC_ENV_DEV) "\0"		\
+-	"mmcpart=" __stringify(CONFIG_SYS_MMC_IMG_LOAD_PART) "\0"	\
+-	"mmcroot=" CONFIG_MMCROOT " rootwait rw\0"			\
+-	"mmcautodetect=yes\0"						\
+-	"mmcargs=setenv bootargs console=${console} root=${mmcroot}\0 "	\
+-	"loadbootscript="						\
+-		"fatload mmc ${mmcdev}:${mmcpart} ${loadaddr} ${script};\0" \
+-	"bootscript=echo Running bootscript from mmc ...; source\0"	\
+-	"loadimage=fatload mmc ${mmcdev}:${mmcpart} ${loadaddr} ${image}\0" \
+-	"loadfdt=fatload mmc ${mmcdev}:${mmcpart} ${fdt_addr} ${fdt_file}\0" \
+-	"mmcboot=echo Booting from mmc ...; "				\
+-		"run mmcargs; "						\
+-		"echo wait for boot; "					\
+-		"fi;\0"							\
+-	"netargs=setenv bootargs console=${console} "			\
+-		"root=/dev/nfs "					\
+-		"ip=dhcp nfsroot=${serverip}:${nfsroot},v3,tcp\0"	\
+-	"netboot=echo Booting from net ...; "				\
+-		"run netargs;  "					\
+-		"if test ${ip_dyn} = yes; then "			\
+-			"setenv get_cmd dhcp; "				\
+-		"else "							\
+-			"setenv get_cmd tftp; "				\
+-		"fi; "							\
+-		"${get_cmd} ${loadaddr} ${image}; "			\
+-		"booti; "
+-
+-#define CONFIG_BOOTCOMMAND \
+-	"mmc dev ${mmcdev}; if mmc rescan; then "			\
+-		"if run loadbootscript; then "				\
+-			"run bootscript; "				\
+-		"else "							\
+-			"if run loadimage; then "			\
+-				"run mmcboot; "				\
+-			"else run netboot; "				\
+-			"fi; "						\
+-		"fi; "							\
+-	"else booti ${loadaddr} - ${fdt_addr}; fi"
++#define BOOT_TARGET_DEVICES(func) \
++        func(MMC, mmc, 1) \
++        func(MMC, mmc, 0) \
++        func(PXE, pxe, na) \
++        func(DHCP, dhcp, na)
++
++#include <config_distro_bootcmd.h>
++
++#define CONFIG_EXTRA_ENV_SETTINGS		\
++	"console=ttymxc0,115200\0" \
++	"loadaddr=0x40480000\0" \
++	"kernel_addr_r=0x40480000\0" \
++	"fdt_addr_r=0x43000000\0"			\
++	"scriptaddr=0x50480000\0" \
++	"pxefile_addr_r=0x50580000\0" \
++	BOOTENV
+ 
+ /* Link Definitions */
+ #define CONFIG_LOADADDR			0x40480000
+-- 
+2.29.2
+
