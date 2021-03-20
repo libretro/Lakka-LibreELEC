@@ -1,23 +1,52 @@
-From 023078a22c3a6baf6339c946aa7be3c8f1b90a14 Mon Sep 17 00:00:00 2001
+From b7622f1dddf5dbd9d49660cef2af60a04a1e1a2d Mon Sep 17 00:00:00 2001
 From: Dom Cobley <popcornmix@gmail.com>
-Date: Sat, 23 Jan 2021 18:00:48 +0000
-Subject: [PATCH] vc4_place: Don't reject fractional source coords
+Date: Mon, 15 Mar 2021 13:28:06 +0000
+Subject: [PATCH] vc4/drm: vc4_plane: Remove subpixel positioning check
 
+There is little harm in ignoring fractional coordinates
+(they just get truncated).
+
+Without this:
+modetest -M vc4 -F tiles,gradient -s 32:1920x1080-60 -P89@74:1920x1080*.1.1@XR24
+
+is rejected. We have the same issue in Kodi when trying to
+use zoom options on video.
+
+Note: even if all coordinates are fully integer. e.g.
+src:[0,0,1920,1080] dest:[-10,-10,1940,1100]
+
+it will still get rejected as drm_atomic_helper_check_plane_state
+uses drm_rect_clip_scaled which transforms this to fractional src coords
+
+Signed-off-by: Dom Cobley <popcornmix@gmail.com>
 ---
- drivers/gpu/drm/vc4/vc4_plane.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/gpu/drm/vc4/vc4_plane.c | 9 ---------
+ 1 file changed, 9 deletions(-)
 
 diff --git a/drivers/gpu/drm/vc4/vc4_plane.c b/drivers/gpu/drm/vc4/vc4_plane.c
-index b5586c92bfe54..1947798f3eaf3 100644
+index 3d33fe3dacea7..bf0093bd997f5 100644
 --- a/drivers/gpu/drm/vc4/vc4_plane.c
 +++ b/drivers/gpu/drm/vc4/vc4_plane.c
-@@ -358,7 +358,8 @@ static int vc4_plane_setup_clipping_and_scaling(struct drm_plane_state *state)
- 	    (state->src.x2 & subpixel_src_mask) ||
- 	    (state->src.y1 & subpixel_src_mask) ||
- 	    (state->src.y2 & subpixel_src_mask)) {
--		return -EINVAL;
-+		DRM_DEBUG_KMS("Invalid subpixel scaling %x %x %x %x (%x)\n", state->src.x1, state->src.x2, state->src.y1, state->src.y2, subpixel_src_mask);
-+		//return -EINVAL;
- 	}
+@@ -339,7 +339,6 @@ static int vc4_plane_setup_clipping_and_scaling(struct drm_plane_state *state)
+ 	struct vc4_plane_state *vc4_state = to_vc4_plane_state(state);
+ 	struct drm_framebuffer *fb = state->fb;
+ 	struct drm_gem_cma_object *bo = drm_fb_cma_get_gem_obj(fb, 0);
+-	u32 subpixel_src_mask = (1 << 16) - 1;
+ 	int num_planes = fb->format->num_planes;
+ 	struct drm_crtc_state *crtc_state;
+ 	u32 h_subsample = fb->format->hsub;
+@@ -361,14 +360,6 @@ static int vc4_plane_setup_clipping_and_scaling(struct drm_plane_state *state)
+ 	for (i = 0; i < num_planes; i++)
+ 		vc4_state->offsets[i] = bo->paddr + fb->offsets[i];
  
+-	/* We don't support subpixel source positioning for scaling. */
+-	if ((state->src.x1 & subpixel_src_mask) ||
+-	    (state->src.x2 & subpixel_src_mask) ||
+-	    (state->src.y1 & subpixel_src_mask) ||
+-	    (state->src.y2 & subpixel_src_mask)) {
+-		return -EINVAL;
+-	}
+-
  	vc4_state->src_x = state->src.x1 >> 16;
+ 	vc4_state->src_y = state->src.y1 >> 16;
+ 	vc4_state->src_w[0] = (state->src.x2 - state->src.x1) >> 16;
