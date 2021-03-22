@@ -9,13 +9,33 @@ md5sumCheck() {
   ( cd $MOUNTPOINT
     echo "checking MD5: $1"
     md5sum -c $1.md5
-    if [ "$?" = "1" ]; then
+    if [ "$?" = "1" -a "@DISTRONAME@" = "LibreELEC" ]; then
       echo "#######################################################"
       echo "#                                                     #"
       echo "# LibreELEC failed md5 check - Installation will quit #"
       echo "#                                                     #"
       echo "#    Your original download was probably corrupt.     #"
       echo "#   Please visit libreelec.tv and get another copy    #"
+      echo "#                                                     #"
+      echo "#######################################################"
+      exit 1
+    elif [ "$1" = "1" -a "@DISTRONAME@" = "Lakka" ]; then
+      echo "#######################################################"
+      echo "#                                                     #"
+      echo "#   Lakka failed md5 check - Installation will quit   #"
+      echo "#                                                     #"
+      echo "#    Your original download was probably corrupt.     #"
+      echo "#     Please visit lakka.tv and get another copy      #"
+      echo "#                                                     #"
+      echo "#######################################################"
+      exit 1
+    elif [ "$1" = "1" ]; then
+      echo "#######################################################"
+      echo "#                                                     #"
+      echo "#      Failed md5 check - Installation will quit      #"
+      echo "#                                                     #"
+      echo "#    Your original download was probably corrupt.     #"
+      echo "#      Please download a new copy and try again       #"
       echo "#                                                     #"
       echo "#######################################################"
       exit 1
