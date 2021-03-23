@@ -122,7 +122,11 @@ makeinstall_host() {
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin
-    [ ${TARGET_ARCH} = x86_64 ] && cp ${PKG_DIR}/scripts/getedid ${INSTALL}/usr/bin
+    if [ ${TARGET_ARCH} = x86_64 ]; then
+      cp ${PKG_DIR}/scripts/getedid ${INSTALL}/usr/bin
+    else
+      cp ${PKG_DIR}/scripts/dump-active-edids-drm ${INSTALL}/usr/bin/dump-active-edids
+    fi
     cp ${PKG_DIR}/scripts/create-edid-cpio ${INSTALL}/usr/bin/
     cp ${PKG_DIR}/scripts/createlog ${INSTALL}/usr/bin/
     cp ${PKG_DIR}/scripts/dthelper ${INSTALL}/usr/bin
