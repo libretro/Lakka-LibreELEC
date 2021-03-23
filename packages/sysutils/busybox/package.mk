@@ -130,6 +130,7 @@ makeinstall_target() {
     cp ${PKG_DIR}/scripts/create-edid-cpio ${INSTALL}/usr/bin/
     if [ "${PROJECT}" = "RPi" ]; then
       cp ${PKG_DIR}/scripts/update-bootloader-edid-rpi ${INSTALL}/usr/bin/update-bootloader-edid
+      cp ${PKG_DIR}/scripts/getedid-drm ${INSTALL}/usr/bin/getedid
     fi
     cp ${PKG_DIR}/scripts/createlog ${INSTALL}/usr/bin/
     cp ${PKG_DIR}/scripts/dthelper ${INSTALL}/usr/bin
