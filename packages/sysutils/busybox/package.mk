@@ -128,6 +128,9 @@ makeinstall_target() {
       cp ${PKG_DIR}/scripts/dump-active-edids-drm ${INSTALL}/usr/bin/dump-active-edids
     fi
     cp ${PKG_DIR}/scripts/create-edid-cpio ${INSTALL}/usr/bin/
+    if [ "${PROJECT}" = "RPi" ]; then
+      cp ${PKG_DIR}/scripts/update-bootloader-edid-rpi ${INSTALL}/usr/bin/update-bootloader-edid
+    fi
     cp ${PKG_DIR}/scripts/createlog ${INSTALL}/usr/bin/
     cp ${PKG_DIR}/scripts/dthelper ${INSTALL}/usr/bin
       ln -sf dthelper ${INSTALL}/usr/bin/dtfile
