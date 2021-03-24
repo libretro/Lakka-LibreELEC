@@ -1,0 +1,628 @@
+diff --git a/config.def.h b/config.def.h
+index e5d8741bb6..66ea803403 100644
+--- a/config.def.h
++++ b/config.def.h
+@@ -129,6 +129,8 @@
+  *   thumbnails of different sizes */
+ #define DEFAULT_MATERIALUI_THUMBNAIL_BACKGROUND_ENABLE true
+ 
++#define DEFAULT_SCREEN_BRIGHTNESS 100
++
+ #define DEFAULT_CRT_SWITCH_RESOLUTION CRT_SWITCH_NONE
+ 
+ #define DEFAULT_CRT_SWITCH_RESOLUTION_SUPER 2560
+diff --git a/configuration.c b/configuration.c
+index 8457c586ed..f34fab3e43 100644
+--- a/configuration.c
++++ b/configuration.c
+@@ -1816,6 +1816,7 @@ static struct config_uint_setting *populate_settings_uint(
+ #ifdef HAVE_NETWORKING
+    SETTING_UINT("streaming_mode",  		         &settings->uints.streaming_mode, true, STREAMING_MODE_TWITCH, false);
+ #endif
++   SETTING_UINT("screen_brightness",	  		&settings->uints.screen_brightness, true, DEFAULT_SCREEN_BRIGHTNESS, false);
+    SETTING_UINT("crt_switch_resolution",  		&settings->uints.crt_switch_resolution, true, DEFAULT_CRT_SWITCH_RESOLUTION, false);
+    SETTING_UINT("input_bind_timeout",           &settings->uints.input_bind_timeout,     true, input_bind_timeout, false);
+    SETTING_UINT("input_bind_hold",              &settings->uints.input_bind_hold,        true, input_bind_hold, false);
+diff --git a/configuration.h b/configuration.h
+index d9972b3308..69672a35f1 100644
+--- a/configuration.h
++++ b/configuration.h
+@@ -538,6 +538,7 @@ typedef struct settings
+       unsigned video_window_opacity;
+       unsigned crt_switch_resolution;
+       unsigned crt_switch_resolution_super;
++      unsigned screen_brightness;
+       unsigned video_monitor_index;
+       unsigned video_fullscreen_x;
+       unsigned video_fullscreen_y;
+diff --git a/frontend/drivers/platform_ps2.c b/frontend/drivers/platform_ps2.c
+index a9cfe1e00e..0821a0cf69 100644
+--- a/frontend/drivers/platform_ps2.c
++++ b/frontend/drivers/platform_ps2.c
+@@ -381,6 +381,7 @@ frontend_ctx_driver_t frontend_ctx_ps2 = {
+    NULL,                         /* detach_console */
+ #ifdef HAVE_LAKKA
+    NULL,                         /* get_lakka_version */
++   NULL,                         /* set_screen_brightness */
+ #endif
+    NULL,                         /* watch_path_for_changes */
+    NULL,                         /* check_for_path_changes */
+diff --git a/frontend/drivers/platform_unix.c b/frontend/drivers/platform_unix.c
+index 6503b981a3..d27d3299c5 100644
+--- a/frontend/drivers/platform_unix.c
++++ b/frontend/drivers/platform_unix.c
+@@ -1301,6 +1301,30 @@ static void frontend_unix_get_lakka_version(char *s,
+ 
+    pclose(command_file);
+ }
++
++static void frontend_unix_set_screen_brightness(int value)
++{
++   char *buffer = NULL;
++   char svalue[16] = {0};
++   unsigned int max_brightness = 100;
++   #if !defined(HAVE_LAKKA_SWITCH)
++   filestream_read_file("/sys/devices/platform/backlight/backlight/backlight/max_brightness",
++                        &buffer, NULL);
++   if (buffer)
++   {
++      sscanf(buffer, "%u", &max_brightness);
++      free(buffer);
++   }
++   #endif
++
++   /* Calculate the brightness */
++   value = (value * max_brightness) / 100;
++
++   snprintf(svalue, sizeof(svalue), "%d\n", value);
++   filestream_write_file("/sys/class/backlight/backlight/brightness",
++                         svalue, strlen(svalue));
++}
++
+ #endif
+ 
+ static void frontend_unix_get_env(int *argc,
+@@ -1862,6 +1886,7 @@ static void android_app_destroy(struct android_app *android_app)
+ 
+ static void frontend_unix_deinit(void *data)
+ {
++   settings_t *settings = config_get_ptr();
+ #ifdef ANDROID
+    struct android_app *android_app = (struct android_app*)data;
+ 
+@@ -1870,6 +1895,12 @@ static void frontend_unix_deinit(void *data)
+ 
+    android_app_destroy(android_app);
+ #endif
++
++#ifdef HAVE_LAKKA
++   /* Reset brightness to maximum */
++   if (settings->uints.screen_brightness != DEFAULT_SCREEN_BRIGHTNESS)
++      frontend_unix_set_screen_brightness(DEFAULT_SCREEN_BRIGHTNESS);
++#endif
+ }
+ 
+ static void frontend_unix_init(void *data)
+@@ -2620,6 +2653,11 @@ frontend_ctx_driver_t frontend_ctx_unix = {
+    NULL,                         /* detach_console */
+ #ifdef HAVE_LAKKA
+    frontend_unix_get_lakka_version,    /* get_lakka_version */
++#if defined(HAVE_LAKKA_SWITCH) || defined(HAVE_ODROIDGO2)
++   frontend_unix_set_screen_brightness,    /* set_screen_brightness */
++#else
++   NULL,                                   /* set_screen_brightness */
++#endif 
+ #endif
+    frontend_unix_watch_path_for_changes,
+    frontend_unix_check_for_path_changes,
+diff --git a/frontend/frontend_driver.c b/frontend/frontend_driver.c
+index 619316ffe5..8d3835d4fe 100644
+--- a/frontend/frontend_driver.c
++++ b/frontend/frontend_driver.c
+@@ -64,6 +64,7 @@ static frontend_ctx_driver_t frontend_ctx_null = {
+    NULL,                         /* detach_console */
+ #ifdef HAVE_LAKKA
+    NULL,                         /* get_lakka_version */
++   NULL,                         /* set_screen_brightness */
+ #endif
+    NULL,                         /* watch_path_for_changes */
+    NULL,                         /* check_for_path_changes */
+diff --git a/frontend/frontend_driver.h b/frontend/frontend_driver.h
+index 3b98cd9269..cca82e5b77 100644
+--- a/frontend/frontend_driver.h
++++ b/frontend/frontend_driver.h
+@@ -104,6 +104,7 @@ typedef struct frontend_ctx_driver
+    void (*detach_console)(void);
+ #ifdef HAVE_LAKKA
+    void (*get_lakka_version)(char *, size_t);
++   void (*set_screen_brightness)(int);
+ #endif
+    void (*watch_path_for_changes)(struct string_list *list, int flags, path_change_data_t **change_data);
+    bool (*check_for_path_changes)(path_change_data_t *change_data);
+@@ -212,6 +213,10 @@ void frontend_driver_attach_console(void);
+ 
+ void frontend_driver_detach_console(void);
+ 
++void frontend_driver_set_screen_brightness(int value);
++
++bool frontend_driver_can_set_screen_brightness();
++
+ bool frontend_driver_can_watch_for_changes(void);
+ 
+ void frontend_driver_watch_path_for_changes(struct string_list *list, int flags, path_change_data_t **change_data);
+diff --git a/intl/msg_hash_lbl.h b/intl/msg_hash_lbl.h
+index d3ba039514..b4a551eea5 100644
+--- a/intl/msg_hash_lbl.h
++++ b/intl/msg_hash_lbl.h
+@@ -3,10 +3,6 @@ MSG_HASH(
+    MENU_ENUM_LABEL_SWITCH_GPU_PROFILE,
+    "switch_gpu_profile"
+    )
+-MSG_HASH(
+-   MENU_ENUM_LABEL_SWITCH_BACKLIGHT_CONTROL,
+-   "switch_backlight_control"
+-   )
+ #endif
+ #if defined(HAVE_LAKKA_SWITCH) || defined(HAVE_LIBNX)
+ MSG_HASH(
+@@ -2896,6 +2892,10 @@ MSG_HASH(
+    MENU_ENUM_LABEL_USE_THIS_DIRECTORY,
+    "use_this_directory"
+    )
++MSG_HASH(
++   MENU_ENUM_LABEL_BRIGHTNESS_CONTROL,
++   "screen_brightness"
++   )
+ MSG_HASH(
+    MENU_ENUM_LABEL_VIDEO_ALLOW_ROTATE,
+    "video_allow_rotate"
+diff --git a/intl/msg_hash_us.h b/intl/msg_hash_us.h
+index 71aae2ecab..c6f4522fe0 100644
+--- a/intl/msg_hash_us.h
++++ b/intl/msg_hash_us.h
+@@ -11480,6 +11480,14 @@ MSG_HASH(
+    MSG_READ_ONLY,
+    "Read-Only"
+    )
++MSG_HASH(
++   MENU_ENUM_LABEL_VALUE_BRIGHTNESS_CONTROL,
++   "Screen Brightness"
++   )
++MSG_HASH(
++   MENU_ENUM_SUBLABEL_BRIGHTNESS_CONTROL,
++   "Increase or decrease the screen brightness."
++   )
+ 
+ #ifdef HAVE_LAKKA_SWITCH
+ MSG_HASH(
+@@ -11490,14 +11498,6 @@ MSG_HASH(
+    MENU_ENUM_SUBLABEL_SWITCH_GPU_PROFILE,
+    "Overclock or underclock the Switch GPU"
+    )
+-MSG_HASH(
+-   MENU_ENUM_LABEL_VALUE_SWITCH_BACKLIGHT_CONTROL,
+-   "Screen brightness"
+-   )
+-MSG_HASH(
+-   MENU_ENUM_SUBLABEL_SWITCH_BACKLIGHT_CONTROL,
+-   "Increase or decrease the Switch screen brightness"
+-   )
+ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_REBOOT_RCM,
+    "Reboot into RCM"
+diff --git a/menu/cbs/menu_cbs_deferred_push.c b/menu/cbs/menu_cbs_deferred_push.c
+index 626674e323..7799a61f86 100644
+--- a/menu/cbs/menu_cbs_deferred_push.c
++++ b/menu/cbs/menu_cbs_deferred_push.c
+@@ -252,7 +252,6 @@ GENERIC_DEFERRED_PUSH(deferred_push_switch_cpu_profile,             DISPLAYLIST_
+ 
+ #ifdef HAVE_LAKKA_SWITCH
+ GENERIC_DEFERRED_PUSH(deferred_push_switch_gpu_profile,             DISPLAYLIST_SWITCH_GPU_PROFILE)
+-GENERIC_DEFERRED_PUSH(deferred_push_switch_backlight_control,       DISPLAYLIST_SWITCH_BACKLIGHT_CONTROL)
+ #endif
+ 
+ GENERIC_DEFERRED_PUSH(deferred_push_manual_content_scan_list,       DISPLAYLIST_MANUAL_CONTENT_SCAN_LIST)
+@@ -795,7 +794,6 @@ static int menu_cbs_init_bind_deferred_push_compare_label(
+       {MENU_ENUM_LABEL_DEFERRED_LATENCY_SETTINGS_LIST, deferred_push_latency_settings_list},
+ #ifdef HAVE_LAKKA_SWITCH
+       {MENU_ENUM_LABEL_SWITCH_GPU_PROFILE, deferred_push_switch_gpu_profile},
+-      {MENU_ENUM_LABEL_SWITCH_BACKLIGHT_CONTROL, deferred_push_switch_backlight_control},
+ #endif
+ #if defined(HAVE_LAKKA_SWITCH) || defined(HAVE_LIBNX)
+       {MENU_ENUM_LABEL_SWITCH_CPU_PROFILE, deferred_push_switch_cpu_profile},
+diff --git a/menu/cbs/menu_cbs_ok.c b/menu/cbs/menu_cbs_ok.c
+index 73d374204b..95a96e40cd 100644
+--- a/menu/cbs/menu_cbs_ok.c
++++ b/menu/cbs/menu_cbs_ok.c
+@@ -3344,27 +3344,6 @@ static int action_ok_set_switch_gpu_profile(const char *path,
+    return menu_cbs_exit();
+ }
+ 
+-static int action_ok_set_switch_backlight(const char *path,
+-      const char *label, unsigned type, size_t idx, size_t entry_idx)
+-{
+-   char command[PATH_MAX_LENGTH] = {0};
+-   int brightness = SWITCH_BRIGHTNESS[entry_idx];
+-
+-   snprintf(command, sizeof(command),
+-         "echo %d > /sys/class/backlight/backlight/brightness",
+-         brightness);
+-
+-   system(command);
+-
+-   snprintf(command, sizeof(command),
+-         "Brightness set to %d%%", brightness);
+-
+-   runloop_msg_queue_push(command, 1, 90, true, NULL,
+-         MESSAGE_QUEUE_ICON_DEFAULT, MESSAGE_QUEUE_CATEGORY_INFO);
+-
+-   return 0;
+-}
+-
+ #endif
+ 
+ static int action_ok_load_core_deferred(const char *path,
+@@ -6931,7 +6910,6 @@ static int menu_cbs_init_bind_ok_compare_label(menu_file_list_cbs_t *cbs,
+ #endif
+ #ifdef HAVE_LAKKA_SWITCH
+          {MENU_ENUM_LABEL_SWITCH_GPU_PROFILE,                  action_ok_push_default},
+-         {MENU_ENUM_LABEL_SWITCH_BACKLIGHT_CONTROL,            action_ok_push_default},
+ #endif
+ #if defined(HAVE_LAKKA_SWITCH) || defined(HAVE_LIBNX)
+          {MENU_ENUM_LABEL_SWITCH_CPU_PROFILE,                  action_ok_push_default},
+@@ -7381,9 +7359,6 @@ static int menu_cbs_init_bind_ok_compare_type(menu_file_list_cbs_t *cbs,
+          case MENU_SET_SWITCH_GPU_PROFILE:
+             BIND_ACTION_OK(cbs, action_ok_set_switch_gpu_profile);
+             break;
+-         case MENU_SET_SWITCH_BRIGHTNESS:
+-            BIND_ACTION_OK(cbs, action_ok_set_switch_backlight);
+-            break;
+ #endif
+ #if defined(HAVE_LAKKA_SWITCH) || defined(HAVE_LIBNX)
+          case MENU_SET_SWITCH_CPU_PROFILE:
+diff --git a/menu/cbs/menu_cbs_sublabel.c b/menu/cbs/menu_cbs_sublabel.c
+index ea433d43c5..7731e7df2c 100644
+--- a/menu/cbs/menu_cbs_sublabel.c
++++ b/menu/cbs/menu_cbs_sublabel.c
+@@ -812,9 +812,10 @@ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_switch_cpu_profile,             MENU
+ 
+ #ifdef HAVE_LAKKA_SWITCH
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_switch_gpu_profile,             MENU_ENUM_SUBLABEL_SWITCH_GPU_PROFILE)
+-DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_switch_backlight_control,       MENU_ENUM_SUBLABEL_SWITCH_BACKLIGHT_CONTROL)
+ #endif
+ 
++DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_brightness_control,             MENU_ENUM_SUBLABEL_BRIGHTNESS_CONTROL)
++
+ #if defined(_3DS)
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_video_3ds_lcd_bottom,           MENU_ENUM_SUBLABEL_VIDEO_3DS_LCD_BOTTOM)
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_video_3ds_display_mode,         MENU_ENUM_SUBLABEL_VIDEO_3DS_DISPLAY_MODE)
+@@ -3728,10 +3729,10 @@ int menu_cbs_init_bind_sublabel(menu_file_list_cbs_t *cbs,
+          case MENU_ENUM_LABEL_SWITCH_GPU_PROFILE:
+             BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_switch_gpu_profile);
+             break;
+-         case MENU_ENUM_LABEL_SWITCH_BACKLIGHT_CONTROL:
+-            BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_switch_backlight_control);
+-            break;
+ #endif
++         case MENU_ENUM_LABEL_BRIGHTNESS_CONTROL:
++            BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_brightness_control);
++            break;
+ #if defined(_3DS)
+          case MENU_ENUM_LABEL_VIDEO_3DS_LCD_BOTTOM:
+             BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_video_3ds_lcd_bottom);
+diff --git a/menu/cbs/menu_cbs_title.c b/menu/cbs/menu_cbs_title.c
+index cbe4b3c849..04ca917057 100644
+--- a/menu/cbs/menu_cbs_title.c
++++ b/menu/cbs/menu_cbs_title.c
+@@ -668,7 +668,6 @@ DEFAULT_TITLE_MACRO(action_get_title_switch_cpu_profile,          MENU_ENUM_LABE
+ 
+ #ifdef HAVE_LAKKA_SWITCH
+ DEFAULT_TITLE_MACRO(action_get_title_switch_gpu_profile,          MENU_ENUM_LABEL_VALUE_SWITCH_GPU_PROFILE)
+-DEFAULT_TITLE_MACRO(action_get_title_switch_backlight_control,    MENU_ENUM_LABEL_VALUE_SWITCH_BACKLIGHT_CONTROL)
+ #endif
+ 
+ DEFAULT_TITLE_PLAYLIST_MACRO(action_get_title_deferred_history_list,   MENU_ENUM_LABEL_VALUE_LOAD_CONTENT_HISTORY)
+@@ -1109,8 +1108,6 @@ static int menu_cbs_init_bind_title_compare_label(menu_file_list_cbs_t *cbs,
+ #ifdef HAVE_LAKKA_SWITCH
+       {MENU_ENUM_LABEL_SWITCH_GPU_PROFILE,
+          action_get_title_switch_gpu_profile},
+-      {MENU_ENUM_LABEL_SWITCH_BACKLIGHT_CONTROL,
+-         action_get_title_switch_backlight_control},
+ #endif
+       {MENU_ENUM_LABEL_DEFERRED_MANUAL_CONTENT_SCAN_LIST,
+          action_get_title_manual_content_scan_list},
+@@ -1497,9 +1494,6 @@ static int menu_cbs_init_bind_title_compare_label(menu_file_list_cbs_t *cbs,
+          case MENU_ENUM_LABEL_SWITCH_GPU_PROFILE:
+             BIND_ACTION_GET_TITLE(cbs, action_get_title_switch_gpu_profile);
+             break;
+-         case MENU_ENUM_LABEL_SWITCH_BACKLIGHT_CONTROL:
+-            BIND_ACTION_GET_TITLE(cbs, action_get_title_switch_backlight_control);
+-            break;
+ #endif
+          case MENU_ENUM_LABEL_MANUAL_CONTENT_SCAN_LIST:
+             BIND_ACTION_GET_TITLE(cbs, action_get_title_manual_content_scan_list);
+diff --git a/menu/drivers/ozone/ozone.c b/menu/drivers/ozone/ozone.c
+index 272d7b0581..f0d13410d0 100644
+--- a/menu/drivers/ozone/ozone.c
++++ b/menu/drivers/ozone/ozone.c
+@@ -1513,9 +1513,6 @@ static int ozone_list_push(void *data, void *userdata,
+ #ifdef HAVE_LAKKA_SWITCH
+             entry.enum_idx      = MENU_ENUM_LABEL_SWITCH_GPU_PROFILE;
+             menu_displaylist_setting(&entry);
+-
+-            entry.enum_idx      = MENU_ENUM_LABEL_SWITCH_BACKLIGHT_CONTROL;
+-            menu_displaylist_setting(&entry);
+ #endif
+ 
+             if (settings->bools.menu_show_configurations && !settings->bools.kiosk_mode_enable)
+diff --git a/menu/drivers/ozone/ozone_texture.c b/menu/drivers/ozone/ozone_texture.c
+index 00d53842d3..ee90421dd6 100644
+--- a/menu/drivers/ozone/ozone_texture.c
++++ b/menu/drivers/ozone/ozone_texture.c
+@@ -419,10 +419,8 @@ uintptr_t ozone_entries_icon_get_texture(ozone_handle_t *ozone,
+          return ozone->icons_textures[OZONE_ENTRIES_ICONS_TEXTURE_PAUSE];
+       case MENU_SETTING_GROUP:
+          return ozone->icons_textures[OZONE_ENTRIES_ICONS_TEXTURE_SETTING];
+-#ifdef HAVE_LAKKA_SWITCH
+-      case MENU_SET_SWITCH_BRIGHTNESS:
++      case MENU_SET_SCREEN_BRIGHTNESS:
+          return ozone->icons_textures[OZONE_ENTRIES_ICONS_TEXTURE_BRIGHTNESS];
+-#endif
+       case MENU_INFO_MESSAGE:
+          return ozone->icons_textures[OZONE_ENTRIES_ICONS_TEXTURE_CORE_INFO];
+       case MENU_BLUETOOTH:
+diff --git a/menu/drivers/xmb.c b/menu/drivers/xmb.c
+index 9ef9f18c74..ab72dcebf1 100644
+--- a/menu/drivers/xmb.c
++++ b/menu/drivers/xmb.c
+@@ -2850,10 +2850,8 @@ static uintptr_t xmb_icon_get_id(xmb_handle_t *xmb,
+          return xmb->textures.list[XMB_TEXTURE_RELOAD];
+       case MENU_SETTING_ACTION_PAUSE_ACHIEVEMENTS:
+          return xmb->textures.list[XMB_TEXTURE_PAUSE];
+-#ifdef HAVE_LAKKA_SWITCH
+-      case MENU_SET_SWITCH_BRIGHTNESS:
++      case MENU_SET_SCREEN_BRIGHTNESS:
+          return xmb->textures.list[XMB_TEXTURE_BRIGHTNESS];
+-#endif
+       case MENU_SETTING_GROUP:
+          return xmb->textures.list[XMB_TEXTURE_SETTING];
+       case MENU_INFO_MESSAGE:
+@@ -6710,9 +6708,6 @@ static int xmb_list_push(void *data, void *userdata,
+ #ifdef HAVE_LAKKA_SWITCH
+             entry.enum_idx      = MENU_ENUM_LABEL_SWITCH_GPU_PROFILE;
+             menu_displaylist_setting(&entry);
+-
+-            entry.enum_idx      = MENU_ENUM_LABEL_SWITCH_BACKLIGHT_CONTROL;
+-            menu_displaylist_setting(&entry);
+ #endif
+ 
+             if (menu_show_configurations && !kiosk_mode_enable)
+diff --git a/menu/menu_displaylist.c b/menu/menu_displaylist.c
+index a587265e6e..1bb0eb4a4d 100644
+--- a/menu/menu_displaylist.c
++++ b/menu/menu_displaylist.c
+@@ -5673,6 +5673,10 @@ unsigned menu_displaylist_build_list(
+                      PARSE_ONLY_BOOL, false) == 0)
+                count++;
+ 
++            if (MENU_DISPLAYLIST_PARSE_SETTINGS_ENUM(list,
++                     MENU_ENUM_LABEL_BRIGHTNESS_CONTROL,
++                     PARSE_ONLY_UINT, false) == 0)
++               count++;
+             if (MENU_DISPLAYLIST_PARSE_SETTINGS_ENUM(list,
+                      MENU_ENUM_LABEL_VIDEO_THREADED,
+                      PARSE_ONLY_BOOL, false) == 0)
+@@ -9487,29 +9491,6 @@ bool menu_displaylist_ctl(enum menu_displaylist_ctl_state type,
+          info->need_refresh = true;
+          info->need_clear   = true;
+ 
+-         break;
+-      }
+-      case DISPLAYLIST_SWITCH_BACKLIGHT_CONTROL:
+-      {
+-         unsigned i;
+-         const size_t brightness_count = sizeof(SWITCH_BRIGHTNESS)/sizeof(SWITCH_BRIGHTNESS[1]);
+-
+-         menu_entries_ctl(MENU_ENTRIES_CTL_CLEAR, info->list);
+-
+-         for (i = 0; i < brightness_count; i++)
+-         {
+-            char title[PATH_MAX_LENGTH] = {0};
+-
+-            snprintf(title, sizeof(title), "Set to %d%%", SWITCH_BRIGHTNESS[i]);
+-
+-            if (menu_entries_append_enum(info->list, title, "", 0, MENU_SET_SWITCH_BRIGHTNESS, 0, i))
+-               count++;
+-         }
+-
+-         info->need_push    = true;
+-         info->need_refresh = true;
+-         info->need_clear   = true;
+-
+          break;
+       }
+ #endif /* HAVE_LAKKA_SWITCH */
+@@ -11393,11 +11374,6 @@ bool menu_displaylist_ctl(enum menu_displaylist_ctl_state type,
+                PARSE_ACTION, false) == 0)
+                count++;
+ 
+-            if (MENU_DISPLAYLIST_PARSE_SETTINGS_ENUM(info->list,
+-               MENU_ENUM_LABEL_SWITCH_BACKLIGHT_CONTROL,
+-               PARSE_ACTION, false) == 0)
+-               count++;
+-
+             if (settings->bools.menu_show_reboot)
+                if (MENU_DISPLAYLIST_PARSE_SETTINGS_ENUM(info->list,
+                      MENU_ENUM_LABEL_REBOOT,
+diff --git a/menu/menu_displaylist.h b/menu/menu_displaylist.h
+index da4b9ee2e5..cbd8f658c6 100644
+--- a/menu/menu_displaylist.h
++++ b/menu/menu_displaylist.h
+@@ -234,7 +234,6 @@ enum menu_displaylist_ctl_state
+    DISPLAYLIST_CORE_CONTENT_DIRS_SUBDIR,
+ #ifdef HAVE_LAKKA_SWITCH
+    DISPLAYLIST_SWITCH_GPU_PROFILE,
+-   DISPLAYLIST_SWITCH_BACKLIGHT_CONTROL,
+ #endif
+ #if defined(HAVE_LAKKA_SWITCH) || defined(HAVE_LIBNX)
+    DISPLAYLIST_SWITCH_CPU_PROFILE,
+diff --git a/menu/menu_driver.h b/menu/menu_driver.h
+index 821999606a..530196e262 100644
+--- a/menu/menu_driver.h
++++ b/menu/menu_driver.h
+@@ -193,9 +193,10 @@ enum menu_settings_type
+    MENU_SETTINGS_SUBSYSTEM_LAST = MENU_SETTINGS_SUBSYSTEM_ADD + RARCH_MAX_SUBSYSTEMS,
+    MENU_SETTINGS_CHEAT_MATCH,
+ 
++   MENU_SET_SCREEN_BRIGHTNESS,
++
+ #ifdef HAVE_LAKKA_SWITCH
+    MENU_SET_SWITCH_GPU_PROFILE,
+-   MENU_SET_SWITCH_BRIGHTNESS,
+ #endif
+ #if defined(HAVE_LAKKA_SWITCH) || defined(HAVE_LIBNX)
+    MENU_SET_SWITCH_CPU_PROFILE,
+diff --git a/menu/menu_setting.c b/menu/menu_setting.c
+index c505bf6e2b..16f5a32e4e 100644
+--- a/menu/menu_setting.c
++++ b/menu/menu_setting.c
+@@ -2855,6 +2855,15 @@ static void setting_get_string_representation_state_slot(rarch_setting_t *settin
+       strlcat(s, " (Auto)", len);
+ }
+ 
++static void setting_get_string_representation_percentage(rarch_setting_t *setting,
++      char *s, size_t len)
++{
++   if (!setting)
++      return;
++
++   snprintf(s, len, "%d%%", *setting->value.target.integer);
++}
++
+ static void setting_get_string_representation_float_video_msg_color(rarch_setting_t *setting,
+       char *s, size_t len)
+ {
+@@ -7216,6 +7225,12 @@ static void general_write_handler(rarch_setting_t *setting)
+             }
+          }
+          break;
++      case MENU_ENUM_LABEL_BRIGHTNESS_CONTROL:
++         {
++            frontend_driver_set_screen_brightness(
++               *setting->value.target.unsigned_integer);
++         }
++         break;
+       case MENU_ENUM_LABEL_MANUAL_CONTENT_SCAN_SYSTEM_NAME_CUSTOM:
+          /* Ensure that custom system name includes no
+           * invalid characters */
+@@ -8174,14 +8189,6 @@ static bool setting_append_list(
+                &group_info,
+                &subgroup_info,
+                parent_group);
+-
+-        CONFIG_ACTION(
+-               list, list_info,
+-               MENU_ENUM_LABEL_SWITCH_BACKLIGHT_CONTROL,
+-               MENU_ENUM_LABEL_VALUE_SWITCH_BACKLIGHT_CONTROL,
+-               &group_info,
+-               &subgroup_info,
+-               parent_group);
+ #endif
+ #ifdef HAVE_LAKKA_SWITCH
+          CONFIG_ACTION(
+@@ -10554,6 +10561,26 @@ static bool setting_append_list(
+                   &subgroup_info,
+                   parent_group);
+ 
++            if (frontend_driver_can_set_screen_brightness())
++            {
++               CONFIG_UINT(
++                      list, list_info,
++                      &settings->uints.screen_brightness,
++                      MENU_ENUM_LABEL_BRIGHTNESS_CONTROL,
++                      MENU_ENUM_LABEL_VALUE_BRIGHTNESS_CONTROL,
++                      DEFAULT_SCREEN_BRIGHTNESS,
++                      &group_info,
++                      &subgroup_info,
++                      parent_group,
++                      general_write_handler,
++                      general_read_handler);
++                (*list)[list_info->index - 1].ui_type = ST_UI_TYPE_UINT_COMBOBOX;
++                (*list)[list_info->index - 1].action_ok = &setting_action_ok_uint_special;
++                (*list)[list_info->index - 1].get_string_representation =
++                   &setting_get_string_representation_percentage;
++                menu_settings_list_current_add_range(list, list_info, 5, 100, 5, true, true);
++            }
++
+ #if defined(HAVE_THREADS)
+             CONFIG_BOOL(
+                   list, list_info,
+diff --git a/msg_hash.h b/msg_hash.h
+index 45088b146f..7fee0d270b 100644
+--- a/msg_hash.h
++++ b/msg_hash.h
+@@ -936,6 +936,7 @@ enum msg_hash_enums
+    MENU_LABEL(QUIT_PRESS_TWICE),
+ 
+    /* Video */
++   MENU_LABEL(BRIGHTNESS_CONTROL),
+    MENU_LABEL(CRT_SWITCH_RESOLUTION),
+    MENU_LABEL(CRT_SWITCH_RESOLUTION_SUPER),
+    MENU_LABEL(CRT_SWITCH_RESOLUTION_OUTPUT_DISPLAY_ID),
+@@ -2877,7 +2878,6 @@ enum msg_hash_enums
+    MENU_ENUM_LABEL_VALUE_TIMEDATE_HM_AMPM,
+ 
+    MENU_LABEL(SWITCH_GPU_PROFILE),
+-   MENU_LABEL(SWITCH_BACKLIGHT_CONTROL),
+    MENU_LABEL(SWITCH_CPU_PROFILE),
+ 
+    MENU_ENUM_LABEL_VALUE_HOLD_START,
+diff --git a/retroarch.c b/retroarch.c
+index 6a88c3108e..fd898b2ec9 100644
+--- a/retroarch.c
++++ b/retroarch.c
+@@ -40698,6 +40698,21 @@ void frontend_driver_attach_console(void)
+    frontend->attach_console();
+ }
+ 
++void frontend_driver_set_screen_brightness(int value)
++{
++   struct rarch_state     *p_rarch = &rarch_st;
++   frontend_ctx_driver_t *frontend = p_rarch->current_frontend_ctx;
++   if (frontend && frontend->set_screen_brightness)
++      frontend->set_screen_brightness(value);
++}
++
++bool frontend_driver_can_set_screen_brightness()
++{
++   struct rarch_state     *p_rarch = &rarch_st;
++   frontend_ctx_driver_t *frontend = p_rarch->current_frontend_ctx;
++   return (frontend && frontend->set_screen_brightness);
++}
++
+ void frontend_driver_detach_console(void)
+ {
+    struct rarch_state     *p_rarch = &rarch_st;
+diff --git a/switch_performance_profiles.h b/switch_performance_profiles.h
+index 2ee1fd9dc2..5d07ba6ed5 100644
+--- a/switch_performance_profiles.h
++++ b/switch_performance_profiles.h
+@@ -48,18 +48,6 @@ static char *SWITCH_GPU_SPEEDS[] = {
+     "153 Mhz",
+     "76 Mhz"
+ };
+-
+-static int SWITCH_BRIGHTNESS[] = {
+-    10,
+-    20,
+-    30,
+-    40,
+-    50,
+-    60,
+-    70,
+-    80,
+-    90,
+-    100};
+ #endif
+ 
+ static char *SWITCH_CPU_PROFILES[] = {
