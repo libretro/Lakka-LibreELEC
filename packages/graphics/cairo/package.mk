@@ -15,6 +15,8 @@ PKG_TOOLCHAIN="configure"
 configure_package() {
   if [ "${DISPLAYSERVER}" = "x11" ]; then
     PKG_DEPENDS_TARGET+=" libXrender libX11 mesa"
+  elif [ "${DISTRO}" = "Lakka" ]; then
+    PKG_DEPENDS_TARGET+=" libXrender libX11 "
   fi
 
   if [ "${OPENGL_SUPPORT}" = "yes" ]; then
@@ -74,18 +76,28 @@ pre_configure_target() {
                                  --x-libraries="${SYSROOT_PREFIX}/usr/lib" \
                                  --enable-xlib \
                                  --enable-xlib-xrender \
-                                 --enable-gl \
-                                 --enable-glx \
-                                 --disable-glesv2 \
-                                 --disable-egl \
                                  --with-x"
-   else
+  elif [ "${DISTRO}" = "Lakka" ]; then
+    PKG_CONFIGURE_OPTS_TARGET+=" --x-includes="${SYSROOT_PREFIX}/usr/include" \
+                                 --x-libraries="${SYSROOT_PREFIX}/usr/lib" \
+                                 --enable-xlib \
+                                 --enable-xlib-xrender \
+                                 --with-x"
+  else
     PKG_CONFIGURE_OPTS_TARGET+=" --disable-xlib \
                                  --disable-xlib-xrender \
-                                 --disable-gl \
+                                 --without-x"
+  fi
+
+  if [ "${OPENGL_SUPPORT}" = "yes" ]; then
+    PKG_CONFIGURE_OPTS_TARGET+=" --enable-gl \
+                                 --enable-glx \
+                                 --disable-glesv2 \
+                                 --disable-egl"
+  elif [ "${OPENGLES_SUPPORT}" = "yes" ]; then
+    PKG_CONFIGURE_OPTS_TARGET+=" --disable-gl \
                                  --disable-glx \
                                  --enable-glesv2 \
-                                 --enable-egl \
-                                 --without-x"
+                                 --enable-egl"
   fi
 }
