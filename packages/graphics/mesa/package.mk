@@ -12,6 +12,10 @@ PKG_DEPENDS_TARGET="toolchain Mako:host expat libdrm"
 PKG_LONGDESC="Mesa is a 3-D graphics library with an API."
 PKG_TOOLCHAIN="meson"
 
+if [ "$DEVICE" = "RPi4" ]; then
+  PKG_DEPENDS_TARGET+=" vulkan-loader"
+fi
+
 get_graphicdrivers
 
 PKG_MESON_OPTS_TARGET="-Ddri-drivers=${DRI_DRIVERS// /,} \
@@ -38,6 +42,8 @@ PKG_MESON_OPTS_TARGET="-Ddri-drivers=${DRI_DRIVERS// /,} \
 
 if [ "$TARGET_ARCH" = "i386" ]; then
   PKG_MESON_OPTS_TARGET="${PKG_MESON_OPTS_TARGET//-Dvulkan-drivers=auto/-Dvulkan-drivers=}"
+elif [ "$DEVICE" = "RPi4" ]; then
+  PKG_MESON_OPTS_TARGET="${PKG_MESON_OPTS_TARGET//-Dvulkan-drivers=auto/-Dvulkan-drivers=broadcom}"
 fi
 
 if [ "$DISPLAYSERVER" = "x11" ]; then
