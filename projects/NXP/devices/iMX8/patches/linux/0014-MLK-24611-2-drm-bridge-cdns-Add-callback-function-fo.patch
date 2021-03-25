@@ -1,0 +1,157 @@
+From 46bf1dc2ba34440e8f83b3f70e3e4d6b3f9e6183 Mon Sep 17 00:00:00 2001
+From: Shengjiu Wang <shengjiu.wang@nxp.com>
+Date: Mon, 31 Aug 2020 14:50:29 +0800
+Subject: [PATCH 14/49] MLK-24611-2: drm: bridge: cdns: Add callback function
+ for plug/unplug event
+
+cdns-hdmi-core exports a function cdns_hdmi_set_plugged_cb so
+platform device can register the callback
+
+implement hook_plugged_cb to register callback function for hdmi cable
+plug/unplug event.
+
+Signed-off-by: Shengjiu Wang <shengjiu.wang@nxp.com>
+Reviewed-by: Sandor Yu <Sandor.yu@nxp.com>
+---
+ .../gpu/drm/bridge/cadence/cdns-hdmi-core.c   | 41 +++++++++++++++++--
+ .../gpu/drm/bridge/cadence/cdns-mhdp-audio.c  | 10 +++++
+ include/drm/bridge/cdns-mhdp.h                |  6 +++
+ 3 files changed, 54 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/bridge/cadence/cdns-hdmi-core.c b/drivers/gpu/drm/bridge/cadence/cdns-hdmi-core.c
+index a8fa559de9e9..5890da8aa1a1 100644
+--- a/drivers/gpu/drm/bridge/cadence/cdns-hdmi-core.c
++++ b/drivers/gpu/drm/bridge/cadence/cdns-hdmi-core.c
+@@ -225,11 +225,35 @@ void cdns_hdmi_mode_set(struct cdns_mhdp_device *mhdp)
+ 	}
+ }
+ 
++static void handle_plugged_change(struct cdns_mhdp_device *mhdp, bool plugged)
++{
++	if (mhdp->plugged_cb && mhdp->codec_dev)
++		mhdp->plugged_cb(mhdp->codec_dev, plugged);
++}
++
++int cdns_hdmi_set_plugged_cb(struct cdns_mhdp_device *mhdp,
++			     hdmi_codec_plugged_cb fn,
++			     struct device *codec_dev)
++{
++	bool plugged;
++
++	mutex_lock(&mhdp->lock);
++	mhdp->plugged_cb = fn;
++	mhdp->codec_dev = codec_dev;
++	plugged = mhdp->last_connector_result == connector_status_connected;
++	handle_plugged_change(mhdp, plugged);
++	mutex_unlock(&mhdp->lock);
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(cdns_hdmi_set_plugged_cb);
++
+ static enum drm_connector_status
+ cdns_hdmi_connector_detect(struct drm_connector *connector, bool force)
+ {
+ 	struct cdns_mhdp_device *mhdp =
+ 				container_of(connector, struct cdns_mhdp_device, connector.base);
++	enum drm_connector_status result;
+ 
+ 	u8 hpd = 0xf;
+ 
+@@ -237,15 +261,25 @@ cdns_hdmi_connector_detect(struct drm_connector *connector, bool force)
+ 
+ 	if (hpd == 1)
+ 		/* Cable Connected */
+-		return connector_status_connected;
++		result = connector_status_connected;
+ 	else if (hpd == 0)
+ 		/* Cable Disconnedted */
+-		return connector_status_disconnected;
++		result = connector_status_disconnected;
+ 	else {
+ 		/* Cable status unknown */
+ 		DRM_INFO("Unknow cable status, hdp=%u\n", hpd);
+-		return connector_status_unknown;
++		result = connector_status_unknown;
++	}
++
++	mutex_lock(&mhdp->lock);
++	if (result != mhdp->last_connector_result) {
++		handle_plugged_change(mhdp,
++				      result == connector_status_connected);
++		mhdp->last_connector_result = result;
+ 	}
++	mutex_unlock(&mhdp->lock);
++
++	return result;
+ }
+ 
+ static int cdns_hdmi_connector_get_modes(struct drm_connector *connector)
+@@ -624,6 +658,7 @@ static int __cdns_hdmi_probe(struct platform_device *pdev,
+ #ifdef CONFIG_OF
+ 	mhdp->bridge.base.of_node = dev->of_node;
+ #endif
++	mhdp->last_connector_result = connector_status_disconnected;
+ 
+ 	memset(&pdevinfo, 0, sizeof(pdevinfo));
+ 	pdevinfo.parent = dev;
+diff --git a/drivers/gpu/drm/bridge/cadence/cdns-mhdp-audio.c b/drivers/gpu/drm/bridge/cadence/cdns-mhdp-audio.c
+index fa1dcf781539..f4f3f9ca437c 100644
+--- a/drivers/gpu/drm/bridge/cadence/cdns-mhdp-audio.c
++++ b/drivers/gpu/drm/bridge/cadence/cdns-mhdp-audio.c
+@@ -380,11 +380,21 @@ static int audio_get_eld(struct device *dev, void *data,
+ 	return 0;
+ }
+ 
++static int audio_hook_plugged_cb(struct device *dev, void *data,
++				 hdmi_codec_plugged_cb fn,
++				 struct device *codec_dev)
++{
++	struct cdns_mhdp_device *mhdp = dev_get_drvdata(dev);
++
++	return cdns_hdmi_set_plugged_cb(mhdp, fn, codec_dev);
++}
++
+ static const struct hdmi_codec_ops audio_codec_ops = {
+ 	.hw_params = audio_hw_params,
+ 	.audio_shutdown = audio_shutdown,
+ 	.digital_mute = audio_digital_mute,
+ 	.get_eld = audio_get_eld,
++	.hook_plugged_cb = audio_hook_plugged_cb,
+ };
+ 
+ int cdns_mhdp_register_audio_driver(struct device *dev)
+diff --git a/include/drm/bridge/cdns-mhdp.h b/include/drm/bridge/cdns-mhdp.h
+index 1f8fd024cdfa..6bfd82a3d9a2 100644
+--- a/include/drm/bridge/cdns-mhdp.h
++++ b/include/drm/bridge/cdns-mhdp.h
+@@ -22,6 +22,7 @@
+ #include <drm/drm_dp_mst_helper.h>
+ #include <media/cec.h>
+ #include <linux/bitops.h>
++#include <sound/hdmi-codec.h>
+ 
+ #define ADDR_IMEM		0x10000
+ #define ADDR_DMEM		0x20000
+@@ -714,6 +715,9 @@ struct cdns_mhdp_device {
+ 	};
+ 	const struct cdns_plat_data *plat_data;
+ 
++	hdmi_codec_plugged_cb plugged_cb;
++	struct device *codec_dev;
++	enum drm_connector_status last_connector_result;
+ };
+ 
+ u32 cdns_mhdp_bus_read(struct cdns_mhdp_device *mhdp, u32 offset);
+@@ -796,6 +800,8 @@ void cdns_dp_remove(struct platform_device *pdev);
+ void cdns_dp_unbind(struct device *dev);
+ int cdns_dp_bind(struct platform_device *pdev,
+ 			struct drm_encoder *encoder, struct cdns_mhdp_device *mhdp);
++int cdns_hdmi_set_plugged_cb(struct cdns_mhdp_device *mhdp, hdmi_codec_plugged_cb fn,
++			     struct device *codec_dev);
+ 
+ /* CEC */
+ #ifdef CONFIG_DRM_CDNS_HDMI_CEC
+-- 
+2.29.2
+

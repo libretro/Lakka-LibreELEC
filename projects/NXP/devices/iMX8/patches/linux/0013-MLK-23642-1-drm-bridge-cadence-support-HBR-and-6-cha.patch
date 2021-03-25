@@ -1,0 +1,116 @@
+From cd7804fc3777e0b53d69d34058fee39accc72072 Mon Sep 17 00:00:00 2001
+From: Shengjiu Wang <shengjiu.wang@nxp.com>
+Date: Wed, 29 Apr 2020 17:34:07 +0800
+Subject: [PATCH 13/49] MLK-23642-1: drm: bridge: cadence: support HBR and 6
+ channel
+
+Support HBR and 6 channel.
+
+For HBR, it only support compressed bitstream, sample rate
+is 192kHz, and 8 channels.
+
+Signed-off-by: Shengjiu Wang <shengjiu.wang@nxp.com>
+Reviewed-by: Viorel Suman <viorel.suman@nxp.com>
+---
+ .../gpu/drm/bridge/cadence/cdns-mhdp-audio.c  | 33 ++++++++++++++-----
+ include/drm/bridge/cdns-mhdp.h                |  1 +
+ 2 files changed, 26 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/bridge/cadence/cdns-mhdp-audio.c b/drivers/gpu/drm/bridge/cadence/cdns-mhdp-audio.c
+index 86174fb633bc..fa1dcf781539 100644
+--- a/drivers/gpu/drm/bridge/cadence/cdns-mhdp-audio.c
++++ b/drivers/gpu/drm/bridge/cadence/cdns-mhdp-audio.c
+@@ -72,6 +72,8 @@ static void hdmi_audio_avi_set(struct cdns_mhdp_device *mhdp,
+ 		frame.channel_allocation = 0;
+ 	else if (channels == 4)
+ 		frame.channel_allocation = 0x3;
++	else if (channels == 6)
++		frame.channel_allocation = 0xB;
+ 	else if (channels == 8)
+ 		frame.channel_allocation = 0x13;
+ 
+@@ -143,26 +145,38 @@ static void cdns_mhdp_audio_config_i2s(struct cdns_mhdp_device *mhdp,
+ {
+ 	int sub_pckt_num = 1, i2s_port_en_val = 0xf, i;
+ 	int idx = select_N_index(mhdp->mode.clock);
++	int numofchannels = audio->channels;
+ 	u32 val, ncts;
++	u32 disable_port3 = 0;
++	u32 audio_type = 0x2; /* L-PCM */
++	u32 transmission_type = 0; /* not required for L-PCM */
+ 
+-	if (audio->channels == 2) {
++	if (numofchannels == 2) {
+ 		if (mhdp->dp.num_lanes == 1)
+ 			sub_pckt_num = 2;
+ 		else
+ 			sub_pckt_num = 4;
+ 
+ 		i2s_port_en_val = 1;
+-	} else if (audio->channels == 4) {
++	} else if (numofchannels == 4) {
+ 		i2s_port_en_val = 3;
++	} else if (numofchannels == 6) {
++		numofchannels = 8;
++		disable_port3 = 1;
++	} else if ((numofchannels == 8) && (audio->non_pcm)) {
++		audio_type = 0x9;         /* HBR packet type */
++		transmission_type = 0x9;  /* HBR packet type */
+ 	}
+ 
+ 	cdns_mhdp_bus_write(0x0, mhdp, SPDIF_CTRL_ADDR);
+ 
+-	cdns_mhdp_bus_write(SYNC_WR_TO_CH_ZERO, mhdp, FIFO_CNTL);
++	val = SYNC_WR_TO_CH_ZERO;
++	val |= disable_port3 << 4;
++	cdns_mhdp_bus_write(val, mhdp, FIFO_CNTL);
+ 
+-	val = MAX_NUM_CH(audio->channels);
+-	val |= NUM_OF_I2S_PORTS(audio->channels);
+-	val |= AUDIO_TYPE_LPCM;
++	val = MAX_NUM_CH(numofchannels);
++	val |= NUM_OF_I2S_PORTS(numofchannels);
++	val |= audio_type << 7;
+ 	val |= CFG_SUB_PCKT_NUM(sub_pckt_num);
+ 	cdns_mhdp_bus_write(val, mhdp, SMPL2PKT_CNFG);
+ 
+@@ -173,12 +187,13 @@ static void cdns_mhdp_audio_config_i2s(struct cdns_mhdp_device *mhdp,
+ 	else
+ 		val = 2 << 9;
+ 
+-	val |= AUDIO_CH_NUM(audio->channels);
++	val |= AUDIO_CH_NUM(numofchannels);
+ 	val |= I2S_DEC_PORT_EN(i2s_port_en_val);
+ 	val |= TRANS_SMPL_WIDTH_32;
++	val |= transmission_type << 13;
+ 	cdns_mhdp_bus_write(val, mhdp, AUDIO_SRC_CNFG);
+ 
+-	for (i = 0; i < (audio->channels + 1) / 2; i++) {
++	for (i = 0; i < (numofchannels + 1) / 2; i++) {
+ 		if (audio->sample_width == 16)
+ 			val = (0x02 << 8) | (0x02 << 20);
+ 		else if (audio->sample_width == 24)
+@@ -323,6 +338,8 @@ static int audio_hw_params(struct device *dev,  void *data,
+ 		goto out;
+ 	}
+ 
++	audio.non_pcm = params->iec.status[0] & IEC958_AES0_NONAUDIO;
++
+ 	ret = cdns_mhdp_audio_config(mhdp, &audio);
+ 	if (!ret)
+ 		mhdp->audio_info = audio;
+diff --git a/include/drm/bridge/cdns-mhdp.h b/include/drm/bridge/cdns-mhdp.h
+index 4dc6e428b5f7..1f8fd024cdfa 100644
+--- a/include/drm/bridge/cdns-mhdp.h
++++ b/include/drm/bridge/cdns-mhdp.h
+@@ -564,6 +564,7 @@ struct audio_info {
+ 	int channels;
+ 	int sample_width;
+ 	int connector_type;
++	bool non_pcm;
+ };
+ 
+ enum vic_pxl_encoding_format {
+-- 
+2.29.2
+

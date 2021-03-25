@@ -1,0 +1,45 @@
+From 54a5d4d3ba2de923fa4a4e5ef5e90151fb7f2fd8 Mon Sep 17 00:00:00 2001
+From: Sandor Yu <Sandor.yu@nxp.com>
+Date: Thu, 18 Feb 2021 16:25:52 +0800
+Subject: [PATCH 26/49] LF-3367-1: drm: cdns_hdmi: HDCP_STATE_DISABLING may
+ missed by check link
+
+Polling thread check_work is designed to handle all hdcp state change.
+In HDCP disable function, check_work thread will be stopped after
+hdcp.state is set to HDCP_STATE_DISABLING. check_work thread may miss
+the state change, call check link function make sure HDCP_STATE_DISABLING
+state is properly handled.
+
+Signed-off-by: Sandor Yu <Sandor.yu@nxp.com>
+Reviewed-by: Robby Cai <robby.cai@nxp.com>
+Acked-by: Jason Liu <jason.hui.liu@nxp.com>
+---
+ drivers/gpu/drm/bridge/cadence/cdns-hdmi-hdcp.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/bridge/cadence/cdns-hdmi-hdcp.c b/drivers/gpu/drm/bridge/cadence/cdns-hdmi-hdcp.c
+index e2a3bc7fb42b..9119f2063098 100644
+--- a/drivers/gpu/drm/bridge/cadence/cdns-hdmi-hdcp.c
++++ b/drivers/gpu/drm/bridge/cadence/cdns-hdmi-hdcp.c
+@@ -988,6 +988,8 @@ int cdns_hdmi_hdcp_disable(struct cdns_mhdp_device *mhdp)
+ {
+ 	int ret = 0;
+ 
++	cancel_delayed_work_sync(&mhdp->hdcp.check_work);
++
+ 	mutex_lock(&mhdp->hdcp.mutex);
+ 	if (mhdp->hdcp.value != DRM_MODE_CONTENT_PROTECTION_UNDESIRED) {
+ 		mhdp->hdcp.value = DRM_MODE_CONTENT_PROTECTION_UNDESIRED;
+@@ -998,7 +1000,8 @@ int cdns_hdmi_hdcp_disable(struct cdns_mhdp_device *mhdp)
+ 
+ 	mutex_unlock(&mhdp->hdcp.mutex);
+ 
+-	cancel_delayed_work_sync(&mhdp->hdcp.check_work);
++	/* Make sure HDCP_STATE_DISABLING state is handled */
++	hdmi_hdcp_check_link(mhdp);
+ 
+ 	return ret;
+ }
+-- 
+2.29.2
+
