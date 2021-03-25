@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="e2fsprogs"
-PKG_VERSION="1.45.6"
-PKG_SHA256="ffa7ae6954395abdc50d0f8605d8be84736465afc53b8938ef473fcf7ff44256"
+PKG_VERSION="1.45.7"
+PKG_SHA256="62d49c86d9d4becf305093edd65464484dc9ea41c6ff9ae4f536e4a341b171a2"
 PKG_LICENSE="GPL"
 PKG_SITE="http://e2fsprogs.sourceforge.net/"
 PKG_URL="https://www.kernel.org/pub/linux/kernel/people/tytso/${PKG_NAME}/v${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
