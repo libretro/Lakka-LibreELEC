@@ -1,0 +1,66 @@
+From 90e1a010995c0a87b0216706b1255ca5d0c36286 Mon Sep 17 00:00:00 2001
+From: Sergey Zhuravlevich <zhurxx@gmail.com>
+Date: Tue, 12 May 2020 14:23:15 +0200
+Subject: [PATCH 03/49] MLK-24065-3: drm: bridge: cadence: use the lane mapping
+ from dt when setting host capabilities
+
+Signed-off-by: Sergey Zhuravlevich <zhurxx@gmail.com>
+Acked-by: Sandor Yu <sandor.yu@nxp.com>
+Tested-By: Sandor Yu <sandor.yu@nxp.com>
+---
+ drivers/gpu/drm/bridge/cadence/cdns-dp-core.c     | 2 +-
+ drivers/gpu/drm/bridge/cadence/cdns-mhdp-common.c | 4 ++--
+ include/drm/bridge/cdns-mhdp.h                    | 2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/bridge/cadence/cdns-dp-core.c b/drivers/gpu/drm/bridge/cadence/cdns-dp-core.c
+index aa92029f44e9..c059d56b4f46 100644
+--- a/drivers/gpu/drm/bridge/cadence/cdns-dp-core.c
++++ b/drivers/gpu/drm/bridge/cadence/cdns-dp-core.c
+@@ -152,7 +152,7 @@ static void cdns_dp_mode_set(struct cdns_mhdp_device *mhdp)
+ 	cdns_mhdp_reg_write(mhdp, LANES_CONFIG, 0x00400000 | lane_mapping);
+ 
+ 	/* Set DP host capability */
+-	ret = cdns_mhdp_set_host_cap(mhdp, false);
++	ret = cdns_mhdp_set_host_cap(mhdp);
+ 	if (ret) {
+ 		DRM_DEV_ERROR(mhdp->dev, "Failed to set host cap %d\n", ret);
+ 		return;
+diff --git a/drivers/gpu/drm/bridge/cadence/cdns-mhdp-common.c b/drivers/gpu/drm/bridge/cadence/cdns-mhdp-common.c
+index 91d1cfd4b2af..9c0a2668e494 100644
+--- a/drivers/gpu/drm/bridge/cadence/cdns-mhdp-common.c
++++ b/drivers/gpu/drm/bridge/cadence/cdns-mhdp-common.c
+@@ -438,7 +438,7 @@ int cdns_mhdp_set_firmware_active(struct cdns_mhdp_device *mhdp, bool enable)
+ }
+ EXPORT_SYMBOL(cdns_mhdp_set_firmware_active);
+ 
+-int cdns_mhdp_set_host_cap(struct cdns_mhdp_device *mhdp, bool flip)
++int cdns_mhdp_set_host_cap(struct cdns_mhdp_device *mhdp)
+ {
+ 	u8 msg[8];
+ 	int ret;
+@@ -449,7 +449,7 @@ int cdns_mhdp_set_host_cap(struct cdns_mhdp_device *mhdp, bool flip)
+ 	msg[3] = PRE_EMPHASIS_LEVEL_3;
+ 	msg[4] = PTS1 | PTS2 | PTS3 | PTS4;
+ 	msg[5] = FAST_LT_NOT_SUPPORT;
+-	msg[6] = flip ? LANE_MAPPING_FLIPPED : LANE_MAPPING_NORMAL;
++	msg[6] = mhdp->lane_mapping;
+ 	msg[7] = ENHANCED;
+ 
+ 	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
+diff --git a/include/drm/bridge/cdns-mhdp.h b/include/drm/bridge/cdns-mhdp.h
+index d76716d4edc6..4dc6e428b5f7 100644
+--- a/include/drm/bridge/cdns-mhdp.h
++++ b/include/drm/bridge/cdns-mhdp.h
+@@ -723,7 +723,7 @@ u32 cdns_mhdp_get_fw_clk(struct cdns_mhdp_device *mhdp);
+ int cdns_mhdp_load_firmware(struct cdns_mhdp_device *mhdp, const u32 *i_mem,
+ 			    u32 i_size, const u32 *d_mem, u32 d_size);
+ int cdns_mhdp_set_firmware_active(struct cdns_mhdp_device *mhdp, bool enable);
+-int cdns_mhdp_set_host_cap(struct cdns_mhdp_device *mhdp, bool flip);
++int cdns_mhdp_set_host_cap(struct cdns_mhdp_device *mhdp);
+ int cdns_mhdp_event_config(struct cdns_mhdp_device *mhdp);
+ u32 cdns_mhdp_get_event(struct cdns_mhdp_device *mhdp);
+ int cdns_mhdp_dpcd_write(struct cdns_mhdp_device *mhdp, u32 addr, u8 value);
+-- 
+2.29.2
+

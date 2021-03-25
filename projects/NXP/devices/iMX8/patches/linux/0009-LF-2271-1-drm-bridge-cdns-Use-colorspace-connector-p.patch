@@ -1,0 +1,107 @@
+From 150d291f3e5cb47a97790b89e79d8f1a5aa797dd Mon Sep 17 00:00:00 2001
+From: Laurentiu Palcu <laurentiu.palcu@nxp.com>
+Date: Fri, 28 Aug 2020 10:26:31 +0300
+Subject: [PATCH 09/49] LF-2271-1: drm/bridge/cdns: Use colorspace connector
+ property for imx8mq
+
+This patch achieves 2 goals:
+ * Make use of colorspace property when setting up the color_depth and
+   color_fmt. The userspace can now choose which colorspace to use by changing
+   the colorspace property;
+ * Do not use drm_display_mode private_flags to signal CRTC which pixel encoding
+   is being used by connector. Upstream is getting rid of 'private_flags' usage
+   and the declaration will probably be removed in the next release;
+
+Signed-off-by: Laurentiu Palcu <laurentiu.palcu@nxp.com>
+Reviewed-by: Robert Chiras <robert.chiras@nxp.com>
+---
+ .../gpu/drm/bridge/cadence/cdns-hdmi-core.c   | 58 ++++++++++++-------
+ 1 file changed, 36 insertions(+), 22 deletions(-)
+
+diff --git a/drivers/gpu/drm/bridge/cadence/cdns-hdmi-core.c b/drivers/gpu/drm/bridge/cadence/cdns-hdmi-core.c
+index 1e5130e295f7..2796252adf68 100644
+--- a/drivers/gpu/drm/bridge/cadence/cdns-hdmi-core.c
++++ b/drivers/gpu/drm/bridge/cadence/cdns-hdmi-core.c
+@@ -412,6 +412,7 @@ bool cdns_hdmi_bridge_mode_fixup(struct drm_bridge *bridge,
+ 				 struct drm_display_mode *adjusted_mode)
+ {
+ 	struct cdns_mhdp_device *mhdp = bridge->driver_private;
++	struct drm_connector_state *conn_state = mhdp->connector.base.state;
+ 	struct drm_display_info *di = &mhdp->connector.base.display_info;
+ 	struct video_info *video = &mhdp->video_info;
+ 	int vic = drm_match_cea_mode(mode);
+@@ -428,36 +429,49 @@ bool cdns_hdmi_bridge_mode_fixup(struct drm_bridge *bridge,
+ 	}
+ 
+ 	/* imx8mq */
+-	if (vic == 97 || vic == 96) {
+-		if (di->hdmi.y420_dc_modes & DRM_EDID_YCBCR420_DC_36)
+-			video->color_depth = 12;
+-		else if (di->hdmi.y420_dc_modes & DRM_EDID_YCBCR420_DC_30)
+-			video->color_depth = 10;
+-
+-		if (drm_mode_is_420_only(di, mode) ||
+-		    (drm_mode_is_420_also(di, mode) &&
+-		     video->color_depth > 8)) {
++	if (conn_state->colorspace == DRM_MODE_COLORIMETRY_DEFAULT)
++		return !drm_mode_is_420_only(di, mode);
++
++	if (conn_state->colorspace == DRM_MODE_COLORIMETRY_BT2020_RGB) {
++		if (drm_mode_is_420_only(di, mode))
++			return false;
++
++		/* 10b RGB is not supported for following VICs */
++		if (vic == 97 || vic == 96 || vic == 95 || vic == 93 || vic == 94)
++			return false;
++
++		video->color_depth = 10;
++
++		return true;
++	}
++
++	if (conn_state->colorspace == DRM_MODE_COLORIMETRY_BT2020_CYCC ||
++	    conn_state->colorspace == DRM_MODE_COLORIMETRY_BT2020_YCC) {
++		if (drm_mode_is_420_only(di, mode)) {
+ 			video->color_fmt = YCBCR_4_2_0;
+ 
+-			adjusted_mode->private_flags = 1;
++			if (di->hdmi.y420_dc_modes & DRM_EDID_YCBCR420_DC_36)
++				video->color_depth = 12;
++			else if (di->hdmi.y420_dc_modes & DRM_EDID_YCBCR420_DC_30)
++				video->color_depth = 10;
++			else
++				return false;
++
+ 			return true;
+ 		}
+ 
+-		video->color_depth = 8;
+-		return true;
+-	}
++		video->color_fmt = YCBCR_4_2_2;
++
++		if (!(di->edid_hdmi_dc_modes & DRM_EDID_HDMI_DC_36))
++			return false;
+ 
+-	/* Any defined maximum tmds clock limit we must not exceed*/
+-	if ((di->edid_hdmi_dc_modes & DRM_EDID_HDMI_DC_36) &&
+-	    (mode->clock * 3 / 2 <= di->max_tmds_clock))
+ 		video->color_depth = 12;
+-	else if ((di->edid_hdmi_dc_modes & DRM_EDID_HDMI_DC_30) &&
+-		 (mode->clock * 5 / 4 <= di->max_tmds_clock))
+-		video->color_depth = 10;
+ 
+-	/* 10-bit color depth for the following modes is not supported */
+-	if ((vic == 95 || vic == 94 || vic == 93) && video->color_depth == 10)
+-		video->color_depth = 8;
++		return true;
++	}
++
++	video->color_fmt = drm_mode_is_420_only(di, mode) ? YCBCR_4_2_0 : YCBCR_4_4_4;
++	video->color_depth = 8;
+ 
+ 	return true;
+ }
+-- 
+2.29.2
+

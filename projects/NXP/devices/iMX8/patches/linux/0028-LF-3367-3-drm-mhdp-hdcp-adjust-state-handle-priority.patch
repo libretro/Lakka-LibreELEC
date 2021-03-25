@@ -1,0 +1,62 @@
+From 60f6b8c90766663303f6005468502798eb2b0f44 Mon Sep 17 00:00:00 2001
+From: Sandor Yu <Sandor.yu@nxp.com>
+Date: Fri, 19 Feb 2021 17:53:54 +0800
+Subject: [PATCH 28/49] LF-3367-3: drm: mhdp-hdcp: adjust state handle priority
+
+Handle HDCP_STATE_INACTIVE and HDCP_STATE_DISABLING state priority
+to avoid unnecessary HPD state check, drm has check it when hdcp
+enable/disable.
+
+Signed-off-by: Sandor Yu <Sandor.yu@nxp.com>
+Reviewed-by: Robby Cai <robby.cai@nxp.com>
+Acked-by: Jason Liu <jason.hui.liu@nxp.com>
+---
+ .../gpu/drm/bridge/cadence/cdns-hdmi-hdcp.c   | 24 ++++++++++---------
+ 1 file changed, 13 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/gpu/drm/bridge/cadence/cdns-hdmi-hdcp.c b/drivers/gpu/drm/bridge/cadence/cdns-hdmi-hdcp.c
+index 9119f2063098..5dfbd7943306 100644
+--- a/drivers/gpu/drm/bridge/cadence/cdns-hdmi-hdcp.c
++++ b/drivers/gpu/drm/bridge/cadence/cdns-hdmi-hdcp.c
+@@ -1048,6 +1048,15 @@ static int hdmi_hdcp_check_link(struct cdns_mhdp_device *mhdp)
+ 	mhdp->hdcp.reauth_in_progress = 0;
+ 	mutex_lock(&mhdp->lock);
+ 
++	if (mhdp->hdcp.state == HDCP_STATE_INACTIVE)
++		goto out;
++
++	if (mhdp->hdcp.state == HDCP_STATE_DISABLING) {
++		_hdmi_hdcp_disable(mhdp);
++		mhdp->hdcp.state = HDCP_STATE_INACTIVE;
++		goto out;
++	}
++
+ 	if ((mhdp->hdcp.state == HDCP_STATE_AUTHENTICATED)  ||
+ 		(mhdp->hdcp.state == HDCP_STATE_AUTHENTICATING) ||
+ 		(mhdp->hdcp.state == HDCP_STATE_REAUTHENTICATING) ||
+@@ -1056,18 +1065,11 @@ static int hdmi_hdcp_check_link(struct cdns_mhdp_device *mhdp)
+ 		/* In active states, check the HPD signal. Because of the IRQ
+ 		 * debounce delay, the state might not reflect the disconnection.
+ 		 * The FW could already have detected the HDP down and reported error */
+-	   hpd_sts = cdns_mhdp_read_hpd(mhdp);
+-		if (1 != hpd_sts)
++		hpd_sts = cdns_mhdp_read_hpd(mhdp);
++		if (1 != hpd_sts) {
+ 			mhdp->hdcp.state = HDCP_STATE_DISABLING;
+-	}
+-
+-	if (mhdp->hdcp.state == HDCP_STATE_INACTIVE)
+-		goto out;
+-
+-	if (mhdp->hdcp.state == HDCP_STATE_DISABLING) {
+-		_hdmi_hdcp_disable(mhdp);
+-		mhdp->hdcp.state = HDCP_STATE_INACTIVE;
+-		goto out;
++			goto out;
++		}
+ 	}
+ 
+ /* TODO items:
+-- 
+2.29.2
+

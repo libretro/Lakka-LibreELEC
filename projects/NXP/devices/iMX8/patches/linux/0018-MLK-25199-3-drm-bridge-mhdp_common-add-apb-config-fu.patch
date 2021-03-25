@@ -1,0 +1,143 @@
+From 0021b4b1afc0d88c013e2484009004b19bc2ece4 Mon Sep 17 00:00:00 2001
+From: Sandor Yu <Sandor.yu@nxp.com>
+Date: Wed, 30 Dec 2020 16:04:20 +0800
+Subject: [PATCH 18/49] MLK-25199-3: drm: bridge: mhdp_common: add apb config
+ function
+
+Add apb config function, move mhdp poll function
+to mhdp head file, they will be used by hdcp driver.
+
+Signed-off-by: Sandor Yu <Sandor.yu@nxp.com>
+Reviewed-by: Robby Cai <robby.cai@nxp.com>
+---
+ .../gpu/drm/bridge/cadence/cdns-mhdp-common.c | 54 ++++++++++---------
+ drivers/gpu/drm/bridge/cadence/cdns-mhdp.h    | 25 ++++++++-
+ 2 files changed, 54 insertions(+), 25 deletions(-)
+
+diff --git a/drivers/gpu/drm/bridge/cadence/cdns-mhdp-common.c b/drivers/gpu/drm/bridge/cadence/cdns-mhdp-common.c
+index ff37cc4e57e6..2a8ab0872f25 100644
+--- a/drivers/gpu/drm/bridge/cadence/cdns-mhdp-common.c
++++ b/drivers/gpu/drm/bridge/cadence/cdns-mhdp-common.c
+@@ -27,31 +27,10 @@
+ #include <drm/drm_print.h>
+ #include <linux/regmap.h>
+ 
++#include "cdns-mhdp.h"
++
+ #define CDNS_DP_SPDIF_CLK		200000000
+ #define FW_ALIVE_TIMEOUT_US		1000000
+-#define MAILBOX_RETRY_US		1000
+-#define MAILBOX_TIMEOUT_US		5000000
+-
+-#define mhdp_readx_poll_timeout(op, addr, offset, val, cond, sleep_us, timeout_us)	\
+-({ \
+-	u64 __timeout_us = (timeout_us); \
+-	unsigned long __sleep_us = (sleep_us); \
+-	ktime_t __timeout = ktime_add_us(ktime_get(), __timeout_us); \
+-	might_sleep_if((__sleep_us) != 0); \
+-	for (;;) { \
+-		(val) = op(addr, offset); \
+-		if (cond) \
+-			break; \
+-		if (__timeout_us && \
+-		    ktime_compare(ktime_get(), __timeout) > 0) { \
+-			(val) = op(addr, offset); \
+-			break; \
+-		} \
+-		if (__sleep_us) \
+-			usleep_range((__sleep_us >> 2) + 1, __sleep_us); \
+-	} \
+-	(cond) ? 0 : -ETIMEDOUT; \
+-})
+ 
+ u32 cdns_mhdp_bus_read(struct cdns_mhdp_device *mhdp, u32 offset)
+ {
+@@ -174,7 +153,7 @@ bool cdns_mhdp_check_alive(struct cdns_mhdp_device *mhdp)
+ }
+ EXPORT_SYMBOL(cdns_mhdp_check_alive);
+ 
+-static int mhdp_mailbox_read(struct cdns_mhdp_device *mhdp)
++int mhdp_mailbox_read(struct cdns_mhdp_device *mhdp)
+ {
+ 	int val, ret;
+ 
+@@ -432,6 +411,33 @@ int cdns_mhdp_set_firmware_active(struct cdns_mhdp_device *mhdp, bool enable)
+ }
+ EXPORT_SYMBOL(cdns_mhdp_set_firmware_active);
+ 
++int cdns_mhdp_apb_conf(struct cdns_mhdp_device *mhdp, u8 sel)
++{
++	u8 status;
++	int ret;
++
++	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_GENERAL, GENERAL_BUS_SETTINGS,
++				  sizeof(sel), &sel);
++	if (ret)
++		goto err_apb_conf;
++
++	ret = cdns_mhdp_mailbox_validate_receive(mhdp, MB_MODULE_ID_GENERAL,
++							GENERAL_BUS_SETTINGS, sizeof(status));
++	if (ret)
++		goto err_apb_conf;
++
++	ret = cdns_mhdp_mailbox_read_receive(mhdp, &status, sizeof(status));
++	if (ret)
++		goto err_apb_conf;
++
++	return status;
++
++err_apb_conf:
++	DRM_ERROR("apb conf failed: %d\n", ret);
++	return ret;
++}
++EXPORT_SYMBOL(cdns_mhdp_apb_conf);
++
+ int cdns_mhdp_set_host_cap(struct cdns_mhdp_device *mhdp)
+ {
+ 	u8 msg[8];
+diff --git a/drivers/gpu/drm/bridge/cadence/cdns-mhdp.h b/drivers/gpu/drm/bridge/cadence/cdns-mhdp.h
+index 399c3f6f86ad..8ad99eb8f86e 100644
+--- a/drivers/gpu/drm/bridge/cadence/cdns-mhdp.h
++++ b/drivers/gpu/drm/bridge/cadence/cdns-mhdp.h
+@@ -174,7 +174,6 @@
+ #define CDNS_DP_MTPH_STATUS			0x226C
+ #define CDNS_DP_MTPH_ACT_STATUS			BIT(0)
+ 
+-
+ #define CDNS_DPTX_GLOBAL			0x02300
+ #define CDNS_DP_LANE_EN				(CDNS_DPTX_GLOBAL + 0x00)
+ #define CDNS_DP_LANE_EN_LANES(x)		GENMASK(x - 1, 0)
+@@ -187,6 +186,30 @@
+ 
+ #define CDNS_MHDP_MAX_STREAMS   4
+ 
++#define MAILBOX_RETRY_US		1000
++#define MAILBOX_TIMEOUT_US		5000000
++
++#define mhdp_readx_poll_timeout(op, addr, offset, val, cond, sleep_us, timeout_us)	\
++({ \
++	u64 __timeout_us = (timeout_us); \
++	unsigned long __sleep_us = (sleep_us); \
++	ktime_t __timeout = ktime_add_us(ktime_get(), __timeout_us); \
++	might_sleep_if((__sleep_us) != 0); \
++	for (;;) { \
++		(val) = op(addr, offset); \
++		if (cond) \
++			break; \
++		if (__timeout_us && \
++		    ktime_compare(ktime_get(), __timeout) > 0) { \
++			(val) = op(addr, offset); \
++			break; \
++		} \
++		if (__sleep_us) \
++			usleep_range((__sleep_us >> 2) + 1, __sleep_us); \
++	} \
++	(cond) ? 0 : -ETIMEDOUT; \
++})
++
+ enum pixel_format {
+ 	PIXEL_FORMAT_RGB = 1,
+ 	PIXEL_FORMAT_YCBCR_444 = 2,
+-- 
+2.29.2
+

@@ -1,0 +1,44 @@
+From 4cb4fe3262fbbf6b31731b6b076698bcf951b9a1 Mon Sep 17 00:00:00 2001
+From: "Oliver F. Brown" <oliver.brown@nxp.com>
+Date: Fri, 24 Jul 2020 14:28:05 -0500
+Subject: [PATCH 12/49] MLK-24521: drm: bridge: hdmi: Prevent the driver from
+ rejecting VIC 0 modes
+
+iMX8QM can support the non CEA modes, iMX8M cannot support non CEA modes.
+So driver should allow non CEA modes for iMX8QM.
+
+Signed-off-by: Oliver F. Brown <oliver.brown@nxp.com>
+Reviewed-by: Liu Ying <victor.liu@nxp.com>
+---
+ drivers/gpu/drm/bridge/cadence/cdns-hdmi-core.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/gpu/drm/bridge/cadence/cdns-hdmi-core.c b/drivers/gpu/drm/bridge/cadence/cdns-hdmi-core.c
+index 442df6284c49..a8fa559de9e9 100644
+--- a/drivers/gpu/drm/bridge/cadence/cdns-hdmi-core.c
++++ b/drivers/gpu/drm/bridge/cadence/cdns-hdmi-core.c
+@@ -364,6 +364,7 @@ cdns_hdmi_bridge_mode_valid(struct drm_bridge *bridge,
+ {
+ 	struct cdns_mhdp_device *mhdp = bridge->driver_private;
+ 	enum drm_mode_status mode_status = MODE_OK;
++	u32 vic;
+ 	int ret;
+ 
+ 	/* We don't support double-clocked and Interlaced modes */
+@@ -379,6 +380,13 @@ cdns_hdmi_bridge_mode_valid(struct drm_bridge *bridge,
+ 	if (mode->hdisplay > 5120 || mode->vdisplay > 2160)
+ 		return MODE_BAD_HVALUE;
+ 
++	/* imx8mq-hdmi does not support non CEA modes */
++	if (!strncmp("imx8mq-hdmi", mhdp->plat_data->plat_name, 11)) {
++		vic = drm_match_cea_mode(mode);
++		if (vic == 0)
++			return MODE_BAD;
++	}
++
+ 	mhdp->valid_mode = mode;
+ 	ret = cdns_mhdp_plat_call(mhdp, phy_video_valid);
+ 	if (ret == false)
+-- 
+2.29.2
+

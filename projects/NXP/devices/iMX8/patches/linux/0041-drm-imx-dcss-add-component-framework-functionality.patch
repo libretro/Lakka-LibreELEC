@@ -1,0 +1,255 @@
+From ec59d2988d1ac50acea0fdaa63513f216ddf016d Mon Sep 17 00:00:00 2001
+From: Laurentiu Palcu <laurentiu.palcu@nxp.com>
+Date: Thu, 9 Jul 2020 19:47:31 +0300
+Subject: [PATCH 41/49] drm/imx/dcss: add component framework functionality
+
+Component framework is needed by HDP driver.
+
+Signed-off-by: Laurentiu Palcu <laurentiu.palcu@nxp.com>
+---
+ drivers/gpu/drm/imx/dcss/dcss-drv.c | 89 ++++++++++++++++++++++-------
+ drivers/gpu/drm/imx/dcss/dcss-kms.c | 23 +++++---
+ drivers/gpu/drm/imx/dcss/dcss-kms.h |  4 +-
+ 3 files changed, 85 insertions(+), 31 deletions(-)
+
+diff --git a/drivers/gpu/drm/imx/dcss/dcss-drv.c b/drivers/gpu/drm/imx/dcss/dcss-drv.c
+index 8dc2f85c514b..09d0ac28e28a 100644
+--- a/drivers/gpu/drm/imx/dcss/dcss-drv.c
++++ b/drivers/gpu/drm/imx/dcss/dcss-drv.c
+@@ -6,6 +6,7 @@
+ #include <linux/module.h>
+ #include <linux/kernel.h>
+ #include <linux/platform_device.h>
++#include <linux/component.h>
+ #include <drm/drm_of.h>
+ 
+ #include "dcss-dev.h"
+@@ -14,6 +15,8 @@
+ struct dcss_drv {
+ 	struct dcss_dev *dcss;
+ 	struct dcss_kms_dev *kms;
++
++	bool is_componentized;
+ };
+ 
+ struct dcss_dev *dcss_drv_dev_to_dcss(struct device *dev)
+@@ -30,30 +33,18 @@ struct drm_device *dcss_drv_dev_to_drm(struct device *dev)
+ 	return mdrv ? &mdrv->kms->base : NULL;
+ }
+ 
+-static int dcss_drv_platform_probe(struct platform_device *pdev)
++static int dcss_drv_init(struct device *dev, bool componentized)
+ {
+-	struct device *dev = &pdev->dev;
+-	struct device_node *remote;
+ 	struct dcss_drv *mdrv;
+ 	int err = 0;
+-	bool hdmi_output = true;
+-
+-	if (!dev->of_node)
+-		return -ENODEV;
+-
+-	remote = of_graph_get_remote_node(dev->of_node, 0, 0);
+-	if (!remote)
+-		return -ENODEV;
+-
+-	hdmi_output = !of_device_is_compatible(remote, "fsl,imx8mq-nwl-dsi");
+-
+-	of_node_put(remote);
+ 
+ 	mdrv = kzalloc(sizeof(*mdrv), GFP_KERNEL);
+ 	if (!mdrv)
+ 		return -ENOMEM;
+ 
+-	mdrv->dcss = dcss_dev_create(dev, hdmi_output);
++	mdrv->is_componentized = componentized;
++
++	mdrv->dcss = dcss_dev_create(dev, componentized);
+ 	if (IS_ERR(mdrv->dcss)) {
+ 		err = PTR_ERR(mdrv->dcss);
+ 		goto err;
+@@ -61,7 +52,7 @@ static int dcss_drv_platform_probe(struct platform_device *pdev)
+ 
+ 	dev_set_drvdata(dev, mdrv);
+ 
+-	mdrv->kms = dcss_kms_attach(mdrv->dcss);
++	mdrv->kms = dcss_kms_attach(mdrv->dcss, componentized);
+ 	if (IS_ERR(mdrv->kms)) {
+ 		err = PTR_ERR(mdrv->kms);
+ 		goto dcss_shutoff;
+@@ -79,19 +70,73 @@ static int dcss_drv_platform_probe(struct platform_device *pdev)
+ 	return err;
+ }
+ 
+-static int dcss_drv_platform_remove(struct platform_device *pdev)
++static void dcss_drv_deinit(struct device *dev, bool componentized)
+ {
+-	struct dcss_drv *mdrv = dev_get_drvdata(&pdev->dev);
++	struct dcss_drv *mdrv = dev_get_drvdata(dev);
+ 
+ 	if (!mdrv)
+-		return 0;
++		return;
+ 
+-	dcss_kms_detach(mdrv->kms);
++	dcss_kms_detach(mdrv->kms, componentized);
+ 	dcss_dev_destroy(mdrv->dcss);
+ 
+-	dev_set_drvdata(&pdev->dev, NULL);
++	dev_set_drvdata(dev, NULL);
+ 
+ 	kfree(mdrv);
++}
++
++static int dcss_drv_bind(struct device *dev)
++{
++	return dcss_drv_init(dev, true);
++}
++
++static void dcss_drv_unbind(struct device *dev)
++{
++	return dcss_drv_deinit(dev, true);
++}
++
++static const struct component_master_ops dcss_master_ops = {
++	.bind	= dcss_drv_bind,
++	.unbind	= dcss_drv_unbind,
++};
++
++static int compare_of(struct device *dev, void *data)
++{
++	return dev->of_node == data;
++}
++
++static int dcss_drv_platform_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct component_match *match = NULL;
++	struct device_node *remote;
++
++	if (!dev->of_node)
++		return -ENODEV;
++
++	remote = of_graph_get_remote_node(dev->of_node, 0, 0);
++	if (!remote)
++		return -ENODEV;
++
++	if (of_device_is_compatible(remote, "fsl,imx8mq-nwl-dsi")) {
++		of_node_put(remote);
++		return dcss_drv_init(dev, false);
++	}
++
++	drm_of_component_match_add(dev, &match, compare_of, remote);
++	of_node_put(remote);
++
++	return component_master_add_with_match(dev, &dcss_master_ops, match);
++}
++
++static int dcss_drv_platform_remove(struct platform_device *pdev)
++{
++	struct dcss_drv *mdrv = dev_get_drvdata(&pdev->dev);
++
++	if (mdrv->is_componentized)
++		component_master_del(&pdev->dev, &dcss_master_ops);
++	else
++		dcss_drv_deinit(&pdev->dev, false);
+ 
+ 	return 0;
+ }
+diff --git a/drivers/gpu/drm/imx/dcss/dcss-kms.c b/drivers/gpu/drm/imx/dcss/dcss-kms.c
+index 135a62366ab8..cafb09df6c75 100644
+--- a/drivers/gpu/drm/imx/dcss/dcss-kms.c
++++ b/drivers/gpu/drm/imx/dcss/dcss-kms.c
+@@ -13,6 +13,7 @@
+ #include <drm/drm_of.h>
+ #include <drm/drm_probe_helper.h>
+ #include <drm/drm_vblank.h>
++#include <linux/component.h>
+ 
+ #include "dcss-dev.h"
+ #include "dcss-kms.h"
+@@ -123,7 +124,7 @@ static int dcss_kms_bridge_connector_init(struct dcss_kms_dev *kms)
+ 	return 0;
+ }
+ 
+-struct dcss_kms_dev *dcss_kms_attach(struct dcss_dev *dcss)
++struct dcss_kms_dev *dcss_kms_attach(struct dcss_dev *dcss, bool componentized)
+ {
+ 	struct dcss_kms_dev *kms;
+ 	struct drm_device *drm;
+@@ -148,19 +149,23 @@ struct dcss_kms_dev *dcss_kms_attach(struct dcss_dev *dcss)
+ 
+ 	drm->irq_enabled = true;
+ 
+-	ret = dcss_kms_bridge_connector_init(kms);
++	ret = dcss_crtc_init(crtc, drm);
+ 	if (ret)
+ 		goto cleanup_mode_config;
+ 
+-	ret = dcss_crtc_init(crtc, drm);
++	if (componentized)
++		ret = component_bind_all(dcss->dev, kms);
++	else
++		ret = dcss_kms_bridge_connector_init(kms);
+ 	if (ret)
+-		goto cleanup_mode_config;
++		goto cleanup_crtc;
+ 
+ 	drm_mode_config_reset(drm);
+ 
+ 	drm_kms_helper_poll_init(drm);
+ 
+-	drm_bridge_connector_enable_hpd(kms->connector);
++	if (!componentized)
++		drm_bridge_connector_enable_hpd(kms->connector);
+ 
+ 	ret = drm_dev_register(drm, 0);
+ 	if (ret)
+@@ -171,7 +176,8 @@ struct dcss_kms_dev *dcss_kms_attach(struct dcss_dev *dcss)
+ 	return kms;
+ 
+ cleanup_crtc:
+-	drm_bridge_connector_disable_hpd(kms->connector);
++	if (!componentized)
++		drm_bridge_connector_disable_hpd(kms->connector);
+ 	drm_kms_helper_poll_fini(drm);
+ 	dcss_crtc_deinit(crtc, drm);
+ 
+@@ -182,9 +188,10 @@ struct dcss_kms_dev *dcss_kms_attach(struct dcss_dev *dcss)
+ 	return ERR_PTR(ret);
+ }
+ 
+-void dcss_kms_detach(struct dcss_kms_dev *kms)
++void dcss_kms_detach(struct dcss_kms_dev *kms, bool componentized)
+ {
+ 	struct drm_device *drm = &kms->base;
++	struct dcss_dev *dcss = drm->dev_private;
+ 
+ 	drm_dev_unregister(drm);
+ 	drm_bridge_connector_disable_hpd(kms->connector);
+@@ -194,5 +201,7 @@ void dcss_kms_detach(struct dcss_kms_dev *kms)
+ 	drm->irq_enabled = false;
+ 	drm_mode_config_cleanup(drm);
+ 	dcss_crtc_deinit(&kms->crtc, drm);
++	if (componentized)
++		component_unbind_all(dcss->dev, drm);
+ 	drm->dev_private = NULL;
+ }
+diff --git a/drivers/gpu/drm/imx/dcss/dcss-kms.h b/drivers/gpu/drm/imx/dcss/dcss-kms.h
+index dfe5dd99eea3..e98d9c587a43 100644
+--- a/drivers/gpu/drm/imx/dcss/dcss-kms.h
++++ b/drivers/gpu/drm/imx/dcss/dcss-kms.h
+@@ -32,8 +32,8 @@ struct dcss_kms_dev {
+ 	struct drm_connector *connector;
+ };
+ 
+-struct dcss_kms_dev *dcss_kms_attach(struct dcss_dev *dcss);
+-void dcss_kms_detach(struct dcss_kms_dev *kms);
++struct dcss_kms_dev *dcss_kms_attach(struct dcss_dev *dcss, bool componentized);
++void dcss_kms_detach(struct dcss_kms_dev *kms, bool componentized);
+ int dcss_crtc_init(struct dcss_crtc *crtc, struct drm_device *drm);
+ void dcss_crtc_deinit(struct dcss_crtc *crtc, struct drm_device *drm);
+ struct dcss_plane *dcss_plane_init(struct drm_device *drm,
+-- 
+2.29.2
+

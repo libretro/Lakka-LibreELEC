@@ -1,0 +1,161 @@
+From 38f1f4ecd038628f4ce7a47114455123e5db3367 Mon Sep 17 00:00:00 2001
+From: Sandor Yu <Sandor.yu@nxp.com>
+Date: Wed, 30 Dec 2020 16:02:52 +0800
+Subject: [PATCH 37/49] MLK-25199-1: drm: mhdp: Add hdmi phy reset/poweroff
+ function
+
+Add hdmi phy reset and power off function.
+
+Signed-off-by: Sandor Yu <Sandor.yu@nxp.com>
+Reviewed-by: Robby Cai <robby.cai@nxp.com>
+---
+ drivers/gpu/drm/imx/mhdp/cdns-mhdp-hdmi-phy.c | 28 ++++++++++++++++++-
+ drivers/gpu/drm/imx/mhdp/cdns-mhdp-imx.h      |  3 +-
+ drivers/gpu/drm/imx/mhdp/cdns-mhdp-imx8qm.c   |  4 +--
+ drivers/gpu/drm/imx/mhdp/cdns-mhdp-imxdrv.c   |  2 ++
+ drivers/gpu/drm/imx/mhdp/cdns-mhdp-phy.h      |  3 +-
+ 5 files changed, 35 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/imx/mhdp/cdns-mhdp-hdmi-phy.c b/drivers/gpu/drm/imx/mhdp/cdns-mhdp-hdmi-phy.c
+index 120300e6a2df..212f3f4f1e26 100644
+--- a/drivers/gpu/drm/imx/mhdp/cdns-mhdp-hdmi-phy.c
++++ b/drivers/gpu/drm/imx/mhdp/cdns-mhdp-hdmi-phy.c
+@@ -1,7 +1,7 @@
+ /*
+  * Cadence High-Definition Multimedia Interface (HDMI) driver
+  *
+- * Copyright (C) 2019 NXP Semiconductor, Inc.
++ * Copyright (C) 2019-2021 NXP Semiconductor, Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+@@ -21,6 +21,7 @@
+ 
+ #include <drm/bridge/cdns-mhdp.h>
+ #include "cdns-mhdp-phy.h"
++#include "cdns-mhdp-imx.h"
+ 
+ /* HDMI TX clock control settings */
+ struct hdmi_ctrl {
+@@ -746,6 +747,7 @@ int cdns_hdmi_phy_set_imx8qm(struct cdns_mhdp_device *mhdp)
+ 		DRM_ERROR("NO HDMI FW running\n");
+ 		return -ENXIO;
+ 	}
++	imx8qm_phy_reset(0);
+ 
+ 	/* Configure PHY */
+ 	mhdp->hdmi.char_rate = hdmi_phy_cfg_ss28fdsoi(mhdp, mode);
+@@ -753,6 +755,7 @@ int cdns_hdmi_phy_set_imx8qm(struct cdns_mhdp_device *mhdp)
+ 		DRM_ERROR("failed to set phy pclock\n");
+ 		return -EINVAL;
+ 	}
++	imx8qm_phy_reset(1);
+ 
+ 	ret = hdmi_phy_power_up(mhdp);
+ 	if (ret < 0)
+@@ -762,3 +765,26 @@ int cdns_hdmi_phy_set_imx8qm(struct cdns_mhdp_device *mhdp)
+ 
+ 	return true;
+ }
++
++int cdns_hdmi_phy_shutdown(struct cdns_mhdp_device *mhdp)
++{
++	int timeout;
++	u32 reg_val;
++
++	reg_val = cdns_phy_reg_read(mhdp, PHY_HDP_MODE_CTRL);
++	reg_val &= 0xfff0;
++	/* PHY_DP_MODE_CTL set to A3 power state*/
++	cdns_phy_reg_write(mhdp, PHY_HDP_MODE_CTRL, reg_val | 0x8);
++
++	/* PHY_DP_MODE_CTL */
++	timeout = 0;
++	do {
++		reg_val = cdns_phy_reg_read(mhdp, PHY_HDP_MODE_CTRL);
++		DRM_INFO("Reg val is 0x%04x\n", reg_val);
++		timeout++;
++		msleep(100);
++	} while (!(reg_val & (0x8 << 4)) && (timeout < 10));	/* Wait for A3 acknowledge */
++
++	DRM_INFO("hdmi phy shutdown complete\n");
++	return 0;
++}
+diff --git a/drivers/gpu/drm/imx/mhdp/cdns-mhdp-imx.h b/drivers/gpu/drm/imx/mhdp/cdns-mhdp-imx.h
+index fc3247dada2d..a12005ae4c53 100644
+--- a/drivers/gpu/drm/imx/mhdp/cdns-mhdp-imx.h
++++ b/drivers/gpu/drm/imx/mhdp/cdns-mhdp-imx.h
+@@ -1,7 +1,7 @@
+ /*
+  * Cadence High-Definition Multimedia Interface (HDMI) driver
+  *
+- * Copyright (C) 2019 NXP Semiconductor, Inc.
++ * Copyright (C) 2019-2021 NXP Semiconductor, Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+@@ -72,4 +72,5 @@ int cdns_mhdp_suspend_imx8qm(struct cdns_mhdp_device *mhdp);
+ int cdns_mhdp_power_on_imx8qm(struct cdns_mhdp_device *mhdp);
+ int cdns_mhdp_power_on_ls1028a(struct cdns_mhdp_device *mhdp);
+ void cdns_mhdp_pclk_rate_ls1028a(struct cdns_mhdp_device *mhdp);
++void imx8qm_phy_reset(u8 reset);
+ #endif /* CDNS_MHDP_IMX_H_ */
+diff --git a/drivers/gpu/drm/imx/mhdp/cdns-mhdp-imx8qm.c b/drivers/gpu/drm/imx/mhdp/cdns-mhdp-imx8qm.c
+index 38f9defa42f8..46c0500da4c3 100644
+--- a/drivers/gpu/drm/imx/mhdp/cdns-mhdp-imx8qm.c
++++ b/drivers/gpu/drm/imx/mhdp/cdns-mhdp-imx8qm.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2019 NXP semiconductor, inc.
++ * Copyright (c) 2019-2021 NXP semiconductor, inc.
+  *
+  * this program is free software; you can redistribute it and/or modify
+  * it under the terms of the gnu general public license version 2 as
+@@ -102,7 +102,7 @@ static void imx8qm_pixel_link_sync_disable(u32 dual_mode)
+ 		imx_sc_misc_set_control(handle, IMX_SC_R_DC_0, IMX_SC_C_SYNC_CTRL0, 0);
+ }
+ 
+-static void imx8qm_phy_reset(u8 reset)
++void imx8qm_phy_reset(u8 reset)
+ {
+ 	struct imx_sc_ipc *handle;
+ 
+diff --git a/drivers/gpu/drm/imx/mhdp/cdns-mhdp-imxdrv.c b/drivers/gpu/drm/imx/mhdp/cdns-mhdp-imxdrv.c
+index 9fa0df74ad7c..4c4ce9d3c847 100644
+--- a/drivers/gpu/drm/imx/mhdp/cdns-mhdp-imxdrv.c
++++ b/drivers/gpu/drm/imx/mhdp/cdns-mhdp-imxdrv.c
+@@ -22,6 +22,7 @@ static void cdns_mhdp_imx_encoder_disable(struct drm_encoder *encoder)
+ 	struct drm_bridge *bridge = drm_bridge_chain_get_first_bridge(encoder);
+ 	struct cdns_mhdp_device *mhdp = bridge->driver_private;
+ 
++	cdns_hdmi_phy_shutdown(mhdp);
+ 	cdns_mhdp_plat_call(mhdp, plat_init);
+ }
+ 
+@@ -184,6 +185,7 @@ static int cdns_mhdp_imx_bind(struct device *dev, struct device *master,
+ 
+ 	imx_mhdp->mhdp.plat_data = plat_data;
+ 	imx_mhdp->mhdp.dev = dev;
++	imx_mhdp->mhdp.drm_dev = drm;
+ 	imx_mhdp->mhdp.bus_type = plat_data->bus_type;
+ 	ret = plat_data->bind(pdev, encoder, &imx_mhdp->mhdp);
+ 	/*
+diff --git a/drivers/gpu/drm/imx/mhdp/cdns-mhdp-phy.h b/drivers/gpu/drm/imx/mhdp/cdns-mhdp-phy.h
+index 5682b9fbc90f..9035f1f71eee 100644
+--- a/drivers/gpu/drm/imx/mhdp/cdns-mhdp-phy.h
++++ b/drivers/gpu/drm/imx/mhdp/cdns-mhdp-phy.h
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2019 NXP Semiconductor, Inc.
++ * Copyright (C) 2019-2021 NXP Semiconductor, Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+@@ -152,4 +152,5 @@ bool cdns_hdmi_phy_video_valid_imx8mq(struct cdns_mhdp_device *hdp);
+ bool cdns_hdmi_phy_video_valid_imx8qm(struct cdns_mhdp_device *hdp);
+ int cdns_hdmi_phy_set_imx8mq(struct cdns_mhdp_device *hdp);
+ int cdns_hdmi_phy_set_imx8qm(struct cdns_mhdp_device *hdp);
++int cdns_hdmi_phy_shutdown(struct cdns_mhdp_device *mhdp);
+ #endif /* _CDNS_MHDP_PHY_H */
+-- 
+2.29.2
+
