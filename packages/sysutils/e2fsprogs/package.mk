@@ -14,10 +14,6 @@ PKG_DEPENDS_INIT="toolchain"
 PKG_LONGDESC="The filesystem utilities for the EXT2 filesystem, including e2fsck, mke2fs, dumpe2fs, fsck, and others."
 PKG_BUILD_FLAGS="-parallel"
 
-if [ "${HFSTOOLS}" = "yes" ]; then
-  PKG_DEPENDS_TARGET+=" diskdev_cmds"
-fi
-
 PKG_CONFIGURE_OPTS_HOST="--prefix=${TOOLCHAIN}/ \
                          --bindir=${TOOLCHAIN}/bin \
                          --with-udev-rules-dir=no \
