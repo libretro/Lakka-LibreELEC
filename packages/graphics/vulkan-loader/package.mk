@@ -34,4 +34,4 @@ PKG_CMAKE_OPTS_TARGET="-DBUILD_WSI_WAYLAND_SUPPORT=off \
                        -DVulkanHeaders_INCLUDE_DIR=${SYSROOT_PREFIX}/usr/include \
                        -DBUILD_WSI_XCB_SUPPORT=on \
                        -DBUILD_WSI_XLIB_SUPPORT=on \
-                       -DBUILD_TESTS=off
+                       -DBUILD_TESTS=off"
