@@ -12,4 +12,4 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Libogg contains necessary functionality to create, decode, and work with Ogg bitstreams."
 PKG_BUILD_FLAGS="+pic"
 
-PKG_CMAKE_OPTS_TARGET="--DINSTALL_DOCS=OFF"
+PKG_CMAKE_OPTS_TARGET="-DINSTALL_DOCS=OFF"
