@@ -82,10 +82,11 @@ targets="\
 	Rockchip|RK3399|arm|image \
 	Rockchip|TinkerBoard|arm|image \
 	RPi|Gamegirl|arm|image \
-	RPi|GPICase|arm|noobs \
-	RPi|RPi|arm|noobs \
-	RPi|RPi2|arm|noobs \
-	RPi|RPi4|arm|noobs \
+	RPi|GPICase|arm|image \
+	RPi|RPi|arm|image \
+	RPi|RPi2|arm|image \
+	RPi|RPi4|aarch|image \
+	RPi|RPi4|arm|image \
 	Qualcomm|Dragonboard|arm|image \
 	"
 
@@ -286,8 +287,8 @@ do
 		[ "${DASHBOARD_MODE}" = "yes" ] && echo "done!"
 
 		# move release files to the folder
-		[ "${DASHBOARD_MODE}" = "yes" ] && echo -n "Moving release files (.img.gz, .kernel, .system, -noobs.tar) to subfolder..."
-		for file in Lakka-${target_name}-*{.img.gz,-noobs.tar,.kernel,.system}*
+		[ "${DASHBOARD_MODE}" = "yes" ] && echo -n "Moving release files (.img.gz, .kernel, .system) to subfolder..."
+		for file in Lakka-${target_name}-*{.img.gz,.kernel,.system}*
 		do
 			[ -f "${file}" ] && mv ${v} ${file} ${target_name}/
 		done
