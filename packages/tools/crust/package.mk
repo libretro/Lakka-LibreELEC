@@ -2,8 +2,8 @@
 # Copyright (C) 2020-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="crust"
-PKG_VERSION="219383cd48924179bdd6c5e125c0dd9ab0d78c16"
-PKG_SHA256="f16e362e20c4c59da4f4a6e692f5d1c3b442a7e398ae9f45932791711f6aa1f6"
+PKG_VERSION="58267556f1b3792b8e742328d693d23ee5ef72b7"
+PKG_SHA256="0da013866710ca85d90aca2f63d66d04a2878224e7fca83047768056e35d9242"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="BSD-3c"
 PKG_SITE="https://github.com/crust-firmware/crust"
