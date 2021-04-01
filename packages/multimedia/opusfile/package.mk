@@ -23,7 +23,7 @@ PKG_VERSION="58b229a"
 PKG_ARCH="any"
 PKG_SITE="https://github.com/xiph/opusfile"
 PKG_URL="$PKG_SITE/archive/$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain opus"
+PKG_DEPENDS_TARGET="toolchain openssl opus"
 PKG_PRIORITY="optional"
 PKG_SHORTDESC="Stand-alone decoder library for .opus streams"
 
