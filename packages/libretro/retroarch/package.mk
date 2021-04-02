@@ -48,7 +48,7 @@ if [ "$OPENGL_SUPPORT" = yes ]; then
 fi
 
 if [ "$VULKAN_SUPPORT" = yes ]; then
-  PKG_DEPENDS_TARGET+=" $VULKAN vulkan-loader"
+  PKG_DEPENDS_TARGET+=" $VULKAN"
 fi
 
 if [ "$SAMBA_SUPPORT" = yes ]; then
@@ -76,8 +76,6 @@ RETROARCH_GL=""
 if [ "$DEVICE" == "OdroidGoAdvance" ]; then
   PKG_DEPENDS_TARGET+=" librga libpng"
   RETROARCH_GL="--enable-kms --enable-odroidgo2 --disable-x11 --disable-wayland --enable-opengles --enable-opengles3 --disable-mali_fbdev"
-elif [ "$VULKAN" == "nvidia-driver" ]; then
-  RETROARCH_GL="--enable-vulkan --disable-x11 --disable-kms --disable-egl"
 elif [ "$OPENGL_SUPPORT" == "yes" ]; then
   RETROARCH_GL="--enable-kms"
 elif [ "$OPENGLES" == "odroidc1-mali" ] || [ "$OPENGLES" == "opengl-meson" ] || [ "$OPENGLES" == "opengl-meson8" ] || [ "$OPENGLES" == "opengl-meson-t82x" ] || [ "$OPENGLES" == "allwinner-fb-mali" ]; then
@@ -91,12 +89,12 @@ elif [ "$OPENGLES" == "allwinner-mali" ] || [ "$OPENGLES" == "odroidxu3-mali" ];
 elif [ "$OPENGLES" == "mesa" ]; then
   if [ "$PROJECT" == "RPi" ]; then
     RETROARCH_GL="--disable-x11 --enable-opengles --disable-videocore --enable-kms --enable-egl --disable-wayland"
-    if [ "$DEVICE" == "RPi4" ]; then
-      RETROARCH_GL+=" --enable-vulkan"
-    fi
   else
     RETROARCH_GL="--enable-opengles --enable-kms --disable-x11"
   fi
+fi
+if [ "$VULKAN_SUPPORT" = "yes" ]; then
+  RETROARCH_GL+=" --enable-vulkan"
 fi
 
 RETROARCH_NEON=""
