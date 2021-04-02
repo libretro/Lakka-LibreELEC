@@ -40,7 +40,7 @@ if [ "$OPENGL_SUPPORT" = yes ]; then
 fi
 
 if [ "$VULKAN_SUPPORT" = yes ]; then
-  PKG_DEPENDS_TARGET+=" $VULKAN vulkan-loader"
+  PKG_DEPENDS_TARGET+=" $VULKAN"
 fi
 
 PKG_MAKE_OPTS_TARGET="HAVE_CDROM=1"
