@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="tyrquake"
-PKG_VERSION="e76477d"
+PKG_VERSION="8dc6d35"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"

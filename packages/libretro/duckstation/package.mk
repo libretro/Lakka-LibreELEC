@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="duckstation"
-PKG_VERSION="abb7631"
+PKG_VERSION="84a5548"
 PKG_REV="1"
 PKG_ARCH="x86_64 arm aarch64"
 PKG_LICENSE="GPLv3"
