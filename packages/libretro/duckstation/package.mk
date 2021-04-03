@@ -36,7 +36,9 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_CMAKE_OPTS_TARGET="-DCMAKE_BUILD_TYPE=Release \
-		       -DBUILD_LIBRETRO_CORE=ON"
+                       -DUSE_EVDEV=OFF \
+                       -DUSE_DRMKMS=ON \
+                       -DBUILD_LIBRETRO_CORE=ON"
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
