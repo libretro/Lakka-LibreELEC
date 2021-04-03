@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="duckstation"
-PKG_VERSION="84a5548"
+PKG_VERSION="7c964e1"
 PKG_REV="1"
 PKG_ARCH="x86_64 arm aarch64"
 PKG_LICENSE="GPLv3"
@@ -36,7 +36,6 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_CMAKE_OPTS_TARGET="-DCMAKE_BUILD_TYPE=Release \
-                       -DUSE_EVDEV=OFF \
                        -DUSE_DRMKMS=ON \
                        -DBUILD_LIBRETRO_CORE=ON"
 
