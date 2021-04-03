@@ -35,6 +35,18 @@ PKG_TOOLCHAIN="cmake-make"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+if [ "$OPENGL_SUPPORT" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGL"
+fi
+
+if [ "$OPENGLES_SUPPORT" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGLES"
+fi
+
+if [ "$VULKAN_SUPPORT" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" $VULKAN"
+fi
+
 PKG_CMAKE_OPTS_TARGET="-DCMAKE_BUILD_TYPE=Release \
                        -DUSE_DRMKMS=ON \
                        -DBUILD_LIBRETRO_CORE=ON"
