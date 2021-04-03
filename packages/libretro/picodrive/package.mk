@@ -52,6 +52,7 @@ configure_target() {
 }
 
 make_target() {
+  CFLAGS+=" -I./"
   if [ "$ARCH" == "arm" ]; then
     make -C .. -f Makefile.libretro platform=armv
   elif [ "$ARCH" == "aarch64" ]; then

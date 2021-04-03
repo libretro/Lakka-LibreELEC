@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="duckstation"
-PKG_VERSION="84a5548"
+PKG_VERSION="7c964e1"
 PKG_REV="1"
 PKG_ARCH="x86_64 arm aarch64"
 PKG_LICENSE="GPLv3"
@@ -35,8 +35,21 @@ PKG_TOOLCHAIN="cmake-make"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+if [ "$OPENGL_SUPPORT" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGL"
+fi
+
+if [ "$OPENGLES_SUPPORT" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGLES"
+fi
+
+if [ "$VULKAN_SUPPORT" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" $VULKAN"
+fi
+
 PKG_CMAKE_OPTS_TARGET="-DCMAKE_BUILD_TYPE=Release \
-		       -DBUILD_LIBRETRO_CORE=ON"
+                       -DUSE_DRMKMS=ON \
+                       -DBUILD_LIBRETRO_CORE=ON"
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
