@@ -1,7 +1,7 @@
 PKG_NAME="lakka"
 PKG_LICENSE="GPL"
 PKG_SITE="https://www.lakka.tv"
-PKG_DEPENDS_TARGET="lakka-update retroarch joyutils nss-mdns sixpair empty"
+PKG_DEPENDS_TARGET="systemd lakka-update retroarch joyutils sixpair empty"
 PKG_SECTION="virtual"
 PKG_LONGDESC="Root package used to build libretro suite"
 
@@ -11,6 +11,10 @@ fi
 
 if [ "${DISABLE_LIBRETRO_CORES}" != "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${LIBRETRO_CORES}"
+fi
+
+if [ "$AVAHI_DAEMON" = yes ]; then
+  PKG_DEPENDS_TARGET+=" nss-mdns"
 fi
 
 if [ "${PROJECT}" = "Generic" ]; then
