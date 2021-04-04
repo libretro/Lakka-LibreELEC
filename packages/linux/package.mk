@@ -116,16 +116,6 @@ pre_make_target() {
 
   cp ${PKG_KERNEL_CFG_FILE} ${PKG_BUILD}/.config
 
-  if listcontains "${GRAPHIC_DRIVERS}" "nouveau"; then
-    _needle="# CONFIG_DRM_NOUVEAU is not set"
-    _replace="CONFIG_DRM_NOUVEAU=y\\
-CONFIG_NOUVEAU_DEBUG=5\\
-CONFIG_NOUVEAU_DEBUG_DEFAULT=3\\
-CONFIG_DRM_NOUVEAU_BACKLIGHT=y"
-    sed -e "s/${_needle}/${_replace}/" \
-        -i ${PKG_BUILD}/.config
-  fi
-
   # set initramfs source
   ${PKG_BUILD}/scripts/config --set-str CONFIG_INITRAMFS_SOURCE "$(kernel_initramfs_confs) ${BUILD}/initramfs"
 
@@ -167,14 +157,18 @@ CONFIG_DRM_NOUVEAU_BACKLIGHT=y"
     ${PKG_BUILD}/scripts/config --disable CONFIG_WIREGUARD
   fi
 
+  # enable nouveau driver when required
+  if listcontains "${GRAPHIC_DRIVERS}" "nouveau"; then
+    ${PKG_BUILD}/scripts/config --enable CONFIG_DRM_NOUVEAU
+    ${PKG_BUILD}/scripts/config --enable CONFIG_DRM_NOUVEAU_BACKLIGHT
+    ${PKG_BUILD}/scripts/config --set-val CONFIG_NOUVEAU_DEBUG 5
+    ${PKG_BUILD}/scripts/config --set-val CONFIG_NOUVEAU_DEBUG_DEFAULT 3
+  fi
+
   if [ "${TARGET_ARCH}" = "x86_64" ]; then
     # copy some extra firmware to linux tree
     mkdir -p ${PKG_BUILD}/external-firmware
       cp -a $(get_build_dir kernel-firmware)/.copied-firmware/{amdgpu,amd-ucode,i915,radeon,e100,rtl_nic} ${PKG_BUILD}/external-firmware
-
-    if listcontains "${GRAPHIC_DRIVERS}" "nouveau"; then
-      cp -a $(get_build_dir kernel-firmware)/.copied-firmware/nvidia ${PKG_BUILD}/external-firmware
-    fi
 
     cp -a $(get_build_dir intel-ucode)/intel-ucode ${PKG_BUILD}/external-firmware
 
