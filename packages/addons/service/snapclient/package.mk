@@ -3,7 +3,7 @@
 
 PKG_NAME="snapclient"
 PKG_VERSION="0.24.0"
-PKG_REV="105"
+PKG_REV="106"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_DEPENDS_TARGET="toolchain alsa-plugins snapcast"
