@@ -1,4 +1,4 @@
-PKG_NAME="slang-shaders"
+PKG_NAME="slang_shaders"
 PKG_VERSION="12fdb65"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/libretro/slang-shaders"
@@ -9,6 +9,5 @@ PKG_SHORTDESC="Common Slang shaders for RetroArch"
 PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
-  cd ${PKG_BUILD}
-  make install INSTALLDIR="${INSTALL}/usr/share/common-shaders"
+  make -C ${PKG_BUILD} install INSTALLDIR="${INSTALL}/usr/share/common-shaders"
 }
