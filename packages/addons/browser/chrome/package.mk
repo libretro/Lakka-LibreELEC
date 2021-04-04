@@ -11,8 +11,9 @@ PKG_LICENSE="Custom"
 PKG_SITE="http://www.google.com/chrome"
 PKG_DEPENDS_TARGET="toolchain at-spi2-atk atk cairo chrome-libXcomposite \
                     chrome-libXdamage chrome-libXfixes chrome-libXi chrome-libXrender \
-                    chrome-libXtst chrome-libxcb chrome-libxkbcommon cups gdk-pixbuf gtk3 harfbuzz-icu \
-                    libXcursor libxss nss pango scrnsaverproto unclutter"
+                    chrome-libXtst chrome-libxcb chrome-libxkbcommon chrome-libxshmfence cups \
+                    gdk-pixbuf gtk3 harfbuzz-icu libXcursor libxss nss pango \
+                    scrnsaverproto unclutter"
 PKG_SECTION="browser"
 PKG_SHORTDESC="Google Chrome Browser"
 PKG_LONGDESC="Google Chrome Browser"
@@ -56,6 +57,7 @@ addon() {
          $(get_install_dir chrome-libXi)/usr/lib/libXi.so.6 \
          $(get_install_dir chrome-libxkbcommon)/usr/lib/libxkbcommon.so.0 \
          $(get_install_dir chrome-libXrender)/usr/lib/libXrender.so.1 \
+         $(get_install_dir chrome-libxshmfence)/usr/lib/libxshmfence.so.1 \
          $(get_install_dir libxss)/usr/lib/libXss.so.1 \
          $(get_install_dir chrome-libXtst)/usr/lib/libXtst.so.6 \
          $(get_install_dir pango)/usr/lib/{libpangocairo-1.0.so.0,libpango-1.0.so.0,libpangoft2-1.0.so.0} \
