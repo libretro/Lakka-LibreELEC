@@ -172,6 +172,10 @@ CONFIG_DRM_NOUVEAU_BACKLIGHT=y"
     mkdir -p ${PKG_BUILD}/external-firmware
       cp -a $(get_build_dir kernel-firmware)/.copied-firmware/{amdgpu,amd-ucode,i915,radeon,e100,rtl_nic} ${PKG_BUILD}/external-firmware
 
+    if listcontains "${GRAPHIC_DRIVERS}" "nouveau"; then
+      cp -a $(get_build_dir kernel-firmware)/.copied-firmware/nvidia ${PKG_BUILD}/external-firmware
+    fi
+
     cp -a $(get_build_dir intel-ucode)/intel-ucode ${PKG_BUILD}/external-firmware
 
     FW_LIST="$(find ${PKG_BUILD}/external-firmware \( -type f -o -type l \) \( -iname '*.bin' -o -iname '*.fw' -o -path '*/intel-ucode/*' \) | sed 's|.*external-firmware/||' | sort | xargs)"
