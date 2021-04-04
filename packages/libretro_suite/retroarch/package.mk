@@ -1,118 +1,78 @@
 PKG_NAME="retroarch"
-PKG_VERSION="5e551dd"
+PKG_VERSION="f7d0908"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
 PKG_URL="${PKG_SITE}.git"
-PKG_DEPENDS_TARGET="toolchain alsa-lib freetype zlib ffmpeg libass libvdpau libxkbfile xkeyboard-config libxkbcommon glsl-shaders"
+PKG_DEPENDS_TARGET="toolchain alsa-lib freetype zlib ffmpeg libass libvdpau libxkbfile xkeyboard-config libxkbcommon glsl-shaders slang-shaders systemd libpng"
 PKG_SECTION="libretro_suite"
 PKG_SHORTDESC="Reference frontend for the libretro API."
 
-configure_package() {
-  if [ "${OPENGLES_SUPPORT}" = yes ]; then
-    PKG_DEPENDS_TARGET+=" ${OPENGLES}"
-  fi
+if [ "${OPENGLES_SUPPORT}" = yes ]; then
+  PKG_DEPENDS_TARGET+=" ${OPENGLES}"
+fi
 
-  if [ "${OPENGL_SUPPORT}" = yes ]; then
-    PKG_DEPENDS_TARGET+=" ${OPENGL}"
-  fi
+if [ "${OPENGL_SUPPORT}" = yes ]; then
+  PKG_DEPENDS_TARGET+=" ${OPENGL}"
+fi
 
-  if [ "${VULKAN_SUPPORT}" = yes ]; then
-    PKG_DEPENDS_TARGET+=" ${VULKAN} vulkan-loader"
-  fi
+if [ "${VULKAN_SUPPORT}" = yes ]; then
+  PKG_DEPENDS_TARGET+=" ${VULKAN}"
+fi
 
-  if [ "${DISPLAYSERVER}" != "no" ]; then
-    PKG_DEPENDS_TARGET+=" ${DISPLAYSERVER}"
-  fi
+if [ "${PROJECT}" = "Rockchip" -a "${DEVICE}" = "OdroidGoAdvance" ]; then
+  PKG_DEPENDS_TARGET+=" librga"
+fi
 
-  if [ "${DISPLAYSERVER}" = "x11" ]; then
-    PKG_DEPENDS_TARGET+=" libXxf86vm"
-  fi
+PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
+                           --disable-sdl \
+                           --disable-sdl2 \
+                           --disable-ssl \
+                           --enable-zlib \
+                           --enable-freetype \
+                           --enable-translate \
+                           --enable-cdrom \
+                           --enable-kms \
+                           --disable-x11 \
+                           --disable-wayland \
+                           --disable-mali_fbdev \
+                           --disable-videocore \
+                           --datarootdir=${SYSROOT_PREFIX}/usr/share" # don't use host /usr/share!
 
-  if [ "${DISPLAYSERVER}" = "weston" ]; then
-    PKG_DEPENDS_TARGET+=" wayland wayland-protocols"
-  fi
+if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
+  PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles"
+fi
 
-  if [ "${DEVICE}" = "OdroidGoAdvance" ]; then
-    PKG_DEPENDS_TARGET+=" librga libpng"
+if [ "${VULKAN_SUPPORT}" = "yes" ]; then
+  PKG_CONFIGURE_OPTS_TARGET+=" --enable-vulkan"
+fi
+
+if [ "${DEVICE}" = "OdroidGoAdvance" ]; then
+  PKG_CONFIGURE_OPTS_TARGET+=" --enable-odroidgo2 \
+                               --enable-opengles3"
+fi
+
+if [ "${OPENGLES}" = "mesa" -a "${PROJECT}" = "RPi" ]; then
+  PKG_CONFIGURE_OPTS_TARGET+=" --enable-egl"
+fi
+
+if [[ "${TARGET_FPU}" =~ "neon" ]]; then
+  if [ ! "$ARCH" = "aarch64" ]; then
+    PKG_CONFIGURE_OPTS_TARGET+=" --enable-neon"
   fi
-}
+fi
 
 pre_configure_target() {
   TARGET_CONFIGURE_OPTS=""
-
-  RETROARCH_GL=""
-
-  if [ "${DEVICE}" = "OdroidGoAdvance" ]; then
-    RETROARCH_GL="--enable-kms --enable-odroidgo2 --disable-x11 --disable-wayland --enable-opengles --enable-opengles3 --disable-mali_fbdev"
-  elif [ "${VULKAN}" = "nvidia-driver" ]; then
-    RETROARCH_GL="--enable-vulkan --disable-x11 --disable-kms --disable-egl"
-  elif [ "${OPENGL_SUPPORT}" = "yes" ]; then
-    RETROARCH_GL="--enable-kms"
-  elif [ \
-       "${OPENGLES}" = "odroidc1-mali"     \
-    -o "${OPENGLES}" = "opengl-meson"      \
-    -o "${OPENGLES}" = "opengl-meson8"     \
-    -o "${OPENGLES}" = "opengl-meson-t82x" \
-    -o "${OPENGLES}" = "allwinner-fb-mali" \
-    ]; then
-    RETROARCH_GL="--enable-opengles --disable-kms --disable-x11 --enable-mali_fbdev"
-  elif [ \
-       "${OPENGLES}" = "gpu-viv-bin-mx6q" \
-    -o "${OPENGLES}" = "imx-gpu-viv"      \
-    ]; then
-    RETROARCH_GL="--enable-opengles --disable-kms --disable-x11 --enable-vivante_fbdev"
-  elif [ \
-       "${OPENGLES}" = "libmali"        \
-    -o "${OPENGLES}" = "bcm2835-driver" \
-    ]; then
-    RETROARCH_GL="--enable-opengles --enable-kms --disable-x11 --disable-wayland"
-  elif [ \
-       "${OPENGLES}" = "allwinner-mali"  \
-    -o "${OPENGLES}" == "odroidxu3-mali" \
-    ]; then
-    RETROARCH_GL="--enable-opengles --enable-kms --disable-x11"
-  elif [ "${OPENGLES}" == "mesa" ]; then
-    if [ "${PROJECT}" == "RPi" ]; then
-      RETROARCH_GL="--disable-x11 --enable-opengles --disable-videocore --enable-kms --enable-egl --disable-wayland"
-    else
-      RETROARCH_GL="--enable-opengles --enable-kms --disable-x11"
-    fi
-  fi
-
-  RETROARCH_NEON=""
-
-  if [[ "${TARGET_FPU}" =~ "neon" ]]; then
-    if [ "${ARCH}" = "aarch64" ]; then
-      RETROARCH_NEON=""
-    else
-      RETROARCH_NEON="--enable-neon"
-    fi
-  fi
-
-  PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
-                             --disable-sdl \
-                             --disable-sdl2 \
-                             --disable-ssl \
-                             --enable-zlib \
-                             --enable-freetype \
-                             --enable-translate \
-                             --enable-cdrom \
-                             --datarootdir="${SYSROOT_PREFIX}/usr/share" \
-                             ${RETROARCH_GL} \
-                             ${RETROARCH_NEON}"
-
-  cd $PKG_BUILD
+  cd ${PKG_BUILD}
 }
 
 pre_make_target() {
   if [ "${OPENGLES}" = "bcm2835-driver" ]; then
     CFLAGS+=" -I${SYSROOT_PREFIX}/usr/include/interface/vcos/pthreads \
               -I${SYSROOT_PREFIX}/usr/include/interface/vmcs_host/linux"
-  elif [ "${OPENGLES}" = "gpu-viv-bin-mx6q" -o "${OPENGLES}" = "imx-gpu-viv" ]; then
-    CFLAGS+=" -DLINUX -DEGL_API_FB"
   fi
 
-  if [ "${LAKKA_NIGHTLY}" = yes ]; then
+  if [ "${LAKKA_NIGHTLY}" = "yes" ]; then
     CFLAGS+=" -DHAVE_LAKKA_NIGHTLY"
   fi
 }
