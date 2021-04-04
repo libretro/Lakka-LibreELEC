@@ -116,6 +116,16 @@ pre_make_target() {
 
   cp ${PKG_KERNEL_CFG_FILE} ${PKG_BUILD}/.config
 
+  if listcontains "${GRAPHIC_DRIVERS}" "nouveau"; then
+    _needle="# CONFIG_DRM_NOUVEAU is not set"
+    _replace="CONFIG_DRM_NOUVEAU=y\\
+CONFIG_NOUVEAU_DEBUG=5\\
+CONFIG_NOUVEAU_DEBUG_DEFAULT=3\\
+CONFIG_DRM_NOUVEAU_BACKLIGHT=y"
+    sed -e "s/${_needle}/${_replace}/" \
+        -i ${PKG_BUILD}/.config
+  fi
+
   # set initramfs source
   ${PKG_BUILD}/scripts/config --set-str CONFIG_INITRAMFS_SOURCE "$(kernel_initramfs_confs) ${BUILD}/initramfs"
 
@@ -180,7 +190,11 @@ pre_make_target() {
     ${PKG_BUILD}/scripts/config --set-str CONFIG_EXTRA_FIRMWARE_DIR "external-firmware"
   fi
 
-  kernel_make oldconfig
+  if [ "${DISTRO}" = "Lakka" ]; then
+    kernel_make olddefconfig
+  else
+    kernel_make oldconfig
+  fi
 
   if [ -f "${DISTRO_DIR}/${DISTRO}/kernel_options" ]; then
     while read OPTION; do
