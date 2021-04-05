@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="retroarch"
-PKG_VERSION="f7d0908"
+PKG_VERSION="8c08b531"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
@@ -117,6 +117,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
                            --enable-freetype \
                            --enable-translate \
                            --enable-cdrom \
+                           --enable-command \
                            --datarootdir=$SYSROOT_PREFIX/usr/share" # don't use host /usr/share!
 
 pre_configure_target() {
