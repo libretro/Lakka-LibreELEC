@@ -45,11 +45,11 @@ unique_ids = sorted(set(unique_ids))
 # Write the rules to the file
 with open(__rules__, 'w') as f:
   f.write('ACTION!="add|change", GOTO="end_video"\n')
-  f.write('SUBSYSTEM=="pci", ATTR{class}=="0x030000", ATTRS{vendor}=="0x10de", GOTO="subsystem_pci"\n')
+  f.write('SUBSYSTEM=="pci", ATTR{class}=="0x030000", ATTR{vendor}=="0x10de", GOTO="subsystem_pci"\n')
   f.write('GOTO="end_video"\n\n')
   f.write('LABEL="subsystem_pci"\n')
   for id in unique_ids:
-    f.write('ATTRS{device}=="0x' + str(id) + '", GOTO="configure_nvidia"\n')
+    f.write('ATTR{device}=="0x' + str(id) + '", GOTO="configure_nvidia"\n')
   f.write('GOTO="configure_nvidia-legacy"\n\n')
   f.write('LABEL="configure_nvidia"\n')
   f.write('ENV{xorg_driver}="nvidia", TAG+="systemd", ENV{SYSTEMD_WANTS}+="xorg-configure@nvidia.service"\n')
