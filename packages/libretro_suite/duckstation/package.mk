@@ -4,7 +4,6 @@ PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/duckstation"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="libretro_suite"
 PKG_SHORTDESC="DuckStation is an simulator/emulator of the Sony PlayStation(TM) console, focusing on playability, speed, and long-term maintainability."
 PKG_TOOLCHAIN="cmake"
 
@@ -26,5 +25,5 @@ PKG_CMAKE_OPTS_TARGET="-DCMAKE_BUILD_TYPE=Release \
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
-  cp duckstation_libretro.so ${INSTALL}/usr/lib/libretro/
+    cp -v duckstation_libretro.so ${INSTALL}/usr/lib/libretro/
 }

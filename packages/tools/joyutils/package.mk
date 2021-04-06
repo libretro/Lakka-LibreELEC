@@ -4,7 +4,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/datrh/joyutils"
 PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="tools"
 PKG_SHORTDESC="jscal, jstest, and jsattach utilities for the Linux joystick driver"
 PKG_TOOLCHAIN="manual"
 

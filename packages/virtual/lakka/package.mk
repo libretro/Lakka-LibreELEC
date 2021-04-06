@@ -13,7 +13,7 @@ if [ "${DISABLE_LIBRETRO_CORES}" != "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${LIBRETRO_CORES}"
 fi
 
-if [ "$AVAHI_DAEMON" = yes ]; then
+if [ "${AVAHI_DAEMON}" = yes ]; then
   PKG_DEPENDS_TARGET+=" nss-mdns"
 fi
 
@@ -22,15 +22,15 @@ if [ "${PROJECT}" = "Generic" ]; then
 fi
 
 if [ "${PROJECT}" = "RPi" ]; then
-  if [ "$DEVICE" = "RPi" -o "$DEVICE" = "RPi2" -o "$DEVICE" = "RPi4" ] ; then
+  if [ "${DEVICE}" = "RPi" -o "${DEVICE}" = "RPi2" -o "${DEVICE}" = "RPi4" ] ; then
     PKG_DEPENDS_TARGET+=" wii-u-gc-adapter"
   fi
   
-  if [ "$DEVICE" = "Gamegirl" ]; then
+  if [ "${DEVICE}" = "Gamegirl" ]; then
     PKG_DEPENDS_TARGET+=" gamegirl-joypad"
   fi
   
-  if [ "$DEVICE" = "GPICase" ]; then
+  if [ "${DEVICE}" = "GPICase" ]; then
     PKG_DEPENDS_TARGET+=" gpicase-safeshutdown"
   fi
 fi

@@ -5,7 +5,6 @@ PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/melonds"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="libretro_suite"
 PKG_SHORTDESC="DS emulator, sorta"
 PKG_TOOLCHAIN="make"
 
@@ -33,5 +32,5 @@ make_target() {
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
-  cp ${PKG_BUILD}/melonds_libretro.so ${INSTALL}/usr/lib/libretro/
+    cp -v ${PKG_BUILD}/melonds_libretro.so ${INSTALL}/usr/lib/libretro/
 }
