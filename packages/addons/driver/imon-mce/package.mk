@@ -1,22 +1,24 @@
-# SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2021-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="imon-mce"
-PKG_VERSION="7.0"
-PKG_REV="101"
+PKG_VERSION="1.0"
+PKG_REV="102"
 PKG_ARCH="any"
-PKG_LICENSE="OSS"
-PKG_SITE="https://libreelec.tv"
+PKG_LICENSE="GPL"
+PKG_SITE=""
 PKG_URL=""
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="driver/remote"
-PKG_SHORTDESC="iMON-MCE: a Linux driver to add support for MCE remotes to the iMON driver"
-PKG_LONGDESC="Install this to add support for iMon MCE remote controls."
+PKG_SHORTDESC="Add-on removed"
+PKG_LONGDESC="Add-on removed"
 PKG_TOOLCHAIN="manual"
+
+PKG_ADDON_BROKEN="iMON-MCE driver was removed, use .config/rc_maps.cfg instead."
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="iMON-MCE"
-PKG_ADDON_TYPE="xbmc.service"
+PKG_ADDON_TYPE="xbmc.broken"
 
 addon() {
   :
