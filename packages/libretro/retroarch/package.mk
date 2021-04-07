@@ -35,6 +35,8 @@ PKG_AUTORECONF="no"
 
 if [ "$PROJECT" == "Generic_VK_nvidia" ]; then
   PKG_DEPENDS_TARGET+=" slang-shaders"
+elif [ "$DEVICE" == "RPi4" ]; then
+  PKG_DEPENDS_TARGET+=" slang-shaders glsl-shaders"
 else
   PKG_DEPENDS_TARGET+=" glsl-shaders"
 fi
