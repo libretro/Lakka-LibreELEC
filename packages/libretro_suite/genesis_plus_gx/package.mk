@@ -13,9 +13,11 @@ if [ "${ARCH}" = "aarch64" ]; then
   PKG_MAKE_OPTS_TARGET+=" NO_OPTIMIZE=1"
 fi
 
-if [ "${ARCH}" = "arm" ]; then
-  PKG_EXTRA_CFLAGS="-DALIGN_LONG"
-fi
+#pre_make_target() {
+#  if [ "${ARCH}" = "arm" ]; then
+#    CFLAGS=+" -DALIGN_LONG"
+#  fi
+#}
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
