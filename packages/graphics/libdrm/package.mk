@@ -1,11 +1,10 @@
-
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libdrm"
-PKG_VERSION="2.4.104"
-PKG_SHA256="d66ad8b5c2441015ac1333e40137bb803c3bde3612ff040286fcc12158ea1bcb"
+PKG_VERSION="2.4.105"
+PKG_SHA256="1d1d024b7cadc63e2b59cddaca94f78864940ab440843841113fbac6afaf2a46"
 PKG_LICENSE="GPL"
 PKG_SITE="http://dri.freedesktop.org"
 PKG_URL="http://dri.freedesktop.org/libdrm/libdrm-${PKG_VERSION}.tar.xz"
