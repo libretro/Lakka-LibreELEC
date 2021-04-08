@@ -8,27 +8,25 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SHORTDESC="DS emulator, sorta"
 PKG_TOOLCHAIN="make"
 
+PKG_MAKE_OPTS_TARGET="-C ../"
+
 if [ "${OPENGL_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL}"
+  PKG_MAKE_OPTS_TARGET+=" HAVE_OPENGL=1"
 fi
 
 if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
+  PKG_MAKE_OPTS_TARGET+=" HAVE_OPENGL=0"
 fi
 
 if [ "${VULKAN_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${VULKAN}"
 fi
 
-make_target() {
-  if [ "${DEVICE}" = "RPi4" -a "${ARCH}" = "aarch64" ]; then
-    make -C ${PKG_BUILD} platform=rpi4_64
-  elif [ "${OPENGL_SUPPORT}" = yes ]; then
-    make -C ${PKG_BUILD} HAVE_OPENGL=1
-  else
-    make -C ${PKG_BUILD} HAVE_OPENGL=0
-  fi
-}
+if [ "${DEVICE}" = "RPi4" -a "${ARCH}" = "aarch64" ]; then
+  PKG_MAKE_OPTS_TARGET+=" platform=rpi4_64"
+fi
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
