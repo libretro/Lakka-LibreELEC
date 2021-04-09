@@ -13,11 +13,12 @@ PKG_MAKE_OPTS_TARGET="-C ../"
 if [ "${OPENGL_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL}"
   PKG_MAKE_OPTS_TARGET+=" HAVE_OPENGL=1"
+else
+  PKG_MAKE_OPTS_TARGET+=" HAVE_OPENGL=0"
 fi
 
 if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
-  PKG_MAKE_OPTS_TARGET+=" HAVE_OPENGL=0"
 fi
 
 if [ "${VULKAN_SUPPORT}" = "yes" ]; then
