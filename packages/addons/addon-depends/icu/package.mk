@@ -14,6 +14,10 @@ PKG_TOOLCHAIN="configure"
 
 PKG_BUILD_FLAGS="-sysroot"
 
+if [ "${DISTRO}" = "Lakka" ]; then
+  PKG_BUILD_FLAGS=""
+fi
+
 configure_package() {
   PKG_CONFIGURE_SCRIPT="${PKG_BUILD}/icu4c/source/configure"
   PKG_CONFIGURE_OPTS_TARGET="--disable-layout \
