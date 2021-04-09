@@ -1,0 +1,11 @@
+PKG_NAME="wildmidi"
+PKG_VERSION="405ca73"
+PKG_SHA256="4f4a7f7a06256f1d61b2c7d1a243b0198765456d427c38f13f7a2320842a4207"
+PKG_LICENSE="LGPLv3"
+PKG_SITE="https://github.com/Mindwerks/wildmidi"
+PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
+PKG_DEPENDS_TARGET="toolchain alsa-lib"
+PKG_SHORTDESC="WildMIDI is a simple software midi player which has a core softsynth library that can be used with other applications."
+PKG_TOOLCHAIN="cmake"
+
+PKG_CMAKE_OPTS_TARGET="WANT_PLAYER=OFF -DWANT_ALSA=ON"
