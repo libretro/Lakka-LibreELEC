@@ -4,6 +4,7 @@ PKG_ARCH="x86_64 aarch64 arm"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mame2015-libretro"
 PKG_URL="${PKG_SITE}.git"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_SHORTDESC="Late 2014/Early 2015 version of MAME (0.160-ish) for libretro and MAME 0.160 romsets"
 PKG_TOOLCHAIN="make"
 
