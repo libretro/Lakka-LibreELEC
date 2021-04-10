@@ -68,6 +68,10 @@ PKG_CONFIGURE_OPTS_HOST="${GCC_COMMON_CONFIGURE_OPTS} \
                          --enable-clocale=gnu \
                          ${GCC_OPTS}"
 
+if [ "${DISTRO}" = "Lakka" ]; then
+  PKG_CONFIGURE_OPTS_HOST="${PKG_CONFIGURE_OPTS_HOST//--disable-libatomic/}"
+fi
+
 pre_configure_host() {
   unset CPP
 }
