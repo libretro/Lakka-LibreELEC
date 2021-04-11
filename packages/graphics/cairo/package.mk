@@ -99,5 +99,10 @@ pre_configure_target() {
                                  --disable-glx \
                                  --enable-glesv2 \
                                  --enable-egl"
+  else
+    PKG_CONFIGURE_OPTS_TARGET+=" --disable-gl \
+                                 --disable-glx \
+                                 --disable-glesv2 \
+                                 --disable-egl"
   fi
 }
