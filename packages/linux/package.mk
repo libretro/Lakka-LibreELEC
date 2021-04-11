@@ -28,8 +28,9 @@ case "$LINUX" in
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     ;;
   raspberrypi)
-    PKG_VERSION="d1fd8a5727908bb677c003d2ae977e9d935a6f94"
-    PKG_SHA256="f4b4bbb56c2b8b7b6f311c1f68efb0c691d03dc16cbc50f3de7ff5a28cc3df44"
+    # NOTE: if updating also update bcm2835-bootloader to corresponding firmware
+    PKG_VERSION="b460129fcbebe39b8ce1a3dfc18129998d12c40b"
+    PKG_SHA256="f7ace0e1027abf09cf47b4694517d6993c6ad264cd818397d51ccd9a37b13acb"
     PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     PKG_PATCH_DIRS="rpi"
