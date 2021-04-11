@@ -28,7 +28,7 @@ create_patch() {
       REFSPEC="v4l2-drmprime-v5"
       ;;
     v4l2-request)
-      REPO="https://github.com/Kwiboo/FFmpeg"
+      REPO="https://github.com/jernejsk/FFmpeg"
       REFSPEC="v4l2-request-hwaccel-4.3.1"
       ;;
     libreelec)
