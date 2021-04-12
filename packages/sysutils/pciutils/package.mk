@@ -26,9 +26,7 @@ makeinstall_target() {
   make $PKG_MAKE_OPTS DESTDIR=$SYSROOT_PREFIX install
   make $PKG_MAKE_OPTS DESTDIR=$SYSROOT_PREFIX install-lib
   make $PKG_MAKE_OPTS DESTDIR=$INSTALL install-lib
-  if [ "$TARGET_ARCH" = x86_64 -o "$TARGET_ARCH" = i386 ]; then
-    make $PKG_MAKE_OPTS DESTDIR=$INSTALL install
-  fi
+  make $PKG_MAKE_OPTS DESTDIR=$INSTALL install
 }
 
 post_makeinstall_target() {
