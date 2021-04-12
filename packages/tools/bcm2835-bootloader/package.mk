@@ -35,4 +35,10 @@ makeinstall_target() {
 
     find_file_path config/distroconfig.txt $PKG_DIR/files/3rdparty/bootloader/distroconfig.txt && cp -PRv ${FOUND_PATH} $INSTALL/usr/share/bootloader
     find_file_path config/config.txt $PKG_DIR/files/3rdparty/bootloader/config.txt && cp -PRv ${FOUND_PATH} $INSTALL/usr/share/bootloader
+
+    # Enable 64-bit mode if ARCH is aarch64 and set kernel name
+    if [ "$ARCH" = "aarch64" ]; then
+      echo "arm_64bit=1" >> $INSTALL/usr/share/bootloader/distroconfig.txt
+      echo "kernel=kernel.img" >> $INSTALL/usr/share/bootloader/distroconfig.txt
+    fi
 }
