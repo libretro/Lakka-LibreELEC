@@ -3,7 +3,7 @@ PKG_VERSION="f7d0908"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
 PKG_URL="${PKG_SITE}.git"
-PKG_DEPENDS_TARGET="toolchain alsa-lib freetype zlib ffmpeg libass libvdpau libxkbfile xkeyboard-config libxkbcommon glsl_shaders slang_shaders systemd libpng"
+PKG_DEPENDS_TARGET="toolchain freetype zlib ffmpeg libass libvdpau libxkbfile xkeyboard-config libxkbcommon glsl_shaders slang_shaders systemd libpng"
 PKG_SHORTDESC="Reference frontend for the libretro API."
 
 if [ "${OPENGLES_SUPPORT}" = yes ]; then
@@ -38,6 +38,20 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
                            --disable-oss \
                            --disable-tinyalsa \
                            --datarootdir=${SYSROOT_PREFIX}/usr/share" # don't use host /usr/share!
+
+if [ "${ALSA_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" alsa"
+  PKG_CONFIGURE_OPTS_TARGET+=" --enable-alsa"
+else
+  PKG_CONFIGURE_OPTS_TARGET+=" --disable-alsa"
+fi
+
+if [ "${PULSEAUDIO_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" pulseaudio"
+  PKG_CONFIGURE_OPTS_TARGET+=" --enable-pulse"
+else
+  PKG_CONFIGURE_OPTS_TARGET+=" --disable-pulse"
+fi
 
 if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles"
