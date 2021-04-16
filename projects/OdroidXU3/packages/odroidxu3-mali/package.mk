@@ -9,7 +9,7 @@ PKG_LICENSE="nonfree"
 PKG_SITE="http://malideveloper.arm.com/resources/drivers/arm-mali-midgard-gpu-user-space-drivers/"
 PKG_URL="https://developer.arm.com/-/media/Files/downloads/mali-drivers/user-space/odroid-xu3/malit62xr12p004rel0linux1wayland.tar.gz"
 PKG_SOURCE_DIR="wayland"
-PKG_DEPENDS_TARGET="libdrm wayland mali-opengl-es-sdk"
+PKG_DEPENDS_TARGET="libdrm wayland mali-opengl-es-sdk libgbm"
 PKG_LONGDESC="Mali-t62x blobs for Odroid-XU3/XU4"
 PKG_TOOLCHAIN="manual"
 
