@@ -1,0 +1,48 @@
+From: Andre Przywara <andre.przywara@arm.com>
+Subject: [PATCH v2] arm64: dts: allwinner: Revert SD card CD GPIO for
+ Pine64-LTS
+Date: Wed, 14 Apr 2021 11:47:40 +0100
+
+Commit 941432d00768 ("arm64: dts: allwinner: Drop non-removable from
+SoPine/LTS SD card") enabled the card detect GPIO for the SOPine module,
+along the way with the Pine64-LTS, which share the same base .dtsi.
+
+This was based on the observation that the Pine64-LTS has as "push-push"
+SD card socket, and that the schematic mentions the card detect GPIO.
+
+After having received two reports about failing SD card access with that
+patch, some more research and polls on that subject revealed that there
+are at least two different versions of the Pine64-LTS out there:
+- On some boards (including mine) the card detect pin is "stuck" at
+  high, regardless of an microSD card being inserted or not.
+- On other boards the card-detect is working, but is active-high, by
+  virtue of an explicit inverter circuit, as shown in the schematic.
+
+To cover all versions of the board out there, and don't take any chances,
+let's revert the introduction of the active-low CD GPIO, but let's use
+the broken-cd property for the Pine64-LTS this time. That should avoid
+regressions and should work for everyone, even allowing SD card changes
+now.
+The SOPine card detect has proven to be working, so let's keep that
+GPIO in place.
+
+Fixes: 941432d00768 ("arm64: dts: allwinner: Drop non-removable from SoPine/LTS SD card")
+Reported-by: Michael Weiser <michael.weiser@gmx.de>
+Reported-by: Daniel Kulesz <kuleszdl@posteo.org>
+Suggested-by: Chen-Yu Tsai <wens@csie.org>
+Signed-off-by: Andre Przywara <andre.przywara@arm.com>
+---
+ arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-lts.dts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-lts.dts b/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-lts.dts
+index e79ce49e7e6a..596a25907432 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-lts.dts
++++ b/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-lts.dts
+@@ -21,5 +21,5 @@
+ };
+ 
+ &mmc0 {
+-	cd-gpios = <&pio 5 6 GPIO_ACTIVE_LOW>; /* PF6 push-push switch */
++	broken-cd;		/* card detect is broken on *some* boards */
+ };

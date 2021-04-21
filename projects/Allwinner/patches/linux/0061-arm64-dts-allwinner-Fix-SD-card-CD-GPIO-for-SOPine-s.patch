@@ -1,0 +1,56 @@
+From 3dd4ce4185df6798dcdcc3669bddb35899d7d5e1 Mon Sep 17 00:00:00 2001
+From: Andre Przywara <andre.przywara@arm.com>
+Date: Tue, 16 Mar 2021 14:42:19 +0000
+Subject: [PATCH] arm64: dts: allwinner: Fix SD card CD GPIO for SOPine systems
+
+Commit 941432d00768 ("arm64: dts: allwinner: Drop non-removable from
+SoPine/LTS SD card") enabled the card detect GPIO for the SOPine module,
+along the way with the Pine64-LTS, which share the same base .dtsi.
+
+However while both boards indeed have a working CD GPIO on PF6, the
+polarity is different: the SOPine modules uses a "push-pull" socket,
+which has an active-high switch, while the Pine64-LTS use the more
+traditional push-push socket and the common active-low switch.
+
+Fix the polarity in the sopine.dtsi, and overwrite it in the LTS
+board .dts, to make the SD card work again on systems using SOPine
+modules.
+
+Fixes: 941432d00768 ("arm64: dts: allwinner: Drop non-removable from SoPine/LTS SD card")
+Reported-by: Ashley <contact@victorianfox.com>
+Signed-off-by: Andre Przywara <andre.przywara@arm.com>
+Signed-off-by: Maxime Ripard <maxime@cerno.tech>
+Link: https://lore.kernel.org/r/20210316144219.5973-1-andre.przywara@arm.com
+---
+ arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-lts.dts | 4 ++++
+ arch/arm64/boot/dts/allwinner/sun50i-a64-sopine.dtsi    | 2 +-
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-lts.dts b/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-lts.dts
+index 437ffe3628a5..e79ce49e7e6a 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-lts.dts
++++ b/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-lts.dts
+@@ -19,3 +19,7 @@ led {
+ 		};
+ 	};
+ };
++
++&mmc0 {
++	cd-gpios = <&pio 5 6 GPIO_ACTIVE_LOW>; /* PF6 push-push switch */
++};
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64-sopine.dtsi b/arch/arm64/boot/dts/allwinner/sun50i-a64-sopine.dtsi
+index 3402cec87035..df62044ff7a7 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-a64-sopine.dtsi
++++ b/arch/arm64/boot/dts/allwinner/sun50i-a64-sopine.dtsi
+@@ -34,7 +34,7 @@ &mmc0 {
+ 	vmmc-supply = <&reg_dcdc1>;
+ 	disable-wp;
+ 	bus-width = <4>;
+-	cd-gpios = <&pio 5 6 GPIO_ACTIVE_LOW>; /* PF6 */
++	cd-gpios = <&pio 5 6 GPIO_ACTIVE_HIGH>; /* PF6 push-pull switch */
+ 	status = "okay";
+ };
+ 
+-- 
+2.31.1
+
