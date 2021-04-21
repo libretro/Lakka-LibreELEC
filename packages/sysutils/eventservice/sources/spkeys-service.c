@@ -25,12 +25,21 @@
 #define REPRESS_MS    350   // Automatically press the button again after 350ms
 #define MAX_IDEVS       8
 
-const char *event_map[KEY_MAX + 1] = {
-  [0 ... KEY_MAX]  = NULL,
-  [KEY_VOLUMEUP]   = "VOLUME_UP\n",
-  [KEY_VOLUMEDOWN] = "VOLUME_DOWN\n",
-  [KEY_MUTE]       = "MUTE\n",
+const unsigned event_map[KEY_MAX + 1] = {
+  [0 ... KEY_MAX]  = 0,
+  [KEY_VOLUMEUP]   = 1,
+  [KEY_VOLUMEDOWN] = 2,
+  [KEY_MUTE]       = 3,
 };
+
+const char *cmd_map[] = {
+  NULL,
+  "VOLUME_UP\n",
+  "VOLUME_DOWN\n",
+  "MUTE\n",
+};
+
+#define MAX_KEYS (sizeof(cmd_map)/sizeof(cmd_map[0]))
 
 static int dev_looks_valid(const struct dirent *dir) {
   return !memcmp("event", dir->d_name, 5);
@@ -100,7 +109,7 @@ int main(int argc, char **argv) {
   }
 
   // Assume all keys are unpressed by default
-  uint64_t keystate[numdevs][KEY_MAX];
+  uint64_t keystate[numdevs][MAX_KEYS];
   memset(keystate, 0, sizeof(keystate));
 
   int clientfd = connectsocket();
@@ -113,7 +122,8 @@ int main(int argc, char **argv) {
       fds[i].events = POLLIN;
     }
 
-    poll(fds, numdevs, -1);
+    // Wake up every 100ms to allow for repeated key tracking
+    poll(fds, numdevs, 100);
 
     for (int i = 0; i < numdevs; i++) {
       if (fds[i].revents & POLLIN) {
@@ -125,23 +135,43 @@ int main(int argc, char **argv) {
         for (unsigned j = 0; j < readb / sizeof(struct input_event); j++) {
           int keycode = ev[j].code;
           if (ev[j].type == EV_KEY && keycode < KEY_MAX) {
-            // Just pressed now
-            bool pressed = !keystate[i][keycode] && ev[j].value;
-            // Has been pressed for more than 0.5 seconds
-            bool longpressed = ev[j].value &&
-                               (gettimems() - keystate[i][keycode]) > REPRESS_MS;
-            if ((pressed || longpressed) && event_map[keycode]) {
-              // Send command over the client socket
-              int wr = write(clientfd, event_map[keycode], strlen(event_map[keycode]));
-              // Reconnect on error!
-              if (wr <= 0) {
-                close(clientfd);
-                clientfd = connectsocket();
+            unsigned keyid = event_map[keycode];
+            if (keyid) {
+              const char *cmd = cmd_map[keyid];
+              // Just pressed now (was not pressed before)
+              bool pressed = !keystate[i][keyid] && ev[j].value;
+              if (pressed) {
+                // Send command over the client socket
+                int wr = write(clientfd, cmd, strlen(cmd));
+                // Reconnect on error!
+                if (wr <= 0) {
+                  close(clientfd);
+                  clientfd = connectsocket();
+                }
+                // Just track the time it was pressed
+                keystate[i][keyid] = gettimems();
               }
-              // Record last pressed time (if button pressed, otherwise zero)
-              keystate[i][keycode] = ev[j].value ? gettimems() : 0;
+              // Key un-press
+              if (!ev[j].value)
+                keystate[i][keyid] = 0;
             }
           }
+        }
+      }
+    }
+
+    // Keys that are being held
+    for (int i = 0; i < numdevs; i++) {
+      for (int j = 1; j < MAX_KEYS; j++) {
+        if (keystate[i][j]) {
+          // Has been pressed for more than some time
+          bool longpressed = keystate[i][j] &&
+                             (gettimems() - keystate[i][j]) > REPRESS_MS;
+          // Inject the event
+          const char *cmd = cmd_map[j];
+          write(clientfd, cmd, strlen(cmd));
+          // Update pressed time for the next repeat
+          keystate[i][j] = gettimems();
         }
       }
     }
