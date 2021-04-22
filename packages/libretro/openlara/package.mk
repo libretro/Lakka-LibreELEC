@@ -50,7 +50,7 @@ make_target() {
   fi
 
   case ${DEVICE:-$PROJECT} in
-    RPi|RPi2|Gamegirl)
+    RPi|RPi2)
       CFLAGS+=" -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads \
                 -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
       CXXFLAGS+=" -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads \

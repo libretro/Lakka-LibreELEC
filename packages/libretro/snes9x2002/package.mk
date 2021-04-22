@@ -35,7 +35,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  if [ "$DEVICE" = "RPi" -o "$DEVICE" = "Gamegirl" -o "$DEVICE" = "GPICase" ]; then
+  if [ "$DEVICE" = "RPi" -o "$DEVICE" = "GPICase" ]; then
     make ARM_ASM=1 platform=unix
   else
     make platform=unix

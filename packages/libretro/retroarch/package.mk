@@ -242,20 +242,6 @@ makeinstall_target() {
     echo "video_driver = \"vulkan\"" >> $INSTALL/etc/retroarch.cfg
   fi
 
-  # Gamegirl
-  if [ "$PROJECT" == "RPi" ] && [ "$DEVICE" == "Gamegirl" ]; then
-    echo "xmb_theme = 3" >> $INSTALL/etc/retroarch.cfg
-    echo "xmb_menu_color_theme = 9" >> $INSTALL/etc/retroarch.cfg
-    echo "video_font_size = 10" >> $INSTALL/etc/retroarch.cfg
-    echo "aspect_ratio_index = 0" >> $INSTALL/etc/retroarch.cfg
-    echo "audio_device = \"sysdefault:CARD=ALSA\"" >> $INSTALL/etc/retroarch.cfg
-    echo "menu_timedate_enable = false" >> $INSTALL/etc/retroarch.cfg
-    echo "xmb_shadows_enable = true" >> $INSTALL/etc/retroarch.cfg
-    sed -i -e "s/input_menu_toggle_gamepad_combo = 2/input_menu_toggle_gamepad_combo = 4/" $INSTALL/etc/retroarch.cfg
-    sed -i -e "s/video_smooth = false/video_smooth = true/" $INSTALL/etc/retroarch.cfg
-    sed -i -e "s/video_font_path =\/usr\/share\/retroarch-assets\/xmb\/monochrome\/font.ttf//" $INSTALL/etc/retroarch.cfg
-  fi
-  
   if [ "$DEVICE" == "OdroidGoAdvance" ]; then
     echo "xmb_layout = 2" >> $INSTALL/etc/retroarch.cfg
     echo "menu_widget_scale_auto = false" >> $INSTALL/etc/retroarch.cfg
