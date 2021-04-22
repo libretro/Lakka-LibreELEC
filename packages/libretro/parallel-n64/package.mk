@@ -54,7 +54,7 @@ make_target() {
     CFLAGS="$CFLAGS -DARM_FIX"
   fi
 
-  if [ "$DEVICE" == "RPi" -o "$DEVICE" == "Gamegirl" ]; then
+  if [ "$DEVICE" == "RPi" ]; then
     make platform=rpi
   elif [ "$DEVICE" = "RPi4" ]; then
     LDFLAGS="$LDFLAGS -lpthread"
