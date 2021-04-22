@@ -1,5 +1,16 @@
 # Build container
 
+**Docker containers**
+- Ubuntu
+  - bionic  (Ubuntu 18.04)
+  - focal   (Ubuntu 20.04)
+  - groovy  (Ubuntu 20.10)
+  - hirsute (Ubuntu 21.04)
+- Debian
+  - stretch (Debian  9.0)
+  - buster  (Debian 10.0)
+  - sid     (Debian unstable)
+
 **Build docker image**
 
 Use the following command to create a docker image and tag it with `libreelec`.
