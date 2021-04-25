@@ -81,7 +81,6 @@ targets="\
 	Rockchip|RK3328|arm|image \
 	Rockchip|RK3399|arm|image \
 	Rockchip|TinkerBoard|arm|image \
-	RPi|Gamegirl|arm|image \
 	RPi|GPICase|arm|image \
 	RPi|RPi|arm|image \
 	RPi|RPi2|arm|image \
