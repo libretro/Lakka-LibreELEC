@@ -58,7 +58,11 @@ make_target() {
       make
       ;;
     *)
-      make platform=armv
+      if [ ${DEVICE} = "RPi4" -a ${ARCH} = "aarch64" ]; then
+        make
+      else
+        make platform=armv
+      fi
       ;;
   esac
 }
