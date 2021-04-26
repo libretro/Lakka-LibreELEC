@@ -1,0 +1,110 @@
+#!/usr/bin/python
+
+import sys
+
+'''
+This is a script to manage the Switch GPU clock profiles. When shutting down, the current profile is lost -
+therefore, this script must be called at each reboot to restore the default profile.
+
+Written by natinusala for Lakka. See print_usage() for usage.
+
+For now the profile is not retained and is set to default non-docked speed when rebooting.
+
+L4T variant.
+'''
+
+# File corresponding to the current profile
+PROFILE_FILE_MAX = "/sys/devices/57000000.gpu/devfreq/57000000.gpu/max_freq"
+PROFILE_FILE_MIN = "/sys/devices/57000000.gpu/devfreq/57000000.gpu/min_freq"
+
+# Profiles list
+PROFILES = {
+    "Docked Stock +2":      "921600000",  # 921 Mhz
+    "Docked Stock +1":      "844800000",  # 844 Mhz
+    "Docked Stock Mode":    "768000000",  # 768 Mhz
+    "Handheld Boost +3":    "691200000",  # 691 Mhz
+    "Handheld Boost +2":    "614400000",  # 614 Mhz
+    "Handheld Boost +1":    "537600000",  # 537 Mhz
+    "Handheld Boost Mode":  "460800000",  # 460 Mhz
+    "Handheld Stock +1":    "384000000",  # 384 Mhz
+    "Handheld Stock Mode":  "307200000",  # 307 Mhz
+    "Powersaving +2":       "230400000",  # 230 Mhz
+    "Powersaving +1":       "153600000",  # 153 Mhz
+    "Powersaving Mode":     "76800000",   # 76 Mhz
+}
+
+# Default profile
+DEFAULT_PROFILE = "Handheld Stock Mode"
+
+
+
+def get_profile():
+    with open(PROFILE_FILE_MAX, "r") as f:
+        pstate = str(f.read().strip())
+
+    for profile in PROFILES:
+        if pstate == PROFILES[profile]:
+            return profile
+
+    raise Exception("Unknown profile %s" % pstate)
+
+
+
+def apply_profile(profile):
+    if profile not in PROFILES:
+        raise Exception("Unknown profile %s" % profile)
+
+    files = []
+    cur_profile = int(PROFILES[get_profile()])
+    new_profile = int(PROFILES[profile])
+
+    if new_profile < cur_profile:
+        files = [
+            PROFILE_FILE_MIN,
+            PROFILE_FILE_MAX
+        ]
+    else:
+        files = [
+            PROFILE_FILE_MAX,
+            PROFILE_FILE_MIN
+        ]
+
+    for pfile in files:
+        with open(pfile, "w") as f:
+            f.write(PROFILES[profile])
+            f.flush()
+    print("Applied profile %s" % profile)
+
+
+
+def print_usage():
+    print '''
+    Usage :
+        gpu-profile init
+            Sets the default profile - should be called on boot
+
+        gpu-profile set <profile>
+            Sets the current profile to <profile>
+
+        gpu-profile get
+            Gets the current profile name
+    '''
+
+
+# Main
+if __name__ == "__main__":
+    argc = len(sys.argv)
+    if argc == 2:
+        if sys.argv[1] == "init":
+            apply_profile(DEFAULT_PROFILE)
+        elif sys.argv[1] == "get":
+            print get_profile()
+        else:
+            print_usage()
+    elif argc == 3:
+        if sys.argv[1] == "set":
+            apply_profile(sys.argv[2])
+        else:
+            print_usage()
+    else:
+        print_usage()

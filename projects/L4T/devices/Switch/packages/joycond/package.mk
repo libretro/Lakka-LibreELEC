@@ -18,38 +18,24 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="L4T"
-PKG_VERSION=""
-PKG_REV="1"
+PKG_NAME="joycond"
+PKG_VERSION="1"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/lakkatv/Lakka"
-PKG_URL=""
-PKG_DEPENDS_TARGET="freetype libdrm pixman $OPENGL libepoxy glu retroarch $LIBRETRO_CORES alsa-plugins alsa-ucm-conf libdrm libXext libXdamage libXfixes libXxf86vm libxcb libX11 libXrandr tegra-bsp"
-PKG_PRIORITY="optional"
-PKG_SECTION="virtual"
-PKG_SHORTDESC="Lakka metapackage for L4T based systems"
-PKG_LONGDESC=""
-
-if [ "$DEVICE" == "Switch" ]; then
-  PKG_DEPENDS_TARGET+=" joycond mergerfs rewritefs switch-cpu-profile switch-gpu-profile"
-fi
+PKG_DEPENDS_TARGET="toolchain cmake:host gcc-linaro-aarch64-linux-gnu:host"
+PKG_SITE="https://github.com/DanielOgorchock/joycond"
+PKG_URL="https://github.com/DanielOgorchock/joycond/archive/master.tar.gz"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+PKG_TOOLCHAIN="cmake-make"
 
-post_install() {
-  if [ "$DEVICE" == "Switch" ]; then
-    enable_service xorg-configure-switch.service
-    enable_service var-bluetoothconfig.mount
-    enable_service pair-joycon.service
-
-    mkdir -p $INSTALL/usr/bin
-
-    cp -P $PKG_DIR/scripts/pair-joycon.sh $INSTALL/usr/bin
-
-    mkdir -p $INSTALL/etc/profile.d
-    cp $PKG_DIR/assets/15-xorg-init-switch.conf $INSTALL/etc/profile.d
-  fi
+post_makeinstall_target() {
+  rm -r $INSTALL/etc/modules-load.d
+  mv $INSTALL/lib/* $INSTALL/usr/lib/ && rmdir $INSTALL/lib
+  mv $INSTALL/etc/systemd $INSTALL/usr/lib/systemd
+  mkdir -p $INSTALL/usr/lib/systemd/system/multi-user.target.wants
+  mkdir -p $INSTALL/usr/lib/udev
+  mv $INSTALL/usr/lib/rules.d $INSTALL/usr/lib/udev/
+  sed -i 's|WorkingDirectory=/root|WorkingDirectory=/var|g' $INSTALL/usr/lib/systemd/system/joycond.service
+  ln -s $INSTALL/usr/lib/systemd/system/joycond.service $INSTALL/usr/lib/systemd/system/multi-user.target.wants/joycond.service
 }
-

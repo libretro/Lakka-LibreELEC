@@ -18,38 +18,25 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="L4T"
-PKG_VERSION=""
-PKG_REV="1"
+PKG_NAME="switch-bootloader"
+PKG_VERSION="1.0"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/lakkatv/Lakka"
-PKG_URL=""
-PKG_DEPENDS_TARGET="freetype libdrm pixman $OPENGL libepoxy glu retroarch $LIBRETRO_CORES alsa-plugins alsa-ucm-conf libdrm libXext libXdamage libXfixes libXxf86vm libxcb libX11 libXrandr tegra-bsp"
-PKG_PRIORITY="optional"
-PKG_SECTION="virtual"
-PKG_SHORTDESC="Lakka metapackage for L4T based systems"
-PKG_LONGDESC=""
-
-if [ "$DEVICE" == "Switch" ]; then
-  PKG_DEPENDS_TARGET+=" joycond mergerfs rewritefs switch-cpu-profile switch-gpu-profile"
-fi
+PKG_DEPENDS_TARGET="switch-coreboot linux"
+PKG_TOOLCHAIN="make"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-post_install() {
-  if [ "$DEVICE" == "Switch" ]; then
-    enable_service xorg-configure-switch.service
-    enable_service var-bluetoothconfig.mount
-    enable_service pair-joycon.service
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/share/bootloader/boot
+  mkimage -A arm -T script -O linux -d $PKG_DIR/assets/boot.txt $BUILD/$PKG_NAME-$PKG_VERSION/boot.scr
 
-    mkdir -p $INSTALL/usr/bin
-
-    cp -P $PKG_DIR/scripts/pair-joycon.sh $INSTALL/usr/bin
-
-    mkdir -p $INSTALL/etc/profile.d
-    cp $PKG_DIR/assets/15-xorg-init-switch.conf $INSTALL/etc/profile.d
-  fi
+  cp -PRv $PKG_DIR/assets/splash.bmp $INSTALL/usr/share/bootloader/boot/splash.bmp
+  cp -PRv $PKG_DIR/assets/Lakka.ini $INSTALL/usr/share/bootloader/boot/Lakka.ini
+  cp -PRv $BUILD/$PKG_NAME-$PKG_VERSION/boot.scr $INSTALL/usr/share/bootloader/boot/boot.scr
+  cp -PRv $BUILD/switch-boot/coreboot.rom $INSTALL/usr/share/bootloader/boot/coreboot.rom
 }
 
+make_target() {
+  :
+}
