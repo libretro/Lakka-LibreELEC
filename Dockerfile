@@ -26,7 +26,6 @@ RUN apt-get update \
 	&& apt-get install -y \
 		liblz4-tool \
 		python3 \
-		libc6-dev-i386 \
 		python2-minimal \
 		default-jre \
 		sudo \
@@ -37,15 +36,14 @@ RUN apt-get update \
 		build-essential \
 		bzip2 \
 		diffutils \
-		g++ \
+		g++-7 \
 		gawk \
-		gcc \
+		gcc-7 \
 		git-core \
 		gperf \
 		gzip \
 		libjson-perl \
 		libncurses5-dev \
-		libssl-dev \
 		lzop \
 		make \
 		patch \
@@ -60,9 +58,14 @@ RUN apt-get update \
 		xfonts-utils \
 		xsltproc \
 		xz-utils \
+		xxd \
 		zip \
 	&& rm -rf /var/lib/apt/lists/*
 
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 100
+RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-7 100
+RUN update-alternatives --auto gcc
+RUN update-alternatives --auto g++
 RUN ln -s /usr/bin/python2 /usr/bin/python
 RUN useradd -rm -d /home/ubuntu -s /bin/bash -g root -G sudo -u 1000 ubuntu
 RUN echo "ubuntu ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-cloudimg-ubuntu
