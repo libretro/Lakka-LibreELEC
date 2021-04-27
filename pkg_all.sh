@@ -1,0 +1,128 @@
+#!/bin/bash
+usage() {
+	echo ""
+	echo "${0} <build|clean> <package>"
+	echo ""
+	echo "Builds/cleans a package for all projects/devices/systems of Lakka"
+	echo ""
+}
+
+[ ${#} -lt 2 -o ${#} -gt 2 ] && { usage ; echo -e "Error: no or incorrect number of parameters!\n" ; exit 127 ; }
+
+case ${1} in
+	clean)
+		action=${1}
+		script="./scripts/clean"
+		activity="Cleaning"
+		;;
+	build)
+		action=${1}
+		script="./scripts/build"
+		activity="Compilation"
+		;;
+	*)
+		usage
+		echo -e "Error: action '${1}' not valid!\n"
+		exit 128
+		;;
+esac
+
+# existing targets in format PROJECT|DEVICE|ARCH
+targets="\
+	Allwinner|A64|aarch64| \
+	Allwinner|A64|arm| \
+	Allwinner|H2-plus|arm| \
+	Allwinner|H3|arm| \
+	Allwinner|H5|aarch64| \
+	Allwinner|H5|arm| \
+	Allwinner|H6|aarch64| \
+	Allwinner|H6|arm| \
+	Allwinner|R40|arm| \
+	Amlogic|AMLGX|aarch64| \
+	Amlogic|AMLGX|arm| \
+	Generic||x86_64| \
+	NXP|iMX6|arm| \
+	NXP|iMX8|aarch64| \
+	NXP|iMX8|arm| \
+	Qualcomm|Dragonboard|aarch64| \
+	Qualcomm|Dragonboard|arm| \
+	Rockchip|RK3288|arm| \
+	Rockchip|RK3328|aarch64| \
+	Rockchip|RK3328|arm| \
+	Rockchip|RK3399|aarch64| \
+	Rockchip|RK3399|arm| \
+	RPi|RPi|arm| \
+	RPi|RPi2|arm| \
+	RPi|RPi4|arm| \
+"
+
+package=${2}
+declare -i failed=0
+failed_targets=""
+skipped_targets=""
+
+for T in ${targets} ; do
+	IFS='|' read -r -a build <<< ${T}
+	project=${build[0]}
+	device=${build[1]}
+	arch=${build[2]}
+	target_name=${device:-${project}}.${arch}
+	[ -z "${DISTRO}" ] && distro="Lakka" || distro="${DISTRO}"
+	echo "Processing package '${package}' for '${target_name}':"
+	export DISTRO=${distro}
+	export PROJECT=${project}
+	export DEVICE=${device}
+	export ARCH=${arch}
+
+	opt_file="distributions/${distro}/options"
+	ver_file="distributions/${distro}/version"
+
+	[ -f ${opt_file} ] && source ${opt_file} || { echo "${ver_file}: not found!" ; exit 129 ; }
+
+	[ -f ${ver_file} ] && source ${ver_file} || { echo "${ver_file}: not found!" ; exit 130 ; }
+
+	BUILD=build.${DISTRO}-${DEVICE:-$PROJECT}.${ARCH}-${LIBREELEC_VERSION}
+
+	if [ "${LIBREELEC_VERSION}" = "devel" ] ; then
+		BUILD=build.${DISTRO}-${DEVICE:-$PROJECT}.${ARCH}-${OS_VERSION}-${LIBREELEC_VERSION}
+	fi
+
+	if [ "${BUILD_NO_VERSION}" = "yes" ]; then
+		BUILD=build.${DISTRO}-${DEVICE:-$PROJECT}.${ARCH}
+	fi
+
+	if [ -n "${BUILD_SUFFIX}" ]; then
+		BUILD=${BUILD}-${BUILD_SUFFIX}
+	fi
+
+	build_folder=${BUILD}
+
+	if [ ! -d "${build_folder}" ] ; then
+		skipped_targets+="${target_name}\n"
+		echo -e "No build folder - skipping.\n"
+		continue
+	fi
+
+	${script} ${package}
+
+	if [ ${?} -gt 0 ] ; then
+		failed+=1
+		failed_targets+="${target_name}\n"
+		echo -e "${activity} of package '${package}' failed for '${target_name}'.\n"
+	else
+		echo -e "${activity} of package '${package}' succeeded for '${target_name}'.\n"
+	fi
+
+done
+
+if [ -n "${skipped_targets}" ] ; then
+	echo -e "Following targets were skipped - could not find existing build folder:\n${skipped_targets}\n"
+fi
+
+if [ $failed -gt 0 ] ; then
+	echo -e "Failed to ${action} package '${package}' on following targets:\n${failed_targets}" >&2
+else
+	echo "Done."
+fi
+
+exit ${failed}
