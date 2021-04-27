@@ -3,7 +3,7 @@ PKG_VERSION="f7d0908"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
 PKG_URL="${PKG_SITE}.git"
-PKG_DEPENDS_TARGET="toolchain freetype zlib ffmpeg libass libvdpau glsl_shaders slang_shaders systemd libpng"
+PKG_DEPENDS_TARGET="toolchain freetype zlib ffmpeg libass libvdpau libxkbcommon glsl_shaders slang_shaders systemd libpng"
 PKG_SHORTDESC="Reference frontend for the libretro API."
 
 if [ "${OPENGLES_SUPPORT}" = yes ]; then
