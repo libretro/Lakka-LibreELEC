@@ -148,7 +148,9 @@ makeinstall_target() {
     cp $PKG_DIR/config/inputrc $INSTALL/etc
     cp $PKG_DIR/config/httpd.conf $INSTALL/etc
     cp $PKG_DIR/config/suspend-modules.conf $INSTALL/etc
-
+  if [ "$DEVICE" == "Switch" ]; then
+    sed -i 's/brcmfmac//' $INSTALL/etc/suspend-modules.conf
+  fi
   # /etc/fstab is needed by...
     touch $INSTALL/etc/fstab
 
