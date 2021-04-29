@@ -20,7 +20,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
 
 PKG_MAKE_OPTS_TARGET="free top/top proc/libprocps.la proc/libprocps.pc"
 
-PKG_MAKEINSTALL_OPTS_TARGET="install-libLTLIBRARIES install-pkgconfigDATA"
+PKG_MAKEINSTALL_OPTS_TARGET="install-libLTLIBRARIES install-pkgconfigDATA install-proc_libprocps_la_includeHEADERS"
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin
