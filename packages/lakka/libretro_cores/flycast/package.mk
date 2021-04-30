@@ -9,10 +9,13 @@ PKG_SHORTDESC="Flycast is a multiplatform Sega Dreamcast emulator"
 PKG_LONGDESC="Flycast is a multiplatform Sega Dreamcast emulator"
 PKG_TOOLCHAIN="make"
 
-PKG_MAKE_OPTS_TARGET="HAVE_OPENMP=0 HAVE_OIT=1 LDFLAGS=-lrt"
+PKG_MAKE_OPTS_TARGET="HAVE_OPENMP=0 LDFLAGS=-lrt"
 
 if [ "${OPENGL_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL}"
+  if [ "${PROJECT}" = "Generic" ]; then
+    PKG_MAKE_OPTS_TARGET+=" HAVE_OIT=1"
+  fi
 fi
 
 if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
