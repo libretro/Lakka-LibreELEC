@@ -37,10 +37,6 @@ esac
 
 PKG_KERNEL_CFG_FILE=$(kernel_config_path) || die
 
-if listcontains "${UBOOT_FIRMWARE}" "crust"; then
-  PKG_PATCH_DIRS+=" crust"
-fi
-
 if [ -n "${KERNEL_TOOLCHAIN}" ]; then
   PKG_DEPENDS_HOST+=" gcc-arm-${KERNEL_TOOLCHAIN}:host"
   PKG_DEPENDS_TARGET+=" gcc-arm-${KERNEL_TOOLCHAIN}:host"
