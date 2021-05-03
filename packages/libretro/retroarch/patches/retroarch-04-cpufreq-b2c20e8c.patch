@@ -1,0 +1,1008 @@
+diff --git a/Makefile.common b/Makefile.common
+index 0759de7919..25133c0e14 100644
+--- a/Makefile.common
++++ b/Makefile.common
+@@ -764,6 +764,7 @@ endif
+ 
+ ifeq ($(HAVE_LAKKA), 1)
+    OBJ += wifi/drivers/connmanctl.o
++   OBJ += misc/cpufreq/cpufreq.o
+ endif
+ 
+ # Audio
+diff --git a/intl/msg_hash_lbl.h b/intl/msg_hash_lbl.h
+index 0f124fe52e..abe0714846 100644
+--- a/intl/msg_hash_lbl.h
++++ b/intl/msg_hash_lbl.h
+@@ -896,6 +896,14 @@ MSG_HASH(
+    MENU_ENUM_LABEL_DEFERRED_POWER_MANAGEMENT_SETTINGS_LIST,
+    "deferred_power_management_settings_list"
+    )
++MSG_HASH(
++   MENU_ENUM_LABEL_DEFERRED_CPU_PERFPOWER_LIST,
++   "deferred_cpu_perfpower_list"
++   )
++MSG_HASH(
++   MENU_ENUM_LABEL_DEFERRED_CPU_POLICY_ENTRY,
++   "deferred_cpu_policy_list"
++   )
+ MSG_HASH(
+    MENU_ENUM_LABEL_DEFERRED_LAKKA_LIST,
+    "deferred_lakka_list"
+@@ -4722,6 +4730,10 @@ MSG_HASH(
+    MENU_ENUM_LABEL_POWER_MANAGEMENT_SETTINGS,
+    "power_management_settings"
+    )
++MSG_HASH(
++   MENU_ENUM_LABEL_CPU_PERFPOWER,
++   "cpu_perfpower_list"
++   )
+ MSG_HASH(
+    MENU_ENUM_LABEL_AI_SERVICE_SETTINGS,
+    "ai_service_settings"
+diff --git a/intl/msg_hash_us.h b/intl/msg_hash_us.h
+index c8974f25c9..57eabb8bff 100644
+--- a/intl/msg_hash_us.h
++++ b/intl/msg_hash_us.h
+@@ -12076,6 +12076,26 @@ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_SUSTAINED_PERFORMANCE_MODE,
+    "Sustained Performance Mode"
+    )
++MSG_HASH(
++   MENU_ENUM_LABEL_VALUE_CPU_PERFPOWER,
++   "CPU Performance and Power"
++   )
++MSG_HASH(
++   MENU_ENUM_LABEL_VALUE_CPU_POLICY_ENTRY,
++   "Policy"
++   )
++MSG_HASH(
++   MENU_ENUM_LABEL_VALUE_CPU_POLICY_MIN_FREQ,
++   "Minimum Frequency"
++   )
++MSG_HASH(
++   MENU_ENUM_LABEL_VALUE_CPU_POLICY_MAX_FREQ,
++   "Maximum Frequency"
++   )
++MSG_HASH(
++   MENU_ENUM_LABEL_VALUE_CPU_POLICY_GOVERNOR,
++   "CPU Governor"
++   )
+ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_PAL60_ENABLE,
+    "Use PAL60 Mode"
+diff --git a/libretro-common/streams/file_stream.c b/libretro-common/streams/file_stream.c
+index ae64c4cbc5..c43423771c 100644
+--- a/libretro-common/streams/file_stream.c
++++ b/libretro-common/streams/file_stream.c
+@@ -521,10 +521,11 @@ int filestream_close(RFILE *stream)
+  * @path             : path to file.
+  * @buf              : buffer to allocate and read the contents of the
+  *                     file into. Needs to be freed manually.
++ * @len              : optional output integer containing bytes read.
+  *
+  * Read the contents of a file into @buf.
+  *
+- * Returns: number of items read, -1 on error.
++ * Returns: non zero on success.
+  */
+ int64_t filestream_read_file(const char *path, void **buf, int64_t *len)
+ {
+diff --git a/menu/cbs/menu_cbs_deferred_push.c b/menu/cbs/menu_cbs_deferred_push.c
+index e501810a01..2a3dcdc2f8 100644
+--- a/menu/cbs/menu_cbs_deferred_push.c
++++ b/menu/cbs/menu_cbs_deferred_push.c
+@@ -251,6 +251,9 @@ GENERIC_DEFERRED_PUSH(deferred_push_switch_cpu_profile,             DISPLAYLIST_
+ GENERIC_DEFERRED_PUSH(deferred_push_switch_gpu_profile,             DISPLAYLIST_SWITCH_GPU_PROFILE)
+ #endif
+ 
++GENERIC_DEFERRED_PUSH(deferred_push_cpu_perfpower,                  DISPLAYLIST_CPU_PERFPOWER_LIST)
++GENERIC_DEFERRED_PUSH(deferred_push_cpu_policy,                     DISPLAYLIST_CPU_POLICY_LIST)
++
+ GENERIC_DEFERRED_PUSH(deferred_push_manual_content_scan_list,       DISPLAYLIST_MANUAL_CONTENT_SCAN_LIST)
+ GENERIC_DEFERRED_PUSH(deferred_push_manual_content_scan_dat_file,   DISPLAYLIST_MANUAL_CONTENT_SCAN_DAT_FILES)
+ 
+@@ -770,6 +773,8 @@ static int menu_cbs_init_bind_deferred_push_compare_label(
+ #if defined(HAVE_LAKKA_SWITCH) || defined(HAVE_LIBNX)
+       {MENU_ENUM_LABEL_SWITCH_CPU_PROFILE, deferred_push_switch_cpu_profile},
+ #endif
++      {MENU_ENUM_LABEL_DEFERRED_CPU_PERFPOWER_LIST, deferred_push_cpu_perfpower},
++      {MENU_ENUM_LABEL_DEFERRED_CPU_POLICY_ENTRY, deferred_push_cpu_policy},
+       {MENU_ENUM_LABEL_DEFERRED_REMAPPINGS_PORT_LIST, deferred_push_remappings_port },
+       {MENU_ENUM_LABEL_DEFERRED_ACCOUNTS_LIST, deferred_push_accounts_list},
+       {MENU_ENUM_LABEL_CORE_LIST, deferred_push_core_list},
+diff --git a/menu/cbs/menu_cbs_get_value.c b/menu/cbs/menu_cbs_get_value.c
+index 9aea7fe040..429c9e976a 100644
+--- a/menu/cbs/menu_cbs_get_value.c
++++ b/menu/cbs/menu_cbs_get_value.c
+@@ -46,6 +46,7 @@
+ #include "../../wifi/wifi_driver.h"
+ #include "../../playlist.h"
+ #include "../../manual_content_scan.h"
++#include "../misc/cpufreq/cpufreq.h"
+ 
+ #ifdef HAVE_NETWORKING
+ #include "../../network/netplay/netplay.h"
+@@ -515,6 +516,80 @@ static void menu_action_setting_disp_set_label_core_manager_entry(
+    }
+ }
+ 
++#ifdef HAVE_LAKKA
++static void menu_action_setting_disp_set_label_cpu_policy(
++      file_list_t* list,
++      unsigned *w, unsigned type, unsigned i,
++      const char *label,
++      char *s, size_t len,
++      const char *path,
++      char *s2, size_t len2)
++{
++   unsigned policyid = atoi(path);
++   cpu_scaling_driver_t **drivers = get_cpu_scaling_drivers(false);
++   cpu_scaling_driver_t *d = drivers[policyid];
++
++   *s = '\0';
++   *w = 0;
++
++   if (d->affected_cpus)
++      snprintf(s2, len2, "%s %d [CPU(s) %s]", msg_hash_to_str(
++         MENU_ENUM_LABEL_VALUE_CPU_POLICY_ENTRY), policyid,
++         d->affected_cpus);
++   else
++      snprintf(s2, len2, "%s %d", msg_hash_to_str(
++         MENU_ENUM_LABEL_VALUE_CPU_POLICY_ENTRY), policyid);
++}
++
++static void menu_action_cpu_freq_label(
++      file_list_t* list,
++      unsigned *w, unsigned type, unsigned i,
++      const char *label,
++      char *s, size_t len,
++      const char *path,
++      char *s2, size_t len2)
++{
++   unsigned policyid = atoi(path);
++   cpu_scaling_driver_t **drivers = get_cpu_scaling_drivers(false);
++   cpu_scaling_driver_t *d = drivers[policyid];
++
++   switch (type) {
++   case MENU_SETTINGS_CPU_POLICY_SET_MINFREQ:
++      strlcpy(s2, msg_hash_to_str(
++         MENU_ENUM_LABEL_VALUE_CPU_POLICY_MIN_FREQ), len2);
++      snprintf(s, len, "%u MHz", d->min_policy_freq / 1000);
++      break;
++   case MENU_SETTINGS_CPU_POLICY_SET_MAXFREQ:
++      strlcpy(s2, msg_hash_to_str(
++         MENU_ENUM_LABEL_VALUE_CPU_POLICY_MAX_FREQ), len2);
++      snprintf(s, len, "%u MHz", d->max_policy_freq / 1000);
++      break;
++   case MENU_SETTINGS_CPU_POLICY_SET_GOVERNOR:
++      strlcpy(s2, msg_hash_to_str(
++         MENU_ENUM_LABEL_VALUE_CPU_POLICY_GOVERNOR), len2);
++      strlcpy(s, d->scaling_governor, len);
++      break;
++   };
++}
++
++static void menu_action_cpu_governor_label(
++      file_list_t* list,
++      unsigned *w, unsigned type, unsigned i,
++      const char *label,
++      char *s, size_t len,
++      const char *path,
++      char *s2, size_t len2)
++{
++   unsigned policyid = atoi(path);
++   cpu_scaling_driver_t **drivers = get_cpu_scaling_drivers(false);
++   cpu_scaling_driver_t *d = drivers[policyid];
++
++   strlcpy(s2, msg_hash_to_str(
++      MENU_ENUM_LABEL_VALUE_CPU_POLICY_GOVERNOR), len2);
++   strlcpy(s, d->scaling_governor, len);
++}
++#endif
++
+ static void menu_action_setting_disp_set_label_core_lock(
+       file_list_t* list,
+       unsigned *w, unsigned type, unsigned i,
+@@ -1707,6 +1782,19 @@ static int menu_cbs_init_bind_get_string_representation_compare_label(
+             BIND_ACTION_GET_VALUE(cbs,
+                   menu_action_setting_disp_set_label_core_option_override_info);
+             break;
++         #ifdef HAVE_LAKKA
++         case MENU_ENUM_LABEL_CPU_POLICY_ENTRY:
++            BIND_ACTION_GET_VALUE(cbs,
++                  menu_action_setting_disp_set_label_cpu_policy);
++            break;
++         case MENU_ENUM_LABEL_CPU_POLICY_MIN_FREQ:
++         case MENU_ENUM_LABEL_CPU_POLICY_MAX_FREQ:
++            BIND_ACTION_GET_VALUE(cbs, menu_action_cpu_freq_label);
++            break;
++         case MENU_ENUM_LABEL_CPU_POLICY_GOVERNOR:
++            BIND_ACTION_GET_VALUE(cbs, menu_action_cpu_governor_label);
++            break;
++         #endif
+          default:
+             return -1;
+       }
+diff --git a/menu/cbs/menu_cbs_left.c b/menu/cbs/menu_cbs_left.c
+index c789debb05..1b7f49e554 100644
+--- a/menu/cbs/menu_cbs_left.c
++++ b/menu/cbs/menu_cbs_left.c
+@@ -43,6 +43,7 @@
+ #include "../../network/netplay/netplay.h"
+ #include "../../playlist.h"
+ #include "../../manual_content_scan.h"
++#include "../misc/cpufreq/cpufreq.h"
+ 
+ #ifndef BIND_ACTION_LEFT
+ #define BIND_ACTION_LEFT(cbs, name) (cbs)->action_left = (name)
+@@ -670,6 +671,45 @@ static int manual_content_scan_core_name_left(unsigned type, const char *label,
+    return 0;
+ }
+ 
++#ifdef HAVE_LAKKA
++static int cpu_policy_freq_tweak(unsigned type, const char *label,
++      bool wraparound)
++{
++   bool refresh = false;
++   cpu_scaling_driver_t **drivers = get_cpu_scaling_drivers(false);
++   unsigned policyid = atoi(label);
++   uint32_t next_freq;
++   if (!drivers)
++     return 0;
++
++   switch (type) {
++   case MENU_SETTINGS_CPU_POLICY_SET_MINFREQ:
++      next_freq = get_cpu_scaling_next_frequency(drivers[policyid],
++         drivers[policyid]->min_policy_freq, -1);
++      set_cpu_scaling_min_frequency(drivers[policyid], next_freq);
++      break;
++   case MENU_SETTINGS_CPU_POLICY_SET_MAXFREQ:
++      next_freq = get_cpu_scaling_next_frequency(drivers[policyid],
++         drivers[policyid]->max_policy_freq, -1);
++      set_cpu_scaling_max_frequency(drivers[policyid], next_freq);
++      break;
++   case MENU_SETTINGS_CPU_POLICY_SET_GOVERNOR:
++   {
++      int pidx = string_list_find_elem(drivers[policyid]->available_governors,
++         drivers[policyid]->scaling_governor);
++      if (pidx > 1)
++      {
++         set_cpu_scaling_governor(drivers[policyid],
++            drivers[policyid]->available_governors->elems[pidx-2].data);
++      }
++      break;
++   }
++   };
++
++   return 0;
++}
++#endif
++
+ static int core_setting_left(unsigned type, const char *label,
+       bool wraparound)
+ {
+@@ -970,6 +1010,13 @@ static int menu_cbs_init_bind_left_compare_label(menu_file_list_cbs_t *cbs,
+             case MENU_ENUM_LABEL_MANUAL_CONTENT_SCAN_CORE_NAME:
+                BIND_ACTION_LEFT(cbs, manual_content_scan_core_name_left);
+                break;
++            #ifdef HAVE_LAKKA
++            case MENU_ENUM_LABEL_CPU_POLICY_MAX_FREQ:
++            case MENU_ENUM_LABEL_CPU_POLICY_MIN_FREQ:
++            case MENU_ENUM_LABEL_CPU_POLICY_GOVERNOR:
++               BIND_ACTION_LEFT(cbs, cpu_policy_freq_tweak);
++               break;
++            #endif
+             default:
+                return -1;
+          }
+diff --git a/menu/cbs/menu_cbs_ok.c b/menu/cbs/menu_cbs_ok.c
+index e963e6d693..1b48e304ab 100644
+--- a/menu/cbs/menu_cbs_ok.c
++++ b/menu/cbs/menu_cbs_ok.c
+@@ -374,6 +374,10 @@ static enum msg_hash_enums action_ok_dl_to_enum(unsigned lbl)
+          return MENU_ENUM_LABEL_DEFERRED_ACCESSIBILITY_SETTINGS_LIST;
+       case ACTION_OK_DL_POWER_MANAGEMENT_SETTINGS_LIST:
+          return MENU_ENUM_LABEL_DEFERRED_POWER_MANAGEMENT_SETTINGS_LIST;
++      case ACTION_OK_DL_CPU_PERFPOWER_SETTINGS_LIST:
++         return MENU_ENUM_LABEL_DEFERRED_CPU_PERFPOWER_LIST;
++      case ACTION_OK_DL_CPU_POLICY_SETTINGS_LIST:
++         return MENU_ENUM_LABEL_DEFERRED_CPU_POLICY_ENTRY;
+       case ACTION_OK_DL_MENU_SOUNDS_LIST:
+          return MENU_ENUM_LABEL_DEFERRED_MENU_SOUNDS_LIST;
+       case ACTION_OK_DL_MENU_FILE_BROWSER_SETTINGS_LIST:
+@@ -1469,6 +1473,8 @@ int generic_action_ok_displaylist_push(const char *path,
+       case ACTION_OK_DL_AI_SERVICE_SETTINGS_LIST:
+       case ACTION_OK_DL_ACCESSIBILITY_SETTINGS_LIST:
+       case ACTION_OK_DL_POWER_MANAGEMENT_SETTINGS_LIST:
++      case ACTION_OK_DL_CPU_PERFPOWER_SETTINGS_LIST:
++      case ACTION_OK_DL_CPU_POLICY_SETTINGS_LIST:
+       case ACTION_OK_DL_MENU_SOUNDS_LIST:
+       case ACTION_OK_DL_MENU_FILE_BROWSER_SETTINGS_LIST:
+       case ACTION_OK_DL_RETRO_ACHIEVEMENTS_SETTINGS_LIST:
+@@ -5533,6 +5539,8 @@ DEFAULT_ACTION_OK_FUNC(action_ok_menu_views_list, ACTION_OK_DL_MENU_VIEWS_SETTIN
+ DEFAULT_ACTION_OK_FUNC(action_ok_settings_views_list, ACTION_OK_DL_SETTINGS_VIEWS_SETTINGS_LIST)
+ DEFAULT_ACTION_OK_FUNC(action_ok_quick_menu_views_list, ACTION_OK_DL_QUICK_MENU_VIEWS_SETTINGS_LIST)
+ DEFAULT_ACTION_OK_FUNC(action_ok_power_management_list, ACTION_OK_DL_POWER_MANAGEMENT_SETTINGS_LIST)
++DEFAULT_ACTION_OK_FUNC(action_ok_cpu_perfpower_list, ACTION_OK_DL_CPU_PERFPOWER_SETTINGS_LIST)
++DEFAULT_ACTION_OK_FUNC(action_ok_cpu_policy_entry, ACTION_OK_DL_CPU_POLICY_SETTINGS_LIST)
+ DEFAULT_ACTION_OK_FUNC(action_ok_menu_sounds_list, ACTION_OK_DL_MENU_SOUNDS_LIST)
+ DEFAULT_ACTION_OK_FUNC(action_ok_user_interface_list, ACTION_OK_DL_USER_INTERFACE_SETTINGS_LIST)
+ DEFAULT_ACTION_OK_FUNC(action_ok_menu_file_browser_list, ACTION_OK_DL_MENU_FILE_BROWSER_SETTINGS_LIST)
+@@ -7784,6 +7792,8 @@ static int menu_cbs_init_bind_ok_compare_label(menu_file_list_cbs_t *cbs,
+          {MENU_ENUM_LABEL_QUICK_MENU_VIEWS_SETTINGS,           action_ok_quick_menu_views_list},
+          {MENU_ENUM_LABEL_USER_INTERFACE_SETTINGS,             action_ok_user_interface_list},
+          {MENU_ENUM_LABEL_POWER_MANAGEMENT_SETTINGS,           action_ok_power_management_list},
++         {MENU_ENUM_LABEL_CPU_PERFPOWER,                       action_ok_cpu_perfpower_list},
++         {MENU_ENUM_LABEL_CPU_POLICY_ENTRY,                    action_ok_cpu_policy_entry},
+          {MENU_ENUM_LABEL_MENU_SOUNDS,                         action_ok_menu_sounds_list},
+          {MENU_ENUM_LABEL_MENU_FILE_BROWSER_SETTINGS,          action_ok_menu_file_browser_list},
+          {MENU_ENUM_LABEL_FILE_BROWSER_OPEN_UWP_PERMISSIONS,   action_ok_open_uwp_permission_settings},
+diff --git a/menu/cbs/menu_cbs_right.c b/menu/cbs/menu_cbs_right.c
+index b3e0947323..000cfe373f 100644
+--- a/menu/cbs/menu_cbs_right.c
++++ b/menu/cbs/menu_cbs_right.c
+@@ -44,6 +44,7 @@
+ #include "../../network/netplay/netplay.h"
+ #include "../../playlist.h"
+ #include "../../manual_content_scan.h"
++#include "../misc/cpufreq/cpufreq.h"
+ 
+ #ifndef BIND_ACTION_RIGHT
+ #define BIND_ACTION_RIGHT(cbs, name) (cbs)->action_right = (name)
+@@ -788,6 +789,45 @@ static int manual_content_scan_core_name_right(unsigned type, const char *label,
+    return 0;
+ }
+ 
++#ifdef HAVE_LAKKA
++static int cpu_policy_freq_tweak(unsigned type, const char *label,
++      bool wraparound)
++{
++   bool refresh = false;
++   cpu_scaling_driver_t **drivers = get_cpu_scaling_drivers(false);
++   unsigned policyid = atoi(label);
++   uint32_t next_freq;
++   if (!drivers)
++     return 0;
++
++   switch (type) {
++   case MENU_SETTINGS_CPU_POLICY_SET_MINFREQ:
++      next_freq = get_cpu_scaling_next_frequency(drivers[policyid],
++         drivers[policyid]->min_policy_freq, 1);
++      set_cpu_scaling_min_frequency(drivers[policyid], next_freq);
++      break;
++   case MENU_SETTINGS_CPU_POLICY_SET_MAXFREQ:
++      next_freq = get_cpu_scaling_next_frequency(drivers[policyid],
++         drivers[policyid]->max_policy_freq, 1);
++      set_cpu_scaling_max_frequency(drivers[policyid], next_freq);
++      break;
++   case MENU_SETTINGS_CPU_POLICY_SET_GOVERNOR:
++   {
++      int pidx = string_list_find_elem(drivers[policyid]->available_governors,
++         drivers[policyid]->scaling_governor);
++      if (pidx && pidx + 1 < drivers[policyid]->available_governors->size)
++      {
++         set_cpu_scaling_governor(drivers[policyid],
++            drivers[policyid]->available_governors->elems[pidx].data);
++      }
++      break;
++   }
++   };
++
++   return 0;
++}
++#endif
++
+ int core_setting_right(unsigned type, const char *label,
+       bool wraparound)
+ {
+@@ -1089,6 +1129,13 @@ static int menu_cbs_init_bind_right_compare_label(menu_file_list_cbs_t *cbs,
+             case MENU_ENUM_LABEL_MANUAL_CONTENT_SCAN_CORE_NAME:
+                BIND_ACTION_RIGHT(cbs, manual_content_scan_core_name_right);
+                break;
++            #ifdef HAVE_LAKKA
++            case MENU_ENUM_LABEL_CPU_POLICY_MAX_FREQ:
++            case MENU_ENUM_LABEL_CPU_POLICY_MIN_FREQ:
++            case MENU_ENUM_LABEL_CPU_POLICY_GOVERNOR:
++               BIND_ACTION_RIGHT(cbs, cpu_policy_freq_tweak);
++               break;
++            #endif
+             default:
+                return -1;
+          }
+diff --git a/menu/cbs/menu_cbs_sublabel.c b/menu/cbs/menu_cbs_sublabel.c
+index b3cf524ca8..d97c5611f6 100644
+--- a/menu/cbs/menu_cbs_sublabel.c
++++ b/menu/cbs/menu_cbs_sublabel.c
+@@ -31,6 +31,7 @@
+ #include "../../core_info.h"
+ #include "../../verbosity.h"
+ #include "../../bluetooth/bluetooth_driver.h"
++#include "../../misc/cpufreq/cpufreq.h"
+ 
+ #ifdef HAVE_NETWORKING
+ #include "../../network/netplay/netplay.h"
+@@ -1008,6 +1009,26 @@ static int action_bind_sublabel_bluetooth_list(
+    return 0;
+ }
+ 
++#ifdef HAVE_LAKKA
++static int action_bind_sublabel_cpu_policy_entry_list(
++      file_list_t *list,
++      unsigned type, unsigned i,
++      const char *label, const char *path,
++      char *s, size_t len)
++{
++   /* Displays info about the Policy entry */
++   cpu_scaling_driver_t **drivers = get_cpu_scaling_drivers(false);
++   if (drivers)
++   {
++      sprintf(s, "%s | Freq: %u MHz\n", drivers[i]->scaling_governor,
++         drivers[i]->current_frequency / 1000);
++      return 0;
++   }
++
++   return -1;
++}
++#endif
++
+ #ifdef HAVE_CHEEVOS
+ static int action_bind_sublabel_cheevos_entry(
+       file_list_t *list,
+@@ -3917,6 +3938,9 @@ int menu_cbs_init_bind_sublabel(menu_file_list_cbs_t *cbs,
+          case MENU_ENUM_LABEL_TIMEZONE:
+             BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_timezone);
+             break;
++         case MENU_ENUM_LABEL_CPU_POLICY_ENTRY:
++            BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_cpu_policy_entry_list);
++            break;
+ #endif
+          case MENU_ENUM_LABEL_USER_LANGUAGE:
+             BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_user_language);
+diff --git a/menu/cbs/menu_cbs_title.c b/menu/cbs/menu_cbs_title.c
+index 359a7426f8..11bb0852cf 100644
+--- a/menu/cbs/menu_cbs_title.c
++++ b/menu/cbs/menu_cbs_title.c
+@@ -621,6 +621,8 @@ DEFAULT_TITLE_MACRO(action_get_user_interface_settings_list,    MENU_ENUM_LABEL_
+ DEFAULT_TITLE_MACRO(action_get_ai_service_settings_list,        MENU_ENUM_LABEL_VALUE_AI_SERVICE_SETTINGS)
+ DEFAULT_TITLE_MACRO(action_get_accessibility_settings_list,     MENU_ENUM_LABEL_VALUE_ACCESSIBILITY_SETTINGS)
+ DEFAULT_TITLE_MACRO(action_get_power_management_settings_list,  MENU_ENUM_LABEL_VALUE_POWER_MANAGEMENT_SETTINGS)
++DEFAULT_TITLE_MACRO(action_get_cpu_perfpower_settings_list,     MENU_ENUM_LABEL_VALUE_CPU_PERFPOWER)
++DEFAULT_TITLE_MACRO(action_get_cpu_policy_entry_list,           MENU_ENUM_LABEL_VALUE_CPU_POLICY_ENTRY)
+ DEFAULT_TITLE_MACRO(action_get_menu_sounds_list,                MENU_ENUM_LABEL_VALUE_MENU_SOUNDS)
+ DEFAULT_TITLE_MACRO(action_get_menu_file_browser_settings_list, MENU_ENUM_LABEL_VALUE_MENU_FILE_BROWSER_SETTINGS)
+ DEFAULT_TITLE_MACRO(action_get_retro_achievements_settings_list,MENU_ENUM_LABEL_VALUE_RETRO_ACHIEVEMENTS_SETTINGS)
+@@ -955,6 +957,8 @@ static int menu_cbs_init_bind_title_compare_label(menu_file_list_cbs_t *cbs,
+       {MENU_ENUM_LABEL_DEFERRED_AI_SERVICE_SETTINGS_LIST,             action_get_ai_service_settings_list},
+       {MENU_ENUM_LABEL_DEFERRED_ACCESSIBILITY_SETTINGS_LIST,          action_get_accessibility_settings_list},
+       {MENU_ENUM_LABEL_DEFERRED_POWER_MANAGEMENT_SETTINGS_LIST,       action_get_power_management_settings_list},
++      {MENU_ENUM_LABEL_DEFERRED_CPU_PERFPOWER_LIST,                   action_get_cpu_perfpower_settings_list},
++      {MENU_ENUM_LABEL_DEFERRED_CPU_POLICY_ENTRY,                     action_get_cpu_policy_entry_list},
+       {MENU_ENUM_LABEL_DEFERRED_MENU_SOUNDS_LIST,                     action_get_menu_sounds_list},
+       {MENU_ENUM_LABEL_DEFERRED_MENU_FILE_BROWSER_SETTINGS_LIST,      action_get_menu_file_browser_settings_list},
+       {MENU_ENUM_LABEL_DEFERRED_RETRO_ACHIEVEMENTS_SETTINGS_LIST,     action_get_retro_achievements_settings_list},
+diff --git a/menu/menu_cbs.h b/menu/menu_cbs.h
+index c3ed953708..3cf37e64b6 100644
+--- a/menu/menu_cbs.h
++++ b/menu/menu_cbs.h
+@@ -185,6 +185,8 @@ enum
+    ACTION_OK_DL_ACCESSIBILITY_SETTINGS_LIST,
+    ACTION_OK_DL_USER_INTERFACE_SETTINGS_LIST,
+    ACTION_OK_DL_POWER_MANAGEMENT_SETTINGS_LIST,
++   ACTION_OK_DL_CPU_PERFPOWER_SETTINGS_LIST,
++   ACTION_OK_DL_CPU_POLICY_SETTINGS_LIST,
+    ACTION_OK_DL_MENU_SOUNDS_LIST,
+    ACTION_OK_DL_MENU_FILE_BROWSER_SETTINGS_LIST,
+    ACTION_OK_DL_RETRO_ACHIEVEMENTS_SETTINGS_LIST,
+diff --git a/menu/menu_displaylist.c b/menu/menu_displaylist.c
+index 4420b9c72f..cc14b36a23 100644
+--- a/menu/menu_displaylist.c
++++ b/menu/menu_displaylist.c
+@@ -110,6 +110,7 @@
+ #include "../runtime_file.h"
+ #include "../manual_content_scan.h"
+ #include "../core_backup.h"
++#include "../misc/cpufreq/cpufreq.h"
+ 
+ /* Spacers used for '<content> - <core name>' labels
+  * in playlists */
+@@ -8423,6 +8424,7 @@ unsigned menu_displaylist_build_list(
+          {
+             menu_displaylist_build_info_t build_list[] = {
+                {MENU_ENUM_LABEL_SUSTAINED_PERFORMANCE_MODE, PARSE_ONLY_BOOL},
++               {MENU_ENUM_LABEL_CPU_PERFPOWER,              PARSE_ACTION},
+             };
+ 
+             for (i = 0; i < ARRAY_SIZE(build_list); i++)
+@@ -9831,6 +9833,59 @@ bool menu_displaylist_ctl(enum menu_displaylist_ctl_state type,
+          /* No-op */
+          break;
+ #endif
++#ifdef HAVE_LAKKA
++      case DISPLAYLIST_CPU_POLICY_LIST:
++         menu_entries_ctl(MENU_ENTRIES_CTL_CLEAR, info->list);
++
++         menu_entries_append_enum(info->list,
++            info->path,
++            info->path,
++            MENU_ENUM_LABEL_CPU_POLICY_MIN_FREQ,
++            MENU_SETTINGS_CPU_POLICY_SET_MINFREQ, 0, 0);
++
++         menu_entries_append_enum(info->list,
++            info->path,
++            info->path,
++            MENU_ENUM_LABEL_CPU_POLICY_MAX_FREQ,
++            MENU_SETTINGS_CPU_POLICY_SET_MAXFREQ, 0, 0);
++
++         menu_entries_append_enum(info->list,
++            info->path,
++            info->path,
++            MENU_ENUM_LABEL_CPU_POLICY_GOVERNOR,
++            MENU_SETTINGS_CPU_POLICY_SET_GOVERNOR, 0, 0);
++
++         info->need_push    = true;
++         info->need_refresh = true;
++         info->need_clear   = true;
++
++         break;
++      case DISPLAYLIST_CPU_PERFPOWER_LIST:
++      {
++         cpu_scaling_driver_t **drivers = get_cpu_scaling_drivers(true);
++         menu_entries_ctl(MENU_ENTRIES_CTL_CLEAR, info->list);
++         if (drivers)
++         {
++            int count = 0;
++            while (*drivers)
++            {
++               char policyid[16];
++               sprintf(policyid, "%u", count++);
++               menu_entries_append_enum(info->list,
++                  policyid,
++                  policyid,
++                  MENU_ENUM_LABEL_CPU_POLICY_ENTRY,
++                  0, 0, 0);
++               drivers++;
++            }
++         }
++
++         info->need_push    = true;
++         info->need_refresh = true;
++         info->need_clear   = true;
++         break;
++      }
++#endif
+ #if defined(HAVE_LAKKA_SWITCH) || defined(HAVE_LIBNX)
+       case DISPLAYLIST_SWITCH_CPU_PROFILE:
+       {
+diff --git a/menu/menu_displaylist.h b/menu/menu_displaylist.h
+index f774bd356e..333c585aa8 100644
+--- a/menu/menu_displaylist.h
++++ b/menu/menu_displaylist.h
+@@ -251,7 +251,9 @@ enum menu_displaylist_ctl_state
+    DISPLAYLIST_CORE_RESTORE_BACKUP_LIST,
+    DISPLAYLIST_CORE_DELETE_BACKUP_LIST,
+    DISPLAYLIST_PENDING_CLEAR,
+-   DISPLAYLIST_WIFI_NETWORKS_LIST
++   DISPLAYLIST_WIFI_NETWORKS_LIST,
++   DISPLAYLIST_CPU_PERFPOWER_LIST,
++   DISPLAYLIST_CPU_POLICY_LIST
+ };
+ 
+ enum filebrowser_enums
+diff --git a/menu/menu_driver.h b/menu/menu_driver.h
+index d46a03f380..19eb03fca3 100644
+--- a/menu/menu_driver.h
++++ b/menu/menu_driver.h
+@@ -211,6 +211,10 @@ enum menu_settings_type
+    MENU_SET_SWITCH_CPU_PROFILE,
+ #endif
+ 
++   MENU_SETTINGS_CPU_POLICY_SET_MINFREQ,
++   MENU_SETTINGS_CPU_POLICY_SET_MAXFREQ,
++   MENU_SETTINGS_CPU_POLICY_SET_GOVERNOR,
++
+    MENU_SET_CDROM_LIST,
+    MENU_SET_LOAD_CDROM_LIST,
+    MENU_SET_CDROM_INFO,
+diff --git a/menu/menu_setting.c b/menu/menu_setting.c
+index 026e3b5bc8..dd40352f91 100644
+--- a/menu/menu_setting.c
++++ b/menu/menu_setting.c
+@@ -16337,6 +16337,16 @@ static bool setting_append_list(
+                SD_FLAG_CMD_APPLY_AUTO);
+ #endif
+ 
++#ifdef HAVE_LAKKA
++         CONFIG_ACTION(
++               list, list_info,
++               MENU_ENUM_LABEL_CPU_PERFPOWER,
++               MENU_ENUM_LABEL_VALUE_CPU_PERFPOWER,
++               &group_info,
++               &subgroup_info,
++               parent_group);
++#endif
++
+          END_SUB_GROUP(list, list_info, parent_group);
+          END_GROUP(list, list_info, parent_group);
+          break;
+diff --git a/misc/cpufreq/cpufreq.c b/misc/cpufreq/cpufreq.c
+new file mode 100644
+index 0000000000..1fba52ed97
+--- /dev/null
++++ b/misc/cpufreq/cpufreq.c
+@@ -0,0 +1,281 @@
++/*  RetroArch - A frontend for libretro.
++ *  Copyright (C) 2021 - David Guillen Fandos
++ *
++ *  RetroArch is free software: you can redistribute it and/or modify it under the terms
++ *  of the GNU General Public License as published by the Free Software Found-
++ *  ation, either version 3 of the License, or (at your option) any later version.
++ *
++ *  RetroArch is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
++ *  without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
++ *  PURPOSE.  See the GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License along with RetroArch.
++ *  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#include <stdio.h>
++#include <time.h>
++#include <string.h>
++#include <file/file_path.h>
++#include <lists/string_list.h>
++#include <lists/dir_list.h>
++#include <streams/file_stream.h>
++#include <string/stdstring.h>
++#include <retro_miscellaneous.h>
++
++#include "cpufreq.h"
++
++#define REFRESH_TIMEOUT  2
++#define CPU_POLICIES_DIR "/sys/devices/system/cpu/cpufreq/"
++
++static time_t last_update = 0;
++static cpu_scaling_driver_t **scaling_drivers = NULL;
++
++static bool readparse_uint32(const char *path, uint32_t *value)
++{
++   char *tmpbuf;
++   if (!filestream_read_file(path, (void**)&tmpbuf, NULL))
++      return false;
++   string_remove_all_chars(tmpbuf, '\n');
++   if (sscanf(tmpbuf, "%" PRIu32, value) != 1)
++   {
++      free(tmpbuf);
++      return false;
++   }
++   free(tmpbuf);
++   return true;
++}
++
++static struct string_list* readparse_list(const char *path)
++{
++   char *tmpbuf;
++   struct string_list* ret;
++   if (!filestream_read_file(path, (void**)&tmpbuf, NULL))
++      return NULL;
++   string_remove_all_chars(tmpbuf, '\n');
++   ret = string_split(tmpbuf, " ");
++   free(tmpbuf);
++   return ret;
++}
++
++static void free_drivers(cpu_scaling_driver_t **d)
++{
++   if (d)
++   {
++      cpu_scaling_driver_t **it = d;
++      while (*it)
++      {
++         cpu_scaling_driver_t *drv = *it++;
++         if (drv->affected_cpus)
++            free(drv->affected_cpus);
++         if (drv->scaling_governor)
++            free(drv->scaling_governor);
++         if (drv->available_freqs)
++            free(drv->available_freqs);
++         string_list_free(drv->available_governors);
++
++         free(drv);
++      }
++      free(d);
++   }
++}
++
++void cpu_scaling_driver_free()
++{
++   if (scaling_drivers)
++      free_drivers(scaling_drivers);
++
++   scaling_drivers = NULL;
++   last_update = 0;
++}
++
++cpu_scaling_driver_t **get_cpu_scaling_drivers(bool can_update)
++{
++   if (can_update && (time(NULL) > last_update + REFRESH_TIMEOUT ||
++       !scaling_drivers))
++   {
++      /* Parse /sys/devices/system/cpu/cpufreq/ policies */
++      int i, j, pc;
++      struct string_list *policy_dir = dir_list_new(CPU_POLICIES_DIR, NULL,
++        true, false, false, false);
++      if (!policy_dir)
++         return NULL;
++      dir_list_sort(policy_dir, false);
++
++      /* Delete the previous list of drivers */
++      free_drivers(scaling_drivers);
++
++      scaling_drivers = (cpu_scaling_driver_t**)calloc(
++         (policy_dir->size + 1), sizeof(cpu_scaling_driver_t*));
++      for (i = 0, pc = 0; i < policy_dir->size; i++)
++      {
++         uint32_t polid;
++         cpu_scaling_driver_t *drv;
++         struct string_list *tmplst;
++         char fpath[PATH_MAX_LENGTH];
++         const char *fname = strrchr(policy_dir->elems[i].data, '/');
++
++         if (!fname)
++            continue;
++
++         /* Ensure this is a policy and get its ID */
++         if (sscanf(fname, "/policy%" PRIu32, &polid) != 1)
++            continue;
++
++         drv = calloc(1, sizeof(cpu_scaling_driver_t));
++         drv->policy_id = polid;
++
++         /* Read all nodes with freq info */
++         fill_pathname_join(fpath, policy_dir->elems[i].data,
++            "scaling_cur_freq", sizeof(fpath));
++         readparse_uint32(fpath, &drv->current_frequency);
++
++         fill_pathname_join(fpath, policy_dir->elems[i].data,
++            "cpuinfo_min_freq", sizeof(fpath));
++         readparse_uint32(fpath, &drv->min_cpu_freq);
++
++         fill_pathname_join(fpath, policy_dir->elems[i].data,
++            "cpuinfo_max_freq", sizeof(fpath));
++         readparse_uint32(fpath, &drv->max_cpu_freq);
++
++         fill_pathname_join(fpath, policy_dir->elems[i].data,
++            "scaling_min_freq", sizeof(fpath));
++         readparse_uint32(fpath, &drv->min_policy_freq);
++
++         fill_pathname_join(fpath, policy_dir->elems[i].data,
++            "scaling_max_freq", sizeof(fpath));
++         readparse_uint32(fpath, &drv->max_policy_freq);
++
++         fill_pathname_join(fpath, policy_dir->elems[i].data,
++            "scaling_available_governors", sizeof(fpath));
++         drv->available_governors = readparse_list(fpath);
++
++         fill_pathname_join(fpath, policy_dir->elems[i].data,
++            "affected_cpus", sizeof(fpath));
++         filestream_read_file(fpath, (void**)&drv->affected_cpus, NULL);
++         string_remove_all_chars(drv->affected_cpus, '\n');
++
++         fill_pathname_join(fpath, policy_dir->elems[i].data,
++            "scaling_governor", sizeof(fpath));
++         filestream_read_file(fpath, (void**)&drv->scaling_governor, NULL);
++         string_remove_all_chars(drv->scaling_governor, '\n');
++
++         fill_pathname_join(fpath, policy_dir->elems[i].data,
++            "scaling_available_frequencies", sizeof(fpath));
++         tmplst = readparse_list(fpath);
++         if (tmplst)
++         {
++            drv->available_freqs = calloc(tmplst->size, sizeof(uint32_t));
++            for (j = 0; j < tmplst->size; j++)
++            {
++               drv->available_freqs[j] = (uint32_t)atol(tmplst->elems[j].data);
++            }
++            string_list_free(tmplst);
++         }
++
++         /* Move to the list */
++         scaling_drivers[pc++] = drv;
++      }
++      dir_list_free(policy_dir);
++      last_update = time(NULL);
++   }
++   return scaling_drivers;
++}
++
++bool set_cpu_scaling_min_frequency(
++   cpu_scaling_driver_t *driver,
++   uint32_t min_freq)
++{
++   char fpath[PATH_MAX_LENGTH];
++   char value[16];
++   sprintf(fpath, CPU_POLICIES_DIR "policy%u/scaling_min_freq",
++      driver->policy_id);
++   sprintf(value, "%" PRIu32 "\n", min_freq);
++   if (filestream_write_file(fpath, value, strlen(value)))
++   {
++      driver->min_policy_freq = min_freq;
++      last_update = 0;   /* Force reload */
++      return true;
++   }
++   return false;
++}
++
++bool set_cpu_scaling_max_frequency(
++   cpu_scaling_driver_t *driver,
++   uint32_t max_freq)
++{
++   char fpath[PATH_MAX_LENGTH];
++   char value[16];
++   sprintf(fpath, CPU_POLICIES_DIR "policy%u/scaling_max_freq",
++      driver->policy_id);
++   sprintf(value, "%" PRIu32 "\n", max_freq);
++   if (filestream_write_file(fpath, value, strlen(value)))
++   {
++      driver->max_policy_freq = max_freq;
++      last_update = 0;   /* Force reload */
++      return true;
++   }
++   return false;
++}
++
++uint32_t get_cpu_scaling_next_frequency(
++   cpu_scaling_driver_t *driver,
++   uint32_t freq,
++   int step)
++{
++   /* If the driver does not have a list of available frequencies */
++   if (driver->available_freqs)
++   {
++      uint32_t *fr = driver->available_freqs;
++      while (*fr)
++      {
++         if (fr[0] <= freq && fr[1] > freq && step > 0)
++         {
++            freq = fr[1];
++            break;
++         }
++         else if (fr[0] < freq && fr[1] >= freq && step < 0)
++         {
++            freq = fr[0];
++            break;
++         }
++         fr++;
++      }
++      if (!(*fr))
++      {
++         if (step > 0)
++            freq = driver->max_cpu_freq;
++         else
++            freq = driver->min_cpu_freq;
++      }
++   }
++   else {
++      /* Just do small steps towards the max/min, arbitrary 100MHz */
++      freq = freq + step * 100000;
++   }
++
++   if (freq > driver->max_cpu_freq)
++      freq = driver->max_cpu_freq;
++   if (freq < driver->min_cpu_freq)
++      freq = driver->min_cpu_freq;
++
++   return freq;
++}
++
++bool set_cpu_scaling_governor(cpu_scaling_driver_t *driver, const char* governor)
++{
++   char fpath[PATH_MAX_LENGTH];
++   sprintf(fpath, CPU_POLICIES_DIR "policy%u/scaling_governor",
++      driver->policy_id);
++   if (filestream_write_file(fpath, governor, strlen(governor)))
++   {
++      if (driver->scaling_governor)
++         free(driver->scaling_governor);
++      driver->scaling_governor = strdup(governor);
++      last_update = 0;   /* Force reload */
++      return true;
++   }
++   return false;
++}
++
++
+diff --git a/misc/cpufreq/cpufreq.h b/misc/cpufreq/cpufreq.h
+new file mode 100644
+index 0000000000..06712d4020
+--- /dev/null
++++ b/misc/cpufreq/cpufreq.h
+@@ -0,0 +1,63 @@
++/*  RetroArch - A frontend for libretro.
++ *  Copyright (C) 2021 - David Guillen Fandos
++ *
++ *  RetroArch is free software: you can redistribute it and/or modify it under the terms
++ *  of the GNU General Public License as published by the Free Software Found-
++ *  ation, either version 3 of the License, or (at your option) any later version.
++ *
++ *  RetroArch is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
++ *  without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
++ *  PURPOSE.  See the GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License along with RetroArch.
++ *  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#ifndef _MISC_CPUFREQ_H
++#define _MISC_CPUFREQ_H
++
++#include <stdint.h>
++
++RETRO_BEGIN_DECLS
++
++typedef struct cpu_scaling_driver
++{
++   /* Policy number in the sysfs tree */
++   unsigned int policy_id;
++   /* Which CPUs this scaling driver will affect */
++   char *affected_cpus;
++   /* Governor and available governors */
++   char *scaling_governor;
++   struct string_list *available_governors;
++   /* Current frequency (value might be slightly old) */
++   uint32_t current_frequency;
++   /* Max and min frequencies, for the hardware and policy */
++   uint32_t min_cpu_freq, max_cpu_freq;
++   uint32_t min_policy_freq, max_policy_freq;
++   /* Available frequencies table (can be NULL), ends with zero */
++   uint32_t *available_freqs;
++} cpu_scaling_driver_t;
++
++/* Safely free all memory used by the driver */
++void cpu_scaling_driver_free();
++
++/* Get a list of the available cpu scaling drivers */
++cpu_scaling_driver_t **get_cpu_scaling_drivers(bool can_update);
++
++/* Set max and min policy cpu frequency */
++bool set_cpu_scaling_min_frequency(
++   cpu_scaling_driver_t *driver, uint32_t min_freq);
++bool set_cpu_scaling_max_frequency(
++   cpu_scaling_driver_t *driver, uint32_t max_freq);
++
++/* Calculate next/previous frequencies */
++uint32_t get_cpu_scaling_next_frequency(cpu_scaling_driver_t *driver,
++   uint32_t freq, int step);
++
++/* Set the scaling governor for this scaling driver */
++bool set_cpu_scaling_governor(cpu_scaling_driver_t *driver, const char* governor);
++
++RETRO_END_DECLS
++
++#endif
++
+diff --git a/msg_hash.h b/msg_hash.h
+index d68fc0b9d1..f04332229f 100644
+--- a/msg_hash.h
++++ b/msg_hash.h
+@@ -1526,6 +1526,8 @@ enum msg_hash_enums
+    MENU_ENUM_LABEL_DEFERRED_MENU_SETTINGS_LIST,
+    MENU_ENUM_LABEL_DEFERRED_USER_INTERFACE_SETTINGS_LIST,
+    MENU_ENUM_LABEL_DEFERRED_POWER_MANAGEMENT_SETTINGS_LIST,
++   MENU_ENUM_LABEL_DEFERRED_CPU_PERFPOWER_LIST,
++   MENU_ENUM_LABEL_DEFERRED_CPU_POLICY_ENTRY,
+    MENU_ENUM_LABEL_DEFERRED_MENU_SOUNDS_LIST,
+    MENU_ENUM_LABEL_DEFERRED_MENU_FILE_BROWSER_SETTINGS_LIST,
+    MENU_ENUM_LABEL_DEFERRED_RETRO_ACHIEVEMENTS_SETTINGS_LIST,
+@@ -2938,6 +2940,11 @@ enum msg_hash_enums
+    MENU_LABEL(MIDI_VOLUME),
+ 
+    MENU_LABEL(SUSTAINED_PERFORMANCE_MODE),
++   MENU_LABEL(CPU_PERFPOWER),
++   MENU_LABEL(CPU_POLICY_ENTRY),
++   MENU_LABEL(CPU_POLICY_MIN_FREQ),
++   MENU_LABEL(CPU_POLICY_MAX_FREQ),
++   MENU_LABEL(CPU_POLICY_GOVERNOR),
+ 
+    MENU_ENUM_LABEL_CHEAT_HANDLER_TYPE_EMU,
+    MENU_ENUM_LABEL_CHEAT_HANDLER_TYPE_RETRO,
