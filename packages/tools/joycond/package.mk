@@ -18,33 +18,21 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="RPi"
-PKG_VERSION=""
-PKG_REV="1"
+PKG_NAME="joycond"
+PKG_VERSION="2d3f553060291f1bfee2e49fc2ca4a768b289df8"
+PKG_SHA256="34ba2a4ffd35f2b2bbebd8ce47d17f2238d991bc6262653d0617b28f864e4b63"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/libretro/Lakka-LibreELEC"
-PKG_URL=""
-PKG_DEPENDS_TARGET="retroarch"
-
-if [ "$DEVICE" = "RPi" -o "$DEVICE" = "RPi2" -o "$DEVICE" = "RPi4" ] ; then
-  PKG_DEPENDS_TARGET+=" wii-u-gc-adapter wiringPi mk_arcade_joystick_rpi joycond"
-fi
-
-if [ "$DEVICE" = "GPICase" ]; then
-  PKG_DEPENDS_TARGET+=" gpicase-safeshutdown"
-fi
-
-PKG_PRIORITY="optional"
-PKG_SECTION="virtual"
-PKG_SHORTDESC="Lakka metapackage for RPi devices"
-PKG_LONGDESC=""
+PKG_DEPENDS_TARGET="toolchain cmake:host libevdev"
+PKG_SITE="https://github.com/DanielOgorchock/joycond"
+PKG_URL="https://github.com/DanielOgorchock/joycond/archive/$PKG_VERSION.tar.gz"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+PKG_TOOLCHAIN="cmake-make"
 
-post_install() {
-  if [ "$DEVICE" = "GPICase" ]; then
-    enable_service disable-hdmi.service
-  fi
+post_makeinstall_target() {
+  rm -r $INSTALL/etc/modules-load.d
+  mv $INSTALL/lib/* $INSTALL/usr/lib/ && rmdir $INSTALL/lib
+  mkdir -p $INSTALL/etc/systemd/system/multi-user.target.wants/ 
+  ln -s $INSTALL/etc/systemd/system/joycond.service $INSTALL/etc/systemd/system/multi-user.target.wants/joycond.service
 }
