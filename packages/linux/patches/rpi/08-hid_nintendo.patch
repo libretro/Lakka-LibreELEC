@@ -1,0 +1,75 @@
+From 1ea817762c398c918eb06447c4b8f06d37caeec7 Mon Sep 17 00:00:00 2001
+From: "Daniel J. Ogorchock" <djogorchock@gmail.com>
+Date: Tue, 8 Oct 2019 23:55:47 -0500
+Subject: [PATCH] HID: nintendo: reduce device removal subcommand errors
+
+This patch fixes meaningless error output from trying to send
+subcommands immediately after controller removal. It now disables
+subcommands as soon as possible on removal.
+
+Signed-off-by: Daniel J. Ogorchock <djogorchock@gmail.com>
+---
+ drivers/hid/hid-nintendo.c | 24 ++++++++++++++++++++++--
+ 1 file changed, 22 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/hid/hid-nintendo.c b/drivers/hid/hid-nintendo.c
+index 2ec099dc3869..f2864fd9fc5d 100644
+--- a/drivers/hid/hid-nintendo.c
++++ b/drivers/hid/hid-nintendo.c
+@@ -230,6 +230,7 @@ static const struct joycon_rumble_amp_data joycon_rumble_amplitudes[] = {
+ enum joycon_ctlr_state {
+ 	JOYCON_CTLR_STATE_INIT,
+ 	JOYCON_CTLR_STATE_READ,
++	JOYCON_CTLR_STATE_REMOVED,
+ };
+ 
+ struct joycon_stick_cal {
+@@ -451,6 +452,14 @@ static int joycon_send_subcmd(struct joycon_ctlr *ctlr,
+ 	unsigned long flags;
+ 
+ 	spin_lock_irqsave(&ctlr->lock, flags);
++	/*
++	 * If the controller has been removed, just return ENODEV so the LED
++	 * subsystem doesn't print invalid errors on removal.
++	 */
++	if (ctlr->ctlr_state == JOYCON_CTLR_STATE_REMOVED) {
++		spin_unlock_irqrestore(&ctlr->lock, flags);
++		return -ENODEV;
++	}
+ 	memcpy(subcmd->rumble_data, ctlr->rumble_data[ctlr->rumble_queue_tail],
+ 	       JC_RUMBLE_DATA_SIZE);
+ 	spin_unlock_irqrestore(&ctlr->lock, flags);
+@@ -800,10 +809,13 @@ static void joycon_rumble_worker(struct work_struct *work)
+ 		mutex_lock(&ctlr->output_mutex);
+ 		ret = joycon_enable_rumble(ctlr, true);
+ 		mutex_unlock(&ctlr->output_mutex);
+-		if (ret < 0)
+-			hid_warn(ctlr->hdev, "Failed to set rumble; e=%d", ret);
+ 
++		/* -ENODEV means the controller was just unplugged */
+ 		spin_lock_irqsave(&ctlr->lock, flags);
++		if (ret < 0 && ret != -ENODEV &&
++		    ctlr->ctlr_state != JOYCON_CTLR_STATE_REMOVED)
++			hid_warn(ctlr->hdev, "Failed to set rumble; e=%d", ret);
++
+ 		ctlr->rumble_msecs = jiffies_to_msecs(jiffies);
+ 		if (ctlr->rumble_queue_tail != ctlr->rumble_queue_head) {
+ 			if (++ctlr->rumble_queue_tail >= JC_RUMBLE_QUEUE_SIZE)
+@@ -1517,9 +1529,17 @@ static int nintendo_hid_probe(struct hid_device *hdev,
+ static void nintendo_hid_remove(struct hid_device *hdev)
+ {
+ 	struct joycon_ctlr *ctlr = hid_get_drvdata(hdev);
++	unsigned long flags;
+ 
+ 	hid_dbg(hdev, "remove\n");
++
++	/* Prevent further attempts at sending subcommands. */
++	spin_lock_irqsave(&ctlr->lock, flags);
++	ctlr->ctlr_state = JOYCON_CTLR_STATE_REMOVED;
++	spin_unlock_irqrestore(&ctlr->lock, flags);
++
+ 	destroy_workqueue(ctlr->rumble_queue);
++
+ 	hid_hw_close(hdev);
+ 	hid_hw_stop(hdev);
+ }
