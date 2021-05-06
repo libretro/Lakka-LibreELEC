@@ -259,6 +259,7 @@ makeinstall_target() {
     sed -i -e "s/# audio_out_rate = 48000/audio_out_rate = 44100/" $INSTALL/etc/retroarch.cfg
     sed -i -e "s/# video_font_size = 32/video_font_size = 16/" $INSTALL/etc/retroarch.cfg
     sed -i -e "s/# video_scale_integer = false/video_scale_integer = true/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/video_rotation = \"0\"/video_rotation = \"3\"/" $INSTALL/etc/retroarch.cfg
   fi
 
   if [ "$PROJECT" == "NXP" -a "$DEVICE" == "iMX6" ]; then
