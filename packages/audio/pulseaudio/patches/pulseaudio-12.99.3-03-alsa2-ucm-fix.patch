@@ -1,0 +1,89 @@
+From c8653c13faed5d877db3870335b870c144f01513 Mon Sep 17 00:00:00 2001
+From: Hui Wang <hui.wang@canonical.com>
+Date: Thu, 11 Jun 2020 15:49:05 +0800
+Subject: [PATCH] alsa: adjust ucm sink/source priority according to ports
+ priority
+
+On the machines with the ucm used, the different input/output devices
+often have different pcm stream, so they often belong to different
+sources and sinks, this is greatly different from the design of all
+devices connected to a codec (without ucm).
+
+For example, on a machine with ucm2 used:
+the internal dmic is on source#0
+the external mic is on the source#1
+the internal spk is on sink#0
+the external headphone is on sink#1
+
+Users expect that after plugging the external device, it will become
+the active device automatically. The switch-on-port-available could
+make it to be the active_port on its own source/sink, but can't make
+source/sink to be default_source/sink since the sources/sinks belong
+to the same profile (HiFi usually).
+
+If we adjust the source/sink priority according to ucm ports priority,
+the device_port.c could handle the default_source/sink changing then.
+Usually we set higher priority for external device than internal
+device in the ucm.
+
+In order to bring the lowest side effect on the source/sink priority,
+I change the ucm priority to units digit first, then add it to the
+original priority.
+
+Signed-off-by: Hui Wang <hui.wang@canonical.com>
+---
+ src/modules/alsa/alsa-sink.c   | 13 +++++++++++++
+ src/modules/alsa/alsa-source.c | 13 +++++++++++++
+ 2 files changed, 26 insertions(+)
+
+diff --git a/src/modules/alsa/alsa-sink.c b/src/modules/alsa/alsa-sink.c
+index 457dc2785..3fe429c80 100644
+--- a/src/modules/alsa/alsa-sink.c
++++ b/src/modules/alsa/alsa-sink.c
+@@ -2598,6 +2598,19 @@ pa_sink *pa_alsa_sink_new(pa_module *m, pa_modargs *ma, const char*driver, pa_ca
+         goto fail;
+     }
+ 
++    if (u->ucm_context) {
++        pa_device_port *port;
++        void *state;
++        unsigned h_prio = 0;
++        PA_HASHMAP_FOREACH(port, u->sink->ports, state) {
++            if (!h_prio || port->priority > h_prio)
++                h_prio = port->priority;
++        }
++        /* ucm ports prioriy is 100, 200, ..., 900, change it to units digit */
++        h_prio = h_prio / 100;
++        u->sink->priority += h_prio;
++    }
++
+     if (pa_modargs_get_value_u32(ma, "deferred_volume_safety_margin",
+                                  &u->sink->thread_info.volume_change_safety_margin) < 0) {
+         pa_log("Failed to parse deferred_volume_safety_margin parameter");
+diff --git a/src/modules/alsa/alsa-source.c b/src/modules/alsa/alsa-source.c
+index da99ac610..b1149c675 100644
+--- a/src/modules/alsa/alsa-source.c
++++ b/src/modules/alsa/alsa-source.c
+@@ -2284,6 +2284,19 @@ pa_source *pa_alsa_source_new(pa_module *m, pa_modargs *ma, const char*driver, p
+         goto fail;
+     }
+ 
++    if (u->ucm_context) {
++        pa_device_port *port;
++        void *state;
++        unsigned h_prio = 0;
++        PA_HASHMAP_FOREACH(port, u->source->ports, state) {
++            if (!h_prio || port->priority > h_prio)
++                h_prio = port->priority;
++        }
++        /* ucm ports prioriy is 100, 200, ..., 900, change it to units digit */
++        h_prio = h_prio / 100;
++        u->source->priority += h_prio;
++    }
++
+     if (pa_modargs_get_value_u32(ma, "deferred_volume_safety_margin",
+                                  &u->source->thread_info.volume_change_safety_margin) < 0) {
+         pa_log("Failed to parse deferred_volume_safety_margin parameter");
+-- 
+GitLab
+

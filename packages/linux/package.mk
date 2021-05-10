@@ -5,7 +5,7 @@
 PKG_NAME="linux"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kernel.org"
-PKG_DEPENDS_HOST="ccache:host rsync:host openssl:host"
+PKG_DEPENDS_HOST="ccache:host openssl:host"
 PKG_DEPENDS_TARGET="toolchain linux:host kmod:host xz:host wireless-regdb keyutils $KERNEL_EXTRA_DEPENDS_TARGET"
 PKG_DEPENDS_INIT="toolchain"
 PKG_NEED_UNPACK="$LINUX_DEPENDS $(get_pkg_directory busybox)"
@@ -50,6 +50,11 @@ case "$LINUX" in
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v5.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     PKG_PATCH_DIRS="default"
     ;;
+  switch)
+    PKG_VERSION="switch"
+    PKG_URL="https://gitlab.com/Azkali/l4t-kernel-4.9/-/archive/lakka-3.3.0/l4t-kernel-4.9-lakka-3.3.0.tar.gz"
+    PKG_PATCH_DIRS=""
+    ;;
   *)
     PKG_VERSION="5.1.18"
     PKG_SHA256="6013e7dcf59d7c1b168d8edce3dbd61ce340ff289541f920dbd0958bef98f36a"
@@ -75,6 +80,14 @@ if [ "$TARGET_ARCH" = "x86_64" -o "$TARGET_ARCH" = "i386" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET intel-ucode:host kernel-firmware elfutils:host pciutils"
 elif [ "$TARGET_ARCH" = "arm" -a "$DEVICE" = "iMX6" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET kernel-firmware"
+elif [ "$TARGET_ARCH" = "aarch64" ] && [ "$DEVICE" = "Switch" ]; then
+  PKG_DEPENDS_HOST="$PKG_DEPENDS_HOST gcc-linaro-aarch64-linux-gnu:host"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gcc-linaro-aarch64-linux-gnu:host"
+  export PATH=$TOOLCHAIN/lib/gcc-linaro-aarch64-linux-gnu/bin/:$PATH
+  TARGET_PREFIX=aarch64-linux-gnu-
+  OLD_CROSS_COMPILE=$CROSS_COMPILE
+  export CROSS_COMPILE=$TARGET_PREFIX # necessary for Linux 5
+  PKG_MAKE_OPTS_HOST="ARCH=$TARGET_ARCH headers_check"
 fi
 
 if [[ "$KERNEL_TARGET" = uImage* ]]; then
@@ -88,7 +101,7 @@ post_patch() {
   sed -i -e "/CONFIG_INITRAMFS_ROOT_UID/d" -e "/CONFIG_INITRAMFS_ROOT_GID/d" -e "/CONFIG_INITRAMFS_SOURCE=.../a CONFIG_INITRAMFS_ROOT_UID=0\nCONFIG_INITRAMFS_ROOT_GID=0" $PKG_BUILD/.config
 
   # set default hostname based on $DISTRONAME
-    sed -i -e "s|@DISTRONAME@|$DISTRONAME|g" $PKG_BUILD/.config
+  sed -i -e "s|@DISTRONAME@|$DISTRONAME|g" $PKG_BUILD/.config
 
   # disable swap support if not enabled
   if [ ! "$SWAP_SUPPORT" = yes ]; then
@@ -126,31 +139,59 @@ post_patch() {
 
   #host gcc 10 build issue
   sed -i '/YYLTYPE yylloc/d' $PKG_BUILD/scripts/dtc/dtc-lexer.l
+
 }
 
 make_host() {
-  make \
-    ARCH=${HEADERS_ARCH:-$TARGET_KERNEL_ARCH} \
-    HOSTCC="$TOOLCHAIN/bin/host-gcc" \
-    HOSTCXX="$TOOLCHAIN/bin/host-g++" \
-    HOSTCFLAGS="$HOST_CFLAGS" \
-    HOSTCXXFLAGS="$HOST_CXXFLAGS" \
-    HOSTLDFLAGS="$HOST_LDFLAGS" \
-    headers_check
+  if [ "$DEVICE" = "Switch" ]; then
+    make \
+      ARCH=arm64 \
+      CROSS_COMPILE=$TARGET_PREFIX \
+      olddefconfig
+     make \
+       ARCH=arm64 \
+       CROSS_COMPILE=$TARGET_PREFIX \
+       prepare
+     make \
+       ARCH=arm64 \
+       CROSS_COMPILE=$TARGET_PREFIX \
+       modules_prepare
+     make \
+       ARCH=arm64 \
+       headers_check
+  else
+    make \
+      ARCH=${HEADERS_ARCH:-$TARGET_KERNEL_ARCH} \
+      HOSTCC="$TOOLCHAIN/bin/host-gcc" \
+      HOSTCXX="$TOOLCHAIN/bin/host-g++" \
+      HOSTCFLAGS="$HOST_CFLAGS" \
+      HOSTCXXFLAGS="$HOST_CXXFLAGS" \
+      HOSTLDFLAGS="$HOST_LDFLAGS" \
+      headers_check
+  fi
 }
 
 makeinstall_host() {
-  make \
-    ARCH=${HEADERS_ARCH:-$TARGET_KERNEL_ARCH} \
-    HOSTCC="$TOOLCHAIN/bin/host-gcc" \
-    HOSTCXX="$TOOLCHAIN/bin/host-g++" \
-    HOSTCFLAGS="$HOST_CFLAGS" \
-    HOSTCXXFLAGS="$HOST_CXXFLAGS" \
-    HOSTLDFLAGS="$HOST_LDFLAGS" \
-    INSTALL_HDR_PATH=dest \
-    headers_install
+  if [ "$DEVICE" = "Switch" ]; then
+    make \
+      ARCH=arm64 \
+      CROSS_COMPILE=$TARGET_PREFIX \
+      INSTALL_HDR_PATH=dest \
+      headers_install
+  else
+    make \
+      ARCH=${HEADERS_ARCH:-$TARGET_KERNEL_ARCH} \
+      HOSTCC="$TOOLCHAIN/bin/host-gcc" \
+      HOSTCXX="$TOOLCHAIN/bin/host-g++" \
+      HOSTCFLAGS="$HOST_CFLAGS" \
+      HOSTCXXFLAGS="$HOST_CXXFLAGS" \
+      HOSTLDFLAGS="$HOST_LDFLAGS" \
+      INSTALL_HDR_PATH=dest \
+      headers_install
+  fi
+
   mkdir -p $SYSROOT_PREFIX/usr/include
-    cp -R dest/include/* $SYSROOT_PREFIX/usr/include
+  cp -R dest/include/* $SYSROOT_PREFIX/usr/include
 }
 
 pre_make_target() {
@@ -176,7 +217,13 @@ pre_make_target() {
     sed -i -e "/CONFIG_EXTRA_FIRMWARE_DIR/d" -e "/CONFIG_EXTRA_FIRMWARE=.../a CONFIG_EXTRA_FIRMWARE_DIR=\"external-firmware\"" $PKG_BUILD/.config
   fi
 
-  kernel_make olddefconfig
+  if [ "$DEVICE" = "Switch" ]; then
+    kernel_make olddefconfig
+    kernel_make prepare
+    kernel_make modules_prepare
+  else
+    kernel_make olddefconfig
+  fi
 
   # regdb (backward compatability with pre-4.15 kernels)
   if grep -q ^CONFIG_CFG80211_INTERNAL_REGDB= $PKG_BUILD/.config ; then
@@ -193,6 +240,10 @@ make_target() {
     fi
     KERNEL_UIMAGE_TARGET="$KERNEL_TARGET"
     KERNEL_TARGET="${KERNEL_TARGET/uImage/Image}"
+  fi
+  
+  if [ "$DEVICE" = "Switch" ]; then
+     export KCFLAGS+="-Wno-error=sizeof-pointer-memaccess -Wno-error=missing-attributes -Wno-error=stringop-truncation -Wno-error=stringop-overflow= -Wno-error=address-of-packed-member -Wno-error=tautological-compare -Wno-error=packed-not-aligned"
   fi
 
   kernel_make TOOLCHAIN="$TOOLCHAIN" $KERNEL_TARGET $KERNEL_MAKE_EXTRACMD modules
@@ -264,6 +315,11 @@ makeinstall_target() {
   kernel_make INSTALL_MOD_PATH=$INSTALL/$(get_kernel_overlay_dir) modules_install
   rm -f $INSTALL/$(get_kernel_overlay_dir)/lib/modules/*/build
   rm -f $INSTALL/$(get_kernel_overlay_dir)/lib/modules/*/source
+    
+  if [ "$BOOTLOADER" = "switch-bootloader" ]; then
+    mkdir -p $INSTALL/usr/share/bootloader/boot/
+    cp arch/arm64/boot/dts/tegra210-icosa.dtb $INSTALL/usr/share/bootloader/boot/
+  fi
 
   if [ "$BOOTLOADER" = "u-boot" ]; then
     mkdir -p $INSTALL/usr/share/bootloader
@@ -294,7 +350,6 @@ makeinstall_target() {
 
 post_install() {
   mkdir -p $INSTALL/$(get_full_firmware_dir)/
-
   # regdb and signature is now loaded as firmware by 4.15+
     if grep -q ^CONFIG_CFG80211_REQUIRE_SIGNED_REGDB= $PKG_BUILD/.config; then
       cp $(get_build_dir wireless-regdb)/regulatory.db{,.p7s} $INSTALL/$(get_full_firmware_dir)

@@ -51,4 +51,7 @@ listcontains "${GRAPHIC_DRIVERS}" "etnaviv" &&
 post_makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin
     cp -a ${PKG_BUILD}/.${TARGET_NAME}/tests/modetest/modetest ${INSTALL}/usr/bin/
+  if [ "$PROJECT" = "L4T" ]; then
+    rm ${INSTALL}/usr/lib/libdrm.so.2
+  fi
 }

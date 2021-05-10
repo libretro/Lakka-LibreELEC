@@ -97,6 +97,9 @@ make_target() {
     MiQi|TinkerBoard)
       make platform=RK3288 GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
       ;;
+    Switch)
+      make WITH_DYNAREC=aarch64
+      ;;
     *)
       make platform=unix-gles GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
       ;;

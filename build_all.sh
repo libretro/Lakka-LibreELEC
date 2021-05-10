@@ -87,6 +87,7 @@ targets="\
 	RPi|RPi4|aarch|image \
 	RPi|RPi4|arm|image \
 	Qualcomm|Dragonboard|arm|image \
+	L4T|Switch|aarch64|image \
 	"
 
 # set the number of total build jobs and initialize counter for current build job

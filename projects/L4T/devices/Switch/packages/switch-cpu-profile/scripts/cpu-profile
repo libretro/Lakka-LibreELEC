@@ -1,0 +1,119 @@
+#!/usr/bin/python
+
+import sys
+
+'''
+This is a script to manage the Switch CPU clock profiles. When shutting down, the current profile is lost -
+therefore, this script must be called at each reboot to restore the default profile.
+
+Written by natinusala for Lakka. See print_usage() for usage.
+
+For now the profile is not retained and is set to default speed when rebooting.
+'''
+
+# File corresponding to the current profile
+PROFILE_FILE = "/sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq"
+OVERCLOCK_FILE = "/sys/kernel/tegra_cpufreq/overclock"
+
+# Profiles list, in KHz - max 2091000
+PROFILES = {
+    "Max Overdrive +3":    "2091000",
+    "Max Overdrive +2":    "1989000",
+    "Max Overdrive +1":    "1887000",
+    "Maximum Performance": "1785000",
+    "High Performance":    "1581000",
+    "Boost Performance":   "1224000",
+    "Stock Performance":   "1020000",
+    "Powersaving Mode 1":  "918000",
+    "Powersaving Mode 2":  "816000",
+    "Powersaving Mode 3":  "714000",
+}
+
+# Default profile
+DEFAULT_PROFILE = "Stock Performance"
+
+
+
+def get_profile():
+    with open(PROFILE_FILE, "r") as f:
+        pstate = str(f.read().strip())
+
+    profile_code = pstate
+
+    for profile in PROFILES:
+        if profile_code == PROFILES[profile]:
+            return profile
+
+    raise Exception("Unknown profile code %s" % profile_code)
+
+
+def apply_profile(profile):
+    if profile not in PROFILES:
+        raise Exception("Unknown profile %s" % profile)
+
+    with open(PROFILE_FILE, "w") as f:
+        f.write(PROFILES[profile])
+        f.flush()
+    print("Applied profile %s" % profile)
+
+
+def unlock_full_power():
+    with open(OVERCLOCK_FILE, "w") as f:
+        f.write("1")
+        f.flush()
+    print("Granted overclock access")
+
+
+def print_usage():
+    print '''
+    Usage :
+        cpu-profile init
+            Sets the default profile - should be called on boot
+            
+        cpu-profile list
+            Lists all the available profiles and their corresponding frequency
+                
+        cpu-profile set <profile>
+            Sets the current profile to <profile>
+    
+        cpu-profile get
+            Gets the current profile name
+    '''
+
+
+def print_profiles():
+    print "Format : <name> - <freq in KHz> [* : enabled] [d : reboot default]"
+
+    max_profile_name_length = max([len(x) for x in PROFILES.keys()])
+    
+    current_profile = get_profile()
+    
+    for profile in reversed(PROFILES.keys()):
+        profile_name = profile
+        profile_freq = PROFILES[profile]
+        is_default = (profile_name == DEFAULT_PROFILE)
+        is_current = (current_profile == profile_name)
+        padding = " " * (max_profile_name_length - len(profile_name))
+        print "%s%s - %s %s %s" % (profile_name, padding, profile_freq, "*" if is_current else " ", "d" if is_default else "")
+
+
+# Main
+if __name__ == "__main__":
+    argc = len(sys.argv)
+    if argc == 2:
+        if sys.argv[1] == "init":
+            apply_profile(DEFAULT_PROFILE)
+            unlock_full_power()
+        elif sys.argv[1] == "get":
+            print get_profile()
+        elif sys.argv[1] == "list":
+            print_profiles()
+        else:
+            print_usage()
+    elif argc == 3:
+        if sys.argv[1] == "set":
+            apply_profile(sys.argv[2])
+        else:
+            print_usage()
+    else:
+        print_usage()

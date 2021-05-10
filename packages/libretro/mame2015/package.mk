@@ -54,7 +54,7 @@ make_target() {
     Odroid_C2|WeTek_Hub|WeTek_Play_2)
       make platform=armv-neon-hardfloat
       ;;
-    Generic)
+    Generic|Switch)
       make
       ;;
     *)

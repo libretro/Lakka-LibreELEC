@@ -1,0 +1,94 @@
+setenv ovcfgaddr 0x8d100000
+
+load mmc 1:1 0x83000000 lakka/KERNEL
+load mmc 1:1 0x8d000000 lakka/tegra210-icosa.dtb
+
+# Store dtb filesize
+setenv dtb_part_size ${filesize}
+
+# Load dtb in memory
+fdt addr 0x8d000000 ${dtb_part_size}
+fdt resize 8192
+
+# select SDCard as main mmc
+mmc dev 1
+
+# store SD serial number to use as device serial
+mmc info serial#
+
+host_mac_addr=0xff
+
+# load mac address info file
+if fatload mmc 1:1 0x90000000 switchroot/joycon_mac.bin; then
+    if itest.b *0x90000000 == 0x01; then
+        # left joy con is available
+        host_mac_addr=0x90000007
+    fi
+
+    if itest.b *0x9000001d == 0x02; then
+        # right joy con is available
+        host_mac_addr=0x90000024
+    fi
+fi
+
+if itest $host_mac_addr == 0xff; then
+    # no joy con is available
+
+    # write to a known good location
+    mw.q 0x90000000 ${serial#} 1
+
+    # write crc32 of value at offset 0x3
+    crc32 0x90000000 8 0x90000003
+
+    # write nintendo prefix
+    mw.b 0x90000000 0x98 1
+    mw.b 0x90000001 0xE8 1
+    mw.b 0x90000002 0xFA 1
+
+    # use this to generate mac
+    host_mac_addr=0x90000000
+fi
+
+bt_mac=""
+sep=""
+for i in 0 1 2 3 4 5 ; do
+    setexpr x $host_mac_addr + $i
+    setexpr.b b *$x
+    if itest $b <= f; then
+        # There is no way to have leading zeros, so do this hack
+        bt_mac="$bt_mac${sep}0$b"
+    else
+        bt_mac="$bt_mac$sep$b"
+    fi
+    sep=":"
+done
+
+# FIXME after hekate gets wifi mac reading
+setexpr.b last_byte *0x90000005
+if itest $last_byte == 0xFF; then
+    # wrap around case
+    setexpr wifi_mac gsub "(.*:.*:.*:.*:.*:).*" "\\100" $bt_mac
+else
+    setexpr.b wb $last_byte + 1
+    if itest $wb <= f; then
+        setexpr wifi_mac gsub "(.*:.*:.*:.*:.*:).*" "\\10$wb" $bt_mac
+    else
+        setexpr wifi_mac gsub "(.*:.*:.*:.*:.*:).*" "\\1$wb" $bt_mac
+    fi
+fi
+
+load mmc 1:1 ${ovcfgaddr} switchroot/overlays/tegra210-UART-B-overlay.dtbo && fdt apply ${ovcfgaddr}
+
+fdt set /chosen nvidia,wifi-mac ${wifi_mac}
+fdt set /chosen nvidia,bluetooth-mac ${bt_mac}
+
+setenv bootargs "boot=/dev/mmcblk0p1 SYSTEM_IMAGE=lakka/SYSTEM toram nofsck retroarch=0
+no_console_suspend console=ttyS1,115200,8n1 earlycon=tegra_comb_uart,mmio32,0x70006040
+vpr_resize pmc_reboot2payload.enabled=1 pmc_reboot2payload.reboot_action=bootloader
+pmc_reboot2payload.default_payload=reboot_payload.bin
+pmc_reboot2payload.hekate_config_id=SWR-LAK access=m2 nvdec_enabled=0
+firmware_class.path=/usr/lib/firmware tegra_fbmem=0x384000@0xf5a00000
+consoleblank=0 fbcon=rotate:3"
+
+usb reset
+booti 0x83000000 - 0x8d000000
