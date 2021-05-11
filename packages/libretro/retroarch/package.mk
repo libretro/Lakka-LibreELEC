@@ -33,10 +33,8 @@ PKG_LONGDESC="RetroArch is the reference frontend for the libretro API. Popular 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-if [ "$PROJECT" == "Generic_VK_nvidia" ]; then
-  PKG_DEPENDS_TARGET+=" slang-shaders"
-elif [ "$DEVICE" == "RPi4" ]; then
-  PKG_DEPENDS_TARGET+=" slang-shaders glsl-shaders"
+if [ "$PROJECT" == "Generic" ] || [ "$DEVICE" == "RPi4" ]; then
+  PKG_DEPENDS_TARGET+=" slang-shaders glsl-shaders $VULKAN"
 else
   PKG_DEPENDS_TARGET+=" glsl-shaders"
 fi
@@ -100,6 +98,10 @@ elif [ "$OPENGLES" == "mesa" ]; then
   else
     RETROARCH_GL="--enable-opengles --enable-kms --disable-x11"
   fi
+elif [ "$OPENGLES" == "mesa" ]; then
+  if [ "$PROJECT" == "Generic" ]; then
+   RETROARCH_GL="--enable-opengles --enable-kms --disable-x11 --enable-egl --disable-wayland --enable-vulkan"
+ fi
 fi
 if [ ! $PROJECT == "L4T" ]; then
   if [ "$VULKAN_SUPPORT" = "yes" ]; then
@@ -268,8 +270,8 @@ makeinstall_target() {
   echo "playlist_entry_rename = \"false\"" >> $INSTALL/etc/retroarch.cfg
   echo "playlist_entry_remove = \"false\"" >> $INSTALL/etc/retroarch.cfg
 
-  # Generic_VK_nvidia
-  if [ "$PROJECT" == "Generic_VK_nvidia" ]; then
+  # Generic
+  if [ "$PROJECT" == "Generic" ]; then
     echo "video_context_driver = \"khr_display\"" >> $INSTALL/etc/retroarch.cfg
     echo "video_driver = \"vulkan\"" >> $INSTALL/etc/retroarch.cfg
   fi
