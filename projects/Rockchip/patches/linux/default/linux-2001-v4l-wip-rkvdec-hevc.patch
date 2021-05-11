@@ -65,18 +65,6 @@ index 456488f2b5ca..81529b1d8d69 100644
  ``V4L2_CID_MPEG_VIDEO_HEVC_DECODE_MODE (enum)``
      Specifies the decoding mode to use. Currently exposes slice-based and
      frame-based decoding but new modes might be added later on.
-diff --git a/Documentation/userspace-api/media/v4l/pixfmt-compressed.rst b/Documentation/userspace-api/media/v4l/pixfmt-compressed.rst
-index d585909bc4e2..f817c643761b 100644
---- a/Documentation/userspace-api/media/v4l/pixfmt-compressed.rst
-+++ b/Documentation/userspace-api/media/v4l/pixfmt-compressed.rst
-@@ -200,6 +200,7 @@ Compressed Formats
-         * ``V4L2_CID_MPEG_VIDEO_HEVC_SPS``
-         * ``V4L2_CID_MPEG_VIDEO_HEVC_PPS``
-         * ``V4L2_CID_MPEG_VIDEO_HEVC_SLICE_PARAMS``
-+        * ``V4L2_CID_MPEG_VIDEO_HEVC_SCALING_MATRIX``
- 	See the :ref:`associated Codec Control IDs <v4l2-mpeg-hevc>`.
- 	Buffers associated with this pixel format must contain the appropriate
- 	number of macroblocks to decode a full corresponding frame.
 diff --git a/drivers/media/v4l2-core/v4l2-ctrls.c b/drivers/media/v4l2-core/v4l2-ctrls.c
 index 7ed11f296008..a2609de88d26 100644
 --- a/drivers/media/v4l2-core/v4l2-ctrls.c
@@ -124,12 +112,12 @@ index 1009cf0891cc..1592e52c3614 100644
 --- a/include/media/hevc-ctrls.h
 +++ b/include/media/hevc-ctrls.h
 @@ -19,6 +19,7 @@
- #define V4L2_CID_MPEG_VIDEO_HEVC_SPS		(V4L2_CID_MPEG_BASE + 1008)
- #define V4L2_CID_MPEG_VIDEO_HEVC_PPS		(V4L2_CID_MPEG_BASE + 1009)
- #define V4L2_CID_MPEG_VIDEO_HEVC_SLICE_PARAMS	(V4L2_CID_MPEG_BASE + 1010)
-+#define V4L2_CID_MPEG_VIDEO_HEVC_SCALING_MATRIX	(V4L2_CID_MPEG_BASE + 1011)
- #define V4L2_CID_MPEG_VIDEO_HEVC_DECODE_MODE	(V4L2_CID_MPEG_BASE + 1015)
- #define V4L2_CID_MPEG_VIDEO_HEVC_START_CODE	(V4L2_CID_MPEG_BASE + 1016)
+ #define V4L2_CID_MPEG_VIDEO_HEVC_SPS		(V4L2_CID_CODEC_BASE + 1008)
+ #define V4L2_CID_MPEG_VIDEO_HEVC_PPS		(V4L2_CID_CODEC_BASE + 1009)
+ #define V4L2_CID_MPEG_VIDEO_HEVC_SLICE_PARAMS	(V4L2_CID_CODEC_BASE + 1010)
++#define V4L2_CID_MPEG_VIDEO_HEVC_SCALING_MATRIX	(V4L2_CID_CODEC_BASE + 1011)
+ #define V4L2_CID_MPEG_VIDEO_HEVC_DECODE_MODE	(V4L2_CID_CODEC_BASE + 1015)
+ #define V4L2_CID_MPEG_VIDEO_HEVC_START_CODE	(V4L2_CID_CODEC_BASE + 1016)
  
 @@ -26,6 +27,7 @@
  #define V4L2_CTRL_TYPE_HEVC_SPS 0x0120
@@ -2901,28 +2889,24 @@ diff --git a/drivers/staging/media/rkvdec/rkvdec.c b/drivers/staging/media/rkvde
 index f3578c5ea902..a44db1aa161e 100644
 --- a/drivers/staging/media/rkvdec/rkvdec.c
 +++ b/drivers/staging/media/rkvdec/rkvdec.c
-@@ -162,6 +162,61 @@ static const u32 rkvdec_h264_decoded_fmts[] = {
+@@ -162,6 +162,57 @@ static const u32 rkvdec_h264_decoded_fmts[] = {
  	V4L2_PIX_FMT_NV20,
  };
  
 +static const struct rkvdec_ctrl_desc rkvdec_hevc_ctrl_descs[] = {
 +	{
-+		.mandatory = true,
 +		.cfg.id = V4L2_CID_MPEG_VIDEO_HEVC_SLICE_PARAMS,
 +		// HACK: match ffmpeg v4l2 request api hwaccel size,
 +		//       we should support variable length up to 600 slices
 +		.cfg.dims = { 16 },
 +	},
 +	{
-+		.mandatory = true,
 +		.cfg.id = V4L2_CID_MPEG_VIDEO_HEVC_SPS,
 +	},
 +	{
-+		.mandatory = true,
 +		.cfg.id = V4L2_CID_MPEG_VIDEO_HEVC_PPS,
 +	},
 +	{
-+		.mandatory = true,
 +		.cfg.id = V4L2_CID_MPEG_VIDEO_HEVC_SCALING_MATRIX,
 +	},
 +	{
