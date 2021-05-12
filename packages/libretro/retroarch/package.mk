@@ -205,6 +205,15 @@ makeinstall_target() {
     sed -i -e "s/# menu_driver = \"rgui\"/menu_driver = \"ozone\"/" $INSTALL/etc/retroarch.cfg
   fi
 
+  # Power settings
+  # Use ondemand for all RPi devices (for backwards compatibility?)
+  # and any battery powered device (OGA and RPi case)
+  if [ "$PROJECT" == "RPi" ] || [ "$DEVICE" == "OdroidGoAdvance" ]; then
+    echo 'cpu_main_gov = "ondemand"' >> $INSTALL/etc/retroarch.cfg
+    echo 'cpu_menu_gov = "ondemand"' >> $INSTALL/etc/retroarch.cfg
+    echo 'cpu_scaling_mode = "1"' >> $INSTALL/etc/retroarch.cfg
+  fi
+
   # Quick menu
   echo "core_assets_directory =/storage/roms/downloads" >> $INSTALL/etc/retroarch.cfg
   echo "quick_menu_show_undo_save_load_state = \"false\"" >> $INSTALL/etc/retroarch.cfg
