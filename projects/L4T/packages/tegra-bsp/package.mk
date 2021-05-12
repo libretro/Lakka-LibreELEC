@@ -82,7 +82,7 @@ makeinstall_target() {
   # Refresh symlinks
   cd usr/lib/
   ln -sfn libcuda.so.1.1 libcuda.so
-  ln -sfn libdrm.so.2 libdrm_nvdc.so
+  mv libdrm.so.2 libdrm_nvdc.so
   ln -sfn libnvbufsurface.so.1.0.0 libnvbufsurface.so
   ln -sfn libnvbufsurftransform.so.1.0.0 libnvbufsurftransform.so
   ln -sfn libnvbuf_utils.so.1.0.0 libnvbuf_utils.so
@@ -90,8 +90,7 @@ makeinstall_target() {
   ln -sfn libnvid_mapper.so.1.0.0 libnvid_mapper.so
   ln -sfn libnvv4l2.so libv4l2.so.0.0.999999
   ln -sfn libnvv4lconvert.so libv4lconvert.so.0.0.999999
-  ln -sfn libvulkan.so.1.2.132 libvulkan.so.1.2
-  
+ 
   #Fix Vulkan ICD
   sed -i 's:libGLX_nvidia.so.0:/usr/lib/libGLX_nvidia.so.0:g' nvidia_icd.json
 
