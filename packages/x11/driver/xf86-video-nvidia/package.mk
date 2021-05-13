@@ -6,8 +6,8 @@ PKG_NAME="xf86-video-nvidia"
 # Remember to run "python packages/x11/driver/xf86-video-nvidia/scripts/make_nvidia_udev.py" and commit changes to
 # "packages/x11/driver/xf86-video-nvidia/udev.d/96-nvidia.rules" whenever bumping version.
 # Host may require installation of python3-lxml and python3-requests packages.
-PKG_VERSION="455.45.01"
-PKG_SHA256="9b707d6244735cf0f745a74c47ed0feeec47bc56baec8122306dee6169ce10fd"
+PKG_VERSION="460.67"
+PKG_SHA256="a19253cf805f913a3b53098587d557fb21c9b57b1568cb630e128ebb3276c10e"
 PKG_ARCH="x86_64"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.nvidia.com/"
@@ -70,4 +70,15 @@ makeinstall_target() {
     cp libvdpau_nvidia.so* $INSTALL/usr/lib/vdpau/libvdpau_nvidia-main.so.1
     ln -sf /var/lib/libvdpau_nvidia.so $INSTALL/usr/lib/vdpau/libvdpau_nvidia.so
     ln -sf /var/lib/libvdpau_nvidia.so.1 $INSTALL/usr/lib/vdpau/libvdpau_nvidia.so.1
+
+# Install Vulkan ICD & SPIR-V lib
+  if [ "${VULKAN_SUPPORT}" = "yes" ]; then
+    cp -P libnvidia-glvkspirv.so.${PKG_VERSION} ${INSTALL}/usr/lib 
+    mkdir -p ${INSTALL}/usr/share/vulkan/icd.d
+    if [ -f nvidia_icd.json.template ]; then
+      sed "s#__NV_VK_ICD__#/usr/lib/libGLX_nvidia.so.0#" nvidia_icd.json.template > ${INSTALL}/usr/share/vulkan/icd.d/nvidia_icd.json
+    elif [ -f nvidia_icd.json ]; then
+      cp -P nvidia_icd.json ${INSTALL}/usr/share/vulkan/icd.d/
+    fi
+  fi
 }
