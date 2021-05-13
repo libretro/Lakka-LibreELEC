@@ -61,12 +61,14 @@ post_makeinstall_target() {
     cp src/main.conf $INSTALL/etc/bluetooth
     sed -i $INSTALL/etc/bluetooth/main.conf \
         -e "s|^#\[Policy\]|\[Policy\]|g" \
-        -e "s|^#AutoEnable.*|AutoEnable=true|g"
+        -e "s|^#AutoEnable.*|AutoEnable=true|g" \
+        -e "s|^#JustWorksRepairing.*|JustWorksRepairing=always|g" \
+        -e "s|^#FastConnectable.*|FastConnectable=true|g"
 
-  #This fixes joycon connection issues after they have already been paired.
-  if [ "$DEVICE" == "Switch" ]; then
-    sed -i 's/#FastConnectable = false/FastConnectable = true/' $INSTALL/etc/bluetooth/main.conf
-  fi
+#  This fixes joycon connection issues after they have already been paired.
+#  if [ "$DEVICE" == "Switch" ]; then
+#    sed -i 's/#FastConnectable = false/FastConnectable = true/' $INSTALL/etc/bluetooth/main.conf
+#  fi
 
   mkdir -p $INSTALL/usr/share/services
     cp -P $PKG_DIR/default.d/*.conf $INSTALL/usr/share/services
