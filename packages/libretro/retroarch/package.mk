@@ -238,9 +238,9 @@ makeinstall_target() {
   # Audio
   sed -i -e "s/# audio_driver =/audio_driver = \"alsathread\"/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# audio_filter_dir =/audio_filter_dir =\/usr\/share\/audio_filters/" $INSTALL/etc/retroarch.cfg
-  if [ "$PROJECT" = "OdroidXU3" -o "$DEVICE" = "RPi4" ]; then # workaround the 55fps bug + fix no audio for RPi4
-    sed -i -e "s/# audio_out_rate = 48000/audio_out_rate = 44100/" $INSTALL/etc/retroarch.cfg
-  fi
+# if [ "$PROJECT" = "OdroidXU3" -o "$DEVICE" = "RPi4" ]; then # workaround the 55fps bug + fix no audio for RPi4
+#    sed -i -e "s/# audio_out_rate = 48000/audio_out_rate = 44100/" $INSTALL/etc/retroarch.cfg
+#  fi
 
   # Saving
   echo "savestate_thumbnail_enable = \"false\"" >> $INSTALL/etc/retroarch.cfg
@@ -282,7 +282,7 @@ makeinstall_target() {
   # Generic
   if [ "$PROJECT" == "Generic" ]; then
     echo "video_context_driver = \"khr_display\"" >> $INSTALL/etc/retroarch.cfg
-    echo "video_driver = \"vulkan\"" >> $INSTALL/etc/retroarch.cfg
+#    echo "video_driver = \"vulkan\"" >> $INSTALL/etc/retroarch.cfg
   fi
 
   if [ "$DEVICE" == "OdroidGoAdvance" ]; then
