@@ -2,8 +2,8 @@
 # Copyright (C) 2018-present Lakka Team
 
 PKG_NAME="vulkan-tools"
-PKG_VERSION="1.2.173"
-PKG_SHA256="da5606f37e9fec87a1d578e044bd002aa8d637a82baad2ea80b939d3dc2edf21"
+PKG_VERSION="1.2.174"
+PKG_SHA256="c8b537d3a8f18550b8720a8a3c0006949e2575d547d88fa94858ab7413cee7de"
 PKG_LICENSE="Apache 2.0"
 PKG_SITE="https://github.com/KhronosGroup/Vulkan-Tools"
 PKG_URL="https://github.com/KhronosGroup/Vulkan-tools/archive/v${PKG_VERSION}.tar.gz"
