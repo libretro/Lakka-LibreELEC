@@ -20,7 +20,7 @@ PKG_CMAKE_OPTS_TARGET="-DBUILD_SHARED_LIBS=1 \
                        -DHAVE_GIT_BIN=0"
 
 if [ "$PROJECT" = "RPi" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-bootloader"
 fi
 
 # libX11 and xrandr to read the sink's EDID, used to determine the PC's HDMI physical address
