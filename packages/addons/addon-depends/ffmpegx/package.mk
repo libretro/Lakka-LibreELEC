@@ -15,7 +15,7 @@ PKG_BUILD_FLAGS="-gold"
 get_graphicdrivers
 
 if [ "$KODIPLAYER_DRIVER" == "bcm2835-driver" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-bootloader"
 fi
 
 if [ "$TARGET_ARCH" = "x86_64" ]; then

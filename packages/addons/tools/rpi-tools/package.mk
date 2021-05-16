@@ -27,7 +27,7 @@ addon() {
     cp -PR $(get_build_dir gpiozero)/gpiozero $ADDON_BUILD/$PKG_ADDON_ID/lib/
     cp -PR $(get_build_dir colorzero)/colorzero $ADDON_BUILD/$PKG_ADDON_ID/lib/
 
-  BCM2835_DIR="$(get_build_dir bcm2835-driver)"
+  BCM2835_DIR="$(get_build_dir bcm2835-bootloader)"
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin/
     cp -P $BCM2835_DIR/hardfp/opt/vc/bin/raspistill $ADDON_BUILD/$PKG_ADDON_ID/bin
     cp -P $BCM2835_DIR/hardfp/opt/vc/bin/raspiyuv $ADDON_BUILD/$PKG_ADDON_ID/bin
