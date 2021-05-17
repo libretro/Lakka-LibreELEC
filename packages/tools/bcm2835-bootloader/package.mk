@@ -41,7 +41,8 @@ makeinstall_target() {
       echo "arm_64bit=1" >> $INSTALL/usr/share/bootloader/distroconfig.txt
       echo "kernel=kernel.img" >> $INSTALL/usr/share/bootloader/distroconfig.txt
     fi
- 
+
+  cd ..
   # Install vendor header files except proprietary GL headers
   mkdir -p ${SYSROOT_PREFIX}/usr/include
     for f in $(cd hardfp/opt/vc/include; ls); do
