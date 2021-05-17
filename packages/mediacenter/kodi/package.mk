@@ -38,7 +38,7 @@ case $KODI_VENDOR in
 esac
 
 if [ "$PROJECT" = "RPi" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-bootloader"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"
 fi
 
 configure_package() {
