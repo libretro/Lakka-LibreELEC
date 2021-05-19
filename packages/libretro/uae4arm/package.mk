@@ -19,11 +19,12 @@
 ################################################################################
 
 PKG_NAME="uae4arm"
-PKG_VERSION="a0e51f6"
+PKG_VERSION="7f8ddcf"
 PKG_REV="1"
-PKG_ARCH="arm"
+PKG_ARCH="arm aarch64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/Chips-fr/uae4arm-rpi"
+PKG_GIT_CLONE_BRANCH="master"
 PKG_URL="$PKG_SITE.git"
 PKG_DEPENDS_TARGET="toolchain flac mpg123 zlib"
 PKG_PRIORITY="optional"
@@ -37,11 +38,14 @@ PKG_AUTORECONF="no"
 
 
 make_target() {
-  CFLAGS="$CFLAGS -DARM -marm"
-  if [[ "$TARGET_FPU" =~ "neon" ]]; then
-    make -f Makefile.libretro platform=unix-neon
+  if [[ "$ARCH" =~ "aarch64" ]]; then
+    make -f Makefile.libretro platform=unix-aarch64
   else
-    make -f Makefile.libretro platform=unix
+    if [[ "$TARGET_FPU" =~ "neon" ]]; then
+      make -f Makefile.libretro platform=unix-neon
+    else
+      make -f Makefile.libretro platform=unix
+    fi
   fi
 }
 

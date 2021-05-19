@@ -15,4 +15,5 @@ if [ "$ARCH" = "x86_64" ];then
 fi
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-shared \
+                           --with-pic \
                            --enable-static"
