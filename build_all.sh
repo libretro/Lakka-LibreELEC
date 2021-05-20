@@ -73,7 +73,6 @@ targets="\
 	Amlogic|AMLG12|arm|image \
 	Amlogic|AMLGX|arm|image \
 	Generic||x86_64|image \
-	Generic||i386|image \
 	NXP|iMX6|arm|image \
 	OdroidXU3||arm|image \
 	Rockchip|MiQi|arm|image \
@@ -84,9 +83,8 @@ targets="\
 	RPi|GPICase|arm|image \
 	RPi|RPi|arm|image \
 	RPi|RPi2|arm|image \
-	RPi|RPi4|aarch|image \
+	RPi|RPi4|aarch64|image \
 	RPi|RPi4|arm|image \
-	Qualcomm|Dragonboard|arm|image \
 	L4T|Switch|aarch64|image \
 	"
 
@@ -125,11 +123,6 @@ do
 
 	if [ "${DASHBOARD_MODE}" != "yes" ]
 	then
-		rm -rf build.${distro}-${target_name}*/.stamps
-		rm -rf build.${distro}-${target_name}*/image
-		rm -rf build.${distro}-${target_name}*/toolchain
-		rm -rf build.${distro}-${target_name}*/nss*
-		rm -rf build.${distro}-${target_name}*/avahi*
 		# show logs during build (non-dashboard build)
 		echo "Starting build of ${target_name}"
 		make ${out} PROJECT=${project} DEVICE=${device} ARCH=${arch} IGNORE_VERSION=${iv} ${tc}
@@ -141,11 +134,6 @@ do
 	else
 		# remove the old dashboard, so we don't show old/stale dashboard
 		rm -f ${statusfile}
-		rm -rf build.${distro}-${target_name}*/.stamps
-		rm -rf build.${distro}-${target_name}*/image
-		rm -rf build.${distro}-${target_name}*/toolchain
-		rm -rf build.${distro}-${target_name}*/nss*
-		rm -rf build.${distro}-${target_name}*/avahi*
 		# start the build process in background
 		make ${out} PROJECT=${project} DEVICE=${device} ARCH=${arch} IGNORE_VERSION=${iv} ${tc} &>/dev/null &
 		# store the pid
