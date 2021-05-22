@@ -84,7 +84,6 @@ targets="\
 	RPi|RPi|arm|image \
 	RPi|RPi2|arm|image \
 	RPi|RPi4|aarch64|image \
-	RPi|RPi4|arm|image \
 	L4T|Switch|aarch64|image \
 	"
 
@@ -275,16 +274,35 @@ do
 		[ "${DASHBOARD_MODE}" = "yes" ] && echo "done!"
 
 		# move release files to the folder
-		[ "${DASHBOARD_MODE}" = "yes" ] && echo -n "Moving release files (.img.gz, .kernel, .system) to subfolder..."
-		for file in Lakka-${target_name}-*{.img.gz,.kernel,.system}*
+		[ "${DASHBOARD_MODE}" = "yes" ] && echo -n "Moving release files (.img.gz, .kernel, .system, .tar) to subfolder..."
+		for file in Lakka-${target_name}-*{.img.gz,.kernel,.system,.tar}*
 		do
 			[ -f "${file}" ] && mv ${v} ${file} ${target_name}/
 		done
 		[ "${DASHBOARD_MODE}" = "yes" ] && echo "done!"
 		# remove files we do not use
-		[ "${DASHBOARD_MODE}" = "yes" ] && echo -n "Removing unused files (.tar, .ova)..."
-		rm -f ${v} Lakka-${target_name}-*.{tar,ova}*
+		[ "${DASHBOARD_MODE}" = "yes" ] && echo -n "Removing unused files (.ova)..."
+		rm -f ${v} Lakka-${target_name}-*.{ova}*
 		[ "${DASHBOARD_MODE}" = "yes" ] && echo "done!"
+		if [ "${target_name}" = "Switch.aarch64" ]
+		then
+			if [ -x $(which 7za 2>/dev/null) ]
+			then
+				[ "${DASHBOARD_MODE}" = "yes" ] && echo -n "Creating 7z archive for ${target_name}..."
+				cd ${target_name}
+				basename=$(basename $(ls Lakka-${target_name}-*.tar | head -n 1) .tar)
+				if [ -n "${basename}" ]
+				then
+					tar xf ${basename}.tar
+					cd ${basename}
+					7za a -r ../${basename}.7z * 2>&1 > /dev/null
+					cd ..
+					rm -r ${basename}
+				fi
+				cd ..
+				[ "${DASHBOARD_MODE}" = "yes" ] && echo "done!"
+			fi
+		fi
 		cd ..
 	else
 		# build OK, but no release files were created
