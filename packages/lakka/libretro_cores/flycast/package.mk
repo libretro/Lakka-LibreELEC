@@ -1,5 +1,5 @@
 PKG_NAME="flycast"
-PKG_VERSION="ddb617a"
+PKG_VERSION="8e4fa54"
 PKG_ARCH="arm aarch64 x86_64"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/flycast"

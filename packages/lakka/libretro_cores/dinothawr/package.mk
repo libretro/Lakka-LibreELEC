@@ -1,5 +1,5 @@
 PKG_NAME="dinothawr"
-PKG_VERSION="84a98d7"
+PKG_VERSION="90264f4"
 PKG_LICENSE="Non-commercial"
 PKG_SITE="https://github.com/libretro/Dinothawr"
 PKG_URL="${PKG_SITE}.git"

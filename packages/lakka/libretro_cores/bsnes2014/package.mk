@@ -1,5 +1,5 @@
 PKG_NAME="bsnes2014"
-PKG_VERSION="1c2216f"
+PKG_VERSION="cffc626"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/bsnes2014"
 PKG_URL="${PKG_SITE}.git"

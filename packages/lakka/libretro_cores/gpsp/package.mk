@@ -1,5 +1,5 @@
 PKG_NAME="gpsp"
-PKG_VERSION="5b5a4db"
+PKG_VERSION="261b2db"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/gpsp"
 PKG_URL="${PKG_SITE}.git"

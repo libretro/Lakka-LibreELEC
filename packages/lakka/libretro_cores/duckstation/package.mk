@@ -1,5 +1,5 @@
 PKG_NAME="duckstation"
-PKG_VERSION="7c964e1"
+PKG_VERSION="b429f05"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/duckstation"
 PKG_URL="${PKG_SITE}.git"

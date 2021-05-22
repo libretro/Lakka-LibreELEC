@@ -1,5 +1,5 @@
 PKG_NAME="retroarch"
-PKG_VERSION="f7d0908"
+PKG_VERSION="122be0c"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
 PKG_URL="${PKG_SITE}.git"
@@ -129,7 +129,14 @@ makeinstall_target() {
   sed -i -e "s/# assets_directory =/assets_directory =\/tmp\/assets/" ${INSTALL}/etc/retroarch.cfg
   sed -i -e "s/# overlay_directory =/overlay_directory =\/tmp\/overlays/" ${INSTALL}/etc/retroarch.cfg
   sed -i -e "s/# cheat_database_path =/cheat_database_path =\/tmp\/database\/cht/" ${INSTALL}/etc/retroarch.cfg
-  sed -i -e "s/# menu_driver = \"rgui\"/menu_driver = \"xmb\"/" ${INSTALL}/etc/retroarch.cfg
+
+  # Power settings
+  # Use ondemand for all RPi devices (for backwards compatibility?)
+  if [ "${PROJECT}" == "RPi" ]; then
+    echo 'cpu_main_gov = "ondemand"' >> $INSTALL/etc/retroarch.cfg
+    echo 'cpu_menu_gov = "ondemand"' >> $INSTALL/etc/retroarch.cfg
+    echo 'cpu_scaling_mode = "1"' >> $INSTALL/etc/retroarch.cfg
+  fi
 
   # Quick menu
   echo "core_assets_directory =/storage/roms/downloads" >> ${INSTALL}/etc/retroarch.cfg
@@ -216,8 +223,8 @@ makeinstall_target() {
   if [ "${PROJECT}" = "RPi" -a "${DEVICE}" = "GPICase" ]; then
     echo "audio_device = \"default:CARD=ALSA\"" >> ${INSTALL}/etc/retroarch.cfg
     echo "menu_timedate_enable = false" >> ${INSTALL}/etc/retroarch.cfg
+    echo "menu_driver = \"rgui\"" >> ${INSTALL}/etc/retroarch.cfg
     sed -i -e "s/input_menu_toggle_gamepad_combo = 2/input_menu_toggle_gamepad_combo = 4/" ${INSTALL}/etc/retroarch.cfg
-    sed -i -e "s/menu_driver = \"xmb\"/menu_driver = \"rgui\"/" ${INSTALL}/etc/retroarch.cfg
     sed -i -e "s/video_threaded = true/video_threaded = false/" ${INSTALL}/etc/retroarch.cfg
     sed -i -e "s/# aspect_ratio_index = 19/aspect_ratio_index = 21/" ${INSTALL}/etc/retroarch.cfg
     sed -i -e "s/# audio_out_rate = 48000/audio_out_rate = 44100/" ${INSTALL}/etc/retroarch.cfg
