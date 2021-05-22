@@ -119,7 +119,8 @@ class Librespot(xbmc.Player):
                 env=ADDON_ENVT,
                 stderr=subprocess.STDOUT,
                 stdout=subprocess.PIPE,
-                text=True)
+                text=True,
+                encoding='utf-8')
             log('librespot started')
             with self.librespot.stdout:
                 for line in self.librespot.stdout:

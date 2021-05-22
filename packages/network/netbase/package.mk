@@ -2,8 +2,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="netbase"
-PKG_VERSION="6.2"
-PKG_SHA256="309a24146a06347d654b261e9e07a82fab844b173674a42e223803dd8258541e"
+PKG_VERSION="6.3"
+PKG_SHA256="7c42a6a1cafa0c64103c71cab6431fc8613179b2449a1a00e55e3584e860d81c"
 PKG_LICENSE="GPL"
 PKG_SITE="https://salsa.debian.org/md/netbase"
 PKG_URL="http://ftp.debian.org/debian/pool/main/n/netbase/netbase_${PKG_VERSION}.tar.xz"
