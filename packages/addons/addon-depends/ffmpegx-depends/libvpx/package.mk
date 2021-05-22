@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libvpx"
-PKG_VERSION="1.9.0"
-PKG_SHA256="d279c10e4b9316bf11a570ba16c3d55791e1ad6faa4404c67422eb631782c80a"
+PKG_VERSION="1.10.0"
+PKG_SHA256="85803ccbdbdd7a3b03d930187cb055f1353596969c1f92ebec2db839fa4f834a"
 PKG_LICENSE="BSD"
 PKG_SITE="https://www.webmproject.org"
 PKG_URL="https://github.com/webmproject/libvpx/archive/v${PKG_VERSION}.tar.gz"
