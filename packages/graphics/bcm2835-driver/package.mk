@@ -13,10 +13,10 @@ PKG_LONGDESC="OpenMAX-bcm2835: OpenGL-ES and OpenMAX driver for BCM2835"
 PKG_TOOLCHAIN="manual"
 
 # Set SoftFP ABI or HardFP ABI
-if [ "${TARGET_FLOAT}" = "soft" ]; then
-  PKG_FLOAT="softfp"
-else
+if [ "${PROJECT}" = "RPi" -a "${DEVICE}" = "RPi" ]; then
   PKG_FLOAT="hardfp"
+else
+  PKG_FLOAT="."
 fi
 
 makeinstall_target() {
