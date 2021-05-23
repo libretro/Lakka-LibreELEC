@@ -72,7 +72,9 @@ targets="\
 	Allwinner|H6|arm|image \
 	Amlogic|AMLG12|arm|image \
 	Amlogic|AMLGX|arm|image \
+	Generic||i386|image \
 	Generic||x86_64|image \
+	L4T|Switch|aarch64|image \
 	NXP|iMX6|arm|image \
 	OdroidXU3||arm|image \
 	Rockchip|MiQi|arm|image \
@@ -84,7 +86,6 @@ targets="\
 	RPi|RPi|arm|image \
 	RPi|RPi2|arm|image \
 	RPi|RPi4|aarch64|image \
-	L4T|Switch|aarch64|image \
 	"
 
 # set the number of total build jobs and initialize counter for current build job
