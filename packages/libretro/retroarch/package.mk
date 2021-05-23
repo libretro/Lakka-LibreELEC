@@ -24,7 +24,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
 PKG_URL="$PKG_SITE.git"
-PKG_DEPENDS_TARGET="toolchain alsa-lib freetype zlib retroarch-assets retroarch-overlays core-info retroarch-joypad-autoconfig lakka-update libretro-database ffmpeg libass libvdpau libxkbfile xkeyboard-config libxkbcommon joyutils sixpair empty libretro-cores"
+PKG_DEPENDS_TARGET="toolchain alsa-lib freetype zlib retroarch-assets retroarch-overlays core-info retroarch-joypad-autoconfig lakka-update libretro-database ffmpeg libass libvdpau libxkbfile xkeyboard-config libxkbcommon joyutils sixpair empty libretro-cores glsl-shaders"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="Reference frontend for the libretro API."
@@ -32,12 +32,6 @@ PKG_LONGDESC="RetroArch is the reference frontend for the libretro API. Popular 
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-
-if [ "$PROJECT" == "Generic" ] || [ "$DEVICE" == "RPi4" ]; then
-  PKG_DEPENDS_TARGET+=" slang-shaders glsl-shaders $VULKAN"
-else
-  PKG_DEPENDS_TARGET+=" glsl-shaders"
-fi
 
 if [ "$OPENGLES_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET+=" $OPENGLES"
@@ -49,7 +43,7 @@ fi
 
 if [ ! $PROJECT == "L4T" ]; then
   if [ "$VULKAN_SUPPORT" = yes ]; then
-    PKG_DEPENDS_TARGET+=" $VULKAN"
+    PKG_DEPENDS_TARGET+=" slang-shaders $VULKAN"
   fi
 else
   :
