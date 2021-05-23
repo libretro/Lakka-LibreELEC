@@ -15,6 +15,8 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-shared \
 
 if [ "$DISTRO" = "Lakka" ]; then
   PKG_BUILD_FLAGS="+pic"
-  PKG_CONFIGURE_OPTS_TARGET+=" --with-pic"
+  PKG_CONFIGURE_OPTS_TARGET="--disable-static \
+                             --with-pic \
+                             --enable-shared"
 fi
 
