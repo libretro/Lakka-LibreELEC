@@ -10,4 +10,4 @@ PKG_URL="https://github.com/gperftools/gperftools/releases/download/gperftools-$
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Google Performance Tools"
 
-PKG_CMAKE_OPTS_TARGET="-Dgperftools_build_minimal=ON -DGPERFTOOLS_BUILD_STATIC=OFF"
+PKG_CONFIGURE_OPTS_TARGET="--enable-minimal --disable-debugalloc --disable-static"
