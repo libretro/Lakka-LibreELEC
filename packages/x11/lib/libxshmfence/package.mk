@@ -13,4 +13,4 @@ PKG_LONGDESC="libxshmfence is the Shared memory 'SyncFence' synchronization prim
 PKG_TOOLCHAIN="autotools"
 PKG_BUILD_FLAGS="+pic"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"
+PKG_CONFIGURE_OPTS_TARGET="--enable-static --enable-shared"

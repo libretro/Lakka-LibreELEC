@@ -12,4 +12,4 @@ PKG_DEPENDS_TARGET="toolchain util-macros libX11 libXfixes"
 PKG_LONGDESC="LibXdamage provides an X Window System client interface to the DAMAGE extension to the X protocol."
 PKG_BUILD_FLAGS="+pic"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"
+PKG_CONFIGURE_OPTS_TARGET="--enable-static --enable-shared"

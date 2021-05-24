@@ -46,9 +46,9 @@ if [ ! $PROJECT == "L4T" ]; then
     PKG_DEPENDS_TARGET+=" slang-shaders $VULKAN"
   fi
 else
-  :
- # PKG_DEPENDS_TARGET+=" vulkan-loader"
+  PKG_DEPENDS_TARGET+=" slang-shaders vulkan-loader"
 fi
+
 if [ "$SAMBA_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET+=" samba"
 fi
@@ -103,7 +103,7 @@ if [ ! $PROJECT == "L4T" ]; then
   fi
 fi
 if [ "$PROJECT" = "L4T" ]; then
-   RETROARCH_GL="$RETROARCH_GL --disable-egl --enable-opengl --disable-vulkan --disable-vulkan_display"
+   RETROARCH_GL="$RETROARCH_GL --disable-egl --enable-opengl --enable-vulkan --disable-vulkan_display"
    RETROARCH_GL=${RETROARCH_GL//--enable-opengles/--disable-gles}
    RETROARCH_GL=${RETROARCH_GL//--enable-kms/--disable-kms}
    RETROARCH_GL=${RETROARCH_GL//--enable-wayland/--disable-wayland}
