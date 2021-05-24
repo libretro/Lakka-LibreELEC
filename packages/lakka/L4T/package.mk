@@ -50,6 +50,9 @@ post_install() {
 
     mkdir -p $INSTALL/etc/profile.d
     cp $PKG_DIR/assets/15-xorg-init-switch.conf $INSTALL/etc/profile.d
+    cp -P $PKG_DIR/scripts/dock-hotplug $INSTALL/usr/bin
+    mkdir -p $INSTALL/usr/lib/udev/rules.d/
+    cp -P $PKG_DIR/assets/93-dock_hotplug.rules $INSTALL/usr/lib/udev/rules.d/
   fi
 }
 

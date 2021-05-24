@@ -1,0 +1,38 @@
+#!/bin/bash
+
+background_stuff() {
+    export DISPLAY=
+
+    while [ "$DISPLAY" = "" ]
+    do
+
+        cd /tmp/.X11-unix && for x in X*; do
+        if [ ! -e "$x" ]; then continue; fi
+        export DISPLAY=":${x#X}"
+        PULSE_SERVER="127.0.0.1"
+
+        # from https://wiki.archlinux.org/index.php/Acpid#Laptop_Monitor_Power_Off
+        #export XAUTHORITY=$(ps -C Xorg -f --no-header | sed -n 's/.*-auth //; s/ -[^ ].*//; p')
+
+        if [[ "$1" -eq 1 ]]
+        then
+            xrandr --output DP-0 --auto --output DSI-0 --off
+            xrandr --output DP-0 --auto --output DSI-0 --off
+            pactl set-card-profile 1 off
+            pactl set-card-profile 0 output:hdmi-stereo
+        else
+	    xrandr --output DSI-0 --mode 720x1280 --rotate left --panning 1280x720+0+0 --pos 0x0
+            xrandr --output DSI-0 --mode 720x1280 --rotate left --panning 1280x720+0+0 --pos 0x0
+            pactl set-card-profile 1 HiFi
+            pactl set-card-profile 0 off
+        fi
+        done
+    done
+    systemctl restart retroarch
+}
+
+if grep -q 1 "/sys/class/switch/dp/state"; then
+        background_stuff 1 &
+else
+        background_stuff 0 &
+fi
