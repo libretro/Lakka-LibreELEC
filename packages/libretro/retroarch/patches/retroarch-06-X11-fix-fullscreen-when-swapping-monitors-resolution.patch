@@ -1,0 +1,241 @@
+From a8028d5e8e716342602c912f61df7a27ca258628 Mon Sep 17 00:00:00 2001
+From: CTCaer <ctcaer@gmail.com>
+Date: Sat, 29 May 2021 22:19:19 +0300
+Subject: [PATCH] X11: fix fullscreen when swapping monitors/resolution
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Most DEs have the tendency to lose focus when monitor is getting swapped or the resolution changes.
+That causes X11 exiting fullscreen and setting a lower resolution to fit desktop.
+Pushing the window back to top, automatically fixes that and X11 enforces fullscreen again and new max resolution.
+
+Additionally, XConfigure events are now checked and preferred over XGetWindowAttributes.
+That saves several to hundreds μs per frame.
+---
+ gfx/common/x11_common.c        | 24 ++++++++++++++++++++----
+ gfx/drivers_context/x_ctx.c    | 23 +++++++++++++++++++++--
+ gfx/drivers_context/x_vk_ctx.c | 33 ++++++++++++++++++++++++---------
+ 3 files changed, 65 insertions(+), 15 deletions(-)
+
+diff --git a/gfx/common/x11_common.c b/gfx/common/x11_common.c
+index 67110059f17..9c804be1f86 100644
+--- a/gfx/common/x11_common.c
++++ b/gfx/common/x11_common.c
+@@ -71,6 +71,7 @@ static XF86VidModeModeInfo desktop_mode;
+ static bool xdg_screensaver_available       = true;
+ static bool g_x11_has_focus                 = false;
+ static bool g_x11_true_full                 = false;
++static XConfigureEvent g_x11_xce            = {0};
+ static Atom XA_NET_WM_STATE;
+ static Atom XA_NET_WM_STATE_FULLSCREEN;
+ static Atom XA_NET_MOVERESIZE_WINDOW;
+@@ -530,6 +531,11 @@ bool x11_alive(void *data)
+                g_x11_has_focus = false;
+             break;
+ 
++         case ConfigureNotify:
++            if (event.xconfigure.window == g_x11_win)
++               g_x11_xce = event.xconfigure;
++            break;
++
+          case ButtonPress:
+             switch (event.xbutton.button)
+             {
+@@ -629,11 +635,19 @@ void x11_get_video_size(void *data, unsigned *width, unsigned *height)
+    }
+    else
+    {
+-      XWindowAttributes target;
+-      XGetWindowAttributes(g_x11_dpy, g_x11_win, &target);
++      if (g_x11_xce.width != 0 && g_x11_xce.height != 0)
++      {
++         *width  = g_x11_xce.width;
++         *height = g_x11_xce.height;
++      }
++      else
++      {
++      	 XWindowAttributes target;
++         XGetWindowAttributes(g_x11_dpy, g_x11_win, &target);
+ 
+-      *width  = target.width;
+-      *height = target.height;
++         *width  = target.width;
++         *height = target.height;
++      }
+    }
+ }
+ 
+@@ -669,6 +683,8 @@ bool x11_connect(void)
+    dbus_ensure_connection();
+ #endif
+ 
++   memset(&g_x11_xce, 0, sizeof(XConfigureEvent));
++
+    return true;
+ }
+ 
+diff --git a/gfx/drivers_context/x_ctx.c b/gfx/drivers_context/x_ctx.c
+index c9b263374b1..f70bbc5332c 100644
+--- a/gfx/drivers_context/x_ctx.c
++++ b/gfx/drivers_context/x_ctx.c
+@@ -64,6 +64,7 @@ typedef struct gfx_ctx_x_data
+    bool core_es_core;
+    bool debug;
+    bool should_reset_mode;
++   bool is_fullscreen;
+    bool is_double;
+    bool core_hw_context_enable;
+    bool adaptive_vsync;
+@@ -298,7 +299,24 @@ static void gfx_ctx_x_swap_buffers(void *data)
+ }
+ 
+ static bool gfx_ctx_x_set_resize(void *data,
+-      unsigned width, unsigned height) { return true; }
++      unsigned width, unsigned height)
++{
++   gfx_ctx_x_data_t *x = (gfx_ctx_x_data_t*)data;
++
++   if (!x)
++      return false;
++
++   /*
++    * X11 loses focus on monitor/resolution swap and exits fullscreen.
++    * Set window on top again to maintain both fullscreen and resolution.
++    */
++   if (x->is_fullscreen) {
++      XMapRaised(g_x11_dpy, g_x11_win);
++      RARCH_LOG("[GLX]: Resized fullscreen resolution to %dx%d.\n", width, height);
++   }
++
++   return true;
++}
+ 
+ static void *gfx_ctx_x_init(void *data)
+ {
+@@ -455,7 +473,6 @@ static bool gfx_ctx_x_set_video_mode(void *data,
+    if (!x)
+       return false;
+ 
+-
+    switch (x_api)
+    {
+       case GFX_CTX_OPENGL_API:
+@@ -490,6 +507,8 @@ static bool gfx_ctx_x_set_video_mode(void *data,
+       ButtonReleaseMask | ButtonPressMask;
+    swa.override_redirect = False;
+ 
++   x->is_fullscreen = fullscreen;
++
+    if (fullscreen && !windowed_full)
+    {
+       if (x11_enter_fullscreen(g_x11_dpy, width, height))
+diff --git a/gfx/drivers_context/x_vk_ctx.c b/gfx/drivers_context/x_vk_ctx.c
+index 57e3f98edd7..b158eec7518 100644
+--- a/gfx/drivers_context/x_vk_ctx.c
++++ b/gfx/drivers_context/x_vk_ctx.c
+@@ -44,6 +44,7 @@
+ typedef struct gfx_ctx_x_vk_data
+ {
+    bool should_reset_mode;
++   bool is_fullscreen;
+ 
+    int interval;
+ 
+@@ -179,6 +180,18 @@ static bool gfx_ctx_x_vk_set_resize(void *data,
+ {
+    gfx_ctx_x_vk_data_t *x = (gfx_ctx_x_vk_data_t*)data;
+ 
++   if (!x)
++      return false;
++
++   /*
++    * X11 loses focus on monitor/resolution swap and exits fullscreen.
++    * Set window on top again to maintain both fullscreen and resolution.
++    */
++   if (x->is_fullscreen) {
++      XMapRaised(g_x11_dpy, g_x11_win);
++      RARCH_LOG("[X/Vulkan]: Resized fullscreen resolution to %dx%d.\n", width, height);
++   }
++
+    /* FIXME/TODO - threading error here */
+ 
+    if (!vulkan_create_swapchain(&x->vk, width, height, x->interval))
+@@ -276,6 +289,8 @@ static bool gfx_ctx_x_vk_set_video_mode(void *data,
+       ButtonReleaseMask | ButtonPressMask;
+    swa.override_redirect = False;
+ 
++   x->is_fullscreen = fullscreen;
++
+    if (fullscreen && !windowed_full)
+    {
+       if (x11_enter_fullscreen(g_x11_dpy, width, height))
+@@ -284,17 +299,17 @@ static bool gfx_ctx_x_vk_set_video_mode(void *data,
+          true_full = true;
+       }
+       else
+-         RARCH_ERR("[GLX]: Entering true fullscreen failed. Will attempt windowed mode.\n");
++         RARCH_ERR("[X/Vulkan]: Entering true fullscreen failed. Will attempt windowed mode.\n");
+    }
+ 
+    wm_name = x11_get_wm_name(g_x11_dpy);
+    if (wm_name)
+    {
+-      RARCH_LOG("[GLX]: Window manager is %s.\n", wm_name);
++      RARCH_LOG("[X/Vulkan]: Window manager is %s.\n", wm_name);
+ 
+       if (true_full && strcasestr(wm_name, "xfwm"))
+       {
+-         RARCH_LOG("[GLX]: Using override-redirect workaround.\n");
++         RARCH_LOG("[X/Vulkan]: Using override-redirect workaround.\n");
+          swa.override_redirect = True;
+       }
+       free(wm_name);
+@@ -313,9 +328,9 @@ static bool gfx_ctx_x_vk_set_video_mode(void *data,
+ 
+       if (xinerama_get_coord(g_x11_dpy, g_x11_screen,
+                &x_off, &y_off, &new_width, &new_height))
+-         RARCH_LOG("[GLX]: Using Xinerama on screen #%u.\n", g_x11_screen);
++         RARCH_LOG("[X/Vulkan]: Using Xinerama on screen #%u.\n", g_x11_screen);
+       else
+-         RARCH_LOG("[GLX]: Xinerama is not active on screen.\n");
++         RARCH_LOG("[X/Vulkan]: Xinerama is not active on screen.\n");
+ 
+       if (fullscreen)
+       {
+@@ -325,7 +340,7 @@ static bool gfx_ctx_x_vk_set_video_mode(void *data,
+    }
+ #endif
+ 
+-   RARCH_LOG("[GLX]: X = %d, Y = %d, W = %u, H = %u.\n",
++   RARCH_LOG("[X/Vulkan]: X = %d, Y = %d, W = %u, H = %u.\n",
+          x_off, y_off, width, height);
+ 
+    g_x11_win = XCreateWindow(g_x11_dpy, RootWindow(g_x11_dpy, vi->screen),
+@@ -342,7 +357,7 @@ static bool gfx_ctx_x_vk_set_video_mode(void *data,
+       uint32_t                value = 1;
+       Atom net_wm_bypass_compositor = XInternAtom(g_x11_dpy, "_NET_WM_BYPASS_COMPOSITOR", False);
+ 
+-      RARCH_LOG("[GLX]: Requesting compositor bypass.\n");
++      RARCH_LOG("[X/Vulkan]: Requesting compositor bypass.\n");
+       XChangeProperty(g_x11_dpy, g_x11_win, net_wm_bypass_compositor, cardinal, 32, PropModeReplace, (const unsigned char*)&value, 1);
+    }
+ 
+@@ -374,7 +389,7 @@ static bool gfx_ctx_x_vk_set_video_mode(void *data,
+ 
+    if (true_full)
+    {
+-      RARCH_LOG("[GLX]: Using true fullscreen.\n");
++      RARCH_LOG("[X/Vulkan]: Using true fullscreen.\n");
+       XMapRaised(g_x11_dpy, g_x11_win);
+       x11_set_net_wm_fullscreen(g_x11_dpy, g_x11_win);
+    }
+@@ -384,7 +399,7 @@ static bool gfx_ctx_x_vk_set_video_mode(void *data,
+        * Attempt using windowed fullscreen. */
+ 
+       XMapRaised(g_x11_dpy, g_x11_win);
+-      RARCH_LOG("[GLX]: Using windowed fullscreen.\n");
++      RARCH_LOG("[X/Vulkan]: Using windowed fullscreen.\n");
+ 
+       /* We have to move the window to the screen we want
+        * to go fullscreen on first.

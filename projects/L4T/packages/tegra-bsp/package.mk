@@ -112,7 +112,7 @@ build_install() {
     ln -sfn tegra21x gm20b
     cd ../../../
     cd etc
-    ln -sfn asound.conf.tegra210ref asound.conf
+    ln -sfn asound.conf.tegrasndt210ref asound.conf
     cd vulkan/icd.d
     rm nvidia_icd.json
     ln -sfn /usr/lib/nvidia_icd.json nvidia_icd.json
@@ -137,10 +137,12 @@ makeinstall_target() {
     cp -Pv $PKG_DIR/assets/alsa-fix.service $INSTALL/usr/lib/systemd/system/
     mkdir -p $INSTALL/usr/lib/systemd/system/multi-user.target.wants
     ln -s $INSTALL/usr/lib/systemd/system/alsa-fix.service $INSTALL/usr/lib/systemd/system/multi-user.target.wants/alsa-fix.service
-
-    cat $PKG_DIR/assets/10-monitor.conf >> $INSTALL/etc/X11/xorg.conf
-    cat $PKG_DIR/assets/50-joysticks.conf >> $INSTALL/etc/X11/xorg.conf
-    cat $PKG_DIR/assets/20-touchscreen.conf >> $INSTALL/etc/X11/xorg.conf
+    if [ $DISPLAYSERVER="x11" ]; then
+      cp -P $PKG_DIR/assets/xorg.conf $INSTALL/etc/X11/
+      cat $PKG_DIR/assets/10-monitor.conf >> $INSTALL/etc/X11/xorg.conf
+      cat $PKG_DIR/assets/50-joysticks.conf >> $INSTALL/etc/X11/xorg.conf
+      cat $PKG_DIR/assets/20-touchscreen.conf >> $INSTALL/etc/X11/xorg.conf
+    fi
   fi
 }
 

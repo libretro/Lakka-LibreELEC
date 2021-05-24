@@ -5,5 +5,7 @@ case $1 in
     ;;
     post)
         ifconfig wlan0 up
+        sleep .2
+        dock-hotplug
     ;;
 esac
