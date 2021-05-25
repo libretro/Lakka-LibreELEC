@@ -4,11 +4,11 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libcap"
-PKG_VERSION="2.49"
-PKG_SHA256="e98bc4d93645082ec787730b0fd1a712b38882465c505777de17c338831ee181"
+PKG_VERSION="2.62"
+PKG_SHA256="190c5baac9bee06a129eae20d3e827de62f664fe3507f0bf6c50a9a59fbd83a2"
 PKG_LICENSE="GPL"
 PKG_SITE="https://git.kernel.org/pub/scm/libs/libcap/libcap.git/log/"
-PKG_URL="http://www.kernel.org/pub/linux/libs/security/linux-privs/libcap2/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+PKG_URL="https://www.kernel.org/pub/linux/libs/security/linux-privs/libcap2/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_HOST="ccache:host"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A library for getting and setting POSIX.1e capabilities."
@@ -29,7 +29,7 @@ make_host() {
        BUILD_CFLAGS="${HOST_CFLAGS} -I${PKG_BUILD}/libcap/include" \
        PAM_CAP=no \
        lib=/lib \
-       BUILD_GPERF=no \
+       USE_GPERF=no \
        -C libcap libcap.pc libcap.a
 }
 
@@ -43,7 +43,7 @@ make_target() {
        BUILD_CFLAGS="${HOST_CFLAGS} -I${PKG_BUILD}/libcap/include" \
        PAM_CAP=no \
        lib=/lib \
-       BUILD_GPERF=no \
+       USE_GPERF=no \
        -C libcap libcap.pc libcap.a
 }
 
