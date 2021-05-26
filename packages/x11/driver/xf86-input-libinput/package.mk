@@ -8,7 +8,7 @@ PKG_SHA256="ef55c2f66ae65da476c400205692ff77c9192bdc16fb3a285ea252267cf28a74"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/libinput/"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/driver/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS_TARGET="toolchain libinput"
+PKG_DEPENDS_TARGET="toolchain libinput xorg-server"
 PKG_LONGDESC="This is an X driver based on libinput."
 PKG_TOOLCHAIN="autotools"
 
