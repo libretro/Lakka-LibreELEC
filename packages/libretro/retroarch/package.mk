@@ -176,7 +176,7 @@ makeinstall_target() {
   mkdir -p $INSTALL/usr/share/audio_filters
     cp $PKG_BUILD/libretro-common/audio/dsp_filters/*.so $INSTALL/usr/share/audio_filters
     cp $PKG_BUILD/libretro-common/audio/dsp_filters/*.dsp $INSTALL/usr/share/audio_filters
-  
+
   # General configuration
   sed -i -e "s/# libretro_directory =/libretro_directory = \"\/tmp\/cores\"/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# libretro_info_path =/libretro_info_path = \"\/tmp\/cores\"/" $INSTALL/etc/retroarch.cfg
@@ -217,7 +217,7 @@ makeinstall_target() {
   echo "quick_menu_show_overlays = \"false\"" >> $INSTALL/etc/retroarch.cfg
   echo "quick_menu_show_rewind = \"false\"" >> $INSTALL/etc/retroarch.cfg
   echo "quick_menu_show_latency = \"false\"" >> $INSTALL/etc/retroarch.cfg
-  
+
   # Video
   sed -i -e "s/# video_windowed_fullscreen = true/video_windowed_fullscreen = false/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# video_smooth = true/video_smooth = false/" $INSTALL/etc/retroarch.cfg
@@ -238,7 +238,7 @@ makeinstall_target() {
 
   # Saving
   echo "savestate_thumbnail_enable = \"false\"" >> $INSTALL/etc/retroarch.cfg
-  
+
   # Input
   if [ ! "$DEVICE" == "Switch" ]; then
     sed -i -e "s/# input_driver = sdl/input_driver = udev/" $INSTALL/etc/retroarch.cfg
@@ -266,7 +266,7 @@ makeinstall_target() {
   if [ "$ARCH" == "arm" ]; then
     sed -i -e "s/# core_updater_buildbot_url = \"http:\/\/buildbot.libretro.com\"/core_updater_buildbot_url = \"http:\/\/buildbot.libretro.com\/nightly\/linux\/armhf\/latest\/\"/" $INSTALL/etc/retroarch.cfg
   fi
-  
+
   # Playlists
   echo "playlist_names = \"$RA_PLAYLIST_NAMES\"" >> $INSTALL/etc/retroarch.cfg
   echo "playlist_cores = \"$RA_PLAYLIST_CORES\"" >> $INSTALL/etc/retroarch.cfg
@@ -309,7 +309,7 @@ makeinstall_target() {
 
   # Switch
   if [ "$PROJECT" == "L4T" -a "$DEVICE" == "Switch" ]; then
-    sed -i -e "s/menu_mouse_enable = false/menu_mouse_enable = true/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/# menu_pointer_enable = false/menu_pointer_enable = true/" $INSTALL/etc/retroarch.cfg
     sed -i -e "s/# video_hard_sync = false/video_hard_sync = true/" $INSTALL/etc/retroarch.cfg
     sed -i -e "s/# video_crop_overscan = true/video_crop_overscan = false/" $INSTALL/etc/retroarch.cfg
     sed -i -e "s/# menu_show_online_updater = true/menu_show_online_updater = false/" $INSTALL/etc/retroarch.cfg
@@ -325,7 +325,7 @@ makeinstall_target() {
 
     # Joypad Autoconfig doesn't work as Joy-Cons VID and PID are both 0
     # Does this still apply with joycond and new driver? Need to check this out.
-    
+
     cat $PROJECT_DIR/L4T/devices/Switch/joypad/Joy-Con_Combined.cfg >> $INSTALL/etc/retroarch.cfg
   fi
  
@@ -334,10 +334,10 @@ makeinstall_target() {
     touch $INSTALL/usr/share/retroarch-system/.placeholder
 }
 
-post_install() {  
+post_install() {
   # link default.target to retroarch.target
   ln -sf retroarch.target $INSTALL/usr/lib/systemd/system/default.target
-  
+
   enable_service retroarch-autostart.service
   enable_service retroarch.service
   enable_service tmp-cores.mount
