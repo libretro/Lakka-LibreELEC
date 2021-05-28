@@ -80,8 +80,10 @@ elif [ "$OPENGLES" == "odroidc1-mali" ] || [ "$OPENGLES" == "opengl-meson" ] || 
   RETROARCH_GL="--enable-opengles --disable-kms --disable-x11 --enable-mali_fbdev"
 elif [ "$OPENGLES" == "gpu-viv-bin-mx6q" ] || [ "$OPENGLES" == "imx-gpu-viv" ]; then
   RETROARCH_GL="--enable-opengles --disable-kms --disable-x11 --enable-vivante_fbdev"
-elif [ "$OPENGLES" == "libmali" ] || [ "$OPENGLES" == "bcm2835-driver" ]; then
+elif [ "$OPENGLES" == "libmali" ]; then
   RETROARCH_GL="--enable-opengles --enable-kms --disable-x11 --disable-wayland"
+elif [ "$OPENGLES" == "bcm2835-driver" ]; then
+  RETROARCH_GL="--enable-opengles --disable-kms --disable-x11 --disable-wayland"
 elif [ "$OPENGLES" == "allwinner-mali" ]; then
   RETROARCH_GL="--enable-opengles --enable-kms --disable-x11"
 elif [ "$OPENGLES" == "odroidxu3-mali" ]; then
