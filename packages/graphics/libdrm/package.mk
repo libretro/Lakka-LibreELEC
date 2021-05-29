@@ -1,14 +1,13 @@
-
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libdrm"
-PKG_VERSION="2.4.103"
-PKG_SHA256="3fe0affdba6460166a7323290c18cf68e9b59edcb520722826cb244e9cb50222"
+PKG_VERSION="2.4.105"
+PKG_SHA256="1d1d024b7cadc63e2b59cddaca94f78864940ab440843841113fbac6afaf2a46"
 PKG_LICENSE="GPL"
 PKG_SITE="http://dri.freedesktop.org"
-PKG_URL="http://dri.freedesktop.org/libdrm/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="http://dri.freedesktop.org/libdrm/libdrm-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain libpciaccess"
 PKG_LONGDESC="The userspace interface library to kernel DRM services."
 PKG_TOOLCHAIN="meson"
