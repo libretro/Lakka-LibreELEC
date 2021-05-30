@@ -20,7 +20,6 @@
 
 PKG_NAME="bluemsx"
 PKG_VERSION="527e652"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/blueMSX-libretro"
