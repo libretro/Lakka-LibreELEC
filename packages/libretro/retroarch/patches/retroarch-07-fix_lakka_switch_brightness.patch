@@ -1,0 +1,44 @@
+From 5d08b2320dd740648600d6446129f6e1f0f17d28 Mon Sep 17 00:00:00 2001
+From: CTCaer <ctcaer@gmail.com>
+Date: Sun, 30 May 2021 08:22:29 +0300
+Subject: [PATCH] plat: unix: fix lakka switch backlight control
+
+---
+ frontend/drivers/platform_unix.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/frontend/drivers/platform_unix.c b/frontend/drivers/platform_unix.c
+index 43e818494fb..c767cf975ba 100644
+--- a/frontend/drivers/platform_unix.c
++++ b/frontend/drivers/platform_unix.c
+@@ -1327,21 +1327,28 @@ static void frontend_unix_set_screen_brightness(int value)
+    #if !defined(HAVE_LAKKA_SWITCH)
+    filestream_read_file("/sys/devices/platform/backlight/backlight/backlight/max_brightness",
+                         &buffer, NULL);
++   #else
++   filestream_read_file("/sys/class/backlight/pwm-backlight/max_brightness",
++                        &buffer, NULL);
++   #endif
+    if (buffer)
+    {
+       sscanf(buffer, "%u", &max_brightness);
+       free(buffer);
+    }
+-   #endif
+ 
+    /* Calculate the brightness */
+    value = (value * max_brightness) / 100;
+ 
+    snprintf(svalue, sizeof(svalue), "%d\n", value);
++   #if !defined(HAVE_LAKKA_SWITCH)
+    filestream_write_file("/sys/class/backlight/backlight/brightness",
+                          svalue, strlen(svalue));
++   #else
++   filestream_write_file("/sys/class/backlight/pwm-backlight/brightness",
++                         svalue, strlen(svalue));
++   #endif
+ }
+-
+ #endif
+ 
+ static void frontend_unix_get_env(int *argc,

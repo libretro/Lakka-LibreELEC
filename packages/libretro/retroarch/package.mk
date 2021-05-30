@@ -219,7 +219,12 @@ makeinstall_target() {
   echo "quick_menu_show_latency = \"false\"" >> $INSTALL/etc/retroarch.cfg
 
   # Video
-  sed -i -e "s/# video_windowed_fullscreen = true/video_windowed_fullscreen = false/" $INSTALL/etc/retroarch.cfg
+  # HACK: Temporary hack for touch in Nintendo Switch
+  if [ ! $DEVICE="Switch" ]; then
+    sed -i -e "s/# video_windowed_fullscreen = true/video_windowed_fullscreen = false/" $INSTALL/etc/retroarch.cfg
+  else
+    sed -i -e "s/# video_windowed_fullscreen = true/video_windowed_fullscreen = true/" $INSTALL/etc/retroarch.cfg
+  fi
   sed -i -e "s/# video_smooth = true/video_smooth = false/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# video_aspect_ratio_auto = false/video_aspect_ratio_auto = true/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# video_threaded = false/video_threaded = true/" $INSTALL/etc/retroarch.cfg
@@ -257,7 +262,9 @@ makeinstall_target() {
   sed -i -e "s/# all_users_control_menu = false/all_users_control_menu = true/" $INSTALL/etc/retroarch.cfg
 
   # Menu
-  sed -i -e "s/# menu_mouse_enable = false/menu_mouse_enable = false/" $INSTALL/etc/retroarch.cfg
+  if [ ! "$DEVICE"="Switch" ]; then
+    sed -i -e "s/# menu_mouse_enable = false/menu_mouse_enable = false/" $INSTALL/etc/retroarch.cfg
+  fi
   sed -i -e "s/# menu_core_enable = true/menu_core_enable = false/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# thumbnails_directory =/thumbnails_directory = \/storage\/thumbnails/" $INSTALL/etc/retroarch.cfg
   echo "menu_show_advanced_settings = \"false\"" >> $INSTALL/etc/retroarch.cfg
