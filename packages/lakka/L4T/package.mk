@@ -32,7 +32,7 @@ PKG_SHORTDESC="Lakka metapackage for L4T based systems"
 PKG_LONGDESC=""
 
 if [ "$DEVICE" == "Switch" ]; then
-  PKG_DEPENDS_TARGET+=" joycond mergerfs rewritefs switch-cpu-profile switch-gpu-profile"
+  PKG_DEPENDS_TARGET+=" joycond mergerfs rewritefs switch-cpu-profile switch-gpu-profile xdotool"
 fi
 
 PKG_IS_ADDON="no"
@@ -49,7 +49,9 @@ post_install() {
     cp -P $PKG_DIR/scripts/pair-joycon.sh $INSTALL/usr/bin
 
     mkdir -p $INSTALL/etc/profile.d
-    cp $PKG_DIR/assets/15-xorg-init-switch.conf $INSTALL/etc/profile.d
+    cp -P $PKG_DIR/scripts/dock-hotplug $INSTALL/usr/bin
+    mkdir -p $INSTALL/usr/lib/udev/rules.d/
+    cp -P $PKG_DIR/assets/93-dock_hotplug.rules $INSTALL/usr/lib/udev/rules.d/
   fi
 }
 
