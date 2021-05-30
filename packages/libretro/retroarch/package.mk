@@ -219,7 +219,12 @@ makeinstall_target() {
   echo "quick_menu_show_latency = \"false\"" >> $INSTALL/etc/retroarch.cfg
 
   # Video
-  sed -i -e "s/# video_windowed_fullscreen = true/video_windowed_fullscreen = false/" $INSTALL/etc/retroarch.cfg
+  # HACK: Temporary hack for touch in Nintendo Switch
+  if [ ! $DEVICE="Switch" ]; then
+    sed -i -e "s/# video_windowed_fullscreen = true/video_windowed_fullscreen = false/" $INSTALL/etc/retroarch.cfg
+  else
+    sed -i -e "s/# video_windowed_fullscreen = true/video_windowed_fullscreen = true/" $INSTALL/etc/retroarch.cfg
+  fi
   sed -i -e "s/# video_smooth = true/video_smooth = false/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# video_aspect_ratio_auto = false/video_aspect_ratio_auto = true/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# video_threaded = false/video_threaded = true/" $INSTALL/etc/retroarch.cfg
