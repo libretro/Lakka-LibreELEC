@@ -20,7 +20,6 @@
 
 PKG_NAME="nestopia"
 PKG_VERSION="95be0bf"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/nestopia"

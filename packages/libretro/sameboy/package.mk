@@ -20,7 +20,6 @@
 
 PKG_NAME="sameboy"
 PKG_VERSION="d478d3e"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/libretro/sameboy"

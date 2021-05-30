@@ -20,8 +20,7 @@
 
 PKG_NAME="mupen64plus"
 PKG_VERSION="ab8134a"
-PKG_REV="1"
-PKG_ARCH="arm i386 x86_64"
+PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mupen64plus-libretro"
 PKG_URL="$PKG_SITE.git"

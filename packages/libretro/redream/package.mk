@@ -20,8 +20,7 @@
 
 PKG_NAME="redream"
 PKG_VERSION="ffb7302"
-PKG_REV="1"
-PKG_ARCH="arm i386 x86_64"
+PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/inolen/redream"
 PKG_URL="$PKG_SITE.git"

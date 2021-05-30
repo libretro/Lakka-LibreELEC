@@ -20,7 +20,6 @@
 
 PKG_NAME="dolphin"
 PKG_VERSION="d86c545"
-PKG_REV="1"
 PKG_ARCH="x86_64 aarch64"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/dolphin"
