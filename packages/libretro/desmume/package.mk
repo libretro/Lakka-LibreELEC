@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="desmume"
-PKG_VERSION="7300ed8"
+PKG_VERSION="0bc055a"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/desmume"
