@@ -1,7 +1,7 @@
 ### Questions about LibreELEC?
 
 To get your questions answered, please ask in the LibreELEC [Forum], on IRC: 
-\#libreelec on freenode.net. 
+\#libreelec on Libera.Chat. 
 
 Do not open an issue.
 

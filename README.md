@@ -4,7 +4,7 @@ LibreELEC is a 'Just enough OS' Linux distribution for the award-winning [Kodi](
 
 **Issues & Support**
 
-Please ask questions in the [LibreELEC forum: Help & Support](https://forum.libreelec.tv/forum-3.html) or ask a member of project staff in the #libreelec IRC channel on Freenode. Please report bugs via [GitHub Issues](https://github.com/LibreELEC/LibreELEC.tv/issues).
+Please ask questions in the [LibreELEC forum: Help & Support](https://forum.libreelec.tv/forum-3.html) or ask a member of project staff in the #libreelec IRC channel on Libera.Chat. Please report bugs via [GitHub Issues](https://github.com/LibreELEC/LibreELEC.tv/issues).
 
 **Donations**
 
