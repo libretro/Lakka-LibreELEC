@@ -38,6 +38,10 @@ if [ "$BLUETOOTH_SUPPORT" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" bluez"
 fi
 
+if [ "$VULKAN_SUPPORT" = yes ]; then
+  PKG_DEPENDS_TARGET+=" $VULKAN"
+fi
+
 if [ "$OPENGL_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET+=" $OPENGL"
 fi
