@@ -53,5 +53,5 @@ PKG_CMAKE_OPTS_TARGET="-DCMAKE_BUILD_TYPE=Release \
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp duckstation_libretro.so $INSTALL/usr/lib/libretro/
+  cp swanstation_libretro.so $INSTALL/usr/lib/libretro/
 }
