@@ -84,8 +84,6 @@ elif [ "$OPENGLES" == "libmali" ] || [ "$OPENGLES" == "bcm2835-driver" ]; then
   RETROARCH_GL="--enable-opengles --enable-kms --disable-x11 --disable-wayland"
 elif [ "$OPENGLES" == "allwinner-mali" ]; then
   RETROARCH_GL="--enable-opengles --enable-kms --disable-x11"
-elif [ "$OPENGLES" == "odroidxu3-mali" ]; then
-  RETROARCH_GL="--enable-opengles --disable-kms --disable-x11 --enable-egl"
 elif [ "$OPENGLES" == "mesa" ]; then
   if [ "$PROJECT" == "RPi" ]; then
     RETROARCH_GL="--disable-x11 --enable-opengles --disable-videocore --enable-kms --enable-egl --disable-wayland"
