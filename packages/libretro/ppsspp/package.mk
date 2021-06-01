@@ -44,26 +44,32 @@ if [ "$OPENGLES_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET+=" $OPENGLES"
 fi
 
-PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=yes \
+PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON \
                        -DCMAKE_BUILD_TYPE=Release \
-                       -DUSE_FFMPEG=yes \
-                       -DUSE_SYSTEM_FFMPEG=yes \
-                       -DUSE_DISCORD=no \
-                       -DUSE_MINIUPNPC=no \
+                       -DUSE_FFMPEG=ON \
+                       -DUSE_SYSTEM_FFMPEG=ON \
+                       -DUSE_DISCORD=OFF \
+                       -DUSE_MINIUPNPC=OFF \
                        --target ppsspp_libretro"
 
 if [ "$OPENGL_SUPPORT" = no -a "$OPENGLES_SUPPORT" = yes ]; then
-  PKG_CMAKE_OPTS_TARGET="-DUSING_GLES2=yes $PKG_CMAKE_OPTS_TARGET"
+  PKG_CMAKE_OPTS_TARGET+=" -DUSING_GLES2=ON"
 fi
 
-if [ "$PROJECT" == "Generic" ] || [ "$DEVICE" == "RPi4" ]; then
-  PKG_CMAKE_OPTS_TARGET="-DVULKAN=yes $PKG_CMAKE_OPTS_TARGET"
+if [ "$VULKAN_SUPPORT" = yes ]; then
+  PKG_DEPENDS_TARGET+=" ${VULKAN}"
+  PKG_CMAKE_OPTS_TARGET+=" -DVULKAN=ON"
+  if [ "$DISPLAYSERVER" = "x11" ]; then
+    PKG_CMAKE_OPTS_TARGET+=" -DUSING_X11_VULKAN=ON"
+  else
+    PKG_CMAKE_OPTS_TARGET+=" -DUSING_X11_VULKAN=OFF"
+  fi
 fi
 
 if [ "$TARGET_ARCH" = "arm" ]; then
-  PKG_CMAKE_OPTS_TARGET="-DARMV7=yes -DUSING_X11_VULKAN=no $PKG_CMAKE_OPTS_TARGET"
+  PKG_CMAKE_OPTS_TARGET+=" -DARMV7=ON"
 elif [ "$TARGET_ARCH" = "aarch64" ]; then
-  PKG_CMAKE_OPTS_TARGET="-DARM64=yes -DUSING_X11_VULKAN=no $PKG_CMAKE_OPTS_TARGET"
+  PKG_CMAKE_OPTS_TARGET+=" -DARM64=ON"
 fi
 
 pre_make_target() {
