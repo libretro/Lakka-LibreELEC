@@ -29,6 +29,12 @@ if [ "$TARGET_ARCH" = "aarch64" ]; then
   PKG_CMAKE_OPTS_TARGET+=" -DMALI_ARCH=aarch64-linux-gnu"
 fi
 
+post_unpack() {
+  if [ "$MALI_FAMILY" = "t620" ]; then
+    sed -i '/^\#ifndef GL_EXT_buffer_storage$/,/^$/d' $PKG_BUILD/include/GLES2/gl2ext.h
+  fi
+}
+
 post_makeinstall_target() {
   mkdir -p $INSTALL/usr/bin
     cp -v $PKG_DIR/scripts/libmali-setup $INSTALL/usr/bin
