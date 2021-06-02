@@ -828,3 +828,161 @@ index fb7599f07af4..155f22b53103 100644
  	mmc-hs400-1_8v;
  	mmc-hs400-enhanced-strobe;
  	non-removable;
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bee <knaerzche@gmail.com>
+Date: Tue, 1 Jun 2021 19:37:07 +0200
+Subject: [PATCH] arm64: dts: rockchip: re-add regulator-always-on for vdd_vpu
+
+Seems to be required by panfrost.
+
+Fixes: ec7d731d81e7 ("arm64: dts: rockchip: Add node for gpu on rk3399-roc-pc")
+Signed-off-by: Alex Bee <knaerzche@gmail.com>
+---
+ arch/arm64/boot/dts/rockchip/rk3399-roc-pc.dtsi | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3399-roc-pc.dtsi b/arch/arm64/boot/dts/rockchip/rk3399-roc-pc.dtsi
+index 20309076dbac..e4345e5bdfb6 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3399-roc-pc.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3399-roc-pc.dtsi
+@@ -488,6 +488,8 @@ vdd_gpu: regulator@41 {
+ 		regulator-min-microvolt = <712500>;
+ 		regulator-max-microvolt = <1500000>;
+ 		regulator-ramp-delay = <1000>;
++		regulator-always-on;
++		regulator-boot-on;
+ 		vin-supply = <&vcc3v3_sys>;
+ 
+ 		regulator-state-mem {
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rudi Heitbaum <rudi@heitbaum.com>
+Date: Tue, 1 Jun 2021 19:42:31 +0200
+Subject: [PATCH] arm64: dts: rockchip: dts additions for Rock Pi N10
+
+---
+ .../dts/rockchip/rk3399pro-rock-pi-n10.dts    |  4 +
+ .../dts/rockchip/rk3399pro-vmarc-som.dtsi     | 83 +++++++++++++++++++
+ 2 files changed, 87 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3399pro-rock-pi-n10.dts b/arch/arm64/boot/dts/rockchip/rk3399pro-rock-pi-n10.dts
+index 369de5dc0ebd..48ac0cfa93c0 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3399pro-rock-pi-n10.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3399pro-rock-pi-n10.dts
+@@ -20,3 +20,7 @@ chosen {
+ 		stdout-path = "serial2:1500000n8";
+ 	};
+ };
++
++&uart2 {
++    status = "okay";
++};
+diff --git a/arch/arm64/boot/dts/rockchip/rk3399pro-vmarc-som.dtsi b/arch/arm64/boot/dts/rockchip/rk3399pro-vmarc-som.dtsi
+index 7257494d2831..9e2994e27d05 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3399pro-vmarc-som.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3399pro-vmarc-som.dtsi
+@@ -57,6 +57,22 @@ &hdmi {
+ 	pinctrl-0 = <&hdmi_cec>;
+ };
+ 
++&hdmi_sound {
++	status = "okay";
++};
++
++&gpu {
++	mali-supply = <&vdd_gpu>;
++	assigned-clocks = <&cru ACLK_GPU>;
++	assigned-clock-rates = <200000000>;
++	status = "okay";
++	/delete-property/ operating-points-v2;
++};
++
++&vopl {
++	status = "disabled";
++};
++
+ &i2c0 {
+ 	clock-frequency = <400000>;
+ 	i2c-scl-falling-time-ns = <30>;
+@@ -280,6 +296,50 @@ regulator-state-mem {
+ 			};
+ 		};
+ 	};
++
++	vdd_cpu_b: tcs4525@1c {
++		compatible = "tcs,tcs4525";
++		reg = <0x1c>;
++		vin-supply = <&vcc5v0_sys>;
++		regulator-compatible = "fan53555-reg";
++		pinctrl-0 = <&vsel1_gpio>;
++		vsel-gpios = <&gpio1 RK_PC1 GPIO_ACTIVE_HIGH>;
++		regulator-name = "vdd_cpu_b";
++		regulator-min-microvolt = <712500>;
++		regulator-max-microvolt = <1500000>;
++		regulator-ramp-delay = <2300>;
++		fcs,suspend-voltage-selector = <1>;
++		regulator-always-on;
++		regulator-boot-on;
++		regulator-initial-state = <3>;
++		regulator-state-mem {
++			regulator-off-in-suspend;
++		};
++	};
++
++	vdd_gpu: tcs4526@10 {
++		compatible = "tcs,tcs4526";
++		reg = <0x10>;
++		vin-supply = <&vcc5v0_sys>;
++		regulator-compatible = "fan53555-reg";
++		pinctrl-0 = <&vsel2_gpio>;
++		vsel-gpios = <&gpio1 RK_PB6 GPIO_ACTIVE_HIGH>;
++		regulator-name = "vdd_gpu";
++		regulator-min-microvolt = <735000>;
++		regulator-max-microvolt = <1400000>;
++		regulator-ramp-delay = <1000>;
++		fcs,suspend-voltage-selector = <1>;
++		regulator-always-on;
++		regulator-boot-on;
++		regulator-initial-state = <3>;
++		regulator-state-mem {
++			regulator-off-in-suspend;
++		};
++	};
++};
++
++&i2s2 {
++	status = "okay";
+ };
+ 
+ &i2c1 {
+@@ -351,6 +411,29 @@ pmic {
+ 		pmic_int_l: pmic-int-l {
+ 			rockchip,pins = <1 RK_PC2 0 &pcfg_pull_up>;
+ 		};
++		vsel1_gpio: vsel1-gpio {
++			rockchip,pins =
++				<1 RK_PC1 0 &pcfg_pull_down>;
++		};
++		vsel2_gpio: vsel2-gpio {
++			rockchip,pins =
++				<1 RK_PB6 0 &pcfg_pull_down>;
++		};
++
++		soc_slppin_gpio: soc-slppin-gpio {
++			rockchip,pins =
++				<1 RK_PA5 0 &pcfg_output_low>;
++		};
++
++		soc_slppin_slp: soc-slppin-slp {
++			rockchip,pins =
++				<1 RK_PA5 1 &pcfg_pull_down>;
++		};
++
++		soc_slppin_rst: soc-slppin-rst {
++			rockchip,pins =
++				<1 RK_PA5 2 &pcfg_pull_none>;
++		};
+ 	};
+ 
+ 	sdio-pwrseq {
