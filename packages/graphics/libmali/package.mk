@@ -17,7 +17,7 @@ if listcontains "$MALI_FAMILY" "(t620|t720)"; then
   PKG_DEPENDS_TARGET+=" wayland"
 fi
 
-if [ "$LINUX" != "rockchip-4.4" -a "$LINUX" != "odroidgoA-4.4" ]; then
+if [ "$LINUX" != "rockchip-4.4" -a "$LINUX" != "odroidgoA-4.4" ] && [ "$LINUX" != "odroidxu4-4.14" ]; then
   listcontains "$MALI_FAMILY" "4[0-9]+" && PKG_DEPENDS_TARGET+=" mali-utgard"
   listcontains "$MALI_FAMILY" "t[0-9]+" && PKG_DEPENDS_TARGET+=" mali-midgard"
   listcontains "$MALI_FAMILY" "g[0-9]+" && PKG_DEPENDS_TARGET+=" mali-bifrost"
@@ -28,6 +28,12 @@ PKG_CMAKE_OPTS_TARGET="-DMALI_VARIANT=${MALI_FAMILY// /;}"
 if [ "$TARGET_ARCH" = "aarch64" ]; then
   PKG_CMAKE_OPTS_TARGET+=" -DMALI_ARCH=aarch64-linux-gnu"
 fi
+
+post_unpack() {
+  if [ "$MALI_FAMILY" = "t620" ]; then
+    sed -i '/^\#ifndef GL_EXT_buffer_storage$/,/^$/d' $PKG_BUILD/include/GLES2/gl2ext.h
+  fi
+}
 
 post_makeinstall_target() {
   mkdir -p $INSTALL/usr/bin

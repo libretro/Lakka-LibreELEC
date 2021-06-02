@@ -46,6 +46,8 @@ make_target() {
   if [ "$OPENGL_SUPPORT" = yes ]; then
     if [ "$ARCH" = "arm" ]; then
       make HAVE_OPENMP=0 LDFLAGS=-lrt
+    elif [ "$PROJECT" = "L4T" ]; then
+      make AS=${AS} CC_AS=${CC} platform=jetson-nano HAVE_OPENMP=0
     else
       make AS=${AS} CC_AS=${AS} ARCH=${ARCH} HAVE_OPENMP=0 LDFLAGS=-lrt
     fi

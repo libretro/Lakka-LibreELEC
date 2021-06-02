@@ -1,0 +1,105 @@
+From 86f8670d0b35e713931065611e8e40c16ebcba63 Mon Sep 17 00:00:00 2001
+From: CTCaer <ctcaer@gmail.com>
+Date: Mon, 31 May 2021 18:36:49 +0300
+Subject: [PATCH] plat: unix: get better battery stats on sysfs nodes
+
+This addresses 2 issues:
+
+1. Input controllers report battery supplies.
+   That causes wrong charging status or capacities if they report percentages instead of levels.
+   Such supplies normally report scope attributes that report Unknown or Device type of power supply.
+   If reported value is System or the attribute is missing, it's considered a System supply and used.
+
+2. Various systems have backup batteries.
+   That causes the wrong capacity to be reported depending on order of node creation.
+   This is addressed by keeping track of these and calculating an average.
+---
+ frontend/drivers/platform_unix.c | 37 ++++++++++++++++++++++++++------
+ 1 file changed, 31 insertions(+), 6 deletions(-)
+
+diff --git a/frontend/drivers/platform_unix.c b/frontend/drivers/platform_unix.c
+index 43e818494fb..8cc3231c2c5 100644
+--- a/frontend/drivers/platform_unix.c
++++ b/frontend/drivers/platform_unix.c
+@@ -818,8 +818,8 @@ static void check_proc_acpi_battery(const char * node, bool * have_battery,
+    buf_info = NULL;
+ }
+ static void check_proc_acpi_sysfs_battery(const char *node,
+-      bool *have_battery, bool *charging,
+-      int *seconds, int *percent)
++      bool *have_battery, bool *charging, int *seconds,
++      int *percent, int *valid_pct_idx)
+ {
+    char path[1024];
+    const char *base  = proc_acpi_sysfs_battery_path;
+@@ -838,6 +838,22 @@ static void check_proc_acpi_sysfs_battery(const char *node,
+ 
+    path[0]           = '\0';
+ 
++   /* Stat type. Avoid unknown or device supplies. Missing is considered System. */
++   snprintf(path, sizeof(path), "%s/%s/%s", base, node, "scope");
++
++   if (filestream_exists(path) != 0)
++   {
++      if (filestream_read_file(path, (void**)&buf, &length) == 1 && buf)
++      {
++         if (strstr((char*)buf, "Unknown"))
++            goto end;
++         else if (strstr((char*)buf, "Device"))
++            goto end;
++         free(buf);
++         buf = NULL;
++      }
++   }
++
+    snprintf(path, sizeof(path), "%s/%s/%s", base, node, "status");
+ 
+    if (!filestream_exists(path))
+@@ -858,17 +874,21 @@ static void check_proc_acpi_sysfs_battery(const char *node,
+       else if (strstr((char*)buf, "Full"))
+          *have_battery = true;
+       free(buf);
++      buf = NULL;
+    }
+ 
+-   buf = NULL;
+-
+    snprintf(path, sizeof(path), "%s/%s/%s", base, node, "capacity");
+    if (filestream_read_file(path, (void**)&buf, &length) != 1)
+       goto end;
+ 
+    capacity = atoi(buf);
+ 
+-   *percent = capacity;
++   /*
++    * Keep record of valid capacities for calculating an average
++    * on systems with backup battery supplies.
++    */
++   (*valid_pct_idx)++;
++   (*percent) += capacity;
+ 
+ end:
+    free(buf);
+@@ -1103,6 +1123,7 @@ static bool frontend_unix_powerstate_check_acpi_sysfs(
+    bool have_battery   = false;
+    bool have_ac        = false;
+    bool charging       = false;
++   int  valid_pct_idx  = 0;
+    struct RDIR *entry  = retro_opendir(proc_acpi_sysfs_battery_path);
+    if (!entry)
+       goto error;
+@@ -1116,9 +1137,13 @@ static bool frontend_unix_powerstate_check_acpi_sysfs(
+ 
+       if (node && (strstr(node, "BAT") || strstr(node, "battery")))
+          check_proc_acpi_sysfs_battery(node,
+-               &have_battery, &charging, seconds, percent);
++               &have_battery, &charging, seconds, percent, &valid_pct_idx);
+    }
+ 
++   /* Get average percentage */
++   if (valid_pct_idx)
++      (*percent) /= valid_pct_idx;
++
+    retro_closedir(entry);
+ 
+    entry = retro_opendir(proc_acpi_sysfs_ac_adapter_path);

@@ -18,18 +18,17 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="duckstation"
-PKG_VERSION="5b6a170"
-PKG_REV="1"
+PKG_NAME="swanstation"
+PKG_VERSION="9631526"
 PKG_ARCH="x86_64 arm aarch64"
 PKG_LICENSE="GPLv3"
-PKG_SITE="https://github.com/libretro/duckstation"
+PKG_SITE="https://github.com/libretro/swanstation"
 PKG_URL="$PKG_SITE.git"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="DuckStation is an simulator/emulator of the Sony PlayStation(TM) console, focusing on playability, speed, and long-term maintainability."
-PKG_LONGDESC="DuckStation is an simulator/emulator of the Sony PlayStation(TM) console, focusing on playability, speed, and long-term maintainability."
+PKG_SHORTDESC="SwanStation is an simulator/emulator of the Sony PlayStation(TM) console, focusing on playability, speed, and long-term maintainability."
+PKG_LONGDESC="SwanStation is an simulator/emulator of the Sony PlayStation(TM) console, focusing on playability, speed, and long-term maintainability."
 PKG_TOOLCHAIN="cmake-make"
 
 PKG_IS_ADDON="no"
@@ -53,5 +52,5 @@ PKG_CMAKE_OPTS_TARGET="-DCMAKE_BUILD_TYPE=Release \
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp duckstation_libretro.so $INSTALL/usr/lib/libretro/
+  cp swanstation_libretro.so $INSTALL/usr/lib/libretro/
 }
