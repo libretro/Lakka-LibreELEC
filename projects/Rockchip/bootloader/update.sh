@@ -31,7 +31,7 @@ fi
         new_dtb=rk3328-a1.dtb
         ;;
       rk3399-rock-pi-4.dtb)
-        new_dtb=rk3399-rock-pi-4a.dtb
+        new_dtb=rk3399-rock-pi-4b.dtb
         ;;
       *)
         new_dtb="${dtb}"
