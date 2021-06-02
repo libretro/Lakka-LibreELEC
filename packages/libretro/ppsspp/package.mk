@@ -25,7 +25,7 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/hrydgard/ppsspp"
 PKG_URL="$PKG_SITE.git"
 PKG_GIT_CLONE_BRANCH="v1.11-hotfixes"
-PKG_DEPENDS_TARGET="toolchain ffmpeg libzip libpng"
+PKG_DEPENDS_TARGET="toolchain libzip libpng"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="Libretro port of PPSSPP"
@@ -47,7 +47,7 @@ fi
 PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON \
                        -DCMAKE_BUILD_TYPE=Release \
                        -DUSE_FFMPEG=ON \
-                       -DUSE_SYSTEM_FFMPEG=ON \
+                       -DUSE_SYSTEM_FFMPEG=OFF \
                        -DUSE_DISCORD=OFF \
                        -DUSE_MINIUPNPC=OFF \
                        --target ppsspp_libretro"
