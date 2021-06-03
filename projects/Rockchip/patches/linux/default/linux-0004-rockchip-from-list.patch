@@ -1233,7 +1233,7 @@ Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
  1 file changed, 8 insertions(+)
 
 diff --git a/drivers/mmc/core/core.c b/drivers/mmc/core/core.c
-index d42037f0f10d..019dc355509b 100644
+index eaf4810fe656..6f8ea06b187b 100644
 --- a/drivers/mmc/core/core.c
 +++ b/drivers/mmc/core/core.c
 @@ -1349,6 +1349,14 @@ void mmc_power_off(struct mmc_host *host)
@@ -1251,3 +1251,74 @@ index d42037f0f10d..019dc355509b 100644
  	mmc_pwrseq_power_off(host);
  
  	host->ios.clock = 0;
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rudi Heitbaum <rudi@heitbaum.com>
+Date: Fri, 28 May 2021 10:19:50 +0000
+Subject: [PATCH] regulator: fan53555: add tcs4526
+
+For rk3399pro boards the tcs4526 regulator supports the vdd_gpu
+regulator. The tcs4526 regulator has a chip id of <0>.
+Add the compatibile tcs,tcs4526
+
+without this patch, the dmesg output is:
+  fan53555-regulator 0-0010: Chip ID 0 not supported!
+  fan53555-regulator 0-0010: Failed to setup device!
+  fan53555-regulator: probe of 0-0010 failed with error -22
+with this patch, the dmesg output is:
+  vdd_gpu: supplied by vcc5v0_sys
+
+The regulators are described as:
+- Dedicated power management IC TCS4525
+- Lithium battery protection chip TCS4526
+
+This has been tested with a Radxa Rock Pi N10.
+
+Signed-off-by: Rudi Heitbaum <rudi@heitbaum.com>
+---
+ drivers/regulator/fan53555.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/drivers/regulator/fan53555.c b/drivers/regulator/fan53555.c
+index f3f49cf3731b..bc8242e1dd0f 100644
+--- a/drivers/regulator/fan53555.c
++++ b/drivers/regulator/fan53555.c
+@@ -92,6 +92,10 @@ enum {
+ 	TCS4525_CHIP_ID_12 = 12,
+ };
+ 
++enum {
++	TCS4526_CHIP_ID_00 = 0,
++};
++
+ /* IC mask revision */
+ enum {
+ 	FAN53555_CHIP_REV_00 = 0x3,
+@@ -372,6 +376,7 @@ static int fan53526_voltages_setup_tcs(struct fan53555_device_info *di)
+ {
+ 	switch (di->chip_id) {
+ 	case TCS4525_CHIP_ID_12:
++	case TCS4526_CHIP_ID_00:
+ 		di->slew_reg = TCS4525_TIME;
+ 		di->slew_mask = TCS_SLEW_MASK;
+ 		di->slew_shift = TCS_SLEW_SHIFT;
+@@ -562,6 +567,9 @@ static const struct of_device_id __maybe_unused fan53555_dt_ids[] = {
+ 	}, {
+ 		.compatible = "tcs,tcs4525",
+ 		.data = (void *)FAN53526_VENDOR_TCS
++	}, {
++		.compatible = "tcs,tcs4526",
++		.data = (void *)FAN53526_VENDOR_TCS
+ 	},
+ 	{ }
+ };
+@@ -670,6 +678,9 @@ static const struct i2c_device_id fan53555_id[] = {
+ 	}, {
+ 		.name = "tcs4525",
+ 		.driver_data = FAN53526_VENDOR_TCS
++	}, {
++		.name = "tcs4526",
++		.driver_data = FAN53526_VENDOR_TCS
+ 	},
+ 	{ },
+ };

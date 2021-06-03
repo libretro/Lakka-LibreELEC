@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.mediaportal.tvserver"
-PKG_VERSION="8.1.2-Matrix"
-PKG_SHA256="cea87ccdceee834c96d6b6887b78213ccf79890fec97436cbef17c57b9cdac15"
+PKG_VERSION="8.2.0-Matrix"
+PKG_SHA256="0109daa45d7b6450954b40d0b09dbef28818c551e9f0fea9943cfd06f0a7ec40"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

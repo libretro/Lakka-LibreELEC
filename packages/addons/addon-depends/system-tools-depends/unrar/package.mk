@@ -2,11 +2,11 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="unrar"
-PKG_VERSION="6.0.3"
-PKG_SHA256="1def53392d879f9e304aa6eac1339cf41f9bce1111a2f5845071665738c4aca0"
+PKG_VERSION="6.0.6"
+PKG_SHA256="011ef7290d3394a62bb5bfced914cd510a7eea7255cf69417f9c952bb6056588"
 PKG_LICENSE="free"
 PKG_SITE="https://www.rarlab.com/rar_add.htm"
-PKG_URL="http://www.rarlab.com/rar/unrarsrc-${PKG_VERSION}.tar.gz"
+PKG_URL="https://www.rarlab.com/rar/unrarsrc-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="unrar extract, test and view RAR archives"
 PKG_TOOLCHAIN="manual"
