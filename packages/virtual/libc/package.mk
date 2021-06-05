@@ -16,7 +16,3 @@ if [ "${ARM_MEM_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" arm-mem"
   PKG_DEPENDS_INIT+=" arm-mem:init"
 fi
-
-if [ "${TCMALLOC_SUPPORT}" = "yes" ]; then
-  PKG_DEPENDS_TARGET+=" gperftools"
-fi
