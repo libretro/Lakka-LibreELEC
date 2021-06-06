@@ -14,9 +14,8 @@ PKG_DEPENDS_TARGET="toolchain sqlite expat zlib bzip2 openssl libffi Python2:hos
 PKG_LONGDESC="Python2 is an interpreted object-oriented programming language."
 
 PKG_TOOLCHAIN="autotools"
-if [ ! "$PROJECT" = "L4T" ]; then
-  PKG_BUILD_FLAGS="-parallel +lto-parallel"
-fi
+PKG_BUILD_FLAGS="-parallel +lto-parallel"
+
 
 PKG_PY_DISABLED_MODULES="_tkinter nis gdbm bsddb ossaudiodev"
 
