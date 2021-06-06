@@ -1,5 +1,5 @@
 PKG_NAME="pcsx_rearmed"
-PKG_VERSION="cf71346"
+PKG_VERSION="31d1b18"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/pcsx_rearmed"
 PKG_URL="${PKG_SITE}.git"
@@ -25,7 +25,7 @@ fi
 if [ "${ARCH}" = "aarch64" ]; then
   PKG_MAKE_OPTS_TARGET+=" platform=unix"
 elif [ "${ARCH}" = "arm" ]; then
-  PKG_MAKE_OPTS_TARGET+=" USE_DYNAREC=1 DYNAREC=ari64"
+  PKG_MAKE_OPTS_TARGET+=" DYNAREC=ari64"
   if target_has_feature neon ; then
     PKG_MAKE_OPTS_TARGET+=" HAVE_NEON=1 BUILTIN_GPU=neon"
   else

@@ -1,5 +1,5 @@
 PKG_NAME="beetle_psx"
-PKG_VERSION="9589ddd"
+PKG_VERSION="78f4e82"
 PKG_ARCH="x86_64 i386 aarch64"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-psx-libretro"

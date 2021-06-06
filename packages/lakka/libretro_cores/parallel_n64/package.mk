@@ -30,6 +30,10 @@ pre_make_target() {
     CFLAGS+=" -DARM_FIX"
   fi
 
+  if [ "${OPENGL_SUPPORT}" = "no" ]; then
+    PKG_MAKE_OPTS_TARGET+=" HAVE_OPENGL=0"
+  fi
+
   if [ "${PROJECT}" = "RPi" ]; then
     if [ "${DEVICE}" = "RPi" -o "${DEVICE}" = "Gamegirl" -o "${DEVICE}" = "GPICase" ]; then
       PKG_MAKE_OPTS_TARGET+=" platform=rpi"

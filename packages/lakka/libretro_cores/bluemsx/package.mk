@@ -1,5 +1,5 @@
 PKG_NAME="bluemsx"
-PKG_VERSION="527e652"
+PKG_VERSION="3204993"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/blueMSX-libretro"
 PKG_URL="${PKG_SITE}.git"

@@ -1,26 +1,10 @@
 PKG_NAME="retroarch"
-PKG_VERSION="122be0c"
+PKG_VERSION="c226bd8"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
 PKG_URL="${PKG_SITE}.git"
-PKG_DEPENDS_TARGET="toolchain freetype zlib ffmpeg libass libvdpau libxkbcommon glsl_shaders slang_shaders systemd libpng"
+PKG_DEPENDS_TARGET="toolchain freetype zlib ffmpeg libass libvdpau libxkbcommon glsl_shaders systemd libpng"
 PKG_SHORTDESC="Reference frontend for the libretro API."
-
-if [ "${OPENGLES_SUPPORT}" = yes ]; then
-  PKG_DEPENDS_TARGET+=" ${OPENGLES}"
-fi
-
-if [ "${OPENGL_SUPPORT}" = yes ]; then
-  PKG_DEPENDS_TARGET+=" ${OPENGL}"
-fi
-
-if [ "${VULKAN_SUPPORT}" = yes ]; then
-  PKG_DEPENDS_TARGET+=" ${VULKAN}"
-fi
-
-if [ "${PROJECT}" = "Rockchip" -a "${DEVICE}" = "OdroidGoAdvance" ]; then
-  PKG_DEPENDS_TARGET+=" librga"
-fi
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
                            --disable-sdl \
@@ -39,6 +23,24 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
                            --disable-tinyalsa \
                            --datarootdir=${SYSROOT_PREFIX}/usr/share" # don't use host /usr/share!
 
+if [ "${OPENGLES_SUPPORT}" = yes ]; then
+  PKG_DEPENDS_TARGET+=" ${OPENGLES}"
+  PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles"
+fi
+
+if [ "${OPENGL_SUPPORT}" = yes ]; then
+  PKG_DEPENDS_TARGET+=" ${OPENGL}"
+fi
+
+if [ "${VULKAN_SUPPORT}" = yes ]; then
+  PKG_DEPENDS_TARGET+=" ${VULKAN} slang_shaders"
+  PKG_CONFIGURE_OPTS_TARGET+=" --enable-vulkan"
+fi
+
+if [ "${PROJECT}" = "Rockchip" -a "${DEVICE}" = "OdroidGoAdvance" ]; then
+  PKG_DEPENDS_TARGET+=" librga"
+fi
+
 if [ "${ALSA_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" alsa"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-alsa"
@@ -53,14 +55,6 @@ else
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-pulse"
 fi
 
-if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
-  PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles"
-fi
-
-if [ "${VULKAN_SUPPORT}" = "yes" ]; then
-  PKG_CONFIGURE_OPTS_TARGET+=" --enable-vulkan"
-fi
-
 if [ "${DEVICE}" = "OdroidGoAdvance" ]; then
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-odroidgo2 \
                                --enable-opengles3"
@@ -71,7 +65,7 @@ if [ "${OPENGLES}" = "mesa" -a "${PROJECT}" = "RPi" ]; then
 fi
 
 if [[ "${TARGET_FPU}" =~ "neon" ]]; then
-  if [ ! "$ARCH" = "aarch64" ]; then
+  if [ ! "${ARCH}" = "aarch64" ]; then
     PKG_CONFIGURE_OPTS_TARGET+=" --enable-neon"
   fi
 fi
@@ -129,13 +123,14 @@ makeinstall_target() {
   sed -i -e "s/# assets_directory =/assets_directory =\/tmp\/assets/" ${INSTALL}/etc/retroarch.cfg
   sed -i -e "s/# overlay_directory =/overlay_directory =\/tmp\/overlays/" ${INSTALL}/etc/retroarch.cfg
   sed -i -e "s/# cheat_database_path =/cheat_database_path =\/tmp\/database\/cht/" ${INSTALL}/etc/retroarch.cfg
+  sed -i -e "s/# menu_driver = \"rgui\"/menu_driver = \"xmb\"/" ${INSTALL}/etc/retroarch.cfg
 
   # Power settings
   # Use ondemand for all RPi devices (for backwards compatibility?)
   if [ "${PROJECT}" == "RPi" ]; then
-    echo 'cpu_main_gov = "ondemand"' >> $INSTALL/etc/retroarch.cfg
-    echo 'cpu_menu_gov = "ondemand"' >> $INSTALL/etc/retroarch.cfg
-    echo 'cpu_scaling_mode = "1"' >> $INSTALL/etc/retroarch.cfg
+    echo 'cpu_main_gov = "ondemand"' >> ${INSTALL}/etc/retroarch.cfg
+    echo 'cpu_menu_gov = "ondemand"' >> ${INSTALL}/etc/retroarch.cfg
+    echo 'cpu_scaling_mode = "1"' >> ${INSTALL}/etc/retroarch.cfg
   fi
 
   # Quick menu
@@ -162,9 +157,6 @@ makeinstall_target() {
   # Audio
   sed -i -e "s/# audio_filter_dir =/audio_filter_dir =\/usr\/share\/audio_filters/" ${INSTALL}/etc/retroarch.cfg
   sed -i -e "s/# audio_driver =/audio_driver = \"alsathread\"/" ${INSTALL}/etc/retroarch.cfg
-  if [ "${PROJECT}" = "OdroidXU3" -o "${DEVICE}" = "RPi4" ]; then # workaround the 55fps bug + fix no audio for RPi4
-    sed -i -e "s/# audio_out_rate = 48000/audio_out_rate = 44100/" ${INSTALL}/etc/retroarch.cfg
-  fi
 
   # Saving
   echo "savestate_thumbnail_enable = \"false\"" >> ${INSTALL}/etc/retroarch.cfg
@@ -199,20 +191,12 @@ makeinstall_target() {
   echo "playlist_entry_rename = \"false\"" >> ${INSTALL}/etc/retroarch.cfg
   echo "playlist_entry_remove = \"false\"" >> ${INSTALL}/etc/retroarch.cfg
 
-  # Gamegirl
-  if [ "${PROJECT}" = "RPi" -a "${DEVICE}" = "Gamegirl" ]; then
-    echo "xmb_theme = 3" >> ${INSTALL}/etc/retroarch.cfg
-    echo "xmb_menu_color_theme = 9" >> ${INSTALL}/etc/retroarch.cfg
-    echo "video_font_size = 10" >> ${INSTALL}/etc/retroarch.cfg
-    echo "aspect_ratio_index = 0" >> ${INSTALL}/etc/retroarch.cfg
-    echo "audio_device = \"sysdefault:CARD=ALSA\"" >> ${INSTALL}/etc/retroarch.cfg
-    echo "menu_timedate_enable = false" >> ${INSTALL}/etc/retroarch.cfg
-    echo "xmb_shadows_enable = true" >> ${INSTALL}/etc/retroarch.cfg
-    sed -i -e "s/input_menu_toggle_gamepad_combo = 2/input_menu_toggle_gamepad_combo = 4/" ${INSTALL}/etc/retroarch.cfg
-    sed -i -e "s/video_smooth = false/video_smooth = true/" ${INSTALL}/etc/retroarch.cfg
-    sed -i -e "s/video_font_path =\/usr\/share\/retroarch-assets\/xmb\/monochrome\/font.ttf//" ${INSTALL}/etc/retroarch.cfg
+  # Generic
+  if [ "${PROJECT}" = "Generic" -a "${VULKAN_SUPPORT}" = yes ]; then
+    echo "video_context_driver = \"khr_display\"" >> ${INSTALL/etc}/retroarch.cfg
   fi
 
+  # OdroidGoAdvance
   if [ "${DEVICE}" = "OdroidGoAdvance" ]; then
     echo "xmb_layout = 2" >> ${INSTALL}/etc/retroarch.cfg
     echo "menu_widget_scale_auto = false" >> ${INSTALL}/etc/retroarch.cfg
@@ -232,6 +216,7 @@ makeinstall_target() {
     sed -i -e "s/# video_scale_integer = false/video_scale_integer = true/" ${INSTALL}/etc/retroarch.cfg
   fi
 
+  # iMX6
   if [ "${PROJECT}" = "NXP" -a "${DEVICE}" = "iMX6" ]; then
     sed -i -e "s/# audio_device =/audio_device = \"default:CARD=DWHDMI\"/" ${INSTALL}/etc/retroarch.cfg
     sed -i -e "s/# audio_enable_menu = false/audio_enable_menu = true/" ${INSTALL}/etc/retroarch.cfg
