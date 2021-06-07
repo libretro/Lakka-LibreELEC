@@ -58,7 +58,7 @@ make_target() {
       make
       ;;
     *)
-      if [ ${DEVICE} = "RPi4" -a ${ARCH} = "aarch64" ]; then
+      if [ ${PROJECT} = "RPi" -a ${ARCH} = "aarch64" ]; then
         make
       else
         make platform=armv
