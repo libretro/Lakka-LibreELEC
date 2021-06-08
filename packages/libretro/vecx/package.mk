@@ -43,7 +43,7 @@ fi
 
 make_target() {
   if [ "$PROJECT" == "RPi" ]; then
-    if [ "$DEVICE" == "RPi4" ]; then
+    if [ "$DEVICE" == "RPi4" -o "$DEVICE" == "RPi3" ]; then
 	make platform=rpi-mesa -f Makefile.libretro # Use mesa gl/gles
     else
 	make platform=rpi -f Makefile.libretro # broadcom gl/gles
