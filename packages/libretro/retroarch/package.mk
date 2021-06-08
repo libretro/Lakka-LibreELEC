@@ -83,7 +83,7 @@ elif [ "$OPENGLES" = "gpu-viv-bin-mx6q" ] || [ "$OPENGLES" = "imx-gpu-viv" ]; th
 elif [ "$OPENGLES" = "libmali" ]; then
   RETROARCH_GL="--enable-opengles --enable-kms --disable-x11 --disable-wayland"
 elif [ "$OPENGLES" = "bcm2835-driver" ]; then
-  RETROARCH_GL="--enable-opengles --disable-kms --disable-x11 --disable-wayland --enable-videocore --enable-dispmanx"
+  RETROARCH_GL="--enable-opengles --disable-kms --disable-x11 --disable-wayland --enable-videocore --enable-dispmanx --disable-opengl --enable-egl"
 elif [ "$OPENGLES" = "allwinner-mali" ]; then
   RETROARCH_GL="--enable-opengles --enable-kms --disable-x11"
 elif [ "$OPENGLES" = "mesa" ]; then
