@@ -50,6 +50,14 @@ PKG_CMAKE_OPTS_TARGET="-DCMAKE_BUILD_TYPE=Release \
                        -DUSE_DRMKMS=ON \
                        -DBUILD_LIBRETRO_CORE=ON"
 
+# Compile with software renderer as default for devices not suporting OpenGL
+if [ "$PROJECT" = "Generic" -o "$DEVICE" = "RPi4" -o "$DEVICE" = "Switch" ]; then
+  PKG_PATCH_DIRS=""
+else
+  PKG_PATCH_DIRS="no_opengl"
+fi
+
+
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
   cp swanstation_libretro.so $INSTALL/usr/lib/libretro/
