@@ -65,6 +65,9 @@ make_target() {
                       -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
       make platform=rpi2_mesa GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
       ;;
+    RPi3)
+      make platform=rpi3-mesa
+      ;;
     RPi4)
       make platform=rpi4 GLES3=1 FORCE_GLES3=1
       ;;
