@@ -39,10 +39,12 @@ configure_target() {
 }
 
 make_target() {
-  if [ "$DEVICE" = RPi4 -a "$ARCH" = aarch64 ]; then
-    make platform=rpi4_64
-  elif [ "$PROJECT" = "L4T" ]; then
-    make platform=unix HAVE_OPENGL=1 ARCH=arm64
+  if [ "$ARCH" = aarch64 ]; then
+    if [ "$PROJECT" = "L4T" ]; then
+      make platform=unix HAVE_OPENGL=1 ARCH=arm64
+    else
+      make platform=unix ARCH=arm64
+    fi
   elif [ "$OPENGL_SUPPORT" = yes ]; then
     make HAVE_OPENGL=1
   else
