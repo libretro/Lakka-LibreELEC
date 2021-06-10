@@ -55,7 +55,7 @@ make_target() {
 
   if [ "$DEVICE" == "RPi" ]; then
     make platform=rpi
-  elif [ "$DEVICE" = "RPi4" ]; then
+  elif [ "$DEVICE" = "RPi3" -o "$DEVICE" = "RPi4" ]; then
     LDFLAGS="$LDFLAGS -lpthread"
     if [ "$ARCH" = "aarch64" ]; then
       make WITH_DYNAREC=$DYNAREC FORCE_GLES=1 HAVE_PARALLEL=1 HAVE_OPENGL=0
