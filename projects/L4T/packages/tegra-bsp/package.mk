@@ -26,7 +26,7 @@ else
 fi
 PKG_ARCH="any"
 PKG_DEPENDS_HOST=""
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET=""
 PKG_SITE="https://developer.nvidia.com/EMBEDDED/linux-tegra%20/"
 case "$DEVICE" in
   tx2|xavier|agx)
@@ -44,6 +44,24 @@ PKG_AUTORECONF="no"
 
 build_install() {
   if [ ! -d $PKG_BUILD/install ]; then
+    #get and extract multimedia api stuff
+    if [ -f nvidia-l4t-jetson-multimedia-api_32.3.1-20191209225816_arm64.deb ]; then
+      rm -f nvidia-l4t-jetson-multimedia-api_32.3.1-20191209225816_arm64.deb
+    fi
+
+    wget https://repo.download.nvidia.com/jetson/t210/pool/main/n/nvidia-l4t-jetson-multimedia-api/nvidia-l4t-jetson-multimedia-api_32.3.1-20191209225816_arm64.deb
+    mkdir multimedia_api
+    cd multimedia_api
+    ar x ../nvidia-l4t-jetson-multimedia-api_32.3.1-20191209225816_arm64.deb
+    mkdir data
+    cd data
+    tar xf ../data.tar.bz2
+    cd ..
+    rm *.tar* debian-binary
+    mv data/* ./
+    rmdir data
+    cp -Pv $PKG_DIR/assets/NvV4l2ElementPlane.cpp usr/src/jetson_multimedia_api/samples/common/classes/
+
     mkdir -p $PKG_BUILD/install
     mkdir -p $INSTALL
     cd $PKG_BUILD/install
@@ -69,21 +87,19 @@ build_install() {
 
     # Remove unneeded files
     rm -rf usr/lib/ld.so.conf usr/lib/ubiquity \
-  	etc/{systemd,NetworkManager,fstab,lightdm,nv-oem-config.conf.t210,skel,wpa_supplicant.conf,enctune.conf,nv,nvphsd.conf,nvpmodel,xdg}
+  	etc/{systemd,NetworkManager,fstab,lightdm,nv-oem-config.conf.t210,skel,wpa_supplicant.conf,enctune.conf,nv,nvphsd.conf,nvpmodel,xdg} \
+        usr/bin
+    rm -rf etc/systemd etc/sysctl.d etc/hostname etc/hosts etc/modprobe.d etc/modules-load.d var/nvidia
 
     # Move udev from etc/ to usr/lib/
     cp -PRv etc/udev usr/lib/
-
-    # Create firmware in usr/lib/kernel-overlays/base/lib/firmware/
-    #mkdir -p usr/lib/kernel-overlays/base/lib/firmware/
-    #cp -PRv usr/lib/firmware usr/lib/kernel-overlays/base/lib/
-    rm -rf etc/systemd etc/sysctl.d etc/hostname etc/hosts etc/modprobe.d etc/udev etc/modules-load.d var/nvidia
-    #rm -rf usr/lib/firmware
+    rm -rf etc/udev
 
     # Refresh symlinks
     cd usr/lib/
     ln -sfn libcuda.so.1.1 libcuda.so
     mv libdrm.so.2 libdrm_nvdc.so
+    ln -sfn libdrm_nvdc.so libdrm.so.2
     ln -sfn libnvbufsurface.so.1.0.0 libnvbufsurface.so
     ln -sfn libnvbufsurftransform.so.1.0.0 libnvbufsurftransform.so
     ln -sfn libnvbuf_utils.so.1.0.0 libnvbuf_utils.so
@@ -95,15 +111,27 @@ build_install() {
     ln -sfn libv4l2.so.0 libv4l2.so
     ln -sfn libv4lconvert.so.0.0.999999 libv4lconvert.so.0
     ln -sfn libv4lconvert.so.0 libv4lconvert.so
+    ln -sfn libnvgbm.so libgbm.so.1
+    ln -sfn libnvidia-egl-wayland.so libnvidia-egl-wayland.so.1
 
-    cd libv4l/plugins/nv
-    rm *
-    ln -sfn ../../../libv4l2_nvvideocodec.so libv4l2_nvvideocodec.so
-    ln -sfn ../../../libv4l2_nvvidconv.so  libv4l2_nvvidconv.so
-    cd ../../../
+    mkdir -p aarch64-linux-gnu/libv4l/plugins/nv
+    cd aarch64-linux-gnu/libv4l/plugins/nv
+    ln -sfn ../../../../libv4l2_nvvideocodec.so libv4l2_nvvideocodec.so
+    ln -sfn ../../../../libv4l2_nvvidconv.so  libv4l2_nvvidconv.so
+    cd ../../../../
+
+    rm -r libv4l/
 
     #Fix Vulkan ICD
     sed -i 's:libGLX_nvidia.so.0:/usr/lib/libGLX_nvidia.so.0:g' nvidia_icd.json
+
+    #Fix glvnd config
+    sed -i 's:libEGL_nvidia.so.0:/usr/lib/libEGL_nvidia.so.0:g' nvidia.json
+    rm ../share/glvnd/egl_vendor.d/*
+    mv nvidia.json ../share/glvnd/egl_vendor.d/10_nvidia.json
+
+    #Fix EGL configs
+    sed -i 's:libnvidia-egl-wayland.so.1:/usr/lib/libnvidia-egl-wayland.so.1:g' ../share/egl/egl_external_platform.d/nvidia_wayland.json
 
     #More symlinking
 
@@ -123,7 +151,11 @@ fi
 makeinstall_target() {
   build_install
   cp -PRv install/* $INSTALL/
-  cp -PRv install/usr/lib/* ${TOOLCHAIN}/aarch64-libreelec-linux-gnueabi/sysroot/usr/lib/
+  cp -PRvn install/usr/lib/* ${TOOLCHAIN}/aarch64-libreelec-linux-gnueabi/sysroot/usr/lib/
+  #install multimedia_api_headers
+  cp -PRvn multimedia_api/usr/src/jetson_multimedia_api/include/* ${SYSROOT_PREFIX}/usr/include
+  mkdir -p ${SYSROOT_PREFIX}/usr/src/jetson_multimedia_api/samples/common
+  cp -PRn multimedia_api/usr/src/jetson_multimedia_api/samples/common/*  ${SYSROOT_PREFIX}/usr/src/jetson_multimedia_api/samples/common/
   PWD=$(pwd)
   cd ${TOOLCHAIN}/aarch64-libreelec-linux-gnueabi/sysroot/usr/lib/
   rm libv4lconvert.so.0 libv4lconvert.so libv4l2.so.0 libv4l2.so
@@ -131,7 +163,14 @@ makeinstall_target() {
   cp libv4l2.so.0 libv4l2.so
   mv libv4lconvert.so.0.0.999999 libv4lconvert.so.0
   cp libv4lconvert.so.0 libv4lconvert.so
+  rm libgbm.so.1
+  cp libnvgbm.so libgbm.so.1
+  #cp libnvgbm.so libgbm.so
+  cp libnvidia-egl-wayland.so libvnidia-egl-wayland.so.1
+  rm libdrm.so.2
+  cp libdrm_nvdc.so libdrm.so.2
   cd $PWD
+
   if [ "$DEVICE" = "Switch" ]; then
     #Audio Fix Service
     cp -Pv $PKG_DIR/assets/alsa-fix.service $INSTALL/usr/lib/systemd/system/
@@ -145,11 +184,6 @@ makeinstall_target() {
     fi
   fi
 }
-
-#makeinstall_sysroot() {
-#  build_install
-#  cp -PRv install/usr/lib/* ${TOOLCHAIN}/aarch64-libreelec-linux-gnueabi/sysroot/usr/lib/
-#}
 
 make_target() {
   :
