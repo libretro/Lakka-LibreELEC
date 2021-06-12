@@ -39,4 +39,5 @@ make_target() {
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
   cp moonlight_libretro.so $INSTALL/usr/lib/libretro/
+  cp $PKG_DIR/assets/moonlight_libretro.info $INSTALL/usr/lib/libretro/
 }
