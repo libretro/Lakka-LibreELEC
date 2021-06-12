@@ -9,6 +9,13 @@ PKG_TOOLCHAIN="cmake"
 
 if [ "${OPENGL_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL}"
+else
+  # Compile with software renderer as default for devices not suporting OpenGL
+  # Note: some OpenGL ES device are able to use the OpenGL renderer of SwanStation
+  # so the condition for patch dir in/ex-clusion can be changed to PROJECT / DEVICE
+  # in the future. However falling back to SW does at least not make the core unusable
+  # on platforms without OpenGL support
+  PKG_PATCH_DIRS="no_opengl"
 fi
 
 if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
