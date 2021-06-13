@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="handy"
-PKG_VERSION="358f50b"
+PKG_VERSION="aceb3ee"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Zlib"

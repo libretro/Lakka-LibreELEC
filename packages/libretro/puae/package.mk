@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="puae"
-PKG_VERSION="34b26b1"
+PKG_VERSION="8dd15f6"
 PKG_REV="1"
 PKG_ARCH="arm i386 x86_64"
 PKG_LICENSE="GPL"
