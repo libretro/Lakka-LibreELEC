@@ -45,11 +45,11 @@ fi
 make_target() {
   if [ "$OPENGL_SUPPORT" = yes ]; then
     if [ "$ARCH" = "arm" ]; then
-      make HAVE_OPENMP=0 LDFLAGS=-lrt
+      make HAVE_OPENMP=0 LDFLAGS=-lrt HAVE_OIT=1
     elif [ "$PROJECT" = "L4T" ]; then
-      make AS=${AS} CC_AS=${CC} platform=jetson-nano HAVE_OPENMP=0
+      make AS=${AS} CC_AS=${CC} platform=jetson-nano HAVE_OPENMP=0 HAVE_OIT=1
     else
-      make AS=${AS} CC_AS=${AS} ARCH=${ARCH} HAVE_OPENMP=0 LDFLAGS=-lrt
+      make AS=${AS} CC_AS=${AS} ARCH=${ARCH} HAVE_OPENMP=0 LDFLAGS=-lrt HAVE_OIT=1
     fi
   else
     FLYCAST_GL=""
