@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="swanstation"
-PKG_VERSION="9631526"
+PKG_VERSION="50a6a5e"
 PKG_ARCH="x86_64 arm aarch64"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/swanstation"
