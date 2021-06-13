@@ -83,10 +83,11 @@ targets="\
 	Rockchip|RK3399|arm|image \
 	Rockchip|TinkerBoard|arm|image \
 	RPi|GPICase|arm|image \
-	RPi|RPi|arm|image \
-	RPi|RPi2|arm|image \
-	RPi|RPi3|aarch64|image \
-	RPi|RPi4|aarch64|image \
+	RPi|RPi|arm|noobs \
+	RPi|RPi2|arm|noobs \
+	RPi|RPi3|aarch64|noobs \
+	RPi|RPi4|arm|noobs \
+	RPi|RPi4|aarch64|noobs \
 	"
 
 # set the number of total build jobs and initialize counter for current build job
@@ -126,7 +127,7 @@ do
 	then
 		# show logs during build (non-dashboard build)
 		echo "Starting build of ${target_name}"
-		make ${out} PROJECT=${project} DEVICE=${device} ARCH=${arch} IGNORE_VERSION=${iv} ${tc}
+		make ${out} OFFICIAL=yes PROJECT=${project} DEVICE=${device} ARCH=${arch} IGNORE_VERSION=${iv} ${tc}
 		ret_nondb=${?}
 		if [ ${ret_nondb} -gt 0 -a "${BAILOUT_FAILED}" != "no" ]
 		then
@@ -136,7 +137,7 @@ do
 		# remove the old dashboard, so we don't show old/stale dashboard
 		rm -f ${statusfile}
 		# start the build process in background
-		make ${out} PROJECT=${project} DEVICE=${device} ARCH=${arch} IGNORE_VERSION=${iv} ${tc} &>/dev/null &
+		make ${out} OFFICIAL=yes PROJECT=${project} DEVICE=${device} ARCH=${arch} IGNORE_VERSION=${iv} ${tc} &>/dev/null &
 		# store the pid
 		pid=${!}
 		finished=0

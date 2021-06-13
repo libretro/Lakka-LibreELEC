@@ -36,6 +36,7 @@ targets="\
 	Amlogic|AMLGX|arm \
 	Generic||x86_64 \
 	Generic||i386 \
+	L4T|Swtich|aarch64 \
 	NXP|iMX6|arm \
 	OdroidXU3||arm \
 	Rockchip|MiQi|arm \
@@ -46,9 +47,9 @@ targets="\
 	RPi|GPICase|arm \
 	RPi|RPi|arm \
 	RPi|RPi2|arm \
+	RPi|RPi3|aarch64 \
 	RPi|RPi4|arm \
 	RPi|RPi4|aarch64 \
-	Qualcomm|Dragonboard|arm \
 	"
 
 package=$2
