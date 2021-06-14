@@ -18,7 +18,7 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="moonlight"
+PKG_NAME="moonlight-libretro"
 PKG_VERSION="20d2d77"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
