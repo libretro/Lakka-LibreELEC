@@ -40,13 +40,9 @@ case "$LINUX" in
     PKG_SHA256="4cbafde263437b5c9ab5c4a2496866eb19922fb4c80cf5c6ef3c8b65cf1936be"
     PKG_URL="https://github.com/hardkernel/linux/archive/$PKG_VERSION.tar.gz"
     ;;
-  odroidxu3-5.4)
-    PKG_VERSION="5e12d570f207e48f321029b15026ae7c4ab21217"
-    PKG_URL="https://github.com/hardkernel/linux/archive/$PKG_VERSION.tar.gz"
-    ;;
   mainline-5.10)
-    PKG_VERSION="5.10.35"
-    PKG_SHA256="ac37a19d45b77a87e58e3aae8b127a6e7eb85ed7467fc8e58474b387bfd498fd"
+    PKG_VERSION="5.10.45"
+   # PKG_SHA256=" "
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v5.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     PKG_PATCH_DIRS="default"
     ;;
