@@ -12,7 +12,8 @@ PKG_LONGDESC="This project provides Khronos official Vulkan Tools and Utilities.
 
 pre_configure_target() {
   PKG_CMAKE_OPTS_TARGET="-DBUILD_ICD=Off \
-                         -DINSTALL_ICD=Off"
+                         -DINSTALL_ICD=Off \
+                         -DBUILD_CUBE=off"
 
   # Disable Wayland WSI support
   sed -e "s/Build Wayland WSI support\" ON/Build Wayland WSI support\" OFF/" -i ${PKG_BUILD}/cube/CMakeLists.txt
