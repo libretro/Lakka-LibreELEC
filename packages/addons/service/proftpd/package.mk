@@ -54,6 +54,6 @@ addon() {
 
   mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/locale
     for i in ${PKG_INSTALL}/storage/.kodi/addons/${PKG_ADDON_ID}/locale/*; do
-      cp ${i}/LC_MESSAGES/proftpd.mo ${ADDON_BUILD}/${PKG_ADDON_ID}/locale/$(basename ${i}).mo
+      cp ${i}/LC_MESSAGES/proftpd.mo ${ADDON_BUILD}/${PKG_ADDON_ID}/locale/${i##*/}.mo
     done
 }
