@@ -10,7 +10,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.proftpd.org/"
 PKG_URL="https://github.com/proftpd/proftpd/archive/v${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain libcap openssl ncurses pcre whois"
+PKG_DEPENDS_TARGET="toolchain libcap openssl ncurses pcre"
 PKG_SECTION="service"
 PKG_SHORTDESC="ProFTPD: a FTP server for linux"
 PKG_LONGDESC="ProFTPD (${PKG_VERSION}): is a secure and configurable FTP server with SSL/TLS support"
@@ -49,8 +49,6 @@ addon() {
     cp ${PKG_INSTALL}/usr/sbin/proftpd ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
     cp ${PKG_INSTALL}/usr/bin/ftpwho ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
     cp ${PKG_INSTALL}/usr/bin/ftptop ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
-
-    cp $(get_install_dir whois)/usr/bin/mkpasswd ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
   mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/locale
     for i in ${PKG_INSTALL}/storage/.kodi/addons/${PKG_ADDON_ID}/locale/*; do
