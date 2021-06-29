@@ -2,7 +2,7 @@
 
 # base ffmpeg version
 KODI_FFMPEG_REPO="https://github.com/xbmc/FFmpeg"
-KODI_FFMPEG_VERSION="4.3.1-Matrix-Alpha1-1"
+KODI_FFMPEG_VERSION="4.3.2-Matrix-19.1"
 
 ALL_FEATURE_SETS="v4l2-drmprime v4l2-request libreelec rpi"
 
@@ -37,7 +37,7 @@ create_patch() {
       ;;
     rpi)
       REPO="https://github.com/jc-kynesim/rpi-ffmpeg"
-      REFSPEC="dev/4.3.1/drm_prime_1"
+      REFSPEC="dev/4.3.2/clean_3"
       ;;
     *)
       echo "illegal feature set ${FEATURE_SET}"
