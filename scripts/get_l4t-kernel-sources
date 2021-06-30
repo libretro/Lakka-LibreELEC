@@ -1,0 +1,844 @@
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
+
+_get_file_already_downloaded() {
+  [ ! -f "${PACKAGE}" -o ! -f "${STAMP_URL}" -o ! -f "${STAMP_SHA}" ] && return 1
+  [ -n "${PKG_SHA256}" -a "$(cat ${STAMP_SHA} 2>/dev/null)" != "${PKG_SHA256}" ] && return 1
+  return 0
+}
+
+check_custom_l4t_repos() {
+  if [ ! $L4T_KERNEL_4_9_REPO = "" ] || [ ! $L4T_KERNEL_4_9_URL = "" ]; then
+     if [ ! $CUSTOM_PATCH = 1 ] && [ ! $FORCE_GENERIC_L4T_PATCHES = 1 ]; then
+       export CUSTOM_PATCH=1
+     fi
+     if [ ! $L4T_KERNEL_4_9_REPO = "" ]; then
+       L4T_KERNEL_4_9_SOURCE=$L4T_KERNEL_4_9_REPO
+       L4T_KERNEL_4_9_SOURCE_TYPE=1
+       echo "Using Custom Git repo for linux 4.9"
+     else
+       L4T_KERNEL_4_9_SOURCE=$L4T_KERNEL_4_9_URL
+       L4T_KERNEL_4_9_SOURCE_TYPE=0
+       echo "Using Custom URL for linux 4.9 Source"
+     fi
+  else
+    L4T_KERNEL_4_9_SOURCE="git://nv-tegra.nvidia.com/linux-4.9.git"
+    L4T_KERNEL_4_9_REPO_BRANCH=tegra-l4t-r$GENERIC_L4T_VERSION
+    L4T_KERNEL_4_9_SOURCE_TYPE=2 # 2 is broken nvidia git hack.... I dont know why it is needed.
+  fi
+
+  if [ ! $L4T_KERNEL_NVIDIA_REPO = "" ] || [ ! $L4T_KERNEL_NVIDIA_URL = "" ]; then
+     if [ ! $CUSTOM_PATCH = 1 ] && [ ! $FORCE_GENERIC_L4T_PATCHES = 1 ]; then
+       export CUSTOM_PATCH=1
+     fi
+     if [ ! $L4T_KERNEL_NVIDIA_REPO = "" ]; then
+       L4T_KERNEL_NVIDIA_SOURCE=$L4T_KERNEL_NVIDIA_REPO
+       L4T_KERNEL_NVIDIA_SOURCE_TYPE=1
+       echo "Using Custom Git repo for Nvidia Repo"
+     else
+       L4T_KERNEL_NVIDIA_SOURCE=$L4T_KERNEL_NVIDIA_URL
+       L4T_KERNEL_NVIDIA_TEGRA_SOURCE_TYPE=0
+       echo "Using Custom URL for Nvidia Repo Source"
+     fi
+  else
+       L4T_KERNEL_NVIDIA_SOURCE="git://nv-tegra.nvidia.com/linux-nvidia.git"
+       L4T_KERNEL_NVIDIA_REPO_BRANCH=tegra-l4t-r$GENERIC_L4T_VERSION
+       L4T_KERNEL_NVIDIA_SOURCE_TYPE=2
+  fi
+  
+  if [ ! $L4T_KERNEL_NVGPU_REPO = "" ] || [ ! $L4T_KERNEL_NVGPU_URL = "" ]; then
+     if [ ! $CUSTOM_PATCH = 1 ] && [ ! $FORCE_GENERIC_L4T_PATCHES = 1 ]; then
+       export CUSTOM_PATCH=1
+     fi
+     if [ ! $L4T_KERNEL_NVGPU_REPO = "" ]; then
+       L4T_KERNEL_NVGPU_SOURCE=$L4T_KERNEL_NVGPU_REPO
+       L4T_KERNEL_NVGPU_SOURCE_TYPE=1
+       echo "Using Custom Git repo for nvgpu"
+     else
+       L4T_KERNEL_NVGPU_SOURCE=$L4T_KERNEL_NVGPU_URL
+       L4T_KERNEL_NVGPU_TEGRA_SOURCE_TYPE=0
+       echo "Using Custom URL for nvgpu source"
+     fi
+  else
+       L4T_KERNEL_NVGPU_SOURCE="git://nv-tegra.nvidia.com/linux-nvgpu.git"
+       L4T_KERNEL_NVGPU_REPO_BRANCH=tegra-l4t-r$GENERIC_L4T_VERSION
+       L4T_KERNEL_NVGPU_SOURCE_TYPE=2
+  fi
+  
+  if [ ! $L4T_DEVICE_COMMON_TEGRA_REPO = "" ] || [ ! $L4T_DEVICE_COMMON_TEGRA_URL = "" ]; then
+     if [ ! $CUSTOM_PATCH = 1 ] && [ ! $FORCE_GENERIC_L4T_PATCHES = 1 ]; then
+       export CUSTOM_PATCH=1
+     fi
+     if [ ! $L4T_DEVICE_COMMON_TEGRA_REPO = "" ]; then
+       L4T_DEVICE_COMMON_TEGRA_SOURCE=$L4T_DEVICE_COMMON_TEGRA_REPO
+       L4T_DEVICE_COMMON_TEGRA_SOURCE_TYPE=1
+       echo "Using Custom Git repo for device_common_tegra"
+     else
+       L4T_DEVICE_COMMON_TEGRA_SOURCE=$L4T_DEVICE_COMMON_TEGRA_URL
+       L4T_DEVICE_COMMON_TEGRA_SOURCE_TYPE=0
+       echo "Using Custom URL for device_common_tegra source"
+     fi
+  else
+       L4T_DEVICE_COMMON_TEGRA_SOURCE="git://nv-tegra.nvidia.com/device/hardware/nvidia/platform/tegra/common.git"
+       L4T_DEVICE_COMMON_TEGRA_REPO_BRANCH=tegra-l4t-r$GENERIC_L4T_VERSION
+       L4T_DEVICE_COMMON_TEGRA_SOURCE_TYPE=1
+  fi
+  
+  if [ $L4T_DEVICE_TYPE = "t210" ]; then
+    if [ ! $L4T_DEVICE_COMMON_T210_REPO = "" ] || [ ! $L4T_DEVICE_COMMON_T210_URL = "" ]; then
+       if [ ! $CUSTOM_PATCH = 1 ] && [ ! $FORCE_GENERIC_L4T_PATCHES = 1 ]; then
+         export CUSTOM_PATCH=1
+       fi
+       if [ ! $L4T_DEVICE_COMMON_T210_REPO = "" ]; then
+         L4T_DEVICE_COMMON_T210_SOURCE=$L4T_DEVICE_COMMON_T210_REPO
+         L4T_DEVICE_COMMON_T210_SOURCE_TYPE=1
+         echo "Using Custom Git repo for device_common_t210"
+       else
+         L4T_DEVICE_COMMON_T210_SOURCE=$L4T_DEVICE_COMMON_T210_URL
+         L4T_DEVICE_COMMON_T210_SOURCE_TYPE=0
+         echo "Using Custom URL for device_common_t210 source"
+       fi
+    else
+      L4T_DEVICE_COMMON_T210_SOURCE="git://nv-tegra.nvidia.com/device/hardware/nvidia/platform/t210/common.git"
+      L4T_DEVICE_COMMON_T210_REPO_BRANCH="tegra-l4t-r$GENERIC_L4T_VERSION"
+      L4T_DEVICE_COMMON_T210_SOURCE_TYPE=1
+    fi
+  elif [ $L4T_DEVICE_TYPE = "t18x" ]; then
+    if [ ! $L4T_DEVICE_COMMON_T18X_REPO = "" ] || [ ! $L4T_DEVICE_COMMON_T18X_URL = "" ]; then
+      if [ ! $CUSTOM_PATCH = 1 ] && [ ! $FORCE_GENERIC_L4T_PATCHES = 1 ]; then
+        export CUSTOM_PATCH=1
+      fi
+      if [ ! $L4T_DEVICE_COMMON_T18X_REPO = "" ]; then
+        L4T_DEVICE_COMMON_T18X_SOURCE=$L4T_DEVICE_COMMON_T18X_REPO
+        L4T_DEVICE_COMMON_T18X_SOURCE_TYPE=1
+        echo "Using Custom Git repo for device_common_t18x"
+      else
+        L4T_DEVICE_COMMON_T18X_SOURCE=$L4T_DEVICE_COMMON_T18X_URL
+        L4T_DEVICE_COMMON_T18X_SOURCE_TYPE=0
+        echo "Using Custom URL for device_common_t18x source"
+      fi
+    else
+      L4T_DEVICE_COMMON_T18X_SOURCE="git://nv-tegra.nvidia.com/device/hardware/nvidia/platform/t18x/common.git"
+      L4T_DEVICE_COMMON_T18X_REPO_BRANCH=tegra-l4t-r$GENERIC_L4T_VERSION
+      L4T_DEVICE_COMMON_T18X_SOURCE_TYPE=1
+    fi
+  elif [ $L4T_DEVICE_TYPE = "t19x" ]; then
+    if [ ! $L4T_DEVICE_COMMON_T19X_REPO = "" ] || [ ! $L4T_DEVICE_COMMON_T19X_URL = "" ]; then
+      if [ ! $CUSTOM_PATCH = 1 ] && [ ! $FORCE_GENERIC_L4T_PATCHES = 1 ]; then
+        export CUSTOM_PATCH=1
+      fi
+      if [ ! $L4T_DEVICE_COMMON_T19X_REPO = "" ]; then
+        L4T_DEVICE_COMMON_T19X_SOURCE=$L4T_DEVICE_COMMON_T19X_REPO
+        L4T_DEVICE_COMMON_T19X_SOURCE_TYPE=1
+        echo "Using Custom Git repo for device_common_t19x"
+      else
+        L4T_DEVICE_COMMON_T19X_SOURCE=$L4T_DEVICE_COMMON_T19X_URL
+        L4T_DEVICE_COMMON_T19X_SOURCE_TYPE=0
+        echo "Using Custom URL for device_common_t19x source"
+      fi
+    else
+      L4T_DEVICE_COMMON_T19X_SOURCE="git://nv-tegra.nvidia.com/device/hardware/nvidia/platform/t19x/common.git"
+      L4T_DEVICE_COMMON_T19X_REPO_BRANCH=tegra-l4t-r$GENERIC_L4T_VERSION
+      L4T_DEVICE_COMMON_T19X_SOURCE_TYPE=1
+    fi
+  fi
+  
+  if [ $L4T_DEVICE_TYPE = "t210" ]; then
+    if [ ! $L4T_DEVICE_T210_REPO = "" ] || [ ! $L4T_DEVICE_T210_URL = "" ]; then
+       if [ ! $CUSTOM_PATCH = 1 ] && [ ! $FORCE_GENERIC_L4T_PATCHES = 1 ]; then
+         export CUSTOM_PATCH=1
+       fi
+       if [ ! $L4T_DEVICE_T210_REPO = "" ]; then
+         L4T_DEVICE_T210_SOURCE=$L4T_DEVICE_T210_REPO
+         L4T_DEVICE_T210_SOURCE_TYPE=1
+         echo "Using Custom Git repo for device_t210"
+       else
+         L4T_DEVICE_T210_SOURCE=$L4T_DEVICE_T210_URL
+         L4T_DEVICE_T210_SOURCE_TYPE=0
+         echo "Using Custom URL for device_t210 source"
+       fi
+    else
+      L4T_DEVICE_T210_SOURCE="git://nv-tegra.nvidia.com/device/hardware/nvidia/soc/t210.git"
+      L4T_DEVICE_T210_REPO_BRANCH=tegra-l4t-r$GENERIC_L4T_VERSION
+      L4T_DEVICE_T210_SOURCE_TYPE=1
+    fi
+    elif [ $L4T_DEVICE_TYPE = "t18x" ]; then
+    if [ ! $L4T_DEVICE_T18X_REPO = "" ] || [ ! $L4T_DEVICE_T18X_URL = "" ]; then
+       if [ ! $CUSTOM_PATCH = 1 ] && [ ! $FORCE_GENERIC_L4T_PATCHES = 1 ]; then
+         export CUSTOM_PATCH=1
+       fi
+       if [ ! $L4T_DEVICE_T186_REPO = "" ]; then
+         L4T_DEVICE_T18X_SOURCE=$L4T_DEVICE_T18X_REPO
+         L4T_DEVICE_T18X_SOURCE_TYPE=1
+         echo "Using Custom Git repo for device_t186"
+       else
+         L4T_DEVICE_T18X_SOURCE=$L4T_DEVICE_T18X_URL
+         L4T_DEVICE_T18X_SOURCE_TYPE=0
+         echo "Using Custom URL for device_t18x source"
+       fi
+    else
+      L4T_DEVICE_T18X_SOURCE="git://nv-tegra.nvidia.com/device/hardware/nvidia/soc/t18x.git"
+      L4T_DEVICE_T18X_REPO_BRANCH=tegra-l4t-r$GENERIC_L4T_VERSION
+      L4T_DEVICE_T18X_SOURCE_TYPE=1
+    fi
+  elif [ $L4T_DEVICE_TYPE = "t19x" ]; then
+    if [ ! $L4T_DEVICE_T19X_REPO = "" ] || [ ! $L4T_DEVICE_T19X_URL = "" ]; then
+       if [ ! $CUSTOM_PATCH = 1 ] && [ ! $FORCE_GENERIC_L4T_PATCHES = 1 ]; then
+         export CUSTOM_PATCH=1
+       fi
+       if [ ! $L4T_DEVICE_T19X_REPO = "" ]; then
+         L4T_DEVICE_T19X_SOURCE=$L4T_DEVICE_T19X_REPO
+         L4T_DEVICE_T19X_SOURCE_TYPE=1
+         echo "Using Custom Git repo for device_t19x"
+       else
+         L4T_DEVICE_T19X_SOURCE=$L4T_DEVICE_T19X_URL
+         L4T_DEVICE_T19X_SOURCE_TYPE=0
+         echo "Using Custom URL for device_t19x source"
+       fi
+    else
+      L4T_DEVICE_T19X_SOURCE="git://nv-tegra.nvidia.com/device/hardware/nvidia/soc/t19x.git"
+      L4T_DEVICE_T19X_REPO_BRANCH=tegra-l4t-r$GENERIC_L4T_VERSION
+      L4T_DEVICE_T19X_SOURCE_TYPE=2
+    fi
+  fi
+
+  if [ ! $L4T_DEVICE_TEGRA_REPO = "" ] || [ ! $L4T_DEVICE_TEGRA_URL = "" ]; then
+     if [ ! $CUSTOM_PATCH = 1 ] && [ ! $FORCE_GENERIC_L4T_PATCHES = 1 ]; then
+       export CUSTOM_PATCH=1
+     fi
+     if [ ! $L4T_DEVICE_TEGRA_REPO = "" ]; then
+       L4T_DEVICE_TEGRA_SOURCE=$L4T_DEVICE_TEGRA_REPO
+       L4T_DEVICE_TEGRA_SOURCE_TYPE=1
+       echo "Using Custom Git repo for device_tegra"
+     else
+       L4T_DEVICE_TEGRA_SOURCE=$L4T_DEVICE_TEGRA_URL
+       L4T_DEVICE_TEGRA_SOURCE_TYPE=0
+       echo "Using Custom URL for device_tegra source"
+     fi
+  else
+       L4T_DEVICE_TEGRA_SOURCE="git://nv-tegra.nvidia.com/device/hardware/nvidia/soc/tegra.git"
+       L4T_DEVICE_TEGRA_REPO_BRANCH=tegra-l4t-r$GENERIC_L4T_VERSION
+       L4T_DEVICE_TEGRA_SOURCE_TYPE=1
+  fi
+     
+  if [ $L4T_DEVICE_TYPE = "t210" ]; then
+    if [ ! $L4T_DEVICE_T210_JETSON_REPO = "" ] || [ ! $L4T_DEVICE_T210_JETSON_URL = "" ]; then
+       if [ ! $CUSTOM_PATCH = 1 ] && [ ! $FORCE_GENERIC_L4T_PATCHES = 1 ]; then
+         export CUSTOM_PATCH=1
+       fi
+       if [ ! $L4T_DEVICE_T210_JETSON_REPO = "" ]; then
+         L4T_DEVICE_T210_JETSON_SOURCE=$L4T_DEVICE_T210_JETSON_REPO
+         L4T_DEVICE_T210_JETSON_SOURCE_TYPE=1
+         echo "Using Custom Git repo for device_t210_jetson"
+       else
+         L4T_DEVICE_T210_JETSON_SOURCE=$L4T_DEVICE_T210_JETSON_URL
+         L4T_DEVICE_T210_JETSON_SOURCE_TYPE=0
+         echo "Using Custom URL for device_t210_jetson source"
+       fi
+    else
+      L4T_DEVICE_T210_JETSON_SOURCE="git://nv-tegra.nvidia.com/device/hardware/nvidia/platform/t210/jetson.git"
+      L4T_DEVICE_T210_JETSON_REPO_BRANCH=tegra-l4t-r$GENERIC_L4T_VERSION
+      L4T_DEVICE_T210_JETSON_SOURCE_TYPE=2
+    fi
+    if [ ! $L4T_DEVICE_T210_BATUU_REPO = "" ] || [ ! $L4T_DEVICE_T210_BATUU_URL = "" ]; then
+       if [ ! $CUSTOM_PATCH = 1 ] && [ ! $FORCE_GENERIC_L4T_PATCHES = 1 ]; then
+         export CUSTOM_PATCH=1
+       fi
+       if [ ! $L4T_DEVICE_T210_BATUU_REPO = "" ]; then
+         L4T_DEVICE_T210_BATUU_SOURCE=$L4T_DEVICE_T210_BATUU_REPO
+         L4T_DEVICE_T210_BATUU_SOURCE_TYPE=1
+         echo "Using Custom Git repo for device_t210_batuu"
+       else
+         L4T_DEVICE_T210_BATUU_SOURCE=$L4T_DEVICE_T210_BATUU_URL
+         L4T_DEVICE_T210_BATUU_SOURCE_TYPE=0
+         echo "Using Custom URL for device_t210_batuu source"
+       fi
+    else
+      L4T_DEVICE_T210_BATUU_SOURCE="git://nv-tegra.nvidia.com/device/hardware/nvidia/platform/t210/batuu-dts.git"
+      L4T_DEVICE_T210_BATUU_REPO_BRANCH=tegra-l4t-r$GENERIC_L4T_VERSION
+      L4T_DEVICE_T210_BATUU_SOURCE_TYPE=1
+    fi
+    if [ ! $L4T_DEVICE_T210_PORG_REPO = "" ] || [ ! $L4T_DEVICE_T210_PORG_URL = "" ]; then
+       if [ ! $CUSTOM_PATCH = 1 ] && [ ! $FORCE_GENERIC_L4T_PATCHES = 1 ]; then
+         export CUSTOM_PATCH=1
+       fi
+       if [ ! $L4T_DEVICE_T210_PORG_REPO = "" ]; then
+         L4T_DEVICE_T210_PORG_SOURCE=$L4T_DEVICE_T210_PORG_REPO
+         L4T_DEVICE_T210_PORG_SOURCE_TYPE=1
+         echo "Using Custom Git repo for device_t210_porg"
+       else
+         L4T_DEVICE_T210_PORG_SOURCE=$L4T_DEVICE_T210_PORG_URL
+         L4T_DEVICE_T210_PORG_SOURCE_TYPE=0
+         echo "Using Custom URL for device_t210_porg source"
+       fi
+    else
+      L4T_DEVICE_T210_PORG_SOURCE="git://nv-tegra.nvidia.com/device/hardware/nvidia/platform/t210/porg.git"
+      L4T_DEVICE_T210_PORG_REPO_BRANCH=tegra-l4t-r$GENERIC_L4T_VERSION
+      L4T_DEVICE_T210_PORG_SOURCE_TYPE=1
+    fi
+  elif [ $L4T_DEVICE_TYPE = "t18x" ]; then
+    if [ ! $L4T_DEVICE_T18X_QUILL_REPO = "" ] || [ ! $L4T_DEVICE_T18X_QUILL_URL = "" ]; then
+       if [ ! $CUSTOM_PATCH = 1 ] && [ ! $FORCE_GENERIC_L4T_PATCHES = 1 ]; then
+         export CUSTOM_PATCH=1
+       fi
+       if [ ! $L4T_DEVICE_T18X_QUILL_REPO = "" ]; then
+         L4T_DEVICE_T18X_QUILL_SOURCE=$L4T_DEVICE_T18X_QUILL_REPO
+         L4T_DEVICE_T18X_QUILL_SOURCE_TYPE=1
+         echo "Using Custom Git repo for device_t18x_quill"
+       else
+         L4T_DEVICE_T18X_QUILL_SOURCE=$L4T_DEVICE_T18X_QUILL_URL
+         L4T_DEVICE_T18X_QUILL_SOURCE_TYPE=0
+         echo "Using Custom URL for device_t18x_quill source"
+       fi
+    else
+      L4T_DEVICE_T18X_QUILL_SOURCE="git://nv-tegra.nvidia.com/device/hardware/nvidia/platform/t18x/quill.git"
+      L4T_DEVICE_T18X_QUILL_REPO_BRANCH=tegra-l4t-r$GENERIC_L4T_VERSION
+      L4T_DEVICE_T18X_QUILL_SOURCE_TYPE=1
+    fi
+  elif [ $L4T_DEVICE_TYPE = "t19x" ]; then
+    if [ ! $L4T_DEVICE_T19X_GALEN_REPO = "" ] || [ ! $L4T_DEVICE_T19X_GALEN_URL = "" ]; then
+      if [ ! $CUSTOM_PATCH = 1 ] && [ ! $FORCE_GENERIC_L4T_PATCHES = 1 ]; then
+        export CUSTOM_PATCH=1
+      fi
+      if [ ! $L4T_DEVICE_T19X_GALEN_REPO = "" ]; then
+        L4T_DEVICE_T19X_GALEN_SOURCE=$L4T_DEVICE_T19X_GALEN_REPO
+        L4T_DEVICE_T19X_GALEN_SOURCE_TYPE=1
+        echo "Using Custom Git repo for device_t19x_galen"
+      else
+        L4T_DEVICE_T19X_GALEN_SOURCE=$L4T_DEVICE_T19X_GALEN_URL
+        L4T_DEVICE_T19X_GALEN_SOURCE_TYPE=0
+        echo "Using Custom URL for device_t19x_gallen source"
+      fi
+    else
+      L4T_DEVICE_T19X_GALEN_SOURCE="git://nv-tegra.nvidia.com/device/hardware/nvidia/platform/t19x/galen-industrial-dts.git"
+      L4T_DEVICE_T19X_GALEN_REPO_BRANCH=tegra-l4t-r$GENERIC_L4T_VERSION
+      L4T_DEVICE_T19X_GALEN_SOURCE_TYPE=1
+    fi
+    
+    if [ ! $L4T_DEVICE_T19X_JAKKU_REPO = "" ] || [ ! $L4T_DEVICE_T19X_JAKKU_URL = "" ]; then
+      if [ ! $CUSTOM_PATCH = 1 ] && [ ! $FORCE_GENERIC_L4T_PATCHES = 1 ]; then
+        export CUSTOM_PATCH=1
+      fi
+      if [ ! $L4T_DEVICE_T19X_JAKKU_REPO = "" ]; then
+        L4T_DEVICE_T19X_JAKKU_SOURCE=$L4T_DEVICE_T19X_JAKKU_REPO
+        L4T_DEVICE_T19X_JAKKU_SOURCE_TYPE=1
+        echo "Using Custom Git repo for device_t19x_jakku"
+      else
+        L4T_DEVICE_T19X_JAKKU_SOURCE=$L4T_DEVICE_T19X_JAKKU_URL
+        L4T_DEVICE_T19X_JAKKU_SOURCE_TYPE=0
+        echo "Using Custom URL for device_t19x_jakku source"
+      fi
+    else
+      L4T_DEVICE_T19X_JAKKU_SOURCE="git://nv-tegra.nvidia.com/device/hardware/nvidia/platform/t19x/jakku-dts.git"
+      L4T_DEVICE_T19X_JAKKU_REPO_BRANCH=tegra-l4t-r$GENERIC_L4T_VERSION
+      L4T_DEVICE_T19X_JAKKU_SOURCE_TYPE=1
+    fi
+  fi
+  
+  #For devices that have custom dts tree, like nintendo switch
+  if [ ! $L4T_DEVICE_CUSTOM_REPO = "" ] || [ ! $L4T_DEVICE_CUSTOM_URL = "" ]; then
+     echo "Including Custom Device Repo"
+     if [ ! $L4T_DEVICE_CUSTOM_REPO = "" ]; then
+       L4T_DEVICE_CUSTOM_REPO_SOURCE=$L4T_DEVICE_CUSTOM_REPO
+       L4T_DEVICE_CUSTOM_REPO_TYPE=1
+     else
+       L4T_DEVICE_CUSTOM_REPO_SOURCE=$L4T_DEVICE_CUSTOM_URL
+       L4T_DEVICE_CUSTOM_REPO_SOURCE_TYPE=0
+     fi
+  else
+    L4T_DEVICE_CUSTOM_REPO_TYPE=-1
+  fi
+}
+
+
+download_sources_and_combine() {
+    #download linux trees
+    CUR_PWD=$(pwd)
+    mkdir -p ${SOURCES}/linux
+    cd ${SOURCES}/linux
+    rm -rf combined_tree downloads
+    mkdir combined_tree
+    mkdir downloads && cd downloads
+    
+    #Main kernel
+    if [ ! $L4T_KERNEL_4_9_SOURCE_TYPE = 0 ]; then
+      if [ $L4T_KERNEL_4_9_REPO_BRANCH = "" ] || [ $L4T_KERNEL_4_9_SOURCE_TYPE = 2 ]; then
+        git clone $L4T_KERNEL_4_9_SOURCE
+      else
+        git clone -b $L4T_KERNEL_4_9_REPO_BRANCH $L4T_KERNEL_4_9_SOURCE
+      fi
+      cd $(echo $L4T_KERNEL_4_9_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+      if [ $L4T_KERNEL_4_9_SOURCE_TYPE = 2 ]; then
+        git checkout $L4T_KERNEL_4_9_REPO_BRANCH
+      fi
+      if [ ! $L4T_KERNEL_REPO_SHA256 = "" ]; then
+        git reset --hard $L4T_KERNEL_REPO_SHA256
+      fi
+      rm -rf .git*
+      cd ..
+    else
+      #Needs More Work
+      #wget $L4T_KERNEL_4_9_SOURCE
+      :
+    fi
+    mv $(echo $L4T_KERNEL_4_9_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')/* ../combined_tree/
+    rm -rf $(echo $L4T_KERNEL_4_9_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+       
+    mkdir ../combined_tree/nvidia/
+        
+    if [ ! $L4T_KERNEL_NVIDIA_SOURCE_TYPE = 0 ]; then
+      if [ $L4T_KERNEL_NVIDIA_REPO_BRANCH = "" ]  || [ $L4T_KERNEL_NVIDIA_SOURCE_TYPE = 2 ]; then
+        git clone $L4T_KERNEL_NVIDIA_SOURCE
+      else
+        git clone -b $L4T_KERNEL_NVIDIA_REPO_BRANCH $L4T_KERNEL_NVIDIA_SOURCE
+      fi
+      cd $(echo $L4T_KERNEL_NVIDIA_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+      if [ $L4T_KERNEL_NVIDIA_SOURCE_TYPE = 2 ]; then
+        git checkout $L4T_KERNEL_NVIDIA_REPO_BRANCH
+      fi
+      if [ ! $L4T_KERNEL_NVIDIA_REPO_SHA256 = "" ]; then
+        git reset --hard $L4T_KERNEL_NVIDIA_REPO_SHA256
+      fi
+      rm -rf .git*
+      cd ..
+    else
+      #Needs More Work
+      #wget $L4T_KERNEL_NVIDIA_SOURCE
+      :
+    fi
+    mv $(echo $L4T_KERNEL_NVIDIA_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')/* ../combined_tree/nvidia/
+    rm -rf $(echo $L4T_KERNEL_NVIDIA_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+
+    mkdir ../combined_tree/nvidia/nvgpu
+    
+    if [ ! $L4T_KERNEL_NVIDIA_SOURCE_TYPE = 0 ]; then
+      if [ $L4T_KERNEL_NVGPU_REPO_BRANCH = "" ] || [ $L4T_KERNEL_NVGPU_SOURCE_TYPE = 2 ]; then
+        git clone $L4T_KERNEL_NVGPU_SOURCE
+      else
+        git clone -b $L4T_KERNEL_NVGPU_REPO_BRANCH $L4T_KERNEL_NVGPU_SOURCE
+      fi
+      cd $(echo $L4T_KERNEL_NVGPU_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+      if [ $L4T_KERNEL_NVGPU_SOURCE_TYPE = 2 ]; then
+        git checkout $L4T_KERNEL_NVGPU_REPO_BRANCH
+      fi
+      if [ ! $L4T_KERNEL_NVGPU_SHA256 = "" ]; then
+        git reset --hard $L4T_KERNEL_NVGPU_SHA256
+      fi
+      rm -rf .git*
+      cd ..
+    else
+      #Needs More Work
+      #wget $L4T_KERNEL_NVGPU_SOURCE
+      :
+    fi
+    mv $(echo $L4T_KERNEL_NVGPU_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')/* ../combined_tree/nvidia/nvgpu
+    rm -rf $(echo $L4T_KERNEL_NVGPU_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+
+    mkdir -p ../combined_tree/nvidia/platform/{tegra,$L4T_DEVICE_TYPE}/common
+    mkdir -p ../combined_tree/nvidia/soc/
+    if [ $L4T_DEVICE_TYPE = "t210" ]; then
+      if [ ! $L4T_DEVICE_COMMON_T210_SOURCE_TYPE = 0 ]; then
+        if [ $L4T_DEVICE_COMMON_T210_REPO_BRANCH = "" ] || [ $L4T_DEVICE_COMMON_T210_SOURCE_TYPE = 2 ]; then
+          git clone $L4T_DEVICE_COMMON_T210_SOURCE
+        else
+          git clone -b $L4T_DEVICE_COMMON_T210_REPO_BRANCH $L4T_DEVICE_COMMON_T210_SOURCE
+        fi
+        cd $(echo $L4T_DEVICE_COMMON_T210_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+        if [ $L4T_DEVICE_COMMON_T210_SOURCE_TYPE = 2 ]; then
+          git checkout $L4T_DEVICE_COMMON_T210_REPO_BRANCH
+        fi
+        if [ ! $L4T_DEVICE_COMMON_T210_SHA256 = "" ]; then
+          git reset --hard $L4T_DEVICE_COMMON_T210_SHA256
+        fi
+        rm -rf .git*
+        cd ..
+      else
+        #Needs More Work
+        #wget $L4T_DEVICE_COMMON_T210_SOURCE
+        :
+      fi
+      mv $(echo $L4T_DEVICE_COMMON_T210_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')/* ../combined_tree/nvidia/platform/t210/common/
+      rm -rf $(echo $L4T_DEVICE_COMMON_T210_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+    elif [ $L4T_DEVICE_TYPE = "t18x" ]; then
+      if [ ! $L4T_DEVICE_COMMON_T18X_SOURCE_TYPE = 0 ]; then
+        if [ $L4T_DEVICE_COMMON_T18X_REPO_BRANCH = "" ] || [ $L4T_DEVICE_COMMON_T18X_SOURCE_TYPE = 2 ]; then
+          git clone $L4T_DEVICE_COMMON_T18X_SOURCE
+        else
+          git clone -b $L4T_DEVICE_COMMON_T18X_REPO_BRANCH $L4T_DEVICE_COMMON_T18X_SOURCE
+        fi
+        cd $(echo $L4T_DEVICE_COMMON_T18X_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+        if [ $L4T_DEVICE_COMMON_T18X_SOURCE_TYPE = 2 ]; then
+          git checkout $L4T_DEVICE_COMMON_T18X_REPO_BRANCH
+        fi
+        if [ ! $L4T_DEVICE_COMMON_T18X_SHA256 = "" ]; then
+          git reset --hard $L4T_DEVICE_COMMON_T18X_SHA256
+        fi
+        rm -rf .git*
+        cd ..
+      else
+        #Needs More Work
+        #wget $L4T_DEVICE_COMMON_T18X_SOURCE
+        :
+      fi    
+      mv $(echo $L4T_DEVICE_COMMON_T18X_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')/* ../combined_tree/nvidia/platform/t18x/common/
+      rm -rf $(echo $L4T_DEVICE_COMMON_T18X_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+    elif [ $L4T_DEVICE_TYPE = "t19x" ]; then
+      if [ ! $L4T_DEVICE_COMMON_T19X_SOURCE_TYPE = 0 ]; then
+        if [ $L4T_DEVICE_COMMON_T19X_REPO_BRANCH = "" ] || [ $L4T_DEVICE_COMMON_T19X_SOURCE_TYPE = 2 ]; then
+          git clone $L4T_DEVICE_COMMON_T19X_SOURCE
+        else
+          git clone -b $L4T_DEVICE_COMMON_T19X_REPO_BRANCH $L4T_DEVICE_COMMON_T19X_SOURCE
+        fi
+        cd $(echo $L4T_DEVICE_COMMON_T19X_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+        if [ $L4T_DEVICE_COMMON_T19X_SOURCE_TYPE = 2 ]; then
+          git checkout $L4T_DEVICE_COMMON_T19X_REPO_BRANCH
+        fi
+        if [ ! $L4T_DEVICE_COMMON_T19X_SHA256 = "" ]; then
+          git reset --hard $L4T_DEVICE_COMMON_T19X_SHA256
+        fi
+        rm -rf .git*
+        cd ..
+      else
+        #Needs More Work
+        #wget $L4T_DEVICE_COMMON_T19X_SOURCE
+        :
+      fi
+      mv $(echo $L4T_DEVICE_COMMON_T19X_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')/* ../combined_tree/nvidia/platform/t19x/common/
+      rm -rf $(echo $L4T_DEVICE_COMMON_T19X_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+    fi
+
+    if [ ! $L4T_DEVICE_COMMON_TEGRA_SOURCE_TYPE = 0 ]; then
+      if [ $L4T_DEVICE_COMMON_TEGRA_REPO_BRANCH = "" ] || [ $L4T_DEVICE_COMMON_TEGRA_SOURCE_TYPE = 2 ]; then
+        git clone $L4T_DEVICE_COMMON_TEGRA_SOURCE
+      else
+        git clone -b $L4T_DEVICE_COMMON_TEGRA_REPO_BRANCH $L4T_DEVICE_COMMON_TEGRA_SOURCE
+      fi
+      cd $(echo $L4T_DEVICE_COMMON_TEGRA_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+      if [ $L4T_DEVICE_COMMON_TEGRA_SOURCE_TYPE = 2 ]; then
+        git checkout $L4T_DEVICE_COMMON_TEGRA_REPO_BRANCH
+      fi
+      if [ ! $L4T_DEVICE_COMMON_TEGRA_SHA256 = "" ]; then
+        git reset --hard $L4T_DEVICE_COMMON_TEGRA_SHA256
+      fi
+      rm -rf .git*
+      cd ..
+    else
+      #Needs More Work
+      #wget $L4T_DEVICE_COMMON_TEGRA_SOURCE
+      :
+    fi
+    mv $(echo $L4T_DEVICE_COMMON_TEGRA_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')/* ../combined_tree/nvidia/platform/tegra/common/
+    rm -rf $(echo $L4T_DEVICE_COMMON_TEGRA_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+
+    if [ $L4T_DEVICE_TYPE = "t210" ]; then
+      if [ ! $L4T_DEVICE_T210_SOURCE_TYPE = 0 ]; then
+        if [ $L4T_DEVICE_T210_REPO_BRANCH = "" ] || [ $L4T_DEVICE_T210_SOURCE_TYPE = 2 ]; then
+          git clone $L4T_DEVICE_T210_SOURCE
+        else
+          git clone -b $L4T_DEVICE_T210_REPO_BRANCH $L4T_DEVICE_T210_SOURCE
+        fi
+        cd $(echo $L4T_DEVICE_T210_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+        if [ $L4T_DEVICE_T210_SOURCE_TYPE = 2 ]; then
+          git checkout $L4T_DEVICE_T210_REPO_BRANCH
+        fi
+        if [ ! $L4T_DEVICE_T210_SHA256 = "" ]; then
+          git reset --hard $L4T_DEVICE_T210_SHA256
+        fi
+        rm -rf .git*
+        cd ..
+      else
+        #Needs More Work
+        #wget $L4T_DEVICE_T210_SOURCE
+        :
+      fi
+      mkdir -p ../combined_tree/nvidia/soc/t210/kernel-dts
+      mv $(echo $L4T_DEVICE_T210_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')/kernel-dts/* ../combined_tree/nvidia/soc/t210/kernel-dts/
+      rm -rf $(echo $L4T_DEVICE_T210_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+    elif [ $L4T_DEVICE_TYPE = "t18x" ]; then
+      if [ ! $L4T_DEVICE_T18X_SOURCE_TYPE = 0 ]; then
+        if [ $L4T_DEVICE_T18X_REPO_BRANCH = "" ] || [ $L4T_DEVICE_T18X_SOURCE_TYPE = 2 ]; then
+          git clone $L4T_DEVICE_T18X_SOURCE
+        else
+          git clone -b $L4T_DEVICE_T18X_REPO_BRANCH $L4T_DEVICE_T18X_SOURCE
+        fi
+        cd $(echo $L4T_DEVICE_T18X_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+        if [ $L4T_DEVICE_T18X_SOURCE_TYPE = 2 ]; then
+          git checkout $L4T_DEVICE_T18X_REPO_BRANCH
+        fi
+        if [ ! $L4T_DEVICE_T18X_SHA256 = "" ]; then
+          git reset --hard $L4T_DEVICE_T18X_SHA256
+        fi
+        rm -rf .git*
+        cd ..
+      else
+        #Needs More Work
+        #wget $L4T_DEVICE_T18X_SOURCE
+        :
+      fi
+      mkdir -p ../combined_tree/nvidia/soc/t18x/kernel-dts
+      mv $(echo $L4T_DEVICE_T18X_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')/kernel-dts/* ../combined_tree/nvidia/soc/t18x/kernel-dts/
+      rm -rf $(echo $L4T_DEVICE_T18X_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+    elif [ $L4T_DEVICE_TYPE = "t19x" ]; then
+      if [ ! $L4T_DEVICE_T19X_SOURCE_TYPE = 0 ]; then
+        if [ $L4T_DEVICE_T19X_REPO_BRANCH = "" ] || [ $L4T_DEVICE_T19X_SOURCE_TYPE = 2 ]; then
+          git clone $L4T_DEVICE_T19X_SOURCE
+        else
+          git clone -b $L4T_DEVICE_T19X_BRANCH $L4T_DEVICE_T19X_SOURCE
+        fi
+        cd $(echo $L4T_DEVICE_T19X_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+        if [ $L4T_DEVICE_T19X_SOURCE_TYPE = 2 ]; then
+          git checkout $L4T_DEVICE_T19X_REPO_BRANCH
+        fi
+        if [ ! $L4T_DEVICE_T19X_SHA256 = "" ]; then
+          git reset --hard $L4T_DEVICE_T19X_SHA256
+        fi
+        rm -rf .git*
+        cd ..
+      else
+        #Needs More Work
+        #wget $L4T_DEVICE_T19X_SOURCE
+        :
+      fi
+      mkdir -p ../combined_tree/nvidia/soc/t19x/kernel-dts
+      mv $(echo $L4T_DEVICE_T19X_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')/kernel-dts/* ../combined_tree/nvidia/soc/t19x/kernel-dts/
+      rm -rf $(echo $L4T_DEVICE_T18X_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+    fi    
+
+    if [ ! $L4T_DEVICE_TEGRA_SOURCE_TYPE = 0 ]; then
+      if [ $L4T_DEVICE_TEGRA_REPO_BRANCH = "" ] || [ $L4T_DEVICE_TEGRA_SOURCE_TYPE = 2 ]; then
+        git clone $L4T_DEVICE_TEGRA_SOURCE
+      else
+        git clone -b $L4T_DEVICE_TEGRA_REPO_BRANCH $L4T_DEVICE_TEGRA_SOURCE
+      fi
+      cd $(echo $L4T_DEVICE_TEGRA_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+      if [ $L4T_DEVICE_TEGRA_SOURCE_TYPE = 2 ]; then
+        git checkout $L4T_DEVICE_TEGRA_REPO_BRANCH
+      fi
+      if [ ! $L4T_DEVICE_TEGRA_SHA256 = "" ]; then
+        git reset --hard $L4T_DEVICE_TEGRA_SHA256
+      fi
+      rm -rf .git*
+      cd ..
+    else
+      #Needs More Work
+      #wget $L4T_DEVICE_TEGRA_SOURCE
+      :
+    fi
+    mkdir -p ../combined_tree/nvidia/soc/tegra/kernel-include
+    mv $(echo $L4T_DEVICE_TEGRA_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')/kernel-include/* ../combined_tree/nvidia/soc/tegra/kernel-include
+    rm -rf $(echo $L4T_DEVICE_TEGRA_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+
+    # Custom board specific
+    if [ ! $L4T_DEVICE_CUSTOM_REPO_TYPE = -1 ]; then
+      if [ ! $L4T_DEVICE_CUSTOM_REPO_TYPE = 0 ]; then
+        if [ $L4T_DEVICE_CUSTOM_REPO_BRANCH = "" ]; then
+          git clone $L4T_DEVICE_CUSTOM_REPO_SOURCE
+        else
+          git clone -b $L4T_DEVICE_CUSTOM_REPO_BRANCH $L4T_DEVICE_CUSTOM_REPO_SOURCE
+        fi
+        cd $(echo $L4T_DEVICE_CUSTOM_REPO_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+        if [ ! $L4T_DEVICE_CUSTOM_REPO_SHA256 = "" ]; then
+          git reset --hard $L4T_DEVICE_CUSTOM_REPO_SHA256
+        fi
+        rm -rf .git*
+        cd ..
+      else
+        #Needs More Work
+        #wget $L4T_DEVICE_CUSTOM_REPO_SOURCE
+       :
+      fi
+      mkdir ../combined_tree/nvidia/platform/$L4T_DEVICE_TYPE/$L4T_DEVICE_CUSTOM_BOARD_NAME
+      mv $(echo $L4T_DEVICE_CUSTOM_REPO_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')/* ../combined_tree/nvidia/platform/$L4T_DEVICE_TYPE/$L4T_DEVICE_CUSTOM_BOARD_NAME
+    else
+      #add default device stuff for SOC type
+      if [ $L4T_DEVICE_TYPE = "t210" ]; then
+        if [ ! $L4T_DEVICE_T210_JETSON_SOURCE_TYPE = 0 ]; then
+          if [ $L4T_DEVICE_T210_JETSON_REPO_BRANCH = "" ] || [ $L4T_DEVICE_T210_JETSON_SOURCE_TYPE = 2 ]; then
+            git clone $L4T_DEVICE_T210_JETSON_SOURCE
+          else
+            git clone -b $L4T_DEVICE_T210_JETSON_REPO_BRANCH $L4T_DEVICE_T210_JETSON_SOURCE
+          fi
+          cd $(echo $L4T_DEVICE_T210_JETSON_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+          if [ $L4T_DEVICE_T210_JETSON_SOURCE_TYPE = 2 ]; then
+            git checkout $L4T_DEVICE_T210_JETSON_REPO_BRANCH
+          fi
+          if [ ! $L4T_DEVICE_T210_JETSON_SHA256 = "" ]; then
+            git reset --hard $L4T_DEVICE_T210_JETSON_SHA256
+          fi
+          rm -rf .git*
+          cd ..
+        else
+          #Needs More Work
+          #wget $L4T_DEVICE_T210_JETSON_SOURCE
+         :
+        fi
+        mkdir ../combined_tree/nvidia/platform/t210/jetson
+        mv $(echo $L4T_DEVICE_T210_JETSON_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')/* ../combined_tree/nvidia/platform/t210/jetson
+        rm -r $(echo $L4T_DEVICE_T210_JETSON_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+        if [ ! $L4T_DEVICE_T210_BATUU_SOURCE_TYPE = 0 ]; then
+          if [ $L4T_DEVICE_T210_BATUU_REPO_BRANCH = "" ] || [ $L4T_DEVICE_T210_BATUU_SOURCE_TYPE = 2 ]; then
+            git clone $L4T_DEVICE_T210_BATUU_SOURCE
+          else
+            git clone -b $L4T_DEVICE_T210_BATUU_REPO_BRANCH $L4T_DEVICE_T210_BATUU_SOURCE
+          fi
+          cd $(echo $L4T_DEVICE_T210_BATUU_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+          if [ $L4T_DEVICE_T210_BATUU_SOURCE_TYPE = 2 ]; then
+            git checkout $L4T_DEVICE_T210_BATUU_REPO_BRANCH
+          fi
+          if [ ! $L4T_DEVICE_T210_BATUU_SHA256 = "" ]; then
+            git reset --hard $L4T_DEVICE_T210_BATUU_SHA256
+          fi
+          rm -rf .git*
+          cd ..
+        else
+          #Needs More Work
+          #wget $L4T_DEVICE_T210_BATUU_SOURCE
+         :
+        fi
+        mkdir ../combined_tree/nvidia/platform/t210/batuu
+        mv $(echo $L4T_DEVICE_T210_BATUU_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')/* ../combined_tree/nvidia/platform/t210/batuu
+        rm -r $(echo $L4T_DEVICE_T210_BATUU_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+        if [ ! $L4T_DEVICE_T210_PORG_SOURCE_TYPE = 0 ]; then
+          if [ $L4T_DEVICE_T210_PORG_REPO_BRANCH = "" ] || [ $L4T_DEVICE_T210_PORG_SOURCE_TYPE = 2 ]; then
+            git clone $L4T_DEVICE_T210_PORG_SOURCE
+          else
+            git clone -b $L4T_DEVICE_T210_PORG_REPO_BRANCH $L4T_DEVICE_T210_PORG_SOURCE
+          fi
+          cd $(echo $L4T_DEVICE_T210_PORG_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+          if [ $L4T_DEVICE_T210_PORG_SOURCE_TYPE = 2 ]; then
+            git checkout $L4T_DEVICE_T210_PORG_REPO_BRANCH
+          fi
+          if [ ! $L4T_DEVICE_T210_PORG_SHA256 = "" ]; then
+            git reset --hard $L4T_DEVICE_T210_PORG_SHA256
+          fi
+          rm -rf .git*
+          cd ..
+        else
+          #Needs More Work
+          #wget $L4T_DEVICE_T210_PORG_SOURCE
+          :
+        fi
+        mkdir ../combined_tree/nvidia/platform/t210/porg
+        mv $(echo $L4T_DEVICE_T210_PORG_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')/* ../combined_tree/nvidia/platform/t210/porg
+      elif [ $L4T_DEVICE_TYPE = "t18x" ]; then
+        #do t18x stuff
+        if [ ! $L4T_DEVICE_T18X_QUILL_SOURCE_TYPE = 0 ]; then
+          if [ $L4T_DEVICE_T18X_QUILL_REPO_BRANCH = "" ] || [ $L4T_DEVICE_T18X_QUILL_SOURCE_TYPE = 2 ]; then
+            git clone $L4T_DEVICE_T18X_QUILL_SOURCE
+          else
+            git clone -b $L4T_DEVICE_T18X_QUILL_REPO_BRANCH $L4T_DEVICE_T18X_QUILL_SOURCE
+          fi
+          cd $(echo $L4T_DEVICE_T18X_QUILL_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+          if [ $L4T_DEVICE_T18X_QUILL_SOURCE_TYPE = 2 ]; then
+            git checkout $L4T_DEVICE_T18X_QUILL_REPO_BRANCH
+          fi
+          if [ ! $L4T_DEVICE_T18X_QUILL_SHA256 = "" ]; then
+            git reset --hard $L4T_DEVICE_T18X_QUILL_SHA256
+          fi
+          rm -rf .git*
+          cd ..
+        else
+          #Needs More Work
+          #wget $L4T_DEVICE_T18X_QUILL_SOURCE
+          :
+        fi
+        mkdir ../combined_tree/nvidia/platform/t18x/quill
+        mv $(echo $L4T_DEVICE_T18X_QUILL_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')/* ../combined_tree/nvidia/platform/t18x/quill
+      elif [ $L4T_DEVICE_TYPE = "t19x" ]; then
+        #do t19x stuff
+        if [ ! $L4T_DEVICE_T19X_GALEN_SOURCE_TYPE = 0 ]; then
+          if [ $L4T_DEVICE_T19X_GALEN_REPO_BRANCH = "" ]  || [ $L4T_DEVICE_T19X_GALEN_SOURCE_TYPE = 2 ]; then
+            git clone $L4T_DEVICE_T19X_GALEN_SOURCE
+          else
+            git clone -b $L4T_DEVICE_T19X_GALEN_REPO_BRANCH $L4T_DEVICE_T19X_GALEN_SOURCE
+          fi
+          cd $(echo $L4T_DEVICE_T19X_GALEN_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+          if [ $L4T_DEVICE_T19X_GALEN_SOURCE_TYPE = 2 ]; then
+            git checkout $L4T_DEVICE_T19X_GALEN_REPO_BRANCH
+          fi
+          if [ ! $L4T_DEVICE_T19X_GALEN_SHA256 = "" ]; then
+            git reset --hard $L4T_DEVICE_T19X_GALEN_SHA256
+          fi
+          rm -rf .git*
+          cd ..
+        else
+          #Needs More Work
+          #wget $L4T_DEVICE_T19X_GALEN_SOURCE
+          :
+        fi
+        mkdir ../combined_tree/nvidia/platform/t19x/galen
+        mv $(echo $L4T_DEVICE_T19X_GALEN_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')/* ../combined_tree/nvidia/platform/t19x/galen
+        if [ ! $L4T_DEVICE_T19X_JAKKU_SOURCE_TYPE = 0 ]; then
+          if [ $L4T_DEVICE_T19X_JAKKU_REPO_BRANCH = "" ]  || [ $L4T_DEVICE_T19X_JAKKU_SOURCE_TYPE = 2 ]; then
+            git clone $L4T_DEVICE_T19X_JAKKU_SOURCE
+          else
+            git clone -b $L4T_DEVICE_T19X_JAKKU_REPO_BRANCH $L4T_DEVICE_T19X_JAKKU_SOURCE
+          fi
+          cd $(echo $L4T_DEVICE_T19X_JAKKU_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
+          if [ $L4T_DEVICE_T19X_JAKKU_SOURCE_TYPE = 2 ]; then
+            git checkout $L4T_DEVICE_T19X_JAKKU_REPO_BRANCH
+          fi
+          if [ ! $L4T_DEVICE_T19X_JAKKU_SHA256 = "" ]; then
+            git reset --hard $L4T_DEVICE_T19X_JAKKU_SHA256
+          fi
+          rm -rf .git*
+          cd ..
+        else
+          #Needs More Work
+          #wget $L4T_DEVICE_T19X_JAKKU
+          :
+        fi
+        mkdir ../combined_tree/nvidia/platform/t19x/jakku
+        mv $(echo $L4T_DEVICE_T19X_JAKKU_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')/* ../combined_tree/nvidia/platform/t19x/jakku
+      fi
+    fi
+
+    #apply patches minimal patches to combine/fix gcc issues.
+    #Any other patches should be applied by the linux package.
+    cd ../combined_tree
+    if [ ! $CUSTOM_PATCH = 1 ]; then 
+      PATCH_PATH="${PROJECT_DIR}/${PROJECT}/patches/l4t-kernel-sources" Might need custom patches for each version. 
+    else
+      PATCH_PATH="${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/patches/l4t-kernel-sources"
+    fi
+    #todo: Clean up, verify files exist, do nothing if they dont. Possibly run in loop.
+    patch -p1 < $PATCH_PATH/01-unify_l4t_sources.patch
+    patch -p1 < $PATCH_PATH/02-gcc-10.patch
+    patch -p1 < $PATCH_PATH/03-nvidia_drivers_actmon_add__init_annotation_to_tegra_actmon_register.patch
+    patch -p1 < $PATCH_PATH/04-nvidia_drivers_eventlib_use_existing_kernel_sync_bitops.patch
+    patch -p1 < $PATCH_PATH/05_irq_gic_drop__init_annotation_from_gic_init_fiq.patch
+     
+    #Apply patch to fix glibc cross compiling.
+    patch -p1 < $PATCH_PATH/06-Revert-arm64-32bit-sigcontext-definition-to-uapi-signcontext.h.patch
+    #Create and place tarball for linux package
+    mkdir -p ${SOURCES}/linux
+    tar -cf ${SOURCES}/linux/linux-$DEVICE.tar.gz .
+     
+    #Create hash stuff for libreelec
+    CALC_SHA256=$(sha256sum "${SOURCES}/linux/linux-$DEVICE.tar.gz" | cut -d" " -f1)
+    echo $CALC_SHA256 > ${SOURCES}/linux/linux-$DEVICE.tar.gz.sha256
+    echo "file:/${SOURCES}/linux/linux-$DEVICE.tar.gz" > ${SOURCES}/linux/linux-$DEVICE.tar.gz.url
+     
+    #Cleanup build tree, since we dont need to waste space with these files now.
+    cd ..
+    rm -rf downloads combined_tree
+    cd $CUR_PWD
+}
+
+# Latest file already present, exit now...
+_get_file_already_downloaded && exit 0
+
+lock_source_dir "${1}"
+
+# Check again in case of concurrent access - if nothing needs to be downloaded, exit now...
+_get_file_already_downloaded && exit 0
+
+# At this point, we need to download something...
+build_msg "CLR_GET" "GET" "${1} (l4t-kernel-sources)" "indent"
+
+pkg_lock_status "GETPKG" "${PKG_NAME}" "unpack" "downloading package..."
+
+unset LD_LIBRARY_PATH
+
+check_custom_l4t_repos
+download_sources_and_combine

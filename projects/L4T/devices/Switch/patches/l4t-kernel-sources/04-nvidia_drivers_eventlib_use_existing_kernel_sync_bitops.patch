@@ -1,0 +1,49 @@
+From ac1447bfc5b10ab2a449551da507bcaeec9cfb68 Mon Sep 17 00:00:00 2001
+From: Matt Madison <matt@madison.systems>
+Date: Fri, 5 Jun 2020 08:55:03 -0700
+Subject: [PATCH] nvidia/drivers: eventlib: use existing kernel sync_bitops
+
+rather than redefining them privately.  To address build
+failures with gcc 10.
+
+Signed-off-by: Matt Madison <matt@madison.systems>
+---
+ nvidia/drivers/misc/eventlib/eventlib_flt.h | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/nvidia/drivers/misc/eventlib/eventlib_flt.h b/nvidia/drivers/misc/eventlib/eventlib_flt.h
+index a2dd1f77ce10..b75cec1611bc 100644
+--- a/nvidia/drivers/misc/eventlib/eventlib_flt.h
++++ b/nvidia/drivers/misc/eventlib/eventlib_flt.h
+@@ -89,9 +89,9 @@ struct eventlib_flt_slot {
+ 
+ /* r2w shared memory block */
+ struct eventlib_flt_r2w {
+-	uint32_t notify;
++	unsigned long notify;
++	unsigned long busy;
+ 	uint32_t ack;
+-	uint32_t busy;
+ 	struct eventlib_flt_slot slots[0];
+ 	/* slots here:
+ 	 * - count of all slots is defined by NUM_SLOTS
+@@ -151,6 +151,7 @@ struct eventlib_flt_ctx {
+ 	};
+ };
+ 
++#ifdef OLD_NVIDIA_HACKY_VERSION
+ /* Below synchronization wrappers are based on GCC atomic builtins.
+  * These functions are only used in the reader path.
+  */
+@@ -169,6 +170,11 @@ static inline void sync_clear_bit(unsigned int n, uint32_t *p)
+ {
+ 	__sync_fetch_and_and(p, ~(1u << n));
+ }
++#else
++#include <linux/bitops.h>
++#include <linux/atomic.h>
++#include <asm/sync_bitops.h>
++#endif /* OLD_NVIDIA_HACKY_VERSION */
+ 
+ /* Below functions are implemented by the filter subsystem interface.
+  * Linkage is optional to support writer environments w/out filtering.
