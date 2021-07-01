@@ -21,7 +21,9 @@ post_makeinstall_host() {
 }
 
 post_makeinstall_target() {
-  sed -e "s:\(['= ]\)/usr:\\1${SYSROOT_PREFIX}/usr:g" -i ${SYSROOT_PREFIX}/usr/bin/cxxtools-config
+  cp ${PKG_NAME}-config ${TOOLCHAIN}/bin
+  sed -e "s:\(['= ]\)/usr:\\1${PKG_ORIG_SYSROOT_PREFIX}/usr:g" -i ${TOOLCHAIN}/bin/${PKG_NAME}-config
+  chmod +x ${TOOLCHAIN}/bin/${PKG_NAME}-config
 
   rm -rf ${INSTALL}/usr/bin
 }
