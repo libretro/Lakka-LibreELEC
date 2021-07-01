@@ -3,8 +3,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="vdr-plugin-satip"
-PKG_VERSION="a7625c028c460b8350a023db495e2b6b0bc93607"
-PKG_SHA256="49955757df436393b1ae3ef1ce05a13ea80d5de87dd1222cad9e71045e3ab26e"
+PKG_VERSION="0a216f1cf9d6401b1afbff420f4fa244ec15d299"
+PKG_SHA256="817900c9fa5ade5c52b0391b791f801832c57bdbed5e7501d7e92b4fe29de816"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.saunalahti.fi/~rahrenbe/vdr/satip/"
 PKG_URL="https://github.com/rofafor/vdr-plugin-satip/archive/${PKG_VERSION}.tar.gz"
