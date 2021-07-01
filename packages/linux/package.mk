@@ -33,7 +33,7 @@ case "$LINUX" in
     # PKG_SHA256="d229567885723440e38a0815afda58e835142dbd0d3609399f3e8d5b81080bfc"
     PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
-    PKG_PATCH_DIRS="rpi"
+    PKG_PATCH_DIRS="rpi joycon dualsense"
     ;;
   odroidxu4-4.14)
     PKG_VERSION="864c4519b77763274b61a035b33bc92f71084b59"
@@ -44,7 +44,7 @@ case "$LINUX" in
     PKG_VERSION="5.10.47"
    # PKG_SHA256=" "
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v5.x/$PKG_NAME-$PKG_VERSION.tar.xz"
-    PKG_PATCH_DIRS="default"
+    PKG_PATCH_DIRS="default joycon dualsense"
     ;;
   switch)
     PKG_VERSION="switch"
