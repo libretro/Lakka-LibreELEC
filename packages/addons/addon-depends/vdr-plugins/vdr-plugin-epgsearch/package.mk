@@ -3,12 +3,12 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="vdr-plugin-epgsearch"
-PKG_VERSION="770de32f1908b1f9c60f66bf288a4c8a03f97d52"
-PKG_SHA256="8b6144ee3d22b0c13ba81be94920b421b05fd9b921dfe8245ed582db407acac8"
+PKG_VERSION="cff8dfe58853aa0cc4f6e9a8896104a920b98730"
+PKG_SHA256="ad6521003ab41b76ba22cac3b086901700ed2b46ea3d48f71d28b0545cf17e94"
 PKG_LICENSE="GPL"
 PKG_SITE="http://winni.vdr-developer.org/epgsearch/"
 PKG_URL="https://github.com/vdr-projects/vdr-plugin-epgsearch/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain vdr"
+PKG_DEPENDS_TARGET="toolchain vdr pcre"
 PKG_NEED_UNPACK="$(get_pkg_directory vdr)"
 PKG_LONGDESC="EPGSearch is a plugin for the Video-Disc-Recorder (VDR)."
 PKG_TOOLCHAIN="manual"
