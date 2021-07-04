@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="vim"
-PKG_VERSION="8.2.2879"
-PKG_SHA256="b14d0cab60e1f0562e269a7ff80476b73fcf8ee357cd90d2839e0210bfb8d001"
+PKG_VERSION="8.2.3095"
+PKG_SHA256="31588e2a074e2e2ea170704e5a40c61413f2a825788db325d1419c334e6d50b6"
 PKG_LICENSE="VIM"
 PKG_SITE="http://www.vim.org/"
 PKG_URL="https://github.com/vim/vim/archive/v${PKG_VERSION}.tar.gz"
