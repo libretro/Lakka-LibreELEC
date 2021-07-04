@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="RPi.GPIO"
-PKG_VERSION="0.7.0"
-PKG_SHA256="7424bc6c205466764f30f666c18187a0824077daf20b295c42f08aea2cb87d3f"
+PKG_VERSION="0.7.1a4"
+PKG_SHA256="21f4378d81525979ad3bbd60e88fc3d9fac1879bcb17151e1c665f32658f9362"
 PKG_ARCH="arm"
 PKG_LICENSE="MIT"
 PKG_SITE="http://sourceforge.net/p/raspberry-gpio-python/"
