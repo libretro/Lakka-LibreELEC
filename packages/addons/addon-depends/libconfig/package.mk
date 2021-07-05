@@ -13,7 +13,9 @@ PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --disable-shared \
+                           --disable-doc \
                            --disable-examples \
+                           --disable-tests \
                            --with-sysroot=${SYSROOT_PREFIX}"
 
 pre_configure_target() {
