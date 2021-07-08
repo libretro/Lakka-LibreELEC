@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="elfutils"
-PKG_VERSION="0.176"
-PKG_SHA256="eb5747c371b0af0f71e86215a5ebb88728533c3a104a43d4231963f308cd1023"
+PKG_VERSION="0.185"
+PKG_SHA256="dc8d3e74ab209465e7f568e1b3bb9a5a142f8656e2b57d10049a73da2ae6b5a6"
 PKG_LICENSE="GPL"
 PKG_SITE="https://sourceware.org/elfutils/"
 PKG_URL="https://sourceware.org/elfutils/ftp/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.bz2"
@@ -18,10 +18,14 @@ PKG_CONFIGURE_OPTS_TARGET="utrace_cv_cc_biarch=false \
                            --disable-nls \
                            --with-zlib \
                            --without-bzlib \
-                           --without-lzma"
+                           --without-lzma \
+                           --disable-libdebuginfod \
+                           --disable-debuginfod"
 
 PKG_CONFIGURE_OPTS_HOST="utrace_cv_cc_biarch=false \
                            --disable-nls \
                            --with-zlib \
                            --without-bzlib \
-                           --without-lzma"
+                           --without-lzma \
+                           --disable-libdebuginfod \
+                           --disable-debuginfod"
