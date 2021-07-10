@@ -69,6 +69,7 @@ PKG_CONFIGURE_OPTS_HOST="--enable-termcap \
 post_makeinstall_target() {
   cp misc/ncurses-config ${TOOLCHAIN}/bin
   chmod +x ${TOOLCHAIN}/bin/ncurses-config
-  sed -e "s:\(['=\" ]\)/usr:\\1${SYSROOT_PREFIX}/usr:g" -i ${TOOLCHAIN}/bin/ncurses-config
+  sed -e "s:\(['=\" ]\)/usr:\\1${PKG_ORIG_SYSROOT_PREFIX}/usr:g" -i ${TOOLCHAIN}/bin/ncurses-config
+  rm -f ${TOOLCHAIN}/bin/ncurses6-config
   rm -rf ${INSTALL}/usr/bin
 }

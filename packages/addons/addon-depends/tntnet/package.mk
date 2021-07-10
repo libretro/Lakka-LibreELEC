@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="tntnet"
 PKG_VERSION="2.2.1"
@@ -29,7 +30,10 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-unittest \
                            --with-stressjob=no"
 
 post_makeinstall_target() {
-  sed -e "s:\(['= ]\)/usr:\\1${SYSROOT_PREFIX}/usr:g" -i ${SYSROOT_PREFIX}/usr/bin/tntnet-config
+  rm -rf ${INSTALL}/usr/bin/${PKG_NAME}-config
+  cp ${PKG_NAME}-config ${TOOLCHAIN}/bin
+  sed -e "s:\(['= ]\)/usr:\\1${PKG_ORIG_SYSROOT_PREFIX}/usr:g" -i ${TOOLCHAIN}/bin/${PKG_NAME}-config
+  chmod +x ${TOOLCHAIN}/bin/${PKG_NAME}-config
 
   rm -rf ${INSTALL}/usr/bin
   rm -rf ${INSTALL}/usr/share

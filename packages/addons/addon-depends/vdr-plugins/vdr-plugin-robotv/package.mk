@@ -2,8 +2,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="vdr-plugin-robotv"
-PKG_VERSION="e06dd3942a17bf622f625b6e51f24e95cfa3877e"
-PKG_SHA256="4f9d5092107d34b2036d56f858a0a744a21f38df8bf6698532c8dcad0157f316"
+PKG_VERSION="f521e57e947468b54288f696bdcae8e6485c6167"
+PKG_SHA256="3f949fca133bdab690f0a5b4bb7d77a52e1b94c94fc8d815c2c203e9f06a6622"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/pipelka/roboTV"
 PKG_URL="https://github.com/pipelka/vdr-plugin-robotv/archive/${PKG_VERSION}.tar.gz"
