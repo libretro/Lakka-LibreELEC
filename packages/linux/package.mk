@@ -52,6 +52,7 @@ case "$LINUX" in
     GET_HANDLER_SUPPORT="l4t-kernel-sources"
     PKG_PATCH_DIRS="$PROJECT $PROJECT/$DEVICE"
     PKG_SOURCE_NAME="linux-$DEVICE.tar.gz"
+    PKG_SHA256=$L4T_COMBINED_KERNEL_SHA256
     ;;
   *)
     PKG_VERSION="5.1.18"
