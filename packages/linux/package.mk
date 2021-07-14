@@ -46,10 +46,13 @@ case "$LINUX" in
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v5.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     PKG_PATCH_DIRS="default joycon dualsense"
     ;;
-  switch)
-    PKG_VERSION="switch"
-    PKG_URL="https://gitlab.com/Azkali/l4t-kernel-4.9/-/archive/lakka-3.3.0/l4t-kernel-4.9-lakka-3.3.0.tar.gz"
-    PKG_PATCH_DIRS=""
+  L4T)
+    PKG_VERSION=$DEVICE
+    PKG_URL="l4t-kernel-sources"
+    GET_HANDLER_SUPPORT="l4t-kernel-sources"
+    PKG_PATCH_DIRS="$PROJECT $PROJECT/$DEVICE"
+    PKG_SOURCE_NAME="linux-$DEVICE.tar.gz"
+    PKG_SHA256=$L4T_COMBINED_KERNEL_SHA256
     ;;
   *)
     PKG_VERSION="5.1.18"
@@ -76,7 +79,7 @@ if [ "$TARGET_ARCH" = "x86_64" -o "$TARGET_ARCH" = "i386" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET intel-ucode:host kernel-firmware elfutils:host pciutils"
 elif [ "$TARGET_ARCH" = "arm" -a "$DEVICE" = "iMX6" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET kernel-firmware"
-elif [ "$TARGET_ARCH" = "aarch64" ] && [ "$DEVICE" = "Switch" ]; then
+elif [ "$TARGET_ARCH" = "aarch64" ] && [ "$LINUX" = "L4T" ]; then
   PKG_DEPENDS_HOST="$PKG_DEPENDS_HOST gcc-linaro-aarch64-linux-gnu:host"
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gcc-linaro-aarch64-linux-gnu:host"
   export PATH=$TOOLCHAIN/lib/gcc-linaro-aarch64-linux-gnu/bin/:$PATH
@@ -139,7 +142,7 @@ post_patch() {
 }
 
 make_host() {
-  if [ "$DEVICE" = "Switch" ]; then
+  if [ "$LINUX" = "L4T" ]; then
     make \
       ARCH=arm64 \
       CROSS_COMPILE=$TARGET_PREFIX \
@@ -168,7 +171,7 @@ make_host() {
 }
 
 makeinstall_host() {
-  if [ "$DEVICE" = "Switch" ]; then
+  if [ "$LINUX" = "L4T" ]; then
     make \
       ARCH=arm64 \
       CROSS_COMPILE=$TARGET_PREFIX \
@@ -213,7 +216,7 @@ pre_make_target() {
     sed -i -e "/CONFIG_EXTRA_FIRMWARE_DIR/d" -e "/CONFIG_EXTRA_FIRMWARE=.../a CONFIG_EXTRA_FIRMWARE_DIR=\"external-firmware\"" $PKG_BUILD/.config
   fi
 
-  if [ "$DEVICE" = "Switch" ]; then
+  if [ "$LINUX" = "L4T" ]; then
     kernel_make olddefconfig
     kernel_make prepare
     kernel_make modules_prepare
@@ -238,10 +241,6 @@ make_target() {
     KERNEL_TARGET="${KERNEL_TARGET/uImage/Image}"
   fi
   
-  if [ "$DEVICE" = "Switch" ]; then
-     export KCFLAGS+="-Wno-error=sizeof-pointer-memaccess -Wno-error=missing-attributes -Wno-error=stringop-truncation -Wno-error=stringop-overflow= -Wno-error=address-of-packed-member -Wno-error=tautological-compare -Wno-error=packed-not-aligned"
-  fi
-
   kernel_make TOOLCHAIN="$TOOLCHAIN" $KERNEL_TARGET $KERNEL_MAKE_EXTRACMD modules
 
   if [ "$PKG_BUILD_PERF" = "yes" ] ; then

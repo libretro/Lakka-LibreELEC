@@ -14,6 +14,7 @@ For now the profile is not retained and is set to default speed when rebooting.
 # File corresponding to the current profile
 PROFILE_FILE = "/sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq"
 OVERCLOCK_FILE = "/sys/kernel/tegra_cpufreq/overclock"
+SAVED_PROFILE_FILE = "/storage/.config/.cpu_profile"
 
 # Profiles list, in KHz - max 2091000
 PROFILES = {
@@ -32,8 +33,22 @@ PROFILES = {
 # Default profile
 DEFAULT_PROFILE = "Stock Performance"
 
-
-
+def get_saved_profile():
+    try:
+        f=open(SAVED_PROFILE_FILE, "r")
+    except IOError:
+		return DEFAULT_PROFILE
+    NEW_DEFAULT_PROFILE = str(f.read().strip())
+    if NEW_DEFAULT_PROFILE == '':
+        return DEFAULT_PROFILE
+    else:
+        return NEW_DEFAULT_PROFILE
+	
+def save_profile(profile):
+        with open(SAVED_PROFILE_FILE, "w") as f:
+            f.write(profile)
+            f.flush()
+       
 def get_profile():
     with open(PROFILE_FILE, "r") as f:
         pstate = str(f.read().strip())
@@ -102,7 +117,7 @@ if __name__ == "__main__":
     argc = len(sys.argv)
     if argc == 2:
         if sys.argv[1] == "init":
-            apply_profile(DEFAULT_PROFILE)
+            apply_profile(get_saved_profile())
             unlock_full_power()
         elif sys.argv[1] == "get":
             print get_profile()
@@ -113,6 +128,7 @@ if __name__ == "__main__":
     elif argc == 3:
         if sys.argv[1] == "set":
             apply_profile(sys.argv[2])
+            save_profile(sys.argv[2])
         else:
             print_usage()
     else:

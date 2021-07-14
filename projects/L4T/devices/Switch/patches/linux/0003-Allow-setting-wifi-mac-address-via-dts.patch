@@ -1,0 +1,107 @@
+From a1cb9868fdb90fe082efd4c4e7ba12a406f8b05f Mon Sep 17 00:00:00 2001
+From: Ronald Brown <rbrown4014@yahoo.com>
+Date: Mon, 10 May 2021 05:23:51 +0000
+Subject: [PATCH] brcmfmac: add support for dtb mac setting.
+
+---
+ .../broadcom/brcm80211/brcmfmac/common.c      | 76 +++++++++++++++++--
+ 1 file changed, 70 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/common.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/common.c
+index b0c03a9cb075..193592e104e8 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/common.c
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/common.c
+@@ -104,6 +104,62 @@ void brcmf_c_set_joinpref_default(struct brcmf_if *ifp)
+ 		brcmf_err("Set join_pref error (%d)\n", err);
+ }
+ 
++// From NV cypress source patches
++static int wifi_get_mac_address_dtb(const char *node_name,
++					const char *property_name,
++					unsigned char *mac_addr)
++{
++	struct device_node *np = of_find_node_by_path(node_name);
++	const char *mac_str = NULL;
++	int values[6] = {0};
++	unsigned char mac_temp[6] = {0};
++	int i, ret = 0;
++
++	if (!np)
++		return -EADDRNOTAVAIL;
++
++	/* If the property is present but contains an invalid value,
++	 * then something is wrong. Log the error in that case.
++	 */
++	if (of_property_read_string(np, property_name, &mac_str)) {
++		ret = -EADDRNOTAVAIL;
++		goto err_out;
++	}
++
++	/* The DTB property is a string of the form xx:xx:xx:xx:xx:xx
++	 * Convert to an array of bytes.
++	 */
++	if (sscanf(mac_str, "%x:%x:%x:%x:%x:%x",
++		&values[0], &values[1], &values[2],
++		&values[3], &values[4], &values[5]) != 6) {
++		ret = -EINVAL;
++		goto err_out;
++	}
++
++	for (i = 0; i < 6; ++i)
++		mac_temp[i] = (unsigned char)values[i];
++
++	if (!is_valid_ether_addr(mac_temp)) {
++		ret = -EINVAL;
++		goto err_out;
++	}
++
++	memcpy(mac_addr, mac_temp, 6);
++
++	of_node_put(np);
++
++	return ret;
++
++err_out:
++	brcmf_err("%s: bad mac address at %s/%s: %s.\n",
++		__func__, node_name, property_name,
++		(mac_str) ? mac_str : "null");
++
++	of_node_put(np);
++
++	return ret;
++}
++
+ int brcmf_c_preinit_dcmds(struct brcmf_if *ifp)
+ {
+ 	s8 eventmask[BRCMF_EVENTING_MASK_LEN];
+@@ -113,13 +169,21 @@ int brcmf_c_preinit_dcmds(struct brcmf_if *ifp)
+ 	char *ptr;
+ 	s32 err;
+ 
+-	/* retreive mac address */
+-	err = brcmf_fil_iovar_data_get(ifp, "cur_etheraddr", ifp->mac_addr,
+-				       sizeof(ifp->mac_addr));
+-	if (err < 0) {
+-		brcmf_err("Retreiving cur_etheraddr failed, %d\n", err);
+-		goto done;
++	err = wifi_get_mac_address_dtb("/chosen", "nvidia,wifi-mac", ifp->mac_addr);
++	if (!err) {
++		err = brcmf_fil_iovar_data_set(ifp, "cur_etheraddr", ifp->mac_addr,
++						   sizeof(ifp->mac_addr));
++	} else {
++		/* retrieve mac addresses */
++		err = brcmf_fil_iovar_data_get(ifp, "cur_etheraddr", ifp->mac_addr,
++						   sizeof(ifp->mac_addr));
++		if (err < 0) {
++			brcmf_err("Retrieving cur_etheraddr failed, %d\n", err);
++			goto done;
++		}
++
+ 	}
++
+ 	memcpy(ifp->drvr->mac, ifp->mac_addr, sizeof(ifp->drvr->mac));
+ 
+ 	err = brcmf_fil_cmd_data_get(ifp, BRCMF_C_GET_REVINFO,
+-- 
+GitLab
+
