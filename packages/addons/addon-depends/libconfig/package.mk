@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libconfig"
-PKG_VERSION="1.7.2"
-PKG_SHA256="f67ac44099916ae260a6c9e290a90809e7d782d96cdd462cac656ebc5b685726"
+PKG_VERSION="1.7.3"
+PKG_SHA256="68757e37c567fd026330c8a8449aa5f9cac08a642f213f2687186b903bd7e94e"
 PKG_LICENSE="LGPL"
 PKG_SITE="https://github.com/hyperrealm/libconfig"
 PKG_URL="https://github.com/hyperrealm/libconfig/archive/v${PKG_VERSION}.tar.gz"
@@ -13,7 +13,9 @@ PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --disable-shared \
+                           --disable-doc \
                            --disable-examples \
+                           --disable-tests \
                            --with-sysroot=${SYSROOT_PREFIX}"
 
 pre_configure_target() {
