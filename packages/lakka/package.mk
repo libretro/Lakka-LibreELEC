@@ -22,12 +22,8 @@ if [ "${PROJECT}" = "Generic" ]; then
 fi
 
 if [ "${PROJECT}" = "RPi" ]; then
-  if [ "${DEVICE}" = "RPi" -o "${DEVICE}" = "RPi2" -o "${DEVICE}" = "RPi4" ] ; then
-    PKG_DEPENDS_TARGET+=" wii-u-gc-adapter"
-  fi
-  
-  if [ "${DEVICE}" = "Gamegirl" ]; then
-    PKG_DEPENDS_TARGET+=" gamegirl-joypad"
+  if [ "${DEVICE}" != "GPICase" ] ; then
+    PKG_DEPENDS_TARGET+=" wii-u-gc-adapter wiringPi"
   fi
   
   if [ "${DEVICE}" = "GPICase" ]; then
