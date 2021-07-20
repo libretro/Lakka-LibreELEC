@@ -2,11 +2,11 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-picodrive"
-PKG_VERSION="67cdfb8c5d407c5a4e8f25ffa0ee7fac716b0690"
-PKG_SHA256="39871c4c5d2af833a4ae56ef83cfe21102edc563b728f00c56d50de9857cbf1e"
+PKG_VERSION="3620f75d20e43abd2f9d793a7c0824c764c3860b"
+PKG_SHA256="cff60412dbdad246cbe8bb6673679b5b0b15f93c9cd4434bc2bb1c56aa5ec551"
 PKG_LICENSE="MAME"
-PKG_SITE="https://github.com/libretro/picodrive"
-PKG_URL="https://github.com/libretro/picodrive/archive/${PKG_VERSION}.tar.gz"
+PKG_SITE="https://github.com/kodi-game/picodrive"
+PKG_URL="https://github.com/kodi-game/picodrive/releases/download/picodrive-${PKG_VERSION}/picodrive-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_HOST="toolchain:host"
 PKG_DEPENDS_TARGET="toolchain kodi-platform ${PKG_NAME}:host"
 PKG_DEPENDS_UNPACK="cyclone68000"

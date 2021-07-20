@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.picodrive"
-PKG_VERSION="1.96.0.16-Matrix"
-PKG_SHA256="b3d30cfb97a377ebb29041b053dda363b0a7d921f2a5e8fc9cbb510ea3b0249d"
+PKG_VERSION="1.98.0.23-Matrix"
+PKG_SHA256="f05ae0f19795a2fe52795bd7ae6ff4d8dc5337285643db3a22f541135b14d6f1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
