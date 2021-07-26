@@ -45,7 +45,24 @@ post_configure_target() {
 }
 
 make_target() {
-  R= make -f Makefile.libretro
+  if target_has_feature neon; then
+    export HAVE_NEON=1
+    export BUILTIN_GPU=neon
+   else
+    export HAVE_NEON=0
+  fi
+
+  case ${TARGET_ARCH} in
+    aarch64)
+      R= make -f Makefile.libretro platform=aarch64
+      ;;
+    arm)
+      R= make -f Makefile.libretro platform=armv
+      ;;
+    x86_64)
+      R= make -f Makefile.libretro
+      ;;
+  esac
 }
 
 makeinstall_target() {
