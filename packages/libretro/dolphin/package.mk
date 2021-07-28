@@ -55,4 +55,6 @@ PKG_CMAKE_OPTS_TARGET="-DENABLE_X11=OFF -DLIBRETRO=ON -DENABLE_NOGUI=OFF -DENABL
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
   cp $PKG_BUILD/.$TARGET_NAME/dolphin_libretro.so $INSTALL/usr/lib/libretro/
+  mkdir -p $INSTALL/usr/share/retroarch-system/dolphin-emu
+  cp -r $PKG_BUILD/Data/Sys $INSTALL/usr/share/retroarch-system/dolphin-emu/
 }

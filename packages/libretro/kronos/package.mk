@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="kronos"
-PKG_VERSION="c1914b2"
+PKG_VERSION="bdb8c5e"
 PKG_GIT_CLONE_BRANCH="kronos"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="GPLv2"
