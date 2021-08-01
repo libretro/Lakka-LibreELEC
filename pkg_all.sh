@@ -36,7 +36,7 @@ targets="\
 	Amlogic|AMLGX|arm \
 	Generic||x86_64 \
 	Generic||i386 \
-	L4T|Swtich|aarch64 \
+	L4T|Switch|aarch64 \
 	NXP|iMX6|arm \
 	OdroidXU3||arm \
 	Rockchip|MiQi|arm \
