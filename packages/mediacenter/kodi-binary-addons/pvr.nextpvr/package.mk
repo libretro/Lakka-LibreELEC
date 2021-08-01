@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.nextpvr"
-PKG_VERSION="8.2.5-Matrix"
-PKG_SHA256="5e8fb80f96daa658f1049a66be6d11aa055eca3f92e40f72f4c469767ca4504b"
+PKG_VERSION="8.2.6-Matrix"
+PKG_SHA256="0aa1239e5cbee28da8c2f29ed043ef644621c5478fc1db08c700fea971c80873"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
