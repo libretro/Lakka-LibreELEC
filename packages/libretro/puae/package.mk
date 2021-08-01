@@ -21,25 +21,18 @@
 PKG_NAME="puae"
 PKG_VERSION="ac8d055"
 PKG_REV="1"
-PKG_ARCH="arm i386 x86_64"
+PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/libretro/libretro-uae"
 PKG_URL="$PKG_SITE.git"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="WIP libretro port of UAE (P-UAE and libco) Expect bugs"
-PKG_LONGDESC="WIP libretro port of UAE (P-UAE and libco) Expect bugs"
-PKG_BUILD_FLAGS="-lto"
+PKG_SHORTDESC="Portable Commodore Amiga Emulator"
+PKG_LONGDESC="Portable Commodore Amiga Emulator"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-
-pre_configure_target() {
-  if [ "$ARCH" == "arm" ]; then
-    CFLAGS="$CFLAGS -DARM -marm"
-  fi
-}
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
