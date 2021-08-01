@@ -27,17 +27,13 @@ PKG_URL="$PKG_SITE.git"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="Versatile Commodore 8-bit Emulator version 3.0"
-PKG_LONGDESC="Versatile Commodore 8-bit Emulator version 3.0"
-PKG_BUILD_FLAGS="-lto"
+PKG_SHORTDESC="Versatile Commodore 8-bit Emulator"
+PKG_LONGDESC="Versatile Commodore 8-bit Emulator"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  if [ "$ARCH" == "arm" ]; then
-    CFLAGS="$CFLAGS -DARM -DALIGN_DWORD -mstructure-size-boundary=32 -mthumb-interwork -falign-functions=16 -marm"
-  fi
   make EMUTYPE=x64
   make EMUTYPE=x128
   make EMUTYPE=xplus4
