@@ -31,7 +31,6 @@ PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="Port of uae4arm for libretro (rpi/android)"
 PKG_LONGDESC="Port of uae4arm for libretro (rpi/android) "
-PKG_BUILD_FLAGS="-lto"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
