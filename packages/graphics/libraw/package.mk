@@ -10,6 +10,7 @@ PKG_URL="http://www.libraw.org/data/LibRaw-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libjpeg-turbo lcms2"
 PKG_LONGDESC="A library for reading RAW files obtained from digital photo cameras (CRW/CR2, NEF, RAF, DNG, and others)"
 PKG_BUILD_FLAGS="+pic"
+PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --disable-shared \
