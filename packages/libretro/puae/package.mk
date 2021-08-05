@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="puae"
-PKG_VERSION="ac8d055"
+PKG_VERSION="34b26b1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -33,6 +33,14 @@ PKG_LONGDESC="Portable Commodore Amiga Emulator"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+pre_make_target() {
+  if [ "$ARCH" = "arm" ]; then
+    CFLAGS+=" -DARM -marm"
+  elif [ "$ARCH" = "aarch64" ]; then
+    CFLAGS+=" -DARM"
+  fi
+}
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
