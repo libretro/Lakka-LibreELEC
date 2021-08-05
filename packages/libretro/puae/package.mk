@@ -45,4 +45,6 @@ pre_make_target() {
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
   cp puae_libretro.so $INSTALL/usr/lib/libretro/
+  mkdir -p $INSTALL/usr/share/retroarch-system/uae_data
+  cp -R $PKG_BUILD/sources/uae_data/* $INSTALL/usr/share/retroarch-system/uae_data/
 }
