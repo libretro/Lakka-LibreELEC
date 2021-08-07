@@ -250,6 +250,9 @@ post_makeinstall_target() {
   ln -sf /storage/.config/hwdb.d ${INSTALL}/etc/udev/hwdb.d
   safe_remove ${INSTALL}/etc/udev/rules.d
   ln -sf /storage/.config/udev.rules.d ${INSTALL}/etc/udev/rules.d
+
+  # journald
+  ln -sf /storage/.cache/journald.conf.d ${INSTALL}/usr/lib/systemd/journald.conf.d
 }
 
 post_install() {
