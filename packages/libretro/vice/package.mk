@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="vice"
-PKG_VERSION="2977793"
+PKG_VERSION="74515a9"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/vice-libretro"
@@ -34,7 +34,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  make EMUTYPE=x64
+  make EMUTYPE=x64sc
   make EMUTYPE=x128
   make EMUTYPE=xplus4
   make EMUTYPE=xvic
