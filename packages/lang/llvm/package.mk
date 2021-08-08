@@ -49,8 +49,6 @@ pre_configure_host() {
 
 pre_configure_target() {
   PKG_CMAKE_OPTS_TARGET="${PKG_CMAKE_OPTS_COMMON} \
-                         -DCMAKE_C_FLAGS="${CFLAGS}" \
-                         -DCMAKE_CXX_FLAGS="${CXXFLAGS}" \
                          -DLLVM_TARGET_ARCH="${TARGET_ARCH}" \
                          -DLLVM_TABLEGEN=${TOOLCHAIN}/bin/llvm-tblgen"
 }
