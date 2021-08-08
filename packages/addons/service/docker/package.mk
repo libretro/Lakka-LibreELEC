@@ -36,6 +36,7 @@ configure_target() {
   PKG_GOPATH_ENGINE=${GOPATH}
   PKG_GOPATH_CLI=${GOPATH}_cli
   export GOPATH=${PKG_GOPATH_CLI}:${PKG_GOPATH_ENGINE}
+  export GO111MODULE=off
 
   export LDFLAGS="-w -linkmode external -extldflags -Wl,--unresolved-symbols=ignore-in-shared-libs -extld ${CC}"
 
