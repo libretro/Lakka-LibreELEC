@@ -13,8 +13,7 @@ PKG_DEPENDS_HOST="toolchain:host"
 PKG_DEPENDS_TARGET="toolchain llvm:host zlib"
 PKG_LONGDESC="Low-Level Virtual Machine (LLVM) is a compiler infrastructure."
 
-PKG_CMAKE_OPTS_COMMON="-DCMAKE_BUILD_TYPE=MinSizeRel \
-                       -DLLVM_INCLUDE_TOOLS=ON \
+PKG_CMAKE_OPTS_COMMON="-DLLVM_INCLUDE_TOOLS=ON \
                        -DLLVM_BUILD_TOOLS=OFF \
                        -DLLVM_BUILD_UTILS=OFF \
                        -DLLVM_BUILD_EXAMPLES=OFF \
