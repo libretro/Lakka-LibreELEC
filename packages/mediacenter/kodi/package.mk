@@ -131,6 +131,9 @@ configure_package() {
 
   if [ "${KODI_SAMBA_SUPPORT}" = yes ]; then
     PKG_DEPENDS_TARGET+=" samba"
+    KODI_SAMBA="-DENABLE_SMBCLIENT=ON"
+  else
+    KODI_SAMBA="-DENABLE_SMBCLIENT=OFF"
   fi
 
   if [ "${KODI_WEBSERVER_SUPPORT}" = yes ]; then
