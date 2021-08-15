@@ -18,7 +18,16 @@ make_target() {
 makeinstall_target() {
   mkdir -p $SYSROOT_PREFIX/usr/lib
     cp -PR src/libaio.a $SYSROOT_PREFIX/usr/lib
+    cp -PR src/libaio.so* $SYSROOT_PREFIX/usr/lib
+  
+  mkdir -p $INSTALL/usr/lib
+  cp -PR src/libaio.so* $INSTALL/usr/lib
 
   mkdir -p $SYSROOT_PREFIX/usr/include
     cp -PR src/libaio.h $SYSROOT_PREFIX/usr/include
+}
+
+post_makeinstall_target() {
+  ln -s libaio.so.1.0.1 $INSTALL/usr/lib/libaio.so.1
+  ln -s libaio.so.1.0.1 $SYSROOT_PREFIX/usr/lib/libaio.so
 }
