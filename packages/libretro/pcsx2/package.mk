@@ -39,6 +39,10 @@ PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON \
 		       -DENABLE_QT=OFF \
 		       -DCMAKE_BUILD_TYPE=Release"
 
+if [ "$OPENGL_SUPPORT" = yes ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGL"
+fi
+
 pre_make_target() {
   find $PKG_BUILD -name flags.make -exec sed -i "s:isystem :I:g" \{} \;
   find $PKG_BUILD -name build.ninja -exec sed -i "s:isystem :I:g" \{} \;
