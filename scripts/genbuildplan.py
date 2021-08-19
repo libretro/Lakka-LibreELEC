@@ -196,7 +196,7 @@ def dep_resolve(node, resolved, unresolved):
         if edge not in resolved:
             if edge in unresolved:
                 raise Exception((
-                    f"Circular reference detected: {nod.fqname} -> {edge.commonName()}\n"
+                    f"Circular reference detected: {node.fqname} -> {edge.commonName()}\n"
                     f"Remove {edge.commonName()} from {node.name} package.mk::PKG_DEPENDS_{node.target.upper()}"
                     ))
             dep_resolve(edge, resolved, unresolved)

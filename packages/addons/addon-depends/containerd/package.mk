@@ -23,6 +23,7 @@ pre_make_target() {
   export CONTAINERD_REVISION=${PKG_GIT_COMMIT}
   export CONTAINERD_PKG=github.com/containerd/containerd
   export LDFLAGS="-w -extldflags -static -X ${CONTAINERD_PKG}/version.Version=${CONTAINERD_VERSION} -X ${CONTAINERD_PKG}/version.Revision=${CONTAINERD_REVISION} -X ${CONTAINERD_PKG}/version.Package=${CONTAINERD_PKG} -extld ${CC}"
+  export GO111MODULE=off
 
   mkdir -p ${GOPATH}
   if [ -d ${PKG_BUILD}/vendor ]; then

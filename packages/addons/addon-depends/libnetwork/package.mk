@@ -17,6 +17,7 @@ pre_make_target() {
 
   export CGO_ENABLED=0
   export LDFLAGS="-extld ${CC}"
+  export GO111MODULE=off
 
   mkdir -p ${GOPATH}
   if [ -d ${PKG_BUILD}/vendor ]; then
