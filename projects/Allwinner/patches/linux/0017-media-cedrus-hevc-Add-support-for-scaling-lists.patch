@@ -1,22 +1,24 @@
-From b4b79b4eeacb63f0a72c866526e4a2021a201090 Mon Sep 17 00:00:00 2001
-From: Jernej Skrabec <jernej.skrabec@siol.net>
-Date: Sat, 26 Oct 2019 13:58:49 +0200
-Subject: [PATCH 24/44] media: cedrus: hevc: Add support for scaling matrix
+From 297289d611b802ecd232df6cab02987f9059c3bc Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@gmail.com>
+Date: Sun, 6 Jun 2021 08:50:50 +0200
+Subject: [PATCH] media: cedrus: hevc: Add support for scaling lists
 
 HEVC frames may use scaling list feature. Add support for it.
 
-Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
+Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+huawei@kernel.org>
 ---
- drivers/staging/media/sunxi/cedrus/cedrus.c   |  7 ++
+ drivers/staging/media/sunxi/cedrus/cedrus.c   |  6 ++
  drivers/staging/media/sunxi/cedrus/cedrus.h   |  1 +
  .../staging/media/sunxi/cedrus/cedrus_dec.c   |  2 +
  .../staging/media/sunxi/cedrus/cedrus_h265.c  | 70 ++++++++++++++++++-
  .../staging/media/sunxi/cedrus/cedrus_regs.h  |  2 +
- 5 files changed, 81 insertions(+), 1 deletion(-)
+ 5 files changed, 80 insertions(+), 1 deletion(-)
 
 --- a/drivers/staging/media/sunxi/cedrus/cedrus.c
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus.c
-@@ -131,6 +131,12 @@ static const struct cedrus_control cedru
+@@ -137,6 +137,12 @@ static const struct cedrus_control cedru
  	},
  	{
  		.cfg = {
@@ -31,20 +33,20 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
  			.def	= V4L2_MPEG_VIDEO_HEVC_DECODE_MODE_SLICE_BASED,
 --- a/drivers/staging/media/sunxi/cedrus/cedrus.h
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus.h
-@@ -76,6 +76,7 @@ struct cedrus_h265_run {
- 	const struct v4l2_ctrl_hevc_sps			*sps;
+@@ -78,6 +78,7 @@ struct cedrus_h265_run {
  	const struct v4l2_ctrl_hevc_pps			*pps;
  	const struct v4l2_ctrl_hevc_slice_params	*slice_params;
+ 	const struct v4l2_ctrl_hevc_decode_params	*decode_params;
 +	const struct v4l2_ctrl_hevc_scaling_matrix	*scaling_matrix;
  };
  
  struct cedrus_vp8_run {
 --- a/drivers/staging/media/sunxi/cedrus/cedrus_dec.c
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus_dec.c
-@@ -68,6 +68,8 @@ void cedrus_device_run(void *priv)
- 			V4L2_CID_MPEG_VIDEO_HEVC_PPS);
- 		run.h265.slice_params = cedrus_find_control_data(ctx,
+@@ -72,6 +72,8 @@ void cedrus_device_run(void *priv)
  			V4L2_CID_MPEG_VIDEO_HEVC_SLICE_PARAMS);
+ 		run.h265.decode_params = cedrus_find_control_data(ctx,
+ 			V4L2_CID_MPEG_VIDEO_HEVC_DECODE_PARAMS);
 +		run.h265.scaling_matrix = cedrus_find_control_data(ctx,
 +			V4L2_CID_MPEG_VIDEO_HEVC_SCALING_MATRIX);
  		break;
@@ -122,7 +124,7 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
  static void cedrus_h265_setup(struct cedrus_ctx *ctx,
  			      struct cedrus_run *run)
  {
-@@ -519,7 +582,12 @@ static void cedrus_h265_setup(struct ced
+@@ -527,7 +590,12 @@ static void cedrus_h265_setup(struct ced
  
  	/* Scaling list. */
  

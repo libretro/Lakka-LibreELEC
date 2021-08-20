@@ -1,12 +1,14 @@
-From d99740197a9776b9332d21b9f3b05dab658a90eb Mon Sep 17 00:00:00 2001
-From: Jernej Skrabec <jernej.skrabec@siol.net>
-Date: Sat, 26 Oct 2019 15:44:15 +0200
-Subject: [PATCH 26/44] media: cedrus: hevc: Add support for multiple slices
+From d92a4a27d983032267b231a32be98a11a9995e5c Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@gmail.com>
+Date: Sun, 6 Jun 2021 10:23:14 +0200
+Subject: [PATCH] media: cedrus: hevc: Add support for multiple slices
 
 Now that segment address is available, support for multi-slice frames
 can be easily added.
 
-Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
+Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+huawei@kernel.org>
 ---
  .../staging/media/sunxi/cedrus/cedrus_h265.c  | 26 ++++++++++++-------
  .../staging/media/sunxi/cedrus/cedrus_video.c |  1 +
@@ -14,17 +16,17 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
 
 --- a/drivers/staging/media/sunxi/cedrus/cedrus_h265.c
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus_h265.c
-@@ -309,6 +309,8 @@ static void cedrus_h265_setup(struct ced
- 	const struct v4l2_ctrl_hevc_pps *pps;
+@@ -247,6 +247,8 @@ static void cedrus_h265_setup(struct ced
  	const struct v4l2_ctrl_hevc_slice_params *slice_params;
+ 	const struct v4l2_ctrl_hevc_decode_params *decode_params;
  	const struct v4l2_hevc_pred_weight_table *pred_weight_table;
 +	unsigned int width_in_ctb_luma, ctb_size_luma;
 +	unsigned int log2_max_luma_coding_block_size;
  	dma_addr_t src_buf_addr;
  	dma_addr_t src_buf_end_addr;
  	u32 chroma_log2_weight_denom;
-@@ -321,15 +323,17 @@ static void cedrus_h265_setup(struct ced
- 	slice_params = run->h265.slice_params;
+@@ -260,15 +262,17 @@ static void cedrus_h265_setup(struct ced
+ 	decode_params = run->h265.decode_params;
  	pred_weight_table = &slice_params->pred_weight_table;
  
 +	log2_max_luma_coding_block_size =
@@ -46,7 +48,7 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
  
  		/*
  		 * Each CTB requires a MV col buffer with a specific unit size.
-@@ -383,15 +387,17 @@ static void cedrus_h265_setup(struct ced
+@@ -322,15 +326,17 @@ static void cedrus_h265_setup(struct ced
  	reg = VE_DEC_H265_BITS_END_ADDR_BASE(src_buf_end_addr);
  	cedrus_write(dev, VE_DEC_H265_BITS_END_ADDR, reg);
  
@@ -67,9 +69,9 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
  
  	/* Initialize bitstream access. */
  	cedrus_write(dev, VE_DEC_H265_TRIGGER, VE_DEC_H265_TRIGGER_INIT_SWDEC);
-@@ -543,8 +549,8 @@ static void cedrus_h265_setup(struct ced
+@@ -482,8 +488,8 @@ static void cedrus_h265_setup(struct ced
  				V4L2_HEVC_SLICE_PARAMS_FLAG_DEPENDENT_SLICE_SEGMENT,
- 				pps->flags);
+ 				slice_params->flags);
  
 -	/* FIXME: For multi-slice support. */
 -	reg |= VE_DEC_H265_DEC_SLICE_HDR_INFO0_FLAG_FIRST_SLICE_SEGMENT_IN_PIC;
