@@ -1,33 +1,22 @@
+# PKG_VERSION is from https://www.duckstation.org/libretro/changelog.txt
+# Archive with binary core must be present on LAKKA_MIRROR. This is achieved
+# by a separate script that runs on LAKKA_MIRROR and downloads new versions
+# of the core.
+
 PKG_NAME="duckstation"
 PKG_ARCH="x86_64 arm aarch64"
 PKG_LICENSE="GPL"
-PKG_VERSION="Lakka33"
+PKG_VERSION="200fb85f"
 PKG_SITE="https://www.duckstation.org"
+PKG_SOURCE_DIR="${PKG_NAME}_${ARCH}-${PKG_VERSION}"
+PKG_SOURCE_NAME="${PKG_SOURCE_DIR}.zip"
+PKG_URL="${LAKKA_MIRROR}/${PKG_SOURCE_NAME}"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="DuckStation is an simulator/emulator of the Sony PlayStation(TM) console, focusing on playability, speed, and long-term maintainability."
 PKG_TOOLCHAIN="manual"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-
-case ${ARCH} in
-aarch64)
-  binary_filename="duckstation_libretro_linux_aarch64.zip"
-  ;;
-arm)
-  binary_filename="duckstation_libretro_linux_armv7.zip"
-  ;;
-x86_64)
-  binary_filename="duckstation_libretro_linux_x64.zip"
-  ;;
-esac
-PKG_URL="https://www.duckstation.org/libretro/${binary_filename}"
-
-make_target() {
-  cd $PKG_BUILD
-  wget $PKG_URL
-  unzip $binary_filename
-}
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
