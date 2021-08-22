@@ -86,6 +86,7 @@ post_make_host() {
 
 post_makeinstall_host() {
   cp -PR $TARGET_NAME/libstdc++-v3/src/.libs/libstdc++.so* $SYSROOT_PREFIX/usr/lib
+  cp -P $TARGET_NAME/libstdc++-v3/src/.libs/libstdc++.a $SYSROOT_PREFIX/usr/lib
 
   GCC_VERSION=`$TOOLCHAIN/bin/${TARGET_NAME}-gcc -dumpversion`
   DATE="0501`echo $GCC_VERSION | sed 's/\([0-9]\)/0\1/g' | sed 's/\.//g'`"

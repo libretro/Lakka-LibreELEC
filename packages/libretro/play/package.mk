@@ -19,8 +19,8 @@
 ################################################################################
 
 PKG_NAME="play"
-PKG_VERSION="a214f02"
-PKG_ARCH="i386 x86_64"
+PKG_VERSION="3555a13"
+PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/jpd002/Play-"
 PKG_URL="$PKG_SITE.git"
@@ -46,6 +46,7 @@ PKG_CMAKE_OPTS_TARGET="-DBUILD_LIBRETRO_CORE=yes \
                        -DBUILD_PLAY=off \
                        -DBUILD_TESTS=no \
                        -DENABLE_AMAZON_S3=no \
+		       -DUSE_GLEW=no \
                        -DCMAKE_BUILD_TYPE=Release \
                        --target play_libretro"
 
