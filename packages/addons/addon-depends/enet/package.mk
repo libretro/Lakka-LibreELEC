@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="enet"
-PKG_VERSION="d9e561938fd9360cdbbd67d78b105ccbe4af0a65" # 10 Jan 2021 # 1.3.17+vita
-PKG_SHA256="ff52ea54edb71662d5933b165c073f079c90ed9adcf98bcb7b2e74d4ddf3dc6b"
+PKG_VERSION="8d69c5abe4b699e7077395e01927bd102b3ba597" # 12 Jun 2021
+PKG_SHA256="4da28dc923828f2241f9086009c87d9679cb52bb3085305754cbcac33a06f312"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/cgutman/enet/"
 PKG_URL="https://github.com/cgutman/enet/archive/${PKG_VERSION}.tar.gz"
