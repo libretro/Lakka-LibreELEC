@@ -38,6 +38,7 @@ PKG_CONFIGURE_OPTS_TARGET=" \
 
 pre_configure_target() {
   LDFLAGS+=" -lcrypto -lssl"
+  CFLAGS+=' -DNCURSES_WIDECHAR=0'
 }
 
 post_makeinstall_target() {
