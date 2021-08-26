@@ -48973,15 +48973,20 @@ index 3e17e0fcac..b9f28220a8 100644
  
 diff --git a/libavcodec/v4l2_req_decode_q.c b/libavcodec/v4l2_req_decode_q.c
 new file mode 100644
-index 0000000000..d14f3d6cf6
+index 0000000000..2adbd5999b
 --- /dev/null
 +++ b/libavcodec/v4l2_req_decode_q.c
-@@ -0,0 +1,81 @@
+@@ -0,0 +1,86 @@
 +#include <memory.h>
 +#include <semaphore.h>
 +#include <pthread.h>
 +
 +#include "v4l2_req_decode_q.h"
++
++int decode_q_in_q(const req_decode_ent * const d)
++{
++    return d->in_q;
++}
 +
 +void decode_q_add(req_decode_q * const q, req_decode_ent * const d)
 +{
@@ -49060,10 +49065,10 @@ index 0000000000..d14f3d6cf6
 +
 diff --git a/libavcodec/v4l2_req_decode_q.h b/libavcodec/v4l2_req_decode_q.h
 new file mode 100644
-index 0000000000..d6c9f34ddb
+index 0000000000..af7bbe1de4
 --- /dev/null
 +++ b/libavcodec/v4l2_req_decode_q.h
-@@ -0,0 +1,24 @@
+@@ -0,0 +1,25 @@
 +#ifndef AVCODEC_V4L2_REQ_DECODE_Q_H
 +#define AVCODEC_V4L2_REQ_DECODE_Q_H
 +
@@ -49080,6 +49085,7 @@ index 0000000000..d6c9f34ddb
 +    req_decode_ent * tail;
 +} req_decode_q;
 +
++int decode_q_in_q(const req_decode_ent * const d);
 +void decode_q_add(req_decode_q * const q, req_decode_ent * const d);
 +void decode_q_remove(req_decode_q * const q, req_decode_ent * const d);
 +void decode_q_wait(req_decode_q * const q, req_decode_ent * const d);
@@ -49884,10 +49890,10 @@ index 0000000000..42af98e156
 +
 diff --git a/libavcodec/v4l2_req_hevc_vx.c b/libavcodec/v4l2_req_hevc_vx.c
 new file mode 100644
-index 0000000000..3c109bcca9
+index 0000000000..c628bd5ab4
 --- /dev/null
 +++ b/libavcodec/v4l2_req_hevc_vx.c
-@@ -0,0 +1,1182 @@
+@@ -0,0 +1,1189 @@
 +// File included by v4l2_req_hevc_v* - not compiled on its own
 +
 +#include "decode.h"
@@ -50800,6 +50806,13 @@ index 0000000000..3c109bcca9
 +    struct req_controls rc;
 +    unsigned int i;
 +    int rv;
++
++    // It is possible, though maybe a bug, to get an end_frame without
++    // a previous start_frame.  If we do then give up.
++    if (!decode_q_in_q(&rd->decode_ent)) {
++        av_log(avctx, AV_LOG_DEBUG, "%s: Frame not in decode Q\n", __func__);
++        return AVERROR_INVALIDDATA;
++    }
 +
 +    {
 +        const ScalingList *sl = h->ps.pps->scaling_list_data_present_flag ?
