@@ -3,9 +3,9 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.gsf"
-PKG_VERSION="3.0.0-Matrix"
-PKG_SHA256="2bbc8b82dd8c88d4fd004d48013746bf80d79179227c31e0070123f885275785"
-PKG_REV="4"
+PKG_VERSION="19.0.0-Matrix"
+PKG_SHA256="444d8769a84a89410e2ec3ff2313312323a226280b07dc027b268f4063c52e45"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.gsf"
