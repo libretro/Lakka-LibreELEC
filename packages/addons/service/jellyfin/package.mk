@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2021-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="jellyfin"
@@ -11,7 +11,7 @@ PKG_SITE="https://jellyfin.org/"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="service"
 PKG_SHORTDESC="Jellyfin: The Free Software Media System"
-PKG_LONGDESC="Jellyfin is a Free Software Media System that puts you in control of managing and streaming your media. Stream to any device from your own server. Your media, your server, your way."
+PKG_LONGDESC="Jellyfin is a Free Software Media System that puts you in control of managing and streaming your media. Stream to any device from your own server."
 PKG_TOOLCHAIN="manual"
 
 PKG_IS_ADDON="yes"
