@@ -12,6 +12,7 @@ PKG_URL="https://www.kernel.org/pub/linux/libs/security/linux-privs/libcap2/${PK
 PKG_DEPENDS_HOST="ccache:host"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A library for getting and setting POSIX.1e capabilities."
+PKG_BUILD_FLAGS="+pic"
 
 post_unpack() {
   mkdir -p ${PKG_BUILD}/.${HOST_NAME}
