@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="opera"
-PKG_VERSION="71125d5"
+PKG_VERSION="c235cd6"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL with additional notes"

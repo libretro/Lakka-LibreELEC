@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="yabause"
-PKG_VERSION="5c2038a"
+PKG_VERSION="739a846"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/yabause"

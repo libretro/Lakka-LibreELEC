@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="mgba"
-PKG_VERSION="ca21f86"
+PKG_VERSION="5ba012e"
 PKG_ARCH="any"
 PKG_LICENSE="MPLv2.0"
 PKG_SITE="https://github.com/libretro/mgba"

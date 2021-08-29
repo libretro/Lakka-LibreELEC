@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="chailove"
-PKG_VERSION="51caa9a"
+PKG_VERSION="e300ec2"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/libretro/libretro-chailove"
