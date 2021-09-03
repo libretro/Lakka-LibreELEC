@@ -2,33 +2,33 @@
 # Copyright (C) 2021-present Lakka Team)
 
 PKG_NAME="swanstation"
-PKG_VERSION="2021-08-01"
-PKG_SHA256="0e35dae1cc298f7707a3adc136ad916875cca347eac9f9fd12e68872080dcade"
+PKG_VERSION="d29d64e"
 PKG_LICENSE="GPL-3.0-or-later"
 PKG_SITE="https://github.com/libretro/swanstation"
-PKG_URL="https://github.com/kivutar/swanstation/archive/refs/tags/v${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain linux glibc"
+PKG_URL="$PKG_SITE.git"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="SwanStation(DuckStation) is an simulator/emulator of the Sony PlayStation(TM) console, focusing on playability, speed, and long-term maintainability."
-PKG_BUILD_FLAGS="-sysroot"
 
-configure_package() {
-  if [ ! "${ARCH}" = "arm" ]; then
-    PKG_BUILD_FLAGS+=" +lto"
-  fi
-}
+if [ "$OPENGL_SUPPORT" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGL"
+fi
 
-PKG_LIBNAME="swanstation_libretro.so"
-PKG_LIBPATH="${PKG_LIBNAME}"
+if [ "$OPENGLES_SUPPORT" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGLES"
+fi
 
-pre_configure_target() {
-  PKG_CMAKE_OPTS_TARGET="-D BUILD_NOGUI_FRONTEND=OFF \
-                         -D BUILD_QT_FRONTEND=OFF \
-                         -D BUILD_LIBRETRO_CORE=ON \
-                         -D ENABLE_DISCORD_PRESENCE=OFF \
-                         -D USE_SDL2=OFF"
-}
+if [ "$VULKAN_SUPPORT" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" $VULKAN"
+fi
+
+PKG_CMAKE_OPTS_TARGET="-DBUILD_NOGUI_FRONTEND=OFF \
+                       -DBUILD_QT_FRONTEND=OFF \
+                       -DBUILD_LIBRETRO_CORE=ON \
+                       -DENABLE_DISCORD_PRESENCE=OFF \
+                       -DUSE_DRMKMS=ON \
+                       -DUSE_SDL2=OFF"
 
 makeinstall_target() {
-  mkdir -p ${INSTALL}/usr/lib/libretro
-  cp -v ${PKG_LIBPATH} ${INSTALL}/usr/lib/libretro/
+  mkdir -p $INSTALL/usr/lib/libretro
+  cp swanstation_libretro.so $INSTALL/usr/lib/libretro/
 }
