@@ -19,7 +19,7 @@ makeinstall_target() {
     cd boot
     cp -PRv LICENCE* $INSTALL/usr/share/bootloader
     cp -PRv bootcode.bin $INSTALL/usr/share/bootloader
-    if [ "$DEVICE" = "RPi4" ]; then
+    if [ "${DEVICE:0:4}" = "RPi4" ]; then
       cp -PRv fixup4x.dat $INSTALL/usr/share/bootloader/fixup.dat
       cp -PRv fixup4.dat $INSTALL/usr/share/bootloader/fixup4.dat
       cp -PRv start4x.elf $INSTALL/usr/share/bootloader/start.elf

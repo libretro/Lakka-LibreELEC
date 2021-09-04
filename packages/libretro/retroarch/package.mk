@@ -89,7 +89,7 @@ elif [ "$OPENGLES" = "allwinner-mali" ]; then
 elif [ "$OPENGLES" = "mesa" ]; then
   if [ "$PROJECT" = "RPi" ]; then
     RETROARCH_GL="--disable-x11 --enable-opengles --disable-videocore --enable-kms --enable-egl --disable-wayland"
-    if [ "$DEVICE" = "RPi4" ]; then
+    if [ "${DEVICE:0:4}" = "RPi4" ]; then
       RETROARCH_GL+=" --enable-opengles3 --enable-opengles3_1"
     fi
   else

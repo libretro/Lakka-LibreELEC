@@ -55,7 +55,7 @@ make_target() {
     FLYCAST_GL=""
     [ "$OPENGLES_SUPPORT" = yes ] && FLYCAST_GL="FORCE_GLES=1"
     if [ "$ARCH" == "arm" ]; then
-      if [ "$DEVICE" = "RPi4" ]; then
+      if [ "${DEVICE:0:4}" = "RPi4" ]; then
         make AS=${AS} CC_AS=${CC} platform=rpi4-gles-neon HAVE_OPENMP=0 LDFLAGS=-lrt
       elif [ "$DEVICE" = "RPi2" ]; then
         make AS=${AS} CC_AS=${CC} platform=rpi $FLYCAST_GL HAVE_OPENMP=0 LDFLAGS=-lrt
