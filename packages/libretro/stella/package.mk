@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="stella"
-PKG_VERSION="06cbf95"
+PKG_VERSION="0f72f2e"
 PKG_ARCH="any"
 PKG_REV="1"
 PKG_LICENSE="GPL2"
