@@ -153,16 +153,17 @@ pre_make_target() {
     CFLAGS+=" -DLINUX -DEGL_API_FB"
   fi
 
+  HAVE_LAKKA_NIGHTLY=""
   if [ "$LAKKA_NIGHTLY" = yes ]; then
-    CFLAGS+=" -DHAVE_LAKKA_NIGHTLY"
+    HAVE_LAKKA_NIGHTLY="HAVE_LAKKA_NIGHTLY=1"
   fi
 }
 
 make_target() {
   if [ "$DEVICE" = "Switch" ]; then
-    make V=1 HAVE_LAKKA=1 HAVE_LAKKA_SWITCH=1 HAVE_ZARCH=0 HAVE_BLUETOOTH=1 HAVE_FREETYPE=1
+    make V=1 HAVE_LAKKA=1 HAVE_LAKKA_SWITCH=1 HAVE_ZARCH=0 HAVE_BLUETOOTH=1 HAVE_FREETYPE=1 $HAVE_LAKKA_NIGHTLY
   else
-    make V=1 HAVE_LAKKA=1 HAVE_ZARCH=0 HAVE_BLUETOOTH=1 HAVE_FREETYPE=1
+    make V=1 HAVE_LAKKA=1 HAVE_ZARCH=0 HAVE_BLUETOOTH=1 HAVE_FREETYPE=1 $HAVE_LAKKA_NIGHTLY
   fi
   make -C gfx/video_filters compiler=$CC extra_flags="$CFLAGS"
   make -C libretro-common/audio/dsp_filters compiler=$CC extra_flags="$CFLAGS"
