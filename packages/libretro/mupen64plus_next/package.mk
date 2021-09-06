@@ -79,10 +79,10 @@ make_target() {
     Generic)
       case $ARCH in
         x86_64)
-          make WITH_DYNAREC=x86_64
+          make WITH_DYNAREC=x86_64 HAVE_PARALLEL_RDP=1 HAVE_PARALLEL_RSP=1 HAVE_THR_AL=1 LLE=1
           ;;
         i386)
-          make WITH_DYNAREC=x86
+          make WITH_DYNAREC=x86 HAVE_PARALLEL_RDP=1 HAVE_PARALLEL_RSP=1 HAVE_THR_AL=1 LLE=1
 	  ;;
       esac
       ;;
