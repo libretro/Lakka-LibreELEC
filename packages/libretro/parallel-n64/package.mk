@@ -62,9 +62,9 @@ make_target() {
     else
       make platform=armv-neon WITH_DYNAREC=$DYNAREC HAVE_PARALLEL=1
     fi
-  elif [[ "$PROJECT" == "Generic_VK_nvidia" ]]; then
+  elif [ "$PROJECT" = "Generic" ]; then
     LDFLAGS="$LDFLAGS -lpthread"
-    make WITH_DYNAREC=$DYNAREC HAVE_PARALLEL=1 HAVE_OPENGL=0
+    make WITH_DYNAREC=$DYNAREC HAVE_PARALLEL=1 HAVE_PARALLEL_RSP=1 HAVE_THR_AL=1
   elif [[ "$TARGET_FPU" =~ "neon" ]]; then
     CFLAGS="$CFLAGS -DGL_BGRA_EXT=0x80E1" # Fix build for platforms where GL_BGRA_EXT is not defined
     make platform=armv-gles-neon
