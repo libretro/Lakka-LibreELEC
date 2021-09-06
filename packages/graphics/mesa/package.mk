@@ -37,7 +37,7 @@ PKG_MESON_OPTS_TARGET="-Ddri-drivers=${DRI_DRIVERS// /,} \
 
 if [ "$VULKAN_SUPPORT" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" $VULKAN"
-  if [ "$DEVICE" = "RPi4" ]; then
+  if [ "${DEVICE:0:4}" = "RPi4" ]; then
     PKG_MESON_OPTS_TARGET="${PKG_MESON_OPTS_TARGET//-Dvulkan-drivers=/-Dvulkan-drivers=broadcom}"
   elif [ "$PROJECT" = "Generic" ]; then
     PKG_MESON_OPTS_TARGET="${PKG_MESON_OPTS_TARGET//-Dvulkan-drivers=/-Dvulkan-drivers=amd,intel}"

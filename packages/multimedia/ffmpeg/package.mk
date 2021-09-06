@@ -63,7 +63,7 @@ fi
 
 if [ "$PROJECT" = "RPi" ] && [ "$ARCH" = "arm" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"
-  if [ "$DEVICE" = "RPi4" ]; then
+  if [ "${DEVICE:0:4}" = "RPi4" ]; then
    PKG_PATCH_DIRS+=" rpi4-hevc"
   else
    PKG_PATCH_DIRS+=" rpi-hevc"

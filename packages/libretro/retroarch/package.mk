@@ -89,7 +89,7 @@ elif [ "$OPENGLES" = "allwinner-mali" ]; then
 elif [ "$OPENGLES" = "mesa" ]; then
   if [ "$PROJECT" = "RPi" ]; then
     RETROARCH_GL="--disable-x11 --enable-opengles --disable-videocore --enable-kms --enable-egl --disable-wayland"
-    if [ "$DEVICE" = "RPi4" ]; then
+    if [ "${DEVICE:0:4}" = "RPi4" ]; then
       RETROARCH_GL+=" --enable-opengles3 --enable-opengles3_1"
     fi
   else
@@ -312,6 +312,13 @@ makeinstall_target() {
     sed -i -e "s/# video_font_size = 32/video_font_size = 16/" $INSTALL/etc/retroarch.cfg
     sed -i -e "s/# video_scale_integer = false/video_scale_integer = true/" $INSTALL/etc/retroarch.cfg
     sed -i -e "s/video_rotation = \"0\"/video_rotation = \"3\"/" $INSTALL/etc/retroarch.cfg
+  fi
+
+  if [ "$DEVICE" = "RPi4-PiBoyDmg" ]; then
+    echo "menu_timedate_enable = false" >> $INSTALL/etc/retroarch.cfg
+    echo "menu_scale_factor = \"1.500000\"" >> $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/input_menu_toggle_gamepad_combo = 2/input_menu_toggle_gamepad_combo = 4/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/menu_driver = \"xmb\"/menu_driver = \"ozone\"/" $INSTALL/etc/retroarch.cfg
   fi
 
   if [ "$PROJECT" = "NXP" -a "$DEVICE" = "iMX6" ]; then
