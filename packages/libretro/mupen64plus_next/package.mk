@@ -68,7 +68,7 @@ make_target() {
     RPi3)
       make platform=rpi3-mesa
       ;;
-    RPi4|RPi4-PiBoyDmg)
+    RPi4*)
       make platform=rpi4 GLES3=1 FORCE_GLES3=1
       ;;
     iMX6)
