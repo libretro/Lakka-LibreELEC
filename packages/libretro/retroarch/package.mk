@@ -318,7 +318,7 @@ makeinstall_target() {
     echo "menu_timedate_enable = false" >> $INSTALL/etc/retroarch.cfg
     echo "menu_scale_factor = \"1.500000\"" >> $INSTALL/etc/retroarch.cfg
     sed -i -e "s/input_menu_toggle_gamepad_combo = 2/input_menu_toggle_gamepad_combo = 4/" $INSTALL/etc/retroarch.cfg
-    sed -i -e "s/menu_driver = \"xmb\"/menu_driver = \"ozone\"/" $INSTALL/etc/retroarch.cfg
+    sed -i -e "s/menu_driver = \"xmb\"/menu_driver = \"rgui\"/" $INSTALL/etc/retroarch.cfg
   fi
 
   if [ "$PROJECT" = "NXP" -a "$DEVICE" = "iMX6" ]; then
