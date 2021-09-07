@@ -4,8 +4,8 @@
 PKG_NAME="chrome"
 PKG_VERSION="1.0"
 # curl -s http://dl.google.com/linux/chrome/deb/dists/stable/main/binary-amd64/Packages | grep -B 1 Version
-PKG_VERSION_NUMBER="92.0.4515.107"
-PKG_REV="107"
+PKG_VERSION_NUMBER="93.0.4577.63"
+PKG_REV="108"
 PKG_ARCH="x86_64"
 PKG_LICENSE="Custom"
 PKG_SITE="http://www.google.com/chrome"
