@@ -304,6 +304,7 @@ makeinstall_target() {
   if [ "$PROJECT" = "RPi" ] && [ "$DEVICE" = "GPICase" ]; then
     echo "audio_device = \"default:CARD=ALSA\"" >> $INSTALL/etc/retroarch.cfg
     echo "menu_timedate_enable = false" >> $INSTALL/etc/retroarch.cfg
+    echo "menu_enable_widgets = false" >> $INSTALL/etc/retroarch.cfg
     sed -i -e "s/input_menu_toggle_gamepad_combo = 2/input_menu_toggle_gamepad_combo = 4/" $INSTALL/etc/retroarch.cfg
     sed -i -e "s/menu_driver = \"xmb\"/menu_driver = \"rgui\"/" $INSTALL/etc/retroarch.cfg
     sed -i -e "s/video_threaded = true/video_threaded = false/" $INSTALL/etc/retroarch.cfg
@@ -317,6 +318,7 @@ makeinstall_target() {
   if [ "$DEVICE" = "RPi4-PiBoyDmg" ]; then
     echo "menu_timedate_enable = false" >> $INSTALL/etc/retroarch.cfg
     echo "menu_scale_factor = \"1.500000\"" >> $INSTALL/etc/retroarch.cfg
+    echo "menu_enable_widgets = false" >> $INSTALL/etc/retroarch.cfg
     sed -i -e "s/input_menu_toggle_gamepad_combo = 2/input_menu_toggle_gamepad_combo = 4/" $INSTALL/etc/retroarch.cfg
     sed -i -e "s/menu_driver = \"xmb\"/menu_driver = \"rgui\"/" $INSTALL/etc/retroarch.cfg
   fi
