@@ -29,9 +29,12 @@ case "$LINUX" in
     ;;
   raspberrypi)
     # NOTE: if updating also update bcm2835-bootloader to corresponding firmware
-    PKG_VERSION="c6748f7a73b2e7077e4f90daa620de583a925de1"
-    # PKG_SHA256="d229567885723440e38a0815afda58e835142dbd0d3609399f3e8d5b81080bfc"
-    PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
+    PKG_VERSION="1.20210831"
+    PKG_SHA256="cda7592b31e676003ea797da09232c125798cfa40a0195af1ea72b606776fa7d"
+    # URL for commit hash
+    #PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
+    # URL for version tag
+    PKG_URL="https://github.com/raspberrypi/linux/archive/refs/tags/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     PKG_PATCH_DIRS="rpi joycon dualsense"
     ;;

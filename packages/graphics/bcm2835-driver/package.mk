@@ -3,11 +3,14 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="bcm2835-driver"
-PKG_VERSION="a51c6008766ecd928d774dafc5eefe88a4f9bf75"
-#PKG_SHA256=""
+PKG_VERSION="1.20210831"
+PKG_SHA256="47f879cd2b58cf556a9da95820af982d93929dfa4ff22488fc0bb271025c02ef"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.broadcom.com"
-PKG_URL="https://github.com/raspberrypi/firmware/archive/$PKG_VERSION.tar.gz"
+# URL for commit hash
+#PKG_URL="https://github.com/raspberrypi/firmware/archive/$PKG_VERSION.tar.gz"
+# URL for release tag
+PKG_URL="https://github.com/raspberrypi/firmware/archive/refs/tags/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain dtc"
 PKG_LONGDESC="OpenMAX-bcm2835: OpenGL-ES and OpenMAX driver for BCM2835"
 PKG_TOOLCHAIN="manual"
