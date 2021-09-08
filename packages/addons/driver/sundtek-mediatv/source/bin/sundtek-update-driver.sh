@@ -47,7 +47,7 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-ARCH=$(sed -n 's|.*\.\([^-]*\)-.*|\1|p' /etc/release | tr -d '\n')
+ARCH=$(sed -n 's|[^.]*\.\([^-]*\)-.*|\1|p' /etc/release | tr -d '\n')
 if [ "$ARCH" = "x86_64" ]; then
   INSTALLER_URL="http://sundtek.de/media/netinst/64bit/installer.tar.gz"
 elif [ "$ARCH" = "arm" ]; then
