@@ -22,7 +22,6 @@ PKG_NAME="lakka-update"
 PKG_VERSION="0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="lakka"
 PKG_SHORTDESC="Shell script to wget the latest update"
@@ -34,6 +33,12 @@ PKG_AUTORECONF="no"
 
 make_target() {
   :
+}
+
+pre_makeinstall_target() {
+  if [ "$LAKKA_NIGHTLY" = yes ]; then
+    sed 's|^MIRROR=.*$|MIRROR=https://nightly.builds.lakka.tv/.updater|' -i lakka-update.sh
+  fi
 }
 
 makeinstall_target() {
