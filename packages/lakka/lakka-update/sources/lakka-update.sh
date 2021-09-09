@@ -4,7 +4,7 @@ source /etc/os-release
 
 MIRROR=https://le.builds.lakka.tv
 
-FILE=`wget $MIRROR/${LIBREELEC_ARCH}/.index -q -O - | tail -1`
+FILE=`wget $MIRROR/${LIBREELEC_ARCH}/.index -q -O - | head -1`
 URL=$MIRROR/${LIBREELEC_ARCH}/$FILE
 
 rm -rf ~/.update/*

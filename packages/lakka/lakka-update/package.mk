@@ -36,6 +36,12 @@ make_target() {
   :
 }
 
+pre_makeinstall_target() {
+  if [ "$LAKKA_NIGHTLY" = yes ]; then
+    sed 's|^MIRROR=.*$|MIRROR=https://nightly.builds.lakka.tv/.updater|' -i lakka-update.sh
+  fi
+}
+
 makeinstall_target() {
   mkdir -p $INSTALL/usr/bin
     cp lakka-update.sh $INSTALL/usr/bin/lakka-update
