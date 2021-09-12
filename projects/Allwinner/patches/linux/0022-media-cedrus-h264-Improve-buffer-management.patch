@@ -82,10 +82,10 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
 +
 +		output_buf->codec.h264.mv_col_buf_size = field_size * 2;
 +		output_buf->codec.h264.mv_col_buf =
-+			dma_alloc_coherent(dev->dev,
-+					   output_buf->codec.h264.mv_col_buf_size,
-+					   &output_buf->codec.h264.mv_col_buf_dma,
-+					   GFP_KERNEL);
++			dma_alloc_attrs(dev->dev,
++					output_buf->codec.h264.mv_col_buf_size,
++					&output_buf->codec.h264.mv_col_buf_dma,
++					GFP_KERNEL, DMA_ATTR_NO_KERNEL_MAPPING);
 +
 +		if (!output_buf->codec.h264.mv_col_buf)
 +			output_buf->codec.h264.mv_col_buf_size = 0;
@@ -103,7 +103,7 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
  	int ret;
  
  	/* Formula for picture buffer size is taken from CedarX source. */
-@@ -560,37 +577,6 @@ static int cedrus_h264_start(struct cedr
+@@ -560,38 +577,6 @@ static int cedrus_h264_start(struct cedr
  		goto err_pic_buf;
  	}
  
@@ -129,10 +129,11 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
 -
 -	mv_col_size = field_size * 2 * CEDRUS_H264_FRAME_NUM;
 -	ctx->codec.h264.mv_col_buf_size = mv_col_size;
--	ctx->codec.h264.mv_col_buf = dma_alloc_coherent(dev->dev,
--							ctx->codec.h264.mv_col_buf_size,
--							&ctx->codec.h264.mv_col_buf_dma,
--							GFP_KERNEL);
+-	ctx->codec.h264.mv_col_buf =
+-		dma_alloc_attrs(dev->dev,
+-				ctx->codec.h264.mv_col_buf_size,
+-				&ctx->codec.h264.mv_col_buf_dma,
+-				GFP_KERNEL, DMA_ATTR_NO_KERNEL_MAPPING);
 -	if (!ctx->codec.h264.mv_col_buf) {
 -		ret = -ENOMEM;
 -		goto err_neighbor_buf;
@@ -150,29 +151,31 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
  		}
  
  		/*
-@@ -633,11 +619,6 @@ err_deblk_buf:
+@@ -633,12 +619,6 @@ err_deblk_buf:
  			  ctx->codec.h264.deblk_buf,
  			  ctx->codec.h264.deblk_buf_dma);
  
 -err_mv_col_buf:
--	dma_free_coherent(dev->dev, ctx->codec.h264.mv_col_buf_size,
--			  ctx->codec.h264.mv_col_buf,
--			  ctx->codec.h264.mv_col_buf_dma);
+-	dma_free_attrs(dev->dev, ctx->codec.h264.mv_col_buf_size,
+-		       ctx->codec.h264.mv_col_buf,
+-		       ctx->codec.h264.mv_col_buf_dma,
+-		       DMA_ATTR_NO_KERNEL_MAPPING);
 -
  err_neighbor_buf:
- 	dma_free_coherent(dev->dev, CEDRUS_NEIGHBOR_INFO_BUF_SIZE,
- 			  ctx->codec.h264.neighbor_info_buf,
-@@ -654,9 +635,6 @@ static void cedrus_h264_stop(struct cedr
+ 	dma_free_attrs(dev->dev, CEDRUS_NEIGHBOR_INFO_BUF_SIZE,
+ 		       ctx->codec.h264.neighbor_info_buf,
+@@ -654,10 +635,6 @@ static void cedrus_h264_stop(struct cedr
  {
  	struct cedrus_dev *dev = ctx->dev;
  
--	dma_free_coherent(dev->dev, ctx->codec.h264.mv_col_buf_size,
--			  ctx->codec.h264.mv_col_buf,
--			  ctx->codec.h264.mv_col_buf_dma);
- 	dma_free_coherent(dev->dev, CEDRUS_NEIGHBOR_INFO_BUF_SIZE,
- 			  ctx->codec.h264.neighbor_info_buf,
- 			  ctx->codec.h264.neighbor_info_buf_dma);
-@@ -681,6 +659,16 @@ static void cedrus_h264_trigger(struct c
+-	dma_free_attrs(dev->dev, ctx->codec.h264.mv_col_buf_size,
+-		       ctx->codec.h264.mv_col_buf,
+-		       ctx->codec.h264.mv_col_buf_dma,
+-		       DMA_ATTR_NO_KERNEL_MAPPING);
+ 	dma_free_attrs(dev->dev, CEDRUS_NEIGHBOR_INFO_BUF_SIZE,
+ 		       ctx->codec.h264.neighbor_info_buf,
+ 		       ctx->codec.h264.neighbor_info_buf_dma,
+@@ -681,6 +659,17 @@ static void cedrus_h264_trigger(struct c
  		     VE_H264_TRIGGER_TYPE_AVC_SLICE_DECODE);
  }
  
@@ -180,10 +183,11 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
 +				    struct cedrus_buffer *buf)
 +{
 +	if (buf->codec.h264.mv_col_buf_size)
-+		dma_free_coherent(ctx->dev->dev,
-+				  buf->codec.h264.mv_col_buf_size,
-+				  buf->codec.h264.mv_col_buf,
-+				  buf->codec.h264.mv_col_buf_dma);
++		dma_free_attrs(ctx->dev->dev,
++			       buf->codec.h264.mv_col_buf_size,
++			       buf->codec.h264.mv_col_buf,
++			       buf->codec.h264.mv_col_buf_dma,
++			       DMA_ATTR_NO_KERNEL_MAPPING);
 +}
 +
  struct cedrus_dec_ops cedrus_dec_ops_h264 = {
