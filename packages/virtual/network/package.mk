@@ -23,7 +23,13 @@ if [ "$OPENVPN_SUPPORT" = "yes" ]; then
 fi
 
 if [ "$WIREGUARD_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET wireguard-tools wireguard-linux-compat"
+  PKG_DEPENDS_TARGET+=" wireguard-tools"
+  # Kernels 5.6 and above have support already in tree
+  case $PROJECT in
+    Allwinner | Amlogic | OdroidXU3 | Rockchip)
+      PKG_DEPENDS_TARGET+=" wireguard-linux-compat"
+      ;;
+  esac
 fi
 
 # nss needed by inputstream.adaptive, chromium etc.
