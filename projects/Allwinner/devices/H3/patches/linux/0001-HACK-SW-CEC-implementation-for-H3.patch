@@ -151,7 +151,7 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
  	.is_custom_phy = true,
  	.phy_init = &sun8i_hdmi_phy_init_h3,
 @@ -725,10 +766,36 @@ static int sun8i_hdmi_phy_probe(struct p
- 		clk_prepare_enable(phy->clk_phy);
+ 		goto err_put_clk_pll1;
  	}
  
 +	if (phy->variant->bit_bang_cec) {
@@ -184,9 +184,9 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
 +	cec_delete_adapter(phy->cec_adapter);
 +err_disable_clk_phy:
 +	clk_disable_unprepare(phy->clk_phy);
- err_disable_clk_mod:
- 	clk_disable_unprepare(phy->clk_mod);
- err_disable_clk_bus:
+ err_put_clk_pll1:
+ 	clk_put(phy->clk_pll1);
+ err_put_clk_pll0:
 @@ -753,6 +820,9 @@ static int sun8i_hdmi_phy_remove(struct
  {
  	struct sun8i_hdmi_phy *phy = platform_get_drvdata(pdev);
@@ -194,9 +194,9 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
 +	cec_notifier_cec_adap_unregister(phy->cec_notifier, phy->cec_adapter);
 +	cec_unregister_adapter(phy->cec_adapter);
 +
- 	clk_disable_unprepare(phy->clk_mod);
- 	clk_disable_unprepare(phy->clk_bus);
- 	clk_disable_unprepare(phy->clk_phy);
+ 	reset_control_put(phy->rst_phy);
+ 
+ 	clk_put(phy->clk_pll0);
 --- a/include/drm/bridge/dw_hdmi.h
 +++ b/include/drm/bridge/dw_hdmi.h
 @@ -153,6 +153,8 @@ struct dw_hdmi_plat_data {
