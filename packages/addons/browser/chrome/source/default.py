@@ -47,6 +47,9 @@ def startchrome(args):
       if not alsa_device == None and not alsa_device == '':
         new_env['ALSA_DEVICE'] = alsa_device
 
+    if __addon__.getSetting('USE_CUST_USERAGENT') == 'true':
+      new_env['USER_AGENT'] = __addon__.getSetting('CUST_USERAGENT_STR')
+
     chrome_params = args + ' ' + \
                     __addon__.getSetting('HOMEPAGE')
     subprocess.call(__path__ + 'chrome-start ' + chrome_params, shell=True, env=new_env)
