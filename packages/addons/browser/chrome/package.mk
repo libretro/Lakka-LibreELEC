@@ -67,4 +67,6 @@ addon() {
 post_install_addon() {
   sed -e "s/@DISTRO_PKG_SETTINGS_ID@/${DISTRO_PKG_SETTINGS_ID}/g" -i "${INSTALL}/default.py"
   sed -e "s/@CHROME_VERSION@/${PKG_VERSION_NUMBER}/g" -i "${INSTALL}/bin/chrome-downloader"
+  sed -e "s/@CHROME_VERSION@/${PKG_VERSION_NUMBER}/g" -i "${INSTALL}/resources/settings.xml"
+  sed -e "s/@CHROME_VERSION@/${PKG_VERSION_NUMBER}/g" -i "${INSTALL}/settings-default.xml"
 }
