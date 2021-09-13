@@ -13,14 +13,14 @@ PKG_TOOLCHAIN="configure"
 
 pre_configure_host() {
   HOST_CONFIGURE_OPTS="\
-    --bindir=$TOOLCHAIN/bin \
-    --extra-cflags=-I$TOOLCHAIN/include \
-    --extra-ldflags=-L$TOOLCHAIN/lib \
-    --libexecdir=$TOOLCHAIN/lib \
-    --localstatedir=$TOOLCHAIN/var \
-    --prefix=$TOOLCHAIN \
-    --sbindir=$TOOLCHAIN/sbin \
-    --sysconfdir=$TOOLCHAIN/etc \
+    --bindir=${TOOLCHAIN}/bin \
+    --extra-cflags=-I${TOOLCHAIN}/include \
+    --extra-ldflags=-L${TOOLCHAIN}/lib \
+    --libexecdir=${TOOLCHAIN}/lib \
+    --localstatedir=${TOOLCHAIN}/var \
+    --prefix=${TOOLCHAIN} \
+    --sbindir=${TOOLCHAIN}/sbin \
+    --sysconfdir=${TOOLCHAIN}/etc \
     --enable-tools \
     --disable-attr \
     --disable-auth-pam \
@@ -44,6 +44,6 @@ pre_configure_host() {
 }
 
 makeinstall_host() {
-  mkdir -p $TOOLCHAIN/bin
-    cp $PKG_BUILD/.$HOST_NAME/qemu-img $TOOLCHAIN/bin
+  mkdir -p ${TOOLCHAIN}/bin
+    cp ${PKG_BUILD}/.${HOST_NAME}/qemu-img ${TOOLCHAIN}/bin
 }
