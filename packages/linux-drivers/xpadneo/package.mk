@@ -27,4 +27,6 @@ makeinstall_target() {
 
   mkdir -p $INSTALL/usr/lib/modprobe.d
     cp -v $PKG_BUILD/hid-xpadneo/etc-modprobe.d/*.conf $INSTALL/usr/lib/modprobe.d/
+    echo "options hid_xpadneo trigger_rumble_mode=2" >> $INSTALL/usr/lib/modprobe.d/xpadneo.conf
+    echo "options bluetooth disable_ertm=1" >> $INSTALL/usr/lib/modprobe.d/xpadneo.conf
 }
