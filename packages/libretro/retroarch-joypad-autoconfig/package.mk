@@ -34,6 +34,10 @@ PKG_LONGDESC="RetroArch joypad autoconfig files"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+if [ "$DEVICE" = "RPi4-RetroDreamer" ]; then
+  PKG_PATCH_DIRS+=" retrodreamer-patch"
+fi
+
 configure_target() {
   cd $PKG_BUILD
 }
