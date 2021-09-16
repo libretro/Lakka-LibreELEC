@@ -50,6 +50,8 @@ targets="\
 	RPi|RPi3|aarch64 \
 	RPi|RPi4|arm \
 	RPi|RPi4|aarch64 \
+	RPi|RPi4-PiBoyDmg|aarch64 \
+	RPi|RPi4-RetroDreamer|aarch64 \
 	"
 
 package=$2
