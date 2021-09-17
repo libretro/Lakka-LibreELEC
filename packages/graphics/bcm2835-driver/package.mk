@@ -69,4 +69,19 @@ makeinstall_target() {
   mkdir -p ${INSTALL}/opt/vc
     ln -sf /usr/bin ${INSTALL}/opt/vc/bin
     ln -sf /usr/lib ${INSTALL}/opt/vc/lib
+
+  # remove pre-built binaries in case they will be provided by the rpi_userland package
+  if listcontains "${ADDITIONAL_PACKAGES}" "rpi_userland" ; then
+    rm -f ${INSTALL}/usr/lib/libbcm_host.so
+    rm -f ${INSTALL}/usr/lib/libdebug_sym.so
+    rm -f ${INSTALL}/usr/lib/libdtovl.so
+    rm -f ${INSTALL}/usr/lib/libvchiq_arm.so
+    rm -f ${INSTALL}/usr/lib/libvcos.so
+    rm -f ${INSTALL}/usr/bin/dtmerge
+    rm -f ${INSTALL}/usr/bin/dtoverlay
+    rm -f ${INSTALL}/usr/bin/tvservice
+    rm -f ${INSTALL}/usr/bin/vcgencmd
+    rm -f ${INSTALL}/usr/bin/vchiq_test
+    rm -f ${INSTALL}/usr/bin/vcmailbox
+  fi
 }
