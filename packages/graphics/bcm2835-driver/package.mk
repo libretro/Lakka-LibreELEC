@@ -3,8 +3,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="bcm2835-driver"
-PKG_VERSION="25e2b597ebfb2495eab4816a276758dcc6ea21f1"
-PKG_SHA256="1a35c4a7bf7a7477d0d8bf13b51e6521d2148261afee3c98c0545ca4c0c02b79"
+PKG_VERSION="d5d14f484cec739901a088a58eed62452b6dadeb"
+PKG_SHA256="987854b028458ffe2731d6163f07a3f8b512593604d2b3aa0afe62418243f0f7"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.broadcom.com"
 PKG_URL="${DISTRO_SRC}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
