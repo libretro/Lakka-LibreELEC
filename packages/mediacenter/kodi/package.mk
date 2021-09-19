@@ -178,7 +178,11 @@ configure_package() {
       KODI_PLAYER="-DCORE_PLATFORM_NAME=gbm -DAPP_RENDER_SYSTEM=gles"
       CFLAGS+=" -DEGL_NO_X11"
       CXXFLAGS+=" -DEGL_NO_X11"
-      PKG_APPLIANCE_XML="${PKG_DIR}/config/appliance-gbm.xml"
+      if [ "${PROJECT}" = "Generic" ]; then
+        PKG_APPLIANCE_XML="${PKG_DIR}/config/appliance-gbm-generic.xml"
+      else
+        PKG_APPLIANCE_XML="${PKG_DIR}/config/appliance-gbm.xml"
+      fi
     fi
   fi
 
