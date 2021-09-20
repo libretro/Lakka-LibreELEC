@@ -3,11 +3,11 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="cups"
-PKG_VERSION="2.3.3"
-PKG_SHA256="fe298713aad0cbb861de24760f140851122caae9f34d480dbfff0bd9211d961a"
+PKG_VERSION="2.3.3op2"
+PKG_SHA256="5d7dc1f05cde3d5c31d3a2b3b54d519ca74e42c1b25df1add9a1802cd13c65ad"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.cups.org"
-PKG_URL="https://github.com/apple/cups/archive/v${PKG_VERSION}.tar.gz"
+PKG_URL="https://github.com/openprinting/cups/archive/v${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain openssl zlib"
 PKG_LONGDESC="CUPS printing system."
 PKG_BUILD_FLAGS="+pic -sysroot"
