@@ -60,6 +60,12 @@ resolve_hash_in_branch() {
   fi
 }
 
+resolve_hash_on_gh() {
+  curl -s -L -H "Authorization: token ${GITHUB_API_TOKEN}" \
+    -H "Accept: application/vnd.github.VERSION.sha" \
+    "${1/*github.com/https:\/\/api.github.com\/repos}/commits/$2"
+}
+
 resolve_tag_in_branch() {
   local tag
   if [ -d "$1" ] ; then
@@ -73,6 +79,22 @@ resolve_tag_in_branch() {
     fi
     git describe --abbrev=0 --tags origin/$2 2>/dev/null
   fi
+}
+
+resolve_tag_on_gh() {
+  local tag
+
+  tag=$(curl -s -L -H "Authorization: token ${GITHUB_API_TOKEN}" \
+          "${1/*github.com/https:\/\/api.github.com\/repos}/releases" | \
+          jq -r '[.[] | select(.target_commitish == "'$2'")][0].tag_name | select (.!=null)')
+
+  if [ -z "$tag" ] ; then
+    tag=$(curl -s -L -H "Authorization: token ${GITHUB_API_TOKEN}" \
+            "${1/*github.com/https:\/\/api.github.com\/repos}/tags" | \
+            jq -r '[.[] | select(.name | contains("'$2'"))][0].name | select (.!=null)')
+  fi
+
+  echo "$tag"
 }
 
 check_package_excluded() {
@@ -183,5 +205,10 @@ validate_pkg_url() {
 
   [ "${url1}" = "${url2}" ] && return 0 || return 1
 }
- 
 
+# Get user Github token if available
+get_gh_token() {
+  if [ -z "${GITHUB_API_TOKEN}" ]; then
+    GITHUB_API_TOKEN=$(get_pkg_var "" GITHUB_API_TOKEN)
+  fi
+}
