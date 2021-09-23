@@ -1,7 +1,11 @@
 # v3.5
+* Update Linux kernel to 5.10.68 and kernel firmware to 20210919 (Generic, iMX6)
+* Fix libraries for interfacing to Raspberry Pi GPU on aarch64
+* Add WireGuard VPN support
+* Add action to remove bluetooth pairing (**Settings** &rarr; **Bluetooth** &rarr; ***Bluetooth device*** &rarr; <kbd>Start</kbd> button or <kbd>Space</kbd> key)
 * Add [xpadneo driver](https://atar-axis.github.io/xpadneo/) to support wireless Xbox gamepads (all, but L4T)
-* Update 'default' kernel to 5.1.21 (Allwinner, Amlogic, NXP)
-* Set hdmi to 720p, drop A20 devices (Allwinner)
+* Update 'default' kernel to 5.1.21 (Allwinner, Amlogic)
+* Set HDMI output resolution to 720p, drop A20 devices (Allwinner)
 * Add support for [Capcom Home Arcade](https://capcomhomearcade.com/uk)
 * Replace i965 intel driver with the updated crocus one (Generic)
 * Add support for [PiBoy DMG](https://www.experimentalpi.com/PiBoy-DMG--Kit_p_18.html) (RPi)
