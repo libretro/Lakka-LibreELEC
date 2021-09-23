@@ -46333,7 +46333,7 @@ index 0000000000..85c5b46d75
 +};
 +
 diff --git a/libavcodec/v4l2_buffers.c b/libavcodec/v4l2_buffers.c
-index 02f23d954b..44ed41481e 100644
+index 02f23d954b..8b10fd5398 100644
 --- a/libavcodec/v4l2_buffers.c
 +++ b/libavcodec/v4l2_buffers.c
 @@ -21,6 +21,7 @@
@@ -46421,7 +46421,134 @@ index 02f23d954b..44ed41481e 100644
  }
  
  static enum AVColorPrimaries v4l2_get_color_primaries(V4L2Buffer *buf)
-@@ -210,73 +223,159 @@ static enum AVColorTransferCharacteristic v4l2_get_color_trc(V4L2Buffer *buf)
+@@ -116,6 +129,105 @@ static enum AVColorPrimaries v4l2_get_color_primaries(V4L2Buffer *buf)
+     return AVCOL_PRI_UNSPECIFIED;
+ }
+ 
++static void v4l2_set_color(V4L2Buffer *buf,
++                           const enum AVColorPrimaries avcp,
++                           const enum AVColorSpace avcs,
++                           const enum AVColorTransferCharacteristic avxc)
++{
++    enum v4l2_ycbcr_encoding ycbcr = V4L2_YCBCR_ENC_DEFAULT;
++    enum v4l2_colorspace cs = V4L2_COLORSPACE_DEFAULT;
++    enum v4l2_xfer_func xfer = V4L2_XFER_FUNC_DEFAULT;
++
++    switch (avcp) {
++    case AVCOL_PRI_BT709:
++        cs = V4L2_COLORSPACE_REC709;
++        ycbcr = V4L2_YCBCR_ENC_709;
++        break;
++    case AVCOL_PRI_BT470M:
++        cs = V4L2_COLORSPACE_470_SYSTEM_M;
++        ycbcr = V4L2_YCBCR_ENC_601;
++        break;
++    case AVCOL_PRI_BT470BG:
++        cs = V4L2_COLORSPACE_470_SYSTEM_BG;
++        break;
++    case AVCOL_PRI_SMPTE170M:
++        cs = V4L2_COLORSPACE_SMPTE170M;
++        break;
++    case AVCOL_PRI_SMPTE240M:
++        cs = V4L2_COLORSPACE_SMPTE240M;
++        break;
++    case AVCOL_PRI_BT2020:
++        cs = V4L2_COLORSPACE_BT2020;
++        break;
++    case AVCOL_PRI_SMPTE428:
++    case AVCOL_PRI_SMPTE431:
++    case AVCOL_PRI_SMPTE432:
++    case AVCOL_PRI_EBU3213:
++    case AVCOL_PRI_RESERVED:
++    case AVCOL_PRI_FILM:
++    case AVCOL_PRI_UNSPECIFIED:
++    default:
++        break;
++    }
++
++    switch (avcs) {
++    case AVCOL_SPC_RGB:
++        cs = V4L2_COLORSPACE_SRGB;
++        break;
++    case AVCOL_SPC_BT709:
++        cs = V4L2_COLORSPACE_REC709;
++        break;
++    case AVCOL_SPC_FCC:
++        cs = V4L2_COLORSPACE_470_SYSTEM_M;
++        break;
++    case AVCOL_SPC_BT470BG:
++        cs = V4L2_COLORSPACE_470_SYSTEM_BG;
++        break;
++    case AVCOL_SPC_SMPTE170M:
++        cs = V4L2_COLORSPACE_SMPTE170M;
++        break;
++    case AVCOL_SPC_SMPTE240M:
++        cs = V4L2_COLORSPACE_SMPTE240M;
++        break;
++    case AVCOL_SPC_BT2020_CL:
++        cs = V4L2_COLORSPACE_BT2020;
++        ycbcr = V4L2_YCBCR_ENC_BT2020_CONST_LUM;
++        break;
++    case AVCOL_SPC_BT2020_NCL:
++        cs = V4L2_COLORSPACE_BT2020;
++        break;
++    default:
++        break;
++    }
++
++    switch (xfer) {
++    case AVCOL_TRC_BT709:
++        xfer = V4L2_XFER_FUNC_709;
++        break;
++    case AVCOL_TRC_IEC61966_2_1:
++        xfer = V4L2_XFER_FUNC_SRGB;
++        break;
++    case AVCOL_TRC_SMPTE240M:
++        xfer = V4L2_XFER_FUNC_SMPTE240M;
++        break;
++    case AVCOL_TRC_SMPTE2084:
++        xfer = V4L2_XFER_FUNC_SMPTE2084;
++        break;
++    default:
++        break;
++    }
++
++    if (V4L2_TYPE_IS_MULTIPLANAR(buf->buf.type)) {
++        buf->context->format.fmt.pix_mp.colorspace = cs;
++        buf->context->format.fmt.pix_mp.ycbcr_enc = ycbcr;
++        buf->context->format.fmt.pix_mp.xfer_func = xfer;
++    } else {
++        buf->context->format.fmt.pix.colorspace = cs;
++        buf->context->format.fmt.pix.ycbcr_enc = ycbcr;
++        buf->context->format.fmt.pix.xfer_func = xfer;
++    }
++}
++
+ static enum AVColorRange v4l2_get_color_range(V4L2Buffer *buf)
+ {
+     enum v4l2_quantization qt;
+@@ -134,6 +246,20 @@ static enum AVColorRange v4l2_get_color_range(V4L2Buffer *buf)
+      return AVCOL_RANGE_UNSPECIFIED;
+ }
+ 
++static void v4l2_set_color_range(V4L2Buffer *buf, const enum AVColorRange avcr)
++{
++    const enum v4l2_quantization q =
++        avcr == AVCOL_RANGE_MPEG ? V4L2_QUANTIZATION_LIM_RANGE :
++        avcr == AVCOL_RANGE_JPEG ? V4L2_QUANTIZATION_FULL_RANGE :
++            V4L2_QUANTIZATION_DEFAULT;
++
++    if (V4L2_TYPE_IS_MULTIPLANAR(buf->buf.type)) {
++        buf->context->format.fmt.pix_mp.quantization = q;
++    } else {
++        buf->context->format.fmt.pix.quantization = q;
++    }
++}
++
+ static enum AVColorSpace v4l2_get_color_space(V4L2Buffer *buf)
+ {
+     enum v4l2_ycbcr_encoding ycbcr;
+@@ -210,73 +336,165 @@ static enum AVColorTransferCharacteristic v4l2_get_color_trc(V4L2Buffer *buf)
      return AVCOL_TRC_UNSPECIFIED;
  }
  
@@ -46432,18 +46559,13 @@ index 02f23d954b..44ed41481e 100644
 -    V4L2m2mContext *s = buf_to_m2mctx(avbuf);
 +    return V4L2_FIELD_IS_INTERLACED(buf->buf.field);
 +}
-+
+ 
+-    if (atomic_fetch_sub(&avbuf->context_refcount, 1) == 1) {
+-        atomic_fetch_sub_explicit(&s->refcount, 1, memory_order_acq_rel);
 +static int v4l2_buf_is_top_first(const V4L2Buffer * const buf)
 +{
 +    return buf->buf.field == V4L2_FIELD_INTERLACED_TB;
 +}
- 
--    if (atomic_fetch_sub(&avbuf->context_refcount, 1) == 1) {
--        atomic_fetch_sub_explicit(&s->refcount, 1, memory_order_acq_rel);
-+static uint8_t * v4l2_get_drm_frame(V4L2Buffer *avbuf)
-+{
-+    AVDRMFrameDescriptor *drm_desc = &avbuf->drm_frame;
-+    AVDRMLayerDescriptor *layer;
  
 -        if (s->reinit) {
 -            if (!atomic_load(&s->refcount))
@@ -46456,6 +46578,17 @@ index 02f23d954b..44ed41481e 100644
 -            else if (avbuf->context->streamon)
 -                ff_v4l2_buffer_enqueue(avbuf);
 -        }
++static void v4l2_set_interlace(V4L2Buffer * const buf, const int is_interlaced, const int is_tff)
++{
++    buf->buf.field = !is_interlaced ? V4L2_FIELD_NONE :
++        is_tff ? V4L2_FIELD_INTERLACED_TB : V4L2_FIELD_INTERLACED_BT;
++}
++
++static uint8_t * v4l2_get_drm_frame(V4L2Buffer *avbuf)
++{
++    AVDRMFrameDescriptor *drm_desc = &avbuf->drm_frame;
++    AVDRMLayerDescriptor *layer;
++
 +    /* fill the DRM frame descriptor */
 +    drm_desc->nb_objects = avbuf->num_planes;
 +    drm_desc->nb_layers = 1;
@@ -46500,10 +46633,10 @@ index 02f23d954b..44ed41481e 100644
 +
 +        if (avbuf->num_planes > 1)
 +            break;
++
++        layer->nb_planes = 3;
  
 -        av_buffer_unref(&avbuf->context_ref);
-+        layer->nb_planes = 3;
-+
 +        layer->planes[1].object_index = 0;
 +        layer->planes[1].offset = avbuf->plane_info[0].bytesperline *
 +            avbuf->context->format.fmt.pix.height;
@@ -46625,7 +46758,7 @@ index 02f23d954b..44ed41481e 100644
  
      if (plane >= out->num_planes)
          return AVERROR(EINVAL);
-@@ -284,32 +383,57 @@ static int v4l2_bufref_to_buf(V4L2Buffer *out, int plane, const uint8_t* data, i
+@@ -284,32 +502,57 @@ static int v4l2_bufref_to_buf(V4L2Buffer *out, int plane, const uint8_t* data, i
      length = out->plane_info[plane].length;
      bytesused = FFMIN(size+offset, length);
  
@@ -46698,7 +46831,7 @@ index 02f23d954b..44ed41481e 100644
      }
  
      /* fixup special cases */
-@@ -318,17 +442,17 @@ static int v4l2_buffer_buf_to_swframe(AVFrame *frame, V4L2Buffer *avbuf)
+@@ -318,17 +561,17 @@ static int v4l2_buffer_buf_to_swframe(AVFrame *frame, V4L2Buffer *avbuf)
      case AV_PIX_FMT_NV21:
          if (avbuf->num_planes > 1)
              break;
@@ -46722,7 +46855,7 @@ index 02f23d954b..44ed41481e 100644
          break;
  
      default:
-@@ -338,68 +462,95 @@ static int v4l2_buffer_buf_to_swframe(AVFrame *frame, V4L2Buffer *avbuf)
+@@ -338,68 +581,95 @@ static int v4l2_buffer_buf_to_swframe(AVFrame *frame, V4L2Buffer *avbuf)
      return 0;
  }
  
@@ -46872,12 +47005,19 @@ index 02f23d954b..44ed41481e 100644
      return 0;
  }
  
-@@ -411,14 +562,15 @@ static int v4l2_buffer_swframe_to_buf(const AVFrame *frame, V4L2Buffer *out)
+@@ -411,14 +681,22 @@ static int v4l2_buffer_swframe_to_buf(const AVFrame *frame, V4L2Buffer *out)
  
  int ff_v4l2_buffer_avframe_to_buf(const AVFrame *frame, V4L2Buffer *out)
  {
 -    v4l2_set_pts(out, frame->pts);
++    out->buf.flags = frame->key_frame ? (out->buf.flags & ~V4L2_BUF_FLAG_KEYFRAME) : (out->buf.flags | V4L2_BUF_FLAG_KEYFRAME);
++    // Beware that colour info is held in format rather than the actual
++    // v4l2 buffer struct so this may not be as useful as you might hope
++    v4l2_set_color(out, frame->color_primaries, frame->colorspace, frame->color_trc);
++    v4l2_set_color_range(out, frame->color_range);
++    // PTS & interlace are buffer vars
 +    v4l2_set_pts(out, frame->pts, 0);
++    v4l2_set_interlace(out, frame->interlaced_frame, frame->top_field_first);
  
      return v4l2_buffer_swframe_to_buf(frame, out);
  }
@@ -46890,7 +47030,7 @@ index 02f23d954b..44ed41481e 100644
  
      av_frame_unref(frame);
  
-@@ -433,13 +585,24 @@ int ff_v4l2_buffer_buf_to_avframe(AVFrame *frame, V4L2Buffer *avbuf)
+@@ -433,13 +711,24 @@ int ff_v4l2_buffer_buf_to_avframe(AVFrame *frame, V4L2Buffer *avbuf)
      frame->colorspace = v4l2_get_color_space(avbuf);
      frame->color_range = v4l2_get_color_range(avbuf);
      frame->color_trc = v4l2_get_color_trc(avbuf);
@@ -46919,7 +47059,7 @@ index 02f23d954b..44ed41481e 100644
  
      /* 3. report errors upstream */
      if (avbuf->buf.flags & V4L2_BUF_FLAG_ERROR) {
-@@ -452,15 +615,16 @@ int ff_v4l2_buffer_buf_to_avframe(AVFrame *frame, V4L2Buffer *avbuf)
+@@ -452,15 +741,16 @@ int ff_v4l2_buffer_buf_to_avframe(AVFrame *frame, V4L2Buffer *avbuf)
  
  int ff_v4l2_buffer_buf_to_avpkt(AVPacket *pkt, V4L2Buffer *avbuf)
  {
@@ -46941,7 +47081,7 @@ index 02f23d954b..44ed41481e 100644
  
      if (avbuf->buf.flags & V4L2_BUF_FLAG_KEYFRAME)
          pkt->flags |= AV_PKT_FLAG_KEY;
-@@ -470,36 +634,89 @@ int ff_v4l2_buffer_buf_to_avpkt(AVPacket *pkt, V4L2Buffer *avbuf)
+@@ -470,36 +760,89 @@ int ff_v4l2_buffer_buf_to_avpkt(AVPacket *pkt, V4L2Buffer *avbuf)
          pkt->flags |= AV_PKT_FLAG_CORRUPT;
      }
  
@@ -46982,9 +47122,8 @@ index 02f23d954b..44ed41481e 100644
 +int ff_v4l2_buffer_avpkt_to_buf(const AVPacket *pkt, V4L2Buffer *out)
 +{
 +    return ff_v4l2_buffer_avpkt_to_buf_ext(pkt, out, NULL, 0, 0);
- }
- 
--int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
++}
++
 +
 +static void v4l2_buffer_buffer_free(void *opaque, uint8_t *data)
 +{
@@ -47005,8 +47144,9 @@ index 02f23d954b..44ed41481e 100644
 +    ff_weak_link_unref(&avbuf->context_wl);
 +
 +    av_free(avbuf);
-+}
-+
+ }
+ 
+-int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
 +
 +int ff_v4l2_buffer_initialize(AVBufferRef ** pbufref, int index, V4L2Context *ctx)
  {
@@ -47018,13 +47158,13 @@ index 02f23d954b..44ed41481e 100644
 +    *pbufref = NULL;
 +    if (avbuf == NULL)
 +        return AVERROR(ENOMEM);
-+
+ 
 +    bufref = av_buffer_create((uint8_t*)avbuf, sizeof(*avbuf), v4l2_buffer_buffer_free, NULL, 0);
 +    if (bufref == NULL) {
 +        av_free(avbuf);
 +        return AVERROR(ENOMEM);
 +    }
- 
++
 +    avbuf->context = ctx;
      avbuf->buf.memory = V4L2_MEMORY_MMAP;
      avbuf->buf.type = ctx->type;
@@ -47039,7 +47179,7 @@ index 02f23d954b..44ed41481e 100644
      if (V4L2_TYPE_IS_MULTIPLANAR(ctx->type)) {
          avbuf->buf.length = VIDEO_MAX_PLANES;
          avbuf->buf.m.planes = avbuf->planes;
-@@ -507,7 +724,7 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
+@@ -507,7 +850,7 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
  
      ret = ioctl(buf_to_m2mctx(avbuf)->fd, VIDIOC_QUERYBUF, &avbuf->buf);
      if (ret < 0)
@@ -47048,7 +47188,7 @@ index 02f23d954b..44ed41481e 100644
  
      if (V4L2_TYPE_IS_MULTIPLANAR(ctx->type)) {
          avbuf->num_planes = 0;
-@@ -527,25 +744,33 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
+@@ -527,25 +870,33 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
  
          if (V4L2_TYPE_IS_MULTIPLANAR(ctx->type)) {
              avbuf->plane_info[i].length = avbuf->buf.m.planes[i].length;
@@ -47093,7 +47233,7 @@ index 02f23d954b..44ed41481e 100644
      if (V4L2_TYPE_IS_MULTIPLANAR(ctx->type)) {
          avbuf->buf.m.planes = avbuf->planes;
          avbuf->buf.length   = avbuf->num_planes;
-@@ -555,7 +780,20 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
+@@ -555,7 +906,20 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
          avbuf->buf.length    = avbuf->planes[0].length;
      }
  
@@ -47115,7 +47255,7 @@ index 02f23d954b..44ed41481e 100644
  }
  
  int ff_v4l2_buffer_enqueue(V4L2Buffer* avbuf)
-@@ -564,9 +802,27 @@ int ff_v4l2_buffer_enqueue(V4L2Buffer* avbuf)
+@@ -564,9 +928,27 @@ int ff_v4l2_buffer_enqueue(V4L2Buffer* avbuf)
  
      avbuf->buf.flags = avbuf->flags;
  
@@ -48973,10 +49113,10 @@ index 3e17e0fcac..b9f28220a8 100644
  
 diff --git a/libavcodec/v4l2_req_decode_q.c b/libavcodec/v4l2_req_decode_q.c
 new file mode 100644
-index 0000000000..2adbd5999b
+index 0000000000..5b3fb958fa
 --- /dev/null
 +++ b/libavcodec/v4l2_req_decode_q.c
-@@ -0,0 +1,86 @@
+@@ -0,0 +1,84 @@
 +#include <memory.h>
 +#include <semaphore.h>
 +#include <pthread.h>
@@ -49024,10 +49164,8 @@ index 0000000000..2adbd5999b
 +
 +    if (d->next)
 +        d->next->prev = d->prev;
-+    else {
-+        try_signal = 0; // If we were a singleton then no point signalling
++    else
 +        q->tail = d->prev;
-+    }
 +
 +    // Not strictly needed but makes debug easier
 +    d->next = NULL;
@@ -49096,10 +49234,10 @@ index 0000000000..af7bbe1de4
 +
 diff --git a/libavcodec/v4l2_req_devscan.c b/libavcodec/v4l2_req_devscan.c
 new file mode 100644
-index 0000000000..59724a8104
+index 0000000000..cfa94d55c4
 --- /dev/null
 +++ b/libavcodec/v4l2_req_devscan.c
-@@ -0,0 +1,452 @@
+@@ -0,0 +1,449 @@
 +#include <errno.h>
 +#include <fcntl.h>
 +#include <libudev.h>
@@ -49434,9 +49572,6 @@ index 0000000000..59724a8104
 +            goto fail;
 +    }
 +
-+    free(interfaces);
-+    return ret;
-+
 +fail:
 +    free(interfaces);
 +    if (media_fd != -1)
@@ -49581,10 +49716,10 @@ index 0000000000..0baef36535
 +#endif
 diff --git a/libavcodec/v4l2_req_dmabufs.c b/libavcodec/v4l2_req_dmabufs.c
 new file mode 100644
-index 0000000000..0717279e75
+index 0000000000..ae6c648369
 --- /dev/null
 +++ b/libavcodec/v4l2_req_dmabufs.c
-@@ -0,0 +1,241 @@
+@@ -0,0 +1,266 @@
 +#include <stdio.h>
 +#include <stdlib.h>
 +#include <unistd.h>
@@ -49604,6 +49739,7 @@ index 0000000000..0717279e75
 +#define DMABUF_NAME1  "/dev/dma_heap/linux,cma"
 +#define DMABUF_NAME2  "/dev/dma_heap/reserved"
 +
++#define TRACE_ALLOC 0
 +
 +struct dmabufs_ctl {
 +    int fd;
@@ -49616,6 +49752,11 @@ index 0000000000..0717279e75
 +    size_t len;
 +    void * mapptr;
 +};
++
++#if TRACE_ALLOC
++static unsigned int total_bufs = 0;
++static size_t total_size = 0;
++#endif
 +
 +struct dmabuf_h * dmabuf_import(int fd, size_t size)
 +{
@@ -49636,6 +49777,13 @@ index 0000000000..0717279e75
 +        .size = size,
 +        .mapptr = MAP_FAILED
 +    };
++
++#if TRACE_ALLOC
++    ++total_bufs;
++    total_size += dh->size;
++    request_log("%s: Import: %zd, total=%zd, bufs=%d\n", __func__, dh->size, total_size, total_bufs);
++#endif
++
 +    return dh;
 +}
 +
@@ -49677,6 +49825,12 @@ index 0000000000..0717279e75
 +        .size = (size_t)data.len,
 +        .mapptr = MAP_FAILED
 +    };
++
++#if TRACE_ALLOC
++    ++total_bufs;
++    total_size += dh->size;
++    request_log("%s: Alloc: %zd, total=%zd, bufs=%d\n", __func__, dh->size, total_size, total_bufs);
++#endif
 +
 +    return dh;
 +
@@ -49772,6 +49926,12 @@ index 0000000000..0717279e75
 +{
 +    if (!dh)
 +        return;
++
++#if TRACE_ALLOC
++    --total_bufs;
++    total_size -= dh->size;
++    request_log("%s: Free: %zd, total=%zd, bufs=%d\n", __func__, dh->size, total_size, total_bufs);
++#endif
 +
 +    if (dh->mapptr != MAP_FAILED)
 +        munmap(dh->mapptr, dh->size);
@@ -49890,10 +50050,10 @@ index 0000000000..42af98e156
 +
 diff --git a/libavcodec/v4l2_req_hevc_vx.c b/libavcodec/v4l2_req_hevc_vx.c
 new file mode 100644
-index 0000000000..c628bd5ab4
+index 0000000000..c9a8fa7c87
 --- /dev/null
 +++ b/libavcodec/v4l2_req_hevc_vx.c
-@@ -0,0 +1,1189 @@
+@@ -0,0 +1,1188 @@
 +// File included by v4l2_req_hevc_v* - not compiled on its own
 +
 +#include "decode.h"
@@ -50861,13 +51021,12 @@ index 0000000000..c628bd5ab4
 +        }
 +    }
 +
-+    decode_q_remove(&ctx->decode_q, &rd->decode_ent);
-+
 +    // Set the drm_prime desriptor
 +    drm_from_format(&rd->drm, mediabufs_dst_fmt(ctx->mbufs));
 +    rd->drm.objects[0].fd = dmabuf_fd(qent_dst_dmabuf(rd->qe_dst, 0));
 +    rd->drm.objects[0].size = dmabuf_size(qent_dst_dmabuf(rd->qe_dst, 0));
 +
++    decode_q_remove(&ctx->decode_q, &rd->decode_ent);
 +    return 0;
 +
 +fail:
@@ -50983,7 +51142,7 @@ index 0000000000..c628bd5ab4
 +
 +    av_log(NULL, AV_LOG_DEBUG, "%s: avctx=%p data=%p\n", __func__, avctx, data);
 +
-+    qent_dst_free(&rd->qe_dst);
++    qent_dst_unref(&rd->qe_dst);
 +
 +    // We don't expect req or qe_src to be set
 +    if (rd->req || rd->qe_src)
@@ -51085,10 +51244,10 @@ index 0000000000..c628bd5ab4
 +
 diff --git a/libavcodec/v4l2_req_media.c b/libavcodec/v4l2_req_media.c
 new file mode 100644
-index 0000000000..9fb02b1d98
+index 0000000000..10f720f814
 --- /dev/null
 +++ b/libavcodec/v4l2_req_media.c
-@@ -0,0 +1,1525 @@
+@@ -0,0 +1,1569 @@
 +/*
 + * Copyright (C) 2018 Paul Kocialkowski <paul.kocialkowski@bootlin.com>
 + *
@@ -51271,8 +51430,6 @@ index 0000000000..9fb02b1d98
 +
 +int media_request_start(struct media_request * const req)
 +{
-+    struct media_pool * const mp = req->mp;
-+
 +    while (ioctl(req->fd, MEDIA_REQUEST_IOC_QUEUE, NULL) == -1)
 +    {
 +        const int err = errno;
@@ -51282,7 +51439,7 @@ index 0000000000..9fb02b1d98
 +        return -err;
 +    }
 +
-+    pollqueue_add_task(mp->pq, req->pt, 2000);
++    pollqueue_add_task(req->pt, 2000);
 +    return 0;
 +}
 +
@@ -51322,6 +51479,8 @@ index 0000000000..9fb02b1d98
 +    while (next) {
 +        struct media_request * const req = next;
 +        next = req->next;
++        if (req->pt)
++            polltask_delete(&req->pt);
 +        if (req->fd != -1)
 +            close(req->fd);
 +        free(req);
@@ -51363,7 +51522,7 @@ index 0000000000..9fb02b1d98
 +            goto fail4;
 +        }
 +
-+        req->pt = polltask_new(req->fd, POLLPRI, media_request_done, req);
++        req->pt = polltask_new(pq, req->fd, POLLPRI, media_request_done, req);
 +        if (!req->pt)
 +            goto fail4;
 +    }
@@ -51401,15 +51560,17 @@ index 0000000000..9fb02b1d98
 +#define INDEX_UNSET (~(uint32_t)0)
 +
 +enum qent_status {
-+    QENT_NEW,
-+    QENT_PENDING,
-+    QENT_WAITING,
-+    QENT_DONE,
-+    QENT_ERROR,
++    QENT_NEW = 0,       // Initial state - shouldn't last
++    QENT_FREE,          // On free chain
++    QENT_PENDING,       // User has ent
++    QENT_WAITING,       // On inuse
++    QENT_DONE,          // Frame rx
++    QENT_ERROR,         // Error
 +    QENT_IMPORT
 +};
 +
 +struct qent_base {
++    atomic_int ref_count;
 +    struct qent_base *next;
 +    struct qent_base *prev;
 +    enum qent_status status;
@@ -51425,22 +51586,23 @@ index 0000000000..9fb02b1d98
 +
 +struct qent_dst {
 +    struct qent_base base;
-+
 +    bool waiting;
 +    pthread_mutex_t lock;
 +    pthread_cond_t cond;
 +    struct ff_weak_link_client * mbc_wl;
 +};
 +
++struct qe_list_head {
++    struct qent_base *head;
++    struct qent_base *tail;
++};
 +
 +struct buf_pool {
 +    pthread_mutex_t lock;
 +    sem_t free_sem;
 +    enum v4l2_buf_type buf_type;
-+    struct qent_base *free_head;
-+    struct qent_base *free_tail;
-+    struct qent_base *inuse_head;
-+    struct qent_base *inuse_tail;
++    struct qe_list_head free;
++    struct qe_list_head inuse;
 +};
 +
 +
@@ -51456,6 +51618,7 @@ index 0000000000..9fb02b1d98
 +
 +
 +#define QENT_BASE_INITIALIZER {\
++    .ref_count = ATOMIC_VAR_INIT(0),\
 +    .status = QENT_NEW,\
 +    .index  = INDEX_UNSET\
 +}
@@ -51469,7 +51632,7 @@ index 0000000000..9fb02b1d98
 +    }
 +}
 +
-+static void qe_src_delete(struct qent_src *const be_src)
++static void qe_src_free(struct qent_src *const be_src)
 +{
 +    if (!be_src)
 +        return;
@@ -51488,6 +51651,18 @@ index 0000000000..9fb02b1d98
 +    return be_src;
 +}
 +
++static void qe_dst_free(struct qent_dst *const be_dst)
++{
++    if (!be_dst)
++        return;
++
++    ff_weak_link_unref(&be_dst->mbc_wl);
++    pthread_cond_destroy(&be_dst->cond);
++    pthread_mutex_destroy(&be_dst->lock);
++    qe_base_uninit(&be_dst->base);
++    free(be_dst);
++}
++
 +static struct qent_dst * qe_dst_new(void)
 +{
 +    struct qent_dst *const be_dst = malloc(sizeof(*be_dst));
@@ -51501,55 +51676,75 @@ index 0000000000..9fb02b1d98
 +    return be_dst;
 +}
 +
++static void ql_add_tail(struct qe_list_head * const ql, struct qent_base * be)
++{
++    if (ql->tail)
++        ql->tail->next = be;
++    else
++        ql->head = be;
++    be->prev = ql->tail;
++    be->next = NULL;
++    ql->tail = be;
++}
++
++static struct qent_base * ql_extract(struct qe_list_head * const ql, struct qent_base * be)
++{
++    if (!be)
++        return NULL;
++
++    if (be->next)
++        be->next->prev = be->prev;
++    else
++        ql->tail = be->prev;
++    if (be->prev)
++        be->prev->next = be->next;
++    else
++        ql->head = be->next;
++    be->next = NULL;
++    be->prev = NULL;
++    return be;
++}
++
 +
 +static void bq_put_free(struct buf_pool *const bp, struct qent_base * be)
 +{
-+    if (bp->free_tail)
-+        bp->free_tail->next = be;
-+    else
-+        bp->free_head = be;
-+    be->prev = bp->free_tail;
-+    be->next = NULL;
-+    bp->free_tail = be;
++    ql_add_tail(&bp->free, be);
 +}
 +
 +static struct qent_base * bq_get_free(struct buf_pool *const bp)
 +{
-+    struct qent_base *be;
-+
-+    be = bp->free_head;
-+    if (be) {
-+        if (be->next)
-+            be->next->prev = be->prev;
-+        else
-+            bp->free_tail = be->prev;
-+        bp->free_head = be->next;
-+        be->next = NULL;
-+        be->prev = NULL;
-+    }
-+    return be;
++    return ql_extract(&bp->free, bp->free.head);
 +}
 +
 +static struct qent_base * bq_extract_inuse(struct buf_pool *const bp, struct qent_base *const be)
 +{
-+    if (be->next)
-+        be->next->prev = be->prev;
-+    else
-+        bp->inuse_tail = be->prev;
-+    if (be->prev)
-+        be->prev->next = be->next;
-+    else
-+        bp->inuse_head = be->next;
-+    be->next = NULL;
-+    be->prev = NULL;
-+    return be;
++    return ql_extract(&bp->inuse, be);
++}
++
++static struct qent_base * bq_get_inuse(struct buf_pool *const bp)
++{
++    return ql_extract(&bp->inuse, bp->inuse.head);
 +}
 +
 +static void bq_free_all_free_src(struct buf_pool *const bp)
 +{
 +    struct qent_base *be;
 +    while ((be = bq_get_free(bp)) != NULL)
-+        qe_src_delete(base_to_src(be));
++        qe_src_free(base_to_src(be));
++}
++
++static void bq_free_all_inuse_src(struct buf_pool *const bp)
++{
++    struct qent_base *be;
++    while ((be = bq_get_inuse(bp)) != NULL)
++        qe_src_free(base_to_src(be));
++}
++
++static void bq_free_all_free_dst(struct buf_pool *const bp)
++{
++    struct qent_base *be;
++    while ((be = bq_get_free(bp)) != NULL)
++        qe_dst_free(base_to_dst(be));
 +}
 +
 +static void queue_put_free(struct buf_pool *const bp, struct qent_base *be)
@@ -51560,6 +51755,7 @@ index 0000000000..9fb02b1d98
 +    /* Clear out state vars */
 +    be->timestamp.tv_sec = 0;
 +    be->timestamp.tv_usec = 0;
++    be->status = QENT_FREE;
 +    for (i = 0; i < VIDEO_MAX_PLANES && be->dh[i]; ++i)
 +        dmabuf_len_set(be->dh[i], 0);
 +    bq_put_free(bp, be);
@@ -51569,7 +51765,7 @@ index 0000000000..9fb02b1d98
 +
 +static bool queue_is_inuse(const struct buf_pool *const bp)
 +{
-+    return bp->inuse_tail != NULL;
++    return bp->inuse.tail != NULL;
 +}
 +
 +static void queue_put_inuse(struct buf_pool *const bp, struct qent_base *be)
@@ -51577,13 +51773,7 @@ index 0000000000..9fb02b1d98
 +    if (!be)
 +        return;
 +    pthread_mutex_lock(&bp->lock);
-+    if (bp->inuse_tail)
-+        bp->inuse_tail->next = be;
-+    else
-+        bp->inuse_head = be;
-+    be->prev = bp->inuse_tail;
-+    be->next = NULL;
-+    bp->inuse_tail = be;
++    ql_add_tail(&bp->inuse, be);
 +    be->status = QENT_WAITING;
 +    pthread_mutex_unlock(&bp->lock);
 +}
@@ -51618,7 +51808,7 @@ index 0000000000..9fb02b1d98
 +
 +    pthread_mutex_lock(&bp->lock);
 +    /* Expect 1st in Q, but allow anywhere */
-+    for (be = bp->inuse_head; be; be = be->next) {
++    for (be = bp->inuse.head; be; be = be->next) {
 +        if (dmabuf_fd(be->dh[0]) == fd) {
 +            bq_extract_inuse(bp, be);
 +            break;
@@ -51631,14 +51821,12 @@ index 0000000000..9fb02b1d98
 +
 +static void queue_delete(struct buf_pool *const bp)
 +{
-+    if (!bp)
-+        return;
 +    sem_destroy(&bp->free_sem);
 +    pthread_mutex_destroy(&bp->lock);
 +    free(bp);
 +}
 +
-+static struct buf_pool* queue_new(const int vfd, struct pollqueue * pq)
++static struct buf_pool* queue_new(const int vfd)
 +{
 +    struct buf_pool *bp = calloc(1, sizeof(*bp));
 +    if (!bp)
@@ -51761,12 +51949,14 @@ index 0000000000..9fb02b1d98
 +    return be;
 +}
 +
-+static void qe_dst_done(struct qent_dst *const dst_be)
++static void qe_dst_done(struct qent_dst * dst_be)
 +{
 +    pthread_mutex_lock(&dst_be->lock);
 +    dst_be->waiting = false;
 +    pthread_cond_broadcast(&dst_be->cond);
 +    pthread_mutex_unlock(&dst_be->lock);
++
++    qent_dst_unref(&dst_be);
 +}
 +
 +static bool qe_dst_waiting(struct qent_dst *const dst_be)
@@ -51790,7 +51980,6 @@ index 0000000000..9fb02b1d98
 +    struct mediabufs_ctl *mbc = v;
 +    struct qent_src *src_be = NULL;
 +    struct qent_dst *dst_be = NULL;
-+    bool qrun = false;
 +
 +    if (!revents)
 +        request_err(mbc->dc, "%s: Timeout\n", __func__);
@@ -51806,8 +51995,7 @@ index 0000000000..9fb02b1d98
 +    /* Reschedule */
 +    if (mediabufs_wants_poll(mbc)) {
 +        mbc->polling = true;
-+        pollqueue_add_task(mbc->pq, mbc->pt, 2000);
-+        qrun = true;
++        pollqueue_add_task(mbc->pt, 2000);
 +    }
 +    pthread_mutex_unlock(&mbc->lock);
 +
@@ -51815,8 +52003,6 @@ index 0000000000..9fb02b1d98
 +        queue_put_free(mbc->src, &src_be->base);
 +    if (dst_be)
 +        qe_dst_done(dst_be);
-+    if (!qrun)
-+        mediabufs_ctl_unref(&mbc);
 +}
 +
 +int qent_src_params_set(struct qent_src *const be_src, const struct timeval * timestamp)
@@ -51915,6 +52101,8 @@ index 0000000000..9fb02b1d98
 +        dst_be->base.timestamp = (struct timeval){0,0};
 +        if (qe_v4l2_queue(&dst_be->base, mbc->vfd, NULL, &mbc->dst_fmt, true, false))
 +            goto fail1;
++
++        qent_dst_ref(dst_be);
 +        queue_put_inuse(mbc->dst, &dst_be->base);
 +    }
 +
@@ -51924,8 +52112,7 @@ index 0000000000..9fb02b1d98
 +
 +    if (!mbc->polling && mediabufs_wants_poll(mbc)) {
 +        mbc->polling = true;
-+        mediabufs_ctl_ref(mbc);
-+        pollqueue_add_task(mbc->pq, mbc->pt, 2000);
++        pollqueue_add_task(mbc->pt, 2000);
 +    }
 +    pthread_mutex_unlock(&mbc->lock);
 +
@@ -51940,8 +52127,10 @@ index 0000000000..9fb02b1d98
 +        queue_put_free(mbc->src, &src_be->base);
 +
 +// *** TODO: If src Q fails this doesnt unwind properly - separate dst Q from src Q
-+    if (dst_be)
++    if (dst_be) {
++        dst_be->base.status = QENT_ERROR;
 +        qe_dst_done(dst_be);
++    }
 +    pthread_mutex_unlock(&mbc->lock);
 +    return MEDIABUFS_ERROR_OPERATION_FAILED;
 +}
@@ -52110,32 +52299,30 @@ index 0000000000..9fb02b1d98
 +    return status;
 +}
 +
-+void qent_dst_delete(struct qent_dst *const be_dst)
++struct qent_dst * qent_dst_ref(struct qent_dst * const be_dst)
 +{
-+    if (!be_dst)
-+        return;
-+
-+    ff_weak_link_unref(&be_dst->mbc_wl);
-+    pthread_cond_destroy(&be_dst->cond);
-+    pthread_mutex_destroy(&be_dst->lock);
-+    qe_base_uninit(&be_dst->base);
-+    free(be_dst);
++    if (be_dst)
++        atomic_fetch_add(&be_dst->base.ref_count, 1);
++    return be_dst;
 +}
 +
-+void qent_dst_free(struct qent_dst ** const pbe_dst)
++void qent_dst_unref(struct qent_dst ** const pbe_dst)
 +{
 +    struct qent_dst * const be_dst = *pbe_dst;
 +    struct mediabufs_ctl * mbc;
 +    if (!be_dst)
 +        return;
-+
 +    *pbe_dst = NULL;
++
++    if (atomic_fetch_sub(&be_dst->base.ref_count, 1) != 0)
++        return;
++
 +    if ((mbc = ff_weak_link_lock(&be_dst->mbc_wl)) != NULL) {
 +        queue_put_free(mbc->dst, &be_dst->base);
 +        ff_weak_link_unlock(be_dst->mbc_wl);
 +    }
 +    else {
-+        qent_dst_delete(be_dst);
++        qe_dst_free(be_dst);
 +    }
 +}
 +
@@ -52196,7 +52383,7 @@ index 0000000000..9fb02b1d98
 +
 +        if ((be_dst->mbc_wl = ff_weak_link_ref(mbc->this_wlm)) == NULL ||
 +            (index = create_dst_buf(mbc)) < 0) {
-+            qent_dst_delete(be_dst);
++            qe_dst_free(be_dst);
 +            return NULL;
 +        }
 +
@@ -52211,6 +52398,8 @@ index 0000000000..9fb02b1d98
 +        return NULL;
 +    }
 +
++    be_dst->base.status = QENT_PENDING;
++    atomic_store(&be_dst->base.ref_count, 0);
 +    return be_dst;
 +}
 +
@@ -52266,7 +52455,7 @@ index 0000000000..9fb02b1d98
 +
 +        index = create_dst_buf(mbc);
 +        if (index < 0) {
-+            qent_dst_delete(be_dst);
++            qe_dst_free(be_dst);
 +            return MEDIABUFS_ERROR_OPERATION_FAILED;
 +        }
 +
@@ -52280,6 +52469,7 @@ index 0000000000..9fb02b1d98
 +struct qent_src *mediabufs_src_qent_get(struct mediabufs_ctl *const mbc)
 +{
 +    struct qent_base * buf = queue_get_free(mbc->src);
++    buf->status = QENT_PENDING;
 +    return base_to_src(buf);
 +}
 +
@@ -52324,7 +52514,7 @@ index 0000000000..9fb02b1d98
 +            goto fail;
 +        }
 +        if (qe_alloc_from_fmt(&be_src->base, dbsc, &mbc->src_fmt)) {
-+            qe_src_delete(be_src);
++            qe_src_free(be_src);
 +            goto fail;
 +        }
 +        be_src->base.index = i;
@@ -52382,13 +52572,13 @@ index 0000000000..9fb02b1d98
 +    if (!mbc->stream_on)
 +        return MEDIABUFS_STATUS_SUCCESS;
 +
-+    if (set_stream(mbc->vfd, mbc->src_fmt.type, false) < 0) {
-+        request_log("Failed to set stream off src type %d\n", mbc->src_fmt.type);
++    if (set_stream(mbc->vfd, mbc->dst_fmt.type, false) < 0) {
++        request_log("Failed to set stream off dst type %d\n", mbc->dst_fmt.type);
 +        status = MEDIABUFS_ERROR_OPERATION_FAILED;
 +    }
 +
-+    if (set_stream(mbc->vfd, mbc->dst_fmt.type, false) < 0) {
-+        request_log("Failed to set stream off dst type %d\n", mbc->dst_fmt.type);
++    if (set_stream(mbc->vfd, mbc->src_fmt.type, false) < 0) {
++        request_log("Failed to set stream off src type %d\n", mbc->src_fmt.type);
 +        status = MEDIABUFS_ERROR_OPERATION_FAILED;
 +    }
 +
@@ -52490,6 +52680,19 @@ index 0000000000..9fb02b1d98
 +    request_buffers(mbc->vfd, mbc->src_fmt.type, V4L2_MEMORY_MMAP, 0);
 +    request_buffers(mbc->vfd, mbc->dst_fmt.type, V4L2_MEMORY_MMAP, 0);
 +
++    bq_free_all_free_src(mbc->src);
++    bq_free_all_inuse_src(mbc->src);
++    bq_free_all_free_dst(mbc->dst);
++
++    {
++        struct qent_dst *dst_be;
++        while ((dst_be = base_to_dst(bq_get_inuse(mbc->dst))) != NULL) {
++            dst_be->base.timestamp = (struct timeval){0};
++            dst_be->base.status = QENT_ERROR;
++            qe_dst_done(dst_be);
++        }
++    }
++
 +    queue_delete(mbc->dst);
 +    queue_delete(mbc->src);
 +    close(mbc->vfd);
@@ -52580,13 +52783,13 @@ index 0000000000..9fb02b1d98
 +        goto fail1;
 +    }
 +
-+    mbc->src = queue_new(mbc->vfd, pq);
++    mbc->src = queue_new(mbc->vfd);
 +    if (!mbc->src)
 +        goto fail1;
-+    mbc->dst = queue_new(mbc->vfd, pq);
++    mbc->dst = queue_new(mbc->vfd);
 +    if (!mbc->dst)
 +        goto fail2;
-+    mbc->pt = polltask_new(mbc->vfd, POLLIN | POLLOUT, mediabufs_poll_cb, mbc);
++    mbc->pt = polltask_new(pq, mbc->vfd, POLLIN | POLLOUT, mediabufs_poll_cb, mbc);
 +    if (!mbc->pt)
 +        goto fail3;
 +    mbc->this_wlm = ff_weak_link_new(mbc);
@@ -52616,10 +52819,10 @@ index 0000000000..9fb02b1d98
 +
 diff --git a/libavcodec/v4l2_req_media.h b/libavcodec/v4l2_req_media.h
 new file mode 100644
-index 0000000000..e503773b1a
+index 0000000000..15a6952748
 --- /dev/null
 +++ b/libavcodec/v4l2_req_media.h
-@@ -0,0 +1,147 @@
+@@ -0,0 +1,148 @@
 +/*
 +e.h
 +*
@@ -52704,7 +52907,8 @@ index 0000000000..e503773b1a
 +MediaBufsStatus qent_dst_wait(struct qent_dst *const be);
 +void qent_dst_delete(struct qent_dst *const be);
 +// Returns a qent_dst to its mbc free Q or deletes it if the mbc is dead
-+void qent_dst_free(struct qent_dst ** const pbe_dst);
++void qent_dst_unref(struct qent_dst ** const pbe_dst);
++struct qent_dst * qent_dst_ref(struct qent_dst * const be_dst);
 +
 +const uint8_t * qent_dst_data(struct qent_dst *const be, unsigned int buf_no);
 +MediaBufsStatus qent_dst_read_start(struct qent_dst *const be);
@@ -52769,14 +52973,16 @@ index 0000000000..e503773b1a
 +#endif
 diff --git a/libavcodec/v4l2_req_pollqueue.c b/libavcodec/v4l2_req_pollqueue.c
 new file mode 100644
-index 0000000000..0f7d9020ee
+index 0000000000..5c47c50a6f
 --- /dev/null
 +++ b/libavcodec/v4l2_req_pollqueue.c
-@@ -0,0 +1,280 @@
+@@ -0,0 +1,363 @@
 +#include <errno.h>
 +#include <limits.h>
 +#include <poll.h>
 +#include <pthread.h>
++#include <semaphore.h>
++#include <stdatomic.h>
 +#include <stdbool.h>
 +#include <stdlib.h>
 +#include <stdint.h>
@@ -52791,21 +52997,32 @@ index 0000000000..0f7d9020ee
 +
 +struct pollqueue;
 +
++enum polltask_state {
++    POLLTASK_UNQUEUED = 0,
++    POLLTASK_QUEUED,
++    POLLTASK_RUNNING,
++    POLLTASK_Q_KILL,
++    POLLTASK_RUN_KILL,
++};
++
 +struct polltask {
 +    struct polltask *next;
 +    struct polltask *prev;
 +    struct pollqueue *q;
++    enum polltask_state state;
 +
 +    int fd;
-+    short events;  /* 0 => deleted */
++    short events;
 +
 +    void (*fn)(void *v, short revents);
 +    void * v;
 +
-+    uint64_t timeout; /* 0 => now */
++    uint64_t timeout; /* CLOCK_MONOTONIC time, 0 => never */
++    sem_t kill_sem;
 +};
 +
 +struct pollqueue {
++    atomic_int ref_count;
 +    pthread_mutex_t lock;
 +
 +    struct polltask *head;
@@ -52818,7 +53035,8 @@ index 0000000000..0f7d9020ee
 +    pthread_t worker;
 +};
 +
-+struct polltask *polltask_new(const int fd, const short events,
++struct polltask *polltask_new(struct pollqueue *const pq,
++                              const int fd, const short events,
 +                  void (*const fn)(void *v, short revents),
 +                  void *const v)
 +{
@@ -52834,11 +53052,15 @@ index 0000000000..0f7d9020ee
 +    *pt = (struct polltask){
 +        .next = NULL,
 +        .prev = NULL,
++        .q = pollqueue_ref(pq),
 +        .fd = fd,
 +        .events = events,
 +        .fn = fn,
 +        .v = v
 +    };
++
++    sem_init(&pt->kill_sem, 0, 0);
++
 +    return pt;
 +}
 +
@@ -52856,14 +53078,9 @@ index 0000000000..0f7d9020ee
 +    pt->prev = NULL;
 +}
 +
-+void polltask_delete(struct polltask **const ppt)
++static void polltask_free(struct polltask * const pt)
 +{
-+    struct polltask *const pt = *ppt;
-+
-+    if (!pt)
-+        return;
-+    *ppt = NULL;
-+
++    sem_destroy(&pt->kill_sem);
 +    free(pt);
 +}
 +
@@ -52871,6 +53088,37 @@ index 0000000000..0f7d9020ee
 +{
 +    static const uint64_t one = 1;
 +    return write(pq->prod_fd, &one, sizeof(one));
++}
++
++void polltask_delete(struct polltask **const ppt)
++{
++    struct polltask *const pt = *ppt;
++    struct pollqueue * pq;
++    enum polltask_state state;
++    bool prodme;
++
++    if (!pt)
++        return;
++
++    pq = pt->q;
++    pthread_mutex_lock(&pq->lock);
++    state = pt->state;
++    pt->state = (state == POLLTASK_RUNNING) ? POLLTASK_RUN_KILL : POLLTASK_Q_KILL;
++    prodme = !pq->no_prod;
++    pthread_mutex_unlock(&pq->lock);
++
++    if (state != POLLTASK_UNQUEUED) {
++        if (prodme)
++            pollqueue_prod(pq);
++        while (sem_wait(&pt->kill_sem) && errno == EINTR)
++            /* loop */;
++    }
++
++    // Leave zapping the ref until we have DQed the PT as might well be
++    // legitimately used in it
++    *ppt = NULL;
++    polltask_free(pt);
++    pollqueue_unref(&pq);
 +}
 +
 +static uint64_t pollqueue_now(int timeout)
@@ -52884,21 +53132,24 @@ index 0000000000..0f7d9020ee
 +    return now_ms ? now_ms : (uint64_t)1;
 +}
 +
-+void pollqueue_add_task(struct pollqueue *const pq, struct polltask *const pt,
-+            const int timeout)
++void pollqueue_add_task(struct polltask *const pt, const int timeout)
 +{
-+    bool prodme;
++    bool prodme = false;
++    struct pollqueue * const pq = pt->q;
++
 +    pthread_mutex_lock(&pq->lock);
-+    if (pq->tail)
-+        pq->tail->next = pt;
-+    else
-+        pq->head = pt;
-+    pt->prev = pq->tail;
-+    pt->next = NULL;
-+    pt->q = pq;
-+    pt->timeout = timeout < 0 ? 0 : pollqueue_now(timeout);
-+    pq->tail = pt;
-+    prodme = !pq->no_prod;
++    if (pt->state != POLLTASK_Q_KILL && pt->state != POLLTASK_RUN_KILL) {
++        if (pq->tail)
++            pq->tail->next = pt;
++        else
++            pq->head = pt;
++        pt->prev = pq->tail;
++        pt->next = NULL;
++        pt->state = POLLTASK_QUEUED;
++        pt->timeout = timeout < 0 ? 0 : pollqueue_now(timeout);
++        pq->tail = pt;
++        prodme = !pq->no_prod;
++    }
 +    pthread_mutex_unlock(&pq->lock);
 +    if (prodme)
 +        pollqueue_prod(pq);
@@ -52921,6 +53172,15 @@ index 0000000000..0f7d9020ee
 +
 +        for (pt = pq->head; pt; pt = pt->next) {
 +            int64_t t;
++
++            if (pt->state == POLLTASK_Q_KILL) {
++                struct polltask * const prev = pt->prev;
++                pollqueue_rem_task(pq, pt);
++                sem_post(&pt->kill_sem);
++                if ((pt = prev) == NULL)
++                    break;
++                continue;
++            }
 +
 +            if (n >= asize) {
 +                asize = asize ? asize * 2 : 4;
@@ -52964,6 +53224,10 @@ index 0000000000..0f7d9020ee
 +            if (a[i].revents ||
 +                (pt->timeout && (int64_t)(now - pt->timeout) >= 0)) {
 +                pollqueue_rem_task(pq, pt);
++                if (pt->state == POLLTASK_QUEUED)
++                    pt->state = POLLTASK_RUNNING;
++                if (pt->state == POLLTASK_Q_KILL)
++                    pt->state = POLLTASK_RUN_KILL;
 +                pthread_mutex_unlock(&pq->lock);
 +
 +                /* This can add new entries to the Q but as
@@ -52973,6 +53237,10 @@ index 0000000000..0f7d9020ee
 +                pt->fn(pt->v, a[i].revents);
 +
 +                pthread_mutex_lock(&pq->lock);
++                if (pt->state == POLLTASK_RUNNING)
++                    pt->state = POLLTASK_UNQUEUED;
++                if (pt->state == POLLTASK_RUN_KILL)
++                    sem_post(&pt->kill_sem);
 +            }
 +
 +            pt = pt_next;
@@ -52995,7 +53263,7 @@ index 0000000000..0f7d9020ee
 +    if (revents)
 +        read(pq->prod_fd, buf, 8);
 +    if (!pq->kill)
-+        pollqueue_add_task(pq, pq->prod_pt, -1);
++        pollqueue_add_task(pq->prod_pt, -1);
 +}
 +
 +struct pollqueue * pollqueue_new(void)
@@ -53004,26 +53272,29 @@ index 0000000000..0f7d9020ee
 +    if (!pq)
 +        return NULL;
 +    *pq = (struct pollqueue){
++        .ref_count = ATOMIC_VAR_INIT(0),
++        .lock = PTHREAD_MUTEX_INITIALIZER,
 +        .head = NULL,
 +        .tail = NULL,
 +        .kill = false,
-+        .lock = PTHREAD_MUTEX_INITIALIZER,
 +        .prod_fd = -1
 +    };
 +
 +    pq->prod_fd = eventfd(0, EFD_NONBLOCK);
 +    if (pq->prod_fd == 1)
 +        goto fail1;
-+    pq->prod_pt = polltask_new(pq->prod_fd, POLLIN, prod_fn, pq);
++    pq->prod_pt = polltask_new(pq, pq->prod_fd, POLLIN, prod_fn, pq);
 +    if (!pq->prod_pt)
 +        goto fail2;
-+    pollqueue_add_task(pq, pq->prod_pt, -1);
++    pollqueue_add_task(pq->prod_pt, -1);
 +    if (pthread_create(&pq->worker, NULL, poll_thread, pq))
 +        goto fail3;
++    // Reset ref count which will have been inced by the add_task
++    atomic_store(&pq->ref_count, 0);
 +    return pq;
 +
 +fail3:
-+    polltask_delete(&pq->prod_pt);
++    polltask_free(pq->prod_pt);
 +fail2:
 +    close(pq->prod_fd);
 +fail1:
@@ -53031,14 +53302,9 @@ index 0000000000..0f7d9020ee
 +    return NULL;
 +}
 +
-+void pollqueue_delete(struct pollqueue **const ppq)
++static void pollqueue_free(struct pollqueue *const pq)
 +{
-+    struct pollqueue * pq = *ppq;
 +    void *rv;
-+
-+    if (!pq)
-+        return;
-+    *ppq = NULL;
 +
 +    pthread_mutex_lock(&pq->lock);
 +    pq->kill = true;
@@ -53046,34 +53312,56 @@ index 0000000000..0f7d9020ee
 +    pthread_mutex_unlock(&pq->lock);
 +
 +    pthread_join(pq->worker, &rv);
-+    polltask_delete(&pq->prod_pt);
++    polltask_free(pq->prod_pt);
 +    pthread_mutex_destroy(&pq->lock);
 +    close(pq->prod_fd);
 +    free(pq);
 +}
 +
++struct pollqueue * pollqueue_ref(struct pollqueue *const pq)
++{
++    atomic_fetch_add(&pq->ref_count, 1);
++    return pq;
++}
++
++void pollqueue_unref(struct pollqueue **const ppq)
++{
++    struct pollqueue * const pq = *ppq;
++
++    if (!pq)
++        return;
++    *ppq = NULL;
++
++    if (atomic_fetch_sub(&pq->ref_count, 1) != 0)
++        return;
++
++    pollqueue_free(pq);
++}
++
++
 +
 diff --git a/libavcodec/v4l2_req_pollqueue.h b/libavcodec/v4l2_req_pollqueue.h
 new file mode 100644
-index 0000000000..dcb0d80258
+index 0000000000..e1182cb2fc
 --- /dev/null
 +++ b/libavcodec/v4l2_req_pollqueue.h
-@@ -0,0 +1,17 @@
+@@ -0,0 +1,18 @@
 +#ifndef POLLQUEUE_H_
 +#define POLLQUEUE_H_
 +
 +struct polltask;
 +struct pollqueue;
 +
-+struct polltask *polltask_new(const int fd, const short events,
++struct polltask *polltask_new(struct pollqueue *const pq,
++			      const int fd, const short events,
 +			      void (*const fn)(void *v, short revents),
 +			      void *const v);
 +void polltask_delete(struct polltask **const ppt);
 +
-+void pollqueue_add_task(struct pollqueue *const pq, struct polltask *const pt,
-+			const int timeout);
++void pollqueue_add_task(struct polltask *const pt, const int timeout);
 +struct pollqueue * pollqueue_new(void);
-+void pollqueue_delete(struct pollqueue **const ppq);
++void pollqueue_unref(struct pollqueue **const ppq);
++struct pollqueue * pollqueue_ref(struct pollqueue *const pq);
 +
 +#endif /* POLLQUEUE_H_ */
 diff --git a/libavcodec/v4l2_req_utils.h b/libavcodec/v4l2_req_utils.h
@@ -53105,10 +53393,10 @@ index 0000000000..9e9a5f7e39
 +
 diff --git a/libavcodec/v4l2_request_hevc.c b/libavcodec/v4l2_request_hevc.c
 new file mode 100644
-index 0000000000..5f287ee75c
+index 0000000000..18ff8c0e64
 --- /dev/null
 +++ b/libavcodec/v4l2_request_hevc.c
-@@ -0,0 +1,274 @@
+@@ -0,0 +1,280 @@
 +/*
 + * This file is part of FFmpeg.
 + *
@@ -53200,9 +53488,13 @@ index 0000000000..5f287ee75c
 +{
 +    V4L2RequestContextHEVC * const ctx = avctx->internal->hwaccel_priv_data;
 +
++    av_log(avctx, AV_LOG_DEBUG, "<<< %s\n", __func__);
++
++    decode_q_wait(&ctx->decode_q, NULL);  // Wait for all other threads to be out of decode
++
 +    mediabufs_ctl_unref(&ctx->mbufs);
 +    media_pool_delete(&ctx->mpool);
-+    pollqueue_delete(&ctx->pq);
++    pollqueue_unref(&ctx->pq);
 +    dmabufs_ctl_delete(&ctx->dbufs);
 +    devscan_delete(&ctx->devscan);
 +
@@ -53243,6 +53535,8 @@ index 0000000000..5f287ee75c
 +    const struct decdev * decdev;
 +    const uint32_t src_pix_fmt = V2(ff_v4l2_req_hevc, 1).src_pix_fmt_v4l2;  // Assuming constant for all APIs but avoiding V4L2 includes
 +    size_t src_size;
++
++    av_log(avctx, AV_LOG_DEBUG, "<<< %s\n", __func__);
 +
 +    if ((ret = devscan_build(avctx, &ctx->devscan)) != 0) {
 +        av_log(avctx, AV_LOG_WARNING, "Failed to find any V4L2 devices\n");
@@ -53359,7 +53653,7 @@ index 0000000000..5f287ee75c
 +fail3:
 +    media_pool_delete(&ctx->mpool);
 +fail2:
-+    pollqueue_delete(&ctx->pq);
++    pollqueue_unref(&ctx->pq);
 +fail1:
 +    dmabufs_ctl_delete(&ctx->dbufs);
 +fail0:
@@ -53654,10 +53948,10 @@ index 8633433254..bc15112a00 100644
  
 diff --git a/libavdevice/drm_vout.c b/libavdevice/drm_vout.c
 new file mode 100644
-index 0000000000..d58b8fc7c8
+index 0000000000..064cbf6b08
 --- /dev/null
 +++ b/libavdevice/drm_vout.c
-@@ -0,0 +1,633 @@
+@@ -0,0 +1,643 @@
 +/*
 + * Copyright (c) 2020 John Cox for Raspberry Pi Trading
 + *
@@ -53714,6 +54008,7 @@ index 0000000000..d58b8fc7c8
 +
 +typedef struct drm_aux_s {
 +    unsigned int fb_handle;
++    uint32_t bo_handles[AV_DRM_MAX_PLANES];
 +    AVFrame * frame;
 +} drm_aux_t;
 +
@@ -53827,6 +54122,13 @@ index 0000000000..d58b8fc7c8
 +        da->fb_handle = 0;
 +    }
 +
++    for (unsigned int i = 0; i != AV_DRM_MAX_PLANES; ++i) {
++        if (da->bo_handles[i]) {
++            struct drm_gem_close gem_close = {.handle = da->bo_handles[i]};
++            drmIoctl(de->drm_fd, DRM_IOCTL_GEM_CLOSE, &gem_close);
++            da->bo_handles[i] = 0;
++        }
++    }
 +    av_frame_free(&da->frame);
 +}
 +
@@ -53872,14 +54174,13 @@ index 0000000000..d58b8fc7c8
 +        uint32_t pitches[4] = {0};
 +        uint32_t offsets[4] = {0};
 +        uint64_t modifiers[4] = {0};
-+        uint32_t bo_object_handles[4] = {0};
 +        uint32_t bo_handles[4] = {0};
 +        int i, j, n;
 +
 +        da->frame = frame;
 +
 +        for (i = 0; i < desc->nb_objects; ++i) {
-+            if (drmPrimeFDToHandle(de->drm_fd, desc->objects[i].fd, bo_object_handles + i) != 0) {
++            if (drmPrimeFDToHandle(de->drm_fd, desc->objects[i].fd, da->bo_handles + i) != 0) {
 +                av_log(s, AV_LOG_WARNING, "drmPrimeFDToHandle[%d](%d) failed: %s\n", i, desc->objects[i].fd, ERRSTR);
 +                return -1;
 +            }
@@ -53893,7 +54194,7 @@ index 0000000000..d58b8fc7c8
 +                pitches[n] = p->pitch;
 +                offsets[n] = p->offset;
 +                modifiers[n] = obj->format_modifier;
-+                bo_handles[n] = bo_object_handles[p->object_index];
++                bo_handles[n] = da->bo_handles[p->object_index];
 +                ++n;
 +            }
 +        }
@@ -54248,6 +54549,9 @@ index 0000000000..d58b8fc7c8
 +    pthread_join(de->q_thread, NULL);
 +    sem_destroy(&de->q_sem_in);
 +    sem_destroy(&de->q_sem_out);
++
++    for (unsigned int i = 0; i != AUX_SIZE; ++i)
++        da_uninit(de, de->aux + i);
 +
 +    av_frame_free(&de->q_next);
 +
@@ -59788,10 +60092,10 @@ index 0000000000..fc14f2a3c2
 +1,WPP_F_ericsson_MAIN_2,WPP_F_ericsson_MAIN_2.bit,WPP_F_ericsson_MAIN_2_yuv.md5
 diff --git a/pi-util/conf_native.sh b/pi-util/conf_native.sh
 new file mode 100755
-index 0000000000..d5240ff388
+index 0000000000..24fc229f1d
 --- /dev/null
 +++ b/pi-util/conf_native.sh
-@@ -0,0 +1,76 @@
+@@ -0,0 +1,78 @@
 +echo "Configure for native build"
 +
 +FFSRC=`pwd`
@@ -59823,21 +60127,23 @@ index 0000000000..d5240ff388
 +  RPIOPTS="--enable-mmal --enable-rpi"
 +fi
 +C=`lsb_release -sc`
++V=`cat RELEASE`
 +
 +SHARED_LIBS="--enable-shared"
 +if [ "$1" == "--noshared" ]; then
 +  SHARED_LIBS="--disable-shared"
-+  OUT=out/$B-$C-static-rel
++  OUT=out/$B-$C-$V-static-rel
 +  echo Static libs
 +else
 +  echo Shared libs
-+  OUT=out/$B-$C-shared-rel
++  OUT=out/$B-$C-$V-shared-rel
 +fi
 +
 +USR_PREFIX=$FFSRC/$OUT/install
 +LIB_PREFIX=$USR_PREFIX/lib/$A
 +INC_PREFIX=$USR_PREFIX/include/$A
 +
++echo Destination directory: $OUT
 +mkdir -p $FFSRC/$OUT
 +cd $FFSRC/$OUT
 +
