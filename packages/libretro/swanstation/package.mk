@@ -2,7 +2,7 @@
 # Copyright (C) 2021-present Lakka Team)
 
 PKG_NAME="swanstation"
-PKG_VERSION="d29d64e"
+PKG_VERSION="95ec9be"
 PKG_LICENSE="GPL-3.0-or-later"
 PKG_SITE="https://github.com/libretro/swanstation"
 PKG_URL="$PKG_SITE.git"

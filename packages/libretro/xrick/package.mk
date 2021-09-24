@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="xrick"
-PKG_VERSION="79bfb27"
+PKG_VERSION="d5dd26b"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/xrick-libretro"
