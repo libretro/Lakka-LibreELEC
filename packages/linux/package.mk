@@ -5,7 +5,7 @@
 PKG_NAME="linux"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kernel.org"
-PKG_DEPENDS_HOST="ccache:host rsync:host openssl:host"
+PKG_DEPENDS_HOST="ccache:host openssl:host"
 PKG_DEPENDS_TARGET="toolchain linux:host kmod:host xz:host wireless-regdb keyutils $KERNEL_EXTRA_DEPENDS_TARGET"
 PKG_DEPENDS_INIT="toolchain"
 PKG_NEED_UNPACK="$LINUX_DEPENDS $(get_pkg_directory busybox)"
@@ -28,30 +28,38 @@ case "$LINUX" in
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     ;;
   raspberrypi)
-    PKG_VERSION="edc21a35b9b7b427716564c3b744ed2a89fcd19a" # 5.4.71
-    PKG_SHA256="bce0429841ef280d5ae991a261954f90ad6de35a091b59714f1535c8d1f3334e"
-    PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
+    # NOTE: if updating also update bcm2835-bootloader to corresponding firmware
+    PKG_VERSION="1.20210831"
+    PKG_SHA256="cda7592b31e676003ea797da09232c125798cfa40a0195af1ea72b606776fa7d"
+    # URL for commit hash
+    #PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
+    # URL for version tag
+    PKG_URL="https://github.com/raspberrypi/linux/archive/refs/tags/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
-    PKG_PATCH_DIRS="rpi"
+    PKG_PATCH_DIRS="rpi joycon dualsense"
     ;;
   odroidxu4-4.14)
     PKG_VERSION="864c4519b77763274b61a035b33bc92f71084b59"
     PKG_SHA256="4cbafde263437b5c9ab5c4a2496866eb19922fb4c80cf5c6ef3c8b65cf1936be"
     PKG_URL="https://github.com/hardkernel/linux/archive/$PKG_VERSION.tar.gz"
     ;;
-  odroidxu3-5.4)
-    PKG_VERSION="5e12d570f207e48f321029b15026ae7c4ab21217"
-    PKG_URL="https://github.com/hardkernel/linux/archive/$PKG_VERSION.tar.gz"
-    ;;
   mainline-5.10)
-    PKG_VERSION="5.10.12"
-    PKG_SHA256="1d454f2817ab4f34cf313ea680ab75e20f79c6431b3bd3ea3bcd39353030c4aa"
+    PKG_VERSION="5.10.68"
+    PKG_SHA256="1baa830e3d359464e3762c30b96c1ba450a34d97834a57e455618c99de229421"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v5.x/$PKG_NAME-$PKG_VERSION.tar.xz"
-    PKG_PATCH_DIRS="default"
+    PKG_PATCH_DIRS="default joycon dualsense"
+    ;;
+  L4T)
+    PKG_VERSION=$DEVICE
+    PKG_URL="l4t-kernel-sources"
+    GET_HANDLER_SUPPORT="l4t-kernel-sources"
+    PKG_PATCH_DIRS="$PROJECT $PROJECT/$DEVICE"
+    PKG_SOURCE_NAME="linux-$DEVICE.tar.gz"
+    PKG_SHA256=$L4T_COMBINED_KERNEL_SHA256
     ;;
   *)
-    PKG_VERSION="5.1.18"
-    PKG_SHA256="6013e7dcf59d7c1b168d8edce3dbd61ce340ff289541f920dbd0958bef98f36a"
+    PKG_VERSION="5.1.21"
+    PKG_SHA256="56495f82314f0dfb84a3fe7fad78e17be69c4fd36ef46f2452458b2fa1e341f6"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v5.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     PKG_PATCH_DIRS="default"
     ;;
@@ -74,6 +82,14 @@ if [ "$TARGET_ARCH" = "x86_64" -o "$TARGET_ARCH" = "i386" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET intel-ucode:host kernel-firmware elfutils:host pciutils"
 elif [ "$TARGET_ARCH" = "arm" -a "$DEVICE" = "iMX6" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET kernel-firmware"
+elif [ "$TARGET_ARCH" = "aarch64" ] && [ "$LINUX" = "L4T" ]; then
+  PKG_DEPENDS_HOST="$PKG_DEPENDS_HOST gcc-linaro-aarch64-linux-gnu:host"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gcc-linaro-aarch64-linux-gnu:host"
+  export PATH=$TOOLCHAIN/lib/gcc-linaro-aarch64-linux-gnu/bin/:$PATH
+  TARGET_PREFIX=aarch64-linux-gnu-
+  OLD_CROSS_COMPILE=$CROSS_COMPILE
+  export CROSS_COMPILE=$TARGET_PREFIX # necessary for Linux 5
+  PKG_MAKE_OPTS_HOST="ARCH=$TARGET_ARCH headers_check"
 fi
 
 if [[ "$KERNEL_TARGET" = uImage* ]]; then
@@ -87,7 +103,7 @@ post_patch() {
   sed -i -e "/CONFIG_INITRAMFS_ROOT_UID/d" -e "/CONFIG_INITRAMFS_ROOT_GID/d" -e "/CONFIG_INITRAMFS_SOURCE=.../a CONFIG_INITRAMFS_ROOT_UID=0\nCONFIG_INITRAMFS_ROOT_GID=0" $PKG_BUILD/.config
 
   # set default hostname based on $DISTRONAME
-    sed -i -e "s|@DISTRONAME@|$DISTRONAME|g" $PKG_BUILD/.config
+  sed -i -e "s|@DISTRONAME@|$DISTRONAME|g" $PKG_BUILD/.config
 
   # disable swap support if not enabled
   if [ ! "$SWAP_SUPPORT" = yes ]; then
@@ -125,31 +141,59 @@ post_patch() {
 
   #host gcc 10 build issue
   sed -i '/YYLTYPE yylloc/d' $PKG_BUILD/scripts/dtc/dtc-lexer.l
+
 }
 
 make_host() {
-  make \
-    ARCH=${HEADERS_ARCH:-$TARGET_KERNEL_ARCH} \
-    HOSTCC="$TOOLCHAIN/bin/host-gcc" \
-    HOSTCXX="$TOOLCHAIN/bin/host-g++" \
-    HOSTCFLAGS="$HOST_CFLAGS" \
-    HOSTCXXFLAGS="$HOST_CXXFLAGS" \
-    HOSTLDFLAGS="$HOST_LDFLAGS" \
-    headers_check
+  if [ "$LINUX" = "L4T" ]; then
+    make \
+      ARCH=arm64 \
+      CROSS_COMPILE=$TARGET_PREFIX \
+      olddefconfig
+     make \
+       ARCH=arm64 \
+       CROSS_COMPILE=$TARGET_PREFIX \
+       prepare
+     make \
+       ARCH=arm64 \
+       CROSS_COMPILE=$TARGET_PREFIX \
+       modules_prepare
+     make \
+       ARCH=arm64 \
+       headers_check
+  else
+    make \
+      ARCH=${HEADERS_ARCH:-$TARGET_KERNEL_ARCH} \
+      HOSTCC="$TOOLCHAIN/bin/host-gcc" \
+      HOSTCXX="$TOOLCHAIN/bin/host-g++" \
+      HOSTCFLAGS="$HOST_CFLAGS" \
+      HOSTCXXFLAGS="$HOST_CXXFLAGS" \
+      HOSTLDFLAGS="$HOST_LDFLAGS" \
+      headers_check
+  fi
 }
 
 makeinstall_host() {
-  make \
-    ARCH=${HEADERS_ARCH:-$TARGET_KERNEL_ARCH} \
-    HOSTCC="$TOOLCHAIN/bin/host-gcc" \
-    HOSTCXX="$TOOLCHAIN/bin/host-g++" \
-    HOSTCFLAGS="$HOST_CFLAGS" \
-    HOSTCXXFLAGS="$HOST_CXXFLAGS" \
-    HOSTLDFLAGS="$HOST_LDFLAGS" \
-    INSTALL_HDR_PATH=dest \
-    headers_install
+  if [ "$LINUX" = "L4T" ]; then
+    make \
+      ARCH=arm64 \
+      CROSS_COMPILE=$TARGET_PREFIX \
+      INSTALL_HDR_PATH=dest \
+      headers_install
+  else
+    make \
+      ARCH=${HEADERS_ARCH:-$TARGET_KERNEL_ARCH} \
+      HOSTCC="$TOOLCHAIN/bin/host-gcc" \
+      HOSTCXX="$TOOLCHAIN/bin/host-g++" \
+      HOSTCFLAGS="$HOST_CFLAGS" \
+      HOSTCXXFLAGS="$HOST_CXXFLAGS" \
+      HOSTLDFLAGS="$HOST_LDFLAGS" \
+      INSTALL_HDR_PATH=dest \
+      headers_install
+  fi
+
   mkdir -p $SYSROOT_PREFIX/usr/include
-    cp -R dest/include/* $SYSROOT_PREFIX/usr/include
+  cp -R dest/include/* $SYSROOT_PREFIX/usr/include
 }
 
 pre_make_target() {
@@ -175,7 +219,13 @@ pre_make_target() {
     sed -i -e "/CONFIG_EXTRA_FIRMWARE_DIR/d" -e "/CONFIG_EXTRA_FIRMWARE=.../a CONFIG_EXTRA_FIRMWARE_DIR=\"external-firmware\"" $PKG_BUILD/.config
   fi
 
-  kernel_make olddefconfig
+  if [ "$LINUX" = "L4T" ]; then
+    kernel_make olddefconfig
+    kernel_make prepare
+    kernel_make modules_prepare
+  else
+    kernel_make olddefconfig
+  fi
 
   # regdb (backward compatability with pre-4.15 kernels)
   if grep -q ^CONFIG_CFG80211_INTERNAL_REGDB= $PKG_BUILD/.config ; then
@@ -193,8 +243,8 @@ make_target() {
     KERNEL_UIMAGE_TARGET="$KERNEL_TARGET"
     KERNEL_TARGET="${KERNEL_TARGET/uImage/Image}"
   fi
-
-  kernel_make $KERNEL_TARGET $KERNEL_MAKE_EXTRACMD modules
+  
+  kernel_make TOOLCHAIN="$TOOLCHAIN" $KERNEL_TARGET $KERNEL_MAKE_EXTRACMD modules
 
   if [ "$PKG_BUILD_PERF" = "yes" ] ; then
     ( cd tools/perf
@@ -263,6 +313,11 @@ makeinstall_target() {
   kernel_make INSTALL_MOD_PATH=$INSTALL/$(get_kernel_overlay_dir) modules_install
   rm -f $INSTALL/$(get_kernel_overlay_dir)/lib/modules/*/build
   rm -f $INSTALL/$(get_kernel_overlay_dir)/lib/modules/*/source
+    
+  if [ "$BOOTLOADER" = "switch-bootloader" ]; then
+    mkdir -p $INSTALL/usr/share/bootloader/boot/
+    cp arch/arm64/boot/dts/tegra210-icosa.dtb $INSTALL/usr/share/bootloader/boot/
+  fi
 
   if [ "$BOOTLOADER" = "u-boot" ]; then
     mkdir -p $INSTALL/usr/share/bootloader
@@ -293,7 +348,6 @@ makeinstall_target() {
 
 post_install() {
   mkdir -p $INSTALL/$(get_full_firmware_dir)/
-
   # regdb and signature is now loaded as firmware by 4.15+
     if grep -q ^CONFIG_CFG80211_REQUIRE_SIGNED_REGDB= $PKG_BUILD/.config; then
       cp $(get_build_dir wireless-regdb)/regulatory.db{,.p7s} $INSTALL/$(get_full_firmware_dir)

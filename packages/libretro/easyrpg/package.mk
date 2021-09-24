@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="easyrpg"
-PKG_VERSION="5569b5c"
+PKG_VERSION="4dd00a6"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/EasyRPG/Player"
@@ -37,6 +37,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_CMAKE_OPTS_TARGET="-DPLAYER_TARGET_PLATFORM=libretro \
+                       -DPLAYER_WITH_FREETYPE=OFF \
                        -DBUILD_SHARED_LIBS=ON \
                        -DCMAKE_BUILD_TYPE=Release"
 

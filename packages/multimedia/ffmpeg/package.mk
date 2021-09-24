@@ -63,11 +63,17 @@ fi
 
 if [ "$PROJECT" = "RPi" ] && [ "$ARCH" = "arm" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"
-  if [ "$DEVICE" = "RPi4" ]; then
+  if [ "${DEVICE:0:4}" = "RPi4" ]; then
    PKG_PATCH_DIRS+=" rpi4-hevc"
   else
    PKG_PATCH_DIRS+=" rpi-hevc"
  fi
+fi
+
+if [ "$PROJECT" = "L4T" ]; then
+   PKG_DEPENDS_TARGET+=" jetson-ffmpeg"
+   PKG_PATCH_DIRS+=" L4T"
+   PKG_FFMPEG_NVMPI="--enable-nvmpi"
 fi
 
 if target_has_feature neon; then
@@ -201,7 +207,8 @@ configure_target() {
               --enable-asm \
               --disable-altivec \
               $PKG_FFMPEG_FPU \
-              --disable-symver
+              --disable-symver \
+              $PKG_FFMPEG_NVMPI
 }
 
 post_makeinstall_target() {

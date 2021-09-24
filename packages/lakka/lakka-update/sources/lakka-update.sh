@@ -2,7 +2,7 @@
 
 source /etc/os-release
 
-MIRROR=http://le.builds.lakka.tv
+MIRROR=https://le.builds.lakka.tv
 
 FILE=`wget $MIRROR/${LIBREELEC_ARCH}/.index -q -O - | head -1`
 URL=$MIRROR/${LIBREELEC_ARCH}/$FILE

@@ -1,0 +1,51 @@
+From 478b012989331ce710642177464a116e8cf556b7 Mon Sep 17 00:00:00 2001
+From: "Daniel J. Ogorchock" <djogorchock@gmail.com>
+Date: Sat, 30 May 2020 21:31:18 -0500
+Subject: [PATCH] HID: nintendo: prevent needless queueing of the rumble worker
+
+This patch adds a check for if the rumble queue ringbuffer is empty
+prior to queuing the rumble workqueue. If the current rumble setting is
+using a non-zero amplitude though, it will queue the worker anyway. This
+is because the controller will automatically disable the rumble effect
+if it isn't "refreshed".
+
+This change improves bluetooth communication reliability with the
+controller, since it reduces the amount of traffic.
+
+Signed-off-by: Daniel J. Ogorchock <djogorchock@gmail.com>
+---
+ drivers/hid/hid-nintendo.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/hid/hid-nintendo.c b/drivers/hid/hid-nintendo.c
+index 88a853570faf..80f33ab58a5e 100644
+--- a/drivers/hid/hid-nintendo.c
++++ b/drivers/hid/hid-nintendo.c
+@@ -378,6 +378,7 @@ struct joycon_ctlr {
+ 	u16 rumble_lh_freq;
+ 	u16 rumble_rl_freq;
+ 	u16 rumble_rh_freq;
++	bool rumble_zero_amp;
+ };
+ 
+ /* Helper macros for checking controller type */
+@@ -777,7 +778,9 @@ static void joycon_parse_report(struct joycon_ctlr *ctlr,
+ 
+ 	spin_lock_irqsave(&ctlr->lock, flags);
+ 	if (IS_ENABLED(CONFIG_NINTENDO_FF) && rep->vibrator_report &&
+-	    (msecs - ctlr->rumble_msecs) >= JC_RUMBLE_PERIOD_MS)
++	    (msecs - ctlr->rumble_msecs) >= JC_RUMBLE_PERIOD_MS &&
++	    (ctlr->rumble_queue_head != ctlr->rumble_queue_tail ||
++	     !ctlr->rumble_zero_amp))
+ 		queue_work(ctlr->rumble_queue, &ctlr->rumble_worker);
+ 
+ 	/* Parse the battery status */
+@@ -1036,6 +1039,8 @@ static int joycon_set_rumble(struct joycon_ctlr *ctlr, u16 amp_r, u16 amp_l,
+ 	freq_r_high = ctlr->rumble_rh_freq;
+ 	freq_l_low = ctlr->rumble_ll_freq;
+ 	freq_l_high = ctlr->rumble_lh_freq;
++	/* this flag is used to reduce subcommand traffic */
++	ctlr->rumble_zero_amp = (amp_l == 0) && (amp_r == 0);
+ 	spin_unlock_irqrestore(&ctlr->lock, flags);
+ 
+ 	/* right joy-con */

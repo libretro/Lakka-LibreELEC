@@ -3,11 +3,14 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="bcm2835-driver"
-PKG_VERSION="a34f263ce6a9e35f3c1d62f6195f9f45f4f547e7"
-PKG_SHA256="063374702cfc4cb3056160c9a793d001ae152e7ea5ee72bf0bfe230cb8bf31d2"
+PKG_VERSION="1.20210831"
+PKG_SHA256="47f879cd2b58cf556a9da95820af982d93929dfa4ff22488fc0bb271025c02ef"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.broadcom.com"
-PKG_URL="${DISTRO_SRC}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+# URL for commit hash
+#PKG_URL="https://github.com/raspberrypi/firmware/archive/$PKG_VERSION.tar.gz"
+# URL for release tag
+PKG_URL="https://github.com/raspberrypi/firmware/archive/refs/tags/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain dtc"
 PKG_LONGDESC="OpenMAX-bcm2835: OpenGL-ES and OpenMAX driver for BCM2835"
 PKG_TOOLCHAIN="manual"
@@ -66,4 +69,19 @@ makeinstall_target() {
   mkdir -p ${INSTALL}/opt/vc
     ln -sf /usr/bin ${INSTALL}/opt/vc/bin
     ln -sf /usr/lib ${INSTALL}/opt/vc/lib
+
+  # remove pre-built binaries in case they will be provided by the rpi_userland package
+  if listcontains "${ADDITIONAL_PACKAGES}" "rpi_userland" ; then
+    rm -f ${INSTALL}/usr/lib/libbcm_host.so
+    rm -f ${INSTALL}/usr/lib/libdebug_sym.so
+    rm -f ${INSTALL}/usr/lib/libdtovl.so
+    rm -f ${INSTALL}/usr/lib/libvchiq_arm.so
+    rm -f ${INSTALL}/usr/lib/libvcos.so
+    rm -f ${INSTALL}/usr/bin/dtmerge
+    rm -f ${INSTALL}/usr/bin/dtoverlay
+    rm -f ${INSTALL}/usr/bin/tvservice
+    rm -f ${INSTALL}/usr/bin/vcgencmd
+    rm -f ${INSTALL}/usr/bin/vchiq_test
+    rm -f ${INSTALL}/usr/bin/vcmailbox
+  fi
 }

@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="openlara"
-PKG_VERSION="0b887fd"
+PKG_VERSION="fe88d74"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
@@ -50,7 +50,7 @@ make_target() {
   fi
 
   case ${DEVICE:-$PROJECT} in
-    RPi|RPi2|Gamegirl)
+    RPi|RPi2)
       CFLAGS+=" -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads \
                 -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
       CXXFLAGS+=" -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads \

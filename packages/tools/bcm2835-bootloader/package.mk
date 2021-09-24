@@ -3,21 +3,25 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="bcm2835-bootloader"
-PKG_VERSION="a34f263ce6a9e35f3c1d62f6195f9f45f4f547e7"
-PKG_SHA256="db698fb520c122a408330253d3720c8c3111108d47c4f82e097c718c4a98fdf7"
+PKG_VERSION="1.20210831"
+PKG_SHA256="47f879cd2b58cf556a9da95820af982d93929dfa4ff22488fc0bb271025c02ef"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.broadcom.com"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+# URL for commit hash
+#PKG_URL="https://github.com/raspberrypi/firmware/archive/$PKG_VERSION.tar.gz"
+# URL for release tag
+PKG_URL="https://github.com/raspberrypi/firmware/archive/refs/tags/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain linux bcmstat"
 PKG_LONGDESC="bcm2835-bootloader: Tool to create a bootable kernel for RaspberryPi"
 PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/share/bootloader
+    cd boot
     cp -PRv LICENCE* $INSTALL/usr/share/bootloader
     cp -PRv bootcode.bin $INSTALL/usr/share/bootloader
-    if [ "$DEVICE" = "RPi4" ]; then
+    if [ "${DEVICE:0:4}" = "RPi4" ]; then
       cp -PRv fixup4x.dat $INSTALL/usr/share/bootloader/fixup.dat
       cp -PRv fixup4.dat $INSTALL/usr/share/bootloader/fixup4.dat
       cp -PRv start4x.elf $INSTALL/usr/share/bootloader/start.elf
@@ -34,4 +38,10 @@ makeinstall_target() {
 
     find_file_path config/distroconfig.txt $PKG_DIR/files/3rdparty/bootloader/distroconfig.txt && cp -PRv ${FOUND_PATH} $INSTALL/usr/share/bootloader
     find_file_path config/config.txt $PKG_DIR/files/3rdparty/bootloader/config.txt && cp -PRv ${FOUND_PATH} $INSTALL/usr/share/bootloader
+
+    # Enable 64-bit mode if ARCH is aarch64 and set kernel name
+    if [ "$ARCH" = "aarch64" ]; then
+      echo "arm_64bit=1" >> $INSTALL/usr/share/bootloader/distroconfig.txt
+      echo "kernel=kernel.img" >> $INSTALL/usr/share/bootloader/distroconfig.txt
+    fi
 }

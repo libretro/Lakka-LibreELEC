@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="retroarch-joypad-autoconfig"
-PKG_VERSION="c13eb46"
+PKG_VERSION="dc8d638"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -33,6 +33,10 @@ PKG_LONGDESC="RetroArch joypad autoconfig files"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+if [ "$DEVICE" = "RPi4-RetroDreamer" ]; then
+  PKG_PATCH_DIRS+=" retrodreamer-patch"
+fi
 
 configure_target() {
   cd $PKG_BUILD

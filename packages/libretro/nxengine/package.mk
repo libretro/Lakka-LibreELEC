@@ -19,8 +19,7 @@
 ################################################################################
 
 PKG_NAME="nxengine"
-PKG_VERSION="f39250e"
-PKG_REV="1"
+PKG_VERSION="1ae5ebb"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/nxengine-libretro"

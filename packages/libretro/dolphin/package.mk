@@ -19,8 +19,7 @@
 ################################################################################
 
 PKG_NAME="dolphin"
-PKG_VERSION="f4f4947"
-PKG_REV="1"
+PKG_VERSION="9ca4724"
 PKG_ARCH="x86_64 aarch64"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/dolphin"
@@ -39,6 +38,10 @@ if [ "$BLUETOOTH_SUPPORT" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" bluez"
 fi
 
+if [ "$VULKAN_SUPPORT" = yes ]; then
+  PKG_DEPENDS_TARGET+=" $VULKAN"
+fi
+
 if [ "$OPENGL_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET+=" $OPENGL"
 fi
@@ -52,4 +55,6 @@ PKG_CMAKE_OPTS_TARGET="-DENABLE_X11=OFF -DLIBRETRO=ON -DENABLE_NOGUI=OFF -DENABL
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
   cp $PKG_BUILD/.$TARGET_NAME/dolphin_libretro.so $INSTALL/usr/lib/libretro/
+  mkdir -p $INSTALL/usr/share/retroarch-system/dolphin-emu
+  cp -r $PKG_BUILD/Data/Sys $INSTALL/usr/share/retroarch-system/dolphin-emu/
 }

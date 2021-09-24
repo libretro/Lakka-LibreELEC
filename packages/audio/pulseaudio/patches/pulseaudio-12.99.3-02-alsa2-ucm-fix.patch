@@ -1,0 +1,124 @@
+From 3549a4d926c9505f3600a8eb7941dc27a9039b3f Mon Sep 17 00:00:00 2001
+From: Hui Wang <hui.wang@canonical.com>
+Date: Fri, 8 May 2020 11:19:48 +0800
+Subject: [PATCH] alsa-mixer: store the ucm_device with the order of their
+ priority
+
+There is some case that multiple ucm devices share an amixer Jack
+like "Headphones", "Headset" and "Mic2" share the "Headphone Mic Jack",
+When the Jack state is changed, the module-switch-on-port-available
+will process them in the order they are in the jack->ucm_devices, and
+the last device will decide the final setting.
+
+But usually users put priority for those devices and expect the
+final setting is based on the highest priority device if there is no
+other policies like manual selection. So here do some change to store
+the ucm_devices according to their priority (from low to high).
+
+For example, we have ucm devices definition like below (ucm2):
+               SectionDevice."Mic2" {
+                        Comment "Headphones Stereo Microphone"
+			...
+                        Value {
+                                CapturePriority 200
+				...
+                }
+
+                SectionDevice."Headset" {
+                        Comment "Headset Mono Microphone"
+			...
+                        Value {
+                                CapturePriority 300
+				...
+                        }
+                }
+
+Without this patch, the final setting is based on Mic2, after applying
+this patch, the final setting is based on the Headset (with higher
+priority than Mic2).
+
+Signed-off-by: Hui Wang <hui.wang@canonical.com>
+---
+ src/modules/alsa/alsa-mixer.c | 15 ++++++++++++++-
+ src/pulsecore/dynarray.c      | 23 +++++++++++++++++++++++
+ src/pulsecore/dynarray.h      |  4 ++++
+ 3 files changed, 41 insertions(+), 1 deletion(-)
+
+diff --git a/src/modules/alsa/alsa-mixer.c b/src/modules/alsa/alsa-mixer.c
+index d184aec7a..f2fe20057 100644
+--- a/src/modules/alsa/alsa-mixer.c
++++ b/src/modules/alsa/alsa-mixer.c
+@@ -249,10 +249,23 @@ void pa_alsa_jack_set_plugged_in(pa_alsa_jack *jack, bool plugged_in) {
+ }
+ 
+ void pa_alsa_jack_add_ucm_device(pa_alsa_jack *jack, pa_alsa_ucm_device *device) {
++    pa_alsa_ucm_device *idevice;
++    unsigned idx, prio, iprio;
++
+     pa_assert(jack);
+     pa_assert(device);
+ 
+-    pa_dynarray_append(jack->ucm_devices, device);
++    /* store the ucm device with the sequence of priority from low to high. this
++     * could guarantee when the jack state is changed, the device with highest
++     * priority will send to the module-switch-on-port-available last */
++    prio = device->playback_priority ? device->playback_priority : device->capture_priority;
++
++    PA_DYNARRAY_FOREACH(idevice, jack->ucm_devices, idx) {
++        iprio = idevice->playback_priority ? idevice->playback_priority : idevice->capture_priority;
++        if (iprio > prio)
++            break;
++    }
++    pa_dynarray_insert_by_index(jack->ucm_devices, device, idx);
+ }
+ 
+ void pa_alsa_jack_add_ucm_hw_mute_device(pa_alsa_jack *jack, pa_alsa_ucm_device *device) {
+diff --git a/src/pulsecore/dynarray.c b/src/pulsecore/dynarray.c
+index 6a3eb5f04..a948f2671 100644
+--- a/src/pulsecore/dynarray.c
++++ b/src/pulsecore/dynarray.c
+@@ -140,3 +140,26 @@ unsigned pa_dynarray_size(pa_dynarray *array) {
+ 
+     return array->n_entries;
+ }
++
++int pa_dynarray_insert_by_index(pa_dynarray *array, void *p, unsigned i) {
++    void *entry;
++    unsigned j;
++
++    pa_assert(array);
++
++    if (i > array->n_entries)
++        return -PA_ERR_NOENTITY;
++
++    if (i == array->n_entries)
++        pa_dynarray_append(array, p);
++    else {
++        entry = pa_dynarray_last(array);
++        pa_dynarray_append(array, entry);
++        j = array->n_entries - 2;
++        for (;j > i; j--)
++	    array->data[j] = array->data[j-1];
++        array->data[i] = p;
++    }
++
++    return 0;
++}
+diff --git a/src/pulsecore/dynarray.h b/src/pulsecore/dynarray.h
+index bf7dddc12..4c0925e7c 100644
+--- a/src/pulsecore/dynarray.h
++++ b/src/pulsecore/dynarray.h
+@@ -63,6 +63,10 @@ void *pa_dynarray_steal_last(pa_dynarray *array);
+ 
+ unsigned pa_dynarray_size(pa_dynarray *array);
+ 
++/* Returns -PA_ERR_NOENTITY if i is out of bounds, and zero otherwise.
++ * Here i is the location index in the array like 0, ..., array->entries */
++int pa_dynarray_insert_by_index(pa_dynarray *array, void *p, unsigned i);
++
+ #define PA_DYNARRAY_FOREACH(elem, array, idx) \
+     for ((idx) = 0; ((elem) = pa_dynarray_get(array, idx)); (idx)++)
+ 
+-- 
+GitLab
+

@@ -19,10 +19,10 @@
 ################################################################################
 
 PKG_NAME="snes9x"
-PKG_VERSION="30e2671"
+PKG_VERSION="74257ec"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"
-PKG_SITE="https://github.com/snes9xgit/snes9x"
+PKG_SITE="https://github.com/libretro/snes9x"
 PKG_URL="$PKG_SITE.git"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"

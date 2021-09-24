@@ -15,10 +15,10 @@ getlog_cmd() {
   if command -v $1 >/dev/null; then
     echo "################################################################################" >> $BASEDIR/$LOGDIR/$LOGFILE
     echo "# ... output of $@" >> $BASEDIR/$LOGDIR/$LOGFILE
-    echo "# LibreELEC release: $RELEASE" >> $BASEDIR/$LOGDIR/$LOGFILE
+    echo "# Lakka release: $RELEASE" >> $BASEDIR/$LOGDIR/$LOGFILE
     echo "# $GIT" >> $BASEDIR/$LOGDIR/$LOGFILE
     echo "################################################################################" >> $BASEDIR/$LOGDIR/$LOGFILE
-    $@ >> $BASEDIR/$LOGDIR/$LOGFILE 2>/dev/null
+    $@ >> $BASEDIR/$LOGDIR/$LOGFILE 2>&1
     echo "" >> $BASEDIR/$LOGDIR/$LOGFILE
   fi
 }
@@ -58,27 +58,13 @@ cat_all_files() {
 rm -rf $BASEDIR/$LOGDIR
 mkdir -p $BASEDIR/$LOGDIR
 
-# kodi.log
-  KODI_LOG_DIR=/storage/.kodi/temp
-
-  LOGFILE="01_KODI.log"
-  for i in kodi.log kodi.old.log; do
-    [ -f ${KODI_LOG_DIR}/${i} ] && getlog_cmd cat ${KODI_LOG_DIR}/$i
-  done
-
-  LOGFILE="01_KODI_CRASH.log"
-  for i in `find ${KODI_LOG_DIR} -type f -name "kodi_crashlog_*.log" | sort -r`; do
-    getlog_cmd cat $i
-  done
-
-  LOGFILE="01_KODI_OTHER.log"
-  for i in `find ${KODI_LOG_DIR} -type f -name "*.log" | sort`; do
-    iname="${i#${KODI_LOG_DIR}/}"
-    [ ${iname} == kodi.log ] && continue
-    [ ${iname} == kodi.old.log ] && continue
-    [ "${iname#kodi_crashlog_}" != "${iname}" ] && continue
-    getlog_cmd cat $i
-  done
+# RetroArch.log
+  LOGFILE="01_RetroArch.log"
+  echo "The retroarch.service will be stopped and separate RetroArch process will be started to acquire log. Perform actions that lead to the bug/issue. In case the issue does not end with a segmentation fault / RetroArch crashing, exit RetroArch via 'Restart RetroArch'."
+  read -p "Press ENTER to continue..."
+  systemctl stop retroarch.service
+  export LIBGL_DEBUG=verbose
+  getlog_cmd retroarch -v
 
 # System.log
   LOGFILE="02_System.log"
@@ -162,19 +148,48 @@ mkdir -p $BASEDIR/$LOGDIR
   LOGFILE="10_Journal-prev.log"
   getlog_cmd journalctl --no-pager -b -1
 
-# addons
-  LOGFILE="11_Addons.log"
-  for i in /storage/.kodi/userdata/addon_data/*/*.log \
-      /storage/.kodi/userdata/addon_data/*/log/* \
-  ; do
-    if [ -f "$i" ] ; then
-      getlog_cmd cat $i
-    fi
-  done
-
 # pack logfiles
   mkdir -p /storage/logfiles
   zip -jq /storage/logfiles/log-$DATE.zip $BASEDIR/$LOGDIR/*
 
 # remove logdir
   rm -rf $BASEDIR/$LOGDIR
+
+# upload / move to /flash
+  echo "Archive with logs 'log-$DATE.zip' was created and stored in the samba share 'Logs' (/storage/logfiles)."
+  echo "  1) Leave the archive only in the samba share (requires working access to the Lakka shared folders)"
+  echo "  2) Copy the archive to the FAT32 partition (requires a computer where you can read your SD/USB)"
+  echo "  3) Upload the archive to https://transfer.sh (requires working internet connection on the Lakka device)"
+  echo ""
+  while true ; do
+    read -rsn1 -p "Your choice? (1-3) " choice
+    if [ $choice -eq 1 -o $choice -eq 2 -o $choice -eq 3 ]; then
+      break
+    else
+      echo "Invalid choice: $choice"
+    fi
+  done
+  case $choice in
+    1)
+      echo "The archive is prepared in the 'Logs' share."
+      break
+      ;;
+    2)
+      echo "Remounting /flash (FAT32) partition for write access..."
+      mount -o remount,rw /flash
+      echo "Copying archive to /flash partition..."
+      cp /storage/logfiles/log-$DATE.zip /flash
+      echo "Remounting /flash (FAT32) partition for read-only access..."
+      mount -o remount,ro /flash
+      echo "The archive was copied to the root of the FAT32 partition."
+      break
+      ;;
+    3)
+      echo "Uploading archive to https://transfer.sh:"
+      curl --upload-file /storage/logfiles/log-$DATE.zip https://transfer.sh/log-$DATE.zip
+      echo "  <- provide this URL in your bug/issue report."
+      break
+      ;;
+  esac
+  echo ""
+  echo "Finished. You may now start RetroArch (systemctl start retroarch.service) or poweroff / reboot your Lakka device."

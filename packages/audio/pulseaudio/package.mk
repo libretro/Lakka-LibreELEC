@@ -1,42 +1,63 @@
-# SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
-# Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
+################################################################################
+#      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+#
+#  OpenELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  OpenELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
 
 PKG_NAME="pulseaudio"
-PKG_VERSION="12.2"
-PKG_SHA256="809668ffc296043779c984f53461c2b3987a45b7a25eb2f0a1d11d9f23ba4055"
+PKG_VERSION="12.99.1"
+PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://pulseaudio.org/"
 PKG_URL="http://www.freedesktop.org/software/pulseaudio/releases/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET="toolchain alsa-lib dbus libcap libsndfile libtool openssl soxr systemd glib:host"
-PKG_LONGDESC="PulseAudio is a sound system for POSIX OSes, meaning that it is a proxy for your sound applications."
+PKG_DEPENDS_TARGET="toolchain libtool json-c alsa-lib libsndfile soxr dbus systemd openssl libcap"
+PKG_SECTION="audio"
+PKG_SHORTDESC="pulseaudio: Yet another sound server for Unix"
+PKG_LONGDESC="PulseAudio is a sound server for Linux and other Unix-like operating systems. It is intended to be an improved drop-in replacement for the Enlightened Sound Daemon (esound or esd). In addition to the features esound provides, PulseAudio has an extensible plugin architecture, support for more than one sink per source, better low-latency behavior, the ability to be embedded into other software, a completely asynchronous C API, a simple command line interface for reconfiguring the daemon while running, flexible and implicit sample type conversion and resampling, and a "Zero-Copy" architecture."
+
+PKG_IS_ADDON="no"
+
+# broken
+PKG_AUTORECONF="no"
 
 if [ "$BLUETOOTH_SUPPORT" = "yes" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET sbc"
-  PKG_PULSEAUDIO_BLUETOOTH="--enable-bluez5"
+  PULSEAUDIO_BLUETOOTH="--enable-bluez5"
 else
-  PKG_PULSEAUDIO_BLUETOOTH="--disable-bluez5"
+  PULSEAUDIO_BLUETOOTH="--disable-bluez5"
 fi
 
 if [ "$AVAHI_DAEMON" = "yes" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET avahi"
-  PKG_PULSEAUDIO_AVAHI="--enable-avahi"
+  PULSEAUDIO_AVAHI="--enable-avahi"
 else
-  PKG_PULSEAUDIO_AVAHI="--disable-avahi"
+  PULSEAUDIO_AVAHI="--disable-avahi"
 fi
 
-# PulseAudio fails to build on aarch64 when NEON is enabled, so don't enable NEON for aarch64 until upstream supports it
-if [ "$TARGET_ARCH" = "arm" ] && target_has_feature neon; then
-  PKG_PULSEAUDIO_NEON="--enable-neon-opt"
+if [ "$TARGET_FPU" = "neon" -o "$TARGET_FPU" = "neon-fp16" -o "$TARGET_FPU" = "neon-vfpv4" ]; then
+  PULSEAUDIO_NEON="--enable-neon-opt"
 else
-  PKG_PULSEAUDIO_NEON="--disable-neon-opt"
+  PULSEAUDIO_NEON="--disable-neon-opt"
 fi
 
+# package specific configure options
 PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
                            --disable-nls \
                            --enable-largefile \
                            --disable-rpath \
-                           $PKG_PULSEAUDIO_NEON \
+                           $PULSEAUDIO_NEON \
                            --disable-x11 \
                            --disable-tests \
                            --disable-samplerate \
@@ -50,21 +71,22 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
                            --enable-glib2 \
                            --disable-gtk3 \
                            --disable-gconf \
-                           $PKG_PULSEAUDIO_AVAHI \
+                           $PULSEAUDIO_AVAHI \
                            --disable-jack \
                            --disable-asyncns \
                            --disable-tcpwrap \
                            --disable-lirc \
                            --enable-dbus \
                            --disable-bluez4 \
-                           $PKG_PULSEAUDIO_BLUETOOTH \
+                           $PULSEAUDIO_BLUETOOTH \
                            --disable-bluez5-ofono-headset \
                            --disable-bluez5-native-headset \
                            --enable-udev \
-                           --with-udev-rules-dir=/usr/lib/udev/rules.d \
+                           --with-udev-rules-dir=/usr/lib/udev/rules.d
                            --disable-hal-compat \
                            --enable-ipv6 \
                            --enable-openssl \
+                           --disable-xen \
                            --disable-orc \
                            --disable-manpages \
                            --disable-per-user-esound-socket \
@@ -78,11 +100,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
                            --without-speex \
                            --with-soxr \
                            --with-module-dir=/usr/lib/pulse"
-
-pre_configure_target() {
-  sed -e 's|; remixing-use-all-sink-channels = yes|; remixing-use-all-sink-channels = no|' \
-      -i $PKG_BUILD/src/daemon/daemon.conf.in
-}
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin/esdcompat

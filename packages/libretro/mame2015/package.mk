@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="mame2015"
-PKG_VERSION="969bf4a"
+PKG_VERSION="ef41361"
 PKG_REV="1"
 PKG_ARCH="x86_64 aarch64 arm"
 PKG_LICENSE="GPLv2"
@@ -54,11 +54,15 @@ make_target() {
     Odroid_C2|WeTek_Hub|WeTek_Play_2)
       make platform=armv-neon-hardfloat
       ;;
-    Generic)
+    Generic|Switch)
       make
       ;;
     *)
-      make platform=armv
+      if [ ${PROJECT} = "RPi" -a ${ARCH} = "aarch64" ]; then
+        make
+      else
+        make platform=armv
+      fi
       ;;
   esac
 }

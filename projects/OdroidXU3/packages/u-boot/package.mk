@@ -3,8 +3,7 @@
 
 PKG_NAME="u-boot"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_VERSION="88af53fb"
-PKG_SHA256="e546581f805084d3939005b446d8b38df91e0364f844c7c0176e840f64570199"
+PKG_VERSION="42ac93dcfbbb8a08c2bdc02e19f96eb35a81891a"
 PKG_SITE="https://github.com/hardkernel/u-boot/tree/odroidxu4-v2017.05"
 PKG_URL="https://github.com/hardkernel/u-boot/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain dtc:host"

@@ -19,9 +19,8 @@
 ################################################################################
 
 PKG_NAME="beetle-psx"
-PKG_VERSION="4e18858"
-PKG_REV="1"
-PKG_ARCH="x86_64 i386 aarch64"
+PKG_VERSION="99338f5"
+PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-psx-libretro"
 PKG_URL="$PKG_SITE.git"
@@ -40,10 +39,10 @@ if [ "$OPENGL_SUPPORT" = yes ]; then
 fi
 
 if [ "$VULKAN_SUPPORT" = yes ]; then
-  PKG_DEPENDS_TARGET+=" $VULKAN vulkan-loader"
+  PKG_DEPENDS_TARGET+=" $VULKAN"
 fi
 
-PKG_MAKE_OPTS_TARGET="HAVE_CDROM=1"
+PKG_MAKE_OPTS_TARGET="HAVE_CDROM=1 LINK_STATIC_LIBCPLUSPLUS=0"
 
 if [ "$OPENGL_SUPPORT" = yes -a "$VULKAN_SUPPORT" = yes ]; then
   PKG_MAKE_OPTS_TARGET+=" HAVE_HW=1"

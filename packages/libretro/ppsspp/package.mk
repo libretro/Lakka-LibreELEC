@@ -19,13 +19,13 @@
 ################################################################################
 
 PKG_NAME="ppsspp"
-PKG_VERSION="087de84"
-PKG_REV="1"
+PKG_VERSION="f7ace3b"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/hrydgard/ppsspp"
 PKG_URL="$PKG_SITE.git"
-PKG_DEPENDS_TARGET="toolchain ffmpeg"
+PKG_GIT_CLONE_BRANCH="v1.11-hotfixes"
+PKG_DEPENDS_TARGET="toolchain libzip libpng"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="Libretro port of PPSSPP"
@@ -44,20 +44,32 @@ if [ "$OPENGLES_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET+=" $OPENGLES"
 fi
 
-PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=yes \
+PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON \
                        -DCMAKE_BUILD_TYPE=Release \
-                       -DUSE_FFMPEG=yes \
-                       -DUSE_SYSTEM_FFMPEG=yes \
+                       -DUSE_FFMPEG=ON \
+                       -DUSE_SYSTEM_FFMPEG=OFF \
+                       -DUSE_DISCORD=OFF \
+                       -DUSE_MINIUPNPC=OFF \
                        --target ppsspp_libretro"
 
 if [ "$OPENGL_SUPPORT" = no -a "$OPENGLES_SUPPORT" = yes ]; then
-  PKG_CMAKE_OPTS_TARGET="-DUSING_GLES2=yes $PKG_CMAKE_OPTS_TARGET"
+  PKG_CMAKE_OPTS_TARGET+=" -DUSING_GLES2=ON"
+fi
+
+if [ "$VULKAN_SUPPORT" = yes ]; then
+  PKG_DEPENDS_TARGET+=" ${VULKAN}"
+  PKG_CMAKE_OPTS_TARGET+=" -DVULKAN=ON"
+  if [ "$DISPLAYSERVER" = "x11" ]; then
+    PKG_CMAKE_OPTS_TARGET+=" -DUSING_X11_VULKAN=ON"
+  else
+    PKG_CMAKE_OPTS_TARGET+=" -DUSE_VULKAN_DISPLAY_KHR=ON -DUSING_X11_VULKAN=OFF"
+  fi
 fi
 
 if [ "$TARGET_ARCH" = "arm" ]; then
-  PKG_CMAKE_OPTS_TARGET="-DARMV7=yes $PKG_CMAKE_OPTS_TARGET"
+  PKG_CMAKE_OPTS_TARGET+=" -DARMV7=ON"
 elif [ "$TARGET_ARCH" = "aarch64" ]; then
-  PKG_CMAKE_OPTS_TARGET="-DARM64=yes $PKG_CMAKE_OPTS_TARGET"
+  PKG_CMAKE_OPTS_TARGET+=" -DARM64=ON"
 fi
 
 pre_make_target() {

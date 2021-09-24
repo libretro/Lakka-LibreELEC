@@ -19,8 +19,7 @@
 ################################################################################
 
 PKG_NAME="parallel-n64"
-PKG_VERSION="7868eea"
-PKG_REV="1"
+PKG_VERSION="0a67445"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/parallel-n64"
@@ -54,18 +53,18 @@ make_target() {
     CFLAGS="$CFLAGS -DARM_FIX"
   fi
 
-  if [ "$DEVICE" == "RPi" -o "$DEVICE" == "Gamegirl" ]; then
+  if [ "$DEVICE" == "RPi" ]; then
     make platform=rpi
-  elif [ "$DEVICE" = "RPi4" ]; then
+  elif [ "$DEVICE" = "RPi3" -o "${DEVICE:0:4}" = "RPi4" ]; then
     LDFLAGS="$LDFLAGS -lpthread"
     if [ "$ARCH" = "aarch64" ]; then
-      make WITH_DYNAREC=$DYNAREC FORCE_GLES=1 HAVE_PARALLEL=1
+      make WITH_DYNAREC=$DYNAREC FORCE_GLES=1 HAVE_PARALLEL=1 HAVE_OPENGL=0
     else
       make platform=armv-neon WITH_DYNAREC=$DYNAREC HAVE_PARALLEL=1
     fi
-  elif [[ "$PROJECT" == "Generic_VK_nvidia" ]]; then
+  elif [ "$PROJECT" = "Generic" ]; then
     LDFLAGS="$LDFLAGS -lpthread"
-    make WITH_DYNAREC=$DYNAREC HAVE_PARALLEL=1 HAVE_OPENGL=0
+    make WITH_DYNAREC=$DYNAREC HAVE_PARALLEL=1 HAVE_PARALLEL_RSP=1 HAVE_THR_AL=1
   elif [[ "$TARGET_FPU" =~ "neon" ]]; then
     CFLAGS="$CFLAGS -DGL_BGRA_EXT=0x80E1" # Fix build for platforms where GL_BGRA_EXT is not defined
     make platform=armv-gles-neon

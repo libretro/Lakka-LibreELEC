@@ -19,9 +19,8 @@
 ################################################################################
 
 PKG_NAME="mesen"
-PKG_VERSION="aa2f444"
-PKG_REV="1"
-PKG_ARCH="i386 x86_64 arm"
+PKG_VERSION="cec4911"
+PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/Mesen"
 PKG_URL="$PKG_SITE.git"

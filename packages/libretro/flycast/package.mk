@@ -19,9 +19,8 @@
 ################################################################################
 
 PKG_NAME="flycast"
-PKG_VERSION="0e10e86"
-PKG_REV="1"
-PKG_ARCH="arm aarch64 x86_64"
+PKG_VERSION="b941ea2"
+PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/flycast"
 PKG_URL="$PKG_SITE.git"
@@ -46,15 +45,17 @@ fi
 make_target() {
   if [ "$OPENGL_SUPPORT" = yes ]; then
     if [ "$ARCH" = "arm" ]; then
-      make HAVE_OPENMP=0 LDFLAGS=-lrt
+      make HAVE_OPENMP=0 LDFLAGS=-lrt HAVE_OIT=1
+    elif [ "$PROJECT" = "L4T" ]; then
+      make AS=${AS} CC_AS=${CC} platform=jetson-nano HAVE_OPENMP=0 HAVE_OIT=1
     else
-      make AS=${AS} CC_AS=${AS} ARCH=${ARCH} HAVE_OPENMP=0 LDFLAGS=-lrt
+      make AS=${AS} CC_AS=${AS} ARCH=${ARCH} HAVE_OPENMP=0 LDFLAGS=-lrt HAVE_OIT=1
     fi
   else
     FLYCAST_GL=""
     [ "$OPENGLES_SUPPORT" = yes ] && FLYCAST_GL="FORCE_GLES=1"
     if [ "$ARCH" == "arm" ]; then
-      if [ "$DEVICE" = "RPi4" ]; then
+      if [ "${DEVICE:0:4}" = "RPi4" ]; then
         make AS=${AS} CC_AS=${CC} platform=rpi4-gles-neon HAVE_OPENMP=0 LDFLAGS=-lrt
       elif [ "$DEVICE" = "RPi2" ]; then
         make AS=${AS} CC_AS=${CC} platform=rpi $FLYCAST_GL HAVE_OPENMP=0 LDFLAGS=-lrt
@@ -64,7 +65,7 @@ make_target() {
         make AS=${AS} CC_AS=${CC} platform=armv-gles-neon $FLYCAST_GL HAVE_OPENMP=0 LDFLAGS=-lrt
       fi
     else
-      if [ "$DEVICE" = "RPi4" -a "$ARCH" = "aarch64" ]; then
+      if [ "$PROJECT" = "RPi" -a "$ARCH" = "aarch64" ]; then
         make AS=${AS} CC_AS=${CC} platform=rpi4_64-gles-neon HAVE_OPENMP=0 LDFLAGS=-lrt
       else
         make AS=${AS} CC_AS=${AS} ARCH=${ARCH} $FLYCAST_GL HAVE_OPENMP=0 LDFLAGS=-lrt

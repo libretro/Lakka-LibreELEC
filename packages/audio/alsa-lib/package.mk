@@ -37,4 +37,8 @@ post_makeinstall_target() {
 
 post_install() {
   add_group audio 63
+
+  if [ "$DEVICE" = "RPi4-RetroDreamer" ]; then
+    sed -i -e "s/options snd-usb-audio index=-2/options snd-usb-audio index=0/" $INSTALL/usr/lib/modprobe.d/alsa-base.conf
+  fi
 }

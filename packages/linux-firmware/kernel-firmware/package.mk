@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="kernel-firmware"
-PKG_VERSION="20201218"
-PKG_SHA256="d60a418260bc083df8c7d3359aa207b48181ec8354b6c8545cac28ff19ce8950"
+PKG_VERSION="20210919"
+PKG_SHA256="4a8e07aa4c216646fcede242cef6f593082bfcff9554baa8844879a7aa019063"
 PKG_LICENSE="other"
 PKG_SITE="https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/"
 PKG_URL="https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/snapshot/$PKG_VERSION.tar.gz"
@@ -72,7 +72,7 @@ makeinstall_target() {
   fi
 
   # brcm pcie firmware is only needed by x86_64
-  [ "$TARGET_ARCH" != "x86_64" -o "$TARGET_ARCH" != "i386" ] && rm -fr $FW_TARGET_DIR/brcm/*-pcie.*
+  [ "$TARGET_ARCH" != "x86_64" ] && rm -fr $FW_TARGET_DIR/brcm/*-pcie.*
 
   # Cleanup - which may be project or device specific
   find_file_path scripts/cleanup.sh && ${FOUND_PATH} ${FW_TARGET_DIR} || true

@@ -8,13 +8,14 @@
       arm)
         # Valid TARGET_CPU for Raspberry Pi based devices are:
         # arm1176jzf-s cortex-a7 cortex-a53
-        if [ "$DEVICE" = "RPi" -o "$DEVICE" = "Slice" -o "$DEVICE" = "Gamegirl" -o "$DEVICE" = "GPICase" ]; then
+        if [ "$DEVICE" = "RPi" -o "$DEVICE" = "Slice" -o "$DEVICE" = "GPICase" ]; then
           TARGET_CPU="arm1176jzf-s"
         elif [ "$DEVICE" = "RPi2" -o "$DEVICE" = "Slice3" ]; then
           TARGET_CPU="cortex-a7"
-        elif [ "$DEVICE" = "RPi4" ]; then
+        elif [ "${DEVICE:0:4}" = "RPi4" ]; then
           TARGET_CPU="cortex-a72"
           TARGET_CPU_FLAGS="+crc"
+          VULKAN="vulkan-tools"
         fi
 
         # TARGET_FLOAT:
@@ -26,29 +27,28 @@
         # This specifies what floating point hardware (or hardware emulation) is
         # available on the target. Permissible names are:
         # vfp neon-vfpv4 neon-fp-armv8
-        if [ "$DEVICE" = "RPi" -o "$DEVICE" = "Slice" -o "$DEVICE" = "Gamegirl" -o "$DEVICE" = "GPICase" ]; then
+        if [ "$DEVICE" = "RPi" -o "$DEVICE" = "Slice" -o "$DEVICE" = "GPICase" ]; then
           TARGET_FPU="vfp"
         elif [ "$DEVICE" = "RPi2" -o "$DEVICE" = "Slice3" ]; then
           TARGET_FPU="neon-vfpv4"
-        elif [ "$DEVICE" = "RPi4" ]; then
+        elif [ "${DEVICE:0:4}" = "RPi4" ]; then
           TARGET_FPU="neon-fp-armv8"
         fi
         TARGET_FEATURES="32bit"
         KERNEL_TARGET="zImage"
         ;;
       aarch64)
-        if [ "$DEVICE" = "RPi4" ]; then
+        if [ "$DEVICE" = "RPi3" ]; then
+          TARGET_CPU="cortex-a53"
+        elif [ "${DEVICE:0:4}" = "RPi4" ]; then
           TARGET_CPU="cortex-a72"
-          TARGET_CPU_FLAGS="+crc"
-          TARGET_FPU="neon-fp-armv8"
+          VULKAN="vulkan-tools"
         fi
+        TARGET_CPU_FLAGS="+crc"
+        TARGET_FPU="neon-fp-armv8"
         TARGET_FLOAT="hard"
         TARGET_FEATURES="64bit"
         KERNEL_TARGET="Image"
-
-        # Exclude non-building cores
-        LIBRETRO_CORES="${LIBRETRO_CORES// mame2015 /}"
-        LIBRETRO_CORES="${LIBRETRO_CORES// yabause /}"
         ;;
     esac
 
@@ -143,6 +143,15 @@
 
     if [ "$DISTRO" = "Lakka" ]; then
       DRIVER_ADDONS=""
+    fi
+
+  # additional packages to install:
+  # Space separated list is supported,
+  # e.g. ADDITIONAL_PACKAGES="PACKAGE1 PACKAGE2"
+    ADDITIONAL_PACKAGES+=" python-raspberry-gpio"
+
+    if [ "$ARCH" = "aarch64" ]; then
+      ADDITIONAL_PACKAGES+=" rpi_userland"
     fi
 
   # debug tty path

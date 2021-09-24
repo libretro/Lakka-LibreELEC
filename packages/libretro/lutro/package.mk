@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="lutro"
-PKG_VERSION="61008ea"
+PKG_VERSION="777515a"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
@@ -33,6 +33,12 @@ PKG_LONGDESC="An experimental lua game framework for libretro inspired by LÖVE"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+pre_make_target() {
+  if target_has_feature neon; then
+    export HAVE_NEON=1
+  fi
+}
 
 make_target() {
   PTR_SIZE="-m32"

@@ -1,0 +1,77 @@
+From 82f1e6204da7fc64a4efecd35dc7e096911c5777 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?L=C3=A9o=20Lam?= <leo@leolam.fr>
+Date: Sat, 21 Nov 2020 01:05:01 +0100
+Subject: [PATCH] Fix -Wsign-compare warnings
+
+---
+ Source/Core/Common/Hash.cpp                                | 2 +-
+ .../Core/DolphinQt/QtUtils/UTF8CodePointCountValidator.cpp | 2 +-
+ .../Core/DolphinQt/QtUtils/UTF8CodePointCountValidator.h   | 7 +++++--
+ Source/Core/DolphinQt/TAS/TASCheckBox.cpp                  | 2 +-
+ 4 files changed, 8 insertions(+), 5 deletions(-)
+
+diff --git a/Source/Core/Common/Hash.cpp b/Source/Core/Common/Hash.cpp
+index 395865c475b3..2f9f47b2706a 100644
+--- a/Source/Core/Common/Hash.cpp
++++ b/Source/Core/Common/Hash.cpp
+@@ -99,7 +99,7 @@ u32 HashEctor(const u8* ptr, size_t length)
+ {
+   u32 crc = 0;
+ 
+-  for (int i = 0; i < length; i++)
++  for (size_t i = 0; i < length; i++)
+   {
+     crc ^= ptr[i];
+     crc = (crc << 3) | (crc >> 29);
+diff --git a/Source/Core/DolphinQt/QtUtils/UTF8CodePointCountValidator.cpp b/Source/Core/DolphinQt/QtUtils/UTF8CodePointCountValidator.cpp
+index d5020ea8dd3d..9361547f7bcc 100644
+--- a/Source/Core/DolphinQt/QtUtils/UTF8CodePointCountValidator.cpp
++++ b/Source/Core/DolphinQt/QtUtils/UTF8CodePointCountValidator.cpp
+@@ -6,7 +6,7 @@
+ 
+ #include "Common/StringUtil.h"
+ 
+-UTF8CodePointCountValidator::UTF8CodePointCountValidator(int max_count, QObject* parent)
++UTF8CodePointCountValidator::UTF8CodePointCountValidator(std::size_t max_count, QObject* parent)
+     : QValidator(parent), m_max_count(max_count)
+ {
+ }
+diff --git a/Source/Core/DolphinQt/QtUtils/UTF8CodePointCountValidator.h b/Source/Core/DolphinQt/QtUtils/UTF8CodePointCountValidator.h
+index 89a8bc8e1de3..fd952bf56a49 100644
+--- a/Source/Core/DolphinQt/QtUtils/UTF8CodePointCountValidator.h
++++ b/Source/Core/DolphinQt/QtUtils/UTF8CodePointCountValidator.h
+@@ -4,6 +4,8 @@
+ 
+ #pragma once
+ 
++#include <cstddef>
++
+ #include <QString>
+ #include <QValidator>
+ 
+@@ -11,9 +13,10 @@ class UTF8CodePointCountValidator : public QValidator
+ {
+   Q_OBJECT
+ public:
+-  explicit UTF8CodePointCountValidator(int max_count, QObject* parent = nullptr);
++  explicit UTF8CodePointCountValidator(std::size_t max_count, QObject* parent = nullptr);
+ 
+   QValidator::State validate(QString& input, int& pos) const override;
+ 
+-  int m_max_count;
++private:
++  std::size_t m_max_count;
+ };
+diff --git a/Source/Core/DolphinQt/TAS/TASCheckBox.cpp b/Source/Core/DolphinQt/TAS/TASCheckBox.cpp
+index 8395e7f3f3e1..c3124596969c 100644
+--- a/Source/Core/DolphinQt/TAS/TASCheckBox.cpp
++++ b/Source/Core/DolphinQt/TAS/TASCheckBox.cpp
+@@ -20,7 +20,7 @@ bool TASCheckBox::GetValue() const
+   if (checkState() == Qt::PartiallyChecked)
+   {
+     const u64 frames_elapsed = Movie::GetCurrentFrame() - m_frame_turbo_started;
+-    return frames_elapsed % m_turbo_total_frames < m_turbo_press_frames;
++    return static_cast<int>(frames_elapsed % m_turbo_total_frames) < m_turbo_press_frames;
+   }
+ 
+   return isChecked();

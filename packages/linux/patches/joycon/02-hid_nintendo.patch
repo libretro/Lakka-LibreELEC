@@ -1,0 +1,177 @@
+From 4f3de32d5e5aeddc471d9768405043f2102f27fc Mon Sep 17 00:00:00 2001
+From: "Daniel J. Ogorchock" <djogorchock@gmail.com>
+Date: Sat, 26 Jan 2019 21:25:41 -0600
+Subject: [PATCH] HID: nintendo: add player led support
+
+This patch adds led_classdev functionality to the switch controller
+driver. It adds support for the 4 player LEDs. The Home Button LED still
+needs to be supported on the pro controllers and right joy-con.
+
+Signed-off-by: Daniel J. Ogorchock <djogorchock@gmail.com>
+---
+ drivers/hid/Kconfig        |  2 +
+ drivers/hid/hid-nintendo.c | 95 +++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 95 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/hid/Kconfig b/drivers/hid/Kconfig
+index b1c7fa4ff26e..be6525498f62 100644
+--- a/drivers/hid/Kconfig
++++ b/drivers/hid/Kconfig
+@@ -722,6 +722,8 @@ config HID_MULTITOUCH
+ config HID_NINTENDO
+ 	tristate "Nintendo Joy-Con and Pro Controller support"
+ 	depends on HID
++	depends on NEW_LEDS
++	depends on LEDS_CLASS
+ 	help
+ 	Adds support for the Nintendo Switch Joy-Cons and Pro Controller.
+ 	All controllers support bluetooth, and the Pro Controller also supports
+diff --git a/drivers/hid/hid-nintendo.c b/drivers/hid/hid-nintendo.c
+index 7273ddf033e2..c3eec9b7c99c 100644
+--- a/drivers/hid/hid-nintendo.c
++++ b/drivers/hid/hid-nintendo.c
+@@ -25,6 +25,7 @@
+ #include <linux/device.h>
+ #include <linux/hid.h>
+ #include <linux/input.h>
++#include <linux/leds.h>
+ #include <linux/module.h>
+ #include <linux/spinlock.h>
+ 
+@@ -183,11 +184,13 @@ struct joycon_input_report {
+ } __packed;
+ 
+ #define JC_MAX_RESP_SIZE	(sizeof(struct joycon_input_report) + 35)
++#define JC_NUM_LEDS		4
+ 
+ /* Each physical controller is associated with a joycon_ctlr struct */
+ struct joycon_ctlr {
+ 	struct hid_device *hdev;
+ 	struct input_dev *input;
++	struct led_classdev leds[JC_NUM_LEDS];
+ 	enum joycon_ctlr_state ctlr_state;
+ 
+ 	/* The following members are used for synchronous sends/receives */
+@@ -553,11 +556,9 @@ static const unsigned int joycon_dpad_inputs_jc[] = {
+ 	BTN_DPAD_UP, BTN_DPAD_DOWN, BTN_DPAD_LEFT, BTN_DPAD_RIGHT,
+ };
+ 
+-static DEFINE_MUTEX(joycon_input_num_mutex);
+ static int joycon_input_create(struct joycon_ctlr *ctlr)
+ {
+ 	struct hid_device *hdev;
+-	static int input_num = 1;
+ 	const char *name;
+ 	int ret;
+ 	int i;
+@@ -643,6 +644,66 @@ static int joycon_input_create(struct joycon_ctlr *ctlr)
+ 	if (ret)
+ 		return ret;
+ 
++	return 0;
++}
++
++static int joycon_player_led_brightness_set(struct led_classdev *led,
++					    enum led_brightness brightness)
++{
++	struct device *dev = led->dev->parent;
++	struct hid_device *hdev = to_hid_device(dev);
++	struct joycon_ctlr *ctlr;
++	int val = 0;
++	int i;
++	int ret;
++	int num;
++
++	ctlr = hid_get_drvdata(hdev);
++	if (!ctlr) {
++		hid_err(hdev, "No controller data\n");
++		return -ENODEV;
++	}
++
++	/* determine which player led this is */
++	for (num = 0; num < JC_NUM_LEDS; num++) {
++		if (&ctlr->leds[num] == led)
++			break;
++	}
++	if (num >= JC_NUM_LEDS)
++		return -EINVAL;
++
++	mutex_lock(&ctlr->output_mutex);
++	for (i = 0; i < JC_NUM_LEDS; i++) {
++		if (i == num)
++			val |= brightness << i;
++		else
++			val |= ctlr->leds[i].brightness << i;
++	}
++	ret = joycon_set_player_leds(ctlr, 0, val);
++	mutex_unlock(&ctlr->output_mutex);
++
++	return ret;
++}
++
++static const char * const joycon_player_led_names[] = {
++	"player1",
++	"player2",
++	"player3",
++	"player4"
++};
++
++static DEFINE_MUTEX(joycon_input_num_mutex);
++static int joycon_player_leds_create(struct joycon_ctlr *ctlr)
++{
++	struct hid_device *hdev = ctlr->hdev;
++	struct device *dev = &hdev->dev;
++	const char *d_name = dev_name(dev);
++	struct led_classdev *led;
++	char *name;
++	int ret = 0;
++	int i;
++	static int input_num = 1;
++
+ 	/* Set the default controller player leds based on controller number */
+ 	mutex_lock(&joycon_input_num_mutex);
+ 	mutex_lock(&ctlr->output_mutex);
+@@ -650,6 +711,29 @@ static int joycon_input_create(struct joycon_ctlr *ctlr)
+ 	if (ret)
+ 		hid_warn(ctlr->hdev, "Failed to set leds; ret=%d\n", ret);
+ 	mutex_unlock(&ctlr->output_mutex);
++
++	/* configure the player LEDs */
++	for (i = 0; i < JC_NUM_LEDS; i++) {
++		name = devm_kasprintf(dev, GFP_KERNEL, "%s:%s", d_name,
++				      joycon_player_led_names[i]);
++		if (!name)
++			return -ENOMEM;
++
++		led = &ctlr->leds[i];
++		led->name = name;
++		led->brightness = ((i + 1) <= input_num) ? LED_ON : LED_OFF;
++		led->max_brightness = LED_ON;
++		led->brightness_set_blocking =
++					joycon_player_led_brightness_set;
++		led->flags = LED_CORE_SUSPENDRESUME | LED_HW_PLUGGABLE;
++
++		ret = devm_led_classdev_register(&hdev->dev, led);
++		if (ret) {
++			hid_err(hdev, "Failed registering %s LED\n", led->name);
++			break;
++		}
++	}
++
+ 	if (++input_num > 4)
+ 		input_num = 1;
+ 	mutex_unlock(&joycon_input_num_mutex);
+@@ -815,6 +899,13 @@ static int nintendo_hid_probe(struct hid_device *hdev,
+ 
+ 	mutex_unlock(&ctlr->output_mutex);
+ 
++	/* Initialize the leds */
++	ret = joycon_player_leds_create(ctlr);
++	if (ret) {
++		hid_err(hdev, "Failed to create leds; ret=%d\n", ret);
++		goto err_close;
++	}
++
+ 	ret = joycon_input_create(ctlr);
+ 	if (ret) {
+ 		hid_err(hdev, "Failed to create input device; ret=%d\n", ret);

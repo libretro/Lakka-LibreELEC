@@ -72,19 +72,24 @@ targets="\
 	Allwinner|H6|arm|image \
 	Amlogic|AMLG12|arm|image \
 	Amlogic|AMLGX|arm|image \
-	Generic||x86_64|image \
 	Generic||i386|image \
+	Generic||x86_64|image \
+	L4T|Switch|aarch64|image \
+	NXP|iMX6|arm|image \
+	OdroidXU3||arm|image \
 	Rockchip|MiQi|arm|image \
+	Rockchip|OdroidGoAdvance|arm|image \
 	Rockchip|RK3328|arm|image \
 	Rockchip|RK3399|arm|image \
 	Rockchip|TinkerBoard|arm|image \
-	RPi|Gamegirl|arm|image \
-	RPi|GPICase|arm|noobs \
+	RPi|GPICase|arm|image \
 	RPi|RPi|arm|noobs \
 	RPi|RPi2|arm|noobs \
+	RPi|RPi3|aarch64|noobs \
 	RPi|RPi4|arm|noobs \
-	Qualcomm|Dragonboard|arm|image \
-	NXP|iMX6|arm|image \
+	RPi|RPi4|aarch64|noobs \
+	RPi|RPi4-PiBoyDmg|aarch64|image \
+	RPi|RPi4-RetroDreamer|aarch64|image \
 	"
 
 # set the number of total build jobs and initialize counter for current build job
@@ -122,14 +127,9 @@ do
 
 	if [ "${DASHBOARD_MODE}" != "yes" ]
 	then
-		rm -rf build.${distro}-${target_name}*/.stamps
-		rm -rf build.${distro}-${target_name}*/image
-		rm -rf build.${distro}-${target_name}*/toolchain
-		rm -rf build.${distro}-${target_name}*/nss*
-		rm -rf build.${distro}-${target_name}*/avahi*
 		# show logs during build (non-dashboard build)
 		echo "Starting build of ${target_name}"
-		make ${out} PROJECT=${project} DEVICE=${device} ARCH=${arch} IGNORE_VERSION=${iv} ${tc}
+		make ${out} OFFICIAL=yes PROJECT=${project} DEVICE=${device} ARCH=${arch} IGNORE_VERSION=${iv} ${tc}
 		ret_nondb=${?}
 		if [ ${ret_nondb} -gt 0 -a "${BAILOUT_FAILED}" != "no" ]
 		then
@@ -138,13 +138,8 @@ do
 	else
 		# remove the old dashboard, so we don't show old/stale dashboard
 		rm -f ${statusfile}
-		rm -rf build.${distro}-${target_name}*/.stamps
-		rm -rf build.${distro}-${target_name}*/image
-		rm -rf build.${distro}-${target_name}*/toolchain
-		rm -rf build.${distro}-${target_name}*/nss*
-		rm -rf build.${distro}-${target_name}*/avahi*
 		# start the build process in background
-		make ${out} PROJECT=${project} DEVICE=${device} ARCH=${arch} IGNORE_VERSION=${iv} ${tc} &>/dev/null &
+		make ${out} OFFICIAL=yes PROJECT=${project} DEVICE=${device} ARCH=${arch} IGNORE_VERSION=${iv} ${tc} &>/dev/null &
 		# store the pid
 		pid=${!}
 		finished=0
@@ -284,16 +279,35 @@ do
 		[ "${DASHBOARD_MODE}" = "yes" ] && echo "done!"
 
 		# move release files to the folder
-		[ "${DASHBOARD_MODE}" = "yes" ] && echo -n "Moving release files (.img.gz, .kernel, .system, -noobs.tar) to subfolder..."
-		for file in Lakka-${target_name}-*{.img.gz,-noobs.tar,.kernel,.system}*
+		[ "${DASHBOARD_MODE}" = "yes" ] && echo -n "Moving release files (.img.gz, .kernel, .system, .tar) to subfolder..."
+		for file in Lakka-${target_name}-*{.img.gz,.kernel,.system,.tar}*
 		do
 			[ -f "${file}" ] && mv ${v} ${file} ${target_name}/
 		done
 		[ "${DASHBOARD_MODE}" = "yes" ] && echo "done!"
 		# remove files we do not use
-		[ "${DASHBOARD_MODE}" = "yes" ] && echo -n "Removing unused files (.tar, .ova)..."
-		rm -f ${v} Lakka-${target_name}-*.{tar,ova}*
+		[ "${DASHBOARD_MODE}" = "yes" ] && echo -n "Removing unused files (.ova)..."
+		rm -f ${v} Lakka-${target_name}-*.{ova}*
 		[ "${DASHBOARD_MODE}" = "yes" ] && echo "done!"
+		if [ "${target_name}" = "Switch.aarch64" ]
+		then
+			if [ -x $(which 7za 2>/dev/null) ]
+			then
+				[ "${DASHBOARD_MODE}" = "yes" ] && echo -n "Creating 7z archive for ${target_name}..."
+				cd ${target_name}
+				basename=$(basename $(ls Lakka-${target_name}-*.tar | head -n 1) .tar)
+				if [ -n "${basename}" ]
+				then
+					tar xf ${basename}.tar
+					cd ${basename}
+					7za a -r ../${basename}.7z * 2>&1 > /dev/null
+					cd ..
+					rm -r ${basename}
+				fi
+				cd ..
+				[ "${DASHBOARD_MODE}" = "yes" ] && echo "done!"
+			fi
+		fi
 		cd ..
 	else
 		# build OK, but no release files were created

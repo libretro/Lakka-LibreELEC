@@ -19,8 +19,7 @@
 ################################################################################
 
 PKG_NAME="sameboy"
-PKG_VERSION="35ee9ab"
-PKG_REV="1"
+PKG_VERSION="27a42aa"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/libretro/sameboy"

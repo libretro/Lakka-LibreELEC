@@ -16,6 +16,7 @@ PKG_LONGDESC="Python2 is an interpreted object-oriented programming language."
 PKG_TOOLCHAIN="autotools"
 PKG_BUILD_FLAGS="-parallel +lto-parallel"
 
+
 PKG_PY_DISABLED_MODULES="_tkinter nis gdbm bsddb ossaudiodev"
 
 PKG_CONFIGURE_OPTS_HOST="--cache-file=config.cache \

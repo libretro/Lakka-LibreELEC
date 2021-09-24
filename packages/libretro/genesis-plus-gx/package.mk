@@ -19,8 +19,7 @@
 ################################################################################
 
 PKG_NAME="genesis-plus-gx"
-PKG_VERSION="58758ae"
-PKG_REV="1"
+PKG_VERSION="76a08eb"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"
 PKG_SITE="https://github.com/ekeeke/Genesis-Plus-GX"
@@ -37,13 +36,11 @@ PKG_AUTORECONF="no"
 
 PKG_MAKE_OPTS_TARGET="-f Makefile.libretro"
 
-if [ "$ARCH" = "aarch64" ]; then
-  PKG_MAKE_OPTS_TARGET+=" NO_OPTIMIZE=1"
-fi
-
-if [ "$ARCH" = "arm" ]; then
-  PKG_EXTRA_CFLAGS="-DALIGN_LONG"
-fi
+pre_make_target() {
+  if [ "$ARCH" = "arm" -o "$ARCH" = "aarch64" ]; then
+    CFLAGS+=" -DALIGN_LONG"
+  fi
+}
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro

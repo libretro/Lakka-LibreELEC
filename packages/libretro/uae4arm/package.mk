@@ -19,33 +19,37 @@
 ################################################################################
 
 PKG_NAME="uae4arm"
-PKG_VERSION="f278f62"
+PKG_VERSION="d215cce"
 PKG_REV="1"
-PKG_ARCH="arm"
+PKG_ARCH="arm aarch64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/Chips-fr/uae4arm-rpi"
+PKG_GIT_CLONE_BRANCH="master"
 PKG_URL="$PKG_SITE.git"
 PKG_DEPENDS_TARGET="toolchain flac mpg123 zlib"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="Port of uae4arm for libretro (rpi/android)"
 PKG_LONGDESC="Port of uae4arm for libretro (rpi/android) "
-PKG_BUILD_FLAGS="-lto"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 
 make_target() {
-  CFLAGS="$CFLAGS -DARM -marm"
-  if [[ "$TARGET_FPU" =~ "neon" ]]; then
-    make -f Makefile.libretro platform=unix-neon
+  if [[ "$ARCH" =~ "aarch64" ]]; then
+    make -f Makefile.libretro platform=unix-aarch64
   else
-    make -f Makefile.libretro platform=unix
+    if [[ "$TARGET_FPU" =~ "neon" ]]; then
+      make -f Makefile.libretro platform=unix-neon
+    else
+      make -f Makefile.libretro platform=unix
+    fi
   fi
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
   cp uae4arm_libretro.so $INSTALL/usr/lib/libretro/
+  cp capsimg.so $INSTALL/usr/lib/
 }

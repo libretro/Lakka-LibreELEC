@@ -8,7 +8,7 @@ PKG_SHA256="ec22be9a5dd94c9640e6348ed8391d1499af8ca2c2f01109198a414cff6c6cba"
 PKG_LICENSE="LGPL2.1+"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/systemd"
 PKG_URL="https://github.com/systemd/systemd/archive/v$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain libcap kmod util-linux entropy libidn2 wait-time-sync"
+PKG_DEPENDS_TARGET="toolchain libcap kmod util-linux entropy libidn2"
 PKG_LONGDESC="A system and session manager for Linux, compatible with SysV and LSB init scripts."
 
 PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
@@ -198,7 +198,11 @@ post_makeinstall_target() {
 
   # tune logind.conf
   sed -e "s,^.*HandleLidSwitch=.*$,HandleLidSwitch=ignore,g" -i $INSTALL/etc/systemd/logind.conf
-  sed -e "s,^.*HandlePowerKey=.*$,HandlePowerKey=ignore,g" -i $INSTALL/etc/systemd/logind.conf
+  if [ "$PROJECT" = "RPi" ]; then
+    sed -e "s,^.*HandlePowerKey=.*$,HandlePowerKey=poweroff,g" -i $INSTALL/etc/systemd/logind.conf
+  else
+    sed -e "s,^.*HandlePowerKey=.*$,HandlePowerKey=ignore,g" -i $INSTALL/etc/systemd/logind.conf
+  fi
 
   # fix ordering cycle for overlay mounts
   if [ "$DISTRO" = "Lakka" ]; then

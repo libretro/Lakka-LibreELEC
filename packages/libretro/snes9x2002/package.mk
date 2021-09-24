@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="snes9x2002"
-PKG_VERSION="a869da7"
+PKG_VERSION="48b67ee"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"
@@ -35,7 +35,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  if [ "$DEVICE" = "RPi" -o "$DEVICE" = "Gamegirl" -o "$DEVICE" = "GPICase" ]; then
+  if [ "$DEVICE" = "RPi" -o "$DEVICE" = "GPICase" ]; then
     make ARM_ASM=1 platform=unix
   else
     make platform=unix

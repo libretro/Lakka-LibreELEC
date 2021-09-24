@@ -1,14 +1,13 @@
-
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libdrm"
-PKG_VERSION="2.4.103"
-PKG_SHA256="3fe0affdba6460166a7323290c18cf68e9b59edcb520722826cb244e9cb50222"
+PKG_VERSION="2.4.107"
+PKG_SHA256="c554cef03b033636a975543eab363cc19081cb464595d3da1ec129f87370f888"
 PKG_LICENSE="GPL"
 PKG_SITE="http://dri.freedesktop.org"
-PKG_URL="http://dri.freedesktop.org/libdrm/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="http://dri.freedesktop.org/libdrm/libdrm-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain libpciaccess"
 PKG_LONGDESC="The userspace interface library to kernel DRM services."
 PKG_TOOLCHAIN="meson"
@@ -27,7 +26,7 @@ PKG_MESON_OPTS_TARGET="-Dlibkms=false \
                        -Dinstall-test-programs=false \
                        -Dudev=false"
 
-listcontains "${GRAPHIC_DRIVERS}" "(i915|i965)" &&
+listcontains "${GRAPHIC_DRIVERS}" "(iris|crocus|i915)" &&
   PKG_MESON_OPTS_TARGET+=" -Dintel=true" || PKG_MESON_OPTS_TARGET+=" -Dintel=false"
 
 listcontains "${GRAPHIC_DRIVERS}" "(r200|r300|r600|radeonsi)" &&
@@ -51,4 +50,7 @@ listcontains "${GRAPHIC_DRIVERS}" "etnaviv" &&
 post_makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin
     cp -a ${PKG_BUILD}/.${TARGET_NAME}/tests/modetest/modetest ${INSTALL}/usr/bin/
+  if [ "$PROJECT" = "L4T" ]; then
+    rm ${INSTALL}/usr/lib/libdrm.so.2
+  fi
 }
