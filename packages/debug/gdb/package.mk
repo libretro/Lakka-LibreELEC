@@ -8,8 +8,8 @@ PKG_SHA256="cccfcc407b20d343fb320d4a9a2110776dd3165118ffd41f4b1b162340333f94"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/gdb/"
 PKG_URL="https://ftp.gnu.org/gnu/gdb/${PKG_NAME}-${PKG_VERSION}.tar.xz"
-PKG_DEPENDS_TARGET="toolchain zlib ncurses expat"
-PKG_DEPENDS_HOST="toolchain:host zlib:host ncurses:host expat:host"
+PKG_DEPENDS_TARGET="toolchain zlib ncurses expat gmp"
+PKG_DEPENDS_HOST="toolchain:host zlib:host ncurses:host expat:host gmp:host"
 PKG_LONGDESC="GNU Project debugger, allows you to see what is going on inside another program while it executes."
 PKG_BUILD_FLAGS="+size"
 
@@ -37,7 +37,8 @@ PKG_CONFIGURE_OPTS_COMMON="bash_cv_have_mbstate_t=set \
                            --disable-werror"
 
 PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_COMMON} \
-                           --with-libexpat-prefix=${SYSROOT_PREFIX}/usr"
+                           --with-libexpat-prefix=${SYSROOT_PREFIX}/usr \
+                           --with-libgmp-prefix=${SYSROOT_PREFIX}/usr"
 
 PKG_CONFIGURE_OPTS_HOST="${PKG_CONFIGURE_OPTS_COMMON} \
                          --target=${TARGET_NAME}"
