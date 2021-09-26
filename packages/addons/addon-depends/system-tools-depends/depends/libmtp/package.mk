@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libmtp"
-PKG_VERSION="1.1.18"
-PKG_SHA256="7280fe50c044c818a06667f45eabca884deab3193caa8682e0b581e847a281f0"
+PKG_VERSION="1.1.19"
+PKG_SHA256="deb4af6f63f5e71215cfa7fb961795262920b4ec6cb4b627f55b30b18aa33228"
 PKG_LICENSE="GPL"
 PKG_SITE="http://libmtp.sourceforge.net/"
 PKG_URL="${SOURCEFORGE_SRC}/project/${PKG_NAME}/${PKG_NAME}/${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.gz"
