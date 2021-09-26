@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="gme"
-PKG_VERSION="edafe09"
+PKG_VERSION="bda7032"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
