@@ -1,0 +1,1379 @@
+diff --git a/config.def.h b/config.def.h
+index 7b6d55d20c..4321fbbafa 100644
+--- a/config.def.h
++++ b/config.def.h
+@@ -1464,9 +1464,7 @@ static const bool enable_device_vibration    = false;
+ /* Defines the strength of rumble effects
+  * on OpenDingux devices */
+ #if defined(DINGUX) && defined(HAVE_LIBSHAKE)
+-#define DEFAULT_RUMBLE_GAIN 50
+-#else
+-#define DEFAULT_RUMBLE_GAIN 100
++#define DEFAULT_DINGUX_RUMBLE_GAIN 50
+ #endif
+ 
+ #ifdef HAVE_VULKAN
+diff --git a/configuration.c b/configuration.c
+index f71271ec4d..77781fb0ec 100644
+--- a/configuration.c
++++ b/configuration.c
+@@ -2080,7 +2080,9 @@ static struct config_uint_setting *populate_settings_uint(
+    SETTING_UINT("input_mouse_scale",            &settings->uints.input_mouse_scale, true, DEFAULT_MOUSE_SCALE, false);
+ #endif
+    SETTING_UINT("input_touch_scale",            &settings->uints.input_touch_scale, true, DEFAULT_TOUCH_SCALE, false);
+-   SETTING_UINT("input_rumble_gain",            &settings->uints.input_rumble_gain, true, DEFAULT_RUMBLE_GAIN, false);
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
++   SETTING_UINT("input_dingux_rumble_gain",     &settings->uints.input_dingux_rumble_gain, true, DEFAULT_DINGUX_RUMBLE_GAIN, false);
++#endif
+    SETTING_UINT("input_auto_game_focus",        &settings->uints.input_auto_game_focus, true, DEFAULT_INPUT_AUTO_GAME_FOCUS, false);
+    SETTING_UINT("audio_latency",                &settings->uints.audio_latency, false, 0 /* TODO */, false);
+    SETTING_UINT("audio_resampler_quality",      &settings->uints.audio_resampler_quality, true, audio_resampler_quality_level, false);
+diff --git a/configuration.h b/configuration.h
+index cee78b6469..c89d075b4e 100644
+--- a/configuration.h
++++ b/configuration.h
+@@ -190,7 +190,7 @@ typedef struct settings
+       unsigned input_menu_toggle_gamepad_combo;
+       unsigned input_keyboard_gamepad_mapping_type;
+       unsigned input_poll_type_behavior;
+-      unsigned input_rumble_gain;
++      unsigned input_dingux_rumble_gain;
+       unsigned input_auto_game_focus;
+       unsigned input_max_users;
+ 
+diff --git a/input/drivers/psl1ght_input.c b/input/drivers/psl1ght_input.c
+index e8d067f298..d84743af5d 100644
+--- a/input/drivers/psl1ght_input.c
++++ b/input/drivers/psl1ght_input.c
+@@ -550,7 +550,6 @@ input_device_driver_t ps3_joypad = {
+    ps3_joypad_axis,
+    ps3_joypad_poll,
+    ps3_joypad_rumble,
+-   NULL,
+    ps3_joypad_name,
+    "ps3",
+ };
+diff --git a/input/drivers_joypad/android_joypad.c b/input/drivers_joypad/android_joypad.c
+index 3f720fbe8a..4c8b6a0fce 100644
+--- a/input/drivers_joypad/android_joypad.c
++++ b/input/drivers_joypad/android_joypad.c
+@@ -253,7 +253,6 @@ input_device_driver_t android_joypad = {
+    android_joypad_axis,
+    android_joypad_poll,
+    android_joypad_rumble,
+-   NULL,
+    android_joypad_name,
+    "android",
+ };
+diff --git a/input/drivers_joypad/ctr_joypad.c b/input/drivers_joypad/ctr_joypad.c
+index 5c954cf813..1eb718fdb9 100644
+--- a/input/drivers_joypad/ctr_joypad.c
++++ b/input/drivers_joypad/ctr_joypad.c
+@@ -219,7 +219,6 @@ input_device_driver_t ctr_joypad = {
+    ctr_joypad_axis,
+    ctr_joypad_poll,
+    NULL,
+-   NULL,
+    ctr_joypad_name,
+    "ctr",
+ };
+diff --git a/input/drivers_joypad/dinput_joypad.c b/input/drivers_joypad/dinput_joypad.c
+index cfddb30181..cab4d6916d 100644
+--- a/input/drivers_joypad/dinput_joypad.c
++++ b/input/drivers_joypad/dinput_joypad.c
+@@ -56,7 +56,6 @@ input_device_driver_t dinput_joypad = {
+    dinput_joypad_axis,
+    dinput_joypad_poll,
+    dinput_joypad_set_rumble,
+-   NULL,
+    dinput_joypad_name,
+    "dinput",
+ };
+diff --git a/input/drivers_joypad/dos_joypad.c b/input/drivers_joypad/dos_joypad.c
+index 54d4a4396c..903f0bd944 100644
+--- a/input/drivers_joypad/dos_joypad.c
++++ b/input/drivers_joypad/dos_joypad.c
+@@ -271,7 +271,6 @@ input_device_driver_t dos_joypad = {
+    dos_joypad_axis,
+    dos_joypad_poll,
+    NULL,
+-   NULL,
+    dos_joypad_name,
+    "dos",
+ };
+diff --git a/input/drivers_joypad/gx_joypad.c b/input/drivers_joypad/gx_joypad.c
+index 4f4101ac6d..56532af2be 100644
+--- a/input/drivers_joypad/gx_joypad.c
++++ b/input/drivers_joypad/gx_joypad.c
+@@ -668,7 +668,6 @@ input_device_driver_t gx_joypad = {
+    gx_joypad_axis,
+    gx_joypad_poll,
+    NULL,
+-   NULL,
+    gx_joypad_name,
+    "gx",
+ };
+diff --git a/input/drivers_joypad/hid_joypad.c b/input/drivers_joypad/hid_joypad.c
+index fd6e22b880..b149613d7c 100644
+--- a/input/drivers_joypad/hid_joypad.c
++++ b/input/drivers_joypad/hid_joypad.c
+@@ -130,7 +130,6 @@ input_device_driver_t hid_joypad = {
+    hid_joypad_axis,
+    hid_joypad_poll,
+    hid_joypad_rumble,
+-   NULL,
+    hid_joypad_name,
+    "hid"
+ };
+diff --git a/input/drivers_joypad/linuxraw_joypad.c b/input/drivers_joypad/linuxraw_joypad.c
+index 846357b107..9cf85a285a 100644
+--- a/input/drivers_joypad/linuxraw_joypad.c
++++ b/input/drivers_joypad/linuxraw_joypad.c
+@@ -402,7 +402,6 @@ input_device_driver_t linuxraw_joypad = {
+    linuxraw_joypad_axis,
+    linuxraw_joypad_poll,
+    NULL,
+-   NULL,
+    linuxraw_joypad_name,
+    "linuxraw",
+ };
+diff --git a/input/drivers_joypad/mfi_joypad.m b/input/drivers_joypad/mfi_joypad.m
+index 7a7bd56426..ea61dc010b 100644
+--- a/input/drivers_joypad/mfi_joypad.m
++++ b/input/drivers_joypad/mfi_joypad.m
+@@ -481,7 +481,6 @@ input_device_driver_t mfi_joypad = {
+     apple_gamecontroller_joypad_axis,
+     apple_gamecontroller_joypad_poll,
+     NULL,
+-    NULL,
+     apple_gamecontroller_joypad_name,
+     "mfi",
+ };
+diff --git a/input/drivers_joypad/parport_joypad.c b/input/drivers_joypad/parport_joypad.c
+index 16adbe4b1b..8621a63ada 100644
+--- a/input/drivers_joypad/parport_joypad.c
++++ b/input/drivers_joypad/parport_joypad.c
+@@ -412,7 +412,6 @@ input_device_driver_t parport_joypad = {
+    parport_joypad_axis,
+    parport_joypad_poll,
+    NULL,
+-   NULL,
+    parport_joypad_name,
+    "parport",
+ };
+diff --git a/input/drivers_joypad/ps2_joypad.c b/input/drivers_joypad/ps2_joypad.c
+index 771d264b7e..bf60f6062b 100644
+--- a/input/drivers_joypad/ps2_joypad.c
++++ b/input/drivers_joypad/ps2_joypad.c
+@@ -261,7 +261,6 @@ input_device_driver_t ps2_joypad = {
+    ps2_joypad_axis,
+    ps2_joypad_poll,
+    ps2_joypad_rumble,
+-   NULL,
+    ps2_joypad_name,
+    "ps2",
+ };
+diff --git a/input/drivers_joypad/ps3_joypad.c b/input/drivers_joypad/ps3_joypad.c
+index 64edd899d7..4c3f5d8190 100644
+--- a/input/drivers_joypad/ps3_joypad.c
++++ b/input/drivers_joypad/ps3_joypad.c
+@@ -289,7 +289,6 @@ input_device_driver_t ps3_joypad = {
+    ps3_joypad_axis,
+    ps3_joypad_poll,
+    ps3_joypad_rumble,
+-   NULL,
+    ps3_joypad_name,
+    "ps3",
+ };
+diff --git a/input/drivers_joypad/ps4_joypad.c b/input/drivers_joypad/ps4_joypad.c
+index 4a0042e4c8..b54fe8eac0 100644
+--- a/input/drivers_joypad/ps4_joypad.c
++++ b/input/drivers_joypad/ps4_joypad.c
+@@ -242,7 +242,6 @@ input_device_driver_t ps4_joypad = {
+    ps4_joypad_axis,
+    ps4_joypad_poll,
+    ps4_joypad_rumble,
+-   NULL,
+    ps4_joypad_name,
+    "ps4",
+ };
+diff --git a/input/drivers_joypad/psp_joypad.c b/input/drivers_joypad/psp_joypad.c
+index 4e602e26ac..6c708925ea 100644
+--- a/input/drivers_joypad/psp_joypad.c
++++ b/input/drivers_joypad/psp_joypad.c
+@@ -432,7 +432,6 @@ input_device_driver_t psp_joypad = {
+    psp_joypad_axis,
+    psp_joypad_poll,
+    psp_joypad_rumble,
+-   NULL,
+    psp_joypad_name,
+ #ifdef VITA
+    "vita",
+diff --git a/input/drivers_joypad/qnx_joypad.c b/input/drivers_joypad/qnx_joypad.c
+index e13c74dea1..1924959b15 100644
+--- a/input/drivers_joypad/qnx_joypad.c
++++ b/input/drivers_joypad/qnx_joypad.c
+@@ -163,7 +163,6 @@ input_device_driver_t qnx_joypad = {
+    qnx_joypad_axis,
+    qnx_joypad_poll,
+    NULL,
+-   NULL,
+    qnx_joypad_name,
+    "qnx",
+ };
+diff --git a/input/drivers_joypad/rwebpad_joypad.c b/input/drivers_joypad/rwebpad_joypad.c
+index 41a80f8caa..5ddc893d5d 100644
+--- a/input/drivers_joypad/rwebpad_joypad.c
++++ b/input/drivers_joypad/rwebpad_joypad.c
+@@ -219,7 +219,6 @@ input_device_driver_t rwebpad_joypad = {
+    rwebpad_joypad_axis,
+    rwebpad_joypad_poll,
+    NULL,
+-   NULL,
+    rwebpad_joypad_name,
+    "rwebpad",
+ };
+diff --git a/input/drivers_joypad/sdl_dingux_joypad.c b/input/drivers_joypad/sdl_dingux_joypad.c
+index a9ca32b057..a4c252b576 100644
+--- a/input/drivers_joypad/sdl_dingux_joypad.c
++++ b/input/drivers_joypad/sdl_dingux_joypad.c
+@@ -29,7 +29,6 @@
+ #if defined(HAVE_LIBSHAKE)
+ #include <shake.h>
+ #include "../../configuration.h"
+-#include "../../config.def.h"
+ #endif
+ 
+ #if defined(RS90) || defined (RETROFW)
+@@ -101,11 +100,15 @@ static dingux_joypad_t dingux_joypad;
+ static bool sdl_dingux_rumble_init(dingux_joypad_rumble_t *rumble)
+ {
+    settings_t *settings = config_get_ptr();
+-   unsigned rumble_gain = settings ? settings->uints.input_rumble_gain
+-                                   : DEFAULT_RUMBLE_GAIN;
++   unsigned rumble_gain = settings ? settings->uints.input_dingux_rumble_gain : 0;
+    bool weak_uploaded   = false;
+    bool strong_uploaded = false;
+ 
++   /* If gain is zero, rumble is disabled
++    * > No need to initialise device */
++   if (rumble_gain == 0)
++      goto error;
++
+    if (Shake_NumOfDevices() < 1)
+       goto error;
+ 
+@@ -160,7 +163,8 @@ static bool sdl_dingux_rumble_init(dingux_joypad_rumble_t *rumble)
+    return true;
+ 
+ error:
+-   RARCH_WARN("[libShake]: Input device does not support rumble effects.\n");
++   if (rumble_gain != 0)
++      RARCH_WARN("[libShake]: Input device does not support rumble effects.\n");
+ 
+    if (rumble->device)
+    {
+@@ -234,8 +238,7 @@ static bool sdl_dingux_joypad_set_rumble(unsigned pad,
+ {
+    dingux_joypad_t *joypad = (dingux_joypad_t*)&dingux_joypad;
+ 
+-   if ((pad != 0) ||
+-       !joypad->rumble.device)
++   if (!joypad->rumble.device)
+       return false;
+ 
+    switch (effect)
+@@ -254,27 +257,6 @@ static bool sdl_dingux_joypad_set_rumble(unsigned pad,
+ 
+    return false;
+ }
+-
+-static bool sdl_dingux_joypad_set_rumble_gain(unsigned pad, unsigned gain)
+-{
+-   dingux_joypad_t *joypad = (dingux_joypad_t*)&dingux_joypad;
+-
+-   if ((pad != 0) ||
+-       !joypad->rumble.device)
+-      return false;
+-
+-   /* Gain is automatically capped by Shake_SetGain(),
+-    * but do it explicitly here for clarity */
+-   if (gain > 100)
+-      gain = 100;
+-
+-   /* Set gain */
+-   if (Shake_QueryGainSupport(joypad->rumble.device))
+-      if (Shake_SetGain(joypad->rumble.device, (int)gain) == SHAKE_OK)
+-         return true;
+-
+-   return false;
+-}
+ #endif
+ 
+ static const char *sdl_dingux_joypad_name(unsigned port)
+@@ -745,10 +727,8 @@ input_device_driver_t sdl_dingux_joypad = {
+    sdl_dingux_joypad_poll,
+ #if defined(HAVE_LIBSHAKE)
+    sdl_dingux_joypad_set_rumble,
+-   sdl_dingux_joypad_set_rumble_gain,
+ #else
+    NULL,
+-   NULL,
+ #endif
+    sdl_dingux_joypad_name,
+    "sdl_dingux",
+diff --git a/input/drivers_joypad/sdl_joypad.c b/input/drivers_joypad/sdl_joypad.c
+index 1213037626..2d48aa3e20 100644
+--- a/input/drivers_joypad/sdl_joypad.c
++++ b/input/drivers_joypad/sdl_joypad.c
+@@ -535,7 +535,6 @@ input_device_driver_t sdl_joypad = {
+ #else
+    NULL,
+ #endif
+-   NULL,
+    sdl_joypad_name,
+ #ifdef HAVE_SDL2
+    "sdl2",
+diff --git a/input/drivers_joypad/switch_joypad.c b/input/drivers_joypad/switch_joypad.c
+index 1fa21b1662..fa68d34a43 100644
+--- a/input/drivers_joypad/switch_joypad.c
++++ b/input/drivers_joypad/switch_joypad.c
+@@ -456,7 +456,6 @@ input_device_driver_t switch_joypad = {
+ #else
+    NULL, /* set_rumble */
+ #endif
+-   NULL,
+    switch_joypad_name,
+    "switch"
+ };
+diff --git a/input/drivers_joypad/udev_joypad.c b/input/drivers_joypad/udev_joypad.c
+index 9412dc4aed..3d0b2954c2 100644
+--- a/input/drivers_joypad/udev_joypad.c
++++ b/input/drivers_joypad/udev_joypad.c
+@@ -36,9 +36,6 @@
+ 
+ #include "../input_driver.h"
+ 
+-#include "../../configuration.h"
+-#include "../../config.def.h"
+-
+ #include "../../tasks/tasks_internal.h"
+ 
+ #include "../../verbosity.h"
+@@ -84,7 +81,6 @@ struct udev_joypad
+    uint8_t axes_bind[ABS_MAX];
+    uint16_t strength[2];
+    uint16_t configured_strength[2];
+-   unsigned rumble_gain;
+ 
+    char ident[255];
+    bool has_set_ff[2];
+@@ -151,35 +147,6 @@ error:
+    return -1;
+ }
+ 
+-static bool udev_set_rumble_gain(unsigned i, unsigned gain)
+-{
+-   struct input_event ie;
+-   struct udev_joypad *pad = (struct udev_joypad*)&udev_pads[i];
+-
+-   /* Does not support > 100 gains */
+-   if ((pad->fd < 0) ||
+-       (gain > 100))
+-      return false;
+-
+-   if (pad->rumble_gain == gain)
+-      return true;
+-
+-   memset(&ie, 0, sizeof(ie));
+-   ie.type = EV_FF;
+-   ie.code = FF_GAIN;
+-   ie.value = 0xFFFF * (gain/100.0);
+-
+-   if (write(pad->fd, &ie, sizeof(ie)) < (ssize_t)sizeof(ie))
+-   {
+-      RARCH_ERR("[udev]: Failed to set rumble gain on pad #%u.\n", i);
+-      return false;
+-   }
+-
+-   pad->rumble_gain = gain;
+-
+-   return true;
+-}
+-
+ static int udev_add_pad(struct udev_device *dev, unsigned p, int fd, const char *path)
+ {
+    int i;
+@@ -299,15 +266,6 @@ static int udev_add_pad(struct udev_device *dev, unsigned p, int fd, const char
+                p, path, pad->num_effects);
+    }
+ 
+-   /* Set rumble gain here, if supported */
+-   if (test_bit(FF_RUMBLE, ffbit))
+-   {
+-      settings_t *settings = config_get_ptr();
+-      unsigned rumble_gain = settings ? settings->uints.input_rumble_gain
+-                                      : DEFAULT_RUMBLE_GAIN;
+-      udev_set_rumble_gain(p, rumble_gain);
+-   }
+-
+    return ret;
+ }
+ 
+@@ -790,7 +748,6 @@ input_device_driver_t udev_joypad = {
+    udev_joypad_axis,
+    udev_joypad_poll,
+    udev_set_rumble,
+-   udev_set_rumble_gain,
+    udev_joypad_name,
+    "udev",
+ };
+diff --git a/input/drivers_joypad/wiiu/hidpad_driver.c b/input/drivers_joypad/wiiu/hidpad_driver.c
+index 454b91d54a..8813f62fd4 100644
+--- a/input/drivers_joypad/wiiu/hidpad_driver.c
++++ b/input/drivers_joypad/wiiu/hidpad_driver.c
+@@ -130,7 +130,6 @@ input_device_driver_t hidpad_driver =
+   hidpad_axis,
+   hidpad_poll,
+   NULL,
+-  NULL,
+   hidpad_name,
+   "hid"
+ };
+diff --git a/input/drivers_joypad/wiiu/kpad_driver.c b/input/drivers_joypad/wiiu/kpad_driver.c
+index 86e8bec846..b51e5de00f 100644
+--- a/input/drivers_joypad/wiiu/kpad_driver.c
++++ b/input/drivers_joypad/wiiu/kpad_driver.c
+@@ -299,7 +299,6 @@ input_device_driver_t kpad_driver =
+    kpad_axis,
+    kpad_poll,
+    NULL,
+-   NULL,
+    kpad_name,
+    "wiimote",
+ };
+diff --git a/input/drivers_joypad/wiiu/wpad_driver.c b/input/drivers_joypad/wiiu/wpad_driver.c
+index 7fb4cf4047..8d1bd59f37 100644
+--- a/input/drivers_joypad/wiiu/wpad_driver.c
++++ b/input/drivers_joypad/wiiu/wpad_driver.c
+@@ -370,7 +370,6 @@ input_device_driver_t wpad_driver =
+   wpad_axis,
+   wpad_poll,
+   NULL,
+-  NULL,
+   wpad_name,
+   "gamepad",
+ };
+diff --git a/input/drivers_joypad/wiiu_joypad.c b/input/drivers_joypad/wiiu_joypad.c
+index 18eb5db822..fe8ddc54bf 100644
+--- a/input/drivers_joypad/wiiu_joypad.c
++++ b/input/drivers_joypad/wiiu_joypad.c
+@@ -153,7 +153,6 @@ input_device_driver_t wiiu_joypad =
+   wiiu_joypad_axis,
+   wiiu_joypad_poll,
+   NULL,
+-  NULL,
+   wiiu_joypad_name,
+   "wiiu",
+ };
+diff --git a/input/drivers_joypad/xdk_joypad.c b/input/drivers_joypad/xdk_joypad.c
+index 08b94b5107..b3c30ebceb 100644
+--- a/input/drivers_joypad/xdk_joypad.c
++++ b/input/drivers_joypad/xdk_joypad.c
+@@ -325,7 +325,6 @@ input_device_driver_t xdk_joypad = {
+    xdk_joypad_axis,
+    xdk_joypad_poll,
+    NULL,
+-   NULL,
+    xdk_joypad_name,
+    "xdk",
+ };
+diff --git a/input/drivers_joypad/xinput_hybrid_joypad.c b/input/drivers_joypad/xinput_hybrid_joypad.c
+index f14d3122db..6bbf65805d 100644
+--- a/input/drivers_joypad/xinput_hybrid_joypad.c
++++ b/input/drivers_joypad/xinput_hybrid_joypad.c
+@@ -695,7 +695,6 @@ input_device_driver_t xinput_joypad = {
+    xinput_joypad_axis,
+    xinput_joypad_poll,
+    xinput_joypad_rumble,
+-   NULL,
+    xinput_joypad_name,
+    "xinput",
+ };
+diff --git a/input/drivers_joypad/xinput_joypad.c b/input/drivers_joypad/xinput_joypad.c
+index 9b1d0af761..8402aa9fa7 100644
+--- a/input/drivers_joypad/xinput_joypad.c
++++ b/input/drivers_joypad/xinput_joypad.c
+@@ -395,7 +395,6 @@ input_device_driver_t xinput_joypad = {
+    xinput_joypad_axis,
+    xinput_joypad_poll,
+    xinput_joypad_rumble,
+-   NULL,
+    xinput_joypad_name,
+    "xinput",
+ };
+diff --git a/input/input_driver.c b/input/input_driver.c
+index b035fce588..3c1e0980ae 100644
+--- a/input/input_driver.c
++++ b/input/input_driver.c
+@@ -84,8 +84,7 @@ static input_device_driver_t null_joypad = {
+    NULL, /* get_buttons */
+    NULL, /* axis */
+    NULL, /* poll */
+-   NULL, /* rumble */
+-   NULL, /* rumble_gain */
++   NULL,
+    NULL, /* name */
+    "null",
+ };
+@@ -333,25 +332,6 @@ bool input_driver_set_rumble(
+ 
+ /**************************************/
+ 
+-bool input_driver_set_rumble_gain(
+-         input_driver_state_t *driver_state, unsigned gain,
+-         unsigned input_max_users)
+-{
+-   unsigned i;
+-
+-   if (driver_state->primary_joypad
+-      && driver_state->primary_joypad->set_rumble_gain)
+-   {
+-      for (i = 0; i < input_max_users; i++)
+-         driver_state->primary_joypad->set_rumble_gain(i, gain);
+-      return true;
+-   }
+-   else
+-      return false;
+-}
+-
+-/**************************************/
+-
+ bool input_driver_set_sensor(
+          input_driver_state_t *driver_state, unsigned port, bool sensors_enable,
+          enum retro_sensor_action action, unsigned rate)
+diff --git a/input/input_driver.h b/input/input_driver.h
+index 05eaa8a2b6..2bfbd0cffb 100644
+--- a/input/input_driver.h
++++ b/input/input_driver.h
+@@ -340,7 +340,6 @@ struct rarch_joypad_driver
+    int16_t (*axis)(unsigned, uint32_t);
+    void (*poll)(void);
+    bool (*set_rumble)(unsigned, enum retro_rumble_effect, uint16_t);
+-   bool (*set_rumble_gain)(unsigned, unsigned);
+    const char *(*name)(unsigned);
+ 
+    const char *ident;
+@@ -382,18 +381,6 @@ const char* config_get_input_driver_options(void);
+ bool input_driver_set_rumble(
+          input_driver_state_t *driver_state, unsigned port, unsigned joy_idx, 
+          enum retro_rumble_effect effect, uint16_t strength);
+-/**
+- * Sets the rumble gain.
+- *
+- * @param driver_state
+- * @param gain             Rumble gain, 0-100 [%]
+- * @param input_max_users
+- *
+- * @return true if the rumble gain has been successfully set
+- **/
+-bool input_driver_set_rumble_gain(
+-         input_driver_state_t *driver_state, unsigned gain,
+-         unsigned input_max_users);
+ 
+ /**
+  * Sets the sensor state.
+diff --git a/intl/msg_hash_ar.h b/intl/msg_hash_ar.h
+index ac34790cd1..a8ac47e684 100644
+--- a/intl/msg_hash_ar.h
++++ b/intl/msg_hash_ar.h
+@@ -2002,6 +2002,8 @@ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_ENABLE_DEVICE_VIBRATION,
+    "تمكين اهتزاز الجهاز (للنواة المدعومة)"
+    )
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_ast.h b/intl/msg_hash_ast.h
+index 5852fe54ad..e8ae6d5cc6 100644
+--- a/intl/msg_hash_ast.h
++++ b/intl/msg_hash_ast.h
+@@ -886,6 +886,8 @@ MSG_HASH(
+ 
+ /* Settings > Input > Haptic Feedback/Vibration */
+ 
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_chs.h b/intl/msg_hash_chs.h
+index d299737ddc..1c82b9a075 100644
+--- a/intl/msg_hash_chs.h
++++ b/intl/msg_hash_chs.h
+@@ -2210,6 +2210,16 @@ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_ENABLE_DEVICE_VIBRATION,
+    "启用设备振动 (对支持的核心)"
+    )
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
++MSG_HASH(
++   MENU_ENUM_LABEL_VALUE_INPUT_DINGUX_RUMBLE_GAIN,
++   "振动强度 (需要重启)"
++   )
++MSG_HASH(
++   MENU_ENUM_SUBLABEL_INPUT_DINGUX_RUMBLE_GAIN,
++   "指定触觉反馈效果的强弱。"
++   )
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_cht.h b/intl/msg_hash_cht.h
+index b4d7879b5c..80151684b0 100644
+--- a/intl/msg_hash_cht.h
++++ b/intl/msg_hash_cht.h
+@@ -1806,6 +1806,8 @@ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_ENABLE_DEVICE_VIBRATION,
+    "啟用設備振動(對於支援的內核)"
+    )
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_cs.h b/intl/msg_hash_cs.h
+index f6d731e364..7f74e2b52f 100644
+--- a/intl/msg_hash_cs.h
++++ b/intl/msg_hash_cs.h
+@@ -1098,6 +1098,8 @@ MSG_HASH(
+ 
+ /* Settings > Input > Haptic Feedback/Vibration */
+ 
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_cy.h b/intl/msg_hash_cy.h
+index 843c2b0e0c..76c318880e 100644
+--- a/intl/msg_hash_cy.h
++++ b/intl/msg_hash_cy.h
+@@ -1082,6 +1082,8 @@ MSG_HASH(
+ 
+ /* Settings > Input > Haptic Feedback/Vibration */
+ 
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_da.h b/intl/msg_hash_da.h
+index 9940dd49ac..647d34cbb6 100644
+--- a/intl/msg_hash_da.h
++++ b/intl/msg_hash_da.h
+@@ -162,6 +162,8 @@ MSG_HASH(
+ 
+ /* Settings > Input > Haptic Feedback/Vibration */
+ 
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_de.h b/intl/msg_hash_de.h
+index 120c493b04..40759c2e60 100644
+--- a/intl/msg_hash_de.h
++++ b/intl/msg_hash_de.h
+@@ -2230,14 +2230,16 @@ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_ENABLE_DEVICE_VIBRATION,
+    "Vibration aktivieren (für unterstützte Cores)"
+    )
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
+ MSG_HASH(
+-   MENU_ENUM_LABEL_VALUE_INPUT_RUMBLE_GAIN,
+-   "Vibrationsstärke"
++   MENU_ENUM_LABEL_VALUE_INPUT_DINGUX_RUMBLE_GAIN,
++   "Vibrationsstärke (Neustart erforderlich)"
+    )
+ MSG_HASH(
+-   MENU_ENUM_SUBLABEL_INPUT_RUMBLE_GAIN,
++   MENU_ENUM_SUBLABEL_INPUT_DINGUX_RUMBLE_GAIN,
+    "Die Größenordnung der haptischen Feedback-Effekte angeben."
+    )
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_el.h b/intl/msg_hash_el.h
+index 9ccce0c0b1..ce11b74b14 100644
+--- a/intl/msg_hash_el.h
++++ b/intl/msg_hash_el.h
+@@ -1822,6 +1822,8 @@ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_ENABLE_DEVICE_VIBRATION,
+    "Ενεργοποίηση Δόνησης Συσκευής (Για Υποστηριζόμενους Πυρήνες)"
+    )
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_eo.h b/intl/msg_hash_eo.h
+index e63473cffd..289cd6fddc 100644
+--- a/intl/msg_hash_eo.h
++++ b/intl/msg_hash_eo.h
+@@ -438,6 +438,8 @@ MSG_HASH(
+ 
+ /* Settings > Input > Haptic Feedback/Vibration */
+ 
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_es.h b/intl/msg_hash_es.h
+index 956b6465a2..b780789693 100644
+--- a/intl/msg_hash_es.h
++++ b/intl/msg_hash_es.h
+@@ -2306,14 +2306,16 @@ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_ENABLE_DEVICE_VIBRATION,
+    "Activar vibración de dispositivo (en núcleos compatibles)"
+    )
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
+ MSG_HASH(
+-   MENU_ENUM_LABEL_VALUE_INPUT_RUMBLE_GAIN,
+-   "Intensidad de vibración"
++   MENU_ENUM_LABEL_VALUE_INPUT_DINGUX_RUMBLE_GAIN,
++   "Intensidad de vibración (es necesario reiniciar)"
+    )
+ MSG_HASH(
+-   MENU_ENUM_SUBLABEL_INPUT_RUMBLE_GAIN,
++   MENU_ENUM_SUBLABEL_INPUT_DINGUX_RUMBLE_GAIN,
+    "Especifica la fuerza de los efectos de respuesta háptica."
+    )
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_fa.h b/intl/msg_hash_fa.h
+index 7021d8511d..98a076b6d9 100644
+--- a/intl/msg_hash_fa.h
++++ b/intl/msg_hash_fa.h
+@@ -382,6 +382,8 @@ MSG_HASH(
+ 
+ /* Settings > Input > Haptic Feedback/Vibration */
+ 
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_fi.h b/intl/msg_hash_fi.h
+index b96be129af..df10ded2de 100644
+--- a/intl/msg_hash_fi.h
++++ b/intl/msg_hash_fi.h
+@@ -2246,14 +2246,16 @@ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_ENABLE_DEVICE_VIBRATION,
+    "Ota laitteen värinä käyttöön (tuetuille ytimille)"
+    )
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
+ MSG_HASH(
+-   MENU_ENUM_LABEL_VALUE_INPUT_RUMBLE_GAIN,
+-   "Värinän voimakkuus"
++   MENU_ENUM_LABEL_VALUE_INPUT_DINGUX_RUMBLE_GAIN,
++   "Tärinän voimakkuus (Uudelleenkäynnistys vaaditaan)"
+    )
+ MSG_HASH(
+-   MENU_ENUM_SUBLABEL_INPUT_RUMBLE_GAIN,
++   MENU_ENUM_SUBLABEL_INPUT_DINGUX_RUMBLE_GAIN,
+    "Määritä haptisen palautteen voimakkuus."
+    )
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_fr.h b/intl/msg_hash_fr.h
+index 4b64f5f10d..924b67908c 100644
+--- a/intl/msg_hash_fr.h
++++ b/intl/msg_hash_fr.h
+@@ -2294,14 +2294,16 @@ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_ENABLE_DEVICE_VIBRATION,
+    "Activer la vibration du périphérique (pour les cœurs pris en charge)"
+    )
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
+ MSG_HASH(
+-   MENU_ENUM_LABEL_VALUE_INPUT_RUMBLE_GAIN,
+-   "Intensité de la vibration"
++   MENU_ENUM_LABEL_VALUE_INPUT_DINGUX_RUMBLE_GAIN,
++   "Force de la vibration (Redémarrage requis)"
+    )
+ MSG_HASH(
+-   MENU_ENUM_SUBLABEL_INPUT_RUMBLE_GAIN,
++   MENU_ENUM_SUBLABEL_INPUT_DINGUX_RUMBLE_GAIN,
+    "Spécifier l'ampleur des effets de retour haptique."
+    )
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_gl.h b/intl/msg_hash_gl.h
+index 572c9a7f71..5e7dac67e9 100644
+--- a/intl/msg_hash_gl.h
++++ b/intl/msg_hash_gl.h
+@@ -1074,6 +1074,8 @@ MSG_HASH(
+ 
+ /* Settings > Input > Haptic Feedback/Vibration */
+ 
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_he.h b/intl/msg_hash_he.h
+index 58b478d550..dca82301c3 100644
+--- a/intl/msg_hash_he.h
++++ b/intl/msg_hash_he.h
+@@ -474,6 +474,8 @@ MSG_HASH(
+ 
+ /* Settings > Input > Haptic Feedback/Vibration */
+ 
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_hu.h b/intl/msg_hash_hu.h
+index 3febdd9acf..d2bc3a7e6a 100644
+--- a/intl/msg_hash_hu.h
++++ b/intl/msg_hash_hu.h
+@@ -366,6 +366,8 @@ MSG_HASH(
+ 
+ /* Settings > Input > Haptic Feedback/Vibration */
+ 
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_id.h b/intl/msg_hash_id.h
+index 03d89c19e0..9ebb96c831 100644
+--- a/intl/msg_hash_id.h
++++ b/intl/msg_hash_id.h
+@@ -2006,6 +2006,16 @@ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_ENABLE_DEVICE_VIBRATION,
+    "Aktifkan Getaran Perangkat (Untuk Core yang Didukung)"
+    )
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
++MSG_HASH(
++   MENU_ENUM_LABEL_VALUE_INPUT_DINGUX_RUMBLE_GAIN,
++   "Kekuatan Getaran (Diperlukan Restart)"
++   )
++MSG_HASH(
++   MENU_ENUM_SUBLABEL_INPUT_DINGUX_RUMBLE_GAIN,
++   "Tentukan besarnya efek umpan balik haptic."
++   )
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_it.h b/intl/msg_hash_it.h
+index 33ac126b04..78bdeea4be 100644
+--- a/intl/msg_hash_it.h
++++ b/intl/msg_hash_it.h
+@@ -2282,14 +2282,16 @@ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_ENABLE_DEVICE_VIBRATION,
+    "Abilita Vibrazione Dispositivo (Per i Core Supportati)"
+    )
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
+ MSG_HASH(
+-   MENU_ENUM_LABEL_VALUE_INPUT_RUMBLE_GAIN,
+-   "Intensità di vibrazione"
++   MENU_ENUM_LABEL_VALUE_INPUT_DINGUX_RUMBLE_GAIN,
++   "Forza Vibrazione (Richiesta)"
+    )
+ MSG_HASH(
+-   MENU_ENUM_SUBLABEL_INPUT_RUMBLE_GAIN,
++   MENU_ENUM_SUBLABEL_INPUT_DINGUX_RUMBLE_GAIN,
+    "Specifica l'entità degli effetti di feedback tattili."
+    )
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_ja.h b/intl/msg_hash_ja.h
+index 0e0530edc5..8723010070 100644
+--- a/intl/msg_hash_ja.h
++++ b/intl/msg_hash_ja.h
+@@ -2166,6 +2166,16 @@ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_ENABLE_DEVICE_VIBRATION,
+    "(対応コアで)デバイスの振動を有効"
+    )
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
++MSG_HASH(
++   MENU_ENUM_LABEL_VALUE_INPUT_DINGUX_RUMBLE_GAIN,
++   "振動の強さ (再起動が必要)"
++   )
++MSG_HASH(
++   MENU_ENUM_SUBLABEL_INPUT_DINGUX_RUMBLE_GAIN,
++   "触覚フィードバック効果の大きさを指定します."
++   )
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_ko.h b/intl/msg_hash_ko.h
+index 6e7ded327d..4b8d45794f 100644
+--- a/intl/msg_hash_ko.h
++++ b/intl/msg_hash_ko.h
+@@ -2334,14 +2334,16 @@ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_ENABLE_DEVICE_VIBRATION,
+    "장치 진동 사용 (지원 코어 한정)"
+    )
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
+ MSG_HASH(
+-   MENU_ENUM_LABEL_VALUE_INPUT_RUMBLE_GAIN,
+-   "진동 세기"
++   MENU_ENUM_LABEL_VALUE_INPUT_DINGUX_RUMBLE_GAIN,
++   "진동 세기 (재시작 필요)"
+    )
+ MSG_HASH(
+-   MENU_ENUM_SUBLABEL_INPUT_RUMBLE_GAIN,
+-   "햅틱 피드백 효과의 세기를 설정합니다."
++   MENU_ENUM_SUBLABEL_INPUT_DINGUX_RUMBLE_GAIN,
++   "햅틱 피드백으로 사용될 진동의 세기를 설정합니다."
+    )
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_lbl.h b/intl/msg_hash_lbl.h
+index 900dcbc64e..07905e08c8 100644
+--- a/intl/msg_hash_lbl.h
++++ b/intl/msg_hash_lbl.h
+@@ -5046,10 +5046,12 @@ MSG_HASH(
+    MENU_ENUM_LABEL_INPUT_HAPTIC_FEEDBACK_SETTINGS,
+    "input_haptic_feedback_settings"
+    )
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
+ MSG_HASH(
+-   MENU_ENUM_LABEL_INPUT_RUMBLE_GAIN,
+-   "input_rumble_gain"
++   MENU_ENUM_LABEL_INPUT_DINGUX_RUMBLE_GAIN,
++   "input_dingux_rumble_gain"
+    )
++#endif
+ MSG_HASH(
+    MENU_ENUM_LABEL_INPUT_TURBO_MODE,
+    "input_turbo_mode"
+diff --git a/intl/msg_hash_nl.h b/intl/msg_hash_nl.h
+index 0f3b79f942..7142aa241b 100644
+--- a/intl/msg_hash_nl.h
++++ b/intl/msg_hash_nl.h
+@@ -1782,6 +1782,8 @@ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_ENABLE_DEVICE_VIBRATION,
+    "Toestel trillen inschakelen (voor ondersteunde Cores)"
+    )
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_oc.h b/intl/msg_hash_oc.h
+index 170f078995..60000f2178 100644
+--- a/intl/msg_hash_oc.h
++++ b/intl/msg_hash_oc.h
+@@ -250,6 +250,8 @@ MSG_HASH(
+ 
+ /* Settings > Input > Haptic Feedback/Vibration */
+ 
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_pl.h b/intl/msg_hash_pl.h
+index 891e424b4b..1f843e7c58 100644
+--- a/intl/msg_hash_pl.h
++++ b/intl/msg_hash_pl.h
+@@ -2258,14 +2258,16 @@ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_ENABLE_DEVICE_VIBRATION,
+    "Włącz wibracje urządzenia (dla obsługiwanych rdzeni)"
+    )
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
+ MSG_HASH(
+-   MENU_ENUM_LABEL_VALUE_INPUT_RUMBLE_GAIN,
+-   "Siła wibracji"
++   MENU_ENUM_LABEL_VALUE_INPUT_DINGUX_RUMBLE_GAIN,
++   "Siła wibracji (wymagany restart)"
+    )
+ MSG_HASH(
+-   MENU_ENUM_SUBLABEL_INPUT_RUMBLE_GAIN,
++   MENU_ENUM_SUBLABEL_INPUT_DINGUX_RUMBLE_GAIN,
+    "Określ skalę efektów wibracji."
+    )
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_pt_br.h b/intl/msg_hash_pt_br.h
+index 3f1a33986c..2f21882402 100644
+--- a/intl/msg_hash_pt_br.h
++++ b/intl/msg_hash_pt_br.h
+@@ -2278,14 +2278,16 @@ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_ENABLE_DEVICE_VIBRATION,
+    "Ativar vibração do dispositivo (para núcleos suportados)"
+    )
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
+ MSG_HASH(
+-   MENU_ENUM_LABEL_VALUE_INPUT_RUMBLE_GAIN,
+-   "Intensidade da vibração"
++   MENU_ENUM_LABEL_VALUE_INPUT_DINGUX_RUMBLE_GAIN,
++   "Força da vibração (requer reinício)"
+    )
+ MSG_HASH(
+-   MENU_ENUM_SUBLABEL_INPUT_RUMBLE_GAIN,
+-   "Determine a intensidade dos efeitos do retorno háptico."
++   MENU_ENUM_SUBLABEL_INPUT_DINGUX_RUMBLE_GAIN,
++   "Determine a magnitude dos efeitos do retorno táctil."
+    )
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_pt_pt.h b/intl/msg_hash_pt_pt.h
+index 1bea214349..de12aad4a6 100644
+--- a/intl/msg_hash_pt_pt.h
++++ b/intl/msg_hash_pt_pt.h
+@@ -1714,6 +1714,8 @@ MSG_HASH(
+ 
+ /* Settings > Input > Haptic Feedback/Vibration */
+ 
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_ru.h b/intl/msg_hash_ru.h
+index 95d152dc12..69467242f5 100644
+--- a/intl/msg_hash_ru.h
++++ b/intl/msg_hash_ru.h
+@@ -2326,14 +2326,16 @@ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_ENABLE_DEVICE_VIBRATION,
+    "Вибрация устройством (если поддерживается ядром)"
+    )
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
+ MSG_HASH(
+-   MENU_ENUM_LABEL_VALUE_INPUT_RUMBLE_GAIN,
+-   "Сила вибрации"
++   MENU_ENUM_LABEL_VALUE_INPUT_DINGUX_RUMBLE_GAIN,
++   "Сила виброотдачи (требуется перезапуск)"
+    )
+ MSG_HASH(
+-   MENU_ENUM_SUBLABEL_INPUT_RUMBLE_GAIN,
+-   "Настройка величины эффекта тактильной отдачи."
++   MENU_ENUM_SUBLABEL_INPUT_DINGUX_RUMBLE_GAIN,
++   "Настройка интенсивности эффекта тактильной отдачи."
+    )
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_sv.h b/intl/msg_hash_sv.h
+index 06477d6c52..8cfc23e2a4 100644
+--- a/intl/msg_hash_sv.h
++++ b/intl/msg_hash_sv.h
+@@ -1766,6 +1766,8 @@ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_ENABLE_DEVICE_VIBRATION,
+    "Aktivera enheters vibration (för kärnor som stödjer det)"
+    )
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_tr.h b/intl/msg_hash_tr.h
+index 1f6a26a2ef..9be5665e6d 100644
+--- a/intl/msg_hash_tr.h
++++ b/intl/msg_hash_tr.h
+@@ -2302,14 +2302,16 @@ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_ENABLE_DEVICE_VIBRATION,
+    "Cihaz Titreşimini Etkinleştir (Desteklenen Çekirdekler İçin)"
+    )
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
+ MSG_HASH(
+-   MENU_ENUM_LABEL_VALUE_INPUT_RUMBLE_GAIN,
+-   "Titreşim Gücü"
++   MENU_ENUM_LABEL_VALUE_INPUT_DINGUX_RUMBLE_GAIN,
++   "Titreşim Gücü (Yeniden Başlatılmalı)"
+    )
+ MSG_HASH(
+-   MENU_ENUM_SUBLABEL_INPUT_RUMBLE_GAIN,
+-   "Titreşim geri besleme etkilerinin büyüklüğünü belirtin."
++   MENU_ENUM_SUBLABEL_INPUT_DINGUX_RUMBLE_GAIN,
++   "Dokunsal geri bildirim efektlerinin büyüklüğünü belirtir."
+    )
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_uk.h b/intl/msg_hash_uk.h
+index 9e49ad9621..e6feebad96 100644
+--- a/intl/msg_hash_uk.h
++++ b/intl/msg_hash_uk.h
+@@ -2214,14 +2214,6 @@ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_VIBRATE_ON_KEYPRESS,
+    "Вібрувати при натисканні клавіші"
+    )
+-MSG_HASH(
+-   MENU_ENUM_LABEL_VALUE_INPUT_RUMBLE_GAIN,
+-   "Сила вібрації"
+-   )
+-MSG_HASH(
+-   MENU_ENUM_SUBLABEL_INPUT_RUMBLE_GAIN,
+-   "Налаштування сили ефекту тактильної віддачі."
+-   )
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_us.h b/intl/msg_hash_us.h
+index f71a0dd2da..83f87f45a0 100644
+--- a/intl/msg_hash_us.h
++++ b/intl/msg_hash_us.h
+@@ -2362,14 +2362,16 @@ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_ENABLE_DEVICE_VIBRATION,
+    "Enable Device Vibration (For Supported Cores)"
+    )
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
+ MSG_HASH(
+-   MENU_ENUM_LABEL_VALUE_INPUT_RUMBLE_GAIN,
+-   "Vibration Strength"
++   MENU_ENUM_LABEL_VALUE_INPUT_DINGUX_RUMBLE_GAIN,
++   "Vibration Strength (Restart Required)"
+    )
+ MSG_HASH(
+-   MENU_ENUM_SUBLABEL_INPUT_RUMBLE_GAIN,
++   MENU_ENUM_SUBLABEL_INPUT_DINGUX_RUMBLE_GAIN,
+    "Specify the magnitude of haptic feedback effects."
+    )
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/intl/msg_hash_vn.h b/intl/msg_hash_vn.h
+index 87be20f89b..a1fcf6d3de 100644
+--- a/intl/msg_hash_vn.h
++++ b/intl/msg_hash_vn.h
+@@ -634,6 +634,8 @@ MSG_HASH(
+ 
+ /* Settings > Input > Haptic Feedback/Vibration */
+ 
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
++#endif
+ 
+ /* Settings > Input > Menu Controls */
+ 
+diff --git a/menu/cbs/menu_cbs_sublabel.c b/menu/cbs/menu_cbs_sublabel.c
+index c54913caf6..c758281ddf 100644
+--- a/menu/cbs/menu_cbs_sublabel.c
++++ b/menu/cbs/menu_cbs_sublabel.c
+@@ -360,7 +360,9 @@ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_input_turbo_period,            MENU_
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_input_duty_cycle,              MENU_ENUM_SUBLABEL_INPUT_DUTY_CYCLE)
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_input_turbo_mode,              MENU_ENUM_SUBLABEL_INPUT_TURBO_MODE)
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_input_turbo_default_button,    MENU_ENUM_SUBLABEL_INPUT_TURBO_DEFAULT_BUTTON)
+-DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_input_rumble_gain,             MENU_ENUM_SUBLABEL_INPUT_RUMBLE_GAIN)
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
++DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_input_dingux_rumble_gain,      MENU_ENUM_SUBLABEL_INPUT_DINGUX_RUMBLE_GAIN)
++#endif
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_video_vertical_sync,           MENU_ENUM_SUBLABEL_VIDEO_VSYNC)
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_video_adaptive_vsync,          MENU_ENUM_SUBLABEL_VIDEO_ADAPTIVE_VSYNC)
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_core_allow_rotate,             MENU_ENUM_SUBLABEL_VIDEO_ALLOW_ROTATE)
+@@ -3599,9 +3601,11 @@ int menu_cbs_init_bind_sublabel(menu_file_list_cbs_t *cbs,
+          case MENU_ENUM_LABEL_INPUT_TURBO_DEFAULT_BUTTON:
+             BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_input_turbo_default_button);
+             break;
+-         case MENU_ENUM_LABEL_INPUT_RUMBLE_GAIN:
+-            BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_input_rumble_gain);
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
++         case MENU_ENUM_LABEL_INPUT_DINGUX_RUMBLE_GAIN:
++            BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_input_dingux_rumble_gain);
+             break;
++#endif
+          case MENU_ENUM_LABEL_INPUT_BIND_TIMEOUT:
+             BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_input_bind_timeout);
+             break;
+diff --git a/menu/menu_displaylist.c b/menu/menu_displaylist.c
+index 0095b6889e..4df41eb403 100644
+--- a/menu/menu_displaylist.c
++++ b/menu/menu_displaylist.c
+@@ -5608,10 +5608,14 @@ unsigned menu_displaylist_build_list(
+                         PARSE_ONLY_BOOL, false) == 0)
+                   count++;
+             }
+-            if (MENU_DISPLAYLIST_PARSE_SETTINGS_ENUM(list,
+-                     MENU_ENUM_LABEL_INPUT_RUMBLE_GAIN,
+-                     PARSE_ONLY_UINT, false) == 0)
++
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
++            if (string_is_equal(joypad_driver_id, "sdl_dingux"))
++               if (MENU_DISPLAYLIST_PARSE_SETTINGS_ENUM(list,
++                        MENU_ENUM_LABEL_INPUT_DINGUX_RUMBLE_GAIN,
++                        PARSE_ONLY_UINT, false) == 0)
+                   count++;
++#endif
+          }
+          break;
+       case DISPLAYLIST_INPUT_HOTKEY_BINDS_LIST:
+diff --git a/menu/menu_setting.c b/menu/menu_setting.c
+index 182b1b5b8c..4e4cc397c4 100644
+--- a/menu/menu_setting.c
++++ b/menu/menu_setting.c
+@@ -8138,12 +8138,6 @@ static void general_write_handler(rarch_setting_t *setting)
+                *setting->value.target.unsigned_integer);
+          }
+          break;
+-      case MENU_ENUM_LABEL_INPUT_RUMBLE_GAIN:
+-         {
+-            input_set_rumble_gain(
+-               *setting->value.target.unsigned_integer);
+-         }
+-         break;
+       case MENU_ENUM_LABEL_WIFI_ENABLED:
+ #ifdef HAVE_NETWORKING
+          if (*setting->value.target.boolean)
+@@ -12923,12 +12917,13 @@ static bool setting_append_list(
+                   SD_FLAG_NONE
+                   );
+ 
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
+             CONFIG_UINT(
+                   list, list_info,
+-                  &settings->uints.input_rumble_gain,
+-                  MENU_ENUM_LABEL_INPUT_RUMBLE_GAIN,
+-                  MENU_ENUM_LABEL_VALUE_INPUT_RUMBLE_GAIN,
+-                  DEFAULT_RUMBLE_GAIN,
++                  &settings->uints.input_dingux_rumble_gain,
++                  MENU_ENUM_LABEL_INPUT_DINGUX_RUMBLE_GAIN,
++                  MENU_ENUM_LABEL_VALUE_INPUT_DINGUX_RUMBLE_GAIN,
++                  DEFAULT_DINGUX_RUMBLE_GAIN,
+                   &group_info,
+                   &subgroup_info,
+                   parent_group,
+@@ -12936,9 +12931,8 @@ static bool setting_append_list(
+                   general_read_handler);
+             (*list)[list_info->index - 1].ui_type   = ST_UI_TYPE_UINT_COMBOBOX;
+             (*list)[list_info->index - 1].action_ok = &setting_action_ok_uint_special;
+-            (*list)[list_info->index - 1].get_string_representation =
+-               &setting_get_string_representation_percentage;
+             menu_settings_list_current_add_range(list, list_info, 0, 100, 5, true, true);
++#endif
+             CONFIG_UINT(
+                   list, list_info,
+                   &settings->uints.input_poll_type_behavior,
+@@ -13342,13 +13336,17 @@ static bool setting_append_list(
+             menu_settings_list_current_add_range(list, list_info, 1, 10, 1, true, true);
+             SETTINGS_DATA_LIST_CURRENT_ADD_FLAGS(list, list_info, SD_FLAG_ADVANCED);
+ 
+-            CONFIG_ACTION(
+-                  list, list_info,
+-                  MENU_ENUM_LABEL_INPUT_HAPTIC_FEEDBACK_SETTINGS,
+-                  MENU_ENUM_LABEL_VALUE_INPUT_HAPTIC_FEEDBACK_SETTINGS,
+-                  &group_info,
+-                  &subgroup_info,
+-                  parent_group);
++            if (string_is_equal(settings->arrays.input_driver, "android") ||
++                string_is_equal(settings->arrays.input_joypad_driver, "sdl_dingux"))
++            {
++               CONFIG_ACTION(
++                     list, list_info,
++                     MENU_ENUM_LABEL_INPUT_HAPTIC_FEEDBACK_SETTINGS,
++                     MENU_ENUM_LABEL_VALUE_INPUT_HAPTIC_FEEDBACK_SETTINGS,
++                     &group_info,
++                     &subgroup_info,
++                     parent_group);
++            }
+ 
+             CONFIG_ACTION(
+                   list, list_info,
+diff --git a/msg_hash.h b/msg_hash.h
+index e0d56d5863..298853e75e 100644
+--- a/msg_hash.h
++++ b/msg_hash.h
+@@ -1005,7 +1005,6 @@ enum msg_hash_enums
+    MENU_LABEL(INPUT_ALL_USERS_CONTROL_MENU),
+    MENU_LABEL(INPUT_POLL_TYPE_BEHAVIOR),
+    MENU_LABEL(INPUT_UNIFIED_MENU_CONTROLS),
+-   MENU_LABEL(INPUT_RUMBLE_GAIN),
+ 
+    MENU_LABEL(QUIT_PRESS_TWICE),
+    MENU_LABEL(QUIT_ON_CLOSE_CONTENT),
+@@ -1014,6 +1013,10 @@ enum msg_hash_enums
+    MENU_ENUM_LABEL_VALUE_QUIT_ON_CLOSE_CONTENT_ENABLED,
+    MENU_ENUM_LABEL_VALUE_QUIT_ON_CLOSE_CONTENT_CLI,
+ 
++#if defined(DINGUX) && defined(HAVE_LIBSHAKE)
++   MENU_LABEL(INPUT_DINGUX_RUMBLE_GAIN),
++#endif
++
+    /* Video */
+    MENU_LABEL(BRIGHTNESS_CONTROL),
+    MENU_LABEL(CRT_SWITCH_RESOLUTION),
+diff --git a/retroarch.c b/retroarch.c
+index 0cb5feae8d..d936a33f2a 100644
+--- a/retroarch.c
++++ b/retroarch.c
+@@ -17078,40 +17078,10 @@ bool input_set_rumble_state(unsigned port,
+    input_driver_state_t *input_driver_st  = &(p_rarch->input_driver_state);
+    settings_t *settings                   = p_rarch->configuration_settings;
+    unsigned joy_idx                       = settings->uints.input_joypad_index[port];
+-   uint16_t scaled_strength               = strength;
+-
+-   /* If gain setting is not suported, do software gain control */ 
+-   if (input_driver_st && input_driver_st->primary_joypad)
+-   {
+-      if (!input_driver_st->primary_joypad->set_rumble_gain)
+-      {
+-         unsigned rumble_gain = settings->uints.input_rumble_gain;
+-         scaled_strength      = (rumble_gain * strength) / 100.0;
+-      }
+-   }
+ 
+    return input_driver_set_rumble(
+       input_driver_st,
+-      port, joy_idx, effect, scaled_strength);
+-}
+-
+-/**
+- * Sets the rumble gain. Used by MENU_ENUM_LABEL_INPUT_RUMBLE_GAIN.
+- *
+- * @param gain  Rumble gain, 0-100 [%]
+- *
+- * @return true if the rumble gain has been successfully set
+- **/
+-bool input_set_rumble_gain(unsigned gain)
+-{
+-   struct rarch_state   *p_rarch          = &rarch_st;
+-   input_driver_state_t *input_driver_st  = &(p_rarch->input_driver_state);
+-   settings_t           *settings         = p_rarch->configuration_settings;
+-   if (input_driver_set_rumble_gain(
+-            input_driver_st, gain, settings->uints.input_max_users))
+-      return true;
+-   else
+-      return false;
++      port, joy_idx, effect, strength);
+ }
+ 
+ /**
+diff --git a/retroarch.h b/retroarch.h
+index dc238102c7..d9b5aa0e5e 100644
+--- a/retroarch.h
++++ b/retroarch.h
+@@ -2056,8 +2056,6 @@ void retroarch_init_task_queue(void);
+ bool input_set_rumble_state(unsigned port,
+       enum retro_rumble_effect effect, uint16_t strength);
+ 
+-bool input_set_rumble_gain(unsigned gain);
+-
+ float input_get_sensor_state(unsigned port, unsigned id);
+ 
+ bool input_set_sensor_state(unsigned port,
