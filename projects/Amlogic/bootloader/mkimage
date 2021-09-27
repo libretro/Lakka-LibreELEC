@@ -44,10 +44,30 @@ EOF
   mcopy -s -o "${LE_TMP}/extlinux" ::
 }
 
+mkimage_extlinux_fdtdir(){
+  echo "image: copying exlinux.conf"
+  mkdir -p "${LE_TMP}/extlinux"
+  cat << EOF > "${LE_TMP}/extlinux/extlinux.conf"
+LABEL ${DISTRO}
+  LINUX /${KERNEL_NAME}
+  FDTDIR /
+  APPEND boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} quiet ${EXTRA_CMDLINE}
+EOF
+  mcopy -s -o "${LE_TMP}/extlinux" ::
+}
+
 mkimage_dtb(){
   if [ "$DTB" != "@@DTB_NAME@@" ]; then
     echo "image: copying device tree"
     mcopy -s -o "${RELEASE_DIR}/3rdparty/bootloader/dtb/$DTB" ::
+    if [ "$DTB" = "meson-g12b-odroid-n2.dtb" ]; then
+      mcopy -s -o "${RELEASE_DIR}/3rdparty/bootloader/dtb/meson-g12b-odroid-n2-plus.dtb" ::
+    elif [ "$DTB" = "meson-g12b-gtking.dtb" ]; then
+      mcopy -s -o "${RELEASE_DIR}/3rdparty/bootloader/dtb/meson-g12b-gtking-pro.dtb" ::
+      mcopy -s -o "${RELEASE_DIR}/3rdparty/bootloader/dtb/meson-g12b-gsking-x.dtb" ::
+    elif [ "$DTB" = "meson-gxl-s905x-libretech-cc.dtb" ]; then
+      mcopy -s -o "${RELEASE_DIR}/3rdparty/bootloader/dtb/meson-gxl-s905x-libretech-cc-v2.dtb" ::
+    fi
   else
     echo "image: copying device trees"
     mcopy -s -o "${RELEASE_DIR}/3rdparty/bootloader/dtb" ::
@@ -62,7 +82,12 @@ case "${UBOOT_SYSTEM}" in
     mkimage_bootini
     mkimage_dtb
     ;;
-  khadas*|lafrite|lepotato|nanopi-k2|odroid*)
+  odroid-n2)
+    mkimage_uboot
+    mkimage_extlinux_fdtdir
+    mkimage_dtb
+    ;;
+  bananapi-m5|beelink*|khadas*|lafrite|lepotato|nanopi-k2|odroid*|radxa*|wetek*)
     mkimage_uboot
     mkimage_extlinux
     mkimage_dtb
