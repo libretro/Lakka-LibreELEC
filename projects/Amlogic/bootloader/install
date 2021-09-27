@@ -13,12 +13,16 @@ case "${UBOOT_SYSTEM}" in
     # no-op, use vendor booloader
     ;;
 
-  khadas-vim3*)
-    if [ "$UBOOT_SYSTEM" = "khadas-vim3" ]; then
-      AML_ENCRYPT_BIN="aml_encrypt_g12b"
-    else
-      AML_ENCRYPT_BIN="aml_encrypt_g12a"
-    fi
+  bananapi-m5|beelink-s922x|khadas-vim3*|odroid-c4|odroid-hc4)
+    case "${UBOOT_SYSTEM}" in
+      beelink-s922x|khadas-vim3)
+        AML_ENCRYPT_BIN="aml_encrypt_g12b"
+        ;;
+      *)
+        AML_ENCRYPT_BIN="aml_encrypt_g12a"
+        ;;
+    esac
+
     cp $FIPDIR/bl301.bin $DESTDIR/
     cp $FIPDIR/acs.bin $DESTDIR/
     cp $FIPDIR/aml_ddr.fw $DESTDIR/
@@ -99,7 +103,15 @@ case "${UBOOT_SYSTEM}" in
     dd if=$DESTDIR/u-boot.gxbb of=$DESTDIR/u-boot.bin.sd.bin conv=fsync,notrunc bs=512 seek=97
     ;;
 
-  odroid-n2)
+  odroid-n2|radxa-zero)
+    case "${UBOOT_SYSTEM}" in
+      odroid-n2)
+        AML_ENCRYPT_BIN="aml_encrypt_g12b"
+        ;;
+      *)
+        AML_ENCRYPT_BIN="aml_encrypt_g12a"
+        ;;
+    esac
     cp $FIPDIR/bl301.bin $DESTDIR/
     cp $FIPDIR/acs.bin $DESTDIR/
     cp $FIPDIR/aml_ddr.fw $DESTDIR/
@@ -130,21 +142,21 @@ case "${UBOOT_SYSTEM}" in
                        $DESTDIR/bl21_zero.bin \
                        $DESTDIR/bl2_new.bin bl2
 
-    $FIPDIR/aml_encrypt_g12b --bl30sig --input $DESTDIR/bl30_new.bin \
+    $FIPDIR/$AML_ENCRYPT_BIN --bl30sig --input $DESTDIR/bl30_new.bin \
                                        --output $DESTDIR/bl30_new.bin.g12a.enc \
                                        --level v3
-    $FIPDIR/aml_encrypt_g12b --bl3sig  --input $DESTDIR/bl30_new.bin.g12a.enc \
+    $FIPDIR/$AML_ENCRYPT_BIN --bl3sig  --input $DESTDIR/bl30_new.bin.g12a.enc \
                                        --output $DESTDIR/bl30_new.bin.enc \
                                        --level v3 --type bl30
-    $FIPDIR/aml_encrypt_g12b --bl3sig  --input $DESTDIR/bl31.img \
+    $FIPDIR/$AML_ENCRYPT_BIN --bl3sig  --input $DESTDIR/bl31.img \
                                        --output $DESTDIR/bl31.img.enc \
                                        --level v3 --type bl31
-    $FIPDIR/aml_encrypt_g12b --bl3sig  --input $DESTDIR/bl33.bin --compress lz4 \
+    $FIPDIR/$AML_ENCRYPT_BIN --bl3sig  --input $DESTDIR/bl33.bin --compress lz4 \
                                        --output $DESTDIR/bl33.bin.enc \
                                        --level v3 --type bl33 --compress lz4
-    $FIPDIR/aml_encrypt_g12b --bl2sig  --input $DESTDIR/bl2_new.bin \
+    $FIPDIR/$AML_ENCRYPT_BIN --bl2sig  --input $DESTDIR/bl2_new.bin \
                                        --output $DESTDIR/bl2.n.bin.sig
-    $FIPDIR/aml_encrypt_g12b --bootmk \
+    $FIPDIR/$AML_ENCRYPT_BIN --bootmk \
                              --output $DESTDIR/u-boot.bin \
                              --bl2 $DESTDIR/bl2.n.bin.sig \
                              --bl30 $DESTDIR/bl30_new.bin.enc \
@@ -161,7 +173,7 @@ case "${UBOOT_SYSTEM}" in
                              --level v3
     ;;
 
-  nanopi-k2)
+  nanopi-k2|wetek-hub|wetek-play2)
     cp $FIPDIR/bl2.bin $DESTDIR/
     cp $FIPDIR/acs.bin $DESTDIR/
     cp $FIPDIR/bl21.bin $DESTDIR/
@@ -243,6 +255,7 @@ mkdir -p $INSTALL/usr/share/bootloader
 if [ $UBOOT_SYSTEM != "box" ]; then
   if [ -f $DESTDIR/u-boot.bin.sd.bin ]; then
     cp -av $DESTDIR/u-boot.bin.sd.bin $INSTALL/usr/share/bootloader
+    [ -d $ROOT/target/u-boot ] && cp -av $DESTDIR/u-boot.bin.sd.bin $ROOT/target/u-boot/u-boot.bin.sd.bin-$UBOOT_SYSTEM
   fi
   if [ -f $DESTDIR/u-boot.bin ]; then
     cp -av $DESTDIR/u-boot.bin $INSTALL/usr/share/bootloader
