@@ -138,8 +138,19 @@ do_umount(){
   done
 }
 
+do_writeprotect(){
+  echo  "info: disabling emmc write protection"
+  echo 0 > /sys/block/mmcblk1boot1/force_ro
+  echo 0 > /sys/block/mmcblk1boot0/force_ro
+}
+
 do_write(){
   do_umount
+  case $(dtname) in
+    radxa,zero)
+      do_writeprotect
+      ;;
+  esac
   if [ "${2: -7}" == ".img.gz" ]; then
     echo "info: writing ${2} to ${EMMC}"
     gunzip -c "${2}" | dd of="${EMMC}" bs=1M
@@ -148,6 +159,18 @@ do_write(){
     dd if="${2}" of="${EMMC}" bs=1M
   else
     echo "error: ${2} is not a valid image file!"
+    exit 1
+  fi
+}
+
+do_uboot(){
+  do_umount
+  if [ "${2:0:10}" == "u-boot.bin" ]; then
+    echo "info: writing ${2} to ${EMMC}"
+    dd if="${2}" of="${EMMC}" conv=fsync,notrunc bs=1 count=444
+    dd if="${2}" of="${EMMC}" conv=fsync,notrunc bs=512 skip=1 seek=1
+  else
+    echo "error: ${2} is not a valid u-boot.bin* file!"
     exit 1
   fi
 }
@@ -168,6 +191,7 @@ do_help(){
   echo "                (l)abels             : change eMMC disk labels to ${BOOTLABEL}/${DISKLABEL}"
   echo "                (r)esize             : resize the storage partition to 100%"
   echo "                (s)storage           : convert emmc for use as /storage (boot from sdcard)"
+  echo "                (u)boot <filename>   : write signed u-boot <filename> to the eMMC module"
   echo "                (z)ero               : zero (erase/wipe) the eMMC module"
   echo "                (h)elp               : displays this help message"
   echo ""
@@ -182,7 +206,7 @@ if [ -z "${EMMC}" ]; then
 fi
 
 case $(dtname) in
-  friendlyarm*|hardkernel*|khadas*|libretech*|wetek*)
+  azw*|friendlyarm*|hardkernel*|khadas*|libretech*|radxa*|wetek*)
     if [ "${BOOT}" = "${EMMC}" ]; then
       do_info
       echo "Your device is booted from the eMMC module!"
@@ -215,6 +239,9 @@ case "${1}" in
     ;;
   storage|s)
     do_storage "$@"
+    ;;
+  uboot|u)
+    do_uboot "$@"
     ;;
   write|w)
     do_write "$@"
