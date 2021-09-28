@@ -20,11 +20,6 @@
 
 PKG_NAME="retroarch"
 PKG_VERSION="d11ffdb"
-
-if [ "${PROJECT}-${DEVICE}" = "Allwinner-H3" ]; then
-  PKG_VERSION="3688861"
-fi
-
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
@@ -34,6 +29,9 @@ PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="Reference frontend for the libretro API."
 PKG_LONGDESC="RetroArch is the reference frontend for the libretro API. Popular examples of implementations for this API includes videogame system emulators and game engines, but also more generalized 3D programs. These programs are instantiated as dynamic libraries. We refer to these as libretro cores."
+
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="no"
 
 if [ "$OPENGLES_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET+=" $OPENGLES"
