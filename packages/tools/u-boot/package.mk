@@ -27,6 +27,7 @@ case "$PROJECT" in
         PKG_VERSION="a1b59905a4554055f35196e17301bf83cbe41b5f"
         PKG_SHA256="7cd65ce1729a204283a7c83f5a55aa500c38cc41e0acea8595981514cab77be9"
         PKG_URL="https://github.com/hardkernel/u-boot/archive/$PKG_VERSION.tar.gz"
+        PKG_PATCH_DIRS="odroidgoadvance"
         ;;
       *)
         PKG_VERSION="8659d08d2b589693d121c1298484e861b7dafc4f"
