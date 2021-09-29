@@ -15,5 +15,5 @@ make_target() {
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
-    cp bsnes/out/bsnes_hd_beta_libretro.so ${INSTALL}/usr/lib/libretro/
+    cp -v bsnes/out/bsnes_hd_beta_libretro.so ${INSTALL}/usr/lib/libretro/
 }
