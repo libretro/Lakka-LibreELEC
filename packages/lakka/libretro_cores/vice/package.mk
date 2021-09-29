@@ -1,20 +1,17 @@
 PKG_NAME="vice"
-PKG_VERSION="407654a"
+PKG_VERSION="50e30a4"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/vice-libretro"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Versatile Commodore 8-bit Emulator version 3.0"
+PKG_LONGDESC="Versatile Commodore 8-bit Emulator version"
 PKG_TOOLCHAIN="manual"
 
 make_target() {
-  if [ "${ARCH}" = "arm" ]; then
-    CFLAGS+=" -DARM -DALIGN_DWORD -mthumb-interwork -falign-functions=16 -marm"
-  fi
-  make EMUTYPE=x64
-  make EMUTYPE=x128
-  make EMUTYPE=xplus4
-  make EMUTYPE=xvic
+  for LRCORE in x64 x128 xplus4 xvic ; do
+    make EMUTYPE=${LRCORE}
+    make objectclean
+  done
 }
 
 makeinstall_target() {
