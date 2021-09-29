@@ -1,13 +1,10 @@
 PKG_NAME="play"
 PKG_VERSION="2e48151"
-PKG_ARCH="i386 x86_64"
+PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/jpd002/Play-"
-PKG_URL="$PKG_SITE.git"
+PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_PRIORITY="optional"
-PKG_SECTION="libretro"
-PKG_SHORTDESC="Play! is an attempt to create a PlayStation 2 emulator for Windows, macOS, UNIX, Android & iOS platforms."
 PKG_LONGDESC="Play! is an attempt to create a PlayStation 2 emulator for Windows, macOS, UNIX, Android & iOS platforms."
 PKG_TOOLCHAIN="cmake"
 
@@ -15,6 +12,7 @@ PKG_CMAKE_OPTS_TARGET="-DBUILD_LIBRETRO_CORE=yes \
                        -DBUILD_PLAY=off \
                        -DBUILD_TESTS=no \
                        -DENABLE_AMAZON_S3=no \
+                       -DUSE_GLEW=no \
                        -DCMAKE_BUILD_TYPE=Release \
                        --target play_libretro"
 
