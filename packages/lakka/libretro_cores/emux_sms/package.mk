@@ -4,7 +4,7 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/emux"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Libretro port of Emux, a cross-platform emulator project supporting various machines with an architecture inspired by the Linux kernel."
+PKG_LONGDESC="Libretro port of Emux, a cross-platform emulator project supporting various machines with an architecture inspired by the Linux kernel."
 PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="-C libretro -f Makefile.lakka MACHINE=sms"

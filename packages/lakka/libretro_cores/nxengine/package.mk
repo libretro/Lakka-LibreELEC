@@ -4,7 +4,7 @@ PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/nxengine-libretro"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain SDL"
-PKG_SHORTDESC="Port of NxEngine to libretro - Cave Story game engine clone"
+PKG_LONGDESC="Port of NxEngine to libretro - Cave Story game engine clone"
 PKG_TOOLCHAIN="make"
 
 makeinstall_target() {

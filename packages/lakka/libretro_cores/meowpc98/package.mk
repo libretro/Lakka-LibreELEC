@@ -4,7 +4,7 @@ PKG_LICENSE="Unknown"
 PKG_SITE="https://github.com/libretro/libretro-meowPC98"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Neko Project 2 (PC98 emulator) port for libretro/RetroArch"
+PKG_LONGDESC="Neko Project 2 (PC98 emulator) port for libretro/RetroArch"
 PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="-C libretro/ -f Makefile.libretro"

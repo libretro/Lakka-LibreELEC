@@ -5,7 +5,7 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-bsnes-libretro"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Standalone port of Mednafen bSNES to libretro, itself a fork of bsnes 0.59."
+PKG_LONGDESC="Standalone port of Mednafen bSNES to libretro, itself a fork of bsnes 0.59."
 PKG_TOOLCHAIN="make"
 
 makeinstall_target() {

@@ -4,7 +4,7 @@ PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/xrick-libretro"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Rick Dangerous Game Engine"
+PKG_LONGDESC="Rick Dangerous Game Engine"
 PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="-f Makefile.libretro"

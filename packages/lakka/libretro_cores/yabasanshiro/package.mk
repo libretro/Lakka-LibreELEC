@@ -5,7 +5,7 @@ PKG_SITE="https://github.com/libretro/yabause"
 PKG_URL="${PKG_SITE}.git"
 PKG_GIT_CLONE_BRANCH="yabasanshiro"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Port of YabaSanshiro to libretro."
+PKG_LONGDESC="Port of YabaSanshiro to libretro."
 PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="-C yabause/src/libretro"

@@ -4,7 +4,7 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-ngp-libretro"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="libretro implementation of Mednafen Neo Geo Pocket."
+PKG_LONGDESC="libretro implementation of Mednafen Neo Geo Pocket."
 PKG_TOOLCHAIN="make"
 
 makeinstall_target() {

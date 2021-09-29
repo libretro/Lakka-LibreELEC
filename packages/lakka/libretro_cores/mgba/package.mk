@@ -4,7 +4,7 @@ PKG_LICENSE="MPLv2.0"
 PKG_SITE="https://github.com/libretro/mgba"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="mGBA Game Boy Advance Emulator"
+PKG_LONGDESC="mGBA Game Boy Advance Emulator"
 PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="-C ../ -f Makefile.libretro"

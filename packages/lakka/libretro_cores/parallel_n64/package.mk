@@ -4,7 +4,7 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/parallel-n64"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Optimized/rewritten Nintendo 64 emulator made specifically for Libretro. Originally based on Mupen64 Plus."
+PKG_LONGDESC="Optimized/rewritten Nintendo 64 emulator made specifically for Libretro. Originally based on Mupen64 Plus."
 PKG_TOOLCHAIN="make"
 
 if [ "${ARCH}" = "i386" ]; then

@@ -5,7 +5,7 @@ PKG_SITE="https://github.com/libretro/mupen64plus-libretro-nx"
 PKG_URL="${PKG_SITE}.git"
 PKG_GIT_CLONE_BRANCH="develop"
 PKG_DEPENDS_TARGET="toolchain nasm:host"
-PKG_SHORTDESC="mupen64plus_next + RSP-HLE + GLideN64 + libretro"
+PKG_LONGDESC="mupen64plus_next + RSP-HLE + GLideN64 + libretro"
 
 PKG_MAKE_OPTS_TARGET="ARCH=${ARCH}"
 

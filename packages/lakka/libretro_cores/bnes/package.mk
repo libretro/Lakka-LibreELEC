@@ -4,7 +4,7 @@ PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/bnes-libretro"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="libretro implementation of bNES/higan. (Nintendo Entertainment System)"
+PKG_LONGDESC="libretro implementation of bNES/higan. (Nintendo Entertainment System)"
 PKG_TOOLCHAIN="make"
 
 makeinstall_target() {

@@ -5,7 +5,7 @@ PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/melonds"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="DS emulator, sorta"
+PKG_LONGDESC="DS emulator, sorta"
 PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="-C ../"

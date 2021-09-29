@@ -7,7 +7,7 @@ PKG_URL="https://www.libsdl.org/release/${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_HOST="toolchain:host"
 PKG_DEPENDS_TARGET="toolchain yasm:host alsa-lib systemd dbus SDL:host"
 PKG_SECTION="multimedia"
-PKG_SHORTDESC="SDL: A cross-platform Graphic API"
+PKG_LONGDESC="SDL: A cross-platform Graphic API"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-shared \
                            --enable-libc \

@@ -4,7 +4,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.pabr.org/sixlinux/"
 PKG_URL="https://github.com/lakkatv/sixpair/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libusb libusb-compat"
-PKG_SHORTDESC="Associate PS3 Sixaxis controller to system bluetoothd via USB"
+PKG_LONGDESC="Associate PS3 Sixaxis controller to system bluetoothd via USB"
 PKG_TOOLCHAIN="manual"
 
 PKG_IS_ADDON="no"

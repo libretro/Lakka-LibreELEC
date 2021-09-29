@@ -5,7 +5,7 @@ PKG_SITE="https://github.com/libretro/dosbox-svn"
 PKG_URL="${PKG_SITE}.git"
 PKG_GIT_CLONE_BRANCH="libretro"
 PKG_DEPENDS_TARGET="toolchain SDL_net"
-PKG_SHORTDESC="Upstream port of DOSBox to libretro"
+PKG_LONGDESC="Upstream port of DOSBox to libretro"
 PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="-C libretro WITH_EMBEDDED_SDL=0"

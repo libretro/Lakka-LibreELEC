@@ -1,11 +1,10 @@
 PKG_NAME="beetle_psx"
 PKG_VERSION="78f4e82"
-PKG_ARCH="x86_64 i386 aarch64"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-psx-libretro"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Standalone port of Mednafen PSX to libretro."
+PKG_LONGDESC="Standalone port of Mednafen PSX to libretro."
 PKG_TOOLCHAIN="make"
 
 if [ "${OPENGL_SUPPORT}" = "yes" ]; then

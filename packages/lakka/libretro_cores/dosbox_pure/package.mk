@@ -1,6 +1,5 @@
 PKG_NAME="dosbox_pure"
 PKG_VERSION="4d70760"
-PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/dosbox-pure"
 PKG_URL="${PKG_SITE}.git"

@@ -5,7 +5,7 @@ PKG_LICENSE="BSD-3c"
 PKG_SITE="https://github.com/xiph/opusfile"
 PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain openssl opus"
-PKG_SHORTDESC="Stand-alone decoder library for .opus streams"
+PKG_LONGDESC="Stand-alone decoder library for .opus streams"
 PKG_TOOLCHAIN="configure"
 PKG_BUILD_FLAGS="+pic"
 

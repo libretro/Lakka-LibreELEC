@@ -4,7 +4,7 @@ PKG_LICENSE="Non-commercial"
 PKG_SITE="https://github.com/libretro/fbneo"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Port of Final Burn Neo to Libretro"
+PKG_LONGDESC="Port of Final Burn Neo to Libretro"
 PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="-C src/burner/libretro"

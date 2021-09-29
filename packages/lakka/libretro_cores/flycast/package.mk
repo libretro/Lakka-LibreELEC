@@ -1,11 +1,10 @@
 PKG_NAME="flycast"
 PKG_VERSION="8e4fa54"
-PKG_ARCH="arm aarch64 x86_64"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/flycast"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Flycast is a multiplatform Sega Dreamcast emulator"
+PKG_LONGDESC="Flycast is a multiplatform Sega Dreamcast emulator"
 PKG_LONGDESC="Flycast is a multiplatform Sega Dreamcast emulator"
 PKG_TOOLCHAIN="make"
 

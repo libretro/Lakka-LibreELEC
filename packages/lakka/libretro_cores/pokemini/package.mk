@@ -4,7 +4,7 @@ PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/pokemini"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Obscure nintendo handheld emulator (functional,no color files or savestates currently)"
+PKG_LONGDESC="Obscure nintendo handheld emulator (functional,no color files or savestates currently)"
 PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="-f Makefile.libretro"

@@ -4,7 +4,7 @@ PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/inolen/redream"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Work In Progress SEGA Dreamcast emulator"
+PKG_LONGDESC="Work In Progress SEGA Dreamcast emulator"
 PKG_TOOLCHAIN="make"
 
 if [ "${OPENGL_SUPPORT}" = "yes" ]; then

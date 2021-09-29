@@ -6,7 +6,7 @@ PKG_URL="${LAKKA_MIRROR}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="Non-shallow fork of PPSSPP for libretro exclusively."
+PKG_LONGDESC="Non-shallow fork of PPSSPP for libretro exclusively."
 #PKG_BUILD_FLAGS="-lto"
 
 pre_make_target() {

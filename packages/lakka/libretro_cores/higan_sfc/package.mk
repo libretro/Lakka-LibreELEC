@@ -5,7 +5,7 @@ PKG_SITE="https://gitlab.com/higan/higan"
 PKG_URL="${PKG_SITE}.git"
 PKG_GIT_CLONE_BRANCH="libretro"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="higan, the multi-system emulator"
+PKG_LONGDESC="higan, the multi-system emulator"
 PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="-f GNUmakefile \

@@ -4,7 +4,7 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/hatari"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="New rebasing of Hatari based on Mercurial upstream. Tries to be a shallow fork for easy upstreaming later on."
+PKG_LONGDESC="New rebasing of Hatari based on Mercurial upstream. Tries to be a shallow fork for easy upstreaming later on."
 PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="-C ../ -f Makefile.libretro"

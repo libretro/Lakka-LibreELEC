@@ -5,7 +5,7 @@ PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/bsnes-mercury"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Fork of bsnes with HLE DSP emulation restored."
+PKG_LONGDESC="Fork of bsnes with HLE DSP emulation restored."
 PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="ui=target-libretro profile=balanced"

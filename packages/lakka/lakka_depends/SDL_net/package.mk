@@ -7,4 +7,4 @@ PKG_URL="https://www.libsdl.org/projects/SDL_net/release/${PKG_NAME}-${PKG_VERSI
 PKG_DEPENDS_TARGET="toolchain yasm:host alsa-lib systemd dbus SDL SDL_net:host"
 PKG_DEPENDS_HOST="toolchain:host yasm:host alsa-lib systemd dbus SDL"
 PKG_SECTION="multimedia"
-PKG_SHORTDESC="This is a small sample cross-platform networking library, with a sample chat client and server application."
+PKG_LONGDESC="This is a small sample cross-platform networking library, with a sample chat client and server application."

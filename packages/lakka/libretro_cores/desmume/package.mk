@@ -4,7 +4,7 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/desmume"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain libpcap"
-PKG_SHORTDESC="libretro wrapper for desmume NDS emulator."
+PKG_LONGDESC="libretro wrapper for desmume NDS emulator."
 PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="-C desmume/src/frontend/libretro"

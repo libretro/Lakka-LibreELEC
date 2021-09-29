@@ -4,7 +4,7 @@ PKG_LICENSE="MAME"
 PKG_SITE="https://github.com/libretro/imame4all-libretro"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="A port of iMAME4all to libretro"
+PKG_LONGDESC="A port of iMAME4all to libretro"
 PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="-f makefile.libretro"

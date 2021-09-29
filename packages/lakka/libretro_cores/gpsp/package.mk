@@ -4,7 +4,7 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/gpsp"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="gpSP for libretro"
+PKG_LONGDESC="gpSP for libretro"
 PKG_TOOLCHAIN="make"
 
 pre_make_target() {

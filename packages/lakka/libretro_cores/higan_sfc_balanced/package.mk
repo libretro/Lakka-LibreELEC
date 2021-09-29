@@ -4,7 +4,7 @@ PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/nSide"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="A fork of higan v106 by byuu, which was renamed to exclude 'higan' at byuu's request."
+PKG_LONGDESC="A fork of higan v106 by byuu, which was renamed to exclude 'higan' at byuu's request."
 PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="-f GNUmakefile \

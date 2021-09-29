@@ -5,7 +5,7 @@ PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="Port of Gregory Montoir's Flashback emulator, running as a libretro core."
+PKG_LONGDESC="Port of Gregory Montoir's Flashback emulator, running as a libretro core."
 PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="-C ../"

@@ -5,7 +5,7 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/dolphin"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Dolphin is a GameCube / Wii emulator, allowing you to play games for these two platforms on PC with improvements."
+PKG_LONGDESC="Dolphin is a GameCube / Wii emulator, allowing you to play games for these two platforms on PC with improvements."
 PKG_TOOLCHAIN="cmake"
 
 if [ "${OPENGL_SUPPORT}" = "yes" ]; then

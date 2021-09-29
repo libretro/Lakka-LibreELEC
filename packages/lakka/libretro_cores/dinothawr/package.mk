@@ -4,7 +4,7 @@ PKG_LICENSE="Non-commercial"
 PKG_SITE="https://github.com/libretro/Dinothawr"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Dinothawr is a block pushing puzzle game on slippery surfaces"
+PKG_LONGDESC="Dinothawr is a block pushing puzzle game on slippery surfaces"
 PKG_TOOLCHAIN="make"
 
 if target_has_feature neon; then

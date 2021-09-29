@@ -4,7 +4,7 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/yabause"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Port of Yabause to libretro."
+PKG_LONGDESC="Port of Yabause to libretro."
 PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="-C yabause/src/libretro"

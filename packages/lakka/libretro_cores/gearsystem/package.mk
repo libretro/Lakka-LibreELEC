@@ -4,7 +4,7 @@ PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/drhelius/Gearsystem"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Gearsystem is a Sega Master System / Game Gear / SG-1000 emulator written in C++"
+PKG_LONGDESC="Gearsystem is a Sega Master System / Game Gear / SG-1000 emulator written in C++"
 PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="-C platforms/libretro/"

@@ -4,7 +4,7 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/nestopia"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Libretro implementation of NEStopia. (Nintendo Entertainment System)"
+PKG_LONGDESC="Libretro implementation of NEStopia. (Nintendo Entertainment System)"
 PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="-C libretro/"

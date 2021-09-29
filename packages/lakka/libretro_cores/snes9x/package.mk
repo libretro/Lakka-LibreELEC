@@ -4,7 +4,7 @@ PKG_LICENSE="Non-commercial"
 PKG_SITE="https://github.com/libretro/snes9x"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Snes9x - Portable Super Nintendo Entertainment System (TM) emulator"
+PKG_LONGDESC="Snes9x - Portable Super Nintendo Entertainment System (TM) emulator"
 PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="-C libretro/"

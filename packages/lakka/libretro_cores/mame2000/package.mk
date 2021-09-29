@@ -4,7 +4,7 @@ PKG_LICENSE="MAME"
 PKG_SITE="https://github.com/libretro/mame2000-libretro"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="MAME - Multiple Arcade Machine Emulator"
+PKG_LONGDESC="MAME - Multiple Arcade Machine Emulator"
 PKG_TOOLCHAIN="make"
 
 if [ "${ARCH}" = "arm" ]; then

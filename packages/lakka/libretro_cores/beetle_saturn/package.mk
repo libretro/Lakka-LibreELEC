@@ -5,7 +5,7 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-saturn-libretro"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Standalone port of Mednafen Saturn to libretro."
+PKG_LONGDESC="Standalone port of Mednafen Saturn to libretro."
 PKG_LONGDESC="Standalone port of Mednafen Saturn to libretro."
 PKG_TOOLCHAIN="make"
 

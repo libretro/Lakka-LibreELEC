@@ -4,7 +4,7 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mupen64plus-libretro"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain nasm:host"
-PKG_SHORTDESC="mupen64plus + RSP-HLE + GLideN64 + libretro"
+PKG_LONGDESC="mupen64plus + RSP-HLE + GLideN64 + libretro"
 #PKG_BUILD_FLAGS="-lto"
 PKG_TOOLCHAIN="manual"
 

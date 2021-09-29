@@ -4,7 +4,7 @@ PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/mrboom-libretro"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Mr.Boom is a 8 players Bomberman clone for RetroArch/Libretro"
+PKG_LONGDESC="Mr.Boom is a 8 players Bomberman clone for RetroArch/Libretro"
 PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET=""

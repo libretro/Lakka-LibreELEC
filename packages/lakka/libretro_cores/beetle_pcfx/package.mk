@@ -4,7 +4,7 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-pcfx-libretro"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="libretro implementation of Mednafen PC-FX."
+PKG_LONGDESC="libretro implementation of Mednafen PC-FX."
 PKG_TOOLCHAIN="make"
 
 if [ "${ARCH}" = "i386" -o "${ARCH}" = "x86_64" ]; then

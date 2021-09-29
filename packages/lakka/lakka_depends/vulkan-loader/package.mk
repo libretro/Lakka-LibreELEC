@@ -5,7 +5,7 @@ PKG_LICENSE="Apache 2.0"
 PKG_SITE="https://www.khronos.org"
 PKG_URL="https://github.com/KhronosGroup/Vulkan-Loader/archive/v${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain cmake:host Python3 vulkan-headers xrandr"
-PKG_SHORTDESC="Vulkan Installable Client Driver (ICD) Loader."
+PKG_LONGDESC="Vulkan Installable Client Driver (ICD) Loader."
 
 PKG_CMAKE_OPTS_TARGET="-DBUILD_WSI_WAYLAND_SUPPORT=off \
                        -DVulkanHeaders_INCLUDE_DIR=${SYSROOT_PREFIX}/usr/include \

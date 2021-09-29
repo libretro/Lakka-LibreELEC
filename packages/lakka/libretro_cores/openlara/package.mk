@@ -4,7 +4,7 @@ PKG_LICENSE="BSD"
 PKG_SITE="https://github.com/libretro/openlara"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Classic Tomb Raider open-source engine"
+PKG_LONGDESC="Classic Tomb Raider open-source engine"
 PKG_LONGDESC="Classic Tomb Raider open-source engine"
 PKG_TOOLCHAIN="make"
 

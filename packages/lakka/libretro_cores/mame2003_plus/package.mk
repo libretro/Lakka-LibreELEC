@@ -4,7 +4,7 @@ PKG_LICENSE="MAME"
 PKG_SITE="https://github.com/libretro/mame2003-plus-libretro"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="MAME - Multiple Arcade Machine Emulator"
+PKG_LONGDESC="MAME - Multiple Arcade Machine Emulator"
 PKG_TOOLCHAIN="make"
 
 pre_make_target() {

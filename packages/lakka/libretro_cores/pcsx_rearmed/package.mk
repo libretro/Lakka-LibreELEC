@@ -4,7 +4,7 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/pcsx_rearmed"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="ARM optimized PCSX fork"
+PKG_LONGDESC="ARM optimized PCSX fork"
 PKG_BUILD_FLAGS="-gold"
 PKG_TOOLCHAIN="make"
 

@@ -4,7 +4,7 @@ PKG_LICENSE="GPLv2+"
 PKG_SITE="https://github.com/libretro/daphne"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Daphne is a laserdisc games emulator"
+PKG_LONGDESC="Daphne is a laserdisc games emulator"
 PKG_TOOLCHAIN="make"
 
 makeinstall_target() {

@@ -4,7 +4,7 @@ PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/libretro/Craft"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="A simple Minecraft clone written in C using modern OpenGL (shaders)."
+PKG_LONGDESC="A simple Minecraft clone written in C using modern OpenGL (shaders)."
 PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="-f Makefile.libretro -C ../"

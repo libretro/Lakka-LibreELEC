@@ -5,7 +5,7 @@ PKG_SITE="https://github.com/hrydgard/ppsspp"
 PKG_URL="${PKG_SITE}.git"
 PKG_GIT_CLONE_BRANCH="v1.11-hotfixes"
 PKG_DEPENDS_TARGET="toolchain libzip libpng"
-PKG_SHORTDESC="Libretro port of PPSSPP"
+PKG_LONGDESC="Libretro port of PPSSPP"
 PKG_TOOLCHAIN="cmake"
 
 PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON \

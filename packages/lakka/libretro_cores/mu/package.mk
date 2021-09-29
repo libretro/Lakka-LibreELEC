@@ -4,7 +4,7 @@ PKG_LICENSE="Non-commercial"
 PKG_SITE="https://github.com/libretro/Mu"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="A new Palm OS emulator targeting compatibility, speed and accuracy in that order."
+PKG_LONGDESC="A new Palm OS emulator targeting compatibility, speed and accuracy in that order."
 PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="-C ../libretroBuildSystem"

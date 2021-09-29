@@ -5,7 +5,7 @@ PKG_SITE="https://github.com/libretro/bsnes"
 PKG_URL="${PKG_SITE}.git"
 PKG_BRANCH="master"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SHORTDESC="Super Nintendo (Super Famicom) emulator"
+PKG_LONGDESC="Super Nintendo (Super Famicom) emulator"
 PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="-C bsnes -f GNUmakefile target=libretro platform=linux local=false"

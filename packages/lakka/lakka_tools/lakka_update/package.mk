@@ -1,7 +1,7 @@
 PKG_NAME="lakka_update"
 PKG_VERSION="0"
 PKG_LICENSE="GPL"
-PKG_SHORTDESC="Shell script to wget the latest update"
+PKG_LONGDESC="Shell script to wget the latest update"
 PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
