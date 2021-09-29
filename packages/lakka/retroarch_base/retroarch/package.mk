@@ -186,8 +186,6 @@ makeinstall_target() {
   fi
 
   # Playlists
-  echo "playlist_names = \"${RA_PLAYLIST_NAMES}\"" >> ${INSTALL}/etc/retroarch.cfg
-  echo "playlist_cores = \"${RA_PLAYLIST_CORES}\"" >> ${INSTALL}/etc/retroarch.cfg
   echo "playlist_entry_rename = \"false\"" >> ${INSTALL}/etc/retroarch.cfg
   echo "playlist_entry_remove = \"false\"" >> ${INSTALL}/etc/retroarch.cfg
 
