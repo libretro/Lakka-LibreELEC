@@ -133,6 +133,9 @@ makeinstall_target() {
       cp ${PKG_DIR}/scripts/getedid-drm ${INSTALL}/usr/bin/getedid
     fi
     cp ${PKG_DIR}/scripts/createlog ${INSTALL}/usr/bin/
+    if [ "${DISTRO}" = "Lakka" ]; then
+      cp ${PKG_DIR}/scripts/createlog-lakka ${INSTALL}/usr/bin/createlog
+    fi
     cp ${PKG_DIR}/scripts/dthelper ${INSTALL}/usr/bin
       ln -sf dthelper ${INSTALL}/usr/bin/dtfile
       ln -sf dthelper ${INSTALL}/usr/bin/dtflag
