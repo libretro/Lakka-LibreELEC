@@ -15,6 +15,7 @@ fi
 
 if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
+  PKG_MAKE_OPTS_TARGET+=" GLES=1 FORCE_GLES=1"
 fi
 
 if [ "${VULKAN_SUPPORT}" = "yes" ]; then
@@ -53,22 +54,32 @@ pre_make_target() {
       PKG_MAKE_OPTS_TARGET+=" platform=odroid BOARD=ODROIDGOA"
       ;;
     RK3328)
-      PKG_MAKE_OPTS_TARGET+=" platform=RK3328 GLES=1 FORCE_GLES=1"
+      PKG_MAKE_OPTS_TARGET+=" platform=RK3328"
       ;;
     RK3399)
-      PKG_MAKE_OPTS_TARGET+=" platform=RK3399 GLES=1 FORCE_GLES=1"
+      PKG_MAKE_OPTS_TARGET+=" platform=RK3399"
       ;;
     RK3328)
-      PKG_MAKE_OPTS_TARGET+=" platform=RK3288 GLES=1 FORCE_GLES=1"
+      PKG_MAKE_OPTS_TARGET+=" platform=RK3288"
+      ;;
+    Generic)
+      PKG_MAKE_OPTS_TARGET+=" HAVE_PARALLEL_RDP=1 HAVE_PARALLEL_RSP=1 HAVE_THR_AL=1 LLE=1"
       ;;
     *)
       PKG_MAKE_OPTS_TARGET+=" platform=unix"
-      if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
-        PKG_MAKE_OPTS_TARGET+=" GLES=1 FORCE_GLES=1"
-      fi
-      if target_has_feature neon ; then
-        PKG_MAKE_OPTS_TARGET+=" HAVE_NEON=1"
-      fi
+      ;;
+  esac
+
+  if target_has_feature neon ; then
+    [ "${ARCH}" = "arm" ] && PKG_MAKE_OPTS_TARGET+=" HAVE_NEON=1" || true
+  fi
+
+  case ${ARCH} in
+    i386)
+      PKG_MAKE_OPTS_TARGET+=" WITH_DYNAREC=x86"
+      ;;
+    *)
+      PKG_MAKE_OPTS_TARGET+=" WITH_DYNAREC=${ARCH}"
       ;;
   esac
 }

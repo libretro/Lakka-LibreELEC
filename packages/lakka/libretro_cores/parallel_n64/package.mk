@@ -45,6 +45,9 @@ pre_make_target() {
         PKG_MAKE_OPTS_TARGET+=" platform=armv-neon HAVE_PARALLEL=1"
       fi
     fi
+  elif [ "${PROJECT}" = "Generic" ]; then
+    LDFLAGS="$LDFLAGS -lpthread"
+    PKG_MAKE_OPTS_TARGET+=" HAVE_PARALLEL=1 HAVE_PARALLEL_RSP=1 HAVE_THR_AL=1"
   elif target_has_feature neon ; then
     CFLAGS+=" -DGL_BGRA_EXT=0x80E1" # Fix build for platforms where GL_BGRA_EXT is not defined
     PKG_MAKE_OPTS_TARGET+=" platform=armv-gles-neon"
