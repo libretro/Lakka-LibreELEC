@@ -65,27 +65,18 @@ fi
 
 targets="\
 	Allwinner|A64|aarch64|image \
-	Allwinner|A64|arm|image \
 	Allwinner|H2-plus|arm|image \
 	Allwinner|H3|arm|image \
 	Allwinner|H5|aarch64|image \
-	Allwinner|H5|arm|image \
 	Allwinner|H6|aarch64|image \
-	Allwinner|H6|arm|image \
 	Allwinner|R40|arm|image \
 	Amlogic|AMLGX|aarch64|image \
-	Amlogic|AMLGX|arm|image \
 	Generic||x86_64|image \
-	NXP|iMX6|arm|image \
 	NXP|iMX8|aarch64|image \
 	NXP|iMX8|arm|image \
-	Qualcomm|Dragonboard|aarch64|image \
-	Qualcomm|Dragonboard|arm|image \
 	Rockchip|RK3288|arm|image \
 	Rockchip|RK3328|aarch64|image \
-	Rockchip|RK3328|arm|image \
 	Rockchip|RK3399|aarch64|image \
-	Rockchip|RK3399|arm|image \
 	RPi|RPi|arm|image \
 	RPi|RPi2|arm|image \
 	RPi|RPi4|arm|image \
@@ -164,20 +155,17 @@ do
 						echo ""
 						echo "${statusline}"
 					fi
-					# check if all build threads are idle = build of packages is finished
-					idle=$(cat ${statusfile} | cut -d' ' -f 2 | grep IDLE | wc -l)
-					if [ -n "${bt}" ]
+					# check if all packages have been built
+					pkgs_stat=$(head -n 1 ${statusfile} | cut -d" " -f5,7)
+					pkgs_done=${pkgs_stat%% *}
+					pkgs_todo=${pkgs_stat##* } 
+					if [ ${pkgs_done} -eq ${pkgs_todo} ]
 					then
-						if [ ${bt} -eq ${idle} ]
-						then
-							finished=1
-							# show the dashboard and status line one last time
-							cat ${statusfile}
-							echo ""
-							echo "${statusline}"
-						else
-							sleep ${rr}
-						fi
+						finished=1
+						# show the dashboard and status line one last time
+						cat ${statusfile}
+						echo ""
+						echo "${statusline}"
 					else
 						sleep ${rr}
 					fi
