@@ -158,14 +158,19 @@ do
 					# check if all packages have been built
 					pkgs_stat=$(head -n 1 ${statusfile} | cut -d" " -f5,7)
 					pkgs_done=${pkgs_stat%% *}
-					pkgs_todo=${pkgs_stat##* } 
-					if [ ${pkgs_done} -eq ${pkgs_todo} ]
+					pkgs_todo=${pkgs_stat##* }
+					if [ -n "${pkgs_done}" -a -n "${pkgs_todo}" ]
 					then
-						finished=1
-						# show the dashboard and status line one last time
-						cat ${statusfile}
-						echo ""
-						echo "${statusline}"
+						if [ ${pkgs_done} -eq ${pkgs_todo} ]
+						then
+							finished=1
+							# show the dashboard and status line one last time
+							cat ${statusfile}
+							echo ""
+							echo "${statusline}"
+						else
+							sleep ${rr}
+						fi
 					else
 						sleep ${rr}
 					fi
