@@ -1,5 +1,5 @@
 PKG_NAME="uae4arm"
-PKG_VERSION="4dd61d2"
+PKG_VERSION="134ccde"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/Chips-fr/uae4arm-rpi"

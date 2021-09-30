@@ -1,5 +1,5 @@
 PKG_NAME="atari800"
-PKG_VERSION="b59fb7e"
+PKG_VERSION="cd61841"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/libretro/libretro-atari800"
 PKG_URL="${PKG_SITE}.git"

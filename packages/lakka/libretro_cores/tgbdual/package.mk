@@ -1,5 +1,5 @@
 PKG_NAME="tgbdual"
-PKG_VERSION="fb6d2f6"
+PKG_VERSION="1e0c4f9"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/tgbdual-libretro"
 PKG_URL="${PKG_SITE}.git"

@@ -1,5 +1,5 @@
 PKG_NAME="dolphin"
-PKG_VERSION="13ad7dd"
+PKG_VERSION="4ffaf05"
 PKG_ARCH="x86_64 aarch64"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/dolphin"
@@ -32,4 +32,6 @@ PKG_CMAKE_OPTS_TARGET="-DENABLE_X11=OFF \
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
     cp -v ${PKG_BUILD}/.${TARGET_NAME}/dolphin_libretro.so ${INSTALL}/usr/lib/libretro/
+  mkdir -p ${INSTALL}/usr/share/retroarch-system/dolphin-emu
+    cp -vr ${PKG_BUILD}/Data/Sys ${INSTALL}/usr/share/retroarch-system/dolphin-emu/
 }

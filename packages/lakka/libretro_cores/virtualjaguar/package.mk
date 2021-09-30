@@ -1,5 +1,5 @@
 PKG_NAME="virtualjaguar"
-PKG_VERSION="2069160"
+PKG_VERSION="88291b9"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/virtualjaguar-libretro"
 PKG_URL="${PKG_SITE}.git"

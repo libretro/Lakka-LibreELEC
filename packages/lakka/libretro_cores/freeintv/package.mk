@@ -1,5 +1,5 @@
 PKG_NAME="freeintv"
-PKG_VERSION="5fc8d85"
+PKG_VERSION="0058a09"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/FreeIntv"
 PKG_URL="${PKG_SITE}.git"
