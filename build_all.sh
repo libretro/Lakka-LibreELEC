@@ -72,14 +72,14 @@ targets="\
 	Allwinner|R40|arm|image \
 	Amlogic|AMLGX|aarch64|image \
 	Generic||x86_64|image \
+	NXP|iMX6|arm|image \
 	NXP|iMX8|aarch64|image \
-	NXP|iMX8|arm|image \
 	Rockchip|RK3288|arm|image \
 	Rockchip|RK3328|aarch64|image \
 	Rockchip|RK3399|aarch64|image \
-	RPi|RPi|arm|image \
-	RPi|RPi2|arm|image \
-	RPi|RPi4|arm|image \
+	RPi|RPi|arm|noobs \
+	RPi|RPi2|arm|noobs \
+	RPi|RPi4|arm|noobs \
 	"
 
 # set the number of total build jobs and initialize counter for current build job
