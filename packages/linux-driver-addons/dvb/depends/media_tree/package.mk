@@ -19,7 +19,7 @@ unpack() {
 
 post_unpack() {
   # hack/workaround for borked upstream kernel/media_build
-  # without removing atomisp there a lot additional includes that 
+  # without removing atomisp there a lot additional includes that
   # slowdown build process after modpost from 3min to 6min
   # even if atomisp is disabled via kernel.conf
   rm -rf ${PKG_BUILD}/drivers/staging/media/atomisp
