@@ -10,22 +10,22 @@ PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET=""
 
-if [ "${PROJECT}" != "Generic" ]; then
-  case ${DEVICE:-$PROJECT} in
-    RPi)
-      PKG_MAKE_OPTS_TARGET+=" platform=armv6-hardfloat-arm1176jzf-s"
-      ;;
-    RPi2)
-      PKG_MAKE_OPTS_TARGET+=" platform=armv7-neon-hardfloat-cortex-a7"
-      ;;
-    iMX6)
-      PKG_MAKE_OPTS_TARGET+=" platform=armv7-neon-hardfloat-cortex-a9"
-      ;;
-    *)
+case ${DEVICE:-$PROJECT} in
+  RPi)
+    PKG_MAKE_OPTS_TARGET+=" platform=armv6-hardfloat-arm1176jzf-s"
+    ;;
+  RPi2)
+    PKG_MAKE_OPTS_TARGET+=" platform=armv7-neon-hardfloat-cortex-a7"
+    ;;
+  iMX6)
+    PKG_MAKE_OPTS_TARGET+=" platform=armv7-neon-hardfloat-cortex-a9"
+    ;;
+  *)
+    if [ "${ARCH}" = "arm" ]; then
       PKG_MAKE_OPTS_TARGET+=" platform=armv"
-      ;;
-  esac
-fi
+    fi
+    ;;
+esac
 
 pre_make_target() {
   PKG_MAKE_OPTS_TARGET+=" REALCC=${CC} CC=${CXX} LD=${CXX}"
