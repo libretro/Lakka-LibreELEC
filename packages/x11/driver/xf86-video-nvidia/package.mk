@@ -39,7 +39,7 @@ makeinstall_target() {
     ln -sf /var/lib/nvidia_drv.so ${INSTALL}/${XORG_PATH_MODULES}/drivers/nvidia_drv.so
 
   mkdir -p ${INSTALL}/${XORG_PATH_MODULES}/extensions
-  # rename to avoid conflicts with X.Org-Server module libglx.so 
+  # rename to avoid conflicts with X.Org-Server module libglx.so
     cp -P libglxserver_nvidia.so.${PKG_VERSION} ${INSTALL}/${XORG_PATH_MODULES}/extensions/libglx_nvidia.so
 
   mkdir -p ${INSTALL}/etc/X11
