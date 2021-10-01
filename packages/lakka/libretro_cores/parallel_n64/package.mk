@@ -51,7 +51,7 @@ pre_make_target() {
     PKG_MAKE_OPTS_TARGET+=" HAVE_PARALLEL=1 HAVE_PARALLEL_RSP=1 HAVE_THR_AL=1"
   elif target_has_feature neon ; then
     CFLAGS+=" -DGL_BGRA_EXT=0x80E1" # Fix build for platforms where GL_BGRA_EXT is not defined
-    PKG_MAKE_OPTS_TARGET+=" platform=armv-gles-neon"
+    [ "${ARCH}" = "arm" ] && PKG_MAKE_OPTS_TARGET+=" platform=armv-gles-neon" || true
   elif [ "${PROJECT}" =  "Rockchip" -a "${ARCH}" = "aarch64" ]; then
     LDFLAGS+=" -lpthread"
     PKG_MAKE_OPTS_TARGET+=" FORCE_GLES=1 HAVE_PARALLEL=1"
