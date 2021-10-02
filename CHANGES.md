@@ -1,5 +1,6 @@
 # v3.5
-* Update mesa3d to v21.2.2 (https://docs.mesa3d.org/relnotes/21.2.2.html)
+* Add support for [Anbernic RG351MP](https://anbernic.com/products/anbernic-new-rg351mp-retro-games-built)
+* Update Mesa to [21.2.3](https://docs.mesa3d.org/relnotes/21.2.3.html)
 * Update Linux kernel to 5.10.68 and kernel firmware to 20210919 (Generic, iMX6)
 * Fix libraries for interfacing to Raspberry Pi GPU on aarch64
 * Add WireGuard VPN support
