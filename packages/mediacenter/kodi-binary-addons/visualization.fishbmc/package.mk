@@ -2,8 +2,8 @@
 # Copyright (C) 2020-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="visualization.fishbmc"
-PKG_VERSION="19.0.0-Matrix"
-PKG_SHA256="b8cb7793f29b3c3d097a5348831347af8fbed1e4ef44d37d9faeff83ff22a830"
+PKG_VERSION="20.0.0-Nexus"
+PKG_SHA256="5f2d8b719ba5b91fc0adc527ccfdfef3f6f76a0d1a5b150254b373761077b4ba"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
