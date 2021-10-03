@@ -64,22 +64,8 @@ fi
 # list of targets/platforms in structure PROJECT|DEVICE|ARCH|make_rule
 
 targets="\
-	Allwinner|A64|aarch64|image \
-	Allwinner|H2-plus|arm|image \
-	Allwinner|H3|arm|image \
-	Allwinner|H5|aarch64|image \
-	Allwinner|H6|aarch64|image \
-	Allwinner|R40|arm|image \
-	Amlogic|AMLGX|aarch64|image \
-	Generic||x86_64|image \
-	NXP|iMX6|arm|image \
-	NXP|iMX8|aarch64|image \
-	Rockchip|RK3288|arm|image \
 	Rockchip|RK3328|aarch64|image \
 	Rockchip|RK3399|aarch64|image \
-	RPi|RPi|arm|noobs \
-	RPi|RPi2|arm|noobs \
-	RPi|RPi4|arm|noobs \
 	"
 
 # set the number of total build jobs and initialize counter for current build job

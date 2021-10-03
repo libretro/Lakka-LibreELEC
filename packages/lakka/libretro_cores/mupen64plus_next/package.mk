@@ -53,13 +53,10 @@ pre_make_target() {
     OdroidGoAdvance)
       PKG_MAKE_OPTS_TARGET+=" platform=odroid BOARD=ODROIDGOA"
       ;;
-    RK3328)
-      PKG_MAKE_OPTS_TARGET+=" platform=RK3328"
-      ;;
-    RK3399)
-      PKG_MAKE_OPTS_TARGET+=" platform=RK3399"
-      ;;
-    RK3328)
+#    RK3399)
+#      PKG_MAKE_OPTS_TARGET+=" platform=RK3399"
+#      ;;
+    RK3288)
       PKG_MAKE_OPTS_TARGET+=" platform=RK3288"
       ;;
     Generic)
