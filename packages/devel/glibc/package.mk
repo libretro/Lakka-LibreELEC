@@ -19,7 +19,6 @@ PKG_CONFIGURE_OPTS_TARGET="BASH_SHELL=/bin/sh \
                            --libexecdir=/usr/lib/glibc \
                            --cache-file=config.cache \
                            --disable-profile \
-                           --disable-werror \
                            --disable-sanity-checks \
                            --enable-add-ons \
                            --enable-bind-now \
@@ -50,6 +49,9 @@ pre_configure_target() {
   export CFLAGS=$(echo ${CFLAGS} | sed -e "s|-ffast-math||g")
   export CFLAGS=$(echo ${CFLAGS} | sed -e "s|-Ofast|-O2|g")
   export CFLAGS=$(echo ${CFLAGS} | sed -e "s|-O.|-O2|g")
+
+  export CFLAGS=$(echo ${CFLAGS} | sed -e "s|-Wunused-but-set-variable||g")
+  export CFLAGS="${CFLAGS} -Wno-unused-variable"
 
   if [ -n "${PROJECT_CFLAGS}" ]; then
     export CFLAGS=$(echo ${CFLAGS} | sed -e "s|${PROJECT_CFLAGS}||g")
