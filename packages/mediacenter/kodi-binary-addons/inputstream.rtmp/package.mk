@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="inputstream.rtmp"
-PKG_VERSION="19.0.0-Matrix"
-PKG_SHA256="0e97aaeae7e1aaa16d97996651dcab45aeb6937dc5bf177529c5ad8aa2014b0e"
+PKG_VERSION="20.0.0-Nexus"
+PKG_SHA256="13ef455431a6453aa644273a9fe8135dabb2d1bd37fb8e91d2d7bc1bf72eb108"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

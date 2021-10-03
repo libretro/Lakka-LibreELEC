@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="visualization.spectrum"
-PKG_VERSION="19.0.0-Matrix"
-PKG_SHA256="32b130c26581c224e9b43672ccb5c947f2f4982e6d2ab12e389b41a9ceeb0e3f"
+PKG_VERSION="20.0.0-Nexus"
+PKG_SHA256="af0e687e61c6ceee5dab8b4a37c0744aa74241097a6609fa40226d6ca9335c22"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
