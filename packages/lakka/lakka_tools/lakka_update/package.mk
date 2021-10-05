@@ -8,4 +8,9 @@ makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin
     cp -v lakka-update.sh ${INSTALL}/usr/bin/lakka-update
     chmod -v +x ${INSTALL}/usr/bin/lakka-update
+
+  if [ "${LAKKA_NIGHTLY}" = yes ]; then
+    sed -e 's|^MIRROR=.*$|MIRROR=https://nightly.builds.lakka.tv/.updater|' \
+        -i ${INSTALL}/usr/bin/lakka-update
+  fi
 }
