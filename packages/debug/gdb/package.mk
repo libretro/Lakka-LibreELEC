@@ -36,6 +36,8 @@ PKG_CONFIGURE_OPTS_COMMON="bash_cv_have_mbstate_t=set \
                            --enable-libssp \
                            --disable-werror"
 
+[ "${DISTRO}" = "Lakka" ] && PKG_CONFIGURE_OPTS_COMMON="${PKG_CONFIGURE_OPTS_COMMON//--disable-tui/--enable-tui}" || true
+
 PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_COMMON} \
                            --with-libexpat-prefix=${SYSROOT_PREFIX}/usr"
 
