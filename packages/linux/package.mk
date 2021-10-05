@@ -180,6 +180,20 @@ pre_make_target() {
                                 --module CONFIG_SND_SYNTH_EMUX
   fi
 
+  # enable Gamecon for Lakka on x86_64, i386 has options set in linux config file
+  if [ "${DISTRO}" = "Lakka" -a "${TARGET_ARCH}" = "x86_64" ]; then
+    ${PKG_BUILD}/scripts/config \
+                                --module CONFIG_JOYSTICK_GAMECON \
+                                --module CONFIG_PARPORT \
+                                --module CONFIG_PARPORT_PC \
+                                --module CONFIG_PARPORT_SERIAL \
+                                --enable CONFIG_PARPORT_PC_FIFO \
+                                --enable CONFIG_PARPORT_PC_SUPERIO \
+                                --module CONFIG_PARPORT_AX88796 \
+                                --enable CONFIG_PARPORT_1284 \
+                                --enable CONFIG_PARPORT_NOT_PC
+  fi
+
   if [ "${TARGET_ARCH}" = "x86_64" -o "${TARGET_ARCH}" = "i386" ]; then
     # copy some extra firmware to linux tree
     mkdir -p ${PKG_BUILD}/external-firmware
