@@ -40,6 +40,7 @@ targets="\
 	Allwinner|R40|arm| \
 	Amlogic|AMLGX|aarch64| \
 	Amlogic|AMLGX|arm| \
+	Generic||i386| \
 	Generic||x86_64| \
 	NXP|iMX6|arm| \
 	NXP|iMX8|aarch64| \
