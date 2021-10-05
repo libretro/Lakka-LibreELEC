@@ -52,7 +52,7 @@ if [ "${PKG_BUILD_PERF}" != "no" ] && grep -q ^CONFIG_PERF_EVENTS= ${PKG_KERNEL_
   PKG_DEPENDS_TARGET+=" binutils elfutils libunwind zlib openssl"
 fi
 
-if [ "${TARGET_ARCH}" = "x86_64" ]; then
+if [ "${TARGET_ARCH}" = "x86_64" -o "${TARGET_ARCH}" = "i386" ]; then
   PKG_DEPENDS_TARGET+=" elfutils:host pciutils"
   PKG_DEPENDS_UNPACK+=" intel-ucode kernel-firmware"
 elif [ "${TARGET_ARCH}" = "arm" -a "${DEVICE}" = "iMX6" ]; then
@@ -165,7 +165,7 @@ pre_make_target() {
     ${PKG_BUILD}/scripts/config --set-val CONFIG_NOUVEAU_DEBUG_DEFAULT 3
   fi
 
-  if [ "${TARGET_ARCH}" = "x86_64" ]; then
+  if [ "${TARGET_ARCH}" = "x86_64" -o "${TARGET_ARCH}" = "i386" ]; then
     # copy some extra firmware to linux tree
     mkdir -p ${PKG_BUILD}/external-firmware
       cp -a $(get_build_dir kernel-firmware)/.copied-firmware/{amdgpu,amd-ucode,i915,radeon,e100,rtl_nic} ${PKG_BUILD}/external-firmware
@@ -231,7 +231,7 @@ make_target() {
 
       # arch specific perf build args
       case "${TARGET_ARCH}" in
-        x86_64)
+        x86_64|i386)
           PERF_BUILD_ARGS="ARCH=x86"
           ;;
         aarch64)

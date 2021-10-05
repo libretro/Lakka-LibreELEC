@@ -25,7 +25,7 @@ if [ "${NFS_SUPPORT}" = yes ]; then
   PKG_DEPENDS_TARGET+=" rpcbind"
 fi
 
-if [ "${TARGET_ARCH}" = "x86_64" ]; then
+if [ "${TARGET_ARCH}" = "x86_64" -o "${TARGET_ARCH}" = "i386" ]; then
   PKG_DEPENDS_TARGET+=" pciutils"
 fi
 
@@ -122,7 +122,7 @@ makeinstall_host() {
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin
-    if [ ${TARGET_ARCH} = x86_64 ]; then
+    if [ ${TARGET_ARCH} = x86_64 -o ${TARGET_ARCH} = i386 ]; then
       cp ${PKG_DIR}/scripts/getedid ${INSTALL}/usr/bin
     else
       cp ${PKG_DIR}/scripts/dump-active-edids-drm ${INSTALL}/usr/bin/dump-active-edids

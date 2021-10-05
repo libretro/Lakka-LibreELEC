@@ -83,7 +83,7 @@ fi
 
 if [ "${VULKAN_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" $VULKAN"
-  if [ "${PROJECT}" = "Generic" ]; then
+  if [ "${PROJECT}" = "Generic" -a "${ARCH}" = "x86_64" ]; then
     PKG_MESON_OPTS_TARGET="${PKG_MESON_OPTS_TARGET//-Dvulkan-drivers=/-Dvulkan-drivers=amd,intel}"
   elif [ "${PROJECT}" = "RPi" -a "${DEVICE}" = "RPi4" ]; then
     PKG_MESON_OPTS_TARGET="${PKG_MESON_OPTS_TARGET//-Dvulkan-drivers=/-Dvulkan-drivers=broadcom}"

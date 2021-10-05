@@ -7,6 +7,7 @@ PKG_NAME="open-vm-tools"
 PKG_VERSION="11.2.5"
 PKG_SHA256="7c31bb8ef70a0e32b81cde6550cae390a53108e4abb28bb539b0ab5b9e4fc188"
 PKG_ARCH="x86_64"
+[ "${DISTRO}" = "Lakka" ] && PKG_ARCH+=" i386" || true
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/vmware/open-vm-tools"
 PKG_URL="https://github.com/vmware/open-vm-tools/archive/stable-${PKG_VERSION}.tar.gz"

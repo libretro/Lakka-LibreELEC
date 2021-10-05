@@ -10,7 +10,7 @@ PKG_URL="https://code.videolan.org/videolan/dav1d/-/archive/${PKG_VERSION}/dav1d
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="dav1d is an AV1 decoder :)"
 
-if [ "${TARGET_ARCH}" = "x86_64" ]; then
+if [ "${TARGET_ARCH}" = "x86_64" -o "${TARGET_ARCH}" = "i386" ]; then
   PKG_DEPENDS_TARGET+=" nasm:host"
 fi
 

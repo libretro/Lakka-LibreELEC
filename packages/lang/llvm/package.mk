@@ -6,6 +6,7 @@ PKG_NAME="llvm"
 PKG_VERSION="11.0.1"
 PKG_SHA256="ccd87c254b6aebc5077e4e6977d08d4be888e7eb672c6630a26a15d58b59b528"
 PKG_ARCH="x86_64"
+[ "${DISTRO}" = "Lakka" ] && PKG_ARCH+=" i386" || true
 PKG_LICENSE="Apache-2.0"
 PKG_SITE="http://llvm.org/"
 PKG_URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${PKG_VERSION}/llvm-${PKG_VERSION}.src.tar.xz"

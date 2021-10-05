@@ -71,6 +71,7 @@ targets="\
 	Allwinner|H6|aarch64|image \
 	Allwinner|R40|arm|image \
 	Amlogic|AMLGX|aarch64|image \
+	Generic||i386|image \
 	Generic||x86_64|image \
 	NXP|iMX6|arm|image \
 	NXP|iMX8|aarch64|image \

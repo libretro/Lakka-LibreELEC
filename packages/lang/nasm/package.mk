@@ -6,6 +6,7 @@ PKG_NAME="nasm"
 PKG_VERSION="2.15.05"
 PKG_SHA256="3caf6729c1073bf96629b57cee31eeb54f4f8129b01902c73428836550b30a3f"
 PKG_ARCH="x86_64"
+[ "${DISTRO}" = "Lakka" ] && PKG_ARCH+=" i386" || true
 PKG_LICENSE="BSD"
 PKG_SITE="https://www.nasm.us/"
 PKG_URL="http://www.nasm.us/pub/nasm/releasebuilds/${PKG_VERSION}/nasm-${PKG_VERSION}.tar.xz"
