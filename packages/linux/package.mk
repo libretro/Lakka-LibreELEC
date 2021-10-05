@@ -165,6 +165,21 @@ pre_make_target() {
     ${PKG_BUILD}/scripts/config --set-val CONFIG_NOUVEAU_DEBUG_DEFAULT 3
   fi
 
+  # enable MIDI for Lakka on x86_64, i386 has options set in linux config file
+  if [ "${DISTRO}" = "Lakka" -a "${TARGET_ARCH}" = "x86_64" ]; then
+    ${PKG_BUILD}/scripts/config \
+                                --module CONFIG_SND_SEQ_DEVICE \
+                                --module CONFIG_SND_SEQUENCER \
+                                --enable CONFIG_SND_SEQ_HRTIMER_DEFAULT \
+                                --module CONFIG_SND_SEQ_MIDI_EVENT \
+                                --module CONFIG_SND_SEQ_MIDI \
+                                --module CONFIG_SND_SEQ_MIDI_EMUL \
+                                --module CONFIG_SND_SEQ_VIRMIDI \
+                                --module CONFIG_SND_OPL3_LIB_SEQ \
+                                --module CONFIG_SND_EMU10K1_SEQ \
+                                --module CONFIG_SND_SYNTH_EMUX
+  fi
+
   if [ "${TARGET_ARCH}" = "x86_64" -o "${TARGET_ARCH}" = "i386" ]; then
     # copy some extra firmware to linux tree
     mkdir -p ${PKG_BUILD}/external-firmware
