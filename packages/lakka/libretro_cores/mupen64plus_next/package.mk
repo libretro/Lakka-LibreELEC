@@ -35,7 +35,7 @@ pre_make_target() {
   fi
 
   case ${DEVICE:-$PROJECT} in
-    RPi|Gamegirl)
+    RPi)
       PKG_MAKE_OPTS_TARGET+=" platform=rpi-mesa"
       ;;
     RPi2)

@@ -9,7 +9,7 @@ PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="platform=unix"
 
-if [ "${PROJECT}" = "RPi" ] && [ "${DEVICE}" = "RPi" -o "${DEVICE}" = "Gamegirl" -o "${DEVICE}" = "GPICase" ]; then
+if [ "${PROJECT}" = "RPi" ] && [ "${DEVICE}" = "RPi" -o "${DEVICE}" = "GPICase" ]; then
   PKG_MAKE_OPTS_TARGET+=" ARM_ASM=1"
 fi
 

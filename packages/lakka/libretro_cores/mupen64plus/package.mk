@@ -18,7 +18,7 @@ fi
 
 make_target() {
   case ${DEVICE:-$PROJECT} in
-    RPi|Gamegirl)
+    RPi)
       CFLAGS+=" -I${SYSROOT_PREFIX}/usr/include/interface/vcos/pthreads \
 	        -I${SYSROOT_PREFIX}/usr/include/interface/vmcs_host/linux"
       make platform=rpi GLES=1 FORCE_GLES=1 WITH_DYNAREC=arm

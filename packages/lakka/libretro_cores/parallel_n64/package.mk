@@ -36,7 +36,7 @@ pre_make_target() {
   fi
 
   if [ "${PROJECT}" = "RPi" ]; then
-    if [ "${DEVICE}" = "RPi" -o "${DEVICE}" = "Gamegirl" -o "${DEVICE}" = "GPICase" ]; then
+    if [ "${DEVICE}" = "RPi" -o "${DEVICE}" = "GPICase" ]; then
       PKG_MAKE_OPTS_TARGET+=" platform=rpi"
     elif [ "${DEVICE}" = "RPi4" ]; then
       LDFLAGS+=" -lpthread"
