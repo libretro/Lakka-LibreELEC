@@ -22,6 +22,7 @@ if [ "${PROJECT}" = "Generic" ]; then
 fi
 
 if [ "${PROJECT}" = "RPi" ]; then
+  PKG_DEPENDS_TARGET+=" rpi_disable_hdmi_service"
   if [ "${DEVICE}" != "GPICase" ] ; then
     PKG_DEPENDS_TARGET+=" wii-u-gc-adapter wiringPi mk_arcade_joystick_rpi"
   fi
@@ -30,9 +31,3 @@ if [ "${PROJECT}" = "RPi" ]; then
     PKG_DEPENDS_TARGET+=" gpicase-safeshutdown"
   fi
 fi
-
-post_install() {
-  if [ "${PROJECT}" = "RPi" -a "${DEVICE}" = "GPICase" ]; then
-    enable_service disable-hdmi.service
-  fi
-}
