@@ -12,14 +12,16 @@ PKG_DEPENDS_CONFIG="icu"
 PKG_DEPENDS_UNPACK+=" harfbuzz"
 PKG_BUILD_FLAGS="-sysroot"
 
-PKG_MESON_OPTS_TARGET="-Dcairo=enabled \
+PKG_MESON_OPTS_TARGET="-Dbenchmark=disabled \
+                       -Dcairo=enabled \
                        -Ddocs=disabled \
                        -Dfontconfig=enabled \
                        -Dfreetype=enabled \
                        -Dglib=enabled \
                        -Dgobject=disabled \
                        -Dgraphite=disabled \
-                       -Dicu=enabled"
+                       -Dicu=enabled \
+                       -Dtests=disabled"
 
 unpack() {
   mkdir -p ${PKG_BUILD}
