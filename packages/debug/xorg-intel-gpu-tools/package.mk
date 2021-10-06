@@ -21,3 +21,8 @@ PKG_MESON_OPTS_TARGET="-Dbuild_overlay=false \
                        -Dwith_libdrm=auto \
                        -Dwith_libunwind=false \
                        -Dbuild_runner=false"
+
+pre_configure_target() {
+  # xorg-intel-gpu-tools does not build with NDEBUG (requires assert for tests)
+  export TARGET_CFLAGS=$(echo ${TARGET_CFLAGS} | sed -e "s|-DNDEBUG||g")
+}
