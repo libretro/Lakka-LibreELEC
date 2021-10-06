@@ -18,13 +18,13 @@ if [ "${AVAHI_DAEMON}" = yes ]; then
 fi
 
 if [ "${PROJECT}" = "Generic" ]; then
-  PKG_DEPENDS_TARGET+=" wii-u-gc-adapter"
+  PKG_DEPENDS_TARGET+=" wii-u-gc-adapter joycond"
 fi
 
 if [ "${PROJECT}" = "RPi" ]; then
   PKG_DEPENDS_TARGET+=" rpi_disable_hdmi_service"
   if [ "${DEVICE}" != "GPICase" ] ; then
-    PKG_DEPENDS_TARGET+=" wii-u-gc-adapter wiringPi mk_arcade_joystick_rpi"
+    PKG_DEPENDS_TARGET+=" wii-u-gc-adapter wiringPi mk_arcade_joystick_rpi joycond"
   fi
   
   if [ "${DEVICE}" = "GPICase" ]; then

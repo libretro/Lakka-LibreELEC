@@ -14,6 +14,8 @@ PKG_STAMP="${KERNEL_TARGET} ${KERNEL_MAKE_EXTRACMD}"
 
 PKG_PATCH_DIRS="${LINUX}"
 
+[ "${DISTRO}" = "Lakka" ] && PKG_PATCH_DIRS+=" ${DISTRO}-${LINUX}" || true
+
 case "${LINUX}" in
   amlogic)
     PKG_VERSION="6cc049b8e0d05e1519d71afcf2d40d3aa5a48366" # 5.11.10
@@ -192,6 +194,11 @@ pre_make_target() {
                                 --module CONFIG_PARPORT_AX88796 \
                                 --enable CONFIG_PARPORT_1284 \
                                 --enable CONFIG_PARPORT_NOT_PC
+  fi
+  # enable Joycon on default and raspberrypi kernels for Lakka
+  if [ "${DISTRO}" = "Lakka" ] && [ "${LINUX}" = "default" -o "${LINUX}" = "raspberrypi" ]; then
+    ${PKG_BUILD}/scripts/config --enable CONFIG_HID_NINTENDO
+    ${PKG_BUILD}/scripts/config --enable CONFIG_NINTENDO_FF
   fi
 
   if [ "${TARGET_ARCH}" = "x86_64" -o "${TARGET_ARCH}" = "i386" ]; then
