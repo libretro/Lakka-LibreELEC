@@ -28,6 +28,6 @@ if [ "${PROJECT}" = "RPi" ]; then
   fi
   
   if [ "${DEVICE}" = "GPICase" ]; then
-    PKG_DEPENDS_TARGET+=" gpicase-safeshutdown"
+    PKG_DEPENDS_TARGET+=" gpicase_safeshutdown"
   fi
 fi
