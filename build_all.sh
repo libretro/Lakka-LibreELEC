@@ -78,6 +78,7 @@ targets="\
 	Rockchip|RK3288|arm|image \
 	Rockchip|RK3328|aarch64|image \
 	Rockchip|RK3399|aarch64|image \
+	RPi|GPICase|arm|image \
 	RPi|RPi|arm|noobs \
 	RPi|RPi2|arm|noobs \
 	RPi|RPi4|arm|noobs \
