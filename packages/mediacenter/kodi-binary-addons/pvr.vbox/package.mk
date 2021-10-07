@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.vbox"
-PKG_VERSION="20.0.0-Nexus"
-PKG_SHA256="ce8086a5df9d3d41566577207a4741058d993febe67aa73b85d00a8005d75f82"
+PKG_VERSION="20.1.0-Nexus"
+PKG_SHA256="319aeb45b3adaf0f4527feb59825360e7d3fb04d319eca71651b0240f93b4e3f"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
