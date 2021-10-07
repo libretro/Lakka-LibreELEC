@@ -201,6 +201,13 @@ pre_make_target() {
     ${PKG_BUILD}/scripts/config --enable CONFIG_NINTENDO_FF
   fi
 
+  # install extra dts files for Lakka
+  if [ "${DISTRO}" = "Lakka" ]; then
+    for f in ${PROJECT_DIR}/${PROJECT}/config/*-overlay.dts ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/config/*-overlay.dts ; do
+      [ -f "${f}" ] && cp -v ${f} ${PKG_BUILD}/arch/${TARGET_KERNEL_ARCH}/boot/dts/overlays || true
+    done
+  fi
+
   if [ "${TARGET_ARCH}" = "x86_64" -o "${TARGET_ARCH}" = "i386" ]; then
     # copy some extra firmware to linux tree
     mkdir -p ${PKG_BUILD}/external-firmware
