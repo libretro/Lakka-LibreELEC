@@ -3,8 +3,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="glib"
-PKG_VERSION="2.67.2"
-PKG_SHA256="b41d42d6c572e1e420ffc38a077e0157e0b53b5a94c9647a3dc3701043c3b69b"
+PKG_VERSION="2.68.1"
+PKG_SHA256="241654b96bd36b88aaa12814efc4843b578e55d47440103727959ac346944333"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.gtk.org/"
 PKG_URL="http://ftp.gnome.org/pub/gnome/sources/glib/$(get_pkg_version_maj_min)/${PKG_NAME}-${PKG_VERSION}.tar.xz"
@@ -33,11 +33,9 @@ PKG_MESON_OPTS_TARGET="-Ddefault_library=shared \
                        -Dforce_posix_threads=true \
                        -Dtests=false"
 
-PKG_MESON_PROPERTIES_TARGET="
-have_c99_vsnprintf=false
-have_c99_snprintf=false
-growing_stack=false
-va_val_copy=false"
+if [ "${MACHINE_HARDWARE_NAME}" = "aarch64" -a "${TARGET_ARCH}" = "arm" ]; then
+  PKG_MESON_PROPERTIES_TARGET="needs_exe_wrapper = true"
+fi
 
 post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/bin

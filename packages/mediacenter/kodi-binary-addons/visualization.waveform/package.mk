@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="visualization.waveform"
-PKG_VERSION="19.0.0-Matrix"
-PKG_SHA256="c0b20e5d5877c34be107df0db142d46def785acb7269e6525f39a511c5a8e030"
+PKG_VERSION="20.0.1-Nexus"
+PKG_SHA256="a3c7f328f86c09ce6883c7cfb89c69a91b80b6fd165f9ed3a07e1f35d8e50073"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

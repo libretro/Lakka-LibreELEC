@@ -1,0 +1,63 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Samuel Holland <samuel@sholland.org>
+Date: Sun, 18 Apr 2021 22:21:41 -0500
+Subject: [PATCH] sunxi: A23/A33/H3: Move sun8i secure monitor to SRAM A2
+
+So far for the H3, A23, and A33 SoCs, we use DRAM to hold the secure
+monitor code (providing PSCI runtime services). And while those SoCs do
+not have the secure SRAM B like older SoCs, there is enough (secure)
+SRAM A2 to put the monitor code and data in there instead.
+
+Follow the design of 64-bit SoCs and use the first part for the monitor,
+and the last 16 KiB for the SCP firmware. With this change, the monitor
+no longer needs to reserve a region in DRAM.
+
+Signed-off-by: Samuel Holland <samuel@sholland.org>
+Reviewed-by: Andre Przywara <andre.przywara@arm.com>
+[Andre: amend commit message, fix R40 and V3s build]
+Signed-off-by: Andre Przywara <andre.przywara@arm.com>
+---
+ arch/arm/include/asm/arch-sunxi/cpu_sun4i.h | 11 +++++++++++
+ include/configs/sun8i.h                     | 10 ++++++++++
+ 2 files changed, 21 insertions(+)
+
+--- a/arch/arm/include/asm/arch-sunxi/cpu_sun4i.h
++++ b/arch/arm/include/asm/arch-sunxi/cpu_sun4i.h
+@@ -11,7 +11,18 @@
+ #define SUNXI_SRAM_A1_BASE		0x00000000
+ #define SUNXI_SRAM_A1_SIZE		(16 * 1024)	/* 16 kiB */
+ 
++#if defined(CONFIG_SUNXI_GEN_SUN6I) && \
++    !defined(CONFIG_MACH_SUN8I_R40) && \
++    !defined(CONFIG_MACH_SUN8I_V3S)
++#define SUNXI_SRAM_A2_BASE		0x00040000
++#ifdef CONFIG_MACH_SUN8I_H3
++#define SUNXI_SRAM_A2_SIZE		(48 * 1024)	/* 16+32 kiB */
++#else
++#define SUNXI_SRAM_A2_SIZE		(80 * 1024)	/* 16+64 kiB */
++#endif
++#else
+ #define SUNXI_SRAM_A2_BASE		0x00004000	/* 16 kiB */
++#endif
+ #define SUNXI_SRAM_A3_BASE		0x00008000	/* 13 kiB */
+ #define SUNXI_SRAM_A4_BASE		0x0000b400	/* 3 kiB */
+ #define SUNXI_SRAM_D_BASE		0x00010000	/* 4 kiB */
+--- a/include/configs/sun8i.h
++++ b/include/configs/sun8i.h
+@@ -12,6 +12,16 @@
+  * A23 specific configuration
+  */
+ 
++#ifdef SUNXI_SRAM_A2_SIZE
++/*
++ * If the SoC has enough SRAM A2, use that for the secure monitor.
++ * Skip the first 16 KiB of SRAM A2, which is not usable, as only certain bytes
++ * are writable. Reserve the last 17 KiB for the resume shim and SCP firmware.
++ */
++#define CONFIG_ARMV7_SECURE_BASE	(SUNXI_SRAM_A2_BASE + 16 * 1024)
++#define CONFIG_ARMV7_SECURE_MAX_SIZE	(SUNXI_SRAM_A2_SIZE - 33 * 1024)
++#endif
++
+ /*
+  * Include common sunxi configuration where most the settings are
+  */

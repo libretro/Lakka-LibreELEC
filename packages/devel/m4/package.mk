@@ -2,8 +2,8 @@
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 
 PKG_NAME="m4"
-PKG_VERSION="1.4.18"
-PKG_SHA256="6640d76b043bc658139c8903e293d5978309bf0f408107146505eca701e67cf6"
+PKG_VERSION="1.4.19"
+PKG_SHA256="b306a91c0fd93bc4280cfc2e98cb7ab3981ff75a187bea3293811f452c89a8c8"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/m4/"
 PKG_URL="http://ftpmirror.gnu.org/m4/${PKG_NAME}-${PKG_VERSION}.tar.bz2"

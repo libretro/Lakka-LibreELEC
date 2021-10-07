@@ -10,6 +10,7 @@ PKG_URL="https://archive.mozilla.org/pub/opus/${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Codec designed for interactive speech and audio transmission over the Internet."
 PKG_TOOLCHAIN="configure"
+PKG_BUILD_FLAGS="+pic"
 
 if [ "${TARGET_ARCH}" = "arm" ]; then
   PKG_FIXED_POINT="--enable-fixed-point"

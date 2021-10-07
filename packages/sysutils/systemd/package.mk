@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="systemd"
-PKG_VERSION="247.3"
-PKG_SHA256="2869986e219a8dfc96cc0dffac66e0c13bb70a89e16b85a3948876c146cfa3e0"
+PKG_VERSION="247.9"
+PKG_SHA256="629b8c895efa000b921092c7a565680c66dcd0ec74ed11cb2dd2b6701492675d"
 PKG_LICENSE="LGPL2.1+"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/systemd"
 PKG_URL="https://github.com/systemd/systemd-stable/archive/v${PKG_VERSION}.tar.gz"
@@ -121,14 +121,6 @@ post_makeinstall_target() {
   safe_remove ${INSTALL}/usr/lib/tmpfiles.d/home.conf
   safe_remove ${INSTALL}/usr/share/factory
 
-  # clean up hwdb
-  safe_remove ${INSTALL}/usr/lib/udev/hwdb.d/20-OUI.hwdb
-  safe_remove ${INSTALL}/usr/lib/udev/hwdb.d/20-acpi-vendor.hwdb
-  safe_remove ${INSTALL}/usr/lib/udev/hwdb.d/20-bluetooth-vendor-product.hwdb
-  safe_remove ${INSTALL}/usr/lib/udev/hwdb.d/20-net-ifname.hwdb
-  safe_remove ${INSTALL}/usr/lib/udev/hwdb.d/20-sdio-classes.hwdb
-  safe_remove ${INSTALL}/usr/lib/udev/hwdb.d/20-sdio-vendor-model.hwdb
-
   # remove Network adaper renaming rule, this is confusing
   safe_remove ${INSTALL}/usr/lib/udev/rules.d/80-net-setup-link.rules
 
@@ -149,8 +141,8 @@ post_makeinstall_target() {
   safe_remove ${INSTALL}/usr/lib/systemd/system/systemd-update-done.service
   safe_remove ${INSTALL}/usr/lib/systemd/system/*.target.wants/systemd-update-done.service
 
-  # remove systemd-hwdb-update. we have own hwdb.service
-  safe_remove ${INSTALL}/usr/lib/systemd/system/systemd-hwdb-update.service
+  # adjust systemd-hwdb-update (we have read-only /etc).
+  sed '/^ConditionNeedsUpdate=.*$/d' -i ${INSTALL}/usr/lib/systemd/system/systemd-hwdb-update.service
 
   # remove nspawn
   safe_remove ${INSTALL}/usr/bin/systemd-nspawn
@@ -293,7 +285,6 @@ post_install() {
   enable_service userconfig.service
   enable_service usercache.service
   enable_service envconfig.service
-  enable_service hwdb.service
   enable_service cpufreq.service
   enable_service network-base.service
   enable_service systemd-timesyncd.service

@@ -14,7 +14,7 @@ PKG_BUILD_FLAGS="-sysroot"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-mad"
 
-# TODO: mtpfs runs host utils while building, fix and set 
+# TODO: mtpfs runs host utils while building, fix and set
 pre_configure_target() {
   export LIBS="-lusb-1.0 -ludev"
 }

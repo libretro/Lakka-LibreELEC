@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="llvm"
-PKG_VERSION="11.0.1"
-PKG_SHA256="ccd87c254b6aebc5077e4e6977d08d4be888e7eb672c6630a26a15d58b59b528"
+PKG_VERSION="12.0.1"
+PKG_SHA256="7d9a8405f557cefc5a21bf5672af73903b64749d9bc3a50322239f56f34ffddf"
 PKG_ARCH="x86_64"
 [ "${DISTRO}" = "Lakka" ] && PKG_ARCH+=" i386" || true
 PKG_LICENSE="Apache-2.0"
@@ -14,8 +14,7 @@ PKG_DEPENDS_HOST="toolchain:host"
 PKG_DEPENDS_TARGET="toolchain llvm:host zlib"
 PKG_LONGDESC="Low-Level Virtual Machine (LLVM) is a compiler infrastructure."
 
-PKG_CMAKE_OPTS_COMMON="-DCMAKE_BUILD_TYPE=MinSizeRel \
-                       -DLLVM_INCLUDE_TOOLS=ON \
+PKG_CMAKE_OPTS_COMMON="-DLLVM_INCLUDE_TOOLS=ON \
                        -DLLVM_BUILD_TOOLS=OFF \
                        -DLLVM_BUILD_UTILS=OFF \
                        -DLLVM_BUILD_EXAMPLES=OFF \
@@ -35,6 +34,7 @@ PKG_CMAKE_OPTS_COMMON="-DCMAKE_BUILD_TYPE=MinSizeRel \
                        -DLLVM_ENABLE_ASSERTIONS=OFF \
                        -DLLVM_ENABLE_WERROR=OFF \
                        -DLLVM_ENABLE_ZLIB=ON \
+                       -DLLVM_ENABLE_LIBXML2=OFF \
                        -DLLVM_BUILD_LLVM_DYLIB=ON \
                        -DLLVM_LINK_LLVM_DYLIB=ON \
                        -DLLVM_OPTIMIZED_TABLEGEN=ON \
@@ -50,8 +50,6 @@ pre_configure_host() {
 
 pre_configure_target() {
   PKG_CMAKE_OPTS_TARGET="${PKG_CMAKE_OPTS_COMMON} \
-                         -DCMAKE_C_FLAGS="${CFLAGS}" \
-                         -DCMAKE_CXX_FLAGS="${CXXFLAGS}" \
                          -DLLVM_TARGET_ARCH="${TARGET_ARCH}" \
                          -DLLVM_TABLEGEN=${TOOLCHAIN}/bin/llvm-tblgen"
 }

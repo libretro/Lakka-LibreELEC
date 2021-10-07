@@ -4,7 +4,7 @@
 PKG_NAME="minidlna"
 PKG_VERSION="1.3.0"
 PKG_SHA256="47d9b06b4c48801a4c1112ec23d24782728b5495e95ec2195bbe5c81bc2d3c63"
-PKG_REV="102"
+PKG_REV="103"
 PKG_ARCH="any"
 PKG_LICENSE="BSD-3c/GPLv2"
 PKG_SITE="https://sourceforge.net/projects/minidlna/"

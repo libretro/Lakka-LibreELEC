@@ -2,7 +2,7 @@
 
 # base ffmpeg version
 KODI_FFMPEG_REPO="https://github.com/xbmc/FFmpeg"
-KODI_FFMPEG_VERSION="4.3.2-Matrix-19.1"
+KODI_FFMPEG_VERSION="4.4-N-Alpha1"
 
 ALL_FEATURE_SETS="v4l2-drmprime v4l2-request libreelec rpi"
 
@@ -24,20 +24,20 @@ create_patch() {
   REFTYPE="branch"
   case "${FEATURE_SET}" in
     v4l2-drmprime)
-      REPO="https://github.com/lrusak/FFmpeg"
-      REFSPEC="v4l2-drmprime-v5"
+      REPO="https://github.com/jernejsk/FFmpeg"
+      REFSPEC="v4l2-drmprime-v6"
       ;;
     v4l2-request)
       REPO="https://github.com/jernejsk/FFmpeg"
-      REFSPEC="v4l2-request-hwaccel-4.3.1"
+      REFSPEC="v4l2-request-hwaccel-4.4"
       ;;
     libreelec)
       REPO="https://github.com/LibreELEC/FFmpeg"
-      REFSPEC="4.3-libreelec-misc"
+      REFSPEC="4.4-libreelec-misc"
       ;;
     rpi)
       REPO="https://github.com/jc-kynesim/rpi-ffmpeg"
-      REFSPEC="dev/4.3.2/clean_3"
+      REFSPEC="dev/4.4/rpi_import_1"
       ;;
     *)
       echo "illegal feature set ${FEATURE_SET}"

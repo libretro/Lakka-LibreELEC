@@ -1,42 +1,4 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: Ezequiel Garcia <ezequiel@collabora.com>
-Date: Mon, 2 Nov 2020 21:05:49 +0200
-Subject: [PATCH] media: rkvdec: Fix .buf_prepare
-
-The driver should only set the payload on .buf_prepare if the
-buffer is CAPTURE type. If an OUTPUT buffer has a zero bytesused
-set by userspace then v4l2-core will set it to buffer length.
-
-Fixes: cd33c830448ba ("media: rkvdec: Add the rkvdec driver")
-Signed-off-by: Ezequiel Garcia <ezequiel@collabora.com>
-Signed-off-by: Adrian Ratiu <adrian.ratiu@collabora.com>
----
- drivers/staging/media/rkvdec/rkvdec.c | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/staging/media/rkvdec/rkvdec.c b/drivers/staging/media/rkvdec/rkvdec.c
-index 4111155d62f4..c4e0ec16c285 100644
---- a/drivers/staging/media/rkvdec/rkvdec.c
-+++ b/drivers/staging/media/rkvdec/rkvdec.c
-@@ -546,7 +546,15 @@ static int rkvdec_buf_prepare(struct vb2_buffer *vb)
- 		if (vb2_plane_size(vb, i) < sizeimage)
- 			return -EINVAL;
- 	}
--	vb2_set_plane_payload(vb, 0, f->fmt.pix_mp.plane_fmt[0].sizeimage);
-+
-+	/*
-+	 * Buffer bytesused is written by driver for CAPTURE buffers.
-+	 * (if userspace passes 0 bytesused for OUTPUT buffers, v4l2-core sets
-+	 * it to buffer length).
-+	 */
-+	if (!V4L2_TYPE_IS_OUTPUT(vq->type))
-+		vb2_set_plane_payload(vb, 0, f->fmt.pix_mp.plane_fmt[0].sizeimage);
-+
- 	return 0;
- }
- 
-
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Boris Brezillon <boris.brezillon@collabora.com>
 Date: Mon, 2 Nov 2020 21:05:50 +0200
 Subject: [PATCH] media: uapi: Add VP9 stateless decoder controls
@@ -48,20 +10,21 @@ Signed-off-by: Boris Brezillon <boris.brezillon@collabora.com>
 Signed-off-by: Ezequiel Garcia <ezequiel@collabora.com>
 Signed-off-by: Adrian Ratiu <adrian.ratiu@collabora.com>
 ---
- .../userspace-api/media/v4l/biblio.rst        |  10 +
- .../media/v4l/ext-ctrls-codec.rst             | 550 ++++++++++++++++++
- drivers/media/v4l2-core/v4l2-ctrls.c          | 239 ++++++++
- drivers/media/v4l2-core/v4l2-ioctl.c          |   1 +
- include/media/v4l2-ctrls.h                    |   5 +
- include/media/vp9-ctrls.h                     | 486 ++++++++++++++++
- 6 files changed, 1291 insertions(+)
+ .../userspace-api/media/v4l/biblio.rst        |   10 +
+ .../media/v4l/ext-ctrls-codec.rst             | 1100 +++++++++++++++++
+ drivers/media/v4l2-core/v4l2-ctrls-core.c     |  225 ++++
+ drivers/media/v4l2-core/v4l2-ctrls-defs.c     |   14 +
+ drivers/media/v4l2-core/v4l2-ioctl.c          |    1 +
+ include/media/v4l2-ctrls.h                    |    5 +
+ include/media/vp9-ctrls.h                     |  486 ++++++++
+ 7 files changed, 1841 insertions(+)
  create mode 100644 include/media/vp9-ctrls.h
 
 diff --git a/Documentation/userspace-api/media/v4l/biblio.rst b/Documentation/userspace-api/media/v4l/biblio.rst
-index 7869b6f6ff72..6b4a83b053f5 100644
+index 7b8e6738ff9e..9cd18c153d19 100644
 --- a/Documentation/userspace-api/media/v4l/biblio.rst
 +++ b/Documentation/userspace-api/media/v4l/biblio.rst
-@@ -407,3 +407,13 @@ VP8
+@@ -417,3 +417,13 @@ VP8
  :title:     RFC 6386: "VP8 Data Format and Decoding Guide"
  
  :author:    J. Bankoski et al.
@@ -76,11 +39,11 @@ index 7869b6f6ff72..6b4a83b053f5 100644
 +
 +:author:    Adrian Grange (Google), Peter de Rivaz (Argon Design), Jonathan Hunt (Argon Design)
 diff --git a/Documentation/userspace-api/media/v4l/ext-ctrls-codec.rst b/Documentation/userspace-api/media/v4l/ext-ctrls-codec.rst
-index ce728c757eaf..456488f2b5ca 100644
+index 8c6e2a11ed95..5dd4afc5f1fe 100644
 --- a/Documentation/userspace-api/media/v4l/ext-ctrls-codec.rst
 +++ b/Documentation/userspace-api/media/v4l/ext-ctrls-codec.rst
-@@ -2730,6 +2730,556 @@ enum v4l2_mpeg_video_h264_hierarchical_coding_type -
-       - ``padding[3]``
+@@ -3106,6 +3106,556 @@ enum v4l2_mpeg_video_hevc_size_of_length_field -
+       - ``padding[2]``
        - Applications and drivers must set this to zero.
  
 +.. _v4l2-mpeg-vp9:
@@ -636,41 +599,570 @@ index ce728c757eaf..456488f2b5ca 100644
  .. raw:: latex
  
      \normalsize
-diff --git a/drivers/media/v4l2-core/v4l2-ctrls.c b/drivers/media/v4l2-core/v4l2-ctrls.c
-index 41f8410d08d6..7ed11f296008 100644
---- a/drivers/media/v4l2-core/v4l2-ctrls.c
-+++ b/drivers/media/v4l2-core/v4l2-ctrls.c
-@@ -971,6 +971,11 @@ const char *v4l2_ctrl_get_name(u32 id)
- 	case V4L2_CID_MPEG_VIDEO_VP9_PROFILE:			return "VP9 Profile";
- 	case V4L2_CID_MPEG_VIDEO_VP9_LEVEL:			return "VP9 Level";
- 	case V4L2_CID_MPEG_VIDEO_VP8_FRAME_HEADER:		return "VP8 Frame Header";
-+	case V4L2_CID_MPEG_VIDEO_VP9_FRAME_DECODE_PARAMS:	return "VP9 Frame Decode Parameters";
-+	case V4L2_CID_MPEG_VIDEO_VP9_FRAME_CONTEXT(0):		return "VP9 Frame Context 0";
-+	case V4L2_CID_MPEG_VIDEO_VP9_FRAME_CONTEXT(1):		return "VP9 Frame Context 1";
-+	case V4L2_CID_MPEG_VIDEO_VP9_FRAME_CONTEXT(2):		return "VP9 Frame Context 2";
-+	case V4L2_CID_MPEG_VIDEO_VP9_FRAME_CONTEXT(3):		return "VP9 Frame Context 3";
+@@ -3157,6 +3707,556 @@ enum v4l2_mpeg_video_hevc_size_of_length_field -
+       - ``padding[6]``
+       - Applications and drivers must set this to zero.
  
- 	/* HEVC controls */
- 	case V4L2_CID_MPEG_VIDEO_HEVC_I_FRAME_QP:		return "HEVC I-Frame QP Value";
-@@ -1452,6 +1457,15 @@ void v4l2_ctrl_fill(u32 id, const char **name, enum v4l2_ctrl_type *type,
- 	case V4L2_CID_MPEG_VIDEO_VP8_FRAME_HEADER:
- 		*type = V4L2_CTRL_TYPE_VP8_FRAME_HEADER;
- 		break;
-+	case V4L2_CID_MPEG_VIDEO_VP9_FRAME_DECODE_PARAMS:
-+		*type = V4L2_CTRL_TYPE_VP9_FRAME_DECODE_PARAMS;
-+		break;
-+	case V4L2_CID_MPEG_VIDEO_VP9_FRAME_CONTEXT(0):
-+	case V4L2_CID_MPEG_VIDEO_VP9_FRAME_CONTEXT(1):
-+	case V4L2_CID_MPEG_VIDEO_VP9_FRAME_CONTEXT(2):
-+	case V4L2_CID_MPEG_VIDEO_VP9_FRAME_CONTEXT(3):
-+		*type = V4L2_CTRL_TYPE_VP9_FRAME_CONTEXT;
-+		break;
- 	case V4L2_CID_MPEG_VIDEO_HEVC_SPS:
- 		*type = V4L2_CTRL_TYPE_HEVC_SPS;
- 		break;
-@@ -1754,6 +1768,219 @@ static void std_log(const struct v4l2_ctrl *ctrl)
- 	0;							\
- })
++.. _v4l2-mpeg-vp9:
++
++``V4L2_CID_MPEG_VIDEO_VP9_FRAME_CONTEXT(0..3) (struct)``
++    Stores VP9 probabilities attached to a specific frame context. The VP9
++    specification allows using a maximum of 4 contexts. Each frame being
++    decoded refers to one of those context. See section '7.1.2 Refresh
++    probs semantics' section of :ref:`vp9` for more details about these
++    contexts.
++
++    This control is bi-directional:
++
++    * all 4 contexts must be initialized by userspace just after the
++      stream is started and before the first decoding request is submitted.
++    * the referenced context might be read by the kernel when a decoding
++      request is submitted, and will be updated after the decoder is done
++      decoding the frame if the `V4L2_VP9_FRAME_FLAG_REFRESH_FRAME_CTX` flag
++      is set.
++    * contexts will be read back by user space before each decoding request
++      to retrieve the updated probabilities.
++    * userspace will re-initialize the context to their default values when
++      a reset context is required.
++
++    .. note::
++
++       This compound control is not yet part of the public kernel API and
++       it is expected to change.
++
++.. c:type:: v4l2_ctrl_vp9_frame_ctx
++
++.. cssclass:: longtable
++
++.. tabularcolumns:: |p{5.8cm}|p{4.8cm}|p{6.6cm}|
++
++.. flat-table:: struct v4l2_ctrl_vp9_frame_ctx
++    :header-rows:  0
++    :stub-columns: 0
++    :widths:       1 1 2
++
++    * - struct :c:type:`v4l2_vp9_probabilities`
++      - ``probs``
++      - Structure with VP9 probabilities attached to the context.
++
++.. c:type:: v4l2_vp9_probabilities
++
++.. cssclass:: longtable
++
++.. tabularcolumns:: |p{1.5cm}|p{6.3cm}|p{9.4cm}|
++
++.. flat-table:: struct v4l2_vp9_probabilities
++    :header-rows:  0
++    :stub-columns: 0
++    :widths:       1 1 2
++
++    * - __u8
++      - ``tx8[2][1]``
++      - TX 8x8 probabilities.
++    * - __u8
++      - ``tx16[2][2]``
++      - TX 16x16 probabilities.
++    * - __u8
++      - ``tx32[2][3]``
++      - TX 32x32 probabilities.
++    * - __u8
++      - ``coef[4][2][2][6][6][3]``
++      - Coefficient probabilities.
++    * - __u8
++      - ``skip[3]``
++      - Skip probabilities.
++    * - __u8
++      - ``inter_mode[7][3]``
++      - Inter prediction mode probabilities.
++    * - __u8
++      - ``interp_filter[4][2]``
++      - Interpolation filter probabilities.
++    * - __u8
++      - ``is_inter[4]``
++      - Is inter-block probabilities.
++    * - __u8
++      - ``comp_mode[5]``
++      - Compound prediction mode probabilities.
++    * - __u8
++      - ``single_ref[5][2]``
++      - Single reference probabilities.
++    * - __u8
++      - ``comp_mode[5]``
++      - Compound reference probabilities.
++    * - __u8
++      - ``y_mode[4][9]``
++      - Y prediction mode probabilities.
++    * - __u8
++      - ``uv_mode[10][9]``
++      - UV prediction mode probabilities.
++    * - __u8
++      - ``partition[16][3]``
++      - Partition probabilities.
++    * - __u8
++      - ``mv.joint[3]``
++      - Motion vector joint probabilities.
++    * - __u8
++      - ``mv.sign[2]``
++      - Motion vector sign probabilities.
++    * - __u8
++      - ``mv.class[2][10]``
++      - Motion vector class probabilities.
++    * - __u8
++      - ``mv.class0_bit[2]``
++      - Motion vector class0 bit probabilities.
++    * - __u8
++      - ``mv.bits[2][10]``
++      - Motion vector bits probabilities.
++    * - __u8
++      - ``mv.class0_fr[2][2][3]``
++      - Motion vector class0 fractional bit probabilities.
++    * - __u8
++      - ``mv.fr[2][3]``
++      - Motion vector fractional bit probabilities.
++    * - __u8
++      - ``mv.class0_hp[2]``
++      - Motion vector class0 high precision fractional bit probabilities.
++    * - __u8
++      - ``mv.hp[2]``
++      - Motion vector high precision fractional bit probabilities.
++
++``V4L2_CID_MPEG_VIDEO_VP9_FRAME_DECODE_PARAMS (struct)``
++    Specifies the frame parameters for the associated VP9 frame decode request.
++    This includes the necessary parameters for configuring a stateless hardware
++    decoding pipeline for VP9. The bitstream parameters are defined according
++    to :ref:`vp9`.
++
++    .. note::
++
++       This compound control is not yet part of the public kernel API and
++       it is expected to change.
++
++.. c:type:: v4l2_ctrl_vp9_frame_decode_params
++
++.. cssclass:: longtable
++
++.. tabularcolumns:: |p{1.5cm}|p{6.3cm}|p{9.4cm}|
++
++.. flat-table:: struct v4l2_ctrl_vp9_frame_decode_params
++    :header-rows:  0
++    :stub-columns: 0
++    :widths:       1 1 2
++
++    * - __u32
++      - ``flags``
++      - Combination of V4L2_VP9_FRAME_FLAG_* flags. See
++        :c:type:`v4l2_vp9_frame_flags`.
++    * - __u16
++      - ``compressed_header_size``
++      - Compressed header size in bytes.
++    * - __u16
++      - ``uncompressed_header_size``
++      - Uncompressed header size in bytes.
++    * - __u8
++      - ``profile``
++      - VP9 profile. Can be 0, 1, 2 or 3.
++    * - __u8
++      - ``reset_frame_context``
++      - Frame context that should be used/updated when decoding the frame.
++    * - __u8
++      - ``bit_depth``
++      - Component depth in bits. Must be 8 for profile 0 and 1. Must 10 or 12
++        for profile 2 and 3.
++    * - __u8
++      - ``interpolation_filter``
++      - Specifies the filter selection used for performing inter prediction. See
++        :c:type:`v4l2_vp9_interpolation_filter`.
++    * - __u8
++      - ``tile_cols_log2``
++      - Specifies the base 2 logarithm of the width of each tile (where the
++        width is measured in units of 8x8 blocks). Shall be less than or equal
++        to 6.
++    * - __u8
++      - ``tile_rows_log2``
++      - Specifies the base 2 logarithm of the height of each tile (where the
++        height is measured in units of 8x8 blocks)
++    * - __u8
++      - ``tx_mode``
++      - Specifies the TX mode. See :c:type:`v4l2_vp9_tx_mode`.
++    * - __u8
++      - ``reference_mode``
++      - Specifies the type of inter prediction to be used. See
++        :c:type:`v4l2_vp9_reference_mode`.
++    * - __u8
++      - ``padding[7]``
++      - Needed to make this struct 64 bit aligned. Shall be filled with zeroes.
++    * - __u16
++      - ``frame_width_minus_1``
++      - Add 1 to get the frame width expressed in pixels.
++    * - __u16
++      - ``frame_height_minus_1``
++      - Add 1 to get the frame height expressed in pixels.
++    * - __u16
++      - ``frame_width_minus_1``
++      - Add 1 to get the expected render width expressed in pixels. This is
++        not used during the decoding process but might be used by HW scalers to
++        prepare a frame that's ready for scanout.
++    * - __u16
++      - frame_height_minus_1
++      - Add 1 to get the expected render height expressed in pixels. This is
++        not used during the decoding process but might be used by HW scalers to
++        prepare a frame that's ready for scanout.
++    * - __u64
++      - ``refs[3]``
++      - Array of reference frame timestamps.
++    * - struct :c:type:`v4l2_vp9_loop_filter`
++      - ``lf``
++      - Loop filter parameters. See struct :c:type:`v4l2_vp9_loop_filter`.
++    * - struct :c:type:`v4l2_vp9_quantization`
++      - ``quant``
++      - Quantization parameters. See :c:type:`v4l2_vp9_quantization`.
++    * - struct :c:type:`v4l2_vp9_segmentation`
++      - ``seg``
++      - Segmentation parameters. See :c:type:`v4l2_vp9_segmentation`.
++    * - struct :c:type:`v4l2_vp9_probabilities`
++      - ``probs``
++      - Probabilities. See :c:type:`v4l2_vp9_probabilities`.
++
++.. c:type:: v4l2_vp9_frame_flags
++
++.. cssclass:: longtable
++
++.. tabularcolumns:: |p{1.5cm}|p{6.3cm}|p{9.4cm}|
++
++.. flat-table:: enum v4l2_vp9_frame_flags
++    :header-rows:  0
++    :stub-columns: 0
++    :widths:       1 2
++
++    * - ``V4L2_VP9_FRAME_FLAG_KEY_FRAME``
++      - The frame is a key frame.
++    * - ``V4L2_VP9_FRAME_FLAG_SHOW_FRAME``
++      - The frame should be displayed.
++    * - ``V4L2_VP9_FRAME_FLAG_ERROR_RESILIENT``
++      - The decoding should be error resilient.
++    * - ``V4L2_VP9_FRAME_FLAG_INTRA_ONLY``
++      - The frame does not reference other frames.
++    * - ``V4L2_VP9_FRAME_FLAG_ALLOW_HIGH_PREC_MV``
++      - the frame might can high precision motion vectors.
++    * - ``V4L2_VP9_FRAME_FLAG_REFRESH_FRAME_CTX``
++      - Frame context should be updated after decoding.
++    * - ``V4L2_VP9_FRAME_FLAG_PARALLEL_DEC_MODE``
++      - Parallel decoding is used.
++    * - ``V4L2_VP9_FRAME_FLAG_X_SUBSAMPLING``
++      - Vertical subsampling is enabled.
++    * - ``V4L2_VP9_FRAME_FLAG_Y_SUBSAMPLING``
++      - Horizontal subsampling is enabled.
++    * - ``V4L2_VP9_FRAME_FLAG_COLOR_RANGE_FULL_SWING``
++      - The full UV range is used.
++
++.. c:type:: v4l2_vp9_ref_id
++
++.. cssclass:: longtable
++
++.. tabularcolumns:: |p{1.5cm}|p{6.3cm}|p{9.4cm}|
++
++.. flat-table:: enum v4l2_vp9_ref_id
++    :header-rows:  0
++    :stub-columns: 0
++    :widths:       1 2
++
++    * - ``V4L2_REF_ID_LAST``
++      - Last reference frame.
++    * - ``V4L2_REF_ID_GOLDEN``
++      - Golden reference frame.
++    * - ``V4L2_REF_ID_ALTREF``
++      - Alternative reference frame.
++    * - ``V4L2_REF_ID_CNT``
++      - Number of reference frames.
++
++.. c:type:: v4l2_vp9_tx_mode
++
++.. cssclass:: longtable
++
++.. tabularcolumns:: |p{1.5cm}|p{6.3cm}|p{9.4cm}|
++
++.. flat-table:: enum v4l2_vp9_tx_mode
++    :header-rows:  0
++    :stub-columns: 0
++    :widths:       1 2
++
++    * - ``V4L2_VP9_TX_MODE_ONLY_4X4``
++      - Transform size is 4x4.
++    * - ``V4L2_VP9_TX_MODE_ALLOW_8X8``
++      - Transform size can be up to 8x8.
++    * - ``V4L2_VP9_TX_MODE_ALLOW_16X16``
++      - Transform size can be up to 16x16.
++    * - ``V4L2_VP9_TX_MODE_ALLOW_32X32``
++      - transform size can be up to 32x32.
++    * - ``V4L2_VP9_TX_MODE_SELECT``
++      - Bitstream contains transform size for each block.
++
++.. c:type:: v4l2_vp9_reference_mode
++
++.. cssclass:: longtable
++
++.. tabularcolumns:: |p{1.5cm}|p{6.3cm}|p{9.4cm}|
++
++.. flat-table:: enum v4l2_vp9_reference_mode
++    :header-rows:  0
++    :stub-columns: 0
++    :widths:       1 2
++
++    * - ``V4L2_VP9_REF_MODE_SINGLE``
++      - Indicates that all the inter blocks use only a single reference frame
++        to generate motion compensated prediction.
++    * - ``V4L2_VP9_REF_MODE_COMPOUND``
++      - Requires all the inter blocks to use compound mode. Single reference
++        frame prediction is not allowed.
++    * - ``V4L2_VP9_REF_MODE_SELECT``
++      - Allows each individual inter block to select between single and
++        compound prediction modes.
++
++.. c:type:: v4l2_vp9_interpolation_filter
++
++.. cssclass:: longtable
++
++.. tabularcolumns:: |p{1.5cm}|p{6.3cm}|p{9.4cm}|
++
++.. flat-table:: enum v4l2_vp9_interpolation_filter
++    :header-rows:  0
++    :stub-columns: 0
++    :widths:       1 2
++
++    * - ``V4L2_VP9_INTERP_FILTER_8TAP``
++      - Height tap filter.
++    * - ``V4L2_VP9_INTERP_FILTER_8TAP_SMOOTH``
++      - Height tap smooth filter.
++    * - ``V4L2_VP9_INTERP_FILTER_8TAP_SHARP``
++      - Height tap sharp filter.
++    * - ``V4L2_VP9_INTERP_FILTER_BILINEAR``
++      - Bilinear filter.
++    * - ``V4L2_VP9_INTERP_FILTER_SWITCHABLE``
++      - Filter selection is signaled at the block level.
++
++.. c:type:: v4l2_vp9_reset_frame_context
++
++.. cssclass:: longtable
++
++.. tabularcolumns:: |p{1.5cm}|p{6.3cm}|p{9.4cm}|
++
++.. flat-table:: enum v4l2_vp9_reset_frame_context
++    :header-rows:  0
++    :stub-columns: 0
++    :widths:       1 2
++
++    * - ``V4L2_VP9_RESET_FRAME_CTX_NONE``
++      - Do not reset any frame context.
++    * - ``V4L2_VP9_RESET_FRAME_CTX_SPEC``
++      - Reset the frame context pointed by
++        :c:type:`v4l2_ctrl_vp9_frame_decode_params`.frame_context_idx.
++    * - ``V4L2_VP9_RESET_FRAME_CTX_ALL``
++      - Reset all frame contexts.
++
++.. c:type:: v4l2_vp9_intra_prediction_mode
++
++.. cssclass:: longtable
++
++.. tabularcolumns:: |p{1.5cm}|p{6.3cm}|p{9.4cm}|
++
++.. flat-table:: enum v4l2_vp9_intra_prediction_mode
++    :header-rows:  0
++    :stub-columns: 0
++    :widths:       1 2
++
++    * - ``V4L2_VP9_INTRA_PRED_DC``
++      - DC intra prediction.
++    * - ``V4L2_VP9_INTRA_PRED_MODE_V``
++      - Vertical intra prediction.
++    * - ``V4L2_VP9_INTRA_PRED_MODE_H``
++      - Horizontal intra prediction.
++    * - ``V4L2_VP9_INTRA_PRED_MODE_D45``
++      - D45 intra prediction.
++    * - ``V4L2_VP9_INTRA_PRED_MODE_D135``
++      - D135 intra prediction.
++    * - ``V4L2_VP9_INTRA_PRED_MODE_D117``
++      - D117 intra prediction.
++    * - ``V4L2_VP9_INTRA_PRED_MODE_D153``
++      - D153 intra prediction.
++    * - ``V4L2_VP9_INTRA_PRED_MODE_D207``
++      - D207 intra prediction.
++    * - ``V4L2_VP9_INTRA_PRED_MODE_D63``
++      - D63 intra prediction.
++    * - ``V4L2_VP9_INTRA_PRED_MODE_TM``
++      - True motion intra prediction.
++
++.. c:type:: v4l2_vp9_segmentation
++
++.. cssclass:: longtable
++
++.. tabularcolumns:: |p{1.5cm}|p{6.3cm}|p{9.4cm}|
++
++.. flat-table:: struct v4l2_vp9_segmentation
++    :header-rows:  0
++    :stub-columns: 0
++    :widths:       1 1 2
++
++    * - __u8
++      - ``flags``
++      - Combination of V4L2_VP9_SEGMENTATION_FLAG_* flags. See
++        :c:type:`v4l2_vp9_segmentation_flags`.
++    * - __u8
++      - ``tree_probs[7]``
++      - Specifies the probability values to be used when decoding a Segment-ID.
++        See '5.15. Segmentation map' section of :ref:`vp9` for more details.
++    * - __u8
++      - ``pred_prob[3]``
++      - Specifies the probability values to be used when decoding a
++        Predicted-Segment-ID. See '6.4.14. Get segment id syntax'
++        section of :ref:`vp9` for more details.
++    * - __u8
++      - ``padding[5]``
++      - Used to align this struct on 64 bit. Shall be filled with zeroes.
++    * - __u8
++      - ``feature_enabled[8]``
++      - Bitmask defining which features are enabled in each segment.
++    * - __u8
++      - ``feature_data[8][4]``
++      - Data attached to each feature. Data entry is only valid if the feature
++        is enabled.
++
++.. c:type:: v4l2_vp9_segment_feature
++
++.. cssclass:: longtable
++
++.. tabularcolumns:: |p{1.5cm}|p{6.3cm}|p{9.4cm}|
++
++.. flat-table:: enum v4l2_vp9_segment_feature
++    :header-rows:  0
++    :stub-columns: 0
++    :widths:       1 2
++
++    * - ``V4L2_VP9_SEGMENT_FEATURE_QP_DELTA``
++      - QP delta segment feature.
++    * - ``V4L2_VP9_SEGMENT_FEATURE_LF``
++      - Loop filter segment feature.
++    * - ``V4L2_VP9_SEGMENT_FEATURE_REF_FRAME``
++      - Reference frame segment feature.
++    * - ``V4L2_VP9_SEGMENT_FEATURE_SKIP``
++      - Skip segment feature.
++    * - ``V4L2_VP9_SEGMENT_FEATURE_CNT``
++      - Number of segment features.
++
++.. c:type:: v4l2_vp9_segmentation_flags
++
++.. cssclass:: longtable
++
++.. tabularcolumns:: |p{1.5cm}|p{6.3cm}|p{9.4cm}|
++
++.. flat-table:: enum v4l2_vp9_segmentation_flags
++    :header-rows:  0
++    :stub-columns: 0
++    :widths:       1 2
++
++    * - ``V4L2_VP9_SEGMENTATION_FLAG_ENABLED``
++      - Indicates that this frame makes use of the segmentation tool.
++    * - ``V4L2_VP9_SEGMENTATION_FLAG_UPDATE_MAP``
++      - Indicates that the segmentation map should be updated during the
++        decoding of this frame.
++    * - ``V4L2_VP9_SEGMENTATION_FLAG_TEMPORAL_UPDATE``
++      - Indicates that the updates to the segmentation map are coded
++        relative to the existing segmentation map.
++    * - ``V4L2_VP9_SEGMENTATION_FLAG_UPDATE_DATA``
++      - Indicates that new parameters are about to be specified for each
++        segment.
++    * - ``V4L2_VP9_SEGMENTATION_FLAG_ABS_OR_DELTA_UPDATE``
++      - Indicates that the segmentation parameters represent the actual values
++        to be used.
++
++.. c:type:: v4l2_vp9_quantization
++
++.. cssclass:: longtable
++
++.. tabularcolumns:: |p{1.5cm}|p{6.3cm}|p{9.4cm}|
++
++.. flat-table:: struct v4l2_vp9_quantization
++    :header-rows:  0
++    :stub-columns: 0
++    :widths:       1 1 2
++
++    * - __u8
++      - ``base_q_idx``
++      - Indicates the base frame qindex.
++    * - __s8
++      - ``delta_q_y_dc``
++      - Indicates the Y DC quantizer relative to base_q_idx.
++    * - __s8
++      - ``delta_q_uv_dc``
++      - Indicates the UV DC quantizer relative to base_q_idx.
++    * - __s8
++      - ``delta_q_uv_ac``
++      - Indicates the UV AC quantizer relative to base_q_idx.
++    * - __u8
++      - ``padding[4]``
++      - Padding bytes used to align this struct on 64 bit. Must be set to 0.
++
++.. c:type:: v4l2_vp9_loop_filter
++
++.. cssclass:: longtable
++
++.. tabularcolumns:: |p{1.5cm}|p{6.3cm}|p{9.4cm}|
++
++.. flat-table:: struct v4l2_vp9_loop_filter
++    :header-rows:  0
++    :stub-columns: 0
++    :widths:       1 1 2
++
++    * - __u8
++      - ``flags``
++      - Combination of V4L2_VP9_LOOP_FILTER_FLAG_* flags.
++        See :c:type:`v4l2_vp9_loop_filter_flags`.
++    * - __u8
++      - ``level``
++      - Indicates the loop filter strength.
++    * - __u8
++      - ``sharpness``
++      - Indicates the sharpness level.
++    * - __s8
++      - ``ref_deltas[4]``
++      - Contains the adjustment needed for the filter level based on the chosen
++        reference frame.
++    * - __s8
++      - ``mode_deltas[2]``
++      - Contains the adjustment needed for the filter level based on the chosen
++        mode
++    * - __u8
++      - ``level_lookup[8][4][2]``
++      - Level lookup table.
++
++
++.. c:type:: v4l2_vp9_loop_filter_flags
++
++.. cssclass:: longtable
++
++.. tabularcolumns:: |p{1.5cm}|p{6.3cm}|p{9.4cm}|
++
++.. flat-table:: enum v4l2_vp9_loop_filter_flags
++    :header-rows:  0
++    :stub-columns: 0
++    :widths:       1 2
++
++    * - ``V4L2_VP9_LOOP_FILTER_FLAG_DELTA_ENABLED``
++      - When set, the filter level depends on the mode and reference frame used
++        to predict a block.
++    * - ``V4L2_VP9_LOOP_FILTER_FLAG_DELTA_UPDATE``
++      - When set, the bitstream contains additional syntax elements that
++        specify which mode and reference frame deltas are to be updated.
++
+ .. raw:: latex
+ 
+     \normalsize
+diff --git a/drivers/media/v4l2-core/v4l2-ctrls-core.c b/drivers/media/v4l2-core/v4l2-ctrls-core.c
+index c4b5082849b6..b4802c9989fd 100644
+--- a/drivers/media/v4l2-core/v4l2-ctrls-core.c
++++ b/drivers/media/v4l2-core/v4l2-ctrls-core.c
+@@ -289,6 +289,219 @@ static void std_log(const struct v4l2_ctrl *ctrl)
+ 	}
+ }
  
 +static int
 +validate_vp9_lf_params(struct v4l2_vp9_loop_filter *lf)
@@ -885,11 +1377,11 @@ index 41f8410d08d6..7ed11f296008 100644
 +	return 0;
 +}
 +
- /* Validate a new control */
- 
- #define zero_padding(s) \
-@@ -1871,6 +2098,12 @@ static int std_validate_compound(const struct v4l2_ctrl *ctrl, u32 idx,
- 		zero_padding(p_vp8_frame_header->coder_state);
+ /*
+  * Round towards the closest legal value. Be careful when we are
+  * close to the maximum range of the control type to prevent
+@@ -574,6 +787,12 @@ static int std_validate_compound(const struct v4l2_ctrl *ctrl, u32 idx,
+ 		zero_padding(p_vp8_frame->coder_state);
  		break;
  
 +	case V4L2_CTRL_TYPE_VP9_FRAME_DECODE_PARAMS:
@@ -901,9 +1393,9 @@ index 41f8410d08d6..7ed11f296008 100644
  	case V4L2_CTRL_TYPE_HEVC_SPS:
  		p_hevc_sps = p;
  
-@@ -2635,6 +2868,12 @@ static struct v4l2_ctrl *v4l2_ctrl_new(struct v4l2_ctrl_handler *hdl,
- 	case V4L2_CTRL_TYPE_VP8_FRAME_HEADER:
- 		elem_size = sizeof(struct v4l2_ctrl_vp8_frame_header);
+@@ -1231,6 +1450,12 @@ static struct v4l2_ctrl *v4l2_ctrl_new(struct v4l2_ctrl_handler *hdl,
+ 	case V4L2_CTRL_TYPE_VP8_FRAME:
+ 		elem_size = sizeof(struct v4l2_ctrl_vp8_frame);
  		break;
 +	case V4L2_CTRL_TYPE_VP9_FRAME_CONTEXT:
 +		elem_size = sizeof(struct v4l2_ctrl_vp9_frame_ctx);
@@ -914,11 +1406,43 @@ index 41f8410d08d6..7ed11f296008 100644
  	case V4L2_CTRL_TYPE_HEVC_SPS:
  		elem_size = sizeof(struct v4l2_ctrl_hevc_sps);
  		break;
+diff --git a/drivers/media/v4l2-core/v4l2-ctrls-defs.c b/drivers/media/v4l2-core/v4l2-ctrls-defs.c
+index b6344bbf1e00..22a031e25499 100644
+--- a/drivers/media/v4l2-core/v4l2-ctrls-defs.c
++++ b/drivers/media/v4l2-core/v4l2-ctrls-defs.c
+@@ -940,6 +940,11 @@ const char *v4l2_ctrl_get_name(u32 id)
+ 	case V4L2_CID_MPEG_VIDEO_VP8_PROFILE:			return "VP8 Profile";
+ 	case V4L2_CID_MPEG_VIDEO_VP9_PROFILE:			return "VP9 Profile";
+ 	case V4L2_CID_MPEG_VIDEO_VP9_LEVEL:			return "VP9 Level";
++	case V4L2_CID_MPEG_VIDEO_VP9_FRAME_DECODE_PARAMS:	return "VP9 Frame Decode Parameters";
++	case V4L2_CID_MPEG_VIDEO_VP9_FRAME_CONTEXT(0):		return "VP9 Frame Context 0";
++	case V4L2_CID_MPEG_VIDEO_VP9_FRAME_CONTEXT(1):		return "VP9 Frame Context 1";
++	case V4L2_CID_MPEG_VIDEO_VP9_FRAME_CONTEXT(2):		return "VP9 Frame Context 2";
++	case V4L2_CID_MPEG_VIDEO_VP9_FRAME_CONTEXT(3):		return "VP9 Frame Context 3";
+ 
+ 	/* HEVC controls */
+ 	case V4L2_CID_MPEG_VIDEO_HEVC_I_FRAME_QP:		return "HEVC I-Frame QP Value";
+@@ -1479,6 +1484,15 @@ void v4l2_ctrl_fill(u32 id, const char **name, enum v4l2_ctrl_type *type,
+ 	case V4L2_CID_STATELESS_VP8_FRAME:
+ 		*type = V4L2_CTRL_TYPE_VP8_FRAME;
+ 		break;
++	case V4L2_CID_MPEG_VIDEO_VP9_FRAME_DECODE_PARAMS:
++		*type = V4L2_CTRL_TYPE_VP9_FRAME_DECODE_PARAMS;
++		break;
++	case V4L2_CID_MPEG_VIDEO_VP9_FRAME_CONTEXT(0):
++	case V4L2_CID_MPEG_VIDEO_VP9_FRAME_CONTEXT(1):
++	case V4L2_CID_MPEG_VIDEO_VP9_FRAME_CONTEXT(2):
++	case V4L2_CID_MPEG_VIDEO_VP9_FRAME_CONTEXT(3):
++		*type = V4L2_CTRL_TYPE_VP9_FRAME_CONTEXT;
++		break;
+ 	case V4L2_CID_MPEG_VIDEO_HEVC_SPS:
+ 		*type = V4L2_CTRL_TYPE_HEVC_SPS;
+ 		break;
 diff --git a/drivers/media/v4l2-core/v4l2-ioctl.c b/drivers/media/v4l2-core/v4l2-ioctl.c
-index 1ff68c1bf14a..783733bef2da 100644
+index fe43d785414c..47f812a081ca 100644
 --- a/drivers/media/v4l2-core/v4l2-ioctl.c
 +++ b/drivers/media/v4l2-core/v4l2-ioctl.c
-@@ -1429,6 +1429,7 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
+@@ -1394,6 +1394,7 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
  		case V4L2_PIX_FMT_VP8:		descr = "VP8"; break;
  		case V4L2_PIX_FMT_VP8_FRAME:    descr = "VP8 Frame"; break;
  		case V4L2_PIX_FMT_VP9:		descr = "VP9"; break;
@@ -927,30 +1451,30 @@ index 1ff68c1bf14a..783733bef2da 100644
  		case V4L2_PIX_FMT_HEVC_SLICE:	descr = "HEVC Parsed Slice Data"; break;
  		case V4L2_PIX_FMT_FWHT:		descr = "FWHT"; break; /* used in vicodec */
 diff --git a/include/media/v4l2-ctrls.h b/include/media/v4l2-ctrls.h
-index 9ecbb98908f0..ebcb34759ad8 100644
+index 575b59fbac77..f62c529b6a70 100644
 --- a/include/media/v4l2-ctrls.h
 +++ b/include/media/v4l2-ctrls.h
-@@ -21,6 +21,7 @@
- #include <media/fwht-ctrls.h>
- #include <media/h264-ctrls.h>
- #include <media/vp8-ctrls.h>
-+#include <media/vp9-ctrls.h>
+@@ -18,6 +18,7 @@
+  * This will move to the public headers once this API is fully stable.
+  */
  #include <media/hevc-ctrls.h>
++#include <media/vp9-ctrls.h>
  
  /* forward references */
-@@ -53,6 +54,8 @@ struct video_device;
+ struct file;
+@@ -50,6 +51,8 @@ struct video_device;
   * @p_h264_decode_params:	Pointer to a struct v4l2_ctrl_h264_decode_params.
   * @p_h264_pred_weights:	Pointer to a struct v4l2_ctrl_h264_pred_weights.
-  * @p_vp8_frame_header:		Pointer to a VP8 frame header structure.
+  * @p_vp8_frame:		Pointer to a VP8 frame params structure.
 + * @p_vp9_frame_ctx:		Pointer to a VP9 frame context structure.
 + * @p_vp9_frame_decode_params:	Pointer to a VP9 frame params structure.
   * @p_hevc_sps:			Pointer to an HEVC sequence parameter set structure.
   * @p_hevc_pps:			Pointer to an HEVC picture parameter set structure.
   * @p_hevc_slice_params:	Pointer to an HEVC slice parameters structure.
-@@ -80,6 +83,8 @@ union v4l2_ctrl_ptr {
- 	struct v4l2_ctrl_hevc_sps *p_hevc_sps;
- 	struct v4l2_ctrl_hevc_pps *p_hevc_pps;
+@@ -82,6 +85,8 @@ union v4l2_ctrl_ptr {
  	struct v4l2_ctrl_hevc_slice_params *p_hevc_slice_params;
+ 	struct v4l2_ctrl_hdr10_cll_info *p_hdr10_cll;
+ 	struct v4l2_ctrl_hdr10_mastering_display *p_hdr10_mastering;
 +	struct v4l2_ctrl_vp9_frame_ctx *p_vp9_frame_ctx;
 +	struct v4l2_ctrl_vp9_frame_decode_params *p_vp9_frame_decode_params;
  	struct v4l2_area *p_area;
@@ -958,7 +1482,7 @@ index 9ecbb98908f0..ebcb34759ad8 100644
  	const void *p_const;
 diff --git a/include/media/vp9-ctrls.h b/include/media/vp9-ctrls.h
 new file mode 100644
-index 000000000000..a14fffb3ad61
+index 000000000000..f62f528d4b39
 --- /dev/null
 +++ b/include/media/vp9-ctrls.h
 @@ -0,0 +1,486 @@
@@ -979,8 +1503,8 @@ index 000000000000..a14fffb3ad61
 +
 +#define V4L2_PIX_FMT_VP9_FRAME v4l2_fourcc('V', 'P', '9', 'F')
 +
-+#define V4L2_CID_MPEG_VIDEO_VP9_FRAME_CONTEXT(i)	(V4L2_CID_MPEG_BASE + 4000 + (i))
-+#define V4L2_CID_MPEG_VIDEO_VP9_FRAME_DECODE_PARAMS	(V4L2_CID_MPEG_BASE + 4004)
++#define V4L2_CID_MPEG_VIDEO_VP9_FRAME_CONTEXT(i)	(V4L2_CID_CODEC_BASE + 4000 + (i))
++#define V4L2_CID_MPEG_VIDEO_VP9_FRAME_DECODE_PARAMS	(V4L2_CID_CODEC_BASE + 4004)
 +#define V4L2_CTRL_TYPE_VP9_FRAME_CONTEXT		0x400
 +#define V4L2_CTRL_TYPE_VP9_FRAME_DECODE_PARAMS		0x404
 +
@@ -1463,9 +1987,9 @@ Signed-off-by: Adrian Ratiu <adrian.ratiu@collabora.com>
 ---
  drivers/staging/media/rkvdec/Makefile     |    2 +-
  drivers/staging/media/rkvdec/rkvdec-vp9.c | 1577 +++++++++++++++++++++
- drivers/staging/media/rkvdec/rkvdec.c     |   60 +-
+ drivers/staging/media/rkvdec/rkvdec.c     |   59 +-
  drivers/staging/media/rkvdec/rkvdec.h     |    6 +
- 4 files changed, 1643 insertions(+), 2 deletions(-)
+ 4 files changed, 1642 insertions(+), 2 deletions(-)
  create mode 100644 drivers/staging/media/rkvdec/rkvdec-vp9.c
 
 diff --git a/drivers/staging/media/rkvdec/Makefile b/drivers/staging/media/rkvdec/Makefile
@@ -3061,16 +3585,15 @@ index 000000000000..8b443ed511c9
 +	.done = rkvdec_vp9_done,
 +};
 diff --git a/drivers/staging/media/rkvdec/rkvdec.c b/drivers/staging/media/rkvdec/rkvdec.c
-index c4e0ec16c285..f3578c5ea902 100644
+index fbaf0303f7c2..2c0c6dcbd066 100644
 --- a/drivers/staging/media/rkvdec/rkvdec.c
 +++ b/drivers/staging/media/rkvdec/rkvdec.c
-@@ -162,6 +162,40 @@ static const u32 rkvdec_h264_decoded_fmts[] = {
+@@ -159,6 +159,39 @@ static const u32 rkvdec_h264_decoded_fmts[] = {
  	V4L2_PIX_FMT_NV20,
  };
  
 +static const struct rkvdec_ctrl_desc rkvdec_vp9_ctrl_descs[] = {
 +	{
-+		.mandatory = true,
 +		.cfg.id = V4L2_CID_MPEG_VIDEO_VP9_FRAME_DECODE_PARAMS,
 +	},
 +	{
@@ -3105,7 +3628,7 @@ index c4e0ec16c285..f3578c5ea902 100644
  static const struct rkvdec_coded_fmt_desc rkvdec_coded_fmts[] = {
  	{
  		.fourcc = V4L2_PIX_FMT_H264_SLICE,
-@@ -177,6 +211,21 @@ static const struct rkvdec_coded_fmt_desc rkvdec_coded_fmts[] = {
+@@ -174,6 +207,21 @@ static const struct rkvdec_coded_fmt_desc rkvdec_coded_fmts[] = {
  		.ops = &rkvdec_h264_fmt_ops,
  		.num_decoded_fmts = ARRAY_SIZE(rkvdec_h264_decoded_fmts),
  		.decoded_fmts = rkvdec_h264_decoded_fmts,
@@ -3127,7 +3650,7 @@ index c4e0ec16c285..f3578c5ea902 100644
  	}
  };
  
-@@ -376,7 +425,7 @@ static int rkvdec_s_output_fmt(struct file *file, void *priv,
+@@ -373,7 +421,7 @@ static int rkvdec_s_output_fmt(struct file *file, void *priv,
  	struct v4l2_m2m_ctx *m2m_ctx = ctx->fh.m2m_ctx;
  	const struct rkvdec_coded_fmt_desc *desc;
  	struct v4l2_format *cap_fmt;
@@ -3136,7 +3659,7 @@ index c4e0ec16c285..f3578c5ea902 100644
  	int ret;
  
  	/*
-@@ -388,6 +437,15 @@ static int rkvdec_s_output_fmt(struct file *file, void *priv,
+@@ -385,6 +433,15 @@ static int rkvdec_s_output_fmt(struct file *file, void *priv,
  	if (vb2_is_busy(peer_vq))
  		return -EBUSY;
  
@@ -3153,10 +3676,10 @@ index c4e0ec16c285..f3578c5ea902 100644
  	if (ret)
  		return ret;
 diff --git a/drivers/staging/media/rkvdec/rkvdec.h b/drivers/staging/media/rkvdec/rkvdec.h
-index c14cd2571bfc..d760c3609e2c 100644
+index fa24bcb6ff42..18dd721172d8 100644
 --- a/drivers/staging/media/rkvdec/rkvdec.h
 +++ b/drivers/staging/media/rkvdec/rkvdec.h
-@@ -58,6 +58,10 @@ struct rkvdec_vp9_decoded_buffer_info {
+@@ -57,6 +57,10 @@ struct rkvdec_vp9_decoded_buffer_info {
  struct rkvdec_decoded_buffer {
  	/* Must be the first field in this struct. */
  	struct v4l2_m2m_buffer base;
@@ -3167,7 +3690,7 @@ index c14cd2571bfc..d760c3609e2c 100644
  };
  
  static inline struct rkvdec_decoded_buffer *
-@@ -128,4 +132,6 @@ void rkvdec_run_preamble(struct rkvdec_ctx *ctx, struct rkvdec_run *run);
+@@ -127,4 +131,6 @@ void rkvdec_run_preamble(struct rkvdec_ctx *ctx, struct rkvdec_run *run);
  void rkvdec_run_postamble(struct rkvdec_ctx *ctx, struct rkvdec_run *run);
  
  extern const struct rkvdec_coded_fmt_ops rkvdec_h264_fmt_ops;

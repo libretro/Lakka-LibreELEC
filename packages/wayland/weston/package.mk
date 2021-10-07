@@ -39,7 +39,7 @@ post_makeinstall_target() {
     cp ${PKG_DIR}/config/weston.ini ${INSTALL}/usr/share/weston
 
   safe_remove ${INSTALL}/usr/share/wayland-sessions
-  safe_remove ${INSTALL}/usr/bin/weston-calibrator 
+  safe_remove ${INSTALL}/usr/bin/weston-calibrator
   safe_remove ${INSTALL}/usr/bin/weston-simple-*
   safe_remove ${INSTALL}/usr/bin/weston-touch-calibrator
 }

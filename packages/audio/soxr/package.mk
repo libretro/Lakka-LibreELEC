@@ -13,6 +13,7 @@ PKG_LONGDESC="The SoX Resampler library performs one-dimensional sample-rate con
 PKG_BUILD_FLAGS="+pic"
 
 PKG_CMAKE_OPTS_TARGET="-DBUILD_EXAMPLES=OFF \
+                       -DWITH_OPENMP=OFF \
                        -DBUILD_SHARED_LIBS=OFF \
                        -DBUILD_TESTS=OFF \
                        -DWITH_AVFFT=OFF"
