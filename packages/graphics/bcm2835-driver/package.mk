@@ -36,6 +36,20 @@ makeinstall_target() {
         cp -PRv ${PKG_FLOAT}/opt/vc/lib/pkgconfig/${f}  ${SYSROOT_PREFIX}/usr/lib/pkgconfig
       done
 
+  # Instal GL headers/libs if used as OPENGLES
+  if [ "${DISTRO}" = "Lakka" ] && [ "${OPENGLES}" = "${PKG_NAME}" ]; then
+    for f in $(cd ${PKG_FLOAT}/opt/vc/include; ls | grep "GL"); do
+      cp -PRv ${PKG_FLOAT}/opt/vc/include/${f} ${SYSROOT_PREFIX}/usr/include
+    done
+    for f in $(cd ${PKG_FLOAT}/opt/vc/lib; ls *.so *.a | grep -E "^lib(EGL|GL)"); do
+      cp -PRv ${PKG_FLOAT}/opt/vc/lib/${f}              ${SYSROOT_PREFIX}/usr/lib
+    done
+    for f in $(cd ${PKG_FLOAT}/opt/vc/lib/pkgconfig; ls | grep "gl"); do
+      cp -PRv ${PKG_FLOAT}/opt/vc/lib/pkgconfig/${f}  ${SYSROOT_PREFIX}/usr/lib/pkgconfig
+    done
+  fi
+
+
   # Update prefix in vendor pkgconfig files
   for PKG_CONFIGS in $(find "${SYSROOT_PREFIX}/usr/lib" -type f -name "*.pc" 2>/dev/null); do
     sed -e "s#prefix=/opt/vc#prefix=/usr#g" -i "${PKG_CONFIGS}"
@@ -51,6 +65,13 @@ makeinstall_target() {
     for f in $(cd ${PKG_FLOAT}/opt/vc/lib; ls *.so | grep -Ev "^lib(EGL|GL)"); do
       cp -PRv ${PKG_FLOAT}/opt/vc/lib/${f} ${INSTALL}/usr/lib
     done
+
+  # Instal GL headers/libs if used as OPENGLES
+  if [ "${DISTRO}" = "Lakka" ] && [ "${OPENGLES}" = "${PKG_NAME}" ]; then
+    for f in $(cd ${PKG_FLOAT}/opt/vc/lib; ls *.so | grep -E "^lib(EGL|GL)"); do
+      cp -PRv ${PKG_FLOAT}/opt/vc/lib/${f} ${INSTALL}/usr/lib
+    done
+  fi
 
   # Install useful tools
   mkdir -p ${INSTALL}/usr/bin
