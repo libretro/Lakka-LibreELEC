@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="ppsspp"
-PKG_VERSION="f7ace3b"
+PKG_VERSION="f6fb71"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/hrydgard/ppsspp"
 PKG_URL="$PKG_SITE.git"
-PKG_GIT_CLONE_BRANCH="v1.11-hotfixes"
+PKG_GIT_CLONE_BRANCH="master"
 PKG_DEPENDS_TARGET="toolchain libzip libpng"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
