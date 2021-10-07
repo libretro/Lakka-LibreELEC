@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.vdr.vnsi"
-PKG_VERSION="20.0.0-Nexus"
-PKG_SHA256="1d8143372b4e37fc8e91c20a23922750ab613bd411b2adf056f2d81c384a30d3"
+PKG_VERSION="20.1.0-Nexus"
+PKG_SHA256="cbdccf7edc61a51bacae2d0609850651dced4d5aa026735dcdd939660d1dec37"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
