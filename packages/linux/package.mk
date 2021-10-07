@@ -14,8 +14,6 @@ PKG_STAMP="${KERNEL_TARGET} ${KERNEL_MAKE_EXTRACMD}"
 
 PKG_PATCH_DIRS="${LINUX}"
 
-[ "${DISTRO}" = "Lakka" ] && PKG_PATCH_DIRS+=" ${DISTRO}-${LINUX}" || true
-
 case "${LINUX}" in
   amlogic)
     PKG_VERSION="6cc049b8e0d05e1519d71afcf2d40d3aa5a48366" # 5.11.10
@@ -38,6 +36,8 @@ case "${LINUX}" in
 esac
 
 PKG_KERNEL_CFG_FILE=$(kernel_config_path) || die
+
+[ "${DISTRO}" = "Lakka" ] && PKG_PATCH_DIRS+=" ${DISTRO}-${LINUX}" || true
 
 if [ -n "${KERNEL_TOOLCHAIN}" ]; then
   PKG_DEPENDS_HOST+=" gcc-arm-${KERNEL_TOOLCHAIN}:host"
@@ -184,10 +184,14 @@ pre_make_target() {
                                 --enable CONFIG_PARPORT_1284 \
                                 --enable CONFIG_PARPORT_NOT_PC
   fi
-  # enable Joycon on default and raspberrypi kernels for Lakka
+
+  # enable Joycon and Dualsense on default and raspberrypi kernels for Lakka
   if [ "${DISTRO}" = "Lakka" ] && [ "${LINUX}" = "default" -o "${LINUX}" = "raspberrypi" ]; then
-    ${PKG_BUILD}/scripts/config --enable CONFIG_HID_NINTENDO
-    ${PKG_BUILD}/scripts/config --enable CONFIG_NINTENDO_FF
+    ${PKG_BUILD}/scripts/config \
+                                --enable CONFIG_HID_NINTENDO \
+                                --enable CONFIG_NINTENDO_FF \
+                                --enable CONFIG_HID_PLAYSTATION \
+                                --enable CONFIG_PLAYSTATION_FF
   fi
 
   # install extra dts files for Lakka
