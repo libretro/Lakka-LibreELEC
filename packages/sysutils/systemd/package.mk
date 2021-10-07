@@ -200,6 +200,10 @@ post_makeinstall_target() {
   sed -e "s,^.*HandleLidSwitch=.*$,HandleLidSwitch=ignore,g" -i ${INSTALL}/etc/systemd/logind.conf
   sed -e "s,^.*HandlePowerKey=.*$,HandlePowerKey=ignore,g" -i ${INSTALL}/etc/systemd/logind.conf
 
+  if [ "${DISTRO}" = "Lakka" -a "${PROJECT}" = "RPi" ]; then
+    sed -e "s,^.*HandlePowerKey=.*$,HandlePowerKey=poweroff,g" -i $INSTALL/etc/systemd/logind.conf
+  fi
+
   # fix ordering cycle for RetroArch overlay mounts
   if [ "${DISTRO}" = "Lakka" ]; then
     sed -e "s/local-fs\.target/tmp.mount var.mount/" -i ${INSTALL}/usr/lib/systemd/system/systemd-tmpfiles-setup.service
