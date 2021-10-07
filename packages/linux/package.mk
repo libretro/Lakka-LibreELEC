@@ -39,6 +39,8 @@ PKG_KERNEL_CFG_FILE=$(kernel_config_path) || die
 
 [ "${DISTRO}" = "Lakka" ] && PKG_PATCH_DIRS+=" ${DISTRO}-${LINUX}" || true
 
+[ "${DISTRO}" = "Lakka" ] && PKG_PATCH_DIRS+=" ${DISTRO}-${LINUX}" || true
+
 if [ -n "${KERNEL_TOOLCHAIN}" ]; then
   PKG_DEPENDS_HOST+=" gcc-arm-${KERNEL_TOOLCHAIN}:host"
   PKG_DEPENDS_TARGET+=" gcc-arm-${KERNEL_TOOLCHAIN}:host"
