@@ -152,6 +152,12 @@ makeinstall_target() {
   mkdir -p ${INSTALL}/usr/share/audio_filters
     cp -v ${PKG_BUILD}/libretro-common/audio/dsp_filters/*.so ${INSTALL}/usr/share/audio_filters
     cp -v ${PKG_BUILD}/libretro-common/audio/dsp_filters/*.dsp ${INSTALL}/usr/share/audio_filters
+  mkdir -p ${INSTALL}/usr/lib/retroarch
+    cp -v ${PKG_DIR}/scripts/retroarch-config ${INSTALL}/usr/lib/retroarch
+
+  # System overlay
+  mkdir -p ${INSTALL}/usr/share/retroarch-system
+    touch ${INSTALL}/usr/share/retroarch-system/.placeholder
 
   # General configuration
   sed -i -e "s/# libretro_directory =/libretro_directory = \"\/tmp\/cores\"/" ${INSTALL}/etc/retroarch.cfg
@@ -167,7 +173,9 @@ makeinstall_target() {
   sed -i -e "s/# rgui_show_start_screen = true/rgui_show_start_screen = false/" ${INSTALL}/etc/retroarch.cfg
   sed -i -e "s/# assets_directory =/assets_directory =\/tmp\/assets/" ${INSTALL}/etc/retroarch.cfg
   sed -i -e "s/# overlay_directory =/overlay_directory =\/tmp\/overlays/" ${INSTALL}/etc/retroarch.cfg
-  sed -i -e "s/# cheat_database_path =/cheat_database_path =\/tmp\/database\/cht/" ${INSTALL}/etc/retroarch.cfg
+  sed -i -e "s/# cheat_database_path =/cheat_database_path =\/tmp\/cheats/" ${INSTALL}/etc/retroarch.cfg
+  sed -i -e "s/# cursor_directory =/cursor_directory =\/tmp\/database\/cursors/" ${INSTALL}/etc/retroarch.cfg
+  sed -i -e "s/# log_dir =/log_dir =\/storage\/logfiles/" ${INSTALL}/etc/retroarch.cfg
 
   if [ ! "${DEVICE}" = "Switch" ]; then
     sed -i -e "s/# menu_driver = \"rgui\"/menu_driver = \"xmb\"/" ${INSTALL}/etc/retroarch.cfg
@@ -324,28 +332,18 @@ makeinstall_target() {
 
     cat ${PROJECT_DIR}/L4T/devices/Switch/joypad/Joy-Con_Combined.cfg >> ${INSTALL}/etc/retroarch.cfg
   fi
-
-  # System overlay
-  mkdir -p ${INSTALL}/usr/share/retroarch-system
-    touch ${INSTALL}/usr/share/retroarch-system/.placeholder
 }
 
 post_install() {
-  # link default.target to retroarch.target
-  ln -sf retroarch.target ${INSTALL}/usr/lib/systemd/system/default.target
-
-  enable_service retroarch-autostart.service
-  enable_service retroarch.service
+  enable_service retroarch.target
   enable_service tmp-cores.mount
+  enable_service tmp-cheats.mount
   enable_service tmp-joypads.mount
   enable_service tmp-database.mount
   enable_service tmp-assets.mount
   enable_service tmp-shaders.mount
   enable_service tmp-overlays.mount
   enable_service tmp-system.mount
-}
-
-post_makeinstall_target() {
-  mkdir -p ${INSTALL}/usr/lib/retroarch
-    cp -v ${PKG_DIR}/scripts/retroarch-config ${INSTALL}/usr/lib/retroarch
+  enable_service retroarch-autostart.service
+  enable_service retroarch.service
 }

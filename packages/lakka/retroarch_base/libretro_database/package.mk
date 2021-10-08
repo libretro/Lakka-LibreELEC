@@ -9,4 +9,9 @@ PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
   make -C ${PKG_BUILD} install INSTALLDIR="${INSTALL}/usr/share/libretro-database"
+
+  # move cheats to separate folder
+  mkdir -p ${INSTALL}/usr/share/libretro-cheats
+    mv -v ${INSTALL}/usr/share/libretro-database/cht/* ${INSTALL}/usr/share/libretro-cheats
+    rm -r ${INSTALL}/usr/share/libretro-database/cht
 }
