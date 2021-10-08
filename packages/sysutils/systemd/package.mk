@@ -196,11 +196,6 @@ post_makeinstall_target() {
     sed -e "s,^.*HandlePowerKey=.*$,HandlePowerKey=poweroff,g" -i $INSTALL/etc/systemd/logind.conf
   fi
 
-  # fix ordering cycle for RetroArch overlay mounts
-  if [ "${DISTRO}" = "Lakka" ]; then
-    sed -e "s/local-fs\.target/tmp.mount var.mount/" -i ${INSTALL}/usr/lib/systemd/system/systemd-tmpfiles-setup.service
-  fi
-
   # replace systemd-machine-id-setup with ours
   safe_remove ${INSTALL}/usr/lib/systemd/system/systemd-machine-id-commit.service
   safe_remove ${INSTALL}/usr/lib/systemd/system/*.target.wants/systemd-machine-id-commit.service
