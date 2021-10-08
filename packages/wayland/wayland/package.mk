@@ -26,6 +26,11 @@ PKG_CONFIGURE_OPTS_TARGET="--with-sysroot=${SYSROOT_PREFIX} \
                            --disable-documentation \
                            --with-gnu-ld"
 
+pre_configure_target() {
+  # wayland does not build with NDEBUG (requires assert for tests)
+  export CFLAGS=$(echo ${CFLAGS} | sed -e "s|-DNDEBUG||g")
+}
+
 post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/bin
   rm -rf ${INSTALL}/usr/share
