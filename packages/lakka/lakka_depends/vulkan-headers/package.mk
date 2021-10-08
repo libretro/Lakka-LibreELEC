@@ -1,6 +1,6 @@
 PKG_NAME="vulkan-headers"
-PKG_VERSION="1.2.173"
-PKG_SHA256="97ccee5ad5250b12624a89fe7b234d90befdebf0ae88734a95654efa4af2675c"
+PKG_VERSION="1.2.187"
+PKG_SHA256="37f399aef2dbeb0eb979139f41a0fe411b3dff77e70be85e93318a7b833557de"
 PKG_LICENSE="Apache 2.0"
 PKG_SITE="https://www.khronos.org"
 PKG_URL="https://github.com/KhronosGroup/Vulkan-Headers/archive/v${PKG_VERSION}.tar.gz"
