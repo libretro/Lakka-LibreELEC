@@ -55,6 +55,7 @@ targets="\
 	RPi|GPICase|arm| \
 	RPi|RPi|arm| \
 	RPi|RPi2|arm| \
+	RPi|RPi4|aarch64| \
 	RPi|RPi4|arm| \
 "
 

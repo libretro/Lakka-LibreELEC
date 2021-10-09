@@ -19,9 +19,11 @@ makeinstall_target() {
     cp -PRv bootcode.bin ${INSTALL}/usr/share/bootloader
     if [ "${DEVICE}" = "RPi4" ]; then
       cp -PRv fixup4x.dat ${INSTALL}/usr/share/bootloader/fixup.dat
+      cp -PRv fixup4.dat ${INSTALL}/usr/share/bootloader/fixup4.dat
       cp -PRv start4x.elf ${INSTALL}/usr/share/bootloader/start.elf
     else
       cp -PRv fixup_x.dat ${INSTALL}/usr/share/bootloader/fixup.dat
+      cp -PRv fixup4.dat ${INSTALL}/usr/share/bootloader/fixup4.dat
       cp -PRv start_x.elf ${INSTALL}/usr/share/bootloader/start.elf
     fi
 
@@ -32,6 +34,10 @@ makeinstall_target() {
     find_file_path config/config.txt ${PKG_DIR}/files/config.txt && cp -PRv ${FOUND_PATH} ${INSTALL}/usr/share/bootloader
 
     if [ "${DISTRO}" = "Lakka" ]; then
+      if [ "${ARCH}" = "aarch64" ]; then
+	echo "arm_64bit=1" >> ${INSTALL}/usr/share/bootloader/distroconfig.txt
+	echo "kernel=${KERNEL_NAME}" >> ${INSTALL}/usr/share/bootloader/distroconfig.txt
+      fi
       echo "disable_splash=1" >> ${INSTALL}/usr/share/bootloader/distroconfig.txt
       echo "dtparam=audio=on" >> ${INSTALL}/usr/share/bootloader/distroconfig.txt
       echo "hdmi_max_pixel_freq:0=200000000" >> ${INSTALL}/usr/share/bootloader/distroconfig.txt
