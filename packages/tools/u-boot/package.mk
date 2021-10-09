@@ -6,7 +6,7 @@ PKG_NAME="u-boot"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://www.denx.de/wiki/U-Boot"
-PKG_DEPENDS_TARGET="toolchain Python3:host swig:host"
+PKG_DEPENDS_TARGET="toolchain openssl:host Python3:host swig:host"
 PKG_LONGDESC="Das U-Boot is a cross-platform bootloader for embedded systems."
 
 PKG_STAMP="${UBOOT_SYSTEM} ${UBOOT_TARGET}"
@@ -51,6 +51,9 @@ post_patch() {
 }
 
 make_target() {
+  # U-Boot needs host openssl for tools - make sure it finds right one
+  # setup_pkg_config_host is required
+  setup_pkg_config_host
   if [ -z "${UBOOT_SYSTEM}" ]; then
     echo "UBOOT_SYSTEM must be set to build an image"
     echo "see './scripts/uboot_helper' for more information"
