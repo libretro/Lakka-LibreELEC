@@ -176,21 +176,24 @@ for addon in ${ADDONS_DIR}/*.*/ ; do
     fi
 
     VERSION_INFO=$(grep "^${RETRO_NAME}" "${RETRO_VERSION_FILE}" | head -1)
-    if [[ "$VERSION_INFO" =~ .zip$ ]] ; then
+    if [[ "$VERSION_INFO" =~ github\.com/[^/]+/[^/]+/archive/[^/]+\.zip$ ]] ; then
       # version referenced by githash
       RETRO_NEW_VERSION=$(sed -e 's|^.*/archive/||' -e 's|\.zip$||' "${RETRO_VERSION_FILE}")
-    elif [[ "$VERSION_INFO" =~ .tar.gz$ ]] ; then
+    elif [[ "$VERSION_INFO" =~ github\.com/[^/]+/[^/]+/archive/[^/]+\.tar\.gz$ ]] ; then
       # version referenced by githash
       RETRO_NEW_VERSION=$(sed -e 's|^.*/archive/||' -e 's|\.tar.gz$||' "${RETRO_VERSION_FILE}")
-    else
+    elif [[ "$VERSION_INFO" =~ github\.com/[^/[:space:]]+/[^/[:space:]]+[[:space:]][^[:space:]]+ ]] ; then
       msg_warn "unmanaged version in kodi package: ${VERSION_INFO}"
       # unmanaged version, repo plus branch
       RETRO_SITE=$(echo "${VERSION_INFO}" | awk '{print $2}')
       RETRO_BRANCH=$(echo "${VERSION_INFO}" | awk '{print $3}')
       RETRO_NEW_VERSION=$(git ls-remote "${RETRO_SITE}" "${RETRO_BRANCH}" | awk '{print $1}')
+    else
+      msg_warn "UNSUPPORTED ${RETRO_ADDON} version info, update manually: ${VERSION_INFO}"
+      RETRO_NEW_VERSION=""
     fi
 
-    if update_pkg "${RETRO_PATH}" "${RETRO_ADDON}" "${RETRO_NEW_VERSION}"; then
+    if [ -n "${RETRO_NEW_VERSION}" ] && update_pkg "${RETRO_PATH}" "${RETRO_ADDON}" "${RETRO_NEW_VERSION}"; then
       BUMPED_RETRO="yes"
     fi
   fi
