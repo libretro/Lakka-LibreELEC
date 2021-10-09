@@ -18,10 +18,6 @@ pre_build_target() {
   export GIT_VERSION=${PKG_VERSION}
 }
 
-make_target() {
-  make -f Makefile.libretro CC=${CC}
-}
-
 makeinstall_target() {
   mkdir -p ${SYSROOT_PREFIX}/usr/lib/cmake/${PKG_NAME}
   cp ${PKG_LIBPATH} ${SYSROOT_PREFIX}/usr/lib/${PKG_LIBNAME}
