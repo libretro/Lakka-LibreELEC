@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.vba-next"
-PKG_VERSION="1.0.2.11-Matrix"
-PKG_SHA256="09013f1d793fb3a5de05a61a12f25100fb9ea365fed1d6685d205445ceacc6ae"
-PKG_REV="3"
+PKG_VERSION="1.0.2.18-Matrix"
+PKG_SHA256="54b6b4268cc47b5fb33dd474531ba4f7d1eda869fed06e52ad40a0b1ef4f9667"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.vba-next"
