@@ -5,6 +5,7 @@ PKG_NAME="rpi-eeprom"
 PKG_VERSION="f19990103e4483ebb47be5ea897c134913f83ad8"
 PKG_SHA256="6985c06448a5fcdcd0350bebfb50930a7d4e05ecaf1230e29d796c5a8144dbd8"
 PKG_ARCH="arm"
+[ "${DISTRO}" = "Lakka" ] && PKG_ARCH+=" aarch64" || true
 PKG_LICENSE="BSD-3/custom"
 PKG_SITE="https://github.com/raspberrypi/rpi-eeprom"
 PKG_URL="https://github.com/raspberrypi/rpi-eeprom/archive/${PKG_VERSION}.tar.gz"
