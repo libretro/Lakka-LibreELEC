@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.beetle-lynx"
-PKG_VERSION="1.24.0.25-Matrix"
-PKG_SHA256="752853da7387bd6a02a4baa226f44c9e8108c94eafcb03f18e159e58d7fbdf90"
+PKG_VERSION="1.24.0.26-Matrix"
+PKG_SHA256="3b5b90c49ee9ef272ffcc905963ab835c7ac99e436c330bdeb2ae9e9472bcec7"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

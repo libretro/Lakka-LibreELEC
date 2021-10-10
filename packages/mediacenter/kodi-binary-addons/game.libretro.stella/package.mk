@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.stella"
-PKG_VERSION="3.9.3.21-Matrix"
-PKG_SHA256="ea73e866ef3f195ad534fd39840bd269a408e688efb796c94f6bbad67a79920b"
+PKG_VERSION="3.9.3.22-Matrix"
+PKG_SHA256="a2dc0a026e97dbf6a9c88b447609a009c0e3c46951cfbf004212a6a2918d4c7d"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
