@@ -69,7 +69,7 @@ PKG_CONFIGURE_OPTS_HOST="${GCC_COMMON_CONFIGURE_OPTS} \
                          ${GCC_OPTS}"
 
 if [ "${DISTRO}" = "Lakka" ]; then
-  PKG_CONFIGURE_OPTS_HOST="${PKG_CONFIGURE_OPTS_HOST//--disable-libatomic/}"
+  PKG_CONFIGURE_OPTS_HOST="${PKG_CONFIGURE_OPTS_HOST//--disable-libatomic/--enable-atomic}"
 fi
 
 pre_configure_host() {
@@ -140,6 +140,9 @@ makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib
     cp -P ${PKG_BUILD}/.${HOST_NAME}/${TARGET_NAME}/libgcc/libgcc_s.so* ${INSTALL}/usr/lib
     cp -P ${PKG_BUILD}/.${HOST_NAME}/${TARGET_NAME}/libstdc++-v3/src/.libs/libstdc++.so* ${INSTALL}/usr/lib
+    if [ "${DISTRO}" = "Lakka" ]; then
+      cp -P ${PKG_BUILD}/.${HOST_NAME}/${TARGET_NAME}/libatomic/.libs/libatomic.so* ${INSTALL}/usr/lib
+    fi
 }
 
 configure_init() {
