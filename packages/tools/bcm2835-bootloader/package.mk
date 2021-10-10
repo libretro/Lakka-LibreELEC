@@ -17,7 +17,7 @@ makeinstall_target() {
   mkdir -p ${INSTALL}/usr/share/bootloader
     cp -PRv LICENCE* ${INSTALL}/usr/share/bootloader
     cp -PRv bootcode.bin ${INSTALL}/usr/share/bootloader
-    if [ "${DEVICE}" = "RPi4" ]; then
+    if [ "${DEVICE:0:4}" = "RPi4" ]; then
       cp -PRv fixup4x.dat ${INSTALL}/usr/share/bootloader/fixup.dat
       cp -PRv start4x.elf ${INSTALL}/usr/share/bootloader/start.elf
     else
@@ -36,7 +36,7 @@ makeinstall_target() {
       echo "dtparam=audio=on" >> ${INSTALL}/usr/share/bootloader/distroconfig.txt
       echo "hdmi_max_pixel_freq:0=200000000" >> ${INSTALL}/usr/share/bootloader/distroconfig.txt
       echo "hdmi_max_pixel_freq:1=200000000" >> ${INSTALL}/usr/share/bootloader/distroconfig.txt
-      if [ "${DEVICE}" = "RPi4" ]; then
+      if [ "${DEVICE:0:4}" = "RPi4" ]; then
         sed -e "s|^gpu_mem=.*$|gpu_mem=384|g" -i ${INSTALL}/usr/share/bootloader/config.txt
       else
         sed -e "s|^gpu_mem=.*$|gpu_mem=128|g" -i ${INSTALL}/usr/share/bootloader/config.txt

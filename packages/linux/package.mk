@@ -205,6 +205,12 @@ pre_make_target() {
                                 --enable CONFIG_PLAYSTATION_FF
   fi
 
+  # enable additional USB / WIFI for CM4 / RetroDreamer / PiBoyDMG
+  if [ "${DISTRO}" = "Lakka" ] && [ "${DEVICE:0:4}" = "RPi4" ]; then
+    ${PKG_BUILD}/scripts/config --module CONFIG_USB_DWC2
+    ${PKG_BUILD}/scripts/config --module CONFIG_R8188EU
+  fi
+
   # install extra dts files for Lakka
   if [ "${DISTRO}" = "Lakka" ]; then
     for f in ${PROJECT_DIR}/${PROJECT}/config/*-overlay.dts ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/config/*-overlay.dts ; do

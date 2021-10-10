@@ -28,7 +28,7 @@ if [ "${VULKAN_SUPPORT}" = "yes" ]; then
 fi
 
 if [ "${ARCH}" = "arm" ]; then
-  if [ "${DEVICE}" = "RPi4" ]; then
+  if [ "${DEVICE:0:4}" = "RPi4" ]; then
     PKG_MAKE_OPTS_TARGET+=" platform=rpi4-gles-neon"
   elif [ "${DEVICE}" = "RPi2" ]; then
     PKG_MAKE_OPTS_TARGET+=" platform=rpi"
@@ -37,7 +37,7 @@ if [ "${ARCH}" = "arm" ]; then
   else
     PKG_MAKE_OPTS_TARGET+=" platform=armv-gles-neon"
   fi
-elif [ "${DEVICE}" = "RPi4" -a "${ARCH}" = "aarch64" ]; then
+elif [ "${DEVICE:0:4}" = "RPi4" -a "${ARCH}" = "aarch64" ]; then
   PKG_MAKE_OPTS_TARGET+=" platform=rpi4_64-gles-neon"
 fi
 
