@@ -1,7 +1,7 @@
 PKG_NAME="joycond"
 PKG_VERSION="2d3f553060291f1bfee2e49fc2ca4a768b289df8"
 PKG_SHA256="34ba2a4ffd35f2b2bbebd8ce47d17f2238d991bc6262653d0617b28f864e4b63"
-PKG_DEPENDS_TARGET="toolchain cmake:host libevdev"
+PKG_DEPENDS_TARGET="toolchain cmake:host libevdev systemd"
 PKG_SITE="https://github.com/DanielOgorchock/joycond"
 PKG_URL="https://github.com/DanielOgorchock/joycond/archive/${PKG_VERSION}.tar.gz"
 PKG_LONGDESC="Joycon service"
