@@ -81,6 +81,7 @@ targets="\
 	RPi|GPICase|arm|image \
 	RPi|RPi|arm|noobs \
 	RPi|RPi2|arm|noobs \
+	RPi|RPi3|aarch64|noobs \
 	RPi|RPi4|aarch64|noobs \
 	RPi|RPi4|arm|noobs \
 	RPi|RPi4-PiBoyDmg|aarch64|image \
