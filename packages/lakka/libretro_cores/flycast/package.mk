@@ -37,7 +37,7 @@ if [ "${ARCH}" = "arm" ]; then
   else
     PKG_MAKE_OPTS_TARGET+=" platform=armv-gles-neon"
   fi
-elif [ "${DEVICE:0:4}" = "RPi4" -a "${ARCH}" = "aarch64" ]; then
+elif [ "${DEVICE:0:4}" = "RPi4" -o "${DEVICE}" = "RPi3" ] && [ "${ARCH}" = "aarch64" ]; then
   PKG_MAKE_OPTS_TARGET+=" platform=rpi4_64-gles-neon"
 fi
 
