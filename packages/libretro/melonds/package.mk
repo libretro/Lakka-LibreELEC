@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="melonds"
-PKG_VERSION="0f52e26"
+PKG_VERSION="e362d5c"
 PKG_ARCH="x86_64 aarch64"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/melonds"

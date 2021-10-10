@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="neocd"
-PKG_VERSION="da0a995"
+PKG_VERSION="33b8f9c"
 PKG_ARCH="any"
 PKG_LICENSE="LGPLv3"
 PKG_SITE="https://github.com/libretro/neocd_libretro"
