@@ -41,7 +41,7 @@ pre_make_target() {
     RPi2)
       PKG_MAKE_OPTS_TARGET+=" platform=rpi2-mesa"
       ;;
-    RPi4)
+    RPi4*)
       PKG_MAKE_OPTS_TARGET+=" platform=rpi4"
       ;;
     OdroidXU3)

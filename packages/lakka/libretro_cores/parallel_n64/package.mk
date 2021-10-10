@@ -12,7 +12,7 @@ PKG_MAKE_OPTS_TARGET=""
 
 if [ "${ARCH}" = "i386" ]; then
   PKG_MAKE_OPTS_TARGET+=" WITH_DYNAREC=x86"
-elif listcontains "${DEVICE:-$PROJECT}" "(Generic|RPi3|RPi4)" ; then
+else
   PKG_MAKE_OPTS_TARGET+=" WITH_DYNAREC=${ARCH}"
 fi
 
@@ -38,7 +38,7 @@ pre_make_target() {
   if [ "${PROJECT}" = "RPi" ]; then
     if [ "${DEVICE}" = "RPi" -o "${DEVICE}" = "GPICase" ]; then
       PKG_MAKE_OPTS_TARGET+=" platform=rpi"
-    elif [ "${DEVICE}" = "RPi4" ]; then
+    elif [ "${DEVICE:0:4}" = "RPi4" ]; then
       LDFLAGS+=" -lpthread"
       if [ "${ARCH}" = "aarch64" ]; then
         PKG_MAKE_OPTS_TARGET+=" FORCE_GLES=1 HAVE_PARALLEL=1"

@@ -57,6 +57,7 @@ targets="\
 	RPi|RPi2|arm| \
 	RPi|RPi4|aarch64| \
 	RPi|RPi4|arm| \
+	RPi|RPi4-PiBoyDmg|aarch64| \
 "
 
 package=${2}

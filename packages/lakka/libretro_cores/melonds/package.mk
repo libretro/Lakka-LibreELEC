@@ -25,7 +25,7 @@ if [ "${VULKAN_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${VULKAN}"
 fi
 
-if [ "${DEVICE}" = "RPi4" -a "${ARCH}" = "aarch64" ]; then
+if [ "${DEVICE:0:4}" = "RPi4" -a "${ARCH}" = "aarch64" ]; then
   PKG_MAKE_OPTS_TARGET+=" platform=rpi4_64"
 fi
 
