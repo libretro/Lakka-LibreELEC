@@ -2,8 +2,8 @@
 # Copyright (C) 2021-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-fbneo"
-PKG_VERSION="65b3b7c06c4b4c348ed52d8a8a6732481975b4c1"
-PKG_SHA256="a25a64212bf765194485dbc06b83f471a747cd338b41518a8fd626e9839c3cce"
+PKG_VERSION="98441f9b0e252c5b3b999be4ef574c144205a64b"
+PKG_SHA256="7128b941b24b6a2f882f2d8a1254860b2af7b1223cd563e8199c1694e1c77ef5"
 PKG_LICENSE="OSS"
 PKG_SITE="https://github.com/libretro/FBNeo"
 PKG_URL="https://github.com/libretro/FBNeo/archive/${PKG_VERSION}.tar.gz"

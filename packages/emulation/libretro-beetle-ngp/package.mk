@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-beetle-ngp"
-PKG_VERSION="1a2dd95b4397cc05548ef81a9666c477c860e3ee"
-PKG_SHA256="bf146a9e6f72627d2be7b9358ffcb899c16f109c0591a0b6e7e10e16465e675a"
+PKG_VERSION="2c54de7bf4b250e43d707d407e108955be92b5c2"
+PKG_SHA256="c68213336f6b327238f60e38c0548a8ecc882787e1dd2712dfa828fe9de911f1"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-ngp-libretro"
 PKG_URL="https://github.com/libretro/beetle-ngp-libretro/archive/${PKG_VERSION}.tar.gz"
