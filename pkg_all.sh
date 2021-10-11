@@ -30,28 +30,19 @@ esac
 # existing targets in format PROJECT|DEVICE|ARCH
 targets="\
 	Allwinner|A64|aarch64| \
-	Allwinner|A64|arm| \
 	Allwinner|H2-plus|arm| \
 	Allwinner|H3|arm| \
 	Allwinner|H5|aarch64| \
-	Allwinner|H5|arm| \
 	Allwinner|H6|aarch64| \
-	Allwinner|H6|arm| \
 	Allwinner|R40|arm| \
 	Amlogic|AMLGX|aarch64| \
-	Amlogic|AMLGX|arm| \
 	Generic||i386| \
 	Generic||x86_64| \
 	NXP|iMX6|arm| \
 	NXP|iMX8|aarch64| \
-	NXP|iMX8|arm| \
-	Qualcomm|Dragonboard|aarch64| \
-	Qualcomm|Dragonboard|arm| \
 	Rockchip|RK3288|arm| \
 	Rockchip|RK3328|aarch64| \
-	Rockchip|RK3328|arm| \
 	Rockchip|RK3399|aarch64| \
-	Rockchip|RK3399|arm| \
 	RPi|GPICase|arm| \
 	RPi|RPi|arm| \
 	RPi|RPi2|arm| \
