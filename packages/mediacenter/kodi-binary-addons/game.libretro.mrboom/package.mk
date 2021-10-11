@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.mrboom"
-PKG_VERSION="5.2.0.131-Matrix"
-PKG_SHA256="b3674198981f0dacb403e83b11aaa0dd7f248f199d5333844f7d947572e812e4"
+PKG_VERSION="5.2.0.134-Matrix"
+PKG_SHA256="06213ac6b91b36faed422a8493cb689ae4a4f9ad12d2370d24f35c6db9f2699a"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
