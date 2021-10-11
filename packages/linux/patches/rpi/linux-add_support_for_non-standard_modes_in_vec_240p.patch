@@ -1,0 +1,94 @@
+From 8c4fc3cda8695b0b583fc5be92521be0902375f9 Mon Sep 17 00:00:00 2001
+From: Mateusz Kwiatkowski <kfyatek+publicgit@gmail.com>
+Date: Mon, 4 Oct 2021 09:59:51 +0200
+Subject: [PATCH] FIXME: Proof of concept for progressive mode scaling
+
+---
+ drivers/gpu/drm/vc4/vc4_plane.c |  3 +++
+ drivers/gpu/drm/vc4/vc4_vec.c   | 29 +++++++++++++++++++++++------
+ 2 files changed, 26 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/vc4/vc4_plane.c b/drivers/gpu/drm/vc4/vc4_plane.c
+index 7947cf47b6e13..766cc7271bfe4 100644
+--- a/drivers/gpu/drm/vc4/vc4_plane.c
++++ b/drivers/gpu/drm/vc4/vc4_plane.c
+@@ -378,6 +378,9 @@ static int vc4_plane_setup_clipping_and_scaling(struct drm_plane_state *state)
+ 	if (ret)
+ 		return ret;
+ 
++	vc4_state->crtc_y /= 2;
++	vc4_state->crtc_h /= 2;
++
+ 	vc4_state->x_scaling[0] = vc4_get_scaling_mode(vc4_state->src_w[0],
+ 						       vc4_state->crtc_w);
+ 	vc4_state->y_scaling[0] = vc4_get_scaling_mode(vc4_state->src_h[0],
+diff --git a/drivers/gpu/drm/vc4/vc4_vec.c b/drivers/gpu/drm/vc4/vc4_vec.c
+index ab2203f611b2a..5622378bd8549 100644
+--- a/drivers/gpu/drm/vc4/vc4_vec.c
++++ b/drivers/gpu/drm/vc4/vc4_vec.c
+@@ -292,9 +292,9 @@ static const struct drm_display_mode drm_mode_480i = {
+ };
+ 
+ static const struct drm_display_mode drm_mode_240p = {
+-	DRM_MODE("720x240", DRM_MODE_TYPE_DRIVER, 13500,
++	DRM_MODE("720x480", DRM_MODE_TYPE_DRIVER, 27000,
+ 		 720, 720 + 14, 720 + 14 + 64, 720 + 14 + 64 + 60, 0,
+-		 240, 240 + 3, 240 + 3 + 3, 262, 0, 0)
++		 480, 480 + 6, 480 + 6 + 6, 524, 0, 0)
+ };
+ 
+ static const struct drm_display_mode drm_mode_576i = {
+@@ -305,9 +305,9 @@ static const struct drm_display_mode drm_mode_576i = {
+ };
+ 
+ static const struct drm_display_mode drm_mode_288p = {
+-	DRM_MODE("720x288", DRM_MODE_TYPE_DRIVER, 13500,
++	DRM_MODE("720x576", DRM_MODE_TYPE_DRIVER, 27000,
+ 		 720, 720 + 20, 720 + 20 + 64, 720 + 20 + 64 + 60, 0,
+-		 288, 288 + 2, 288 + 2 + 3, 312, 0, 0)
++		 576, 576 + 4, 576 + 4 + 6, 624, 0, 0)
+ };
+ 
+ static const struct vc4_vec_tv_mode vc4_vec_tv_modes[] = {
+@@ -465,7 +465,7 @@ static int vc4_vec_connector_atomic_check(struct drm_connector *conn,
+ 	if (new_state->crtc) {
+ 		struct drm_crtc_state *crtc_state =
+ 			drm_atomic_get_new_crtc_state(state, new_state->crtc);
+-
++#if 0
+ 		if (crtc_state->mode.htotal !=
+ 			    vc4_vec_tv_modes[new_state->tv.mode].interlaced_mode->htotal ||
+ 		    crtc_state->mode.hdisplay % 4 != 0 ||
+@@ -535,7 +535,7 @@ static int vc4_vec_connector_atomic_check(struct drm_connector *conn,
+ 		default:
+ 			return -EINVAL;
+ 		}
+-
++#endif
+ 		if (old_state->tv.mode != new_state->tv.mode)
+ 			crtc_state->mode_changed = true;
+ 	}
+@@ -705,6 +705,23 @@ static bool vc4_vec_encoder_mode_fixup(struct drm_encoder *encoder,
+ 				       const struct drm_display_mode *mode,
+ 				       struct drm_display_mode *adjusted_mode)
+ {
++	if (!(adjusted_mode->flags & DRM_MODE_FLAG_INTERLACE) &&
++	    adjusted_mode->vtotal > 312) {
++		/* vertically scaled progressive mode */
++		if (adjusted_mode->crtc_vdisplay % 2 != 0 ||
++		    adjusted_mode->crtc_vsync_start % 2 != 0 ||
++		    adjusted_mode->crtc_vsync_end % 2 != 0 ||
++		    adjusted_mode->crtc_vtotal % 2 != 0)
++			return false;
++
++		adjusted_mode->clock /= 2;
++		adjusted_mode->crtc_clock /= 2;
++		adjusted_mode->crtc_vdisplay /= 2;
++		adjusted_mode->crtc_vsync_start /= 2;
++		adjusted_mode->crtc_vsync_end /= 2;
++		adjusted_mode->crtc_vtotal /= 2;
++	}
++
+ 	return true;
+ }
+ 
