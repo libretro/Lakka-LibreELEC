@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.demo"
-PKG_VERSION="20.2.0-Nexus"
-PKG_SHA256="8f0b97c70fc23cb4c7e01a03180f5f642a4c257538afa1e5aa90e6e8e958cb47"
+PKG_VERSION="20.3.0-Nexus"
+PKG_SHA256="da2ee12e467381dce8fc8da772f907432629a761d3cb4cf1ab791e4e52a7da03"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
