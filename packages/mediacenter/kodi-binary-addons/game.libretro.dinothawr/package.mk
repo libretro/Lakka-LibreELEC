@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.dinothawr"
-PKG_VERSION="1.0.0.18-Matrix"
-PKG_SHA256="001d1542c501852b3821256d4183f310f23f7fe10ecabbd42fbec9dba889c381"
+PKG_VERSION="1.0.0.20-Matrix"
+PKG_SHA256="2184921af106ca9c4e7c3fbe120583278dfdf95017205accfe3ca8b3d1248c8a"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

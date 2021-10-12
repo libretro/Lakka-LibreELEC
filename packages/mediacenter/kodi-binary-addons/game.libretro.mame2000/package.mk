@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.mame2000"
-PKG_VERSION="0.37.0.17-Matrix"
-PKG_SHA256="9d5c2c2cd52458ceb60ddeac8ddb0f516557aa1689b3eb0b0c94b2c0653e2f56"
+PKG_VERSION="0.37.0.19-Matrix"
+PKG_SHA256="c2c5c0c24acdb1bc93f9456fb8abac271afb725470a7819e558224dd8ebd9a36"
 PKG_REV="1"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.mame2000"

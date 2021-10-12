@@ -2,8 +2,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.vice"
-PKG_VERSION="3.5.0.16-Matrix"
-PKG_SHA256="b67a98b69e401e0f83bda17b1b8a719e833d458c8a22c66529e1a03046068b2e"
+PKG_VERSION="3.5.0.17-Matrix"
+PKG_SHA256="5aa1c4bf4b27cdbaccea4eb0de3a9bb62f396a6aaac7e2de67faa6261b5df7cd"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
