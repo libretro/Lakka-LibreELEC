@@ -232,6 +232,41 @@ pre_make_target() {
     ${PKG_BUILD}/scripts/config --set-str CONFIG_EXTRA_FIRMWARE_DIR "external-firmware"
   fi
 
+  if [ -f "${DISTRO_DIR}/${DISTRO}/kernel_options_overrides" ]; then
+    while read OPTION; do
+      [ -z "${OPTION}" -o -n "$(echo "${OPTION}" | grep '^#')" ] && continue
+
+      OPTION_NAME=${OPTION%%=*}
+      OPTION_VAL_OVR=${OPTION##*=}
+      OPTION_VAL_CFG=$(${PKG_BUILD}/scripts/config --state ${OPTION_NAME})
+
+      if [ "${OPTION_VAL_OVR}" = "${OPTION_VAL_CFG}" ] || [ "${OPTION_VAL_OVR}" = "n" -a "${OPTION_VAL_CFG}" = "undef" ]; then
+        continue
+      fi
+
+      case ${OPTION_VAL_OVR} in
+        y)
+          OPTION_ACTION="enable"
+          ;;
+        m)
+          OPTION_ACTION="module"
+          ;;
+        n)
+          OPTION_ACTION="disable"
+          ;;
+	*)
+          OPTION_ACTION="undefine"
+          OPTION_VAL_OVR="u"
+          ;;
+      esac
+
+      echo -e "Kernel config override: [${OPTION_VAL_OVR}] ${OPTION_NAME}"
+      ${PKG_BUILD}/scripts/config --${OPTION_ACTION} ${OPTION_NAME}
+
+    done < ${DISTRO_DIR}/${DISTRO}/kernel_options_overrides
+
+  fi
+
   if [ "${DISTRO}" = "Lakka" ]; then
     kernel_make olddefconfig
   else
