@@ -1,0 +1,159 @@
+From a8be41257dc58daa2095155b27394d93bf2c3927 Mon Sep 17 00:00:00 2001
+From: Matthias Reichl <hias@horus.com>
+Date: Wed, 29 Sep 2021 23:50:42 +0200
+Subject: [PATCH 1/2] CBaseRenderer: factor out destRect calculation
+
+Also change C-style to static_cast
+
+Signed-off-by: Matthias Reichl <hias@horus.com>
+---
+ .../VideoRenderers/BaseRenderer.cpp           | 36 +++++++++++++++----
+ .../VideoPlayer/VideoRenderers/BaseRenderer.h |  8 +++++
+ 2 files changed, 37 insertions(+), 7 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/BaseRenderer.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/BaseRenderer.cpp
+index 8c0e408bc6..f67ba34da2 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/BaseRenderer.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/BaseRenderer.cpp
+@@ -104,13 +104,19 @@ void CBaseRenderer::restoreRotatedCoords()
+     m_rotatedDestCoords[i] = m_savedRotatedDestCoords[i];
+ }
+ 
+-void CBaseRenderer::CalcNormalRenderRect(float offsetX, float offsetY, float width, float height,
+-                                         float inputFrameRatio, float zoomAmount, float verticalShift)
++void CBaseRenderer::CalcDestRect(float offsetX,
++                                 float offsetY,
++                                 float width,
++                                 float height,
++                                 float inputFrameRatio,
++                                 float zoomAmount,
++                                 float verticalShift,
++                                 CRect& destRect)
+ {
+   // if view window is empty, set empty destination
+   if (height == 0 || width == 0)
+   {
+-    m_destRect.SetRect(0.0f, 0.0f, 0.0f, 0.0f);
++    destRect.SetRect(0.0f, 0.0f, 0.0f, 0.0f);
+     return;
+   }
+ 
+@@ -190,10 +196,26 @@ void CBaseRenderer::CalcNormalRenderRect(float offsetX, float offsetY, float wid
+   else if (verticalShift < -1.0f)
+     posY += shiftRange * (verticalShift + 1.0f);
+ 
+-  m_destRect.x1 = (float)MathUtils::round_int(static_cast<double>(posX + offsetX));
+-  m_destRect.x2 = m_destRect.x1 + MathUtils::round_int(static_cast<double>(newWidth));
+-  m_destRect.y1 = (float)MathUtils::round_int(static_cast<double>(posY + offsetY));
+-  m_destRect.y2 = m_destRect.y1 + MathUtils::round_int(static_cast<double>(newHeight));
++  destRect.x1 = static_cast<float>(MathUtils::round_int(static_cast<double>(posX + offsetX)));
++  destRect.x2 = destRect.x1 + MathUtils::round_int(static_cast<double>(newWidth));
++  destRect.y1 = static_cast<float>(MathUtils::round_int(static_cast<double>(posY + offsetY)));
++  destRect.y2 = destRect.y1 + MathUtils::round_int(static_cast<double>(newHeight));
++}
++
++void CBaseRenderer::CalcNormalRenderRect(float offsetX,
++                                         float offsetY,
++                                         float width,
++                                         float height,
++                                         float inputFrameRatio,
++                                         float zoomAmount,
++                                         float verticalShift)
++{
++  CalcDestRect(offsetX, offsetY, width, height, inputFrameRatio, zoomAmount, verticalShift,
++               m_destRect);
++
++  // bail out if view window is empty
++  if (height == 0 || width == 0)
++    return;
+ 
+   // clip as needed
+   if (!(CServiceBroker::GetWinSystem()->GetGfxContext().IsFullScreenVideo() || CServiceBroker::GetWinSystem()->GetGfxContext().IsCalibrating()))
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/BaseRenderer.h b/xbmc/cores/VideoPlayer/VideoRenderers/BaseRenderer.h
+index 20841fc7f4..0f24439171 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/BaseRenderer.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/BaseRenderer.h
+@@ -99,6 +99,14 @@ public:
+   virtual CRenderCapture* GetRenderCapture() { return nullptr; }
+ 
+ protected:
++  void CalcDestRect(float offsetX,
++                    float offsetY,
++                    float width,
++                    float height,
++                    float inputFrameRatio,
++                    float zoomAmount,
++                    float verticalShift,
++                    CRect& destRect);
+   void CalcNormalRenderRect(float offsetX, float offsetY, float width, float height,
+                             float inputFrameRatio, float zoomAmount, float verticalShift);
+   void CalculateFrameAspectRatio(unsigned int desired_width, unsigned int desired_height);
+-- 
+2.30.2
+
+
+From e894b9fd6b4773ffb20d94436a9aeb90f68bdf35 Mon Sep 17 00:00:00 2001
+From: Matthias Reichl <hias@horus.com>
+Date: Wed, 29 Sep 2021 23:53:36 +0200
+Subject: [PATCH 2/2] RendererDRMPRIME: keep plane coords of video render area
+ private
+
+Store plane coordinates of render area in a separate, private member
+instead of re-using m_destRect so that m_destRect is again guaranteed
+to be within m_viewRect.
+
+Fixes: 9cfa99f "RendererDRMPRIME: use screen size when calculating render area"
+
+Signed-off-by: Matthias Reichl <hias@horus.com>
+---
+ .../HwDecRender/RendererDRMPRIME.cpp               | 14 +++++++++-----
+ .../VideoRenderers/HwDecRender/RendererDRMPRIME.h  |  1 +
+ 2 files changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIME.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIME.cpp
+index 4c141cee81..e304d601d2 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIME.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIME.cpp
+@@ -131,10 +131,14 @@ void CRendererDRMPRIME::ManageRenderArea()
+   RESOLUTION_INFO info = CServiceBroker::GetWinSystem()->GetGfxContext().GetResInfo();
+   if (info.iScreenWidth != info.iWidth)
+   {
+-    CalcNormalRenderRect(0, 0, info.iScreenWidth, info.iScreenHeight,
+-                         GetAspectRatio() * CDisplaySettings::GetInstance().GetPixelRatio(),
+-                         CDisplaySettings::GetInstance().GetZoomAmount(),
+-                         CDisplaySettings::GetInstance().GetVerticalShift());
++    CalcDestRect(0, 0, info.iScreenWidth, info.iScreenHeight,
++                 GetAspectRatio() * CDisplaySettings::GetInstance().GetPixelRatio(),
++                 CDisplaySettings::GetInstance().GetZoomAmount(),
++                 CDisplaySettings::GetInstance().GetVerticalShift(), m_planeDestRect);
++  }
++  else
++  {
++    m_planeDestRect = m_destRect;
+   }
+ }
+ 
+@@ -224,7 +228,7 @@ void CRendererDRMPRIME::RenderUpdate(
+   if (m_iLastRenderBuffer == -1)
+     m_videoLayerBridge->Configure(buffer);
+ 
+-  m_videoLayerBridge->SetVideoPlane(buffer, m_destRect);
++  m_videoLayerBridge->SetVideoPlane(buffer, m_planeDestRect);
+ 
+   m_iLastRenderBuffer = index;
+ }
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIME.h b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIME.h
+index de17869d43..33eb39ae11 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIME.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIME.h
+@@ -50,6 +50,7 @@ protected:
+ private:
+   bool m_bConfigured = false;
+   int m_iLastRenderBuffer = -1;
++  CRect m_planeDestRect;
+ 
+   std::shared_ptr<CVideoLayerBridgeDRMPRIME> m_videoLayerBridge;
+ 
+-- 
+2.30.2
+
