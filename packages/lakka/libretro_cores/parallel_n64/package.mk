@@ -30,10 +30,6 @@ if [ "${VULKAN_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${VULKAN}"
 fi
 
-if [ "${ARCH}" = "arm" ]; then
-  PKG_MAKE_OPTS_TARGET+=" USE_SSE2NEON=1"
-fi
-
 if [ "${PROJECT}" = "Generic" ]; then
   PKG_MAKE_OPTS_TARGET+=" HAVE_PARALLEL_RSP=1 HAVE_THR_AL=1"
 fi
@@ -45,6 +41,7 @@ pre_make_target() {
 
   if target_has_feature neon ; then
     CFLAGS+=" -DGL_BGRA_EXT=0x80E1" # Fix build for platforms where GL_BGRA_EXT is not defined
+    [ "${ARCH}" = "arm" ] && PKG_MAKE_OPTS_TARGET+=" platform=armv-neon" || true
   fi
 }
 
