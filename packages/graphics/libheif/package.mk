@@ -17,3 +17,7 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --disable-go \
                            --disable-examples \
                            --disable-tests"
+
+pre_configure_target() {
+  export CXXFLAGS="${CXXFLAGS} -Wno-unused-variable"
+}
