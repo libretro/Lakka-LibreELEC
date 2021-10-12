@@ -2,8 +2,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-sameboy"
-PKG_VERSION="907cb965baa3ae6e60469ddfbd82798988fa2a9c"
-PKG_SHA256="bf654725b146a74565f739154ca1d6a51b7e914487c073f850caf9c35ea6323c"
+PKG_VERSION="27a42aac10f20292de0f838d9ae7921007bd5939"
+PKG_SHA256="0711244d064c8e73ab1c3f1b61e34267709a7d53a406c070ef188775f08fbfef"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/libretro/sameboy"
 PKG_URL="https://github.com/libretro/sameboy/archive/${PKG_VERSION}.tar.gz"
