@@ -4,7 +4,7 @@
 
 PKG_NAME="kodi"
 PKG_VERSION="19.2-Matrix"
-PKG_SHA256="9830e68a2b6d6381e1dc03c1be119d9742fcdfff9824da1e4fe8c5c778f8f6ed"
+PKG_SHA256="e8f5e50767ddd1b8f0399016dcf5ba762315c16c0568cb06e659c493376f99d5"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
 PKG_URL="https://github.com/xbmc/xbmc/archive/${PKG_VERSION}.tar.gz"
