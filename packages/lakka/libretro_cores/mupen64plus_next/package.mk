@@ -15,7 +15,7 @@ fi
 
 if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
-  PKG_MAKE_OPTS_TARGET+=" GLES=1 FORCE_GLES=1"
+  PKG_MAKE_OPTS_TARGET+=" GLES=1 FORCE_GLES=1 FORCE_GLES3=1"
 fi
 
 if [ "${VULKAN_SUPPORT}" = "yes" ]; then
@@ -27,7 +27,7 @@ pre_make_target() {
     CLAGS+=" -DGL_USE_DLSYM"
     CXXFLAGS+=" -DGL_USE_DLSYM"
     LDFLAGS+=" -ldl"
-  elif [ "${OPENGLES}" = "bcm-2835-driver" ]; then
+  elif [ "${OPENGLES}" = "bcm2835-driver" ]; then
     CFLAGS+=" -I${SYSROOT_PREFIX}/usr/include/interface/vcos/pthreads \
               -I${SYSROOT_PREFIX}/usr/include/interface/vmcs_host/linux"
     CXXFLAGS+=" -I${SYSROOT_PREFIX}/usr/include/interface/vcos/pthreads \
@@ -41,8 +41,11 @@ pre_make_target() {
     RPi2)
       PKG_MAKE_OPTS_TARGET+=" platform=rpi2-mesa"
       ;;
+    RPi3)
+      PKG_MAKE_OPTS_TARGET+=" platform=rpi3-mesa"
+      ;;
     RPi4*)
-      PKG_MAKE_OPTS_TARGET+=" platform=rpi4"
+      PKG_MAKE_OPTS_TARGET+=" platform=rpi4-mesa"
       ;;
     OdroidXU3)
       PKG_MAKE_OPTS_TARGET+=" platform=odroid BOARD=ODROID-XU"
