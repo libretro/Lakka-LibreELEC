@@ -59,6 +59,11 @@ post_makeinstall_target() {
         -e "s|^#AutoEnable.*|AutoEnable=true|g" \
         -e "s|^#JustWorksRepairing.*|JustWorksRepairing=always|g"
 
+    if [ "${DISTRO}" = "Lakka" ]; then
+      sed -i $INSTALL/etc/bluetooth/main.conf \
+          -e "s|^#FastConnectable.*|FastConnectable=true|g"
+    fi
+
   mkdir -p ${INSTALL}/usr/share/services
     cp -P ${PKG_DIR}/default.d/*.conf ${INSTALL}/usr/share/services
 
