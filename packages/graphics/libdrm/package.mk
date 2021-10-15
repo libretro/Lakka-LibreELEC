@@ -5,6 +5,12 @@
 PKG_NAME="libdrm"
 PKG_VERSION="2.4.106"
 PKG_SHA256="92d8ac54429b171e087e61c2894dc5399fe6a549b1fbba09fa6a3cb9d4e57bd4"
+
+if [ "${DISTRO}" = "Lakka" ]; then
+  PKG_VERSION="2.4.107"
+  PKG_SHA256="c554cef03b033636a975543eab363cc19081cb464595d3da1ec129f87370f888"
+fi
+
 PKG_LICENSE="GPL"
 PKG_SITE="http://dri.freedesktop.org"
 PKG_URL="http://dri.freedesktop.org/libdrm/libdrm-${PKG_VERSION}.tar.xz"
@@ -25,7 +31,7 @@ PKG_MESON_OPTS_TARGET="-Dlibkms=false \
                        -Dinstall-test-programs=false \
                        -Dudev=false"
 
-listcontains "${GRAPHIC_DRIVERS}" "(iris|i915|i965)" &&
+listcontains "${GRAPHIC_DRIVERS}" "(crocus|iris|i915|i965)" &&
   PKG_MESON_OPTS_TARGET+=" -Dintel=true" || PKG_MESON_OPTS_TARGET+=" -Dintel=false"
 
 listcontains "${GRAPHIC_DRIVERS}" "(r200|r300|r600|radeonsi)" &&
