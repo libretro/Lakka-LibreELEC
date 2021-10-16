@@ -1,4 +1,18 @@
 #!/bin/bash
+
+stop_retroarch() {
+	systemctl stop \
+		retroarch.service \
+		tmp-assets.mount \
+		tmp-cheats.mount \
+		tmp-cores.mount \
+		tmp-database.mount \
+		tmp-joypads.mount \
+		tmp-overlays.mount \
+		tmp-shaders.mount \
+		tmp-system.mount
+}
+
 while [ 2 -gt 1 ]
 do
 	sleep 1
@@ -15,15 +29,14 @@ do
 	fi
 	if [[ $POWERSW -eq 6 ]]
 	then
+		stop_retroarch
 		echo "0" > /sys/kernel/xpi_gamecon/flags
-		/usr/sbin/rmmod xpi_gamecon
-		/usr/sbin/poweroff
+		/usr/sbin/shutdown -P
 	fi
 	if [[ $BATTERY -lt 5 ]]
 	then
-                echo "0" > /sys/kernel/xpi_gamecon/flags
-                /usr/sbin/rmmod xpi_gamecon
-                /usr/sbin/poweroff
-        fi
+		stop_retroarch
+		echo "0" > /sys/kernel/xpi_gamecon/flags
+		/usr/sbin/shutdown -P
+	fi
 done
-

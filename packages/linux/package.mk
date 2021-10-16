@@ -218,6 +218,11 @@ pre_make_target() {
     ${PKG_BUILD}/scripts/config --module CONFIG_R8188EU
   fi
 
+  # enable xpi-gamecon for PiBoyDMG
+  if [ "${DISTRO}" = "Lakka" ] && [ "${DEVICE}" = "RPi4-PiBoyDmg" ]; then
+    ${PKG_BUILD}/scripts/config --enable CONFIG_XPI_GAMECON
+  fi
+
   # install extra dts files for Lakka
   if [ "${DISTRO}" = "Lakka" ]; then
     for f in ${PROJECT_DIR}/${PROJECT}/config/*-overlay.dts ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/config/*-overlay.dts ; do
