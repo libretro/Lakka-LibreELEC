@@ -1,3 +1,11 @@
+# v3.5.1
+* Update Mesa to [21.2.4](https://docs.mesa3d.org/relnotes/21.2.4.html)
+* Update Kernel to 5.10.72 (Generic, iMX6)
+* Update Kernel/Firmware to 1.20210928 (RPi)
+* Fix CRT / analog output on Raspberry Pi ([more](https://github.com/libretro/Lakka-LibreELEC/wiki/Raspberry-Pi#composite-output)
+* Expose `/storage/.cache` as `Services` samba share
+* Add vulkan-tools (Generic)
+
 # v3.5
 * Add support for [Anbernic RG351MP](https://anbernic.com/products/anbernic-new-rg351mp-retro-games-built)
 * Update Mesa to [21.2.3](https://docs.mesa3d.org/relnotes/21.2.3.html)
