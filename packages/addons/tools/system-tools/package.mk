@@ -3,7 +3,7 @@
 
 PKG_NAME="system-tools"
 PKG_VERSION="1.0"
-PKG_REV="125"
+PKG_REV="126"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://libreelec.tv"
@@ -107,9 +107,9 @@ addon() {
     # i2c-tools
     cp -P $(get_install_dir i2c-tools)/usr/sbin/{i2cdetect,i2cdump,i2cget,i2cset} ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
     cp -P $(get_install_dir i2c-tools)/usr/lib/${PKG_PYTHON_VERSION}/site-packages/smbus.so ${ADDON_BUILD}/${PKG_ADDON_ID}/lib
-    cp -P $(get_install_dir i2c-tools)/usr/lib/libi2c.so.0.1.1 ${ADDON_BUILD}/${PKG_ADDON_ID}/lib/libi2c.so
-    cp -P $(get_install_dir i2c-tools)/usr/lib/libi2c.so.0.1.1 ${ADDON_BUILD}/${PKG_ADDON_ID}/lib/libi2c.so.0
-    cp -P $(get_install_dir i2c-tools)/usr/lib/libi2c.so.0.1.1 ${ADDON_BUILD}/${PKG_ADDON_ID}/lib/libi2c.so.0.1.1
+    cp -P $(get_install_dir i2c-tools)/usr/lib/libi2c.so.0.1.0 ${ADDON_BUILD}/${PKG_ADDON_ID}/lib/libi2c.so
+    cp -P $(get_install_dir i2c-tools)/usr/lib/libi2c.so.0.1.0 ${ADDON_BUILD}/${PKG_ADDON_ID}/lib/libi2c.so.0
+    cp -P $(get_install_dir i2c-tools)/usr/lib/libi2c.so.0.1.0 ${ADDON_BUILD}/${PKG_ADDON_ID}/lib/libi2c.so.0.1.0
 
     # inotify-tools
     cp -P $(get_install_dir inotify-tools)/usr/bin/{inotifywait,inotifywatch} ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
