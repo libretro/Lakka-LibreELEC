@@ -15,5 +15,5 @@ PKG_BUILD_FLAGS="-sysroot"
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --disable-doxygen"
 
 pre_configure_target() {
-  CFLAGS+=" -Wno-error=misleading-indentation"
+  CFLAGS+=" -Wno-error=misleading-indentation -Wno-error=unused-parameter"
 }
