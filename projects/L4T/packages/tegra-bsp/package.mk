@@ -27,6 +27,9 @@ fi
 PKG_ARCH="any"
 PKG_DEPENDS_HOST=""
 PKG_DEPENDS_TARGET="mesa libglvnd xorg-server"
+if [ ${DISTRO} = "Lakka" ]; then
+  PKG_DEPENDS_TARGET+=" vulkan-loader"
+fi
 PKG_SITE="https://developer.nvidia.com/EMBEDDED/linux-tegra%20/"
 case "$DEVICE" in
   tx2|xavier|agx)

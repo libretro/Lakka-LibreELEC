@@ -12,7 +12,7 @@ PKG_DEPENDS_TARGET="toolchain util-macros util-linux libICE"
 PKG_LONGDESC="This package provides the main interface to the X11 Session Management library."
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
-                           --disable-shared \
+                           --enable-shared \
                            --with-libuuid \
                            --without-xmlto \
                            --without-fop"
