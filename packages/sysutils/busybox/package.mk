@@ -169,6 +169,10 @@ makeinstall_target() {
     cp ${PKG_DIR}/config/inputrc ${INSTALL}/etc
     cp ${PKG_DIR}/config/suspend-modules.conf ${INSTALL}/etc
 
+  if [ "$DEVICE" == "Switch" ]; then
+    sed -i 's/brcmfmac//' $INSTALL/etc/suspend-modules.conf
+  fi
+
   # /etc/fstab is needed by...
     touch ${INSTALL}/etc/fstab
 
@@ -223,6 +227,19 @@ makeinstall_init() {
     touch ${INSTALL}/etc/fstab
     ln -sf /proc/self/mounts ${INSTALL}/etc/mtab
 
+  #Hack to swap out init, and add early firmware to initramfs for L4T builds
+  if [ ${PROJECT} == "L4T" ]; then
+    # Copy PROJECT related files to filesystem
+    if [ -d "${PROJECT_DIR}/${PROJECT}/initramfs" ]; then
+      cp -PR $PROJECT_DIR/$PROJECT/initramfs/* $INSTALL
+    fi
+
+    # Copy DEVICE related initramfs files to initramfs filesystem
+    if [ -n "$DEVICE" -a -d "$PROJECT_DIR/$PROJECT/devices/$DEVICE/initramfs" ]; then
+      cp -PR $PROJECT_DIR/$PROJECT/devices/$DEVICE/initramfs/* $INSTALL
+    fi
+  fi
+  
   if find_file_path initramfs/platform_init; then
     cp ${FOUND_PATH} ${INSTALL}
     sed -e "s/@BOOT_LABEL@/${DISTRO_BOOTLABEL}/g" \
@@ -237,4 +254,5 @@ makeinstall_init() {
       -e "s/@KERNEL_NAME@/${KERNEL_NAME}/g" \
       -i ${INSTALL}/init
   chmod 755 ${INSTALL}/init
+
 }

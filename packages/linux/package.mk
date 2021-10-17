@@ -34,6 +34,11 @@ case "${LINUX}" in
       PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     fi
     ;;
+  switch)
+    PKG_VERSION="switch"
+    PKG_URL="https://gitlab.com/Azkali/l4t-kernel-4.9/-/archive/lakka-3.3.0/l4t-kernel-4.9-lakka-3.3.0.tar.gz"
+    PKG_PATCH_DIRS=""
+    ;;
   *)
     PKG_VERSION="5.10.47"
     PKG_SHA256="30b52a2fe6d1e0c1e1dc651d5df9a37eb54b35ea1f7f51b9f23d8903c29ae1c5"
@@ -91,28 +96,55 @@ post_patch() {
 }
 
 make_host() {
-  make \
-    ARCH=${HEADERS_ARCH:-${TARGET_KERNEL_ARCH}} \
-    HOSTCC="${TOOLCHAIN}/bin/host-gcc" \
-    HOSTCXX="${TOOLCHAIN}/bin/host-g++" \
-    HOSTCFLAGS="${HOST_CFLAGS}" \
-    HOSTCXXFLAGS="${HOST_CXXFLAGS}" \
-    HOSTLDFLAGS="${HOST_LDFLAGS}" \
-    headers_check
+  if [ "$DEVICE" = "Switch" ]; then
+    make \
+      ARCH=arm64 \
+      CROSS_COMPILE=$TARGET_PREFIX \
+      olddefconfig
+     make \
+       ARCH=arm64 \
+       CROSS_COMPILE=$TARGET_PREFIX \
+       prepare
+     make \
+       ARCH=arm64 \
+       CROSS_COMPILE=$TARGET_PREFIX \
+       modules_prepare
+     make \
+       ARCH=arm64 \
+       headers_check
+  else
+    make \
+      ARCH=${HEADERS_ARCH:-$TARGET_KERNEL_ARCH} \
+      HOSTCC="$TOOLCHAIN/bin/host-gcc" \
+      HOSTCXX="$TOOLCHAIN/bin/host-g++" \
+      HOSTCFLAGS="$HOST_CFLAGS" \
+      HOSTCXXFLAGS="$HOST_CXXFLAGS" \
+      HOSTLDFLAGS="$HOST_LDFLAGS" \
+      headers_check
+  fi
 }
 
 makeinstall_host() {
-  make \
-    ARCH=${HEADERS_ARCH:-${TARGET_KERNEL_ARCH}} \
-    HOSTCC="${TOOLCHAIN}/bin/host-gcc" \
-    HOSTCXX="${TOOLCHAIN}/bin/host-g++" \
-    HOSTCFLAGS="${HOST_CFLAGS}" \
-    HOSTCXXFLAGS="${HOST_CXXFLAGS}" \
-    HOSTLDFLAGS="${HOST_LDFLAGS}" \
-    INSTALL_HDR_PATH=dest \
-    headers_install
-  mkdir -p ${SYSROOT_PREFIX}/usr/include
-    cp -R dest/include/* ${SYSROOT_PREFIX}/usr/include
+  if [ "$DEVICE" = "Switch" ]; then
+    make \
+      ARCH=arm64 \
+      CROSS_COMPILE=$TARGET_PREFIX \
+      INSTALL_HDR_PATH=dest \
+      headers_install
+  else
+    make \
+      ARCH=${HEADERS_ARCH:-$TARGET_KERNEL_ARCH} \
+      HOSTCC="$TOOLCHAIN/bin/host-gcc" \
+      HOSTCXX="$TOOLCHAIN/bin/host-g++" \
+      HOSTCFLAGS="$HOST_CFLAGS" \
+      HOSTCXXFLAGS="$HOST_CXXFLAGS" \
+      HOSTLDFLAGS="$HOST_LDFLAGS" \
+      INSTALL_HDR_PATH=dest \
+      headers_install
+  fi
+
+  mkdir -p $SYSROOT_PREFIX/usr/include
+  cp -R dest/include/* $SYSROOT_PREFIX/usr/include
 }
 
 pre_make_target() {
@@ -234,6 +266,7 @@ pre_make_target() {
     # copy some extra firmware to linux tree
     mkdir -p ${PKG_BUILD}/external-firmware
       cp -a $(get_build_dir kernel-firmware)/.copied-firmware/{amdgpu,amd-ucode,i915,radeon,e100,rtl_nic} ${PKG_BUILD}/external-firmware
+}
 
     cp -a $(get_build_dir intel-ucode)/intel-ucode ${PKG_BUILD}/external-firmware
 
@@ -289,9 +322,13 @@ pre_make_target() {
   fi
 
   if [ "${DISTRO}" = "Lakka" ]; then
-    kernel_make olddefconfig
-  else
-    kernel_make oldconfig
+	if [ "${DEVICE}" = "Switch" ]; then
+		kernel_make olddefconfig
+		kernel_make prepare
+		kernel_make modules_prepare
+	else
+		kernel_make olddefconfig
+	fi
   fi
 
   if [ -f "${DISTRO_DIR}/${DISTRO}/kernel_options" ]; then
@@ -322,6 +359,10 @@ make_target() {
     fi
     KERNEL_UIMAGE_TARGET="${KERNEL_TARGET}"
     KERNEL_TARGET="${KERNEL_TARGET/uImage/Image}"
+  fi
+  
+  if [ "$DEVICE" = "Switch" ]; then
+     export KCFLAGS+="-Wno-error=sizeof-pointer-memaccess -Wno-error=missing-attributes -Wno-error=stringop-truncation -Wno-error=stringop-overflow= -Wno-error=address-of-packed-member -Wno-error=tautological-compare -Wno-error=packed-not-aligned"
   fi
 
   DTC_FLAGS=-@ kernel_make ${KERNEL_TARGET} ${KERNEL_MAKE_EXTRACMD} modules
@@ -397,7 +438,10 @@ makeinstall_target() {
   rm -f ${INSTALL}/$(get_kernel_overlay_dir)/lib/modules/*/build
   rm -f ${INSTALL}/$(get_kernel_overlay_dir)/lib/modules/*/source
 
-  if [ "${BOOTLOADER}" = "u-boot" ]; then
+  if [ "$BOOTLOADER" = "switch-bootloader" ]; then
+    mkdir -p $INSTALL/usr/share/bootloader/boot/
+    cp arch/arm64/boot/dts/tegra210-icosa.dtb $INSTALL/usr/share/bootloader/boot/
+  elif [ "${BOOTLOADER}" = "u-boot" ]; then
     mkdir -p ${INSTALL}/usr/share/bootloader
     for dtb in arch/${TARGET_KERNEL_ARCH}/boot/dts/*.dtb arch/${TARGET_KERNEL_ARCH}/boot/dts/*/*.dtb; do
       if [ -f ${dtb} ]; then
