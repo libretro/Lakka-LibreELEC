@@ -42,78 +42,112 @@ esac
 PKG_TOOLCHAIN="make"
 PKG_AUTORECONF="no"
 
-makeinstall_target() {
-  mkdir -p $PKG_BUILD/install
-  mkdir -p $INSTALL
-  cd $PKG_BUILD/install
+build_install() {
+  if [ ! -d $PKG_BUILD/install ]; then
+    mkdir -p $PKG_BUILD/install
+    mkdir -p $INSTALL
+    cd $PKG_BUILD/install
 
-  # extract BSP files
-  tar xf ../nv_tegra/config.tbz2
-  tar xf ../nv_tegra/nvidia_drivers.tbz2
-  tar xf ../nv_tegra/nv_tools.tbz2
-  tar xf ../nv_tegra/nv_sample_apps/nvgstapps.tbz2
+    # extract BSP files
+    tar xf ../nv_tegra/config.tbz2
+    tar xf ../nv_tegra/nvidia_drivers.tbz2
+    tar xf ../nv_tegra/nv_tools.tbz2
+    tar xf ../nv_tegra/nv_sample_apps/nvgstapps.tbz2
 
-  # move lib/* to usr/lib to avoid /lib symlink conflicts
-  mv lib/* usr/lib/
-  rm -r lib
+    # move lib/* to usr/lib to avoid /lib symlink conflicts
+    mv lib/* usr/lib/
+    rm -r lib
 
-  # Same for sbin/
-  mv usr/sbin/* usr/bin/
+    # Same for sbin/
+    mv usr/sbin/* usr/bin/
 
-  # Move usr/lib/aarch64-linux-gnu/* usr/lib/tegra/* and usr/lib/tegra-egl/* to usr/lib/ for Lakka to resolve libs correctly
-  mv usr/lib/aarch64-linux-gnu/* usr/lib/
-  mv usr/lib/tegra-egl/* usr/lib/
-  mv usr/lib/tegra/*  usr/lib/
-  rm -r usr/lib/{tegra-egl,tegra,aarch64-linux-gnu}
+    # Move usr/lib/aarch64-linux-gnu/* usr/lib/tegra/* and usr/lib/tegra-egl/* to usr/lib/ for Lakka to resolve libs correctly
+    mv usr/lib/aarch64-linux-gnu/* usr/lib/
+    mv usr/lib/tegra-egl/* usr/lib/
+    mv usr/lib/tegra/*  usr/lib/
+    rm -r usr/lib/{tegra-egl,tegra,aarch64-linux-gnu}
 
-  # Remove unneeded files
-  rm -rf usr/lib/ld.so.conf usr/lib/ubiquity \
-	etc/{systemd,NetworkManager,fstab,lightdm,nv-oem-config.conf.t210,skel,wpa_supplicant.conf,enctune.conf,nv,nvphsd.conf,nvpmodel,xdg}
-  
-  # Move udev from etc/ to usr/lib/
-  cp -PRv etc/udev usr/lib/
- 
-  # Create firmware in usr/lib/kernel-overlays/base/lib/firmware/
-  #mkdir -p usr/lib/kernel-overlays/base/lib/firmware/
-  #cp -PRv usr/lib/firmware usr/lib/kernel-overlays/base/lib/
-  rm -rf etc/systemd etc/sysctl.d etc/hostname etc/hosts etc/modprobe.d etc/udev etc/modules-load.d var/nvidia
-  #rm -rf usr/lib/firmware
-  
-  # Refresh symlinks
-  cd usr/lib/
-  ln -sfn libcuda.so.1.1 libcuda.so
-  mv libdrm.so.2 libdrm_nvdc.so
-  ln -sfn libnvbufsurface.so.1.0.0 libnvbufsurface.so
-  ln -sfn libnvbufsurftransform.so.1.0.0 libnvbufsurftransform.so
-  ln -sfn libnvbuf_utils.so.1.0.0 libnvbuf_utils.so
-  ln -sfn libnvdsbufferpool.so.1.0.0 libnvdsbufferpool.so
-  ln -sfn libnvid_mapper.so.1.0.0 libnvid_mapper.so
-  ln -sfn libnvv4l2.so libv4l2.so.0.0.999999
-  ln -sfn libnvv4lconvert.so libv4lconvert.so.0.0.999999
- 
-  #Fix Vulkan ICD
-  sed -i 's:libGLX_nvidia.so.0:/usr/lib/libGLX_nvidia.so.0:g' nvidia_icd.json
+    # Remove unneeded files
+    rm -rf usr/lib/ld.so.conf usr/lib/ubiquity \
+  	etc/{systemd,NetworkManager,fstab,lightdm,nv-oem-config.conf.t210,skel,wpa_supplicant.conf,enctune.conf,nv,nvphsd.conf,nvpmodel,xdg}
 
-  #More symlinking
+    # Move udev from etc/ to usr/lib/
+    cp -PRv etc/udev usr/lib/
 
-  cd firmware
-  rm -r gm20b
-  ln -sfn tegra21x gm20b
-  cd ../../../
-  cd etc
-  ln -sfn asound.conf.tegrasndt210ref asound.conf
-  cd vulkan/icd.d
-  rm nvidia_icd.json
-  ln -sfn /usr/lib/nvidia_icd.json nvidia_icd.json
-  cd ../../../../
-  
-  cp -PRv install/* $INSTALL/ 
-  cp -Pv $PKG_DIR/assets/alsa-fix.service $INSTALL/usr/lib/systemd/system/
-  mkdir -p $INSTALL/usr/lib/systemd/system/multi-user.target.wants
-  ln -s $INSTALL/usr/lib/systemd/system/alsa-fix.service $INSTALL/usr/lib/systemd/system/multi-user.target.wants/alsa-fix.service
-  cat $PKG_DIR/assets/50-joysticks.conf >> $INSTALL/etc/X11/xorg.conf
-  
+    # Create firmware in usr/lib/kernel-overlays/base/lib/firmware/
+    #mkdir -p usr/lib/kernel-overlays/base/lib/firmware/
+    #cp -PRv usr/lib/firmware usr/lib/kernel-overlays/base/lib/
+    rm -rf etc/systemd etc/sysctl.d etc/hostname etc/hosts etc/modprobe.d etc/udev etc/modules-load.d var/nvidia
+    #rm -rf usr/lib/firmware
+
+    # Refresh symlinks
+    cd usr/lib/
+    ln -sfn libcuda.so.1.1 libcuda.so
+    mv libdrm.so.2 libdrm_nvdc.so
+    ln -sfn libnvbufsurface.so.1.0.0 libnvbufsurface.so
+    ln -sfn libnvbufsurftransform.so.1.0.0 libnvbufsurftransform.so
+    ln -sfn libnvbuf_utils.so.1.0.0 libnvbuf_utils.so
+    ln -sfn libnvdsbufferpool.so.1.0.0 libnvdsbufferpool.so
+    ln -sfn libnvid_mapper.so.1.0.0 libnvid_mapper.so
+    ln -sfn libnvv4l2.so libv4l2.so.0.0.999999
+    ln -sfn libnvv4lconvert.so libv4lconvert.so.0.0.999999
+    ln -sfn libv4l2.so.0.0.999999 libv4l2.so.0
+    ln -sfn libv4l2.so.0 libv4l2.so
+    ln -sfn libv4lconvert.so.0.0.999999 libv4lconvert.so.0
+    ln -sfn libv4lconvert.so.0 libv4lconvert.so
+
+    cd libv4l/plugins/nv
+    rm *
+    ln -sfn ../../../libv4l2_nvvideocodec.so libv4l2_nvvideocodec.so
+    ln -sfn ../../../libv4l2_nvvidconv.so  libv4l2_nvvidconv.so
+    cd ../../../
+
+    #Fix Vulkan ICD
+    sed -i 's:libGLX_nvidia.so.0:/usr/lib/libGLX_nvidia.so.0:g' nvidia_icd.json
+
+    #More symlinking
+
+    cd firmware
+    rm -r gm20b
+    ln -sfn tegra21x gm20b
+    cd ../../../
+    cd etc
+    ln -sfn asound.conf.tegra210ref asound.conf
+    cd vulkan/icd.d
+    rm nvidia_icd.json
+    ln -sfn /usr/lib/nvidia_icd.json nvidia_icd.json
+    cd ../../../../
+fi
 }
+
+makeinstall_target() {
+  build_install
+  cp -PRv install/* $INSTALL/
+  cp -PRv install/usr/lib/* ${TOOLCHAIN}/aarch64-libreelec-linux-gnueabi/sysroot/usr/lib/
+  PWD=$(pwd)
+  cd ${TOOLCHAIN}/aarch64-libreelec-linux-gnueabi/sysroot/usr/lib/
+  rm libv4lconvert.so.0 libv4lconvert.so libv4l2.so.0 libv4l2.so
+  mv libv4l2.so.0.0.999999 libv4l2.so.0
+  cp libv4l2.so.0 libv4l2.so
+  mv libv4lconvert.so.0.0.999999 libv4lconvert.so.0
+  cp libv4lconvert.so.0 libv4lconvert.so
+  cd $PWD
+  if [ "$DEVICE"=="Switch" ]; then
+    #Audio Fix Service
+    cp -Pv $PKG_DIR/assets/alsa-fix.service $INSTALL/usr/lib/systemd/system/
+    mkdir -p $INSTALL/usr/lib/systemd/system/multi-user.target.wants
+    ln -s $INSTALL/usr/lib/systemd/system/alsa-fix.service $INSTALL/usr/lib/systemd/system/multi-user.target.wants/alsa-fix.service
+
+    cat $PKG_DIR/assets/10-monitor.conf >> $INSTALL/etc/X11/xorg.conf
+    cat $PKG_DIR/assets/50-joysticks.conf >> $INSTALL/etc/X11/xorg.conf
+    cat $PKG_DIR/assets/20-touchscreen.conf >> $INSTALL/etc/X11/xorg.conf
+  fi
+}
+
+#makeinstall_sysroot() {
+#  build_install
+#  cp -PRv install/usr/lib/* ${TOOLCHAIN}/aarch64-libreelec-linux-gnueabi/sysroot/usr/lib/
+#}
 
 make_target() {
   :
