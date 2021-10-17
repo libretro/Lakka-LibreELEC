@@ -113,9 +113,7 @@ else
 fi
 
 if [ "${PROJECT}" = "L4T" ]; then
-  PKG_DEPENDS_TARGET+=" slang_shaders vulkan-loader"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-xinerama --disable-vulkan_display"
-  PKG_CONFIGURE_OPTS_TARGET+=" --enable-vulkan"
   PKG_CONFIGURE_OPTS_TARGET=${PKG_CONFIGURE_OPTS_TARGET//--enable-kms/--disable-kms}
   PKG_CONFIGURE_OPTS_TARGET=${PKG_CONFIGURE_OPTS_TARGET//--enable-egl/--disable-egl}
   if [ "${DEVICE}"= "Switch" ]; then
