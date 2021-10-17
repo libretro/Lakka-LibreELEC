@@ -39,14 +39,14 @@ make_target() {
   export CROSS_COMPILE=aarch64-linux-gnu-
   
   make nintendo-switch_defconfig
-  make
+  make tools-only
   
   export CROSS_COMPILE=$OLD_CROSS_COMPILE
 }
 
 makeinstall_target() {
-  mkdir -p $BUILD/switch-boot
-  cp $PKG_BUILD/u-boot.elf $BUILD/switch-boot
+  #mkdir -p $BUILD/switch-boot
+  #cp $PKG_BUILD/u-boot.elf $BUILD/switch-boot
   
   mkdir -p $TOOLCHAIN/bin
   cp tools/mkimage $TOOLCHAIN/bin
