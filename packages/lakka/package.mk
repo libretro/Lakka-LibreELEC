@@ -22,7 +22,10 @@ if [ "${PROJECT}" = "Generic" ]; then
 fi
 
 if [ "${PROJECT}" = "L4T" ]; then
-  PKG_DEPENDS_TARGET+=" L4T"
+  PKG_DEPENDS_TARGET+=" tegra-bsp"
+  if [ "${DEVICE}" = "Switch" ]; then
+    PKG_DEPENDS_TARGET+=" mergerfs xdotool switch-cpu-profile switch-gpu-profile switch-joycon-bluetooth-dock-configs"
+  fi
 fi
 
 if [ "${PROJECT}" = "RPi" ]; then
