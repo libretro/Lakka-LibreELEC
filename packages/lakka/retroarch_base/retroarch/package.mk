@@ -321,18 +321,13 @@ makeinstall_target() {
     sed -i -e "s/# menu_show_online_updater = true/menu_show_online_updater = false/" ${INSTALL}/etc/retroarch.cfg
     sed -i -e "s/# input_joypad_driver =/input_joypad_driver = udev/" ${INSTALL}/etc/retroarch.cfg
     sed -i -e "s/video_threaded = true/video_threaded = false/" ${INSTALL}/etc/retroarch.cfg
-    sed -i -e "s/input_autodetect_enable = true/input_autodetect_enable = false/"  ${INSTALL}/etc/retroarch.cfg
-
-    #Fix joycon index
+    
+    #Set Default Joycon index to Combined Joycons.
     sed -i -e "s/# input_player1_joypad_index = 0/input_player1_joypad_index = \"2\"/" ${INSTALL}/etc/retroarch.cfg
 
     #Set Joypad as joypad with analog
     sed -i -e "s/# input_libretro_device_p1 =/input_libretro_device_p1 = \"5\"/" ${INSTALL}/etc/retroarch.cfg
 
-    # Joypad Autoconfig doesn't work as Joy-Cons VID and PID are both 0
-    # Does this still apply with joycond and new driver? Need to check this out.
-
-    cat ${PROJECT_DIR}/L4T/devices/Switch/joypad/Joy-Con_Combined.cfg >> ${INSTALL}/etc/retroarch.cfg
   fi
 }
 
