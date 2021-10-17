@@ -8,7 +8,7 @@ PKG_SITE="https://github.com/NVIDIA/libglvnd"
 PKG_URL="https://gitlab.freedesktop.org/glvnd/libglvnd/-/archive/v${PKG_VERSION}/libglvnd-v${PKG_VERSION}.tar"
 #libXi isnt needed, but I need to push back the build for something that is around there in the build,
 #and appears to break some cores if not forced to build later
-PKG_DEPENDS_TARGET="toolchain libX11 libXext xorgproto tegra-bsp"
+PKG_DEPENDS_TARGET="toolchain libX11 libXext xorgproto"
 PKG_LONGDESC="libglvnd is a vendor-neutral dispatch layer for arbitrating OpenGL API calls between multiple vendors."
 PKG_TOOLCHAIN="autotools"
 

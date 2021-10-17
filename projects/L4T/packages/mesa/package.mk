@@ -8,7 +8,7 @@ PKG_SHA256="b15dafec2b62f23b3c9eec190c3fe2ac9e66602473bcb971910882db6a8f1f36"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
 PKG_URL="https://github.com/mesa3d/mesa/archive/mesa-$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain Mako:host expat libxcb tegra-bsp"
+PKG_DEPENDS_TARGET="toolchain Mako:host expat libxcb"
 PKG_LONGDESC="Mesa is a 3-D graphics library with an API."
 PKG_TOOLCHAIN="meson"
 

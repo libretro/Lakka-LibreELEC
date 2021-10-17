@@ -227,11 +227,6 @@ makeinstall_init() {
     touch ${INSTALL}/etc/fstab
     ln -sf /proc/self/mounts ${INSTALL}/etc/mtab
 
-  #Hack to swap out init, and add early firmware to initramfs for L4T builds
-
-
-
-
   if find_file_path initramfs/platform_init; then
     cp ${FOUND_PATH} ${INSTALL}
     sed -e "s/@BOOT_LABEL@/${DISTRO_BOOTLABEL}/g" \
@@ -243,7 +238,7 @@ makeinstall_init() {
   cp ${PKG_DIR}/scripts/functions ${INSTALL}
   cp ${PKG_DIR}/scripts/init ${INSTALL}
 
-  #Hack to swap out init, and add early firmware to initramfs for L4T b>
+  #Hack to swap out init, and add early firmware to initramfs for L4T builds
   if [ ${PROJECT} == "L4T" ]; then
     # Copy PROJECT related files to filesystem
     if [ -d "${PROJECT_DIR}/${PROJECT}/initramfs" ]; then
@@ -251,15 +246,14 @@ makeinstall_init() {
     fi
 
     # Copy DEVICE related initramfs files to initramfs filesystem
-    if [ -n "$DEVICE" -a -d "$PROJECT_DIR/$PROJECT/devices/$DEVICE/init>
+    if [ -n "$DEVICE" -a -d "$PROJECT_DIR/$PROJECT/devices/$DEVICE/initramfs" ]; then
       cp -PR $PROJECT_DIR/$PROJECT/devices/$DEVICE/initramfs/* $INSTALL
     fi
   fi
-
+  
   sed -e "s/@DISTRONAME@/${DISTRONAME}/g" \
       -e "s/@KERNEL_NAME@/${KERNEL_NAME}/g" \
       -i ${INSTALL}/init
   chmod 755 ${INSTALL}/init
-
 
 }
