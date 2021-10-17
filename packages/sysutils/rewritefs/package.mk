@@ -28,12 +28,17 @@ PKG_MAKE_OPTS_TARGET="PREFIX=/usr"
 PKG_TOOLCHAIN="make"
 
 pre_make_target() {
-  export CFLAGS="$TARGET_CFLAGS"
-  export CPPFLAGS="$TARGET_CPPFLAGS"
-  export LDFLAGS="$TARGET_LDFLAGS"
-  export CROSS_COMPILE="$TARGET_PREFIX"
+  export CFLAGS="${TARGET_CFLAGS}"
+  export CPPFLAGS="${TARGET_CPPFLAGS}"
+  export LDFLAGS="${TARGET_LDFLAGS}"
+  export CROSS_COMPILE="${TARGET_PREFIX}"
 }
 
 makeinstall_target() {
-	DESTDIR=$INSTALL/usr make install
+	DESTDIR="${INSTALL}"/usr make install
+}
+
+post_install() {
+  mkdir -p "${INSTALL}"/etc
+  cp "${PKG_DIR}"/configs/rewritefs.conf "${INSTALL}"/etc/
 }
