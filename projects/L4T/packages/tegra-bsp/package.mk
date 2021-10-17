@@ -112,7 +112,7 @@ build_install() {
     ln -sfn tegra21x gm20b
     cd ../../../
     cd etc
-    ln -sfn asound.conf.tegra210ref asound.conf
+    ln -sfn asound.conf.tegrasndt210ref asound.conf
     cd vulkan/icd.d
     rm nvidia_icd.json
     ln -sfn /usr/lib/nvidia_icd.json nvidia_icd.json
