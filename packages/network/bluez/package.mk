@@ -34,13 +34,13 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-dependency-tracking \
                            --disable-experimental \
                            --enable-sixaxis \
                            --with-gnu-ld \
-                           ${BLUEZ_CONFIG} \
+                           ${BLUEZ_CONFIG}"
 
 # bluez had the good idea to use ':' in storage filenames, fat32 doesn't like that
-if [ "$DEVICE" = "Switch" ]; then
-        PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET storagedir=/var/bluetoothconfig"
+if [ "${DEVICE}" = "Switch" ]; then
+        PKG_CONFIGURE_OPTS_TARGET+=" storagedir=/var/bluetoothconfig"
 else
-        PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET storagedir=/storage/.cache/bluetooth"
+        PKG_CONFIGURE_OPTS_TARGET+=" storagedir=/storage/.cache/bluetooth"
 fi
 
 pre_configure_target() {
@@ -69,11 +69,6 @@ post_makeinstall_target() {
       sed -i $INSTALL/etc/bluetooth/main.conf \
           -e "s|^#FastConnectable.*|FastConnectable=true|g"
     fi
-
-  #This fixes joycon connection issues after they have already been paired.
-  if [ "$DEVICE" == "Switch" ]; then
-    sed -i 's/#FastConnectable = false/FastConnectable = true/' $INSTALL/etc/bluetooth/main.conf
-  fi
 
   mkdir -p $INSTALL/usr/share/services
     cp -P $PKG_DIR/default.d/*.conf $INSTALL/usr/share/services

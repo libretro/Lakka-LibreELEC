@@ -8,7 +8,7 @@ PKG_SHA256="b15dafec2b62f23b3c9eec190c3fe2ac9e66602473bcb971910882db6a8f1f36"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
 PKG_URL="https://github.com/mesa3d/mesa/archive/mesa-$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain Mako:host expat tegra-bsp"
+PKG_DEPENDS_TARGET="toolchain Mako:host expat libxcb tegra-bsp"
 PKG_LONGDESC="Mesa is a 3-D graphics library with an API."
 PKG_TOOLCHAIN="meson"
 
@@ -42,7 +42,7 @@ if [ "$TARGET_ARCH" = "i386" ]; then
 fi
 
 if [ "$DISPLAYSERVER" = "x11" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET xorgproto libXext libXdamage libXfixes libXxf86vm libxcb libX11 libxshmfence libXrandr libglvnd"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET xorgproto libXext libXdamage libXfixes libXxf86vm libX11 libxshmfence libXrandr libglvnd"
   export X11_INCLUDES=
   PKG_MESON_OPTS_TARGET+=" -Dplatforms=x11,drm -Ddri3=true -Dglx=dri"
 elif [ "$DISPLAYSERVER" = "weston" ]; then
