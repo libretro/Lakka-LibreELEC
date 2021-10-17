@@ -363,7 +363,7 @@ make_target() {
     KERNEL_TARGET="${KERNEL_TARGET/uImage/Image}"
   fi
   
-  if [ "$DEVICE" = "Switch" ]; then
+  if [ "${PROJECT}" = "L4T" ]; then
      export KCFLAGS+="-Wno-error=sizeof-pointer-memaccess -Wno-error=missing-attributes -Wno-error=stringop-truncation -Wno-error=stringop-overflow= -Wno-error=address-of-packed-member -Wno-error=tautological-compare -Wno-error=packed-not-aligned"
   fi
 

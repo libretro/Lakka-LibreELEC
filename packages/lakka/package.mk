@@ -21,6 +21,10 @@ if [ "${PROJECT}" = "Generic" ]; then
   PKG_DEPENDS_TARGET+=" wii-u-gc-adapter joycond"
 fi
 
+if [ "${PROJECT}" = "L4T" ]; then
+  PKG_DEPENDS_TARGET+=" L4T"
+fi
+
 if [ "${PROJECT}" = "RPi" ]; then
   PKG_DEPENDS_TARGET+=" rpi_disable_hdmi_service"
   if [ "${DEVICE}" != "GPICase" ] ; then
