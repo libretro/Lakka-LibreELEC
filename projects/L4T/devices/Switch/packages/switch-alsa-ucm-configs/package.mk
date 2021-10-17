@@ -38,4 +38,6 @@ post_install() {
   mkdir -p $INSTALL/usr/share/alsa/ucm2
   ln -s $INSTALL/usr/share/alsa/ucm2 $INSTALL/usr/share/alsa/ucm
   cp -Pr $PKG_DIR/ucm_data/* $INSTALL/usr/share/alsa/ucm2
+  #Audio Fix Service
+  enable_service alsa-fix.service
 }
