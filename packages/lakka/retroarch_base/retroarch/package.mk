@@ -116,7 +116,7 @@ if [ "${PROJECT}" = "L4T" ]; then
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-xinerama --disable-vulkan_display"
   PKG_CONFIGURE_OPTS_TARGET=${PKG_CONFIGURE_OPTS_TARGET//--enable-kms/--disable-kms}
   PKG_CONFIGURE_OPTS_TARGET=${PKG_CONFIGURE_OPTS_TARGET//--enable-egl/--disable-egl}
-  if [ "${DEVICE}"= "Switch" ]; then
+  if [ "${DEVICE}" = "Switch" ]; then
     PKG_MAKE_OPTS_TARGET+=" HAVE_LAKKA_SWITCH=1"
   fi
 fi
