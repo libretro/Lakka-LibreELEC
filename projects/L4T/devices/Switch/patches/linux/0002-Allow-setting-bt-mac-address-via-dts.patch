@@ -1,0 +1,81 @@
+From 96d621169790cb45b524aaa8f60dafc2661b3b69 Mon Sep 17 00:00:00 2001
+From: Billy Laws <blaws05@gmail.com>
+Date: Wed, 10 Feb 2021 13:24:58 +0000
+Subject: [PATCH] Bluetooth: hci_bcm: Add mac address reading support
+
+---
+ drivers/bluetooth/hci_bcm.c | 45 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 45 insertions(+)
+
+diff --git a/drivers/bluetooth/hci_bcm.c b/drivers/bluetooth/hci_bcm.c
+index 4f1f5144f524..030816fff822 100644
+--- a/drivers/bluetooth/hci_bcm.c
++++ b/drivers/bluetooth/hci_bcm.c
+@@ -511,12 +511,53 @@ static int bcm_flush(struct hci_uart *hu)
+ 	return 0;
+ }
+ 
++// Based off NV cypress source patches
++static int bcm_get_mac_address_dtb(const char *node_name,
++					const char *property_name,
++					bdaddr_t *mac_addr)
++{
++	struct device_node *np = of_find_node_by_path(node_name);
++	const char *mac_str = NULL;
++	int values[6] = {0};
++	int i, ret = 0;
++
++	if (!np)
++		return -EADDRNOTAVAIL;
++
++	/* If the property is present but contains an invalid value,
++	 * then something is wrong. Log the error in that case.
++	 */
++	if (of_property_read_string(np, property_name, &mac_str)) {
++		ret = -EADDRNOTAVAIL;
++		goto err_out;
++	}
++
++	/* The DTB property is a string of the form xx:xx:xx:xx:xx:xx
++	 * Convert to an array of bytes.
++	 */
++	if (sscanf(mac_str, "%x:%x:%x:%x:%x:%x",
++		&values[0], &values[1], &values[2],
++		&values[3], &values[4], &values[5]) != 6) {
++		ret = -EINVAL;
++		goto err_out;
++	}
++
++	for (i = 0; i < 6; ++i)
++		mac_addr->b[5-i] = (unsigned char)values[i]; // Mac is LE here
++
++err_out:
++	of_node_put(np);
++
++	return ret;
++}
++
+ static int bcm_setup(struct hci_uart *hu)
+ {
+ 	struct bcm_data *bcm = hu->priv;
+ 	char fw_name[64];
+ 	const struct firmware *fw;
+ 	unsigned int speed;
++	bdaddr_t addr;
+ 	int err;
+ 
+ 	bt_dev_dbg(hu->hdev, "hu %p", hu);
+@@ -567,6 +608,10 @@ static int bcm_setup(struct hci_uart *hu)
+ 	if (err)
+ 		return err;
+ 
++	err = bcm_get_mac_address_dtb("/chosen", "nvidia,bluetooth-mac", &addr);
++	if (!err)
++		btbcm_set_bdaddr(hu->hdev, &addr);
++
+ 	if (!bcm_request_irq(bcm))
+ 		err = bcm_setup_sleep(hu);
+ 
+-- 
+GitLab
+

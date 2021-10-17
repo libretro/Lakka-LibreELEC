@@ -34,10 +34,13 @@ case "${LINUX}" in
       PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     fi
     ;;
-  switch)
-    PKG_VERSION="switch"
-    PKG_URL="https://gitlab.com/Azkali/l4t-kernel-4.9/-/archive/lakka-3.3.0/l4t-kernel-4.9-lakka-3.3.0.tar.gz"
-    PKG_PATCH_DIRS=""
+  L4T)
+    PKG_VERSION=$DEVICE
+    PKG_URL="l4t-kernel-sources"
+    GET_HANDLER_SUPPORT="l4t-kernel-sources"
+    PKG_PATCH_DIRS="$PROJECT $PROJECT/$DEVICE"
+    PKG_SOURCE_NAME="linux-$DEVICE.tar.gz"
+    PKG_SHA256=$L4T_COMBINED_KERNEL_SHA256
     ;;
   *)
     PKG_VERSION="5.10.47"
@@ -96,7 +99,7 @@ post_patch() {
 }
 
 make_host() {
-  if [ "$DEVICE" = "Switch" ]; then
+  if [ "$LINUX" = "L4T" ]; then
     make \
       ARCH=arm64 \
       CROSS_COMPILE=$TARGET_PREFIX \
@@ -125,7 +128,7 @@ make_host() {
 }
 
 makeinstall_host() {
-  if [ "$DEVICE" = "Switch" ]; then
+  if [ "$LINUX" = "L4T" ]; then
     make \
       ARCH=arm64 \
       CROSS_COMPILE=$TARGET_PREFIX \
@@ -365,7 +368,7 @@ make_target() {
      export KCFLAGS+="-Wno-error=sizeof-pointer-memaccess -Wno-error=missing-attributes -Wno-error=stringop-truncation -Wno-error=stringop-overflow= -Wno-error=address-of-packed-member -Wno-error=tautological-compare -Wno-error=packed-not-aligned"
   fi
 
-  DTC_FLAGS=-@ kernel_make ${KERNEL_TARGET} ${KERNEL_MAKE_EXTRACMD} modules
+  kernel_make TOOLCHAIN="$TOOLCHAIN" $KERNEL_TARGET $KERNEL_MAKE_EXTRACMD modules
 
   if [ "${PKG_BUILD_PERF}" = "yes" ]; then
     ( cd tools/perf
