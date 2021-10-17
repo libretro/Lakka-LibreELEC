@@ -39,11 +39,11 @@ post_install() {
   enable_service var-bluetoothconfig.mount
   enable_service pair-joycon.service
 
-  mkdir -p $INSTALL/usr/bin
-  cp -P $PKG_DIR/scripts/pair-joycon.sh $INSTALL/usr/bin
-  cp -P $PKG_DIR/scripts/dock-hotplug $INSTALL/usr/bin
-  chmod +x $INSTALL/usr/bin/pair-joycon.sh
-  chmod +x $INSTALL/usr/bin/dock-hotplug
+  mkdir -p "${INSTALL}"/usr/bin
+  cp -P "${PKG_DIR}"/scripts/pair-joycon.sh "${INSTALL}"/usr/bin
+  cp -P "${PKG_DIR}"/scripts/dock-hotplug "${INSTALL}"/usr/bin
+  chmod +x "${INSTALL}"/usr/bin/pair-joycon.sh
+  chmod +x "${INSTALL}"/usr/bin/dock-hotplug
 
 }
 

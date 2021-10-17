@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="tegra-bsp"
-if [ ! $DEVICE == "Switch" ]; then
+if [ ! "${DEVICE}" = "Switch" ]; then
   PKG_VERSION="32.4.4"
 else
   PKG_VERSION="32.3.1"
@@ -27,11 +27,11 @@ fi
 PKG_ARCH="any"
 PKG_DEPENDS_HOST=""
 PKG_DEPENDS_TARGET="mesa libglvnd xorg-server"
-if [ ${DISTRO} = "Lakka" ]; then
+if [ "${DISTRO}" = "Lakka" ]; then
   PKG_DEPENDS_TARGET+=" vulkan-loader"
 fi
 PKG_SITE="https://developer.nvidia.com/EMBEDDED/linux-tegra%20/"
-case "$DEVICE" in
+case "${DEVICE}" in
   tx2|xavier|agx)
     PKG_URL="https://developer.nvidia.com/embedded/L4T/r32_Release_v4.4/r32_Release_v4.4-GMC3/T186/Tegra186_Linux_R32.4.4_aarch64.tbz2"
     ;;
@@ -46,7 +46,7 @@ PKG_TOOLCHAIN="make"
 PKG_AUTORECONF="no"
 
 build_install() {
-  if [ ! -d $PKG_BUILD/install ]; then
+  if [ ! -d "${PKG_BUILD}"/install ]; then
     #get and extract multimedia api stuff
     if [ -f nvidia-l4t-jetson-multimedia-api_32.3.1-20191209225816_arm64.deb ]; then
       rm -f nvidia-l4t-jetson-multimedia-api_32.3.1-20191209225816_arm64.deb
@@ -63,11 +63,11 @@ build_install() {
     rm *.tar* debian-binary
     mv data/* ./
     rmdir data
-    cp -Pv $PKG_DIR/assets/NvV4l2ElementPlane.cpp usr/src/jetson_multimedia_api/samples/common/classes/
+    cp -Pv "${PKG_DIR}"/assets/NvV4l2ElementPlane.cpp usr/src/jetson_multimedia_api/samples/common/classes/
 
-    mkdir -p $PKG_BUILD/install
-    mkdir -p $INSTALL
-    cd $PKG_BUILD/install
+    mkdir -p "${PKG_BUILD}"/install
+    mkdir -p "${INSTALL}"  
+    cd "${PKG_BUILD}"/install
 
     # extract BSP files
     tar xf ../nv_tegra/config.tbz2
@@ -153,12 +153,12 @@ fi
 
 makeinstall_target() {
   build_install
-  cp -PRv install/* $INSTALL/
-  cp -PRvn install/usr/lib/* ${TOOLCHAIN}/aarch64-libreelec-linux-gnueabi/sysroot/usr/lib/
+  cp -PRv install/* "${INSTALL}"/
+  cp -PRvn install/usr/lib/* "${TOOLCHAIN}"/aarch64-libreelec-linux-gnueabi/sysroot/usr/lib/
   #install multimedia_api_headers
   cp -PRvn multimedia_api/usr/src/jetson_multimedia_api/include/* ${SYSROOT_PREFIX}/usr/include
-  mkdir -p ${SYSROOT_PREFIX}/usr/src/jetson_multimedia_api/samples/common
-  cp -PRn multimedia_api/usr/src/jetson_multimedia_api/samples/common/*  ${SYSROOT_PREFIX}/usr/src/jetson_multimedia_api/samples/common/
+  mkdir -p "${SYSROOT_PREFIX}"/usr/src/jetson_multimedia_api/samples/common
+  cp -PRn multimedia_api/usr/src/jetson_multimedia_api/samples/common/*  "${SYSROOT_PREFIX}"/usr/src/jetson_multimedia_api/samples/common/
   PWD=$(pwd)
   cd ${TOOLCHAIN}/aarch64-libreelec-linux-gnueabi/sysroot/usr/lib/
   rm libv4lconvert.so.0 libv4lconvert.so libv4l2.so.0 libv4l2.so
@@ -174,12 +174,12 @@ makeinstall_target() {
   cp libdrm_nvdc.so libdrm.so.2
   cd $PWD
 
-  if [ "$DEVICE" = "Switch" ]; then
-    if [ $DISPLAYSERVER="x11" ]; then
-      cp -P $PKG_DIR/assets/xorg.conf $INSTALL/etc/X11/
-      cat $PKG_DIR/assets/10-monitor.conf >> $INSTALL/etc/X11/xorg.conf
-      cat $PKG_DIR/assets/50-joysticks.conf >> $INSTALL/etc/X11/xorg.conf
-      cat $PKG_DIR/assets/20-touchscreen.conf >> $INSTALL/etc/X11/xorg.conf
+  if [ "${DEVICE}" = "Switch" ]; then
+    if [ "${DISPLAYSERVER}" = "x11" ]; then
+      cp -P "${PKG_DIR}"/assets/xorg.conf "${INSTALL}"/etc/X11/
+      cat "${PKG_DIR}"/assets/10-monitor.conf >> "${INSTALL}"/etc/X11/xorg.conf
+      cat "${PKG_DIR}"/assets/50-joysticks.conf >> "${INSTALL}"/etc/X11/xorg.conf
+      cat "${PKG_DIR}"/assets/20-touchscreen.conf >> "${INSTALL}"/etc/X11/xorg.conf
     fi
   fi
 }
