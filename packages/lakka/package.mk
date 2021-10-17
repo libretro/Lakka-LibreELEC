@@ -24,7 +24,7 @@ fi
 if [ "${PROJECT}" = "L4T" ]; then
   PKG_DEPENDS_TARGET+=" tegra-bsp"
   if [ "${DEVICE}" = "Switch" ]; then
-    PKG_DEPENDS_TARGET+=" mergerfs xdotool switch-cpu-profile switch-gpu-profile switch-joycon-bluetooth-dock-configs"
+    PKG_DEPENDS_TARGET+=" mergerfs xdotool switch-cpu-profile switch-gpu-profile switch-joycon-bluetooth-dock-configs switch-alsa-ucm-configs"
   fi
 fi
 
