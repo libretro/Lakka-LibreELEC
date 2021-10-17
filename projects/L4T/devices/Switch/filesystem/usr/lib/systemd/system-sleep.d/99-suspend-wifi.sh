@@ -4,6 +4,6 @@ case $1 in
         ifconfig wlan0 down
     ;;
     post)
-        ifconfig set dev wlan0 up
+        ifconfig wlan0 up
     ;;
 esac
