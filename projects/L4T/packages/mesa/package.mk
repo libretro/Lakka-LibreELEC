@@ -8,11 +8,12 @@ PKG_SHA256="b15dafec2b62f23b3c9eec190c3fe2ac9e66602473bcb971910882db6a8f1f36"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
 PKG_URL="https://github.com/mesa3d/mesa/archive/mesa-$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain Mako:host expat libdrm"
+PKG_DEPENDS_TARGET="toolchain Mako:host expat tegra-bsp"
 PKG_LONGDESC="Mesa is a 3-D graphics library with an API."
 PKG_TOOLCHAIN="meson"
 
 get_graphicdrivers
+#DRI_DRIVERS="nouveau"
 
 PKG_MESON_OPTS_TARGET="-Ddri-drivers=${DRI_DRIVERS// /,} \
                        -Dgallium-drivers=${GALLIUM_DRIVERS// /,} \
@@ -27,7 +28,7 @@ PKG_MESON_OPTS_TARGET="-Ddri-drivers=${DRI_DRIVERS// /,} \
                        -Dopengl=true \
                        -Dgbm=true \
                        -Degl=true \
-                       -Dglvnd=false \
+                       -Dglvnd=true \
                        -Dasm=true \
                        -Dvalgrind=false \
                        -Dlibunwind=false \
@@ -83,8 +84,15 @@ else
   PKG_MESON_OPTS_TARGET+=" -Dgallium-xa=false"
 fi
 
-if [ "$OPENGLES_SUPPORT" = "yes" ]; then
+if [ ! "$OPENGLES_SUPPORT" = "no" ]; then
   PKG_MESON_OPTS_TARGET+=" -Dgles1=false -Dgles2=true"
 else
   PKG_MESON_OPTS_TARGET+=" -Dgles1=false -Dgles2=false"
 fi
+
+
+post_makeinstall_target() {
+  if [ "$PROJECT" = "L4T" ]; then
+    rm ${INSTALL}/usr/lib/libgbm.so.1
+  fi
+}

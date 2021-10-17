@@ -78,6 +78,12 @@ else
   PKG_FFMPEG_DEBUG="--disable-debug --enable-stripping"
 fi
 
+if [ "$PROJECT" = "L4T" ]; then
+   PKG_DEPENDS_TARGET+=" jetson-ffmpeg"
+   PKG_PATCH_DIRS+=" L4T"
+   PKG_FFMPEG_NVMPI="--enable-nvmpi"
+fi
+
 if target_has_feature neon; then
   PKG_FFMPEG_FPU="--enable-neon"
 else
@@ -203,8 +209,9 @@ configure_target() {
               --enable-zlib \
               --enable-asm \
               --disable-altivec \
-              ${PKG_FFMPEG_FPU} \
-              --disable-symver
+              $PKG_FFMPEG_FPU \
+              --disable-symver \
+              $PKG_FFMPEG_NVMPI
 }
 
 post_makeinstall_target() {
