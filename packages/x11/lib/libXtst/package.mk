@@ -11,4 +11,4 @@ PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/${PKG_NAME}-${PKG_VE
 PKG_DEPENDS_TARGET="toolchain util-macros libXext libXi libX11"
 PKG_LONGDESC="The Xtst Library"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --with-gnu-ld --without-xmlto"
+PKG_CONFIGURE_OPTS_TARGET="--enable-static --enable-shared --with-gnu-ld --without-xmlto"

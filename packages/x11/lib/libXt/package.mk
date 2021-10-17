@@ -12,7 +12,7 @@ PKG_DEPENDS_TARGET="toolchain util-macros libX11 libSM"
 PKG_LONGDESC="libXt provides the X Toolkit Intrinsics library, an abstract widget library upon which other toolkits are based."
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
-                           --disable-shared \
+                           --enable-shared \
                            --with-gnu-ld \
                            --enable-malloc0returnsnull"
 
