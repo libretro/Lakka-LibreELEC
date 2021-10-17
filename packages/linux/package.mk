@@ -100,21 +100,26 @@ post_patch() {
 
 make_host() {
   if [ "$LINUX" = "L4T" ]; then
+    CURRENT_PATH=$PATH
+    export PATH=${TOOLCHAIN}/lib/gcc-arm-aarch64-none-linux-gnu/bin/:${PATH}
+
     make \
       ARCH=arm64 \
-      CROSS_COMPILE=$TARGET_PREFIX \
+      CROSS_COMPILE=${KERNEL_TOOLCHAIN}- \
       olddefconfig
      make \
        ARCH=arm64 \
-       CROSS_COMPILE=$TARGET_PREFIX \
+       CROSS_COMPILE=${KERNEL_TOOLCHAIN}- \
        prepare
-     make \
-       ARCH=arm64 \
-       CROSS_COMPILE=$TARGET_PREFIX \
-       modules_prepare
+     #make \
+     #  ARCH=arm64 \
+     #  CROSS_COMPILE=${KERNEL_TOOLCHAIN}- \
+     #  modules_prepare
      make \
        ARCH=arm64 \
        headers_check
+
+     export PATH=${CURRENT_PATH}
   else
     make \
       ARCH=${HEADERS_ARCH:-$TARGET_KERNEL_ARCH} \
@@ -129,11 +134,14 @@ make_host() {
 
 makeinstall_host() {
   if [ "$LINUX" = "L4T" ]; then
+    CURRENT_PATH=$PATH
+    export PATH=${TOOLCHAIN}/lib/gcc-arm-aarch64-none-linux-gnu/bin/:${PATH}
     make \
       ARCH=arm64 \
-      CROSS_COMPILE=$TARGET_PREFIX \
+      CROSS_COMPILE=${KERNEL_TOOLCHAIN}- \
       INSTALL_HDR_PATH=dest \
       headers_install
+    export PATH=${CURRENT_PATH}
   else
     make \
       ARCH=${HEADERS_ARCH:-$TARGET_KERNEL_ARCH} \
@@ -202,11 +210,13 @@ pre_make_target() {
   fi
 
   # enable nouveau driver when required
-  if listcontains "${GRAPHIC_DRIVERS}" "nouveau"; then
-    ${PKG_BUILD}/scripts/config --enable CONFIG_DRM_NOUVEAU
-    ${PKG_BUILD}/scripts/config --enable CONFIG_DRM_NOUVEAU_BACKLIGHT
-    ${PKG_BUILD}/scripts/config --set-val CONFIG_NOUVEAU_DEBUG 5
-    ${PKG_BUILD}/scripts/config --set-val CONFIG_NOUVEAU_DEBUG_DEFAULT 3
+  if [ ! ${PROJECT} = "L4T" ]; then
+    if listcontains "${GRAPHIC_DRIVERS}" "nouveau"; then
+      ${PKG_BUILD}/scripts/config --enable CONFIG_DRM_NOUVEAU
+      ${PKG_BUILD}/scripts/config --enable CONFIG_DRM_NOUVEAU_BACKLIGHT
+      ${PKG_BUILD}/scripts/config --set-val CONFIG_NOUVEAU_DEBUG 5
+      ${PKG_BUILD}/scripts/config --set-val CONFIG_NOUVEAU_DEBUG_DEFAULT 3
+    fi
   fi
 
   # enable MIDI for Lakka on x86_64, i386 has options set in linux config file
@@ -364,44 +374,46 @@ make_target() {
   fi
   
   if [ "${PROJECT}" = "L4T" ]; then
-     export KCFLAGS+="-Wno-error=sizeof-pointer-memaccess -Wno-error=missing-attributes -Wno-error=stringop-truncation -Wno-error=stringop-overflow= -Wno-error=address-of-packed-member -Wno-error=tautological-compare -Wno-error=packed-not-aligned"
+     export KCFLAGS+="-Wno-error=sizeof-pointer-memaccess -Wno-error=missing-attributes -Wno-error=stringop-truncation -Wno-error=stringop-overflow= -Wno-error=address-of-packed-member -Wno-error=tautological-compare -Wno-error=packed-not-aligned -Wno-error=implicit-function-declaration"
   fi
 
   kernel_make TOOLCHAIN="$TOOLCHAIN" $KERNEL_TARGET $KERNEL_MAKE_EXTRACMD modules
 
-  if [ "${PKG_BUILD_PERF}" = "yes" ]; then
-    ( cd tools/perf
+  if [ ! "${PROJECT}" = "L4T" ]; then
+    if [ "${PKG_BUILD_PERF}" = "yes" ]; then
+      ( cd tools/perf
 
-      # arch specific perf build args
-      case "${TARGET_ARCH}" in
-        x86_64|i386)
-          PERF_BUILD_ARGS="ARCH=x86"
-          ;;
-        aarch64)
-          PERF_BUILD_ARGS="ARCH=arm64"
-          ;;
-        *)
-          PERF_BUILD_ARGS="ARCH=${TARGET_ARCH}"
-          ;;
-      esac
+        # arch specific perf build args
+        case "${TARGET_ARCH}" in
+          x86_64)
+            PERF_BUILD_ARGS="ARCH=x86"
+            ;;
+          aarch64)
+            PERF_BUILD_ARGS="ARCH=arm64"
+            ;;
+          *)
+            PERF_BUILD_ARGS="ARCH=${TARGET_ARCH}"
+            ;;
+        esac
 
-      WERROR=0 \
-      NO_LIBPERL=1 \
-      NO_LIBPYTHON=1 \
-      NO_SLANG=1 \
-      NO_GTK2=1 \
-      NO_LIBNUMA=1 \
-      NO_LIBAUDIT=1 \
-      NO_LZMA=1 \
-      NO_SDT=1 \
-      CROSS_COMPILE="${TARGET_PREFIX}" \
-      JOBS="${CONCURRENCY_MAKE_LEVEL}" \
+        WERROR=0 \
+        NO_LIBPERL=1 \
+        NO_LIBPYTHON=1 \
+        NO_SLANG=1 \
+        NO_GTK2=1 \
+        NO_LIBNUMA=1 \
+        NO_LIBAUDIT=1 \
+        NO_LZMA=1 \
+        NO_SDT=1 \
+        CROSS_COMPILE="${TARGET_PREFIX}" \
+        JOBS="${CONCURRENCY_MAKE_LEVEL}" \
         make ${PERF_BUILD_ARGS}
-      mkdir -p ${INSTALL}/usr/bin
+        mkdir -p ${INSTALL}/usr/bin
         cp perf ${INSTALL}/usr/bin
-    )
+      )
+    fi
   fi
-
+  
   if [ -n "${KERNEL_UIMAGE_TARGET}" ]; then
     # determine compression used for kernel image
     KERNEL_UIMAGE_COMP=${KERNEL_UIMAGE_TARGET:7}

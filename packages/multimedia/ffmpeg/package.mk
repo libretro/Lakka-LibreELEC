@@ -78,11 +78,11 @@ else
   PKG_FFMPEG_DEBUG="--disable-debug --enable-stripping"
 fi
 
-if [ "$PROJECT" = "L4T" ]; then
-   PKG_DEPENDS_TARGET+=" jetson-ffmpeg"
-   PKG_PATCH_DIRS+=" L4T"
-   PKG_FFMPEG_NVMPI="--enable-nvmpi"
-fi
+#if [ "$PROJECT" = "L4T" ]; then
+#   PKG_DEPENDS_TARGET+=" jetson-ffmpeg"
+#   PKG_PATCH_DIRS+=" L4T"
+#   PKG_FFMPEG_NVMPI="--enable-nvmpi"
+#fi
 
 if target_has_feature neon; then
   PKG_FFMPEG_FPU="--enable-neon"

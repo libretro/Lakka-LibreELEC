@@ -28,7 +28,7 @@ PKG_BUILD_FLAGS="-strip"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-PKG_TOOLCHAIN="cmake-make"
+PKG_TOOLCHAIN="cmake"
 
 PKG_CMAKE_OPTS_TARGET="-DLAKKA_API_PATH=${SYSROOT_PREFIX} -DLAKKA_BUILD_LIBS=${TOOLCHAIN}/aarch64-libreelec-linux-gnueabi/sysroot/usr/lib/"
 

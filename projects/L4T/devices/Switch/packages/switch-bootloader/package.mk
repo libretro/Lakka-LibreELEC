@@ -30,11 +30,11 @@ PKG_AUTORECONF="no"
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/share/bootloader/boot
-  mkimage -A arm -T script -O linux -d $PKG_DIR/assets/boot.txt $BUILD/$PKG_NAME-$PKG_VERSION/boot.scr
+  mkimage -A arm -T script -O linux -d $PKG_DIR/assets/boot.txt $INSTALL/usr/share/bootloader/boot/boot.scr
 
   cp -PRv $PKG_DIR/assets/splash.bmp $INSTALL/usr/share/bootloader/boot/splash.bmp
   cp -PRv $PKG_DIR/assets/Lakka.ini $INSTALL/usr/share/bootloader/boot/Lakka.ini
-  cp -PRv $BUILD/$PKG_NAME-$PKG_VERSION/boot.scr $INSTALL/usr/share/bootloader/boot/boot.scr
+  #cp -PRv $BUILD/$PKG_NAME-$PKG_VERSION/boot.scr $INSTALL/usr/share/bootloader/boot/boot.scr
   cp -PRv $PKG_DIR/assets/coreboot.rom $INSTALL/usr/share/bootloader/boot/coreboot.rom
   cp -PRv $PKG_DIR/assets/uenv.txt $INSTALL/usr/share/bootloader/boot/uenv.txt
   cp -PRv $PKG_DIR/assets/uartb_logging.dtbo $INSTALL/usr/share/bootloader/boot/uartb_logging.dtbo

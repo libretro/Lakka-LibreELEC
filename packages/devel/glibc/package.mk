@@ -27,13 +27,17 @@ PKG_CONFIGURE_OPTS_TARGET="BASH_SHELL=/bin/sh \
                            --with-__thread \
                            --with-binutils=${BUILD}/toolchain/bin \
                            --with-headers=${SYSROOT_PREFIX}/usr/include \
-                           --enable-kernel=5.4.0 \
+                           --enable-kernel=3.0.0 \
                            --without-cvs \
                            --without-gd \
                            --disable-build-nscd \
                            --disable-nscd \
                            --enable-lock-elision \
                            --disable-timezone-tools"
+
+if [ "${PROJECT}" = "L4T" ]; then
+  PKG_CONFIGURE_OPTS_HOST="${PKG_CONFIGURE_OPTS_TARGET//--enable-kernel=5.4.0/--enable-kernel=3.0.0/}"
+fi
 
 if build_with_debug; then
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-debug"

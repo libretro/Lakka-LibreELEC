@@ -113,11 +113,12 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin/smtpd.py
   rm -rf $INSTALL/usr/bin/python*-config
 
-  cd $INSTALL/usr/lib/$PKG_PYTHON_VERSION
+  cd $INSTALL/usr/lib/python2.7
   $TOOLCHAIN/bin/python -Wi -t -B $PKG_BUILD/Lib/compileall.py -d /usr/lib/$PKG_PYTHON_VERSION -f .
-  find $INSTALL/usr/lib/$PKG_PYTHON_VERSION -name "*.py" -exec rm -f {} \; &>/dev/null
+  find $INSTALL/usr/lib/python2.7 -name "*.py" -exec rm -f {} \; &>/dev/null
 
   # strip
   chmod u+w $INSTALL/usr/lib/libpython*.so.*
   debug_strip $INSTALL/usr
 }
+
