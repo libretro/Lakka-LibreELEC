@@ -14,3 +14,7 @@ PKG_BUILD_FLAGS="-sysroot"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-unicode \
                            HTOP_NCURSES_CONFIG_SCRIPT=ncurses-config"
+
+pre_configure_target() {
+  export LDFLAGS="${LDFLAGS} -pthread"
+}
