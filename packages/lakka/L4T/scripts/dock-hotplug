@@ -4,6 +4,9 @@ background_stuff() {
     export DISPLAY=
     export DP_SETTINGS=
 
+    # Let X parse connected display info.
+    sleep 0.2
+
     # Read custom WIDTHxHEIGHT from dock-hotplug.conf.
     if [ -e "/storage/dock-hotplug.conf" ]; then
         export DP_SETTINGS=$(cat /storage/dock-hotplug.conf)
@@ -24,19 +27,26 @@ background_stuff() {
             if [[ "$1" -eq 1 ]]
             then
                 xrandr --output DP-0 $DP_SETTINGS --output DSI-0 --off
-                xrandr --output DP-0 $DP_SETTINGS --output DSI-0 --off
                 pactl set-card-profile 1 off
                 pactl set-card-profile 0 output:hdmi-stereo
+                # Reapply config to avoid X stubbornness.
+                sleep 0.2
+                xrandr --output DSI-0 --off --output DP-0 $DP_SETTINGS
             else
-                xrandr --output DSI-0 --primary --mode 720x1280 --rotate left --panning 1280x720+0+0 --pos 0x0 --dpi 237
-                xrandr --output DSI-0 --primary --mode 720x1280 --rotate left --panning 1280x720+0+0 --pos 0x0 --dpi 237
+                xrandr --output DSI-0 --primary --mode 720x1280 --rotate left --panning 1280x720+0+0 --pos 0x0 --dpi 237  --output DP-0 --off
                 pactl set-card-profile 1 HiFi
                 pactl set-card-profile 0 off
+                # Reapply config to avoid X stubbornness.
+                sleep 0.2
+                xrandr --output DP-0 --off --output DSI-0 --primary --mode 720x1280 --rotate left --panning 1280x720+0+0 --pos 0x0 --dpi 237
             fi
         done
 
-        # Set RetroArch to new window resolution.
+        # Wait for X to set current resolution.
+        sleep 0.2
         RESOLUTION=$(xrandr -q | sed -n 's/.*current[ ]\([0-9]*\) x \([0-9]*\),.*/\1 \2/p')
+        # Set current resolution to main app's window.
+        # The following search results to the correct window because it's the only one existing in LibreELEC.
         xdotool search --onlyvisible --name . windowsize $RESOLUTION
     done
 }
