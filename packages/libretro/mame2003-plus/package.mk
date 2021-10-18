@@ -39,5 +39,8 @@ make_target() {
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp mame2003_plus_libretro.so $INSTALL/usr/lib/libretro/
+    cp mame2003_plus_libretro.so $INSTALL/usr/lib/libretro/
+
+  mkdir -p $INSTALL/usr/share/libretro-database/mame2003-plus
+    cp metadata/mame2003-plus.xml $INSTALL/usr/share/libretro-database/mame2003-plus
 }
