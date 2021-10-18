@@ -41,6 +41,12 @@ PKG_CONFIGURE_OPTS_HOST="--prefix=${TOOLCHAIN}/ \
                          --disable-fuse2fs \
                          --with-gnu-ld"
 
+post_unpack() {
+  # Increase minimal inode size to avoid:
+  # "ext4 filesystem being mounted at xxx supports timestamps until 2038 (0x7fffffff)"
+  sed -i 's/inode_size = 128/inode_size = 256/g' ${PKG_BUILD}/misc/mke2fs.conf.in
+}
+
 pre_configure() {
   PKG_CONFIGURE_OPTS_INIT="BUILD_CC=${HOST_CC} \
                            --with-udev-rules-dir=no \
