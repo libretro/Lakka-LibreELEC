@@ -22,3 +22,15 @@ pre_configure_target() {
 make_target() {
   python3 setup.py build
 }
+
+makeinstall_target() {
+  if [ "${DISTRO}" = "Lakka" ]; then
+    python setup.py install --root=${INSTALL} --prefix=/usr
+  fi
+}
+
+post_makeinstall_target() {
+  if [ "${DISTRO}" = "Lakka" ]; then
+    find ${INSTALL}/usr/lib -name "*.py" -exec rm -rf "{}" ";"
+  fi
+}
