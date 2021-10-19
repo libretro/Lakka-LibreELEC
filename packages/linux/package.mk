@@ -40,7 +40,7 @@ case "${LINUX}" in
     GET_HANDLER_SUPPORT="l4t-kernel-sources"
     PKG_PATCH_DIRS="$PROJECT $PROJECT/$DEVICE"
     PKG_SOURCE_NAME="linux-$DEVICE.tar.gz"
-    PKG_SHA256=$L4T_COMBINED_KERNEL_SHA256
+    #PKG_SHA256=$L4T_COMBINED_KERNEL_SHA256
     ;;
   *)
     PKG_VERSION="5.10.47"
@@ -99,8 +99,8 @@ post_patch() {
 }
 
 make_host() {
-  if [ "$LINUX" = "L4T" ]; then
-    CURRENT_PATH=$PATH
+  if [ "${LINUX}" = "L4T" ]; then
+    CURRENT_PATH=${PATH}
     export PATH=${TOOLCHAIN}/lib/gcc-arm-aarch64-none-linux-gnu/bin/:${PATH}
 
     make \
@@ -298,41 +298,43 @@ pre_make_target() {
     ${PKG_BUILD}/scripts/config --set-str CONFIG_EXTRA_FIRMWARE_DIR "external-firmware"
   fi
 
-  if [ -f "${DISTRO_DIR}/${DISTRO}/kernel_options_overrides" ]; then
-    while read OPTION; do
-      [ -z "${OPTION}" -o -n "$(echo "${OPTION}" | grep '^#')" ] && continue
+  if [ ! "${PROJECT}" = "L4T" ]; then
+    if [ -f "${DISTRO_DIR}/${DISTRO}/kernel_options_overrides" ]; then
+      while read OPTION; do
+        [ -z "${OPTION}" -o -n "$(echo "${OPTION}" | grep '^#')" ] && continue
+  
+        OPTION_NAME=${OPTION%%=*}
+        OPTION_VAL_OVR=${OPTION##*=}
+        OPTION_VAL_CFG=$(${PKG_BUILD}/scripts/config --state ${OPTION_NAME})
 
-      OPTION_NAME=${OPTION%%=*}
-      OPTION_VAL_OVR=${OPTION##*=}
-      OPTION_VAL_CFG=$(${PKG_BUILD}/scripts/config --state ${OPTION_NAME})
+        if [ "${OPTION_VAL_OVR}" = "${OPTION_VAL_CFG}" ] || [ "${OPTION_VAL_OVR}" = "n" -a "${OPTION_VAL_CFG}" = "undef" ]; then
+          continue
+        fi
 
-      if [ "${OPTION_VAL_OVR}" = "${OPTION_VAL_CFG}" ] || [ "${OPTION_VAL_OVR}" = "n" -a "${OPTION_VAL_CFG}" = "undef" ]; then
-        continue
-      fi
+        case ${OPTION_VAL_OVR} in
+          y)
+            OPTION_ACTION="enable"
+            ;;
+          m)
+            OPTION_ACTION="module"
+            ;;
+          n)
+            OPTION_ACTION="disable"
+            ;;
+	      *)
+            OPTION_ACTION="undefine"
+            OPTION_VAL_OVR="u"
+            ;;
+        esac
 
-      case ${OPTION_VAL_OVR} in
-        y)
-          OPTION_ACTION="enable"
-          ;;
-        m)
-          OPTION_ACTION="module"
-          ;;
-        n)
-          OPTION_ACTION="disable"
-          ;;
-	*)
-          OPTION_ACTION="undefine"
-          OPTION_VAL_OVR="u"
-          ;;
-      esac
+        echo -e "Kernel config override: [${OPTION_VAL_OVR}] ${OPTION_NAME}"
+        ${PKG_BUILD}/scripts/config --${OPTION_ACTION} ${OPTION_NAME}
 
-      echo -e "Kernel config override: [${OPTION_VAL_OVR}] ${OPTION_NAME}"
-      ${PKG_BUILD}/scripts/config --${OPTION_ACTION} ${OPTION_NAME}
+      done < ${DISTRO_DIR}/${DISTRO}/kernel_options_overrides
 
-    done < ${DISTRO_DIR}/${DISTRO}/kernel_options_overrides
-
+    fi
   fi
-
+  
   if [ "${DISTRO}" = "Lakka" ]; then
 	if [ "${DEVICE}" = "Switch" ]; then
 		kernel_make olddefconfig
@@ -377,7 +379,7 @@ make_target() {
      export KCFLAGS+="-Wno-error=sizeof-pointer-memaccess -Wno-error=missing-attributes -Wno-error=stringop-truncation -Wno-error=stringop-overflow= -Wno-error=address-of-packed-member -Wno-error=tautological-compare -Wno-error=packed-not-aligned -Wno-error=implicit-function-declaration"
   fi
 
-  kernel_make TOOLCHAIN="$TOOLCHAIN" $KERNEL_TARGET $KERNEL_MAKE_EXTRACMD modules
+  DTC_FLAGS=-@ kernel_make TOOLCHAIN="$TOOLCHAIN" $KERNEL_TARGET $KERNEL_MAKE_EXTRACMD modules
 
   if [ ! "${PROJECT}" = "L4T" ]; then
     if [ "${PKG_BUILD_PERF}" = "yes" ]; then
