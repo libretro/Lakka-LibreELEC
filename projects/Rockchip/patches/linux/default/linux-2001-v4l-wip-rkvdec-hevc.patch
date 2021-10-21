@@ -2918,7 +2918,7 @@ index 2c0c6dcbd066..c269e4a21a29 100644
 +		.cfg.id = V4L2_CID_MPEG_VIDEO_HEVC_SLICE_PARAMS,
 +		// HACK: match ffmpeg v4l2 request api hwaccel size,
 +		//       we should support variable length up to 600 slices
-+		.cfg.dims = { 16 },
++		.cfg.dims = { 32 },
 +	},
 +	{
 +		.cfg.id = V4L2_CID_MPEG_VIDEO_HEVC_SPS,
@@ -3294,11 +3294,11 @@ Subject: [PATCH] WIP: media: rkvdec: hevc: implement lowdelay
 
 Signed-off-by: Alex Bee <knaerzche@gmail.com>
 ---
- drivers/staging/media/rkvdec/rkvdec-hevc.c | 16 ++++++++++++++--
- 1 file changed, 14 insertions(+), 2 deletions(-)
+ drivers/staging/media/rkvdec/rkvdec-hevc.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/staging/media/rkvdec/rkvdec-hevc.c b/drivers/staging/media/rkvdec/rkvdec-hevc.c
-index 55bf61a84165..3cca79282111 100644
+index 55bf61a84165..db33f9d357cf 100644
 --- a/drivers/staging/media/rkvdec/rkvdec-hevc.c
 +++ b/drivers/staging/media/rkvdec/rkvdec-hevc.c
 @@ -2187,6 +2187,7 @@ static void assemble_hw_rps(struct rkvdec_ctx *ctx,
@@ -3313,27 +3313,32 @@ index 55bf61a84165..3cca79282111 100644
  	for (j = 0; j < run->num_slices; j++) {
  		sl_params = &run->slices_params[j];
  		dpb = decode_params->dpb;
-+		lowdelay = 0;
++		lowdelay = (sl_params->slice_type == V4L2_HEVC_SLICE_TYPE_I) ? 0 : 1;
  
  		hw_ps = &priv_tbl->rps[j];
  		memset(hw_ps, 0, sizeof(*hw_ps));
-@@ -2221,8 +2223,18 @@ static void assemble_hw_rps(struct rkvdec_ctx *ctx,
+@@ -2211,18 +2213,23 @@ static void assemble_hw_rps(struct rkvdec_ctx *ctx,
+ 			WRITE_RPS(!!(dpb[sl_params->ref_idx_l0[i]].rps == V4L2_HEVC_DPB_ENTRY_RPS_LT_CURR),
+ 				  REF_PIC_LONG_TERM_L0(i));
+ 			WRITE_RPS(sl_params->ref_idx_l0[i], REF_PIC_IDX_L0(i));
++
++			if (dpb[sl_params->ref_idx_l0[i]].pic_order_cnt[0] > sl_params->slice_pic_order_cnt)
++				lowdelay = 0;
+ 		}
+ 
+ 		for (i = 0; i <= sl_params->num_ref_idx_l1_active_minus1; i++) {
+ 			WRITE_RPS(!!(dpb[sl_params->ref_idx_l1[i]].rps == V4L2_HEVC_DPB_ENTRY_RPS_LT_CURR),
+ 				  REF_PIC_LONG_TERM_L1(i));
+ 			WRITE_RPS(sl_params->ref_idx_l1[i], REF_PIC_IDX_L1(i));
++
++			if (dpb[sl_params->ref_idx_l1[i]].pic_order_cnt[0] > sl_params->slice_pic_order_cnt)
++				lowdelay = 0;
+ 		}
  
  		//WRITE_RPS(0xffffffff, PS_FIELD(96, 32));
  
 -		// TODO: lowdelay
 -		WRITE_RPS(0, LOWDELAY);
-+		if (sl_params->slice_type != V4L2_HEVC_SLICE_TYPE_I &&
-+		   !(!!(sl_params->flags & V4L2_HEVC_SLICE_PARAMS_FLAG_DEPENDENT_SLICE_SEGMENT))) {
-+			lowdelay = 1;
-+			for (i = 0; i < decode_params->num_active_dpb_entries; i++) {
-+				if (dpb[i].pic_order_cnt[0] > sl_params->slice_pic_order_cnt) {
-+					lowdelay = 0;
-+					break;
-+				}
-+			}
-+		}
-+
 +		WRITE_RPS(lowdelay, LOWDELAY);
  
  		WRITE_RPS(sl_params->long_term_ref_pic_set_size +

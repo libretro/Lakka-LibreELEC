@@ -68,10 +68,33 @@ fi
 
 . "${MY_DIR}/update_common_functions"
 
-git_clone https://github.com/xbmc/xbmc ${KODI_DIR} ${KODI_BRANCH}
+get_gh_token
+
+if [ -z "${GITHUB_API_TOKEN}" ]; then
+  git_clone https://github.com/xbmc/xbmc ${KODI_DIR} ${KODI_BRANCH}
+  ADDONS_REPO_LOCATION="${KODI_DIR}/cmake/addons/bootstrap/repositories"
+else
+  # check if depends are available
+  command -v curl >/dev/null 2>&1 || die "please install curl"
+  command -v jq >/dev/null 2>&1 || die "please install jq"
+
+  TMP_REPO_DIR="${TMPDIR}/bootstrap-repos"
+
+  curl -s -L -H "Authorization: token ${GITHUB_API_TOKEN}" \
+    "https://api.github.com/repos/xbmc/xbmc/contents/cmake/addons/bootstrap/repositories?ref=${KODI_BRANCH}" | awk \
+    '/download_url/ { gsub("\"|,", "", $2); system("mkdir -p '${TMP_REPO_DIR}'; (cd '${TMP_REPO_DIR}'; curl -O "$2")"); }' \
+    2>/dev/null
+  ADDONS_REPO_LOCATION=${TMP_REPO_DIR}
+fi
+
+if ! ls ${ADDONS_REPO_LOCATION}/*-addons.txt &> /dev/null; then
+   echo "No binary addon repo description found, nothing to do!"
+   echo "Path searched: ${ADDONS_REPO_LOCATION}"
+   exit 0
+fi
 
 # addons
-for addontxt in $KODI_DIR/cmake/addons/bootstrap/repositories/*-addons.txt ; do
+for addontxt in ${ADDONS_REPO_LOCATION}/*-addons.txt ; do
   ADDONS=$(cat $addontxt | awk '{print $1}')
   ADDONS_GIT_DIR="${ADDONS}.git"
   ADDONS_GIT_REPO=$(cat $addontxt | awk '{print $2}')
@@ -99,16 +122,28 @@ for addontxt in $KODI_DIR/cmake/addons/bootstrap/repositories/*-addons.txt ; do
       # If different, ignore the addon and process it later as an "unofficial" addon
       validate_pkg_url "${ADDON}" "${GIT_REPO}" || continue
 
-      git_clone ${GIT_REPO} ${GIT_DIR} ${GIT_BRANCH}
-
       NO_TAG=""
-      NEW_VERSION=$(resolve_tag_in_branch ${GIT_DIR} ${GIT_BRANCH})
+      if [ -z "${GITHUB_API_TOKEN}" ]; then
+        git_clone ${GIT_REPO} ${GIT_DIR} ${GIT_BRANCH}
+        PARAMS="resolve_tag_in_branch ${GIT_DIR} ${GIT_BRANCH}"
+      else
+        REPO=$(basename "${GIT_REPO}")
+        OWNER=$(basename "${GIT_REPO%/${REPO}*}")
+        PARAMS="resolve_tag_on_gh ${OWNER} ${REPO} ${GIT_BRANCH}"
+      fi
+      NEW_VERSION=$(${PARAMS})
+
       if [ -z "${NEW_VERSION}" ]; then
         NO_TAG="yes"
         echo "========================================================================"
         msg_warn "WARNING: no tag found for addon ${ADDON}, falling back to HEAD"
         echo "========================================================================"
-        NEW_VERSION=$(resolve_hash_in_branch "${GIT_DIR}" "${GIT_BRANCH}")
+        if [ -z "${GITHUB_API_TOKEN}" ]; then
+          PARAMS="resolve_hash_in_branch ${GIT_DIR} ${GIT_BRANCH}"
+        else
+          PARAMS="resolve_hash_on_gh ${GIT_REPO} ${GIT_BRANCH}"
+        fi
+        NEW_VERSION=$(${PARAMS})
       fi
 
       echo "Resolved version for ${ADDON}: ${GIT_BRANCH} => ${NEW_VERSION}"
@@ -125,7 +160,7 @@ for addontxt in $KODI_DIR/cmake/addons/bootstrap/repositories/*-addons.txt ; do
       fi
 
       if [ "${KEEP_GIT_DIRS}" != "yes" ]; then
-        rm -rf "${GIT_DIR}"
+        [ -d "${GIT_DIR}" ] && rm -rf "${GIT_DIR}"
       fi
     else
       echo "[mkpkg] Skipped $ADDON"
@@ -133,6 +168,10 @@ for addontxt in $KODI_DIR/cmake/addons/bootstrap/repositories/*-addons.txt ; do
     fi
     PROCESSED="${PROCESSED}${ADDON}\n"
   done
+
+  if [ "${KEEP_GIT_DIRS}" != "yes" ]; then
+    [ -d "${ADDONS_GIT_DIR}" ] && rm -rf "${ADDONS_GIT_DIR}"
+  fi
 
   echo
   echo "The following addons were skipped, please add packages for these addons:"
@@ -154,11 +193,18 @@ for ADDON in $(ls -1 "${ROOT}/packages/mediacenter/kodi-binary-addons"); do
   GIT_DIR="${ADDON}.git"
   GIT_REPO="$(geturl "${ADDON}")" || continue
 
-  git_clone ${GIT_REPO} ${GIT_DIR}
+  if [ -z "${GITHUB_API_TOKEN}" ]; then
+    git_clone ${GIT_REPO} ${GIT_DIR}
+    RESOLVE_UNOFFICIAL_BRANCH="resolve_hash_in_branch ${ADDON}.git ${UNOFFICIAL_ADDON_BRANCH}"
+    RESOLVE_HEAD="resolve_hash_in_branch ${ADDON}.git HEAD"
+  else
+    RESOLVE_UNOFFICIAL_BRANCH="resolve_hash_on_gh ${GIT_REPO%.git} ${UNOFFICIAL_ADDON_BRANCH}"
+    RESOLVE_HEAD="resolve_hash_on_gh ${GIT_REPO%.git} HEAD"
+  fi
 
-  if RESOLVED_HASH=$(resolve_hash_in_branch ${ADDON}.git ${UNOFFICIAL_ADDON_BRANCH}); then
+  if RESOLVED_HASH=$(${RESOLVE_UNOFFICIAL_BRANCH}); then
     echo "Resolved hash for ${ADDON}: ${UNOFFICIAL_ADDON_BRANCH} => ${RESOLVED_HASH}"
-  elif RESOLVED_HASH=$(resolve_hash_in_branch ${ADDON}.git HEAD); then
+  elif RESOLVED_HASH=$(${RESOLVE_HEAD}); then
     echo "Resolved hash for ${ADDON}: HEAD => ${RESOLVED_HASH}"
   else
     msg_warn "WARNING: Could not resolve hash for ${ADDON}"
@@ -173,8 +219,10 @@ for ADDON in $(ls -1 "${ROOT}/packages/mediacenter/kodi-binary-addons"); do
   fi
 
   if [ "${KEEP_GIT_DIRS}" != "yes" ]; then
-    rm -rf ${GIT_DIR}
+    [ -d "${GIT_DIR}" ] && rm -rf ${GIT_DIR}
   fi
 done
 
 rm -rf "${TMPDIR}"
+
+[ -d "${TMP_REPO_DIR}" ] && rm -rf "${TMP_REPO_DIR}"

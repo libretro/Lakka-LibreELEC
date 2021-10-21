@@ -73,6 +73,14 @@ mkdir -p "${TMPDIR}"
 
 . "${MY_DIR}/update_common_functions"
 
+get_gh_token
+
+# check if depends are available
+if [ -n "${GITHUB_API_TOKEN}" ]; then
+  command -v curl >/dev/null 2>&1 || die "please install curl"
+  command -v jq >/dev/null 2>&1 || die "please install jq"
+fi
+
 ADDONS="game-binary-addons"
 ADDONS_DIR="${ADDONS}.git"
 ADDONS_REPO="https://github.com/kodi-game/repo-binary-addons.git"
@@ -114,14 +122,25 @@ for addon in ${ADDONS_DIR}/*.*/ ; do
   NO_TAG=""
   CHECK_RETRO=""
 
-  git_clone "${GAME_GIT_REPO}" "${GAME_GIT_DIR}"
-  GAME_NEW_VERSION=$(resolve_tag_in_branch "${GAME_GIT_DIR}" "${GAME_GIT_BRANCH}" "*-${KODI_BRANCH}")
+  if [ -z "$GITHUB_API_TOKEN" ]; then
+    git_clone "${GAME_GIT_REPO}" "${GAME_GIT_DIR}"
+    GAME_NEW_VERSION=$(resolve_tag_in_branch "${GAME_GIT_DIR}" "${GAME_GIT_BRANCH}" "*-${KODI_BRANCH}")
+  else
+    REPO=$(basename "${GAME_GIT_REPO}")
+    OWNER=$(basename "${GAME_GIT_REPO%/${REPO}*}")
+    GAME_NEW_VERSION=$(resolve_tag_on_gh "${OWNER}" "${REPO}" "-${KODI_BRANCH}")
+  fi
+
   if [ -z "${GAME_NEW_VERSION}" ]; then
     NO_TAG="yes"
     echo "========================================================================"
     msg_warn "WARNING: no tag found for addon ${GAME_ADDON}, falling back to HEAD"
     echo "========================================================================"
-    GAME_NEW_VERSION=$(resolve_hash_in_branch "${GAME_GIT_DIR}" "${GAME_GIT_BRANCH}")
+    if [ -z "$GITHUB_API_TOKEN" ]; then
+      GAME_NEW_VERSION=$(resolve_hash_in_branch "${GAME_GIT_DIR}" "${GAME_GIT_BRANCH}")
+    else
+      GAME_NEW_VERSION=$(resolve_hash_on_gh "${GAME_GIT_REPO}" "${GAME_GIT_BRANCH}")
+    fi
   fi
 
   if [ "${KEEP_GIT_DIRS}" != "yes" ]; then
@@ -160,6 +179,9 @@ for addon in ${ADDONS_DIR}/*.*/ ; do
     if [[ "$VERSION_INFO" =~ .zip$ ]] ; then
       # version referenced by githash
       RETRO_NEW_VERSION=$(sed -e 's|^.*/archive/||' -e 's|\.zip$||' "${RETRO_VERSION_FILE}")
+    elif [[ "$VERSION_INFO" =~ .tar.gz$ ]] ; then
+      # version referenced by githash
+      RETRO_NEW_VERSION=$(sed -e 's|^.*/archive/||' -e 's|\.tar.gz$||' "${RETRO_VERSION_FILE}")
     else
       msg_warn "unmanaged version in kodi package: ${VERSION_INFO}"
       # unmanaged version, repo plus branch

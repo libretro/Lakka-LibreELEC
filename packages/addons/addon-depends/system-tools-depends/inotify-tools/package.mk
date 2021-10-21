@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="inotify-tools"
-PKG_VERSION="3.20.11.0"
-PKG_SHA256="58a3cde89e4a5111a87ac16b56b06a8f885460fca0aea51b69c856ce30a37a14"
+PKG_VERSION="3.21.9.6"
+PKG_SHA256="0ca3d5a632149e26375bbb0b542193698bc44da027925f7b7473a5617984d7e3"
 PKG_LICENSE="GPLv2"
 PKG_SITE="http://wiki.github.com/inotify-tools/inotify-tools/"
 PKG_URL="https://github.com/inotify-tools/inotify-tools/archive/${PKG_VERSION}.tar.gz"
@@ -15,5 +15,5 @@ PKG_BUILD_FLAGS="-sysroot"
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --disable-doxygen"
 
 pre_configure_target() {
-  CFLAGS+=" -Wno-error=misleading-indentation"
+  CFLAGS+=" -Wno-error=misleading-indentation -Wno-error=unused-parameter"
 }

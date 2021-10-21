@@ -6,12 +6,13 @@ Subject: [PATCH] arm64: dts: rockchip: add gpu powerdomain, gpu opp-table and
 
 Note: since the regulator that supplies the GPU usually also supplies
 other SoC components, we have to make sure voltage is never lower then
-1075 mV.
+1050 mV - also disable 500 MHz for now, since it will crash if rkvdec
+is running at the same time (voltage to high)
 
 Signed-off-by: Alex Bee <knaerzche@gmail.com>
 ---
  arch/arm64/boot/dts/rockchip/rk3328.dtsi | 34 ++++++++++++++++++++++++
- 1 file changed, 34 insertions(+)
+ 1 file changed, 35 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/rockchip/rk3328.dtsi b/arch/arm64/boot/dts/rockchip/rk3328.dtsi
 index 23021373e15b..ca03c8ed9708 100644
@@ -41,7 +42,7 @@ index 23021373e15b..ca03c8ed9708 100644
  			};
  		};
  
-@@ -620,7 +630,31 @@ gpu: gpu@ff300000 {
+@@ -620,7 +630,32 @@ gpu: gpu@ff300000 {
  				  "ppmmu1";
  		clocks = <&cru ACLK_GPU>, <&cru ACLK_GPU>;
  		clock-names = "bus", "core";
@@ -56,19 +57,20 @@ index 23021373e15b..ca03c8ed9708 100644
 +
 +		opp-200000000 {
 +			opp-hz = /bits/ 64 <200000000>;
-+			opp-microvolt = <1075000>;
++			opp-microvolt = <1050000>;
 +		};
 +		opp-300000000 {
 +			opp-hz = /bits/ 64 <300000000>;
-+			opp-microvolt = <1075000>;
++			opp-microvolt = <1050000>;
 +		};
 +		opp-400000000 {
 +			opp-hz = /bits/ 64 <400000000>;
-+			opp-microvolt = <1075000>;
++			opp-microvolt = <1050000>;
 +		};
 +		opp-500000000 {
 +			opp-hz = /bits/ 64 <500000000>;
 +			opp-microvolt = <1150000>;
++			status = "disabled";
 +		};
  	};
  
@@ -644,72 +646,4 @@ index 3d98e2251ea5..b201700ccc8a 100644
  	.irqs = rockchip_vdpu2_irqs,
  	.num_irqs = ARRAY_SIZE(rockchip_vdpu2_irqs),
 
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: Alex Bee <knaerzche@gmail.com>
-Date: wed, 1 Sep 2021 14:00:00 +1000
-Subject: [PATCH] net: stmmac: dwmac-rk: fix unbalanced pm_runtime_enable warnings
 
-This LE11 REVERTS 5.14.0 commit
-- reverts 2d26f6e39afb88d32b8f39e76a51b542c3c51674
-
-BETWEEN THE LINE
-
-This reverts commit 2c896fb02e7f65299646f295a007bda043e0f382
-"net: stmmac: dwmac-rk: add pd_gmac support for rk3399" and fixes
-unbalanced pm_runtime_enable warnings.
-
-In the commit to be reverted, support for power management was
-introduced to the Rockchip glue code. Later, power management support
-was introduced to the stmmac core code, resulting in multiple
-invocations of pm_runtime_{enable,disable,get_sync,put_sync}.
-
-The multiple invocations happen in rk_gmac_powerup and
-stmmac_{dvr_probe, resume} as well as in rk_gmac_powerdown and
-stmmac_{dvr_remove, suspend}, respectively, which are always called
-in conjunction.
-
-Fixes: 5ec55823438e850c91c6b92aec93fb04ebde29e2 ("net: stmmac: add clocks management for gmac driver")
-Signed-off-by: Michael Riesch <michael.riesch@wolfvision.net>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 9 ---------
- 1 file changed, 9 deletions(-)
-
-ABOVE THE LINE
-
-diff -Nu a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-@@ -21,6 +21,7 @@
- #include <linux/delay.h>
- #include <linux/mfd/syscon.h>
- #include <linux/regmap.h>
-+#include <linux/pm_runtime.h>
- 
- #include "stmmac_platform.h"
- 
-@@ -1528,6 +1529,9 @@
- 		return ret;
- 	}
- 
-+	pm_runtime_enable(dev);
-+	pm_runtime_get_sync(dev);
-+
- 	if (bsp_priv->integrated_phy)
- 		rk_gmac_integrated_phy_powerup(bsp_priv);
- 
-@@ -1536,9 +1540,14 @@
- 
- static void rk_gmac_powerdown(struct rk_priv_data *gmac)
- {
-+	struct device *dev = &gmac->pdev->dev;
-+
- 	if (gmac->integrated_phy)
- 		rk_gmac_integrated_phy_powerdown(gmac);
- 
-+	pm_runtime_put_sync(dev);
-+	pm_runtime_disable(dev);
-+
- 	phy_power_on(gmac, false);
- 	gmac_clk_enable(gmac, false);
- }

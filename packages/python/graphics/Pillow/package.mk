@@ -3,8 +3,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="Pillow"
-PKG_VERSION="8.1.2"
-PKG_SHA256="4b99c0a07e8bc4048b4f37ee515d02cc2f895453afe534e4b00bfe2f2a2dbe39"
+PKG_VERSION="8.4.0"
+PKG_SHA256="a726a4246cf1f26a5024b57c5d5fa0e98789262799860ed554ec028e2698f2c0"
 PKG_LICENSE="BSD"
 PKG_SITE="https://python-pillow.org/"
 PKG_URL="https://github.com/python-pillow/${PKG_NAME}/archive/${PKG_VERSION}.tar.gz"

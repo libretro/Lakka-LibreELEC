@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.octonet"
-PKG_VERSION="20.0.0-Nexus"
-PKG_SHA256="7f978cdc0e19115ef689e87676ecc6f78ee096945ff1214ae5e523148374cc3d"
+PKG_VERSION="20.1.0-Nexus"
+PKG_SHA256="2750b6d344d21e6082c46a917bed85c9ded7fab0af305bcdf431b51adf477f50"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

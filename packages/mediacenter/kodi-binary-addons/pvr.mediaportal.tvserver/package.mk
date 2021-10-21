@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.mediaportal.tvserver"
-PKG_VERSION="20.0.0-Nexus"
-PKG_SHA256="700816ea6d92341d1ca201480c6d134efcb121c102a74bd0184ed04f846379ff"
+PKG_VERSION="20.1.0-Nexus"
+PKG_SHA256="5bdbd9d54d7a9c48aec98554aa8a6472ceaab6bb2c3f9868bfcd129f7ad04dd0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
