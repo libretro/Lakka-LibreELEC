@@ -12,7 +12,11 @@ PKG_DEPENDS_TARGET="toolchain util-macros util-linux libICE"
 PKG_LONGDESC="This package provides the main interface to the X11 Session Management library."
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
-                           --enable-shared \
+                           --disable-shared \
                            --with-libuuid \
                            --without-xmlto \
                            --without-fop"
+
+if [ "${PROJECT}" = "L4T" ]; then
+  PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET/--disable-shared/--enable-shared}"
+fi

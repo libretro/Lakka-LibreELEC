@@ -1,20 +1,6 @@
-################################################################################
-#      This file is part of OpenELEC - http://www.openelec.tv
-#      Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
-#
-#  OpenELEC is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 2 of the License, or
-#  (at your option) any later version.
-#
-#  OpenELEC is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
-################################################################################
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pulseaudio"
 PKG_VERSION="14.2"
@@ -26,6 +12,10 @@ PKG_DEPENDS_TARGET="toolchain alsa-lib dbus libcap libsndfile libtool openssl so
 PKG_LONGDESC="PulseAudio is a sound system for POSIX OSes, meaning that it is a proxy for your sound applications."
 PKG_TOOLCHAIN="meson"
 
+if [ "${PROJECT}" = "L4T" ]; then
+  PKG_PATCH_DIRS="${PROJECT}"
+fi
+ 
 if [ "${BLUETOOTH_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" sbc"
   PKG_PULSEAUDIO_BLUETOOTH="-Dbluez5=true"
@@ -94,13 +84,18 @@ post_makeinstall_target() {
   safe_remove ${INSTALL}/usr/share/bash-completion
 
   cp ${PKG_DIR}/config/system.pa ${INSTALL}/etc/pulse/
-
+  
+  if [ "${PROJECT}" = "L4T" ]; then
+    echo load-module module-switch-on-port-available >> ${INSTALL}/etc/pulse/system.pa
+  fi
+  
   sed 's/user="pulse"/user="root"/' -i ${INSTALL}/etc/dbus-1/system.d/pulseaudio-system.conf
 
   mkdir -p ${INSTALL}/usr/config
     cp -PR ${PKG_DIR}/config/pulse-daemon.conf.d ${INSTALL}/usr/config
 
   ln -sf /storage/.config/pulse-daemon.conf.d ${INSTALL}/etc/pulse/daemon.conf.d
+  
 }
 
 post_install() {
