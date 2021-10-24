@@ -1,4 +1,14 @@
+# v3.5.2
+* Update RetroArch to 1.9.12
+* Update libretro cores to latest
+* Add DAT/XML files for `fbneo` and `mame2003-plus` playlist scanning
+* Add SAMBA share for database files on the image
+* Fix mount units for Nintendo Switch
+* Remove `disable_ertm=1` from `xpadneo` driver package
+
 # v3.5.1
+* Update RetroArch to 1.9.11
+* Update libretro cores to latest
 * Update Mesa to [21.2.4](https://docs.mesa3d.org/relnotes/21.2.4.html)
 * Update Kernel to 5.10.72 (Generic, iMX6)
 * Update Kernel/Firmware to 1.20210928 (RPi)
