@@ -27,4 +27,7 @@ fi
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
     cp -v src/burner/libretro/fbneo_libretro.so ${INSTALL}/usr/lib/libretro/
+
+  mkdir -p ${INSTALL}/usr/share/libretro-database/fbneo
+    cp -v dats/* ${INSTALL}/usr/share/libretro-database/fbneo
 }
