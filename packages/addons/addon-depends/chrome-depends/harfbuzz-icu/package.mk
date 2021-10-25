@@ -15,7 +15,6 @@ PKG_BUILD_FLAGS="-sysroot"
 PKG_MESON_OPTS_TARGET="-Dbenchmark=disabled \
                        -Dcairo=enabled \
                        -Ddocs=disabled \
-                       -Dfontconfig=enabled \
                        -Dfreetype=enabled \
                        -Dglib=enabled \
                        -Dgobject=disabled \
