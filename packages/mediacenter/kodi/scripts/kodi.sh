@@ -154,8 +154,8 @@ if [ $(( ($RET >= 131 && $RET <= 136) || $RET == 139 )) = "1" ] ; then
   # Crashed with core dump
   print_crash_report
 
-  # Cleanup. Keep only youngest 10 reports
-  rm -f $(ls -1t $CRASHLOG_DIR/kodi_crashlog_*.log | tail -n +11)
+  # Cleanup. Keep only youngest 10 reports but current in any case
+  rm -f $(ls -1t $CRASHLOG_DIR/kodi_crashlog_*.log | grep -v "$FILE" | tail -n +10)
 
   # Enable safe mode if a crash loop is detected
   detect_crash_loop && activate_safe_mode
