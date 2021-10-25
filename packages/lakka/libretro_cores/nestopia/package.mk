@@ -1,5 +1,5 @@
 PKG_NAME="nestopia"
-PKG_VERSION="c24ffe8"
+PKG_VERSION="ea6f1c0"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/nestopia"
 PKG_URL="${PKG_SITE}.git"
