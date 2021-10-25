@@ -19,6 +19,15 @@ PKG_CMAKE_OPTS_TARGET="-DWITH_EXTERNAL_ZLIB=ON
                       "
 
 post_makeinstall_target() {
+  # keep modern authentication plugins
+  PLUGINP=${INSTALL}/usr/lib/mariadb/plugin
+  mkdir -p ${INSTALL}/.tmp
+  mv ${PLUGINP}/{caching_sha2_password,client_ed25519,sha256_password}.so ${INSTALL}/.tmp
+
   # drop all unneeded
   rm -rf ${INSTALL}/usr
+
+  mkdir -p ${PLUGINP}
+  mv ${INSTALL}/.tmp/* ${PLUGINP}/
+  rmdir ${INSTALL}/.tmp
 }
