@@ -1,5 +1,5 @@
 PKG_NAME="pokemini"
-PKG_VERSION="f8ab5f2"
+PKG_VERSION="b24883d"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/pokemini"
 PKG_URL="${PKG_SITE}.git"
