@@ -21,7 +21,7 @@ else
   DISPLAYSERVER_LIBVA="-Dwith_x11=no -Dwith_wayland=no"
 fi
 
-PKG_MESON_OPTS_TARGET="-Denable_hybrid_code=false \
+PKG_MESON_OPTS_TARGET="-Denable_hybrid_codec=false \
                        -Denable_tests=false \
                        ${DISPLAYSERVER_LIBVA}"
 
