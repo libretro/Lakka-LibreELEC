@@ -27,6 +27,9 @@
 # by default reload dashboard / status file every 0.5 seconds
 [ -z "${REFRESH_RATE}" ] && rr="0.5s" || rr="${REFRESH_RATE}"
 
+# by default do not stop immediately when a build of a package fails, but finish building active packages
+[ -z "${QUICKFAIL}" ] && qf="no" || qf="${QUICKFAIL}"
+
 # number of buildthreads = two times number of cpu threads, unless specified otherwise
 tc=""
 bt=""
@@ -124,7 +127,7 @@ do
 	then
 		# show logs during build (non-dashboard build)
 		echo "Starting build of ${target_name}"
-		make ${out} PROJECT=${project} DEVICE=${device} ARCH=${arch} ${tc}
+		make ${out} PROJECT=${project} DEVICE=${device} ARCH=${arch} MTIMMEDIATE=${qf} ${tc}
 		ret_nondb=${?}
 		if [ ${ret_nondb} -gt 0 -a "${BAILOUT_FAILED}" != "no" ]
 		then
@@ -134,7 +137,7 @@ do
 		# remove the old dashboard, so we don't show old/stale dashboard
 		rm -f ${statusfile}
 		# start the build process in background
-		make ${out} PROJECT=${project} DEVICE=${device} ARCH=${arch} ${tc} &>/dev/null &
+		make ${out} PROJECT=${project} DEVICE=${device} ARCH=${arch} MTIMMEDIATE=${qf} ${tc} &>/dev/null &
 		# store the pid
 		pid=${!}
 		finished=0
