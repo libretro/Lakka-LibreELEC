@@ -256,5 +256,4 @@ makeinstall_init() {
       -e "s/@KERNEL_NAME@/${KERNEL_NAME}/g" \
       -i ${INSTALL}/init
   chmod 755 ${INSTALL}/init
-
 }
