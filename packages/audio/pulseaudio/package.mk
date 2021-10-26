@@ -15,7 +15,7 @@ PKG_TOOLCHAIN="meson"
 if [ "${PROJECT}" = "L4T" ]; then
   PKG_PATCH_DIRS="${PROJECT}"
 fi
- 
+
 if [ "${BLUETOOTH_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" sbc"
   PKG_PULSEAUDIO_BLUETOOTH="-Dbluez5=true"
@@ -84,18 +84,17 @@ post_makeinstall_target() {
   safe_remove ${INSTALL}/usr/share/bash-completion
 
   cp ${PKG_DIR}/config/system.pa ${INSTALL}/etc/pulse/
-  
+
   if [ "${PROJECT}" = "L4T" ]; then
     echo load-module module-switch-on-port-available >> ${INSTALL}/etc/pulse/system.pa
   fi
-  
+
   sed 's/user="pulse"/user="root"/' -i ${INSTALL}/etc/dbus-1/system.d/pulseaudio-system.conf
 
   mkdir -p ${INSTALL}/usr/config
     cp -PR ${PKG_DIR}/config/pulse-daemon.conf.d ${INSTALL}/usr/config
 
   ln -sf /storage/.config/pulse-daemon.conf.d ${INSTALL}/etc/pulse/daemon.conf.d
-  
 }
 
 post_install() {
