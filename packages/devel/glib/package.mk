@@ -14,13 +14,11 @@ PKG_LONGDESC="A library which includes support routines for C such as lists, tre
 PKG_TOOLCHAIN="meson"
 
 PKG_MESON_OPTS_HOST="-Ddefault_library=static \
-                     -Dinternal_pcre=true \
                      -Dinstalled_tests=false \
                      -Dlibmount=disabled \
                      -Dtests=false"
 
 PKG_MESON_OPTS_TARGET="-Ddefault_library=shared \
-                       -Dinternal_pcre=false \
                        -Dinstalled_tests=false \
                        -Dselinux=disabled \
                        -Dfam=false \
