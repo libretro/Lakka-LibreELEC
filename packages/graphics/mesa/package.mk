@@ -92,3 +92,7 @@ if [ "$OPENGLES_SUPPORT" = "yes" ]; then
 else
   PKG_MESON_OPTS_TARGET+=" -Dgles1=disabled -Dgles2=disabled"
 fi
+
+if listcontains "$GRAPHIC_DRIVERS" "crocus"; then
+  PKG_MESON_OPTS_TARGET+=" -Dprefer-crocus=true"
+fi
