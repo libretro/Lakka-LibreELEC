@@ -1,0 +1,66 @@
+diff --git a/rewrite.c b/rewrite.c
+index acdc2f9..2c10f5f 100644
+--- a/rewrite.c
++++ b/rewrite.c
+@@ -531,8 +531,20 @@ char *rewrite(const char *path) {
+     struct rewrite_rule *rule;
+     char *caller = NULL;
+     
++    char *newpath = strdup(path);
++    
++    char *ch = newpath;
++    while (*ch != '\0')
++    {
++        if (*ch == ':')
++                *ch = '-';
++        ch++;
++    }
++    
+     int res;
+     
++    path = newpath;
++    
+     DEBUG(3, "%s:\n", path);
+     
+     for(ctx = config.contexts; ctx != NULL; ctx = ctx->next) {
+@@ -568,5 +580,7 @@ char *rewrite(const char *path) {
+     }
+     
+     free(caller);
+-    return apply_rule(path, NULL);
++    char* result = apply_rule(path, NULL);
++    free(newpath);
++    return result;
+ }
+diff --git a/rewritefs.c b/rewritefs.c
+index 736513d..30dd71f 100644
+--- a/rewritefs.c
++++ b/rewritefs.c
+@@ -164,8 +164,25 @@ static int rewrite_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
+         st.st_ino = d->entry->d_ino;
+         st.st_mode = d->entry->d_type << 12;
+         RLOCK(nextoff = telldir(d->dp));
+-        if (filler(buf, d->entry->d_name, &st, nextoff))
+-            break;
++        char *newname = strdup(d->entry->d_name);
++        char *ch = newname;
++            while (*ch != '\0')
++            {
++                if (*ch == '-')
++                        *ch = ':';
++                ch++;
++            }
++        if (filler(buf, newname, &st, nextoff))
++        {
++                free(newname);
++                   break;
++        }
++        else
++        {
++                free(newname);
++                break;
++        }
++         
+ 
+         d->entry = NULL;
+         d->offset = nextoff;

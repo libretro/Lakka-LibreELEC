@@ -21,3 +21,7 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared \
                            --enable-fc \
                            --with-gnu-ld \
                            --without-xmlto"
+
+if [ "${PROJECT}" = "L4T" ]; then
+  PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET/--disable-shared/--enable-shared}"
+fi                         
