@@ -76,6 +76,7 @@ targets="\
 	Amlogic|AMLGX|aarch64|image \
 	Generic||i386|image \
 	Generic||x86_64|image \
+	L4T|Switch|aarch64|image \
 	NXP|iMX6|arm|image \
 	NXP|iMX8|aarch64|image \
 	Rockchip|RK3288|arm|image \

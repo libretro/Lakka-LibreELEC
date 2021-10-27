@@ -13,3 +13,7 @@ PKG_LONGDESC="X authorization file management libary"
 PKG_BUILD_FLAGS="+pic"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --enable-xthreads"
+
+if [ "${PROJECT}" = "L4T" ]; then
+  PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET/--disable-shared/--enable-shared}"
+fi

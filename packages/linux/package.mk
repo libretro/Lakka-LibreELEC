@@ -34,6 +34,15 @@ case "${LINUX}" in
       PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     fi
     ;;
+  L4T)
+    PKG_VERSION=$DEVICE
+    PKG_URL="l4t-kernel-sources"
+    GET_HANDLER_SUPPORT="l4t-kernel-sources"
+    PKG_PATCH_DIRS="${PROJECT} ${PROJECT}/${DEVICE}"
+    PKG_SOURCE_NAME="linux-$DEVICE.tar.gz"
+    #Need to find a better way to do this for l4t platforms!
+    PKG_SHA256=$L4T_COMBINED_KERNEL_SHA256
+    ;;
   *)
     PKG_VERSION="5.14.9"
     PKG_SHA256="ba8f07db92d514a2636e882bcd646f79f1c8ab83f5ad82910732dd0ec83c87e6"
@@ -43,8 +52,6 @@ case "${LINUX}" in
 esac
 
 PKG_KERNEL_CFG_FILE=$(kernel_config_path) || die
-
-[ "${DISTRO}" = "Lakka" ] && PKG_PATCH_DIRS+=" ${DISTRO}-${LINUX}" || true
 
 [ "${DISTRO}" = "Lakka" ] && PKG_PATCH_DIRS+=" ${DISTRO}-${LINUX}" || true
 
@@ -89,19 +96,52 @@ post_patch() {
 }
 
 make_host() {
-  :
+  if [ "${LINUX}" = "L4T" ]; then
+    CURRENT_PATH=${PATH}
+    export PATH=${TOOLCHAIN}/lib/gcc-arm-aarch64-none-linux-gnu/bin/:${PATH}
+
+    make \
+      ARCH=arm64 \
+      CROSS_COMPILE=${KERNEL_TOOLCHAIN}- \
+      olddefconfig
+     make \
+       ARCH=arm64 \
+       CROSS_COMPILE=${KERNEL_TOOLCHAIN}- \
+       prepare
+     #make \
+     #  ARCH=arm64 \
+     #  CROSS_COMPILE=${KERNEL_TOOLCHAIN}- \
+     #  modules_prepare
+     make \
+       ARCH=arm64 \
+       headers_check
+
+     export PATH=${CURRENT_PATH}
+  fi
 }
 
 makeinstall_host() {
-  make \
-    ARCH=${HEADERS_ARCH:-${TARGET_KERNEL_ARCH}} \
-    HOSTCC="${TOOLCHAIN}/bin/host-gcc" \
-    HOSTCXX="${TOOLCHAIN}/bin/host-g++" \
-    HOSTCFLAGS="${HOST_CFLAGS}" \
-    HOSTCXXFLAGS="${HOST_CXXFLAGS}" \
-    HOSTLDFLAGS="${HOST_LDFLAGS}" \
-    INSTALL_HDR_PATH=dest \
-    headers_install
+  if [ "${LINUX}" = "L4T" ]; then
+    CURRENT_PATH=${PATH}
+    export PATH=${TOOLCHAIN}/lib/gcc-arm-aarch64-none-linux-gnu/bin/:${PATH}
+    make \
+      ARCH=arm64 \
+      CROSS_COMPILE=${KERNEL_TOOLCHAIN}- \
+      INSTALL_HDR_PATH=dest \
+      headers_install
+    export PATH=${CURRENT_PATH}
+  else
+    make \
+      ARCH=${HEADERS_ARCH:-$TARGET_KERNEL_ARCH} \
+      HOSTCC="${TOOLCHAIN}/bin/host-gcc" \
+      HOSTCXX="${TOOLCHAIN}/bin/host-g++" \
+      HOSTCFLAGS="${HOST_CFLAGS}" \
+      HOSTCXXFLAGS="${HOST_CXXFLAGS}" \
+      HOSTLDFLAGS="${HOST_LDFLAGS}" \
+      INSTALL_HDR_PATH=dest \
+      headers_install
+  fi
+
   mkdir -p ${SYSROOT_PREFIX}/usr/include
     cp -R dest/include/* ${SYSROOT_PREFIX}/usr/include
 }
@@ -158,11 +198,13 @@ pre_make_target() {
   fi
 
   # enable nouveau driver when required
-  if listcontains "${GRAPHIC_DRIVERS}" "nouveau"; then
-    ${PKG_BUILD}/scripts/config --enable CONFIG_DRM_NOUVEAU
-    ${PKG_BUILD}/scripts/config --enable CONFIG_DRM_NOUVEAU_BACKLIGHT
-    ${PKG_BUILD}/scripts/config --set-val CONFIG_NOUVEAU_DEBUG 5
-    ${PKG_BUILD}/scripts/config --set-val CONFIG_NOUVEAU_DEBUG_DEFAULT 3
+  if [ ! "${LINUX}" = "L4T" ]; then
+    if listcontains "${GRAPHIC_DRIVERS}" "nouveau"; then
+      ${PKG_BUILD}/scripts/config --enable CONFIG_DRM_NOUVEAU
+      ${PKG_BUILD}/scripts/config --enable CONFIG_DRM_NOUVEAU_BACKLIGHT
+      ${PKG_BUILD}/scripts/config --set-val CONFIG_NOUVEAU_DEBUG 5
+      ${PKG_BUILD}/scripts/config --set-val CONFIG_NOUVEAU_DEBUG_DEFAULT 3
+    fi
   fi
 
   # enable MIDI for Lakka on x86_64, i386 has options set in linux config file
@@ -244,42 +286,48 @@ pre_make_target() {
     ${PKG_BUILD}/scripts/config --set-str CONFIG_EXTRA_FIRMWARE_DIR "external-firmware"
   fi
 
-  if [ -f "${DISTRO_DIR}/${DISTRO}/kernel_options_overrides" ]; then
-    while read OPTION; do
-      [ -z "${OPTION}" -o -n "$(echo "${OPTION}" | grep '^#')" ] && continue
+  if [ ! "${LINUX}" = "L4T" ]; then
+    if [ -f "${DISTRO_DIR}/${DISTRO}/kernel_options_overrides" ]; then
+      while read OPTION; do
+        [ -z "${OPTION}" -o -n "$(echo "${OPTION}" | grep '^#')" ] && continue
+  
+        OPTION_NAME=${OPTION%%=*}
+        OPTION_VAL_OVR=${OPTION##*=}
+        OPTION_VAL_CFG=$(${PKG_BUILD}/scripts/config --state ${OPTION_NAME})
 
-      OPTION_NAME=${OPTION%%=*}
-      OPTION_VAL_OVR=${OPTION##*=}
-      OPTION_VAL_CFG=$(${PKG_BUILD}/scripts/config --state ${OPTION_NAME})
+        if [ "${OPTION_VAL_OVR}" = "${OPTION_VAL_CFG}" ] || [ "${OPTION_VAL_OVR}" = "n" -a "${OPTION_VAL_CFG}" = "undef" ]; then
+          continue
+        fi
 
-      if [ "${OPTION_VAL_OVR}" = "${OPTION_VAL_CFG}" ] || [ "${OPTION_VAL_OVR}" = "n" -a "${OPTION_VAL_CFG}" = "undef" ]; then
-        continue
-      fi
+        case ${OPTION_VAL_OVR} in
+          y)
+            OPTION_ACTION="enable"
+            ;;
+          m)
+            OPTION_ACTION="module"
+            ;;
+          n)
+            OPTION_ACTION="disable"
+            ;;
+          *)
+            OPTION_ACTION="undefine"
+            OPTION_VAL_OVR="u"
+            ;;
+        esac
 
-      case ${OPTION_VAL_OVR} in
-        y)
-          OPTION_ACTION="enable"
-          ;;
-        m)
-          OPTION_ACTION="module"
-          ;;
-        n)
-          OPTION_ACTION="disable"
-          ;;
-	*)
-          OPTION_ACTION="undefine"
-          OPTION_VAL_OVR="u"
-          ;;
-      esac
+        echo -e "Kernel config override: [${OPTION_VAL_OVR}] ${OPTION_NAME}"
+        ${PKG_BUILD}/scripts/config --${OPTION_ACTION} ${OPTION_NAME}
 
-      echo -e "Kernel config override: [${OPTION_VAL_OVR}] ${OPTION_NAME}"
-      ${PKG_BUILD}/scripts/config --${OPTION_ACTION} ${OPTION_NAME}
+      done < ${DISTRO_DIR}/${DISTRO}/kernel_options_overrides
 
-    done < ${DISTRO_DIR}/${DISTRO}/kernel_options_overrides
-
+    fi
   fi
 
-  if [ "${DISTRO}" = "Lakka" ]; then
+  if [ "${LINUX}" = "L4T" ]; then
+    kernel_make olddefconfig
+    kernel_make prepare
+    kernel_make modules_prepare
+  elif [ "${DISTRO}" = "Lakka" ]; then
     kernel_make olddefconfig
   else
     kernel_make oldconfig
@@ -314,42 +362,48 @@ make_target() {
     KERNEL_UIMAGE_TARGET="${KERNEL_TARGET}"
     KERNEL_TARGET="${KERNEL_TARGET/uImage/Image}"
   fi
-
-  DTC_FLAGS=-@ kernel_make ${KERNEL_TARGET} ${KERNEL_MAKE_EXTRACMD} modules
-
-  if [ "${PKG_BUILD_PERF}" = "yes" ]; then
-    ( cd tools/perf
-
-      # arch specific perf build args
-      case "${TARGET_ARCH}" in
-        x86_64|i386)
-          PERF_BUILD_ARGS="ARCH=x86"
-          ;;
-        aarch64)
-          PERF_BUILD_ARGS="ARCH=arm64"
-          ;;
-        *)
-          PERF_BUILD_ARGS="ARCH=${TARGET_ARCH}"
-          ;;
-      esac
-
-      WERROR=0 \
-      NO_LIBPERL=1 \
-      NO_LIBPYTHON=1 \
-      NO_SLANG=1 \
-      NO_GTK2=1 \
-      NO_LIBNUMA=1 \
-      NO_LIBAUDIT=1 \
-      NO_LZMA=1 \
-      NO_SDT=1 \
-      CROSS_COMPILE="${TARGET_PREFIX}" \
-      JOBS="${CONCURRENCY_MAKE_LEVEL}" \
-        make ${PERF_BUILD_ARGS}
-      mkdir -p ${INSTALL}/usr/bin
-        cp perf ${INSTALL}/usr/bin
-    )
+  
+  if [ "${LINUX}" = "L4T" ]; then
+     export KCFLAGS+="-Wno-error=sizeof-pointer-memaccess -Wno-error=missing-attributes -Wno-error=stringop-truncation -Wno-error=stringop-overflow= -Wno-error=address-of-packed-member -Wno-error=tautological-compare -Wno-error=packed-not-aligned -Wno-error=implicit-function-declaration"
   fi
 
+  DTC_FLAGS=-@ kernel_make TOOLCHAIN="${TOOLCHAIN}" ${KERNEL_TARGET} ${KERNEL_MAKE_EXTRACMD} modules
+
+  if [ ! "${LINUX}" = "L4T" ]; then
+    if [ "${PKG_BUILD_PERF}" = "yes" ]; then
+      ( cd tools/perf
+
+        # arch specific perf build args
+        case "${TARGET_ARCH}" in
+          x86_64)
+            PERF_BUILD_ARGS="ARCH=x86"
+            ;;
+          aarch64)
+            PERF_BUILD_ARGS="ARCH=arm64"
+            ;;
+          *)
+            PERF_BUILD_ARGS="ARCH=${TARGET_ARCH}"
+            ;;
+        esac
+
+        WERROR=0 \
+        NO_LIBPERL=1 \
+        NO_LIBPYTHON=1 \
+        NO_SLANG=1 \
+        NO_GTK2=1 \
+        NO_LIBNUMA=1 \
+        NO_LIBAUDIT=1 \
+        NO_LZMA=1 \
+        NO_SDT=1 \
+        CROSS_COMPILE="${TARGET_PREFIX}" \
+        JOBS="${CONCURRENCY_MAKE_LEVEL}" \
+          make ${PERF_BUILD_ARGS}
+        mkdir -p ${INSTALL}/usr/bin
+          cp perf ${INSTALL}/usr/bin
+      )
+    fi
+  fi
+  
   if [ -n "${KERNEL_UIMAGE_TARGET}" ]; then
     # determine compression used for kernel image
     KERNEL_UIMAGE_COMP=${KERNEL_UIMAGE_TARGET:7}
@@ -388,7 +442,10 @@ makeinstall_target() {
   rm -f ${INSTALL}/$(get_kernel_overlay_dir)/lib/modules/*/build
   rm -f ${INSTALL}/$(get_kernel_overlay_dir)/lib/modules/*/source
 
-  if [ "${BOOTLOADER}" = "u-boot" ]; then
+  if [ "$BOOTLOADER" = "switch-bootloader" ]; then
+    mkdir -p $INSTALL/usr/share/bootloader/boot/
+    cp arch/arm64/boot/dts/tegra210-icosa.dtb $INSTALL/usr/share/bootloader/boot/
+  elif [ "${BOOTLOADER}" = "u-boot" ]; then
     mkdir -p ${INSTALL}/usr/share/bootloader
     for dtb in arch/${TARGET_KERNEL_ARCH}/boot/dts/*.dtb arch/${TARGET_KERNEL_ARCH}/boot/dts/*/*.dtb; do
       if [ -f ${dtb} ]; then

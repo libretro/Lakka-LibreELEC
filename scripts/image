@@ -224,11 +224,20 @@ for MOD in $(find ${INSTALL}/usr/lib/kernel-overlays/ -type f -name *.ko); do
   ${TARGET_KERNEL_PREFIX}strip --strip-debug ${MOD}
 done
 
-# Symlink overlayed modules to /usr/lib/modules
-ln -sT /run/kernel-overlays/modules ${INSTALL}/usr/lib/modules
+if [ "${BOOTLOADER}" = "switch-bootloader" ]; then
+  mv ${INSTALL}/usr/lib/kernel-overlays/base/lib/modules ${INSTALL}/usr/lib/
+  mv ${INSTALL}/usr/lib/kernel-overlays/base/lib/firmware/brcm/* ${INSTALL}/usr/lib/firmware/brcm/
+  rm -r ${INSTALL}/usr/lib/kernel-overlays/base/lib/firmware/brcm
+  mv ${INSTALL}/usr/lib/kernel-overlays/base/lib/firmware/* ${INSTALL}/usr/lib/firmware/
+  rm -r ${INSTALL}/usr/lib/kernel-overlays/base/lib/firmware
+  cp -PR ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/firmwares/files/* ${INSTALL}/usr/lib/firmware/
+else
+  # Symlink overlayed modules to /usr/lib/modules
+  ln -sT /var/lib/modules ${INSTALL}/usr/lib/modules
 
-# Symlink overlayed firmware to /usr/lib/firmware
-ln -sT /run/kernel-overlays/firmware ${INSTALL}/usr/lib/firmware
+  # Symlink overlayed firmware to /usr/lib/firmware
+  ln -sT /run/kernel-overlays/firmware ${INSTALL}/usr/lib/firmware
+fi
 
 # Make target dir
 mkdir -p ${TARGET_IMG}
@@ -308,6 +317,29 @@ if [ "${1}" = "release" -o "${1}" = "mkimage" -o "${1}" = "noobs" ]; then
     md5sum -t target/KERNEL > target/KERNEL.md5;
   )
 
+  if [ "${BOOTLOADER}" = "switch-bootloader" ]; then
+    mkdir -p $RELEASE_DIR/lakka
+    cp ${ROOT}/README* ${RELEASE_DIR}/lakka
+    cp ${ROOT}/CHANGELOG* ${RELEASE_DIR}/lakka
+    echo "${TARGET_VERSION}" > ${RELEASE_DIR}/lakka/RELEASE
+    mkdir -p $RELEASE_DIR/lakka/licenses
+    cp ${ROOT}/licenses/* ${RELEASE_DIR}/lakka/licenses
+    cp -r ${RELEASE_DIR}/lakka/boot/* ${RELEASE_DIR}/lakka/
+    mkdir -p ${RELEASE_DIR}/lakka/storage
+    cp ${TARGET_IMG}/${IMAGE_NAME}.system ${RELEASE_DIR}/lakka/SYSTEM
+    cp ${TARGET_IMG}/${IMAGE_NAME}.kernel ${RELEASE_DIR}/lakka/KERNEL
+    ( cd ${RELEASE_DIR};
+      md5sum -t lakka/SYSTEM > lakka/SYSTEM.md5;
+      md5sum -t lakka/KERNEL > lakka/KERNEL.md5;
+    )
+    rm -rf ${RELEASE_DIR}/target
+    rm -rf ${RELEASE_DIR}/licenses
+    rm -rf ${RELEASE_DIR}/RELEASE
+    rm -rf ${RELEASE_DIR}/CHANGELOG
+    rm -rf ${RELEASE_DIR}/README.md
+    rm -rf ${RELEASE_DIR}/lakka/boot
+  fi
+
   # Create target directory
   mkdir -p ${TARGET_IMG}
 
@@ -321,6 +353,11 @@ if [ "${1}" = "release" -o "${1}" = "mkimage" -o "${1}" = "noobs" ]; then
   ( cd ${TARGET_IMG}
     sha256sum ${IMAGE_NAME}.tar > ${IMAGE_NAME}.tar.sha256
   )
+
+  if  [ "${BOOTLOADER}" = "switch-bootloader" ]; then
+    rm -rf ${RELEASE_DIR}
+    exit 0
+  fi
 
   # Create image files if requested
   if [[ ( "${1}" = "noobs" || "${1}" = "mkimage" ) && -n "${BOOTLOADER}" ]]; then

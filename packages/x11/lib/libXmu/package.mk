@@ -13,3 +13,7 @@ PKG_LONGDESC="LibXmu provides a set of miscellaneous utility convenience functio
 PKG_BUILD_FLAGS="+pic"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --with-gnu-ld --without-xmlto"
+
+if [ "${PROJECT}" = "L4T" ]; then
+  PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET/--disable-shared/--enable-shared}"
+fi

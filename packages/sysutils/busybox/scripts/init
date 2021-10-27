@@ -551,8 +551,12 @@ mount_flash() {
 
   wakeonlan
 
-  mount_part "$boot" "/flash" "ro,noatime"
-
+  if [ ! "$NX_BOOT" = "yes" ]; then
+    mount_part "$boot" "/flash" "ro,noatime"
+  else
+    mount_part "$boot" "/flash" "rw,noatime"
+  fi
+  
   if [ -f /flash/post-flash.sh ]; then
     . /flash/post-flash.sh
   fi
@@ -582,8 +586,11 @@ mount_storage() {
   fi
 
   wakeonlan
-
-  if [ -n "$disk" ]; then
+  
+  if [  "$NX_BOOT" = "yes" ]; then
+    mkdir -p /flash/lakka/storage
+    mount --bind /flash/lakka/storage /storage
+  elif [ -n "$disk" ]; then
     if [ -n "$OVERLAY" ]; then
       OVERLAY_DIR=$(cat /sys/class/net/eth0/address | tr -d :)
 
@@ -942,13 +949,15 @@ prepare_sysroot() {
   mount --move /flash /sysroot/flash
   mount --move /storage /sysroot/storage
 
-  if [ ! -d "/sysroot/usr/lib/kernel-overlays/base/lib/modules/$(uname -r)/" -a -f "/sysroot/usr/lib/systemd/systemd" ]; then
-    echo ""
-    echo "NEVER TOUCH boot= in syslinux.conf / cmdline.txt!"
-    echo "If you don't know what you are doing,"
-    echo "your installation is now broken."
-    echo ""
-    StartProgress countdown "Normal startup in 60s... " 60 "NOW"
+  if [ ! "$NX_BOOT" = "yes" ]; then
+    if [ ! -d "/sysroot/usr/lib/kernel-overlays/base/lib/modules/$(uname -r)/" -a -f "/sysroot/usr/lib/systemd/systemd" ]; then
+      echo ""
+      echo "NEVER TOUCH boot= in syslinux.conf / cmdline.txt!"
+      echo "If you don't know what you are doing,"
+      echo "your installation is now broken."
+      echo ""
+      StartProgress countdown "Normal startup in 60s... " 60 "NOW"
+    fi
   fi
 
   [ -f "/sysroot/usr/lib/systemd/systemd" ] || error "final_check" "Could not find systemd!"
@@ -1056,6 +1065,9 @@ for arg in $(cat /proc/cmdline); do
       ;;
     ip=*)
       KERNEL_IPCONFIG="yes"
+      ;;
+    nx-boot)
+      NX_BOOT="yes"
       ;;
   esac
 done
