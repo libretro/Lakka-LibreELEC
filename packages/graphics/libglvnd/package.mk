@@ -2,8 +2,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libglvnd"
-PKG_VERSION="1.3.2"
-PKG_SHA256="6f41ace909302e6a063fd9dc04760b391a25a670ba5f4b6edf9e30f21410b673"
+PKG_VERSION="1.3.3"
+PKG_SHA256="4e59c06820c97125e19e96c4b70e71d72999ff740bb92306b830bb5338b8adea"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/NVIDIA/libglvnd"
 PKG_URL="https://github.com/NVIDIA/libglvnd/archive/v${PKG_VERSION}.tar.gz"
