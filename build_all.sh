@@ -290,6 +290,25 @@ do
 		[ "${DASHBOARD_MODE}" = "yes" ] && echo -n "Removing unused files (.ova)..."
 		rm -f ${v} Lakka-${target_name}-*.{ova}*
 		[ "${DASHBOARD_MODE}" = "yes" ] && echo "done!"
+		if [ "${target_name}" = "Switch.aarch64" ]
+		then
+			if [ -x $(which 7za 2>/dev/null) ]
+			then
+				[ "${DASHBOARD_MODE}" = "yes" ] && echo -n "Creating 7z archive for ${target_name}..."
+				cd ${target_name}
+				basename=$(basename $(ls Lakka-${target_name}-*.tar | head -n 1) .tar)
+				if [ -n "${basename}" ]
+				then
+					tar xf ${basename}.tar
+					cd ${basename}
+					7za a -r ../${basename}.7z * 2>&1 > /dev/null
+					cd ..
+					rm -r ${basename}
+				fi
+				cd ..
+				[ "${DASHBOARD_MODE}" = "yes" ] && echo "done!"
+			fi
+		fi
 		cd ..
 	else
 		# build OK, but no release files were created
