@@ -14,5 +14,5 @@ PKG_LONGDESC="The Pango library for layout and rendering of internationalized te
 PKG_TOOLCHAIN="meson"
 PKG_BUILD_FLAGS="-sysroot"
 
-PKG_MESON_OPTS_TARGET="-Denable_docs=false \
-                       -Dgir=false"
+PKG_MESON_OPTS_TARGET="-Dgtk_doc=false \
+                       -Dintrospection=disabled"
