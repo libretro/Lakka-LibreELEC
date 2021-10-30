@@ -1,5 +1,6 @@
 PKG_NAME="rpi_userland"
-PKG_VERSION="97bc8180ad682b004ea224d1db7b8e108eda4397"
+PKG_VERSION="0093675e4aa6e152a3ffc318b51a124e96eb287b"
+PKG_SHA256="c7bfdb9fe5f4ee82ddab8383707ed287392ba85a458440ffd26ac6e74214c219"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="BSD3"
 PKG_SITE="https://github.com/raspberrypi/userland"
