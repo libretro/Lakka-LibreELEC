@@ -11,8 +11,8 @@ PKG_URL="https://ftp.gnome.org/pub/gnome/sources/at-spi2-core/${PKG_VERSION:0:4}
 PKG_DEPENDS_TARGET="toolchain atk dbus glib libXtst"
 PKG_LONGDESC="Protocol definitions and daemon for D-Bus at-spi."
 
-PKG_MESON_OPTS_TARGET="-Denable_docs=false \
-                       -Denable-introspection=no \
+PKG_MESON_OPTS_TARGET="-Ddocs=false \
+                       -Dintrospection=no \
                        -Ddbus_daemon=/usr/bin/dbus-daemon"
 
 pre_configure_target() {
