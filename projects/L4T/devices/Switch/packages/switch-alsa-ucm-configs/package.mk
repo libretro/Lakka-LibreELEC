@@ -36,8 +36,13 @@ PKG_AUTORECONF="no"
 
 post_install() {
   mkdir -p "${INSTALL}"/usr/share/alsa/ucm2
-  ln -s "${INSTALL}"/usr/share/alsa/ucm2 "${INSTALL}"/usr/share/alsa/ucm
-  cp -Pr "${PKG_DIR}"/ucm_data/* "${INSTALL}"/usr/share/alsa/ucm2
+  mkdir -p "${INSTALL}"/usr/share/alsa/init/postinit
+  PWD="$(pwd)"
+  cd "${INSTALL}"/usr/share/alsa/
+  ln -s ucm2 ucm
+  cd ${PWD}
+  cp -Pr "${PKG_DIR}"/ucm_data/* "${INSTALL}"/usr/share/alsa/ucm/
+  cp -Pr "${PKG_DIR}"/postinit/* "${INSTALL}"/usr/share/alsa/init/postinit/
   #Audio Fix Service
-  enable_service alsa-fix.service
+  enable_service alsa-init.service
 }

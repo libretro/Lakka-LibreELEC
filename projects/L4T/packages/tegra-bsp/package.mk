@@ -94,6 +94,11 @@ build_install() {
         usr/bin
     rm -rf etc/systemd etc/sysctl.d etc/hostname etc/hosts etc/modprobe.d etc/modules-load.d var/nvidia
 
+    if [ "${DEVICE}" = "Switch" ]; then
+      #We package custom versions of this in switch-alsa-ucm-configs package
+      rm -rf usr/share/alsa/init/postinit
+    fi
+    
     # Move udev from etc/ to usr/lib/
     cp -PRv etc/udev usr/lib/
     rm -rf etc/udev

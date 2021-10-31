@@ -12,6 +12,16 @@ PKG_DEPENDS_TARGET="toolchain JsonSchemaBuilder:host TexturePacker:host Python3 
 PKG_LONGDESC="A free and open source cross-platform media player."
 PKG_BUILD_FLAGS="+speed"
 
+if [ "${PROJECT}" = "L4T" ]; then
+  PKG_DEPENDS_TARGET+=" tegra-bsp"
+  if [ "${DEVICE}" = "Switch" ]; then
+    PKG_DEPENDS_TARGET+=" mergerfs xdotool switch-cpu-profile switch-gpu-profile switch-joycon-bluetooth-dock-configs switch-alsa-ucm-configs"
+    if [ "${PULSEAUDIO_SUPPORT}" = "yes" ]; then
+      PKG_DEPENDS_TARGET+="  switch-pulseaudio-configs"
+    fi
+  fi
+fi
+
 configure_package() {
   # Single threaded LTO is very slow so rely on Kodi for parallel LTO support
   if [ "${LTO_SUPPORT}" = "yes" ] && ! build_with_debug; then
