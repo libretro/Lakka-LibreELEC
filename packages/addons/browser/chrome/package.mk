@@ -5,7 +5,7 @@ PKG_NAME="chrome"
 PKG_VERSION="1.0"
 # curl -s http://dl.google.com/linux/chrome/deb/dists/stable/main/binary-amd64/Packages | grep -B 1 Version
 PKG_VERSION_NUMBER="95.0.4638.54"
-PKG_REV="109"
+PKG_REV="110"
 PKG_ARCH="x86_64"
 PKG_LICENSE="Custom"
 PKG_SITE="http://www.google.com/chrome"
@@ -67,4 +67,6 @@ addon() {
 post_install_addon() {
   sed -e "s/@DISTRO_PKG_SETTINGS_ID@/${DISTRO_PKG_SETTINGS_ID}/g" -i "${INSTALL}/default.py"
   sed -e "s/@CHROME_VERSION@/${PKG_VERSION_NUMBER}/g" -i "${INSTALL}/bin/chrome-downloader"
+  sed -e "s/@CHROME_VERSION@/${PKG_VERSION_NUMBER}/g" -i "${INSTALL}/resources/settings.xml"
+  sed -e "s/@CHROME_VERSION@/${PKG_VERSION_NUMBER}/g" -i "${INSTALL}/settings-default.xml"
 }
