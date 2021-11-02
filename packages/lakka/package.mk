@@ -21,16 +21,6 @@ if [ "${PROJECT}" = "Generic" ]; then
   PKG_DEPENDS_TARGET+=" wii-u-gc-adapter joycond"
 fi
 
-if [ "${PROJECT}" = "L4T" ]; then
-  PKG_DEPENDS_TARGET+=" tegra-bsp"
-  if [ "${DEVICE}" = "Switch" ]; then
-    PKG_DEPENDS_TARGET+=" mergerfs xdotool switch-cpu-profile switch-gpu-profile switch-joycon-bluetooth-dock-configs switch-alsa-ucm-configs"
-    if [ "${PULSEAUDIO_SUPPORT}" = "yes" ]; then
-      PKG_DEPENDS_TARGET+="  switch-pulseaudio-configs"
-    fi
-  fi
-fi
-
 if [ "${PROJECT}" = "RPi" ]; then
   PKG_DEPENDS_TARGET+=" rpi_disable_hdmi_service"
   if [ "${DEVICE}" != "GPICase" ] ; then

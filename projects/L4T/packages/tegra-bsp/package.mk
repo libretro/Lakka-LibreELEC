@@ -27,9 +27,11 @@ fi
 PKG_ARCH="any"
 PKG_DEPENDS_HOST=""
 PKG_DEPENDS_TARGET="mesa libglvnd xorg-server"
-if [ "${DISTRO}" = "Lakka" ]; then
+
+if [ ! "${VULKAN}" = "" -o ! "${VULKAN}" = "no" ]; then
   PKG_DEPENDS_TARGET+=" vulkan-loader"
 fi
+
 PKG_SITE="https://developer.nvidia.com/EMBEDDED/linux-tegra%20/"
 case "${DEVICE}" in
   tx2|xavier|agx)
@@ -42,7 +44,7 @@ case "${DEVICE}" in
     PKG_URL="https://developer.nvidia.com/embedded/dlc/r32-3-1_Release_v1.0/t210ref_release_aarch64/Tegra210_Linux_R32.3.1_aarch64.tbz2"
     ;;
 esac
-PKG_TOOLCHAIN="make"
+PKG_TOOLCHAIN="manual"
 PKG_AUTORECONF="no"
 
 build_install() {
@@ -130,9 +132,11 @@ build_install() {
 
     rm -r libv4l/
 
-    #Fix Vulkan ICD
-    sed -i 's:libGLX_nvidia.so.0:/usr/lib/libGLX_nvidia.so.0:g' nvidia_icd.json
-
+    if [ ! "${VULKAN}" = "" -o ! "${VULKAN}" = "no" ]; then
+      #Fix Vulkan ICD
+      sed -i 's:libGLX_nvidia.so.0:/usr/lib/libGLX_nvidia.so.0:g' nvidia_icd.json
+    fi
+    
     #Fix glvnd config
     sed -i 's:libEGL_nvidia.so.0:/usr/lib/libEGL_nvidia.so.0:g' nvidia.json
     rm ../share/glvnd/egl_vendor.d/*
@@ -149,10 +153,15 @@ build_install() {
     cd ../../../
     cd etc
     ln -sfn asound.conf.tegrasndt210ref asound.conf
-    cd vulkan/icd.d
-    rm nvidia_icd.json
-    ln -sfn /usr/lib/nvidia_icd.json nvidia_icd.json
-    cd ../../../../
+    if [ ! "${VULKAN}" = "" -o ! "${VULKAN}" = "no" ]; then
+      cd vulkan/icd.d
+      rm nvidia_icd.json
+      ln -sfn /usr/lib/nvidia_icd.json nvidia_icd.json
+      cd ../../../../
+    else
+      rm ../usr/lib/nvidia_icd.json
+      cd ../
+    fi 
 fi
 }
 

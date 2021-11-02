@@ -19,6 +19,10 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --disable-selinux \
                            --disable-xvmc"
 
+if [ "${PROJECT}" = "L4T" ]; then
+  PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET/--disable-shared/--enable-shared}"
+fi
+
 pre_configure_target() {
   PYTHON_LIBDIR=${SYSROOT_PREFIX}/usr/lib/${PKG_PYTHON_VERSION}
   PYTHON_TOOLCHAIN_PATH=${PYTHON_LIBDIR}/site-packages

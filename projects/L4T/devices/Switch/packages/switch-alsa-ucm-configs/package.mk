@@ -25,7 +25,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/lakkatv/Lakka"
 PKG_URL=""
-PKG_DEPENDS_TARGET="alsa-ucm-conf"
+PKG_DEPENDS_TARGET="alsa-lib alsa-ucm-conf"
 PKG_PRIORITY="optional"
 PKG_SECTION="virtual"
 PKG_SHORTDESC="Nintendo Switch Alsa UCM Configs"
@@ -36,13 +36,7 @@ PKG_AUTORECONF="no"
 
 post_install() {
   mkdir -p "${INSTALL}"/usr/share/alsa/ucm2
-  mkdir -p "${INSTALL}"/usr/share/alsa/init/postinit
-  PWD="$(pwd)"
-  cd "${INSTALL}"/usr/share/alsa/
-  ln -s ucm2 ucm
-  cd ${PWD}
-  cp -Pr "${PKG_DIR}"/ucm_data/* "${INSTALL}"/usr/share/alsa/ucm/
-  cp -Pr "${PKG_DIR}"/postinit/* "${INSTALL}"/usr/share/alsa/init/postinit/
+  cp -Pr "${PKG_DIR}"/ucm_data/* "${INSTALL}"/usr/share/alsa/ucm2/
   #Audio Fix Service
   enable_service alsa-init.service
 }
