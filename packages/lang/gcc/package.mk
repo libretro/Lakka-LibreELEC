@@ -15,7 +15,7 @@ PKG_DEPENDS_INIT="toolchain"
 PKG_LONGDESC="This package contains the GNU Compiler Collection."
 
 case ${TARGET_ARCH} in
-  riscv64)
+  arm|riscv64)
     OPTS_LIBATOMIC="--enable-libatomic"
     ;;
   *)
