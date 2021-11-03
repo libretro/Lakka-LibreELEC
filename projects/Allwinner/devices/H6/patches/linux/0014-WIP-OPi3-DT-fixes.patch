@@ -1,0 +1,132 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@gmail.com>
+Date: Sun, 26 Sep 2021 09:31:45 +0200
+Subject: [PATCH] WIP: OPi3 DT fixes
+
+---
+ .../dts/allwinner/sun50i-h6-orangepi-3.dts    | 70 +++++++++----------
+ 1 file changed, 34 insertions(+), 36 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi-3.dts b/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi-3.dts
+index 2e96605106c5..587c2b33c52f 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi-3.dts
++++ b/arch/arm64/boot/dts/allwinner/sun50i-h6-orangepi-3.dts
+@@ -74,26 +74,6 @@ reg_gmac_2v5: gmac-2v5 {
+ 		gpio = <&pio 3 6 GPIO_ACTIVE_HIGH>; /* PD6 */
+ 	};
+ 
+-	reg_vcc33_wifi: vcc33-wifi {
+-		/* Always on 3.3V regulator for WiFi and BT */
+-		compatible = "regulator-fixed";
+-		regulator-name = "vcc33-wifi";
+-		regulator-min-microvolt = <3300000>;
+-		regulator-max-microvolt = <3300000>;
+-		regulator-always-on;
+-		vin-supply = <&reg_vcc5v>;
+-	};
+-
+-	reg_vcc_wifi_io: vcc-wifi-io {
+-		/* Always on 1.8V/300mA regulator for WiFi and BT IO */
+-		compatible = "regulator-fixed";
+-		regulator-name = "vcc-wifi-io";
+-		regulator-min-microvolt = <1800000>;
+-		regulator-max-microvolt = <1800000>;
+-		regulator-always-on;
+-		vin-supply = <&reg_vcc33_wifi>;
+-	};
+-
+ 	wifi_pwrseq: wifi-pwrseq {
+ 		compatible = "mmc-pwrseq-simple";
+ 		clocks = <&rtc 1>;
+@@ -175,8 +155,8 @@ &mmc0 {
+ };
+ 
+ &mmc1 {
+-	vmmc-supply = <&reg_vcc33_wifi>;
+-	vqmmc-supply = <&reg_vcc_wifi_io>;
++	vmmc-supply = <&reg_cldo2>;
++	vqmmc-supply = <&reg_bldo3>;
+ 	mmc-pwrseq = <&wifi_pwrseq>;
+ 	bus-width = <4>;
+ 	non-removable;
+@@ -211,7 +191,7 @@ &ohci3 {
+ &pio {
+ 	vcc-pc-supply = <&reg_bldo2>;
+ 	vcc-pd-supply = <&reg_cldo1>;
+-	vcc-pg-supply = <&reg_vcc_wifi_io>;
++	vcc-pg-supply = <&reg_bldo3>;
+ };
+ 
+ &r_i2c {
+@@ -270,13 +250,12 @@ reg_bldo2: bldo2 {
+ 				regulator-max-microvolt = <1800000>;
+ 				regulator-name = "vcc-efuse-pcie-hdmi-pc";
+ 			};
+-
+-			bldo3 {
+-				/* unused */
+-			};
+-
+-			bldo4 {
+-				/* unused */
++			
++			reg_bldo3: bldo3 {
++				regulator-always-on;
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc-dcxoio";
+ 			};
+ 
+ 			reg_cldo1: cldo1 {
+@@ -286,19 +265,34 @@ reg_cldo1: cldo1 {
+ 				regulator-name = "vcc33-io-pd-emmc-sd-usb-uart-2";
+ 			};
+ 
+-			cldo2 {
+-				/* unused */
++			reg_cldo2: cldo2 {
++				/*
++				 * This regulator is connected with CLDO3.
++				 * Before the kernel can support synchronized
++				 * enable of coupled regulators, keep them
++				 * both always on as a ugly hack.
++				 */
++				regulator-always-on;
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-name = "vcc-wifi-1";
+ 			};
+ 
+ 			cldo3 {
+-				/* unused */
++				/*
++				 * This regulator is connected with CLDO2.
++				 * See the comments for CLDO2.
++				 */
++				regulator-always-on;
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-name = "vcc-wifi-2";
+ 			};
+ 
+ 			reg_dcdca: dcdca {
+ 				regulator-always-on;
+-				regulator-min-microvolt = <800000>;
+-				regulator-max-microvolt = <1160000>;
+-				regulator-ramp-delay = <2500>;
++				regulator-min-microvolt = <810000>;
++				regulator-max-microvolt = <1080000>;
+ 				regulator-name = "vdd-cpu";
+ 			};
+ 
+@@ -335,6 +329,10 @@ &r_ir {
+ 	status = "okay";
+ };
+ 
++&r_pio {
++	vcc-pm-supply = <&reg_bldo3>;
++};
++
+ &rtc {
+ 	clocks = <&ext_osc32k>;
+ };

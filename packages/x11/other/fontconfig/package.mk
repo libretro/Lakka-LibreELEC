@@ -28,7 +28,4 @@ pre_configure_target() {
 
 post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/bin
-
-  mkdir -p ${INSTALL}/etc/fonts/conf.d
-    cp ${PKG_DIR}/conf.d/*.conf ${INSTALL}/etc/fonts/conf.d
 }

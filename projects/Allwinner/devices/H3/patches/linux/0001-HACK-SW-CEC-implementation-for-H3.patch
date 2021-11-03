@@ -1,24 +1,26 @@
-From 0981ac8f42983c820790b14668d59f39b0375d90 Mon Sep 17 00:00:00 2001
-From: Jernej Skrabec <jernej.skrabec@siol.net>
-Date: Sat, 25 May 2019 12:03:39 +0200
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@gmail.com>
+Date: Mon, 11 Oct 2021 20:13:41 +0200
 Subject: [PATCH] HACK: SW CEC implementation for H3
 
 Many H3 boards lack 32768 Hz external oscillator, so internal RC is used
 instead. However, it's too unstable for CEC. Use SW implementation
 instead. That makes it usable, albeit sensitive to cpufreq changes.
 
-Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
+Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
 ---
  drivers/gpu/drm/bridge/synopsys/dw-hdmi.c |  2 +-
  drivers/gpu/drm/sun4i/Kconfig             |  2 +
  drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h     | 12 ++++
- drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c    | 74 ++++++++++++++++++++++-
+ drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c    | 76 ++++++++++++++++++++++-
  include/drm/bridge/dw_hdmi.h              |  2 +
- 5 files changed, 89 insertions(+), 3 deletions(-)
+ 5 files changed, 91 insertions(+), 3 deletions(-)
 
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
+index 0c79a9ba48bb..d062815b6c92 100644
 --- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
 +++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
-@@ -3421,7 +3421,7 @@ struct dw_hdmi *dw_hdmi_probe(struct pla
+@@ -3421,7 +3421,7 @@ struct dw_hdmi *dw_hdmi_probe(struct platform_device *pdev,
  		hdmi->audio = platform_device_register_full(&pdevinfo);
  	}
  
@@ -27,6 +29,8 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
  		cec.hdmi = hdmi;
  		cec.ops = &dw_hdmi_cec_ops;
  		cec.irq = irq;
+diff --git a/drivers/gpu/drm/sun4i/Kconfig b/drivers/gpu/drm/sun4i/Kconfig
+index 5755f0432e77..b93eb2fb52ce 100644
 --- a/drivers/gpu/drm/sun4i/Kconfig
 +++ b/drivers/gpu/drm/sun4i/Kconfig
 @@ -56,6 +56,8 @@ config DRM_SUN8I_DW_HDMI
@@ -38,6 +42,8 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
  	help
  	  Choose this option if you have an Allwinner SoC with the
  	  DesignWare HDMI controller with custom HDMI PHY. If M is
+diff --git a/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h b/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h
+index bffe1b9cd3dc..438f7398e26d 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h
 +++ b/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h
 @@ -13,6 +13,8 @@
@@ -80,9 +86,11 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
  	struct clk			*clk_bus;
  	struct clk			*clk_mod;
  	struct clk			*clk_phy;
+diff --git a/drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c b/drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c
+index b64d93da651d..4e324e7f4b64 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c
-@@ -498,8 +498,9 @@ static void sun8i_hdmi_phy_init_h3(struc
+@@ -498,8 +498,9 @@ static void sun8i_hdmi_phy_init_h3(struct sun8i_hdmi_phy *phy)
  	regmap_update_bits(phy->regs, SUN8I_HDMI_PHY_PLL_CFG1_REG,
  			   SUN8I_HDMI_PHY_PLL_CFG1_CKIN_SEL_MSK, 0);
  
@@ -94,7 +102,7 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
  
  	/* read calibration data */
  	regmap_read(phy->regs, SUN8I_HDMI_PHY_ANA_STS_REG, &val);
-@@ -525,8 +526,47 @@ void sun8i_hdmi_phy_set_ops(struct sun8i
+@@ -576,8 +577,47 @@ void sun8i_hdmi_phy_set_ops(struct sun8i_hdmi_phy *phy,
  		plat_data->cur_ctr = variant->cur_ctr;
  		plat_data->phy_config = variant->phy_cfg;
  	}
@@ -142,7 +150,7 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
  static const struct regmap_config sun8i_hdmi_phy_regmap_config = {
  	.reg_bits	= 32,
  	.val_bits	= 32,
-@@ -543,6 +583,7 @@ static const struct sun8i_hdmi_phy_varia
+@@ -594,6 +634,7 @@ static const struct sun8i_hdmi_phy_variant sun8i_a83t_hdmi_phy = {
  };
  
  static const struct sun8i_hdmi_phy_variant sun8i_h3_hdmi_phy = {
@@ -150,10 +158,19 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
  	.has_phy_clk = true,
  	.is_custom_phy = true,
  	.phy_init = &sun8i_hdmi_phy_init_h3,
-@@ -725,10 +766,36 @@ static int sun8i_hdmi_phy_probe(struct p
- 		clk_prepare_enable(phy->clk_phy);
- 	}
+@@ -653,6 +694,7 @@ int sun8i_hdmi_phy_get(struct sun8i_dw_hdmi *hdmi, struct device_node *node)
+ {
+ 	struct platform_device *pdev = of_find_device_by_node(node);
+ 	struct sun8i_hdmi_phy *phy;
++	int ret;
  
+ 	if (!pdev)
+ 		return -EPROBE_DEFER;
+@@ -664,8 +706,35 @@ int sun8i_hdmi_phy_get(struct sun8i_dw_hdmi *hdmi, struct device_node *node)
+ 	hdmi->phy = phy;
+ 
+ 	put_device(&pdev->dev);
++	
 +	if (phy->variant->bit_bang_cec) {
 +		phy->cec_adapter =
 +			cec_pin_allocate_adapter(&sun8i_hdmi_phy_cec_pin_ops,
@@ -161,42 +178,42 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
 +						 CEC_CAP_DEFAULTS);
 +		ret = PTR_ERR_OR_ZERO(phy->cec_adapter);
 +		if (ret < 0)
-+			goto err_disable_clk_phy;
++			return 0;
 +
-+		phy->cec_notifier = cec_notifier_cec_adap_register(dev, NULL, phy->cec_adapter);
++		phy->cec_notifier = cec_notifier_cec_adap_register(hdmi->dev, NULL, phy->cec_adapter);
 +		if (!phy->cec_notifier) {
 +			ret = -ENOMEM;
 +			goto err_delete_cec_adapter;
 +		}
 +
-+		ret = cec_register_adapter(phy->cec_adapter, dev);
++		ret = cec_register_adapter(phy->cec_adapter, hdmi->dev);
 +		if (ret < 0)
 +			goto err_put_cec_notifier;
 +	}
-+
- 	platform_set_drvdata(pdev, phy);
  
  	return 0;
- 
++
 +err_put_cec_notifier:
 +	cec_notifier_cec_adap_unregister(phy->cec_notifier, phy->cec_adapter);
 +err_delete_cec_adapter:
 +	cec_delete_adapter(phy->cec_adapter);
-+err_disable_clk_phy:
-+	clk_disable_unprepare(phy->clk_phy);
- err_disable_clk_mod:
- 	clk_disable_unprepare(phy->clk_mod);
- err_disable_clk_bus:
-@@ -753,6 +820,9 @@ static int sun8i_hdmi_phy_remove(struct
++
++	return ret;
+ }
+ 
+ static int sun8i_hdmi_phy_probe(struct platform_device *pdev)
+@@ -768,6 +837,9 @@ static int sun8i_hdmi_phy_remove(struct platform_device *pdev)
  {
  	struct sun8i_hdmi_phy *phy = platform_get_drvdata(pdev);
  
 +	cec_notifier_cec_adap_unregister(phy->cec_notifier, phy->cec_adapter);
 +	cec_unregister_adapter(phy->cec_adapter);
 +
- 	clk_disable_unprepare(phy->clk_mod);
- 	clk_disable_unprepare(phy->clk_bus);
- 	clk_disable_unprepare(phy->clk_phy);
+ 	reset_control_put(phy->rst_phy);
+ 
+ 	clk_put(phy->clk_pll0);
+diff --git a/include/drm/bridge/dw_hdmi.h b/include/drm/bridge/dw_hdmi.h
+index ea34ca146b82..e66a4edc2a93 100644
 --- a/include/drm/bridge/dw_hdmi.h
 +++ b/include/drm/bridge/dw_hdmi.h
 @@ -153,6 +153,8 @@ struct dw_hdmi_plat_data {

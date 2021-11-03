@@ -2,8 +2,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="rpi-eeprom"
-PKG_VERSION="f19990103e4483ebb47be5ea897c134913f83ad8"
-PKG_SHA256="6985c06448a5fcdcd0350bebfb50930a7d4e05ecaf1230e29d796c5a8144dbd8"
+PKG_VERSION="47976e4409c6999a8e211976c75c60a97c90275c"
+PKG_SHA256="fe67e174d897c6e29549129522c2fbce2404142e098c3c809c2a3b26b5708055"
 PKG_ARCH="arm"
 [ "${DISTRO}" = "Lakka" ] && PKG_ARCH+=" aarch64" || true
 PKG_LICENSE="BSD-3/custom"

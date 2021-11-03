@@ -2,10 +2,10 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="tvheadend43"
-PKG_VERSION="eb59284b8527e3c51eadfeca94ec1e9174cdbdb0"
-PKG_SHA256="df3d50cd46e7d6b9d951bc36950eb1a49ac82fd5c2b08c3abc37cf8fba15651c"
-PKG_VERSION_NUMBER="4.3-1967"
-PKG_REV="101"
+PKG_VERSION="8fc2dfa7e1b1b3b1e8ba6f78cd4a81f77fa6a736"
+PKG_SHA256="6c937acf17396580f65e2706b091024a7a61e7e4969d1484d76e63c061f6487f"
+PKG_VERSION_NUMBER="4.3-1979"
+PKG_REV="102"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.tvheadend.org"
@@ -37,19 +37,19 @@ PKG_TVH_TRANSCODING="\
   --enable-libfdkaac \
   --enable-libopus \
   --enable-libvorbis \
-  --enable-libvpx \
-  --enable-libx264 \
-  --enable-libx265"
+  --enable-libx264"
 
 # hw specific transcoding options
-if [ "${TARGET_ARCH}" = x86_64 ]; then
+if [ "${TARGET_ARCH}" = "x86_64" ]; then
   PKG_DEPENDS_TARGET+=" libva"
+  # specific transcoding options
   PKG_TVH_TRANSCODING="${PKG_TVH_TRANSCODING} \
-    --enable-vaapi"
-fi
-
-# specific transcoding options
-if [[ "${TARGET_ARCH}" != "x86_64" ]]; then
+    --enable-vaapi \
+    --enable-libvpx \
+    --enable-libx265"
+else
+  # for != "x86_64" targets
+  # specific transcoding options
   PKG_TVH_TRANSCODING="${PKG_TVH_TRANSCODING} \
     --disable-libvpx \
     --disable-libx265"
@@ -111,7 +111,7 @@ post_makeinstall_target() {
 }
 
 addon() {
-  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/{bin,lib}
 
   cp ${PKG_DIR}/addon.xml ${ADDON_BUILD}/${PKG_ADDON_ID}
 
@@ -122,6 +122,10 @@ addon() {
   cp -P ${PKG_INSTALL}/usr/bin/tvheadend ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
   cp -P ${PKG_INSTALL}/usr/lib/capmt_ca.so ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
   cp -P $(get_install_dir comskip)/usr/bin/comskip ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+
+  if [ "${TARGET_ARCH}" = "x86_64" ]; then
+    cp -P $(get_install_dir x265)/usr/lib/libx265.so.199 ${ADDON_BUILD}/${PKG_ADDON_ID}/lib
+  fi
 
   # dvb-scan files
   mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/dvb-scan

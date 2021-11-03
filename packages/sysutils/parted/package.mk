@@ -34,9 +34,9 @@ make_init() {
 }
 
 makeinstall_init() {
-  mkdir -p ${INSTALL}/sbin
-    cp ../.${TARGET_NAME}/parted/parted ${INSTALL}/sbin
-    cp ../.${TARGET_NAME}/partprobe/partprobe ${INSTALL}/sbin
+  mkdir -p ${INSTALL}/usr/sbin
+    cp ../.${TARGET_NAME}/parted/parted ${INSTALL}/usr/sbin
+    cp ../.${TARGET_NAME}/partprobe/partprobe ${INSTALL}/usr/sbin
 }
 
 pre_configure_target() {

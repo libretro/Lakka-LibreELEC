@@ -14,6 +14,7 @@ PKG_LONGDESC="The rpcbind utility is a server that converts RPC program numbers 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_header_rpcsvc_mount_h=no \
                            --disable-warmstarts \
                            --disable-libwrap \
+                           --enable-rmtcalls \
                            --with-statedir=/tmp \
                            --with-rpcuser=root"
 

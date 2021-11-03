@@ -197,7 +197,7 @@ index 36713ab658..665d247bf7 100755
  test_code cc sys/videoio.h "struct v4l2_frmsizeenum vfse; vfse.discrete.width = 0;" && enable_sanitized struct_v4l2_frmivalenum_discrete
  
 diff --git a/fftools/ffmpeg.c b/fftools/ffmpeg.c
-index 2e9448ea2b..65a050b272 100644
+index 2e9448ea2b..7d22427b1b 100644
 --- a/fftools/ffmpeg.c
 +++ b/fftools/ffmpeg.c
 @@ -2118,8 +2118,8 @@ static int ifilter_send_frame(InputFilter *ifilter, AVFrame *frame)
@@ -238,7 +238,7 @@ index 2e9448ea2b..65a050b272 100644
 +
 +            if (no_cvt_hw) {
 +                config = avcodec_get_hw_config(s->codec, 0);
-+                if (config->device_type == AV_HWDEVICE_TYPE_NONE) {
++                if (config->methods == AV_CODEC_HW_CONFIG_METHOD_INTERNAL) {
 +                    av_log(s, AV_LOG_DEBUG, "no_cvt_hw so accepting pix_fmt %d with codec internal hwaccel\n", *p);
 +                    ist->hwaccel_pix_fmt = *p;
 +                    break;
@@ -357,7 +357,7 @@ index 2eb4e1c973..ffbfa9accf 100644
        "write program-readable progress information", "url" },
      { "stdin",          OPT_BOOL | OPT_EXPERT,                       { &stdin_interaction },
 diff --git a/libavcodec/Makefile b/libavcodec/Makefile
-index 5a6ea59715..3b589eb2f3 100644
+index 5a6ea59715..069865ee37 100644
 --- a/libavcodec/Makefile
 +++ b/libavcodec/Makefile
 @@ -19,6 +19,7 @@ HEADERS = ac3_parser.h                                                  \
@@ -403,17 +403,18 @@ index 5a6ea59715..3b589eb2f3 100644
  OBJS-$(CONFIG_HEVC_VAAPI_ENCODER)      += vaapi_encode_h265.o h265_profile_level.o
  OBJS-$(CONFIG_HEVC_V4L2M2M_DECODER)    += v4l2_m2m_dec.o
  OBJS-$(CONFIG_HEVC_V4L2M2M_ENCODER)    += v4l2_m2m_enc.o
-@@ -909,6 +922,9 @@ OBJS-$(CONFIG_HEVC_D3D11VA_HWACCEL)       += dxva2_hevc.o
+@@ -909,6 +922,10 @@ OBJS-$(CONFIG_HEVC_D3D11VA_HWACCEL)       += dxva2_hevc.o
  OBJS-$(CONFIG_HEVC_DXVA2_HWACCEL)         += dxva2_hevc.o
  OBJS-$(CONFIG_HEVC_NVDEC_HWACCEL)         += nvdec_hevc.o
  OBJS-$(CONFIG_HEVC_QSV_HWACCEL)           += qsvdec_h2645.o
 +OBJS-$(CONFIG_HEVC_RPI4_8_HWACCEL)        += rpivid_hevc.o
 +OBJS-$(CONFIG_HEVC_RPI4_10_HWACCEL)       += rpivid_hevc.o
-+OBJS-$(CONFIG_HEVC_V4L2REQUEST_HWACCEL)   += v4l2_request_hevc.o
++OBJS-$(CONFIG_HEVC_V4L2REQUEST_HWACCEL)   += v4l2_request_hevc.o v4l2_req_decode_q.o\
++                                             v4l2_req_hevc_v1.o v4l2_req_hevc_v2.o
  OBJS-$(CONFIG_HEVC_VAAPI_HWACCEL)         += vaapi_hevc.o h265_profile_level.o
  OBJS-$(CONFIG_HEVC_VDPAU_HWACCEL)         += vdpau_hevc.o
  OBJS-$(CONFIG_MJPEG_NVDEC_HWACCEL)        += nvdec_mjpeg.o
-@@ -1261,3 +1277,31 @@ $(SUBDIR)qdm2.o: $(SUBDIR)qdm2_tables.h
+@@ -1261,3 +1278,31 @@ $(SUBDIR)qdm2.o: $(SUBDIR)qdm2_tables.h
  $(SUBDIR)sinewin.o: $(SUBDIR)sinewin_tables.h
  $(SUBDIR)sinewin_fixed.o: $(SUBDIR)sinewin_fixed_tables.h
  endif
@@ -15352,12 +15353,12 @@ index 1fda619ee7..b4650f9ec9 100644
  /**
   * Find a registered decoder with the specified name.
   *
-diff --git a/libavcodec/hevc-ctrls.h b/libavcodec/hevc-ctrls.h
+diff --git a/libavcodec/hevc-ctrls-v1.h b/libavcodec/hevc-ctrls-v1.h
 new file mode 100644
-index 0000000000..13698d3f33
+index 0000000000..72cbba0953
 --- /dev/null
-+++ b/libavcodec/hevc-ctrls.h
-@@ -0,0 +1,230 @@
++++ b/libavcodec/hevc-ctrls-v1.h
+@@ -0,0 +1,229 @@
 +/* SPDX-License-Identifier: GPL-2.0 */
 +/*
 + * These are the HEVC state controls for use with stateless HEVC
@@ -15437,8 +15438,7 @@ index 0000000000..13698d3f33
 +	__u8	num_short_term_ref_pic_sets;
 +	__u8	num_long_term_ref_pics_sps;
 +	__u8	chroma_format_idc;
-+
-+	__u8	padding;
++	__u8	sps_max_sub_layers_minus1;
 +
 +	__u64	flags;
 +};
@@ -15577,6 +15577,269 @@ index 0000000000..13698d3f33
 +
 +	__u64	flags;
 +};
++
++struct v4l2_ctrl_hevc_scaling_matrix {
++	__u8	scaling_list_4x4[6][16];
++	__u8	scaling_list_8x8[6][64];
++	__u8	scaling_list_16x16[6][64];
++	__u8	scaling_list_32x32[2][64];
++	__u8	scaling_list_dc_coef_16x16[6];
++	__u8	scaling_list_dc_coef_32x32[2];
++};
++
++#endif
+diff --git a/libavcodec/hevc-ctrls-v2.h b/libavcodec/hevc-ctrls-v2.h
+new file mode 100644
+index 0000000000..7cbbbf055f
+--- /dev/null
++++ b/libavcodec/hevc-ctrls-v2.h
+@@ -0,0 +1,257 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/*
++ * These are the HEVC state controls for use with stateless HEVC
++ * codec drivers.
++ *
++ * It turns out that these structs are not stable yet and will undergo
++ * more changes. So keep them private until they are stable and ready to
++ * become part of the official public API.
++ */
++
++#ifndef _HEVC_CTRLS_H_
++#define _HEVC_CTRLS_H_
++
++#include <linux/videodev2.h>
++
++/* The pixel format isn't stable at the moment and will likely be renamed. */
++#define V4L2_PIX_FMT_HEVC_SLICE v4l2_fourcc('S', '2', '6', '5') /* HEVC parsed slices */
++
++#define V4L2_CID_MPEG_VIDEO_HEVC_SPS		(V4L2_CID_CODEC_BASE + 1008)
++#define V4L2_CID_MPEG_VIDEO_HEVC_PPS		(V4L2_CID_CODEC_BASE + 1009)
++#define V4L2_CID_MPEG_VIDEO_HEVC_SLICE_PARAMS	(V4L2_CID_CODEC_BASE + 1010)
++#define V4L2_CID_MPEG_VIDEO_HEVC_SCALING_MATRIX	(V4L2_CID_CODEC_BASE + 1011)
++#define V4L2_CID_MPEG_VIDEO_HEVC_DECODE_PARAMS	(V4L2_CID_CODEC_BASE + 1012)
++#define V4L2_CID_MPEG_VIDEO_HEVC_DECODE_MODE	(V4L2_CID_CODEC_BASE + 1015)
++#define V4L2_CID_MPEG_VIDEO_HEVC_START_CODE	(V4L2_CID_CODEC_BASE + 1016)
++
++/* enum v4l2_ctrl_type type values */
++#define V4L2_CTRL_TYPE_HEVC_SPS 0x0120
++#define V4L2_CTRL_TYPE_HEVC_PPS 0x0121
++#define V4L2_CTRL_TYPE_HEVC_SLICE_PARAMS 0x0122
++#define V4L2_CTRL_TYPE_HEVC_SCALING_MATRIX 0x0123
++#define V4L2_CTRL_TYPE_HEVC_DECODE_PARAMS 0x0124
++
++enum v4l2_mpeg_video_hevc_decode_mode {
++	V4L2_MPEG_VIDEO_HEVC_DECODE_MODE_SLICE_BASED,
++	V4L2_MPEG_VIDEO_HEVC_DECODE_MODE_FRAME_BASED,
++};
++
++enum v4l2_mpeg_video_hevc_start_code {
++	V4L2_MPEG_VIDEO_HEVC_START_CODE_NONE,
++	V4L2_MPEG_VIDEO_HEVC_START_CODE_ANNEX_B,
++};
++
++#define V4L2_HEVC_SLICE_TYPE_B	0
++#define V4L2_HEVC_SLICE_TYPE_P	1
++#define V4L2_HEVC_SLICE_TYPE_I	2
++
++#define V4L2_HEVC_SPS_FLAG_SEPARATE_COLOUR_PLANE		(1ULL << 0)
++#define V4L2_HEVC_SPS_FLAG_SCALING_LIST_ENABLED			(1ULL << 1)
++#define V4L2_HEVC_SPS_FLAG_AMP_ENABLED				(1ULL << 2)
++#define V4L2_HEVC_SPS_FLAG_SAMPLE_ADAPTIVE_OFFSET		(1ULL << 3)
++#define V4L2_HEVC_SPS_FLAG_PCM_ENABLED				(1ULL << 4)
++#define V4L2_HEVC_SPS_FLAG_PCM_LOOP_FILTER_DISABLED		(1ULL << 5)
++#define V4L2_HEVC_SPS_FLAG_LONG_TERM_REF_PICS_PRESENT		(1ULL << 6)
++#define V4L2_HEVC_SPS_FLAG_SPS_TEMPORAL_MVP_ENABLED		(1ULL << 7)
++#define V4L2_HEVC_SPS_FLAG_STRONG_INTRA_SMOOTHING_ENABLED	(1ULL << 8)
++
++/* The controls are not stable at the moment and will likely be reworked. */
++struct v4l2_ctrl_hevc_sps {
++	/* ISO/IEC 23008-2, ITU-T Rec. H.265: Sequence parameter set */
++	__u16	pic_width_in_luma_samples;
++	__u16	pic_height_in_luma_samples;
++	__u8	bit_depth_luma_minus8;
++	__u8	bit_depth_chroma_minus8;
++	__u8	log2_max_pic_order_cnt_lsb_minus4;
++	__u8	sps_max_dec_pic_buffering_minus1;
++	__u8	sps_max_num_reorder_pics;
++	__u8	sps_max_latency_increase_plus1;
++	__u8	log2_min_luma_coding_block_size_minus3;
++	__u8	log2_diff_max_min_luma_coding_block_size;
++	__u8	log2_min_luma_transform_block_size_minus2;
++	__u8	log2_diff_max_min_luma_transform_block_size;
++	__u8	max_transform_hierarchy_depth_inter;
++	__u8	max_transform_hierarchy_depth_intra;
++	__u8	pcm_sample_bit_depth_luma_minus1;
++	__u8	pcm_sample_bit_depth_chroma_minus1;
++	__u8	log2_min_pcm_luma_coding_block_size_minus3;
++	__u8	log2_diff_max_min_pcm_luma_coding_block_size;
++	__u8	num_short_term_ref_pic_sets;
++	__u8	num_long_term_ref_pics_sps;
++	__u8	chroma_format_idc;
++	__u8	sps_max_sub_layers_minus1;
++
++	__u64	flags;
++};
++
++#define V4L2_HEVC_PPS_FLAG_DEPENDENT_SLICE_SEGMENT_ENABLED	(1ULL << 0)
++#define V4L2_HEVC_PPS_FLAG_OUTPUT_FLAG_PRESENT			(1ULL << 1)
++#define V4L2_HEVC_PPS_FLAG_SIGN_DATA_HIDING_ENABLED		(1ULL << 2)
++#define V4L2_HEVC_PPS_FLAG_CABAC_INIT_PRESENT			(1ULL << 3)
++#define V4L2_HEVC_PPS_FLAG_CONSTRAINED_INTRA_PRED		(1ULL << 4)
++#define V4L2_HEVC_PPS_FLAG_TRANSFORM_SKIP_ENABLED		(1ULL << 5)
++#define V4L2_HEVC_PPS_FLAG_CU_QP_DELTA_ENABLED			(1ULL << 6)
++#define V4L2_HEVC_PPS_FLAG_PPS_SLICE_CHROMA_QP_OFFSETS_PRESENT	(1ULL << 7)
++#define V4L2_HEVC_PPS_FLAG_WEIGHTED_PRED			(1ULL << 8)
++#define V4L2_HEVC_PPS_FLAG_WEIGHTED_BIPRED			(1ULL << 9)
++#define V4L2_HEVC_PPS_FLAG_TRANSQUANT_BYPASS_ENABLED		(1ULL << 10)
++#define V4L2_HEVC_PPS_FLAG_TILES_ENABLED			(1ULL << 11)
++#define V4L2_HEVC_PPS_FLAG_ENTROPY_CODING_SYNC_ENABLED		(1ULL << 12)
++#define V4L2_HEVC_PPS_FLAG_LOOP_FILTER_ACROSS_TILES_ENABLED	(1ULL << 13)
++#define V4L2_HEVC_PPS_FLAG_PPS_LOOP_FILTER_ACROSS_SLICES_ENABLED (1ULL << 14)
++#define V4L2_HEVC_PPS_FLAG_DEBLOCKING_FILTER_OVERRIDE_ENABLED	(1ULL << 15)
++#define V4L2_HEVC_PPS_FLAG_PPS_DISABLE_DEBLOCKING_FILTER	(1ULL << 16)
++#define V4L2_HEVC_PPS_FLAG_LISTS_MODIFICATION_PRESENT		(1ULL << 17)
++#define V4L2_HEVC_PPS_FLAG_SLICE_SEGMENT_HEADER_EXTENSION_PRESENT (1ULL << 18)
++#define V4L2_HEVC_PPS_FLAG_DEBLOCKING_FILTER_CONTROL_PRESENT	(1ULL << 19)
++#define V4L2_HEVC_PPS_FLAG_UNIFORM_SPACING			(1ULL << 20)
++
++struct v4l2_ctrl_hevc_pps {
++	/* ISO/IEC 23008-2, ITU-T Rec. H.265: Picture parameter set */
++	__u8	num_extra_slice_header_bits;
++	__u8	num_ref_idx_l0_default_active_minus1;
++	__u8	num_ref_idx_l1_default_active_minus1;
++	__s8	init_qp_minus26;
++	__u8	diff_cu_qp_delta_depth;
++	__s8	pps_cb_qp_offset;
++	__s8	pps_cr_qp_offset;
++	__u8	num_tile_columns_minus1;
++	__u8	num_tile_rows_minus1;
++	__u8	column_width_minus1[20];
++	__u8	row_height_minus1[22];
++	__s8	pps_beta_offset_div2;
++	__s8	pps_tc_offset_div2;
++	__u8	log2_parallel_merge_level_minus2;
++
++	__u8	padding[4];
++	__u64	flags;
++};
++
++#define V4L2_HEVC_DPB_ENTRY_RPS_ST_CURR_BEFORE	0x01
++#define V4L2_HEVC_DPB_ENTRY_RPS_ST_CURR_AFTER	0x02
++#define V4L2_HEVC_DPB_ENTRY_RPS_LT_CURR		0x03
++
++#define V4L2_HEVC_DPB_ENTRIES_NUM_MAX		16
++
++struct v4l2_hevc_dpb_entry {
++	__u64	timestamp;
++	__u8	rps;
++	__u8	field_pic;
++	__u16	pic_order_cnt[2];
++	__u8	padding[2];
++};
++
++struct v4l2_hevc_pred_weight_table {
++	__s8	delta_luma_weight_l0[V4L2_HEVC_DPB_ENTRIES_NUM_MAX];
++	__s8	luma_offset_l0[V4L2_HEVC_DPB_ENTRIES_NUM_MAX];
++	__s8	delta_chroma_weight_l0[V4L2_HEVC_DPB_ENTRIES_NUM_MAX][2];
++	__s8	chroma_offset_l0[V4L2_HEVC_DPB_ENTRIES_NUM_MAX][2];
++
++	__s8	delta_luma_weight_l1[V4L2_HEVC_DPB_ENTRIES_NUM_MAX];
++	__s8	luma_offset_l1[V4L2_HEVC_DPB_ENTRIES_NUM_MAX];
++	__s8	delta_chroma_weight_l1[V4L2_HEVC_DPB_ENTRIES_NUM_MAX][2];
++	__s8	chroma_offset_l1[V4L2_HEVC_DPB_ENTRIES_NUM_MAX][2];
++
++	__u8	padding[6];
++
++	__u8	luma_log2_weight_denom;
++	__s8	delta_chroma_log2_weight_denom;
++};
++
++#define V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_SAO_LUMA		(1ULL << 0)
++#define V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_SAO_CHROMA		(1ULL << 1)
++#define V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_TEMPORAL_MVP_ENABLED	(1ULL << 2)
++#define V4L2_HEVC_SLICE_PARAMS_FLAG_MVD_L1_ZERO			(1ULL << 3)
++#define V4L2_HEVC_SLICE_PARAMS_FLAG_CABAC_INIT			(1ULL << 4)
++#define V4L2_HEVC_SLICE_PARAMS_FLAG_COLLOCATED_FROM_L0		(1ULL << 5)
++#define V4L2_HEVC_SLICE_PARAMS_FLAG_USE_INTEGER_MV		(1ULL << 6)
++#define V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_DEBLOCKING_FILTER_DISABLED (1ULL << 7)
++#define V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_LOOP_FILTER_ACROSS_SLICES_ENABLED (1ULL << 8)
++#define V4L2_HEVC_SLICE_PARAMS_FLAG_DEPENDENT_SLICE_SEGMENT	(1ULL << 9)
++
++struct v4l2_ctrl_hevc_slice_params {
++	__u32	bit_size;
++	__u32	data_bit_offset;
++
++	/* ISO/IEC 23008-2, ITU-T Rec. H.265: General slice segment header */
++	__u32	slice_segment_addr;
++	__u32	num_entry_point_offsets;
++
++	/* ISO/IEC 23008-2, ITU-T Rec. H.265: NAL unit header */
++	__u8	nal_unit_type;
++	__u8	nuh_temporal_id_plus1;
++
++	/* ISO/IEC 23008-2, ITU-T Rec. H.265: General slice segment header */
++	__u8	slice_type;
++	__u8	colour_plane_id;
++	__u16	slice_pic_order_cnt;
++	__u8	num_ref_idx_l0_active_minus1;
++	__u8	num_ref_idx_l1_active_minus1;
++	__u8	collocated_ref_idx;
++	__u8	five_minus_max_num_merge_cand;
++	__s8	slice_qp_delta;
++	__s8	slice_cb_qp_offset;
++	__s8	slice_cr_qp_offset;
++	__s8	slice_act_y_qp_offset;
++	__s8	slice_act_cb_qp_offset;
++	__s8	slice_act_cr_qp_offset;
++	__s8	slice_beta_offset_div2;
++	__s8	slice_tc_offset_div2;
++
++	/* ISO/IEC 23008-2, ITU-T Rec. H.265: Picture timing SEI message */
++	__u8	pic_struct;
++
++	/* ISO/IEC 23008-2, ITU-T Rec. H.265: General slice segment header */
++	__u8	ref_idx_l0[V4L2_HEVC_DPB_ENTRIES_NUM_MAX];
++	__u8	ref_idx_l1[V4L2_HEVC_DPB_ENTRIES_NUM_MAX];
++
++	__u8	padding[5];
++
++	__u32	entry_point_offset_minus1[256];
++
++	/* ISO/IEC 23008-2, ITU-T Rec. H.265: Weighted prediction parameter */
++	struct v4l2_hevc_pred_weight_table pred_weight_table;
++
++	__u64	flags;
++};
++
++#define V4L2_HEVC_DECODE_PARAM_FLAG_IRAP_PIC		0x1
++#define V4L2_HEVC_DECODE_PARAM_FLAG_IDR_PIC		0x2
++#define V4L2_HEVC_DECODE_PARAM_FLAG_NO_OUTPUT_OF_PRIOR  0x4
++
++struct v4l2_ctrl_hevc_decode_params {
++	__s32	pic_order_cnt_val;
++	__u8	num_active_dpb_entries;
++	struct	v4l2_hevc_dpb_entry dpb[V4L2_HEVC_DPB_ENTRIES_NUM_MAX];
++	__u8	num_poc_st_curr_before;
++	__u8	num_poc_st_curr_after;
++	__u8	num_poc_lt_curr;
++	__u8	poc_st_curr_before[V4L2_HEVC_DPB_ENTRIES_NUM_MAX];
++	__u8	poc_st_curr_after[V4L2_HEVC_DPB_ENTRIES_NUM_MAX];
++	__u8	poc_lt_curr[V4L2_HEVC_DPB_ENTRIES_NUM_MAX];
++	__u64	flags;
++};
++
++/*  MPEG-class control IDs specific to the Hantro driver as defined by V4L2 */
++#define V4L2_CID_CODEC_HANTRO_BASE				(V4L2_CTRL_CLASS_CODEC | 0x1200)
++/*
++ * V4L2_CID_HANTRO_HEVC_SLICE_HEADER_SKIP -
++ * the number of data (in bits) to skip in the
++ * slice segment header.
++ * If non-IDR, the bits to be skipped go from syntax element "pic_output_flag"
++ * to before syntax element "slice_temporal_mvp_enabled_flag".
++ * If IDR, the skipped bits are just "pic_output_flag"
++ * (separate_colour_plane_flag is not supported).
++ */
++#define V4L2_CID_HANTRO_HEVC_SLICE_HEADER_SKIP	(V4L2_CID_CODEC_HANTRO_BASE + 0)
 +
 +struct v4l2_ctrl_hevc_scaling_matrix {
 +	__u8	scaling_list_4x4[6][16];
@@ -15818,7 +16081,7 @@ index b6fb91c1c6..f3afb6e09a 100644
  };
  
 diff --git a/libavcodec/rawenc.c b/libavcodec/rawenc.c
-index d181b74570..3fe2ab445f 100644
+index d181b74570..b943dd0379 100644
 --- a/libavcodec/rawenc.c
 +++ b/libavcodec/rawenc.c
 @@ -24,6 +24,7 @@
@@ -15840,7 +16103,7 @@ index d181b74570..3fe2ab445f 100644
  
  static av_cold int raw_encode_init(AVCodecContext *avctx)
  {
-@@ -49,12 +54,95 @@ FF_ENABLE_DEPRECATION_WARNINGS
+@@ -49,22 +54,114 @@ FF_ENABLE_DEPRECATION_WARNINGS
      return 0;
  }
  
@@ -15917,27 +16180,65 @@ index d181b74570..3fe2ab445f 100644
 +
 +
  static int raw_encode(AVCodecContext *avctx, AVPacket *pkt,
-                       const AVFrame *frame, int *got_packet)
+-                      const AVFrame *frame, int *got_packet)
++                      const AVFrame *src_frame, int *got_packet)
  {
 -    int ret = av_image_get_buffer_size(frame->format,
 -                                       frame->width, frame->height, 1);
 +    int ret;
-+
++    AVFrame * frame = NULL;
+ 
+-    if (ret < 0)
 +#if CONFIG_SAND
-+    if (av_rpi_is_sand_frame(frame)) {
-+        ret = av_rpi_is_sand8_frame(frame) ? raw_sand8_as_yuv420(avctx, pkt, frame) :
-+            av_rpi_is_sand16_frame(frame) ? raw_sand16_as_yuv420(avctx, pkt, frame) :
-+            av_rpi_is_sand30_frame(frame) ? raw_sand30_as_yuv420(avctx, pkt, frame) : -1;
++    if (av_rpi_is_sand_frame(src_frame)) {
++        ret = av_rpi_is_sand8_frame(src_frame) ? raw_sand8_as_yuv420(avctx, pkt, src_frame) :
++            av_rpi_is_sand16_frame(src_frame) ? raw_sand16_as_yuv420(avctx, pkt, src_frame) :
++            av_rpi_is_sand30_frame(src_frame) ? raw_sand30_as_yuv420(avctx, pkt, src_frame) : -1;
 +        *got_packet = (ret == 0);
-+        return ret;
+         return ret;
 +    }
 +#endif
- 
++
++    if ((frame = av_frame_clone(src_frame)) == NULL) {
++        ret = AVERROR(ENOMEM);
++        goto fail;
++    }
++
++    if ((ret = av_frame_apply_cropping(frame, AV_FRAME_CROP_UNALIGNED)) < 0)
++        goto fail;
++
 +    ret = av_image_get_buffer_size(frame->format,
 +                                       frame->width, frame->height, 1);
-     if (ret < 0)
-         return ret;
++    if (ret < 0)
++        goto fail;
  
+     if ((ret = ff_alloc_packet2(avctx, pkt, ret, ret)) < 0)
+-        return ret;
++        goto fail;
+     if ((ret = av_image_copy_to_buffer(pkt->data, pkt->size,
+                                        (const uint8_t **)frame->data, frame->linesize,
+                                        frame->format,
+                                        frame->width, frame->height, 1)) < 0)
+-        return ret;
++        goto fail;
+ 
+     if(avctx->codec_tag == AV_RL32("yuv2") && ret > 0 &&
+        frame->format   == AV_PIX_FMT_YUYV422) {
+@@ -81,8 +178,14 @@ static int raw_encode(AVCodecContext *avctx, AVPacket *pkt,
+         }
+     }
+     pkt->flags |= AV_PKT_FLAG_KEY;
++    av_frame_free(&frame);
+     *got_packet = 1;
+     return 0;
++
++fail:
++    av_frame_free(&frame);
++    *got_packet = 0;
++    return ret;
+ }
+ 
+ AVCodec ff_rawvideo_encoder = {
 diff --git a/libavcodec/rpi_hevc_cabac.c b/libavcodec/rpi_hevc_cabac.c
 new file mode 100644
 index 0000000000..58c094c5f8
@@ -46032,7 +46333,7 @@ index 0000000000..85c5b46d75
 +};
 +
 diff --git a/libavcodec/v4l2_buffers.c b/libavcodec/v4l2_buffers.c
-index 02f23d954b..60c6793797 100644
+index 02f23d954b..8b10fd5398 100644
 --- a/libavcodec/v4l2_buffers.c
 +++ b/libavcodec/v4l2_buffers.c
 @@ -21,6 +21,7 @@
@@ -46120,23 +46421,151 @@ index 02f23d954b..60c6793797 100644
  }
  
  static enum AVColorPrimaries v4l2_get_color_primaries(V4L2Buffer *buf)
-@@ -210,73 +223,149 @@ static enum AVColorTransferCharacteristic v4l2_get_color_trc(V4L2Buffer *buf)
+@@ -116,6 +129,105 @@ static enum AVColorPrimaries v4l2_get_color_primaries(V4L2Buffer *buf)
+     return AVCOL_PRI_UNSPECIFIED;
+ }
+ 
++static void v4l2_set_color(V4L2Buffer *buf,
++                           const enum AVColorPrimaries avcp,
++                           const enum AVColorSpace avcs,
++                           const enum AVColorTransferCharacteristic avxc)
++{
++    enum v4l2_ycbcr_encoding ycbcr = V4L2_YCBCR_ENC_DEFAULT;
++    enum v4l2_colorspace cs = V4L2_COLORSPACE_DEFAULT;
++    enum v4l2_xfer_func xfer = V4L2_XFER_FUNC_DEFAULT;
++
++    switch (avcp) {
++    case AVCOL_PRI_BT709:
++        cs = V4L2_COLORSPACE_REC709;
++        ycbcr = V4L2_YCBCR_ENC_709;
++        break;
++    case AVCOL_PRI_BT470M:
++        cs = V4L2_COLORSPACE_470_SYSTEM_M;
++        ycbcr = V4L2_YCBCR_ENC_601;
++        break;
++    case AVCOL_PRI_BT470BG:
++        cs = V4L2_COLORSPACE_470_SYSTEM_BG;
++        break;
++    case AVCOL_PRI_SMPTE170M:
++        cs = V4L2_COLORSPACE_SMPTE170M;
++        break;
++    case AVCOL_PRI_SMPTE240M:
++        cs = V4L2_COLORSPACE_SMPTE240M;
++        break;
++    case AVCOL_PRI_BT2020:
++        cs = V4L2_COLORSPACE_BT2020;
++        break;
++    case AVCOL_PRI_SMPTE428:
++    case AVCOL_PRI_SMPTE431:
++    case AVCOL_PRI_SMPTE432:
++    case AVCOL_PRI_EBU3213:
++    case AVCOL_PRI_RESERVED:
++    case AVCOL_PRI_FILM:
++    case AVCOL_PRI_UNSPECIFIED:
++    default:
++        break;
++    }
++
++    switch (avcs) {
++    case AVCOL_SPC_RGB:
++        cs = V4L2_COLORSPACE_SRGB;
++        break;
++    case AVCOL_SPC_BT709:
++        cs = V4L2_COLORSPACE_REC709;
++        break;
++    case AVCOL_SPC_FCC:
++        cs = V4L2_COLORSPACE_470_SYSTEM_M;
++        break;
++    case AVCOL_SPC_BT470BG:
++        cs = V4L2_COLORSPACE_470_SYSTEM_BG;
++        break;
++    case AVCOL_SPC_SMPTE170M:
++        cs = V4L2_COLORSPACE_SMPTE170M;
++        break;
++    case AVCOL_SPC_SMPTE240M:
++        cs = V4L2_COLORSPACE_SMPTE240M;
++        break;
++    case AVCOL_SPC_BT2020_CL:
++        cs = V4L2_COLORSPACE_BT2020;
++        ycbcr = V4L2_YCBCR_ENC_BT2020_CONST_LUM;
++        break;
++    case AVCOL_SPC_BT2020_NCL:
++        cs = V4L2_COLORSPACE_BT2020;
++        break;
++    default:
++        break;
++    }
++
++    switch (xfer) {
++    case AVCOL_TRC_BT709:
++        xfer = V4L2_XFER_FUNC_709;
++        break;
++    case AVCOL_TRC_IEC61966_2_1:
++        xfer = V4L2_XFER_FUNC_SRGB;
++        break;
++    case AVCOL_TRC_SMPTE240M:
++        xfer = V4L2_XFER_FUNC_SMPTE240M;
++        break;
++    case AVCOL_TRC_SMPTE2084:
++        xfer = V4L2_XFER_FUNC_SMPTE2084;
++        break;
++    default:
++        break;
++    }
++
++    if (V4L2_TYPE_IS_MULTIPLANAR(buf->buf.type)) {
++        buf->context->format.fmt.pix_mp.colorspace = cs;
++        buf->context->format.fmt.pix_mp.ycbcr_enc = ycbcr;
++        buf->context->format.fmt.pix_mp.xfer_func = xfer;
++    } else {
++        buf->context->format.fmt.pix.colorspace = cs;
++        buf->context->format.fmt.pix.ycbcr_enc = ycbcr;
++        buf->context->format.fmt.pix.xfer_func = xfer;
++    }
++}
++
+ static enum AVColorRange v4l2_get_color_range(V4L2Buffer *buf)
+ {
+     enum v4l2_quantization qt;
+@@ -134,6 +246,20 @@ static enum AVColorRange v4l2_get_color_range(V4L2Buffer *buf)
+      return AVCOL_RANGE_UNSPECIFIED;
+ }
+ 
++static void v4l2_set_color_range(V4L2Buffer *buf, const enum AVColorRange avcr)
++{
++    const enum v4l2_quantization q =
++        avcr == AVCOL_RANGE_MPEG ? V4L2_QUANTIZATION_LIM_RANGE :
++        avcr == AVCOL_RANGE_JPEG ? V4L2_QUANTIZATION_FULL_RANGE :
++            V4L2_QUANTIZATION_DEFAULT;
++
++    if (V4L2_TYPE_IS_MULTIPLANAR(buf->buf.type)) {
++        buf->context->format.fmt.pix_mp.quantization = q;
++    } else {
++        buf->context->format.fmt.pix.quantization = q;
++    }
++}
++
+ static enum AVColorSpace v4l2_get_color_space(V4L2Buffer *buf)
+ {
+     enum v4l2_ycbcr_encoding ycbcr;
+@@ -210,73 +336,165 @@ static enum AVColorTransferCharacteristic v4l2_get_color_trc(V4L2Buffer *buf)
      return AVCOL_TRC_UNSPECIFIED;
  }
  
 -static void v4l2_free_buffer(void *opaque, uint8_t *unused)
-+static uint8_t * v4l2_get_drm_frame(V4L2Buffer *avbuf)
++static int v4l2_buf_is_interlaced(const V4L2Buffer * const buf)
  {
 -    V4L2Buffer* avbuf = opaque;
 -    V4L2m2mContext *s = buf_to_m2mctx(avbuf);
-+    AVDRMFrameDescriptor *drm_desc = &avbuf->drm_frame;
-+    AVDRMLayerDescriptor *layer;
++    return V4L2_FIELD_IS_INTERLACED(buf->buf.field);
++}
  
 -    if (atomic_fetch_sub(&avbuf->context_refcount, 1) == 1) {
 -        atomic_fetch_sub_explicit(&s->refcount, 1, memory_order_acq_rel);
-+    /* fill the DRM frame descriptor */
-+    drm_desc->nb_objects = avbuf->num_planes;
-+    drm_desc->nb_layers = 1;
++static int v4l2_buf_is_top_first(const V4L2Buffer * const buf)
++{
++    return buf->buf.field == V4L2_FIELD_INTERLACED_TB;
++}
  
 -        if (s->reinit) {
 -            if (!atomic_load(&s->refcount))
@@ -46149,15 +46578,29 @@ index 02f23d954b..60c6793797 100644
 -            else if (avbuf->context->streamon)
 -                ff_v4l2_buffer_enqueue(avbuf);
 -        }
++static void v4l2_set_interlace(V4L2Buffer * const buf, const int is_interlaced, const int is_tff)
++{
++    buf->buf.field = !is_interlaced ? V4L2_FIELD_NONE :
++        is_tff ? V4L2_FIELD_INTERLACED_TB : V4L2_FIELD_INTERLACED_BT;
++}
++
++static uint8_t * v4l2_get_drm_frame(V4L2Buffer *avbuf)
++{
++    AVDRMFrameDescriptor *drm_desc = &avbuf->drm_frame;
++    AVDRMLayerDescriptor *layer;
++
++    /* fill the DRM frame descriptor */
++    drm_desc->nb_objects = avbuf->num_planes;
++    drm_desc->nb_layers = 1;
++
 +    layer = &drm_desc->layers[0];
 +    layer->nb_planes = avbuf->num_planes;
- 
--        av_buffer_unref(&avbuf->context_ref);
++
 +    for (int i = 0; i < avbuf->num_planes; i++) {
 +        layer->planes[i].object_index = i;
 +        layer->planes[i].offset = 0;
 +        layer->planes[i].pitch = avbuf->plane_info[i].bytesperline;
-     }
++    }
 +
 +    switch (avbuf->context->av_pix_fmt) {
 +    case AV_PIX_FMT_YUYV422:
@@ -46192,7 +46635,8 @@ index 02f23d954b..60c6793797 100644
 +            break;
 +
 +        layer->nb_planes = 3;
-+
+ 
+-        av_buffer_unref(&avbuf->context_ref);
 +        layer->planes[1].object_index = 0;
 +        layer->planes[1].offset = avbuf->plane_info[0].bytesperline *
 +            avbuf->context->format.fmt.pix.height;
@@ -46208,7 +46652,7 @@ index 02f23d954b..60c6793797 100644
 +    default:
 +        drm_desc->nb_layers = 0;
 +        break;
-+    }
+     }
 +
 +    return (uint8_t *) drm_desc;
  }
@@ -46314,7 +46758,7 @@ index 02f23d954b..60c6793797 100644
  
      if (plane >= out->num_planes)
          return AVERROR(EINVAL);
-@@ -284,32 +373,57 @@ static int v4l2_bufref_to_buf(V4L2Buffer *out, int plane, const uint8_t* data, i
+@@ -284,32 +502,57 @@ static int v4l2_bufref_to_buf(V4L2Buffer *out, int plane, const uint8_t* data, i
      length = out->plane_info[plane].length;
      bytesused = FFMIN(size+offset, length);
  
@@ -46369,7 +46813,7 @@ index 02f23d954b..60c6793797 100644
 +    frame->buf[0] = wrap_avbuf(avbuf);
 +    if (frame->buf[0] == NULL)
 +        return AVERROR(ENOMEM);
- 
++
 +    if (buf_to_m2mctx(avbuf)->output_drm) {
 +        /* 1. get references to the actual data */
 +        frame->data[0] = (uint8_t *) v4l2_get_drm_frame(avbuf);
@@ -46378,7 +46822,7 @@ index 02f23d954b..60c6793797 100644
 +        return 0;
 +    }
 +
-+
+ 
 +    /* 1. get references to the actual data */
 +    for (i = 0; i < avbuf->num_planes; i++) {
 +        frame->data[i] = (uint8_t *)avbuf->plane_info[i].mm_addr + avbuf->planes[i].data_offset;
@@ -46387,7 +46831,7 @@ index 02f23d954b..60c6793797 100644
      }
  
      /* fixup special cases */
-@@ -318,17 +432,17 @@ static int v4l2_buffer_buf_to_swframe(AVFrame *frame, V4L2Buffer *avbuf)
+@@ -318,17 +561,17 @@ static int v4l2_buffer_buf_to_swframe(AVFrame *frame, V4L2Buffer *avbuf)
      case AV_PIX_FMT_NV21:
          if (avbuf->num_planes > 1)
              break;
@@ -46411,7 +46855,7 @@ index 02f23d954b..60c6793797 100644
          break;
  
      default:
-@@ -338,68 +452,95 @@ static int v4l2_buffer_buf_to_swframe(AVFrame *frame, V4L2Buffer *avbuf)
+@@ -338,68 +581,95 @@ static int v4l2_buffer_buf_to_swframe(AVFrame *frame, V4L2Buffer *avbuf)
      return 0;
  }
  
@@ -46561,12 +47005,19 @@ index 02f23d954b..60c6793797 100644
      return 0;
  }
  
-@@ -411,14 +552,15 @@ static int v4l2_buffer_swframe_to_buf(const AVFrame *frame, V4L2Buffer *out)
+@@ -411,14 +681,22 @@ static int v4l2_buffer_swframe_to_buf(const AVFrame *frame, V4L2Buffer *out)
  
  int ff_v4l2_buffer_avframe_to_buf(const AVFrame *frame, V4L2Buffer *out)
  {
 -    v4l2_set_pts(out, frame->pts);
++    out->buf.flags = frame->key_frame ? (out->buf.flags & ~V4L2_BUF_FLAG_KEYFRAME) : (out->buf.flags | V4L2_BUF_FLAG_KEYFRAME);
++    // Beware that colour info is held in format rather than the actual
++    // v4l2 buffer struct so this may not be as useful as you might hope
++    v4l2_set_color(out, frame->color_primaries, frame->colorspace, frame->color_trc);
++    v4l2_set_color_range(out, frame->color_range);
++    // PTS & interlace are buffer vars
 +    v4l2_set_pts(out, frame->pts, 0);
++    v4l2_set_interlace(out, frame->interlaced_frame, frame->top_field_first);
  
      return v4l2_buffer_swframe_to_buf(frame, out);
  }
@@ -46579,13 +47030,15 @@ index 02f23d954b..60c6793797 100644
  
      av_frame_unref(frame);
  
-@@ -433,13 +575,22 @@ int ff_v4l2_buffer_buf_to_avframe(AVFrame *frame, V4L2Buffer *avbuf)
+@@ -433,13 +711,24 @@ int ff_v4l2_buffer_buf_to_avframe(AVFrame *frame, V4L2Buffer *avbuf)
      frame->colorspace = v4l2_get_color_space(avbuf);
      frame->color_range = v4l2_get_color_range(avbuf);
      frame->color_trc = v4l2_get_color_trc(avbuf);
 -    frame->pts = v4l2_get_pts(avbuf);
 +    frame->pts = v4l2_get_pts(avbuf, no_rescale_pts);
      frame->pkt_dts = AV_NOPTS_VALUE;
++    frame->interlaced_frame = v4l2_buf_is_interlaced(avbuf);
++    frame->top_field_first = v4l2_buf_is_top_first(avbuf);
  
      /* these values are updated also during re-init in v4l2_process_driver_event */
 -    frame->height = avbuf->context->height;
@@ -46606,7 +47059,7 @@ index 02f23d954b..60c6793797 100644
  
      /* 3. report errors upstream */
      if (avbuf->buf.flags & V4L2_BUF_FLAG_ERROR) {
-@@ -452,15 +603,16 @@ int ff_v4l2_buffer_buf_to_avframe(AVFrame *frame, V4L2Buffer *avbuf)
+@@ -452,15 +741,16 @@ int ff_v4l2_buffer_buf_to_avframe(AVFrame *frame, V4L2Buffer *avbuf)
  
  int ff_v4l2_buffer_buf_to_avpkt(AVPacket *pkt, V4L2Buffer *avbuf)
  {
@@ -46628,7 +47081,7 @@ index 02f23d954b..60c6793797 100644
  
      if (avbuf->buf.flags & V4L2_BUF_FLAG_KEYFRAME)
          pkt->flags |= AV_PKT_FLAG_KEY;
-@@ -470,36 +622,89 @@ int ff_v4l2_buffer_buf_to_avpkt(AVPacket *pkt, V4L2Buffer *avbuf)
+@@ -470,36 +760,89 @@ int ff_v4l2_buffer_buf_to_avpkt(AVPacket *pkt, V4L2Buffer *avbuf)
          pkt->flags |= AV_PKT_FLAG_CORRUPT;
      }
  
@@ -46669,9 +47122,8 @@ index 02f23d954b..60c6793797 100644
 +int ff_v4l2_buffer_avpkt_to_buf(const AVPacket *pkt, V4L2Buffer *out)
 +{
 +    return ff_v4l2_buffer_avpkt_to_buf_ext(pkt, out, NULL, 0, 0);
- }
- 
--int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
++}
++
 +
 +static void v4l2_buffer_buffer_free(void *opaque, uint8_t *data)
 +{
@@ -46692,8 +47144,9 @@ index 02f23d954b..60c6793797 100644
 +    ff_weak_link_unref(&avbuf->context_wl);
 +
 +    av_free(avbuf);
-+}
-+
+ }
+ 
+-int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
 +
 +int ff_v4l2_buffer_initialize(AVBufferRef ** pbufref, int index, V4L2Context *ctx)
  {
@@ -46705,13 +47158,13 @@ index 02f23d954b..60c6793797 100644
 +    *pbufref = NULL;
 +    if (avbuf == NULL)
 +        return AVERROR(ENOMEM);
-+
+ 
 +    bufref = av_buffer_create((uint8_t*)avbuf, sizeof(*avbuf), v4l2_buffer_buffer_free, NULL, 0);
 +    if (bufref == NULL) {
 +        av_free(avbuf);
 +        return AVERROR(ENOMEM);
 +    }
- 
++
 +    avbuf->context = ctx;
      avbuf->buf.memory = V4L2_MEMORY_MMAP;
      avbuf->buf.type = ctx->type;
@@ -46726,7 +47179,7 @@ index 02f23d954b..60c6793797 100644
      if (V4L2_TYPE_IS_MULTIPLANAR(ctx->type)) {
          avbuf->buf.length = VIDEO_MAX_PLANES;
          avbuf->buf.m.planes = avbuf->planes;
-@@ -507,7 +712,7 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
+@@ -507,7 +850,7 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
  
      ret = ioctl(buf_to_m2mctx(avbuf)->fd, VIDIOC_QUERYBUF, &avbuf->buf);
      if (ret < 0)
@@ -46735,7 +47188,7 @@ index 02f23d954b..60c6793797 100644
  
      if (V4L2_TYPE_IS_MULTIPLANAR(ctx->type)) {
          avbuf->num_planes = 0;
-@@ -527,25 +732,33 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
+@@ -527,25 +870,33 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
  
          if (V4L2_TYPE_IS_MULTIPLANAR(ctx->type)) {
              avbuf->plane_info[i].length = avbuf->buf.m.planes[i].length;
@@ -46780,7 +47233,7 @@ index 02f23d954b..60c6793797 100644
      if (V4L2_TYPE_IS_MULTIPLANAR(ctx->type)) {
          avbuf->buf.m.planes = avbuf->planes;
          avbuf->buf.length   = avbuf->num_planes;
-@@ -555,7 +768,20 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
+@@ -555,7 +906,20 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
          avbuf->buf.length    = avbuf->planes[0].length;
      }
  
@@ -46802,7 +47255,7 @@ index 02f23d954b..60c6793797 100644
  }
  
  int ff_v4l2_buffer_enqueue(V4L2Buffer* avbuf)
-@@ -564,9 +790,27 @@ int ff_v4l2_buffer_enqueue(V4L2Buffer* avbuf)
+@@ -564,9 +928,27 @@ int ff_v4l2_buffer_enqueue(V4L2Buffer* avbuf)
  
      avbuf->buf.flags = avbuf->flags;
  
@@ -46910,7 +47363,7 @@ index 8dbc7fc104..9909f349bd 100644
  /**
   * Enqueues a V4L2Buffer
 diff --git a/libavcodec/v4l2_context.c b/libavcodec/v4l2_context.c
-index 29b144ed73..48ef2a8219 100644
+index 29b144ed73..10f86913ad 100644
 --- a/libavcodec/v4l2_context.c
 +++ b/libavcodec/v4l2_context.c
 @@ -27,11 +27,13 @@
@@ -47345,8 +47798,7 @@ index 29b144ed73..48ef2a8219 100644
 +               ctx->name, buf.index,
 +               buf.timestamp.tv_sec, buf.timestamp.tv_usec,
 +               ctx->q_count, ++ctx->dq_count);
- 
--        if (ctx_to_m2mctx(ctx)->draining && !V4L2_TYPE_IS_OUTPUT(ctx->type)) {
++
 +        avbuf = (V4L2Buffer *)ctx->bufrefs[buf.index]->data;
 +        avbuf->status = V4L2BUF_AVAILABLE;
 +        avbuf->buf = buf;
@@ -47354,7 +47806,8 @@ index 29b144ed73..48ef2a8219 100644
 +            memcpy(avbuf->planes, planes, sizeof(planes));
 +            avbuf->buf.m.planes = avbuf->planes;
 +        }
-+
+ 
+-        if (ctx_to_m2mctx(ctx)->draining && !V4L2_TYPE_IS_OUTPUT(ctx->type)) {
 +        if (ctx_to_m2mctx(ctx)->draining && is_capture) {
              int bytesused = V4L2_TYPE_IS_MULTIPLANAR(buf.type) ?
                              buf.m.planes[0].bytesused : buf.bytesused;
@@ -47427,19 +47880,19 @@ index 29b144ed73..48ef2a8219 100644
 +        for (i = 0; i < ctx->num_buffers; i++)
 +            av_buffer_unref(ctx->bufrefs + i);
 +    }
- 
--        for (j = 0; j < buffer->num_planes; j++) {
--            struct V4L2Plane_info *p = &buffer->plane_info[j];
--            if (p->mm_addr && p->length)
--                if (munmap(p->mm_addr, p->length) < 0)
--                    av_log(logger(ctx), AV_LOG_ERROR, "%s unmap plane (%s))\n", ctx->name, av_err2str(AVERROR(errno)));
++
 +    if (fd != -1) {
 +        struct v4l2_requestbuffers req = {
 +            .memory = V4L2_MEMORY_MMAP,
 +            .type = ctx->type,
 +            .count = 0, /* 0 -> unmap all buffers from the driver */
 +        };
-+
+ 
+-        for (j = 0; j < buffer->num_planes; j++) {
+-            struct V4L2Plane_info *p = &buffer->plane_info[j];
+-            if (p->mm_addr && p->length)
+-                if (munmap(p->mm_addr, p->length) < 0)
+-                    av_log(logger(ctx), AV_LOG_ERROR, "%s unmap plane (%s))\n", ctx->name, av_err2str(AVERROR(errno)));
 +        while ((ret = ioctl(fd, VIDIOC_REQBUFS, &req)) == -1) {
 +            if (errno == EINTR)
 +                continue;
@@ -47487,7 +47940,7 @@ index 29b144ed73..48ef2a8219 100644
          pixfmt = ff_v4l2_format_v4l2_to_avfmt(fdesc.pixelformat, AV_CODEC_ID_RAWVIDEO);
          ret = v4l2_try_raw_format(ctx, pixfmt);
          if (ret){
-@@ -569,18 +731,73 @@ static int v4l2_get_coded_format(V4L2Context* ctx, uint32_t *p)
+@@ -569,18 +731,77 @@ static int v4l2_get_coded_format(V4L2Context* ctx, uint32_t *p)
    *
    *****************************************************************************/
  
@@ -47495,6 +47948,10 @@ index 29b144ed73..48ef2a8219 100644
 +static void flush_all_buffers_status(V4L2Context* const ctx)
 +{
 +    int i;
++
++    if (!ctx->bufrefs)
++        return;
++
 +    for (i = 0; i < ctx->num_buffers; ++i) {
 +        struct V4L2Buffer * const buf = (struct V4L2Buffer *)ctx->bufrefs[i]->data;
 +        if (buf->status == V4L2BUF_IN_DRIVER)
@@ -47565,7 +48022,7 @@ index 29b144ed73..48ef2a8219 100644
  }
  
  int ff_v4l2_context_enqueue_frame(V4L2Context* ctx, const AVFrame* frame)
-@@ -608,7 +825,8 @@ int ff_v4l2_context_enqueue_frame(V4L2Context* ctx, const AVFrame* frame)
+@@ -608,7 +829,8 @@ int ff_v4l2_context_enqueue_frame(V4L2Context* ctx, const AVFrame* frame)
      return ff_v4l2_buffer_enqueue(avbuf);
  }
  
@@ -47575,7 +48032,7 @@ index 29b144ed73..48ef2a8219 100644
  {
      V4L2m2mContext *s = ctx_to_m2mctx(ctx);
      V4L2Buffer* avbuf;
-@@ -616,8 +834,9 @@ int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt)
+@@ -616,8 +838,9 @@ int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt)
  
      if (!pkt->size) {
          ret = v4l2_stop_decode(ctx);
@@ -47586,7 +48043,7 @@ index 29b144ed73..48ef2a8219 100644
          s->draining = 1;
          return 0;
      }
-@@ -626,14 +845,17 @@ int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt)
+@@ -626,14 +849,17 @@ int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt)
      if (!avbuf)
          return AVERROR(EAGAIN);
  
@@ -47607,7 +48064,7 @@ index 29b144ed73..48ef2a8219 100644
  {
      V4L2Buffer *avbuf;
  
-@@ -650,7 +872,7 @@ int ff_v4l2_context_dequeue_frame(V4L2Context* ctx, AVFrame* frame, int timeout)
+@@ -650,7 +876,7 @@ int ff_v4l2_context_dequeue_frame(V4L2Context* ctx, AVFrame* frame, int timeout)
          return AVERROR(EAGAIN);
      }
  
@@ -47616,7 +48073,7 @@ index 29b144ed73..48ef2a8219 100644
  }
  
  int ff_v4l2_context_dequeue_packet(V4L2Context* ctx, AVPacket* pkt)
-@@ -702,78 +924,155 @@ int ff_v4l2_context_get_format(V4L2Context* ctx, int probe)
+@@ -702,78 +928,155 @@ int ff_v4l2_context_get_format(V4L2Context* ctx, int probe)
  
  int ff_v4l2_context_set_format(V4L2Context* ctx)
  {
@@ -48654,12 +49111,133 @@ index 3e17e0fcac..b9f28220a8 100644
          .wrapper_name   = "v4l2m2m", \
      }
  
+diff --git a/libavcodec/v4l2_req_decode_q.c b/libavcodec/v4l2_req_decode_q.c
+new file mode 100644
+index 0000000000..5b3fb958fa
+--- /dev/null
++++ b/libavcodec/v4l2_req_decode_q.c
+@@ -0,0 +1,84 @@
++#include <memory.h>
++#include <semaphore.h>
++#include <pthread.h>
++
++#include "v4l2_req_decode_q.h"
++
++int decode_q_in_q(const req_decode_ent * const d)
++{
++    return d->in_q;
++}
++
++void decode_q_add(req_decode_q * const q, req_decode_ent * const d)
++{
++    pthread_mutex_lock(&q->q_lock);
++    if (!q->head) {
++        q->head = d;
++        q->tail = d;
++        d->prev = NULL;
++    }
++    else {
++        q->tail->next = d;
++        d->prev = q->tail;
++        q->tail = d;
++    }
++    d->next = NULL;
++    d->in_q = 1;
++    pthread_mutex_unlock(&q->q_lock);
++}
++
++// Remove entry from Q - if head wake-up anything that was waiting
++void decode_q_remove(req_decode_q * const q, req_decode_ent * const d)
++{
++    int try_signal = 0;
++
++    if (!d->in_q)
++        return;
++
++    pthread_mutex_lock(&q->q_lock);
++    if (d->prev)
++        d->prev->next = d->next;
++    else {
++        try_signal = 1;  // Only need to signal if we were head
++        q->head = d->next;
++    }
++
++    if (d->next)
++        d->next->prev = d->prev;
++    else
++        q->tail = d->prev;
++
++    // Not strictly needed but makes debug easier
++    d->next = NULL;
++    d->prev = NULL;
++    d->in_q = 0;
++    pthread_mutex_unlock(&q->q_lock);
++
++    if (try_signal)
++        pthread_cond_broadcast(&q->q_cond);
++}
++
++void decode_q_wait(req_decode_q * const q, req_decode_ent * const d)
++{
++    pthread_mutex_lock(&q->q_lock);
++
++    while (q->head != d)
++        pthread_cond_wait(&q->q_cond, &q->q_lock);
++
++    pthread_mutex_unlock(&q->q_lock);
++}
++
++void decode_q_uninit(req_decode_q * const q)
++{
++    pthread_mutex_destroy(&q->q_lock);
++    pthread_cond_destroy(&q->q_cond);
++}
++
++void decode_q_init(req_decode_q * const q)
++{
++    memset(q, 0, sizeof(*q));
++    pthread_mutex_init(&q->q_lock, NULL);
++    pthread_cond_init(&q->q_cond, NULL);
++}
++
++
+diff --git a/libavcodec/v4l2_req_decode_q.h b/libavcodec/v4l2_req_decode_q.h
+new file mode 100644
+index 0000000000..af7bbe1de4
+--- /dev/null
++++ b/libavcodec/v4l2_req_decode_q.h
+@@ -0,0 +1,25 @@
++#ifndef AVCODEC_V4L2_REQ_DECODE_Q_H
++#define AVCODEC_V4L2_REQ_DECODE_Q_H
++
++typedef struct req_decode_ent {
++    struct req_decode_ent * next;
++    struct req_decode_ent * prev;
++    int in_q;
++} req_decode_ent;
++
++typedef struct req_decode_q {
++    pthread_mutex_t q_lock;
++    pthread_cond_t q_cond;
++    req_decode_ent * head;
++    req_decode_ent * tail;
++} req_decode_q;
++
++int decode_q_in_q(const req_decode_ent * const d);
++void decode_q_add(req_decode_q * const q, req_decode_ent * const d);
++void decode_q_remove(req_decode_q * const q, req_decode_ent * const d);
++void decode_q_wait(req_decode_q * const q, req_decode_ent * const d);
++void decode_q_uninit(req_decode_q * const q);
++void decode_q_init(req_decode_q * const q);
++
++#endif
++
 diff --git a/libavcodec/v4l2_req_devscan.c b/libavcodec/v4l2_req_devscan.c
 new file mode 100644
-index 0000000000..59724a8104
+index 0000000000..cfa94d55c4
 --- /dev/null
 +++ b/libavcodec/v4l2_req_devscan.c
-@@ -0,0 +1,452 @@
+@@ -0,0 +1,449 @@
 +#include <errno.h>
 +#include <fcntl.h>
 +#include <libudev.h>
@@ -48994,9 +49572,6 @@ index 0000000000..59724a8104
 +            goto fail;
 +    }
 +
-+    free(interfaces);
-+    return ret;
-+
 +fail:
 +    free(interfaces);
 +    if (media_fd != -1)
@@ -49141,10 +49716,10 @@ index 0000000000..0baef36535
 +#endif
 diff --git a/libavcodec/v4l2_req_dmabufs.c b/libavcodec/v4l2_req_dmabufs.c
 new file mode 100644
-index 0000000000..0717279e75
+index 0000000000..ae6c648369
 --- /dev/null
 +++ b/libavcodec/v4l2_req_dmabufs.c
-@@ -0,0 +1,241 @@
+@@ -0,0 +1,266 @@
 +#include <stdio.h>
 +#include <stdlib.h>
 +#include <unistd.h>
@@ -49164,6 +49739,7 @@ index 0000000000..0717279e75
 +#define DMABUF_NAME1  "/dev/dma_heap/linux,cma"
 +#define DMABUF_NAME2  "/dev/dma_heap/reserved"
 +
++#define TRACE_ALLOC 0
 +
 +struct dmabufs_ctl {
 +    int fd;
@@ -49176,6 +49752,11 @@ index 0000000000..0717279e75
 +    size_t len;
 +    void * mapptr;
 +};
++
++#if TRACE_ALLOC
++static unsigned int total_bufs = 0;
++static size_t total_size = 0;
++#endif
 +
 +struct dmabuf_h * dmabuf_import(int fd, size_t size)
 +{
@@ -49196,6 +49777,13 @@ index 0000000000..0717279e75
 +        .size = size,
 +        .mapptr = MAP_FAILED
 +    };
++
++#if TRACE_ALLOC
++    ++total_bufs;
++    total_size += dh->size;
++    request_log("%s: Import: %zd, total=%zd, bufs=%d\n", __func__, dh->size, total_size, total_bufs);
++#endif
++
 +    return dh;
 +}
 +
@@ -49237,6 +49825,12 @@ index 0000000000..0717279e75
 +        .size = (size_t)data.len,
 +        .mapptr = MAP_FAILED
 +    };
++
++#if TRACE_ALLOC
++    ++total_bufs;
++    total_size += dh->size;
++    request_log("%s: Alloc: %zd, total=%zd, bufs=%d\n", __func__, dh->size, total_size, total_bufs);
++#endif
 +
 +    return dh;
 +
@@ -49332,6 +49926,12 @@ index 0000000000..0717279e75
 +{
 +    if (!dh)
 +        return;
++
++#if TRACE_ALLOC
++    --total_bufs;
++    total_size -= dh->size;
++    request_log("%s: Free: %zd, total=%zd, bufs=%d\n", __func__, dh->size, total_size, total_bufs);
++#endif
 +
 +    if (dh->mapptr != MAP_FAILED)
 +        munmap(dh->mapptr, dh->size);
@@ -49430,12 +50030,1224 @@ index 0000000000..8d909c4297
 +void dmabuf_free(struct dmabuf_h * dh);
 +
 +#endif
+diff --git a/libavcodec/v4l2_req_hevc_v1.c b/libavcodec/v4l2_req_hevc_v1.c
+new file mode 100644
+index 0000000000..169b532832
+--- /dev/null
++++ b/libavcodec/v4l2_req_hevc_v1.c
+@@ -0,0 +1,3 @@
++#define HEVC_CTRLS_VERSION 1
++#include "v4l2_req_hevc_vx.c"
++
+diff --git a/libavcodec/v4l2_req_hevc_v2.c b/libavcodec/v4l2_req_hevc_v2.c
+new file mode 100644
+index 0000000000..42af98e156
+--- /dev/null
++++ b/libavcodec/v4l2_req_hevc_v2.c
+@@ -0,0 +1,3 @@
++#define HEVC_CTRLS_VERSION 2
++#include "v4l2_req_hevc_vx.c"
++
+diff --git a/libavcodec/v4l2_req_hevc_vx.c b/libavcodec/v4l2_req_hevc_vx.c
+new file mode 100644
+index 0000000000..c9a8fa7c87
+--- /dev/null
++++ b/libavcodec/v4l2_req_hevc_vx.c
+@@ -0,0 +1,1188 @@
++// File included by v4l2_req_hevc_v* - not compiled on its own
++
++#include "decode.h"
++#include "hevcdec.h"
++#include "hwconfig.h"
++
++#include "v4l2_request_hevc.h"
++
++#if HEVC_CTRLS_VERSION == 1
++#include "hevc-ctrls-v1.h"
++
++// Fixup renamed entries
++#define V4L2_HEVC_PPS_FLAG_DEPENDENT_SLICE_SEGMENT_ENABLED V4L2_HEVC_PPS_FLAG_DEPENDENT_SLICE_SEGMENT
++
++#elif HEVC_CTRLS_VERSION == 2
++#include "hevc-ctrls-v2.h"
++#else
++#error Unknown HEVC_CTRLS_VERSION
++#endif
++
++#include "libavutil/hwcontext_drm.h"
++
++#include <semaphore.h>
++#include <pthread.h>
++
++#include "v4l2_req_devscan.h"
++#include "v4l2_req_dmabufs.h"
++#include "v4l2_req_pollqueue.h"
++#include "v4l2_req_media.h"
++#include "v4l2_req_utils.h"
++
++// Attached to buf[0] in frame
++// Pooled in hwcontext so generally create once - 1/frame
++typedef struct V4L2MediaReqDescriptor {
++    AVDRMFrameDescriptor drm;
++
++    // Media
++    uint64_t timestamp;
++    struct qent_dst * qe_dst;
++
++    // Decode only - should be NULL by the time we emit the frame
++    struct req_decode_ent decode_ent;
++
++    struct media_request *req;
++    struct qent_src *qe_src;
++
++#if HEVC_CTRLS_VERSION >= 2
++    struct v4l2_ctrl_hevc_decode_params dec;
++#endif
++
++    size_t num_slices;
++    size_t alloced_slices;
++    struct v4l2_ctrl_hevc_slice_params * slice_params;
++    struct slice_info * slices;
++
++} V4L2MediaReqDescriptor;
++
++struct slice_info {
++    const uint8_t * ptr;
++    size_t len; // bytes
++};
++
++// Handy container for accumulating controls before setting
++struct req_controls {
++    int has_scaling;
++    struct timeval tv;
++    struct v4l2_ctrl_hevc_sps sps;
++    struct v4l2_ctrl_hevc_pps pps;
++    struct v4l2_ctrl_hevc_scaling_matrix scaling_matrix;
++};
++
++//static uint8_t nalu_slice_start_code[] = { 0x00, 0x00, 0x01 };
++
++
++// Get an FFmpeg format from the v4l2 format
++static enum AVPixelFormat pixel_format_from_format(const struct v4l2_format *const format)
++{
++    switch (V4L2_TYPE_IS_MULTIPLANAR(format->type) ?
++            format->fmt.pix_mp.pixelformat : format->fmt.pix.pixelformat) {
++    case V4L2_PIX_FMT_YUV420:
++        return AV_PIX_FMT_YUV420P;
++    case V4L2_PIX_FMT_NV12:
++        return AV_PIX_FMT_NV12;
++#if CONFIG_SAND
++    case V4L2_PIX_FMT_NV12_COL128:
++        return AV_PIX_FMT_RPI4_8;
++    case V4L2_PIX_FMT_NV12_10_COL128:
++        return AV_PIX_FMT_RPI4_10;
++#endif
++    default:
++        break;
++    }
++    return AV_PIX_FMT_NONE;
++}
++
++static inline uint64_t frame_capture_dpb(const AVFrame * const frame)
++{
++    const V4L2MediaReqDescriptor *const rd = (V4L2MediaReqDescriptor *)frame->data[0];
++    return rd->timestamp;
++}
++
++static inline void frame_set_capture_dpb(AVFrame * const frame, const uint64_t dpb_stamp)
++{
++    V4L2MediaReqDescriptor *const rd = (V4L2MediaReqDescriptor *)frame->data[0];
++    rd->timestamp = dpb_stamp;
++}
++
++static void fill_pred_table(const HEVCContext *h, struct v4l2_hevc_pred_weight_table *table)
++{
++    int32_t luma_weight_denom, chroma_weight_denom;
++    const SliceHeader *sh = &h->sh;
++
++    if (sh->slice_type == HEVC_SLICE_I ||
++        (sh->slice_type == HEVC_SLICE_P && !h->ps.pps->weighted_pred_flag) ||
++        (sh->slice_type == HEVC_SLICE_B && !h->ps.pps->weighted_bipred_flag))
++        return;
++
++    table->luma_log2_weight_denom = sh->luma_log2_weight_denom;
++
++    if (h->ps.sps->chroma_format_idc)
++        table->delta_chroma_log2_weight_denom = sh->chroma_log2_weight_denom - sh->luma_log2_weight_denom;
++
++    luma_weight_denom = (1 << sh->luma_log2_weight_denom);
++    chroma_weight_denom = (1 << sh->chroma_log2_weight_denom);
++
++    for (int i = 0; i < 15 && i < sh->nb_refs[L0]; i++) {
++        table->delta_luma_weight_l0[i] = sh->luma_weight_l0[i] - luma_weight_denom;
++        table->luma_offset_l0[i] = sh->luma_offset_l0[i];
++        table->delta_chroma_weight_l0[i][0] = sh->chroma_weight_l0[i][0] - chroma_weight_denom;
++        table->delta_chroma_weight_l0[i][1] = sh->chroma_weight_l0[i][1] - chroma_weight_denom;
++        table->chroma_offset_l0[i][0] = sh->chroma_offset_l0[i][0];
++        table->chroma_offset_l0[i][1] = sh->chroma_offset_l0[i][1];
++    }
++
++    if (sh->slice_type != HEVC_SLICE_B)
++        return;
++
++    for (int i = 0; i < 15 && i < sh->nb_refs[L1]; i++) {
++        table->delta_luma_weight_l1[i] = sh->luma_weight_l1[i] - luma_weight_denom;
++        table->luma_offset_l1[i] = sh->luma_offset_l1[i];
++        table->delta_chroma_weight_l1[i][0] = sh->chroma_weight_l1[i][0] - chroma_weight_denom;
++        table->delta_chroma_weight_l1[i][1] = sh->chroma_weight_l1[i][1] - chroma_weight_denom;
++        table->chroma_offset_l1[i][0] = sh->chroma_offset_l1[i][0];
++        table->chroma_offset_l1[i][1] = sh->chroma_offset_l1[i][1];
++    }
++}
++
++static int find_frame_rps_type(const HEVCContext *h, uint64_t timestamp)
++{
++    const HEVCFrame *frame;
++    int i;
++
++    for (i = 0; i < h->rps[ST_CURR_BEF].nb_refs; i++) {
++        frame = h->rps[ST_CURR_BEF].ref[i];
++        if (frame && timestamp == frame_capture_dpb(frame->frame))
++            return V4L2_HEVC_DPB_ENTRY_RPS_ST_CURR_BEFORE;
++    }
++
++    for (i = 0; i < h->rps[ST_CURR_AFT].nb_refs; i++) {
++        frame = h->rps[ST_CURR_AFT].ref[i];
++        if (frame && timestamp == frame_capture_dpb(frame->frame))
++            return V4L2_HEVC_DPB_ENTRY_RPS_ST_CURR_AFTER;
++    }
++
++    for (i = 0; i < h->rps[LT_CURR].nb_refs; i++) {
++        frame = h->rps[LT_CURR].ref[i];
++        if (frame && timestamp == frame_capture_dpb(frame->frame))
++            return V4L2_HEVC_DPB_ENTRY_RPS_LT_CURR;
++    }
++
++    return 0;
++}
++
++static unsigned int
++get_ref_pic_index(const HEVCContext *h, const HEVCFrame *frame,
++                  const struct v4l2_hevc_dpb_entry * const entries,
++                  const unsigned int num_entries)
++{
++    uint64_t timestamp;
++
++    if (!frame)
++        return 0;
++
++    timestamp = frame_capture_dpb(frame->frame);
++
++    for (unsigned int i = 0; i < num_entries; i++) {
++        if (entries[i].timestamp == timestamp)
++            return i;
++    }
++
++    return 0;
++}
++
++static const uint8_t * ptr_from_index(const uint8_t * b, unsigned int idx)
++{
++    unsigned int z = 0;
++    while (idx--) {
++        if (*b++ == 0) {
++            ++z;
++            if (z >= 2 && *b == 3) {
++                ++b;
++                z = 0;
++            }
++        }
++        else {
++            z = 0;
++        }
++    }
++    return b;
++}
++
++static int slice_add(V4L2MediaReqDescriptor * const rd)
++{
++    if (rd->num_slices >= rd->alloced_slices) {
++        struct v4l2_ctrl_hevc_slice_params * p2;
++        struct slice_info * s2;
++        size_t n2 = rd->num_slices == 0 ? 8 : rd->num_slices * 2;
++
++        p2 = av_realloc_array(rd->slice_params, n2, sizeof(*p2));
++        if (p2 == NULL)
++            return AVERROR(ENOMEM);
++        rd->slice_params = p2;
++
++        s2 = av_realloc_array(rd->slices, n2, sizeof(*s2));
++        if (s2 == NULL)
++            return AVERROR(ENOMEM);
++        rd->slices = s2;
++
++        rd->alloced_slices = n2;
++    }
++    ++rd->num_slices;
++    return 0;
++}
++
++static unsigned int
++fill_dpb_entries(const HEVCContext * const h, struct v4l2_hevc_dpb_entry * const entries)
++{
++    unsigned int i;
++    unsigned int n = 0;
++    const HEVCFrame * const pic = h->ref;
++
++    for (i = 0; i < FF_ARRAY_ELEMS(h->DPB); i++) {
++        const HEVCFrame * const frame = &h->DPB[i];
++        if (frame != pic && (frame->flags & (HEVC_FRAME_FLAG_LONG_REF | HEVC_FRAME_FLAG_SHORT_REF))) {
++            struct v4l2_hevc_dpb_entry * const entry = entries + n++;
++
++            entry->timestamp = frame_capture_dpb(frame->frame);
++            entry->rps = find_frame_rps_type(h, entry->timestamp);
++            entry->field_pic = frame->frame->interlaced_frame;
++
++            /* TODO: Interleaved: Get the POC for each field. */
++            entry->pic_order_cnt[0] = frame->poc;
++            entry->pic_order_cnt[1] = frame->poc;
++        }
++    }
++    return n;
++}
++
++static void fill_slice_params(const HEVCContext * const h,
++#if HEVC_CTRLS_VERSION >= 2
++                              const struct v4l2_ctrl_hevc_decode_params * const dec,
++#endif
++                              struct v4l2_ctrl_hevc_slice_params *slice_params,
++                              uint32_t bit_size, uint32_t bit_offset)
++{
++    const SliceHeader * const sh = &h->sh;
++#if HEVC_CTRLS_VERSION >= 2
++    const struct v4l2_hevc_dpb_entry *const dpb = dec->dpb;
++    const unsigned int dpb_n = dec->num_active_dpb_entries;
++#else
++    struct v4l2_hevc_dpb_entry *const dpb = slice_params->dpb;
++    unsigned int dpb_n;
++#endif
++    unsigned int i;
++    RefPicList *rpl;
++
++    *slice_params = (struct v4l2_ctrl_hevc_slice_params) {
++        .bit_size = bit_size,
++        .data_bit_offset = bit_offset,
++
++        /* ISO/IEC 23008-2, ITU-T Rec. H.265: General slice segment header */
++        .slice_segment_addr = sh->slice_segment_addr,
++
++        /* ISO/IEC 23008-2, ITU-T Rec. H.265: NAL unit header */
++        .nal_unit_type = h->nal_unit_type,
++        .nuh_temporal_id_plus1 = h->temporal_id + 1,
++
++        /* ISO/IEC 23008-2, ITU-T Rec. H.265: General slice segment header */
++        .slice_type = sh->slice_type,
++        .colour_plane_id = sh->colour_plane_id,
++        .slice_pic_order_cnt = h->ref->poc,
++        .num_ref_idx_l0_active_minus1 = sh->nb_refs[L0] ? sh->nb_refs[L0] - 1 : 0,
++        .num_ref_idx_l1_active_minus1 = sh->nb_refs[L1] ? sh->nb_refs[L1] - 1 : 0,
++        .collocated_ref_idx = sh->slice_temporal_mvp_enabled_flag ? sh->collocated_ref_idx : 0,
++        .five_minus_max_num_merge_cand = sh->slice_type == HEVC_SLICE_I ? 0 : 5 - sh->max_num_merge_cand,
++        .slice_qp_delta = sh->slice_qp_delta,
++        .slice_cb_qp_offset = sh->slice_cb_qp_offset,
++        .slice_cr_qp_offset = sh->slice_cr_qp_offset,
++        .slice_act_y_qp_offset = 0,
++        .slice_act_cb_qp_offset = 0,
++        .slice_act_cr_qp_offset = 0,
++        .slice_beta_offset_div2 = sh->beta_offset / 2,
++        .slice_tc_offset_div2 = sh->tc_offset / 2,
++
++        /* ISO/IEC 23008-2, ITU-T Rec. H.265: Picture timing SEI message */
++        .pic_struct = h->sei.picture_timing.picture_struct,
++
++#if HEVC_CTRLS_VERSION < 2
++        /* ISO/IEC 23008-2, ITU-T Rec. H.265: General slice segment header */
++        .num_rps_poc_st_curr_before = h->rps[ST_CURR_BEF].nb_refs,
++        .num_rps_poc_st_curr_after = h->rps[ST_CURR_AFT].nb_refs,
++        .num_rps_poc_lt_curr = h->rps[LT_CURR].nb_refs,
++#endif
++    };
++
++    if (sh->slice_sample_adaptive_offset_flag[0])
++        slice_params->flags |= V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_SAO_LUMA;
++
++    if (sh->slice_sample_adaptive_offset_flag[1])
++        slice_params->flags |= V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_SAO_CHROMA;
++
++    if (sh->slice_temporal_mvp_enabled_flag)
++        slice_params->flags |= V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_TEMPORAL_MVP_ENABLED;
++
++    if (sh->mvd_l1_zero_flag)
++        slice_params->flags |= V4L2_HEVC_SLICE_PARAMS_FLAG_MVD_L1_ZERO;
++
++    if (sh->cabac_init_flag)
++        slice_params->flags |= V4L2_HEVC_SLICE_PARAMS_FLAG_CABAC_INIT;
++
++    if (sh->collocated_list == L0)
++        slice_params->flags |= V4L2_HEVC_SLICE_PARAMS_FLAG_COLLOCATED_FROM_L0;
++
++    if (sh->disable_deblocking_filter_flag)
++        slice_params->flags |= V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_DEBLOCKING_FILTER_DISABLED;
++
++    if (sh->slice_loop_filter_across_slices_enabled_flag)
++        slice_params->flags |= V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_LOOP_FILTER_ACROSS_SLICES_ENABLED;
++
++    if (sh->dependent_slice_segment_flag)
++        slice_params->flags |= V4L2_HEVC_SLICE_PARAMS_FLAG_DEPENDENT_SLICE_SEGMENT;
++
++#if HEVC_CTRLS_VERSION < 2
++    dpb_n = fill_dpb_entries(h, dpb);
++    slice_params->num_active_dpb_entries = dpb_n;
++#endif
++
++    if (sh->slice_type != HEVC_SLICE_I) {
++        rpl = &h->ref->refPicList[0];
++        for (i = 0; i < rpl->nb_refs; i++)
++            slice_params->ref_idx_l0[i] = get_ref_pic_index(h, rpl->ref[i], dpb, dpb_n);
++    }
++
++    if (sh->slice_type == HEVC_SLICE_B) {
++        rpl = &h->ref->refPicList[1];
++        for (i = 0; i < rpl->nb_refs; i++)
++            slice_params->ref_idx_l1[i] = get_ref_pic_index(h, rpl->ref[i], dpb, dpb_n);
++    }
++
++    fill_pred_table(h, &slice_params->pred_weight_table);
++
++    slice_params->num_entry_point_offsets = sh->num_entry_point_offsets;
++    if (slice_params->num_entry_point_offsets > 256) {
++        slice_params->num_entry_point_offsets = 256;
++        av_log(NULL, AV_LOG_ERROR, "%s: Currently only 256 entry points are supported, but slice has %d entry points.\n", __func__, sh->num_entry_point_offsets);
++    }
++
++    for (i = 0; i < slice_params->num_entry_point_offsets; i++)
++        slice_params->entry_point_offset_minus1[i] = sh->entry_point_offset[i] - 1;
++}
++
++#if HEVC_CTRLS_VERSION >= 2
++static void
++fill_decode_params(const HEVCContext * const h,
++                   struct v4l2_ctrl_hevc_decode_params * const dec)
++{
++    unsigned int i;
++
++    *dec = (struct v4l2_ctrl_hevc_decode_params){
++        .pic_order_cnt_val = h->poc,
++        .num_poc_st_curr_before = h->rps[ST_CURR_BEF].nb_refs,
++        .num_poc_st_curr_after = h->rps[ST_CURR_AFT].nb_refs,
++        .num_poc_lt_curr = h->rps[LT_CURR].nb_refs,
++    };
++
++    dec->num_active_dpb_entries = fill_dpb_entries(h, dec->dpb);
++
++    // The docn does seem to ask that we fit our 32 bit signed POC into
++    // a U8 so... (To be fair 16 bits would be enough)
++    // Luckily we (Pi) don't use these fields
++    for (i = 0; i != h->rps[ST_CURR_BEF].nb_refs; ++i)
++        dec->poc_st_curr_before[i] = h->rps[ST_CURR_BEF].ref[i]->poc;
++    for (i = 0; i != h->rps[ST_CURR_AFT].nb_refs; ++i)
++        dec->poc_st_curr_after[i] = h->rps[ST_CURR_AFT].ref[i]->poc;
++    for (i = 0; i != h->rps[LT_CURR].nb_refs; ++i)
++        dec->poc_lt_curr[i] = h->rps[LT_CURR].ref[i]->poc;
++
++    if (IS_IRAP(h))
++        dec->flags |= V4L2_HEVC_DECODE_PARAM_FLAG_IRAP_PIC;
++    if (IS_IDR(h))
++        dec->flags |= V4L2_HEVC_DECODE_PARAM_FLAG_IDR_PIC;
++    if (h->sh.no_output_of_prior_pics_flag)
++        dec->flags |= V4L2_HEVC_DECODE_PARAM_FLAG_NO_OUTPUT_OF_PRIOR;
++
++}
++#endif
++
++static void fill_sps(struct v4l2_ctrl_hevc_sps *ctrl, const HEVCSPS *sps)
++{
++    /* ISO/IEC 23008-2, ITU-T Rec. H.265: Sequence parameter set */
++    *ctrl = (struct v4l2_ctrl_hevc_sps) {
++        .chroma_format_idc = sps->chroma_format_idc,
++        .pic_width_in_luma_samples = sps->width,
++        .pic_height_in_luma_samples = sps->height,
++        .bit_depth_luma_minus8 = sps->bit_depth - 8,
++        .bit_depth_chroma_minus8 = sps->bit_depth - 8,
++        .log2_max_pic_order_cnt_lsb_minus4 = sps->log2_max_poc_lsb - 4,
++        .sps_max_dec_pic_buffering_minus1 = sps->temporal_layer[sps->max_sub_layers - 1].max_dec_pic_buffering - 1,
++        .sps_max_num_reorder_pics = sps->temporal_layer[sps->max_sub_layers - 1].num_reorder_pics,
++        .sps_max_latency_increase_plus1 = sps->temporal_layer[sps->max_sub_layers - 1].max_latency_increase + 1,
++        .log2_min_luma_coding_block_size_minus3 = sps->log2_min_cb_size - 3,
++        .log2_diff_max_min_luma_coding_block_size = sps->log2_diff_max_min_coding_block_size,
++        .log2_min_luma_transform_block_size_minus2 = sps->log2_min_tb_size - 2,
++        .log2_diff_max_min_luma_transform_block_size = sps->log2_max_trafo_size - sps->log2_min_tb_size,
++        .max_transform_hierarchy_depth_inter = sps->max_transform_hierarchy_depth_inter,
++        .max_transform_hierarchy_depth_intra = sps->max_transform_hierarchy_depth_intra,
++        .pcm_sample_bit_depth_luma_minus1 = sps->pcm.bit_depth - 1,
++        .pcm_sample_bit_depth_chroma_minus1 = sps->pcm.bit_depth_chroma - 1,
++        .log2_min_pcm_luma_coding_block_size_minus3 = sps->pcm.log2_min_pcm_cb_size - 3,
++        .log2_diff_max_min_pcm_luma_coding_block_size = sps->pcm.log2_max_pcm_cb_size - sps->pcm.log2_min_pcm_cb_size,
++        .num_short_term_ref_pic_sets = sps->nb_st_rps,
++        .num_long_term_ref_pics_sps = sps->num_long_term_ref_pics_sps,
++        .chroma_format_idc = sps->chroma_format_idc,
++        .sps_max_sub_layers_minus1 = sps->max_sub_layers - 1,
++    };
++
++    if (sps->separate_colour_plane_flag)
++        ctrl->flags |= V4L2_HEVC_SPS_FLAG_SEPARATE_COLOUR_PLANE;
++
++    if (sps->scaling_list_enable_flag)
++        ctrl->flags |= V4L2_HEVC_SPS_FLAG_SCALING_LIST_ENABLED;
++
++    if (sps->amp_enabled_flag)
++        ctrl->flags |= V4L2_HEVC_SPS_FLAG_AMP_ENABLED;
++
++    if (sps->sao_enabled)
++        ctrl->flags |= V4L2_HEVC_SPS_FLAG_SAMPLE_ADAPTIVE_OFFSET;
++
++    if (sps->pcm_enabled_flag)
++        ctrl->flags |= V4L2_HEVC_SPS_FLAG_PCM_ENABLED;
++
++    if (sps->pcm.loop_filter_disable_flag)
++        ctrl->flags |= V4L2_HEVC_SPS_FLAG_PCM_LOOP_FILTER_DISABLED;
++
++    if (sps->long_term_ref_pics_present_flag)
++        ctrl->flags |= V4L2_HEVC_SPS_FLAG_LONG_TERM_REF_PICS_PRESENT;
++
++    if (sps->sps_temporal_mvp_enabled_flag)
++        ctrl->flags |= V4L2_HEVC_SPS_FLAG_SPS_TEMPORAL_MVP_ENABLED;
++
++    if (sps->sps_strong_intra_smoothing_enable_flag)
++        ctrl->flags |= V4L2_HEVC_SPS_FLAG_STRONG_INTRA_SMOOTHING_ENABLED;
++}
++
++static void fill_scaling_matrix(const ScalingList * const sl,
++                                struct v4l2_ctrl_hevc_scaling_matrix * const sm)
++{
++    unsigned int i;
++
++    for (i = 0; i < 6; i++) {
++        unsigned int j;
++
++        for (j = 0; j < 16; j++)
++            sm->scaling_list_4x4[i][j] = sl->sl[0][i][j];
++        for (j = 0; j < 64; j++) {
++            sm->scaling_list_8x8[i][j]   = sl->sl[1][i][j];
++            sm->scaling_list_16x16[i][j] = sl->sl[2][i][j];
++            if (i < 2)
++                sm->scaling_list_32x32[i][j] = sl->sl[3][i * 3][j];
++        }
++        sm->scaling_list_dc_coef_16x16[i] = sl->sl_dc[0][i];
++        if (i < 2)
++            sm->scaling_list_dc_coef_32x32[i] = sl->sl_dc[1][i * 3];
++    }
++}
++
++static void fill_pps(struct v4l2_ctrl_hevc_pps * const ctrl, const HEVCPPS * const pps)
++{
++    uint64_t flags = 0;
++
++    if (pps->dependent_slice_segments_enabled_flag)
++        flags |= V4L2_HEVC_PPS_FLAG_DEPENDENT_SLICE_SEGMENT_ENABLED;
++
++    if (pps->output_flag_present_flag)
++        flags |= V4L2_HEVC_PPS_FLAG_OUTPUT_FLAG_PRESENT;
++
++    if (pps->sign_data_hiding_flag)
++        flags |= V4L2_HEVC_PPS_FLAG_SIGN_DATA_HIDING_ENABLED;
++
++    if (pps->cabac_init_present_flag)
++        flags |= V4L2_HEVC_PPS_FLAG_CABAC_INIT_PRESENT;
++
++    if (pps->constrained_intra_pred_flag)
++        flags |= V4L2_HEVC_PPS_FLAG_CONSTRAINED_INTRA_PRED;
++
++    if (pps->transform_skip_enabled_flag)
++        flags |= V4L2_HEVC_PPS_FLAG_TRANSFORM_SKIP_ENABLED;
++
++    if (pps->cu_qp_delta_enabled_flag)
++        flags |= V4L2_HEVC_PPS_FLAG_CU_QP_DELTA_ENABLED;
++
++    if (pps->pic_slice_level_chroma_qp_offsets_present_flag)
++        flags |= V4L2_HEVC_PPS_FLAG_PPS_SLICE_CHROMA_QP_OFFSETS_PRESENT;
++
++    if (pps->weighted_pred_flag)
++        flags |= V4L2_HEVC_PPS_FLAG_WEIGHTED_PRED;
++
++    if (pps->weighted_bipred_flag)
++        flags |= V4L2_HEVC_PPS_FLAG_WEIGHTED_BIPRED;
++
++    if (pps->transquant_bypass_enable_flag)
++        flags |= V4L2_HEVC_PPS_FLAG_TRANSQUANT_BYPASS_ENABLED;
++
++    if (pps->tiles_enabled_flag)
++        flags |= V4L2_HEVC_PPS_FLAG_TILES_ENABLED;
++
++    if (pps->entropy_coding_sync_enabled_flag)
++        flags |= V4L2_HEVC_PPS_FLAG_ENTROPY_CODING_SYNC_ENABLED;
++
++    if (pps->loop_filter_across_tiles_enabled_flag)
++        flags |= V4L2_HEVC_PPS_FLAG_LOOP_FILTER_ACROSS_TILES_ENABLED;
++
++    if (pps->seq_loop_filter_across_slices_enabled_flag)
++        flags |= V4L2_HEVC_PPS_FLAG_PPS_LOOP_FILTER_ACROSS_SLICES_ENABLED;
++
++    if (pps->deblocking_filter_override_enabled_flag)
++        flags |= V4L2_HEVC_PPS_FLAG_DEBLOCKING_FILTER_OVERRIDE_ENABLED;
++
++    if (pps->disable_dbf)
++        flags |= V4L2_HEVC_PPS_FLAG_PPS_DISABLE_DEBLOCKING_FILTER;
++
++    if (pps->lists_modification_present_flag)
++        flags |= V4L2_HEVC_PPS_FLAG_LISTS_MODIFICATION_PRESENT;
++
++    if (pps->slice_header_extension_present_flag)
++        flags |= V4L2_HEVC_PPS_FLAG_SLICE_SEGMENT_HEADER_EXTENSION_PRESENT;
++
++    /* ISO/IEC 23008-2, ITU-T Rec. H.265: Picture parameter set */
++    *ctrl = (struct v4l2_ctrl_hevc_pps) {
++        .num_extra_slice_header_bits = pps->num_extra_slice_header_bits,
++        .init_qp_minus26 = pps->pic_init_qp_minus26,
++        .diff_cu_qp_delta_depth = pps->diff_cu_qp_delta_depth,
++        .pps_cb_qp_offset = pps->cb_qp_offset,
++        .pps_cr_qp_offset = pps->cr_qp_offset,
++        .pps_beta_offset_div2 = pps->beta_offset / 2,
++        .pps_tc_offset_div2 = pps->tc_offset / 2,
++        .log2_parallel_merge_level_minus2 = pps->log2_parallel_merge_level - 2,
++        .flags = flags
++    };
++
++
++    if (pps->tiles_enabled_flag) {
++        ctrl->num_tile_columns_minus1 = pps->num_tile_columns - 1;
++        ctrl->num_tile_rows_minus1 = pps->num_tile_rows - 1;
++
++        for (int i = 0; i < pps->num_tile_columns; i++)
++            ctrl->column_width_minus1[i] = pps->column_width[i] - 1;
++
++        for (int i = 0; i < pps->num_tile_rows; i++)
++            ctrl->row_height_minus1[i] = pps->row_height[i] - 1;
++    }
++}
++
++// Called before finally returning the frame to the user
++// Set corrupt flag here as this is actually the frame structure that
++// is going to the user (in MT land each thread has its own pool)
++static int frame_post_process(void *logctx, AVFrame *frame)
++{
++    V4L2MediaReqDescriptor *rd = (V4L2MediaReqDescriptor*)frame->data[0];
++
++//    av_log(NULL, AV_LOG_INFO, "%s\n", __func__);
++    frame->flags &= ~AV_FRAME_FLAG_CORRUPT;
++    if (rd->qe_dst) {
++        MediaBufsStatus stat = qent_dst_wait(rd->qe_dst);
++        if (stat != MEDIABUFS_STATUS_SUCCESS) {
++            av_log(logctx, AV_LOG_ERROR, "%s: Decode fail\n", __func__);
++            frame->flags |= AV_FRAME_FLAG_CORRUPT;
++        }
++    }
++
++    return 0;
++}
++
++static inline struct timeval cvt_dpb_to_tv(uint64_t t)
++{
++    t /= 1000;
++    return (struct timeval){
++        .tv_usec = t % 1000000,
++        .tv_sec = t / 1000000
++    };
++}
++
++static inline uint64_t cvt_timestamp_to_dpb(const unsigned int t)
++{
++    return (uint64_t)t * 1000;
++}
++
++static int v4l2_request_hevc_start_frame(AVCodecContext *avctx,
++                                         av_unused const uint8_t *buffer,
++                                         av_unused uint32_t size)
++{
++    const HEVCContext *h = avctx->priv_data;
++    V4L2MediaReqDescriptor *const rd = (V4L2MediaReqDescriptor *)h->ref->frame->data[0];
++    V4L2RequestContextHEVC * const ctx = avctx->internal->hwaccel_priv_data;
++
++//    av_log(NULL, AV_LOG_INFO, "%s\n", __func__);
++    decode_q_add(&ctx->decode_q, &rd->decode_ent);
++
++    rd->num_slices = 0;
++    ctx->timestamp++;
++    rd->timestamp = cvt_timestamp_to_dpb(ctx->timestamp);
++
++    {
++        FrameDecodeData * const fdd = (FrameDecodeData*)h->ref->frame->private_ref->data;
++        fdd->post_process = frame_post_process;
++    }
++
++    // qe_dst needs to be bound to the data buffer and only returned when that is
++    if (!rd->qe_dst)
++    {
++        if ((rd->qe_dst = mediabufs_dst_qent_alloc(ctx->mbufs, ctx->dbufs)) == NULL) {
++            av_log(avctx, AV_LOG_ERROR, "%s: Failed to get dst buffer\n", __func__);
++            return AVERROR(ENOMEM);
++        }
++    }
++
++    ff_thread_finish_setup(avctx); // Allow next thread to enter rpi_hevc_start_frame
++
++    return 0;
++}
++
++// Object fd & size will be zapped by this & need setting later
++static int drm_from_format(AVDRMFrameDescriptor * const desc, const struct v4l2_format * const format)
++{
++    AVDRMLayerDescriptor *layer = &desc->layers[0];
++    unsigned int width;
++    unsigned int height;
++    unsigned int bpl;
++    uint32_t pixelformat;
++
++    if (V4L2_TYPE_IS_MULTIPLANAR(format->type)) {
++        width       = format->fmt.pix_mp.width;
++        height      = format->fmt.pix_mp.height;
++        pixelformat = format->fmt.pix_mp.pixelformat;
++        bpl         = format->fmt.pix_mp.plane_fmt[0].bytesperline;
++    }
++    else {
++        width       = format->fmt.pix.width;
++        height      = format->fmt.pix.height;
++        pixelformat = format->fmt.pix.pixelformat;
++        bpl         = format->fmt.pix.bytesperline;
++    }
++
++    switch (pixelformat) {
++    case V4L2_PIX_FMT_NV12:
++        layer->format = DRM_FORMAT_NV12;
++        desc->objects[0].format_modifier = DRM_FORMAT_MOD_LINEAR;
++        break;
++#if CONFIG_SAND
++    case V4L2_PIX_FMT_NV12_COL128:
++        layer->format = DRM_FORMAT_NV12;
++        desc->objects[0].format_modifier = DRM_FORMAT_MOD_BROADCOM_SAND128_COL_HEIGHT(bpl);
++        break;
++    case V4L2_PIX_FMT_NV12_10_COL128:
++        layer->format = DRM_FORMAT_P030;
++        desc->objects[0].format_modifier = DRM_FORMAT_MOD_BROADCOM_SAND128_COL_HEIGHT(bpl);
++        break;
++#endif
++#ifdef DRM_FORMAT_MOD_ALLWINNER_TILED
++    case V4L2_PIX_FMT_SUNXI_TILED_NV12:
++        layer->format = DRM_FORMAT_NV12;
++        desc->objects[0].format_modifier = DRM_FORMAT_MOD_ALLWINNER_TILED;
++        break;
++#endif
++#if defined(V4L2_PIX_FMT_NV15) && defined(DRM_FORMAT_NV15)
++    case V4L2_PIX_FMT_NV15:
++        layer->format = DRM_FORMAT_NV15;
++        desc->objects[0].format_modifier = DRM_FORMAT_MOD_LINEAR;
++        break;
++#endif
++    case V4L2_PIX_FMT_NV16:
++        layer->format = DRM_FORMAT_NV16;
++        desc->objects[0].format_modifier = DRM_FORMAT_MOD_LINEAR;
++        break;
++#if defined(V4L2_PIX_FMT_NV20) && defined(DRM_FORMAT_NV20)
++    case V4L2_PIX_FMT_NV20:
++        layer->format = DRM_FORMAT_NV20;
++        desc->objects[0].format_modifier = DRM_FORMAT_MOD_LINEAR;
++        break;
++#endif
++    default:
++        return -1;
++    }
++
++    desc->nb_objects = 1;
++    desc->objects[0].fd = -1;
++    desc->objects[0].size = 0;
++
++    desc->nb_layers = 1;
++    layer->nb_planes = 2;
++
++    layer->planes[0].object_index = 0;
++    layer->planes[0].offset = 0;
++    layer->planes[0].pitch = bpl;
++#if CONFIG_SAND
++    if (pixelformat == V4L2_PIX_FMT_NV12_COL128) {
++        layer->planes[1].object_index = 0;
++        layer->planes[1].offset = height * 128;
++        layer->planes[0].pitch = width;
++        layer->planes[1].pitch = width;
++    }
++    else if (pixelformat == V4L2_PIX_FMT_NV12_10_COL128) {
++        layer->planes[1].object_index = 0;
++        layer->planes[1].offset = height * 128;
++        layer->planes[0].pitch = width * 2; // Lies but it keeps DRM import happy
++        layer->planes[1].pitch = width * 2;
++    }
++    else
++#endif
++    {
++        layer->planes[1].object_index = 0;
++        layer->planes[1].offset = layer->planes[0].pitch * height;
++        layer->planes[1].pitch = layer->planes[0].pitch;
++    }
++
++    return 0;
++}
++
++static int
++set_req_ctls(V4L2RequestContextHEVC *ctx, struct media_request * const mreq,
++    struct req_controls *const controls,
++#if HEVC_CTRLS_VERSION >= 2
++    struct v4l2_ctrl_hevc_decode_params * const dec,
++#endif
++    struct v4l2_ctrl_hevc_slice_params * const slices,
++    const unsigned int slice_no,
++    const unsigned int slice_count)
++{
++    int rv;
++
++    struct v4l2_ext_control control[] = {
++        {
++            .id = V4L2_CID_MPEG_VIDEO_HEVC_SPS,
++            .ptr = &controls->sps,
++            .size = sizeof(controls->sps),
++        },
++        {
++            .id = V4L2_CID_MPEG_VIDEO_HEVC_PPS,
++            .ptr = &controls->pps,
++            .size = sizeof(controls->pps),
++        },
++#if HEVC_CTRLS_VERSION >= 2
++        {
++            .id = V4L2_CID_MPEG_VIDEO_HEVC_DECODE_PARAMS,
++            .ptr = dec,
++            .size = sizeof(*dec),
++        },
++#endif
++        {
++            .id = V4L2_CID_MPEG_VIDEO_HEVC_SLICE_PARAMS,
++            .ptr = slices + slice_no,
++            .size = sizeof(*slices) * slice_count,
++        },
++        // Optional
++        {
++            .id = V4L2_CID_MPEG_VIDEO_HEVC_SCALING_MATRIX,
++            .ptr = &controls->scaling_matrix,
++            .size = sizeof(controls->scaling_matrix),
++        },
++    };
++
++    rv = mediabufs_ctl_set_ext_ctrls(ctx->mbufs, mreq, control,
++            controls->has_scaling ?
++                FF_ARRAY_ELEMS(control) :
++                FF_ARRAY_ELEMS(control) - 1);
++
++    return rv;
++}
++
++static int v4l2_request_hevc_decode_slice(AVCodecContext *avctx, const uint8_t *buffer, uint32_t size)
++{
++    const HEVCContext * const h = avctx->priv_data;
++    V4L2RequestContextHEVC * const ctx = avctx->internal->hwaccel_priv_data;
++    V4L2MediaReqDescriptor * const rd = (V4L2MediaReqDescriptor*)h->ref->frame->data[0];
++    int bcount = get_bits_count(&h->HEVClc->gb);
++    uint32_t boff = (ptr_from_index(buffer, bcount/8 + 1) - (buffer + bcount/8 + 1)) * 8 + bcount;
++
++    int rv;
++    struct slice_info * si;
++
++    if ((rv = slice_add(rd)) != 0)
++        return rv;
++
++    si = rd->slices + rd->num_slices - 1;
++    si->ptr = buffer;
++    si->len = size;
++
++    if (ctx->multi_slice && rd->num_slices > 1) {
++        struct slice_info *const si0 = rd->slices;
++        const size_t offset = (buffer - si0->ptr);
++        boff += offset * 8;
++        size += offset;
++        si0->len = si->len + offset;
++    }
++
++#if HEVC_CTRLS_VERSION >= 2
++    if (rd->num_slices == 1)
++        fill_decode_params(h, &rd->dec);
++    fill_slice_params(h, &rd->dec, rd->slice_params + rd->num_slices - 1, size * 8, boff);
++#else
++    fill_slice_params(h, rd->slice_params + rd->num_slices - 1, size * 8, boff);
++#endif
++
++    return 0;
++}
++
++static void v4l2_request_hevc_abort_frame(AVCodecContext * const avctx)
++{
++    const HEVCContext * const h = avctx->priv_data;
++    if (h->ref != NULL) {
++        V4L2MediaReqDescriptor *const rd = (V4L2MediaReqDescriptor *)h->ref->frame->data[0];
++        V4L2RequestContextHEVC * const ctx = avctx->internal->hwaccel_priv_data;
++
++        media_request_abort(&rd->req);
++        mediabufs_src_qent_abort(ctx->mbufs, &rd->qe_src);
++
++        decode_q_remove(&ctx->decode_q, &rd->decode_ent);
++    }
++}
++
++static int send_slice(AVCodecContext * const avctx,
++                      V4L2MediaReqDescriptor * const rd,
++                      struct req_controls *const controls,
++                      const unsigned int i, const unsigned int j)
++{
++    V4L2RequestContextHEVC * const ctx = avctx->internal->hwaccel_priv_data;
++
++    struct slice_info *const si = rd->slices + i;
++    struct media_request * req = NULL;
++    struct qent_src * src = NULL;
++    MediaBufsStatus stat;
++
++    if ((req = media_request_get(ctx->mpool)) == NULL) {
++        av_log(avctx, AV_LOG_ERROR, "%s: Failed to alloc media request\n", __func__);
++        return AVERROR(ENOMEM);
++    }
++
++    if (set_req_ctls(ctx, req,
++                     controls,
++#if HEVC_CTRLS_VERSION >= 2
++                     &rd->dec,
++#endif
++                     rd->slice_params,
++                     i, j - i)) {
++        av_log(avctx, AV_LOG_ERROR, "%s: Failed to set req ctls\n", __func__);
++        goto fail1;
++    }
++
++    if ((src = mediabufs_src_qent_get(ctx->mbufs)) == NULL) {
++        av_log(avctx, AV_LOG_ERROR, "%s: Failed to get src buffer\n", __func__);
++        goto fail1;
++    }
++
++    if (qent_src_data_copy(src, 0, si->ptr, si->len, ctx->dbufs) != 0) {
++        av_log(avctx, AV_LOG_ERROR, "%s: Failed data copy\n", __func__);
++        goto fail2;
++    }
++
++    if (qent_src_params_set(src, &controls->tv)) {
++        av_log(avctx, AV_LOG_ERROR, "%s: Failed src param set\n", __func__);
++        goto fail2;
++    }
++
++#warning ANNEX_B start code
++//        if (ctx->start_code == V4L2_MPEG_VIDEO_HEVC_START_CODE_ANNEX_B) {
++//        }
++
++    stat = mediabufs_start_request(ctx->mbufs, &req, &src,
++                                   i == 0 ? rd->qe_dst : NULL,
++                                   j == rd->num_slices);
++
++    if (stat != MEDIABUFS_STATUS_SUCCESS) {
++        av_log(avctx, AV_LOG_ERROR, "%s: Failed to start request\n", __func__);
++        return AVERROR_UNKNOWN;
++    }
++    return 0;
++
++fail2:
++    mediabufs_src_qent_abort(ctx->mbufs, &src);
++fail1:
++    media_request_abort(&req);
++    return AVERROR_UNKNOWN;
++}
++
++static int v4l2_request_hevc_end_frame(AVCodecContext *avctx)
++{
++    const HEVCContext * const h = avctx->priv_data;
++    V4L2MediaReqDescriptor *rd = (V4L2MediaReqDescriptor*)h->ref->frame->data[0];
++    V4L2RequestContextHEVC *ctx = avctx->internal->hwaccel_priv_data;
++    struct req_controls rc;
++    unsigned int i;
++    int rv;
++
++    // It is possible, though maybe a bug, to get an end_frame without
++    // a previous start_frame.  If we do then give up.
++    if (!decode_q_in_q(&rd->decode_ent)) {
++        av_log(avctx, AV_LOG_DEBUG, "%s: Frame not in decode Q\n", __func__);
++        return AVERROR_INVALIDDATA;
++    }
++
++    {
++        const ScalingList *sl = h->ps.pps->scaling_list_data_present_flag ?
++                                    &h->ps.pps->scaling_list :
++                                h->ps.sps->scaling_list_enable_flag ?
++                                    &h->ps.sps->scaling_list : NULL;
++
++
++        memset(&rc, 0, sizeof(rc));
++        rc.tv = cvt_dpb_to_tv(rd->timestamp);
++        fill_sps(&rc.sps, h->ps.sps);
++        fill_pps(&rc.pps, h->ps.pps);
++        if (sl) {
++            rc.has_scaling = 1;
++            fill_scaling_matrix(sl, &rc.scaling_matrix);
++        }
++    }
++
++    decode_q_wait(&ctx->decode_q, &rd->decode_ent);
++
++    // qe_dst needs to be bound to the data buffer and only returned when that is
++    // Alloc almost certainly wants to be serialised if there is any chance of blocking
++    // so we get the next frame to be free in the thread that needs it for decode first.
++    //
++    // In our current world this probably isn't a concern but put it here anyway
++    if (!rd->qe_dst)
++    {
++        if ((rd->qe_dst = mediabufs_dst_qent_alloc(ctx->mbufs, ctx->dbufs)) == NULL) {
++            av_log(avctx, AV_LOG_ERROR, "%s: Failed to get dst buffer\n", __func__);
++            rv = AVERROR(ENOMEM);
++            goto fail;
++        }
++    }
++
++    // Send as slices
++    if (ctx->multi_slice)
++    {
++        if ((rv = send_slice(avctx, rd, &rc, 0, rd->num_slices)) != 0)
++            goto fail;
++    }
++    else
++    {
++        for (i = 0; i != rd->num_slices; ++i) {
++            if ((rv = send_slice(avctx, rd, &rc, i, i + 1)) != 0)
++                goto fail;
++        }
++    }
++
++    // Set the drm_prime desriptor
++    drm_from_format(&rd->drm, mediabufs_dst_fmt(ctx->mbufs));
++    rd->drm.objects[0].fd = dmabuf_fd(qent_dst_dmabuf(rd->qe_dst, 0));
++    rd->drm.objects[0].size = dmabuf_size(qent_dst_dmabuf(rd->qe_dst, 0));
++
++    decode_q_remove(&ctx->decode_q, &rd->decode_ent);
++    return 0;
++
++fail:
++    decode_q_remove(&ctx->decode_q, &rd->decode_ent);
++    return rv;
++}
++
++// Initial check & init
++static int
++probe(AVCodecContext * const avctx, V4L2RequestContextHEVC * const ctx)
++{
++    const HEVCContext *h = avctx->priv_data;
++    const HEVCSPS * const sps = h->ps.sps;
++    struct v4l2_ctrl_hevc_sps ctrl_sps;
++    unsigned int i;
++
++    // Check for var slice array
++    struct v4l2_query_ext_ctrl qc[] = {
++        { .id = V4L2_CID_MPEG_VIDEO_HEVC_SLICE_PARAMS },
++        { .id = V4L2_CID_MPEG_VIDEO_HEVC_SPS },
++        { .id = V4L2_CID_MPEG_VIDEO_HEVC_PPS },
++        { .id = V4L2_CID_MPEG_VIDEO_HEVC_SCALING_MATRIX },
++#if HEVC_CTRLS_VERSION >= 2
++        { .id = V4L2_CID_MPEG_VIDEO_HEVC_DECODE_PARAMS },
++#endif
++    };
++    // Order & size must match!
++    static const size_t ctrl_sizes[] = {
++        sizeof(struct v4l2_ctrl_hevc_slice_params),
++        sizeof(struct v4l2_ctrl_hevc_sps),
++        sizeof(struct v4l2_ctrl_hevc_pps),
++        sizeof(struct v4l2_ctrl_hevc_scaling_matrix),
++#if HEVC_CTRLS_VERSION >= 2
++        sizeof(struct v4l2_ctrl_hevc_decode_params),
++#endif
++    };
++    const unsigned int noof_ctrls = FF_ARRAY_ELEMS(qc);
++
++    if (mediabufs_ctl_query_ext_ctrls(ctx->mbufs, qc, noof_ctrls)) {
++        av_log(avctx, AV_LOG_DEBUG, "Probed V%d control missing\n", HEVC_CTRLS_VERSION);
++        return AVERROR(EINVAL);
++    }
++    for (i = 0; i != noof_ctrls; ++i) {
++        if (ctrl_sizes[i] != qc[i].elem_size) {
++            av_log(avctx, AV_LOG_DEBUG, "Probed V%d control %d size mismatch %u != %u\n",
++                   HEVC_CTRLS_VERSION, i, ctrl_sizes[i], qc[i].elem_size);
++            return AVERROR(EINVAL);
++        }
++    }
++
++    fill_sps(&ctrl_sps, sps);
++
++    if (mediabufs_set_ext_ctrl(ctx->mbufs, NULL, V4L2_CID_MPEG_VIDEO_HEVC_SPS, &ctrl_sps, sizeof(ctrl_sps))) {
++        av_log(avctx, AV_LOG_ERROR, "Failed to set initial SPS\n");
++        return AVERROR(EINVAL);
++    }
++
++    ctx->multi_slice = (qc[0].flags & V4L2_CTRL_FLAG_DYNAMIC_ARRAY) != 0;
++    return 0;
++}
++
++// Final init
++static int
++set_controls(AVCodecContext * const avctx, V4L2RequestContextHEVC * const ctx)
++{
++    int ret;
++
++    struct v4l2_query_ext_ctrl querys[] = {
++        { .id = V4L2_CID_MPEG_VIDEO_HEVC_DECODE_MODE, },
++        { .id = V4L2_CID_MPEG_VIDEO_HEVC_START_CODE, },
++        { .id = V4L2_CID_MPEG_VIDEO_HEVC_SLICE_PARAMS, },
++    };
++
++    struct v4l2_ext_control ctrls[] = {
++        { .id = V4L2_CID_MPEG_VIDEO_HEVC_DECODE_MODE, },
++        { .id = V4L2_CID_MPEG_VIDEO_HEVC_START_CODE, },
++    };
++
++    mediabufs_ctl_query_ext_ctrls(ctx->mbufs, querys, FF_ARRAY_ELEMS(querys));
++
++    ctx->decode_mode = querys[0].default_value;
++
++    if (ctx->decode_mode != V4L2_MPEG_VIDEO_HEVC_DECODE_MODE_SLICE_BASED &&
++        ctx->decode_mode != V4L2_MPEG_VIDEO_HEVC_DECODE_MODE_FRAME_BASED) {
++        av_log(avctx, AV_LOG_ERROR, "%s: unsupported decode mode, %d\n", __func__, ctx->decode_mode);
++        return AVERROR(EINVAL);
++    }
++
++    ctx->start_code = querys[1].default_value;
++    if (ctx->start_code != V4L2_MPEG_VIDEO_HEVC_START_CODE_NONE &&
++        ctx->start_code != V4L2_MPEG_VIDEO_HEVC_START_CODE_ANNEX_B) {
++        av_log(avctx, AV_LOG_ERROR, "%s: unsupported start code, %d\n", __func__, ctx->start_code);
++        return AVERROR(EINVAL);
++    }
++
++    ctx->max_slices = querys[2].elems;
++    if (ctx->max_slices > MAX_SLICES) {
++        av_log(avctx, AV_LOG_ERROR, "%s: unsupported max slices, %d\n", __func__, ctx->max_slices);
++        return AVERROR(EINVAL);
++    }
++
++    ctrls[0].value = ctx->decode_mode;
++    ctrls[1].value = ctx->start_code;
++
++    ret = mediabufs_ctl_set_ext_ctrls(ctx->mbufs, NULL, ctrls, FF_ARRAY_ELEMS(ctrls));
++    return !ret ? 0 : AVERROR(-ret);
++}
++
++static void v4l2_req_frame_free(void *opaque, uint8_t *data)
++{
++    AVCodecContext *avctx = opaque;
++    V4L2MediaReqDescriptor * const rd = (V4L2MediaReqDescriptor*)data;
++
++    av_log(NULL, AV_LOG_DEBUG, "%s: avctx=%p data=%p\n", __func__, avctx, data);
++
++    qent_dst_unref(&rd->qe_dst);
++
++    // We don't expect req or qe_src to be set
++    if (rd->req || rd->qe_src)
++        av_log(NULL, AV_LOG_ERROR, "%s: qe_src %p or req %p not NULL\n", __func__, rd->req, rd->qe_src);
++
++    av_freep(&rd->slices);
++    av_freep(&rd->slice_params);
++
++    av_free(rd);
++}
++
++static AVBufferRef *v4l2_req_frame_alloc(void *opaque, int size)
++{
++    AVCodecContext *avctx = opaque;
++//    V4L2RequestContextHEVC *ctx = avctx->internal->hwaccel_priv_data;
++//    V4L2MediaReqDescriptor *req;
++    AVBufferRef *ref;
++    uint8_t *data;
++//    int ret;
++
++    data = av_mallocz(size);
++    if (!data)
++        return NULL;
++
++    av_log(avctx, AV_LOG_DEBUG, "%s: avctx=%p size=%d data=%p\n", __func__, avctx, size, data);
++    ref = av_buffer_create(data, size, v4l2_req_frame_free, avctx, 0);
++    if (!ref) {
++        av_freep(&data);
++        return NULL;
++    }
++    return ref;
++}
++
++static void v4l2_req_pool_free(void *opaque)
++{
++    av_log(NULL, AV_LOG_DEBUG, "%s: opaque=%p\n", __func__, opaque);
++}
++
++static void v4l2_req_hwframe_ctx_free(AVHWFramesContext *hwfc)
++{
++    av_log(NULL, AV_LOG_DEBUG, "%s: hwfc=%p pool=%p\n", __func__, hwfc, hwfc->pool);
++
++    av_buffer_pool_uninit(&hwfc->pool);
++}
++
++static int frame_params(AVCodecContext *avctx, AVBufferRef *hw_frames_ctx)
++{
++    V4L2RequestContextHEVC *ctx = avctx->internal->hwaccel_priv_data;
++    AVHWFramesContext *hwfc = (AVHWFramesContext*)hw_frames_ctx->data;
++    const struct v4l2_format *vfmt = mediabufs_dst_fmt(ctx->mbufs);
++
++    hwfc->format = AV_PIX_FMT_DRM_PRIME;
++    hwfc->sw_format = pixel_format_from_format(vfmt);
++    if (V4L2_TYPE_IS_MULTIPLANAR(vfmt->type)) {
++        hwfc->width = vfmt->fmt.pix_mp.width;
++        hwfc->height = vfmt->fmt.pix_mp.height;
++    } else {
++        hwfc->width = vfmt->fmt.pix.width;
++        hwfc->height = vfmt->fmt.pix.height;
++    }
++
++    hwfc->pool = av_buffer_pool_init2(sizeof(V4L2MediaReqDescriptor), avctx, v4l2_req_frame_alloc, v4l2_req_pool_free);
++    if (!hwfc->pool)
++        return AVERROR(ENOMEM);
++
++    hwfc->free = v4l2_req_hwframe_ctx_free;
++
++    hwfc->initial_pool_size = 1;
++
++    switch (avctx->codec_id) {
++    case AV_CODEC_ID_VP9:
++        hwfc->initial_pool_size += 8;
++        break;
++    case AV_CODEC_ID_VP8:
++        hwfc->initial_pool_size += 3;
++        break;
++    default:
++        hwfc->initial_pool_size += 2;
++    }
++
++    av_log(avctx, AV_LOG_DEBUG, "%s: avctx=%p ctx=%p hw_frames_ctx=%p hwfc=%p pool=%p width=%d height=%d initial_pool_size=%d\n", __func__, avctx, ctx, hw_frames_ctx, hwfc, hwfc->pool, hwfc->width, hwfc->height, hwfc->initial_pool_size);
++
++    return 0;
++}
++
++
++const v4l2_req_decode_fns V(ff_v4l2_req_hevc) = {
++    .src_pix_fmt_v4l2 = V4L2_PIX_FMT_HEVC_SLICE,
++    .name = "V4L2 HEVC stateless V" STR(HEVC_CTRLS_VERSION),
++    .probe = probe,
++    .set_controls = set_controls,
++
++    .start_frame    = v4l2_request_hevc_start_frame,
++    .decode_slice   = v4l2_request_hevc_decode_slice,
++    .end_frame      = v4l2_request_hevc_end_frame,
++    .abort_frame    = v4l2_request_hevc_abort_frame,
++    .frame_params   = frame_params,
++};
++
 diff --git a/libavcodec/v4l2_req_media.c b/libavcodec/v4l2_req_media.c
 new file mode 100644
-index 0000000000..3a9d53169f
+index 0000000000..10f720f814
 --- /dev/null
 +++ b/libavcodec/v4l2_req_media.c
-@@ -0,0 +1,1514 @@
+@@ -0,0 +1,1569 @@
 +/*
 + * Copyright (C) 2018 Paul Kocialkowski <paul.kocialkowski@bootlin.com>
 + *
@@ -49618,8 +51430,6 @@ index 0000000000..3a9d53169f
 +
 +int media_request_start(struct media_request * const req)
 +{
-+    struct media_pool * const mp = req->mp;
-+
 +    while (ioctl(req->fd, MEDIA_REQUEST_IOC_QUEUE, NULL) == -1)
 +    {
 +        const int err = errno;
@@ -49629,7 +51439,7 @@ index 0000000000..3a9d53169f
 +        return -err;
 +    }
 +
-+    pollqueue_add_task(mp->pq, req->pt, 2000);
++    pollqueue_add_task(req->pt, 2000);
 +    return 0;
 +}
 +
@@ -49669,6 +51479,8 @@ index 0000000000..3a9d53169f
 +    while (next) {
 +        struct media_request * const req = next;
 +        next = req->next;
++        if (req->pt)
++            polltask_delete(&req->pt);
 +        if (req->fd != -1)
 +            close(req->fd);
 +        free(req);
@@ -49710,7 +51522,7 @@ index 0000000000..3a9d53169f
 +            goto fail4;
 +        }
 +
-+        req->pt = polltask_new(req->fd, POLLPRI, media_request_done, req);
++        req->pt = polltask_new(pq, req->fd, POLLPRI, media_request_done, req);
 +        if (!req->pt)
 +            goto fail4;
 +    }
@@ -49748,15 +51560,17 @@ index 0000000000..3a9d53169f
 +#define INDEX_UNSET (~(uint32_t)0)
 +
 +enum qent_status {
-+    QENT_NEW,
-+    QENT_PENDING,
-+    QENT_WAITING,
-+    QENT_DONE,
-+    QENT_ERROR,
++    QENT_NEW = 0,       // Initial state - shouldn't last
++    QENT_FREE,          // On free chain
++    QENT_PENDING,       // User has ent
++    QENT_WAITING,       // On inuse
++    QENT_DONE,          // Frame rx
++    QENT_ERROR,         // Error
 +    QENT_IMPORT
 +};
 +
 +struct qent_base {
++    atomic_int ref_count;
 +    struct qent_base *next;
 +    struct qent_base *prev;
 +    enum qent_status status;
@@ -49772,22 +51586,23 @@ index 0000000000..3a9d53169f
 +
 +struct qent_dst {
 +    struct qent_base base;
-+
 +    bool waiting;
 +    pthread_mutex_t lock;
 +    pthread_cond_t cond;
 +    struct ff_weak_link_client * mbc_wl;
 +};
 +
++struct qe_list_head {
++    struct qent_base *head;
++    struct qent_base *tail;
++};
 +
 +struct buf_pool {
 +    pthread_mutex_t lock;
 +    sem_t free_sem;
 +    enum v4l2_buf_type buf_type;
-+    struct qent_base *free_head;
-+    struct qent_base *free_tail;
-+    struct qent_base *inuse_head;
-+    struct qent_base *inuse_tail;
++    struct qe_list_head free;
++    struct qe_list_head inuse;
 +};
 +
 +
@@ -49803,6 +51618,7 @@ index 0000000000..3a9d53169f
 +
 +
 +#define QENT_BASE_INITIALIZER {\
++    .ref_count = ATOMIC_VAR_INIT(0),\
 +    .status = QENT_NEW,\
 +    .index  = INDEX_UNSET\
 +}
@@ -49816,7 +51632,7 @@ index 0000000000..3a9d53169f
 +    }
 +}
 +
-+static void qe_src_delete(struct qent_src *const be_src)
++static void qe_src_free(struct qent_src *const be_src)
 +{
 +    if (!be_src)
 +        return;
@@ -49835,6 +51651,18 @@ index 0000000000..3a9d53169f
 +    return be_src;
 +}
 +
++static void qe_dst_free(struct qent_dst *const be_dst)
++{
++    if (!be_dst)
++        return;
++
++    ff_weak_link_unref(&be_dst->mbc_wl);
++    pthread_cond_destroy(&be_dst->cond);
++    pthread_mutex_destroy(&be_dst->lock);
++    qe_base_uninit(&be_dst->base);
++    free(be_dst);
++}
++
 +static struct qent_dst * qe_dst_new(void)
 +{
 +    struct qent_dst *const be_dst = malloc(sizeof(*be_dst));
@@ -49848,55 +51676,75 @@ index 0000000000..3a9d53169f
 +    return be_dst;
 +}
 +
++static void ql_add_tail(struct qe_list_head * const ql, struct qent_base * be)
++{
++    if (ql->tail)
++        ql->tail->next = be;
++    else
++        ql->head = be;
++    be->prev = ql->tail;
++    be->next = NULL;
++    ql->tail = be;
++}
++
++static struct qent_base * ql_extract(struct qe_list_head * const ql, struct qent_base * be)
++{
++    if (!be)
++        return NULL;
++
++    if (be->next)
++        be->next->prev = be->prev;
++    else
++        ql->tail = be->prev;
++    if (be->prev)
++        be->prev->next = be->next;
++    else
++        ql->head = be->next;
++    be->next = NULL;
++    be->prev = NULL;
++    return be;
++}
++
 +
 +static void bq_put_free(struct buf_pool *const bp, struct qent_base * be)
 +{
-+    if (bp->free_tail)
-+        bp->free_tail->next = be;
-+    else
-+        bp->free_head = be;
-+    be->prev = bp->free_tail;
-+    be->next = NULL;
-+    bp->free_tail = be;
++    ql_add_tail(&bp->free, be);
 +}
 +
 +static struct qent_base * bq_get_free(struct buf_pool *const bp)
 +{
-+    struct qent_base *be;
-+
-+    be = bp->free_head;
-+    if (be) {
-+        if (be->next)
-+            be->next->prev = be->prev;
-+        else
-+            bp->free_tail = be->prev;
-+        bp->free_head = be->next;
-+        be->next = NULL;
-+        be->prev = NULL;
-+    }
-+    return be;
++    return ql_extract(&bp->free, bp->free.head);
 +}
 +
 +static struct qent_base * bq_extract_inuse(struct buf_pool *const bp, struct qent_base *const be)
 +{
-+    if (be->next)
-+        be->next->prev = be->prev;
-+    else
-+        bp->inuse_tail = be->prev;
-+    if (be->prev)
-+        be->prev->next = be->next;
-+    else
-+        bp->inuse_head = be->next;
-+    be->next = NULL;
-+    be->prev = NULL;
-+    return be;
++    return ql_extract(&bp->inuse, be);
++}
++
++static struct qent_base * bq_get_inuse(struct buf_pool *const bp)
++{
++    return ql_extract(&bp->inuse, bp->inuse.head);
 +}
 +
 +static void bq_free_all_free_src(struct buf_pool *const bp)
 +{
 +    struct qent_base *be;
 +    while ((be = bq_get_free(bp)) != NULL)
-+        qe_src_delete(base_to_src(be));
++        qe_src_free(base_to_src(be));
++}
++
++static void bq_free_all_inuse_src(struct buf_pool *const bp)
++{
++    struct qent_base *be;
++    while ((be = bq_get_inuse(bp)) != NULL)
++        qe_src_free(base_to_src(be));
++}
++
++static void bq_free_all_free_dst(struct buf_pool *const bp)
++{
++    struct qent_base *be;
++    while ((be = bq_get_free(bp)) != NULL)
++        qe_dst_free(base_to_dst(be));
 +}
 +
 +static void queue_put_free(struct buf_pool *const bp, struct qent_base *be)
@@ -49907,6 +51755,7 @@ index 0000000000..3a9d53169f
 +    /* Clear out state vars */
 +    be->timestamp.tv_sec = 0;
 +    be->timestamp.tv_usec = 0;
++    be->status = QENT_FREE;
 +    for (i = 0; i < VIDEO_MAX_PLANES && be->dh[i]; ++i)
 +        dmabuf_len_set(be->dh[i], 0);
 +    bq_put_free(bp, be);
@@ -49916,7 +51765,7 @@ index 0000000000..3a9d53169f
 +
 +static bool queue_is_inuse(const struct buf_pool *const bp)
 +{
-+    return bp->inuse_tail != NULL;
++    return bp->inuse.tail != NULL;
 +}
 +
 +static void queue_put_inuse(struct buf_pool *const bp, struct qent_base *be)
@@ -49924,13 +51773,7 @@ index 0000000000..3a9d53169f
 +    if (!be)
 +        return;
 +    pthread_mutex_lock(&bp->lock);
-+    if (bp->inuse_tail)
-+        bp->inuse_tail->next = be;
-+    else
-+        bp->inuse_head = be;
-+    be->prev = bp->inuse_tail;
-+    be->next = NULL;
-+    bp->inuse_tail = be;
++    ql_add_tail(&bp->inuse, be);
 +    be->status = QENT_WAITING;
 +    pthread_mutex_unlock(&bp->lock);
 +}
@@ -49965,7 +51808,7 @@ index 0000000000..3a9d53169f
 +
 +    pthread_mutex_lock(&bp->lock);
 +    /* Expect 1st in Q, but allow anywhere */
-+    for (be = bp->inuse_head; be; be = be->next) {
++    for (be = bp->inuse.head; be; be = be->next) {
 +        if (dmabuf_fd(be->dh[0]) == fd) {
 +            bq_extract_inuse(bp, be);
 +            break;
@@ -49978,14 +51821,12 @@ index 0000000000..3a9d53169f
 +
 +static void queue_delete(struct buf_pool *const bp)
 +{
-+    if (!bp)
-+        return;
 +    sem_destroy(&bp->free_sem);
 +    pthread_mutex_destroy(&bp->lock);
 +    free(bp);
 +}
 +
-+static struct buf_pool* queue_new(const int vfd, struct pollqueue * pq)
++static struct buf_pool* queue_new(const int vfd)
 +{
 +    struct buf_pool *bp = calloc(1, sizeof(*bp));
 +    if (!bp)
@@ -50103,16 +51944,19 @@ index 0000000000..3a9d53169f
 +        return NULL;
 +    }
 +
++    be->timestamp = buffer.timestamp;
 +    be->status = (buffer.flags & V4L2_BUF_FLAG_ERROR) ? QENT_ERROR : QENT_DONE;
 +    return be;
 +}
 +
-+static void qe_dst_done(struct qent_dst *const dst_be)
++static void qe_dst_done(struct qent_dst * dst_be)
 +{
 +    pthread_mutex_lock(&dst_be->lock);
 +    dst_be->waiting = false;
 +    pthread_cond_broadcast(&dst_be->cond);
 +    pthread_mutex_unlock(&dst_be->lock);
++
++    qent_dst_unref(&dst_be);
 +}
 +
 +static bool qe_dst_waiting(struct qent_dst *const dst_be)
@@ -50136,7 +51980,6 @@ index 0000000000..3a9d53169f
 +    struct mediabufs_ctl *mbc = v;
 +    struct qent_src *src_be = NULL;
 +    struct qent_dst *dst_be = NULL;
-+    bool qrun = false;
 +
 +    if (!revents)
 +        request_err(mbc->dc, "%s: Timeout\n", __func__);
@@ -50152,8 +51995,7 @@ index 0000000000..3a9d53169f
 +    /* Reschedule */
 +    if (mediabufs_wants_poll(mbc)) {
 +        mbc->polling = true;
-+        pollqueue_add_task(mbc->pq, mbc->pt, 2000);
-+        qrun = true;
++        pollqueue_add_task(mbc->pt, 2000);
 +    }
 +    pthread_mutex_unlock(&mbc->lock);
 +
@@ -50161,8 +52003,6 @@ index 0000000000..3a9d53169f
 +        queue_put_free(mbc->src, &src_be->base);
 +    if (dst_be)
 +        qe_dst_done(dst_be);
-+    if (!qrun)
-+        mediabufs_ctl_unref(&mbc);
 +}
 +
 +int qent_src_params_set(struct qent_src *const be_src, const struct timeval * timestamp)
@@ -50173,14 +52013,22 @@ index 0000000000..3a9d53169f
 +    return 0;
 +}
 +
++struct timeval qent_dst_timestamp_get(const struct qent_dst *const be_dst)
++{
++    return be_dst->base.timestamp;
++}
++
 +static int qent_base_realloc(struct qent_base *const be, const size_t len, struct dmabufs_ctl * dbsc)
 +{
 +    if (!be->dh[0] || len > dmabuf_size(be->dh[0])) {
 +        size_t newsize = round_up_size(len);
-+        request_log("%s: Overrun %zd > %zd; trying %zd\n", __func__, len, dmabuf_size(be->dh[0]), newsize);
-+        if (!dbsc ||
-+            (be->dh[0] = dmabuf_realloc(dbsc, be->dh[0], newsize)) == NULL) {
-+            request_log("%s: Realloc %zd failed\n", __func__, newsize);
++        request_log("%s: Overrun %d > %d; trying %d\n", __func__, len, dmabuf_size(be->dh[0]), newsize);
++        if (!dbsc) {
++            request_log("%s: No dmbabuf_ctrl for realloc\n", __func__);
++            return -ENOMEM;
++        }
++        if ((be->dh[0] = dmabuf_realloc(dbsc, be->dh[0], newsize)) == NULL) {
++            request_log("%s: Realloc %d failed\n", __func__, newsize);
 +            return -ENOMEM;
 +        }
 +    }
@@ -50250,8 +52098,11 @@ index 0000000000..3a9d53169f
 +            request_info(mbc->dc, "Request buffer already waiting on start\n");
 +            goto fail1;
 +        }
++        dst_be->base.timestamp = (struct timeval){0,0};
 +        if (qe_v4l2_queue(&dst_be->base, mbc->vfd, NULL, &mbc->dst_fmt, true, false))
 +            goto fail1;
++
++        qent_dst_ref(dst_be);
 +        queue_put_inuse(mbc->dst, &dst_be->base);
 +    }
 +
@@ -50261,8 +52112,7 @@ index 0000000000..3a9d53169f
 +
 +    if (!mbc->polling && mediabufs_wants_poll(mbc)) {
 +        mbc->polling = true;
-+        mediabufs_ctl_ref(mbc);
-+        pollqueue_add_task(mbc->pq, mbc->pt, 2000);
++        pollqueue_add_task(mbc->pt, 2000);
 +    }
 +    pthread_mutex_unlock(&mbc->lock);
 +
@@ -50277,8 +52127,10 @@ index 0000000000..3a9d53169f
 +        queue_put_free(mbc->src, &src_be->base);
 +
 +// *** TODO: If src Q fails this doesnt unwind properly - separate dst Q from src Q
-+    if (dst_be)
++    if (dst_be) {
++        dst_be->base.status = QENT_ERROR;
 +        qe_dst_done(dst_be);
++    }
 +    pthread_mutex_unlock(&mbc->lock);
 +    return MEDIABUFS_ERROR_OPERATION_FAILED;
 +}
@@ -50447,32 +52299,30 @@ index 0000000000..3a9d53169f
 +    return status;
 +}
 +
-+void qent_dst_delete(struct qent_dst *const be_dst)
++struct qent_dst * qent_dst_ref(struct qent_dst * const be_dst)
 +{
-+    if (!be_dst)
-+        return;
-+
-+    ff_weak_link_unref(&be_dst->mbc_wl);
-+    pthread_cond_destroy(&be_dst->cond);
-+    pthread_mutex_destroy(&be_dst->lock);
-+    qe_base_uninit(&be_dst->base);
-+    free(be_dst);
++    if (be_dst)
++        atomic_fetch_add(&be_dst->base.ref_count, 1);
++    return be_dst;
 +}
 +
-+void qent_dst_free(struct qent_dst ** const pbe_dst)
++void qent_dst_unref(struct qent_dst ** const pbe_dst)
 +{
 +    struct qent_dst * const be_dst = *pbe_dst;
 +    struct mediabufs_ctl * mbc;
 +    if (!be_dst)
 +        return;
-+
 +    *pbe_dst = NULL;
++
++    if (atomic_fetch_sub(&be_dst->base.ref_count, 1) != 0)
++        return;
++
 +    if ((mbc = ff_weak_link_lock(&be_dst->mbc_wl)) != NULL) {
 +        queue_put_free(mbc->dst, &be_dst->base);
 +        ff_weak_link_unlock(be_dst->mbc_wl);
 +    }
 +    else {
-+        qent_dst_delete(be_dst);
++        qe_dst_free(be_dst);
 +    }
 +}
 +
@@ -50533,7 +52383,7 @@ index 0000000000..3a9d53169f
 +
 +        if ((be_dst->mbc_wl = ff_weak_link_ref(mbc->this_wlm)) == NULL ||
 +            (index = create_dst_buf(mbc)) < 0) {
-+            qent_dst_delete(be_dst);
++            qe_dst_free(be_dst);
 +            return NULL;
 +        }
 +
@@ -50548,6 +52398,8 @@ index 0000000000..3a9d53169f
 +        return NULL;
 +    }
 +
++    be_dst->base.status = QENT_PENDING;
++    atomic_store(&be_dst->base.ref_count, 0);
 +    return be_dst;
 +}
 +
@@ -50603,7 +52455,7 @@ index 0000000000..3a9d53169f
 +
 +        index = create_dst_buf(mbc);
 +        if (index < 0) {
-+            qent_dst_delete(be_dst);
++            qe_dst_free(be_dst);
 +            return MEDIABUFS_ERROR_OPERATION_FAILED;
 +        }
 +
@@ -50617,6 +52469,7 @@ index 0000000000..3a9d53169f
 +struct qent_src *mediabufs_src_qent_get(struct mediabufs_ctl *const mbc)
 +{
 +    struct qent_base * buf = queue_get_free(mbc->src);
++    buf->status = QENT_PENDING;
 +    return base_to_src(buf);
 +}
 +
@@ -50661,7 +52514,7 @@ index 0000000000..3a9d53169f
 +            goto fail;
 +        }
 +        if (qe_alloc_from_fmt(&be_src->base, dbsc, &mbc->src_fmt)) {
-+            qe_src_delete(be_src);
++            qe_src_free(be_src);
 +            goto fail;
 +        }
 +        be_src->base.index = i;
@@ -50719,13 +52572,13 @@ index 0000000000..3a9d53169f
 +    if (!mbc->stream_on)
 +        return MEDIABUFS_STATUS_SUCCESS;
 +
-+    if (set_stream(mbc->vfd, mbc->src_fmt.type, false) < 0) {
-+        request_log("Failed to set stream off src type %d\n", mbc->src_fmt.type);
++    if (set_stream(mbc->vfd, mbc->dst_fmt.type, false) < 0) {
++        request_log("Failed to set stream off dst type %d\n", mbc->dst_fmt.type);
 +        status = MEDIABUFS_ERROR_OPERATION_FAILED;
 +    }
 +
-+    if (set_stream(mbc->vfd, mbc->dst_fmt.type, false) < 0) {
-+        request_log("Failed to set stream off dst type %d\n", mbc->dst_fmt.type);
++    if (set_stream(mbc->vfd, mbc->src_fmt.type, false) < 0) {
++        request_log("Failed to set stream off src type %d\n", mbc->src_fmt.type);
 +        status = MEDIABUFS_ERROR_OPERATION_FAILED;
 +    }
 +
@@ -50792,7 +52645,8 @@ index 0000000000..3a9d53169f
 +        while (ioctl(mbc->vfd, VIDIOC_QUERY_EXT_CTRL, ctrls)) {
 +            const int err = errno;
 +            if (err != EINTR) {
-+                request_err(mbc->dc, "Failed to query ext id=%#x, err=%d\n", ctrls->id, err);
++                // Often used for probing - errors are to be expected
++                request_debug(mbc->dc, "Failed to query ext id=%#x, err=%d\n", ctrls->id, err);
 +                ctrls->type = 0; // 0 is invalid
 +                rv = -err;
 +                break;
@@ -50825,6 +52679,19 @@ index 0000000000..3a9d53169f
 +    // Empty v4l2 buffer stash
 +    request_buffers(mbc->vfd, mbc->src_fmt.type, V4L2_MEMORY_MMAP, 0);
 +    request_buffers(mbc->vfd, mbc->dst_fmt.type, V4L2_MEMORY_MMAP, 0);
++
++    bq_free_all_free_src(mbc->src);
++    bq_free_all_inuse_src(mbc->src);
++    bq_free_all_free_dst(mbc->dst);
++
++    {
++        struct qent_dst *dst_be;
++        while ((dst_be = base_to_dst(bq_get_inuse(mbc->dst))) != NULL) {
++            dst_be->base.timestamp = (struct timeval){0};
++            dst_be->base.status = QENT_ERROR;
++            qe_dst_done(dst_be);
++        }
++    }
 +
 +    queue_delete(mbc->dst);
 +    queue_delete(mbc->src);
@@ -50916,13 +52783,13 @@ index 0000000000..3a9d53169f
 +        goto fail1;
 +    }
 +
-+    mbc->src = queue_new(mbc->vfd, pq);
++    mbc->src = queue_new(mbc->vfd);
 +    if (!mbc->src)
 +        goto fail1;
-+    mbc->dst = queue_new(mbc->vfd, pq);
++    mbc->dst = queue_new(mbc->vfd);
 +    if (!mbc->dst)
 +        goto fail2;
-+    mbc->pt = polltask_new(mbc->vfd, POLLIN | POLLOUT, mediabufs_poll_cb, mbc);
++    mbc->pt = polltask_new(pq, mbc->vfd, POLLIN | POLLOUT, mediabufs_poll_cb, mbc);
 +    if (!mbc->pt)
 +        goto fail3;
 +    mbc->this_wlm = ff_weak_link_new(mbc);
@@ -50952,10 +52819,10 @@ index 0000000000..3a9d53169f
 +
 diff --git a/libavcodec/v4l2_req_media.h b/libavcodec/v4l2_req_media.h
 new file mode 100644
-index 0000000000..75956eb962
+index 0000000000..15a6952748
 --- /dev/null
 +++ b/libavcodec/v4l2_req_media.h
-@@ -0,0 +1,145 @@
+@@ -0,0 +1,148 @@
 +/*
 +e.h
 +*
@@ -51029,6 +52896,8 @@ index 0000000000..75956eb962
 +struct dmabufs_ctl;
 +
 +int qent_src_params_set(struct qent_src *const be, const struct timeval * timestamp);
++struct timeval qent_dst_timestamp_get(const struct qent_dst *const be_dst);
++
 +// prealloc
 +int qent_src_alloc(struct qent_src *const be_src, const size_t len, struct dmabufs_ctl * dbsc);
 +// dbsc may be NULL if realloc not required
@@ -51038,7 +52907,8 @@ index 0000000000..75956eb962
 +MediaBufsStatus qent_dst_wait(struct qent_dst *const be);
 +void qent_dst_delete(struct qent_dst *const be);
 +// Returns a qent_dst to its mbc free Q or deletes it if the mbc is dead
-+void qent_dst_free(struct qent_dst ** const pbe_dst);
++void qent_dst_unref(struct qent_dst ** const pbe_dst);
++struct qent_dst * qent_dst_ref(struct qent_dst * const be_dst);
 +
 +const uint8_t * qent_dst_data(struct qent_dst *const be, unsigned int buf_no);
 +MediaBufsStatus qent_dst_read_start(struct qent_dst *const be);
@@ -51103,14 +52973,16 @@ index 0000000000..75956eb962
 +#endif
 diff --git a/libavcodec/v4l2_req_pollqueue.c b/libavcodec/v4l2_req_pollqueue.c
 new file mode 100644
-index 0000000000..0f7d9020ee
+index 0000000000..5c47c50a6f
 --- /dev/null
 +++ b/libavcodec/v4l2_req_pollqueue.c
-@@ -0,0 +1,280 @@
+@@ -0,0 +1,363 @@
 +#include <errno.h>
 +#include <limits.h>
 +#include <poll.h>
 +#include <pthread.h>
++#include <semaphore.h>
++#include <stdatomic.h>
 +#include <stdbool.h>
 +#include <stdlib.h>
 +#include <stdint.h>
@@ -51125,21 +52997,32 @@ index 0000000000..0f7d9020ee
 +
 +struct pollqueue;
 +
++enum polltask_state {
++    POLLTASK_UNQUEUED = 0,
++    POLLTASK_QUEUED,
++    POLLTASK_RUNNING,
++    POLLTASK_Q_KILL,
++    POLLTASK_RUN_KILL,
++};
++
 +struct polltask {
 +    struct polltask *next;
 +    struct polltask *prev;
 +    struct pollqueue *q;
++    enum polltask_state state;
 +
 +    int fd;
-+    short events;  /* 0 => deleted */
++    short events;
 +
 +    void (*fn)(void *v, short revents);
 +    void * v;
 +
-+    uint64_t timeout; /* 0 => now */
++    uint64_t timeout; /* CLOCK_MONOTONIC time, 0 => never */
++    sem_t kill_sem;
 +};
 +
 +struct pollqueue {
++    atomic_int ref_count;
 +    pthread_mutex_t lock;
 +
 +    struct polltask *head;
@@ -51152,7 +53035,8 @@ index 0000000000..0f7d9020ee
 +    pthread_t worker;
 +};
 +
-+struct polltask *polltask_new(const int fd, const short events,
++struct polltask *polltask_new(struct pollqueue *const pq,
++                              const int fd, const short events,
 +                  void (*const fn)(void *v, short revents),
 +                  void *const v)
 +{
@@ -51168,11 +53052,15 @@ index 0000000000..0f7d9020ee
 +    *pt = (struct polltask){
 +        .next = NULL,
 +        .prev = NULL,
++        .q = pollqueue_ref(pq),
 +        .fd = fd,
 +        .events = events,
 +        .fn = fn,
 +        .v = v
 +    };
++
++    sem_init(&pt->kill_sem, 0, 0);
++
 +    return pt;
 +}
 +
@@ -51190,14 +53078,9 @@ index 0000000000..0f7d9020ee
 +    pt->prev = NULL;
 +}
 +
-+void polltask_delete(struct polltask **const ppt)
++static void polltask_free(struct polltask * const pt)
 +{
-+    struct polltask *const pt = *ppt;
-+
-+    if (!pt)
-+        return;
-+    *ppt = NULL;
-+
++    sem_destroy(&pt->kill_sem);
 +    free(pt);
 +}
 +
@@ -51205,6 +53088,37 @@ index 0000000000..0f7d9020ee
 +{
 +    static const uint64_t one = 1;
 +    return write(pq->prod_fd, &one, sizeof(one));
++}
++
++void polltask_delete(struct polltask **const ppt)
++{
++    struct polltask *const pt = *ppt;
++    struct pollqueue * pq;
++    enum polltask_state state;
++    bool prodme;
++
++    if (!pt)
++        return;
++
++    pq = pt->q;
++    pthread_mutex_lock(&pq->lock);
++    state = pt->state;
++    pt->state = (state == POLLTASK_RUNNING) ? POLLTASK_RUN_KILL : POLLTASK_Q_KILL;
++    prodme = !pq->no_prod;
++    pthread_mutex_unlock(&pq->lock);
++
++    if (state != POLLTASK_UNQUEUED) {
++        if (prodme)
++            pollqueue_prod(pq);
++        while (sem_wait(&pt->kill_sem) && errno == EINTR)
++            /* loop */;
++    }
++
++    // Leave zapping the ref until we have DQed the PT as might well be
++    // legitimately used in it
++    *ppt = NULL;
++    polltask_free(pt);
++    pollqueue_unref(&pq);
 +}
 +
 +static uint64_t pollqueue_now(int timeout)
@@ -51218,21 +53132,24 @@ index 0000000000..0f7d9020ee
 +    return now_ms ? now_ms : (uint64_t)1;
 +}
 +
-+void pollqueue_add_task(struct pollqueue *const pq, struct polltask *const pt,
-+            const int timeout)
++void pollqueue_add_task(struct polltask *const pt, const int timeout)
 +{
-+    bool prodme;
++    bool prodme = false;
++    struct pollqueue * const pq = pt->q;
++
 +    pthread_mutex_lock(&pq->lock);
-+    if (pq->tail)
-+        pq->tail->next = pt;
-+    else
-+        pq->head = pt;
-+    pt->prev = pq->tail;
-+    pt->next = NULL;
-+    pt->q = pq;
-+    pt->timeout = timeout < 0 ? 0 : pollqueue_now(timeout);
-+    pq->tail = pt;
-+    prodme = !pq->no_prod;
++    if (pt->state != POLLTASK_Q_KILL && pt->state != POLLTASK_RUN_KILL) {
++        if (pq->tail)
++            pq->tail->next = pt;
++        else
++            pq->head = pt;
++        pt->prev = pq->tail;
++        pt->next = NULL;
++        pt->state = POLLTASK_QUEUED;
++        pt->timeout = timeout < 0 ? 0 : pollqueue_now(timeout);
++        pq->tail = pt;
++        prodme = !pq->no_prod;
++    }
 +    pthread_mutex_unlock(&pq->lock);
 +    if (prodme)
 +        pollqueue_prod(pq);
@@ -51255,6 +53172,15 @@ index 0000000000..0f7d9020ee
 +
 +        for (pt = pq->head; pt; pt = pt->next) {
 +            int64_t t;
++
++            if (pt->state == POLLTASK_Q_KILL) {
++                struct polltask * const prev = pt->prev;
++                pollqueue_rem_task(pq, pt);
++                sem_post(&pt->kill_sem);
++                if ((pt = prev) == NULL)
++                    break;
++                continue;
++            }
 +
 +            if (n >= asize) {
 +                asize = asize ? asize * 2 : 4;
@@ -51298,6 +53224,10 @@ index 0000000000..0f7d9020ee
 +            if (a[i].revents ||
 +                (pt->timeout && (int64_t)(now - pt->timeout) >= 0)) {
 +                pollqueue_rem_task(pq, pt);
++                if (pt->state == POLLTASK_QUEUED)
++                    pt->state = POLLTASK_RUNNING;
++                if (pt->state == POLLTASK_Q_KILL)
++                    pt->state = POLLTASK_RUN_KILL;
 +                pthread_mutex_unlock(&pq->lock);
 +
 +                /* This can add new entries to the Q but as
@@ -51307,6 +53237,10 @@ index 0000000000..0f7d9020ee
 +                pt->fn(pt->v, a[i].revents);
 +
 +                pthread_mutex_lock(&pq->lock);
++                if (pt->state == POLLTASK_RUNNING)
++                    pt->state = POLLTASK_UNQUEUED;
++                if (pt->state == POLLTASK_RUN_KILL)
++                    sem_post(&pt->kill_sem);
 +            }
 +
 +            pt = pt_next;
@@ -51329,7 +53263,7 @@ index 0000000000..0f7d9020ee
 +    if (revents)
 +        read(pq->prod_fd, buf, 8);
 +    if (!pq->kill)
-+        pollqueue_add_task(pq, pq->prod_pt, -1);
++        pollqueue_add_task(pq->prod_pt, -1);
 +}
 +
 +struct pollqueue * pollqueue_new(void)
@@ -51338,26 +53272,29 @@ index 0000000000..0f7d9020ee
 +    if (!pq)
 +        return NULL;
 +    *pq = (struct pollqueue){
++        .ref_count = ATOMIC_VAR_INIT(0),
++        .lock = PTHREAD_MUTEX_INITIALIZER,
 +        .head = NULL,
 +        .tail = NULL,
 +        .kill = false,
-+        .lock = PTHREAD_MUTEX_INITIALIZER,
 +        .prod_fd = -1
 +    };
 +
 +    pq->prod_fd = eventfd(0, EFD_NONBLOCK);
 +    if (pq->prod_fd == 1)
 +        goto fail1;
-+    pq->prod_pt = polltask_new(pq->prod_fd, POLLIN, prod_fn, pq);
++    pq->prod_pt = polltask_new(pq, pq->prod_fd, POLLIN, prod_fn, pq);
 +    if (!pq->prod_pt)
 +        goto fail2;
-+    pollqueue_add_task(pq, pq->prod_pt, -1);
++    pollqueue_add_task(pq->prod_pt, -1);
 +    if (pthread_create(&pq->worker, NULL, poll_thread, pq))
 +        goto fail3;
++    // Reset ref count which will have been inced by the add_task
++    atomic_store(&pq->ref_count, 0);
 +    return pq;
 +
 +fail3:
-+    polltask_delete(&pq->prod_pt);
++    polltask_free(pq->prod_pt);
 +fail2:
 +    close(pq->prod_fd);
 +fail1:
@@ -51365,14 +53302,9 @@ index 0000000000..0f7d9020ee
 +    return NULL;
 +}
 +
-+void pollqueue_delete(struct pollqueue **const ppq)
++static void pollqueue_free(struct pollqueue *const pq)
 +{
-+    struct pollqueue * pq = *ppq;
 +    void *rv;
-+
-+    if (!pq)
-+        return;
-+    *ppq = NULL;
 +
 +    pthread_mutex_lock(&pq->lock);
 +    pq->kill = true;
@@ -51380,34 +53312,56 @@ index 0000000000..0f7d9020ee
 +    pthread_mutex_unlock(&pq->lock);
 +
 +    pthread_join(pq->worker, &rv);
-+    polltask_delete(&pq->prod_pt);
++    polltask_free(pq->prod_pt);
 +    pthread_mutex_destroy(&pq->lock);
 +    close(pq->prod_fd);
 +    free(pq);
 +}
 +
++struct pollqueue * pollqueue_ref(struct pollqueue *const pq)
++{
++    atomic_fetch_add(&pq->ref_count, 1);
++    return pq;
++}
++
++void pollqueue_unref(struct pollqueue **const ppq)
++{
++    struct pollqueue * const pq = *ppq;
++
++    if (!pq)
++        return;
++    *ppq = NULL;
++
++    if (atomic_fetch_sub(&pq->ref_count, 1) != 0)
++        return;
++
++    pollqueue_free(pq);
++}
++
++
 +
 diff --git a/libavcodec/v4l2_req_pollqueue.h b/libavcodec/v4l2_req_pollqueue.h
 new file mode 100644
-index 0000000000..dcb0d80258
+index 0000000000..e1182cb2fc
 --- /dev/null
 +++ b/libavcodec/v4l2_req_pollqueue.h
-@@ -0,0 +1,17 @@
+@@ -0,0 +1,18 @@
 +#ifndef POLLQUEUE_H_
 +#define POLLQUEUE_H_
 +
 +struct polltask;
 +struct pollqueue;
 +
-+struct polltask *polltask_new(const int fd, const short events,
++struct polltask *polltask_new(struct pollqueue *const pq,
++			      const int fd, const short events,
 +			      void (*const fn)(void *v, short revents),
 +			      void *const v);
 +void polltask_delete(struct polltask **const ppt);
 +
-+void pollqueue_add_task(struct pollqueue *const pq, struct polltask *const pt,
-+			const int timeout);
++void pollqueue_add_task(struct polltask *const pt, const int timeout);
 +struct pollqueue * pollqueue_new(void);
-+void pollqueue_delete(struct pollqueue **const ppq);
++void pollqueue_unref(struct pollqueue **const ppq);
++struct pollqueue * pollqueue_ref(struct pollqueue *const pq);
 +
 +#endif /* POLLQUEUE_H_ */
 diff --git a/libavcodec/v4l2_req_utils.h b/libavcodec/v4l2_req_utils.h
@@ -51439,10 +53393,10 @@ index 0000000000..9e9a5f7e39
 +
 diff --git a/libavcodec/v4l2_request_hevc.c b/libavcodec/v4l2_request_hevc.c
 new file mode 100644
-index 0000000000..92205cc178
+index 0000000000..18ff8c0e64
 --- /dev/null
 +++ b/libavcodec/v4l2_request_hevc.c
-@@ -0,0 +1,1192 @@
+@@ -0,0 +1,280 @@
 +/*
 + * This file is part of FFmpeg.
 + *
@@ -51461,11 +53415,14 @@ index 0000000000..92205cc178
 + * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 + */
 +
++
++
 +#include "decode.h"
 +#include "hevcdec.h"
 +#include "hwconfig.h"
 +
-+#include "hevc-ctrls.h"
++#include "v4l2_request_hevc.h"
++
 +#include "libavutil/hwcontext_drm.h"
 +
 +#include "v4l2_req_devscan.h"
@@ -51473,90 +53430,6 @@ index 0000000000..92205cc178
 +#include "v4l2_req_pollqueue.h"
 +#include "v4l2_req_media.h"
 +#include "v4l2_req_utils.h"
-+
-+#define MAX_SLICES 16
-+
-+#include <drm_fourcc.h>
-+
-+#ifndef DRM_FORMAT_NV15
-+#define DRM_FORMAT_NV15 fourcc_code('N', 'V', '1', '5')
-+#endif
-+
-+#ifndef DRM_FORMAT_NV20
-+#define DRM_FORMAT_NV20 fourcc_code('N', 'V', '2', '0')
-+#endif
-+
-+// P030 should be defined in drm_fourcc.h and hopefully will be sometime
-+// in the future but until then...
-+#ifndef DRM_FORMAT_P030
-+#define DRM_FORMAT_P030 fourcc_code('P', '0', '3', '0')
-+#endif
-+
-+#ifndef DRM_FORMAT_NV15
-+#define DRM_FORMAT_NV15 fourcc_code('N', 'V', '1', '5')
-+#endif
-+
-+#ifndef DRM_FORMAT_NV20
-+#define DRM_FORMAT_NV20 fourcc_code('N', 'V', '2', '0')
-+#endif
-+
-+// V4L2_PIX_FMT_NV12_10_COL128 and V4L2_PIX_FMT_NV12_COL128 should be defined
-+// in drm_fourcc.h hopefully will be sometime in the future but until then...
-+#ifndef V4L2_PIX_FMT_NV12_10_COL128
-+#define V4L2_PIX_FMT_NV12_10_COL128 v4l2_fourcc('N', 'C', '3', '0')
-+#endif
-+
-+#ifndef V4L2_PIX_FMT_NV12_COL128
-+#define V4L2_PIX_FMT_NV12_COL128 v4l2_fourcc('N', 'C', '1', '2') /* 12  Y/CbCr 4:2:0 128 pixel wide column */
-+#endif
-+
-+// Attached to buf[0] in frame
-+// Pooled in hwcontext so generally create once - 1/frame
-+typedef struct V4L2MediaReqDescriptor {
-+    AVDRMFrameDescriptor drm;
-+
-+    // Media
-+    uint64_t timestamp;
-+    struct qent_dst * qe_dst;
-+
-+    // Decode only - should be NULL by the time we emit the frame
-+    struct media_request *req;
-+    struct qent_src *qe_src;
-+} V4L2MediaReqDescriptor;
-+
-+// Attached to frame - has no constructor/destructor so state only
-+typedef struct V4L2RequestControlsHEVC {
-+    struct v4l2_ctrl_hevc_sps sps;
-+    struct v4l2_ctrl_hevc_pps pps;
-+    struct v4l2_ctrl_hevc_scaling_matrix scaling_matrix;
-+    struct v4l2_ctrl_hevc_slice_params slice_params[MAX_SLICES];
-+    int first_slice;
-+    int dst_qed;
-+    int num_slices; //TODO: this should be in control
-+} V4L2RequestControlsHEVC;
-+
-+// 1 per decoder
-+typedef struct V4L2RequestContextHEVC {
-+//    V4L2RequestContext base;
-+    unsigned int timestamp;  // ?? maybe uint64_t
-+
-+    int decode_mode;
-+    int start_code;
-+    int max_slices;
-+
-+    struct devscan *devscan;
-+    struct dmabufs_ctl *dbufs;
-+    struct pollqueue *pq;
-+    struct media_pool * mpool;
-+    struct mediabufs_ctl *mbufs;
-+} V4L2RequestContextHEVC;
-+
-+// Attached to frame - has a free function - my have a shorter lifespan than the frame
-+// I haven't really sussed it
-+typedef struct V4L2ReqFrameDataPrivHEVC {
-+} V4L2ReqFrameDataPrivHEVC;
-+
-+// static uint8_t nalu_slice_start_code[] = { 0x00, 0x00, 0x01 };
 +
 +static size_t bit_buf_size(unsigned int w, unsigned int h, unsigned int bits_minus8)
 +{
@@ -51574,809 +53447,58 @@ index 0000000000..92205cc178
 +        wxh * 3 / 8;
 +    /* Allow for bit depth */
 +    bits_alloc += (bits_alloc * bits_minus8) / 8;
++    /* Add a few bytes (16k) for overhead */
++    bits_alloc += 0x4000;
 +    return bits_alloc;
 +}
 +
-+static inline uint64_t frame_capture_dpb(const AVFrame * const frame)
++static int v4l2_req_hevc_start_frame(AVCodecContext *avctx,
++                                     av_unused const uint8_t *buffer,
++                                     av_unused uint32_t size)
 +{
-+    const V4L2MediaReqDescriptor *const rd = (V4L2MediaReqDescriptor *)frame->data[0];
-+    return rd->timestamp;
++    const V4L2RequestContextHEVC * const ctx = avctx->internal->hwaccel_priv_data;
++    return ctx->fns->start_frame(avctx, buffer, size);
 +}
 +
-+static inline void frame_set_capture_dpb(AVFrame * const frame, const uint64_t dpb_stamp)
++static int v4l2_req_hevc_decode_slice(AVCodecContext *avctx, const uint8_t *buffer, uint32_t size)
 +{
-+    V4L2MediaReqDescriptor *const rd = (V4L2MediaReqDescriptor *)frame->data[0];
-+    rd->timestamp = dpb_stamp;
-+}
-+
-+static void fill_pred_table(const HEVCContext *h, struct v4l2_hevc_pred_weight_table *table)
-+{
-+    int32_t luma_weight_denom, chroma_weight_denom;
-+    const SliceHeader *sh = &h->sh;
-+
-+    if (sh->slice_type == HEVC_SLICE_I ||
-+        (sh->slice_type == HEVC_SLICE_P && !h->ps.pps->weighted_pred_flag) ||
-+        (sh->slice_type == HEVC_SLICE_B && !h->ps.pps->weighted_bipred_flag))
-+        return;
-+
-+    table->luma_log2_weight_denom = sh->luma_log2_weight_denom;
-+
-+    if (h->ps.sps->chroma_format_idc)
-+        table->delta_chroma_log2_weight_denom = sh->chroma_log2_weight_denom - sh->luma_log2_weight_denom;
-+
-+    luma_weight_denom = (1 << sh->luma_log2_weight_denom);
-+    chroma_weight_denom = (1 << sh->chroma_log2_weight_denom);
-+
-+    for (int i = 0; i < 15 && i < sh->nb_refs[L0]; i++) {
-+        table->delta_luma_weight_l0[i] = sh->luma_weight_l0[i] - luma_weight_denom;
-+        table->luma_offset_l0[i] = sh->luma_offset_l0[i];
-+        table->delta_chroma_weight_l0[i][0] = sh->chroma_weight_l0[i][0] - chroma_weight_denom;
-+        table->delta_chroma_weight_l0[i][1] = sh->chroma_weight_l0[i][1] - chroma_weight_denom;
-+        table->chroma_offset_l0[i][0] = sh->chroma_offset_l0[i][0];
-+        table->chroma_offset_l0[i][1] = sh->chroma_offset_l0[i][1];
-+    }
-+
-+    if (sh->slice_type != HEVC_SLICE_B)
-+        return;
-+
-+    for (int i = 0; i < 15 && i < sh->nb_refs[L1]; i++) {
-+        table->delta_luma_weight_l1[i] = sh->luma_weight_l1[i] - luma_weight_denom;
-+        table->luma_offset_l1[i] = sh->luma_offset_l1[i];
-+        table->delta_chroma_weight_l1[i][0] = sh->chroma_weight_l1[i][0] - chroma_weight_denom;
-+        table->delta_chroma_weight_l1[i][1] = sh->chroma_weight_l1[i][1] - chroma_weight_denom;
-+        table->chroma_offset_l1[i][0] = sh->chroma_offset_l1[i][0];
-+        table->chroma_offset_l1[i][1] = sh->chroma_offset_l1[i][1];
-+    }
-+}
-+
-+static int find_frame_rps_type(const HEVCContext *h, uint64_t timestamp)
-+{
-+    const HEVCFrame *frame;
-+    int i;
-+
-+    for (i = 0; i < h->rps[ST_CURR_BEF].nb_refs; i++) {
-+        frame = h->rps[ST_CURR_BEF].ref[i];
-+        if (frame && timestamp == frame_capture_dpb(frame->frame))
-+            return V4L2_HEVC_DPB_ENTRY_RPS_ST_CURR_BEFORE;
-+    }
-+
-+    for (i = 0; i < h->rps[ST_CURR_AFT].nb_refs; i++) {
-+        frame = h->rps[ST_CURR_AFT].ref[i];
-+        if (frame && timestamp == frame_capture_dpb(frame->frame))
-+            return V4L2_HEVC_DPB_ENTRY_RPS_ST_CURR_AFTER;
-+    }
-+
-+    for (i = 0; i < h->rps[LT_CURR].nb_refs; i++) {
-+        frame = h->rps[LT_CURR].ref[i];
-+        if (frame && timestamp == frame_capture_dpb(frame->frame))
-+            return V4L2_HEVC_DPB_ENTRY_RPS_LT_CURR;
-+    }
-+
-+    return 0;
-+}
-+
-+static uint8_t get_ref_pic_index(const HEVCContext *h, const HEVCFrame *frame,
-+                                 struct v4l2_ctrl_hevc_slice_params *slice_params)
-+{
-+    uint64_t timestamp;
-+
-+    if (!frame)
-+        return 0;
-+
-+    timestamp = frame_capture_dpb(frame->frame);
-+
-+    for (uint8_t i = 0; i < slice_params->num_active_dpb_entries; i++) {
-+        struct v4l2_hevc_dpb_entry *entry = &slice_params->dpb[i];
-+        if (entry->timestamp == timestamp)
-+            return i;
-+    }
-+
-+    return 0;
-+}
-+
-+static const uint8_t * ptr_from_index(const uint8_t * b, unsigned int idx)
-+{
-+    unsigned int z = 0;
-+    while (idx--) {
-+        if (*b++ == 0) {
-+            ++z;
-+            if (z >= 2 && *b == 3) {
-+                ++b;
-+                z = 0;
-+            }
-+        }
-+        else {
-+            z = 0;
-+        }
-+    }
-+    return b;
-+}
-+
-+static void fill_slice_params(const HEVCContext *h,
-+                                                struct v4l2_ctrl_hevc_slice_params *slice_params)
-+{
-+    const HEVCFrame *pic = h->ref;
-+    const SliceHeader *sh = &h->sh;
-+    int i, entries = 0;
-+    RefPicList *rpl;
-+
-+    *slice_params = (struct v4l2_ctrl_hevc_slice_params) {
-+        .bit_size = 0, // Set later
-+        .data_bit_offset = 0, // Set later
-+
-+        /* ISO/IEC 23008-2, ITU-T Rec. H.265: General slice segment header */
-+        .slice_segment_addr = sh->slice_segment_addr,
-+
-+        /* ISO/IEC 23008-2, ITU-T Rec. H.265: NAL unit header */
-+        .nal_unit_type = h->nal_unit_type,
-+        .nuh_temporal_id_plus1 = h->temporal_id + 1,
-+
-+        /* ISO/IEC 23008-2, ITU-T Rec. H.265: General slice segment header */
-+        .slice_type = sh->slice_type,
-+        .colour_plane_id = sh->colour_plane_id,
-+        .slice_pic_order_cnt = pic->poc,
-+        .num_ref_idx_l0_active_minus1 = sh->nb_refs[L0] ? sh->nb_refs[L0] - 1 : 0,
-+        .num_ref_idx_l1_active_minus1 = sh->nb_refs[L1] ? sh->nb_refs[L1] - 1 : 0,
-+        .collocated_ref_idx = sh->slice_temporal_mvp_enabled_flag ? sh->collocated_ref_idx : 0,
-+        .five_minus_max_num_merge_cand = sh->slice_type == HEVC_SLICE_I ? 0 : 5 - sh->max_num_merge_cand,
-+        .slice_qp_delta = sh->slice_qp_delta,
-+        .slice_cb_qp_offset = sh->slice_cb_qp_offset,
-+        .slice_cr_qp_offset = sh->slice_cr_qp_offset,
-+        .slice_act_y_qp_offset = 0,
-+        .slice_act_cb_qp_offset = 0,
-+        .slice_act_cr_qp_offset = 0,
-+        .slice_beta_offset_div2 = sh->beta_offset / 2,
-+        .slice_tc_offset_div2 = sh->tc_offset / 2,
-+
-+        /* ISO/IEC 23008-2, ITU-T Rec. H.265: Picture timing SEI message */
-+        .pic_struct = h->sei.picture_timing.picture_struct,
-+
-+        /* ISO/IEC 23008-2, ITU-T Rec. H.265: General slice segment header */
-+        .num_rps_poc_st_curr_before = h->rps[ST_CURR_BEF].nb_refs,
-+        .num_rps_poc_st_curr_after = h->rps[ST_CURR_AFT].nb_refs,
-+        .num_rps_poc_lt_curr = h->rps[LT_CURR].nb_refs,
-+    };
-+
-+    if (sh->slice_sample_adaptive_offset_flag[0])
-+        slice_params->flags |= V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_SAO_LUMA;
-+
-+    if (sh->slice_sample_adaptive_offset_flag[1])
-+        slice_params->flags |= V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_SAO_CHROMA;
-+
-+    if (sh->slice_temporal_mvp_enabled_flag)
-+        slice_params->flags |= V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_TEMPORAL_MVP_ENABLED;
-+
-+    if (sh->mvd_l1_zero_flag)
-+        slice_params->flags |= V4L2_HEVC_SLICE_PARAMS_FLAG_MVD_L1_ZERO;
-+
-+    if (sh->cabac_init_flag)
-+        slice_params->flags |= V4L2_HEVC_SLICE_PARAMS_FLAG_CABAC_INIT;
-+
-+    if (sh->collocated_list == L0)
-+        slice_params->flags |= V4L2_HEVC_SLICE_PARAMS_FLAG_COLLOCATED_FROM_L0;
-+
-+    if (sh->disable_deblocking_filter_flag)
-+        slice_params->flags |= V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_DEBLOCKING_FILTER_DISABLED;
-+
-+    if (sh->slice_loop_filter_across_slices_enabled_flag)
-+        slice_params->flags |= V4L2_HEVC_SLICE_PARAMS_FLAG_SLICE_LOOP_FILTER_ACROSS_SLICES_ENABLED;
-+
-+    if (sh->dependent_slice_segment_flag)
-+        slice_params->flags |= V4L2_HEVC_SLICE_PARAMS_FLAG_DEPENDENT_SLICE_SEGMENT;
-+
-+    for (i = 0; i < FF_ARRAY_ELEMS(h->DPB); i++) {
-+        const HEVCFrame *frame = &h->DPB[i];
-+        if (frame != pic && (frame->flags & (HEVC_FRAME_FLAG_LONG_REF | HEVC_FRAME_FLAG_SHORT_REF))) {
-+            struct v4l2_hevc_dpb_entry *entry = &slice_params->dpb[entries++];
-+
-+            entry->timestamp = frame_capture_dpb(frame->frame);
-+            entry->rps = find_frame_rps_type(h, entry->timestamp);
-+            entry->field_pic = frame->frame->interlaced_frame;
-+
-+            /* TODO: Interleaved: Get the POC for each field. */
-+            entry->pic_order_cnt[0] = frame->poc;
-+            entry->pic_order_cnt[1] = frame->poc;
-+        }
-+    }
-+
-+    slice_params->num_active_dpb_entries = entries;
-+
-+    if (sh->slice_type != HEVC_SLICE_I) {
-+        rpl = &h->ref->refPicList[0];
-+        for (i = 0; i < rpl->nb_refs; i++)
-+            slice_params->ref_idx_l0[i] = get_ref_pic_index(h, rpl->ref[i], slice_params);
-+    }
-+
-+    if (sh->slice_type == HEVC_SLICE_B) {
-+        rpl = &h->ref->refPicList[1];
-+        for (i = 0; i < rpl->nb_refs; i++)
-+            slice_params->ref_idx_l1[i] = get_ref_pic_index(h, rpl->ref[i], slice_params);
-+    }
-+
-+    fill_pred_table(h, &slice_params->pred_weight_table);
-+
-+    slice_params->num_entry_point_offsets = sh->num_entry_point_offsets;
-+    if (slice_params->num_entry_point_offsets > 256) {
-+        slice_params->num_entry_point_offsets = 256;
-+        av_log(NULL, AV_LOG_ERROR, "%s: Currently only 256 entry points are supported, but slice has %d entry points.\n", __func__, sh->num_entry_point_offsets);
-+    }
-+
-+    for (i = 0; i < slice_params->num_entry_point_offsets; i++)
-+        slice_params->entry_point_offset_minus1[i] = sh->entry_point_offset[i] - 1;
-+}
-+
-+static void fill_sps(struct v4l2_ctrl_hevc_sps *ctrl, const HEVCContext *h)
-+{
-+    const HEVCSPS *sps = h->ps.sps;
-+
-+    /* ISO/IEC 23008-2, ITU-T Rec. H.265: Sequence parameter set */
-+    *ctrl = (struct v4l2_ctrl_hevc_sps) {
-+        .chroma_format_idc = sps->chroma_format_idc,
-+        .pic_width_in_luma_samples = sps->width,
-+        .pic_height_in_luma_samples = sps->height,
-+        .bit_depth_luma_minus8 = sps->bit_depth - 8,
-+        .bit_depth_chroma_minus8 = sps->bit_depth - 8,
-+        .log2_max_pic_order_cnt_lsb_minus4 = sps->log2_max_poc_lsb - 4,
-+        .sps_max_dec_pic_buffering_minus1 = sps->temporal_layer[sps->max_sub_layers - 1].max_dec_pic_buffering - 1,
-+        .sps_max_num_reorder_pics = sps->temporal_layer[sps->max_sub_layers - 1].num_reorder_pics,
-+        .sps_max_latency_increase_plus1 = sps->temporal_layer[sps->max_sub_layers - 1].max_latency_increase + 1,
-+        .log2_min_luma_coding_block_size_minus3 = sps->log2_min_cb_size - 3,
-+        .log2_diff_max_min_luma_coding_block_size = sps->log2_diff_max_min_coding_block_size,
-+        .log2_min_luma_transform_block_size_minus2 = sps->log2_min_tb_size - 2,
-+        .log2_diff_max_min_luma_transform_block_size = sps->log2_max_trafo_size - sps->log2_min_tb_size,
-+        .max_transform_hierarchy_depth_inter = sps->max_transform_hierarchy_depth_inter,
-+        .max_transform_hierarchy_depth_intra = sps->max_transform_hierarchy_depth_intra,
-+        .pcm_sample_bit_depth_luma_minus1 = sps->pcm.bit_depth - 1,
-+        .pcm_sample_bit_depth_chroma_minus1 = sps->pcm.bit_depth_chroma - 1,
-+        .log2_min_pcm_luma_coding_block_size_minus3 = sps->pcm.log2_min_pcm_cb_size - 3,
-+        .log2_diff_max_min_pcm_luma_coding_block_size = sps->pcm.log2_max_pcm_cb_size - sps->pcm.log2_min_pcm_cb_size,
-+        .num_short_term_ref_pic_sets = sps->nb_st_rps,
-+        .num_long_term_ref_pics_sps = sps->num_long_term_ref_pics_sps,
-+    };
-+
-+    if (sps->separate_colour_plane_flag)
-+        ctrl->flags |= V4L2_HEVC_SPS_FLAG_SEPARATE_COLOUR_PLANE;
-+
-+    if (sps->scaling_list_enable_flag)
-+        ctrl->flags |= V4L2_HEVC_SPS_FLAG_SCALING_LIST_ENABLED;
-+
-+    if (sps->amp_enabled_flag)
-+        ctrl->flags |= V4L2_HEVC_SPS_FLAG_AMP_ENABLED;
-+
-+    if (sps->sao_enabled)
-+        ctrl->flags |= V4L2_HEVC_SPS_FLAG_SAMPLE_ADAPTIVE_OFFSET;
-+
-+    if (sps->pcm_enabled_flag)
-+        ctrl->flags |= V4L2_HEVC_SPS_FLAG_PCM_ENABLED;
-+
-+    if (sps->pcm.loop_filter_disable_flag)
-+        ctrl->flags |= V4L2_HEVC_SPS_FLAG_PCM_LOOP_FILTER_DISABLED;
-+
-+    if (sps->long_term_ref_pics_present_flag)
-+        ctrl->flags |= V4L2_HEVC_SPS_FLAG_LONG_TERM_REF_PICS_PRESENT;
-+
-+    if (sps->sps_temporal_mvp_enabled_flag)
-+        ctrl->flags |= V4L2_HEVC_SPS_FLAG_SPS_TEMPORAL_MVP_ENABLED;
-+
-+    if (sps->sps_strong_intra_smoothing_enable_flag)
-+        ctrl->flags |= V4L2_HEVC_SPS_FLAG_STRONG_INTRA_SMOOTHING_ENABLED;
-+}
-+
-+static void fill_scaling_matrix(const ScalingList * const sl,
-+                                struct v4l2_ctrl_hevc_scaling_matrix * const sm)
-+{
-+    unsigned int i;
-+
-+    for (i = 0; i < 6; i++) {
-+        unsigned int j;
-+
-+        for (j = 0; j < 16; j++)
-+            sm->scaling_list_4x4[i][j] = sl->sl[0][i][j];
-+        for (j = 0; j < 64; j++) {
-+            sm->scaling_list_8x8[i][j]   = sl->sl[1][i][j];
-+            sm->scaling_list_16x16[i][j] = sl->sl[2][i][j];
-+            if (i < 2)
-+                sm->scaling_list_32x32[i][j] = sl->sl[3][i * 3][j];
-+        }
-+        sm->scaling_list_dc_coef_16x16[i] = sl->sl_dc[0][i];
-+        if (i < 2)
-+            sm->scaling_list_dc_coef_32x32[i] = sl->sl_dc[1][i * 3];
-+    }
-+}
-+
-+static void fill_pps(const HEVCPPS * const pps, struct v4l2_ctrl_hevc_pps * const ctrl)
-+{
-+    uint64_t flags = 0;
-+
-+    if (pps->dependent_slice_segments_enabled_flag)
-+        flags |= V4L2_HEVC_PPS_FLAG_DEPENDENT_SLICE_SEGMENT;
-+
-+    if (pps->output_flag_present_flag)
-+        flags |= V4L2_HEVC_PPS_FLAG_OUTPUT_FLAG_PRESENT;
-+
-+    if (pps->sign_data_hiding_flag)
-+        flags |= V4L2_HEVC_PPS_FLAG_SIGN_DATA_HIDING_ENABLED;
-+
-+    if (pps->cabac_init_present_flag)
-+        flags |= V4L2_HEVC_PPS_FLAG_CABAC_INIT_PRESENT;
-+
-+    if (pps->constrained_intra_pred_flag)
-+        flags |= V4L2_HEVC_PPS_FLAG_CONSTRAINED_INTRA_PRED;
-+
-+    if (pps->transform_skip_enabled_flag)
-+        flags |= V4L2_HEVC_PPS_FLAG_TRANSFORM_SKIP_ENABLED;
-+
-+    if (pps->cu_qp_delta_enabled_flag)
-+        flags |= V4L2_HEVC_PPS_FLAG_CU_QP_DELTA_ENABLED;
-+
-+    if (pps->pic_slice_level_chroma_qp_offsets_present_flag)
-+        flags |= V4L2_HEVC_PPS_FLAG_PPS_SLICE_CHROMA_QP_OFFSETS_PRESENT;
-+
-+    if (pps->weighted_pred_flag)
-+        flags |= V4L2_HEVC_PPS_FLAG_WEIGHTED_PRED;
-+
-+    if (pps->weighted_bipred_flag)
-+        flags |= V4L2_HEVC_PPS_FLAG_WEIGHTED_BIPRED;
-+
-+    if (pps->transquant_bypass_enable_flag)
-+        flags |= V4L2_HEVC_PPS_FLAG_TRANSQUANT_BYPASS_ENABLED;
-+
-+    if (pps->tiles_enabled_flag)
-+        flags |= V4L2_HEVC_PPS_FLAG_TILES_ENABLED;
-+
-+    if (pps->entropy_coding_sync_enabled_flag)
-+        flags |= V4L2_HEVC_PPS_FLAG_ENTROPY_CODING_SYNC_ENABLED;
-+
-+    if (pps->loop_filter_across_tiles_enabled_flag)
-+        flags |= V4L2_HEVC_PPS_FLAG_LOOP_FILTER_ACROSS_TILES_ENABLED;
-+
-+    if (pps->seq_loop_filter_across_slices_enabled_flag)
-+        flags |= V4L2_HEVC_PPS_FLAG_PPS_LOOP_FILTER_ACROSS_SLICES_ENABLED;
-+
-+    if (pps->deblocking_filter_override_enabled_flag)
-+        flags |= V4L2_HEVC_PPS_FLAG_DEBLOCKING_FILTER_OVERRIDE_ENABLED;
-+
-+    if (pps->disable_dbf)
-+        flags |= V4L2_HEVC_PPS_FLAG_PPS_DISABLE_DEBLOCKING_FILTER;
-+
-+    if (pps->lists_modification_present_flag)
-+        flags |= V4L2_HEVC_PPS_FLAG_LISTS_MODIFICATION_PRESENT;
-+
-+    if (pps->slice_header_extension_present_flag)
-+        flags |= V4L2_HEVC_PPS_FLAG_SLICE_SEGMENT_HEADER_EXTENSION_PRESENT;
-+
-+    /* ISO/IEC 23008-2, ITU-T Rec. H.265: Picture parameter set */
-+    *ctrl = (struct v4l2_ctrl_hevc_pps) {
-+        .num_extra_slice_header_bits = pps->num_extra_slice_header_bits,
-+        .init_qp_minus26 = pps->pic_init_qp_minus26,
-+        .diff_cu_qp_delta_depth = pps->diff_cu_qp_delta_depth,
-+        .pps_cb_qp_offset = pps->cb_qp_offset,
-+        .pps_cr_qp_offset = pps->cr_qp_offset,
-+        .pps_beta_offset_div2 = pps->beta_offset / 2,
-+        .pps_tc_offset_div2 = pps->tc_offset / 2,
-+        .log2_parallel_merge_level_minus2 = pps->log2_parallel_merge_level - 2,
-+        .flags = flags
-+    };
-+
-+
-+    if (pps->tiles_enabled_flag) {
-+        ctrl->num_tile_columns_minus1 = pps->num_tile_columns - 1;
-+        ctrl->num_tile_rows_minus1 = pps->num_tile_rows - 1;
-+
-+        for (int i = 0; i < pps->num_tile_columns; i++)
-+            ctrl->column_width_minus1[i] = pps->column_width[i] - 1;
-+
-+        for (int i = 0; i < pps->num_tile_rows; i++)
-+            ctrl->row_height_minus1[i] = pps->row_height[i] - 1;
-+    }
-+}
-+
-+// Called before finally returning the frame to the user
-+// Set corrupt flag here as this is actually the frame structure that
-+// is going to the user (in MT land each thread has its own pool)
-+static int frame_post_process(void *logctx, AVFrame *frame)
-+{
-+    V4L2MediaReqDescriptor *rd = (V4L2MediaReqDescriptor*)frame->data[0];
-+
-+//    av_log(NULL, AV_LOG_INFO, "%s\n", __func__);
-+    frame->flags &= ~AV_FRAME_FLAG_CORRUPT;
-+    if (rd->qe_dst) {
-+        MediaBufsStatus stat = qent_dst_wait(rd->qe_dst);
-+        if (stat != MEDIABUFS_STATUS_SUCCESS) {
-+            av_log(logctx, AV_LOG_ERROR, "%s: Decode fail\n", __func__);
-+            frame->flags |= AV_FRAME_FLAG_CORRUPT;
-+        }
-+    }
-+
-+    return 0;
-+}
-+
-+static inline struct timeval cvt_timestamp_to_tv(const unsigned int t)
-+{
-+    return (struct timeval){
-+        .tv_usec = t % 1000000,
-+        .tv_sec = t / 1000000
-+    };
-+}
-+
-+static inline uint64_t cvt_timestamp_to_dpb(const unsigned int t)
-+{
-+    return (uint64_t)t * 1000;
-+}
-+
-+static int v4l2_request_hevc_start_frame(AVCodecContext *avctx,
-+                                         av_unused const uint8_t *buffer,
-+                                         av_unused uint32_t size)
-+{
-+    const HEVCContext *h = avctx->priv_data;
-+    const HEVCSPS *sps = h->ps.sps;
-+    const HEVCPPS *pps = h->ps.pps;
-+    const ScalingList *sl = pps->scaling_list_data_present_flag ?
-+                            &pps->scaling_list :
-+                            sps->scaling_list_enable_flag ?
-+                            &sps->scaling_list : NULL;
-+    V4L2RequestControlsHEVC *controls = h->ref->hwaccel_picture_private;
-+    V4L2MediaReqDescriptor *const rd = (V4L2MediaReqDescriptor *)h->ref->frame->data[0];
 +    V4L2RequestContextHEVC * const ctx = avctx->internal->hwaccel_priv_data;
-+
-+//    av_log(NULL, AV_LOG_INFO, "%s\n", __func__);
-+    fill_sps(&controls->sps, h);
-+
-+    if (sl)
-+        fill_scaling_matrix(sl, &controls->scaling_matrix);
-+
-+    fill_pps(h->ps.pps, &controls->pps);
-+
-+    controls->first_slice = 1;
-+    controls->dst_qed = 0;
-+    controls->num_slices = 0;
-+    ctx->timestamp++;
-+
-+//    if ((rv = ff_v4l2_request_reset_frame(avctx, h->ref->frame)) != 0)
-+//        return rv;
-+
-+    {
-+        FrameDecodeData * const fdd = (FrameDecodeData*)h->ref->frame->private_ref->data;
-+        fdd->post_process = frame_post_process;
-+    }
-+
-+    // qe_dst needs to be bound to the data buffer and only returned when that is
-+    if (!rd->qe_dst)
-+    {
-+        if ((rd->qe_dst = mediabufs_dst_qent_alloc(ctx->mbufs, ctx->dbufs)) == NULL) {
-+            av_log(avctx, AV_LOG_ERROR, "%s: Failed to get dst buffer\n", __func__);
-+            return AVERROR(ENOMEM);
-+        }
-+    }
-+
-+//    ff_v4l2_request_start_phase_control(h->ref->frame, ctx->pctrl);
-+
-+//    ff_thread_finish_setup(avctx); // Allow next thread to enter rpi_hevc_start_frame
-+
-+    return 0;
++    return ctx->fns->decode_slice(avctx, buffer, size);
 +}
 +
-+// Object fd & size will be zapped by this & need setting later
-+static int drm_from_format(AVDRMFrameDescriptor * const desc, const struct v4l2_format * const format)
-+{
-+    AVDRMLayerDescriptor *layer = &desc->layers[0];
-+    unsigned int width;
-+    unsigned int height;
-+    unsigned int bpl;
-+    uint32_t pixelformat;
-+
-+    if (V4L2_TYPE_IS_MULTIPLANAR(format->type)) {
-+        width       = format->fmt.pix_mp.width;
-+        height      = format->fmt.pix_mp.height;
-+        pixelformat = format->fmt.pix_mp.pixelformat;
-+        bpl         = format->fmt.pix_mp.plane_fmt[0].bytesperline;
-+    }
-+    else {
-+        width       = format->fmt.pix.width;
-+        height      = format->fmt.pix.height;
-+        pixelformat = format->fmt.pix.pixelformat;
-+        bpl         = format->fmt.pix.bytesperline;
-+    }
-+
-+    switch (pixelformat) {
-+    case V4L2_PIX_FMT_NV12:
-+        layer->format = DRM_FORMAT_NV12;
-+        desc->objects[0].format_modifier = DRM_FORMAT_MOD_LINEAR;
-+        break;
-+#if CONFIG_SAND
-+    case V4L2_PIX_FMT_NV12_COL128:
-+        layer->format = DRM_FORMAT_NV12;
-+        desc->objects[0].format_modifier = DRM_FORMAT_MOD_BROADCOM_SAND128_COL_HEIGHT(bpl);
-+        break;
-+    case V4L2_PIX_FMT_NV12_10_COL128:
-+        layer->format = DRM_FORMAT_P030;
-+        desc->objects[0].format_modifier = DRM_FORMAT_MOD_BROADCOM_SAND128_COL_HEIGHT(bpl);
-+        break;
-+#endif
-+#ifdef DRM_FORMAT_MOD_ALLWINNER_TILED
-+    case V4L2_PIX_FMT_SUNXI_TILED_NV12:
-+        layer->format = DRM_FORMAT_NV12;
-+        desc->objects[0].format_modifier = DRM_FORMAT_MOD_ALLWINNER_TILED;
-+        break;
-+#endif
-+#if defined(V4L2_PIX_FMT_NV15) && defined(DRM_FORMAT_NV15)
-+    case V4L2_PIX_FMT_NV15:
-+        layer->format = DRM_FORMAT_NV15;
-+        desc->objects[0].format_modifier = DRM_FORMAT_MOD_LINEAR;
-+        break;
-+#endif
-+    case V4L2_PIX_FMT_NV16:
-+        layer->format = DRM_FORMAT_NV16;
-+        desc->objects[0].format_modifier = DRM_FORMAT_MOD_LINEAR;
-+        break;
-+#if defined(V4L2_PIX_FMT_NV20) && defined(DRM_FORMAT_NV20)
-+    case V4L2_PIX_FMT_NV20:
-+        layer->format = DRM_FORMAT_NV20;
-+        desc->objects[0].format_modifier = DRM_FORMAT_MOD_LINEAR;
-+        break;
-+#endif
-+    default:
-+        return -1;
-+    }
-+
-+    desc->nb_objects = 1;
-+    desc->objects[0].fd = -1;
-+    desc->objects[0].size = 0;
-+
-+    desc->nb_layers = 1;
-+    layer->nb_planes = 2;
-+
-+    layer->planes[0].object_index = 0;
-+    layer->planes[0].offset = 0;
-+    layer->planes[0].pitch = bpl;
-+#if CONFIG_SAND
-+    if (pixelformat == V4L2_PIX_FMT_NV12_COL128) {
-+        layer->planes[1].object_index = 0;
-+        layer->planes[1].offset = height * 128;
-+        layer->planes[0].pitch = width;
-+        layer->planes[1].pitch = width;
-+    }
-+    else if (pixelformat == V4L2_PIX_FMT_NV12_10_COL128) {
-+        layer->planes[1].object_index = 0;
-+        layer->planes[1].offset = height * 128;
-+        layer->planes[0].pitch = width * 2; // Lies but it keeps DRM import happy
-+        layer->planes[1].pitch = width * 2;
-+    }
-+    else
-+#endif
-+    {
-+        layer->planes[1].object_index = 0;
-+        layer->planes[1].offset = layer->planes[0].pitch * height;
-+        layer->planes[1].pitch = layer->planes[0].pitch;
-+    }
-+
-+    return 0;
-+}
-+
-+static int set_req_ctls(AVCodecContext *avctx, struct media_request * const mreq)
-+{
-+    const HEVCContext *h = avctx->priv_data;
-+    V4L2RequestControlsHEVC *controls = h->ref->hwaccel_picture_private;
-+    V4L2RequestContextHEVC *ctx = avctx->internal->hwaccel_priv_data;
-+    int rv;
-+
-+    struct v4l2_ext_control control[] = {
-+        {
-+            .id = V4L2_CID_MPEG_VIDEO_HEVC_SPS,
-+            .ptr = &controls->sps,
-+            .size = sizeof(controls->sps),
-+        },
-+        {
-+            .id = V4L2_CID_MPEG_VIDEO_HEVC_PPS,
-+            .ptr = &controls->pps,
-+            .size = sizeof(controls->pps),
-+        },
-+        {
-+            .id = V4L2_CID_MPEG_VIDEO_HEVC_SLICE_PARAMS,
-+            .ptr = &controls->slice_params,
-+            .size = sizeof(controls->slice_params[0]) * FFMAX(FFMIN(controls->num_slices, MAX_SLICES), ctx->max_slices),
-+        },
-+        // *** Make optional
-+        {
-+            .id = V4L2_CID_MPEG_VIDEO_HEVC_SCALING_MATRIX,
-+            .ptr = &controls->scaling_matrix,
-+            .size = sizeof(controls->scaling_matrix),
-+        },
-+    };
-+
-+    rv = mediabufs_ctl_set_ext_ctrls(ctx->mbufs, mreq, control, FF_ARRAY_ELEMS(control));
-+//    return ff_v4l2_request_decode_frame(avctx, h->ref->frame, control, FF_ARRAY_ELEMS(control));
-+
-+    return rv;
-+}
-+
-+static int v4l2_request_hevc_decode_slice(AVCodecContext *avctx, const uint8_t *buffer, uint32_t size)
-+{
-+    const HEVCContext *h = avctx->priv_data;
-+    V4L2RequestControlsHEVC *controls = h->ref->hwaccel_picture_private;
-+    V4L2RequestContextHEVC * const ctx = avctx->internal->hwaccel_priv_data;
-+    V4L2MediaReqDescriptor * const rd = (V4L2MediaReqDescriptor*)h->ref->frame->data[0];
-+    int slice = FFMIN(controls->num_slices, MAX_SLICES - 1);
-+    int bcount = get_bits_count(&h->HEVClc->gb);
-+    uint32_t boff = (ptr_from_index(buffer, bcount/8 + 1) - (buffer + bcount/8 + 1)) * 8 + bcount;
-+
-+    if (!controls->first_slice) {
-+        MediaBufsStatus stat;
-+
-+        // Dispatch previous slice
-+        stat = mediabufs_start_request(ctx->mbufs, &rd->req, &rd->qe_src,
-+                                       controls->dst_qed ? NULL : rd->qe_dst, 0);
-+        if (stat != MEDIABUFS_STATUS_SUCCESS) {
-+            av_log(avctx, AV_LOG_ERROR, "%s: Failed to start request\n", __func__);
-+            return AVERROR_UNKNOWN;
-+        }
-+        controls->dst_qed = 1;
-+    }
-+    controls->first_slice = 0;
-+
-+    // Get new req
-+    if ((rd->req = media_request_get(ctx->mpool)) == NULL) {
-+        av_log(avctx, AV_LOG_ERROR, "%s: Failed to alloc media request\n", __func__);
-+        return AVERROR_UNKNOWN;
-+    }
-+
-+    fill_slice_params(h, controls->slice_params + slice);
-+
-+    controls->slice_params[slice].bit_size = size * 8;    //FIXME
-+    controls->slice_params[slice].data_bit_offset = boff; //FIXME
-+
-+    controls->num_slices++;
-+    if (set_req_ctls(avctx, rd->req)) {
-+        av_log(avctx, AV_LOG_ERROR, "%s: Failed to set ext ctrl slice params\n", __func__);
-+        return AVERROR_UNKNOWN;
-+    }
-+    controls->num_slices = 0;
-+
-+    if ((rd->qe_src = mediabufs_src_qent_get(ctx->mbufs)) == NULL) {
-+        av_log(avctx, AV_LOG_ERROR, "%s: Failed to get src buffer\n", __func__);
-+        return AVERROR(ENOMEM);
-+    }
-+
-+    if (qent_src_data_copy(rd->qe_src, 0, buffer, size, ctx->dbufs) != 0) {
-+        av_log(avctx, AV_LOG_ERROR, "%s: Failed data copy\n", __func__);
-+        return AVERROR(ENOMEM);
-+    }
-+
-+    {
-+        struct timeval tv = cvt_timestamp_to_tv(ctx->timestamp);
-+        frame_set_capture_dpb(h->ref->frame, cvt_timestamp_to_dpb(ctx->timestamp));
-+        qent_src_params_set(rd->qe_src, &tv);
-+    }
-+
-+    fill_slice_params(h, &controls->slice_params[slice]);
-+
-+    if (ctx->start_code == V4L2_MPEG_VIDEO_HEVC_START_CODE_ANNEX_B) {
-+        // ?? Do we really not need the nal type ??
-+        av_log(avctx, AV_LOG_ERROR, "%s: NIF\n", __func__);
-+    }
-+    return 0;
-+}
-+
-+static void v4l2_request_hevc_abort_frame(AVCodecContext * const avctx)
-+{
-+    const HEVCContext * const h = avctx->priv_data;
-+    V4L2MediaReqDescriptor * const rd = (V4L2MediaReqDescriptor*)h->ref->frame->data[0];
-+    V4L2RequestContextHEVC * const ctx = avctx->internal->hwaccel_priv_data;
-+
-+    media_request_abort(&rd->req);
-+    mediabufs_src_qent_abort(ctx->mbufs, &rd->qe_src);
-+}
-+
-+static int v4l2_request_hevc_end_frame(AVCodecContext *avctx)
-+{
-+    const HEVCContext * const h = avctx->priv_data;
-+    V4L2MediaReqDescriptor *rd = (V4L2MediaReqDescriptor*)h->ref->frame->data[0];
-+    V4L2RequestContextHEVC *ctx = avctx->internal->hwaccel_priv_data;
-+    MediaBufsStatus stat;
-+    V4L2RequestControlsHEVC *controls = h->ref->hwaccel_picture_private;
-+//    av_log(NULL, AV_LOG_INFO, "%s\n", __func__);
-+
-+    // Dispatch previous slice
-+    stat = mediabufs_start_request(ctx->mbufs, &rd->req, &rd->qe_src,
-+                                   controls->dst_qed ? NULL : rd->qe_dst, 1);
-+    if (stat != MEDIABUFS_STATUS_SUCCESS) {
-+        av_log(avctx, AV_LOG_ERROR, "%s: Failed to start request\n", __func__);
-+        return AVERROR_UNKNOWN;
-+    }
-+
-+    ff_thread_finish_setup(avctx); // Allow next thread to enter rpi_hevc_start_frame
-+
-+    // Set the drm_prime desriptor
-+    drm_from_format(&rd->drm, mediabufs_dst_fmt(ctx->mbufs));
-+    rd->drm.objects[0].fd = dmabuf_fd(qent_dst_dmabuf(rd->qe_dst, 0));
-+    rd->drm.objects[0].size = dmabuf_size(qent_dst_dmabuf(rd->qe_dst, 0));
-+
-+    return 0;
-+}
-+
-+#if 0
-+static int v4l2_request_hevc_alloc_frame(AVCodecContext * avctx, AVFrame *frame)
-+{
-+    int ret;
-+
-+    // This dups the remainder of ff_get_buffer but adds a post_process callback
-+    ret = avctx->get_buffer2(avctx, frame, AV_GET_BUFFER_FLAG_REF);
-+    if (ret < 0)
-+        goto fail;
-+
-+    ret = ff_attach_decode_data(frame);
-+    if (ret < 0)
-+        goto fail;
-+
-+    return 0;
-+
-+fail:
-+    if (ret < 0) {
-+        av_log(avctx, AV_LOG_ERROR, "%s failed\n", __func__);
-+        av_frame_unref(frame);
-+    }
-+
-+    return ret;
-+}
-+#endif
-+
-+static int set_controls(AVCodecContext *avctx)
++static int v4l2_req_hevc_end_frame(AVCodecContext *avctx)
 +{
 +    V4L2RequestContextHEVC *ctx = avctx->internal->hwaccel_priv_data;
-+    int ret;
++    return ctx->fns->end_frame(avctx);
++}
 +
-+    struct v4l2_query_ext_ctrl querys[] = {
-+        { .id = V4L2_CID_MPEG_VIDEO_HEVC_DECODE_MODE, },
-+        { .id = V4L2_CID_MPEG_VIDEO_HEVC_START_CODE, },
-+        { .id = V4L2_CID_MPEG_VIDEO_HEVC_SLICE_PARAMS, },
-+    };
++static void v4l2_req_hevc_abort_frame(AVCodecContext * const avctx)
++{
++    V4L2RequestContextHEVC * const ctx = avctx->internal->hwaccel_priv_data;
++    ctx->fns->abort_frame(avctx);
++}
 +
-+    struct v4l2_ext_control ctrls[] = {
-+        { .id = V4L2_CID_MPEG_VIDEO_HEVC_DECODE_MODE, },
-+        { .id = V4L2_CID_MPEG_VIDEO_HEVC_START_CODE, },
-+    };
-+
-+    mediabufs_ctl_query_ext_ctrls(ctx->mbufs, querys, FF_ARRAY_ELEMS(querys));
-+
-+    ctx->decode_mode = querys[0].default_value;
-+
-+    if (ctx->decode_mode != V4L2_MPEG_VIDEO_HEVC_DECODE_MODE_SLICE_BASED &&
-+        ctx->decode_mode != V4L2_MPEG_VIDEO_HEVC_DECODE_MODE_FRAME_BASED) {
-+        av_log(avctx, AV_LOG_ERROR, "%s: unsupported decode mode, %d\n", __func__, ctx->decode_mode);
-+        return AVERROR(EINVAL);
-+    }
-+
-+    ctx->start_code = querys[1].default_value;
-+    if (ctx->start_code != V4L2_MPEG_VIDEO_HEVC_START_CODE_NONE &&
-+        ctx->start_code != V4L2_MPEG_VIDEO_HEVC_START_CODE_ANNEX_B) {
-+        av_log(avctx, AV_LOG_ERROR, "%s: unsupported start code, %d\n", __func__, ctx->start_code);
-+        return AVERROR(EINVAL);
-+    }
-+
-+    ctx->max_slices = querys[2].elems;
-+    if (ctx->max_slices > MAX_SLICES) {
-+        av_log(avctx, AV_LOG_ERROR, "%s: unsupported max slices, %d\n", __func__, ctx->max_slices);
-+        return AVERROR(EINVAL);
-+    }
-+
-+    ctrls[0].value = ctx->decode_mode;
-+    ctrls[1].value = ctx->start_code;
-+
-+    ret = mediabufs_ctl_set_ext_ctrls(ctx->mbufs, NULL, ctrls, FF_ARRAY_ELEMS(ctrls));
-+    return !ret ? 0 : AVERROR(-ret);
++static int v4l2_req_hevc_frame_params(AVCodecContext *avctx, AVBufferRef *hw_frames_ctx)
++{
++    V4L2RequestContextHEVC * const ctx = avctx->internal->hwaccel_priv_data;
++    return ctx->fns->frame_params(avctx, hw_frames_ctx);
 +}
 +
 +static int v4l2_request_hevc_uninit(AVCodecContext *avctx)
 +{
 +    V4L2RequestContextHEVC * const ctx = avctx->internal->hwaccel_priv_data;
 +
++    av_log(avctx, AV_LOG_DEBUG, "<<< %s\n", __func__);
++
++    decode_q_wait(&ctx->decode_q, NULL);  // Wait for all other threads to be out of decode
++
 +    mediabufs_ctl_unref(&ctx->mbufs);
 +    media_pool_delete(&ctx->mpool);
-+    pollqueue_delete(&ctx->pq);
++    pollqueue_unref(&ctx->pq);
 +    dmabufs_ctl_delete(&ctx->dbufs);
 +    devscan_delete(&ctx->devscan);
 +
-+//    ff_v4l2_phase_control_deletez(&ctx->pctrl);
++    decode_q_uninit(&ctx->decode_q);
 +
 +//    if (avctx->hw_frames_ctx) {
 +//        AVHWFramesContext *hwfc = (AVHWFramesContext*)avctx->hw_frames_ctx->data;
@@ -52409,22 +53531,26 @@ index 0000000000..92205cc178
 +    const HEVCContext *h = avctx->priv_data;
 +    V4L2RequestContextHEVC * const ctx = avctx->internal->hwaccel_priv_data;
 +    const HEVCSPS * const sps = h->ps.sps;
-+    struct v4l2_ctrl_hevc_sps ctrl_sps;
 +    int ret;
 +    const struct decdev * decdev;
-+    uint32_t src_pix_fmt = V4L2_PIX_FMT_HEVC_SLICE;
++    const uint32_t src_pix_fmt = V2(ff_v4l2_req_hevc, 1).src_pix_fmt_v4l2;  // Assuming constant for all APIs but avoiding V4L2 includes
 +    size_t src_size;
 +
++    av_log(avctx, AV_LOG_DEBUG, "<<< %s\n", __func__);
++
 +    if ((ret = devscan_build(avctx, &ctx->devscan)) != 0) {
-+        av_log(avctx, AV_LOG_ERROR, "Failed to find any V4L2 devices\n");
++        av_log(avctx, AV_LOG_WARNING, "Failed to find any V4L2 devices\n");
 +        return (AVERROR(-ret));
 +    }
++    ret = AVERROR(ENOMEM);  // Assume mem fail by default for these
++
 +    if ((decdev = devscan_find(ctx->devscan, src_pix_fmt)) == NULL)
 +    {
-+        av_log(avctx, AV_LOG_ERROR, "Failed to find a V4L2 device for H265\n");
++        av_log(avctx, AV_LOG_WARNING, "Failed to find a V4L2 device for H265\n");
++        ret = AVERROR(ENODEV);
 +        goto fail0;
 +    }
-+    av_log(avctx, AV_LOG_INFO, "Trying V4L2 devices: %s,%s\n",
++    av_log(avctx, AV_LOG_DEBUG, "Trying V4L2 devices: %s,%s\n",
 +           decdev_media_path(decdev), decdev_video_path(decdev));
 +
 +    if ((ctx->dbufs = dmabufs_ctl_new()) == NULL) {
@@ -52447,14 +53573,16 @@ index 0000000000..92205cc178
 +        goto fail3;
 +    }
 +
-+    fill_sps(&ctrl_sps, h);
-+
 +    // Ask for an initial bitbuf size of max size / 4
 +    // We will realloc if we need more
 +    // Must use sps->h/w as avctx contains cropped size
 +    src_size = bit_buf_size(sps->width, sps->height, sps->bit_depth - 8);
 +    if (mediabufs_src_resizable(ctx->mbufs))
 +        src_size /= 4;
++    // Kludge for conformance tests which break Annex A limits
++    else if (src_size < 0x40000)
++        src_size = 0x40000;
++
 +    if (mediabufs_src_fmt_set(ctx->mbufs, decdev_src_type(decdev), src_pix_fmt,
 +                              sps->width, sps->height, src_size)) {
 +        char tbuf1[5];
@@ -52462,8 +53590,17 @@ index 0000000000..92205cc178
 +        goto fail4;
 +    }
 +
-+    if (mediabufs_set_ext_ctrl(ctx->mbufs, NULL, V4L2_CID_MPEG_VIDEO_HEVC_SPS, &ctrl_sps, sizeof(ctrl_sps))) {
-+        av_log(avctx, AV_LOG_ERROR, "Failed to set initial SPS\n");
++    if (V2(ff_v4l2_req_hevc, 2).probe(avctx, ctx) == 0) {
++        av_log(avctx, AV_LOG_DEBUG, "HEVC API version 2 probed successfully\n");
++        ctx->fns = &V2(ff_v4l2_req_hevc, 2);
++    }
++    else if (V2(ff_v4l2_req_hevc, 1).probe(avctx, ctx) == 0) {
++        av_log(avctx, AV_LOG_DEBUG, "HEVC API version 1 probed successfully\n");
++        ctx->fns = &V2(ff_v4l2_req_hevc, 1);
++    }
++    else {
++        av_log(avctx, AV_LOG_ERROR, "No HEVC version probed successfully\n");
++        ret = AVERROR(EINVAL);
 +        goto fail4;
 +    }
 +
@@ -52488,135 +53625,41 @@ index 0000000000..92205cc178
 +        goto fail4;
 +    }
 +
-+    ret = ff_decode_get_hw_frames_ctx(avctx, AV_HWDEVICE_TYPE_DRM);
-+    if (ret)
-+        return ret;
++    if ((ret = ff_decode_get_hw_frames_ctx(avctx, AV_HWDEVICE_TYPE_DRM)) != 0) {
++        av_log(avctx, AV_LOG_ERROR, "Failed to create frame ctx\n");
++        goto fail4;
++    }
 +
-+    return set_controls(avctx);
++    if ((ret = ctx->fns->set_controls(avctx, ctx)) != 0) {
++        av_log(avctx, AV_LOG_ERROR, "Failed set controls\n");
++        goto fail5;
++    }
 +
++    decode_q_init(&ctx->decode_q);
++
++    // Set our s/w format
++    avctx->sw_pix_fmt = ((AVHWFramesContext *)avctx->hw_frames_ctx->data)->sw_format;
++
++    av_log(avctx, AV_LOG_INFO, "Hwaccel %s; devices: %s,%s\n",
++           ctx->fns->name,
++           decdev_media_path(decdev), decdev_video_path(decdev));
++
++    return 0;
++
++fail5:
++    av_buffer_unref(&avctx->hw_frames_ctx);
 +fail4:
 +    mediabufs_ctl_unref(&ctx->mbufs);
 +fail3:
 +    media_pool_delete(&ctx->mpool);
 +fail2:
-+    pollqueue_delete(&ctx->pq);
++    pollqueue_unref(&ctx->pq);
 +fail1:
 +    dmabufs_ctl_delete(&ctx->dbufs);
 +fail0:
 +    devscan_delete(&ctx->devscan);
-+    return AVERROR(ENOMEM);
++    return ret;
 +}
-+
-+
-+
-+
-+static void v4l2_req_frame_free(void *opaque, uint8_t *data)
-+{
-+    AVCodecContext *avctx = opaque;
-+    V4L2MediaReqDescriptor * const rd = (V4L2MediaReqDescriptor*)data;
-+
-+    av_log(NULL, AV_LOG_DEBUG, "%s: avctx=%p data=%p\n", __func__, avctx, data);
-+
-+    qent_dst_free(&rd->qe_dst);
-+
-+    // We don't expect req or qe_src to be set
-+    if (rd->req || rd->qe_src)
-+        av_log(NULL, AV_LOG_ERROR, "%s: qe_src %p or req %p not NULL\n", __func__, rd->req, rd->qe_src);
-+
-+    av_free(data);
-+}
-+
-+static AVBufferRef *v4l2_req_frame_alloc(void *opaque, int size)
-+{
-+    AVCodecContext *avctx = opaque;
-+//    V4L2RequestContextHEVC *ctx = avctx->internal->hwaccel_priv_data;
-+//    V4L2MediaReqDescriptor *req;
-+    AVBufferRef *ref;
-+    uint8_t *data;
-+//    int ret;
-+
-+    data = av_mallocz(size);
-+    if (!data)
-+        return NULL;
-+
-+    av_log(avctx, AV_LOG_DEBUG, "%s: avctx=%p size=%d data=%p\n", __func__, avctx, size, data);
-+    ref = av_buffer_create(data, size, v4l2_req_frame_free, avctx, 0);
-+    if (!ref) {
-+        av_freep(&data);
-+        return NULL;
-+    }
-+    return ref;
-+}
-+
-+static void v4l2_req_pool_free(void *opaque)
-+{
-+    av_log(NULL, AV_LOG_DEBUG, "%s: opaque=%p\n", __func__, opaque);
-+}
-+
-+static void v4l2_req_hwframe_ctx_free(AVHWFramesContext *hwfc)
-+{
-+    av_log(NULL, AV_LOG_DEBUG, "%s: hwfc=%p pool=%p\n", __func__, hwfc, hwfc->pool);
-+
-+    av_buffer_pool_uninit(&hwfc->pool);
-+}
-+
-+static int v4l2_req_hevc_frame_params(AVCodecContext *avctx, AVBufferRef *hw_frames_ctx)
-+{
-+    V4L2RequestContextHEVC *ctx = avctx->internal->hwaccel_priv_data;
-+    AVHWFramesContext *hwfc = (AVHWFramesContext*)hw_frames_ctx->data;
-+    const struct v4l2_format *vfmt = mediabufs_dst_fmt(ctx->mbufs);
-+
-+    hwfc->format = AV_PIX_FMT_DRM_PRIME;
-+    hwfc->sw_format = AV_PIX_FMT_NV12;
-+    if (V4L2_TYPE_IS_MULTIPLANAR(vfmt->type)) {
-+        hwfc->width = vfmt->fmt.pix_mp.width;
-+        hwfc->height = vfmt->fmt.pix_mp.height;
-+#if CONFIG_SAND
-+        if (vfmt->fmt.pix_mp.pixelformat == V4L2_PIX_FMT_NV12_COL128) {
-+            hwfc->sw_format = AV_PIX_FMT_RPI4_8;
-+        }
-+        else if (vfmt->fmt.pix_mp.pixelformat == V4L2_PIX_FMT_NV12_10_COL128) {
-+            hwfc->sw_format = AV_PIX_FMT_RPI4_10;
-+        }
-+#endif
-+    } else {
-+        hwfc->width = vfmt->fmt.pix.width;
-+        hwfc->height = vfmt->fmt.pix.height;
-+#if CONFIG_SAND
-+        if (vfmt->fmt.pix.pixelformat == V4L2_PIX_FMT_NV12_COL128) {
-+            hwfc->sw_format = AV_PIX_FMT_RPI4_8;
-+        }
-+        else if (vfmt->fmt.pix.pixelformat == V4L2_PIX_FMT_NV12_10_COL128) {
-+            hwfc->sw_format = AV_PIX_FMT_RPI4_10;
-+        }
-+#endif
-+    }
-+
-+    hwfc->pool = av_buffer_pool_init2(sizeof(V4L2MediaReqDescriptor), avctx, v4l2_req_frame_alloc, v4l2_req_pool_free);
-+    if (!hwfc->pool)
-+        return AVERROR(ENOMEM);
-+
-+    hwfc->free = v4l2_req_hwframe_ctx_free;
-+
-+    hwfc->initial_pool_size = 1;
-+
-+    switch (avctx->codec_id) {
-+    case AV_CODEC_ID_VP9:
-+        hwfc->initial_pool_size += 8;
-+        break;
-+    case AV_CODEC_ID_VP8:
-+        hwfc->initial_pool_size += 3;
-+        break;
-+    default:
-+        hwfc->initial_pool_size += 2;
-+    }
-+
-+    av_log(avctx, AV_LOG_DEBUG, "%s: avctx=%p ctx=%p hw_frames_ctx=%p hwfc=%p pool=%p width=%d height=%d initial_pool_size=%d\n", __func__, avctx, ctx, hw_frames_ctx, hwfc, hwfc->pool, hwfc->width, hwfc->height, hwfc->initial_pool_size);
-+
-+    return 0;
-+}
-+
-+
 +
 +const AVHWAccel ff_hevc_v4l2request_hwaccel = {
 +    .name           = "hevc_v4l2request",
@@ -52624,17 +53667,122 @@ index 0000000000..92205cc178
 +    .id             = AV_CODEC_ID_HEVC,
 +    .pix_fmt        = AV_PIX_FMT_DRM_PRIME,
 +//    .alloc_frame    = v4l2_request_hevc_alloc_frame,
-+    .start_frame    = v4l2_request_hevc_start_frame,
-+    .decode_slice   = v4l2_request_hevc_decode_slice,
-+    .end_frame      = v4l2_request_hevc_end_frame,
-+    .abort_frame    = v4l2_request_hevc_abort_frame,
-+    .frame_priv_data_size = sizeof(V4L2RequestControlsHEVC),
++    .start_frame    = v4l2_req_hevc_start_frame,
++    .decode_slice   = v4l2_req_hevc_decode_slice,
++    .end_frame      = v4l2_req_hevc_end_frame,
++    .abort_frame    = v4l2_req_hevc_abort_frame,
 +    .init           = v4l2_request_hevc_init,
 +    .uninit         = v4l2_request_hevc_uninit,
 +    .priv_data_size = sizeof(V4L2RequestContextHEVC),
 +    .frame_params   = v4l2_req_hevc_frame_params,
 +    .caps_internal  = HWACCEL_CAP_ASYNC_SAFE | HWACCEL_CAP_MT_SAFE,
 +};
+diff --git a/libavcodec/v4l2_request_hevc.h b/libavcodec/v4l2_request_hevc.h
+new file mode 100644
+index 0000000000..31ce4b8833
+--- /dev/null
++++ b/libavcodec/v4l2_request_hevc.h
+@@ -0,0 +1,100 @@
++#ifndef AVCODEC_V4L2_REQUEST_HEVC_H
++#define AVCODEC_V4L2_REQUEST_HEVC_H
++
++#include <drm_fourcc.h>
++#include "v4l2_req_decode_q.h"
++
++#ifndef DRM_FORMAT_NV15
++#define DRM_FORMAT_NV15 fourcc_code('N', 'V', '1', '5')
++#endif
++
++#ifndef DRM_FORMAT_NV20
++#define DRM_FORMAT_NV20 fourcc_code('N', 'V', '2', '0')
++#endif
++
++// P030 should be defined in drm_fourcc.h and hopefully will be sometime
++// in the future but until then...
++#ifndef DRM_FORMAT_P030
++#define DRM_FORMAT_P030 fourcc_code('P', '0', '3', '0')
++#endif
++
++#ifndef DRM_FORMAT_NV15
++#define DRM_FORMAT_NV15 fourcc_code('N', 'V', '1', '5')
++#endif
++
++#ifndef DRM_FORMAT_NV20
++#define DRM_FORMAT_NV20 fourcc_code('N', 'V', '2', '0')
++#endif
++
++#include <linux/videodev2.h>
++#ifndef V4L2_CID_CODEC_BASE
++#define V4L2_CID_CODEC_BASE V4L2_CID_MPEG_BASE
++#endif
++
++// V4L2_PIX_FMT_NV12_10_COL128 and V4L2_PIX_FMT_NV12_COL128 should be defined
++// in drm_fourcc.h hopefully will be sometime in the future but until then...
++#ifndef V4L2_PIX_FMT_NV12_10_COL128
++#define V4L2_PIX_FMT_NV12_10_COL128 v4l2_fourcc('N', 'C', '3', '0')
++#endif
++
++#ifndef V4L2_PIX_FMT_NV12_COL128
++#define V4L2_PIX_FMT_NV12_COL128 v4l2_fourcc('N', 'C', '1', '2') /* 12  Y/CbCr 4:2:0 128 pixel wide column */
++#endif
++
++#ifndef V4L2_CTRL_FLAG_DYNAMIC_ARRAY
++#define V4L2_CTRL_FLAG_DYNAMIC_ARRAY	0x0800
++#endif
++
++#define MAX_SLICES 128
++
++#define VCAT(name, version) name##_v##version
++#define V2(n,v) VCAT(n, v)
++#define V(n) V2(n, HEVC_CTRLS_VERSION)
++
++#define S2(x) #x
++#define STR(x) S2(x)
++
++// 1 per decoder
++struct v4l2_req_decode_fns;
++
++typedef struct V4L2RequestContextHEVC {
++//    V4L2RequestContext base;
++    const struct v4l2_req_decode_fns * fns;
++
++    unsigned int timestamp;  // ?? maybe uint64_t
++
++    int multi_slice;
++    int decode_mode;
++    int start_code;
++    int max_slices;
++
++    req_decode_q decode_q;
++
++    struct devscan *devscan;
++    struct dmabufs_ctl *dbufs;
++    struct pollqueue *pq;
++    struct media_pool * mpool;
++    struct mediabufs_ctl *mbufs;
++} V4L2RequestContextHEVC;
++
++typedef struct v4l2_req_decode_fns {
++    int src_pix_fmt_v4l2;
++    const char * name;
++
++    // Init setup
++    int (*probe)(AVCodecContext * const avctx, V4L2RequestContextHEVC * const ctx);
++    int (*set_controls)(AVCodecContext * const avctx, V4L2RequestContextHEVC * const ctx);
++
++    // Passthrough of hwaccel fns
++    int (*start_frame)(AVCodecContext *avctx, const uint8_t *buf, uint32_t buf_size);
++    int (*decode_slice)(AVCodecContext *avctx, const uint8_t *buf, uint32_t buf_size);
++    int (*end_frame)(AVCodecContext *avctx);
++    void (*abort_frame)(AVCodecContext *avctx);
++    int (*frame_params)(AVCodecContext *avctx, AVBufferRef *hw_frames_ctx);
++} v4l2_req_decode_fns;
++
++
++extern const v4l2_req_decode_fns V2(ff_v4l2_req_hevc, 1);
++extern const v4l2_req_decode_fns V2(ff_v4l2_req_hevc, 2);
++
++#endif
 diff --git a/libavcodec/weak_link.c b/libavcodec/weak_link.c
 new file mode 100644
 index 0000000000..83ce7c0653
@@ -52800,10 +53948,10 @@ index 8633433254..bc15112a00 100644
  
 diff --git a/libavdevice/drm_vout.c b/libavdevice/drm_vout.c
 new file mode 100644
-index 0000000000..d58b8fc7c8
+index 0000000000..064cbf6b08
 --- /dev/null
 +++ b/libavdevice/drm_vout.c
-@@ -0,0 +1,633 @@
+@@ -0,0 +1,643 @@
 +/*
 + * Copyright (c) 2020 John Cox for Raspberry Pi Trading
 + *
@@ -52860,6 +54008,7 @@ index 0000000000..d58b8fc7c8
 +
 +typedef struct drm_aux_s {
 +    unsigned int fb_handle;
++    uint32_t bo_handles[AV_DRM_MAX_PLANES];
 +    AVFrame * frame;
 +} drm_aux_t;
 +
@@ -52973,6 +54122,13 @@ index 0000000000..d58b8fc7c8
 +        da->fb_handle = 0;
 +    }
 +
++    for (unsigned int i = 0; i != AV_DRM_MAX_PLANES; ++i) {
++        if (da->bo_handles[i]) {
++            struct drm_gem_close gem_close = {.handle = da->bo_handles[i]};
++            drmIoctl(de->drm_fd, DRM_IOCTL_GEM_CLOSE, &gem_close);
++            da->bo_handles[i] = 0;
++        }
++    }
 +    av_frame_free(&da->frame);
 +}
 +
@@ -53018,14 +54174,13 @@ index 0000000000..d58b8fc7c8
 +        uint32_t pitches[4] = {0};
 +        uint32_t offsets[4] = {0};
 +        uint64_t modifiers[4] = {0};
-+        uint32_t bo_object_handles[4] = {0};
 +        uint32_t bo_handles[4] = {0};
 +        int i, j, n;
 +
 +        da->frame = frame;
 +
 +        for (i = 0; i < desc->nb_objects; ++i) {
-+            if (drmPrimeFDToHandle(de->drm_fd, desc->objects[i].fd, bo_object_handles + i) != 0) {
++            if (drmPrimeFDToHandle(de->drm_fd, desc->objects[i].fd, da->bo_handles + i) != 0) {
 +                av_log(s, AV_LOG_WARNING, "drmPrimeFDToHandle[%d](%d) failed: %s\n", i, desc->objects[i].fd, ERRSTR);
 +                return -1;
 +            }
@@ -53039,7 +54194,7 @@ index 0000000000..d58b8fc7c8
 +                pitches[n] = p->pitch;
 +                offsets[n] = p->offset;
 +                modifiers[n] = obj->format_modifier;
-+                bo_handles[n] = bo_object_handles[p->object_index];
++                bo_handles[n] = da->bo_handles[p->object_index];
 +                ++n;
 +            }
 +        }
@@ -53394,6 +54549,9 @@ index 0000000000..d58b8fc7c8
 +    pthread_join(de->q_thread, NULL);
 +    sem_destroy(&de->q_sem_in);
 +    sem_destroy(&de->q_sem_out);
++
++    for (unsigned int i = 0; i != AUX_SIZE; ++i)
++        da_uninit(de, de->aux + i);
 +
 +    av_frame_free(&de->q_next);
 +
@@ -57049,7 +58207,7 @@ index fc67db0f6c..b1a7eb4858 100644
   * @}
   */
 diff --git a/libavutil/hwcontext_drm.c b/libavutil/hwcontext_drm.c
-index 32cbde82eb..b1fc82034b 100644
+index 32cbde82eb..c5d0b960af 100644
 --- a/libavutil/hwcontext_drm.c
 +++ b/libavutil/hwcontext_drm.c
 @@ -19,8 +19,10 @@
@@ -57210,7 +58368,7 @@ index 32cbde82eb..b1fc82034b 100644
      pix_fmts[1] = AV_PIX_FMT_NONE;
  
      *formats = pix_fmts;
-@@ -197,18 +268,82 @@ static int drm_transfer_data_from(AVHWFramesContext *hwfc,
+@@ -197,18 +268,80 @@ static int drm_transfer_data_from(AVHWFramesContext *hwfc,
      map = av_frame_alloc();
      if (!map)
          return AVERROR(ENOMEM);
@@ -57239,35 +58397,33 @@ index 32cbde82eb..b1fc82034b 100644
 +#endif
 +#if CONFIG_SAND
 +    if (av_rpi_is_sand_frame(map)) {
++        // Preserve crop - later ffmpeg code assumes that we have in that it
++        // overwrites any crop that we create with the old values
 +        unsigned int stride2 = map->linesize[3];
-+        const unsigned int w = FFMIN(dst->width, av_frame_cropped_width(map));
-+        const unsigned int h = FFMIN(dst->height, av_frame_cropped_height(map));
++        const unsigned int w = FFMIN(dst->width, map->width);
++        const unsigned int h = FFMIN(dst->height, map->height);
 +
 +        if (map->format == AV_PIX_FMT_RPI4_8 && dst->format == AV_PIX_FMT_YUV420P) {
 +            av_rpi_sand_to_planar_y8(dst->data[0], dst->linesize[0],
 +                                     map->data[0],
 +                                     128, stride2,
-+                                     map->crop_left, map->crop_top,
-+                                     w, h);
++                                     0, 0, w, h);
 +            av_rpi_sand_to_planar_c8(dst->data[1], dst->linesize[1],
 +                                     dst->data[2], dst->linesize[2],
 +                                     map->data[1],
 +                                     128, stride2,
-+                                     map->crop_left / 2, map->crop_top / 2,
-+                                     w / 2, h / 2);
++                                     0, 0, w / 2, h / 2);
 +        }
 +        else if (map->format == AV_PIX_FMT_RPI4_10 && dst->format == AV_PIX_FMT_YUV420P10LE) {
 +            av_rpi_sand30_to_planar_y16(dst->data[0], dst->linesize[0],
 +                                     map->data[0],
 +                                     128, stride2,
-+                                     map->crop_left, map->crop_top,
-+                                     w, h);  // *** ??? crop
++                                     0, 0, w, h);
 +            av_rpi_sand30_to_planar_c16(dst->data[1], dst->linesize[1],
 +                                     dst->data[2], dst->linesize[2],
 +                                     map->data[1],
 +                                     128, stride2,
-+                                     map->crop_left / 2, map->crop_top / 2,
-+                                     w / 2, h / 2);
++                                     0, 0, w / 2, h / 2);
 +        }
 +        else
 +        {
@@ -57297,7 +58453,7 @@ index 32cbde82eb..b1fc82034b 100644
  
      err = 0;
  fail:
-@@ -223,7 +358,10 @@ static int drm_transfer_data_to(AVHWFramesContext *hwfc,
+@@ -223,7 +356,10 @@ static int drm_transfer_data_to(AVHWFramesContext *hwfc,
      int err;
  
      if (src->width > hwfc->width || src->height > hwfc->height)
@@ -58352,10 +59508,10 @@ index 0000000000..92bc13a3df
 +
 diff --git a/pi-util/clean_usr_libs.sh b/pi-util/clean_usr_libs.sh
 new file mode 100755
-index 0000000000..67888c8785
+index 0000000000..98ab9d6de9
 --- /dev/null
 +++ b/pi-util/clean_usr_libs.sh
-@@ -0,0 +1,16 @@
+@@ -0,0 +1,23 @@
 +set -e
 +U=/usr/lib/arm-linux-gnueabihf
 +rm -f $U/libavcodec.*
@@ -58365,6 +59521,13 @@ index 0000000000..67888c8785
 +rm -f $U/libavresample.*
 +rm -f $U/libavutil.*
 +U=/usr/lib/arm-linux-gnueabihf/neon/vfp
++rm -f $U/libavcodec.*
++rm -f $U/libavdevice.*
++rm -f $U/libavfilter.*
++rm -f $U/libavformat.*
++rm -f $U/libavresample.*
++rm -f $U/libavutil.*
++U=/usr/lib/aarch64-linux-gnu
 +rm -f $U/libavcodec.*
 +rm -f $U/libavdevice.*
 +rm -f $U/libavfilter.*
@@ -58929,10 +60092,10 @@ index 0000000000..fc14f2a3c2
 +1,WPP_F_ericsson_MAIN_2,WPP_F_ericsson_MAIN_2.bit,WPP_F_ericsson_MAIN_2_yuv.md5
 diff --git a/pi-util/conf_native.sh b/pi-util/conf_native.sh
 new file mode 100755
-index 0000000000..d5240ff388
+index 0000000000..24fc229f1d
 --- /dev/null
 +++ b/pi-util/conf_native.sh
-@@ -0,0 +1,76 @@
+@@ -0,0 +1,78 @@
 +echo "Configure for native build"
 +
 +FFSRC=`pwd`
@@ -58964,21 +60127,23 @@ index 0000000000..d5240ff388
 +  RPIOPTS="--enable-mmal --enable-rpi"
 +fi
 +C=`lsb_release -sc`
++V=`cat RELEASE`
 +
 +SHARED_LIBS="--enable-shared"
 +if [ "$1" == "--noshared" ]; then
 +  SHARED_LIBS="--disable-shared"
-+  OUT=out/$B-$C-static-rel
++  OUT=out/$B-$C-$V-static-rel
 +  echo Static libs
 +else
 +  echo Shared libs
-+  OUT=out/$B-$C-shared-rel
++  OUT=out/$B-$C-$V-shared-rel
 +fi
 +
 +USR_PREFIX=$FFSRC/$OUT/install
 +LIB_PREFIX=$USR_PREFIX/lib/$A
 +INC_PREFIX=$USR_PREFIX/include/$A
 +
++echo Destination directory: $OUT
 +mkdir -p $FFSRC/$OUT
 +cd $FFSRC/$OUT
 +

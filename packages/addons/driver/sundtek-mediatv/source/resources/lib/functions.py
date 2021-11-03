@@ -23,7 +23,7 @@ def settings_restore(settings_xml):
   try:
     shutil.copyfile(settings_xml + '_orig', settings_xml)
   except IOError as e:
-    print 'Error restoring file:', settings_xml
+    print('Error restoring file:', settings_xml)
 
 ######################################################################################################
 # get hdhomerun supported devices on a system (only name like 101ADD2B-0)
@@ -37,7 +37,7 @@ def get_devices_hdhomerun(hdhomerun_log):
         name = name[2].strip()
         tuners.append(name)
   except IOError:
-    print 'Error reading hdhomerun log file', hdhomerun_log
+    print('Error reading hdhomerun log file', hdhomerun_log)
   return tuners
 
   """
@@ -74,7 +74,7 @@ def get_devices_sundtek(mediaclient_e):
 
         if str.startswith('[DVB'):
           types_arr = tuners[len(tuners)-1][2]
-          str = str.translate(None, '[]:')
+          str = str.translate(dict.fromkeys(map(ord, '[]:'), None))
           types = str.split(",")
           for i in range(len(types)):
             if types[i] == 'DVB-C':
@@ -89,7 +89,7 @@ def get_devices_sundtek(mediaclient_e):
           tuners[len(tuners)-1][2] = types_arr
 
   except IOError:
-    print 'Error getting sundtek tuners info'
+    print('Error getting sundtek tuners info')
   return tuners
 
   """
@@ -144,7 +144,7 @@ def parse_settings(settings_xml):
     category = xmldoc.getElementsByTagName('category')
     return xmldoc
   except Exception as inst:
-    print 'Error parse settings file', settings_xml
+    print('Error parse settings file', settings_xml)
     return None
 
 ######################################################################################################
@@ -274,7 +274,7 @@ def save_settings(settings_xml, xmldoc):
     xmlpp.pprint(xmldoc.toxml(), output = outputfile, indent=2, width=500)
     outputfile.close()
   except IOError:
-    print 'Error saving file:', settings_xml
+    print('Error saving file:', settings_xml)
     settings_restore(settings_xml)
 
 ######################################################################################################
@@ -284,7 +284,7 @@ def refresh_hdhomerun_tuners(settings_xml, hdhomerun_log):
   tuners = get_devices_hdhomerun(hdhomerun_log)
   xmldoc = parse_settings(settings_xml)
   if xmldoc == None:
-    print 'No hdhomerun tuners found'
+    print('No hdhomerun tuners found')
   else:
     remove_old_tuners(xmldoc)
     add_new_tuners(xmldoc, tuners, 'hdhomerun')
@@ -297,7 +297,7 @@ def refresh_sundtek_tuners(settings_xml, mediaclient_e):
   tuners = get_devices_sundtek(mediaclient_e)
   xmldoc = parse_settings(settings_xml)
   if xmldoc == None:
-    print 'No sundtek tuners found'
+    print('No sundtek tuners found')
   else:
     remove_old_tuners(xmldoc)
     add_new_tuners(xmldoc, tuners, 'sundtek')

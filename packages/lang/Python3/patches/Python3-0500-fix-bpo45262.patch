@@ -1,0 +1,26 @@
+From c4e2aa8d60f722cece55d446e97585b1fa8a6ae7 Mon Sep 17 00:00:00 2001
+From: Matthias Reichl <hias@horus.com>
+Date: Thu, 7 Oct 2021 13:03:27 +0200
+Subject: [PATCH] Prevent use-after-free of running loop holder via cache
+
+---
+ Modules/_asynciomodule.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/Modules/_asynciomodule.c b/Modules/_asynciomodule.c
+index ecc73d1ca8..56079b0277 100644
+--- a/Modules/_asynciomodule.c
++++ b/Modules/_asynciomodule.c
+@@ -3239,6 +3239,9 @@ new_running_loop_holder(PyObject *loop)
+ static void
+ PyRunningLoopHolder_tp_dealloc(PyRunningLoopHolder *rl)
+ {
++    if (cached_running_holder == (PyObject *)rl) {
++        cached_running_holder = NULL;
++    }
+     Py_CLEAR(rl->rl_loop);
+     PyObject_Free(rl);
+ }
+-- 
+2.30.2
+

@@ -2,9 +2,9 @@
 # Copyright (C) 2020-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.atari800"
-PKG_VERSION="3.1.0.9-Matrix"
-PKG_SHA256="e8f548fea778f52fa504894ea12080c419336e28a1a96474ead6062026a97630"
-PKG_REV="2"
+PKG_VERSION="3.1.0.16-Matrix"
+PKG_SHA256="2241468ad9c00d0e536c0217eb29a405a1b864d760cef88e13c9bd4e2f88d9c1"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.atari800"

@@ -30,3 +30,12 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-acl-support \
                            --disable-zstd \
                            --with-included-popt \
                            --without-included-zlib"
+
+pre_make_host() {
+  # do not detect LE git version
+  echo "#define RSYNC_GITVER \"${PKG_VERSION}\"" >git-version.h
+}
+
+pre_make_target() {
+  pre_make_host
+}

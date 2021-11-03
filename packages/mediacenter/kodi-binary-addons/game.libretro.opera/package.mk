@@ -2,9 +2,9 @@
 # Copyright (C) 2021-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.opera"
-PKG_VERSION="1.0.0.16-Matrix"
-PKG_SHA256="cc62de7326e52c0ffa7bf1afb13081360d57084d31ab03d5fb8041d90fff1f9c"
-PKG_REV="3"
+PKG_VERSION="1.0.0.23-Matrix"
+PKG_SHA256="ea45c9d36c61b1b521d708d0bf6f54afbd83b223fb9147176a51430f9cd2e3c5"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.opera"
