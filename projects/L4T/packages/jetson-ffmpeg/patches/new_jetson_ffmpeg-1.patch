@@ -1,0 +1,153 @@
+diff -Naur jetson-ffmpeg/CMakeLists.txt jetson-ffmpeg-2/CMakeLists.txt
+--- jetson-ffmpeg/CMakeLists.txt	2021-10-24 15:32:10.198011798 -0700
++++ jetson-ffmpeg-2/CMakeLists.txt	2021-10-24 15:43:06.853260748 -0700
+@@ -1,15 +1,19 @@
+ cmake_minimum_required(VERSION 3.9)
+ project(nvmpi VERSION 1.0.0 DESCRIPTION "nvidia multimedia api")
+ 
+-set(CMAKE_C_FLAGS“$ {CMAKE_C_FLAGS} -fPIC”)
+-set(CMAKE_CXX_FLAGS“$ {CMAKE_CXX_FLAGS} -fPIC”)
++set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
++set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+ #set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-rpath-link=/lib")
+ #set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-rpath-link=/usr/lib/aarch64-linux-gnu")
+ set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-rpath-link=/usr/lib/aarch64-linux-gnu/tegra")
+ set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-rpath-link=/usr/local/cuda/lib64")
+ 
+ find_library(LIB_NVBUF nvbuf_utils PATHS /usr/lib/aarch64-linux-gnu/tegra)
++find_package(PkgConfig)
++pkg_check_modules(LIB_V4L2 REQUIRED libnvv4l2)
+ find_library(LIB_V4L2 nvv4l2 PATHS /usr/lib/aarch64-linux-gnu/tegra)
++find_library(LIB_NVJPEG nvjpeg PATHS /usr/lib/aarch64-linux-gnu/tegra)
++
+ find_package (Threads)
+ #find_library(LIB_DRM drm PATHS /usr/lib/aarch64-linux-gnu/tegra)
+ #find_library(LIB_EGL EGL PATHS /usr/lib/aarch64-linux-gnu/tegra)
+@@ -52,7 +56,8 @@
+ set_target_properties(nvmpi PROPERTIES VERSION ${PROJECT_VERSION})
+ set_target_properties(nvmpi PROPERTIES SOVERSION 1)
+ set_target_properties(nvmpi nvmpi_static PROPERTIES PUBLIC_HEADER nvmpi.h)
+-target_link_libraries(nvmpi PRIVATE ${CMAKE_THREAD_LIBS_INIT} ${LIB_NVBUF}  ${LIB_V4L2})
++set_target_properties(nvmpi PROPERTIES LINK_FLAGS "-Wl,--no-as-needed")
++target_link_libraries(nvmpi PRIVATE ${CMAKE_THREAD_LIBS_INIT} ${LIB_NVBUF}  ${LIB_V4L2} ${LIB_NVJPEG})
+ target_include_directories(nvmpi PRIVATE /usr/src/jetson_multimedia_api/include)
+ target_include_directories(nvmpi PRIVATE /usr/local/cuda/include)
+ target_include_directories(nvmpi_static PRIVATE /usr/src/jetson_multimedia_api/include)
+diff -Naur jetson-ffmpeg/nvmpi_dec.cpp jetson-ffmpeg-2/nvmpi_dec.cpp
+--- jetson-ffmpeg/nvmpi_dec.cpp	2021-10-24 15:32:10.198011798 -0700
++++ jetson-ffmpeg-2/nvmpi_dec.cpp	2021-10-24 15:40:32.642198658 -0700
+@@ -197,6 +197,8 @@
+ 	struct v4l2_crop v4l2Crop;
+ 	struct v4l2_event v4l2Event;
+ 	int ret,buf_index=0;
++	NvBufferSession session;
++	session = NvBufferSessionCreate();
+ 
+ 	while (!(ctx->dec->isInError()||ctx->eos)){
+ 		NvBuffer *dec_buffer;
+@@ -252,6 +254,7 @@
+ 			transform_params.transform_flag = NVBUFFER_TRANSFORM_FILTER;
+ 			transform_params.transform_flip = NvBufferTransform_None;
+ 			transform_params.transform_filter = NvBufferTransform_Filter_Smart;
++			transform_params.session = session;
+ 			transform_params.src_rect = src_rect;
+ 			transform_params.dst_rect = dest_rect;
+ 
+@@ -310,7 +313,7 @@
+ 			}
+ 		}
+ 	}
+-
++	NvBufferSessionDestroy(session);
+ 	// Wake all waiting threads at EOS or decoder error
+ 	ctx->has_frame_cv->notify_all();
+ }
+@@ -494,9 +497,10 @@
+ 	ctx->mutex->lock();
+ 	ctx->eos=true;
+ 	ctx->mutex->unlock();
+-	
++
++	ctx->dec->output_plane.setStreamStatus(false);
+ 	ctx->dec->capture_plane.setStreamStatus(false);
+-	
++
+ 	if (ctx->dec_capture_loop) {
+ 		ctx->dec_capture_loop->join();
+ 		delete ctx->dec_capture_loop;
+@@ -512,13 +516,13 @@
+ 	for (int index = 0; index < ctx->numberCaptureBuffers; index++)
+ 	{
+ 		if (ctx->dmaBufferFileDescriptor[index] != 0)
+-		{	
++		{
+ 			int ret = NvBufferDestroy(ctx->dmaBufferFileDescriptor[index]);
+ 			TEST_ERROR(ret < 0, "Failed to Destroy NvBuffer", ret);
+ 		}
+ 
+ 	}
+-	
++
+ 	delete ctx->dec; ctx->dec = nullptr;
+ 
+ 	for(int index=0;index<MAX_BUFFERS;index++){
+diff -Naur jetson-ffmpeg/nvmpi_enc.cpp jetson-ffmpeg-2/nvmpi_enc.cpp
+--- jetson-ffmpeg/nvmpi_enc.cpp	2021-10-24 15:32:10.198011798 -0700
++++ jetson-ffmpeg-2/nvmpi_enc.cpp	2021-10-24 15:39:49.714687317 -0700
+@@ -43,6 +43,7 @@
+ 	uint32_t num_b_frames;
+ 	uint32_t num_reference_frames;
+ 	bool insert_sps_pps_at_idr;
++	bool insert_vui;
+ 
+ 	uint32_t packets_buf_size;
+ 	uint32_t packets_num;
+@@ -133,7 +134,7 @@
+ 	ctx->qmin=param->qmin;
+ 	ctx->num_b_frames=param->max_b_frames;
+ 	ctx->num_reference_frames=param->refs;
+-	ctx->insert_sps_pps_at_idr=(param->insert_spspps_idr==1)?true:false;
++	ctx->insert_sps_pps_at_idr = ctx->insert_vui = (param->insert_spspps_idr==1)?true:false;
+ 
+ 	switch(param->profile){
+ 		case 77://FF_PROFILE_H264_MAIN
+@@ -332,6 +333,11 @@
+ 		TEST_ERROR(ret < 0, "Could not set insertSPSPPSAtIDR", ret);
+ 	}
+ 
++	if(ctx->insert_vui){
++		ret = ctx->enc->setInsertVuiEnabled(true);
++		TEST_ERROR(ret < 0, "Could not set encoder insert-vui enabled", ret);
++	}
++
+ 	ret = ctx->enc->setFrameRate(ctx->fps_n, ctx->fps_d);
+ 	TEST_ERROR(ret < 0, "Could not set framerate", ret);
+ 
+@@ -449,11 +455,15 @@
+ }
+ 
+ int nvmpi_encoder_close(nvmpictx* ctx){
+-
++	ctx->enc->output_plane.setStreamStatus(false);
++	ctx->enc->capture_plane.setStreamStatus(false);
+ 	ctx->enc->capture_plane.stopDQThread();
+ 	ctx->enc->capture_plane.waitForDQThread(1000);
+ 	delete ctx->enc;
+ 	delete ctx->packet_pools;
++	for(int index=0;index<MAX_BUFFERS;index++){
++		delete [] ctx->packets[index];
++	}
+ 	delete ctx;
+ }
+ 
+diff -Naur jetson-ffmpeg/nvmpi.pc.in jetson-ffmpeg-2/nvmpi.pc.in
+--- jetson-ffmpeg/nvmpi.pc.in	2021-10-24 15:32:10.198011798 -0700
++++ jetson-ffmpeg-2/nvmpi.pc.in	2021-10-24 15:39:07.680457792 -0700
+@@ -7,6 +7,6 @@
+ Description: @PROJECT_DESCRIPTION@
+ Version: @PROJECT_VERSION@
+ 
+-Requires:
++Requires: libv4l2
+ Libs: -L${libdir} -lnvmpi
+ Cflags: -I${includedir} 

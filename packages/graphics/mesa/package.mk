@@ -93,3 +93,9 @@ if [ "${VULKAN_SUPPORT}" = "yes" ]; then
     PKG_MESON_OPTS_TARGET="${PKG_MESON_OPTS_TARGET//-Dvulkan-drivers=/-Dvulkan-drivers=broadcom}"
   fi
 fi
+
+post_makeinstall_target() {
+  if [ "${PROJECT}" = "L4T" ]; then
+    rm ${INSTALL}/usr/lib/libgbm.so.1
+  fi
+}

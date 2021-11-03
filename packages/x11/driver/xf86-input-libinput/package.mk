@@ -14,6 +14,8 @@ PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--with-xorg-module-dir=${XORG_PATH_MODULES}"
 
+[ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ] && PKG_DEPENDS_TARGET+=" xorg-server" || true
+
 post_makeinstall_target() {
   mkdir -p ${INSTALL}/usr/share/X11/xorg.conf.d
     cp ${PKG_BUILD}/conf/*-libinput.conf ${INSTALL}/usr/share/X11/xorg.conf.d
