@@ -88,9 +88,11 @@ fi
 #
 if [ "$PROJECT" = "L4T" ]; then
    PKG_DEPENDS_TARGET+=" jetson-ffmpeg"
-#   PKG_PATCH_DIRS+=" L4T"
-#   PKG_FFMPEG_NVMPI="--enable-nvmpi"
-   PKG_FFMPEG_NVMPI=" "
+   PKG_PATCH_DIRS+=" L4T"
+   PKG_FFMPEG_NVMPI="--enable-nvmpi"
+   PKG_FFMPEG_LIBS+=" -lnvmpi -lv4l2"
+else
+   PKG_FFMPEG_NVMPI=""
 fi
 
 if target_has_feature neon; then

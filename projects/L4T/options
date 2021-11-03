@@ -2,17 +2,6 @@
 # setup system defaults
 ################################################################################
 
-  # The TARGET_CPU variable controls which processor should be targeted for
-  # generated code.
-    case $TARGET_ARCH in
-      aarch64)
-        TARGET_CPU="cortex-a57"
-        TARGET_CPU_FLAGS="+crypto+crc+fp+simd"
-        TARGET_FEATURES="64bit neon"
-        ;;
-      *)
-        ;;
-    esac
   
   # Bootloader to use (syslinux / u-boot / bcm2835-bootloader)
     BOOTLOADER="u-boot" 
@@ -28,21 +17,23 @@
      
   #Set kernel toolchain
     KERNEL_TOOLCHAIN="aarch64-none-linux-gnu"
+
 ################################################################################
 # setup build defaults
 ################################################################################
 
   # Project CFLAGS
-    PROJECT_CFLAGS="-O3"
-
+   if [ ! build_with_debug ]; then
+     PROJECT_CFLAGS="-O3"
+   fi
   # SquashFS compression method (gzip / lzo / xz)
     SQUASHFS_COMPRESSION="lzo"
 
 ################################################################################
 # setup project defaults
 ################################################################################
-
-    LIBDRM_CONFIG="--enable-tegra-experimental-api"
+  #Set LIBDRM config options.... this isnt needed on L4T, as we install seperate libDRM in tegra-bsp package.
+    #LIBDRM_CONFIG="--enable-tegra-experimental-api"
   
   # build and install ALSA Audio support (yes / no)
     ALSA_SUPPORT="yes"
@@ -55,6 +46,9 @@
 
   # OpenGL(X) implementation to use (no / Mesa)
     OPENGLES="no"
+
+  # OpenGL implementation to use (no / Mesa)
+    OPENGL="mesa"
 
   # include uvesafb support (yes / no)
     UVESAFB_SUPPORT="no"
@@ -71,19 +65,19 @@
     GRAPHIC_DRIVERS="nouveau tegra"
 
   # KODI Player implementation to use (default / bcm2835-driver / libfslvpuwrap / libamcodec)
-    KODIPLAYER_DRIVER="mesa"
+  #  KODIPLAYER_DRIVER="default"
 
   # Modules to install in initramfs for early boot
-    INITRAMFS_MODULES="font softcursor bitblit fbcon"
+  #  INITRAMFS_MODULES="font softcursor bitblit fbcon"
 
   # OEM packages for OEM's (yes / no)
-    OEM_SUPPORT="no"
+  #  OEM_SUPPORT="no"
 
   # additional drivers to install:
   # for a list of additinoal drivers see packages/linux-drivers
   # Space separated list is supported,
   # e.g. ADDITIONAL_DRIVERS="DRIVER1 DRIVER2"
-    ADDITIONAL_DRIVERS=""
+    ADDITIONAL_DRIVERS="tegra-bsp"
 
   # additional Firmware to use (dvb-firmware, misc-firmware, wlan-firmware)
   # Space separated list is supported,
@@ -102,16 +96,22 @@
   # Kernel to build
     LINUX="L4T"
   
-  #Disable xpadneo install  
-    ADDITIONAL_PACKAGES=${ADDITIONAL_PACKAGES/xpadneo/}
+  #Set Distro Specific options
 
-    if [ "$DISTRO" = "Lakka" ]; then
-      DRIVER_ADDONS=""
+    if [ "${DISTRO}" = "Lakka" ]; then
+      #Enable Vulkan for Lakka
+        VULKAN="vulkan-loader"
+    elif [ "${DISTRO}" = "LibreELEC" ]; then
+      #LibreELEC doesnt use vulkan, and isnt supported in their main tree.
+        VULKAN="no"
+      #Add Support for git downloads
+       GET_HANDLER_SUPPORT+=" git"
     fi
 
   # disable arm target
 
-    if [ "$ARCH" == "arm" ]; then
+    if [ "${ARCH}" = "arm" ]; then
       echo "Error: 32bit ARM arch is not supported by L4T"
       exit 1
     fi
+    

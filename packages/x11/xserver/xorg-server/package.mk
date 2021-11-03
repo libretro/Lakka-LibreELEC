@@ -24,7 +24,11 @@ fi
 
 if [ ! "${OPENGL}" = "no" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL} libepoxy"
-  XORG_MESA="--enable-glx --enable-dri --enable-glamor"
+  if [ ! "${PROJECT}" = "L4T" ]; then
+    XORG_MESA="--enable-glx --enable-dri --enable-glamor"
+  else
+    XORG_MESA="--enable-glx --enable-dri --disable-glamor"
+  fi
 else
   XORG_MESA="--disable-glx --disable-dri --disable-glamor"
 fi
@@ -110,10 +114,19 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
                            --without-xmlto \
                            --without-fop"
 
+if [ "${PROJECT}" = "L4T" ]; then
+  PKG_CONFIGURE_OPTS_TARGET+=" --disable-strip \
+                               --enable-glx-tls \
+                               --enable-aiglx"
+fi
+
 pre_configure_target() {
 # hack to prevent a build error
   CFLAGS=$(echo ${CFLAGS} | sed -e "s|-O3|-O2|" -e "s|-Ofast|-O2|")
   LDFLAGS=$(echo ${LDFLAGS} | sed -e "s|-O3|-O2|" -e "s|-Ofast|-O2|")
+  if [ "${PROJECT}" = "L4T" ]; then
+    CFLAGS+=" -g"
+  fi
 }
 
 post_makeinstall_target() {
@@ -125,10 +138,12 @@ post_makeinstall_target() {
       sed -i -e "s|@NVIDIA_LEGACY_VERSION@|$(get_pkg_version xf86-video-nvidia-legacy)|g" ${INSTALL}/usr/lib/xorg/xorg-configure
 
   if [ ! "${OPENGL}" = "no" ]; then
-    if [ -f ${INSTALL}/usr/lib/xorg/modules/extensions/libglx.so ]; then
-      mv ${INSTALL}/usr/lib/xorg/modules/extensions/libglx.so \
-         ${INSTALL}/usr/lib/xorg/modules/extensions/libglx_mesa.so # rename for cooperate with nvidia drivers
-      ln -sf /var/lib/libglx.so ${INSTALL}/usr/lib/xorg/modules/extensions/libglx.so
+    if [ ! "$PROJECT" = "L4T" ]; then
+      if [ -f ${INSTALL}/usr/lib/xorg/modules/extensions/libglx.so ]; then
+        mv ${INSTALL}/usr/lib/xorg/modules/extensions/libglx.so \
+           ${INSTALL}/usr/lib/xorg/modules/extensions/libglx_mesa.so # rename for cooperate with nvidia drivers
+        ln -sf /var/lib/libglx.so ${INSTALL}/usr/lib/xorg/modules/extensions/libglx.so
+      fi
     fi
   fi
 
