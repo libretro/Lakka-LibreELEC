@@ -26,13 +26,6 @@ case "${LINUX}" in
     PKG_SHA256="5ca7462db8d06840479c3a7bf9fc196ae1585faba597f69db3618ccb31c2a4d4"
     PKG_URL="https://github.com/raspberrypi/linux/archive/${PKG_VERSION}.tar.gz"
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
-
-    if [ "${DISTRO}" = "Lakka" ]; then
-      PKG_VERSION="1.20210928"
-      PKG_SHA256="7dad927fea60d1b6954aacca32771072346778918bcbfef327e688f8518d9a80"
-      PKG_URL="https://github.com/raspberrypi/linux/archive/refs/tags/$PKG_VERSION.tar.gz"
-      PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
-    fi
     ;;
   L4T)
     PKG_VERSION=$DEVICE
