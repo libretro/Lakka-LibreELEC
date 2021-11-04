@@ -13,17 +13,7 @@ PKG_DEPENDS_TARGET="toolchain linux bcmstat"
 PKG_LONGDESC="bcm2835-bootloader: Tool to create a bootable kernel for RaspberryPi"
 PKG_TOOLCHAIN="manual"
 
-if [ "${DISTRO}" = "Lakka" ]; then
-  PKG_VERSION="1.20210928"
-  PKG_SHA256="4499955298b0c6d2563bb42194c5cb59154aa6dbce5bf18568b18585cb2b2b12"
-  PKG_URL="https://github.com/raspberrypi/firmware/archive/refs/tags/${PKG_VERSION}.tar.gz"
-fi
-
 makeinstall_target() {
-  if [ "${DISTRO}" = "Lakka" ]; then
-    cd ${PKG_BUILD}/boot
-  fi
-
   mkdir -p ${INSTALL}/usr/share/bootloader
     cp -PRv LICENCE* ${INSTALL}/usr/share/bootloader
     cp -PRv bootcode.bin ${INSTALL}/usr/share/bootloader

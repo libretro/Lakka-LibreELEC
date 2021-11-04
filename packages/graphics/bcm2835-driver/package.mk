@@ -12,12 +12,6 @@ PKG_DEPENDS_TARGET="toolchain dtc"
 PKG_LONGDESC="OpenMAX-bcm2835: OpenGL-ES and OpenMAX driver for BCM2835"
 PKG_TOOLCHAIN="manual"
 
-if [ "${DISTRO}" = "Lakka" ]; then
-  PKG_VERSION="1.20210928"
-  PKG_SHA256="4499955298b0c6d2563bb42194c5cb59154aa6dbce5bf18568b18585cb2b2b12"
-  PKG_URL="https://github.com/raspberrypi/firmware/archive/refs/tags/${PKG_VERSION}.tar.gz"
-fi
-
 # Set SoftFP ABI or HardFP ABI
 if [ "${TARGET_FLOAT}" = "soft" ]; then
   PKG_FLOAT="softfp"
