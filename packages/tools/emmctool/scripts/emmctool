@@ -18,7 +18,7 @@ do_backup(){
 do_detect(){
   # used on LibreComputer LePotato/LaFrite where pre-formatted modules
   # must be attached after boot (LibreComputer supports this) else the
-  # device always boots to the pre-formatted OS on the module.
+  # device always boots to the pre-installed OS on the module.
   echo "info: rebinding d0074000.mmc"
   echo -n d0074000.mmc > /sys/bus/platform/drivers/meson-gx-mmc/unbind
   echo -n d0074000.mmc > /sys/bus/platform/drivers/meson-gx-mmc/bind
@@ -50,8 +50,8 @@ do_labels(){
     BOOTLABEL=$(echo "${2}" | awk 'BEGIN { getline; print toupper($0) }')
     DISKLABEL=$(echo "${3}" | awk 'BEGIN { getline; print toupper($0) }')
   else
-    BOOTLABEL="EMMC_BOOT"
-    DISKLABEL="EMMC_DISK"
+    BOOTLABEL="BOOT"
+    DISKLABEL="DISK"
   fi
   echo "info: using boot=LABEL=${BOOTLABEL} and disk=LABEL=${DISKLABEL}"
   do_umount
@@ -107,7 +107,7 @@ do_storage(){
   if [ -n "${2}" ]; then
     DISKLABEL=$(echo "${2}" | awk 'BEGIN { getline; print toupper($0) }')
   else
-    DISKLABEL="EMMC_DISK"
+    DISKLABEL="DISK"
   fi
   do_umount
   echo "info: converting emmc for /storage use"
@@ -134,12 +134,25 @@ do_umount(){
   for mount in $(grep "${EMMC}" /proc/mounts | awk '{print $1}'); do
     echo "info: unmounting $mount"
     umount -f "$mount"
-    sleep 1
+    sleep 2
   done
+}
+
+do_writeprotect(){
+  echo  "info: disabling emmc write protection"
+  echo 0 > "/sys/block/${EMMC}boot0/force_ro"
+  echo 0 > "/sys/block/${EMMC}boot1/force_ro"
 }
 
 do_write(){
   do_umount
+
+  case $(dtname) in
+    radxa,zero)
+      do_writeprotect
+      ;;
+  esac
+
   if [ "${2: -7}" == ".img.gz" ]; then
     echo "info: writing ${2} to ${EMMC}"
     gunzip -c "${2}" | dd of="${EMMC}" bs=1M
@@ -161,15 +174,15 @@ do_zero(){
 
 do_help(){
   echo ""
-  echo "usage: emmctool (w)rite <filename>   : write <filename>.img/.img.gz to the eMMC module"
-  echo "                (b)backup <filename> : dump the emmc partition to an .img.gz file"
-  echo "                (d)etect             : detect an eMMC module attached after boot"
-  echo "                (i)nfo               : show info about the eMMC module"
-  echo "                (l)abels             : change eMMC disk labels to ${BOOTLABEL}/${DISKLABEL}"
-  echo "                (r)esize             : resize the storage partition to 100%"
-  echo "                (s)storage           : convert emmc for use as /storage (boot from sdcard)"
-  echo "                (z)ero               : zero (erase/wipe) the eMMC module"
-  echo "                (h)elp               : displays this help message"
+  echo "usage: emmctool (w)rite <filename>    : write <filename>.img/.img.gz to the eMMC module"
+  echo "                (b)backup <filename>  : dump the emmc partition to <filename>.img.gz file"
+  echo "                (d)etect              : detect an eMMC module attached after boot"
+  echo "                (i)nfo                : show info about the eMMC module"
+  echo "                (l)abel <boot> <disk> : change eMMC disk labels to <bootlabel> <disklabel>"
+  echo "                (r)esize              : resize the storage partition to 100%"
+  echo "                (s)storage            : convert emmc for use as /storage (boot from sdcard)"
+  echo "                (z)ero                : zero (erase/wipe) the eMMC module"
+  echo "                (h)elp                : displays this help message"
   echo ""
 }
 
@@ -182,7 +195,7 @@ if [ -z "${EMMC}" ]; then
 fi
 
 case $(dtname) in
-  friendlyarm*|hardkernel*|khadas*|libretech*|wetek*)
+  azw*|bananapi*|friendlyarm*|hardkernel*|khadas*|libretech*|radxa*|wetek*)
     if [ "${BOOT}" = "${EMMC}" ]; then
       do_info
       echo "Your device is booted from the eMMC module!"
