@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="mame2003-plus"
-PKG_VERSION="1fd30e3"
+PKG_VERSION="bc21f6a"
 PKG_ARCH="any"
 PKG_LICENSE="MAME"
 PKG_SITE="https://github.com/libretro/mame2003-plus-libretro"
@@ -43,4 +43,9 @@ makeinstall_target() {
 
   mkdir -p $INSTALL/usr/share/libretro-database/mame2003-plus
     cp metadata/mame2003-plus.xml $INSTALL/usr/share/libretro-database/mame2003-plus
+
+  mkdir -p $INSTALL/usr/share/retroarch-system/mame2003-plus
+    cp -r metadata/artwork $INSTALL/usr/share/retroarch-system/mame2003-plus
+    cp metadata/cheat.dat $INSTALL/usr/share/retroarch-system/mame2003-plus
+    cp metadata/history.dat $INSTALL/usr/share/retroarch-system/mame2003-plus
 }
