@@ -1,3 +1,16 @@
+# v3.6
+* Update RetroArch to 1.9.13
+* Update libretro cores to latest
+* Add new libretro core: `ecwolf`
+* Add new libretro core: `beetle-pce`
+* Add highscore.dat for `fbneo` to RetroArch system folder
+* Add artwork files, cheat.dat and history.dat for `mame2003-plus` to RetroArch system folder
+* Add engine files, themes, soundfont and basic scummvm.ini for `scummvm` to RetroArch system folder
+* Update Mesa to 21.2.5
+* Fix issue with older Intel GPUs (crocus driver is now preferred, `MESA_LOADER_DRIVER_OVERRIDE` is not required anymore)
+* Update mainline kernel to 5.10.76
+* Update Raspberry kernel/firmware files to 1.20211007
+
 # v3.5.2
 * Update RetroArch to 1.9.12
 * Update libretro cores to latest
