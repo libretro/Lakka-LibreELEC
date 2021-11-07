@@ -7,7 +7,7 @@ PKG_SHA256="5cf5d6ce192e0eb15c1fc861a436bf21b5bb3b91dbdabbdebe83e1f83aa098fe"
 PKG_LICENSE="OSS"
 PKG_SITE="https://wayland.freedesktop.org/"
 PKG_URL="https://wayland.freedesktop.org/releases/${PKG_NAME}-${PKG_VERSION}.tar.xz"
-PKG_DEPENDS_TARGET="toolchain wayland-protocols libdrm libxkbcommon libinput cairo libjpeg-turbo dbus"
+PKG_DEPENDS_TARGET="toolchain wayland wayland-protocols libdrm libxkbcommon libinput cairo libjpeg-turbo dbus"
 PKG_LONGDESC="Reference implementation of a Wayland compositor"
 
 PKG_MESON_OPTS_TARGET="-Dbackend-drm-screencast-vaapi=false \
@@ -24,12 +24,16 @@ PKG_MESON_OPTS_TARGET="-Dbackend-drm-screencast-vaapi=false \
                        -Dcolor-management-lcms=false \
                        -Dcolor-management-colord=false \
                        -Dimage-webp=false \
-                       -Dsimple-dmabuf-drm=intel \
                        -Ddemo-clients=false \
                        -Dsimple-clients=egl \
                        -Dresize-pool=false \
                        -Dwcap-decode=false \
                        -Dtest-junit-xml=false"
+
+pre_configure_target() {
+  # weston does not build with NDEBUG (requires assert for tests)
+  export TARGET_CFLAGS=$(echo ${CFLAGS} | sed -e "s|-DNDEBUG||g")
+}
 
 post_makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/weston
