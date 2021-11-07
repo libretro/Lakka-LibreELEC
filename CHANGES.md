@@ -8,8 +8,8 @@
 * Add engine files, themes, soundfont and basic scummvm.ini for `scummvm` to RetroArch system folder
 * Update Mesa to 21.2.5
 * Fix issue with older Intel GPUs (crocus driver is now preferred, `MESA_LOADER_DRIVER_OVERRIDE` is not required anymore)
-* Update mainline kernel to 5.10.76
-* Update Raspberry kernel/firmware files to 1.20211007
+* Update mainline kernel to 5.10.78
+* Update Raspberry kernel/firmware files to 1.20211029
 
 # v3.5.2
 * Update RetroArch to 1.9.12
