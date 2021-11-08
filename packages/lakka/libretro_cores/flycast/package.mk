@@ -1,5 +1,5 @@
 PKG_NAME="flycast"
-PKG_VERSION="4a913e0"
+PKG_VERSION="6e65f80"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/flycast"
 PKG_URL="${PKG_SITE}.git"

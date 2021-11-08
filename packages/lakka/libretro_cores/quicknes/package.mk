@@ -1,5 +1,5 @@
 PKG_NAME="quicknes"
-PKG_VERSION="61e8f6f"
+PKG_VERSION="71b8000"
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://github.com/libretro/QuickNES_Core"
 PKG_URL="${PKG_SITE}.git"
