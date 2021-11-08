@@ -34,8 +34,10 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  if [ "$ARCH" == "arm" ]; then
+  if [ "$ARCH" = "arm" ]; then
     make CC=$CC platform=armv
+  if [ "$ARCH" = "aarch64" ]; then
+    make CC=$CC HAVE_DYNAREC=0
   else
     make CC=$CC
   fi  
