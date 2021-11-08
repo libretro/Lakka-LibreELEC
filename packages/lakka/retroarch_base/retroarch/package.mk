@@ -1,9 +1,9 @@
 PKG_NAME="retroarch"
-PKG_VERSION="6b7f287"
+PKG_VERSION="673d772"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
 PKG_URL="${PKG_SITE}.git"
-PKG_DEPENDS_TARGET="toolchain freetype zlib ffmpeg libass libvdpau libxkbcommon glsl_shaders systemd libpng fontconfig"
+PKG_DEPENDS_TARGET="toolchain freetype zlib ffmpeg libass libvdpau libxkbcommon glsl_shaders slang_shaders systemd libpng fontconfig"
 PKG_LONGDESC="Reference frontend for the libretro API."
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
@@ -48,7 +48,6 @@ else
 fi
 
 if [ "${VULKAN_SUPPORT}" = yes ]; then
-  PKG_DEPENDS_TARGET+=" slang_shaders ${VULKAN}"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-vulkan"
 else
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-vulkan"
