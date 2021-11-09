@@ -3,14 +3,14 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="xorg-server"
-PKG_VERSION="1.20.11"
-PKG_SHA256="914c796e3ffabe1af48071d40ccc85e92117c97a9082ed1df29e4d64e3c34c49"
+PKG_VERSION="21.1.1"
+PKG_SHA256="915edd49f394283cc587b88a68b5e13e6e2d7f0276edabc9249afb2e22adf634"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
-PKG_URL="http://xorg.freedesktop.org/archive/individual/xserver/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
-PKG_DEPENDS_TARGET="toolchain util-macros font-util xorgproto libpciaccess libX11 libXfont2 libXinerama libxshmfence libxkbfile libdrm openssl freetype pixman systemd xorg-launch-helper"
+PKG_URL="https://github.com/freedesktop/xorg-xserver/archive/refs/tags/${PKG_NAME}-${PKG_VERSION}.tar.gz"
+PKG_DEPENDS_TARGET="toolchain util-macros font-util xorgproto libpciaccess libX11 libXfont2 libXinerama libxcvt libxshmfence libxkbfile libdrm openssl freetype pixman systemd xorg-launch-helper"
 PKG_NEED_UNPACK="$(get_pkg_directory xf86-video-nvidia) $(get_pkg_directory xf86-video-nvidia-legacy)"
-PKG_LONGDESC="Xorg is a full featured X server running on Intel x86 hardware."
+PKG_LONGDESC="X.Org Server is the free and open-source implementation of the X Window System display server."
 PKG_TOOLCHAIN="autotools"
 
 get_graphicdrivers
