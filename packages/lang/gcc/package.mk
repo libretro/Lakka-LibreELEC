@@ -60,7 +60,7 @@ PKG_CONFIGURE_OPTS_BOOTSTRAP="${GCC_COMMON_CONFIGURE_OPTS} \
                               --without-headers \
                               --with-newlib \
                               --disable-decimal-float \
-                              ${GCC_OPTS}"
+                              ${TARGET_ARCH_GCC_OPTS}"
 
 PKG_CONFIGURE_OPTS_HOST="${GCC_COMMON_CONFIGURE_OPTS} \
                          --enable-languages=c,c++ \
@@ -74,7 +74,7 @@ PKG_CONFIGURE_OPTS_HOST="${GCC_COMMON_CONFIGURE_OPTS} \
                          --disable-libstdcxx-pch \
                          --enable-libstdcxx-time \
                          --enable-clocale=gnu \
-                         ${GCC_OPTS}"
+                         ${TARGET_ARCH_GCC_OPTS}"
 
 pre_configure_host() {
   unset CPP
