@@ -42,6 +42,7 @@ post_makeinstall_target() {
 
   mkdir -p ${INSTALL}/usr/share/weston
     cp ${PKG_DIR}/config/weston.ini ${INSTALL}/usr/share/weston
+    find_file_path "splash/splash-2160.png" && cp ${FOUND_PATH} ${INSTALL}/usr/share/weston
 
   safe_remove ${INSTALL}/usr/share/wayland-sessions
   safe_remove ${INSTALL}/usr/bin/weston-calibrator
