@@ -3,20 +3,19 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pulseaudio"
-PKG_VERSION="14.2"
-PKG_SHA256="75d3f7742c1ae449049a4c88900e454b8b350ecaa8c544f3488a2562a9ff66f1"
+PKG_VERSION="15.0"
+PKG_SHA256="a40b887a3ba98cc26976eb11bdb6613988f145b19024d1b6555c6a03c9cba1a0"
 PKG_LICENSE="GPL"
 PKG_SITE="http://pulseaudio.org/"
 PKG_URL="http://www.freedesktop.org/software/pulseaudio/releases/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain alsa-lib dbus libcap libsndfile libtool openssl soxr speexdsp systemd glib:host glib"
 PKG_LONGDESC="PulseAudio is a sound system for POSIX OSes, meaning that it is a proxy for your sound applications."
-PKG_TOOLCHAIN="meson"
 
 if [ "${BLUETOOTH_SUPPORT}" = "yes" ]; then
-  PKG_DEPENDS_TARGET+=" sbc"
-  PKG_PULSEAUDIO_BLUETOOTH="-Dbluez5=true"
+  PKG_DEPENDS_TARGET+=" sbc bluez"
+  PKG_PULSEAUDIO_BLUETOOTH="-Dbluez5=enabled"
 else
-  PKG_PULSEAUDIO_BLUETOOTH="-Dbluez5=false"
+  PKG_PULSEAUDIO_BLUETOOTH="-Dbluez5=disabled"
 fi
 
 if [ "${AVAHI_DAEMON}" = "yes" ]; then
@@ -26,7 +25,9 @@ else
   PKG_PULSEAUDIO_AVAHI="-Davahi=disabled"
 fi
 
-PKG_MESON_OPTS_TARGET="-Dgcov=false \
+PKG_MESON_OPTS_TARGET="-Ddaemon=true \
+                       -Ddoxygen=false \
+                       -Dgcov=false \
                        -Dman=false \
                        -Dtests=false \
                        -Dsystem_user=root \
@@ -34,6 +35,7 @@ PKG_MESON_OPTS_TARGET="-Dgcov=false \
                        -Daccess_group=root \
                        -Ddatabase=simple \
                        -Dlegacy-database-entry-format=false \
+                       -Dstream-restore-clear-old-devices=false \
                        -Drunning-from-build-tree=false \
                        -Datomic-arm-linux-helpers=true \
                        -Datomic-arm-memory-barrier=false \
@@ -43,12 +45,15 @@ PKG_MESON_OPTS_TARGET="-Dgcov=false \
                        -Dasyncns=disabled \
                        ${PKG_PULSEAUDIO_AVAHI} \
                        ${PKG_PULSEAUDIO_BLUETOOTH} \
+                       -Dbluez5-gstreamer=disabled \
                        -Dbluez5-native-headset=false \
                        -Dbluez5-ofono-headset=false \
                        -Ddbus=enabled \
+                       -Delogind=disabled \
                        -Dfftw=disabled \
                        -Dglib=enabled \
                        -Dgsettings=disabled \
+                       -Dgstreamer=disabled \
                        -Dgtk=disabled \
                        -Dhal-compat=false \
                        -Dipv6=true \
@@ -56,11 +61,14 @@ PKG_MESON_OPTS_TARGET="-Dgcov=false \
                        -Dlirc=disabled \
                        -Dopenssl=enabled \
                        -Dorc=disabled \
+                       -Doss-output=disabled \
                        -Dsamplerate=disabled \
                        -Dsoxr=enabled \
                        -Dspeex=enabled \
                        -Dsystemd=enabled \
+                       -Dtcpwrap=disabled \
                        -Dudev=enabled \
+                       -Dvalgrind=disabled \
                        -Dx11=disabled \
                        -Dadrian-aec=true \
                        -Dwebrtc-aec=disabled"
