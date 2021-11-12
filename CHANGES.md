@@ -1,5 +1,5 @@
 # v3.6
-* Update RetroArch to 1.9.13
+* Update RetroArch to 1.9.13.1
 * Update libretro cores to latest
 * Add new libretro core: `ecwolf`
 * Add new libretro core: `beetle-pce`
