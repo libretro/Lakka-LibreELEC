@@ -30,6 +30,7 @@ PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="Common Slang shaders for RetroArch"
 PKG_LONGDESC="Common Slang shaders for RetroArch"
+PKG_TOOLCHAIN="make"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"

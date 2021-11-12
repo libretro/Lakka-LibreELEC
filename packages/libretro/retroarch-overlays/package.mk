@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="retroarch-overlays"
-PKG_VERSION="c03deff"
+PKG_VERSION="db9744f"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -30,16 +30,15 @@ PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="RetroArch overlays"
 PKG_LONGDESC="Collection of overlay files for use with libretro frontends, such as RetroArch."
-PKG_TOOLCHAIN="manual"
+PKG_TOOLCHAIN="make"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-make_target() {
-  :
+configure_target() {
+  cd $PKG_BUILD
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/share/retroarch-overlays
-  cp -r * $INSTALL/usr/share/retroarch-overlays
+  make install INSTALLDIR="$INSTALL/usr/share/retroarch-overlays"
 }
