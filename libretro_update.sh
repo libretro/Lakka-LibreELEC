@@ -20,7 +20,7 @@ usage()
   echo ""
 }
 
-[ "$1" == "" ] && { usage ; exit ; }
+[ "$1" = "" ] && { usage ; exit ; }
 
 case $1 in
   -a | --all )
@@ -33,7 +33,7 @@ case $1 in
           x="$1"
           shift
           v="$@"
-          [ "$v" == "" ] && { echo "Error: You must provide name(s) of package(s) to exclude after $x" ; exit 1 ; }
+          [ "$v" = "" ] && { echo "Error: You must provide name(s) of package(s) to exclude after $x" ; exit 1 ; }
           for a in $v ; do
             if [ -f $LR_PKG_PATH/$a/package.mk -o -f $RA_PKG_PATH/$a/package.mk ] ; then
               PACKAGES_EX+=" $a "
@@ -41,7 +41,7 @@ case $1 in
               echo "Warning: $a is not a libretro package."
             fi
           done
-          [ "$PACKAGES_EX" == "" ] && { echo "No valid packages to exclude given! Aborting." ; exit 1 ; }
+          [ "$PACKAGES_EX" = "" ] && { echo "No valid packages to exclude given! Aborting." ; exit 1 ; }
           ;;
         * )
           echo "Error: After $s use only --exclude (-e) to exclude some packages."
@@ -67,7 +67,7 @@ case $1 in
           x="$1"
           shift
           v="$@"
-          [ "$v" == "" ] && { echo "Error: You must provide name(s) of package(s) to exclude after $x" ; exit 1 ; }
+          [ "$v" = "" ] && { echo "Error: You must provide name(s) of package(s) to exclude after $x" ; exit 1 ; }
           for a in $v ; do
             if [ -f $LR_PKG_PATH/$a/package.mk -o -f $RA_PKG_PATH/$a/package.mk ] ; then
               PACKAGES_EX+=" $a "
@@ -75,7 +75,7 @@ case $1 in
               echo "Warning: $a is not a libretro/retroarch package - cannot exclude."
             fi
           done
-          [ "$PACKAGES_EX" == "" ] && { echo "No valid packages to exclude given! Aborting." ; exit 1 ; }
+          [ "$PACKAGES_EX" = "" ] && { echo "No valid packages to exclude given! Aborting." ; exit 1 ; }
           ;;
         * )
           echo "Error: After $s use only --exclude (-e) to exclude some packages."
@@ -100,7 +100,7 @@ case $1 in
           x="$1"
           shift
           v="$@"
-          [ "$v" == "" ] && { echo "Error: You must provide name(s) of package(s) to exclude after $x" ; exit 1 ; }
+          [ "$v" = "" ] && { echo "Error: You must provide name(s) of package(s) to exclude after $x" ; exit 1 ; }
           for a in $v ; do
             if [ -f $RA_PKG_PATH/$a/package.mk ] ; then
               PACKAGES_EX+=" $a "
@@ -108,7 +108,7 @@ case $1 in
               echo "Warning: $a is not a retroarch package - cannot exclude."
             fi
           done
-          [ "$PACKAGES_EX" == "" ] && { echo "No valid packages to exclude given! Aborting." ; exit 1 ; }
+          [ "$PACKAGES_EX" = "" ] && { echo "No valid packages to exclude given! Aborting." ; exit 1 ; }
           ;;
         * )
           echo "Error: After $s use only --exclude (-e) to exclude some packages."
@@ -128,7 +128,7 @@ case $1 in
           x="$1"
           shift
           v="$@"
-          [ "$v" == "" ] && { echo "Error: You must provide name(s) of package(s) to exclude after $x" ; exit 1 ; }
+          [ "$v" = "" ] && { echo "Error: You must provide name(s) of package(s) to exclude after $x" ; exit 1 ; }
           for a in $v ; do
             if [ -f $LR_PKG_PATH/$a/package.mk ] ; then
               PACKAGES_EX+=" $a "
@@ -136,7 +136,7 @@ case $1 in
               echo "Warning: $a is not a libretro core package - cannot exclude."
             fi
           done
-          [ "$PACKAGES_EX" == "" ] && { echo "No valid packages to exclude given! Aborting." ; exit 1 ; }
+          [ "$PACKAGES_EX" = "" ] && { echo "No valid packages to exclude given! Aborting." ; exit 1 ; }
           ;;
         * )
           echo "Error: After $s use only --exclude (-e) to exclude some packages."
@@ -155,7 +155,7 @@ case $1 in
     x="$1"
     shift
     v="$@"
-    [ "$v" == "" ] && { echo "Error: You must provide name(s) of package(s) after $x" ; exit 1 ; }
+    [ "$v" = "" ] && { echo "Error: You must provide name(s) of package(s) after $x" ; exit 1 ; }
     for a in $v ; do
       if [ -f $LR_PKG_PATH/$a/package.mk -o -f $RA_PKG_PATH/$a/package.mk ] ; then
         PACKAGES_ALL+=" $a "
@@ -163,7 +163,7 @@ case $1 in
         echo "Warning: $a is not a libretro core / retroarch package - skipping."
       fi
     done
-    [ "$PACKAGES_ALL" == "" ] && { echo "No valid packages given! Aborting." ; exit 1 ; }
+    [ "$PACKAGES_ALL" = "" ] && { echo "No valid packages given! Aborting." ; exit 1 ; }
     ;;
   * )
     usage
@@ -205,10 +205,10 @@ for f in $ALL_FILES ; do
     continue
   fi
   [ -n "$PKG_GIT_BRANCH" ] && GIT_HEAD="heads/$PKG_GIT_BRANCH" || GIT_HEAD="HEAD"
-  UPS_VERSION=`git ls-remote $PKG_SITE 2>/dev/null | grep ${GIT_HEAD}$ | awk '{ print substr($1,1,7) }'`
-  if [ "$UPS_VERSION" == "$PKG_VERSION" ]; then
+  UPS_VERSION=`git ls-remote $PKG_SITE 2>/dev/null | grep ${GIT_HEAD}$ | awk '{ print $1; }'`
+  if [ "$UPS_VERSION" = "$PKG_VERSION" ]; then
     echo "$PKG_NAME is up to date ($UPS_VERSION)"
-  elif [ "$UPS_VERSION" == "" ]; then
+  elif [ "$UPS_VERSION" = "" ]; then
     echo "$PKG_NAME does not use git - nothing changed"
   else
     i+=1
