@@ -3,16 +3,16 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mpd"
-PKG_VERSION="0.22.9"
-PKG_SHA256="f937403297c2240bd4a569f4b937ee7ab17398a5284ba9df4d6d4c3a0512bc64"
-PKG_REV="111"
+PKG_VERSION="0.23.3"
+PKG_SHA256="b300625701005c6b14649f11dac118d05540529a5385d05b7c3062c0ce08f399"
+PKG_REV="112"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://www.musicpd.org"
 PKG_URL="http://www.musicpd.org/download/mpd/$(get_pkg_version_maj_min)/mpd-${PKG_VERSION}.tar.xz"
-PKG_DEPENDS_TARGET="toolchain alsa-lib avahi boost curl faad2 ffmpeg flac glib lame libcdio libgcrypt \
-                    libiconv libid3tag libmad libmpdclient libsamplerate libvorbis libnfs libogg \
-                    mpd-mpc opus pulseaudio samba wavpack yajl"
+PKG_DEPENDS_TARGET="toolchain alsa-lib avahi boost curl faad2 ffmpeg flac glib lame libcdio libfmt \
+                    libgcrypt libiconv libid3tag libmad libmpdclient libsamplerate libvorbis \
+                    libnfs libogg mpd-mpc opus pulseaudio samba wavpack yajl"
 PKG_SECTION="service.multimedia"
 PKG_SHORTDESC="Music Player Daemon (MPD): a free and open Music Player Server"
 PKG_LONGDESC="Music Player Daemon (${PKG_VERSION}) is a flexible and powerful server-side application for playing music"
@@ -84,7 +84,6 @@ PKG_MESON_OPTS_TARGET=" \
   -Dsyslog=disabled \
   -Dsystemd=disabled \
   -Dtest=false \
-  -Dtidal=enabled \
   -Dtwolame=disabled \
   -Dupnp=disabled \
   -Dvorbis=enabled \
