@@ -3,17 +3,17 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="xf86-video-nvidia"
-# Remember to run "python3 packages/x11/driver/xf86-video-nvidia/scripts/make_nvidia_udev.py" and commit changes to
-# "packages/x11/driver/xf86-video-nvidia/udev.d/96-nvidia.rules" whenever bumping version.
-# Host may require installation of python3-lxml and python3-requests packages.
+# Remember to run "python3 packages/x11/driver/xf86-video-nvidia/scripts/make_nvidia_udev.py" and commit
+# changes to "packages/x11/driver/xf86-video-nvidia/udev.d/96-nvidia.rules" whenever bumping version.
+# The build host may require installation of python3-lxml and python3-requests packages.
 PKG_VERSION="460.91.03"
 PKG_SHA256="448156cfcef182ed6997c2754c472fd681bf7139b821d2adce1d847220c6c933"
 PKG_ARCH="x86_64"
 PKG_LICENSE="nonfree"
-PKG_SITE="http://www.nvidia.com/"
+PKG_SITE="https://www.nvidia.com/en-us/drivers/unix/"
 PKG_URL="http://us.download.nvidia.com/XFree86/Linux-x86_64/${PKG_VERSION}/NVIDIA-Linux-x86_64-${PKG_VERSION}-no-compat32.run"
 PKG_DEPENDS_TARGET="util-macros xorg-server libvdpau libglvnd"
-PKG_LONGDESC="The Xorg driver for NVIDIA video chips."
+PKG_LONGDESC="The Xorg driver for NVIDIA GPUs supporting the GeForce 600 Series & above."
 PKG_TOOLCHAIN="manual"
 
 PKG_IS_KERNEL_PKG="yes"
