@@ -1,5 +1,5 @@
 PKG_NAME="mk_arcade_joystick_rpi"
-PKG_VERSION="10526d2"
+PKG_VERSION="10526d2759dd442153cc64fa0618c82cc5909419"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/Turro75/mk_arcade_joystick_rpi"
 PKG_URL="${PKG_SITE}.git"
