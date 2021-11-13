@@ -333,7 +333,6 @@ makeinstall_target() {
 post_install() {
   enable_service retroarch.target
   enable_service tmp-cores.mount
-  enable_service tmp-cheats.mount
   enable_service tmp-joypads.mount
   enable_service tmp-database.mount
   enable_service tmp-assets.mount
