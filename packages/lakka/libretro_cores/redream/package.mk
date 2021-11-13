@@ -1,5 +1,5 @@
 PKG_NAME="redream"
-PKG_VERSION="ffb7302"
+PKG_VERSION="ffb7302245ff40515cb9f0f0b0e233a4b39342d3"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/inolen/redream"
 PKG_URL="${PKG_SITE}.git"

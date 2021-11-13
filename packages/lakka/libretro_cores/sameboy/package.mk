@@ -1,5 +1,5 @@
 PKG_NAME="sameboy"
-PKG_VERSION="68f67b3"
+PKG_VERSION="68f67b3db7747ba7aac84c5c253bc71d5a906525"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/libretro/sameboy"
 PKG_URL="${PKG_SITE}.git"

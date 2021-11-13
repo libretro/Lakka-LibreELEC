@@ -1,5 +1,5 @@
 PKG_NAME="lr_moonlight"
-PKG_VERSION="20d2d77"
+PKG_VERSION="20d2d77d219613a2809fa9afe9606f6cf3be2aa0"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/rock88/moonlight-libretro"
 PKG_URL="${PKG_SITE}.git"

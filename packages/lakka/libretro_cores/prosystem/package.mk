@@ -1,5 +1,5 @@
 PKG_NAME="prosystem"
-PKG_VERSION="4247466"
+PKG_VERSION="f8652c7f2b0edc81685d03204d4963fc4ea9eccd"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/prosystem-libretro"
 PKG_URL="${PKG_SITE}.git"

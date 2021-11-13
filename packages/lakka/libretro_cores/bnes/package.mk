@@ -1,5 +1,5 @@
 PKG_NAME="bnes"
-PKG_VERSION="8e26e89"
+PKG_VERSION="8e26e89a93bef8eb8992d1921b539dce1792660a"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/bnes-libretro"
 PKG_URL="${PKG_SITE}.git"

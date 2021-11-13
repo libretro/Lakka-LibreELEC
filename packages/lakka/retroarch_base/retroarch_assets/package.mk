@@ -1,9 +1,8 @@
 PKG_NAME="retroarch_assets"
-PKG_VERSION="9c22505"
+PKG_VERSION="9c22505bed22370d4b81d10429afc9e0d6cc11ff"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/libretro/retroarch-assets"
 PKG_URL="${PKG_SITE}.git"
-PKG_DEPENDS_TARGET="toolchain fontconfig"
 PKG_LONGDESC="RetroArch assets. Background and icon themes for the menu drivers."
 PKG_TOOLCHAIN="manual"
 

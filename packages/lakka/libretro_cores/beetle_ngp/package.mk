@@ -1,5 +1,5 @@
 PKG_NAME="beetle_ngp"
-PKG_VERSION="f969af2"
+PKG_VERSION="f969af2b52f20642aea7e800e3cfcce728f3aee9"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-ngp-libretro"
 PKG_URL="${PKG_SITE}.git"

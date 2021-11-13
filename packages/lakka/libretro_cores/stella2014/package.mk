@@ -1,5 +1,5 @@
 PKG_NAME="stella2014"
-PKG_VERSION="2f4855d"
+PKG_VERSION="2f4855d8822ed6e84bbad713eb104ecd15ebcc0f"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/stella2014-libretro"
 PKG_URL="${PKG_SITE}.git"

@@ -1,5 +1,5 @@
 PKG_NAME="mgba"
-PKG_VERSION="033e067"
+PKG_VERSION="033e067285745909722df930deaeead80ea2d54a"
 PKG_LICENSE="MPLv2.0"
 PKG_SITE="https://github.com/libretro/mgba"
 PKG_URL="${PKG_SITE}.git"

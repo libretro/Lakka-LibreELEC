@@ -1,5 +1,5 @@
 PKG_NAME="fsuae"
-PKG_VERSION="6b98f85"
+PKG_VERSION="6b98f852e00a83ecdcf497c1032882ad7b6efc99"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/libretro-fsuae"
 PKG_URL="${PKG_SITE}.git"

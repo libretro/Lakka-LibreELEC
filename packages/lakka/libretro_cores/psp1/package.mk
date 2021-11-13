@@ -1,5 +1,5 @@
 PKG_NAME="psp1"
-PKG_VERSION="edf1cb7"
+PKG_VERSION="edf1cb70cc01c9f4ce81a83e1538c7b5ab7a2658"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/PSP1"
 PKG_URL="${LAKKA_MIRROR}/${PKG_NAME}-${PKG_VERSION}.tar.xz"

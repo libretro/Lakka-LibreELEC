@@ -1,5 +1,5 @@
 PKG_NAME="xmil"
-PKG_VERSION="4b4227b"
+PKG_VERSION="4b4227b5098a21914c04fb873d755e4958928305"
 PKG_LICENSE="GPL3"
 PKG_SITE="https://github.com/libretro/xmil-libretro"
 PKG_URL="${PKG_SITE}.git"
