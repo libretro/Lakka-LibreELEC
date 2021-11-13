@@ -2,8 +2,8 @@
 # Copyright (C) 2020-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.sacd"
-PKG_VERSION="20.0.0-Nexus"
-PKG_SHA256="053709b1cd71eddb8e0a668252ea43fbfde8d2e59398f7738d46dd5914c575d7"
+PKG_VERSION="20.1.0-Nexus"
+PKG_SHA256="9835af67f0c9fe4c3656587ee898f706570a413e88e00bfa57eb6d0b2cc6b436"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

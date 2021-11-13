@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.gsf"
-PKG_VERSION="20.0.0-Nexus"
-PKG_SHA256="3febd77e14ed3a4af2eef4b28f9d15e05c0a014bb996676debfab6fe550efef6"
+PKG_VERSION="20.1.0-Nexus"
+PKG_SHA256="fa282132e35958274d6cf8f7b83b96a70d173728cc6741405abebbd567106361"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

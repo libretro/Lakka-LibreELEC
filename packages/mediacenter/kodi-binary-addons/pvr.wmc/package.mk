@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.wmc"
-PKG_VERSION="20.1.0-Nexus"
-PKG_SHA256="93c8347dd05ce4d5ea815df74a8fa6da48b3367d9dd6bf4961ab3b3ebd5d2e61"
+PKG_VERSION="20.1.1-Nexus"
+PKG_SHA256="fa092e6c7707df67f74538c1bebca5644277ae602996b395fa21339ca3a6077f"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.stsound"
-PKG_VERSION="20.0.0-Nexus"
-PKG_SHA256="a1a7e0bf0497fce108d1d6468345b963d15d2ba08176bb7a442890ccacc3755d"
+PKG_VERSION="20.1.0-Nexus"
+PKG_SHA256="88ce495851026fc0d21657e529ab96bb719b29610d9b2c81913175b0ce1fe08f"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

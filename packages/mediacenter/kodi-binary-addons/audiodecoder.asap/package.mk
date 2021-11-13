@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.asap"
-PKG_VERSION="20.0.0-Nexus"
-PKG_SHA256="d54d439b98b9e1b1a5b831711309447a537c486605afb9ed0376c9419b70963d"
+PKG_VERSION="20.1.0-Nexus"
+PKG_SHA256="3f47da7f2e189cc87cee4646094f95edc0490ee4a04aae926a4abe945b7aa435"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
