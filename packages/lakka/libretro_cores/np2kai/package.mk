@@ -1,5 +1,5 @@
 PKG_NAME="np2kai"
-PKG_VERSION="3e8fedc"
+PKG_VERSION="3e8fedc7c1c6f68faa26589187512474a766ee9e"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/AZO234/NP2kai"
 PKG_URL="${PKG_SITE}.git"

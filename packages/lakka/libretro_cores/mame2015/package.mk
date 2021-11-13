@@ -1,5 +1,5 @@
 PKG_NAME="mame2015"
-PKG_VERSION="ef41361"
+PKG_VERSION="ef41361dc9c88172617f7bbf6cd0ead4516a3c3f"
 PKG_ARCH="x86_64 aarch64 arm"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mame2015-libretro"

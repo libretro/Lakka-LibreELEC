@@ -1,5 +1,5 @@
 PKG_NAME="higan_sfc_balanced"
-PKG_VERSION="5e965d0"
+PKG_VERSION="5e965d0db4c0d05e7e8fb6449035538781c73473"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/nSide"
 PKG_URL="${PKG_SITE}.git"

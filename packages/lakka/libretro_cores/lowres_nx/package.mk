@@ -1,5 +1,5 @@
 PKG_NAME="lowres_nx"
-PKG_VERSION="12aeb16"
+PKG_VERSION="12aeb1690108c5fe3f404475d59f86a12a21949d"
 PKG_LICENSE="Zlib"
 PKG_SITE="https://github.com/timoinutilis/lowres-nx"
 PKG_URL="${PKG_SITE}.git"

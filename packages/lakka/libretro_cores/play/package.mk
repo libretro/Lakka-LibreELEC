@@ -1,5 +1,5 @@
 PKG_NAME="play"
-PKG_VERSION="ec2a4e3"
+PKG_VERSION="2c5a745f49159497ecf9585c6892bc80dca917b5"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/jpd002/Play-"
 PKG_URL="${PKG_SITE}.git"

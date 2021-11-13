@@ -1,5 +1,5 @@
 PKG_NAME="craft"
-PKG_VERSION="d0de2c6"
+PKG_VERSION="d0de2c6d3ff9d971d5c23c796bcb208498f635a9"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/libretro/Craft"
 PKG_URL="${PKG_SITE}.git"

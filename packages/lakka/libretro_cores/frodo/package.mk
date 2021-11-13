@@ -1,5 +1,5 @@
 PKG_NAME="frodo"
-PKG_VERSION="4c15016"
+PKG_VERSION="4c1501686ac0a6815d6dc410556029b6577fd7ec"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/r-type/frodo-libretro"
 PKG_URL="${PKG_SITE}.git"

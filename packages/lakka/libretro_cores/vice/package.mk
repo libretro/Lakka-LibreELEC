@@ -1,5 +1,5 @@
 PKG_NAME="vice"
-PKG_VERSION="f290934"
+PKG_VERSION="c2b8877209ea6cb982b17b4bb5d329d65044e21b"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/vice-libretro"
 PKG_URL="${PKG_SITE}.git"
