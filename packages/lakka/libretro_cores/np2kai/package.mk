@@ -7,7 +7,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_LONGDESC="Neko Project II kai (PC98 emulator)"
 PKG_TOOLCHAIN="make"
-PKG_MAKE_OPTS_TARGET="-C sdl -f Makefile.libretro"
+PKG_MAKE_OPTS_TARGET="-C sdl -f Makefile.libretro NP2KAI_VERSION=rev.15"
 
 pre_make_target() {
   cd "${PKG_BUILD}"
