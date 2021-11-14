@@ -1,6 +1,5 @@
 PKG_NAME="kronos"
 PKG_VERSION="146f4295eb7f5f76a2e6e6c84518c9bdf6a8398f"
-PKG_ARCH="i386 x86_64"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/yabause"
 PKG_URL="${PKG_SITE}.git"
@@ -9,7 +8,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Port of Kronos to libretro."
 PKG_TOOLCHAIN="make"
 
-PKG_MAKE_OPTS_TARGET="-C yabause/src/libretro"
+PKG_MAKE_OPTS_TARGET="-C yabause/src/libretro HAVE_CDROM=1"
 
 if [ "${OPENGL_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL}"
@@ -23,7 +22,9 @@ if [ "${VULKAN_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${VULKAN}"
 fi
 
-if [ "${ARCH}" = "aarch64" ]; then
+if [ "${ARCH}" = "arm" ]; then
+  PKG_MAKE_OPTS_TARGET+=" platform=armv"
+elif [ "${ARCH}" = "aarch64" ]; then
   PKG_MAKE_OPTS_TARGET+=" platform=arm64"
 fi
 
