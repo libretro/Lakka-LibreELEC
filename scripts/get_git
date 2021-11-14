@@ -1,36 +1,24 @@
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
-# Handler for git
+# Handler for git, creates shallow clone of the package repository
 # Usage (in package.mk):
 # PKG_URL (mandatory) must point to a git repository (git://... or https://example.com/repo.git)
-# PKG_VERSION (mandatory) must point to a commit SHA, e.g. a1b2c3d
-# PKG_GIT_SHA (optional) full hash of git commit
-# PKG_GIT_CLONE_BRANCH (optional) clone specific branch
-# PKG_GIT_CLONE_SINGLE (optional) clone single branch only (set to yes)
-# PKG_GIT_CLONE_DEPTH (optional) history to clone, must be a number
-# PKG_GIT_SUBMODULE_DEPTH (optional) history of submodules to clone, must be a number
+# PKG_VERSION (mandatory) must point to a full commit SHA
+# PKG_GIT_CLONE_BRANCH (optional) clone specific branch (used here only for stamp, but can be used by other scripts to update the PKG_VERSION)
+
+GIT_STAMP="${PKG_URL}|${PKG_VERSION}"
+[ -n "${PKG_GIT_CLONE_BRANCH}" ] && GIT_STAMP+="|${PKG_GIT_CLONE_BRANCH}"
+
+GIT_TARBALL="${PACKAGE}.tar.xz"
+GIT_STAMP_FILE="${GIT_TARBALL}.gitstamp"
+GIT_TAR_SOURCE="${1}-${PKG_VERSION}"
 
 _get_repo_already_downloaded() {
-  if [ -d "${PACKAGE}" ]; then
-    (
-      cd "${PACKAGE}"
-      _get_repo_clean
-      [ -n "$(git ls-remote . | grep -m1 HEAD | awk "/^${PKG_VERSION}/ {print \$1;}")" ] || die "ERROR: ${PACKAGE}: failed to determine git HEAD"
-      [ "${PKG_URL}" = "$(git remote get-url origin)" ] || die "ERROR: ${PACKAGE}: failed to obtain URL of origin"
-      [ -z "${PKG_GIT_CLONE_BRANCH}" ] && exit 0
-      [ "${PKG_GIT_CLONE_BRANCH}" = "$(git branch | grep ^\* | cut -d ' ' -f2)" ] || die "ERROR: ${PACKAGE}: failed to determine current git branch"
-      exit 0
-    )
-    return
-  else
-    return 1
+  if [ -f "${GIT_TARBALL}" -a -f "${GIT_STAMP_FILE}" ]; then
+    [ "${GIT_STAMP}" = "$(cat ${GIT_STAMP_FILE} 2>/dev/null)" ] && return 0
   fi
-}
-
-_get_repo_clean() {
-  git clean -fdx
-  git checkout -- .
+  return 1
 }
 
 # Latest file already present, exit now...
@@ -46,90 +34,22 @@ build_msg "CLR_GET" "GET" "${1} (git)" "indent"
 
 pkg_lock_status "GETPKG" "${PKG_NAME}" "unpack" "processing package repository..."
 
-rm -f "${STAMP_URL}" "${STAMP_SHA}"
+rm -rf "${STAMP_URL}" "${STAMP_SHA}" "${PACKAGE}" "${GIT_TARBALL}" "${GIT_STAMP_FILE}"
 
-GIT_CLONE_PARAMS=""
-GIT_SUBMODULE_PARAMS=""
+mkdir -p "${PACKAGE}"
 
-[ -n "${PKG_GIT_CLONE_BRANCH}" ] && GIT_CLONE_PARAMS="${GIT_CLONE_PARAMS} --branch ${PKG_GIT_CLONE_BRANCH}"
-[ "${PKG_GIT_CLONE_SINGLE}" = "yes" ] && GIT_CLONE_PARAMS="${GIT_CLONE_PARAMS} --single-branch"
+git -C "${PACKAGE}" init
+git -C "${PACKAGE}" remote add origin ${PKG_URL}
 
-if [ -n "${PKG_GIT_CLONE_DEPTH}" ]; then
-  if [[ "${PKG_GIT_CLONE_DEPTH}" =~ ^[0-9]+$ ]]; then
-    GIT_CLONE_PARAMS="${GIT_CLONE_PARAMS} --depth ${PKG_GIT_CLONE_DEPTH}"
-  else
-    die "ERROR: PKG_GIT_CLONE_DEPTH is not a number! (${PKG_GIT_CLONE_DEPTH})"
-  fi
-fi
+build_msg "CLR_GET" "GIT FETCH" "${1}"
+git -C "${PACKAGE}" fetch --depth 1 origin ${PKG_VERSION}
+git -C "${PACKAGE}" checkout FETCH_HEAD
 
-if [ -n "${PKG_GIT_SUBMODULE_DEPTH}" ]; then
-  if [[ "${PKG_GIT_SUBMODULE_DEPTH}" =~ ^[0-9]+$ ]]; then
-    GIT_SUBMODULE_PARAMS="${GIT_SUBMODULE_PARAMS} --depth ${PKG_GIT_SUBMODULE_DEPTH}"
-  else
-    die "ERROR: PKG_GIT_SUBMODULE_DEPTH is not a number! (${PKG_GIT_SUBMODULE_DEPTH})"
-  fi
-fi
+build_msg "CLR_GET" "GIT SUBMODULE" "${1}"
+git -C "${PACKAGE}" submodule update --init --recursive --depth 1
 
-GIT_FOUND="no"
-opwd="$(pwd)"
-for d in "${SOURCES}/${1}/${1}-"*/ ; do
-  if [ -d "${d}.git" ]; then
-    if [ "${GIT_FOUND}" = "no" ]; then
-      cd "${d}"
-      if [ "${PKG_URL}" = "$(git remote get-url origin)" ]; then
-        if [[ -z "${PKG_GIT_CLONE_BRANCH}" ]] || [[ $(git branch | grep "^\* ${PKG_GIT_CLONE_BRANCH}$" | wc -l) -eq 1 ]]; then
-          GIT_FOUND="yes"
-          GIT_DIR="${d}"
-          _get_repo_clean
-        elif [ $(git branch | grep "^  ${PKG_GIT_CLONE_BRANCH}$" | wc -l) -eq 1 ]; then
-          GIT_FOUND="yes"
-          GIT_DIR="${d}"
-          _get_repo_clean
-          git checkout "${PKG_GIT_CLONE_BRANCH}"
-        elif [ $(git branch -a | grep "^  remotes/origin/${PKG_GIT_CLONE_BRANCH}$" | wc -l) -eq 1 ]; then
-          GIT_FOUND="yes"
-          GIT_DIR="${d}"
-          _get_repo_clean
-          git checkout -b "${PKG_GIT_CLONE_BRANCH}" "origin/${PKG_GIT_CLONE_BRANCH}"
-        else
-          build_msg "CLR_CLEAN" "DELETE" "(${d})"
-          cd "${opwd}"
-          rm -rf "${d}"
-        fi
-        if [ "${GIT_FOUND}" = "yes" ]; then
-          build_msg "CLR_GET" "GIT PULL" "${1}"
-          git pull
-          cd "${opwd}"
-        fi
-      else
-        build_msg "CLR_CLEAN" "DELETE" "(${d})"
-        cd "${opwd}"
-        rm -rf "${d}"
-      fi
-    fi
-  else
-    build_msg "CLR_CLEAN" "DELETE" "(${d})"
-    rm -rf "${d}"
-  fi
-done
-cd "${opwd}"
+build_msg "CLR_GET" "GIT TARBALL" "${1}"
+echo "Creating tarball from the package repository..."
+tar --create --file ${GIT_TARBALL} --remove-files --xz --directory=${SOURCES}/${1} ${GIT_TAR_SOURCE}
 
-if [ "${GIT_FOUND}" = "no" ]; then
-  build_msg "CLR_GET" "GIT CLONE" "${1}"
-  git clone ${GIT_CLONE_PARAMS} "${PKG_URL}" "${PACKAGE}"
-elif [ ! "${GIT_DIR}" = "${PACKAGE}/" ]; then
-  mv "${GIT_DIR}" "${PACKAGE}"
-fi
-
-( cd "${PACKAGE}"
-  [ $(git log --oneline --pretty=tformat:"%H" | grep "^${PKG_VERSION}" | wc -l) -eq 1 ] || die "There is no commit '${PKG_VERSION}' on branch '$(git branch | grep ^\* | cut -d ' ' -f2)' of package '${1}'! Aborting!"
-  git reset --hard "${PKG_VERSION}"
-  build_msg "CLR_GET" "GIT SUBMODULE" "${1}"
-  git submodule update --init --recursive ${GIT_SUBMODULE_PARAMS}
-)
-
-GIT_SHA="$(git ls-remote "${PACKAGE}" | grep -m1 HEAD | awk '{print $1;}')"
-
-if [ -n "${PKG_GIT_SHA}" -a "${PKG_GIT_SHA}" != "${GIT_SHA}" ]; then
-  build_msg "CLR_WARNING" "WARNING" "Incorrect git hash in repository: got ${GIT_SHA}, wanted ${PKG_GIT_SHA}"
-fi
+echo "${GIT_STAMP}" > ${GIT_STAMP_FILE}
