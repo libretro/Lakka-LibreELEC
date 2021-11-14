@@ -1,35 +1,13 @@
-################################################################################
-#      This file is part of OpenELEC - http://www.openelec.tv
-#      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
-#
-#  This Program is free software; you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation; either version 2, or (at your option)
-#  any later version.
-#
-#  This Program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with OpenELEC.tv; see the file COPYING.  If not, write to
-#  the Free Software Foundation, 51 Franklin Street, Suite 500, Boston, MA 02110, USA.
-#  http://www.gnu.org/copyleft/gpl.html
-################################################################################
-
 PKG_NAME="tegra-bsp"
 if [ ! "${DEVICE}" = "Switch" ]; then
   PKG_VERSION="32.4.4"
 else
   PKG_VERSION="32.3.1"
 fi
-PKG_ARCH="any"
-PKG_DEPENDS_HOST=""
 PKG_DEPENDS_TARGET="mesa libglvnd xorg-server"
 
 if [ ! "${VULKAN}" = "" -o ! "${VULKAN}" = "no" ]; then
-  PKG_DEPENDS_TARGET+=" vulkan-loader"
+  PKG_DEPENDS_TARGET+=" ${VULKAN}"
 fi
 
 PKG_SITE="https://developer.nvidia.com/EMBEDDED/linux-tegra%20/"
@@ -45,10 +23,9 @@ case "${DEVICE}" in
     ;;
 esac
 PKG_TOOLCHAIN="manual"
-PKG_AUTORECONF="no"
 
 build_install() {
-  if [ ! -d "${PKG_BUILD}"/install ]; then
+  if [ ! -d ${PKG_BUILD}/install ]; then
     #get and extract multimedia api stuff
     if [ -f nvidia-l4t-jetson-multimedia-api_32.3.1-20191209225816_arm64.deb ]; then
       rm -f nvidia-l4t-jetson-multimedia-api_32.3.1-20191209225816_arm64.deb
@@ -65,11 +42,11 @@ build_install() {
     rm *.tar* debian-binary
     mv data/* ./
     rmdir data
-    cp -Pv "${PKG_DIR}"/assets/NvV4l2ElementPlane.cpp usr/src/jetson_multimedia_api/samples/common/classes/
+    cp -Pv ${PKG_DIR}/assets/NvV4l2ElementPlane.cpp usr/src/jetson_multimedia_api/samples/common/classes/
 
-    mkdir -p "${PKG_BUILD}"/install
-    mkdir -p "${INSTALL}"  
-    cd "${PKG_BUILD}"/install
+    mkdir -p ${PKG_BUILD}/install
+    mkdir -p ${INSTALL}  
+    cd ${PKG_BUILD}/install
 
     # extract BSP files
     tar xf ../nv_tegra/config.tbz2
@@ -146,7 +123,6 @@ build_install() {
     sed -i 's:libnvidia-egl-wayland.so.1:/usr/lib/libnvidia-egl-wayland.so.1:g' ../share/egl/egl_external_platform.d/nvidia_wayland.json
 
     #More symlinking
-
     cd firmware
     rm -r gm20b
     ln -sfn tegra21x gm20b
@@ -155,49 +131,47 @@ build_install() {
     ln -sfn asound.conf.tegrasndt210ref asound.conf
     if [ ! "${VULKAN}" = "" -o ! "${VULKAN}" = "no" ]; then
       cd vulkan/icd.d
-      rm nvidia_icd.json
+      rm -v nvidia_icd.json
       ln -sfn /usr/lib/nvidia_icd.json nvidia_icd.json
       cd ../../../../
     else
-      rm ../usr/lib/nvidia_icd.json
+      rm -v ../usr/lib/nvidia_icd.json
       cd ../
     fi 
-fi
+  fi
 }
 
 makeinstall_target() {
   build_install
-  cp -PRv install/* "${INSTALL}"/
-  cp -PRvn install/usr/lib/* "${TOOLCHAIN}"/aarch64-libreelec-linux-gnueabi/sysroot/usr/lib/
+
+  cp -PRv install/* ${INSTALL}/
+  cp -PRvn install/usr/lib/* ${TOOLCHAIN}/aarch64-libreelec-linux-gnueabi/sysroot/usr/lib/
+
   #install multimedia_api_headers
   cp -PRvn multimedia_api/usr/src/jetson_multimedia_api/include/* ${SYSROOT_PREFIX}/usr/include
-  mkdir -p "${SYSROOT_PREFIX}"/usr/src/jetson_multimedia_api/samples/common
-  cp -PRn multimedia_api/usr/src/jetson_multimedia_api/samples/common/*  "${SYSROOT_PREFIX}"/usr/src/jetson_multimedia_api/samples/common/
+  mkdir -p ${SYSROOT_PREFIX}/usr/src/jetson_multimedia_api/samples/common
+    cp -PRvn multimedia_api/usr/src/jetson_multimedia_api/samples/common/* ${SYSROOT_PREFIX}/usr/src/jetson_multimedia_api/samples/common/
   PWD=$(pwd)
   cd ${TOOLCHAIN}/aarch64-libreelec-linux-gnueabi/sysroot/usr/lib/
-  rm libv4lconvert.so.0 libv4lconvert.so libv4l2.so.0 libv4l2.so
-  mv libv4l2.so.0.0.999999 libv4l2.so.0
-  cp libv4l2.so.0 libv4l2.so
-  mv libv4lconvert.so.0.0.999999 libv4lconvert.so.0
-  cp libv4lconvert.so.0 libv4lconvert.so
-  rm libgbm.so.1
-  cp libnvgbm.so libgbm.so.1
-  #cp libnvgbm.so libgbm.so
-  cp libnvidia-egl-wayland.so libvnidia-egl-wayland.so.1
-  rm libdrm.so.2
-  cp libdrm_nvdc.so libdrm.so.2
-  cd $PWD
+  rm -v libv4lconvert.so.0 libv4lconvert.so libv4l2.so.0 libv4l2.so
+  mv -v libv4l2.so.0.0.999999 libv4l2.so.0
+  cp -v libv4l2.so.0 libv4l2.so
+  mv -v libv4lconvert.so.0.0.999999 libv4lconvert.so.0
+  cp -v libv4lconvert.so.0 libv4lconvert.so
+  rm -v libgbm.so.1
+  cp -v libnvgbm.so libgbm.so.1
+  #cp -v libnvgbm.so libgbm.so
+  cp -v libnvidia-egl-wayland.so libvnidia-egl-wayland.so.1
+  rm -v libdrm.so.2
+  cp -v libdrm_nvdc.so libdrm.so.2
+  cd ${PWD}
 
   if [ "${DEVICE}" = "Switch" ]; then
     if [ "${DISPLAYSERVER}" = "x11" ]; then
-      cp -P "${PKG_DIR}"/assets/xorg.conf "${INSTALL}"/etc/X11/
-      cat "${PKG_DIR}"/assets/10-monitor.conf >> "${INSTALL}"/etc/X11/xorg.conf
-      cat "${PKG_DIR}"/assets/50-joysticks.conf >> "${INSTALL}"/etc/X11/xorg.conf
-      cat "${PKG_DIR}"/assets/20-touchscreen.conf >> "${INSTALL}"/etc/X11/xorg.conf
+      cp -Pv ${PKG_DIR}/assets/xorg.conf ${INSTALL}/etc/X11/
+      cat ${PKG_DIR}/assets/10-monitor.conf >> ${INSTALL}/etc/X11/xorg.conf
+      cat ${PKG_DIR}/assets/50-joysticks.conf >> ${INSTALL}/etc/X11/xorg.conf
+      cat ${PKG_DIR}/assets/20-touchscreen.conf >> ${INSTALL}/etc/X11/xorg.conf
     fi
   fi
-}
-
-make_target() {
-  :
 }
