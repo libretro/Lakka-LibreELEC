@@ -14,11 +14,13 @@ makeinstall_target() {
 
   cp -PRv ${PKG_DIR}/assets/splash.bmp ${INSTALL}/usr/share/bootloader/boot/splash.bmp
   cp -PRv ${PKG_DIR}/assets/Lakka.ini ${INSTALL}/usr/share/bootloader/boot/Lakka.ini
-  #cp -PRv ${BUILD}/$PKG_NAME-$PKG_VERSION/boot.scr ${INSTALL}/usr/share/bootloader/boot/boot.scr
   cp -PRv ${PKG_DIR}/assets/coreboot.rom ${INSTALL}/usr/share/bootloader/boot/coreboot.rom
   cp -PRv ${PKG_DIR}/assets/uenv.txt ${INSTALL}/usr/share/bootloader/boot/uenv.txt
   cp -PRv ${PKG_DIR}/assets/uartb_logging.dtbo ${INSTALL}/usr/share/bootloader/boot/uartb_logging.dtbo
   cp -PRv ${PKG_DIR}/assets/icon_lakka_hue.bmp  ${INSTALL}/usr/share/bootloader/boot/
   cp -PRv ${PKG_DIR}/assets/icon_lakka.bmp  ${INSTALL}/usr/share/bootloader/boot/
-  #cp -PRv ${BUILD}/switch-boot/coreboot.rom ${INSTALL}/usr/share/bootloader/boot/coreboot.rom
+}
+
+make_target() {
+  :
 }
