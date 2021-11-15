@@ -1,0 +1,71 @@
+diff -Naur ffmpeg-4.3.2-Matrix-19.1/libavcodec/nvv4l2_dec.c ffmpeg-4.3.2-Matrix-19.1-2/libavcodec/nvv4l2_dec.c
+--- ffmpeg-4.3.2-Matrix-19.1/libavcodec/nvv4l2_dec.c	2021-11-08 08:16:34.182710734 +0100
++++ ffmpeg-4.3.2-Matrix-19.1-2/libavcodec/nvv4l2_dec.c	2021-11-08 19:34:03.856276652 +0100
+@@ -777,6 +777,7 @@
+     context_t *ctx = (context_t *) arg;
+     struct v4l2_event event;
+     int ret_val;
++    uint32_t buf_index = 0;
+ 
+     av_log(ctx->avctx, AV_LOG_VERBOSE, "Starting capture thread\n");
+ 
+@@ -827,7 +828,6 @@
+         /* Main Capture loop for DQ and Q. */
+ 
+         while (!ctx->eos) {
+-            int buf_index;
+             struct v4l2_buffer v4l2_buf;
+             struct v4l2_plane planes[MAX_PLANES];
+             NvBufferRect src_rect, dest_rect;
+@@ -895,18 +895,23 @@
+ 
+             if (!ctx->frame_size[0]) {
+                 for (int index = 0; index < MAX_BUFFERS; index++) {
+-                    ctx->bufptr_0[index] =
+-                        (unsigned char *) malloc(sizeof(unsigned char) *
++                    if (ctx->bufptr_0[index] == NULL)
++                        ctx->bufptr_0[index] =
++                            (unsigned char *) malloc(sizeof(unsigned char) *
+                                                  (parm.psize[0]));
+-                    ctx->bufptr_1[index] =
+-                        (unsigned char *) malloc(sizeof(unsigned char) *
++                    if (ctx->bufptr_1[index] == NULL)
++                        ctx->bufptr_1[index] =
++                            (unsigned char *) malloc(sizeof(unsigned char) *
+                                                  (parm.psize[1]));
+                     if (ctx->out_pixfmt == V4L2_PIX_FMT_YUV420M) {
+-                        ctx->bufptr_2[index] =
+-                            (unsigned char *) malloc(sizeof(unsigned char)
++                        if (ctx->bufptr_2[index] == NULL)
++                            ctx->bufptr_2[index] =
++                                (unsigned char *) malloc(sizeof(unsigned char)
+                                                      * (parm.psize[2]));
+                     }
+                 }
++                /* Reset buffer index */
++                buf_index = 0;
+             }
+ 
+             ctx->frame_linesize[0] = parm.width[0];
+@@ -1249,9 +1254,18 @@
+             ctx->dst_dma_fd = -1;
+         }
+         for (int index = 0; index < MAX_BUFFERS; index++) {
+-            free(ctx->bufptr_0[index]);
+-            free(ctx->bufptr_1[index]);
+-            free(ctx->bufptr_2[index]);
++            if (ctx->bufptr_0[index] != NULL) {
++                free(ctx->bufptr_0[index]);
++                ctx->bufptr_0[index] = NULL;
++            }
++            if (ctx->bufptr_1[index] != NULL) {
++                free(ctx->bufptr_1[index]);
++                ctx->bufptr_1[index] = NULL;
++            }
++            if (ctx->bufptr_2[index] != NULL) {
++                free(ctx->bufptr_2[index]);
++                ctx->bufptr_2[index] = NULL;
++            }
+         }
+ 
+         free(ctx->frame_pools->data);
