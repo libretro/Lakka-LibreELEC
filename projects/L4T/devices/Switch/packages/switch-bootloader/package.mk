@@ -64,9 +64,9 @@ makeinstall_target() {
   cp -PRv ${PKG_BUILD}/coreboot.rom ${INSTALL}/usr/share/bootloader/boot/coreboot.rom
   cp -PRv ${PKG_BUILD}/uenv.txt ${INSTALL}/usr/share/bootloader/boot/uenv.txt
   cp -PRv ${PKG_DIR}/assets/uartb_logging.dtbo ${INSTALL}/usr/share/bootloader/boot/uartb_logging.dtbo
+  cp -PRv ${PKG_DIR}/assets/${HEKATE_SPLASH} ${INSTALL}/usr/share/bootloader/boot/splash.bmp
   if [ "${DISTRO}" = "Lakka" ]; then
     cp -PRv ${PKG_DIR}/assets/${DISTRO_ICON}  ${INSTALL}/usr/share/bootloader/boot/
-    cp -PRv ${PKG_DIR}/assets/${HEKATE_SPLASH} ${INSTALL}/usr/share/bootloader/boot/splash.bmp
   fi
 }
 
