@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="cbfstool"
-PKG_VERSION="d0156146"
+PKG_VERSION="6087335b0847a66a725156e39bf1329462c03751"
 PKG_GIT_CLONE_BRANCH="switch-linux"
 PKG_ARCH="any"
 PKG_DEPENDS_HOST="zlib:host openssl:host"
@@ -30,7 +30,11 @@ PKG_TOOLCHAIN="manual"
 
 PKG_AUTORECONF="no"
 
+GET_SKIP_SUBMODULE="yes"
+
 make_host() {
+  cd ${PKG_BUILD}
+  git submodule update --init --recursive
   cd ${PKG_BUILD}/util/cbfstool/
   make
 }
