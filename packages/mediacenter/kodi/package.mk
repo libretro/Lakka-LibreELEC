@@ -28,14 +28,16 @@ configure_package() {
 
   if [ "${DISPLAYSERVER}" = "x11" ]; then
     PKG_DEPENDS_TARGET+=" libX11 libXext libdrm libXrandr"
-    KODI_XORG="-DCORE_PLATFORM_NAME=x11 -DAPP_RENDER_SYSTEM=gl"
+    KODI_PLATFORM="-DCORE_PLATFORM_NAME=x11 \
+                   -DAPP_RENDER_SYSTEM=gl"
   elif [ "${DISPLAYSERVER}" = "weston" ]; then
     PKG_DEPENDS_TARGET+=" wayland waylandpp"
-    CFLAGS+=" -DMESA_EGL_NO_X11_HEADERS"
-    CXXFLAGS+=" -DMESA_EGL_NO_X11_HEADERS"
-    KODI_XORG="-DCORE_PLATFORM_NAME=wayland \
-               -DAPP_RENDER_SYSTEM=gles \
-               -DWAYLANDPP_PROTOCOLS_DIR=${SYSROOT_PREFIX}/usr/share/waylandpp/protocols"
+    CFLAGS+=" -DEGL_NO_X11"
+    CXXFLAGS+=" -DEGL_NO_X11"
+    KODI_PLATFORM="-DCORE_PLATFORM_NAME=wayland \
+                   -DAPP_RENDER_SYSTEM=gles \
+                   -DWAYLANDPP_SCANNER=${TOOLCHAIN}/bin/wayland-scanner++ \
+                   -DWAYLANDPP_PROTOCOLS_DIR=${SYSROOT_PREFIX}/usr/share/waylandpp/protocols"
   fi
 
   if [ ! "${OPENGL}" = "no" ]; then
@@ -172,7 +174,7 @@ configure_package() {
     KODI_ARCH="-DWITH_ARCH=${TARGET_ARCH}"
   fi
 
-  if [ ! "${KODIPLAYER_DRIVER}" = default ]; then
+  if [ ! "${KODIPLAYER_DRIVER}" = "default" -a "${DISPLAYSERVER}" = "no" ]; then
     PKG_DEPENDS_TARGET+=" ${KODIPLAYER_DRIVER} libinput libxkbcommon"
     if [ "${OPENGLES_SUPPORT}" = yes -a "${KODIPLAYER_DRIVER}" = "${OPENGLES}" ]; then
       KODI_PLAYER="-DCORE_PLATFORM_NAME=gbm -DAPP_RENDER_SYSTEM=gles"
@@ -221,7 +223,7 @@ configure_package() {
                          ${KODI_VDPAU} \
                          ${KODI_VAAPI} \
                          ${KODI_CEC} \
-                         ${KODI_XORG} \
+                         ${KODI_PLATFORM} \
                          ${KODI_SAMBA} \
                          ${KODI_NFS} \
                          ${KODI_LIBDVD} \
