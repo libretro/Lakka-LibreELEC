@@ -1,10 +1,10 @@
 #!/bin/bash
 
 manufacturer="Nintendo"
-product="Switch(Lakka)"
+product="Switch(@DISTRO@)"
 #vid/pid defaults if not ran as attackmode.... Defaults are default for linux
-vid_default="0x1d6b" #linux foundation
-pid_default="0x0104" #Multifunction Gadget
+vid_default="0x057e" #Nintendo Co.
+pid_default="0x2000" #Switch
 serialnumber="00000001"
 
 gadget_config="/sys/kernel/config"
@@ -28,7 +28,7 @@ create_gadget_framework() {
 	echo 0x02 > $gadget_config/usb_gadget/g/bDeviceSubClass
 	echo 0x01 > $gadget_config/usb_gadget/g/bDeviceProtocol
 	mkdir -p $gadget_config/usb_gadget/g/configs/c.1
-	echo 250 > $gadget_config/usb_gadget/g/configs/c.1/MaxPower
+	echo 32 > $gadget_config/usb_gadget/g/configs/c.1/MaxPower
 }
 
 create_ffs_mtp() {
@@ -36,7 +36,6 @@ create_ffs_mtp() {
 	ln -s $gadget_config/usb_gadget/g/functions/ffs.mtp $gadget_config/usb_gadget/g/configs/c.1/
         mkdir -p /dev/ffs-umtp
         mount mtp /dev/ffs-umtp -t functionfs
-        umtprd &
 }
 
 create_serial() {
@@ -49,8 +48,13 @@ finalize_gadget_framework() {
 	udevadm settle -t 5 || :
 }
 
-
-create_gadget_framework
-#create_ffs_mtp
-create_serial
-finalize_gadget_framework
+if [ "$1" = "init" ]; then
+  create_gadget_framework
+  create_ffs_mtp
+  create_serial
+elif [ "$1" = "finalize" ]; then
+  while [ ! "$(cat $gadget_config/usb_gadget/g/UDC)" = "$udc" ]
+  do
+    finalize_gadget_framework
+  done
+fi
