@@ -19,6 +19,7 @@ PKG_MESON_OPTS_TARGET="-Dbackend-drm-screencast-vaapi=false \
                        -Dweston-launch=false \
                        -Dxwayland=false \
                        -Dremoting=false \
+                       -Dpipewire=false \
                        -Dshell-fullscreen=false \
                        -Dshell-ivi=false \
                        -Dcolor-management-lcms=false \
@@ -32,7 +33,7 @@ PKG_MESON_OPTS_TARGET="-Dbackend-drm-screencast-vaapi=false \
 
 pre_configure_target() {
   # weston does not build with NDEBUG (requires assert for tests)
-  export TARGET_CFLAGS=$(echo ${CFLAGS} | sed -e "s|-DNDEBUG||g")
+  export TARGET_CFLAGS=$(echo ${TARGET_CFLAGS} | sed -e "s|-DNDEBUG||g")
 }
 
 post_makeinstall_target() {
@@ -41,6 +42,7 @@ post_makeinstall_target() {
 
   mkdir -p ${INSTALL}/usr/share/weston
     cp ${PKG_DIR}/config/weston.ini ${INSTALL}/usr/share/weston
+    find_file_path "splash/splash-2160.png" && cp ${FOUND_PATH} ${INSTALL}/usr/share/weston
 
   safe_remove ${INSTALL}/usr/share/wayland-sessions
   safe_remove ${INSTALL}/usr/bin/weston-calibrator

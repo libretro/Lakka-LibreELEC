@@ -2,14 +2,16 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="wayland-protocols"
-PKG_VERSION="1.20"
-PKG_SHA256="9782b7a1a863d82d7c92478497d13c758f52e7da4f197aa16443f73de77e4de7"
+PKG_VERSION="1.23"
+PKG_SHA256="6c0af1915f96f615927a6270d025bd973ff1c58e521e4ca1fc9abfc914633f76"
 PKG_LICENSE="OSS"
 PKG_SITE="https://wayland.freedesktop.org/"
 PKG_URL="https://wayland.freedesktop.org/releases/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Specifications of extended Wayland protocols"
 
+PKG_MESON_OPTS_TARGET="-Dtests=false"
+
 post_makeinstall_target() {
-  rm -rf ${INSTALL}
+  safe_remove ${INSTALL}
 }
