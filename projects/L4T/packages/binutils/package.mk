@@ -4,7 +4,7 @@
 
 PKG_NAME="binutils"
 PKG_VERSION="2.32"
-#PKG_SHA256="3ced91db9bf01182b7e420eab68039f2083aed0a214c0424e257eae3ddee8607"
+PKG_SHA256="0ab6c55dd86a92ed561972ba15b9b70a8b9f75557f896446c82e8b36e473ee04"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/binutils/"
 PKG_URL="http://ftp.gnu.org/gnu/binutils/${PKG_NAME}-${PKG_VERSION}.tar.xz"
