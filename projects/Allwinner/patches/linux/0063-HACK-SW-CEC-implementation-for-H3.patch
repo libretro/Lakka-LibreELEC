@@ -1,4 +1,4 @@
-From 411f022496f0f9715ca3dc9296f5823cbc0c867c Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
 Date: Mon, 11 Oct 2021 20:13:41 +0200
 Subject: [PATCH] HACK: SW CEC implementation for H3
@@ -9,12 +9,10 @@ instead. That makes it usable, albeit sensitive to cpufreq changes.
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
 ---
- drivers/gpu/drm/bridge/synopsys/dw-hdmi.c |  2 +-
- drivers/gpu/drm/sun4i/Kconfig             |  2 +
- drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h     | 12 ++++
- drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c    | 76 ++++++++++++++++++++++-
- include/drm/bridge/dw_hdmi.h              |  2 +
- 5 files changed, 91 insertions(+), 3 deletions(-)
+ drivers/gpu/drm/sun4i/Kconfig          |  2 +
+ drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h  | 13 ++++
+ drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c | 83 +++++++++++++++++++++++++-
+ 3 files changed, 96 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/gpu/drm/sun4i/Kconfig b/drivers/gpu/drm/sun4i/Kconfig
 index 5755f0432e77..b93eb2fb52ce 100644
@@ -30,7 +28,7 @@ index 5755f0432e77..b93eb2fb52ce 100644
  	  Choose this option if you have an Allwinner SoC with the
  	  DesignWare HDMI controller with custom HDMI PHY. If M is
 diff --git a/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h b/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h
-index bffe1b9cd3dc..438f7398e26d 100644
+index bffe1b9cd3dc..61c97619cba1 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h
 +++ b/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h
 @@ -13,6 +13,8 @@
@@ -56,15 +54,7 @@ index bffe1b9cd3dc..438f7398e26d 100644
  
  struct sun8i_hdmi_phy;
  
-@@ -152,6 +161,7 @@ struct sun8i_hdmi_phy_variant {
- 	bool has_phy_clk;
- 	bool has_second_pll;
- 	unsigned int is_custom_phy : 1;
-+	unsigned int bit_bang_cec : 1;
- 	const struct dw_hdmi_curr_ctrl *cur_ctr;
- 	const struct dw_hdmi_mpll_config *mpll_cfg;
- 	const struct dw_hdmi_phy_config *phy_cfg;
-@@ -164,6 +174,8 @@ struct sun8i_hdmi_phy_variant {
+@@ -164,6 +173,8 @@ struct sun8i_hdmi_phy_variant {
  };
  
  struct sun8i_hdmi_phy {
@@ -73,8 +63,17 @@ index bffe1b9cd3dc..438f7398e26d 100644
  	struct clk			*clk_bus;
  	struct clk			*clk_mod;
  	struct clk			*clk_phy;
+@@ -174,6 +185,8 @@ struct sun8i_hdmi_phy {
+ 	struct regmap			*regs;
+ 	struct reset_control		*rst_phy;
+ 	struct sun8i_hdmi_phy_variant	*variant;
++	unsigned int 			disable_cec : 1;
++	unsigned int 			bit_bang_cec : 1;
+ };
+ 
+ struct sun8i_dw_hdmi_quirks {
 diff --git a/drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c b/drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c
-index 78b152973957..0d87b56b700a 100644
+index b64d93da651d..e2936e7745b8 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c
 @@ -498,8 +498,9 @@ static void sun8i_hdmi_phy_init_h3(struct sun8i_hdmi_phy *phy)
@@ -85,7 +84,7 @@ index 78b152973957..0d87b56b700a 100644
 -	regmap_write(phy->regs, SUN8I_HDMI_PHY_CEC_REG, 0);
 +	/* manual control of CEC pins */
 +	regmap_write(phy->regs, SUN8I_HDMI_PHY_CEC_REG,
-+		     phy->variant->bit_bang_cec ? SUN8I_HDMI_PHY_CEC_PIN_CTRL : 0);
++		     phy->bit_bang_cec ? SUN8I_HDMI_PHY_CEC_PIN_CTRL : 0);
  
  	/* read calibration data */
  	regmap_read(phy->regs, SUN8I_HDMI_PHY_ANA_STS_REG, &val);
@@ -93,7 +92,7 @@ index 78b152973957..0d87b56b700a 100644
  		plat_data->cur_ctr = variant->cur_ctr;
  		plat_data->phy_config = variant->phy_cfg;
  	}
-+	plat_data->disable_cec = phy->variant->bit_bang_cec;
++	plat_data->disable_cec = phy->disable_cec;
  }
  
 +static int sun8i_hdmi_phy_cec_pin_read(struct cec_adapter *adap)
@@ -137,15 +136,7 @@ index 78b152973957..0d87b56b700a 100644
  static const struct regmap_config sun8i_hdmi_phy_regmap_config = {
  	.reg_bits	= 32,
  	.val_bits	= 32,
-@@ -594,6 +634,7 @@ static const struct sun8i_hdmi_phy_variant sun8i_a83t_hdmi_phy = {
- };
- 
- static const struct sun8i_hdmi_phy_variant sun8i_h3_hdmi_phy = {
-+	.bit_bang_cec = true,
- 	.has_phy_clk = true,
- 	.is_custom_phy = true,
- 	.phy_init = &sun8i_hdmi_phy_init_h3,
-@@ -653,6 +694,7 @@ int sun8i_hdmi_phy_get(struct sun8i_dw_hdmi *hdmi, struct device_node *node)
+@@ -653,6 +693,7 @@ int sun8i_hdmi_phy_get(struct sun8i_dw_hdmi *hdmi, struct device_node *node)
  {
  	struct platform_device *pdev = of_find_device_by_node(node);
  	struct sun8i_hdmi_phy *phy;
@@ -153,12 +144,12 @@ index 78b152973957..0d87b56b700a 100644
  
  	if (!pdev)
  		return -EPROBE_DEFER;
-@@ -664,8 +706,35 @@ int sun8i_hdmi_phy_get(struct sun8i_dw_hdmi *hdmi, struct device_node *node)
+@@ -664,8 +705,35 @@ int sun8i_hdmi_phy_get(struct sun8i_dw_hdmi *hdmi, struct device_node *node)
  	hdmi->phy = phy;
  
  	put_device(&pdev->dev);
 +	
-+	if (phy->variant->bit_bang_cec) {
++	if (phy->bit_bang_cec) {
 +		phy->cec_adapter =
 +			cec_pin_allocate_adapter(&sun8i_hdmi_phy_cec_pin_ops,
 +						 phy, "sun8i-cec",
@@ -189,7 +180,22 @@ index 78b152973957..0d87b56b700a 100644
  }
  
  static int sun8i_hdmi_phy_probe(struct platform_device *pdev)
-@@ -768,6 +837,9 @@ static int sun8i_hdmi_phy_remove(struct platform_device *pdev)
+@@ -690,6 +758,14 @@ static int sun8i_hdmi_phy_probe(struct platform_device *pdev)
+ 
+ 	phy->variant = (struct sun8i_hdmi_phy_variant *)match->data;
+ 	phy->dev = dev;
++	phy->disable_cec = of_machine_is_compatible("roofull,beelink-x2") ||
++			   of_machine_is_compatible("friendlyarm,nanopi-m1") ||
++			   of_machine_is_compatible("xunlong,orangepi-lite") ||
++			   of_machine_is_compatible("xunlong,orangepi-one") ||
++			   of_machine_is_compatible("xunlong,orangepi-pc-plus") ||
++			   of_machine_is_compatible("xunlong,orangepi-plus2e");
++	phy->bit_bang_cec = phy->disable_cec &&
++			    !of_machine_is_compatible("roofull,beelink-x2");
+ 
+ 	ret = of_address_to_resource(node, 0, &res);
+ 	if (ret) {
+@@ -768,6 +844,9 @@ static int sun8i_hdmi_phy_remove(struct platform_device *pdev)
  {
  	struct sun8i_hdmi_phy *phy = platform_get_drvdata(pdev);
  
