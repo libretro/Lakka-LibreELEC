@@ -12,8 +12,7 @@ PKG_CMAKE_OPTS_TARGET="-DBUILD_LIBRETRO_CORE=yes \
                        -DBUILD_TESTS=no \
                        -DENABLE_AMAZON_S3=no \
                        -DUSE_GLEW=no \
-                       -DCMAKE_BUILD_TYPE=Release \
-                       --target play_libretro"
+                       -DCMAKE_BUILD_TYPE=Release"
 
 if [ "${OPENGL_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL} glu"
