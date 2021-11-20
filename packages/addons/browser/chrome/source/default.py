@@ -35,13 +35,20 @@ def startchrome(args):
     new_env['RASTER_MODE'] = __addon__.getSetting('RASTER_MODE')
     new_env['DARK_MODE'] = __addon__.getSetting('DARK_MODE')
 
-    new_env['ALSA_DEVICE'] = ''
     if __addon__.getSetting('USE_CUST_AUDIODEVICE') == 'true':
-      alsa_device = __addon__.getSetting('CUST_AUDIODEVICE_STR')
+      audio_device = __addon__.getSetting('CUST_AUDIODEVICE_STR')
     else:
-      alsa_device = getAudioDevice()
-    if not alsa_device == None and not alsa_device == '':
-      new_env['ALSA_DEVICE'] = alsa_device
+      audio_device = getAudioDevice()
+
+    new_env['AUDIO_DEVICE_TYPE'] = getAudioDeviceType(audio_device)
+    if new_env['AUDIO_DEVICE_TYPE'] == "ALSA":
+      new_env['ALSA_DEVICE'] = ''
+      alsa_device = getAlsaAudioDevice(audio_device)
+      if not alsa_device == None and not alsa_device == '':
+        new_env['ALSA_DEVICE'] = alsa_device
+
+    if __addon__.getSetting('USE_CUST_USERAGENT') == 'true':
+      new_env['USER_AGENT'] = __addon__.getSetting('CUST_USERAGENT_STR')
 
     chrome_params = args + ' ' + \
                     __addon__.getSetting('HOMEPAGE')
@@ -57,7 +64,7 @@ def isRuning(pname):
   return False
 
 def getAudioDevice():
-  dev = json.loads(xbmc.executeJSONRPC(json.dumps({
+  return json.loads(xbmc.executeJSONRPC(json.dumps({
                       "jsonrpc": "2.0",
                       "method": "Settings.GetSettingValue",
                       "params": {
@@ -65,15 +72,20 @@ def getAudioDevice():
                                 },
                       "id": 1,
                    })))['result']['value']
+
+def getAudioDeviceType(dev):
   if dev.startswith("ALSA:"):
-    dev = dev.split("ALSA:")[1]
-    if dev == "@":
-      return None
-    if dev.startswith("@:"):
-      dev = dev.split("@:")[1]
-  else:
-    # not ALSA
+    return "ALSA"
+  if dev.startswith("PULSE:"):
+    return "PULSE"
+  return None
+
+def getAlsaAudioDevice(dev):
+  dev = dev.split("ALSA:")[1]
+  if dev == "@":
     return None
+  if dev.startswith("@:"):
+    dev = dev.split("@:")[1]
   if dev.startswith("CARD="):
     dev = "plughw:" + dev
   return dev

@@ -12,7 +12,8 @@ PKG_DEPENDS_TARGET="toolchain util-macros"
 PKG_DEPENDS_HOST="util-macros"
 PKG_LONGDESC="X.org font utilities."
 
-PKG_CONFIGURE_OPTS_TARGET="--with-mapdir=/usr/share/fonts/util"
+PKG_CONFIGURE_OPTS_TARGET="--with-fontrootdir=/usr/share/fonts \
+                           --with-mapdir=/usr/share/fonts/util"
 
 post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/bin

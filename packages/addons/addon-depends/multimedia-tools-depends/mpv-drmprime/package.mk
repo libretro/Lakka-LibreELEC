@@ -2,8 +2,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mpv-drmprime"
-PKG_VERSION="0.33.1"
-PKG_SHA256="100a116b9f23bdcda3a596e9f26be3a69f166a4f1d00910d1789b6571c46f3a9"
+PKG_VERSION="0.34.0"
+PKG_SHA256="f654fb6275e5178f57e055d20918d7d34e19949bc98ebbf4a7371902e88ce309"
 PKG_LICENSE="GPL"
 PKG_SITE="https://mpv.io/"
 PKG_URL="https://github.com/mpv-player/mpv/archive/v${PKG_VERSION}.tar.gz"
@@ -12,22 +12,22 @@ PKG_LONGDESC="A media player based on MPlayer and mplayer2. It supports a wide v
 PKG_TOOLCHAIN="manual"
 PKG_BUILD_FLAGS="-sysroot"
 
-PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
-                           --disable-libarchive \
-                           --disable-lua \
-                           --disable-javascript \
-                           --disable-uchardet \
-                           --disable-rubberband \
-                           --disable-lcms2 \
-                           --disable-vapoursynth \
-                           --disable-jack \
-                           --disable-wayland \
-                           --disable-x11 \
-                           --disable-vulkan \
-                           --disable-caca \
-                           --enable-drm \
-                           --enable-gbm \
-                           --enable-egl-drm"
+PKG_MANUAL_OPTS_TARGET="--prefix=/usr \
+                        --disable-libarchive \
+                        --disable-lua \
+                        --disable-javascript \
+                        --disable-uchardet \
+                        --disable-rubberband \
+                        --disable-lcms2 \
+                        --disable-vapoursynth \
+                        --disable-jack \
+                        --disable-wayland \
+                        --disable-x11 \
+                        --disable-vulkan \
+                        --disable-caca \
+                        --enable-drm \
+                        --enable-gbm \
+                        --enable-egl-drm"
 
 if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
@@ -39,27 +39,27 @@ fi
 
 if [ "${VAAPI_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" libva"
-  PKG_CONFIGURE_OPTS_TARGET+=" --enable-vaapi --enable-vaapi-drm"
+  PKG_MANUAL_OPTS_TARGET+=" --enable-vaapi --enable-vaapi-drm"
 else
-  PKG_CONFIGURE_OPTS_TARGET+=" --disable-vaapi"
+  PKG_MANUAL_OPTS_TARGET+=" --disable-vaapi"
 fi
 
 if [ "${PULSEAUDIO_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" pulseaudio"
-  PKG_CONFIGURE_OPTS_TARGET+=" --enable-pulse"
+  PKG_MANUAL_OPTS_TARGET+=" --enable-pulse"
 else
-  PKG_CONFIGURE_OPTS_TARGET+=" --disable-pulse"
+  PKG_MANUAL_OPTS_TARGET+=" --disable-pulse"
 fi
 
 if [ "${KODI_BLURAY_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" libbluray"
-  PKG_CONFIGURE_OPTS_TARGET+=" --enable-libbluray"
+  PKG_MANUAL_OPTS_TARGET+=" --enable-libbluray"
 else
-  PKG_CONFIGURE_OPTS_TARGET+=" --disable-libbluray"
+  PKG_MANUAL_OPTS_TARGET+=" --disable-libbluray"
 fi
 
 configure_target() {
-  waf configure ${PKG_CONFIGURE_OPTS_TARGET}
+  waf configure ${PKG_MANUAL_OPTS_TARGET}
 }
 
 make_target() {

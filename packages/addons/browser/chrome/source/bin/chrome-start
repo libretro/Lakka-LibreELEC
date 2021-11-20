@@ -44,15 +44,15 @@ LIBVA_DRIVER_NAME=''
 case $VAAPI_MODE in
   'intel')
       LIBVA_DRIVER_NAME='i965'
-      chrome_OPTS="$chrome_OPTS --enable-accelerated-video"
+      chrome_OPTS="$chrome_OPTS --use-gl=desktop --enable-features=VaapiVideoDecoder"
       ;;
   'amd')
       LIBVA_DRIVER_NAME='vdpau'
-      chrome_OPTS="$chrome_OPTS --enable-accelerated-video"
+      chrome_OPTS="$chrome_OPTS --use-gl=desktop --enable-features=VaapiVideoDecoder"
       ;;
   'nvidia')
       LIBVA_DRIVER_NAME='vdpau'
-      chrome_OPTS="$chrome_OPTS --enable-accelerated-video --allow-no-sandbox-job --disable-gpu-sandbox"
+      chrome_OPTS="$chrome_OPTS --use-gl=desktop --enable-features=VaapiVideoDecoder --allow-no-sandbox-job --disable-gpu-sandbox"
       ;;
   *)
       LIBGL_ALWAYS_SOFTWARE='1'
@@ -73,16 +73,29 @@ case $RASTER_MODE in
 esac
 
 # alsa
-if [ ! -z $ALSA_DEVICE ]; then
-  chrome_OPTS="$chrome_OPTS --alsa-output-device=$ALSA_DEVICE"
+if [ "$AUDIO_DEVICE_TYPE" == "ALSA" ]; then
+  # stop pulseaudio when using an Alsa device
+  systemctl stop pulseaudio
+  if [ ! -z $ALSA_DEVICE ]; then
+    chrome_OPTS="$chrome_OPTS --alsa-output-device=$ALSA_DEVICE"
+  fi
 fi
 
-# HACK!!! to get sound at Chrome stop pulseaudio
-systemctl stop pulseaudio
+# dark mode
+if [ "$DARK_MODE" == "true" ]
+then
+  chrome_OPTS="$chrome_OPTS --force-dark-mode"
+fi
+
+# User-Agent
+if [ ! -z "$USER_AGENT" ]; then
+  USER_AGENT="--user-agent=$USER_AGENT"
+fi
 
 # start chrome
 LD_PRELOAD=/usr/lib/libGL.so $ADDON_DIR/chrome-bin/chrome \
   $chrome_OPTS \
+  "$USER_AGENT" \
   --no-sandbox \
   --user-data-dir=$ADDON_HOME/profile \
   --test-type $@ \
@@ -94,12 +107,8 @@ then
   kill $UNCLUTTER_PID
 fi
 
-# dark mode
-if [ "$DARK_MODE" == "true" ]
-then
-  chrome_OPTS="$chrome_OPTS --force-dark-mode"
-fi
-
-# HACK!!! to get sound at Kodi start pulseaudio
 sleep 5
-systemctl start pulseaudio
+if [ "$AUDIO_DEVICE_TYPE" == "ALSA" ]; then
+  # restart pulseaudio when using an Alsa device
+  systemctl start pulseaudio
+fi
