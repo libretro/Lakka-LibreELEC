@@ -34,16 +34,16 @@ PKG_CONFIGURE_OPTS_TARGET="BASH_SHELL=/bin/sh \
                            --disable-timezone-tools"
 
 if [ "${DEBUG}" = yes ]; then
-  PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET} --enable-debug"
+  PKG_CONFIGURE_OPTS_TARGET+=" --enable-debug"
 else
-  PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET} --disable-debug"
+  PKG_CONFIGURE_OPTS_TARGET+=" --disable-debug"
 fi
 
 NSS_CONF_DIR="${PKG_BUILD}/nss"
 
 GLIBC_EXCLUDE_BIN="catchsegv gencat getconf iconv iconvconfig"
-GLIBC_EXCLUDE_BIN="${GLIBC_EXCLUDE_BIN} makedb mtrace pcprofiledump"
-GLIBC_EXCLUDE_BIN="${GLIBC_EXCLUDE_BIN} pldd rpcgen sln sotruss sprof xtrace"
+GLIBC_EXCLUDE_BIN+=" makedb mtrace pcprofiledump"
+GLIBC_EXCLUDE_BIN+=" pldd rpcgen sln sotruss sprof xtrace"
 
 pre_build_target() {
   cd "${PKG_BUILD}"
@@ -54,20 +54,22 @@ pre_build_target() {
 
 pre_configure_target() {
 # Filter out some problematic *FLAGS
-  export CFLAGS=`echo "${CFLAGS}" | sed -e "s|-ffast-math||g"`
-  export CFLAGS=`echo "${CFLAGS}" | sed -e "s|-Ofast|-O2|g"`
-  export CFLAGS=`echo "${CFLAGS}" | sed -e "s|-O.|-O2|g"`
-  export CFLAGS=`echo "${CFLAGS}" | sed -e "s|-Werror||g"`
-  export CFLAGS=`echo "${CFLAGS}" | sed -e "s|-mthumb||g"`
+  CFLAGS=${CFLAGS//-ffast-math/}
+  CFLAGS=${CFLAGS//-Ofast/-O2}
+  CFLAGS=${CFLAGS//-O./-O2}
+  CFLAGS=${CFLAGS//-Werror/}
+  CFLAGS=${CFLAGS//-mthumb/}
+
+
   if [ -n "${PROJECT_CFLAGS}" ]; then
-    export CFLAGS=`echo "${CFLAGS}" | sed -e "s|${PROJECT_CFLAGS}||g"`
+    CFLAGS=${CFLAGS//${PROJECT_CFLAGS}/}
   fi
 
-  export LDFLAGS=`echo "${LDFLAGS}" | sed -e "s|-ffast-math||g"`
-  export LDFLAGS=`echo "${LDFLAGS}" | sed -e "s|-Ofast|-O2|g"`
-  export LDFLAGS=`echo "${LDFLAGS}" | sed -e "s|-O.|-O2|g"`
-  export LDFLAGS=`echo "${LDFLAGS}" | sed -e "s|-Wl,--as-needed||"`
-  export LDFLAGS=`echo "${LDFLAGS}" | sed -e "s|-Werror||g"`
+  LDFLAGS=${LDFLAGS//-ffast-math/}
+  LDFLAGS=${LDFLAGS//-Ofast/-O2}
+  LDFLAGS=${LDFLAGS//-O./-O2}
+  LDFLAGS=${LDFLAGS//-Wl,--as-needed/}
+  export LDFLAGS=${LDFLAGS//-Werror/}
 
   unset LD_LIBRARY_PATH
 
@@ -79,7 +81,7 @@ pre_configure_target() {
 
 cat >config.cache <<EOF
 libc_cv_forced_unwind=yes
-libc_cv_c_cleanup=yes
+libc_cv_c_cleanup=yes11111
 libc_cv_ssp=no
 libc_cv_ssp_strong=no
 libc_cv_slibdir=/usr/lib

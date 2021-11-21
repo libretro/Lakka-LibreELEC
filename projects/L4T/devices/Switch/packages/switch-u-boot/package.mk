@@ -8,15 +8,15 @@ PKG_URL="${PKG_SITE}.git"
 PKG_TOOLCHAIN="make"
 
 make_host() {
-  export PATH=$TOOLCHAIN/lib/gcc-linaro-aarch64-linux-gnu/bin/:$PATH
-  export PATH=$TOOLCHAIN/lib/gcc-linaro-arm-linux-gnueabi/bin/:$PATH
-  OLD_CROSS_COMPILE=$CROSS_COMPILE
+  export PATH=${TOOLCHAIN}/lib/gcc-linaro-aarch64-linux-gnu/bin/:${PATH}
+  export PATH=${TOOLCHAIN}/lib/gcc-linaro-arm-linux-gnueabi/bin/:${PATH}
+  OLD_CROSS_COMPILE=${CROSS_COMPILE}
   export CROSS_COMPILE=aarch64-linux-gnu-
 
   make nintendo-switch_defconfig
   make tools-only
 
-  export CROSS_COMPILE=$OLD_CROSS_COMPILE
+  export CROSS_COMPILE=${OLD_CROSS_COMPILE}
 }
 
 makeinstall_host() {

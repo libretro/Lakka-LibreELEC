@@ -157,12 +157,12 @@ make_host() {
   tar xf ../data.tar.bz2
   cd ..
   rm *.tar* debian-binary
-  mv data/* "${PKG_BUILD}"/host_install/
+  mv data/* ${PKG_BUILD}/host_install/
   rm -r data
   cd ..
   rm -rf multimedia_api
 
-  cd "${PKG_BUILD}"/host_install
+  cd ${PKG_BUILD}/host_install
 
   # extract BSP files
   tar xf ../nv_tegra/config.tbz2
@@ -256,13 +256,12 @@ make_init() {
 }
 
 make_target() {
-echo "${PKG_BUILD}"
-  if [ -d "${PKG_BUILD}"/target_install ]; then
-    rm -rf "${PKG_BUILD}"/target_install
+  if [ -d ${PKG_BUILD}/target_install ]; then
+    rm -rf ${PKG_BUILD}/target_install
   fi
 
-  mkdir -p "${PKG_BUILD}"/target_install
-  cd "${PKG_BUILD}"/target_install
+  mkdir -p ${PKG_BUILD}/target_install
+  cd ${PKG_BUILD}/target_install
   # extract BSP files
   tar xf ../nv_tegra/config.tbz2
   tar xf ../nv_tegra/nvidia_drivers.tbz2
@@ -386,15 +385,15 @@ makeinstall_host() {
   done
   cd ${PWD}
   #Install host
-  cp -PRv "${PKG_BUILD}"/host_install/* "${SYSROOT_PREFIX}"/
+  cp -PRv ${PKG_BUILD}/host_install/* ${SYSROOT_PREFIX}/
 }
 
 makeinstall_init() {
   if [ -d "${INSTALL}" ]; then
     rm -rf ${INSTALL}
   fi
-  mkdir -p "${INSTALL}"/{firmware,splash}
-  cp -PRv "${PKG_BUILD}"/init_install/* "${INSTALL}"/
+  mkdir -p ${INSTALL}/{firmware,splash}
+  cp -PRv ${PKG_BUILD}/init_install/* ${INSTALL}/
 
   if [ -d "${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/initramfs/firmware" ]; then
     PWD="$(pwd)"
@@ -403,7 +402,7 @@ makeinstall_init() {
     cd ${PWD}
   fi
 
-  if [ -d "${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/initramfs/splash" ]; then
+  if [ -d ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/initramfs/splash ]; then
     if [ "${DISTRO}" = "Lakka" ]; then
       cp ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/initramfs/splash/splash-1280-lakka.png ${INSTALL}/splash/splash-1280.png
     elif [ "${DISTRO}" = "LibreELEC" ]; then
@@ -415,17 +414,17 @@ makeinstall_init() {
 
 makeinstall_target() {
   if [ ! -d "${INSTALL}" ]; then
-    mkdir "${INSTALL}"
+    mkdir -p ${INSTALL}
   fi
   #Install target
-  cp -PRv "${PKG_BUILD}"/target_install/* "${INSTALL}"/
+  cp -PRv ${PKG_BUILD}/target_install/* ${INSTALL}/
 
   if [ "${DEVICE}" = "Switch" ]; then
     if [ "${DISPLAYSERVER}" = "x11" ]; then
-      cp -P "${PKG_DIR}"/assets/xorg.conf "${INSTALL}"/etc/X11/
-      cat "${PKG_DIR}"/assets/10-monitor.conf >> "${INSTALL}"/etc/X11/xorg.conf
-      cat "${PKG_DIR}"/assets/50-joysticks.conf >> "${INSTALL}"/etc/X11/xorg.conf
-      cat "${PKG_DIR}"/assets/20-touchscreen.conf >> "${INSTALL}"/etc/X11/xorg.conf
+      cp -P ${PKG_DIR}/assets/xorg.conf ${INSTALL}/etc/X11/
+      cat ${PKG_DIR}/assets/10-monitor.conf >> ${INSTALL}/etc/X11/xorg.conf
+      cat ${PKG_DIR}/assets/50-joysticks.conf >> ${INSTALL}/etc/X11/xorg.conf
+      cat ${PKG_DIR}/assets/20-touchscreen.conf >> ${INSTALL}/etc/X11/xorg.conf
     fi
   fi
 }
