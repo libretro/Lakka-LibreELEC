@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audioencoder.lame"
-PKG_VERSION="19.1.0-Matrix"
-PKG_SHA256="054593ea6572cd1e6ea771758bd759c630f47abef1ad2eeb332d453fc6c03e0b"
+PKG_VERSION="19.1.1-Matrix"
+PKG_SHA256="eb75e1cb069e977887003d3f11cc73a1ecf885c7fb9c03950cd5c918dc64820a"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
