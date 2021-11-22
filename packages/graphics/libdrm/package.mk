@@ -26,10 +26,10 @@ PKG_MESON_OPTS_TARGET="-Dlibkms=false \
                        -Dinstall-test-programs=false \
                        -Dudev=false"
 
-listcontains "${GRAPHIC_DRIVERS}" "(crocus|iris|i915|i965)" &&
+listcontains "${GRAPHIC_DRIVERS}" "(crocus|i915|iris)" &&
   PKG_MESON_OPTS_TARGET+=" -Dintel=true" || PKG_MESON_OPTS_TARGET+=" -Dintel=false"
 
-listcontains "${GRAPHIC_DRIVERS}" "(r200|r300|r600|radeonsi)" &&
+listcontains "${GRAPHIC_DRIVERS}" "(r300|r600|radeonsi)" &&
   PKG_MESON_OPTS_TARGET+=" -Dradeon=true" || PKG_MESON_OPTS_TARGET+=" -Dradeon=false"
 
 listcontains "${GRAPHIC_DRIVERS}" "radeonsi" &&
