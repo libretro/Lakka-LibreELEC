@@ -11,10 +11,8 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="sshpass: a tool for non-interactive ssh password auth"
 
 pre_configure_target(){
-  if [ "${ARCH}" != "x86_64" ]; then
-    export ac_cv_func_malloc_0_nonnull=yes
-    export ac_cv_func_realloc_0_nonnull=yes
-  fi
+  export ac_cv_func_malloc_0_nonnull=yes
+  export ac_cv_func_realloc_0_nonnull=yes
 }
 
 makeinstall_target() {
