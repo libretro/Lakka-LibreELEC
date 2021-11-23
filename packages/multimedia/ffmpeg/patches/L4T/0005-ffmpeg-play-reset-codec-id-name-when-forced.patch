@@ -1,0 +1,95 @@
+From b3185fd6c9f7cb78b0261a95d73a2db805ffe06a Mon Sep 17 00:00:00 2001
+From: CTCaer <ctcaer@gmail.com>
+Date: Fri, 5 Nov 2021 21:47:52 +0000
+Subject: [PATCH 5/7] ffmpeg/play: reset codec id/name when forced
+
+Forces FFmpeg and FFplay to find the best suitable codec.
+In Tegra's case, NVMPI and NVV4L2.
+
+It also allows context init to happen via base codecs instead of NVV4L2.
+---
+ fftools/ffmpeg_opt.c | 28 ++++++++++++++++++++++++++++
+ fftools/ffplay.c     | 28 ++++++++++++++++++++++++++++
+ 2 files changed, 56 insertions(+)
+
+diff --git a/fftools/ffmpeg_opt.c b/fftools/ffmpeg_opt.c
+index 807e783422..403525d072 100644
+--- a/fftools/ffmpeg_opt.c
++++ b/fftools/ffmpeg_opt.c
+@@ -771,6 +771,34 @@ static const AVCodec *choose_decoder(OptionsContext *o, AVFormatContext *s, AVSt
+     char *codec_name = NULL;
+ 
+     MATCH_PER_STREAM_OPT(codec_names, str, codec_name, s, st);
++
++    if (codec_name) {
++#if CONFIG_H264_NVV4L2DEC_DECODER
++        if (strcmp(codec_name, "h264") == 0)
++            return avcodec_find_decoder(st->codecpar->codec_id);   
++#endif
++#if CONFIG_HEVC_NVV4L2DEC_DECODER
++        if (strcmp(codec_name, "hevc") == 0)
++            return avcodec_find_decoder(st->codecpar->codec_id); 
++#endif
++#if CONFIG_MPEG2_NVV4L2DEC_DECODER
++        if (strcmp(codec_name, "mpeg2video") == 0)
++            return avcodec_find_decoder(st->codecpar->codec_id);
++#endif
++#if CONFIG_MPEG4_NVV4L2DEC_DECODER
++        if (strcmp(codec_name, "mpeg4") == 0)
++            return avcodec_find_decoder(st->codecpar->codec_id);
++#endif
++#if CONFIG_VP8_NVV4L2DEC_DECODER
++        if (strcmp(codec_name, "vp8") == 0)
++            return avcodec_find_decoder(st->codecpar->codec_id);
++#endif
++#if CONFIG_VP9_NVV4L2DEC_DECODER
++        if (strcmp(codec_name, "vp9") == 0)
++            return avcodec_find_decoder(st->codecpar->codec_id);
++#endif
++    }
++
+     if (codec_name) {
+         const AVCodec *codec = find_codec_or_die(codec_name, st->codecpar->codec_type, 0);
+         st->codecpar->codec_id = codec->id;
+diff --git a/fftools/ffplay.c b/fftools/ffplay.c
+index e14c800b8f..99a9cf9539 100644
+--- a/fftools/ffplay.c
++++ b/fftools/ffplay.c
+@@ -2601,6 +2601,34 @@ static int stream_component_open(VideoState *is, int stream_index)
+         case AVMEDIA_TYPE_SUBTITLE: is->last_subtitle_stream = stream_index; forced_codec_name = subtitle_codec_name; break;
+         case AVMEDIA_TYPE_VIDEO   : is->last_video_stream    = stream_index; forced_codec_name =    video_codec_name; break;
+     }
++
++    if (avctx->codec_type == AVMEDIA_TYPE_VIDEO && forced_codec_name) {
++#if CONFIG_H264_NVV4L2DEC_DECODER
++        if (strcmp(forced_codec_name, "h264") == 0)
++            forced_codec_name = NULL;    
++#endif
++#if CONFIG_HEVC_NVV4L2DEC_DECODER
++        if (strcmp(forced_codec_name, "hevc") == 0)
++            forced_codec_name = NULL; 
++#endif
++#if CONFIG_MPEG2_NVV4L2DEC_DECODER
++        if (strcmp(forced_codec_name, "mpeg2video") == 0)
++            forced_codec_name = NULL;
++#endif
++#if CONFIG_MPEG4_NVV4L2DEC_DECODER
++        if (strcmp(forced_codec_name, "mpeg4") == 0)
++            forced_codec_name = NULL;
++#endif
++#if CONFIG_VP8_NVV4L2DEC_DECODER
++        if (strcmp(forced_codec_name, "vp8") == 0)
++            forced_codec_name = NULL;
++#endif
++#if CONFIG_VP9_NVV4L2DEC_DECODER
++        if (strcmp(forced_codec_name, "vp9") == 0)
++            forced_codec_name = NULL; 
++#endif
++    }
++
+     if (forced_codec_name)
+         codec = avcodec_find_decoder_by_name(forced_codec_name);
+     if (!codec) {
+-- 
+2.25.1
+

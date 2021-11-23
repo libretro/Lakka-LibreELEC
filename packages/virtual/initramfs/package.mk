@@ -20,6 +20,10 @@ if [ "${INITRAMFS_PARTED_SUPPORT}" = yes ]; then
   PKG_DEPENDS_INIT+=" parted:init"
 fi
 
+if [ "${PROJECT}" = "L4T" ];then
+  PKG_DEPENDS_INIT+=" tegra-bsp:init"
+fi
+
 for i in ${PKG_DEPENDS_INIT}; do
   PKG_NEED_UNPACK+=" $(get_pkg_directory ${i})"
 done
