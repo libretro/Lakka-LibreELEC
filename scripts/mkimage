@@ -10,18 +10,12 @@
 ################################################################################
 
 # set variables
-LE_TMP=$(mktemp -d)
+LE_TMP=$(mktemp -d -p ${TARGET_IMG})
 SAVE_ERROR="${LE_TMP}/save_error"
 
 if [ -z "${SYSTEM_SIZE}" -o -z "${SYSTEM_PART_START}" ]; then
   echo "mkimage: SYSTEM_SIZE and SYSTEM_PART_START must be configured!"
   exit 1
-fi
-
-if [ "${BOOTLOADER}" = "syslinux" ]; then
-  DISK_LABEL=gpt
-else
-  DISK_LABEL=msdos
 fi
 
 STORAGE_SIZE=32 # STORAGE_SIZE must be >= 32 !
@@ -57,6 +51,12 @@ trap cleanup SIGINT
 echo -e "\nimage: creating sparse file for disk image ${DISK##*/}..."
 dd if=/dev/zero of="${DISK}" bs=1M count=0 seek="${DISK_SIZE}" conv=fsync >"${SAVE_ERROR}" 2>&1 || show_error
 
+if [ "${BOOTLOADER}" = "syslinux" ]; then
+  DISK_LABEL=gpt
+else
+  DISK_LABEL=msdos
+fi
+
 # write a disklabel
 echo "image: creating ${DISK_LABEL} partition table..."
 parted -s "${DISK}" mklabel ${DISK_LABEL}
@@ -83,10 +83,7 @@ sync
 if [ "${BOOTLOADER}" = "syslinux" ]; then
   # write mbr
   echo "image: writing mbr..."
-  MBR="${TOOLCHAIN}/share/syslinux/gptmbr.bin"
-  if [ -n "${MBR}" ]; then
-    dd bs=440 count=1 conv=fsync,notrunc if="${MBR}" of="${DISK}" >"${SAVE_ERROR}" 2>&1 || show_error
-  fi
+  dd bs=440 count=1 conv=fsync,notrunc if="${TOOLCHAIN}/share/syslinux/gptmbr.bin" of="${DISK}" >"${SAVE_ERROR}" 2>&1 || show_error
 fi
 
 # create part2 to format and copy files
@@ -345,6 +342,7 @@ if [ "${PROJECT}" = "Generic" -a "${SKIP_VIRTUAL_APPLIANCE}" != "yes" ]; then
   echo "image: merging part1 into open virtual appliance..."
   dd if="${LE_TMP}/part1.fat" of="${DISK_BASENAME}.tmp" bs=512 seek="${SYSTEM_PART_START}" conv=fsync,notrunc >"${SAVE_ERROR}" 2>&1 || show_error
   # create vmdk from tmp ${DISK}
+  echo "image: creating vmdk for open virtual appliance..."
   qemu-img convert -O vmdk -o subformat=streamOptimized "${DISK_BASENAME}.tmp" "${DISK_BASENAME}.vmdk"
   # generate ovf from template
   sed -e "s,@DISTRO@,${DISTRO},g" -e "s,@DISK@,${IMAGE_NAME},g" \
