@@ -45,6 +45,10 @@ UTILLINUX_CONFIG_DEFAULT="--disable-gtk-doc \
                           --without-python \
                           --without-systemdsystemunitdir"
 
+if [ "${DEVICE}" = "Switch" ]; then
+  UTILLINUX_CONFIG_DEFAULT=${UTILLINUX_CONFIG_DEFAULT/--disable-all-programs/}
+fi
+
 PKG_CONFIGURE_OPTS_TARGET="${UTILLINUX_CONFIG_DEFAULT} \
                            --enable-libuuid \
                            --enable-libblkid \
@@ -86,6 +90,12 @@ post_makeinstall_target() {
             -e "s,@SWAP_ENABLED_DEFAULT@,${SWAP_ENABLED_DEFAULT},g" \
             > ${INSTALL}/etc/swap.conf
   fi
+
+  if [ "${DEVICE}" = "Switch" ]; then
+    rm -r ${INSTALL}/usr/bin/*
+    mv ${INSTALL}/usr/sbin/agetty ${INSTALL}/usr/bin/
+  fi
+
 }
 
 post_install () {

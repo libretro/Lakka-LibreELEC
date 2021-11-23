@@ -93,14 +93,15 @@ else
 fi
 
 #Re-enable when patches are rebased on newer version of ffmpeg,for now we use old version. 
-#
+
 if [ "$PROJECT" = "L4T" ]; then
-   PKG_DEPENDS_TARGET+=" jetson-ffmpeg"
+   PKG_DEPENDS_TARGET+=" tegra-bsp:host"
    PKG_PATCH_DIRS+=" L4T"
-   PKG_FFMPEG_NVMPI="--enable-nvmpi"
-   PKG_FFMPEG_LIBS+=" -lnvmpi -lv4l2"
+   PKG_FFMPEG_NVV4L2="--enable-nvv4l2dec"
+   PKG_FFMPEG_LIBS+=" -lv4l2 -lpthread -lm -lnvbuf_utils"
+   EXTRA_CFLAGS="-I${SYSROOT_PREFIX}/usr/src/jetson_multimedia_api/include"
 else
-   PKG_FFMPEG_NVMPI=""
+   PKG_FFMPEG_NVV4L2=""
 fi
 
 if target_has_feature neon; then
@@ -143,7 +144,7 @@ configure_target() {
               --host-cc="${HOST_CC}" \
               --host-cflags="${HOST_CFLAGS}" \
               --host-ldflags="${HOST_LDFLAGS}" \
-              --extra-cflags="${CFLAGS}" \
+              --extra-cflags="${CFLAGS} ${EXTRA_CFLAGS}" \
               --extra-ldflags="${LDFLAGS}" \
               --extra-libs="${PKG_FFMPEG_LIBS}" \
               --disable-static \
@@ -230,7 +231,7 @@ configure_target() {
               --disable-altivec \
               ${PKG_FFMPEG_FPU} \
               --disable-symver \
-              ${PKG_FFMPEG_NVMPI}
+              ${PKG_FFMPEG_NVV4L2}
 }
 
 post_makeinstall_target() {

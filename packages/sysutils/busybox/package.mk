@@ -214,20 +214,6 @@ makeinstall_init() {
   cp ${PKG_DIR}/scripts/functions ${INSTALL}
   cp ${PKG_DIR}/scripts/init ${INSTALL}
 
-  #Hack to swap out init, and add early firmware to initramfs for L4T builds
-  if [ "${PROJECT}" = "L4T" ]; then
-    # Copy PROJECT related files to filesystem
-    if [ -d "${PROJECT_DIR}/${PROJECT}/initramfs" ]; then
-      cp -PR ${PROJECT_DIR}/${PROJECT}/initramfs/* ${INSTALL}
-    fi
-  
-    # Copy DEVICE related initramfs files to initramfs filesystem
-    if [ -n "$DEVICE" -a -d "${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/initramfs" ]; then
-      cp -PR ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/initramfs/* ${INSTALL}
-      mv ${INSTALL}/lib/firmware ${INSTALL}/usr
-    fi
-  fi
-  
   sed -e "s/@DISTRONAME@/${DISTRONAME}/g" \
       -e "s/@KERNEL_NAME@/${KERNEL_NAME}/g" \
       -e "s/@SYSTEM_SIZE@/${SYSTEM_SIZE}/g" \
