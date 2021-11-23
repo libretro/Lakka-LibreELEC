@@ -5,8 +5,6 @@
 PKG_NAME="tegra-bsp"
 PKG_VERSION="${GENERIC_L4T_VERSION}"
 
-PKG_ARCH="any"
-PKG_DEPENDS_HOST=""
 PKG_DEPENDS_TARGET="mesa libglvnd xorg-server"
 PKG_DEPENDS_HOST="xorg-server"
 
@@ -344,7 +342,7 @@ make_target() {
   ln -sfn libnvgbm.so libgbm.so.1
   ln -sfn libnvidia-egl-wayland.so libnvidia-egl-wayland.so.1
 
-  if [ ! "${VULKAN}" = "" -o ! "${VULKAN}" = "no" ]; then
+  if [ ! "${VULKAN}" = "" -a ! "${VULKAN}" = "no" ]; then
     #Fix Vulkan ICD
     sed -i 's:libGLX_nvidia.so.0:/usr/lib/libGLX_nvidia.so.0:g' aarch64-linux-gnu/tegra/nvidia_icd.json
   fi
@@ -365,7 +363,7 @@ make_target() {
   cd ../../../
   cd etc
   ln -sfn asound.conf.tegrasndt210ref asound.conf
-  if [ ! "${VULKAN}" = "" -o ! "${VULKAN}" = "no" ]; then
+  if [ ! "${VULKAN}" = "" -a ! "${VULKAN}" = "no" ]; then
     cd vulkan/icd.d
     rm nvidia_icd.json
     ln -sfn /usr/lib/nvidia_icd.json nvidia_icd.json
@@ -378,7 +376,7 @@ make_target() {
 
 makeinstall_host() {
   PWD=$(pwd)
-  cd "${PKG_BUILD}"/host_install/usr/
+  cd ${PKG_BUILD}/host_install/usr/
   cd src
   for filename in *; do
     rm -rf  ${SYSROOT_PREFIX}/usr/src/${filename}
