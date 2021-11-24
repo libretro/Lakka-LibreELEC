@@ -16,7 +16,7 @@ PKG_MESON_OPTS_TARGET="-Denable-docs=false"
 if [ "${DISPLAYSERVER}" = "x11" ]; then
   PKG_MESON_OPTS_TARGET+=" -Denable-x11=true \
                            -Denable-wayland=false"
-elif [ "${DISPLAYSERVER}" = "weston" ]; then
+elif [ "${DISPLAYSERVER}" = "wl" ]; then
   PKG_MESON_OPTS_TARGET+=" -Denable-x11=false \
                            -Denable-wayland=true"
 else
