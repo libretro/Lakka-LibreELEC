@@ -63,7 +63,8 @@ post_makeinstall_target() {
         -e "s|^#\[Policy\]|\[Policy\]|g" \
         -e "s|^#AutoEnable.*|AutoEnable=true|g" \
         -e "s|^#JustWorksRepairing.*|JustWorksRepairing=always|g" \
-        -e "s|^#FastConnectable.*|FastConnectable=true|g"
+        -e "s|^#FastConnectable.*|FastConnectable=true|g" \
+        -e "s|^# Privacy =.*|Privacy = device|g"
 
 #  This fixes joycon connection issues after they have already been paired.
 #  if [ "$DEVICE" == "Switch" ]; then
