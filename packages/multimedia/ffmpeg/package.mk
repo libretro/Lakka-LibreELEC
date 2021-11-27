@@ -3,30 +3,38 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ffmpeg"
-PKG_VERSION="4.4-N-Alpha1"
-PKG_SHA256="eb396f46ef7c5ac01b67818d0f2c0516fd4ab32aa9065a9ffa71eebede67ff20"
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://ffmpeg.org"
-PKG_URL="https://github.com/xbmc/FFmpeg/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain zlib bzip2 gnutls speex"
 PKG_LONGDESC="FFmpeg is a complete, cross-platform solution to record, convert and stream audio and video."
 PKG_BUILD_FLAGS="-gold"
+
+case "$PROJECT" in
+  Amlogic)
+    PKG_VERSION="9f237dd0247797f89860302dac60c32cda48a9f9" # dev/4.4/rpi_import_1 @ working video
+    PKG_SHA256="3d407a426387679a607d60cdad2f559c4ad49a87f2a179b4f98983fa86ce3121"
+    PKG_URL="https://github.com/jc-kynesim/rpi-ffmpeg/archive/${PKG_VERSION}.tar.gz"
+    PKG_PATCH_DIRS="libreelec"
+    ;;
+  RPi)
+    PKG_VERSION="4.4-N-Alpha1"
+    PKG_SHA256="eb396f46ef7c5ac01b67818d0f2c0516fd4ab32aa9065a9ffa71eebede67ff20"
+    PKG_URL="https://github.com/xbmc/FFmpeg/archive/${PKG_VERSION}.tar.gz"
+    PKG_FFMPEG_RPI="--disable-mmal --disable-rpi --enable-sand"
+    PKG_PATCH_DIRS="libreelec rpi"
+    ;;
+  *)
+    PKG_VERSION="4.4-N-Alpha1"
+    PKG_SHA256="eb396f46ef7c5ac01b67818d0f2c0516fd4ab32aa9065a9ffa71eebede67ff20"
+    PKG_URL="https://github.com/xbmc/FFmpeg/archive/${PKG_VERSION}.tar.gz"
+    PKG_PATCH_DIRS="libreelec v4l2-request v4l2-drmprime"
+    ;;
+esac
 
 # Dependencies
 get_graphicdrivers
 
 PKG_FFMPEG_HWACCEL="--enable-hwaccels"
-
-PKG_FFMPEG_RPI="--disable-mmal"
-
-if [ "${PROJECT}" = "RPi" ]; then
-  PKG_PATCH_DIRS="rpi"
-  PKG_FFMPEG_RPI+=" --disable-rpi --enable-sand"
-else
-  PKG_PATCH_DIRS="v4l2-request v4l2-drmprime"
-fi
-
-PKG_PATCH_DIRS+=" libreelec"
 
 if [ "${V4L2_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" libdrm"
