@@ -8,7 +8,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/NilsBrause/waylandpp"
 PKG_URL="https://github.com/NilsBrause/waylandpp/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_HOST="toolchain:host pugixml:host"
-PKG_DEPENDS_TARGET="toolchain pugixml:host waylandpp:host"
+PKG_DEPENDS_TARGET="toolchain pugixml:host waylandpp:host wayland"
 PKG_LONGDESC="Wayland C++ bindings"
 
 configure_package() {

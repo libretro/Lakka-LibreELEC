@@ -17,7 +17,7 @@ get_graphicdrivers
 if [ "${TARGET_ARCH}" = "x86_64" ]; then
   PKG_DEPENDS_TARGET+=" nasm:host x265"
 
-  if listcontains "${GRAPHIC_DRIVERS}" "(crocus|iris|i915|i965)"; then
+  if listcontains "${GRAPHIC_DRIVERS}" "(crocus|i915|iris)"; then
     PKG_DEPENDS_TARGET+=" intel-vaapi-driver"
   fi
 fi

@@ -1,0 +1,77 @@
+From 17c65fae4e17678468e7eb0c6107914adad7852f Mon Sep 17 00:00:00 2001
+From: Jerome Brunet <jbrunet@baylibre.com>
+Date: Wed, 20 Oct 2021 20:03:57 +0000
+Subject: [PATCH 28/60] FROMLIST(v1): ASoC: meson: axg-tdm-interface: manage
+ formatters in trigger
+
+So far, the formatters have been reset/enabled using the .prepare()
+callback. This was done in this callback because walking the formatters use
+a mutex so it could not be done in .trigger(), which is atomic by default.
+
+It turns out there is a problem on capture path of the AXG series.
+The FIFO may get out of sync with the TDM decoder if the IP are not enabled
+in a specific order. The FIFO must be enabled before the formatter starts
+producing data. IOW, we must deal with FE before the BE. The .prepare()
+callback is called on the BEs before the FE so it is not OK for the AXG.
+
+The .trigger() callback order can be configured, and it deals with the FE
+before the BEs by default. To solve our problem, we just need to start and
+stop the formatters from the .trigger() callback. It is OK do so now that
+the links have been made 'nonatomic' in the card driver.
+
+Signed-off-by: Jerome Brunet <jbrunet@baylibre.com>
+---
+ sound/soc/meson/axg-tdm-interface.c | 26 +++++++++++++++++++++-----
+ 1 file changed, 21 insertions(+), 5 deletions(-)
+
+diff --git a/sound/soc/meson/axg-tdm-interface.c b/sound/soc/meson/axg-tdm-interface.c
+index 87cac440b369..db077773af7a 100644
+--- a/sound/soc/meson/axg-tdm-interface.c
++++ b/sound/soc/meson/axg-tdm-interface.c
+@@ -351,13 +351,29 @@ static int axg_tdm_iface_hw_free(struct snd_pcm_substream *substream,
+ 	return 0;
+ }
+ 
+-static int axg_tdm_iface_prepare(struct snd_pcm_substream *substream,
++static int axg_tdm_iface_trigger(struct snd_pcm_substream *substream,
++				 int cmd,
+ 				 struct snd_soc_dai *dai)
+ {
+-	struct axg_tdm_stream *ts = snd_soc_dai_get_dma_data(dai, substream);
++	struct axg_tdm_stream *ts =
++		snd_soc_dai_get_dma_data(dai, substream);
++
++	switch (cmd) {
++	case SNDRV_PCM_TRIGGER_START:
++	case SNDRV_PCM_TRIGGER_RESUME:
++	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
++		axg_tdm_stream_start(ts);
++		break;
++	case SNDRV_PCM_TRIGGER_SUSPEND:
++	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
++	case SNDRV_PCM_TRIGGER_STOP:
++		axg_tdm_stream_stop(ts);
++		break;
++	default:
++		return -EINVAL;
++	}
+ 
+-	/* Force all attached formatters to update */
+-	return axg_tdm_stream_reset(ts);
++	return 0;
+ }
+ 
+ static int axg_tdm_iface_remove_dai(struct snd_soc_dai *dai)
+@@ -397,8 +413,8 @@ static const struct snd_soc_dai_ops axg_tdm_iface_ops = {
+ 	.set_fmt	= axg_tdm_iface_set_fmt,
+ 	.startup	= axg_tdm_iface_startup,
+ 	.hw_params	= axg_tdm_iface_hw_params,
+-	.prepare	= axg_tdm_iface_prepare,
+ 	.hw_free	= axg_tdm_iface_hw_free,
++	.trigger	= axg_tdm_iface_trigger,
+ };
+ 
+ /* TDM Backend DAIs */
+-- 
+2.17.1
+

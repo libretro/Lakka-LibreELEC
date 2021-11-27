@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libdrm"
-PKG_VERSION="2.4.107"
-PKG_SHA256="c554cef03b033636a975543eab363cc19081cb464595d3da1ec129f87370f888"
+PKG_VERSION="2.4.109"
+PKG_SHA256="629352e08c1fe84862ca046598d8a08ce14d26ab25ee1f4704f993d074cb7f26"
 PKG_LICENSE="GPL"
 PKG_SITE="http://dri.freedesktop.org"
 PKG_URL="http://dri.freedesktop.org/libdrm/libdrm-${PKG_VERSION}.tar.xz"
@@ -25,10 +25,10 @@ PKG_MESON_OPTS_TARGET="-Dlibkms=false \
                        -Dinstall-test-programs=false \
                        -Dudev=false"
 
-listcontains "${GRAPHIC_DRIVERS}" "(crocus|iris|i915|i965)" &&
+listcontains "${GRAPHIC_DRIVERS}" "(crocus|i915|iris)" &&
   PKG_MESON_OPTS_TARGET+=" -Dintel=true" || PKG_MESON_OPTS_TARGET+=" -Dintel=false"
 
-listcontains "${GRAPHIC_DRIVERS}" "(r200|r300|r600|radeonsi)" &&
+listcontains "${GRAPHIC_DRIVERS}" "(r300|r600|radeonsi)" &&
   PKG_MESON_OPTS_TARGET+=" -Dradeon=true" || PKG_MESON_OPTS_TARGET+=" -Dradeon=false"
 
 listcontains "${GRAPHIC_DRIVERS}" "radeonsi" &&
