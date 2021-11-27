@@ -23,9 +23,6 @@ PKG_LONGDESC="Root package used to build and create complete image"
 # HFS filesystem tools
 [ "${HFSTOOLS}" = "yes" ] && PKG_DEPENDS_TARGET+=" diskdev_cmds"
 
-# NTFS 3G support
-[ "${NTFS3G}" = "yes" ] && PKG_DEPENDS_TARGET+=" ntfs-3g_ntfsprogs"
-
 # Remote support
 [ "${REMOTE_SUPPORT}" = "yes" ] && PKG_DEPENDS_TARGET+=" remote"
 
