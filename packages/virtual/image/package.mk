@@ -30,7 +30,7 @@ PKG_LONGDESC="Root package used to build and create complete image"
 [ "${REMOTE_SUPPORT}" = "yes" ] && PKG_DEPENDS_TARGET+=" remote"
 
 # Virtual image creation support
-[ "${PROJECT}" = "Generic" ] && [ "${SKIP_VIRTUAL_APPLIANCE}" != "yes" ] && PKG_DEPENDS_TARGET+=" virtual"
+[ "${PROJECT}" = "Generic" -a "${ARCH}" = "x86_64" ] && [ "${SKIP_VIRTUAL_APPLIANCE}" != "yes" ] && PKG_DEPENDS_TARGET+=" virtual"
 
 # Installer support
 [ "${INSTALLER_SUPPORT}" = "yes" ] && PKG_DEPENDS_TARGET+=" installer"
