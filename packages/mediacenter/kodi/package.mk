@@ -274,7 +274,7 @@ post_makeinstall_target() {
     if [ "${DISPLAYSERVER}" = "x11" ]; then
       echo "DISPLAY=:0.0" >> ${INSTALL}/usr/lib/kodi/kodi.conf
     elif [ "${DISPLAYSERVER}" = "wl" ]; then
-      echo "WAYLAND_DISPLAY=wayland-0" >> ${INSTALL}/usr/lib/kodi/kodi.conf
+      echo "WAYLAND_DISPLAY=wayland-1" >> ${INSTALL}/usr/lib/kodi/kodi.conf
     fi
 
     # nvidia: Enable USLEEP to reduce CPU load while rendering
