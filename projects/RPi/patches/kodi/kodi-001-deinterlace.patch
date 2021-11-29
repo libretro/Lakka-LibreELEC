@@ -1,7 +1,7 @@
 From 1700cb814868ecae8150254425048de642dcee25 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Sun, 20 Oct 2019 17:10:07 +0000
-Subject: [PATCH 1/7] WIP: DVDVideoCodecDRMPRIME: add support for filters
+Subject: [PATCH 1/8] WIP: DVDVideoCodecDRMPRIME: add support for filters
 
 ---
  .../DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp | 68 ++++++++++++++++---
@@ -150,7 +150,7 @@ index 42ef9b0d91..3906a306c1 100644
 From 1d7c27abaa87087041fdd98adf66277f23e6c60f Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@siol.net>
 Date: Thu, 26 Dec 2019 11:01:51 +0100
-Subject: [PATCH 2/7] WIP: DRMPRIME deinterlace filter
+Subject: [PATCH 2/8] WIP: DRMPRIME deinterlace filter
 
 ---
  .../DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp | 368 +++++++++++++++---
@@ -654,7 +654,7 @@ index 3906a306c1..87a3739193 100644
 From 83d0307544817ffdb42f273a983e7d52a3683221 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 27 Aug 2021 20:29:50 +0100
-Subject: [PATCH 3/7] DVDVideoCodecDRMPRIME: Avoid exception with
+Subject: [PATCH 3/8] DVDVideoCodecDRMPRIME: Avoid exception with
  AV_PIX_FMT_NONE
 
 ---
@@ -681,7 +681,7 @@ index d14379003d..518cae8ccd 100644
 From 4b6d9e8114ba8a41761fa07a0df8347498efbf31 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sat, 11 Sep 2021 14:03:05 +0100
-Subject: [PATCH 4/7] CDVDVideoCodecDRMPRIME: Also support YUV420 buffers
+Subject: [PATCH 4/8] CDVDVideoCodecDRMPRIME: Also support YUV420 buffers
 
 CDVDVideoCodecDRMPRIME: Add support for deinterlace of sw decoded buffers
 
@@ -745,7 +745,7 @@ index 518cae8ccd..2d1b390bae 100644
 From 62b988c8fe50be6305aa85ecc490a8342319d7b5 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 17 Sep 2021 15:23:16 +0100
-Subject: [PATCH 5/7] DVDVideoCodecDRMPRIME: Leave deinterlace filter active on
+Subject: [PATCH 5/8] DVDVideoCodecDRMPRIME: Leave deinterlace filter active on
  a progressive frame
 
 Interlaced content often has strange mixtures of interlace and progressive frames (e.g. IIPPPPIIPPPP)
@@ -788,7 +788,7 @@ index 2d1b390bae..47f6c998d9 100644
 From 8ea862d2fbfa9da0c193f91a1156c1a7ec543016 Mon Sep 17 00:00:00 2001
 From: Dom Cobley <popcornmix@gmail.com>
 Date: Wed, 24 Nov 2021 20:21:28 +0000
-Subject: [PATCH 6/7] DVDVideoCodecDRMPRIME: Close deinterlace filter on error
+Subject: [PATCH 6/8] DVDVideoCodecDRMPRIME: Close deinterlace filter on error
 
 Otherwise we crash later with an invalid m_pFilterGraph pointer
 ---
@@ -862,7 +862,7 @@ index 47f6c998d9..f2af65673f 100644
 From b23ff8e293fbe30ed024ffd07abb7f8d197a6787 Mon Sep 17 00:00:00 2001
 From: Dom Cobley <popcornmix@gmail.com>
 Date: Wed, 24 Nov 2021 20:22:41 +0000
-Subject: [PATCH 7/7] CDVDVideoCodecDRMPRIME: Fix Format calls and some logging
+Subject: [PATCH 7/8] CDVDVideoCodecDRMPRIME: Fix Format calls and some logging
 
 ---
  .../VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp   | 6 +++---
@@ -892,6 +892,39 @@ index f2af65673f..780928fae0 100644
                  graphDump);
        av_freep(&graphDump);
      }
+-- 
+2.30.2
+
+
+From 043c637933c33364ced88af06b8bf65109670658 Mon Sep 17 00:00:00 2001
+From: Dom Cobley <popcornmix@gmail.com>
+Date: Sat, 27 Nov 2021 19:19:16 +0000
+Subject: [PATCH 8/8] test: Flush buffer between decode and deinterlace
+
+---
+ .../DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp            | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp
+index 780928fae0..e36aed3a76 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp
+@@ -815,6 +815,15 @@ void CDVDVideoCodecDRMPRIME::FilterClose()
+ 
+ CDVDVideoCodec::VCReturn CDVDVideoCodecDRMPRIME::ProcessFilterIn()
+ {
++  if (m_pFrame->format == AV_PIX_FMT_DRM_PRIME)
++  {
++  }
++  else if (m_pFrame->opaque)
++  {
++    CVideoBufferDMA* buffer = static_cast<CVideoBufferDMA*>(m_pFrame->opaque);
++    buffer->SyncEnd();
++  }
++
+   int ret = av_buffersrc_add_frame(m_pFilterIn, m_pFrame);
+   if (ret < 0)
+   {
 -- 
 2.30.2
 
