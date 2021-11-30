@@ -3,21 +3,19 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="cups"
-PKG_VERSION="2.3.3op2"
-PKG_SHA256="5d7dc1f05cde3d5c31d3a2b3b54d519ca74e42c1b25df1add9a1802cd13c65ad"
+PKG_VERSION="2.4.0"
+PKG_SHA256="36338ebdc6e8b1d4af26471230c479ce4d691a11f90bb42ac6822d4f2bf002c5"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.cups.org"
 PKG_URL="https://github.com/openprinting/cups/archive/v${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain openssl zlib"
+PKG_DEPENDS_TARGET="toolchain gnutls zlib"
 PKG_LONGDESC="CUPS printing system."
 PKG_BUILD_FLAGS="+pic -sysroot"
 
 PKG_CONFIGURE_OPTS_TARGET="--libdir=/usr/lib \
                            --disable-gssapi \
-                           --disable-avahi \
-                           --disable-dnssd \
-                           --disable-systemd \
-                           --disable-launchd \
+                           --with-dnssd=no \
+                           --with-tls=gnutls
                            --disable-unit-tests"
 
 pre_configure_target() {
