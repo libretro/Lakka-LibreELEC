@@ -11,8 +11,8 @@ PKG_BUILD_FLAGS="-gold"
 
 case "$PROJECT" in
   Amlogic)
-    PKG_VERSION="9f237dd0247797f89860302dac60c32cda48a9f9" # dev/4.4/rpi_import_1 @ working video
-    PKG_SHA256="3d407a426387679a607d60cdad2f559c4ad49a87f2a179b4f98983fa86ce3121"
+    PKG_VERSION="20c5a1aaaf71ab06de9de5871b9037b2cea66a05" # dev/4.4/chewitt_2
+    PKG_SHA256="e6fb94317a50db51249ede1e0213329bd0d7d83909ed41c536ec35d63696bc02"
     PKG_URL="https://github.com/jc-kynesim/rpi-ffmpeg/archive/${PKG_VERSION}.tar.gz"
     PKG_PATCH_DIRS="libreelec"
     ;;
