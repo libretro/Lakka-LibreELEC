@@ -8,7 +8,7 @@ Please ask questions in the [LibreELEC forum: Help & Support](https://forum.libr
 
 **Donations**
 
-Contributions towards current project funding goals can be sent via PayPal to donations@libreelec.tv
+Contributions towards current project funding goals can be made via [OpenCollective](https://opencollective.com/libreelec/donate).
 
 **License**
 
