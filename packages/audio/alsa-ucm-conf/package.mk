@@ -2,8 +2,8 @@
 # Copyright (C) 2020-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="alsa-ucm-conf"
-PKG_VERSION="1.2.5.1"
-PKG_SHA256="5841a444166dcbf479db751303dbc3556f685085ac7e00f0c9e7755676195d97"
+PKG_VERSION="1.2.6.3"
+PKG_SHA256="b8a03aa387a624a2f65edc201bf777421190b60529a92087646823afbd96c5cd"
 PKG_LICENSE="BSD-3c"
 PKG_SITE="http://www.alsa-project.org/"
 PKG_URL="ftp://ftp.alsa-project.org/pub/lib/alsa-ucm-conf-${PKG_VERSION}.tar.bz2"
