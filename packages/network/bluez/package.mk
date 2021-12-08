@@ -3,8 +3,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="bluez"
-PKG_VERSION="5.56"
-PKG_SHA256="59c4dba9fc8aae2a6a5f8f12f19bc1b0c2dc27355c7ca3123eed3fe6bd7d0b9d"
+PKG_VERSION="5.62"
+PKG_SHA256="38090a5b750e17fc08d3e52178ed8d3254c5f4bd2c48830d5c1955b88e3bc0c2"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.bluez.org/"
 PKG_URL="https://www.kernel.org/pub/linux/bluetooth/${PKG_NAME}-${PKG_VERSION}.tar.xz"
@@ -31,6 +31,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-dependency-tracking \
                            --enable-systemd \
                            --enable-tools --enable-deprecated \
                            --enable-datafiles \
+                           --disable-manpages \
                            --disable-experimental \
                            --enable-sixaxis \
                            --with-gnu-ld \
@@ -46,11 +47,10 @@ pre_configure_target() {
 }
 
 post_makeinstall_target() {
-  rm -rf ${INSTALL}/usr/lib/systemd
-  rm -rf ${INSTALL}/usr/bin/bccmd
-  rm -rf ${INSTALL}/usr/bin/bluemoon
-  rm -rf ${INSTALL}/usr/bin/ciptool
-  rm -rf ${INSTALL}/usr/share/dbus-1
+  safe_remove ${INSTALL}/usr/lib/systemd
+  safe_remove ${INSTALL}/usr/bin/bluemoon
+  safe_remove ${INSTALL}/usr/bin/ciptool
+  safe_remove ${INSTALL}/usr/share/dbus-1
 
   mkdir -p ${INSTALL}/etc/bluetooth
     cp src/main.conf ${INSTALL}/etc/bluetooth
