@@ -18,6 +18,10 @@ PKG_TOOLCHAIN="manual"
 
 PKG_IS_KERNEL_PKG="yes"
 
+if [ "${VULKAN_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" ${VULKAN} vulkan-tools"
+fi
+
 unpack() {
   [ -d ${PKG_BUILD} ] && rm -rf ${PKG_BUILD}
 
@@ -71,4 +75,14 @@ makeinstall_target() {
     cp libvdpau_nvidia.so* ${INSTALL}/usr/lib/vdpau/libvdpau_nvidia-main.so.1
     ln -sf /var/lib/libvdpau_nvidia.so ${INSTALL}/usr/lib/vdpau/libvdpau_nvidia.so
     ln -sf /var/lib/libvdpau_nvidia.so.1 ${INSTALL}/usr/lib/vdpau/libvdpau_nvidia.so.1
+
+  # Install Vulkan ICD & SPIR-V lib
+  if [ "${VULKAN_SUPPORT}" = "yes" ]; then
+    mkdir -p ${INSTALL}/usr/lib
+      cp -P libnvidia-glvkspirv.so.${PKG_VERSION} ${INSTALL}/usr/lib 
+    mkdir -p ${INSTALL}/usr/share/vulkan/icd.d
+      cp -P nvidia_icd.json ${INSTALL}/usr/share/vulkan/icd.d
+    mkdir -p ${INSTALL}/usr/share/vulkan/implicit_layer.d
+      cp -P nvidia_layers.json ${INSTALL}/usr/share/vulkan/icd.d
+  fi
 }
