@@ -1,4 +1,8 @@
 # v3.6
+* Update RetroArch to 1.9.14
+* Update libretro cores to the latest
+
+# v3.6
 * Update RetroArch to 1.9.13.1
 * Update libretro cores to latest
 * Add new libretro core: `ecwolf`
