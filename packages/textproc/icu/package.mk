@@ -12,8 +12,6 @@ PKG_DEPENDS_TARGET="toolchain icu:host"
 PKG_LONGDESC="International Components for Unicode library."
 PKG_TOOLCHAIN="configure"
 
-PKG_BUILD_FLAGS="-sysroot"
-
 configure_package() {
   PKG_CONFIGURE_SCRIPT="${PKG_BUILD}/icu4c/source/configure"
   PKG_CONFIGURE_OPTS_TARGET="--disable-layout \
