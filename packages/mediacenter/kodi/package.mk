@@ -239,7 +239,9 @@ configure_package() {
                          ${KODI_AIRTUNES} \
                          ${KODI_OPTICAL} \
                          ${KODI_BLURAY} \
-                         ${KODI_PLAYER}"
+                         ${KODI_PLAYER} \
+                         ${KODI_ALSA} \
+                         ${KODI_PULSEAUDIO}"
 }
 
 pre_configure_target() {
