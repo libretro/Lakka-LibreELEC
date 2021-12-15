@@ -26,6 +26,12 @@ post_makeinstall_target() {
 
   mkdir -p ${INSTALL}/usr/bin
     cp -PR src/udevil ${INSTALL}/usr/bin
+
+  mkdir -p ${INSTALL}/usr/sbin
+  echo '#!/bin/sh'                 > ${INSTALL}/usr/sbin/mount.ntfs
+  echo '/usr/sbin/modprobe ntfs3' >> ${INSTALL}/usr/sbin/mount.ntfs
+  echo '/usr/bin/mount "$@"'      >> ${INSTALL}/usr/sbin/mount.ntfs
+  chmod 755 ${INSTALL}/usr/sbin/mount.ntfs
 }
 
 post_install() {
