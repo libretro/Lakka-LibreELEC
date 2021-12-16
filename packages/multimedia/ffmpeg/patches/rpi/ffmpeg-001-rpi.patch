@@ -46342,7 +46342,7 @@ index 0000000000..85c5b46d75
 +};
 +
 diff --git a/libavcodec/v4l2_buffers.c b/libavcodec/v4l2_buffers.c
-index 4b2679eb38..8b10fd5398 100644
+index 4b2679eb38..6c02417dc4 100644
 --- a/libavcodec/v4l2_buffers.c
 +++ b/libavcodec/v4l2_buffers.c
 @@ -21,6 +21,7 @@
@@ -46353,7 +46353,7 @@ index 4b2679eb38..8b10fd5398 100644
  #include <linux/videodev2.h>
  #include <sys/ioctl.h>
  #include <sys/mman.h>
-@@ -30,12 +31,14 @@
+@@ -30,56 +31,68 @@
  #include "libavcodec/avcodec.h"
  #include "libavcodec/internal.h"
  #include "libavutil/pixdesc.h"
@@ -46367,16 +46367,29 @@ index 4b2679eb38..8b10fd5398 100644
 -static AVRational v4l2_timebase = { 1, USEC_PER_SEC };
 +static const AVRational v4l2_timebase = { 1, USEC_PER_SEC };
  
- static inline V4L2m2mContext *buf_to_m2mctx(V4L2Buffer *buf)
+-static inline V4L2m2mContext *buf_to_m2mctx(V4L2Buffer *buf)
++static inline V4L2m2mContext *buf_to_m2mctx(const V4L2Buffer * const buf)
  {
-@@ -52,34 +55,44 @@ static inline AVCodecContext *logger(V4L2Buffer *buf)
- static inline AVRational v4l2_get_timebase(V4L2Buffer *avbuf)
+     return V4L2_TYPE_IS_OUTPUT(buf->context->type) ?
+         container_of(buf->context, V4L2m2mContext, output) :
+         container_of(buf->context, V4L2m2mContext, capture);
+ }
+ 
+-static inline AVCodecContext *logger(V4L2Buffer *buf)
++static inline AVCodecContext *logger(const V4L2Buffer * const buf)
  {
-     V4L2m2mContext *s = buf_to_m2mctx(avbuf);
+     return buf_to_m2mctx(buf)->avctx;
+ }
+ 
+-static inline AVRational v4l2_get_timebase(V4L2Buffer *avbuf)
++static inline AVRational v4l2_get_timebase(const V4L2Buffer * const avbuf)
+ {
+-    V4L2m2mContext *s = buf_to_m2mctx(avbuf);
 -
 -    if (s->avctx->pkt_timebase.num)
 -        return s->avctx->pkt_timebase;
 -    return s->avctx->time_base;
++    const V4L2m2mContext *s = buf_to_m2mctx(avbuf);
 +    const AVRational tb = s->avctx->pkt_timebase.num ?
 +        s->avctx->pkt_timebase :
 +        s->avctx->time_base;
@@ -46384,7 +46397,7 @@ index 4b2679eb38..8b10fd5398 100644
  }
  
 -static inline void v4l2_set_pts(V4L2Buffer *out, int64_t pts)
-+static inline void v4l2_set_pts(V4L2Buffer *out, int64_t pts, int no_rescale)
++static inline void v4l2_set_pts(V4L2Buffer * const out, const int64_t pts)
  {
 -    int64_t v4l2_pts;
 -
@@ -46394,7 +46407,7 @@ index 4b2679eb38..8b10fd5398 100644
      /* convert pts to v4l2 timebase */
 -    v4l2_pts = av_rescale_q(pts, v4l2_get_timebase(out), v4l2_timebase);
 +    const int64_t v4l2_pts =
-+        no_rescale ? pts :
++        out->context->no_pts_rescale ? pts :
 +        pts == AV_NOPTS_VALUE ? 0 :
 +            av_rescale_q(pts, v4l2_get_timebase(out), v4l2_timebase);
      out->buf.timestamp.tv_usec = v4l2_pts % USEC_PER_SEC;
@@ -46402,7 +46415,7 @@ index 4b2679eb38..8b10fd5398 100644
  }
  
 -static inline int64_t v4l2_get_pts(V4L2Buffer *avbuf)
-+static inline int64_t v4l2_get_pts(V4L2Buffer *avbuf, int no_rescale)
++static inline int64_t v4l2_get_pts(const V4L2Buffer * const avbuf)
  {
 -    int64_t v4l2_pts;
 -
@@ -46413,7 +46426,7 @@ index 4b2679eb38..8b10fd5398 100644
  
 -    return av_rescale_q(v4l2_pts, v4l2_timebase, v4l2_get_timebase(avbuf));
 +    return
-+        no_rescale ? v4l2_pts :
++        avbuf->context->no_pts_rescale ? v4l2_pts :
 +        v4l2_pts == 0 ? AV_NOPTS_VALUE :
 +            av_rescale_q(v4l2_pts, v4l2_timebase, v4l2_get_timebase(avbuf));
 +}
@@ -46563,17 +46576,23 @@ index 4b2679eb38..8b10fd5398 100644
  
 -static void v4l2_free_buffer(void *opaque, uint8_t *unused)
 +static int v4l2_buf_is_interlaced(const V4L2Buffer * const buf)
++{
++    return V4L2_FIELD_IS_INTERLACED(buf->buf.field);
++}
++
++static int v4l2_buf_is_top_first(const V4L2Buffer * const buf)
  {
 -    V4L2Buffer* avbuf = opaque;
 -    V4L2m2mContext *s = buf_to_m2mctx(avbuf);
-+    return V4L2_FIELD_IS_INTERLACED(buf->buf.field);
++    return buf->buf.field == V4L2_FIELD_INTERLACED_TB;
 +}
  
 -    if (atomic_fetch_sub(&avbuf->context_refcount, 1) == 1) {
 -        atomic_fetch_sub_explicit(&s->refcount, 1, memory_order_acq_rel);
-+static int v4l2_buf_is_top_first(const V4L2Buffer * const buf)
++static void v4l2_set_interlace(V4L2Buffer * const buf, const int is_interlaced, const int is_tff)
 +{
-+    return buf->buf.field == V4L2_FIELD_INTERLACED_TB;
++    buf->buf.field = !is_interlaced ? V4L2_FIELD_NONE :
++        is_tff ? V4L2_FIELD_INTERLACED_TB : V4L2_FIELD_INTERLACED_BT;
 +}
  
 -        if (s->reinit) {
@@ -46587,12 +46606,6 @@ index 4b2679eb38..8b10fd5398 100644
 -            else if (avbuf->context->streamon)
 -                ff_v4l2_buffer_enqueue(avbuf);
 -        }
-+static void v4l2_set_interlace(V4L2Buffer * const buf, const int is_interlaced, const int is_tff)
-+{
-+    buf->buf.field = !is_interlaced ? V4L2_FIELD_NONE :
-+        is_tff ? V4L2_FIELD_INTERLACED_TB : V4L2_FIELD_INTERLACED_BT;
-+}
-+
 +static uint8_t * v4l2_get_drm_frame(V4L2Buffer *avbuf)
 +{
 +    AVDRMFrameDescriptor *drm_desc = &avbuf->drm_frame;
@@ -46637,15 +46650,15 @@ index 4b2679eb38..8b10fd5398 100644
 +        break;
 +
 +    case AV_PIX_FMT_YUV420P:
-+
+ 
+-        av_buffer_unref(&avbuf->context_ref);
 +        layer->format = DRM_FORMAT_YUV420;
 +
 +        if (avbuf->num_planes > 1)
 +            break;
 +
 +        layer->nb_planes = 3;
- 
--        av_buffer_unref(&avbuf->context_ref);
++
 +        layer->planes[1].object_index = 0;
 +        layer->planes[1].offset = avbuf->plane_info[0].bytesperline *
 +            avbuf->context->format.fmt.pix.height;
@@ -46821,7 +46834,7 @@ index 4b2679eb38..8b10fd5398 100644
 +    frame->buf[0] = wrap_avbuf(avbuf);
 +    if (frame->buf[0] == NULL)
 +        return AVERROR(ENOMEM);
-+
+ 
 +    if (buf_to_m2mctx(avbuf)->output_drm) {
 +        /* 1. get references to the actual data */
 +        frame->data[0] = (uint8_t *) v4l2_get_drm_frame(avbuf);
@@ -46830,7 +46843,7 @@ index 4b2679eb38..8b10fd5398 100644
 +        return 0;
 +    }
 +
- 
++
 +    /* 1. get references to the actual data */
 +    for (i = 0; i < avbuf->num_planes; i++) {
 +        frame->data[i] = (uint8_t *)avbuf->plane_info[i].mm_addr + avbuf->planes[i].data_offset;
@@ -47013,37 +47026,32 @@ index 4b2679eb38..8b10fd5398 100644
      return 0;
  }
  
-@@ -411,14 +681,22 @@ static int v4l2_buffer_swframe_to_buf(const AVFrame *frame, V4L2Buffer *out)
+@@ -411,7 +681,14 @@ static int v4l2_buffer_swframe_to_buf(const AVFrame *frame, V4L2Buffer *out)
  
  int ff_v4l2_buffer_avframe_to_buf(const AVFrame *frame, V4L2Buffer *out)
  {
--    v4l2_set_pts(out, frame->pts);
 +    out->buf.flags = frame->key_frame ? (out->buf.flags & ~V4L2_BUF_FLAG_KEYFRAME) : (out->buf.flags | V4L2_BUF_FLAG_KEYFRAME);
 +    // Beware that colour info is held in format rather than the actual
 +    // v4l2 buffer struct so this may not be as useful as you might hope
 +    v4l2_set_color(out, frame->color_primaries, frame->colorspace, frame->color_trc);
 +    v4l2_set_color_range(out, frame->color_range);
 +    // PTS & interlace are buffer vars
-+    v4l2_set_pts(out, frame->pts, 0);
+     v4l2_set_pts(out, frame->pts);
 +    v4l2_set_interlace(out, frame->interlaced_frame, frame->top_field_first);
  
      return v4l2_buffer_swframe_to_buf(frame, out);
  }
- 
--int ff_v4l2_buffer_buf_to_avframe(AVFrame *frame, V4L2Buffer *avbuf)
-+int ff_v4l2_buffer_buf_to_avframe(AVFrame *frame, V4L2Buffer *avbuf, int no_rescale_pts)
+@@ -419,6 +696,7 @@ int ff_v4l2_buffer_avframe_to_buf(const AVFrame *frame, V4L2Buffer *out)
+ int ff_v4l2_buffer_buf_to_avframe(AVFrame *frame, V4L2Buffer *avbuf)
  {
      int ret;
 +    V4L2Context * const ctx = avbuf->context;
  
      av_frame_unref(frame);
  
-@@ -433,13 +711,24 @@ int ff_v4l2_buffer_buf_to_avframe(AVFrame *frame, V4L2Buffer *avbuf)
-     frame->colorspace = v4l2_get_color_space(avbuf);
-     frame->color_range = v4l2_get_color_range(avbuf);
+@@ -435,11 +713,22 @@ int ff_v4l2_buffer_buf_to_avframe(AVFrame *frame, V4L2Buffer *avbuf)
      frame->color_trc = v4l2_get_color_trc(avbuf);
--    frame->pts = v4l2_get_pts(avbuf);
-+    frame->pts = v4l2_get_pts(avbuf, no_rescale_pts);
+     frame->pts = v4l2_get_pts(avbuf);
      frame->pkt_dts = AV_NOPTS_VALUE;
 +    frame->interlaced_frame = v4l2_buf_is_interlaced(avbuf);
 +    frame->top_field_first = v4l2_buf_is_top_first(avbuf);
@@ -47062,7 +47070,7 @@ index 4b2679eb38..8b10fd5398 100644
 +        frame->crop_right = ctx->selection.left + ctx->selection.width < frame->width ?
 +            frame->width - (ctx->selection.left + ctx->selection.width) : 0;
 +        frame->crop_bottom = ctx->selection.top + ctx->selection.height < frame->height ?
-+            frame->width - (ctx->selection.top + ctx->selection.height) : 0;
++            frame->height - (ctx->selection.top + ctx->selection.height) : 0;
 +    }
  
      /* 3. report errors upstream */
@@ -47089,19 +47097,13 @@ index 4b2679eb38..8b10fd5398 100644
  
      if (avbuf->buf.flags & V4L2_BUF_FLAG_KEYFRAME)
          pkt->flags |= AV_PKT_FLAG_KEY;
-@@ -470,36 +760,89 @@ int ff_v4l2_buffer_buf_to_avpkt(AVPacket *pkt, V4L2Buffer *avbuf)
-         pkt->flags |= AV_PKT_FLAG_CORRUPT;
-     }
- 
--    pkt->dts = pkt->pts = v4l2_get_pts(avbuf);
-+    pkt->dts = pkt->pts = v4l2_get_pts(avbuf, 0);
- 
+@@ -475,12 +765,19 @@ int ff_v4l2_buffer_buf_to_avpkt(AVPacket *pkt, V4L2Buffer *avbuf)
      return 0;
  }
  
 -int ff_v4l2_buffer_avpkt_to_buf(const AVPacket *pkt, V4L2Buffer *out)
 +int ff_v4l2_buffer_avpkt_to_buf_ext(const AVPacket *pkt, V4L2Buffer *out,
-+                                    const void *extdata, size_t extlen, int no_rescale_pts)
++                                    const void *extdata, size_t extlen)
  {
      int ret;
  
@@ -47117,19 +47119,19 @@ index 4b2679eb38..8b10fd5398 100644
 +    if (ret && ret != AVERROR(ENOMEM))
          return ret;
  
--    v4l2_set_pts(out, pkt->pts);
-+    v4l2_set_pts(out, pkt->pts, no_rescale_pts);
- 
+     v4l2_set_pts(out, pkt->pts);
+@@ -488,18 +785,64 @@ int ff_v4l2_buffer_avpkt_to_buf(const AVPacket *pkt, V4L2Buffer *out)
      if (pkt->flags & AV_PKT_FLAG_KEY)
          out->flags = V4L2_BUF_FLAG_KEYFRAME;
  
 -    return 0;
 +    return ret;
-+}
-+
+ }
+ 
+-int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
 +int ff_v4l2_buffer_avpkt_to_buf(const AVPacket *pkt, V4L2Buffer *out)
 +{
-+    return ff_v4l2_buffer_avpkt_to_buf_ext(pkt, out, NULL, 0, 0);
++    return ff_v4l2_buffer_avpkt_to_buf_ext(pkt, out, NULL, 0);
 +}
 +
 +
@@ -47152,9 +47154,8 @@ index 4b2679eb38..8b10fd5398 100644
 +    ff_weak_link_unref(&avbuf->context_wl);
 +
 +    av_free(avbuf);
- }
- 
--int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
++}
++
 +
 +int ff_v4l2_buffer_initialize(AVBufferRef ** pbufref, int index, V4L2Context *ctx)
  {
@@ -47241,7 +47242,7 @@ index 4b2679eb38..8b10fd5398 100644
      if (V4L2_TYPE_IS_MULTIPLANAR(ctx->type)) {
          avbuf->buf.m.planes = avbuf->planes;
          avbuf->buf.length   = avbuf->num_planes;
-@@ -555,7 +906,20 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
+@@ -555,18 +906,49 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
          avbuf->buf.length    = avbuf->planes[0].length;
      }
  
@@ -47263,7 +47264,9 @@ index 4b2679eb38..8b10fd5398 100644
  }
  
  int ff_v4l2_buffer_enqueue(V4L2Buffer* avbuf)
-@@ -564,9 +928,27 @@ int ff_v4l2_buffer_enqueue(V4L2Buffer* avbuf)
+ {
+     int ret;
++    int qc;
  
      avbuf->buf.flags = avbuf->flags;
  
@@ -47285,16 +47288,15 @@ index 4b2679eb38..8b10fd5398 100644
 +        return AVERROR(err);
 +    }
 +
-+    ++avbuf->context->q_count;
++    qc = atomic_fetch_add(&avbuf->context->q_count, 1) + 1;
 +    av_log(logger(avbuf), AV_LOG_DEBUG, "--- %s VIDIOC_QBUF: index %d, ts=%ld.%06ld count=%d\n",
 +           avbuf->context->name, avbuf->buf.index,
-+           avbuf->buf.timestamp.tv_sec, avbuf->buf.timestamp.tv_usec,
-+           avbuf->context->q_count);
++           avbuf->buf.timestamp.tv_sec, avbuf->buf.timestamp.tv_usec, qc);
  
      avbuf->status = V4L2BUF_IN_DRIVER;
  
 diff --git a/libavcodec/v4l2_buffers.h b/libavcodec/v4l2_buffers.h
-index 8dbc7fc104..9909f349bd 100644
+index 8dbc7fc104..52fab26c6d 100644
 --- a/libavcodec/v4l2_buffers.h
 +++ b/libavcodec/v4l2_buffers.h
 @@ -27,25 +27,34 @@
@@ -47337,31 +47339,17 @@ index 8dbc7fc104..9909f349bd 100644
  
      /* keep track of the mmap address and mmap length */
      struct V4L2Plane_info {
-@@ -70,11 +79,12 @@ typedef struct V4L2Buffer {
-  *
-  * @param[in] frame The AVFRame to push the information to
-  * @param[in] buf The V4L2Buffer to get the information from
-+ * @param[in] no_rescale_pts If non-zero do not rescale PTS
-  *
-  * @returns 0 in case of success, AVERROR(EINVAL) if the number of planes is incorrect,
-  * AVERROR(ENOMEM) if the AVBufferRef can't be created.
-  */
--int ff_v4l2_buffer_buf_to_avframe(AVFrame *frame, V4L2Buffer *buf);
-+int ff_v4l2_buffer_buf_to_avframe(AVFrame *frame, V4L2Buffer *buf, int no_rescale_pts);
- 
- /**
-  * Extracts the data from a V4L2Buffer to an AVPacket
-@@ -98,6 +108,9 @@ int ff_v4l2_buffer_buf_to_avpkt(AVPacket *pkt, V4L2Buffer *buf);
+@@ -98,6 +107,9 @@ int ff_v4l2_buffer_buf_to_avpkt(AVPacket *pkt, V4L2Buffer *buf);
   */
  int ff_v4l2_buffer_avpkt_to_buf(const AVPacket *pkt, V4L2Buffer *out);
  
 +int ff_v4l2_buffer_avpkt_to_buf_ext(const AVPacket *pkt, V4L2Buffer *out,
-+                                    const void *extdata, size_t extlen, int no_rescale_pts);
++                                    const void *extdata, size_t extlen);
 +
  /**
   * Extracts the data from an AVFrame to a V4L2Buffer
   *
-@@ -116,7 +129,7 @@ int ff_v4l2_buffer_avframe_to_buf(const AVFrame *frame, V4L2Buffer *out);
+@@ -116,7 +128,7 @@ int ff_v4l2_buffer_avframe_to_buf(const AVFrame *frame, V4L2Buffer *out);
   *
   * @returns 0 in case of success, a negative AVERROR code otherwise
   */
@@ -47371,7 +47359,7 @@ index 8dbc7fc104..9909f349bd 100644
  /**
   * Enqueues a V4L2Buffer
 diff --git a/libavcodec/v4l2_context.c b/libavcodec/v4l2_context.c
-index ff1ea8e57b..68a86875ba 100644
+index ff1ea8e57b..3274e24430 100644
 --- a/libavcodec/v4l2_context.c
 +++ b/libavcodec/v4l2_context.c
 @@ -27,11 +27,13 @@
@@ -47388,7 +47376,21 @@ index ff1ea8e57b..68a86875ba 100644
  
  struct v4l2_format_update {
      uint32_t v4l2_fmt;
-@@ -53,16 +55,6 @@ static inline AVCodecContext *logger(V4L2Context *ctx)
+@@ -41,28 +43,18 @@ struct v4l2_format_update {
+     int update_avfmt;
+ };
+ 
+-static inline V4L2m2mContext *ctx_to_m2mctx(V4L2Context *ctx)
++static inline V4L2m2mContext *ctx_to_m2mctx(const V4L2Context *ctx)
+ {
+     return V4L2_TYPE_IS_OUTPUT(ctx->type) ?
+         container_of(ctx, V4L2m2mContext, output) :
+         container_of(ctx, V4L2m2mContext, capture);
+ }
+ 
+-static inline AVCodecContext *logger(V4L2Context *ctx)
++static inline AVCodecContext *logger(const V4L2Context *ctx)
+ {
      return ctx_to_m2mctx(ctx)->avctx;
  }
  
@@ -47405,18 +47407,48 @@ index ff1ea8e57b..68a86875ba 100644
  static AVRational v4l2_get_sar(V4L2Context *ctx)
  {
      struct AVRational sar = { 0, 1 };
-@@ -94,8 +86,8 @@ static inline unsigned int v4l2_resolution_changed(V4L2Context *ctx, struct v4l2
+@@ -81,21 +73,29 @@ static AVRational v4l2_get_sar(V4L2Context *ctx)
+     return sar;
+ }
+ 
+-static inline unsigned int v4l2_resolution_changed(V4L2Context *ctx, struct v4l2_format *fmt2)
++static inline int ctx_buffers_alloced(const V4L2Context * const ctx)
+ {
+-    struct v4l2_format *fmt1 = &ctx->format;
+-    int ret =  V4L2_TYPE_IS_MULTIPLANAR(ctx->type) ?
+-        fmt1->fmt.pix_mp.width != fmt2->fmt.pix_mp.width ||
+-        fmt1->fmt.pix_mp.height != fmt2->fmt.pix_mp.height
+-        :
+-        fmt1->fmt.pix.width != fmt2->fmt.pix.width ||
+-        fmt1->fmt.pix.height != fmt2->fmt.pix.height;
++    return ctx->bufrefs != NULL;
++}
++
++// Width/Height changed or we don't have an alloc in the first place?
++static int ctx_resolution_changed(const V4L2Context *ctx, const struct v4l2_format *fmt2)
++{
++    const struct v4l2_format *fmt1 = &ctx->format;
++    int ret = !ctx_buffers_alloced(ctx) ||
++        (V4L2_TYPE_IS_MULTIPLANAR(ctx->type) ?
++            fmt1->fmt.pix_mp.width != fmt2->fmt.pix_mp.width ||
++            fmt1->fmt.pix_mp.height != fmt2->fmt.pix_mp.height
++            :
++            fmt1->fmt.pix.width != fmt2->fmt.pix.width ||
++            fmt1->fmt.pix.height != fmt2->fmt.pix.height);
+ 
      if (ret)
-         av_log(logger(ctx), AV_LOG_DEBUG, "%s changed (%dx%d) -> (%dx%d)\n",
+-        av_log(logger(ctx), AV_LOG_DEBUG, "%s changed (%dx%d) -> (%dx%d)\n",
++        av_log(logger(ctx), AV_LOG_DEBUG, "V4L2 %s changed: alloc=%d (%dx%d) -> (%dx%d)\n",
              ctx->name,
 -            v4l2_get_width(fmt1), v4l2_get_height(fmt1),
 -            v4l2_get_width(fmt2), v4l2_get_height(fmt2));
++            ctx_buffers_alloced(ctx),
 +            ff_v4l2_get_format_width(fmt1), ff_v4l2_get_format_height(fmt1),
 +            ff_v4l2_get_format_width(fmt2), ff_v4l2_get_format_height(fmt2));
  
      return ret;
  }
-@@ -153,58 +145,67 @@ static inline void v4l2_save_to_context(V4L2Context* ctx, struct v4l2_format_upd
+@@ -153,90 +153,101 @@ static inline void v4l2_save_to_context(V4L2Context* ctx, struct v4l2_format_upd
      }
  }
  
@@ -47461,22 +47493,17 @@ index ff1ea8e57b..68a86875ba 100644
 +static int do_source_change(V4L2m2mContext * const s)
 +{
 +    AVCodecContext *const avctx = s->avctx;
-+
+ 
+-    ret = ioctl(s->fd, VIDIOC_G_FMT, &out_fmt);
+-    if (ret) {
+-        av_log(logger(ctx), AV_LOG_ERROR, "%s VIDIOC_G_FMT\n", s->output.name);
+-        return 0;
+-    }
 +    int ret;
 +    int reinit;
-+    int full_reinit;
 +    struct v4l2_format cap_fmt = s->capture.format;
-+    struct v4l2_format out_fmt = s->output.format;
 +
-+    s->resize_pending = 0;
 +    s->capture.done = 0;
- 
-     ret = ioctl(s->fd, VIDIOC_G_FMT, &out_fmt);
-     if (ret) {
--        av_log(logger(ctx), AV_LOG_ERROR, "%s VIDIOC_G_FMT\n", s->output.name);
-+        av_log(avctx, AV_LOG_ERROR, "%s VIDIOC_G_FMT failed\n", s->output.name);
-         return 0;
-     }
  
      ret = ioctl(s->fd, VIDIOC_G_FMT, &cap_fmt);
      if (ret) {
@@ -47485,19 +47512,20 @@ index ff1ea8e57b..68a86875ba 100644
          return 0;
      }
  
-     full_reinit = v4l2_resolution_changed(&s->output, &out_fmt);
-     if (full_reinit) {
+-    full_reinit = v4l2_resolution_changed(&s->output, &out_fmt);
+-    if (full_reinit) {
 -        s->output.height = v4l2_get_height(&out_fmt);
 -        s->output.width = v4l2_get_width(&out_fmt);
 -        s->output.sample_aspect_ratio = v4l2_get_sar(&s->output);
-+        s->output.height = ff_v4l2_get_format_height(&out_fmt);
-+        s->output.width = ff_v4l2_get_format_width(&out_fmt);
-     }
-+    s->output.sample_aspect_ratio = v4l2_get_sar(&s->output);
-+
+-    }
 +    get_default_selection(&s->capture, &s->capture.selection);
  
-     reinit = v4l2_resolution_changed(&s->capture, &cap_fmt);
+-    reinit = v4l2_resolution_changed(&s->capture, &cap_fmt);
++    reinit = ctx_resolution_changed(&s->capture, &cap_fmt);
++    if ((s->quirks & FF_V4L2_QUIRK_REINIT_ALWAYS) != 0)
++        reinit = 1;
++
++    s->capture.format = cap_fmt;
      if (reinit) {
 -        s->capture.height = v4l2_get_height(&cap_fmt);
 -        s->capture.width = v4l2_get_width(&cap_fmt);
@@ -47505,30 +47533,37 @@ index ff1ea8e57b..68a86875ba 100644
 +        s->capture.height = ff_v4l2_get_format_height(&cap_fmt);
 +        s->capture.width = ff_v4l2_get_format_width(&cap_fmt);
      }
-+    s->capture.sample_aspect_ratio = v4l2_get_sar(&s->capture);
-+
-+    av_log(avctx, AV_LOG_DEBUG, "Source change: SAR: %d/%d, crop %dx%d @ %d,%d\n",
-+           s->capture.sample_aspect_ratio.num, s->capture.sample_aspect_ratio.den,
-+           s->capture.selection.width, s->capture.selection.height,
-+           s->capture.selection.left, s->capture.selection.top);
  
-     if (full_reinit || reinit)
-         s->reinit = 1;
-@@ -212,34 +213,88 @@ static int v4l2_handle_event(V4L2Context *ctx)
-     if (full_reinit) {
-         ret = ff_v4l2_m2m_codec_full_reinit(s);
-         if (ret) {
+-    if (full_reinit || reinit)
+-        s->reinit = 1;
+-
+-    if (full_reinit) {
+-        ret = ff_v4l2_m2m_codec_full_reinit(s);
+-        if (ret) {
 -            av_log(logger(ctx), AV_LOG_ERROR, "v4l2_m2m_codec_full_reinit\n");
-+            av_log(avctx, AV_LOG_ERROR, "v4l2_m2m_codec_full_reinit failed\n");
-             return AVERROR(EINVAL);
-         }
-         goto reinit_run;
+-            return AVERROR(EINVAL);
+-        }
+-        goto reinit_run;
++    // If we don't support selection (or it is bust) and we obviously have HD then kludge
++    if ((s->capture.selection.width == 0 || s->capture.selection.height == 0) &&
++        (s->capture.height == 1088 && s->capture.width == 1920)) {
++        s->capture.selection = (struct v4l2_rect){.width = 1920, .height = 1080};
      }
  
++    s->capture.sample_aspect_ratio = v4l2_get_sar(&s->capture);
++
++    av_log(avctx, AV_LOG_DEBUG, "Source change: SAR: %d/%d, crop %dx%d @ %d,%d, reinit=%d\n",
++           s->capture.sample_aspect_ratio.num, s->capture.sample_aspect_ratio.den,
++           s->capture.selection.width, s->capture.selection.height,
++           s->capture.selection.left, s->capture.selection.top, reinit);
++
      if (reinit) {
 -        if (s->avctx)
+-            ret = ff_set_dimensions(s->avctx, s->capture.width, s->capture.height);
 +        if (avctx)
-             ret = ff_set_dimensions(s->avctx, s->capture.width, s->capture.height);
++            ret = ff_set_dimensions(s->avctx,
++                                    s->capture.selection.width != 0 ? s->capture.selection.width : s->capture.width,
++                                    s->capture.selection.height != 0 ? s->capture.selection.height : s->capture.height);
          if (ret < 0)
 -            av_log(logger(ctx), AV_LOG_WARNING, "update avcodec height and width\n");
 +            av_log(avctx, AV_LOG_WARNING, "update avcodec height and width failed\n");
@@ -47539,13 +47574,24 @@ index ff1ea8e57b..68a86875ba 100644
 +            av_log(avctx, AV_LOG_ERROR, "v4l2_m2m_codec_reinit failed\n");
              return AVERROR(EINVAL);
          }
++
++        // Update pixel format - should only actually do something on initial change
++        s->capture.av_pix_fmt =
++        ff_v4l2_format_v4l2_to_avfmt(ff_v4l2_get_format_pixelformat(&s->capture.format), AV_CODEC_ID_RAWVIDEO);
++        if (s->output_drm) {
++            avctx->pix_fmt = AV_PIX_FMT_DRM_PRIME;
++            avctx->sw_pix_fmt = s->capture.av_pix_fmt;
++        }
++        else
++            avctx->pix_fmt = s->capture.av_pix_fmt;
++
          goto reinit_run;
      }
  
 -    /* dummy event received */
 -    return 0;
 +    /* Buffers are OK so just stream off to ack */
-+    av_log(avctx, AV_LOG_DEBUG, "%s: Parameters only\n", __func__);
++    av_log(avctx, AV_LOG_DEBUG, "%s: Parameters only - restart decode\n", __func__);
 +
 +    ret = ff_v4l2_context_set_status(&s->capture, VIDIOC_STREAMOFF);
 +    if (ret)
@@ -47558,228 +47604,298 @@ index ff1ea8e57b..68a86875ba 100644
      return 1;
  }
  
-+static int ctx_done(V4L2Context * const ctx)
-+{
-+    int rv = 0;
-+    V4L2m2mContext * const s = ctx_to_m2mctx(ctx);
+@@ -280,171 +291,251 @@ static int v4l2_stop_encode(V4L2Context *ctx)
+     return 0;
+ }
+ 
+-static V4L2Buffer* v4l2_dequeue_v4l2buf(V4L2Context *ctx, int timeout)
++// DQ a buffer
++// Amalgamates all the various ways there are of signalling EOS/Event to
++// generate a consistant EPIPE.
++//
++// Sets ctx->flag_last if next dq would produce EPIPE (i.e. stream has stopped)
++//
++// Returns:
++//  0               Success
++//  AVERROR(EPIPE)  Nothing more to read
++//  *               AVERROR(..)
 +
-+    ctx->done = 1;
++ static int
++dq_buf(V4L2Context * const ctx, V4L2Buffer ** const ppavbuf)
+ {
+-    struct v4l2_plane planes[VIDEO_MAX_PLANES];
+-    struct v4l2_buffer buf = { 0 };
+-    V4L2Buffer *avbuf;
+-    struct pollfd pfd = {
+-        .events =  POLLIN | POLLRDNORM | POLLPRI | POLLOUT | POLLWRNORM, /* default blocking capture */
+-        .fd = ctx_to_m2mctx(ctx)->fd,
++    V4L2m2mContext * const m = ctx_to_m2mctx(ctx);
++    AVCodecContext * const avctx = m->avctx;
++    V4L2Buffer * avbuf;
++    const int is_mp = V4L2_TYPE_IS_MULTIPLANAR(ctx->type);
 +
-+    if (s->resize_pending && !V4L2_TYPE_IS_OUTPUT(ctx->type))
-+        rv = do_source_change(s);
++    struct v4l2_plane planes[VIDEO_MAX_PLANES] = {{0}};
 +
-+    return rv;
++    struct v4l2_buffer buf = {
++        .type = ctx->type,
++        .memory = V4L2_MEMORY_MMAP,
+     };
+-    int i, ret;
+ 
+-    if (!V4L2_TYPE_IS_OUTPUT(ctx->type) && ctx->buffers) {
+-        for (i = 0; i < ctx->num_buffers; i++) {
+-            if (ctx->buffers[i].status == V4L2BUF_IN_DRIVER)
+-                break;
+-        }
+-        if (i == ctx->num_buffers)
+-            av_log(logger(ctx), AV_LOG_WARNING, "All capture buffers returned to "
+-                                                "userspace. Increase num_capture_buffers "
+-                                                "to prevent device deadlock or dropped "
+-                                                "packets/frames.\n");
+-    }
+-
+-    /* if we are draining and there are no more capture buffers queued in the driver we are done */
+-    if (!V4L2_TYPE_IS_OUTPUT(ctx->type) && ctx_to_m2mctx(ctx)->draining) {
+-        for (i = 0; i < ctx->num_buffers; i++) {
+-            /* capture buffer initialization happens during decode hence
+-             * detection happens at runtime
+-             */
+-            if (!ctx->buffers)
+-                break;
+-
+-            if (ctx->buffers[i].status == V4L2BUF_IN_DRIVER)
+-                goto start;
++    *ppavbuf = NULL;
++
++    if (ctx->flag_last)
++        return AVERROR(EPIPE);
++
++    if (is_mp) {
++        buf.length = VIDEO_MAX_PLANES;
++        buf.m.planes = planes;
++    }
++
++    while (ioctl(m->fd, VIDIOC_DQBUF, &buf) != 0) {
++        const int err = errno;
++        if (err != EINTR) {
++            av_log(avctx, AV_LOG_DEBUG, "%s VIDIOC_DQBUF, errno (%s)\n",
++                ctx->name, av_err2str(AVERROR(err)));
++
++            if (err == EPIPE)
++                ctx->flag_last = 1;
++
++            return AVERROR(err);
+         }
+-        ctx->done = 1;
+-        return NULL;
++    }
++    atomic_fetch_sub(&ctx->q_count, 1);
++
++    avbuf = (V4L2Buffer *)ctx->bufrefs[buf.index]->data;
++    avbuf->status = V4L2BUF_AVAILABLE;
++    avbuf->buf = buf;
++    if (is_mp) {
++        memcpy(avbuf->planes, planes, sizeof(planes));
++        avbuf->buf.m.planes = avbuf->planes;
+     }
+ 
+-start:
+-    if (V4L2_TYPE_IS_OUTPUT(ctx->type))
+-        pfd.events =  POLLOUT | POLLWRNORM;
+-    else {
+-        /* no need to listen to requests for more input while draining */
+-        if (ctx_to_m2mctx(ctx)->draining)
+-            pfd.events =  POLLIN | POLLRDNORM | POLLPRI;
++    if (V4L2_TYPE_IS_CAPTURE(ctx->type)) {
++        // Zero length cap buffer return == EOS
++        if ((is_mp ? buf.m.planes[0].bytesused : buf.bytesused) == 0) {
++            av_log(avctx, AV_LOG_DEBUG, "Buffer empty - reQ\n");
++
++            // Must reQ so we don't leak
++            // May not matter if the next thing we do is release all the
++            // buffers but better to be tidy.
++            ff_v4l2_buffer_enqueue(avbuf);
++
++            ctx->flag_last = 1;
++            return AVERROR(EPIPE);
++        }
++
++#ifdef V4L2_BUF_FLAG_LAST
++        // If flag_last set then this contains data but is the last frame
++        // so remember that but return OK
++        if ((buf.flags & V4L2_BUF_FLAG_LAST) != 0)
++            ctx->flag_last = 1;
++#endif
+     }
+ 
+-    for (;;) {
+-        ret = poll(&pfd, 1, timeout);
+-        if (ret > 0)
+-            break;
+-        if (errno == EINTR)
++    *ppavbuf = avbuf;
++    return 0;
 +}
 +
 +/**
 + * handle resolution change event and end of stream event
++ * Expects to be called after the stream has stopped
++ *
 + * returns 1 if reinit was successful, negative if it failed
 + * returns 0 if reinit was not executed
 + */
-+static int v4l2_handle_event(V4L2Context *ctx)
++static int
++get_event(V4L2m2mContext * const m)
 +{
-+    V4L2m2mContext * const s = ctx_to_m2mctx(ctx);
++    AVCodecContext * const avctx = m->avctx;
 +    struct v4l2_event evt = { 0 };
-+    int ret;
 +
-+    ret = ioctl(s->fd, VIDIOC_DQEVENT, &evt);
-+    if (ret < 0) {
-+        av_log(logger(ctx), AV_LOG_ERROR, "%s VIDIOC_DQEVENT\n", ctx->name);
-+        return 0;
-+    }
-+
-+    av_log(logger(ctx), AV_LOG_INFO, "Dq event %d\n", evt.type);
-+
-+    if (evt.type == V4L2_EVENT_EOS) {
-+//        ctx->done = 1;
-+        av_log(logger(ctx), AV_LOG_TRACE, "%s VIDIOC_EVENT_EOS\n", ctx->name);
-+        return 0;
-+    }
-+
-+    if (evt.type != V4L2_EVENT_SOURCE_CHANGE)
-+        return 0;
-+
-+    s->resize_pending = 1;
-+    if (!ctx->done)
-+        return 0;
-+
-+    return do_source_change(s);
-+}
-+
- static int v4l2_stop_decode(V4L2Context *ctx)
- {
-     struct v4l2_decoder_cmd cmd = {
-@@ -280,8 +335,26 @@ static int v4l2_stop_encode(V4L2Context *ctx)
-     return 0;
- }
- 
-+static int count_in_driver(const V4L2Context * const ctx)
-+{
-+    int i;
-+    int n = 0;
-+
-+    if (!ctx->bufrefs)
-+        return -1;
-+
-+    for (i = 0; i < ctx->num_buffers; ++i) {
-+        V4L2Buffer *const avbuf = (V4L2Buffer *)ctx->bufrefs[i]->data;
-+        if (avbuf->status == V4L2BUF_IN_DRIVER)
-+            ++n;
-+    }
-+    return n;
-+}
-+
- static V4L2Buffer* v4l2_dequeue_v4l2buf(V4L2Context *ctx, int timeout)
- {
-+    V4L2m2mContext * const s = ctx_to_m2mctx(ctx);
-+    const int is_capture = !V4L2_TYPE_IS_OUTPUT(ctx->type);
-     struct v4l2_plane planes[VIDEO_MAX_PLANES];
-     struct v4l2_buffer buf = { 0 };
-     V4L2Buffer *avbuf;
-@@ -290,50 +363,84 @@ static V4L2Buffer* v4l2_dequeue_v4l2buf(V4L2Context *ctx, int timeout)
-         .fd = ctx_to_m2mctx(ctx)->fd,
-     };
-     int i, ret;
-+    int no_rx_means_done = 0;
- 
--    if (!V4L2_TYPE_IS_OUTPUT(ctx->type) && ctx->buffers) {
-+    if (is_capture && ctx->bufrefs) {
-         for (i = 0; i < ctx->num_buffers; i++) {
--            if (ctx->buffers[i].status == V4L2BUF_IN_DRIVER)
-+            avbuf = (V4L2Buffer *)ctx->bufrefs[i]->data;
-+            if (avbuf->status == V4L2BUF_IN_DRIVER)
-                 break;
-         }
-         if (i == ctx->num_buffers)
--            av_log(logger(ctx), AV_LOG_WARNING, "All capture buffers returned to "
-+            av_log(logger(ctx), AV_LOG_WARNING, "All capture buffers (%d) returned to "
-                                                 "userspace. Increase num_capture_buffers "
-                                                 "to prevent device deadlock or dropped "
--                                                "packets/frames.\n");
-+                                                "packets/frames.\n", i);
-     }
- 
-+#if 0
-+    // I think this is true but pointless
-+    // we will get some other form of EOF signal
-+
-     /* if we are draining and there are no more capture buffers queued in the driver we are done */
--    if (!V4L2_TYPE_IS_OUTPUT(ctx->type) && ctx_to_m2mctx(ctx)->draining) {
-+    if (is_capture && ctx_to_m2mctx(ctx)->draining) {
-         for (i = 0; i < ctx->num_buffers; i++) {
-             /* capture buffer initialization happens during decode hence
-              * detection happens at runtime
-              */
--            if (!ctx->buffers)
-+            if (!ctx->bufrefs)
-                 break;
- 
--            if (ctx->buffers[i].status == V4L2BUF_IN_DRIVER)
-+            avbuf = (V4L2Buffer *)ctx->bufrefs[i]->data;
-+            if (avbuf->status == V4L2BUF_IN_DRIVER)
-                 goto start;
-         }
-         ctx->done = 1;
-         return NULL;
-     }
-+#endif
- 
- start:
--    if (V4L2_TYPE_IS_OUTPUT(ctx->type))
--        pfd.events =  POLLOUT | POLLWRNORM;
--    else {
-+    if (is_capture) {
-         /* no need to listen to requests for more input while draining */
--        if (ctx_to_m2mctx(ctx)->draining)
-+        if (ctx_to_m2mctx(ctx)->draining || timeout > 0)
-             pfd.events =  POLLIN | POLLRDNORM | POLLPRI;
-+    } else {
-+        pfd.events =  POLLOUT | POLLWRNORM;
-     }
-+    no_rx_means_done = s->resize_pending && is_capture;
- 
-     for (;;) {
--        ret = poll(&pfd, 1, timeout);
-+        // If we have a resize pending then all buffers should be Qed
-+        // With a resize pending we should be in drain but evidence suggests
-+        // that not all decoders do this so poll to clear
-+        int t2 = no_rx_means_done ? 0 : timeout < 0 ? 3000 : timeout;
-+        const int e = pfd.events;
-+
-+        ret = poll(&pfd, 1, t2);
-+
-         if (ret > 0)
-             break;
--        if (errno == EINTR)
--            continue;
-+
-+        if (ret < 0) {
-+            int err = errno;
-+            if (err == EINTR)
-+                continue;
-+            av_log(logger(ctx), AV_LOG_ERROR, "=== poll error %d (%s): events=%#x, cap buffers=%d\n",
-+                   err, strerror(err),
-+                   e, count_in_driver(ctx));
-+            return NULL;
++    while (ioctl(m->fd, VIDIOC_DQEVENT, &evt) != 0) {
++        const int rv = AVERROR(errno);
++        if (rv == AVERROR(EINTR))
+             continue;
+-        return NULL;
++        if (rv == AVERROR(EAGAIN)) {
++            av_log(avctx, AV_LOG_WARNING, "V4L2 failed to get expected event - assume EOS\n");
++            return AVERROR_EOF;
 +        }
-+
-+        // ret == 0 (timeout)
-+        if (no_rx_means_done) {
-+            av_log(logger(ctx), AV_LOG_DEBUG, "Ctx done on timeout\n");
-+            ret = ctx_done(ctx);
-+            if (ret > 0)
-+                goto start;
-+        }
-+        if (timeout == -1)
-+            av_log(logger(ctx), AV_LOG_ERROR, "=== poll unexpected TIMEOUT: events=%#x, cap buffers=%d\n", e, count_in_driver(ctx));;
-         return NULL;
++        av_log(avctx, AV_LOG_ERROR, "V4L2 VIDIOC_DQEVENT: %s\n", av_err2str(rv));
++        return rv;
      }
  
-@@ -343,7 +450,8 @@ start:
-            no need to raise a warning */
-         if (timeout == 0) {
-             for (i = 0; i < ctx->num_buffers; i++) {
+-    /* 0. handle errors */
+-    if (pfd.revents & POLLERR) {
+-        /* if we are trying to get free buffers but none have been queued yet
+-           no need to raise a warning */
+-        if (timeout == 0) {
+-            for (i = 0; i < ctx->num_buffers; i++) {
 -                if (ctx->buffers[i].status != V4L2BUF_AVAILABLE)
-+                avbuf = (V4L2Buffer *)ctx->bufrefs[i]->data;
-+                if (avbuf->status != V4L2BUF_AVAILABLE)
-                     av_log(logger(ctx), AV_LOG_WARNING, "%s POLLERR\n", ctx->name);
-             }
-         }
-@@ -361,22 +469,25 @@ start:
-             ctx->done = 1;
-             return NULL;
+-                    av_log(logger(ctx), AV_LOG_WARNING, "%s POLLERR\n", ctx->name);
+-            }
+-        }
+-        else
+-            av_log(logger(ctx), AV_LOG_WARNING, "%s POLLERR\n", ctx->name);
++    av_log(avctx, AV_LOG_DEBUG, "Dq event %d\n", evt.type);
+ 
+-        return NULL;
++    if (evt.type == V4L2_EVENT_EOS) {
++        av_log(avctx, AV_LOG_TRACE, "V4L2 VIDIOC_EVENT_EOS\n");
++        return AVERROR_EOF;
+     }
+ 
+-    /* 1. handle resolution changes */
+-    if (pfd.revents & POLLPRI) {
+-        ret = v4l2_handle_event(ctx);
+-        if (ret < 0) {
+-            /* if re-init failed, abort */
+-            ctx->done = 1;
+-            return NULL;
++    if (evt.type == V4L2_EVENT_SOURCE_CHANGE)
++        return do_source_change(m);
++
++    return 0;
++}
++
++
++// Get a buffer
++// If output then just gets the buffer in the expected way
++// If capture then runs the capture state m/c to deal with res change etc.
++
++static int
++get_qbuf(V4L2Context * const ctx, V4L2Buffer ** const ppavbuf, const int timeout)
++{
++    V4L2m2mContext * const m = ctx_to_m2mctx(ctx);
++    AVCodecContext * const avctx = m->avctx;
++    const int is_cap = V4L2_TYPE_IS_CAPTURE(ctx->type);
++
++    const unsigned int poll_cap = (POLLIN | POLLRDNORM);
++    const unsigned int poll_out = (POLLOUT | POLLWRNORM);
++    const unsigned int poll_event = POLLPRI;
++
++    *ppavbuf = NULL;
++
++    for (;;) {
++        struct pollfd pfd = {
++            .fd = m->fd,
++            // If capture && stream not started then assume we are waiting for the initial event
++            .events = !is_cap ? poll_out :
++                !ff_v4l2_ctx_eos(ctx) && ctx->streamon ? poll_cap :
++                    poll_event,
++        };
++        int ret;
++
++        if (ctx->done) {
++            av_log(avctx, AV_LOG_TRACE, "V4L2 %s already done\n", ctx->name);
++            return AVERROR_EOF;
          }
 -        if (ret) {
 -            /* if re-init was successful drop the buffer (if there was one)
 -             * since we had to reconfigure capture (unmap all buffers)
 -             */
 -            return NULL;
--        }
-+        if (ret > 0)
-+            goto start;
-     }
++
++        // If capture && timeout == -1 then also wait for rx buffer free
++        if (is_cap && timeout == -1 && m->output.streamon && !m->draining)
++            pfd.events |= poll_out;
++
++        // If nothing Qed all we will get is POLLERR - avoid that
++        if ((pfd.events == poll_out && atomic_load(&m->output.q_count) == 0) ||
++            (pfd.events == poll_cap && atomic_load(&m->capture.q_count) == 0) ||
++            (pfd.events == (poll_cap | poll_out) && atomic_load(&m->capture.q_count) == 0 && atomic_load(&m->output.q_count) == 0)) {
++            av_log(avctx, AV_LOG_TRACE, "V4L2 poll %s empty\n", ctx->name);
++            return AVERROR(EAGAIN);
+         }
+-    }
  
-     /* 2. dequeue the buffer */
-     if (pfd.revents & (POLLIN | POLLRDNORM | POLLOUT | POLLWRNORM)) {
+-    /* 2. dequeue the buffer */
+-    if (pfd.revents & (POLLIN | POLLRDNORM | POLLOUT | POLLWRNORM)) {
++        // Timeout kludged s.t. "forever" eventually gives up & produces logging
++        // If waiting for an event when we have seen a last_frame then we expect
++        //   it to be ready already so force a short timeout
++        ret = poll(&pfd, 1,
++                   ff_v4l2_ctx_eos(ctx) ? 10 :
++                   timeout == -1 ? 3000 : timeout);
  
 -        if (!V4L2_TYPE_IS_OUTPUT(ctx->type)) {
-+        if (is_capture) {
-             /* there is a capture buffer ready */
-             if (pfd.revents & (POLLIN | POLLRDNORM))
-                 goto dequeue;
+-            /* there is a capture buffer ready */
+-            if (pfd.revents & (POLLIN | POLLRDNORM))
+-                goto dequeue;
++        av_log(avctx, AV_LOG_TRACE, "V4L2 poll %s ret=%d, timeout=%d, events=%#x, revents=%#x\n",
++               ctx->name, ret, timeout, pfd.events, pfd.revents);
  
-+            // CAPTURE Q drained
-+            if (no_rx_means_done) {
-+                if (ctx_done(ctx) > 0)
-+                    goto start;
-+                return NULL;
+-            /* the driver is ready to accept more input; instead of waiting for the capture
+-             * buffer to complete we return NULL so input can proceed (we are single threaded)
+-             */
+-            if (pfd.revents & (POLLOUT | POLLWRNORM))
+-                return NULL;
++        if (ret < 0) {
++            const int err = errno;
++            if (err == EINTR)
++                continue;
++            av_log(avctx, AV_LOG_ERROR, "V4L2 %s poll error %d (%s)\n", ctx->name, err, strerror(err));
++            return AVERROR(err);
+         }
+ 
+-dequeue:
+-        memset(&buf, 0, sizeof(buf));
+-        buf.memory = V4L2_MEMORY_MMAP;
+-        buf.type = ctx->type;
+-        if (V4L2_TYPE_IS_MULTIPLANAR(ctx->type)) {
+-            memset(planes, 0, sizeof(planes));
+-            buf.length = VIDEO_MAX_PLANES;
+-            buf.m.planes = planes;
++        if (ret == 0) {
++            if (timeout == -1)
++                av_log(avctx, AV_LOG_ERROR, "V4L2 %s poll unexpected timeout: events=%#x\n", ctx->name, pfd.events);
++            if (ff_v4l2_ctx_eos(ctx)) {
++                av_log(avctx, AV_LOG_WARNING, "V4L2 %s poll event timeout\n", ctx->name);
++                ret = get_event(m);
++                if (ret < 0) {
++                    ctx->done = 1;
++                    return ret;
++                }
 +            }
-+
-             /* the driver is ready to accept more input; instead of waiting for the capture
-              * buffer to complete we return NULL so input can proceed (we are single threaded)
-              */
-@@ -394,37 +505,58 @@ dequeue:
-             buf.m.planes = planes;
++            return AVERROR(EAGAIN);
          }
  
 -        ret = ioctl(ctx_to_m2mctx(ctx)->fd, VIDIOC_DQBUF, &buf);
@@ -47787,61 +47903,31 @@ index ff1ea8e57b..68a86875ba 100644
 -            if (errno != EAGAIN) {
 -                ctx->done = 1;
 -                if (errno != EPIPE)
-+        while ((ret = ioctl(ctx_to_m2mctx(ctx)->fd, VIDIOC_DQBUF, &buf)) == -1) {
-+            const int err = errno;
-+            if (err == EINTR)
-+                continue;
-+            if (err != EAGAIN) {
-+                // EPIPE on CAPTURE can be used instead of BUF_FLAG_LAST
-+                if (err != EPIPE || !is_capture)
-                     av_log(logger(ctx), AV_LOG_DEBUG, "%s VIDIOC_DQBUF, errno (%s)\n",
+-                    av_log(logger(ctx), AV_LOG_DEBUG, "%s VIDIOC_DQBUF, errno (%s)\n",
 -                        ctx->name, av_err2str(AVERROR(errno)));
-+                        ctx->name, av_err2str(AVERROR(err)));
-+                if (ctx_done(ctx) > 0)
-+                    goto start;
-             }
-             return NULL;
+-            }
+-            return NULL;
++        if ((pfd.revents & POLLERR) != 0) {
++            av_log(avctx, AV_LOG_WARNING, "V4L2 %s POLLERR\n", ctx->name);
++            return AVERROR_UNKNOWN;
          }
-+        --ctx->q_count;
-+        av_log(logger(ctx), AV_LOG_DEBUG, "--- %s VIDIOC_DQBUF OK: index=%d, ts=%ld.%06ld, count=%d, dq=%d field=%d\n",
-+               ctx->name, buf.index,
-+               buf.timestamp.tv_sec, buf.timestamp.tv_usec,
-+               ctx->q_count, ++ctx->dq_count, buf.field);
-+
-+        avbuf = (V4L2Buffer *)ctx->bufrefs[buf.index]->data;
-+        avbuf->status = V4L2BUF_AVAILABLE;
-+        avbuf->buf = buf;
-+        if (V4L2_TYPE_IS_MULTIPLANAR(ctx->type)) {
-+            memcpy(avbuf->planes, planes, sizeof(planes));
-+            avbuf->buf.m.planes = avbuf->planes;
-+        }
  
 -        if (ctx_to_m2mctx(ctx)->draining && !V4L2_TYPE_IS_OUTPUT(ctx->type)) {
-+        if (ctx_to_m2mctx(ctx)->draining && is_capture) {
-             int bytesused = V4L2_TYPE_IS_MULTIPLANAR(buf.type) ?
-                             buf.m.planes[0].bytesused : buf.bytesused;
-             if (bytesused == 0) {
--                ctx->done = 1;
-+                av_log(logger(ctx), AV_LOG_DEBUG, "Buffer empty - reQ\n");
-+
-+                // Must reQ so we don't leak
-+                // May not matter if the next thing we do is release all the
-+                // buffers but better to be tidy.
-+                ff_v4l2_buffer_enqueue(avbuf);
-+
-+                if (ctx_done(ctx) > 0)
-+                    goto start;
-                 return NULL;
+-            int bytesused = V4L2_TYPE_IS_MULTIPLANAR(buf.type) ?
+-                            buf.m.planes[0].bytesused : buf.bytesused;
+-            if (bytesused == 0) {
++        if ((pfd.revents & poll_event) != 0) {
++            ret = get_event(m);
++            if (ret < 0) {
+                 ctx->done = 1;
+-                return NULL;
++                return ret;
              }
- #ifdef V4L2_BUF_FLAG_LAST
+-#ifdef V4L2_BUF_FLAG_LAST
 -            if (buf.flags & V4L2_BUF_FLAG_LAST)
 -                ctx->done = 1;
-+            if (buf.flags & V4L2_BUF_FLAG_LAST) {
-+                av_log(logger(ctx), AV_LOG_TRACE, "FLAG_LAST set\n");
-+                avbuf->status = V4L2BUF_IN_USE;  // Avoid flushing this buffer
-+                ctx_done(ctx);
-+            }
- #endif
+-#endif
++            continue;
          }
  
 -        avbuf = &ctx->buffers[buf.index];
@@ -47850,11 +47936,38 @@ index ff1ea8e57b..68a86875ba 100644
 -        if (V4L2_TYPE_IS_MULTIPLANAR(ctx->type)) {
 -            memcpy(avbuf->planes, planes, sizeof(planes));
 -            avbuf->buf.m.planes = avbuf->planes;
--        }
-         return avbuf;
-     }
++        if ((pfd.revents & poll_cap) != 0) {
++            ret = dq_buf(ctx, ppavbuf);
++            if (ret == AVERROR(EPIPE))
++                continue;
++            return ret;
+         }
+-        return avbuf;
+-    }
  
-@@ -443,8 +575,9 @@ static V4L2Buffer* v4l2_getfree_v4l2buf(V4L2Context *ctx)
+-    return NULL;
++        if ((pfd.revents & poll_out) != 0) {
++            return is_cap ? 0 : dq_buf(ctx, ppavbuf);
++        }
++
++        av_log(avctx, AV_LOG_ERROR, "V4L2 poll unexpected events=%#x, revents=%#x\n", pfd.events, pfd.revents);
++        return AVERROR_UNKNOWN;
++    }
+ }
+ 
+ static V4L2Buffer* v4l2_getfree_v4l2buf(V4L2Context *ctx)
+ {
+-    int timeout = 0; /* return when no more buffers to dequeue */
+     int i;
+ 
+     /* get back as many output buffers as possible */
+     if (V4L2_TYPE_IS_OUTPUT(ctx->type)) {
+-          do {
+-          } while (v4l2_dequeue_v4l2buf(ctx, timeout));
++        V4L2Buffer * avbuf;
++        do {
++            get_qbuf(ctx, &avbuf, 0);
++        } while (avbuf);
      }
  
      for (i = 0; i < ctx->num_buffers; i++) {
@@ -47866,7 +47979,7 @@ index ff1ea8e57b..68a86875ba 100644
      }
  
      return NULL;
-@@ -452,25 +585,45 @@ static V4L2Buffer* v4l2_getfree_v4l2buf(V4L2Context *ctx)
+@@ -452,25 +543,45 @@ static V4L2Buffer* v4l2_getfree_v4l2buf(V4L2Context *ctx)
  
  static int v4l2_release_buffers(V4L2Context* ctx)
  {
@@ -47884,7 +47997,12 @@ index ff1ea8e57b..68a86875ba 100644
 -        V4L2Buffer *buffer = &ctx->buffers[i];
 +    // Orphan any buffers in the wild
 +    ff_weak_link_break(&ctx->wl_master);
-+
+ 
+-        for (j = 0; j < buffer->num_planes; j++) {
+-            struct V4L2Plane_info *p = &buffer->plane_info[j];
+-            if (p->mm_addr && p->length)
+-                if (munmap(p->mm_addr, p->length) < 0)
+-                    av_log(logger(ctx), AV_LOG_ERROR, "%s unmap plane (%s))\n", ctx->name, av_err2str(AVERROR(errno)));
 +    if (ctx->bufrefs) {
 +        for (i = 0; i < ctx->num_buffers; i++)
 +            av_buffer_unref(ctx->bufrefs + i);
@@ -47896,12 +48014,7 @@ index ff1ea8e57b..68a86875ba 100644
 +            .type = ctx->type,
 +            .count = 0, /* 0 -> unmap all buffers from the driver */
 +        };
- 
--        for (j = 0; j < buffer->num_planes; j++) {
--            struct V4L2Plane_info *p = &buffer->plane_info[j];
--            if (p->mm_addr && p->length)
--                if (munmap(p->mm_addr, p->length) < 0)
--                    av_log(logger(ctx), AV_LOG_ERROR, "%s unmap plane (%s))\n", ctx->name, av_err2str(AVERROR(errno)));
++
 +        while ((ret = ioctl(fd, VIDIOC_REQBUFS, &req)) == -1) {
 +            if (errno == EINTR)
 +                continue;
@@ -47919,14 +48032,14 @@ index ff1ea8e57b..68a86875ba 100644
 +                    "  2. drmIoctl(.., DRM_IOCTL_GEM_CLOSE,... )\n");
          }
      }
-+    ctx->q_count = 0;
++    atomic_store(&ctx->q_count, 0);
  
 -    return ioctl(ctx_to_m2mctx(ctx)->fd, VIDIOC_REQBUFS, &req);
 +    return ret;
  }
  
  static inline int v4l2_try_raw_format(V4L2Context* ctx, enum AVPixelFormat pixfmt)
-@@ -499,6 +652,8 @@ static inline int v4l2_try_raw_format(V4L2Context* ctx, enum AVPixelFormat pixfm
+@@ -499,6 +610,8 @@ static inline int v4l2_try_raw_format(V4L2Context* ctx, enum AVPixelFormat pixfm
  
  static int v4l2_get_raw_format(V4L2Context* ctx, enum AVPixelFormat *p)
  {
@@ -47935,7 +48048,7 @@ index ff1ea8e57b..68a86875ba 100644
      enum AVPixelFormat pixfmt = ctx->av_pix_fmt;
      struct v4l2_fmtdesc fdesc;
      int ret;
-@@ -517,6 +672,13 @@ static int v4l2_get_raw_format(V4L2Context* ctx, enum AVPixelFormat *p)
+@@ -517,6 +630,13 @@ static int v4l2_get_raw_format(V4L2Context* ctx, enum AVPixelFormat *p)
          if (ret)
              return AVERROR(EINVAL);
  
@@ -47949,7 +48062,7 @@ index ff1ea8e57b..68a86875ba 100644
          pixfmt = ff_v4l2_format_v4l2_to_avfmt(fdesc.pixelformat, AV_CODEC_ID_RAWVIDEO);
          ret = v4l2_try_raw_format(ctx, pixfmt);
          if (ret){
-@@ -569,18 +731,77 @@ static int v4l2_get_coded_format(V4L2Context* ctx, uint32_t *p)
+@@ -569,18 +689,84 @@ static int v4l2_get_coded_format(V4L2Context* ctx, uint32_t *p)
    *
    *****************************************************************************/
  
@@ -47966,7 +48079,7 @@ index ff1ea8e57b..68a86875ba 100644
 +        if (buf->status == V4L2BUF_IN_DRIVER)
 +            buf->status = V4L2BUF_AVAILABLE;
 +    }
-+    ctx->q_count = 0;
++    atomic_store(&ctx->q_count, 0);
 +}
 +
 +static int stuff_all_buffers(AVCodecContext * avctx, V4L2Context* ctx)
@@ -47999,6 +48112,10 @@ index ff1ea8e57b..68a86875ba 100644
      int ret;
 +    AVCodecContext * const avctx = logger(ctx);
 +
++    // Avoid doing anything if there is nothing we can do
++    if (cmd == VIDIOC_STREAMOFF && !ctx_buffers_alloced(ctx) && !ctx->streamon)
++        return 0;
++
 +    ff_mutex_lock(&ctx->lock);
 +
 +    if (cmd == VIDIOC_STREAMON && !V4L2_TYPE_IS_OUTPUT(ctx->type))
@@ -48017,31 +48134,34 @@ index ff1ea8e57b..68a86875ba 100644
 +    {
 +        if (cmd == VIDIOC_STREAMOFF)
 +            flush_all_buffers_status(ctx);
-+
+ 
+-    ctx->streamon = (cmd == VIDIOC_STREAMON);
 +        ctx->streamon = (cmd == VIDIOC_STREAMON);
 +        av_log(avctx, AV_LOG_DEBUG, "%s set status %d (%s) OK\n", ctx->name,
 +               cmd, (cmd == VIDIOC_STREAMON) ? "ON" : "OFF");
 +    }
  
--    ctx->streamon = (cmd == VIDIOC_STREAMON);
-+    ff_mutex_unlock(&ctx->lock);
- 
 -    return 0;
++    // Both stream off & on effectively clear flag_last
++    ctx->flag_last = 0;
++
++    ff_mutex_unlock(&ctx->lock);
++
 +    return ret;
  }
  
  int ff_v4l2_context_enqueue_frame(V4L2Context* ctx, const AVFrame* frame)
-@@ -608,7 +829,8 @@ int ff_v4l2_context_enqueue_frame(V4L2Context* ctx, const AVFrame* frame)
+@@ -608,7 +794,8 @@ int ff_v4l2_context_enqueue_frame(V4L2Context* ctx, const AVFrame* frame)
      return ff_v4l2_buffer_enqueue(avbuf);
  }
  
 -int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt)
 +int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt,
-+                                   const void * extdata, size_t extlen, int no_rescale_pts)
++                                   const void * extdata, size_t extlen)
  {
      V4L2m2mContext *s = ctx_to_m2mctx(ctx);
      V4L2Buffer* avbuf;
-@@ -616,8 +838,9 @@ int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt)
+@@ -616,8 +803,9 @@ int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt)
  
      if (!pkt->size) {
          ret = v4l2_stop_decode(ctx);
@@ -48052,13 +48172,13 @@ index ff1ea8e57b..68a86875ba 100644
          s->draining = 1;
          return 0;
      }
-@@ -626,14 +849,17 @@ int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt)
+@@ -626,8 +814,11 @@ int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt)
      if (!avbuf)
          return AVERROR(EAGAIN);
  
 -    ret = ff_v4l2_buffer_avpkt_to_buf(pkt, avbuf);
 -    if (ret)
-+    ret = ff_v4l2_buffer_avpkt_to_buf_ext(pkt, avbuf, extdata, extlen, no_rescale_pts);
++    ret = ff_v4l2_buffer_avpkt_to_buf_ext(pkt, avbuf, extdata, extlen);
 +    if (ret == AVERROR(ENOMEM))
 +        av_log(logger(ctx), AV_LOG_ERROR, "Buffer overflow in %s: pkt->size=%d > buf->length=%d\n",
 +               __func__, pkt->size, avbuf->planes[0].length);
@@ -48066,23 +48186,53 @@ index ff1ea8e57b..68a86875ba 100644
          return ret;
  
      return ff_v4l2_buffer_enqueue(avbuf);
- }
- 
--int ff_v4l2_context_dequeue_frame(V4L2Context* ctx, AVFrame* frame, int timeout)
-+int ff_v4l2_context_dequeue_frame(V4L2Context* ctx, AVFrame* frame, int timeout, int no_rescale_pts)
+@@ -636,19 +827,10 @@ int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt)
+ int ff_v4l2_context_dequeue_frame(V4L2Context* ctx, AVFrame* frame, int timeout)
  {
      V4L2Buffer *avbuf;
++    int rv;
  
-@@ -650,7 +876,7 @@ int ff_v4l2_context_dequeue_frame(V4L2Context* ctx, AVFrame* frame, int timeout)
-         return AVERROR(EAGAIN);
-     }
+-    /*
+-     * timeout=-1 blocks until:
+-     *  1. decoded frame available
+-     *  2. an input buffer is ready to be dequeued
+-     */
+-    avbuf = v4l2_dequeue_v4l2buf(ctx, timeout);
+-    if (!avbuf) {
+-        if (ctx->done)
+-            return AVERROR_EOF;
+-
+-        return AVERROR(EAGAIN);
+-    }
++    if ((rv = get_qbuf(ctx, &avbuf, timeout)) != 0)
++        return rv;
  
--    return ff_v4l2_buffer_buf_to_avframe(frame, avbuf);
-+    return ff_v4l2_buffer_buf_to_avframe(frame, avbuf, no_rescale_pts);
+     return ff_v4l2_buffer_buf_to_avframe(frame, avbuf);
  }
- 
+@@ -656,19 +838,10 @@ int ff_v4l2_context_dequeue_frame(V4L2Context* ctx, AVFrame* frame, int timeout)
  int ff_v4l2_context_dequeue_packet(V4L2Context* ctx, AVPacket* pkt)
-@@ -702,78 +928,155 @@ int ff_v4l2_context_get_format(V4L2Context* ctx, int probe)
+ {
+     V4L2Buffer *avbuf;
++    int rv;
+ 
+-    /*
+-     * blocks until:
+-     *  1. encoded packet available
+-     *  2. an input buffer ready to be dequeued
+-     */
+-    avbuf = v4l2_dequeue_v4l2buf(ctx, -1);
+-    if (!avbuf) {
+-        if (ctx->done)
+-            return AVERROR_EOF;
+-
+-        return AVERROR(EAGAIN);
+-    }
++    if ((rv = get_qbuf(ctx, &avbuf, -1)) != 0)
++        return rv;
+ 
+     return ff_v4l2_buffer_buf_to_avpkt(pkt, avbuf);
+ }
+@@ -702,78 +875,158 @@ int ff_v4l2_context_get_format(V4L2Context* ctx, int probe)
  
  int ff_v4l2_context_set_format(V4L2Context* ctx)
  {
@@ -48139,7 +48289,9 @@ index ff1ea8e57b..68a86875ba 100644
 +    V4L2m2mContext * const s = ctx_to_m2mctx(ctx);
      struct v4l2_requestbuffers req;
 -    int ret, i;
--
++    int ret;
++    int i;
+ 
 -    if (!v4l2_type_supported(ctx)) {
 -        av_log(logger(ctx), AV_LOG_ERROR, "type %i not supported\n", ctx->type);
 -        return AVERROR_PATCHWELCOME;
@@ -48148,8 +48300,7 @@ index ff1ea8e57b..68a86875ba 100644
 -    ret = ioctl(s->fd, VIDIOC_G_FMT, &ctx->format);
 -    if (ret)
 -        av_log(logger(ctx), AV_LOG_ERROR, "%s VIDIOC_G_FMT failed\n", ctx->name);
-+    int ret;
-+    int i;
++    av_assert0(ctx->bufrefs == NULL);
  
      memset(&req, 0, sizeof(req));
 -    req.count = ctx->num_buffers;
@@ -48228,9 +48379,9 @@ index ff1ea8e57b..68a86875ba 100644
 +        av_log(logger(ctx), AV_LOG_ERROR, "type %i not supported\n", ctx->type);
 +        return AVERROR_PATCHWELCOME;
 +    }
- 
--    av_freep(&ctx->buffers);
++
 +    ff_mutex_init(&ctx->lock, NULL);
++    atomic_init(&ctx->q_count, 0);
 +
 +    if (s->output_drm) {
 +        AVHWFramesContext *hwframes;
@@ -48244,13 +48395,14 @@ index ff1ea8e57b..68a86875ba 100644
 +        hwframes = (AVHWFramesContext*)ctx->frames_ref->data;
 +        hwframes->format = AV_PIX_FMT_DRM_PRIME;
 +        hwframes->sw_format = ctx->av_pix_fmt;
-+        hwframes->width = ctx->width;
-+        hwframes->height = ctx->height;
++        hwframes->width = ctx->width != 0 ? ctx->width : s->avctx->width;
++        hwframes->height = ctx->height != 0 ? ctx->height : s->avctx->height;
 +        ret = av_hwframe_ctx_init(ctx->frames_ref);
 +        if (ret < 0)
 +            goto fail_unref_hwframes;
 +    }
-+
+ 
+-    av_freep(&ctx->buffers);
 +    ret = ioctl(s->fd, VIDIOC_G_FMT, &ctx->format);
 +    if (ret) {
 +        ret = AVERROR(errno);
@@ -48271,7 +48423,7 @@ index ff1ea8e57b..68a86875ba 100644
      return ret;
  }
 diff --git a/libavcodec/v4l2_context.h b/libavcodec/v4l2_context.h
-index 22a9532444..70190e3079 100644
+index 22a9532444..35e83c66d9 100644
 --- a/libavcodec/v4l2_context.h
 +++ b/libavcodec/v4l2_context.h
 @@ -31,6 +31,7 @@
@@ -48303,44 +48455,46 @@ index 22a9532444..70190e3079 100644
  
      /**
       * Readonly after init.
-@@ -92,6 +100,12 @@ typedef struct V4L2Context {
+@@ -92,6 +100,20 @@ typedef struct V4L2Context {
       */
      int done;
  
++    int flag_last;
++
++    /**
++     * PTS rescale not wanted
++     * If the PTS is just a dummy frame count then rescale is
++     * actively harmful
++     */
++    int no_pts_rescale;
++
 +    AVBufferRef *frames_ref;
-+    int q_count;
-+    int dq_count;
++    atomic_int q_count;
 +    struct ff_weak_link_master *wl_master;
 +
 +    AVMutex lock;
  } V4L2Context;
  
  /**
-@@ -156,9 +170,12 @@ int ff_v4l2_context_dequeue_packet(V4L2Context* ctx, AVPacket* pkt);
+@@ -156,6 +178,7 @@ int ff_v4l2_context_dequeue_packet(V4L2Context* ctx, AVPacket* pkt);
   * @param[in] ctx The V4L2Context to dequeue from.
   * @param[inout] f The AVFrame to dequeue to.
   * @param[in] timeout The timeout for dequeue (-1 to block, 0 to return immediately, or milliseconds)
-+ * @param[in] no_rescale_pts (0 rescale pts, 1 use pts as
-+ *       timestamp directly)
 + *
   * @return 0 in case of success, AVERROR(EAGAIN) if no buffer was ready, another negative error in case of error.
   */
--int ff_v4l2_context_dequeue_frame(V4L2Context* ctx, AVFrame* f, int timeout);
-+int ff_v4l2_context_dequeue_frame(V4L2Context* ctx, AVFrame* f, int timeout, int no_rescale_pts);
- 
- /**
-  * Enqueues a buffer to a V4L2Context from an AVPacket
-@@ -170,7 +187,7 @@ int ff_v4l2_context_dequeue_frame(V4L2Context* ctx, AVFrame* f, int timeout);
+ int ff_v4l2_context_dequeue_frame(V4L2Context* ctx, AVFrame* f, int timeout);
+@@ -170,7 +193,7 @@ int ff_v4l2_context_dequeue_frame(V4L2Context* ctx, AVFrame* f, int timeout);
   * @param[in] pkt A pointer to an AVPacket.
   * @return 0 in case of success, a negative error otherwise.
   */
 -int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt);
-+int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt, const void * ext_data, size_t ext_size, int no_rescale_pts);
++int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt, const void * ext_data, size_t ext_size);
  
  /**
   * Enqueues a buffer to a V4L2Context from an AVFrame
 diff --git a/libavcodec/v4l2_m2m.c b/libavcodec/v4l2_m2m.c
-index cdfd579810..c5a74b3373 100644
+index cdfd579810..010b4232d4 100644
 --- a/libavcodec/v4l2_m2m.c
 +++ b/libavcodec/v4l2_m2m.c
 @@ -215,13 +215,7 @@ int ff_v4l2_m2m_codec_reinit(V4L2m2mContext *s)
@@ -48357,7 +48511,23 @@ index cdfd579810..c5a74b3373 100644
      ff_v4l2_context_release(&s->capture);
  
      /* 3. get the new capture format */
-@@ -328,11 +322,14 @@ static void v4l2_m2m_destroy_context(void *opaque, uint8_t *context)
+@@ -240,7 +234,6 @@ int ff_v4l2_m2m_codec_reinit(V4L2m2mContext *s)
+ 
+     /* 5. complete reinit */
+     s->draining = 0;
+-    s->reinit = 0;
+ 
+     return 0;
+ }
+@@ -274,7 +267,6 @@ int ff_v4l2_m2m_codec_full_reinit(V4L2m2mContext *s)
+ 
+     /* start again now that we know the stream dimensions */
+     s->draining = 0;
+-    s->reinit = 0;
+ 
+     ret = ff_v4l2_context_get_format(&s->output, 0);
+     if (ret) {
+@@ -328,11 +320,14 @@ static void v4l2_m2m_destroy_context(void *opaque, uint8_t *context)
      ff_v4l2_context_release(&s->capture);
      sem_destroy(&s->refsync);
  
@@ -48373,7 +48543,7 @@ index cdfd579810..c5a74b3373 100644
      av_free(s);
  }
  
-@@ -344,6 +341,11 @@ int ff_v4l2_m2m_codec_end(V4L2m2mPriv *priv)
+@@ -344,6 +339,11 @@ int ff_v4l2_m2m_codec_end(V4L2m2mPriv *priv)
      if (!s)
          return 0;
  
@@ -48385,7 +48555,7 @@ index cdfd579810..c5a74b3373 100644
      if (s->fd >= 0) {
          ret = ff_v4l2_context_set_status(&s->output, VIDIOC_STREAMOFF);
          if (ret)
-@@ -356,7 +358,14 @@ int ff_v4l2_m2m_codec_end(V4L2m2mPriv *priv)
+@@ -356,7 +356,14 @@ int ff_v4l2_m2m_codec_end(V4L2m2mPriv *priv)
  
      ff_v4l2_context_release(&s->output);
  
@@ -48401,7 +48571,7 @@ index cdfd579810..c5a74b3373 100644
  
      return 0;
 diff --git a/libavcodec/v4l2_m2m.h b/libavcodec/v4l2_m2m.h
-index b67b216331..82feb0afdb 100644
+index b67b216331..f1923bb26d 100644
 --- a/libavcodec/v4l2_m2m.h
 +++ b/libavcodec/v4l2_m2m.h
 @@ -30,6 +30,7 @@
@@ -48412,7 +48582,7 @@ index b67b216331..82feb0afdb 100644
  #include "v4l2_context.h"
  
  #define container_of(ptr, type, member) ({ \
-@@ -38,7 +39,28 @@
+@@ -38,7 +39,38 @@
  
  #define V4L_M2M_DEFAULT_OPTS \
      { "num_output_buffers", "Number of buffers in the output context",\
@@ -48422,8 +48592,10 @@ index b67b216331..82feb0afdb 100644
 +#define FF_V4L2_M2M_TRACK_SIZE 128
 +typedef struct V4L2m2mTrackEl {
 +    int     discard;   // If we see this buffer its been flushed, so discard
++    int     pending;
 +    int     pkt_size;
 +    int64_t pts;
++    int64_t dts;
 +    int64_t reordered_opaque;
 +    int64_t pkt_pos;
 +    int64_t pkt_duration;
@@ -48439,18 +48611,26 @@ index b67b216331..82feb0afdb 100644
 +    int64_t last_pts;
 +    int64_t guess;
 +} pts_stats_t;
++
++typedef struct xlat_track_s {
++    unsigned int track_no;
++    int64_t last_pts;
++    int64_t last_pkt_dts;
++    int64_t last_opaque;
++    V4L2m2mTrackEl track_els[FF_V4L2_M2M_TRACK_SIZE];
++} xlat_track_t;
  
  typedef struct V4L2m2mContext {
      char devname[PATH_MAX];
-@@ -53,6 +75,7 @@ typedef struct V4L2m2mContext {
+@@ -52,7 +84,6 @@ typedef struct V4L2m2mContext {
+     AVCodecContext *avctx;
      sem_t refsync;
      atomic_uint refcount;
-     int reinit;
-+    int resize_pending;
+-    int reinit;
  
      /* null frame/packet received */
      int draining;
-@@ -66,6 +89,25 @@ typedef struct V4L2m2mContext {
+@@ -66,6 +97,27 @@ typedef struct V4L2m2mContext {
  
      /* reference back to V4L2m2mPriv */
      void *priv;
@@ -48461,10 +48641,7 @@ index b67b216331..82feb0afdb 100644
 +    int output_drm;
 +
 +    /* Frame tracking */
-+    int64_t last_pkt_dts;
-+    int64_t last_opaque;
-+    unsigned int track_no;
-+    V4L2m2mTrackEl track_els[FF_V4L2_M2M_TRACK_SIZE];
++    xlat_track_t xlat;
 +
 +    pts_stats_t pts_stat;
 +
@@ -48473,10 +48650,15 @@ index b67b216331..82feb0afdb 100644
 +
 +    /* Ext data sent */
 +    int extdata_sent;
++
++#define FF_V4L2_QUIRK_REINIT_ALWAYS     1
++    /* Quirks */
++    unsigned int quirks;
++
  } V4L2m2mContext;
  
  typedef struct V4L2m2mPriv {
-@@ -76,6 +118,7 @@ typedef struct V4L2m2mPriv {
+@@ -76,6 +128,7 @@ typedef struct V4L2m2mPriv {
  
      int num_output_buffers;
      int num_capture_buffers;
@@ -48484,25 +48666,35 @@ index b67b216331..82feb0afdb 100644
  } V4L2m2mPriv;
  
  /**
-@@ -129,4 +172,16 @@ int ff_v4l2_m2m_codec_reinit(V4L2m2mContext *ctx);
+@@ -129,4 +182,26 @@ int ff_v4l2_m2m_codec_reinit(V4L2m2mContext *ctx);
   */
  int ff_v4l2_m2m_codec_full_reinit(V4L2m2mContext *ctx);
  
 +
-+static inline unsigned int ff_v4l2_get_format_width(struct v4l2_format *fmt)
++static inline unsigned int ff_v4l2_get_format_width(const struct v4l2_format * const fmt)
 +{
 +    return V4L2_TYPE_IS_MULTIPLANAR(fmt->type) ? fmt->fmt.pix_mp.width : fmt->fmt.pix.width;
 +}
 +
-+static inline unsigned int ff_v4l2_get_format_height(struct v4l2_format *fmt)
++static inline unsigned int ff_v4l2_get_format_height(const struct v4l2_format * const fmt)
 +{
 +    return V4L2_TYPE_IS_MULTIPLANAR(fmt->type) ? fmt->fmt.pix_mp.height : fmt->fmt.pix.height;
++}
++
++static inline uint32_t ff_v4l2_get_format_pixelformat(const struct v4l2_format * const fmt)
++{
++    return V4L2_TYPE_IS_MULTIPLANAR(fmt->type) ? fmt->fmt.pix_mp.pixelformat : fmt->fmt.pix.pixelformat;
++}
++
++static inline int ff_v4l2_ctx_eos(const V4L2Context * const ctx)
++{
++    return ctx->flag_last;
 +}
 +
 +
  #endif /* AVCODEC_V4L2_M2M_H */
 diff --git a/libavcodec/v4l2_m2m_dec.c b/libavcodec/v4l2_m2m_dec.c
-index ab07c0a24a..510cb99f1c 100644
+index ab07c0a24a..e7055c7a18 100644
 --- a/libavcodec/v4l2_m2m_dec.c
 +++ b/libavcodec/v4l2_m2m_dec.c
 @@ -23,6 +23,10 @@
@@ -48516,7 +48708,7 @@ index ab07c0a24a..510cb99f1c 100644
  #include "libavutil/pixfmt.h"
  #include "libavutil/pixdesc.h"
  #include "libavutil/opt.h"
-@@ -30,26 +34,107 @@
+@@ -30,75 +34,102 @@
  #include "libavcodec/decode.h"
  #include "libavcodec/internal.h"
  
@@ -48528,19 +48720,31 @@ index ab07c0a24a..510cb99f1c 100644
  #include "v4l2_m2m.h"
  #include "v4l2_fmt.h"
  
+-static int v4l2_try_start(AVCodecContext *avctx)
 +// Pick 64 for max last count - that is >1sec at 60fps
 +#define STATS_LAST_COUNT_MAX 64
 +#define STATS_INTERVAL_MAX (1 << 30)
 +
 +static int64_t pts_stats_guess(const pts_stats_t * const stats)
-+{
+ {
+-    V4L2m2mContext *s = ((V4L2m2mPriv*)avctx->priv_data)->context;
+-    V4L2Context *const capture = &s->capture;
+-    V4L2Context *const output = &s->output;
+-    struct v4l2_selection selection = { 0 };
+-    int ret;
 +    if (stats->last_pts == AV_NOPTS_VALUE ||
 +            stats->last_interval == 0 ||
 +            stats->last_count >= STATS_LAST_COUNT_MAX)
 +        return AV_NOPTS_VALUE;
 +    return stats->last_pts + (int64_t)(stats->last_count - 1) * (int64_t)stats->last_interval;
 +}
-+
+ 
+-    /* 1. start the output process */
+-    if (!output->streamon) {
+-        ret = ff_v4l2_context_set_status(output, VIDIOC_STREAMON);
+-        if (ret < 0) {
+-            av_log(avctx, AV_LOG_DEBUG, "VIDIOC_STREAMON on output context\n");
+-            return ret;
 +static void pts_stats_add(pts_stats_t * const stats, int64_t pts)
 +{
 +    if (pts == AV_NOPTS_VALUE || pts == stats->last_pts) {
@@ -48566,9 +48770,10 @@ index ab07c0a24a..510cb99f1c 100644
 +                av_log(stats->logctx, AV_LOG_DEBUG, "%s: %s: New interval: %u->%" PRId64 "/%d=%" PRId64 "\n",
 +                       __func__, stats->name, stats->last_interval, interval, stats->last_count, frame_time);
 +            stats->last_interval = frame_time;
-+        }
-+    }
-+
+         }
+     }
+ 
+-    if (capture->streamon)
 +    stats->last_pts = pts;
 +    stats->last_count = 1;
 +}
@@ -48593,83 +48798,47 @@ index ab07c0a24a..510cb99f1c 100644
 +    };
 +
 +    if (s->output.streamon)
-+        return 0;
-+
+         return 0;
+ 
+-    /* 2. get the capture format */
+-    capture->format.type = capture->type;
+-    ret = ioctl(s->fd, VIDIOC_G_FMT, &capture->format);
+-    if (ret) {
+-        av_log(avctx, AV_LOG_WARNING, "VIDIOC_G_FMT ioctl\n");
+-        return ret;
+-    }
 +    ret = ff_v4l2_context_set_status(&s->output, VIDIOC_STREAMON);
 +    if (ret < 0)
 +        av_log(avctx, AV_LOG_ERROR, "VIDIOC_STREAMON on output context\n");
-+
-+    if (!s->capture.streamon || ret < 0)
-+        return ret;
-+
+ 
+-    /* 2.1 update the AVCodecContext */
+-    avctx->pix_fmt = ff_v4l2_format_v4l2_to_avfmt(capture->format.fmt.pix_mp.pixelformat, AV_CODEC_ID_RAWVIDEO);
+-    capture->av_pix_fmt = avctx->pix_fmt;
 +    ret = ioctl(s->fd, VIDIOC_DECODER_CMD, &cmd);
 +    if (ret < 0)
 +        av_log(avctx, AV_LOG_ERROR, "VIDIOC_DECODER_CMD start error: %d\n", errno);
 +    else
 +        av_log(avctx, AV_LOG_DEBUG, "VIDIOC_DECODER_CMD start OK\n");
-+
-+    return ret;
-+}
-+
- static int v4l2_try_start(AVCodecContext *avctx)
- {
-     V4L2m2mContext *s = ((V4L2m2mPriv*)avctx->priv_data)->context;
-     V4L2Context *const capture = &s->capture;
--    V4L2Context *const output = &s->output;
-     struct v4l2_selection selection = { 0 };
-     int ret;
  
-     /* 1. start the output process */
--    if (!output->streamon) {
--        ret = ff_v4l2_context_set_status(output, VIDIOC_STREAMON);
--        if (ret < 0) {
--            av_log(avctx, AV_LOG_DEBUG, "VIDIOC_STREAMON on output context\n");
--            return ret;
+-    /* 3. set the crop parameters */
+-    selection.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+-    selection.r.height = avctx->coded_height;
+-    selection.r.width = avctx->coded_width;
+-    ret = ioctl(s->fd, VIDIOC_S_SELECTION, &selection);
+-    if (!ret) {
+-        ret = ioctl(s->fd, VIDIOC_G_SELECTION, &selection);
+-        if (ret) {
+-            av_log(avctx, AV_LOG_WARNING, "VIDIOC_G_SELECTION ioctl\n");
+-        } else {
+-            av_log(avctx, AV_LOG_DEBUG, "crop output %dx%d\n", selection.r.width, selection.r.height);
+-            /* update the size of the resulting frame */
+-            capture->height = selection.r.height;
+-            capture->width  = selection.r.width;
 -        }
 -    }
-+    if ((ret = check_output_streamon(avctx, s)) != 0)
-+        return ret;
++    return ret;
++}
  
-     if (capture->streamon)
-         return 0;
-@@ -63,15 +148,29 @@ static int v4l2_try_start(AVCodecContext *avctx)
-     }
- 
-     /* 2.1 update the AVCodecContext */
--    avctx->pix_fmt = ff_v4l2_format_v4l2_to_avfmt(capture->format.fmt.pix_mp.pixelformat, AV_CODEC_ID_RAWVIDEO);
--    capture->av_pix_fmt = avctx->pix_fmt;
-+    capture->av_pix_fmt =
-+        ff_v4l2_format_v4l2_to_avfmt(capture->format.fmt.pix_mp.pixelformat, AV_CODEC_ID_RAWVIDEO);
-+    if (s->output_drm) {
-+        avctx->pix_fmt = AV_PIX_FMT_DRM_PRIME;
-+        avctx->sw_pix_fmt = capture->av_pix_fmt;
-+    }
-+    else
-+        avctx->pix_fmt = capture->av_pix_fmt;
- 
-     /* 3. set the crop parameters */
-+#if 1
-+    selection.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-+    selection.target = V4L2_SEL_TGT_CROP_DEFAULT;
-+    ret = ioctl(s->fd, VIDIOC_G_SELECTION, &selection);
-+    av_log(avctx, AV_LOG_INFO, "Post G selection ret=%d, err=%d %dx%d\n", ret, errno, selection.r.width, selection.r.height);
-+#else
-     selection.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-     selection.r.height = avctx->coded_height;
-     selection.r.width = avctx->coded_width;
-+    av_log(avctx, AV_LOG_INFO, "Try selection %dx%d\n", avctx->coded_width, avctx->coded_height);
-     ret = ioctl(s->fd, VIDIOC_S_SELECTION, &selection);
--    if (!ret) {
-+    av_log(avctx, AV_LOG_INFO, "Post S selection ret=%d, err=%d %dx%d\n", ret, errno, selection.r.width, selection.r.height);
-+    if (1) {
-         ret = ioctl(s->fd, VIDIOC_G_SELECTION, &selection);
-         if (ret) {
-             av_log(avctx, AV_LOG_WARNING, "VIDIOC_G_SELECTION ioctl\n");
-@@ -82,15 +181,7 @@ static int v4l2_try_start(AVCodecContext *avctx)
-             capture->width  = selection.r.width;
-         }
-     }
--
 -    /* 4. init the capture context now that we have the capture format */
 -    if (!capture->buffers) {
 -        ret = ff_v4l2_context_init(capture);
@@ -48678,11 +48847,24 @@ index ab07c0a24a..510cb99f1c 100644
 -            return AVERROR(ENOMEM);
 -        }
 -    }
-+#endif
++static int v4l2_try_start(AVCodecContext *avctx)
++{
++    V4L2m2mContext * const s = ((V4L2m2mPriv*)avctx->priv_data)->context;
++    int ret;
  
-     /* 5. start the capture process */
-     ret = ff_v4l2_context_set_status(capture, VIDIOC_STREAMON);
-@@ -133,58 +224,343 @@ static int v4l2_prepare_decoder(V4L2m2mContext *s)
+-    /* 5. start the capture process */
+-    ret = ff_v4l2_context_set_status(capture, VIDIOC_STREAMON);
+-    if (ret) {
+-        av_log(avctx, AV_LOG_DEBUG, "VIDIOC_STREAMON, on capture context\n");
++    /* 1. start the output process */
++    if ((ret = check_output_streamon(avctx, s)) != 0)
+         return ret;
+-    }
+-
+     return 0;
+ }
+ 
+@@ -133,58 +164,461 @@ static int v4l2_prepare_decoder(V4L2m2mContext *s)
      return 0;
  }
  
@@ -48705,22 +48887,24 @@ index ab07c0a24a..510cb99f1c 100644
 +// buffer of all the things we want preserved (including the original PTS)
 +// indexed by the tracking no.
 +static void
-+xlat_pts_in(AVCodecContext *const avctx, V4L2m2mContext *const s, AVPacket *const avpkt)
++xlat_pts_in(AVCodecContext *const avctx, xlat_track_t *const x, AVPacket *const avpkt)
 +{
 +    int64_t track_pts;
 +
 +    // Avoid 0
-+    if (++s->track_no == 0)
-+        s->track_no = 1;
++    if (++x->track_no == 0)
++        x->track_no = 1;
 +
-+    track_pts = track_to_pts(avctx, s->track_no);
++    track_pts = track_to_pts(avctx, x->track_no);
 +
-+    av_log(avctx, AV_LOG_TRACE, "In PTS=%" PRId64 ", DTS=%" PRId64 ", track=%" PRId64 ", n=%u\n", avpkt->pts, avpkt->dts, track_pts, s->track_no);
-+    s->last_pkt_dts = avpkt->dts;
-+    s->track_els[s->track_no  % FF_V4L2_M2M_TRACK_SIZE] = (V4L2m2mTrackEl){
++    av_log(avctx, AV_LOG_TRACE, "In PTS=%" PRId64 ", DTS=%" PRId64 ", track=%" PRId64 ", n=%u\n", avpkt->pts, avpkt->dts, track_pts, x->track_no);
++    x->last_pkt_dts = avpkt->dts;
++    x->track_els[x->track_no  % FF_V4L2_M2M_TRACK_SIZE] = (V4L2m2mTrackEl){
 +        .discard          = 0,
++        .pending          = 1,
 +        .pkt_size         = avpkt->size,
 +        .pts              = avpkt->pts,
++        .dts              = avpkt->dts,
 +        .reordered_opaque = avctx->reordered_opaque,
 +        .pkt_pos          = avpkt->pos,
 +        .pkt_duration     = avpkt->duration,
@@ -48731,31 +48915,36 @@ index ab07c0a24a..510cb99f1c 100644
 +
 +// Returns -1 if we should discard the frame
 +static int
-+xlat_pts_out(AVCodecContext *const avctx, V4L2m2mContext *const s, AVFrame *const frame)
++xlat_pts_out(AVCodecContext *const avctx,
++             xlat_track_t * const x,
++             pts_stats_t * const ps,
++             AVFrame *const frame)
 +{
 +    unsigned int n = pts_to_track(avctx, frame->pts) % FF_V4L2_M2M_TRACK_SIZE;
-+    const V4L2m2mTrackEl *const t = s->track_els + n;
++    V4L2m2mTrackEl *const t = x->track_els + n;
 +    if (frame->pts == AV_NOPTS_VALUE || frame->pts != t->track_pts)
 +    {
 +        av_log(avctx, AV_LOG_INFO, "Tracking failure: pts=%" PRId64 ", track[%d]=%" PRId64 "\n", frame->pts, n, t->track_pts);
 +        frame->pts              = AV_NOPTS_VALUE;
-+        frame->pkt_dts          = s->last_pkt_dts;
-+        frame->reordered_opaque = s->last_opaque;
++        frame->pkt_dts          = x->last_pkt_dts;
++        frame->reordered_opaque = x->last_opaque;
 +        frame->pkt_pos          = -1;
 +        frame->pkt_duration     = 0;
 +        frame->pkt_size         = -1;
 +    }
 +    else if (!t->discard)
 +    {
-+        frame->pts              = t->pts;
-+        frame->pkt_dts          = s->last_pkt_dts;
++        frame->pts              = t->pending ? t->pts : AV_NOPTS_VALUE;
++        frame->pkt_dts          = x->last_pkt_dts;
 +        frame->reordered_opaque = t->reordered_opaque;
 +        frame->pkt_pos          = t->pkt_pos;
 +        frame->pkt_duration     = t->pkt_duration;
 +        frame->pkt_size         = t->pkt_size;
 +
-+        s->last_opaque = s->track_els[n].reordered_opaque;
-+        s->track_els[n].pts = AV_NOPTS_VALUE;  // If we hit this again deny accurate knowledge of PTS
++        x->last_opaque = x->track_els[n].reordered_opaque;
++        if (frame->pts != AV_NOPTS_VALUE)
++            x->last_pts = frame->pts;
++        t->pending = 0;
 +    }
 +    else
 +    {
@@ -48763,50 +48952,105 @@ index ab07c0a24a..510cb99f1c 100644
 +        return -1;
 +    }
 +
-+    pts_stats_add(&s->pts_stat, frame->pts);
++    pts_stats_add(ps, frame->pts);
 +
 +#if FF_API_PKT_PTS
 +FF_DISABLE_DEPRECATION_WARNINGS
 +    frame->pkt_pts = frame->pts;
 +FF_ENABLE_DEPRECATION_WARNINGS
 +#endif
-+    frame->best_effort_timestamp = pts_stats_guess(&s->pts_stat);
++    frame->best_effort_timestamp = pts_stats_guess(ps);
 +    frame->pkt_dts               = frame->pts;  // We can't emulate what s/w does in a useful manner?
 +    av_log(avctx, AV_LOG_TRACE, "Out PTS=%" PRId64 "/%"PRId64", DTS=%" PRId64 "\n", frame->pts, frame->best_effort_timestamp, frame->pkt_dts);
 +    return 0;
 +}
 +
++static void
++xlat_flush(xlat_track_t * const x)
++{
++    unsigned int i;
++    for (i = 0; i != FF_V4L2_M2M_TRACK_SIZE; ++i) {
++        x->track_els[i].pending = 0;
++        x->track_els[i].discard = 1;
++    }
++    x->last_pts = AV_NOPTS_VALUE;
++}
++
++static void
++xlat_init(xlat_track_t * const x)
++{
++    memset(x, 0, sizeof(*x));
++    x->last_pts = AV_NOPTS_VALUE;
++}
++
++static int
++xlat_pending(const xlat_track_t * const x)
++{
++    unsigned int n = x->track_no % FF_V4L2_M2M_TRACK_SIZE;
++    unsigned int i;
++    int r = 0;
++    int64_t now = AV_NOPTS_VALUE;
++
++    for (i = 0; i < 32; ++i, n = (n - 1) % FF_V4L2_M2M_TRACK_SIZE) {
++        const V4L2m2mTrackEl * const t = x->track_els + n;
++
++        if (!t->pending)
++            continue;
++
++        if (now == AV_NOPTS_VALUE)
++            now = t->dts;
++
++        if (t->pts == AV_NOPTS_VALUE ||
++            ((now == AV_NOPTS_VALUE || t->pts <= now) &&
++             (x->last_pts == AV_NOPTS_VALUE || t->pts > x->last_pts)))
++            ++r;
++    }
++
++    // If we never get any ideas about PTS vs DTS allow a lot more buffer
++    if (now == AV_NOPTS_VALUE)
++        r -= 16;
++
++    return r;
++}
++
 +static inline int stream_started(const V4L2m2mContext * const s) {
-+    return s->capture.streamon && s->output.streamon;
++    return s->output.streamon;
 +}
 +
 +#define NQ_OK        0
 +#define NQ_Q_FULL    1
 +#define NQ_SRC_EMPTY 2
-+#define NQ_DRAINING  3
-+#define NQ_DEAD      4
++#define NQ_NONE      3
++#define NQ_DRAINING  4
++#define NQ_DEAD      5
 +
 +#define TRY_DQ(nq_status) ((nq_status) >= NQ_OK && (nq_status) <= NQ_DRAINING)
++#define RETRY_NQ(nq_status) ((nq_status) == NQ_Q_FULL || (nq_status) == NQ_NONE)
++
++// do_not_get      If true then no new packet will be got but status will
++//                  be set appropriately
 +
 +// AVERROR_EOF     Flushing an already flushed stream
 +// -ve             Error (all errors except EOF are unexpected)
 +// NQ_OK (0)       OK
 +// NQ_Q_FULL       Dst full (retry if we think V4L2 Q has space now)
 +// NQ_SRC_EMPTY    Src empty (do not retry)
++// NQ_NONE         Enqueue not attempted
 +// NQ_DRAINING     At EOS, dQ dest until EOS there too
 +// NQ_DEAD         Not running (do not retry, do not attempt capture dQ)
 +
-+static int try_enqueue_src(AVCodecContext * const avctx, V4L2m2mContext * const s)
++static int try_enqueue_src(AVCodecContext * const avctx, V4L2m2mContext * const s, const int do_not_get)
  {
 -    V4L2m2mContext *s = ((V4L2m2mPriv*)avctx->priv_data)->context;
 -    V4L2Context *const capture = &s->capture;
 -    V4L2Context *const output = &s->output;
      int ret;
  
+-    if (!s->buf_pkt.size) {
 +    // If we don't already have a coded packet - get a new one
 +    // We will already have a coded pkt if the output Q was full last time we
 +    // tried to Q it
-     if (!s->buf_pkt.size) {
++    if (!s->buf_pkt.size && !do_not_get) {
          ret = ff_decode_get_packet(avctx, &s->buf_pkt);
 -        if (ret < 0 && ret != AVERROR_EOF)
 +
@@ -48832,7 +49076,7 @@ index ab07c0a24a..510cb99f1c 100644
 +            if (!s->draining) {
 +                // Calling enqueue with an empty pkt starts drain
 +                av_assert0(s->buf_pkt.size == 0);
-+                ret = ff_v4l2_context_enqueue_packet(&s->output, &s->buf_pkt, NULL, 0, 1);
++                ret = ff_v4l2_context_enqueue_packet(&s->output, &s->buf_pkt, NULL, 0);
 +                if (ret) {
 +                    av_log(avctx, AV_LOG_ERROR, "Failed to start drain: ret=%d\n", ret);
 +                    return ret;
@@ -48846,11 +49090,22 @@ index ab07c0a24a..510cb99f1c 100644
              return ret;
 +        }
 +
-+        xlat_pts_in(avctx, s, &s->buf_pkt);
++        xlat_pts_in(avctx, &s->xlat, &s->buf_pkt);
++    }
++
++    if (s->draining) {
++        if (!s->buf_pkt.size) {
++            av_log(avctx, AV_LOG_WARNING, "Unexpected input whilst draining\n");
++            av_packet_unref(&s->buf_pkt);
++        }
++        return NQ_DRAINING;
      }
  
 -    if (s->draining)
 -        goto dequeue;
++    if (!s->buf_pkt.size)
++        return NQ_NONE;
++
 +    if ((ret = check_output_streamon(avctx, s)) != 0)
 +        return ret;
  
@@ -48858,8 +49113,7 @@ index ab07c0a24a..510cb99f1c 100644
 -    if (ret < 0 && ret != AVERROR(EAGAIN))
 -        goto fail;
 +    ret = ff_v4l2_context_enqueue_packet(&s->output, &s->buf_pkt,
-+                                         avctx->extradata, s->extdata_sent ? 0 : avctx->extradata_size,
-+                                         1);
++                                         avctx->extradata, s->extdata_sent ? 0 : avctx->extradata_size);
  
 -    /* if EAGAIN don't unref packet and try to enqueue in the next iteration */
 -    if (ret != AVERROR(EAGAIN))
@@ -48905,35 +49159,50 @@ index ab07c0a24a..510cb99f1c 100644
 +    V4L2m2mContext *const s = ((V4L2m2mPriv*)avctx->priv_data)->context;
 +    int src_rv;
 +    int dst_rv = 1;  // Non-zero (done), non-negative (error) number
++    unsigned int i = 0;
 +
 +    do {
-+        src_rv = try_enqueue_src(avctx, s);
++        const int pending = xlat_pending(&s->xlat);
++        const int prefer_dq = (pending > 5);
 +
-+        // If we got a frame last time and we have nothing to enqueue then
-+        // return now. rv will be AVERROR(EAGAIN) indicating that we want more input
++        // Enqueue another pkt for decode if
++        // (a) We don't have a lot of stuff in the buffer already OR
++        // (b) ... we (think we) do but we've failed to get a frame already OR
++        // (c) We've dequeued a lot of frames without asking for input
++        src_rv = try_enqueue_src(avctx, s, !(!prefer_dq || i != 0 || s->req_pkt > 2));
++
++        // If we got a frame last time or we've already tried to get a frame and
++        // we have nothing to enqueue then return now. rv will be AVERROR(EAGAIN)
++        // indicating that we want more input.
 +        // This should mean that once decode starts we enter a stable state where
 +        // we alternately ask for input and produce output
-+        if (s->req_pkt && src_rv == NQ_SRC_EMPTY)
++        if ((i != 0 || s->req_pkt) && src_rv == NQ_SRC_EMPTY)
 +            break;
-+
-+        if (src_rv == NQ_Q_FULL && dst_rv == AVERROR(EAGAIN)) {
-+            av_log(avctx, AV_LOG_WARNING, "Poll says src Q has space but enqueue fail");
-+            src_rv = NQ_SRC_EMPTY;  // If we can't enqueue pretend that there is nothing to enqueue
-+        }
 +
 +        // Try to get a new frame if
 +        // (a) we haven't already got one AND
 +        // (b) enqueue returned a status indicating that decode should be attempted
 +        if (dst_rv != 0 && TRY_DQ(src_rv)) {
++            // Pick a timeout depending on state
++            const int t =
++                src_rv == NQ_DRAINING ? 300 :
++                prefer_dq ? 5 :
++                src_rv == NQ_Q_FULL ? -1 : 0;
++
 +            do {
 +                // Dequeue frame will unref any previous contents of frame
 +                // if it returns success so we don't need an explicit unref
 +                // when discarding
-+                // This returns AVERROR(EAGAIN) if there isn't a frame ready yet
-+                // but there is room in the input Q
-+                dst_rv = ff_v4l2_context_dequeue_frame(&s->capture, frame, src_rv == NQ_Q_FULL ? 100 : -1, 1);
++                // This returns AVERROR(EAGAIN) on timeout or if
++                // there is room in the input Q and timeout == -1
++                dst_rv = ff_v4l2_context_dequeue_frame(&s->capture, frame, t);
 +
-+                if (dst_rv == AVERROR_EOF && (s->draining || s->capture.done))
++                if (dst_rv == AVERROR(EAGAIN) && src_rv == NQ_DRAINING) {
++                    av_log(avctx, AV_LOG_WARNING, "Timeout in drain - assume EOF");
++                    dst_rv = AVERROR_EOF;
++                    s->capture.done = 1;
++                }
++                else if (dst_rv == AVERROR_EOF && (s->draining || s->capture.done))
 +                    av_log(avctx, AV_LOG_DEBUG, "Dequeue EOF: draining=%d, cap.done=%d\n",
 +                           s->draining, s->capture.done);
 +                else if (dst_rv && dst_rv != AVERROR(EAGAIN))
@@ -48941,13 +49210,19 @@ index ab07c0a24a..510cb99f1c 100644
 +                           s->draining, s->capture.done, dst_rv);
 +
 +                // Go again if we got a frame that we need to discard
-+            } while (dst_rv == 0 && xlat_pts_out(avctx, s, frame));
++            } while (dst_rv == 0 && xlat_pts_out(avctx, &s->xlat, &s->pts_stat, frame));
++        }
++
++        ++i;
++        if (i >= 256) {
++            av_log(avctx, AV_LOG_ERROR, "Unexpectedly large retry count: %d", i);
++            src_rv = AVERROR(EIO);
 +        }
 +
 +        // Continue trying to enqueue packets if either
 +        // (a) we succeeded last time OR
-+        // (b) enqueue failed due to input Q full AND there is now room
-+    } while (src_rv == NQ_OK || (src_rv == NQ_Q_FULL && dst_rv == AVERROR(EAGAIN)) );
++        // (b) we didn't ret a frame and we can retry the input
++    } while (src_rv == NQ_OK || (dst_rv == AVERROR(EAGAIN) && RETRY_NQ(src_rv)));
 +
 +    // Ensure that the frame contains nothing if we aren't returning a frame
 +    // (might happen when discarding)
@@ -48955,7 +49230,7 @@ index ab07c0a24a..510cb99f1c 100644
 +        av_frame_unref(frame);
 +
 +    // If we got a frame this time ask for a pkt next time
-+    s->req_pkt = (dst_rv == 0);
++    s->req_pkt = (dst_rv == 0) ? s->req_pkt + 1 : 0;
 +
 +#if 0
 +    if (dst_rv == 0)
@@ -48997,14 +49272,39 @@ index ab07c0a24a..510cb99f1c 100644
 +}
 +#endif
 +
++static int
++get_quirks(AVCodecContext * const avctx, V4L2m2mContext * const s)
++{
++    struct v4l2_capability cap;
++
++    memset(&cap, 0, sizeof(cap));
++    while (ioctl(s->fd, VIDIOC_QUERYCAP, &cap) != 0) {
++        int err = errno;
++        if (err == EINTR)
++            continue;
++        av_log(avctx, AV_LOG_ERROR, "V4L2: Failed to get capabilities: %s\n", strerror(err));
++        return AVERROR(err);
++    }
++
++    // Could be made table driven if we have a few more but right now there
++    // seems no point
++
++    // Meson (amlogic) always gives a resolution changed event after output
++    // streamon and userspace must (re)allocate capture buffers and streamon
++    // capture to clear the event even if the capture buffers were the right
++    // size in the first place.
++    if (strcmp(cap.driver, "meson-vdec") == 0)
++        s->quirks |= FF_V4L2_QUIRK_REINIT_ALWAYS;
++
++    av_log(avctx, AV_LOG_DEBUG, "Driver '%s': Quirks=%#x\n", cap.driver, s->quirks);
++    return 0;
++}
++
++// This heuristic is for H264 but use for everything
 +static uint32_t max_coded_size(const AVCodecContext * const avctx)
 +{
 +    uint32_t wxh = avctx->coded_width * avctx->coded_height;
 +    uint32_t size;
-+
-+    // Currently the only thing we try to set our own limits for is H264
-+    if (avctx->codec_id != AV_CODEC_ID_H264)
-+        return 0;
 +
 +    size = wxh * 3 / 2;
 +    // H.264 Annex A table A-1 gives minCR which is either 2 or 4
@@ -49043,20 +49343,32 @@ index ab07c0a24a..510cb99f1c 100644
      if (ret < 0)
          return ret;
  
++    xlat_init(&s->xlat);
 +    pts_stats_init(&s->pts_stat, avctx, "decoder");
 +
      capture = &s->capture;
      output = &s->output;
  
-@@ -197,9 +573,38 @@ static av_cold int v4l2_decode_init(AVCodecContext *avctx)
+@@ -192,14 +626,51 @@ static av_cold int v4l2_decode_init(AVCodecContext *avctx)
+      * by the v4l2 driver; this event will trigger a full pipeline reconfig and
+      * the proper values will be retrieved from the kernel driver.
+      */
+-    output->height = capture->height = avctx->coded_height;
+-    output->width = capture->width = avctx->coded_width;
++//    output->height = capture->height = avctx->coded_height;
++//    output->width = capture->width = avctx->coded_width;
++    output->height = capture->height = 0;
++    output->width = capture->width = 0;
  
      output->av_codec_id = avctx->codec_id;
      output->av_pix_fmt  = AV_PIX_FMT_NONE;
 +    output->min_buf_size = max_coded_size(avctx);
++    output->no_pts_rescale = 1;
  
      capture->av_codec_id = AV_CODEC_ID_RAWVIDEO;
      capture->av_pix_fmt = avctx->pix_fmt;
 +    capture->min_buf_size = 0;
++    capture->no_pts_rescale = 1;
 +
 +    /* the client requests the codec to generate DRM frames:
 +     *   - data[0] will therefore point to the returned AVDRMFrameDescriptor
@@ -49065,14 +49377,18 @@ index ab07c0a24a..510cb99f1c 100644
 +     *       check the v4l2_get_drm_frame function.
 +     */
 +
++    avctx->sw_pix_fmt = avctx->pix_fmt;
 +    gf_pix_fmt = ff_get_format(avctx, avctx->codec->pix_fmts);
 +    av_log(avctx, AV_LOG_DEBUG, "avctx requested=%d (%s); get_format requested=%d (%s)\n",
 +           avctx->pix_fmt, av_get_pix_fmt_name(avctx->pix_fmt), gf_pix_fmt, av_get_pix_fmt_name(gf_pix_fmt));
 +
-+    s->output_drm = 0;
 +    if (gf_pix_fmt == AV_PIX_FMT_DRM_PRIME || avctx->pix_fmt == AV_PIX_FMT_DRM_PRIME) {
 +        avctx->pix_fmt = AV_PIX_FMT_DRM_PRIME;
 +        s->output_drm = 1;
++    }
++    else {
++        capture->av_pix_fmt = gf_pix_fmt;
++        s->output_drm = 0;
 +    }
 +
 +    s->device_ref = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_DRM);
@@ -49087,7 +49403,16 @@ index ab07c0a24a..510cb99f1c 100644
  
      s->avctx = avctx;
      ret = ff_v4l2_m2m_codec_init(priv);
-@@ -213,7 +618,53 @@ static av_cold int v4l2_decode_init(AVCodecContext *avctx)
+@@ -208,12 +679,68 @@ static av_cold int v4l2_decode_init(AVCodecContext *avctx)
+         return ret;
+     }
+ 
+-    return v4l2_prepare_decoder(s);
++    if ((ret = v4l2_prepare_decoder(s)) < 0)
++        return ret;
++
++    return get_quirks(avctx, s);
+ }
  
  static av_cold int v4l2_decode_close(AVCodecContext *avctx)
  {
@@ -49113,7 +49438,6 @@ index ab07c0a24a..510cb99f1c 100644
 +    V4L2m2mContext * const s = priv->context;
 +    V4L2Context * const output = &s->output;
 +    V4L2Context * const capture = &s->capture;
-+    int ret, i;
 +
 +    av_log(avctx, AV_LOG_TRACE, "<<< %s: streamon=%d\n", __func__, output->streamon);
 +
@@ -49121,14 +49445,22 @@ index ab07c0a24a..510cb99f1c 100644
 +    // states like EOS processing so don't try to optimize out (having got it
 +    // wrong once)
 +
-+    ret = ff_v4l2_context_set_status(output, VIDIOC_STREAMOFF);
-+    if (ret < 0)
-+        av_log(avctx, AV_LOG_ERROR, "VIDIOC_STREAMOFF %s error: %d\n", output->name, ret);
++    ff_v4l2_context_set_status(output, VIDIOC_STREAMOFF);
++
++    // Clear any buffered input packet
++    av_packet_unref(&s->buf_pkt);
++
++    // Clear a pending EOS
++    if (ff_v4l2_ctx_eos(capture)) {
++        // Arguably we could delay this but this is easy and doesn't require
++        // thought or extra vars
++        ff_v4l2_context_set_status(capture, VIDIOC_STREAMOFF);
++        ff_v4l2_context_set_status(capture, VIDIOC_STREAMON);
++    }
 +
 +    // V4L2 makes no guarantees about whether decoded frames are flushed or not
 +    // so mark all frames we are tracking to be discarded if they appear
-+    for (i = 0; i != FF_V4L2_M2M_TRACK_SIZE; ++i)
-+        s->track_els[i].discard = 1;
++    xlat_flush(&s->xlat);
 +
 +    // resend extradata
 +    s->extdata_sent = 0;
@@ -49142,7 +49474,7 @@ index ab07c0a24a..510cb99f1c 100644
  }
  
  #define OFFSET(x) offsetof(V4L2m2mPriv, x)
-@@ -222,10 +673,16 @@ static av_cold int v4l2_decode_close(AVCodecContext *avctx)
+@@ -222,10 +749,16 @@ static av_cold int v4l2_decode_close(AVCodecContext *avctx)
  static const AVOption options[] = {
      V4L_M2M_DEFAULT_OPTS,
      { "num_capture_buffers", "Number of buffers in the capture context",
@@ -49160,7 +49492,7 @@ index ab07c0a24a..510cb99f1c 100644
  #define M2MDEC_CLASS(NAME) \
      static const AVClass v4l2_m2m_ ## NAME ## _dec_class = { \
          .class_name = #NAME "_v4l2m2m_decoder", \
-@@ -246,9 +703,15 @@ static const AVOption options[] = {
+@@ -246,9 +779,15 @@ static const AVOption options[] = {
          .init           = v4l2_decode_init, \
          .receive_frame  = v4l2_receive_frame, \
          .close          = v4l2_decode_close, \
@@ -61450,10 +61782,10 @@ index 0000000000..fc14f2a3c2
 +1,WPP_F_ericsson_MAIN_2,WPP_F_ericsson_MAIN_2.bit,WPP_F_ericsson_MAIN_2_yuv.md5
 diff --git a/pi-util/conf_native.sh b/pi-util/conf_native.sh
 new file mode 100755
-index 0000000000..a8d9f3ba62
+index 0000000000..f51b81d713
 --- /dev/null
 +++ b/pi-util/conf_native.sh
-@@ -0,0 +1,82 @@
+@@ -0,0 +1,105 @@
 +echo "Configure for native build"
 +
 +FFSRC=`pwd`
@@ -61462,37 +61794,63 @@ index 0000000000..a8d9f3ba62
 +#RPI_KEEPS="-save-temps=obj"
 +RPI_KEEPS=""
 +
++NOSHARED=
++MMAL=
++
++while [ "$1" != "" ] ; do
++    case $1 in
++	--noshared)
++	    NOSHARED=1
++	    ;;
++	--mmal)
++	    MMAL=1
++	    ;;
++	*)
++	    echo "Usage $0: [--noshared] [--mmal]"
++	    exit 1
++	    ;;
++    esac
++    shift
++done
++
++
++MCOPTS=
++RPI_INCLUDES=
++RPI_LIBDIRS=
++RPI_DEFINES=
++RPI_EXTRALIBS=
++
 +if [ "$MC" == "arm64" ]; then
 +  echo "M/C aarch64"
 +  A=aarch64-linux-gnu
 +  B=arm64
-+  MCOPTS=
-+  RPI_INCLUDES=
-+  RPI_LIBDIRS=
-+  RPI_DEFINES=
-+  RPI_EXTRALIBS=
-+  RPIOPTS="--disable-mmal --enable-sand"
 +elif [ "$MC" == "armhf" ]; then
 +  echo "M/C armv7"
 +  A=arm-linux-gnueabihf
 +  B=armv7
 +  MCOPTS="--arch=armv6t2 --cpu=cortex-a7"
-+  RPI_OPT_VC=/opt/vc
-+  RPI_INCLUDES="-I$RPI_OPT_VC/include -I$RPI_OPT_VC/include/interface/vcos/pthreads -I$RPI_OPT_VC/include/interface/vmcs_host/linux"
-+  RPI_LIBDIRS="-L$RPI_OPT_VC/lib"
-+  RPI_DEFINES="-D__VCCOREVER__=0x4000000 -mfpu=neon-vfpv4"
-+  RPI_EXTRALIBS="-Wl,--start-group -lbcm_host -lmmal -lmmal_util -lmmal_core -lvcos -lvcsm -lvchostif -lvchiq_arm -Wl,--end-group"
-+  RPIOPTS="--enable-mmal --enable-rpi"
++  RPI_DEFINES=-mfpu=neon-vfpv4
 +else
 +  echo Unexpected architecture $MC
 +  exit 1
++fi
++
++if [ $MMAL ]; then
++  RPI_OPT_VC=/opt/vc
++  RPI_INCLUDES="-I$RPI_OPT_VC/include -I$RPI_OPT_VC/include/interface/vcos/pthreads -I$RPI_OPT_VC/include/interface/vmcs_host/linux"
++  RPI_LIBDIRS="-L$RPI_OPT_VC/lib"
++  RPI_DEFINES="$RPI_DEFINES -D__VCCOREVER__=0x4000000"
++  RPI_EXTRALIBS="-Wl,--start-group -lbcm_host -lmmal -lmmal_util -lmmal_core -lvcos -lvcsm -lvchostif -lvchiq_arm -Wl,--end-group"
++  RPIOPTS="--enable-mmal --enable-rpi"
++else
++  RPIOPTS="--disable-mmal --enable-sand"
 +fi
 +
 +C=`lsb_release -sc`
 +V=`cat RELEASE`
 +
 +SHARED_LIBS="--enable-shared"
-+if [ "$1" == "--noshared" ]; then
++if [ $NOSHARED ]; then
 +  SHARED_LIBS="--disable-shared"
 +  OUT=out/$B-$C-$V-static-rel
 +  echo Static libs
@@ -61520,8 +61878,8 @@ index 0000000000..a8d9f3ba62
 + --enable-libdrm\
 + --enable-epoxy\
 + --enable-libudev\
-+ --enable-vout-drm\
 + --enable-vout-egl\
++ --enable-vout-drm\
 + $SHARED_LIBS\
 + $RPIOPTS\
 + --extra-cflags="-ggdb $RPI_KEEPS $RPI_DEFINES $RPI_INCLUDES"\
@@ -61530,9 +61888,6 @@ index 0000000000..a8d9f3ba62
 + --extra-libs="$RPI_EXTRALIBS"\
 + --extra-version="rpi"
 +
-+# --enable-decoder=hevc_rpi\
-+# --enable-extra-warnings\
-+# --arch=armv71\
 +
 +# gcc option for getting asm listing
 +# -Wa,-ahls
@@ -61646,11 +62001,11 @@ index 0000000000..92cd9e7cfd
 +# -Wa,-ahls
 diff --git a/pi-util/ffconf.py b/pi-util/ffconf.py
 new file mode 100755
-index 0000000000..c76a3734ac
+index 0000000000..657568014e
 --- /dev/null
 +++ b/pi-util/ffconf.py
 @@ -0,0 +1,215 @@
-+#!/usr/bin/env python
++#!/usr/bin/env python3
 +
 +import string
 +import os
@@ -61727,16 +62082,16 @@ index 0000000000..c76a3734ac
 +        pass
 +
 +    if  m1 and m2 and m1.group() == m2.group():
-+        print >> flog, "Match: " + m1.group()
++        print("Match: " + m1.group(), file=flog)
 +        rv = 0
 +    elif not m1:
-+        print >> flog, "****** Cannot find m1"
++        print("****** Cannot find m1", file=flog)
 +        rv = 3
 +    elif not m2:
-+        print >> flog, "****** Cannot find m2"
++        print("****** Cannot find m2", file=flog)
 +        rv = 2
 +    else:
-+        print >> flog, "****** Mismatch: " + m1.group() + " != " + m2.group()
++        print("****** Mismatch: " + m1.group() + " != " + m2.group(), file=flog)
 +        rv = 1
 +    flog.close()
 +    return rv
@@ -61782,7 +62137,7 @@ index 0000000000..c76a3734ac
 +        exp_test = int(a[0])
 +        if (exp_test and runtest(a[1], tests)):
 +            name = a[1]
-+            print "==== ", name,
++            print ("==== ", name, end="")
 +            sys.stdout.flush()
 +
 +            rv = testone(os.path.join(test_root, name), name, a[2], a[3], a[4], dectype=dectype, vcodec=vcodec, ffmpeg_exec=ffmpeg_exec)
@@ -61793,31 +62148,31 @@ index 0000000000..c76a3734ac
 +
 +            if (rv == 0):
 +                if exp_test == 2:
-+                    print ": * OK *"
++                    print(": * OK *")
 +                    unx_success.append(name)
 +                else:
-+                    print ": ok"
++                    print(": ok")
 +            elif exp_test == 2 and rv == 1:
-+                print ": fail"
++                print(": fail")
 +            elif exp_test == 3 and rv == 2:
 +                # Call an expected "crash" an abort
-+                print ": abort"
++                print(": abort")
 +            else:
 +                unx_failures.append(name)
 +                if rv == 1:
-+                    print ": * FAIL *"
++                    print(": * FAIL *")
 +                elif (rv == 2) :
-+                    print ": * CRASH *"
++                    print(": * CRASH *")
 +                elif (rv == 3) :
-+                    print ": * MD5 MISSING *"
++                    print(": * MD5 MISSING *")
 +                else :
-+                    print ": * BANG *"
++                    print(": * BANG *")
 +
 +    if unx_failures or unx_success:
-+        print "Unexpected Failures:", unx_failures
-+        print "Unexpected Success: ", unx_success
++        print("Unexpected Failures:", unx_failures)
++        print("Unexpected Success: ", unx_success)
 +    else:
-+        print "All tests normal:", successes, "ok,", failures, "failed"
++        print("All tests normal:", successes, "ok,", failures, "failed")
 +
 +
 +class ConfCSVDialect(csv.Dialect):
