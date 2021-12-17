@@ -1,0 +1,139 @@
+From 9d074170f9183c0d56a6f165d06b98cc6a1a6400 Mon Sep 17 00:00:00 2001
+From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Date: Sun, 5 Dec 2021 02:33:33 +0000
+Subject: [PATCH 25/71] FROMLIST(v1): ASoC: meson: aiu: Move AIU_I2S_MISC hold
+ setting to aiu-fifo-i2s
+
+The out-of-tree vendor driver uses the following approach to set the
+AIU_I2S_MISC register:
+1) write AIU_MEM_I2S_START_PTR and AIU_MEM_I2S_RD_PTR
+2) configure AIU_I2S_MUTE_SWAP[15:0]
+3) write AIU_MEM_I2S_END_PTR
+4) set AIU_I2S_MISC[2] to 1 (documented as: "put I2S interface in hold
+   mode")
+5) set AIU_I2S_MISC[4] to 1 (depending on the driver revision it always
+   stays at 1 while for older drivers this bit is unset in step 4)
+6) set AIU_I2S_MISC[2] to 0
+7) write AIU_MEM_I2S_MASKS
+8) toggle AIU_MEM_I2S_CONTROL[0]
+9) toggle AIU_MEM_I2S_BUF_CNTL[0]
+
+Additional testing shows that when AIU_I2S_MISC[2] is set to 1 then no
+interrupts are generated anymore. The way this bit is managed by the
+vendor driver as well as not getting any interrupts can mean that it's
+related to the FIFO and not the encoder.
+
+Move setting the AIU_I2S_MISC[2] bit to aiu_fifo_i2s_hw_params() so it
+closer resembles the flow in the vendor kernel. While here also
+configure AIU_I2S_MISC[4] (documented as: "force each audio data to
+left or right according to the bit attached with the audio data")
+similar to how the vendor driver does this. This fixes the infamous and
+long-standing "machine gun noise" issue (a buffer underrun issue).
+
+Fixes: 6ae9ca9ce986bf ("ASoC: meson: aiu: add i2s and spdif support")
+Reported-by: Christian Hewitt <christianshewitt@gmail.com>
+Reported-by: Geraldo Nascimento <geraldogabriel@gmail.com>
+Signed-off-by: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+---
+ sound/soc/meson/aiu-encoder-i2s.c | 33 -------------------------------
+ sound/soc/meson/aiu-fifo-i2s.c    | 12 +++++++++++
+ 2 files changed, 12 insertions(+), 33 deletions(-)
+
+diff --git a/sound/soc/meson/aiu-encoder-i2s.c b/sound/soc/meson/aiu-encoder-i2s.c
+index f8378066d448..88637deb2d7a 100644
+--- a/sound/soc/meson/aiu-encoder-i2s.c
++++ b/sound/soc/meson/aiu-encoder-i2s.c
+@@ -18,7 +18,6 @@
+ #define AIU_RST_SOFT_I2S_FAST		BIT(0)
+ 
+ #define AIU_I2S_DAC_CFG_MSB_FIRST	BIT(2)
+-#define AIU_I2S_MISC_HOLD_EN		BIT(2)
+ #define AIU_CLK_CTRL_I2S_DIV_EN		BIT(0)
+ #define AIU_CLK_CTRL_I2S_DIV		GENMASK(3, 2)
+ #define AIU_CLK_CTRL_AOCLK_INVERT	BIT(6)
+@@ -35,37 +34,6 @@ static void aiu_encoder_i2s_divider_enable(struct snd_soc_component *component,
+ 				      enable ? AIU_CLK_CTRL_I2S_DIV_EN : 0);
+ }
+ 
+-static void aiu_encoder_i2s_hold(struct snd_soc_component *component,
+-				 bool enable)
+-{
+-	snd_soc_component_update_bits(component, AIU_I2S_MISC,
+-				      AIU_I2S_MISC_HOLD_EN,
+-				      enable ? AIU_I2S_MISC_HOLD_EN : 0);
+-}
+-
+-static int aiu_encoder_i2s_trigger(struct snd_pcm_substream *substream, int cmd,
+-				   struct snd_soc_dai *dai)
+-{
+-	struct snd_soc_component *component = dai->component;
+-
+-	switch (cmd) {
+-	case SNDRV_PCM_TRIGGER_START:
+-	case SNDRV_PCM_TRIGGER_RESUME:
+-	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+-		aiu_encoder_i2s_hold(component, false);
+-		return 0;
+-
+-	case SNDRV_PCM_TRIGGER_STOP:
+-	case SNDRV_PCM_TRIGGER_SUSPEND:
+-	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+-		aiu_encoder_i2s_hold(component, true);
+-		return 0;
+-
+-	default:
+-		return -EINVAL;
+-	}
+-}
+-
+ static int aiu_encoder_i2s_setup_desc(struct snd_soc_component *component,
+ 				      struct snd_pcm_hw_params *params)
+ {
+@@ -347,7 +315,6 @@ static void aiu_encoder_i2s_shutdown(struct snd_pcm_substream *substream,
+ }
+ 
+ const struct snd_soc_dai_ops aiu_encoder_i2s_dai_ops = {
+-	.trigger	= aiu_encoder_i2s_trigger,
+ 	.hw_params	= aiu_encoder_i2s_hw_params,
+ 	.hw_free	= aiu_encoder_i2s_hw_free,
+ 	.set_fmt	= aiu_encoder_i2s_set_fmt,
+diff --git a/sound/soc/meson/aiu-fifo-i2s.c b/sound/soc/meson/aiu-fifo-i2s.c
+index 2388a2d0b3a6..d0a1090d6465 100644
+--- a/sound/soc/meson/aiu-fifo-i2s.c
++++ b/sound/soc/meson/aiu-fifo-i2s.c
+@@ -20,6 +20,8 @@
+ #define AIU_MEM_I2S_CONTROL_MODE_16BIT	BIT(6)
+ #define AIU_MEM_I2S_BUF_CNTL_INIT	BIT(0)
+ #define AIU_RST_SOFT_I2S_FAST		BIT(0)
++#define AIU_I2S_MISC_HOLD_EN		BIT(2)
++#define AIU_I2S_MISC_FORCE_LEFT_RIGHT	BIT(4)
+ 
+ #define AIU_FIFO_I2S_BLOCK		256
+ 
+@@ -90,6 +92,10 @@ static int aiu_fifo_i2s_hw_params(struct snd_pcm_substream *substream,
+ 	unsigned int val;
+ 	int ret;
+ 
++	snd_soc_component_update_bits(component, AIU_I2S_MISC,
++				      AIU_I2S_MISC_HOLD_EN,
++				      AIU_I2S_MISC_HOLD_EN);
++
+ 	ret = aiu_fifo_hw_params(substream, params, dai);
+ 	if (ret)
+ 		return ret;
+@@ -117,6 +123,12 @@ static int aiu_fifo_i2s_hw_params(struct snd_pcm_substream *substream,
+ 	snd_soc_component_update_bits(component, AIU_MEM_I2S_MASKS,
+ 				      AIU_MEM_I2S_MASKS_IRQ_BLOCK, val);
+ 
++	snd_soc_component_update_bits(component, AIU_I2S_MISC,
++				      AIU_I2S_MISC_FORCE_LEFT_RIGHT,
++				      AIU_I2S_MISC_FORCE_LEFT_RIGHT);
++	snd_soc_component_update_bits(component, AIU_I2S_MISC,
++				      AIU_I2S_MISC_HOLD_EN, 0);
++
+ 	return 0;
+ }
+ 
+-- 
+2.17.1
+
