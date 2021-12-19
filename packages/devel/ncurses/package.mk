@@ -3,15 +3,14 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ncurses"
-PKG_VERSION="6.1-20181215"
-PKG_SHA256="08b07c3e792961f300829512c283d5fefc0b1c421a57b76922c3d13303ed677d"
+PKG_VERSION="6.3"
+PKG_SHA256="97fc51ac2b085d4cde31ef4d2c3122c21abc217e9090a43a30fc5ec21684e059"
 PKG_LICENSE="MIT"
 PKG_SITE="http://www.gnu.org/software/ncurses/"
-PKG_URL="http://invisible-mirror.net/archives/ncurses/current/ncurses-${PKG_VERSION}.tgz"
+PKG_URL="http://invisible-mirror.net/archives/ncurses/ncurses-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_HOST="ccache:host"
 PKG_DEPENDS_TARGET="toolchain zlib ncurses:host"
 PKG_LONGDESC="A library is a free software emulation of curses in System V Release 4.0, and more."
-# causes some segmentation fault's (dialog) when compiled with gcc's link time optimization.
 PKG_BUILD_FLAGS="+pic"
 
 PKG_CONFIGURE_OPTS_TARGET="--without-ada \
@@ -54,11 +53,12 @@ PKG_CONFIGURE_OPTS_TARGET="--without-ada \
                            --disable-hashmap \
                            --disable-safe-sprintf \
                            --disable-scroll-hints \
-                           --disable-widec \
+                           --enable-widec \
                            --disable-echo \
                            --disable-warnings \
                            --disable-home-terminfo \
-                           --disable-assertions"
+                           --disable-assertions \
+                           --enable-leaks"
 
 PKG_CONFIGURE_OPTS_HOST="--enable-termcap \
                          --with-termlib \
@@ -67,9 +67,17 @@ PKG_CONFIGURE_OPTS_HOST="--enable-termcap \
                          --without-manpages"
 
 post_makeinstall_target() {
+  local f
   cp misc/ncurses-config ${TOOLCHAIN}/bin
   chmod +x ${TOOLCHAIN}/bin/ncurses-config
   sed -e "s:\(['=\" ]\)/usr:\\1${PKG_ORIG_SYSROOT_PREFIX}/usr:g" -i ${TOOLCHAIN}/bin/ncurses-config
   rm -f ${TOOLCHAIN}/bin/ncurses6-config
   rm -rf ${INSTALL}/usr/bin
+  # create links to be compatible with any ncurses include path and lib names
+  ln -sf . ${SYSROOT_PREFIX}/usr/include/ncursesw
+  ln -sf . ${SYSROOT_PREFIX}/usr/include/ncurses
+  for f in form menu ncurses panel; do
+    ln -sf lib${f}w.a ${SYSROOT_PREFIX}/usr/lib/lib${f}.a
+    ln -sf ${f}w.pc ${SYSROOT_PREFIX}/usr/lib/pkgconfig/${f}.pc
+  done
 }
