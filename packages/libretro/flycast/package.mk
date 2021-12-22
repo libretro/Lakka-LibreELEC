@@ -19,10 +19,10 @@
 ################################################################################
 
 PKG_NAME="flycast"
-PKG_VERSION="e9bc945"
+PKG_VERSION="bf87f7b"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/libretro/flycast"
+PKG_SITE="https://github.com/flyinghead/flycast"
 PKG_URL="$PKG_SITE.git"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
@@ -30,6 +30,7 @@ PKG_SECTION="libretro"
 PKG_SHORTDESC="Flycast is a multiplatform Sega Dreamcast emulator"
 PKG_LONGDESC="Flycast is a multiplatform Sega Dreamcast emulator"
 PKG_BUILD_FLAGS="-lto"
+PKG_TOOLCHAIN="cmake"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
@@ -42,36 +43,30 @@ if [ "$OPENGLES_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET+=" $OPENGLES"
 fi
 
-make_target() {
-  if [ "$OPENGL_SUPPORT" = yes ]; then
-    if [ "$ARCH" = "arm" ]; then
-      make HAVE_OPENMP=0 LDFLAGS=-lrt HAVE_OIT=1
-    elif [ "$PROJECT" = "L4T" ]; then
-      make AS=${AS} CC_AS=${CC} platform=jetson-nano HAVE_OPENMP=0 HAVE_OIT=1
-    else
-      make AS=${AS} CC_AS=${AS} ARCH=${ARCH} HAVE_OPENMP=0 LDFLAGS=-lrt HAVE_OIT=1
-    fi
-  else
-    FLYCAST_GL=""
-    [ "$OPENGLES_SUPPORT" = yes ] && FLYCAST_GL="FORCE_GLES=1"
-    if [ "$ARCH" == "arm" ]; then
-      if [ "${DEVICE:0:4}" = "RPi4" ]; then
-        make AS=${AS} CC_AS=${CC} platform=rpi4-gles-neon HAVE_OPENMP=0 LDFLAGS=-lrt
-      elif [ "$DEVICE" = "RPi2" ]; then
-        make AS=${AS} CC_AS=${CC} platform=rpi $FLYCAST_GL HAVE_OPENMP=0 LDFLAGS=-lrt
-      elif [ "$DEVICE" = "OdroidGoAdvance" ]; then
-        make AS=${AS} CC_AS=${CC} platform=classic_armv8_a35 $FLYCAST_GL HAVE_OPENMP=0 LDFLAGS=-lrt
-      else
-        make AS=${AS} CC_AS=${CC} platform=armv-gles-neon $FLYCAST_GL HAVE_OPENMP=0 LDFLAGS=-lrt
-      fi
-    else
-      if [ "$PROJECT" = "RPi" -a "$ARCH" = "aarch64" ]; then
-        make AS=${AS} CC_AS=${CC} platform=rpi4_64-gles-neon HAVE_OPENMP=0 LDFLAGS=-lrt
-      else
-        make AS=${AS} CC_AS=${AS} ARCH=${ARCH} $FLYCAST_GL HAVE_OPENMP=0 LDFLAGS=-lrt
-      fi
-    fi
-  fi
+PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON \
+		      -DUSE_OPENMP=OFF \ 
+		      -DUSE_GLES=ON \ 
+                       -DCMAKE_BUILD_TYPE=Release \
+                       --target flycast_libretro"
+
+if [ "$OPENGL_SUPPORT" = no -a "$OPENGLES_SUPPORT" = yes ]; then
+  PKG_CMAKE_OPTS_TARGET+=" -DUSING_GLES=ON"
+fi
+
+if [ "$VULKAN_SUPPORT" = yes ]; then
+  PKG_DEPENDS_TARGET+=" ${VULKAN}"
+  PKG_CMAKE_OPTS_TARGET+=" -DVULKAN=ON"
+fi
+
+if [ "$TARGET_ARCH" = "arm" ]; then
+  PKG_CMAKE_OPTS_TARGET+=" -DARMV7=ON"
+elif [ "$TARGET_ARCH" = "aarch64" ]; then
+  PKG_CMAKE_OPTS_TARGET+=" -DARM64=ON"
+fi
+
+pre_make_target() {
+  find $PKG_BUILD -name flags.make -exec sed -i "s:isystem :I:g" \{} \;
+  find $PKG_BUILD -name build.ninja -exec sed -i "s:isystem :I:g" \{} \;
 }
 
 makeinstall_target() {
