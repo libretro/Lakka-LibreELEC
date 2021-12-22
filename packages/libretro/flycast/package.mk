@@ -44,10 +44,9 @@ if [ "$OPENGLES_SUPPORT" = yes ]; then
 fi
 
 PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON \
-		      -DUSE_OPENMP=OFF \ 
-		      -DUSE_GLES=ON \ 
-                       -DCMAKE_BUILD_TYPE=Release \
-                       --target flycast_libretro"
+                        -DUSE_OPENMP=OFF \ 
+                        -DCMAKE_BUILD_TYPE=Release \
+                        --target flycast_libretro"
 
 if [ "$OPENGL_SUPPORT" = no -a "$OPENGLES_SUPPORT" = yes ]; then
   PKG_CMAKE_OPTS_TARGET+=" -DUSING_GLES=ON"
