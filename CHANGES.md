@@ -1,4 +1,4 @@
-# v3.6
+# v3.7
 * Update RetroArch to 1.9.14
 * Update libretro cores to the latest
 
