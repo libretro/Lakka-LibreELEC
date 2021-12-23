@@ -2,8 +2,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="snapclient"
-PKG_VERSION="0.25.0"
-PKG_REV="107"
+PKG_VERSION="0.26.0"
+PKG_REV="108"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_DEPENDS_TARGET="toolchain alsa-plugins snapcast"
