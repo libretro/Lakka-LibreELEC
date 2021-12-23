@@ -49,7 +49,7 @@ PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON \
                         --target flycast_libretro"
 
 if [ "$OPENGL_SUPPORT" = no -a "$OPENGLES_SUPPORT" = yes ]; then
-  PKG_CMAKE_OPTS_TARGET+=" -DUSING_GLES=ON"
+  PKG_CMAKE_OPTS_TARGET+=" -DUSE_GLES2=ON"
 fi
 
 if [ "$VULKAN_SUPPORT" = yes ]; then
