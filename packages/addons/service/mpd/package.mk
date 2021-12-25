@@ -11,8 +11,8 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://www.musicpd.org"
 PKG_URL="http://www.musicpd.org/download/mpd/$(get_pkg_version_maj_min)/mpd-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain alsa-lib avahi boost curl faad2 ffmpeg flac glib lame libcdio libfmt \
-                    libgcrypt libiconv libid3tag libmad libmpdclient libsamplerate libvorbis \
-                    libnfs libogg mpd-mpc opus pulseaudio samba wavpack yajl"
+                    libgcrypt libiconv libid3tag libmad libmpdclient libopenmpt libsamplerate \
+                    libvorbis libnfs libogg mpd-mpc opus pulseaudio samba wavpack yajl"
 PKG_SECTION="service.multimedia"
 PKG_SHORTDESC="Music Player Daemon (MPD): a free and open Music Player Server"
 PKG_LONGDESC="Music Player Daemon (${PKG_VERSION}) is a flexible and powerful server-side application for playing music"
