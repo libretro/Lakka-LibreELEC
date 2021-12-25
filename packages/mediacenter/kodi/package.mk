@@ -30,7 +30,7 @@ configure_package() {
     PKG_DEPENDS_TARGET+=" libX11 libXext libdrm libXrandr"
     KODI_PLATFORM="-DCORE_PLATFORM_NAME=x11 \
                    -DAPP_RENDER_SYSTEM=gl"
-  elif [ "${DISPLAYSERVER}" = "weston" ]; then
+  elif [ "${DISPLAYSERVER}" = "wl" ]; then
     PKG_DEPENDS_TARGET+=" wayland waylandpp"
     CFLAGS+=" -DEGL_NO_X11"
     CXXFLAGS+=" -DEGL_NO_X11"
@@ -273,8 +273,8 @@ post_makeinstall_target() {
     # set default display environment
     if [ "${DISPLAYSERVER}" = "x11" ]; then
       echo "DISPLAY=:0.0" >> ${INSTALL}/usr/lib/kodi/kodi.conf
-    elif [ "${DISPLAYSERVER}" = "weston" ]; then
-      echo "WAYLAND_DISPLAY=wayland-0" >> ${INSTALL}/usr/lib/kodi/kodi.conf
+    elif [ "${DISPLAYSERVER}" = "wl" ]; then
+      echo "WAYLAND_DISPLAY=wayland-1" >> ${INSTALL}/usr/lib/kodi/kodi.conf
     fi
 
     # nvidia: Enable USLEEP to reduce CPU load while rendering
