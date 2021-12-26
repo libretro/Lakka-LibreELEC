@@ -31,10 +31,6 @@ PKG_MESON_OPTS_TARGET="-Ddefault_library=shared \
                        -Dforce_posix_threads=true \
                        -Dtests=false"
 
-if [ "${MACHINE_HARDWARE_NAME}" = "aarch64" -a "${TARGET_ARCH}" = "arm" ]; then
-  PKG_MESON_PROPERTIES_TARGET="needs_exe_wrapper = true"
-fi
-
 post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/bin
   rm -rf ${INSTALL}/usr/lib/gdbus-2.0
