@@ -2,8 +2,8 @@
 # Copyright (C) 2020-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="gcc-or1k-linux"
-PKG_VERSION="2021.05-1"
-PKG_SHA256="73c14b48015fb964ff0bf24cbed5be4cad2eac7cf9ce90e65d6cff03d2a7b18d"
+PKG_VERSION="2021.11-5"
+PKG_SHA256="409e4a7473125e7de7c8b0e6bc1cb971d53e63ac057e9a19102e4ce1467f442a"
 PKG_LICENSE="GPL"
 PKG_SITE="https://toolchains.bootlin.com/releases_openrisc.html"
 PKG_URL="https://toolchains.bootlin.com/downloads/releases/toolchains/openrisc/tarballs/openrisc--musl--stable-${PKG_VERSION}.tar.bz2"
