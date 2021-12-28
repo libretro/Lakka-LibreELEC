@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="gpsp"
-PKG_VERSION="2419b77"
+PKG_VERSION="7b181cb6ff319df9c9be00dae3ab0afafd63de52"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/gpsp"
@@ -37,7 +37,7 @@ make_target() {
   if [ "$ARCH" = "arm" ]; then
     make CC=$CC platform=armv
   elif [ "$ARCH" = "aarch64" ]; then
-    make CC=$CC HAVE_DYNAREC=0
+    make CC=$CC  platform=arm64
   else
     make CC=$CC
   fi  
