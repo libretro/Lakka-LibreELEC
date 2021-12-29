@@ -5,7 +5,7 @@
 PKG_NAME="pvr.hdhomerun"
 PKG_VERSION="20.1.1-Nexus"
 PKG_SHA256="22595f58ccf127147ccaaee86dbd6b33a14c63aae7553ba0ae8f7a301bfb3ec9"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-pvr/pvr.hdhomerun"
