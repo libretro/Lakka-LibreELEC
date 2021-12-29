@@ -2,8 +2,8 @@
 # Copyright (C) 2020-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="visualization.starburst"
-PKG_VERSION="19.0.0-Matrix"
-PKG_SHA256="b610919fd181dac638cbcea3f88b01a0b3522941415fde8fab51a17a88f536e2"
+PKG_VERSION="19.0.1-Matrix"
+PKG_SHA256="e2b3ad0473d1ae40c3ecc81f9631c7d956fd4ec3edc7ef43eaeefec242fa79e5"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

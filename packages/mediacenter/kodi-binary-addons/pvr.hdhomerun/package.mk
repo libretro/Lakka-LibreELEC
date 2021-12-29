@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.hdhomerun"
-PKG_VERSION="19.0.1-Matrix"
-PKG_SHA256="5a4b95634c9da13e526e7dab5a20e5ffc1c7361a67357658bf5ba085df4f2541"
+PKG_VERSION="19.0.2-Matrix"
+PKG_SHA256="6a5e5135b176d9aeba35e16fb6ce48ce7323c53960457597e25c2962b126cca2"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
