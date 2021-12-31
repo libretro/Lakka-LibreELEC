@@ -23,7 +23,14 @@ See https://docs.docker.com/engine/reference/commandline/build/ for details on `
 
 **Build LibreELEC image inside a container**
 
-Use the following command to build LibreELEC images inside a new container based on the docker image tagged with `libreelec`.
+Change to your LibreELEC.tv development directory that you checked out with <br>
+ `git clone https://github.com/`**myname**`/LibreELEC.tv.git`
+
+ ```
+ cd LibreELEC.tv
+ ```
+
+Then use the following command to build LibreELEC images inside a new container based on the docker image tagged with `libreelec`. (The `pwd` uses the current directory - which must have the LibeELEC `Makefile` in it.)
 
 ```
 docker run --rm -v `pwd`:/build -w /build -it libreelec make image
