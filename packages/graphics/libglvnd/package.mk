@@ -2,8 +2,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libglvnd"
-PKG_VERSION="1.3.3"
-PKG_SHA256="4e59c06820c97125e19e96c4b70e71d72999ff740bb92306b830bb5338b8adea"
+PKG_VERSION="1.3.4"
+PKG_SHA256="8f4218d7cdaf89d5b7eced818e810ccbc76f4bb9cba36d66eddac5a7ca892bab"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/NVIDIA/libglvnd"
 PKG_URL="https://github.com/NVIDIA/libglvnd/archive/v${PKG_VERSION}.tar.gz"
@@ -17,13 +17,25 @@ fi
 
 post_makeinstall_target() {
   if [ "${DISPLAYSERVER}" = "x11" ]; then
-    # Remove old symlinks to GLVND libGL.so.1.7.0
+    # Remove old symlinks to libGL.so.1.7.0 (GLVND)
     safe_remove              ${INSTALL}/usr/lib/libGL.so
     safe_remove              ${INSTALL}/usr/lib/libGL.so.1
     # Create new symlinks to /var/lib/libGL.so
     ln -sf libGL.so.1        ${INSTALL}/usr/lib/libGL.so
     ln -sf /var/lib/libGL.so ${INSTALL}/usr/lib/libGL.so.1
-    # Create new symlink to GLVND libGL.so.1.7.0
+    # Create new symlink to libGL.so.1.7.0
     ln -sf libGL.so.1.7.0    ${INSTALL}/usr/lib/libGL_glvnd.so.1
+
+    # Remove old symlinks to libGLX.so.0.0.0 (GLVND)
+    safe_remove               ${INSTALL}/usr/lib/libGLX.so
+    safe_remove               ${INSTALL}/usr/lib/libGLX.so.0
+    # Create new symlinks to /var/lib/libGLX.so
+    ln -sf libGLX.so.0        ${INSTALL}/usr/lib/libGLX.so
+    ln -sf /var/lib/libGLX.so ${INSTALL}/usr/lib/libGLX.so.0
+    # Create new symlink to libGLX.so.0.0.0
+    ln -sf libGLX.so.0.0.0    ${INSTALL}/usr/lib/libGLX_glvnd.so.0
+
+    # indirect rendering
+    ln -sf /var/lib/libGLX_indirect.so.0 ${INSTALL}/usr/lib/libGLX_indirect.so.0
   fi
 }
