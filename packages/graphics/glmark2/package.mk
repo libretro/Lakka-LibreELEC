@@ -2,8 +2,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="glmark2"
-PKG_VERSION="2021.02"
-PKG_SHA256="bebadb78c13aea5e88ed892e5563101ccb745b75f1dc86a8fc7229f00d78cbf1"
+PKG_VERSION="2021.12"
+PKG_SHA256="9f111284b2ef1d3fce91928e249e6ca00796a036831b063a549a0f3b03557a95"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/glmark2/glmark2"
 PKG_URL="https://github.com/glmark2/glmark2/archive/${PKG_VERSION}.tar.gz"
