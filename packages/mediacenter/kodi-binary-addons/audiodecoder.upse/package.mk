@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.upse"
-PKG_VERSION="20.1.0-Nexus"
-PKG_SHA256="25f955739360c55e4cd3dcb3358fb2b81c28dc6dca4bce9f32870b8305f334ff"
+PKG_VERSION="20.2.0-Nexus"
+PKG_SHA256="d9f75e5cbab3ba5fc391cb40e0585bf22fad0eebfaf002d1d58bc896b6f2a5d6"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audioencoder.wav"
-PKG_VERSION="20.1.0-Nexus"
-PKG_SHA256="36605fd401a21c2fc17f32b47d6508681c1e82d69140026a309b1a46dea7cf6a"
+PKG_VERSION="20.2.0-Nexus"
+PKG_SHA256="1baf69cca688ebd389705ea2bef2c5285ba75dcfd0d0b534b6ab1e61c0020979"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
