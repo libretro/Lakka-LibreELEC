@@ -3,10 +3,10 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="freetype"
-PKG_VERSION="2.10.4"
-PKG_SHA256="86a854d8905b19698bbc8f23b860bc104246ce4854dcea8e3b0fb21284f75784"
+PKG_VERSION="2.11.1"
+PKG_SHA256="3333ae7cfda88429c97a7ae63b7d01ab398076c3b67182e960e5684050f2c5c8"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.freetype.org"
+PKG_SITE="https://freetype.org"
 PKG_URL="http://download.savannah.gnu.org/releases/freetype/freetype-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_HOST="toolchain:host"
 PKG_DEPENDS_TARGET="toolchain zlib libpng"
