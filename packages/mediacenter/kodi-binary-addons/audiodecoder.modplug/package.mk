@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.modplug"
-PKG_VERSION="19.0.1-Matrix"
-PKG_SHA256="4c422cacf456ab9eda5e2836d2789c3756bfbae03265a01647dd8f935261d9ec"
+PKG_VERSION="19.0.2-Matrix"
+PKG_SHA256="6e1b1910e799ea8c5ab11428084feb8f6a0a9b1b0d4b5760033545fe765a59e9"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
