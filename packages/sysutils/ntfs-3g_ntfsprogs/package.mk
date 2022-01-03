@@ -4,10 +4,10 @@
 
 PKG_NAME="ntfs-3g_ntfsprogs"
 PKG_VERSION="2017.3.23AR.5"
-PKG_SHA256="04ccf583b495806cefb71850e5899e50aed5e7bf23365259f2badaa9af21e5ed"
+PKG_SHA256="c4e6234e1743f9ff7cea6ce85e006fce98b9a4dc7433a6c269db0c05a80b83cf"
 PKG_LICENSE="GPL"
-PKG_SITE="https://jp-andre.pagesperso-orange.fr/"
-PKG_URL="https://jp-andre.pagesperso-orange.fr/${PKG_NAME}-${PKG_VERSION}.tgz"
+PKG_SITE="https://github.com/tuxera/ntfs-3g"
+PKG_URL="https://github.com/tuxera/ntfs-3g/archive/refs/tags/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain fuse libgcrypt"
 PKG_LONGDESC="A NTFS driver with read and write support."
 PKG_TOOLCHAIN="autotools"
