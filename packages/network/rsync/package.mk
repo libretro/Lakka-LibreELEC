@@ -2,10 +2,10 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="rsync"
-PKG_VERSION="3.2.3"
-PKG_SHA256="becc3c504ceea499f4167a260040ccf4d9f2ef9499ad5683c179a697146ce50e"
+PKG_VERSION="3.2.4"
+PKG_SHA256="6f761838d08052b0b6579cf7f6737d93e47f01f4da04c5d24d3447b7f2a5fad1"
 PKG_LICENSE="GPLv3"
-PKG_SITE="http://www.samba.org/ftp/rsync/rsync.html"
+PKG_SITE="https://rsync.samba.org"
 PKG_URL="https://download.samba.org/pub/rsync/src/${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_HOST="autotools:host zlib:host zstd:host"
 PKG_DEPENDS_TARGET="toolchain zlib openssl"
