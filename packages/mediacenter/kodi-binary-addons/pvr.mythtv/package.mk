@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.mythtv"
-PKG_VERSION="20.1.0-Nexus"
-PKG_SHA256="71467001b4b5242592f79e38116c4f48c3e41e96b0b5a6c3aecf9933cecd204d"
+PKG_VERSION="20.2.0-Nexus"
+PKG_SHA256="ef0b158a1b838e7188ac92e83f06296ad201fd51a3d066d08e4d3a60ac38f0f5"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
