@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="flycast"
-PKG_VERSION="bf87f7b"
+PKG_VERSION="e61951a"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/flyinghead/flycast"
@@ -44,7 +44,7 @@ if [ "$OPENGLES_SUPPORT" = yes ]; then
 fi
 
 PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON \
-                        -DUSE_OPENMP=OFF \ 
+                        -DUSE_OPENMP=OFF \
                         -DCMAKE_BUILD_TYPE=Release \
                         --target flycast_libretro"
 
