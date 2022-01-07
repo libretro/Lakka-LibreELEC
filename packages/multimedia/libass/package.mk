@@ -20,3 +20,7 @@ if [ ${TARGET_ARCH} = "x86_64" ]; then
   PKG_DEPENDS_TARGET+=" nasm:host"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-asm"
 fi
+
+post_configure_target() {
+  libtool_remove_rpath libtool
+}
