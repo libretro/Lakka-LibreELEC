@@ -16,6 +16,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-doc \
                            --disable-guile \
                            --disable-libdane \
                            --disable-padlock \
+                           --disable-rpath \
                            --disable-tests \
                            --disable-tools \
                            --disable-valgrind-tests \
@@ -25,3 +26,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-doc \
                            --with-included-unistring \
                            --without-p11-kit \
                            --without-tpm"
+
+post_configure_target() {
+  libtool_remove_rpath libtool
+}
