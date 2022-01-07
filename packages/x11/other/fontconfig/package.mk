@@ -17,7 +17,8 @@ PKG_CONFIGURE_OPTS_TARGET="--with-arch=${TARGET_ARCH} \
                            --with-default-fonts=/usr/share/fonts \
                            --without-add-fonts \
                            --disable-dependency-tracking \
-                           --disable-docs"
+                           --disable-docs \
+                           --disable-rpath"
 
 pre_configure_target() {
 # ensure we dont use '-O3' optimization.
@@ -25,6 +26,10 @@ pre_configure_target() {
   CXXFLAGS=$(echo ${CXXFLAGS} | sed -e "s|-O3|-O2|")
   CFLAGS+=" -I${PKG_BUILD}"
   CXXFLAGS+=" -I${PKG_BUILD}"
+}
+
+post_configure_target() {
+  libtool_remove_rpath libtool
 }
 
 post_makeinstall_target() {
