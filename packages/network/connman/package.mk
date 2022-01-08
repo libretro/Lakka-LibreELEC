@@ -68,6 +68,10 @@ PKG_MAKE_OPTS_TARGET="storagedir=/storage/.cache/connman \
                       vpn_storagedir=/storage/.config/wireguard \
                       statedir=/run/connman"
 
+post_configure_target() {
+  libtool_remove_rpath libtool
+}
+
 post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/lib/systemd
   rm -rf ${INSTALL}/usr/lib/tmpfiles.d/connman_resolvconf.conf
