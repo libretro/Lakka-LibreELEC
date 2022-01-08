@@ -17,6 +17,7 @@ PKG_CONFIGURE_OPTS_TARGET="--without-onig"
 pre_configure_target() {
  # slang fails to build in subdirs
  cd ${PKG_BUILD}
+ sed -i 's|RPATH=".*"|RPATH=""|' configure
  rm -rf .${TARGET_NAME}
 }
 
