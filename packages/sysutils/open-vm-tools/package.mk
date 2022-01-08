@@ -41,6 +41,10 @@ pre_configure_target() {
   export LIBS="-ldnet -ltirpc"
 }
 
+post_configure_target() {
+  libtool_remove_rpath libtool
+}
+
 post_makeinstall_target() {
   rm -rf ${INSTALL}/sbin
   rm -rf ${INSTALL}/usr/share
