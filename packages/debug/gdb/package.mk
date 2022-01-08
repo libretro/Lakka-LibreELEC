@@ -25,6 +25,7 @@ PKG_CONFIGURE_OPTS_COMMON="bash_cv_have_mbstate_t=set \
                            --with-expat=yes \
                            --disable-source-highlight \
                            --disable-nls \
+                           --disable-rpath \
                            --disable-sim \
                            --without-x \
                            --disable-tui \
