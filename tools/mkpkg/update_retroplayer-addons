@@ -8,7 +8,7 @@ FORCE_LIBRETRO_BUMP=""
 KEEP_GIT_DIRS="yes"
 
 usage() {
-  echo "Usage: $0 [options] <kodi-branch>"
+  echo "Usage: $0 [options] <kodi-branch> [<tag-suffix>]"
   echo " -b, --bump-pkg-rev: bump PKG_REV if package was not updated"
   echo " -d, --delete-git-dirs: delete cloned git dirs after update"
   echo " -f, --force-libretro-bump: check for new libretro package"
@@ -46,11 +46,18 @@ while [ $# -ne 0 ]; do
 done
 
 
-if [ $# -ne 1 ]; then
+if [ $# -eq 0 -o $# -gt 2 ]; then
   usage
   exit 1
 fi
+
 KODI_BRANCH="$1"
+
+if [ $# -eq 2 ]; then
+  TAG_SUFFIX="$2"
+else
+  TAG_SUFFIX="${KODI_BRANCH}"
+fi
 
 # list of packages to exclude from update
 EXCLUDED_PACKAGES="game.libretro.chailove
@@ -124,11 +131,19 @@ for addon in ${ADDONS_DIR}/*.*/ ; do
 
   if [ -z "$GITHUB_API_TOKEN" ]; then
     git_clone "${GAME_GIT_REPO}" "${GAME_GIT_DIR}"
-    GAME_NEW_VERSION=$(resolve_tag_in_branch "${GAME_GIT_DIR}" "${GAME_GIT_BRANCH}" "*-${KODI_BRANCH}")
+    if [ -n "${TAG_SUFFIX}" ]; then
+      GAME_NEW_VERSION=$(resolve_tag_in_branch "${GAME_GIT_DIR}" "${GAME_GIT_BRANCH}" "*-${TAG_SUFFIX}")
+    else
+      GAME_NEW_VERSION=$(resolve_tag_in_branch "${GAME_GIT_DIR}" "${GAME_GIT_BRANCH}")
+    fi
   else
     REPO=$(basename "${GAME_GIT_REPO}")
     OWNER=$(basename "${GAME_GIT_REPO%/${REPO}*}")
-    GAME_NEW_VERSION=$(resolve_tag_on_gh "${OWNER}" "${REPO}" "-${KODI_BRANCH}")
+    if [ -n "${TAG_SUFFIX}" ]; then
+      GAME_NEW_VERSION=$(resolve_tag_on_gh "${OWNER}" "${REPO}" "-${TAG_SUFFIX}")
+    else
+      GAME_NEW_VERSION=$(resolve_tag_on_gh "${OWNER}" "${REPO}")
+    fi
   fi
 
   if [ -z "${GAME_NEW_VERSION}" ]; then
