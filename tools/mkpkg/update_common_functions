@@ -67,17 +67,23 @@ resolve_hash_on_gh() {
 }
 
 resolve_tag_in_branch() {
-  local tag
+  local tag tags
   if [ -d "$1" ] ; then
     cd "$1"
-    if [ $# -eq 3 ] ; then
-      tag=$(git describe --abbrev=0 --tags --match "$3" origin/$2 2>/dev/null)
-      if [ -n "$tag" ] ; then
-        echo "$tag"
-        return
-      fi
+    tag=$(git describe --abbrev=0 --tags origin/$2 2>/dev/null)
+    if [ -z "${tag}" ]; then
+      return
     fi
-    git describe --abbrev=0 --tags origin/$2 2>/dev/null
+    tags=( $(git tag --points-at "${tag}" | sort -r -n) )
+    if [ $# -eq 3 -a ${#tags[@]} -gt 1 ]; then
+      for tag in "${tags[@]}"; do
+        if [[ "${tag}" =~ $3 ]]; then
+          echo "$tag"
+          return
+        fi
+      done
+    fi
+    echo "${tags[0]}"
   fi
 }
 
