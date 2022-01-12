@@ -33,6 +33,10 @@ pre_configure_target() {
   CFLAGS+=" -fcommon"
 }
 
+post_configure_target() {
+  libtool_remove_rpath libtool
+}
+
 addon() {
   mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
   cp ${PKG_INSTALL}/usr/sbin/rsyslogd \
