@@ -22,3 +22,7 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared \
                            --without-xsltproc \
                            --without-asciidoc \
                            --with-gnu-ld"
+
+post_configure_target() {
+  libtool_remove_rpath libtool
+}
