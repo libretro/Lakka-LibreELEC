@@ -40,6 +40,10 @@ else
   PKG_CONFIGURE_OPTS_TARGET+=" --with-default-dri=2"
 fi
 
+post_configure_target() {
+  libtool_remove_rpath libtool
+}
+
 post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/share/polkit-1
 }
