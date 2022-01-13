@@ -18,6 +18,10 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-werror \
                            --with-libgpg-error-prefix=${SYSROOT_PREFIX}/usr \
                            --with-gnu-ld"
 
+post_configure_target() {
+  libtool_remove_rpath libtool
+}
+
 post_makeinstall_target() {
   mkdir -p ${INSTALL}/usr/config/aacs
     cp -P ../KEYDB.cfg ${INSTALL}/usr/config/aacs
