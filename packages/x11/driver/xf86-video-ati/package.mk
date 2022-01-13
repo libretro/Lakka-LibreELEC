@@ -16,6 +16,10 @@ PKG_TOOLCHAIN="autotools"
 PKG_CONFIGURE_OPTS_TARGET="--enable-glamor \
                            --with-xorg-module-dir=${XORG_PATH_MODULES}"
 
+post_configure_target() {
+  libtool_remove_rpath libtool
+}
+
 post_makeinstall_target() {
   mkdir -p ${INSTALL}/etc/X11
     cp ${PKG_DIR}/config/*.conf ${INSTALL}/etc/X11
