@@ -20,3 +20,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-ipv6 \
                            --enable-fc \
                            --with-gnu-ld \
                            --without-xmlto"
+
+post_configure_target() {
+  libtool_remove_rpath libtool
+}
