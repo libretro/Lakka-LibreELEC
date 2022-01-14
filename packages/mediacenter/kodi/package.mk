@@ -60,6 +60,10 @@ configure_package() {
     KODI_PULSEAUDIO="-DENABLE_PULSEAUDIO=OFF"
   fi
 
+  if [ "$ESPEAK_SUPPORT" = yes ]; then
+    PKG_DEPENDS_TARGET+=" espeak-ng"
+  fi
+
   if [ "${CEC_SUPPORT}" = yes ]; then
     PKG_DEPENDS_TARGET+=" libcec"
     KODI_CEC="-DENABLE_CEC=ON"
