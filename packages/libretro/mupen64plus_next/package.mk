@@ -90,7 +90,14 @@ make_target() {
       make platform=odroid BOARD=ODROID-XU GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
       ;;
     AMLG12|AMLGX)
-      make platform=amlogic GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
+      case $ARCH in
+        arm)
+          make platform=amlogic GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
+          ;;
+        aarch64)
+          make GLES=1 FORCE_GLES=1 WITH_DYNAREC=aarch64
+          ;;
+      esac
       ;;
     OdroidGoAdvance)
       make platform=unix-gles BOARD=ODROIDGOA GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
