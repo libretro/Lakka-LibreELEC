@@ -155,6 +155,12 @@ makeinstall_init() {
     if [ "${TARGET_ARCH}" = "arm" -a "${TARGET_FLOAT}" = "hard" ]; then
       ln -sf ld.so ${INSTALL}/usr/lib/ld-linux.so.3
     fi
+
+  mkdir -p ${INSTALL}/usr/lib/gconv/gconv-modules.d/
+    cp -PR ${PKG_BUILD}/.${TARGET_NAME}/iconvdata/ANSI_X3.110.so ${INSTALL}/usr/lib/gconv
+    cp -PR ${PKG_BUILD}/.${TARGET_NAME}/iconvdata/IBM850.so ${INSTALL}/usr/lib/gconv
+    grep IBM850 ${PKG_BUILD}/.${TARGET_NAME}/iconvdata/gconv-modules.d/gconv-modules-extra.conf > \
+      ${INSTALL}/usr/lib/gconv/gconv-modules.d/gconv-modules-extra.conf
 }
 
 post_makeinstall_init() {
