@@ -19,7 +19,7 @@ makeinstall_host() {
   mkdir -p ${TOOLCHAIN}/bin
     cp -P ${PKG_BUILD}/dtc ${TOOLCHAIN}/bin
   mkdir -p ${TOOLCHAIN}/lib
-    cp -P ${PKG_BUILD}/libfdt/libfdt.so ${TOOLCHAIN}/lib
+    cp -P ${PKG_BUILD}/libfdt/{libfdt.so,libfdt.so.1} ${TOOLCHAIN}/lib
 }
 
 makeinstall_target() {
@@ -28,5 +28,5 @@ makeinstall_target() {
     cp -P ${PKG_BUILD}/fdtput ${INSTALL}/usr/bin/
     cp -P ${PKG_BUILD}/fdtget ${INSTALL}/usr/bin/
   mkdir -p ${INSTALL}/usr/lib
-    cp -P ${PKG_BUILD}/libfdt/libfdt.so ${INSTALL}/usr/lib/
+    cp -P ${PKG_BUILD}/libfdt/{libfdt.so,libfdt.so.1} ${INSTALL}/usr/lib/
 }
