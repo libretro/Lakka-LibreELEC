@@ -24,7 +24,7 @@ PKG_ARCH="x86_64 aarch64"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/melonds"
 PKG_URL="$PKG_SITE.git"
-PKG_DEPENDS_TARGET="toolchain mesa"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="DS emulator, sorta"
@@ -33,6 +33,14 @@ PKG_TOOLCHAIN="make"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+if [ "$OPENGL_SUPPORT" = yes ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGL"
+fi
+
+if [ "$OPENGLES_SUPPORT" = yes ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGLES"
+fi
 
 configure_target() {
   cd $PKG_BUILD
