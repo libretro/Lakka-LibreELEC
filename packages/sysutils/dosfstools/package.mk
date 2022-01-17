@@ -13,7 +13,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_DEPENDS_INIT="toolchain dosfstools"
 PKG_LONGDESC="dosfstools contains utilities for making and checking MS-DOS FAT filesystems."
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-compat-symlinks"
+PKG_CONFIGURE_OPTS_TARGET="--enable-compat-symlinks --with-iconv"
 PKG_MAKE_OPTS_TARGET="PREFIX=/usr"
 PKG_MAKEINSTALL_OPTS_TARGET="PREFIX=/usr"
 
