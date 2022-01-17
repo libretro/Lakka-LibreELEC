@@ -45,7 +45,11 @@ fi
 
 make_target() {
   if [ "$ARCH" == "aarch64" ]; then
-    make -C yabause/src/libretro platform=arm64
+    if [ "$PROJECT" == "Amlogic" ]; then
+      make -C yabause/src/libretro platform=arm64_cortex_a53_gles3
+    else
+      make -C yabause/src/libretro platform=arm64
+    fi
   elif [ "$ARCH" == "arm" ]; then
     make -C yabause/src/libretro platform=unix-armv
   else
