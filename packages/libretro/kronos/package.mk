@@ -49,6 +49,9 @@ if [ "$ARCH" = "arm" ]; then
   PKG_MAKE_OPTS_TARGET+=" platform=armv"
 elif [ "$ARCH" = "aarch64" ]; then
   PKG_MAKE_OPTS_TARGET+=" platform=arm64"
+  if [ "$PROJECT" == "Amlogic" ]; then
+    PKG_MAKE_OPTS_TARGET+=" FORCE_GLES=1"
+  fi
 fi
 
 makeinstall_target() {
