@@ -2,8 +2,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pycryptodome"
-PKG_VERSION="3.12.0"
-PKG_SHA256="d08b9799b6c5b9c99219b775066234d73f3007f5dab4189e33a7c3581507ee57"
+PKG_VERSION="3.14.1"
+PKG_SHA256="2da3d5c2ecd3c3b73946ef00dc585d590e869deacdfe464cefba96f50d13682f"
 PKG_LICENSE="BSD"
 PKG_SITE="https://pypi.org/project/pycryptodome"
 PKG_URL="https://github.com/Legrandin/${PKG_NAME}/archive/v${PKG_VERSION}.tar.gz"
