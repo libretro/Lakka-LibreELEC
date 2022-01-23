@@ -14,7 +14,6 @@ PKG_TOOLCHAIN="manual"
 make_target() {
   . "$(get_build_dir rust)/cargo/env"
   cargo build \
-    ${CARGO_Z_TARGET_APPLIES_TO_HOST} \
     --release \
     --locked \
     --all-features

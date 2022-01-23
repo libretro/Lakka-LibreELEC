@@ -51,8 +51,8 @@ if [ "${HOSTTYPE}" = "${TARGET_ARCH}" ]; then
   # by the cross compiler. Read more here.
   # https://doc.rust-lang.org/cargo/reference/unstable.html#target-applies-to-host
   export __CARGO_TEST_CHANNEL_OVERRIDE_DO_NOT_USE_THIS="nightly"
+  export CARGO_UNSTABLE_TARGET_APPLIES_TO_HOST="true"
   export CARGO_TARGET_APPLIES_TO_HOST="false"
-  export CARGO_Z_TARGET_APPLIES_TO_HOST="-Z target-applies-to-host"
 fi
 export PATH="${CARGO_HOME}/bin:${PATH}"
 export PKG_CONFIG_ALLOW_CROSS="1"
