@@ -32,8 +32,13 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-backlight \
                            --disable-tear-free \
                            --disable-create2 \
                            --disable-async-swap \
-                           --with-default-dri=2 \
                            --with-xorg-module-dir=${XORG_PATH_MODULES}"
+
+if [ "${VULKAN_SUPPORT}" = "yes" ]; then
+  PKG_CONFIGURE_OPTS_TARGET+=" --with-default-dri=3"
+else
+  PKG_CONFIGURE_OPTS_TARGET+=" --with-default-dri=2"
+fi
 
 post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/share/polkit-1
