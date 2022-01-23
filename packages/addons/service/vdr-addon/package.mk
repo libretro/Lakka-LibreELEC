@@ -4,8 +4,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="vdr-addon"
-PKG_VERSION="2.4.8"
-PKG_REV="117"
+PKG_VERSION="2.6.0"
+PKG_REV="118"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://libreelec.tv"
@@ -15,7 +15,7 @@ PKG_DEPENDS_TARGET="toolchain vdr vdr-plugin-ddci2 vdr-plugin-dummydevice vdr-pl
                     vdr-plugin-streamdev vdr-plugin-vnsiserver vdr-plugin-wirbelscan vdr-plugin-wirbelscancontrol vdr-plugin-xmltv2vdr"
 PKG_SECTION="service.multimedia"
 PKG_SHORTDESC="VDR: a TV streaming server for Linux"
-PKG_LONGDESC="VDR (2.4.x) is a TV streaming server for Linux supporting DVB-S/S2, DVB-C, DVB-T/T2, IPTV and SAT>IP"
+PKG_LONGDESC="VDR (2.6.x) is a TV streaming server for Linux supporting DVB-S/S2, DVB-C, DVB-T/T2, IPTV and SAT>IP"
 PKG_TOOLCHAIN="manual"
 
 PKG_IS_ADDON="yes"
