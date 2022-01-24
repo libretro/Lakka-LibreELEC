@@ -53,3 +53,8 @@ pre_make_target() {
   find ${PKG_BUILD} -name flags.make -exec sed -i  "s:isystem :I:g" \{} \;
   find ${PKG_BUILD} -name build.ninja -exec sed -i "s:isystem :I:g" \{} \;
 }
+
+post_makeinstall_target() {
+  # Clean up - two graphic test tools are superflous
+  safe_remove ${INSTALL}/usr/bin/vkcubepp
+}
