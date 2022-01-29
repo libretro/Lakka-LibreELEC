@@ -24,9 +24,13 @@ fi
 PKG_CMAKE_OPTS_TARGET="-DBUILD_NOGUI_FRONTEND=OFF \
                        -DBUILD_QT_FRONTEND=OFF \
                        -DBUILD_LIBRETRO_CORE=ON \
-                       -DENABLE_DISCORD_PRESENCE=OFF \
-                       -DUSE_DRMKMS=ON \
-                       -DUSE_SDL2=OFF"
+                       -DENABLE_DISCORD_PRESENCE=OFF"
+
+if [ "$PROJECT" = "Amlogic" ]; then
+  PKG_CMAKE_OPTS_TARGET+=" -DUSE_FBDEV=ON"
+else
+  PKG_CMAKE_OPTS_TARGET+=" -DUSE_DRMKMS=ON"
+fi
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
