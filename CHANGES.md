@@ -1,6 +1,8 @@
 # v3.7
-* Update RetroArch to 1.9.14
+* Update RetroArch to 1.10.0
 * Update libretro cores to the latest
+* Add [small utility](https://github.com/spleen1981/xbox360-controllers-shutdown) to turn off Xbox360 controllers
+* Fix AML aarch64 cores compilation
 
 # v3.6
 * Update RetroArch to 1.9.13.1
