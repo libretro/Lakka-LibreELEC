@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="pocketcdg"
-PKG_VERSION="bcbd8dc"
+PKG_VERSION="c7b3aad"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
