@@ -18,27 +18,24 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="core-info"
-PKG_VERSION="0ff7a04"
+PKG_NAME="jumpnbump"
+PKG_VERSION="ce257fa"
+PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/libretro/libretro-core-info"
+PKG_LICENSE="GPLv2"
+PKG_SITE="https://github.com/libretro/jumpnbump-libretro"
 PKG_URL="$PKG_SITE.git"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="Info files for libretro cores"
-PKG_LONGDESC="Super repo for other libretro projects. Fetches, builds and installs."
+PKG_SHORTDESC="Port of Jump 'n Bump."
+PKG_LONGDESC="Port of Jump 'n Bump."
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-make_target() {
-  :
-}
-
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp $PKG_BUILD/*.info $INSTALL/usr/lib/libretro/
+  cp jumpnbump_libretro.so $INSTALL/usr/lib/libretro/
 }
 
