@@ -10,12 +10,6 @@ PKG_URL="https://waf.io/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
 PKG_LONGDESC="The Waf build system"
 PKG_TOOLCHAIN="manual"
 
-unpack() {
-  mkdir -p ${PKG_BUILD}
-    cp ${SOURCES}/${PKG_NAME}/${PKG_SOURCE_NAME} ${PKG_BUILD}/waf
-    chmod a+x ${PKG_BUILD}/waf
-}
-
 makeinstall_host() {
-  cp -pf waf ${TOOLCHAIN}/bin/
+  cp -pf ${PKG_BUILD}/waf ${TOOLCHAIN}/bin/
 }
