@@ -14,3 +14,13 @@ PKG_LONGDESC="Wayland is intended as a simpler replacement for X, easier to deve
 if [ -n "${WINDOWMANAGER}" -a "${WINDOWMANAGER}" != "no" ]; then
   PKG_DEPENDS_TARGET+=" ${WINDOWMANAGER}"
 fi
+
+# Tools for wlroots based compositors
+if [  "${WINDOWMANAGER}" = "sway" ]; then
+  PKG_DEPENDS_TARGET+=" wlr-randr"
+fi
+
+# NVIDIA drivers for Linux
+if listcontains "${GRAPHIC_DRIVERS}" "nvidia-ng"; then
+  PKG_DEPENDS_TARGET+=" nvidia"
+fi

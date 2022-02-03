@@ -2,18 +2,27 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libglvnd"
-PKG_VERSION="1.3.4"
-PKG_SHA256="8f4218d7cdaf89d5b7eced818e810ccbc76f4bb9cba36d66eddac5a7ca892bab"
+PKG_VERSION="1.4.0"
+PKG_SHA256="1eb5c2be8d213ad5d31cfb4efbb331d42f3d9f5617c885ce7e89f572ec2bb4b8"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/NVIDIA/libglvnd"
 PKG_URL="https://github.com/NVIDIA/libglvnd/archive/v${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain libX11 libXext xorgproto"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="libglvnd is a vendor-neutral dispatch layer for arbitrating OpenGL API calls between multiple vendors."
 
-if [ "${OPENGLES_SUPPORT}" = "no" ]; then
-  PKG_MESON_OPTS_TARGET="-Dgles1=false \
-                         -Dgles2=false"
-fi
+configure_package() {
+  if [ "${DISPLAYSERVER}" = "x11" ]; then
+    PKG_DEPENDS_TARGET+=" libX11 libXext xorgproto"
+  fi
+}
+
+pre_configure_target(){
+  PKG_MESON_OPTS_TARGET="-Dgles1=false"
+
+  if [ "${OPENGLES_SUPPORT}" = "no" ]; then
+    PKG_MESON_OPTS_TARGET+=" -Dgles2=false"
+  fi
+}
 
 post_makeinstall_target() {
   if [ "${DISPLAYSERVER}" = "x11" ]; then
