@@ -16,6 +16,10 @@ PKG_BUILD_FLAGS="+pic -parallel"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-swtest"
 
+post_configure_target() {
+  libtool_remove_rpath libtool
+}
+
 post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/bin
 }

@@ -21,3 +21,7 @@ pre_configure_target() {
   cd ..
   ./autogen.sh
 }
+
+post_configure_target() {
+  libtool_remove_rpath libtool
+}

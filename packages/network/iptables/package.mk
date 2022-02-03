@@ -12,6 +12,10 @@ PKG_DEPENDS_TARGET="toolchain linux:host libmnl libnftnl"
 PKG_LONGDESC="IP packet filter administration."
 PKG_TOOLCHAIN="autotools"
 
+post_configure_target() {
+  libtool_remove_rpath libtool
+}
+
 post_makeinstall_target() {
   mkdir -p ${INSTALL}/usr/config/iptables/
     cp -PR ${PKG_DIR}/config/README ${INSTALL}/usr/config/iptables/

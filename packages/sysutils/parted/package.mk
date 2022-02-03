@@ -25,6 +25,10 @@ pre_configure_init() {
   : # reuse pre_configure_target()
 }
 
+post_configure_init() {
+  : # reuse post_configure_target()
+}
+
 configure_init() {
   : # reuse configure_target()
 }
@@ -41,4 +45,8 @@ makeinstall_init() {
 
 pre_configure_target() {
   export CFLAGS+=" -I${PKG_BUILD}/lib"
+}
+
+post_configure_target() {
+  libtool_remove_rpath libtool
 }

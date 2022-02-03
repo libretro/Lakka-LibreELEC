@@ -46,6 +46,10 @@ pre_configure_target() {
   export LIBS="-lncurses"
 }
 
+post_configure_target() {
+  libtool_remove_rpath libtool
+}
+
 post_makeinstall_target() {
   safe_remove ${INSTALL}/usr/lib/systemd
   safe_remove ${INSTALL}/usr/bin/bluemoon

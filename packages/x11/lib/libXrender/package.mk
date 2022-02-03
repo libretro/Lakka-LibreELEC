@@ -13,3 +13,7 @@ PKG_LONGDESC="The X Rendering Extension introduces digital image composition wit
 PKG_BUILD_FLAGS="+pic"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --enable-malloc0returnsnull"
+
+post_configure_target() {
+  libtool_remove_rpath libtool
+}

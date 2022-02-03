@@ -13,3 +13,7 @@ PKG_LONGDESC="X Composite Library"
 PKG_BUILD_FLAGS="+pic"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"
+
+post_configure_target() {
+  libtool_remove_rpath libtool
+}

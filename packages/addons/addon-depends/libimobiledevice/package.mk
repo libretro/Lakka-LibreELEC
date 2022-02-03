@@ -16,6 +16,10 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --without-cython \
                            --disable-largefile"
 
+post_configure_target() {
+  libtool_remove_rpath libtool
+}
+
 post_makeinstall_target() {
   mkdir -p "${SYSROOT_PREFIX}/usr/include/lib/libimobiledevice"
     cp ${PKG_BUILD}/common/utils.h "${SYSROOT_PREFIX}/usr/include/libimobiledevice"

@@ -17,6 +17,8 @@ pre_make_target() {
 
   export CFLAGS="${TARGET_CFLAGS}"
   export CPPFLAGS="${TARGET_CPPFLAGS}"
+
+  sed -i 's|^EXLDFLAGS :=.*|EXLDFLAGS :=|' Makefile
 }
 
 pre_makeinstall_target() {

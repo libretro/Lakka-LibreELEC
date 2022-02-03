@@ -15,3 +15,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-shared \
             --disable-libudev \
             --enable-libusb \
             --enable-usbdropdir=/storage/.kodi/addons/service.pcscd/drivers"
+
+post_configure_target() {
+  libtool_remove_rpath libtool
+}

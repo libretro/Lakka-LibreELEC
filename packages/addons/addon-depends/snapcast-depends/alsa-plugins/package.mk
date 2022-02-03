@@ -19,3 +19,7 @@ fi
 PKG_CONFIGURE_OPTS_TARGET="--with-plugindir=/usr/lib/alsa"
 PKG_MAKE_OPTS_TARGET="SUBDIRS=${SUBDIR_PULSEAUDIO}"
 PKG_MAKEINSTALL_OPTS_TARGET="SUBDIRS=${SUBDIR_PULSEAUDIO}"
+
+post_configure_target() {
+  libtool_remove_rpath libtool
+}

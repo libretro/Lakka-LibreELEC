@@ -12,7 +12,12 @@ PKG_LONGDESC="A sophisticated ftp/http client, and a file transfer program suppo
 PKG_BUILD_FLAGS="-sysroot"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-nls \
+                           --disable-rpath \
                            --without-gnutls \
                            --with-openssl \
                            --with-readline=${SYSROOT_PREFIX}/usr \
                            --with-zlib=${SYSROOT_PREFIX}/usr"
+
+post_configure_target() {
+  libtool_remove_rpath libtool
+}

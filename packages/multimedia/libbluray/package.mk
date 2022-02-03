@@ -39,3 +39,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-werror \
                            --with-fontconfig \
                            --with-libxml2 \
                            --with-gnu-ld"
+
+post_configure_target() {
+  libtool_remove_rpath libtool
+}

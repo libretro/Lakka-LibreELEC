@@ -29,6 +29,10 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-unittest \
                            --with-ssl=no \
                            --with-stressjob=no"
 
+post_configure_target() {
+  libtool_remove_rpath libtool
+}
+
 post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/bin/${PKG_NAME}-config
   cp ${PKG_NAME}-config ${TOOLCHAIN}/bin

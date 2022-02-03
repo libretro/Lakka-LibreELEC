@@ -70,6 +70,10 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_lib_rtmp_RTMP_Init=yes \
                            --with-libidn2 \
                            --with-nghttp2"
 
+post_configure_target() {
+  libtool_remove_rpath libtool
+}
+
 post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/share/zsh
 
