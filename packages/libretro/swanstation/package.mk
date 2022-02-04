@@ -3,6 +3,7 @@
 
 PKG_NAME="swanstation"
 PKG_VERSION="bbd7398"
+PKG_GIT_CLONE_BRANCH="main"
 PKG_LICENSE="GPL-3.0-or-later"
 PKG_SITE="https://github.com/libretro/swanstation"
 PKG_URL="$PKG_SITE.git"
