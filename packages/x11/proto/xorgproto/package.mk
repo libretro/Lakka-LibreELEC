@@ -11,4 +11,5 @@ PKG_DEPENDS_TARGET="toolchain util-macros"
 PKG_LONGDESC="combined X.Org X11 Protocol headers"
 PKG_TOOLCHAIN="meson"
 
-PKG_MESON_OPTS_TARGET="-Dlegacy=false"
+PKG_MESON_OPTS_TARGET="-Dlegacy=false \
+                       -Dpkgconfigdatadir=/usr/lib/pkgconfig"
