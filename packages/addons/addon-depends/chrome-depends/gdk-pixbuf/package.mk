@@ -12,10 +12,21 @@ PKG_DEPENDS_TARGET="toolchain glib libjpeg-turbo libpng jasper shared-mime-info 
 PKG_DEPENDS_CONFIG="shared-mime-info"
 PKG_LONGDESC="GdkPixbuf is a a GNOME library for image loading and manipulation."
 
-PKG_MESON_OPTS_TARGET="-Dbuiltin_loaders=all \
-                       -Dgtk_doc=false \
-                       -Ddocs=false \
-                       -Dintrospection=disabled \
-                       -Dman=false \
-                       -Drelocatable=false \
-                       -Dinstalled_tests=false"
+configure_package() {
+  if [ "${DISPLAYSERVER}" = "x11" ]; then
+    PKG_DEPENDS_TARGET+=" libX11"
+  fi
+}
+
+pre_configure_target() {
+  PKG_MESON_OPTS_TARGET="-Dgtk_doc=false \
+                         -Ddocs=false \
+                         -Dintrospection=disabled \
+                         -Dman=false \
+                         -Drelocatable=false \
+                         -Dinstalled_tests=false"
+
+  if [ "${DISPLAYSERVER}" != "x11" ]; then
+    PKG_MESON_OPTS_TARGET+=" -Dbuiltin_loaders=all"
+  fi
+}
