@@ -19,10 +19,10 @@
 ################################################################################
 
 PKG_NAME="tic80"
-PKG_VERSION="974838b"
+PKG_VERSION="a204059"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
-PKG_SITE="https://github.com/nesbox/TIC-80"
+PKG_SITE="https://github.com/libretro/TIC-80"
 PKG_URL="$PKG_SITE.git"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
@@ -30,6 +30,7 @@ PKG_SECTION="libretro"
 PKG_SHORTDESC="TIC-80 is a fantasy computer for making, playing and sharing tiny games."
 PKG_LONGDESC="TIC-80 is a fantasy computer for making, playing and sharing tiny games."
 PKG_TOOLCHAIN="cmake"
+PKG_CMAKE_SCRIPT="$PKG_BUILD/core/CMakeLists.txt"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
