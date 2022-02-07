@@ -2,11 +2,11 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="RPi.GPIO"
-PKG_VERSION="0.7.1a4"
-PKG_SHA256="21f4378d81525979ad3bbd60e88fc3d9fac1879bcb17151e1c665f32658f9362"
+PKG_VERSION="0.7.1"
+PKG_SHA256="cd61c4b03c37b62bba4a5acfea9862749c33c618e0295e7e90aa4713fb373b70"
 PKG_ARCH="arm"
 PKG_LICENSE="MIT"
-PKG_SITE="http://sourceforge.net/p/raspberry-gpio-python/"
+PKG_SITE="https://sourceforge.net/projects/raspberry-gpio-python/"
 PKG_URL="https://files.pythonhosted.org/packages/source/${PKG_NAME:0:1}/${PKG_NAME}/${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain Python3 distutilscross:host"
 PKG_LONGDESC="A module to control Raspberry Pi GPIO channels."
