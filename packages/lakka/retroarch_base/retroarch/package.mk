@@ -314,10 +314,9 @@ makeinstall_target() {
     sed -i -e "s/# menu_pointer_enable = false/menu_pointer_enable = true/" ${INSTALL}/etc/retroarch.cfg
     sed -i -e "s/# video_hard_sync = false/video_hard_sync = true/" ${INSTALL}/etc/retroarch.cfg
     sed -i -e "s/# video_crop_overscan = true/video_crop_overscan = false/" ${INSTALL}/etc/retroarch.cfg
-    sed -i -e "s/# menu_show_online_updater = true/menu_show_online_updater = false/" ${INSTALL}/etc/retroarch.cfg
     sed -i -e "s/# input_joypad_driver =/input_joypad_driver = udev/" ${INSTALL}/etc/retroarch.cfg
     sed -i -e "s/video_threaded = true/video_threaded = false/" ${INSTALL}/etc/retroarch.cfg
-    
+
     #Set Default Joycon index to Combined Joycons.
     sed -i -e "s/# input_player1_joypad_index = 0/input_player1_joypad_index = \"2\"/" ${INSTALL}/etc/retroarch.cfg
 
