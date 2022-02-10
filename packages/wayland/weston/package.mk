@@ -20,7 +20,7 @@ PKG_MESON_OPTS_TARGET="-Dbackend-drm=true \
                        -Ddeprecated-backend-fbdev=false \
                        -Dbackend-default=drm \
                        -Drenderer-gl=true \
-                       -Dweston-launch=false \
+                       -Ddeprecated-weston-launch=false \
                        -Dxwayland=false \
                        -Dsystemd=true \
                        -Dremoting=false \
