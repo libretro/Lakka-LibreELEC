@@ -11,9 +11,5 @@ PKG_URL="https://mesa.freedesktop.org/archive/glu/glu-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain mesa"
 PKG_NEED_UNPACK="$(get_pkg_directory mesa)"
 PKG_LONGDESC="libglu is the The OpenGL utility library"
-PKG_TOOLCHAIN="autotools"
 
-PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
-                           --disable-debug \
-                           --disable-osmesa \
-                           --with-gnu-ld"
+PKG_MESON_OPTS_TARGET="-Dgl_provider=gl"
