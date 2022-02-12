@@ -13,17 +13,20 @@ PKG_DEPENDS_TARGET="toolchain zlib"
 PKG_LONGDESC="The libxml package contains an XML library, which allows you to manipulate XML files."
 
 PKG_CONFIGURE_OPTS_ALL="ac_cv_header_ansidecl_h=no \
-             --enable-static \
-             --enable-shared \
-             --disable-silent-rules \
-             --enable-ipv6 \
-             --without-python \
-             --with-zlib=${TOOLCHAIN} \
-             --without-lzma"
+                        --enable-static \
+                        --enable-shared \
+                        --disable-silent-rules \
+                        --enable-ipv6 \
+                        --without-lzma"
 
-PKG_CONFIGURE_OPTS_HOST="${PKG_CONFIGURE_OPTS_ALL} --with-zlib=${TOOLCHAIN} --with-python"
+PKG_CONFIGURE_OPTS_HOST="${PKG_CONFIGURE_OPTS_ALL} \
+                         --with-zlib=${TOOLCHAIN} \
+                         --with-python"
 
-PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_ALL} --with-zlib=${SYSROOT_PREFIX}/usr --with-sysroot=${SYSROOT_PREFIX}"
+PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_ALL} \
+                           --with-zlib=${SYSROOT_PREFIX}/usr \
+                           --without-python \
+                           --with-sysroot=${SYSROOT_PREFIX}"
 
 post_makeinstall_target() {
   sed -e "s:\(['= ]\)/usr:\\1${SYSROOT_PREFIX}/usr:g" -i ${SYSROOT_PREFIX}/usr/bin/xml2-config
