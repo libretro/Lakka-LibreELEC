@@ -30,12 +30,21 @@ PKG_SECTION="libretro"
 PKG_SHORTDESC="TIC-80 is a fantasy computer for making, playing and sharing tiny games."
 PKG_LONGDESC="TIC-80 is a fantasy computer for making, playing and sharing tiny games."
 PKG_TOOLCHAIN="cmake"
-PKG_CMAKE_SCRIPT="$PKG_BUILD/core/CMakeLists.txt"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CMAKE_OPTS_TARGET="-DBUILD_PLAYER=OFF -DBUILD_SDL=OFF -DBUILD_SOKOL=OFF -DBUILD_DEMO_CARTS=OFF -DBUILD_LIBRETRO=ON -DBUILD_WITH_MRUBY=OFF -DCMAKE_BUILD_TYPE=Release"
+configure_package() {
+  PKG_CMAKE_SCRIPT="$PKG_BUILD/core/CMakeLists.txt"
+
+  PKG_CMAKE_OPTS_TARGET="-DBUILD_PLAYER=OFF \
+                         -DBUILD_SDL=OFF \
+                         -DBUILD_SOKOL=OFF \
+                         -DBUILD_DEMO_CARTS=OFF \
+                         -DBUILD_LIBRETRO=ON \
+                         -DBUILD_WITH_MRUBY=OFF \
+                         -DCMAKE_BUILD_TYPE=Release"
+}
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
