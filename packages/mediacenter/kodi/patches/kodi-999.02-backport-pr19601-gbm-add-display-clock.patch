@@ -1,0 +1,276 @@
+From 9125b447a5ef56a2882ecf8f31bae5a2987ea037 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Tue, 6 Apr 2021 16:58:06 +0100
+Subject: [PATCH 1/2] Revert "windowing/gbm: hide and disable setting Use
+ Display As Clock"
+
+This reverts commit cacf60139cd5aa334b43defc04d15356cb1aa4da.
+---
+ xbmc/windowing/gbm/WinSystemGbm.cpp | 7 -------
+ 1 file changed, 7 deletions(-)
+
+diff --git a/xbmc/windowing/gbm/WinSystemGbm.cpp b/xbmc/windowing/gbm/WinSystemGbm.cpp
+index d86d3775a4..6552993348 100644
+--- a/xbmc/windowing/gbm/WinSystemGbm.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbm.cpp
+@@ -93,13 +93,6 @@ bool CWinSystemGbm::InitWindowSystem()
+   if (setting)
+     setting->SetVisible(true);
+ 
+-  setting = settings->GetSetting(CSettings::SETTING_VIDEOPLAYER_USEDISPLAYASCLOCK);
+-  if (setting)
+-  {
+-    setting->SetVisible(false);
+-    settings->SetBool(CSettings::SETTING_VIDEOPLAYER_USEDISPLAYASCLOCK, false);
+-  }
+-
+   CLog::Log(LOGDEBUG, "CWinSystemGbm::%s - initialized DRM", __FUNCTION__);
+   return CWinSystemBase::InitWindowSystem();
+ }
+-- 
+2.30.2
+
+
+From 300a2c655b90f4e2d8cf15caa77cf181ac46d228 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Wed, 18 Dec 2019 19:57:54 +0000
+Subject: [PATCH 2/2] windowing/gbm: Add display clock
+
+This allows use of "sync video to display"
+and features like resampling for smooth playback
+of 24fps content on 25fps display and manual
+speed adjustments
+---
+ xbmc/windowing/gbm/CMakeLists.txt   |   2 +
+ xbmc/windowing/gbm/VideoSyncGbm.cpp | 123 ++++++++++++++++++++++++++++
+ xbmc/windowing/gbm/VideoSyncGbm.h   |  33 ++++++++
+ xbmc/windowing/gbm/WinSystemGbm.cpp |   6 ++
+ xbmc/windowing/gbm/WinSystemGbm.h   |   2 +
+ 5 files changed, 166 insertions(+)
+ create mode 100644 xbmc/windowing/gbm/VideoSyncGbm.cpp
+ create mode 100644 xbmc/windowing/gbm/VideoSyncGbm.h
+
+diff --git a/xbmc/windowing/gbm/CMakeLists.txt b/xbmc/windowing/gbm/CMakeLists.txt
+index 3b386e8daa..254b2db5b6 100644
+--- a/xbmc/windowing/gbm/CMakeLists.txt
++++ b/xbmc/windowing/gbm/CMakeLists.txt
+@@ -2,12 +2,14 @@ add_subdirectory(drm)
+ 
+ set(SOURCES OptionalsReg.cpp
+             WinSystemGbm.cpp
++            VideoSyncGbm.cpp
+             GBMUtils.cpp
+             WinSystemGbmEGLContext.cpp
+             GBMDPMSSupport.cpp)
+ 
+ set(HEADERS OptionalsReg.h
+             WinSystemGbm.h
++            VideoSyncGbm.h
+             GBMUtils.h
+             WinSystemGbmEGLContext.h
+             GBMDPMSSupport.h)
+diff --git a/xbmc/windowing/gbm/VideoSyncGbm.cpp b/xbmc/windowing/gbm/VideoSyncGbm.cpp
+new file mode 100644
+index 0000000000..5d7bb99cd0
+--- /dev/null
++++ b/xbmc/windowing/gbm/VideoSyncGbm.cpp
+@@ -0,0 +1,123 @@
++/*
++ *  Copyright (C) 2005-2021 Team Kodi
++ *  This file is part of Kodi - https://kodi.tv
++ *
++ *  SPDX-License-Identifier: GPL-2.0-or-later
++ *  See LICENSES/README.md for more information.
++ */
++
++#include "VideoSyncGbm.h"
++
++#include "ServiceBroker.h"
++#include "threads/Thread.h"
++#include "utils/TimeUtils.h"
++#include "utils/log.h"
++#include "windowing/GraphicContext.h"
++#include "windowing/WinSystem.h"
++#include "xbmc/windowing/gbm/WinSystemGbm.h"
++#include "xf86drm.h"
++#include "xf86drmMode.h"
++
++#include <assert.h>
++#include <stdint.h>
++#include <stdlib.h>
++
++bool CVideoSyncGbm::Setup(PUPDATECLOCK func)
++{
++  UpdateClock = func;
++  m_abort = false;
++  CServiceBroker::GetWinSystem()->Register(this);
++  CLog::Log(LOGDEBUG, "CVideoSyncGbm::{} setting up", __FUNCTION__);
++
++  auto winSystem =
++      dynamic_cast<KODI::WINDOWING::GBM::CWinSystemGbm*>(CServiceBroker::GetWinSystem());
++  if (!winSystem)
++  {
++    CLog::Log(LOGWARNING, "CVideoSyncGbm::{}: failed to get winSystem", __FUNCTION__);
++    return false;
++  }
++
++  auto drm = winSystem->GetDrm();
++  if (!drm)
++  {
++    CLog::Log(LOGWARNING, "CVideoSyncGbm::{}: failed to get drm", __FUNCTION__);
++    return false;
++  }
++
++  auto crtc = drm->GetCrtc();
++  if (!crtc)
++  {
++    CLog::Log(LOGWARNING, "CVideoSyncGbm::{}: failed to get crtc", __FUNCTION__);
++    return false;
++  }
++
++  uint64_t ns = 0;
++  m_crtcId = crtc->GetCrtcId();
++  m_fd = drm->GetFileDescriptor();
++  int s = drmCrtcGetSequence(m_fd, m_crtcId, &m_sequence, &ns);
++  m_offset = CurrentHostCounter() - ns;
++  if (s != 0)
++  {
++    CLog::Log(LOGWARNING, "CVideoSyncGbm::{}: drmCrtcGetSequence failed ({})", __FUNCTION__, s);
++    return false;
++  }
++
++  CLog::Log(LOGINFO, "CVideoSyncGbm::{}: opened (fd:{} crtc:{} seq:{} ns:{}:{})", __FUNCTION__,
++            m_fd, m_crtcId, m_sequence, ns, m_offset + ns);
++  return true;
++}
++
++void CVideoSyncGbm::Run(CEvent& stopEvent)
++{
++  /* This shouldn't be very busy and timing is important so increase priority */
++  CThread::GetCurrentThread()->SetPriority(CThread::GetCurrentThread()->GetPriority() + 1);
++
++  if (m_fd < 0)
++  {
++    CLog::Log(LOGWARNING, "CVideoSyncGbm::{}: failed to open device ({})", __FUNCTION__, m_fd);
++    return;
++  }
++  CLog::Log(LOGDEBUG, "CVideoSyncGbm::{}: started {}", __FUNCTION__, m_fd);
++
++  while (!stopEvent.Signaled() && !m_abort)
++  {
++    uint64_t sequence = 0, ns = 0;
++    usleep(1000);
++    int s = drmCrtcGetSequence(m_fd, m_crtcId, &sequence, &ns);
++    if (s != 0)
++    {
++      CLog::Log(LOGWARNING, "CVideoSyncGbm::{}: drmCrtcGetSequence failed ({})", __FUNCTION__, s);
++      break;
++    }
++
++    if (sequence == m_sequence)
++      continue;
++
++    UpdateClock(sequence - m_sequence, m_offset + ns, m_refClock);
++    m_sequence = sequence;
++  }
++}
++
++void CVideoSyncGbm::Cleanup()
++{
++  CLog::Log(LOGDEBUG, "CVideoSyncGbm::{}: cleaning up", __FUNCTION__);
++  CServiceBroker::GetWinSystem()->Unregister(this);
++}
++
++float CVideoSyncGbm::GetFps()
++{
++  m_fps = CServiceBroker::GetWinSystem()->GetGfxContext().GetFPS();
++  CLog::Log(LOGDEBUG, "CVideoSyncGbm::{}: fps:{}", __FUNCTION__, m_fps);
++  return m_fps;
++}
++
++void CVideoSyncGbm::OnResetDisplay()
++{
++  m_abort = true;
++}
++
++void CVideoSyncGbm::RefreshChanged()
++{
++  if (m_fps != CServiceBroker::GetWinSystem()->GetGfxContext().GetFPS())
++    m_abort = true;
++}
+diff --git a/xbmc/windowing/gbm/VideoSyncGbm.h b/xbmc/windowing/gbm/VideoSyncGbm.h
+new file mode 100644
+index 0000000000..bd0718ff1d
+--- /dev/null
++++ b/xbmc/windowing/gbm/VideoSyncGbm.h
+@@ -0,0 +1,33 @@
++/*
++ *  Copyright (C) 2005-2021 Team Kodi
++ *  This file is part of Kodi - https://kodi.tv
++ *
++ *  SPDX-License-Identifier: GPL-2.0-or-later
++ *  See LICENSES/README.md for more information.
++ */
++
++#pragma once
++
++#include "guilib/DispResource.h"
++#include "windowing/VideoSync.h"
++
++class CVideoSyncGbm : public CVideoSync, IDispResource
++{
++public:
++  explicit CVideoSyncGbm(void* clock) : CVideoSync(clock){};
++  CVideoSyncGbm() = delete;
++  ~CVideoSyncGbm() override = default;
++  bool Setup(PUPDATECLOCK func) override;
++  void Run(CEvent& stopEvent) override;
++  void Cleanup() override;
++  float GetFps() override;
++  void OnResetDisplay() override;
++  void RefreshChanged() override;
++
++private:
++  int m_fd = -1;
++  uint32_t m_crtcId = 0;
++  uint64_t m_sequence = 0;
++  uint64_t m_offset = 0;
++  volatile bool m_abort;
++};
+diff --git a/xbmc/windowing/gbm/WinSystemGbm.cpp b/xbmc/windowing/gbm/WinSystemGbm.cpp
+index 6552993348..44e8b27ee1 100644
+--- a/xbmc/windowing/gbm/WinSystemGbm.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbm.cpp
+@@ -11,6 +11,7 @@
+ #include "GBMDPMSSupport.h"
+ #include "OptionalsReg.h"
+ #include "ServiceBroker.h"
++#include "VideoSyncGbm.h"
+ #include "drm/DRMAtomic.h"
+ #include "drm/DRMLegacy.h"
+ #include "drm/OffScreenModeSetting.h"
+@@ -264,3 +265,8 @@ void CWinSystemGbm::OnLostDevice()
+   for (auto resource : m_resources)
+     resource->OnLostDisplay();
+ }
++
++std::unique_ptr<CVideoSync> CWinSystemGbm::GetVideoSync(void* clock)
++{
++  return std::make_unique<CVideoSyncGbm>(clock);
++}
+diff --git a/xbmc/windowing/gbm/WinSystemGbm.h b/xbmc/windowing/gbm/WinSystemGbm.h
+index 6ec6f47cd1..12e3966784 100644
+--- a/xbmc/windowing/gbm/WinSystemGbm.h
++++ b/xbmc/windowing/gbm/WinSystemGbm.h
+@@ -68,6 +68,8 @@ public:
+ protected:
+   void OnLostDevice();
+ 
++  std::unique_ptr<CVideoSync> GetVideoSync(void* clock) override;
++
+   std::shared_ptr<CDRMUtils> m_DRM;
+   std::unique_ptr<CGBMUtils> m_GBM;
+   std::shared_ptr<CVideoLayerBridge> m_videoLayerBridge;
+-- 
+2.30.2
+
