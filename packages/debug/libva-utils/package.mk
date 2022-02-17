@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libva-utils"
-PKG_VERSION="2.13.0"
-PKG_SHA256="128333faa9792a3b87586a80bfb70859dcdd81847ec9a722f785a601a48e1731"
+PKG_VERSION="2.14.0"
+PKG_SHA256="0ad6410aaa27d7b15dadee0f4d775d54d6394b582bf315353a4657b49c78ac31"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/01org/libva-utils"
 PKG_URL="https://github.com/intel/libva-utils/archive/${PKG_VERSION}.tar.gz"
@@ -22,4 +22,3 @@ PKG_MESON_OPTS_TARGET="-Ddrm=true \
                        ${DISPLAYSERVER_LIBVA} \
                        -Dwayland=false \
                        -Dtests=false"
-
