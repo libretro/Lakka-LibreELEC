@@ -161,9 +161,9 @@ pre_make_target() {
 
 make_target() {
   if [ "$DEVICE" = "Switch" ]; then
-    make V=1 HAVE_LAKKA=1 HAVE_LAKKA_SWITCH=1 HAVE_ZARCH=0 HAVE_BLUETOOTH=1 HAVE_FREETYPE=1 $HAVE_LAKKA_NIGHTLY
+    make V=1 HAVE_LAKKA=1 HAVE_LAKKA_SWITCH=1 HAVE_ZARCH=0 HAVE_WIFI=1 HAVE_BLUETOOTH=1 HAVE_FREETYPE=1 $HAVE_LAKKA_NIGHTLY
   else
-    make V=1 HAVE_LAKKA=1 HAVE_ZARCH=0 HAVE_BLUETOOTH=1 HAVE_FREETYPE=1 $HAVE_LAKKA_NIGHTLY
+    make V=1 HAVE_LAKKA=1 HAVE_ZARCH=0 HAVE_WIFI=1 HAVE_BLUETOOTH=1 HAVE_FREETYPE=1 $HAVE_LAKKA_NIGHTLY
   fi
   make -C gfx/video_filters compiler=$CC extra_flags="$CFLAGS"
   make -C libretro-common/audio/dsp_filters compiler=$CC extra_flags="$CFLAGS"
