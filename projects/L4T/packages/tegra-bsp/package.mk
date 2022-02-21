@@ -13,6 +13,9 @@ if [  "${VULKAN}" = "" -o "${VULKAN}" = "no" ]; then
 else
   PKG_DEPENDS_TARGET+=" vulkan-loader"
 fi
+if [  "${PULSEAUDIO_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" alsa-plugins pulseaudio"
+fi
 
 PKG_SITE="https://developer.nvidia.com/EMBEDDED/linux-tegra%20/"
 
@@ -362,7 +365,24 @@ make_target() {
   ln -sfn tegra21x gm20b
   cd ../../../
   cd etc
-  ln -sfn asound.conf.tegrasndt210ref asound.conf
+
+  if [ ! "${PULSEAUDIO_SUPPORT}" = "yes" ]; then
+    ln -sfn asound.conf.tegrasndt210ref asound.conf
+  else
+    cat << EOF >> asound.conf
+# This file is referred to from files in /usr/share/alsa/alsa.conf.d/ in order
+# to set up the pulse device as the default if required.
+
+pcm.!default {
+        type pulse
+}
+
+ctl.!default {
+        type pulse
+}
+EOF
+  fi
+
   if [ ! "${VULKAN}" = "" -a ! "${VULKAN}" = "no" ]; then
     cd vulkan/icd.d
     rm nvidia_icd.json

@@ -220,12 +220,9 @@ makeinstall_target() {
   sed -i -e "s/# video_fullscreen = false/video_fullscreen = true/" ${INSTALL}/etc/retroarch.cfg
 
   # Audio
-  if [ ! "${DEVICE}" = "Switch" ]; then
-    sed -i -e "s/# audio_driver =/audio_driver = \"alsathread\"/" ${INSTALL}/etc/retroarch.cfg
-  else
-    sed -i -e "s/# audio_driver =/audio_driver = \"pulse\"/" ${INSTALL}/etc/retroarch.cfg
-  fi
+  sed -i -e "s/# audio_driver =/audio_driver = \"alsathread\"/" ${INSTALL}/etc/retroarch.cfg
   sed -i -e "s/# audio_filter_dir =/audio_filter_dir =\/usr\/share\/audio_filters/" ${INSTALL}/etc/retroarch.cfg
+
  if [ "${PROJECT}" = "OdroidXU3" ]; then # workaround the 55fps bug
     sed -i -e "s/# audio_out_rate = 48000/audio_out_rate = 44100/" ${INSTALL}/etc/retroarch.cfg
   fi
@@ -317,10 +314,9 @@ makeinstall_target() {
     sed -i -e "s/# menu_pointer_enable = false/menu_pointer_enable = true/" ${INSTALL}/etc/retroarch.cfg
     sed -i -e "s/# video_hard_sync = false/video_hard_sync = true/" ${INSTALL}/etc/retroarch.cfg
     sed -i -e "s/# video_crop_overscan = true/video_crop_overscan = false/" ${INSTALL}/etc/retroarch.cfg
-    sed -i -e "s/# menu_show_online_updater = true/menu_show_online_updater = false/" ${INSTALL}/etc/retroarch.cfg
     sed -i -e "s/# input_joypad_driver =/input_joypad_driver = udev/" ${INSTALL}/etc/retroarch.cfg
-    sed -i -e "s/video_threaded = true/video_threaded = false/" ${INSTALL}/etc/retroarch.cfg
-    
+    sed -i -e "s/video_smooth = false/video_smooth = true/" ${INSTALL}/etc/retroarch.cfg
+
     #Set Default Joycon index to Combined Joycons.
     sed -i -e "s/# input_player1_joypad_index = 0/input_player1_joypad_index = \"2\"/" ${INSTALL}/etc/retroarch.cfg
 
