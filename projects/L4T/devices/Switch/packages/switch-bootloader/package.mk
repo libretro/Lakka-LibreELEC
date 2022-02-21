@@ -59,6 +59,21 @@ makeinstall_target() {
   cp -PRv ${PKG_DIR}/assets/${HEKATE_SPLASH} ${INSTALL}/usr/share/bootloader/boot/splash.bmp
   if [ "${DISTRO}" = "Lakka" ]; then
     cp -PRv ${PKG_DIR}/assets/${DISTRO_ICON}  ${INSTALL}/usr/share/bootloader/boot/
+    DISTRO_FOLDER_NAME="lakka"
+  elif [ "${DISTRO}" = "LibreELEC" ]; then
+    DISTRO_FOLDER_NAME="libreelec"
   fi
+cat << EOF >> ${INSTALL}/usr/share/bootloader/update.sh
+#/bin/sh
+[ -z "\$BOOT_ROOT" ] && BOOT_ROOT="/flash"
+[ -z "\$SYSTEM_ROOT" ] && SYSTEM_ROOT=""
+cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/tegra210-icosa.dtb \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/
+cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/boot.scr \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/
+cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/coreboot.rom \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/
+cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/uenv.txt \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/
+EOF
+
+chmod +x ${INSTALL}/usr/share/bootloader/update.sh
+
 }
 
