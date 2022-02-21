@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="citra"
-PKG_VERSION="0a837db"
+PKG_VERSION="b1959d0"
 PKG_REV="1"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPLv2+"
@@ -37,13 +37,12 @@ PKG_AUTORECONF="no"
 PKG_CMAKE_OPTS_TARGET="-DENABLE_LIBRETRO=1 \
                        -DENABLE_SDL2=0 \
                        -DENABLE_QT=0 \
-                       -DCMAKE_BUILD_TYPE=\"Release\" \
+                       -DCMAKE_BUILD_TYPE=Release \
                        -DBOOST_ROOT=$(get_build_dir boost) \
                        -DUSE_SYSTEM_CURL=1 \
                        -DTHREADS_PTHREAD_ARG=OFF \
                        -DCMAKE_NO_SYSTEM_FROM_IMPORTED=1 \
-                       -DCMAKE_VERBOSE_MAKEFILE=1 \
-                       --target citra_libretro"
+                       -DCMAKE_VERBOSE_MAKEFILE=1"
 
 pre_configure_target() {
   CXXFLAGS="$CXXFLAGS -fpermissive"
