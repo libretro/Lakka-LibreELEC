@@ -44,8 +44,8 @@ case "$LINUX" in
     PKG_URL="https://github.com/hardkernel/linux/archive/$PKG_VERSION.tar.gz"
     ;;
   mainline-5.10)
-    PKG_VERSION="5.10.78"
-    PKG_SHA256="be806c98e222ea581530727a8e83b0b96fcd678afd12944eb530e58776a6050f"
+    PKG_VERSION="5.10.101"
+    PKG_SHA256="0749258cb7ee47c478dfc34857e8930d41bfe0b074e80e9f57cbfa56d0ba1c8e"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v5.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     PKG_PATCH_DIRS="default joycon dualsense"
     ;;
