@@ -66,7 +66,7 @@ if [ "${DISPLAYSERVER}" != "no" ]; then
 fi
 
 if [ "${DISPLAYSERVER}" = "x11" ]; then
-  PKG_DEPENDS_TARGET+=" libXxf86vm"
+  PKG_DEPENDS_TARGET+=" libXxf86vm libXv"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-x11"
 else
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-x11"
