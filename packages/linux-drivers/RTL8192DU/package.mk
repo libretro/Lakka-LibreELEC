@@ -3,12 +3,12 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="RTL8192DU"
-PKG_VERSION="6e6d6fc16b21d5ff200ec1122dd009c8c01ab61d"
-PKG_SHA256="c91f4907adebe5f9474b8477334230d0dadd3feb376ca6f44b5a74ffac02605f"
+PKG_VERSION="eb09a4e6e96a5a033afe60c71022bfa42eea148a"
+PKG_SHA256="e78c4fc28a66c1f15154a26c93bee9696965fe81a3246a751c2b4d1fa10e3454"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/lwfinger/rtl8192du"
 PKG_URL="https://github.com/lwfinger/rtl8192du/archive/${PKG_VERSION}.tar.gz"
-PKG_LONGDESC="Realtek RTL8192DU Linux 3.x driver"
+PKG_LONGDESC="Realtek RTL8192DU Linux driver"
 PKG_IS_KERNEL_PKG="yes"
 
 pre_make_target() {
