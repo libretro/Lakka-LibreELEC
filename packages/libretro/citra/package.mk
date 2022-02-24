@@ -20,7 +20,7 @@
 
 PKG_NAME="citra"
 PKG_VERSION="50b8e1e"
-PKG_ARCH="aarch64 x86_64"
+PKG_ARCH="x86_64"
 PKG_LICENSE="GPLv2+"
 PKG_SITE="https://github.com/libretro/citra"
 PKG_URL="$PKG_SITE.git"
