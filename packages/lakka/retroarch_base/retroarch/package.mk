@@ -134,6 +134,8 @@ pre_make_target() {
     CFLAGS+=" -I${SYSROOT_PREFIX}/usr/include/interface/vcos/pthreads \
               -I${SYSROOT_PREFIX}/usr/include/interface/vmcs_host/linux"
   fi
+  CFLAGS=${CFLAGS/"-Os"/"-O2"}
+  CFLAGS=${CFLAGS/"-O3"/"-O2"}
 }
 
 make_target() {
