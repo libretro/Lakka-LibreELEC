@@ -29,6 +29,10 @@ if [ "${DEVICE:0:4}" = "RPi4" -a "${ARCH}" = "aarch64" ]; then
   PKG_MAKE_OPTS_TARGET+=" platform=rpi4_64"
 fi
 
+if [ "${PROJECT}" = "L4T" -a "${L4T_DEVICE_TYPE}" = "t210" ]; then
+  PKG_MAKE_OPTS_TARGET+=" platform=tegra210"
+fi
+
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
     cp -v ${PKG_BUILD}/melonds_libretro.so ${INSTALL}/usr/lib/libretro/
