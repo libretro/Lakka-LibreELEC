@@ -19,42 +19,49 @@
 ################################################################################
 
 PKG_NAME="citra"
-PKG_VERSION="b1959d0"
-PKG_REV="1"
-PKG_ARCH="x86_64"
+PKG_VERSION="50b8e1e"
+PKG_ARCH="aarch64 x86_64"
 PKG_LICENSE="GPLv2+"
 PKG_SITE="https://github.com/libretro/citra"
 PKG_URL="$PKG_SITE.git"
-PKG_DEPENDS_TARGET="toolchain boost curl"
+PKG_DEPENDS_TARGET="toolchain ffmpeg"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="A Nintendo 3DS Emulator"
 PKG_LONGDESC="A Nintendo 3DS Emulator"
+PKG_TOOLCHAIN="make"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CMAKE_OPTS_TARGET="-DENABLE_LIBRETRO=1 \
-                       -DENABLE_SDL2=0 \
-                       -DENABLE_QT=0 \
-                       -DCMAKE_BUILD_TYPE=Release \
-                       -DBOOST_ROOT=$(get_build_dir boost) \
-                       -DUSE_SYSTEM_CURL=1 \
-                       -DTHREADS_PTHREAD_ARG=OFF \
-                       -DCMAKE_NO_SYSTEM_FROM_IMPORTED=1 \
-                       -DCMAKE_VERBOSE_MAKEFILE=1"
+PKG_MAKE_OPTS_TARGET="\
+                      HAVE_FFMPEG_STATIC=1 \
+                      FFMPEG_DISABLE_VDPAU=1 \
+                      HAVE_FFMPEG_CROSSCOMPILE=1"
 
-pre_configure_target() {
-  CXXFLAGS="$CXXFLAGS -fpermissive"
-}
+if [ "$OPENGL_SUPPORT" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGL"
+fi
+
+if [ "$OPENGLES_SUPPORT" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGLES"
+fi
 
 pre_make_target() {
-  find $PKG_BUILD -name flags.make -exec sed -i "s:isystem :I:g" \{} \;
-  find $PKG_BUILD -name build.ninja -exec sed -i "s:isystem :I:g" \{} \;
+  cd $PKG_BUILD
+  PKG_MAKE_OPTS_TARGET+="\
+                         FFMPEG_XC_CPU=$TARGET_CPU \
+                         FFMPEG_XC_ARCH=$TARGET_ARCH \
+                         FFMPEG_XC_PREFIX=$TARGET_PREFIX \
+                         FFMPEG_XC_SYSROOT=$SYSROOT_PREFIX \
+                         FFMPEG_XC_NM=$NM \
+                         FFMPEG_XC_AR=$AR \
+                         FFMPEG_XC_AS=$CC \
+                         FFMPEG_XC_CC=$CC \
+                         FFMPEG_XC_LD=$CC"
 }
-
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp src/citra_libretro/citra_libretro.so $INSTALL/usr/lib/libretro/
+  cp citra_libretro.so $INSTALL/usr/lib/libretro/
 }
