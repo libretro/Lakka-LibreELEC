@@ -1,3 +1,299 @@
+From f52a0ed16c1a3610bb41bfabf31701544f362e29 Mon Sep 17 00:00:00 2001
+From: Mateusz Kwiatkowski <kfyatek+publicgit@gmail.com>
+Date: Thu, 15 Jul 2021 01:08:08 +0200
+Subject: [PATCH] drm/vc4: Relax VEC modeline requirements and add progressive
+ mode support
+
+Make vc4_vec_encoder_atomic_check() accept arbitrary modelines, as long
+as they result in somewhat sane output from the VEC. The bounds have
+been determined empirically. Additionally, add support for the
+progressive 262-line and 312-line modes.
+
+Signed-off-by: Mateusz Kwiatkowski <kfyatek+publicgit@gmail.com>
+---
+ drivers/gpu/drm/vc4/vc4_crtc.c |  1 +
+ drivers/gpu/drm/vc4/vc4_vec.c  | 77 +++++++++++++++++++++++++++++++---
+ 2 files changed, 73 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/vc4/vc4_crtc.c b/drivers/gpu/drm/vc4/vc4_crtc.c
+index 59e10c37b740c..4c380a7b487ca 100644
+--- a/drivers/gpu/drm/vc4/vc4_crtc.c
++++ b/drivers/gpu/drm/vc4/vc4_crtc.c
+@@ -391,6 +391,7 @@ static void vc4_crtc_config_pv(struct drm_crtc *crtc, struct drm_encoder *encode
+ 		CRTC_WRITE(PV_V_CONTROL,
+ 			   PV_VCONTROL_CONTINUOUS |
+ 			   (is_dsi ? PV_VCONTROL_DSI : 0));
++		CRTC_WRITE(PV_VSYNCD_EVEN, 0);
+ 	}
+ 
+ 	CRTC_WRITE(PV_VERTA,
+diff --git a/drivers/gpu/drm/vc4/vc4_vec.c b/drivers/gpu/drm/vc4/vc4_vec.c
+index 596b59ff6c9ad..452fab08b8b1c 100644
+--- a/drivers/gpu/drm/vc4/vc4_vec.c
++++ b/drivers/gpu/drm/vc4/vc4_vec.c
+@@ -429,15 +429,79 @@ static int vc4_vec_connector_atomic_check(struct drm_connector *conn,
+ 	struct drm_connector_state *new_state =
+ 		drm_atomic_get_new_connector_state(state, conn);
+ 
+-	const struct vc4_vec_tv_mode *vec_mode =
+-		&vc4_vec_tv_modes[new_state->tv.mode];
+-
+ 	if (new_state->crtc) {
+ 		struct drm_crtc_state *crtc_state =
+ 			drm_atomic_get_new_crtc_state(state, new_state->crtc);
+ 
+-		if (!drm_mode_equal(vec_mode->mode, &crtc_state->mode))
++		if (crtc_state->mode.htotal !=
++			    vc4_vec_tv_modes[new_state->tv.mode].mode->htotal ||
++		    crtc_state->mode.hdisplay % 4 != 0 ||
++		    crtc_state->mode.hsync_end -
++			    crtc_state->mode.hsync_start < 1)
++			return -EINVAL;
++
++		switch (crtc_state->mode.htotal) {
++		case 858:
++			/* 525-line mode */
++			if (crtc_state->mode.crtc_vdisplay < 1 ||
++			    crtc_state->mode.crtc_vdisplay > 253 ||
++			    crtc_state->mode.crtc_vsync_start -
++				    crtc_state->mode.crtc_vdisplay < 1 ||
++			    crtc_state->mode.crtc_vsync_end -
++				    crtc_state->mode.crtc_vsync_start != 3 ||
++			    crtc_state->mode.crtc_vtotal -
++				    crtc_state->mode.crtc_vsync_end < 4 ||
++			    crtc_state->mode.crtc_vtotal > 262)
++				return -EINVAL;
++
++			if ((crtc_state->mode.flags &
++			     DRM_MODE_FLAG_INTERLACE) &&
++			    (crtc_state->mode.vdisplay % 2 != 0 ||
++			     crtc_state->mode.vsync_start % 2 != 1 ||
++			     crtc_state->mode.vsync_end % 2 != 1 ||
++			     crtc_state->mode.vtotal % 2 != 1))
++				return -EINVAL;
++
++			/* progressive mode is hard-wired to 262 total lines */
++			if (!(crtc_state->mode.flags &
++			      DRM_MODE_FLAG_INTERLACE) &&
++			    crtc_state->mode.vtotal != 262)
++				return -EINVAL;
++
++			break;
++
++		case 864:
++			/* 625-line mode */
++			if (crtc_state->mode.crtc_vdisplay < 1 ||
++			    crtc_state->mode.crtc_vdisplay > 305 ||
++			    crtc_state->mode.crtc_vsync_start -
++				    crtc_state->mode.crtc_vdisplay < 1 ||
++			    crtc_state->mode.crtc_vsync_end -
++				    crtc_state->mode.crtc_vsync_start != 3 ||
++			    crtc_state->mode.crtc_vtotal -
++				    crtc_state->mode.crtc_vsync_end < 2 ||
++			    crtc_state->mode.crtc_vtotal > 312)
++				return -EINVAL;
++
++			if ((crtc_state->mode.flags &
++			     DRM_MODE_FLAG_INTERLACE) &&
++			    (crtc_state->mode.vdisplay % 2 != 0 ||
++			     crtc_state->mode.vsync_start % 2 != 0 ||
++			     crtc_state->mode.vsync_end % 2 != 0 ||
++			     crtc_state->mode.vtotal % 2 != 1))
++				return -EINVAL;
++
++			/* progressive mode is hard-wired to 312 total lines */
++			if (!(crtc_state->mode.flags &
++			      DRM_MODE_FLAG_INTERLACE) &&
++			    crtc_state->mode.vtotal != 312)
++				return -EINVAL;
++
++			break;
++
++		default:
+ 			return -EINVAL;
++		}
+ 
+ 		if (old_state->tv.mode != new_state->tv.mode)
+ 			crtc_state->mode_changed = true;
+@@ -565,7 +629,10 @@ static void vc4_vec_encoder_enable(struct drm_encoder *encoder)
+ 	VEC_WRITE(VEC_CLMP0_START, 0xac);
+ 	VEC_WRITE(VEC_CLMP0_END, 0xec);
+ 	VEC_WRITE(VEC_CONFIG2,
+-		  VEC_CONFIG2_UV_DIG_DIS | VEC_CONFIG2_RGB_DIG_DIS);
++		  VEC_CONFIG2_UV_DIG_DIS |
++		  VEC_CONFIG2_RGB_DIG_DIS |
++		  ((encoder->crtc->state->adjusted_mode.flags &
++		    DRM_MODE_FLAG_INTERLACE) ? 0 : VEC_CONFIG2_PROG_SCAN));
+ 	VEC_WRITE(VEC_CONFIG3, VEC_CONFIG3_HORIZ_LEN_STD);
+ 	VEC_WRITE(VEC_DAC_CONFIG, vec->variant->dac_config);
+ 
+From 63c81945fc7db243c809b9d06874511790416fa2 Mon Sep 17 00:00:00 2001
+From: Mateusz Kwiatkowski <kfyatek+publicgit@gmail.com>
+Date: Thu, 15 Jul 2021 01:08:11 +0200
+Subject: [PATCH] drm/vc4: Make VEC progressive modes readily accessible
+
+Add predefined modelines for the 240p (NTSC) and 288p (PAL) progressive
+modes, and report them through vc4_vec_connector_get_modes().
+
+Signed-off-by: Mateusz Kwiatkowski <kfyatek+publicgit@gmail.com>
+---
+ drivers/gpu/drm/vc4/vc4_vec.c | 73 ++++++++++++++++++++++++++---------
+ 1 file changed, 55 insertions(+), 18 deletions(-)
+
+diff --git a/drivers/gpu/drm/vc4/vc4_vec.c b/drivers/gpu/drm/vc4/vc4_vec.c
+index 452fab08b8b1c..1764f0b43ea92 100644
+--- a/drivers/gpu/drm/vc4/vc4_vec.c
++++ b/drivers/gpu/drm/vc4/vc4_vec.c
+@@ -251,7 +251,8 @@ enum vc4_vec_tv_mode_id {
+ };
+ 
+ struct vc4_vec_tv_mode {
+-	const struct drm_display_mode *mode;
++	const struct drm_display_mode *interlaced_mode;
++	const struct drm_display_mode *progressive_mode;
+ 	u32 config0;
+ 	u32 config1;
+ 	u32 custom_freq;
+@@ -285,61 +286,81 @@ static const struct debugfs_reg32 vec_regs[] = {
+ };
+ 
+ static const struct drm_display_mode drm_mode_480i = {
+-	DRM_MODE("720x480", DRM_MODE_TYPE_DRIVER, 13500,
++	DRM_MODE("720x480i", DRM_MODE_TYPE_DRIVER, 13500,
+ 		 720, 720 + 14, 720 + 14 + 64, 720 + 14 + 64 + 60, 0,
+ 		 480, 480 + 7, 480 + 7 + 6, 525, 0,
+ 		 DRM_MODE_FLAG_INTERLACE)
+ };
+ 
++static const struct drm_display_mode drm_mode_240p = {
++	DRM_MODE("720x240", DRM_MODE_TYPE_DRIVER, 13500,
++		 720, 720 + 14, 720 + 14 + 64, 720 + 14 + 64 + 60, 0,
++		 240, 240 + 3, 240 + 3 + 3, 262, 0, 0)
++};
++
+ static const struct drm_display_mode drm_mode_576i = {
+-	DRM_MODE("720x576", DRM_MODE_TYPE_DRIVER, 13500,
++	DRM_MODE("720x576i", DRM_MODE_TYPE_DRIVER, 13500,
+ 		 720, 720 + 20, 720 + 20 + 64, 720 + 20 + 64 + 60, 0,
+ 		 576, 576 + 4, 576 + 4 + 6, 625, 0,
+ 		 DRM_MODE_FLAG_INTERLACE)
+ };
+ 
++static const struct drm_display_mode drm_mode_288p = {
++	DRM_MODE("720x288", DRM_MODE_TYPE_DRIVER, 13500,
++		 720, 720 + 20, 720 + 20 + 64, 720 + 20 + 64 + 60, 0,
++		 288, 288 + 2, 288 + 2 + 3, 312, 0, 0)
++};
++
+ static const struct vc4_vec_tv_mode vc4_vec_tv_modes[] = {
+ 	[VC4_VEC_TV_MODE_NTSC] = {
+-		.mode = &drm_mode_480i,
++		.interlaced_mode = &drm_mode_480i,
++		.progressive_mode = &drm_mode_240p,
+ 		.config0 = VEC_CONFIG0_NTSC_STD | VEC_CONFIG0_PDEN,
+ 		.config1 = VEC_CONFIG1_C_CVBS_CVBS,
+ 	},
+ 	[VC4_VEC_TV_MODE_NTSC_J] = {
+-		.mode = &drm_mode_480i,
++		.interlaced_mode = &drm_mode_480i,
++		.progressive_mode = &drm_mode_240p,
+ 		.config0 = VEC_CONFIG0_NTSC_STD,
+ 		.config1 = VEC_CONFIG1_C_CVBS_CVBS,
+ 	},
+ 	[VC4_VEC_TV_MODE_NTSC_443] = {
+ 		/* NTSC with PAL chroma frequency */
+-		.mode = &drm_mode_480i,
++		.interlaced_mode = &drm_mode_480i,
++		.progressive_mode = &drm_mode_240p,
+ 		.config0 = VEC_CONFIG0_NTSC_STD,
+ 		.config1 = VEC_CONFIG1_C_CVBS_CVBS | VEC_CONFIG1_CUSTOM_FREQ,
+ 		.custom_freq = 0x2a098acb,
+ 	},
+ 	[VC4_VEC_TV_MODE_PAL] = {
+-		.mode = &drm_mode_576i,
++		.interlaced_mode = &drm_mode_576i,
++		.progressive_mode = &drm_mode_288p,
+ 		.config0 = VEC_CONFIG0_PAL_BDGHI_STD,
+ 		.config1 = VEC_CONFIG1_C_CVBS_CVBS,
+ 	},
+ 	[VC4_VEC_TV_MODE_PAL_M] = {
+-		.mode = &drm_mode_480i,
++		.interlaced_mode = &drm_mode_480i,
++		.progressive_mode = &drm_mode_240p,
+ 		.config0 = VEC_CONFIG0_PAL_M_STD,
+ 		.config1 = VEC_CONFIG1_C_CVBS_CVBS,
+ 	},
+ 	[VC4_VEC_TV_MODE_PAL_N] = {
+-		.mode = &drm_mode_576i,
++		.interlaced_mode = &drm_mode_576i,
++		.progressive_mode = &drm_mode_288p,
+ 		.config0 = VEC_CONFIG0_PAL_N_STD,
+ 		.config1 = VEC_CONFIG1_C_CVBS_CVBS,
+ 	},
+ 	[VC4_VEC_TV_MODE_PAL60] = {
+ 		/* PAL-M with chroma frequency of regular PAL */
+-		.mode = &drm_mode_480i,
++		.interlaced_mode = &drm_mode_480i,
++		.progressive_mode = &drm_mode_240p,
+ 		.config0 = VEC_CONFIG0_PAL_M_STD,
+ 		.config1 = VEC_CONFIG1_C_CVBS_CVBS | VEC_CONFIG1_CUSTOM_FREQ,
+ 		.custom_freq = 0x2a098acb,
+ 	},
+ 	[VC4_VEC_TV_MODE_SECAM] = {
+-		.mode = &drm_mode_576i,
++		.interlaced_mode = &drm_mode_576i,
++		.progressive_mode = &drm_mode_288p,
+ 		.config0 = VEC_CONFIG0_SECAM_STD,
+ 		.config1 = VEC_CONFIG1_C_CVBS_CVBS,
+ 		.custom_freq = 0x29c71c72,
+@@ -399,16 +420,32 @@ static void vc4_vec_connector_destroy(struct drm_connector *connector)
+ static int vc4_vec_connector_get_modes(struct drm_connector *connector)
+ {
+ 	struct drm_connector_state *state = connector->state;
+-	struct drm_display_mode *mode;
+-
+-	mode = drm_mode_duplicate(connector->dev,
+-				  vc4_vec_tv_modes[state->tv.mode].mode);
+-	if (!mode) {
++	struct drm_display_mode *interlaced_mode, *progressive_mode;
++
++	interlaced_mode =
++		drm_mode_duplicate(connector->dev,
++				   vc4_vec_tv_modes[state->tv.mode].interlaced_mode);
++	progressive_mode =
++		drm_mode_duplicate(connector->dev,
++				   vc4_vec_tv_modes[state->tv.mode].progressive_mode);
++	if (!interlaced_mode || !progressive_mode) {
+ 		DRM_ERROR("Failed to create a new display mode\n");
++		drm_mode_destroy(connector->dev, interlaced_mode);
++		drm_mode_destroy(connector->dev, progressive_mode);
+ 		return -ENOMEM;
+ 	}
+ 
+-	drm_mode_probed_add(connector, mode);
++	if (connector->cmdline_mode.specified &&
++	    connector->cmdline_mode.refresh_specified &&
++	    !connector->cmdline_mode.interlace)
++		/* progressive mode set at boot, let's make it preferred */
++		progressive_mode->type |= DRM_MODE_TYPE_PREFERRED;
++	else
++		/* otherwise, interlaced mode is preferred */
++		interlaced_mode->type |= DRM_MODE_TYPE_PREFERRED;
++
++	drm_mode_probed_add(connector, interlaced_mode);
++	drm_mode_probed_add(connector, progressive_mode);
+ 
+ 	return 1;
+ }
+@@ -434,7 +471,7 @@ static int vc4_vec_connector_atomic_check(struct drm_connector *conn,
+ 			drm_atomic_get_new_crtc_state(state, new_state->crtc);
+ 
+ 		if (crtc_state->mode.htotal !=
+-			    vc4_vec_tv_modes[new_state->tv.mode].mode->htotal ||
++			    vc4_vec_tv_modes[new_state->tv.mode].interlaced_mode->htotal ||
+ 		    crtc_state->mode.hdisplay % 4 != 0 ||
+ 		    crtc_state->mode.hsync_end -
+ 			    crtc_state->mode.hsync_start < 1)
 From c9840e0bc29991a06cbf0fe4817e9af73fd3d4c6 Mon Sep 17 00:00:00 2001
 From: Mateusz Kwiatkowski <kfyatek+publicgit@gmail.com>
 Date: Thu, 15 Jul 2021 01:08:21 +0200
@@ -380,3 +676,290 @@ index ab2203f611b2a..2685ee37e47e8 100644
  
  	return 1;
  }
+@@ -462,82 +494,11 @@ static int vc4_vec_connector_atomic_check(struct drm_connector *conn,
+ 	struct drm_connector_state *new_state =
+ 		drm_atomic_get_new_connector_state(state, conn);
+ 
+-	if (new_state->crtc) {
++	if (new_state->crtc && old_state->tv.mode != new_state->tv.mode) {
+ 		struct drm_crtc_state *crtc_state =
+ 			drm_atomic_get_new_crtc_state(state, new_state->crtc);
+ 
+-		if (crtc_state->mode.htotal !=
+-			    vc4_vec_tv_modes[new_state->tv.mode].interlaced_mode->htotal ||
+-		    crtc_state->mode.hdisplay % 4 != 0 ||
+-		    crtc_state->mode.hsync_end -
+-			    crtc_state->mode.hsync_start < 1)
+-			return -EINVAL;
+-
+-		switch (crtc_state->mode.htotal) {
+-		case 858:
+-			/* 525-line mode */
+-			if (crtc_state->mode.crtc_vdisplay < 1 ||
+-			    crtc_state->mode.crtc_vdisplay > 253 ||
+-			    crtc_state->mode.crtc_vsync_start -
+-				    crtc_state->mode.crtc_vdisplay < 1 ||
+-			    crtc_state->mode.crtc_vsync_end -
+-				    crtc_state->mode.crtc_vsync_start != 3 ||
+-			    crtc_state->mode.crtc_vtotal -
+-				    crtc_state->mode.crtc_vsync_end < 4 ||
+-			    crtc_state->mode.crtc_vtotal > 262)
+-				return -EINVAL;
+-
+-			if ((crtc_state->mode.flags &
+-			     DRM_MODE_FLAG_INTERLACE) &&
+-			    (crtc_state->mode.vdisplay % 2 != 0 ||
+-			     crtc_state->mode.vsync_start % 2 != 1 ||
+-			     crtc_state->mode.vsync_end % 2 != 1 ||
+-			     crtc_state->mode.vtotal % 2 != 1))
+-				return -EINVAL;
+-
+-			/* progressive mode is hard-wired to 262 total lines */
+-			if (!(crtc_state->mode.flags &
+-			      DRM_MODE_FLAG_INTERLACE) &&
+-			    crtc_state->mode.vtotal != 262)
+-				return -EINVAL;
+-
+-			break;
+-
+-		case 864:
+-			/* 625-line mode */
+-			if (crtc_state->mode.crtc_vdisplay < 1 ||
+-			    crtc_state->mode.crtc_vdisplay > 305 ||
+-			    crtc_state->mode.crtc_vsync_start -
+-				    crtc_state->mode.crtc_vdisplay < 1 ||
+-			    crtc_state->mode.crtc_vsync_end -
+-				    crtc_state->mode.crtc_vsync_start != 3 ||
+-			    crtc_state->mode.crtc_vtotal -
+-				    crtc_state->mode.crtc_vsync_end < 2 ||
+-			    crtc_state->mode.crtc_vtotal > 312)
+-				return -EINVAL;
+-
+-			if ((crtc_state->mode.flags &
+-			     DRM_MODE_FLAG_INTERLACE) &&
+-			    (crtc_state->mode.vdisplay % 2 != 0 ||
+-			     crtc_state->mode.vsync_start % 2 != 0 ||
+-			     crtc_state->mode.vsync_end % 2 != 0 ||
+-			     crtc_state->mode.vtotal % 2 != 1))
+-				return -EINVAL;
+-
+-			/* progressive mode is hard-wired to 312 total lines */
+-			if (!(crtc_state->mode.flags &
+-			      DRM_MODE_FLAG_INTERLACE) &&
+-			    crtc_state->mode.vtotal != 312)
+-				return -EINVAL;
+-
+-			break;
+-
+-		default:
+-			return -EINVAL;
+-		}
+-
+-		if (old_state->tv.mode != new_state->tv.mode)
+-			crtc_state->mode_changed = true;
++		crtc_state->mode_changed = true;
+ 	}
+ 
+ 	return 0;
+@@ -633,7 +594,7 @@ static void vc4_vec_encoder_enable(struct drm_encoder *encoder)
+ 	 * The good news is, these 2 encoders cannot be enabled at the same
+ 	 * time, thus preventing incompatible rate requests.
+ 	 */
+-	ret = clk_set_rate(vec->clock, 8000 * adjusted_mode->clock);
++	ret = clk_set_rate(vec->clock, 8000 * adjusted_mode->crtc_clock);
+ 	if (ret) {
+ 		DRM_ERROR("Failed to set clock rate: %d\n", ret);
+ 		return;
+@@ -701,17 +662,108 @@ static void vc4_vec_encoder_enable(struct drm_encoder *encoder)
+ }
+ 
+ 
+-static bool vc4_vec_encoder_mode_fixup(struct drm_encoder *encoder,
+-				       const struct drm_display_mode *mode,
+-				       struct drm_display_mode *adjusted_mode)
++static int vc4_vec_encoder_atomic_check(struct drm_encoder *encoder,
++					struct drm_crtc_state *crtc_state,
++					struct drm_connector_state *conn_state)
+ {
+-	return true;
++	if (!(crtc_state->adjusted_mode.flags & DRM_MODE_FLAG_INTERLACE) &&
++	    crtc_state->adjusted_mode.vtotal > 312) {
++		/* vertically scaled progressive mode */
++		if (crtc_state->adjusted_mode.crtc_vdisplay % 2 != 0 ||
++		    crtc_state->adjusted_mode.crtc_vsync_start % 2 != 0 ||
++		    crtc_state->adjusted_mode.crtc_vsync_end % 2 != 0 ||
++		    crtc_state->adjusted_mode.crtc_vtotal % 2 != 0)
++			return -EINVAL;
++
++		crtc_state->adjusted_mode.clock /= 2;
++		crtc_state->adjusted_mode.crtc_clock /= 2;
++		crtc_state->adjusted_mode.vdisplay /= 2;
++		crtc_state->adjusted_mode.crtc_vdisplay /= 2;
++		crtc_state->adjusted_mode.vsync_start /= 2;
++		crtc_state->adjusted_mode.crtc_vsync_start /= 2;
++		crtc_state->adjusted_mode.vsync_end /= 2;
++		crtc_state->adjusted_mode.crtc_vsync_end /= 2;
++		crtc_state->adjusted_mode.vtotal /= 2;
++		crtc_state->adjusted_mode.crtc_vtotal /= 2;
++	}
++
++	if (crtc_state->adjusted_mode.crtc_htotal !=
++		    vc4_vec_tv_modes[conn_state->tv.mode].interlaced_mode->htotal ||
++	    crtc_state->adjusted_mode.crtc_hdisplay % 4 != 0 ||
++	    crtc_state->adjusted_mode.crtc_hsync_end -
++		    crtc_state->adjusted_mode.crtc_hsync_start < 1)
++		return -EINVAL;
++
++	switch (crtc_state->adjusted_mode.crtc_htotal) {
++	case 858:
++		/* 525-line mode */
++		if (crtc_state->adjusted_mode.crtc_vdisplay < 1 ||
++		    crtc_state->adjusted_mode.crtc_vdisplay > 253 ||
++		    crtc_state->adjusted_mode.crtc_vsync_start -
++			    crtc_state->adjusted_mode.crtc_vdisplay < 1 ||
++		    crtc_state->adjusted_mode.crtc_vsync_end -
++			    crtc_state->adjusted_mode.crtc_vsync_start != 3 ||
++		    crtc_state->adjusted_mode.crtc_vtotal -
++			    crtc_state->adjusted_mode.crtc_vsync_end < 4 ||
++		    crtc_state->adjusted_mode.crtc_vtotal > 262)
++			return -EINVAL;
++
++		if ((crtc_state->adjusted_mode.flags &
++		     DRM_MODE_FLAG_INTERLACE) &&
++		    (crtc_state->adjusted_mode.vdisplay % 2 != 0 ||
++		     crtc_state->adjusted_mode.vsync_start % 2 != 1 ||
++		     crtc_state->adjusted_mode.vsync_end % 2 != 1 ||
++		     crtc_state->adjusted_mode.vtotal % 2 != 1))
++			return -EINVAL;
++
++		/* progressive mode is hard-wired to 262 total lines */
++		if (!(crtc_state->adjusted_mode.flags &
++		      DRM_MODE_FLAG_INTERLACE) &&
++		    crtc_state->adjusted_mode.crtc_vtotal != 262)
++			return -EINVAL;
++
++		break;
++
++	case 864:
++		/* 625-line mode */
++		if (crtc_state->adjusted_mode.crtc_vdisplay < 1 ||
++		    crtc_state->adjusted_mode.crtc_vdisplay > 305 ||
++		    crtc_state->adjusted_mode.crtc_vsync_start -
++			    crtc_state->adjusted_mode.crtc_vdisplay < 1 ||
++		    crtc_state->adjusted_mode.crtc_vsync_end -
++			    crtc_state->adjusted_mode.crtc_vsync_start != 3 ||
++		    crtc_state->adjusted_mode.crtc_vtotal -
++			    crtc_state->adjusted_mode.crtc_vsync_end < 2 ||
++		    crtc_state->adjusted_mode.crtc_vtotal > 312)
++			return -EINVAL;
++
++		if ((crtc_state->adjusted_mode.flags &
++		     DRM_MODE_FLAG_INTERLACE) &&
++		    (crtc_state->adjusted_mode.vdisplay % 2 != 0 ||
++		     crtc_state->adjusted_mode.vsync_start % 2 != 0 ||
++		     crtc_state->adjusted_mode.vsync_end % 2 != 0 ||
++		     crtc_state->adjusted_mode.vtotal % 2 != 1))
++			return -EINVAL;
++
++		/* progressive mode is hard-wired to 312 total lines */
++		if (!(crtc_state->adjusted_mode.flags &
++		      DRM_MODE_FLAG_INTERLACE) &&
++		    crtc_state->adjusted_mode.crtc_vtotal != 312)
++			return -EINVAL;
++
++		break;
++
++	default:
++		return -EINVAL;
++	}
++
++	return 0;
+ }
+ 
+ static const struct drm_encoder_helper_funcs vc4_vec_encoder_helper_funcs = {
+ 	.disable = vc4_vec_encoder_disable,
+ 	.enable = vc4_vec_encoder_enable,
+-	.mode_fixup = vc4_vec_encoder_mode_fixup,
++	.atomic_check = vc4_vec_encoder_atomic_check,
+ };
+ 
+ static const struct vc4_vec_variant bcm2835_vec_variant = {
+From 2e515424ddf96ff0037a0181f8696a6a9dcb93c6 Mon Sep 17 00:00:00 2001
+From: Mateusz Kwiatkowski <kfyatek+publicgit@gmail.com>
+Date: Tue, 12 Oct 2021 00:30:02 +0200
+Subject: [PATCH] drm/vc4: Add support for horizontally caled VEC modes
+
+Composite output uses non-square pixels. By allowing horizontally scaled
+modes, we can simulate a different pixel clock and thus make it possible
+to simulate square pixels at either 4:3 or 16:9 target aspect ratio.
+
+Signed-off-by: Mateusz Kwiatkowski <kfyatek+publicgit@gmail.com>
+---
+ drivers/gpu/drm/vc4/vc4_vec.c | 45 +++++++++++++++++++++++++++--------
+ 1 file changed, 35 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/gpu/drm/vc4/vc4_vec.c b/drivers/gpu/drm/vc4/vc4_vec.c
+index 2685ee37e47e8..95bea536b6659 100644
+--- a/drivers/gpu/drm/vc4/vc4_vec.c
++++ b/drivers/gpu/drm/vc4/vc4_vec.c
+@@ -687,16 +687,42 @@ static int vc4_vec_encoder_atomic_check(struct drm_encoder *encoder,
+ 		crtc_state->adjusted_mode.crtc_vtotal /= 2;
+ 	}
+ 
+-	if (crtc_state->adjusted_mode.crtc_htotal !=
+-		    vc4_vec_tv_modes[conn_state->tv.mode].interlaced_mode->htotal ||
+-	    crtc_state->adjusted_mode.crtc_hdisplay % 4 != 0 ||
+-	    crtc_state->adjusted_mode.crtc_hsync_end -
+-		    crtc_state->adjusted_mode.crtc_hsync_start < 1)
++	if (crtc_state->adjusted_mode.hdisplay % 4 != 0 ||
++	    crtc_state->adjusted_mode.hsync_end -
++		    crtc_state->adjusted_mode.hsync_start < 1)
+ 		return -EINVAL;
+ 
+-	switch (crtc_state->adjusted_mode.crtc_htotal) {
+-	case 858:
+-		/* 525-line mode */
++	crtc_state->adjusted_mode.htotal =
++		vc4_vec_tv_modes[conn_state->tv.mode].interlaced_mode->htotal;
++	crtc_state->adjusted_mode.hdisplay =
++		DIV_ROUND_CLOSEST(crtc_state->adjusted_mode.hdisplay *
++				  crtc_state->adjusted_mode.htotal,
++				  crtc_state->mode.htotal);
++	crtc_state->adjusted_mode.hsync_start =
++		DIV_ROUND_CLOSEST(crtc_state->adjusted_mode.hsync_start *
++				  crtc_state->adjusted_mode.htotal,
++				  crtc_state->mode.htotal);
++	crtc_state->adjusted_mode.hsync_end =
++		DIV_ROUND_CLOSEST(crtc_state->adjusted_mode.hsync_end *
++				  crtc_state->adjusted_mode.htotal,
++				  crtc_state->mode.htotal);
++	crtc_state->adjusted_mode.clock =
++		DIV_ROUND_CLOSEST(crtc_state->adjusted_mode.clock *
++				  crtc_state->adjusted_mode.htotal,
++				  crtc_state->mode.htotal);
++	if (crtc_state->adjusted_mode.hsync_end -
++	    crtc_state->adjusted_mode.hsync_start < 1)
++		crtc_state->adjusted_mode.hsync_end =
++			crtc_state->adjusted_mode.hsync_start + 1;
++
++	crtc_state->adjusted_mode.crtc_clock = crtc_state->adjusted_mode.clock;
++	crtc_state->adjusted_mode.crtc_hdisplay = crtc_state->adjusted_mode.hdisplay;
++	crtc_state->adjusted_mode.crtc_hsync_start = crtc_state->adjusted_mode.hsync_start;
++	crtc_state->adjusted_mode.crtc_hsync_end = crtc_state->adjusted_mode.hsync_end;
++	crtc_state->adjusted_mode.crtc_htotal = crtc_state->adjusted_mode.htotal;
++
++	switch (vc4_vec_tv_modes[conn_state->tv.mode].interlaced_mode->vtotal) {
++	case 525:
+ 		if (crtc_state->adjusted_mode.crtc_vdisplay < 1 ||
+ 		    crtc_state->adjusted_mode.crtc_vdisplay > 253 ||
+ 		    crtc_state->adjusted_mode.crtc_vsync_start -
+@@ -724,8 +750,7 @@ static int vc4_vec_encoder_atomic_check(struct drm_encoder *encoder,
+ 
+ 		break;
+ 
+-	case 864:
+-		/* 625-line mode */
++	case 625:
+ 		if (crtc_state->adjusted_mode.crtc_vdisplay < 1 ||
+ 		    crtc_state->adjusted_mode.crtc_vdisplay > 305 ||
+ 		    crtc_state->adjusted_mode.crtc_vsync_start -
