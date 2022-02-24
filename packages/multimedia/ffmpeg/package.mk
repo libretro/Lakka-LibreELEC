@@ -10,6 +10,9 @@ PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://ffmpeg.org"
 PKG_URL="https://github.com/xbmc/FFmpeg/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain zlib bzip2 openssl speex"
+if [ "$DISTRO" = "Lakka" ]; then
+  PKG_DEPENDS_TARGET+=" libx264 lame rtmpdump"
+fi
 PKG_LONGDESC="FFmpeg is a complete, cross-platform solution to record, convert and stream audio and video."
 PKG_BUILD_FLAGS="-gold"
 
@@ -102,26 +105,7 @@ pre_configure_target() {
 }
 
 configure_target() {
-  ./configure --prefix="/usr" \
-              --cpu="$TARGET_CPU" \
-              --arch="$TARGET_ARCH" \
-              --enable-cross-compile \
-              --cross-prefix="$TARGET_PREFIX" \
-              --sysroot="$SYSROOT_PREFIX" \
-              --sysinclude="$SYSROOT_PREFIX/usr/include" \
-              --target-os="linux" \
-              --nm="$NM" \
-              --ar="$AR" \
-              --as="$CC" \
-              --cc="$CC" \
-              --ld="$CC" \
-              --host-cc="$HOST_CC" \
-              --host-cflags="$HOST_CFLAGS" \
-              --host-ldflags="$HOST_LDFLAGS" \
-              --extra-cflags="$CFLAGS" \
-              --extra-ldflags="$LDFLAGS" \
-              --extra-libs="$PKG_FFMPEG_LIBS" \
-              --disable-static \
+  CONFIG_OPTIONS_STANDARD_FFMPEG=" --disable-static \
               --enable-shared \
               --enable-gpl \
               --disable-version3 \
@@ -208,7 +192,48 @@ configure_target() {
               --disable-altivec \
               $PKG_FFMPEG_FPU \
               --disable-symver \
-              $PKG_FFMPEG_NVMPI
+              $PKG_FFMPEG_NVMPI"
+
+if [  "$DISTRO" = "Lakka" ]; then
+    CONFIG_OPTIONS_STANDARD_FFMPEG=${CONFIG_OPTIONS_STANDARD_FFMPEG/"--disable-encoders "/"--enable-encoders "}
+    CONFIG_OPTIONS_STANDARD_FFMPEG=${CONFIG_OPTIONS_STANDARD_FFMPEG/"--enable-encoder=ac3 "/""}
+    CONFIG_OPTIONS_STANDARD_FFMPEG=${CONFIG_OPTIONS_STANDARD_FFMPEG/"--enable-encoder=aac "/""}
+    CONFIG_OPTIONS_STANDARD_FFMPEG=${CONFIG_OPTIONS_STANDARD_FFMPEG/"--enable-encoder=wmav2 "/""}
+    CONFIG_OPTIONS_STANDARD_FFMPEG=${CONFIG_OPTIONS_STANDARD_FFMPEG/"--enable-encoder=mjpeg "/""}
+    CONFIG_OPTIONS_STANDARD_FFMPEG=${CONFIG_OPTIONS_STANDARD_FFMPEG/"--enable-encoder=png "/""}
+    CONFIG_OPTIONS_STANDARD_FFMPEG=${CONFIG_OPTIONS_STANDARD_FFMPEG/"--disable-muxers "/"--enable-muxers "}
+    CONFIG_OPTIONS_STANDARD_FFMPEG=${CONFIG_OPTIONS_STANDARD_FFMPEG/"--enable-muxer=spdif "/""}
+    CONFIG_OPTIONS_STANDARD_FFMPEG=${CONFIG_OPTIONS_STANDARD_FFMPEG/"--enable-muxer=adts "/""}
+    CONFIG_OPTIONS_STANDARD_FFMPEG=${CONFIG_OPTIONS_STANDARD_FFMPEG/"--enable-muxer=asf "/""}
+    CONFIG_OPTIONS_STANDARD_FFMPEG=${CONFIG_OPTIONS_STANDARD_FFMPEG/"--enable-muxer=ipod "/""}
+    CONFIG_OPTIONS_STANDARD_FFMPEG=${CONFIG_OPTIONS_STANDARD_FFMPEG/"--enable-muxer=mpegts "/""}
+    CONFIG_OPTIONS_STANDARD_FFMPEG=${CONFIG_OPTIONS_STANDARD_FFMPEG/"--disable-libmp3lame "/"--enable-libmp3lame "}
+    CONFIG_OPTIONS_STANDARD_FFMPEG=${CONFIG_OPTIONS_STANDARD_FFMPEG/"--disable-librtmp  "/"--enable-librtmp "}
+    CONFIG_OPTIONS_STANDARD_FFMPEG=${CONFIG_OPTIONS_STANDARD_FFMPEG/"--disable-libx264 "/"--enable-libx264 "}
+  fi
+
+
+./configure --prefix="/usr" \
+              --cpu="$TARGET_CPU" \
+              --arch="$TARGET_ARCH" \
+              --enable-cross-compile \
+              --cross-prefix="$TARGET_PREFIX" \
+              --sysroot="$SYSROOT_PREFIX" \
+              --sysinclude="$SYSROOT_PREFIX/usr/include" \
+              --target-os="linux" \
+              --nm="$NM" \
+              --ar="$AR" \
+              --as="$CC" \
+              --cc="$CC" \
+              --ld="$CC" \
+              --host-cc="$HOST_CC" \
+              --host-cflags="$HOST_CFLAGS" \
+              --host-ldflags="$HOST_LDFLAGS" \
+              --extra-cflags="$CFLAGS" \
+              --extra-ldflags="$LDFLAGS" \
+              --extra-libs="$PKG_FFMPEG_LIBS" \
+              --pkg-config="$TOOLCHAIN/bin/pkg-config" \
+              $CONFIG_OPTION_STANDARD_FFMPEG
 }
 
 post_makeinstall_target() {
