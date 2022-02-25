@@ -1,5 +1,5 @@
 PKG_NAME="lutro"
-PKG_VERSION="777515abb012e4c37ecdd4222ce08bdf5e76e5bc"
+PKG_VERSION="72abe90c7277b2ba156b84d812e6905a216dead7"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/libretro/libretro-lutro"
 PKG_URL="${PKG_SITE}.git"

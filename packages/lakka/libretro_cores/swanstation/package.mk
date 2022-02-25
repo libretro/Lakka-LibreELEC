@@ -1,5 +1,5 @@
 PKG_NAME="swanstation"
-PKG_VERSION="b6f76ff0bfa91dd22db9ff88c269c22234cb8872"
+PKG_VERSION="7b15d79eb4ead9306259988affea7c0f5fe7f9a4"
 PKG_LICENSE="GPL-3.0-or-later"
 PKG_SITE="https://github.com/libretro/swanstation"
 PKG_URL="${PKG_SITE}.git"
@@ -22,9 +22,13 @@ fi
 PKG_CMAKE_OPTS_TARGET="-DBUILD_NOGUI_FRONTEND=OFF \
                        -DBUILD_QT_FRONTEND=OFF \
                        -DBUILD_LIBRETRO_CORE=ON \
-                       -DENABLE_DISCORD_PRESENCE=OFF \
-                       -DUSE_DRMKMS=ON \
-                       -DUSE_SDL2=OFF"
+                       -DENABLE_DISCORD_PRESENCE=OFF"
+
+if [ "${PROJECT}" = "Amlogic" ]; then
+  PKG_CMAKE_OPTS_TARGET+=" -DUSE_FBDEV=ON"
+else
+  PKG_CMAKE_OPTS_TARGET+=" -DUSE_DRMKMS=ON"
+fi
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro

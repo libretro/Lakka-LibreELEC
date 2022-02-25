@@ -1,5 +1,5 @@
 PKG_NAME="kronos"
-PKG_VERSION="146f4295eb7f5f76a2e6e6c84518c9bdf6a8398f"
+PKG_VERSION="a387dec04313a7491415e4e150e5613f4a4a3e6c"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/yabause"
 PKG_URL="${PKG_SITE}.git"
@@ -16,6 +16,7 @@ fi
 
 if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
+  PKG_MAKE_OPTS_TARGET+=" FORCE_GLES=1"
 fi
 
 if [ "${VULKAN_SUPPORT}" = "yes" ]; then

@@ -23,7 +23,11 @@ if [ "${VULKAN_SUPPORT}" = "yes" ]; then
 fi
 
 if [ "${ARCH}" = "aarch64" ]; then
-  PKG_MAKE_OPTS_TARGET+=" platform=arm64"
+  if [ "${PROJECT}" = "Amlogic" ]; then
+    PKG_MAKE_OPTS_TARGET+=" platform=arm64_cortex_a53_gles3"
+  else
+    PKG_MAKE_OPTS_TARGET+=" platform=arm64"
+  fi
 elif [ "${ARCH}" = "arm" ]; then
   PKG_MAKE_OPTS_TARGET+=" platform=unix-armv"
 fi

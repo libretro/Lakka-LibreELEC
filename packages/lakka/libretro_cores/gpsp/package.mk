@@ -1,5 +1,5 @@
 PKG_NAME="gpsp"
-PKG_VERSION="c2c57a6cf07233a9458ffd9a64e3fe8fcb070599"
+PKG_VERSION="e554360dd3ed283696fc607877024a219248b735"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/gpsp"
 PKG_URL="${PKG_SITE}.git"
@@ -12,8 +12,8 @@ pre_make_target() {
   if [ "${ARCH}" = "arm" ]; then
     PKG_MAKE_OPTS_TARGET+=" platform=armv"
   elif [ "${ARCH}" = "aarch64" ]; then
-    PKG_MAKE_OPTS_TARGET+=" HAVE_DYNAREC=0"
-  fi  
+    PKG_MAKE_OPTS_TARGET+=" platform=arm64"
+  fi
 }
 
 makeinstall_target() {

@@ -1,5 +1,5 @@
 PKG_NAME="retroarch"
-PKG_VERSION="b9c77a48c982865597b2282123da42c29c127648"
+PKG_VERSION="b71be7efd2126ad94759726d8e54724482cffde2"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
 PKG_URL="${PKG_SITE}.git"
@@ -22,6 +22,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
 PKG_MAKE_OPTS_TARGET="V=1 \
                       HAVE_LAKKA=1 \
                       HAVE_HAVE_ZARCH=0 \
+                      HAVE_WIFI=1 \
                       HAVE_BLUETOOTH=1 \
                       HAVE_FREETYPE=1"
 

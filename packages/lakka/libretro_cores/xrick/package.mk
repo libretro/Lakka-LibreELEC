@@ -1,5 +1,5 @@
 PKG_NAME="xrick"
-PKG_VERSION="f91e4c8a45d5eacf0a733af219fed33d6e7277ee"
+PKG_VERSION="bc23039872e9844a3b9238ebb01fa736a0d48929"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/xrick-libretro"
 PKG_URL="${PKG_SITE}.git"
