@@ -46347,7 +46347,7 @@ index 0000000000..85c5b46d75
 +};
 +
 diff --git a/libavcodec/v4l2_buffers.c b/libavcodec/v4l2_buffers.c
-index 02f23d954b..6c02417dc4 100644
+index 02f23d954b..6ee6ad8642 100644
 --- a/libavcodec/v4l2_buffers.c
 +++ b/libavcodec/v4l2_buffers.c
 @@ -21,6 +21,7 @@
@@ -47032,11 +47032,13 @@ index 02f23d954b..6c02417dc4 100644
      return 0;
  }
  
-@@ -411,7 +681,14 @@ static int v4l2_buffer_swframe_to_buf(const AVFrame *frame, V4L2Buffer *out)
+@@ -411,7 +681,16 @@ static int v4l2_buffer_swframe_to_buf(const AVFrame *frame, V4L2Buffer *out)
  
  int ff_v4l2_buffer_avframe_to_buf(const AVFrame *frame, V4L2Buffer *out)
  {
-+    out->buf.flags = frame->key_frame ? (out->buf.flags & ~V4L2_BUF_FLAG_KEYFRAME) : (out->buf.flags | V4L2_BUF_FLAG_KEYFRAME);
++    out->buf.flags = frame->key_frame ?
++        (out->buf.flags | V4L2_BUF_FLAG_KEYFRAME) :
++        (out->buf.flags & ~V4L2_BUF_FLAG_KEYFRAME);
 +    // Beware that colour info is held in format rather than the actual
 +    // v4l2 buffer struct so this may not be as useful as you might hope
 +    v4l2_set_color(out, frame->color_primaries, frame->colorspace, frame->color_trc);
@@ -47047,7 +47049,7 @@ index 02f23d954b..6c02417dc4 100644
  
      return v4l2_buffer_swframe_to_buf(frame, out);
  }
-@@ -419,6 +696,7 @@ int ff_v4l2_buffer_avframe_to_buf(const AVFrame *frame, V4L2Buffer *out)
+@@ -419,6 +698,7 @@ int ff_v4l2_buffer_avframe_to_buf(const AVFrame *frame, V4L2Buffer *out)
  int ff_v4l2_buffer_buf_to_avframe(AVFrame *frame, V4L2Buffer *avbuf)
  {
      int ret;
@@ -47055,7 +47057,17 @@ index 02f23d954b..6c02417dc4 100644
  
      av_frame_unref(frame);
  
-@@ -435,11 +713,22 @@ int ff_v4l2_buffer_buf_to_avframe(AVFrame *frame, V4L2Buffer *avbuf)
+@@ -429,17 +709,32 @@ int ff_v4l2_buffer_buf_to_avframe(AVFrame *frame, V4L2Buffer *avbuf)
+ 
+     /* 2. get frame information */
+     frame->key_frame = !!(avbuf->buf.flags & V4L2_BUF_FLAG_KEYFRAME);
++    frame->pict_type = frame->key_frame ? AV_PICTURE_TYPE_I :
++        (avbuf->buf.flags & V4L2_BUF_FLAG_PFRAME) != 0 ? AV_PICTURE_TYPE_P :
++        (avbuf->buf.flags & V4L2_BUF_FLAG_BFRAME) != 0 ? AV_PICTURE_TYPE_B :
++            AV_PICTURE_TYPE_NONE;
+     frame->color_primaries = v4l2_get_color_primaries(avbuf);
+     frame->colorspace = v4l2_get_color_space(avbuf);
+     frame->color_range = v4l2_get_color_range(avbuf);
      frame->color_trc = v4l2_get_color_trc(avbuf);
      frame->pts = v4l2_get_pts(avbuf);
      frame->pkt_dts = AV_NOPTS_VALUE;
@@ -47081,13 +47093,12 @@ index 02f23d954b..6c02417dc4 100644
  
      /* 3. report errors upstream */
      if (avbuf->buf.flags & V4L2_BUF_FLAG_ERROR) {
-@@ -452,15 +741,16 @@ int ff_v4l2_buffer_buf_to_avframe(AVFrame *frame, V4L2Buffer *avbuf)
+@@ -452,15 +747,14 @@ int ff_v4l2_buffer_buf_to_avframe(AVFrame *frame, V4L2Buffer *avbuf)
  
  int ff_v4l2_buffer_buf_to_avpkt(AVPacket *pkt, V4L2Buffer *avbuf)
  {
 -    int ret;
-+    av_log(logger(avbuf), AV_LOG_INFO, "%s\n", __func__);
- 
+-
      av_packet_unref(pkt);
 -    ret = v4l2_buf_to_bufref(avbuf, 0, &pkt->buf);
 -    if (ret)
@@ -47103,7 +47114,7 @@ index 02f23d954b..6c02417dc4 100644
  
      if (avbuf->buf.flags & V4L2_BUF_FLAG_KEYFRAME)
          pkt->flags |= AV_PKT_FLAG_KEY;
-@@ -475,12 +765,19 @@ int ff_v4l2_buffer_buf_to_avpkt(AVPacket *pkt, V4L2Buffer *avbuf)
+@@ -475,31 +769,85 @@ int ff_v4l2_buffer_buf_to_avpkt(AVPacket *pkt, V4L2Buffer *avbuf)
      return 0;
  }
  
@@ -47126,9 +47137,12 @@ index 02f23d954b..6c02417dc4 100644
          return ret;
  
      v4l2_set_pts(out, pkt->pts);
-@@ -488,18 +785,64 @@ int ff_v4l2_buffer_avpkt_to_buf(const AVPacket *pkt, V4L2Buffer *out)
-     if (pkt->flags & AV_PKT_FLAG_KEY)
-         out->flags = V4L2_BUF_FLAG_KEYFRAME;
+ 
+-    if (pkt->flags & AV_PKT_FLAG_KEY)
+-        out->flags = V4L2_BUF_FLAG_KEYFRAME;
++    out->buf.flags = (pkt->flags & AV_PKT_FLAG_KEY) != 0 ?
++        (out->buf.flags | V4L2_BUF_FLAG_KEYFRAME) :
++        (out->buf.flags & ~V4L2_BUF_FLAG_KEYFRAME);
  
 -    return 0;
 +    return ret;
@@ -47173,13 +47187,13 @@ index 02f23d954b..6c02417dc4 100644
 +    *pbufref = NULL;
 +    if (avbuf == NULL)
 +        return AVERROR(ENOMEM);
- 
++
 +    bufref = av_buffer_create((uint8_t*)avbuf, sizeof(*avbuf), v4l2_buffer_buffer_free, NULL, 0);
 +    if (bufref == NULL) {
 +        av_free(avbuf);
 +        return AVERROR(ENOMEM);
 +    }
-+
+ 
 +    avbuf->context = ctx;
      avbuf->buf.memory = V4L2_MEMORY_MMAP;
      avbuf->buf.type = ctx->type;
@@ -47194,7 +47208,7 @@ index 02f23d954b..6c02417dc4 100644
      if (V4L2_TYPE_IS_MULTIPLANAR(ctx->type)) {
          avbuf->buf.length = VIDEO_MAX_PLANES;
          avbuf->buf.m.planes = avbuf->planes;
-@@ -507,7 +850,7 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
+@@ -507,7 +855,7 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
  
      ret = ioctl(buf_to_m2mctx(avbuf)->fd, VIDIOC_QUERYBUF, &avbuf->buf);
      if (ret < 0)
@@ -47203,7 +47217,7 @@ index 02f23d954b..6c02417dc4 100644
  
      if (V4L2_TYPE_IS_MULTIPLANAR(ctx->type)) {
          avbuf->num_planes = 0;
-@@ -527,25 +870,33 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
+@@ -527,25 +875,33 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
  
          if (V4L2_TYPE_IS_MULTIPLANAR(ctx->type)) {
              avbuf->plane_info[i].length = avbuf->buf.m.planes[i].length;
@@ -47248,7 +47262,7 @@ index 02f23d954b..6c02417dc4 100644
      if (V4L2_TYPE_IS_MULTIPLANAR(ctx->type)) {
          avbuf->buf.m.planes = avbuf->planes;
          avbuf->buf.length   = avbuf->num_planes;
-@@ -555,18 +906,49 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
+@@ -555,18 +911,47 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
          avbuf->buf.length    = avbuf->planes[0].length;
      }
  
@@ -47274,15 +47288,14 @@ index 02f23d954b..6c02417dc4 100644
      int ret;
 +    int qc;
  
-     avbuf->buf.flags = avbuf->flags;
- 
+-    avbuf->buf.flags = avbuf->flags;
 +    if (avbuf->buf.timestamp.tv_sec || avbuf->buf.timestamp.tv_usec) {
 +        av_log(logger(avbuf), AV_LOG_DEBUG, "--- %s pre VIDIOC_QBUF: index %d, ts=%ld.%06ld count=%d\n",
 +               avbuf->context->name, avbuf->buf.index,
 +               avbuf->buf.timestamp.tv_sec, avbuf->buf.timestamp.tv_usec,
 +               avbuf->context->q_count);
 +    }
-+
+ 
      ret = ioctl(buf_to_m2mctx(avbuf)->fd, VIDIOC_QBUF, &avbuf->buf);
 -    if (ret < 0)
 -        return AVERROR(errno);
@@ -47302,7 +47315,7 @@ index 02f23d954b..6c02417dc4 100644
      avbuf->status = V4L2BUF_IN_DRIVER;
  
 diff --git a/libavcodec/v4l2_buffers.h b/libavcodec/v4l2_buffers.h
-index 8dbc7fc104..52fab26c6d 100644
+index 8dbc7fc104..7d5fadcd3d 100644
 --- a/libavcodec/v4l2_buffers.h
 +++ b/libavcodec/v4l2_buffers.h
 @@ -27,25 +27,34 @@
@@ -47345,7 +47358,15 @@ index 8dbc7fc104..52fab26c6d 100644
  
      /* keep track of the mmap address and mmap length */
      struct V4L2Plane_info {
-@@ -98,6 +107,9 @@ int ff_v4l2_buffer_buf_to_avpkt(AVPacket *pkt, V4L2Buffer *buf);
+@@ -60,7 +69,6 @@ typedef struct V4L2Buffer {
+     struct v4l2_buffer buf;
+     struct v4l2_plane planes[VIDEO_MAX_PLANES];
+ 
+-    int flags;
+     enum V4L2Buffer_status status;
+ 
+ } V4L2Buffer;
+@@ -98,6 +106,9 @@ int ff_v4l2_buffer_buf_to_avpkt(AVPacket *pkt, V4L2Buffer *buf);
   */
  int ff_v4l2_buffer_avpkt_to_buf(const AVPacket *pkt, V4L2Buffer *out);
  
@@ -47355,7 +47376,7 @@ index 8dbc7fc104..52fab26c6d 100644
  /**
   * Extracts the data from an AVFrame to a V4L2Buffer
   *
-@@ -116,7 +128,7 @@ int ff_v4l2_buffer_avframe_to_buf(const AVFrame *frame, V4L2Buffer *out);
+@@ -116,7 +127,7 @@ int ff_v4l2_buffer_avframe_to_buf(const AVFrame *frame, V4L2Buffer *out);
   *
   * @returns 0 in case of success, a negative AVERROR code otherwise
   */
@@ -47365,7 +47386,7 @@ index 8dbc7fc104..52fab26c6d 100644
  /**
   * Enqueues a V4L2Buffer
 diff --git a/libavcodec/v4l2_context.c b/libavcodec/v4l2_context.c
-index 29b144ed73..3bba679c21 100644
+index 29b144ed73..a1b039281d 100644
 --- a/libavcodec/v4l2_context.c
 +++ b/libavcodec/v4l2_context.c
 @@ -27,11 +27,13 @@
@@ -47610,7 +47631,7 @@ index 29b144ed73..3bba679c21 100644
      return 1;
  }
  
-@@ -280,171 +291,251 @@ static int v4l2_stop_encode(V4L2Context *ctx)
+@@ -280,171 +291,267 @@ static int v4l2_stop_encode(V4L2Context *ctx)
      return 0;
  }
  
@@ -47949,16 +47970,31 @@ index 29b144ed73..3bba679c21 100644
 +            return ret;
          }
 -        return avbuf;
--    }
- 
--    return NULL;
++
 +        if ((pfd.revents & poll_out) != 0) {
 +            return is_cap ? 0 : dq_buf(ctx, ppavbuf);
 +        }
 +
 +        av_log(avctx, AV_LOG_ERROR, "V4L2 poll unexpected events=%#x, revents=%#x\n", pfd.events, pfd.revents);
 +        return AVERROR_UNKNOWN;
-+    }
+     }
++}
+ 
+-    return NULL;
++// Clear out flags and timestamps that should should be set by the user
++// Returns the passed avbuf
++static V4L2Buffer *
++clean_v4l2_buffer(V4L2Buffer * const avbuf)
++{
++    struct v4l2_buffer *const buf = &avbuf->buf;
++
++    buf->flags = 0;
++    buf->field = V4L2_FIELD_ANY;
++    buf->timestamp = (struct timeval){0};
++    buf->timecode = (struct v4l2_timecode){0};
++    buf->sequence = 0;
++
++    return avbuf;
  }
  
  static V4L2Buffer* v4l2_getfree_v4l2buf(V4L2Context *ctx)
@@ -47981,11 +48017,11 @@ index 29b144ed73..3bba679c21 100644
 -            return &ctx->buffers[i];
 +        V4L2Buffer * const avbuf = (V4L2Buffer *)ctx->bufrefs[i]->data;
 +        if (avbuf->status == V4L2BUF_AVAILABLE)
-+            return avbuf;
++            return clean_v4l2_buffer(avbuf);
      }
  
      return NULL;
-@@ -452,25 +543,45 @@ static V4L2Buffer* v4l2_getfree_v4l2buf(V4L2Context *ctx)
+@@ -452,25 +559,45 @@ static V4L2Buffer* v4l2_getfree_v4l2buf(V4L2Context *ctx)
  
  static int v4l2_release_buffers(V4L2Context* ctx)
  {
@@ -48003,12 +48039,7 @@ index 29b144ed73..3bba679c21 100644
 -        V4L2Buffer *buffer = &ctx->buffers[i];
 +    // Orphan any buffers in the wild
 +    ff_weak_link_break(&ctx->wl_master);
- 
--        for (j = 0; j < buffer->num_planes; j++) {
--            struct V4L2Plane_info *p = &buffer->plane_info[j];
--            if (p->mm_addr && p->length)
--                if (munmap(p->mm_addr, p->length) < 0)
--                    av_log(logger(ctx), AV_LOG_ERROR, "%s unmap plane (%s))\n", ctx->name, av_err2str(AVERROR(errno)));
++
 +    if (ctx->bufrefs) {
 +        for (i = 0; i < ctx->num_buffers; i++)
 +            av_buffer_unref(ctx->bufrefs + i);
@@ -48020,7 +48051,12 @@ index 29b144ed73..3bba679c21 100644
 +            .type = ctx->type,
 +            .count = 0, /* 0 -> unmap all buffers from the driver */
 +        };
-+
+ 
+-        for (j = 0; j < buffer->num_planes; j++) {
+-            struct V4L2Plane_info *p = &buffer->plane_info[j];
+-            if (p->mm_addr && p->length)
+-                if (munmap(p->mm_addr, p->length) < 0)
+-                    av_log(logger(ctx), AV_LOG_ERROR, "%s unmap plane (%s))\n", ctx->name, av_err2str(AVERROR(errno)));
 +        while ((ret = ioctl(fd, VIDIOC_REQBUFS, &req)) == -1) {
 +            if (errno == EINTR)
 +                continue;
@@ -48045,7 +48081,7 @@ index 29b144ed73..3bba679c21 100644
  }
  
  static inline int v4l2_try_raw_format(V4L2Context* ctx, enum AVPixelFormat pixfmt)
-@@ -499,6 +610,8 @@ static inline int v4l2_try_raw_format(V4L2Context* ctx, enum AVPixelFormat pixfm
+@@ -499,6 +626,8 @@ static inline int v4l2_try_raw_format(V4L2Context* ctx, enum AVPixelFormat pixfm
  
  static int v4l2_get_raw_format(V4L2Context* ctx, enum AVPixelFormat *p)
  {
@@ -48054,7 +48090,7 @@ index 29b144ed73..3bba679c21 100644
      enum AVPixelFormat pixfmt = ctx->av_pix_fmt;
      struct v4l2_fmtdesc fdesc;
      int ret;
-@@ -517,6 +630,13 @@ static int v4l2_get_raw_format(V4L2Context* ctx, enum AVPixelFormat *p)
+@@ -517,6 +646,13 @@ static int v4l2_get_raw_format(V4L2Context* ctx, enum AVPixelFormat *p)
          if (ret)
              return AVERROR(EINVAL);
  
@@ -48068,7 +48104,7 @@ index 29b144ed73..3bba679c21 100644
          pixfmt = ff_v4l2_format_v4l2_to_avfmt(fdesc.pixelformat, AV_CODEC_ID_RAWVIDEO);
          ret = v4l2_try_raw_format(ctx, pixfmt);
          if (ret){
-@@ -569,18 +689,84 @@ static int v4l2_get_coded_format(V4L2Context* ctx, uint32_t *p)
+@@ -569,18 +705,84 @@ static int v4l2_get_coded_format(V4L2Context* ctx, uint32_t *p)
    *
    *****************************************************************************/
  
@@ -48140,24 +48176,24 @@ index 29b144ed73..3bba679c21 100644
 +    {
 +        if (cmd == VIDIOC_STREAMOFF)
 +            flush_all_buffers_status(ctx);
-+
+ 
+-    ctx->streamon = (cmd == VIDIOC_STREAMON);
 +        ctx->streamon = (cmd == VIDIOC_STREAMON);
 +        av_log(avctx, AV_LOG_DEBUG, "%s set status %d (%s) OK\n", ctx->name,
 +               cmd, (cmd == VIDIOC_STREAMON) ? "ON" : "OFF");
 +    }
  
--    ctx->streamon = (cmd == VIDIOC_STREAMON);
+-    return 0;
 +    // Both stream off & on effectively clear flag_last
 +    ctx->flag_last = 0;
- 
--    return 0;
++
 +    ff_mutex_unlock(&ctx->lock);
 +
 +    return ret;
  }
  
  int ff_v4l2_context_enqueue_frame(V4L2Context* ctx, const AVFrame* frame)
-@@ -608,7 +794,8 @@ int ff_v4l2_context_enqueue_frame(V4L2Context* ctx, const AVFrame* frame)
+@@ -608,7 +810,8 @@ int ff_v4l2_context_enqueue_frame(V4L2Context* ctx, const AVFrame* frame)
      return ff_v4l2_buffer_enqueue(avbuf);
  }
  
@@ -48167,7 +48203,7 @@ index 29b144ed73..3bba679c21 100644
  {
      V4L2m2mContext *s = ctx_to_m2mctx(ctx);
      V4L2Buffer* avbuf;
-@@ -616,8 +803,9 @@ int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt)
+@@ -616,8 +819,9 @@ int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt)
  
      if (!pkt->size) {
          ret = v4l2_stop_decode(ctx);
@@ -48178,7 +48214,7 @@ index 29b144ed73..3bba679c21 100644
          s->draining = 1;
          return 0;
      }
-@@ -626,8 +814,11 @@ int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt)
+@@ -626,8 +830,11 @@ int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt)
      if (!avbuf)
          return AVERROR(EAGAIN);
  
@@ -48192,7 +48228,7 @@ index 29b144ed73..3bba679c21 100644
          return ret;
  
      return ff_v4l2_buffer_enqueue(avbuf);
-@@ -636,19 +827,10 @@ int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt)
+@@ -636,19 +843,10 @@ int ff_v4l2_context_enqueue_packet(V4L2Context* ctx, const AVPacket* pkt)
  int ff_v4l2_context_dequeue_frame(V4L2Context* ctx, AVFrame* frame, int timeout)
  {
      V4L2Buffer *avbuf;
@@ -48215,7 +48251,7 @@ index 29b144ed73..3bba679c21 100644
  
      return ff_v4l2_buffer_buf_to_avframe(frame, avbuf);
  }
-@@ -656,19 +838,10 @@ int ff_v4l2_context_dequeue_frame(V4L2Context* ctx, AVFrame* frame, int timeout)
+@@ -656,19 +854,10 @@ int ff_v4l2_context_dequeue_frame(V4L2Context* ctx, AVFrame* frame, int timeout)
  int ff_v4l2_context_dequeue_packet(V4L2Context* ctx, AVPacket* pkt)
  {
      V4L2Buffer *avbuf;
@@ -48238,7 +48274,7 @@ index 29b144ed73..3bba679c21 100644
  
      return ff_v4l2_buffer_buf_to_avpkt(pkt, avbuf);
  }
-@@ -702,78 +875,158 @@ int ff_v4l2_context_get_format(V4L2Context* ctx, int probe)
+@@ -702,78 +891,158 @@ int ff_v4l2_context_get_format(V4L2Context* ctx, int probe)
  
  int ff_v4l2_context_set_format(V4L2Context* ctx)
  {
@@ -55095,10 +55131,10 @@ index 0000000000..4b25ec4344
 +
 diff --git a/libavdevice/egl_vout.c b/libavdevice/egl_vout.c
 new file mode 100644
-index 0000000000..b1b1f7bb60
+index 0000000000..0539282733
 --- /dev/null
 +++ b/libavdevice/egl_vout.c
-@@ -0,0 +1,825 @@
+@@ -0,0 +1,815 @@
 +/*
 + * Copyright (c) 2020 John Cox for Raspberry Pi Trading
 + *
@@ -55141,16 +55177,7 @@ index 0000000000..b1b1f7bb60
 +#include <stdatomic.h>
 +#include <unistd.h>
 +
-+#include "drm_fourcc.h"
-+#include <drm.h>
-+#include <drm_mode.h>
-+#include <xf86drm.h>
-+#include <xf86drmMode.h>
 +#include <X11/Xlib.h>
-+#include <X11/Xutil.h>
-+#include <X11/Xlib-xcb.h>
-+#include <xcb/xcb.h>
-+#include <xcb/dri3.h>
 +
 +#include "libavutil/rpi_sand_fns.h"
 +
@@ -55362,8 +55389,7 @@ index 0000000000..b1b1f7bb60
 +   XMapWindow(dpy, win);
 +
 +   {
-+      EGLSurface surf = eglCreateWindowSurface(egl_dpy, config,
-+                                               (void *)(uintptr_t)win, NULL);
++      EGLSurface surf = eglCreateWindowSurface(egl_dpy, config, (uintptr_t)win, NULL);
 +      if (!surf) {
 +         av_log(s, AV_LOG_ERROR, "Error: eglCreateWindowSurface failed\n");
 +         return -1;
@@ -61112,37 +61138,67 @@ index 0000000000..634b55e800
 +
 diff --git a/pi-util/BUILD.txt b/pi-util/BUILD.txt
 new file mode 100644
-index 0000000000..7f16dff6a2
+index 0000000000..b050971f63
 --- /dev/null
 +++ b/pi-util/BUILD.txt
-@@ -0,0 +1,29 @@
+@@ -0,0 +1,59 @@
 +Building Pi FFmpeg
 +==================
 +
-+Configuration:
-+=============
++Current only building on a Pi is supported.
++This builds ffmpeg the way I've tested it
 +
-+These instructions work for cross compiles from Ubuntu 16.04 & Ubuntu
-+18.04. I would expect most other linux environments to work but I haven't
-+tried them.
++Get all dependencies - the current package dependencies are good enough
 +
-+pi-util/conf_pi2.sh
++$ sudo apt-get build-dep ffmpeg
 +
-+contains suitable options to build the code for Pi2/3.  It expects to find
-+git clones of
++Configure using the pi-util/conf_native.sh script
++-------------------------------------------------
 +
-+https://github.com/raspberrypi/tools
-+https://github.com/raspberrypi/firmware
++This sets the normal release options and creates an ouutput dir to build into
++The directory name will depend on system and options but will be under out/
 +
-+in the parent of the FFmpeg directory.  I recommend using --depth 1 to avoid a
-+lot of history you don't want.
++There are a few choices here
++ --mmal  build including the legacy mmal-based decoders and zero-copy code
++         this requires appropriate libraries which currently will exist for
++         armv7 but not arm64
++ --noshared
++         Build a static image rather than a shared library one.  Static is
++         easier for testing as there is no need to worry about library
++         paths being confused and therefore running the wrong code,  Shared
++         is what is needed, in most cases, when building for use by other
++         programs.
 +
-+If you have a copy of qasm.py in ../local/bin then the .qasm sources will be
-+rebuilt.  Otherwise the prebuilt .c & .h files will be used.
-+Likewise ../local/bin/vasmvidcore_std will enable VPU code rebuild
++So for a static build
++---------------------
 +
-+pi-util/conf_p1.sh should configure for Pi1.  Beware that as of this time
-+H265 QPU acceleration is broken on Pi1 and so it is disabled.
++$ pi-util/conf_native.sh --noshared
++
++$ make -j8 -C out/<wherever the script said it was building to>
++
++You can now run ffmpeg directly from where it was built
++
++For a shared build
++------------------
++
++$ pi-util/conf_native.sh
++
++You will normally want an install target if shared. Note that the script has
++set this up to be generated in out/<builddir>/install, you don't have to worry
++about overwriting your system libs.
++
++$ make -j8 -C out/<builddir> install
++
++You can now set LD_LIBRARY_PATH appropriately and run ffmpeg from where it was
++built or install the image on the system - you have to be careful to get rid
++of all other ffmpeg libs or confusion may result.  There is a little script
++that wipes all other versions - obviously use with care!
++
++$ sudo pi-util/clean_usr_libs.sh
++
++Then simply copying from the install to /usr works
++
++$ sudo cp -r out/<builddir>/install/* /usr
 +
 +
 diff --git a/pi-util/NOTES.txt b/pi-util/NOTES.txt
@@ -61894,14 +61950,15 @@ index 0000000000..fc14f2a3c2
 +1,WPP_F_ericsson_MAIN_2,WPP_F_ericsson_MAIN_2.bit,WPP_F_ericsson_MAIN_2_yuv.md5
 diff --git a/pi-util/conf_native.sh b/pi-util/conf_native.sh
 new file mode 100755
-index 0000000000..f51b81d713
+index 0000000000..65576846e8
 --- /dev/null
 +++ b/pi-util/conf_native.sh
-@@ -0,0 +1,105 @@
+@@ -0,0 +1,108 @@
 +echo "Configure for native build"
 +
 +FFSRC=`pwd`
 +MC=`dpkg --print-architecture`
++BUILDBASE=$FFSRC/out
 +
 +#RPI_KEEPS="-save-temps=obj"
 +RPI_KEEPS=""
@@ -61964,20 +62021,22 @@ index 0000000000..f51b81d713
 +SHARED_LIBS="--enable-shared"
 +if [ $NOSHARED ]; then
 +  SHARED_LIBS="--disable-shared"
-+  OUT=out/$B-$C-$V-static-rel
++  OUT=$BUILDBASE/$B-$C-$V-static-rel
 +  echo Static libs
 +else
 +  echo Shared libs
-+  OUT=out/$B-$C-$V-shared-rel
++  OUT=$BUILDBASE/$B-$C-$V-shared-rel
 +fi
 +
-+USR_PREFIX=$FFSRC/$OUT/install
++USR_PREFIX=$OUT/install
 +LIB_PREFIX=$USR_PREFIX/lib/$A
 +INC_PREFIX=$USR_PREFIX/include/$A
 +
 +echo Destination directory: $OUT
-+mkdir -p $FFSRC/$OUT
-+cd $FFSRC/$OUT
++mkdir -p $OUT
++# Nothing under here need worry git - including this .gitignore!
++echo "**" > $BUILDBASE/.gitignore
++cd $OUT
 +
 +$FFSRC/configure \
 + --prefix=$USR_PREFIX\
@@ -62000,114 +62059,6 @@ index 0000000000..f51b81d713
 + --extra-libs="$RPI_EXTRALIBS"\
 + --extra-version="rpi"
 +
-+
-+# gcc option for getting asm listing
-+# -Wa,-ahls
-diff --git a/pi-util/conf_pi1.sh b/pi-util/conf_pi1.sh
-new file mode 100755
-index 0000000000..29fa9fa68d
---- /dev/null
-+++ b/pi-util/conf_pi1.sh
-@@ -0,0 +1,39 @@
-+echo "Configure for Pi1"
-+
-+RPI_TOOLROOT=`pwd`/../tools/arm-bcm2708/arm-rpi-4.9.3-linux-gnueabihf
-+RPI_OPT_VC=`pwd`/../firmware/hardfp/opt/vc
-+
-+RPI_INCLUDES="-I$RPI_OPT_VC/include -I$RPI_OPT_VC/include/interface/vcos/pthreads -I$RPI_OPT_VC/include/interface/vmcs_host/linux"
-+RPI_LIBDIRS="-L$RPI_TOOLROOT/lib -L$RPI_OPT_VC/lib"
-+#RPI_KEEPS="-save-temps=obj"
-+RPI_KEEPS=""
-+
-+SHARED_LIBS="--enable-shared"
-+if [ "$1" == "--noshared" ]; then
-+  SHARED_LIBS="--disable-shared"
-+  echo Static libs
-+else
-+  echo Shared libs
-+fi
-+
-+./configure --enable-cross-compile\
-+ --cpu=arm1176jzf-s\
-+ --arch=arm\
-+ --disable-neon\
-+ --target-os=linux\
-+ --disable-stripping\
-+ --enable-mmal\
-+ $SHARED_LIBS\
-+ --extra-cflags="-g $RPI_KEEPS $RPI_INCLUDES"\
-+ --extra-cxxflags="$RPI_INCLUDES"\
-+ --extra-ldflags="$RPI_LIBDIRS -Wl,-rpath=/opt/vc/lib,-rpath-link=$RPI_OPT_VC/lib,-rpath=/lib,-rpath=/usr/lib,-rpath-link=$RPI_TOOLROOT/lib,-rpath-link=$RPI_TOOLROOT/lib"\
-+ --extra-libs="-Wl,--start-group -lbcm_host -lmmal -lmmal_util -lmmal_core -lvcos -lvcsm -lvchostif -lvchiq_arm"\
-+ --cross-prefix=$RPI_TOOLROOT/bin/arm-linux-gnueabihf-
-+
-+
-+# --enable-extra-warnings\
-+# --arch=armv71\
-+# --enable-shared\
-+
-+# gcc option for getting asm listing
-+# -Wa,-ahls
-diff --git a/pi-util/conf_pi2.sh b/pi-util/conf_pi2.sh
-new file mode 100755
-index 0000000000..92cd9e7cfd
---- /dev/null
-+++ b/pi-util/conf_pi2.sh
-@@ -0,0 +1,57 @@
-+echo "Configure for Pi2/3"
-+
-+FFSRC=`pwd`
-+
-+RPI_TOOLROOT=$FFSRC/../tools/arm-bcm2708/arm-rpi-4.9.3-linux-gnueabihf
-+RPI_OPT_VC=$FFSRC/../firmware/hardfp/opt/vc
-+
-+RPI_INCLUDES="-I$RPI_OPT_VC/include -I$RPI_OPT_VC/include/interface/vcos/pthreads -I$RPI_OPT_VC/include/interface/vmcs_host/linux"
-+RPI_LIBDIRS="-L$RPI_TOOLROOT/lib -L$RPI_OPT_VC/lib"
-+RPI_DEFINES="-D__VCCOREVER__=0x4000000 -mfpu=neon-vfpv4"
-+#RPI_KEEPS="-save-temps=obj"
-+RPI_KEEPS=""
-+
-+SHARED_LIBS="--enable-shared"
-+if [ "$1" == "--noshared" ]; then
-+  SHARED_LIBS="--disable-shared"
-+  OUT=out/x-armv7-static-rel
-+  echo Static libs
-+else
-+  echo Shared libs
-+  OUT=out/x-armv7-shared-rel
-+fi
-+
-+USR_PREFIX=$FFSRC/$OUT/install
-+LIB_PREFIX=$USR_PREFIX/lib/arm-linux-gnueabihf
-+INC_PREFIX=$USR_PREFIX/include/arm-linux-gnueabihf
-+
-+mkdir -p $FFSRC/$OUT
-+cd $FFSRC/$OUT
-+
-+$FFSRC/configure --enable-cross-compile\
-+ --prefix=$USR_PREFIX\
-+ --libdir=$LIB_PREFIX\
-+ --incdir=$INC_PREFIX\
-+ --arch=armv6t2\
-+ --cpu=cortex-a7\
-+ --target-os=linux\
-+ --disable-stripping\
-+ --disable-thumb\
-+ --enable-mmal\
-+ --enable-rpi\
-+ $SHARED_LIBS\
-+ --extra-cflags="-ggdb $RPI_KEEPS $RPI_DEFINES $RPI_INCLUDES"\
-+ --extra-cxxflags="$RPI_DEFINES $RPI_INCLUDES"\
-+ --extra-ldflags="$RPI_LIBDIRS -Wl,-rpath=/opt/vc/lib,-rpath-link=$RPI_OPT_VC/lib,-rpath=/lib,-rpath=/usr/lib,-rpath-link=$RPI_TOOLROOT/lib,-rpath-link=$RPI_TOOLROOT/lib"\
-+ --extra-libs="-Wl,--start-group -lbcm_host -lmmal -lmmal_util -lmmal_core -lvcos -lvcsm -lvchostif -lvchiq_arm"\
-+ --cross-prefix=$RPI_TOOLROOT/bin/arm-linux-gnueabihf-
-+
-+# --enable-shared\
-+
-+# --enable-decoder=hevc_rpi\
-+# --enable-extra-warnings\
-+# --arch=armv71\
-+# --enable-shared\
 +
 +# gcc option for getting asm listing
 +# -Wa,-ahls
