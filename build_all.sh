@@ -83,6 +83,7 @@ targets="\
 	Rockchip|RK3399|arm|image \
 	Rockchip|TinkerBoard|arm|image \
 	RPi|GPICase|arm|image \
+	RPi|Pi02GPi|arm|image \
 	RPi|RPi|arm|noobs \
 	RPi|RPi2|arm|noobs \
 	RPi|RPi3|aarch64|noobs \

@@ -45,6 +45,7 @@ targets="\
 	Rockchip|RK3399|arm \
 	Rockchip|TinkerBoard|arm \
 	RPi|GPICase|arm \
+	RPi|Pi02GPi|arm \
 	RPi|RPi|arm \
 	RPi|RPi2|arm \
 	RPi|RPi3|aarch64 \

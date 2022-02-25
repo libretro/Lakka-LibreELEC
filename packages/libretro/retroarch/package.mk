@@ -301,18 +301,25 @@ makeinstall_target() {
   fi
 
   # GPICase
-  if [ "$PROJECT" = "RPi" ] && [ "$DEVICE" = "GPICase" ]; then
+  if [ "$PROJECT" = "RPi" ] && [ "$DEVICE" = "GPICase" -o "$DEVICE" = "Pi02GPi" ]; then
     echo "audio_device = \"default:CARD=ALSA\"" >> $INSTALL/etc/retroarch.cfg
     echo "menu_timedate_enable = false" >> $INSTALL/etc/retroarch.cfg
     echo "menu_enable_widgets = false" >> $INSTALL/etc/retroarch.cfg
     sed -i -e "s/input_menu_toggle_gamepad_combo = 2/input_menu_toggle_gamepad_combo = 4/" $INSTALL/etc/retroarch.cfg
     sed -i -e "s/menu_driver = \"xmb\"/menu_driver = \"rgui\"/" $INSTALL/etc/retroarch.cfg
-    sed -i -e "s/video_threaded = true/video_threaded = false/" $INSTALL/etc/retroarch.cfg
     sed -i -e "s/# aspect_ratio_index = 19/aspect_ratio_index = 21/" $INSTALL/etc/retroarch.cfg
     sed -i -e "s/# audio_out_rate = 48000/audio_out_rate = 44100/" $INSTALL/etc/retroarch.cfg
     sed -i -e "s/# video_font_size = 32/video_font_size = 16/" $INSTALL/etc/retroarch.cfg
-    sed -i -e "s/# video_scale_integer = false/video_scale_integer = true/" $INSTALL/etc/retroarch.cfg
     sed -i -e "s/video_rotation = \"0\"/video_rotation = \"3\"/" $INSTALL/etc/retroarch.cfg
+
+    if [ "$DEVICE" = "GPICase" ]; then
+      sed -i -e "s/# video_scale_integer = false/video_scale_integer = true/" $INSTALL/etc/retroarch.cfg
+      sed -i -e "s/video_threaded = true/video_threaded = false/" $INSTALL/etc/retroarch.cfg
+    fi
+
+    if [ "$DEVICE" = "Pi02GPi" ]; then
+      echo 'input_player1_analog_dpad_mode = "3"' >> $INSTALL/etc/retroarch.cfg
+    fi
   fi
 
   if [ "$DEVICE" = "RPi4-PiBoyDmg" -o "$DEVICE" = "RPi4-RetroDreamer" ]; then

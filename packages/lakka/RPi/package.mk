@@ -27,11 +27,11 @@ PKG_SITE="https://github.com/libretro/Lakka-LibreELEC"
 PKG_URL=""
 PKG_DEPENDS_TARGET="retroarch"
 
-if [ "$DEVICE" != "GPICase" ] ; then
+if [ "$DEVICE" != "GPICase" -a "$DEVICE" != "Pi02GPi" ] ; then
   PKG_DEPENDS_TARGET+=" wii-u-gc-adapter wiringPi mk_arcade_joystick_rpi joycond"
 fi
 
-if [ "$DEVICE" = "GPICase" ]; then
+if [ "$DEVICE" = "GPICase" -o "$DEVICE" = "Pi02GPi" ]; then
   PKG_DEPENDS_TARGET+=" gpicase-safeshutdown"
 fi
 
@@ -44,7 +44,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 post_install() {
-  if [ "$DEVICE" = "GPICase" ]; then
+  if [ "$DEVICE" = "GPICase" -o "$DEVICE" = "Pi02GPi" ]; then
     enable_service disable-hdmi.service
   fi
 }

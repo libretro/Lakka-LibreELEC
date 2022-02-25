@@ -15,6 +15,12 @@ PKG_DEPENDS_TARGET="toolchain dtc"
 PKG_LONGDESC="OpenMAX-bcm2835: OpenGL-ES and OpenMAX driver for BCM2835"
 PKG_TOOLCHAIN="manual"
 
+if [ "${DEVICE}" = "Pi02GPi" ]; then
+  PKG_VERSION="d8754a956967a24ef5e57a1e25347babc3a02a58"
+  PKG_SHA256="a6b97cdf1af0a720576b950600bb45da26747a0f516cf3ad0fa8baf304f469cd"
+  PKG_URL="https://github.com/raspberrypi/firmware/archive/$PKG_VERSION.tar.gz"
+fi
+
 # Set SoftFP ABI or HardFP ABI
 if [ "${TARGET_FLOAT}" = "soft" ]; then
   PKG_FLOAT="softfp"

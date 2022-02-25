@@ -35,6 +35,11 @@ case "$LINUX" in
     #PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
     # URL for version tag
     PKG_URL="https://github.com/raspberrypi/linux/archive/refs/tags/$PKG_VERSION.tar.gz"
+    if [ "$DEVICE" = "Pi02GPi" ]; then
+      PKG_VERSION="581049d718caf95f5feb00607ac748d5841cf27c"
+      PKG_SHA256="62ba9db3d534d18ad118a980330376624231abd38a7fe4bbe718164fa6486259"
+      PKG_URL="https://github.com/raspberrypi/linux/archive/$PKG_VERSION.tar.gz"
+    fi
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
     PKG_PATCH_DIRS="rpi joycon dualsense"
     ;;
