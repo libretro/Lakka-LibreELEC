@@ -4,10 +4,11 @@
 * Add [small utility](https://github.com/spleen1981/xbox360-controllers-shutdown) to turn off Xbox360 controllers
 * Fix AML aarch64 cores compilation
 * Update Mesa to 21.3.6
-* Update Raspberry kernel/firmware files to 1.20220120
+* Rollback Raspberry kernel/firmware files to 1.20210831 (fixes issue with 4K displays not initializing)
 * Update mainline kernel to 5.10.101
 * Add new libretro core: wasm4
 * Add new libretro core: jumpnbump
+* Make the `.update` folder on the `STORAGE` partition writable without superuser privilege
 
 # v3.6
 * Update RetroArch to 1.9.13.1
