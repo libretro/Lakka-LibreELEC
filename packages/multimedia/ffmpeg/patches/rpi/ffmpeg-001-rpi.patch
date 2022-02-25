@@ -46342,7 +46342,7 @@ index 0000000000..85c5b46d75
 +};
 +
 diff --git a/libavcodec/v4l2_buffers.c b/libavcodec/v4l2_buffers.c
-index 4b2679eb38..a176ea8207 100644
+index 4b2679eb38..6ee6ad8642 100644
 --- a/libavcodec/v4l2_buffers.c
 +++ b/libavcodec/v4l2_buffers.c
 @@ -21,6 +21,7 @@
@@ -46576,17 +46576,23 @@ index 4b2679eb38..a176ea8207 100644
  
 -static void v4l2_free_buffer(void *opaque, uint8_t *unused)
 +static int v4l2_buf_is_interlaced(const V4L2Buffer * const buf)
++{
++    return V4L2_FIELD_IS_INTERLACED(buf->buf.field);
++}
++
++static int v4l2_buf_is_top_first(const V4L2Buffer * const buf)
  {
 -    V4L2Buffer* avbuf = opaque;
 -    V4L2m2mContext *s = buf_to_m2mctx(avbuf);
-+    return V4L2_FIELD_IS_INTERLACED(buf->buf.field);
++    return buf->buf.field == V4L2_FIELD_INTERLACED_TB;
 +}
  
 -    if (atomic_fetch_sub(&avbuf->context_refcount, 1) == 1) {
 -        atomic_fetch_sub_explicit(&s->refcount, 1, memory_order_acq_rel);
-+static int v4l2_buf_is_top_first(const V4L2Buffer * const buf)
++static void v4l2_set_interlace(V4L2Buffer * const buf, const int is_interlaced, const int is_tff)
 +{
-+    return buf->buf.field == V4L2_FIELD_INTERLACED_TB;
++    buf->buf.field = !is_interlaced ? V4L2_FIELD_NONE :
++        is_tff ? V4L2_FIELD_INTERLACED_TB : V4L2_FIELD_INTERLACED_BT;
 +}
  
 -        if (s->reinit) {
@@ -46600,18 +46606,11 @@ index 4b2679eb38..a176ea8207 100644
 -            else if (avbuf->context->streamon)
 -                ff_v4l2_buffer_enqueue(avbuf);
 -        }
-+static void v4l2_set_interlace(V4L2Buffer * const buf, const int is_interlaced, const int is_tff)
-+{
-+    buf->buf.field = !is_interlaced ? V4L2_FIELD_NONE :
-+        is_tff ? V4L2_FIELD_INTERLACED_TB : V4L2_FIELD_INTERLACED_BT;
-+}
-+
 +static uint8_t * v4l2_get_drm_frame(V4L2Buffer *avbuf)
 +{
 +    AVDRMFrameDescriptor *drm_desc = &avbuf->drm_frame;
 +    AVDRMLayerDescriptor *layer;
- 
--        av_buffer_unref(&avbuf->context_ref);
++
 +    /* fill the DRM frame descriptor */
 +    drm_desc->nb_objects = avbuf->num_planes;
 +    drm_desc->nb_layers = 1;
@@ -46623,7 +46622,7 @@ index 4b2679eb38..a176ea8207 100644
 +        layer->planes[i].object_index = i;
 +        layer->planes[i].offset = 0;
 +        layer->planes[i].pitch = avbuf->plane_info[i].bytesperline;
-     }
++    }
 +
 +    switch (avbuf->context->av_pix_fmt) {
 +    case AV_PIX_FMT_YUYV422:
@@ -46651,7 +46650,8 @@ index 4b2679eb38..a176ea8207 100644
 +        break;
 +
 +    case AV_PIX_FMT_YUV420P:
-+
+ 
+-        av_buffer_unref(&avbuf->context_ref);
 +        layer->format = DRM_FORMAT_YUV420;
 +
 +        if (avbuf->num_planes > 1)
@@ -46674,7 +46674,7 @@ index 4b2679eb38..a176ea8207 100644
 +    default:
 +        drm_desc->nb_layers = 0;
 +        break;
-+    }
+     }
 +
 +    return (uint8_t *) drm_desc;
  }
@@ -46834,7 +46834,7 @@ index 4b2679eb38..a176ea8207 100644
 +    frame->buf[0] = wrap_avbuf(avbuf);
 +    if (frame->buf[0] == NULL)
 +        return AVERROR(ENOMEM);
-+
+ 
 +    if (buf_to_m2mctx(avbuf)->output_drm) {
 +        /* 1. get references to the actual data */
 +        frame->data[0] = (uint8_t *) v4l2_get_drm_frame(avbuf);
@@ -46843,7 +46843,7 @@ index 4b2679eb38..a176ea8207 100644
 +        return 0;
 +    }
 +
- 
++
 +    /* 1. get references to the actual data */
 +    for (i = 0; i < avbuf->num_planes; i++) {
 +        frame->data[i] = (uint8_t *)avbuf->plane_info[i].mm_addr + avbuf->planes[i].data_offset;
@@ -47087,13 +47087,12 @@ index 4b2679eb38..a176ea8207 100644
  
      /* 3. report errors upstream */
      if (avbuf->buf.flags & V4L2_BUF_FLAG_ERROR) {
-@@ -452,15 +747,16 @@ int ff_v4l2_buffer_buf_to_avframe(AVFrame *frame, V4L2Buffer *avbuf)
+@@ -452,15 +747,14 @@ int ff_v4l2_buffer_buf_to_avframe(AVFrame *frame, V4L2Buffer *avbuf)
  
  int ff_v4l2_buffer_buf_to_avpkt(AVPacket *pkt, V4L2Buffer *avbuf)
  {
 -    int ret;
-+    av_log(logger(avbuf), AV_LOG_INFO, "%s\n", __func__);
- 
+-
      av_packet_unref(pkt);
 -    ret = v4l2_buf_to_bufref(avbuf, 0, &pkt->buf);
 -    if (ret)
@@ -47109,7 +47108,7 @@ index 4b2679eb38..a176ea8207 100644
  
      if (avbuf->buf.flags & V4L2_BUF_FLAG_KEYFRAME)
          pkt->flags |= AV_PKT_FLAG_KEY;
-@@ -475,31 +771,85 @@ int ff_v4l2_buffer_buf_to_avpkt(AVPacket *pkt, V4L2Buffer *avbuf)
+@@ -475,31 +769,85 @@ int ff_v4l2_buffer_buf_to_avpkt(AVPacket *pkt, V4L2Buffer *avbuf)
      return 0;
  }
  
@@ -47203,7 +47202,7 @@ index 4b2679eb38..a176ea8207 100644
      if (V4L2_TYPE_IS_MULTIPLANAR(ctx->type)) {
          avbuf->buf.length = VIDEO_MAX_PLANES;
          avbuf->buf.m.planes = avbuf->planes;
-@@ -507,7 +857,7 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
+@@ -507,7 +855,7 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
  
      ret = ioctl(buf_to_m2mctx(avbuf)->fd, VIDIOC_QUERYBUF, &avbuf->buf);
      if (ret < 0)
@@ -47212,7 +47211,7 @@ index 4b2679eb38..a176ea8207 100644
  
      if (V4L2_TYPE_IS_MULTIPLANAR(ctx->type)) {
          avbuf->num_planes = 0;
-@@ -527,25 +877,33 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
+@@ -527,25 +875,33 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
  
          if (V4L2_TYPE_IS_MULTIPLANAR(ctx->type)) {
              avbuf->plane_info[i].length = avbuf->buf.m.planes[i].length;
@@ -47257,7 +47256,7 @@ index 4b2679eb38..a176ea8207 100644
      if (V4L2_TYPE_IS_MULTIPLANAR(ctx->type)) {
          avbuf->buf.m.planes = avbuf->planes;
          avbuf->buf.length   = avbuf->num_planes;
-@@ -555,18 +913,47 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
+@@ -555,18 +911,47 @@ int ff_v4l2_buffer_initialize(V4L2Buffer* avbuf, int index)
          avbuf->buf.length    = avbuf->planes[0].length;
      }
  
@@ -55102,10 +55101,10 @@ index 0000000000..4b25ec4344
 +
 diff --git a/libavdevice/egl_vout.c b/libavdevice/egl_vout.c
 new file mode 100644
-index 0000000000..b1b1f7bb60
+index 0000000000..0539282733
 --- /dev/null
 +++ b/libavdevice/egl_vout.c
-@@ -0,0 +1,825 @@
+@@ -0,0 +1,815 @@
 +/*
 + * Copyright (c) 2020 John Cox for Raspberry Pi Trading
 + *
@@ -55148,16 +55147,7 @@ index 0000000000..b1b1f7bb60
 +#include <stdatomic.h>
 +#include <unistd.h>
 +
-+#include "drm_fourcc.h"
-+#include <drm.h>
-+#include <drm_mode.h>
-+#include <xf86drm.h>
-+#include <xf86drmMode.h>
 +#include <X11/Xlib.h>
-+#include <X11/Xutil.h>
-+#include <X11/Xlib-xcb.h>
-+#include <xcb/xcb.h>
-+#include <xcb/dri3.h>
 +
 +#include "libavutil/rpi_sand_fns.h"
 +
@@ -55369,8 +55359,7 @@ index 0000000000..b1b1f7bb60
 +   XMapWindow(dpy, win);
 +
 +   {
-+      EGLSurface surf = eglCreateWindowSurface(egl_dpy, config,
-+                                               (void *)(uintptr_t)win, NULL);
++      EGLSurface surf = eglCreateWindowSurface(egl_dpy, config, (uintptr_t)win, NULL);
 +      if (!surf) {
 +         av_log(s, AV_LOG_ERROR, "Error: eglCreateWindowSurface failed\n");
 +         return -1;
@@ -61037,37 +61026,67 @@ index 0000000000..634b55e800
 +
 diff --git a/pi-util/BUILD.txt b/pi-util/BUILD.txt
 new file mode 100644
-index 0000000000..7f16dff6a2
+index 0000000000..b050971f63
 --- /dev/null
 +++ b/pi-util/BUILD.txt
-@@ -0,0 +1,29 @@
+@@ -0,0 +1,59 @@
 +Building Pi FFmpeg
 +==================
 +
-+Configuration:
-+=============
++Current only building on a Pi is supported.
++This builds ffmpeg the way I've tested it
 +
-+These instructions work for cross compiles from Ubuntu 16.04 & Ubuntu
-+18.04. I would expect most other linux environments to work but I haven't
-+tried them.
++Get all dependencies - the current package dependencies are good enough
 +
-+pi-util/conf_pi2.sh
++$ sudo apt-get build-dep ffmpeg
 +
-+contains suitable options to build the code for Pi2/3.  It expects to find
-+git clones of
++Configure using the pi-util/conf_native.sh script
++-------------------------------------------------
 +
-+https://github.com/raspberrypi/tools
-+https://github.com/raspberrypi/firmware
++This sets the normal release options and creates an ouutput dir to build into
++The directory name will depend on system and options but will be under out/
 +
-+in the parent of the FFmpeg directory.  I recommend using --depth 1 to avoid a
-+lot of history you don't want.
++There are a few choices here
++ --mmal  build including the legacy mmal-based decoders and zero-copy code
++         this requires appropriate libraries which currently will exist for
++         armv7 but not arm64
++ --noshared
++         Build a static image rather than a shared library one.  Static is
++         easier for testing as there is no need to worry about library
++         paths being confused and therefore running the wrong code,  Shared
++         is what is needed, in most cases, when building for use by other
++         programs.
 +
-+If you have a copy of qasm.py in ../local/bin then the .qasm sources will be
-+rebuilt.  Otherwise the prebuilt .c & .h files will be used.
-+Likewise ../local/bin/vasmvidcore_std will enable VPU code rebuild
++So for a static build
++---------------------
 +
-+pi-util/conf_p1.sh should configure for Pi1.  Beware that as of this time
-+H265 QPU acceleration is broken on Pi1 and so it is disabled.
++$ pi-util/conf_native.sh --noshared
++
++$ make -j8 -C out/<wherever the script said it was building to>
++
++You can now run ffmpeg directly from where it was built
++
++For a shared build
++------------------
++
++$ pi-util/conf_native.sh
++
++You will normally want an install target if shared. Note that the script has
++set this up to be generated in out/<builddir>/install, you don't have to worry
++about overwriting your system libs.
++
++$ make -j8 -C out/<builddir> install
++
++You can now set LD_LIBRARY_PATH appropriately and run ffmpeg from where it was
++built or install the image on the system - you have to be careful to get rid
++of all other ffmpeg libs or confusion may result.  There is a little script
++that wipes all other versions - obviously use with care!
++
++$ sudo pi-util/clean_usr_libs.sh
++
++Then simply copying from the install to /usr works
++
++$ sudo cp -r out/<builddir>/install/* /usr
 +
 +
 diff --git a/pi-util/NOTES.txt b/pi-util/NOTES.txt
@@ -61819,14 +61838,15 @@ index 0000000000..fc14f2a3c2
 +1,WPP_F_ericsson_MAIN_2,WPP_F_ericsson_MAIN_2.bit,WPP_F_ericsson_MAIN_2_yuv.md5
 diff --git a/pi-util/conf_native.sh b/pi-util/conf_native.sh
 new file mode 100755
-index 0000000000..f51b81d713
+index 0000000000..65576846e8
 --- /dev/null
 +++ b/pi-util/conf_native.sh
-@@ -0,0 +1,105 @@
+@@ -0,0 +1,108 @@
 +echo "Configure for native build"
 +
 +FFSRC=`pwd`
 +MC=`dpkg --print-architecture`
++BUILDBASE=$FFSRC/out
 +
 +#RPI_KEEPS="-save-temps=obj"
 +RPI_KEEPS=""
@@ -61889,20 +61909,22 @@ index 0000000000..f51b81d713
 +SHARED_LIBS="--enable-shared"
 +if [ $NOSHARED ]; then
 +  SHARED_LIBS="--disable-shared"
-+  OUT=out/$B-$C-$V-static-rel
++  OUT=$BUILDBASE/$B-$C-$V-static-rel
 +  echo Static libs
 +else
 +  echo Shared libs
-+  OUT=out/$B-$C-$V-shared-rel
++  OUT=$BUILDBASE/$B-$C-$V-shared-rel
 +fi
 +
-+USR_PREFIX=$FFSRC/$OUT/install
++USR_PREFIX=$OUT/install
 +LIB_PREFIX=$USR_PREFIX/lib/$A
 +INC_PREFIX=$USR_PREFIX/include/$A
 +
 +echo Destination directory: $OUT
-+mkdir -p $FFSRC/$OUT
-+cd $FFSRC/$OUT
++mkdir -p $OUT
++# Nothing under here need worry git - including this .gitignore!
++echo "**" > $BUILDBASE/.gitignore
++cd $OUT
 +
 +$FFSRC/configure \
 + --prefix=$USR_PREFIX\
@@ -61925,114 +61947,6 @@ index 0000000000..f51b81d713
 + --extra-libs="$RPI_EXTRALIBS"\
 + --extra-version="rpi"
 +
-+
-+# gcc option for getting asm listing
-+# -Wa,-ahls
-diff --git a/pi-util/conf_pi1.sh b/pi-util/conf_pi1.sh
-new file mode 100755
-index 0000000000..29fa9fa68d
---- /dev/null
-+++ b/pi-util/conf_pi1.sh
-@@ -0,0 +1,39 @@
-+echo "Configure for Pi1"
-+
-+RPI_TOOLROOT=`pwd`/../tools/arm-bcm2708/arm-rpi-4.9.3-linux-gnueabihf
-+RPI_OPT_VC=`pwd`/../firmware/hardfp/opt/vc
-+
-+RPI_INCLUDES="-I$RPI_OPT_VC/include -I$RPI_OPT_VC/include/interface/vcos/pthreads -I$RPI_OPT_VC/include/interface/vmcs_host/linux"
-+RPI_LIBDIRS="-L$RPI_TOOLROOT/lib -L$RPI_OPT_VC/lib"
-+#RPI_KEEPS="-save-temps=obj"
-+RPI_KEEPS=""
-+
-+SHARED_LIBS="--enable-shared"
-+if [ "$1" == "--noshared" ]; then
-+  SHARED_LIBS="--disable-shared"
-+  echo Static libs
-+else
-+  echo Shared libs
-+fi
-+
-+./configure --enable-cross-compile\
-+ --cpu=arm1176jzf-s\
-+ --arch=arm\
-+ --disable-neon\
-+ --target-os=linux\
-+ --disable-stripping\
-+ --enable-mmal\
-+ $SHARED_LIBS\
-+ --extra-cflags="-g $RPI_KEEPS $RPI_INCLUDES"\
-+ --extra-cxxflags="$RPI_INCLUDES"\
-+ --extra-ldflags="$RPI_LIBDIRS -Wl,-rpath=/opt/vc/lib,-rpath-link=$RPI_OPT_VC/lib,-rpath=/lib,-rpath=/usr/lib,-rpath-link=$RPI_TOOLROOT/lib,-rpath-link=$RPI_TOOLROOT/lib"\
-+ --extra-libs="-Wl,--start-group -lbcm_host -lmmal -lmmal_util -lmmal_core -lvcos -lvcsm -lvchostif -lvchiq_arm"\
-+ --cross-prefix=$RPI_TOOLROOT/bin/arm-linux-gnueabihf-
-+
-+
-+# --enable-extra-warnings\
-+# --arch=armv71\
-+# --enable-shared\
-+
-+# gcc option for getting asm listing
-+# -Wa,-ahls
-diff --git a/pi-util/conf_pi2.sh b/pi-util/conf_pi2.sh
-new file mode 100755
-index 0000000000..92cd9e7cfd
---- /dev/null
-+++ b/pi-util/conf_pi2.sh
-@@ -0,0 +1,57 @@
-+echo "Configure for Pi2/3"
-+
-+FFSRC=`pwd`
-+
-+RPI_TOOLROOT=$FFSRC/../tools/arm-bcm2708/arm-rpi-4.9.3-linux-gnueabihf
-+RPI_OPT_VC=$FFSRC/../firmware/hardfp/opt/vc
-+
-+RPI_INCLUDES="-I$RPI_OPT_VC/include -I$RPI_OPT_VC/include/interface/vcos/pthreads -I$RPI_OPT_VC/include/interface/vmcs_host/linux"
-+RPI_LIBDIRS="-L$RPI_TOOLROOT/lib -L$RPI_OPT_VC/lib"
-+RPI_DEFINES="-D__VCCOREVER__=0x4000000 -mfpu=neon-vfpv4"
-+#RPI_KEEPS="-save-temps=obj"
-+RPI_KEEPS=""
-+
-+SHARED_LIBS="--enable-shared"
-+if [ "$1" == "--noshared" ]; then
-+  SHARED_LIBS="--disable-shared"
-+  OUT=out/x-armv7-static-rel
-+  echo Static libs
-+else
-+  echo Shared libs
-+  OUT=out/x-armv7-shared-rel
-+fi
-+
-+USR_PREFIX=$FFSRC/$OUT/install
-+LIB_PREFIX=$USR_PREFIX/lib/arm-linux-gnueabihf
-+INC_PREFIX=$USR_PREFIX/include/arm-linux-gnueabihf
-+
-+mkdir -p $FFSRC/$OUT
-+cd $FFSRC/$OUT
-+
-+$FFSRC/configure --enable-cross-compile\
-+ --prefix=$USR_PREFIX\
-+ --libdir=$LIB_PREFIX\
-+ --incdir=$INC_PREFIX\
-+ --arch=armv6t2\
-+ --cpu=cortex-a7\
-+ --target-os=linux\
-+ --disable-stripping\
-+ --disable-thumb\
-+ --enable-mmal\
-+ --enable-rpi\
-+ $SHARED_LIBS\
-+ --extra-cflags="-ggdb $RPI_KEEPS $RPI_DEFINES $RPI_INCLUDES"\
-+ --extra-cxxflags="$RPI_DEFINES $RPI_INCLUDES"\
-+ --extra-ldflags="$RPI_LIBDIRS -Wl,-rpath=/opt/vc/lib,-rpath-link=$RPI_OPT_VC/lib,-rpath=/lib,-rpath=/usr/lib,-rpath-link=$RPI_TOOLROOT/lib,-rpath-link=$RPI_TOOLROOT/lib"\
-+ --extra-libs="-Wl,--start-group -lbcm_host -lmmal -lmmal_util -lmmal_core -lvcos -lvcsm -lvchostif -lvchiq_arm"\
-+ --cross-prefix=$RPI_TOOLROOT/bin/arm-linux-gnueabihf-
-+
-+# --enable-shared\
-+
-+# --enable-decoder=hevc_rpi\
-+# --enable-extra-warnings\
-+# --arch=armv71\
-+# --enable-shared\
 +
 +# gcc option for getting asm listing
 +# -Wa,-ahls
