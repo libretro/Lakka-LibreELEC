@@ -1,5 +1,5 @@
 PKG_NAME="mame2015"
-PKG_VERSION="ef41361dc9c88172617f7bbf6cd0ead4516a3c3f"
+PKG_VERSION="e6a7aa4d53726e61498f68d6b8e2c092a2169fa2"
 PKG_ARCH="x86_64 aarch64 arm"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mame2015-libretro"
@@ -10,22 +10,22 @@ PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET=""
 
-case ${DEVICE:-$PROJECT} in
-  RPi)
-    PKG_MAKE_OPTS_TARGET+=" platform=armv6-hardfloat-arm1176jzf-s"
-    ;;
-  RPi2)
-    PKG_MAKE_OPTS_TARGET+=" platform=armv7-neon-hardfloat-cortex-a7"
-    ;;
-  iMX6)
-    PKG_MAKE_OPTS_TARGET+=" platform=armv7-neon-hardfloat-cortex-a9"
-    ;;
-  *)
-    if [ "${ARCH}" = "arm" ]; then
+if [ "${ARCH}" = "arm" ]; then
+  case ${DEVICE:-$PROJECT} in
+    RPi)
+      PKG_MAKE_OPTS_TARGET+=" platform=armv6-hardfloat-arm1176jzf-s"
+      ;;
+    RPi2)
+      PKG_MAKE_OPTS_TARGET+=" platform=armv7-neon-hardfloat-cortex-a7"
+      ;;
+    iMX6)
+      PKG_MAKE_OPTS_TARGET+=" platform=armv7-neon-hardfloat-cortex-a9"
+      ;;
+    *)
       PKG_MAKE_OPTS_TARGET+=" platform=armv"
-    fi
-    ;;
-esac
+      ;;
+  esac
+fi
 
 pre_make_target() {
   PKG_MAKE_OPTS_TARGET+=" REALCC=${CC} CC=${CXX} LD=${CXX}"

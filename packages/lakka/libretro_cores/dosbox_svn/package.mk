@@ -1,5 +1,5 @@
 PKG_NAME="dosbox_svn"
-PKG_VERSION="ba9e1819d6ce59d9a08bf6dbb80515bcc0eebe09"
+PKG_VERSION="4f2b9ca30cd9487ac8610762552c553b0c83892d"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/dosbox-svn"
 PKG_URL="${PKG_SITE}.git"

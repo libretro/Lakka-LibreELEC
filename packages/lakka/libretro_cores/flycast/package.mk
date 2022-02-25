@@ -1,60 +1,33 @@
 PKG_NAME="flycast"
-PKG_VERSION="ae670ea28fdbb9f08149cb598312a71a0970ca67"
+PKG_VERSION="4b10402c5b3c3af935e3b5d91af55c2534ce5415"
 PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/libretro/flycast"
+PKG_SITE="https://github.com/flyinghead/flycast"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Flycast is a multiplatform Sega Dreamcast emulator"
-PKG_TOOLCHAIN="make"
+PKG_TOOLCHAIN="cmake"
 
-PKG_MAKE_OPTS_TARGET="HAVE_OPENMP=0 LDFLAGS=-lrt"
+PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON \
+                       -DUSE_OPENMP=OFF \
+                       -DCMAKE_BUILD_TYPE=Release"
 
 if [ "${OPENGL_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL}"
-  PKG_MAKE_OPTS_TARGET+=" HAVE_OIT=1"
 fi
 
 if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
-  PKG_MAKE_OPTS_TARGET+=" FORCE_GLES=1"
+  PKG_CMAKE_OPTS_TARGET+=" -DUSE_GLES2=ON"
 fi
 
-if [ "${VULKAN_SUPPORT}" = "yes" ]; then
+if [ "${VULKAN_SUPPORT}" = yes ]; then
   PKG_DEPENDS_TARGET+=" ${VULKAN}"
-  PKG_MAKE_OPTS_TARGET+=" HAVE_VULKAN=1"
+  PKG_CMAKE_OPTS_TARGET+=" -DUSE_VULKAN=ON"
 fi
-
-case ${DEVICE:-${PROJECT}} in
-  RPi2)
-    PKG_MAKE_OPTS_TARGET+=" platform=rpi2"
-    ;;
-  RPi3)
-    PKG_MAKE_OPTS_TARGET+=" platform=rpi3_64"
-    ;;
-  RPi4*)
-    PKG_MAKE_OPTS_TARGET+=" platform=rpi4_64"
-    ;;
-  RK3288)
-    PKG_MAKE_OPTS_TARGET+=" platform=RK3288"
-    ;;
-  Switch)
-    PKG_MAKE_OPTS_TARGET+=" platform=jetson-nano"
-    ;;
-  *)
-    if [ "${ARCH}" = "aarch64" ]; then
-      PKG_MAKE_OPTS_TARGET+=" platform=arm64"
-    elif [ "${ARCH}" = "arm" ]; then
-      PKG_MAKE_OPTS_TARGET+=" platform=armv-gles-neon"
-    fi
-    ;;
-esac
 
 pre_make_target() {
-  if [ "${ARCH}" = "arm" -o "${ARCH}" = "aarch64" ]; then
-    PKG_MAKE_OPTS_TARGET+=" AS=${AS} CC_AS=${CC}"
-  else
-    PKG_MAKE_OPTS_TARGET+=" AS=${AS} CC_AS=${AS}"
-  fi
+  find ${PKG_BUILD} -name flags.make -exec sed -i "s:isystem :I:g" \{} \;
+  find ${PKG_BUILD} -name build.ninja -exec sed -i "s:isystem :I:g" \{} \;
 }
 
 makeinstall_target() {

@@ -1,5 +1,5 @@
 PKG_NAME="bsnes_mercury"
-PKG_VERSION="d232c6ea90552f5921fec33a06626f08d3e18b24"
+PKG_VERSION="96455ef8dab27a44ffc2dd9ab4f859464423017b"
 PKG_ARCH="x86_64 i386"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/bsnes-mercury"
