@@ -8,7 +8,14 @@
 * Update mainline kernel to 5.10.101
 * Add new libretro core: wasm4
 * Add new libretro core: jumpnbump
+* Add new libretro core: blastem
+* Add new libretro core: freechaf
+* Add new libretro core: potator
+* Add new libretro core: quasi88
+* Add new libretro core: retro8
+* Add new libretro core: xmil
 * Make the `.update` folder on the `STORAGE` partition writable without superuser privilege
+* Add new device: Raspberry Pi Zero 2 with GPICase (Pi02GPi.arm)
 
 # v3.6
 * Update RetroArch to 1.9.13.1
