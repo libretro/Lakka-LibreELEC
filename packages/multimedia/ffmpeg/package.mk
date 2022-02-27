@@ -66,11 +66,7 @@ fi
 
 if [ "$PROJECT" = "RPi" ] && [ "$ARCH" = "arm" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"
-  if [ "${DEVICE:0:4}" = "RPi4" ]; then
-   PKG_PATCH_DIRS+=" rpi4-hevc"
-  else
-   PKG_PATCH_DIRS+=" rpi-hevc"
- fi
+  PKG_PATCH_DIRS+=" rpi-hevc"
 fi
 
 if [ "$PROJECT" = "L4T" ]; then
@@ -105,7 +101,7 @@ pre_configure_target() {
 }
 
 configure_target() {
-  CONFIG_OPTIONS_STANDARD_FFMPEG=" --disable-static \
+  CONFIG_OPTIONS_STANDARD_FFMPEG="--disable-static \
               --enable-shared \
               --enable-gpl \
               --disable-version3 \
@@ -114,7 +110,6 @@ configure_target() {
               --disable-doc \
               $PKG_FFMPEG_DEBUG \
               --enable-pic \
-              --pkg-config="$TOOLCHAIN/bin/pkg-config" \
               --enable-optimizations \
               --disable-extra-warnings \
               --disable-programs \
@@ -194,7 +189,7 @@ configure_target() {
               --disable-symver \
               $PKG_FFMPEG_NVMPI"
 
-if [  "$DISTRO" = "Lakka" ]; then
+  if [  "$DISTRO" = "Lakka" ]; then
     CONFIG_OPTIONS_STANDARD_FFMPEG=${CONFIG_OPTIONS_STANDARD_FFMPEG/"--disable-encoders "/"--enable-encoders "}
     CONFIG_OPTIONS_STANDARD_FFMPEG=${CONFIG_OPTIONS_STANDARD_FFMPEG/"--enable-encoder=ac3 "/""}
     CONFIG_OPTIONS_STANDARD_FFMPEG=${CONFIG_OPTIONS_STANDARD_FFMPEG/"--enable-encoder=aac "/""}
@@ -212,8 +207,7 @@ if [  "$DISTRO" = "Lakka" ]; then
     CONFIG_OPTIONS_STANDARD_FFMPEG=${CONFIG_OPTIONS_STANDARD_FFMPEG/"--disable-libx264 "/"--enable-libx264 "}
   fi
 
-
-./configure --prefix="/usr" \
+  ./configure --prefix="/usr" \
               --cpu="$TARGET_CPU" \
               --arch="$TARGET_ARCH" \
               --enable-cross-compile \
@@ -233,7 +227,7 @@ if [  "$DISTRO" = "Lakka" ]; then
               --extra-ldflags="$LDFLAGS" \
               --extra-libs="$PKG_FFMPEG_LIBS" \
               --pkg-config="$TOOLCHAIN/bin/pkg-config" \
-              $CONFIG_OPTION_STANDARD_FFMPEG
+              $CONFIG_OPTIONS_STANDARD_FFMPEG
 }
 
 post_makeinstall_target() {
