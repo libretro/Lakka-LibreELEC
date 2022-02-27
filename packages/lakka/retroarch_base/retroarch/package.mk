@@ -67,7 +67,7 @@ if [ "${DISPLAYSERVER}" != "no" ]; then
 fi
 
 if [ "${DISPLAYSERVER}" = "x11" ]; then
-  PKG_DEPENDS_TARGET+=" libXxf86vm"
+  PKG_DEPENDS_TARGET+=" libXxf86vm libXv"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-x11"
 else
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-x11"
@@ -135,6 +135,8 @@ pre_make_target() {
     CFLAGS+=" -I${SYSROOT_PREFIX}/usr/include/interface/vcos/pthreads \
               -I${SYSROOT_PREFIX}/usr/include/interface/vmcs_host/linux"
   fi
+  CFLAGS=${CFLAGS/"-Os"/"-O2"}
+  CFLAGS=${CFLAGS/"-O3"/"-O2"}
 }
 
 make_target() {

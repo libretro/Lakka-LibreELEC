@@ -3,7 +3,7 @@ PKG_VERSION="20d2d77d219613a2809fa9afe9606f6cf3be2aa0"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/rock88/moonlight-libretro"
 PKG_URL="${PKG_SITE}.git"
-PKG_DEPENDS_TARGET="toolchain ffmpeg opus cairo"
+PKG_DEPENDS_TARGET="toolchain ffmpeg opus cairo curl"
 PKG_LONGDESC="Moonlight-libretro is a port of Moonlight Game Streaming Project for RetroArch platform."
 
 if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
