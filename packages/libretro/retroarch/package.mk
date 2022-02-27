@@ -157,6 +157,8 @@ pre_make_target() {
   if [ "$LAKKA_NIGHTLY" = yes ]; then
     HAVE_LAKKA_NIGHTLY="HAVE_LAKKA_NIGHTLY=1"
   fi
+  CFLAGS=${CFLAGS/"-Os"/"-O2"}
+  CFLAGS=${CFLAGS/"-O3"/"-O2"}
 }
 
 make_target() {
