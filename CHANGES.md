@@ -16,6 +16,7 @@
 * Add new libretro core: xmil
 * Make the `.update` folder on the `STORAGE` partition writable without superuser privilege
 * Add new device: Raspberry Pi Zero 2 with GPICase (Pi02GPi.arm)
+* Fix recording / streaming in RetroArch
 
 # v3.6
 * Update RetroArch to 1.9.13.1
