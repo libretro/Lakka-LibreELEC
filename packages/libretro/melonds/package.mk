@@ -49,7 +49,7 @@ configure_target() {
 make_target() {
   if [ "$ARCH" = aarch64 ]; then
     if [ "$PROJECT" = "L4T" ]; then
-      make platform=unix HAVE_OPENGL=1 ARCH=arm64
+      make platform=tegra210 HAVE_OPENGL=1 ARCH=arm64
     else
       make platform=unix ARCH=arm64
     fi
