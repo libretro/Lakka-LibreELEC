@@ -100,7 +100,7 @@ fi
 if [ "$PROJECT" = "L4T" ]; then
    PKG_DEPENDS_TARGET+=" tegra-bsp:host"
    PKG_PATCH_DIRS+=" L4T"
-   PKG_FFMPEG_NVV4L2="--enable-nvv4l2dec"
+   PKG_FFMPEG_NVV4L2="--enable-nvv4l2"
    PKG_FFMPEG_LIBS+=" -lv4l2 -lpthread -lm -lnvbuf_utils"
    EXTRA_CFLAGS="-I${SYSROOT_PREFIX}/usr/src/jetson_multimedia_api/include"
 else
