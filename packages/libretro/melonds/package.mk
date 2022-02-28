@@ -20,7 +20,6 @@
 
 PKG_NAME="melonds"
 PKG_VERSION="e6e16ed"
-PKG_ARCH="x86_64 aarch64"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/melonds"
 PKG_URL="$PKG_SITE.git"
@@ -36,28 +35,30 @@ PKG_AUTORECONF="no"
 
 if [ "$OPENGL_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET+=" $OPENGL"
+  PKG_MAKE_OPTS_TARGET+=" HAVE_OPENGL=1 HAVE_OPENGLES3=0"
 fi
 
 if [ "$OPENGLES_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET+=" $OPENGLES"
+  PKG_MAKE_OPTS_TARGET+=" HAVE_OPENGL=0 HAVE_OPENGLES3=1"
 fi
 
-configure_target() {
-  cd $PKG_BUILD
-}
-
-make_target() {
-  if [ "$ARCH" = aarch64 ]; then
-    if [ "$PROJECT" = "L4T" ]; then
-      make platform=tegra210 HAVE_OPENGL=1 ARCH=arm64
-    else
-      make platform=unix ARCH=arm64
-    fi
-  elif [ "$OPENGL_SUPPORT" = yes ]; then
-    make HAVE_OPENGL=1
+if [ "$ARCH" = "aarch64" ]; then
+  PKG_MAKE_OPTS_TARGET+=" ARCH=arm64"
+  if [ "$PROJECT" = "L4T" ]; then
+    PKG_MAKE_OPTS_TARGET+=" platform=tegra210"
   else
-    make HAVE_OPENGL=0
+    PKG_MAKE_OPTS_TARGET+=" platform=unix"
   fi
+elif [ "$ARCH" = "arm" ]; then
+  PKG_MAKE_OPTS_TARGET+=" platform=unix"
+  if target_has_feature neon ; then
+    PKG_MAKE_OPTS_TARGET+=" HAVE_NEON=1"
+  fi
+fi
+
+pre_make_target() {
+  cd $PKG_BUILD
 }
 
 makeinstall_target() {
