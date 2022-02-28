@@ -7,7 +7,7 @@ PKG_LONGDESC="Package to install a service"
 PKG_TOOLCHAIN="manual"
 
 post_install() {
-  if [ "${PROJECT}" = "RPi" -a "${DEVICE}" = "GPICase" ]; then
+  if [ "${PROJECT}" = "RPi" ] && [ "${DEVICE}" = "GPICase" -o "${DEVICE}" = "Pi02GPi" ]; then
     enable_service disable-hdmi.service
   fi
 }
