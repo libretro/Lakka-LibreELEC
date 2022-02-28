@@ -10,6 +10,14 @@ if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
   PKG_MAKE_OPTS_TARGET="platform=lakka-switch TOOLCHAIN=${TOOLCHAIN}"
 fi
 
+if [ "${OPENGL_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" ${OPENGL}"
+fi
+
+if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" ${OPENGLES}"
+fi
+
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
     cp -v moonlight_libretro.so ${INSTALL}/usr/lib/libretro/
