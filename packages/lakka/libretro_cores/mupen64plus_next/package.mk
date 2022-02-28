@@ -15,7 +15,10 @@ fi
 
 if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
-  PKG_MAKE_OPTS_TARGET+=" GLES=1 FORCE_GLES=1 FORCE_GLES3=1"
+  PKG_MAKE_OPTS_TARGET+=" GLES=1 FORCE_GLES=1"
+  if [ "${OPENGLES}" != "bcm2835-driver" ]; then
+    PKG_MAKE_OPTS_TARGET+=" FORCE_GLES3=1"
+  fi
 fi
 
 if [ "${VULKAN_SUPPORT}" = "yes" ]; then
@@ -43,6 +46,9 @@ pre_make_target() {
       ;;
     RPi3)
       PKG_MAKE_OPTS_TARGET+=" platform=rpi3-mesa"
+      ;;
+    Pi02GPi)
+      PKG_MAKE_OPTS_TARGET+=" platform=rpi3"
       ;;
     RPi4*)
       PKG_MAKE_OPTS_TARGET+=" platform=rpi4-mesa"

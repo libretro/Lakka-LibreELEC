@@ -23,11 +23,11 @@ fi
 
 if [ "${PROJECT}" = "RPi" ]; then
   PKG_DEPENDS_TARGET+=" rpi_disable_hdmi_service"
-  if [ "${DEVICE}" != "GPICase" ] ; then
+  if [ "${DEVICE}" != "GPICase" -a "${DEVICE}" != "Pi02GPi" ] ; then
     PKG_DEPENDS_TARGET+=" wii-u-gc-adapter wiringPi mk_arcade_joystick_rpi joycond"
   fi
   
-  if [ "${DEVICE}" = "GPICase" ]; then
+  if [ "${DEVICE}" = "GPICase" -o "${DEVICE}" = "Pi02GPi" ]; then
     PKG_DEPENDS_TARGET+=" gpicase_safeshutdown"
   fi
 fi
