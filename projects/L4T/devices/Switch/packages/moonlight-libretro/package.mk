@@ -32,6 +32,14 @@ PKG_LONGDESC="Moonlight-libretro is a port of Moonlight Game Streaming Project f
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+if [ "$OPENGL_SUPPORT" = "yes " ]; then
+  PKG_DEPENDS_TARGET+=" $OPENGL"
+fi
+
+if [ "$OPENGLES_SUPPORT" = "yes" ]; then
+  PKG_DEPENDS_TARGET+= "$OPENGLES"
+fi
+
 make_target() {
   make platform=lakka-switch TOOLCHAIN=${TOOLCHAIN}
 }
