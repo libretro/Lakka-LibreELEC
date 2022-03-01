@@ -3,20 +3,22 @@
 * Update libretro cores to the latest
 * Add [small utility](https://github.com/spleen1981/xbox360-controllers-shutdown) to turn off Xbox360 controllers
 * Fix AML aarch64 cores compilation
-* Update Mesa to 21.3.6
+* Update Mesa to [21.3.6](https://docs.mesa3d.org/relnotes/21.3.6.html)
 * Rollback Raspberry kernel/firmware files to 1.20210831 (fixes issue with 4K displays not initializing)
 * Update mainline kernel to 5.10.101
-* Add new libretro core: wasm4
-* Add new libretro core: jumpnbump
-* Add new libretro core: blastem
-* Add new libretro core: freechaf
-* Add new libretro core: potator
-* Add new libretro core: quasi88
-* Add new libretro core: retro8
-* Add new libretro core: xmil
+* Add new libretro core: `wasm4`
+* Add new libretro core: `jumpnbump`
+* Add new libretro core: `blastem`
+* Add new libretro core: `freechaf`
+* Add new libretro core: `potator`
+* Add new libretro core: `quasi88`
+* Add new libretro core: `retro8`
+* Add new libretro core: `xmil`
+* Add new libretro core: `fmsx`
 * Make the `.update` folder on the `STORAGE` partition writable without superuser privilege
 * Add new device: Raspberry Pi Zero 2 with GPICase (Pi02GPi.arm)
 * Fix recording / streaming in RetroArch
+* Raspberry Pi: disable wifi powersaving to improve wifi stability
 
 # v3.6
 * Update RetroArch to 1.9.13.1
@@ -26,7 +28,7 @@
 * Add highscore.dat for `fbneo` to RetroArch system folder
 * Add artwork files, cheat.dat and history.dat for `mame2003-plus` to RetroArch system folder
 * Add engine files, themes, soundfont and basic scummvm.ini for `scummvm` to RetroArch system folder
-* Update Mesa to 21.2.5
+* Update Mesa to [21.2.5](https://docs.mesa3d.org/relnotes/21.2.5.html)
 * Fix issue with older Intel GPUs (crocus driver is now preferred, `MESA_LOADER_DRIVER_OVERRIDE` is not required anymore)
 * Update mainline kernel to 5.10.78
 * Update Raspberry kernel/firmware files to 1.20211029
