@@ -1,0 +1,7 @@
+PKG_NAME="disable_wifi_powersave"
+PKG_VERSION="1.0"
+PKG_LICENSE="GPL"
+PKG_SITE="https://www.lakka.tv"
+PKG_DEPENDS_TARGET="systemd"
+PKG_LONGDESC="Disables powersaving on wlan to improve stability"
+PKG_TOOLCHAIN="manual"
