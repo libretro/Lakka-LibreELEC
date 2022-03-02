@@ -31,3 +31,7 @@ if [ "${PROJECT}" = "RPi" ]; then
     PKG_DEPENDS_TARGET+=" gpicase_safeshutdown"
   fi
 fi
+
+if [ "${DEVICE}" != "Switch" -a "${DEVICE}" != "GPICase" -a "${DEVICE}" != "Pi02GPi" ]; then
+  PKG_DEPENDS_TARGET+=" xbox360_controllers_shutdown"
+fi
