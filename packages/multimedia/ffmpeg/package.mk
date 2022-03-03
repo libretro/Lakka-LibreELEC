@@ -110,6 +110,13 @@ else
   PKG_FFMPEG_AV1="--disable-libdav1d"
 fi
 
+if [ "${DISTRO}" = "Lakka" -a "${VULKAN_SUPPORT}" = yes ]; then
+  PKG_DEPEND_TARGET+=" ${VULKAN}"
+  PKG_FFMPEG_VULKAN="--enable-vulkan"
+else
+  PKG_FFMPEG_VULKAN="--disable-vulkan"
+fi
+
 pre_configure_target() {
   cd ${PKG_BUILD}
   rm -rf .${TARGET_NAME}
@@ -199,7 +206,8 @@ configure_target() {
               --disable-altivec \
               ${PKG_FFMPEG_FPU} \
               --disable-symver \
-              ${PKG_FFMPEG_NVV4L2}"
+              ${PKG_FFMPEG_NVV4L2} \
+              ${PKG_FFMPEG_VULKAN}"
 
   if [  "${DISTRO}" = "Lakka" ]; then
     CONFIG_OPTIONS_STANDARD_FFMPEG=${CONFIG_OPTIONS_STANDARD_FFMPEG/"--disable-encoders "/"--enable-encoders "}
