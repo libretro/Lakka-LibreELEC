@@ -6,8 +6,8 @@ PKG_NAME="xf86-video-nvidia"
 # Remember to run "python3 packages/x11/driver/xf86-video-nvidia/scripts/make_nvidia_udev.py" and commit
 # changes to "packages/x11/driver/xf86-video-nvidia/udev.d/96-nvidia.rules" whenever bumping version.
 # The build host may require installation of python3-lxml and python3-requests packages.
-PKG_VERSION="460.91.03"
-PKG_SHA256="448156cfcef182ed6997c2754c472fd681bf7139b821d2adce1d847220c6c933"
+PKG_VERSION="470.103.01"
+PKG_SHA256="c2a7315f04aa44a97ef7af7c9e016ca30f7053623b2e03148a4bd2298a9114b7"
 PKG_ARCH="x86_64"
 PKG_LICENSE="nonfree"
 PKG_SITE="https://www.nvidia.com/en-us/drivers/unix/"
@@ -17,6 +17,10 @@ PKG_LONGDESC="The Xorg driver for NVIDIA GPUs supporting the GeForce 600 Series 
 PKG_TOOLCHAIN="manual"
 
 PKG_IS_KERNEL_PKG="yes"
+
+if [ "${VULKAN_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" ${VULKAN} vulkan-tools"
+fi
 
 unpack() {
   [ -d ${PKG_BUILD} ] && rm -rf ${PKG_BUILD}
@@ -47,6 +51,7 @@ makeinstall_target() {
 
   mkdir -p ${INSTALL}/usr/lib
     cp -P libnvidia-glcore.so.${PKG_VERSION} ${INSTALL}/usr/lib
+    cp -P libnvidia-glsi.so.${PKG_VERSION} ${INSTALL}/usr/lib
     cp -P libnvidia-ml.so.${PKG_VERSION} ${INSTALL}/usr/lib
     ln -sf /var/lib/libnvidia-ml.so.1 ${INSTALL}/usr/lib/libnvidia-ml.so.1
     cp -P libnvidia-tls.so.${PKG_VERSION} ${INSTALL}/usr/lib
@@ -70,4 +75,14 @@ makeinstall_target() {
     cp libvdpau_nvidia.so* ${INSTALL}/usr/lib/vdpau/libvdpau_nvidia-main.so.1
     ln -sf /var/lib/libvdpau_nvidia.so ${INSTALL}/usr/lib/vdpau/libvdpau_nvidia.so
     ln -sf /var/lib/libvdpau_nvidia.so.1 ${INSTALL}/usr/lib/vdpau/libvdpau_nvidia.so.1
+
+  # Install Vulkan ICD & SPIR-V lib
+  if [ "${VULKAN_SUPPORT}" = "yes" ]; then
+    mkdir -p ${INSTALL}/usr/lib
+      cp -P libnvidia-glvkspirv.so.${PKG_VERSION} ${INSTALL}/usr/lib 
+    mkdir -p ${INSTALL}/usr/share/vulkan/icd.d
+      cp -P nvidia_icd.json ${INSTALL}/usr/share/vulkan/icd.d
+    mkdir -p ${INSTALL}/usr/share/vulkan/implicit_layer.d
+      cp -P nvidia_layers.json ${INSTALL}/usr/share/vulkan/icd.d
+  fi
 }

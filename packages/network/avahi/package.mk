@@ -49,6 +49,7 @@ PKG_CONFIGURE_OPTS_TARGET="py_cv_mod_gtk_=yes \
                            --disable-libevent \
                            --enable-compat-libdns_sd \
                            --disable-compat-howl \
+                           --disable-rpath \
                            --with-xml=expat \
                            --with-avahi-user=avahi \
                            --with-avahi-group=avahi \
@@ -56,6 +57,10 @@ PKG_CONFIGURE_OPTS_TARGET="py_cv_mod_gtk_=yes \
 
 pre_configure_target() {
   NOCONFIGURE=1 ./autogen.sh
+}
+
+post_configure_target() {
+  libtool_remove_rpath libtool
 }
 
 post_makeinstall_target() {

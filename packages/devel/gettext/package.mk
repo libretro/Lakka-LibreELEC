@@ -21,3 +21,10 @@ PKG_CONFIGURE_OPTS_HOST="--disable-static --enable-shared \
                          --disable-native-java \
                          --disable-csharp \
                          --without-emacs"
+
+PKG_CONFIGURE_OPTS_TARGET="--disable-rpath"
+
+post_configure_target() {
+  libtool_remove_rpath gettext-runtime/libasprintf/libtool
+  libtool_remove_rpath gettext-tools/libtool
+}

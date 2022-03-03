@@ -15,7 +15,7 @@ PKG_TOOLCHAIN="meson"
 
 if [ "${DISPLAYSERVER}" = "x11" ]; then
   DISPLAYSERVER_LIBVA="-Dwith_x11=yes -Dwith_wayland=no"
-elif [ "${DISPLAYSERVER}" = "weston" ]; then
+elif [ "${DISPLAYSERVER}" = "wl" ]; then
   DISPLAYSERVER_LIBVA="-Dwith_x11=no -Dwith_wayland=yes"
 else
   DISPLAYSERVER_LIBVA="-Dwith_x11=no -Dwith_wayland=no"

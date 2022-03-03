@@ -14,6 +14,19 @@ PKG_DEPENDS_HOST="ccache:host autoconf:host binutils:host gmp:host mpfr:host mpc
 PKG_DEPENDS_INIT="toolchain"
 PKG_LONGDESC="This package contains the GNU Compiler Collection."
 
+case ${TARGET_ARCH} in
+  arm|riscv64)
+    OPTS_LIBATOMIC="--enable-libatomic"
+    ;;
+  *)
+    OPTS_LIBATOMIC="--disable-libatomic"
+    ;;
+esac
+
+if [ "${DISTRO}" = "Lakka" ]; then
+  OPTS_LIBATOMIC="--enable-libatomic"
+fi
+
 GCC_COMMON_CONFIGURE_OPTS="--target=${TARGET_NAME} \
                            --with-sysroot=${SYSROOT_PREFIX} \
                            --with-gmp=${TOOLCHAIN} \
@@ -35,7 +48,6 @@ GCC_COMMON_CONFIGURE_OPTS="--target=${TARGET_NAME} \
                            --without-cloog \
                            --disable-libada \
                            --disable-libmudflap \
-                           --disable-libatomic \
                            --disable-libitm \
                            --disable-libquadmath \
                            --disable-libgomp \
@@ -47,6 +59,7 @@ PKG_CONFIGURE_OPTS_BOOTSTRAP="${GCC_COMMON_CONFIGURE_OPTS} \
                               --enable-languages=c \
                               --disable-libsanitizer \
                               --enable-cloog-backend=isl \
+                              --disable-libatomic \
                               --disable-shared \
                               --disable-threads \
                               --without-headers \
@@ -56,6 +69,7 @@ PKG_CONFIGURE_OPTS_BOOTSTRAP="${GCC_COMMON_CONFIGURE_OPTS} \
 
 PKG_CONFIGURE_OPTS_HOST="${GCC_COMMON_CONFIGURE_OPTS} \
                          --enable-languages=c,c++ \
+                         ${OPTS_LIBATOMIC} \
                          --enable-decimal-float \
                          --enable-tls \
                          --enable-shared \
@@ -67,10 +81,6 @@ PKG_CONFIGURE_OPTS_HOST="${GCC_COMMON_CONFIGURE_OPTS} \
                          --enable-libstdcxx-time \
                          --enable-clocale=gnu \
                          ${GCC_OPTS}"
-
-if [ "${DISTRO}" = "Lakka" ]; then
-  PKG_CONFIGURE_OPTS_HOST="${PKG_CONFIGURE_OPTS_HOST//--disable-libatomic/--enable-atomic}"
-fi
 
 pre_configure_host() {
   unset CPP
@@ -140,7 +150,7 @@ makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib
     cp -P ${PKG_BUILD}/.${HOST_NAME}/${TARGET_NAME}/libgcc/libgcc_s.so* ${INSTALL}/usr/lib
     cp -P ${PKG_BUILD}/.${HOST_NAME}/${TARGET_NAME}/libstdc++-v3/src/.libs/libstdc++.so* ${INSTALL}/usr/lib
-    if [ "${DISTRO}" = "Lakka" ]; then
+    if [ "${OPTS_LIBATOMIC}" = "--enable-libatomic" ]; then
       cp -P ${PKG_BUILD}/.${HOST_NAME}/${TARGET_NAME}/libatomic/.libs/libatomic.so* ${INSTALL}/usr/lib
     fi
 }

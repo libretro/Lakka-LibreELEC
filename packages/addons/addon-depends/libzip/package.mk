@@ -3,8 +3,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libzip"
-PKG_VERSION="1.7.3"
-PKG_SHA256="a60473ffdb7b4260c08bfa19c2ccea0438edac11193c3afbbb1f17fbcf6c6132"
+PKG_VERSION="1.8.0"
+PKG_SHA256="f0763bda24ba947e80430be787c4b068d8b6aa6027a26a19923f0acfa3dac97e"
 PKG_LICENSE="GPL"
 PKG_SITE="https://libzip.org/"
 PKG_URL="https://libzip.org/download/${PKG_NAME}-${PKG_VERSION}.tar.xz"

@@ -218,7 +218,7 @@ check_toolchain_config() {
     toolchain="CMAKE"
   fi
   for var in "${!PKG_@}"; do
-    if [[ "${var}" =~ INSTALL_OPTS_ || "${var}" =~ _MAKE_OPTS ]]; then
+    if [[ "${var}" =~ INSTALL_OPTS_ || "${var}" =~ _MAKE_OPTS || "${var}" =~ _TAR_COPY_OPTS ]]; then
       continue
     fi
     if [[ "${var}" =~ _OPTS_${target}$ \
@@ -485,10 +485,16 @@ pkgconfig = '$PKG_CONFIG'
 llvm-config = '$TOOLCHAIN/bin/llvm-config-host'
 libgcrypt-config = '$SYSROOT_PREFIX/usr/bin/libgcrypt-config'
 
+[build_machine]
+system = 'linux'
+cpu_family = '${MACHINE_HARDWARE_NAME}'
+cpu = '${MACHINE_HARDWARE_CPU}'
+endian = 'little'
+
 [host_machine]
 system = 'linux'
-cpu_family = '$TARGET_ARCH'
-cpu = '$TARGET_SUBARCH'
+cpu_family = '${MACHINE_HARDWARE_NAME}'
+cpu = '${MACHINE_HARDWARE_CPU}'
 endian = 'little'
 
 [built-in options]
@@ -516,6 +522,12 @@ strip = '$TARGET_STRIP'
 pkgconfig = '$PKG_CONFIG'
 llvm-config = '$TOOLCHAIN/bin/llvm-config-host'
 libgcrypt-config = '$SYSROOT_PREFIX/usr/bin/libgcrypt-config'
+
+[build_machine]
+system = 'linux'
+cpu_family = '${MACHINE_HARDWARE_NAME}'
+cpu = '${MACHINE_HARDWARE_CPU}'
+endian = 'little'
 
 [host_machine]
 system = 'linux'
@@ -861,6 +873,11 @@ is_sequential_build() {
   [ "${MTWITHLOCKS}" != "yes" ] && return 0 || return 1
 }
 
+# arg1: filename (libtool) to remove hardcode rpath when --disable-rpath is not supported by configure
+libtool_remove_rpath() {
+  sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' ${1}
+  sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' ${1}
+}
 
 ### PACKAGE HELPERS ###
 # get variable ($2) for package ($1).

@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libdrm"
-PKG_VERSION="2.4.109"
-PKG_SHA256="629352e08c1fe84862ca046598d8a08ce14d26ab25ee1f4704f993d074cb7f26"
+PKG_VERSION="2.4.110"
+PKG_SHA256="eecee4c4b47ed6d6ce1a9be3d6d92102548ea35e442282216d47d05293cf9737"
 PKG_LICENSE="GPL"
 PKG_SITE="http://dri.freedesktop.org"
 PKG_URL="http://dri.freedesktop.org/libdrm/libdrm-${PKG_VERSION}.tar.xz"
@@ -22,7 +22,7 @@ PKG_MESON_OPTS_TARGET="-Dlibkms=false \
                        -Dman-pages=false \
                        -Dvalgrind=false \
                        -Dfreedreno-kgsl=false \
-                       -Dinstall-test-programs=false \
+                       -Dinstall-test-programs=true \
                        -Dudev=false"
 
 listcontains "${GRAPHIC_DRIVERS}" "(crocus|i915|iris)" &&
@@ -54,9 +54,18 @@ if [ "${DISTRO}" = "Lakka" ]; then
 fi
 
 post_makeinstall_target() {
-  mkdir -p ${INSTALL}/usr/bin
-    cp -a ${PKG_BUILD}/.${TARGET_NAME}/tests/modetest/modetest ${INSTALL}/usr/bin/
-  if [ "$PROJECT" = "L4T" ]; then
-    rm ${INSTALL}/usr/lib/libdrm.so.2
+  # Remove all test programs installed by install-test-programs=true except modetest
+  # Do not "not use" the ninja install and replace this with a simple "cp modetest"
+  # as ninja strips the unnecessary build rpath during the install.
+  safe_remove ${INSTALL}/usr/bin/amdgpu_stress
+  safe_remove ${INSTALL}/usr/bin/drmdevice
+  safe_remove ${INSTALL}/usr/bin/kms-steal-crtc
+  safe_remove ${INSTALL}/usr/bin/kms-universal-planes
+  safe_remove ${INSTALL}/usr/bin/modeprint
+  safe_remove ${INSTALL}/usr/bin/proptest
+  safe_remove ${INSTALL}/usr/bin/vbltest
+
+  if [ "${PROJECT}" = "L4T" ]; then
+    safe_remove ${INSTALL}/usr/lib/libdrm.so.2
   fi
 }

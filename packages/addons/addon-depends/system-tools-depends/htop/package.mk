@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="htop"
-PKG_VERSION="3.1.1"
-PKG_SHA256="b52280ad05a535ec632fbcd47e8e2c40a9376a9ddbd7caa00b38b9d6bb87ced6"
+PKG_VERSION="3.1.2"
+PKG_SHA256="fe9559637c8f21f5fd531a4c072048a404173806acbdad1359c6b82fd87aa001"
 PKG_LICENSE="GPL"
 PKG_SITE="https://hisham.hm/htop"
 PKG_URL="https://github.com/htop-dev/htop/archive/${PKG_VERSION}.tar.gz"

@@ -2,8 +2,8 @@
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 
 PKG_NAME="kmod"
-PKG_VERSION="28"
-PKG_SHA256="3969fc0f13daa98084256337081c442f8749310089e48aa695c9b4dfe1b3a26c"
+PKG_VERSION="29"
+PKG_SHA256="0b80eea7aa184ac6fd20cafa2a1fdf290ffecc70869a797079e2cc5c6225a52a"
 PKG_LICENSE="GPL"
 PKG_SITE="https://git.kernel.org/pub/scm/utils/kernel/kmod/kmod.git"
 PKG_URL="https://www.kernel.org/pub/linux/utils/kernel/kmod/${PKG_NAME}-${PKG_VERSION}.tar.xz"

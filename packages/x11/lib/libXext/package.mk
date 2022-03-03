@@ -12,3 +12,7 @@ PKG_DEPENDS_TARGET="toolchain util-macros libX11"
 PKG_LONGDESC="LibXext provides an X Window System client interface to several extensions to the X protocol."
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-malloc0returnsnull --without-xmlto"
+
+post_configure_target() {
+  libtool_remove_rpath libtool
+}

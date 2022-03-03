@@ -10,7 +10,13 @@ PKG_URL="https://github.com/libusb/libusb-compat-0.1/releases/download/v${PKG_VE
 PKG_DEPENDS_TARGET="toolchain libusb"
 PKG_LONGDESC="The libusb project's aim is to create a Library for use by user level applications to USB devices."
 
-PKG_CONFIGURE_OPTS_TARGET="--disable-log --disable-debug-log --disable-examples-build"
+PKG_CONFIGURE_OPTS_TARGET="--disable-log \
+                           --disable-debug-log \
+                           --disable-examples-build"
+
+post_configure_target() {
+  libtool_remove_rpath libtool
+}
 
 post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/bin

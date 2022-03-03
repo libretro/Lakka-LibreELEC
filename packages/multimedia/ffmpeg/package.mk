@@ -14,8 +14,8 @@ PKG_BUILD_FLAGS="-gold"
 
 case "$PROJECT" in
   Amlogic)
-    PKG_VERSION="9f237dd0247797f89860302dac60c32cda48a9f9" # dev/4.4/rpi_import_1 @ working video
-    PKG_SHA256="3d407a426387679a607d60cdad2f559c4ad49a87f2a179b4f98983fa86ce3121"
+    PKG_VERSION="6144fe76840e1d8dfd549ba9c72e2cce01db9638" # dev/4.4/rpi_import_1
+    PKG_SHA256="b014a7ad4a592163c5af47e105e967a26856824b8f603e3e39c80af50975f1e7"
     PKG_URL="https://github.com/jc-kynesim/rpi-ffmpeg/archive/${PKG_VERSION}.tar.gz"
     PKG_PATCH_DIRS="libreelec"
     ;;
@@ -97,7 +97,7 @@ fi
 
 #Re-enable when patches are rebased on newer version of ffmpeg,for now we use old version. 
 
-if [ "$PROJECT" = "L4T" ]; then
+if [ "${PROJECT}" = "L4T" ]; then
    PKG_DEPENDS_TARGET+=" tegra-bsp:host"
    PKG_PATCH_DIRS+=" L4T"
    PKG_FFMPEG_NVV4L2="--enable-nvv4l2"
@@ -130,8 +130,18 @@ pre_configure_target() {
   rm -rf .${TARGET_NAME}
 }
 
+if [ "${FFMPEG_TESTING}" = "yes" ]; then
+  PKG_FFMPEG_TESTING="--enable-encoder=wrapped_avframe --enable-muxer=null"
+  if [ "${PROJECT}" = "RPi" ]; then
+    PKG_FFMPEG_TESTING+=" --enable-vout-drm --enable-outdev=vout_drm"
+  fi
+else
+  PKG_FFMPEG_TESTING="--disable-programs"
+fi
+
 configure_target() {
-  CONFIG_OPTIONS_STANDARD_FFMPEG="--disable-static \
+  CONFIG_OPTIONS_STANDARD_FFMPEG="--enable-cross-compile \
+                                  --disable-static \
                                   --enable-shared \
                                   --enable-gpl \
                                   --disable-version3 \
@@ -141,7 +151,6 @@ configure_target() {
                                   --enable-pic \
                                   --enable-optimizations \
                                   --disable-extra-warnings \
-                                  --disable-programs \
                                   --enable-avdevice \
                                   --enable-avcodec \
                                   --enable-avformat \
@@ -214,6 +223,7 @@ configure_target() {
                                   --disable-altivec \
                                   ${PKG_FFMPEG_FPU} \
                                   --disable-symver \
+                                  ${PKG_FFMPEG_TESTING} \
                                   ${PKG_FFMPEG_NVV4L2}"
 
   if [  "${DISTRO}" = "Lakka" ]; then
@@ -237,7 +247,6 @@ configure_target() {
   ./configure --prefix="/usr" \
               --cpu="${TARGET_CPU}" \
               --arch="${TARGET_ARCH}" \
-              --enable-cross-compile \
               --cross-prefix="${TARGET_PREFIX}" \
               --sysroot="${SYSROOT_PREFIX}" \
               --sysinclude="${SYSROOT_PREFIX}/usr/include" \
@@ -250,7 +259,7 @@ configure_target() {
               --host-cc="${HOST_CC}" \
               --host-cflags="${HOST_CFLAGS}" \
               --host-ldflags="${HOST_LDFLAGS}" \
-              --extra-cflags="${CFLAGS} ${EXTRA_CFLAGS}" \
+              --extra-cflags="${CFLAGS}" \
               --extra-ldflags="${LDFLAGS}" \
               --extra-libs="${PKG_FFMPEG_LIBS}" \
               --pkg-config="${TOOLCHAIN}/bin/pkg-config" \

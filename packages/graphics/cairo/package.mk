@@ -65,6 +65,7 @@ pre_configure_target() {
                              --enable-pthread \
                              --enable-gobject=yes \
                              --disable-full-testing \
+                             --disable-rpath \
                              --disable-trace \
                              --enable-interpreter \
                              --disable-symbol-lookup \
@@ -105,4 +106,8 @@ pre_configure_target() {
                                  --disable-glesv2 \
                                  --disable-egl"
   fi
+}
+
+post_configure_target() {
+  libtool_remove_rpath libtool
 }

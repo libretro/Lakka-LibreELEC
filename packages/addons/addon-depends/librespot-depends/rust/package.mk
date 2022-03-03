@@ -2,7 +2,7 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="rust"
-PKG_VERSION="1.54.0"
+PKG_VERSION="1.58.1"
 PKG_LICENSE="MIT"
 PKG_SITE="https://www.rust-lang.org"
 PKG_DEPENDS_TARGET="toolchain rustup.rs"
@@ -51,8 +51,8 @@ if [ "${HOSTTYPE}" = "${TARGET_ARCH}" ]; then
   # by the cross compiler. Read more here.
   # https://doc.rust-lang.org/cargo/reference/unstable.html#target-applies-to-host
   export __CARGO_TEST_CHANNEL_OVERRIDE_DO_NOT_USE_THIS="nightly"
+  export CARGO_UNSTABLE_TARGET_APPLIES_TO_HOST="true"
   export CARGO_TARGET_APPLIES_TO_HOST="false"
-  export CARGO_Z_TARGET_APPLIES_TO_HOST="-Z target-applies-to-host"
 fi
 export PATH="${CARGO_HOME}/bin:${PATH}"
 export PKG_CONFIG_ALLOW_CROSS="1"

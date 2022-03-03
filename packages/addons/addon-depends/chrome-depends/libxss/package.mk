@@ -12,3 +12,7 @@ PKG_LONGDESC="X11 Screen Saver extension library."
 PKG_BUILD_FLAGS="+pic -sysroot"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-malloc0returnsnull"
+
+post_configure_target() {
+  libtool_remove_rpath libtool
+}

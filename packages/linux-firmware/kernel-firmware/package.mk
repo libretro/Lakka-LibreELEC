@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="kernel-firmware"
-PKG_VERSION="20211027"
-PKG_SHA256="ad7114fdf4814c093121167b578be75db102f490cfede725ba4c26ae56fa56cd"
+PKG_VERSION="20211216"
+PKG_SHA256="330ae22410701c00c1174d23e22f1d2a98e7d6d5c0b0ed4e34c70a392ac6ca97"
 PKG_LICENSE="other"
 PKG_SITE="https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/"
 PKG_URL="https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/snapshot/${PKG_VERSION}.tar.gz"
@@ -78,6 +78,12 @@ makeinstall_target() {
   if listcontains "${GRAPHIC_DRIVERS}" "nouveau"; then
     cp -Lrv ${PKG_FW_SOURCE}/nvidia ${FW_TARGET_DIR}/
     rm -rv ${FW_TARGET_DIR}/nvidia/tegra*
+  fi
+
+  # Upstream doesn't name the file correctly so we need to symlink it
+  if [ -f "${FW_TARGET_DIR}/rtl_bt/rtl8723bs_config-OBDA8723.bin" ]; then
+    #cd "${FW_TARGET_DIR}/rtl_bt"
+    ln -s "rtl8723bs_config-OBDA8723.bin" "${FW_TARGET_DIR}/rtl_bt/rtl8723bs_config.bin"
   fi
 
   # Cleanup - which may be project or device specific

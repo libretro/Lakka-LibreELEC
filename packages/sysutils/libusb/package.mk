@@ -3,8 +3,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libusb"
-PKG_VERSION="1.0.24"
-PKG_SHA256="7efd2685f7b327326dcfb85cee426d9b871fd70e22caa15bb68d595ce2a2b12a"
+PKG_VERSION="1.0.25"
+PKG_SHA256="8a28ef197a797ebac2702f095e81975e2b02b2eeff2774fa909c78a74ef50849"
 PKG_LICENSE="LGPLv2.1"
 PKG_SITE="http://libusb.info/"
 PKG_URL="https://github.com/libusb/libusb/releases/download/v${PKG_VERSION}/libusb-${PKG_VERSION}.tar.bz2"
