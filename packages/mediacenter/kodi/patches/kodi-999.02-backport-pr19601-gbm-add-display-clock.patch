@@ -9,11 +9,17 @@ This reverts commit cacf60139cd5aa334b43defc04d15356cb1aa4da.
  xbmc/windowing/gbm/WinSystemGbm.cpp | 7 -------
  1 file changed, 7 deletions(-)
 
-diff --git a/xbmc/windowing/gbm/WinSystemGbm.cpp b/xbmc/windowing/gbm/WinSystemGbm.cpp
-index d86d3775a4..6552993348 100644
 --- a/xbmc/windowing/gbm/WinSystemGbm.cpp
 +++ b/xbmc/windowing/gbm/WinSystemGbm.cpp
-@@ -93,13 +93,6 @@ bool CWinSystemGbm::InitWindowSystem()
+@@ -11,6 +11,7 @@
+ #include "GBMDPMSSupport.h"
+ #include "OptionalsReg.h"
+ #include "ServiceBroker.h"
++#include "VideoSyncGbm.h"
+ #include "drm/DRMAtomic.h"
+ #include "drm/DRMLegacy.h"
+ #include "drm/OffScreenModeSetting.h"
+@@ -93,13 +94,6 @@ bool CWinSystemGbm::InitWindowSystem()
    if (setting)
      setting->SetVisible(true);
  
@@ -27,31 +33,15 @@ index d86d3775a4..6552993348 100644
    CLog::Log(LOGDEBUG, "CWinSystemGbm::%s - initialized DRM", __FUNCTION__);
    return CWinSystemBase::InitWindowSystem();
  }
--- 
-2.30.2
-
-
-From 300a2c655b90f4e2d8cf15caa77cf181ac46d228 Mon Sep 17 00:00:00 2001
-From: popcornmix <popcornmix@gmail.com>
-Date: Wed, 18 Dec 2019 19:57:54 +0000
-Subject: [PATCH 2/2] windowing/gbm: Add display clock
-
-This allows use of "sync video to display"
-and features like resampling for smooth playback
-of 24fps content on 25fps display and manual
-speed adjustments
----
- xbmc/windowing/gbm/CMakeLists.txt   |   2 +
- xbmc/windowing/gbm/VideoSyncGbm.cpp | 123 ++++++++++++++++++++++++++++
- xbmc/windowing/gbm/VideoSyncGbm.h   |  33 ++++++++
- xbmc/windowing/gbm/WinSystemGbm.cpp |   6 ++
- xbmc/windowing/gbm/WinSystemGbm.h   |   2 +
- 5 files changed, 166 insertions(+)
- create mode 100644 xbmc/windowing/gbm/VideoSyncGbm.cpp
- create mode 100644 xbmc/windowing/gbm/VideoSyncGbm.h
-
-diff --git a/xbmc/windowing/gbm/CMakeLists.txt b/xbmc/windowing/gbm/CMakeLists.txt
-index 3b386e8daa..254b2db5b6 100644
+@@ -271,3 +265,8 @@ void CWinSystemGbm::OnLostDevice()
+   for (auto resource : m_resources)
+     resource->OnLostDisplay();
+ }
++
++std::unique_ptr<CVideoSync> CWinSystemGbm::GetVideoSync(void* clock)
++{
++  return std::make_unique<CVideoSyncGbm>(clock);
++}
 --- a/xbmc/windowing/gbm/CMakeLists.txt
 +++ b/xbmc/windowing/gbm/CMakeLists.txt
 @@ -2,12 +2,14 @@ add_subdirectory(drm)
@@ -69,9 +59,6 @@ index 3b386e8daa..254b2db5b6 100644
              GBMUtils.h
              WinSystemGbmEGLContext.h
              GBMDPMSSupport.h)
-diff --git a/xbmc/windowing/gbm/VideoSyncGbm.cpp b/xbmc/windowing/gbm/VideoSyncGbm.cpp
-new file mode 100644
-index 0000000000..5d7bb99cd0
 --- /dev/null
 +++ b/xbmc/windowing/gbm/VideoSyncGbm.cpp
 @@ -0,0 +1,123 @@
@@ -198,9 +185,6 @@ index 0000000000..5d7bb99cd0
 +  if (m_fps != CServiceBroker::GetWinSystem()->GetGfxContext().GetFPS())
 +    m_abort = true;
 +}
-diff --git a/xbmc/windowing/gbm/VideoSyncGbm.h b/xbmc/windowing/gbm/VideoSyncGbm.h
-new file mode 100644
-index 0000000000..bd0718ff1d
 --- /dev/null
 +++ b/xbmc/windowing/gbm/VideoSyncGbm.h
 @@ -0,0 +1,33 @@
@@ -237,29 +221,6 @@ index 0000000000..bd0718ff1d
 +  uint64_t m_offset = 0;
 +  volatile bool m_abort;
 +};
-diff --git a/xbmc/windowing/gbm/WinSystemGbm.cpp b/xbmc/windowing/gbm/WinSystemGbm.cpp
-index 6552993348..44e8b27ee1 100644
---- a/xbmc/windowing/gbm/WinSystemGbm.cpp
-+++ b/xbmc/windowing/gbm/WinSystemGbm.cpp
-@@ -11,6 +11,7 @@
- #include "GBMDPMSSupport.h"
- #include "OptionalsReg.h"
- #include "ServiceBroker.h"
-+#include "VideoSyncGbm.h"
- #include "drm/DRMAtomic.h"
- #include "drm/DRMLegacy.h"
- #include "drm/OffScreenModeSetting.h"
-@@ -264,3 +265,8 @@ void CWinSystemGbm::OnLostDevice()
-   for (auto resource : m_resources)
-     resource->OnLostDisplay();
- }
-+
-+std::unique_ptr<CVideoSync> CWinSystemGbm::GetVideoSync(void* clock)
-+{
-+  return std::make_unique<CVideoSyncGbm>(clock);
-+}
-diff --git a/xbmc/windowing/gbm/WinSystemGbm.h b/xbmc/windowing/gbm/WinSystemGbm.h
-index 6ec6f47cd1..12e3966784 100644
 --- a/xbmc/windowing/gbm/WinSystemGbm.h
 +++ b/xbmc/windowing/gbm/WinSystemGbm.h
 @@ -68,6 +68,8 @@ public:
@@ -271,6 +232,3 @@ index 6ec6f47cd1..12e3966784 100644
    std::shared_ptr<CDRMUtils> m_DRM;
    std::unique_ptr<CGBMUtils> m_GBM;
    std::shared_ptr<CVideoLayerBridge> m_videoLayerBridge;
--- 
-2.30.2
-
