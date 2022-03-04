@@ -1,5 +1,5 @@
 PKG_NAME="tyrquake"
-PKG_VERSION="423a217d7ef0f913bc711dc9fceff707196c0f2f"
+PKG_VERSION="0e75ab87dd94fabc801263978c5bdf98cdbc293a"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/tyrquake"
 PKG_URL="${PKG_SITE}.git"
