@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.dumb"
-PKG_VERSION="19.0.0-Matrix"
-PKG_SHA256="1134080932affdee27e9f3d8350695aed096a2754b77f1a7b12eb595922caad9"
+PKG_VERSION="19.0.2-Matrix"
+PKG_SHA256="cebe0a8e01066ea394237893af0cc89aed99a90bfb7186d47ce48948b26ec2ed"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

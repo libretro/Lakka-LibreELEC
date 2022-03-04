@@ -13,6 +13,6 @@ PKG_DEPENDS_CONFIG="shared-mime-info"
 PKG_LONGDESC="GdkPixbuf is a a GNOME library for image loading and manipulation."
 
 PKG_MESON_OPTS_TARGET="-Ddocs=false \
-                       -Dgir=false \
+                       -Dintrospection=disabled \
                        -Dman=false \
                        -Drelocatable=false"

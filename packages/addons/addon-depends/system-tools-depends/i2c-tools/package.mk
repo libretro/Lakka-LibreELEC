@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="i2c-tools"
-PKG_VERSION="4.2"
-PKG_SHA256="37f2dabc7082d185903ff21d1f584b5dcb4dd2eb2c879bbd8d7c50ae900dacd6"
+PKG_VERSION="4.3"
+PKG_SHA256="1f899e43603184fac32f34d72498fc737952dbc9c97a8dd9467fadfdf4600cf9"
 PKG_LICENSE="GPL"
 PKG_SITE="https://i2c.wiki.kernel.org/index.php/I2C_Tools"
 PKG_URL="https://www.kernel.org/pub/software/utils/i2c-tools/${PKG_NAME}-${PKG_VERSION}.tar.xz"
@@ -37,6 +37,7 @@ makeinstall_target() {
   make  EXTRA="py-smbus" \
         DESTDIR=${INSTALL} \
         PREFIX="/usr" \
+        prefix="/usr" \
         PYTHON=${TOOLCHAIN}/bin/python3 \
         install
 }

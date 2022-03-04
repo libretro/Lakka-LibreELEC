@@ -5,7 +5,7 @@
 msg_color() {
   echo $(
     cd "${ROOT}"
-    PROJECT=Generic ARCH=x86_64 . config/options ""
+    PROJECT="${PROJECT:-Generic}" ARCH="${ARCH:-x86_64}" . config/options ""
     echo $(print_color "$1" "$2")
   )
 }
@@ -42,7 +42,7 @@ git_clone() {
 get_pkg_var() {
   local pkg_name="$1" pkg_var="$2"
   cd "${ROOT}"
-  PROJECT=Generic ARCH=x86_64 source config/options ${pkg_name} &>/dev/null
+  PROJECT="${PROJECT:-Generic}" ARCH="${ARCH:-x86_64}" source config/options ${pkg_name} &>/dev/null
   echo "${!pkg_var}"
 }
 
@@ -60,19 +60,57 @@ resolve_hash_in_branch() {
   fi
 }
 
+resolve_hash_on_gh() {
+  curl -s -L -H "Authorization: token ${GITHUB_API_TOKEN}" \
+    -H "Accept: application/vnd.github.VERSION.sha" \
+    "${1/*github.com/https:\/\/api.github.com\/repos}/commits/$2"
+}
+
 resolve_tag_in_branch() {
-  local tag
+  local tag tags
   if [ -d "$1" ] ; then
     cd "$1"
-    if [ $# -eq 3 ] ; then
-      tag=$(git describe --abbrev=0 --tags --match "$3" origin/$2 2>/dev/null)
-      if [ -n "$tag" ] ; then
-        echo "$tag"
-        return
-      fi
+    tag=$(git describe --abbrev=0 --tags origin/$2 2>/dev/null)
+    if [ -z "${tag}" ]; then
+      return
     fi
-    git describe --abbrev=0 --tags origin/$2 2>/dev/null
+    tags=( $(git tag --points-at "${tag}" | sort -r -n) )
+    if [ $# -eq 3 -a ${#tags[@]} -gt 1 ]; then
+      for tag in "${tags[@]}"; do
+        if [[ "${tag}" =~ $3 ]]; then
+          echo "$tag"
+          return
+        fi
+      done
+    fi
+    echo "${tags[0]}"
   fi
+}
+
+resolve_tag_on_gh() {
+  local tag
+
+  local QUERY=$(tr '\n' ' ' <<EOF
+{
+  repository(owner: \\"${1}\\", name: \\"${2}\\") {
+    refs(refPrefix: \\"refs/tags/\\", first: 100, orderBy: {field: TAG_COMMIT_DATE, direction: DESC}) {
+      edges {
+        node {
+          name
+       }
+      }
+    }
+  }
+}
+EOF
+)
+
+  tag=$(curl -s -L -H 'Content-Type: application/json' \
+          -H "Authorization: bearer ${GITHUB_API_TOKEN}" \
+          -X POST -d "{ \"query\": \"${QUERY}\" }" https://api.github.com/graphql | \
+          jq -r '[.data.repository.refs.edges[] | select(.node.name | contains("'${3}'"))][0].node.name | select (.!=null)')
+
+  echo "${tag}"
 }
 
 check_package_excluded() {
@@ -183,5 +221,10 @@ validate_pkg_url() {
 
   [ "${url1}" = "${url2}" ] && return 0 || return 1
 }
- 
 
+# Get user Github token if available
+get_gh_token() {
+  if [ -z "${GITHUB_API_TOKEN}" ]; then
+    GITHUB_API_TOKEN=$(get_pkg_var "" GITHUB_API_TOKEN)
+  fi
+}

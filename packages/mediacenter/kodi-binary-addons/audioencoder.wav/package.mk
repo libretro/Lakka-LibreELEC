@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audioencoder.wav"
-PKG_VERSION="19.0.0-Matrix"
-PKG_SHA256="a0c5799e5010e560247517c1b8c847cb08f78e73f6d6144778a73a1836b534a9"
+PKG_VERSION="19.0.1-Matrix"
+PKG_SHA256="32069979efb02daaa79b8ce09e060eed73f3fa73a4614b6c67e50ee33f1b096f"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

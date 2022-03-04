@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="efivar"
-PKG_VERSION="cff88dd96b9d43e2c5875a24ba6180b196890ded" # 16 Oct 2020
-PKG_SHA256="016dfae596b691c8d38e488f8bfac3ba437befc260a6f32e60dd390595c9f3e9"
+PKG_VERSION="b920a6ca82250504167066d24aa8731ad29a0de8" # 10 Dec 2021
+PKG_SHA256="def327792854bdb5bc442e2907e1871c954e55e33d67045dcd2d2988f8a08afd"
 PKG_ARCH="x86_64"
 PKG_LICENSE="LGPL"
 PKG_SITE="https://github.com/rhboot/efivar"
@@ -11,6 +11,7 @@ PKG_URL="https://github.com/rhboot/efivar/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_HOST="toolchain:host"
 PKG_DEPENDS_TARGET="toolchain efivar:host"
 PKG_LONGDESC="Tools and library to manipulate EFI variables."
+PKG_BUILD_FLAGS="-gold"
 
 pre_make_host() {
   export TOPDIR=${PKG_BUILD}
@@ -26,7 +27,7 @@ pre_make_target() {
 }
 
 make_target() {
-  make -C src/ libefivar.a libefiboot.a efivar.h efivar
+  make CROSS_COMPILE=${TARGET_NAME}- -C src/ libefivar.a libefiboot.a efivar.h efivar
 }
 
 makeinstall_host() {
