@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="MarkupSafe"
-PKG_VERSION="2.0.1"
-PKG_SHA256="594c67807fb16238b30c44bdf74f36c02cdf22d1c8cda91ef8a0ed8dabf5620a"
+PKG_VERSION="2.1.0"
+PKG_SHA256="80beaf63ddfbc64a0452b841d8036ca0611e049650e20afcb882f5d3c266d65f"
 PKG_LICENSE="GPL"
 PKG_SITE="https://pypi.org/project/MarkupSafe/"
 PKG_URL="https://files.pythonhosted.org/packages/source/${PKG_NAME:0:1}/${PKG_NAME}/${PKG_NAME}-${PKG_VERSION}.tar.gz"
