@@ -16,7 +16,11 @@ fi
 
 if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
-  PKG_MAKE_OPTS_TARGET+=" HAVE_OPENGL=1"
+  if [ "${OPENGLES}" = "mesa" ]; then
+    PKG_MAKE_OPTS_TARGET+=" HAVE_OPENGL=1"
+  else
+    PKG_MAKE_OPTS_TARGET+=" HAVE_OPENGLES=1"
+  fi
 fi
 
 if [ "${VULKAN_SUPPORT}" = "yes" ]; then

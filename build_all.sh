@@ -90,6 +90,7 @@ targets="\
 	RPi|RPi4|aarch64|noobs \
 	RPi|RPi4-PiBoyDmg|aarch64|image \
 	RPi|RPi4-RetroDreamer|aarch64|image \
+	Samsung|Exynos|arm|image \
 	"
 
 # set the number of total build jobs and initialize counter for current build job

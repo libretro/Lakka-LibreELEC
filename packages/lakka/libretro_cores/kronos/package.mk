@@ -24,7 +24,11 @@ if [ "${VULKAN_SUPPORT}" = "yes" ]; then
 fi
 
 if [ "${ARCH}" = "arm" ]; then
-  PKG_MAKE_OPTS_TARGET+=" platform=armv"
+  if [ "${PROJECT}" = "Samsung" -a "${DEVICE}" = "Exynos" ]; then
+    PKG_MAKE_OPTS_TARGET+=" platform=odroid BOARD=ODROID-XU4"
+  else
+    PKG_MAKE_OPTS_TARGET+=" platform=armv"
+  fi
 elif [ "${ARCH}" = "aarch64" ]; then
   PKG_MAKE_OPTS_TARGET+=" platform=arm64"
 fi
