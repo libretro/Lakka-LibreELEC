@@ -8,7 +8,7 @@ FORCE_LIBRETRO_BUMP=""
 KEEP_GIT_DIRS="yes"
 
 usage() {
-  echo "Usage: $0 [options] <kodi-branch>"
+  echo "Usage: $0 [options] <kodi-branch> [<tag-suffix>]"
   echo " -b, --bump-pkg-rev: bump PKG_REV if package was not updated"
   echo " -d, --delete-git-dirs: delete cloned git dirs after update"
   echo " -f, --force-libretro-bump: check for new libretro package"
@@ -46,11 +46,18 @@ while [ $# -ne 0 ]; do
 done
 
 
-if [ $# -ne 1 ]; then
+if [ $# -eq 0 -o $# -gt 2 ]; then
   usage
   exit 1
 fi
+
 KODI_BRANCH="$1"
+
+if [ $# -eq 2 ]; then
+  TAG_SUFFIX="$2"
+else
+  TAG_SUFFIX="${KODI_BRANCH}"
+fi
 
 # list of packages to exclude from update
 EXCLUDED_PACKAGES="game.libretro.chailove
@@ -72,6 +79,14 @@ rm -rf "${TMPDIR}"
 mkdir -p "${TMPDIR}"
 
 . "${MY_DIR}/update_common_functions"
+
+get_gh_token
+
+# check if depends are available
+if [ -n "${GITHUB_API_TOKEN}" ]; then
+  command -v curl >/dev/null 2>&1 || die "please install curl"
+  command -v jq >/dev/null 2>&1 || die "please install jq"
+fi
 
 ADDONS="game-binary-addons"
 ADDONS_DIR="${ADDONS}.git"
@@ -114,14 +129,33 @@ for addon in ${ADDONS_DIR}/*.*/ ; do
   NO_TAG=""
   CHECK_RETRO=""
 
-  git_clone "${GAME_GIT_REPO}" "${GAME_GIT_DIR}"
-  GAME_NEW_VERSION=$(resolve_tag_in_branch "${GAME_GIT_DIR}" "${GAME_GIT_BRANCH}" "*-${KODI_BRANCH}")
+  if [ -z "$GITHUB_API_TOKEN" ]; then
+    git_clone "${GAME_GIT_REPO}" "${GAME_GIT_DIR}"
+    if [ -n "${TAG_SUFFIX}" ]; then
+      GAME_NEW_VERSION=$(resolve_tag_in_branch "${GAME_GIT_DIR}" "${GAME_GIT_BRANCH}" ".*-${TAG_SUFFIX}$")
+    else
+      GAME_NEW_VERSION=$(resolve_tag_in_branch "${GAME_GIT_DIR}" "${GAME_GIT_BRANCH}")
+    fi
+  else
+    REPO=$(basename "${GAME_GIT_REPO}")
+    OWNER=$(basename "${GAME_GIT_REPO%/${REPO}*}")
+    if [ -n "${TAG_SUFFIX}" ]; then
+      GAME_NEW_VERSION=$(resolve_tag_on_gh "${OWNER}" "${REPO}" "-${TAG_SUFFIX}")
+    else
+      GAME_NEW_VERSION=$(resolve_tag_on_gh "${OWNER}" "${REPO}")
+    fi
+  fi
+
   if [ -z "${GAME_NEW_VERSION}" ]; then
     NO_TAG="yes"
     echo "========================================================================"
     msg_warn "WARNING: no tag found for addon ${GAME_ADDON}, falling back to HEAD"
     echo "========================================================================"
-    GAME_NEW_VERSION=$(resolve_hash_in_branch "${GAME_GIT_DIR}" "${GAME_GIT_BRANCH}")
+    if [ -z "$GITHUB_API_TOKEN" ]; then
+      GAME_NEW_VERSION=$(resolve_hash_in_branch "${GAME_GIT_DIR}" "${GAME_GIT_BRANCH}")
+    else
+      GAME_NEW_VERSION=$(resolve_hash_on_gh "${GAME_GIT_REPO}" "${GAME_GIT_BRANCH}")
+    fi
   fi
 
   if [ "${KEEP_GIT_DIRS}" != "yes" ]; then
@@ -157,18 +191,24 @@ for addon in ${ADDONS_DIR}/*.*/ ; do
     fi
 
     VERSION_INFO=$(grep "^${RETRO_NAME}" "${RETRO_VERSION_FILE}" | head -1)
-    if [[ "$VERSION_INFO" =~ .zip$ ]] ; then
+    if [[ "$VERSION_INFO" =~ github\.com/[^/]+/[^/]+/archive/[^/]+\.zip$ ]] ; then
       # version referenced by githash
       RETRO_NEW_VERSION=$(sed -e 's|^.*/archive/||' -e 's|\.zip$||' "${RETRO_VERSION_FILE}")
-    else
+    elif [[ "$VERSION_INFO" =~ github\.com/[^/]+/[^/]+/archive/[^/]+\.tar\.gz$ ]] ; then
+      # version referenced by githash
+      RETRO_NEW_VERSION=$(sed -e 's|^.*/archive/||' -e 's|\.tar.gz$||' "${RETRO_VERSION_FILE}")
+    elif [[ "$VERSION_INFO" =~ github\.com/[^/[:space:]]+/[^/[:space:]]+[[:space:]][^[:space:]]+ ]] ; then
       msg_warn "unmanaged version in kodi package: ${VERSION_INFO}"
       # unmanaged version, repo plus branch
       RETRO_SITE=$(echo "${VERSION_INFO}" | awk '{print $2}')
       RETRO_BRANCH=$(echo "${VERSION_INFO}" | awk '{print $3}')
       RETRO_NEW_VERSION=$(git ls-remote "${RETRO_SITE}" "${RETRO_BRANCH}" | awk '{print $1}')
+    else
+      msg_warn "UNSUPPORTED ${RETRO_ADDON} version info, update manually: ${VERSION_INFO}"
+      RETRO_NEW_VERSION=""
     fi
 
-    if update_pkg "${RETRO_PATH}" "${RETRO_ADDON}" "${RETRO_NEW_VERSION}"; then
+    if [ -n "${RETRO_NEW_VERSION}" ] && update_pkg "${RETRO_PATH}" "${RETRO_ADDON}" "${RETRO_NEW_VERSION}"; then
       BUMPED_RETRO="yes"
     fi
   fi

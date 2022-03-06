@@ -9,10 +9,6 @@ PKG_URL=""
 PKG_DEPENDS_UNPACK+=" libxkbcommon"
 PKG_BUILD_FLAGS="-sysroot"
 
-PKG_MESON_OPTS_TARGET="${PKG_MESON_OPTS_TARGET} \
-                           -Denable-static=false \
-                           -Denable-shared=true"
-
 unpack() {
   mkdir -p ${PKG_BUILD}
   tar --strip-components=1 -xf ${SOURCES}/${PKG_NAME:7}/${PKG_NAME:7}-${PKG_VERSION}.tar.xz -C ${PKG_BUILD}
