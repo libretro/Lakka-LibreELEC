@@ -4,8 +4,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="open-vm-tools"
-PKG_VERSION="11.3.5"
-PKG_SHA256="26053a93d8aa5387e49a974ed3d0c89a1efd7e0911d694cd9b9f4306bd74b885"
+PKG_VERSION="12.0.0"
+PKG_SHA256="244d224dc503f2c9350899a61fef418f23dc0520e8e30dce10863ea2dc81f047"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/vmware/open-vm-tools"
@@ -16,6 +16,7 @@ PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-docs \
                            --disable-tests \
+                           --disable-containerinfo \
                            --disable-deploypkg \
                            --without-pam \
                            --without-gtk2 \
