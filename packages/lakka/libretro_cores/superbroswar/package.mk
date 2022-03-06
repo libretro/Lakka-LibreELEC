@@ -1,5 +1,5 @@
 PKG_NAME="superbroswar"
-PKG_VERSION="c0b0527ee490c5302dc31d7f45b95e776ce219a9"
+PKG_VERSION="f30808ba4d82ce17cc15af87a46c61920bd2806a"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/superbroswar-libretro"
 PKG_URL="${PKG_SITE}.git"
