@@ -5,10 +5,7 @@ PKG_SITE="https://github.com/libretro/superbroswar-libretro"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Super Bros War deathmatch game."
-
-make_target() {
-  make -f Makefile.libretro
-}
+PKG_MAKE_OPTS_TARGET="-f Makefile.libretro"
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
