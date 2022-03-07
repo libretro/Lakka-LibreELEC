@@ -36,9 +36,20 @@ case "${LINUX}" in
     #Need to find a better way to do this for l4t platforms!
     PKG_SHA256=$L4T_COMBINED_KERNEL_SHA256
     ;;
+  rockchip)
+    PKG_VERSION="5.10.76"
+    PKG_SHA256="480a09ba1962862ff18df9453fa0df6ba11cbe19eefedeab81bf2c84f49e1890"
+    PKG_URL="https://www.kernel.org/pub/linux/kernel/v5.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+    PKG_PATCH_DIRS="default ${DISTRO}-default"
+    ;;
   *)
-    PKG_VERSION="5.10.103"
-    PKG_SHA256="4fb8ad55e6430342e4fbc94d54e594e9be8eb6a8bea1d71eccf835948d08580a"
+    if [ "${DISTRO}" = "Lakka" ]; then
+      PKG_VERSION="5.10.103"
+      PKG_SHA256="4fb8ad55e6430342e4fbc94d54e594e9be8eb6a8bea1d71eccf835948d08580a"
+    else
+      PKG_VERSION="5.10.76"
+      PKG_SHA256="480a09ba1962862ff18df9453fa0df6ba11cbe19eefedeab81bf2c84f49e1890"
+    fi
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v5.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
     PKG_PATCH_DIRS="default"
     ;;
@@ -50,7 +61,7 @@ if listcontains "${UBOOT_FIRMWARE}" "crust"; then
   PKG_PATCH_DIRS+=" crust"
 fi
 
-[ "${DISTRO}" = "Lakka" ] && PKG_PATCH_DIRS+=" ${DISTRO}-${LINUX}" || true
+PKG_PATCH_DIRS+=" ${DISTRO}-${LINUX}" || true
 
 if [ -n "${KERNEL_TOOLCHAIN}" ]; then
   PKG_DEPENDS_HOST+=" gcc-arm-${KERNEL_TOOLCHAIN}:host"
