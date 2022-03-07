@@ -1,7 +1,7 @@
 #!/bin/bash
 usage() {
 	echo ""
-	echo "${0} <build|clean> <package>"
+	echo "${0} <build|clean|unpack> <package>"
 	echo ""
 	echo "Builds/cleans a package for all projects/devices/systems of Lakka"
 	echo ""
@@ -19,6 +19,11 @@ case ${1} in
 		action=${1}
 		script="./scripts/build"
 		activity="Compilation"
+		;;
+	unpack)
+		action=${1}
+		script="./scripts/unpack"
+		activity="Unpacking"
 		;;
 	*)
 		usage
