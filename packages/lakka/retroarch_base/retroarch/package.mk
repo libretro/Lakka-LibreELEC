@@ -35,7 +35,7 @@ if [ "${OPENGLES_SUPPORT}" = yes ]; then
     PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles3 \
                                  --enable-opengles3_1 \
                                  --enable-opengles3_2"
- fi
+  fi
 else
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-opengles"
 fi
@@ -49,6 +49,7 @@ else
 fi
 
 if [ "${VULKAN_SUPPORT}" = yes ]; then
+  PKG_DEPENDS_TARGET+=" ${VULKAN}"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-vulkan"
 else
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-vulkan"
