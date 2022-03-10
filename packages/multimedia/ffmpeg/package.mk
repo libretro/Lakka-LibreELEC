@@ -87,7 +87,6 @@ if [ "$PROJECT" = "L4T" ]; then
    PKG_DEPENDS_TARGET+=" tegra-bsp:host"
    PKG_PATCH_DIRS+=" L4T"
    PKG_FFMPEG_NVV4L2="--enable-nvv4l2"
-   PKG_FFMPEG_LIBS+=" -lv4l2 -lpthread -lm -lnvbuf_utils"
    EXTRA_CFLAGS="-I${SYSROOT_PREFIX}/usr/src/jetson_multimedia_api/include"
 else
    PKG_FFMPEG_NVV4L2=""
@@ -109,6 +108,13 @@ if target_has_feature "(neon|sse)"; then
   PKG_FFMPEG_AV1="--enable-libdav1d"
 else
   PKG_FFMPEG_AV1="--disable-libdav1d"
+fi
+
+if [ "${DISTRO}" = "Lakka" -a "${VULKAN_SUPPORT}" = yes ]; then
+  PKG_DEPEND_TARGET+=" ${VULKAN}"
+  PKG_FFMPEG_VULKAN="--enable-vulkan"
+else
+  PKG_FFMPEG_VULKAN="--disable-vulkan"
 fi
 
 pre_configure_target() {
@@ -200,7 +206,8 @@ configure_target() {
               --disable-altivec \
               ${PKG_FFMPEG_FPU} \
               --disable-symver \
-              ${PKG_FFMPEG_NVV4L2}"
+              ${PKG_FFMPEG_NVV4L2} \
+              ${PKG_FFMPEG_VULKAN}"
 
   if [  "${DISTRO}" = "Lakka" ]; then
     CONFIG_OPTIONS_STANDARD_FFMPEG=${CONFIG_OPTIONS_STANDARD_FFMPEG/"--disable-encoders "/"--enable-encoders "}

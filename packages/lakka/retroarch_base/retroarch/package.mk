@@ -35,7 +35,7 @@ if [ "${OPENGLES_SUPPORT}" = yes ]; then
     PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles3 \
                                  --enable-opengles3_1 \
                                  --enable-opengles3_2"
-  fi
+ fi
 else
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-opengles"
 fi
@@ -113,9 +113,17 @@ else
 fi
 
 if [ "${PROJECT}" = "L4T" ]; then
-  PKG_CONFIGURE_OPTS_TARGET+=" --enable-xinerama --disable-vulkan_display"
+  PKG_CONFIGURE_OPTS_TARGET+=" --enable-xinerama"
   PKG_CONFIGURE_OPTS_TARGET=${PKG_CONFIGURE_OPTS_TARGET//--enable-kms/--disable-kms}
-  PKG_CONFIGURE_OPTS_TARGET=${PKG_CONFIGURE_OPTS_TARGET//--enable-egl/--disable-egl}
+  #EGL break gl1 support so if opengl enabled, force disable egl/gles
+  if [ "${OPENGL_SUPPORT}" = yes ]; then
+    PKG_CONFIGURE_OPTS_TARGET=${PKG_CONFIGURE_OPTS_TARGET//--enable-egl/--disable-egl}
+    PKG_CONFIGURE_OPTS_TARGET=${PKG_CONFIGURE_OPTS_TARGET//--enable-opengles3_1/}
+    PKG_CONFIGURE_OPTS_TARGET=${PKG_CONFIGURE_OPTS_TARGET//--enable-opengles3_2/}
+    PKG_CONFIGURE_OPTS_TARGET=${PKG_CONFIGURE_OPTS_TARGET//--enable-opengles3/}
+    PKG_CONFIGURE_OPTS_TARGET=${PKG_CONFIGURE_OPTS_TARGET//--enable-opengles/}
+  fi
+
   if [ "${DEVICE}" = "Switch" ]; then
     PKG_MAKE_OPTS_TARGET+=" HAVE_LAKKA_SWITCH=1"
   fi
