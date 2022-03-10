@@ -65,10 +65,6 @@ else
   PKG_MESON_OPTS_TARGET+=" -Dgallium-va=disabled"
 fi
 
-if listcontains "${GRAPHIC_DRIVERS}" "crocus"; then
-  PKG_MESON_OPTS_TARGET+=" -Dprefer-crocus=true"
-fi
-
 if listcontains "${GRAPHIC_DRIVERS}" "vmware"; then
   PKG_MESON_OPTS_TARGET+=" -Dgallium-xa=enabled"
 else
