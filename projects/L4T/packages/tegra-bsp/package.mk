@@ -54,6 +54,11 @@ case "${L4T_DEVICE_TYPE}" in
         PKG_URL="https://developer.nvidia.com/embedded/l4t/r32_release_v6.1/t210/jetson-210_linux_r32.6.1_aarch64.tbz2"
         MEDIA_API_URL="https://repo.download.nvidia.com/jetson/t210/pool/main/n/nvidia-l4t-jetson-multimedia-api/nvidia-l4t-jetson-multimedia-api_32.6.1-20210916211029_arm64.deb"
         ;;
+      32.7.1)
+        PKG_URL="https://developer.nvidia.com/embedded/l4t/r32_release_v7.1/t210/jetson-210_linux_r32.7.1_aarch64.tbz2"
+        MEDIA_API_URL="https://repo.download.nvidia.com/jetson/t210/pool/main/n/nvidia-l4t-jetson-multimedia-api/nvidia-l4t-jetson-multimedia-api_32.7.1-20220219090432_arm64.deb"
+        ;;
+
       *)
         echo L4T-r"${GENERIC_L4T_VERSION}" is not supported
         exit 1
@@ -126,6 +131,14 @@ case "${L4T_DEVICE_TYPE}" in
           MEDIA_API_URL="https://repo.download.nvidia.com/jetson/t194/pool/main/n/nvidia-l4t-jetson-multimedia-api/nvidia-l4t-jetson-multimedia-api_32.6.1-20210726122859_arm64.deb"
         fi
         ;;
+      32.7.1)
+        PKG_URL="https://developer.nvidia.com/embedded/l4t/r32_release_v7.1/t186/jetson_linux_r32.7.1_aarch64.tbz2"
+        if [ "${L4T_DEVICE_TYPE}" = "t18x" ]; then
+          MEDIA_API_URL="https://repo.download.nvidia.com/jetson/t186/pool/main/n/nvidia-l4t-jetson-multimedia-api/nvidia-l4t-jetson-multimedia-api_32.7.1-20220219090344_arm64.deb"
+        else
+          MEDIA_API_URL="https://repo.download.nvidia.com/jetson/t194/pool/main/n/nvidia-l4t-jetson-multimedia-api/nvidia-l4t-jetson-multimedia-api_32.7.1-20220219090344_arm64.deb"
+        fi
+        ;;
       *)
         echo L4T-r"${GENERIC_L4T_VERSION}" is not supported
         exit 1
@@ -155,7 +168,14 @@ make_host() {
   ar x ../${MEDIA_API_FILENAME}
   mkdir data
   cd data
-  tar xf ../data.tar.bz2
+
+  #At some point nvidia changed internal deb stuff to .tar.zstd
+  if [ -f ../data.tar.bz2 ]; then
+    tar xf ../data.tar.bz2
+  else
+    tar xf ../data.tar.zst
+  fi
+
   cd ..
   rm *.tar* debian-binary
   mv data/* ${PKG_BUILD}/host_install/
@@ -359,11 +379,19 @@ make_target() {
   sed -i 's:libnvidia-egl-wayland.so.1:/usr/lib/libnvidia-egl-wayland.so.1:g' ../share/egl/egl_external_platform.d/nvidia_wayland.json
 
   #More symlinking
-
+  if [  -d "${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/custom-tegra-firmware" ]; then
+    rm -rf firmware
+    cp -r ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/custom-tegra-firmware ./
+    mv custom-tegra-firmware firmware
+  fi
   cd firmware
   rm -r gm20b
   ln -sfn tegra21x gm20b
-  cd ../../../
+  cd tegra21x
+  if [ -f nv_acr_ucode_prod.bin ]; then
+    ln -sfn nv_acr_ucode_prod.bin acr_ucode.bin
+  fi
+  cd ../../../../
   cd etc
 
   if [ ! "${PULSEAUDIO_SUPPORT}" = "yes" ]; then
@@ -413,9 +441,17 @@ makeinstall_init() {
   mkdir -p ${INSTALL}/{firmware,splash}
   cp -PRv ${PKG_BUILD}/init_install/* ${INSTALL}/
 
+  if [ -f "${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/custom-tegra-firmware/tegra21x_xusb_firmware" ]; then
+    PWD="$(pwd)"
+    cd ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/custom-tegra-firmware
+    cp -r tegra21x_xusb_firmware ${INSTALL}/usr/lib/firmware
+    cd ${PWD}
+  fi
+
+  #Remove when hekatf releases, as we wont need to supply reboot payload anymore.
   if [ -d "${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/initramfs/firmware" ]; then
     PWD="$(pwd)"
-    cd ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/initramfs/firmware/
+    cd ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/initramfs/firmware
     cp -r * ${INSTALL}/usr/lib/firmware
     cd ${PWD}
   fi
@@ -436,6 +472,13 @@ makeinstall_target() {
   fi
   #Install target
   cp -PRv ${PKG_BUILD}/target_install/* ${INSTALL}/
+
+  if [ -d "${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/firmware" ]; then
+    PWD="$(pwd)"
+    cd ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/firmware
+    cp -r * ${INSTALL}/usr/lib/firmware
+    cd ${PWD}
+  fi
 
   if [ "${DEVICE}" = "Switch" ]; then
     if [ "${DISPLAYSERVER}" = "x11" ]; then
