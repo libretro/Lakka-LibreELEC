@@ -3,10 +3,9 @@
 
 PKG_NAME="librga"
 PKG_VERSION="72e7764"
-PKG_GIT_CLONE_BRANCH="master"
-PKG_ARCH="any"
+PKG_SHA256="5bef2427479778f99d3df2c336409ef6f3fa953cf832ad5a4f126f1ad74ace30"
 PKG_SITE="https://github.com/rockchip-linux/linux-rga"
-PKG_URL="$PKG_SITE.git"
+PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="graphics"
 
