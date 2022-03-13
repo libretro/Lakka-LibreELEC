@@ -1,6 +1,6 @@
-From a4632124ca32374fd1ab728f30be9aaa79186ba5 Mon Sep 17 00:00:00 2001
+From e658546b32da44813c3a9913fc55c71e1e946b13 Mon Sep 17 00:00:00 2001
 From: MilhouseVH <milhouseVH.github@nmacleod.com>
-Date: Tue, 19 Mar 2019 18:06:56 +0000
+Date: Thu, 10 Mar 2022 23:20:09 +0100
 Subject: [PATCH] handle SIGTERM
 
 0. CApplication::Stop cant be trusted. (deadlocks crashes and boo)
@@ -15,22 +15,22 @@ so, when shutdown/reboot is requested:
 6. addons / pvrmanager / cec / everything else.. are free to deadlock / crash now, we dont care
 7. KILL
 ---
- xbmc/Application.cpp                          | 23 ++++++++++++++-----
+ xbmc/Application.cpp                          | 24 ++++++++++++++-----
  xbmc/Application.h                            |  1 +
  xbmc/XBApplicationEx.cpp                      |  1 +
  xbmc/XBApplicationEx.h                        |  1 +
  .../powermanagement/LogindUPowerSyscall.cpp   |  2 --
- 5 files changed, 20 insertions(+), 8 deletions(-)
+ 5 files changed, 21 insertions(+), 8 deletions(-)
 
 --- a/xbmc/Application.cpp
 +++ b/xbmc/Application.cpp
-@@ -1966,12 +1966,12 @@ void CApplication::OnApplicationMessage(
+@@ -1968,12 +1968,12 @@ void CApplication::OnApplicationMessage(
    switch (msg)
    {
    case TMSG_POWERDOWN:
--    Stop(EXITCODE_POWERDOWN);
-+    SetExitCode(EXITCODE_POWERDOWN);
-     CServiceBroker::GetPowerManager().Powerdown();
+-    if (Stop(EXITCODE_POWERDOWN))
++    if (SetExitCode(EXITCODE_POWERDOWN))
+       CServiceBroker::GetPowerManager().Powerdown();
      break;
  
    case TMSG_QUIT:
@@ -39,13 +39,13 @@ so, when shutdown/reboot is requested:
      break;
  
    case TMSG_SHUTDOWN:
-@@ -1992,12 +1992,13 @@ void CApplication::OnApplicationMessage(
+@@ -1994,12 +1994,13 @@ void CApplication::OnApplicationMessage(
  
    case TMSG_RESTART:
    case TMSG_RESET:
--    Stop(EXITCODE_REBOOT);
-+    SetExitCode(EXITCODE_REBOOT);
-     CServiceBroker::GetPowerManager().Reboot();
+-    if (Stop(EXITCODE_REBOOT))
++    if (SetExitCode(EXITCODE_REBOOT))
+       CServiceBroker::GetPowerManager().Reboot();
      break;
  
    case TMSG_RESTARTAPP:
@@ -54,25 +54,7 @@ so, when shutdown/reboot is requested:
      Stop(EXITCODE_RESTARTAPP);
  #endif
      break;
-@@ -2491,6 +2492,17 @@ bool CApplication::Cleanup()
-   }
- }
- 
-+void CApplication::SetExitCode(int exitCode)
-+{
-+  if (!m_ExitCodeSet)
-+  {
-+    CLog::Log(LOGINFO, "Saving exitCode %d", exitCode);
-+    // save it for CEC
-+    m_ExitCode = exitCode;
-+    m_ExitCodeSet = true;
-+  }
-+}
-+
- void CApplication::Stop(int exitCode)
- {
-   CLog::Log(LOGINFO, "Stopping player");
-@@ -2517,7 +2529,7 @@ void CApplication::Stop(int exitCode)
+@@ -2530,7 +2531,7 @@ bool CApplication::Stop(int exitCode)
      m_frameMoveGuard.unlock();
  
      CVariant vExitCode(CVariant::VariantTypeObject);
@@ -81,7 +63,7 @@ so, when shutdown/reboot is requested:
      CServiceBroker::GetAnnouncementManager()->Announce(ANNOUNCEMENT::System, "OnQuit", vExitCode);
  
      // Abort any active screensaver
-@@ -2549,7 +2561,6 @@ void CApplication::Stop(int exitCode)
+@@ -2562,7 +2563,6 @@ bool CApplication::Stop(int exitCode)
      // Needs cleaning up
      CApplicationMessenger::GetInstance().Stop();
      m_AppFocused = false;
@@ -89,7 +71,26 @@ so, when shutdown/reboot is requested:
      CLog::Log(LOGINFO, "Stopping all");
  
      // cancel any jobs from the jobmanager
-@@ -4199,7 +4210,7 @@ void CApplication::ProcessSlow()
+@@ -3149,6 +3149,18 @@ void CApplication::OnQueueNextItem()
+   CServiceBroker::GetGUI()->GetWindowManager().SendThreadMessage(msg);
+ }
+ 
++bool CApplication::SetExitCode(int exitCode)
++{
++  if (!m_ExitCodeSet)
++  {
++    CLog::Log(LOGINFO, "Saving exitCode {}", exitCode);
++    // save it for CEC
++    m_ExitCode = exitCode;
++    m_ExitCodeSet = true;
++  }
++  return true;
++}
++
+ void CApplication::OnPlayBackStopped()
+ {
+   CLog::LogF(LOGDEBUG, "CApplication::OnPlayBackStopped");
+@@ -4215,7 +4227,7 @@ void CApplication::ProcessSlow()
    if (CPlatformPosix::TestQuitFlag())
    {
      CLog::Log(LOGINFO, "Quitting due to POSIX signal");
@@ -104,8 +105,8 @@ so, when shutdown/reboot is requested:
    bool InitWindow(RESOLUTION res = RES_INVALID);
  
    bool IsCurrentThread() const;
-+  void SetExitCode(int exitCode);
-   void Stop(int exitCode);
++  bool SetExitCode(int exitCode);
+   bool Stop(int exitCode);
    void UnloadSkin();
    bool LoadCustomWindows();
 --- a/xbmc/XBApplicationEx.cpp
