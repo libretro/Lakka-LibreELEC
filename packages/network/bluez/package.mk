@@ -67,7 +67,8 @@ post_makeinstall_target() {
 
     if [ "${DISTRO}" = "Lakka" ]; then
       sed -i $INSTALL/etc/bluetooth/main.conf \
-          -e "s|^#FastConnectable.*|FastConnectable=true|g"
+          -e "s|^#FastConnectable.*|FastConnectable=true|g" \
+          -e "s|^# Privacy =.*|Privacy = device|g"
     fi
 
   mkdir -p ${INSTALL}/usr/share/services
