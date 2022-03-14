@@ -80,6 +80,11 @@ makeinstall_target() {
     rm -rv ${FW_TARGET_DIR}/nvidia/tegra*
   fi
 
+  # On Lakka use iwlwifi firmware from this package instead of separate LibreELEC package
+  if [ "${DISTRO}" = "Lakka" -a "${PROJECT}" = "Generic" ]; then
+    cp -Lv ${PKG_FW_SOURCE}/iwlwifi-* ${FW_TARGET_DIR}/
+  fi
+
   # Cleanup - which may be project or device specific
   find_file_path scripts/cleanup.sh && ${FOUND_PATH} ${FW_TARGET_DIR} || true
 }
