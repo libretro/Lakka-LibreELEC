@@ -21,6 +21,15 @@
 # by default start in dashboard mode
 [ -z "${DASHBOARD_MODE}" ] && DASHBOARD_MODE="yes"
 
+# trap CTRL+C in dashboard mode, as the build job runs in background, we have to tell the user to wait
+[ "${DASHBOARD_MODE}" = "yes" ] && trap control_c_pressed INT
+
+CONTROL_C_PRESSED=0
+
+control_c_pressed() {
+	CONTROL_C_PRESSED=1
+}
+
 # by default do not bail out after failed build
 [ -z "${BAILOUT_FAILED}" ] && BAILOUT_FAILED="no"
 
@@ -100,6 +109,7 @@ declare -i current=0
 failed_targets=""
 declare -i failed_jobs=0
 declare -i good_jobs=0
+SKIP_ANNOUNCED=0
 
 for target in ${targets}
 do
@@ -112,6 +122,12 @@ do
 	arch=${build[2]}
 	out=${build[3]}
 	target_name=${device:-$project}.${arch}
+
+	if [ ${SKIP_ANNOUNCED} -eq 1 ]
+	then
+		echo -e "\t${target_name}"
+		continue
+	fi
 
 	# initialize return value of the non-dashboard job
 	ret_nondb=0
@@ -164,6 +180,7 @@ do
 					then
 						echo ""
 						echo "${statusline}"
+						[ ${CONTROL_C_PRESSED} -eq 1 ] && echo "*** Control-C was pressed, please wait until current build finishes ***"
 					fi
 					# check if all packages have been built
 					pkgs_stat=$(head -n 1 ${statusfile} | cut -d" " -f5,7)
@@ -178,6 +195,7 @@ do
 							cat ${statusfile}
 							echo ""
 							echo "${statusline}"
+							[ ${CONTROL_C_PRESSED} -eq 1 ] && echo "*** Control-C was pressed, please wait until current build finishes ***"
 						else
 							sleep ${rr}
 						fi
@@ -194,6 +212,7 @@ do
 					cat ${statusfile}
 					echo ""
 					echo "${statusline}"
+					[ ${CONTROL_C_PRESSED} -eq 1 ] && echo "*** Control-C was pressed, please wait until current build finishes ***"
 					# check if there are any failed jobs in the dashboard
 					failed_count=$(cat ${statusfile} | grep "^\[" | cut -d' ' -f 2 | grep FAILED | wc -l)
 					if [ ${failed_count} -gt 0 ]
@@ -239,10 +258,10 @@ do
 				if [ ${count} -eq 0 ]
 				then
 					echo "failed - no release files found!"
-					echo -e "\nWARNING: No releaase files / images were found, skipping md5 checksum / mv to release folder!"
+					echo -e "\nWARNING: No release files / images were found, skipping md5 checksum / mv to release folder!"
 				else
 					echo "failed - some release files were not created!"
-					echo -e "\nWARNING: Some releaase files / images may be missing!"
+					echo -e "\nWARNING: Some release files / images may be missing!"
 				fi
 			fi
 		fi
@@ -315,6 +334,11 @@ do
 		# build OK, but no release files were created
 		failed_jobs+=1
 		failed_targets+="${target_name} - no release files!\n"
+	fi
+	if [ ${CONTROL_C_PRESSED} -eq 1 -a ${SKIP_ANNOUNCED} -eq 0 ]
+	then
+		echo "Skipping remaining builds:"
+		SKIP_ANNOUNCED=1
 	fi
 done
 
