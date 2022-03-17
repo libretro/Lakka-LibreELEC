@@ -1,3 +1,8 @@
+# v3.7.1
+* Maintenance release
+* Update RetroArch to 1.10.1
+* Update libretro cores to the same version as on 4.x
+
 # v3.7
 * Update RetroArch to 1.10.0
 * Update libretro cores to the latest
