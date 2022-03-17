@@ -1,5 +1,5 @@
 PKG_NAME="ecwolf"
-PKG_VERSION="21d2f0a"
+PKG_VERSION="b1bbd64"
 PKG_ARCH="any"
 PKG_LICENSE="Unknown"
 PKG_SITE="https://github.com/libretro/ecwolf"

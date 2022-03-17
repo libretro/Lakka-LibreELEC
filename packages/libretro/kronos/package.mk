@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="kronos"
-PKG_VERSION="9bb35a8"
+PKG_VERSION="a387dec"
 PKG_GIT_CLONE_BRANCH="kronos"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/yabause"
