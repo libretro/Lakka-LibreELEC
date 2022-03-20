@@ -70,6 +70,9 @@ cat << EOF >> ${INSTALL}/usr/share/bootloader/update.sh
 cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/tegra210-icosa.dtb \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/
 cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/boot.scr \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/
 cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/coreboot.rom \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/
+if [ -f \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/uenv.txt ]; then
+  cp \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/uenv.txt \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/uenv.txt.old
+fi
 cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/uenv.txt \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/
 EOF
 
