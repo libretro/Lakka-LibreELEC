@@ -3,12 +3,12 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="RTL8192EU"
-PKG_VERSION="4c9751be79ef847ef44ef63203278f4f05f21e52"
-PKG_SHA256="09a957d70eeec4042116b95a6614676645346dece3c53a467a1a13e8b33a1c83"
+PKG_VERSION="e0f967cea1d0037c730246c572f7fef000865ff7"
+PKG_SHA256="2e11e26fccba644e4e5576948dbc1a5dd3ccd22f89be3d45eaa7c4276b8e766a"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/Mange/rtl8192eu-linux-driver"
 PKG_URL="https://github.com/Mange/rtl8192eu-linux-driver/archive/${PKG_VERSION}.tar.gz"
-PKG_LONGDESC="Realtek RTL8192EU Linux 3.x driver"
+PKG_LONGDESC="Realtek RTL8192EU Linux driver"
 PKG_IS_KERNEL_PKG="yes"
 
 pre_make_target() {
