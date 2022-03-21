@@ -217,7 +217,7 @@ pre_make_target() {
   # enable nouveau driver when required
   if [ ! "${LINUX}" = "L4T" ]; then
     if listcontains "${GRAPHIC_DRIVERS}" "nouveau"; then
-      ${PKG_BUILD}/scripts/config --enable CONFIG_DRM_NOUVEAU
+      ${PKG_BUILD}/scripts/config --module CONFIG_DRM_NOUVEAU
       ${PKG_BUILD}/scripts/config --enable CONFIG_DRM_NOUVEAU_BACKLIGHT
       ${PKG_BUILD}/scripts/config --set-val CONFIG_NOUVEAU_DEBUG 5
       ${PKG_BUILD}/scripts/config --set-val CONFIG_NOUVEAU_DEBUG_DEFAULT 3
