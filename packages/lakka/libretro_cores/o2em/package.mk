@@ -1,5 +1,5 @@
 PKG_NAME="o2em"
-PKG_VERSION="f1050243e0d5285e7769e94a882b0cf39d2b7370"
+PKG_VERSION="efd749cec2dd1ce42a8aa3048a89f817d271d804"
 PKG_LICENSE="Artistic License"
 PKG_SITE="https://github.com/libretro/libretro-o2em"
 PKG_URL="${PKG_SITE}.git"

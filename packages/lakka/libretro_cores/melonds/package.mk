@@ -1,5 +1,5 @@
 PKG_NAME="melonds"
-PKG_VERSION="e6e16ed5ab792bd2fe99daae7e13b97ef769ba50"
+PKG_VERSION="e93ec3e462d3dfc1556781510a3cee113f02abb2"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/melonds"
 PKG_URL="${PKG_SITE}.git"
