@@ -3,12 +3,12 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="heimdal"
-PKG_VERSION="7.7.0"
-PKG_SHA256="f7d414d0914abb0e151a276b4de22cf4977fd6c28bd9ecdd990407b1138a945c"
+PKG_VERSION="5dd29ecd2cc794144de059014a5cbc9c92c3d8bb"
+PKG_SHA256="727a436ebb0e50d176132da516c74a6ce5f07e0f4c9b7463f99ea5a77df88936"
 PKG_LICENSE="BSD-3c"
 PKG_SITE="http://www.h5l.org/"
-PKG_URL="https://github.com/heimdal/heimdal/archive/${PKG_NAME}-${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_HOST="toolchain:host Python3:host ncurses:host"
+PKG_URL="https://github.com/heimdal/heimdal/archive/${PKG_VERSION}.tar.gz"
+PKG_DEPENDS_HOST="toolchain:host Python3:host ncurses:host asn1c:host"
 PKG_LONGDESC="Kerberos 5, PKIX, CMS, GSS-API, SPNEGO, NTLM, Digest-MD5 and, SASL implementation."
 PKG_TOOLCHAIN="autotools"
 PKG_BUILD_FLAGS="-parallel"
