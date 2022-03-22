@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="fbneo"
-PKG_VERSION="bcca259"
+PKG_VERSION="b9b4c37"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"
 PKG_SITE="https://github.com/libretro/fbneo"

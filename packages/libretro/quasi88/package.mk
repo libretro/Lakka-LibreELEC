@@ -1,5 +1,5 @@
 PKG_NAME="quasi88"
-PKG_VERSION="15ff9fd"
+PKG_VERSION="2548625"
 PKG_LICENSE="GPL3"
 PKG_SITE="https://github.com/libretro/quasi88-libretro"
 PKG_URL="${PKG_SITE}.git"

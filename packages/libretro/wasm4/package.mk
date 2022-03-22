@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="wasm4"
-PKG_VERSION="6b925e4"
+PKG_VERSION="2020b60"
 PKG_ARCH="any"
 PKG_LICENSE="ISC"
 PKG_SITE="https://github.com/aduros/wasm4"

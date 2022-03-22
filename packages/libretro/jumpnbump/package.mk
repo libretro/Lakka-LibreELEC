@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="jumpnbump"
-PKG_VERSION="57262c7"
+PKG_VERSION="5fd1a7c"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"

@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="mu"
-PKG_VERSION="9d23f9b"
+PKG_VERSION="1361da0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"

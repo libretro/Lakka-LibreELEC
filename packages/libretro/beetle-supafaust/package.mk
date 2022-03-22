@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="beetle-supafaust"
-PKG_VERSION="4204c34"
+PKG_VERSION="a106dbd"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/supafaust"

@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="uzem"
-PKG_VERSION="675b448"
+PKG_VERSION="4c70043"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"

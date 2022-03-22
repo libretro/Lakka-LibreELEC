@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="vbam"
-PKG_VERSION="cdeb102"
+PKG_VERSION="1fc449b"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/visualboyadvance-m/visualboyadvance-m"

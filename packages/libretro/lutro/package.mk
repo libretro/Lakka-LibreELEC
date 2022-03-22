@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="lutro"
-PKG_VERSION="72abe90"
+PKG_VERSION="cc6b06d"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
