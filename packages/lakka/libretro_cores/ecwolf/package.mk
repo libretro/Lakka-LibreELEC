@@ -25,6 +25,6 @@ makeinstall_target() {
   else
     echo "Packaging ecwolf.pk3..."
     mkdir -p ${INSTALL}/usr/share/retroarch-system
-      7z a -mx9 -tzip ${INSTALL}/usr/share/retroarch-sytem/ecwolf.pk3 "${PKG_BUILD}/wadsrc/static/"* >/dev/null
+      7z a -mx9 -tzip ${INSTALL}/usr/share/retroarch-system/ecwolf.pk3 "${PKG_BUILD}/wadsrc/static/"* >/dev/null
   fi
 }
