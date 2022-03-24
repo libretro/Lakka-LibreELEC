@@ -3,28 +3,42 @@ PKG_VERSION="1f6e6075e9668f55d93c5ef4fa3b032c00c0b305"
 PKG_LICENSE="MAME"
 PKG_SITE="https://github.com/libretro/mame"
 PKG_URL="${PKG_SITE}.git"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain expat zlib flac sqlite"
 PKG_LONGDESC="MAME - Multiple Arcade Machine Emulator"
-#PKG_BUILD_FLAGS="-gold -lto"
-PKG_TOOLCHAIN="manual"
+PKG_TOOLCHAIN="make"
+
+PKG_MAKE_OPTS_TARGET="-f Makefile.libretro REGENIE=1 VERBOSE=1 NOWERROR=1 OPENMP=0 CROSS_BUILD=1 TOOLS=0 RETRO=1 PYTHON_EXECUTABLE=python3 CONFIG=libretro LIBRETRO_OS=unix TARGET=mame OSD=retro USE_SYSTEM_LIB_EXPAT=1 USE_SYSTEM_LIB_ZLIB=1 USE_SYSTEM_LIB_FLAC=1 USE_SYSTEM_LIB_SQLITE3=1 LIBRETRO_CPU= ARCH= PROJECT="
+
+case ${ARCH} in
+  x86_64)
+    PKG_MAKE_OPTS_TARGET+=" NOASM=0 PTR64=1 PLATFORM=x86_64"
+    ;;
+  i386)
+    PKG_MAKE_OPTS_TARGET+=" NOASM=0 PTR64=0 PLATFORM=x86"
+    ;;
+  aarch64)
+    PKG_MAKE_OPTS_TARGET+=" NOASM=0 PTR64=0 PLATFORM=arm64"
+    ;;
+  arm)
+    PKG_MAKE_OPTS_TARGET+=" NOASM=1 PTR64=0 PLATFORM=arm"
+    ;;
+esac
+
+pre_make_target() {
+  PKG_MAKE_OPTS_TARGET+=" OVERRIDE_CC=${CC} OVERRIDE_CXX=${CXX} OVERRIDE_LD=${LD}"
+  sed -i scripts/genie.lua \
+      -e 's|-static-libstdc++||g'
+}
 
 make_target() {
-  LCPU=${ARCH}
-  PTR64=0
-  NOASM=0
-
-  if [ "${ARCH}" = "arm" ]; then
-    NOASM=1
-  elif [ "${ARCH}" = "i386" ]; then
-    LCPU=x86
-  elif [ "${ARCH}" = "x86_64" ]; then
-    PTR64=1
-  fi
-
-  make REGENIE=1 VERBOSE=1 NOWERROR=1 PYTHON_EXECUTABLE=python2 CONFIG=libretro LIBRETRO_OS="unix" ARCH="" PROJECT="" LIBRETRO_CPU="${LCPU}" DISTRO="debian-stable" CC="${CC}" CXX="${CXX}" LD="${LD}" CROSS_BUILD="" PTR64="${PTR64}" TARGET="mame" SUBTARGET="arcade" PLATFORM=${LCPU} RETRO=1 OSD="retro"
+  unset DISTRO
+  make ${PKG_MAKE_OPTS_TARGET}
 }
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
-    cp -v *_libretro.so ${INSTALL}/usr/lib/libretro/mame_libretro.so
+    cp -v mame_libretro.so ${INSTALL}/usr/lib/libretro/
+
+  mkdir -p ${INSTALL}/usr/share/retroarch-system/mame
+    cp -vr artwork samples ${INSTALL}/usr/share/retroarch-system/mame
 }
