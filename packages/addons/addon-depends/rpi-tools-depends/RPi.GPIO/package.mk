@@ -12,6 +12,10 @@ PKG_DEPENDS_TARGET="toolchain Python3 distutilscross:host"
 PKG_LONGDESC="A module to control Raspberry Pi GPIO channels."
 PKG_TOOLCHAIN="manual"
 
+if [ "${DISTRO}" = "Lakka" ]; then
+  PKG_ARCH+=" aarch64"
+fi
+
 pre_configure_target() {
   export PYTHONXCPREFIX="${SYSROOT_PREFIX}/usr"
   export LDSHARED="${CC} -shared"
