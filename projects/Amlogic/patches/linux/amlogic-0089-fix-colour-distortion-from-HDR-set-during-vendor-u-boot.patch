@@ -1,0 +1,48 @@
+Fixes: 728883948b0d ("drm/meson: Add G12A Support for VIU setup")
+Suggested-by: Mathias Steiger <mathias.steiger@googlemail.com>
+Signed-off-by: Christian Hewitt <christianshewitt@gmail.com>
+Tested-by: Neil Armstrong<narmstrong@baylibre.com>
+Tested-by: Philip Milev <milev.philip@gmail.com>
+---
+ drivers/gpu/drm/meson/meson_registers.h | 5 +++++
+ drivers/gpu/drm/meson/meson_viu.c       | 7 ++++++-
+ 2 files changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/meson/meson_registers.h b/drivers/gpu/drm/meson/meson_registers.h
+index 446e7961da48..0f3cafab8860 100644
+--- a/drivers/gpu/drm/meson/meson_registers.h
++++ b/drivers/gpu/drm/meson/meson_registers.h
+@@ -634,6 +634,11 @@
+ #define VPP_WRAP_OSD3_MATRIX_PRE_OFFSET2 0x3dbc
+ #define VPP_WRAP_OSD3_MATRIX_EN_CTRL 0x3dbd
+ 
++/* osd1 HDR */
++#define OSD1_HDR2_CTRL 0x38a0
++#define OSD1_HDR2_CTRL_VDIN0_HDR2_TOP_EN       BIT(13)
++#define OSD1_HDR2_CTRL_REG_ONLY_MAT            BIT(16)
++
+ /* osd2 scaler */
+ #define OSD2_VSC_PHASE_STEP 0x3d00
+ #define OSD2_VSC_INI_PHASE 0x3d01
+diff --git a/drivers/gpu/drm/meson/meson_viu.c b/drivers/gpu/drm/meson/meson_viu.c
+index aede0c67a57f..259f3e6bec90 100644
+--- a/drivers/gpu/drm/meson/meson_viu.c
++++ b/drivers/gpu/drm/meson/meson_viu.c
+@@ -425,9 +425,14 @@ void meson_viu_init(struct meson_drm *priv)
+ 	if (meson_vpu_is_compatible(priv, VPU_COMPATIBLE_GXM) ||
+ 	    meson_vpu_is_compatible(priv, VPU_COMPATIBLE_GXL))
+ 		meson_viu_load_matrix(priv);
+-	else if (meson_vpu_is_compatible(priv, VPU_COMPATIBLE_G12A))
++	else if (meson_vpu_is_compatible(priv, VPU_COMPATIBLE_G12A)) {
+ 		meson_viu_set_g12a_osd1_matrix(priv, RGB709_to_YUV709l_coeff,
+ 					       true);
++		/* fix green/pink color distortion from vendor u-boot */
++		writel_bits_relaxed(OSD1_HDR2_CTRL_REG_ONLY_MAT |
++				OSD1_HDR2_CTRL_VDIN0_HDR2_TOP_EN, 0,
++				priv->io_base + _REG(OSD1_HDR2_CTRL));
++	}
+ 
+ 	/* Initialize OSD1 fifo control register */
+ 	reg = VIU_OSD_DDR_PRIORITY_URGENT |
+-- 
+2.17.1
