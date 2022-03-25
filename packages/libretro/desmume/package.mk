@@ -57,11 +57,11 @@ make_target() {
   fi
 
   if [ "$ARCH" == "arm" ]; then
-    make -C desmume/src/frontend/libretro platform=armv LDFLAGS="$LDFLAGS -lpthread" HAVE_GL=$OGL DESMUME_OPENGL=$OGL DESMUME_OPENGL_CORE=$OGL # DESMUME_JIT_ARM=1
+    make -C desmume/src/frontend/libretro platform=armv-unix LDFLAGS="$LDFLAGS -lpthread" HAVE_GL=$OGL DESMUME_OPENGL=$OGL DESMUME_OPENGL_CORE=$OGL # DESMUME_JIT_ARM=1
   elif [ "$ARCH" == "aarch64" ]; then
     make -C desmume/src/frontend/libretro platform=arm64-unix LDFLAGS="$LDFLAGS -lpthread" HAVE_GL=$OGL DESMUME_OPENGL=$OGL DESMUME_OPENGL_CORE=$OGL
   else
-    make -C desmume/src/frontend/libretro LDFLAGS="$LDFLAGS -lpthread" HAVE_GL=$OGL DESMUME_OPENGL=$OGL DESMUME_OPENGL_CORE=$OGL
+    make -C desmume/src/frontend/libretro platform=unix LDFLAGS="$LDFLAGS -lpthread" HAVE_GL=$OGL DESMUME_OPENGL=$OGL DESMUME_OPENGL_CORE=$OGL
   fi
 }
 
