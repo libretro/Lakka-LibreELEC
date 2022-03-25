@@ -44,8 +44,9 @@ makeinstall_target() {
   mkdir -p $INSTALL/usr/share/libretro-database/mame2003-plus
     cp metadata/mame2003-plus.xml $INSTALL/usr/share/libretro-database/mame2003-plus
 
-  mkdir -p $INSTALL/usr/share/retroarch-system/mame2003-plus
+  mkdir -p $INSTALL/usr/share/retroarch-system/mame2003-plus/samples
     cp -r metadata/artwork $INSTALL/usr/share/retroarch-system/mame2003-plus
-    cp metadata/cheat.dat $INSTALL/usr/share/retroarch-system/mame2003-plus
-    cp metadata/history.dat $INSTALL/usr/share/retroarch-system/mame2003-plus
+    cp metadata/{cheat,hiscore,history}.dat $INSTALL/usr/share/retroarch-system/mame2003-plus
+    # something must be in a folder in order to include it in the image, so why not some instructions
+    echo "Put your samples here." > $INSTALL/usr/share/retroarch-system/mame2003-plus/samples/readme.txt
 }

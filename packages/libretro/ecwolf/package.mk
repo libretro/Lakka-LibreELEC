@@ -17,4 +17,14 @@ pre_make_target() {
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
     cp src/libretro/ecwolf_libretro.so ${INSTALL}/usr/lib/libretro/
+  if [ -z "$(which 7z 2>/dev/null)" ]; then
+    echo "************************************************************"
+    echo "*       !!! !!! !!! !!!   WARNING     !!! !!! !!! !!!      *"
+    echo "* No 7z archiver found on system, not packaging ecwolf.pk3 *"
+    echo "************************************************************"
+  else
+    echo "Packaging ecwolf.pk3..."
+    mkdir -p ${INSTALL}/usr/share/retroarch-system
+    7z a -mx9 -tzip ${INSTALL}/usr/share/retroarch-system/ecwolf.pk3 "${PKG_BUILD}/wadsrc/static/"* >/dev/null
+  fi
 }

@@ -37,4 +37,6 @@ PKG_AUTORECONF="no"
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
   cp prboom_libretro.so $INSTALL/usr/lib/libretro/prboom_libretro.so
+  mkdir -p $INSTALL/usr/share/retroarch-system/
+  cp prboom.wad $INSTALL/usr/share/retroarch-system/
 }

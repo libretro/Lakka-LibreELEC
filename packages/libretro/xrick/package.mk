@@ -40,4 +40,6 @@ make_target() {
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
   cp xrick_libretro.so $INSTALL/usr/lib/libretro/
+  mkdir -p $INSTALL/usr/share/retroarch-system/xrick
+  cp data.zip $INSTALL/usr/share/retroarch-system/xrick
 }

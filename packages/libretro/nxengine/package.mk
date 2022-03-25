@@ -40,4 +40,6 @@ pre_configure_target() {
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
   cp nxengine_libretro.so $INSTALL/usr/lib/libretro/
+  mkdir -p $INSTALL/usr/share/retroarch-system/nxengine
+  cp -r datafiles/* $INSTALL/usr/share/retroarch-system/nxengine
 }

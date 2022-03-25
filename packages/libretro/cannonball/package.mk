@@ -35,4 +35,7 @@ PKG_AUTORECONF="no"
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
   cp cannonball_libretro.so $INSTALL/usr/lib/libretro/
+  mkdir -p $INSTALL/usr/share/retroarch-system/cannonball/res/
+  cp res/{tilemap.bin,tilepatch.bin} docs/license.txt $INSTALL/usr/share/retroarch-system/cannonball/res/
+  cp roms/roms.txt $INSTALL/usr/share/retroarch-system/cannonball/
 }
