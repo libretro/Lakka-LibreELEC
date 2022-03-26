@@ -146,7 +146,7 @@ do
 	then
 		# show logs during build (non-dashboard build)
 		echo "Starting build of ${target_name}"
-		make ${out} PROJECT=${project} DEVICE=${device} ARCH=${arch} MTIMMEDIATE=${qf} ${tc}
+		make ${out} OFFICIAL=yes PROJECT=${project} DEVICE=${device} ARCH=${arch} MTIMMEDIATE=${qf} ${tc}
 		ret_nondb=${?}
 		if [ ${ret_nondb} -gt 0 -a "${BAILOUT_FAILED}" != "no" ]
 		then
@@ -156,7 +156,7 @@ do
 		# remove the old dashboard, so we don't show old/stale dashboard
 		rm -f ${statusfile}
 		# start the build process in background
-		make ${out} PROJECT=${project} DEVICE=${device} ARCH=${arch} MTIMMEDIATE=${qf} ${tc} &>/dev/null &
+		make ${out} OFFICIAL=yes PROJECT=${project} DEVICE=${device} ARCH=${arch} MTIMMEDIATE=${qf} ${tc} &>/dev/null &
 		# store the pid
 		pid=${!}
 		finished=0
