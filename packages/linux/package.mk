@@ -284,6 +284,11 @@ pre_make_target() {
     ${PKG_BUILD}/scripts/config --set-str CONFIG_EXTRA_FIRMWARE_DIR "external-firmware"
   fi
 
+  # enable rumble for PID-compliant game controllers
+  if [ "${DISTRO}" = "Lakka" ] && [ ! "${LINUX}" = "L4T" ]; then
+    ${PKG_BUILD}/scripts/config --enable CONFIG_HID_PID
+  fi
+
   if [ ! "${LINUX}" = "L4T" ]; then
     if [ -f "${DISTRO_DIR}/${DISTRO}/kernel_options_overrides" ]; then
       while read OPTION; do
