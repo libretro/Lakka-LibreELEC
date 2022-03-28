@@ -25,3 +25,16 @@ PKG_CMAKE_OPTS_TARGET="-DBUILD_PROGRAMS=OFF \
                        -DENABLE_EXTERNAL_LIBS=ON \
                        -DINSTALL_MANPAGES=OFF \
                        -DINSTALL_PKGCONFIG_MODULE=ON"
+
+if [ "${DISTRO}" = "Lakka" ]; then
+  PKG_CMAKE_OPTS_TARGET+=" -DBUILD_SHARED_LIBS=ON"
+fi
+
+post_makeinstall_target() {
+  if [ "${DISTRO}" = "Lakka" ]; then
+    safe_remove ${INSTALL}/usr/include
+    safe_remove ${INSTALL}/usr/lib/cmake
+    safe_remove ${INSTALL}/usr/share
+    safe_remove ${INSTALL}/usr/lib/pkgconfig
+  fi
+}
