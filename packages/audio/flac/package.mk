@@ -33,6 +33,15 @@ else
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-sse"
 fi
 
+if [ "${DISTRO}" = "Lakka" ]; then
+  PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET//--disable-shared/--enable-shared}"
+fi
+
 post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/bin
+  if [ "${DISTRO}" = "Lakka" ]; then
+    safe_remove ${INSTALL}/usr/include
+    safe_remove ${INSTALL}/usr/lib/pkgconfig
+    safe_remove ${INSTALL}/usr/share
+  fi
 }

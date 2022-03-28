@@ -19,3 +19,17 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --disable-docs \
                            --disable-examples \
                            --disable-oggtest"
+
+if [ "${DISTRO}" = "Lakka" ]; then
+  PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET//--disable-shared/--enable-shared}"
+fi
+
+post_makeinstall_target() {
+  if [ "${DISTRO}" = "Lakka" ]; then
+    safe_remove ${INSTALL}/usr/include
+    safe_remove ${INSTALL}/usr/lib/pkgconfig
+    safe_remove ${INSTALL}/usr/lib/*.a
+    safe_remove ${INSTALL}/usr/lib/*.la
+    safe_remove ${INSTALL}/usr/share
+  fi
+}
