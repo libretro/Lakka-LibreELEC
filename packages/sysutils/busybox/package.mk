@@ -216,6 +216,12 @@ post_install() {
       cp ${PKG_DIR}/system.d.opt/cron-defaults.service ${INSTALL}/usr/lib/systemd/system
       enable_service cron-defaults.service
   fi
+
+  # Lakka - make some folders world writable
+  if [ "${DISTRO}" = "Lakka" ]; then
+    sed -i ${INSTALL}/usr/lib/tmpfiles.d/z_01_busybox.conf \
+        -e 's|0755|0777|g'
+  fi
 }
 
 makeinstall_init() {
