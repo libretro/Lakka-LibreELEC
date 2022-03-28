@@ -134,7 +134,7 @@ do
     echo "WARNING: package '$f': cannot use both PKG_GIT_CLONE_BRANCH and PKG_LR_UPDATE_TAG=yes, using latest tagged commit for update!"
   fi
   UPDATE_INFO=""
-  if [ -n "$PKG_GIT_BRANCH" -a "$PKG_LR_UPDATE_TAG" = "no" ]; then
+  if [ -n "$PKG_GIT_CLONE_BRANCH" -a "$PKG_LR_UPDATE_TAG" = "no" ]; then
     GIT_HEAD="heads/$PKG_GIT_CLONE_BRANCH"
     UPDATE_INFO="(latest commit in branch $PKG_GIT_CLONE_BRANCH)"
   else
