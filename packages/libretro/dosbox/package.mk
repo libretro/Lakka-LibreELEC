@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="dosbox"
-PKG_VERSION="aa71b67"
+PKG_VERSION="1aff406"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"

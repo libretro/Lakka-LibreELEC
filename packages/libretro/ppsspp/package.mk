@@ -19,12 +19,11 @@
 ################################################################################
 
 PKG_NAME="ppsspp"
-PKG_VERSION="ce0a45cf"
+PKG_VERSION="ce0a45c"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/hrydgard/ppsspp"
 PKG_URL="$PKG_SITE.git"
-PKG_GIT_CLONE_BRANCH="master"
 PKG_DEPENDS_TARGET="toolchain libzip libpng"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -32,6 +31,7 @@ PKG_SHORTDESC="Libretro port of PPSSPP"
 PKG_LONGDESC="A fast and portable PSP emulator"
 PKG_BUILD_FLAGS="-lto"
 PKG_TOOLCHAIN="cmake"
+PKG_LR_UPDATE_TAG="yes"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"

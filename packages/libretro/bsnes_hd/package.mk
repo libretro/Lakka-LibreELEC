@@ -4,7 +4,6 @@ PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/DerKoun/bsnes-hd"
 PKG_URL="$PKG_SITE.git"
-PKG_BRANCH="master"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SHORTDESC="Fork of bsnes that adds HD video features."
 

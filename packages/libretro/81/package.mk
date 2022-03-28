@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="81"
-PKG_VERSION="86d7d5a"
+PKG_VERSION="6aba192"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"

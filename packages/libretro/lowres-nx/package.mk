@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="lowres-nx"
-PKG_VERSION="12aeb16"
+PKG_VERSION="f2b5c1d"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Zlib"

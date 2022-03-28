@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="fbalpha2012"
-PKG_VERSION="23f98fc"
+PKG_VERSION="7f88605"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"
 PKG_SITE="https://github.com/libretro/fbalpha2012"

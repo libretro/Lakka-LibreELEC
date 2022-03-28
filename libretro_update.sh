@@ -120,7 +120,9 @@ do
   PKG_VERSION=`cat $f | sed -En "s/^PKG_VERSION=\"(.*)\"/\1/p"`
   PKG_SITE=`cat $f | sed -En "s/^PKG_SITE=\"(.*)\"/\1/p"`
   PKG_NAME=`cat $f | sed -En "s/^PKG_NAME=\"(.*)\"/\1/p"`
-  PKG_GIT_BRANCH=`cat $f | sed -En "s/^PKG_GIT_CLONE_BRANCH=\"(.*)\"/\1/p"`
+  PKG_GIT_CLONE_BRANCH=`cat $f | sed -En "s/^PKG_GIT_CLONE_BRANCH=\"(.*)\"/\1/p"`
+  PKG_LR_UPDATE_TAG=`cat $f | sed -En "s/^PKG_LR_UPDATE_TAG=\"(.*)\"/\1/p"`
+  [ -z "$PKG_LR_UPDATE_TAG" ] && PKG_LR_UPDATE_TAG="no"
   if [ -z "$PKG_VERSION" ] || [ -z "$PKG_SITE" ] ; then
     echo "$f: does not have PKG_VERSION or PKG_SITE"
     echo "PKG_VERSION: $PKG_VERSION"
@@ -128,15 +130,29 @@ do
     echo "Skipping update."
     continue
   fi
-  [ -n "$PKG_GIT_BRANCH" ] && GIT_HEAD="heads/$PKG_GIT_BRANCH" || GIT_HEAD="HEAD"
-  UPS_VERSION=`git ls-remote $PKG_SITE 2>/dev/null | grep ${GIT_HEAD}$ | awk '{ print substr($1,1,7) }'`
+  if [ -n "$PKG_GIT_CLONE_BRANCH" -a "$PKG_LR_UPDATE_TAG" = "yes" ]; then
+    echo "WARNING: package '$f': cannot use both PKG_GIT_CLONE_BRANCH and PKG_LR_UPDATE_TAG=yes, using latest tagged commit for update!"
+  fi
+  UPDATE_INFO=""
+  if [ -n "$PKG_GIT_BRANCH" -a "$PKG_LR_UPDATE_TAG" = "no" ]; then
+    GIT_HEAD="heads/$PKG_GIT_CLONE_BRANCH"
+    UPDATE_INFO="(latest commit in branch $PKG_GIT_CLONE_BRANCH)"
+  else
+    GIT_HEAD="HEAD"
+  fi
+  if [ "$PKG_LR_UPDATE_TAG" = "yes" ]; then
+    UPS_VERSION=`git ls-remote --sort='v:refname' --tags $PKG_SITE '*.*.*' 2>/dev/null | tail -n 1 | awk '{ print substr($1,1,7); }'`
+    UPDATE_INFO="(latest commit tagged with x.x.x)"
+  else
+    UPS_VERSION=`git ls-remote $PKG_SITE 2>/dev/null | grep ${GIT_HEAD}$ | awk '{ print substr($1,1,7) }'`
+  fi
   if [ "$UPS_VERSION" == "$PKG_VERSION" ]; then
-    echo "$PKG_NAME is up to date ($UPS_VERSION)"
+    echo "$PKG_NAME is up to date ($UPS_VERSION) $UPDATE_INFO"
   elif [ "$UPS_VERSION" == "" ]; then
     echo "$PKG_NAME does not use git - nothing changed"
   else
     i+=1
-    echo "$PKG_NAME updated from $PKG_VERSION to $UPS_VERSION"
+    echo "$PKG_NAME updated from $PKG_VERSION to $UPS_VERSION $UPDATE_INFO"
     sed -i "s/$PKG_VERSION/$UPS_VERSION/" $f
   fi
 done
