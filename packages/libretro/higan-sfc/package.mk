@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="higan-sfc"
-PKG_VERSION="00684d2"
+PKG_VERSION="d3f5920"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
