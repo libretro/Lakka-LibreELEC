@@ -1,5 +1,5 @@
 PKG_NAME="liblcf"
-PKG_VERSION="bb9f9e2"
+PKG_VERSION="01b73de93cf80185fcdf3ffd4737dfdb9111a85e"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/EasyRPG/liblcf"

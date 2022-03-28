@@ -1,5 +1,5 @@
 PKG_NAME="tic80"
-PKG_VERSION="57b8cc56eae138a6e7ad42e47a797cc5f811a1e9"
+PKG_VERSION="e9f62f85a154796c6baaee8a9f6fd0cfdd447019"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/TIC-80"
 PKG_URL="${PKG_SITE}.git"
