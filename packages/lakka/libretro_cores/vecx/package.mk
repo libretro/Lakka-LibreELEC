@@ -1,5 +1,5 @@
 PKG_NAME="vecx"
-PKG_VERSION="28d6efc8972313903d0802a736ff8c3bc115e78f"
+PKG_VERSION="141af284202c86ed0d4ce9030c76954a144287cf"
 PKG_LICENSE="GPLv2|LGPLv2.1"
 PKG_SITE="https://github.com/libretro/libretro-vecx"
 PKG_URL="${PKG_SITE}.git"

@@ -1,5 +1,5 @@
 PKG_NAME="swanstation"
-PKG_VERSION="4173742da8c02ad3c681070eadf5ca7ef9d996b8"
+PKG_VERSION="1347c7eb285ebcbdd665c85202d97d78adeadb39"
 PKG_GIT_CLONE_BRANCH="main"
 PKG_LICENSE="GPL-3.0-or-later"
 PKG_SITE="https://github.com/libretro/swanstation"

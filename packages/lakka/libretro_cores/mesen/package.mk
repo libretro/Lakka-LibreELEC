@@ -1,5 +1,5 @@
 PKG_NAME="mesen"
-PKG_VERSION="7376e98b8b3a6ef4c9e5c8dd34b65554d322019c"
+PKG_VERSION="3336a4215204010c7bcba9bafac7c4fdac0495c0"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/Mesen"
 PKG_URL="${PKG_SITE}.git"

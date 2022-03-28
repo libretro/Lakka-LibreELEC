@@ -6,6 +6,7 @@ PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain libzip libpng"
 PKG_LONGDESC="Libretro port of PPSSPP"
 PKG_TOOLCHAIN="cmake"
+PKG_LR_UPDATE_TAG="yes"
 
 PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON \
                        -DCMAKE_BUILD_TYPE=Release \

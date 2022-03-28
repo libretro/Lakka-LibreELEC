@@ -1,5 +1,5 @@
 PKG_NAME="desmume"
-PKG_VERSION="7ea0fc96804fcd9c8d33e8f76cf64b1be50cc5ea"
+PKG_VERSION="7b16293ebb8e272ce28d62efc39573b129cea61d"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/desmume"
 PKG_URL="${PKG_SITE}.git"
@@ -25,9 +25,11 @@ if [ "${VULKAN_SUPPORT}" = "yes" ]; then
 fi
 
 if [ "${ARCH}" = "arm" ]; then
-  PKG_MAKE_OPTS_TARGET+=" platform=armv"
+  PKG_MAKE_OPTS_TARGET+=" platform=armv-unix"
 elif [ "${ARCH}" = "aarch64" ]; then
   PKG_MAKE_OPTS_TARGET+=" platform=arm64-unix"
+else
+  PKG_MAKE_OPTS_TARGET+=" platform=unix"
 fi
 
 

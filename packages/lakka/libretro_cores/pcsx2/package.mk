@@ -1,5 +1,5 @@
 PKG_NAME="pcsx2"
-PKG_VERSION="7874ca39eb3fe11b3b967dc97e0d08f1bc945d22"
+PKG_VERSION="5226224af057d0fc6385ec6aa75a6d197bf5e6b5"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/pcsx2"

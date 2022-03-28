@@ -197,6 +197,7 @@ for f in $ALL_FILES ; do
   PKG_SITE=`cat $f | sed -En "s/^PKG_SITE=\"(.*)\"/\1/p"`
   PKG_NAME=`cat $f | sed -En "s/^PKG_NAME=\"(.*)\"/\1/p"`
   PKG_GIT_BRANCH=`cat $f | sed -En "s/^PKG_GIT_CLONE_BRANCH=\"(.*)\"/\1/p"`
+  PKG_LR_UPDATE_TAG=`cat $f | sed -En "s/^PKG_LR_UPDATE_TAG=\"(.*)\"/\1/p"`
   if [ -z "$PKG_VERSION" ] || [ -z "$PKG_SITE" ] ; then
     echo "$f: does not have PKG_VERSION or PKG_SITE"
     echo "PKG_VERSION: $PKG_VERSION"
@@ -204,15 +205,27 @@ for f in $ALL_FILES ; do
     echo "Skipping update."
     continue
   fi
-  [ -n "$PKG_GIT_BRANCH" ] && GIT_HEAD="heads/$PKG_GIT_BRANCH" || GIT_HEAD="HEAD"
-  UPS_VERSION=`git ls-remote $PKG_SITE 2>/dev/null | grep ${GIT_HEAD}$ | awk '{ print $1; }'`
+  UPDATE_INFO=""
+  if [ -n "$PKG_GIT_BRANCH" ]; then
+    GIT_HEAD="heads/$PKG_GIT_BRANCH"
+    UPDATE_INFO="(branch $PKG_GIT_BRANCH"
+  else
+    GIT_HEAD="HEAD"
+  fi
+  if [ "$PKG_LR_UPDATE_TAG" = "yes" ]; then
+    UPS_VERSION=`git ls-remote --sort='v:refname' --tags $PKG_SITE '*.*.*' 2>/dev/null | tail -n 1 | awk '{ print $1; }'`
+    [ -z "$UPDATE_INFO" ] && UPDATE_INFO="(latest x.x.x tag" || UPDATE_INFO+=" + latest x.x.x tag"
+  else
+    UPS_VERSION=`git ls-remote $PKG_SITE 2>/dev/null | grep ${GIT_HEAD}$ | awk '{ print $1; }'`
+  fi
+  [ -n "$UPDATE_INFO" ] && UPDATE_INFO+=")"
   if [ "$UPS_VERSION" = "$PKG_VERSION" ]; then
-    echo "$PKG_NAME is up to date ($UPS_VERSION)"
+    echo "$PKG_NAME is up to date ($UPS_VERSION) $UPDATE_INFO"
   elif [ "$UPS_VERSION" = "" ]; then
     echo "$PKG_NAME does not use git - nothing changed"
   else
     i+=1
-    echo "$PKG_NAME updated from $PKG_VERSION to $UPS_VERSION"
+    echo "$PKG_NAME updated from $PKG_VERSION to $UPS_VERSION $UPDATE_INFO"
     sed -i "s/$PKG_VERSION/$UPS_VERSION/" $f
   fi
 done

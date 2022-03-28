@@ -1,10 +1,11 @@
 PKG_NAME="retroarch"
-PKG_VERSION="4a53c6771ca3749dc17fa1f2bcc44f303abdf6c4"
+PKG_VERSION="8b6fe0a9341f29a4671c79ffe7dd090f320cbd6f"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain freetype zlib ffmpeg libass libvdpau libxkbcommon glsl_shaders slang_shaders systemd libpng fontconfig"
 PKG_LONGDESC="Reference frontend for the libretro API."
+PKG_LR_UPDATE_TAG="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
                            --disable-sdl \
