@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="gnutls"
-PKG_VERSION="3.7.3"
-PKG_SHA256="fc59c43bc31ab20a6977ff083029277a31935b8355ce387b634fa433f8f6c49a"
+PKG_VERSION="3.7.4"
+PKG_SHA256="e6adbebcfbc95867de01060d93c789938cf89cc1d1f6ef9ef661890f6217451f"
 PKG_LICENSE="LGPL2.1"
 PKG_SITE="https://gnutls.org"
 PKG_URL="https://www.gnupg.org/ftp/gcrypt/gnutls/v${PKG_VERSION:0:3}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
@@ -20,7 +20,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-doc \
                            --disable-tests \
                            --disable-tools \
                            --disable-valgrind-tests \
-                           --enable-local-libopts \
                            --with-idn \
                            --with-included-libtasn1 \
                            --with-included-unistring \
