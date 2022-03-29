@@ -11,6 +11,7 @@
 * Fix Nvidia support (build driver as module)
 * Fix ethernet and wifi on Intel NUC 11
 * Add support for ASUS BT500 and TP-Link UB500 USB wifi dongles
+* Update Mesa to [22.0.1](https://docs.mesa3d.org/relnotes/22.0.1.html)
 * Fix custom shutdown scripts (add RPi.GPIO Python library)
 
 # v4.0
