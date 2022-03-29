@@ -1,3 +1,12 @@
+# v3.7.2
+* Maintenance release
+* Update RetroArch to 1.10.2
+* Update libretro cores to the same version as on 4.x
+* Add new libretro core: `sameduck`
+* Add new libretro core: `race`
+* Add new libretro core: `bk`
+* Drop `duckstation` core
+
 # v3.7.1
 * Maintenance release
 * Update RetroArch to 1.10.1
