@@ -200,8 +200,8 @@ makeinstall_target() {
   sed -i -e "s/# overlay_directory =/overlay_directory =\/tmp\/overlays/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# cheat_database_path =/cheat_database_path =\/tmp\/database\/cht/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# cursor_directory =/cursor_directory =\/tmp\/database\/cursors/" ${INSTALL}/etc/retroarch.cfg
-  sed -i -e "s/# log_dir =/log_dir =\/storage\/logfiles/" ${INSTALL}/etc/retroarch.cfg
   sed -i -e "s/# recording_output_directory =/recording_output_directory =\/storage\/recordings/" ${INSTALL}/etc/retroarch.cfg
+  echo 'log_dir = "/storage/logfiles"' >> ${INSTALL}/etc/retroarch.cfg
 
   if [ ! "$DEVICE" = "Switch" ]; then
     sed -i -e "s/# menu_driver = \"rgui\"/menu_driver = \"xmb\"/" $INSTALL/etc/retroarch.cfg
