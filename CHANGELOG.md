@@ -7,7 +7,7 @@
 * Add new libretro core: `mame` (current)
 * Fix `easyrpg` libretro core
 * Drop `duckstation` core
-* Update mainline kernel to 5.10.108 (PC, Allwinner, Amlogic, NXP)
+* Update mainline kernel to 5.10.109 (PC, Allwinner, Amlogic, NXP)
 * Fix Nvidia support (build driver as module)
 * Fix ethernet and wifi on Intel NUC 11
 * Add support for ASUS BT500 and TP-Link UB500 USB wifi dongles

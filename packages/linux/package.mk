@@ -44,8 +44,8 @@ case "${LINUX}" in
     ;;
   *)
     if [ "${DISTRO}" = "Lakka" ]; then
-      PKG_VERSION="5.10.108"
-      PKG_SHA256="bf6cc2d6e0918b8f34d1cde2fa39a6ad69c45025425048be1a1dac4a5b3641d8"
+      PKG_VERSION="5.10.109"
+      PKG_SHA256="18fb22ecb249669ea775474aee614dcb0697cab299068074fd9f0bafa32113dc"
     else
       PKG_VERSION="5.10.76"
       PKG_SHA256="480a09ba1962862ff18df9453fa0df6ba11cbe19eefedeab81bf2c84f49e1890"
