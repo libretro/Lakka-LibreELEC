@@ -1,3 +1,18 @@
+# v4.1
+* Update RetroArch to 1.10.2
+* RetroArch standalone cores: add files needed to run these cores to the image (therefore disabled the system files downloader)
+* Add new libretro core: `race`
+* Add new libretro core: `bk`
+* Add new libretro core: `same_cdi`
+* Add new libretro core: `mame` (current)
+* Fix `easyrpg` libretro core
+* Drop `duckstation` core
+* Update mainline kernel to 5.10.108 (PC, Allwinner, Amlogic, NXP)
+* Fix Nvidia support (build driver as module)
+* Fix ethernet and wifi on Intel NUC 11
+* Add support for ASUS BT500 and TP-Link UB500 USB wifi dongles
+* Fix custom shutdown scripts (add RPi.GPIO Python library)
+
 # v4.0
 * Update build system to LibreELEC 10.0.2
 * Update Mesa to [22.0.0](https://docs.mesa3d.org/relnotes/22.0.0.html)
@@ -8,6 +23,15 @@
 * Update mainline kernel to 5.10.103 (PC, Allwinner, Amlogic, NXP)
 * Update Raspberry kernel/firmware to 5.10.95
 * Rockchip devices: switch to mainline kernel (5.10.76)
+
+# v3.7.2
+* Maintenance release
+* Update RetroArch to 1.10.2
+* Update libretro cores to the same version as on 4.x
+* Add new libretro core: `sameduck`
+* Add new libretro core: `race`
+* Add new libretro core: `bk`
+* Drop `duckstation` core
 
 # v3.7.1
 * Maintenance release
