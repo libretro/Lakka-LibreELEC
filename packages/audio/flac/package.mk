@@ -39,9 +39,4 @@ fi
 
 post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/bin
-  if [ "${DISTRO}" = "Lakka" ]; then
-    safe_remove ${INSTALL}/usr/include
-    safe_remove ${INSTALL}/usr/lib/pkgconfig
-    safe_remove ${INSTALL}/usr/share
-  fi
 }

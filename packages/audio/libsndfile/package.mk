@@ -29,12 +29,3 @@ PKG_CMAKE_OPTS_TARGET="-DBUILD_PROGRAMS=OFF \
 if [ "${DISTRO}" = "Lakka" ]; then
   PKG_CMAKE_OPTS_TARGET+=" -DBUILD_SHARED_LIBS=ON"
 fi
-
-post_makeinstall_target() {
-  if [ "${DISTRO}" = "Lakka" ]; then
-    safe_remove ${INSTALL}/usr/include
-    safe_remove ${INSTALL}/usr/lib/cmake
-    safe_remove ${INSTALL}/usr/share
-    safe_remove ${INSTALL}/usr/lib/pkgconfig
-  fi
-}
