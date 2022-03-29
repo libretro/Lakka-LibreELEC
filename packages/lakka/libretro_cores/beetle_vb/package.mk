@@ -1,5 +1,5 @@
 PKG_NAME="beetle_vb"
-PKG_VERSION="2ebf072fc4c00d428142f8073d4bef94de78b973"
+PKG_VERSION="a91437af0879124aa00b6cb30ca1189f2c84b7cb"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-vb-libretro"
 PKG_URL="${PKG_SITE}.git"
