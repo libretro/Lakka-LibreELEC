@@ -125,7 +125,7 @@ else
 fi
 
 if [ "${DISTRO}" = "Lakka" -a "${VULKAN_SUPPORT}" = yes ]; then
-  PKG_DEPEND_TARGET+=" ${VULKAN}"
+  PKG_DEPENDS_TARGET+=" ${VULKAN}"
   PKG_FFMPEG_VULKAN="--enable-vulkan"
 else
   PKG_FFMPEG_VULKAN="--disable-vulkan"
