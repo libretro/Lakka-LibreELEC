@@ -8,9 +8,10 @@
 * Fix `easyrpg` libretro core
 * Drop `duckstation` core
 * Update mainline kernel to 5.10.109 (PC, Allwinner, Amlogic, NXP)
+* Update raspberry kernel to 5.10.103
 * Fix Nvidia support (build driver as module)
 * Fix ethernet and wifi on Intel NUC 11
-* Add support for ASUS BT500 and TP-Link UB500 USB wifi dongles
+* Add support for ASUS BT500 and TP-Link UB500 USB Wi-Fi adapters
 * Update Mesa to [22.0.1](https://docs.mesa3d.org/relnotes/22.0.1.html)
 * Fix custom shutdown scripts (add RPi.GPIO Python library)
 
