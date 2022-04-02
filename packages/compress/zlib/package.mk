@@ -11,3 +11,7 @@ PKG_DEPENDS_HOST="cmake:host"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A general purpose (ZIP) data compression library."
 PKG_TOOLCHAIN="cmake-make"
+
+PKG_CMAKE_OPTS_HOST="-DINSTALL_PKGCONFIG_DIR=${TOOLCHAIN}/lib/pkgconfig"
+
+PKG_CMAKE_OPTS_TARGET="-DINSTALL_PKGCONFIG_DIR=/usr/lib/pkgconfig"
