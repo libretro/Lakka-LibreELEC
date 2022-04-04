@@ -16,8 +16,8 @@ PKG_PATCH_DIRS="${LINUX}"
 
 case "${LINUX}" in
   amlogic)
-    PKG_VERSION="f443e374ae131c168a065ea1748feac6b2e76613" # 5.17.0
-    PKG_SHA256="23baf1a7569ca1b828965ce8af07a412f2497a1530ad8307311edf01346d89b7"
+    PKG_VERSION="4b0986a3613c92f4ec1bdc7f60ec66fea135991f" # 5.18.0
+    PKG_SHA256="437360f90fd93143a513d07be40175eb3d0509a6862808adf20f401d0a458ef0"
     PKG_URL="https://github.com/torvalds/linux/archive/${PKG_VERSION}.tar.gz"
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
     ;;
