@@ -22,7 +22,7 @@ if [ "${PROJECT}" = "Generic" ]; then
 fi
 
 if [ "${PROJECT}" = "RPi" ]; then
-  PKG_DEPENDS_TARGET+=" rpi_disable_hdmi_service disable_wifi_powersave"
+  PKG_DEPENDS_TARGET+=" rpi_disable_hdmi_service disable_wifi_powersave RPi.GPIO"
   if [ "${DEVICE}" != "GPICase" -a "${DEVICE}" != "Pi02GPi" ] ; then
     PKG_DEPENDS_TARGET+=" wii-u-gc-adapter wiringPi mk_arcade_joystick_rpi joycond"
   fi
