@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="pcsx_rearmed"
-PKG_VERSION="7e3ce9a"
+PKG_VERSION="46a38bd"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/pcsx_rearmed"
@@ -48,9 +48,9 @@ make_target() {
   cd $PKG_BUILD
   if [ "$ARCH" = "aarch64" ]; then
     if [ "$DEVICE" = "Switch" ]; then
-      make -f Makefile.libretro platform=arm64 BUILTIN_GPU=unai DYNAREC=0
+      make -f Makefile.libretro platform=arm64 BUILTIN_GPU=unai DYNAREC=ari64
     else
-      make -f Makefile.libretro platform=unix
+      make -f Makefile.libretro platform=unix DYNAREC=ari64
     fi
   elif [[ "$TARGET_FPU" =~ "neon" ]]; then
     if [ "$DEVICE" = "OdroidGoAdvance" ]; then
@@ -62,7 +62,7 @@ make_target() {
   elif [ "$ARCH" = "arm" ]; then
     make -f Makefile.libretro HAVE_NEON=0 DYNAREC=ari64 ARCH=arm BUILTIN_GPU=unai
   else
-    make -f Makefile.libretro
+    make -f Makefile.libretro DYNAREC=none
   fi
 }
 
