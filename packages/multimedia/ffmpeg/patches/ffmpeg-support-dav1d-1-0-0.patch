@@ -1,0 +1,124 @@
+From 7ee17ec7e46afef0e0af20af196292ec75f50b62 Mon Sep 17 00:00:00 2001
+From: James Almer <jamrial@gmail.com>
+Date: Sat, 26 Jun 2021 17:24:15 -0300
+Subject: [PATCH] avcodec/libdav1d: don't repeatedly parse the same sequence
+ header
+
+Look at the event flag that signals a new sequence header was found
+in the bitstream on supported libdav1d versions for this purpose.
+
+Signed-off-by: James Almer <jamrial@gmail.com>
+---
+ libavcodec/libdav1d.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/libavcodec/libdav1d.c b/libavcodec/libdav1d.c
+index 6370ae1fbf02..c39df418d515 100644
+--- a/libavcodec/libdav1d.c
++++ b/libavcodec/libdav1d.c
+@@ -33,6 +33,9 @@
+ #include "decode.h"
+ #include "internal.h"
+ 
++#define FF_DAV1D_VERSION_AT_LEAST(x,y) \
++    (DAV1D_API_VERSION_MAJOR > (x) || DAV1D_API_VERSION_MAJOR == (x) && DAV1D_API_VERSION_MINOR >= (y))
++
+ typedef struct Libdav1dContext {
+     AVClass *class;
+     Dav1dContext *c;
+
+
+From d873b5fffc8292242549c4c026023e370e15c05b Mon Sep 17 00:00:00 2001
+From: James Almer <jamrial@gmail.com>
+Date: Mon, 20 Sep 2021 22:30:35 -0300
+Subject: [PATCH] avcodec/libdav1d: pass auto threads value to libdav1d
+
+libdav1d 1.0.0 will be the first version supporting Dav1dSettings.n_threads == 0.
+
+Signed-off-by: James Almer <jamrial@gmail.com>
+---
+ libavcodec/libdav1d.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/libavcodec/libdav1d.c b/libavcodec/libdav1d.c
+index 4711337f39a7..e4fdaf722907 100644
+--- a/libavcodec/libdav1d.c
++++ b/libavcodec/libdav1d.c
+@@ -207,7 +207,11 @@ static av_cold int libdav1d_init(AVCodecContext *c)
+ {
+     Libdav1dContext *dav1d = c->priv_data;
+     Dav1dSettings s;
++#if FF_DAV1D_VERSION_AT_LEAST(6,0)
++    int threads = c->thread_count;
++#else
+     int threads = (c->thread_count ? c->thread_count : av_cpu_count()) * 3 / 2;
++#endif
+     int res;
+ 
+     av_log(c, AV_LOG_INFO, "libdav1d %s\n", dav1d_version());
+
+
+From e204846ec16c1ab34c7f3a681734cf5190433018 Mon Sep 17 00:00:00 2001
+From: James Almer <jamrial@gmail.com>
+Date: Fri, 3 Sep 2021 13:50:32 -0300
+Subject: [PATCH] avcodec/libdav1d: fix compilation after recent libdav1d API
+ changes
+
+They were done in preparation for an upcoming 1.0 release.
+Keep supporting previous releases for the time being.
+
+Reviewed-by: BBB
+Signed-off-by: James Almer <jamrial@gmail.com>
+---
+ libavcodec/libdav1d.c | 21 +++++++++++++++++++--
+ 1 file changed, 19 insertions(+), 2 deletions(-)
+
+diff --git a/libavcodec/libdav1d.c b/libavcodec/libdav1d.c
+index 51e0980f6edb..4711337f39a7 100644
+--- a/libavcodec/libdav1d.c
++++ b/libavcodec/libdav1d.c
+@@ -228,6 +228,15 @@ static av_cold int libdav1d_init(AVCodecContext *c)
+     if (dav1d->operating_point >= 0)
+         s.operating_point = dav1d->operating_point;
+ 
++#if FF_DAV1D_VERSION_AT_LEAST(6,0)
++    if (dav1d->frame_threads || dav1d->tile_threads)
++        s.n_threads = FFMAX(dav1d->frame_threads, dav1d->tile_threads);
++    else
++        s.n_threads = FFMIN(threads, DAV1D_MAX_THREADS);
++    s.max_frame_delay = (c->flags & AV_CODEC_FLAG_LOW_DELAY) ? 1 : s.n_threads;
++    av_log(c, AV_LOG_DEBUG, "Using %d threads, %d max_frame_delay\n",
++           s.n_threads, s.max_frame_delay);
++#else
+     s.n_tile_threads = dav1d->tile_threads
+                      ? dav1d->tile_threads
+                      : FFMIN(floor(sqrt(threads)), DAV1D_MAX_TILE_THREADS);
+@@ -236,6 +245,7 @@ static av_cold int libdav1d_init(AVCodecContext *c)
+                       : FFMIN(ceil(threads / s.n_tile_threads), DAV1D_MAX_FRAME_THREADS);
+     av_log(c, AV_LOG_DEBUG, "Using %d frame threads, %d tile threads\n",
+            s.n_frame_threads, s.n_tile_threads);
++#endif
+ 
+     res = libdav1d_parse_extradata(c);
+     if (res < 0)
+@@ -519,11 +529,18 @@ static av_cold int libdav1d_close(AVCodecContext *c)
+     return 0;
+ }
+ 
++#ifndef DAV1D_MAX_FRAME_THREADS
++#define DAV1D_MAX_FRAME_THREADS DAV1D_MAX_THREADS
++#endif
++#ifndef DAV1D_MAX_TILE_THREADS
++#define DAV1D_MAX_TILE_THREADS DAV1D_MAX_THREADS
++#endif
++
+ #define OFFSET(x) offsetof(Libdav1dContext, x)
+ #define VD AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_DECODING_PARAM
+ static const AVOption libdav1d_options[] = {
+-    { "tilethreads", "Tile threads", OFFSET(tile_threads), AV_OPT_TYPE_INT, { .i64 = 0 }, 0, DAV1D_MAX_TILE_THREADS, VD },
+-    { "framethreads", "Frame threads", OFFSET(frame_threads), AV_OPT_TYPE_INT, { .i64 = 0 }, 0, DAV1D_MAX_FRAME_THREADS, VD },
++    { "tilethreads", "Tile threads", OFFSET(tile_threads), AV_OPT_TYPE_INT, { .i64 = 0 }, 0, DAV1D_MAX_TILE_THREADS, VD | AV_OPT_FLAG_DEPRECATED },
++    { "framethreads", "Frame threads", OFFSET(frame_threads), AV_OPT_TYPE_INT, { .i64 = 0 }, 0, DAV1D_MAX_FRAME_THREADS, VD | AV_OPT_FLAG_DEPRECATED },
+     { "filmgrain", "Apply Film Grain", OFFSET(apply_grain), AV_OPT_TYPE_BOOL, { .i64 = -1 }, -1, 1, VD | AV_OPT_FLAG_DEPRECATED },
+     { "oppoint",  "Select an operating point of the scalable bitstream", OFFSET(operating_point), AV_OPT_TYPE_INT, { .i64 = -1 }, -1, 31, VD },
+     { "alllayers", "Output all spatial layers", OFFSET(all_layers), AV_OPT_TYPE_BOOL, { .i64 = 0 }, 0, 1, VD },
