@@ -11,7 +11,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="libglvnd is a vendor-neutral dispatch layer for arbitrating OpenGL API calls between multiple vendors."
 
 configure_package() {
-  if [ "${DISPLAYSERVER}" = "x11" ]; then
+  if [ "${DISPLAYSERVER}" = "x11" -o "${DISTRO}" = "Lakka" ]; then
     PKG_DEPENDS_TARGET+=" libX11 libXext xorgproto"
   fi
 }
