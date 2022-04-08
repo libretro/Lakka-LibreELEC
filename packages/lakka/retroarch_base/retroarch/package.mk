@@ -135,6 +135,10 @@ if [ "${LAKKA_NIGHTLY}" = yes ]; then
   PKG_MAKE_OPTS_TARGET+=" HAVE_LAKKA_NIGHTLY=1"
 fi
 
+if [ "${LAKKA_DEVBUILD}" = yes ]; then
+  PKG_MAKE_OPTS_TARGET+=" HAVE_LAKKA_DEVBUILD=1"
+fi
+
 pre_configure_target() {
   TARGET_CONFIGURE_OPTS=""
   cd ${PKG_BUILD}
