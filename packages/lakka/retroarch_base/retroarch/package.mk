@@ -30,9 +30,7 @@ PKG_MAKE_OPTS_TARGET="V=1 \
 if [ "${OPENGLES_SUPPORT}" = yes ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles"
-  if [ "${OPENGLES}" = "mesa" ] ||
-     [ "${OPENGLES}" = "mali-odroidgo2" ] ||
-     [ "${OPENGLES}" = "libmali" -a "${PROJECT}.${DEVICE}" != "Allwinner.A64" -a "${PROJECT}.${DEVICE}" != "Allwinner.H3" -a "${PROJECT}.${DEVICE}" != "Rockchip.RK3328" ]; then
+  if [[ ${DEVICE} =~ ^RPi4.* ]]; then
     PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles3 \
                                  --enable-opengles3_1 \
                                  --enable-opengles3_2"
