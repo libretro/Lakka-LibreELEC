@@ -29,8 +29,8 @@ case "${PROJECT}" in
     PKG_PATCH_DIRS="rockchip"
     ;;
   *)
-    PKG_VERSION="2022.01"
-    PKG_SHA256="81b4543227db228c03f8a1bf5ddbc813b0bb8f6555ce46064ef721a6fc680413"
+    PKG_VERSION="2022.04"
+    PKG_SHA256="68e065413926778e276ec3abd28bb32fa82abaa4a6898d570c1f48fbdb08bcd0"
     PKG_URL="http://ftp.denx.de/pub/u-boot/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
     ;;
 esac
