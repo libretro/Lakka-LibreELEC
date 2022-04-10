@@ -17,7 +17,13 @@ fi
 
 if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
-  PKG_CMAKE_OPTS_TARGET+=" -DUSE_GLES2=ON"
+  if [[ ${DEVICE} =~ ^RPi4.* ]] || [ ${DEVICE} = "RK3288" ] || [ "${DEVICE}" = "RK3399" ]; then
+    # enable GLES3
+    PKG_CMAKE_OPTS_TARGET+=" -DUSE_GLES=ON"
+  else
+    # enable GLES2
+    PKG_CMAKE_OPTS_TARGET+=" -DUSE_GLES2=ON"
+  fi
 fi
 
 if [ "${VULKAN_SUPPORT}" = yes ]; then
