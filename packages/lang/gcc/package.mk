@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="gcc"
-PKG_VERSION="10.3.0"
-PKG_SHA256="64f404c1a650f27fc33da242e1f2df54952e3963a49e06e73f6940f3223ac344"
+PKG_VERSION="11.2.0"
+PKG_SHA256="d08edc536b54c372a1010ff6619dd274c0f1603aa49212ba20f7aa2cda36fa8b"
 PKG_LICENSE="GPL-2.0-or-later"
 PKG_SITE="http://gcc.gnu.org/"
 PKG_URL="http://ftpmirror.gnu.org/gcc/${PKG_NAME}-${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
@@ -51,15 +51,17 @@ GCC_COMMON_CONFIGURE_OPTS="--target=${TARGET_NAME} \
                            --enable-__cxa_atexit"
 
 PKG_CONFIGURE_OPTS_BOOTSTRAP="${GCC_COMMON_CONFIGURE_OPTS} \
-                              --enable-languages=c \
-                              --disable-libsanitizer \
                               --enable-cloog-backend=isl \
+                              --disable-decimal-float \
+                              --disable-gcov \
+                              --enable-languages=c \
                               --disable-libatomic \
+                              --disable-libgomp \
+                              --disable-libsanitizer \
                               --disable-shared \
                               --disable-threads \
                               --without-headers \
                               --with-newlib \
-                              --disable-decimal-float \
                               ${TARGET_ARCH_GCC_OPTS}"
 
 PKG_CONFIGURE_OPTS_HOST="${GCC_COMMON_CONFIGURE_OPTS} \
