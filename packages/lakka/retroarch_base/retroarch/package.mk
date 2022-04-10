@@ -30,10 +30,9 @@ PKG_MAKE_OPTS_TARGET="V=1 \
 if [ "${OPENGLES_SUPPORT}" = yes ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles"
-  if [[ ${DEVICE} =~ ^RPi4.* ]]; then
+  if [[ ${DEVICE} =~ ^RPi4.* ]] || [ ${DEVICE} = "RK3288" ] || [ "${DEVICE}" = "RK3399" ]; then
     PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles3 \
-                                 --enable-opengles3_1 \
-                                 --enable-opengles3_2"
+                                 --enable-opengles3_1"
   fi
 else
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-opengles"
