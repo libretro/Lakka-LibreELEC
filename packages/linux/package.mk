@@ -234,6 +234,13 @@ pre_make_target() {
     ${PKG_BUILD}/scripts/config --enable CONFIG_IGC
   fi
 
+  # enable Ventoy support
+  if [ "${DISTRO}" = "Lakka" -a "${PROJECT}" = "Generic" ]; then
+    ${PKG_BUILD}/scripts/config --enable CONFIG_MD \
+                                --enable CONFIG_BLK_DEV_DM_BUILTIN \
+                                --enable CONFIG_BLK_DEV_DM
+  fi
+
   # enable Joycon and Dualsense on default and raspberrypi kernels for Lakka
   if [ "${DISTRO}" = "Lakka" ] && [ "${LINUX}" = "default" -o "${LINUX}" = "raspberrypi" ]; then
     ${PKG_BUILD}/scripts/config \
