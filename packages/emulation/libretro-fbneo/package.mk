@@ -10,7 +10,7 @@ PKG_URL="https://github.com/libretro/FBNeo/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_LONGDESC="game.libretro.fbneo: FinalBurn Neo GameClient for Kodi"
 PKG_TOOLCHAIN="make"
-PKG_BUILD_FLAGS="+lto"
+PKG_BUILD_FLAGS="-gold +lto"
 
 PKG_LIBNAME="fbneo_libretro.so"
 PKG_LIBPATH="src/burner/libretro/${PKG_LIBNAME}"
