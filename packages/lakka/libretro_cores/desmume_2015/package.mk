@@ -1,5 +1,5 @@
 PKG_NAME="desmume_2015"
-PKG_VERSION="cd89fb7c48c735cb321311fbce7e6e9889dda1ce"
+PKG_VERSION="af397ff3d1f208c27f3922cc8f2b8e08884ba893"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/desmume2015"
 PKG_URL="${PKG_SITE}.git"
