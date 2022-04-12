@@ -1,5 +1,5 @@
 PKG_NAME="dolphin"
-PKG_VERSION="6f22ef47d180aeffac69942a205f79f20b2c8892"
+PKG_VERSION="6a0b6ee8a4d5363e669f5faf43abc8f17e4278a8"
 PKG_ARCH="x86_64 aarch64"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/dolphin"
