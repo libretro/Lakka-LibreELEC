@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.yabause"
-PKG_VERSION="0.9.15.29-Matrix"
-PKG_SHA256="403918e04969c34f771eed6e687d86231f25d2a0f7efbbbc01e54231706b64b8"
+PKG_VERSION="0.9.15.37-Matrix"
+PKG_SHA256="747f42ad778e1f25bfcce25f43df34168e6e8732847ea79ea598d5e2305d0a1e"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
