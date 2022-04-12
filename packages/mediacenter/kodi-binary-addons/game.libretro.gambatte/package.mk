@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.gambatte"
-PKG_VERSION="0.5.0.25-Matrix"
-PKG_SHA256="bb49f39e62de986770ec970d048e744c27b913f7f405ab8ca194dd39029f4333"
+PKG_VERSION="0.5.0.31-Matrix"
+PKG_SHA256="6c9f7d2bd2a91ed231780b81a757918fca7f29c27dcc69892f54ff499afc81ed"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

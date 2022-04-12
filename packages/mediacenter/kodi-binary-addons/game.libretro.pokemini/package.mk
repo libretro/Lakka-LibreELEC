@@ -2,8 +2,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.pokemini"
-PKG_VERSION="0.60.0.23-Matrix"
-PKG_SHA256="463e417b715ff79e3a07fef9026246dac78e16ea8b4a787210169863dd99f36b"
+PKG_VERSION="0.60.0.27-Matrix"
+PKG_SHA256="343b959a94d1e0a9b19e8c32fd5c32eaa43ce93dac701bfa58de1836209c24fd"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
