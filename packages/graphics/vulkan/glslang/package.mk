@@ -3,8 +3,11 @@
 # Copyright (C) 2021-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="glslang"
-PKG_VERSION="11.7.1"
-PKG_SHA256="ab2e2ddc507bb418b9227cbe6f443eb06e89e2387944f42026d82c0b4ef79b0a"
+# The SPIRV-Tools & SPIRV-Headers have to be specific versions matching the pkg version
+# https://github.com/KhronosGroup/glslang/blob/${PKG_VERSION}/known_good.json
+# if you update glslang make sure spirv-tools & spirv-headers versions a known good
+PKG_VERSION="11.8.0"
+PKG_SHA256="9e5fbe5b844d203da5e61bcd84eda76326e0ff5dc696cb862147bbe01d2febb0"
 PKG_LICENSE="Apache-2.0"
 PKG_SITE="https://github.com/KhronosGroup/glslang"
 PKG_URL="https://github.com/KhronosGroup/glslang/archive/${PKG_VERSION}.tar.gz"
@@ -24,8 +27,6 @@ pre_configure_host() {
                        -DENABLE_RTTI=OFF \
                        -Wno-dev"
 
-  # The SPIRV-Tools & SPIRV-Headers have to be specific versions matching the pkg version
-  # https://github.com/KhronosGroup/glslang/blob/${PKG_VERSION}/known_good.json
   mkdir -p ${PKG_BUILD}/External/spirv-tools/external/spirv-headers
     cp -R $(get_build_dir spirv-tools)/* ${PKG_BUILD}/External/spirv-tools
     cp -R $(get_build_dir spirv-headers)/* ${PKG_BUILD}/External/spirv-tools/external/spirv-headers
