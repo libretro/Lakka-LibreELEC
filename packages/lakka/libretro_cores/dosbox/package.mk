@@ -9,6 +9,10 @@ PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="-f Makefile.libretro"
 
+pre_make_target() {
+  CXXFLAGS+=" -std=gnu++11"
+}
+
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
     cp -v dosbox_libretro.so ${INSTALL}/usr/lib/libretro/
