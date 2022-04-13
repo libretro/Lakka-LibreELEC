@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="pcsx2"
-PKG_VERSION="c68ba0b"
+PKG_VERSION="0251730"
 PKG_REV="1"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPLv2"
