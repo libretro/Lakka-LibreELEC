@@ -348,7 +348,7 @@ post_makeinstall_target() {
   # more binaddons cross compile badness meh
   sed -e "s:INCLUDE_DIR /usr/include/kodi:INCLUDE_DIR ${SYSROOT_PREFIX}/usr/include/kodi:g" \
       -e "s:CMAKE_MODULE_PATH /usr/lib/kodi /usr/share/kodi/cmake:CMAKE_MODULE_PATH ${SYSROOT_PREFIX}/usr/share/kodi/cmake:g" \
-      -i ${SYSROOT_PREFIX}/usr/share/kodi/cmake/KodiConfig.cmake
+      -i ${SYSROOT_PREFIX}/usr/lib/kodi/cmake/KodiConfig.cmake
 
   if [ "${KODI_EXTRA_FONTS}" = yes ]; then
     mkdir -p ${INSTALL}/usr/share/kodi/media/Fonts
