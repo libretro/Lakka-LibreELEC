@@ -3,8 +3,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="kodi"
-PKG_VERSION="2f11e994f322f7376476b186293a3df34246b9a7"
-PKG_SHA256="7268c2900c5b893f331e471b31bfb214ff91473753b78211887247585bb82487"
+PKG_VERSION="70d6b0c2e5a63e8076f7e9cf26331c2441ada371"
+PKG_SHA256="6fa01090795b5548db5606e120cade2a93265f65dc4ea3daae5f1ab5701c9fa8"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
 PKG_URL="https://github.com/xbmc/xbmc/archive/${PKG_VERSION}.tar.gz"
@@ -348,7 +348,7 @@ post_makeinstall_target() {
   # more binaddons cross compile badness meh
   sed -e "s:INCLUDE_DIR /usr/include/kodi:INCLUDE_DIR ${SYSROOT_PREFIX}/usr/include/kodi:g" \
       -e "s:CMAKE_MODULE_PATH /usr/lib/kodi /usr/share/kodi/cmake:CMAKE_MODULE_PATH ${SYSROOT_PREFIX}/usr/share/kodi/cmake:g" \
-      -i ${SYSROOT_PREFIX}/usr/share/kodi/cmake/KodiConfig.cmake
+      -i ${SYSROOT_PREFIX}/usr/lib/kodi/cmake/KodiConfig.cmake
 
   if [ "${KODI_EXTRA_FONTS}" = yes ]; then
     mkdir -p ${INSTALL}/usr/share/kodi/media/Fonts
