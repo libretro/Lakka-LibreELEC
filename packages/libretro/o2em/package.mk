@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="o2em"
-PKG_VERSION="efd749c"
+PKG_VERSION="641f06d"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Artistic License"

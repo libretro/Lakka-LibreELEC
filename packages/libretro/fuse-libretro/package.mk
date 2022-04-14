@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="fuse-libretro"
-PKG_VERSION="042f8a9"
+PKG_VERSION="8b734a9"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/fuse-libretro"
 PKG_URL="$PKG_SITE.git"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain bzip2"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="A port of the Fuse Unix Spectrum Emulator to libretro "
@@ -34,6 +34,8 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
+  CFLAGS="$CFLAGS -DHAVE_LIBBZ2"
+  CXXFLAGS="$CXXFLAGS -DHAVE_LIBBZ2"
   make -f Makefile.libretro
 }
 

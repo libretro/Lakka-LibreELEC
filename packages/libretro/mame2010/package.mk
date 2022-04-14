@@ -49,4 +49,6 @@ make_target() {
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
   cp mame2010_libretro.so $INSTALL/usr/lib/libretro/
+  mkdir -p $INSTALL/usr/share/libretro-database/mame2010
+  cp metadata/mame2010.xml $INSTALL/usr/share/libretro-database/mame2010/
 }

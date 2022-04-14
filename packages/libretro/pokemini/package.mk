@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="pokemini"
-PKG_VERSION="c072d02"
+PKG_VERSION="684e7ea"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"

@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="mesen"
-PKG_VERSION="3336a42"
+PKG_VERSION="bb9ea02"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/Mesen"

@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="dinothawr"
-PKG_VERSION="33973e9"
+PKG_VERSION="33fb82a"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"
 PKG_SITE="https://github.com/libretro/Dinothawr"

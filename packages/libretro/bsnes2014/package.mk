@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="bsnes2014"
-PKG_VERSION="cffc626"
+PKG_VERSION="a8f232a"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/bsnes2014"
