@@ -209,6 +209,7 @@ configure_package() {
                          -DENABLE_INTERNAL_CROSSGUID=OFF \
                          -DENABLE_INTERNAL_UDFREAD=OFF \
                          -DENABLE_INTERNAL_SPDLOG=OFF \
+                         -DENABLE_INTERNAL_RapidJSON=OFF \
                          -DENABLE_UDEV=ON \
                          -DENABLE_DBUS=ON \
                          -DENABLE_XSLT=ON \
