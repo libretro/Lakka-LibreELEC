@@ -49,6 +49,11 @@ pre_configure_target() {
     PKG_CMAKE_OPTS_TARGET+=" -DUSE_GAS=OFF"
   fi
 
+  # GAS / GNU Assembler also not working on aarch64 - disabling for Lakka
+  if [ "${DISTRO}" = "Lakka" -a "${ARCH}" = "aarch64" ]; then
+    PKG_CMAKE_OPTS_TARGET+=" -DUSE_GAS=OFF"
+  fi
+
   if [ "${DISPLAYSERVER}" = "x11" ]; then
     PKG_CMAKE_OPTS_TARGET+=" -DBUILD_WSI_XCB_SUPPORT=ON \
                              -DBUILD_WSI_XLIB_SUPPORT=ON \
