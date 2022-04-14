@@ -34,4 +34,7 @@ pre_make_target() {
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
     cp -v mame2015_libretro.so ${INSTALL}/usr/lib/libretro/
+  mkdir -p ${INSTALL}/usr/share/libretro-database/mame201{4,5}
+    unzip metadata/mame2014-xml.zip -d ${INSTALL}/usr/share/libretro-database/mame2014
+    unzip metadata/mame2015-xml.zip -d ${INSTALL}/usr/share/libretro-database/mame2015
 }

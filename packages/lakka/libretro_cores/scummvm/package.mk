@@ -1,5 +1,5 @@
 PKG_NAME="scummvm"
-PKG_VERSION="80cb7269a33b233dcea27d8d01df084b0d35c80a"
+PKG_VERSION="2fb2e4c551c9c1510c56f6e890ee0300b7b3fca3"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/scummvm"
 PKG_URL="${PKG_SITE}.git"
