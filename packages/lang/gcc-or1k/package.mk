@@ -8,7 +8,7 @@ PKG_SHA256="d08edc536b54c372a1010ff6619dd274c0f1603aa49212ba20f7aa2cda36fa8b"
 PKG_LICENSE="GPL-2.0-or-later"
 PKG_SITE="http://gcc.gnu.org/"
 PKG_URL="http://ftpmirror.gnu.org/gcc/gcc-${PKG_VERSION}/gcc-${PKG_VERSION}.tar.xz"
-PKG_DEPENDS_HOST="toolchain ccache:host autoconf:host binutils-or1k:host gmp:host mpfr:host mpc:host zstd:host"
+PKG_DEPENDS_HOST="toolchain:host ccache:host autoconf:host binutils-or1k:host gmp:host mpfr:host mpc:host zstd:host"
 PKG_LONGDESC="This package contains the GNU Compiler Collection for OpenRISC 1000."
 
 PKG_CONFIGURE_OPTS_HOST="--target=or1k-none-elf \

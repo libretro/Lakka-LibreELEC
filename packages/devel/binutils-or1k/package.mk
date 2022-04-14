@@ -8,7 +8,7 @@ PKG_SHA256="820d9724f020a3e69cb337893a0b63c2db161dadcb0e06fc11dc29eb1e84a32c"
 PKG_LICENSE="GPL"
 PKG_SITE="https://www.gnu.org/software/binutils/"
 PKG_URL="https://ftp.gnu.org/gnu/binutils/binutils-${PKG_VERSION}.tar.xz"
-PKG_DEPENDS_HOST="toolchain"
+PKG_DEPENDS_HOST="toolchain:host"
 PKG_LONGDESC="A GNU collection of binary utilities for OpenRISC 1000."
 
 PKG_CONFIGURE_OPTS_HOST="--target=or1k-none-elf \
