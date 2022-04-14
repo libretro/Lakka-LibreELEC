@@ -95,9 +95,6 @@ post_makeinstall_target() {
     cp -a ${INSTALL}/usr/share/i18n/locales ${INSTALL}/.noinstall
     mv ${INSTALL}/usr/share/i18n/charmaps ${INSTALL}/.noinstall
 
-# we are linking against ld.so, so symlink
-  ln -sf $(basename ${INSTALL}/usr/lib/ld-*.so) ${INSTALL}/usr/lib/ld.so
-
 # cleanup
 # remove any programs we don't want/need, keeping only those we want
   for f in $(find ${INSTALL}/usr/bin -type f); do
@@ -127,10 +124,6 @@ post_makeinstall_target() {
     cp ${PKG_DIR}/config/nsswitch-target.conf ${INSTALL}/etc/nsswitch.conf
     cp ${PKG_DIR}/config/host.conf ${INSTALL}/etc
     cp ${PKG_DIR}/config/gai.conf ${INSTALL}/etc
-
-  if [ "${TARGET_ARCH}" = "arm" -a "${TARGET_FLOAT}" = "hard" ]; then
-    ln -sf ld.so ${INSTALL}/usr/lib/ld-linux.so.3
-  fi
 }
 
 configure_init() {
@@ -151,10 +144,6 @@ makeinstall_init() {
     cp -PR ${PKG_BUILD}/.${TARGET_NAME}/rt/librt.so* ${INSTALL}/usr/lib
     cp -PR ${PKG_BUILD}/.${TARGET_NAME}/resolv/libnss_dns.so* ${INSTALL}/usr/lib
     cp -PR ${PKG_BUILD}/.${TARGET_NAME}/resolv/libresolv.so* ${INSTALL}/usr/lib
-
-    if [ "${TARGET_ARCH}" = "arm" -a "${TARGET_FLOAT}" = "hard" ]; then
-      ln -sf ld.so ${INSTALL}/usr/lib/ld-linux.so.3
-    fi
 }
 
 post_makeinstall_init() {
