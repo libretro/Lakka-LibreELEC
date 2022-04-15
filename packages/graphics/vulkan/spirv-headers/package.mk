@@ -4,10 +4,10 @@
 
 PKG_NAME="spirv-headers"
 # The SPIRV-Headers have to be specific versions matching the glslang pkg version
-# https://github.com/KhronosGroup/glslang/blob/11.8.0/known_good.json
+# https://github.com/KhronosGroup/glslang/blob/11.9.0/known_good.json
 # if you update glslang make sure spirv-tools & spirv-headers versions a known good
-PKG_VERSION="b42ba6d92faf6b4938e6f22ddd186dbdacc98d78"
-PKG_SHA256="d58e8e65ea4b4f1e421caaad68f88ce7b713ac3519bd49e7b71b6a5690489eb6"
+PKG_VERSION="4995a2f2723c401eb0ea3e10c81298906bf1422b"
+PKG_SHA256="2c9fe1bbd74a74fdabe40a7ffb322527dfc008c79e1d19d3cf41a5f006d9ab60"
 PKG_LICENSE="Apache-2.0"
 PKG_SITE="https://github.com/KhronosGroup/SPIRV-headers"
 PKG_URL="https://github.com/KhronosGroup/SPIRV-headers/archive/${PKG_VERSION}.tar.gz"
