@@ -29,6 +29,7 @@ fi
 
 pre_make_target() {
   PKG_MAKE_OPTS_TARGET+=" REALCC=${CC} CC=${CXX} LD=${CXX}"
+  make ${PKG_MAKE_OPTS_TARGET} maketree
 }
 
 makeinstall_target() {
