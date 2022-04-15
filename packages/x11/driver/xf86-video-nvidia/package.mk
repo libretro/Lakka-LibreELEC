@@ -79,7 +79,7 @@ makeinstall_target() {
   # Install Vulkan ICD & SPIR-V lib
   if [ "${VULKAN_SUPPORT}" = "yes" ]; then
     mkdir -p ${INSTALL}/usr/lib
-      cp -P libnvidia-glvkspirv.so.${PKG_VERSION} ${INSTALL}/usr/lib 
+      cp -P libnvidia-glvkspirv.so.${PKG_VERSION} ${INSTALL}/usr/lib
     mkdir -p ${INSTALL}/usr/share/vulkan/icd.d
       cp -P nvidia_icd.json ${INSTALL}/usr/share/vulkan/icd.d
     mkdir -p ${INSTALL}/usr/share/vulkan/implicit_layer.d
