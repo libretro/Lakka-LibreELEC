@@ -38,7 +38,7 @@ pre_configure_target() {
                          -Dpackage-origin="LibreELEC.tv"
                          -Ddoc=disabled"
 }
-  
+
 post_makeinstall_target() {
   # clean up
   safe_remove ${INSTALL}/usr/share
