@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="waylandpp"
-PKG_VERSION="0.2.9"
-PKG_SHA256="9d34acd88149897d587b979fc454fd8e5be8021ba3d09ad24c77a4b7acff2ebd"
+PKG_VERSION="0.2.10"
+PKG_SHA256="10dba6359c41c4485dbf6586aefc5d6485b7d5f0da4f199358a4b5ceff69fb02"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/NilsBrause/waylandpp"
 PKG_URL="https://github.com/NilsBrause/waylandpp/archive/${PKG_VERSION}.tar.gz"
