@@ -22,9 +22,19 @@ case "${LINUX}" in
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
     ;;
   raspberrypi)
-    PKG_VERSION="dc6771425e9604650d1d57f7c69948be405f59a5" # 5.10.103
-    PKG_SHA256="6dc2a664687d5efd98f7a2bdd6f2a2084d251965ec244d1c6288c04bce841030"
+    PKG_VERSION="b0272c695e99a8dcc3a01298db56361333f1fdcf" # 5.10.95
+    PKG_SHA256="e545db3c1064318c76477436589d3d36041389bae254bcf050022807b0822086"
     PKG_URL="https://github.com/raspberrypi/linux/archive/${PKG_VERSION}.tar.gz"
+
+    # for Lakka we use the upstream repo tag
+    # when updating kernel for RPi, also update bcm2835-bootloader and bcm2835-driver
+    # packages to match the kernel version
+    if [ "${DISTRO}" = "Lakka" ]; then
+      PKG_VERSION="1.20220308" # 5.10.103
+      PKG_SHA256="90790deb1c6ea74406963fcf7bea1906090e06e8c87496ef6e54bd6976f03e92"
+      PKG_URL="https://github.com/raspberrypi/linux/archive/refs/tags/${PKG_VERSION}.tar.gz"
+    fi
+
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
     ;;
   L4T)

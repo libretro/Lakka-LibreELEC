@@ -8,6 +8,14 @@ PKG_SHA256="7118e689bca498073420e4f2fa1fe391c95a36d246794e6ea9fc6ab0c66a0edb"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.broadcom.com"
 PKG_URL="${DISTRO_SRC}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+
+# for Lakka we use the upstream repo tag
+if [ "${DISTRO}" = "Lakka" ]; then
+  PKG_VERSION="1.20220308" # for kernel 5.10.103
+  PKG_SHA256="70638d515fd16aee31a963d2693e6ef5963b22420db585e2e99a0b62a43fd287"
+  PKG_URL="https://github.com/raspberrypi/firmware/archive/refs/tags/${PKG_VERSION}.tar.gz"
+fi
+
 PKG_DEPENDS_TARGET="toolchain dtc"
 PKG_LONGDESC="OpenMAX-bcm2835: OpenGL-ES and OpenMAX driver for BCM2835"
 PKG_TOOLCHAIN="manual"

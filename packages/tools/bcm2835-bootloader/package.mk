@@ -9,20 +9,35 @@ PKG_ARCH="arm aarch64"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.broadcom.com"
 PKG_URL="${DISTRO_SRC}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+
+# for Lakka we use the upstream repo tag
+if [ "${DISTRO}" = "Lakka" ]; then
+  PKG_VERSION="1.20220308" # for kernel 5.10.103
+  PKG_SHA256="70638d515fd16aee31a963d2693e6ef5963b22420db585e2e99a0b62a43fd287"
+  PKG_URL="https://github.com/raspberrypi/firmware/archive/refs/tags/${PKG_VERSION}.tar.gz"
+fi
+
 PKG_DEPENDS_TARGET="toolchain linux bcmstat"
 PKG_LONGDESC="bcm2835-bootloader: Tool to create a bootable kernel for RaspberryPi"
 PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
+  # upstream repo stores the firmware file in 'boot' subfolder
+  if [ "${DISTRO}" = "Lakka" ]; then
+    PKG_BOOT_FOLDER="boot"
+  else
+    PKG_BOOT_FOLDER="."
+  fi
+
   mkdir -p ${INSTALL}/usr/share/bootloader
-    cp -PRv LICENCE* ${INSTALL}/usr/share/bootloader
-    cp -PRv bootcode.bin ${INSTALL}/usr/share/bootloader
+    cp -PRv ${PKG_BOOT_FOLDER}/LICENCE* ${INSTALL}/usr/share/bootloader
+    cp -PRv ${PKG_BOOT_FOLDER}/bootcode.bin ${INSTALL}/usr/share/bootloader
     if [ "${DEVICE:0:4}" = "RPi4" ]; then
-      cp -PRv fixup4x.dat ${INSTALL}/usr/share/bootloader/fixup.dat
-      cp -PRv start4x.elf ${INSTALL}/usr/share/bootloader/start.elf
+      cp -PRv ${PKG_BOOT_FOLDER}/fixup4x.dat ${INSTALL}/usr/share/bootloader/fixup.dat
+      cp -PRv ${PKG_BOOT_FOLDER}/start4x.elf ${INSTALL}/usr/share/bootloader/start.elf
     else
-      cp -PRv fixup_x.dat ${INSTALL}/usr/share/bootloader/fixup.dat
-      cp -PRv start_x.elf ${INSTALL}/usr/share/bootloader/start.elf
+      cp -PRv ${PKG_BOOT_FOLDER}/fixup_x.dat ${INSTALL}/usr/share/bootloader/fixup.dat
+      cp -PRv ${PKG_BOOT_FOLDER}/start_x.elf ${INSTALL}/usr/share/bootloader/start.elf
     fi
 
     find_file_path bootloader/update.sh ${PKG_DIR}/files/update.sh && cp -PRv ${FOUND_PATH} ${INSTALL}/usr/share/bootloader
@@ -34,8 +49,6 @@ makeinstall_target() {
     if [ "${DISTRO}" = "Lakka" ]; then
       echo "disable_splash=1" >> ${INSTALL}/usr/share/bootloader/distroconfig.txt
       echo "dtparam=audio=on" >> ${INSTALL}/usr/share/bootloader/distroconfig.txt
-      echo "hdmi_max_pixel_freq:0=200000000" >> ${INSTALL}/usr/share/bootloader/distroconfig.txt
-      echo "hdmi_max_pixel_freq:1=200000000" >> ${INSTALL}/usr/share/bootloader/distroconfig.txt
       if [ "${DEVICE}" = "RPi4" -o "${DEVICE}" = "RPi4-PiBoyDmg" ]; then
         sed -e "s|^gpu_mem=.*$|gpu_mem=384|g" -i ${INSTALL}/usr/share/bootloader/config.txt
       elif [ "${DEVICE}" = "RPi4-RetroDreamer" ]; then
