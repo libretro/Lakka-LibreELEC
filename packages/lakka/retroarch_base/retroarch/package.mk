@@ -30,9 +30,12 @@ PKG_MAKE_OPTS_TARGET="V=1 \
 if [ "${OPENGLES_SUPPORT}" = yes ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles"
-  if [[ ${DEVICE} =~ ^RPi4.* ]] || [ ${DEVICE} = "RK3288" ] || [ "${DEVICE}" = "RK3399" ]; then
+  if [[ ${DEVICE} =~ ^RPi4.* ]] || [ ${DEVICE} = "RK3288" ] || [ "${DEVICE}" = "RK3399" ] || [ "${DEVICE}" = "Generic" ]; then
     PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles3 \
                                  --enable-opengles3_1"
+    if [ "${DEVICE}" = "Generic" ]; then
+      PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles3_2"
+    fi
   fi
 else
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-opengles"
@@ -255,12 +258,6 @@ makeinstall_target() {
   # Playlists
   echo 'playlist_entry_rename = "false"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'playlist_entry_remove = "false"' >> ${INSTALL}/etc/retroarch.cfg
-
-  # Generic
-  if [ "${PROJECT}" = "Generic" ]; then
-    echo 'video_context_driver = "khr_display"' >> ${INSTALL}/etc/retroarch.cfg
-    #echo 'video_driver = "vulkan"' >> ${INSTALL}/etc/retroarch.cfg
-  fi
 
   # OdroidGoAdvance
   if [ "${DEVICE}" = "OdroidGoAdvance" ]; then
