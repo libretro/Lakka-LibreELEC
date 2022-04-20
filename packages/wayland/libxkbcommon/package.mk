@@ -12,7 +12,7 @@ PKG_DEPENDS_TARGET="toolchain xkeyboard-config libxml2"
 PKG_LONGDESC="xkbcommon is a library to handle keyboard descriptions."
 
 PKG_MESON_OPTS_TARGET="-Denable-docs=false"
-if ! [ "${PROJECT}" = "L4T" ]; then
+#if ! [ "${PROJECT}" = "L4T" ]; then
   if [ "${DISPLAYSERVER}" = "x11" ]; then
     PKG_MESON_OPTS_TARGET+=" -Denable-x11=true \
                              -Denable-wayland=false"
@@ -23,12 +23,12 @@ if ! [ "${PROJECT}" = "L4T" ]; then
     PKG_MESON_OPTS_TARGET+=" -Denable-x11=false \
                              -Denable-wayland=false"
   fi
-fi
+#fi
 
 pre_configure_target() {
-  if ! [ "${PROJECT}" = "L4T" ]; then
+#  if ! [ "${PROJECT}" = "L4T" ]; then
     if [ "${DISPLAYSERVER}" = "x11" ]; then
       TARGET_LDFLAGS="${LDFLAGS} -lXau -lxcb"
     fi
-  fi
+#  fi
 }
