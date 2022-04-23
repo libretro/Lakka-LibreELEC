@@ -1,3 +1,9 @@
+# v3.7.3
+* Maintenance release
+* Update RetroArch to 1.10.3
+* Update libretro cores to the same version as on 4.x
+* Add new libretro core: `a5200`
+
 # v3.7.2
 * Maintenance release
 * Update RetroArch to 1.10.2
