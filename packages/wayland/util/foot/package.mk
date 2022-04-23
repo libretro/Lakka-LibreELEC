@@ -2,8 +2,8 @@
 # Copyright (C) 2021-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="foot"
-PKG_VERSION="1.11.0"
-PKG_SHA256="2b4f737eb4d266224e5dd0126168c6d770b0139d4b572078baf158d2f7166e4e"
+PKG_VERSION="1.12.0"
+PKG_SHA256="d8c27f735d2f361ee627cce282bee2462545f4df9532ee6ac28fd86a193404fa"
 PKG_LICENSE="MIT"
 PKG_SITE="https://codeberg.org/dnkl/foot/"
 PKG_URL="https://codeberg.org/dnkl/foot/archive/${PKG_VERSION}.tar.gz"
