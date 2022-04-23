@@ -12,7 +12,7 @@ fi
 PKG_LONGDESC="FFmpeg is a complete, cross-platform solution to record, convert and stream audio and video."
 PKG_BUILD_FLAGS="-gold"
 
-case "$PROJECT" in
+case "${PROJECT}" in
   Amlogic)
     PKG_VERSION="6144fe76840e1d8dfd549ba9c72e2cce01db9638" # dev/4.4/rpi_import_1
     PKG_SHA256="b014a7ad4a592163c5af47e105e967a26856824b8f603e3e39c80af50975f1e7"

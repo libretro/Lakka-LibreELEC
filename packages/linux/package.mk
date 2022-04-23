@@ -37,8 +37,8 @@ case "${LINUX}" in
     PKG_SHA256=$L4T_COMBINED_KERNEL_SHA256
     ;;
   *)
-    PKG_VERSION="5.17"
-    PKG_SHA256="555fef61dddb591a83d62dd04e252792f9af4ba9ef14683f64840e46fa20b1b1"
+    PKG_VERSION="5.17.4"
+    PKG_SHA256="6e3cd56ee83a9cb5ac3fde1442c40367ab67368946c4c93bbeb1c65664a0d3c5"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v5.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
     PKG_PATCH_DIRS="default"
     ;;
@@ -49,8 +49,8 @@ PKG_KERNEL_CFG_FILE=$(kernel_config_path) || die
 PKG_PATCH_DIRS+=" ${DISTRO}-${LINUX}"
 
 if [ -n "${KERNEL_TOOLCHAIN}" ]; then
-  PKG_DEPENDS_HOST+=" gcc-arm-${KERNEL_TOOLCHAIN}:host"
-  PKG_DEPENDS_TARGET+=" gcc-arm-${KERNEL_TOOLCHAIN}:host"
+  PKG_DEPENDS_HOST+=" gcc-${KERNEL_TOOLCHAIN}:host"
+  PKG_DEPENDS_TARGET+=" gcc-${KERNEL_TOOLCHAIN}:host"
   HEADERS_ARCH=${TARGET_ARCH}
 fi
 

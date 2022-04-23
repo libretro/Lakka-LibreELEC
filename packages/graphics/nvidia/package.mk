@@ -88,7 +88,7 @@ makeinstall_target() {
   # Vulkan
   if [ "${VULKAN_SUPPORT}" = "yes" ]; then
     mkdir -p ${INSTALL}/usr/lib
-      cp -P libnvidia-glvkspirv.so.${PKG_VERSION}  ${INSTALL}/usr/lib 
+      cp -P libnvidia-glvkspirv.so.${PKG_VERSION}  ${INSTALL}/usr/lib
       ln -sf libnvidia-glvkspirv.so.${PKG_VERSION} ${INSTALL}/usr/lib/libnvidia-glvkspirv.so
 
       cp -p libnvidia-vulkan-producer.so.${PKG_VERSION}  ${INSTALL}/usr/lib

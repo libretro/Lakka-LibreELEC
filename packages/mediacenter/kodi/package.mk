@@ -3,8 +3,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="kodi"
-PKG_VERSION="2f11e994f322f7376476b186293a3df34246b9a7"
-PKG_SHA256="7268c2900c5b893f331e471b31bfb214ff91473753b78211887247585bb82487"
+PKG_VERSION="6f05bd92a217b3313ae8009a8e668cb84854404b"
+PKG_SHA256="2ed25005f3970d7fd478eb4b12902ed279d0ddc1a5883420536ff3959d45f3b3"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
 PKG_URL="https://github.com/xbmc/xbmc/archive/${PKG_VERSION}.tar.gz"
@@ -62,7 +62,7 @@ configure_package() {
     KODI_PULSEAUDIO="-DENABLE_PULSEAUDIO=OFF"
   fi
 
-  if [ "$ESPEAK_SUPPORT" = yes ]; then
+  if [ "${ESPEAK_SUPPORT}" = yes ]; then
     PKG_DEPENDS_TARGET+=" espeak-ng"
   fi
 
@@ -209,6 +209,7 @@ configure_package() {
                          -DENABLE_INTERNAL_CROSSGUID=OFF \
                          -DENABLE_INTERNAL_UDFREAD=OFF \
                          -DENABLE_INTERNAL_SPDLOG=OFF \
+                         -DENABLE_INTERNAL_RapidJSON=OFF \
                          -DENABLE_UDEV=ON \
                          -DENABLE_DBUS=ON \
                          -DENABLE_XSLT=ON \
@@ -348,7 +349,7 @@ post_makeinstall_target() {
   # more binaddons cross compile badness meh
   sed -e "s:INCLUDE_DIR /usr/include/kodi:INCLUDE_DIR ${SYSROOT_PREFIX}/usr/include/kodi:g" \
       -e "s:CMAKE_MODULE_PATH /usr/lib/kodi /usr/share/kodi/cmake:CMAKE_MODULE_PATH ${SYSROOT_PREFIX}/usr/share/kodi/cmake:g" \
-      -i ${SYSROOT_PREFIX}/usr/share/kodi/cmake/KodiConfig.cmake
+      -i ${SYSROOT_PREFIX}/usr/lib/kodi/cmake/KodiConfig.cmake
 
   if [ "${KODI_EXTRA_FONTS}" = yes ]; then
     mkdir -p ${INSTALL}/usr/share/kodi/media/Fonts
