@@ -1,3 +1,9 @@
+# v4.2
+* Update RetroArch to 1.10.3
+* Add new libretro core: `a5200`
+* Update Mesa to [22.0.2](https://docs.mesa3d.org/relnotes/22.0.2.html)
+* Amlogic: disable composite output by default
+
 # v4.1
 * Update RetroArch to 1.10.2
 * RetroArch standalone cores: add files needed to run these cores to the image (therefore disabled the system files downloader)
@@ -25,6 +31,12 @@
 * Update mainline kernel to 5.10.103 (PC, Allwinner, Amlogic, NXP)
 * Update Raspberry kernel/firmware to 5.10.95
 * Rockchip devices: switch to mainline kernel (5.10.76)
+
+# v3.7.3
+* Maintenance release
+* Update RetroArch to 1.10.3
+* Update libretro cores to the same version as on 4.x
+* Add new libretro core: `a5200`
 
 # v3.7.2
 * Maintenance release
