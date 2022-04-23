@@ -12,23 +12,19 @@ PKG_DEPENDS_TARGET="toolchain xkeyboard-config libxml2"
 PKG_LONGDESC="xkbcommon is a library to handle keyboard descriptions."
 
 PKG_MESON_OPTS_TARGET="-Denable-docs=false"
-#if ! [ "${PROJECT}" = "L4T" ]; then
-  if [ "${DISPLAYSERVER}" = "x11" ]; then
-    PKG_MESON_OPTS_TARGET+=" -Denable-x11=true \
-                             -Denable-wayland=false"
-  elif [ "${DISPLAYSERVER}" = "wl" ]; then
-    PKG_MESON_OPTS_TARGET+=" -Denable-x11=false \
-                             -Denable-wayland=true"
-  else
-    PKG_MESON_OPTS_TARGET+=" -Denable-x11=false \
-                             -Denable-wayland=false"
-  fi
-#fi
+if [ "${DISPLAYSERVER}" = "x11" ]; then
+  PKG_MESON_OPTS_TARGET+=" -Denable-x11=true \
+                           -Denable-wayland=false"
+elif [ "${DISPLAYSERVER}" = "wl" ]; then
+  PKG_MESON_OPTS_TARGET+=" -Denable-x11=false \
+                           -Denable-wayland=true"
+else
+  PKG_MESON_OPTS_TARGET+=" -Denable-x11=false \
+                           -Denable-wayland=false"
+fi
 
 pre_configure_target() {
-#  if ! [ "${PROJECT}" = "L4T" ]; then
-    if [ "${DISPLAYSERVER}" = "x11" ]; then
-      TARGET_LDFLAGS="${LDFLAGS} -lXau -lxcb"
-    fi
-#  fi
+  if [ "${DISPLAYSERVER}" = "x11" ]; then
+    TARGET_LDFLAGS="${LDFLAGS} -lXau -lxcb"
+  fi
 }

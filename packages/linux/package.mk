@@ -137,8 +137,6 @@ makeinstall_host() {
 
   mkdir -p ${SYSROOT_PREFIX}/usr/include
     cp -R dest/include/* ${SYSROOT_PREFIX}/usr/include
-
-  echo ${SYSROOT_PREFIX}
 }
 
 pre_make_target() {
