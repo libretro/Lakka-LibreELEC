@@ -1,11 +1,13 @@
 # v4.2
-* Update RetroArch to 1.10.3
+* Update RetroArch to [1.10.3](https://www.libretro.com/index.php/retroarch-1-10-3-release/)
 * Add new libretro core: `a5200`
+* `race`: fix savestates on arm platforms
 * Update Mesa to [22.0.2](https://docs.mesa3d.org/relnotes/22.0.2.html)
 * Amlogic: disable composite output by default
+* Generic: add support for [Ventoy](https://www.ventoy.net) back
 
 # v4.1
-* Update RetroArch to 1.10.2
+* Update RetroArch to [1.10.2](https://www.libretro.com/index.php/retroarch-1-10-2-release/)
 * RetroArch standalone cores: add files needed to run these cores to the image (therefore disabled the system files downloader)
 * Add new libretro core: `race`
 * Add new libretro core: `bk`
@@ -24,7 +26,7 @@
 # v4.0
 * Update build system to LibreELEC 10.0.2
 * Update Mesa to [22.0.0](https://docs.mesa3d.org/relnotes/22.0.0.html)
-* Update RetroArch to 1.10.1
+* Update RetroArch to [1.10.1](https://www.libretro.com/index.php/retroarch-1-10-1-release/)
 * Add new libretro core: `sameduck`
 * Add new libretro core: `superbroswar`
 * L4T/Switch: complete new port with many fixes and enhancements
@@ -34,13 +36,13 @@
 
 # v3.7.3
 * Maintenance release
-* Update RetroArch to 1.10.3
+* Update RetroArch to [1.10.3](https://www.libretro.com/index.php/retroarch-1-10-3-release/)
 * Update libretro cores to the same version as on 4.x
 * Add new libretro core: `a5200`
 
 # v3.7.2
 * Maintenance release
-* Update RetroArch to 1.10.2
+* Update RetroArch to [1.10.2](https://www.libretro.com/index.php/retroarch-1-10-2-release/)
 * Update libretro cores to the same version as on 4.x
 * Add new libretro core: `sameduck`
 * Add new libretro core: `race`
@@ -49,11 +51,11 @@
 
 # v3.7.1
 * Maintenance release
-* Update RetroArch to 1.10.1
+* Update RetroArch to [1.10.1](https://www.libretro.com/index.php/retroarch-1-10-1-release/)
 * Update libretro cores to the same version as on 4.x
 
 # v3.7
-* Update RetroArch to 1.10.0
+* Update RetroArch to [1.10.0](https://www.libretro.com/index.php/retroarch-1-10-0-release/)
 * Update libretro cores to the latest
 * Add [small utility](https://github.com/spleen1981/xbox360-controllers-shutdown) to turn off Xbox360 controllers
 * Fix AML aarch64 cores compilation
@@ -75,7 +77,7 @@
 * Raspberry Pi: disable wifi powersaving to improve wifi stability
 
 # v3.6
-* Update RetroArch to 1.9.13.1
+* Update RetroArch to [1.9.13.1](https://www.libretro.com/index.php/retroarch-1-9-13-release/)
 * Update libretro cores to latest
 * Add new libretro core: `ecwolf`
 * Add new libretro core: `beetle-pce`
@@ -88,7 +90,7 @@
 * Update Raspberry kernel/firmware files to 1.20211029
 
 # v3.5.2
-* Update RetroArch to 1.9.12
+* Update RetroArch to [1.9.12](https://www.libretro.com/index.php/retroarch-1-9-12-release/)
 * Update libretro cores to latest
 * Add DAT/XML files for `fbneo` and `mame2003-plus` playlist scanning
 * Add SAMBA share for database files on the image
@@ -96,7 +98,7 @@
 * Remove `disable_ertm=1` from `xpadneo` driver package
 
 # v3.5.1
-* Update RetroArch to 1.9.11
+* Update RetroArch to [1.9.11](https://www.libretro.com/index.php/retroarch-1-9-11-release/)
 * Update libretro cores to latest
 * Update Mesa to [21.2.4](https://docs.mesa3d.org/relnotes/21.2.4.html)
 * Update Kernel to 5.10.72 (Generic, iMX6)
