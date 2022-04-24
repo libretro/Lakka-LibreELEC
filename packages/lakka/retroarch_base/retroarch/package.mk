@@ -230,7 +230,7 @@ makeinstall_target() {
   echo 'audio_driver = "alsathread"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'audio_filter_dir = "/usr/share/audio_filters"' >> ${INSTALL}/etc/retroarch.cfg
 
-  if [ "${PROJECT}" = "OdroidXU3" ]; then # workaround the 55fps bug
+  if [ "${DEVICE}" = "Exynos" ]; then # workaround the 55fps bug
     echo 'audio_out_rate = "44100"' >> ${INSTALL}/etc/retroarch.cfg
   fi
 
