@@ -261,6 +261,45 @@ pre_make_target() {
     ${PKG_BUILD}/scripts/config --enable CONFIG_XPI_GAMECON
   fi
 
+  # enable joystick and eMMC support for Exynos / OdroidXU4
+  if [ "${DISTRO}" = "Lakka" ] && [ "${DEVICE}" = "Exynos" ]; then
+    ${PKG_BUILD}/scripts/config --enable CONFIG_INPUT_JOYSTICK \
+                                --module CONFIG_JOYSTICK_GF2K \
+                                --module CONFIG_JOYSTICK_IFORCE \
+                                --module CONFIG_JOYSTICK_IFORCE_USB \
+                                --module CONFIG_JOYSTICK_XPAD \
+                                --enable CONFIG_JOYSTICK_XPAD_FF \
+                                --enable CONFIG_JOYSTICK_XPAD_LEDS \
+                                --enable CONFIG_INPUT_MISC \
+                                --module CONFIG_PWRSEQ_SD8787 \
+                                --module CONFIG_SDIO_UART \
+                                --module CONFIG_ARM_AMBA \
+                                --module CONFIG_ARMMMCI \
+                                --module CONFIG_MMC_ARMMMCI \
+                                --module MMC_SDHCI_PLTFM \
+                                --enable CONFIG_MMC_STM32_SDMMC \
+                                --enable CONFIG_MMC_SDHCI_IO_ACCESSORS \
+                                --module CONFIG_MMC_SDHCI_OF_ARASAN \
+                                --module CONFIG_MMC_SDHCI_OF_ASPEED \
+                                --module CONFIG_MMC_SDHCI_OF_AT91 \
+                                --module CONFIG_MMC_SDHCI_OF_DWCMSHC \
+                                --module CONFIG_MMC_SDHCI_CADENCE \
+                                --module CONFIG_MMC_SPI \
+                                --module CONFIG_MMC_VUB300 \
+                                --module CONFIG_MMC_USHC \
+                                --module CONFIG_MMC_USDHI6ROL0 \
+                                --module CONFIG_MMC_REALTEK_USB \
+                                --module CONFIG_MMC_CQHCI \
+                                --module CONFIG_MMC_MTK \
+                                --module CONFIG_MMC_SDHCI_XENON \
+                                --module CONFIG_MMC_SDHCI_OMAP \
+                                --module CONFIG_MMC_SDHCI_AM654 \
+                                --module CONFIG_MEMSTICK \
+                                --module CONFIG_MSPRO_BLOCK \
+                                --module CONFIG_MS_BLOCK \
+                                --module CONFIG_MEMSTICK_REALTEK_USB
+  fi
+
   # install extra dts files for Lakka
   if [ "${DISTRO}" = "Lakka" ]; then
     for f in ${PROJECT_DIR}/${PROJECT}/config/*-overlay.dts ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/config/*-overlay.dts ; do
