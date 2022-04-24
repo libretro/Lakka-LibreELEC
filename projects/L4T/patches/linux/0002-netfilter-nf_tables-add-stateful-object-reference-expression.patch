@@ -1,0 +1,206 @@
+From c1b71a0189a647cbd989450eef9e3d54747b2c3f Mon Sep 17 00:00:00 2001
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Mon, 28 Nov 2016 00:05:38 +0100
+Subject: [PATCH] netfilter: nf_tables: add stateful object reference
+ expression
+
+This new expression allows us to refer to existing stateful objects from
+rules.
+
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ arch/arm64/configs/tegra_linux_defconfig |   1 +
+ include/uapi/linux/netfilter/nf_tables.h |  14 +++
+ net/netfilter/Kconfig                    |   6 ++
+ net/netfilter/Makefile                   |   1 +
+ net/netfilter/nft_objref.c               | 112 +++++++++++++++++++++++
+ 5 files changed, 134 insertions(+)
+ create mode 100644 net/netfilter/nft_objref.c
+
+diff --git a/arch/arm64/configs/tegra_linux_defconfig b/arch/arm64/configs/tegra_linux_defconfig
+index 224b14a95cfb..e5fe28947007 100644
+--- a/arch/arm64/configs/tegra_linux_defconfig
++++ b/arch/arm64/configs/tegra_linux_defconfig
+@@ -250,6 +250,7 @@ CONFIG_NFT_LIMIT=y
+ CONFIG_NFT_MASQ=y
+ CONFIG_NFT_REDIR=y
+ CONFIG_NFT_NAT=y
++CONFIG_NFT_OBJREF=y
+ CONFIG_NFT_QUOTA=y
+ CONFIG_NFT_REJECT=y
+ CONFIG_NFT_COMPAT=y
+diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
+index c6c4477c136b..d3b127a148b6 100644
+--- a/include/uapi/linux/netfilter/nf_tables.h
++++ b/include/uapi/linux/netfilter/nf_tables.h
+@@ -1097,6 +1097,20 @@ enum nft_fwd_attributes {
+ };
+ #define NFTA_FWD_MAX	(__NFTA_FWD_MAX - 1)
+ 
++/**
++ * enum nft_objref_attributes - nf_tables stateful object expression netlink attributes
++ *
++ * @NFTA_OBJREF_IMM_TYPE: object type for immediate reference (NLA_U32: nft_register)
++ * @NFTA_OBJREF_IMM_NAME: object name for immediate reference (NLA_STRING)
++ */
++enum nft_objref_attributes {
++	NFTA_OBJREF_UNSPEC,
++	NFTA_OBJREF_IMM_TYPE,
++	NFTA_OBJREF_IMM_NAME,
++	__NFTA_OBJREF_MAX
++};
++#define NFTA_OBJREF_MAX	(__NFTA_OBJREF_MAX - 1)
++
+ /**
+  * enum nft_gen_attributes - nf_tables ruleset generation attributes
+  *
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 177d3ae5fda8..0c246cd6df29 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -541,6 +541,12 @@ config NFT_NAT
+ 	  This option adds the "nat" expression that you can use to perform
+ 	  typical Network Address Translation (NAT) packet transformations.
+ 
++config NFT_OBJREF
++	tristate "Netfilter nf_tables stateful object reference module"
++	help
++	  This option adds the "objref" expression that allows you to refer to
++	  stateful objects, such as counters and quotas.
++
+ config NFT_QUEUE
+ 	depends on NETFILTER_NETLINK_QUEUE
+ 	tristate "Netfilter nf_tables queue module"
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index 54ba5aa1f9bf..8b70d7e481da 100644
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -85,6 +85,7 @@ obj-$(CONFIG_NFT_NUMGEN)	+= nft_numgen.o
+ obj-$(CONFIG_NFT_CT)		+= nft_ct.o
+ obj-$(CONFIG_NFT_LIMIT)		+= nft_limit.o
+ obj-$(CONFIG_NFT_NAT)		+= nft_nat.o
++obj-$(CONFIG_NFT_OBJREF)	+= nft_objref.o
+ obj-$(CONFIG_NFT_QUEUE)		+= nft_queue.o
+ obj-$(CONFIG_NFT_QUOTA)		+= nft_quota.o
+ obj-$(CONFIG_NFT_REJECT) 	+= nft_reject.o
+diff --git a/net/netfilter/nft_objref.c b/net/netfilter/nft_objref.c
+new file mode 100644
+index 000000000000..23820f796aad
+--- /dev/null
++++ b/net/netfilter/nft_objref.c
+@@ -0,0 +1,112 @@
++/*
++ * Copyright (c) 2012-2016 Pablo Neira Ayuso <pablo@netfilter.org>
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ */
++
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/netlink.h>
++#include <linux/netfilter.h>
++#include <linux/netfilter/nf_tables.h>
++#include <net/netfilter/nf_tables.h>
++
++#define nft_objref_priv(expr)	*((struct nft_object **)nft_expr_priv(expr))
++
++static void nft_objref_eval(const struct nft_expr *expr,
++			    struct nft_regs *regs,
++			    const struct nft_pktinfo *pkt)
++{
++	struct nft_object *obj = nft_objref_priv(expr);
++
++	obj->type->eval(obj, regs, pkt);
++}
++
++static int nft_objref_init(const struct nft_ctx *ctx,
++			   const struct nft_expr *expr,
++			   const struct nlattr * const tb[])
++{
++	struct nft_object *obj = nft_objref_priv(expr);
++	u8 genmask = nft_genmask_next(ctx->net);
++	u32 objtype;
++
++	if (!tb[NFTA_OBJREF_IMM_NAME] ||
++	    !tb[NFTA_OBJREF_IMM_TYPE])
++		return -EINVAL;
++
++	objtype = ntohl(nla_get_be32(tb[NFTA_OBJREF_IMM_TYPE]));
++	obj = nf_tables_obj_lookup(ctx->table, tb[NFTA_OBJREF_IMM_NAME], objtype,
++				   genmask);
++	if (IS_ERR(obj))
++		return -ENOENT;
++
++	nft_objref_priv(expr) = obj;
++	obj->use++;
++
++	return 0;
++}
++
++static int nft_objref_dump(struct sk_buff *skb, const struct nft_expr *expr)
++{
++	const struct nft_object *obj = nft_objref_priv(expr);
++
++	if (nla_put_string(skb, NFTA_OBJREF_IMM_NAME, obj->name) ||
++	    nla_put_be32(skb, NFTA_OBJREF_IMM_TYPE, htonl(obj->type->type)))
++		goto nla_put_failure;
++
++	return 0;
++
++nla_put_failure:
++	return -1;
++}
++
++static void nft_objref_destroy(const struct nft_ctx *ctx,
++			       const struct nft_expr *expr)
++{
++	struct nft_object *obj = nft_objref_priv(expr);
++
++	obj->use--;
++}
++
++static struct nft_expr_type nft_objref_type;
++static const struct nft_expr_ops nft_objref_ops = {
++	.type		= &nft_objref_type,
++	.size		= NFT_EXPR_SIZE(sizeof(struct nft_object *)),
++	.eval		= nft_objref_eval,
++	.init		= nft_objref_init,
++	.destroy	= nft_objref_destroy,
++	.dump		= nft_objref_dump,
++};
++
++static const struct nla_policy nft_objref_policy[NFTA_OBJREF_MAX + 1] = {
++	[NFTA_OBJREF_IMM_NAME]	= { .type = NLA_STRING },
++	[NFTA_OBJREF_IMM_TYPE]	= { .type = NLA_U32 },
++};
++
++static struct nft_expr_type nft_objref_type __read_mostly = {
++	.name		= "objref",
++	.ops		= &nft_objref_ops,
++	.policy		= nft_objref_policy,
++	.maxattr	= NFTA_OBJREF_MAX,
++	.owner		= THIS_MODULE,
++};
++
++static int __init nft_objref_module_init(void)
++{
++	return nft_register_expr(&nft_objref_type);
++}
++
++static void __exit nft_objref_module_exit(void)
++{
++	nft_unregister_expr(&nft_objref_type);
++}
++
++module_init(nft_objref_module_init);
++module_exit(nft_objref_module_exit);
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Pablo Neira Ayuso <pablo@netfilter.org>");
++MODULE_ALIAS_NFT_EXPR("objref");
+-- 
+GitLab
+
