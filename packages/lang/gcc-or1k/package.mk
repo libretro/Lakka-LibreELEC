@@ -3,13 +3,13 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="gcc-or1k"
-PKG_VERSION="11.3.0"
-PKG_SHA256="b47cf2818691f5b1e21df2bb38c795fac2cfbd640ede2d0a5e1c89e338a3ac39"
+PKG_VERSION="$(get_pkg_version gcc)"
 PKG_LICENSE="GPL-2.0-or-later"
-PKG_SITE="http://gcc.gnu.org/"
-PKG_URL="http://ftpmirror.gnu.org/gcc/gcc-${PKG_VERSION}/gcc-${PKG_VERSION}.tar.xz"
+PKG_URL=""
 PKG_DEPENDS_HOST="toolchain:host ccache:host autoconf:host binutils-or1k:host gmp:host mpfr:host mpc:host zstd:host"
 PKG_LONGDESC="This package contains the GNU Compiler Collection for OpenRISC 1000."
+PKG_DEPENDS_UNPACK+=" gcc"
+PKG_PATCH_DIRS+=" $(get_pkg_directory gcc)/patches"
 
 PKG_CONFIGURE_OPTS_HOST="--target=or1k-none-elf \
                          --with-sysroot=${SYSROOT_PREFIX} \
@@ -47,6 +47,11 @@ PKG_CONFIGURE_OPTS_HOST="--target=or1k-none-elf \
                          --disable-nls \
                          --disable-shared \
                          --disable-threads"
+
+unpack() {
+  mkdir -p ${PKG_BUILD}
+  tar --strip-components=1 -xf ${SOURCES}/gcc/gcc-${PKG_VERSION}.tar.xz -C ${PKG_BUILD}
+}
 
 post_makeinstall_host() {
   PKG_GCC_PREFIX="${TOOLCHAIN}/bin/or1k-none-elf-"
