@@ -29,13 +29,10 @@ make_target() {
 }
 
 addon() {
-  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/{bin,config,gdk-pixbuf-modules,lib}
+  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/{bin,config,lib}
 
   # config
   cp -P ${PKG_DIR}/config/* ${ADDON_BUILD}/${PKG_ADDON_ID}/config
-
-  # gdk-pixbuf modules
-  cp -PL $(get_install_dir gdk-pixbuf)/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders/* ${ADDON_BUILD}/${PKG_ADDON_ID}/gdk-pixbuf-modules
 
   # unclutter
   cp -P $(get_install_dir unclutter)/usr/bin/unclutter ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
