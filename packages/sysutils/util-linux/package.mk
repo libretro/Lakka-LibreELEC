@@ -63,6 +63,7 @@ fi
 
 PKG_CONFIGURE_OPTS_HOST="--enable-static \
                          --disable-shared \
+                         --enable-all-programs \
                          ${UTILLINUX_CONFIG_DEFAULT} \
                          --enable-uuidgen \
                          --enable-libuuid"

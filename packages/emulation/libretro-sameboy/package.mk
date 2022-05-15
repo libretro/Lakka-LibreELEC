@@ -7,7 +7,7 @@ PKG_SHA256="a8728627d7343abc097d74ff0a0f7ad6ebb5d5b70aba1f7ff81b73ce8f192806"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/libretro/sameboy"
 PKG_URL="https://github.com/libretro/sameboy/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain kodi-platform"
+PKG_DEPENDS_TARGET="toolchain kodi-platform util-linux:host"
 PKG_LONGDESC="libretro wrapper for SameBoy emulator."
 
 PKG_LIBNAME="sameboy_libretro.so"
