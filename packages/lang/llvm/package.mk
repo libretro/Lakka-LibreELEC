@@ -43,7 +43,6 @@ PKG_CMAKE_OPTS_COMMON="-DLLVM_INCLUDE_TOOLS=ON \
                        -DLLVM_ENABLE_Z3_SOLVER=OFF"
 
 pre_configure_host() {
-  CXXFLAGS+=" -DLLVM_CONFIG_EXEC_PREFIX=\\\"${SYSROOT_PREFIX}/usr\\\""
   PKG_CMAKE_OPTS_HOST="${PKG_CMAKE_OPTS_COMMON}"
 }
 
@@ -59,11 +58,14 @@ make_host() {
 
 makeinstall_host() {
   cp -a lib/libLLVM-*.so ${TOOLCHAIN}/lib
-  cp -a bin/llvm-config ${TOOLCHAIN}/bin/llvm-config-host
+  cp -a bin/llvm-config ${TOOLCHAIN}/bin/llvm-config
   cp -a bin/llvm-tblgen ${TOOLCHAIN}/bin
 }
 
 post_makeinstall_target() {
+  mkdir -p ${SYSROOT_PREFIX}/usr/bin
+    cp -a ${TOOLCHAIN}/bin/llvm-config ${SYSROOT_PREFIX}/usr/bin
+
   rm -rf ${INSTALL}/usr/bin
   rm -rf ${INSTALL}/usr/lib/LLVMHello.so
   rm -rf ${INSTALL}/usr/lib/libLTO.so
