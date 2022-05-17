@@ -1,0 +1,37 @@
+diff -Naur a/configure.ac b/configure.ac
+--- a/configure.ac	2021-10-23 08:11:21.000000000 -0700
++++ b/configure.ac	2022-05-16 15:39:52.312875449 -0700
+@@ -177,7 +177,7 @@
+ AC_SUBST([LIBELF_CFLAGS])
+ AC_SUBST([LIBELF_LIBS])
+ if test "x$libelf_pkgconfig" = "xyes"; then
+-  AC_CHECK_PROG([CLANG], clang, clang)
++  AC_CHECK_PROG([BPFGCC], bpf-gcc, bpf-gcc)
+ else
+   AC_MSG_WARN(libelf library not available)
+ fi
+@@ -565,7 +565,7 @@
+ AM_CONDITIONAL([WITH_V4L2_COMPLIANCE_LIBV4L], [test x$ac_cv_func_fork = xyes -a x${enable_v4l2_compliance_libv4l} != xno])
+ AM_CONDITIONAL([WITH_V4L2_COMPLIANCE_32], [test x$ac_cv_func_fork = xyes -a x${enable_v4l2_compliance_32} = xyes])
+ PKG_CHECK_MODULES([LIBBPF], [libbpf], [bpf_pc=yes], [bpf_pc=no])
+-AM_CONDITIONAL([WITH_BPF],          [test x$enable_bpf != xno -a x$libelf_pkgconfig = xyes -a x$CLANG = xclang -a x$bpf_pc = xyes])
++AM_CONDITIONAL([WITH_BPF],          [test x$enable_bpf != xno -a x$libelf_pkgconfig = xyes -a x$BPFGCC = xbpf-gcc -a x$bpf_pc = xyes])
+ 
+ # append -static to libtool compile and link command to enforce static libs
+ AS_IF([test x$enable_libdvbv5 = xno], [AC_SUBST([ENFORCE_LIBDVBV5_STATIC], ["-static"])])
+diff -Naur a/utils/keytable/bpf_protocols/Makefile.am b/utils/keytable/bpf_protocols/Makefile.am
+--- a/utils/keytable/bpf_protocols/Makefile.am	2020-05-14 02:23:59.000000000 -0700
++++ b/utils/keytable/bpf_protocols/Makefile.am	2022-05-16 15:41:14.089649162 -0700
+@@ -4,11 +4,8 @@
+ #
+ # Use '-idirafter': Don't interfere with include mechanics except where the
+ # build would have failed anyways.
+-CLANG_SYS_INCLUDES := $(shell $(CLANG) -v -E - </dev/null 2>&1 \
+-        | sed -n '/<...> search starts here:/,/End of search list./{ s| \(/.*\)|-idirafter \1|p }')
+-
+ %.o: %.c bpf_helpers.h
+-	$(CLANG) $(CLANG_SYS_INCLUDES) -D__linux__ -I$(top_srcdir)/include -target bpf -O2 -c $<
++	$(BPFGCC) -D__linux__ -I$(top_srcdir)/include -O2 -mxbpf -c $<
+ 
+ PROTOCOLS = grundig.o pulse_distance.o pulse_length.o rc_mm.o manchester.o xbox-dvd.o imon_rsc.o raw.o samsung36.o
+ 
