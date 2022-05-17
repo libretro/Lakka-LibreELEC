@@ -55,7 +55,7 @@ configure_package() {
     KODI_ALSA="-DENABLE_ALSA=OFF"
  fi
 
-  if [ "${PULSEAUDIO_SUPPORT}" = yes ]; then
+  if [ "${KODI_PULSEAUDIO_SUPPORT}" = yes ]; then
     PKG_DEPENDS_TARGET+=" pulseaudio"
     KODI_PULSEAUDIO="-DENABLE_PULSEAUDIO=ON"
   else
