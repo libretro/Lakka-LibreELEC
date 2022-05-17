@@ -48,7 +48,7 @@ configure_package() {
     PKG_DEPENDS_TARGET+=" ${OPENGLES}"
   fi
 
-  if [ "${ALSA_SUPPORT}" = yes ]; then
+  if [ "${KODI_ALSA_SUPPORT}" = yes ]; then
     PKG_DEPENDS_TARGET+=" alsa-lib"
     KODI_ALSA="-DENABLE_ALSA=ON"
   else
