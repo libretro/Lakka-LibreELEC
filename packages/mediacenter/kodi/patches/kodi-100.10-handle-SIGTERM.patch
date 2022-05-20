@@ -1,4 +1,4 @@
-From 244cbd6ac18eb6e2ce2c7a89c95cd33380439caa Mon Sep 17 00:00:00 2001
+From c76c93444a0f7a87530c51ff9ec6ca6a35554a41 Mon Sep 17 00:00:00 2001
 From: MilhouseVH <milhouseVH.github@nmacleod.com>
 Date: Sun, 3 Apr 2022 11:31:07 +0200
 Subject: [PATCH] handle SIGTERM
@@ -20,9 +20,11 @@ so, when shutdown/reboot is requested:
  .../powermanagement/LogindUPowerSyscall.cpp   |  2 --
  3 files changed, 20 insertions(+), 8 deletions(-)
 
+diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
+index f20d05f50b..fd0781ed38 100644
 --- a/xbmc/Application.cpp
 +++ b/xbmc/Application.cpp
-@@ -2047,12 +2047,12 @@ void CApplication::OnApplicationMessage(
+@@ -1700,12 +1700,12 @@ void CApplication::OnApplicationMessage(ThreadMessage* pMsg)
    switch (msg)
    {
    case TMSG_POWERDOWN:
@@ -37,7 +39,7 @@ so, when shutdown/reboot is requested:
      break;
  
    case TMSG_SHUTDOWN:
-@@ -2073,12 +2073,13 @@ void CApplication::OnApplicationMessage(
+@@ -1726,12 +1726,13 @@ void CApplication::OnApplicationMessage(ThreadMessage* pMsg)
  
    case TMSG_RESTART:
    case TMSG_RESET:
@@ -52,7 +54,7 @@ so, when shutdown/reboot is requested:
      Stop(EXITCODE_RESTARTAPP);
  #endif
      break;
-@@ -2666,7 +2667,7 @@ bool CApplication::Stop(int exitCode)
+@@ -2292,7 +2293,7 @@ bool CApplication::Stop(int exitCode)
      m_frameMoveGuard.unlock();
  
      CVariant vExitCode(CVariant::VariantTypeObject);
@@ -61,7 +63,7 @@ so, when shutdown/reboot is requested:
      CServiceBroker::GetAnnouncementManager()->Announce(ANNOUNCEMENT::System, "OnQuit", vExitCode);
  
      // Abort any active screensaver
-@@ -2698,7 +2699,6 @@ bool CApplication::Stop(int exitCode)
+@@ -2324,7 +2325,6 @@ bool CApplication::Stop(int exitCode)
      // Needs cleaning up
      CServiceBroker::GetAppMessenger()->Stop();
      m_AppFocused = false;
@@ -69,8 +71,8 @@ so, when shutdown/reboot is requested:
      CLog::Log(LOGINFO, "Stopping all");
  
      // cancel any jobs from the jobmanager
-@@ -3285,6 +3285,18 @@ void CApplication::OnQueueNextItem()
-   CServiceBroker::GetGUI()->GetWindowManager().SendThreadMessage(msg);
+@@ -2817,6 +2817,18 @@ void CApplication::StopPlaying()
+   }
  }
  
 +bool CApplication::SetExitCode(int exitCode)
@@ -85,10 +87,10 @@ so, when shutdown/reboot is requested:
 +  return true;
 +}
 +
- void CApplication::OnPlayBackStopped()
+ bool CApplication::OnMessage(CGUIMessage& message)
  {
-   CLog::LogF(LOGDEBUG, "CApplication::OnPlayBackStopped");
-@@ -4352,7 +4364,7 @@ void CApplication::ProcessSlow()
+   switch ( message.GetMessage() )
+@@ -3293,7 +3305,7 @@ void CApplication::ProcessSlow()
    if (CPlatformPosix::TestQuitFlag())
    {
      CLog::Log(LOGINFO, "Quitting due to POSIX signal");
@@ -97,27 +99,31 @@ so, when shutdown/reboot is requested:
    }
  #endif
  
+diff --git a/xbmc/Application.h b/xbmc/Application.h
+index fb3e65cc69..33a37519d4 100644
 --- a/xbmc/Application.h
 +++ b/xbmc/Application.h
-@@ -153,6 +153,7 @@ public:
+@@ -152,6 +152,7 @@ public:
    bool InitWindow(RESOLUTION res = RES_INVALID);
  
    bool IsCurrentThread() const;
 +  bool SetExitCode(int exitCode);
    bool Stop(int exitCode);
-   void UnloadSkin();
-   bool LoadCustomWindows();
-@@ -447,6 +448,7 @@ private:
-   CEvent m_playerEvent;
+   void ReloadSkin(bool confirm = false);
+   const std::string& CurrentFile();
+@@ -339,6 +340,7 @@ private:
+   CApplicationPlayer m_appPlayer;
    CApplicationStackHelper m_stackHelper;
    int m_ExitCode{EXITCODE_QUIT};
 +  bool m_ExitCodeSet = false;
  };
  
  XBMC_GLOBAL_REF(CApplication,g_application);
+diff --git a/xbmc/platform/linux/powermanagement/LogindUPowerSyscall.cpp b/xbmc/platform/linux/powermanagement/LogindUPowerSyscall.cpp
+index 34eed6e41b..c374dbdbd3 100644
 --- a/xbmc/platform/linux/powermanagement/LogindUPowerSyscall.cpp
 +++ b/xbmc/platform/linux/powermanagement/LogindUPowerSyscall.cpp
-@@ -78,8 +78,6 @@ CLogindUPowerSyscall::~CLogindUPowerSysc
+@@ -78,8 +78,6 @@ CLogindUPowerSyscall::~CLogindUPowerSyscall()
  
  bool CLogindUPowerSyscall::Powerdown()
  {
@@ -126,3 +132,6 @@ so, when shutdown/reboot is requested:
    return LogindSetPowerState("PowerOff");
  }
  
+-- 
+2.30.2
+
