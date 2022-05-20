@@ -259,7 +259,7 @@ post_install() {
   add_group systemd-network 193
   add_user systemd-network x 193 193 "systemd-network" "/" "/bin/sh"
 
-  add_group audio 63
+  add_group audio 63 pipewire
   add_group cdrom 11
   add_group dialout 18
   add_group disk 6
@@ -270,7 +270,7 @@ post_install() {
   add_group render 12
   add_group tape 33
   add_group tty 5
-  add_group video 39
+  add_group video 39 pipewire
   add_group utmp 22
   add_group input 199
 
