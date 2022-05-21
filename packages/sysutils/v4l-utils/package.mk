@@ -10,7 +10,7 @@ PKG_SHA256="65c6fbe830a44ca105c443b027182c1b2c9053a91d1e72ad849dfab388b94e31"
 PKG_LICENSE="GPL"
 PKG_SITE="http://linuxtv.org/"
 PKG_URL="http://linuxtv.org/downloads/v4l-utils/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
-PKG_DEPENDS_TARGET="toolchain alsa-lib elfutils ir-bpf-decoders libbpf systemd zlib"
+PKG_DEPENDS_TARGET="toolchain alsa-lib elfutils gcc-bpf:host libbpf systemd zlib"
 PKG_LONGDESC="Linux V4L2 and DVB API utilities and v4l libraries (libv4l)."
 PKG_TOOLCHAIN="autotools"
 
