@@ -66,6 +66,17 @@ configure_package() {
     PKG_DEPENDS_TARGET+=" espeak-ng"
   fi
 
+  if [ "${KODI_PIPEWIRE_SUPPORT}" = yes ]; then
+    PKG_DEPENDS_TARGET+=" pipewire"
+    KODI_PIPEWIRE="-DENABLE_PIPEWIRE=ON"
+
+    if [ "${KODI_PULSEAUDIO_SUPPORT}" = "yes" -o "${KODI_ALSA_SUPPORT}" = "yes" ]; then
+      die "KODI_PULSEAUDIO_SUPPORT and KODI_ALSA_SUPPORT cannot be used with KODI_PIPEWIRE_SUPPORT"
+    fi
+  else
+    KODI_PIPEWIRE="-DENABLE_PIPEWIRE=OFF"
+  fi
+
   if [ "${CEC_SUPPORT}" = yes ]; then
     PKG_DEPENDS_TARGET+=" libcec"
     KODI_CEC="-DENABLE_CEC=ON"
@@ -241,7 +252,8 @@ configure_package() {
                          ${KODI_BLURAY} \
                          ${KODI_PLAYER} \
                          ${KODI_ALSA} \
-                         ${KODI_PULSEAUDIO}"
+                         ${KODI_PULSEAUDIO} \
+                         ${KODI_PIPEWIRE}"
 }
 
 pre_configure_target() {
@@ -275,7 +287,9 @@ post_makeinstall_target() {
         -e "s|@KODI_MAX_SECONDS@|${KODI_MAX_SECONDS:-900}|g" \
         -i ${INSTALL}/usr/lib/kodi/kodi.sh
 
-    if [ "${KODI_PULSEAUDIO_SUPPORT}" = "yes" -a "${KODI_ALSA_SUPPORT}" = "yes" ]; then
+    if [ "${KODI_PIPEWIRE_SUPPORT}" = "yes" ]; then
+      KODI_AE_SINK="PIPEWIRE"
+    elif [ "${KODI_PULSEAUDIO_SUPPORT}" = "yes" -a "${KODI_ALSA_SUPPORT}" = "yes" ]; then
       KODI_AE_SINK="ALSA+PULSE"
     elif [ "${KODI_PULSEAUDIO_SUPPORT}" = "yes" -a "${KODI_ALSA_SUPPORT}" != "yes" ]; then
       KODI_AE_SINK="PULSE"

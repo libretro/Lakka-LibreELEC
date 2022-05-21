@@ -16,3 +16,8 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --disable-shared \
                            --disable-tools \
                            --disable-tester"
+
+post_makeinstall_target() {
+  # fix static library
+  sed -i 's/-lsbc/-lsbc -lbluetooth/' ${SYSROOT_PREFIX}/usr/lib/pkgconfig/sbc.pc
+}
