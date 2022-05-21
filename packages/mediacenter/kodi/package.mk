@@ -48,14 +48,14 @@ configure_package() {
     PKG_DEPENDS_TARGET+=" ${OPENGLES}"
   fi
 
-  if [ "${ALSA_SUPPORT}" = yes ]; then
+  if [ "${KODI_ALSA_SUPPORT}" = yes ]; then
     PKG_DEPENDS_TARGET+=" alsa-lib"
     KODI_ALSA="-DENABLE_ALSA=ON"
   else
     KODI_ALSA="-DENABLE_ALSA=OFF"
  fi
 
-  if [ "${PULSEAUDIO_SUPPORT}" = yes ]; then
+  if [ "${KODI_PULSEAUDIO_SUPPORT}" = yes ]; then
     PKG_DEPENDS_TARGET+=" pulseaudio"
     KODI_PULSEAUDIO="-DENABLE_PULSEAUDIO=ON"
   else
@@ -239,7 +239,9 @@ configure_package() {
                          ${KODI_AIRTUNES} \
                          ${KODI_OPTICAL} \
                          ${KODI_BLURAY} \
-                         ${KODI_PLAYER}"
+                         ${KODI_PLAYER} \
+                         ${KODI_ALSA} \
+                         ${KODI_PULSEAUDIO}"
 }
 
 pre_configure_target() {
@@ -273,7 +275,16 @@ post_makeinstall_target() {
         -e "s|@KODI_MAX_SECONDS@|${KODI_MAX_SECONDS:-900}|g" \
         -i ${INSTALL}/usr/lib/kodi/kodi.sh
 
-    cp ${PKG_DIR}/config/kodi.conf ${INSTALL}/usr/lib/kodi/kodi.conf
+    if [ "${KODI_PULSEAUDIO_SUPPORT}" = "yes" -a "${KODI_ALSA_SUPPORT}" = "yes" ]; then
+      KODI_AE_SINK="ALSA+PULSE"
+    elif [ "${KODI_PULSEAUDIO_SUPPORT}" = "yes" -a "${KODI_ALSA_SUPPORT}" != "yes" ]; then
+      KODI_AE_SINK="PULSE"
+    elif [ "${KODI_PULSEAUDIO_SUPPORT}" != "yes" -a "${KODI_ALSA_SUPPORT}" = "yes" ]; then
+      KODI_AE_SINK="ALSA"
+    fi
+
+    # adjust audio output device to what was built
+    sed "s/@KODI_AE_SINK@/${KODI_AE_SINK}/" ${PKG_DIR}/config/kodi.conf.in > ${INSTALL}/usr/lib/kodi/kodi.conf
 
     # set default display environment
     if [ "${DISPLAYSERVER}" = "x11" ]; then
