@@ -39,7 +39,7 @@ make_target() {
   # Boards with a PMIC need to disable CONFIG_PMIC_SHUTDOWN to get CIR wakeup from suspend
   echo "CONFIG_PMIC_SHUTDOWN=n" >> configs/${CRUST_CONFIG}
   echo "CONFIG_CIR=y" >> configs/${CRUST_CONFIG}
-  make ${CRUST_CONFIG}
+  make ${CRUST_CONFIG} BUILDCC=host-gcc
   make scp
 }
 
