@@ -2,8 +2,8 @@
 # Copyright (C) 2021-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libbpf"
-PKG_VERSION="0.6.1"
-PKG_SHA256="ce3a8eb32d85ac48490256597736d8b27e0a5e947a0731613b7aba6b4ae43ac0"
+PKG_VERSION="0.8.0"
+PKG_SHA256="f4480242651a93c101ece320030f6b2b9b437f622f807719c13cb32569a6d65a"
 PKG_LICENSE="LGPL-2.1"
 PKG_SITE="https://github.com/libbpf/libbpf"
 PKG_URL="https://github.com/libbpf/libbpf/archive/refs/tags/v${PKG_VERSION}.tar.gz"
