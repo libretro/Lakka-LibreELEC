@@ -43,7 +43,7 @@ make_target() {
   echo "CONFIG_PMIC_SHUTDOWN=n" >> configs/${CRUST_CONFIG}
   echo "CONFIG_CIR=y" >> configs/${CRUST_CONFIG}
   echo "CONFIG_CEC=y" >> configs/${CRUST_CONFIG}
-  make ${CRUST_CONFIG}
+  make ${CRUST_CONFIG} BUILDCC=host-gcc
   make scp
 }
 
