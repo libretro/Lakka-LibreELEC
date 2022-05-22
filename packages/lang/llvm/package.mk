@@ -38,7 +38,8 @@ PKG_CMAKE_OPTS_COMMON="-DLLVM_INCLUDE_TOOLS=ON \
                        -DLLVM_APPEND_VC_REV=OFF \
                        -DLLVM_ENABLE_RTTI=ON \
                        -DLLVM_ENABLE_UNWIND_TABLES=OFF \
-                       -DLLVM_ENABLE_Z3_SOLVER=OFF"
+                       -DLLVM_ENABLE_Z3_SOLVER=OFF \
+                       -DCMAKE_SKIP_RPATH=ON"
 
 pre_configure_host() {
   case "${TARGET_ARCH}" in
