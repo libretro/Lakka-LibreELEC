@@ -1,0 +1,66 @@
+From 3664f1ee62e7ea3c4e953b8ad4e4f2efd20acc2f Mon Sep 17 00:00:00 2001
+From: Heiner Kallweit <hkallweit1@gmail.com>
+Date: Mon, 4 Apr 2022 19:01:08 +0000
+Subject: [PATCH 28/75] FROMLIST(v2): usb: host: xhci-plat: prepare operation
+ w/o shared hcd
+
+Signed-off-by: Christian Hewitt <christianshewitt@gmail.com>
+---
+ drivers/usb/host/xhci-plat.c | 31 ++++++++++++++++++-------------
+ 1 file changed, 18 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/usb/host/xhci-plat.c b/drivers/usb/host/xhci-plat.c
+index 5d752b384de2..c512ec2148ae 100644
+--- a/drivers/usb/host/xhci-plat.c
++++ b/drivers/usb/host/xhci-plat.c
+@@ -180,7 +180,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
+ 	struct device		*sysdev, *tmpdev;
+ 	struct xhci_hcd		*xhci;
+ 	struct resource         *res;
+-	struct usb_hcd		*hcd;
++	struct usb_hcd		*hcd, *usb3_hcd;
+ 	int			ret;
+ 	int			irq;
+ 	struct xhci_plat_priv	*priv = NULL;
+@@ -327,21 +327,26 @@ static int xhci_plat_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		goto disable_usb_phy;
+ 
+-	xhci->shared_hcd = __usb_create_hcd(driver, sysdev, &pdev->dev,
+-			dev_name(&pdev->dev), hcd);
+-	if (!xhci->shared_hcd) {
+-		ret = -ENOMEM;
+-		goto dealloc_usb2_hcd;
+-	}
++	if (!xhci_has_one_roothub(xhci)) {
++		xhci->shared_hcd = __usb_create_hcd(driver, sysdev, &pdev->dev,
++						    dev_name(&pdev->dev), hcd);
++		if (!xhci->shared_hcd) {
++			ret = -ENOMEM;
++			goto dealloc_usb2_hcd;
++		}
+ 
+-	xhci->shared_hcd->tpl_support = hcd->tpl_support;
++		xhci->shared_hcd->tpl_support = hcd->tpl_support;
++	}
+ 
+-	if (HCC_MAX_PSA(xhci->hcc_params) >= 4)
+-		xhci->shared_hcd->can_do_streams = 1;
++	usb3_hcd = xhci_get_usb3_hcd(xhci);
++	if (usb3_hcd && HCC_MAX_PSA(xhci->hcc_params) >= 4)
++		usb3_hcd->can_do_streams = 1;
+ 
+-	ret = usb_add_hcd(xhci->shared_hcd, irq, IRQF_SHARED);
+-	if (ret)
+-		goto put_usb3_hcd;
++	if (xhci->shared_hcd) {
++		ret = usb_add_hcd(xhci->shared_hcd, irq, IRQF_SHARED);
++		if (ret)
++			goto put_usb3_hcd;
++	}
+ 
+ 	device_enable_async_suspend(&pdev->dev);
+ 	pm_runtime_put_noidle(&pdev->dev);
+-- 
+2.17.1
+

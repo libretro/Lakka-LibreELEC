@@ -1,0 +1,73 @@
+From 28c487d0757b872d9dbeba4a2064de0c3d6da3bf Mon Sep 17 00:00:00 2001
+From: Heiner Kallweit <hkallweit1@gmail.com>
+Date: Sun, 17 Apr 2022 05:34:29 +0000
+Subject: [PATCH 32/75] FROMLIST(v1): mmc: meson-gx: switch to device-managed
+ dmam_alloc_coherent()
+
+Using the device-managed version allows to simplify clean-up in probe()
+error path and remove().
+
+Signed-off-by: Heiner Kallweit <hkallweit1@gmail.com>
+---
+ drivers/mmc/host/meson-gx-mmc.c | 21 +++++----------------
+ 1 file changed, 5 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/mmc/host/meson-gx-mmc.c b/drivers/mmc/host/meson-gx-mmc.c
+index 1a11a4bf4d4f..f2ff19ff8e9d 100644
+--- a/drivers/mmc/host/meson-gx-mmc.c
++++ b/drivers/mmc/host/meson-gx-mmc.c
+@@ -1271,8 +1271,8 @@ static int meson_mmc_probe(struct platform_device *pdev)
+ 		/* data bounce buffer */
+ 		host->bounce_buf_size = mmc->max_req_size;
+ 		host->bounce_buf =
+-			dma_alloc_coherent(host->dev, host->bounce_buf_size,
+-					   &host->bounce_dma_addr, GFP_KERNEL);
++			dmam_alloc_coherent(host->dev, host->bounce_buf_size,
++					    &host->bounce_dma_addr, GFP_KERNEL);
+ 		if (host->bounce_buf == NULL) {
+ 			dev_err(host->dev, "Unable to map allocate DMA bounce buffer.\n");
+ 			ret = -ENOMEM;
+@@ -1280,12 +1280,12 @@ static int meson_mmc_probe(struct platform_device *pdev)
+ 		}
+ 	}
+ 
+-	host->descs = dma_alloc_coherent(host->dev, SD_EMMC_DESC_BUF_LEN,
+-		      &host->descs_dma_addr, GFP_KERNEL);
++	host->descs = dmam_alloc_coherent(host->dev, SD_EMMC_DESC_BUF_LEN,
++					  &host->descs_dma_addr, GFP_KERNEL);
+ 	if (!host->descs) {
+ 		dev_err(host->dev, "Allocating descriptor DMA buffer failed\n");
+ 		ret = -ENOMEM;
+-		goto err_bounce_buf;
++		goto err_free_irq;
+ 	}
+ 
+ 	mmc->ops = &meson_mmc_ops;
+@@ -1293,10 +1293,6 @@ static int meson_mmc_probe(struct platform_device *pdev)
+ 
+ 	return 0;
+ 
+-err_bounce_buf:
+-	if (!host->dram_access_quirk)
+-		dma_free_coherent(host->dev, host->bounce_buf_size,
+-				  host->bounce_buf, host->bounce_dma_addr);
+ err_free_irq:
+ 	free_irq(host->irq, host);
+ err_init_clk:
+@@ -1318,13 +1314,6 @@ static int meson_mmc_remove(struct platform_device *pdev)
+ 	writel(0, host->regs + SD_EMMC_IRQ_EN);
+ 	free_irq(host->irq, host);
+ 
+-	dma_free_coherent(host->dev, SD_EMMC_DESC_BUF_LEN,
+-			  host->descs, host->descs_dma_addr);
+-
+-	if (!host->dram_access_quirk)
+-		dma_free_coherent(host->dev, host->bounce_buf_size,
+-				  host->bounce_buf, host->bounce_dma_addr);
+-
+ 	clk_disable_unprepare(host->mmc_clk);
+ 	clk_disable_unprepare(host->core_clk);
+ 
+-- 
+2.17.1
+
