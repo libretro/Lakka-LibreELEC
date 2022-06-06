@@ -3,7 +3,7 @@
 
 PKG_NAME="system-tools"
 PKG_VERSION="1.0"
-PKG_REV="129"
+PKG_REV="130"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://libreelec.tv"
@@ -46,6 +46,7 @@ PKG_DEPENDS_TARGET="toolchain \
                     patch \
                     pv \
                     screen \
+                    sdparm \
                     smartmontools \
                     stress-ng \
                     unrar \
@@ -155,6 +156,9 @@ addon() {
 
     # screen
     cp -L $(get_install_dir screen)/usr/bin/screen ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+
+    # sdparm
+    cp -P $(get_install_dir sdparm)/usr/bin/sdparm ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
     # smartmontools
     cp -P $(get_install_dir smartmontools)/usr/sbin/smartctl ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
