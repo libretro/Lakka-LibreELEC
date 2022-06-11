@@ -101,7 +101,7 @@ index c9a551dbd9bc..6ce11b736363 100644
 @@ -763,19 +767,7 @@ static void assemble_hw_rps(struct rkvdec_ctx *ctx,
  	for (j = 0; j < RKVDEC_NUM_REFLIST; j++) {
  		for (i = 0; i < h264_ctx->reflists.num_valid; i++) {
- 			u8 dpb_valid = 0;
+ 			bool dpb_valid = run->ref_buf_idx[i] >= 0;
 -			u8 idx = 0;
 -
 -			switch (j) {
@@ -143,28 +143,24 @@ index 6ce11b736363..9c3f08c94800 100644
  	u16 *p = (u16 *)hw_rps;
  
  	memset(hw_rps, 0, sizeof(priv_tbl->rps));
-@@ -764,18 +764,71 @@ static void assemble_hw_rps(struct rkvdec_ctx *ctx,
+@@ -764,16 +764,69 @@ static void assemble_hw_rps(struct rkvdec_ctx *ctx,
  		p[i] = dpb[i].frame_num - max_frame_num;
  	}
  
 -	for (j = 0; j < RKVDEC_NUM_REFLIST; j++) {
 -		for (i = 0; i < h264_ctx->reflists.num_valid; i++) {
--			u8 dpb_valid = 0;
+-			bool dpb_valid = run->ref_buf_idx[i] >= 0;
 -			u8 idx = reflists[j][i];
 +	if (!(dec_params->flags & V4L2_H264_DECODE_PARAM_FLAG_FIELD_PIC)) {
 +		for (j = 0; j < RKVDEC_NUM_REFLIST; j++) {
 +			for (i = 0; i < h264_ctx->reflists.num_valid; i++) {
-+				u8 dpb_valid = 0;
++				bool dpb_valid = run->ref_buf_idx[i] >= 0;
 +				u8 idx = reflists[j][i];
  
 -			if (idx >= ARRAY_SIZE(dec_params->dpb))
 -				continue;
--			dpb_valid = !!(dpb[idx].flags &
--				       V4L2_H264_DPB_ENTRY_FLAG_ACTIVE);
 +				if (idx >= ARRAY_SIZE(dec_params->dpb))
 +					continue;
-+				dpb_valid = !!(dpb[idx].flags &
-+					       V4L2_H264_DPB_ENTRY_FLAG_ACTIVE);
  
 -			set_ps_field(hw_rps, DPB_INFO(i, j),
 -				     idx | dpb_valid << 4);
@@ -932,37 +928,6 @@ index 908cacb91c6a..d8a812a7d23b 100644
  	};
  
  	vop: vop@ff370000 {
-
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: Alex Bee <knaerzche@gmail.com>
-Date: Sun, 3 May 2020 18:34:56 +0200
-Subject: [PATCH] WIP: media/rkvdec: don't overclock IP
-
-Signed-off-by: Alex Bee <knaerzche@gmail.com>
----
- drivers/staging/media/rkvdec/rkvdec.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/staging/media/rkvdec/rkvdec.c b/drivers/staging/media/rkvdec/rkvdec.c
-index 8d2495bee04d..19b31bef0bb3 100644
---- a/drivers/staging/media/rkvdec/rkvdec.c
-+++ b/drivers/staging/media/rkvdec/rkvdec.c
-@@ -1130,10 +1130,12 @@ static int rkvdec_probe(struct platform_device *pdev)
- 		return ret;
- 
- 	/*
--	 * Bump ACLK to max. possible freq. (500 MHz) to improve performance
--	 * When 4k video playback.
-+	 * Don't bump ACLK to max. possible freq. (500 MHz) to improve performance,
-+	 * since it will lead to non-recoverable decoder lockups in case of decoding
-+	 * errors, instead put it to 400 MHz, which seems to have no drawbacks
-+	 * in decoding performance and doesn't result in those hangs.
- 	 */
--	clk_set_rate(rkvdec->clocks[0].clk, 500 * 1000 * 1000);
-+	clk_set_rate(rkvdec->clocks[0].clk, 400 * 1000 * 1000);
- 
- 	rkvdec->regs = devm_platform_ioremap_resource(pdev, 0);
- 	if (IS_ERR(rkvdec->regs))
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alex Bee <knaerzche@gmail.com>
