@@ -2,8 +2,8 @@
 # Copyright (C) 2021-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="nvidia"
-PKG_VERSION="510.54"
-PKG_SHA256="c115b57363bbc3e35c43914a9fadca360603c22c17bf42cc02604a7ed21c841a"
+PKG_VERSION="515.48.07"
+PKG_SHA256="9ec1515cb214261ae4081a6fc9489800b5fef41c6a8d669e84e4ab1de7f3dc14"
 PKG_ARCH="x86_64"
 PKG_LICENSE="nonfree"
 PKG_SITE="https://www.nvidia.com/en-us/drivers/unix/"
@@ -118,7 +118,7 @@ makeinstall_target() {
     cp -P libnvidia-tls.so.${PKG_VERSION}  ${INSTALL}/usr/lib
     ln -sf libnvidia-tls.so.${PKG_VERSION} ${INSTALL}/usr/lib/libnvidia-tls.so
 
-  # NVML
+  # NVIDIA Management Library (NVML) / System Management Interface
   mkdir -p ${INSTALL}/usr/bin
     cp -P nvidia-smi ${INSTALL}/usr/bin
 
