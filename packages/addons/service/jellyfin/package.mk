@@ -3,8 +3,8 @@
 
 PKG_NAME="jellyfin"
 PKG_VERSION="1.0"
-PKG_VERSION_NUMBER="10.8.0-beta3"
-PKG_REV="103"
+PKG_VERSION_NUMBER="10.8.0"
+PKG_REV="104"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://jellyfin.org/"

@@ -2,7 +2,7 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="dotnet-runtime"
-PKG_REV="118"
+PKG_REV="119"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://dotnet.microsoft.com/"
