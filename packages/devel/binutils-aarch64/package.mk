@@ -42,11 +42,13 @@ pre_configure_host() {
 
 make_host() {
   make configure-host
+  # override the makeinfo binary with true - this does not build the documentation
   make MAKEINFO=true
 }
 
 makeinstall_host() {
   cp -v ../include/libiberty.h ${SYSROOT_PREFIX}/usr/include
   make -C bfd install # fix parallel build with libctf requiring bfd
+  # override the makeinfo binary with true - this does not build the documentation
   make MAKEINFO=true install
 }
