@@ -56,13 +56,13 @@ pre_configure_host() {
 
 make_host() {
   make configure-host
-  make
+  make MAKEINFO=true
 }
 
 makeinstall_host() {
   cp -v ../include/libiberty.h ${SYSROOT_PREFIX}/usr/include
   make -C bfd install # fix parallel build with libctf requiring bfd
-  make install
+  make MAKEINFO=true install
 }
 
 make_target() {
