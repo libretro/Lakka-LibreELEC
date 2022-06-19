@@ -2,11 +2,11 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="aom"
-PKG_VERSION="287164de79516c25c8c84fd544f67752c170082a" # 3.2.0
-PKG_SHA256="2c644da19e5c9d70bc9425e0b23aaf37999822b2a0269e38f91bfb3d6362e528"
+PKG_VERSION="fc430c57c7b0307b4c5ffb686cd90b3c010d08d2" # 3.4.0
+PKG_SHA256="143556c87e59499aa38a3ec00719f41b33b4e2b7d018e3bbb4bb77884c4ac268"
 PKG_LICENSE="BSD"
 PKG_SITE="https://www.webmproject.org"
-PKG_URL="https://repo.or.cz/aom.git/snapshot/${PKG_VERSION}.tar.gz"
+PKG_URL="https://aomedia.googlesource.com/aom/+archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="AV1 Codec Library"
 PKG_BUILD_FLAGS="+pic"
@@ -24,3 +24,8 @@ fi
 if ! target_has_feature neon; then
   PKG_CMAKE_OPTS_TARGET+=" -DENABLE_NEON=0 -DENABLE_NEON_ASM=0"
 fi
+
+unpack() {
+  mkdir -p ${PKG_BUILD}
+  tar --strip-components=0 -xf ${SOURCES}/${PKG_NAME}/${PKG_NAME}-${PKG_VERSION}.tar.gz -C ${PKG_BUILD}
+}
