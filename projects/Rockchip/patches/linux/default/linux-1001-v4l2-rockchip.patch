@@ -101,7 +101,7 @@ index c115cd362a7f..d9a2fd9386e2 100644
 @@ -763,19 +767,7 @@ static void assemble_hw_rps(struct rkvdec_ctx *ctx,
  	for (j = 0; j < RKVDEC_NUM_REFLIST; j++) {
  		for (i = 0; i < h264_ctx->reflists.num_valid; i++) {
- 			u8 dpb_valid = 0;
+ 			bool dpb_valid = run->ref_buf_idx[i] >= 0;
 -			u8 idx = 0;
 -
 -			switch (j) {
@@ -143,28 +143,24 @@ index d9a2fd9386e2..d4f27ef7addd 100644
  	u16 *p = (u16 *)hw_rps;
  
  	memset(hw_rps, 0, sizeof(priv_tbl->rps));
-@@ -764,18 +764,71 @@ static void assemble_hw_rps(struct rkvdec_ctx *ctx,
+@@ -764,16 +764,69 @@ static void assemble_hw_rps(struct rkvdec_ctx *ctx,
  		p[i] = dpb[i].frame_num - max_frame_num;
  	}
  
 -	for (j = 0; j < RKVDEC_NUM_REFLIST; j++) {
 -		for (i = 0; i < h264_ctx->reflists.num_valid; i++) {
--			u8 dpb_valid = 0;
+-			bool dpb_valid = run->ref_buf_idx[i] >= 0;
 -			u8 idx = reflists[j][i];
 +	if (!(dec_params->flags & V4L2_H264_DECODE_PARAM_FLAG_FIELD_PIC)) {
 +		for (j = 0; j < RKVDEC_NUM_REFLIST; j++) {
 +			for (i = 0; i < h264_ctx->reflists.num_valid; i++) {
-+				u8 dpb_valid = 0;
++				bool dpb_valid = run->ref_buf_idx[i] >= 0;
 +				u8 idx = reflists[j][i];
  
 -			if (idx >= ARRAY_SIZE(dec_params->dpb))
 -				continue;
--			dpb_valid = !!(dpb[idx].flags &
--				       V4L2_H264_DPB_ENTRY_FLAG_ACTIVE);
 +				if (idx >= ARRAY_SIZE(dec_params->dpb))
 +					continue;
-+				dpb_valid = !!(dpb[idx].flags &
-+					       V4L2_H264_DPB_ENTRY_FLAG_ACTIVE);
  
 -			set_ps_field(hw_rps, DPB_INFO(i, j),
 -				     idx | dpb_valid << 4);

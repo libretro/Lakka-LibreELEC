@@ -10,6 +10,7 @@ PKG_URL="https://wayland.freedesktop.org/releases/${PKG_NAME}-${PKG_VERSION}.tar
 PKG_DEPENDS_TARGET="toolchain wayland:host libffi expat libxml2"
 PKG_DEPENDS_HOST="libffi:host expat:host libxml2:host"
 PKG_LONGDESC="a display server protocol"
+PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_HOST="--enable-shared \
                          --disable-static \
