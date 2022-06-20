@@ -29,7 +29,7 @@ makeinstall_target() {
     cp -v src/burner/libretro/fbneo_libretro.so ${INSTALL}/usr/lib/libretro/
 
   mkdir -p ${INSTALL}/usr/share/libretro-database/fbneo
-    cp -v dats/* ${INSTALL}/usr/share/libretro-database/fbneo
+    cp -vr dats/* ${INSTALL}/usr/share/libretro-database/fbneo
 
   mkdir -p ${INSTALL}/usr/share/retroarch-system/fbneo
     cp metadata/hiscore.dat ${INSTALL}/usr/share/retroarch-system/fbneo
