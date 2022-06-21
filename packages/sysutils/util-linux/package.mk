@@ -18,7 +18,6 @@ UTILLINUX_CONFIG_DEFAULT="--disable-gtk-doc \
                           --disable-nls \
                           --disable-rpath \
                           --enable-tls \
-                          --disable-all-programs \
                           --enable-chsh-only-listed \
                           --disable-bash-completion \
                           --disable-colors-default \
@@ -50,6 +49,7 @@ if [ "${DEVICE}" = "Switch" ]; then
 fi
 
 PKG_CONFIGURE_OPTS_TARGET="${UTILLINUX_CONFIG_DEFAULT} \
+                           --disable-all-programs \
                            --enable-libuuid \
                            --enable-libblkid \
                            --enable-libmount \
@@ -66,11 +66,13 @@ fi
 
 PKG_CONFIGURE_OPTS_HOST="--enable-static \
                          --disable-shared \
+                         --enable-all-programs \
                          ${UTILLINUX_CONFIG_DEFAULT} \
                          --enable-uuidgen \
                          --enable-libuuid"
 
 PKG_CONFIGURE_OPTS_INIT="${UTILLINUX_CONFIG_DEFAULT} \
+                         --disable-all-programs \
                          --enable-libblkid \
                          --enable-libmount \
                          --enable-fsck"

@@ -2,8 +2,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="vfs.libarchive"
-PKG_VERSION="19.0.1-Matrix"
-PKG_SHA256="1360154d86bc73fc6f01f546d7b09a92968653cf05b037b0cd80a825d95a9187"
+PKG_VERSION="19.2.0-Matrix"
+PKG_SHA256="957c76d3327b618396d9530394b235cebb73090b53afdeb2bd0d87f9677622d9"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

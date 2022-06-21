@@ -20,7 +20,7 @@ Reviewed-by: Ezequiel Garcia <ezequiel@collabora.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/staging/media/rkvdec/rkvdec-h264.c b/drivers/staging/media/rkvdec/rkvdec-h264.c
-index 7cc3b478a5f4..054d2e3eed67 100644
+index 5487f6d0bcb6..89658c0060bc 100644
 --- a/drivers/staging/media/rkvdec/rkvdec-h264.c
 +++ b/drivers/staging/media/rkvdec/rkvdec-h264.c
 @@ -752,7 +752,7 @@ static void assemble_hw_rps(struct rkvdec_ctx *ctx,
@@ -47,7 +47,7 @@ Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
  1 file changed, 2 insertions(+)
 
 diff --git a/drivers/staging/media/rkvdec/rkvdec.c b/drivers/staging/media/rkvdec/rkvdec.c
-index e68303e2b390..38982049c7b8 100644
+index a7788e7a9542..5622f4c77252 100644
 --- a/drivers/staging/media/rkvdec/rkvdec.c
 +++ b/drivers/staging/media/rkvdec/rkvdec.c
 @@ -223,6 +223,8 @@ static int rkvdec_try_capture_fmt(struct file *file, void *priv,
@@ -83,7 +83,7 @@ Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
  2 files changed, 12 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/staging/media/rkvdec/rkvdec-h264.c b/drivers/staging/media/rkvdec/rkvdec-h264.c
-index 054d2e3eed67..d46424ba88e8 100644
+index 89658c0060bc..cbaecdcd3def 100644
 --- a/drivers/staging/media/rkvdec/rkvdec-h264.c
 +++ b/drivers/staging/media/rkvdec/rkvdec-h264.c
 @@ -671,8 +671,8 @@ static void assemble_hw_pps(struct rkvdec_ctx *ctx,
@@ -98,7 +98,7 @@ index 054d2e3eed67..d46424ba88e8 100644
  		  FRAME_MBS_ONLY_FLAG);
  	WRITE_PPS(!!(sps->flags & V4L2_H264_SPS_FLAG_MB_ADAPTIVE_FRAME_FIELD),
 diff --git a/drivers/staging/media/rkvdec/rkvdec.c b/drivers/staging/media/rkvdec/rkvdec.c
-index 38982049c7b8..ba2026d79a1b 100644
+index 5622f4c77252..943838d17f54 100644
 --- a/drivers/staging/media/rkvdec/rkvdec.c
 +++ b/drivers/staging/media/rkvdec/rkvdec.c
 @@ -29,8 +29,11 @@
@@ -127,73 +127,6 @@ index 38982049c7b8..ba2026d79a1b 100644
  	}
  	return 0;
  }
-
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: Jonas Karlman <jonas@kwiboo.se>
-Date: Mon, 6 Jul 2020 21:54:35 +0000
-Subject: [PATCH] media: rkvdec: h264: Fix bit depth wrap in pps packet
-
-The luma and chroma bit depth fields in the pps packet is 3 bits wide.
-8 is wrongly added to the bit depth value written to these 3-bit fields.
-Because only the 3 LSB is written the hardware is configured correctly.
-
-Correct this by not adding 8 to the luma and chroma bit depth value.
-
-Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
-Reviewed-by: Ezequiel Garcia <ezequiel@collabora.com>
----
- drivers/staging/media/rkvdec/rkvdec-h264.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/staging/media/rkvdec/rkvdec-h264.c b/drivers/staging/media/rkvdec/rkvdec-h264.c
-index d46424ba88e8..6536cf0d6054 100644
---- a/drivers/staging/media/rkvdec/rkvdec-h264.c
-+++ b/drivers/staging/media/rkvdec/rkvdec-h264.c
-@@ -661,8 +661,8 @@ static void assemble_hw_pps(struct rkvdec_ctx *ctx,
- 	WRITE_PPS(0xff, PROFILE_IDC);
- 	WRITE_PPS(1, CONSTRAINT_SET3_FLAG);
- 	WRITE_PPS(sps->chroma_format_idc, CHROMA_FORMAT_IDC);
--	WRITE_PPS(sps->bit_depth_luma_minus8 + 8, BIT_DEPTH_LUMA);
--	WRITE_PPS(sps->bit_depth_chroma_minus8 + 8, BIT_DEPTH_CHROMA);
-+	WRITE_PPS(sps->bit_depth_luma_minus8, BIT_DEPTH_LUMA);
-+	WRITE_PPS(sps->bit_depth_chroma_minus8, BIT_DEPTH_CHROMA);
- 	WRITE_PPS(0, QPPRIME_Y_ZERO_TRANSFORM_BYPASS_FLAG);
- 	WRITE_PPS(sps->log2_max_frame_num_minus4, LOG2_MAX_FRAME_NUM_MINUS4);
- 	WRITE_PPS(sps->max_num_ref_frames, MAX_NUM_REF_FRAMES);
-
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: Jonas Karlman <jonas@kwiboo.se>
-Date: Mon, 6 Jul 2020 21:54:35 +0000
-Subject: [PATCH] media: rkvdec: h264: Do not override output buffer sizeimage
-
-The output buffer sizeimage is currently forced to 2 bytes per pixel, this
-can lead to high memory usage for 4K content when multiple output buffers
-is created by userspace.
-
-Do not override output buffer sizeimage and let userspace have control of
-output buffer sizeimage by only setting sizeimage if none is provided.
-
-Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
----
- drivers/staging/media/rkvdec/rkvdec-h264.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/staging/media/rkvdec/rkvdec-h264.c b/drivers/staging/media/rkvdec/rkvdec-h264.c
-index 6536cf0d6054..bf632d45282b 100644
---- a/drivers/staging/media/rkvdec/rkvdec-h264.c
-+++ b/drivers/staging/media/rkvdec/rkvdec-h264.c
-@@ -1015,8 +1015,9 @@ static int rkvdec_h264_adjust_fmt(struct rkvdec_ctx *ctx,
- 	struct v4l2_pix_format_mplane *fmt = &f->fmt.pix_mp;
- 
- 	fmt->num_planes = 1;
--	fmt->plane_fmt[0].sizeimage = fmt->width * fmt->height *
--				      RKVDEC_H264_MAX_DEPTH_IN_BYTES;
-+	if (!fmt->plane_fmt[0].sizeimage)
-+		fmt->plane_fmt[0].sizeimage = fmt->width * fmt->height *
-+					      RKVDEC_H264_MAX_DEPTH_IN_BYTES;
- 	return 0;
- }
- 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
@@ -593,10 +526,10 @@ index 4102c373b48a..0caac755d303 100644
  		{ .format = V4L2_PIX_FMT_YVU410,  .pixel_enc = V4L2_PIXEL_ENC_YUV, .mem_planes = 1, .comp_planes = 3, .bpp = { 1, 1, 1, 0 }, .hdiv = 4, .vdiv = 4 },
  		{ .format = V4L2_PIX_FMT_YUV411P, .pixel_enc = V4L2_PIXEL_ENC_YUV, .mem_planes = 1, .comp_planes = 3, .bpp = { 1, 1, 1, 0 }, .hdiv = 4, .vdiv = 1 },
 diff --git a/drivers/media/v4l2-core/v4l2-ioctl.c b/drivers/media/v4l2-core/v4l2-ioctl.c
-index 9eda8b91d17a..1ff68c1bf14a 100644
+index 6d6d30dbbe68..b570fa7e6fc8 100644
 --- a/drivers/media/v4l2-core/v4l2-ioctl.c
 +++ b/drivers/media/v4l2-core/v4l2-ioctl.c
-@@ -1319,6 +1319,8 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
+@@ -1337,6 +1337,8 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
  	case V4L2_PIX_FMT_NV61:		descr = "Y/CrCb 4:2:2"; break;
  	case V4L2_PIX_FMT_NV24:		descr = "Y/CbCr 4:4:4"; break;
  	case V4L2_PIX_FMT_NV42:		descr = "Y/CrCb 4:4:4"; break;
@@ -682,7 +615,7 @@ Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
  1 file changed, 15 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/staging/media/rkvdec/rkvdec.c b/drivers/staging/media/rkvdec/rkvdec.c
-index ba2026d79a1b..4f36783c7881 100644
+index 943838d17f54..a59c8981b65c 100644
 --- a/drivers/staging/media/rkvdec/rkvdec.c
 +++ b/drivers/staging/media/rkvdec/rkvdec.c
 @@ -27,6 +27,17 @@
@@ -754,7 +687,7 @@ Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
  2 files changed, 55 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/staging/media/rkvdec/rkvdec.c b/drivers/staging/media/rkvdec/rkvdec.c
-index 4f36783c7881..1a99b3a9ddce 100644
+index a59c8981b65c..4e07422608ad 100644
 --- a/drivers/staging/media/rkvdec/rkvdec.c
 +++ b/drivers/staging/media/rkvdec/rkvdec.c
 @@ -38,6 +38,16 @@ static void rkvdec_fill_decoded_pixfmt(struct rkvdec_ctx *ctx,
@@ -845,7 +778,7 @@ index 4f36783c7881..1a99b3a9ddce 100644
  
  	/* Always apply the frmsize constraint of the coded end. */
  	pix_mp->width = max(pix_mp->width, ctx->coded_fmt.fmt.pix_mp.width);
-@@ -312,6 +350,7 @@ static int rkvdec_s_capture_fmt(struct file *file, void *priv,
+@@ -301,6 +339,7 @@ static int rkvdec_s_capture_fmt(struct file *file, void *priv,
  		return ret;
  
  	ctx->decoded_fmt = *f;
@@ -947,7 +880,7 @@ index 6f2d41b2e076..c115cd362a7f 100644
  	.stop = rkvdec_h264_stop,
  	.run = rkvdec_h264_run,
 diff --git a/drivers/staging/media/rkvdec/rkvdec.c b/drivers/staging/media/rkvdec/rkvdec.c
-index 1a99b3a9ddce..85b9530bcddb 100644
+index 4e07422608ad..d3848aff5a53 100644
 --- a/drivers/staging/media/rkvdec/rkvdec.c
 +++ b/drivers/staging/media/rkvdec/rkvdec.c
 @@ -31,7 +31,7 @@ static void rkvdec_fill_decoded_pixfmt(struct rkvdec_ctx *ctx,
@@ -1014,7 +947,7 @@ Reviewed-by: Ezequiel Garcia <ezequiel@collabora.com>
  1 file changed, 13 insertions(+)
 
 diff --git a/drivers/staging/media/rkvdec/rkvdec.c b/drivers/staging/media/rkvdec/rkvdec.c
-index 85b9530bcddb..539b0c5efdcc 100644
+index d3848aff5a53..ac313639c63b 100644
 --- a/drivers/staging/media/rkvdec/rkvdec.c
 +++ b/drivers/staging/media/rkvdec/rkvdec.c
 @@ -132,6 +132,19 @@ static const struct rkvdec_ctrl_desc rkvdec_h264_ctrl_descs[] = {

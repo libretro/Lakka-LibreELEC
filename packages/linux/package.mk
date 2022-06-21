@@ -22,20 +22,16 @@ case "${LINUX}" in
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
     ;;
   raspberrypi)
-    PKG_VERSION="b0272c695e99a8dcc3a01298db56361333f1fdcf" # 5.10.95
-    PKG_SHA256="e545db3c1064318c76477436589d3d36041389bae254bcf050022807b0822086"
+    PKG_VERSION="427c6bd8835e197693e9b4aedbe45c2c3c84cdce" # 5.10.110
+    PKG_SHA256="0b80f1f3b57874af08c0e3c7d3edc2287639c0705f99fde705055fc303317432"
     PKG_URL="https://github.com/raspberrypi/linux/archive/${PKG_VERSION}.tar.gz"
-
-    # for Lakka we use the upstream repo tag
-    # when updating kernel for RPi, also update bcm2835-bootloader and bcm2835-driver
-    # packages to match the kernel version
-    if [ "${DISTRO}" = "Lakka" ]; then
-      PKG_VERSION="1.20220308" # 5.10.103
-      PKG_SHA256="90790deb1c6ea74406963fcf7bea1906090e06e8c87496ef6e54bd6976f03e92"
-      PKG_URL="https://github.com/raspberrypi/linux/archive/refs/tags/${PKG_VERSION}.tar.gz"
-    fi
-
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
+    ;;
+  *)
+    PKG_VERSION="5.10.123"
+    PKG_SHA256="654ab0960b70013e7dad6b3782c25d62e13cbb8c053010daef667d5d74061e52"
+    PKG_URL="https://www.kernel.org/pub/linux/kernel/v5.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+    PKG_PATCH_DIRS="default ${DISTRO}-default"
     ;;
   L4T)
     PKG_VERSION=$DEVICE
@@ -45,23 +41,6 @@ case "${LINUX}" in
     PKG_SOURCE_NAME="linux-$DEVICE.tar.gz"
     #Need to find a better way to do this for l4t platforms!
     PKG_SHA256=$L4T_COMBINED_KERNEL_SHA256
-    ;;
-  rockchip)
-    PKG_VERSION="5.10.76"
-    PKG_SHA256="480a09ba1962862ff18df9453fa0df6ba11cbe19eefedeab81bf2c84f49e1890"
-    PKG_URL="https://www.kernel.org/pub/linux/kernel/v5.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
-    PKG_PATCH_DIRS="default ${DISTRO}-default"
-    ;;
-  *)
-    if [ "${DISTRO}" = "Lakka" ]; then
-      PKG_VERSION="5.10.109"
-      PKG_SHA256="18fb22ecb249669ea775474aee614dcb0697cab299068074fd9f0bafa32113dc"
-    else
-      PKG_VERSION="5.10.76"
-      PKG_SHA256="480a09ba1962862ff18df9453fa0df6ba11cbe19eefedeab81bf2c84f49e1890"
-    fi
-    PKG_URL="https://www.kernel.org/pub/linux/kernel/v5.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
-    PKG_PATCH_DIRS="default"
     ;;
 esac
 
