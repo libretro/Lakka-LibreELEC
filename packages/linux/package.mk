@@ -50,7 +50,7 @@ if listcontains "${UBOOT_FIRMWARE}" "crust"; then
   PKG_PATCH_DIRS+=" crust"
 fi
 
-PKG_PATCH_DIRS+=" ${DISTRO}-${LINUX}"
+# PKG_PATCH_DIRS+=" ${DISTRO}-${LINUX}"
 
 if [ -n "${KERNEL_TOOLCHAIN}" ]; then
   PKG_DEPENDS_HOST+=" gcc-arm-${KERNEL_TOOLCHAIN}:host"
