@@ -85,7 +85,7 @@ post_makeinstall_target() {
 
   cp ${PKG_DIR}/config/system.pa ${INSTALL}/etc/pulse/
 
-  if [ "${PROJECT}" = "L4T" ]; then
+  if [ "${PROJECT}" = "L4T" -o "${PROJECT}" = "Ayn" ]; then
     echo load-module module-switch-on-port-available >> ${INSTALL}/etc/pulse/system.pa
   fi
 

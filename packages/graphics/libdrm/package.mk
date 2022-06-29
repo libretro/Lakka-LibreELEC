@@ -49,6 +49,9 @@ listcontains "${GRAPHIC_DRIVERS}" "etnaviv" &&
 listcontains "${GRAPHIC_DRIVERS}" "nouveau" &&
   PKG_MESON_OPTS_TARGET+=" -Dnouveau=true" || PKG_MESON_OPTS_TARGET+=" -Dnouveau=false"
 
+listcontains "${GRAPHIC_DRIVERS}" "freedreno" &&
+  PKG_MESON_OPTS_TARGET+=" -Dfreedreno=true" || PKG_MESON_OPTS_TARGET+=" -Dfreedreno=false"
+
 if [ "${DISTRO}" = "Lakka" ]; then
   PKG_MESON_OPTS_TARGET="${PKG_MESON_OPTS_TARGET//-Dlibkms=false/-Dlibkms=true}"
 fi
