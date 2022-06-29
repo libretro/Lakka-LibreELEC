@@ -306,11 +306,11 @@ makeinstall_target() {
   if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ] || [ "${PROJECT}" = "Ayn" -a "${DEVICE}" = "Odin" ]; then
     echo 'menu_mouse_enable = "false"' >> ${INSTALL}/etc/retroarch.cfg
     echo 'menu_pointer_enable = "true"'>> ${INSTALL}/etc/retroarch.cfg
-    echo 'video_hard_sync = "true"' >> ${INSTALL}/etc/retroarch.cfg
     echo 'video_crop_overscan = "false"' >> ${INSTALL}/etc/retroarch.cfg
 
     if [ ! "${PROJECT}" = "Ayn" -a ! "${DEVICE}" = "Odin" ]; then
       echo 'input_joypad_driver = "udev"' >> ${INSTALL}/etc/retroarch.cfg
+      echo 'video_hard_sync = "true"' >> ${INSTALL}/etc/retroarch.cfg
     fi
 
     sed -i -e 's|^input_driver =.*|input_driver= "x"|' ${INSTALL}/etc/retroarch.cfg
@@ -326,6 +326,7 @@ makeinstall_target() {
     else
       echo 'video_driver = "glcore"' >> ${INSTALL}/etc/retroarch.cfg
       sed -i -e 's|^audio_driver =.*|audio_driver = "pulse"|' ${INSTALL}/etc/retroarch.cfg
+      echo video_vsync = "false" >> ${INSTALL}/etc/retroarch.cfg
     fi
 
     #HACK: Temporary hack for touchscreen
