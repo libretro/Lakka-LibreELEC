@@ -3,8 +3,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libdvdnav"
-PKG_VERSION="6.1.1-Next-Nexus-Alpha2"
-PKG_SHA256="e46ebbe6c2475797e371b17588ddb7c30d52d86550e083816d09c04b06c5a49a"
+PKG_VERSION="6.1.1-Next-Nexus-Alpha2-2"
+PKG_SHA256="584f62a3896794408d46368e2ecf2c6217ab9c676ce85921b2d68b8961f49dfc"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/libdvdnav"
 PKG_URL="https://github.com/xbmc/libdvdnav/archive/${PKG_VERSION}.tar.gz"
