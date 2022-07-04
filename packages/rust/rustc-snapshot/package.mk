@@ -3,7 +3,7 @@
 
 PKG_NAME="rustc-snapshot"
 PKG_VERSION="$(get_pkg_version rust)"
-PKG_SHA256="21c4613f389ed130fbaaf88f1e984319f72b5fc10734569a5ba19e22ebb03abd"
+PKG_SHA256="e7f71f4ef09334ddc9ec8cbf2f958d654e36f580c95f8fec6d5c816ce256dbd6"
 PKG_LICENSE="MIT"
 PKG_SITE="https://www.rust-lang.org"
 PKG_URL="https://static.rust-lang.org/dist/rustc-${PKG_VERSION}-${MACHINE_HARDWARE_NAME}-unknown-linux-gnu.tar.xz"
