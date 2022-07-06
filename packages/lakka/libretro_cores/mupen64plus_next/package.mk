@@ -1,5 +1,5 @@
 PKG_NAME="mupen64plus_next"
-PKG_VERSION="6e9dcd2cd9d23d3e79eaf2349bf7e9f25ad45bf1"
+PKG_VERSION="4684cfa56ae7752be284eaaa165c1dc34ec63eb7"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mupen64plus-libretro-nx"
 PKG_URL="${PKG_SITE}.git"
@@ -42,13 +42,13 @@ pre_make_target() {
       PKG_MAKE_OPTS_TARGET+=" platform=rpi2-mesa"
       ;;
     RPi3)
-      PKG_MAKE_OPTS_TARGET+=" platform=rpi3-mesa"
+      PKG_MAKE_OPTS_TARGET+=" platform=rpi3_64-mesa"
       ;;
     Pi02GPi)
       PKG_MAKE_OPTS_TARGET+=" platform=rpi3"
       ;;
     RPi4*)
-      PKG_MAKE_OPTS_TARGET+=" platform=rpi4-mesa FORCE_GLES3=1"
+      PKG_MAKE_OPTS_TARGET+=" platform=rpi4_64-mesa FORCE_GLES3=1"
       ;;
     OdroidXU3)
       PKG_MAKE_OPTS_TARGET+=" platform=odroid BOARD=ODROID-XU"
