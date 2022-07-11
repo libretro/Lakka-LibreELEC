@@ -3,8 +3,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="cxxtools"
-PKG_VERSION="2.2.1"
-PKG_SHA256="8cebb6d6cda7c93cc4f7c0d552a68d50dd5530b699cf87916bb3b708fdc4e342"
+PKG_VERSION="3.0"
+PKG_SHA256="07b18037fb0983f6292f5c8d53e2369e9e7a9711df2c9ad50838aacbc8c62f7c"
 PKG_LICENSE="GPL-2"
 PKG_SITE="http://www.tntnet.org/cxxtools.html"
 PKG_URL="http://www.tntnet.org/download/${PKG_NAME}-${PKG_VERSION}.tar.gz"
