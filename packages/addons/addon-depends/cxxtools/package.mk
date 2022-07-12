@@ -9,7 +9,7 @@ PKG_LICENSE="GPL-2"
 PKG_SITE="http://www.tntnet.org/cxxtools.html"
 PKG_URL="http://www.tntnet.org/download/${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_HOST="toolchain:host"
-PKG_DEPENDS_TARGET="toolchain cxxtools:host"
+PKG_DEPENDS_TARGET="toolchain cxxtools:host openssl"
 PKG_LONGDESC="Cxxtools is a collection of general-purpose C++ classes."
 PKG_BUILD_FLAGS="+pic"
 
