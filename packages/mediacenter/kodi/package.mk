@@ -203,7 +203,7 @@ configure_package() {
     fi
   fi
 
-  if [ "${PROJECT}" = "Allwinner" -o "${PROJECT}" = "Rockchip" ]; then
+  if [ "${PROJECT}" = "Allwinner" -o "${PROJECT}" = "Rockchip" -o "${PROJECT}" = "RPi" ]; then
     PKG_PATCH_DIRS+=" drmprime-filter"
   fi
 
