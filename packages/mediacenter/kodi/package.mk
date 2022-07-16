@@ -203,6 +203,10 @@ configure_package() {
     fi
   fi
 
+  if [ "${PROJECT}" = "Allwinner" -o "${PROJECT}" = "Rockchip" ]; then
+    PKG_PATCH_DIRS+=" drmprime-filter"
+  fi
+
   KODI_LIBDVD="${KODI_DVDCSS} \
                -DLIBDVDNAV_URL=${SOURCES}/libdvdnav/libdvdnav-$(get_pkg_version libdvdnav).tar.gz \
                -DLIBDVDREAD_URL=${SOURCES}/libdvdread/libdvdread-$(get_pkg_version libdvdread).tar.gz"
