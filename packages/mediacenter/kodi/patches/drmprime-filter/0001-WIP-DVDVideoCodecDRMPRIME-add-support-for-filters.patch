@@ -1,13 +1,15 @@
-From 6789405cbea23dd0d53ba5a6833dc2266f166ad9 Mon Sep 17 00:00:00 2001
+From a90ad221abf77aa38d34b52edf21a43f85aedac2 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Sun, 20 Oct 2019 17:10:07 +0000
-Subject: [PATCH 1/2] WIP: DVDVideoCodecDRMPRIME: add support for filters
+Subject: [PATCH 1/6] WIP: DVDVideoCodecDRMPRIME: add support for filters
 
 ---
- .../DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp | 68 ++++++++++++++++---
+ .../DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp | 62 +++++++++++++++++--
  .../DVDCodecs/Video/DVDVideoCodecDRMPRIME.h   | 10 +++
- 2 files changed, 69 insertions(+), 9 deletions(-)
+ 2 files changed, 66 insertions(+), 6 deletions(-)
 
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp
+index 80ca60290c..40cde1ba6e 100644
 --- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp
 +++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp
 @@ -27,6 +27,8 @@
@@ -19,7 +21,7 @@ Subject: [PATCH 1/2] WIP: DVDVideoCodecDRMPRIME: add support for filters
  #include <libavutil/error.h>
  #include <libavutil/imgutils.h>
  #include <libavutil/opt.h>
-@@ -559,18 +561,30 @@ void CDVDVideoCodecDRMPRIME::SetPictureP
+@@ -559,12 +561,30 @@ void CDVDVideoCodecDRMPRIME::SetPictureParams(VideoPicture* pVideoPicture)
    pVideoPicture->dts = DVD_NOPTS_VALUE;
  }
  
@@ -30,19 +32,16 @@ Subject: [PATCH 1/2] WIP: DVDVideoCodecDRMPRIME: add support for filters
 -    Drain();
 +  if (!m_pFilterIn)
 +    return VC_PICTURE;
- 
--  if (pVideoPicture->videoBuffer)
++
 +  int ret = av_buffersrc_add_frame(m_pFilterIn, m_pFrame);
 +  if (ret < 0)
-   {
--    pVideoPicture->videoBuffer->Release();
--    pVideoPicture->videoBuffer = nullptr;
++  {
 +    char err[AV_ERROR_MAX_STRING_SIZE] = {};
 +    av_strerror(ret, err, AV_ERROR_MAX_STRING_SIZE);
 +    CLog::Log(LOGERROR, "CDVDVideoCodecDRMPRIME::{} - buffersrc add frame failed: {} ({})",
 +              __FUNCTION__, err, ret);
 +    return VC_ERROR;
-   }
++  }
  
 -  int ret = avcodec_receive_frame(m_pCodecContext, m_pFrame);
 +  return ProcessFilterOut();
@@ -57,7 +56,7 @@ Subject: [PATCH 1/2] WIP: DVDVideoCodecDRMPRIME: add support for filters
    if (ret == AVERROR(EAGAIN))
      return VC_BUFFER;
    else if (ret == AVERROR_EOF)
-@@ -587,11 +601,47 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecD
+@@ -581,11 +601,41 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecDRMPRIME::GetPicture(VideoPicture* pVideo
    {
      char err[AV_ERROR_MAX_STRING_SIZE] = {};
      av_strerror(ret, err, AV_ERROR_MAX_STRING_SIZE);
@@ -75,12 +74,6 @@ Subject: [PATCH 1/2] WIP: DVDVideoCodecDRMPRIME: add support for filters
 +{
 +  if (m_codecControlFlags & DVD_CODEC_CTRL_DRAIN)
 +    Drain();
-+
-+  if (pVideoPicture->videoBuffer)
-+  {
-+    pVideoPicture->videoBuffer->Release();
-+    pVideoPicture->videoBuffer = nullptr;
-+  }
 +
 +  auto result = ProcessFilterOut();
 +  if (result != VC_PICTURE)
@@ -106,7 +99,9 @@ Subject: [PATCH 1/2] WIP: DVDVideoCodecDRMPRIME: add support for filters
 +
    SetPictureParams(pVideoPicture);
  
-   if (IsSupportedHwFormat(static_cast<AVPixelFormat>(m_pFrame->format)))
+   if (pVideoPicture->videoBuffer)
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.h
+index db49d165e7..b5cacf1a3c 100644
 --- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.h
 +++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.h
 @@ -14,6 +14,11 @@
@@ -139,3 +134,6 @@ Subject: [PATCH 1/2] WIP: DVDVideoCodecDRMPRIME: add support for filters
 +  AVFilterContext* m_pFilterOut = nullptr;
    std::shared_ptr<IVideoBufferPool> m_videoBufferPool;
  };
+-- 
+2.34.1
+
