@@ -89,6 +89,14 @@ EOF
 
   # binaries to install into target
   GLIBC_INCLUDE_BIN="getent ldd locale localedef"
+
+  # glibc does not need / nor build successfully with _FILE_OFFSET_BITS or _TIME_BITS set
+  if [ "${TARGET_ARCH}" = "arm" ]; then
+    export CFLAGS=$(echo ${CFLAGS} | sed -e "s|-D_FILE_OFFSET_BITS=64||g")
+    export CFLAGS=$(echo ${CFLAGS} | sed -e "s|-D_TIME_BITS=64||g")
+    export CXXFLAGS=$(echo ${CXXFLAGS} | sed -e "s|-D_FILE_OFFSET_BITS=64||g")
+    export CXXFLAGS=$(echo ${CXXFLAGS} | sed -e "s|-D_TIME_BITS=64||g")
+  fi
 }
 
 post_makeinstall_target() {
