@@ -15,7 +15,11 @@ PKG_TOOLCHAIN="manual"
 [ -n "${KERNEL_TOOLCHAIN}" ] && PKG_DEPENDS_TARGET+=" gcc-${KERNEL_TOOLCHAIN}:host"
 
 make_target() {
-  CROSS_COMPILE="${TARGET_KERNEL_PREFIX}" LDFLAGS="" CFLAGS="" make PLAT=${ATF_PLATFORM} bl31
+  if [ "${DEVICE}" = "iMX8" ]; then
+    CROSS_COMPILE="${TARGET_KERNEL_PREFIX}" LDFLAGS="" CFLAGS="--param=min-pagesize=0" make PLAT=${ATF_PLATFORM} bl31
+  else
+    CROSS_COMPILE="${TARGET_KERNEL_PREFIX}" LDFLAGS="" CFLAGS="" make PLAT=${ATF_PLATFORM} bl31
+  fi
 }
 
 makeinstall_target() {
