@@ -10,7 +10,7 @@ PKG_URL="https://github.com/NVIDIA/libglvnd/archive/v${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libX11 libXext xorgproto"
 PKG_LONGDESC="libglvnd is a vendor-neutral dispatch layer for arbitrating OpenGL API calls between multiple vendors."
 
-if [ ! "${PROJECT}" = "L4T" ]; then
+if [ ! "${PROJECT}" = "L4T" -a ! "${PROJECT}" = "Ayn" ]; then
   if [ "${OPENGLES_SUPPORT}" = "no" ]; then
     PKG_MESON_OPTS_TARGET="-Dgles1=false \
                            -Dgles2=false"
@@ -25,7 +25,7 @@ else
 fi
 
 post_makeinstall_target() {
-  if [ ! "${PROJECT}" = "L4T" ]; then
+  if [ ! "${PROJECT}" = "L4T" -a ! "${PROJECT}" = "Ayn" ]; then
     if [ "${DISPLAYSERVER}" = "x11" ]; then
       # Remove old symlinks to GLVND libGL.so.1.7.0
       safe_remove              ${INSTALL}/usr/lib/libGL.so

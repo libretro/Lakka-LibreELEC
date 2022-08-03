@@ -224,13 +224,20 @@ for MOD in $(find ${INSTALL}/usr/lib/kernel-overlays/ -type f -name *.ko); do
   ${TARGET_KERNEL_PREFIX}strip --strip-debug ${MOD}
 done
 
-if [ "${BOOTLOADER}" = "switch-bootloader" ]; then
+if [ "${BOOTLOADER}" = "switch-bootloader" -o "${BOOTLOADER}" = "odin-bootloader" ]; then
   mv ${INSTALL}/usr/lib/kernel-overlays/base/lib/modules ${INSTALL}/usr/lib/
-  mv ${INSTALL}/usr/lib/kernel-overlays/base/lib/firmware/brcm/* ${INSTALL}/usr/lib/firmware/brcm/
-  rm -r ${INSTALL}/usr/lib/kernel-overlays/base/lib/firmware/brcm
+  if [ "${BOOTLOADER}" = "switch-bootloader" ]; then
+    mv ${INSTALL}/usr/lib/kernel-overlays/base/lib/firmware/brcm/* ${INSTALL}/usr/lib/firmware/brcm/
+    rm -r ${INSTALL}/usr/lib/kernel-overlays/base/lib/firmware/brcm
+  fi
+  if [ ! -d ${INSTALL}/usr/lib/firmware ]; then
+    mkdir -p ${INSTALL}/usr/lib/firmware
+  fi
   mv ${INSTALL}/usr/lib/kernel-overlays/base/lib/firmware/* ${INSTALL}/usr/lib/firmware/
   rm -r ${INSTALL}/usr/lib/kernel-overlays/base/lib/firmware
-  cp -PR ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/firmwares/files/* ${INSTALL}/usr/lib/firmware/
+  if [ -d ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/firmwares/files ]; then
+    cp -PR ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/firmwares/files/* ${INSTALL}/usr/lib/firmware/
+  fi
 else
   # Symlink overlayed modules to /usr/lib/modules
   ln -sT /run/kernel-overlays/modules ${INSTALL}/usr/lib/modules
@@ -317,7 +324,7 @@ if [ "${1}" = "release" -o "${1}" = "mkimage" -o "${1}" = "noobs" ]; then
     md5sum -t target/KERNEL > target/KERNEL.md5;
   )
 
-  if [ "${BOOTLOADER}" = "switch-bootloader" ]; then
+  if [ "${BOOTLOADER}" = "switch-bootloader" -o "${BOOTLOADER}" = "odin-bootloader" ]; then
     if [ "${DISTRO}" = "Lakka" ]; then
       DISTRO_PATH="lakka"
     elif [ "${DISTRO}" = "LibreELEC" ]; then
@@ -330,7 +337,11 @@ if [ "${1}" = "release" -o "${1}" = "mkimage" -o "${1}" = "noobs" ]; then
     echo "${TARGET_VERSION}" > ${RELEASE_DIR}/${DISTRO_PATH}/RELEASE
     mkdir -p $RELEASE_DIR/${DISTRO_PATH}/licenses
     cp ${ROOT}/licenses/* ${RELEASE_DIR}/${DISTRO_PATH}/licenses
-    cp -r ${RELEASE_DIR}/${DISTRO_PATH}/boot/* ${RELEASE_DIR}/${DISTRO_PATH}/
+    if [ "${BOOTLOADER}" = "odin-bootloader" ]; then
+      cp -r ${RELEASE_DIR}/${DISTRO_PATH}/boot2/* ${RELEASE_DIR}/${DISTRO_PATH}/
+    else
+      cp -r ${RELEASE_DIR}/${DISTRO_PATH}/boot/* ${RELEASE_DIR}/${DISTRO_PATH}/
+    fi
     mkdir -p ${RELEASE_DIR}/${DISTRO_PATH}/storage
     cp ${TARGET_IMG}/${IMAGE_NAME}.system ${RELEASE_DIR}/${DISTRO_PATH}/SYSTEM
     cp ${TARGET_IMG}/${IMAGE_NAME}.kernel ${RELEASE_DIR}/${DISTRO_PATH}/KERNEL
@@ -344,7 +355,18 @@ if [ "${1}" = "release" -o "${1}" = "mkimage" -o "${1}" = "noobs" ]; then
     rm -rf ${RELEASE_DIR}/RELEASE
     rm -rf ${RELEASE_DIR}/CHANGELOG
     rm -rf ${RELEASE_DIR}/README.md
-    rm -rf ${RELEASE_DIR}/${DISTRO_PATH}/boot
+    if [ "${BOOTLOADER}" = "switch-bootloader" ]; then
+      rm -rf ${RELEASE_DIR}/${DISTRO_PATH}/boot
+    elif [ "${BOOTLOADER}" = "odin-bootloader" ]; then
+      if [ -d ${RELEASE_DIR}/${DISTRO_PATH}/boot ]; then
+        rm -rf ${RELEASE_DIR}/${DISTRO_PATH}/boot
+      fi
+      rm -rf ${RELEASE_DIR}/${DISTRO_PATH}/boot2
+      rm -rf ${RELEASE_DIR}/${DISTRO_PATH}/EFI
+      mv ${RELEASE_DIR}/boot ${RELEASE_DIR}/boot2
+      mv ${RELEASE_DIR}/boot2/* ${RELEASE_DIR}
+      rm -rf ${RELEASE_DIR}/boot2
+    fi
   fi
 
   # Create target directory
@@ -361,7 +383,7 @@ if [ "${1}" = "release" -o "${1}" = "mkimage" -o "${1}" = "noobs" ]; then
     sha256sum ${IMAGE_NAME}.tar > ${IMAGE_NAME}.tar.sha256
   )
 
-  if  [ "${BOOTLOADER}" = "switch-bootloader" ]; then
+  if  [ "${BOOTLOADER}" = "switch-bootloader" -o "${BOOTLOADER}" = "odin-bootloader" ]; then
     rm -rf ${RELEASE_DIR}
     exit 0
   fi
