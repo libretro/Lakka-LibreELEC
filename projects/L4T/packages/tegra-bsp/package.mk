@@ -396,19 +396,6 @@ make_target() {
 
   if [ ! "${PULSEAUDIO_SUPPORT}" = "yes" ]; then
     ln -sfn asound.conf.tegrasndt210ref asound.conf
-  else
-    cat << EOF >> asound.conf
-# This file is referred to from files in /usr/share/alsa/alsa.conf.d/ in order
-# to set up the pulse device as the default if required.
-
-pcm.!default {
-        type pulse
-}
-
-ctl.!default {
-        type pulse
-}
-EOF
   fi
 
   if [ ! "${VULKAN}" = "" -a ! "${VULKAN}" = "no" ]; then

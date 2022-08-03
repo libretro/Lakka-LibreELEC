@@ -83,6 +83,7 @@ targets="\
 	Allwinner|H6|aarch64|image \
 	Allwinner|R40|arm|image \
 	Amlogic|AMLGX|aarch64|image \
+	Ayn|Odin|aarch64|image \
 	Generic|Generic|i386|image \
 	Generic|Generic|x86_64|image \
 	L4T|Switch|aarch64|image \

@@ -314,7 +314,7 @@ check_is_compatible() {
 
 update_file() {
   if [ -f "$UPDATE_DIR/$2" -a -f "$3" ]; then
-    if [ ! "$NX_BOOT" = "yes" ]; then
+    if [ ! "$FAT32_BOOT" = "yes" ]; then
       mount -o remount,rw /flash
     fi
     rm -f "$3"
@@ -327,7 +327,7 @@ update_file() {
       StopProgress
 
     # loopback file needs writable /flash all the time
-    if [ ! "$NX_BOOT" = "yes" ]; then
+    if [ ! "$FAT32_BOOT" = "yes" ]; then
       if [ "${disk%%=*}" != "FILE" ]; then
         mount -o remount,ro /flash
       fi
@@ -554,7 +554,7 @@ mount_flash() {
 
   wakeonlan
 
-  if [ ! "$NX_BOOT" = "yes" ]; then
+  if [ ! "$FAT32_BOOT" = "yes" ]; then
     mount_part "$boot" "/flash" "ro,noatime"
   else
     mount_part "$boot" "/flash" "rw,noatime"
@@ -590,7 +590,7 @@ mount_storage() {
 
   wakeonlan
 
-  if [ "$NX_BOOT" = "yes" ]; then
+  if [ "$FAT32_BOOT" = "yes" ]; then
     DISTRO=${IMAGE_SYSTEM%'/'*}
     mkdir -p /flash/$DISTRO/storage
     mount --bind /flash/$DISTRO/storage /storage
@@ -747,7 +747,7 @@ check_update() {
       tar -xf "$UPDATE_TAR" -C $UPDATE_DIR/.tmp 1>/dev/null 2>/tmp/tarresult.txt || TARRESULT="1"
 
     if [ "${TARRESULT}" -eq "0" ]; then
-      if [ "$NX_BOOT" = "yes" ]; then
+      if [ "$FAT32_BOOT" = "yes" ]; then
         mv $UPDATE_DIR/.tmp/* $UPDATE_DIR &>/dev/null
         UPDATE_DIR=${UPDATE_TAR%.*}
       else
@@ -834,7 +834,7 @@ check_update() {
   fi
 
   sync
-  if [ ! "$NX_BOOT" = "yes" ]; then
+  if [ ! "$FAT32_BOOT" = "yes" ]; then
     if [ ! -b "/$IMAGE_KERNEL" -a ! -f "/flash/$IMAGE_KERNEL" ] || [ ! -f "/flash/$IMAGE_SYSTEM" ]; then
       echo "Missing (target) ${IMAGE_KERNEL} or ${IMAGE_SYSTEM}!"
       do_cleanup
@@ -850,7 +850,7 @@ check_update() {
     fi
   fi
 
-  if [ "$NX_BOOT" = "yes" ]; then
+  if [ "$FAT32_BOOT" = "yes" ]; then
     UPDATE_KERNEL=$IMAGE_KERNEL
     UPDATE_SYSTEM=$IMAGE_SYSTEM
   fi
@@ -863,7 +863,7 @@ check_update() {
   fi
 
   # check md5 sums if .nocheck doesn't exist
-  if [ ! -f "$UPDATE_ROOT/.nocheck" -a ! "$NX_BOOT" = "yes" ]; then
+  if [ ! -f "$UPDATE_ROOT/.nocheck" -a ! "$FAT32_BOOT" = "yes" ]; then
     if [ -f "$UPDATE_DIR/${UPDATE_KERNEL}.md5" -a -f "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" ]; then
       # *.md5 size-check
       if [ ! -s "$UPDATE_DIR/${UPDATE_KERNEL}.md5" -o ! -s "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" ]; then
@@ -971,7 +971,7 @@ prepare_sysroot() {
   mount --move /flash /sysroot/flash
   mount --move /storage /sysroot/storage
 
-  if [ ! "$NX_BOOT" = "yes" ]; then
+  if [ ! "$FAT32_BOOT" = "yes" ]; then
     if [ ! -d "/sysroot/usr/lib/kernel-overlays/base/lib/modules/$(uname -r)/" -a -f "/sysroot/usr/lib/systemd/systemd" ]; then
       echo ""
       echo "NEVER TOUCH boot= in syslinux.conf / cmdline.txt!"
@@ -1088,8 +1088,8 @@ for arg in $(cat /proc/cmdline); do
     ip=*)
       KERNEL_IPCONFIG="yes"
       ;;
-    nx-boot)
-      NX_BOOT="yes"
+    fat32-boot)
+      FAT32_BOOT="yes"
       ;;
   esac
 done

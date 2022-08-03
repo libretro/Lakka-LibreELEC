@@ -17,7 +17,7 @@ configure_package() {
 }
 
 pre_configure_target(){
-  if [ ! "${PROJECT}" = "L4T" ]; then
+  if [ ! "${PROJECT}" = "L4T" -a "${PROJECT}" = "Ayn" ]; then
     PKG_MESON_OPTS_TARGET="-Dgles1=false"
 
     if [ "${OPENGLES_SUPPORT}" = "no" ]; then
@@ -34,7 +34,7 @@ pre_configure_target(){
 }
 
 post_makeinstall_target() {
-  if [ ! "${PROJECT}" = "L4T" ]; then
+  if [ ! "${PROJECT}" = "L4T" -a ! "${PROJECT}" = "Ayn" ]; then
     if [ "${DISPLAYSERVER}" = "x11" ]; then
       # Remove old symlinks to libGL.so.1.7.0 (GLVND)
       safe_remove              ${INSTALL}/usr/lib/libGL.so

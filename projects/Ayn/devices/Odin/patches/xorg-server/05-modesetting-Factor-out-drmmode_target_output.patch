@@ -1,0 +1,64 @@
+From f19a91cd2220827fbede995ace75344400440b1f Mon Sep 17 00:00:00 2001
+From: Adam Jackson <ajax@redhat.com>
+Date: Fri, 5 Oct 2018 14:00:33 -0400
+Subject: [PATCH] modesetting: Factor out drmmode_target_output
+
+Signed-off-by: Adam Jackson <ajax@redhat.com>
+---
+ .../drivers/modesetting/drmmode_display.c     | 26 ++++++++++++-------
+ 1 file changed, 16 insertions(+), 10 deletions(-)
+
+diff --git a/hw/xfree86/drivers/modesetting/drmmode_display.c b/hw/xfree86/drivers/modesetting/drmmode_display.c
+index 3ac6672f2..783d30f88 100644
+--- a/hw/xfree86/drivers/modesetting/drmmode_display.c
++++ b/hw/xfree86/drivers/modesetting/drmmode_display.c
+@@ -757,6 +757,21 @@ drmmode_crtc_disable(xf86CrtcPtr crtc)
+     return ret;
+ }
+ 
++static xf86OutputPtr
++drmmode_target_output(ScrnInfoPtr scrn, xf86CrtcPtr crtc)
++{
++    xf86CrtcConfigPtr config = XF86_CRTC_CONFIG_PTR(scrn);
++    int o;
++
++    if (config->output[config->compat_output]->crtc == crtc)
++        return config->output[config->compat_output];
++
++    for (o = 0; o < config->num_output; o++)
++        if (config->output[o]->crtc == crtc)
++            return config->output[o];
++
++    return NULL;
++}
+ static int
+ drmmode_crtc_set_mode(xf86CrtcPtr crtc, Bool test_only)
+ {
+@@ -3454,7 +3469,6 @@ drmmode_set_desired_modes(ScrnInfoPtr pScrn, drmmode_ptr drmmode, Bool set_hw)
+         xf86CrtcPtr crtc = config->crtc[c];
+         drmmode_crtc_private_ptr drmmode_crtc = crtc->driver_private;
+         xf86OutputPtr output = NULL;
+-        int o;
+ 
+         /* Skip disabled CRTCs */
+         if (!crtc->enabled) {
+@@ -3465,15 +3479,7 @@ drmmode_set_desired_modes(ScrnInfoPtr pScrn, drmmode_ptr drmmode, Bool set_hw)
+             continue;
+         }
+ 
+-        if (config->output[config->compat_output]->crtc == crtc)
+-            output = config->output[config->compat_output];
+-        else {
+-            for (o = 0; o < config->num_output; o++)
+-                if (config->output[o]->crtc == crtc) {
+-                    output = config->output[o];
+-                    break;
+-                }
+-        }
++        output = drmmode_target_output(pScrn, crtc);
+         /* paranoia */
+         if (!output)
+             continue;
+-- 
+GitLab
+

@@ -30,7 +30,7 @@ PKG_MAKE_OPTS_TARGET="V=1 \
 if [ "${OPENGLES_SUPPORT}" = yes ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles"
-  if [ ${DEVICE:0:4} = "RPi4" ] || [ ${DEVICE} = "RK3288" ] || [ "${DEVICE}" = "RK3399" ] || [ "${PROJECT}" = "Generic" ]; then
+  if [ ${DEVICE:0:4} =  "RPi4" ] || [ ${DEVICE} = "RK3288" ] || [ "${DEVICE}" = "RK3399" ] || [ "${PROJECT}" = "Generic" ] [ "${DEVICE}" = "Odin" ]; then
     PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles3 \
                                  --enable-opengles3_1"
     if [ "${PROJECT}" = "Generic" ]; then
@@ -41,7 +41,7 @@ else
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-opengles"
 fi
 
-if [ "${OPENGL_SUPPORT}" = yes ]; then
+if [ "${OPENGL_SUPPORT}" = yes -a ! "${OPENGLES_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL}"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengl"
   PKG_MAKE_OPTS_TARGET+=" HAVE_OPENGL1=1"
@@ -70,7 +70,7 @@ fi
 
 if [ "${DISPLAYSERVER}" = "x11" ]; then
   PKG_DEPENDS_TARGET+=" libXxf86vm libXv"
-  PKG_CONFIGURE_OPTS_TARGET+=" --enable-x11"
+  PKG_CONFIGURE_OPTS_TARGET+=" --enable-x11 --enable-xinerama"
 else
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-x11"
 fi
@@ -115,7 +115,6 @@ else
 fi
 
 if [ "${PROJECT}" = "L4T" ]; then
-  PKG_CONFIGURE_OPTS_TARGET+=" --enable-xinerama"
   PKG_CONFIGURE_OPTS_TARGET=${PKG_CONFIGURE_OPTS_TARGET//--enable-kms/--disable-kms}
   #EGL break gl1 support so if opengl enabled, force disable egl/gles
   if [ "${OPENGL_SUPPORT}" = yes ]; then
@@ -305,24 +304,33 @@ makeinstall_target() {
   fi
 
   # Switch
-  if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
+  if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ] || [ "${PROJECT}" = "Ayn" -a "${DEVICE}" = "Odin" ]; then
     echo 'menu_mouse_enable = "false"' >> ${INSTALL}/etc/retroarch.cfg
     echo 'menu_pointer_enable = "true"'>> ${INSTALL}/etc/retroarch.cfg
-    echo 'video_hard_sync = "true"' >> ${INSTALL}/etc/retroarch.cfg
     echo 'video_crop_overscan = "false"' >> ${INSTALL}/etc/retroarch.cfg
-    echo 'input_joypad_driver = "udev"' >> ${INSTALL}/etc/retroarch.cfg
+
+    if [ ! "${PROJECT}" = "Ayn" -a ! "${DEVICE}" = "Odin" ]; then
+      echo 'input_joypad_driver = "udev"' >> ${INSTALL}/etc/retroarch.cfg
+      echo 'video_hard_sync = "true"' >> ${INSTALL}/etc/retroarch.cfg
+    fi
 
     sed -i -e 's|^input_driver =.*|input_driver= "x"|' ${INSTALL}/etc/retroarch.cfg
     sed -i -e 's|^video_smooth =.*|video_smooth = "true"|' ${INSTALL}/etc/retroarch.cfg
     sed -i -e 's|^menu_driver =.*|menu_driver = "ozone"|' ${INSTALL}/etc/retroarch.cfg
 
-    #Set Default Joycon index to Combined Joycons.
-    echo 'input_player1_joypad_index = "2"' >> ${INSTALL}/etc/retroarch.cfg
+    if [ ! "${PROJECT}" = "Ayn" -a ! "${DEVICE}" = "Odin" ]; then
+      #Set Default Joycon index to Combined Joycons.
+      echo 'input_player1_joypad_index = "2"' >> ${INSTALL}/etc/retroarch.cfg
 
-    #Set Joypad as joypad with analog
-    echo 'input_libretro_device_p1 = "5"' >> ${INSTALL}/etc/retroarch.cfg
+      #Set Joypad as joypad with analog
+      echo 'input_libretro_device_p1 = "5"' >> ${INSTALL}/etc/retroarch.cfg
+    else
+      echo 'video_driver = "glcore"' >> ${INSTALL}/etc/retroarch.cfg
+      sed -i -e 's|^audio_driver =.*|audio_driver = "pulse"|' ${INSTALL}/etc/retroarch.cfg
+      echo video_vsync = "false" >> ${INSTALL}/etc/retroarch.cfg
+    fi
 
-    #HACK: Temporary hack for touch in Nintendo Switch
+    #HACK: Temporary hack for touchscreen
     sed -i -e 's|^video_windowed_fullscreen =.*|video_windowed_fullscreen = "true"|' ${INSTALL}/etc/retroarch.cfg
   fi
 

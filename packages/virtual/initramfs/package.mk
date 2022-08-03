@@ -24,6 +24,14 @@ if [ "${PROJECT}" = "L4T" ];then
   PKG_DEPENDS_INIT+=" tegra-bsp:init"
 fi
 
+if [ "${BOOTLOADER}" = "switch-bootloader" ]; then
+  PKG_DEPENDS_INIT+=" switch-bootloader:init"
+fi
+
+if [ "${BOOTLOADER}" = "odin-bootloader" ]; then
+  PKG_DEPENDS_INIT+=" odin-bootloader:init"
+fi
+
 for i in ${PKG_DEPENDS_INIT}; do
   PKG_NEED_UNPACK+=" $(get_pkg_directory ${i})"
 done
