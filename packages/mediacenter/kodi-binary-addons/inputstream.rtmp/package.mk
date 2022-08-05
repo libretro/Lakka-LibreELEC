@@ -4,7 +4,7 @@
 PKG_NAME="inputstream.rtmp"
 PKG_VERSION="20.2.1-Nexus"
 PKG_SHA256="fbc17b93f284cf6efcb16ef5d735201a42b336bad3c491c460b3c2a45374a7bd"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/inputstream.rtmp"
