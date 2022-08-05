@@ -5,7 +5,7 @@
 PKG_NAME="pvr.vdr.vnsi"
 PKG_VERSION="20.3.1-Nexus"
 PKG_SHA256="527a9327eea5568c63c4fab620f650aece0af641cb4a6637358b49c30bb88bd0"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-pvr/pvr.vdr.vnsi"
