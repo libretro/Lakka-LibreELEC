@@ -13,8 +13,19 @@ PKG_LONGDESC="A set of functions that implement regular expression pattern match
 PKG_TOOLCHAIN="cmake"
 PKG_BUILD_FLAGS="+pic"
 
+PKG_CMAKE_OPTS_HOST="-DBUILD_SHARED_LIBS=OFF \
+                     -DBUILD_STATIC_LIBS=ON \
+                     -DPCRE2_BUILD_PCRE2_8=ON \
+                     -DPCRE2_BUILD_PCRE2_16=ON \
+                     -DPCRE2_BUILD_PCRE2_32=ON \
+                     -DPCRE2_SUPPORT_JIT=ON \
+                     -DPCRE2_BUILD_TESTS=OFF \
+                     -DPCRE2_SUPPORT_LIBEDIT=OFF \
+                     -DPCRE2_SUPPORT_LIBREADLINE=OFF"
+
 PKG_CMAKE_OPTS_TARGET="-DBUILD_SHARED_LIBS=OFF \
                        -DPCRE2_BUILD_PCRE2_16=ON \
+                       -DPCRE2_SUPPORT_LIBEDIT=OFF \
                        -DPCRE2_SUPPORT_LIBREADLINE=OFF"
 
 post_makeinstall_target() {
