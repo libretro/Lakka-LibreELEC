@@ -113,9 +113,7 @@ post_makeinstall_target() {
 
   safe_remove ${INSTALL}/usr/lib/audit
   safe_remove ${INSTALL}/usr/lib/glibc
-  safe_remove ${INSTALL}/usr/lib/libc_pic
   safe_remove ${INSTALL}/usr/lib/*.o
-  safe_remove ${INSTALL}/usr/lib/*.map
   safe_remove ${INSTALL}/var
 
 # add UTF-8 charmap
