@@ -34,10 +34,9 @@ addon() {
     if [ "${l}" = "POSIX" ]; then
       continue
     fi
-    locales+="|${l}"
+    locales+="$(echo -e '\\\n              <option>'"${l}"'</option>')"
   done
-  locales="${locales:1}"
 
-  sed -e "s/@LOCALES@/${locales}/" \
+  sed -e "s|@LOCALES@|${locales}|" \
       -i ${ADDON_BUILD}/${PKG_ADDON_ID}/resources/settings.xml
 }
