@@ -192,7 +192,7 @@ configure_package() {
   if [ ! "${KODIPLAYER_DRIVER}" = "default" -a "${DISPLAYSERVER}" = "no" ]; then
     PKG_DEPENDS_TARGET+=" ${KODIPLAYER_DRIVER} libinput libxkbcommon"
     if [ "${OPENGLES_SUPPORT}" = yes -a "${KODIPLAYER_DRIVER}" = "${OPENGLES}" ]; then
-      KODI_PLAYER="-DCORE_PLATFORM_NAME=gbm -DAPP_RENDER_SYSTEM=gles"
+      KODI_PLATFORM="-DCORE_PLATFORM_NAME=gbm -DAPP_RENDER_SYSTEM=gles"
       CFLAGS+=" -DEGL_NO_X11"
       CXXFLAGS+=" -DEGL_NO_X11"
       if [ "${PROJECT}" = "Generic" ]; then
@@ -255,7 +255,6 @@ configure_package() {
                          ${KODI_AIRTUNES} \
                          ${KODI_OPTICAL} \
                          ${KODI_BLURAY} \
-                         ${KODI_PLAYER} \
                          ${KODI_ALSA} \
                          ${KODI_PULSEAUDIO} \
                          ${KODI_PIPEWIRE}"
