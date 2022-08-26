@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libssh"
-PKG_VERSION="0.9.6"
-PKG_SHA256="86bcf885bd9b80466fe0e05453c58b877df61afa8ba947a58c356d7f0fab829b"
+PKG_VERSION="0.10.0"
+PKG_SHA256="0dc158c534cd838ad0b785a82dec586de40da7e096523ae6c08c9b7bd2af0b57"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.libssh.org/"
 PKG_URL="https://www.libssh.org/files/$(get_pkg_version_maj_min)/${PKG_NAME}-${PKG_VERSION}.tar.xz"
@@ -14,6 +14,7 @@ PKG_LONGDESC="Library for accessing ssh client services through C libraries."
 PKG_CMAKE_OPTS_TARGET="-DBUILD_SHARED_LIBS=OFF \
                        -DWITH_SERVER=OFF \
                        -DWITH_GCRYPT=OFF \
+                       -DWITH_EXAMPLES=OFF \
                        -DWITH_GSSAPI=OFF \
                        -DWITH_GEX=OFF \
                        -DWITH_INTERNAL_DOC=OFF"
