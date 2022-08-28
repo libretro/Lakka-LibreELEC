@@ -10,7 +10,6 @@ PKG_URL="https://github.com/PCRE2Project/pcre2/releases/download/pcre2-${PKG_VER
 PKG_DEPENDS_HOST="toolchain:host"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A set of functions that implement regular expression pattern matching using the same syntax."
-PKG_TOOLCHAIN="cmake"
 PKG_BUILD_FLAGS="+pic"
 
 PKG_CMAKE_OPTS_HOST="-DBUILD_SHARED_LIBS=OFF \
