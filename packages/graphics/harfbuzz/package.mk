@@ -10,7 +10,6 @@ PKG_SITE="http://www.freedesktop.org/wiki/Software/HarfBuzz"
 PKG_URL="https://github.com/harfbuzz/harfbuzz/releases/download/${PKG_VERSION}/harfbuzz-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain cairo freetype glib"
 PKG_LONGDESC="HarfBuzz is an OpenType text shaping engine."
-PKG_TOOLCHAIN="meson"
 
 PKG_MESON_OPTS_TARGET="-Dbenchmark=disabled \
                        -Dcairo=enabled \
