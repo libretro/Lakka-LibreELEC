@@ -9,9 +9,12 @@ PKG_SITE="http://www.linuxfromscratch.org/blfs/view/cvs/basicnet/nghttp2.html"
 PKG_URL="https://github.com/nghttp2/nghttp2/releases/download/v${PKG_VERSION}/nghttp2-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="nghttp2 is an implementation of HTTP/2 and its header compression algorithm, HPACK."
-PKG_TOOLCHAIN="configure"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-lib-only"
+PKG_CMAKE_OPTS_TARGET="-DENABLE_DOC=OFF \
+                       -DENABLE_FAILMALLOC=OFF \
+                       -DENABLE_LIB_ONLY=ON \
+                       -DENABLE_SHARED_LIB=ON \
+                       -DENABLE_STATIC_LIB=OFF"
 
 post_makeinstall_target() {
   rm -r "${INSTALL}/usr/share"
