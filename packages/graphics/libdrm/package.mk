@@ -10,7 +10,6 @@ PKG_SITE="https://dri.freedesktop.org"
 PKG_URL="https://dri.freedesktop.org/libdrm/libdrm-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain libpciaccess"
 PKG_LONGDESC="The userspace interface library to kernel DRM services."
-PKG_TOOLCHAIN="meson"
 
 get_graphicdrivers
 

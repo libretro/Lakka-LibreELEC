@@ -11,7 +11,6 @@ PKG_URL="http://www.freedesktop.org/software/libevdev/${PKG_NAME}-${PKG_VERSION}
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="libevdev is a wrapper library for evdev devices."
 PKG_BUILD_FLAGS="+pic"
-PKG_TOOLCHAIN="meson"
 
 PKG_MESON_OPTS_TARGET=" \
   -Ddefault_library=shared \
