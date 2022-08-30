@@ -2,8 +2,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="flatbuffers"
-PKG_VERSION="2.0.7"
-PKG_SHA256="4c7986174dc3941220bf14feaacaad409c3e1526d9ad7f490366fede9a6f43fa"
+PKG_VERSION="2.0.8"
+PKG_SHA256="f97965a727d26386afaefff950badef2db3ab6af9afe23ed6d94bfb65f95f37e"
 PKG_LICENSE="Apache-2.0"
 PKG_SITE="https://github.com/google/flatbuffers"
 PKG_URL="https://github.com/google/flatbuffers/archive/v${PKG_VERSION}.tar.gz"
