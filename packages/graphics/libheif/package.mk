@@ -10,13 +10,9 @@ PKG_URL="https://github.com/strukturag/libheif/releases/download/v${PKG_VERSION}
 PKG_DEPENDS_TARGET="toolchain libde265 libjpeg-turbo libpng"
 PKG_LONGDESC="A HEIF file format decoder and encoder."
 PKG_BUILD_FLAGS="+pic"
-PKG_TOOLCHAIN="configure"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-static \
-                           --disable-shared \
-                           --disable-go \
-                           --disable-examples \
-                           --disable-tests"
+PKG_CMAKE_OPTS_TARGET="-DBUILD_SHARED_LIBS=OFF \
+                       -DWITH_EXAMPLES=OFF"
 
 pre_configure_target() {
   export CXXFLAGS="${CXXFLAGS} -Wno-unused-variable"
