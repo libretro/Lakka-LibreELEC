@@ -14,7 +14,7 @@ case "${PROJECT}" in
     PKG_VERSION="0e5290bcac015e52f6a65dafaf41ea125816257f" # dev/4.4/rpi_import_1
     PKG_SHA256="4bd6e56920b90429bc09e43cda554f5bb9125c4ac090b4331fc459bb709eea68"
     PKG_URL="https://github.com/jc-kynesim/rpi-ffmpeg/archive/${PKG_VERSION}.tar.gz"
-    PKG_PATCH_DIRS="libreelec"
+    PKG_PATCH_DIRS="libreelec dav1d"
     ;;
   RPi)
     PKG_VERSION="4.4.1-Nexus-Alpha1"
