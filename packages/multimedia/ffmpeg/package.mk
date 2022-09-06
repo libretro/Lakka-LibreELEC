@@ -14,18 +14,18 @@ case "${PROJECT}" in
     PKG_VERSION="0e5290bcac015e52f6a65dafaf41ea125816257f" # dev/4.4/rpi_import_1
     PKG_SHA256="4bd6e56920b90429bc09e43cda554f5bb9125c4ac090b4331fc459bb709eea68"
     PKG_URL="https://github.com/jc-kynesim/rpi-ffmpeg/archive/${PKG_VERSION}.tar.gz"
-    PKG_PATCH_DIRS="libreelec"
+    PKG_PATCH_DIRS="libreelec dav1d"
     ;;
   RPi)
-    PKG_VERSION="4.4-N-Alpha1"
-    PKG_SHA256="eb396f46ef7c5ac01b67818d0f2c0516fd4ab32aa9065a9ffa71eebede67ff20"
+    PKG_VERSION="4.4.1-Nexus-Alpha1"
+    PKG_SHA256="abbce62231baffe237e412689c71ffe01bfc83135afd375f1e538caae87729ed"
     PKG_URL="https://github.com/xbmc/FFmpeg/archive/${PKG_VERSION}.tar.gz"
     PKG_FFMPEG_RPI="--disable-mmal --disable-rpi --enable-sand"
     PKG_PATCH_DIRS="libreelec rpi"
     ;;
   *)
-    PKG_VERSION="4.4-N-Alpha1"
-    PKG_SHA256="eb396f46ef7c5ac01b67818d0f2c0516fd4ab32aa9065a9ffa71eebede67ff20"
+    PKG_VERSION="4.4.1-Nexus-Alpha1"
+    PKG_SHA256="abbce62231baffe237e412689c71ffe01bfc83135afd375f1e538caae87729ed"
     PKG_URL="https://github.com/xbmc/FFmpeg/archive/${PKG_VERSION}.tar.gz"
     PKG_PATCH_DIRS="libreelec v4l2-request v4l2-drmprime"
     ;;
