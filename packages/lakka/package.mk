@@ -35,3 +35,7 @@ fi
 if [ "${DEVICE}" != "Switch" -a "${DEVICE}" != "GPICase" -a "${DEVICE}" != "Pi02GPi" ]; then
   PKG_DEPENDS_TARGET+=" xbox360_controllers_shutdown"
 fi
+
+if [ "${CEC_FRAMEWORK_SUPPORT}" = yes ]; then
+  PKG_DEPENDS_TARGET+=" cec_mini_kb"
+fi
