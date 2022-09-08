@@ -11,7 +11,8 @@ PKG_BUILD_FLAGS="-gold"
 
 case "${PROJECT}" in
   Amlogic)
-    PKG_VERSION="0e5290bcac015e52f6a65dafaf41ea125816257f" # dev/4.4/rpi_import_1
+    PKG_VERSION="0e5290bcac015e52f6a65dafaf41ea125816257f"
+    PKG_FFMPEG_BRANCH="dev/4.4/rpi_import_1"
     PKG_SHA256="4bd6e56920b90429bc09e43cda554f5bb9125c4ac090b4331fc459bb709eea68"
     PKG_URL="https://github.com/jc-kynesim/rpi-ffmpeg/archive/${PKG_VERSION}.tar.gz"
     PKG_PATCH_DIRS="libreelec dav1d"
@@ -30,6 +31,15 @@ case "${PROJECT}" in
     PKG_PATCH_DIRS="libreelec v4l2-request v4l2-drmprime"
     ;;
 esac
+
+post_unpack() {
+  # Fix FFmpeg version
+  if [ "${PROJECT}" = "Amlogic" ]; then
+    echo "${PKG_FFMPEG_BRANCH}-${PKG_VERSION:0:7}" > ${PKG_BUILD}/VERSION
+  else
+    echo "${PKG_VERSION}" > ${PKG_BUILD}/RELEASE
+  fi
+}
 
 # Dependencies
 get_graphicdrivers
