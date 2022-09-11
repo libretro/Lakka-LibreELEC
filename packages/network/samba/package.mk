@@ -3,8 +3,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="samba"
-PKG_VERSION="4.16.4"
-PKG_SHA256="9532f848fb125a17e4e5d98e1ae8b42f210ed4433835e815b97c5dde6dc4702f"
+PKG_VERSION="4.16.5"
+PKG_SHA256="c73c092017d2d1dd270709c8597321d0dd667c882a1b2470cf60f8ee56d3fd44"
 PKG_LICENSE="GPLv3+"
 PKG_SITE="https://www.samba.org"
 PKG_URL="https://download.samba.org/pub/samba/stable/${PKG_NAME}-${PKG_VERSION}.tar.gz"
@@ -84,7 +84,7 @@ configure_package() {
   PKG_SAMBA_TARGET="smbclient,client/smbclient,smbtree,nmblookup,testparm"
 
   if [ "${SAMBA_SERVER}" = "yes" ]; then
-    PKG_SAMBA_TARGET+=",smbd/smbd,nmbd,smbpasswd"
+    PKG_SAMBA_TARGET+=",nmbd,rpcd_classic,rpcd_epmapper,rpcd_winreg,samba-dcerpcd,smbpasswd,smbd/smbd"
   fi
 }
 
@@ -155,6 +155,12 @@ perform_manual_install() {
     mkdir -p ${INSTALL}/usr/sbin
       cp -L ${PKG_BUILD}/bin/smbd ${INSTALL}/usr/sbin
       cp -L ${PKG_BUILD}/bin/nmbd ${INSTALL}/usr/sbin
+
+    mkdir -p ${INSTALL}/usr/libexec/samba
+      cp -PR bin/default/source3/rpc_server/samba-dcerpcd ${INSTALL}/usr/libexec/samba
+      cp -PR bin/default/source3/rpc_server/rpcd_classic ${INSTALL}/usr/libexec/samba
+      cp -PR bin/default/source3/rpc_server/rpcd_epmapper ${INSTALL}/usr/libexec/samba
+      cp -PR bin/default/source3/rpc_server/rpcd_winreg ${INSTALL}/usr/libexec/samba
   fi
 }
 
