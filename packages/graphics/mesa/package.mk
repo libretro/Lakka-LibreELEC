@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mesa"
-PKG_VERSION="22.1.4"
-PKG_SHA256="670d8cbe8b72902a45ea2da68a9da4dc4a5d99c5953a926177adbce1b1640b76"
+PKG_VERSION="22.1.5"
+PKG_SHA256="6fd60d38efdd25317948c61494b5117e01d42da695278728b1faef9f5f9a47ba"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
 PKG_URL="https://mesa.freedesktop.org/archive/mesa-${PKG_VERSION}.tar.xz"
@@ -14,14 +14,13 @@ PKG_TOOLCHAIN="meson"
 
 get_graphicdrivers
 
-PKG_MESON_OPTS_TARGET="-Ddri-drivers=${DRI_DRIVERS// /,} \
+PKG_MESON_OPTS_TARGET="-Ddri-drivers= \
                        -Dgallium-drivers=${GALLIUM_DRIVERS// /,} \
                        -Dgallium-extra-hud=false \
                        -Dgallium-xvmc=disabled \
                        -Dgallium-omx=disabled \
                        -Dgallium-nine=false \
                        -Dgallium-opencl=disabled \
-                       -Dvulkan-drivers= \
                        -Dshader-cache=enabled \
                        -Dshared-glapi=enabled \
                        -Dopengl=true \
@@ -34,22 +33,18 @@ PKG_MESON_OPTS_TARGET="-Ddri-drivers=${DRI_DRIVERS// /,} \
                        -Dselinux=false \
                        -Dosmesa=false"
 
-if [ "${DISPLAYSERVER}" = "x11" -a ! "${PROJECT}" = "L4T" ]; then
+if [ "${DISPLAYSERVER}" = "x11" ]; then
   PKG_DEPENDS_TARGET+=" xorgproto libXext libXdamage libXfixes libXxf86vm libxcb libX11 libxshmfence libXrandr libglvnd"
   export X11_INCLUDES=
-  PKG_MESON_OPTS_TARGET+=" -Dplatforms=x11 -Ddri3=enabled -Dglx=dri -Dglx-direct=true -Dglvnd=true"
-elif [ "${DISPLAYSERVER}" = "weston" ]; then
-  PKG_DEPENDS_TARGET+=" wayland wayland-protocols"
-  PKG_MESON_OPTS_TARGET+=" -Dplatforms=wayland -Ddri3=disabled -Dglx=disabled -Dglvnd=false"
-elif [ "${DISTRO}" = "Lakka" -o "${PROJECT}" = "L4T" ]; then
-  PKG_DEPENDS_TARGET+=" libglvnd"
-  PKG_MESON_OPTS_TARGET+=" -Dplatforms="" -Ddri3=enabled -Dglx=disabled -Dglvnd=true"
+  PKG_MESON_OPTS_TARGET+=" -Dplatforms=x11 -Ddri3=enabled -Dglx=dri -Dglvnd=true"
+elif [ "${DISPLAYSERVER}" = "wl" ]; then
+  PKG_DEPENDS_TARGET+=" wayland wayland-protocols libglvnd"
+  PKG_MESON_OPTS_TARGET+=" -Dplatforms=wayland -Ddri3=disabled -Dglx=disabled -Dglvnd=true"
 else
   PKG_MESON_OPTS_TARGET+=" -Dplatforms="" -Ddri3=disabled -Dglx=disabled -Dglvnd=false"
 fi
 
 if [ "${LLVM_SUPPORT}" = "yes" ]; then
-  echo LLVM SUPPORT
   PKG_DEPENDS_TARGET+=" elfutils llvm"
   PKG_MESON_OPTS_TARGET+=" -Dllvm=enabled"
 else
@@ -70,11 +65,7 @@ else
   PKG_MESON_OPTS_TARGET+=" -Dgallium-va=disabled"
 fi
 
-if listcontains "${GRAPHIC_DRIVERS}" "crocus"; then
-  PKG_MESON_OPTS_TARGET+=" -Dprefer-crocus=true"
-fi
-
-if listcontains "${GRAPHIC_DRIVERS}" "vmware" || listcontains "${GRAPHIC_DRIVERS}" "freedreno"; then
+if listcontains "${GRAPHIC_DRIVERS}" "vmware"; then
   PKG_MESON_OPTS_TARGET+=" -Dgallium-xa=enabled"
 else
   PKG_MESON_OPTS_TARGET+=" -Dgallium-xa=disabled"
@@ -87,18 +78,8 @@ else
 fi
 
 if [ "${VULKAN_SUPPORT}" = "yes" ]; then
-  PKG_DEPENDS_TARGET+=" $VULKAN"
-  if [ "${PROJECT}" = "Generic" -a "${ARCH}" = "x86_64" ]; then
-    PKG_MESON_OPTS_TARGET="${PKG_MESON_OPTS_TARGET//-Dvulkan-drivers=/-Dvulkan-drivers=amd,intel}"
-  elif [ "${PROJECT}" = "RPi" -a "${DEVICE:0:4}" = "RPi4" ]; then
-    PKG_MESON_OPTS_TARGET="${PKG_MESON_OPTS_TARGET//-Dvulkan-drivers=/-Dvulkan-drivers=broadcom}"
-  elif listcontains "${GRAPHIC_DRIVERS}" "freedreno"; then
-    PKG_MESON_OPTS_TARGET="${PKG_MESON_OPTS_TARGET//-Dvulkan-drivers=/-Dvulkan-drivers=freedreno}"
-  fi
+  PKG_DEPENDS_TARGET+=" ${VULKAN} vulkan-tools"
+  PKG_MESON_OPTS_TARGET+=" -Dvulkan-drivers=${VULKAN_DRIVERS_MESA// /,}"
+else
+  PKG_MESON_OPTS_TARGET+=" -Dvulkan-drivers="
 fi
-
-post_makeinstall_target() {
-  if [ "${PROJECT}" = "L4T" ]; then
-    rm ${INSTALL}/usr/lib/libgbm.so.1
-  fi
-}

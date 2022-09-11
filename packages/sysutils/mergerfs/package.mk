@@ -1,5 +1,5 @@
 PKG_NAME="mergerfs"
-PKG_VERSION="2.24.0"
+PKG_VERSION="2.33.5"
 PKG_ARCH="any"
 PKG_SITE="https://github.com/trapexit/mergerfs"
 PKG_URL="${PKG_SITE}/releases/download/${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.gz"

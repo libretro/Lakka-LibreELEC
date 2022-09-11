@@ -4,8 +4,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="vdr-addon"
-PKG_VERSION="2.4.8"
-PKG_REV="117"
+PKG_VERSION="2.6.1"
+PKG_REV="120"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://libreelec.tv"
@@ -15,7 +15,7 @@ PKG_DEPENDS_TARGET="toolchain vdr vdr-plugin-ddci2 vdr-plugin-dummydevice vdr-pl
                     vdr-plugin-streamdev vdr-plugin-vnsiserver vdr-plugin-wirbelscan vdr-plugin-wirbelscancontrol vdr-plugin-xmltv2vdr"
 PKG_SECTION="service.multimedia"
 PKG_SHORTDESC="VDR: a TV streaming server for Linux"
-PKG_LONGDESC="VDR (2.4.x) is a TV streaming server for Linux supporting DVB-S/S2, DVB-C, DVB-T/T2, IPTV and SAT>IP"
+PKG_LONGDESC="VDR (2.6.x) is a TV streaming server for Linux supporting DVB-S/S2, DVB-C, DVB-T/T2, IPTV and SAT>IP"
 PKG_TOOLCHAIN="manual"
 
 PKG_IS_ADDON="yes"
@@ -65,7 +65,7 @@ addon() {
         $(get_build_dir vdr-plugin-streamdev)/server/locale/* \
         ${ADDON_BUILD}/${PKG_ADDON_ID}/locale
 
-  cp -PL $(get_install_dir tntnet)/usr/lib/libtntnet.so.12 ${ADDON_BUILD}/${PKG_ADDON_ID}/lib
+  cp -PL $(get_install_dir tntnet)/usr/lib/libtntnet.so.13 ${ADDON_BUILD}/${PKG_ADDON_ID}/lib
 
   cp -P $(get_build_dir vdr)/vdr ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/vdr.bin
   cp -PR $(get_build_dir vdr)/locale/* ${ADDON_BUILD}/${PKG_ADDON_ID}/locale

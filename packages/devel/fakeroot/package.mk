@@ -3,8 +3,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="fakeroot"
-PKG_VERSION="1.25.3"
-PKG_SHA256="8e903683357f7f5bcc31b879fd743391ad47691d4be33d24a76be3b6c21e956c"
+PKG_VERSION="1.29"
+PKG_SHA256="8fbbafb780c9173e3ace4a04afbc1d900f337f3216883939f5c7db3431be7c20"
 PKG_LICENSE="GPL3"
 PKG_SITE="https://tracker.debian.org/pkg/fakeroot"
 PKG_URL="http://ftp.debian.org/debian/pool/main/f/fakeroot/${PKG_NAME}_${PKG_VERSION}.orig.tar.gz"

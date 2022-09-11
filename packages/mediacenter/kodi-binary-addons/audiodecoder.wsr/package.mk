@@ -3,9 +3,9 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.wsr"
-PKG_VERSION="19.0.2-Matrix"
-PKG_SHA256="1e6ee369d720d67eaa61c71fa2cb2a660f218de5011056f31496ca6ed2e5343c"
-PKG_REV="1"
+PKG_VERSION="20.2.0-Nexus"
+PKG_SHA256="e8f8e06b61fbf612d59d689c38a6acade485aabae2382f3fbbedb0ce0c00048d"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.wsr"

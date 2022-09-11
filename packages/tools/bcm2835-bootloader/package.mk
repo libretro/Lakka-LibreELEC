@@ -3,19 +3,19 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="bcm2835-bootloader"
-PKG_VERSION="274d0c8ac0ec0850193618dce55c005832f918ea"
-PKG_SHA256="24d60e6ac978b9a25dfe80064837b39282ba3987f2c66fa4a8cc2222efb31736"
+PKG_VERSION="a75a129d59320b5828791ecc4c1b422fc110d3f1"
+PKG_SHA256="6a18c5452697d7995567ca58af9c5332a1012f3e7a575dbc65c1c18878d4f6f6"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.broadcom.com"
 PKG_URL="${DISTRO_SRC}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 
 # for Lakka we use the upstream repo tag
-if [ "${DISTRO}" = "Lakka" ]; then
-  PKG_VERSION="1.20220308" # for kernel 5.10.103
-  PKG_SHA256="70638d515fd16aee31a963d2693e6ef5963b22420db585e2e99a0b62a43fd287"
+#if [ "${DISTRO}" = "Lakka" ]; then
+#  PKG_VERSION="1.20220308" # for kernel 5.10.103
+#  PKG_SHA256="70638d515fd16aee31a963d2693e6ef5963b22420db585e2e99a0b62a43fd287"
   PKG_URL="https://github.com/raspberrypi/firmware/archive/refs/tags/${PKG_VERSION}.tar.gz"
-fi
+#fi
 
 PKG_DEPENDS_TARGET="toolchain linux bcmstat"
 PKG_LONGDESC="bcm2835-bootloader: Tool to create a bootable kernel for RaspberryPi"

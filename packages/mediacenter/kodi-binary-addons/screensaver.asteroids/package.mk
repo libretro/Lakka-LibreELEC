@@ -3,9 +3,9 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="screensaver.asteroids"
-PKG_VERSION="19.0.1-Matrix"
-PKG_SHA256="189b4f45ac2c0920445db0240f080203041c77053430595e764d773fdcd8604a"
-PKG_REV="1"
+PKG_VERSION="20.1.0-Nexus"
+PKG_SHA256="c1923a60e0495b7505157d5bd56574880449eedb4a12d31beab7728b50477232"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/screensaver.asteroids"

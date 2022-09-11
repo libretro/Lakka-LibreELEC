@@ -23,8 +23,10 @@ This project is for Rockchip SoC devices
 * [Orange Pi RK3399](devices/RK3399)
 * [PINE64 RockPro64](devices/RK3399)
 * [Radxa ROCK Pi 4](devices/RK3399)
+* [Radxa ROCK Pi 4+](devices/RK3399)
 * [Radxa ROCK Pi N10](devices/RK3399)
 * [ROC-RK3399-PC](devices/RK3399)
+* [ROC-RK3399-PC-PLUS](devices/RK3399)
 * [Rockchip Sapphire Board](devices/RK3399)
 
 **My single-board computer is not listed, will it be added in the future?**<br />

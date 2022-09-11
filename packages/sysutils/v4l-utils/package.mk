@@ -5,20 +5,20 @@
 # with 1.0.0 repeat delay is broken. test on upgrade
 
 PKG_NAME="v4l-utils"
-PKG_VERSION="1.20.0"
-PKG_SHA256="956118713f7ccb405c55c7088a6a2490c32d54300dd9a30d8d5008c28d3726f7"
+PKG_VERSION="1.22.1"
+PKG_SHA256="65c6fbe830a44ca105c443b027182c1b2c9053a91d1e72ad849dfab388b94e31"
 PKG_LICENSE="GPL"
 PKG_SITE="http://linuxtv.org/"
 PKG_URL="http://linuxtv.org/downloads/v4l-utils/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
-PKG_DEPENDS_TARGET="toolchain alsa-lib systemd elfutils ir-bpf-decoders"
+PKG_DEPENDS_TARGET="toolchain alsa-lib elfutils ir-bpf-decoders libbpf systemd zlib"
 PKG_LONGDESC="Linux V4L2 and DVB API utilities and v4l libraries (libv4l)."
 PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--without-jpeg \
-        --enable-bpf \
-        --enable-static \
-        --disable-shared \
-        --disable-doxygen-doc"
+                           --enable-bpf \
+                           --enable-static \
+                           --disable-shared \
+                           --disable-doxygen-doc"
 
 pre_configure_target() {
   # cec-ctl fails to build in subdirs

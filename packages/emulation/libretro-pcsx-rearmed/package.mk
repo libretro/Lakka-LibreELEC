@@ -18,7 +18,7 @@ PKG_LIBVAR="PCSX-REARMED_LIB"
 
 make_target() {
   cd ${PKG_BUILD}
-  
+
   if target_has_feature neon; then
     export HAVE_NEON=1
     export BUILTIN_GPU=neon
@@ -28,7 +28,7 @@ make_target() {
 
   # check if this flag is still needed when this package is updated
   export CFLAGS="${CFLAGS} -fcommon"
-  
+
   case ${TARGET_ARCH} in
     aarch64)
       make -f Makefile.libretro DYNAREC=lightrec platform=aarch64 GIT_VERSION=${PKG_VERSION}

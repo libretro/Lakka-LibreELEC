@@ -3,31 +3,26 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="dosfstools"
-PKG_VERSION="4.1"
-PKG_SHA256="e6b2aca70ccc3fe3687365009dd94a2e18e82b688ed4e260e04b7412471cc173"
+PKG_VERSION="4.2"
+PKG_SHA256="64926eebf90092dca21b14259a5301b7b98e7b1943e8a201c7d726084809b527"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/dosfstools/dosfstools"
-PKG_URL="https://github.com/dosfstools/dosfstools/releases/download/v${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+PKG_URL="https://github.com/dosfstools/dosfstools/releases/download/v${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_HOST="toolchain:host"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_DEPENDS_INIT="toolchain dosfstools"
+PKG_DEPENDS_INIT="toolchain"
 PKG_LONGDESC="dosfstools contains utilities for making and checking MS-DOS FAT filesystems."
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-compat-symlinks"
 PKG_MAKE_OPTS_TARGET="PREFIX=/usr"
 PKG_MAKEINSTALL_OPTS_TARGET="PREFIX=/usr"
 
-configure_init() {
-  : # reuse configure_target()
-}
-
-make_init() {
-  : # reuse make_target()
-}
+PKG_CONFIGURE_OPTS_INIT="--enable-compat-symlinks --without-iconv"
+PKG_MAKE_OPTS_INIT="PREFIX=/usr"
 
 makeinstall_init() {
   mkdir -p ${INSTALL}/usr/sbin
-    cp $(get_install_dir dosfstools:target)/usr/sbin/fsck.fat ${INSTALL}/usr/sbin
+    cp -P src/fsck.fat ${INSTALL}/usr/sbin
     ln -sf fsck.fat ${INSTALL}/usr/sbin/fsck.msdos
     ln -sf fsck.fat ${INSTALL}/usr/sbin/fsck.vfat
 }

@@ -3,12 +3,12 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libbluray"
-PKG_VERSION="1.1.2"
-PKG_SHA256="a3dd452239b100dc9da0d01b30e1692693e2a332a7d29917bf84bb10ea7c0b42"
+PKG_VERSION="1.3.0"
+PKG_SHA256="e2dbaf99e84e0a9725f4985bcb85d41e52c2261cc651d8884b1b790b5ef016f9"
 PKG_LICENSE="LGPL"
 PKG_SITE="https://www.videolan.org/developers/libbluray.html"
 PKG_URL="http://download.videolan.org/pub/videolan/libbluray/${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
-PKG_DEPENDS_TARGET="toolchain fontconfig freetype libxml2"
+PKG_DEPENDS_TARGET="toolchain fontconfig freetype libxml2 libudfread"
 PKG_LONGDESC="libbluray is an open-source library designed for Blu-Ray Discs playback for media players."
 PKG_TOOLCHAIN="autotools"
 
@@ -39,3 +39,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-werror \
                            --with-fontconfig \
                            --with-libxml2 \
                            --with-gnu-ld"
+
+post_configure_target() {
+  libtool_remove_rpath libtool
+}

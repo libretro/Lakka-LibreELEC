@@ -23,16 +23,28 @@ See https://docs.docker.com/engine/reference/commandline/build/ for details on `
 
 **Build LibreELEC image inside a container**
 
-Use the following command to build LibreELEC images inside a new container based on the docker image tagged with `libreelec`.
+Change to your LibreELEC.tv development directory that you checked out with <br>
+ `git clone https://github.com/`**myname**`/LibreELEC.tv.git`
+
+ ```
+ cd LibreELEC.tv
+ ```
+
+Then use the following command to build LibreELEC images inside a new container based on the docker image tagged with `libreelec`. (The `pwd` uses the current directory - which must have the LibeELEC `Makefile` in it.)
 
 ```
-docker run --rm -v `pwd`:/build -w /build -it libreelec make image
+docker run --rm --log-driver none -v `pwd`:/build -w /build -it libreelec make image
 ```
 
 Use `--env`, `-e` or `--env-file` to pass environment variables used by the LibreELEC buildsystem.
 
 ```
-docker run --rm -v `pwd`:/build -w /build -it -e PROJECT=RPi -e DEVICE=RPi4 -e ARCH=arm libreelec make image
+docker run --rm --log-driver none -v `pwd`:/build -w /build -it -e PROJECT=RPi -e DEVICE=RPi4 -e ARCH=arm libreelec make image
 ```
 
 See https://docs.docker.com/engine/reference/commandline/run/ for details on `docker run` usage.
+
+Note: `dockerd` is set to send all its logs to journald using the setting `--log-driver=journald` (so if you don't set the `--log-driver none` for your `docker run` these logs will be sent through to your log.
+Refer:
+
+https://github.com/LibreELEC/LibreELEC.tv/blob/140ad28a258167e0e87daf1e474db37215b2caf3/packages/addons/service/docker/source/system.d/service.system.docker.service#L12 

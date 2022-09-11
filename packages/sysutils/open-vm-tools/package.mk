@@ -4,8 +4,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="open-vm-tools"
-PKG_VERSION="11.2.5"
-PKG_SHA256="7c31bb8ef70a0e32b81cde6550cae390a53108e4abb28bb539b0ab5b9e4fc188"
+PKG_VERSION="12.0.5"
+PKG_SHA256="19ec67984347bb5f867a5646658c7695352cef772c4bee212a0d9216f02ebd93"
 PKG_ARCH="x86_64"
 [ "${DISTRO}" = "Lakka" ] && PKG_ARCH+=" i386" || true
 PKG_LICENSE="GPL"
@@ -17,6 +17,7 @@ PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-docs \
                            --disable-tests \
+                           --disable-containerinfo \
                            --disable-deploypkg \
                            --without-pam \
                            --without-gtk2 \
@@ -29,19 +30,21 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-docs \
                            --with-udev-rules-dir=/usr/lib/udev/rules.d/ \
                            --with-sysroot=${SYSROOT_PREFIX}"
 
+configure_package() {
+  PKG_CONFIGURE_SCRIPT="${PKG_BUILD}/open-vm-tools/configure"
+}
+
 post_unpack() {
-  mv ${PKG_BUILD}/${PKG_NAME}/* ${PKG_BUILD}/
-
-  sed -e 's|.*common-agent/etc/config/Makefile.*||' -i ${PKG_BUILD}/configure.ac
-
-  mkdir -p ${PKG_BUILD}/common-agent/etc/config
-
   # Hack to allow package to be bumped without linking against old libraries
   rm -f ${SYSROOT_PREFIX}/usr/lib/libvmtools*
 }
 
 pre_configure_target() {
   export LIBS="-ldnet -ltirpc"
+}
+
+post_configure_target() {
+  libtool_remove_rpath libtool
 }
 
 post_makeinstall_target() {

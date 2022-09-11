@@ -2,11 +2,11 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="kernel-firmware"
-PKG_VERSION="20210208"
-PKG_SHA256="45ae017429f60e701ece1e8cd0271e2cd3fc4400e7505856833b08f8a84a1bd9"
+PKG_VERSION="20220708"
+PKG_SHA256="0abec827a035c82bdcabdf82aa37ded247bc682ef05861bd409ea6f477bab81d"
 PKG_LICENSE="other"
 PKG_SITE="https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/"
-PKG_URL="https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/snapshot/${PKG_VERSION}.tar.gz"
+PKG_URL="https://cdn.kernel.org/pub/linux/kernel/firmware/linux-firmware-${PKG_VERSION}.tar.xz"
 PKG_NEED_UNPACK="${PROJECT_DIR}/${PROJECT}/packages/${PKG_NAME} ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/packages/${PKG_NAME}"
 PKG_LONGDESC="kernel-firmware: kernel related firmware"
 PKG_TOOLCHAIN="manual"
@@ -83,6 +83,10 @@ makeinstall_target() {
   # On Lakka use iwlwifi firmware from this package instead of separate LibreELEC package
   if [ "${DISTRO}" = "Lakka" -a "${PROJECT}" = "Generic" ]; then
     cp -Lv ${PKG_FW_SOURCE}/iwlwifi-* ${FW_TARGET_DIR}/
+  # Upstream doesn't name the file correctly so we need to symlink it
+  if [ -f "${FW_TARGET_DIR}/rtl_bt/rtl8723bs_config-OBDA8723.bin" ]; then
+    #cd "${FW_TARGET_DIR}/rtl_bt"
+    ln -s "rtl8723bs_config-OBDA8723.bin" "${FW_TARGET_DIR}/rtl_bt/rtl8723bs_config.bin"
   fi
 
   # Cleanup - which may be project or device specific

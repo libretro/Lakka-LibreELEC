@@ -3,11 +3,11 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="curl"
-PKG_VERSION="7.74.0"
-PKG_SHA256="999d5f2c403cf6e25d58319fdd596611e455dd195208746bc6e6d197a77e878b"
+PKG_VERSION="7.84.0"
+PKG_SHA256="2d118b43f547bfe5bae806d8d47b4e596ea5b25a6c1f080aef49fbcd817c5db8"
 PKG_LICENSE="MIT"
-PKG_SITE="http://curl.haxx.se"
-PKG_URL="http://curl.haxx.se/download/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+PKG_SITE="https://curl.haxx.se"
+PKG_URL="https://curl.haxx.se/download/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain zlib openssl rtmpdump libidn2 nghttp2"
 PKG_LONGDESC="Client and library for (HTTP, HTTPS, FTP, ...) transfers."
 PKG_TOOLCHAIN="configure"
@@ -65,11 +65,14 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_lib_rtmp_RTMP_Init=yes \
                            --with-ca-bundle=/run/libreelec/cacert.pem \
                            --without-ca-path \
                            --without-libpsl \
-                           --without-libmetalink \
                            --without-libssh2 \
                            --with-librtmp \
                            --with-libidn2 \
                            --with-nghttp2"
+
+post_configure_target() {
+  libtool_remove_rpath libtool
+}
 
 post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/share/zsh

@@ -3,20 +3,24 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="xf86-video-nvidia"
-# Remember to run "python3 packages/x11/driver/xf86-video-nvidia/scripts/make_nvidia_udev.py" and commit changes to
-# "packages/x11/driver/xf86-video-nvidia/udev.d/96-nvidia.rules" whenever bumping version.
-# Host may require installation of python3-lxml and python3-requests packages.
-PKG_VERSION="460.67"
-PKG_SHA256="a19253cf805f913a3b53098587d557fb21c9b57b1568cb630e128ebb3276c10e"
+# Remember to run "python3 packages/x11/driver/xf86-video-nvidia/scripts/make_nvidia_udev.py" and commit
+# changes to "packages/x11/driver/xf86-video-nvidia/udev.d/96-nvidia.rules" whenever bumping version.
+# The build host may require installation of python3-lxml and python3-requests packages.
+PKG_VERSION="470.141.03"
+PKG_SHA256="87056cfd6f9fb915946b01adbad01cdc6a13db2f1c00c21dce9367692b7ca42d"
 PKG_ARCH="x86_64"
 PKG_LICENSE="nonfree"
-PKG_SITE="http://www.nvidia.com/"
+PKG_SITE="https://www.nvidia.com/en-us/drivers/unix/"
 PKG_URL="http://us.download.nvidia.com/XFree86/Linux-x86_64/${PKG_VERSION}/NVIDIA-Linux-x86_64-${PKG_VERSION}-no-compat32.run"
 PKG_DEPENDS_TARGET="util-macros xorg-server libvdpau libglvnd"
-PKG_LONGDESC="The Xorg driver for NVIDIA video chips."
+PKG_LONGDESC="The Xorg driver for NVIDIA GPUs supporting the GeForce 600 Series & above."
 PKG_TOOLCHAIN="manual"
 
 PKG_IS_KERNEL_PKG="yes"
+
+if [ "${VULKAN_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" ${VULKAN} vulkan-tools"
+fi
 
 unpack() {
   [ -d ${PKG_BUILD} ] && rm -rf ${PKG_BUILD}
@@ -39,7 +43,7 @@ makeinstall_target() {
     ln -sf /var/lib/nvidia_drv.so ${INSTALL}/${XORG_PATH_MODULES}/drivers/nvidia_drv.so
 
   mkdir -p ${INSTALL}/${XORG_PATH_MODULES}/extensions
-  # rename to avoid conflicts with X.Org-Server module libglx.so 
+  # rename to avoid conflicts with X.Org-Server module libglx.so
     cp -P libglxserver_nvidia.so.${PKG_VERSION} ${INSTALL}/${XORG_PATH_MODULES}/extensions/libglx_nvidia.so
 
   mkdir -p ${INSTALL}/etc/X11
@@ -47,6 +51,7 @@ makeinstall_target() {
 
   mkdir -p ${INSTALL}/usr/lib
     cp -P libnvidia-glcore.so.${PKG_VERSION} ${INSTALL}/usr/lib
+    cp -P libnvidia-glsi.so.${PKG_VERSION} ${INSTALL}/usr/lib
     cp -P libnvidia-ml.so.${PKG_VERSION} ${INSTALL}/usr/lib
     ln -sf /var/lib/libnvidia-ml.so.1 ${INSTALL}/usr/lib/libnvidia-ml.so.1
     cp -P libnvidia-tls.so.${PKG_VERSION} ${INSTALL}/usr/lib
@@ -70,4 +75,14 @@ makeinstall_target() {
     cp libvdpau_nvidia.so* ${INSTALL}/usr/lib/vdpau/libvdpau_nvidia-main.so.1
     ln -sf /var/lib/libvdpau_nvidia.so ${INSTALL}/usr/lib/vdpau/libvdpau_nvidia.so
     ln -sf /var/lib/libvdpau_nvidia.so.1 ${INSTALL}/usr/lib/vdpau/libvdpau_nvidia.so.1
+
+  # Install Vulkan ICD & SPIR-V lib
+  if [ "${VULKAN_SUPPORT}" = "yes" ]; then
+    mkdir -p ${INSTALL}/usr/lib
+      cp -P libnvidia-glvkspirv.so.${PKG_VERSION} ${INSTALL}/usr/lib
+    mkdir -p ${INSTALL}/usr/share/vulkan/icd.d
+      cp -P nvidia_icd.json ${INSTALL}/usr/share/vulkan/icd.d
+    mkdir -p ${INSTALL}/usr/share/vulkan/implicit_layer.d
+      cp -P nvidia_layers.json ${INSTALL}/usr/share/vulkan/icd.d
+  fi
 }

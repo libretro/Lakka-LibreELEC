@@ -3,18 +3,18 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="bcm2835-driver"
-PKG_VERSION="274d0c8ac0ec0850193618dce55c005832f918ea"
-PKG_SHA256="e823e1ecf1a7a338ac70e5b8fe288a344f898d6361e9f6c99b708ac8b8ee4314"
+PKG_VERSION="a75a129d59320b5828791ecc4c1b422fc110d3f1"
+PKG_SHA256="3f6650f470613d9921c7a9c7f5f9825baa930016b905ba3f6cde920a0c256022"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.broadcom.com"
 PKG_URL="${DISTRO_SRC}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 
 # for Lakka we use the upstream repo tag
-if [ "${DISTRO}" = "Lakka" ]; then
-  PKG_VERSION="1.20220308" # for kernel 5.10.103
-  PKG_SHA256="70638d515fd16aee31a963d2693e6ef5963b22420db585e2e99a0b62a43fd287"
-  PKG_URL="https://github.com/raspberrypi/firmware/archive/refs/tags/${PKG_VERSION}.tar.gz"
-fi
+#if [ "${DISTRO}" = "Lakka" ]; then
+#  PKG_VERSION="1.20220308" # for kernel 5.10.103
+#  PKG_SHA256="70638d515fd16aee31a963d2693e6ef5963b22420db585e2e99a0b62a43fd287"
+#  PKG_URL="https://github.com/raspberrypi/firmware/archive/refs/tags/${PKG_VERSION}.tar.gz"
+#fi
 
 PKG_DEPENDS_TARGET="toolchain dtc"
 PKG_LONGDESC="OpenMAX-bcm2835: OpenGL-ES and OpenMAX driver for BCM2835"

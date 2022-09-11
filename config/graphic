@@ -2,19 +2,19 @@
 [ -z "${OPENGLES}" ] && OPENGLES="no"
 [ -z "${VULKAN}" ] && VULKAN="no"
 
-if [ "${OPENGL}" = no ]; then
+if [ "${OPENGL}" = "no" ]; then
   OPENGL_SUPPORT="no"
 else
   OPENGL_SUPPORT="yes"
 fi
 
-if [ "${OPENGLES}" = no ]; then
+if [ "${OPENGLES}" = "no" ]; then
   OPENGLES_SUPPORT="no"
 else
   OPENGLES_SUPPORT="yes"
 fi
 
-if [ "${VULKAN}" = no ]; then
+if [ "${VULKAN}" = "no" ]; then
   VULKAN_SUPPORT="no"
 else
   VULKAN_SUPPORT="yes"
@@ -24,8 +24,9 @@ get_graphicdrivers() {
 
   # set defaults
   GALLIUM_DRIVERS=""
-  DRI_DRIVERS=""
   XORG_DRIVERS=""
+  VULKAN_DRIVERS_CONFIG=""
+  VULKAN_DRIVERS_MESA=""
   LLVM_SUPPORT="no"
   COMPOSITE_SUPPORT="no"
   VDPAU_SUPPORT="no"
@@ -33,11 +34,8 @@ get_graphicdrivers() {
   V4L2_SUPPORT="no"
 
   if [ "${GRAPHIC_DRIVERS}" = "all" ]; then
-    GRAPHIC_DRIVERS="crocus iris i915 i965 r200 r300 r600 radeonsi nvidia nvidia-legacy vmware virtio vc4 freedreno"
-    if [ "${DISTRO}" = "Lakka" ]; then
-      GRAPHIC_DRIVERS+=" crocus"
+    GRAPHIC_DRIVERS="crocus iris i915 r300 r600 radeonsi nvidia nvidia-legacy nvidia-ng vmware virtio vc4 freedreno"
     fi
-  fi
 
   if listcontains "${GRAPHIC_DRIVERS}" "crocus"; then
     GALLIUM_DRIVERS+=" crocus"
@@ -59,18 +57,7 @@ get_graphicdrivers() {
   fi
 
   if listcontains "${GRAPHIC_DRIVERS}" "i915"; then
-    DRI_DRIVERS+=" i915"
-    XORG_DRIVERS+=" intel"
-    COMPOSITE_SUPPORT="yes"
-    VAAPI_SUPPORT="yes"
-    if [ "${DISTRO}" = "Lakka" ]; then
-      GALLIUM_DRIVERS+=" i915"
-      DRI_DRIVERS="${DRI_DRIVERS// i915/}"
-    fi
-  fi
-
-  if listcontains "${GRAPHIC_DRIVERS}" "i965"; then
-    DRI_DRIVERS+=" i965"
+    GALLIUM_DRIVERS+=" i915"
     XORG_DRIVERS+=" intel"
     COMPOSITE_SUPPORT="yes"
     VAAPI_SUPPORT="yes"
@@ -79,6 +66,7 @@ get_graphicdrivers() {
   if listcontains "${GRAPHIC_DRIVERS}" "iris"; then
     GALLIUM_DRIVERS+=" iris"
     XORG_DRIVERS+=" intel"
+    VULKAN_DRIVERS_MESA+=" intel"
     COMPOSITE_SUPPORT="yes"
     VAAPI_SUPPORT="yes"
   fi
@@ -94,6 +82,7 @@ get_graphicdrivers() {
 
   if listcontains "${GRAPHIC_DRIVERS}" "nvidia"; then
     XORG_DRIVERS+=" nvidia"
+    VULKAN_DRIVERS_CONFIG+=" nvidia"
     VDPAU_SUPPORT="yes"
   fi
 
@@ -102,15 +91,15 @@ get_graphicdrivers() {
     VDPAU_SUPPORT="yes"
   fi
 
-  if listcontains "${GRAPHIC_DRIVERS}" "panfrost"; then
-    GALLIUM_DRIVERS+=" kmsro panfrost"
-    V4L2_SUPPORT="yes"
+  if listcontains "${GRAPHIC_DRIVERS}" "nvidia-ng"; then
+    VULKAN_DRIVERS_CONFIG+=" nvidia-ng"
+    VAAPI_SUPPORT="yes"
   fi
 
-  if listcontains "${GRAPHIC_DRIVERS}" "r200"; then
-    DRI_DRIVERS+=" r200"
-    XORG_DRIVERS+=" ati"
-    COMPOSITE_SUPPORT="yes"
+  if listcontains "${GRAPHIC_DRIVERS}" "panfrost"; then
+    GALLIUM_DRIVERS+=" kmsro panfrost"
+    VULKAN_DRIVERS_MESA+=" panfrost"
+    V4L2_SUPPORT="yes"
   fi
 
   if listcontains "${GRAPHIC_DRIVERS}" "r300"; then
@@ -133,6 +122,7 @@ get_graphicdrivers() {
   if listcontains "${GRAPHIC_DRIVERS}" "radeonsi"; then
     GALLIUM_DRIVERS+=" radeonsi"
     XORG_DRIVERS+=" ati amdgpu"
+    VULKAN_DRIVERS_MESA+=" amd"
     LLVM_SUPPORT="yes"
     COMPOSITE_SUPPORT="yes"
     VDPAU_SUPPORT="yes"
@@ -141,6 +131,7 @@ get_graphicdrivers() {
 
   if listcontains "${GRAPHIC_DRIVERS}" "vc4"; then
     GALLIUM_DRIVERS+=" vc4 v3d kmsro"
+    VULKAN_DRIVERS_MESA+=" broadcom"
     V4L2_SUPPORT="yes"
     VAAPI_SUPPORT="no"
     VDPAU_SUPPORT="no"
@@ -162,8 +153,16 @@ get_graphicdrivers() {
     COMPOSITE_SUPPORT="yes"
   fi
 
+  # VDPAU Support depends on X11
+  if [ ! "${DISPLAYSERVER}" = "x11" ]; then
+    VDPAU_SUPPORT="no"
+  fi
+
   # remove duplicate entries
   GALLIUM_DRIVERS="$(echo ${GALLIUM_DRIVERS} | xargs -n1 | sort -u | xargs)"
+  GRAPHIC_DRIVERS="$(echo ${GRAPHIC_DRIVERS} | xargs -n1 | sort -u | xargs)"
   XORG_DRIVERS="$(echo ${XORG_DRIVERS} | xargs -n1 | sort -u | xargs)"
-  DRI_DRIVERS="$(echo ${DRI_DRIVERS} | xargs -n1 | sort -u | xargs)"
+  VULKAN_DRIVERS_MESA="$(echo ${VULKAN_DRIVERS_MESA} | xargs -n1 | sort -u | xargs)"
+  VULKAN_DRIVERS_CONFIG+=" ${VULKAN_DRIVERS_MESA}"
+  VULKAN_DRIVERS_CONFIG="$(echo ${VULKAN_DRIVERS_CONFIG} | xargs -n1 | sort -u | xargs)"
 }

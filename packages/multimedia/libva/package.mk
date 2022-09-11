@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libva"
-PKG_VERSION="2.11.0"
-PKG_SHA256="ee2bd79bad5e2404143f089360685f5da63a32dd551b54ccd61d2d49c041178a"
+PKG_VERSION="2.15.0"
+PKG_SHA256="869aaa9b9eccb1cde63e1c5b0ac0881cefc00156010bb49f6dce152471770ba8"
 PKG_ARCH="x86_64"
 [ "${DISTRO}" = "Lakka" ] && PKG_ARCH+=" i386" || true
 PKG_LICENSE="GPL"
@@ -16,7 +16,7 @@ PKG_TOOLCHAIN="meson"
 if [ "${DISPLAYSERVER}" = "x11" ]; then
   PKG_DEPENDS_TARGET="toolchain libX11 libXext libXfixes libdrm"
   DISPLAYSERVER_LIBVA="-Dwith_x11=yes -Dwith_glx=no -Dwith_wayland=no"
-elif [ "${DISPLAYSERVER}" = "weston" ]; then
+elif [ "${DISPLAYSERVER}" = "wl" ]; then
   DISPLAYSERVER_LIBVA="-Dwith_x11=no -Dwith_glx=no -Dwith_wayland=yes"
   PKG_DEPENDS_TARGET="toolchain libdrm wayland"
 else

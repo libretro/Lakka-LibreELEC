@@ -15,6 +15,7 @@ DEFAULTS = dict(
     password='',
     rtp_dest='127.0.0.1',
     rtp_port='24642',
+    connect_port='0',
     username='',
 )
 

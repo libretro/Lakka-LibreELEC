@@ -3,20 +3,22 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="fontconfig"
-PKG_VERSION="2.13.1"
-PKG_SHA256="9f0d852b39d75fc655f9f53850eb32555394f36104a044bb2b2fc9e66dbbfa7f"
+PKG_VERSION="2.14.0"
+PKG_SHA256="b8f607d556e8257da2f3616b4d704be30fd73bd71e367355ca78963f9a7f0434"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.fontconfig.org"
 PKG_URL="http://www.freedesktop.org/software/fontconfig/release/${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain util-linux util-macros freetype libxml2 zlib expat"
 PKG_LONGDESC="Fontconfig is a library for font customization and configuration."
+PKG_TOOLCHAIN="configure"
 
 PKG_CONFIGURE_OPTS_TARGET="--with-arch=${TARGET_ARCH} \
                            --with-cache-dir=/storage/.cache/fontconfig \
                            --with-default-fonts=/usr/share/fonts \
                            --without-add-fonts \
                            --disable-dependency-tracking \
-                           --disable-docs"
+                           --disable-docs \
+                           --disable-rpath"
 
 pre_configure_target() {
 # ensure we dont use '-O3' optimization.
@@ -24,6 +26,10 @@ pre_configure_target() {
   CXXFLAGS=$(echo ${CXXFLAGS} | sed -e "s|-O3|-O2|")
   CFLAGS+=" -I${PKG_BUILD}"
   CXXFLAGS+=" -I${PKG_BUILD}"
+}
+
+post_configure_target() {
+  libtool_remove_rpath libtool
 }
 
 post_makeinstall_target() {

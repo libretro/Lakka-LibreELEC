@@ -14,6 +14,10 @@ PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --enable-twinserial"
 
+post_configure_target() {
+  libtool_remove_rpath libtool
+}
+
 make_target() {
   make
   make -C src/ Info.plist

@@ -3,11 +3,11 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="glibc"
-PKG_VERSION="2.32"
-PKG_SHA256="1627ea54f5a1a8467032563393e0901077626dc66f37f10ee6363bb722222836"
+PKG_VERSION="2.36"
+PKG_SHA256="1c959fea240906226062cb4b1e7ebce71a9f0e3c0836c09e7e3423d434fcfe75"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.gnu.org/software/libc/"
-PKG_URL="http://ftp.gnu.org/pub/gnu/glibc/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+PKG_SITE="https://www.gnu.org/software/libc/"
+PKG_URL="https://ftp.gnu.org/pub/gnu/glibc/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="ccache:host autotools:host linux:host gcc:bootstrap pigz:host Python3:host"
 PKG_DEPENDS_INIT="glibc"
 PKG_LONGDESC="The Glibc package contains the main C library."
@@ -27,12 +27,11 @@ PKG_CONFIGURE_OPTS_TARGET="BASH_SHELL=/bin/sh \
                            --with-__thread \
                            --with-binutils=${BUILD}/toolchain/bin \
                            --with-headers=${SYSROOT_PREFIX}/usr/include \
-                           --enable-kernel=5.4.0 \
+                           --enable-kernel=5.15.0 \
                            --without-cvs \
                            --without-gd \
                            --disable-build-nscd \
                            --disable-nscd \
-                           --enable-lock-elision \
                            --disable-timezone-tools"
 
 if [ "${PROJECT}" = "L4T" ]; then
@@ -49,18 +48,14 @@ post_unpack() {
   find "${PKG_BUILD}" -type f -name '*.py' -exec sed -e '1s,^#![[:space:]]*/usr/bin/python.*,#!/usr/bin/env python3,' -i {} \;
 }
 
-pre_build_target() {
-  cd ${PKG_BUILD}
-    aclocal --force --verbose
-    autoconf --force --verbose
-  cd -
-}
-
 pre_configure_target() {
 # Filter out some problematic *FLAGS
   export CFLAGS=$(echo ${CFLAGS} | sed -e "s|-ffast-math||g")
   export CFLAGS=$(echo ${CFLAGS} | sed -e "s|-Ofast|-O2|g")
   export CFLAGS=$(echo ${CFLAGS} | sed -e "s|-O.|-O2|g")
+
+  export CFLAGS=$(echo ${CFLAGS} | sed -e "s|-Wunused-but-set-variable||g")
+  export CFLAGS="${CFLAGS} -Wno-unused-variable"
 
   if [ -n "${PROJECT_CFLAGS}" ]; then
     export CFLAGS=$(echo ${CFLAGS} | sed -e "s|${PROJECT_CFLAGS}||g")
@@ -98,6 +93,14 @@ EOF
 
   # binaries to install into target
   GLIBC_INCLUDE_BIN="getent ldd locale localedef"
+
+  # glibc does not need / nor build successfully with _FILE_OFFSET_BITS or _TIME_BITS set
+  if [ "${TARGET_ARCH}" = "arm" ]; then
+    export CFLAGS=$(echo ${CFLAGS} | sed -e "s|-D_FILE_OFFSET_BITS=64||g")
+    export CFLAGS=$(echo ${CFLAGS} | sed -e "s|-D_TIME_BITS=64||g")
+    export CXXFLAGS=$(echo ${CXXFLAGS} | sed -e "s|-D_FILE_OFFSET_BITS=64||g")
+    export CXXFLAGS=$(echo ${CXXFLAGS} | sed -e "s|-D_TIME_BITS=64||g")
+  fi
 }
 
 post_makeinstall_target() {
@@ -105,14 +108,6 @@ post_makeinstall_target() {
     cp -p ${INSTALL}/usr/bin/localedef ${INSTALL}/.noinstall
     cp -a ${INSTALL}/usr/share/i18n/locales ${INSTALL}/.noinstall
     mv ${INSTALL}/usr/share/i18n/charmaps ${INSTALL}/.noinstall
-
-  # Generic "installer" needs localedef to define drawing chars
-  if [ "${PROJECT}" != "Generic" ]; then
-    rm ${INSTALL}/usr/bin/localedef
-  fi
-
-# we are linking against ld.so, so symlink
-  ln -sf $(basename ${INSTALL}/usr/lib/ld-*.so) ${INSTALL}/usr/lib/ld.so
 
 # cleanup
 # remove any programs we don't want/need, keeping only those we want
@@ -127,12 +122,9 @@ post_makeinstall_target() {
   safe_remove ${INSTALL}/usr/lib/*.map
   safe_remove ${INSTALL}/var
 
-# add UTF-8 charmap for Generic (charmap is needed for installer)
-  if [ "${PROJECT}" = "Generic" ]; then
-    mkdir -p ${INSTALL}/usr/share/i18n/charmaps
-    cp -PR ${PKG_BUILD}/localedata/charmaps/UTF-8 ${INSTALL}/usr/share/i18n/charmaps
-    pigz --best --force ${INSTALL}/usr/share/i18n/charmaps/UTF-8
-  fi
+# add UTF-8 charmap
+  mkdir -p ${INSTALL}/usr/share/i18n/charmaps
+    cp -PR ${INSTALL}/.noinstall/charmaps/UTF-8.gz ${INSTALL}/usr/share/i18n/charmaps
 
   if [ ! "${GLIBC_LOCALES}" = yes ]; then
     safe_remove ${INSTALL}/usr/share/i18n/locales
@@ -146,10 +138,6 @@ post_makeinstall_target() {
     cp ${PKG_DIR}/config/nsswitch-target.conf ${INSTALL}/etc/nsswitch.conf
     cp ${PKG_DIR}/config/host.conf ${INSTALL}/etc
     cp ${PKG_DIR}/config/gai.conf ${INSTALL}/etc
-
-  if [ "${TARGET_ARCH}" = "arm" -a "${TARGET_FLOAT}" = "hard" ]; then
-    ln -sf ld.so ${INSTALL}/usr/lib/ld-linux.so.3
-  fi
 }
 
 configure_init() {
@@ -170,10 +158,6 @@ makeinstall_init() {
     cp -PR ${PKG_BUILD}/.${TARGET_NAME}/rt/librt.so* ${INSTALL}/usr/lib
     cp -PR ${PKG_BUILD}/.${TARGET_NAME}/resolv/libnss_dns.so* ${INSTALL}/usr/lib
     cp -PR ${PKG_BUILD}/.${TARGET_NAME}/resolv/libresolv.so* ${INSTALL}/usr/lib
-
-    if [ "${TARGET_ARCH}" = "arm" -a "${TARGET_FLOAT}" = "hard" ]; then
-      ln -sf ld.so ${INSTALL}/usr/lib/ld-linux.so.3
-    fi
 }
 
 post_makeinstall_init() {

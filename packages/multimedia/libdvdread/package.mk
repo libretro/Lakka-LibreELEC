@@ -3,8 +3,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libdvdread"
-PKG_VERSION="bd6b329f0137ab6a9f779a28dd96f04713735e17"
-PKG_SHA256="2d9d6d185dd25a983d6dfc2a00207cafdc396a969c227d5edd84b6215b2fba89"
+PKG_VERSION="6.1.3-Next-Nexus-Alpha2-2"
+PKG_SHA256="719130091e3adc9725ba72df808f24a14737a009dca5a4c38c601c0c76449b62"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/libdvdread"
 PKG_URL="https://github.com/xbmc/libdvdread/archive/${PKG_VERSION}.tar.gz"

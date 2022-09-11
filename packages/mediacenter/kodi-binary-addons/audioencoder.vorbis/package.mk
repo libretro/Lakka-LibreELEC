@@ -3,9 +3,9 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audioencoder.vorbis"
-PKG_VERSION="19.0.1-Matrix"
-PKG_SHA256="26f5b3e60ec3d3e17ea81a009fc91886159335fb8eec56e874e357901c90deeb"
-PKG_REV="1"
+PKG_VERSION="20.2.0-Nexus"
+PKG_SHA256="359e972ddcc498727620ff224a82f970fa2ae22b71ea6ab30b96898dffe6f1f9"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audioencoder.vorbis"

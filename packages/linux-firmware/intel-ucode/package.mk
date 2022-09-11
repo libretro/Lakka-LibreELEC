@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="intel-ucode"
-PKG_VERSION="20201118"
-PKG_SHA256="e42a264b7b86e80d013d6d00062467352c1f37e0aaea10fe5b51e4d8687921ab"
+PKG_VERSION="20220510"
+PKG_SHA256="254ddc71b598fbb8dbb200ceb3af29aeb22f6bf50bc609e8f953cf9c8d286d2a"
 PKG_ARCH="x86_64"
 [ "${DISTRO}" = "Lakka" ] && PKG_ARCH+=" i386" || true
 PKG_LICENSE="other"

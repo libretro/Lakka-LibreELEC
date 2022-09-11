@@ -4,7 +4,6 @@
 PKG_NAME="lm_sensors"
 PKG_VERSION="3.6.0"
 PKG_SHA256="0591f9fa0339f0d15e75326d0365871c2d4e2ed8aa1ff759b3a55d3734b7d197"
-PKG_ARCH="arm x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://hwmon.wiki.kernel.org"
 PKG_URL="https://github.com/groeck/lm-sensors/archive/V${PKG_VERSION//./-}.tar.gz"
@@ -17,6 +16,8 @@ pre_make_target() {
 
   export CFLAGS="${TARGET_CFLAGS}"
   export CPPFLAGS="${TARGET_CPPFLAGS}"
+
+  sed -i 's|^EXLDFLAGS :=.*|EXLDFLAGS :=|' Makefile
 }
 
 pre_makeinstall_target() {

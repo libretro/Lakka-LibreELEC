@@ -3,10 +3,10 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="util-linux"
-PKG_VERSION="2.36.1"
-PKG_SHA256="09fac242172cd8ec27f0739d8d192402c69417617091d8c6e974841568f37eed"
+PKG_VERSION="2.38"
+PKG_SHA256="6d111cbe4d55b336db2f1fbeffbc65b89908704c01136371d32aa9bec373eb64"
 PKG_LICENSE="GPL"
-PKG_URL="http://www.kernel.org/pub/linux/utils/util-linux/v$(get_pkg_version_maj_min)/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+PKG_URL="https://www.kernel.org/pub/linux/utils/util-linux/v$(get_pkg_version_maj_min)/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_HOST="ccache:host autoconf:host automake:host intltool:host libtool:host pkg-config:host"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_DEPENDS_INIT="toolchain"
@@ -54,7 +54,8 @@ PKG_CONFIGURE_OPTS_TARGET="${UTILLINUX_CONFIG_DEFAULT} \
                            --enable-fsck \
                            --enable-fstrim \
                            --enable-blkid \
-                           --enable-lscpu"
+                           --enable-lscpu \
+                           --enable-lsfd"
 
 if [ "${SWAP_SUPPORT}" = "yes" ]; then
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-swapon"

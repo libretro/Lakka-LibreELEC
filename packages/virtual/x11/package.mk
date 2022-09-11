@@ -20,7 +20,7 @@ PKG_LONGDESC="X11 is the Windowing system"
 # Tools
   PKG_DEPENDS_TARGET+=" xrandr setxkbmap"
 
-if [ -n "${WINDOWMANAGER}" -a "${WINDOWMANAGER}" != "none" ]; then
+if [ -n "${WINDOWMANAGER}" -a "${WINDOWMANAGER}" != "no" ]; then
   PKG_DEPENDS_TARGET+=" ${WINDOWMANAGER}"
 fi
 

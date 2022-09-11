@@ -3,8 +3,8 @@
 # Copyright (C) 2020-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="parted"
-PKG_VERSION="3.4"
-PKG_SHA256="e1298022472da5589b7f2be1d5ee3c1b66ec3d96dfbad03dc642afd009da5342"
+PKG_VERSION="3.5"
+PKG_SHA256="4938dd5c1c125f6c78b1f4b3e297526f18ee74aa43d45c248578b1d2470c05a2"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/parted/"
 PKG_URL="http://ftpmirror.gnu.org/parted/${PKG_NAME}-${PKG_VERSION}.tar.xz"
@@ -25,6 +25,10 @@ pre_configure_init() {
   : # reuse pre_configure_target()
 }
 
+post_configure_init() {
+  : # reuse post_configure_target()
+}
+
 configure_init() {
   : # reuse configure_target()
 }
@@ -41,4 +45,8 @@ makeinstall_init() {
 
 pre_configure_target() {
   export CFLAGS+=" -I${PKG_BUILD}/lib"
+}
+
+post_configure_target() {
+  libtool_remove_rpath libtool
 }

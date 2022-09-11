@@ -3,12 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libass"
-PKG_VERSION="0.15.0"
-PKG_SHA256="9f09230c9a0aa68ef7aa6a9e2ab709ca957020f842e52c5b2e52b801a7d9e833"
-if [ "${DISTRO}" = "Lakka" ]; then
-  PKG_VERSION="0.14.0"
-  PKG_SHA256="881f2382af48aead75b7a0e02e65d88c5ebd369fe46bc77d9270a94aa8fd38a2"
-fi
+PKG_VERSION="0.16.0"
+PKG_SHA256="5dbde9e22339119cf8eed59eea6c623a0746ef5a90b689e68a090109078e3c08"
 PKG_LICENSE="BSD"
 PKG_SITE="https://github.com/libass/libass"
 PKG_URL="https://github.com/libass/libass/releases/download/${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
@@ -20,12 +16,11 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-test \
                            --disable-silent-rules \
                            --with-gnu-ld"
 
-if [ "${DISTRO}" = "Lakka" ]; then
-  PKG_CONFIGURE_OPTS_TARGET+=" --disable-harfbuzz"
-  PKG_DEPENDS_TARGET="${PKG_DEPENDS_TARGET//harfbuzz/}"
-fi
-
-if [ ${TARGET_ARCH} = "x86_64" -o "${TARGET_ARCH}" = "i386" ]; then
+if [ ${TARGET_ARCH} = "x86_64" ]; then
   PKG_DEPENDS_TARGET+=" nasm:host"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-asm"
 fi
+
+post_configure_target() {
+  libtool_remove_rpath libtool
+}

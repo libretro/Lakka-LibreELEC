@@ -2,11 +2,12 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pcre2"
-PKG_VERSION="10.36"
-PKG_SHA256="a9ef39278113542968c7c73a31cfcb81aca1faa64690f400b907e8ab6b4a665c"
+PKG_VERSION="10.40"
+PKG_SHA256="14e4b83c4783933dc17e964318e6324f7cae1bc75d8f3c79bc6969f00c159d68"
 PKG_LICENSE="BSD"
 PKG_SITE="http://www.pcre.org/"
-PKG_URL="${SOURCEFORGE_SRC}/pcre/${PKG_NAME}/${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
+PKG_URL="https://github.com/PhilipHazel/pcre2/releases/download/pcre2-${PKG_VERSION}/pcre2-${PKG_VERSION}.tar.bz2"
+PKG_DEPENDS_HOST="toolchain:host"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A set of functions that implement regular expression pattern matching using the same syntax."
 PKG_TOOLCHAIN="cmake"

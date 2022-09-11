@@ -30,6 +30,10 @@ pre_configure_target() {
   fi
 }
 
+post_configure_target() {
+  libtool_remove_rpath libtool
+}
+
 post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/lib/systemd
   rm -rf ${INSTALL}/lib

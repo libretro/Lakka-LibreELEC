@@ -23,3 +23,7 @@ if [ "${BLURAY_AACS_SUPPORT}" = "yes" ]; then
 else
   PKG_CONFIGURE_OPTS_TARGET+=" --without-libaacs"
 fi
+
+post_configure_target() {
+  libtool_remove_rpath libtool
+}

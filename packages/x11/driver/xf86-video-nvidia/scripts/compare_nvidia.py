@@ -40,7 +40,12 @@ for version in sys.argv[1:]:
 
 for version in versions:
   url = 'http://us.download.nvidia.com/XFree86/Linux-x86_64/' + version + '/README/supportedchips.html'
-  page = requests.get(url)
+
+  headers = {
+    'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:15.0) Gecko/20100101 Firefox/15.0.1',
+  }
+
+  page = requests.get(url, headers=headers)
   tree = html.fromstring(page.content)
 
   # These are the tables we want to use (gpu's supported by the current driver)

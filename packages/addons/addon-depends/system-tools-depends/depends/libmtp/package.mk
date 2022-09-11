@@ -15,3 +15,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --disable-shared \
                            --enable-static \
                            --disable-mtpz"
+
+post_configure_target() {
+  libtool_remove_rpath libtool
+}

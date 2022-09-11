@@ -39,8 +39,11 @@ if [ "${MEDIACENTER}" = "kodi" ]; then
   fi
 
   get_graphicdrivers
-  if listcontains "${GRAPHIC_DRIVERS}" "(crocus|iris|i915|i965)"; then
+  if listcontains "${GRAPHIC_DRIVERS}" "(crocus|i915|iris)"; then
     PKG_DEPENDS_TARGET+=" intel-vaapi-driver media-driver"
   fi
 
+  if listcontains "${GRAPHIC_DRIVERS}" "nvidia-ng"; then
+    PKG_DEPENDS_TARGET+=" nvidia-vaapi-driver"
+  fi
 fi

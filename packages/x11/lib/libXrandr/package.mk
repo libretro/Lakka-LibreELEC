@@ -12,3 +12,7 @@ PKG_DEPENDS_TARGET="toolchain util-macros libX11 libXrender libXext"
 PKG_LONGDESC="Xrandr is a simple library designed to interface the X Resize and Rotate Extension."
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-malloc0returnsnull"
+
+post_configure_target() {
+  libtool_remove_rpath libtool
+}

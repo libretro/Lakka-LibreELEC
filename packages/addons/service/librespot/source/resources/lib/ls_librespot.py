@@ -37,6 +37,8 @@ class Librespot(xbmc.Player):
         settings = get_settings()
         quoted = {k: shlex.quote(v) for (k, v) in settings.items()}
         command = LIBRESPOT
+        if settings['connect_port'] != "0":
+            command += ' --zeroconf-port %s ' % settings['connect_port']
         if settings['autoplay'] == 'true':
             command += LIBRESPOT_AUTOPLAY
         if (settings['discovery'] == 'false' and
