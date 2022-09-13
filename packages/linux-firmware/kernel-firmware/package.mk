@@ -74,15 +74,6 @@ makeinstall_target() {
   # brcm pcie firmware is only needed by x86_64
   [ "${TARGET_ARCH}" != "x86_64" ] && rm -fr ${FW_TARGET_DIR}/brcm/*-pcie.*
 
-  # add nvidia firmware for nouveau
-  if listcontains "${GRAPHIC_DRIVERS}" "nouveau"; then
-    cp -Lrv ${PKG_FW_SOURCE}/nvidia ${FW_TARGET_DIR}/
-    rm -rv ${FW_TARGET_DIR}/nvidia/tegra*
-  fi
-
-  # On Lakka use iwlwifi firmware from this package instead of separate LibreELEC package
-  if [ "${DISTRO}" = "Lakka" -a "${PROJECT}" = "Generic" ]; then
-    cp -Lv ${PKG_FW_SOURCE}/iwlwifi-* ${FW_TARGET_DIR}/
   # Upstream doesn't name the file correctly so we need to symlink it
   if [ -f "${FW_TARGET_DIR}/rtl_bt/rtl8723bs_config-OBDA8723.bin" ]; then
     #cd "${FW_TARGET_DIR}/rtl_bt"

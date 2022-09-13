@@ -5,7 +5,6 @@ PKG_NAME="intel-ucode"
 PKG_VERSION="20220809"
 PKG_SHA256="084463c82fbcb679e7fa211e676fd12a8ae464fed7d445e92ccc67101ced5a94"
 PKG_ARCH="x86_64"
-[ "${DISTRO}" = "Lakka" ] && PKG_ARCH+=" i386" || true
 PKG_LICENSE="other"
 PKG_SITE="https://downloadcenter.intel.com/search?keyword=linux+microcode"
 PKG_URL="https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/archive/microcode-${PKG_VERSION}.tar.gz"
