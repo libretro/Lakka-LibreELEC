@@ -4,6 +4,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/libretro/common-overlays"
 PKG_URL="${PKG_SITE}.git"
 PKG_LONGDESC="Collection of overlay files for use with libretro frontends, such as RetroArch."
+PKG_DEPENDS_TARGET="gcc:host"
 PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {

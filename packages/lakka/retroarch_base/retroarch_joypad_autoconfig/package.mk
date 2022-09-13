@@ -4,6 +4,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/libretro/retroarch-joypad-autoconfig"
 PKG_URL="${PKG_SITE}.git"
 PKG_LONGDESC="RetroArch joypad autoconfig files"
+PKG_DEPENDS_TARGET="gcc:host"
 PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
