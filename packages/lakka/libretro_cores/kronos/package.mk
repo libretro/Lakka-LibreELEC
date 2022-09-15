@@ -1,5 +1,5 @@
 PKG_NAME="kronos"
-PKG_VERSION="a387dec04313a7491415e4e150e5613f4a4a3e6c"
+PKG_VERSION="f2359c25f3fc7180be1ad890ba477ad415957ef6"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/yabause"
 PKG_URL="${PKG_SITE}.git"
