@@ -4,10 +4,9 @@ PKG_LICENSE="MAME"
 PKG_SITE="https://github.com/libretro/picodrive"
 PKG_URL="https://github.com/libretro/picodrive/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain ${PKG_NAME}:host"
-PKG_DEPENDS_HOST="gcc:host"
 PKG_LONGDESC="Libretro implementation of PicoDrive. (Sega Megadrive/Genesis/Sega Master System/Sega GameGear/Sega CD/32X)"
 PKG_TOOLCHAIN="manual"
-PKG_BUILD_FLAGS="-gold"
+PKG_DEPENDS_UNPACK="cyclone68000"
 
 pre_build_host() {
   cp -a $(get_build_dir cyclone68000)/* ${PKG_BUILD}/cpu/cyclone/
