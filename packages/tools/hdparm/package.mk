@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="hdparm"
-PKG_VERSION="9.64"
-PKG_SHA256="315b956951c3fea027287de204381534217c0bd0f37b4935877fe2db0cab859a"
+PKG_VERSION="9.65"
+PKG_SHA256="d14929f910d060932e717e9382425d47c2e7144235a53713d55a94f7de535a4b"
 PKG_LICENSE="BSD"
 PKG_SITE="http://sourceforge.net/projects/hdparm/"
 PKG_URL="${SOURCEFORGE_SRC}/${PKG_NAME}/${PKG_NAME}/${PKG_NAME}-${PKG_VERSION}.tar.gz"
