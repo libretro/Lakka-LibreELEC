@@ -1,11 +1,11 @@
 PKG_NAME="mame2010"
-PKG_VERSION="932e6f2c4f13b67b29ab33428a4037dee9a236a8"
+PKG_VERSION="5f524dd5fca63ec1dcf5cca63885286109937587"
 PKG_LICENSE="MAME"
 PKG_SITE="https://github.com/libretro/mame2010-libretro"
-PKG_URL="${PKG_SITE}.git"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_URL="https://github.com/libretro/mame2010-libretro/archive/${PKG_VERSION}.tar.gz"
+PKG_DEPENDS_TARGET="toolchain glibc zlib"
 PKG_LONGDESC="Late 2010 version of MAME (0.139) for libretro. Compatible with MAME 0.139 romsets."
-PKG_TOOLCHAIN="manual"
+PKG_TOOLCHAIN="make"
 
 pre_make_target() {
   PKG_MAKE_OPTS_TARGET="CC=${CC} LD=${CC}"
