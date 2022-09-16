@@ -43,8 +43,8 @@ case "${LINUX}" in
    PKG_PATCH_DIRS="default ayn-odin"
    ;;
   *)
-    PKG_VERSION="5.19.7"
-    PKG_SHA256="b8bb6019d4255f39196726f9d0f82f76179d1c3d7c6b603431ef04b38201199f"
+    PKG_VERSION="5.19.9"
+    PKG_SHA256="0ad5b5986693adc1962be807bc3a64423a24b6a9da9df39b259d7e3bfd927f37"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v5.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
     PKG_PATCH_DIRS="default ${DISTRO}-default"
     ;;
