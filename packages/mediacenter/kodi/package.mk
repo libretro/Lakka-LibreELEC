@@ -203,7 +203,7 @@ configure_package() {
                          -DENABLE_UDEV=ON \
                          -DENABLE_DBUS=ON \
                          -DENABLE_XSLT=ON \
-                         -DENABLE_CCACHE=ON \
+                         -DENABLE_CCACHE=OFF \
                          -DENABLE_LIRCCLIENT=ON \
                          -DENABLE_EVENTCLIENTS=ON \
                          -DENABLE_LDGOLD=ON \
