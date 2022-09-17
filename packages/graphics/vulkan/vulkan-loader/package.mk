@@ -20,7 +20,7 @@ configure_package() {
 
   # Displayserver Support
   if [ "${DISPLAYSERVER}" = "x11" ]; then
-    PKG_DEPENDS_TARGET+=" libxcb libX11"
+    PKG_DEPENDS_TARGET+=" libxcb libX11 xrandr"
   elif [ "${DISPLAYSERVER}" = "wl" ]; then
     PKG_DEPENDS_TARGET+=" wayland"
   fi
