@@ -37,6 +37,9 @@ if [ "${DISPLAYSERVER}" = "x11" ]; then
   PKG_MESON_OPTS_TARGET+=" -Dplatforms=x11 \
                            -Ddri3=enabled \
                            -Dglx=dri"
+  if [ "${DEVICE}" = "Odin" ]; then
+     PKG_MESON_OPTS_TARGET+=" -Dglx-direct=true"
+  fi
 elif [ "${DISPLAYSERVER}" = "wl" ]; then
   PKG_DEPENDS_TARGET+=" wayland wayland-protocols"
   PKG_MESON_OPTS_TARGET+=" -Dplatforms=wayland \
