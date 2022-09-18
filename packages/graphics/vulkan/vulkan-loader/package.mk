@@ -20,7 +20,7 @@ configure_package() {
 
   # Displayserver Support
   if [ "${DISPLAYSERVER}" = "x11" ]; then
-    PKG_DEPENDS_TARGET+=" libxcb libX11"
+    PKG_DEPENDS_TARGET+=" libxcb libX11 xrandr"
   elif [ "${DISPLAYSERVER}" = "wl" ]; then
     PKG_DEPENDS_TARGET+=" wayland"
   fi
@@ -45,7 +45,7 @@ pre_configure_target() {
   PKG_CMAKE_OPTS_TARGET="-DBUILD_TESTS=OFF"
 
   # GAS / GNU Assembler is only supported by aarch64 & x86_64
-  if [ "${ARCH}" = "arm" ]; then
+  if [ "${ARCH}" = "arm" ] || [ "${DEVICE}" = "Odin" ]; then
     PKG_CMAKE_OPTS_TARGET+=" -DUSE_GAS=OFF"
   fi
 
