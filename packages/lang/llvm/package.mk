@@ -33,6 +33,7 @@ PKG_CMAKE_OPTS_COMMON="-DLLVM_INCLUDE_TOOLS=ON \
                        -DLLVM_ENABLE_ASSERTIONS=OFF \
                        -DLLVM_ENABLE_WERROR=OFF \
                        -DLLVM_ENABLE_ZLIB=OFF \
+                       -DLLVM_ENABLE_ZSTD=OFF \
                        -DLLVM_ENABLE_LIBXML2=OFF \
                        -DLLVM_BUILD_LLVM_DYLIB=ON \
                        -DLLVM_LINK_LLVM_DYLIB=ON \
