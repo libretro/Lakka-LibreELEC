@@ -68,6 +68,28 @@ PKG_CONFIGURE_OPTS_HOST="${GCC_COMMON_CONFIGURE_OPTS} \
                          --enable-clocale=gnu \
                          ${GCC_OPTS}"
 
+post_makeinstall_bootstrap() {
+  GCC_VERSION=$(${TOOLCHAIN}/bin/${TARGET_NAME}-gcc -dumpversion)
+  DATE="0401$(echo ${GCC_VERSION} | sed 's/\./0/g')"
+  CROSS_CC=${TARGET_PREFIX}gcc-${GCC_VERSION}
+
+  rm -f ${TARGET_PREFIX}gcc
+
+cat > ${TARGET_PREFIX}gcc <<EOF
+#!/bin/sh
+${TOOLCHAIN}/bin/ccache ${CROSS_CC} "\$@"
+EOF
+
+  chmod +x ${TARGET_PREFIX}gcc
+
+  # To avoid cache trashing
+  touch -c -t ${DATE} ${CROSS_CC}
+
+  # install lto plugin for binutils
+  mkdir -p ${TOOLCHAIN}/lib/bfd-plugins
+    ln -sf ../gcc/${TARGET_NAME}/${GCC_VERSION}/liblto_plugin.so ${TOOLCHAIN}/lib/bfd-plugins
+}
+
 pre_configure_host() {
   unset CPP
 }
