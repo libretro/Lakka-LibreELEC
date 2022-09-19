@@ -31,6 +31,15 @@ pre_configure_target(){
                            -Dgles1=true \
                            -Dgles2=true"
   fi
+
+  if [ "${DEVICE}" = "Odin" ]; then
+    PKG_MESON_OPTS_TARGET="-Dheaders=true \
+                           -Dx11=enabled \
+                           -Degl=true \
+                           -Dglx=enabled \
+                           -Dgles1=true \
+                           -Dgles2=true"
+  fi
 }
 
 post_makeinstall_target() {
@@ -53,7 +62,6 @@ post_makeinstall_target() {
       ln -sf /var/lib/libGLX.so ${INSTALL}/usr/lib/libGLX.so.0
       # Create new symlink to libGLX.so.0.0.0
       ln -sf libGLX.so.0.0.0    ${INSTALL}/usr/lib/libGLX_glvnd.so.0
-  
       # indirect rendering
       ln -sf /var/lib/libGLX_indirect.so.0 ${INSTALL}/usr/lib/libGLX_indirect.so.0
     fi
