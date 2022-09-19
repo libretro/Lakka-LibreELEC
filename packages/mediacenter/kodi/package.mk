@@ -173,10 +173,14 @@ configure_package() {
     KODI_UPNP="-DENABLE_UPNP=OFF"
   fi
 
-  if target_has_feature neon; then
-    KODI_NEON="-DENABLE_NEON=ON"
+  if [ "${TARGET_ARCH}" = "aarch64" -o "${TARGET_ARCH}" = "arm" ]; then
+    if target_has_feature neon; then
+      KODI_NEON="-DENABLE_NEON=ON"
+    else
+      KODI_NEON="-DENABLE_NEON=OFF"
+    fi
   else
-    KODI_NEON="-DENABLE_NEON=OFF"
+    KODI_NEON=""
   fi
 
   if [ "${VDPAU_SUPPORT}" = "yes" -a "${DISPLAYSERVER}" = "x11" ]; then
