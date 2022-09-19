@@ -19,5 +19,9 @@ post_makeinstall_target() {
   # do not install systemd services
   rm -rf ${INSTALL}/usr/lib
   mkdir -p ${INSTALL}/usr/bin
-  cp -P ${PKG_DIR}/scripts/xorg-launch ${INSTALL}/usr/bin
+  if [ ! "${DEVICE}" = "Odin" ]; then
+    cp -P ${PKG_DIR}/scripts/xorg-launch ${INSTALL}/usr/bin
+  else
+    cp -P ${PKG_DIR}/scripts/xorg-launch-odin ${INSTALL}/usr/bin/xorg-launch
+  fi
 }
