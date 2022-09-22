@@ -5,7 +5,7 @@
 PKG_NAME="pvr.hts"
 PKG_VERSION="20.5.0-Nexus"
 PKG_SHA256="236a73535633736ab15040a8018ad1aa2617165d41fee6417d07976d472cd03c"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-pvr/pvr.hts"
