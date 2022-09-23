@@ -26,6 +26,7 @@ configure_host() {
         -DENABLE_DOCUMENTATION=OFF \
         -DREDIS_STORAGE_BACKEND=OFF \
         -DZSTD_FROM_INTERNET=OFF \
+        -DENABLE_TESTING=OFF \
         ..
 }
 
