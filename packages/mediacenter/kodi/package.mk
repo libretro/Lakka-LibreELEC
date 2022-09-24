@@ -19,6 +19,15 @@ configure_package() {
     PKG_KODI_USE_LTO="-DUSE_LTO=${CONCURRENCY_MAKE_LEVEL}"
   fi
 
+  # Set linker options
+  if [ "${GOLD_SUPPORT}" = "yes" ]; then
+    PKG_KODI_LINKER="-DENABLE_GOLD=ON \
+                     -DENABLE_MOLD=OFF"
+  else
+    PKG_KODI_LINKER="-DENABLE_GOLD=OFF \
+                     -DENABLE_MOLD=OFF"
+  fi
+
   get_graphicdrivers
 
   if [ "${TARGET_ARCH}" = "x86_64" ]; then
@@ -232,7 +241,6 @@ configure_package() {
                          -DENABLE_CCACHE=OFF \
                          -DENABLE_LIRCCLIENT=ON \
                          -DENABLE_EVENTCLIENTS=ON \
-                         -DENABLE_LDGOLD=ON \
                          -DENABLE_DEBUGFISSION=OFF \
                          -DENABLE_APP_AUTONAME=OFF \
                          -DENABLE_TESTING=OFF \
@@ -240,6 +248,7 @@ configure_package() {
                          -DENABLE_LCMS2=OFF \
                          -DADDONS_CONFIGURE_AT_STARTUP=OFF \
                          ${PKG_KODI_USE_LTO} \
+                         ${PKG_KODI_LINKER} \
                          ${KODI_ARCH} \
                          ${KODI_NEON} \
                          ${KODI_VDPAU} \

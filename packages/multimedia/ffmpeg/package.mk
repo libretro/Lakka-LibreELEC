@@ -7,7 +7,6 @@ PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://ffmpeg.org"
 PKG_DEPENDS_TARGET="toolchain zlib bzip2 openssl speex"
 PKG_LONGDESC="FFmpeg is a complete, cross-platform solution to record, convert and stream audio and video."
-PKG_BUILD_FLAGS="-gold"
 
 case "${PROJECT}" in
   Amlogic)
