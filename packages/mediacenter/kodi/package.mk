@@ -20,13 +20,16 @@ configure_package() {
   fi
 
   # Set linker options
-  if [ "${GOLD_SUPPORT}" = "yes" ]; then
-    PKG_KODI_LINKER="-DENABLE_GOLD=ON \
-                     -DENABLE_MOLD=OFF"
-  else
-    PKG_KODI_LINKER="-DENABLE_GOLD=OFF \
-                     -DENABLE_MOLD=OFF"
-  fi
+  case $(get_target_linker) in
+    gold)
+      PKG_KODI_LINKER="-DENABLE_GOLD=ON \
+                       -DENABLE_MOLD=OFF"
+      ;;
+    *)
+      PKG_KODI_LINKER="-DENABLE_GOLD=OFF \
+                       -DENABLE_MOLD=OFF"
+      ;;
+  esac
 
   get_graphicdrivers
 
