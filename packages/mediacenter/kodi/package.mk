@@ -3,8 +3,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="kodi"
-PKG_VERSION="20.0a3-Nexus"
-PKG_SHA256="46a0e8571b046c4d5bc2e1058c65259ba6ebb7d40cf853b8fd08967cf8e22c41"
+PKG_VERSION="9f7e9e02313cd935f93ee47b30758de051c09d91"
+PKG_SHA256="3f68f4871d3aa3ade7b2738d7dd904709ead6cd5b156539de74124457d350d81"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
 PKG_URL="https://github.com/xbmc/xbmc/archive/${PKG_VERSION}.tar.gz"
@@ -17,6 +17,15 @@ configure_package() {
   # Single threaded LTO is very slow so rely on Kodi for parallel LTO support
   if [ "${LTO_SUPPORT}" = "yes" ] && ! build_with_debug; then
     PKG_KODI_USE_LTO="-DUSE_LTO=${CONCURRENCY_MAKE_LEVEL}"
+  fi
+
+  # Set linker options
+  if [ "${GOLD_SUPPORT}" = "yes" ]; then
+    PKG_KODI_LINKER="-DENABLE_GOLD=ON \
+                     -DENABLE_MOLD=OFF"
+  else
+    PKG_KODI_LINKER="-DENABLE_GOLD=OFF \
+                     -DENABLE_MOLD=OFF"
   fi
 
   get_graphicdrivers
@@ -229,10 +238,9 @@ configure_package() {
                          -DENABLE_UDEV=ON \
                          -DENABLE_DBUS=ON \
                          -DENABLE_XSLT=ON \
-                         -DENABLE_CCACHE=ON \
+                         -DENABLE_CCACHE=OFF \
                          -DENABLE_LIRCCLIENT=ON \
                          -DENABLE_EVENTCLIENTS=ON \
-                         -DENABLE_LDGOLD=ON \
                          -DENABLE_DEBUGFISSION=OFF \
                          -DENABLE_APP_AUTONAME=OFF \
                          -DENABLE_TESTING=OFF \
@@ -240,6 +248,7 @@ configure_package() {
                          -DENABLE_LCMS2=OFF \
                          -DADDONS_CONFIGURE_AT_STARTUP=OFF \
                          ${PKG_KODI_USE_LTO} \
+                         ${PKG_KODI_LINKER} \
                          ${KODI_ARCH} \
                          ${KODI_NEON} \
                          ${KODI_VDPAU} \
