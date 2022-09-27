@@ -14,14 +14,18 @@ PKG_DEPENDS_HOST="ccache:host autoconf:host binutils:host gmp:host mpfr:host mpc
 PKG_DEPENDS_INIT="toolchain"
 PKG_LONGDESC="This package contains the GNU Compiler Collection."
 
-case ${TARGET_ARCH} in
-  arm|riscv64)
-    OPTS_LIBATOMIC="--enable-libatomic"
-    ;;
-  *)
-    OPTS_LIBATOMIC="--disable-libatomic"
-    ;;
-esac
+if [ ! ${DISTRO} = "Lakka" ]; then
+  case ${TARGET_ARCH} in
+    arm|riscv64)
+      OPTS_LIBATOMIC="--enable-libatomic"
+      ;;
+    *)
+      OPTS_LIBATOMIC="--disable-libatomic"
+      ;;
+  esac
+else
+  OPTS_LIBATOMIC="--enable-libatomic"
+fi
 
 GCC_COMMON_CONFIGURE_OPTS="--target=${TARGET_NAME} \
                            --with-sysroot=${SYSROOT_PREFIX} \
