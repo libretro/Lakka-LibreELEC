@@ -6,6 +6,7 @@ setenv uartb "no_console_suspend console=ttyS1,115200,8n1"
 setenv cec_enable 0
 setenv performance_mode 0
 setenv dock_freq_switch_enabled 0
+setenv usb3_disable 0
 
 load mmc 1:1 0x83000000 @DISTRO_PATH@/KERNEL
 load mmc 1:1 0x8d000000 @DISTRO_PATH@/tegra210-icosa.dtb
@@ -107,6 +108,31 @@ if load mmc 1:1 ${fdtovaddr} @DISTRO_PATH@/uenv.txt && env import -t ${fdtovaddr
 		# Add additional bootargs for Serial USB
 		if test ${ov} = usb_logging; then setenv bootargs_extra ${usblogging} ${bootargs_extra}; echo Enabled usb serial logging; fi
 	done
+fi
+
+# Prepare display panel id from Nyx.
+cp.b 0xED838002 0xED838001 0x1
+mw.b 0xED838002 0x0 0x1
+
+# Get display panel handle.
+if itest.w *0xED838000 == 0xf20; then echo Display is INNO; fdt get value DHANDLE /host1x/dsi/panel-i-720p-6-2 phandle
+elif itest.w *0xED838000 == 0xf30; then echo Display is AUO; fdt get value DHANDLE /host1x/dsi/panel-a-720p-6-2 phandle
+elif itest.b *0xED838000 == 0x10; then echo Display is JDI; fdt get value DHANDLE /host1x/dsi/panel-j-720p-6-2 phandle
+else echo Display is Unknown; fi
+
+# Set new active display panel handle.
+if test -n ${DHANDLE}; then echo Setting Display panel; fdt resize 8192; fdt set /host1x/dsi nvidia,active-panel <$DHANDLE>; fi
+
+# Disable USB3
+if test ${usb3_disable} = 1; then
+  echo USB3 Disabled
+  fdt get value DHANDLE_USB2 /xusb_padctl@7009f000/pads/usb2/lanes/usb2-0 phandle
+  fdt set /xusb@70090000 phys <DHANDLE_USB2>
+  fdt set /xusb@70090000 phy-names usb2-0
+  fdt set /xudc@700d0000 phys <DHANDLE_USB2>
+  fdt set /xudc@700d0000 phy-names usb2
+  fdt set /xusb_padctl@7009f000/ports/usb2-0 nvidia,usb3-port-fake <0xffffffff>
+  fdt set /xusb_padctl@7009f000/ports/usb3-0 status disabled
 fi
 
 setenv bootargs ${bootargs_extra} "boot=/dev/mmcblk0p1 BOOT_IMAGE=@DISTRO_PATH@/KERNEL SYSTEM_IMAGE=@DISTRO_PATH@/SYSTEM ${@DISTRO_PATH@_boot_options} nofsck fat32-boot cec_enabled=${cec_enable} \
