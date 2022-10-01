@@ -37,9 +37,9 @@ case "${LINUX}" in
     PKG_SHA256=$L4T_COMBINED_KERNEL_SHA256
     ;;
   ayn-odin)
-   PKG_SHA256="b425b70a6379f3415ed349f5c5719d4a6f315523"
+   PKG_SHA256="c19a1c06f1ff61f5d6971757442acf0736585551"
    PKG_VERSION="${PKG_SHA256}"
-   PKG_URL="https://gitlab.com/tjstyle/linux.git"
+   PKG_URL="https://gitlab.com/sdm845-mainline/linux.git"
    PKG_PATCH_DIRS="default ayn-odin"
    ;;
   *)
