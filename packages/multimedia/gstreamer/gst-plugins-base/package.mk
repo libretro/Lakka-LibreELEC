@@ -31,9 +31,8 @@ pre_configure_target() {
                          -Dsubparse=enabled \
                          -Dtcp=disabled \
                          -Dtypefind=disabled \
-                         -Dvideoconvert=disabled \
+                         -Dvideoconvertscale=disabled \
                          -Dvideorate=disabled \
-                         -Dvideoscale=disabled \
                          -Dvideotestsrc=disabled \
                          -Dvolume=disabled \
                          -Dalsa=disabled \
@@ -47,6 +46,7 @@ pre_configure_target() {
                          -Dvorbis=disabled \
                          -Dx11=disabled \
                          -Dxshm=disabled \
+                         -Dxi=disabled \
                          -Dxvideo=disabled \
                          -Dexamples=disabled \
                          -Dtests=disabled \
