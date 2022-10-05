@@ -10,9 +10,9 @@ PKG_LONGDESC="FFmpeg is a complete, cross-platform solution to record, convert a
 
 case "${PROJECT}" in
   Amlogic)
-    PKG_VERSION="0e5290bcac015e52f6a65dafaf41ea125816257f"
+    PKG_VERSION="f9638b6331277e53ecd9276db5fe6dcd91d44c57"
     PKG_FFMPEG_BRANCH="dev/4.4/rpi_import_1"
-    PKG_SHA256="4bd6e56920b90429bc09e43cda554f5bb9125c4ac090b4331fc459bb709eea68"
+    PKG_SHA256="3b42cbffd15d95d59e402475fcdb1aaac9ae6a8404a521b95d1fe79c6b2baad4"
     PKG_URL="https://github.com/jc-kynesim/rpi-ffmpeg/archive/${PKG_VERSION}.tar.gz"
     PKG_PATCH_DIRS="libreelec dav1d"
     ;;
