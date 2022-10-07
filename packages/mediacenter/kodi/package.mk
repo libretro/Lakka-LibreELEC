@@ -25,6 +25,11 @@ configure_package() {
       PKG_KODI_LINKER="-DENABLE_GOLD=ON \
                        -DENABLE_MOLD=OFF"
       ;;
+    mold)
+      PKG_KODI_LINKER="-DENABLE_GOLD=OFF \
+                       -DENABLE_MOLD=ON \
+                       -DMOLD_EXECUTABLE=${TOOLCHAIN}/${TARGET_NAME}/bin/mold"
+      ;;
     *)
       PKG_KODI_LINKER="-DENABLE_GOLD=OFF \
                        -DENABLE_MOLD=OFF"

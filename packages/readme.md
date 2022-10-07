@@ -128,6 +128,7 @@ Set the variable `PKG_BUILD_FLAGS` in the `package.mk` to enable/disable the sin
 | lto-off  | disabled | target, init      | explicitly disable LTO in the compiler and linker |
 | bfd      | - | target, init | `+bfd` prefers bfd linker over default linker, `-bfd` disables using bfd |
 | gold     | - | target, init | `+gold` prefers gold linker over default linker, `-gold` disables using gold |
+| mold     | - | target, init | `+mold` prefers mold linker over default linker, `-mold` disables using gold |
 | parallel | enabled  | all | `make` or `ninja` builds with multiple threads/processes (or not) |
 | strip    | enabled  | target | strips executables (or not) |
 | sysroot  | enabled  | target | installs the package to the sysroot folder (or not) |

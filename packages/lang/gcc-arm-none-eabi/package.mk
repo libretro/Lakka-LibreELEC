@@ -11,6 +11,10 @@ PKG_LONGDESC="This package contains the GNU Compiler Collection for ARM Cortex-R
 PKG_DEPENDS_UNPACK+=" gcc"
 PKG_PATCH_DIRS+=" $(get_pkg_directory gcc)/patches"
 
+if [ "${MOLD_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_HOST+=" mold:host"
+fi
+
 PKG_CONFIGURE_OPTS_HOST="--target=arm-none-eabi \
                          --with-sysroot=${SYSROOT_PREFIX} \
                          --with-gmp=${TOOLCHAIN} \
