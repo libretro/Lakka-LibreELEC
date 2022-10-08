@@ -83,11 +83,11 @@ else
                            -Dglamor=false"
 fi
 
-if [ "${PROJECT}" = "L4T" ]; then
-  PKG_CONFIGURE_OPTS_TARGET+=" --disable-strip \
-                               --enable-glx-tls \
-                               --enable-aiglx"
-fi
+#if [ "${PROJECT}" = "L4T" ]; then
+#  PKG_CONFIGURE_OPTS_TARGET+=" --disable-strip \
+#                               --enable-glx-tls \
+#                               --enable-aiglx"
+#fi
 
 #pre_configure_target() {
 # hack to prevent a build error

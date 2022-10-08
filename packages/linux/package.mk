@@ -100,31 +100,8 @@ post_patch() {
 }
 
 make_host() {
-  if [ "${LINUX}" = "L4T" ]; then
-    CURRENT_PATH=${PATH}
-    export PATH=${TOOLCHAIN}/lib/gcc-arm-aarch64-none-linux-gnu/bin/:${PATH}
-
+  if [ ! "${DEVICE}" = "Odin" ]; then
     make \
-      ARCH=arm64 \
-      CROSS_COMPILE=${KERNEL_TOOLCHAIN}- \
-      olddefconfig
-     make \
-       ARCH=arm64 \
-       CROSS_COMPILE=${KERNEL_TOOLCHAIN}- \
-       prepare
-     #make \
-     #  ARCH=arm64 \
-     #  CROSS_COMPILE=${KERNEL_TOOLCHAIN}- \
-     #  modules_prepare
-     make \
-       ARCH=arm64 \
-       headers_check
-
-     export PATH=${CURRENT_PATH}
-  elif [ "${LINUX}" = "ayn-odin" ]; then
-    :
-  else
-   make \
       ARCH=${HEADERS_ARCH:-$TARGET_KERNEL_ARCH} \
       HOSTCC="${TOOLCHAIN}/bin/host-gcc" \
       HOSTCXX="${TOOLCHAIN}/bin/host-g++" \
@@ -136,26 +113,15 @@ make_host() {
 }
 
 makeinstall_host() {
-  if [ "${LINUX}" = "L4T" ]; then
-    CURRENT_PATH=${PATH}
-    export PATH=${TOOLCHAIN}/lib/gcc-arm-aarch64-none-linux-gnu/bin/:${PATH}
-    make \
-      ARCH=arm64 \
-      CROSS_COMPILE=${KERNEL_TOOLCHAIN}- \
-      INSTALL_HDR_PATH=dest \
-      headers_install
-    export PATH=${CURRENT_PATH}
-  else
-    make \
-      ARCH=${HEADERS_ARCH:-$TARGET_KERNEL_ARCH} \
-      HOSTCC="${TOOLCHAIN}/bin/host-gcc" \
-      HOSTCXX="${TOOLCHAIN}/bin/host-g++" \
-      HOSTCFLAGS="${HOST_CFLAGS}" \
-      HOSTCXXFLAGS="${HOST_CXXFLAGS}" \
-      HOSTLDFLAGS="${HOST_LDFLAGS}" \
-      INSTALL_HDR_PATH=dest \
-      headers_install
-  fi
+  make \
+    ARCH=${HEADERS_ARCH:-$TARGET_KERNEL_ARCH} \
+    HOSTCC="${TOOLCHAIN}/bin/host-gcc" \
+    HOSTCXX="${TOOLCHAIN}/bin/host-g++" \
+    HOSTCFLAGS="${HOST_CFLAGS}" \
+    HOSTCXXFLAGS="${HOST_CXXFLAGS}" \
+    HOSTLDFLAGS="${HOST_LDFLAGS}" \
+    INSTALL_HDR_PATH=dest \
+    headers_install
 
   mkdir -p ${SYSROOT_PREFIX}/usr/include
     cp -R dest/include/* ${SYSROOT_PREFIX}/usr/include
@@ -393,9 +359,9 @@ make_target() {
     KERNEL_UIMAGE_TARGET="${KERNEL_TARGET}"
     KERNEL_TARGET="${KERNEL_TARGET/uImage/Image}"
   fi
-  
+
   if [ "${LINUX}" = "L4T" ]; then
-     export KCFLAGS+="-Wno-error=sizeof-pointer-memaccess -Wno-error=missing-attributes -Wno-error=stringop-truncation -Wno-error=stringop-overflow= -Wno-error=address-of-packed-member -Wno-error=tautological-compare -Wno-error=packed-not-aligned -Wno-error=implicit-function-declaration"
+     export KCFLAGS+="-Wno-error=sizeof-pointer-memaccess -Wno-error=missing-attributes -Wno-error=stringop-truncation -Wno-error=stringop-overflow= -Wno-error=address-of-packed-member -Wno-error=tautological-compare -Wno-error=packed-not-aligned -Wno-error=implicit-function-declaration -Wno-error=unused-function"
   fi
 
   DTC_FLAGS=-@ kernel_make TOOLCHAIN="${TOOLCHAIN}" ${KERNEL_TARGET} ${KERNEL_MAKE_EXTRACMD} modules

@@ -1,9 +1,15 @@
 PKG_NAME="joycond"
-PKG_VERSION="2d3f553060291f1bfee2e49fc2ca4a768b289df8"
-PKG_SHA256="34ba2a4ffd35f2b2bbebd8ce47d17f2238d991bc6262653d0617b28f864e4b63"
 PKG_DEPENDS_TARGET="toolchain cmake:host libevdev systemd"
 PKG_SITE="https://github.com/DanielOgorchock/joycond"
-PKG_URL="https://github.com/DanielOgorchock/joycond/archive/${PKG_VERSION}.tar.gz"
+if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
+  PKG_VERSION="031f04311a912514cea9deb020512ee6d7063398"
+  PKG_SHA256="fd1d3decad34941f7ec0ff5606c931cad3a7b5e644d70550cf602f3e833e66d8"
+  PKG_URL="https://gitlab.com/switchroot/userspace/joycond/-/archive/031f04311a912514cea9deb020512ee6d7063398/joycond-031f04311a912514cea9deb020512ee6d7063398.tar.gz"
+else
+  PKG_VERSION="2d3f553060291f1bfee2e49fc2ca4a768b289df8"
+  PKG_SHA256="34ba2a4ffd35f2b2bbebd8ce47d17f2238d991bc6262653d0617b28f864e4b63"
+  PKG_URL="https://github.com/DanielOgorchock/joycond/archive/${PKG_VERSION}.tar.gz"
+fi
 PKG_LONGDESC="Joycon service"
 
 PKG_TOOLCHAIN="cmake-make"

@@ -23,7 +23,8 @@ PKG_MESON_OPTS_TARGET="-Dnouveau=disabled \
                        -Dfreedreno-kgsl=false \
                        -Dinstall-test-programs=true \
                        -Dudev=false"
-
+listcontains "${GRAPHIC_DRIVERS}" "nouveau" &&
+  PKG_MESON_OPTS_TARGET=${PKG_MESON_OPTS_TARGET/-Dnouveau=disabled/-Dnouveau=enabled}
 listcontains "${GRAPHIC_DRIVERS}" "(crocus|i915|iris)" &&
   PKG_MESON_OPTS_TARGET+=" -Dintel=enabled" || PKG_MESON_OPTS_TARGET+=" -Dintel=disabled"
 
