@@ -164,8 +164,8 @@ makeinstall_target() {
     cp -v ${PKG_DIR}/scripts/retroarch-config ${INSTALL}/usr/lib/retroarch
 
   # System overlay
-  mkdir -p ${INSTALL}/usr/share/retroarch-system
-    touch ${INSTALL}/usr/share/retroarch-system/.placeholder
+  mkdir -p ${INSTALL}/usr/share/retroarch/system
+    touch ${INSTALL}/usr/share/retroarch/system/.placeholder
 
   # General configuration
   mkdir -p ${INSTALL}/etc
@@ -212,7 +212,7 @@ makeinstall_target() {
   echo 'video_smooth = "false"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'video_aspect_ratio_auto = "true"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'video_threaded = "true"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'video_font_path = "/usr/share/retroarch-assets/xmb/monochrome/font.ttf"' >> ${INSTALL}/etc/retroarch.cfg
+  echo 'video_font_path = "/usr/share/retroarch/assets/xmb/monochrome/font.ttf"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'video_font_size = "32"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'video_filter_dir = "/usr/share/video_filters"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'video_gpu_screenshot = "false"' >> ${INSTALL}/etc/retroarch.cfg
