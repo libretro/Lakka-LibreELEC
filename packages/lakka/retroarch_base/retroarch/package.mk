@@ -164,8 +164,8 @@ makeinstall_target() {
     cp -v ${PKG_DIR}/scripts/retroarch-config ${INSTALL}/usr/lib/retroarch
 
   # System overlay
-  mkdir -p ${INSTALL}/usr/share/retroarch-system
-    touch ${INSTALL}/usr/share/retroarch-system/.placeholder
+  mkdir -p ${INSTALL}/usr/share/retroarch/system
+    touch ${INSTALL}/usr/share/retroarch/system/.placeholder
 
   # General configuration
   mkdir -p ${INSTALL}/etc
