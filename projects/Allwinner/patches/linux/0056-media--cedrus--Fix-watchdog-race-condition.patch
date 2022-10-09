@@ -1,0 +1,60 @@
+From: Nicolas Dufresne <nicolas.dufresne@collabora.com>
+To: linux-media@vger.kernel.org, Maxime Ripard <mripard@kernel.org>,
+        Paul Kocialkowski <paul.kocialkowski@bootlin.com>,
+        Mauro Carvalho Chehab <mchehab@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Chen-Yu Tsai <wens@csie.org>,
+        Jernej Skrabec <jernej.skrabec@gmail.com>,
+        Samuel Holland <samuel@sholland.org>,
+        Ezequiel Garcia <ezequiel@vanguardiasur.com.ar>,
+        Hans Verkuil <hverkuil-cisco@xs4all.nl>
+Cc: kernel@collabora.com,
+        Nicolas Dufresne <nicolas.dufresne@collabora.com>,
+        stable@vger.kernel.org, linux-staging@lists.linux.dev,
+        linux-arm-kernel@lists.infradead.org, linux-sunxi@lists.linux.dev,
+        linux-kernel@vger.kernel.org
+Subject: [PATCH v1 1/3] media: cedrus: Fix watchdog race condition
+Date: Thu, 18 Aug 2022 16:33:06 -0400
+Message-Id: <20220818203308.439043-2-nicolas.dufresne@collabora.com>
+X-Mailer: git-send-email 2.37.2
+In-Reply-To: <20220818203308.439043-1-nicolas.dufresne@collabora.com>
+References: <20220818203308.439043-1-nicolas.dufresne@collabora.com>
+MIME-Version: 1.0
+
+The watchdog needs to be schedule before we trigger the decode
+operation, otherwise there is a risk that the decoder IRQ will be
+called before we have schedule the watchdog. As a side effect, the
+watchdog would never be cancelled and its function would be called
+at an inappropriate time.
+
+This was observed while running Fluster with GStreamer as a backend.
+Some programming error would cause the decoder IRQ to be call very
+quickly after the trigger. Later calls into the driver would deadlock
+due to the unbalanced state.
+
+Cc: stable@vger.kernel.org
+Fixes: 7c38a551bda1 ("media: cedrus: Add watchdog for job completion")
+Signed-off-by: Nicolas Dufresne <nicolas.dufresne@collabora.com>
+Reviewed-by: Paul Kocialkowski <paul.kocialkowski@bootlin.com>
+Reviewed-by: Jernej Skrabec <jernej.skrabec@gmail.com>
+---
+ drivers/staging/media/sunxi/cedrus/cedrus_dec.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_dec.c b/drivers/staging/media/sunxi/cedrus/cedrus_dec.c
+index 3b6aa78a2985f..e7f7602a5ab40 100644
+--- a/drivers/staging/media/sunxi/cedrus/cedrus_dec.c
++++ b/drivers/staging/media/sunxi/cedrus/cedrus_dec.c
+@@ -92,10 +192,10 @@ void cedrus_device_run(void *priv)
+ 	if (src_req)
+ 		v4l2_ctrl_request_complete(src_req, &ctx->hdl);
+ 
+-	dev->dec_ops[ctx->current_codec]->trigger(ctx);
+-
+ 	/* Start the watchdog timer. */
+ 	schedule_delayed_work(&dev->watchdog_work,
+ 			      msecs_to_jiffies(2000));
++
++	dev->dec_ops[ctx->current_codec]->trigger(ctx);
+ }
+ 
