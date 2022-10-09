@@ -7,5 +7,5 @@ PKG_LONGDESC="Collection of overlay files for use with libretro frontends, such 
 PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
-  make -C ${PKG_BUILD} install INSTALLDIR="${INSTALL}/usr/share/retroarch-overlays"
+  make -C ${PKG_BUILD} install INSTALLDIR="${INSTALL}/usr/share/retroarch/overlays"
 }

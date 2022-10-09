@@ -7,7 +7,7 @@ PKG_LONGDESC="RetroArch assets. Background and icon themes for the menu drivers.
 PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
-  make -C ${PKG_BUILD} install INSTALLDIR="${INSTALL}/usr/share/retroarch-assets"
+  make -C ${PKG_BUILD} install INSTALLDIR="${INSTALL}/usr/share/retroarch/assets"
 }
 
 post_makeinstall_target() {

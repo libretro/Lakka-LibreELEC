@@ -10,6 +10,6 @@ PKG_TOOLCHAIN="make"
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
     cp -v puae_libretro.so ${INSTALL}/usr/lib/libretro/
-  mkdir -p ${INSTALL}/usr/share/retroarch-system/uae_data
-    cp -vR ${PKG_BUILD}/sources/uae_data/* ${INSTALL}/usr/share/retroarch-system/uae_data/
+  mkdir -p ${INSTALL}/usr/share/retroarch/system/uae_data
+    cp -vR ${PKG_BUILD}/sources/uae_data/* ${INSTALL}/usr/share/retroarch/system/uae_data/
 }
