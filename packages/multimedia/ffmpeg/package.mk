@@ -23,6 +23,15 @@ case "${PROJECT}" in
     PKG_FFMPEG_RPI="--disable-mmal --disable-rpi --enable-sand"
     PKG_PATCH_DIRS="libreelec rpi"
     ;;
+  L4T)
+    PKG_VERSION="4.4.1-Nexus-Alpha1"
+    PKG_SHA256="abbce62231baffe237e412689c71ffe01bfc83135afd375f1e538caae87729ed"
+    PKG_URL="https://github.com/xbmc/FFmpeg/archive/${PKG_VERSION}.tar.gz"
+    PKG_DEPENDS_TARGET+=" tegra-bsp:host"
+    PKG_PATCH_DIRS+="libreelec v4l2-request v4l2-drmprime L4T"
+    PKG_FFMPEG_NVV4L2="--enable-nvv4l2"
+    EXTRA_CFLAGS="-I${SYSROOT_PREFIX}/usr/src/jetson_multimedia_api/include"
+    ;;
   *)
     PKG_VERSION="4.4.1-Nexus-Alpha1"
     PKG_SHA256="abbce62231baffe237e412689c71ffe01bfc83135afd375f1e538caae87729ed"
@@ -150,7 +159,7 @@ configure_target() {
               --host-cc="${HOST_CC}" \
               --host-cflags="${HOST_CFLAGS}" \
               --host-ldflags="${HOST_LDFLAGS}" \
-              --extra-cflags="${CFLAGS}" \
+              --extra-cflags="${CFLAGS} ${EXTRA_CFLAGS}" \
               --extra-ldflags="${LDFLAGS}" \
               --extra-libs="${PKG_FFMPEG_LIBS}" \
               --disable-static \
@@ -186,6 +195,7 @@ configure_target() {
               ${PKG_FFMPEG_VAAPI} \
               ${PKG_FFMPEG_VDPAU} \
               ${PKG_FFMPEG_RPI} \
+              ${PKG_FFMPEG_NVV4L2} \
               --enable-runtime-cpudetect \
               --disable-hardcoded-tables \
               --disable-encoders \

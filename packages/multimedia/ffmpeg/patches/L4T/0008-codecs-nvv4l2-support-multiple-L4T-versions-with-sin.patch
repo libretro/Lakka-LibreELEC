@@ -1,0 +1,97 @@
+From 02d9583d32a9a8bd02dda9dd510519c04691d8d2 Mon Sep 17 00:00:00 2001
+From: CTCaer <ctcaer@gmail.com>
+Date: Fri, 18 Mar 2022 21:31:31 +0000
+Subject: [PATCH 08/20] codecs: nvv4l2: support multiple L4T versions with
+ single build
+
+Nvidia has the tendency to break compatibility on documented apis for no reason.
+
+Adding new values to enums in-between older values and not the end is unacceptable.
+
+A heuristic is now in use that can identify NvBuffer version and adjusts such values accordingly.
+
+That depends on using nvv4l2_ext_utils header with the specific values there.
+---
+ libavcodec/nvv4l2_dec.c | 22 ++++++++++++++++++----
+ libavcodec/nvv4l2_enc.c |  9 +++++++++
+ 2 files changed, 27 insertions(+), 4 deletions(-)
+
+diff --git a/libavcodec/nvv4l2_dec.c b/libavcodec/nvv4l2_dec.c
+index f21a108429..83abdc24e2 100644
+--- a/libavcodec/nvv4l2_dec.c
++++ b/libavcodec/nvv4l2_dec.c
+@@ -176,12 +176,19 @@ static void query_set_capture(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+         input_params.height = crop.c.height;
+         input_params.layout = NvBufferLayout_Pitch;
+         input_params.payloadType = NvBufferPayload_SurfArray;
+-        input_params.colorFormat =
+-                 ctx->cp_pixfmt == V4L2_PIX_FMT_NV12M ?
+-                                   NvBufferColorFormat_NV12 :
+-                                   NvBufferColorFormat_YUV420;
+         input_params.nvbuf_tag = NvBufferTag_VIDEO_DEC;
+ 
++        switch (ctx->cp_pixfmt) {
++        case V4L2_PIX_FMT_YUV420M:
++            input_params.colorFormat = NvBufferColorFormat_YUV420;
++            break;
++        case V4L2_PIX_FMT_NV12M:
++            input_params.colorFormat = NvBufferColorFormat_NV12;
++            if (ctx->pixfmt_list_ver == NvBufferPixFmtVersion_New)
++                input_params.colorFormat++;
++            break;
++        }
++
+         ret = NvBufferCreateEx(&ctx->plane_dma_fd[i], &input_params);
+         if (ret) {
+             av_log(avctx, AV_LOG_ERROR, "Creation of dmabuf failed!\n");
+@@ -261,6 +268,10 @@ static void query_set_capture(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+         cap_params.colorFormat = NvBufferColorFormat_NV12_ER;
+     }
+ 
++    /* Increment color format if NvBuffer is newer. */
++    if (ctx->pixfmt_list_ver == NvBufferPixFmtVersion_New)
++        cap_params.colorFormat++;
++
+     /* Request number of buffers returned by ctrl, plus 10 more. */
+     ctx->cp_num_buffers = min_cap_buffers + 10;
+ 
+@@ -665,6 +676,9 @@ nvv4l2_ctx_t *nvv4l2_create_decoder(AVCodecContext *avctx,
+     ctx->cp_pixfmt = pix_fmt;
+     ctx->op_pixfmt = nvv4l2_map_nvcodec_type(nv_codec_type);
+ 
++    /* Get NvBuffer pixel format list version */
++    ctx->pixfmt_list_ver = nvv4l2_get_pixfmt_list_version(ctx);
++
+     /* Decoder code assumes that the following do not change.
+      ** If another memory type is wanted, relevant changes should be done
+      ** to the rest of the code.
+diff --git a/libavcodec/nvv4l2_enc.c b/libavcodec/nvv4l2_enc.c
+index f6c27afd6f..1e247d5645 100644
+--- a/libavcodec/nvv4l2_enc.c
++++ b/libavcodec/nvv4l2_enc.c
+@@ -269,6 +269,9 @@ nvv4l2_ctx_t *nvv4l2_create_encoder(AVCodecContext *avctx,
+     ctx->op_pixfmt = pix_fmt;
+     ctx->cp_pixfmt = nvv4l2_map_nvcodec_type(nv_codec_type);
+ 
++    /* Get NvBuffer pixel format list version */
++    ctx->pixfmt_list_ver = nvv4l2_get_pixfmt_list_version(ctx);
++
+     /* Encoder code assumes that the following do not change.
+      ** If another memory type is wanted, relevant changes should be done
+      ** to the rest of the code.
+@@ -527,6 +530,12 @@ nvv4l2_ctx_t *nvv4l2_create_encoder(AVCodecContext *avctx,
+             iParams.colorFormat = NvBufferColorFormat_NV12_10LE;
+         }
+ 
++        /* Increment color format if NvBuffer is newer. */
++        if (ctx->pixfmt_list_ver == NvBufferPixFmtVersion_New &&
++             iParams.colorFormat > NvBufferColorFormat_YUV420) {
++            iParams.colorFormat++;
++        }
++
+         ret = NvBufferCreateEx(&ctx->plane_dma_fd[i], &iParams);
+         if (ret) {
+             av_log(avctx, AV_LOG_ERROR, "Creation of dmabuf failed!\n");
+-- 
+2.25.1
+

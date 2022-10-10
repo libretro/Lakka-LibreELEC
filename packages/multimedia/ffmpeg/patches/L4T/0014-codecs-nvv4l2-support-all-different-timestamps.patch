@@ -1,0 +1,117 @@
+From 1d0dbfb7243a12b2941a23584a2dbed7cfb7077f Mon Sep 17 00:00:00 2001
+From: CTCaer <ctcaer@gmail.com>
+Date: Fri, 18 Mar 2022 21:57:58 +0000
+Subject: [PATCH 14/20] codecs: nvv4l2: support all different timestamps
+
+Various packets and players have different timestamps defined.
+
+For example old mpeg videos do not have PTS and many streaming apps or other players do not have or remove PTS.
+
+In such cases if user pts (reordered_opaque) is not set, set AV_NOPTS_VALUE instead of 0.
+
+In cases where user PTS is provided, use a flag so we know in capture plane that this is the case. Then set pts to AV_NOPTS_VALUE and reordered opaque properly.
+
+That works quite well with NVV4L2 because it reorders the frames automatically.
+And so we just need to set the proper timestamp on queued buffer, along with a flag to identify it's not PTS but user based PTS.
+---
+ libavcodec/nvv4l2_dec.c | 51 +++++++++++++++++++++++++++++++++++++----
+ 1 file changed, 46 insertions(+), 5 deletions(-)
+
+diff --git a/libavcodec/nvv4l2_dec.c b/libavcodec/nvv4l2_dec.c
+index 05ae7997fc..bd4650ac7a 100644
+--- a/libavcodec/nvv4l2_dec.c
++++ b/libavcodec/nvv4l2_dec.c
+@@ -523,9 +523,27 @@ static void *dec_capture_thread(void *arg)
+ 
+             /* Set timestamp based on origin pts flags */
+             if (buf_index >= 0) {
+-                ctx->frame_pts[buf_index] =
++                if (v4l2_cp_buf.timestamp.tv_usec == 0 &&
++                     v4l2_cp_buf.timestamp.tv_sec == NV_V4L2_NOPTS_VALUE) {
++                    /* Origin packet had no pts and user pts values. */
++                    ctx->frame_pts[buf_index] = AV_NOPTS_VALUE;
++                    ctx->frame_user_pts[buf_index] = AV_NOPTS_VALUE;
++                } else if (v4l2_cp_buf.timestamp.tv_sec &
++                           NV_V4L2_REORDERED_OPAQUE_FLAG) {
++                    /* Origin packet had only user pts value. */
++                    v4l2_cp_buf.timestamp.tv_sec &=
++                                   (~NV_V4L2_REORDERED_OPAQUE_FLAG);
++                    ctx->frame_pts[buf_index] = AV_NOPTS_VALUE;
++                    ctx->frame_user_pts[buf_index] =
+                                 v4l2_cp_buf.timestamp.tv_usec +
+                                 (v4l2_cp_buf.timestamp.tv_sec * AV_TIME_BASE);
++                } else {
++                    /* Origin packet had pts value. */
++                    ctx->frame_pts[buf_index] =
++                                v4l2_cp_buf.timestamp.tv_usec +
++                                (v4l2_cp_buf.timestamp.tv_sec * AV_TIME_BASE);
++                   ctx->frame_user_pts[buf_index] = AV_NOPTS_VALUE;
++                }
+             }
+ 
+             nvv4l2_pool_push(ctx, ctx->export_pool);
+@@ -604,6 +622,7 @@ nvv4l2_decoder_get_frame(AVCodecContext *avctx, nvv4l2_ctx_t *ctx,
+     frame->width = ctx->codec_width;
+     frame->height = ctx->codec_height;
+     frame->pts = ctx->frame_pts[_buf_index];
++    frame->user_pts = ctx->frame_user_pts[_buf_index];
+ 
+     *buf_index = _buf_index;
+ 
+@@ -648,10 +667,22 @@ nvv4l2_decoder_put_packet(AVCodecContext *avctx, nvv4l2_ctx_t *ctx,
+ 
+     v4l2_buf_op.m.planes[0].bytesused = buffer->planes[0].bytesused;
+ 
+-    /* Set timestamp */
++    /* Set timestamp based on packet flags. */
+     v4l2_buf_op.flags |= V4L2_BUF_FLAG_TIMESTAMP_COPY;
+-    v4l2_buf_op.timestamp.tv_sec = packet->pts / AV_TIME_BASE;
+-    v4l2_buf_op.timestamp.tv_usec = packet->pts % AV_TIME_BASE;
++    if (packet->pts != AV_NOPTS_VALUE) {
++        /* Packet pts is valid */
++        v4l2_buf_op.timestamp.tv_sec = packet->pts / AV_TIME_BASE;
++        v4l2_buf_op.timestamp.tv_usec = packet->pts % AV_TIME_BASE;
++    } else if (packet->user_pts != AV_NOPTS_VALUE) {
++        /* User pts is valid */
++        v4l2_buf_op.timestamp.tv_sec = packet->user_pts / AV_TIME_BASE;
++        v4l2_buf_op.timestamp.tv_usec = packet->user_pts % AV_TIME_BASE;
++        v4l2_buf_op.timestamp.tv_sec |= NV_V4L2_REORDERED_OPAQUE_FLAG;
++    } else {
++        /* No valid pts or user pts */
++        v4l2_buf_op.timestamp.tv_sec = NV_V4L2_NOPTS_VALUE;
++        v4l2_buf_op.timestamp.tv_usec = 0;
++    }
+ 
+     /* Queue packet on output plane. */
+     ret = nvv4l2_q_buffer(ctx, &v4l2_buf_op, buffer,
+@@ -1066,6 +1097,7 @@ nvv4l2dec_decode(AVCodecContext *avctx, void *data, int *got_frame,
+         packet.payload_size = avpkt->size;
+         packet.payload = avpkt->data;
+         packet.pts = avpkt->pts;
++        packet.user_pts = avctx->reordered_opaque;
+ 
+         if (!nvv4l2_decoder_put_packet(avctx, ctx, &packet)) {
+             processed_size = avpkt->size;
+@@ -1106,9 +1138,18 @@ nvv4l2dec_decode(AVCodecContext *avctx, void *data, int *got_frame,
+     avframe->height = _nvframe.height;
+ 
+     avframe->format = avctx->pix_fmt;
+-    avframe->pts = _nvframe.pts;
+     avframe->pkt_dts = AV_NOPTS_VALUE;
+ 
++    /* Decide which timestamps to set. */
++    if (_nvframe.pts != AV_NOPTS_VALUE) {
++        avframe->pts = _nvframe.pts;
++    } else {
++        avframe->pts = _nvframe.pts;
++        avframe->reordered_opaque = _nvframe.user_pts;
++    }
++
++    avframe->key_frame = 0;
++
+     avctx->coded_width = _nvframe.width;
+     avctx->coded_height = _nvframe.height;
+     avctx->width = _nvframe.width;
+-- 
+2.25.1
+
