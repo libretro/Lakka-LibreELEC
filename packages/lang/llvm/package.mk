@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="llvm"
-PKG_VERSION="14.0.6"
-PKG_SHA256="8b3cfd7bc695bd6cea0f37f53f0981f34f87496e79e2529874fd03a2f9dd3a8a"
+PKG_VERSION="15.0.2"
+PKG_SHA256="7877cd67714728556a79e5ec0cc72d66b6926448cf73b12b2cb901b268f7a872"
 PKG_LICENSE="Apache-2.0"
 PKG_SITE="http://llvm.org/"
 PKG_URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${PKG_VERSION}/llvm-project-${PKG_VERSION}.src.tar.xz"
@@ -33,6 +33,7 @@ PKG_CMAKE_OPTS_COMMON="-DLLVM_INCLUDE_TOOLS=ON \
                        -DLLVM_ENABLE_ASSERTIONS=OFF \
                        -DLLVM_ENABLE_WERROR=OFF \
                        -DLLVM_ENABLE_ZLIB=OFF \
+                       -DLLVM_ENABLE_ZSTD=OFF \
                        -DLLVM_ENABLE_LIBXML2=OFF \
                        -DLLVM_BUILD_LLVM_DYLIB=ON \
                        -DLLVM_LINK_LLVM_DYLIB=ON \
