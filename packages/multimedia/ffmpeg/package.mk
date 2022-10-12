@@ -131,6 +131,13 @@ else
   PKG_FFMPEG_AV1="--disable-libdav1d"
 fi
 
+if [ "${VULKAN_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" ${VULKAN}"
+  PKG_FFMPEG_VULKAN="--enable-vulkan"
+else
+  PKG_FFMPEG_VULKAN="--disable-vulkan"
+fi
+
 pre_configure_target() {
   cd ${PKG_BUILD}
   rm -rf .${TARGET_NAME}
@@ -149,14 +156,13 @@ configure_target() {
    CONFIG_OPTIONS_STANDARD_FFMPEG=" --disable-static \
               --enable-shared \
               --enable-gpl \
-              --disable-version3 \
+              --enable-version3 \
               --enable-logging \
               --disable-doc \
               ${PKG_FFMPEG_DEBUG} \
               --enable-pic \
               --enable-optimizations \
               --disable-extra-warnings \
-              --disable-programs \
               --enable-avdevice \
               --enable-avcodec \
               --enable-avformat \
@@ -166,7 +172,7 @@ configure_target() {
               --disable-devices \
               --enable-pthreads \
               --enable-network \
-              --enable-gnutls --disable-openssl \
+              --disable-gnutls --enable-openssl \
               --disable-gray \
               --enable-swscale-alpha \
               --disable-small \
