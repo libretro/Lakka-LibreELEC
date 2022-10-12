@@ -3,8 +3,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="bcm2835-bootloader"
-PKG_VERSION="53f4941b7bb2512e07fa7c6baec29cbee4889848"
-PKG_SHA256="bb61b6baec79e2d0b4a4a63d62064c5a6d1e9baf7fd7bfb6810454893ab37e76"
+PKG_VERSION="5f40391c32ca871c8491b4d78c1e60f0c28120f5"
+PKG_SHA256="1b8c1ad6d740523948ecef12de4a2636a396344456fd9aa7dfdbb5959fa16992"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.broadcom.com"
