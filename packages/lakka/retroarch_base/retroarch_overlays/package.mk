@@ -8,5 +8,5 @@ PKG_DEPENDS_TARGET="gcc:host"
 PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
-  make -C ${PKG_BUILD} install INSTALLDIR="${INSTALL}/usr/share/retroarch-overlays"
+  make -C ${PKG_BUILD} install INSTALLDIR="${INSTALL}/usr/share/retroarch/overlays"
 }

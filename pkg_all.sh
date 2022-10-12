@@ -41,9 +41,10 @@ targets="\
 	Allwinner|H6|aarch64| \
 	Allwinner|R40|arm| \
 	Amlogic|AMLGX|aarch64| \
-        Ayn|Odin|aarch64| \
-	Generic||i386| \
-	Generic||x86_64| \
+	Ayn|Odin|aarch64| \
+	Generic|gbm|x86_64| \
+	Generic|wayland|x86_64| \
+	Generic|Generic-legacy|x86_64| \
 	L4T|Switch|aarch64| \
 	NXP|iMX6|arm| \
 	NXP|iMX8|aarch64| \

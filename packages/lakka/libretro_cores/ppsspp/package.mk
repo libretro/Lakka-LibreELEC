@@ -53,6 +53,6 @@ pre_make_target() {
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
     cp -v lib/ppsspp_libretro.so ${INSTALL}/usr/lib/libretro/
-  mkdir -p ${INSTALL}/usr/share/retroarch-system/PPSSPP
-    cp -rv assets/* ${INSTALL}/usr/share/retroarch-system/PPSSPP/
+  mkdir -p ${INSTALL}/usr/share/retroarch/system/PPSSPP
+    cp -rv assets/* ${INSTALL}/usr/share/retroarch/system/PPSSPP/
 }
