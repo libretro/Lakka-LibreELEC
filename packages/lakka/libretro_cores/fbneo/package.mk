@@ -1,13 +1,15 @@
 PKG_NAME="fbneo"
-PKG_VERSION="3d4c2e73c380b57ceba26a68071a635087b91771"
+PKG_VERSION="6a62a19cdff335483af9726efe52ad62338faa35"
 PKG_LICENSE="Non-commercial"
 PKG_SITE="https://github.com/libretro/fbneo"
 PKG_URL="${PKG_SITE}.git"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain linux glibc"
 PKG_LONGDESC="Port of Final Burn Neo to Libretro"
 PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="-C src/burner/libretro"
+
+pre_configure_target() {
 
 if [ "${ARCH}" = "arm" ]; then
   PKG_MAKE_OPTS_TARGET+=" profile=performance"
@@ -23,6 +25,15 @@ if [ "${ARCH}" = "arm" ]; then
 else
   PKG_MAKE_OPTS_TARGET+=" profile=accuracy"
 fi
+
+  if [ "${TARGET_ARCH}" = "arm" ]; then
+    export CFLAGS=$(echo ${CFLAGS} | sed -e "s|-D_FILE_OFFSET_BITS=64||g")
+    export CFLAGS=$(echo ${CFLAGS} | sed -e "s|-D_TIME_BITS=64||g")
+    export CXXFLAGS=$(echo ${CXXFLAGS} | sed -e "s|-D_FILE_OFFSET_BITS=64||g")
+    export CXXFLAGS=$(echo ${CXXFLAGS} | sed -e "s|-D_TIME_BITS=64||g")
+  fi
+ }
+
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro

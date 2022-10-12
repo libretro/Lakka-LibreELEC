@@ -103,36 +103,9 @@ make_host() {
   if [ "${LINUX}" = "L4T" ]; then
     CURRENT_PATH=${PATH}
     export PATH=${TOOLCHAIN}/lib/gcc-arm-aarch64-none-linux-gnu/bin/:${PATH}
-
-    make \
-      ARCH=arm64 \
-      CROSS_COMPILE=${KERNEL_TOOLCHAIN}- \
-      olddefconfig
-     make \
-       ARCH=arm64 \
-       CROSS_COMPILE=${KERNEL_TOOLCHAIN}- \
-       prepare
-     #make \
-     #  ARCH=arm64 \
-     #  CROSS_COMPILE=${KERNEL_TOOLCHAIN}- \
-     #  modules_prepare
-     make \
-       ARCH=arm64 \
-       headers_check
-
-     export PATH=${CURRENT_PATH}
-  elif [ "${LINUX}" = "ayn-odin" ]; then
-    :
-  else
-   make \
-      ARCH=${HEADERS_ARCH:-$TARGET_KERNEL_ARCH} \
-      HOSTCC="${TOOLCHAIN}/bin/host-gcc" \
-      HOSTCXX="${TOOLCHAIN}/bin/host-g++" \
-      HOSTCFLAGS="${HOST_CFLAGS}" \
-      HOSTCXXFLAGS="${HOST_CXXFLAGS}" \
-      HOSTLDFLAGS="${HOST_LDFLAGS}" \
-      headers_check
-  fi
+ else
+ :
+ fi
 }
 
 makeinstall_host() {
