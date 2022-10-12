@@ -1,22 +1,10 @@
 PKG_NAME="pcsx_rearmed"
-PKG_VERSION="ee8fd5674f74f307878f2dabef7641a837fb2a99"
+PKG_VERSION="0739265dc0123d200d43ebf99bb79a37d48d6bac"
 PKG_SITE="https://github.com/libretro/pcsx_rearmed"
 PKG_URL="https://github.com/libretro/pcsx_rearmed/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain linux glibc"
 PKG_LONGDESC="PCSX ReARMed is yet another PCSX fork based on the PCSX-Reloaded project, which itself contains code from PCSX, PCSX-df and PCSX-Revolution."
 PKG_TOOLCHAIN="make"
-
-if [ "${OPENGL_SUPPORT}" = "yes" ]; then
-  PKG_DEPENDS_TARGET+=" ${OPENGL}"
-fi
-
-if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
-  PKG_DEPENDS_TARGET+=" ${OPENGLES}"
-fi
-
-if [ "${VULKAN_SUPPORT}" = "yes" ]; then
-  PKG_DEPENDS_TARGET+=" ${VULKAN}"
-fi
 
 configure_package() {
   if [ ! "${ARCH}" = "arm" ]; then
@@ -36,19 +24,19 @@ if target_has_feature neon; then
 fi
 
 if [ "${ARCH}" = "arm" ]; then
-  PKG_MAKE_OPTS_TARGET+=" DYNAREC=ari64"
   if target_has_feature neon ; then
   PKG_MAKE_OPTS_TARGET+=" HAVE_NEON=1 BUILTIN_GPU=neon"
   else
   PKG_MAKE_OPTS_TARGET+=" HAVE_NEON=0 BUILTIN_GPU=unai"
 fi
+ fi
 
   case ${TARGET_ARCH} in
     aarch64)
       PKG_MAKE_OPTS_TARGET+=" DYNAREC=ari64 platform=aarch64"
       ;;
     arm)
-      PKG_MAKE_OPTS_TARGET+=" DYNAREC=ari64"
+      PKG_MAKE_OPTS_TARGET+=" DYNAREC=ari64 platform=unix"
       ;;
     x86_64)
       PKG_MAKE_OPTS_TARGET+=" DYNAREC=lightrec"
