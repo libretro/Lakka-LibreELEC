@@ -43,18 +43,19 @@ create_serial() {
 	ln -s $gadget_config/usb_gadget/g/functions/acm.usb0 $gadget_config/usb_gadget/g/configs/c.1/
 }
 
-finalize_gadget_framework() {
-	echo $udc > $gadget_config/usb_gadget/g/UDC
-	udevadm settle -t 5 || :
-}
-
 if [ "$1" = "init" ]; then
   create_gadget_framework
   create_ffs_mtp
   create_serial
 elif [ "$1" = "finalize" ]; then
-  while [ ! "$(cat $gadget_config/usb_gadget/g/UDC)" = "$udc" ]
-  do
-    finalize_gadget_framework
-  done
+  systemctl start umtp-responder
+  sleep 1 #Wait for umtp-responder to start
+  echo $udc > $gadget_config/usb_gadget/g/UDC
+  udevadm settle -t 5 || :
+  systemctl start usb-tty
+elif [ "$1" = "disconnect" ]; then
+  systemctl start usb-tty
+  echo "" > $gadget_config/usb_gadget/g/UDC
+  udevadm settle -t 5 || :
+  systemctl stop umtp-responder
 fi

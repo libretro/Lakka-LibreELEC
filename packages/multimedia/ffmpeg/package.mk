@@ -6,6 +6,9 @@ PKG_NAME="ffmpeg"
 PKG_LICENSE="GPL-3.0-only"
 PKG_SITE="https://ffmpeg.org"
 PKG_DEPENDS_TARGET="toolchain zlib bzip2 openssl speex"
+if [ "${DISTRO}" = "Lakka" ]; then
+  PKG_DEPENDS_TARGET+=" libx264 lame rtmpdump"
+fi
 PKG_LONGDESC="FFmpeg is a complete, cross-platform solution to record, convert and stream audio and video."
 
 PKG_VERSION="4.4.1"
@@ -24,6 +27,15 @@ case "${PROJECT}" in
   RPi)
     PKG_FFMPEG_RPI="--disable-mmal --disable-rpi --enable-sand"
     PKG_PATCH_DIRS+=" rpi"
+    ;;
+  L4T)
+    PKG_VERSION="4.4.1-Nexus-Alpha1"
+    PKG_SHA256="abbce62231baffe237e412689c71ffe01bfc83135afd375f1e538caae87729ed"
+    PKG_URL="https://github.com/xbmc/FFmpeg/archive/${PKG_VERSION}.tar.gz"
+    PKG_DEPENDS_TARGET+=" tegra-bsp:host"
+    PKG_PATCH_DIRS+="libreelec v4l2-request v4l2-drmprime L4T"
+    PKG_FFMPEG_NVV4L2="--enable-nvv4l2"
+    EXTRA_CFLAGS="-I${SYSROOT_PREFIX}/usr/src/jetson_multimedia_api/include"
     ;;
   *)
     PKG_PATCH_DIRS+=" v4l2-request v4l2-drmprime"
@@ -155,92 +167,91 @@ else
 fi
 
 configure_target() {
-  CONFIG_OPTIONS_STANDARD_FFMPEG="--enable-cross-compile \
-                                  --disable-static \
-                                  --enable-shared \
-                                  --enable-gpl \
-                                  --enable-version3 \
-                                  --enable-logging \
-                                  --disable-doc \
-                                  ${PKG_FFMPEG_DEBUG} \
-                                  --enable-pic \
-                                  --enable-optimizations \
-                                  --disable-extra-warnings \
-                                  --enable-avdevice \
-                                  --enable-avcodec \
-                                  --enable-avformat \
-                                  --enable-swscale \
-                                  --enable-postproc \
-                                  --enable-avfilter \
-                                  --disable-devices \
-                                  --enable-pthreads \
-                                  --enable-network \
-                                  --disable-gnutls --enable-openssl \
-                                  --disable-gray \
-                                  --enable-swscale-alpha \
-                                  --disable-small \
-                                  --enable-dct \
-                                  --enable-fft \
-                                  --enable-mdct \
-                                  --enable-rdft \
-                                  --disable-crystalhd \
-                                  ${PKG_FFMPEG_V4L2} \
-                                  ${PKG_FFMPEG_VAAPI} \
-                                  ${PKG_FFMPEG_VDPAU} \
-                                  ${PKG_FFMPEG_RPI} \
-                                  --enable-runtime-cpudetect \
-                                  --disable-hardcoded-tables \
-                                  --disable-encoders \
-                                  --enable-encoder=ac3 \
-                                  --enable-encoder=aac \
-                                  --enable-encoder=wmav2 \
-                                  --enable-encoder=mjpeg \
-                                  --enable-encoder=png \
-                                  ${PKG_FFMPEG_HWACCEL} \
-                                  --disable-muxers \
-                                  --enable-muxer=spdif \
-                                  --enable-muxer=adts \
-                                  --enable-muxer=asf \
-                                  --enable-muxer=ipod \
-                                  --enable-muxer=mpegts \
-                                  --enable-demuxers \
-                                  --enable-parsers \
-                                  --enable-bsfs \
-                                  --enable-protocol=http \
-                                  --disable-indevs \
-                                  --disable-outdevs \
-                                  --enable-filters \
-                                  --disable-avisynth \
-                                  --enable-bzlib \
-                                  --disable-lzma \
-                                  --disable-alsa \
-                                  --disable-frei0r \
-                                  --disable-libopencore-amrnb \
-                                  --disable-libopencore-amrwb \
-                                  --disable-libopencv \
-                                  --disable-libdc1394 \
-                                  --disable-libfreetype \
-                                  --disable-libgsm \
-                                  --disable-libmp3lame \
-                                  --disable-libopenjpeg \
-                                  --disable-librtmp \
-                                  ${PKG_FFMPEG_AV1} \
-                                  --enable-libspeex \
-                                  --disable-libtheora \
-                                  --disable-libvo-amrwbenc \
-                                  --disable-libvorbis \
-                                  --disable-libvpx \
-                                  --disable-libx264 \
-                                  --disable-libxavs \
-                                  --disable-libxvid \
-                                  --enable-zlib \
-                                  --enable-asm \
-                                  --disable-altivec \
-                                  ${PKG_FFMPEG_FPU} \
-                                  --disable-symver \
-                                  ${PKG_FFMPEG_TESTING} \
-                                  ${PKG_FFMPEG_NVV4L2} \
-                                  ${PKG_FFMPEG_VULKAN}"
+  CONFIG_OPTIONS_STANDARD_FFMPEG=" --disable-static \
+                                   --enable-shared \
+                                   --enable-gpl \
+                                   --enable-version3 \
+                                   --enable-logging \
+                                   --disable-doc \
+                                   ${PKG_FFMPEG_DEBUG} \
+                                   --enable-pic \
+                                   --enable-optimizations \
+                                   --disable-extra-warnings \
+                                   --enable-avdevice \
+                                   --enable-avcodec \
+                                   --enable-avformat \
+                                   --enable-swscale \
+                                   --enable-postproc \
+                                   --enable-avfilter \
+                                   --disable-devices \
+                                   --enable-pthreads \
+                                   --enable-network \
+                                   --disable-gnutls --enable-openssl \
+                                   --disable-gray \
+                                   --enable-swscale-alpha \
+                                   --disable-small \
+                                   --enable-dct \
+                                   --enable-fft \
+                                   --enable-mdct \
+                                   --enable-rdft \
+                                   --disable-crystalhd \
+                                   ${PKG_FFMPEG_V4L2} \
+                                   ${PKG_FFMPEG_VAAPI} \
+                                   ${PKG_FFMPEG_VDPAU} \
+                                   ${PKG_FFMPEG_RPI} \
+                                   --enable-runtime-cpudetect \
+                                   --disable-hardcoded-tables \
+                                   --disable-encoders \
+                                   --enable-encoder=ac3 \
+                                   --enable-encoder=aac \
+                                   --enable-encoder=wmav2 \
+                                   --enable-encoder=mjpeg \
+                                   --enable-encoder=png \
+                                   ${PKG_FFMPEG_HWACCEL} \
+                                   --disable-muxers \
+                                   --enable-muxer=spdif \
+                                   --enable-muxer=adts \
+                                   --enable-muxer=asf \
+                                   --enable-muxer=ipod \
+                                   --enable-muxer=mpegts \
+                                   --enable-demuxers \
+                                   --enable-parsers \
+                                   --enable-bsfs \
+                                   --enable-protocol=http \
+                                   --disable-indevs \
+                                   --disable-outdevs \
+                                   --enable-filters \
+                                   --disable-avisynth \
+                                   --enable-bzlib \
+                                   --disable-lzma \
+                                   --disable-alsa \
+                                   --disable-frei0r \
+                                   --disable-libopencore-amrnb \
+                                   --disable-libopencore-amrwb \
+                                   --disable-libopencv \
+                                   --disable-libdc1394 \
+                                   --disable-libfreetype \
+                                   --disable-libgsm \
+                                   --disable-libmp3lame \
+                                   --disable-libopenjpeg \
+                                   --disable-librtmp \
+                                   ${PKG_FFMPEG_AV1} \
+                                   --enable-libspeex \
+                                   --disable-libtheora \
+                                   --disable-libvo-amrwbenc \
+                                   --disable-libvorbis \
+                                   --disable-libvpx \
+                                   --disable-libx264 \
+                                   --disable-libxavs \
+                                   --disable-libxvid \
+                                   --enable-zlib \
+                                   --enable-asm \
+                                   --disable-altivec \
+                                   ${PKG_FFMPEG_FPU} \
+                                   --disable-symver \
+                                   ${PKG_FFMPEG_TESTING} \
+                                   ${PKG_FFMPEG_NVV4L2} \
+                                   ${PKG_FFMPEG_VULKAN}"
 
   if [  "${DISTRO}" = "Lakka" ]; then
     CONFIG_OPTIONS_STANDARD_FFMPEG=${CONFIG_OPTIONS_STANDARD_FFMPEG/"--disable-encoders "/"--enable-encoders "}
@@ -263,6 +274,7 @@ configure_target() {
   ./configure --prefix="/usr" \
               --cpu="${TARGET_CPU}" \
               --arch="${TARGET_ARCH}" \
+              --enable-cross-compile \
               --cross-prefix="${TARGET_PREFIX}" \
               --sysroot="${SYSROOT_PREFIX}" \
               --sysinclude="${SYSROOT_PREFIX}/usr/include" \

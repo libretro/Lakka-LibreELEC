@@ -1,0 +1,41 @@
+From 7b67a0996bb80c38a923b215566c67ffc130d161 Mon Sep 17 00:00:00 2001
+From: CTCaer <ctcaer@gmail.com>
+Date: Tue, 28 Jun 2022 01:37:59 +0000
+Subject: [PATCH 18/20] codecs: nvv4l2: align encoder plane width to 64B
+
+Transformations of Block linear formats to linear Pitch formats are done in HW.
+
+VIC is responsible for that and has the limitation that width must be aligned to 64 Bytes.
+
+This allows the encoder to work with every single non standard resolution, effectively bringing full support to any video.
+
+That is particularly important on streaming software that use ffmpeg for encoding which many times can be weird resolutions (e.g. pip).
+
+The output encoded frame has the original line width of course.
+---
+ libavcodec/nvv4l2_enc.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/libavcodec/nvv4l2_enc.c b/libavcodec/nvv4l2_enc.c
+index cb7b7363f3..7bd8e84227 100644
+--- a/libavcodec/nvv4l2_enc.c
++++ b/libavcodec/nvv4l2_enc.c
+@@ -687,7 +687,14 @@ int nvv4l2_encoder_put_frame(AVCodecContext *avctx, nvv4l2_ctx_t *ctx,
+ 
+     /* Import frame into output plane */
+     for (uint32_t i = 0; i < buffer->n_planes; i++) {
+-        Raw2NvBuffer(frame->payload[i], i, ctx->op_planefmts[i].width,
++        /*
++         ** Due to VIC constrains the transformation from Block Linear to Pitch
++         ** must have aligned widths to 64B. Otherwise the frame might be
++         ** produced as scrambled.
++         */
++        int aligned_plane_width = NVALIGN(ctx->op_planefmts[i].width, 64);
++
++        Raw2NvBuffer(frame->payload[i], i, aligned_plane_width,
+                      ctx->op_planefmts[i].height, buffer->planes[i].fd);
+         buffer->planes[i].bytesused = ctx->op_planefmts[i].width *
+                                       ctx->op_planefmts[i].height *
+-- 
+2.25.1
+

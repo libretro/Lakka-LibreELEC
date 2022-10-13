@@ -1,0 +1,322 @@
+From 636c040931dff3d5febae00697a8502af396e01f Mon Sep 17 00:00:00 2001
+From: CTCaer <ctcaer@gmail.com>
+Date: Wed, 15 Jun 2022 13:33:10 +0000
+Subject: [PATCH 17/20] codecs: nvv4l2: reorder capture buffer queueing
+
+Move capture buffer queueing after capture plane stream on.
+
+Additionally, set proper tag for transformation buffers.
+
+Lastly, handle some warnings/errors better.
+---
+ libavcodec/nvv4l2_dec.c | 181 +++++++++++++++++++++-------------------
+ 1 file changed, 95 insertions(+), 86 deletions(-)
+
+diff --git a/libavcodec/nvv4l2_dec.c b/libavcodec/nvv4l2_dec.c
+index 614a56e04b..b6865059ec 100644
+--- a/libavcodec/nvv4l2_dec.c
++++ b/libavcodec/nvv4l2_dec.c
+@@ -173,16 +173,23 @@ static void query_set_capture(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+         return;
+     }
+ 
+-    av_log(avctx, AV_LOG_VERBOSE, "Resolution changed to: %dx%d\n",
+-           crop.c.width, crop.c.height);
+-
++    /* Set codec resolution */
+     ctx->codec_width = crop.c.width;
+     ctx->codec_height = crop.c.height;
+ 
++    av_log(avctx, AV_LOG_VERBOSE, "Resolution changed to: %dx%d\n",
++           ctx->codec_width, ctx->codec_height);
++
++    /* Destroy all allocated transform/export DMA buffers. */
+     for (uint32_t i = 0; i < NV_MAX_BUFFERS; i++) {
+         if (ctx->plane_dma_fd[i] != -1) {
+-            NvBufferDestroy(ctx->plane_dma_fd[i]);
+-            ctx->plane_dma_fd[i] = -1;
++            ret = NvBufferDestroy(ctx->plane_dma_fd[i]);
++            if (ret < 0) {
++                av_log(avctx, AV_LOG_ERROR,
++                       "Failed to destroy plane buffer!\n");
++            } else {
++                ctx->plane_dma_fd[i] = -1;
++            }
+         }
+     }
+ 
+@@ -198,24 +205,24 @@ static void query_set_capture(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+     crop.c.width = ctx->plane_width_aligned;
+ 
+     /* Create transform/export DMA buffers. */
+-    for (uint32_t i = 0; i < NV_MAX_BUFFERS; i++) {
+-        input_params.width = crop.c.width;
+-        input_params.height = crop.c.height;
+-        input_params.layout = NvBufferLayout_Pitch;
+-        input_params.payloadType = NvBufferPayload_SurfArray;
+-        input_params.nvbuf_tag = NvBufferTag_VIDEO_DEC;
+-
+-        switch (ctx->cp_pixfmt) {
+-        case V4L2_PIX_FMT_YUV420M:
+-            input_params.colorFormat = NvBufferColorFormat_YUV420;
+-            break;
+-        case V4L2_PIX_FMT_NV12M:
+-            input_params.colorFormat = NvBufferColorFormat_NV12;
+-            if (ctx->pixfmt_list_ver == NvBufferPixFmtVersion_New)
+-                input_params.colorFormat++;
+-            break;
+-        }
++    input_params.width = crop.c.width;
++    input_params.height = crop.c.height;
++    input_params.layout = NvBufferLayout_Pitch;
++    input_params.payloadType = NvBufferPayload_SurfArray;
++    input_params.nvbuf_tag = NvBufferTag_VIDEO_CONVERT;
++
++    switch (ctx->cp_pixfmt) {
++    case V4L2_PIX_FMT_YUV420M:
++        input_params.colorFormat = NvBufferColorFormat_YUV420;
++        break;
++    case V4L2_PIX_FMT_NV12M:
++        input_params.colorFormat = NvBufferColorFormat_NV12;
++        if (ctx->pixfmt_list_ver == NvBufferPixFmtVersion_New)
++            input_params.colorFormat++;
++        break;
++    }
+ 
++    for (uint32_t i = 0; i < NV_MAX_BUFFERS; i++) {
+         ret = NvBufferCreateEx(&ctx->plane_dma_fd[i], &input_params);
+         if (ret) {
+             av_log(avctx, AV_LOG_ERROR, "Creation of dmabuf failed!\n");
+@@ -240,10 +247,8 @@ static void query_set_capture(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+                                               ctx->cp_buf_type,
+                                               ctx->cp_mem_type, 0);
+     if (ret) {
+-        av_log(avctx, AV_LOG_ERROR,
++        av_log(avctx, AV_LOG_WARNING,
+                "Error in requesting 0 capture plane buffers!\n");
+-        ctx->in_error = true;
+-        return;
+     }
+ 
+     /* Destroy previous DMA buffers. */
+@@ -254,10 +259,13 @@ static void query_set_capture(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+                 av_log(avctx, AV_LOG_ERROR,
+                        "Failed to Destroy NvBuffer!\n");
+                 ctx->in_error = true;
++            } else {
++                ctx->dmabuff_fd[i] = -1;
+             }
+-            ctx->dmabuff_fd[i] = -1;
+         }
+     }
++    if (ctx->in_error)
++        return;
+ 
+     /* Set capture plane format to update vars. */
+     ret = set_capture_plane_format(avctx, ctx,
+@@ -293,19 +301,19 @@ static void query_set_capture(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+         {
+             av_log(avctx, AV_LOG_VERBOSE,
+                 "Colorspace ITU-R BT.709 with standard range luma (16-235)\n");
+-            cParams.colorFormat = NvBufferColorFormat_NV12_709;
++            cap_params.colorFormat = NvBufferColorFormat_NV12_709;
+         }
+         else
+         {
+             av_log(avctx, AV_LOG_VERBOSE,
+                 "Colorspace ITU-R BT.709 with extended range luma (0-255)\n");
+-            cParams.colorFormat = NvBufferColorFormat_NV12_709_ER;
++            cap_params.colorFormat = NvBufferColorFormat_NV12_709_ER;
+         }
+         break;
+     case V4L2_COLORSPACE_BT2020:
+         av_log(avctx, AV_LOG_VERBOSE,
+                "Colorspace ITU-R BT.2020\n");
+-        cParams.colorFormat = NvBufferColorFormat_NV12_2020;
++        cap_params.colorFormat = NvBufferColorFormat_NV12_2020;
+         break;
+     default:
+         av_log(avctx, AV_LOG_VERBOSE,
+@@ -315,13 +323,13 @@ static void query_set_capture(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+         {
+             av_log(avctx, AV_LOG_VERBOSE,
+                 "Colorspace ITU-R BT.601 with standard range luma (16-235)\n");
+-            cParams.colorFormat = NvBufferColorFormat_NV12;
++            cap_params.colorFormat = NvBufferColorFormat_NV12;
+         }
+         else
+         {
+             av_log(avctx, AV_LOG_VERBOSE,
+                 "Colorspace ITU-R BT.601 with extended range luma (0-255)\n");
+-            cParams.colorFormat = NvBufferColorFormat_NV12_ER;
++            cap_params.colorFormat = NvBufferColorFormat_NV12_ER;
+         }
+         break;
+     }
+@@ -339,12 +347,13 @@ static void query_set_capture(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+     cap_params.layout = NvBufferLayout_BlockLinear;
+     cap_params.payloadType = NvBufferPayload_SurfArray;
+     cap_params.nvbuf_tag = NvBufferTag_VIDEO_DEC;
++
+     for (uint32_t i = 0; i < ctx->cp_num_buffers; i++) {
+         ret = NvBufferCreateEx(&ctx->dmabuff_fd[i], &cap_params);
+         if (ret) {
+             av_log(avctx, AV_LOG_ERROR, "Failed to create buffers!\n");
+             ctx->in_error = true;
+-            break;
++            return;
+         }
+     }
+ 
+@@ -360,6 +369,24 @@ static void query_set_capture(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+         return;
+     }
+ 
++    /* Set max performance mode if low latency is requested. */
++    if (ctx->low_latency) {
++        ret = nvv4l2_set_ext_controls(ctx->fd,
++                                V4L2_CID_MPEG_VIDEO_MAX_PERFORMANCE, 0, 1);
++        if (ret) {
++            av_log(avctx, AV_LOG_WARNING,
++                   "Failed to set control max performance!\n");
++        }
++    }
++
++    /* Set streaming status ON on capture plane. */
++    ret = v4l2_ioctl(ctx->fd, VIDIOC_STREAMON, &ctx->cp_buf_type);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR, "Streaming error on capture plane!\n");
++        ctx->in_error = true;
++        return;
++    }
++
+     /* Enqueue all empty buffers on capture plane. */
+     for (uint32_t i = 0; i < ctx->cp_num_buffers; i++) {
+         struct v4l2_buffer v4l2_buf;
+@@ -383,29 +410,12 @@ static void query_set_capture(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+ 
+         if (ret) {
+             av_log(avctx, AV_LOG_ERROR, "Qing failed on capture plane!\n");
++            ctx->cp_streamon = true;
+             ctx->in_error = true;
+             return;
+         }
+     }
+ 
+-    /* Set max performance mode if low latency is requested. */
+-    if (ctx->low_latency) {
+-        ret = nvv4l2_set_ext_controls(ctx->fd,
+-                                V4L2_CID_MPEG_VIDEO_MAX_PERFORMANCE, 0, 1);
+-        if (ret) {
+-            av_log(avctx, AV_LOG_ERROR,
+-                   "Failed to set control max performance!\n");
+-            ctx->in_error = true;
+-        }
+-    }
+-
+-    /* Set streaming status ON on capture plane. */
+-    ret = v4l2_ioctl(ctx->fd, VIDIOC_STREAMON, &ctx->cp_buf_type);
+-    if (ret) {
+-        av_log(avctx, AV_LOG_ERROR, "Streaming error on capture plane!\n");
+-        ctx->in_error = true;
+-    }
+-
+     ctx->cp_streamon = true;
+ 
+     av_log(avctx, AV_LOG_VERBOSE, "Query and set capture successful\n");
+@@ -883,13 +893,13 @@ int nvv4l2_decoder_close(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+         }
+ 
+         /* Request 0 buffers on both planes. */
+-        ret = nvv4l2_req_buffers_on_output_plane(ctx,
+-                                                 ctx->op_buf_type,
+-                                                 ctx->op_mem_type, 0);
++        nvv4l2_req_buffers_on_output_plane(ctx,
++                                           ctx->op_buf_type,
++                                           ctx->op_mem_type, 0);
+ 
+-        ret = nvv4l2_req_buffers_on_capture_plane(ctx,
+-                                                  ctx->cp_buf_type,
+-                                                  ctx->cp_mem_type, 0);
++        nvv4l2_req_buffers_on_capture_plane(ctx,
++                                            ctx->cp_buf_type,
++                                            ctx->cp_mem_type, 0);
+ 
+         /* All allocated DMA buffers must be destroyed. */
+         for (uint32_t i = 0; i < ctx->cp_num_buffers; i++) {
+@@ -1042,36 +1052,6 @@ static void nvv4l2dec_flush(AVCodecContext *avctx)
+         }
+ 
+         ctx->draining_event = true;
+-
+-        /* Re-enqueue all now empty buffers on capture plane. */
+-        for (uint32_t i = 0; i < ctx->cp_num_buffers; i++) {
+-            struct v4l2_buffer v4l2_buf;
+-            struct v4l2_plane planes[NV_MAX_PLANES];
+-
+-            memset(&v4l2_buf, 0, sizeof(v4l2_buf));
+-            memset(planes, 0, sizeof(planes));
+-
+-            v4l2_buf.index = i;
+-            v4l2_buf.m.planes = planes;
+-            v4l2_buf.type = ctx->cp_buf_type;
+-            v4l2_buf.memory = ctx->cp_mem_type;
+-            v4l2_buf.length = ctx->cp_num_planes;
+-            /* Set DMA plane handle */
+-            v4l2_buf.m.planes[0].m.fd = ctx->dmabuff_fd[i];
+-            v4l2_buf.m.planes[1].m.fd = ctx->dmabuff_fd[i];
+-
+-            pthread_mutex_unlock(&ctx->queue_lock);
+-            ret = nvv4l2_q_buffer(ctx, &v4l2_buf, ctx->cp_buffers[i],
+-                                  ctx->cp_buf_type, ctx->cp_mem_type,
+-                                  ctx->cp_num_planes);
+-            pthread_mutex_lock(&ctx->queue_lock);
+-
+-            if (ret) {
+-                av_log(avctx, AV_LOG_ERROR,
+-                       "Qing empty failed on capture plane!\n");
+-            }
+-        }
+-
+         ctx->num_active_op_buffers = 0;
+         ctx->num_queued_op_buffers = 0;
+         ctx->num_queued_cp_buffers = 0;
+@@ -1082,6 +1062,35 @@ static void nvv4l2dec_flush(AVCodecContext *avctx)
+             av_log(avctx, AV_LOG_ERROR, "Streaming error on capture plane!\n");
+             ctx->in_error = true;
+         } else {
++            /* Re-enqueue all now empty buffers on capture plane. */
++            for (uint32_t i = 0; i < ctx->cp_num_buffers; i++) {
++                struct v4l2_buffer v4l2_buf;
++                struct v4l2_plane planes[NV_MAX_PLANES];
++
++                memset(&v4l2_buf, 0, sizeof(v4l2_buf));
++                memset(planes, 0, sizeof(planes));
++
++                v4l2_buf.index = i;
++                v4l2_buf.m.planes = planes;
++                v4l2_buf.type = ctx->cp_buf_type;
++                v4l2_buf.memory = ctx->cp_mem_type;
++                v4l2_buf.length = ctx->cp_num_planes;
++                /* Set DMA plane handle */
++                v4l2_buf.m.planes[0].m.fd = ctx->dmabuff_fd[i];
++                v4l2_buf.m.planes[1].m.fd = ctx->dmabuff_fd[i];
++
++                pthread_mutex_unlock(&ctx->queue_lock);
++                ret = nvv4l2_q_buffer(ctx, &v4l2_buf, ctx->cp_buffers[i],
++                                      ctx->cp_buf_type, ctx->cp_mem_type,
++                                      ctx->cp_num_planes);
++                pthread_mutex_lock(&ctx->queue_lock);
++
++                if (ret) {
++                    av_log(avctx, AV_LOG_WARNING,
++                           "Qing empty failed on capture plane!\n");
++                }
++            }
++
+             ctx->cp_streamon = true;
+         }
+     }
+-- 
+2.25.1
+

@@ -1,11 +1,40 @@
 # Set default env variables.
-setenv reboot_action bootloader
-setenv hdmi_fbconsole 1
-setenv usblogging "console=ttyGS0,115200,8n1"
-setenv uartb "no_console_suspend console=ttyS1,115200,8n1"
-setenv cec_enable 0
-setenv performance_mode 0
-setenv dock_freq_switch_enabled 0
+test -n ${reboot_action}                 || setenv reboot_action bootloader
+test -n ${hdmi_fbconsole}                || setenv hdmi_fbconsole 1
+
+# Set logging params for each serial type.
+test -n {uart_port}                      || setenv uart_port 0
+test -n ${usb_logging}                   ||setenv usb_logging 0
+
+setenv uarta "no_console_suspend console=ttyS0,115200,8n1 loglevel=8"
+setenv uartb "no_console_suspend console=ttyS1,115200,8n1 loglevel=8"
+setenv uartc "no_console_suspend console=ttyS2,115200,8n1 loglevel=8"
+setenv usblg "console=ttyGS0,115200,8n1 loglevel=8"
+setenv nocon "console=null loglevel=5"
+
+#remove next 2 lines when hekatf releases
+test -n ${t210b01}                       || setenv t210b01 0
+test -n ${sku}                           || setenv sku 0
+
+test -n ${cec_enable}                    || setenv cec_enable 0
+test -n ${performance_mode}              || setenv performance_mode 0
+test -n ${dock_freq_switch_enabled}      || setenv dock_freq_switch_enabled 0
+test -n ${usb3_disable}                  || setenv usb3_disable 0
+
+# Set kernel load address
+
+#setenv kernload 0xA0000000
+
+# Set SoC info.
+
+if test ${t210b01} = 1; then setenv plat_info T210B01; else setenv plat_info T210; fi
+
+# Set SKU info.
+
+if   test ${sku} = 0; then setenv hw_sku odin
+elif test ${sku} = 1; then setenv hw_sku modin
+elif test ${sku} = 2; then setenv hw_sku vali
+elif test ${sku} = 3; then setenv hw_sku frig; fi
 
 load mmc 1:1 0x83000000 @DISTRO_PATH@/KERNEL
 load mmc 1:1 0x8d000000 @DISTRO_PATH@/tegra210-icosa.dtb
@@ -87,26 +116,67 @@ else
     fi
 fi
 
+if load mmc 1:1 ${fdtovaddr} @DISTRO_PATH@/uenv.txt && env import -t ${fdtovaddr} ${filesize}; then
+  echo Uenv.txt Loaded
+fi
+# Add additional bootargs for UART Logging.
+
+if   test ${uart_port} = 1; then
+    setenv bootargs_extra ${bootargs_extra} ${uarta}; echo Enabled UART-A logging
+elif test ${uart_port} = 2; then
+    setenv bootargs_extra ${bootargs_extra} ${uartb}; echo Enabled UART-B logging
+    fdt set /serial@70006040 compatible nvidia,tegra20-uart
+    fdt set /serial@70006040/joyconr status disabled
+elif test ${uart_port} = 3; then
+    setenv bootargs_extra ${bootargs_extra} ${uartc}; echo Enabled UART-C logging
+    fdt set /serial@70006200 compatible nvidia,tegra20-uart
+    fdt set /serial@70006200/joyconl status disabled
+else
+    # Kill console and set default loglevel
+    echo UART Disabled
+    setenv bootargs_extra ${nocon}
+fi
+
+# Add additional bootargs for Serial USB.
+
+if   test ${usb_logging} = 1; then
+    echo Enabled USB Serial logging
+    setenv bootargs_extra ${usblg} ${bootargs_extra}
+fi
+
 fdt set /chosen nvidia,wifi-mac ${wifi_mac}
 fdt set /chosen nvidia,bluetooth-mac ${bt_mac}
 
-# patch dtb with overlays if they exist
-if load mmc 1:1 ${fdtovaddr} @DISTRO_PATH@/uenv.txt && env import -t ${fdtovaddr} ${filesize} && test -n ${overlays}; then
-	echo loaded overlays.txt: ${overlays}
-	for ov in ${overlays}; do
-	    echo overlaying ${ov}...
-		fdt resize 8192
+# Prepare display panel id from Nyx.
+cp.b 0xED838002 0xED838001 0x1
+mw.b 0xED838002 0x0 0x1
 
-		if load mmc 1:1 ${ovcfgaddr} @DISTRO_PATH@/${ov}.dtbo && fdt apply ${ovcfgaddr}; then
-			echo Successfully loaded ${ov}.dtbo...
+test -n ${display_id} || setexpr.w display_id *0xED838000
 
-			# Add additional bootargs for UART-B
-			if test ${ov} = uartb_logging; then setenv bootargs_extra ${bootargs_extra} ${uartb}; echo Enabled UART-B logging; fi
-		fi
+# Get display panel handle.
+if   test ${display_id} = f20;  then echo Display is INN 6.2; fdt get value DHANDLE /host1x/dsi/panel-i-720p-6-2 phandle
+elif test ${display_id} = f30;  then echo Display is AUO 6.2; fdt get value DHANDLE /host1x/dsi/panel-a-720p-6-2 phandle
+elif test ${display_id} = 10;   then echo Display is JDI 6.2; fdt get value DHANDLE /host1x/dsi/panel-j-720p-6-2 phandle
+elif test ${display_id} = 1020; then echo Display is INN 5.5; fdt get value DHANDLE /host1x/dsi/panel-i-720p-5-5 phandle
+elif test ${display_id} = 1030; then echo Display is AUO 5.5; fdt get value DHANDLE /host1x/dsi/panel-a-720p-5-5 phandle
+elif test ${display_id} = 1040; then echo Display is SHP 5.5; fdt get value DHANDLE /host1x/dsi/panel-sh-720p-5-5 phandle
+elif test ${display_id} = 2050; then echo Display is SAM 7.0
+elif test ${sku} = 3;      then echo Display is SAM 7.0
+else echoe Unknown Display ID: ${display_id}!; fi
 
-		# Add additional bootargs for Serial USB
-		if test ${ov} = usb_logging; then setenv bootargs_extra ${usblogging} ${bootargs_extra}; echo Enabled usb serial logging; fi
-	done
+# Set new active display panel handle.
+if test -n ${DHANDLE}; then echo Setting Display panel; fdt resize 8192; fdt set /host1x/dsi nvidia,active-panel <$DHANDLE>; fi
+
+# Disable USB3
+if test ${usb3_disable} = 1; then
+  echo USB3 Disabled
+  fdt get value DHANDLE_USB2 /xusb_padctl@7009f000/pads/usb2/lanes/usb2-0 phandle
+  fdt set /xusb@70090000 phys <$DHANDLE_USB2>
+  fdt set /xusb@70090000 phy-names usb2-0
+  fdt set /xudc@700d0000 phys <$DHANDLE_USB2>
+  fdt set /xudc@700d0000 phy-names usb2
+  fdt set /xusb_padctl@7009f000/ports/usb2-0 nvidia,usb3-port-fake <0xffffffff>
+  fdt set /xusb_padctl@7009f000/ports/usb3-0 status disabled
 fi
 
 setenv bootargs ${bootargs_extra} "boot=/dev/mmcblk0p1 BOOT_IMAGE=@DISTRO_PATH@/KERNEL SYSTEM_IMAGE=@DISTRO_PATH@/SYSTEM ${@DISTRO_PATH@_boot_options} nofsck fat32-boot cec_enabled=${cec_enable} \
@@ -117,7 +187,6 @@ setenv bootargs ${bootargs_extra} "boot=/dev/mmcblk0p1 BOOT_IMAGE=@DISTRO_PATH@/
  pmc_reboot2payload.default_payload=reboot_payload.bin \
  pmc_reboot2payload.hekate_config_id=@DISTRO_ID@ \
  vpr_resize nvdec_enabled=0 tegra_fbmem=0x384000@0xf5a00000 access=m2 \
- consoleblank=0 fbcon=primary:${hdmi_fbconsole} "
+ consoleblank=0 fbcon=map:${hdmi_fbconsole} "
 
-usb reset
 booti 0x83000000 - 0x8d000000

@@ -1,0 +1,3944 @@
+From 3368013773dbc2def4b3a33748dc656dc13f3e25 Mon Sep 17 00:00:00 2001
+From: CTCaer <ctcaer@gmail.com>
+Date: Sat, 5 Mar 2022 03:27:27 +0000
+Subject: [PATCH 01/20] codecs: add nvv4l2 codec for Nvidia Tegra SOCs
+
+Use `--enable-nvv4l2` to enable it.
+
+This Codec uses customized V4L2, called NVV4L2 that adds various features.
+NVV4L2 uses the Tegra HW video engines NVDEC and NVENC.
+
+Decoder features:
+- Codecs: MPEG2, MPEG4, H264, HEVC, VP8, VP9
+- Output: YUV420, NV12
+- Low latency mode for realtime streaming by using `AV_CODEC_FLAG_LOW_DELAY`
+- Higher throughput than original Nvidia specs and provided software.
+  (Tegra X1: 4k@63, 1080p@265, 720p@439)
+
+Encoder features:
+- Codecs: H264, HEVC
+- Output: YUV420, YUV444, NV12, P010
+- Higher throughput than original Nvidia specs and provided software.
+  (Tegra X1: 4k@60, 1080p@202, 720p@414)
+
+- Options for H264:
+  profile: baseline, main (default), high, high444
+  level: 1.0 to 5.1 (default). (5.1 is L4T kernel limitation. Max is 6.2.)
+  rc: cbr, vbr (default)
+  lossless: off (default), on. (Sets profile to high444 and constant QP to 0)
+  preset: default (medium), slow, medium (default), fast, ultrafast
+  num_capture_buffers: 1 to 32. (Default: 10)
+  AVCodec defaults: b: 5M, g: 50, all others unchanged.
+
+- Options for HEVC:
+  profile: main (default), main10
+  tier: main (default), high
+  level: 1.0 to 6.2 (default)
+  rc: cbr, vbr (default)
+  lossless: off (default), on. (Sets constant QP to 0)
+  preset: default (medium), slow, medium (default), fast, ultrafast
+  num_capture_buffers: 1 to 32. (Default: 10)
+  AVCodec defaults: b: 5M, g: 50, all others unchanged.
+
+Decoder to Encoder speed:
+FPS are halved.
+
+Some formats are supported from Tegra X1 and up.
+For more, check the NVDEC/NVENC version support matrix.
+---
+ configure               |   22 +
+ libavcodec/Makefile     |    9 +
+ libavcodec/allcodecs.c  |    8 +
+ libavcodec/nvv4l2.c     |  820 +++++++++++++++++++++++
+ libavcodec/nvv4l2.h     |  324 +++++++++
+ libavcodec/nvv4l2_dec.c | 1101 +++++++++++++++++++++++++++++++
+ libavcodec/nvv4l2_enc.c | 1389 +++++++++++++++++++++++++++++++++++++++
+ 7 files changed, 3673 insertions(+)
+ create mode 100644 libavcodec/nvv4l2.c
+ create mode 100644 libavcodec/nvv4l2.h
+ create mode 100644 libavcodec/nvv4l2_dec.c
+ create mode 100644 libavcodec/nvv4l2_enc.c
+
+diff --git a/configure b/configure
+index 98113c95fd..29a6d96575 100755
+--- a/configure
++++ b/configure
+@@ -333,6 +333,7 @@ External library support:
+   --enable-cuda-nvcc       enable Nvidia CUDA compiler [no]
+   --disable-cuda-llvm      disable CUDA compilation using clang [autodetect]
+   --disable-cuvid          disable Nvidia CUVID support [autodetect]
++  --enable-nvv4l2          enable Nvidia Tegra NVV4L2 support [no]
+   --disable-d3d11va        disable Microsoft Direct3D 11 video acceleration code [autodetect]
+   --disable-dxva2          disable Microsoft DirectX 9 video acceleration code [autodetect]
+   --disable-ffnvcodec      disable dynamically linked Nvidia code [autodetect]
+@@ -1843,6 +1844,7 @@ HWACCEL_AUTODETECT_LIBRARY_LIST="
+     ffnvcodec
+     nvdec
+     nvenc
++    nvv4l2
+     vaapi
+     vdpau
+     videotoolbox
+@@ -3051,6 +3053,8 @@ qsvenc_select="qsv"
+ qsvvpp_select="qsv"
+ vaapi_encode_deps="vaapi"
+ v4l2_m2m_deps="linux_videodev2_h sem_timedwait"
++nvv4l2_deps="libv4l2 pthreads linux_videodev2_h nvbuf_utils_h v4l2_nv_extensions_h"
++nvv4l2_extralibs="-lnvbuf_utils"
+ 
+ hwupload_cuda_filter_deps="ffnvcodec"
+ scale_npp_filter_deps="ffnvcodec libnpp"
+@@ -3066,6 +3070,9 @@ amf_deps_any="libdl LoadLibrary"
+ nvenc_deps="ffnvcodec"
+ nvenc_deps_any="libdl LoadLibrary"
+ nvenc_encoder_deps="nvenc"
++h264_nvv4l2_encoder_deps="nvv4l2"
++h264_nvv4l2_decoder_deps="nvv4l2"
++h264_nvv4l2_decoder_select="h264_mp4toannexb_bsf"
+ 
+ aac_mf_encoder_deps="mediafoundation"
+ ac3_mf_encoder_deps="mediafoundation"
+@@ -3098,6 +3105,9 @@ hevc_mediacodec_decoder_deps="mediacodec"
+ hevc_mediacodec_decoder_select="hevc_mp4toannexb_bsf hevc_parser"
+ hevc_mf_encoder_deps="mediafoundation"
+ hevc_nvenc_encoder_deps="nvenc"
++hevc_nvv4l2_encoder_deps="nvv4l2"
++hevc_nvv4l2_decoder_deps="nvv4l2"
++hevc_nvv4l2_decoder_select="hevc_mp4toannexb_bsf"
+ hevc_nvenc_encoder_select="atsc_a53"
+ hevc_qsv_decoder_select="hevc_mp4toannexb_bsf qsvdec"
+ hevc_qsv_encoder_select="hevcparse qsvenc"
+@@ -3121,6 +3131,7 @@ mpeg2_crystalhd_decoder_select="crystalhd"
+ mpeg2_cuvid_decoder_deps="cuvid"
+ mpeg2_mmal_decoder_deps="mmal"
+ mpeg2_mediacodec_decoder_deps="mediacodec"
++mpeg2_nvv4l2_decoder_deps="nvv4l2"
+ mpeg2_qsv_decoder_select="qsvdec"
+ mpeg2_qsv_encoder_select="qsvenc"
+ mpeg2_vaapi_encoder_select="cbs_mpeg2 vaapi_encode"
+@@ -3129,6 +3140,7 @@ mpeg4_crystalhd_decoder_select="crystalhd"
+ mpeg4_cuvid_decoder_deps="cuvid"
+ mpeg4_mediacodec_decoder_deps="mediacodec"
+ mpeg4_mmal_decoder_deps="mmal"
++mpeg4_nvv4l2_decoder_deps="nvv4l2"
+ mpeg4_omx_encoder_deps="omx"
+ mpeg4_v4l2m2m_decoder_deps="v4l2_m2m mpeg4_v4l2_m2m"
+ mpeg4_v4l2m2m_encoder_deps="v4l2_m2m mpeg4_v4l2_m2m"
+@@ -3142,6 +3154,7 @@ vc1_qsv_decoder_select="qsvdec"
+ vc1_v4l2m2m_decoder_deps="v4l2_m2m vc1_v4l2_m2m"
+ vp8_cuvid_decoder_deps="cuvid"
+ vp8_mediacodec_decoder_deps="mediacodec"
++vp8_nvv4l2_decoder_deps="nvv4l2"
+ vp8_qsv_decoder_select="qsvdec"
+ vp8_rkmpp_decoder_deps="rkmpp"
+ vp8_vaapi_encoder_deps="VAEncPictureParameterBufferVP8"
+@@ -3150,6 +3163,7 @@ vp8_v4l2m2m_decoder_deps="v4l2_m2m vp8_v4l2_m2m"
+ vp8_v4l2m2m_encoder_deps="v4l2_m2m vp8_v4l2_m2m"
+ vp9_cuvid_decoder_deps="cuvid"
+ vp9_mediacodec_decoder_deps="mediacodec"
++vp9_nvv4l2_decoder_deps="nvv4l2"
+ vp9_qsv_decoder_select="qsvdec"
+ vp9_rkmpp_decoder_deps="rkmpp"
+ vp9_vaapi_encoder_deps="VAEncPictureParameterBufferVP9"
+@@ -3426,6 +3440,7 @@ kmsgrab_indev_deps="libdrm"
+ lavfi_indev_deps="avfilter"
+ libcdio_indev_deps="libcdio"
+ libdc1394_indev_deps="libdc1394"
++nvv4l2_indev_deps="v4l2"
+ openal_indev_deps="openal"
+ opengl_outdev_deps="opengl"
+ opengl_outdev_suggest="sdl2"
+@@ -6783,6 +6798,13 @@ if enabled_any nvdec cuvid; then
+     check_type "ffnvcodec/dynlink_cuda.h ffnvcodec/dynlink_cuviddec.h" "CUVIDAV1PICPARAMS"
+ fi
+ 
++enabled nvv4l2 && add_cflags '-I/usr/src/jetson_multimedia_api/include' \
++               && add_ldflags '-L/usr/lib/aarch64-linux-gnu/tegra' \
++               && check_headers linux/videodev2.h \
++               && require_headers "v4l2_nv_extensions.h" \
++               && require_headers "nvbuf_utils.h" \
++               && require_pkg_config libv4l2 libv4l2 libv4l2.h v4l2_ioctl
++
+ enabled amf &&
+     check_cpp_condition amf "AMF/core/Version.h" \
+         "(AMF_VERSION_MAJOR << 48 | AMF_VERSION_MINOR << 32 | AMF_VERSION_RELEASE << 16 | AMF_VERSION_BUILD_NUM) >= 0x0001000400090000"
+diff --git a/libavcodec/Makefile b/libavcodec/Makefile
+index 33a280cf69..31400f3f2d 100644
+--- a/libavcodec/Makefile
++++ b/libavcodec/Makefile
+@@ -133,6 +133,7 @@ OBJS-$(CONFIG_MPEGVIDEOENC)            += mpegvideo_enc.o mpeg12data.o  \
+                                           mpegvideoencdsp.o
+ OBJS-$(CONFIG_MSS34DSP)                += mss34dsp.o
+ OBJS-$(CONFIG_NVENC)                   += nvenc.o
++OBJS-$(CONFIG_NVV4L2)                  += nvv4l2.o
+ OBJS-$(CONFIG_PIXBLOCKDSP)             += pixblockdsp.o
+ OBJS-$(CONFIG_QPELDSP)                 += qpeldsp.o
+ OBJS-$(CONFIG_QSV)                     += qsv.o
+@@ -372,12 +373,14 @@ OBJS-$(CONFIG_H264_DECODER)            += h264dec.o h264_cabac.o h264_cavlc.o \
+                                           h264_slice.o h264data.o
+ OBJS-$(CONFIG_H264_AMF_ENCODER)        += amfenc_h264.o
+ OBJS-$(CONFIG_H264_CUVID_DECODER)      += cuviddec.o
++OBJS-$(CONFIG_H264_NVV4L2_DECODER)     += nvv4l2_dec.o
+ OBJS-$(CONFIG_H264_MEDIACODEC_DECODER) += mediacodecdec.o
+ OBJS-$(CONFIG_H264_MF_ENCODER)         += mfenc.o mf_utils.o
+ OBJS-$(CONFIG_H264_MMAL_DECODER)       += mmaldec.o
+ OBJS-$(CONFIG_H264_NVENC_ENCODER)      += nvenc_h264.o
+ OBJS-$(CONFIG_NVENC_ENCODER)           += nvenc_h264.o
+ OBJS-$(CONFIG_NVENC_H264_ENCODER)      += nvenc_h264.o
++OBJS-$(CONFIG_H264_NVV4L2_ENCODER)     += nvv4l2_enc.o
+ OBJS-$(CONFIG_H264_OMX_ENCODER)        += omx.o
+ OBJS-$(CONFIG_H264_QSV_DECODER)        += qsvdec.o
+ OBJS-$(CONFIG_H264_QSV_ENCODER)        += qsvenc_h264.o
+@@ -395,6 +398,7 @@ OBJS-$(CONFIG_HEVC_DECODER)            += hevcdec.o hevc_mvs.o \
+                                           hevcdsp.o hevc_filter.o hevc_data.o
+ OBJS-$(CONFIG_HEVC_AMF_ENCODER)        += amfenc_hevc.o
+ OBJS-$(CONFIG_HEVC_CUVID_DECODER)      += cuviddec.o
++OBJS-$(CONFIG_HEVC_NVV4L2_DECODER)     += nvv4l2_dec.o
+ OBJS-$(CONFIG_HEVC_MEDIACODEC_DECODER) += mediacodecdec.o
+ OBJS-$(CONFIG_HEVC_MF_ENCODER)         += mfenc.o mf_utils.o
+ OBJS-$(CONFIG_HEVC_NVENC_ENCODER)      += nvenc_hevc.o
+@@ -405,6 +409,7 @@ OBJS-$(CONFIG_HEVC_QSV_ENCODER)        += qsvenc_hevc.o hevc_ps_enc.o       \
+ OBJS-$(CONFIG_HEVC_RKMPP_DECODER)      += rkmppdec.o
+ OBJS-$(CONFIG_HEVC_VAAPI_ENCODER)      += vaapi_encode_h265.o h265_profile_level.o
+ OBJS-$(CONFIG_HEVC_V4L2M2M_DECODER)    += v4l2_m2m_dec.o
++OBJS-$(CONFIG_HEVC_NVV4L2_ENCODER)     += nvv4l2_enc.o
+ OBJS-$(CONFIG_HEVC_V4L2M2M_ENCODER)    += v4l2_m2m_enc.o
+ OBJS-$(CONFIG_HNM4_VIDEO_DECODER)      += hnm4video.o
+ OBJS-$(CONFIG_HQ_HQA_DECODER)          += hq_hqa.o hq_hqadata.o hq_hqadsp.o \
+@@ -495,12 +500,14 @@ OBJS-$(CONFIG_MPEG2_QSV_ENCODER)       += qsvenc_mpeg2.o
+ OBJS-$(CONFIG_MPEG2VIDEO_DECODER)      += mpeg12dec.o mpeg12.o mpeg12data.o
+ OBJS-$(CONFIG_MPEG2VIDEO_ENCODER)      += mpeg12enc.o mpeg12.o
+ OBJS-$(CONFIG_MPEG2_CUVID_DECODER)     += cuviddec.o
++OBJS-$(CONFIG_MPEG2_NVV4L2_DECODER)    += nvv4l2_dec.o
+ OBJS-$(CONFIG_MPEG2_MEDIACODEC_DECODER) += mediacodecdec.o
+ OBJS-$(CONFIG_MPEG2_VAAPI_ENCODER)     += vaapi_encode_mpeg2.o
+ OBJS-$(CONFIG_MPEG2_V4L2M2M_DECODER)   += v4l2_m2m_dec.o
+ OBJS-$(CONFIG_MPEG4_DECODER)           += xvididct.o
+ OBJS-$(CONFIG_MPEG4_ENCODER)           += mpeg4videoenc.o
+ OBJS-$(CONFIG_MPEG4_CUVID_DECODER)     += cuviddec.o
++OBJS-$(CONFIG_MPEG4_NVV4L2_DECODER)    += nvv4l2_dec.o
+ OBJS-$(CONFIG_MPEG4_MEDIACODEC_DECODER) += mediacodecdec.o
+ OBJS-$(CONFIG_MPEG4_OMX_ENCODER)       += omx.o
+ OBJS-$(CONFIG_MPEG4_V4L2M2M_DECODER)   += v4l2_m2m_dec.o
+@@ -715,6 +722,7 @@ OBJS-$(CONFIG_VP6_DECODER)             += vp6.o vp56.o vp56data.o \
+ OBJS-$(CONFIG_VP7_DECODER)             += vp8.o vp56rac.o
+ OBJS-$(CONFIG_VP8_DECODER)             += vp8.o vp56rac.o
+ OBJS-$(CONFIG_VP8_CUVID_DECODER)       += cuviddec.o
++OBJS-$(CONFIG_VP8_NVV4L2_DECODER)      += nvv4l2_dec.o
+ OBJS-$(CONFIG_VP8_MEDIACODEC_DECODER)  += mediacodecdec.o
+ OBJS-$(CONFIG_VP8_QSV_DECODER)         += qsvdec.o
+ OBJS-$(CONFIG_VP8_RKMPP_DECODER)       += rkmppdec.o
+@@ -725,6 +733,7 @@ OBJS-$(CONFIG_VP9_DECODER)             += vp9.o vp9data.o vp9dsp.o vp9lpf.o vp9r
+                                           vp9block.o vp9prob.o vp9mvs.o vp56rac.o \
+                                           vp9dsp_8bpp.o vp9dsp_10bpp.o vp9dsp_12bpp.o
+ OBJS-$(CONFIG_VP9_CUVID_DECODER)       += cuviddec.o
++OBJS-$(CONFIG_VP9_NVV4L2_DECODER)      += nvv4l2_dec.o
+ OBJS-$(CONFIG_VP9_MEDIACODEC_DECODER)  += mediacodecdec.o
+ OBJS-$(CONFIG_VP9_RKMPP_DECODER)       += rkmppdec.o
+ OBJS-$(CONFIG_VP9_VAAPI_ENCODER)       += vaapi_encode_vp9.o
+diff --git a/libavcodec/allcodecs.c b/libavcodec/allcodecs.c
+index 2e9a3581de..a828e43cfd 100644
+--- a/libavcodec/allcodecs.c
++++ b/libavcodec/allcodecs.c
+@@ -141,6 +141,8 @@ extern AVCodec ff_h263i_decoder;
+ extern AVCodec ff_h263p_encoder;
+ extern AVCodec ff_h263p_decoder;
+ extern AVCodec ff_h263_v4l2m2m_decoder;
++extern AVCodec ff_h264_nvv4l2_encoder;
++extern AVCodec ff_h264_nvv4l2_decoder;
+ extern AVCodec ff_h264_decoder;
+ extern AVCodec ff_h264_crystalhd_decoder;
+ extern AVCodec ff_h264_v4l2m2m_decoder;
+@@ -150,6 +152,8 @@ extern AVCodec ff_h264_qsv_decoder;
+ extern AVCodec ff_h264_rkmpp_decoder;
+ extern AVCodec ff_hap_encoder;
+ extern AVCodec ff_hap_decoder;
++extern AVCodec ff_hevc_nvv4l2_encoder;
++extern AVCodec ff_hevc_nvv4l2_decoder;
+ extern AVCodec ff_hevc_decoder;
+ extern AVCodec ff_hevc_qsv_decoder;
+ extern AVCodec ff_hevc_rkmpp_decoder;
+@@ -194,8 +198,10 @@ extern AVCodec ff_mobiclip_decoder;
+ extern AVCodec ff_motionpixels_decoder;
+ extern AVCodec ff_mpeg1video_encoder;
+ extern AVCodec ff_mpeg1video_decoder;
++extern AVCodec ff_mpeg2_nvv4l2_decoder;
+ extern AVCodec ff_mpeg2video_encoder;
+ extern AVCodec ff_mpeg2video_decoder;
++extern AVCodec ff_mpeg4_nvv4l2_decoder;
+ extern AVCodec ff_mpeg4_encoder;
+ extern AVCodec ff_mpeg4_decoder;
+ extern AVCodec ff_mpeg4_crystalhd_decoder;
+@@ -356,9 +362,11 @@ extern AVCodec ff_vp6_decoder;
+ extern AVCodec ff_vp6a_decoder;
+ extern AVCodec ff_vp6f_decoder;
+ extern AVCodec ff_vp7_decoder;
++extern AVCodec ff_vp8_nvv4l2_decoder;
+ extern AVCodec ff_vp8_decoder;
+ extern AVCodec ff_vp8_rkmpp_decoder;
+ extern AVCodec ff_vp8_v4l2m2m_decoder;
++extern AVCodec ff_vp9_nvv4l2_decoder;
+ extern AVCodec ff_vp9_decoder;
+ extern AVCodec ff_vp9_rkmpp_decoder;
+ extern AVCodec ff_vp9_v4l2m2m_decoder;
+diff --git a/libavcodec/nvv4l2.c b/libavcodec/nvv4l2.c
+new file mode 100644
+index 0000000000..b3e4a27823
+--- /dev/null
++++ b/libavcodec/nvv4l2.c
+@@ -0,0 +1,820 @@
++/*
++ * Copyright (c) 2021-2022, CTCaer <ctcaer@gmail.com>
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
++ * DEALINGS IN THE SOFTWARE.
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <stdint.h>
++#include <unistd.h>
++#include <pthread.h>
++#include <string.h>
++#include <fcntl.h>
++#include <sys/mman.h>
++#include <errno.h>
++#include "internal.h"
++#include "libavutil/log.h"
++
++#include "nvv4l2.h"
++
++uint32_t nvv4l2_map_nvcodec_type(NvCodingType nv_codec_type)
++{
++    uint32_t v4l2_pix_fmt;
++    switch (nv_codec_type) {
++    case NvVideoCodec_H264:
++        v4l2_pix_fmt = V4L2_PIX_FMT_H264;
++        break;
++    case NvVideoCodec_HEVC:
++        v4l2_pix_fmt = V4L2_PIX_FMT_H265;
++        break;
++    case NvVideoCodec_MPEG2:
++        v4l2_pix_fmt = V4L2_PIX_FMT_MPEG2;
++        break;
++    case NvVideoCodec_MPEG4:
++        v4l2_pix_fmt = V4L2_PIX_FMT_MPEG4;
++        break;
++    case NvVideoCodec_VP8:
++        v4l2_pix_fmt = V4L2_PIX_FMT_VP8;
++        break;
++    case NvVideoCodec_VP9:
++        v4l2_pix_fmt = V4L2_PIX_FMT_VP9;
++        break;
++    default:
++        v4l2_pix_fmt = V4L2_PIX_FMT_H264;
++        break;
++    }
++
++    return v4l2_pix_fmt;
++}
++
++int nvv4l2_pool_idx_next(nvv4l2_ctx_t *ctx, NvQueues *q)
++{
++    int index;
++    if (q->capacity < NV_MAX_BUFFERS) {
++        index = q->back;
++    } else {
++        index = -1;
++    }
++    return index;
++}
++
++void nvv4l2_pool_push(nvv4l2_ctx_t *ctx, NvQueues *q)
++{
++    pthread_mutex_lock(&ctx->pool_lock);
++    if (q->capacity < NV_MAX_BUFFERS) {
++        q->back = (q->back + 1) % NV_MAX_BUFFERS;
++        q->capacity++;
++    } else {
++        av_log(ctx->avctx, AV_LOG_ERROR, "Queue already full!\n");
++    }
++    pthread_mutex_unlock(&ctx->pool_lock);
++}
++
++int nvv4l2_pool_pop(nvv4l2_ctx_t *ctx, NvQueues *q)
++{
++    int index;
++    pthread_mutex_lock(&ctx->pool_lock);
++    index = q->front;
++    if (q->capacity != 0) {
++        q->front = (q->front + 1) % NV_MAX_BUFFERS;
++        q->capacity--;
++    } else {
++        av_log(ctx->avctx, AV_LOG_ERROR, "Queue already empty!");
++    }
++    pthread_mutex_unlock(&ctx->pool_lock);
++    return index;
++}
++
++int
++nvv4l2_create_bufferfmt(NvBuffer *buffer, enum v4l2_buf_type buf_type,
++                     enum v4l2_memory memory_type, uint32_t n_planes,
++                     NvBufferPlaneFormat *fmt, uint32_t index)
++{
++    buffer->mapped = false;
++    buffer->buf_type = buf_type;
++    buffer->memory_type = memory_type;
++    buffer->index = index;
++    buffer->n_planes = n_planes;
++
++    memset(buffer->planes, 0, sizeof(NvBufferPlane));
++    for (uint32_t i = 0; i < buffer->n_planes; i++) {
++        buffer->planes[i].fd = -1;
++        buffer->planes[i].fmt = fmt[i];
++    }
++    return 0;
++}
++
++int
++nvv4l2_map_out(nvv4l2_ctx_t *ctx, struct v4l2_buffer *v4l2_buf,
++               enum v4l2_buf_type buf_type, enum v4l2_memory mem_type,
++               int dma_fd)
++{
++    int ret;
++    NvBuffer *buffer;
++    NvBufferParams params;
++    unsigned char *data;
++    pthread_mutex_lock(&ctx->queue_lock);
++
++    if (buf_type == ctx->op_buf_type)
++        buffer = ctx->op_buffers[v4l2_buf->index];
++    else if (buf_type == ctx->cp_buf_type)
++        buffer = ctx->cp_buffers[v4l2_buf->index];
++
++    switch (mem_type) {
++    case V4L2_MEMORY_DMABUF:
++        ret = NvBufferGetParams(dma_fd, &params);
++        if(ret) {
++            av_log(ctx->avctx, AV_LOG_ERROR, "GetParams failed!\n");
++            pthread_mutex_unlock(&ctx->queue_lock);
++            return ret;
++        }
++        for (uint32_t i = 0; i < buffer->n_planes; i++) {
++            buffer->planes[i].fd = dma_fd;
++            v4l2_buf->m.planes[i].m.fd = dma_fd;
++            buffer->planes[i].mem_offset = params.offset[i];
++            ret = NvBufferMemMap(dma_fd, i, NvBufferMem_Read_Write,
++                                 (void **)&data);
++            if (ret) {
++                ctx->in_error = true;
++                av_log(ctx->avctx, AV_LOG_ERROR,
++                       "Error while Mapping buffer!\n");
++                pthread_mutex_unlock(&ctx->queue_lock);
++                return ret;
++            }
++            buffer->planes[i].data = data;
++        }
++        break;
++    default:
++        pthread_mutex_unlock(&ctx->queue_lock);
++        return -1;
++    }
++    pthread_mutex_unlock(&ctx->queue_lock);
++
++    return ret;
++}
++
++int
++nvv4l2_unmap_out(nvv4l2_ctx_t *ctx, int index, enum v4l2_buf_type buf_type,
++                 enum v4l2_memory mem_type, int dma_fd)
++{
++    int ret = 0;
++    NvBuffer *buffer;
++    pthread_mutex_lock(&ctx->queue_lock);
++
++    if (buf_type == ctx->op_buf_type)
++        buffer = ctx->op_buffers[index];
++    else if (buf_type == ctx->cp_buf_type)
++        buffer = ctx->cp_buffers[index];
++
++    switch (mem_type) {
++    case V4L2_MEMORY_DMABUF:
++        for (uint32_t i = 0; i < buffer->n_planes; i++) {
++            ret = NvBufferMemUnMap(dma_fd, i, (void **)&buffer->planes[i].data);
++            if (ret) {
++                ctx->in_error = true;
++                av_log(ctx->avctx, AV_LOG_ERROR,
++                       "Error while Unmapping buffer!\n");
++                pthread_mutex_unlock(&ctx->queue_lock);
++                return ret;
++            }
++        }
++        break;
++    default:
++        pthread_mutex_unlock(&ctx->queue_lock);
++        return -1;
++    }
++    pthread_mutex_unlock(&ctx->queue_lock);
++
++    return ret;
++}
++
++int nvv4l2_allocate_memory(nvv4l2_ctx_t *ctx, NvBuffer *buffer)
++{
++     for (uint32_t i = 0; i < buffer->n_planes; i++) {
++        buffer->planes[i].length = NVMAX(buffer->planes[i].fmt.sizeimage,
++                                         buffer->planes[i].fmt.width *
++                                          buffer->planes[i].fmt.bytesperpixel *
++                                          buffer->planes[i].fmt.height);
++        buffer->planes[i].data =
++                (unsigned char *)NVMALLOC(sizeof(unsigned char) *
++                                        buffer->planes[i].length);
++        if (buffer->planes[i].data == NULL) {
++            av_log(ctx->avctx, AV_LOG_ERROR,
++                   "Could not allocate buffer %d plane %d!\n",
++                   buffer->index, i);
++            return -1;
++        }
++    }
++    return 0;
++}
++
++int nvv4l2_map(nvv4l2_ctx_t *ctx, NvBuffer *buffer)
++{
++    if (buffer->memory_type != V4L2_MEMORY_MMAP) {
++        av_log(ctx->avctx, AV_LOG_ERROR,
++               "Buffer type %d can't be mapped!\n", buffer->memory_type);
++        return -1;
++    }
++
++    if (buffer->mapped) {
++        av_log(ctx->avctx, AV_LOG_VERBOSE, "Buffer %d already mapped!\n",
++               buffer->index);
++        return 0;
++    }
++
++    for (uint32_t i = 0; i < buffer->n_planes; i++) {
++        if (buffer->planes[i].fd == -1) {
++            return -1;
++        }
++
++        buffer->planes[i].data =
++            (unsigned char *)mmap(NULL, buffer-> planes[i].length,
++                                         PROT_READ | PROT_WRITE, MAP_SHARED,
++                                         buffer->planes[i].fd,
++                                         buffer->planes
++                                         [i].mem_offset);
++        if (buffer->planes[i].data == MAP_FAILED) {
++            av_log(ctx->avctx, AV_LOG_ERROR,
++                   "Could not map buffer %d plane %d!\n", buffer->index, i);
++            return -1;
++        }
++    }
++    buffer->mapped = true;
++    return 0;
++}
++
++void nvv4l2_unmap(nvv4l2_ctx_t *ctx, NvBuffer *buffer)
++{
++    if (buffer->memory_type != V4L2_MEMORY_MMAP || !buffer->mapped) {
++        av_log(ctx->avctx, AV_LOG_VERBOSE,
++            "Cannot unmap Buffer %d Only mapped MMAP buffer can be unmapped\n",
++            buffer->index);
++        return;
++    }
++
++    for (uint32_t i = 0; i < buffer->n_planes; i++) {
++        if (buffer->planes[i].data) {
++            munmap(buffer->planes[i].data, buffer->planes[i].length);
++        }
++        buffer->planes[i].data = NULL;
++    }
++    buffer->mapped = false;
++}
++
++void nvv4l2_destroyBuffer(nvv4l2_ctx_t *ctx, NvBuffer *buffer)
++{
++    if (buffer->mapped) {
++        nvv4l2_unmap(ctx, buffer);
++    }
++}
++
++int
++nvv4l2_query_buffer(nvv4l2_ctx_t *ctx, enum v4l2_buf_type buf_type,
++                    enum v4l2_memory memory_type, uint32_t num_planes,
++                    uint32_t index)
++{
++    struct v4l2_buffer v4l2_buf;
++    struct v4l2_plane planes[NV_MAX_PLANES];
++    NvBuffer *buffer;
++    int ret;
++    uint32_t j;
++
++    memset(&v4l2_buf, 0, sizeof(struct v4l2_buffer));
++    memset(planes, 0, sizeof(planes));
++    v4l2_buf.index = index;
++    v4l2_buf.type = buf_type;
++    v4l2_buf.memory = memory_type;
++    v4l2_buf.m.planes = planes;
++    v4l2_buf.length = num_planes;
++
++    ret = v4l2_ioctl(ctx->fd, VIDIOC_QUERYBUF, &v4l2_buf);
++    if (ret) {
++        av_log(ctx->avctx, AV_LOG_ERROR, "Error in QueryBuf!\n");
++    } else {
++        if (buf_type == ctx->op_buf_type) {
++            buffer = ctx->op_buffers[index];
++        } else if (buf_type == ctx->cp_buf_type) {
++            buffer = ctx->cp_buffers[index];
++        }
++
++        for (j = 0; j < v4l2_buf.length; j++) {
++            buffer->planes[j].length = v4l2_buf.m.planes[j].length;
++            buffer->planes[j].mem_offset =
++                v4l2_buf.m.planes[j].m.mem_offset;
++        }
++    }
++
++    return ret;
++}
++
++int
++nvv4l2_export_buffer(nvv4l2_ctx_t *ctx, enum v4l2_buf_type buf_type,
++                     uint32_t num_planes, uint32_t index)
++{
++    struct v4l2_exportbuffer expbuf;
++    NvBuffer *buffer;
++    int ret;
++
++    memset(&expbuf, 0, sizeof(expbuf));
++    expbuf.type = buf_type;
++    expbuf.index = index;
++
++    for (uint32_t i = 0; i < num_planes; i++) {
++        expbuf.plane = i;
++        ret = v4l2_ioctl(ctx->fd, VIDIOC_EXPBUF, &expbuf);
++        if (ret) {
++            av_log(ctx->avctx, AV_LOG_ERROR, "Error in ExportBuf!\n");
++        }
++        else {
++            if (buf_type == ctx->op_buf_type) {
++                buffer = ctx->op_buffers[index];
++            } else if (buf_type == ctx->cp_buf_type) {
++                buffer = ctx->cp_buffers[index];
++            }
++            buffer->planes[i].fd = expbuf.fd;
++        }
++    }
++    return 0;
++}
++
++int
++nvv4l2_fill_buffer_plane_format(nvv4l2_ctx_t *ctx,
++                                uint32_t *num_planes,
++                                NvBufferPlaneFormat *planefmts,
++                                uint32_t width, uint32_t height,
++                                uint32_t pixfmt)
++{
++    switch (pixfmt) {
++    case V4L2_PIX_FMT_YUV444M:
++        *num_planes = 3;
++
++        planefmts[0].width = width;
++        planefmts[1].width = width;
++        planefmts[2].width = width;
++
++        planefmts[0].height = height;
++        planefmts[1].height = height;
++        planefmts[2].height = height;
++
++        planefmts[0].bytesperpixel = 1;
++        planefmts[1].bytesperpixel = 1;
++        planefmts[2].bytesperpixel = 1;
++        break;
++    case V4L2_PIX_FMT_YUV420M:
++        *num_planes = 3;
++
++        planefmts[0].width = width;
++        planefmts[1].width = width / 2;
++        planefmts[2].width = width / 2;
++
++        planefmts[0].height = height;
++        planefmts[1].height = height / 2;
++        planefmts[2].height = height / 2;
++
++        planefmts[0].bytesperpixel = 1;
++        planefmts[1].bytesperpixel = 1;
++        planefmts[2].bytesperpixel = 1;
++        break;
++    case V4L2_PIX_FMT_NV12M:
++        *num_planes = 2;
++
++        planefmts[0].width = width;
++        planefmts[1].width = width / 2;
++
++        planefmts[0].height = height;
++        planefmts[1].height = height / 2;
++
++        planefmts[0].bytesperpixel = 1;
++        planefmts[1].bytesperpixel = 2;
++        break;
++    case V4L2_PIX_FMT_P010M:
++        *num_planes = 2;
++
++        planefmts[0].width = width;
++        planefmts[1].width = width / 2;
++
++        planefmts[0].height = height;
++        planefmts[1].height = height / 2;
++
++        planefmts[0].bytesperpixel = 2;
++        planefmts[1].bytesperpixel = 4;
++        break;
++    default:
++        av_log(ctx->avctx, AV_LOG_ERROR, "Unsupported pixel format!");
++        return -1;
++    }
++
++    return 0;
++}
++
++int
++nvv4l2_dq_event(nvv4l2_ctx_t *ctx, struct v4l2_event *event,
++                uint32_t max_wait_ms)
++{
++    int ret;
++    do {
++        ret = v4l2_ioctl(ctx->fd, VIDIOC_DQEVENT, event);
++
++        if (errno != EAGAIN) {
++            break;
++        } else if (max_wait_ms-- == 0) {
++            break;
++        } else {
++            usleep(1000);
++        }
++    }
++    while (ret && (ctx->op_streamon || ctx->cp_streamon));
++
++    return ret;
++}
++
++int
++nvv4l2_dq_buffer(nvv4l2_ctx_t *ctx, struct v4l2_buffer *v4l2_buf,
++                 NvBuffer **buffer, enum v4l2_buf_type buf_type,
++                 enum v4l2_memory memory_type, uint32_t num_retries)
++{
++    int ret;
++    bool is_in_error = false;
++    v4l2_buf->type = buf_type;
++    v4l2_buf->memory = memory_type;
++    do {
++        ret = v4l2_ioctl(ctx->fd, VIDIOC_DQBUF, v4l2_buf);
++        if (ret == 0) {
++            pthread_mutex_lock(&ctx->queue_lock);
++            switch (v4l2_buf->type) {
++            case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
++                if (buffer)
++                    *buffer = ctx->op_buffers[v4l2_buf->index];
++                for (uint32_t i = 0;
++                     i < ctx->op_buffers[v4l2_buf->index]->n_planes; i++) {
++                    ctx->op_buffers[v4l2_buf->index]->planes[i].bytesused =
++                        v4l2_buf->m.planes[i].bytesused;
++                }
++                ctx->num_queued_op_buffers--;
++                break;
++
++            case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
++                if (buffer)
++                    *buffer = ctx->cp_buffers[v4l2_buf->index];
++                for (uint32_t i = 0;
++                     i < ctx->cp_buffers[v4l2_buf->index]->n_planes; i++) {
++                    ctx->cp_buffers[v4l2_buf->index]->planes[i].bytesused =
++                        v4l2_buf->m.planes[i].bytesused;
++                }
++                ctx->num_queued_cp_buffers--;
++                break;
++
++            default:
++                av_log(ctx->avctx, AV_LOG_ERROR, "Invalid buffer type!\n");
++            }
++            pthread_cond_broadcast(&ctx->queue_cond);
++            pthread_mutex_unlock(&ctx->queue_lock);
++        } else if (errno == EAGAIN) {
++            pthread_mutex_lock(&ctx->queue_lock);
++            if (v4l2_buf->flags & V4L2_BUF_FLAG_LAST) {
++                pthread_mutex_unlock(&ctx->queue_lock);
++                break;
++            }
++            pthread_mutex_unlock(&ctx->queue_lock);
++
++            if (num_retries-- == 0) {
++                av_log(ctx->avctx, AV_LOG_VERBOSE, "Resource unavailable!\n");
++                break;
++            }
++        } else {
++            is_in_error = true;
++            break;
++        }
++    }
++    while (ret && !is_in_error);
++
++    return ret;
++}
++
++int
++nvv4l2_q_buffer(nvv4l2_ctx_t *ctx, struct v4l2_buffer *v4l2_buf,
++                NvBuffer *buffer, enum v4l2_buf_type buf_type,
++                enum v4l2_memory memory_type, int num_planes)
++{
++    int ret;
++
++    pthread_mutex_lock(&ctx->queue_lock);
++
++    if (buf_type == ctx->op_buf_type)
++        buffer = ctx->op_buffers[v4l2_buf->index];
++    else if (buf_type == ctx->cp_buf_type)
++        buffer = ctx->cp_buffers[v4l2_buf->index];
++
++    v4l2_buf->type = buf_type;
++    v4l2_buf->memory = memory_type;
++    v4l2_buf->length = num_planes;
++
++    switch (memory_type) {
++    case V4L2_MEMORY_USERPTR:
++        for (uint32_t i = 0; i < buffer->n_planes; i++) {
++            v4l2_buf->m.planes[i].m.userptr =
++                (unsigned long) buffer->planes[i].data;
++            v4l2_buf->m.planes[i].bytesused = buffer->planes[i].bytesused;
++        }
++        break;
++    case V4L2_MEMORY_MMAP:
++        for (uint32_t i = 0; i < buffer->n_planes; i++) {
++            v4l2_buf->m.planes[i].bytesused = buffer->planes[i].bytesused;
++        }
++        break;
++
++    case V4L2_MEMORY_DMABUF:
++        break;
++
++    default:
++        pthread_cond_broadcast(&ctx->queue_cond);
++        pthread_mutex_unlock(&ctx->queue_lock);
++        return -1;
++    }
++    ret = v4l2_ioctl(ctx->fd, VIDIOC_QBUF, v4l2_buf);
++
++    if (ret == 0) {
++        if (v4l2_buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
++            ctx->num_queued_op_buffers++;
++        } else {
++            ctx->num_queued_cp_buffers++;
++        }
++        pthread_cond_broadcast(&ctx->queue_cond);
++    }
++    pthread_mutex_unlock(&ctx->queue_lock);
++
++    return ret;
++}
++
++int
++nvv4l2_req_buffers_on_capture_plane(nvv4l2_ctx_t *ctx,
++                                    enum v4l2_buf_type buf_type,
++                                    enum v4l2_memory mem_type,
++                                    int num_buffers)
++{
++    struct v4l2_requestbuffers reqbufs;
++    int ret;
++    memset(&reqbufs, 0, sizeof(struct v4l2_requestbuffers));
++
++    reqbufs.count = num_buffers;
++    reqbufs.memory = mem_type;
++    reqbufs.type = buf_type;
++
++    ret = v4l2_ioctl(ctx->fd, VIDIOC_REQBUFS, &reqbufs);
++    if (ret)
++        return ret;
++
++    if (reqbufs.count) {
++        ctx->cp_buffers =
++            (NvBuffer **)NVMALLOC(reqbufs.count * sizeof(NvBuffer *));
++        for (uint32_t i = 0; i < reqbufs.count; ++i) {
++            ctx->cp_buffers[i] = (NvBuffer *)NVMALLOC(sizeof(NvBuffer));
++            nvv4l2_create_bufferfmt(ctx->cp_buffers[i], buf_type, mem_type,
++                             ctx->cp_num_planes, ctx->cp_planefmts, i);
++        }
++    } else if (ctx->cp_buffers) {
++        for (uint32_t i = 0; i < ctx->cp_num_buffers; ++i) {
++            for (uint32_t j = 0; j < ctx->cp_buffers[i]->n_planes &&
++                 mem_type == V4L2_MEMORY_USERPTR; j++) {
++                NVFREE(ctx->cp_buffers[i]->planes[j].data);
++            }
++            NVFREE(ctx->cp_buffers[i]);
++        }
++        NVFREE(ctx->cp_buffers);
++        ctx->cp_buffers = NULL;
++    }
++    ctx->cp_num_buffers = reqbufs.count;
++
++    return ret;
++}
++
++int
++nvv4l2_req_buffers_on_output_plane(nvv4l2_ctx_t *ctx,
++                                   enum v4l2_buf_type buf_type,
++                                   enum v4l2_memory mem_type,
++                                   int num_buffers)
++{
++    struct v4l2_requestbuffers reqbufs;
++    int ret;
++    memset(&reqbufs, 0, sizeof(struct v4l2_requestbuffers));
++
++    reqbufs.count = num_buffers;
++    reqbufs.memory = mem_type;
++    reqbufs.type = buf_type;
++
++    ret = v4l2_ioctl(ctx->fd, VIDIOC_REQBUFS, &reqbufs);
++    if (ret)
++        return ret;
++
++    if (reqbufs.count) {
++        ctx->op_buffers =
++            (NvBuffer **)NVMALLOC(reqbufs.count * sizeof(NvBuffer *));
++        for (uint32_t i = 0; i < reqbufs.count; ++i) {
++            ctx->op_buffers[i] = (NvBuffer *)NVMALLOC(sizeof(NvBuffer));
++            nvv4l2_create_bufferfmt(ctx->op_buffers[i], buf_type, mem_type,
++                             ctx->op_num_planes, ctx->op_planefmts, i);
++        }
++    } else if (ctx->op_buffers) {
++        for (uint32_t i = 0; i < ctx->op_num_buffers; ++i) {
++            for (uint32_t j = 0; j < ctx->op_buffers[i]->n_planes &&
++                 mem_type == V4L2_MEMORY_USERPTR; j++) {
++                NVFREE(ctx->op_buffers[i]->planes[j].data);
++            }
++            NVFREE(ctx->op_buffers[i]);
++        }
++        NVFREE(ctx->op_buffers);
++        ctx->op_buffers = NULL;
++    }
++    ctx->op_num_buffers = reqbufs.count;
++
++    return ret;
++}
++
++int
++nvv4l2_set_ext_controls(int fd, uint32_t id,
++                        uint32_t class, uint32_t value)
++{
++    int ret;
++    struct v4l2_ext_control ctl;
++    struct v4l2_ext_controls ctrls;
++
++    memset(&ctl, 0, sizeof(struct v4l2_ext_control));
++    memset(&ctrls, 0, sizeof(struct v4l2_ext_controls));
++    ctl.id = id;
++    ctl.value = value;
++    ctrls.count = 1;
++    ctrls.controls = &ctl;
++    ctrls.ctrl_class = class;
++
++    ret = v4l2_ioctl(fd, VIDIOC_S_EXT_CTRLS, &ctrls);
++
++    return ret;
++}
++
++int
++nvv4l2_set_ext_control_qp_range(int fd, uint32_t qpmin,
++                                uint32_t qpmax)
++{
++    int ret;
++    struct v4l2_ext_control ctl;
++    struct v4l2_ext_controls ctrls;
++    v4l2_ctrl_video_qp_range qprange;
++
++    memset(&ctl, 0, sizeof(struct v4l2_ext_control));
++    memset(&ctrls, 0, sizeof(struct v4l2_ext_controls));
++
++    qprange.MinQpI = qpmin;
++    qprange.MaxQpI = qpmax;
++    qprange.MinQpP = qpmin;
++    qprange.MaxQpP = qpmax;
++    qprange.MinQpB = qpmin;
++    qprange.MaxQpB = qpmax;
++
++    ctl.id = V4L2_CID_MPEG_VIDEOENC_QP_RANGE;
++    ctl.string = (char *)&qprange;
++
++    ctrls.count = 1;
++    ctrls.controls = &ctl;
++    ctrls.ctrl_class = V4L2_CTRL_CLASS_MPEG;
++
++    ret = v4l2_ioctl(fd, VIDIOC_S_EXT_CTRLS, &ctrls);
++
++    return ret;
++}
++
++int
++nvv4l2_set_ext_control_constant_qp(int fd, uint32_t qpval)
++{
++    int ret;
++    struct v4l2_ext_control ctl[3];
++    struct v4l2_ext_controls ctrls;
++
++    memset(&ctl, 0, sizeof(ctl));
++    memset(&ctrls, 0, sizeof(ctrls));
++
++    ctl[0].id = V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE;
++    ctl[0].value = 0; // disable rate control
++
++    ctl[1].id = V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP;
++    ctl[1].value = qpval;
++
++    ctl[2].id = V4L2_CID_MPEG_VIDEO_H264_P_FRAME_QP;
++    ctl[2].value = qpval;
++
++    ctrls.count = 3;
++    ctrls.controls = &ctl[0];
++    ctrls.ctrl_class = V4L2_CTRL_CLASS_MPEG;
++
++    ret = v4l2_ioctl(fd, VIDIOC_S_EXT_CTRLS, &ctrls);
++
++    return ret;
++}
++
++int
++nvv4l2_get_ext_control_metadata(int fd, uint32_t buffer_index,
++                    v4l2_ctrl_videoenc_outputbuf_metadata *enc_metadata)
++{
++    int ret;
++    struct v4l2_ext_control ctl;
++    struct v4l2_ext_controls ctrls;
++    v4l2_ctrl_video_metadata metadata;
++
++    memset(&ctl, 0, sizeof(struct v4l2_ext_control));
++    memset(&ctrls, 0, sizeof(struct v4l2_ext_controls));
++
++    metadata.buffer_index = buffer_index;
++    metadata.VideoEncMetadata =
++        (v4l2_ctrl_videoenc_outputbuf_metadata *)&enc_metadata;
++
++    ctl.id = V4L2_CID_MPEG_VIDEOENC_METADATA;
++    ctl.string = (char *)&metadata;
++
++    ctrls.count = 1;
++    ctrls.controls = &ctl;
++    ctrls.ctrl_class = V4L2_CTRL_CLASS_MPEG;
++
++    ret = v4l2_ioctl(fd, VIDIOC_S_EXT_CTRLS, &ctrls);
++
++    return ret;
++}
++
++int
++nvv4l2_set_stream_control_framerate(int fd,  uint32_t buf_type,
++                                    uint32_t framerate_num,
++                                    uint32_t framerate_den)
++{
++    int ret;
++    struct v4l2_streamparm parms;
++
++    memset(&parms, 0, sizeof(parms));
++
++    parms.parm.output.timeperframe.numerator = framerate_den;
++    parms.parm.output.timeperframe.denominator = framerate_num;
++    parms.type = buf_type;
++
++    ret = v4l2_ioctl(fd, VIDIOC_S_PARM, &parms);
++
++    return ret;
++}
++
++int
++nvv4l2_subscribe_event(int fd, uint32_t type, uint32_t id,
++                       uint32_t flags)
++{
++    struct v4l2_event_subscription sub;
++    int ret;
++
++    memset(&sub, 0, sizeof(struct v4l2_event_subscription));
++
++    sub.type = type;
++    sub.id = id;
++    sub.flags = flags;
++
++    ret = v4l2_ioctl(fd, VIDIOC_SUBSCRIBE_EVENT, &sub);
++
++    return ret;
++}
++
++void
++nvv4l2_dbg_plane_supported_formats(nvv4l2_ctx_t *ctx,
++                                   uint32_t buf_type)
++{
++    struct v4l2_fmtdesc fdesc;
++    char fourcc[5] = {0};
++    int ret;
++
++    memset(&fdesc, 0, sizeof(fdesc));
++    fdesc.type = buf_type;
++
++    av_log(ctx->avctx, AV_LOG_INFO,
++           "%s plane format support:\n",
++           buf_type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE ?
++                                    "Output" : "Capture");
++
++    while (true) {
++        ret = v4l2_ioctl(ctx->fd, VIDIOC_ENUM_FMT, &fdesc);
++        if (ret)
++            break;
++
++        memcpy(fourcc, &fdesc.pixelformat, 4);
++        av_log(ctx->avctx, AV_LOG_INFO, "%d: %s (%s)\n", fdesc.index, fourcc, fdesc.description);
++        fdesc.index++;
++    }
++}
+diff --git a/libavcodec/nvv4l2.h b/libavcodec/nvv4l2.h
+new file mode 100644
+index 0000000000..5c65e2bec7
+--- /dev/null
++++ b/libavcodec/nvv4l2.h
+@@ -0,0 +1,324 @@
++/*
++ * Copyright (c) 2021-2022, CTCaer <ctcaer@gmail.com>
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
++ * DEALINGS IN THE SOFTWARE.
++ */
++
++/**
++ * Specifies the decoder device node.
++ */
++#ifndef __nvv4l2_H__
++#define __nvv4l2_H__
++
++#include <stdlib.h>
++#include <stdint.h>
++#include <stdbool.h>
++#include <libv4l2.h>
++#include <linux/videodev2.h>
++#include "avcodec.h"
++
++#include "nvbuf_utils.h"
++#include "v4l2_nv_extensions.h"
++
++#define NV_MAX_BUFFERS 32
++
++/**
++ * Specifies the maximum number of planes a buffer can contain.
++ */
++#define NV_MAX_PLANES 3
++#define NVMIN(a,b) (((a) < (b)) ? (a) : (b))
++#define NVMAX(a, b) ((a) > (b) ? (a) : (b))
++
++/* Use app malloc/free implementation */
++#define NVMALLOC(size) (av_malloc((size)))
++#define NVCALLOC(num, size) (av_mallocz((num) * (size)))
++#define NVFREE(ptr) (av_free((ptr)))
++
++typedef struct _queue {
++    uint32_t capacity;
++    uint32_t front;
++    uint32_t back;
++} NvQueues;
++
++typedef enum {
++    NV_PIX_NV12,
++    NV_PIX_YUV420
++} NvPixFormat;
++
++typedef struct _NVPACKET {
++    uint32_t flags;
++    uint32_t payload_size;
++    uint8_t *payload;
++    uint32_t width;
++    uint32_t height;
++    uint64_t pts;
++} NvPacket;
++
++typedef struct _NVFRAME {
++    uint32_t flags;
++    uint32_t payload_size[3];
++    uint8_t *payload[3];
++    uint32_t width;
++    uint32_t height;
++    uint64_t pts;
++} NvFrame;
++
++typedef enum {
++    NvVideoCodec_H264,              /**< H.264 */
++    NvVideoCodec_MPEG4,             /**< MPEG-4 */
++    NvVideoCodec_MPEG2,             /**< MPEG-2 */
++    NvVideoCodec_VP8,               /**< VP8 */
++    NvVideoCodec_VP9,               /**< VP9 */
++    NvVideoCodec_HEVC,              /**< H.265/HEVC */
++    NvVideoCodec_UNDEFINED,
++} NvCodingType;
++
++typedef struct {
++    uint32_t width;                 /**< Holds the width of the plane in pixels. */
++    uint32_t height;                /**< Holds the height of the plane in pixels. */
++
++    uint32_t bytesperpixel;         /**< Holds the bytes used to represent one
++                                         pixel in the plane. */
++    uint32_t stride;                /**< Holds the stride of the plane in bytes. */
++    uint32_t sizeimage;             /**< Holds the size of the plane in bytes. */
++} NvBufferPlaneFormat;
++
++    /**
++     * Holds the buffer plane parameters.
++     */
++
++typedef struct {
++    NvBufferPlaneFormat fmt;        /**< Holds the format of the plane. */
++    uint8_t *data;                  /**< Holds a pointer to the plane memory. */
++    uint32_t bytesused;             /**< Holds the number of valid bytes in the plane. */
++    int fd;                         /**< Holds the file descriptor (FD) of the plane of the
++                                     exported buffer, in the case of V4L2 MMAP buffers. */
++    uint32_t mem_offset;            /**< Holds the offset of the first valid byte
++                                         from the data pointer. */
++    uint32_t length;                /**< Holds the size of the buffer in bytes. */
++} NvBufferPlane;
++
++typedef struct {
++    enum v4l2_buf_type buf_type;    /**< Type of the buffer. */
++    enum v4l2_memory memory_type;   /**< Type of memory associated with the buffer. */
++    uint32_t index;                 /**< Holds the buffer index. */
++    uint32_t n_planes;              /**< Holds the number of planes in the buffer. */
++    NvBufferPlane planes[NV_MAX_PLANES];
++    bool mapped;
++} NvBuffer;
++
++typedef struct {
++    uint32_t width;
++    uint32_t height;
++    bool low_latency;
++    uint32_t profile;
++    uint32_t bitrate;
++    uint32_t level;
++    uint32_t tier;
++    uint32_t preset_type;
++    uint32_t lossless;
++    uint32_t iframe_interval;
++    uint32_t idr_interval;
++    uint32_t fps_n;
++    uint32_t fps_d;
++    int qmin;
++    int qmax;
++    int num_b_frames;
++    uint32_t num_ref;
++    bool sps_pps_at_idr;
++    uint32_t ratecontrol;
++} NvEncoder;
++
++/**
++ * @brief Struct defining the decoder context.
++ * The video decoder device node is `/dev/nvhost-nvdec`. The category name
++ * for the decoder is \c "NVDEC".
++ *
++ * The context stores the information for decoding.
++ * Refer to [V4L2 Video Decoder](group__V4L2Dec.html) for more information on the decoder.
++ */
++
++typedef struct {
++    uint32_t codec_width;
++    uint32_t codec_height;
++
++    uint32_t op_pixfmt;
++    uint32_t cp_pixfmt;
++    enum v4l2_memory op_mem_type;
++    enum v4l2_memory cp_mem_type;
++    enum v4l2_buf_type op_buf_type;
++    enum v4l2_buf_type cp_buf_type;
++    NvBufferPlaneFormat op_planefmts[NV_MAX_PLANES];
++    NvBufferPlaneFormat cp_planefmts[NV_MAX_PLANES];
++    uint32_t cp_num_planes;
++    uint32_t op_num_planes;
++    uint32_t cp_num_buffers;
++    uint32_t op_num_buffers;
++    NvQueues *export_pool;
++    NvBuffer **op_buffers;
++    NvBuffer **cp_buffers;
++    uint32_t num_active_op_buffers;
++    uint32_t num_queued_op_buffers;
++    uint32_t num_queued_cp_buffers;
++
++    pthread_mutex_t queue_lock;
++    pthread_cond_t queue_cond;
++    pthread_mutex_t frame_lock;
++    pthread_cond_t frame_cond;
++    pthread_mutex_t pool_lock;
++    pthread_t capture_thread;
++
++    bool in_error;
++    bool eos;
++    bool op_streamon;
++    bool cp_streamon;
++    bool draining_event;
++    bool low_latency;
++
++    int fd;
++    int out_dma_fd;
++    int dmabuff_fd[NV_MAX_BUFFERS];
++
++    int      plane_dma_fd[NV_MAX_BUFFERS];
++    uint32_t plane_width[MAX_NUM_PLANES];
++    uint32_t plane_height[MAX_NUM_PLANES];
++    uint64_t frame_pts[NV_MAX_BUFFERS];
++
++    uint8_t *packet[NV_MAX_BUFFERS];
++    uint32_t packet_buf_size[NV_MAX_BUFFERS];
++    uint32_t packet_size[NV_MAX_BUFFERS];
++    bool packet_keyflag[NV_MAX_BUFFERS];
++
++    NvEncoder *enc;
++    AVCodecContext *avctx;
++} nvv4l2_ctx_t;
++
++/* NVV4L2 common functions */
++uint32_t nvv4l2_map_nvcodec_type(NvCodingType nv_codec_type);
++int
++nvv4l2_pool_idx_next(nvv4l2_ctx_t *ctx, NvQueues *q);
++void
++nvv4l2_pool_push(nvv4l2_ctx_t *ctx, NvQueues *q);
++int
++nvv4l2_pool_pop(nvv4l2_ctx_t *ctx, NvQueues *q);
++int
++nvv4l2_create_bufferfmt(NvBuffer *buffer, enum v4l2_buf_type buf_type,
++                     enum v4l2_memory memory_type, uint32_t n_planes,
++                     NvBufferPlaneFormat *fmt, uint32_t index);
++int
++nvv4l2_map_out(nvv4l2_ctx_t *ctx, struct v4l2_buffer *v4l2_buf,
++               enum v4l2_buf_type buf_type, enum v4l2_memory mem_type,
++               int dma_fd);
++int
++nvv4l2_unmap_out(nvv4l2_ctx_t *ctx, int index, enum v4l2_buf_type buf_type,
++                 enum v4l2_memory mem_type, int dma_fd);
++void
++nvv4l2_destroyBuffer(nvv4l2_ctx_t *ctx, NvBuffer *buffer);
++int
++nvv4l2_allocate_memory(nvv4l2_ctx_t *ctx, NvBuffer *buffer);
++int
++nvv4l2_map(nvv4l2_ctx_t *ctx, NvBuffer *buffer);
++void
++nvv4l2_unmap(nvv4l2_ctx_t *ctx, NvBuffer *buffer);
++int
++nvv4l2_query_buffer(nvv4l2_ctx_t *ctx, enum v4l2_buf_type buf_type,
++                    enum v4l2_memory memory_type, uint32_t num_planes,
++                    uint32_t index);
++int
++nvv4l2_export_buffer(nvv4l2_ctx_t *ctx, enum v4l2_buf_type buf_type,
++                     uint32_t num_planes, uint32_t index);
++int
++nvv4l2_fill_buffer_plane_format(nvv4l2_ctx_t *ctx,
++                                uint32_t *num_planes,
++                                NvBufferPlaneFormat *planefmts,
++                                uint32_t width, uint32_t height,
++                                uint32_t pixfmt);
++int
++nvv4l2_dq_event(nvv4l2_ctx_t *ctx, struct v4l2_event *event,
++                uint32_t max_wait_ms);
++int
++nvv4l2_dq_buffer(nvv4l2_ctx_t *ctx, struct v4l2_buffer *v4l2_buf,
++                 NvBuffer **buffer, enum v4l2_buf_type buf_type,
++                 enum v4l2_memory memory_type, uint32_t num_retries);
++int
++nvv4l2_q_buffer(nvv4l2_ctx_t *ctx, struct v4l2_buffer *v4l2_buf,
++                NvBuffer *buffer, enum v4l2_buf_type buf_type,
++                enum v4l2_memory memory_type, int num_planes);
++int
++nvv4l2_req_buffers_on_capture_plane(nvv4l2_ctx_t *ctx,
++                                    enum v4l2_buf_type buf_type,
++                                    enum v4l2_memory mem_type,
++                                    int num_buffers);
++int
++nvv4l2_req_buffers_on_output_plane(nvv4l2_ctx_t *ctx,
++                                   enum v4l2_buf_type buf_type,
++                                   enum v4l2_memory mem_type,
++                                   int num_buffers);
++int
++nvv4l2_set_ext_controls(int fd, uint32_t id,
++                        uint32_t class, uint32_t value);
++int
++nvv4l2_set_ext_control_qp_range(int fd, uint32_t qpmin,
++                                uint32_t qpmax);
++int
++nvv4l2_set_ext_control_constant_qp(int fd, uint32_t qpval);
++int
++nvv4l2_get_ext_control_metadata(int fd, uint32_t buffer_index,
++                    v4l2_ctrl_videoenc_outputbuf_metadata *enc_metadata);
++int
++nvv4l2_set_stream_control_framerate(int fd,  uint32_t buf_type,
++                                    uint32_t framerate_num,
++                                    uint32_t framerate_den);
++int
++nvv4l2_subscribe_event(int fd, uint32_t type, uint32_t id,
++                       uint32_t flags);
++
++/* NVV4L2 debug functions */
++void
++nvv4l2_dbg_plane_supported_formats(nvv4l2_ctx_t *ctx,
++                                   uint32_t buf_type);
++
++/* NVV4L2 decoder functions */
++nvv4l2_ctx_t *nvv4l2_create_decoder(AVCodecContext *avctx,
++                                    NvCodingType nv_codec_type,
++                                    int pix_fmt);
++int
++nvv4l2_decoder_put_packet(AVCodecContext *avctx, nvv4l2_ctx_t *ctx,
++                          NvPacket *packet);
++int
++nvv4l2_decoder_get_frame(AVCodecContext *avctx, nvv4l2_ctx_t *ctx,
++                         int *buf_index, NvFrame *frame);
++int nvv4l2_decoder_close(AVCodecContext *avctx, nvv4l2_ctx_t *ctx);
++
++/* NVV4L2 encoder functions */
++nvv4l2_ctx_t *nvv4l2_create_encoder(AVCodecContext *avctx,
++                                    NvEncoder *enc,
++                                    NvCodingType codingType,
++                                    int pix_fmt);
++int
++nvv4l2_encoder_put_frame(AVCodecContext *avctx, nvv4l2_ctx_t *ctx,
++                         NvFrame *frame);
++int
++nvv4l2_encoder_get_packet(AVCodecContext *avctx,
++                          nvv4l2_ctx_t *ctx,
++                          NvPacket *packet);
++int
++nvv4l2_encoder_close(AVCodecContext *avctx, nvv4l2_ctx_t *ctx);
++
++#endif
+diff --git a/libavcodec/nvv4l2_dec.c b/libavcodec/nvv4l2_dec.c
+new file mode 100644
+index 0000000000..ab7f0ee45e
+--- /dev/null
++++ b/libavcodec/nvv4l2_dec.c
+@@ -0,0 +1,1101 @@
++/*
++ * Copyright (c) 2021-2022, CTCaer <ctcaer@gmail.com>
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
++ * DEALINGS IN THE SOFTWARE.
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <stdint.h>
++#include <unistd.h>
++#include <pthread.h>
++#include <string.h>
++#include <fcntl.h>
++#include <errno.h>
++#include "internal.h"
++#include "libavutil/log.h"
++
++#include "nvv4l2.h"
++
++/*
++ ** Output plane format support:
++ **  S264 (H264  Encoded Slice bitstream)
++ **  VP8F (VP8   Encoded Slice bitstream)
++ **  H264 (H264  Encoded bitstream)
++ **  H265 (H265  Encoded bitstream)
++ **  VP80 (VP8   Encoded bitstream)
++ **  VP90 (VP9   Encoded bitstream)
++ **  MPG2 (MPEG2 Encoded bitstream)
++ **  MPG4 (MPEG4 Encoded bitstream)
++ **  JPEG (JPEG  Encoded bitstream)
++ **  MJPG (MJPEG Encoded bitstream)
++ **  DVX4 (divx  Encoded bitstream)
++ **  DVX5 (divx  Encoded bitstream)
++ **
++ ** Capture plane format support:
++ **  NM12 (YUV 4:2:0)
++ */
++
++#define DECODER_DEV "/dev/nvhost-nvdec"
++#define OP_PLANE_REQ_SIZEIMAGE 4000000
++
++typedef struct {
++    char eos_reached;
++    nvv4l2_ctx_t *ctx;
++    AVClass *av_class;
++} nvv4l2DecodeContext;
++
++static int
++set_output_plane_format(nvv4l2_ctx_t *ctx, uint32_t pixfmt,
++                        uint32_t sizeimage)
++{
++    int ret;
++    struct v4l2_format format;
++
++    memset(&format, 0, sizeof(struct v4l2_format));
++    format.type = ctx->op_buf_type;
++    format.fmt.pix_mp.pixelformat = pixfmt;
++    format.fmt.pix_mp.num_planes = 1;
++    format.fmt.pix_mp.plane_fmt[0].sizeimage = sizeimage;
++
++    ret = v4l2_ioctl(ctx->fd, VIDIOC_S_FMT, &format);
++
++    if (ret == 0) {
++        ctx->op_num_planes = format.fmt.pix_mp.num_planes;
++        for (uint32_t i = 0; i < ctx->op_num_planes; i++) {
++            ctx->op_planefmts[i].stride =
++                format.fmt.pix_mp.plane_fmt[i].bytesperline;
++            ctx->op_planefmts[i].sizeimage =
++                format.fmt.pix_mp.plane_fmt[i].sizeimage;
++        }
++    }
++
++    return ret;
++}
++
++static int
++set_capture_plane_format(AVCodecContext *avctx, nvv4l2_ctx_t *ctx,
++                         uint32_t pixfmt, uint32_t width, uint32_t height)
++{
++    int ret;
++    struct v4l2_format format;
++    uint32_t num_bufferplanes;
++    NvBufferPlaneFormat planefmts[NV_MAX_PLANES];
++
++    nvv4l2_fill_buffer_plane_format(ctx, &num_bufferplanes, planefmts, width,
++                             height, pixfmt);
++    ctx->cp_num_planes = num_bufferplanes;
++    for (uint32_t i = 0; i < num_bufferplanes; i++) {
++        ctx->cp_planefmts[i] = planefmts[i];
++    }
++    memset(&format, 0, sizeof(struct v4l2_format));
++    format.type = ctx->cp_buf_type;
++    format.fmt.pix_mp.width = width;
++    format.fmt.pix_mp.height = height;
++    format.fmt.pix_mp.pixelformat = pixfmt;
++    format.fmt.pix_mp.num_planes = num_bufferplanes;
++
++    ret = v4l2_ioctl(ctx->fd, VIDIOC_S_FMT, &format);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR, "Error in VIDIOC_S_FMT!\n");
++        ctx->in_error = true;
++    } else {
++        ctx->cp_num_planes = format.fmt.pix_mp.num_planes;
++        for (uint32_t i = 0; i < ctx->cp_num_planes; i++) {
++            ctx->cp_planefmts[i].stride =
++                format.fmt.pix_mp.plane_fmt[i].bytesperline;
++            ctx->cp_planefmts[i].sizeimage =
++                format.fmt.pix_mp.plane_fmt[i].sizeimage;
++        }
++    }
++
++    return ret;
++}
++
++static void query_set_capture(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
++{
++    struct v4l2_format format;
++    struct v4l2_crop crop;
++    struct v4l2_control ctl;
++    int ret;
++    int32_t min_cap_buffers;
++    NvBufferCreateParams input_params = { 0 };
++    NvBufferCreateParams cap_params = { 0 };
++
++    /* Get format on capture plane set by device.
++     ** This may change after an resolution change event.
++     */
++    format.type = ctx->cp_buf_type;
++    ret = v4l2_ioctl(ctx->fd, VIDIOC_G_FMT, &format);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR,
++               "Could not get format from decoder capture plane!\n");
++        ctx->in_error = true;
++        return;
++    }
++
++    /* Query cropping size and position. */
++    crop.type = ctx->cp_buf_type;
++    ret = v4l2_ioctl(ctx->fd, VIDIOC_G_CROP, &crop);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR,
++               "Could not get crop from decoder capture plane!\n");
++        ctx->in_error = true;
++        return;
++    }
++
++    ctx->codec_height = crop.c.height;
++    ctx->codec_width = crop.c.width;
++
++    for (uint32_t i = 0; i < NV_MAX_BUFFERS; i++) {
++        if (ctx->plane_dma_fd[i] != -1) {
++            NvBufferDestroy(ctx->plane_dma_fd[i]);
++            ctx->plane_dma_fd[i] = -1;
++        }
++    }
++
++    /* Create transform/export DMA buffers. */
++    for (uint32_t i = 0; i < NV_MAX_BUFFERS; i++) {
++        input_params.width = crop.c.width;
++        input_params.height = crop.c.height;
++        input_params.layout = NvBufferLayout_Pitch;
++        input_params.payloadType = NvBufferPayload_SurfArray;
++        input_params.colorFormat =
++                 ctx->cp_pixfmt == V4L2_PIX_FMT_NV12M ?
++                                   NvBufferColorFormat_NV12 :
++                                   NvBufferColorFormat_YUV420;
++        input_params.nvbuf_tag = NvBufferTag_VIDEO_DEC;
++
++        ret = NvBufferCreateEx(&ctx->plane_dma_fd[i], &input_params);
++        if (ret) {
++            av_log(avctx, AV_LOG_ERROR, "Creation of dmabuf failed!\n");
++            ctx->in_error = true;
++        }
++    }
++
++    /* Stop streaming. */
++    pthread_mutex_lock(&ctx->queue_lock);
++    ret = v4l2_ioctl(ctx->fd, VIDIOC_STREAMOFF, &ctx->cp_buf_type);
++    if (ret) {
++        ctx->in_error = true;
++    } else {
++        pthread_cond_broadcast(&ctx->queue_cond);
++    }
++    pthread_mutex_unlock(&ctx->queue_lock);
++
++    /* Request buffers with count 0 and destroy all
++     ** previously allocated buffers.
++     */
++    ret = nvv4l2_req_buffers_on_capture_plane(ctx,
++                                              ctx->cp_buf_type,
++                                              ctx->cp_mem_type, 0);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR,
++               "Error in requesting 0 capture plane buffers!\n");
++        ctx->in_error = true;
++        return;
++    }
++
++    /* Destroy previous DMA buffers. */
++    for (uint32_t i = 0; i < ctx->cp_num_buffers; i++) {
++        if (ctx->dmabuff_fd[i] != 0) {
++            ret = NvBufferDestroy(ctx->dmabuff_fd[i]);
++            if (ret) {
++                av_log(avctx, AV_LOG_ERROR,
++                       "Failed to Destroy NvBuffer!\n");
++                ctx->in_error = true;
++            }
++        }
++    }
++
++    /* Set capture plane format to update vars. */
++    ret = set_capture_plane_format(avctx, ctx,
++                                   format.fmt.pix_mp.pixelformat,
++                                   format.fmt.pix_mp.width,
++                                   format.fmt.pix_mp.height);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR,
++               "Error in setting capture plane format!\n");
++        ctx->in_error = true;
++        return;
++    }
++
++    /* Get control value for min buffers which have to
++     ** be requested on capture plane.
++     */
++    ctl.id = V4L2_CID_MIN_BUFFERS_FOR_CAPTURE;
++
++    ret = v4l2_ioctl(ctx->fd, VIDIOC_G_CTRL, &ctl);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR, "Error getting value of control!\n");
++        ctx->in_error = true;
++        return;
++    } else {
++        min_cap_buffers = ctl.value;
++    }
++
++    /* Set quantization type. */
++    if (format.fmt.pix_mp.quantization == V4L2_QUANTIZATION_DEFAULT) {
++        av_log(avctx, AV_LOG_VERBOSE,
++            "Colorspace ITU-R BT.601 with standard range luma (16-235)\n");
++        cap_params.colorFormat = NvBufferColorFormat_NV12;
++    } else {
++        av_log(avctx, AV_LOG_VERBOSE,
++            "Colorspace ITU-R BT.601 with extended range luma (0-255)\n");
++        cap_params.colorFormat = NvBufferColorFormat_NV12_ER;
++    }
++
++    /* Request number of buffers returned by ctrl, plus 10 more. */
++    ctx->cp_num_buffers = min_cap_buffers + 10;
++
++    /* Create DMA Buffers by defining the parameters for the HW Buffer.
++     ** @payloadType defines the memory handle for the NvBuffer, here
++     ** defined for the set of planes.
++     ** @nvbuf_tag identifies the type of device or component
++     ** requesting the operation.
++     ** @layout defines memory layout for the surfaces, either Pitch/BLockLinear.
++     */
++    for (uint32_t i = 0; i < ctx->cp_num_buffers; i++) {
++        cap_params.width = crop.c.width;
++        cap_params.height = crop.c.height;
++        cap_params.layout = NvBufferLayout_BlockLinear;
++        cap_params.payloadType = NvBufferPayload_SurfArray;
++        cap_params.nvbuf_tag = NvBufferTag_VIDEO_DEC;
++        ret = NvBufferCreateEx(&ctx->dmabuff_fd[i], &cap_params);
++        if (ret) {
++            av_log(avctx, AV_LOG_ERROR, "Failed to create buffers!\n");
++            ctx->in_error = true;
++            break;
++        }
++    }
++
++    /* Request buffers on capture plane. */
++    ret = nvv4l2_req_buffers_on_capture_plane(ctx,
++                                              ctx->cp_buf_type,
++                                              ctx->cp_mem_type,
++                                              ctx->cp_num_buffers);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR,
++               "Error in requesting capture plane buffers!\n");
++        ctx->in_error = true;
++        return;
++    }
++
++    /* Enqueue all empty buffers on capture plane. */
++    for (uint32_t i = 0; i < ctx->cp_num_buffers; i++) {
++        struct v4l2_buffer v4l2_buf;
++        struct v4l2_plane planes[NV_MAX_PLANES];
++
++        memset(&v4l2_buf, 0, sizeof(v4l2_buf));
++        memset(planes, 0, sizeof(planes));
++
++        v4l2_buf.index = i;
++        v4l2_buf.m.planes = planes;
++        v4l2_buf.type = ctx->cp_buf_type;
++        v4l2_buf.memory = ctx->cp_mem_type;
++        v4l2_buf.length = ctx->cp_num_planes;
++        /* Set DMA plane handle. */
++        v4l2_buf.m.planes[0].m.fd = ctx->dmabuff_fd[i];
++        v4l2_buf.m.planes[1].m.fd = ctx->dmabuff_fd[i];
++
++        ret = nvv4l2_q_buffer(ctx, &v4l2_buf, NULL, ctx->cp_buf_type,
++                              ctx->cp_mem_type, ctx->cp_num_planes);
++
++        if (ret) {
++            av_log(avctx, AV_LOG_ERROR, "Qing failed on capture plane!\n");
++            ctx->in_error = true;
++            return;
++        }
++    }
++
++    /* Set max performance mode if low latency is requested. */
++    if (ctx->low_latency) {
++        ret = nvv4l2_set_ext_controls(ctx->fd,
++                                V4L2_CID_MPEG_VIDEO_MAX_PERFORMANCE, 0, 1);
++        if (ret) {
++            av_log(avctx, AV_LOG_ERROR,
++                   "Failed to set control max performance!\n");
++            ctx->in_error = true;
++        }
++    }
++
++    /* Set streaming status ON on capture plane. */
++    ret = v4l2_ioctl(ctx->fd, VIDIOC_STREAMON, &ctx->cp_buf_type);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR, "Streaming error on capture plane!\n");
++        ctx->in_error = true;
++    }
++
++    ctx->cp_streamon = true;
++
++    av_log(avctx, AV_LOG_VERBOSE, "Query and set capture successful\n");
++
++    return;
++}
++
++static void *dec_capture_thread(void *arg)
++{
++    nvv4l2_ctx_t *ctx = (nvv4l2_ctx_t *)arg;
++    struct v4l2_event event;
++    int buf_index;
++    int ret;
++
++    av_log(ctx->avctx, AV_LOG_VERBOSE, "Starting capture thread\n");
++
++    /* Need to wait for the first Resolution change event, so that
++     ** the decoder knows the stream resolution and can allocate
++     ** appropriate buffers when REQBUFS is called.
++     */
++    do {
++        /* Dequeue the subscribed event. */
++        ret = nvv4l2_dq_event(ctx, &event, 50000);
++        if (ret) {
++            if (errno == EAGAIN) {
++                av_log(ctx->avctx, AV_LOG_VERBOSE,
++                       "Timeout waiting for first resolution event!\n");
++            } else {
++                av_log(ctx->avctx, AV_LOG_ERROR,
++                       "Error in dequeuing decoder event!\n");
++            }
++            ctx->in_error = true;
++            break;
++        }
++    }
++    while ((event.type != V4L2_EVENT_RESOLUTION_CHANGE) && !ctx->in_error);
++
++    /* Received first resolution change event
++     ** Format and buffers are now set on capture.
++     */
++    if (!ctx->in_error) {
++        query_set_capture(ctx->avctx, ctx);
++    }
++
++    /* Check for resolution event to again
++     ** set format and buffers on capture plane.
++     */
++    while (!ctx->in_error && !ctx->eos) {
++        ret = nvv4l2_dq_event(ctx, &event, 0);
++        if (ret == 0) {
++            switch (event.type) {
++            case V4L2_EVENT_RESOLUTION_CHANGE:
++                query_set_capture(ctx->avctx, ctx);
++                continue;
++            }
++        }
++
++        /* Main Capture loop for DQ and Q. */
++        while (!ctx->eos) {
++            struct v4l2_buffer v4l2_cp_buf;
++            struct v4l2_plane capture_planes[NV_MAX_PLANES];
++            NvBufferRect src_rect, dest_rect;
++            NvBufferParams parm;
++            NvBufferTransformParams transform_params;
++            NvBuffer *cp_buffer = NULL;
++
++            memset(&v4l2_cp_buf, 0, sizeof(v4l2_cp_buf));
++            memset(capture_planes, 0, sizeof(capture_planes));
++            v4l2_cp_buf.m.planes = capture_planes;
++
++            /* Dequeue the filled buffer. */
++            if (nvv4l2_dq_buffer(ctx, &v4l2_cp_buf, &cp_buffer,
++                 ctx->cp_buf_type, ctx->cp_mem_type, 0)) {
++                if (errno == EAGAIN) {
++                    usleep(1000);
++                }
++                break;
++            }
++
++            /* Transformation parameters are defined
++             ** which are passed to the NvBufferTransform
++             ** for required conversion.
++             */
++            src_rect.top = 0;
++            src_rect.left = 0;
++            src_rect.width = ctx->codec_width;
++            src_rect.height = ctx->codec_height;
++            dest_rect.top = 0;
++            dest_rect.left = 0;
++            dest_rect.width = ctx->codec_width;
++            dest_rect.height = ctx->codec_height;
++
++            memset(&transform_params, 0, sizeof(transform_params));
++
++            /* @transform_flag defines the flags for enabling the
++             ** valid transforms. All the valid parameters are
++             **  present in the nvbuf_utils header.
++             */
++            transform_params.transform_flag = NVBUFFER_TRANSFORM_FILTER;
++            transform_params.transform_flip = NvBufferTransform_None;
++            transform_params.transform_filter =
++                                            NvBufferTransform_Filter_Smart;
++            transform_params.src_rect = src_rect;
++            transform_params.dst_rect = dest_rect;
++
++            /* Set DMA plane handle. */
++            cp_buffer->planes[0].fd = ctx->dmabuff_fd[v4l2_cp_buf.index];
++
++            pthread_mutex_lock(&ctx->queue_lock);
++
++            buf_index = nvv4l2_pool_idx_next(ctx, ctx->export_pool);
++
++            /* Blocklinear to Pitch transformation is required
++             ** to dump the raw decoded buffer data.
++             */
++            ret = NvBufferTransform(cp_buffer->planes[0].fd,
++                            ctx->plane_dma_fd[buf_index], &transform_params);
++            if (ret == -1) {
++                ctx->in_error = true;
++                av_log(ctx->avctx, AV_LOG_ERROR, "Transform failed!\n");
++                pthread_mutex_unlock(&ctx->queue_lock);
++                break;
++            }
++
++            ret = NvBufferGetParams(ctx->plane_dma_fd[buf_index], &parm);
++            if (ret) {
++                ctx->in_error = true;
++                av_log(ctx->avctx, AV_LOG_ERROR, "GetParams failed!\n");
++                pthread_mutex_unlock(&ctx->queue_lock);
++                goto error;
++            }
++
++            ctx->plane_width[0] = parm.width[0];
++            ctx->plane_height[0] = parm.height[0];
++            ctx->plane_width[1] = parm.width[1];
++            ctx->plane_height[1] = parm.height[1];
++            if (ctx->cp_pixfmt == V4L2_PIX_FMT_YUV420M) {
++                ctx->plane_width[2] = parm.width[2];
++                ctx->plane_height[2] = parm.height[2];
++            } else if (ctx->cp_pixfmt == V4L2_PIX_FMT_NV12M) {
++                ctx->plane_width[1] *= 2;
++            }
++
++            if (buf_index >= 0) {
++                ctx->frame_pts[buf_index] =
++                                v4l2_cp_buf.timestamp.tv_usec +
++                                (v4l2_cp_buf.timestamp.tv_sec * AV_TIME_BASE);
++            }
++
++            nvv4l2_pool_push(ctx, ctx->export_pool);
++            pthread_mutex_unlock(&ctx->queue_lock);
++
++            if (ctx->low_latency) {
++                pthread_mutex_lock(&ctx->frame_lock);
++                pthread_cond_signal(&ctx->frame_cond);
++                pthread_mutex_unlock(&ctx->frame_lock);
++            }
++
++            /* Set DMA plane handle. */
++            v4l2_cp_buf.m.planes[0].m.fd = ctx->dmabuff_fd[v4l2_cp_buf.index];
++
++            /* Queue the buffer. */
++            ret = nvv4l2_q_buffer(ctx, &v4l2_cp_buf, NULL, ctx->cp_buf_type,
++                                  ctx->cp_mem_type, ctx->cp_num_planes);
++
++            if (ret) {
++                av_log(ctx->avctx, AV_LOG_ERROR,
++                       "Qing failed on capture plane!\n");
++                if (ctx->draining_event) {
++                    ctx->draining_event = false;
++                    av_log(ctx->avctx, AV_LOG_ERROR,
++                           "Draining event, rejecting error\n");
++                } else {
++                    ctx->in_error = true;
++                }
++                break;
++            }
++        }
++    }
++
++error:
++    if (ctx->low_latency) {
++        pthread_mutex_lock(&ctx->frame_lock);
++        pthread_cond_broadcast(&ctx->frame_cond);
++        pthread_mutex_unlock(&ctx->frame_lock);
++    }
++
++    av_log(ctx->avctx, AV_LOG_VERBOSE,
++           "Exiting decoder capture loop thread\n");
++    return NULL;
++}
++
++
++int
++nvv4l2_decoder_get_frame(AVCodecContext *avctx, nvv4l2_ctx_t *ctx,
++                         int *buf_index, NvFrame *frame)
++{
++    struct timespec timeout;
++    struct timeval now;
++    int _buf_index;
++    int ret = 0;
++
++    /* In low latency mode, block until a decoded frame is ready. */
++    if (ctx->low_latency) {
++        pthread_mutex_lock(&ctx->frame_lock);
++        while (ctx->export_pool->capacity == 0 && !ctx->eos &&
++               !ctx->in_error && ret != ETIMEDOUT) {
++            /* 500ms timeout */
++            gettimeofday(&now, NULL);
++            timeout.tv_nsec = (now.tv_usec + 500000L) * 1000L;
++            timeout.tv_sec = now.tv_sec + timeout.tv_nsec / 1000000000L;
++            timeout.tv_nsec = timeout.tv_nsec % 1000000000L;
++
++            ret = pthread_cond_timedwait(&ctx->frame_cond,
++                                         &ctx->frame_lock, &timeout);
++        }
++        pthread_mutex_unlock(&ctx->frame_lock);
++    }
++
++    if (ctx->export_pool->capacity == 0)
++        return 1;
++
++    _buf_index = nvv4l2_pool_pop(ctx, ctx->export_pool);
++
++    frame->width = ctx->codec_width;
++    frame->height = ctx->codec_height;
++    frame->pts = ctx->frame_pts[_buf_index];
++
++    *buf_index = _buf_index;
++
++    return 0;
++
++}
++
++int
++nvv4l2_decoder_put_packet(AVCodecContext *avctx, nvv4l2_ctx_t *ctx,
++                          NvPacket *packet)
++{
++    int ret;
++    /* Read the encoded data and Enqueue the output
++     ** plane buffers. Exit loop in case file read is complete.
++     */
++    struct v4l2_buffer v4l2_buf_op;
++    struct v4l2_plane queue_op_planes[NV_MAX_PLANES];
++    NvBuffer *buffer;
++    memset(&v4l2_buf_op, 0, sizeof(v4l2_buf_op));
++    memset(queue_op_planes, 0, sizeof(queue_op_planes));
++    v4l2_buf_op.m.planes = queue_op_planes;
++
++    if (ctx->num_active_op_buffers < ctx->op_num_buffers) {
++        /* Get an unused buffer to add to the queue. */
++        buffer = ctx->op_buffers[ctx->num_active_op_buffers];
++        v4l2_buf_op.index = ctx->num_active_op_buffers;
++    } else {
++        /* Dequeue a finished buffer and reuse it. */
++        ret = nvv4l2_dq_buffer(ctx, &v4l2_buf_op, &buffer,
++                               ctx->op_buf_type, ctx->op_mem_type, -1);
++        if (ret) {
++            av_log(avctx, AV_LOG_ERROR,
++                   "Error DQing buffer at output plane!\n");
++            ctx->in_error = true;
++            return -1;
++        }
++    }
++
++    /* Copy packet data. */
++    memcpy(buffer->planes[0].data, packet->payload, packet->payload_size);
++    buffer->planes[0].bytesused = packet->payload_size;
++
++    v4l2_buf_op.m.planes[0].bytesused = buffer->planes[0].bytesused;
++
++    /* Set timestamp */
++    v4l2_buf_op.flags |= V4L2_BUF_FLAG_TIMESTAMP_COPY;
++    v4l2_buf_op.timestamp.tv_sec = packet->pts / AV_TIME_BASE;
++    v4l2_buf_op.timestamp.tv_usec = packet->pts % AV_TIME_BASE;
++
++    /* Queue packet on output plane. */
++    ret = nvv4l2_q_buffer(ctx, &v4l2_buf_op, buffer,
++                   ctx->op_buf_type, ctx->op_mem_type, ctx->op_num_planes);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR, "Error Qing buffer at output plane!\n");
++        ctx->in_error = true;
++        return -1;
++    }
++
++    if (ctx->num_active_op_buffers < ctx->op_num_buffers) {
++        ctx->num_active_op_buffers++;
++    }
++
++    if (v4l2_buf_op.m.planes[0].bytesused == 0) {
++        ctx->eos = true;
++        av_log(avctx, AV_LOG_VERBOSE, "Input file read complete\n");
++    }
++
++    return 0;
++}
++
++nvv4l2_ctx_t *nvv4l2_create_decoder(AVCodecContext *avctx,
++                                    NvCodingType nv_codec_type,
++                                    int pix_fmt)
++{
++    nvv4l2_ctx_t *ctx = (nvv4l2_ctx_t *)NVCALLOC(1, sizeof(nvv4l2_ctx_t));
++    int ret = 0;
++    int flags = 0;
++    ctx->avctx = avctx;
++
++    /* The call creates a new V4L2 Video Decoder object
++     ** on the device node "/dev/nvhost-nvdec"
++     ** Additional flags can also be given with which the device
++     ** should be opened.
++     ** This opens the device in Blocking mode.
++     */
++    ctx->fd = v4l2_open(DECODER_DEV, flags | O_RDWR);
++    if (ctx->fd == -1) {
++        av_log(avctx, AV_LOG_ERROR, "Could not open device!\n");
++        ctx->in_error = true;
++        return ctx;
++    }
++
++    /* Initialization. */
++    ctx->cp_pixfmt = pix_fmt;
++    ctx->op_pixfmt = nvv4l2_map_nvcodec_type(nv_codec_type);
++
++    /* Decoder code assumes that the following do not change.
++     ** If another memory type is wanted, relevant changes should be done
++     ** to the rest of the code.
++     */
++    ctx->op_mem_type = V4L2_MEMORY_USERPTR;
++    ctx->cp_mem_type = V4L2_MEMORY_DMABUF;
++
++    ctx->op_buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
++    ctx->cp_buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
++
++    for (uint32_t i = 0; i < NV_MAX_BUFFERS; i++)
++        ctx->plane_dma_fd[i] = -1;
++
++    /* Allocate packet pool. */
++    ctx->export_pool = (NvQueues *)NVCALLOC(1, sizeof(NvQueues));
++
++    /* Initialize mutexes */
++    pthread_mutex_init(&ctx->pool_lock, NULL);
++    pthread_mutex_init(&ctx->queue_lock, NULL);
++    pthread_mutex_init(&ctx->frame_lock, NULL);
++    pthread_cond_init(&ctx->queue_cond, NULL);
++    pthread_cond_init(&ctx->frame_cond, NULL);
++
++    /* Subscribe to Resolution change event.
++     ** This is required to catch whenever resolution change event
++     ** is triggered to set the format on capture plane.
++     */
++    ret = nvv4l2_subscribe_event(ctx->fd,
++                                 V4L2_EVENT_RESOLUTION_CHANGE,
++                                 0, 0);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR,
++               "Failed to subscribe for resolution change!\n");
++        ctx->in_error = true;
++    }
++
++    /* Set format on output plane.
++     ** The format of the encoded bitstream is set.
++     */
++    ret = set_output_plane_format(ctx, ctx->op_pixfmt, OP_PLANE_REQ_SIZEIMAGE);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR,
++               "Error in setting output plane format!\n");
++        ctx->in_error = true;
++    }
++
++    /* Set appropriate controls.
++     ** V4L2_CID_MPEG_VIDEO_DISABLE_COMPLETE_FRAME_INPUT control is
++     ** set to false as the application always sends NALUs.
++     ** Also, mandatory when V4L2_BUF_FLAG_TIMESTAMP_COPY is used.
++     */
++    ret =
++        nvv4l2_set_ext_controls(ctx->fd,
++                         V4L2_CID_MPEG_VIDEO_DISABLE_COMPLETE_FRAME_INPUT,
++                         0, 0);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR,
++               "Failed to set control enable complete frame!\n");
++        ctx->in_error = true;
++    }
++
++    /* Request buffers on output plane to fill
++     ** the input bitstream.
++     */
++    ret = nvv4l2_req_buffers_on_output_plane(ctx,
++                                             ctx->op_buf_type,
++                                             ctx->op_mem_type, 10);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR,
++               "Error in requesting buffers on output plane!\n");
++        ctx->in_error = true;
++    }
++
++    for (uint32_t i = 0; i < ctx->op_num_buffers; i++) {
++        if (nvv4l2_allocate_memory(ctx, ctx->op_buffers[i])) {
++            av_log(avctx, AV_LOG_ERROR,
++                   "Buffer mapping error on output plane!\n");
++            ctx->in_error = true;
++        }
++    }
++
++    /* Start stream processing on output plane
++     ** by setting the streaming status ON.
++     */
++    ret = v4l2_ioctl(ctx->fd, VIDIOC_STREAMON, &ctx->op_buf_type);
++    if (ret != 0) {
++        av_log(avctx, AV_LOG_ERROR, "Streaming error on output plane!\n");
++        ctx->in_error = true;
++    }
++
++    ctx->op_streamon = true;
++
++    /* Create and start capture loop thread. */
++    pthread_create(&ctx->capture_thread, NULL, dec_capture_thread, ctx);
++
++    return ctx;
++}
++
++int nvv4l2_decoder_close(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
++{
++    int ret;
++
++    if (!ctx)
++        return 0;
++
++    pthread_mutex_lock(&ctx->queue_lock);
++    ctx->eos = true;
++    pthread_mutex_unlock(&ctx->queue_lock);
++    if (ctx->fd != -1) {
++        /* Stop streaming on both planes. */
++        ret = v4l2_ioctl(ctx->fd, VIDIOC_STREAMOFF, &ctx->op_buf_type);
++        ret = v4l2_ioctl(ctx->fd, VIDIOC_STREAMOFF, &ctx->cp_buf_type);
++
++        /* Wait for capture thread to exit. */
++        if (ctx->capture_thread) {
++            pthread_join(ctx->capture_thread, NULL);
++        }
++
++        /* Request 0 buffers on both planes. */
++        ret = nvv4l2_req_buffers_on_output_plane(ctx,
++                                                 ctx->op_buf_type,
++                                                 ctx->op_mem_type, 0);
++
++        ret = nvv4l2_req_buffers_on_capture_plane(ctx,
++                                                  ctx->cp_buf_type,
++                                                  ctx->cp_mem_type, 0);
++
++        /* All allocated DMA buffers must be destroyed. */
++        for (uint32_t i = 0; i < ctx->cp_num_buffers; i++) {
++            if (ctx->dmabuff_fd[i] != 0) {
++                ret = NvBufferDestroy(ctx->dmabuff_fd[i]);
++                ctx->dmabuff_fd[i] = 0;
++                if (ret < 0) {
++                    av_log(avctx, AV_LOG_ERROR,
++                           "Failed to destroy dma buffer!\n");
++                }
++            }
++        }
++
++        /* Destroy all allocated transform/export DMA buffers. */
++        for (uint32_t i = 0; i < NV_MAX_BUFFERS; i++) {
++            if (ctx->plane_dma_fd[i] != -1) {
++                ret = NvBufferDestroy(ctx->plane_dma_fd[i]);
++                ctx->plane_dma_fd[i] = -1;
++                if (ret < 0) {
++                    av_log(avctx, AV_LOG_ERROR,
++                           "Failed to destroy plane buffer!\n");
++                }
++            }
++        }
++
++        NVFREE(ctx->export_pool);
++
++        /* Close the opened V4L2 device. */
++        ret = v4l2_close(ctx->fd);
++        if (ret) {
++            av_log(avctx, AV_LOG_ERROR, "Unable to close the device!\n");
++        }
++
++        /* Free mutexes */
++        pthread_mutex_destroy(&ctx->pool_lock);
++        pthread_mutex_destroy(&ctx->queue_lock);
++        pthread_mutex_destroy(&ctx->frame_lock);
++        pthread_cond_destroy(&ctx->queue_cond);
++        pthread_cond_destroy(&ctx->frame_cond);
++    }
++
++    /* Report application run status on exit. */
++    if (ctx->in_error) {
++        av_log(avctx, AV_LOG_VERBOSE, "Decoder Run failed\n");
++    } else {
++        av_log(avctx, AV_LOG_VERBOSE, "Decoder Run is successful\n");
++    }
++
++    NVFREE(ctx);
++
++    return ret;
++}
++
++static NvCodingType map_avcodec_id(enum AVCodecID id)
++{
++    switch (id) {
++    case AV_CODEC_ID_H264:
++        return NvVideoCodec_H264;
++    case AV_CODEC_ID_HEVC:
++        return NvVideoCodec_HEVC;
++    case AV_CODEC_ID_MPEG2VIDEO:
++        return NvVideoCodec_MPEG2;
++    case AV_CODEC_ID_MPEG4:
++        return NvVideoCodec_MPEG4;
++    case AV_CODEC_ID_VP8:
++        return NvVideoCodec_VP8;
++    case AV_CODEC_ID_VP9:
++        return NvVideoCodec_VP9;
++    }
++    return NvVideoCodec_UNDEFINED;
++}
++
++static int nvv4l2dec_init(AVCodecContext *avctx)
++{
++    nvv4l2DecodeContext *nvv4l2_ctx = avctx->priv_data;
++    NvCodingType nv_codec_type = map_avcodec_id(avctx->codec_id);
++    int pix_fmt;
++
++    if (nv_codec_type == NvVideoCodec_UNDEFINED) {
++        av_log(avctx, AV_LOG_ERROR, "Unsupported codec ID %d!\n",
++               avctx->codec_id);
++        return AVERROR_BUG;
++    }
++
++    switch (avctx->pix_fmt) {
++    case AV_PIX_FMT_NONE:
++        avctx->pix_fmt = AV_PIX_FMT_YUV420P;
++    case AV_PIX_FMT_YUV420P:
++        pix_fmt = V4L2_PIX_FMT_YUV420M;
++        break;
++    case AV_PIX_FMT_NV12:
++        pix_fmt = V4L2_PIX_FMT_NV12M;
++        break;
++    default:
++        av_log(avctx, AV_LOG_ERROR, "Unsupported pixel format %d!\n",
++               avctx->pix_fmt);
++        return AVERROR_BUG;
++    }
++
++    nvv4l2_ctx->ctx = nvv4l2_create_decoder(avctx, nv_codec_type, pix_fmt);
++
++    if (!nvv4l2_ctx->ctx || nvv4l2_ctx->ctx->in_error) {
++        av_log(avctx, AV_LOG_ERROR, "Failed to create nvv4l2 decoder!\n");
++
++        if (nvv4l2_ctx->ctx && nvv4l2_ctx->ctx->in_error) {
++            nvv4l2_decoder_close(avctx, nvv4l2_ctx->ctx);
++        }
++
++        return AVERROR_UNKNOWN;
++    }
++
++    /*
++     ** Check if low latency is needed.
++     ** Depends on whole frames received instead of slices.
++     ** Otherwise the decoder only starts streaming after a
++     ** required amount of packets received.
++     */
++    nvv4l2_ctx->ctx->low_latency =
++                (avctx->flags & AV_CODEC_FLAG_LOW_DELAY) ? true : false;
++
++    return 0;
++}
++
++static void nvv4l2dec_flush(AVCodecContext *avctx)
++{
++    nvv4l2DecodeContext *nvv4l2_ctx = avctx->priv_data;
++    nvv4l2_ctx_t *ctx = nvv4l2_ctx->ctx;
++    int ret = 0;
++
++    pthread_mutex_lock(&ctx->queue_lock);
++    /* Flush all queued buffers from output and capture plane. */
++    if (ctx->op_streamon && ctx->cp_streamon &&
++       (ctx->num_queued_op_buffers || ctx->num_active_op_buffers)) {
++        /* Stop streaming on both planes. */
++        v4l2_ioctl(ctx->fd, VIDIOC_STREAMOFF, &ctx->op_buf_type);
++        v4l2_ioctl(ctx->fd, VIDIOC_STREAMOFF, &ctx->cp_buf_type);
++        ctx->op_streamon = false;
++        ctx->cp_streamon = false;
++
++        /* Turn on output plane streaming. */
++        ret = v4l2_ioctl(ctx->fd, VIDIOC_STREAMON, &ctx->op_buf_type);
++        if (ret != 0) {
++            av_log(avctx, AV_LOG_ERROR, "Streaming error on output plane!\n");
++            ctx->in_error = true;
++        } else {
++            ctx->op_streamon = true;
++        }
++
++        ctx->draining_event = true;
++
++        /* Re-enqueue all now empty buffers on capture plane. */
++        for (uint32_t i = 0; i < ctx->cp_num_buffers; i++) {
++            struct v4l2_buffer v4l2_buf;
++            struct v4l2_plane planes[NV_MAX_PLANES];
++
++            memset(&v4l2_buf, 0, sizeof(v4l2_buf));
++            memset(planes, 0, sizeof(planes));
++
++            v4l2_buf.index = i;
++            v4l2_buf.m.planes = planes;
++            v4l2_buf.type = ctx->cp_buf_type;
++            v4l2_buf.memory = ctx->cp_mem_type;
++            v4l2_buf.length = ctx->cp_num_planes;
++            /* Set DMA plane handle */
++            v4l2_buf.m.planes[0].m.fd = ctx->dmabuff_fd[i];
++            v4l2_buf.m.planes[1].m.fd = ctx->dmabuff_fd[i];
++
++            pthread_mutex_unlock(&ctx->queue_lock);
++            ret = nvv4l2_q_buffer(ctx, &v4l2_buf, NULL, ctx->cp_buf_type,
++                           ctx->cp_mem_type, ctx->cp_num_planes);
++            pthread_mutex_lock(&ctx->queue_lock);
++
++            if (ret) {
++                av_log(avctx, AV_LOG_ERROR,
++                       "Qing empty failed on capture plane!\n");
++            }
++        }
++
++        ctx->num_active_op_buffers = 0;
++        ctx->num_queued_op_buffers = 0;
++        ctx->num_queued_cp_buffers = 0;
++
++        /* Turn on capture plane streaming. */
++        ret = v4l2_ioctl(ctx->fd, VIDIOC_STREAMON, &ctx->cp_buf_type);
++        if (ret != 0) {
++            av_log(avctx, AV_LOG_ERROR, "Streaming error on capture plane!\n");
++            ctx->in_error = true;
++        } else {
++            ctx->cp_streamon = true;
++        }
++    }
++
++    /* Flush all decoded frames from frame pool */
++    while (ctx->export_pool->capacity != 0) {
++        nvv4l2_pool_pop(ctx, ctx->export_pool);
++    }
++    ctx->export_pool->front = 0;
++    ctx->export_pool->back = 0;
++    pthread_mutex_unlock(&ctx->queue_lock);
++}
++
++static int nvv4l2dec_close(AVCodecContext *avctx)
++{
++    nvv4l2DecodeContext *nvv4l2_ctx = avctx->priv_data;
++    return nvv4l2_decoder_close(avctx, nvv4l2_ctx->ctx);
++}
++
++static int
++nvv4l2dec_decode(AVCodecContext *avctx, void *data, int *got_frame,
++                 AVPacket *avpkt)
++{
++    nvv4l2DecodeContext *nvv4l2_ctx = avctx->priv_data;
++    nvv4l2_ctx_t *ctx = nvv4l2_ctx->ctx;
++    AVFrame *avframe = (AVFrame *)data;
++    NvFrame _nvframe = { 0 };
++    int processed_size = 0;
++    int buf_index = -1;
++
++    if (ctx->in_error) {
++        return AVERROR_UNKNOWN;
++    }
++
++    if (avpkt->size) {
++        NvPacket packet;
++        packet.payload_size = avpkt->size;
++        packet.payload = avpkt->data;
++        packet.pts = avpkt->pts;
++
++        if (!nvv4l2_decoder_put_packet(avctx, ctx, &packet)) {
++            processed_size = avpkt->size;
++        } else {
++            return AVERROR_UNKNOWN;
++        }
++    }
++
++    /* Get a decoded frame if any. */
++    if (nvv4l2_decoder_get_frame(avctx, ctx, &buf_index, &_nvframe))
++        return processed_size;
++
++    /* Get frame data buffers. */
++    if (ff_get_buffer(avctx, avframe, 0) < 0)
++        return AVERROR(ENOMEM);
++
++    /* Export decoded frame data. */
++    if (buf_index >= 0 && avframe->data[0]) {
++        NvBuffer2Raw(ctx->plane_dma_fd[buf_index], 0,
++                     ctx->plane_width[0], ctx->plane_height[0],
++                     avframe->data[0]);
++        NvBuffer2Raw(ctx->plane_dma_fd[buf_index], 1,
++                     ctx->plane_width[1], ctx->plane_height[1],
++                     avframe->data[1]);
++        if (ctx->cp_pixfmt == V4L2_PIX_FMT_YUV420M) {
++            NvBuffer2Raw(ctx->plane_dma_fd[buf_index], 2,
++                         ctx->plane_width[2], ctx->plane_height[2],
++                         avframe->data[2]);
++        }
++    }
++
++    avframe->width = _nvframe.width;
++    avframe->height = _nvframe.height;
++
++    avframe->format = avctx->pix_fmt;
++    avframe->pts = _nvframe.pts;
++    avframe->pkt_dts = AV_NOPTS_VALUE;
++
++    avctx->coded_width = _nvframe.width;
++    avctx->coded_height = _nvframe.height;
++    avctx->width = _nvframe.width;
++    avctx->height = _nvframe.height;
++
++    *got_frame = 1;
++
++    return processed_size;
++}
++
++#define NVV4L2_DEC_CLASS(NAME)                         \
++    static const AVClass nvv4l2_##NAME##_dec_class = { \
++        .class_name = "nvv4l2_" #NAME "_dec",          \
++        .version    = LIBAVUTIL_VERSION_INT,           \
++    };
++
++#define NVV4L2_DEC(NAME, ID, BSFS)                                                    \
++    NVV4L2_DEC_CLASS(NAME)                                                            \
++    AVCodec ff_##NAME##_nvv4l2_decoder = {                                            \
++        .name           = #NAME "_nvv4l2",                                            \
++        .long_name      = NULL_IF_CONFIG_SMALL(#NAME " NVV4L2 HW decoder for Tegra"), \
++        .type           = AVMEDIA_TYPE_VIDEO,                                         \
++        .id             = ID,                                                         \
++        .priv_data_size = sizeof(nvv4l2DecodeContext),                                \
++        .init           = nvv4l2dec_init,                                             \
++        .close          = nvv4l2dec_close,                                            \
++        .decode         = nvv4l2dec_decode,                                           \
++        .flush          = nvv4l2dec_flush,                                            \
++        .priv_class     = &nvv4l2_##NAME##_dec_class,                                 \
++        .capabilities   = AV_CODEC_CAP_DELAY | AV_CODEC_CAP_HARDWARE,                 \
++        .bsfs           = BSFS,                                                       \
++        .wrapper_name   = "nvv4l2",                                                   \
++        .pix_fmts       =(const enum AVPixelFormat[]){ AV_PIX_FMT_YUV420P,            \
++                                                       AV_PIX_FMT_NV12,               \
++                                                       AV_PIX_FMT_NONE },             \
++    };
++
++NVV4L2_DEC(h264,  AV_CODEC_ID_H264,       "h264_mp4toannexb");
++NVV4L2_DEC(hevc,  AV_CODEC_ID_HEVC,       "hevc_mp4toannexb");
++NVV4L2_DEC(mpeg2, AV_CODEC_ID_MPEG2VIDEO, NULL);
++NVV4L2_DEC(mpeg4, AV_CODEC_ID_MPEG4,      NULL);
++NVV4L2_DEC(vp9,   AV_CODEC_ID_VP9,        NULL);
++NVV4L2_DEC(vp8,   AV_CODEC_ID_VP8,        NULL);
+diff --git a/libavcodec/nvv4l2_enc.c b/libavcodec/nvv4l2_enc.c
+new file mode 100644
+index 0000000000..e85d20dfda
+--- /dev/null
++++ b/libavcodec/nvv4l2_enc.c
+@@ -0,0 +1,1389 @@
++/*
++ * Copyright (c) 2021-2022, CTCaer <ctcaer@gmail.com>
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
++ * DEALINGS IN THE SOFTWARE.
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <stdint.h>
++#include <unistd.h>
++#include <pthread.h>
++#include <string.h>
++#include <fcntl.h>
++#include <errno.h>
++#include "internal.h"
++#include "libavutil/imgutils.h"
++#include "libavutil/log.h"
++#include "libavutil/opt.h"
++
++#include "nvv4l2.h"
++
++#define ENCODER_DEV "/dev/nvhost-msenc"
++#define PACKET_DEFAULT_SIZE (2*1024*1024)
++
++/*
++ ** Output plane format support:
++ **  YM12 (YUV 4:2:0)
++ **  NM12 (YUV 4:2:0 interleaved)
++ **  YM24 (YUV 4:4:4)
++ **  PM10 (YUV 4:2:0 10-bit interleaved)
++ **
++ ** Capture plane format support:
++ **  H264 (H264 Encoded bitstream)
++ **  H265 (H265 Encoded bitstream)
++ **  VP80 (VP8  Encoded bitstream)
++ */
++
++typedef struct {
++    const AVClass *class;
++    nvv4l2_ctx_t *ctx;
++    int num_capture_buffers;
++    int profile;
++    int level;
++    int tier;
++    int rc;
++    int preset;
++    int lossless;
++} nvv4l2EncodeContext;
++
++static int
++set_output_plane_format(AVCodecContext *avctx, nvv4l2_ctx_t *ctx,
++                        uint32_t pixfmt, uint32_t width, uint32_t height)
++{
++    int ret;
++    struct v4l2_format format;
++    uint32_t num_bufferplanes;
++    NvBufferPlaneFormat planefmts[NV_MAX_PLANES];
++
++    /* Get plane format */
++    ret = nvv4l2_fill_buffer_plane_format(ctx, &num_bufferplanes, planefmts,
++                                          width, height, pixfmt);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR,
++               "Error getting output plane format!\n");
++        ctx->in_error = true;
++        return ret;
++    }
++    ctx->op_num_planes = num_bufferplanes;
++
++    /* Set plane format. */
++    for (uint32_t j = 0; j < num_bufferplanes; ++j) {
++        ctx->op_planefmts[j] = planefmts[j];
++    }
++    memset(&format, 0, sizeof(struct v4l2_format));
++    format.type = ctx->op_buf_type;
++    format.fmt.pix_mp.width = width;
++    format.fmt.pix_mp.height = height;
++    format.fmt.pix_mp.pixelformat = pixfmt;
++    format.fmt.pix_mp.num_planes = num_bufferplanes;
++
++    ret = v4l2_ioctl(ctx->fd, VIDIOC_S_FMT, &format);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR,
++               "Error in setting output plane format!\n");
++        ctx->in_error = true;
++    } else {
++        ctx->op_num_planes = format.fmt.pix_mp.num_planes;
++        for (uint32_t j = 0; j < ctx->op_num_planes; j++) {
++            ctx->op_planefmts[j].stride =
++                format.fmt.pix_mp.plane_fmt[j].bytesperline;
++            ctx->op_planefmts[j].sizeimage =
++                format.fmt.pix_mp.plane_fmt[j].sizeimage;
++        }
++    }
++
++    return ret;
++}
++
++static int
++set_capture_plane_format(AVCodecContext *avctx, nvv4l2_ctx_t *ctx,
++                         uint32_t pixfmt, uint32_t width,
++                         uint32_t height, uint32_t sizeimage)
++{
++    int ret;
++    struct v4l2_format format;
++
++    memset(&format, 0, sizeof(struct v4l2_format));
++    format.type = ctx->cp_buf_type;
++    format.fmt.pix_mp.pixelformat = pixfmt;
++    format.fmt.pix_mp.width = width;
++    format.fmt.pix_mp.height = height;
++    format.fmt.pix_mp.num_planes = 1;
++    format.fmt.pix_mp.plane_fmt[0].sizeimage = sizeimage;
++
++    ret = v4l2_ioctl(ctx->fd, VIDIOC_S_FMT, &format);
++
++    if (ret == 0) {
++        ctx->cp_num_planes = format.fmt.pix_mp.num_planes;
++        for (uint32_t i = 0; i < ctx->cp_num_planes; ++i) {
++            ctx->cp_planefmts[i].stride =
++                format.fmt.pix_mp.plane_fmt[i].bytesperline;
++            ctx->cp_planefmts[i].sizeimage =
++                format.fmt.pix_mp.plane_fmt[i].sizeimage;
++        }
++    } else {
++        av_log(avctx, AV_LOG_ERROR,
++               "Error in setting capture plane format!\n");
++        ctx->in_error = true;
++    }
++
++    return ret;
++}
++
++static void *enc_capture_thread(void *arg)
++{
++    nvv4l2_ctx_t *ctx = (nvv4l2_ctx_t *)arg;
++    uint32_t packet_size;
++    int buf_index;
++    int ret;
++
++    /* Check for EOS event in case stream finished. */
++    while (!ctx->in_error && !ctx->eos) {
++        /* Main Capture loop for DQ and Q. */
++        struct v4l2_buffer v4l2_cp_buf;
++        struct v4l2_plane capture_planes[NV_MAX_PLANES];
++        v4l2_ctrl_videoenc_outputbuf_metadata enc_metadata;
++        NvBuffer *cp_buffer = NULL;
++
++        memset(&v4l2_cp_buf, 0, sizeof(v4l2_cp_buf));
++        memset(capture_planes, 0, sizeof(capture_planes));
++        v4l2_cp_buf.m.planes = capture_planes;
++        v4l2_cp_buf.length = 1;
++
++        /* Dequeue the filled buffer. */
++        if (nvv4l2_dq_buffer(ctx, &v4l2_cp_buf, &cp_buffer,
++             ctx->cp_buf_type, ctx->cp_mem_type, 0)) {
++            if (errno == EAGAIN) {
++                usleep(1000);
++            }
++            continue;
++        }
++
++        packet_size = cp_buffer->planes[0].bytesused;
++
++        if (packet_size == 0) {
++            av_log(ctx->avctx, AV_LOG_ERROR,
++                   "Got 0 size buffer in capture!\n");
++            ctx->in_error = true;
++            break;
++        }
++
++        buf_index = nvv4l2_pool_idx_next(ctx, ctx->export_pool);
++
++        if (buf_index >= 0) {
++            /* Ensure packet buffer fits new packet */
++            if (ctx->packet_buf_size[buf_index] < packet_size) {
++                NVFREE(ctx->packet[buf_index]);
++                ctx->packet[buf_index] = (unsigned char *)NVMALLOC(packet_size);
++                ctx->packet_buf_size[buf_index] = packet_size;
++            }
++
++            ctx->packet_size[buf_index] = packet_size;
++            memcpy(ctx->packet[buf_index], cp_buffer->planes[0].data,
++                   packet_size);
++
++            ctx->frame_pts[buf_index] = v4l2_cp_buf.timestamp.tv_usec +
++                                        (v4l2_cp_buf.timestamp.tv_sec *
++                                         AV_TIME_BASE);
++
++            ret = nvv4l2_get_ext_control_metadata(ctx->fd,
++                                                  v4l2_cp_buf.index,
++                                                  &enc_metadata);
++            if (ret) {
++                av_log(ctx->avctx, AV_LOG_ERROR,
++                       "Failed getting metadata!\n");
++                ctx->in_error = true;
++                break;
++            }
++            ctx->packet_keyflag[buf_index] =
++                                    enc_metadata.KeyFrame ? true : false;
++        }
++
++        nvv4l2_pool_push(ctx, ctx->export_pool);
++
++        /* Queue the buffer. */
++        ret = nvv4l2_q_buffer(ctx, &v4l2_cp_buf, NULL, ctx->cp_buf_type,
++                              ctx->cp_mem_type, ctx->cp_num_planes);
++
++        if (ret) {
++            av_log(ctx->avctx, AV_LOG_ERROR,
++                   "Qing failed on capture plane!\n");
++            ctx->in_error = true;
++            break;
++        }
++    }
++
++    av_log(ctx->avctx, AV_LOG_VERBOSE,
++           "Exiting encoder capture loop thread\n");
++
++    return NULL;
++}
++
++nvv4l2_ctx_t *nvv4l2_create_encoder(AVCodecContext *avctx,
++                                    NvEncoder *encoder,
++                                    NvCodingType nv_codec_type,
++                                    int pix_fmt)
++{
++    nvv4l2EncodeContext *nvv4l2_ctx = avctx->priv_data;
++
++    int ret;
++    int flags = 0;
++    nvv4l2_ctx_t *ctx = (nvv4l2_ctx_t *)NVCALLOC(1, sizeof(nvv4l2_ctx_t));
++    ctx->avctx = avctx;
++    ctx->enc = encoder;
++
++    /* The call creates a new V4L2 Video Decoder object
++     ** on the device node "/dev/nvhost-msenc"
++     ** Additional flags can also be given with which the device
++     ** should be opened.
++     ** This opens the device in Blocking mode.
++     */
++    ctx->fd = v4l2_open(ENCODER_DEV, flags | O_RDWR);
++    if (ctx->fd == -1) {
++        av_log(avctx, AV_LOG_ERROR, "Could not open device!\n");
++        ctx->in_error = true;
++        return ctx;
++    }
++
++    /* Initialization. */
++    ctx->codec_width = encoder->width;
++    ctx->codec_height = encoder->height;
++    ctx->low_latency = encoder->low_latency;
++    ctx->op_pixfmt = pix_fmt;
++    ctx->cp_pixfmt = nvv4l2_map_nvcodec_type(nv_codec_type);
++
++    /* Encoder code assumes that the following do not change.
++     ** If another memory type is wanted, relevant changes should be done
++     ** to the rest of the code.
++     */
++    ctx->op_mem_type = V4L2_MEMORY_DMABUF;
++    ctx->cp_mem_type = V4L2_MEMORY_MMAP;
++
++    ctx->op_buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
++    ctx->cp_buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
++
++    for (uint32_t i = 0; i < NV_MAX_BUFFERS; i++)
++        ctx->plane_dma_fd[i] = -1;
++
++    /* Allocate packet pool. */
++    ctx->export_pool = (NvQueues *)NVCALLOC(1, sizeof(NvQueues));
++    for(int index = 0; index < NV_MAX_BUFFERS; index++) {
++        ctx->packet[index] = (unsigned char *)NVMALLOC(PACKET_DEFAULT_SIZE);
++        ctx->packet_buf_size[index] = PACKET_DEFAULT_SIZE;
++    }
++
++    /* Initialize mutexes */
++    pthread_mutex_init(&ctx->pool_lock, NULL);
++    pthread_mutex_init(&ctx->queue_lock, NULL);
++    pthread_cond_init(&ctx->queue_cond, NULL);
++
++    /* Set format on capture plane. */
++    ret = set_capture_plane_format(avctx, ctx, ctx->cp_pixfmt,
++                                   ctx->codec_width, ctx->codec_height,
++                                   PACKET_DEFAULT_SIZE);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR,
++               "Error in setting capture plane format!\n");
++        ctx->in_error = true;
++    }
++
++    /* Set format on output plane. */
++    ret = set_output_plane_format(avctx, ctx, ctx->op_pixfmt,
++                                  ctx->codec_width, ctx->codec_height);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR,
++               "Error in setting output plane format!\n");
++        ctx->in_error = true;
++    }
++
++    /* Set max performance mode if low latency is requested. */
++    if (ctx->low_latency) {
++        ret =
++        nvv4l2_set_ext_controls(ctx->fd,
++                                V4L2_CID_MPEG_VIDEO_MAX_PERFORMANCE, 0, 1);
++        if (ret) {
++            av_log(avctx, AV_LOG_ERROR,
++                   "Failed to set control max performance!\n");
++            ctx->in_error = true;
++        }
++    }
++
++    /* Set encoder bitrate. */
++    ret = nvv4l2_set_ext_controls(ctx->fd, V4L2_CID_MPEG_VIDEO_BITRATE,
++                                  V4L2_CTRL_CLASS_MPEG,
++                                  ctx->enc->bitrate);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR,
++               "Failed to set encoder bitrate!\n");
++        ctx->in_error = true;
++    }
++
++    /* Set encoder HW Preset Type. */
++    ret = nvv4l2_set_ext_controls(ctx->fd,
++                                  V4L2_CID_MPEG_VIDEOENC_HW_PRESET_TYPE_PARAM,
++                                  V4L2_CTRL_CLASS_MPEG,
++                                  ctx->enc->preset_type);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR,
++               "Failed to set encoder HW Preset Type!\n");
++        ctx->in_error = true;
++    }
++
++    /* Set number of reference frames. */
++    if (ctx->enc->num_ref) {
++        ret = nvv4l2_set_ext_controls(ctx->fd,
++                                V4L2_CID_MPEG_VIDEOENC_NUM_REFERENCE_FRAMES,
++                                V4L2_CTRL_CLASS_MPEG,
++                                ctx->enc->num_ref);
++        if (ret) {
++            av_log(avctx, AV_LOG_ERROR,
++                   "Failed to set num reference frames!\n");
++            ctx->in_error = true;
++        }
++    }
++
++    /* Set number of B Frames. */
++    if (ctx->enc->num_b_frames && nv_codec_type == NvVideoCodec_H264) {
++        ret = nvv4l2_set_ext_controls(ctx->fd,
++                                      V4L2_CID_MPEG_VIDEOENC_NUM_BFRAMES,
++                                      V4L2_CTRL_CLASS_MPEG,
++                                      ctx->enc->num_b_frames);
++        if (ret) {
++            av_log(avctx, AV_LOG_ERROR,
++                   "Failed to set number of B Frames!\n");
++            ctx->in_error = true;
++        }
++    }
++
++    /* Set encoder profile. */
++    ret = nvv4l2_set_ext_controls(ctx->fd, nv_codec_type == NvVideoCodec_H264 ?
++                                  V4L2_CID_MPEG_VIDEO_H264_PROFILE :
++                                  V4L2_CID_MPEG_VIDEO_H265_PROFILE,
++                                  V4L2_CTRL_CLASS_MPEG,
++                                  ctx->enc->profile);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR,
++               "Failed to set encoder profile!\n");
++        ctx->in_error = true;
++    }
++
++    /* Set encoder level. */
++    ret = nvv4l2_set_ext_controls(ctx->fd, nv_codec_type == NvVideoCodec_H264 ?
++                                  V4L2_CID_MPEG_VIDEO_H264_LEVEL :
++                                  V4L2_CID_MPEG_VIDEOENC_H265_LEVEL,
++                                  V4L2_CTRL_CLASS_MPEG,
++                                  ctx->enc->level);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR,
++               "Failed to set encoder level!\n");
++        ctx->in_error = true;
++    }
++
++    if (!ctx->enc->lossless) {
++        /* Set encoder rate control mode. */
++        ret = nvv4l2_set_ext_controls(ctx->fd, V4L2_CID_MPEG_VIDEO_BITRATE_MODE,
++                                      V4L2_CTRL_CLASS_MPEG,
++                                      ctx->enc->ratecontrol);
++        if (ret) {
++            av_log(avctx, AV_LOG_ERROR,
++                   "Failed to set encoder rate control mode!\n");
++            ctx->in_error = true;
++        }
++
++        /* Set encoder max bitrate for VBR. */
++        if (ctx->enc->ratecontrol == V4L2_MPEG_VIDEO_BITRATE_MODE_VBR) {
++
++            uint32_t max_bitrate = 1.2f * ctx->enc->bitrate;
++            ret = nvv4l2_set_ext_controls(ctx->fd,
++                                          V4L2_CID_MPEG_VIDEO_BITRATE_PEAK,
++                                          V4L2_CTRL_CLASS_MPEG,
++                                          max_bitrate);
++            if (ret) {
++                av_log(avctx, AV_LOG_ERROR,
++                       "Failed to set encoder max bitrate for VBR!\n");
++                ctx->in_error = true;
++            }
++        }
++    } else {
++        /* Set constant qp configuration for lossless encoding enabled */
++        ret = nvv4l2_set_ext_control_constant_qp(ctx->fd, 0);
++        if (ret) {
++            av_log(avctx, AV_LOG_ERROR,
++                   "Failed to set encoder qp to 0 for lossless encoding!\n");
++            ctx->in_error = true;
++        }
++    }
++
++    /* Set encoder IDR interval. */
++    ret = nvv4l2_set_ext_controls(ctx->fd, V4L2_CID_MPEG_VIDEO_IDR_INTERVAL,
++                                  V4L2_CTRL_CLASS_MPEG,
++                                  ctx->enc->idr_interval);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR,
++               "Failed to set encoder IDR interval!\n");
++        ctx->in_error = true;
++    }
++
++    /* Set encoder quantization parameters. */
++    if (ctx->enc->qmin != -1 || ctx->enc->qmax != -1) {
++        ret = nvv4l2_set_ext_control_qp_range(ctx->fd,
++                                              ctx->enc->qmin, ctx->enc->qmax);
++        if (ret) {
++            av_log(avctx, AV_LOG_ERROR,
++                   "Failed to set encoder quantization parameters!\n");
++            ctx->in_error = true;
++        }
++    }
++
++    /* Set encoder I-Frame interval. */
++    ret = nvv4l2_set_ext_controls(ctx->fd, V4L2_CID_MPEG_VIDEO_GOP_SIZE,
++                                  V4L2_CTRL_CLASS_MPEG,
++                                  ctx->enc->iframe_interval);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR,
++               "Failed to set encoder I-Frame interval!\n");
++        ctx->in_error = true;
++    }
++
++    /* Set insertSPSPPSAtIDR. */
++    if (ctx->enc->sps_pps_at_idr) {
++        ret = nvv4l2_set_ext_controls(ctx->fd,
++                                V4L2_CID_MPEG_VIDEOENC_INSERT_SPS_PPS_AT_IDR,
++                                V4L2_CTRL_CLASS_MPEG,
++                                1);
++        if (ret) {
++            av_log(avctx, AV_LOG_ERROR,
++                   "Failed to set insertSPSPPSAtIDR!\n");
++            ctx->in_error = true;
++        }
++    }
++
++    /* Set encoder framerate. */
++    ret = nvv4l2_set_stream_control_framerate(ctx->fd,
++                                              ctx->op_mem_type,
++                                              ctx->enc->fps_n,
++                                              ctx->enc->fps_d);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR,
++               "Failed to set framerate!\n");
++        ctx->in_error = true;
++    }
++
++    /* Request max 10 buffers on output plane.
++     ** Number of received buffers normally is lower (6). */
++    ret = nvv4l2_req_buffers_on_output_plane(ctx,
++                                             ctx->op_buf_type,
++                                             ctx->op_mem_type,
++                                             10);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR,
++               "Error in requesting buffers on output plane!\n");
++        ctx->in_error = true;
++    }
++
++    /* Create import DMA buffers. */
++    for (uint32_t i = 0; i < ctx->op_num_buffers; i++) {
++        NvBufferCreateParams iParams;
++        memset(&iParams, 0, sizeof(NvBufferCreateParams));
++        iParams.width = ctx->codec_width;
++        iParams.height = ctx->codec_height;
++        iParams.layout = NvBufferLayout_Pitch;
++        iParams.payloadType = NvBufferPayload_SurfArray;
++        iParams.nvbuf_tag = NvBufferTag_VIDEO_ENC;
++        switch (ctx->op_pixfmt) {
++        case V4L2_PIX_FMT_YUV444M:
++            iParams.colorFormat = NvBufferColorFormat_YUV444;
++            break;
++        case V4L2_PIX_FMT_P010M:
++            iParams.layout = NvBufferLayout_BlockLinear;
++            iParams.colorFormat = NvBufferColorFormat_NV12_10LE;
++            break;
++        case V4L2_PIX_FMT_NV12M:
++            iParams.colorFormat = NvBufferColorFormat_NV12;
++            break;
++        default:
++            iParams.colorFormat = NvBufferColorFormat_YUV420;
++            break;
++        }
++
++        if (ctx->enc->profile == V4L2_MPEG_VIDEO_H265_PROFILE_MAIN10) {
++            iParams.layout = NvBufferLayout_BlockLinear;
++            iParams.colorFormat = NvBufferColorFormat_NV12_10LE;
++        }
++
++        ret = NvBufferCreateEx(&ctx->plane_dma_fd[i], &iParams);
++        if (ret) {
++            av_log(avctx, AV_LOG_ERROR, "Creation of dmabuf failed!\n");
++            ctx->in_error = true;
++        }
++    }
++
++    /* Request buffers on capture plane. */
++    ret = nvv4l2_req_buffers_on_capture_plane(ctx,
++                                         ctx->cp_buf_type,
++                                         ctx->cp_mem_type,
++                                         nvv4l2_ctx->num_capture_buffers);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR,
++               "Error in requesting buffers on capture plane!\n");
++        ctx->in_error = true;
++    }
++
++    /* Map buffers on capture plane */
++    for (uint32_t i = 0; i < ctx->cp_num_buffers; i++) {
++        ret = nvv4l2_query_buffer(ctx, ctx->cp_buf_type,
++                                  ctx->cp_mem_type, ctx->cp_num_planes, i);
++        if (ret) {
++            av_log(avctx, AV_LOG_ERROR,
++                   "Failed to query buffer on capture plane!\n");
++            ctx->in_error = true;
++        }
++        ret = nvv4l2_export_buffer(ctx, ctx->cp_buf_type,
++                                   ctx->cp_num_planes, i);
++        if (ret) {
++            av_log(avctx, AV_LOG_ERROR,
++                   "Failed to export buffer on capture plane!\n");
++            ctx->in_error = true;
++        }
++        ret = nvv4l2_map(ctx, ctx->cp_buffers[i]);
++        if (ret) {
++            av_log(avctx, AV_LOG_ERROR,
++                   "Failed to map buffer on capture plane!\n");
++            ctx->in_error = true;
++        }
++    }
++
++    /* Start stream processing on output plane. */
++    ret = v4l2_ioctl(ctx->fd, VIDIOC_STREAMON, &ctx->op_buf_type);
++    if (ret != 0) {
++        av_log(avctx, AV_LOG_ERROR, "Streaming error on output plane!\n");
++        ctx->in_error = true;
++    }
++    ctx->op_streamon = true;
++
++     /* Set streaming status ON on capture plane. */
++    ret = v4l2_ioctl(ctx->fd, VIDIOC_STREAMON, &ctx->cp_buf_type);
++    if (ret != 0) {
++        av_log(avctx, AV_LOG_ERROR, "Streaming error on capture plane!\n");
++        ctx->in_error = true;
++    }
++    ctx->cp_streamon = true;
++
++    /* Create and start capture loop thread. */
++    pthread_create(&ctx->capture_thread, NULL, enc_capture_thread, ctx);
++
++    /* Enqueue all the empty capture plane buffers. */
++    for (uint32_t i = 0; i < ctx->cp_num_buffers; i++){
++        struct v4l2_buffer v4l2_buf;
++        struct v4l2_plane planes[NV_MAX_PLANES];
++        memset(&v4l2_buf, 0, sizeof(v4l2_buf));
++        memset(planes, 0, NV_MAX_PLANES * sizeof(struct v4l2_plane));
++
++        v4l2_buf.index = i;
++        v4l2_buf.m.planes = planes;
++
++        ret = nvv4l2_q_buffer(ctx, &v4l2_buf, NULL, ctx->cp_buf_type,
++                       ctx->cp_mem_type, ctx->cp_num_planes);
++        if (ret) {
++            av_log(avctx, AV_LOG_ERROR, "Qing failed on capture plane!\n");
++            ctx->in_error = true;
++        }
++    }
++
++    return ctx;
++}
++
++int nvv4l2_encoder_put_frame(AVCodecContext *avctx, nvv4l2_ctx_t *ctx,
++                             NvFrame *frame)
++{
++    int ret;
++    struct v4l2_buffer v4l2_buf_op;
++    struct v4l2_plane queue_op_planes[NV_MAX_PLANES];
++    NvBuffer *buffer;
++    memset(&v4l2_buf_op, 0, sizeof(v4l2_buf_op));
++    memset(queue_op_planes, 0, sizeof(queue_op_planes));
++    v4l2_buf_op.m.planes = queue_op_planes;
++
++    if (ctx->in_error)
++        return -1;
++
++    if (ctx->num_active_op_buffers < ctx->op_num_buffers) {
++        /* Get an unused buffer to add to the queue. */
++        buffer = ctx->op_buffers[ctx->num_active_op_buffers];
++        v4l2_buf_op.index = ctx->num_active_op_buffers;
++
++        /* Map new plane buffer for memory type DMABUF. */
++        v4l2_buf_op.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
++        v4l2_buf_op.memory = ctx->op_mem_type;
++        ret = nvv4l2_map_out(ctx, &v4l2_buf_op, ctx->op_buf_type,
++                             ctx->op_mem_type,
++                             ctx->plane_dma_fd[v4l2_buf_op.index]);
++        if (ret) {
++            av_log(avctx, AV_LOG_ERROR,
++                   "Error while mapping buffer at output plane!\n");
++            ctx->in_error = true;
++            return -1;
++        }
++    } else {
++        /* Dequeue a finished buffer and reuse it. */
++        ret = nvv4l2_dq_buffer(ctx, &v4l2_buf_op, &buffer,
++                               ctx->op_buf_type, ctx->op_mem_type, -1);
++        if (ret) {
++            av_log(avctx, AV_LOG_ERROR,
++                   "Error DQing buffer at output plane!\n");
++            ctx->in_error = true;
++            return -1;
++        }
++    }
++
++    /* Import frame into output plane */
++    for (uint32_t i = 0; i < buffer->n_planes; i++) {
++        Raw2NvBuffer(frame->payload[i], i, ctx->op_planefmts[i].width,
++                     ctx->op_planefmts[i].height, buffer->planes[i].fd);
++        buffer->planes[i].bytesused = ctx->op_planefmts[i].width *
++                                      ctx->op_planefmts[i].height *
++                                      ctx->op_planefmts[i].bytesperpixel;
++        v4l2_buf_op.m.planes[i].bytesused = buffer->planes[i].bytesused;
++    }
++
++    /* Set timestamp */
++    v4l2_buf_op.flags |= V4L2_BUF_FLAG_TIMESTAMP_COPY;
++    v4l2_buf_op.timestamp.tv_usec = frame->pts % AV_TIME_BASE;
++    v4l2_buf_op.timestamp.tv_sec = frame->pts / AV_TIME_BASE;
++
++    /* Queue frame on output plane. */
++    ret = nvv4l2_q_buffer(ctx, &v4l2_buf_op, buffer,
++                   ctx->op_buf_type, ctx->op_mem_type, ctx->op_num_planes);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR, "Error Qing buffer at output plane!\n");
++        ctx->in_error = true;
++        return -1;
++    }
++
++    if (ctx->num_active_op_buffers < ctx->op_num_buffers) {
++        ctx->num_active_op_buffers++;
++    }
++
++    return 0;
++}
++
++int nvv4l2_encoder_get_packet(AVCodecContext *avctx,
++                              nvv4l2_ctx_t *ctx,
++                              NvPacket *packet)
++{
++    int packet_index;
++
++    if (ctx->export_pool->capacity == 0)
++        return 1;
++
++    packet_index = nvv4l2_pool_pop(ctx, ctx->export_pool);
++
++    packet->payload = ctx->packet[packet_index];
++    packet->payload_size = ctx->packet_size[packet_index];
++    packet->pts = ctx->frame_pts[packet_index];
++
++    if (ctx->packet_keyflag[packet_index])
++        packet->flags |= AV_PKT_FLAG_KEY;
++
++    return 0;
++}
++
++int nvv4l2_encoder_close(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
++{
++    int ret;
++
++    if (!ctx)
++        return 0;
++
++    pthread_mutex_lock(&ctx->queue_lock);
++    ctx->eos = true;
++    pthread_mutex_unlock(&ctx->queue_lock);
++    if (ctx->fd != -1) {
++        /* Stop streaming on both planes. */
++        ret = v4l2_ioctl(ctx->fd, VIDIOC_STREAMOFF, &ctx->op_buf_type);
++        ret = v4l2_ioctl(ctx->fd, VIDIOC_STREAMOFF, &ctx->cp_buf_type);
++
++        /* Wait for capture thread to exit. */
++        if (ctx->capture_thread) {
++            pthread_join(ctx->capture_thread, NULL);
++        }
++
++        /* Unmap MMAPed buffers. */
++        for (uint32_t i = 0; i < ctx->cp_num_buffers; ++i) {
++            nvv4l2_destroyBuffer(ctx, ctx->cp_buffers[i]);
++        }
++
++        /* Request 0 buffers on both planes. */
++        ret = nvv4l2_req_buffers_on_output_plane(ctx,
++                                                 ctx->op_buf_type,
++                                                 ctx->op_mem_type, 0);
++
++        ret = nvv4l2_req_buffers_on_capture_plane(ctx,
++                                                  ctx->cp_buf_type,
++                                                  ctx->cp_mem_type, 0);
++
++        /* Unmap and destroy all allocated DMA buffers. */
++        for (uint32_t i = 0; i < ctx->op_num_buffers; i++) {
++            if (ctx->plane_dma_fd[i] != -1) {
++                nvv4l2_unmap_out(ctx, i, ctx->op_buf_type,
++                                 ctx->op_mem_type, ctx->plane_dma_fd[i]);
++                ret = NvBufferDestroy(ctx->plane_dma_fd[i]);
++                ctx->plane_dma_fd[i] = -1;
++                if (ret) {
++                    av_log(avctx, AV_LOG_ERROR,
++                           "Failed to destroy output plane dma buffer!\n");
++                }
++            }
++        }
++
++        /* Free packet pool */
++        for (int index = 0; index < NV_MAX_BUFFERS; index++) {
++            NVFREE(ctx->packet[index]);
++        }
++        NVFREE(ctx->export_pool);
++
++        /* Close the opened V4L2 device. */
++        ret = v4l2_close(ctx->fd);
++        if (ret) {
++            av_log(avctx, AV_LOG_ERROR, "Unable to close the device!\n");
++        }
++
++        /* Free mutexes */
++        pthread_mutex_destroy(&ctx->pool_lock);
++        pthread_mutex_destroy(&ctx->queue_lock);
++        pthread_cond_destroy(&ctx->queue_cond);
++    }
++
++    /* Free encoder parameters */
++    NVFREE(ctx->enc);
++
++    /* Report application run status on exit. */
++    if (ctx->in_error) {
++        av_log(avctx, AV_LOG_ERROR, "Encoder Run failed\n");
++    } else {
++        av_log(avctx, AV_LOG_VERBOSE, "Encoder Run is successful\n");
++    }
++
++    NVFREE(ctx);
++
++    return ret;
++}
++
++static void
++nvv4l2_set_h264_profile_params(nvv4l2EncodeContext *nvv4l2_ctx,
++                               NvEncoder *enc,
++                               int *pix_fmt)
++{
++    switch (nvv4l2_ctx->profile & ~FF_PROFILE_H264_INTRA) {
++    case FF_PROFILE_H264_MAIN:
++        enc->profile = V4L2_MPEG_VIDEO_H264_PROFILE_MAIN;
++        break;
++    case FF_PROFILE_H264_BASELINE:
++        enc->profile = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE;
++        break;
++    case FF_PROFILE_H264_HIGH:
++        enc->profile = V4L2_MPEG_VIDEO_H264_PROFILE_HIGH;
++        break;
++    case FF_PROFILE_H264_HIGH_444_PREDICTIVE:
++        enc->profile = V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_444_PREDICTIVE;
++        break;
++
++    default:
++        enc->profile = V4L2_MPEG_VIDEO_H264_PROFILE_MAIN;
++        break;
++    }
++
++    if (enc->lossless && *pix_fmt == V4L2_PIX_FMT_YUV444M)
++        enc->profile = V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_444_PREDICTIVE;
++
++    switch (nvv4l2_ctx->level) {
++    case 9:
++        enc->level = V4L2_MPEG_VIDEO_H264_LEVEL_1B;
++        break;
++    case 10:
++        enc->level = V4L2_MPEG_VIDEO_H264_LEVEL_1_0;
++        break;
++    case 11:
++        if (nvv4l2_ctx->profile & FF_PROFILE_H264_INTRA)
++            enc->level = V4L2_MPEG_VIDEO_H264_LEVEL_1B;
++        else
++            enc->level = V4L2_MPEG_VIDEO_H264_LEVEL_1_1;
++        break;
++    case 12:
++        enc->level = V4L2_MPEG_VIDEO_H264_LEVEL_1_2;
++        break;
++    case 13:
++        enc->level = V4L2_MPEG_VIDEO_H264_LEVEL_1_3;
++        break;
++    case 20:
++        enc->level = V4L2_MPEG_VIDEO_H264_LEVEL_2_0;
++        break;
++    case 21:
++        enc->level = V4L2_MPEG_VIDEO_H264_LEVEL_2_1;
++        break;
++    case 22:
++        enc->level = V4L2_MPEG_VIDEO_H264_LEVEL_2_2;
++        break;
++    case 30:
++        enc->level = V4L2_MPEG_VIDEO_H264_LEVEL_3_0;
++        break;
++    case 31:
++        enc->level = V4L2_MPEG_VIDEO_H264_LEVEL_3_1;
++        break;
++    case 32:
++        enc->level = V4L2_MPEG_VIDEO_H264_LEVEL_3_2;
++        break;
++    case 40:
++        enc->level = V4L2_MPEG_VIDEO_H264_LEVEL_4_0;
++        break;
++    case 41:
++        enc->level = V4L2_MPEG_VIDEO_H264_LEVEL_4_1;
++        break;
++    case 42:
++        enc->level = V4L2_MPEG_VIDEO_H264_LEVEL_4_2;
++        break;
++    case 50:
++        enc->level = V4L2_MPEG_VIDEO_H264_LEVEL_5_0;
++        break;
++    case 51:
++        enc->level = V4L2_MPEG_VIDEO_H264_LEVEL_5_1;
++        break;
++    default:
++        enc->level = V4L2_MPEG_VIDEO_H264_LEVEL_5_1;
++        break;
++    }
++}
++
++static void
++nvv4l2_set_hevc_profile_params(nvv4l2EncodeContext *nvv4l2_ctx,
++                               NvEncoder *enc,
++                               int *pix_fmt)
++{
++    switch (nvv4l2_ctx->profile & ~FF_PROFILE_H264_INTRA) {
++    case FF_PROFILE_HEVC_MAIN:
++        enc->profile = V4L2_MPEG_VIDEO_H265_PROFILE_MAIN;
++        break;
++    case FF_PROFILE_HEVC_MAIN_10:
++        enc->profile = V4L2_MPEG_VIDEO_H265_PROFILE_MAIN10;
++        *pix_fmt = V4L2_PIX_FMT_P010M;
++        break;
++
++    default:
++        enc->profile = V4L2_MPEG_VIDEO_H265_PROFILE_MAIN;
++        break;
++    }
++
++    if (*pix_fmt == V4L2_PIX_FMT_P010M)
++        enc->profile = V4L2_MPEG_VIDEO_H265_PROFILE_MAIN10;
++
++    switch (nvv4l2_ctx->tier) {
++    case 0:
++    case 1:
++        enc->tier = nvv4l2_ctx->tier;
++        break;
++
++    default:
++        enc->tier = 0;
++        break;
++    }
++
++    switch (nvv4l2_ctx->level) {
++    case 30:
++        enc->level = V4L2_MPEG_VIDEO_H265_LEVEL_1_0_MAIN_TIER;
++        break;
++    case 60:
++        enc->level = V4L2_MPEG_VIDEO_H265_LEVEL_2_0_MAIN_TIER;
++        break;
++    case 63:
++        enc->level = V4L2_MPEG_VIDEO_H265_LEVEL_2_1_MAIN_TIER;
++        break;
++    case 90:
++        enc->level = V4L2_MPEG_VIDEO_H265_LEVEL_3_0_MAIN_TIER;
++        break;
++    case 93:
++        enc->level = V4L2_MPEG_VIDEO_H265_LEVEL_3_1_MAIN_TIER;
++        break;
++    case 120:
++        enc->level = V4L2_MPEG_VIDEO_H265_LEVEL_4_0_MAIN_TIER;
++        break;
++    case 123:
++        enc->level = V4L2_MPEG_VIDEO_H265_LEVEL_4_1_MAIN_TIER;
++        break;
++    case 150:
++        enc->level = V4L2_MPEG_VIDEO_H265_LEVEL_5_0_MAIN_TIER;
++        break;
++    case 153:
++        enc->level = V4L2_MPEG_VIDEO_H265_LEVEL_5_1_MAIN_TIER;
++        break;
++    case 156:
++        enc->level = V4L2_MPEG_VIDEO_H265_LEVEL_5_2_MAIN_TIER;
++        break;
++    case 180:
++        enc->level = V4L2_MPEG_VIDEO_H265_LEVEL_6_0_MAIN_TIER;
++        break;
++    case 183:
++        enc->level = V4L2_MPEG_VIDEO_H265_LEVEL_6_1_MAIN_TIER;
++        break;
++    case 186:
++        enc->level = V4L2_MPEG_VIDEO_H265_LEVEL_6_2_MAIN_TIER;
++        break;
++    default:
++        enc->level = V4L2_MPEG_VIDEO_H265_LEVEL_6_2_MAIN_TIER;
++        break;
++    }
++
++    enc->level += enc->tier;
++}
++
++static NvEncoder *set_encoder_parameters(AVCodecContext *avctx,
++                                         nvv4l2EncodeContext *nvv4l2_ctx,
++                                         NvCodingType nv_codec_type,
++                                         int *pix_fmt)
++{
++    NvEncoder *enc = (NvEncoder *)NVCALLOC(1, sizeof(NvEncoder));
++
++    enc->lossless = nvv4l2_ctx->lossless;
++    enc->ratecontrol = nvv4l2_ctx->rc == 1 ?
++                            V4L2_MPEG_VIDEO_BITRATE_MODE_VBR :
++                            V4L2_MPEG_VIDEO_BITRATE_MODE_CBR;
++
++    enc->width = avctx->width;
++    enc->height = avctx->height;
++    enc->bitrate = avctx->bit_rate;
++
++    if (nv_codec_type == NvVideoCodec_H264) {
++        nvv4l2_set_h264_profile_params(nvv4l2_ctx, enc, pix_fmt);
++    } else if (nv_codec_type == NvVideoCodec_HEVC) {
++        nvv4l2_set_hevc_profile_params(nvv4l2_ctx, enc, pix_fmt);
++    }
++
++    switch (nvv4l2_ctx->preset) {
++    case 1:
++        enc->preset_type = V4L2_ENC_HW_PRESET_ULTRAFAST;
++        break;
++    case 2:
++        enc->preset_type = V4L2_ENC_HW_PRESET_FAST;
++        break;
++    case 3:
++        enc->preset_type = V4L2_ENC_HW_PRESET_MEDIUM;
++        break;
++    case 4:
++        enc->preset_type = V4L2_ENC_HW_PRESET_SLOW;
++        break;
++    default:
++        enc->preset_type = V4L2_ENC_HW_PRESET_MEDIUM;
++        break;
++    }
++
++    if (avctx->gop_size > 0) {
++        enc->idr_interval = avctx->gop_size;
++        enc->iframe_interval = avctx->gop_size;
++    } else {
++        enc->idr_interval = 60;
++        enc->iframe_interval = 30;
++    }
++    enc->fps_n = avctx->framerate.num;
++    enc->fps_d = avctx->framerate.den;
++
++    if (avctx->qmin >= 0 && avctx->qmax >= 0) {
++        enc->qmin = avctx->qmin;
++        enc->qmax = avctx->qmax;
++    } else {
++        enc->qmin = -1;
++        enc->qmax = -1;
++    }
++
++    if (avctx->max_b_frames >= 0 && avctx->max_b_frames < 3)
++        enc->num_b_frames = avctx->max_b_frames;
++
++    if (avctx->refs > 0)
++        enc->num_ref = avctx->refs;
++
++    enc->sps_pps_at_idr = !(avctx->flags & AV_CODEC_FLAG_GLOBAL_HEADER);
++    enc->low_latency = (avctx->flags & AV_CODEC_FLAG_LOW_DELAY) ? true : false;
++
++    return enc;
++}
++
++static NvCodingType map_avcodec_id(enum AVCodecID id)
++{
++    switch (id) {
++    case AV_CODEC_ID_H264:
++        return NvVideoCodec_H264;
++    case AV_CODEC_ID_HEVC:
++        return NvVideoCodec_HEVC;
++    }
++    return NvVideoCodec_UNDEFINED;
++}
++
++static int nvv4l2enc_init(AVCodecContext *avctx)
++{
++    nvv4l2EncodeContext *nvv4l2_ctx = avctx->priv_data;
++    NvCodingType nv_codec_type;
++    NvEncoder *encoder;
++    int pix_fmt;
++
++    nv_codec_type = map_avcodec_id(avctx->codec_id);
++    if (nv_codec_type == NvVideoCodec_UNDEFINED) {
++        av_log(avctx, AV_LOG_ERROR, "Unsupported codec ID %d!\n",
++               avctx->codec_id);
++        return AVERROR_BUG;
++    }
++
++    /* Set output plane pixel format. */
++    switch (avctx->pix_fmt) {
++    case AV_PIX_FMT_YUV444P:
++        pix_fmt = V4L2_PIX_FMT_YUV444M;
++        break;
++    case AV_PIX_FMT_NV12:
++        pix_fmt = V4L2_PIX_FMT_NV12M;
++        break;
++    case AV_PIX_FMT_P010:
++        pix_fmt = V4L2_PIX_FMT_P010M;
++        break;
++    case AV_PIX_FMT_NONE:
++        avctx->pix_fmt = AV_PIX_FMT_YUV420P;
++    case AV_PIX_FMT_YUV420P:
++        pix_fmt = V4L2_PIX_FMT_YUV420M;
++        break;
++    default:
++        av_log(avctx, AV_LOG_ERROR, "Unsupported pixel format %d!\n",
++               avctx->pix_fmt);
++        return AVERROR_BUG;
++    }
++
++    /* Set encoder parameters. */
++    encoder = set_encoder_parameters(avctx, nvv4l2_ctx, nv_codec_type,
++                                     &pix_fmt);
++
++    /* Check if global SPS/PPS header is required and sample it. */
++    if (nv_codec_type == NvVideoCodec_H264 &&
++        (avctx->flags & AV_CODEC_FLAG_GLOBAL_HEADER)) {
++        NvFrame _nvframe = {0};
++        NvPacket packet = {0};
++        uint8_t *dst[4];
++        int linesize[4];
++        int header_size = 0;
++        int ret = 0;
++
++        nvv4l2_ctx->ctx = nvv4l2_create_encoder(avctx, encoder,
++                                                NvVideoCodec_H264,
++                                                pix_fmt);
++        if (!nvv4l2_ctx->ctx || nvv4l2_ctx->ctx->in_error) {
++            ret = 1;
++            goto out;
++        }
++
++        /* Get a blank packet to extract metadata */
++        av_image_alloc(dst, linesize, avctx->width, avctx->height,
++                       avctx->pix_fmt, 1);
++
++        while (true) {
++            _nvframe.payload[0] = dst[0];
++            _nvframe.payload[1] = dst[1];
++            _nvframe.payload[2] = dst[2];
++
++            ret = nvv4l2_encoder_put_frame(avctx, nvv4l2_ctx->ctx, &_nvframe);
++            if (ret)
++                goto out;
++
++            /* Try several times to get a packet before queuing a new one. */
++            for (uint32_t i = 0; i < 100; i++) {
++                ret = nvv4l2_encoder_get_packet(avctx, nvv4l2_ctx->ctx,
++                                                &packet);
++                if (!ret)
++                    break;
++                usleep(1000);
++            }
++            if (ret)
++                continue;
++
++            /* Find H264_NAL_IDR_SLICE */
++            for (header_size = 0;
++                 (header_size + 4) < packet.payload_size;
++                 header_size++) {
++                if (packet.payload[header_size]     == 0 &&
++                    packet.payload[header_size + 1] == 0 &&
++                    packet.payload[header_size + 2] == 0 &&
++                    packet.payload[header_size + 3] == 1 &&
++                    packet.payload[header_size + 4] == 0x65) {
++                    break;
++                }
++            }
++
++            if (header_size >= packet.payload_size) {
++                av_log(avctx, AV_LOG_ERROR, "Header was not found!\n");
++                return AVERROR_BUG;
++            }
++
++            avctx->extradata_size = header_size;
++            avctx->extradata = av_mallocz(header_size +
++                                          AV_INPUT_BUFFER_PADDING_SIZE);
++            memcpy(avctx->extradata, packet.payload, header_size);
++
++            break;
++        }
++        av_free(dst[0]);
++
++out:
++        nvv4l2_encoder_close(avctx, nvv4l2_ctx->ctx);
++        if (ret) {
++            av_log(avctx, AV_LOG_ERROR, "Error in initializing!\n");
++            return AVERROR_BUG;
++        }
++
++        /* Set encoder parameters again */
++        encoder = set_encoder_parameters(avctx, nvv4l2_ctx, nv_codec_type,
++                                         &pix_fmt);
++    }
++
++    nvv4l2_ctx->ctx = nvv4l2_create_encoder(avctx, encoder, nv_codec_type,
++                                            pix_fmt);
++
++    if (!nvv4l2_ctx->ctx || nvv4l2_ctx->ctx->in_error) {
++        nvv4l2_encoder_close(avctx, nvv4l2_ctx->ctx);
++        return AVERROR_BUG;
++    } else
++        return 0;
++}
++
++static int
++nvv4l2enc_encode(AVCodecContext *avctx, AVPacket *pkt,
++                 const AVFrame *frame, int *got_packet)
++{
++    nvv4l2EncodeContext *nvv4l2_ctx = avctx->priv_data;
++    nvv4l2_ctx_t *ctx = nvv4l2_ctx->ctx;
++    NvFrame _nvframe = {0};
++    NvPacket packet = {0};
++
++    if (ctx->in_error) {
++        return AVERROR_UNKNOWN;
++    }
++
++    if (frame) {
++        _nvframe.payload[0] = frame->data[0];
++        _nvframe.payload[1] = frame->data[1];
++        _nvframe.payload[2] = frame->data[2];
++
++        _nvframe.pts = frame->pts;
++
++        if (nvv4l2_encoder_put_frame(avctx, ctx, &_nvframe))
++            return AVERROR_UNKNOWN;
++    }
++
++    if (nvv4l2_encoder_get_packet(avctx, ctx, &packet))
++        return 0;
++
++    ff_alloc_packet2(avctx, pkt, packet.payload_size, packet.payload_size);
++
++    memcpy(pkt->data, packet.payload, packet.payload_size);
++    pkt->dts = pkt->pts = packet.pts;
++
++    if (packet.flags & AV_PKT_FLAG_KEY)
++        pkt->flags = AV_PKT_FLAG_KEY;
++
++    *got_packet = 1;
++
++    return 0;
++}
++
++static av_cold int nvv4l2enc_close(AVCodecContext *avctx)
++{
++    nvv4l2EncodeContext *nvv4l2_ctx = avctx->priv_data;
++    nvv4l2_encoder_close(avctx, nvv4l2_ctx->ctx);
++
++    return 0;
++}
++
++static const AVCodecDefault defaults[] = {
++    { "b",     "5M" },
++    { "qmin",  "-1" },
++    { "qmax",  "-1" },
++    { "qdiff", "-1" },
++    { "qblur", "-1" },
++    { "qcomp", "-1" },
++    { "g",     "50" },
++    { "bf",    "0" },
++    { "refs",  "0" },
++    { NULL },
++};
++
++#define OFFSET(x) offsetof(nvv4l2EncodeContext, x)
++#define VE AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_ENCODING_PARAM
++
++static const AVOption options_h264[] = {
++    { "num_capture_buffers", "Number of buffers in the capture context",
++        OFFSET(num_capture_buffers), AV_OPT_TYPE_INT, {.i64 = 10 }, 1, 32, VE },
++
++    { "profile",  "Set the encoding profile", OFFSET(profile), AV_OPT_TYPE_INT,
++        { .i64 = FF_PROFILE_H264_MAIN }, FF_PROFILE_H264_BASELINE,
++        FF_PROFILE_H264_HIGH_444_PREDICTIVE, VE, "profile" },
++#define PROFILE(name, value)  name, NULL, 0, AV_OPT_TYPE_CONST, \
++                              { .i64 = value }, 0, 0, VE, "profile"
++    { PROFILE("baseline", FF_PROFILE_H264_BASELINE) },
++    { PROFILE("main",     FF_PROFILE_H264_MAIN) },
++    { PROFILE("high",     FF_PROFILE_H264_HIGH) },
++    { PROFILE("high444",  FF_PROFILE_H264_HIGH_444_PREDICTIVE) },
++#undef PROFILE
++
++    { "level", "Profile Level", OFFSET(level), AV_OPT_TYPE_INT,
++        { .i64 = 51 }, 9, 51, VE, "level" },
++#define LEVEL(name, value) name, NULL, 0, AV_OPT_TYPE_CONST, \
++                           { .i64 = value }, 0, 0, VE, "level"
++    { LEVEL("1.0", 10) },
++    { LEVEL("1b",  9 ) },
++    { LEVEL("1.1", 11) },
++    { LEVEL("1.2", 12) },
++    { LEVEL("1.3", 13) },
++    { LEVEL("2.0", 20) },
++    { LEVEL("2.1", 21) },
++    { LEVEL("2.2", 22) },
++    { LEVEL("3.0", 30) },
++    { LEVEL("3.1", 31) },
++    { LEVEL("3.2", 32) },
++    { LEVEL("4.0", 40) },
++    { LEVEL("4.1", 41) },
++    { LEVEL("4.2", 42) },
++    { LEVEL("5.0", 50) },
++    { LEVEL("5.1", 51) },
++#undef LEVEL
++
++    { "lossless", "Enable lossless encoding", OFFSET(lossless), AV_OPT_TYPE_INT,
++        { .i64 = 0 }, 0, 1, VE, "lossless"},
++#define LOSSLESS(name, value)  name, NULL, 0, AV_OPT_TYPE_CONST, \
++                           { .i64 = value }, 0, 0, VE, "lossless"
++    { LOSSLESS("off", 0) },
++    { LOSSLESS("on",  1) },
++#undef LOSSLESS
++
++    { "rc",  "Override the preset rate-control",
++        OFFSET(rc), AV_OPT_TYPE_INT,   { .i64 = 1 }, 0, 1, VE, "rc" },
++    { "cbr", "Constant bitrate mode", 0, AV_OPT_TYPE_CONST,
++        { .i64 = 0  },  0, 0, VE, "rc" },
++    { "vbr", "Variable bitrate mode", 0, AV_OPT_TYPE_CONST,
++        { .i64 = 1  },  0, 0, VE, "rc" },
++
++    { "preset",    "Set the encoding preset", OFFSET(preset),
++        AV_OPT_TYPE_INT,   { .i64 = 3 }, 1, 4, VE, "preset" },
++    { "default",   "", 0, AV_OPT_TYPE_CONST, { .i64 = 3 }, 0, 0, VE, "preset" },
++    { "slow",      "", 0, AV_OPT_TYPE_CONST, { .i64 = 4 }, 0, 0, VE, "preset" },
++    { "medium",    "", 0, AV_OPT_TYPE_CONST, { .i64 = 3 }, 0, 0, VE, "preset" },
++    { "fast",      "", 0, AV_OPT_TYPE_CONST, { .i64 = 2 }, 0, 0, VE, "preset" },
++    { "ultrafast", "", 0, AV_OPT_TYPE_CONST, { .i64 = 1 }, 0, 0, VE, "preset" },
++    { NULL }
++};
++
++static const AVOption options_hevc[] = {
++    { "num_capture_buffers", "Number of buffers in the capture context",
++        OFFSET(num_capture_buffers), AV_OPT_TYPE_INT, {.i64 = 10 }, 1, 32, VE },
++
++    { "profile",  "Set the encoding profile", OFFSET(profile), AV_OPT_TYPE_INT,
++        { .i64 = FF_PROFILE_HEVC_MAIN }, FF_PROFILE_HEVC_MAIN,
++        FF_PROFILE_HEVC_MAIN_10, VE, "profile" },
++#define PROFILE(name, value)  name, NULL, 0, AV_OPT_TYPE_CONST, \
++                              { .i64 = value }, 0, 0, VE, "profile"
++    { PROFILE("main",   FF_PROFILE_HEVC_MAIN) },
++    { PROFILE("main10", FF_PROFILE_HEVC_MAIN_10) },
++#undef PROFILE
++
++    { "tier", "Set the encoding tier", OFFSET(tier), AV_OPT_TYPE_INT,
++        { .i64 = 0 }, 0, 1, VE, "tier"},
++#define TIER(name, value)  name, NULL, 0, AV_OPT_TYPE_CONST, \
++                           { .i64 = value }, 0, 0, VE, "tier"
++    { TIER("main", 0) },
++    { TIER("high", 1) },
++#undef TIER
++
++    { "level", "Profile Level", OFFSET(level), AV_OPT_TYPE_INT,
++        { .i64 = 186 }, 30, 186, VE, "level" },
++#define LEVEL(name, value) name, NULL, 0, AV_OPT_TYPE_CONST, \
++                           { .i64 = value }, 0, 0, VE, "level"
++    { LEVEL("1",    30) },
++    { LEVEL("2",    60) },
++    { LEVEL("2.1",  63) },
++    { LEVEL("3",    90) },
++    { LEVEL("3.1",  93) },
++    { LEVEL("4",   120) },
++    { LEVEL("4.1", 123) },
++    { LEVEL("5",   150) },
++    { LEVEL("5.1", 153) },
++    { LEVEL("5.2", 156) },
++    { LEVEL("6",   180) },
++    { LEVEL("6.1", 183) },
++    { LEVEL("6.2", 186) },
++#undef LEVEL
++
++    { "lossless", "Enable lossless encoding", OFFSET(lossless), AV_OPT_TYPE_INT,
++        { .i64 = 0 }, 0, 1, VE, "lossless"},
++#define LOSSLESS(name, value)  name, NULL, 0, AV_OPT_TYPE_CONST, \
++                           { .i64 = value }, 0, 0, VE, "lossless"
++    { LOSSLESS("off", 0) },
++    { LOSSLESS("on",  1) },
++#undef LOSSLESS
++
++    { "rc",  "Override the preset rate-control", OFFSET(rc),
++        AV_OPT_TYPE_INT,   { .i64 = 1 }, 0, 1, VE, "rc" },
++    { "cbr", "Constant bitrate mode", 0, AV_OPT_TYPE_CONST,
++        { .i64 = 0  },  0, 0, VE, "rc" },
++    { "vbr", "Variable bitrate mode", 0, AV_OPT_TYPE_CONST,
++        { .i64 = 1  },  0, 0, VE, "rc" },
++
++    { "preset",    "Set the encoding preset", OFFSET(preset),
++        AV_OPT_TYPE_INT,   { .i64 = 3 }, 3, 4, VE, "preset" },
++    { "default",   "", 0, AV_OPT_TYPE_CONST, { .i64 = 3 }, 0, 0, VE, "preset" },
++    { "slow",      "", 0, AV_OPT_TYPE_CONST, { .i64 = 4 }, 0, 0, VE, "preset" },
++    { "medium",    "", 0, AV_OPT_TYPE_CONST, { .i64 = 3 }, 0, 0, VE, "preset" },
++    { "fast",      "", 0, AV_OPT_TYPE_CONST, { .i64 = 2 }, 0, 0, VE, "preset" },
++    { "ultrafast", "", 0, AV_OPT_TYPE_CONST, { .i64 = 1 }, 0, 0, VE, "preset" },
++    { NULL }
++};
++
++#define NVV4L2_ENC_CLASS(NAME)                         \
++    static const AVClass nvv4l2_##NAME##_enc_class = { \
++        .class_name = "nvv4l2_" #NAME "_enc",          \
++        .item_name  = av_default_item_name,            \
++        .option     = options_##NAME,                  \
++        .version    = LIBAVUTIL_VERSION_INT,           \
++    };
++
++#define NVV4L2_ENC(NAME, ID)                                                          \
++    NVV4L2_ENC_CLASS(NAME)                                                            \
++    AVCodec ff_##NAME##_nvv4l2_encoder = {                                            \
++        .name           = #NAME "_nvv4l2" ,                                           \
++        .long_name      = NULL_IF_CONFIG_SMALL(#NAME " NVV4L2 HW encoder for Tegra"), \
++        .type           = AVMEDIA_TYPE_VIDEO,                                         \
++        .id             = ID,                                                         \
++        .priv_data_size = sizeof(nvv4l2EncodeContext),                                \
++        .init           = nvv4l2enc_init,                                             \
++        .close          = nvv4l2enc_close,                                            \
++        .encode2        = nvv4l2enc_encode,                                           \
++        .priv_class     = &nvv4l2_##NAME##_enc_class,                                 \
++        .capabilities   = AV_CODEC_CAP_DELAY | AV_CODEC_CAP_HARDWARE,                 \
++        .defaults       = defaults,                                                   \
++        .wrapper_name   = "nvv4l2",                                                   \
++        .pix_fmts       = (const enum AVPixelFormat[]) { AV_PIX_FMT_YUV420P,          \
++                                                         AV_PIX_FMT_YUV444P,          \
++                                                         AV_PIX_FMT_NV12,             \
++                                                         AV_PIX_FMT_P010,             \
++                                                         AV_PIX_FMT_NONE },           \
++    };
++
++NVV4L2_ENC(h264, AV_CODEC_ID_H264);
++NVV4L2_ENC(hevc, AV_CODEC_ID_HEVC);
+-- 
+2.25.1
+
