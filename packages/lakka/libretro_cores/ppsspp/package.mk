@@ -1,9 +1,9 @@
 PKG_NAME="ppsspp"
-PKG_VERSION="5083b206365a226fb51288e09424f8f5f5a3392a" #v1.13.1
+PKG_VERSION="9fe6338e3bf397f8a009a51a282c139dfa180eb6" #v1.13.2
 PKG_LICENSE="GPL-2.0-or-later"
 PKG_SITE="https://github.com/hrydgard/ppsspp"
 PKG_URL="https://github.com/hrydgard/ppsspp.git"
-PKG_DEPENDS_TARGET="toolchain linux glibc zlib ffmpeg bzip2 openssl speex"
+PKG_DEPENDS_TARGET="toolchain linux glibc libzip libpng zstd zlib ffmpeg bzip2 openssl speex"
 PKG_LONGDESC="A PSP emulator for Android, Windows, Mac, Linux and Blackberry 10, written in C++."
 GET_HANDLER_SUPPORT="git"
 PKG_GIT_CLONE_BRANCH="master"
@@ -13,7 +13,10 @@ PKG_BUILD_FLAGS="-sysroot"
 PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON \
                        -DCMAKE_BUILD_TYPE=Release \
                        -DUSE_FFMPEG=ON \
-                       -DUSE_SYSTEM_FFMPEG=OFF \
+                       -DUSE_SYSTEM_FFMPEG=ON \
+                       -DUSE_SYSTEM_LIBZIP=ON \
+                       -DUSE_SYSTEM_LIBPNG=ON \
+                       -DUSE_SYSTEM_ZSTD=ON \
                        -DUSE_DISCORD=OFF \
                        -DUSE_MINIUPNPC=OFF"
 
