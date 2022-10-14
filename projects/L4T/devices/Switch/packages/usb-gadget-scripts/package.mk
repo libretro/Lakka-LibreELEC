@@ -11,9 +11,6 @@ makeinstall_target() {
     cp ${PKG_DIR}/system.d/*.service ${INSTALL}/usr/lib/systemd/system/
 
   #Enable Services
-  enable_service usb-gadget-init.service
-  enable_service usb-gadget-finalize.service
-  enable_service umtp-responder.service
-  enable_service usb-tty.service
-}
+  enable_service usb-gadget-setup.service
+ }
 
