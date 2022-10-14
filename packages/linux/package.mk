@@ -6,7 +6,7 @@ PKG_NAME="linux"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kernel.org"
 PKG_DEPENDS_HOST="ccache:host rsync:host"
-PKG_DEPENDS_TARGET="linux:host kmod:host xz:host keyutils ncurses openssl:host ${KERNEL_EXTRA_DEPENDS_TARGET}"
+PKG_DEPENDS_TARGET="linux:host kmod:host xz:host keyutils openssl:host ${KERNEL_EXTRA_DEPENDS_TARGET}"
 PKG_NEED_UNPACK="${LINUX_DEPENDS} $(get_pkg_directory initramfs) $(get_pkg_variable initramfs PKG_NEED_UNPACK)"
 PKG_LONGDESC="This package contains a precompiled kernel image and the modules."
 PKG_IS_KERNEL_PKG="yes"
@@ -22,8 +22,8 @@ case "${LINUX}" in
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
     ;;
   raspberrypi)
-    PKG_VERSION="23a7ec81c55515e8a8d711376589f4cbc6714906" # 5.15.70
-    PKG_SHA256="ce1fed13101b1af68da28e53890ea5527286912532157e493d84366d6b040524"
+    PKG_VERSION="896b8da17ad1568567f3e4647ee9abecd1eaf409" # 6.0
+    PKG_SHA256="4d7afa1f3d1c6f98f06a4b53754babdbf2356a14b9477caa954a465d2c2e311f"
     PKG_URL="https://github.com/raspberrypi/linux/archive/${PKG_VERSION}.tar.gz"
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
     ;;
@@ -43,10 +43,10 @@ case "${LINUX}" in
    PKG_PATCH_DIRS="default ayn-odin"
    ;;
   *)
-    PKG_VERSION="5.19.9"
-    PKG_SHA256="0ad5b5986693adc1962be807bc3a64423a24b6a9da9df39b259d7e3bfd927f37"
-    PKG_URL="https://www.kernel.org/pub/linux/kernel/v5.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
-    PKG_PATCH_DIRS="default ${DISTRO}-default"
+    PKG_VERSION="6.0"
+    PKG_SHA256="5c2443a5538de52688efb55c27ab0539c1f5eb58c0cfd16a2b9fbb08fd81788e"
+    PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+    PKG_PATCH_DIRS="default"
     ;;
 esac
 
