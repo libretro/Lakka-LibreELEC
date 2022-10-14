@@ -100,35 +100,19 @@ post_patch() {
 }
 
 make_host() {
-  if [ "${LINUX}" = "L4T" ]; then
-    CURRENT_PATH=${PATH}
-    export PATH=${TOOLCHAIN}/lib/gcc-arm-aarch64-none-linux-gnu/bin/:${PATH}
- else
  :
- fi
 }
 
 makeinstall_host() {
-  if [ "${LINUX}" = "L4T" ]; then
-    CURRENT_PATH=${PATH}
-    export PATH=${TOOLCHAIN}/lib/gcc-arm-aarch64-none-linux-gnu/bin/:${PATH}
-    make \
-      ARCH=arm64 \
-      CROSS_COMPILE=${KERNEL_TOOLCHAIN}- \
-      INSTALL_HDR_PATH=dest \
-      headers_install
-    export PATH=${CURRENT_PATH}
-  else
-    make \
-      ARCH=${HEADERS_ARCH:-$TARGET_KERNEL_ARCH} \
-      HOSTCC="${TOOLCHAIN}/bin/host-gcc" \
-      HOSTCXX="${TOOLCHAIN}/bin/host-g++" \
-      HOSTCFLAGS="${HOST_CFLAGS}" \
-      HOSTCXXFLAGS="${HOST_CXXFLAGS}" \
-      HOSTLDFLAGS="${HOST_LDFLAGS}" \
-      INSTALL_HDR_PATH=dest \
-      headers_install
-  fi
+  make \
+    ARCH=${HEADERS_ARCH:-$TARGET_KERNEL_ARCH} \
+    HOSTCC="${TOOLCHAIN}/bin/host-gcc" \
+    HOSTCXX="${TOOLCHAIN}/bin/host-g++" \
+    HOSTCFLAGS="${HOST_CFLAGS}" \
+    HOSTCXXFLAGS="${HOST_CXXFLAGS}" \
+    HOSTLDFLAGS="${HOST_LDFLAGS}" \
+    INSTALL_HDR_PATH=dest \
+    headers_install
 
   mkdir -p ${SYSROOT_PREFIX}/usr/include
     cp -R dest/include/* ${SYSROOT_PREFIX}/usr/include
