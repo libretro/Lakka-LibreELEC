@@ -111,89 +111,6 @@ index d38a382b09eb..fc3d4fec8ddd 100644
  	.module = THIS_MODULE,
  };
  
-diff --git a/crypto/xts.c b/crypto/xts.c
-index 9c4c4b7d9a51..f2d11fb8690a 100644
---- a/crypto/xts.c
-+++ b/crypto/xts.c
-@@ -330,7 +330,7 @@ static struct crypto_instance *alloc(struct rtattr **tb)
- 	return inst;
- }
- 
--static void free(struct crypto_instance *inst)
-+static void free_inst(struct crypto_instance *inst)
- {
- 	crypto_drop_spawn(crypto_instance_ctx(inst));
- 	kfree(inst);
-@@ -339,7 +339,7 @@ static void free(struct crypto_instance *inst)
- static struct crypto_template crypto_tmpl = {
- 	.name = "xts",
- 	.alloc = alloc,
--	.free = free,
-+	.free = free_inst,
- 	.module = THIS_MODULE,
- };
- 
-diff --git a/drivers/extcon/extcon.c b/drivers/extcon/extcon.c
-index 36140d06fb70..7371a8d0321b 100644
---- a/drivers/extcon/extcon.c
-+++ b/drivers/extcon/extcon.c
-@@ -1264,6 +1264,7 @@ int extcon_dev_register(struct extcon_dev *edev)
- 		char buf[10];
- 		char *str;
- 		struct extcon_cable *cable;
-+		int namelen;
- 
- 		edev->cables = kzalloc(sizeof(struct extcon_cable) *
- 				       edev->max_supported, GFP_KERNEL);
-@@ -1274,8 +1275,8 @@ int extcon_dev_register(struct extcon_dev *edev)
- 		for (index = 0; index < edev->max_supported; index++) {
- 			cable = &edev->cables[index];
- 
--			snprintf(buf, 10, "cable.%d", index);
--			str = kzalloc(sizeof(char) * (strlen(buf) + 1),
-+			namelen = scnprintf(buf, 10, "cable.%d", index);
-+			str = kzalloc(sizeof(char) * (namelen + 1),
- 				      GFP_KERNEL);
- 			if (!str) {
- 				for (index--; index >= 0; index--) {
-@@ -1286,7 +1287,7 @@ int extcon_dev_register(struct extcon_dev *edev)
- 
- 				goto err_alloc_cables;
- 			}
--			strncpy(str, buf, strlen(buf));
-+			memcpy(str, buf, namelen);
- 
- 			cable->edev = edev;
- 			cable->cable_index = index;
-@@ -1311,6 +1312,7 @@ int extcon_dev_register(struct extcon_dev *edev)
- 	if (edev->max_supported && edev->mutually_exclusive) {
- 		char buf[80];
- 		char *name;
-+		int namelen;
- 
- 		/* Count the size of mutually_exclusive array */
- 		for (index = 0; edev->mutually_exclusive[index]; index++)
-@@ -1332,8 +1334,9 @@ int extcon_dev_register(struct extcon_dev *edev)
- 		}
- 
- 		for (index = 0; edev->mutually_exclusive[index]; index++) {
--			snprintf(buf, sizeof(buf), "0x%x", edev->mutually_exclusive[index]);
--			name = kzalloc(sizeof(char) * (strlen(buf) + 1),
-+			namelen = scnprintf(buf, sizeof(buf), "0x%x",
-+					    edev->mutually_exclusive[index]);
-+			name = kzalloc(sizeof(char) * (namelen + 1),
- 				       GFP_KERNEL);
- 			if (!name) {
- 				for (index--; index >= 0; index--) {
-@@ -1345,7 +1348,7 @@ int extcon_dev_register(struct extcon_dev *edev)
- 				ret = -ENOMEM;
- 				goto err_muex;
- 			}
--			strncpy(name, buf, strlen(buf));
-+			memcpy(name, buf, namelen);
- 			sysfs_attr_init(&edev->d_attrs_muex[index].attr);
- 			edev->d_attrs_muex[index].attr.name = name;
- 			edev->d_attrs_muex[index].attr.mode = 0000;
 diff --git a/drivers/i2c/i2c-core.c b/drivers/i2c/i2c-core.c
 index b1c36d9ef187..496981bca0bb 100644
 --- a/drivers/i2c/i2c-core.c
@@ -350,60 +267,6 @@ index 67fc0b6857e1..edfa22847724 100644
  		memcpy(&cmd->params.dgid[0],
  		       &dgid_addr._sockaddr_in.sin_addr.s_addr, 4);
  		memcpy(&cmd->params.sgid[0],
-diff --git a/drivers/memory/tegra/tegra210-emc-cc-r21012.c b/drivers/memory/tegra/tegra210-emc-cc-r21012.c
-index 25cfd69e4333..98ac9192c01c 100644
---- a/drivers/memory/tegra/tegra210-emc-cc-r21012.c
-+++ b/drivers/memory/tegra/tegra210-emc-cc-r21012.c
-@@ -761,11 +761,11 @@ void emc_set_clock_r21012(struct emc_table *next_timing,
- 	if ((((last_timing->burst_regs[EMC_PMACRO_DATA_PAD_TX_CTRL_INDEX] &
- 	       EMC_PMACRO_DATA_PAD_TX_CTRL_DATA_DQ_E_IVREF) == 0) &&
- 	     ((next_timing->burst_regs[EMC_PMACRO_DATA_PAD_TX_CTRL_INDEX] &
--	       EMC_PMACRO_DATA_PAD_TX_CTRL_DATA_DQ_E_IVREF) == 1)) ||
-+	       EMC_PMACRO_DATA_PAD_TX_CTRL_DATA_DQ_E_IVREF) != 0)) ||
- 	    (((last_timing->burst_regs[EMC_PMACRO_DATA_PAD_TX_CTRL_INDEX] &
- 	       EMC_PMACRO_DATA_PAD_TX_CTRL_DATA_DQS_E_IVREF) == 0) &&
- 	     ((next_timing->burst_regs[EMC_PMACRO_DATA_PAD_TX_CTRL_INDEX] &
--	       EMC_PMACRO_DATA_PAD_TX_CTRL_DATA_DQS_E_IVREF) == 1))) {
-+	       EMC_PMACRO_DATA_PAD_TX_CTRL_DATA_DQS_E_IVREF) != 0))) {
- 		u32 pad_tx_ctrl =
- 		    next_timing->burst_regs[EMC_PMACRO_DATA_PAD_TX_CTRL_INDEX];
- 		u32 last_pad_tx_ctrl =
-diff --git a/drivers/memory/tegra/tegra210-emc-cc-r21015.c b/drivers/memory/tegra/tegra210-emc-cc-r21015.c
-index 59294b210463..f69a78ffab3d 100644
---- a/drivers/memory/tegra/tegra210-emc-cc-r21015.c
-+++ b/drivers/memory/tegra/tegra210-emc-cc-r21015.c
-@@ -633,11 +633,11 @@ void emc_set_clock_r21015(struct emc_table *next_timing,
- 	if ((((last_timing->burst_regs[EMC_PMACRO_DATA_PAD_TX_CTRL_INDEX] &
- 	       EMC_PMACRO_DATA_PAD_TX_CTRL_DATA_DQ_E_IVREF) == 0) &&
- 	     ((next_timing->burst_regs[EMC_PMACRO_DATA_PAD_TX_CTRL_INDEX] &
--	       EMC_PMACRO_DATA_PAD_TX_CTRL_DATA_DQ_E_IVREF) == 1)) ||
-+	       EMC_PMACRO_DATA_PAD_TX_CTRL_DATA_DQ_E_IVREF) != 0)) ||
- 	    (((last_timing->burst_regs[EMC_PMACRO_DATA_PAD_TX_CTRL_INDEX] &
- 	       EMC_PMACRO_DATA_PAD_TX_CTRL_DATA_DQS_E_IVREF) == 0) &&
- 	     ((next_timing->burst_regs[EMC_PMACRO_DATA_PAD_TX_CTRL_INDEX] &
--	       EMC_PMACRO_DATA_PAD_TX_CTRL_DATA_DQS_E_IVREF) == 1))) {
-+	       EMC_PMACRO_DATA_PAD_TX_CTRL_DATA_DQS_E_IVREF) != 0))) {
- 		u32 pad_tx_ctrl =
- 		    next_timing->burst_regs[EMC_PMACRO_DATA_PAD_TX_CTRL_INDEX];
- 		u32 last_pad_tx_ctrl =
-diff --git a/drivers/memory/tegra/tegra210-emc-cc-r21021.c b/drivers/memory/tegra/tegra210-emc-cc-r21021.c
-index 058f0e3f82c3..4a5e01e231b0 100644
---- a/drivers/memory/tegra/tegra210-emc-cc-r21021.c
-+++ b/drivers/memory/tegra/tegra210-emc-cc-r21021.c
-@@ -941,11 +941,11 @@ void emc_set_clock_r21021(struct emc_table *next_timing,
- 	if ((((last_timing->burst_regs[EMC_PMACRO_DATA_PAD_TX_CTRL_INDEX] &
- 	       EMC_PMACRO_DATA_PAD_TX_CTRL_DATA_DQ_E_IVREF) == 0) &&
- 	     ((next_timing->burst_regs[EMC_PMACRO_DATA_PAD_TX_CTRL_INDEX] &
--	       EMC_PMACRO_DATA_PAD_TX_CTRL_DATA_DQ_E_IVREF) == 1)) ||
-+	       EMC_PMACRO_DATA_PAD_TX_CTRL_DATA_DQ_E_IVREF) != 0)) ||
- 	    (((last_timing->burst_regs[EMC_PMACRO_DATA_PAD_TX_CTRL_INDEX] &
- 	       EMC_PMACRO_DATA_PAD_TX_CTRL_DATA_DQS_E_IVREF) == 0) &&
- 	     ((next_timing->burst_regs[EMC_PMACRO_DATA_PAD_TX_CTRL_INDEX] &
--	       EMC_PMACRO_DATA_PAD_TX_CTRL_DATA_DQS_E_IVREF) == 1))) {
-+	       EMC_PMACRO_DATA_PAD_TX_CTRL_DATA_DQS_E_IVREF) != 0))) {
- 		u32 pad_tx_ctrl =
- 		    next_timing->burst_regs[EMC_PMACRO_DATA_PAD_TX_CTRL_INDEX];
- 		u32 last_pad_tx_ctrl =
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
 index ebeeb3581b9c..61a2e001089b 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
@@ -541,26 +404,6 @@ index e22a270a17a5..bd04e9db7b91 100644
  };
  
  static inline struct file *get_file(struct file *f)
-diff --git a/include/linux/module.h b/include/linux/module.h
-index 9d6fd1d17edb..49f0aae0a5db 100644
---- a/include/linux/module.h
-+++ b/include/linux/module.h
-@@ -130,13 +130,13 @@ extern void cleanup_module(void);
- #define module_init(initfn)					\
- 	static inline initcall_t __maybe_unused __inittest(void)		\
- 	{ return initfn; }					\
--	int init_module(void) __attribute__((alias(#initfn)));
-+	int init_module(void) __copy(initfn) __attribute__((alias(#initfn)));
- 
- /* This is only required if you want to be unloadable. */
- #define module_exit(exitfn)					\
- 	static inline exitcall_t __maybe_unused __exittest(void)		\
- 	{ return exitfn; }					\
--	void cleanup_module(void) __attribute__((alias(#exitfn)));
-+	void cleanup_module(void) __copy(exitfn) __attribute__((alias(#exitfn)));
- 
- #endif
- 
 diff --git a/include/linux/pnp.h b/include/linux/pnp.h
 index 2588ca6a9028..acbfe53eb948 100644
 --- a/include/linux/pnp.h
@@ -1182,19 +1025,6 @@ index a25974fc0ecc..1660dfbff169 100644
  #endif
  
  #include "debug.h"
-diff --git a/nvidia/sound/soc/tegra-alt/utils/tegra_asoc_machine_alt.c b/nvidia/sound/soc/tegra-alt/utils/tegra_asoc_machine_alt.c
-index bea3d447a2d0..e144f0f8f209 100644
---- a/nvidia/sound/soc/tegra-alt/utils/tegra_asoc_machine_alt.c
-+++ b/nvidia/sound/soc/tegra-alt/utils/tegra_asoc_machine_alt.c
-@@ -3932,7 +3932,7 @@ EXPORT_SYMBOL_GPL(release_asoc_phandles);
- 
- int tegra_asoc_populate_dai_links(struct platform_device *pdev)
- {
--	struct device_node *np = pdev->dev.of_node, *subnp;
-+	struct device_node *np = pdev->dev.of_node, *subnp = NULL;
- 	struct snd_soc_card *card = platform_get_drvdata(pdev);
- 	struct tegra_machine *machine = snd_soc_card_get_drvdata(card);
- 	struct snd_soc_dai_link *dai_links, *ahub_links;
 diff --git a/scripts/Makefile.extrawarn b/scripts/Makefile.extrawarn
 index fb3522fd8702..e3edc0df3644 100644
 --- a/scripts/Makefile.extrawarn
