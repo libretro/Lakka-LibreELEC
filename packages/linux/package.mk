@@ -34,7 +34,7 @@ case "${LINUX}" in
     PKG_PATCH_DIRS="${PROJECT} ${PROJECT}/${DEVICE}"
     PKG_SOURCE_NAME="linux-$DEVICE.tar.gz"
     #Need to find a better way to do this for l4t platforms!
-    PKG_SHA256=$L4T_COMBINED_KERNEL_SHA256
+    PKG_SHA256="${L4T_COMBINED_KERNEL_SHA256}"
     ;;
   ayn-odin)
    PKG_SHA256="b425b70a6379f3415ed349f5c5719d4a6f315523"
