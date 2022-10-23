@@ -231,7 +231,7 @@ makeinstall_target() {
 
   # Input
   echo 'input_driver = "udev"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'input_max_users = "5"' >> ${INSTALL}/etc/retroarch.cfg
+  echo 'input_max_users = "8"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'input_autodetect_enable = "true"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'joypad_autoconfig_dir = "/tmp/joypads"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'input_remapping_directory = "/storage/remappings"' >> ${INSTALL}/etc/retroarch.cfg
