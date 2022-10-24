@@ -1,4 +1,4 @@
-FROM ubuntu:groovy
+FROM ubuntu:jammy
 
 ARG DEBIAN_FRONTEND=noninteractive
 

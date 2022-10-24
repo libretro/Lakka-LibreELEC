@@ -1,4 +1,4 @@
-FROM ubuntu:hirsute
+FROM ubuntu:kinetic
 
 ARG DEBIAN_FRONTEND=noninteractive
 
