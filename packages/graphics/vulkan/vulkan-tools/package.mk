@@ -3,8 +3,8 @@
 # Copyright (C) 2021-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="vulkan-tools"
-PKG_VERSION="1.3.231"
-PKG_SHA256="379547b11eb65638cf5d83b260827a7b2dbfa7f31ef4002f8bfdca7bf3c89a8f"
+PKG_VERSION="1.3.232"
+PKG_SHA256="6c850c21cc70405d553a7890e954995b45a29f05ec3da31ba92ddbf7af886ca9"
 PKG_LICENSE="Apache-2.0"
 PKG_SITE="https://github.com/KhronosGroup/Vulkan-Tools"
 PKG_URL="https://github.com/KhronosGroup/Vulkan-tools/archive/v${PKG_VERSION}.tar.gz"
@@ -21,7 +21,8 @@ configure_package() {
 }
 
 pre_configure_target() {
-  PKG_CMAKE_OPTS_TARGET="-DBUILD_VULKANINFO=ON \
+  PKG_CMAKE_OPTS_TARGET="-DVULKAN_HEADERS_INSTALL_DIR=${SYSROOT_PREFIX}/usr \
+                         -DBUILD_VULKANINFO=ON \
                          -DBUILD_ICD=OFF \
                          -DINSTALL_ICD=OFF \
                          -DBUILD_WSI_DIRECTFB_SUPPORT=OFF \
