@@ -21,7 +21,8 @@ configure_package() {
 }
 
 pre_configure_target() {
-  PKG_CMAKE_OPTS_TARGET="-DBUILD_VULKANINFO=ON \
+  PKG_CMAKE_OPTS_TARGET="-DVULKAN_HEADERS_INSTALL_DIR=${SYSROOT_PREFIX}/usr \
+                         -DBUILD_VULKANINFO=ON \
                          -DBUILD_ICD=OFF \
                          -DINSTALL_ICD=OFF \
                          -DBUILD_WSI_DIRECTFB_SUPPORT=OFF \
