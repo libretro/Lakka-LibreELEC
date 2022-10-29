@@ -3,7 +3,7 @@
 
 PKG_NAME="exfatprogs"
 PKG_VERSION="1.2.0"
-PKG_SHA256="49c7177475c0e1759005a245f9877cf2253225cd8267de5f1657aa64fe21ddd6"
+PKG_SHA256="56d9a49465deafc367d428afc71c8098705a30ee19a3cdf3c5320650b8880742"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/exfatprogs/exfatprogs"
 PKG_URL="https://github.com/exfatprogs/exfatprogs/releases/download/${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
