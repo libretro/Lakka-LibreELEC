@@ -33,5 +33,8 @@ post_makeinstall_target() {
       -e "s:libs=\"-lpng16\":libs=\"-lpng16 -lz\":g" \
       -i ${SYSROOT_PREFIX}/usr/bin/libpng*-config
 
+  sed -e 's|^Libs: -L${libdir} -lpng16|Libs: -L${libdir} -lpng16 -lz|g' \
+      -i ${SYSROOT_PREFIX}/usr/lib/pkgconfig/libpng*.pc
+
   rm -rf ${INSTALL}/usr/bin
 }
