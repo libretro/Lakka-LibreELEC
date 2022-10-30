@@ -19,7 +19,8 @@ configure_package() {
 }
 
 pre_configure_target() {
-  PKG_MESON_OPTS_TARGET="-Dgtk_doc=false \
+  PKG_MESON_OPTS_TARGET="--wrap-mode=nodownload \
+                         -Dgtk_doc=false \
                          -Ddocs=false \
                          -Dintrospection=disabled \
                          -Dman=false \
