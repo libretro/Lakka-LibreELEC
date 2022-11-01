@@ -50,6 +50,7 @@ configure_package() {
                    -DAPP_RENDER_SYSTEM=gl"
   elif [ "${DISPLAYSERVER}" = "wl" ]; then
     PKG_DEPENDS_TARGET+=" wayland waylandpp"
+    PKG_PATCH_DIRS+=" wayland"
     CFLAGS+=" -DEGL_NO_X11"
     CXXFLAGS+=" -DEGL_NO_X11"
     KODI_PLATFORM="-DCORE_PLATFORM_NAME=wayland \
