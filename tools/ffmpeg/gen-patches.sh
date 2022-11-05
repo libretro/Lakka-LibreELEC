@@ -7,7 +7,7 @@ FFMPEG_VERSION="n5.1.2"
 KODI_FFMPEG_REPO="https://github.com/xbmc/FFmpeg"
 KODI_FFMPEG_VERSION="5.1.2-Nexus-Alpha3"
 
-ALL_FEATURE_SETS="v4l2-drmprime v4l2-request libreelec rpi kodi"
+ALL_FEATURE_SETS="v4l2-drmprime v4l2-request libreelec rpi kodi vf-deinterlace-v4l2m2m"
 
 if [ $# -eq 0 ]; then
   echo "usage: $0 all|featureset [githash]"
@@ -28,7 +28,7 @@ create_patch() {
   PATCH_CREATE_DIFF="no"
 
   case "${FEATURE_SET}" in
-    v4l2-drmprime|v4l2-request)
+    v4l2-drmprime|v4l2-request|vf-deinterlace-v4l2m2m)
       REPO="https://github.com/jernejsk/FFmpeg"
       REFSPEC="${FEATURE_SET}-${FFMPEG_VERSION}"
       ;;

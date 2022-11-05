@@ -25,6 +25,10 @@ case "${PROJECT}" in
     ;;
   *)
     PKG_PATCH_DIRS+=" v4l2-request v4l2-drmprime"
+    case "${PROJECT}" in
+      Allwinner|Rockchip)
+        PKG_PATCH_DIRS+=" vf-deinterlace-v4l2m2m"
+    esac
     ;;
 esac
 
