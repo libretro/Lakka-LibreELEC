@@ -51,7 +51,8 @@ class Controller():
 
             for folder in SCANTABLES:
                 shutil.copytree(os.path.join(temp_folder, folder), os.path.join(dest_folder, folder))
-
+            if os.path.exists(temp_folder): shutil.rmtree(temp_folder)
+            os.remove(archive)
             xbmcgui.Dialog().notification(ADDON_NAME, LS(30039), xbmcgui.NOTIFICATION_INFO)
         except URLError as e:
             xbmc.log('Could not download file: %s' % e.reason, xbmc.LOGERROR)
