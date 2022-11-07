@@ -2,8 +2,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="rpi-eeprom"
-PKG_VERSION="1197a4ae319e2ccf69e1b2e4c438f3fd68bd61ea"
-PKG_SHA256="1bd76310f1223bdfbdb999fd419629489f7ed22702b25e3712a0f6ff885e2ded"
+PKG_VERSION="9269d78320c542935a87f07675893537e672908d"
+PKG_SHA256="bd9572e5c716db4fb3f84297de9f9da5e0c871b779dccfedbd7a0dab93069dba"
 PKG_ARCH="arm"
 PKG_LICENSE="BSD-3/custom"
 PKG_SITE="https://github.com/raspberrypi/rpi-eeprom"
