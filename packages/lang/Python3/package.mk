@@ -34,7 +34,7 @@ PKG_CONFIGURE_OPTS_HOST="ac_cv_prog_HAS_HG=/bin/false
                          --disable-curses
                          --disable-pydoc
                          --disable-test-modules
-                         --enable-lib2to3
+                         --disable-lib2to3
                          --disable-idle3
                          --without-cxx-main
                          --with-expat=builtin
@@ -72,7 +72,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_prog_HAS_HG=/bin/false
                            --enable-curses
                            --disable-pydoc
                            --disable-test-modules
-                           --enable-lib2to3
+                           --disable-lib2to3
                            --disable-idle3
                            --without-cxx-main
                            --with-expat=system
