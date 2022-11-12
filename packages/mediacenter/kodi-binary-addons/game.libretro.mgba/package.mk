@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.mgba"
-PKG_VERSION="0.10.0.34-Matrix"
-PKG_SHA256="52c47409497e52d072586efb4725eb27e64a8cd4158e748140a14d81935b6fc1"
+PKG_VERSION="0.10.0.35-Matrix"
+PKG_SHA256="a95a2aa92f6e5f86bc9d764e1409cad4899e6edfa8d1061e0a67033e0cc79883"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
