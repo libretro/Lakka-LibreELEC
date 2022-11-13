@@ -31,7 +31,7 @@ makeinstall_target() {
 
 post_makeinstall_target() {
   if [ "${DISTRO}" = "Lakka" ]; then
-    ln -s libaio.so.1.0.1 ${INSTALL}/usr/lib/libaio.so.1
-    ln -s libaio.so.1.0.1 ${SYSROOT_PREFIX}/usr/lib/libaio.so
+    ln -s libaio.so.1.0.2 ${INSTALL}/usr/lib/libaio.so.1
+    ln -s libaio.so.1.0.2 ${SYSROOT_PREFIX}/usr/lib/libaio.so
   fi
 }
