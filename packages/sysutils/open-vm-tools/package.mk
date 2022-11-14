@@ -10,7 +10,7 @@ PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/vmware/open-vm-tools"
 PKG_URL="https://github.com/vmware/open-vm-tools/archive/stable-${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain fuse glib:host glib libdnet libtirpc"
+PKG_DEPENDS_TARGET="toolchain fuse3 glib:host glib libdnet libtirpc"
 PKG_LONGDESC="open-vm-tools: open source implementation of VMware Tools"
 PKG_TOOLCHAIN="autotools"
 
@@ -26,6 +26,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-docs \
                            --without-xerces \
                            --without-icu \
                            --without-kernel-modules \
+                           --with-fuse=fuse3 \
                            --with-udev-rules-dir=/usr/lib/udev/rules.d/ \
                            --with-sysroot=${SYSROOT_PREFIX}"
 
