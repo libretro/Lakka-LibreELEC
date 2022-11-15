@@ -291,7 +291,7 @@ pre_make_target() {
   if [ "${TARGET_ARCH}" = "x86_64" -o "${TARGET_ARCH}" = "i386" ]; then
     # copy some extra firmware to linux tree
     mkdir -p ${PKG_BUILD}/external-firmware
-      cp -a $(get_build_dir kernel-firmware)/.copied-firmware/{amdgpu,amd-ucode,i915,radeon,e100,rtl_nic} ${PKG_BUILD}/external-firmware
+      cp -a $(get_build_dir kernel-firmware)/.copied-firmware/{amdgpu,amd-ucode,i915,nvidia,radeon,e100,rtl_nic} ${PKG_BUILD}/external-firmware
 
     cp -a $(get_build_dir intel-ucode)/intel-ucode ${PKG_BUILD}/external-firmware
 
