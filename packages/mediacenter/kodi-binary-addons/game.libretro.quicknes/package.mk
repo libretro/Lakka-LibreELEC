@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.quicknes"
-PKG_VERSION="1.0.0.29-Matrix"
-PKG_SHA256="00a16c0e82fdc175e817bda6d74b5c9c4553287883e21258582d9303939a3b90"
+PKG_VERSION="1.0.0.31-Matrix"
+PKG_SHA256="492c08b692f3033ee5f70bee2a65022e7de4ad83c7a94ca8a852b3fff4cf9245"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
