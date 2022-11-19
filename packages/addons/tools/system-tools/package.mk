@@ -3,7 +3,7 @@
 
 PKG_NAME="system-tools"
 PKG_VERSION="1.0"
-PKG_REV="133"
+PKG_REV="134"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://libreelec.tv"
