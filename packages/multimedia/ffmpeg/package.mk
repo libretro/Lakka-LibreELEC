@@ -8,6 +8,11 @@ PKG_SITE="https://ffmpeg.org"
 PKG_DEPENDS_TARGET="toolchain zlib bzip2 openssl speex"
 PKG_LONGDESC="FFmpeg is a complete, cross-platform solution to record, convert and stream audio and video."
 
+PKG_VERSION="4.4.1"
+PKG_SHA256="eadbad9e9ab30b25f5520fbfde99fae4a92a1ae3c0257a8d68569a4651e30e02"
+PKG_URL="http://ffmpeg.org/releases/ffmpeg-${PKG_VERSION}.tar.xz"
+PKG_PATCH_DIRS="kodi libreelec"
+
 case "${PROJECT}" in
   Amlogic)
     PKG_VERSION="f9638b6331277e53ecd9276db5fe6dcd91d44c57"
@@ -17,17 +22,11 @@ case "${PROJECT}" in
     PKG_PATCH_DIRS="libreelec dav1d"
     ;;
   RPi)
-    PKG_VERSION="4.4.1-Nexus-Alpha1"
-    PKG_SHA256="abbce62231baffe237e412689c71ffe01bfc83135afd375f1e538caae87729ed"
-    PKG_URL="https://github.com/xbmc/FFmpeg/archive/${PKG_VERSION}.tar.gz"
     PKG_FFMPEG_RPI="--disable-mmal --disable-rpi --enable-sand"
-    PKG_PATCH_DIRS="libreelec rpi"
+    PKG_PATCH_DIRS+=" rpi"
     ;;
   *)
-    PKG_VERSION="4.4.1-Nexus-Alpha1"
-    PKG_SHA256="abbce62231baffe237e412689c71ffe01bfc83135afd375f1e538caae87729ed"
-    PKG_URL="https://github.com/xbmc/FFmpeg/archive/${PKG_VERSION}.tar.gz"
-    PKG_PATCH_DIRS="libreelec v4l2-request v4l2-drmprime"
+    PKG_PATCH_DIRS+=" v4l2-request v4l2-drmprime"
     ;;
 esac
 
