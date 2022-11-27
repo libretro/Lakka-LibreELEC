@@ -4,7 +4,7 @@
 PKG_NAME="game.libretro.sameboy"
 PKG_VERSION="0.14.7.30-Matrix"
 PKG_SHA256="800b57b77846370ccaf7ad37718412dd2134da6accd863b2823939d108f36145"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.sameboy"

@@ -4,7 +4,7 @@
 PKG_NAME="game.libretro.vice"
 PKG_VERSION="3.5.0.23-Matrix"
 PKG_SHA256="886fee4f27cfb11651a0f76a8731805a882fa2ba8efa87f6cf0259360332ce80"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.vice"
