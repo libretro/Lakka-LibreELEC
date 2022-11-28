@@ -13,7 +13,7 @@ PKG_DEPENDS_TARGET="toolchain at-spi2-atk atk cairo chrome-libXcomposite \
                     chrome-libXdamage chrome-libXfixes chrome-libXi chrome-libXrender \
                     chrome-libXtst chrome-libxcb chrome-libxkbcommon chrome-libxshmfence cups \
                     gdk-pixbuf gtk3 harfbuzz-icu libXcursor libxss nss pango \
-                    scrnsaverproto unclutter"
+                    scrnsaverproto unclutter unix_ar"
 PKG_SECTION="browser"
 PKG_SHORTDESC="Google Chrome Browser"
 PKG_LONGDESC="Google Chrome Browser"
@@ -29,7 +29,7 @@ make_target() {
 }
 
 addon() {
-  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/{bin,config,lib}
+  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/{bin,config,lib,resources}
 
   # config
   cp -P ${PKG_DIR}/config/* ${ADDON_BUILD}/${PKG_ADDON_ID}/config
@@ -59,6 +59,9 @@ addon() {
          $(get_install_dir chrome-libXtst)/usr/lib/libXtst.so.6 \
          $(get_install_dir pango)/usr/lib/{libpangocairo-1.0.so.0,libpango-1.0.so.0,libpangoft2-1.0.so.0} \
          ${ADDON_BUILD}/${PKG_ADDON_ID}/lib
+
+  # unix_ar
+  cp -P $(get_build_dir unix_ar)/unix_ar.py ${ADDON_BUILD}/${PKG_ADDON_ID}/resources
 }
 
 post_install_addon() {
