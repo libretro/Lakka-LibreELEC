@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="systemd"
-PKG_VERSION="252.1"
-PKG_SHA256="efd1c04d14c5e44b55d19aaf9182b309c4253bbd884374f5d840947d598e9d47"
+PKG_VERSION="252.2"
+PKG_SHA256="4682efb2dccdfdc4241d21fe4f6e762d5c43c2b964daae1c9fe9167ffe28c874"
 PKG_LICENSE="LGPL2.1+"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/systemd"
 PKG_URL="https://github.com/systemd/systemd-stable/archive/v${PKG_VERSION}.tar.gz"
@@ -100,7 +100,6 @@ PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
                        -Dmount-path=/usr/bin/mount \
                        -Dumount-path=/usr/bin/umount \
                        -Ddebug-tty=${DEBUG_TTY} \
-                       -Dpkgconfigdatadir=/usr/lib/pkgconfig \
                        -Dversion-tag=${PKG_VERSION}"
 
 pre_configure_target() {
