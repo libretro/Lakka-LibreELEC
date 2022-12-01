@@ -13,6 +13,7 @@ PKG_LONGDESC="A fast real-time compression algorithm."
 # Override toolchain as meson and ninja are not built yet
 # and zstd is a dependency of ccache
 PKG_TOOLCHAIN="cmake-make"
+PKG_BUILD_FLAGS="+local-cc"
 
 configure_package() {
   PKG_CMAKE_SCRIPT="${PKG_BUILD}/build/cmake/CMakeLists.txt"
@@ -20,11 +21,10 @@ configure_package() {
 
 configure_host() {
   # custom cmake build to override the LOCAL_CC/CXX
-  setup_toolchain host:cmake-make
   cp ${CMAKE_CONF} cmake-zstd.conf
 
-  echo "SET(CMAKE_C_COMPILER   $LOCAL_CC)"  >> cmake-zstd.conf
-  echo "SET(CMAKE_CXX_COMPILER $LOCAL_CXX)" >> cmake-zstd.conf
+  echo "SET(CMAKE_C_COMPILER   $CC)"  >> cmake-zstd.conf
+  echo "SET(CMAKE_CXX_COMPILER $CXX)" >> cmake-zstd.conf
 
   cmake -DCMAKE_TOOLCHAIN_FILE=cmake-zstd.conf \
         -DCMAKE_INSTALL_PREFIX=${TOOLCHAIN} \
