@@ -27,10 +27,6 @@ configure_host() {
         ..
 }
 
-make_host() {
-  :
-}
-
 post_makeinstall_host() {
 # setup ccache
   if [ -z "${CCACHE_DISABLE}" ]; then
