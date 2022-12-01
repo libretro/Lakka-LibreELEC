@@ -33,7 +33,3 @@ configure_host() {
         -DZSTD_BUILD_TESTS=OFF \
         ${PKG_CMAKE_SCRIPT%/*}
 }
-
-make_host() {
-  :
-}
