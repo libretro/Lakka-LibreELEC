@@ -10,30 +10,26 @@ PKG_SITE="https://ccache.dev/download.html"
 PKG_URL="https://github.com/ccache/ccache/releases/download/v${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_HOST="make:host"
 PKG_LONGDESC="A compiler cache to speed up re-compilation of C/C++ code by caching."
+PKG_BUILD_FLAGS="+local-cc"
 
 PKG_CONFIGURE_OPTS_HOST="--with-bundled-zlib"
-
-pre_configure_host() {
-  export CC=${LOCAL_CC}
-  export CXX=${LOCAL_CXX}
-}
 
 post_makeinstall_host() {
 # setup ccache
   if [ -z "${CCACHE_DISABLE}" ]; then
-    ${TOOLCHAIN}/bin/ccache --max-size=${CCACHE_CACHE_SIZE}
+    CCACHE_DIR="${BUILD_CCACHE_DIR}" ${TOOLCHAIN}/bin/ccache --max-size=${CCACHE_CACHE_SIZE}
   fi
 
   cat > ${TOOLCHAIN}/bin/host-gcc <<EOF
 #!/bin/sh
-${TOOLCHAIN}/bin/ccache ${CC} "\$@"
+${TOOLCHAIN}/bin/ccache ${LOCAL_CC} "\$@"
 EOF
 
   chmod +x ${TOOLCHAIN}/bin/host-gcc
 
   cat > ${TOOLCHAIN}/bin/host-g++ <<EOF
 #!/bin/sh
-${TOOLCHAIN}/bin/ccache ${CXX} "\$@"
+${TOOLCHAIN}/bin/ccache ${LOCAL_CXX} "\$@"
 EOF
 
   chmod +x ${TOOLCHAIN}/bin/host-g++
