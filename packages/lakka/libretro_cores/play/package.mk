@@ -1,6 +1,6 @@
 PKG_NAME="play"
 PKG_VERSION="dd62973fed9a970af48cc712e3bcc2a7ed8fcb74"
-PKG_ARCH="x86_64"
+PKG_ARCH="x86_64 aarch64"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/jpd002/Play-"
 PKG_URL="${PKG_SITE}.git"
