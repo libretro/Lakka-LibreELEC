@@ -4,7 +4,7 @@
 PKG_NAME="syncthing"
 PKG_VERSION="1.22.0"
 PKG_SHA256="b9644e814b4c7844a59e4e7705c550361cb4ed6c36bf9b46617de386ee2dad45"
-PKG_REV="122"
+PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="MPLv2"
 PKG_SITE="https://syncthing.net/"
