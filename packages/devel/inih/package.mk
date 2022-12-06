@@ -1,0 +1,8 @@
+PKG_NAME="inih"
+PKG_VERSION="54"
+PKG_SHA256="b5566af5203f8a49fda27f1b864c0c157987678ffbd183280e16124012869869"
+PKG_LICENSE="BSD"
+PKG_SITE="https://github.com/benhoyt/inih"
+PKG_URL="https://github.com/benhoyt/inih/archive/refs/tags/r${PKG_VERSION}.tar.gz"
+PKG_DEPENDS_TARGET="toolchain"
+PKG_LONGDESC="Simple .INI file parser in C, good for embedded systems"
