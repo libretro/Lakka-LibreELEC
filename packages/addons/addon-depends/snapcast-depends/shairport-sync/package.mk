@@ -2,8 +2,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="shairport-sync"
-PKG_VERSION="4.1"
-PKG_SHA256="951fc9f33a631736fe49d2ed040b27a417c93ffdf05a2d13116c6dda7628ea86"
+PKG_VERSION="4.1.1"
+PKG_SHA256="e55caad73dcd36341baf8947cf5e0923997370366d6caf3dd917b345089c4a20"
 PKG_LICENSE="OSS"
 PKG_SITE="https://github.com/mikebrady/shairport-sync"
 PKG_URL="https://github.com/mikebrady/shairport-sync/archive/${PKG_VERSION}.tar.gz"
