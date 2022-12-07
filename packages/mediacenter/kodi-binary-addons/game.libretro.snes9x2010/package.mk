@@ -4,7 +4,7 @@
 PKG_NAME="game.libretro.snes9x2010"
 PKG_VERSION="1.52.4.31-Matrix"
 PKG_SHA256="cb9d48d6eed60d68678ae4517325c4d814c480b65b9478b79815aa3f07bb475e"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.snes9x2010"

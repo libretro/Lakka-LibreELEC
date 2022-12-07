@@ -4,7 +4,7 @@
 PKG_NAME="game.libretro.gambatte"
 PKG_VERSION="0.5.0.33-Matrix"
 PKG_SHA256="46927a199ad645d287d721b9b20ce23bae2676733f28bfa68ad1d2972ee07445"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.gambatte"
