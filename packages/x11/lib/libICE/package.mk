@@ -3,8 +3,8 @@
 # Copyright (C) 2020-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libICE"
-PKG_VERSION="1.1.0"
-PKG_SHA256="02d2fc40d81180bd4aae73e8356acfa2a7671e8e8b472e6a7bfa825235ab225b"
+PKG_VERSION="1.1.1"
+PKG_SHA256="03e77afaf72942c7ac02ccebb19034e6e20f456dcf8dddadfeb572aa5ad3e451"
 PKG_LICENSE="OSS"
 PKG_SITE="https://www.X.org"
 PKG_URL="https://xorg.freedesktop.org/archive/individual/lib/${PKG_NAME}-${PKG_VERSION}.tar.xz"
