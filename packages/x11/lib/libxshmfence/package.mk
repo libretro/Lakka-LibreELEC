@@ -12,5 +12,3 @@ PKG_DEPENDS_TARGET="toolchain util-macros xorgproto"
 PKG_LONGDESC="libxshmfence is the Shared memory 'SyncFence' synchronization primitive."
 PKG_TOOLCHAIN="autotools"
 PKG_BUILD_FLAGS="+pic"
-
-PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"
