@@ -2,9 +2,9 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mariadb"
-PKG_VERSION="10.9.4"
-PKG_REV="0"
-PKG_SHA256="1dff08a0f37ea5cf8f00cbd12d40e80759fae7d73184ccf56b5b51acfdcfc054"
+PKG_VERSION="10.10.2"
+PKG_REV="1"
+PKG_SHA256="57cbd0112b22b592f657cd4eb82e2f36ad901351317bf8e17849578e803f3cb2"
 PKG_LICENSE="GPL2"
 PKG_SITE="https://mariadb.org"
 PKG_URL="https://downloads.mariadb.com/MariaDB/${PKG_NAME}-${PKG_VERSION}/source/${PKG_NAME}-${PKG_VERSION}.tar.gz"
@@ -74,7 +74,7 @@ make_host() {
 }
 
 makeinstall_host() {
-  :
+  cp -a strings/uca-dump ${TOOLCHAIN}/bin
 }
 
 post_makeinstall_target() {
