@@ -4,7 +4,7 @@
 PKG_NAME="game.libretro.cap32"
 PKG_VERSION="4.5.3.25-Matrix"
 PKG_SHA256="04b88efd82341cefacf0c4ebeeeb6d98f66b47eb404aed9e5695fe235c21b665"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.cap32"

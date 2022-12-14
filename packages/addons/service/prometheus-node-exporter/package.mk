@@ -4,7 +4,7 @@
 PKG_NAME="prometheus-node-exporter"
 PKG_VERSION="1.4.0"
 PKG_SHA256="96f749928e3d6c952221aaca852d4c38545eaae03adc6bb925745bc3f2f827ca"
-PKG_REV="102"
+PKG_REV="0"
 PKG_LICENSE="Apache License 2.0"
 PKG_SITE="https://github.com/prometheus/node_exporter"
 PKG_URL="https://github.com/prometheus/node_exporter/archive/refs/tags/v${PKG_VERSION}.tar.gz"

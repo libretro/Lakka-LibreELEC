@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libxshmfence"
-PKG_VERSION="1.3.1"
-PKG_SHA256="1129f95147f7bfe6052988a087f1b7cb7122283d2c47a7dbf7135ce0df69b4f8"
+PKG_VERSION="1.3.2"
+PKG_SHA256="870df257bc40b126d91b5a8f1da6ca8a524555268c50b59c0acd1a27f361606f"
 PKG_LICENSE="OSS"
 PKG_SITE="https://www.X.org"
 PKG_URL="https://xorg.freedesktop.org/archive/individual/lib/${PKG_NAME}-${PKG_VERSION}.tar.xz"
@@ -13,8 +13,3 @@ PKG_LONGDESC="libxshmfence is the Shared memory 'SyncFence' synchronization prim
 PKG_TOOLCHAIN="autotools"
 PKG_BUILD_FLAGS="+pic"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"
-
-if [ "${PROJECT}" = "L4T" -o "${DEVICE}" = "Odin" ]; then
-  PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET/--disable-shared/--enable-shared}"
-fi

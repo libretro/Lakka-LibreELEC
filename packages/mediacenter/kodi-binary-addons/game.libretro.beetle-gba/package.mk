@@ -4,7 +4,7 @@
 PKG_NAME="game.libretro.beetle-gba"
 PKG_VERSION="0.9.36.20-Matrix"
 PKG_SHA256="4ed27bf41d696fbd221f8f1fd9d7fcaf6d34858a4dd9443c08313d2b796cf73b"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.beetle-gba"

@@ -238,6 +238,23 @@ if [ -f "${PKG_CONFIGURE_SCRIPT}" -o -f "${PKG_CMAKE_SCRIPT}" -o -f "${PKG_MESON
   MESON_CONF="${PKG_REAL_BUILD}/meson.conf"
 fi
 
+# create wrapper scripts in build dir and use them for CC/CXX when
+# building for host and local-cc build flag is set
+if [ "${TARGET}" = "host" ] && flag_enabled "local-cc" "no"; then
+  cat > libreelec-local-cc << EOF
+#!/bin/sh
+exec ${CC} "\$@"
+EOF
+  chmod +x libreelec-local-cc
+  export CC=$(pwd)/libreelec-local-cc
+  cat > libreelec-local-cxx << EOF
+#!/bin/sh
+exec ${CXX} "\$@"
+EOF
+  chmod +x libreelec-local-cxx
+  export CXX=$(pwd)/libreelec-local-cxx
+fi
+
 # configure
 if [ -n "${PKG_DEPENDS_CONFIG}" -a -n "${PKG_INSTALL}" ]; then
   for pkg in ${PKG_DEPENDS_CONFIG}; do
@@ -541,8 +558,8 @@ record_timestamp BUILD_END
 
 if [ -n "${TRACE_BUILD_TIMING}" ]; then
   (
-    echo "build timing details:"
-    show_timestamp_diff "total" BUILD_BEGIN BUILD_END
+    print_color "CLR_AUTOREMOVE" "\nBuild timing details:"
+    print_color "CLR_TARGET" "\n================================\n"  
     show_timestamp_diff "unpack" BUILD_BEGIN BUILD_START
     show_timestamp_diff "pre-build setup" BUILD_START BUILD_CONFIGURE
     show_timestamp_diff "configure" BUILD_CONFIGURE BUILD_MAKE
@@ -550,5 +567,8 @@ if [ -n "${TRACE_BUILD_TIMING}" ]; then
     show_timestamp_diff "make install" BUILD_MAKEINSTALL BUILD_COPY_SYSROOT
     show_timestamp_diff "copy sysroot" BUILD_COPY_SYSROOT BUILD_CLEANUP_INSTALL
     show_timestamp_diff "cleanup install" BUILD_CLEANUP_INSTALL BUILD_END
+    print_color "CLR_TARGET" "--------------------------------\n"  
+    show_timestamp_diff "total time" BUILD_BEGIN BUILD_END
+    echo -e
   ) >&${VERBOSE_OUT}
 fi

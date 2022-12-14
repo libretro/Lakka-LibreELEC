@@ -4,7 +4,7 @@
 PKG_NAME="inadyn"
 PKG_VERSION="2.9.1"
 PKG_SHA256="a5e5039a2eb5cd15799490e3ae54127c381a8a0ed05e1a78e798627895d8ab99"
-PKG_REV="108"
+PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="http://troglobit.com/inadyn.html"

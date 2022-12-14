@@ -4,7 +4,7 @@
 PKG_NAME="game.libretro.mame2000"
 PKG_VERSION="0.37.0.25-Matrix"
 PKG_SHA256="9c32c50504b23f5445c215cac67515cf10876712b94ba4bd9f41de028bf9e1ad"
-PKG_REV="1"
+PKG_REV="2"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.mame2000"
 PKG_URL="https://github.com/kodi-game/game.libretro.mame2000/archive/${PKG_VERSION}.tar.gz"
