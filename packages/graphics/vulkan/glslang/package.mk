@@ -11,12 +11,12 @@ PKG_SHA256="592c98aeb03b3e81597ddaf83633c4e63068d14b18a766fd11033bad73127162"
 PKG_LICENSE="Apache-2.0"
 PKG_SITE="https://github.com/KhronosGroup/glslang"
 PKG_URL="https://github.com/KhronosGroup/glslang/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_HOST="toolchain:host Python3:host spirv-tools:host spirv-headers:host"
+PKG_DEPENDS_HOST="toolchain:host Python3:host"
+PKG_DEPENDS_TARGET="toolchain Python3"
 PKG_LONGDESC="Khronos-reference front end for GLSL/ESSL, partial front end for HLSL, and a SPIR-V generator."
+PKG_DEPENDS_UNPACK="spirv-headers spirv-tools"
 
-pre_configure_host() {
-  PKG_CMAKE_OPTS_HOST="-DBUILD_SHARED_LIBS=OFF \
-                       -DBUILD_EXTERNAL=ON \
+PKG_CMAKE_OPTS_COMMON="-DBUILD_EXTERNAL=ON \
                        -DENABLE_SPVREMAPPER=OFF \
                        -DENABLE_GLSLANG_JS=OFF \
                        -DENABLE_RTTI=OFF \
@@ -24,10 +24,24 @@ pre_configure_host() {
                        -DENABLE_OPT=ON \
                        -DENABLE_PCH=ON \
                        -DENABLE_CTEST=OFF \
-                       -DENABLE_RTTI=OFF \
+                       -DUSE_CCACHE=ON \
                        -Wno-dev"
 
+post_unpack() {
+  # Enables SPIR-V optimzer capability needed for ENABLE_OPT CMake build option
   mkdir -p ${PKG_BUILD}/External/spirv-tools/external/spirv-headers
     cp -R $(get_build_dir spirv-tools)/* ${PKG_BUILD}/External/spirv-tools
     cp -R $(get_build_dir spirv-headers)/* ${PKG_BUILD}/External/spirv-tools/external/spirv-headers
+}
+
+pre_configure_host() {
+  PKG_CMAKE_OPTS_HOST+="${PKG_CMAKE_OPTS_COMMON} \
+                        -DBUILD_SHARED_LIBS=OFF"
+
+}
+
+pre_configure_target() {
+  PKG_CMAKE_OPTS_TARGET+="${PKG_CMAKE_OPTS_COMMON} \
+                          -DBUILD_SHARED_LIBS=ON \
+                          -DENABLE_GLSLANG_BINARIES=OFF"
 }
