@@ -1,5 +1,6 @@
 PKG_NAME="play"
-PKG_VERSION="fd530d0d53c13e73601dea23637b86bff0d950ce"
+PKG_VERSION="38d3775a07d3b1041d3732e0bb05627fcb4fe492"
+PKG_ARCH="x86_64 aarch64"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/jpd002/Play-"
 PKG_URL="${PKG_SITE}.git"
@@ -12,8 +13,7 @@ PKG_CMAKE_OPTS_TARGET="-DBUILD_LIBRETRO_CORE=yes \
                        -DBUILD_TESTS=no \
                        -DENABLE_AMAZON_S3=no \
                        -DUSE_GLEW=no \
-                       -DCMAKE_BUILD_TYPE=Release \
-                       --target play_libretro"
+                       -DCMAKE_BUILD_TYPE=Release"
 
 if [ "${OPENGL_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL} glu"

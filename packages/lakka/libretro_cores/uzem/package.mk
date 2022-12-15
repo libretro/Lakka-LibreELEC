@@ -1,5 +1,5 @@
 PKG_NAME="uzem"
-PKG_VERSION="4c70043e4ad6a8a3aa6326834fba53f2b1c68699"
+PKG_VERSION="08e39e19167727c89fb995e3fa70dde252e6aab0"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/libretro/libretro-uzem"
 PKG_URL="${PKG_SITE}.git"

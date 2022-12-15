@@ -1,11 +1,12 @@
 PKG_NAME="dosbox_pure"
-PKG_VERSION="d22a43d80a4dd17d64bcbd3977c85d06ac2c0dfe"
+PKG_VERSION="4fdb557e415698aae5bd90b076f76437f5e9b0b4"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/dosbox-pure"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="DOSBox Pure is a fork of DOSBox, an emulator for DOS games, built for RetroArch/Libretro aiming for simplicity and ease of use."
 PKG_TOOLCHAIN="make"
+BUILD_FLAGS="-strip"
 
 make_target() {
   # remove optimization from CFLAGS, set via Makefile

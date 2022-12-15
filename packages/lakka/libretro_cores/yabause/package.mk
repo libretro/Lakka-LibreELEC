@@ -1,5 +1,5 @@
 PKG_NAME="yabause"
-PKG_VERSION="17dfcd8de4700341d972993501d3a043925675ce"
+PKG_VERSION="c7e02721eddb3de0ec7ae0d61e9e3afa5f586a62"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/yabause"
 PKG_URL="${PKG_SITE}.git"

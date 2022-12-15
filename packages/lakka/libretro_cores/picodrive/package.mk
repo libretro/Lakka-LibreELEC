@@ -1,30 +1,35 @@
 PKG_NAME="picodrive"
-PKG_VERSION="bb6a52fe60e6f3bdcd17effe75e68fd0f8c44ba7"
+PKG_VERSION="0a4ec83cbfaebb65fb1c40f26ffaf28131f9003b"
 PKG_LICENSE="MAME"
 PKG_SITE="https://github.com/libretro/picodrive"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain ${PKG_NAME}:host"
-PKG_DEPENDS_HOST="toolchain:host"
 PKG_LONGDESC="Libretro implementation of PicoDrive. (Sega Megadrive/Genesis/Sega Master System/Sega GameGear/Sega CD/32X)"
-PKG_TOOLCHAIN="make"
+PKG_TOOLCHAIN="manual"
 
-PKG_MAKE_OPTS_TARGET="-f Makefile.libretro -C ../"
-
-make_host() {
-  if [ "${ARCH}" != "x86_64" ]; then
-    make -C ../cpu/cyclone CONFIG_FILE=../cyclone_config.h
+make_target() {
+  cd ${PKG_BUILD}
+  if target_has_feature neon; then
+    export HAVE_NEON=1
+    export BUILTIN_GPU=neon
+   else
+    export HAVE_NEON=0
   fi
-}
 
-makeinstall_host() {
-  : # nothing to do
-}
-
-pre_make_target() {
-  CFLAGS+=" -I./"
+  case ${TARGET_ARCH} in
+    aarch64)
+      R= make -f Makefile.libretro platform=aarch64
+      ;;
+    arm)
+      R= make -f Makefile.libretro platform=armv
+      ;;
+    x86_64)
+      R= make -f Makefile.libretro
+      ;;
+  esac
 }
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
-    cp -v ../picodrive_libretro.so ${INSTALL}/usr/lib/libretro/
+    cp -v picodrive_libretro.so ${INSTALL}/usr/lib/libretro/
 }

@@ -1,5 +1,5 @@
 PKG_NAME="ecwolf"
-PKG_VERSION="e86cd4c4bed96a160e1a6416d387a9aae0b38402"
+PKG_VERSION="f098da0d003c4780adf6a9503801081f1f25cc27"
 PKG_LICENSE="Unknown"
 PKG_SITE="https://github.com/libretro/ecwolf"
 PKG_URL="${PKG_SITE}.git"
@@ -24,7 +24,7 @@ makeinstall_target() {
     echo "************************************************************"
   else
     echo "Packaging ecwolf.pk3..."
-    mkdir -p ${INSTALL}/usr/share/retroarch-system
-      7z a -mx9 -tzip ${INSTALL}/usr/share/retroarch-system/ecwolf.pk3 "${PKG_BUILD}/wadsrc/static/"* >/dev/null
+    mkdir -p ${INSTALL}/usr/share/retroarch/system
+      7z a -mx9 -tzip ${INSTALL}/usr/share/retroarch/system/ecwolf.pk3 "${PKG_BUILD}/wadsrc/static/"* >/dev/null
   fi
 }

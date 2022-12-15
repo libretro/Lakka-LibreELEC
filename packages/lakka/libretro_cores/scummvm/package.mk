@@ -20,13 +20,13 @@ makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
     cp -v ../backends/platform/libretro/build/scummvm_libretro.so ${INSTALL}/usr/lib/libretro/
 
-  # unpack files to retroarch-system folder and create basic ini file
+  # unpack files to retroarch/system folder and create basic ini file
   if [ -f ${PKG_BUILD}/backends/platform/libretro/aux-data/scummvm.zip ]; then
-    mkdir -p ${INSTALL}/usr/share/retroarch-system
+    mkdir -p ${INSTALL}/usr/share/retroarch/system
       unzip ${PKG_BUILD}/backends/platform/libretro/aux-data/scummvm.zip \
-            -d ${INSTALL}/usr/share/retroarch-system
+            -d ${INSTALL}/usr/share/retroarch/system
 
-      cat << EOF > ${INSTALL}/usr/share/retroarch-system/scummvm.ini
+      cat << EOF > ${INSTALL}/usr/share/retroarch/system/scummvm.ini
 [scummvm]
 extrapath=/tmp/system/scummvm/extra
 browser_lastpath=/tmp/system/scummvm/extra
