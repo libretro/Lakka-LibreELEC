@@ -1,20 +1,24 @@
 PKG_NAME="ppsspp"
-PKG_VERSION="ce0a45cf0fcdd5bebf32208b9998f68dfc1107b7"
-PKG_LICENSE="GPLv2"
+PKG_VERSION="9fe6338e3bf397f8a009a51a282c139dfa180eb6" #v1.13.2
+PKG_LICENSE="GPL-2.0-or-later"
 PKG_SITE="https://github.com/hrydgard/ppsspp"
-PKG_URL="${PKG_SITE}.git"
-PKG_DEPENDS_TARGET="toolchain libzip libpng"
-PKG_LONGDESC="Libretro port of PPSSPP"
-PKG_TOOLCHAIN="cmake"
-PKG_LR_UPDATE_TAG="yes"
+PKG_URL="https://github.com/hrydgard/ppsspp.git"
+PKG_DEPENDS_TARGET="toolchain linux glibc libzip libpng zstd zlib ffmpeg bzip2 openssl speex"
+PKG_LONGDESC="A PSP emulator for Android, Windows, Mac, Linux and Blackberry 10, written in C++."
+GET_HANDLER_SUPPORT="git"
+PKG_GIT_CLONE_BRANCH="master"
+PKG_GIT_CLONE_SINGLE="yes"
+PKG_BUILD_FLAGS="-sysroot"
 
 PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON \
                        -DCMAKE_BUILD_TYPE=Release \
                        -DUSE_FFMPEG=ON \
-                       -DUSE_SYSTEM_FFMPEG=OFF \
+                       -DUSE_SYSTEM_FFMPEG=ON \
+                       -DUSE_SYSTEM_LIBZIP=ON \
+                       -DUSE_SYSTEM_LIBPNG=ON \
+                       -DUSE_SYSTEM_ZSTD=ON \
                        -DUSE_DISCORD=OFF \
-                       -DUSE_MINIUPNPC=OFF \
-                       --target ppsspp_libretro"
+                       -DUSE_MINIUPNPC=OFF"
 
 if [ "${OPENGL_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL}"
@@ -52,6 +56,6 @@ pre_make_target() {
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
     cp -v lib/ppsspp_libretro.so ${INSTALL}/usr/lib/libretro/
-  mkdir -p ${INSTALL}/usr/share/retroarch-system/PPSSPP
-    cp -rv assets/* ${INSTALL}/usr/share/retroarch-system/PPSSPP/
+  mkdir -p ${INSTALL}/usr/share/retroarch/system/PPSSPP
+    cp -rv assets/* ${INSTALL}/usr/share/retroarch/system/PPSSPP/
 }

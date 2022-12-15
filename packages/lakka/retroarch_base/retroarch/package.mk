@@ -1,5 +1,5 @@
 PKG_NAME="retroarch"
-PKG_VERSION="9b282aa742b6c3d2f2925ae5a12e2cd7c6b6ad38"
+PKG_VERSION="ad89b0c655fc1d25adfcdf40268e95c5d0391111"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
 PKG_URL="${PKG_SITE}.git"
@@ -164,8 +164,8 @@ makeinstall_target() {
     cp -v ${PKG_DIR}/scripts/retroarch-config ${INSTALL}/usr/lib/retroarch
 
   # System overlay
-  mkdir -p ${INSTALL}/usr/share/retroarch-system
-    touch ${INSTALL}/usr/share/retroarch-system/.placeholder
+  mkdir -p ${INSTALL}/usr/share/retroarch/system
+    touch ${INSTALL}/usr/share/retroarch/system/.placeholder
 
   # General configuration
   mkdir -p ${INSTALL}/etc
@@ -212,7 +212,7 @@ makeinstall_target() {
   echo 'video_smooth = "false"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'video_aspect_ratio_auto = "true"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'video_threaded = "true"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'video_font_path = "/usr/share/retroarch-assets/xmb/monochrome/font.ttf"' >> ${INSTALL}/etc/retroarch.cfg
+  echo 'video_font_path = "/usr/share/retroarch/assets/xmb/monochrome/font.ttf"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'video_font_size = "32"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'video_filter_dir = "/usr/share/video_filters"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'video_gpu_screenshot = "false"' >> ${INSTALL}/etc/retroarch.cfg
@@ -231,7 +231,7 @@ makeinstall_target() {
 
   # Input
   echo 'input_driver = "udev"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'input_max_users = "5"' >> ${INSTALL}/etc/retroarch.cfg
+  echo 'input_max_users = "8"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'input_autodetect_enable = "true"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'joypad_autoconfig_dir = "/tmp/joypads"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'input_remapping_directory = "/storage/remappings"' >> ${INSTALL}/etc/retroarch.cfg

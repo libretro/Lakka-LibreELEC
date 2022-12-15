@@ -1,5 +1,5 @@
 PKG_NAME="gw_libretro"
-PKG_VERSION="d08a08154ce8ed8e9de80582c108f157e4c6b226"
+PKG_VERSION="19a1cb3105ca4a82139fb4994e7995fd956f6f8d"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/gw-libretro"
 PKG_URL="${PKG_SITE}.git"
