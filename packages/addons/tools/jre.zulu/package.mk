@@ -3,7 +3,7 @@
 
 PKG_NAME="jre.zulu"
 PKG_VERSION="1.0"
-PKG_REV="1"
+PKG_REV="2"
 PKG_LICENSE="GPL2"
 PKG_DEPENDS_TARGET="jre-libbluray libXext libXi libXrender chrome-libXtst jre-libXinerama"
 PKG_DEPENDS_UNPACK="jdk-${TARGET_ARCH}-zulu"
@@ -39,9 +39,6 @@ addon() {
     _pkg_copy_lib libXrender $(get_install_dir libXrender)
     _pkg_copy_lib libX11 $(get_install_dir libX11)
     _pkg_copy_lib libXext $(get_install_dir libXext)
-
-    if [ "${DEVICE}" = "Generic" ]; then
-      _pkg_copy_lib libxcb $(get_install_dir libxcb)
-    fi
+    _pkg_copy_lib libxcb $(get_install_dir libxcb)
   fi
 }
