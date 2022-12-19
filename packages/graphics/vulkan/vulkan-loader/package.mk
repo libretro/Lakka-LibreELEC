@@ -14,7 +14,7 @@ PKG_LONGDESC="Vulkan Installable Client Driver (ICD) Loader."
 configure_package() {
   # Displayserver Support
   if [ "${DISPLAYSERVER}" = "x11" ]; then
-    PKG_DEPENDS_TARGET+=" libxcb libX11"
+    PKG_DEPENDS_TARGET+=" libxcb libX11 libXrandr"
   elif [ "${DISPLAYSERVER}" = "wl" ]; then
     PKG_DEPENDS_TARGET+=" wayland"
   fi
