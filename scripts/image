@@ -238,6 +238,15 @@ if [ "${BOOTLOADER}" = "switch-bootloader" -o "${BOOTLOADER}" = "odin-bootloader
   if [ -d ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/firmwares/files ]; then
     cp -PR ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/firmwares/files/* ${INSTALL}/usr/lib/firmware/
   fi
+
+  BOOTLOADER_DIR="$(get_pkg_directory "${BOOTLOADER}")"
+  if find_file_path bootloader/tools/mkdtboimg.py ${BOOTLOADER_DIR}/tools/mkdtboimg.py; then
+    echo Creating DTimg....
+    ${FOUND_PATH} create "${INSTALL}"/usr/share/bootloader/boot/nx-plat.dtimg --page_size=1000 \
+      --id=0x4F44494E "${INSTALL}"/usr/share/bootloader/boot/tegra210-odin.dtb
+    rm "${INSTALL}"/usr/share/bootloader/boot/*.dtb
+    echo Done!
+  fi
 else
   # Symlink overlayed modules to /usr/lib/modules
   ln -sT /run/kernel-overlays/modules ${INSTALL}/usr/lib/modules
@@ -252,6 +261,15 @@ rm -rf ${TARGET_IMG}/${IMAGE_NAME}.kernel
 
 # Copy kernel to target dir
 cp -PR $(get_install_dir linux)/.image/${KERNEL_TARGET} ${TARGET_IMG}/${IMAGE_NAME}.kernel
+
+if [ "${BOOTLOADER}" = "switch-bootloader" ]; then
+  echo Compress Kernel and create uimage....
+  gzip ${TARGET_IMG}/${IMAGE_NAME}.kernel
+  ${TOOLCHAIN}/bin/mkimage -A arm64 -O linux -T kernel -C gzip -a 0x80200000 -e 0x80200000 -n CTCKRN-5.0.0 -d ${TARGET_IMG}/${IMAGE_NAME}.kernel.gz \
+    ${TARGET_IMG}/${IMAGE_NAME}.kernel
+  rm ${TARGET_IMG}/${IMAGE_NAME}.kernel.gz
+  echo Done!
+fi
 chmod 0644 ${TARGET_IMG}/${IMAGE_NAME}.kernel
 
 # Set mksquashfs options for each compression method
@@ -340,7 +358,7 @@ if [ "${1}" = "release" -o "${1}" = "mkimage" -o "${1}" = "noobs" ]; then
     if [ "${BOOTLOADER}" = "odin-bootloader" ]; then
       cp -r ${RELEASE_DIR}/${DISTRO_PATH}/boot2/* ${RELEASE_DIR}/${DISTRO_PATH}/
     else
-      cp -r ${RELEASE_DIR}/${DISTRO_PATH}/boot/* ${RELEASE_DIR}/${DISTRO_PATH}/
+      mv ${RELEASE_DIR}/${DISTRO_PATH}/boot/nx-plat.dtimg ${RELEASE_DIR}/${DISTRO_PATH}/
     fi
     mkdir -p ${RELEASE_DIR}/${DISTRO_PATH}/storage
     cp ${TARGET_IMG}/${IMAGE_NAME}.system ${RELEASE_DIR}/${DISTRO_PATH}/SYSTEM
@@ -355,9 +373,7 @@ if [ "${1}" = "release" -o "${1}" = "mkimage" -o "${1}" = "noobs" ]; then
     rm -rf ${RELEASE_DIR}/RELEASE
     rm -rf ${RELEASE_DIR}/CHANGELOG
     rm -rf ${RELEASE_DIR}/README.md
-    if [ "${BOOTLOADER}" = "switch-bootloader" ]; then
-      rm -rf ${RELEASE_DIR}/${DISTRO_PATH}/boot
-    elif [ "${BOOTLOADER}" = "odin-bootloader" ]; then
+    if [ "${BOOTLOADER}" = "odin-bootloader" ]; then
       if [ -d ${RELEASE_DIR}/${DISTRO_PATH}/boot ]; then
         rm -rf ${RELEASE_DIR}/${DISTRO_PATH}/boot
       fi
