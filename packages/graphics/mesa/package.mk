@@ -32,14 +32,27 @@ PKG_MESON_OPTS_TARGET="-Ddri-drivers= \
                        -Dosmesa=false"
 
 if [ "${DISPLAYSERVER}" = "x11" ]; then
-  PKG_DEPENDS_TARGET+=" xorgproto libXext libXdamage libXfixes libXxf86vm libxcb libX11 libxshmfence libXrandr libglvnd"
+  PKG_DEPENDS_TARGET+=" xorgproto libXext libXdamage libXfixes libXxf86vm libxcb libX11 libxshmfence libXrandr"
   export X11_INCLUDES=
-  PKG_MESON_OPTS_TARGET+=" -Dplatforms=x11 -Ddri3=enabled -Dglx=dri -Dglvnd=true"
+  PKG_MESON_OPTS_TARGET+=" -Dplatforms=x11 \
+                           -Ddri3=enabled \
+                           -Dglx=dri"
 elif [ "${DISPLAYSERVER}" = "wl" ]; then
-  PKG_DEPENDS_TARGET+=" wayland wayland-protocols libglvnd"
-  PKG_MESON_OPTS_TARGET+=" -Dplatforms=wayland -Ddri3=disabled -Dglx=disabled -Dglvnd=true"
+  PKG_DEPENDS_TARGET+=" wayland wayland-protocols"
+  PKG_MESON_OPTS_TARGET+=" -Dplatforms=wayland \
+                           -Ddri3=disabled \
+                           -Dglx=disabled"
 else
-  PKG_MESON_OPTS_TARGET+=" -Dplatforms="" -Ddri3=disabled -Dglx=disabled -Dglvnd=false"
+  PKG_MESON_OPTS_TARGET+=" -Dplatforms="" \
+                           -Ddri3=disabled \
+                           -Dglx=disabled"
+fi
+
+if listcontains "${GRAPHIC_DRIVERS}" "(nvidia|nvidia-ng)"; then
+  PKG_DEPENDS_TARGET+=" libglvnd"
+  PKG_MESON_OPTS_TARGET+=" -Dglvnd=true"
+else
+  PKG_MESON_OPTS_TARGET+=" -Dglvnd=false"
 fi
 
 if [ "${LLVM_SUPPORT}" = "yes" ]; then
