@@ -25,11 +25,8 @@ case "${PROJECT}" in
     PKG_PATCH_DIRS+=" rpi"
     ;;
   L4T)
-    PKG_VERSION="4.4.1-Nexus-Alpha1"
-    PKG_SHA256="abbce62231baffe237e412689c71ffe01bfc83135afd375f1e538caae87729ed"
-    PKG_URL="https://github.com/xbmc/FFmpeg/archive/${PKG_VERSION}.tar.gz"
     PKG_DEPENDS_TARGET+=" tegra-bsp:host"
-    PKG_PATCH_DIRS+="libreelec v4l2-request v4l2-drmprime L4T"
+    PKG_PATCH_DIRS+=" v4l2-request v4l2-drmprime L4T"
     PKG_FFMPEG_NVV4L2="--enable-nvv4l2"
     EXTRA_CFLAGS="-I${SYSROOT_PREFIX}/usr/src/jetson_multimedia_api/include"
     ;;
@@ -37,6 +34,10 @@ case "${PROJECT}" in
     PKG_PATCH_DIRS+=" v4l2-request v4l2-drmprime"
     ;;
 esac
+
+if [ "${DISTRO}" = "Lakka" ]; then
+  PKG_DEPENDS_TARGET+=" libx264 lame rtmpdump"
+fi
 
 post_unpack() {
   # Fix FFmpeg version
