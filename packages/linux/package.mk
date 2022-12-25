@@ -475,7 +475,7 @@ makeinstall_target() {
   if [ "${BOOTLOADER}" = "switch-bootloader" -o "${BOOTLOADER}" = "odin-bootloader" ]; then
     mkdir -p $INSTALL/usr/share/bootloader/boot/
     if [ "${BOOTLOADER}" = "switch-bootloader" ]; then
-      cp arch/arm64/boot/dts/tegra210-icosa.dtb ${INSTALL}/usr/share/bootloader/boot/
+      cp arch/arm64/boot/dts/*.dtb ${INSTALL}/usr/share/bootloader/boot/
     else
       cp arch/arm64/boot/dts/qcom/sdm845-ayn-odin.dtb ${INSTALL}/usr/share/bootloader/boot/
     fi
