@@ -1,7 +1,7 @@
 PKG_NAME="switch-bootloader"
 PKG_VERSION="1.0"
 PKG_ARCH="any"
-PKG_DEPENDS_TARGET="switch-u-boot:host linux cbfstool:host switch-u-boot:host"
+PKG_DEPENDS_TARGET="switch-u-boot:host switch-u-boot:target switch-atf:target"
 PKG_TOOLCHAIN="manual"
 
 
@@ -10,13 +10,11 @@ if [ "${DISTRO}" = "Lakka" ]; then
   DISTRO_ICON="icon_lakka_hue.bmp"
   HEKATE_SPLASH="splash_lakka.bmp"
   ID="SWR-LAK"
-  UBOOT_FILE="u-boot-lakka.elf"
 elif [ "${DISTRO}" = "LibreELEC" ]; then
   DISTRO_PATH="libreelec"
   DISTRO_ICON="icon_libreelec_hue.bmp"
   HEKATE_SPLASH="splash_libreelec.bmp"
   ID="SWR-LIB"
-  UBOOT_FILE="u-boot-libreelec.elf"
 else
   echo "Unknown distro, expect issues"
 fi
@@ -25,27 +23,22 @@ fi
 make_target() {
   cat << EOF > ${PKG_BUILD}/${DISTRO}.ini
 [${DISTRO}]
-payload=${DISTRO_PATH}/coreboot.rom
-logopath=${DISTRO_PATH}/splash.bmp
+l4t=1
+boot_prefixes=${DISTRO_PATH}/boot/
+logopath=${DISTRO_PATH}/boot/splash.bmp
 id=${ID}
-icon=${DISTRO_PATH}/${DISTRO_ICON}
+icon=${DISTRO_PATH}/boot/${DISTRO_ICON}
 EOF
 
-
+  cp ${PKG_DIR}/assets/README_CONFIG.txt ${PKG_BUILD}/
+     sed -i "s/@DISTRO_PATH@/${DISTRO_PATH}/g" ${PKG_BUILD}/README_CONFIG.txt
+     sed -i "s/@DISTRO_ID@/${ID}/g" ${PKG_BUILD}/README_CONFIG.txt
+     sed -i "s/@DISTRO@/${DISTRO}/g" ${PKG_BUILD}/README_CONFIG.txt
   cp ${PKG_DIR}/assets/boot.txt ${PKG_BUILD}/
-  sed -i "s/@DISTRO_PATH@/${DISTRO_PATH}/g" ${PKG_BUILD}/boot.txt
-  sed -i "s/@DISTRO_ID@/${ID}/g" ${PKG_BUILD}/boot.txt
+    sed -i "s/@DISTRO_PATH@/${DISTRO_PATH}/g" ${PKG_BUILD}/boot.txt
+    sed -i "s/@DISTRO_ID@/${ID}/g" ${PKG_BUILD}/boot.txt
 
   mkimage -A arm -T script -O linux -d ${PKG_BUILD}/boot.txt ${PKG_BUILD}/boot.scr
-
-  cp ${PKG_DIR}/assets/uenv.txt ${PKG_BUILD}/
-  sed -i "s/@DISTRO_PATH@/${DISTRO_PATH}/g" ${PKG_BUILD}/uenv.txt
-
-  cp ${PKG_DIR}/assets/coreboot.rom ${PKG_BUILD}/
-  cbfstool "${PKG_BUILD}/coreboot.rom" remove -v -n fallback/payload
-  cbfstool "${PKG_BUILD}/coreboot.rom" add-payload -v -n fallback/payload  -f "${PKG_DIR}/assets/${UBOOT_FILE}" -c lzma
-
-
 }
 
 makeinstall_target() {
@@ -53,9 +46,7 @@ makeinstall_target() {
 
   cp -Prv ${PKG_BUILD}/boot.scr ${INSTALL}/usr/share/bootloader/boot/boot.scr
   cp -PRv ${PKG_BUILD}/${DISTRO}.ini ${INSTALL}/usr/share/bootloader/boot/${DISTRO}.ini
-  cp -PRv ${PKG_BUILD}/coreboot.rom ${INSTALL}/usr/share/bootloader/boot/coreboot.rom
-  cp -PRv ${PKG_BUILD}/uenv.txt ${INSTALL}/usr/share/bootloader/boot/uenv.txt
-  cp -PRv ${PKG_DIR}/assets/uartb_logging.dtbo ${INSTALL}/usr/share/bootloader/boot/uartb_logging.dtbo
+   cp -PRv ${PKG_BUILD}/README_CONFIG.txt ${INSTALL}/usr/share/bootloader/boot/README_CONFIG.txt
   cp -PRv ${PKG_DIR}/assets/${HEKATE_SPLASH} ${INSTALL}/usr/share/bootloader/boot/splash.bmp
   if [ "${DISTRO}" = "Lakka" ]; then
     cp -PRv ${PKG_DIR}/assets/${DISTRO_ICON}  ${INSTALL}/usr/share/bootloader/boot/
@@ -65,15 +56,32 @@ makeinstall_target() {
   fi
 cat << EOF >> ${INSTALL}/usr/share/bootloader/update.sh
 #/bin/sh
-[ -z "\$BOOT_ROOT" ] && BOOT_ROOT="/flash"
-[ -z "\$SYSTEM_ROOT" ] && SYSTEM_ROOT=""
-cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/tegra210-icosa.dtb \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/
-cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/boot.scr \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/
-cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/coreboot.rom \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/
-if [ -f \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/uenv.txt ]; then
-  cp \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/uenv.txt \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/uenv.txt.old
-fi
-cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/uenv.txt \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/
+[ -z "\${BOOT_ROOT}" ] && BOOT_ROOT="/flash"
+[ -z "\${SYSTEM_ROOT}" ] && SYSTEM_ROOT=""
+[ -f "\${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/boot.scr" ] && rm \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/boot.scr
+[ -f "\${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/coreboot.rom" ] && rm \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/coreboot.rom
+[ -f "\${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/uenv.txt" ] && rm \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/uenv.txt
+[ -f "\${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/tegra210-icosa.dtb" ] && rm \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/tegra210-icosa.dtb
+[ -f "\${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/uartb_logging.dtbo" ] && rm \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/uartb_logging.dtbo
+[ -f "\${BOOT_ROOT}/bootloader/ini/${DISTRO}.ini" ] && rm \${BOOT_ROOT}/bootloader/ini/${DISTRO}.ini
+[ -f "\${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/nx-plat.dtimg" ] && rm \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/nx-plat.dtimg
+[ -f "\${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/boot/boot.scr" ] && rm \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/boot/boot.scr
+[ -f "\${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/boot/bl31.bin" ] && rm \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/boot/bl31.bin
+[ -f "\${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/boot/bl33.bin" ] && rm \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/boot/bl33.bin
+[ -f "\${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/nx-plat.dtimg" ] && rm \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/nx-plat.dtimg
+[ -f "\${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/${DISTRO_ICON}" ] && rm \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/${DISTRO_ICON}
+[ -f "\${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/splash.bmp" ] && rm \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/splash.bmp
+[ -f "\${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/README_CONFIG.txt" ] && rm \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/README_CONFIG.txt
+mkdir -p \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/boot
+cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/nx-plat.dtimg \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/
+cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/README_CONFIG.txt \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/
+cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/boot.scr \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/boot/
+cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/bl31.bin \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/boot/
+cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/bl33.bin \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/boot/
+cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/${DISTRO}.ini \${BOOT_ROOT}/bootloader/ini/${DISTRO}.ini
+cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/splash.bmp \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/boot/
+cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/${DISTRO_ICON} \${BOOT_ROOT}/${DISTRO_FOLDER_NAME}/boot/
+
 EOF
 
 chmod +x ${INSTALL}/usr/share/bootloader/update.sh
