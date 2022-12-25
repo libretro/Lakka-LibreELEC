@@ -5,7 +5,9 @@ PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin
-    cp -v ${PKG_DIR}/scripts/cpu-profile ${INSTALL}/usr/bin
+    #cp -v ${PKG_DIR}/scripts/cpu-profile ${INSTALL}/usr/bin
+    touch ${INSTALL}/usr/bin/cpu-profile
+    chmod +x ${INSTALL}/usr/bin/cpu-profile
 }
 
 post_install() {
