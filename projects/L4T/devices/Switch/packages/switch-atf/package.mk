@@ -1,6 +1,6 @@
 PKG_NAME="switch-atf"
-PKG_VERSION="45110f9628ea9a178d5adbec15f9a7eb2f9bc26c"
-PKG_GIT_CLONE_BRANCH="switch-v3-atf2.6"
+PKG_VERSION="8902c539ce83b15637c5f47fc8aff5d14d95b992"
+PKG_GIT_CLONE_BRANCH="switch-v4-atf2.6"
 PKG_DEPENDS_TARGET="toolchain gcc:host dtc:host"
 PKG_SITE="https://gitlab.com/switchroot/bootstack/switch-atf"
 PKG_URL="${PKG_SITE}.git"
