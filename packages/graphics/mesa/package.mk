@@ -71,7 +71,8 @@ fi
 
 if [ "${VAAPI_SUPPORT}" = "yes" ] && listcontains "${GRAPHIC_DRIVERS}" "(r600|radeonsi)"; then
   PKG_DEPENDS_TARGET+=" libva"
-  PKG_MESON_OPTS_TARGET+=" -Dgallium-va=enabled"
+  PKG_MESON_OPTS_TARGET+=" -Dgallium-va=enabled \
+                           -Dvideo-codecs=vc1dec,h264dec,h264enc,h265dec,h265enc"
 else
   PKG_MESON_OPTS_TARGET+=" -Dgallium-va=disabled"
 fi
