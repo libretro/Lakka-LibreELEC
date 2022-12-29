@@ -7,6 +7,7 @@ PKG_VERSION="${GENERIC_L4T_VERSION}"
 
 PKG_DEPENDS_TARGET="mesa libglvnd xorg-server"
 PKG_DEPENDS_HOST="xorg-server"
+PKD_DEPENDS_INIT="busybox:init"
 
 if [  "${VULKAN}" = "" -o "${VULKAN}" = "no" ]; then
   :
