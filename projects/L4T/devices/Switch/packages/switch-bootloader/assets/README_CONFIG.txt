@@ -21,8 +21,8 @@ Below you can find all supported keys and their defaults.
 
 ================================================================================
 
-[r2p_action=via-payload]
- via-payload:       Reboots to self. [Default]
+[r2p_action=self]
+ self:       Reboots to self. [Default]
  bootloader: Reboots to bootloader menu.
  
 [usb3_enable=0]

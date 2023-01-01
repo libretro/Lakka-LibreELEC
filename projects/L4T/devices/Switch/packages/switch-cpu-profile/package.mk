@@ -1,5 +1,5 @@
 PKG_NAME="switch-cpu-profile"
-PKG_VERSION="1.0"
+PKG_VERSION="1.1"
 PKG_DEPENDS_TARGET="Python3"
 PKG_TOOLCHAIN="manual"
 

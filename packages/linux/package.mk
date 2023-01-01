@@ -314,7 +314,7 @@ pre_make_target() {
     if [ -f "${DISTRO_DIR}/${DISTRO}/kernel_options_overrides" ]; then
       while read OPTION; do
         [ -z "${OPTION}" -o -n "$(echo "${OPTION}" | grep '^#')" ] && continue
-  
+
         OPTION_NAME=${OPTION%%=*}
         OPTION_VAL_OVR=${OPTION##*=}
         OPTION_VAL_CFG=$(${PKG_BUILD}/scripts/config --state ${OPTION_NAME})
@@ -388,7 +388,7 @@ make_target() {
   fi
 
   if [ "${LINUX}" = "L4T" ]; then
-    export KCFLAGS+="-Wno-error=sizeof-pointer-memaccess -Wno-error=missing-attributes -Wno-error=stringop-truncation -Wno-error=stringop-overflow= -Wno-error=address-of-packed-member -Wno-error=tautological-compare -Wno-error=packed-not-aligned -Wno-error=implicit-function-declaration -Wno-error=unused-function"
+     export KCFLAGS+=" -Wno-stringop-truncation -Wno-error=stringop-overflow -Wno-maybe-uninitialized -Wno-address-of-packed-member -Wno-packed-not-aligned -Wno-array-bounds"
   fi
 
   DTC_FLAGS=-@ kernel_make TOOLCHAIN="${TOOLCHAIN}" ${KERNEL_TARGET} ${KERNEL_MAKE_EXTRACMD} modules
