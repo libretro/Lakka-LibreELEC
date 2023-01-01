@@ -1,5 +1,5 @@
 PKG_NAME="ppsspp"
-PKG_VERSION="9fe6338e3bf397f8a009a51a282c139dfa180eb6" #v1.13.2
+PKG_VERSION="d66c5c11c1532c2850552e8eb2095994021d055c" #v1.13.2 merged to master to include libretro buildfix
 PKG_LICENSE="GPL-2.0-or-later"
 PKG_SITE="https://github.com/hrydgard/ppsspp"
 PKG_URL="https://github.com/hrydgard/ppsspp.git"
@@ -43,9 +43,13 @@ if [ "${OPENGL_SUPPORT}" = "no" -a "${OPENGLES_SUPPORT}" = "yes" ]; then
 fi
 
 if [ "${TARGET_ARCH}" = "arm" ]; then
-  PKG_CMAKE_OPTS_TARGET+=" -DARMV7=ON"
+  if [[ "${TARGET_NAME}" =~ "armv8" ]]; then
+    PKG_CMAKE_OPTS_TARGET+=" -DFORCED_CPU=armv8"
+  else
+    PKG_CMAKE_OPTS_TARGET+=" -DFORCED_CPU=armv7"
+  fi
 elif [ "${TARGET_ARCH}" = "aarch64" ]; then
-  PKG_CMAKE_OPTS_TARGET+=" -DARM64=ON"
+  PKG_CMAKE_OPTS_TARGET+=" -DFORCED_CPU=aarch64"
 fi
 
 pre_make_target() {
