@@ -41,9 +41,13 @@ if [ "${OPENGL_SUPPORT}" = "no" -a "${OPENGLES_SUPPORT}" = "yes" ]; then
 fi
 
 if [ "${TARGET_ARCH}" = "arm" ]; then
-  PKG_CMAKE_OPTS_TARGET+=" -DARMV7=ON"
+  if [[ "${TARGET_NAME}" =~ "armv8" ]]; then
+    PKG_CMAKE_OPTS_TARGET+=" -DFORCED_CPU=armv8"
+  else
+    PKG_CMAKE_OPTS_TARGET+=" -DFORCED_CPU=armv7"
+  fi
 elif [ "${TARGET_ARCH}" = "aarch64" ]; then
-  PKG_CMAKE_OPTS_TARGET+=" -DARM64=ON"
+  PKG_CMAKE_OPTS_TARGET+=" -DFORCED_CPU=aarch64"
 fi
 
 pre_make_target() {
