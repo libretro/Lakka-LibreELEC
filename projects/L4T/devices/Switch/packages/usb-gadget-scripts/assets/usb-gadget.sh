@@ -51,6 +51,7 @@ elif [ "$1" = "finalize" ]; then
   systemctl start umtp-responder
   sleep 1 #Wait for umtp-responder to start
   echo $udc > $gadget_config/usb_gadget/g/UDC
+  cat $gadget_config/usb_gadget/g/UDC
   udevadm settle -t 5 || :
   systemctl start usb-tty
 elif [ "$1" = "disconnect" ]; then
