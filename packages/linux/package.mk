@@ -32,7 +32,7 @@ case "${LINUX}" in
     PKG_SHA256="655b74dda0fb22c42c3e9459606dc8e969533f5b2ae3b45e16b14d178dc167d6"
     PKG_URL="https://github.com/LubanCat/kernel/archive/${PKG_VERSION}.tar.gz"
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
-    ;
+    ;;
   L4T)
     PKG_VERSION=${DEVICE}
     PKG_URL="l4t-kernel-sources"
