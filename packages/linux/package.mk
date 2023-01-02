@@ -44,8 +44,8 @@ case "${LINUX}" in
    PKG_GIT_CLONE_BRANCH="sdm845-5.19.16"
    ;;
   *)
-    PKG_VERSION="6.1"
-    PKG_SHA256="2ca1f17051a430f6fed1196e4952717507171acfd97d96577212502703b25deb"
+    PKG_VERSION="6.1.2"
+    PKG_SHA256="ee41f3c4f599b2f46f08aae428c9243db403e7292eb2c9f04ee34909b038d1ae"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
     PKG_PATCH_DIRS="default"
     ;;

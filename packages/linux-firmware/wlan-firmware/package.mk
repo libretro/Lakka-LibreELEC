@@ -2,8 +2,8 @@
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 
 PKG_NAME="wlan-firmware"
-PKG_VERSION="adb069a3c95913f4a55e540ed7bb2be33a582479"
-PKG_SHA256="1cd010f0e9eaba38376c15b08520ea1825fcb84c73bb1b4ce8ce248d6530eccc"
+PKG_VERSION="4d3eab2b6a581a96acddc99a6c24a1308fe1d3ad"
+PKG_SHA256="a26dcdf9bd3ecaa38870f5f94c75a4d027d3a58bbeae6f965cc457842b34dcd7"
 PKG_LICENSE="Free-to-use"
 PKG_SITE="https://github.com/LibreELEC/wlan-firmware"
 PKG_URL="https://github.com/LibreELEC/wlan-firmware/archive/${PKG_VERSION}.tar.gz"

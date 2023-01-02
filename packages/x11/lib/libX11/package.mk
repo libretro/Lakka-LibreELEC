@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libX11"
-PKG_VERSION="1.8.2"
-PKG_SHA256="ed91d573d570db83b8ae546f4890dccfcd0b9dfe1e50a1b401b63a74c152ed04"
+PKG_VERSION="1.8.3"
+PKG_SHA256="e31565c84006b6b8e01dc9399c806085739710bc2db2e0930f1511ed9d6585bd"
 PKG_LICENSE="OSS"
 PKG_SITE="https://www.x.org/"
 PKG_URL="https://xorg.freedesktop.org/archive/individual/lib/${PKG_NAME}-${PKG_VERSION}.tar.xz"
