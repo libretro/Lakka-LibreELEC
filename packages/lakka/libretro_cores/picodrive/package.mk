@@ -23,7 +23,7 @@ make_target() {
     arm)
       R= make -f Makefile.libretro platform=armv
       ;;
-    x86_64)
+    i386|x86_64)
       R= make -f Makefile.libretro
       ;;
   esac
