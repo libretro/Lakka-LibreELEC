@@ -1,13 +1,11 @@
 PKG_NAME="ppsspp"
-PKG_VERSION="d66c5c11c1532c2850552e8eb2095994021d055c" #v1.13.2 merged to master to include libretro buildfix
+PKG_VERSION="cd535263c1ad65fd03869591a8bd706680cbf04b"
 PKG_LICENSE="GPL-2.0-or-later"
 PKG_SITE="https://github.com/hrydgard/ppsspp"
 PKG_URL="https://github.com/hrydgard/ppsspp.git"
 PKG_DEPENDS_TARGET="toolchain linux glibc libzip libpng zstd zlib ffmpeg bzip2 openssl speex"
 PKG_LONGDESC="A PSP emulator for Android, Windows, Mac, Linux and Blackberry 10, written in C++."
-GET_HANDLER_SUPPORT="git"
-PKG_GIT_CLONE_BRANCH="master"
-PKG_GIT_CLONE_SINGLE="yes"
+PKG_LR_UPDATE_TAG="yes"
 PKG_BUILD_FLAGS="-sysroot"
 
 PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON \
