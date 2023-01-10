@@ -11,6 +11,10 @@ PKG_URL="https://libzip.org/download/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain zlib bzip2"
 PKG_LONGDESC="A C library for reading, creating, and modifying zip archives."
 
+if [ "${DISTRO}" = "Lakka" ]; then
+  PKG_BUILD_FLAGS="+pic"
+fi
+
 PKG_CMAKE_OPTS_TARGET="-DENABLE_COMMONCRYPTO=OFF \
                        -DENABLE_GNUTLS=OFF \
                        -DENABLE_MBEDTLS=OFF \
@@ -19,9 +23,16 @@ PKG_CMAKE_OPTS_TARGET="-DENABLE_COMMONCRYPTO=OFF \
                        -DBUILD_TOOLS=OFF \
                        -DBUILD_REGRESS=OFF \
                        -DBUILD_EXAMPLES=OFF \
-                       -DBUILD_DOC=OFF \
-                       -DBUILD_SHARED_LIBS=OFF"
+                       -DBUILD_DOC=OFF"
+
+if [ "${DISTRO}" = "Lakka" ]; then
+  PKG_CMAKE_OPTS_TARGET+=" -DBUILD_SHARED_LIBS=ON"
+else
+  PKG_CMAKE_OPTS_TARGET+=" -DBUILD_SHARED_LIBS=OFF"
+fi
 
 post_makeinstall_target() {
-  rm -rf ${INSTALL}/usr/lib
+  if [ "${DISTRO}" != "Lakka" ]; then
+    rm -rf ${INSTALL}/usr/lib
+  fi
 }
