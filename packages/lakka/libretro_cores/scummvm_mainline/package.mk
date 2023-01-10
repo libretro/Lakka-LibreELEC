@@ -1,10 +1,10 @@
 
 PKG_NAME="scummvm_mainline"
-PKG_VERSION="8d29673b74aae64b3878176bdaa7e701214a0d4d" # v2.6.1.2
+PKG_VERSION="8d29673b74aae64b3878176bdaa7e701214a0d4d"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/spleen1981/scummvm-mainline-libretro"
 PKG_URL="$PKG_SITE.git"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain libvorbis"
 PKG_SHORTDESC="Script Creation Utility for Maniac Mansion Virtual Machine"
 PKG_LONGDESC="ScummVM is a program which allows you to run certain classic graphical point-and-click adventure games, provided you already have their data files."
 PKG_TOOLCHAIN="make"
