@@ -12,6 +12,7 @@ PKG_MAKE_OPTS_TARGET="-C yabause/src/libretro HAVE_CDROM=1"
 
 if [ "${OPENGL_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL}"
+  PKG_MAKE_OPTS_TARGET+=" HAVE_OPENGL=1"
 fi
 
 if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
