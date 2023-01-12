@@ -3,7 +3,7 @@
 
 PKG_NAME="rust-std-snapshot"
 PKG_VERSION="$(get_pkg_version rust)"
-PKG_SHA256="c59ca7959a019f3f660c1f46bea3c13e7769b67732731469c0c42d02f28d08e7"
+PKG_SHA256="c5e2c9b160bd8d99514f13cfbc0e42a722fd9ca14e6aaca4b9b77731a7a48377"
 PKG_LICENSE="MIT"
 PKG_SITE="https://www.rust-lang.org"
 PKG_URL="https://static.rust-lang.org/dist/rust-std-${PKG_VERSION}-${MACHINE_HARDWARE_NAME}-unknown-linux-gnu.tar.xz"
