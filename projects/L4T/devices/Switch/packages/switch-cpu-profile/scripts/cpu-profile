@@ -15,9 +15,9 @@ For now the profile is not retained and is set to default speed when rebooting.
 PROFILE_FILE = "/sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq"
 OVERCLOCK_FILE = "/sys/kernel/tegra_cpufreq/overclock"
 SAVED_PROFILE_FILE = "/storage/.config/.cpu_profile"
-
+SERIAL_FILE = "/sys/firmware/devicetree/base/serial-number"
 # Profiles list, in KHz - max 2091000
-PROFILES = {
+PROFILES_ERISTA = {
     "Max Overdrive +3":    "2091000",
     "Max Overdrive +2":    "1989000",
     "Max Overdrive +1":    "1887000",
@@ -30,8 +30,41 @@ PROFILES = {
     "Powersaving Mode 3":  "714000",
 }
 
+PROFILES_MARIKO = {
+    "Max Overdrive +3": "2295000",
+    "Max Overdrive +2": "2193000",
+    "Max Overdrive +1": "2091000",
+    "Maximum Performance": "1963500",
+    "Boost Performance 4": "1887000",
+    "Boost Performance 3": "1785000",
+    "Boost Performance 2": "1581000",
+    "Boost Performance 1": "1224000",
+    "Stock Performance": "1020000",
+    "Powersaving Mode 1": "918000",
+    "Powersaving Mode 2": "816000",
+    "Powersaving Mode 3": "714000"
+}
+
 # Default profile
 DEFAULT_PROFILE = "Stock Performance"
+def get_board():
+    try:
+        f=open(SERIAL_FILE, "r")
+    except IOError:
+        return -1
+    board_prefix=str(f.read().strip())
+    board_prefix=board_prefix[:3]
+
+    if board_prefix == "NXM":
+        return 1
+    elif board_prefix == "NXV":
+        return 1
+    elif board_prefix ==  "NXF":
+        return 1
+    elif board_prefix ==  "NXO":
+        return 0
+    else:
+        return -1
 
 def get_saved_profile():
     try:
@@ -43,31 +76,42 @@ def get_saved_profile():
         return DEFAULT_PROFILE
     else:
         return NEW_DEFAULT_PROFILE
-	
+
 def save_profile(profile):
         with open(SAVED_PROFILE_FILE, "w") as f:
             f.write(profile)
             f.flush()
-       
+
 def get_profile():
     with open(PROFILE_FILE, "r") as f:
         pstate = str(f.read().strip())
 
     profile_code = pstate
-
-    for profile in PROFILES:
-        if profile_code == PROFILES[profile]:
-            return profile
-
+    board=get_board() 
+    if board == 1:
+        for profile in PROFILES_MARIKO:
+            if profile_code == PROFILES_MARIKO[profile]:
+                return profile
+    elif board == 0:
+        for profile in PROFILES_ERISTA:
+            if profile_code == PROFILES_ERISTA[profile]:
+                return profile
     raise Exception("Unknown profile code %s" % profile_code)
 
 
 def apply_profile(profile):
-    if profile not in PROFILES:
-        raise Exception("Unknown profile %s" % profile)
-
+    board=get_board()
+    if board == 1:
+        if profile not in PROFILES_MARIKO:
+            raise Exception("Unknown profile %s" % profile)
+    elif board == 0:
+       if profile not in PROFILES_ERISTA:
+            raise Exception("Unknown profile %s" % profile)
     with open(PROFILE_FILE, "w") as f:
-        f.write(PROFILES[profile])
+        if board == 1:
+            f.write(PROFILES_MARIKO[profile])
+        elif board == 0:
+            f.write(PROFILES_ERISTA[profile])
         f.flush()
     print(("Applied profile %s" % profile))
 
@@ -84,13 +128,13 @@ def print_usage():
     Usage :
         cpu-profile init
             Sets the default profile - should be called on boot
-            
+
         cpu-profile list
             Lists all the available profiles and their corresponding frequency
-                
+
         cpu-profile set <profile>
             Sets the current profile to <profile>
-    
+
         cpu-profile get
             Gets the current profile name
     ''')
@@ -98,31 +142,47 @@ def print_usage():
 
 def print_profiles():
     print("Format : <name> - <freq in KHz> [* : enabled] [d : reboot default]")
-
-    max_profile_name_length = max([len(x) for x in list(PROFILES.keys())])
-    
+    board=get_board()
     current_profile = get_profile()
-    
-    for profile in reversed(list(PROFILES.keys())):
-        profile_name = profile
-        profile_freq = PROFILES[profile]
-        is_default = (profile_name == DEFAULT_PROFILE)
-        is_current = (current_profile == profile_name)
-        padding = " " * (max_profile_name_length - len(profile_name))
-        print("%s%s - %s %s %s" % (profile_name, padding, profile_freq, "*" if is_current else " ", "d" if is_default else ""))
 
+    if board == 1:
+        max_profile_name_length = max([len(x) for x in list(PROFILES_MARIKO.keys())])
+        for profile in reversed(list(PROFILES_MARIKO.keys())):
+            profile_name = profile
+            profile_freq = PROFILES_MARIKO[profile]
+            is_default = (profile_name == DEFAULT_PROFILE)
+            is_current = (current_profile == profile_name)
+            padding = " " * (max_profile_name_length - len(profile_name))
+            print("%s%s - %s %s %s" % (profile_name, padding, profile_freq, "*" if is_current else " ", "d" if is_default else ""))
+    elif board == 0:
+        max_profile_name_length = max([len(x) for x in list(PROFILES_ERISTA.keys())])
+        for profile in reversed(list(PROFILES_ERISTA.keys())):
+            profile_name = profile
+            profile_freq = PROFILES_ERISTA[profile]
+            is_default = (profile_name == DEFAULT_PROFILE)
+            is_current = (current_profile == profile_name)
+            padding = " " * (max_profile_name_length - len(profile_name))
+            print("%s%s - %s %s %s" % (profile_name, padding, profile_freq, "*" if is_current else " ", "d" if is_default else ""))
 
 # Main
 if __name__ == "__main__":
     argc = len(sys.argv)
     if argc == 2:
         if sys.argv[1] == "init":
-            apply_profile(get_saved_profile())
             unlock_full_power()
+            apply_profile(get_saved_profile())
         elif sys.argv[1] == "get":
             print(get_profile())
         elif sys.argv[1] == "list":
             print_profiles()
+        elif sys.argv[1] == "board-info":
+            x=get_board()
+            if x == 1:
+                print("M")
+            elif x == 0:
+                print("E")
+            else:
+                print("Not A Switch")
         else:
             print_usage()
     elif argc == 3:
