@@ -293,4 +293,7 @@ post_install() {
   enable_service network-base.service
   enable_service systemd-timesyncd.service
   enable_service systemd-timesyncd-setup.service
+  #Add service to properly remount flash partition when using fat32-boot kernel command line option.
+  enable_service remount_flash_ro.service
 }
+
