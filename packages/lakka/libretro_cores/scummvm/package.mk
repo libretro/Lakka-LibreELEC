@@ -3,7 +3,7 @@ PKG_NAME="scummvm"
 PKG_VERSION="a0554745e87361643f1ca3aa820a5073214de935"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/scummvm"
-PKG_URL="$PKG_SITE.git"
+PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SHORTDESC="The ScummVM adventure game engine ported to libretro."
 PKG_LONGDESC="ScummVM is a program which allows you to run certain classic graphical point-and-click adventure games, provided you already have their data files."
@@ -14,7 +14,7 @@ pre_make_target() {
   if [ "${DEVICE}" = "OdroidGoAdvance" ]; then
     PKG_MAKE_OPTS_TARGET+=" platform=oga_a35_neon_hardfloat"
   else
-    PKG_MAKE_OPTS_TARGET+=" platform=$TARGET_NAME"
+    PKG_MAKE_OPTS_TARGET+=" platform=${TARGET_NAME}"
   fi
 }
 
