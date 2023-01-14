@@ -48,6 +48,7 @@ make_host() {
 
 makeinstall_host() {
   cp -v ../include/libiberty.h ${SYSROOT_PREFIX}/usr/include
+  make -C libsframe install # bfd is reliant on libsframe
   make -C bfd install # fix parallel build with libctf requiring bfd
   # override the makeinfo binary with true - this does not build the documentation
   make MAKEINFO=true install
