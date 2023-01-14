@@ -15,7 +15,31 @@ fi
 
 if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
-  PKG_MAKE_OPTS_TARGET+=" GLES=1 FORCE_GLES=1"
+  case ${PROJECT} in
+    RPi)
+      if [ "${DEVICE:0:4}" = "RPi4" ]; then
+        PKG_MAKE_OPTS_TARGET+=" FORCE_GLES3=1"
+      else
+        PKG_MAKE_OPTS_TARGET+=" FORCE_GLES=1"
+      fi
+      ;;
+    Rockchip)
+      if [ "${DEVICE}" = "RK3328" ]; then
+        PKG_MAKE_OPTS_TARGET+=" FORCE_GLES=1"
+      else
+        PKG_MAKE_OPTS_TARGET+=" FORCE_GLES3=1"
+      fi
+      ;;
+    Amlogic)
+      PKG_MAKE_OPTS_TARGET+=" FORCE_GLES3=1"
+      ;;
+    Generic)
+      PKG_MAKE_OPTS_TARGET+=" FORCE_GLES3=1"
+      ;;
+    *)
+      PKG_MAKE_OPTS_TARGET+=" FORCE_GLES=1"
+      ;;
+  esac
 fi
 
 if [ "${VULKAN_SUPPORT}" = "yes" ]; then
@@ -48,7 +72,7 @@ pre_make_target() {
       PKG_MAKE_OPTS_TARGET+=" platform=rpi3"
       ;;
     RPi4*)
-      PKG_MAKE_OPTS_TARGET+=" platform=rpi4_64-mesa FORCE_GLES3=1"
+      PKG_MAKE_OPTS_TARGET+=" platform=rpi4_64-mesa"
       ;;
     OdroidXU3)
       PKG_MAKE_OPTS_TARGET+=" platform=odroid BOARD=ODROID-XU"
