@@ -17,10 +17,9 @@ L4T variant.
 PROFILE_FILE_MAX = "/sys/devices/57000000.gpu/devfreq/57000000.gpu/max_freq"
 PROFILE_FILE_MIN = "/sys/devices/57000000.gpu/devfreq/57000000.gpu/min_freq"
 SAVED_PROFILE_FILE = "/storage/.config/.gpu_profile"
-SERIAL_FILE = "/sys/firmware/devicetree/base/serial-number"
 
 # Profiles list
-PROFILES_ERISTA = {
+PROFILES = {
     "Docked Stock +2":      "921600000",  # 921 Mhz
     "Docked Stock +1":      "844800000",  # 844 Mhz
     "Docked Stock Mode":    "768000000",  # 768 Mhz
@@ -34,45 +33,9 @@ PROFILES_ERISTA = {
     "Powersaving +1":       "153600000",  # 153 Mhz
     "Powersaving Mode":     "76800000",   # 76 Mhz
 }
-
-PROFILES_MARIKO = {
-    "Docked Stock +3":      "998400000",  #998 Mhz
-    "Docked Stock +2":      "921600000",  # 921 Mhz
-    "Docked Stock +1":      "844800000",  # 844 Mhz
-    "Docked Stock Mode":    "768000000",  # 768 Mhz
-    "Handheld Boost +3":    "691200000",  # 691 Mhz
-    "Handheld Boost +2":    "614400000",  # 614 Mhz
-    "Handheld Boost +1":    "537600000",  # 537 Mhz
-    "Handheld Boost Mode":  "460800000",  # 460 Mhz
-    "Handheld Stock +1":    "384000000",  # 384 Mhz
-    "Handheld Stock Mode":  "307200000",  # 307 Mhz
-    "Powersaving +2":       "230400000",  # 230 Mhz
-    "Powersaving +1":       "153600000",  # 153 Mhz
-    "Powersaving Mode":     "76800000",   # 76 Mhz
-}
-
 
 # Default profile
 DEFAULT_PROFILE = "Handheld Stock Mode"
-
-def get_board():
-    try:
-        f=open(SERIAL_FILE, "r")
-    except IOError:
-        return -1
-    board_prefix=str(f.read().strip())
-    board_prefix=board_prefix[:3]
-
-    if board_prefix == "NXM":
-        return 1
-    elif board_prefix == "NXV":
-        return 1
-    elif board_prefix ==  "NXF":
-        return 1
-    elif board_prefix ==  "NXO":
-        return 0
-    else:
-        return -1
 
 def get_saved_profile():
     try:
@@ -84,41 +47,31 @@ def get_saved_profile():
         return DEFAULT_PROFILE
     else:
         return NEW_DEFAULT_PROFILE
-
+	
 def save_profile(profile):
         with open(SAVED_PROFILE_FILE, "w") as f:
             f.write(profile)
             f.flush()
-
+    
 def get_profile():
     with open(PROFILE_FILE_MAX, "r") as f:
         pstate = str(f.read().strip())
-    board=get_board()
-    if board == 1:
-        for profile in PROFILES_MARIKO:
-            if pstate == PROFILES_MARIKO[profile]:
-                return profile
-    elif board == 0:
-        for profile in PROFILES_ERISTA:
-            if pstate == PROFILES_ERISTA[profile]:
-                return profile
+
+    for profile in PROFILES:
+        if pstate == PROFILES[profile]:
+            return profile
+
     raise Exception("Unknown profile %s" % pstate)
 
 
 
 def apply_profile(profile):
-    board=get_board()
+    if profile not in PROFILES:
+        raise Exception("Unknown profile %s" % profile)
+
     files = []
-    if board == 1:
-        if profile not in PROFILES_MARIKO:
-            raise Exception("Unknown profile %s" % profile)
-        cur_profile = int(PROFILES_MARIKO[get_profile()])
-        new_profile = int(PROFILES_MARIKO[profile])
-    elif board == 0:
-        if profile not in PROFILES_ERISTA:
-            raise Exception("Unknown profile %s" % profile)
-        cur_profile = int(PROFILES_ERISTA[get_profile()])
-        new_profile = int(PROFILES_ERISTA[profile])
+    cur_profile = int(PROFILES[get_profile()])
+    new_profile = int(PROFILES[profile])
 
     if new_profile < cur_profile:
         files = [
@@ -133,10 +86,7 @@ def apply_profile(profile):
 
     for pfile in files:
         with open(pfile, "w") as f:
-            if board == 1:
-                f.write(PROFILES_MARIKO[profile])
-            elif board == 0:
-                f.write(PROFILES_ERISTA[profile])
+            f.write(PROFILES[profile])
             f.flush()
     print(("Applied profile %s" % profile))
 
@@ -164,14 +114,6 @@ if __name__ == "__main__":
             apply_profile(get_saved_profile())
         elif sys.argv[1] == "get":
             print(get_profile())
-        elif sys.argv[1] == "board-info":
-            x=get_board()
-            if x == 1:
-                print("M")
-            elif x == 0:
-                print("E")
-            else:
-                print("Not A Switch")
         else:
             print_usage()
     elif argc == 3:
