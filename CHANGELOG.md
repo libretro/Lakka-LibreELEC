@@ -1,3 +1,15 @@
+# v4.3
+* Update RetroArch to [1.14.0](https://www.libretro.com/index.php/retroarch-1-14-0-release/)
+* Add new libretro core: `fake08`
+* Add new libretro core: `mojozork`
+* Add new libretro core: `puae2021`
+* Update Mesa to [22.1.7](https://docs.mesa3d.org/relnotes/22.1.7.html)
+* Add support for more Nintendo Switch variants
+* Add Orange Pi 4 LTS (Rockchip RK3399)
+* Update raspberry kernel to 5.10.110
+* Update amlogic kernel to 5.11.22
+* Update mainline kernel to 5.10.123
+
 # v4.2
 * Update RetroArch to [1.10.3](https://www.libretro.com/index.php/retroarch-1-10-3-release/)
 * Add new libretro core: `a5200`
