@@ -136,6 +136,7 @@ do
 		then
 			exit ${ret_nondb}
 		fi
+		count=$(ls target/${distro}-${target_name}-*{.img.gz,kernel,system}* 2>/dev/null | wc -l)
 	else
 		# remove the old dashboard, so we don't show old/stale dashboard
 		rm -f ${statusfile}

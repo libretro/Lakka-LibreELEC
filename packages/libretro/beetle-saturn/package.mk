@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="beetle-saturn"
-PKG_VERSION="ae30f29"
+PKG_VERSION="054862a"
 PKG_REV="1"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPLv2"

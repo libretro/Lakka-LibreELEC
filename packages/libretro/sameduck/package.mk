@@ -1,5 +1,5 @@
 PKG_NAME="sameduck"
-PKG_VERSION="a5e5462"
+PKG_VERSION="5cc014b"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/LIJI32/SameBoy"
 PKG_GIT_CLONE_BRANCH="SameDuck"

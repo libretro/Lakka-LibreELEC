@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="daphne"
-PKG_VERSION="0a7e6f0"
+PKG_VERSION="b5481ba"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2+"
 PKG_SITE="https://github.com/libretro/daphne"

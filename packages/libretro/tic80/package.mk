@@ -19,10 +19,10 @@
 ################################################################################
 
 PKG_NAME="tic80"
-PKG_VERSION="e9f62f8"
+PKG_VERSION="ade10ba"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
-PKG_SITE="https://github.com/libretro/TIC-80"
+PKG_SITE="https://github.com/nesbox/TIC-80"
 PKG_URL="$PKG_SITE.git"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
@@ -35,7 +35,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 configure_package() {
-  PKG_CMAKE_SCRIPT="$PKG_BUILD/core/CMakeLists.txt"
+  PKG_CMAKE_SCRIPT="$PKG_BUILD/CMakeLists.txt"
 
   PKG_CMAKE_OPTS_TARGET="-DBUILD_PLAYER=OFF \
                          -DBUILD_SDL=OFF \

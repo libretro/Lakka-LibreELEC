@@ -1,3 +1,11 @@
+# v3.7.4
+* Maintenance release
+* Update RetroArch to 1.14.0
+* Update libretro cores to the same version as on 4.x
+* Add new libretro core: `fake_08`
+* Add new libretro core: `mojozark`
+* Add new libretro core: `puae2021`
+
 # v3.7.3
 * Maintenance release
 * Update RetroArch to 1.10.3

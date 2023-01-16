@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="fbneo"
-PKG_VERSION="01bf2e1"
+PKG_VERSION="db9f7e9"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"
 PKG_SITE="https://github.com/libretro/fbneo"
@@ -57,7 +57,7 @@ makeinstall_target() {
 
   # copy DATs for manual content scanning
   mkdir -p $INSTALL/usr/share/libretro-database/fbneo
-    cp dats/* $INSTALL/usr/share/libretro-database/fbneo
+    cp -r dats/* $INSTALL/usr/share/libretro-database/fbneo
 
   # copy hiscore.dat to RetroArch system folder
   mkdir -p $INSTALL/usr/share/retroarch-system/fbneo

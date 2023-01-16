@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="virtualjaguar"
-PKG_VERSION="263c979"
+PKG_VERSION="2cc0689"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/virtualjaguar-libretro"

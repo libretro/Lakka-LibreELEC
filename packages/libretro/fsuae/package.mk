@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="fsuae"
-PKG_VERSION="6b98f85"
+PKG_VERSION="06e3030"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/libretro-fsuae"

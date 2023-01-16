@@ -1,5 +1,5 @@
 PKG_NAME="race"
-PKG_VERSION="b8264bb"
+PKG_VERSION="cb00204"
 PKG_LICENSE="GPL2"
 PKG_SITE="https://github.com/libretro/RACE"
 PKG_URL="${PKG_SITE}.git"

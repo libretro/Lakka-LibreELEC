@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="gme"
-PKG_VERSION="5fb30eb"
+PKG_VERSION="635b1e9"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
