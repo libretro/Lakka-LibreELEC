@@ -27,7 +27,7 @@ PKG_CONFIGURE_OPTS_TARGET="BASH_SHELL=/bin/sh \
                            --with-__thread \
                            --with-binutils=${BUILD}/toolchain/bin \
                            --with-headers=${SYSROOT_PREFIX}/usr/include \
-                           --enable-kernel=6.0.0 \
+                           --enable-kernel=6.1.0 \
                            --without-cvs \
                            --without-gd \
                            --disable-build-nscd \
