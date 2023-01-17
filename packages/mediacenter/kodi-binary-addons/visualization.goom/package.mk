@@ -2,8 +2,8 @@
 # Copyright (C) 2020-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="visualization.goom"
-PKG_VERSION="19.0.1-Matrix"
-PKG_SHA256="167206c02b7c4ace0b5446cac013f77a7a238d2a9a7cc768987088b42ac1d941"
+PKG_VERSION="19.0.2-Matrix"
+PKG_SHA256="1936aaacdf0b3b032e848f8e7b7694111e1c78ce16efdb063263d543d70f003a"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
