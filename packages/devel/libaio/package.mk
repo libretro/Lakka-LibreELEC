@@ -21,17 +21,15 @@ makeinstall_target() {
 
     if [ "${DISTRO}" = "Lakka" ]; then
       cp -PR src/libaio.so* ${SYSROOT_PREFIX}/usr/lib
+      ln -s libaio.so.1.0.2 ${SYSROOT_PREFIX}/usr/lib/libaio.so.1
+      ln -s libaio.so.1.0.2 ${SYSROOT_PREFIX}/usr/lib/libaio.so
+
       mkdir -p ${INSTALL}/usr/lib
-        cp -PR src/libaio.so* ${INSTALL}/usr/lib
+      cp -PR src/libaio.so.1.0.2 ${INSTALL}/usr/lib
+      ln -s libaio.so.1.0.2 ${INSTALL}/usr/lib/libaio.so.1
+      ln -s libaio.so.1.0.2 ${INSTALL}/usr/lib/libaio.so
     fi
 
   mkdir -p ${SYSROOT_PREFIX}/usr/include
     cp -PR src/libaio.h ${SYSROOT_PREFIX}/usr/include
-}
-
-post_makeinstall_target() {
-  if [ "${DISTRO}" = "Lakka" ]; then
-    ln -s libaio.so.1.0.1 ${INSTALL}/usr/lib/libaio.so.1
-    ln -s libaio.so.1.0.1 ${SYSROOT_PREFIX}/usr/lib/libaio.so
-  fi
 }
