@@ -49,8 +49,6 @@ listcontains "${GRAPHIC_DRIVERS}" "etnaviv" &&
 if [ "${DISTRO}" = "Lakka" ]; then
   listcontains "${GRAPHIC_DRIVERS}" "nouveau" &&
     PKG_MESON_OPTS_TARGET="${PKG_MESON_OPTS_TARGET//-Dnouveau=disabled/-Dnouveau=enabled}"
-  
-  PKG_MESON_OPTS_TARGET+=" -Dlibkms=enabled"
 fi
 
 post_makeinstall_target() {
