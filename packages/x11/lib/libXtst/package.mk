@@ -3,15 +3,15 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libXtst"
-PKG_VERSION="1.2.3"
-PKG_SHA256="4655498a1b8e844e3d6f21f3b2c4e2b571effb5fd83199d428a6ba7ea4bf5204"
+PKG_VERSION="1.2.4"
+PKG_SHA256="84f5f30b9254b4ffee14b5b0940e2622153b0d3aed8286a3c5b7eeb340ca33c8"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
-PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
+PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain util-macros libXext libXi libX11"
 PKG_LONGDESC="The Xtst Library"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --with-gnu-ld --without-xmlto"
+PKG_CONFIGURE_OPTS_TARGET="--with-gnu-ld --without-xmlto"
 
 if [ "${PROJECT}" = "L4T" ]; then
   PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET/--disable-shared/--enable-shared}"

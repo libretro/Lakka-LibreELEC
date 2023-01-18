@@ -3,13 +3,13 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="binutils-aarch64"
-PKG_VERSION="2.37"
-PKG_SHA256="820d9724f020a3e69cb337893a0b63c2db161dadcb0e06fc11dc29eb1e84a32c"
+PKG_VERSION="$(get_pkg_version binutils)"
 PKG_LICENSE="GPL"
-PKG_SITE="https://www.gnu.org/software/binutils/"
-PKG_URL="https://ftp.gnu.org/gnu/binutils/binutils-${PKG_VERSION}.tar.xz"
+PKG_URL=""
 PKG_DEPENDS_HOST="toolchain:host"
 PKG_LONGDESC="A GNU collection of binary utilities for 64-bit ARM."
+PKG_DEPENDS_UNPACK+=" binutils"
+PKG_PATCH_DIRS+=" $(get_pkg_directory binutils)/patches"
 
 PKG_CONFIGURE_OPTS_HOST="--target=aarch64-none-elf \
                          --with-sysroot=${SYSROOT_PREFIX} \
@@ -28,6 +28,11 @@ PKG_CONFIGURE_OPTS_HOST="--target=aarch64-none-elf \
                          --enable-lto \
                          --disable-nls"
 
+unpack() {
+  mkdir -p ${PKG_BUILD}
+  tar --strip-components=1 -xf ${SOURCES}/binutils/binutils-${PKG_VERSION}.tar.xz -C ${PKG_BUILD}
+}
+
 pre_configure_host() {
   unset CPPFLAGS
   unset CFLAGS
@@ -37,11 +42,13 @@ pre_configure_host() {
 
 make_host() {
   make configure-host
-  make
+  # override the makeinfo binary with true - this does not build the documentation
+  make MAKEINFO=true
 }
 
 makeinstall_host() {
   cp -v ../include/libiberty.h ${SYSROOT_PREFIX}/usr/include
   make -C bfd install # fix parallel build with libctf requiring bfd
-  make install
+  # override the makeinfo binary with true - this does not build the documentation
+  make MAKEINFO=true install
 }

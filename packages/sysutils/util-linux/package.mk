@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="util-linux"
-PKG_VERSION="2.38"
-PKG_SHA256="6d111cbe4d55b336db2f1fbeffbc65b89908704c01136371d32aa9bec373eb64"
+PKG_VERSION="2.38.1"
+PKG_SHA256="60492a19b44e6cf9a3ddff68325b333b8b52b6c59ce3ebd6a0ecaa4c5117e84f"
 PKG_LICENSE="GPL"
 PKG_URL="https://www.kernel.org/pub/linux/utils/util-linux/v$(get_pkg_version_maj_min)/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_HOST="ccache:host autoconf:host automake:host intltool:host libtool:host pkg-config:host"
@@ -18,7 +18,6 @@ UTILLINUX_CONFIG_DEFAULT="--disable-gtk-doc \
                           --disable-nls \
                           --disable-rpath \
                           --enable-tls \
-                          --disable-all-programs \
                           --enable-chsh-only-listed \
                           --disable-bash-completion \
                           --disable-colors-default \
@@ -50,6 +49,7 @@ if [ "${DEVICE}" = "Switch" ]; then
 fi
 
 PKG_CONFIGURE_OPTS_TARGET="${UTILLINUX_CONFIG_DEFAULT} \
+                           --disable-all-programs \
                            --enable-libuuid \
                            --enable-libblkid \
                            --enable-libmount \
@@ -67,11 +67,13 @@ fi
 
 PKG_CONFIGURE_OPTS_HOST="--enable-static \
                          --disable-shared \
+                         --enable-all-programs \
                          ${UTILLINUX_CONFIG_DEFAULT} \
                          --enable-uuidgen \
                          --enable-libuuid"
 
 PKG_CONFIGURE_OPTS_INIT="${UTILLINUX_CONFIG_DEFAULT} \
+                         --disable-all-programs \
                          --enable-libblkid \
                          --enable-libmount \
                          --enable-fsck"

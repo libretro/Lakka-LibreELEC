@@ -3,15 +3,15 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="glibc"
-PKG_VERSION="2.34"
-PKG_SHA256="44d26a1fe20b8853a48f470ead01e4279e869ac149b195dda4e44a195d981ab2"
+PKG_VERSION="2.36"
+PKG_SHA256="1c959fea240906226062cb4b1e7ebce71a9f0e3c0836c09e7e3423d434fcfe75"
 PKG_LICENSE="GPL"
 PKG_SITE="https://www.gnu.org/software/libc/"
 PKG_URL="https://ftp.gnu.org/pub/gnu/glibc/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="ccache:host autotools:host linux:host gcc:bootstrap pigz:host Python3:host"
 PKG_DEPENDS_INIT="glibc"
 PKG_LONGDESC="The Glibc package contains the main C library."
-PKG_BUILD_FLAGS="-gold"
+PKG_BUILD_FLAGS="+bfd"
 
 PKG_CONFIGURE_OPTS_TARGET="BASH_SHELL=/bin/sh \
                            ac_cv_path_PERL=no \
@@ -19,7 +19,6 @@ PKG_CONFIGURE_OPTS_TARGET="BASH_SHELL=/bin/sh \
                            --libexecdir=/usr/lib/glibc \
                            --cache-file=config.cache \
                            --disable-profile \
-                           --disable-werror \
                            --disable-sanity-checks \
                            --enable-add-ons \
                            --enable-bind-now \
@@ -28,7 +27,7 @@ PKG_CONFIGURE_OPTS_TARGET="BASH_SHELL=/bin/sh \
                            --with-__thread \
                            --with-binutils=${BUILD}/toolchain/bin \
                            --with-headers=${SYSROOT_PREFIX}/usr/include \
-                           --enable-kernel=5.10.0 \
+                           --enable-kernel=6.1.0 \
                            --without-cvs \
                            --without-gd \
                            --disable-build-nscd \
@@ -54,6 +53,9 @@ pre_configure_target() {
   export CFLAGS=$(echo ${CFLAGS} | sed -e "s|-ffast-math||g")
   export CFLAGS=$(echo ${CFLAGS} | sed -e "s|-Ofast|-O2|g")
   export CFLAGS=$(echo ${CFLAGS} | sed -e "s|-O.|-O2|g")
+
+  export CFLAGS=$(echo ${CFLAGS} | sed -e "s|-Wunused-but-set-variable||g")
+  export CFLAGS="${CFLAGS} -Wno-unused-variable"
 
   if [ -n "${PROJECT_CFLAGS}" ]; then
     export CFLAGS=$(echo ${CFLAGS} | sed -e "s|${PROJECT_CFLAGS}||g")
@@ -107,9 +109,7 @@ post_makeinstall_target() {
 
   safe_remove ${INSTALL}/usr/lib/audit
   safe_remove ${INSTALL}/usr/lib/glibc
-  safe_remove ${INSTALL}/usr/lib/libc_pic
   safe_remove ${INSTALL}/usr/lib/*.o
-  safe_remove ${INSTALL}/usr/lib/*.map
   safe_remove ${INSTALL}/var
 
 # add UTF-8 charmap

@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="systemd"
-PKG_VERSION="250.4"
-PKG_SHA256="d2bda9d225da11dc9ff48b48e59fc36798d3e66902ed400a9f78fa370c596864"
+PKG_VERSION="252.4"
+PKG_SHA256="cf2d27e67663d599a045101c7178cf0ec63d9df2962a54adf7de0d0357724f00"
 PKG_LICENSE="LGPL2.1+"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/systemd"
 PKG_URL="https://github.com/systemd/systemd-stable/archive/v${PKG_VERSION}.tar.gz"
@@ -15,7 +15,7 @@ PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
                        -Drootprefix=/usr \
                        -Dsplit-usr=false \
                        -Dsplit-bin=true \
-                       -Ddefault-hierarchy=hybrid \
+                       -Ddefault-hierarchy=unified \
                        -Dtty-gid=5 \
                        -Dtests=false \
                        -Dseccomp=false \
@@ -79,7 +79,6 @@ PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
                        -Dhwdb=true \
                        -Drfkill=false \
                        -Dldconfig=false \
-                       -Defi=false \
                        -Dtpm=false \
                        -Dima=false \
                        -Dsmack=false \
@@ -100,8 +99,13 @@ PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
                        -Dmount-path=/usr/bin/mount \
                        -Dumount-path=/usr/bin/umount \
                        -Ddebug-tty=${DEBUG_TTY} \
-                       -Dpkgconfigdatadir=/usr/lib/pkgconfig \
                        -Dversion-tag=${PKG_VERSION}"
+
+if [ "${PROJECT}" = "Generic" ]; then
+  PKG_MESON_OPTS_TARGET+=" -Defi=true"
+else
+  PKG_MESON_OPTS_TARGET+=" -Defi=false"
+fi
 
 pre_configure_target() {
   export TARGET_CFLAGS="${TARGET_CFLAGS} -fno-schedule-insns -fno-schedule-insns2 -Wno-format-truncation"
@@ -141,6 +145,12 @@ post_makeinstall_target() {
   safe_remove ${INSTALL}/usr/lib/systemd/systemd-update-done
   safe_remove ${INSTALL}/usr/lib/systemd/system/systemd-update-done.service
   safe_remove ${INSTALL}/usr/lib/systemd/system/*.target.wants/systemd-update-done.service
+  #
+  safe_remove ${INSTALL}/usr/lib/systemd/system/dev-hugepages.mount
+  safe_remove ${INSTALL}/usr/lib/systemd/system/*.target.wants/dev-hugepages.mount
+  #
+  safe_remove ${INSTALL}/usr/lib/systemd/system/systemd-journald-audit.socket
+  safe_remove ${INSTALL}/usr/lib/systemd/system/*.target.wants/systemd-journald-audit.socket
 
   # adjust systemd-hwdb-update (we have read-only /etc).
   sed '/^ConditionNeedsUpdate=.*$/d' -i ${INSTALL}/usr/lib/systemd/system/systemd-hwdb-update.service
@@ -263,7 +273,7 @@ post_install() {
   add_group systemd-network 193
   add_user systemd-network x 193 193 "systemd-network" "/" "/bin/sh"
 
-  add_group audio 63
+  add_group audio 63 pipewire
   add_group cdrom 11
   add_group dialout 18
   add_group disk 6
@@ -274,7 +284,7 @@ post_install() {
   add_group render 12
   add_group tape 33
   add_group tty 5
-  add_group video 39
+  add_group video 39 pipewire
   add_group utmp 22
   add_group input 199
 

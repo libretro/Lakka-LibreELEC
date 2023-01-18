@@ -2,8 +2,8 @@
 # Copyright (C) 2022-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="gst-plugins-base"
-PKG_VERSION="1.20.1"
-PKG_SHA256="96d8a6413ba9394fbec1217aeef63741a729d476a505a797c1d5337d8fa7c204"
+PKG_VERSION="1.21.3"
+PKG_SHA256="953d507db08d74ab0b4531eed7545a1756c45966237049c06bd7e4e5d5265c6c"
 PKG_LICENSE="GPL-2.1-or-later"
 PKG_SITE="https://gstreamer.freedesktop.org/modules/gst-plugins-base.html"
 PKG_URL="https://gstreamer.freedesktop.org/src/gst-plugins-base/${PKG_NAME}-${PKG_VERSION}.tar.xz"
@@ -31,9 +31,8 @@ pre_configure_target() {
                          -Dsubparse=enabled \
                          -Dtcp=disabled \
                          -Dtypefind=disabled \
-                         -Dvideoconvert=disabled \
+                         -Dvideoconvertscale=disabled \
                          -Dvideorate=disabled \
-                         -Dvideoscale=disabled \
                          -Dvideotestsrc=disabled \
                          -Dvolume=disabled \
                          -Dalsa=disabled \
@@ -47,6 +46,7 @@ pre_configure_target() {
                          -Dvorbis=disabled \
                          -Dx11=disabled \
                          -Dxshm=disabled \
+                         -Dxi=disabled \
                          -Dxvideo=disabled \
                          -Dexamples=disabled \
                          -Dtests=disabled \

@@ -3,36 +3,45 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ffmpeg"
-PKG_LICENSE="LGPLv2.1+"
+PKG_LICENSE="GPL-3.0-only"
 PKG_SITE="https://ffmpeg.org"
-PKG_DEPENDS_TARGET="toolchain zlib bzip2 gnutls speex"
-if [ "${DISTRO}" = "Lakka" ]; then
-  PKG_DEPENDS_TARGET+=" libx264 lame rtmpdump"
-fi
+PKG_DEPENDS_TARGET="toolchain zlib bzip2 openssl speex"
 PKG_LONGDESC="FFmpeg is a complete, cross-platform solution to record, convert and stream audio and video."
-PKG_BUILD_FLAGS="-gold"
+
+PKG_VERSION="4.4.1"
+PKG_SHA256="eadbad9e9ab30b25f5520fbfde99fae4a92a1ae3c0257a8d68569a4651e30e02"
+PKG_URL="http://ffmpeg.org/releases/ffmpeg-${PKG_VERSION}.tar.xz"
+PKG_PATCH_DIRS="kodi libreelec"
 
 case "${PROJECT}" in
   Amlogic)
-    PKG_VERSION="6144fe76840e1d8dfd549ba9c72e2cce01db9638" # dev/4.4/rpi_import_1
-    PKG_SHA256="b014a7ad4a592163c5af47e105e967a26856824b8f603e3e39c80af50975f1e7"
+    PKG_VERSION="f9638b6331277e53ecd9276db5fe6dcd91d44c57"
+    PKG_FFMPEG_BRANCH="dev/4.4/rpi_import_1"
+    PKG_SHA256="3b42cbffd15d95d59e402475fcdb1aaac9ae6a8404a521b95d1fe79c6b2baad4"
     PKG_URL="https://github.com/jc-kynesim/rpi-ffmpeg/archive/${PKG_VERSION}.tar.gz"
-    PKG_PATCH_DIRS="libreelec"
+    PKG_PATCH_DIRS="libreelec dav1d"
     ;;
   RPi)
-    PKG_VERSION="4.4-N-Alpha1"
-    PKG_SHA256="eb396f46ef7c5ac01b67818d0f2c0516fd4ab32aa9065a9ffa71eebede67ff20"
-    PKG_URL="https://github.com/xbmc/FFmpeg/archive/${PKG_VERSION}.tar.gz"
     PKG_FFMPEG_RPI="--disable-mmal --disable-rpi --enable-sand"
-    PKG_PATCH_DIRS="libreelec rpi"
+    PKG_PATCH_DIRS+=" rpi"
     ;;
   *)
-    PKG_VERSION="4.4-N-Alpha1"
-    PKG_SHA256="eb396f46ef7c5ac01b67818d0f2c0516fd4ab32aa9065a9ffa71eebede67ff20"
-    PKG_URL="https://github.com/xbmc/FFmpeg/archive/${PKG_VERSION}.tar.gz"
-    PKG_PATCH_DIRS="libreelec v4l2-request v4l2-drmprime"
+    PKG_PATCH_DIRS+=" v4l2-request v4l2-drmprime"
     ;;
 esac
+
+if [ "${DISTRO}" = "Lakka" ]; then
+  PKG_DEPENDS_TARGET+=" libx264 lame rtmpdump"
+fi
+
+post_unpack() {
+  # Fix FFmpeg version
+  if [ "${PROJECT}" = "Amlogic" ]; then
+    echo "${PKG_FFMPEG_BRANCH}-${PKG_VERSION:0:7}" > ${PKG_BUILD}/VERSION
+  else
+    echo "${PKG_VERSION}" > ${PKG_BUILD}/RELEASE
+  fi
+}
 
 # Dependencies
 get_graphicdrivers
@@ -150,7 +159,7 @@ configure_target() {
                                   --disable-static \
                                   --enable-shared \
                                   --enable-gpl \
-                                  --disable-version3 \
+                                  --enable-version3 \
                                   --enable-logging \
                                   --disable-doc \
                                   ${PKG_FFMPEG_DEBUG} \
@@ -166,7 +175,7 @@ configure_target() {
                                   --disable-devices \
                                   --enable-pthreads \
                                   --enable-network \
-                                  --enable-gnutls --disable-openssl \
+                                  --disable-gnutls --enable-openssl \
                                   --disable-gray \
                                   --enable-swscale-alpha \
                                   --disable-small \

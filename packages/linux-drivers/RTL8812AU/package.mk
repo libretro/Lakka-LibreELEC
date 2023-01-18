@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="RTL8812AU"
-PKG_VERSION="37e27f9165300c89607144b646545fac576ec510"
-PKG_SHA256="749ba2e77d0364381445e40f7f0b7041d861cf9a356dbe53085e3abaef888c1d"
+PKG_VERSION="450db78f7bd23f0c611553eb475fa5b5731d6497"
+PKG_SHA256="8db7fc45ea8744a4fd7c1d16fa9486d7646d955e84ed8fd11d93b2293ab5aeff"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/aircrack-ng/rtl8812au"
 PKG_URL="https://github.com/aircrack-ng/rtl8812au/archive/${PKG_VERSION}.tar.gz"

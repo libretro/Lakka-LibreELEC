@@ -3,12 +3,13 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="kodi"
-PKG_VERSION="6f05bd92a217b3313ae8009a8e668cb84854404b"
-PKG_SHA256="2ed25005f3970d7fd478eb4b12902ed279d0ddc1a5883420536ff3959d45f3b3"
+PKG_VERSION="20.0-Nexus"
+PKG_SHA256="4c75add8b9ea44924b6ee45f94439545676033f35f5993908871e3dded527b79"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
 PKG_URL="https://github.com/xbmc/xbmc/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain JsonSchemaBuilder:host TexturePacker:host Python3 zlib systemd lzo pcre swig:host libass curl fontconfig fribidi tinyxml libjpeg-turbo freetype libcdio taglib libxml2 libxslt rapidjson sqlite ffmpeg crossguid libdvdnav libfmt lirc libfstrcmp flatbuffers:host flatbuffers libudfread spdlog"
+PKG_DEPENDS_HOST="toolchain"
 PKG_LONGDESC="A free and open source cross-platform media player."
 PKG_BUILD_FLAGS="+speed"
 
@@ -17,6 +18,23 @@ configure_package() {
   if [ "${LTO_SUPPORT}" = "yes" ] && ! build_with_debug; then
     PKG_KODI_USE_LTO="-DUSE_LTO=${CONCURRENCY_MAKE_LEVEL}"
   fi
+
+  # Set linker options
+  case $(get_target_linker) in
+    gold)
+      PKG_KODI_LINKER="-DENABLE_GOLD=ON \
+                       -DENABLE_MOLD=OFF"
+      ;;
+    mold)
+      PKG_KODI_LINKER="-DENABLE_GOLD=OFF \
+                       -DENABLE_MOLD=ON \
+                       -DMOLD_EXECUTABLE=${TOOLCHAIN}/${TARGET_NAME}/bin/mold"
+      ;;
+    *)
+      PKG_KODI_LINKER="-DENABLE_GOLD=OFF \
+                       -DENABLE_MOLD=OFF"
+      ;;
+  esac
 
   get_graphicdrivers
 
@@ -32,6 +50,7 @@ configure_package() {
                    -DAPP_RENDER_SYSTEM=gl"
   elif [ "${DISPLAYSERVER}" = "wl" ]; then
     PKG_DEPENDS_TARGET+=" wayland waylandpp"
+    PKG_PATCH_DIRS+=" wayland"
     CFLAGS+=" -DEGL_NO_X11"
     CXXFLAGS+=" -DEGL_NO_X11"
     KODI_PLATFORM="-DCORE_PLATFORM_NAME=wayland \
@@ -48,14 +67,14 @@ configure_package() {
     PKG_DEPENDS_TARGET+=" ${OPENGLES}"
   fi
 
-  if [ "${ALSA_SUPPORT}" = yes ]; then
+  if [ "${KODI_ALSA_SUPPORT}" = yes ]; then
     PKG_DEPENDS_TARGET+=" alsa-lib"
     KODI_ALSA="-DENABLE_ALSA=ON"
   else
     KODI_ALSA="-DENABLE_ALSA=OFF"
  fi
 
-  if [ "${PULSEAUDIO_SUPPORT}" = yes ]; then
+  if [ "${KODI_PULSEAUDIO_SUPPORT}" = yes ]; then
     PKG_DEPENDS_TARGET+=" pulseaudio"
     KODI_PULSEAUDIO="-DENABLE_PULSEAUDIO=ON"
   else
@@ -64,6 +83,17 @@ configure_package() {
 
   if [ "${ESPEAK_SUPPORT}" = yes ]; then
     PKG_DEPENDS_TARGET+=" espeak-ng"
+  fi
+
+  if [ "${KODI_PIPEWIRE_SUPPORT}" = yes ]; then
+    PKG_DEPENDS_TARGET+=" pipewire"
+    KODI_PIPEWIRE="-DENABLE_PIPEWIRE=ON"
+
+    if [ "${KODI_PULSEAUDIO_SUPPORT}" = "yes" -o "${KODI_ALSA_SUPPORT}" = "yes" ]; then
+      die "KODI_PULSEAUDIO_SUPPORT and KODI_ALSA_SUPPORT cannot be used with KODI_PIPEWIRE_SUPPORT"
+    fi
+  else
+    KODI_PIPEWIRE="-DENABLE_PIPEWIRE=OFF"
   fi
 
   if [ "${CEC_SUPPORT}" = yes ]; then
@@ -152,10 +182,14 @@ configure_package() {
     KODI_UPNP="-DENABLE_UPNP=OFF"
   fi
 
-  if target_has_feature neon; then
-    KODI_NEON="-DENABLE_NEON=ON"
+  if [ "${TARGET_ARCH}" = "aarch64" -o "${TARGET_ARCH}" = "arm" ]; then
+    if target_has_feature neon; then
+      KODI_NEON="-DENABLE_NEON=ON"
+    else
+      KODI_NEON="-DENABLE_NEON=OFF"
+    fi
   else
-    KODI_NEON="-DENABLE_NEON=OFF"
+    KODI_NEON=""
   fi
 
   if [ "${VDPAU_SUPPORT}" = "yes" -a "${DISPLAYSERVER}" = "x11" ]; then
@@ -181,7 +215,7 @@ configure_package() {
   if [ ! "${KODIPLAYER_DRIVER}" = "default" -a "${DISPLAYSERVER}" = "no" ]; then
     PKG_DEPENDS_TARGET+=" ${KODIPLAYER_DRIVER} libinput libxkbcommon"
     if [ "${OPENGLES_SUPPORT}" = yes -a "${KODIPLAYER_DRIVER}" = "${OPENGLES}" ]; then
-      KODI_PLAYER="-DCORE_PLATFORM_NAME=gbm -DAPP_RENDER_SYSTEM=gles"
+      KODI_PLATFORM="-DCORE_PLATFORM_NAME=gbm -DAPP_RENDER_SYSTEM=gles"
       CFLAGS+=" -DEGL_NO_X11"
       CXXFLAGS+=" -DEGL_NO_X11"
       if [ "${PROJECT}" = "Generic" ]; then
@@ -190,6 +224,10 @@ configure_package() {
         PKG_APPLIANCE_XML="${PKG_DIR}/config/appliance-gbm.xml"
       fi
     fi
+  fi
+
+  if [ "${PROJECT}" = "Allwinner" -o "${PROJECT}" = "Rockchip" -o "${PROJECT}" = "RPi" ]; then
+    PKG_PATCH_DIRS+=" drmprime-filter"
   fi
 
   KODI_LIBDVD="${KODI_DVDCSS} \
@@ -213,16 +251,17 @@ configure_package() {
                          -DENABLE_UDEV=ON \
                          -DENABLE_DBUS=ON \
                          -DENABLE_XSLT=ON \
-                         -DENABLE_CCACHE=ON \
+                         -DENABLE_CCACHE=OFF \
                          -DENABLE_LIRCCLIENT=ON \
                          -DENABLE_EVENTCLIENTS=ON \
-                         -DENABLE_LDGOLD=ON \
                          -DENABLE_DEBUGFISSION=OFF \
                          -DENABLE_APP_AUTONAME=OFF \
                          -DENABLE_TESTING=OFF \
                          -DENABLE_INTERNAL_FLATBUFFERS=OFF \
                          -DENABLE_LCMS2=OFF \
+                         -DADDONS_CONFIGURE_AT_STARTUP=OFF \
                          ${PKG_KODI_USE_LTO} \
+                         ${PKG_KODI_LINKER} \
                          ${KODI_ARCH} \
                          ${KODI_NEON} \
                          ${KODI_VDPAU} \
@@ -239,7 +278,34 @@ configure_package() {
                          ${KODI_AIRTUNES} \
                          ${KODI_OPTICAL} \
                          ${KODI_BLURAY} \
-                         ${KODI_PLAYER}"
+                         ${KODI_ALSA} \
+                         ${KODI_PULSEAUDIO} \
+                         ${KODI_PIPEWIRE}"
+}
+
+configure_host() {
+  setup_toolchain target:cmake
+  cmake ${CMAKE_GENERATOR_NINJA} \
+        -DCMAKE_TOOLCHAIN_FILE=${CMAKE_CONF} \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
+        -DHEADERS_ONLY=ON \
+        ${KODI_ARCH} \
+        ${KODI_NEON} \
+        ${KODI_PLATFORM} ..
+}
+
+make_host() {
+  :
+}
+
+makeinstall_host() {
+  DESTDIR=${SYSROOT_PREFIX} cmake -DCMAKE_INSTALL_COMPONENT="kodi-addon-dev" -P cmake_install.cmake
+
+  # more binaddons cross compile badness meh
+  sed -e "s:INCLUDE_DIR /usr/include/kodi:INCLUDE_DIR ${SYSROOT_PREFIX}/usr/include/kodi:g" \
+      -e "s:CMAKE_MODULE_PATH /usr/lib/kodi /usr/share/kodi/cmake:CMAKE_MODULE_PATH ${SYSROOT_PREFIX}/usr/share/kodi/cmake:g" \
+      -i ${SYSROOT_PREFIX}/usr/lib/kodi/cmake/KodiConfig.cmake
 }
 
 pre_configure_target() {
@@ -273,7 +339,18 @@ post_makeinstall_target() {
         -e "s|@KODI_MAX_SECONDS@|${KODI_MAX_SECONDS:-900}|g" \
         -i ${INSTALL}/usr/lib/kodi/kodi.sh
 
-    cp ${PKG_DIR}/config/kodi.conf ${INSTALL}/usr/lib/kodi/kodi.conf
+    if [ "${KODI_PIPEWIRE_SUPPORT}" = "yes" ]; then
+      KODI_AE_SINK="PIPEWIRE"
+    elif [ "${KODI_PULSEAUDIO_SUPPORT}" = "yes" -a "${KODI_ALSA_SUPPORT}" = "yes" ]; then
+      KODI_AE_SINK="ALSA+PULSE"
+    elif [ "${KODI_PULSEAUDIO_SUPPORT}" = "yes" -a "${KODI_ALSA_SUPPORT}" != "yes" ]; then
+      KODI_AE_SINK="PULSE"
+    elif [ "${KODI_PULSEAUDIO_SUPPORT}" != "yes" -a "${KODI_ALSA_SUPPORT}" = "yes" ]; then
+      KODI_AE_SINK="ALSA"
+    fi
+
+    # adjust audio output device to what was built
+    sed "s/@KODI_AE_SINK@/${KODI_AE_SINK}/" ${PKG_DIR}/config/kodi.conf.in > ${INSTALL}/usr/lib/kodi/kodi.conf
 
     # set default display environment
     if [ "${DISPLAYSERVER}" = "x11" ]; then
@@ -300,7 +377,6 @@ post_makeinstall_target() {
     cp -R ${PKG_DIR}/config/repository.libreelec.tv ${INSTALL}/usr/share/kodi/addons
     sed -e "s|@ADDON_URL@|${ADDON_URL}|g" -i ${INSTALL}/usr/share/kodi/addons/repository.libreelec.tv/addon.xml
     sed -e "s|@ADDON_VERSION@|${ADDON_VERSION}|g" -i ${INSTALL}/usr/share/kodi/addons/repository.libreelec.tv/addon.xml
-    cp -R ${PKG_DIR}/config/repository.kodi.game ${INSTALL}/usr/share/kodi/addons
 
   mkdir -p ${INSTALL}/usr/share/kodi/config
 
@@ -336,7 +412,6 @@ post_makeinstall_target() {
   ADDON_MANIFEST=${INSTALL}/usr/share/kodi/system/addon-manifest.xml
   xmlstarlet ed -L -d "/addons/addon[text()='service.xbmc.versioncheck']" ${ADDON_MANIFEST}
   xmlstarlet ed -L -d "/addons/addon[text()='skin.estouchy']" ${ADDON_MANIFEST}
-  xmlstarlet ed -L --subnode "/addons" -t elem -n "addon" -v "repository.kodi.game" ${ADDON_MANIFEST}
   xmlstarlet ed -L --subnode "/addons" -t elem -n "addon" -v "repository.libreelec.tv" ${ADDON_MANIFEST}
   if [ -n "${DISTRO_PKG_SETTINGS}" ]; then
     xmlstarlet ed -L --subnode "/addons" -t elem -n "addon" -v "${DISTRO_PKG_SETTINGS_ID}" ${ADDON_MANIFEST}

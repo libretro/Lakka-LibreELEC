@@ -3,11 +3,11 @@
 # Copyright (C) 2020-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="flac"
-PKG_VERSION="1.3.3"
-PKG_SHA256="213e82bd716c9de6db2f98bcadbc4c24c7e2efe8c75939a1a84e28539c4e1748"
+PKG_VERSION="1.4.2"
+PKG_SHA256="e322d58a1f48d23d9dd38f432672865f6f79e73a6f9cc5a5f57fcaa83eb5a8e4"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://xiph.org/flac/"
-PKG_URL="http://downloads.xiph.org/releases/flac/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+PKG_URL="https://downloads.xiph.org/releases/flac/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain libogg"
 PKG_LONGDESC="An Free Lossless Audio Codec."
 PKG_TOOLCHAIN="autotools"

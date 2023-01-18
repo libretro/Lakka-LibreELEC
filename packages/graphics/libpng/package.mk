@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libpng"
-PKG_VERSION="1.6.37"
-PKG_SHA256="505e70834d35383537b6491e7ae8641f1a4bed1876dbfe361201fc80868d88ca"
+PKG_VERSION="1.6.39"
+PKG_SHA256="1f4696ce70b4ee5f85f1e1623dc1229b210029fa4b7aee573df3e2ba7b036937"
 if [ "${DISTRO}" = "Lakka" ]; then
   PKG_VERSION="1.7.0beta89"
   PKG_SHA256="1fad2475a24174f5b4ad237b8b899a2c0583237f108c2288a6e2ac5c3537147a"
@@ -35,6 +36,9 @@ post_makeinstall_target() {
   sed -e "s:\([\"'= ]\)/usr:\\1${SYSROOT_PREFIX}/usr:g" \
       -e "s:libs=\"-lpng16\":libs=\"-lpng16 -lz\":g" \
       -i ${SYSROOT_PREFIX}/usr/bin/libpng*-config
+
+  sed -e 's|^Libs: -L${libdir} -lpng16|Libs: -L${libdir} -lpng16 -lz|g' \
+      -i ${SYSROOT_PREFIX}/usr/lib/pkgconfig/libpng*.pc
 
   rm -rf ${INSTALL}/usr/bin
 }

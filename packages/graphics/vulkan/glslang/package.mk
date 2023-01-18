@@ -3,20 +3,20 @@
 # Copyright (C) 2021-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="glslang"
-# The SPIRV-Tools & SPIRV-Headers have to be specific versions matching the pkg version
+# The SPIRV-Tools & SPIRV-Headers pkg_version/s need to match the compatible (known_good) glslang pkg_version.
 # https://raw.githubusercontent.com/KhronosGroup/glslang/${PKG_VERSION}/known_good.json
-# if you update glslang make sure spirv-tools & spirv-headers versions a known good
-PKG_VERSION="11.9.0"
-PKG_SHA256="d5744adba19eef9ad3d73f524226b39fec559d94cb582cd442e3c5de930004b2"
+# When updating glslang pkg_version please update to the known_good spirv-tools & spirv-headers pkg_version/s.
+PKG_VERSION="11.13.0"
+PKG_SHA256="592c98aeb03b3e81597ddaf83633c4e63068d14b18a766fd11033bad73127162"
 PKG_LICENSE="Apache-2.0"
 PKG_SITE="https://github.com/KhronosGroup/glslang"
 PKG_URL="https://github.com/KhronosGroup/glslang/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_HOST="toolchain:host Python3:host spirv-tools:host spirv-headers:host"
+PKG_DEPENDS_HOST="toolchain:host Python3:host"
+PKG_DEPENDS_TARGET="toolchain Python3"
 PKG_LONGDESC="Khronos-reference front end for GLSL/ESSL, partial front end for HLSL, and a SPIR-V generator."
+PKG_DEPENDS_UNPACK="spirv-headers spirv-tools"
 
-pre_configure_host() {
-  PKG_CMAKE_OPTS_HOST="-DBUILD_SHARED_LIBS=OFF \
-                       -DBUILD_EXTERNAL=ON \
+PKG_CMAKE_OPTS_COMMON="-DBUILD_EXTERNAL=ON \
                        -DENABLE_SPVREMAPPER=OFF \
                        -DENABLE_GLSLANG_JS=OFF \
                        -DENABLE_RTTI=OFF \
@@ -24,10 +24,24 @@ pre_configure_host() {
                        -DENABLE_OPT=ON \
                        -DENABLE_PCH=ON \
                        -DENABLE_CTEST=OFF \
-                       -DENABLE_RTTI=OFF \
+                       -DUSE_CCACHE=ON \
                        -Wno-dev"
 
+post_unpack() {
+  # Enables SPIR-V optimzer capability needed for ENABLE_OPT CMake build option
   mkdir -p ${PKG_BUILD}/External/spirv-tools/external/spirv-headers
     cp -R $(get_build_dir spirv-tools)/* ${PKG_BUILD}/External/spirv-tools
     cp -R $(get_build_dir spirv-headers)/* ${PKG_BUILD}/External/spirv-tools/external/spirv-headers
+}
+
+pre_configure_host() {
+  PKG_CMAKE_OPTS_HOST+="${PKG_CMAKE_OPTS_COMMON} \
+                        -DBUILD_SHARED_LIBS=OFF"
+
+}
+
+pre_configure_target() {
+  PKG_CMAKE_OPTS_TARGET+="${PKG_CMAKE_OPTS_COMMON} \
+                          -DBUILD_SHARED_LIBS=ON \
+                          -DENABLE_GLSLANG_BINARIES=OFF"
 }

@@ -3,11 +3,11 @@
 # Copyright (C) 2021-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="spirv-tools"
-# The SPIRV-Tools have to be specific versions matching the glslang pkg version
-# https://github.com/KhronosGroup/glslang/blob/11.9.0/known_good.json
-# if you update glslang make sure spirv-tools & spirv-headers versions a known good
-PKG_VERSION="eed5c76a57bb965f2e1b56d1dc40b50910b5ec1d"
-PKG_SHA256="9697fcdab26b2622bf81a8d81f9ebc6cab5a5a7ac32b0eb61e51684a5627a4b6"
+# The SPIRV-Tools pkg_version needs to match the compatible (known_good) glslang pkg_version.
+# https://raw.githubusercontent.com/KhronosGroup/glslang/${PKG_VERSION}/known_good.json
+# When updating glslang pkg_version please update to the known_good spirv-tools pkg_version.
+PKG_VERSION="40f5bf59c6acb4754a0bffd3c53a715732883a12"
+PKG_SHA256="b99c91307a4b466754ffeaaaa6086bda55780ccf1557592004a1736fb9aa7ce7"
 PKG_LICENSE="Apache-2.0"
 PKG_SITE="https://github.com/KhronosGroup/SPIRV-Tools"
 PKG_URL="https://github.com/KhronosGroup/SPIRV-Tools/archive/${PKG_VERSION}.tar.gz"

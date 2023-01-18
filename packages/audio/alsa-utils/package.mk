@@ -3,11 +3,11 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="alsa-utils"
-PKG_VERSION="1.2.6"
-PKG_SHA256="6a1efd8a1f1d9d38e489633eaec1fffa5c315663b316cab804be486887e6145d"
+PKG_VERSION="1.2.8"
+PKG_SHA256="e140fa604c351f36bd72167c8860c69d81b964ae6ab53992d6434dde38e9333c"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.alsa-project.org/"
-PKG_URL="ftp://ftp.alsa-project.org/pub/utils/alsa-utils-${PKG_VERSION}.tar.bz2"
+PKG_SITE="https://www.alsa-project.org/"
+PKG_URL="https://www.alsa-project.org/files/pub/utils/alsa-utils-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain alsa-lib ncurses systemd"
 PKG_LONGDESC="This package includes the utilities for ALSA, like alsamixer, aplay, arecord, alsactl, iecset and speaker-test."
 

@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="Mako"
-PKG_VERSION="1.2.0"
-PKG_SHA256="9a7c7e922b87db3686210cf49d5d767033a41d4010b284e747682c92bddd8b39"
+PKG_VERSION="1.2.4"
+PKG_SHA256="d60a3903dc3bb01a18ad6a89cdbe2e4eadc69c0bc8ef1e3773ba53d44c3f7a34"
 PKG_LICENSE="GPL"
 PKG_SITE="https://pypi.org/project/Mako"
 PKG_URL="https://files.pythonhosted.org/packages/source/${PKG_NAME:0:1}/${PKG_NAME}/${PKG_NAME}-${PKG_VERSION}.tar.gz"

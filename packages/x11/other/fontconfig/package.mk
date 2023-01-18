@@ -3,11 +3,11 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="fontconfig"
-PKG_VERSION="2.13.94"
-PKG_SHA256="246d1640a7e54fba697b28e4445f4d9eb63dda1b511d19986249368ee7191882"
+PKG_VERSION="2.14.1"
+PKG_SHA256="ae480e9ca34382790312ff062c625ec70df94d6d9a9366e2b2b3d525f7f90387"
 PKG_LICENSE="OSS"
-PKG_SITE="http://www.fontconfig.org"
-PKG_URL="http://www.freedesktop.org/software/fontconfig/release/${PKG_NAME}-${PKG_VERSION}.tar.gz"
+PKG_SITE="https://www.freedesktop.org/wiki/Software/fontconfig/"
+PKG_URL="https://www.freedesktop.org/software/fontconfig/release/${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain util-linux util-macros freetype libxml2 zlib expat"
 PKG_LONGDESC="Fontconfig is a library for font customization and configuration."
 PKG_TOOLCHAIN="configure"

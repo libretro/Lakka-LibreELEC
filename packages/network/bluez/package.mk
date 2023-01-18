@@ -3,8 +3,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="bluez"
-PKG_VERSION="5.64"
-PKG_SHA256="ae437e65b6b3070c198bc5b0109fe9cdeb9eaa387380e2072f9de65fe8a1de34"
+PKG_VERSION="5.66"
+PKG_SHA256="39fea64b590c9492984a0c27a89fc203e1cdc74866086efb8f4698677ab2b574"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.bluez.org/"
 PKG_URL="https://www.kernel.org/pub/linux/bluetooth/${PKG_NAME}-${PKG_VERSION}.tar.xz"
@@ -23,13 +23,14 @@ BLUEZ_CONFIG+=" --enable-monitor --enable-test"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-dependency-tracking \
                            --disable-silent-rules \
-                           --disable-library \
+                           --enable-library \
                            --enable-udev \
                            --disable-cups \
                            --disable-obex \
                            --enable-client \
                            --enable-systemd \
-                           --enable-tools --enable-deprecated \
+                           --enable-tools \
+                           --enable-deprecated \
                            --enable-datafiles \
                            --disable-manpages \
                            --disable-experimental \

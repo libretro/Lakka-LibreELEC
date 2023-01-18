@@ -3,18 +3,12 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libxshmfence"
-PKG_VERSION="1.3"
-PKG_SHA256="b884300d26a14961a076fbebc762a39831cb75f92bed5ccf9836345b459220c7"
+PKG_VERSION="1.3.2"
+PKG_SHA256="870df257bc40b126d91b5a8f1da6ca8a524555268c50b59c0acd1a27f361606f"
 PKG_LICENSE="OSS"
-PKG_SITE="http://www.X.org"
-PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
+PKG_SITE="https://www.X.org"
+PKG_URL="https://xorg.freedesktop.org/archive/individual/lib/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain util-macros xorgproto"
 PKG_LONGDESC="libxshmfence is the Shared memory 'SyncFence' synchronization primitive."
 PKG_TOOLCHAIN="autotools"
 PKG_BUILD_FLAGS="+pic"
-
-PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"
-
-if [ "${PROJECT}" = "L4T" ]; then
-  PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET/--disable-shared/--enable-shared}"
-fi

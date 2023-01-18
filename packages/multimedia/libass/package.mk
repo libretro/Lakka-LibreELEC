@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libass"
-PKG_VERSION="0.15.0"
-PKG_SHA256="9f09230c9a0aa68ef7aa6a9e2ab709ca957020f842e52c5b2e52b801a7d9e833"
+PKG_VERSION="0.17.0"
+PKG_SHA256="971e2e1db59d440f88516dcd1187108419a370e64863f70687da599fdf66cc1a"
 if [ "${DISTRO}" = "Lakka" ]; then
   PKG_VERSION="0.14.0"
   PKG_SHA256="881f2382af48aead75b7a0e02e65d88c5ebd369fe46bc77d9270a94aa8fd38a2"
@@ -17,6 +17,7 @@ PKG_LONGDESC="A portable subtitle renderer for the ASS/SSA (Advanced Substation 
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-test \
                            --enable-fontconfig \
+                           --disable-libunibreak \
                            --disable-silent-rules \
                            --with-gnu-ld"
 

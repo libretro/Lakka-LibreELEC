@@ -6,6 +6,8 @@
 
 . config/options "${1}"
 
+record_timestamp BUILD_BEGIN
+
 if [ -z "${1}" ]; then
   die "usage: ${0} package_name[:<host|target|init|bootstrap>] [parent_pkg]"
 fi
@@ -206,6 +208,8 @@ BOOTSTRAP_CONFIGURE_OPTS="${HOST_CONFIGURE_OPTS}"
 BOOTSTRAP_CMAKE_OPTS="${HOST_CMAKE_OPTS}"
 BOOTSTRAP_MESON_OPTS="${HOST_MESON_OPTS}"
 
+record_timestamp BUILD_START
+
 # make autoreconf
 if [ "${PKG_TOOLCHAIN}" = "autotools" ]; then
   ${SCRIPTS}/autoreconf "${PKG_NAME}" "${PARENT_PKG}" $(dirname "${PKG_CONFIGURE_SCRIPT}")
@@ -234,6 +238,23 @@ if [ -f "${PKG_CONFIGURE_SCRIPT}" -o -f "${PKG_CMAKE_SCRIPT}" -o -f "${PKG_MESON
   MESON_CONF="${PKG_REAL_BUILD}/meson.conf"
 fi
 
+# create wrapper scripts in build dir and use them for CC/CXX when
+# building for host and local-cc build flag is set
+if [ "${TARGET}" = "host" ] && flag_enabled "local-cc" "no"; then
+  cat > libreelec-local-cc << EOF
+#!/bin/sh
+exec ${CC} "\$@"
+EOF
+  chmod +x libreelec-local-cc
+  export CC=$(pwd)/libreelec-local-cc
+  cat > libreelec-local-cxx << EOF
+#!/bin/sh
+exec ${CXX} "\$@"
+EOF
+  chmod +x libreelec-local-cxx
+  export CXX=$(pwd)/libreelec-local-cxx
+fi
+
 # configure
 if [ -n "${PKG_DEPENDS_CONFIG}" -a -n "${PKG_INSTALL}" ]; then
   for pkg in ${PKG_DEPENDS_CONFIG}; do
@@ -249,6 +270,8 @@ if [ -n "${PKG_DEPENDS_CONFIG}" -a -n "${PKG_INSTALL}" ]; then
   export PKG_CONFIG_PATH
 fi
 
+record_timestamp BUILD_CONFIGURE
+
 pkg_call_exists_opt pre_configure && pkg_call
 pkg_call_exists_opt pre_configure_${TARGET} && pkg_call
 
@@ -259,23 +282,23 @@ else
     # meson builds
     "meson:target")
       create_meson_conf_target ${TARGET} ${MESON_CONF}
-      echo "Executing (target): meson ${TARGET_MESON_OPTS} --cross-file=${MESON_CONF} ${PKG_MESON_OPTS_TARGET} ${PKG_MESON_SCRIPT%/*}" | tr -s " "
-      CC="${HOST_CC}" CXX="${HOST_CXX}" meson ${TARGET_MESON_OPTS} --cross-file=${MESON_CONF} ${PKG_MESON_OPTS_TARGET} ${PKG_MESON_SCRIPT%/*}
+      echo "Executing (target): meson setup ${TARGET_MESON_OPTS} --cross-file=${MESON_CONF} ${PKG_MESON_OPTS_TARGET} ${PKG_MESON_SCRIPT%/*}" | tr -s " "
+      CC="${HOST_CC}" CXX="${HOST_CXX}" meson setup ${TARGET_MESON_OPTS} --cross-file=${MESON_CONF} ${PKG_MESON_OPTS_TARGET} ${PKG_MESON_SCRIPT%/*}
       ;;
     "meson:host")
       create_meson_conf_host ${TARGET} ${MESON_CONF}
-      echo "Executing (host): meson ${HOST_MESON_OPTS} --native-file=${MESON_CONF} ${PKG_MESON_OPTS_HOST} ${PKG_MESON_SCRIPT%/*}" | tr -s " "
-      meson ${HOST_MESON_OPTS} --native-file=${MESON_CONF} ${PKG_MESON_OPTS_HOST} ${PKG_MESON_SCRIPT%/*}
+      echo "Executing (host): meson setup ${HOST_MESON_OPTS} --native-file=${MESON_CONF} ${PKG_MESON_OPTS_HOST} ${PKG_MESON_SCRIPT%/*}" | tr -s " "
+      meson setup ${HOST_MESON_OPTS} --native-file=${MESON_CONF} ${PKG_MESON_OPTS_HOST} ${PKG_MESON_SCRIPT%/*}
       ;;
     "meson:init")
       create_meson_conf_target ${TARGET} ${MESON_CONF}
-      echo "Executing (init): meson ${INIT_MESON_OPTS} --cross-file=${MESON_CONF} ${PKG_MESON_OPTS_INIT} ${PKG_MESON_SCRIPT%/*}" | tr -s " "
-      meson ${INIT_MESON_OPTS} --cross-file=${MESON_CONF} ${PKG_MESON_OPTS_INIT} ${PKG_MESON_SCRIPT%/*}
+      echo "Executing (init): meson setup ${INIT_MESON_OPTS} --cross-file=${MESON_CONF} ${PKG_MESON_OPTS_INIT} ${PKG_MESON_SCRIPT%/*}" | tr -s " "
+      meson setup ${INIT_MESON_OPTS} --cross-file=${MESON_CONF} ${PKG_MESON_OPTS_INIT} ${PKG_MESON_SCRIPT%/*}
       ;;
     "meson:bootstrap")
       create_meson_conf_host ${TARGET} ${MESON_CONF}
-      echo "Executing (bootstrap): meson ${BOOTSTRAP_MESON_OPTS} ----native-file=${MESON_CONF} ${PKG_MESON_OPTS_BOOTSTRAP} ${PKG_MESON_SCRIPT%/*}" | tr -s " "
-      meson ${BOOTSTRAP_MESON_OPTS} --native-file=${MESON_CONF} ${PKG_MESON_OPTS_BOOTSTRAP} ${PKG_MESON_SCRIPT%/*}
+      echo "Executing (bootstrap): meson setup ${BOOTSTRAP_MESON_OPTS} ----native-file=${MESON_CONF} ${PKG_MESON_OPTS_BOOTSTRAP} ${PKG_MESON_SCRIPT%/*}" | tr -s " "
+      meson setup ${BOOTSTRAP_MESON_OPTS} --native-file=${MESON_CONF} ${PKG_MESON_OPTS_BOOTSTRAP} ${PKG_MESON_SCRIPT%/*}
       ;;
 
     # cmake builds with ninja
@@ -336,6 +359,8 @@ fi
 
 pkg_call_exists_opt post_configure_${TARGET} && pkg_call
 
+record_timestamp BUILD_MAKE
+
 # make
 pkg_call_exists_opt pre_make_${TARGET} && pkg_call
 
@@ -395,6 +420,8 @@ for d in /usr/lib /usr/include /usr/bin /usr/lib/pkgconfig; do
   mkdir -p "${SYSROOT_PREFIX}${d}"
 done
 
+record_timestamp BUILD_MAKEINSTALL
+
 # make install
 pkg_call_exists_opt pre_makeinstall_${TARGET} && pkg_call
 
@@ -440,6 +467,8 @@ fi
 
 pkg_call_exists_opt post_makeinstall_${TARGET} && pkg_call
 
+record_timestamp BUILD_COPY_SYSROOT
+
 # Fixup temporary sysroot references to the shared sysroot
 for i in $(find "${SYSROOT_PREFIX}/usr/lib" -type f -name "*.la" 2>/dev/null); do
   sed -e "s:\(['= ]\)/usr:\\1${PKG_ORIG_SYSROOT_PREFIX}/usr:g" -i "${i}"
@@ -472,6 +501,8 @@ release_update_lock
 rm -rf "${SYSROOT_PREFIX}"
 
 export SYSROOT_PREFIX="${PKG_ORIG_SYSROOT_PREFIX}"
+
+record_timestamp BUILD_CLEANUP_INSTALL
 
 if [ "${TARGET}" = "target" -o "${TARGET}" = "init" ]; then
   if [ -d ${INSTALL} ]; then
@@ -522,3 +553,22 @@ for i in PKG_NAME PKG_DEEPHASH BUILD_WITH_DEBUG; do
 done
 
 pkg_lock_status "UNLOCK" "${PKG_NAME}:${TARGET}" "build" "built"
+
+record_timestamp BUILD_END
+
+if [ -n "${TRACE_BUILD_TIMING}" ]; then
+  (
+    print_color "CLR_AUTOREMOVE" "\nBuild timing details:"
+    print_color "CLR_TARGET" "\n================================\n"  
+    show_timestamp_diff "unpack" BUILD_BEGIN BUILD_START
+    show_timestamp_diff "pre-build setup" BUILD_START BUILD_CONFIGURE
+    show_timestamp_diff "configure" BUILD_CONFIGURE BUILD_MAKE
+    show_timestamp_diff "make" BUILD_MAKE BUILD_MAKEINSTALL
+    show_timestamp_diff "make install" BUILD_MAKEINSTALL BUILD_COPY_SYSROOT
+    show_timestamp_diff "copy sysroot" BUILD_COPY_SYSROOT BUILD_CLEANUP_INSTALL
+    show_timestamp_diff "cleanup install" BUILD_CLEANUP_INSTALL BUILD_END
+    print_color "CLR_TARGET" "--------------------------------\n"  
+    show_timestamp_diff "total time" BUILD_BEGIN BUILD_END
+    echo -e
+  ) >&${VERBOSE_OUT}
+fi

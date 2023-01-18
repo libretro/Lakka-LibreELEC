@@ -2,8 +2,8 @@
 # Copyright (C) 2020-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="dbussy"
-PKG_VERSION="60d3c155d07ce11bdf89a201ae0026525ac65aca"   # 2022-01-28
-PKG_SHA256="0e9fd148e2d85404edb801d65236c78c1029edc413cdd40fdd31e4edc2c5647b"
+PKG_VERSION="691a8a8a1914416b7ea1545fb931d74f2e381f09"
+PKG_SHA256="857104ef2fd1978323d7c87b32c753d2d178b79adbd13f52cea23511f5195ded"
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://gitlab.com/ldo/dbussy"
 PKG_URL="https://github.com/ldo/${PKG_NAME}/archive/${PKG_VERSION}.tar.gz"

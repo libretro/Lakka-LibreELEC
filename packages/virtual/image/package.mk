@@ -17,6 +17,14 @@ PKG_LONGDESC="Root package used to build and create complete image"
 # Sound support
 [ "${ALSA_SUPPORT}" = "yes" ] && PKG_DEPENDS_TARGET+=" alsa"
 
+[ "${PULSEAUDIO_SUPPORT}" = "yes" ] && PKG_DEPENDS_TARGET+=" pulseaudio"
+
+[ "${PIPEWIRE_SUPPORT}" = "yes" ] && PKG_DEPENDS_TARGET+=" pipewire wireplumber"
+
+if [ "${PULSEAUDIO_SUPPORT}" = "yes" -a "${PIPEWIRE_SUPPORT}" = "yes" ]; then
+  die "PULSEAUDIO_SUPPORT and PIPEWIRE_SUPPORT cannot be enabled together"
+fi
+
 # Automounter support
 [ "${UDEVIL}" = "yes" ] && PKG_DEPENDS_TARGET+=" udevil"
 

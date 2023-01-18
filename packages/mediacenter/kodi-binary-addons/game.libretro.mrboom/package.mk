@@ -4,7 +4,7 @@
 PKG_NAME="game.libretro.mrboom"
 PKG_VERSION="5.2.0.136-Matrix"
 PKG_SHA256="4c4a6ce21155754ebc3a6fc0d47d2430fdedf964b94e5f6aa80472ca6c5e8c2e"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.mrboom"
