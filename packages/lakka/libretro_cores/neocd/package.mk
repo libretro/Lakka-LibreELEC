@@ -1,5 +1,5 @@
 PKG_NAME="neocd"
-PKG_VERSION="327aeceecdf71c8a0c0af3d6dc53686c94fe44ad"
+PKG_VERSION="de42c4f280455f33f01a6581ec7c5e39464c6cfa"
 PKG_LICENSE="LGPLv3"
 PKG_SITE="https://github.com/libretro/neocd_libretro"
 PKG_URL="${PKG_SITE}.git"

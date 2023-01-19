@@ -1,5 +1,5 @@
 PKG_NAME="retroarch"
-PKG_VERSION="9b282aa742b6c3d2f2925ae5a12e2cd7c6b6ad38"
+PKG_VERSION="ad89b0c655fc1d25adfcdf40268e95c5d0391111"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
 PKG_URL="${PKG_SITE}.git"
@@ -30,10 +30,10 @@ PKG_MAKE_OPTS_TARGET="V=1 \
 if [ "${OPENGLES_SUPPORT}" = yes ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles"
-  if [[ ${DEVICE} =~ ^RPi4.* ]] || [ ${DEVICE} = "RK3288" ] || [ "${DEVICE}" = "RK3399" ] || [ "${DEVICE}" = "Generic" ]; then
+  if [ ${DEVICE:0:4} = "RPi4" ] || [ ${DEVICE} = "RK3288" ] || [ "${DEVICE}" = "RK3399" ] || [ "${PROJECT}" = "Generic" ]; then
     PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles3 \
                                  --enable-opengles3_1"
-    if [ "${DEVICE}" = "Generic" ]; then
+    if [ "${PROJECT}" = "Generic" ]; then
       PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles3_2"
     fi
   fi

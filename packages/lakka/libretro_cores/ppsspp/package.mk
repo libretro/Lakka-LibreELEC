@@ -1,9 +1,9 @@
 PKG_NAME="ppsspp"
-PKG_VERSION="ce0a45cf0fcdd5bebf32208b9998f68dfc1107b7"
+PKG_VERSION="cd535263c1ad65fd03869591a8bd706680cbf04b"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/hrydgard/ppsspp"
 PKG_URL="${PKG_SITE}.git"
-PKG_DEPENDS_TARGET="toolchain libzip libpng"
+PKG_DEPENDS_TARGET="toolchain linux glibc libzip libpng zstd zlib ffmpeg bzip2 openssl speex"
 PKG_LONGDESC="Libretro port of PPSSPP"
 PKG_TOOLCHAIN="cmake"
 PKG_LR_UPDATE_TAG="yes"
@@ -11,7 +11,10 @@ PKG_LR_UPDATE_TAG="yes"
 PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON \
                        -DCMAKE_BUILD_TYPE=Release \
                        -DUSE_FFMPEG=ON \
-                       -DUSE_SYSTEM_FFMPEG=OFF \
+                       -DUSE_SYSTEM_FFMPEG=ON \
+                       -DUSE_SYSTEM_LIBZIP=ON \
+                       -DUSE_SYSTEM_LIBPNG=ON \
+                       -DUSE_SYSTEM_ZSTD=ON \
                        -DUSE_DISCORD=OFF \
                        -DUSE_MINIUPNPC=OFF"
 

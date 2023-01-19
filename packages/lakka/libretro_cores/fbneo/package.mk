@@ -1,5 +1,5 @@
 PKG_NAME="fbneo"
-PKG_VERSION="01bf2e189dcd96f978c3a4ae7bbbb00f2d90aabf"
+PKG_VERSION="5ef7398d8637a03786e76e39642ddf896b68641c"
 PKG_LICENSE="Non-commercial"
 PKG_SITE="https://github.com/libretro/fbneo"
 PKG_URL="${PKG_SITE}.git"
@@ -29,7 +29,7 @@ makeinstall_target() {
     cp -v src/burner/libretro/fbneo_libretro.so ${INSTALL}/usr/lib/libretro/
 
   mkdir -p ${INSTALL}/usr/share/libretro-database/fbneo
-    cp -v dats/* ${INSTALL}/usr/share/libretro-database/fbneo
+    cp -vr dats/* ${INSTALL}/usr/share/libretro-database/fbneo
 
   mkdir -p ${INSTALL}/usr/share/retroarch-system/fbneo
     cp metadata/hiscore.dat ${INSTALL}/usr/share/retroarch-system/fbneo

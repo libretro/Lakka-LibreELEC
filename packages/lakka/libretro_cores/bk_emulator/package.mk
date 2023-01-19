@@ -1,5 +1,5 @@
 PKG_NAME="bk_emulator"
-PKG_VERSION="30c605acaae958f2c6caf15de1fc5bfac49808b6"
+PKG_VERSION="cf70ce503ddb65051a58f3c4f61d1e258fc4c84b"
 PKG_LICENSE="Opensource"
 PKG_SITE="https://github.com/libretro/bk-emulator"
 PKG_URL="${PKG_SITE}.git"

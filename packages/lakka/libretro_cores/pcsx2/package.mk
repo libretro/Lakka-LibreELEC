@@ -1,11 +1,11 @@
 PKG_NAME="pcsx2"
-PKG_VERSION="0251730a21d7238856d79aa25e2942b48edb38f6"
+PKG_VERSION="8f3a4fc133bbb1408d387ee062a571e8c68e1bbc"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/libretro/pcsx2"
+PKG_SITE="https://github.com/libretro/LRPS2"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="libaio toolchain xz"
-PKG_LONGDESC="PCSX2 is a free and open-source PlayStation 2 (PS2) emulator"
+PKG_LONGDESC="LRPS2 is fork/port of PCSX2, a free and open-source PlayStation 2 (PS2) emulator"
 PKG_TOOLCHAIN="cmake"
 
 PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON \
@@ -14,6 +14,10 @@ PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON \
 
 if [ "${OPENGL_SUPPORT}" = yes ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL}"
+fi
+
+if [ "${OPENGLES_SUPPORT}" = yes ]; then
+  PKG_DEPENDS_TARGET+=" ${OPENGLES}"
 fi
 
 pre_make_target() {
