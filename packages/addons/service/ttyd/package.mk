@@ -4,7 +4,7 @@
 PKG_NAME="ttyd"
 PKG_VERSION="1.7.2"
 PKG_SHA256="edc44cd5319c0c9d0858081496cae36fc5c54ee7722e0a547dde39537dfb63de"
-PKG_REV="1"
+PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/tsl0922/ttyd"
