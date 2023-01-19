@@ -44,10 +44,6 @@ UTILLINUX_CONFIG_DEFAULT="--disable-gtk-doc \
                           --without-python \
                           --without-systemdsystemunitdir"
 
-if [ "${DEVICE}" = "Switch" ]; then
-  UTILLINUX_CONFIG_DEFAULT=${UTILLINUX_CONFIG_DEFAULT/--disable-all-programs/}
-fi
-
 PKG_CONFIGURE_OPTS_TARGET="${UTILLINUX_CONFIG_DEFAULT} \
                            --disable-all-programs \
                            --enable-libuuid \
@@ -60,6 +56,10 @@ PKG_CONFIGURE_OPTS_TARGET="${UTILLINUX_CONFIG_DEFAULT} \
                            --enable-blkid \
                            --enable-lscpu \
                            --enable-lsfd"
+
+if [ "${DEVICE}" = "Switch" ]; then
+  PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET/--disable-all-programs/}"
+fi
 
 if [ "${SWAP_SUPPORT}" = "yes" ]; then
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-swapon"
