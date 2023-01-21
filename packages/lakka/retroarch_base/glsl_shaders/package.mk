@@ -7,5 +7,5 @@ PKG_LONGDESC="Common GSLS shaders for RetroArch"
 PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
-  make -C ${PKG_BUILD} install INSTALLDIR="${INSTALL}/usr/share/common-shaders"
+  make -C ${PKG_BUILD} install INSTALLDIR="${INSTALL}/usr/share/retroarch/shaders/GLSL-Shaders"
 }
