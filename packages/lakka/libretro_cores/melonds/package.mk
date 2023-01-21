@@ -31,6 +31,8 @@ if [ "${ARCH}" = "aarch64" ]; then
   PKG_MAKE_OPTS_TARGET+=" ARCH=arm64"
   if [ "${PROJECT}" = "L4T" -a "${L4T_DEVICE_TYPE}" = "t210" ]; then
     PKG_MAKE_OPTS_TARGET+=" platform=tegra210"
+  elif [ "${DEVICE:0:4}" = "RPi4" ]; then
+    PKG_MAKE_OPTS_TARGET+=" platform=rpi4_64 HAVE_OPENGL=0"
   else
     PKG_MAKE_OPTS_TARGET+=" platform=unix"
   fi
