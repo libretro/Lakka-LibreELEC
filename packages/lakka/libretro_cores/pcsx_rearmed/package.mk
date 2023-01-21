@@ -3,10 +3,8 @@ PKG_VERSION="aced3eb3fcaa0fe13c44c4dd196cdab42555fd98"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/pcsx_rearmed"
 PKG_URL="${PKG_SITE}.git"
-GET_SKIP_SUBMODULE="yes"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="ARM optimized PCSX fork"
-#PKG_BUILD_FLAGS="-gold"
 PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="-f Makefile.libretro -C ../"
@@ -26,9 +24,9 @@ fi
 if [ "${ARCH}" = "arm" ]; then
   PKG_MAKE_OPTS_TARGET+=" DYNAREC=ari64"
   if target_has_feature neon ; then
-    PKG_MAKE_OPTS_TARGET+=" HAVE_NEON=1 BUILTIN_GPU=neon"
+    PKG_MAKE_OPTS_TARGET+=" HAVE_NEON_ASM=1 BUILTIN_GPU=neon"
   else
-    PKG_MAKE_OPTS_TARGET+=" HAVE_NEON=0 BUILTIN_GPU=unai"
+    PKG_MAKE_OPTS_TARGET+=" HAVE_NEON_ASM=0 BUILTIN_GPU=unai"
   fi
   if [ "${DEVICE}" = "OdroidGoAdvance" ]; then
     sed -e "s|armv8-a|armv8-a+crc|" \
