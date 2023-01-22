@@ -234,6 +234,8 @@ post_makeinstall_target() {
   ln -sf /usr/bin/systemctl ${INSTALL}/usr/sbin/shutdown
   ln -sf /usr/bin/systemctl ${INSTALL}/usr/sbin/telinit
 
+  chmod u+s ${INSTALL}/usr/bin/systemctl
+
   # strip
   debug_strip ${INSTALL}/usr
 
