@@ -5,7 +5,7 @@
 PKG_NAME="proftpd"
 PKG_VERSION="1.3.8"
 PKG_SHA256="f7139e7377a2cb059b8b9b14d76a6df5f440e3181cb15ae890d43bbcae574748"
-PKG_REV="1"
+PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.proftpd.org/"
