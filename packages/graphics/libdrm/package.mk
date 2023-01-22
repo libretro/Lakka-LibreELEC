@@ -23,8 +23,7 @@ PKG_MESON_OPTS_TARGET="-Dnouveau=disabled \
                        -Dfreedreno-kgsl=false \
                        -Dinstall-test-programs=true \
                        -Dudev=false"
-listcontains "${GRAPHIC_DRIVERS}" "nouveau" &&
-  PKG_MESON_OPTS_TARGET=${PKG_MESON_OPTS_TARGET/-Dnouveau=disabled/-Dnouveau=enabled}
+
 listcontains "${GRAPHIC_DRIVERS}" "(crocus|i915|iris)" &&
   PKG_MESON_OPTS_TARGET+=" -Dintel=enabled" || PKG_MESON_OPTS_TARGET+=" -Dintel=disabled"
 
@@ -45,10 +44,6 @@ listcontains "${GRAPHIC_DRIVERS}" "freedreno" &&
 
 listcontains "${GRAPHIC_DRIVERS}" "etnaviv" &&
   PKG_MESON_OPTS_TARGET+=" -Detnaviv=enabled" || PKG_MESON_OPTS_TARGET+=" -Detnaviv=disabled"
-
-
-listcontains "${GRAPHIC_DRIVERS}" "freedreno" &&
-  PKG_MESON_OPTS_TARGET+=" -Dfreedreno=true" || PKG_MESON_OPTS_TARGET+=" -Dfreedreno=false"
 
 if [ "${DISTRO}" = "Lakka" ]; then
   listcontains "${GRAPHIC_DRIVERS}" "nouveau" &&
