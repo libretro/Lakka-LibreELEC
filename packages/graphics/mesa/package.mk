@@ -40,6 +40,10 @@ if [ "${DISPLAYSERVER}" = "x11" ]; then
   if [ "${DEVICE}" = "Odin" ]; then
      PKG_MESON_OPTS_TARGET+=" -Dglx-direct=true"
   fi
+  if [ "${PROJECT}" = "L4T" ]; then
+    PKG_DEPENDS_TARGET+=" libglvnd"
+    PKG_MESON_OPTS_TARGET+=" -Dglvnd=true"
+  fi
 elif [ "${DISPLAYSERVER}" = "wl" ]; then
   PKG_DEPENDS_TARGET+=" wayland wayland-protocols"
   PKG_MESON_OPTS_TARGET+=" -Dplatforms=wayland \
@@ -58,7 +62,9 @@ if listcontains "${GRAPHIC_DRIVERS}" "(nvidia|nvidia-ng)"; then
   PKG_DEPENDS_TARGET+=" libglvnd"
   PKG_MESON_OPTS_TARGET+=" -Dglvnd=true"
 else
-  PKG_MESON_OPTS_TARGET+=" -Dglvnd=false"
+  if [ ! "${DISTRO}" = "Lakka" -a ! "${PROJECT}" = "L4T" ]; then
+    PKG_MESON_OPTS_TARGET+=" -Dglvnd=false"
+  fi
 fi
 
 if [ "${LLVM_SUPPORT}" = "yes" ]; then
