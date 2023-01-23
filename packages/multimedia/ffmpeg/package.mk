@@ -28,12 +28,6 @@ case "${PROJECT}" in
     PKG_FFMPEG_RPI="--disable-mmal --disable-rpi --enable-sand"
     PKG_PATCH_DIRS+=" rpi"
     ;;
-  L4T)
-    PKG_DEPENDS_TARGET+=" tegra-bsp:host"
-    PKG_PATCH_DIRS+=" v4l2-request v4l2-drmprime L4T"
-    PKG_FFMPEG_NVV4L2="--enable-nvv4l2"
-    EXTRA_CFLAGS="-I${SYSROOT_PREFIX}/usr/src/jetson_multimedia_api/include"
-    ;;
   *)
     PKG_PATCH_DIRS+=" v4l2-request v4l2-drmprime"
     ;;
