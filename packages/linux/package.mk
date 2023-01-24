@@ -204,23 +204,15 @@ pre_make_target() {
                                 --enable CONFIG_PARPORT_NOT_PC
   fi
 
-  # enable Ethernet for Intel NUC11
-  if [ "${DISTRO}" = "Lakka" -a "${PROJECT}" = "Generic" ]; then
-    ${PKG_BUILD}/scripts/config --enable CONFIG_IGC
-  fi
-
   # enable Ventoy support
   if [ "${DISTRO}" = "Lakka" -a "${PROJECT}" = "Generic" ]; then
-    ${PKG_BUILD}/scripts/config --enable CONFIG_MD \
-                                --enable CONFIG_BLK_DEV_DM_BUILTIN \
+    ${PKG_BUILD}/scripts/config \
                                 --enable CONFIG_BLK_DEV_DM
   fi
 
-  # enable Joycon and Dualsense on default and raspberrypi kernels for Lakka
+  # enable Dualsense on default and raspberrypi kernels for Lakka
   if [ "${DISTRO}" = "Lakka" ] && [ "${LINUX}" = "default" -o "${LINUX}" = "raspberrypi" ]; then
     ${PKG_BUILD}/scripts/config \
-                                --enable CONFIG_HID_NINTENDO \
-                                --enable CONFIG_NINTENDO_FF \
                                 --enable CONFIG_HID_PLAYSTATION \
                                 --enable CONFIG_PLAYSTATION_FF
   fi
