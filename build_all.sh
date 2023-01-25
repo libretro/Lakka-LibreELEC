@@ -275,10 +275,10 @@ do
 		# record the failed build
 		failed_jobs+=1
 		failed_packages=""
-		list=$(cat ${statusfile} | grep "FAILED" | cut -d' ' -f 5)
+		list=$(cat ${statusfile} | grep "FAILED" | cut -d' ' -f 5-)
 		for pkg in ${list}
 		do
-			failed_packages+="${pkg} "
+			failed_packages+="${pkg##*( )} "
 		done
 		failed_targets+="${target_name} - ${failed_packages}\n"
 	elif [ ${count} -gt 0 ]
