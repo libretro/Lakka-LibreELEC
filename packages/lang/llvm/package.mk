@@ -59,7 +59,7 @@ pre_configure_host() {
     "aarch64")
       LLVM_BUILD_TARGETS="X86\;AArch64"
       ;;
-    "x86_64")
+    "x86_64" | "i386")
       LLVM_BUILD_TARGETS="X86\;AMDGPU"
       ;;
   esac
