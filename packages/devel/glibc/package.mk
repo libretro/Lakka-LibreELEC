@@ -36,6 +36,8 @@ PKG_CONFIGURE_OPTS_TARGET="BASH_SHELL=/bin/sh \
 
 if [ "${PROJECT}" = "L4T" ]; then
   PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET//--enable-kernel=6.1.0/--enable-kernel=3.0.0/}"
+elif [ "${PROJECT}" = "Ayn" ]; then
+  PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET//--enable-kernel=6.1.0/--enable-kernel=5.19.0/}"
 fi
 
 if build_with_debug; then
