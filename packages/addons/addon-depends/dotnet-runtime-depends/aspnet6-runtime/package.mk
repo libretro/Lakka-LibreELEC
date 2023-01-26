@@ -11,16 +11,16 @@ PKG_TOOLCHAIN="manual"
 
 case "${ARCH}" in
   "aarch64")
-    PKG_SHA256="0090d031615b7d49855186cff7e4cbc99636ba664880780f84ce0d5ce25e4b0b"
-    PKG_URL="https://download.visualstudio.microsoft.com/download/pr/8072e219-57e4-48c3-b138-2b4067844ab2/b0712ad06fd0740963bf4ba2eff7f5ea/aspnetcore-runtime-6.0.12-linux-arm64.tar.gz"
+    PKG_SHA256="d91c9786560d092a549073cedbe8adfe00a39abc18ae7b0e5c78f37899e0421b"
+    PKG_URL="https://download.visualstudio.microsoft.com/download/pr/b675e6e9-652b-42a6-a9eb-2813b90b41e0/88ba0bd190041c1db8a681bef7376ab7/aspnetcore-runtime-6.0.13-linux-arm64.tar.gz"
     ;;
   "arm")
-    PKG_SHA256="2131903c85087017ec680e44676c4eb46e7bd0a12f0683c2a7790ec75b243d75"
-    PKG_URL="https://download.visualstudio.microsoft.com/download/pr/57b2bdaf-8455-4b1a-b25b-5950c950bd38/471d6de036e6f367f3a4aae5252d885a/aspnetcore-runtime-6.0.12-linux-arm.tar.gz"
+    PKG_SHA256="b1bb76eb6f65ded5cb81bb2919c194bf2ce0e6c9d1b34535193bd232585d7a13"
+    PKG_URL="https://download.visualstudio.microsoft.com/download/pr/8685fc94-b18a-4012-bda7-9ecc28e9d4a8/569d9a735ae79b4ce67393dfd96c3d90/aspnetcore-runtime-6.0.13-linux-arm.tar.gz"
     ;;
   "x86_64")
-    PKG_SHA256="dd60c551d63eb66cd9bdc7ef223c00f49341e67f8ddda2e4ab412c3ee8997765"
-    PKG_URL="https://download.visualstudio.microsoft.com/download/pr/4ba0f30d-0a77-4997-8d8d-1b113d60253b/5caeeb07572b0b6a26f2a82f7a4eb31d/aspnetcore-runtime-6.0.12-linux-x64.tar.gz"
+    PKG_SHA256="65fae434b8aeb03a3853e7d71ffaf763de2a05738bc606f04be2992eba8c26f3"
+    PKG_URL="https://download.visualstudio.microsoft.com/download/pr/a2234b85-9050-4f90-9fc1-695a428167ee/8d5c3cf8f557e14c7c43965b7cef9c41/aspnetcore-runtime-6.0.13-linux-x64.tar.gz"
     ;;
 esac
 PKG_SOURCE_NAME="aspnetcore-runtime_${PKG_VERSION}_${ARCH}.tar.gz"
