@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.dinothawr"
-PKG_VERSION="1.0.0.26-Matrix"
-PKG_SHA256="9c2d0222e146be6fe5425db337bdc389025cbb6b65fbf5e3b80738712f7e72d3"
-PKG_REV="2"
+PKG_VERSION="1.0.0.30-Matrix"
+PKG_SHA256="07bfedbf128f8e0e17d93edf8516dc81dcc2f59f718724360f606baaee774fa9"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.dinothawr"
