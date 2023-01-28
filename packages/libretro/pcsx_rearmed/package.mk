@@ -19,18 +19,16 @@
 ################################################################################
 
 PKG_NAME="pcsx_rearmed"
-PKG_VERSION="0739265"
+PKG_VERSION="aced3eb"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/pcsx_rearmed"
-PKG_GIT_SKIP_SUBMODULE="yes"
 PKG_URL="$PKG_SITE.git"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="ARM optimized PCSX fork"
 PKG_LONGDESC="PCSX ReARMed is yet another PCSX fork based on the PCSX-Reloaded project, which itself contains code from PCSX, PCSX-df and PCSX-Revolution."
-PKG_BUILD_FLAGS="-gold"
 PKG_TOOLCHAIN="make"
 
 PKG_IS_ADDON="no"
@@ -55,12 +53,12 @@ make_target() {
   elif [[ "$TARGET_FPU" =~ "neon" ]]; then
     if [ "$DEVICE" = "OdroidGoAdvance" ]; then
       sed -i "s|armv8-a|armv8-a+crc|" Makefile.libretro
-      make -f Makefile.libretro HAVE_NEON=1 DYNAREC=ari64 ARCH=arm BUILTIN_GPU=neon platform=classic_armv8_a35
+      make -f Makefile.libretro HAVE_NEON_ASM=1 DYNAREC=ari64 ARCH=arm BUILTIN_GPU=neon platform=classic_armv8_a35
     else
-      make -f Makefile.libretro HAVE_NEON=1 DYNAREC=ari64 ARCH=arm BUILTIN_GPU=neon
+      make -f Makefile.libretro HAVE_NEON_ASM=1 DYNAREC=ari64 ARCH=arm BUILTIN_GPU=neon
     fi
   elif [ "$ARCH" = "arm" ]; then
-    make -f Makefile.libretro HAVE_NEON=0 DYNAREC=ari64 ARCH=arm BUILTIN_GPU=unai
+    make -f Makefile.libretro HAVE_NEON_ASM=0 DYNAREC=ari64 ARCH=arm BUILTIN_GPU=unai
   else
     make -f Makefile.libretro DYNAREC=none
   fi

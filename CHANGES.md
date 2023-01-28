@@ -1,3 +1,11 @@
+# v3.7.5
+* Maintenance release
+* Add new libretro core: `dirksimple`
+* Add new libretro core: `jaxe`
+* Add new libretro core: `numero`
+* Add new libretro core: `thepowdertoy`
+* Include `puae2021` in the image
+
 # v3.7.4
 * Maintenance release
 * Update RetroArch to 1.14.0
