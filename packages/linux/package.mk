@@ -40,7 +40,7 @@ case "${LINUX}" in
    PKG_SHA256="b425b70a6379f3415ed349f5c5719d4a6f315523"
    PKG_VERSION="${PKG_SHA256}"
    PKG_URL="https://gitlab.com/tjstyle/linux.git"
-   PKG_PATCH_DIRS="default ayn-odin"
+   PKG_PATCH_DIRS="ayn-odin"
    ;;
   *)
     PKG_VERSION="5.10.161"
