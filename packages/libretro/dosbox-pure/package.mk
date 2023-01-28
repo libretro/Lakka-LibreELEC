@@ -8,13 +8,15 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_LONGDESC="DOSBox Pure is a fork of DOSBox, an emulator for DOS games, built for RetroArch/Libretro aiming for simplicity and ease of use."
-PKG_BUILD_FLAGS="-lto"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  make -f Makefile
+  # remove optimization from CFLAGS, set via Makefile
+  CFLAGS="${CFLAGS//-O3/}"
+  CFLAGS="${CFLAGS//-O2/}"
+  make CXX=${CXX} CPUFLAGS="${CFLAGS}"
 }
 
 makeinstall_target() {
