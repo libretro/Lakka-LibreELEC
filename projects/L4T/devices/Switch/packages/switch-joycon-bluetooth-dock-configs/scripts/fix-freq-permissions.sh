@@ -1,9 +1,9 @@
-#!/bin/sh
+!/bin/sh
 
 #Allow all users to change cpu/gpu freq/scalers, and auto enable overclock
 
 #CPU
-echo 1 > /sys/kernel/tegra_cpufreq/overclock
+/usr/bin/busybox chmod 766 /sys/kernel/tegra_cpufreq/overclock
 /usr/bin/busybox chmod 766 /sys/devices/system/cpu/cpufreq/policy0/scaling_governor
 /usr/bin/busybox chmod 766 /sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq
 /usr/bin/busybox chmod 766 /sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq
