@@ -11,7 +11,7 @@ PKG_DEPENDS_TARGET="toolchain libdrm libfmt"
 PKG_LONGDESC="Library and utilities for kernel mode setting"
 PKG_BUILD_FLAGS="-sysroot"
 
-PKG_MESON_OPTS_TARGET="-Ddefault_library=static \
+PKG_MESON_OPTS_TARGET="-Ddefault_library=shared \
                        -Dkmscube=false \
                        -Domap=disabled \
                        -Dpykms=disabled"
