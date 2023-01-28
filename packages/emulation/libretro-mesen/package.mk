@@ -2,11 +2,11 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-mesen"
-PKG_VERSION="b8acf5b7b840d37abc38b730b781be1d83afca66"
-PKG_SHA256="42ac4c26bfab27d65c540df50001a93b5aa9b381d1db78bdece93fcbfb8331e9"
+PKG_VERSION="c89474c9d87df967d21b7b7d5971dc9475fec028"
+PKG_SHA256="f389c3f7670d8df115a9603cca4ebff19bf3a9e722149820d2db7cfa31445755"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/SourMesen/Mesen/"
-PKG_URL="https://github.com/SourMesen/Mesen/archive/${PKG_VERSION}.tar.gz"
+PKG_URL="https://github.com/libretro/Mesen/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_LONGDESC="game.libretro.mesen: mesen for Kodi"
 PKG_TOOLCHAIN="make"
