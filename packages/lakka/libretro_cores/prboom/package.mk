@@ -1,5 +1,5 @@
 PKG_NAME="prboom"
-PKG_VERSION="4e671fa0a4b7b892e17ac4e1803c9d627653a4c1"
+PKG_VERSION="1de4411265c717d787b1d512b7f1529314c9c281"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/libretro-prboom"
 PKG_URL="${PKG_SITE}.git"

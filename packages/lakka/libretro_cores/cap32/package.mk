@@ -1,5 +1,5 @@
 PKG_NAME="cap32"
-PKG_VERSION="73dc9ce0b205f797c174706732d6161d634a224c"
+PKG_VERSION="22d0475be7f6249669358d02b6cba4bc98abe936"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/libretro-cap32"
 PKG_URL="${PKG_SITE}.git"

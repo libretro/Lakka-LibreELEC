@@ -1,3 +1,10 @@
+# v4.4
+* Add new libretro core: `dirksimple`
+* Add new libretro core: `jaxe`
+* Add new libretro core: `numero`
+* Add new libretro core: `thepowdertoy`
+* Update buildsystem to LibreELEC 10.0.4
+
 # v4.3
 * Update RetroArch to [1.14.0](https://www.libretro.com/index.php/retroarch-1-14-0-release/)
 * Add new libretro core: `fake08`
