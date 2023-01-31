@@ -2,9 +2,9 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.snes9x2010"
-PKG_VERSION="1.52.4.31-Matrix"
-PKG_SHA256="cb9d48d6eed60d68678ae4517325c4d814c480b65b9478b79815aa3f07bb475e"
-PKG_REV="2"
+PKG_VERSION="1.52.4.32-Matrix"
+PKG_SHA256="61283638431528c1a5f2a59054e105bea6aa84d2a0dc849c3b1f253586c409c6"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.snes9x2010"
