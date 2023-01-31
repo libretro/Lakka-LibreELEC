@@ -42,8 +42,10 @@ targets="\
 	Allwinner|R40|arm| \
 	Amlogic|AMLGX|aarch64| \
 	Ayn|Odin|aarch64| \
-	Generic||i386| \
-	Generic||x86_64| \
+	Generic|Generic|i386| \
+	Generic|Generic|x86_64| \
+	Generic|wayland|x86_64| \
+	Generic|x11|x86_64| \
 	L4T|Switch|aarch64| \
 	NXP|iMX6|arm| \
 	NXP|iMX8|aarch64| \
@@ -58,6 +60,7 @@ targets="\
 	RPi|RPi4|aarch64| \
 	RPi|RPi4-PiBoyDmg|aarch64| \
 	RPi|RPi4-RetroDreamer|aarch64| \
+	Samsung|Exynos|arm| \
 "
 
 package=${2}
