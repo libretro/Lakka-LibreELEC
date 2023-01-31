@@ -4,7 +4,7 @@
 
 PKG_NAME="systemd"
 PKG_VERSION="252.5"
-PKG_SHA256="e91cf35de9faf6605034d6498be61c6fd1fbd1634bcf83df67e91f83d8a9a5ba"
+PKG_SHA256="cc57a54a323d9f813f59eb4d79c2e2ea987e27c9b5ad2079eb9d2756567d53ee"
 PKG_LICENSE="LGPL2.1+"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/systemd"
 PKG_URL="https://github.com/systemd/systemd-stable/archive/v${PKG_VERSION}.tar.gz"
