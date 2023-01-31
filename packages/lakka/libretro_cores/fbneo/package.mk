@@ -1,5 +1,5 @@
 PKG_NAME="fbneo"
-PKG_VERSION="5ef7398d8637a03786e76e39642ddf896b68641c"
+PKG_VERSION="f2f01e47466b621a3cd75f6429dbe6547e135dba"
 PKG_LICENSE="Non-commercial"
 PKG_SITE="https://github.com/libretro/fbneo"
 PKG_URL="${PKG_SITE}.git"
