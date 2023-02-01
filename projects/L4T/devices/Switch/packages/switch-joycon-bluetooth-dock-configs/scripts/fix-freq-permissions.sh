@@ -1,4 +1,4 @@
-!/bin/sh
+#!/bin/sh
 
 #Allow all users to change cpu/gpu freq/scalers, and auto enable overclock
 
