@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#Allow all users to change cpu/gpu freq/scalers, and auto enable overclock
+#Allow all users to take advantage of changing Clock stuff, and setting R2P stuff.
 
 #CPU
 /usr/bin/busybox chmod 766 /sys/kernel/tegra_cpufreq/overclock
@@ -12,3 +12,10 @@
 /usr/bin/busybox chmod 766 /sys/devices/57000000.gpu/devfreq/57000000.gpu/governor
 /usr/bin/busybox chmod 766 /sys/devices/57000000.gpu/devfreq/57000000.gpu/max_freq
 /usr/bin/busybox chmod 766 /sys/devices/57000000.gpu/devfreq/57000000.gpu/min_freq
+
+#R2P
+/usr/bin/busybox chmod 766 /sys/module/pmc_r2p/parameters/enabled
+/usr/bin/busybox chmod 766 /sys/module/pmc_r2p/parameters/action
+/usr/bin/busybox chmod 766 /sys/module/pmc_r2p/parameters/entry_id
+/usr/bin/busybox chmod 766 /sys/module/pmc_r2p/parameters/param1
+/usr/bin/busybox chmod 766 /sys/module/pmc_r2p/parameters/param2
