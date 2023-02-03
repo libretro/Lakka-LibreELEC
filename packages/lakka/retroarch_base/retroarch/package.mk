@@ -75,7 +75,7 @@ else
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-x11"
 fi
 
-if [ "${DISPLAYSERVER}" = "weston" ]; then
+if [ "${DISPLAYSERVER}" = "wl" ]; then
   PKG_DEPENDS_TARGET+=" wayland wayland-protocols"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-wayland"
 else
@@ -337,6 +337,15 @@ makeinstall_target() {
   # sort the options in config file
   sort ${INSTALL}/etc/retroarch.cfg > ${INSTALL}/etc/retroarch-sorted.cfg
   mv ${INSTALL}/etc/retroarch-sorted.cfg ${INSTALL}/etc/retroarch.cfg
+
+  # create default environment file
+  mkdir ${INSTALL}/usr/lib/retroarch/retroarch-env.cfg
+  echo "HOME=/storage" >> ${INSTALL}/usr/lib/retroarch/retroarch-env.cfg
+  if [ "${DISPLAYSERVER}" = "x11" ]; then
+    echo "DISPLAY=:0.0" >> ${INSTALL}/usr/lib/retroarch/retroarch-env.cfg
+  elif [ "${DISPLAYSERVER}" = "wl" ]; then
+    echo "WAYLAND_DISPLAY=wayland-1" >> ${INSTALL}/usr/lib/retroarch/retroarch-env.conf
+  fi
 }
 
 post_install() {

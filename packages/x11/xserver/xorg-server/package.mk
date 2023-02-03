@@ -135,4 +135,8 @@ post_makeinstall_target() {
 
 post_install() {
   enable_service xorg.service
+  if [ "${DISTRO}" = "Lakka" ]; then
+    sed -i ${INSTALL}/usr/lib/systemd/system/xorg.service \
+        -e "s|kodi\.service|retroarch.service|g"
+  fi
 }
