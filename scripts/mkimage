@@ -185,12 +185,22 @@ EOF
   # Lakka - default = live = use medium for storage
   if [ "$DISTRO" = "Lakka" ]; then
     cat << EOF > "${LE_TMP}/syslinux.cfg"
+SAY
+SAY ${DISTRO} Boot Menu
+SAY
 SAY Wait for live mode to start automatically in 5 seconds...
 SAY
 SAY Options
 SAY =======
 SAY live: boot ${DISTRO} using this USB memory device for storage
 SAY installer: permanently install ${DISTRO} to HDD/SSD
+EOF
+    if [ "${LAKKA_DEVBUILD}" = "yes" -o "${LAKKA_NIGHTLY}" = "yes" ]; then
+      cat << EOF >> "${LE_TMP}/syslinux.cfg"
+SAY debug: boot ${DISTRO} to console for debugging
+EOF
+    fi
+    cat << EOF >> "${LE_TMP}/syslinux.cfg"
 SAY
 DEFAULT live
 TIMEOUT 50
@@ -204,21 +214,37 @@ LABEL installer
   KERNEL /${KERNEL_NAME}
   APPEND boot=UUID=${UUID_SYSTEM} installer quiet systemd.debug_shell vga=current
 EOF
+    if [ "${LAKKA_DEVBUILD}" = "yes" -o "${LAKKA_NIGHTLY}" = "yes" ]; then
+      cat << EOF >> "${LE_TMP}/syslinux.cfg"
+
+LABEL debug
+  KERNEL /${KERNEL_NAME}
+  APPEND boot=UUID=${UUID_SYSTEM} disk=UUID=${UUID_STORAGE} portable textmode retroarch=0
+EOF
+    fi
 
     # grub is installed only for x86_64
     if [ "${ARCH}" = "x86_64" ]; then
       cat << EOF > "${LE_TMP}/grub.cfg"
 set timeout="25"
-set default="Live"
-menuentry "Live" {
+set default="Run ${DISTRO} (live)"
+menuentry "Run ${DISTRO} (live)" {
 	search --set -f /KERNEL
 	linux /KERNEL boot=UUID=${UUID_SYSTEM} disk=UUID=${UUID_STORAGE} grub_portable quiet
 }
-menuentry "Installer" {
+menuentry "Install ${DISTRO} to HDD/SSD" {
 	search --set -f /KERNEL
 	linux /KERNEL boot=UUID=${UUID_SYSTEM} installer quiet systemd.debug_shell vga=current
 }
 EOF
+      if [ "${LAKKA_DEVBUILD}" = "yes" -o "${LAKKA_NIGHTLY}" = "yes" ]; then
+        cat << EOF >> "${LE_TMP}/grub.cfg"
+menuentry "Debug ${DISTRO} (console)" {
+	search --set -f /KERNEL
+	linux /KERNEL boot=UUID=${UUID_SYSTEM} disk=UUID=${UUID_STORAGE} grub_portable textmode retroarch=0
+}
+EOF
+      fi
     fi
   fi
 
