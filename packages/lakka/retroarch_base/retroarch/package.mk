@@ -339,7 +339,6 @@ makeinstall_target() {
   mv ${INSTALL}/etc/retroarch-sorted.cfg ${INSTALL}/etc/retroarch.cfg
 
   # create default environment file
-  mkdir ${INSTALL}/usr/lib/retroarch/retroarch-env.cfg
   echo "HOME=/storage" >> ${INSTALL}/usr/lib/retroarch/retroarch-env.cfg
   if [ "${DISPLAYSERVER}" = "x11" ]; then
     echo "DISPLAY=:0.0" >> ${INSTALL}/usr/lib/retroarch/retroarch-env.cfg
