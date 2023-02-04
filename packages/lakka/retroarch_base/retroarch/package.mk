@@ -339,9 +339,9 @@ makeinstall_target() {
   mv ${INSTALL}/etc/retroarch-sorted.cfg ${INSTALL}/etc/retroarch.cfg
 
   # create default environment file
-  echo "HOME=/storage" >> ${INSTALL}/usr/lib/retroarch/retroarch-env.cfg
+  echo "HOME=/storage" >> ${INSTALL}/usr/lib/retroarch/retroarch-env.conf
   if [ "${DISPLAYSERVER}" = "x11" ]; then
-    echo "DISPLAY=:0.0" >> ${INSTALL}/usr/lib/retroarch/retroarch-env.cfg
+    echo "DISPLAY=:0.0" >> ${INSTALL}/usr/lib/retroarch/retroarch-env.conf
   elif [ "${DISPLAYSERVER}" = "wl" ]; then
     echo "WAYLAND_DISPLAY=wayland-1" >> ${INSTALL}/usr/lib/retroarch/retroarch-env.conf
   fi
