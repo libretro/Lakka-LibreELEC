@@ -43,5 +43,9 @@ post_makeinstall_target() {
 }
 
 post_install() {
+  if [ "${DISTRO}" = "Lakka" ]; then
+    sed -i ${INSTALL}/usr/lib/systemd/system/sway.service \
+        -e "s|kodi\.service|retroarch.service|g"
+  fi
   enable_service sway.service
 }
