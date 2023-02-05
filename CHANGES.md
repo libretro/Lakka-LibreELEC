@@ -4,6 +4,7 @@
 * Add new libretro core: `jaxe`
 * Add new libretro core: `numero`
 * Add new libretro core: `thepowdertoy`
+* Add new libretro core: `ep128emu`
 * Include `puae2021` in the image
 
 # v3.7.4
