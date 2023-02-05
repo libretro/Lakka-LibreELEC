@@ -27,11 +27,11 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_realloc_0_nonnull=yes \
                            --disable-imlib2"
 
 post_install() {
-  enable_service windowmanager.service
   if [ "${DISTRO}" = "Lakka" ]; then
     sed -i ${INSTALL}/usr/lib/systemd/system/windowmanager.service \
         -e "s|kodi\.service|retroarch.service|g"
   fi
+  enable_service windowmanager.service
 }
 
 post_makeinstall_target() {
