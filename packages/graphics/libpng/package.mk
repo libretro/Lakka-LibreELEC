@@ -40,5 +40,15 @@ post_makeinstall_target() {
   sed -e 's|^Libs: -L${libdir} -lpng16|Libs: -L${libdir} -lpng16 -lz|g' \
       -i ${SYSROOT_PREFIX}/usr/lib/pkgconfig/libpng*.pc
 
+  # FIXME: when version changes, adjust below
+  if [ "${DISTRO}" = "Lakka" ]; then
+    sed -e "s:\([\"'= ]\)/usr:\\1${SYSROOT_PREFIX}/usr:g" \
+        -e "s:libs=\"-lpng17\":libs=\"-lpng17 -lz\":g" \
+        -i ${SYSROOT_PREFIX}/usr/bin/libpng*-config
+
+    sed -e 's|^Libs: -L${libdir} -lpng17|Libs: -L${libdir} -lpng17 -lz|g' \
+        -i ${SYSROOT_PREFIX}/usr/lib/pkgconfig/libpng*.pc
+  fi
+
   rm -rf ${INSTALL}/usr/bin
 }
