@@ -10,6 +10,11 @@ PKG_DEPENDS_TARGET="toolchain gdb edid-decode memtester strace kmsxx"
 PKG_SECTION="virtual"
 PKG_LONGDESC="debug is a Metapackage for installing debugging tools"
 
+# FIXME: temporary fix for Switch
+if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
+  PKG_DEPENDS_TARGET="${PKG_DEPENDS_TARGET//kmsxx/}"
+fi
+
 # configure GPU drivers and dependencies:
   get_graphicdrivers
 
