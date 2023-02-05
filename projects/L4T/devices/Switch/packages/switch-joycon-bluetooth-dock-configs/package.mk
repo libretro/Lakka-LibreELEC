@@ -14,8 +14,8 @@ post_install() {
   mkdir -p ${INSTALL}/usr/bin
   cp -Pv ${PKG_DIR}/scripts/pair-joycon.sh ${INSTALL}/usr/bin
   cp -Pv ${PKG_DIR}/scripts/dock-hotplug ${INSTALL}/usr/bin
-  cp -pv ${PKG_DIR}/scripts/fix-freq-permissions.sh ${INSTALL}/usr/bin
+  cp -pv ${PKG_DIR}/scripts/fix-sysfs-permissions.sh ${INSTALL}/usr/bin
   chmod +x ${INSTALL}/usr/bin/pair-joycon.sh
   chmod +x ${INSTALL}/usr/bin/dock-hotplug
-  chmod +x ${INSTALL}/usr/bin/fix-freq-permissions.sh
+  chmod +x ${INSTALL}/usr/bin/fix-sysfs-permissions.sh
 }
