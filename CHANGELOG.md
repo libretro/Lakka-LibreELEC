@@ -3,6 +3,7 @@
 * Add new libretro core: `jaxe`
 * Add new libretro core: `numero`
 * Add new libretro core: `thepowdertoy`
+* Add new libretro core: `ep128emu`
 * Update buildsystem to LibreELEC 10.0.4
 
 # v4.3
