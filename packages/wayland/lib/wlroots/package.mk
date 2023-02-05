@@ -10,17 +10,27 @@ PKG_URL="https://gitlab.freedesktop.org/wlroots/wlroots/-/archive/${PKG_VERSION}
 PKG_DEPENDS_TARGET="toolchain hwdata libinput libxkbcommon pixman libdrm wayland wayland-protocols seatd"
 PKG_LONGDESC="A modular Wayland compositor library"
 
-configure_package() {
-  # OpenGLES Support
-  if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
-    PKG_DEPENDS_TARGET+=" ${OPENGLES}"
-  fi
-}
+PKG_RENDERERS=""
+
+# OpenGLES Support
+if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" ${OPENGLES}"
+  PKG_RENDERERS+=" gles2"
+fi
+
+# Vulkan Support
+if [ "${VULKAN_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" ${VULKAN}"
+  PKG_RENDERERS+=" vulkan"
+fi
+
+PKG_RENDERERS="${PKG_RENDERERS#* }"
+PKG_RENDERERS="${PKG_RENDERSRS// /,}"
 
 PKG_MESON_OPTS_TARGET="-Dxcb-errors=disabled \
                        -Dxwayland=disabled \
                        -Dexamples=false \
-                       -Drenderers=gles2"
+                       -Drenderers=${PKG_RENDERERS}"
 
 pre_configure_target() {
   # wlroots does not build without -Wno flags as all warnings being treated as errors
