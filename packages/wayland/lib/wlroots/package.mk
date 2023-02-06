@@ -25,7 +25,7 @@ if [ "${VULKAN_SUPPORT}" = "yes" ]; then
 fi
 
 PKG_RENDERERS="${PKG_RENDERERS#* }"
-PKG_RENDERERS="${PKG_RENDERSRS// /,}"
+PKG_RENDERERS="${PKG_RENDERERS// /,}"
 
 PKG_MESON_OPTS_TARGET="-Dxcb-errors=disabled \
                        -Dxwayland=disabled \
