@@ -161,6 +161,7 @@ make_target() {
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin
     cp -v ${PKG_BUILD}/retroarch ${INSTALL}/usr/bin
+    cp -v ${PKG_DIR}/scripts/lakka-*.sh ${INSTALL}/usr/bin
   mkdir -p ${INSTALL}/usr/share/video_filters
     cp -v ${PKG_BUILD}/gfx/video_filters/*.so ${INSTALL}/usr/share/video_filters
     cp -v ${PKG_BUILD}/gfx/video_filters/*.filt ${INSTALL}/usr/share/video_filters
@@ -219,7 +220,7 @@ makeinstall_target() {
   echo 'video_smooth = "false"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'video_aspect_ratio_auto = "true"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'video_threaded = "true"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'video_font_path = "/usr/share/retroarch/assets/xmb/monochrome/font.ttf"' >> ${INSTALL}/etc/retroarch.cfg
+  echo 'video_font_path = "/tmp/assets/xmb/monochrome/font.ttf"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'video_font_size = "32"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'video_filter_dir = "/usr/share/video_filters"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'video_gpu_screenshot = "false"' >> ${INSTALL}/etc/retroarch.cfg
@@ -343,7 +344,9 @@ makeinstall_target() {
   if [ "${DISPLAYSERVER}" = "x11" ]; then
     echo "DISPLAY=:0.0" >> ${INSTALL}/usr/lib/retroarch/retroarch-env.conf
   elif [ "${DISPLAYSERVER}" = "wl" ]; then
-    echo "WAYLAND_DISPLAY=wayland-1" >> ${INSTALL}/usr/lib/retroarch/retroarch-env.conf
+    echo "WAYLAND_DISPLAY='wayland-1'" >> ${INSTALL}/usr/lib/retroarch/retroarch-env.conf
+    echo "SWAYSOCK='/var/run/0-runtime-dir/sway-ipc.0.sock'" >> ${INSTALL}/usr/lib/retroarch/retroarch-env.conf
+    echo "XDG_RUNTIME_DIR='/var/run/0-runtime-dir'" >> ${INSTALL}/usr/lib/retroarch/retroarch-env.conf
   fi
 }
 
