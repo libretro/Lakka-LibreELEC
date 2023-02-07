@@ -1,0 +1,205 @@
+From ab951fd35c7f0e2e9d5c7ec1da2a6be91eae8e06 Mon Sep 17 00:00:00 2001
+From: ntemis <ierokipides.dem@gmail.com>
+Date: Tue, 7 Feb 2023 03:34:23 +0200
+Subject: [PATCH] Revert "kmsro: Fix renderonly_scanout BO aliasing"
+
+This reverts commit 2adab724e59c662a046cb1da8bfb3177330e01da.
+---
+ .pick_status.json                             |  2 +-
+ src/gallium/auxiliary/renderonly/renderonly.c | 64 +++++++------------
+ src/gallium/auxiliary/renderonly/renderonly.h |  6 --
+ .../winsys/kmsro/drm/kmsro_drm_winsys.c       |  4 --
+ 4 files changed, 24 insertions(+), 52 deletions(-)
+
+diff --git a/.pick_status.json b/.pick_status.json
+index b4a0a9fe24a..3916a3fb0c1 100644
+--- a/.pick_status.json
++++ b/.pick_status.json
+@@ -10813,7 +10813,7 @@
+         "description": "kmsro: Fix renderonly_scanout BO aliasing",
+         "nominated": false,
+         "nomination_type": null,
+-        "resolution": 1,
++        "resolution": 4,
+         "main_sha": null,
+         "because_sha": null
+     },
+diff --git a/src/gallium/auxiliary/renderonly/renderonly.c b/src/gallium/auxiliary/renderonly/renderonly.c
+index d8628a36b9a..56dc06bca17 100644
+--- a/src/gallium/auxiliary/renderonly/renderonly.c
++++ b/src/gallium/auxiliary/renderonly/renderonly.c
+@@ -43,22 +43,11 @@ renderonly_scanout_destroy(struct renderonly_scanout *scanout,
+ {
+    struct drm_mode_destroy_dumb destroy_dumb = {0};
+ 
+-   if (p_atomic_dec_return(&scanout->refcnt))
+-      return;
+-
+-   simple_mtx_lock(&ro->bo_map_lock);
+-
+-   /* Someone might have imported this BO while we were waiting for the
+-    * lock, let's make sure it's still not referenced before freeing it.
+-    */
+-   if (p_atomic_read(&scanout->refcnt) == 0 && ro->kms_fd != -1) {
++   if (ro->kms_fd != -1) {
+       destroy_dumb.handle = scanout->handle;
+-      scanout->handle = 0;
+-      scanout->stride = 0;
+       drmIoctl(ro->kms_fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy_dumb);
+    }
+-
+-   simple_mtx_unlock(&ro->bo_map_lock);
++   FREE(scanout);
+ }
+ 
+ struct renderonly_scanout *
+@@ -75,27 +64,21 @@ renderonly_create_kms_dumb_buffer_for_resource(struct pipe_resource *rsc,
+    };
+    struct drm_mode_destroy_dumb destroy_dumb = {0};
+ 
++   scanout = CALLOC_STRUCT(renderonly_scanout);
++   if (!scanout)
++      return NULL;
++
+    /* create dumb buffer at scanout GPU */
+    err = drmIoctl(ro->kms_fd, DRM_IOCTL_MODE_CREATE_DUMB, &create_dumb);
+    if (err < 0) {
+       fprintf(stderr, "DRM_IOCTL_MODE_CREATE_DUMB failed: %s\n",
+             strerror(errno));
+-      return NULL;
++      goto free_scanout;
+    }
+ 
+-   simple_mtx_lock(&ro->bo_map_lock);
+-   scanout = util_sparse_array_get(&ro->bo_map, create_dumb.handle);
+-   simple_mtx_unlock(&ro->bo_map_lock);
+-
+-   if (!scanout)
+-      goto free_dumb;
+-
+    scanout->handle = create_dumb.handle;
+    scanout->stride = create_dumb.pitch;
+ 
+-   assert(p_atomic_read(&scanout->refcnt) == 0);
+-   p_atomic_set(&scanout->refcnt, 1);
+-
+    if (!out_handle)
+       return scanout;
+ 
+@@ -117,6 +100,9 @@ free_dumb:
+    destroy_dumb.handle = scanout->handle;
+    drmIoctl(ro->kms_fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy_dumb);
+ 
++free_scanout:
++   FREE(scanout);
++
+    return NULL;
+ }
+ 
+@@ -126,40 +112,36 @@ renderonly_create_gpu_import_for_resource(struct pipe_resource *rsc,
+                                           struct winsys_handle *out_handle)
+ {
+    struct pipe_screen *screen = rsc->screen;
+-   struct renderonly_scanout *scanout = NULL;
++   struct renderonly_scanout *scanout;
+    boolean status;
+-   uint32_t scanout_handle;
+    int fd, err;
+    struct winsys_handle handle = {
+       .type = WINSYS_HANDLE_TYPE_FD
+    };
+ 
++   scanout = CALLOC_STRUCT(renderonly_scanout);
++   if (!scanout)
++      return NULL;
++
+    status = screen->resource_get_handle(screen, NULL, rsc, &handle,
+          PIPE_HANDLE_USAGE_FRAMEBUFFER_WRITE);
+    if (!status)
+-      return NULL;
++      goto free_scanout;
+ 
++   scanout->stride = handle.stride;
+    fd = handle.handle;
+ 
+-   simple_mtx_lock(&ro->bo_map_lock);
+-   err = drmPrimeFDToHandle(ro->kms_fd, fd, &scanout_handle);
++   err = drmPrimeFDToHandle(ro->kms_fd, fd, &scanout->handle);
+    close(fd);
+ 
+    if (err < 0)
+-      goto err_unlock;
++      goto free_scanout;
+ 
+-   scanout = util_sparse_array_get(&ro->bo_map, scanout_handle);
+-   if (!scanout)
+-      goto err_unlock;
+-
+-   if (p_atomic_inc_return(&scanout->refcnt) == 1) {
+-      scanout->handle = scanout_handle;
+-      scanout->stride = handle.stride;
+-   }
++   return scanout;
+ 
+-err_unlock:
+-   simple_mtx_unlock(&ro->bo_map_lock);
++free_scanout:
++   FREE(scanout);
+ 
+-   return scanout;
++   return NULL;
+ }
+ 
+diff --git a/src/gallium/auxiliary/renderonly/renderonly.h b/src/gallium/auxiliary/renderonly/renderonly.h
+index 911ad669774..0eafbf548a9 100644
+--- a/src/gallium/auxiliary/renderonly/renderonly.h
++++ b/src/gallium/auxiliary/renderonly/renderonly.h
+@@ -30,13 +30,10 @@
+ #include <stdint.h>
+ #include "frontend/drm_driver.h"
+ #include "pipe/p_state.h"
+-#include "util/simple_mtx.h"
+-#include "util/sparse_array.h"
+ 
+ struct renderonly_scanout {
+    uint32_t handle;
+    uint32_t stride;
+-   int32_t refcnt;
+ };
+ 
+ struct renderonly {
+@@ -80,9 +77,6 @@ struct renderonly {
+    void (*destroy)(struct renderonly *ro);
+    int kms_fd;
+    int gpu_fd;
+-
+-   simple_mtx_t bo_map_lock;
+-   struct util_sparse_array bo_map;
+ };
+ 
+ static inline struct renderonly_scanout *
+diff --git a/src/gallium/winsys/kmsro/drm/kmsro_drm_winsys.c b/src/gallium/winsys/kmsro/drm/kmsro_drm_winsys.c
+index dd26120dcaa..3c8a3c4519f 100644
+--- a/src/gallium/winsys/kmsro/drm/kmsro_drm_winsys.c
++++ b/src/gallium/winsys/kmsro/drm/kmsro_drm_winsys.c
+@@ -44,8 +44,6 @@ static void kmsro_ro_destroy(struct renderonly *ro)
+    if (ro->gpu_fd >= 0)
+       close(ro->gpu_fd);
+ 
+-   util_sparse_array_finish(&ro->bo_map);
+-
+    FREE(ro);
+ }
+ 
+@@ -61,8 +59,6 @@ struct pipe_screen *kmsro_drm_screen_create(int fd,
+    ro->kms_fd = fd;
+    ro->gpu_fd = -1;
+    ro->destroy = kmsro_ro_destroy;
+-   util_sparse_array_init(&ro->bo_map, sizeof(struct renderonly_scanout), 64);
+-   simple_mtx_init(&ro->bo_map_lock, mtx_plain);
+ 
+ #if defined(GALLIUM_VC4)
+    ro->gpu_fd = drmOpenWithType("vc4", NULL, DRM_NODE_RENDER);
+-- 
+2.34.1
+
