@@ -23,7 +23,7 @@ make_target() {
   if [ "${DEVICE}" = "iMX8" ]; then
     CROSS_COMPILE="${TARGET_KERNEL_PREFIX}" LDFLAGS="--no-warn-rwx-segments" CFLAGS="--param=min-pagesize=0" make PLAT=${ATF_PLATFORM} bl31
   else
-    CROSS_COMPILE="${TARGET_KERNEL_PREFIX}" LDFLAGS="--no-warn-rwx-segments" CFLAGS="" make SUNXI_SETUP_REGULATORS=0 PLAT=${ATF_PLATFORM} bl31
+    CROSS_COMPILE="${TARGET_KERNEL_PREFIX}" LDFLAGS="--no-warn-rwx-segments" CFLAGS="" make PLAT=${ATF_PLATFORM} bl31
   fi
 }
 
