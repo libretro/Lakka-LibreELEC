@@ -4,7 +4,7 @@
 PKG_NAME="pvr.zattoo"
 PKG_VERSION="20.3.4-Nexus"
 PKG_SHA256="ed3b32163c613a2c73cb1b6b8abdb9f2b1055628a6cf6f76997e468eb3ad2654"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/rbuehlma/pvr.zattoo"

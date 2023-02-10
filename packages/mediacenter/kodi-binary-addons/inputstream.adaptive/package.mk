@@ -4,7 +4,7 @@
 PKG_NAME="inputstream.adaptive"
 PKG_VERSION="20.3.3-Nexus"
 PKG_SHA256="7828f3a12206aebc9edc34e7ca2da580565209092e3451aed67b58b3f2cd2246"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/inputstream.adaptive"

@@ -5,7 +5,7 @@
 PKG_NAME="peripheral.joystick"
 PKG_VERSION="20.1.5-Nexus"
 PKG_SHA256="4ac7c6793173975d7c42b0d86df5ef2bda89b6b3dfa65f51dd329e764951aa78"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/peripheral.joystick"
