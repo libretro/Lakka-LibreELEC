@@ -37,13 +37,6 @@ makeinstall_target() {
       echo "dtparam=audio=on" >> ${INSTALL}/usr/share/bootloader/distroconfig.txt
       echo "hdmi_max_pixel_freq:0=200000000" >> ${INSTALL}/usr/share/bootloader/distroconfig.txt
       echo "hdmi_max_pixel_freq:1=200000000" >> ${INSTALL}/usr/share/bootloader/distroconfig.txt
-      if [ "${DEVICE}" = "RPi4" -o "${DEVICE}" = "RPi4-PiBoyDmg" ]; then
-        sed -e "s|^gpu_mem=.*$|gpu_mem=384|g" -i ${INSTALL}/usr/share/bootloader/config.txt
-      elif [ "${DEVICE}" = "RPi4-RetroDreamer" ]; then
-        sed -e "s|^gpu_mem=.*$|gpu_mem=256|g" -i ${INSTALL}/usr/share/bootloader/config.txt
-      else
-        sed -e "s|^gpu_mem=.*$|gpu_mem=128|g" -i ${INSTALL}/usr/share/bootloader/config.txt
-      fi
       echo "force_turbo=0" >> ${INSTALL}/usr/share/bootloader/config.txt
     fi
 }
