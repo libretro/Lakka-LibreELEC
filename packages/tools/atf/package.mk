@@ -14,13 +14,13 @@ PKG_TOOLCHAIN="manual"
 
 [ -n "${KERNEL_TOOLCHAIN}" ] && PKG_DEPENDS_TARGET+=" gcc-${KERNEL_TOOLCHAIN}:host"
 
-if [ "${PROJECT}" = "Rockchip" -a "${DEVICE}" = "RK3399" ]; then
+if [ "${ATF_PLATFORM}" = "rk3399" ]; then
   PKG_DEPENDS_TARGET+=" gcc-arm-none-eabi:host"
   export M0_CROSS_COMPILE="${TOOLCHAIN}/bin/arm-none-eabi-"
 fi
 
 make_target() {
-  if [ "${DEVICE}" = "iMX8" ]; then
+  if [ "${ATF_PLATFORM}" = "imx8mq" ]; then
     CROSS_COMPILE="${TARGET_KERNEL_PREFIX}" LDFLAGS="--no-warn-rwx-segments" CFLAGS="--param=min-pagesize=0" make PLAT=${ATF_PLATFORM} bl31
   else
     CROSS_COMPILE="${TARGET_KERNEL_PREFIX}" LDFLAGS="--no-warn-rwx-segments" CFLAGS="" make PLAT=${ATF_PLATFORM} bl31
