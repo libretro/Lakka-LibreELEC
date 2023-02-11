@@ -1,5 +1,5 @@
 PKG_NAME="wasm4"
-PKG_VERSION="35fb9facbee2159dde3881e64a61710bae8db828"
+PKG_VERSION="50ccd579c965f444260e6e4c65019ffcf2b67605"
 PKG_LICENSE="ISC"
 PKG_SITE="https://github.com/aduros/wasm4"
 PKG_URL="${PKG_SITE}.git"

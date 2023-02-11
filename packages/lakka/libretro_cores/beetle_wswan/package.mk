@@ -1,5 +1,5 @@
 PKG_NAME="beetle_wswan"
-PKG_VERSION="05ec7364913a95d8bb8691a41505d3d66b9e8367"
+PKG_VERSION="4e73cf52d5223105a8ac175f4332d609364fb5f9"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-wswan-libretro"
 PKG_URL="${PKG_SITE}.git"
