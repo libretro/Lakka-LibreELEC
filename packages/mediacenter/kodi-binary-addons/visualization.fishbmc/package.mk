@@ -4,7 +4,7 @@
 PKG_NAME="visualization.fishbmc"
 PKG_VERSION="20.2.0-Nexus"
 PKG_SHA256="168788d7cd292edf9c13c0e0e0148f19b2ecd35edd8f65f24240dff99f01677a"
-PKG_REV="4"
+PKG_REV="5"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/visualization.fishbmc"
