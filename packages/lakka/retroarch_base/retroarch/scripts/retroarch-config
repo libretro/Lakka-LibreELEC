@@ -9,10 +9,26 @@ echo "LD_LIBRARY_PATH=\"/usr/lib:/tmp/cores\"" >> /run/libreelec/retroarch.conf
 # which makes the combined controller index 2, but on Nintendo Switch Lite, on first boot we need to change this to 1
 # or built in gamepad needs user intervention to be used.
 
-SERIAL_PREFIX=$(cat /sys/firmware/devicetree/base/serial-number)
-SERIAL_PREFIX=${SERIAL_PREFIX:0:3}
+if [ -e /sys/firmware/devicetree/base/serial-number ]; then
+  SERIAL_PREFIX="$(cat /sys/firmware/devicetree/base/serial-number)"
+  SERIAL_PREFIX="${SERIAL_PREFIX:0:3}"
+else
+  SERIAL_PREFIX=""
+fi
 
-if [ ${SERIAL_PREFIX} = "NXV" -a ! -f /storage/.config/retroarch/retroarch.cfg ]; then
+if [ "${SERIAL_PREFIX}" = "NXV" -a ! -f /storage/.config/retroarch/retroarch.cfg ]; then
   cp /etc/retroarch.cfg /storage/.config/retroarch/retroarch.cfg
   sed -i -e 's|input_player1_joypad_index = \"2\"|input_player1_joypad_index = \"0\"|' /storage/.config/retroarch/retroarch.cfg
+fi
+
+if [ -d /storage/roms/EXFAT/bios ]; then
+  for bios in /storage/roms/EXFAT/bios/* ; do
+    if [ -e "${bios}" ]; then
+      [ ! -d /storage/roms/EXFAT/bios_copied ] && mkdir -p /storage/roms/EXFAT/bios_copied
+      echo -n "Copy: " >> /storage/roms/EXFAT/bios/copied/transfer_log.txt
+      cp -vr "${bios}" /tmp/system >> /storage/roms/EXFAT/bios_copied/transfer_log.txt 2>&1
+      echo -n "Backup: " >> /storage/roms/EXFAT/bios/copied/transfer_log.txt
+      mv -v "${bios}" /storage/roms/EXFAT/bios_copied >> /storage/roms/EXFAT/bios_copied/transfer_log.txt 2>&1
+    fi
+  done
 fi
