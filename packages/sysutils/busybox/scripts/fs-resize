@@ -54,13 +54,21 @@ if [ -e /storage/.please_resize_me ] ; then
       EXPARTTYPE="primary"
     fi
 
-    StartProgress spinner "Resizing ext4 partition...    " "parted -s -m $DISK resizepart 2 4GiB &>/dev/null"
-    StartProgress spinner "Checking file system...       " "e2fsck -f -p $PART &>/dev/null"
-    StartProgress spinner "Resizing file system...       " "resize2fs $PART &>/dev/null"
-    EXSTART="$(( $(parted -m ${DISK} print all | grep -m1 ^2: | awk 'BEGIN {FS=":"} {gsub ("[A-Z]",""); print $3}') + 17 ))"
-    StartProgress spinner "Creating exFAT partition...   " "parted -s -m ${DISK} mkpart ${EXPARTTYPE} ntfs ${EXSTART}MB 100% &>/dev/null"
-    partprobe &>/dev/null
-    StartProgress spinner "Formatting exFAT partition... " "mkfs.exfat -f -L EXFAT ${EXPART} &>/dev/null"
+    if [ -e /flash/create_exfat ] ; then
+      StartProgress spinner "Getting disk information...   " "parted -s -f -m $DISK print all &>/dev/null"
+      StartProgress spinner "Resizing ext4 partition...    " "parted -s -m $DISK resizepart 2 4GiB &>/dev/null"
+      StartProgress spinner "Checking file system...       " "e2fsck -f -p $PART &>/dev/null"
+      StartProgress spinner "Resizing file system...       " "resize2fs $PART &>/dev/null"
+      StartProgress spinner "Updating disk information...  " "parted -s -f -m $DISK print all &>/dev/null"
+      EXSTART="$(( $(parted -s -f -m $DISK print all 2>/dev/null | grep -m1 ^2: | cut -d: -f3 | sed -e s/MB//) + 17 ))"
+      StartProgress spinner "Creating exFAT partition...   " "parted -s -f -m $DISK mkpart $EXPARTTYPE ntfs ${EXSTART}MB 100% &>/dev/null"
+      StartProgress spinner "Probing partitions...         " "partprobe &>/dev/null"
+      StartProgress spinner "Formatting exFAT partition... " "mkfs.exfat -f -L EXFAT $EXPART &>/dev/null"
+    else
+      StartProgress spinner "Resizing ext4 partition...    " "parted -s -m $DISK resizepart 2 100% &>/dev/null"
+      StartProgress spinner "Checking file system...       " "e2fsck -f -p $PART &>/dev/null"
+      StartProgress spinner "Resizing file system...       " "resize2fs $PART &>/dev/null"
+    fi
     StartProgress countdown "Rebooting in 15s...           " 15 "NOW"
   fi
 fi
