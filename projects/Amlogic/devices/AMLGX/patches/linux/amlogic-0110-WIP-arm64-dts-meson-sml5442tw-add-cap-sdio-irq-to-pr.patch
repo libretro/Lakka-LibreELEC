@@ -1,0 +1,62 @@
+From a45e8f0730dd6f9db8571056ab44a0619aa2bb5c Mon Sep 17 00:00:00 2001
+From: Christian Hewitt <christianshewitt@gmail.com>
+Date: Sun, 12 Feb 2023 02:07:28 +0000
+Subject: [PATCH 110/111] WIP: arm64: dts: meson: sml5442tw: add cap-sdio-irq
+ to prevent SDIO issues
+
+The SDIO interrupt changes in 066ecde6d826 ("mmc: meson-gx: add SDIO interrupt
+support") and subsequent fix in 66e45351f7d6 ("arm64: dts: meson-gx: Make mmc
+host controller interrupts level-sensitive") still result in the QCA9377 SDIO
+module on the SML5442 board failing to initialise:
+
+SML5442TW:~ # dmesg | grep ath10k
+
+[   11.529545] ath10k_sdio mmc2:0001:1: qca9377 hw1.1 sdio target 0x05020001 chip_id 0x00000000 sub 0000:0000
+[   11.529579] ath10k_sdio mmc2:0001:1: kconfig debug 0 debugfs 0 tracing 0 dfs 0 testmode 0
+[   11.530109] ath10k_sdio mmc2:0001:1: firmware ver WLAN.TF.1.1.1-00061-QCATFSWPZ-1 api 5 features ignore-otp crc32 7746e551
+[   11.709471] ath10k_sdio mmc2:0001:1: failed to fetch board data for bus=sdio,vendor=0271,device=0701,subsystem-vendor=0000,subsystem-device=0000 from ath10k/QCA9377/hw1.0/board-2.bin
+[   11.713685] ath10k_sdio mmc2:0001:1: board_file api 1 bmi_id N/A crc32 544289f7
+[   13.030691] ath10k_sdio mmc2:0001:1: ignoring unsolicited htc ep0 event
+[   13.145651] ath10k_sdio mmc2:0001:1: rx underflow interrupt error
+[   14.148946] ath10k_sdio mmc2:0001:1: failed to receive control response completion, polling..
+[   15.172824] ath10k_sdio mmc2:0001:1: ctl_resp never came in (-110)
+[   15.172854] ath10k_sdio mmc2:0001:1: failed to connect to HTC: -110
+[   15.175891] ath10k_sdio mmc2:0001:1: could not init core (-110)
+[   15.266333] ath10k_sdio mmc2:0001:1: could not probe fw (-110)
+
+Adding "cap-sdio-irq" to sd_emmc_a allows the card to function correctly:
+
+SML5442TW:~ # dmesg | grep mmc
+[   11.671410] ath10k_sdio mmc2:0001:1: qca9377 hw1.1 sdio target 0x05020001 chip_id 0x00000000 sub 0000:0000
+[   11.671445] ath10k_sdio mmc2:0001:1: kconfig debug 0 debugfs 0 tracing 0 dfs 0 testmode 0
+[   11.671882] ath10k_sdio mmc2:0001:1: firmware ver WLAN.TF.1.1.1-00061-QCATFSWPZ-1 api 5 features ignore-otp crc32 7746e551
+[   11.852520] ath10k_sdio mmc2:0001:1: failed to fetch board data for bus=sdio,vendor=0271,device=0701,subsystem-vendor=0000,subsystem-device=0000 from ath10k/QCA9377/hw1.0/board-2.bin
+[   11.888378] ath10k_sdio mmc2:0001:1: board_file api 1 bmi_id N/A crc32 544289f7
+[   13.460079] ath10k_sdio mmc2:0001:1: htt-ver 3.32 wmi-op 4 htt-op 3 cal otp max-sta 32 raw 0 hwcrypto 1
+
+Fixes: 066ecde6d826 ("mmc: meson-gx: add SDIO interrupt support")
+Suggested-by: Geraldo Nascimento <geraldogabriel@gmail.com>
+Signed-off-by: Christian Hewitt <christianshewitt@gmail.com>
+---
+ arch/arm64/boot/dts/amlogic/meson-gxl-s905d-sml5442tw.dts | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-sml5442tw.dts b/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-sml5442tw.dts
+index b331a013572f..30ac3852f83b 100644
+--- a/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-sml5442tw.dts
++++ b/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-sml5442tw.dts
+@@ -67,6 +67,11 @@ &ir {
+         linux,rc-map-name = "rc-khamsin";
+ };
+ 
++&sd_emmc_a {
++	/* QCA9377 */
++	cap-sdio-irq;
++};
++
+ /* This is connected to the Bluetooth module: */
+ &uart_A {
+ 	status = "okay";
+-- 
+2.34.1
+
