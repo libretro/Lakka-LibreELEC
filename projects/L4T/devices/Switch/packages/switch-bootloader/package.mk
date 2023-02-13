@@ -85,3 +85,26 @@ chmod +x ${INSTALL}/usr/share/bootloader/update.sh
 
 }
 
+post_install() {
+BOOTLOADER_DIR="$(get_pkg_directory "${BOOTLOADER}")"
+echo "Bootloader_dir=${BOOTLOADER_DIR}"
+cat << EOF >> ${FAKEROOT_SCRIPT}
+. config/functions
+if find_file_path bootloader/tools/mkdtboimg.py ${BOOTLOADER_DIR}/tools/mkdtboimg.py; then
+ echo Creating DTimg....
+ \${FOUND_PATH} create "${INSTALL}"/usr/share/bootloader/boot/nx-plat.dtimg --page_size=1000 \
+   "${INSTALL}"/usr/share/bootloader/boot/tegra210-odin.dtb --id=0x4F44494E \
+   "${INSTALL}"/usr/share/bootloader/boot/tegra210b01-odin.dtb --id=0x4F44494E --rev=0x00000b01 \
+   "${INSTALL}"/usr/share/bootloader/boot/tegra210b01-vali.dtb --id=0x56414C49 \
+   "${INSTALL}"/usr/share/bootloader/boot/tegra210b01-frig.dtb --id=0x46524947
+ rm "${INSTALL}"/usr/share/bootloader/boot/*.dtb
+ echo Done!
+fi
+echo Compress Kernel and create uimage....
+gzip ${TARGET_IMG}/${IMAGE_NAME}.kernel
+${TOOLCHAIN}/bin/mkimage -A arm64 -O linux -T kernel -C gzip -a 0x80200000 -e 0x80200000 -n ${ID: -3}KRN-5.0.0 -d ${TARGET_IMG}/${IMAGE_NAME}.kernel.gz \
+  ${TARGET_IMG}/${IMAGE_NAME}.kernel
+rm ${TARGET_IMG}/${IMAGE_NAME}.kernel.gz
+echo Done!
+EOF
+}

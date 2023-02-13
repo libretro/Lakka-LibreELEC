@@ -103,4 +103,8 @@ post_install() {
   if [ "${WIREGUARD_SUPPORT}" = "yes" ]; then
     enable_service connman-vpn.service
   fi
+
+  if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
+    echo chmod u+s ${BUILD}/image/system/usr/bin/connmanctl >> ${FAKEROOT_SCRIPT}
+  fi
 }
