@@ -3,9 +3,9 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.vbox"
-PKG_VERSION="20.3.0-Nexus"
-PKG_SHA256="7f03ace22ee4a822998155fdc4c3fb64d769eccf32baf6943c771db18567a7ef"
-PKG_REV="4"
+PKG_VERSION="20.4.0-Nexus"
+PKG_SHA256="4333e8504341485ea1f97501467dfad93db20b8f9e4e08c847a474a89f00754a"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-pvr/pvr.vbox"
