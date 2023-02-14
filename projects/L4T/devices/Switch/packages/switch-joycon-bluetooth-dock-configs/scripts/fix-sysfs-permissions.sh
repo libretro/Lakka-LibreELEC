@@ -19,3 +19,6 @@
 /usr/bin/busybox chmod 766 /sys/module/pmc_r2p/parameters/entry_id
 /usr/bin/busybox chmod 766 /sys/module/pmc_r2p/parameters/param1
 /usr/bin/busybox chmod 766 /sys/module/pmc_r2p/parameters/param2
+
+#Brightness
+/usr/bin/busybox chmod 766 /sys/class/backlight/backlight/brightness
