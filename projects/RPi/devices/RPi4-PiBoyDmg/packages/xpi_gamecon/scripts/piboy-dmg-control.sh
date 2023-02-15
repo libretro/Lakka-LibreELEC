@@ -31,12 +31,15 @@ do
 	then
 		stop_retroarch
 		echo "0" > /sys/kernel/xpi_gamecon/flags
+		/usr/sbin/rmmod xpi_gamecon
 		/usr/sbin/shutdown -P
 	fi
 	if [[ $BATTERY -lt 5 ]]
 	then
 		stop_retroarch
 		echo "0" > /sys/kernel/xpi_gamecon/flags
+		/usr/sbin/rmmod xpi_gamecon
 		/usr/sbin/shutdown -P
-	fi
+        fi
 done
+

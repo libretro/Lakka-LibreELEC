@@ -224,11 +224,6 @@ pre_make_target() {
     ${PKG_BUILD}/scripts/config --module CONFIG_R8188EU
   fi
 
-  # enable xpi-gamecon for PiBoyDMG
-  if [ "${DISTRO}" = "Lakka" ] && [ "${DEVICE}" = "RPi4-PiBoyDmg" ]; then
-    ${PKG_BUILD}/scripts/config --enable CONFIG_XPI_GAMECON
-  fi
-
   # enable joystick and eMMC support for Exynos / OdroidXU4
   if [ "${DISTRO}" = "Lakka" ] && [ "${DEVICE}" = "Exynos" ]; then
     ${PKG_BUILD}/scripts/config --enable CONFIG_INPUT_JOYSTICK \
