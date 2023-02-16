@@ -20,7 +20,7 @@ do
 	TEMP=`cat /sys/class/thermal/thermal_zone0/temp`
 	POWERSW=`cat /sys/kernel/xpi_gamecon/status`
 	BATTERY=`cat /sys/kernel/xpi_gamecon/percent`
-	amixer -M set Headphone $VOL%
+	amixer -M set PCM $VOL%
 	if [[ $TEMP -gt 70000 ]]  
 	then
 		echo 100 > /sys/kernel/xpi_gamecon/fan
