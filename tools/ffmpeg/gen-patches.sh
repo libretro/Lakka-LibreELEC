@@ -7,7 +7,7 @@ FFMPEG_VERSION="n5.1.2"
 KODI_FFMPEG_REPO="https://github.com/xbmc/FFmpeg"
 KODI_FFMPEG_VERSION="5.1.2-Nexus-Alpha3"
 
-ALL_FEATURE_SETS="v4l2-drmprime v4l2-request libreelec rpi kodi vf-deinterlace-v4l2m2m"
+ALL_FEATURE_SETS="v4l2-drmprime v4l2-request libreelec rpi vf-deinterlace-v4l2m2m"
 
 if [ $# -eq 0 ]; then
   echo "usage: $0 all|featureset [githash]"
@@ -39,11 +39,6 @@ create_patch() {
     rpi)
       REPO="https://github.com/jc-kynesim/rpi-ffmpeg"
       REFSPEC="dev/5.1.2/rpi_import_1"
-      ;;
-    kodi)
-      REPO="${KODI_FFMPEG_REPO}"
-      REFSPEC="${KODI_FFMPEG_VERSION}"
-      REFTYPE="tag"
       ;;
     *)
       echo "illegal feature set ${FEATURE_SET}"
