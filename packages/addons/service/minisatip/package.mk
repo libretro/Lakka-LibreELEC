@@ -4,7 +4,7 @@
 PKG_NAME="minisatip"
 PKG_VERSION="1.2.84"
 PKG_SHA256="b8e58eae2e0502d940b59cf60bf73ffb6af1a4c7d4cd23ddd939f29cd4004d8c"
-PKG_REV="1"
+PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/catalinii/minisatip"
