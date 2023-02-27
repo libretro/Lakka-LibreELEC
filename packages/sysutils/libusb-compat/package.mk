@@ -1,14 +1,16 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libusb-compat"
-PKG_VERSION="0.1.7"
-PKG_SHA256="8259f8d5b084fe43c47823a939e955e0ba21942b8d112266c39d228cc14764d6"
+PKG_VERSION="0.1.8"
+PKG_SHA256="698c76484f3dec1e0175067cbd1556c3021e94e7f2313ae3ea6a66d900e00827"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/libusb/libusb-compat-0.1"
 PKG_URL="https://github.com/libusb/libusb-compat-0.1/releases/download/v${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain libusb"
 PKG_LONGDESC="The libusb project's aim is to create a Library for use by user level applications to USB devices."
+PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-log \
                            --disable-debug-log \
