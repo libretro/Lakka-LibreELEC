@@ -5,7 +5,7 @@
 PKG_NAME="pvr.vbox"
 PKG_VERSION="20.4.1-Nexus"
 PKG_SHA256="c8ee26a903491fa8a2c321322a5ae3184139e892508f30faadbd9bd0df6287bc"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-pvr/pvr.vbox"

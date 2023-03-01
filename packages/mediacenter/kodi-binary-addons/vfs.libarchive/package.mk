@@ -4,7 +4,7 @@
 PKG_NAME="vfs.libarchive"
 PKG_VERSION="20.3.0-Nexus"
 PKG_SHA256="06be9bfcda3e676e0757ea9602351d67f2bf0aa9aa9e408b14d947772a615e4f"
-PKG_REV="2"
+PKG_REV="3"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/vfs.libarchive"
