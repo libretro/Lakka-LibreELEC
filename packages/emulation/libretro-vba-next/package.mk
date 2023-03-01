@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-vba-next"
-PKG_VERSION="4191e09e2b0fcf175a15348c1fa8a12bbc6320dd"
-PKG_SHA256="afbe59106a9709622f0384eed9641224a475842720eb9aefbfc6edff166222b8"
+PKG_VERSION="5f497a9e70c94cbaaf6deb3c8299bd6b02002a5d"
+PKG_SHA256="2c8553acefc84131b518e9c2ae6683533cc1c183ea4d6610bdadc10fa9c265b4"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/vba-next"
 PKG_URL="https://github.com/libretro/vba-next/archive/${PKG_VERSION}.tar.gz"
