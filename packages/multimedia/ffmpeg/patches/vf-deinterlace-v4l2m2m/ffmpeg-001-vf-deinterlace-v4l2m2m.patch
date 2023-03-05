@@ -1,20 +1,21 @@
-From 39069d9cc03a42cd497dd6b9756116ff4b684a5d Mon Sep 17 00:00:00 2001
+From d14859b090dc3b2e1bd761698b947b0b55e4d831 Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@siol.net>
 Date: Tue, 3 Dec 2019 21:01:18 +0100
-Subject: [PATCH] WIP deint filter
+Subject: [PATCH] Add V4L2 m2m deinterlace filter
 
+Signed-off-by: Alex Bee <knaerzche@gmail.com>
 ---
- libavfilter/Makefile                 |   1 +
- libavfilter/allfilters.c             |   1 +
- libavfilter/vf_deinterlace_v4l2m2m.c | 879 +++++++++++++++++++++++++++
- 3 files changed, 881 insertions(+)
+ libavfilter/Makefile                 |    1 +
+ libavfilter/allfilters.c             |    1 +
+ libavfilter/vf_deinterlace_v4l2m2m.c | 1009 ++++++++++++++++++++++++++
+ 3 files changed, 1011 insertions(+)
  create mode 100644 libavfilter/vf_deinterlace_v4l2m2m.c
 
 diff --git a/libavfilter/Makefile b/libavfilter/Makefile
-index 512354065305..625fd29f9313 100644
+index 30cc329fb6..2fe6ab223e 100644
 --- a/libavfilter/Makefile
 +++ b/libavfilter/Makefile
-@@ -218,6 +218,7 @@ OBJS-$(CONFIG_DEFLATE_FILTER)                += vf_neighbor.o
+@@ -254,6 +254,7 @@ OBJS-$(CONFIG_DEFLATE_FILTER)                += vf_neighbor.o
  OBJS-$(CONFIG_DEFLICKER_FILTER)              += vf_deflicker.o
  OBJS-$(CONFIG_DEINTERLACE_QSV_FILTER)        += vf_deinterlace_qsv.o
  OBJS-$(CONFIG_DEINTERLACE_VAAPI_FILTER)      += vf_deinterlace_vaapi.o vaapi_vpp.o
@@ -23,23 +24,23 @@ index 512354065305..625fd29f9313 100644
  OBJS-$(CONFIG_DELOGO_FILTER)                 += vf_delogo.o
  OBJS-$(CONFIG_DENOISE_VAAPI_FILTER)          += vf_misc_vaapi.o vaapi_vpp.o
 diff --git a/libavfilter/allfilters.c b/libavfilter/allfilters.c
-index 1183e4026751..fe5a2e8c02e8 100644
+index 5ebacfde27..4b74bac3c8 100644
 --- a/libavfilter/allfilters.c
 +++ b/libavfilter/allfilters.c
-@@ -204,6 +204,7 @@ extern AVFilter ff_vf_dedot;
- extern AVFilter ff_vf_deflate;
- extern AVFilter ff_vf_deflicker;
- extern AVFilter ff_vf_deinterlace_qsv;
-+extern AVFilter ff_vf_deinterlace_v4l2m2m;
- extern AVFilter ff_vf_deinterlace_vaapi;
- extern AVFilter ff_vf_dejudder;
- extern AVFilter ff_vf_delogo;
+@@ -234,6 +234,7 @@ extern const AVFilter ff_vf_dedot;
+ extern const AVFilter ff_vf_deflate;
+ extern const AVFilter ff_vf_deflicker;
+ extern const AVFilter ff_vf_deinterlace_qsv;
++extern const AVFilter ff_vf_deinterlace_v4l2m2m;
+ extern const AVFilter ff_vf_deinterlace_vaapi;
+ extern const AVFilter ff_vf_dejudder;
+ extern const AVFilter ff_vf_delogo;
 diff --git a/libavfilter/vf_deinterlace_v4l2m2m.c b/libavfilter/vf_deinterlace_v4l2m2m.c
 new file mode 100644
-index 000000000000..1029e5b620fd
+index 0000000000..ff5ed500a9
 --- /dev/null
 +++ b/libavfilter/vf_deinterlace_v4l2m2m.c
-@@ -0,0 +1,879 @@
+@@ -0,0 +1,1009 @@
 +/*
 + * This file is part of FFmpeg.
 + *
@@ -127,12 +128,21 @@ index 000000000000..1029e5b620fd
 +    int height;
 +    int orig_width;
 +    int orig_height;
++    uint64_t drm_in_format;
++    uint64_t drm_out_format;
++
 +    atomic_uint refcount;
 +
 +    AVBufferRef *hw_frames_ctx;
 +
-+    int frame_count;
-+    AVFrame *frames[2];
++    /*
++     * TODO: check if its really neccessary to hold this
++     * ref, it's only used for freeing av_frame on decoding
++     * end/abort
++     */
++    AVFrame *cur_in_frame;
++    AVFrame *prev_in_frame;
++    unsigned int field_order;
 +
 +    V4L2Queue output;
 +    V4L2Queue capture;
@@ -143,6 +153,76 @@ index 000000000000..1029e5b620fd
 +
 +    DeintV4L2M2MContextShared *shared;
 +} DeintV4L2M2MContext;
++
++static inline uint32_t v4l2_pix_fmt_from_drm_format(uint64_t drm_format)
++{
++    switch(drm_format) {
++#if defined(V4L2_PIX_FMT_SUNXI_TILED_NV12) && defined(DRM_FORMAT_MOD_ALLWINNER_TILED)
++    case DRM_FORMAT_MOD_ALLWINNER_TILED:
++        return V4L2_PIX_FMT_SUNXI_TILED_NV12;
++#endif
++    case DRM_FORMAT_NV12:
++        return V4L2_PIX_FMT_NV12;
++#if defined(V4L2_PIX_FMT_NV15) && defined(DRM_FORMAT_NV15)
++    case DRM_FORMAT_NV15:
++        return V4L2_PIX_FMT_NV15;
++#endif
++    case DRM_FORMAT_NV16:
++        return V4L2_PIX_FMT_NV16;
++#if defined(V4L2_PIX_FMT_NV20) && defined(DRM_FORMAT_NV20)
++    case DRM_FORMAT_NV20:
++        return V4L2_PIX_FMT_NV20;
++#endif
++    case DRM_FORMAT_NV21:
++        return V4L2_PIX_FMT_NV21;
++    case DRM_FORMAT_NV61:
++        return V4L2_PIX_FMT_NV61;
++    default:
++        av_log(NULL, AV_LOG_WARNING, "%s unknown drm format 0x%llx using default v4l2_pix_fmt 0x%x\n",
++	       __func__ , drm_format, V4L2_PIX_FMT_NV12);
++	return V4L2_PIX_FMT_NV12;
++    }
++}
++
++static inline uint64_t drm_format_from_v4l2_pix_fmt(uint32_t v4l2_pix_fmt)
++{
++    switch(v4l2_pix_fmt) {
++    case V4L2_PIX_FMT_NV12:
++        return DRM_FORMAT_NV12;
++#if defined(V4L2_PIX_FMT_NV15) && defined(DRM_FORMAT_NV15)
++    case V4L2_PIX_FMT_NV15:
++        return DRM_FORMAT_NV15;
++#endif
++    case V4L2_PIX_FMT_NV16:
++        return DRM_FORMAT_NV16;
++#if defined(V4L2_PIX_FMT_NV20) && defined(DRM_FORMAT_NV20)
++    case V4L2_PIX_FMT_NV20:
++        return DRM_FORMAT_NV20;
++#endif
++    case V4L2_PIX_FMT_NV21:
++        return DRM_FORMAT_NV21;
++    case V4L2_PIX_FMT_NV61:
++        return DRM_FORMAT_NV61;
++#if defined(V4L2_PIX_FMT_SUNXI_TILED_NV12) && defined(DRM_FORMAT_MOD_ALLWINNER_TILED)
++    case V4L2_PIX_FMT_SUNXI_TILED_NV12:
++        return DRM_FORMAT_MOD_ALLWINNER_TILED;
++#endif
++    default:
++	av_log(NULL, AV_LOG_WARNING, "%s unknown v4l2_pix_fmt format 0x%x using default drm_format 0x%x\n",
++	       __func__ , v4l2_pix_fmt, DRM_FORMAT_NV12);
++	return DRM_FORMAT_NV12;
++    }
++}
++
++static inline uint64_t drm_format_modifier(uint64_t drm_format)
++{
++#ifdef DRM_FORMAT_MOD_ALLWINNER_TILED
++    if (drm_format == DRM_FORMAT_MOD_ALLWINNER_TILED)
++        return DRM_FORMAT_MOD_ALLWINNER_TILED;
++#endif
++    return DRM_FORMAT_MOD_LINEAR;
++
++}
 +
 +static int deint_v4l2m2m_prepare_context(DeintV4L2M2MContextShared *ctx)
 +{
@@ -174,11 +254,12 @@ index 000000000000..1029e5b620fd
 +    return AVERROR(EINVAL);
 +}
 +
-+static int deint_v4l2m2m_try_format(V4L2Queue *queue)
++static int deint_v4l2m2m_try_format(V4L2Queue *queue, uint64_t drm_format)
 +{
 +    struct v4l2_format *fmt        = &queue->format;
 +    DeintV4L2M2MContextShared *ctx = queue->ctx;
 +    int ret, field;
++    uint32_t v4l2_pix_fmt = v4l2_pix_fmt_from_drm_format(drm_format);
 +
 +    ret = ioctl(ctx->fd, VIDIOC_G_FMT, fmt);
 +    if (ret)
@@ -190,12 +271,12 @@ index 000000000000..1029e5b620fd
 +        field = V4L2_FIELD_NONE;
 +
 +    if (V4L2_TYPE_IS_MULTIPLANAR(fmt->type)) {
-+        fmt->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_NV12;
++        fmt->fmt.pix_mp.pixelformat = v4l2_pix_fmt;
 +        fmt->fmt.pix_mp.field = field;
 +        fmt->fmt.pix_mp.width = ctx->width;
 +        fmt->fmt.pix_mp.height = ctx->height;
 +    } else {
-+        fmt->fmt.pix.pixelformat = V4L2_PIX_FMT_NV12;
++        fmt->fmt.pix.pixelformat = v4l2_pix_fmt;
 +        fmt->fmt.pix.field = field;
 +        fmt->fmt.pix.width = ctx->width;
 +        fmt->fmt.pix.height = ctx->height;
@@ -206,14 +287,14 @@ index 000000000000..1029e5b620fd
 +        return AVERROR(EINVAL);
 +
 +    if (V4L2_TYPE_IS_MULTIPLANAR(fmt->type)) {
-+        if (fmt->fmt.pix_mp.pixelformat != V4L2_PIX_FMT_NV12 ||
++        if (fmt->fmt.pix_mp.pixelformat != v4l2_pix_fmt ||
 +            fmt->fmt.pix_mp.field != field) {
 +            av_log(NULL, AV_LOG_DEBUG, "format not supported for type %d\n", fmt->type);
 +
 +            return AVERROR(EINVAL);
 +        }
 +    } else {
-+        if (fmt->fmt.pix.pixelformat != V4L2_PIX_FMT_NV12 ||
++        if (fmt->fmt.pix.pixelformat != v4l2_pix_fmt ||
 +            fmt->fmt.pix.field != field) {
 +            av_log(NULL, AV_LOG_DEBUG, "format not supported for type %d\n", fmt->type);
 +
@@ -223,19 +304,21 @@ index 000000000000..1029e5b620fd
 +
 +    return 0;
 +}
-+
-+static int deint_v4l2m2m_set_format(V4L2Queue *queue, uint32_t field, int width, int height)
++static int deint_v4l2m2m_set_format(V4L2Queue *queue, uint32_t field, int width, int height, uint64_t drm_format)
 +{
 +    struct v4l2_format *fmt        = &queue->format;
 +    DeintV4L2M2MContextShared *ctx = queue->ctx;
 +    int ret;
++    uint32_t v4l2_pix_fmt = v4l2_pix_fmt_from_drm_format(drm_format);
 +
 +    if (V4L2_TYPE_IS_MULTIPLANAR(fmt->type)) {
++        fmt->fmt.pix_mp.pixelformat = v4l2_pix_fmt;
 +        fmt->fmt.pix_mp.field = field;
 +        fmt->fmt.pix_mp.width = width;
 +        fmt->fmt.pix_mp.height = height;
 +        /* TODO: bytesperline and imagesize */
 +    } else {
++        fmt->fmt.pix.pixelformat = v4l2_pix_fmt;
 +        fmt->fmt.pix.field = field;
 +        fmt->fmt.pix.width = width;
 +        fmt->fmt.pix.height = height;
@@ -246,6 +329,18 @@ index 000000000000..1029e5b620fd
 +    ret = ioctl(ctx->fd, VIDIOC_S_FMT, fmt);
 +    if (ret)
 +        av_log(NULL, AV_LOG_ERROR, "VIDIOC_S_FMT failed: %d\n", ret);
++
++    else if (!V4L2_TYPE_IS_OUTPUT(queue->format.type)) {
++        if (V4L2_TYPE_IS_MULTIPLANAR(fmt->type) && fmt->fmt.pix_mp.pixelformat != v4l2_pix_fmt) {
++            ctx->drm_out_format = drm_format_from_v4l2_pix_fmt(fmt->fmt.pix_mp.pixelformat);
++            av_log(NULL, AV_LOG_DEBUG, "%s driver updated v4l2_pixfmt from: %x to %x, so now using %llx as drm output format\n",
++                   __func__, v4l2_pix_fmt, fmt->fmt.pix_mp.pixelformat, ctx->drm_out_format);
++        } else if (fmt->fmt.pix.pixelformat != v4l2_pix_fmt) {
++                ctx->drm_out_format = drm_format_from_v4l2_pix_fmt(fmt->fmt.pix.pixelformat);
++                av_log(NULL, AV_LOG_DEBUG, "%s driver updated v4l2_pixfmt from: %x to %x, so now using %llx as drm output format\n",
++                       __func__, v4l2_pix_fmt, fmt->fmt.pix.pixelformat, ctx->drm_out_format);
++        }
++    }
 +
 +    return ret;
 +}
@@ -262,11 +357,11 @@ index 000000000000..1029e5b620fd
 +    if (ret)
 +        goto fail;
 +
-+    ret = deint_v4l2m2m_try_format(&ctx->capture);
++    ret = deint_v4l2m2m_try_format(&ctx->capture, ctx->drm_out_format);
 +    if (ret)
 +        goto fail;
 +
-+    ret = deint_v4l2m2m_try_format(&ctx->output);
++    ret = deint_v4l2m2m_try_format(&ctx->output, ctx->drm_in_format);
 +    if (ret)
 +        goto fail;
 +
@@ -329,7 +424,7 @@ index 000000000000..1029e5b620fd
 +    return 0;
 +}
 +
-+static int v4l2_buffer_export_drm(V4L2Buffer* avbuf)
++static int v4l2_buffer_export_drm(V4L2Buffer* avbuf, uint64_t drm_format)
 +{
 +    struct v4l2_exportbuffer expbuf;
 +    int i, ret;
@@ -351,12 +446,12 @@ index 000000000000..1029e5b620fd
 +            /* drm frame */
 +            avbuf->drm_frame.objects[i].size = avbuf->buffer.m.planes[i].length;
 +            avbuf->drm_frame.objects[i].fd = expbuf.fd;
-+            avbuf->drm_frame.objects[i].format_modifier = DRM_FORMAT_MOD_LINEAR;
++            avbuf->drm_frame.objects[i].format_modifier = drm_format_modifier(drm_format);
 +        } else {
 +            /* drm frame */
 +            avbuf->drm_frame.objects[0].size = avbuf->buffer.length;
 +            avbuf->drm_frame.objects[0].fd = expbuf.fd;
-+            avbuf->drm_frame.objects[0].format_modifier = DRM_FORMAT_MOD_LINEAR;
++            avbuf->drm_frame.objects[0].format_modifier = drm_format_modifier(drm_format);
 +        }
 +    }
 +
@@ -441,7 +536,7 @@ index 000000000000..1029e5b620fd
 +            if (ret)
 +                goto fail;
 +
-+            ret = v4l2_buffer_export_drm(buf);
++            ret = v4l2_buffer_export_drm(buf, ctx->drm_out_format);
 +            if (ret)
 +                goto fail;
 +        }
@@ -599,8 +694,11 @@ index 000000000000..1029e5b620fd
 +                    close(capture->buffers[i].fd);
 +            }
 +
-+        for (i = 0; i < ctx->frame_count; i++)
-+            av_frame_free(&ctx->frames[i]);
++	if (ctx->cur_in_frame)
++		av_frame_free(&ctx->cur_in_frame);
++
++	if (ctx->prev_in_frame)
++		av_frame_free(&ctx->prev_in_frame);
 +
 +        av_buffer_unref(&ctx->hw_frames_ctx);
 +
@@ -630,7 +728,7 @@ index 000000000000..1029e5b620fd
 +    deint_v4l2m2m_destroy_context(ctx);
 +}
 +
-+static uint8_t *v4l2_get_drm_frame(V4L2Buffer *avbuf, int height)
++static uint8_t *v4l2_get_drm_frame(V4L2Buffer *avbuf, int height, uint64_t drm_format)
 +{
 +    AVDRMFrameDescriptor *drm_desc = &avbuf->drm_frame;
 +    AVDRMLayerDescriptor *layer;
@@ -648,7 +746,7 @@ index 000000000000..1029e5b620fd
 +        layer->planes[i].pitch = avbuf->plane_info[i].bytesperline;
 +    }
 +
-+    layer->format = DRM_FORMAT_NV12;
++    layer->format = drm_format;
 +
 +    if (avbuf->num_planes == 1) {
 +        layer->nb_planes = 2;
@@ -680,7 +778,7 @@ index 000000000000..1029e5b620fd
 +
 +    atomic_fetch_add(&ctx->refcount, 1);
 +
-+    frame->data[0] = (uint8_t *)v4l2_get_drm_frame(avbuf, ctx->orig_height);
++    frame->data[0] = (uint8_t *)v4l2_get_drm_frame(avbuf, ctx->orig_height, ctx->drm_out_format);
 +    frame->format = AV_PIX_FMT_DRM_PRIME;
 +    frame->hw_frames_ctx = av_buffer_ref(ctx->hw_frames_ctx);
 +    frame->height = ctx->height;
@@ -694,49 +792,79 @@ index 000000000000..1029e5b620fd
 +    return 0;
 +}
 +
-+static int deint_v4l2m2m_dequeue(AVFilterContext *avctx, AVFrame *input_frame, int field)
++static int deint_v4l2m2m_dequeue(AVFilterContext *avctx, AVFrame *input_frame)
 +{
 +    DeintV4L2M2MContext *priv      = avctx->priv;
 +    DeintV4L2M2MContextShared *ctx = priv->shared;
 +    AVFilterLink *outlink          = avctx->outputs[0];
-+    AVFrame *output_frame;
++    AVFrame *output_frame_1, *output_frame_2;
++    int64_t first_pts = AV_NOPTS_VALUE;
 +    int err;
 +
-+    output_frame = av_frame_alloc();
++    av_log(priv, AV_LOG_DEBUG, "input pts: %"PRId64" (field %d)\n",
++          input_frame->pts, ctx->field_order);
 +
-+    if (!output_frame)
++    output_frame_1 = av_frame_alloc();
++    if (!output_frame_1)
 +        return AVERROR(ENOMEM);
 +
-+    err = deint_v4l2m2m_dequeue_frame(&ctx->capture, output_frame, 500);
++    err = deint_v4l2m2m_dequeue_frame(&ctx->capture, output_frame_1, 500);
 +    if (err < 0) {
-+        av_log(priv, AV_LOG_ERROR, "no frame (field %d)\n", field);
-+        goto fail;
++        av_log(priv, AV_LOG_ERROR, "no 1st frame (field %d)\n", ctx->field_order);
++        goto fail_out1;
 +    }
 +
-+    err = av_frame_copy_props(output_frame, input_frame);
++    err = av_frame_copy_props(output_frame_1, input_frame);
 +    if (err < 0)
-+        goto fail;
++        goto fail_out1;
 +
-+    output_frame->interlaced_frame = 0;
++    output_frame_1->interlaced_frame = 0;
 +
-+    if (field == 0) {
-+        output_frame->pts *= 2;
-+    } else {
-+        int64_t cur_pts  = ctx->frames[0]->pts;
-+        int64_t next_pts = ctx->frames[1]->pts;
-+
-+        if (next_pts != AV_NOPTS_VALUE && cur_pts != AV_NOPTS_VALUE) {
-+            output_frame->pts = next_pts + cur_pts;
-+        } else {
-+            output_frame->pts = AV_NOPTS_VALUE;
-+        }
++    output_frame_2 = av_frame_alloc();
++    if (!output_frame_2) {
++        err = AVERROR(ENOMEM);
++        goto fail_out1;
 +    }
-+    av_log(priv, AV_LOG_DEBUG, "pts: %"PRId64" (field %d)\n", output_frame->pts, field);
 +
-+    return ff_filter_frame(outlink, output_frame);
++    err = deint_v4l2m2m_dequeue_frame(&ctx->capture, output_frame_2, 500);
++    if (err < 0) {
++        av_log(priv, AV_LOG_ERROR, "no 2nd frame (field %d)\n", ctx->field_order);
++        goto fail_out2;
++    }
 +
-+fail:
-+    av_frame_free(&output_frame);
++    err = av_frame_copy_props(output_frame_2, input_frame);
++    if (err < 0)
++        goto fail_out2;
++
++    output_frame_2->interlaced_frame = 0;
++
++    if (ctx->prev_in_frame && ctx->prev_in_frame->pts != AV_NOPTS_VALUE
++       && input_frame->pts != AV_NOPTS_VALUE) {
++      first_pts = (ctx->prev_in_frame->pts + input_frame->pts) / 2;
++      av_log(priv, AV_LOG_DEBUG, "calculated first pts %"PRId64"\n", first_pts);
++    }
++
++    output_frame_1->pts = first_pts;
++
++    err = ff_filter_frame(outlink, output_frame_1);
++    if (err < 0) {
++        av_frame_free(&output_frame_2);
++        return err;
++    }
++    err = ff_filter_frame(outlink, output_frame_2);
++
++    if (err < 0)
++        return err;
++
++    av_log(priv, AV_LOG_DEBUG, "1st frame pts: %"PRId64" 2nd frame pts: %"PRId64" first pts: %"PRId64" (field %d)\n",
++           output_frame_1->pts, output_frame_2->pts, first_pts, ctx->field_order);
++
++    return 0;
++
++fail_out2:
++    av_frame_free(&output_frame_2);
++fail_out1:
++    av_frame_free(&output_frame_1);
 +    return err;
 +}
 +
@@ -791,24 +919,32 @@ index 000000000000..1029e5b620fd
 +    V4L2Queue *output              = &ctx->output;
 +    int ret;
 +
-+    av_log(priv, AV_LOG_DEBUG, "input pts: %"PRId64"\n", in->pts);
-+    if (!ctx->frame_count) {
-+        AVDRMFrameDescriptor *drm_desc = (AVDRMFrameDescriptor *)in->data[0];
-+        unsigned int field;
++    av_log(priv, AV_LOG_DEBUG, "input pts: %"PRId64" field :%d interlaced: %d\n",
++          in->pts, in->top_field_first, in->interlaced_frame);
 +
++    ctx->cur_in_frame = in;
++
++    if (ctx->field_order == V4L2_FIELD_ANY) {
++        AVDRMFrameDescriptor *drm_desc = (AVDRMFrameDescriptor *)in->data[0];
 +        ctx->orig_width = drm_desc->layers[0].planes[0].pitch;
 +        ctx->orig_height = drm_desc->layers[0].planes[1].offset / ctx->orig_width;
++        ctx->drm_in_format = drm_desc->layers->format;
++        ctx->drm_out_format = drm_desc->layers->format;
 +
-+        if (in->top_field_first)
-+            field = V4L2_FIELD_INTERLACED_TB;
++	if (in->top_field_first)
++            ctx->field_order = V4L2_FIELD_INTERLACED_TB;
 +        else
-+            field = V4L2_FIELD_INTERLACED_BT;
++            ctx->field_order = V4L2_FIELD_INTERLACED_BT;
 +
-+        ret = deint_v4l2m2m_set_format(output, field, ctx->orig_width, ctx->orig_height);
++        ret = deint_v4l2m2m_set_format(output, ctx->field_order,
++                                       ctx->orig_width, ctx->orig_height,
++                                       ctx->drm_in_format);
 +        if (ret)
 +            return ret;
 +
-+	ret = deint_v4l2m2m_set_format(capture, V4L2_FIELD_NONE, ctx->orig_width, ctx->orig_height);
++	ret = deint_v4l2m2m_set_format(capture, V4L2_FIELD_NONE,
++	                               ctx->orig_width, ctx->orig_height,
++	                               ctx->drm_out_format);
 +        if (ret)
 +            return ret;
 +
@@ -829,27 +965,19 @@ index 000000000000..1029e5b620fd
 +            return ret;
 +    }
 +
-+    if (ctx->frame_count < 2) {
-+        ctx->frames[ctx->frame_count++] = in;
-+    } else {
-+        av_frame_free(&ctx->frames[0]);
-+        ctx->frames[0] = ctx->frames[1];
-+        ctx->frames[1] = in;
-+    }
-+
 +    ret = deint_v4l2m2m_enqueue(output, in);
 +    if (ret)
 +        return ret;
 +
-+    if (ctx->frame_count == 2) {
-+        ret = deint_v4l2m2m_dequeue(avctx, ctx->frames[0], 0);
-+        if (ret)
-+            return ret;
++    ret = deint_v4l2m2m_dequeue(avctx, in);
++    if (ret)
++        return ret;
 +
-+        ret = deint_v4l2m2m_dequeue(avctx, ctx->frames[0], 1);
-+        if (ret)
-+            return ret;
-+    }
++    if (ctx->prev_in_frame)
++	av_frame_free(&ctx->prev_in_frame);
++
++    ctx->prev_in_frame = in;
++    ctx->cur_in_frame = NULL;
 +
 +    return 0;
 +}
@@ -870,6 +998,11 @@ index 000000000000..1029e5b620fd
 +    ctx->capture.ctx = ctx;
 +    ctx->capture.num_buffers = 6;
 +    ctx->done = 0;
++    ctx->field_order = V4L2_FIELD_ANY;
++    ctx->cur_in_frame = NULL;
++    ctx->prev_in_frame = NULL;
++    ctx->drm_in_format = DRM_FORMAT_NV12;
++    ctx->drm_out_format = DRM_FORMAT_NV12;
 +    atomic_init(&ctx->refcount, 1);
 +
 +    return 0;
@@ -896,7 +1029,6 @@ index 000000000000..1029e5b620fd
 +        .type         = AVMEDIA_TYPE_VIDEO,
 +        .filter_frame = deint_v4l2m2m_filter_frame,
 +    },
-+    { NULL }
 +};
 +
 +static const AVFilterPad deint_v4l2m2m_outputs[] = {
@@ -905,7 +1037,6 @@ index 000000000000..1029e5b620fd
 +        .type          = AVMEDIA_TYPE_VIDEO,
 +        .config_props  = deint_v4l2m2m_config_props,
 +    },
-+    { NULL }
 +};
 +
 +AVFilter ff_vf_deinterlace_v4l2m2m = {
@@ -914,11 +1045,8 @@ index 000000000000..1029e5b620fd
 +    .priv_size      = sizeof(DeintV4L2M2MContext),
 +    .init           = &deint_v4l2m2m_init,
 +    .uninit         = &deint_v4l2m2m_uninit,
-+    .query_formats  = &deint_v4l2m2m_query_formats,
-+    .inputs         = deint_v4l2m2m_inputs,
-+    .outputs        = deint_v4l2m2m_outputs,
++    FILTER_QUERY_FUNC(&deint_v4l2m2m_query_formats),
++    FILTER_INPUTS(deint_v4l2m2m_inputs),
++    FILTER_OUTPUTS(deint_v4l2m2m_outputs),
 +    .priv_class     = &deinterlace_v4l2m2m_class,
 +};
--- 
-2.29.2
-

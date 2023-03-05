@@ -1,7 +1,7 @@
-From 46ce980905101822ca824243635d10d660172570 Mon Sep 17 00:00:00 2001
+From baea39c4a1898a8eb89548196722ae56b1e27515 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Mon, 3 Dec 2018 23:48:04 +0100
-Subject: [PATCH 01/12] avutil: add av_buffer_pool_flush()
+Subject: [PATCH 01/13] avutil: add av_buffer_pool_flush()
 
 Used by V4L2 request API hwaccel
 
@@ -12,10 +12,10 @@ Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
  2 files changed, 18 insertions(+)
 
 diff --git a/libavutil/buffer.c b/libavutil/buffer.c
-index 858633e8c7..41555d9982 100644
+index 54590be566..1af892b348 100644
 --- a/libavutil/buffer.c
 +++ b/libavutil/buffer.c
-@@ -305,6 +305,19 @@ static void buffer_pool_free(AVBufferPool *pool)
+@@ -319,6 +319,19 @@ static void buffer_pool_free(AVBufferPool *pool)
      av_freep(&pool);
  }
  
@@ -36,11 +36,11 @@ index 858633e8c7..41555d9982 100644
  {
      AVBufferPool *pool;
 diff --git a/libavutil/buffer.h b/libavutil/buffer.h
-index 241a80ed67..f41363faf1 100644
+index e1ef5b7f07..fde9bae4f6 100644
 --- a/libavutil/buffer.h
 +++ b/libavutil/buffer.h
-@@ -315,6 +315,11 @@ AVBufferPool *av_buffer_pool_init2(size_t size, void *opaque,
- #endif
+@@ -284,6 +284,11 @@ AVBufferPool *av_buffer_pool_init2(size_t size, void *opaque,
+                                    AVBufferRef* (*alloc)(void *opaque, size_t size),
                                     void (*pool_free)(void *opaque));
  
 +/**
@@ -52,10 +52,10 @@ index 241a80ed67..f41363faf1 100644
   * Mark the pool as being available for freeing. It will actually be freed only
   * once all the allocated buffers associated with the pool are released. Thus it
 
-From 6f3b6c4d442a9a3322305e5600ce7f84af5971cc Mon Sep 17 00:00:00 2001
+From 91c471c226611f23d0eb07a7c5975470a01be985 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Sat, 15 Dec 2018 22:32:16 +0100
-Subject: [PATCH 02/12] Add common V4L2 request API code
+Subject: [PATCH 02/13] Add common V4L2 request API code
 
 Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
 Signed-off-by: Alex Bee <knaerzche@gmail.com>
@@ -63,17 +63,17 @@ Signed-off-by: Alex Bee <knaerzche@gmail.com>
  configure                 |   12 +
  libavcodec/Makefile       |    1 +
  libavcodec/hwconfig.h     |    2 +
- libavcodec/v4l2_request.c | 1027 +++++++++++++++++++++++++++++++++++++
+ libavcodec/v4l2_request.c | 1023 +++++++++++++++++++++++++++++++++++++
  libavcodec/v4l2_request.h |   77 +++
- 5 files changed, 1119 insertions(+)
+ 5 files changed, 1115 insertions(+)
  create mode 100644 libavcodec/v4l2_request.c
  create mode 100644 libavcodec/v4l2_request.h
 
 diff --git a/configure b/configure
-index 4ba72bf84b..4a3a5ae9e0 100755
+index ba5793b2ff..0ccfd0ac36 100755
 --- a/configure
 +++ b/configure
-@@ -279,6 +279,7 @@ External library support:
+@@ -281,6 +281,7 @@ External library support:
                             if openssl, gnutls or mbedtls is not used [no]
    --enable-libtwolame      enable MP2 encoding via libtwolame [no]
    --enable-libuavs3d       enable AVS3 decoding via libuavs3d [no]
@@ -81,7 +81,7 @@ index 4ba72bf84b..4a3a5ae9e0 100755
    --enable-libv4l2         enable libv4l2/v4l-utils [no]
    --enable-libvidstab      enable video stabilization using vid.stab [no]
    --enable-libvmaf         enable vmaf filter via libvmaf [no]
-@@ -346,6 +347,7 @@ External library support:
+@@ -349,6 +350,7 @@ External library support:
    --enable-omx-rpi         enable OpenMAX IL code for Raspberry Pi [no]
    --enable-rkmpp           enable Rockchip Media Process Platform code [no]
    --disable-v4l2-m2m       disable V4L2 mem2mem code [autodetect]
@@ -89,7 +89,7 @@ index 4ba72bf84b..4a3a5ae9e0 100755
    --disable-vaapi          disable Video Acceleration API (mainly Unix/Intel) code [autodetect]
    --disable-vdpau          disable Nvidia Video Decode and Presentation API for Unix code [autodetect]
    --disable-videotoolbox   disable VideoToolbox code [autodetect]
-@@ -1814,6 +1816,7 @@ EXTERNAL_LIBRARY_LIST="
+@@ -1869,6 +1871,7 @@ EXTERNAL_LIBRARY_LIST="
      libtheora
      libtwolame
      libuavs3d
@@ -97,31 +97,31 @@ index 4ba72bf84b..4a3a5ae9e0 100755
      libv4l2
      libvmaf
      libvorbis
-@@ -1868,6 +1871,7 @@ HWACCEL_LIBRARY_LIST="
+@@ -1924,6 +1927,7 @@ HWACCEL_LIBRARY_LIST="
      mmal
      omx
      opencl
 +    v4l2_request
-     vulkan
  "
  
-@@ -2920,6 +2924,7 @@ d3d11va_deps="dxva_h ID3D11VideoDecoder ID3D11VideoContext"
+ DOCUMENT_LIST="
+@@ -3011,6 +3015,7 @@ d3d11va_deps="dxva_h ID3D11VideoDecoder ID3D11VideoContext"
  dxva2_deps="dxva2api_h DXVA2_ConfigPictureDecode ole32 user32"
  ffnvcodec_deps_any="libdl LoadLibrary"
  nvdec_deps="ffnvcodec"
 +v4l2_request_deps="linux_videodev2_h linux_media_h v4l2_timeval_to_ns libdrm libudev"
- vaapi_x11_deps="xlib"
+ vaapi_x11_deps="xlib_x11"
  videotoolbox_hwaccel_deps="videotoolbox pthreads"
  videotoolbox_hwaccel_extralibs="-framework QuartzCore"
-@@ -6439,6 +6444,7 @@ enabled libtwolame        && require libtwolame twolame.h twolame_init -ltwolame
+@@ -6634,6 +6639,7 @@ enabled libtwolame        && require libtwolame twolame.h twolame_init -ltwolame
                               { check_lib libtwolame twolame.h twolame_encode_buffer_float32_interleaved -ltwolame ||
                                 die "ERROR: libtwolame must be installed and version must be >= 0.3.10"; }
  enabled libuavs3d         && require_pkg_config libuavs3d "uavs3d >= 1.1.41" uavs3d.h uavs3d_decode
 +enabled libudev           && require_pkg_config libudev libudev libudev.h udev_new
  enabled libv4l2           && require_pkg_config libv4l2 libv4l2 libv4l2.h v4l2_ioctl
  enabled libvidstab        && require_pkg_config libvidstab "vidstab >= 0.98" vid.stab/libvidstab.h vsMotionDetectInit
- enabled libvmaf           && require_pkg_config libvmaf "libvmaf >= 1.5.2" libvmaf.h compute_vmaf
-@@ -6537,6 +6543,10 @@ enabled rkmpp             && { require_pkg_config rkmpp rockchip_mpp  rockchip/r
+ enabled libvmaf           && require_pkg_config libvmaf "libvmaf >= 2.0.0" libvmaf.h vmaf_init
+@@ -6735,6 +6741,10 @@ enabled rkmpp             && { require_pkg_config rkmpp rockchip_mpp  rockchip/r
                                 { enabled libdrm ||
                                   die "ERROR: rkmpp requires --enable-libdrm"; }
                               }
@@ -132,7 +132,7 @@ index 4ba72bf84b..4a3a5ae9e0 100755
  enabled vapoursynth       && require_pkg_config vapoursynth "vapoursynth-script >= 42" VSScript.h vsscript_init
  
  
-@@ -6618,6 +6628,8 @@ if enabled v4l2_m2m; then
+@@ -6817,6 +6827,8 @@ if enabled v4l2_m2m; then
      check_cc vp9_v4l2_m2m linux/videodev2.h "int i = V4L2_PIX_FMT_VP9;"
  fi
  
@@ -142,10 +142,10 @@ index 4ba72bf84b..4a3a5ae9e0 100755
  test_code cc sys/videoio.h "struct v4l2_frmsizeenum vfse; vfse.discrete.width = 0;" && enable_sanitized struct_v4l2_frmivalenum_discrete
  
 diff --git a/libavcodec/Makefile b/libavcodec/Makefile
-index 33a280cf69..90dfffcb20 100644
+index 457ec58377..3cb7dede11 100644
 --- a/libavcodec/Makefile
 +++ b/libavcodec/Makefile
-@@ -155,6 +155,7 @@ OBJS-$(CONFIG_VP3DSP)                  += vp3dsp.o
+@@ -162,6 +162,7 @@ OBJS-$(CONFIG_VP3DSP)                  += vp3dsp.o
  OBJS-$(CONFIG_VP56DSP)                 += vp56dsp.o
  OBJS-$(CONFIG_VP8DSP)                  += vp8dsp.o
  OBJS-$(CONFIG_V4L2_M2M)                += v4l2_m2m.o v4l2_context.o v4l2_buffers.o v4l2_fmt.o
@@ -154,13 +154,13 @@ index 33a280cf69..90dfffcb20 100644
  OBJS-$(CONFIG_WMV2DSP)                 += wmv2dsp.o
  
 diff --git a/libavcodec/hwconfig.h b/libavcodec/hwconfig.h
-index f421dc909f..ee78d8ab8e 100644
+index 721424912c..00864efc27 100644
 --- a/libavcodec/hwconfig.h
 +++ b/libavcodec/hwconfig.h
-@@ -80,6 +80,8 @@ typedef struct AVCodecHWConfigInternal {
+@@ -78,6 +78,8 @@ typedef struct AVCodecHWConfigInternal {
+     HW_CONFIG_HWACCEL(1, 1, 1, VIDEOTOOLBOX, VIDEOTOOLBOX, ff_ ## codec ## _videotoolbox_hwaccel)
+ #define HWACCEL_D3D11VA(codec) \
      HW_CONFIG_HWACCEL(0, 0, 1, D3D11VA_VLD,  NONE,         ff_ ## codec ## _d3d11va_hwaccel)
- #define HWACCEL_XVMC(codec) \
-     HW_CONFIG_HWACCEL(0, 0, 1, XVMC,         NONE,         ff_ ## codec ## _xvmc_hwaccel)
 +#define HWACCEL_V4L2REQUEST(codec) \
 +    HW_CONFIG_HWACCEL(1, 0, 0, DRM_PRIME,    DRM,          ff_ ## codec ## _v4l2request_hwaccel)
  
@@ -168,10 +168,10 @@ index f421dc909f..ee78d8ab8e 100644
      &(const AVCodecHWConfigInternal) { \
 diff --git a/libavcodec/v4l2_request.c b/libavcodec/v4l2_request.c
 new file mode 100644
-index 0000000000..b57bbf29bc
+index 0000000000..e7faf100f0
 --- /dev/null
 +++ b/libavcodec/v4l2_request.c
-@@ -0,0 +1,1027 @@
+@@ -0,0 +1,1023 @@
 +/*
 + * This file is part of FFmpeg.
 + *
@@ -316,13 +316,11 @@ index 0000000000..b57bbf29bc
 +        .type = buf->buffer.type,
 +        .memory = buf->buffer.memory,
 +        .index = buf->index,
-+        .timestamp.tv_usec = ctx->timestamp,
++        .timestamp.tv_usec = buf->index + 1,
 +        .bytesused = buf->used,
 +        .request_fd = request_fd,
 +        .flags = ((request_fd >= 0) ? V4L2_BUF_FLAG_REQUEST_FD : 0) | flags,
 +    };
-+
-+    buf->buffer.timestamp = buffer.timestamp;
 +
 +    if (V4L2_TYPE_IS_MULTIPLANAR(buf->buffer.type)) {
 +        planes[0].bytesused = buf->used;
@@ -412,9 +410,6 @@ index 0000000000..b57bbf29bc
 +    int ret;
 +
 +    av_log(avctx, AV_LOG_DEBUG, "%s: avctx=%p used=%u controls=%d index=%d fd=%d request_fd=%d first_slice=%d last_slice=%d\n", __func__, avctx, req->output.used, count, req->capture.index, req->capture.fd, req->request_fd, first_slice, last_slice);
-+
-+    if (first_slice)
-+        ctx->timestamp++;
 +
 +    ret = v4l2_request_set_controls(ctx, req->request_fd, control, count);
 +    if (ret < 0) {
@@ -910,7 +905,6 @@ index 0000000000..b57bbf29bc
 +
 +    ctx->media_fd = -1;
 +    ctx->video_fd = -1;
-+    ctx->timestamp = 0;
 +
 +    udev = udev_new();
 +    if (!udev) {
@@ -1044,6 +1038,8 @@ index 0000000000..b57bbf29bc
 +        return ret;
 +    }
 +
++    buf->buffer.timestamp.tv_usec = buf->index + 1;
++
 +    if (V4L2_TYPE_IS_OUTPUT(type)) {
 +        void *addr = mmap(NULL, buf->size, PROT_READ | PROT_WRITE, MAP_SHARED, ctx->video_fd, V4L2_TYPE_IS_MULTIPLANAR(type) ? buf->buffer.m.planes[0].m.mem_offset : buf->buffer.m.offset);
 +        if (addr == MAP_FAILED) {
@@ -1099,7 +1095,7 @@ index 0000000000..b57bbf29bc
 +    av_free(data);
 +}
 +
-+static AVBufferRef *v4l2_request_frame_alloc(void *opaque, int size)
++static AVBufferRef *v4l2_request_frame_alloc(void *opaque, size_t size)
 +{
 +    AVCodecContext *avctx = opaque;
 +    V4L2RequestContext *ctx = avctx->internal->hwaccel_priv_data;
@@ -1283,50 +1279,10 @@ index 0000000000..58d2aa70af
 +
 +#endif /* AVCODEC_V4L2_REQUEST_H */
 
-From 3a8ac13e041cec840d3cd1e83e6294a1a47ac6df Mon Sep 17 00:00:00 2001
-From: Ezequiel Garcia <ezequiel@collabora.com>
-Date: Wed, 20 Feb 2019 11:18:00 -0300
-Subject: [PATCH 03/12] h264dec: add idr_pic_id to slice context
-
-Used by V4L2 request API h264 hwaccel
-
-Signed-off-by: Ezequiel Garcia <ezequiel@collabora.com>
-Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
----
- libavcodec/h264_slice.c | 2 +-
- libavcodec/h264dec.h    | 1 +
- 2 files changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/libavcodec/h264_slice.c b/libavcodec/h264_slice.c
-index 0b415ada6f..b3e3ef6183 100644
---- a/libavcodec/h264_slice.c
-+++ b/libavcodec/h264_slice.c
-@@ -1830,7 +1830,7 @@ static int h264_slice_header_parse(const H264Context *h, H264SliceContext *sl,
-     }
- 
-     if (nal->type == H264_NAL_IDR_SLICE)
--        get_ue_golomb_long(&sl->gb); /* idr_pic_id */
-+        sl->idr_pic_id = get_ue_golomb_long(&sl->gb);
- 
-     sl->poc_lsb = 0;
-     sl->delta_poc_bottom = 0;
-diff --git a/libavcodec/h264dec.h b/libavcodec/h264dec.h
-index b7b19ba4f1..0698ab95ba 100644
---- a/libavcodec/h264dec.h
-+++ b/libavcodec/h264dec.h
-@@ -336,6 +336,7 @@ typedef struct H264SliceContext {
-     int delta_poc[2];
-     int curr_pic_num;
-     int max_pic_num;
-+    int idr_pic_id;
- } H264SliceContext;
- 
- /**
-
-From e7f515597ca5f0900f3bd08ef40bb517703433bc Mon Sep 17 00:00:00 2001
+From 1aa288b7f95876298e88eff71af50c350a51f30a Mon Sep 17 00:00:00 2001
 From: Boris Brezillon <boris.brezillon@collabora.com>
 Date: Wed, 22 May 2019 14:44:22 +0200
-Subject: [PATCH 04/12] h264dec: add ref_pic_marking and pic_order_cnt bit_size
+Subject: [PATCH 03/13] h264dec: add ref_pic_marking and pic_order_cnt bit_size
  to slice context
 
 Used by V4L2 request API h264 hwaccel
@@ -1339,10 +1295,10 @@ Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
  2 files changed, 7 insertions(+), 1 deletion(-)
 
 diff --git a/libavcodec/h264_slice.c b/libavcodec/h264_slice.c
-index b3e3ef6183..bcb9f70c0e 100644
+index d56722a5c2..3e239ae6f0 100644
 --- a/libavcodec/h264_slice.c
 +++ b/libavcodec/h264_slice.c
-@@ -1748,7 +1748,7 @@ static int h264_slice_header_parse(const H264Context *h, H264SliceContext *sl,
+@@ -1838,7 +1838,7 @@ static int h264_slice_header_parse(const H264Context *h, H264SliceContext *sl,
      unsigned int slice_type, tmp, i;
      int field_pic_flag, bottom_field_flag;
      int first_slice = sl == h->slice_ctx && !h->current_slice;
@@ -1351,7 +1307,7 @@ index b3e3ef6183..bcb9f70c0e 100644
  
      if (first_slice)
          av_assert0(!h->setup_finished);
-@@ -1834,6 +1834,7 @@ static int h264_slice_header_parse(const H264Context *h, H264SliceContext *sl,
+@@ -1929,6 +1929,7 @@ static int h264_slice_header_parse(const H264Context *h, H264SliceContext *sl,
  
      sl->poc_lsb = 0;
      sl->delta_poc_bottom = 0;
@@ -1359,7 +1315,7 @@ index b3e3ef6183..bcb9f70c0e 100644
      if (sps->poc_type == 0) {
          sl->poc_lsb = get_bits(&sl->gb, sps->log2_max_poc_lsb);
  
-@@ -1848,6 +1849,7 @@ static int h264_slice_header_parse(const H264Context *h, H264SliceContext *sl,
+@@ -1943,6 +1944,7 @@ static int h264_slice_header_parse(const H264Context *h, H264SliceContext *sl,
          if (pps->pic_order_present == 1 && picture_structure == PICT_FRAME)
              sl->delta_poc[1] = get_se_golomb(&sl->gb);
      }
@@ -1367,7 +1323,7 @@ index b3e3ef6183..bcb9f70c0e 100644
  
      sl->redundant_pic_count = 0;
      if (pps->redundant_pic_cnt_present)
-@@ -1887,9 +1889,11 @@ static int h264_slice_header_parse(const H264Context *h, H264SliceContext *sl,
+@@ -1982,9 +1984,11 @@ static int h264_slice_header_parse(const H264Context *h, H264SliceContext *sl,
  
      sl->explicit_ref_marking = 0;
      if (nal->ref_idc) {
@@ -1380,30 +1336,30 @@ index b3e3ef6183..bcb9f70c0e 100644
  
      if (sl->slice_type_nos != AV_PICTURE_TYPE_I && pps->cabac) {
 diff --git a/libavcodec/h264dec.h b/libavcodec/h264dec.h
-index 0698ab95ba..2b39e82c3b 100644
+index 9a1ec1bace..a87415f822 100644
 --- a/libavcodec/h264dec.h
 +++ b/libavcodec/h264dec.h
-@@ -329,6 +329,7 @@ typedef struct H264SliceContext {
-     MMCO mmco[MAX_MMCO_COUNT];
+@@ -314,6 +314,7 @@ typedef struct H264SliceContext {
+     MMCO mmco[H264_MAX_MMCO_COUNT];
      int  nb_mmco;
      int explicit_ref_marking;
 +    int ref_pic_marking_bit_size;
  
      int frame_num;
-     int poc_lsb;
-@@ -337,6 +338,7 @@ typedef struct H264SliceContext {
+     int idr_pic_id;
+@@ -322,6 +323,7 @@ typedef struct H264SliceContext {
+     int delta_poc[2];
      int curr_pic_num;
      int max_pic_num;
-     int idr_pic_id;
 +    int pic_order_cnt_bit_size;
  } H264SliceContext;
  
  /**
 
-From 9f455a7adb8cabb575049204375cc3b8d97b2c86 Mon Sep 17 00:00:00 2001
+From efdc653700b45efb64af73060330b95e26aa99c5 Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@siol.net>
 Date: Sat, 15 Dec 2018 22:32:16 +0100
-Subject: [PATCH 05/12] Add V4L2 request API h264 hwaccel
+Subject: [PATCH 04/13] Add V4L2 request API h264 hwaccel
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
 Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
@@ -1418,10 +1374,10 @@ Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
  create mode 100644 libavcodec/v4l2_request_h264.c
 
 diff --git a/configure b/configure
-index 4a3a5ae9e0..efd12f1b52 100755
+index 0ccfd0ac36..4f98dec7b1 100755
 --- a/configure
 +++ b/configure
-@@ -2952,6 +2952,8 @@ h264_dxva2_hwaccel_deps="dxva2"
+@@ -3045,6 +3045,8 @@ h264_dxva2_hwaccel_deps="dxva2"
  h264_dxva2_hwaccel_select="h264_decoder"
  h264_nvdec_hwaccel_deps="nvdec"
  h264_nvdec_hwaccel_select="h264_decoder"
@@ -1430,7 +1386,7 @@ index 4a3a5ae9e0..efd12f1b52 100755
  h264_vaapi_hwaccel_deps="vaapi"
  h264_vaapi_hwaccel_select="h264_decoder"
  h264_vdpau_hwaccel_deps="vdpau"
-@@ -6629,6 +6631,7 @@ if enabled v4l2_m2m; then
+@@ -6828,6 +6830,7 @@ if enabled v4l2_m2m; then
  fi
  
  check_func_headers "linux/media.h linux/videodev2.h" v4l2_timeval_to_ns
@@ -1439,10 +1395,10 @@ index 4a3a5ae9e0..efd12f1b52 100755
  check_headers sys/videoio.h
  test_code cc sys/videoio.h "struct v4l2_frmsizeenum vfse; vfse.discrete.width = 0;" && enable_sanitized struct_v4l2_frmivalenum_discrete
 diff --git a/libavcodec/Makefile b/libavcodec/Makefile
-index 90dfffcb20..426c7528e9 100644
+index 3cb7dede11..54f8ed670b 100644
 --- a/libavcodec/Makefile
 +++ b/libavcodec/Makefile
-@@ -935,6 +935,7 @@ OBJS-$(CONFIG_H264_D3D11VA_HWACCEL)       += dxva2_h264.o
+@@ -966,6 +966,7 @@ OBJS-$(CONFIG_H264_D3D11VA_HWACCEL)       += dxva2_h264.o
  OBJS-$(CONFIG_H264_DXVA2_HWACCEL)         += dxva2_h264.o
  OBJS-$(CONFIG_H264_NVDEC_HWACCEL)         += nvdec_h264.o
  OBJS-$(CONFIG_H264_QSV_HWACCEL)           += qsvdec.o
@@ -1451,10 +1407,10 @@ index 90dfffcb20..426c7528e9 100644
  OBJS-$(CONFIG_H264_VDPAU_HWACCEL)         += vdpau_h264.o
  OBJS-$(CONFIG_H264_VIDEOTOOLBOX_HWACCEL)  += videotoolbox.o
 diff --git a/libavcodec/h264_slice.c b/libavcodec/h264_slice.c
-index bcb9f70c0e..6b7f569da4 100644
+index 3e239ae6f0..335dc2cac1 100644
 --- a/libavcodec/h264_slice.c
 +++ b/libavcodec/h264_slice.c
-@@ -768,6 +768,7 @@ static enum AVPixelFormat get_pixel_format(H264Context *h, int force_callback)
+@@ -792,6 +792,7 @@ static enum AVPixelFormat get_pixel_format(H264Context *h, int force_callback)
  #define HWACCEL_MAX (CONFIG_H264_DXVA2_HWACCEL + \
                       (CONFIG_H264_D3D11VA_HWACCEL * 2) + \
                       CONFIG_H264_NVDEC_HWACCEL + \
@@ -1462,10 +1418,10 @@ index bcb9f70c0e..6b7f569da4 100644
                       CONFIG_H264_VAAPI_HWACCEL + \
                       CONFIG_H264_VIDEOTOOLBOX_HWACCEL + \
                       CONFIG_H264_VDPAU_HWACCEL)
-@@ -852,6 +853,9 @@ static enum AVPixelFormat get_pixel_format(H264Context *h, int force_callback)
+@@ -881,6 +882,9 @@ static enum AVPixelFormat get_pixel_format(H264Context *h, int force_callback)
  #endif
- #if CONFIG_H264_VIDEOTOOLBOX_HWACCEL
-             *fmt++ = AV_PIX_FMT_VIDEOTOOLBOX;
+ #if CONFIG_H264_VAAPI_HWACCEL
+             *fmt++ = AV_PIX_FMT_VAAPI;
 +#endif
 +#if CONFIG_H264_V4L2REQUEST_HWACCEL
 +            *fmt++ = AV_PIX_FMT_DRM_PRIME;
@@ -1473,10 +1429,10 @@ index bcb9f70c0e..6b7f569da4 100644
              if (h->avctx->codec->pix_fmts)
                  choices = h->avctx->codec->pix_fmts;
 diff --git a/libavcodec/h264dec.c b/libavcodec/h264dec.c
-index 1705046e29..55046031b2 100644
+index 2a5b53ea56..dcba237b4f 100644
 --- a/libavcodec/h264dec.c
 +++ b/libavcodec/h264dec.c
-@@ -1076,6 +1076,9 @@ AVCodec ff_h264_decoder = {
+@@ -1099,6 +1099,9 @@ const FFCodec ff_h264_decoder = {
  #endif
  #if CONFIG_H264_VIDEOTOOLBOX_HWACCEL
                                 HWACCEL_VIDEOTOOLBOX(h264),
@@ -1487,10 +1443,10 @@ index 1705046e29..55046031b2 100644
                                 NULL
                             },
 diff --git a/libavcodec/hwaccels.h b/libavcodec/hwaccels.h
-index 8e54cf73f9..969a1da0f4 100644
+index aca55831f3..014b95f0c0 100644
 --- a/libavcodec/hwaccels.h
 +++ b/libavcodec/hwaccels.h
-@@ -32,6 +32,7 @@ extern const AVHWAccel ff_h264_d3d11va_hwaccel;
+@@ -33,6 +33,7 @@ extern const AVHWAccel ff_h264_d3d11va_hwaccel;
  extern const AVHWAccel ff_h264_d3d11va2_hwaccel;
  extern const AVHWAccel ff_h264_dxva2_hwaccel;
  extern const AVHWAccel ff_h264_nvdec_hwaccel;
@@ -1500,7 +1456,7 @@ index 8e54cf73f9..969a1da0f4 100644
  extern const AVHWAccel ff_h264_videotoolbox_hwaccel;
 diff --git a/libavcodec/v4l2_request_h264.c b/libavcodec/v4l2_request_h264.c
 new file mode 100644
-index 0000000000..394bae0550
+index 0000000000..c960c9c887
 --- /dev/null
 +++ b/libavcodec/v4l2_request_h264.c
 @@ -0,0 +1,456 @@
@@ -1524,6 +1480,7 @@ index 0000000000..394bae0550
 +
 +#include "h264dec.h"
 +#include "hwconfig.h"
++#include "internal.h"
 +#include "v4l2_request.h"
 +
 +typedef struct V4L2RequestControlsH264 {
@@ -1758,7 +1715,7 @@ index 0000000000..394bae0550
 +
 +    fill_dpb(&controls->decode_params, h);
 +
-+    controls->first_slice = !FIELD_PICTURE(h) || h->first_field;
++    controls->first_slice = 1;
 +    controls->num_slices = 0;
 +
 +    return ff_v4l2_request_reset_frame(avctx, h->cur_pic_ptr->f);
@@ -1889,8 +1846,7 @@ index 0000000000..394bae0550
 +
 +static int v4l2_request_h264_end_frame(AVCodecContext *avctx)
 +{
-+    const H264Context *h = avctx->priv_data;
-+    return v4l2_request_h264_queue_decode(avctx, !FIELD_PICTURE(h) || !h->first_field);
++    return v4l2_request_h264_queue_decode(avctx, 1);
 +}
 +
 +static int v4l2_request_h264_set_controls(AVCodecContext *avctx)
@@ -1961,10 +1917,10 @@ index 0000000000..394bae0550
 +    .caps_internal  = HWACCEL_CAP_ASYNC_SAFE,
 +};
 
-From 1ffea498d7e1000acbaa456bb52e26757779622a Mon Sep 17 00:00:00 2001
+From a1e633c09c135ff68937f1d25bbffc18c8cb55d1 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Sat, 15 Dec 2018 22:32:16 +0100
-Subject: [PATCH 06/12] Add V4L2 request API mpeg2 hwaccel
+Subject: [PATCH 05/13] Add V4L2 request API mpeg2 hwaccel
 
 Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
 ---
@@ -1977,10 +1933,10 @@ Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
  create mode 100644 libavcodec/v4l2_request_mpeg2.c
 
 diff --git a/configure b/configure
-index efd12f1b52..1b70ea65e4 100755
+index 4f98dec7b1..c173884edb 100755
 --- a/configure
 +++ b/configure
-@@ -2996,6 +2996,8 @@ mpeg2_dxva2_hwaccel_deps="dxva2"
+@@ -3085,6 +3085,8 @@ mpeg2_dxva2_hwaccel_deps="dxva2"
  mpeg2_dxva2_hwaccel_select="mpeg2video_decoder"
  mpeg2_nvdec_hwaccel_deps="nvdec"
  mpeg2_nvdec_hwaccel_select="mpeg2video_decoder"
@@ -1989,7 +1945,7 @@ index efd12f1b52..1b70ea65e4 100755
  mpeg2_vaapi_hwaccel_deps="vaapi"
  mpeg2_vaapi_hwaccel_select="mpeg2video_decoder"
  mpeg2_vdpau_hwaccel_deps="vdpau"
-@@ -6632,6 +6634,7 @@ fi
+@@ -6831,6 +6833,7 @@ fi
  
  check_func_headers "linux/media.h linux/videodev2.h" v4l2_timeval_to_ns
  check_cc h264_v4l2_request linux/videodev2.h "int i = V4L2_PIX_FMT_H264_SLICE;"
@@ -1998,10 +1954,10 @@ index efd12f1b52..1b70ea65e4 100755
  check_headers sys/videoio.h
  test_code cc sys/videoio.h "struct v4l2_frmsizeenum vfse; vfse.discrete.width = 0;" && enable_sanitized struct_v4l2_frmivalenum_discrete
 diff --git a/libavcodec/Makefile b/libavcodec/Makefile
-index 426c7528e9..02c023a447 100644
+index 54f8ed670b..65ead12255 100644
 --- a/libavcodec/Makefile
 +++ b/libavcodec/Makefile
-@@ -955,6 +955,7 @@ OBJS-$(CONFIG_MPEG2_D3D11VA_HWACCEL)      += dxva2_mpeg2.o
+@@ -985,6 +985,7 @@ OBJS-$(CONFIG_MPEG2_D3D11VA_HWACCEL)      += dxva2_mpeg2.o
  OBJS-$(CONFIG_MPEG2_DXVA2_HWACCEL)        += dxva2_mpeg2.o
  OBJS-$(CONFIG_MPEG2_NVDEC_HWACCEL)        += nvdec_mpeg12.o
  OBJS-$(CONFIG_MPEG2_QSV_HWACCEL)          += qsvdec.o
@@ -2010,7 +1966,7 @@ index 426c7528e9..02c023a447 100644
  OBJS-$(CONFIG_MPEG2_VDPAU_HWACCEL)        += vdpau_mpeg12.o
  OBJS-$(CONFIG_MPEG2_VIDEOTOOLBOX_HWACCEL) += videotoolbox.o
 diff --git a/libavcodec/hwaccels.h b/libavcodec/hwaccels.h
-index 969a1da0f4..a8ae1483d8 100644
+index 014b95f0c0..3b675dd9f8 100644
 --- a/libavcodec/hwaccels.h
 +++ b/libavcodec/hwaccels.h
 @@ -53,6 +53,7 @@ extern const AVHWAccel ff_mpeg2_d3d11va_hwaccel;
@@ -2022,10 +1978,10 @@ index 969a1da0f4..a8ae1483d8 100644
  extern const AVHWAccel ff_mpeg2_vdpau_hwaccel;
  extern const AVHWAccel ff_mpeg2_videotoolbox_hwaccel;
 diff --git a/libavcodec/mpeg12dec.c b/libavcodec/mpeg12dec.c
-index 09bf01247d..bcdf26680a 100644
+index e9bde48f7a..8c007756b4 100644
 --- a/libavcodec/mpeg12dec.c
 +++ b/libavcodec/mpeg12dec.c
-@@ -1147,6 +1147,9 @@ static const enum AVPixelFormat mpeg2_hwaccel_pixfmt_list_420[] = {
+@@ -1137,6 +1137,9 @@ static const enum AVPixelFormat mpeg2_hwaccel_pixfmt_list_420[] = {
  #endif
  #if CONFIG_MPEG2_VIDEOTOOLBOX_HWACCEL
      AV_PIX_FMT_VIDEOTOOLBOX,
@@ -2035,10 +1991,10 @@ index 09bf01247d..bcdf26680a 100644
  #endif
      AV_PIX_FMT_YUV420P,
      AV_PIX_FMT_NONE
-@@ -2961,6 +2964,9 @@ AVCodec ff_mpeg2video_decoder = {
+@@ -2935,6 +2938,9 @@ const FFCodec ff_mpeg2video_decoder = {
  #endif
- #if CONFIG_MPEG2_XVMC_HWACCEL
-                         HWACCEL_XVMC(mpeg2),
+ #if CONFIG_MPEG2_VIDEOTOOLBOX_HWACCEL
+                         HWACCEL_VIDEOTOOLBOX(mpeg2),
 +#endif
 +#if CONFIG_MPEG2_V4L2REQUEST_HWACCEL
 +                        HWACCEL_V4L2REQUEST(mpeg2),
@@ -2211,10 +2167,10 @@ index 0000000000..84d53209c7
 +    .caps_internal  = HWACCEL_CAP_ASYNC_SAFE,
 +};
 
-From 2190df619ea9d9cedf3d3c7442de0dc863c8b62e Mon Sep 17 00:00:00 2001
+From 6bccc47f7ee6267b0c99318ab4cc47978161cef9 Mon Sep 17 00:00:00 2001
 From: Boris Brezillon <boris.brezillon@collabora.com>
 Date: Wed, 22 May 2019 14:46:58 +0200
-Subject: [PATCH 07/12] Add V4L2 request API vp8 hwaccel
+Subject: [PATCH 06/13] Add V4L2 request API vp8 hwaccel
 
 Signed-off-by: Boris Brezillon <boris.brezillon@collabora.com>
 Signed-off-by: Ezequiel Garcia <ezequiel@collabora.com>
@@ -2229,10 +2185,10 @@ Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
  create mode 100644 libavcodec/v4l2_request_vp8.c
 
 diff --git a/configure b/configure
-index 1b70ea65e4..3f8f7b195a 100755
+index c173884edb..ec16d26391 100755
 --- a/configure
 +++ b/configure
-@@ -3028,6 +3028,8 @@ vc1_vdpau_hwaccel_deps="vdpau"
+@@ -3117,6 +3117,8 @@ vc1_vdpau_hwaccel_deps="vdpau"
  vc1_vdpau_hwaccel_select="vc1_decoder"
  vp8_nvdec_hwaccel_deps="nvdec"
  vp8_nvdec_hwaccel_select="vp8_decoder"
@@ -2241,7 +2197,7 @@ index 1b70ea65e4..3f8f7b195a 100755
  vp8_vaapi_hwaccel_deps="vaapi"
  vp8_vaapi_hwaccel_select="vp8_decoder"
  vp9_d3d11va_hwaccel_deps="d3d11va DXVA_PicParams_VP9"
-@@ -6635,6 +6637,7 @@ fi
+@@ -6834,6 +6836,7 @@ fi
  check_func_headers "linux/media.h linux/videodev2.h" v4l2_timeval_to_ns
  check_cc h264_v4l2_request linux/videodev2.h "int i = V4L2_PIX_FMT_H264_SLICE;"
  check_cc mpeg2_v4l2_request linux/videodev2.h "int i = V4L2_PIX_FMT_MPEG2_SLICE;"
@@ -2250,10 +2206,10 @@ index 1b70ea65e4..3f8f7b195a 100755
  check_headers sys/videoio.h
  test_code cc sys/videoio.h "struct v4l2_frmsizeenum vfse; vfse.discrete.width = 0;" && enable_sanitized struct_v4l2_frmivalenum_discrete
 diff --git a/libavcodec/Makefile b/libavcodec/Makefile
-index 02c023a447..c79d678eb3 100644
+index 65ead12255..aed145ecb6 100644
 --- a/libavcodec/Makefile
 +++ b/libavcodec/Makefile
-@@ -971,6 +971,7 @@ OBJS-$(CONFIG_VC1_QSV_HWACCEL)            += qsvdec.o
+@@ -1000,6 +1000,7 @@ OBJS-$(CONFIG_VC1_QSV_HWACCEL)            += qsvdec.o
  OBJS-$(CONFIG_VC1_VAAPI_HWACCEL)          += vaapi_vc1.o
  OBJS-$(CONFIG_VC1_VDPAU_HWACCEL)          += vdpau_vc1.o
  OBJS-$(CONFIG_VP8_NVDEC_HWACCEL)          += nvdec_vp8.o
@@ -2262,7 +2218,7 @@ index 02c023a447..c79d678eb3 100644
  OBJS-$(CONFIG_VP9_D3D11VA_HWACCEL)        += dxva2_vp9.o
  OBJS-$(CONFIG_VP9_DXVA2_HWACCEL)          += dxva2_vp9.o
 diff --git a/libavcodec/hwaccels.h b/libavcodec/hwaccels.h
-index a8ae1483d8..9f8d41e367 100644
+index 3b675dd9f8..6f9f078001 100644
 --- a/libavcodec/hwaccels.h
 +++ b/libavcodec/hwaccels.h
 @@ -69,6 +69,7 @@ extern const AVHWAccel ff_vc1_nvdec_hwaccel;
@@ -2460,10 +2416,10 @@ index 0000000000..bc0fc40072
 +    .caps_internal  = HWACCEL_CAP_ASYNC_SAFE,
 +};
 diff --git a/libavcodec/vp8.c b/libavcodec/vp8.c
-index d16e7b6aa3..8ee768d875 100644
+index f521f2c9de..a4799fca09 100644
 --- a/libavcodec/vp8.c
 +++ b/libavcodec/vp8.c
-@@ -176,6 +176,9 @@ static enum AVPixelFormat get_pixel_format(VP8Context *s)
+@@ -180,6 +180,9 @@ static enum AVPixelFormat get_pixel_format(VP8Context *s)
  #endif
  #if CONFIG_VP8_NVDEC_HWACCEL
          AV_PIX_FMT_CUDA,
@@ -2473,7 +2429,7 @@ index d16e7b6aa3..8ee768d875 100644
  #endif
          AV_PIX_FMT_YUV420P,
          AV_PIX_FMT_NONE,
-@@ -2972,6 +2975,9 @@ AVCodec ff_vp8_decoder = {
+@@ -2976,6 +2979,9 @@ const FFCodec ff_vp8_decoder = {
  #endif
  #if CONFIG_VP8_NVDEC_HWACCEL
                                 HWACCEL_NVDEC(vp8),
@@ -2484,10 +2440,10 @@ index d16e7b6aa3..8ee768d875 100644
                                 NULL
                             },
 
-From 4886d1e8caeee49c6ca4d92bc1eaebcdb884924c Mon Sep 17 00:00:00 2001
+From 26e5e1407717e88c508abfb24ae329036bb1a99e Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@siol.net>
 Date: Sat, 15 Dec 2018 22:32:16 +0100
-Subject: [PATCH 08/12] Add V4L2 request API hevc hwaccel
+Subject: [PATCH 07/13] Add V4L2 request API hevc hwaccel
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@siol.net>
 Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
@@ -2498,15 +2454,15 @@ Signed-off-by: Alex Bee <knaerzche@gmail.com>
  libavcodec/Makefile            |   1 +
  libavcodec/hevcdec.c           |  10 +
  libavcodec/hwaccels.h          |   1 +
- libavcodec/v4l2_request_hevc.c | 681 +++++++++++++++++++++++++++++++++
- 5 files changed, 696 insertions(+)
+ libavcodec/v4l2_request_hevc.c | 679 +++++++++++++++++++++++++++++++++
+ 5 files changed, 694 insertions(+)
  create mode 100644 libavcodec/v4l2_request_hevc.c
 
 diff --git a/configure b/configure
-index 3f8f7b195a..6192a6c144 100755
+index ec16d26391..d366652e51 100755
 --- a/configure
 +++ b/configure
-@@ -2968,6 +2968,8 @@ hevc_dxva2_hwaccel_deps="dxva2 DXVA_PicParams_HEVC"
+@@ -3061,6 +3061,8 @@ hevc_dxva2_hwaccel_deps="dxva2 DXVA_PicParams_HEVC"
  hevc_dxva2_hwaccel_select="hevc_decoder"
  hevc_nvdec_hwaccel_deps="nvdec"
  hevc_nvdec_hwaccel_select="hevc_decoder"
@@ -2515,7 +2471,7 @@ index 3f8f7b195a..6192a6c144 100755
  hevc_vaapi_hwaccel_deps="vaapi VAPictureParameterBufferHEVC"
  hevc_vaapi_hwaccel_select="hevc_decoder"
  hevc_vdpau_hwaccel_deps="vdpau VdpPictureInfoHEVC"
-@@ -6636,6 +6638,7 @@ fi
+@@ -6835,6 +6837,7 @@ fi
  
  check_func_headers "linux/media.h linux/videodev2.h" v4l2_timeval_to_ns
  check_cc h264_v4l2_request linux/videodev2.h "int i = V4L2_PIX_FMT_H264_SLICE;"
@@ -2524,10 +2480,10 @@ index 3f8f7b195a..6192a6c144 100755
  check_cc vp8_v4l2_request linux/videodev2.h "int i = V4L2_PIX_FMT_VP8_FRAME;"
  
 diff --git a/libavcodec/Makefile b/libavcodec/Makefile
-index c79d678eb3..0059074530 100644
+index aed145ecb6..33ce5fc359 100644
 --- a/libavcodec/Makefile
 +++ b/libavcodec/Makefile
-@@ -943,6 +943,7 @@ OBJS-$(CONFIG_HEVC_D3D11VA_HWACCEL)       += dxva2_hevc.o
+@@ -974,6 +974,7 @@ OBJS-$(CONFIG_HEVC_D3D11VA_HWACCEL)       += dxva2_hevc.o
  OBJS-$(CONFIG_HEVC_DXVA2_HWACCEL)         += dxva2_hevc.o
  OBJS-$(CONFIG_HEVC_NVDEC_HWACCEL)         += nvdec_hevc.o
  OBJS-$(CONFIG_HEVC_QSV_HWACCEL)           += qsvdec.o
@@ -2536,10 +2492,10 @@ index c79d678eb3..0059074530 100644
  OBJS-$(CONFIG_HEVC_VDPAU_HWACCEL)         += vdpau_hevc.o h265_profile_level.o
  OBJS-$(CONFIG_MJPEG_NVDEC_HWACCEL)        += nvdec_mjpeg.o
 diff --git a/libavcodec/hevcdec.c b/libavcodec/hevcdec.c
-index 2231aed259..7507966d71 100644
+index f8f981e838..8db5649b55 100644
 --- a/libavcodec/hevcdec.c
 +++ b/libavcodec/hevcdec.c
-@@ -392,6 +392,7 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
+@@ -402,6 +402,7 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
  #define HWACCEL_MAX (CONFIG_HEVC_DXVA2_HWACCEL + \
                       CONFIG_HEVC_D3D11VA_HWACCEL * 2 + \
                       CONFIG_HEVC_NVDEC_HWACCEL + \
@@ -2547,7 +2503,7 @@ index 2231aed259..7507966d71 100644
                       CONFIG_HEVC_VAAPI_HWACCEL + \
                       CONFIG_HEVC_VIDEOTOOLBOX_HWACCEL + \
                       CONFIG_HEVC_VDPAU_HWACCEL)
-@@ -418,6 +419,9 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
+@@ -428,6 +429,9 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
  #endif
  #if CONFIG_HEVC_VIDEOTOOLBOX_HWACCEL
          *fmt++ = AV_PIX_FMT_VIDEOTOOLBOX;
@@ -2557,7 +2513,7 @@ index 2231aed259..7507966d71 100644
  #endif
          break;
      case AV_PIX_FMT_YUV420P10:
-@@ -439,6 +443,9 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
+@@ -449,6 +453,9 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
  #endif
  #if CONFIG_HEVC_NVDEC_HWACCEL
          *fmt++ = AV_PIX_FMT_CUDA;
@@ -2567,7 +2523,7 @@ index 2231aed259..7507966d71 100644
  #endif
          break;
      case AV_PIX_FMT_YUV444P:
-@@ -3705,6 +3712,9 @@ AVCodec ff_hevc_decoder = {
+@@ -3905,6 +3912,9 @@ const FFCodec ff_hevc_decoder = {
  #endif
  #if CONFIG_HEVC_VIDEOTOOLBOX_HWACCEL
                                 HWACCEL_VIDEOTOOLBOX(hevc),
@@ -2578,10 +2534,10 @@ index 2231aed259..7507966d71 100644
                                 NULL
                             },
 diff --git a/libavcodec/hwaccels.h b/libavcodec/hwaccels.h
-index 9f8d41e367..ffb9fa5087 100644
+index 6f9f078001..e4e4abc060 100644
 --- a/libavcodec/hwaccels.h
 +++ b/libavcodec/hwaccels.h
-@@ -40,6 +40,7 @@ extern const AVHWAccel ff_hevc_d3d11va_hwaccel;
+@@ -41,6 +41,7 @@ extern const AVHWAccel ff_hevc_d3d11va_hwaccel;
  extern const AVHWAccel ff_hevc_d3d11va2_hwaccel;
  extern const AVHWAccel ff_hevc_dxva2_hwaccel;
  extern const AVHWAccel ff_hevc_nvdec_hwaccel;
@@ -2591,10 +2547,10 @@ index 9f8d41e367..ffb9fa5087 100644
  extern const AVHWAccel ff_hevc_videotoolbox_hwaccel;
 diff --git a/libavcodec/v4l2_request_hevc.c b/libavcodec/v4l2_request_hevc.c
 new file mode 100644
-index 0000000000..c12748ed03
+index 0000000000..3e2b9a575e
 --- /dev/null
 +++ b/libavcodec/v4l2_request_hevc.c
-@@ -0,0 +1,681 @@
+@@ -0,0 +1,679 @@
 +/*
 + * This file is part of FFmpeg.
 + *
@@ -2615,6 +2571,7 @@ index 0000000000..c12748ed03
 +
 +#include "hevcdec.h"
 +#include "hwconfig.h"
++#include "internal.h"
 +#include "v4l2_request.h"
 +
 +#define MAX_SLICES 600 // as per HEVC spec ?
@@ -3072,29 +3029,27 @@ index 0000000000..c12748ed03
 +         .size = sizeof(controls->dec_params),
 +    };
 +
-+    if (ctx->supports_scaling_matrix) {
++    if (ctx->supports_scaling_matrix)
 +       control[num_controls++] = (struct v4l2_ext_control) {
 +            .id = V4L2_CID_STATELESS_HEVC_SCALING_MATRIX,
 +            .ptr = &controls->scaling_matrix,
 +            .size = sizeof(controls->scaling_matrix),
 +        };
-+    }
 +
-+    if (ctx->supports_slices) {
++    if (ctx->supports_slices)
 +       control[num_controls++] = (struct v4l2_ext_control) {
 +            .id = V4L2_CID_STATELESS_HEVC_SLICE_PARAMS,
 +            .ptr = &controls->slice_params,
 +            .size = sizeof(*first_slice_params) * controls->num_slices,
 +        };
-+    }
++
 +    //this assumes that decoders supporting entry_point_offsets submit a single slice per request
-+    if (ctx->supports_entry_point_offsets && first_slice_params->num_entry_point_offsets > 0) {
++    if (ctx->supports_entry_point_offsets && first_slice_params->num_entry_point_offsets > 0)
 +       control[num_controls++] = (struct v4l2_ext_control) {
 +            .id = V4L2_CID_STATELESS_HEVC_ENTRY_POINT_OFFSETS,
 +            .ptr = controls->entry_point_offsets,
 +            .size = sizeof(*controls->entry_point_offsets) * first_slice_params->num_entry_point_offsets,
 +        };
-+    }
 +
 +    if (ctx->decode_mode == V4L2_STATELESS_HEVC_DECODE_MODE_SLICE_BASED)
 +        return ff_v4l2_request_decode_slice(avctx, h->ref->frame, control, num_controls, controls->first_slice, last_slice);
@@ -3217,11 +3172,10 @@ index 0000000000..c12748ed03
 +    }
 +
 +    ret = ff_v4l2_request_query_control(avctx, &scaling_matrix);
-+    if (ret) {
++    if (ret)
 +      ctx->supports_scaling_matrix = 0;
-+    } else {
++    else
 +      ctx->supports_scaling_matrix = 1;
-+    }
 +
 +    av_log(avctx, AV_LOG_DEBUG, "%s: decoder is %s and supports slices %d, supports entry_point_offsets: %d supports scaling_matrix: %d max slices: %u\n",
 +           __func__,
@@ -3277,10 +3231,10 @@ index 0000000000..c12748ed03
 +    .caps_internal  = HWACCEL_CAP_ASYNC_SAFE,
 +};
 
-From 44f20a53f2ef6ad0ecfb413ebcc95f92fc17377f Mon Sep 17 00:00:00 2001
+From 24e1336751a0d7346ea149aa3cbe9445e12b885e Mon Sep 17 00:00:00 2001
 From: Boris Brezillon <boris.brezillon@collabora.com>
 Date: Thu, 12 Dec 2019 16:13:55 +0100
-Subject: [PATCH 09/12] Add V4L2 request API VP9 hwaccel
+Subject: [PATCH 08/13] Add V4L2 request API VP9 hwaccel
 
 Signed-off-by: Boris Brezillon <boris.brezillon@collabora.com>
 Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
@@ -3296,10 +3250,10 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
  create mode 100644 libavcodec/v4l2_request_vp9.c
 
 diff --git a/configure b/configure
-index 6192a6c144..36a1271a6c 100755
+index d366652e51..78d0c5a420 100755
 --- a/configure
 +++ b/configure
-@@ -3042,6 +3042,8 @@ vp9_dxva2_hwaccel_deps="dxva2 DXVA_PicParams_VP9"
+@@ -3131,6 +3131,8 @@ vp9_dxva2_hwaccel_deps="dxva2 DXVA_PicParams_VP9"
  vp9_dxva2_hwaccel_select="vp9_decoder"
  vp9_nvdec_hwaccel_deps="nvdec"
  vp9_nvdec_hwaccel_select="vp9_decoder"
@@ -3308,7 +3262,7 @@ index 6192a6c144..36a1271a6c 100755
  vp9_vaapi_hwaccel_deps="vaapi VADecPictureParameterBufferVP9_bit_depth"
  vp9_vaapi_hwaccel_select="vp9_decoder"
  vp9_vdpau_hwaccel_deps="vdpau VdpPictureInfoVP9"
-@@ -6641,6 +6643,7 @@ check_cc h264_v4l2_request linux/videodev2.h "int i = V4L2_PIX_FMT_H264_SLICE;"
+@@ -6840,6 +6842,7 @@ check_cc h264_v4l2_request linux/videodev2.h "int i = V4L2_PIX_FMT_H264_SLICE;"
  check_cc hevc_v4l2_request linux/videodev2.h "int i = V4L2_PIX_FMT_HEVC_SLICE;"
  check_cc mpeg2_v4l2_request linux/videodev2.h "int i = V4L2_PIX_FMT_MPEG2_SLICE;"
  check_cc vp8_v4l2_request linux/videodev2.h "int i = V4L2_PIX_FMT_VP8_FRAME;"
@@ -3317,19 +3271,19 @@ index 6192a6c144..36a1271a6c 100755
  check_headers sys/videoio.h
  test_code cc sys/videoio.h "struct v4l2_frmsizeenum vfse; vfse.discrete.width = 0;" && enable_sanitized struct_v4l2_frmivalenum_discrete
 diff --git a/libavcodec/Makefile b/libavcodec/Makefile
-index 0059074530..38edf1cfe5 100644
+index 33ce5fc359..6561518e0e 100644
 --- a/libavcodec/Makefile
 +++ b/libavcodec/Makefile
-@@ -977,6 +977,7 @@ OBJS-$(CONFIG_VP8_VAAPI_HWACCEL)          += vaapi_vp8.o
+@@ -1006,6 +1006,7 @@ OBJS-$(CONFIG_VP8_VAAPI_HWACCEL)          += vaapi_vp8.o
  OBJS-$(CONFIG_VP9_D3D11VA_HWACCEL)        += dxva2_vp9.o
  OBJS-$(CONFIG_VP9_DXVA2_HWACCEL)          += dxva2_vp9.o
  OBJS-$(CONFIG_VP9_NVDEC_HWACCEL)          += nvdec_vp9.o
 +OBJS-$(CONFIG_VP9_V4L2REQUEST_HWACCEL)    += v4l2_request_vp9.o
  OBJS-$(CONFIG_VP9_VAAPI_HWACCEL)          += vaapi_vp9.o
  OBJS-$(CONFIG_VP9_VDPAU_HWACCEL)          += vdpau_vp9.o
- OBJS-$(CONFIG_VP8_QSV_HWACCEL)            += qsvdec.o
+ OBJS-$(CONFIG_VP9_VIDEOTOOLBOX_HWACCEL)   += videotoolbox_vp9.o
 diff --git a/libavcodec/hwaccels.h b/libavcodec/hwaccels.h
-index ffb9fa5087..fc5d0b0479 100644
+index e4e4abc060..53f4f61fc5 100644
 --- a/libavcodec/hwaccels.h
 +++ b/libavcodec/hwaccels.h
 @@ -76,6 +76,7 @@ extern const AVHWAccel ff_vp9_d3d11va_hwaccel;
@@ -3339,7 +3293,7 @@ index ffb9fa5087..fc5d0b0479 100644
 +extern const AVHWAccel ff_vp9_v4l2request_hwaccel;
  extern const AVHWAccel ff_vp9_vaapi_hwaccel;
  extern const AVHWAccel ff_vp9_vdpau_hwaccel;
- extern const AVHWAccel ff_wmv3_d3d11va_hwaccel;
+ extern const AVHWAccel ff_vp9_videotoolbox_hwaccel;
 diff --git a/libavcodec/v4l2_request_vp9.c b/libavcodec/v4l2_request_vp9.c
 new file mode 100644
 index 0000000000..ec0300f66d
@@ -3629,38 +3583,38 @@ index 0000000000..ec0300f66d
 +    .caps_internal  = HWACCEL_CAP_ASYNC_SAFE,
 +};
 diff --git a/libavcodec/vp9.c b/libavcodec/vp9.c
-index 4659f94ee8..1b2f1eeaf6 100644
+index fee79fb45b..bd7dc4f53a 100644
 --- a/libavcodec/vp9.c
 +++ b/libavcodec/vp9.c
-@@ -191,6 +191,7 @@ static int update_size(AVCodecContext *avctx, int w, int h)
+@@ -184,6 +184,7 @@ static int update_size(AVCodecContext *avctx, int w, int h)
  #define HWACCEL_MAX (CONFIG_VP9_DXVA2_HWACCEL + \
                       CONFIG_VP9_D3D11VA_HWACCEL * 2 + \
                       CONFIG_VP9_NVDEC_HWACCEL + \
 +                     CONFIG_VP9_V4L2REQUEST_HWACCEL + \
                       CONFIG_VP9_VAAPI_HWACCEL + \
-                      CONFIG_VP9_VDPAU_HWACCEL)
-     enum AVPixelFormat pix_fmts[HWACCEL_MAX + 2], *fmtp = pix_fmts;
-@@ -223,6 +224,9 @@ static int update_size(AVCodecContext *avctx, int w, int h)
+                      CONFIG_VP9_VDPAU_HWACCEL + \
+                      CONFIG_VP9_VIDEOTOOLBOX_HWACCEL)
+@@ -212,6 +213,9 @@ static int update_size(AVCodecContext *avctx, int w, int h)
+ #if CONFIG_VP9_NVDEC_HWACCEL
+             *fmtp++ = AV_PIX_FMT_CUDA;
  #endif
- #if CONFIG_VP9_VDPAU_HWACCEL
-             *fmtp++ = AV_PIX_FMT_VDPAU;
-+#endif
 +#if CONFIG_VP9_V4L2REQUEST_HWACCEL
 +            *fmtp++ = AV_PIX_FMT_DRM_PRIME;
- #endif
-             break;
-         case AV_PIX_FMT_YUV420P12:
-@@ -234,6 +238,9 @@ static int update_size(AVCodecContext *avctx, int w, int h)
- #endif
- #if CONFIG_VP9_VDPAU_HWACCEL
-             *fmtp++ = AV_PIX_FMT_VDPAU;
 +#endif
+ #if CONFIG_VP9_VAAPI_HWACCEL
+             *fmtp++ = AV_PIX_FMT_VAAPI;
+ #endif
+@@ -226,6 +230,9 @@ static int update_size(AVCodecContext *avctx, int w, int h)
+ #if CONFIG_VP9_NVDEC_HWACCEL
+             *fmtp++ = AV_PIX_FMT_CUDA;
+ #endif
 +#if CONFIG_VP9_V4L2REQUEST_HWACCEL
 +            *fmtp++ = AV_PIX_FMT_DRM_PRIME;
++#endif
+ #if CONFIG_VP9_VAAPI_HWACCEL
+             *fmtp++ = AV_PIX_FMT_VAAPI;
  #endif
-             break;
-         }
-@@ -382,7 +389,7 @@ static av_always_inline int inv_recenter_nonneg(int v, int m)
+@@ -379,7 +386,7 @@ static av_always_inline int inv_recenter_nonneg(int v, int m)
  }
  
  // differential forward probability updates
@@ -3669,7 +3623,7 @@ index 4659f94ee8..1b2f1eeaf6 100644
  {
      static const uint8_t inv_map_table[255] = {
            7,  20,  33,  46,  59,  72,  85,  98, 111, 124, 137, 150, 163, 176,
-@@ -436,8 +443,13 @@ static int update_prob(VP56RangeCoder *c, int p)
+@@ -433,8 +440,13 @@ static int update_prob(VP56RangeCoder *c, int p)
          av_assert2(d < FF_ARRAY_ELEMS(inv_map_table));
      }
  
@@ -3685,7 +3639,7 @@ index 4659f94ee8..1b2f1eeaf6 100644
  }
  
  static int read_colorspace_details(AVCodecContext *avctx)
-@@ -703,7 +715,8 @@ static int decode_frame_header(AVCodecContext *avctx,
+@@ -700,7 +712,8 @@ static int decode_frame_header(AVCodecContext *avctx,
                                           get_bits(&s->gb, 8) : 255;
          }
  
@@ -3695,7 +3649,7 @@ index 4659f94ee8..1b2f1eeaf6 100644
              s->s.h.segmentation.absolute_vals = get_bits1(&s->gb);
              for (i = 0; i < 8; i++) {
                  if ((s->s.h.segmentation.feat[i].q_enabled = get_bits1(&s->gb)))
-@@ -904,6 +917,8 @@ static int decode_frame_header(AVCodecContext *avctx,
+@@ -900,6 +913,8 @@ static int decode_frame_header(AVCodecContext *avctx,
       * as explicit copies if the fw update is missing (and skip the copy upon
       * fw update)? */
      s->prob.p = s->prob_ctx[c].p;
@@ -3704,7 +3658,7 @@ index 4659f94ee8..1b2f1eeaf6 100644
  
      // txfm updates
      if (s->s.h.lossless) {
-@@ -915,18 +930,25 @@ static int decode_frame_header(AVCodecContext *avctx,
+@@ -911,18 +926,25 @@ static int decode_frame_header(AVCodecContext *avctx,
  
          if (s->s.h.txfmmode == TX_SWITCHABLE) {
              for (i = 0; i < 2; i++)
@@ -3738,7 +3692,7 @@ index 4659f94ee8..1b2f1eeaf6 100644
          }
      }
  
-@@ -938,15 +960,18 @@ static int decode_frame_header(AVCodecContext *avctx,
+@@ -934,15 +956,18 @@ static int decode_frame_header(AVCodecContext *avctx,
                  for (k = 0; k < 2; k++)
                      for (l = 0; l < 6; l++)
                          for (m = 0; m < 6; m++) {
@@ -3760,7 +3714,7 @@ index 4659f94ee8..1b2f1eeaf6 100644
                              }
                              memcpy(&p[3], ff_vp9_model_pareto8[p[2]], 8);
                          }
-@@ -961,7 +986,7 @@ static int decode_frame_header(AVCodecContext *avctx,
+@@ -957,7 +982,7 @@ static int decode_frame_header(AVCodecContext *avctx,
                                  break;
                              memcpy(p, r, 3);
                              memcpy(&p[3], ff_vp9_model_pareto8[p[2]], 8);
@@ -3769,7 +3723,7 @@ index 4659f94ee8..1b2f1eeaf6 100644
          }
          if (s->s.h.txfmmode == i)
              break;
-@@ -969,25 +994,37 @@ static int decode_frame_header(AVCodecContext *avctx,
+@@ -965,25 +990,37 @@ static int decode_frame_header(AVCodecContext *avctx,
  
      // mode updates
      for (i = 0; i < 3; i++)
@@ -3815,7 +3769,7 @@ index 4659f94ee8..1b2f1eeaf6 100644
  
          if (s->s.h.allowcompinter) {
              s->s.h.comppredmode = vp8_rac_get(&s->c);
-@@ -995,92 +1032,134 @@ static int decode_frame_header(AVCodecContext *avctx,
+@@ -991,92 +1028,134 @@ static int decode_frame_header(AVCodecContext *avctx,
                  s->s.h.comppredmode += vp8_rac_get(&s->c);
              if (s->s.h.comppredmode == PRED_SWITCHABLE)
                  for (i = 0; i < 5; i++)
@@ -3981,21 +3935,21 @@ index 4659f94ee8..1b2f1eeaf6 100644
              }
          }
      }
-@@ -1912,6 +1991,9 @@ AVCodec ff_vp9_decoder = {
- #endif
+@@ -1902,6 +1981,9 @@ const FFCodec ff_vp9_decoder = {
  #if CONFIG_VP9_VDPAU_HWACCEL
                                 HWACCEL_VDPAU(vp9),
-+#endif
+ #endif
 +#if CONFIG_VP9_V4L2REQUEST_HWACCEL
 +                               HWACCEL_V4L2REQUEST(vp9),
++#endif
+ #if CONFIG_VP9_VIDEOTOOLBOX_HWACCEL
+                                HWACCEL_VIDEOTOOLBOX(vp9),
  #endif
-                                NULL
-                            },
 diff --git a/libavcodec/vp9dec.h b/libavcodec/vp9dec.h
-index d82b258a3d..8d2c341e0b 100644
+index 9cbd5839a8..74b854691e 100644
 --- a/libavcodec/vp9dec.h
 +++ b/libavcodec/vp9dec.h
-@@ -131,6 +131,10 @@ typedef struct VP9Context {
+@@ -132,6 +132,10 @@ typedef struct VP9Context {
          ProbContext p;
          uint8_t coef[4][2][2][6][6][11];
      } prob;
@@ -4007,7 +3961,7 @@ index d82b258a3d..8d2c341e0b 100644
      // contextual (above) cache
      uint8_t *above_partition_ctx;
 diff --git a/libavcodec/vp9shared.h b/libavcodec/vp9shared.h
-index 54726df742..fee3568736 100644
+index ebaa11d2c1..3469a7312d 100644
 --- a/libavcodec/vp9shared.h
 +++ b/libavcodec/vp9shared.h
 @@ -131,6 +131,7 @@ typedef struct VP9BitstreamHeader {
@@ -4019,10 +3973,10 @@ index 54726df742..fee3568736 100644
          uint8_t pred_prob[3];
          struct {
 
-From 0a7d6808383a5c88a690b7ba6c634970dcd33548 Mon Sep 17 00:00:00 2001
+From 3da495ee6fe1d8cf4bebde0a089bcd14e7a7785e Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Mon, 29 Apr 2019 22:08:59 +0000
-Subject: [PATCH 10/12] HACK: hwcontext_drm: do not require drm device
+Subject: [PATCH 09/13] HACK: hwcontext_drm: do not require drm device
 
 Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
 ---
@@ -4046,10 +4000,10 @@ index 7a9fdbd263..6297d1f9b6 100644
      if (hwctx->fd < 0)
          return AVERROR(errno);
 
-From d82c704c262fea62250c5989d8e97cdd769d8359 Mon Sep 17 00:00:00 2001
+From 735160c215246efb0b99014978cac558fb775488 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Fri, 15 May 2020 16:54:05 +0000
-Subject: [PATCH 11/12] WIP: add NV15 and NV20 support
+Subject: [PATCH 10/13] WIP: add NV15 and NV20 support
 
 Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
 ---
@@ -4058,10 +4012,10 @@ Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
  2 files changed, 35 insertions(+), 2 deletions(-)
 
 diff --git a/libavcodec/h264_slice.c b/libavcodec/h264_slice.c
-index 6b7f569da4..ee4c76cf41 100644
+index 335dc2cac1..23807756c5 100644
 --- a/libavcodec/h264_slice.c
 +++ b/libavcodec/h264_slice.c
-@@ -794,10 +794,17 @@ static enum AVPixelFormat get_pixel_format(H264Context *h, int force_callback)
+@@ -822,10 +822,17 @@ static enum AVPixelFormat get_pixel_format(H264Context *h, int force_callback)
                  *fmt++ = AV_PIX_FMT_GBRP10;
              } else
                  *fmt++ = AV_PIX_FMT_YUV444P10;
@@ -4081,7 +4035,7 @@ index 6b7f569da4..ee4c76cf41 100644
          break;
      case 12:
          if (CHROMA444(h)) {
-@@ -836,6 +843,9 @@ static enum AVPixelFormat get_pixel_format(H264Context *h, int force_callback)
+@@ -868,6 +875,9 @@ static enum AVPixelFormat get_pixel_format(H264Context *h, int force_callback)
              else
                  *fmt++ = AV_PIX_FMT_YUV444P;
          } else if (CHROMA422(h)) {
@@ -4092,10 +4046,10 @@ index 6b7f569da4..ee4c76cf41 100644
                  *fmt++ = AV_PIX_FMT_YUVJ422P;
              else
 diff --git a/libavcodec/v4l2_request.c b/libavcodec/v4l2_request.c
-index b57bbf29bc..349ed67cb2 100644
+index e7faf100f0..c77d3a8cb1 100644
 --- a/libavcodec/v4l2_request.c
 +++ b/libavcodec/v4l2_request.c
-@@ -188,6 +188,13 @@ const uint32_t v4l2_request_capture_pixelformats[] = {
+@@ -186,6 +186,13 @@ const uint32_t v4l2_request_capture_pixelformats[] = {
  #ifdef DRM_FORMAT_MOD_ALLWINNER_TILED
      V4L2_PIX_FMT_SUNXI_TILED_NV12,
  #endif
@@ -4109,7 +4063,7 @@ index b57bbf29bc..349ed67cb2 100644
  };
  
  static int v4l2_request_set_drm_descriptor(V4L2RequestDescriptor *req, struct v4l2_format *format)
-@@ -206,6 +213,22 @@ static int v4l2_request_set_drm_descriptor(V4L2RequestDescriptor *req, struct v4
+@@ -204,6 +211,22 @@ static int v4l2_request_set_drm_descriptor(V4L2RequestDescriptor *req, struct v4
          layer->format = DRM_FORMAT_NV12;
          desc->objects[0].format_modifier = DRM_FORMAT_MOD_ALLWINNER_TILED;
          break;
@@ -4133,17 +4087,17 @@ index b57bbf29bc..349ed67cb2 100644
      default:
          return -1;
 
-From 0b8eff40d910669ea03417f76468fcf2518d293e Mon Sep 17 00:00:00 2001
+From 94dd83848ec99174057dd9c9747dfeff0a416a3a Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Mon, 27 Jul 2020 23:15:45 +0000
-Subject: [PATCH 12/12] HACK: define drm NV15 and NV20 format
+Subject: [PATCH 11/13] HACK: define drm NV15 and NV20 format
 
 ---
  libavcodec/v4l2_request.c | 8 ++++++++
  1 file changed, 8 insertions(+)
 
 diff --git a/libavcodec/v4l2_request.c b/libavcodec/v4l2_request.c
-index 349ed67cb2..824dcaa8e9 100644
+index c77d3a8cb1..19c41f2b3f 100644
 --- a/libavcodec/v4l2_request.c
 +++ b/libavcodec/v4l2_request.c
 @@ -30,6 +30,14 @@
@@ -4161,3 +4115,161 @@ index 349ed67cb2..824dcaa8e9 100644
  uint64_t ff_v4l2_request_get_capture_timestamp(AVFrame *frame)
  {
      V4L2RequestDescriptor *req = (V4L2RequestDescriptor*)frame->data[0];
+
+From bbedc169415db75791a60082ec80942e891ad5f3 Mon Sep 17 00:00:00 2001
+From: Alex Bee <knaerzche@gmail.com>
+Date: Sat, 22 Oct 2022 22:23:22 +0200
+Subject: [PATCH 12/13] HACK: Revert "lavc/pthread_frame: always transfer
+ stashed hwaccel state"
+
+This reverts commit 96c78e50a66a3b443eb2f237e2554ab84b8a12ce.
+---
+ libavcodec/pthread_frame.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/libavcodec/pthread_frame.c b/libavcodec/pthread_frame.c
+index 43d6cc8ff4..80c15b35be 100644
+--- a/libavcodec/pthread_frame.c
++++ b/libavcodec/pthread_frame.c
+@@ -458,13 +458,13 @@ static int submit_packet(PerThreadContext *p, AVCodecContext *user_avctx,
+             pthread_mutex_unlock(&p->mutex);
+             return err;
+         }
+-    }
+ 
+-    /* transfer the stashed hwaccel state, if any */
+-    av_assert0(!p->avctx->hwaccel);
+-    FFSWAP(const AVHWAccel*, p->avctx->hwaccel,                     fctx->stash_hwaccel);
+-    FFSWAP(void*,            p->avctx->hwaccel_context,             fctx->stash_hwaccel_context);
+-    FFSWAP(void*,            p->avctx->internal->hwaccel_priv_data, fctx->stash_hwaccel_priv);
++        /* transfer hwaccel state stashed from previous thread, if any */
++        av_assert0(!p->avctx->hwaccel);
++        FFSWAP(const AVHWAccel*, p->avctx->hwaccel,                     fctx->stash_hwaccel);
++        FFSWAP(void*,            p->avctx->hwaccel_context,             fctx->stash_hwaccel_context);
++        FFSWAP(void*,            p->avctx->internal->hwaccel_priv_data, fctx->stash_hwaccel_priv);
++    }
+ 
+     av_packet_unref(p->avpkt);
+     ret = av_packet_ref(p->avpkt, avpkt);
+
+From 1d0bcfaf182c8b51b001485bc7e7e6db0ceabc4e Mon Sep 17 00:00:00 2001
+From: Alex Bee <knaerzche@gmail.com>
+Date: Sat, 22 Oct 2022 22:24:07 +0200
+Subject: [PATCH 13/13] HACK: Revert "lavc/pthread_frame: avoid leaving stale
+ hwaccel state in worker threads"
+
+This reverts commit 35aa7e70e7ec350319e7634a30d8d8aa1e6ecdda.
+---
+ libavcodec/pthread_frame.c | 47 ++++++++++----------------------------
+ 1 file changed, 12 insertions(+), 35 deletions(-)
+
+diff --git a/libavcodec/pthread_frame.c b/libavcodec/pthread_frame.c
+index 80c15b35be..8faea75a49 100644
+--- a/libavcodec/pthread_frame.c
++++ b/libavcodec/pthread_frame.c
+@@ -147,12 +147,6 @@ typedef struct FrameThreadContext {
+                                     * Set for the first N packets, where N is the number of threads.
+                                     * While it is set, ff_thread_en/decode_frame won't return any results.
+                                     */
+-
+-    /* hwaccel state is temporarily stored here in order to transfer its ownership
+-     * to the next decoding thread without the need for extra synchronization */
+-    const AVHWAccel *stash_hwaccel;
+-    void            *stash_hwaccel_context;
+-    void            *stash_hwaccel_priv;
+ } FrameThreadContext;
+ 
+ #if FF_API_THREAD_SAFE_CALLBACKS
+@@ -233,17 +227,9 @@ FF_ENABLE_DEPRECATION_WARNINGS
+             ff_thread_finish_setup(avctx);
+ 
+         if (p->hwaccel_serializing) {
+-            /* wipe hwaccel state to avoid stale pointers lying around;
+-             * the state was transferred to FrameThreadContext in
+-             * ff_thread_finish_setup(), so nothing is leaked */
+-            avctx->hwaccel                     = NULL;
+-            avctx->hwaccel_context             = NULL;
+-            avctx->internal->hwaccel_priv_data = NULL;
+-
+             p->hwaccel_serializing = 0;
+             pthread_mutex_unlock(&p->parent->hwaccel_mutex);
+         }
+-        av_assert0(!avctx->hwaccel);
+ 
+         if (p->async_serializing) {
+             p->async_serializing = 0;
+@@ -307,6 +293,9 @@ static int update_context_from_thread(AVCodecContext *dst, AVCodecContext *src,
+         dst->color_range = src->color_range;
+         dst->chroma_sample_location = src->chroma_sample_location;
+ 
++        dst->hwaccel = src->hwaccel;
++        dst->hwaccel_context = src->hwaccel_context;
++
+         dst->sample_rate    = src->sample_rate;
+         dst->sample_fmt     = src->sample_fmt;
+ #if FF_API_OLD_CHANNEL_LAYOUT
+@@ -319,6 +308,8 @@ FF_ENABLE_DEPRECATION_WARNINGS
+         if (err < 0)
+             return err;
+ 
++        dst->internal->hwaccel_priv_data = src->internal->hwaccel_priv_data;
++
+         if (!!dst->hw_frames_ctx != !!src->hw_frames_ctx ||
+             (dst->hw_frames_ctx && dst->hw_frames_ctx->data != src->hw_frames_ctx->data)) {
+             av_buffer_unref(&dst->hw_frames_ctx);
+@@ -458,12 +449,6 @@ static int submit_packet(PerThreadContext *p, AVCodecContext *user_avctx,
+             pthread_mutex_unlock(&p->mutex);
+             return err;
+         }
+-
+-        /* transfer hwaccel state stashed from previous thread, if any */
+-        av_assert0(!p->avctx->hwaccel);
+-        FFSWAP(const AVHWAccel*, p->avctx->hwaccel,                     fctx->stash_hwaccel);
+-        FFSWAP(void*,            p->avctx->hwaccel_context,             fctx->stash_hwaccel_context);
+-        FFSWAP(void*,            p->avctx->internal->hwaccel_priv_data, fctx->stash_hwaccel_priv);
+     }
+ 
+     av_packet_unref(p->avpkt);
+@@ -669,14 +654,6 @@ void ff_thread_finish_setup(AVCodecContext *avctx) {
+         async_lock(p->parent);
+     }
+ 
+-    /* save hwaccel state for passing to the next thread;
+-     * this is done here so that this worker thread can wipe its own hwaccel
+-     * state after decoding, without requiring synchronization */
+-    av_assert0(!p->parent->stash_hwaccel);
+-    p->parent->stash_hwaccel         = avctx->hwaccel;
+-    p->parent->stash_hwaccel_context = avctx->hwaccel_context;
+-    p->parent->stash_hwaccel_priv    = avctx->internal->hwaccel_priv_data;
+-
+     pthread_mutex_lock(&p->progress_mutex);
+     if(atomic_load(&p->state) == STATE_SETUP_FINISHED){
+         av_log(avctx, AV_LOG_WARNING, "Multiple ff_thread_finish_setup() calls\n");
+@@ -730,6 +707,13 @@ void ff_frame_thread_free(AVCodecContext *avctx, int thread_count)
+ 
+     park_frame_worker_threads(fctx, thread_count);
+ 
++    if (fctx->prev_thread && avctx->internal->hwaccel_priv_data !=
++                             fctx->prev_thread->avctx->internal->hwaccel_priv_data) {
++        if (update_context_from_thread(avctx, fctx->prev_thread->avctx, 1) < 0) {
++            av_log(avctx, AV_LOG_ERROR, "Failed to update user thread.\n");
++        }
++    }
++
+     for (i = 0; i < thread_count; i++) {
+         PerThreadContext *p = &fctx->threads[i];
+         AVCodecContext *ctx = p->avctx;
+@@ -776,13 +760,6 @@ void ff_frame_thread_free(AVCodecContext *avctx, int thread_count)
+     av_freep(&fctx->threads);
+     ff_pthread_free(fctx, thread_ctx_offsets);
+ 
+-    /* if we have stashed hwaccel state, move it to the user-facing context,
+-     * so it will be freed in avcodec_close() */
+-    av_assert0(!avctx->hwaccel);
+-    FFSWAP(const AVHWAccel*, avctx->hwaccel,                     fctx->stash_hwaccel);
+-    FFSWAP(void*,            avctx->hwaccel_context,             fctx->stash_hwaccel_context);
+-    FFSWAP(void*,            avctx->internal->hwaccel_priv_data, fctx->stash_hwaccel_priv);
+-
+     av_freep(&avctx->internal->thread_ctx);
+ }
+ 
