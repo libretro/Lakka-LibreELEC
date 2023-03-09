@@ -4,8 +4,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="open-vm-tools"
-PKG_VERSION="12.1.5"
-PKG_SHA256="678d08b46fba15f2b4c39245b5bc4deec30284d6f13ee279c233bc3d3627ec8a"
+PKG_VERSION="12.2.0"
+PKG_SHA256="5127dd8643e4c89a22a93728ea5420d236cd4083bc07d665f70fee08a581d635"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/vmware/open-vm-tools"
