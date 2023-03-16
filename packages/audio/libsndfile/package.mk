@@ -3,11 +3,11 @@
 # Copyright (C) 2021-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libsndfile"
-PKG_VERSION="1.1.0"
-PKG_SHA256="642a876bd61b63f9346628dba5f8a0356a3ad750c7f6f42019d26ce60ba6a15b"
+PKG_VERSION="1.2.0"
+PKG_SHA256="0e30e7072f83dc84863e2e55f299175c7e04a5902ae79cfb99d4249ee8f6d60a"
 PKG_LICENSE="LGPL-2.1-or-later"
 PKG_SITE="https://libsndfile.github.io/libsndfile/"
-PKG_URL="https://github.com/libsndfile/libsndfile/archive/${PKG_VERSION}.tar.gz"
+PKG_URL="https://github.com/libsndfile/libsndfile/releases/download/${PKG_VERSION}/libsndfile-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain alsa-lib flac libogg libvorbis opus"
 PKG_LONGDESC="A C library for reading and writing sound files containing sampled audio data."
 PKG_BUILD_FLAGS="+pic"
