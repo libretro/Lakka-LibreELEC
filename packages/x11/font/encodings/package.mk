@@ -3,8 +3,8 @@
 # Copyright (C) 2020-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="encodings"
-PKG_VERSION="1.0.6"
-PKG_SHA256="77e301de661f35a622b18f60b555a7e7d8c4d5f43ed41410e830d5ac9084fc26"
+PKG_VERSION="1.0.7"
+PKG_SHA256="3a39a9f43b16521cdbd9f810090952af4f109b44fa7a865cd555f8febcea70a4"
 PKG_LICENSE="OSS"
 PKG_SITE="https://www.X.org"
 PKG_URL="https://xorg.freedesktop.org/archive/individual/font/${PKG_NAME}-${PKG_VERSION}.tar.xz"
