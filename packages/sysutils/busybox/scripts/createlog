@@ -2,22 +2,23 @@
 
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
+# Copyright (C) 2023-present Team LibreELEC (https://libreelec.tv)
 
 # create logfile
 
-DATE=`date -u +%Y-%m-%d-%H.%M.%S`
-BASEDIR="/tmp"
+DATE=$(date -u +%Y-%m-%d-%H.%M.%S)
+BASEDIR=$(mktemp -d)
 LOGDIR="log-$DATE"
-RELEASE="`cat /etc/release`"
-GIT="`cat /etc/issue | grep git`"
+RELEASE=$(cat /etc/release)
 
 getlog_cmd() {
   if command -v $1 >/dev/null; then
-    echo "################################################################################" >> $BASEDIR/$LOGDIR/$LOGFILE
-    echo "# ... output of $@" >> $BASEDIR/$LOGDIR/$LOGFILE
-    echo "# LibreELEC release: $RELEASE" >> $BASEDIR/$LOGDIR/$LOGFILE
-    echo "# $GIT" >> $BASEDIR/$LOGDIR/$LOGFILE
-    echo "################################################################################" >> $BASEDIR/$LOGDIR/$LOGFILE
+    {
+    echo "################################################################################"
+    echo "# ... output of $@"
+    echo "# LibreELEC release: $RELEASE"
+    echo "################################################################################"
+    } >> $BASEDIR/$LOGDIR/$LOGFILE
     $@ >> $BASEDIR/$LOGDIR/$LOGFILE 2>/dev/null
     echo "" >> $BASEDIR/$LOGDIR/$LOGFILE
   fi
@@ -48,14 +49,14 @@ cat_all_files() {
       if [ -d ${afile} ]; then
         var="<dir>"
       else
-        var="$(cat ${afile} 2>/dev/null)"
+        var=$(cat ${afile} 2>/dev/null)
       fi
       [ -n "${var}" ] && printf "    %-30s : %s\n" "${afile}" "${var}"
     fi
   done
 }
 
-rm -rf $BASEDIR/$LOGDIR
+rm -rf ${BASEDIR:?}/$LOGDIR
 mkdir -p $BASEDIR/$LOGDIR
 
 # kodi.log
@@ -67,15 +68,15 @@ mkdir -p $BASEDIR/$LOGDIR
   done
 
   LOGFILE="01_KODI_CRASH.log"
-  for i in `find ${KODI_LOG_DIR} -type f -name "kodi_crashlog_*.log" | sort -r`; do
+  for i in $(find ${KODI_LOG_DIR} -type f -name "kodi_crashlog_*.log" | sort -r); do
     getlog_cmd cat $i
   done
 
   LOGFILE="01_KODI_OTHER.log"
-  for i in `find ${KODI_LOG_DIR} -type f -name "*.log" | sort`; do
+  for i in $(find ${KODI_LOG_DIR} -type f -name "*.log" | sort); do
     iname="${i#${KODI_LOG_DIR}/}"
-    [ ${iname} == kodi.log ] && continue
-    [ ${iname} == kodi.old.log ] && continue
+    [ ${iname} = kodi.log ] && continue
+    [ ${iname} = kodi.old.log ] && continue
     [ "${iname#kodi_crashlog_}" != "${iname}" ] && continue
     getlog_cmd cat $i
   done
@@ -92,21 +93,21 @@ mkdir -p $BASEDIR/$LOGDIR
       /storage/.config/sysctl.d/*.conf \
       /storage/.config/udev.rules.d/*.rules \
   ; do
-    if [ -f "$i" ] ; then
+    if [ -f "$i" ]; then
       getlog_cmd cat $i
     fi
   done
-  if [ -f "/storage/.config/autostart.sh" ] ; then
+  if [ -f "/storage/.config/autostart.sh" ]; then
     getlog_cmd cat /storage/.config/autostart.sh
   fi
-  if [ -f "/storage/.config/shutdown.sh" ] ; then
+  if [ -f "/storage/.config/shutdown.sh" ]; then
     getlog_cmd cat /storage/.config/shutdown.sh
   fi
   getlog_cmd ls -laR /storage/.config/system.d
   # note: we dont add .mount units here as they may contan
   # login credentials
   for i in /storage/.config/system.d/*.service ; do
-    if [ -f "$i" -a ! -L "$i" ] ; then
+    if [ -f "$i" ] && [ ! -L "$i" ]; then
       getlog_cmd cat $i
     fi
   done
@@ -136,7 +137,7 @@ mkdir -p $BASEDIR/$LOGDIR
 
 # varlog.log
   LOGFILE="06_varlog.log"
-  for i in `find /var/log -type f`; do
+  for i in $(find /var/log -type f); do
     getlog_cmd cat $i
   done
 
@@ -144,7 +145,7 @@ mkdir -p $BASEDIR/$LOGDIR
   LOGFILE="07_input.log"
   getlog_cmd cat /proc/bus/input/devices
   # make RPi users happy
-  if [ -e /proc/acpi/wakeup ] ; then
+  if [ -e /proc/acpi/wakeup ]; then
     getlog_cmd cat /proc/acpi/wakeup
   fi
 
@@ -159,15 +160,18 @@ mkdir -p $BASEDIR/$LOGDIR
   getlog_cmd journalctl --no-pager -b -0
 
 # Journal (prev)
-  LOGFILE="10_Journal-prev.log"
-  getlog_cmd journalctl --no-pager -b -1
+# only exists if using persistent journal
+  if [ -f "/storage/.cache/journald.conf.d/00_settings.conf" ]; then
+    LOGFILE="10_Journal-prev.log"
+    getlog_cmd journalctl --no-pager -b -1
+  fi
 
 # addons
   LOGFILE="11_Addons.log"
   for i in /storage/.kodi/userdata/addon_data/*/*.log \
       /storage/.kodi/userdata/addon_data/*/log/* \
   ; do
-    if [ -f "$i" ] ; then
+    if [ -f "$i" ]; then
       getlog_cmd cat $i
     fi
   done
@@ -177,4 +181,4 @@ mkdir -p $BASEDIR/$LOGDIR
   zip -jq /storage/logfiles/log-$DATE.zip $BASEDIR/$LOGDIR/*
 
 # remove logdir
-  rm -rf $BASEDIR/$LOGDIR
+  rm -rf ${BASEDIR:?}/$LOGDIR
