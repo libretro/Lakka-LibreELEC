@@ -2,8 +2,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="rustup.rs"
-PKG_VERSION="1.25.1"
-PKG_SHA256="4d062c77b08309bd212f22dd7da1957c1882509c478e57762f34ec4fb2884c9a"
+PKG_VERSION="1.25.2"
+PKG_SHA256="dc9bb5d3dbac5cea9afa9b9c3c96fcf644a1e7ed6188a6b419dfe3605223b5f3"
 PKG_LICENSE="MIT"
 PKG_SITE="https://www.rust-lang.org"
 PKG_URL="https://github.com/rust-lang-nursery/rustup.rs/archive/${PKG_VERSION}.tar.gz"

@@ -3,8 +3,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ncurses"
-PKG_VERSION="6.3"
-PKG_SHA256="97fc51ac2b085d4cde31ef4d2c3122c21abc217e9090a43a30fc5ec21684e059"
+PKG_VERSION="6.4"
+PKG_SHA256="6931283d9ac87c5073f30b6290c4c75f21632bb4fc3603ac8100812bed248159"
 PKG_LICENSE="MIT"
 PKG_SITE="http://www.gnu.org/software/ncurses/"
 PKG_URL="http://invisible-mirror.net/archives/ncurses/ncurses-${PKG_VERSION}.tar.gz"

@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="elfutils"
-PKG_VERSION="0.188"
-PKG_SHA256="fb8b0e8d0802005b9a309c60c1d8de32dd2951b56f0c3a3cb56d21ce01595dff"
+PKG_VERSION="0.189"
+PKG_SHA256="39bd8f1a338e2b7cd4abc3ff11a0eddc6e690f69578a57478d8179b4148708c8"
 PKG_LICENSE="GPL"
 PKG_SITE="https://sourceware.org/elfutils/"
 PKG_URL="https://sourceware.org/elfutils/ftp/${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.bz2"

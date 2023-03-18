@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="curl"
-PKG_VERSION="7.86.0"
-PKG_SHA256="2d61116e5f485581f6d59865377df4463f2e788677ac43222b496d4e49fb627b"
+PKG_VERSION="7.88.1"
+PKG_SHA256="1dae31b2a7c1fe269de99c0c31bb488346aab3459b5ffca909d6938249ae415f"
 PKG_LICENSE="MIT"
 PKG_SITE="https://curl.haxx.se"
 PKG_URL="https://curl.haxx.se/download/${PKG_NAME}-${PKG_VERSION}.tar.xz"

@@ -2,12 +2,12 @@
 
 # base ffmpeg version
 FFMPEG_REPO="git://source.ffmpeg.org/ffmpeg.git"
-FFMPEG_VERSION="n4.4.1"
+FFMPEG_VERSION="n5.1.2"
 
 KODI_FFMPEG_REPO="https://github.com/xbmc/FFmpeg"
-KODI_FFMPEG_VERSION="4.4.1-Nexus-Alpha1"
+KODI_FFMPEG_VERSION="5.1.2-Nexus-Alpha3"
 
-ALL_FEATURE_SETS="v4l2-drmprime v4l2-request libreelec rpi kodi"
+ALL_FEATURE_SETS="v4l2-drmprime v4l2-request libreelec rpi vf-deinterlace-v4l2m2m"
 
 if [ $# -eq 0 ]; then
   echo "usage: $0 all|featureset [githash]"
@@ -28,31 +28,17 @@ create_patch() {
   PATCH_CREATE_DIFF="no"
 
   case "${FEATURE_SET}" in
-    v4l2-drmprime)
+    v4l2-drmprime|v4l2-request|vf-deinterlace-v4l2m2m)
       REPO="https://github.com/jernejsk/FFmpeg"
-      REFSPEC="v4l2-drmprime-v6-4.4.1-Nexus-Alpha1"
-      BASE_REPO="${KODI_FFMPEG_REPO}"
-      BASE_VERSION="${KODI_FFMPEG_VERSION}"
-      ;;
-    v4l2-request)
-      REPO="https://github.com/jernejsk/FFmpeg"
-      REFSPEC="v4l2-request-hwaccel-4.4.1-Nexus-Alpha1"
-      BASE_REPO="${KODI_FFMPEG_REPO}"
-      BASE_VERSION="${KODI_FFMPEG_VERSION}"
+      REFSPEC="${FEATURE_SET}-${FFMPEG_VERSION}"
       ;;
     libreelec)
       REPO="https://github.com/LibreELEC/FFmpeg"
-      REFSPEC="4.4-libreelec-misc"
+      REFSPEC="5.1.2-libreelec-misc"
       ;;
     rpi)
       REPO="https://github.com/jc-kynesim/rpi-ffmpeg"
-      REFSPEC="dev/4.4/rpi_import_1"
-      PATCH_CREATE_DIFF="yes"
-      ;;
-    kodi)
-      REPO="${KODI_FFMPEG_REPO}"
-      REFSPEC="${KODI_FFMPEG_VERSION}"
-      REFTYPE="tag"
+      REFSPEC="dev/5.1.2/rpi_import_1"
       ;;
     *)
       echo "illegal feature set ${FEATURE_SET}"

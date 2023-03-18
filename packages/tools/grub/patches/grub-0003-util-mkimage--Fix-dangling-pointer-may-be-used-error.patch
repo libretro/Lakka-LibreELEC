@@ -1,0 +1,87 @@
+From be8eb0eed69f8bc9ac20837eae58e55218011880 Mon Sep 17 00:00:00 2001
+From: Michael Chang <mchang@suse.com>
+Date: Mon, 28 Mar 2022 15:00:52 +0800
+Subject: util/mkimage: Fix dangling pointer may be used error
+
+The warning is real as long as dangling pointer to tmp_ may be used if
+o32 and o64 are both NULL. However that is not going to happen and can
+be ignored safely because the PE_OHDR is being used in a context that
+either o32 or o64 must have been properly initialized. Sadly compiler
+seems not to always optimize that unused tmp_ away so explicit
+suppression remain needed here.
+
+  ../util/mkimage.c: In function 'grub_install_generate_image':
+  ../util/mkimage.c:1422:41: error: dangling pointer to 'tmp_' may be used [-Werror=dangling-pointer=]
+   1422 |         PE_OHDR (o32, o64, header_size) = grub_host_to_target32 (header_size);
+  ../util/mkimage.c:857:28: note: 'tmp_' declared here
+    857 |   __typeof__((o64)->field) tmp_;                \
+        |                            ^~~~
+
+Signed-off-by: Michael Chang <mchang@suse.com>
+Reviewed-by: Daniel Kiper <daniel.kiper@oracle.com>
+---
+ util/mkimage.c | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
+
+diff --git a/util/mkimage.c b/util/mkimage.c
+index 21c2db7..43078c7 100644
+--- a/util/mkimage.c
++++ b/util/mkimage.c
+@@ -1383,6 +1383,10 @@ grub_install_generate_image (const char *dir, const char *prefix,
+ 	    section = (struct grub_pe32_section_table *)(o64 + 1);
+ 	  }
+ 
++#if __GNUC__ >= 12
++#pragma GCC diagnostic push
++#pragma GCC diagnostic ignored "-Wdangling-pointer"
++#endif
+ 	PE_OHDR (o32, o64, header_size) = grub_host_to_target32 (header_size);
+ 	PE_OHDR (o32, o64, entry_addr) = grub_host_to_target32 (layout.start_address);
+ 	PE_OHDR (o32, o64, image_base) = 0;
+@@ -1402,6 +1406,9 @@ grub_install_generate_image (const char *dir, const char *prefix,
+ 	/* The sections.  */
+ 	PE_OHDR (o32, o64, code_base) = grub_host_to_target32 (vma);
+ 	PE_OHDR (o32, o64, code_size) = grub_host_to_target32 (layout.exec_size);
++#if __GNUC__ >= 12
++#pragma GCC diagnostic pop
++#endif
+ 	section = init_pe_section (image_target, section, ".text",
+ 				   &vma, layout.exec_size,
+ 				   image_target->section_align,
+@@ -1411,10 +1418,17 @@ grub_install_generate_image (const char *dir, const char *prefix,
+ 				   GRUB_PE32_SCN_MEM_READ);
+ 
+ 	scn_size = ALIGN_UP (layout.kernel_size - layout.exec_size, GRUB_PE32_FILE_ALIGNMENT);
++#if __GNUC__ >= 12
++#pragma GCC diagnostic push
++#pragma GCC diagnostic ignored "-Wdangling-pointer"
++#endif
+ 	/* ALIGN_UP (sbat_size, GRUB_PE32_FILE_ALIGNMENT) is done earlier. */
+ 	PE_OHDR (o32, o64, data_size) = grub_host_to_target32 (scn_size + sbat_size +
+ 							       ALIGN_UP (total_module_size,
+ 									 GRUB_PE32_FILE_ALIGNMENT));
++#if __GNUC__ >= 12
++#pragma GCC diagnostic pop
++#endif
+ 
+ 	section = init_pe_section (image_target, section, ".data",
+ 				   &vma, scn_size, image_target->section_align,
+@@ -1445,8 +1459,15 @@ grub_install_generate_image (const char *dir, const char *prefix,
+ 	  }
+ 
+ 	scn_size = layout.reloc_size;
++#if __GNUC__ >= 12
++#pragma GCC diagnostic push
++#pragma GCC diagnostic ignored "-Wdangling-pointer"
++#endif
+ 	PE_OHDR (o32, o64, base_relocation_table.rva) = grub_host_to_target32 (vma);
+ 	PE_OHDR (o32, o64, base_relocation_table.size) = grub_host_to_target32 (scn_size);
++#if __GNUC__ >= 12
++#pragma GCC diagnostic pop
++#endif
+ 	memcpy (pe_img + raw_data, layout.reloc_section, scn_size);
+ 	init_pe_section (image_target, section, ".reloc",
+ 			 &vma, scn_size, image_target->section_align,
+-- 
+cgit v1.1
+

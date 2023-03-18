@@ -16,15 +16,15 @@ PKG_PATCH_DIRS="${LINUX}"
 
 case "${LINUX}" in
   amlogic)
-    PKG_VERSION="d60c95efffe84428e3611431bf688f50bfc13f4e" # 6.1.11
-    PKG_SHA256="e6d5524d72b0ccb047a429f4d46a119a823622507c14985e95f8aa3e2600a779"
+    PKG_VERSION="7d54cb2c26dad1264ecca85992bfe8984df4b7b5" # 6.1.14
+    PKG_SHA256="76f039741d61e06c740b846291e5017b97da7d3f91fb2f368230a161d46905a6"
     PKG_URL="https://github.com/torvalds/linux/archive/${PKG_VERSION}.tar.gz"
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
     PKG_PATCH_DIRS="default"
     ;;
   raspberrypi)
-    PKG_VERSION="df7cc0b7ce879a5b551b2db026b3ddad8ae78b26" # 6.1.12
-    PKG_SHA256="f4bd86147b58cbc25b00fd77719ce700d630e5e078df5b56b136418d3aaaf313"
+    PKG_VERSION="e3376fb94fda798d2a322e9c70789286132a1a9f" # 6.1.19
+    PKG_SHA256="f1b518ea84ad269ec0a926623aaba43ea0c176e8254438bb4e8c87f267e87e1e"
     PKG_URL="https://github.com/raspberrypi/linux/archive/${PKG_VERSION}.tar.gz"
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
     ;;
@@ -45,8 +45,8 @@ case "${LINUX}" in
    PKG_GIT_CLONE_BRANCH="sdm845-5.19.16"
    ;;
   *)
-    PKG_VERSION="6.1.12"
-    PKG_SHA256="d47aa675170904dcc93eeaa7c96db54d476a11c5d3e8cf3d3b96e364e2a0edea"
+    PKG_VERSION="6.1.19"
+    PKG_SHA256="9e991c6e5f6c1ca45eea98c55e82ef6ae3dccc73b3e8a655c8665e585f5a8647"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
     PKG_PATCH_DIRS="default"
     ;;
