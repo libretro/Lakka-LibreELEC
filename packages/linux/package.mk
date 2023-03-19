@@ -215,7 +215,9 @@ pre_make_target() {
   if [ "${DISTRO}" = "Lakka" ] && [ "${LINUX}" = "default" -o "${LINUX}" = "raspberrypi" ]; then
     ${PKG_BUILD}/scripts/config \
                                 --enable CONFIG_HID_PLAYSTATION \
-                                --enable CONFIG_PLAYSTATION_FF
+                                --enable CONFIG_PLAYSTATION_FF \
+                                --enable CONFIG_LEDS_CLASS_MULTICOLOR \
+                                --enable CONFIG_LEDS_CLASS
   fi
 
   # enable additional USB / WIFI for CM4 / RetroDreamer / PiBoyDMG
