@@ -54,7 +54,10 @@ PKG_DEPENDS_TARGET="toolchain \
                     vim"
 
 if [ "${TARGET_ARCH}" = "x86_64" ]; then
-  PKG_DEPENDS_TARGET+=" efibootmgr st"
+  PKG_DEPENDS_TARGET+=" efibootmgr"
+  if [ "${DEVICE}" = "x11" -o "${DEVICE}" = "Generic-legacy" ]; then
+    PKG_DEPENDS_TARGET+=" st"
+  fi
 fi
 
 addon() {
