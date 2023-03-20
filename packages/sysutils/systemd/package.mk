@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="systemd"
-PKG_VERSION="252.7"
-PKG_SHA256="043c58c2b8a9ab8a2b18fec3d7e3441cc41f1dea35e39f0cd755bf22557b0939"
+PKG_VERSION="253.1"
+PKG_SHA256="e7c1805ced821cb08db22011623cae3582d48a5e2a066bcb810a3661366d31ee"
 PKG_LICENSE="LGPL2.1+"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/systemd"
 PKG_URL="https://github.com/systemd/systemd-stable/archive/v${PKG_VERSION}.tar.gz"
@@ -150,7 +150,6 @@ post_makeinstall_target() {
   safe_remove ${INSTALL}/usr/lib/systemd/system/*.target.wants/dev-hugepages.mount
   #
   safe_remove ${INSTALL}/usr/lib/systemd/system/systemd-journald-audit.socket
-  safe_remove ${INSTALL}/usr/lib/systemd/system/*.target.wants/systemd-journald-audit.socket
 
   # adjust systemd-hwdb-update (we have read-only /etc).
   sed '/^ConditionNeedsUpdate=.*$/d' -i ${INSTALL}/usr/lib/systemd/system/systemd-hwdb-update.service
