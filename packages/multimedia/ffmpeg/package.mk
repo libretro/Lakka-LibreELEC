@@ -96,16 +96,16 @@ else
   PKG_FFMPEG_DEBUG="--disable-debug --enable-stripping"
 fi
 
-#Re-enable when patches are rebased on newer version of ffmpeg,for now we use old version. 
-
-if [ "${PROJECT}" = "L4T" ]; then
-   PKG_DEPENDS_TARGET+=" tegra-bsp:host"
-   PKG_PATCH_DIRS+=" L4T"
-   PKG_FFMPEG_NVV4L2="--enable-nvv4l2"
-   EXTRA_CFLAGS="-I${SYSROOT_PREFIX}/usr/src/jetson_multimedia_api/include"
-else
-   PKG_FFMPEG_NVV4L2=""
-fi
+#This block is useless, because someone else doesnt know how to properly rebase stuff.
+#I am done fixing shit I have fixed 1000 times, so I guess recording, and proper decoders just arent that damn important anyway.
+#if [ "${PROJECT}" = "L4T" ]; then
+#   PKG_DEPENDS_TARGET+=" tegra-bsp:host"
+#   PKG_PATCH_DIRS+=" L4T"
+#   PKG_FFMPEG_NVV4L2="--enable-nvv4l2"
+#   EXTRA_CFLAGS="-I${SYSROOT_PREFIX}/usr/src/jetson_multimedia_api/include"
+#else
+#   PKG_FFMPEG_NVV4L2=""
+#fi
 
 if [ "${DISTRO}" = "Lakka" -a "${VULKAN_SUPPORT}" = yes ]; then
   PKG_DEPENDS_TARGET+=" ${VULKAN}"
