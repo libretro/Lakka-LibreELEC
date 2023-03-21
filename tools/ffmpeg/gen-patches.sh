@@ -38,7 +38,7 @@ create_patch() {
       ;;
     rpi)
       REPO="https://github.com/jc-kynesim/rpi-ffmpeg"
-      REFSPEC="dev/5.1.2/rpi_import_1"
+      REFSPEC="test/5.1.2/main"
       ;;
     *)
       echo "illegal feature set ${FEATURE_SET}"
