@@ -13,6 +13,9 @@
 /usr/bin/busybox chmod 766 /sys/devices/57000000.gpu/devfreq/57000000.gpu/max_freq
 /usr/bin/busybox chmod 766 /sys/devices/57000000.gpu/devfreq/57000000.gpu/min_freq
 
+#Bluetooth ERTM disable toggle
+/usr/bin/busybox chmod 766 /sys/module/bluetooth/parameters/disable_ertm
+
 #R2P
 /usr/bin/busybox chmod 766 /sys/module/pmc_r2p/parameters/enabled
 /usr/bin/busybox chmod 766 /sys/module/pmc_r2p/parameters/action
