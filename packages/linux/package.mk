@@ -28,7 +28,7 @@ case "${LINUX}" in
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
     ;;
   L4T)
-    PKG_VERSION=${DEVICE}
+    PKG_VERSION=${DEVICE}-${SWITCHROOT_VERSION}
     PKG_URL="l4t-kernel-sources"
     GET_HANDLER_SUPPORT="l4t-kernel-sources"
     PKG_PATCH_DIRS="${PROJECT} ${PROJECT}/${DEVICE}"

@@ -4,22 +4,6 @@ PKG_ARCH="any"
 PKG_DEPENDS_TARGET="switch-u-boot:host switch-u-boot:target switch-atf:target"
 PKG_TOOLCHAIN="manual"
 
-
-if [ "${DISTRO}" = "Lakka" ]; then
-  DISTRO_PATH="lakka"
-  DISTRO_ICON="icon_lakka_hue.bmp"
-  HEKATE_SPLASH="splash_lakka.bmp"
-  ID="SWR-LAK"
-elif [ "${DISTRO}" = "LibreELEC" ]; then
-  DISTRO_PATH="libreelec"
-  DISTRO_ICON="icon_libreelec_hue.bmp"
-  HEKATE_SPLASH="splash_libreelec.bmp"
-  ID="SWR-LIB"
-else
-  echo "Unknown distro, expect issues"
-fi
-
-
 make_target() {
   cat << EOF > ${PKG_BUILD}/${DISTRO}.ini
 [${DISTRO}]

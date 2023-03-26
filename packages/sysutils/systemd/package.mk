@@ -297,5 +297,9 @@ post_install() {
   enable_service systemd-timesyncd-setup.service
   #Add service to properly remount flash partition when using fat32-boot kernel command line option.
   enable_service remount_flash_ro.service
+
+  if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
+    echo chmod u+s ${BUILD}/image/system/usr/bin/systemctl >> ${FAKEROOT_SCRIPT}
+  fi
 }
 
