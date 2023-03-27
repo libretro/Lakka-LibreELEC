@@ -24,10 +24,20 @@ makeinstall_target() {
   : # nothing to do
 }
 
+# find ${1}.so.[0-9]* in ${2} and copy it to dest
+_pkg_copy_lib() {
+  find "${2}/usr/lib" -regextype sed -regex ".*/${1}\.so\.[0-9]*" \
+    -exec cp {} "${ADDON_BUILD}/${PKG_ADDON_ID}/lib" \;
+}
+
 addon() {
-  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/{bin,lib}
+
   cp ${PKG_BUILD}/.${TARGET_NAME}/unix/vncconfig/vncconfig     \
      ${PKG_BUILD}/.${TARGET_NAME}/unix/vncpasswd/vncpasswd     \
      ${PKG_BUILD}/.${TARGET_NAME}/unix/x0vncserver/x0vncserver \
      ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/
+
+  # copy required libraries for tigervnc
+  _pkg_copy_lib libXtst $(get_install_dir libXtst)
 }
