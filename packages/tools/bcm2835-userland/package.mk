@@ -2,8 +2,8 @@
 # Copyright (C) 2023-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="bcm2835-userland"
-PKG_VERSION="54fd97ae4066a10b6b02089bc769ceed328737e0"
-PKG_SHA256="b5718b34730069b7c3748cefb528696267c5bf9ba1e12df4f668640c50849125"
+PKG_VERSION="9d5250fd98679e09c4c1a44883f9312a21f1ac6d"
+PKG_SHA256="81a9fd06f4f69a54e7218b6a0a9f129bb2048146b288852a648de009e4f967a6"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="BSD-3-Clause"
 PKG_SITE="https://github.com/raspberrypi/userland"
