@@ -3,7 +3,7 @@
 
 PKG_NAME="cargo-snapshot"
 PKG_VERSION="$(get_pkg_version rust)"
-PKG_SHA256="fd8c98482face2db2867f3c29185bd8411f760b1b17cbb9488c8dde83a2f25c2"
+PKG_SHA256="b25d6f88b93cb75868ff4bc9ca0103facd4622825cf53df67546cea6cb60da0f"
 PKG_LICENSE="MIT"
 PKG_SITE="https://www.rust-lang.org"
 PKG_URL="https://static.rust-lang.org/dist/cargo-${PKG_VERSION}-${MACHINE_HARDWARE_NAME}-unknown-linux-gnu.tar.xz"
