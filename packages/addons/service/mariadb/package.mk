@@ -3,7 +3,7 @@
 
 PKG_NAME="mariadb"
 PKG_VERSION="10.11.2"
-PKG_REV="0"
+PKG_REV="1"
 PKG_SHA256="1c89dee0caed0f68bc2a1d203eb98a123150e6a179f6ee0f1fc0ba3f08dc71dc"
 PKG_LICENSE="GPL2"
 PKG_SITE="https://mariadb.org"
@@ -89,13 +89,15 @@ addon() {
   mkdir -p ${ADDON}/config
 
   cp ${MARIADB}/bin/mariadbd \
-     ${MARIADB}/bin/mysql \
-     ${MARIADB}/bin/mysqladmin \
-     ${MARIADB}/bin/mysqldump \
-     ${MARIADB}/bin/mysql_secure_installation \
+     ${MARIADB}/bin/mariadb \
+     ${MARIADB}/bin/mariadb-admin \
+     ${MARIADB}/bin/mariadb-check \
+     ${MARIADB}/bin/mariadb-dump \
+     ${MARIADB}/bin/mariadb-secure-installation \
+     ${MARIADB}/bin/mariadb-upgrade \
      ${MARIADB}/bin/my_print_defaults \
      ${MARIADB}/bin/resolveip \
-     ${MARIADB}/scripts/mysql_install_db \
+     ${MARIADB}/scripts/mariadb-install-db \
      ${ADDON}/bin
 
   cp -PR ${MARIADB}/share ${ADDON}
