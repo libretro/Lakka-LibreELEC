@@ -4,7 +4,7 @@
 PKG_NAME="audiodecoder.sacd"
 PKG_VERSION="20.3.0-Nexus"
 PKG_SHA256="6d54f6cf81e13aadcec1b43689551feba6e9426453a758d955e96348ba996277"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/audiodecoder.sacd"
