@@ -14,9 +14,9 @@ PKG_PATCH_DIRS="libreelec"
 
 case "${PROJECT}" in
   Amlogic)
-    PKG_VERSION="f9638b6331277e53ecd9276db5fe6dcd91d44c57"
-    PKG_FFMPEG_BRANCH="dev/4.4/rpi_import_1"
-    PKG_SHA256="3b42cbffd15d95d59e402475fcdb1aaac9ae6a8404a521b95d1fe79c6b2baad4"
+    PKG_VERSION="6859fc2a8791c0fcc25851b77fed15a691ceb332"
+    PKG_FFMPEG_BRANCH="dev/6.0/rpi_import_1"
+    PKG_SHA256="d9ba353b5ab95489bb999cec958bed154534ccb46c154fb8b9d6848188f7ef8c"
     PKG_URL="https://github.com/jc-kynesim/rpi-ffmpeg/archive/${PKG_VERSION}.tar.gz"
     ;;
   RPi)
