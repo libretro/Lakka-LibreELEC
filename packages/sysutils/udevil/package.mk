@@ -28,9 +28,7 @@ post_makeinstall_target() {
     cp -PR src/udevil ${INSTALL}/usr/bin
 
   mkdir -p ${INSTALL}/usr/sbin
-  echo '#!/bin/sh'                 > ${INSTALL}/usr/sbin/mount.ntfs
-  echo '/usr/sbin/modprobe ntfs3' >> ${INSTALL}/usr/sbin/mount.ntfs
-  echo '/usr/bin/mount "$@"'      >> ${INSTALL}/usr/sbin/mount.ntfs
+  echo -e '#!/bin/sh\nexec /usr/bin/mount -tntfs3 "$@"' > ${INSTALL}/usr/sbin/mount.ntfs
   chmod 755 ${INSTALL}/usr/sbin/mount.ntfs
 }
 
