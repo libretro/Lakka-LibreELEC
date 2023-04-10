@@ -11,7 +11,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="libretro implementation of Mednafen PC-FX."
 PKG_TOOLCHAIN="make"
 
-if [ "${ARCH}" = "i386" -o "${ARCH}" = "x86_64" ]; then
+if [ "${ARCH}" = "x86_64" ]; then
   PKG_MAKE_OPTS_TARGET="platform=unix"
 else
   PKG_MAKE_OPTS_TARGET="platform=armv"

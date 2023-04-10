@@ -19,8 +19,6 @@ pre_make_target() {
   PKG_MAKE_OPTS_TARGET="CC=${CC} LD=${CC}"
   if [ "${ARCH}" = "arm" ]; then
     PKG_MAKE_OPTS_TARGET+=" PTR64=0 ARM_ENABLED=1 LCPU=arm"
-  elif [ "${ARCH}" = "i386" ]; then
-    PKG_MAKE_OPTS_TARGET+=" PTR64=0 ARM_ENABLED=0 LCPU=x86"
   elif [ "${ARCH}" = "x86_64" ]; then
     PKG_MAKE_OPTS_TARGET+=" PTR64=1 ARM_ENABLED=0 LCPU=x86_64"
   elif [ "${ARCH}" = "aarch64" ]; then
