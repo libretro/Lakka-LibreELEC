@@ -197,7 +197,6 @@ configure_target() {
               ${PKG_FFMPEG_VAAPI} \
               ${PKG_FFMPEG_VDPAU} \
               ${PKG_FFMPEG_RPI} \
-             # ${PKG_FFMPEG_NVV4L2} \
               ${PKG_FFMPEG_VULKAN} \
               --enable-runtime-cpudetect \
               --disable-hardcoded-tables \

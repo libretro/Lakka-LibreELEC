@@ -3,11 +3,11 @@
 # Copyright (C) 2020-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libXt"
-PKG_VERSION="1.2.1"
-PKG_SHA256="679cc08f1646dbd27f5e48ffe8dd49406102937109130caab02ca32c083a3d60"
+PKG_VERSION="1.3.0"
+PKG_SHA256="52820b3cdb827d08dc90bdfd1b0022a3ad8919b57a39808b12591973b331bf91"
 PKG_LICENSE="OSS"
-PKG_SITE="http://www.X.org"
-PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
+PKG_SITE="https://www.X.org"
+PKG_URL="https://xorg.freedesktop.org/archive/individual/lib/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain util-macros libX11 libSM"
 PKG_LONGDESC="libXt provides the X Toolkit Intrinsics library, an abstract widget library upon which other toolkits are based."
 

@@ -4,7 +4,7 @@
 PKG_NAME="pvr.teleboy"
 PKG_VERSION="20.3.4-Nexus"
 PKG_SHA256="199730d6023a39a9227b29b3ac100c06fc40fbb6c0adf65c3a35ea6449ffc5ba"
-PKG_REV="3"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/rbuehlma/pvr.teleboy"

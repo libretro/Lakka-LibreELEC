@@ -347,9 +347,8 @@ pre_make_target() {
     kernel_make prepare
     kernel_make modules_prepare
   elif [ "${DISTRO}" = "Lakka" ]; then
-    kernel_make olddefconfig
-  else
-    kernel_make oldconfig
+  kernel_make listnewconfig
+  yes "" | kernel_make oldconfig > /dev/null
   fi
 
   if [ -f "${DISTRO_DIR}/${DISTRO}/kernel_options" ]; then

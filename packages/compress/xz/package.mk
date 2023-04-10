@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="xz"
-PKG_VERSION="5.4.1"
-PKG_SHA256="5d9827aa1875b21c288f78864bb26d2650b436ea8d2cad364e4921eb6266a5a5"
+PKG_VERSION="5.4.2"
+PKG_SHA256="3ee13d0f40148625306b90f9622f8c9660b8082884051b0cfe46f18492f88955"
 PKG_LICENSE="GPL"
 PKG_SITE="https://tukaani.org/xz/"
 PKG_URL="https://tukaani.org/xz/${PKG_NAME}-${PKG_VERSION}.tar.xz"

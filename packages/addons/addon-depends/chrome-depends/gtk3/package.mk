@@ -3,10 +3,10 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="gtk3"
-PKG_VERSION="3.24.36"
-PKG_SHA256="27a6ef157743350c807ffea59baa1d70226dbede82a5e953ffd58ea6059fe691"
+PKG_VERSION="3.24.37"
+PKG_SHA256="6745f0b4c053794151fd0f0e2474b077cccff5f83e9dd1bf3d39fe9fe5fb7f57"
 PKG_LICENSE="LGPL"
-PKG_SITE="http://www.gtk.org/"
+PKG_SITE="https://www.gtk.org/"
 PKG_URL="https://ftp.gnome.org/pub/gnome/sources/gtk+/${PKG_VERSION:0:4}/gtk+-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain at-spi2-atk atk cairo gdk-pixbuf glib libX11 libXi libXrandr libepoxy pango libxkbcommon"
 PKG_DEPENDS_CONFIG="libXft pango gdk-pixbuf shared-mime-info"
