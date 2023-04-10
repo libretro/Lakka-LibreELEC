@@ -3,11 +3,11 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libXfixes"
-PKG_VERSION="6.0.0"
-PKG_SHA256="a7c1a24da53e0b46cac5aea79094b4b2257321c621b258729bc3139149245b4c"
+PKG_VERSION="6.0.1"
+PKG_SHA256="b695f93cd2499421ab02d22744458e650ccc88c1d4c8130d60200213abc02d58"
 PKG_LICENSE="OSS"
 PKG_SITE="https://www.X.org"
-PKG_URL="https://xorg.freedesktop.org/archive/individual/lib/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
+PKG_URL="https://xorg.freedesktop.org/archive/individual/lib/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain util-macros libX11"
 PKG_LONGDESC="X Fixes Library"
 PKG_BUILD_FLAGS="+pic"
