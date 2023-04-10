@@ -4,7 +4,7 @@
 PKG_NAME="libretro-o2em"
 PKG_VERSION="a2a12472fde910b6089ac3ca6de805bd58a9c999"
 PKG_SHA256="19cff8eff5227a955158e10a5a37790300ad89312033f9f1df542dad5b3caf4e"
-PKG_LICENSE="Artistic License"
+PKG_LICENSE="Artistic-2.0"
 PKG_SITE="https://github.com/libretro/libretro-o2em"
 PKG_URL="https://github.com/libretro/libretro-o2em/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"

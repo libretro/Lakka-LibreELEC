@@ -4,7 +4,7 @@
 PKG_NAME="libretro-scummvm"
 PKG_VERSION="2a272d90dcf2783c7866b866e43912c05a4bfc4b"
 PKG_SHA256="c55f862b1527f74f55108574af8fd3af8ca9d0b672eb07bbbab0ec5bc07a406c"
-PKG_LICENSE="GPLv2"
+PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/scummvm-wrapper"
 PKG_URL="https://github.com/libretro/scummvm-wrapper/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"

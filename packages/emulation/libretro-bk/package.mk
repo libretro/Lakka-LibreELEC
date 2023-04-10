@@ -4,7 +4,7 @@
 PKG_NAME="libretro-bk"
 PKG_VERSION="cf70ce503ddb65051a58f3c4f61d1e258fc4c84b"
 PKG_SHA256="ce80a3a9f88a15a53e7cc420708a2eaa6b3136b01e4ac4d91d84eb2409f0ab69"
-PKG_LICENSE="Opensource"
+PKG_LICENSE="NTP"
 PKG_SITE="https://github.com/libretro/bk-emulator"
 PKG_URL="https://github.com/libretro/bk-emulator/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"

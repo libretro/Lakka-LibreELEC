@@ -4,7 +4,7 @@
 PKG_NAME="libretro-mrboom"
 PKG_VERSION="2d603a2dccff15db944e04ed6a1cefc4750e463f"
 PKG_SHA256="2e30ff53ea0a77062c22cf44f81e4eb8130d3f98757d0c4c0d856a9030eb1a8c"
-PKG_LICENSE="GPLv3"
+PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/libretro/mrboom-libretro"
 PKG_URL="https://github.com/kodi-game/mrboom-libretro/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
