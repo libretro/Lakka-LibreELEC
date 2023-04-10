@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.nx"
-PKG_VERSION="1.0.0.33-Nexus"
-PKG_SHA256="2f71c6f162b6e8d197e8a17f6d0d7ba9eb9c093e3ff47913955b3594a672b180"
+PKG_VERSION="1.0.0.34-Nexus"
+PKG_SHA256="fd1f10b025047f7fb7fc79cf4296e4ff8f108c134a3452bc98c9da6ec6ab2751"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

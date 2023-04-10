@@ -7,17 +7,15 @@ PKG_SHA256="7dd450e5e26c9b66ce0811ec4eac125e71b6752951bdbf3851d0312d268c09c2"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/pokemini"
 PKG_URL="https://github.com/libretro/PokeMini/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_LONGDESC="libretro wrapper for PokeMini emulator."
+PKG_DEPENDS_TARGET="toolchain"
+PKG_LONGDESC="Obscure nintendo handheld emulator (functional,no color files or savestates currently)"
 PKG_TOOLCHAIN="make"
 
 PKG_LIBNAME="pokemini_libretro.so"
 PKG_LIBPATH="${PKG_LIBNAME}"
 PKG_LIBVAR="POKEMINI_LIB"
 
-configure_target() {
-  cd ${PKG_BUILD}
-}
+PKG_MAKE_OPTS_TARGET="-f Makefile.libretro"
 
 makeinstall_target() {
   mkdir -p ${SYSROOT_PREFIX}/usr/lib/cmake/${PKG_NAME}

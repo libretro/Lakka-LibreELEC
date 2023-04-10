@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.beetle-vb"
-PKG_VERSION="1.31.0.29-Nexus"
-PKG_SHA256="f5d4382d3d15c45a78bbd983c35012ea2852d74683a4c2ddc3fd42b21f17647b"
+PKG_VERSION="1.31.0.31-Nexus"
+PKG_SHA256="d2bfd33f80d0bbc3ab87af942ee65bb7b16591baa3763b9b8d22638bfbc5f667"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
