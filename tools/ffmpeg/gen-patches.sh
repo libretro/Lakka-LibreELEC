@@ -2,10 +2,7 @@
 
 # base ffmpeg version
 FFMPEG_REPO="git://source.ffmpeg.org/ffmpeg.git"
-FFMPEG_VERSION="n5.1.2"
-
-KODI_FFMPEG_REPO="https://github.com/xbmc/FFmpeg"
-KODI_FFMPEG_VERSION="5.1.2-Nexus-Alpha3"
+FFMPEG_VERSION="n6.0"
 
 ALL_FEATURE_SETS="v4l2-drmprime v4l2-request libreelec rpi vf-deinterlace-v4l2m2m"
 
@@ -34,11 +31,11 @@ create_patch() {
       ;;
     libreelec)
       REPO="https://github.com/LibreELEC/FFmpeg"
-      REFSPEC="5.1.2-libreelec-misc"
+      REFSPEC="6.0-libreelec-misc"
       ;;
     rpi)
       REPO="https://github.com/jc-kynesim/rpi-ffmpeg"
-      REFSPEC="test/5.1.2/main"
+      REFSPEC="dev/6.0/rpi_import_1"
       ;;
     *)
       echo "illegal feature set ${FEATURE_SET}"
