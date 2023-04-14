@@ -2,41 +2,46 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-scummvm"
-PKG_VERSION="0b219a46770776e10c954c6242870928113cacc0"
-PKG_SHA256="a1c8a4b7de3b03f762efd96552fe8b5dfa3e2bcec47c031d6791a220aead8d5e"
+PKG_VERSION="2a272d90dcf2783c7866b866e43912c05a4bfc4b"
+PKG_SHA256="c55f862b1527f74f55108574af8fd3af8ca9d0b672eb07bbbab0ec5bc07a406c"
 PKG_LICENSE="GPLv3"
-PKG_SITE="https://github.com/libretro/scummvm"
-PKG_URL="https://github.com/kodi-game/scummvm/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_LONGDESC="game.libretro.scummvm: scummvm for Kodi"
+PKG_SITE="https://github.com/libretro/scummvm-wrapper"
+PKG_URL="https://github.com/libretro/scummvm-wrapper/archive/${PKG_VERSION}.tar.gz"
+PKG_DEPENDS_TARGET="toolchain"
+PKG_LONGDESC="ScummVM with libretro backend."
 PKG_TOOLCHAIN="make"
+PKG_LR_UPDATE_TAG="yes"
 
 PKG_LIBNAME="scummvm_libretro.so"
 PKG_LIBPATH="${PKG_LIBNAME}"
 PKG_LIBVAR="SCUMMVM_LIB"
 
-PKG_MAKE_OPTS_TARGET="platform=unix GIT_VERSION=${PKG_VERSION:0:7}"
+PKG_MAKE_OPTS_TARGET="all"
 
-pre_configure_target() {
-  cd ${PKG_BUILD}
-
-  if [ "${TARGET_ARCH}" = "arm" ]; then
-    PKG_MAKE_OPTS_TARGET+=" TARGET_64BIT=0"
+pre_make_target() {
+  CXXFLAGS+=" -DHAVE_POSIX_MEMALIGN=1"
+  if [ "${DEVICE}" = "OdroidGoAdvance" ]; then
+    PKG_MAKE_OPTS_TARGET+=" platform=oga_a35_neon_hardfloat"
   else
-    PKG_MAKE_OPTS_TARGET+=" TARGET_64BIT=1"
-  fi
-
-  if target_has_feature neon; then
-    PKG_MAKE_OPTS_TARGET+=" HAVE_NEON=1"
-  fi
-
-  if [ "${BUILD_WITH_DEBUG}" = "yes" ]; then
-    PKG_MAKE_OPTS_TARGET+=" DEBUG=1"
+    PKG_MAKE_OPTS_TARGET+=" platform=${TARGET_NAME}"
   fi
 }
 
 makeinstall_target() {
   mkdir -p ${SYSROOT_PREFIX}/usr/lib/cmake/${PKG_NAME}
   cp ${PKG_LIBPATH} ${SYSROOT_PREFIX}/usr/lib/${PKG_LIBNAME}
+  cp scummvm_libretro.info ${SYSROOT_PREFIX}/usr/lib/
   echo "set(${PKG_LIBVAR} ${SYSROOT_PREFIX}/usr/lib/${PKG_LIBNAME})" > ${SYSROOT_PREFIX}/usr/lib/cmake/${PKG_NAME}/${PKG_NAME}-config.cmake
+
+  # unpack files to retroarch-system folder and create basic ini file
+  mkdir -p ${SYSROOT_PREFIX}/usr/share/retroarch/system
+  unzip scummvm.zip -d ${SYSROOT_PREFIX}/usr/share/retroarch/system
+
+  cat << EOF > ${SYSROOT_PREFIX}/usr/share/retroarch/system/scummvm.ini
+[scummvm]
+extrapath=/tmp/system/scummvm/extra
+browser_lastpath=/tmp/system/scummvm/extra
+themepath=/tmp/system/scummvm/theme
+guitheme=scummmodern
+EOF
 }

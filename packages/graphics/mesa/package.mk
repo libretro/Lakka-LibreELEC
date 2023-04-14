@@ -28,6 +28,7 @@ PKG_MESON_OPTS_TARGET="-Ddri-drivers= \
                        -Dlibunwind=disabled \
                        -Dlmsensors=disabled \
                        -Dbuild-tests=false \
+                       -Ddraw-use-llvm=false \
                        -Dselinux=false \
                        -Dosmesa=false"
 
