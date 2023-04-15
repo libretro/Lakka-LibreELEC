@@ -5,22 +5,19 @@
 
 from gpiozero import Button, LED
 import os
-import io
 from signal import pause
 
 powerPin = 26
-powerPinPullUp = True
 powerenPin = 27
 hold = 1
 power = LED(powerenPin)
 power.on()
 
-os_release_file = io.open("/etc/os-release")
-device = list(filter(lambda x: x.find('LIBREELEC_DEVICE') == 0, os_release_file.readlines() ))[0][18:-2]
-os_release_file.close()
+with open('/etc/os-release', 'r') as data:
+    content = data.read()
+device = list(filter(lambda x: x.find('LIBREELEC_DEVICE') == 0, content.splitlines()))[0][18:-1]
 
-if device == "RPi4-GPICase2":
-    powerPinPullUp = False
+powerPinPullUp = False if device == 'RPi4-GPICase2' else True
 
 #functions that handle button events
 def when_pressed():
