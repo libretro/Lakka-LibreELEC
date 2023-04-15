@@ -30,6 +30,10 @@ if [ "${PROJECT}" = "RPi" ]; then
   if [ "${DEVICE}" = "GPICase" -o "${DEVICE}" = "Pi02GPi" ]; then
     PKG_DEPENDS_TARGET+=" gpicase_safeshutdown"
   fi
+
+  if [ "${DEVICE}" = "GPICase2" ]; then
+    PKG_DEPENDS_TARGET+=" gpicase2_safeshutdown"
+  fi
 fi
 
 if [ "${DEVICE}" != "Switch" -a "${DEVICE}" != "GPICase" -a "${DEVICE}" != "Pi02GPi" ]; then
