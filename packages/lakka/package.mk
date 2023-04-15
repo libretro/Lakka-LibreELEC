@@ -27,7 +27,7 @@ if [ "${PROJECT}" = "RPi" ]; then
     PKG_DEPENDS_TARGET+=" wii-u-gc-adapter wiringPi mk_arcade_joystick_rpi joycond"
   fi
   
-  if [ "${DEVICE}" = "GPICase" -o "${DEVICE}" = "Pi02GPi" ]; then
+  if [ "${DEVICE}" = "GPICase" -o "${DEVICE}" = "Pi02GPi" -o "${DEVICE}" = "GPICase2" ]; then
     PKG_DEPENDS_TARGET+=" gpicase_safeshutdown"
   fi
 fi

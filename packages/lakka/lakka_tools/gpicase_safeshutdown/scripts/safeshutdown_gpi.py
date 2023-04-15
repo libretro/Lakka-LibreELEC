@@ -13,10 +13,16 @@ hold = 1
 power = LED(powerenPin)
 power.on()
 
+with open('/etc/os-release', 'r') as data:
+    content = data.read()
+device = list(filter(lambda x: x.find('LIBREELEC_DEVICE') == 0, content.splitlines()))[0][18:-1]
+
+powerPinPullUp = False if device == 'RPi4-GPICase2' else True
+
 #functions that handle button events
 def when_pressed():
   os.system("shutdown -P now &")
 
-btn = Button(powerPin, hold_time=hold)
+btn = Button(powerPin, hold_time=hold, pull_up=powerPinPullUp)
 btn.when_pressed = when_pressed
 pause()
