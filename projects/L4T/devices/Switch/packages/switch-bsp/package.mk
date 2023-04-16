@@ -1,4 +1,5 @@
 PKG_NAME="switch-joycon-bluetooth-dock-configs"
+PKG_VERSION=2.0
 PKG_LICENSE="GPL"
 PKG_DEPENDS_TARGET="joycond rewritefs xdotool"
 PKG_SECTION="virtual"

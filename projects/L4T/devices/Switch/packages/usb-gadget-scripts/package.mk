@@ -1,4 +1,5 @@
 PKG_NAME="usb-gadget-scripts"
+PKG_VERSION="2.0"
 PKG_DEPENDS_TARGET="umtp-responder"
 PKG_SHORTDESC="Nintendo Switch USB Gadget scripts, and configs"
 PKG_TOOLCHAIN="manual"

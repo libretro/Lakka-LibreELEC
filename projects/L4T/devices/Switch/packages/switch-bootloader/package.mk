@@ -1,24 +1,8 @@
 PKG_NAME="switch-bootloader"
-PKG_VERSION="2.1"
+PKG_VERSION="2.3"
 PKG_ARCH="any"
 PKG_DEPENDS_TARGET="switch-u-boot:host switch-u-boot:target switch-atf:target"
 PKG_TOOLCHAIN="manual"
-
-
-if [ "${DISTRO}" = "Lakka" ]; then
-  DISTRO_PATH="lakka"
-  DISTRO_ICON="icon_lakka_hue.bmp"
-  HEKATE_SPLASH="splash_lakka.bmp"
-  ID="SWR-LAK"
-elif [ "${DISTRO}" = "LibreELEC" ]; then
-  DISTRO_PATH="libreelec"
-  DISTRO_ICON="icon_libreelec_hue.bmp"
-  HEKATE_SPLASH="splash_libreelec.bmp"
-  ID="SWR-LIB"
-else
-  echo "Unknown distro, expect issues"
-fi
-
 
 make_target() {
   cat << EOF > ${PKG_BUILD}/${DISTRO}.ini
@@ -70,6 +54,7 @@ makeinstall_target() {
 [ -f "\${BOOT_ROOT}/${DISTRO_PATH}/splash.bmp" ] && rm \${BOOT_ROOT}/${DISTRO_PATH}/splash.bmp
 [ -f "\${BOOT_ROOT}/${DISTRO_PATH}/README_CONFIG.txt" ] && rm \${BOOT_ROOT}/${DISTRO_PATH}/README_CONFIG.txt
 mkdir -p \${BOOT_ROOT}/${DISTRO_PATH}/boot
+[ -f "\${BOOT_ROOT}/${DISTRO_PATH}/storage/.config/retroarch/retroarch.cfg" ] && sed -i -e 's|input_player1_joypad_index = "2"|input_player1_joypad_index = "0"|' \${BOOT_ROOT}/${DISTRO_PATH}/storage/.config/retroarch/retroarch.cfg
 cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/nx-plat.dtimg \${BOOT_ROOT}/${DISTRO_PATH}/
 cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/README_CONFIG.txt \${BOOT_ROOT}/${DISTRO_PATH}/
 cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/boot.scr \${BOOT_ROOT}/${DISTRO_PATH}/boot/

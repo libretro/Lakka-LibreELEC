@@ -238,6 +238,8 @@ post_makeinstall_target() {
   ln -sf /usr/bin/systemctl ${INSTALL}/usr/sbin/shutdown
   ln -sf /usr/bin/systemctl ${INSTALL}/usr/sbin/telinit
 
+  chmod u+s ${INSTALL}/usr/bin/systemctl
+
   # strip
   debug_strip ${INSTALL}/usr
 
@@ -296,4 +298,11 @@ post_install() {
   enable_service network-base.service
   enable_service systemd-timesyncd.service
   enable_service systemd-timesyncd-setup.service
+  #Add service to properly remount flash partition when using fat32-boot kernel command line option.
+  enable_service remount_flash_ro.service
+
+  if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
+    echo chmod u+s ${BUILD}/image/system/usr/bin/systemctl >> ${FAKEROOT_SCRIPT}
+  fi
 }
+

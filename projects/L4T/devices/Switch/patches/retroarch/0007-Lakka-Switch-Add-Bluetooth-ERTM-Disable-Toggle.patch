@@ -1,0 +1,212 @@
+From f9d9bca1b0ab9cd84f436d4b8951acfbae1b4ea3 Mon Sep 17 00:00:00 2001
+From: Ronald Brown <rbrown4014@yahoo.com>
+Date: Sat, 25 Mar 2023 11:00:41 -0700
+Subject: [PATCH] Lakka-Switch: Add Bluetooth ERTM Disable
+
+---
+ config.def.h                 |  1 +
+ configuration.c              | 10 ++++++++++
+ configuration.h              |  1 +
+ intl/msg_hash_lbl.h          |  4 ++++
+ intl/msg_hash_us.h           |  8 ++++++++
+ lakka-switch.h               |  2 ++
+ menu/cbs/menu_cbs_sublabel.c |  4 ++++
+ menu/menu_displaylist.c      |  1 +
+ menu/menu_setting.c          | 31 ++++++++++++++++++++++++++++++-
+ msg_hash.h                   |  1 +
+ 10 files changed, 62 insertions(+), 1 deletion(-)
+
+diff --git a/config.def.h b/config.def.h
+index 24aacf2943e..dc8ce046dd2 100644
+--- a/config.def.h
++++ b/config.def.h
+@@ -179,6 +179,7 @@
+ #ifdef HAVE_LAKKA_SWITCH
+ #define DEFAULT_SWITCH_OC false
+ #define DEFAULT_SWITCH_CEC true
++#define DEFAULT_BLUETOOTH_ERTM false
+ #endif
+ #if (defined(_WIN32) && !defined(_XBOX)) || (defined(__linux) && !defined(ANDROID) && !defined(HAVE_LAKKA)) || (defined(__MACH__) && !defined(IOS)) || defined(EMSCRIPTEN)
+ #define DEFAULT_MOUSE_ENABLE true
+diff --git a/configuration.c b/configuration.c
+index 7130d0432d1..8288c5a681f 100644
+--- a/configuration.c
++++ b/configuration.c
+@@ -2079,6 +2079,7 @@ static struct config_bool_setting *populate_settings_bool(
+ #ifdef HAVE_LAKKA_SWITCH
+    SETTING_BOOL("switch_oc",       &settings->bools.switch_oc, true, DEFAULT_SWITCH_OC, false);
+    SETTING_BOOL("switch_cec",       &settings->bools.switch_cec, true, DEFAULT_SWITCH_CEC, false);
++   SETTING_BOOL("bluetooth_ertm_disable",      &settings->bools.bluetooth_ertm_disable, true, DEFAULT_BLUETOOTH_ERTM, false);
+ #endif
+ #ifdef ANDROID
+    SETTING_BOOL("android_input_disconnect_workaround",   &settings->bools.android_input_disconnect_workaround, true, false, false);
+@@ -3909,6 +3910,15 @@ static bool config_load_file(global_t *global,
+ 	} else {
+ 	  filestream_delete(SWITCH_CEC_TOGGLE_PATH);	
+     }
++    if (settings->bools.bluetooth_ertm_disable == true) {
++      FILE* f = fopen(BLUETOOTH_ERTM_TOGGLE_PATH, "w");
++	  fprintf(f, "1\n");
++      fclose(f);
++	} else {
++      FILE* f = fopen(BLUETOOTH_ERTM_TOGGLE_PATH, "w");
++	  fprintf(f, "0\n");
++      fclose(f);
++    }
+ #endif    
+    frontend_driver_set_sustained_performance_mode(settings->bools.sustained_performance_mode);
+    recording_driver_update_streaming_url();
+diff --git a/configuration.h b/configuration.h
+index 882af40a041..1f843d1a6be 100644
+--- a/configuration.h
++++ b/configuration.h
+@@ -934,6 +934,7 @@ typedef struct settings
+ #ifdef HAVE_LAKKA_SWITCH
+       bool switch_oc;
+       bool switch_cec;
++      bool bluetooth_ertm_disable;
+ #endif
+       bool samba_enable;
+       bool bluetooth_enable;
+diff --git a/intl/msg_hash_lbl.h b/intl/msg_hash_lbl.h
+index 1a026f1d515..a62c0abb25b 100644
+--- a/intl/msg_hash_lbl.h
++++ b/intl/msg_hash_lbl.h
+@@ -3499,6 +3499,10 @@ MSG_HASH(
+    MENU_ENUM_LABEL_SWITCH_CEC_ENABLE,
+    "Switch_CEC_enable"
+    )
++MSG_HASH(
++   MENU_ENUM_LABEL_BLUETOOTH_ERTM_DISABLE,
++   "Switch_ERTM_Disable"
++   )
+ #endif
+ MSG_HASH(
+    MENU_ENUM_LABEL_START_CORE,
+diff --git a/intl/msg_hash_us.h b/intl/msg_hash_us.h
+index a655217a80e..8afe3ea10e3 100644
+--- a/intl/msg_hash_us.h
++++ b/intl/msg_hash_us.h
+@@ -14996,6 +14996,14 @@ MSG_HASH(
+    MENU_ENUM_SUBLABEL_SWITCH_CEC_ENABLE,
+    "Enable CEC Handshaking with TV when docking"
+    )
++MSG_HASH(
++   MENU_ENUM_LABEL_VALUE_BLUETOOTH_ERTM_DISABLE,
++   "Bluetooth ERTM Disable"
++   )
++MSG_HASH(
++   MENU_ENUM_SUBLABEL_BLUETOOTH_ERTM_DISABLE,
++   "Disable Bluetooth ERTM to fix pairing of some devices"
++   )
+ #endif
+ MSG_HASH(
+    MSG_LOCALAP_SWITCHING_OFF,
+diff --git a/lakka-switch.h b/lakka-switch.h
+index fe037a0da13..2100199a8cc 100644
+--- a/lakka-switch.h
++++ b/lakka-switch.h
+@@ -24,6 +24,8 @@
+ #define SWITCH_GPU_PROFILE_FILE_AVAILABLE_GOVERNORS_PATH "/sys/devices/57000000.gpu/devfreq/57000000.gpu/available_governors"
+ #define SWITCH_GPU_PROFILE_FILE_AVAILABLE_FREQ_PATH "/sys/devices/57000000.gpu/devfreq/57000000.gpu/available_governors"
+ 
++#define BLUETOOTH_ERTM_TOGGLE_PATH "/sys/module/bluetooth/parameters/disable_ertm"
++
+ #define SWITCH_R2P_ENABLED_PATH "/sys/module/pmc_r2p/parameters/enabled" 
+ #define SWITCH_R2P_ACTION_PATH /sys/module/pmc_r2p/parameters/action 
+ #define SWITCH_R2P_ENTRY_ID_PATH /sys/module/pmc_r2p/parameters/entry_id 
+diff --git a/menu/cbs/menu_cbs_sublabel.c b/menu/cbs/menu_cbs_sublabel.c
+index f3a39dd5193..27dc46ce387 100644
+--- a/menu/cbs/menu_cbs_sublabel.c
++++ b/menu/cbs/menu_cbs_sublabel.c
+@@ -370,6 +370,7 @@ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_timezone,                      MENU_
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_switch_options,                MENU_ENUM_SUBLABEL_LAKKA_SWITCH_OPTIONS)
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_switch_oc_enable,              MENU_ENUM_SUBLABEL_SWITCH_OC_ENABLE)
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_switch_cec_enable,             MENU_ENUM_SUBLABEL_SWITCH_CEC_ENABLE)
++DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_bluetooth_ertm_disable,        MENU_ENUM_SUBLABEL_BLUETOOTH_ERTM_DISABLE)
+ #endif
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_user_language,                 MENU_ENUM_SUBLABEL_USER_LANGUAGE)
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_max_swapchain_images,          MENU_ENUM_SUBLABEL_VIDEO_MAX_SWAPCHAIN_IMAGES)
+@@ -4872,6 +4873,9 @@ int menu_cbs_init_bind_sublabel(menu_file_list_cbs_t *cbs,
+          case MENU_ENUM_LABEL_SWITCH_CEC_ENABLE:
+             BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_switch_cec_enable);
+             break;
++         case MENU_ENUM_LABEL_BLUETOOTH_ERTM_DISABLE:
++            BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_bluetooth_ertm_disable);
++            break;
+ #endif
+          case MENU_ENUM_LABEL_USER_LANGUAGE:
+             BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_user_language);
+diff --git a/menu/menu_displaylist.c b/menu/menu_displaylist.c
+index c23808d9042..7f93b121028 100644
+--- a/menu/menu_displaylist.c
++++ b/menu/menu_displaylist.c
+@@ -9106,6 +9106,7 @@ unsigned menu_displaylist_build_list(
+             menu_displaylist_build_info_t build_list[] = {
+                {MENU_ENUM_LABEL_SWITCH_OC_ENABLE,                                            PARSE_ONLY_BOOL},
+                {MENU_ENUM_LABEL_SWITCH_CEC_ENABLE,                                           PARSE_ONLY_BOOL},
++               {MENU_ENUM_LABEL_BLUETOOTH_ERTM_DISABLE,                                      PARSE_ONLY_BOOL},
+             };
+ 
+             for (i = 0; i < ARRAY_SIZE(build_list); i++)
+diff --git a/menu/menu_setting.c b/menu/menu_setting.c
+index 5a444aef90c..b6d2cef29c9 100644
+--- a/menu/menu_setting.c
++++ b/menu/menu_setting.c
+@@ -9094,6 +9094,20 @@ static void switch_cec_enable_toggle_change_handler(rarch_setting_t *setting)
+ 	  filestream_delete(SWITCH_CEC_TOGGLE_PATH);	
+     }
+     
++}
++
++static void bluetooth_ertm_disable_toggle_change_handler(rarch_setting_t *setting)
++{
++    if (*setting->value.target.boolean == true) {
++      FILE* f = fopen(BLUETOOTH_ERTM_TOGGLE_PATH, "w");
++	  fprintf(f, "1\n");
++      fclose(f);
++	} else {
++      FILE* f = fopen(BLUETOOTH_ERTM_TOGGLE_PATH, "w");
++	  fprintf(f, "0\n");
++      fclose(f);
++    }
++    
+ }
+ #endif
+ 
+@@ -21447,7 +21461,22 @@ static bool setting_append_list(
+                   general_read_handler,
+                   SD_FLAG_NONE);
+             (*list)[list_info->index - 1].change_handler = switch_cec_enable_toggle_change_handler;
+-
++ 
++            CONFIG_BOOL(
++                  list, list_info,
++                  &settings->bools.bluetooth_ertm_disable,
++                  MENU_ENUM_LABEL_BLUETOOTH_ERTM_DISABLE,
++                  MENU_ENUM_LABEL_VALUE_BLUETOOTH_ERTM_DISABLE,
++                  DEFAULT_BLUETOOTH_ERTM,
++                  MENU_ENUM_LABEL_VALUE_OFF,
++                  MENU_ENUM_LABEL_VALUE_ON,
++                  &group_info,
++                  &subgroup_info,
++                  parent_group,
++                  general_write_handler,
++                  general_read_handler,
++                  SD_FLAG_NONE);
++            (*list)[list_info->index - 1].change_handler = bluetooth_ertm_disable_toggle_change_handler;
+             END_SUB_GROUP(list, list_info, parent_group);
+             END_GROUP(list, list_info, parent_group);
+          }
+diff --git a/msg_hash.h b/msg_hash.h
+index 990a0564fa9..f5039e14ad0 100644
+--- a/msg_hash.h
++++ b/msg_hash.h
+@@ -2252,6 +2252,7 @@ enum msg_hash_enums
+ #ifdef HAVE_LAKKA_SWITCH
+    MENU_LABEL(SWITCH_OC_ENABLE),
+    MENU_LABEL(SWITCH_CEC_ENABLE),
++   MENU_LABEL(BLUETOOTH_ERTM_DISABLE),
+ #endif
+    MENU_LABEL(NETPLAY_DELAY_FRAMES), /* deprecated */
+    MENU_LABEL(NETPLAY_PUBLIC_ANNOUNCE),
