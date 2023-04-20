@@ -39,6 +39,7 @@ targets="\
 	Allwinner|H3|arm| \
 	Allwinner|H5|aarch64| \
 	Allwinner|H6|aarch64| \
+	Allwinner|H616|aarch64| \
 	Allwinner|R40|arm| \
 	Amlogic|AMLGX|aarch64| \
 	Ayn|Odin|aarch64| \
@@ -60,6 +61,7 @@ targets="\
 	RPi|RPi4|aarch64| \
 	RPi|RPi4-PiBoyDmg|aarch64| \
 	RPi|RPi4-RetroDreamer|aarch64| \
+	RPi|RPi4-GPICase2|aarch64| \
 	Samsung|Exynos|arm| \
 "
 
