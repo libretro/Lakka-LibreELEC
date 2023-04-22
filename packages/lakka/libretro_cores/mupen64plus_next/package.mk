@@ -53,6 +53,9 @@ pre_make_target() {
     Exynos)
       PKG_MAKE_OPTS_TARGET+=" platform=odroid BOARD=ODROID-XU"
       ;;
+    H6)
+      PKG_MAKE_OPTS_TARGET+=" platform=rpi3_64-mesa"
+      ;;
     AMLGX)
       [ "${ARCH}" = "arm" ] && PKG_MAKE_OPTS_TARGET+=" platform=AMLGX-amlogic" || true
       ;;
