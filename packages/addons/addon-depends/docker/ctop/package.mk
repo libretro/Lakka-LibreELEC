@@ -17,9 +17,9 @@ PKG_GIT_COMMIT="11a1cb10f416b4ca5e36c22c1acc2d11dbb24fb4"
 pre_make_target() {
   go_configure
 
-  export CTOP_VERSION=${PKG_VERSION}
-  export CTOP_REVISION=${PKG_GIT_COMMIT}
-  export CTOP_PKG=github.com/bcicen/ctop
+  export CTOP_VERSION="${PKG_VERSION}"
+  export CTOP_REVISION="${PKG_GIT_COMMIT}"
+  export CTOP_PKG="github.com/bcicen/ctop"
   export LDFLAGS="-w -extldflags -static -X main.version=${CTOP_VERSION} -X main.build=${CTOP_REVISION} -extld ${CC}"
 
   mkdir -p ${GOPATH}/src/github.com/bcicen
