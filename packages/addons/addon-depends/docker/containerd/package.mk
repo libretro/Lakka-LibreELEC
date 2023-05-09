@@ -3,8 +3,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="containerd"
-PKG_VERSION="1.6.16"
-PKG_SHA256="e0a893cf67df9dfaecbcde2ba4e896efb3a86ffe48dcfe0d2b26f7cf19b5af3a"
+PKG_VERSION="1.7.0"
+PKG_SHA256="c80b1c7f04057108059fdec9c936fc1ec0dccafa45c00a1d54f14dceb6500552"
 PKG_LICENSE="APL"
 PKG_SITE="https://containerd.io"
 PKG_URL="https://github.com/containerd/containerd/archive/v${PKG_VERSION}.tar.gz"
@@ -19,9 +19,9 @@ pre_make_target() {
 
   go_configure
 
-  export CONTAINERD_VERSION=${PKG_VERSION}
-  export CONTAINERD_REVISION=${PKG_GIT_COMMIT}
-  export CONTAINERD_PKG=github.com/containerd/containerd
+  export CONTAINERD_VERSION="${PKG_VERSION}"
+  export CONTAINERD_REVISION="${PKG_GIT_COMMIT}"
+  export CONTAINERD_PKG="github.com/containerd/containerd"
   export LDFLAGS="-w -extldflags -static -X ${CONTAINERD_PKG}/version.Version=${CONTAINERD_VERSION} -X ${CONTAINERD_PKG}/version.Revision=${CONTAINERD_REVISION} -X ${CONTAINERD_PKG}/version.Package=${CONTAINERD_PKG} -extld ${CC}"
   export GO111MODULE=off
 
