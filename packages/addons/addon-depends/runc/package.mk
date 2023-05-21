@@ -3,8 +3,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="runc"
-PKG_VERSION="1.1.5"
-PKG_SHA256="76cbf30637cbb828794d72d32fb3fd6ff3139cd9743b8b44790fd110f43d96b2"
+PKG_VERSION="1.1.7"
+PKG_SHA256="f1885d6dfa188f8112328ac2355e5d67346174a2e2e795ec514a972bcbfcc2fa"
 PKG_LICENSE="APL"
 PKG_SITE="https://github.com/opencontainers/runc"
 PKG_URL="https://github.com/opencontainers/runc/archive/v${PKG_VERSION}.tar.gz"
