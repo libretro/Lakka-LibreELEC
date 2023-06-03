@@ -6,7 +6,6 @@ PKG_NAME="libva"
 PKG_VERSION="2.18.0"
 PKG_SHA256="9d666c70c12dfefcdd27ae7dea771557f75e24961d0ed4cb050d96fb6136f438"
 PKG_ARCH="x86_64"
-[ "${DISTRO}" = "Lakka" ] && PKG_ARCH+=" i386" || true
 PKG_LICENSE="GPL"
 PKG_SITE="https://01.org/linuxmedia"
 PKG_URL="https://github.com/intel/libva/archive/${PKG_VERSION}.tar.gz"

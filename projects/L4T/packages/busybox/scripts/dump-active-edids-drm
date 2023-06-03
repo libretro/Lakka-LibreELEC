@@ -1,0 +1,42 @@
+#!/bin/sh
+
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2021-present Team LibreELEC (https://libreelec.tv)
+
+EDID_DIR="/storage/.config/firmware/edid"
+CONNECTORS=""
+
+if [ "$1" = "-q" ]; then
+  VERBOSE=0
+else
+  VERBOSE=1
+fi
+
+info() {
+  [ "${VERBOSE}" = "1" ] && echo "$@"
+}
+
+mkdir -p "${EDID_DIR}"
+
+for c in /sys/class/drm/card?-* ; do
+  [ ! -d "$c" ] && continue
+  [ ! -e "$c/status" ] && continue
+
+  if [ $(cat $c/status 2>/dev/null) = "connected" ]; then
+    CONNECTOR=$(basename $c | cut -c 7-)
+    EDID_NAME="edid-${CONNECTOR}.bin"
+    cat $c/edid > "${EDID_DIR}/${EDID_NAME}" 2>/dev/null
+    if [ $? -eq 0 ]; then
+      [ -n "${CONNECTORS}" ] && CONNECTORS="${CONNECTORS} "
+      CONNECTORS="${CONNECTORS}${CONNECTOR}"
+    fi
+  fi
+done
+
+if [ -z "${CONNECTORS}" ]; then
+  info "error: no active connectors found"
+  exit 1
+else
+  info "found active connector(s) ${CONNECTORS}"
+  [ "${VERBOSE}" = "0" ] && echo "${CONNECTORS}"
+fi

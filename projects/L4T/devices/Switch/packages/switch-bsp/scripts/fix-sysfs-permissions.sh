@@ -1,4 +1,4 @@
-!/bin/sh
+#!/bin/sh
 
 #Allow all users to take advantage of changing Clock stuff, and setting R2P stuff.
 

@@ -1,0 +1,288 @@
+From fd67cc3fbd3a362297afc7cc8d75560df62708de Mon Sep 17 00:00:00 2001
+From: Jay Yang <jay.yang@intel.com>
+Date: Fri, 21 Apr 2023 13:10:52 +0800
+Subject: [PATCH] Fix GCC13 build errors
+
+Fix #1639
+Fix #1640
+Fix #1641
+Signed-off-by: Jay Yang <jay.yang@intel.com>
+---
+ .../Xe_M/Xe_XPM/hw/mhw_vebox_xe_xpm.h         | 21 +++++++++++--------
+ .../hal/codechal_encode_csc_ds_mdf_g12.h      |  1 +
+ .../agnostic/gen12/hw/mhw_vebox_g12_X.h       |  1 +
+ .../gen12/hw/vdbox/mhw_vdbox_avp_generic.h    | 19 -----------------
+ .../gen9/codec/hal/codechal_encode_avc_g9.h   |  1 +
+ .../codec/hal/codechal_fei_hevc_g9_skl.cpp    |  3 ---
+ .../shared/mediacopy/media_copy_xe_hpm.h      |  1 +
+ .../shared/mediacopy/media_copy_xe_xpm_base.h |  1 +
+ .../shared/mediacopy/media_copy_xe_xpm_plus.h |  1 +
+ .../hucitf/decode_huc_packet_creator_g12.h    |  4 ++++
+ .../m12_0/shared/mediacopy/media_copy_m12_0.h |  1 +
+ .../mediacopy/media_copy_xe_lpm_plus_base.h   |  1 +
+ .../bufferMgr/encode_tracked_buffer_queue.cpp |  5 +++++
+ .../bufferMgr/encode_tracked_buffer_queue.h   |  2 +-
+ .../common/shared/media_debug_serializer.h    |  1 +
+ .../media_scalability_multipipe.cpp           |  2 +-
+ .../scalability/media_scalability_multipipe.h |  2 +-
+ 17 files changed, 33 insertions(+), 34 deletions(-)
+
+diff --git a/media_driver/agnostic/Xe_M/Xe_XPM/hw/mhw_vebox_xe_xpm.h b/media_driver/agnostic/Xe_M/Xe_XPM/hw/mhw_vebox_xe_xpm.h
+index b6b86a54ed..ae9a4be096 100644
+--- a/media_driver/agnostic/Xe_M/Xe_XPM/hw/mhw_vebox_xe_xpm.h
++++ b/media_driver/agnostic/Xe_M/Xe_XPM/hw/mhw_vebox_xe_xpm.h
+@@ -110,15 +110,6 @@ class MhwVeboxInterfaceXe_Xpm: public MhwVeboxInterfaceG12
+         PMOS_COMMAND_BUFFER                 pCmdBuffer,
+         PMHW_VEBOX_SURFACE_STATE_CMD_PARAMS pVeboxSurfaceStateCmdParams) override;
+ 
+-    void SetVeboxSurfaces(
+-        PMHW_VEBOX_SURFACE_PARAMS                  pSurfaceParam,
+-        PMHW_VEBOX_SURFACE_PARAMS                  pDerivedSurfaceParam,
+-        PMHW_VEBOX_SURFACE_PARAMS                  pSkinScoreSurfaceParam,
+-        mhw_vebox_xe_xpm::VEBOX_SURFACE_STATE_CMD *pVeboxSurfaceState,
+-        bool                                       bIsOutputSurface,
+-        bool                                       bDIEnable,
+-        bool                                       b3DlutEnable);
+-
+     MOS_STATUS FindVeboxGpuNodeToUse(
+         PMHW_VEBOX_GPUNODE_LIMIT pGpuNodeLimit) override;
+ 
+@@ -144,6 +135,18 @@ class MhwVeboxInterfaceXe_Xpm: public MhwVeboxInterfaceG12
+     uint32_t m_indexofVebox              = 0;
+     uint32_t m_numofVebox                = 1;
+     uint32_t m_usingSfc                  = 0;
++   
++    using MhwVeboxInterfaceG12::SetVeboxSurfaces;
++
++    void SetVeboxSurfaces(
++        PMHW_VEBOX_SURFACE_PARAMS                  pSurfaceParam,
++        PMHW_VEBOX_SURFACE_PARAMS                  pDerivedSurfaceParam,
++        PMHW_VEBOX_SURFACE_PARAMS                  pSkinScoreSurfaceParam,
++        mhw_vebox_xe_xpm::VEBOX_SURFACE_STATE_CMD *pVeboxSurfaceState,
++        bool                                       bIsOutputSurface,
++        bool                                       bDIEnable,
++        bool                                       b3DlutEnable);
++
+ };
+ 
+ #endif // __MHW_VEBOX_XE_XPM_H__
+diff --git a/media_driver/agnostic/gen12/codec/hal/codechal_encode_csc_ds_mdf_g12.h b/media_driver/agnostic/gen12/codec/hal/codechal_encode_csc_ds_mdf_g12.h
+index 3dd276a748..ce21993da7 100644
+--- a/media_driver/agnostic/gen12/codec/hal/codechal_encode_csc_ds_mdf_g12.h
++++ b/media_driver/agnostic/gen12/codec/hal/codechal_encode_csc_ds_mdf_g12.h
+@@ -202,6 +202,7 @@ class CodechalEncodeCscDsMdfG12 : public CodechalEncodeCscDsG12
+ 
+      MOS_STATUS CscKernel(
+         KernelParams* pParams) override;
++    using CodechalEncodeCscDsG12::InitKernelStateCsc;
+     MOS_STATUS InitKernelStateCsc(KernelParams* pParams);
+     MOS_STATUS SetupKernelArgsCSC(CmKernel *cmKrnCSCDS, SurfaceParamsCscMdf* surfaceparams);
+     MOS_STATUS SetCurbeCscforMDF(CMRT_UMD::vector<uint32_t, 10> & curbeData);
+diff --git a/media_driver/agnostic/gen12/hw/mhw_vebox_g12_X.h b/media_driver/agnostic/gen12/hw/mhw_vebox_g12_X.h
+index 64e2ffe462..d0c2d6ca5e 100644
+--- a/media_driver/agnostic/gen12/hw/mhw_vebox_g12_X.h
++++ b/media_driver/agnostic/gen12/hw/mhw_vebox_g12_X.h
+@@ -336,6 +336,7 @@ class MhwVeboxInterfaceG12 : public MhwVeboxInterfaceGeneric<mhw_vebox_g12_X>
+     MOS_STATUS ValidateVeboxScalabilityConfig();
+ #endif
+ 
++protected:
+     void SetVeboxSurfaces(
+         PMHW_VEBOX_SURFACE_PARAMS                 pSurfaceParam,
+         PMHW_VEBOX_SURFACE_PARAMS                 pDerivedSurfaceParam,
+diff --git a/media_driver/agnostic/gen12/hw/vdbox/mhw_vdbox_avp_generic.h b/media_driver/agnostic/gen12/hw/vdbox/mhw_vdbox_avp_generic.h
+index ae1bd88cb2..fb2fc0fe86 100644
+--- a/media_driver/agnostic/gen12/hw/vdbox/mhw_vdbox_avp_generic.h
++++ b/media_driver/agnostic/gen12/hw/vdbox/mhw_vdbox_avp_generic.h
+@@ -95,24 +95,5 @@ class MhwVdboxAvpInterfaceGeneric : public MhwVdboxAvpInterface
+ 
+         return eStatus;
+     }
+-
+-    MOS_STATUS AddAvpBsdObjectCmd(
+-        PMOS_COMMAND_BUFFER                 cmdBuffer,
+-        MhwVdboxAvpBsdParams                *params)
+-    {
+-        MOS_STATUS eStatus = MOS_STATUS_SUCCESS;
+-
+-        MHW_FUNCTION_ENTER;
+-        MHW_MI_CHK_NULL(m_osInterface);
+-
+-        typename TAvpCmds::AVP_BSD_OBJECT_CMD   cmd;
+-
+-        cmd.DW1.IndirectBsdDataLength       = params->m_bsdDataLength;
+-        cmd.DW2.IndirectDataStartAddress    = params->m_bsdDataStartOffset;
+-
+-        MHW_MI_CHK_STATUS(m_osInterface->pfnAddCommand(cmdBuffer, &cmd, sizeof(cmd)));
+-
+-        return eStatus;
+-    }
+ };
+ #endif
+diff --git a/media_driver/agnostic/gen9/codec/hal/codechal_encode_avc_g9.h b/media_driver/agnostic/gen9/codec/hal/codechal_encode_avc_g9.h
+index f981860946..a735bb46cf 100644
+--- a/media_driver/agnostic/gen9/codec/hal/codechal_encode_avc_g9.h
++++ b/media_driver/agnostic/gen9/codec/hal/codechal_encode_avc_g9.h
+@@ -5668,6 +5668,7 @@ class CodechalEncodeAvcEncG9 : public CodechalEncodeAvcEnc
+     MOS_STATUS GetStatusReport(
+         void *status,
+         uint16_t numStatus) override;
++    using CodechalEncodeAvcEnc::GetStatusReport;
+ 
+ #if USE_CODECHAL_DEBUG_TOOL
+ protected:
+diff --git a/media_driver/agnostic/gen9_skl/codec/hal/codechal_fei_hevc_g9_skl.cpp b/media_driver/agnostic/gen9_skl/codec/hal/codechal_fei_hevc_g9_skl.cpp
+index 8da01da3f0..59c0480653 100644
+--- a/media_driver/agnostic/gen9_skl/codec/hal/codechal_fei_hevc_g9_skl.cpp
++++ b/media_driver/agnostic/gen9_skl/codec/hal/codechal_fei_hevc_g9_skl.cpp
+@@ -6410,9 +6410,6 @@ MOS_STATUS CodechalFeiHevcStateG9Skl::FreeEncResources()
+ 
+      m_cmKernelMap.clear();
+ 
+-     CmKernelMapType deallocator;
+-     m_cmKernelMap.swap(deallocator);
+-
+ #endif
+ 
+     return eStatus;
+diff --git a/media_driver/media_softlet/agnostic/Xe_M/Xe_HPM/shared/mediacopy/media_copy_xe_hpm.h b/media_driver/media_softlet/agnostic/Xe_M/Xe_HPM/shared/mediacopy/media_copy_xe_hpm.h
+index b43087e93c..23bf56075c 100644
+--- a/media_driver/media_softlet/agnostic/Xe_M/Xe_HPM/shared/mediacopy/media_copy_xe_hpm.h
++++ b/media_driver/media_softlet/agnostic/Xe_M/Xe_HPM/shared/mediacopy/media_copy_xe_hpm.h
+@@ -50,6 +50,7 @@ class MediaCopyState_Xe_Hpm: public MediaCopyBaseState
+     //!
+     //! \brief    init function.
+     virtual MOS_STATUS Initialize(  PMOS_INTERFACE  osInterface, MhwInterfaces *mhwInterfaces);
++    using MediaCopyBaseState::Initialize;
+ 
+     //!
+     //! \brief    render format support.
+diff --git a/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/shared/mediacopy/media_copy_xe_xpm_base.h b/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/shared/mediacopy/media_copy_xe_xpm_base.h
+index 8075553c0d..14c291a4a1 100644
+--- a/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/shared/mediacopy/media_copy_xe_xpm_base.h
++++ b/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/shared/mediacopy/media_copy_xe_xpm_base.h
+@@ -49,6 +49,7 @@ class MediaCopyStateXe_Xpm_Base: public MediaCopyBaseState
+     //!
+     //! \brief    init function.
+     virtual MOS_STATUS Initialize(  PMOS_INTERFACE  osInterface, MhwInterfaces *mhwInterfaces);
++    using MediaCopyBaseState::Initialize;
+ 
+     //!
+     //! \brief    surface copy pre process.
+diff --git a/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_plus/shared/mediacopy/media_copy_xe_xpm_plus.h b/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_plus/shared/mediacopy/media_copy_xe_xpm_plus.h
+index 99f7bfe525..e24f42963f 100644
+--- a/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_plus/shared/mediacopy/media_copy_xe_xpm_plus.h
++++ b/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_plus/shared/mediacopy/media_copy_xe_xpm_plus.h
+@@ -50,6 +50,7 @@ class MediaCopyStateXe_Xpm_Plus: public MediaCopyBaseState
+     //!
+     //! \brief    init function.
+     virtual MOS_STATUS Initialize(PMOS_INTERFACE osInterface, MhwInterfaces *mhwInterfaces);
++    using MediaCopyBaseState::Initialize;
+ 
+     //!
+     //! \brief    render format support.
+diff --git a/media_driver/media_softlet/agnostic/gen12_base/codec/hal/dec/shared/hucitf/decode_huc_packet_creator_g12.h b/media_driver/media_softlet/agnostic/gen12_base/codec/hal/dec/shared/hucitf/decode_huc_packet_creator_g12.h
+index 682c9352bd..1774ff6dcf 100644
+--- a/media_driver/media_softlet/agnostic/gen12_base/codec/hal/dec/shared/hucitf/decode_huc_packet_creator_g12.h
++++ b/media_driver/media_softlet/agnostic/gen12_base/codec/hal/dec/shared/hucitf/decode_huc_packet_creator_g12.h
+@@ -48,6 +48,10 @@ class HucPacketCreatorG12 : public HucPacketCreatorBase
+         MediaPipeline       *pipeline,
+         MediaTask           *task,
+         CodechalHwInterface *hwInterface);
++        
++    using HucPacketCreatorBase::CreateHucCopyPkt;
++    using HucPacketCreatorBase::CreateProbUpdatePkt;
++    using HucPacketCreatorBase::CreateStreamOutInterface;
+     MEDIA_CLASS_DEFINE_END(decode__HucPacketCreatorG12)
+ };
+ 
+diff --git a/media_driver/media_softlet/agnostic/m12/m12_0/shared/mediacopy/media_copy_m12_0.h b/media_driver/media_softlet/agnostic/m12/m12_0/shared/mediacopy/media_copy_m12_0.h
+index 25e5972b7d..7e267011ad 100644
+--- a/media_driver/media_softlet/agnostic/m12/m12_0/shared/mediacopy/media_copy_m12_0.h
++++ b/media_driver/media_softlet/agnostic/m12/m12_0/shared/mediacopy/media_copy_m12_0.h
+@@ -51,6 +51,7 @@ class MediaCopyStateM12_0: public MediaCopyBaseState
+     //!
+     //! \brief    init function.
+     virtual MOS_STATUS Initialize(  PMOS_INTERFACE  osInterface, MhwInterfaces *mhwInterfaces);
++    using MediaCopyBaseState::Initialize;
+ 
+     //!
+     //! \brief    render format support.
+diff --git a/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/shared/mediacopy/media_copy_xe_lpm_plus_base.h b/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/shared/mediacopy/media_copy_xe_lpm_plus_base.h
+index 1f3c14ff44..5775a81732 100644
+--- a/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/shared/mediacopy/media_copy_xe_lpm_plus_base.h
++++ b/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/shared/mediacopy/media_copy_xe_lpm_plus_base.h
+@@ -48,6 +48,7 @@ class MediaCopyStateXe_Lpm_Plus_Base: public MediaCopyBaseState
+     //!
+     //! \brief    init function.
+     virtual MOS_STATUS Initialize(PMOS_INTERFACE osInterface, MhwInterfacesNext *mhwInterfaces);
++    using MediaCopyBaseState::Initialize;
+ 
+     //!
+     //! \brief    render format support.
+diff --git a/media_softlet/agnostic/common/codec/hal/enc/shared/bufferMgr/encode_tracked_buffer_queue.cpp b/media_softlet/agnostic/common/codec/hal/enc/shared/bufferMgr/encode_tracked_buffer_queue.cpp
+index ccd75e3d97..5c53583b02 100644
+--- a/media_softlet/agnostic/common/codec/hal/enc/shared/bufferMgr/encode_tracked_buffer_queue.cpp
++++ b/media_softlet/agnostic/common/codec/hal/enc/shared/bufferMgr/encode_tracked_buffer_queue.cpp
+@@ -154,4 +154,9 @@ MOS_STATUS BufferQueue::DestoryResource(void* resource)
+     return MOS_STATUS_SUCCESS;
+ }
+ 
++void BufferQueue::SetResourceType(ResourceType resType)
++{ 
++    m_resourceType = resType; 
++}
++
+ }
+\ No newline at end of file
+diff --git a/media_softlet/agnostic/common/codec/hal/enc/shared/bufferMgr/encode_tracked_buffer_queue.h b/media_softlet/agnostic/common/codec/hal/enc/shared/bufferMgr/encode_tracked_buffer_queue.h
+index 6ef9424e8c..4aa0898c4d 100644
+--- a/media_softlet/agnostic/common/codec/hal/enc/shared/bufferMgr/encode_tracked_buffer_queue.h
++++ b/media_softlet/agnostic/common/codec/hal/enc/shared/bufferMgr/encode_tracked_buffer_queue.h
+@@ -87,7 +87,7 @@ class BufferQueue
+     //!
+     bool SafeToDestory();
+ 
+-    void SetResourceType(ResourceType resType) { m_resourceType = resType; }
++    void SetResourceType(ResourceType resType);
+ 
+ protected:
+     //!
+diff --git a/media_softlet/agnostic/common/shared/media_debug_serializer.h b/media_softlet/agnostic/common/shared/media_debug_serializer.h
+index 77e5fced2d..90d64ad24f 100644
+--- a/media_softlet/agnostic/common/shared/media_debug_serializer.h
++++ b/media_softlet/agnostic/common/shared/media_debug_serializer.h
+@@ -34,6 +34,7 @@
+ #include <string>
+ #include <typeinfo>
+ #include <type_traits>
++#include <stdint.h>
+ #include "media_class_trace.h"
+ 
+ template <typename T, typename = void>
+diff --git a/media_softlet/agnostic/common/shared/scalability/media_scalability_multipipe.cpp b/media_softlet/agnostic/common/shared/scalability/media_scalability_multipipe.cpp
+index 06b107b6bb..fe08b67aeb 100644
+--- a/media_softlet/agnostic/common/shared/scalability/media_scalability_multipipe.cpp
++++ b/media_softlet/agnostic/common/shared/scalability/media_scalability_multipipe.cpp
+@@ -29,7 +29,7 @@
+ 
+ #include "media_scalability_multipipe.h"
+ 
+-MOS_STATUS MediaScalabilityMultiPipe::UpdateState()
++MOS_STATUS MediaScalabilityMultiPipe::UpdateState(void *statePars)
+ {
+     return MOS_STATUS_SUCCESS;
+ }
+diff --git a/media_softlet/agnostic/common/shared/scalability/media_scalability_multipipe.h b/media_softlet/agnostic/common/shared/scalability/media_scalability_multipipe.h
+index 9f848dcde5..81d3f334b3 100644
+--- a/media_softlet/agnostic/common/shared/scalability/media_scalability_multipipe.h
++++ b/media_softlet/agnostic/common/shared/scalability/media_scalability_multipipe.h
+@@ -50,7 +50,7 @@ class MediaScalabilityMultiPipe: public MediaScalability
+     //! \return MOS_STATUS
+     //!         MOS_STATUS_SUCCESS if success, else fail reason
+     //!
+-    virtual MOS_STATUS UpdateState();
++    virtual MOS_STATUS UpdateState(void *statePars);
+ 
+ protected:
+     inline bool IsFirstPipe() { return (m_currentPipe == 0) ? true : false; }

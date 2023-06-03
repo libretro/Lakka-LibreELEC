@@ -25,4 +25,3 @@ fi
 post_configure_target() {
   libtool_remove_rpath libtool
 }
-
