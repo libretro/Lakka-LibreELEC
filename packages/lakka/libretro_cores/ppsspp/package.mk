@@ -17,6 +17,9 @@ PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON \
                        -DUSE_SYSTEM_ZSTD=ON \
                        -DUSE_DISCORD=OFF \
                        -DUSE_MINIUPNPC=OFF"
+if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
+  PKG_CMAKE_OPTS_TARGET=${PKG_CMAKE_OPTS_TARGET//-DUSE_SYSTEM_FFMPEG=ON/-DUSE_SYSTEM_FFMPEG=OFF}
+fi
 
 if [ "${OPENGL_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL}"
@@ -51,6 +54,10 @@ elif [ "${TARGET_ARCH}" = "aarch64" ]; then
 fi
 
 pre_make_target() {
+if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
+  . ${PKG_BUILD}/ffmpeg/linux_arm64.sh
+fi
+
   find ${PKG_BUILD} -name flags.make -exec sed -i "s:isystem :I:g" \{} \;
   find ${PKG_BUILD} -name build.ninja -exec sed -i "s:isystem :I:g" \{} \;
 }
