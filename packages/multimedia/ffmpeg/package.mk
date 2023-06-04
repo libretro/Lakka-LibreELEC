@@ -30,7 +30,7 @@ case "${PROJECT}" in
     if [ ! "${DISTRO}" = "LibreELEC" ]; then 
       PKG_DEPENDS_TARGET+=" tegra-bsp:host"
       PKG_PATCH_DIRS+=" L4T"
-      #PKG_FFMPEG_NVV4L2="--enable-nvv4l2"
+      PKG_FFMPEG_NVV4L2="--enable-nvv4l2"
       EXTRA_CFLAGS="-I${SYSROOT_PREFIX}/usr/src/jetson_multimedia_api/include"
     fi
    ;;
@@ -57,7 +57,7 @@ get_graphicdrivers
 
 PKG_FFMPEG_HWACCEL="--enable-hwaccels"
 
-if [ "${V4L2_SUPPORT}" = "yes" ]; then
+if [ "${V4L2_SUPPORT}" = "yes" -a ! "${DEVICE}" = "Switch" ]; then
   PKG_DEPENDS_TARGET+=" libdrm"
   PKG_NEED_UNPACK+=" $(get_pkg_directory libdrm)"
   PKG_FFMPEG_V4L2="--enable-v4l2_m2m --enable-libdrm"
@@ -76,7 +76,7 @@ if [ "${V4L2_SUPPORT}" = "yes" ]; then
     PKG_FFMPEG_V4L2+=" --disable-libudev --disable-v4l2-request"
   fi
 else
-  :#PKG_FFMPEG_V4L2="--disable-v4l2_m2m --disable-libudev --disable-v4l2-request"
+  : #PKG_FFMPEG_V4L2="--disable-v4l2_m2m --disable-libudev --disable-v4l2-request"
 fi
 
 if [ "${VAAPI_SUPPORT}" = "yes" ]; then
