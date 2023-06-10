@@ -1,5 +1,5 @@
 PKG_NAME="retroarch"
-PKG_VERSION="ad89b0c655fc1d25adfcdf40268e95c5d0391111"
+PKG_VERSION="5a7ac3d06b32d87d7a4e17f09b65560eb4681b85"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
 PKG_URL="${PKG_SITE}.git"
@@ -318,9 +318,6 @@ makeinstall_target() {
     sed -i -e 's|^menu_driver =.*|menu_driver = "ozone"|' ${INSTALL}/etc/retroarch.cfg
 
     if [ ! "${PROJECT}" = "Ayn" -a ! "${DEVICE}" = "Odin" ]; then
-      #Set Default Joycon index to Combined Joycons.
-      echo 'input_player1_joypad_index = "2"' >> ${INSTALL}/etc/retroarch.cfg
-
       #Set Joypad as joypad with analog
       echo 'input_libretro_device_p1 = "5"' >> ${INSTALL}/etc/retroarch.cfg
     else

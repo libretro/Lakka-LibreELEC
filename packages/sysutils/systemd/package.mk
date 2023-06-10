@@ -234,6 +234,8 @@ post_makeinstall_target() {
   ln -sf /usr/bin/systemctl ${INSTALL}/usr/sbin/shutdown
   ln -sf /usr/bin/systemctl ${INSTALL}/usr/sbin/telinit
 
+  chmod u+s ${INSTALL}/usr/bin/systemctl
+
   # strip
   debug_strip ${INSTALL}/usr
 
@@ -268,20 +270,20 @@ post_install() {
   add_group systemd-network 193
   add_user systemd-network x 193 193 "systemd-network" "/" "/bin/sh"
 
-  add_group audio 63
-  add_group cdrom 11
-  add_group dialout 18
-  add_group disk 6
-  add_group floppy 19
+  add_group audio 63 ${DISTRO}
+  add_group cdrom 11 ${DISTRO}
+  add_group dialout 18 ${DISTRO}
+  add_group disk 6 ${DISTRO}
+  add_group floppy 19 ${DISTRO}
   add_group kmem 9
   add_group kvm 10
   add_group lp 7
   add_group render 12
   add_group tape 33
   add_group tty 5
-  add_group video 39
+  add_group video 39 ${DISTRO}
   add_group utmp 22
-  add_group input 199
+  add_group input 199 ${DISTRO}
 
   enable_service machine-id.service
   enable_service debugconfig.service
@@ -293,4 +295,11 @@ post_install() {
   enable_service network-base.service
   enable_service systemd-timesyncd.service
   enable_service systemd-timesyncd-setup.service
+  #Add service to properly remount flash partition when using fat32-boot kernel command line option.
+  enable_service remount_flash_ro.service
+
+  if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
+    echo chmod u+s ${BUILD}/image/system/usr/bin/systemctl >> ${FAKEROOT_SCRIPT}
+  fi
 }
+

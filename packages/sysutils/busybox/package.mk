@@ -195,6 +195,10 @@ post_install() {
   add_user root "${ROOT_PWD}" 0 0 "Root User" "/storage" "/bin/sh"
   add_group root 0
   add_group users 100
+  if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
+    add_user "${DISTRO}" "$(${TOOLCHAIN}/bin/cryptpw -m sha512 "${DISTRO}")" 1000 1000 "${DISTRO} User" "/storage" "/sbin/nologin"
+    add_group "${DISTRO}" 1000 ${DISTRO}
+  fi
 
   add_user nobody x 65534 65534 "Nobody" "/" "/bin/sh"
   add_group nogroup 65534

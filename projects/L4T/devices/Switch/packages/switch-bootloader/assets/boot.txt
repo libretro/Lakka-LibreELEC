@@ -10,8 +10,6 @@ test -n ${als_enable}                    || setenv als_enable 1
 test -n ${usb3_enable}                   || setenv usb3_enable 0
 test -n ${4k60_disable}                  || setenv 4k60_disable 0
 test -n ${dvfsb}                         || setenv dvfsb 0
-test -n ${cec_enable}                    || setenv cec_enable 0
-test -n ${performance_mode}              || setenv performance_mode 0
 test -n ${dock_freq_switch_enabled}      || setenv dock_freq_switch_enabled 0
 
 # Set logging params for each serial type.
@@ -150,11 +148,21 @@ if test ${sku} = 2 -a -n "${VLIM}"; then
 fi
 
 # Enable SLT DVFS.
-if test ${dvfsb} = 1; then
-	echoe SLT DVFS B enabled
-	setenv bootargs_extra ${bootargs_extra} "speedo_tegra210.cspd_id=2 speedo_tegra210.cspd_id=2 speedo_tegra210.gspd_id=2"
-fi
+# Enable SLT DVFS.
+if test ${t210b01} = 1 -a ${dvfsb} = 1; then
+	echoe DVFS B-Side enabled
+	setenv bootargs_extra ${bootargs_extra} "speedo_tegra210.sku_id=0x83 speedo_tegra210.cspd_id=2 speedo_tegra210.sspd_id=2 speedo_tegra210.gspd_id=2"
 
+	if test ${sku} != 2; then
+		# 2397 MHz CPU and 1075 MHz GPU hard limit.
+		fdt set /cpufreq/cpu-scaling-data max-frequency <0x249348>
+		fdt set /dvfs nvidia,gpu-max-freq-khz <0x106800>
+	else
+		# 2091 MHz CPU and 844 MHz GPU hard limit. Vali.
+		fdt set /cpufreq/cpu-scaling-data max-frequency <0x1FE7F8>
+		fdt set /dvfs nvidia,gpu-max-freq-khz <0xCE400>
+	fi
+fi
 
 
 # Set serial number.
@@ -213,8 +221,7 @@ if test -n ${device_wifi_mac}; then fdt set /chosen nvidia,wifi-mac ${device_wif
 
 
 # Set kernel cdmline.
-setenv bootargs ${bootargs_extra} "boot=/dev/mmcblk0p1 BOOT_IMAGE=@DISTRO_PATH@/KERNEL SYSTEM_IMAGE=@DISTRO_PATH@/SYSTEM nofsck fat32-boot cec_enabled=${cec_enable} \
- dock_freq_switch_enabled=${dock_freq_switch_enabled} performance_mode=${performance_mode} \
+setenv bootargs ${bootargs_extra} "boot=/dev/mmcblk0p1 BOOT_IMAGE=@DISTRO_PATH@/KERNEL SYSTEM_IMAGE=@DISTRO_PATH@/SYSTEM nofsck fat32-boot  \
  firmware_class.path=/usr/lib/firmware \
  pmc_r2p.enabled=1 pmc_r2p.action=${r2p_action} \
  pmc_r2p.param1=${autoboot} pmc_r2p.param2=${autoboot_list} \

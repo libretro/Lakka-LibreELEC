@@ -97,10 +97,14 @@ post_makeinstall_target() {
 
 post_install() {
   add_user system x 430 430 "service" "/var/run/connman" "/bin/sh"
-  add_group system 430
+  add_group system 430 ${DISTRO}
 
   enable_service connman.service
   if [ "${WIREGUARD_SUPPORT}" = "yes" ]; then
     enable_service connman-vpn.service
+  fi
+
+  if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
+    echo chmod u+s ${BUILD}/image/system/usr/bin/connmanctl >> ${FAKEROOT_SCRIPT}
   fi
 }
