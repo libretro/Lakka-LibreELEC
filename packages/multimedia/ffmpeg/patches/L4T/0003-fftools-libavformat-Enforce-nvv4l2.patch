@@ -1,0 +1,87 @@
+diff -Naur ffmpeg-6.0/fftools/ffmpeg_demux.c ffmpeg-6.0-2/fftools/ffmpeg_demux.c
+--- ffmpeg-6.0/fftools/ffmpeg_demux.c	2023-06-04 21:39:14.447960833 +0200
++++ ffmpeg-6.0-2/fftools/ffmpeg_demux.c	2023-06-04 21:43:39.492669262 +0200
+@@ -502,6 +502,25 @@
+     char *codec_name = NULL;
+ 
+     MATCH_PER_STREAM_OPT(codec_names, str, codec_name, s, st);
++
++#if CONFIG_NVV4L2
++    /* Reset requested decoder in order to enforce NVV4L2 if possible. */
++    if (codec_name) {
++        if (strcmp(codec_name, "h264") == 0)
++            return avcodec_find_decoder(st->codecpar->codec_id);   
++        else if (strcmp(codec_name, "hevc") == 0)
++            return avcodec_find_decoder(st->codecpar->codec_id); 
++        else if (strcmp(codec_name, "mpeg2video") == 0)
++            return avcodec_find_decoder(st->codecpar->codec_id);
++        else if (strcmp(codec_name, "mpeg4") == 0)
++            return avcodec_find_decoder(st->codecpar->codec_id);
++        else if (strcmp(codec_name, "vp8") == 0)
++            return avcodec_find_decoder(st->codecpar->codec_id);
++        else if (strcmp(codec_name, "vp9") == 0 && st->codecpar->format != AV_PIX_FMT_YUV420P10)
++            return avcodec_find_decoder(st->codecpar->codec_id);
++    }
++#endif
++
+     if (codec_name) {
+         const AVCodec *codec = find_codec_or_die(NULL, codec_name, st->codecpar->codec_type, 0);
+         st->codecpar->codec_id = codec->id;
+diff -Naur ffmpeg-6.0/fftools/ffplay.c ffmpeg-6.0-2/fftools/ffplay.c
+--- ffmpeg-6.0/fftools/ffplay.c	2023-06-04 21:39:14.447960833 +0200
++++ ffmpeg-6.0-2/fftools/ffplay.c	2023-06-04 21:41:40.550552101 +0200
+@@ -2590,6 +2590,31 @@
+         case AVMEDIA_TYPE_SUBTITLE: is->last_subtitle_stream = stream_index; forced_codec_name = subtitle_codec_name; break;
+         case AVMEDIA_TYPE_VIDEO   : is->last_video_stream    = stream_index; forced_codec_name =    video_codec_name; break;
+     }
++
++#if CONFIG_NVV4L2
++    /* Reset requested decoder in order to enforce NVV4L2 if possible. */
++    if (avctx->codec_type == AVMEDIA_TYPE_VIDEO && forced_codec_name) {
++        if (strcmp(forced_codec_name, "h264") == 0)
++            forced_codec_name = NULL;    
++        else if (strcmp(forced_codec_name, "hevc") == 0)
++            forced_codec_name = NULL; 
++        else if (strcmp(forced_codec_name, "mpeg2video") == 0)
++            forced_codec_name = NULL;
++        else if (strcmp(forced_codec_name, "mpeg4") == 0)
++            forced_codec_name = NULL;
++        else if (strcmp(forced_codec_name, "vp8") == 0)
++            forced_codec_name = NULL;
++        else if (strcmp(forced_codec_name, "vp9") == 0 &&
++                 avctx->pix_fmt != AV_PIX_FMT_YUV420P10) {
++            forced_codec_name = NULL;
++        }
++    }
++
++    /* NVV4L2 does not support VP9 with YUV420P10. */
++    if (!forced_codec_name && avctx->pix_fmt == AV_PIX_FMT_YUV420P10)
++        forced_codec_name = "vp9";
++#endif
++
+     if (forced_codec_name)
+         codec = avcodec_find_decoder_by_name(forced_codec_name);
+     if (!codec) {
+diff -Naur ffmpeg-6.0/libavformat/utils.c ffmpeg-6.0-2/libavformat/utils.c
+--- ffmpeg-6.0/libavformat/utils.c	2023-06-04 21:39:14.379959629 +0200
++++ ffmpeg-6.0-2/libavformat/utils.c	2023-06-04 21:41:40.550552101 +0200
+@@ -37,6 +37,19 @@
+ #if CONFIG_NETWORK
+ #include "network.h"
+ #endif
++#if CONFIG_NVV4L2
++    /* NVV4L2 decoders depend on context init from base decoders */
++    if (codec_id == AV_CODEC_ID_HEVC)
++        return avcodec_find_decoder_by_name("hevc");
++    else if (codec_id == AV_CODEC_ID_MPEG2VIDEO)
++        return avcodec_find_decoder_by_name("mpeg2video");
++    else if (codec_id == AV_CODEC_ID_MPEG4)
++        return avcodec_find_decoder_by_name("mpeg4");
++    else if (codec_id == AV_CODEC_ID_VP8)
++        return avcodec_find_decoder_by_name("vp8"); 
++    else if (codec_id == AV_CODEC_ID_VP9)
++        return avcodec_find_decoder_by_name("vp9");
++#endif
+ 
+ static AVMutex avformat_mutex = AV_MUTEX_INITIALIZER;
+ 

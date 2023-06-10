@@ -1,5 +1,5 @@
 PKG_NAME="ppsspp"
-PKG_VERSION="cd535263c1ad65fd03869591a8bd706680cbf04b"
+PKG_VERSION="845b6b7f3e8060c1ab462f3680e371082ff4253e"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/hrydgard/ppsspp"
 PKG_URL="${PKG_SITE}.git"
@@ -17,6 +17,9 @@ PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON \
                        -DUSE_SYSTEM_ZSTD=ON \
                        -DUSE_DISCORD=OFF \
                        -DUSE_MINIUPNPC=OFF"
+if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
+  PKG_CMAKE_OPTS_TARGET=${PKG_CMAKE_OPTS_TARGET//-DUSE_SYSTEM_FFMPEG=ON/-DUSE_SYSTEM_FFMPEG=OFF}
+fi
 
 if [ "${OPENGL_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL}"
@@ -51,6 +54,10 @@ elif [ "${TARGET_ARCH}" = "aarch64" ]; then
 fi
 
 pre_make_target() {
+if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
+  . ${PKG_BUILD}/ffmpeg/linux_arm64.sh
+fi
+
   find ${PKG_BUILD} -name flags.make -exec sed -i "s:isystem :I:g" \{} \;
   find ${PKG_BUILD} -name build.ninja -exec sed -i "s:isystem :I:g" \{} \;
 }

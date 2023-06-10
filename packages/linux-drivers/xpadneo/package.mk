@@ -15,12 +15,16 @@ pre_make_target() {
 }
 
 make_target() {
-  kernel_make -C $(kernel_path) M=${PKG_BUILD}/hid-xpadneo/src modules
+  if [ ! "${PROJECT}" = "L4T" -a ! "${DEVICE}" = "Switch" ]; then
+    kernel_make -C $(kernel_path) M=${PKG_BUILD}/hid-xpadneo/src modules
+  fi
 }
 
 makeinstall_target() {
-  mkdir -p ${INSTALL}/$(get_full_module_dir)/kernel/drivers/hid
-    cp -v ${PKG_BUILD}/hid-xpadneo/src/*.ko ${INSTALL}/$(get_full_module_dir)/kernel/drivers/hid/
+  if [ ! "${PROJECT}" = "L4T" -a ! "${DEVICE}" = "Switch" ]; then
+    mkdir -p ${INSTALL}/$(get_full_module_dir)/kernel/drivers/hid
+      cp -v ${PKG_BUILD}/hid-xpadneo/src/*.ko ${INSTALL}/$(get_full_module_dir)/kernel/drivers/hid/
+  fi
 
   mkdir -p ${INSTALL}/usr/lib/udev/rules.d
     cp -v ${PKG_BUILD}/hid-xpadneo/etc-udev-rules.d/*.rules ${INSTALL}/usr/lib/udev/rules.d/

@@ -1,0 +1,55 @@
+#!/bin/sh
+
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2021-present Team LibreELEC (https://libreelec.tv)
+
+usage() {
+  echo "$0 create|delete|help"
+}
+
+delete_edid() {
+  update-bootloader-edid delete
+  if [ $? -eq 0 ]; then
+    echo "successfully removed edid override"
+  else
+    echo "error removing bootloader edid-override options"
+    exit 1
+  fi
+}
+
+create_edid() {
+  CONNECTORS=$(dump-active-edids -q)
+  if [ $? -ne 0 -o -z "${CONNECTORS}" ]; then
+    echo "error: cannot detemine active connectors"
+    exit 1
+  fi
+  create-edid-cpio -q
+  if [ $? -ne 0 ]; then
+    echo "error creating edid.cpio"
+    exit 1
+  fi
+  update-bootloader-edid set ${CONNECTORS}
+  if [ $? -eq 0 ]; then
+    echo "successfully installed edid override for ${CONNECTORS}"
+  else
+    echo "error setting bootloader edid-override options"
+    exit 1
+  fi
+}
+
+case $1 in
+  create)
+    shift
+    create_edid "$@"
+    ;;
+  delete)
+    delete_edid
+    ;;
+  help)
+    usage
+    ;;
+  *)
+    usage
+    exit 1
+    ;;
+esac

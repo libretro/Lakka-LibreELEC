@@ -1,5 +1,5 @@
 PKG_NAME="retroarch"
-PKG_VERSION="1ec036fb91759071eccf3e0b71aa82f0a93b61bf"
+PKG_VERSION="5a7ac3d06b32d87d7a4e17f09b65560eb4681b85"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
 PKG_URL="${PKG_SITE}.git"
@@ -30,12 +30,9 @@ PKG_MAKE_OPTS_TARGET="V=1 \
 if [ "${OPENGLES_SUPPORT}" = yes ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles"
-  if [ ${DEVICE:0:4} =  "RPi4" ] || [ ${DEVICE} = "RK3288" ] || [ "${DEVICE}" = "RK3399" ] || [ "${PROJECT}" = "Generic" ] || [ "${DEVICE}" = "Odin" ]; then
+  if [[ ${DEVICE} =~ ^RPi4.* ]] || [ ${DEVICE} = "RK3288" ] || [ "${DEVICE}" = "RK3399" ] || [ "${DEVICE}" = "Odin" ]; then
     PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles3 \
                                  --enable-opengles3_1"
-    if [ "${PROJECT}" = "Generic" ]; then
-      PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles3_2"
-    fi
   fi
 else
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-opengles"
@@ -75,7 +72,7 @@ else
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-x11"
 fi
 
-if [ "${DISPLAYSERVER}" = "wl" ]; then
+if [ "${DISPLAYSERVER}" = "weston" ]; then
   PKG_DEPENDS_TARGET+=" wayland wayland-protocols"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-wayland"
 else
@@ -134,10 +131,6 @@ if [ "${LAKKA_NIGHTLY}" = yes ]; then
   PKG_MAKE_OPTS_TARGET+=" HAVE_LAKKA_NIGHTLY=1"
 fi
 
-if [ "${LAKKA_DEVBUILD}" = yes ]; then
-  PKG_MAKE_OPTS_TARGET+=" HAVE_LAKKA_DEVBUILD=1"
-fi
-
 pre_configure_target() {
   TARGET_CONFIGURE_OPTS=""
   cd ${PKG_BUILD}
@@ -161,7 +154,6 @@ make_target() {
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin
     cp -v ${PKG_BUILD}/retroarch ${INSTALL}/usr/bin
-    cp -v ${PKG_DIR}/scripts/lakka-*.sh ${INSTALL}/usr/bin
   mkdir -p ${INSTALL}/usr/share/video_filters
     cp -v ${PKG_BUILD}/gfx/video_filters/*.so ${INSTALL}/usr/share/video_filters
     cp -v ${PKG_BUILD}/gfx/video_filters/*.filt ${INSTALL}/usr/share/video_filters
@@ -220,7 +212,7 @@ makeinstall_target() {
   echo 'video_smooth = "false"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'video_aspect_ratio_auto = "true"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'video_threaded = "true"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'video_font_path = "/tmp/assets/xmb/monochrome/font.ttf"' >> ${INSTALL}/etc/retroarch.cfg
+  echo 'video_font_path = "/usr/share/retroarch/assets/xmb/monochrome/font.ttf"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'video_font_size = "32"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'video_filter_dir = "/usr/share/video_filters"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'video_gpu_screenshot = "false"' >> ${INSTALL}/etc/retroarch.cfg
@@ -230,7 +222,7 @@ makeinstall_target() {
   echo 'audio_driver = "alsathread"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'audio_filter_dir = "/usr/share/audio_filters"' >> ${INSTALL}/etc/retroarch.cfg
 
-  if [ "${DEVICE}" = "Exynos" ]; then # workaround the 55fps bug
+  if [ "${PROJECT}" = "OdroidXU3" ]; then # workaround the 55fps bug
     echo 'audio_out_rate = "44100"' >> ${INSTALL}/etc/retroarch.cfg
   fi
 
@@ -258,6 +250,12 @@ makeinstall_target() {
   # Playlists
   echo 'playlist_entry_rename = "false"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'playlist_entry_remove = "false"' >> ${INSTALL}/etc/retroarch.cfg
+
+  # Generic
+  if [ "${PROJECT}" = "Generic" ]; then
+    echo 'video_context_driver = "khr_display"' >> ${INSTALL}/etc/retroarch.cfg
+    #echo 'video_driver = "vulkan"' >> ${INSTALL}/etc/retroarch.cfg
+  fi
 
   # OdroidGoAdvance
   if [ "${DEVICE}" = "OdroidGoAdvance" ]; then
@@ -320,9 +318,6 @@ makeinstall_target() {
     sed -i -e 's|^menu_driver =.*|menu_driver = "ozone"|' ${INSTALL}/etc/retroarch.cfg
 
     if [ ! "${PROJECT}" = "Ayn" -a ! "${DEVICE}" = "Odin" ]; then
-      #Set Default Joycon index to Combined Joycons.
-      echo 'input_player1_joypad_index = "2"' >> ${INSTALL}/etc/retroarch.cfg
-
       #Set Joypad as joypad with analog
       echo 'input_libretro_device_p1 = "5"' >> ${INSTALL}/etc/retroarch.cfg
     else
@@ -338,16 +333,6 @@ makeinstall_target() {
   # sort the options in config file
   sort ${INSTALL}/etc/retroarch.cfg > ${INSTALL}/etc/retroarch-sorted.cfg
   mv ${INSTALL}/etc/retroarch-sorted.cfg ${INSTALL}/etc/retroarch.cfg
-
-  # create default environment file
-  echo "HOME=/storage" >> ${INSTALL}/usr/lib/retroarch/retroarch-env.conf
-  if [ "${DISPLAYSERVER}" = "x11" ]; then
-    echo "DISPLAY=:0.0" >> ${INSTALL}/usr/lib/retroarch/retroarch-env.conf
-  elif [ "${DISPLAYSERVER}" = "wl" ]; then
-    echo "WAYLAND_DISPLAY='wayland-1'" >> ${INSTALL}/usr/lib/retroarch/retroarch-env.conf
-    echo "SWAYSOCK='/var/run/0-runtime-dir/sway-ipc.0.sock'" >> ${INSTALL}/usr/lib/retroarch/retroarch-env.conf
-    echo "XDG_RUNTIME_DIR='/var/run/0-runtime-dir'" >> ${INSTALL}/usr/lib/retroarch/retroarch-env.conf
-  fi
 }
 
 post_install() {

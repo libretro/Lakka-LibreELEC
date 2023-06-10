@@ -1,0 +1,92 @@
+#!/bin/bash
+
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
+
+COMPATIBLE=$(cat /proc/device-tree/compatible 2>/dev/null | tr -d '\000' | sed -n -e 's/.*\(allwinner\|amlogic\|fsl\|nxp\|qcom\|raspberrypi\|rockchip\|samsung\).*/\1/p')
+
+do_dtfile(){
+  if [ -e /flash/extlinux/extlinux.conf ]; then
+    DTFILE=$(grep FDT /flash/extlinux/extlinux.conf | sed 's,^ *FDT /,,g')
+  elif [ -e /flash/boot.ini ]; then
+    DTFILE=$(grep -m 1 dtb_name /flash/boot.ini | cut -d \" -f2 | sed 's,/dtb/,,g')
+  elif [ -e /flash/uEnv.ini ]; then
+    DTFILE=$(grep dtb_name /flash/uEnv.ini | sed 's,dtb_name=/dtb/,,g')
+  else
+    do_unknown
+  fi
+  echo "${DTFILE}"
+}
+
+do_dtflag(){
+  if [ "${COMPATIBLE}" = "raspberrypi" ]; then
+    DTFLAG=$(cat /proc/device-tree/compatible | cut -f1,2 -d',' | head -n 1)
+    PIREV=$(awk '/^Revision/ {sub($3,-6, "", $3); print $3}' /proc/cpuinfo) # truncate to 6-chars
+    case "${PIREV}" in
+      d*)
+        MEMSIZE="-8g"
+        ;;
+      c*)
+        MEMSIZE="-4g"
+        ;;
+      b*)
+        MEMSIZE="-2g"
+        ;;
+      a*)
+        MEMSIZE="-1g"
+        ;;
+      *0002|*0003|*0004|*0005|*0006|*0007|*0008|*0009|*0012)
+        MEMSIZE="-256"
+        ;;
+      0*|9*)
+        MEMSIZE="-512"
+        ;;
+      *)
+        MEMSIZE=""
+        ;;
+    esac
+  else
+    DTFLAG=$(cat /proc/device-tree/compatible | cut -f1,2 -d',' | head -n 1)
+    MEMSIZE=$(awk -F " " '/MemTotal:/ {print $2}' /proc/meminfo)
+    if [ "${MEMSIZE}" -lt "524288" ]; then
+      MEMSIZE="-512"
+    else
+      MEMSIZE=""
+    fi
+  fi
+  echo "${DTFLAG}${MEMSIZE}"
+}
+
+do_dtname(){
+  DTNAME=$(cat /proc/device-tree/compatible | cut -f1,2 -d',' | head -n 1)
+  echo "${DTNAME}"
+}
+
+do_dtsoc(){
+  DTSOC=$(cat /proc/device-tree/compatible | cut -f1,2 -d',' | tail -n 1)
+  echo "${DTSOC}"
+}
+
+do_unknown(){
+  echo "unknown"
+  exit 1
+}
+
+if [ -n "${COMPATIBLE}" ]; then
+  case $(basename "${0}") in
+    dtfile)
+      do_dtfile
+      ;;
+    dtflag)
+      do_dtflag
+      ;;
+    dtname)
+      do_dtname
+      ;;
+    dtsoc)
+      do_dtsoc
+      ;;
+  esac
+else
+  do_unknown
+fi

@@ -16,7 +16,7 @@ Below you can find all supported keys and their defaults.
  Mandatory!
 
 [id=@DISTRO_ID@]
- Set FS Label name. SWR-UBU by default.
+ Set FS Label name. @DISTRO_ID@ by default.
  Used to automatically find the correct linux partition.
 
 ================================================================================
@@ -49,10 +49,6 @@ Below you can find all supported keys and their defaults.
 [als_enable=1]
  1: Enable  Ambient Light Sensor.
 
-
-[cec_enable=0]
- 1: Enable auto DP/HDMI CEC negotiation.
-
 [bootargs_extra=]
  Set extra kernel command line arguments.
 
@@ -78,18 +74,5 @@ Below you can find all supported keys and their defaults.
    - 1866000
    - 2133000
 
-
-[performance_mode=0]
- 0: Use default schedutil cpu governor
- 1: Use Performance CPU governor
-
-[dock_freq_switch_enabled=0]
- 0: Do not autoswitch clocks when docking/undocking
- 1: Autoswitch clocks when docking/undocking.
-
- This feature only auto changes speeds to the HOS defaults for both tablet/docked mode.
- It also doesnt switch even if set if you change clocks manually. This is intentional,
- as I give you a menu to set clocks, and dont want to override your settings. If
- you set clock back to stock clock speed, it will start auto swapping again.
 
 ================================================================================

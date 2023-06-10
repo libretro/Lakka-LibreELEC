@@ -1,0 +1,81 @@
+#!/bin/bash
+
+dock_hotplug_handle() {
+    export DISPLAY=
+    export DP_SETTINGS=
+
+    # Let X parse connected display info.
+    sleep 0.2
+
+    # Read custom WIDTHxHEIGHT from dock-hotplug.conf.
+    if [ -e "/storage/dock-hotplug.conf" ]; then
+        export DP_SETTINGS=$(cat /storage/dock-hotplug.conf)
+    fi
+    if [ "$DP_SETTINGS" == "" ]; then
+        export DP_SETTINGS="--primary --auto"
+    else
+        export DP_SETTINGS="--primary --mode "$DP_SETTINGS" --panning "$DP_SETTINGS"+0+0 --pos 0x0"
+    fi
+    while [ "$DISPLAY" = "" ]
+    do
+        cd /tmp/.X11-unix && for x in X*;
+        do
+            if [ ! -e "$x" ]; then continue; fi
+            export DISPLAY=":${x#X}"
+            export PULSE_SERVER="127.0.0.1"
+
+            if [[ "$1" -eq 1 ]]
+            then
+                xrandr --output DP-0 $DP_SETTINGS --output DSI-0 --off
+                pactl set-card-profile 1 off
+                pactl set-card-profile 0 output:hdmi-stereo
+                #Fix volume if needed(Pulseaudio sink volume's should not change ever in libreelec builds)
+                if [ ! $(pactl list sinks | grep '^[[:space:]]Volume:' | head -n $(( $SINK + 1 )) | tail -n 1 | sed -e 's,.* \([0-9][0-9]*\)%.*,\1,') -eq 100 ]; then
+                  pactl set-sink-volume alsa_output.0.hdmi-stereo 100%
+                fi
+
+               # Reapply config to avoid X stubbornness.
+                sleep 0.2
+                xrandr --output DSI-0 --off --output DP-0 $DP_SETTINGS
+            else
+                xrandr --output DSI-0 --primary --mode 720x1280 --rotate left --panning 1280x720+0+0 --pos 0x0 --dpi 237  --output DP-0 --off
+                pactl set-card-profile 1 HiFi
+                pactl set-card-profile 0 off
+                #Fix volume if needed(Pulseaudio sink volume's should not change ever in libreelec builds
+                if [ ! $(pactl list sinks | grep '^[[:space:]]Volume:' | head -n $(( $SINK + 1 )) | tail -n 1 | sed -e 's,.* \([0-9][0-9]*\)%.*,\1,') -eq 100 ]; then
+                  pactl set-sink-volume alsa_output.1.HiFi__hw_tegrasndt210ref__sink 100%
+                fi
+                # Reapply config to avoid X stubbornness.
+                sleep 0.2
+                xrandr --output DP-0 --off --output DSI-0 --primary --mode 720x1280 --rotate left --panning 1280x720+0+0 --pos 0x0 --dpi 237
+           fi
+        done
+
+        # Wait for X to set current resolution.
+        sleep 0.2
+        RESOLUTION=$(xrandr -q | sed -n 's/.*current[ ]\([0-9]*\) x \([0-9]*\),.*/\1 \2/p')
+        # Set current resolution to main app's window.
+        # The following search results to the correct window because it's the only one existing in LibreELEC.
+        xdotool search --onlyvisible --name . windowsize $RESOLUTION
+    done
+}
+
+# Main call.
+i=1
+DP_ENABLED=1
+LOOPS=1
+if [[ "$1" -eq 1 ]]; then LOOPS=5; fi
+
+while [ "$i" -le "$LOOPS" ]; do
+  if grep -q 1 "/sys/class/switch/dp/state"; then DP_ENABLED=1; else DP_ENABLED=0; fi
+
+  # Prepare CEC info.
+  if [ -f /tmp/.CEC ]; then
+    if [[ "$DP_ENABLED" -eq 0 ]]; then cec-ctl -C
+      else cec-ctl -s -o NintendoSwitch --playback --active-source phys-addr="$(cec-ctl | sed -n 's/.*Physical Address.*: //p')"; fi
+  fi
+
+  # Configure dock
+  dock_hotplug_handle $DP_ENABLED
+  i=$(($i + 1))
+done

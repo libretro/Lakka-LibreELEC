@@ -1,0 +1,36 @@
+#!/bin/sh
+
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2021-present Team LibreELEC (https://libreelec.tv)
+
+EDID_DIR="/storage/.config/firmware/edid"
+EDID_CPIO="/flash/edid.cpio"
+TMPDIR="/tmp/edid-cpio"
+
+if [ "$1" = "-q" ]; then
+  VERBOSE=0
+else
+  VERBOSE=1
+fi
+
+if [ ! -d "${EDID_DIR}" ]; then
+  echo "error: ${EDID_DIR} does not exist"
+  exit 1
+fi
+
+set -e
+
+rm -rf "${TMPDIR}"
+mkdir -p "${TMPDIR}/usr/lib/firmware"
+cp -r "${EDID_DIR}" "${TMPDIR}/usr/lib/firmware"
+cd "${TMPDIR}"
+mount -o remount,rw /flash
+find usr -print | cpio -ov -H newc > "${EDID_CPIO}"
+sync
+mount -o remount,ro /flash
+cd /storage
+rm -rf "${TMPDIR}"
+
+if [ "${VERBOSE}" = "1" ]; then
+  echo "successfully created ${EDID_CPIO}"
+fi
