@@ -52696,7 +52696,7 @@ index 22a9532444..108fc05a6f 100644
 +
  #endif // AVCODEC_V4L2_CONTEXT_H
 diff --git a/libavcodec/v4l2_m2m.c b/libavcodec/v4l2_m2m.c
-index cdfd579810..a919bdc030 100644
+index cdfd579810..025cf24769 100644
 --- a/libavcodec/v4l2_m2m.c
 +++ b/libavcodec/v4l2_m2m.c
 @@ -35,6 +35,15 @@
@@ -52725,7 +52725,7 @@ index cdfd579810..a919bdc030 100644
      atomic_init(&s->refcount, 0);
      sem_init(&s->refsync, 0, 0);
  
-@@ -85,12 +96,14 @@ static int v4l2_prepare_contexts(V4L2m2mContext *s, int probe)
+@@ -85,18 +96,58 @@ static int v4l2_prepare_contexts(V4L2m2mContext *s, int probe)
      if (v4l2_mplane_video(&cap)) {
          s->capture.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
          s->output.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
@@ -52740,7 +52740,63 @@ index cdfd579810..a919bdc030 100644
          return 0;
      }
  
-@@ -215,13 +228,7 @@ int ff_v4l2_m2m_codec_reinit(V4L2m2mContext *s)
+     return AVERROR(EINVAL);
+ }
+ 
++static int check_size(AVCodecContext * const avctx, V4L2m2mContext * const s)
++{
++    struct v4l2_format fmt = {.type = s->output.type};
++    int rv;
++    uint32_t pixfmt = ff_v4l2_format_avfmt_to_v4l2(avctx->pix_fmt);
++    unsigned int w;
++    unsigned int h;
++
++    if (V4L2_TYPE_IS_MULTIPLANAR(fmt.type)) {
++        fmt.fmt.pix_mp.pixelformat = pixfmt;
++        fmt.fmt.pix_mp.width = avctx->width;
++        fmt.fmt.pix_mp.height = avctx->height;
++    }
++    else {
++        fmt.fmt.pix.pixelformat = pixfmt;
++        fmt.fmt.pix.width = avctx->width;
++        fmt.fmt.pix.height = avctx->height;
++    }
++
++    rv = ioctl(s->fd, VIDIOC_TRY_FMT, &fmt);
++
++    if (rv != 0) {
++        rv = AVERROR(errno);
++        av_log(avctx, AV_LOG_ERROR, "%s: Tryfmt failed: %s\n", __func__, av_err2str(rv));
++        return rv;
++    }
++
++    w = ff_v4l2_get_format_width(&fmt);
++    h = ff_v4l2_get_format_height(&fmt);
++
++    if (w < avctx->width || h < avctx->height) {
++        av_log(avctx, AV_LOG_WARNING, "%s: Size check failed: asked for %dx%d, got: %dx%d\n", __func__, avctx->width, avctx->height, w, h);
++        return AVERROR(EINVAL);
++    }
++
++    return 0;
++}
++
+ static int v4l2_probe_driver(V4L2m2mContext *s)
+ {
+     void *log_ctx = s->avctx;
+@@ -116,6 +167,11 @@ static int v4l2_probe_driver(V4L2m2mContext *s)
+         goto done;
+     }
+ 
++    // If being given frames (encode) check that V4L2 can cope with the size
++    if (s->output.av_codec_id == AV_CODEC_ID_RAWVIDEO &&
++        (ret = check_size(s->avctx, s)) != 0)
++        goto done;
++
+     ret = ff_v4l2_context_get_format(&s->capture, 1);
+     if (ret) {
+         av_log(log_ctx, AV_LOG_DEBUG, "v4l2 capture format not supported\n");
+@@ -215,13 +271,7 @@ int ff_v4l2_m2m_codec_reinit(V4L2m2mContext *s)
          av_log(log_ctx, AV_LOG_ERROR, "capture VIDIOC_STREAMOFF\n");
  
      /* 2. unmap the capture buffers (v4l2 and ffmpeg):
@@ -52754,7 +52810,7 @@ index cdfd579810..a919bdc030 100644
      ff_v4l2_context_release(&s->capture);
  
      /* 3. get the new capture format */
-@@ -240,7 +247,6 @@ int ff_v4l2_m2m_codec_reinit(V4L2m2mContext *s)
+@@ -240,7 +290,6 @@ int ff_v4l2_m2m_codec_reinit(V4L2m2mContext *s)
  
      /* 5. complete reinit */
      s->draining = 0;
@@ -52762,7 +52818,7 @@ index cdfd579810..a919bdc030 100644
  
      return 0;
  }
-@@ -274,7 +280,6 @@ int ff_v4l2_m2m_codec_full_reinit(V4L2m2mContext *s)
+@@ -274,7 +323,6 @@ int ff_v4l2_m2m_codec_full_reinit(V4L2m2mContext *s)
  
      /* start again now that we know the stream dimensions */
      s->draining = 0;
@@ -52770,7 +52826,7 @@ index cdfd579810..a919bdc030 100644
  
      ret = ff_v4l2_context_get_format(&s->output, 0);
      if (ret) {
-@@ -328,10 +333,14 @@ static void v4l2_m2m_destroy_context(void *opaque, uint8_t *context)
+@@ -328,10 +376,14 @@ static void v4l2_m2m_destroy_context(void *opaque, uint8_t *context)
      ff_v4l2_context_release(&s->capture);
      sem_destroy(&s->refsync);
  
@@ -52786,7 +52842,7 @@ index cdfd579810..a919bdc030 100644
  
      av_free(s);
  }
-@@ -344,6 +353,11 @@ int ff_v4l2_m2m_codec_end(V4L2m2mPriv *priv)
+@@ -344,6 +396,11 @@ int ff_v4l2_m2m_codec_end(V4L2m2mPriv *priv)
      if (!s)
          return 0;
  
@@ -52798,7 +52854,7 @@ index cdfd579810..a919bdc030 100644
      if (s->fd >= 0) {
          ret = ff_v4l2_context_set_status(&s->output, VIDIOC_STREAMOFF);
          if (ret)
-@@ -356,7 +370,15 @@ int ff_v4l2_m2m_codec_end(V4L2m2mPriv *priv)
+@@ -356,7 +413,15 @@ int ff_v4l2_m2m_codec_end(V4L2m2mPriv *priv)
  
      ff_v4l2_context_release(&s->output);
  
@@ -52814,7 +52870,7 @@ index cdfd579810..a919bdc030 100644
      av_buffer_unref(&priv->context_ref);
  
      return 0;
-@@ -400,35 +422,38 @@ int ff_v4l2_m2m_codec_init(V4L2m2mPriv *priv)
+@@ -400,35 +465,38 @@ int ff_v4l2_m2m_codec_init(V4L2m2mPriv *priv)
      return v4l2_configure_contexts(s);
  }
  
@@ -52866,7 +52922,7 @@ index cdfd579810..a919bdc030 100644
      return 0;
  }
 diff --git a/libavcodec/v4l2_m2m.h b/libavcodec/v4l2_m2m.h
-index b67b216331..ded1478a49 100644
+index b67b216331..a506e69d67 100644
 --- a/libavcodec/v4l2_m2m.h
 +++ b/libavcodec/v4l2_m2m.h
 @@ -30,6 +30,7 @@
@@ -52930,7 +52986,7 @@ index b67b216331..ded1478a49 100644
      AVPacket buf_pkt;
  
      /* Reference to a frame. Only used during encoding */
-@@ -66,6 +99,35 @@ typedef struct V4L2m2mContext {
+@@ -66,6 +99,36 @@ typedef struct V4L2m2mContext {
  
      /* reference back to V4L2m2mPriv */
      void *priv;
@@ -52950,6 +53006,7 @@ index b67b216331..ded1478a49 100644
 +
 +    /* req pkt */
 +    int req_pkt;
++    int reorder_size;
 +
 +    /* Ext data sent */
 +    int extdata_sent;
@@ -52966,7 +53023,7 @@ index b67b216331..ded1478a49 100644
  } V4L2m2mContext;
  
  typedef struct V4L2m2mPriv {
-@@ -76,6 +138,8 @@ typedef struct V4L2m2mPriv {
+@@ -76,6 +139,8 @@ typedef struct V4L2m2mPriv {
  
      int num_output_buffers;
      int num_capture_buffers;
@@ -52975,7 +53032,7 @@ index b67b216331..ded1478a49 100644
  } V4L2m2mPriv;
  
  /**
-@@ -129,4 +193,26 @@ int ff_v4l2_m2m_codec_reinit(V4L2m2mContext *ctx);
+@@ -129,4 +194,26 @@ int ff_v4l2_m2m_codec_reinit(V4L2m2mContext *ctx);
   */
  int ff_v4l2_m2m_codec_full_reinit(V4L2m2mContext *ctx);
  
@@ -53003,7 +53060,7 @@ index b67b216331..ded1478a49 100644
 +
  #endif /* AVCODEC_V4L2_M2M_H */
 diff --git a/libavcodec/v4l2_m2m_dec.c b/libavcodec/v4l2_m2m_dec.c
-index ab07c0a24a..4c5ad55547 100644
+index ab07c0a24a..80d131eae4 100644
 --- a/libavcodec/v4l2_m2m_dec.c
 +++ b/libavcodec/v4l2_m2m_dec.c
 @@ -21,8 +21,14 @@
@@ -53021,7 +53078,7 @@ index ab07c0a24a..4c5ad55547 100644
  #include "libavutil/pixfmt.h"
  #include "libavutil/pixdesc.h"
  #include "libavutil/opt.h"
-@@ -30,75 +36,274 @@
+@@ -30,75 +36,279 @@
  #include "libavcodec/decode.h"
  #include "libavcodec/internal.h"
  
@@ -53131,13 +53188,18 @@ index ab07c0a24a..4c5ad55547 100644
 -    if (ret) {
 -        av_log(avctx, AV_LOG_WARNING, "VIDIOC_G_FMT ioctl\n");
 -        return ret;
-+static int64_t pts_stats_guess(const pts_stats_t * const stats)
++static unsigned int pts_stats_interval(const pts_stats_t * const stats)
++{
++    return stats->last_interval;
++}
++
++static int64_t pts_stats_guess(const pts_stats_t * const stats, const int fail_bad_guess)
 +{
 +    if (stats->last_count <= 1)
 +        return stats->last_pts;
 +    if (stats->last_pts == AV_NOPTS_VALUE ||
-+            stats->last_interval == 0 ||
-+            stats->last_count >= STATS_LAST_COUNT_MAX)
++            fail_bad_guess && (stats->last_interval == 0 ||
++                               stats->last_count >= STATS_LAST_COUNT_MAX))
 +        return AV_NOPTS_VALUE;
 +    return stats->last_pts + (int64_t)(stats->last_count - 1) * (int64_t)stats->last_interval;
 +}
@@ -53344,7 +53406,7 @@ index ab07c0a24a..4c5ad55547 100644
      return 0;
  }
  
-@@ -133,58 +338,742 @@ static int v4l2_prepare_decoder(V4L2m2mContext *s)
+@@ -133,58 +343,768 @@ static int v4l2_prepare_decoder(V4L2m2mContext *s)
      return 0;
  }
  
@@ -53361,7 +53423,7 @@ index ab07c0a24a..4c5ad55547 100644
 +    frame->pkt_pts = frame->pts;
 +FF_ENABLE_DEPRECATION_WARNINGS
 +#endif
-+    frame->best_effort_timestamp = pts_stats_guess(ps);
++    frame->best_effort_timestamp = pts_stats_guess(ps, 1);
 +    // If we can't guess from just PTS - try DTS
 +    if (frame->best_effort_timestamp == AV_NOPTS_VALUE)
 +        frame->best_effort_timestamp = frame->pkt_dts;
@@ -53396,14 +53458,24 @@ index ab07c0a24a..4c5ad55547 100644
 +}
 +
 +static int
-+xlat_pending(const xlat_track_t * const x)
++xlat_pending(const V4L2m2mContext * const s)
 +{
++    const xlat_track_t *const x = &s->xlat;
 +    unsigned int n = x->track_no % FF_V4L2_M2M_TRACK_SIZE;
 +    int i;
-+    const int64_t now = x->last_pts;
++    const int64_t now = pts_stats_guess(&s->pts_stat, 0);
++    int64_t first_dts = AV_NOPTS_VALUE;
++    int no_dts_count = 0;
++    unsigned int interval = pts_stats_interval(&s->pts_stat);
 +
 +    for (i = 0; i < FF_V4L2_M2M_TRACK_SIZE; ++i, n = (n - 1) & (FF_V4L2_M2M_TRACK_SIZE - 1)) {
 +        const V4L2m2mTrackEl * const t = x->track_els + n;
++
++        if (first_dts == AV_NOPTS_VALUE)
++            if (t->dts == AV_NOPTS_VALUE)
++                ++no_dts_count;
++            else
++                first_dts = t->dts;
 +
 +        // Discard only set on never-set or flushed entries
 +        // So if we get here we've never successfully decoded a frame so allow
@@ -53422,6 +53494,18 @@ index ab07c0a24a..4c5ad55547 100644
 +
 +        if (t->dts != AV_NOPTS_VALUE && now >= t->dts)
 +            break;
++    }
++
++    if (first_dts != AV_NOPTS_VALUE && now != AV_NOPTS_VALUE && interval != 0 && s->reorder_size != 0) {
++        const int iframes = (first_dts - now) / (int)interval;
++        const int t = iframes - s->reorder_size + no_dts_count;
++
++//        av_log(s->avctx, AV_LOG_DEBUG, "Last:%"PRId64", Now:%"PRId64", First:%"PRId64", delta=%"PRId64", frames=%d, nodts=%d\n",
++//               x->last_dts, now, first_dts, first_dts - now, iframes, no_dts_count);
++
++        if (iframes > 0 && iframes < 64 && t < i) {
++            return t;
++        }
 +    }
 +
 +    return i;
@@ -53627,12 +53711,12 @@ index ab07c0a24a..4c5ad55547 100644
 +static int v4l2_receive_frame(AVCodecContext *avctx, AVFrame *frame)
 +{
 +    V4L2m2mContext *const s = ((V4L2m2mPriv*)avctx->priv_data)->context;
-+    int src_rv = NQ_OK;
++    int src_rv = -1;
 +    int dst_rv = 1;  // Non-zero (done), non-negative (error) number
 +    unsigned int i = 0;
 +
 +    do {
-+        const int pending = xlat_pending(&s->xlat);
++        const int pending = xlat_pending(s);
 +        const int prefer_dq = (pending > 4);
 +        const int last_src_rv = src_rv;
 +
@@ -53834,7 +53918,7 @@ index ab07c0a24a..4c5ad55547 100644
 +
 +    // An unset profile is almost certainly zero or -99 - do not reject
 +    if (avctx->profile <= 0) {
-+        av_log(avctx, AV_LOG_VERBOSE, "Profile <= 0 - check skipped\n");
++        av_log(avctx, AV_LOG_VERBOSE, "Profile %d <= 0 - check skipped\n", avctx->profile);
 +        return 0;
 +    }
 +
@@ -54008,8 +54092,10 @@ index ab07c0a24a..4c5ad55547 100644
 +}
 +
 +static void
-+parse_extradata(AVCodecContext *avctx)
++parse_extradata(AVCodecContext * const avctx, V4L2m2mContext * const s)
 +{
++    s->reorder_size = 0;
++
 +    if (!avctx->extradata || !avctx->extradata_size)
 +        return;
 +
@@ -54038,6 +54124,7 @@ index ab07c0a24a..4c5ad55547 100644
 +                    avctx->profile = ff_h264_get_profile(sps);
 +                    avctx->level = sps->level_idc;
 +                }
++                s->reorder_size = sps->num_reorder_frames;
 +            }
 +            ff_h264_ps_uninit(&ps);
 +            break;
@@ -54067,6 +54154,7 @@ index ab07c0a24a..4c5ad55547 100644
 +                if (sps) {
 +                    avctx->profile = sps->ptl.general_ptl.profile_idc;
 +                    avctx->level   = sps->ptl.general_ptl.level_idc;
++                    s->reorder_size = sps->temporal_layer[sps->max_sub_layers - 1].max_dec_pic_buffering;
 +                }
 +            }
 +            ff_hevc_ps_uninit(&ps);
@@ -54099,19 +54187,19 @@ index ab07c0a24a..4c5ad55547 100644
 +        avctx->ticks_per_frame = 2;
 +    }
 +
-+    parse_extradata(avctx);
-+
      ret = ff_v4l2_m2m_create_context(priv, &s);
      if (ret < 0)
          return ret;
  
++    parse_extradata(avctx, s);
++
 +    xlat_init(&s->xlat);
 +    pts_stats_init(&s->pts_stat, avctx, "decoder");
 +
      capture = &s->capture;
      output = &s->output;
  
-@@ -192,14 +1081,65 @@ static av_cold int v4l2_decode_init(AVCodecContext *avctx)
+@@ -192,14 +1112,65 @@ static av_cold int v4l2_decode_init(AVCodecContext *avctx)
       * by the v4l2 driver; this event will trigger a full pipeline reconfig and
       * the proper values will be retrieved from the kernel driver.
       */
@@ -54179,7 +54267,7 @@ index ab07c0a24a..4c5ad55547 100644
  
      s->avctx = avctx;
      ret = ff_v4l2_m2m_codec_init(priv);
-@@ -208,12 +1148,88 @@ static av_cold int v4l2_decode_init(AVCodecContext *avctx)
+@@ -208,12 +1179,88 @@ static av_cold int v4l2_decode_init(AVCodecContext *avctx)
          return ret;
      }
  
@@ -54270,7 +54358,7 @@ index ab07c0a24a..4c5ad55547 100644
  }
  
  #define OFFSET(x) offsetof(V4L2m2mPriv, x)
-@@ -222,10 +1238,17 @@ static av_cold int v4l2_decode_close(AVCodecContext *avctx)
+@@ -222,10 +1269,17 @@ static av_cold int v4l2_decode_close(AVCodecContext *avctx)
  static const AVOption options[] = {
      V4L_M2M_DEFAULT_OPTS,
      { "num_capture_buffers", "Number of buffers in the capture context",
@@ -54289,7 +54377,7 @@ index ab07c0a24a..4c5ad55547 100644
  #define M2MDEC_CLASS(NAME) \
      static const AVClass v4l2_m2m_ ## NAME ## _dec_class = { \
          .class_name = #NAME "_v4l2m2m_decoder", \
-@@ -246,9 +1269,15 @@ static const AVOption options[] = {
+@@ -246,9 +1300,15 @@ static const AVOption options[] = {
          .init           = v4l2_decode_init, \
          .receive_frame  = v4l2_receive_frame, \
          .close          = v4l2_decode_close, \
@@ -62608,6 +62696,108 @@ index da1cf9941e..c588ed23cb 100644
                                       frame->format, frame->pts);
              break;
          case AVMEDIA_TYPE_AUDIO:
+diff --git a/libavfilter/vf_bwdif.c b/libavfilter/vf_bwdif.c
+index b6aed7a450..92e26d54bc 100644
+--- a/libavfilter/vf_bwdif.c
++++ b/libavfilter/vf_bwdif.c
+@@ -75,10 +75,10 @@ typedef struct ThreadData {
+         int temporal_diff1 =(FFABS(prev[mrefs] - c) + FFABS(prev[prefs] - e)) >> 1; \
+         int temporal_diff2 =(FFABS(next[mrefs] - c) + FFABS(next[prefs] - e)) >> 1; \
+         int diff = FFMAX3(temporal_diff0 >> 1, temporal_diff1, temporal_diff2); \
+- \
++ {/*\
+         if (!diff) { \
+             dst[0] = d; \
+-        } else {
++        } else {*/
+ 
+ #define SPAT_CHECK() \
+             int b = ((prev2[mrefs2] + next2[mrefs2]) >> 1) - c; \
+@@ -90,15 +90,16 @@ typedef struct ThreadData {
+             diff = FFMAX3(diff, min, -max);
+ 
+ #define FILTER_LINE() \
++            int i1, i2; \
+             SPAT_CHECK() \
+-            if (FFABS(c - e) > temporal_diff0) { \
+-                interpol = (((coef_hf[0] * (prev2[0] + next2[0]) \
++            /*if (FFABS(c - e) > temporal_diff0)*/ { \
++                i1 = (((coef_hf[0] * (prev2[0] + next2[0]) \
+                     - coef_hf[1] * (prev2[mrefs2] + next2[mrefs2] + prev2[prefs2] + next2[prefs2]) \
+                     + coef_hf[2] * (prev2[mrefs4] + next2[mrefs4] + prev2[prefs4] + next2[prefs4])) >> 2) \
+                     + coef_lf[0] * (c + e) - coef_lf[1] * (cur[mrefs3] + cur[prefs3])) >> 13; \
+-            } else { \
+-                interpol = (coef_sp[0] * (c + e) - coef_sp[1] * (cur[mrefs3] + cur[prefs3])) >> 13; \
+-            }
++            } /*else*/ { \
++                i2 = (coef_sp[0] * (c + e) - coef_sp[1] * (cur[mrefs3] + cur[prefs3])) >> 13; \
++            }interpol = FFABS(c - e) > temporal_diff0 ? i1:i2;\
+ 
+ #define FILTER_EDGE() \
+             if (spat) { \
+@@ -112,7 +113,7 @@ typedef struct ThreadData {
+             else if (interpol < d - diff) \
+                 interpol = d - diff; \
+  \
+-            dst[0] = av_clip(interpol, 0, clip_max); \
++            dst[0] = !diff ? d : av_clip(interpol, 0, clip_max); \
+         } \
+  \
+         dst++; \
+@@ -123,7 +124,7 @@ typedef struct ThreadData {
+         next2++; \
+     }
+ 
+-static void filter_intra(void *dst1, void *cur1, int w, int prefs, int mrefs,
++static void __attribute__((optimize("tree-vectorize"))) filter_intra(void *restrict dst1, void *restrict cur1, int w, int prefs, int mrefs,
+                          int prefs3, int mrefs3, int parity, int clip_max)
+ {
+     uint8_t *dst = dst1;
+@@ -133,7 +134,7 @@ static void filter_intra(void *dst1, void *cur1, int w, int prefs, int mrefs,
+     FILTER_INTRA()
+ }
+ 
+-static void filter_line_c(void *dst1, void *prev1, void *cur1, void *next1,
++static void __attribute__((optimize("tree-vectorize"))) filter_line_c(void *restrict dst1, void *restrict prev1, void *restrict cur1, void *restrict next1,
+                           int w, int prefs, int mrefs, int prefs2, int mrefs2,
+                           int prefs3, int mrefs3, int prefs4, int mrefs4,
+                           int parity, int clip_max)
+@@ -151,7 +152,7 @@ static void filter_line_c(void *dst1, void *prev1, void *cur1, void *next1,
+     FILTER2()
+ }
+ 
+-static void filter_edge(void *dst1, void *prev1, void *cur1, void *next1,
++static void __attribute__((optimize("tree-vectorize"))) filter_edge(void *restrict dst1, void *restrict prev1, void *restrict cur1, void *restrict next1,
+                         int w, int prefs, int mrefs, int prefs2, int mrefs2,
+                         int parity, int clip_max, int spat)
+ {
+@@ -168,7 +169,7 @@ static void filter_edge(void *dst1, void *prev1, void *cur1, void *next1,
+     FILTER2()
+ }
+ 
+-static void filter_intra_16bit(void *dst1, void *cur1, int w, int prefs, int mrefs,
++static void __attribute__((optimize("tree-vectorize"))) filter_intra_16bit(void *restrict dst1, void *restrict cur1, int w, int prefs, int mrefs,
+                                int prefs3, int mrefs3, int parity, int clip_max)
+ {
+     uint16_t *dst = dst1;
+@@ -178,7 +179,7 @@ static void filter_intra_16bit(void *dst1, void *cur1, int w, int prefs, int mre
+     FILTER_INTRA()
+ }
+ 
+-static void filter_line_c_16bit(void *dst1, void *prev1, void *cur1, void *next1,
++static void __attribute__((optimize("tree-vectorize"))) filter_line_c_16bit(void *restrict dst1, void *restrict prev1, void *restrict cur1, void *restrict next1,
+                                 int w, int prefs, int mrefs, int prefs2, int mrefs2,
+                                 int prefs3, int mrefs3, int prefs4, int mrefs4,
+                                 int parity, int clip_max)
+@@ -196,7 +197,7 @@ static void filter_line_c_16bit(void *dst1, void *prev1, void *cur1, void *next1
+     FILTER2()
+ }
+ 
+-static void filter_edge_16bit(void *dst1, void *prev1, void *cur1, void *next1,
++static void __attribute__((optimize("tree-vectorize"))) filter_edge_16bit(void *restrict dst1, void *restrict prev1, void *restrict cur1, void *restrict next1,
+                               int w, int prefs, int mrefs, int prefs2, int mrefs2,
+                               int parity, int clip_max, int spat)
+ {
 diff --git a/libavfilter/vf_deinterlace_v4l2m2m.c b/libavfilter/vf_deinterlace_v4l2m2m.c
 new file mode 100644
 index 0000000000..d4c11cfc51
@@ -65055,6 +65245,44 @@ index 2cd5773dc5..0cbbc094de 100644
              trk->par->codec_id == AV_CODEC_ID_FLAC) {
          buffer_size_t side_size;
          uint8_t *side = av_packet_get_side_data(pkt, AV_PKT_DATA_NEW_EXTRADATA, &side_size);
+diff --git a/libavformat/rtpenc.c b/libavformat/rtpenc.c
+index 38e4c65c4e..5e04c1df08 100644
+--- a/libavformat/rtpenc.c
++++ b/libavformat/rtpenc.c
+@@ -19,6 +19,7 @@
+  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+  */
+ 
++#include "avc.h"
+ #include "avformat.h"
+ #include "mpegts.h"
+ #include "internal.h"
+@@ -582,8 +583,25 @@ static int rtp_write_packet(AVFormatContext *s1, AVPacket *pkt)
+         ff_rtp_send_vc2hq(s1, pkt->data, size, st->codecpar->field_order != AV_FIELD_PROGRESSIVE ? 1 : 0);
+         break;
+     case AV_CODEC_ID_H264:
++    {
++        uint8_t *side_data;
++        int side_data_size = 0;
++
++        side_data = av_packet_get_side_data(pkt, AV_PKT_DATA_NEW_EXTRADATA,
++                                            &side_data_size);
++
++        if (side_data_size != 0) {
++            int ps_size = side_data_size;
++            uint8_t * ps_buf = NULL;
++
++            ff_avc_write_annexb_extradata(side_data, &ps_buf, &ps_size);
++            av_log(s1, AV_LOG_TRACE, "H264: write side data=%d\n", ps_size);
++            ff_rtp_send_h264_hevc(s1, ps_buf ? ps_buf : side_data, ps_size);
++            av_free(ps_buf);
++        }
+         ff_rtp_send_h264_hevc(s1, pkt->data, size);
+         break;
++    }
+     case AV_CODEC_ID_H261:
+         ff_rtp_send_h261(s1, pkt->data, size);
+         break;
 diff --git a/libavformat/utils.c b/libavformat/utils.c
 index 75e5350a27..e10b493dae 100644
 --- a/libavformat/utils.c
@@ -68300,12 +68528,1121 @@ index 0000000000..462ccb8abd
 +
 +#endif
 +
+diff --git a/libswscale/aarch64/rgb2rgb.c b/libswscale/aarch64/rgb2rgb.c
+index a9bf6ff9e0..6a0e2dcc09 100644
+--- a/libswscale/aarch64/rgb2rgb.c
++++ b/libswscale/aarch64/rgb2rgb.c
+@@ -30,6 +30,12 @@
+ void ff_interleave_bytes_neon(const uint8_t *src1, const uint8_t *src2,
+                               uint8_t *dest, int width, int height,
+                               int src1Stride, int src2Stride, int dstStride);
++void ff_bgr24toyv12_aarch64(const uint8_t *src, uint8_t *ydst, uint8_t *udst,
++                   uint8_t *vdst, int width, int height, int lumStride,
++                   int chromStride, int srcStride, int32_t *rgb2yuv);
++void ff_rgb24toyv12_aarch64(const uint8_t *src, uint8_t *ydst, uint8_t *udst,
++                   uint8_t *vdst, int width, int height, int lumStride,
++                   int chromStride, int srcStride, int32_t *rgb2yuv);
+ 
+ av_cold void rgb2rgb_init_aarch64(void)
+ {
+@@ -37,5 +43,7 @@ av_cold void rgb2rgb_init_aarch64(void)
+ 
+     if (have_neon(cpu_flags)) {
+         interleaveBytes = ff_interleave_bytes_neon;
++        ff_rgb24toyv12 = ff_rgb24toyv12_aarch64;
++        ff_bgr24toyv12 = ff_bgr24toyv12_aarch64;
+     }
+ }
+diff --git a/libswscale/aarch64/rgb2rgb_neon.S b/libswscale/aarch64/rgb2rgb_neon.S
+index d81110ec57..476ca723a0 100644
+--- a/libswscale/aarch64/rgb2rgb_neon.S
++++ b/libswscale/aarch64/rgb2rgb_neon.S
+@@ -77,3 +77,448 @@ function ff_interleave_bytes_neon, export=1
+ 0:
+         ret
+ endfunc
++
++// void ff_rgb24toyv12_aarch64(
++//              const uint8_t *src,             // x0
++//              uint8_t *ydst,                  // x1
++//              uint8_t *udst,                  // x2
++//              uint8_t *vdst,                  // x3
++//              int width,                      // w4
++//              int height,                     // w5
++//              int lumStride,                  // w6
++//              int chromStride,                // w7
++//              int srcStr,                     // [sp, #0]
++//              int32_t *rgb2yuv);              // [sp, #8]
++
++function ff_rgb24toyv12_aarch64, export=1
++        ldr             x15, [sp, #8]
++        ld1             {v3.s}[2], [x15], #4
++        ld1             {v3.s}[1], [x15], #4
++        ld1             {v3.s}[0], [x15], #4
++        ld1             {v4.s}[2], [x15], #4
++        ld1             {v4.s}[1], [x15], #4
++        ld1             {v4.s}[0], [x15], #4
++        ld1             {v5.s}[2], [x15], #4
++        ld1             {v5.s}[1], [x15], #4
++        ld1             {v5.s}[0], [x15]
++        b               99f
++endfunc
++
++// void ff_bgr24toyv12_aarch64(
++//              const uint8_t *src,             // x0
++//              uint8_t *ydst,                  // x1
++//              uint8_t *udst,                  // x2
++//              uint8_t *vdst,                  // x3
++//              int width,                      // w4
++//              int height,                     // w5
++//              int lumStride,                  // w6
++//              int chromStride,                // w7
++//              int srcStr,                     // [sp, #0]
++//              int32_t *rgb2yuv);              // [sp, #8]
++
++// regs
++// v0-2         Src bytes - reused as chroma src
++// v3-5         Coeffs (packed very inefficiently - could be squashed)
++// v6           128b
++// v7           128h
++// v8-15        Reserved
++// v16-18       Lo Src expanded as H
++// v19          -
++// v20-22       Hi Src expanded as H
++// v23          -
++// v24          U out
++// v25          U tmp
++// v26          Y out
++// v27-29       Y tmp
++// v30          V out
++// v31          V tmp
++
++// Assumes Little Endian in tail stores & conversion matrix
++
++function ff_bgr24toyv12_aarch64, export=1
++        ldr             x15, [sp, #8]
++        ld3             {v3.s, v4.s, v5.s}[0], [x15], #12
++        ld3             {v3.s, v4.s, v5.s}[1], [x15], #12
++        ld3             {v3.s, v4.s, v5.s}[2], [x15]
++99:
++        ldr             w14, [sp, #0]
++        movi            v7.8b, #128
++        uxtl            v6.8h, v7.8b
++        // Ensure if nothing to do then we do nothing
++        cmp             w4, #0
++        b.le            90f
++        cmp             w5, #0
++        b.le            90f
++        // If w % 16 != 0 then -16 so we do main loop 1 fewer times with
++        // the remainder done in the tail
++        tst             w4, #15
++        b.eq            1f
++        sub             w4, w4, #16
++1:
++
++// -------------------- Even line body - YUV
++11:
++        subs            w9,  w4, #0
++        mov             x10, x0
++        mov             x11, x1
++        mov             x12, x2
++        mov             x13, x3
++        b.lt            12f
++
++        ld3             {v0.16b, v1.16b, v2.16b}, [x10], #48
++        subs            w9, w9, #16
++        b.le            13f
++
++10:
++        uxtl            v16.8h, v0.8b
++        uxtl            v17.8h, v1.8b
++        uxtl            v18.8h, v2.8b
++
++        uxtl2           v20.8h, v0.16b
++        uxtl2           v21.8h, v1.16b
++        uxtl2           v22.8h, v2.16b
++
++        bic             v0.8h, #0xff, LSL #8
++        bic             v1.8h, #0xff, LSL #8
++        bic             v2.8h, #0xff, LSL #8
++
++        // Testing shows it is faster to stack the smull/smlal ops together
++        // rather than interleave them between channels and indeed even the
++        // shift/add sections seem happier not interleaved
++
++        // Y0
++        smull           v26.4s, v16.4h, v3.h[0]
++        smlal           v26.4s, v17.4h, v4.h[0]
++        smlal           v26.4s, v18.4h, v5.h[0]
++        smull2          v27.4s, v16.8h, v3.h[0]
++        smlal2          v27.4s, v17.8h, v4.h[0]
++        smlal2          v27.4s, v18.8h, v5.h[0]
++        // Y1
++        smull           v28.4s, v20.4h, v3.h[0]
++        smlal           v28.4s, v21.4h, v4.h[0]
++        smlal           v28.4s, v22.4h, v5.h[0]
++        smull2          v29.4s, v20.8h, v3.h[0]
++        smlal2          v29.4s, v21.8h, v4.h[0]
++        smlal2          v29.4s, v22.8h, v5.h[0]
++        shrn            v26.4h, v26.4s, #12
++        shrn2           v26.8h, v27.4s, #12
++        add             v26.8h, v26.8h, v6.8h     // +128 (>> 3 = 16)
++        sqrshrun        v26.8b, v26.8h, #3
++        shrn            v28.4h, v28.4s, #12
++        shrn2           v28.8h, v29.4s, #12
++        add             v28.8h, v28.8h, v6.8h
++        sqrshrun2       v26.16b, v28.8h, #3
++        // Y0/Y1
++
++        // U
++        // Vector subscript *2 as we loaded into S but are only using H
++        smull           v24.4s, v0.4h, v3.h[2]
++        smlal           v24.4s, v1.4h, v4.h[2]
++        smlal           v24.4s, v2.4h, v5.h[2]
++        smull2          v25.4s, v0.8h, v3.h[2]
++        smlal2          v25.4s, v1.8h, v4.h[2]
++        smlal2          v25.4s, v2.8h, v5.h[2]
++
++        // V
++        smull           v30.4s, v0.4h, v3.h[4]
++        smlal           v30.4s, v1.4h, v4.h[4]
++        smlal           v30.4s, v2.4h, v5.h[4]
++        smull2          v31.4s, v0.8h, v3.h[4]
++        smlal2          v31.4s, v1.8h, v4.h[4]
++        smlal2          v31.4s, v2.8h, v5.h[4]
++
++        ld3             {v0.16b, v1.16b, v2.16b}, [x10], #48
++
++        shrn            v24.4h, v24.4s, #14
++        shrn2           v24.8h, v25.4s, #14
++        sqrshrn         v24.8b, v24.8h, #1
++        add             v24.8b, v24.8b, v7.8b     // +128
++        shrn            v30.4h, v30.4s, #14
++        shrn2           v30.8h, v31.4s, #14
++        sqrshrn         v30.8b, v30.8h, #1
++        add             v30.8b, v30.8b, v7.8b     // +128
++
++        subs            w9, w9, #16
++
++        st1             {v26.16b}, [x11], #16
++        st1             {v24.8b}, [x12], #8
++        st1             {v30.8b}, [x13], #8
++
++        b.gt            10b
++
++// -------------------- Even line tail - YUV
++// If width % 16 == 0 then simply runs once with preloaded RGB
++// If other then deals with preload & then does remaining tail
++
++13:
++        // Body is simple copy of main loop body minus preload
++
++        uxtl            v16.8h, v0.8b
++        uxtl            v17.8h, v1.8b
++        uxtl            v18.8h, v2.8b
++
++        uxtl2           v20.8h, v0.16b
++        uxtl2           v21.8h, v1.16b
++        uxtl2           v22.8h, v2.16b
++
++        bic             v0.8h, #0xff, LSL #8
++        bic             v1.8h, #0xff, LSL #8
++        bic             v2.8h, #0xff, LSL #8
++
++        // Y0
++        smull           v26.4s, v16.4h, v3.h[0]
++        smlal           v26.4s, v17.4h, v4.h[0]
++        smlal           v26.4s, v18.4h, v5.h[0]
++        smull2          v27.4s, v16.8h, v3.h[0]
++        smlal2          v27.4s, v17.8h, v4.h[0]
++        smlal2          v27.4s, v18.8h, v5.h[0]
++        // Y1
++        smull           v28.4s, v20.4h, v3.h[0]
++        smlal           v28.4s, v21.4h, v4.h[0]
++        smlal           v28.4s, v22.4h, v5.h[0]
++        smull2          v29.4s, v20.8h, v3.h[0]
++        smlal2          v29.4s, v21.8h, v4.h[0]
++        smlal2          v29.4s, v22.8h, v5.h[0]
++        shrn            v26.4h, v26.4s, #12
++        shrn2           v26.8h, v27.4s, #12
++        add             v26.8h, v26.8h, v6.8h     // +128 (>> 3 = 16)
++        sqrshrun        v26.8b, v26.8h, #3
++        shrn            v28.4h, v28.4s, #12
++        shrn2           v28.8h, v29.4s, #12
++        add             v28.8h, v28.8h, v6.8h
++        sqrshrun2       v26.16b, v28.8h, #3
++        // Y0/Y1
++
++        // U
++        // Vector subscript *2 as we loaded into S but are only using H
++        smull           v24.4s, v0.4h, v3.h[2]
++        smlal           v24.4s, v1.4h, v4.h[2]
++        smlal           v24.4s, v2.4h, v5.h[2]
++        smull2          v25.4s, v0.8h, v3.h[2]
++        smlal2          v25.4s, v1.8h, v4.h[2]
++        smlal2          v25.4s, v2.8h, v5.h[2]
++
++        // V
++        smull           v30.4s, v0.4h, v3.h[4]
++        smlal           v30.4s, v1.4h, v4.h[4]
++        smlal           v30.4s, v2.4h, v5.h[4]
++        smull2          v31.4s, v0.8h, v3.h[4]
++        smlal2          v31.4s, v1.8h, v4.h[4]
++        smlal2          v31.4s, v2.8h, v5.h[4]
++
++        cmp             w9, #-16
++
++        shrn            v24.4h, v24.4s, #14
++        shrn2           v24.8h, v25.4s, #14
++        sqrshrn         v24.8b, v24.8h, #1
++        add             v24.8b, v24.8b, v7.8b     // +128
++        shrn            v30.4h, v30.4s, #14
++        shrn2           v30.8h, v31.4s, #14
++        sqrshrn         v30.8b, v30.8h, #1
++        add             v30.8b, v30.8b, v7.8b     // +128
++
++        // Here:
++        // w9 == 0      width % 16 == 0, tail done
++        // w9 > -16     1st tail done (16 pels), remainder still to go
++        // w9 == -16    shouldn't happen
++        // w9 > -32     2nd tail done
++        // w9 <= -32    shouldn't happen
++
++        b.lt            2f
++        st1             {v26.16b}, [x11], #16
++        st1             {v24.8b}, [x12], #8
++        st1             {v30.8b}, [x13], #8
++        cbz             w9, 3f
++
++12:
++        sub             w9, w9, #16
++
++        tbz             w9, #3, 1f
++        ld3             {v0.8b, v1.8b, v2.8b},  [x10], #24
++1:      tbz             w9, #2, 1f
++        ld3             {v0.b, v1.b, v2.b}[8],  [x10], #3
++        ld3             {v0.b, v1.b, v2.b}[9],  [x10], #3
++        ld3             {v0.b, v1.b, v2.b}[10], [x10], #3
++        ld3             {v0.b, v1.b, v2.b}[11], [x10], #3
++1:      tbz             w9, #1, 1f
++        ld3             {v0.b, v1.b, v2.b}[12], [x10], #3
++        ld3             {v0.b, v1.b, v2.b}[13], [x10], #3
++1:      tbz             w9, #0, 13b
++        ld3             {v0.b, v1.b, v2.b}[14], [x10], #3
++        b               13b
++
++2:
++        tbz             w9, #3, 1f
++        st1             {v26.8b},    [x11], #8
++        st1             {v24.s}[0],  [x12], #4
++        st1             {v30.s}[0],  [x13], #4
++1:      tbz             w9, #2, 1f
++        st1             {v26.s}[2],  [x11], #4
++        st1             {v24.h}[2],  [x12], #2
++        st1             {v30.h}[2],  [x13], #2
++1:      tbz             w9, #1, 1f
++        st1             {v26.h}[6],  [x11], #2
++        st1             {v24.b}[6],  [x12], #1
++        st1             {v30.b}[6],  [x13], #1
++1:      tbz             w9, #0, 1f
++        st1             {v26.b}[14], [x11]
++        st1             {v24.b}[7],  [x12]
++        st1             {v30.b}[7],  [x13]
++1:
++3:
++
++// -------------------- Odd line body - Y only
++
++        subs            w5, w5, #1
++        b.eq            90f
++
++        subs            w9,  w4, #0
++        add             x0, x0, w14, SXTX
++        add             x1, x1, w6, SXTX
++        mov             x10, x0
++        mov             x11, x1
++        b.lt            12f
++
++        ld3             {v0.16b, v1.16b, v2.16b}, [x10], #48
++        subs            w9, w9, #16
++        b.le            13f
++
++10:
++        uxtl            v16.8h, v0.8b
++        uxtl            v17.8h, v1.8b
++        uxtl            v18.8h, v2.8b
++
++        uxtl2           v20.8h, v0.16b
++        uxtl2           v21.8h, v1.16b
++        uxtl2           v22.8h, v2.16b
++
++        // Testing shows it is faster to stack the smull/smlal ops together
++        // rather than interleave them between channels and indeed even the
++        // shift/add sections seem happier not interleaved
++
++        // Y0
++        smull           v26.4s, v16.4h, v3.h[0]
++        smlal           v26.4s, v17.4h, v4.h[0]
++        smlal           v26.4s, v18.4h, v5.h[0]
++        smull2          v27.4s, v16.8h, v3.h[0]
++        smlal2          v27.4s, v17.8h, v4.h[0]
++        smlal2          v27.4s, v18.8h, v5.h[0]
++        // Y1
++        smull           v28.4s, v20.4h, v3.h[0]
++        smlal           v28.4s, v21.4h, v4.h[0]
++        smlal           v28.4s, v22.4h, v5.h[0]
++        smull2          v29.4s, v20.8h, v3.h[0]
++        smlal2          v29.4s, v21.8h, v4.h[0]
++        smlal2          v29.4s, v22.8h, v5.h[0]
++
++        ld3             {v0.16b, v1.16b, v2.16b}, [x10], #48
++
++        shrn            v26.4h, v26.4s, #12
++        shrn2           v26.8h, v27.4s, #12
++        add             v26.8h, v26.8h, v6.8h     // +128 (>> 3 = 16)
++        sqrshrun        v26.8b, v26.8h, #3
++        shrn            v28.4h, v28.4s, #12
++        shrn2           v28.8h, v29.4s, #12
++        add             v28.8h, v28.8h, v6.8h
++        sqrshrun2       v26.16b, v28.8h, #3
++        // Y0/Y1
++
++        subs            w9, w9, #16
++
++        st1             {v26.16b}, [x11], #16
++
++        b.gt            10b
++
++// -------------------- Odd line tail - Y
++// If width % 16 == 0 then simply runs once with preloaded RGB
++// If other then deals with preload & then does remaining tail
++
++13:
++        // Body is simple copy of main loop body minus preload
++
++        uxtl            v16.8h, v0.8b
++        uxtl            v17.8h, v1.8b
++        uxtl            v18.8h, v2.8b
++
++        uxtl2           v20.8h, v0.16b
++        uxtl2           v21.8h, v1.16b
++        uxtl2           v22.8h, v2.16b
++
++        // Y0
++        smull           v26.4s, v16.4h, v3.h[0]
++        smlal           v26.4s, v17.4h, v4.h[0]
++        smlal           v26.4s, v18.4h, v5.h[0]
++        smull2          v27.4s, v16.8h, v3.h[0]
++        smlal2          v27.4s, v17.8h, v4.h[0]
++        smlal2          v27.4s, v18.8h, v5.h[0]
++        // Y1
++        smull           v28.4s, v20.4h, v3.h[0]
++        smlal           v28.4s, v21.4h, v4.h[0]
++        smlal           v28.4s, v22.4h, v5.h[0]
++        smull2          v29.4s, v20.8h, v3.h[0]
++        smlal2          v29.4s, v21.8h, v4.h[0]
++        smlal2          v29.4s, v22.8h, v5.h[0]
++
++        cmp             w9, #-16
++
++        shrn            v26.4h, v26.4s, #12
++        shrn2           v26.8h, v27.4s, #12
++        add             v26.8h, v26.8h, v6.8h     // +128 (>> 3 = 16)
++        sqrshrun        v26.8b, v26.8h, #3
++        shrn            v28.4h, v28.4s, #12
++        shrn2           v28.8h, v29.4s, #12
++        add             v28.8h, v28.8h, v6.8h
++        sqrshrun2       v26.16b, v28.8h, #3
++        // Y0/Y1
++
++        // Here:
++        // w9 == 0      width % 16 == 0, tail done
++        // w9 > -16     1st tail done (16 pels), remainder still to go
++        // w9 == -16    shouldn't happen
++        // w9 > -32     2nd tail done
++        // w9 <= -32    shouldn't happen
++
++        b.lt            2f
++        st1             {v26.16b}, [x11], #16
++        cbz             w9, 3f
++
++12:
++        sub             w9, w9, #16
++
++        tbz             w9, #3, 1f
++        ld3             {v0.8b, v1.8b, v2.8b},  [x10], #24
++1:      tbz             w9, #2, 1f
++        ld3             {v0.b, v1.b, v2.b}[8],  [x10], #3
++        ld3             {v0.b, v1.b, v2.b}[9],  [x10], #3
++        ld3             {v0.b, v1.b, v2.b}[10], [x10], #3
++        ld3             {v0.b, v1.b, v2.b}[11], [x10], #3
++1:      tbz             w9, #1, 1f
++        ld3             {v0.b, v1.b, v2.b}[12], [x10], #3
++        ld3             {v0.b, v1.b, v2.b}[13], [x10], #3
++1:      tbz             w9, #0, 13b
++        ld3             {v0.b, v1.b, v2.b}[14], [x10], #3
++        b               13b
++
++2:
++        tbz             w9, #3, 1f
++        st1             {v26.8b},    [x11], #8
++1:      tbz             w9, #2, 1f
++        st1             {v26.s}[2],  [x11], #4
++1:      tbz             w9, #1, 1f
++        st1             {v26.h}[6],  [x11], #2
++1:      tbz             w9, #0, 1f
++        st1             {v26.b}[14], [x11]
++1:
++3:
++
++// ------------------- Loop to start
++
++        add             x0, x0, w14, SXTX
++        add             x1, x1, w6, SXTX
++        add             x2, x2, w7, SXTX
++        add             x3, x3, w7, SXTX
++        subs            w5, w5, #1
++        b.gt            11b
++90:
++        ret
++endfunc
+diff --git a/libswscale/rgb2rgb.c b/libswscale/rgb2rgb.c
+index a7300f3ba4..ba1db155b0 100644
+--- a/libswscale/rgb2rgb.c
++++ b/libswscale/rgb2rgb.c
+@@ -83,6 +83,31 @@ void (*ff_rgb24toyv12)(const uint8_t *src, uint8_t *ydst,
+                        int width, int height,
+                        int lumStride, int chromStride, int srcStride,
+                        int32_t *rgb2yuv);
++void (*ff_bgr24toyv12)(const uint8_t *src, uint8_t *ydst,
++                       uint8_t *udst, uint8_t *vdst,
++                       int width, int height,
++                       int lumStride, int chromStride, int srcStride,
++                       int32_t *rgb2yuv);
++void (*ff_rgbxtoyv12)(const uint8_t *src, uint8_t *ydst,
++					  uint8_t *udst, uint8_t *vdst,
++					  int width, int height,
++					  int lumStride, int chromStride, int srcStride,
++					  int32_t *rgb2yuv);
++void (*ff_bgrxtoyv12)(const uint8_t *src, uint8_t *ydst,
++					  uint8_t *udst, uint8_t *vdst,
++					  int width, int height,
++					  int lumStride, int chromStride, int srcStride,
++					  int32_t *rgb2yuv);
++void (*ff_xrgbtoyv12)(const uint8_t *src, uint8_t *ydst,
++					  uint8_t *udst, uint8_t *vdst,
++					  int width, int height,
++					  int lumStride, int chromStride, int srcStride,
++					  int32_t *rgb2yuv);
++void (*ff_xbgrtoyv12)(const uint8_t *src, uint8_t *ydst,
++					  uint8_t *udst, uint8_t *vdst,
++					  int width, int height,
++					  int lumStride, int chromStride, int srcStride,
++					  int32_t *rgb2yuv);
+ void (*planar2x)(const uint8_t *src, uint8_t *dst, int width, int height,
+                  int srcStride, int dstStride);
+ void (*interleaveBytes)(const uint8_t *src1, const uint8_t *src2, uint8_t *dst,
+diff --git a/libswscale/rgb2rgb.h b/libswscale/rgb2rgb.h
+index 48bba1586a..6329533f18 100644
+--- a/libswscale/rgb2rgb.h
++++ b/libswscale/rgb2rgb.h
+@@ -82,6 +82,9 @@ void    rgb12to15(const uint8_t *src, uint8_t *dst, int src_size);
+ void ff_rgb24toyv12_c(const uint8_t *src, uint8_t *ydst, uint8_t *udst,
+                       uint8_t *vdst, int width, int height, int lumStride,
+                       int chromStride, int srcStride, int32_t *rgb2yuv);
++void ff_bgr24toyv12_c(const uint8_t *src, uint8_t *ydst, uint8_t *udst,
++                      uint8_t *vdst, int width, int height, int lumStride,
++                      int chromStride, int srcStride, int32_t *rgb2yuv);
+ 
+ /**
+  * Height should be a multiple of 2 and width should be a multiple of 16.
+@@ -131,6 +134,26 @@ extern void (*ff_rgb24toyv12)(const uint8_t *src, uint8_t *ydst, uint8_t *udst,
+                               int width, int height,
+                               int lumStride, int chromStride, int srcStride,
+                               int32_t *rgb2yuv);
++extern void (*ff_bgr24toyv12)(const uint8_t *src, uint8_t *ydst, uint8_t *udst, uint8_t *vdst,
++                              int width, int height,
++                              int lumStride, int chromStride, int srcStride,
++                              int32_t *rgb2yuv);
++extern void (*ff_rgbxtoyv12)(const uint8_t *src, uint8_t *ydst, uint8_t *udst, uint8_t *vdst,
++                             int width, int height,
++                             int lumStride, int chromStride, int srcStride,
++                             int32_t *rgb2yuv);
++extern void (*ff_bgrxtoyv12)(const uint8_t *src, uint8_t *ydst, uint8_t *udst, uint8_t *vdst,
++                             int width, int height,
++                             int lumStride, int chromStride, int srcStride,
++                             int32_t *rgb2yuv);
++extern void (*ff_xrgbtoyv12)(const uint8_t *src, uint8_t *ydst, uint8_t *udst, uint8_t *vdst,
++                             int width, int height,
++                             int lumStride, int chromStride, int srcStride,
++                             int32_t *rgb2yuv);
++extern void (*ff_xbgrtoyv12)(const uint8_t *src, uint8_t *ydst, uint8_t *udst, uint8_t *vdst,
++                             int width, int height,
++                             int lumStride, int chromStride, int srcStride,
++                             int32_t *rgb2yuv);
+ extern void (*planar2x)(const uint8_t *src, uint8_t *dst, int width, int height,
+                         int srcStride, int dstStride);
+ 
+diff --git a/libswscale/rgb2rgb_template.c b/libswscale/rgb2rgb_template.c
+index 42c69801ba..e711589e1e 100644
+--- a/libswscale/rgb2rgb_template.c
++++ b/libswscale/rgb2rgb_template.c
+@@ -646,13 +646,14 @@ static inline void uyvytoyv12_c(const uint8_t *src, uint8_t *ydst,
+  * others are ignored in the C version.
+  * FIXME: Write HQ version.
+  */
+-void ff_rgb24toyv12_c(const uint8_t *src, uint8_t *ydst, uint8_t *udst,
++static void rgb24toyv12_x(const uint8_t *src, uint8_t *ydst, uint8_t *udst,
+                    uint8_t *vdst, int width, int height, int lumStride,
+-                   int chromStride, int srcStride, int32_t *rgb2yuv)
++                   int chromStride, int srcStride, int32_t *rgb2yuv,
++                   const uint8_t x[9])
+ {
+-    int32_t ry = rgb2yuv[RY_IDX], gy = rgb2yuv[GY_IDX], by = rgb2yuv[BY_IDX];
+-    int32_t ru = rgb2yuv[RU_IDX], gu = rgb2yuv[GU_IDX], bu = rgb2yuv[BU_IDX];
+-    int32_t rv = rgb2yuv[RV_IDX], gv = rgb2yuv[GV_IDX], bv = rgb2yuv[BV_IDX];
++    int32_t ry = rgb2yuv[x[0]], gy = rgb2yuv[x[1]], by = rgb2yuv[x[2]];
++    int32_t ru = rgb2yuv[x[3]], gu = rgb2yuv[x[4]], bu = rgb2yuv[x[5]];
++    int32_t rv = rgb2yuv[x[6]], gv = rgb2yuv[x[7]], bv = rgb2yuv[x[8]];
+     int y;
+     const int chromWidth = width >> 1;
+ 
+@@ -678,6 +679,19 @@ void ff_rgb24toyv12_c(const uint8_t *src, uint8_t *ydst, uint8_t *udst,
+             Y = ((ry * r + gy * g + by * b) >> RGB2YUV_SHIFT) + 16;
+             ydst[2 * i + 1] = Y;
+         }
++        if ((width & 1) != 0) {
++            unsigned int b = src[6 * i + 0];
++            unsigned int g = src[6 * i + 1];
++            unsigned int r = src[6 * i + 2];
++
++            unsigned int Y = ((ry * r + gy * g + by * b) >> RGB2YUV_SHIFT) +  16;
++            unsigned int V = ((rv * r + gv * g + bv * b) >> RGB2YUV_SHIFT) + 128;
++            unsigned int U = ((ru * r + gu * g + bu * b) >> RGB2YUV_SHIFT) + 128;
++
++            udst[i]     = U;
++            vdst[i]     = V;
++            ydst[2 * i] = Y;
++        }
+         ydst += lumStride;
+         src  += srcStride;
+ 
+@@ -700,6 +714,125 @@ void ff_rgb24toyv12_c(const uint8_t *src, uint8_t *ydst, uint8_t *udst,
+             Y = ((ry * r + gy * g + by * b) >> RGB2YUV_SHIFT) + 16;
+             ydst[2 * i + 1] = Y;
+         }
++        if ((width & 1) != 0) {
++            unsigned int b = src[6 * i + 0];
++            unsigned int g = src[6 * i + 1];
++            unsigned int r = src[6 * i + 2];
++
++            unsigned int Y = ((ry * r + gy * g + by * b) >> RGB2YUV_SHIFT) + 16;
++
++            ydst[2 * i] = Y;
++        }
++        udst += chromStride;
++        vdst += chromStride;
++        ydst += lumStride;
++        src  += srcStride;
++    }
++}
++
++static const uint8_t x_rgb[9] = {
++    RY_IDX, GY_IDX, BY_IDX,
++    RU_IDX, GU_IDX, BU_IDX,
++    RV_IDX, GV_IDX, BV_IDX,
++};
++
++static const uint8_t x_bgr[9] = {
++     BY_IDX, GY_IDX, RY_IDX,
++     BU_IDX, GU_IDX, RU_IDX,
++     BV_IDX, GV_IDX, RV_IDX,
++};
++
++void ff_rgb24toyv12_c(const uint8_t *src, uint8_t *ydst, uint8_t *udst,
++                   uint8_t *vdst, int width, int height, int lumStride,
++                   int chromStride, int srcStride, int32_t *rgb2yuv)
++{
++    rgb24toyv12_x(src, ydst, udst, vdst, width, height, lumStride, chromStride, srcStride, rgb2yuv, x_rgb);
++}
++
++void ff_bgr24toyv12_c(const uint8_t *src, uint8_t *ydst, uint8_t *udst,
++                   uint8_t *vdst, int width, int height, int lumStride,
++                   int chromStride, int srcStride, int32_t *rgb2yuv)
++{
++    rgb24toyv12_x(src, ydst, udst, vdst, width, height, lumStride, chromStride, srcStride, rgb2yuv, x_bgr);
++}
++
++static void rgbxtoyv12_x(const uint8_t *src, uint8_t *ydst, uint8_t *udst,
++                   uint8_t *vdst, int width, int height, int lumStride,
++                   int chromStride, int srcStride, int32_t *rgb2yuv,
++                   const uint8_t x[9])
++{
++    int32_t ry = rgb2yuv[x[0]], gy = rgb2yuv[x[1]], by = rgb2yuv[x[2]];
++    int32_t ru = rgb2yuv[x[3]], gu = rgb2yuv[x[4]], bu = rgb2yuv[x[5]];
++    int32_t rv = rgb2yuv[x[6]], gv = rgb2yuv[x[7]], bv = rgb2yuv[x[8]];
++    int y;
++    const int chromWidth = width >> 1;
++
++    for (y = 0; y < height; y += 2) {
++        int i;
++        for (i = 0; i < chromWidth; i++) {
++            unsigned int b = src[8 * i + 2];
++            unsigned int g = src[8 * i + 1];
++            unsigned int r = src[8 * i + 0];
++
++            unsigned int Y = ((ry * r + gy * g + by * b) >> RGB2YUV_SHIFT) +  16;
++            unsigned int V = ((rv * r + gv * g + bv * b) >> RGB2YUV_SHIFT) + 128;
++            unsigned int U = ((ru * r + gu * g + bu * b) >> RGB2YUV_SHIFT) + 128;
++
++            udst[i]     = U;
++            vdst[i]     = V;
++            ydst[2 * i] = Y;
++
++            b = src[8 * i + 6];
++            g = src[8 * i + 5];
++            r = src[8 * i + 4];
++
++            Y = ((ry * r + gy * g + by * b) >> RGB2YUV_SHIFT) + 16;
++            ydst[2 * i + 1] = Y;
++        }
++        if ((width & 1) != 0) {
++            unsigned int b = src[8 * i + 2];
++            unsigned int g = src[8 * i + 1];
++            unsigned int r = src[8 * i + 0];
++
++            unsigned int Y = ((ry * r + gy * g + by * b) >> RGB2YUV_SHIFT) +  16;
++            unsigned int V = ((rv * r + gv * g + bv * b) >> RGB2YUV_SHIFT) + 128;
++            unsigned int U = ((ru * r + gu * g + bu * b) >> RGB2YUV_SHIFT) + 128;
++
++            udst[i]     = U;
++            vdst[i]     = V;
++            ydst[2 * i] = Y;
++        }
++        ydst += lumStride;
++        src  += srcStride;
++
++        if (y+1 == height)
++            break;
++
++        for (i = 0; i < chromWidth; i++) {
++            unsigned int b = src[8 * i + 2];
++            unsigned int g = src[8 * i + 1];
++            unsigned int r = src[8 * i + 0];
++
++            unsigned int Y = ((ry * r + gy * g + by * b) >> RGB2YUV_SHIFT) + 16;
++
++            ydst[2 * i] = Y;
++
++            b = src[8 * i + 6];
++            g = src[8 * i + 5];
++            r = src[8 * i + 4];
++
++            Y = ((ry * r + gy * g + by * b) >> RGB2YUV_SHIFT) + 16;
++            ydst[2 * i + 1] = Y;
++        }
++        if ((width & 1) != 0) {
++            unsigned int b = src[8 * i + 2];
++            unsigned int g = src[8 * i + 1];
++            unsigned int r = src[8 * i + 0];
++
++            unsigned int Y = ((ry * r + gy * g + by * b) >> RGB2YUV_SHIFT) + 16;
++
++            ydst[2 * i] = Y;
++        }
+         udst += chromStride;
+         vdst += chromStride;
+         ydst += lumStride;
+@@ -707,6 +840,37 @@ void ff_rgb24toyv12_c(const uint8_t *src, uint8_t *ydst, uint8_t *udst,
+     }
+ }
+ 
++static void ff_rgbxtoyv12_c(const uint8_t *src, uint8_t *ydst, uint8_t *udst,
++                   uint8_t *vdst, int width, int height, int lumStride,
++                   int chromStride, int srcStride, int32_t *rgb2yuv)
++{
++    rgbxtoyv12_x(src, ydst, udst, vdst, width, height, lumStride, chromStride, srcStride, rgb2yuv, x_rgb);
++}
++
++static void ff_bgrxtoyv12_c(const uint8_t *src, uint8_t *ydst, uint8_t *udst,
++                   uint8_t *vdst, int width, int height, int lumStride,
++                   int chromStride, int srcStride, int32_t *rgb2yuv)
++{
++    rgbxtoyv12_x(src, ydst, udst, vdst, width, height, lumStride, chromStride, srcStride, rgb2yuv, x_bgr);
++}
++
++// As the general code does no SIMD-like ops simply adding 1 to the src address
++// will fix the ignored alpha position
++static void ff_xrgbtoyv12_c(const uint8_t *src, uint8_t *ydst, uint8_t *udst,
++                   uint8_t *vdst, int width, int height, int lumStride,
++                   int chromStride, int srcStride, int32_t *rgb2yuv)
++{
++    rgbxtoyv12_x(src + 1, ydst, udst, vdst, width, height, lumStride, chromStride, srcStride, rgb2yuv, x_rgb);
++}
++
++static void ff_xbgrtoyv12_c(const uint8_t *src, uint8_t *ydst, uint8_t *udst,
++                   uint8_t *vdst, int width, int height, int lumStride,
++                   int chromStride, int srcStride, int32_t *rgb2yuv)
++{
++    rgbxtoyv12_x(src + 1, ydst, udst, vdst, width, height, lumStride, chromStride, srcStride, rgb2yuv, x_bgr);
++}
++
++
+ static void interleaveBytes_c(const uint8_t *src1, const uint8_t *src2,
+                               uint8_t *dest, int width, int height,
+                               int src1Stride, int src2Stride, int dstStride)
+@@ -980,6 +1144,11 @@ static av_cold void rgb2rgb_init_c(void)
+     yuy2toyv12         = yuy2toyv12_c;
+     planar2x           = planar2x_c;
+     ff_rgb24toyv12     = ff_rgb24toyv12_c;
++    ff_bgr24toyv12     = ff_bgr24toyv12_c;
++    ff_rgbxtoyv12      = ff_rgbxtoyv12_c;
++    ff_bgrxtoyv12      = ff_bgrxtoyv12_c;
++    ff_xrgbtoyv12      = ff_xrgbtoyv12_c;
++    ff_xbgrtoyv12      = ff_xbgrtoyv12_c;
+     interleaveBytes    = interleaveBytes_c;
+     deinterleaveBytes  = deinterleaveBytes_c;
+     vu9_to_vu12        = vu9_to_vu12_c;
+diff --git a/libswscale/swscale_unscaled.c b/libswscale/swscale_unscaled.c
+index c4dd8a4d83..da38d7f8ac 100644
+--- a/libswscale/swscale_unscaled.c
++++ b/libswscale/swscale_unscaled.c
+@@ -1655,6 +1655,91 @@ static int bgr24ToYv12Wrapper(SwsContext *c, const uint8_t *src[],
+     return srcSliceH;
+ }
+ 
++static int rgb24ToYv12Wrapper(SwsContext *c, const uint8_t *src[],
++                              int srcStride[], int srcSliceY, int srcSliceH,
++                              uint8_t *dst[], int dstStride[])
++{
++    ff_bgr24toyv12(
++        src[0],
++        dst[0] +  srcSliceY       * dstStride[0],
++        dst[1] + (srcSliceY >> 1) * dstStride[1],
++        dst[2] + (srcSliceY >> 1) * dstStride[2],
++        c->srcW, srcSliceH,
++        dstStride[0], dstStride[1], srcStride[0],
++        c->input_rgb2yuv_table);
++    if (dst[3])
++        fillPlane(dst[3], dstStride[3], c->srcW, srcSliceH, srcSliceY, 255);
++    return srcSliceH;
++}
++
++static int bgrxToYv12Wrapper(SwsContext *c, const uint8_t *src[],
++                             int srcStride[], int srcSliceY, int srcSliceH,
++                             uint8_t *dst[], int dstStride[])
++{
++    ff_bgrxtoyv12(
++        src[0],
++        dst[0] +  srcSliceY       * dstStride[0],
++        dst[1] + (srcSliceY >> 1) * dstStride[1],
++        dst[2] + (srcSliceY >> 1) * dstStride[2],
++        c->srcW, srcSliceH,
++        dstStride[0], dstStride[1], srcStride[0],
++        c->input_rgb2yuv_table);
++    if (dst[3])
++        fillPlane(dst[3], dstStride[3], c->srcW, srcSliceH, srcSliceY, 255);
++    return srcSliceH;
++}
++
++static int rgbxToYv12Wrapper(SwsContext *c, const uint8_t *src[],
++                             int srcStride[], int srcSliceY, int srcSliceH,
++                             uint8_t *dst[], int dstStride[])
++{
++    ff_rgbxtoyv12(
++        src[0],
++        dst[0] +  srcSliceY       * dstStride[0],
++        dst[1] + (srcSliceY >> 1) * dstStride[1],
++        dst[2] + (srcSliceY >> 1) * dstStride[2],
++        c->srcW, srcSliceH,
++        dstStride[0], dstStride[1], srcStride[0],
++        c->input_rgb2yuv_table);
++    if (dst[3])
++        fillPlane(dst[3], dstStride[3], c->srcW, srcSliceH, srcSliceY, 255);
++    return srcSliceH;
++}
++
++static int xbgrToYv12Wrapper(SwsContext *c, const uint8_t *src[],
++                             int srcStride[], int srcSliceY, int srcSliceH,
++                             uint8_t *dst[], int dstStride[])
++{
++    ff_xbgrtoyv12(
++        src[0],
++        dst[0] +  srcSliceY       * dstStride[0],
++        dst[1] + (srcSliceY >> 1) * dstStride[1],
++        dst[2] + (srcSliceY >> 1) * dstStride[2],
++        c->srcW, srcSliceH,
++        dstStride[0], dstStride[1], srcStride[0],
++        c->input_rgb2yuv_table);
++    if (dst[3])
++        fillPlane(dst[3], dstStride[3], c->srcW, srcSliceH, srcSliceY, 255);
++    return srcSliceH;
++}
++
++static int xrgbToYv12Wrapper(SwsContext *c, const uint8_t *src[],
++                             int srcStride[], int srcSliceY, int srcSliceH,
++                             uint8_t *dst[], int dstStride[])
++{
++    ff_xrgbtoyv12(
++        src[0],
++        dst[0] +  srcSliceY       * dstStride[0],
++        dst[1] + (srcSliceY >> 1) * dstStride[1],
++        dst[2] + (srcSliceY >> 1) * dstStride[2],
++        c->srcW, srcSliceH,
++        dstStride[0], dstStride[1], srcStride[0],
++        c->input_rgb2yuv_table);
++    if (dst[3])
++        fillPlane(dst[3], dstStride[3], c->srcW, srcSliceH, srcSliceY, 255);
++    return srcSliceH;
++}
++
+ static int yvu9ToYv12Wrapper(SwsContext *c, const uint8_t *src[],
+                              int srcStride[], int srcSliceY, int srcSliceH,
+                              uint8_t *dst[], int dstStride[])
+@@ -2035,6 +2120,32 @@ void ff_get_unscaled_swscale(SwsContext *c)
+         (dstFormat == AV_PIX_FMT_YUV420P || dstFormat == AV_PIX_FMT_YUVA420P) &&
+         !(flags & SWS_ACCURATE_RND))
+         c->swscale = bgr24ToYv12Wrapper;
++    /* rgb24toYV12 */
++    if (srcFormat == AV_PIX_FMT_RGB24 &&
++        (dstFormat == AV_PIX_FMT_YUV420P || dstFormat == AV_PIX_FMT_YUVA420P) &&
++        !(flags & SWS_ACCURATE_RND))
++        c->swscale = rgb24ToYv12Wrapper;
++
++    /* bgrxtoYV12 */
++    if (((srcFormat == AV_PIX_FMT_BGRA && dstFormat == AV_PIX_FMT_YUV420P) ||
++         (srcFormat == AV_PIX_FMT_BGR0 && (dstFormat == AV_PIX_FMT_YUV420P || dstFormat == AV_PIX_FMT_YUVA420P))) &&
++        !(flags & SWS_ACCURATE_RND))
++        c->swscale = bgrxToYv12Wrapper;
++    /* rgbx24toYV12 */
++    if (((srcFormat == AV_PIX_FMT_RGBA && dstFormat == AV_PIX_FMT_YUV420P) ||
++         (srcFormat == AV_PIX_FMT_RGB0 && (dstFormat == AV_PIX_FMT_YUV420P || dstFormat == AV_PIX_FMT_YUVA420P))) &&
++        !(flags & SWS_ACCURATE_RND))
++        c->swscale = rgbxToYv12Wrapper;
++    /* xbgrtoYV12 */
++    if (((srcFormat == AV_PIX_FMT_ABGR && dstFormat == AV_PIX_FMT_YUV420P) ||
++         (srcFormat == AV_PIX_FMT_0BGR && (dstFormat == AV_PIX_FMT_YUV420P || dstFormat == AV_PIX_FMT_YUVA420P))) &&
++        !(flags & SWS_ACCURATE_RND))
++        c->swscale = xbgrToYv12Wrapper;
++    /* xrgb24toYV12 */
++    if (((srcFormat == AV_PIX_FMT_ARGB && dstFormat == AV_PIX_FMT_YUV420P) ||
++         (srcFormat == AV_PIX_FMT_0RGB && (dstFormat == AV_PIX_FMT_YUV420P || dstFormat == AV_PIX_FMT_YUVA420P))) &&
++        !(flags & SWS_ACCURATE_RND))
++        c->swscale = xrgbToYv12Wrapper;
+ 
+     /* RGB/BGR -> RGB/BGR (no dither needed forms) */
+     if (isAnyRGB(srcFormat) && isAnyRGB(dstFormat) && findRgbConvFn(c)
+diff --git a/libswscale/tests/swscale.c b/libswscale/tests/swscale.c
+index 6c38041ddb..12776ffec7 100644
+--- a/libswscale/tests/swscale.c
++++ b/libswscale/tests/swscale.c
+@@ -23,6 +23,7 @@
+ #include <string.h>
+ #include <inttypes.h>
+ #include <stdarg.h>
++#include <time.h>
+ 
+ #undef HAVE_AV_CONFIG_H
+ #include "libavutil/cpu.h"
+@@ -78,6 +79,15 @@ struct Results {
+     uint32_t crc;
+ };
+ 
++static int time_rep = 0;
++
++static uint64_t utime(void)
++{
++    struct timespec ts;
++    clock_gettime(CLOCK_MONOTONIC, &ts);
++    return ts.tv_nsec / 1000 + (uint64_t)ts.tv_sec * 1000000;
++}
++
+ // test by ref -> src -> dst -> out & compare out against ref
+ // ref & out are YV12
+ static int doTest(const uint8_t * const ref[4], int refStride[4], int w, int h,
+@@ -174,7 +184,7 @@ static int doTest(const uint8_t * const ref[4], int refStride[4], int w, int h,
+         goto end;
+     }
+ 
+-    printf(" %s %dx%d -> %s %3dx%3d flags=%2d",
++    printf(" %s %4dx%4d -> %s %4dx%4d flags=%2d",
+            desc_src->name, srcW, srcH,
+            desc_dst->name, dstW, dstH,
+            flags);
+@@ -182,6 +192,17 @@ static int doTest(const uint8_t * const ref[4], int refStride[4], int w, int h,
+ 
+     sws_scale(dstContext, (const uint8_t * const*)src, srcStride, 0, srcH, dst, dstStride);
+ 
++    if (time_rep != 0)
++    {
++        const uint64_t now = utime();
++        uint64_t done;
++        for (i = 1; i != time_rep; ++i) {
++            sws_scale(dstContext, (const uint8_t * const*)src, srcStride, 0, srcH, dst, dstStride);
++        }
++        done = utime();
++        printf(" T=%7"PRId64"us ", done-now);
++    }
++
+     for (i = 0; i < 4 && dstStride[i]; i++)
+         crc = av_crc(av_crc_get_table(AV_CRC_32_IEEE), crc, dst[i],
+                      dstStride[i] * dstH);
+@@ -355,56 +376,78 @@ static int fileTest(const uint8_t * const ref[4], int refStride[4],
+     return 0;
+ }
+ 
+-#define W 96
+-#define H 96
+-
+ int main(int argc, char **argv)
+ {
++    unsigned int W = 96;
++    unsigned int H = 96;
++    unsigned int W2;
++    unsigned int H2;
++    unsigned int S;
+     enum AVPixelFormat srcFormat = AV_PIX_FMT_NONE;
+     enum AVPixelFormat dstFormat = AV_PIX_FMT_NONE;
+-    uint8_t *rgb_data   = av_malloc(W * H * 4);
+-    const uint8_t * const rgb_src[4] = { rgb_data, NULL, NULL, NULL };
+-    int rgb_stride[4]   = { 4 * W, 0, 0, 0 };
+-    uint8_t *data       = av_malloc(4 * W * H);
+-    const uint8_t * const src[4] = { data, data + W * H, data + W * H * 2, data + W * H * 3 };
+-    int stride[4]       = { W, W, W, W };
+     int x, y;
+     struct SwsContext *sws;
+     AVLFG rand;
+     int res = -1;
+     int i;
+     FILE *fp = NULL;
+-
+-    if (!rgb_data || !data)
+-        return -1;
++    uint8_t *rgb_data;
++    uint8_t * rgb_src[4] = { NULL };
++    int rgb_stride[4]   = { 0 };
++    uint8_t *data;
++    uint8_t * src[4] = { NULL };
++    int stride[4]       = { 0 };
+ 
+     for (i = 1; i < argc; i += 2) {
++        const char * const arg2 = argv[i+1];
++
+         if (argv[i][0] != '-' || i + 1 == argc)
+             goto bad_option;
+         if (!strcmp(argv[i], "-ref")) {
+-            fp = fopen(argv[i + 1], "r");
++            fp = fopen(arg2, "r");
+             if (!fp) {
+-                fprintf(stderr, "could not open '%s'\n", argv[i + 1]);
++                fprintf(stderr, "could not open '%s'\n", arg2);
+                 goto error;
+             }
+         } else if (!strcmp(argv[i], "-cpuflags")) {
+             unsigned flags = av_get_cpu_flags();
+-            int ret = av_parse_cpu_caps(&flags, argv[i + 1]);
++            int ret = av_parse_cpu_caps(&flags, arg2);
+             if (ret < 0) {
+-                fprintf(stderr, "invalid cpu flags %s\n", argv[i + 1]);
++                fprintf(stderr, "invalid cpu flags %s\n", arg2);
+                 return ret;
+             }
+             av_force_cpu_flags(flags);
+         } else if (!strcmp(argv[i], "-src")) {
+-            srcFormat = av_get_pix_fmt(argv[i + 1]);
++            srcFormat = av_get_pix_fmt(arg2);
+             if (srcFormat == AV_PIX_FMT_NONE) {
+-                fprintf(stderr, "invalid pixel format %s\n", argv[i + 1]);
++                fprintf(stderr, "invalid pixel format %s\n", arg2);
+                 return -1;
+             }
+         } else if (!strcmp(argv[i], "-dst")) {
+-            dstFormat = av_get_pix_fmt(argv[i + 1]);
++            dstFormat = av_get_pix_fmt(arg2);
+             if (dstFormat == AV_PIX_FMT_NONE) {
+-                fprintf(stderr, "invalid pixel format %s\n", argv[i + 1]);
++                fprintf(stderr, "invalid pixel format %s\n", arg2);
++                return -1;
++            }
++        } else if (!strcmp(argv[i], "-w")) {
++            char * p = NULL;
++            W = strtoul(arg2, &p, 0);
++            if (!W || *p) {
++                fprintf(stderr, "bad width %s\n", arg2);
++                return -1;
++            }
++        } else if (!strcmp(argv[i], "-h")) {
++            char * p = NULL;
++            H = strtoul(arg2, &p, 0);
++            if (!H || *p) {
++                fprintf(stderr, "bad height '%s'\n", arg2);
++                return -1;
++            }
++        } else if (!strcmp(argv[i], "-t")) {
++            char * p = NULL;
++            time_rep = (int)strtol(arg2, &p, 0);
++            if (*p) {
++                fprintf(stderr, "bad time repetitions '%s'\n", arg2);
+                 return -1;
+             }
+         } else {
+@@ -414,15 +457,34 @@ bad_option:
+         }
+     }
+ 
+-    sws = sws_getContext(W / 12, H / 12, AV_PIX_FMT_RGB32, W, H,
++    S = (W + 15) & ~15;
++    rgb_data   = av_mallocz(S * H * 4);
++    rgb_src[0] = rgb_data;
++    rgb_stride[0]   = 4 * S;
++    data       = av_mallocz(4 * S * H);
++    src[0] = data;
++    src[1] = data + S * H;
++    src[2] = data + S * H * 2;
++    src[3] = data + S * H * 3;
++    stride[0] = S;
++    stride[1] = S;
++    stride[2] = S;
++    stride[3] = S;
++    H2 = H < 96 ? 8 : H / 12;
++    W2 = W < 96 ? 8 : W / 12;
++
++    if (!rgb_data || !data)
++        return -1;
++
++    sws = sws_getContext(W2, H2, AV_PIX_FMT_RGB32, W, H,
+                          AV_PIX_FMT_YUVA420P, SWS_BILINEAR, NULL, NULL, NULL);
+ 
+     av_lfg_init(&rand, 1);
+ 
+     for (y = 0; y < H; y++)
+         for (x = 0; x < W * 4; x++)
+-            rgb_data[ x + y * 4 * W] = av_lfg_get(&rand);
+-    res = sws_scale(sws, rgb_src, rgb_stride, 0, H / 12, (uint8_t * const *) src, stride);
++            rgb_data[ x + y * 4 * S] = av_lfg_get(&rand);
++    res = sws_scale(sws, (const uint8_t * const *)rgb_src, rgb_stride, 0, H2, (uint8_t * const *) src, stride);
+     if (res < 0 || res != H) {
+         res = -1;
+         goto error;
+@@ -431,10 +493,10 @@ bad_option:
+     av_free(rgb_data);
+ 
+     if(fp) {
+-        res = fileTest(src, stride, W, H, fp, srcFormat, dstFormat);
++        res = fileTest((const uint8_t * const *)src, stride, W, H, fp, srcFormat, dstFormat);
+         fclose(fp);
+     } else {
+-        selfTest(src, stride, W, H, srcFormat, dstFormat);
++        selfTest((const uint8_t * const *)src, stride, W, H, srcFormat, dstFormat);
+         res = 0;
+     }
+ error:
 diff --git a/pi-util/BUILD.txt b/pi-util/BUILD.txt
 new file mode 100644
-index 0000000000..b050971f63
+index 0000000000..2b62d660c0
 --- /dev/null
 +++ b/pi-util/BUILD.txt
-@@ -0,0 +1,59 @@
+@@ -0,0 +1,67 @@
 +Building Pi FFmpeg
 +==================
 +
@@ -68332,6 +69669,8 @@ index 0000000000..b050971f63
 +         paths being confused and therefore running the wrong code,  Shared
 +         is what is needed, in most cases, when building for use by other
 +         programs.
++ --usr   Set install dir to /usr (i.e. system default) rather than in
++         <builddir>/install
 +
 +So for a static build
 +---------------------
@@ -68345,25 +69684,31 @@ index 0000000000..b050971f63
 +For a shared build
 +------------------
 +
++There are two choices here
++
 +$ pi-util/conf_native.sh
-+
-+You will normally want an install target if shared. Note that the script has
-+set this up to be generated in out/<builddir>/install, you don't have to worry
-+about overwriting your system libs.
-+
 +$ make -j8 -C out/<builddir> install
 +
++This sets the install prefix to <builddir>/install and is probably what you
++want if you don't want to overwrite the system files.
++
 +You can now set LD_LIBRARY_PATH appropriately and run ffmpeg from where it was
-+built or install the image on the system - you have to be careful to get rid
-+of all other ffmpeg libs or confusion may result.  There is a little script
-+that wipes all other versions - obviously use with care!
++built. You can copy the contents of <build dir>/install to /usr and that mostly
++works. The only downside is that paths in pkgconfig end up being set to the
++install directory in your build directory which may be less than ideal when
++building other packages.
 +
++The alternative if you just want to replace the system libs is:
++
++$ pi-util/conf_native.sh --usr
++$ make -j8 -C out/<builddir>
 +$ sudo pi-util/clean_usr_libs.sh
++$ sudo make -j8 -C out/<builddir> install
 +
-+Then simply copying from the install to /usr works
-+
-+$ sudo cp -r out/<builddir>/install/* /usr
-+
++The clean_usr_libs.sh step wipes any existing libs & includes (for all
++architectures) from the system which helps avoid confusion when running other
++progs as you can be sure you're not running old code which is unfortunately
++easy to do otherwise.
 +
 diff --git a/pi-util/NOTES.txt b/pi-util/NOTES.txt
 new file mode 100644
@@ -68530,11 +69875,27 @@ index 0000000000..92bc13a3df
 +
 diff --git a/pi-util/clean_usr_libs.sh b/pi-util/clean_usr_libs.sh
 new file mode 100755
-index 0000000000..b3b2d5509d
+index 0000000000..01bd6a6a22
 --- /dev/null
 +++ b/pi-util/clean_usr_libs.sh
-@@ -0,0 +1,26 @@
+@@ -0,0 +1,42 @@
 +set -e
++U=/usr/include/arm-linux-gnueabihf
++rm -rf $U/libavcodec
++rm -rf $U/libavdevice
++rm -rf $U/libavfilter
++rm -rf $U/libavformat
++rm -rf $U/libavutil
++rm -rf $U/libswresample
++rm -rf $U/libswscale
++U=/usr/include/aarch64-linux-gnu
++rm -rf $U/libavcodec
++rm -rf $U/libavdevice
++rm -rf $U/libavfilter
++rm -rf $U/libavformat
++rm -rf $U/libavutil
++rm -rf $U/libswresample
++rm -rf $U/libswscale
 +U=/usr/lib/arm-linux-gnueabihf
 +rm -f $U/libavcodec.*
 +rm -f $U/libavdevice.*
@@ -69117,10 +70478,10 @@ index 0000000000..fc14f2a3c2
 +1,WPP_F_ericsson_MAIN_2,WPP_F_ericsson_MAIN_2.bit,WPP_F_ericsson_MAIN_2_yuv.md5
 diff --git a/pi-util/conf_native.sh b/pi-util/conf_native.sh
 new file mode 100755
-index 0000000000..a9e053801c
+index 0000000000..5fb69ccee2
 --- /dev/null
 +++ b/pi-util/conf_native.sh
-@@ -0,0 +1,107 @@
+@@ -0,0 +1,127 @@
 +echo "Configure for native build"
 +
 +FFSRC=`pwd`
@@ -69132,6 +70493,7 @@ index 0000000000..a9e053801c
 +
 +NOSHARED=
 +MMAL=
++USR_PREFIX=
 +
 +while [ "$1" != "" ] ; do
 +    case $1 in
@@ -69141,8 +70503,14 @@ index 0000000000..a9e053801c
 +	--mmal)
 +	    MMAL=1
 +	    ;;
++	--usr)
++	    USR_PREFIX=/usr
++	    ;;
 +	*)
-+	    echo "Usage $0: [--noshared] [--mmal]"
++	    echo "Usage $0: [--noshared] [--mmal] [--usr]"
++	    echo "  noshared  Build static libs and executable - good for testing"
++	    echo "  mmal      Build mmal decoders"
++	    echo "  usr       Set install prefix to /usr [default=<build-dir>/install]"
 +	    exit 1
 +	    ;;
 +    esac
@@ -69156,18 +70524,28 @@ index 0000000000..a9e053801c
 +RPI_DEFINES=
 +RPI_EXTRALIBS=
 +
-+if [ "$MC" == "arm64" ]; then
-+  echo "M/C aarch64"
-+  A=aarch64-linux-gnu
-+  B=arm64
-+elif [ "$MC" == "armhf" ]; then
-+  echo "M/C armv7"
-+  A=arm-linux-gnueabihf
-+  B=armv7
-+  MCOPTS="--arch=armv6t2 --cpu=cortex-a7"
-+  RPI_DEFINES=-mfpu=neon-vfpv4
++# uname -m gives kernel type which may not have the same
++# 32/64bitness as userspace :-( getconf shoudl provide the answer
++# but use uname to check we are on the right processor
++MC=`uname -m`
++LB=`getconf LONG_BIT`
++if [ "$MC" == "armv7l" ] || [ "$MC" == "aarch64" ]; then
++  if [ "$LB" == "32" ]; then
++    echo "M/C armv7"
++    A=arm-linux-gnueabihf
++    B=armv7
++    MCOPTS="--arch=armv6t2 --cpu=cortex-a7"
++    RPI_DEFINES=-mfpu=neon-vfpv4
++  elif [ "$LB" == "64" ]; then
++    echo "M/C aarch64"
++    A=aarch64-linux-gnu
++    B=arm64
++  else
++    echo "Unknown LONG_BIT name: $LB"
++    exit 1
++  fi
 +else
-+  echo Unexpected architecture $MC
++  echo "Unknown machine name: $MC"
 +  exit 1
 +fi
 +
@@ -69195,7 +70573,9 @@ index 0000000000..a9e053801c
 +  OUT=$BUILDBASE/$B-$C-$V-shared-rel
 +fi
 +
-+USR_PREFIX=$OUT/install
++if [ ! $USR_PREFIX ]; then
++  USR_PREFIX=$OUT/install
++fi
 +LIB_PREFIX=$USR_PREFIX/lib/$A
 +INC_PREFIX=$USR_PREFIX/include/$A
 +
@@ -69225,6 +70605,7 @@ index 0000000000..a9e053801c
 + --extra-libs="$RPI_EXTRALIBS"\
 + --extra-version="rpi"
 +
++echo "Configured into $OUT"
 +
 +# gcc option for getting asm listing
 +# -Wa,-ahls
