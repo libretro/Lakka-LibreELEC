@@ -13,8 +13,7 @@ PKG_LONGDESC="Mesa is a 3-D graphics library with an API."
 
 get_graphicdrivers
 
-PKG_MESON_OPTS_TARGET="-Ddri-drivers= \
-                       -Dgallium-drivers=${GALLIUM_DRIVERS// /,} \
+PKG_MESON_OPTS_TARGET="-Dgallium-drivers=${GALLIUM_DRIVERS// /,} \
                        -Dgallium-extra-hud=false \
                        -Dgallium-omx=disabled \
                        -Dgallium-nine=false \
