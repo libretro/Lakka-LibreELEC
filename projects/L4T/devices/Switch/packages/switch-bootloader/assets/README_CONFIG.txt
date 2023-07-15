@@ -24,7 +24,8 @@ Below you can find all supported keys and their defaults.
 [r2p_action=self]
  self:       Reboots to self. [Default]
  bootloader: Reboots to bootloader menu.
- 
+ normal:     Reboots with no config. Allows default auto boot to be used. 
+
 [usb3_enable=0]
  1: Enable  USB3 support.
  Enabling it can dramatically decrease WiFi 2.4GHz and Bluetooth signal quality.
@@ -49,6 +50,18 @@ Below you can find all supported keys and their defaults.
 [als_enable=1]
  1: Enable  Ambient Light Sensor.
 
+[jc_rail_disable=0]
+ 1: Disable railed Joycon support.
+
+[touch_skip_tuning=0]
+ 1: Disables touch panel tuning on boot.
+ Some panels with broken flex cable might need it.
+
+[wifi_disable_vht80=0]
+ 1: Disable Wi-Fi VHT80 and VHT160 bonding (5GHz band).
+ In case wifi card firmware hangs when fully used at such speeds and kernel
+ panics, that might help to mitigate that issue.
+
 [bootargs_extra=]
  Set extra kernel command line arguments.
 
@@ -58,21 +71,139 @@ Below you can find all supported keys and their defaults.
  Can also allow higher CPU/GPU clocks. If OC is used, the reduced power draw
  is negated.
 
+[gpu_dvfsc=0]
+1: Enable DVFS C-Side for GPU. T210B01 only.
+ Reduces power draw drastically on GPU frequencies of 768/844 MHz and up.
+ Allows up to 1228 MHz clocks on select speedo binnings.
+
+[limit_gpu_clk=0]
+ 1: Set GPU clock hard limit to 1075 MHz. T210B01 only.
+ Helps when `gpu_dvfsc` is enabled and GPU can't handle the higher frequencies
+ in such low voltages.
+================================================================================
+
+
+============================== RAM Overclocking ================================
+
 [ram_oc=0]
  Set RAM Overclock frequency in KHz.
+
  If you hang or get corruption or artifacts, try to reduce it.
+ `mem-bench` command can use almost all of the available bandwidth so it can be
+ used for a quick testing.
+ Actual stability can only be confirmed by `memtester` command on as high as
+ possible temperature for several hours and with a big test size.
+ Running a secondary GPU benchmark can help raise temperature.
 
- On T210 (Erista max 1996 MHz):
-  Only frequencies in the following list are supported:
-   1728000, 1795200, 1862400, 1894400, 1932800, 1996800
-  Suggested:
+ Any clock increase will also increase RAM power consumption like a CPU/GPU OC.
+ For example on T210B01, with 1z-nm ram, going from 1866 to 2133 causes a
+ 146 mW increase on active reads/writes which is 19.8%.
+ Any other state is affected only with a voltage change.
+
+
+ T210 (Erista max 2133 MHz):
+  List of supported frequencies:
+  1728000, 1795200, 1862400, 1894400, 1932800, 1958400, 1996800, 2035200,
+  2064000, 2099200, 2131200.
+
+  Input frequency is normalized to one of the above.
+
+  Suggested Jedec Frequencies:
    - 1862400
+   - 2131200
 
- On T210B01 (Mariko max 2133 MHz):
-  Any multiple of 38400 KHz can be used.
-  Suggested:
+  Suggested Custom:
+   - Any, if it works.
+
+
+ T210B01 (Mariko max 3000 MHz):
+  List of supported frequencies:
+  1866000, 2133000, 2166000, 2200000, 2233000, 2266000, 2300000, 2333000,
+  2366000, 2400000, 2433000, 2466000, 2500000, 2533000, 2566000, 2600000,
+  2633000, 2666000, 2700000, 2733000, 2766000, 2800000, 2833000, 2866000,
+  2900000, 2933000, 2966000, 3000000.
+
+  Input frequency is generally normalized to one of the above.
+
+  Suggested Jedec Frequencies:
    - 1866000
    - 2133000
+   - 2400000
+   - 2666000
 
+  Suggested Custom Frequencies:
+   - Any, if it works.
+
+
+ Timing based overclocking:
+  To enable that, edit the last [2 (T210) or 3 (T210B01) digits] of the frequency.
+
+  It's generally better to find a good base frequency before touching these.
+
+  Do not touch them at all for guaranteed stability on max possible frequency,
+  since without these, the whole configuration is exactly per Nvidia's and
+  RAM vendor's specifications.
+
+ Syntax:
+  T210:    Freq MHz +  BA. FFFFF[BA]. (18624[00] -> 18624[52])
+  T210B01: Freq MHz + CBA. FFFF[CBA]. (2133[000] -> 2133[252])
+
+ Description of F, A, B and C timing overclocking options:
+  [F]: Actual clock frequency. Exceeding chip's real max is actual OC.
+
+  [A]: Base Latency reduction.
+  Base latency decreases based on selected frequency bracket.
+  Brackets: 1333/1600/1866/2133.
+   - Range: 0 - 3. 0 to -3 bracket change.
+   Example 1: 1866 with 2 is 1333 base latency. Originally 1866 bracket.
+   Example 1: 1866 with 3 is 1333 base latency. Originally 1866 bracket.
+   Example 2: 1996 with 3 is 1333 base latency. Originally 2133 bracket.
+   Example 3: 2133 with 2 is 1600 base latency. Originally 2133 bracket.
+   Example 4: 2400 with 0 is 2133 base latency. Originally 2133 bracket.
+
+  [B]: Core Timings reduction.
+  Timings that massively get affected by temperatures are not touched.
+   - Range: 0 - 9. 0% to 45% reduction.
+
+  [C]: BW Increase. T210B01/LPDDR4x only. RAM Temperature limited timings.
+  Can cause significant ram data corruption if ram temperature exceeds max.
+  Reason is not allowed on T210 and LPDDR4.
+   - 0/1/2/3/4: for max 85/75/65/55/45 oC
+
+ RAM Temperature is only related to MEM/PLL sensors and not to Tdiode or Tboard.
+ 45oC is 50/51 oC MEM/PLL (around 43 oC Tdiode, depends on temp equilibrium).
+ 65oC is 68/69 oC MEM/PLL (around 60 oC Tdiode, depends on temp equilibrium).
+
+ Full Examples:
+  Old (no timing adjustments) OC equivalents:
+   - 1862 Old OC: 15% -> [A1,B3,C0] - 1866031
+   - 1996 Old OC: 25% -> [A2,B5,C0] - 2000052
+
+  T210 Examples:
+   - 19968[00] -> 1996800: 1996 MHz with read/write base latency of 2133 MHz
+                           and proper 1996 MHz core timings.
+   - 19968[00] -> 1996852: 1996 MHz with read/write base latency of 1600 MHz
+                           and reduced core timings by 25%.
+  T210B01 Examples:
+   - 2666[000] -> 2666000: 2666 MHz with read/write base latency of 2133 MHz
+                           and proper 2666 MHz core timings.
+   - 2666[000] -> 2666252: 2666 MHz with read/write base latency of 1600 MHz,
+                           reduced core timings by 25% and up to 65C operation.
+
+Again, do not use them if you want the ram running like Nvidia and RAM vendor
+made the tables, and write the frequency `as is` in that case.
+
+
+[ram_oc_vdd2=0]
+ Changes VDDIO/VDDQ voltage for T210. VDDIO only for T210B01.
+ Can stabilize timing reduction. Do not use for zero reason.
+ It's useless on proper timings. It will just raise power draw for nothing.
+ Range: 1100 - 1175. (Unit in mV).
+
+[ram_oc_vddq=0]
+ Changes VDDQ voltage for T210B01.
+ Can stabilize timing reduction. Do not use for zero reason.
+ It's useless on proper timings. It will just raise power draw for nothing.
+ Range: 600 - 650. (Unit in mV).
 
 ================================================================================

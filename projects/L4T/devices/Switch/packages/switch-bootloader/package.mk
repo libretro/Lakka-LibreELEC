@@ -1,5 +1,5 @@
 PKG_NAME="switch-bootloader"
-PKG_VERSION="2.3"
+PKG_VERSION="2.4"
 PKG_ARCH="any"
 PKG_DEPENDS_TARGET="switch-u-boot:host switch-u-boot:target switch-atf:target"
 PKG_TOOLCHAIN="manual"
