@@ -11,15 +11,12 @@ PKG_LR_UPDATE_TAG="yes"
 PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON \
                        -DCMAKE_BUILD_TYPE=Release \
                        -DUSE_FFMPEG=ON \
-                       -DUSE_SYSTEM_FFMPEG=ON \
+                       -DUSE_SYSTEM_FFMPEG=OFF \
                        -DUSE_SYSTEM_LIBZIP=ON \
                        -DUSE_SYSTEM_LIBPNG=ON \
                        -DUSE_SYSTEM_ZSTD=ON \
                        -DUSE_DISCORD=OFF \
                        -DUSE_MINIUPNPC=OFF"
-if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
-  PKG_CMAKE_OPTS_TARGET=${PKG_CMAKE_OPTS_TARGET//-DUSE_SYSTEM_FFMPEG=ON/-DUSE_SYSTEM_FFMPEG=OFF}
-fi
 
 if [ "${OPENGL_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL}"
