@@ -12,4 +12,5 @@ PKG_LONGDESC="A library implementing the SSH2 protocol"
 PKG_BUILD_FLAGS="+pic"
 
 PKG_CMAKE_OPTS_TARGET="-DBUILD_EXAMPLES=OFF \
+                       -DBUILD_SHARED_LIBS=OFF \
                        -DBUILD_TESTING=OFF"
