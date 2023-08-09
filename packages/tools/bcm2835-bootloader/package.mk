@@ -16,14 +16,19 @@ PKG_TOOLCHAIN="manual"
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/share/bootloader
     cp -PRv LICENCE* ${INSTALL}/usr/share/bootloader
-    cp -PRv bootcode.bin ${INSTALL}/usr/share/bootloader
-    if [ "${DEVICE}" = "RPi4" ]; then
-      cp -PRv fixup4x.dat ${INSTALL}/usr/share/bootloader/fixup.dat
-      cp -PRv start4x.elf ${INSTALL}/usr/share/bootloader/start.elf
-    else
-      cp -PRv fixup_x.dat ${INSTALL}/usr/share/bootloader/fixup.dat
-      cp -PRv start_x.elf ${INSTALL}/usr/share/bootloader/start.elf
-    fi
+    case "${DEVICE}" in
+      RPi4)
+        cp -PRv fixup4x.dat ${INSTALL}/usr/share/bootloader/fixup.dat
+        cp -PRv start4x.elf ${INSTALL}/usr/share/bootloader/start.elf
+        ;;
+      RPi5)
+        ;;
+      *)
+        cp -PRv bootcode.bin ${INSTALL}/usr/share/bootloader
+        cp -PRv fixup_x.dat ${INSTALL}/usr/share/bootloader/fixup.dat
+        cp -PRv start_x.elf ${INSTALL}/usr/share/bootloader/start.elf
+        ;;
+    esac
 
     find_file_path bootloader/update.sh ${PKG_DIR}/files/update.sh && cp -PRv ${FOUND_PATH} ${INSTALL}/usr/share/bootloader
     find_file_path bootloader/canupdate.sh && cp -PRv ${FOUND_PATH} ${INSTALL}/usr/share/bootloader
