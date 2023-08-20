@@ -2,8 +2,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="rpi-eeprom"
-PKG_VERSION="75d3a760469130cb537e5d8d504f892336abd62b"
-PKG_SHA256="a71573a80149b1c2c4b6d5ec1527ef011611c6883a0cf06c02961fe518384307"
+PKG_VERSION="d774d5794cc63248e559bba201630d00a6e35762"
+PKG_SHA256="cd66d1fff5f45d5141e1b6fd6abf17c6977ef81339efad5979f1bfd2347f71a1"
 PKG_LICENSE="BSD-3/custom"
 PKG_SITE="https://github.com/raspberrypi/rpi-eeprom"
 PKG_URL="https://github.com/raspberrypi/rpi-eeprom/archive/${PKG_VERSION}.tar.gz"
@@ -16,7 +16,6 @@ makeinstall_target() {
 
   mkdir -p ${DESTDIR}
     _dirs="critical stable"
-    [ "${LIBREELEC_VERSION}" = "devel" ] && _dirs+=" beta"
 
     for _maindir in ${_dirs}; do
       for _dir in ${PKG_BUILD}/firmware/${_maindir} ${PKG_BUILD}/firmware/{_maindir}-*; do
