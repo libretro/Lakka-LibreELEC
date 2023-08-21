@@ -9,16 +9,15 @@ PKG_SITE="http://www.opus-codec.org"
 PKG_URL="https://github.com/xiph/opus/releases/download/v${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Codec designed for interactive speech and audio transmission over the Internet."
+PKG_TOOLCHAIN="configure"
 PKG_BUILD_FLAGS="+pic"
 
 if [ "${TARGET_ARCH}" = "arm" ]; then
-  PKG_FIXED_POINT="-Dfixed-point=true"
+  PKG_FIXED_POINT="--enable-fixed-point"
 else
-  PKG_FIXED_POINT="-Dfixed-point=false"
+  PKG_FIXED_POINT="--disable-fixed-point"
 fi
 
-PKG_MESON_OPTS_TARGET="-Ddefault_library=static \
-                       -Ddocs=disabled \
-                       -Dextra-programs=disabled \
-                       -Dtests=disabled \
-                       ${PKG_FIXED_POINT}"
+PKG_CONFIGURE_OPTS_TARGET="--enable-static \
+                           --disable-shared \
+                           ${PKG_FIXED_POINT}"
