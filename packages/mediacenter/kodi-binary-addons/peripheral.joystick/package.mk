@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="peripheral.joystick"
-PKG_VERSION="20.1.11-Nexus"
-PKG_SHA256="d916506695d71385fe32d9b640e354b895c7a76ae9a9127a76c180f2a3ed8028"
+PKG_VERSION="20.1.12-Nexus"
+PKG_SHA256="6fb7ed5f0054409ec907c80a0c3caf62dafed98e746044ced0a26f3060d3b844"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
