@@ -100,17 +100,21 @@ Below you can find all supported keys and their defaults.
  146 mW increase on active reads/writes which is 19.8%.
  Any other state is affected only with a voltage change.
 
+ Warning: On T210B01, GPU minimum voltage might be raised if very high RAM
+ frequency is used and GPU binning is low.
 
  T210 (Erista max 2133 MHz):
   List of supported frequencies:
-  1728000, 1795200, 1862400, 1894400, 1932800, 1958400, 1996800, 2035200,
-  2064000, 2099200, 2131200.
+  1733000, 1800000, 1866000, 1900000, 1933000, 1966000, 2000000, 2033000,
+  2066000, 2100000, 2133000, 2166000, 2200000, 2233000, 2266000, 2300000,
+  2333000, 2366000.
 
-  Input frequency is normalized to one of the above.
+  Input frequency is generally normalized to one of the above.
+  Actual frequency will differ a bit.
 
   Suggested Jedec Frequencies:
-   - 1862400
-   - 2131200
+   - 1866000
+   - 2133000
 
   Suggested Custom:
    - Any, if it works.
@@ -121,9 +125,11 @@ Below you can find all supported keys and their defaults.
   1866000, 2133000, 2166000, 2200000, 2233000, 2266000, 2300000, 2333000,
   2366000, 2400000, 2433000, 2466000, 2500000, 2533000, 2566000, 2600000,
   2633000, 2666000, 2700000, 2733000, 2766000, 2800000, 2833000, 2866000,
-  2900000, 2933000, 2966000, 3000000.
+  2900000, 2933000, 2966000, 3000000, 3033000, 3066000, 3100000, 3133000,
+  3166000, 3200000.
 
   Input frequency is generally normalized to one of the above.
+  Actual frequency will be exactly one of these.
 
   Suggested Jedec Frequencies:
    - 1866000
@@ -133,7 +139,8 @@ Below you can find all supported keys and their defaults.
 
   Suggested Custom Frequencies:
    - Any, if it works.
-
+   Very high ram frequencies might raise GPU power draw on some GPU frequencies
+   if GPU binning is low.
 
  Timing based overclocking:
   To enable that, edit the last [2 (T210) or 3 (T210B01) digits] of the frequency.
@@ -196,14 +203,14 @@ made the tables, and write the frequency `as is` in that case.
 
 [ram_oc_vdd2=0]
  Changes VDDIO/VDDQ voltage for T210. VDDIO only for T210B01.
- Can stabilize timing reduction. Do not use for zero reason.
- It's useless on proper timings. It will just raise power draw for nothing.
+ Can stabilize timing reduction or if at frequency limit.
+ Do not use for zero reason. Limits are fully safe (official Jedec).
  Range: 1100 - 1175. (Unit in mV).
 
 [ram_oc_vddq=0]
  Changes VDDQ voltage for T210B01.
- Can stabilize timing reduction. Do not use for zero reason.
- It's useless on proper timings. It will just raise power draw for nothing.
+ Can stabilize timing reduction or if at frequency limit.
+ Do not use for zero reason. Limits are fully safe (official Jedec).
  Range: 600 - 650. (Unit in mV).
 
 ================================================================================

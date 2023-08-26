@@ -18,7 +18,7 @@ test -n ${performance_mode}              || setenv performance_mode 0
 test -n ${dock_freq_switch_enabled}      || setenv dock_freq_switch_enabled 0
 test -n ${touch_skip_tuning}    || setenv touch_skip_tuning 0
 test -n ${wifi_disable_vht80}   || setenv wifi_disable_vht80 0
-
+# Built-in IMU.
 test -n ${acc_cal_off_x}        || setenv acc_cal_off_x 0x0
 test -n ${acc_cal_off_y}        || setenv acc_cal_off_y 0x0
 test -n ${acc_cal_off_z}        || setenv acc_cal_off_z 0x0
@@ -32,6 +32,7 @@ test -n ${gyr_cal_scl_x}        || setenv gyr_cal_scl_x 0x0
 test -n ${gyr_cal_scl_y}        || setenv gyr_cal_scl_y 0x0
 test -n ${gyr_cal_scl_z}        || setenv gyr_cal_scl_z 0x0
 
+# Lite Gamepad analog sticks calibration.
 test -n ${lite_cal_lx_lof}      || setenv lite_cal_lx_lof 0x0
 test -n ${lite_cal_lx_cnt}      || setenv lite_cal_lx_cnt 0x0
 test -n ${lite_cal_lx_rof}      || setenv lite_cal_lx_rof 0x0
@@ -45,6 +46,10 @@ test -n ${lite_cal_rx_rof}      || setenv lite_cal_rx_rof 0x0
 test -n ${lite_cal_ry_dof}      || setenv lite_cal_ry_dof 0x0
 test -n ${lite_cal_ry_cnt}      || setenv lite_cal_ry_cnt 0x0
 test -n ${lite_cal_ry_uof}      || setenv lite_cal_ry_uof 0x0
+test -n ${lite_cal_lx_coff}     || setenv lite_cal_lx_coff 0x0
+test -n ${lite_cal_ly_coff}     || setenv lite_cal_ly_coff 0xFFFFFF00
+test -n ${lite_cal_rx_coff}     || setenv lite_cal_rx_coff 0xFFFFFF00
+test -n ${lite_cal_ry_coff}     || setenv lite_cal_ry_coff 0x0
 
 # Set logging params for each serial type.
 setenv uarta "no_console_suspend console=ttyS0,115200,8n1 loglevel=8"
@@ -161,6 +166,9 @@ if test ${sku} = 2; then
 		fdt set /serial@70006200/sio sio-stick-cal-r <$lite_cal_rx_lof $lite_cal_rx_cnt $lite_cal_rx_rof $lite_cal_ry_dof $lite_cal_ry_cnt $lite_cal_ry_uof>
 		fdt set /serial@70006200/sio sio-acc-cal <$acc_cal_off_x $acc_cal_off_y $acc_cal_off_z $acc_cal_scl_x $acc_cal_scl_y $acc_cal_scl_z>
 		fdt set /serial@70006200/sio sio-gyr-cal <$gyr_cal_off_x $gyr_cal_off_y $gyr_cal_off_z $gyr_cal_scl_x $gyr_cal_scl_y $gyr_cal_scl_z>
+
+		fdt set /serial@70006200/sio sio-stick-cnt-off-l <$lite_cal_lx_coff $lite_cal_ly_coff>
+		fdt set /serial@70006200/sio sio-stick-cnt-off-r <$lite_cal_rx_coff $lite_cal_ry_coff>
 	fi
 fi
 
@@ -244,6 +252,7 @@ fi
 if test ${t210b01} = 1 -a ${dvfsb} = 1; then
 	echoe DVFS B-Side enabled
 	setenv bootargs_extra ${bootargs_extra} "speedo_tegra210.sku_id=0x83 speedo_tegra210.cspd_id=2 speedo_tegra210.sspd_id=2"
+        fdt set /cpufreq/cpu-scaling-data max-frequency <0x249348>
 
 	if test ${gpu_dvfsc} != 1; then
 		setenv bootargs_extra ${bootargs_extra} "speedo_tegra210.gspd_id=2"
@@ -284,6 +293,12 @@ if test ${t210b01} = 1 -a -n "${pmic_type}" -a ${pmic_type} = 1; then
 	fdt set /i2c@7000d000/max77812@33/m3vout status disabled
 	fdt set /i2c@7000d000/fan53528@52 status okay
 	fdt set /dvfs nvidia,gpu-max-volt-mv <0x3B6>
+fi
+
+# Check if ptsa rework is done.
+if test ${t210b01} = 1 -a "${loader_rev}" > 1; then
+	echo PTSA rework done
+	setenv bootargs_extra ${bootargs_extra} "latency_allowance.ptsa_rework"
 fi
 
 # Set serial number.
