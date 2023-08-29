@@ -1,5 +1,5 @@
 PKG_NAME="hatari"
-PKG_VERSION="1ebf0a0488580ef95c0b28f02223b31813c867c5"
+PKG_VERSION="274e4fe133ca4cabd1a86a23bb60dabf1afc0235"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/hatari"
 PKG_URL="${PKG_SITE}.git"

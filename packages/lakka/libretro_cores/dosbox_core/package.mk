@@ -1,5 +1,5 @@
 PKG_NAME="dosbox_core"
-PKG_VERSION="4032f8ba364e8594fd8e160121f6b13f6ee2bf65"
+PKG_VERSION="3acbd34955a4fa04b829ca827b79672426bfdd16"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/realnc/dosbox-core"
 PKG_URL="${PKG_SITE}.git"

@@ -1,5 +1,5 @@
 PKG_NAME="beetle_lynx"
-PKG_VERSION="d718564b468590f6ed8abf5de6d2e9dfab64cb53"
+PKG_VERSION="fab3ac02d5622eb53a707bd392cc037282e9d8b4"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-lynx-libretro"
 PKG_URL="${PKG_SITE}.git"
