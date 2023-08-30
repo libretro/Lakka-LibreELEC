@@ -1,5 +1,5 @@
 PKG_NAME="switch-bsp"
-PKG_VERSION="1.0"
+PKG_VERSION="1.1"
 PKG_LICENSE="GPL"
 PKG_DEPENDS_TARGET="joycond rewritefs xdotool alsa-lib alsa-ucm-conf usb-gadget-scripts v4l-utils"
 PKG_SECTION="virtual"

@@ -10,9 +10,46 @@ test -n ${als_enable}                    || setenv als_enable 1
 test -n ${usb3_enable}                   || setenv usb3_enable 0
 test -n ${4k60_disable}                  || setenv 4k60_disable 0
 test -n ${dvfsb}                         || setenv dvfsb 0
+test -n ${gpu_dvfsc}                     || setenv gpu_dvfsc 0
+test -n ${limit_gpu_clk}                 || setenv limit_gpu_clk 0
+test -n ${jc_rail_disable}               || setenv jc_rail_disable 0
 test -n ${cec_enable}                    || setenv cec_enable 0
 test -n ${performance_mode}              || setenv performance_mode 0
 test -n ${dock_freq_switch_enabled}      || setenv dock_freq_switch_enabled 0
+test -n ${touch_skip_tuning}    || setenv touch_skip_tuning 0
+test -n ${wifi_disable_vht80}   || setenv wifi_disable_vht80 0
+# Built-in IMU.
+test -n ${acc_cal_off_x}        || setenv acc_cal_off_x 0x0
+test -n ${acc_cal_off_y}        || setenv acc_cal_off_y 0x0
+test -n ${acc_cal_off_z}        || setenv acc_cal_off_z 0x0
+test -n ${acc_cal_scl_x}        || setenv acc_cal_scl_x 0x0
+test -n ${acc_cal_scl_y}        || setenv acc_cal_scl_y 0x0
+test -n ${acc_cal_scl_z}        || setenv acc_cal_scl_z 0x0
+test -n ${gyr_cal_off_x}        || setenv gyr_cal_off_x 0x0
+test -n ${gyr_cal_off_y}        || setenv gyr_cal_off_y 0x0
+test -n ${gyr_cal_off_z}        || setenv gyr_cal_off_z 0x0
+test -n ${gyr_cal_scl_x}        || setenv gyr_cal_scl_x 0x0
+test -n ${gyr_cal_scl_y}        || setenv gyr_cal_scl_y 0x0
+test -n ${gyr_cal_scl_z}        || setenv gyr_cal_scl_z 0x0
+
+# Lite Gamepad analog sticks calibration.
+test -n ${lite_cal_lx_lof}      || setenv lite_cal_lx_lof 0x0
+test -n ${lite_cal_lx_cnt}      || setenv lite_cal_lx_cnt 0x0
+test -n ${lite_cal_lx_rof}      || setenv lite_cal_lx_rof 0x0
+test -n ${lite_cal_ly_dof}      || setenv lite_cal_ly_dof 0x0
+test -n ${lite_cal_ly_cnt}      || setenv lite_cal_ly_cnt 0x0
+test -n ${lite_cal_ly_uof}      || setenv lite_cal_ly_uof 0x0
+
+test -n ${lite_cal_rx_lof}      || setenv lite_cal_rx_lof 0x0
+test -n ${lite_cal_rx_cnt}      || setenv lite_cal_rx_cnt 0x0
+test -n ${lite_cal_rx_rof}      || setenv lite_cal_rx_rof 0x0
+test -n ${lite_cal_ry_dof}      || setenv lite_cal_ry_dof 0x0
+test -n ${lite_cal_ry_cnt}      || setenv lite_cal_ry_cnt 0x0
+test -n ${lite_cal_ry_uof}      || setenv lite_cal_ry_uof 0x0
+test -n ${lite_cal_lx_coff}     || setenv lite_cal_lx_coff 0x0
+test -n ${lite_cal_ly_coff}     || setenv lite_cal_ly_coff 0xFFFFFF00
+test -n ${lite_cal_rx_coff}     || setenv lite_cal_rx_coff 0xFFFFFF00
+test -n ${lite_cal_ry_coff}     || setenv lite_cal_ry_coff 0x0
 
 # Set logging params for each serial type.
 setenv uarta "no_console_suspend console=ttyS0,115200,8n1 loglevel=8"
@@ -95,10 +132,46 @@ elif test ${uart_port} = 4; then
 	setenv bootargs_extra ${usblg} ${bootargs_extra}; echoe USB Serial logging enabled
 fi
 
+# Disable Joycon Rails.
+if test ${jc_rail_disable} = 1; then
+	echoe Joycon Rails disabled
+	fdt set /serial@70006040 status disabled
+	fdt set /serial@70006040/joyconr status disabled
+	fdt set /serial@70006200 status disabled
+	fdt set /serial@70006200/joyconl status disabled
+fi
+
+# Disable Touch panel tuning.
+if test ${touch_skip_tuning} = 1; then
+	setenv bootargs_extra ${bootargs_extra} "ftm4.skip_tuning=1"
+fi
+
 # Enable ALS sensor.
 if test ${als_enable} = 1; then
 	fdt set /i2c@7000c400/bh1730fvc@29 status okay
 fi
+
++# Disable WiFi VHT80 bonding.
+if test ${wifi_disable_vht80} = 1; then
+	echo WiFi VHT80 bonding disabled
+	setenv bootargs_extra ${bootargs_extra} "brcmfmac.vht_mask=12"
+fi
+
+# Set Sio calibration data.
+if test ${sku} = 2; then
+	if load mmc ${devnum}:${distro_bootpart} ${enviraddr} /switchroot/switch.cal; then
+		env import -t -r ${enviraddr} ${filesize}
+		echo Sio Calibration set
+		fdt set /serial@70006200/sio sio-stick-cal-l <$lite_cal_lx_lof $lite_cal_lx_cnt $lite_cal_lx_rof $lite_cal_ly_dof $lite_cal_ly_cnt $lite_cal_ly_uof>
+		fdt set /serial@70006200/sio sio-stick-cal-r <$lite_cal_rx_lof $lite_cal_rx_cnt $lite_cal_rx_rof $lite_cal_ry_dof $lite_cal_ry_cnt $lite_cal_ry_uof>
+		fdt set /serial@70006200/sio sio-acc-cal <$acc_cal_off_x $acc_cal_off_y $acc_cal_off_z $acc_cal_scl_x $acc_cal_scl_y $acc_cal_scl_z>
+		fdt set /serial@70006200/sio sio-gyr-cal <$gyr_cal_off_x $gyr_cal_off_y $gyr_cal_off_z $gyr_cal_scl_x $gyr_cal_scl_y $gyr_cal_scl_z>
+
+		fdt set /serial@70006200/sio sio-stick-cnt-off-l <$lite_cal_lx_coff $lite_cal_ly_coff>
+		fdt set /serial@70006200/sio sio-stick-cnt-off-r <$lite_cal_rx_coff $lite_cal_ry_coff>
+	fi
+fi
+
 
 # Get display panel handle.
 if   test ${display_id} = f20;  then echo Display is INN 6.2; fdt get value DHANDLE /host1x/dsi/panel-i-720p-6-2 phandle
@@ -144,9 +217,18 @@ fi
 # Set battery voltage limit via cell age for Vali.
 if test ${sku} = 2 -a -n "${VLIM}"; then
 	echo VALI: voltage limits [${VLIM}, ${SOCLIM}]
-	fdt set /i2c@7000c000/battery-charger@6b/charger ti,charge-voltage-limit-millivolt <0x$VLIM>
-	fdt set /i2c@7000c000/battery-charger@6b/charger ti,charge-thermal-voltage-limit <0x$VLIM 0x$VLIM 0x$VLIM 0xFF0>
-	fdt set /i2c@7000c000/battery-gauge@36 maxim,kernel-maximum-soc <0x$SOCLIM>
+	if test "${VLIM}" != 1070; then
+		# Newer Vali. 4320 mV / 1664 mA.
+		fdt set /i2c@7000c000/battery-charger@6b/charger ti,charge-voltage-limit-millivolt <0x$VLIM>
+		fdt set /i2c@7000c000/battery-charger@6b/charger ti,charge-thermal-voltage-limit <0x$VLIM 0x$VLIM 0x$VLIM 0xFF0>
+		fdt set /i2c@7000c000/battery-gauge@36 maxim,kernel-maximum-soc <0x$SOCLIM>
+	else
+		# Old Vali. 4208 mV / 1536 mA. (Unreleased?)
+		fdt set /i2c@7000c000/battery-charger@6b/charger ti,charge-voltage-limit-millivolt <0x1070>
+		fdt set /i2c@7000c000/battery-charger@6b/charger ti,charge-thermal-voltage-limit <0x1070 0x1070 0x1070 0xF70>
+		fdt set /i2c@7000c000/battery-charger@6b/charger ti,fast-charge-current-limit-milliamp <0x600>
+		fdt set /i2c@7000c000/battery-charger@6b/charger ti,charge-current-limit <0x200 0x240 0x600 0x600>
+	fi
 fi
 
 # Enable SLT DVFS.
@@ -166,6 +248,58 @@ if test ${t210b01} = 1 -a ${dvfsb} = 1; then
 	fi
 fi
 
+# Enable DVFS B-Side.
+if test ${t210b01} = 1 -a ${dvfsb} = 1; then
+	echoe DVFS B-Side enabled
+	setenv bootargs_extra ${bootargs_extra} "speedo_tegra210.sku_id=0x83 speedo_tegra210.cspd_id=2 speedo_tegra210.sspd_id=2"
+        fdt set /cpufreq/cpu-scaling-data max-frequency <0x249348>
+
+	if test ${gpu_dvfsc} != 1; then
+		setenv bootargs_extra ${bootargs_extra} "speedo_tegra210.gspd_id=2"
+	fi
+
+	if test ${sku} = 2; then
+		# 2091 MHz CPU and 844 MHz GPU hard limit. Vali.
+		fdt set /cpufreq/cpu-scaling-data max-frequency <0x1FE7F8>
+		fdt set /dvfs nvidia,gpu-max-freq-khz <0xCE400>
+	fi
+fi
+
+# Enable GPU DVFS C-Side.
+if test ${t210b01} = 1 -a ${gpu_dvfsc} = 1; then
+	echoe DVFS C-Side GPU enabled
+
+	if test ${dvfsb} != 1; then
+		setenv bootargs_extra ${bootargs_extra} "speedo_tegra210.sku_id=0x83 speedo_tegra210.gspd_id=3"
+	else
+		setenv bootargs_extra ${bootargs_extra} "speedo_tegra210.gspd_id=3"
+	fi
+fi
+
+# Limit GPU clock.
+if test ${t210b01} = 1 -a ${limit_gpu_clk} = 1; then
+
+	if test ${sku} != 2; then
+		# If not Vali set GPU hard limit to 1075 MHz.
+		echoe GPU clock limit enabled
+		fdt set /dvfs nvidia,gpu-max-freq-khz <0x106800>
+	fi
+fi
+
+# Set pmic type if special (devboard).
+if test ${t210b01} = 1 -a -n "${pmic_type}" -a ${pmic_type} = 1; then
+	echoe GPU 15A Regulator enabled
+	fdt set /i2c@7000d000/max77812@33 reg <0x31>
+	fdt set /i2c@7000d000/max77812@33/m3vout status disabled
+	fdt set /i2c@7000d000/fan53528@52 status okay
+	fdt set /dvfs nvidia,gpu-max-volt-mv <0x3B6>
+fi
+
+# Check if ptsa rework is done.
+if test ${t210b01} = 1 -a "${loader_rev}" > 1; then
+	echo PTSA rework done
+	setenv bootargs_extra ${bootargs_extra} "latency_allowance.ptsa_rework"
+fi
 
 # Set serial number.
 if test -n ${device_serial};   then fdt set / serial-number ${device_serial}; fi
