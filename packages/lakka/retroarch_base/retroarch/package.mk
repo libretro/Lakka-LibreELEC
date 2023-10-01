@@ -2,7 +2,7 @@ PKG_NAME="retroarch"
 PKG_VERSION="6c2cc456284fcfa6fa5f94664950926c020d2f7b"
 #HACK waiting for upstream PR #15754
 if [ "${DEVICE}" = "Switch" ]; then
-  PKG_VERSION="fd9b13d98a06f6830ef1e95d305f96e2d0fb5a96"
+  PKG_VERSION="ae4b13fc390f8cebf414efdf054572f1ef0c98ee"
 fi
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
