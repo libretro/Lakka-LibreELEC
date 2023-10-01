@@ -1,5 +1,5 @@
 PKG_NAME="genesis_plus_gx"
-PKG_VERSION="c3f02f9c9059e7f4898dd73feac57ef610e22db0"
+PKG_VERSION="a2931d161f017a0614426bb01ce33a4d2f250260"
 PKG_LICENSE="Non-commercial"
 PKG_SITE="https://github.com/ekeeke/Genesis-Plus-GX"
 PKG_URL="${PKG_SITE}.git"
