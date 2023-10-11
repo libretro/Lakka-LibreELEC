@@ -1,15 +1,7 @@
 PKG_NAME="retroarch"
-PKG_VERSION="6c2cc456284fcfa6fa5f94664950926c020d2f7b"
-#HACK waiting for upstream PR #15754
-if [ "${DEVICE}" = "Switch" ]; then
-  PKG_VERSION="ae4b13fc390f8cebf414efdf054572f1ef0c98ee"
-fi
+PKG_VERSION="7264c13b0104ca74b27305c1f3b27d7fd4e48911"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
-#HACK waiting for upstream PR #15754
-if [ "${DEVICE}" = "Switch" ]; then
-  PKG_SITE="https://github.com/libretro/RetroArch"
-fi
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain freetype zlib ffmpeg libass libvdpau libxkbcommon glsl_shaders slang_shaders systemd libpng fontconfig"
 PKG_LONGDESC="Reference frontend for the libretro API."
