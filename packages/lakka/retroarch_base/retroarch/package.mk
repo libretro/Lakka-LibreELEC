@@ -129,6 +129,8 @@ fi
 
 if [ "${LAKKA_NIGHTLY}" = yes ]; then
   PKG_MAKE_OPTS_TARGET+=" HAVE_LAKKA_NIGHTLY=1"
+elif [ ! "${LAKKA_CANARY_PATH}" = "" ]; then
+  PKG_MAKE_OPTS_TARGET+=" HAVE_LAKKA_CANARY=\"${LAKKA_CANARY_PATH}\""
 fi
 
 pre_configure_target() {
