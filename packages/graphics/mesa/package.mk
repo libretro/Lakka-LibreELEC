@@ -13,6 +13,10 @@ PKG_LONGDESC="Mesa is a 3-D graphics library with an API."
 
 get_graphicdrivers
 
+if [ "${DEVICE}" = "Dragonboard" ]; then
+  PKG_DEPENDS_TARGET+=" libarchive libxml2 lua54"
+fi
+
 PKG_MESON_OPTS_TARGET="-Dgallium-drivers=${GALLIUM_DRIVERS// /,} \
                        -Dgallium-extra-hud=false \
                        -Dgallium-omx=disabled \
