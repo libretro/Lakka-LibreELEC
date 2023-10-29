@@ -187,16 +187,14 @@ makeinstall_target() {
 }
 
 post_install() {
-  ROOT_PWD="$(${TOOLCHAIN}/bin/cryptpw -m sha512 ${ROOT_PASSWORD})"
-
   echo "chmod 4755 ${INSTALL}/usr/bin/busybox" >> ${FAKEROOT_SCRIPT}
   echo "chmod 000 ${INSTALL}/usr/cache/shadow" >> ${FAKEROOT_SCRIPT}
 
-  add_user root "${ROOT_PWD}" 0 0 "Root User" "/storage" "/bin/sh"
+  add_user root "${ROOT_PASSWORD}" 0 0 "Root User" "/storage" "/bin/sh"
   add_group root 0
   add_group users 100
   if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
-    add_user "${DISTRO}" "$(${TOOLCHAIN}/bin/cryptpw -m sha512 "${DISTRO}")" 1000 1000 "${DISTRO} User" "/storage" "/sbin/nologin"
+    add_user "${DISTRO}" "${DISTRO}" 1000 1000 "${DISTRO} User" "/storage" "/sbin/nologin"
     add_group "${DISTRO}" 1000 ${DISTRO}
   fi
 

@@ -10,3 +10,7 @@ makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin
     cp wii-u-gc-adapter ${INSTALL}/usr/bin/
 }
+
+post_install() {
+  enable_service wii-u-gc-adapter.service
+}

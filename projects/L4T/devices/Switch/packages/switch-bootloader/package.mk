@@ -1,5 +1,5 @@
 PKG_NAME="switch-bootloader"
-PKG_VERSION="2.5"
+PKG_VERSION="2.8"
 PKG_ARCH="any"
 PKG_DEPENDS_TARGET="switch-u-boot:host switch-u-boot:target switch-atf:target"
 PKG_TOOLCHAIN="manual"
@@ -44,7 +44,7 @@ makeinstall_target() {
 [ -f "\${BOOT_ROOT}/${DISTRO_PATH}/uenv.txt" ] && rm \${BOOT_ROOT}/${DISTRO_PATH}/uenv.txt
 [ -f "\${BOOT_ROOT}/${DISTRO_PATH}/tegra210-icosa.dtb" ] && rm \${BOOT_ROOT}/${DISTRO_PATH}/tegra210-icosa.dtb
 [ -f "\${BOOT_ROOT}/${DISTRO_PATH}/uartb_logging.dtbo" ] && rm \${BOOT_ROOT}/${DISTRO_PATH}/uartb_logging.dtbo
-[ -f "\${BOOT_ROOT}/bootloader/ini/${DISTRO}.ini" ] && rm \${BOOT_ROOT}/bootloader/ini/${DISTRO}.ini
+[ -f "\${BOOT_ROOT}/bootloader/ini/${DISTRO}.ini" ] && grep "l4t=1" "\${BOOT_ROOT}/bootloader/ini/${DISTRO}.ini" && [ $? = "1" ] && rm \${BOOT_ROOT}/bootloader/ini/${DISTRO}.ini
 [ -f "\${BOOT_ROOT}/${DISTRO_PATH}/nx-plat.dtimg" ] && rm \${BOOT_ROOT}/${DISTRO_PATH}/nx-plat.dtimg
 [ -f "\${BOOT_ROOT}/${DISTRO_PATH}/boot/boot.scr" ] && rm \${BOOT_ROOT}/${DISTRO_PATH}/boot/boot.scr
 [ -f "\${BOOT_ROOT}/${DISTRO_PATH}/boot/bl31.bin" ] && rm \${BOOT_ROOT}/${DISTRO_PATH}/boot/bl31.bin
@@ -60,7 +60,7 @@ cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/README_CONFIG.txt \${BOOT_ROOT}/${D
 cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/boot.scr \${BOOT_ROOT}/${DISTRO_PATH}/boot/
 cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/bl31.bin \${BOOT_ROOT}/${DISTRO_PATH}/boot/
 cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/bl33.bin \${BOOT_ROOT}/${DISTRO_PATH}/boot/
-cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/${DISTRO}.ini \${BOOT_ROOT}/bootloader/ini/${DISTRO}.ini
+[ ! -f "\${BOOT_ROOT}/bootloader/ini/${DISTRO}.ini" ] && cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/${DISTRO}.ini \${BOOT_ROOT}/bootloader/ini/${DISTRO}.ini
 cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/splash.bmp \${BOOT_ROOT}/${DISTRO_PATH}/boot/
 cp \${SYSTEM_ROOT}/usr/share/bootloader/boot/${DISTRO_ICON} \${BOOT_ROOT}/${DISTRO_PATH}/boot/
 EOF
