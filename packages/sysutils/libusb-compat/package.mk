@@ -4,7 +4,7 @@
 
 PKG_NAME="libusb-compat"
 PKG_VERSION="0.1.8"
-PKG_SHA256="698c76484f3dec1e0175067cbd1556c3021e94e7f2313ae3ea6a66d900e00827"
+PKG_SHA256="b692dcf674c070c8c0bee3c8230ce4ee5903f926d77dc8b968a4dd1b70f9b05c"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/libusb/libusb-compat-0.1"
 PKG_URL="https://github.com/libusb/libusb-compat-0.1/releases/download/v${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
