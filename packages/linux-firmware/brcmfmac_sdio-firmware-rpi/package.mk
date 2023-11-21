@@ -3,8 +3,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="brcmfmac_sdio-firmware-rpi"
-PKG_VERSION="a25c7c3d04db0363409dfd17f265bab66f0eae5a"
-PKG_SHA256="1caa1be79a3050f02f7c4950caa8007220fcc486ebc181a54ae6e4b07af34795"
+PKG_VERSION="26ff205b45dc109b498a70aaf182804ad9dbfea5"
+PKG_SHA256="2f0917b104739455dd488dd8f5af2ee4430801a7ac8fe8d9866e74bfbb185356"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/LibreELEC/LibreELEC.tv"
 PKG_URL="https://github.com/LibreELEC/${PKG_NAME}/archive/${PKG_VERSION}.tar.gz"
