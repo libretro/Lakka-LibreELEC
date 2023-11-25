@@ -103,6 +103,7 @@ targets="\
 	RPi|RPi4-PiBoyDmg|aarch64|image \
 	RPi|RPi4-RetroDreamer|aarch64|image \
 	RPi|RPi4-GPICase2|aarch64|noobs \
+	RPi|RPi5|aarch64|noobs \
 	Samsung|Exynos|arm|image \
 	"
 
