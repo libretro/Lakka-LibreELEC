@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.hts"
-PKG_VERSION="20.6.2-Nexus"
-PKG_SHA256="e77bd87f1f4d1abc06e32d0347a0bb635bc129bec43a07864cb8a9e6b0e4d374"
+PKG_VERSION="20.6.5-Nexus"
+PKG_SHA256="bd58fc85543447f918ee567192c87a3beb3f6e2c3fc116abe1f584514d202ada"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

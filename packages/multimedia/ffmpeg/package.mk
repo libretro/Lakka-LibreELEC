@@ -64,6 +64,12 @@ if [ "${V4L2_SUPPORT}" = "yes" -a ! "${DEVICE}" = "Switch" ]; then
 
   if [ "${PROJECT}" = "Allwinner" -o "${PROJECT}" = "Rockchip" -o "${DEVICE}" = "iMX8" -o "${DEVICE}" = "RPi4" ]; then
     PKG_V4L2_REQUEST="yes"
+  elif [ "${PROJECT}" = "RPi" ] && [ "${DEVICE}" = "RPi4" -o "${DEVICE}" = "RPi5" ]; then
+    PKG_V4L2_REQUEST="yes"
+    PKG_FFMPEG_HWACCEL="--disable-hwaccel=h264_v4l2request \
+                        --disable-hwaccel=mpeg2_v4l2request \
+                        --disable-hwaccel=vp8_v4l2request \
+                        --disable-hwaccel=vp9_v4l2request"
   else
     PKG_V4L2_REQUEST="no"
   fi
