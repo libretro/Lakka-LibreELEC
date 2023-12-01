@@ -107,6 +107,7 @@ fi
 if [ "${OPENGLES}" = "bcm2835-driver" ]; then
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-videocore --enable-dispmanx"
   PKG_CONFIGURE_OPTS_TARGET=${PKG_CONFIGURE_OPTS_TARGET//--enable-kms/--disable-kms}
+  PKG_MAKE_OPTS_TARGET+=" HAVE_CRTSWITCHRES=0"
 else
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-videocore"
 fi
