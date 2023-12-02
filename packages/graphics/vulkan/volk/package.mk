@@ -7,7 +7,7 @@ PKG_SHA256="95530bc7850b0358e4bad899eb653f882ee8a08088257d90c5042cec02208f52"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/zeux/volk"
 PKG_URL="https://github.com/zeux/volk/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain vulkan-headers"
 PKG_LONGDESC="Meta loader for Vulkan API"
 
 PKG_CMAKE_OPTS_TARGET="-DVOLK_INSTALL=on"
