@@ -3,10 +3,10 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="librespot"
-PKG_VERSION="f037e46aee631837a0553ccfdbc7866752fd0f5d"
-PKG_VERSION_DATE="2023-07-19"
-PKG_SHA256="72ec541fda77ea6a2132dd67f68a89437bfc13513481d5abbdde535976fc60c3"
-PKG_REV="3"
+PKG_VERSION="886617e41c2177d0cb184cb761aa64acc8695a88"
+PKG_VERSION_DATE="2023-12-06"
+PKG_SHA256="c53fa249e2ff7c75d51f4cbe9867e9ca6a60a0d714c2810fab16a29d113b2144"
+PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/librespot-org/librespot/"
