@@ -1,5 +1,5 @@
 PKG_NAME="retroarch"
-PKG_VERSION="6c2cc456284fcfa6fa5f94664950926c020d2f7b"
+PKG_VERSION="d9b90e218238b183d6fbaad2c8bfc9fcd8cb0190"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
 PKG_URL="${PKG_SITE}.git"
@@ -107,7 +107,6 @@ fi
 if [ "${OPENGLES}" = "bcm2835-driver" ]; then
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-videocore --enable-dispmanx"
   PKG_CONFIGURE_OPTS_TARGET=${PKG_CONFIGURE_OPTS_TARGET//--enable-kms/--disable-kms}
-  PKG_MAKE_OPTS_TARGET+=" HAVE_CRTSWITCHRES=0"
 else
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-videocore"
 fi
