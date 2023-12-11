@@ -35,7 +35,11 @@ case "${PROJECT}" in
     fi
    ;;
   *)
+   if [ "${DISPLAYSERVER}" = "x11" ]; then
+    PKG_PATCH_DIRS+=" v4l2-request"
+   else
     PKG_PATCH_DIRS+=" v4l2-request v4l2-drmprime"
+    fi
     case "${PROJECT}" in
       Allwinner|Rockchip)
         PKG_PATCH_DIRS+=" vf-deinterlace-v4l2m2m"
