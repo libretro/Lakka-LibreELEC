@@ -1,5 +1,5 @@
 PKG_NAME="retroarch"
-PKG_VERSION="6c2cc456284fcfa6fa5f94664950926c020d2f7b"
+PKG_VERSION="d9b90e218238b183d6fbaad2c8bfc9fcd8cb0190"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
 PKG_URL="${PKG_SITE}.git"
@@ -30,7 +30,7 @@ PKG_MAKE_OPTS_TARGET="V=1 \
 if [ "${OPENGLES_SUPPORT}" = yes ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles"
-  if [[ ${DEVICE} =~ ^RPi4.* ]] || [ ${DEVICE} = "RK3288" ] || [ "${DEVICE}" = "RK3399" ] || [ "${DEVICE}" = "Odin" ]; then
+  if [[ ${DEVICE} =~ ^RPi4.* ]] || [ ${DEVICE} = "RK3288" ] || [ "${DEVICE}" = "RK3399" ] || [ "${DEVICE}" = "Odin" ] || [ "${DEVICE}" = "RPi5" ]; then
     PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles3 \
                                  --enable-opengles3_1"
   fi
@@ -129,6 +129,8 @@ fi
 
 if [ "${LAKKA_NIGHTLY}" = yes ]; then
   PKG_MAKE_OPTS_TARGET+=" HAVE_LAKKA_NIGHTLY=1"
+elif [ ! "${LAKKA_CANARY_PATH}" = "" ]; then
+  PKG_MAKE_OPTS_TARGET+=" HAVE_LAKKA_CANARY=\"${LAKKA_CANARY_PATH}\""
 fi
 
 pre_configure_target() {
@@ -268,7 +270,7 @@ makeinstall_target() {
   if [ "${PROJECT}" = "RPi" ] && [ "${DEVICE}" = "GPICase" -o "${DEVICE}" = "Pi02GPi" ]; then
     sed -i -e 's|^input_menu_toggle_gamepad_combo =.*|input_menu_toggle_gamepad_combo = "4"|' ${INSTALL}/etc/retroarch.cfg
     sed -i -e 's|^menu_driver =.*|menu_driver = "rgui"|' ${INSTALL}/etc/retroarch.cfg
-    echo 'audio_device = "default:CARD=ALSA"' >> ${INSTALL}/etc/retroarch.cfg
+    echo 'audio_device = "default:CARD=Headphones"' >> ${INSTALL}/etc/retroarch.cfg
     echo 'menu_timedate_enable = "false"' >> ${INSTALL}/etc/retroarch.cfg
     echo 'menu_enable_widgets = "false"' >> ${INSTALL}/etc/retroarch.cfg
     echo 'aspect_ratio_index = "21"' >> ${INSTALL}/etc/retroarch.cfg
@@ -283,6 +285,9 @@ makeinstall_target() {
     if [ "${DEVICE}" = "Pi02GPi" ]; then
       echo 'input_player1_analog_dpad_mode = "3"' >> $INSTALL/etc/retroarch.cfg
     fi
+  fi
+  if [ "${PROJECT}" = "RPi" ] && [ "${DEVICE}" = "RPi4-GPICase2" ]; then
+    echo 'audio_device = "default:CARD=Device"' >> ${INSTALL}/etc/retroarch.cfg
   fi
 
   # PiBoy DMG / RetroDreamer

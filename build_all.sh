@@ -81,11 +81,9 @@ targets="\
 	Allwinner|H3|arm|image \
 	Allwinner|H5|aarch64|image \
 	Allwinner|H6|aarch64|image \
-	Allwinner|H616|aarch64|image \
 	Allwinner|R40|arm|image \
 	Amlogic|AMLGX|aarch64|image \
 	Ayn|Odin|aarch64|image \
-	Generic|Generic|i386|image \
 	Generic|Generic|x86_64|image \
 	L4T|Switch|aarch64|image \
 	Generic|wayland|x86_64|image \
@@ -104,6 +102,7 @@ targets="\
 	RPi|RPi4-PiBoyDmg|aarch64|image \
 	RPi|RPi4-RetroDreamer|aarch64|image \
 	RPi|RPi4-GPICase2|aarch64|noobs \
+	RPi|RPi5|aarch64|noobs \
 	Samsung|Exynos|arm|image \
 	"
 

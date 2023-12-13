@@ -1,0 +1,49 @@
+From dee032d0a0ecd958c902b88302dc59703d703c7f Mon Sep 17 00:00:00 2001
+From: Simon Ser <contact@emersion.fr>
+Date: Sun, 26 Mar 2023 23:27:40 +0200
+Subject: [PATCH] ipc: add LIBINPUT_CONFIG_ACCEL_PROFILE_CUSTOM entry
+
+This was introduced in the last libinput release.
+
+Fixes the following error:
+
+    ../sway/ipc-json.c:928:17: error: enumeration value 'LIBINPUT_CONFIG_ACCEL_PROFILE_CUSTOM' not handled in switch [-Werror=switch]
+      928 |                 switch (libinput_device_config_accel_get_profile(device)) {
+          |                 ^~~~~~
+---
+ meson.build     | 5 +++++
+ sway/ipc-json.c | 5 +++++
+ 2 files changed, 10 insertions(+)
+
+diff --git a/meson.build b/meson.build
+index 84e7c6c56f..d1fbfa38ab 100644
+--- a/meson.build
++++ b/meson.build
+@@ -117,6 +117,11 @@ conf_data.set10('HAVE_LIBSYSTEMD', sdbus.found() and sdbus.name() == 'libsystemd
+ conf_data.set10('HAVE_LIBELOGIND', sdbus.found() and sdbus.name() == 'libelogind')
+ conf_data.set10('HAVE_BASU', sdbus.found() and sdbus.name() == 'basu')
+ conf_data.set10('HAVE_TRAY', have_tray)
++conf_data.set10('HAVE_LIBINPUT_CONFIG_ACCEL_PROFILE_CUSTOM', cc.has_header_symbol(
++	'libinput.h',
++	'LIBINPUT_CONFIG_ACCEL_PROFILE_CUSTOM',
++	dependencies: libinput,
++))
+ 
+ scdoc = dependency('scdoc', version: '>=1.9.2', native: true, required: get_option('man-pages'))
+ if scdoc.found()
+diff --git a/sway/ipc-json.c b/sway/ipc-json.c
+index 51e6a99518..c7cbea0136 100644
+--- a/sway/ipc-json.c
++++ b/sway/ipc-json.c
+@@ -935,6 +935,11 @@ static json_object *describe_libinput_device(struct libinput_device *device) {
+ 		case LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE:
+ 			accel_profile = "adaptive";
+ 			break;
++#if HAVE_LIBINPUT_CONFIG_ACCEL_PROFILE_CUSTOM
++		case LIBINPUT_CONFIG_ACCEL_PROFILE_CUSTOM:
++			accel_profile = "custom";
++			break;
++#endif
+ 		}
+ 		json_object_object_add(object, "accel_profile",
+ 				json_object_new_string(accel_profile));
