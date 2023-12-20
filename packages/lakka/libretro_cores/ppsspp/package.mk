@@ -53,7 +53,7 @@ fi
 
 pre_make_target() {
 #This script should work on any board that has issues with system ffmpeg in ppsspp
-if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
+if [ "${ARCH}" = "aarch64" ]; then
   . ${PKG_BUILD}/ffmpeg/linux_lakka.sh
 fi
   find ${PKG_BUILD} -name flags.make -exec sed -i "s:isystem :I:g" \{} \;
