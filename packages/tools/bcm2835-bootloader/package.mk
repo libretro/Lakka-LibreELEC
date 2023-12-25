@@ -45,3 +45,4 @@ makeinstall_target() {
       echo "force_turbo=0" >> ${INSTALL}/usr/share/bootloader/config.txt
     fi
 }
+
