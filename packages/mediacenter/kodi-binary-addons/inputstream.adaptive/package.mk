@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="inputstream.adaptive"
-PKG_VERSION="20.3.15-Nexus"
-PKG_SHA256="1d7c933d05534e591e11fd204e836a3498fffc6a0717d5427c89acfd16fb9d40"
+PKG_VERSION="20.3.16-Nexus"
+PKG_SHA256="4651c022395f92906be40e8c923c9f90c3e9190d9dafee9e229ca1846605c5c5"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
