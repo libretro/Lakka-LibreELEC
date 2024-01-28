@@ -70,7 +70,7 @@ post_makeinstall_target() {
         -e "s|^#AutoEnable.*|AutoEnable=true|g" \
         -e "s|^#JustWorksRepairing.*|JustWorksRepairing=always|g"
 
-    if [ "${DISTRO}" = "Lakka" ]; then
+    if [ "${DISTRO}" = "Lakka" ] || [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
       sed -i $INSTALL/etc/bluetooth/main.conf \
           -e "s|^#FastConnectable.*|FastConnectable=true|g" \
           -e "s|^# Privacy =.*|Privacy = device|g"
