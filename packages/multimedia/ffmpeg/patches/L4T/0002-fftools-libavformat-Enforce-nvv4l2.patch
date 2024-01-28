@@ -1,0 +1,75 @@
+From ffa9de21d7415d53f2f02b674438a41daaeee209 Mon Sep 17 00:00:00 2001
+From: CTCaer <ctcaer@gmail.com>
+Date: Sat, 5 Mar 2022 03:30:44 +0000
+Subject: [PATCH 02/39] fftools/libavformat: Enforce nvv4l2
+
+This enforces NVV4L2 even if user requests another codec.
+Additionally, it forces nvv4l2 to go through software codecs first to get context if needed.
+---
+ fftools/ffplay.c    | 25 +++++++++++++++++++++++++
+ libavformat/demux.c | 13 +++++++++++++
+ 2 files changed, 38 insertions(+)
+
+diff --git a/fftools/ffplay.c b/fftools/ffplay.c
+index d6479aef5f..86f8425a15 100644
+--- a/fftools/ffplay.c
++++ b/fftools/ffplay.c
+@@ -2590,6 +2590,31 @@ static int stream_component_open(VideoState *is, int stream_index)
+         case AVMEDIA_TYPE_SUBTITLE: is->last_subtitle_stream = stream_index; forced_codec_name = subtitle_codec_name; break;
+         case AVMEDIA_TYPE_VIDEO   : is->last_video_stream    = stream_index; forced_codec_name =    video_codec_name; break;
+     }
++
++#if CONFIG_NVV4L2
++    /* Reset requested decoder in order to enforce NVV4L2 if possible. */
++    if (avctx->codec_type == AVMEDIA_TYPE_VIDEO && forced_codec_name) {
++        if (strcmp(forced_codec_name, "h264") == 0)
++            forced_codec_name = NULL;    
++        else if (strcmp(forced_codec_name, "hevc") == 0)
++            forced_codec_name = NULL; 
++        else if (strcmp(forced_codec_name, "mpeg2video") == 0)
++            forced_codec_name = NULL;
++        else if (strcmp(forced_codec_name, "mpeg4") == 0)
++            forced_codec_name = NULL;
++        else if (strcmp(forced_codec_name, "vp8") == 0)
++            forced_codec_name = NULL;
++        else if (strcmp(forced_codec_name, "vp9") == 0 &&
++                 avctx->pix_fmt != AV_PIX_FMT_YUV420P10) {
++            forced_codec_name = NULL;
++        }
++    }
++
++    /* NVV4L2 does not support VP9 with YUV420P10. */
++    if (!forced_codec_name && avctx->pix_fmt == AV_PIX_FMT_YUV420P10)
++        forced_codec_name = "vp9";
++#endif
++
+     if (forced_codec_name)
+         codec = avcodec_find_decoder_by_name(forced_codec_name);
+     if (!codec) {
+diff --git a/libavformat/demux.c b/libavformat/demux.c
+index b19ab86d08..ae60a819d5 100644
+--- a/libavformat/demux.c
++++ b/libavformat/demux.c
+@@ -77,6 +77,19 @@ static const AVCodec *find_probe_decoder(AVFormatContext *s, const AVStream *st,
+     if (codec_id == AV_CODEC_ID_H264)
+         return avcodec_find_decoder_by_name("h264");
+ #endif
++#if CONFIG_NVV4L2
++    /* NVV4L2 decoders depend on context init from base decoders */
++    if (codec_id == AV_CODEC_ID_HEVC)
++        return avcodec_find_decoder_by_name("hevc");
++    else if (codec_id == AV_CODEC_ID_MPEG2VIDEO)
++        return avcodec_find_decoder_by_name("mpeg2video");
++    else if (codec_id == AV_CODEC_ID_MPEG4)
++        return avcodec_find_decoder_by_name("mpeg4");
++    else if (codec_id == AV_CODEC_ID_VP8)
++        return avcodec_find_decoder_by_name("vp8");
++    else if (codec_id == AV_CODEC_ID_VP9)
++        return avcodec_find_decoder_by_name("vp9");
++#endif
+ 
+     codec = ff_find_decoder(s, st, codec_id);
+     if (!codec)
+-- 
+2.25.1
+
