@@ -1,0 +1,82 @@
+From e508318655d72876d29df374c19c7edcf3134997 Mon Sep 17 00:00:00 2001
+From: theofficialgman <28281419+theofficialgman@users.noreply.github.com>
+Date: Wed, 17 Jan 2024 23:45:11 -0500
+Subject: [PATCH 35/39] codecs: nvv4l2: find_codec_or_die to find_codec API
+ rename and rework
+
+---
+ fftools/ffmpeg_demux.c | 47 +++++++++++++++++++++++++++---------------
+ 1 file changed, 30 insertions(+), 17 deletions(-)
+
+diff --git a/fftools/ffmpeg_demux.c b/fftools/ffmpeg_demux.c
+index f791c3a898..17b5d63bf8 100644
+--- a/fftools/ffmpeg_demux.c
++++ b/fftools/ffmpeg_demux.c
+@@ -540,24 +540,33 @@ static const AVCodec *choose_decoder(const OptionsContext *o, AVFormatContext *s
+     }
+ #endif
+ 
+-    if (!codec_name)
+-        return avcodec_find_decoder(st->codecpar->codec_id);
++    if (!codec_name) {
++        *pcodec = avcodec_find_decoder(st->codecpar->codec_id);
++        return 0;
++    }
+ 
+ #if CONFIG_NVV4L2
+     if (nvv4l2_pix_fmt_ok) {
+         /* Force hardware decoding if pixel format supported. */
+-        if (strcmp(codec_name, "h264") == 0)
+-            return avcodec_find_decoder(st->codecpar->codec_id);
+-        else if (strcmp(codec_name, "hevc") == 0)
+-            return avcodec_find_decoder(st->codecpar->codec_id);
+-        else if (strcmp(codec_name, "mpeg2video") == 0)
+-            return avcodec_find_decoder(st->codecpar->codec_id);
+-        else if (strcmp(codec_name, "mpeg4") == 0)
+-            return avcodec_find_decoder(st->codecpar->codec_id);
+-        else if (strcmp(codec_name, "vp8") == 0)
+-            return avcodec_find_decoder(st->codecpar->codec_id);
+-        else if (strcmp(codec_name, "vp9") == 0)
+-            return avcodec_find_decoder(st->codecpar->codec_id);
++        if (strcmp(codec_name, "h264") == 0) {
++            *pcodec = avcodec_find_decoder(st->codecpar->codec_id);
++            return 0;
++        } else if (strcmp(codec_name, "hevc") == 0) {
++            *pcodec = avcodec_find_decoder(st->codecpar->codec_id);
++            return 0;
++        } else if (strcmp(codec_name, "mpeg2video") == 0) {
++            *pcodec = avcodec_find_decoder(st->codecpar->codec_id);
++            return 0;
++        } else if (strcmp(codec_name, "mpeg4") == 0) {
++            *pcodec = avcodec_find_decoder(st->codecpar->codec_id);
++            return 0;
++        } else if (strcmp(codec_name, "vp8") == 0) {
++            *pcodec = avcodec_find_decoder(st->codecpar->codec_id);
++            return 0;
++        } else if (strcmp(codec_name, "vp9") == 0) {
++            *pcodec = avcodec_find_decoder(st->codecpar->codec_id);
++            return 0;
++        }
+     } else {
+         /* Force software decoding if pixel format not supported. */
+         if (strcmp(codec_name, "h264_nvv4l2") == 0)
+@@ -575,9 +584,13 @@ static const AVCodec *choose_decoder(const OptionsContext *o, AVFormatContext *s
+     }
+ #endif
+ 
+-    const AVCodec *codec = find_codec_or_die(codec_name, st->codecpar->codec_type, 0);
+-    st->codecpar->codec_id = codec->id;
+-    return codec;
++    int ret = find_codec(NULL, codec_name, st->codecpar->codec_type, 0, pcodec);
++    if (ret < 0)
++        return ret;
++    st->codecpar->codec_id = (*pcodec)->id;
++    if (recast_media && st->codecpar->codec_type != (*pcodec)->type)
++        st->codecpar->codec_type = (*pcodec)->type;
++    return 0;
+ }
+ 
+ static int guess_input_channel_layout(InputStream *ist)
+-- 
+2.25.1
+

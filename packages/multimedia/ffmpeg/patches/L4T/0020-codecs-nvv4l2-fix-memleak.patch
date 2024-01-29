@@ -1,0 +1,104 @@
+From 1fe17b61d4221fed766069a7742a7d09eaabedbf Mon Sep 17 00:00:00 2001
+From: CTCaer <ctcaer@gmail.com>
+Date: Wed, 3 Aug 2022 22:04:22 +0000
+Subject: [PATCH 20/39] codecs: nvv4l2: fix memleak
+
+Fixes #2
+
+Requests of plane buffers, reset plane number of buffers variable to the new value.
+
+This causes the wrong number of dma buffers to be destroyed.
+
+So, save and use the old total instead.
+---
+ libavcodec/nvv4l2_dec.c | 10 ++++++----
+ libavcodec/nvv4l2_enc.c |  5 +++--
+ 2 files changed, 9 insertions(+), 6 deletions(-)
+
+diff --git a/libavcodec/nvv4l2_dec.c b/libavcodec/nvv4l2_dec.c
+index b6865059ec..35784e0704 100644
+--- a/libavcodec/nvv4l2_dec.c
++++ b/libavcodec/nvv4l2_dec.c
+@@ -143,7 +143,7 @@ static void query_set_capture(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+     struct v4l2_format format;
+     struct v4l2_crop crop;
+     struct v4l2_control ctl;
+-    int ret;
++    int ret, cp_num_old_buffers;
+     int32_t min_cap_buffers;
+     NvBufferCreateParams input_params = { 0 };
+     NvBufferCreateParams cap_params = { 0 };
+@@ -243,6 +243,7 @@ static void query_set_capture(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+     /* Request buffers with count 0 and destroy all
+      ** previously allocated buffers.
+      */
++    cp_num_old_buffers = ctx->cp_num_buffers;
+     ret = nvv4l2_req_buffers_on_capture_plane(ctx,
+                                               ctx->cp_buf_type,
+                                               ctx->cp_mem_type, 0);
+@@ -252,7 +253,7 @@ static void query_set_capture(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+     }
+ 
+     /* Destroy previous DMA buffers. */
+-    for (uint32_t i = 0; i < ctx->cp_num_buffers; i++) {
++    for (uint32_t i = 0; i < cp_num_old_buffers; i++) {
+         if (ctx->dmabuff_fd[i] != -1) {
+             ret = NvBufferDestroy(ctx->dmabuff_fd[i]);
+             if (ret) {
+@@ -872,7 +873,7 @@ nvv4l2_ctx_t *nvv4l2_create_decoder(AVCodecContext *avctx,
+ 
+ int nvv4l2_decoder_close(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+ {
+-    int ret;
++    int ret, cp_num_old_buffers;
+ 
+     if (!ctx)
+         return 0;
+@@ -897,12 +898,13 @@ int nvv4l2_decoder_close(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+                                            ctx->op_buf_type,
+                                            ctx->op_mem_type, 0);
+ 
++        cp_num_old_buffers = ctx->cp_num_buffers;
+         nvv4l2_req_buffers_on_capture_plane(ctx,
+                                             ctx->cp_buf_type,
+                                             ctx->cp_mem_type, 0);
+ 
+         /* All allocated DMA buffers must be destroyed. */
+-        for (uint32_t i = 0; i < ctx->cp_num_buffers; i++) {
++        for (uint32_t i = 0; i < cp_num_old_buffers; i++) {
+             if (ctx->dmabuff_fd[i] != -1) {
+                 ret = NvBufferDestroy(ctx->dmabuff_fd[i]);
+                 if (ret < 0) {
+diff --git a/libavcodec/nvv4l2_enc.c b/libavcodec/nvv4l2_enc.c
+index 6fc74472ef..3af728aade 100644
+--- a/libavcodec/nvv4l2_enc.c
++++ b/libavcodec/nvv4l2_enc.c
+@@ -772,7 +772,7 @@ int nvv4l2_encoder_get_packet(AVCodecContext *avctx,
+ 
+ int nvv4l2_encoder_close(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+ {
+-    int ret;
++    int ret, op_num_old_buffers;
+ 
+     if (!ctx)
+         return 0;
+@@ -796,6 +796,7 @@ int nvv4l2_encoder_close(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+         }
+ 
+         /* Request 0 buffers on both planes. */
++        op_num_old_buffers = ctx->op_num_buffers;
+         ret = nvv4l2_req_buffers_on_output_plane(ctx,
+                                                  ctx->op_buf_type,
+                                                  ctx->op_mem_type, 0);
+@@ -805,7 +806,7 @@ int nvv4l2_encoder_close(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+                                                   ctx->cp_mem_type, 0);
+ 
+         /* Unmap and destroy all allocated DMA buffers. */
+-        for (uint32_t i = 0; i < ctx->op_num_buffers; i++) {
++        for (uint32_t i = 0; i < op_num_old_buffers; i++) {
+             if (ctx->plane_dma_fd[i] != -1) {
+                 nvv4l2_unmap_out(ctx, i, ctx->op_buf_type,
+                                  ctx->op_mem_type, ctx->plane_dma_fd[i]);
+-- 
+2.25.1
+

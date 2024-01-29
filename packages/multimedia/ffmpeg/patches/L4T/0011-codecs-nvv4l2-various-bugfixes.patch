@@ -1,0 +1,276 @@
+From 124b4a1c85f24a11de5710b8515648dae91000cf Mon Sep 17 00:00:00 2001
+From: CTCaer <ctcaer@gmail.com>
+Date: Fri, 18 Mar 2022 21:46:36 +0000
+Subject: [PATCH 11/39] codecs: nvv4l2: various bugfixes
+
+---
+ libavcodec/nvv4l2_dec.c | 105 ++++++++++++++++++++++------------------
+ 1 file changed, 59 insertions(+), 46 deletions(-)
+
+diff --git a/libavcodec/nvv4l2_dec.c b/libavcodec/nvv4l2_dec.c
+index 640b6836de..0779f3a4bf 100644
+--- a/libavcodec/nvv4l2_dec.c
++++ b/libavcodec/nvv4l2_dec.c
+@@ -20,6 +20,7 @@
+  * DEALINGS IN THE SOFTWARE.
+  */
+ 
++#include <stdatomic.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <stdint.h>
+@@ -52,6 +53,15 @@
+  **  NM12 (YUV 4:2:0)
+  */
+ 
++/*
++ ** Output plane memory type support:
++ **  V4L2_MEMORY_MMAP
++ **  V4L2_MEMORY_USERPTR
++ ** Capture plane memory type support:
++ **  V4L2_MEMORY_MMAP
++ **  V4L2_MEMORY_DMABUF
++ */
++
+ #define DECODER_DEV "/dev/nvhost-nvdec"
+ #define OP_PLANE_REQ_SIZEIMAGE 4000000
+ 
+@@ -138,6 +148,9 @@ static void query_set_capture(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+     NvBufferCreateParams input_params = { 0 };
+     NvBufferCreateParams cap_params = { 0 };
+ 
++    if (ctx->in_error || ctx->eos)
++        return;
++
+     /* Get format on capture plane set by device.
+      ** This may change after an resolution change event.
+      */
+@@ -235,13 +248,14 @@ static void query_set_capture(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+ 
+     /* Destroy previous DMA buffers. */
+     for (uint32_t i = 0; i < ctx->cp_num_buffers; i++) {
+-        if (ctx->dmabuff_fd[i] != 0) {
++        if (ctx->dmabuff_fd[i] != -1) {
+             ret = NvBufferDestroy(ctx->dmabuff_fd[i]);
+             if (ret) {
+                 av_log(avctx, AV_LOG_ERROR,
+                        "Failed to Destroy NvBuffer!\n");
+                 ctx->in_error = true;
+             }
++            ctx->dmabuff_fd[i] = -1;
+         }
+     }
+ 
+@@ -339,8 +353,9 @@ static void query_set_capture(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+         v4l2_buf.m.planes[0].m.fd = ctx->dmabuff_fd[i];
+         v4l2_buf.m.planes[1].m.fd = ctx->dmabuff_fd[i];
+ 
+-        ret = nvv4l2_q_buffer(ctx, &v4l2_buf, NULL, ctx->cp_buf_type,
+-                              ctx->cp_mem_type, ctx->cp_num_planes);
++        ret = nvv4l2_q_buffer(ctx, &v4l2_buf, ctx->cp_buffers[i],
++                              ctx->cp_buf_type, ctx->cp_mem_type,
++                              ctx->cp_num_planes);
+ 
+         if (ret) {
+             av_log(avctx, AV_LOG_ERROR, "Qing failed on capture plane!\n");
+@@ -407,9 +422,7 @@ static void *dec_capture_thread(void *arg)
+     /* Received first resolution change event
+      ** Format and buffers are now set on capture.
+      */
+-    if (!ctx->in_error) {
+-        query_set_capture(ctx->avctx, ctx);
+-    }
++    query_set_capture(ctx->avctx, ctx);
+ 
+     /* Check for resolution event to again
+      ** set format and buffers on capture plane.
+@@ -429,16 +442,15 @@ static void *dec_capture_thread(void *arg)
+             struct v4l2_buffer v4l2_cp_buf;
+             struct v4l2_plane capture_planes[NV_MAX_PLANES];
+             NvBufferRect src_rect, dest_rect;
+-            NvBufferParams parm;
++            NvBufferParams buf_params;
+             NvBufferTransformParams transform_params;
+-            NvBuffer *cp_buffer = NULL;
+ 
+             memset(&v4l2_cp_buf, 0, sizeof(v4l2_cp_buf));
+             memset(capture_planes, 0, sizeof(capture_planes));
+             v4l2_cp_buf.m.planes = capture_planes;
+ 
+             /* Dequeue the filled buffer. */
+-            if (nvv4l2_dq_buffer(ctx, &v4l2_cp_buf, &cp_buffer,
++            if (nvv4l2_dq_buffer(ctx, &v4l2_cp_buf, NULL,
+                  ctx->cp_buf_type, ctx->cp_mem_type, 0)) {
+                 if (errno == EAGAIN) {
+                     usleep(1000);
+@@ -463,7 +475,7 @@ static void *dec_capture_thread(void *arg)
+ 
+             /* @transform_flag defines the flags for enabling the
+              ** valid transforms. All the valid parameters are
+-             **  present in the nvbuf_utils header.
++             **  present in the nvv4l2_ext_utils header.
+              */
+             transform_params.transform_flag = NVBUFFER_TRANSFORM_FILTER;
+             transform_params.transform_flip = NvBufferTransform_None;
+@@ -472,9 +484,6 @@ static void *dec_capture_thread(void *arg)
+             transform_params.src_rect = src_rect;
+             transform_params.dst_rect = dest_rect;
+ 
+-            /* Set DMA plane handle. */
+-            cp_buffer->planes[0].fd = ctx->dmabuff_fd[v4l2_cp_buf.index];
+-
+             pthread_mutex_lock(&ctx->queue_lock);
+ 
+             buf_index = nvv4l2_pool_idx_next(ctx, ctx->export_pool);
+@@ -482,34 +491,37 @@ static void *dec_capture_thread(void *arg)
+             /* Blocklinear to Pitch transformation is required
+              ** to dump the raw decoded buffer data.
+              */
+-            ret = NvBufferTransform(cp_buffer->planes[0].fd,
+-                            ctx->plane_dma_fd[buf_index], &transform_params);
+-            if (ret == -1) {
+-                ctx->in_error = true;
+-                av_log(ctx->avctx, AV_LOG_ERROR, "Transform failed!\n");
+-                pthread_mutex_unlock(&ctx->queue_lock);
+-                break;
+-            }
++            if (buf_index >= 0) {
++                ret = NvBufferTransform(ctx->dmabuff_fd[v4l2_cp_buf.index],
++                                        ctx->plane_dma_fd[buf_index],
++                                        &transform_params);
++                if (ret == -1) {
++                    ctx->in_error = true;
++                    av_log(ctx->avctx, AV_LOG_ERROR, "Transform failed!\n");
++                    pthread_mutex_unlock(&ctx->queue_lock);
++                    break;
++                }
+ 
+-            ret = NvBufferGetParams(ctx->plane_dma_fd[buf_index], &parm);
+-            if (ret) {
+-                ctx->in_error = true;
+-                av_log(ctx->avctx, AV_LOG_ERROR, "GetParams failed!\n");
+-                pthread_mutex_unlock(&ctx->queue_lock);
+-                goto error;
++                ret = NvBufferGetParams(ctx->plane_dma_fd[buf_index],
++                                        &buf_params);
++                if (ret) {
++                    ctx->in_error = true;
++                    av_log(ctx->avctx, AV_LOG_ERROR, "GetParams failed!\n");
++                    pthread_mutex_unlock(&ctx->queue_lock);
++                    break;
++                }
+             }
+ 
+-            ctx->plane_width[0] = parm.width[0];
+-            ctx->plane_height[0] = parm.height[0];
+-            ctx->plane_width[1] = parm.width[1];
+-            ctx->plane_height[1] = parm.height[1];
++            ctx->plane_width[0] = buf_params.width[0];
++            ctx->plane_height[0] = buf_params.height[0];
++            ctx->plane_width[1] = buf_params.width[1];
++            ctx->plane_height[1] = buf_params.height[1];
+             if (ctx->cp_pixfmt == V4L2_PIX_FMT_YUV420M) {
+-                ctx->plane_width[2] = parm.width[2];
+-                ctx->plane_height[2] = parm.height[2];
+-            } else if (ctx->cp_pixfmt == V4L2_PIX_FMT_NV12M) {
+-                ctx->plane_width[1] *= 2;
++                ctx->plane_width[2] = buf_params.width[2];
++                ctx->plane_height[2] = buf_params.height[2];
+             }
+ 
++            /* Set timestamp based on origin pts flags */
+             if (buf_index >= 0) {
+                 ctx->frame_pts[buf_index] =
+                                 v4l2_cp_buf.timestamp.tv_usec +
+@@ -547,7 +559,6 @@ static void *dec_capture_thread(void *arg)
+         }
+     }
+ 
+-error:
+     if (ctx->low_latency) {
+         pthread_mutex_lock(&ctx->frame_lock);
+         pthread_cond_broadcast(&ctx->frame_cond);
+@@ -559,7 +570,6 @@ error:
+     return NULL;
+ }
+ 
+-
+ int
+ nvv4l2_decoder_get_frame(AVCodecContext *avctx, nvv4l2_ctx_t *ctx,
+                          int *buf_index, NvFrame *frame)
+@@ -572,8 +582,8 @@ nvv4l2_decoder_get_frame(AVCodecContext *avctx, nvv4l2_ctx_t *ctx,
+     /* In low latency mode, block until a decoded frame is ready. */
+     if (ctx->low_latency) {
+         pthread_mutex_lock(&ctx->frame_lock);
+-        while (ctx->export_pool->capacity == 0 && !ctx->eos &&
+-               !ctx->in_error && ret != ETIMEDOUT) {
++        while (atomic_load(&ctx->export_pool->capacity) == 0 &&
++               !ctx->eos && !ctx->in_error && ret != ETIMEDOUT) {
+             /* 500ms timeout */
+             gettimeofday(&now, NULL);
+             timeout.tv_nsec = (now.tv_usec + 500000L) * 1000L;
+@@ -703,8 +713,10 @@ nvv4l2_ctx_t *nvv4l2_create_decoder(AVCodecContext *avctx,
+     ctx->op_buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+     ctx->cp_buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+ 
+-    for (uint32_t i = 0; i < NV_MAX_BUFFERS; i++)
++    for (uint32_t i = 0; i < NV_MAX_BUFFERS; i++) {
++        ctx->dmabuff_fd[i] = -1;
+         ctx->plane_dma_fd[i] = -1;
++    }
+ 
+     /* Allocate packet pool. */
+     ctx->export_pool = (NvQueues *)NVCALLOC(1, sizeof(NvQueues));
+@@ -821,13 +833,13 @@ int nvv4l2_decoder_close(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+ 
+         /* All allocated DMA buffers must be destroyed. */
+         for (uint32_t i = 0; i < ctx->cp_num_buffers; i++) {
+-            if (ctx->dmabuff_fd[i] != 0) {
++            if (ctx->dmabuff_fd[i] != -1) {
+                 ret = NvBufferDestroy(ctx->dmabuff_fd[i]);
+-                ctx->dmabuff_fd[i] = 0;
+                 if (ret < 0) {
+                     av_log(avctx, AV_LOG_ERROR,
+                            "Failed to destroy dma buffer!\n");
+                 }
++                ctx->dmabuff_fd[i] = -1;
+             }
+         }
+ 
+@@ -835,11 +847,11 @@ int nvv4l2_decoder_close(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+         for (uint32_t i = 0; i < NV_MAX_BUFFERS; i++) {
+             if (ctx->plane_dma_fd[i] != -1) {
+                 ret = NvBufferDestroy(ctx->plane_dma_fd[i]);
+-                ctx->plane_dma_fd[i] = -1;
+                 if (ret < 0) {
+                     av_log(avctx, AV_LOG_ERROR,
+                            "Failed to destroy plane buffer!\n");
+                 }
++                ctx->plane_dma_fd[i] = -1;
+             }
+         }
+ 
+@@ -862,7 +874,7 @@ int nvv4l2_decoder_close(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+     if (ctx->in_error) {
+         av_log(avctx, AV_LOG_VERBOSE, "Decoder Run failed\n");
+     } else {
+-        av_log(avctx, AV_LOG_VERBOSE, "Decoder Run is successful\n");
++        av_log(avctx, AV_LOG_VERBOSE, "Decoder Run was successful\n");
+     }
+ 
+     NVFREE(ctx);
+@@ -985,8 +997,9 @@ static void nvv4l2dec_flush(AVCodecContext *avctx)
+             v4l2_buf.m.planes[1].m.fd = ctx->dmabuff_fd[i];
+ 
+             pthread_mutex_unlock(&ctx->queue_lock);
+-            ret = nvv4l2_q_buffer(ctx, &v4l2_buf, NULL, ctx->cp_buf_type,
+-                           ctx->cp_mem_type, ctx->cp_num_planes);
++            ret = nvv4l2_q_buffer(ctx, &v4l2_buf, ctx->cp_buffers[i],
++                                  ctx->cp_buf_type, ctx->cp_mem_type,
++                                  ctx->cp_num_planes);
+             pthread_mutex_lock(&ctx->queue_lock);
+ 
+             if (ret) {
+-- 
+2.25.1
+

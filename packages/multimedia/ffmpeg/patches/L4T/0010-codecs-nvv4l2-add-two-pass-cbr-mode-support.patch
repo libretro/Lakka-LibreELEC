@@ -1,0 +1,125 @@
+From b7a72216ca1ed53f6428a3fca5949618d2059538 Mon Sep 17 00:00:00 2001
+From: CTCaer <ctcaer@gmail.com>
+Date: Fri, 18 Mar 2022 21:42:29 +0000
+Subject: [PATCH 10/39] codecs: nvv4l2: add two-pass cbr mode support
+
+To enable, use `twopass=on` as encoder option.
+
+This also forces CBR mode, even if VBR was defined in options.
+---
+ libavcodec/nvv4l2_enc.c | 50 ++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 47 insertions(+), 3 deletions(-)
+
+diff --git a/libavcodec/nvv4l2_enc.c b/libavcodec/nvv4l2_enc.c
+index 1e247d5645..cb7b7363f3 100644
+--- a/libavcodec/nvv4l2_enc.c
++++ b/libavcodec/nvv4l2_enc.c
+@@ -51,6 +51,14 @@
+  **  VP80 (VP8  Encoded bitstream)
+  */
+ 
++/*
++ ** Output plane memory type support:
++ **  V4L2_MEMORY_MMAP
++ **  V4L2_MEMORY_DMABUF
++ ** Capture plane memory type support:
++ **  V4L2_MEMORY_MMAP
++ */
++
+ typedef struct {
+     const AVClass *class;
+     nvv4l2_ctx_t *ctx;
+@@ -61,6 +69,7 @@ typedef struct {
+     int rc;
+     int preset;
+     int lossless;
++    int twopass;
+ } nvv4l2EncodeContext;
+ 
+ static int
+@@ -219,7 +228,7 @@ static void *enc_capture_thread(void *arg)
+         nvv4l2_pool_push(ctx, ctx->export_pool);
+ 
+         /* Queue the buffer. */
+-        ret = nvv4l2_q_buffer(ctx, &v4l2_cp_buf, NULL, ctx->cp_buf_type,
++        ret = nvv4l2_q_buffer(ctx, &v4l2_cp_buf, cp_buffer, ctx->cp_buf_type,
+                               ctx->cp_mem_type, ctx->cp_num_planes);
+ 
+         if (ret) {
+@@ -433,6 +442,20 @@ nvv4l2_ctx_t *nvv4l2_create_encoder(AVCodecContext *avctx,
+         }
+     }
+ 
++    /* Set Two-pass CBR mode. */
++    if (ctx->enc->twopass) {
++        /* Set encoder IDR interval. */
++        ret = nvv4l2_set_ext_controls(ctx->fd,
++                                      V4L2_CID_MPEG_VIDEOENC_TWO_PASS_CBR,
++                                      V4L2_CTRL_CLASS_MPEG,
++                                      1);
++        if (ret) {
++            av_log(avctx, AV_LOG_ERROR,
++                   "Failed to set encoder 2-pass cbr!\n");
++            ctx->in_error = true;
++        }
++    }
++
+     /* Set encoder IDR interval. */
+     ret = nvv4l2_set_ext_controls(ctx->fd, V4L2_CID_MPEG_VIDEO_IDR_INTERVAL,
+                                   V4L2_CTRL_CLASS_MPEG,
+@@ -607,8 +630,9 @@ nvv4l2_ctx_t *nvv4l2_create_encoder(AVCodecContext *avctx,
+         v4l2_buf.index = i;
+         v4l2_buf.m.planes = planes;
+ 
+-        ret = nvv4l2_q_buffer(ctx, &v4l2_buf, NULL, ctx->cp_buf_type,
+-                       ctx->cp_mem_type, ctx->cp_num_planes);
++        ret = nvv4l2_q_buffer(ctx, &v4l2_buf, ctx->cp_buffers[i],
++                              ctx->cp_buf_type, ctx->cp_mem_type,
++                              ctx->cp_num_planes);
+         if (ret) {
+             av_log(avctx, AV_LOG_ERROR, "Qing failed on capture plane!\n");
+             ctx->in_error = true;
+@@ -970,6 +994,10 @@ static NvEncoder *set_encoder_parameters(AVCodecContext *avctx,
+     enc->ratecontrol = nvv4l2_ctx->rc == 1 ?
+                             V4L2_MPEG_VIDEO_BITRATE_MODE_VBR :
+                             V4L2_MPEG_VIDEO_BITRATE_MODE_CBR;
++    if (nvv4l2_ctx->twopass) {
++        enc->twopass = 1;
++        enc->ratecontrol = V4L2_MPEG_VIDEO_BITRATE_MODE_CBR;
++    }
+ 
+     enc->width = avctx->width;
+     enc->height = avctx->height;
+@@ -1294,6 +1322,14 @@ static const AVOption options_h264[] = {
+     { "medium",    "", 0, AV_OPT_TYPE_CONST, { .i64 = 3 }, 0, 0, VE, "preset" },
+     { "fast",      "", 0, AV_OPT_TYPE_CONST, { .i64 = 2 }, 0, 0, VE, "preset" },
+     { "ultrafast", "", 0, AV_OPT_TYPE_CONST, { .i64 = 1 }, 0, 0, VE, "preset" },
++
++    { "2pass", "Enable Two-Pass CBR. (Forces CBR).",
++        OFFSET(twopass), AV_OPT_TYPE_INT, {.i64 = 0 }, 0, 1, VE },
++#define TWOPASS(name, value)  name, NULL, 0, AV_OPT_TYPE_CONST, \
++                           { .i64 = value }, 0, 0, VE, "twopass"
++    { TWOPASS("off", 0) },
++    { TWOPASS("on",  1) },
++#undef TWOPASS
+     { NULL }
+ };
+ 
+@@ -1359,6 +1395,14 @@ static const AVOption options_hevc[] = {
+     { "medium",    "", 0, AV_OPT_TYPE_CONST, { .i64 = 3 }, 0, 0, VE, "preset" },
+     { "fast",      "", 0, AV_OPT_TYPE_CONST, { .i64 = 2 }, 0, 0, VE, "preset" },
+     { "ultrafast", "", 0, AV_OPT_TYPE_CONST, { .i64 = 1 }, 0, 0, VE, "preset" },
++
++    { "2pass", "Enable Two-Pass CBR. (Forces CBR).",
++        OFFSET(twopass), AV_OPT_TYPE_INT, {.i64 = 0 }, 0, 1, VE },
++#define TWOPASS(name, value)  name, NULL, 0, AV_OPT_TYPE_CONST, \
++                           { .i64 = value }, 0, 0, VE, "twopass"
++    { TWOPASS("off", 0) },
++    { TWOPASS("on",  1) },
++#undef TWOPASS
+     { NULL }
+ };
+ 
+-- 
+2.25.1
+

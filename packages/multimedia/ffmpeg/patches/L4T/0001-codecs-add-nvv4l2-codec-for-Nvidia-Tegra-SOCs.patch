@@ -1,7 +1,69 @@
-diff -Naur ffmpeg-6.0/configure ffmpeg-6.0-2/configure
---- ffmpeg-6.0/configure	2023-06-04 19:34:55.681571179 +0200
-+++ ffmpeg-6.0-2/configure	2023-06-04 19:40:31.395734934 +0200
-@@ -336,6 +336,7 @@
+From 7df787ecf3260cbb9f370290afc13b77de740c4c Mon Sep 17 00:00:00 2001
+From: CTCaer <ctcaer@gmail.com>
+Date: Sat, 5 Mar 2022 03:27:27 +0000
+Subject: [PATCH 01/39] codecs: add nvv4l2 codec for Nvidia Tegra SOCs
+
+Use `--enable-nvv4l2` to enable it.
+
+This Codec uses customized V4L2, called NVV4L2 that adds various features.
+NVV4L2 uses the Tegra HW video engines NVDEC and NVENC.
+
+Decoder features:
+- Codecs: MPEG2, MPEG4, H264, HEVC, VP8, VP9
+- Output: YUV420, NV12
+- Low latency mode for realtime streaming by using `AV_CODEC_FLAG_LOW_DELAY`
+- Higher throughput than original Nvidia specs and provided software.
+  (Tegra X1: 4k@63, 1080p@265, 720p@439)
+
+Encoder features:
+- Codecs: H264, HEVC
+- Output: YUV420, YUV444, NV12, P010
+- Higher throughput than original Nvidia specs and provided software.
+  (Tegra X1: 4k@60, 1080p@202, 720p@414)
+
+- Options for H264:
+  profile: baseline, main (default), high, high444
+  level: 1.0 to 5.1 (default). (5.1 is L4T kernel limitation. Max is 6.2.)
+  rc: cbr, vbr (default)
+  lossless: off (default), on. (Sets profile to high444 and constant QP to 0)
+  preset: default (medium), slow, medium (default), fast, ultrafast
+  num_capture_buffers: 1 to 32. (Default: 10)
+  AVCodec defaults: b: 5M, g: 50, all others unchanged.
+
+- Options for HEVC:
+  profile: main (default), main10
+  tier: main (default), high
+  level: 1.0 to 6.2 (default)
+  rc: cbr, vbr (default)
+  lossless: off (default), on. (Sets constant QP to 0)
+  preset: default (medium), slow, medium (default), fast, ultrafast
+  num_capture_buffers: 1 to 32. (Default: 10)
+  AVCodec defaults: b: 5M, g: 50, all others unchanged.
+
+Decoder to Encoder speed:
+FPS are halved.
+
+Some formats are supported from Tegra X1 and up.
+For more, check the NVDEC/NVENC version support matrix.
+---
+ configure               |   23 +
+ libavcodec/Makefile     |   14 +-
+ libavcodec/allcodecs.c  |    8 +
+ libavcodec/nvv4l2.c     |  820 +++++++++++++++++++++++
+ libavcodec/nvv4l2.h     |  324 +++++++++
+ libavcodec/nvv4l2_dec.c | 1101 +++++++++++++++++++++++++++++++
+ libavcodec/nvv4l2_enc.c | 1389 +++++++++++++++++++++++++++++++++++++++
+ 7 files changed, 3678 insertions(+), 1 deletion(-)
+ create mode 100644 libavcodec/nvv4l2.c
+ create mode 100644 libavcodec/nvv4l2.h
+ create mode 100644 libavcodec/nvv4l2_dec.c
+ create mode 100644 libavcodec/nvv4l2_enc.c
+
+diff --git a/configure b/configure
+index 3cd3bdfb44..889b547071 100755
+--- a/configure
++++ b/configure
+@@ -336,6 +336,7 @@ External library support:
    --enable-cuda-nvcc       enable Nvidia CUDA compiler [no]
    --disable-cuda-llvm      disable CUDA compilation using clang [autodetect]
    --disable-cuvid          disable Nvidia CUVID support [autodetect]
@@ -9,7 +71,7 @@ diff -Naur ffmpeg-6.0/configure ffmpeg-6.0-2/configure
    --disable-d3d11va        disable Microsoft Direct3D 11 video acceleration code [autodetect]
    --disable-dxva2          disable Microsoft DirectX 9 video acceleration code [autodetect]
    --disable-ffnvcodec      disable dynamically linked Nvidia code [autodetect]
-@@ -1887,6 +1888,7 @@
+@@ -1887,6 +1888,7 @@ HWACCEL_AUTODETECT_LIBRARY_LIST="
      ffnvcodec
      nvdec
      nvenc
@@ -17,7 +79,7 @@ diff -Naur ffmpeg-6.0/configure ffmpeg-6.0-2/configure
      vaapi
      vdpau
      videotoolbox
-@@ -3129,6 +3131,8 @@
+@@ -3129,6 +3131,8 @@ qsvenc_select="qsv"
  qsvvpp_select="qsv"
  vaapi_encode_deps="vaapi"
  v4l2_m2m_deps="linux_videodev2_h sem_timedwait"
@@ -26,17 +88,18 @@ diff -Naur ffmpeg-6.0/configure ffmpeg-6.0-2/configure
  
  bilateral_cuda_filter_deps="ffnvcodec"
  bilateral_cuda_filter_deps_any="cuda_nvcc cuda_llvm"
-@@ -3177,6 +3181,9 @@
- h264_mmal_decoder_deps="mmal"
- h264_nvenc_encoder_deps="nvenc"
- h264_nvenc_encoder_select="atsc_a53"
+@@ -3153,6 +3157,10 @@ ddagrab_filter_deps="d3d11va IDXGIOutput1 DXGI_OUTDUPL_FRAME_INFO"
+ amf_deps_any="libdl LoadLibrary"
+ nvenc_deps="ffnvcodec"
+ nvenc_deps_any="libdl LoadLibrary"
++nvenc_encoder_deps="nvenc"
 +h264_nvv4l2_encoder_deps="nvv4l2"
 +h264_nvv4l2_decoder_deps="nvv4l2"
 +h264_nvv4l2_decoder_select="h264_mp4toannexb_bsf"
- h264_omx_encoder_deps="omx"
- h264_qsv_decoder_select="h264_mp4toannexb_bsf qsvdec"
- h264_qsv_encoder_select="atsc_a53 qsvenc"
-@@ -3197,6 +3204,9 @@
+ 
+ aac_mf_encoder_deps="mediafoundation"
+ ac3_mf_encoder_deps="mediafoundation"
+@@ -3197,6 +3205,9 @@ hevc_mediacodec_encoder_extralibs="-landroid"
  hevc_mediacodec_encoder_select="hevc_metadata"
  hevc_mf_encoder_deps="mediafoundation"
  hevc_nvenc_encoder_deps="nvenc"
@@ -46,7 +109,7 @@ diff -Naur ffmpeg-6.0/configure ffmpeg-6.0-2/configure
  hevc_nvenc_encoder_select="atsc_a53"
  hevc_qsv_decoder_select="hevc_mp4toannexb_bsf qsvdec"
  hevc_qsv_encoder_select="hevcparse qsvenc"
-@@ -3220,6 +3230,7 @@
+@@ -3220,6 +3231,7 @@ mpeg2_crystalhd_decoder_select="crystalhd"
  mpeg2_cuvid_decoder_deps="cuvid"
  mpeg2_mmal_decoder_deps="mmal"
  mpeg2_mediacodec_decoder_deps="mediacodec"
@@ -54,7 +117,7 @@ diff -Naur ffmpeg-6.0/configure ffmpeg-6.0-2/configure
  mpeg2_qsv_decoder_select="qsvdec"
  mpeg2_qsv_encoder_select="qsvenc"
  mpeg2_vaapi_encoder_select="cbs_mpeg2 vaapi_encode"
-@@ -3228,6 +3239,7 @@
+@@ -3228,6 +3240,7 @@ mpeg4_crystalhd_decoder_select="crystalhd"
  mpeg4_cuvid_decoder_deps="cuvid"
  mpeg4_mediacodec_decoder_deps="mediacodec"
  mpeg4_mmal_decoder_deps="mmal"
@@ -62,7 +125,7 @@ diff -Naur ffmpeg-6.0/configure ffmpeg-6.0-2/configure
  mpeg4_omx_encoder_deps="omx"
  mpeg4_v4l2m2m_decoder_deps="v4l2_m2m mpeg4_v4l2_m2m"
  mpeg4_v4l2m2m_encoder_deps="v4l2_m2m mpeg4_v4l2_m2m"
-@@ -3239,6 +3251,7 @@
+@@ -3239,6 +3252,7 @@ vc1_qsv_decoder_select="qsvdec"
  vc1_v4l2m2m_decoder_deps="v4l2_m2m vc1_v4l2_m2m"
  vp8_cuvid_decoder_deps="cuvid"
  vp8_mediacodec_decoder_deps="mediacodec"
@@ -70,7 +133,7 @@ diff -Naur ffmpeg-6.0/configure ffmpeg-6.0-2/configure
  vp8_qsv_decoder_select="qsvdec"
  vp8_rkmpp_decoder_deps="rkmpp"
  vp8_vaapi_encoder_deps="VAEncPictureParameterBufferVP8"
-@@ -3247,6 +3260,7 @@
+@@ -3247,6 +3261,7 @@ vp8_v4l2m2m_decoder_deps="v4l2_m2m vp8_v4l2_m2m"
  vp8_v4l2m2m_encoder_deps="v4l2_m2m vp8_v4l2_m2m"
  vp9_cuvid_decoder_deps="cuvid"
  vp9_mediacodec_decoder_deps="mediacodec"
@@ -78,7 +141,7 @@ diff -Naur ffmpeg-6.0/configure ffmpeg-6.0-2/configure
  vp9_qsv_decoder_select="qsvdec"
  vp9_rkmpp_decoder_deps="rkmpp"
  vp9_vaapi_encoder_deps="VAEncPictureParameterBufferVP9"
-@@ -3537,6 +3551,7 @@
+@@ -3537,6 +3552,7 @@ kmsgrab_indev_deps="libdrm"
  lavfi_indev_deps="avfilter"
  libcdio_indev_deps="libcdio"
  libdc1394_indev_deps="libdc1394"
@@ -86,7 +149,7 @@ diff -Naur ffmpeg-6.0/configure ffmpeg-6.0-2/configure
  openal_indev_deps="openal"
  opengl_outdev_deps="opengl"
  opengl_outdev_suggest="sdl2"
-@@ -7054,6 +7069,13 @@
+@@ -7054,6 +7070,13 @@ if enabled_any nvdec cuvid; then
      check_type "ffnvcodec/dynlink_cuda.h ffnvcodec/dynlink_cuviddec.h" "CUVIDAV1PICPARAMS"
  fi
  
@@ -100,70 +163,37 @@ diff -Naur ffmpeg-6.0/configure ffmpeg-6.0-2/configure
  enabled amf &&
      check_cpp_condition amf "AMF/core/Version.h" \
          "(AMF_VERSION_MAJOR << 48 | AMF_VERSION_MINOR << 32 | AMF_VERSION_RELEASE << 16 | AMF_VERSION_BUILD_NUM) >= 0x00010004001c0000"
-diff -Naur ffmpeg-6.0/libavcodec/allcodecs.c ffmpeg-6.0-2/libavcodec/allcodecs.c
---- ffmpeg-6.0/libavcodec/allcodecs.c	2023-06-04 19:34:55.301564187 +0200
-+++ ffmpeg-6.0-2/libavcodec/allcodecs.c	2023-06-04 19:54:39.714797058 +0200
-@@ -150,6 +150,8 @@
- extern const FFCodec ff_h263p_encoder;
- extern const FFCodec ff_h263p_decoder;
- extern const FFCodec ff_h263_v4l2m2m_decoder;
-+extern const FFCodec ff_h264_nvv4l2_encoder;
-+extern const FFCodec ff_h264_nvv4l2_decoder;
- extern const FFCodec ff_h264_decoder;
- extern const FFCodec ff_h264_crystalhd_decoder;
- extern const FFCodec ff_h264_v4l2m2m_decoder;
-@@ -160,6 +162,8 @@
- extern const FFCodec ff_h264_rkmpp_decoder;
- extern const FFCodec ff_hap_encoder;
- extern const FFCodec ff_hap_decoder;
-+extern const FFCodec ff_hevc_nvv4l2_encoder;
-+extern const FFCodec ff_hevc_nvv4l2_decoder;
- extern const FFCodec ff_hevc_decoder;
- extern const FFCodec ff_hevc_qsv_decoder;
- extern const FFCodec ff_hevc_rkmpp_decoder;
-@@ -205,8 +209,10 @@
- extern const FFCodec ff_motionpixels_decoder;
- extern const FFCodec ff_mpeg1video_encoder;
- extern const FFCodec ff_mpeg1video_decoder;
-+extern const FFCodec ff_mpeg2_nvv4l2_decoder;
- extern const FFCodec ff_mpeg2video_encoder;
- extern const FFCodec ff_mpeg2video_decoder;
-+extern const FFCodec ff_mpeg4_nvv4l2_decoder;
- extern const FFCodec ff_mpeg4_encoder;
- extern const FFCodec ff_mpeg4_decoder;
- extern const FFCodec ff_mpeg4_crystalhd_decoder;
-@@ -376,9 +382,11 @@
- extern const FFCodec ff_vp6a_decoder;
- extern const FFCodec ff_vp6f_decoder;
- extern const FFCodec ff_vp7_decoder;
-+extern const FFCodec ff_vp8_nvv4l2_decoder;
- extern const FFCodec ff_vp8_decoder;
- extern const FFCodec ff_vp8_rkmpp_decoder;
- extern const FFCodec ff_vp8_v4l2m2m_decoder;
-+extern const FFCodec ff_vp9_nvv4l2_decoder;
- extern const FFCodec ff_vp9_decoder;
- extern const FFCodec ff_vp9_rkmpp_decoder;
- extern const FFCodec ff_vp9_v4l2m2m_decoder;
-diff -Naur ffmpeg-6.0/libavcodec/Makefile ffmpeg-6.0-2/libavcodec/Makefile
---- ffmpeg-6.0/libavcodec/Makefile	2023-06-04 19:34:55.229562862 +0200
-+++ ffmpeg-6.0-2/libavcodec/Makefile	2023-06-04 19:45:38.465357287 +0200
-@@ -148,6 +148,7 @@
+diff --git a/libavcodec/Makefile b/libavcodec/Makefile
+index 389253f5d0..78f43ca9a1 100644
+--- a/libavcodec/Makefile
++++ b/libavcodec/Makefile
+@@ -148,6 +148,8 @@ OBJS-$(CONFIG_MSMPEG4DEC)              += msmpeg4dec.o msmpeg4.o msmpeg4data.o \
  OBJS-$(CONFIG_MSMPEG4ENC)              += msmpeg4enc.o msmpeg4.o msmpeg4data.o \
                                            msmpeg4_vc1_data.o
  OBJS-$(CONFIG_MSS34DSP)                += mss34dsp.o jpegquanttables.o
++OBJS-$(CONFIG_NVENC)                   += nvenc.o
 +OBJS-$(CONFIG_NVV4L2)                  += nvv4l2.o
  OBJS-$(CONFIG_PIXBLOCKDSP)             += pixblockdsp.o
  OBJS-$(CONFIG_QPELDSP)                 += qpeldsp.o
  OBJS-$(CONFIG_QSV)                     += qsv.o
-@@ -409,6 +410,7 @@
+@@ -404,11 +406,15 @@ OBJS-$(CONFIG_H264_DECODER)            += h264dec.o h264_cabac.o h264_cavlc.o \
+                                           h264_slice.o h264data.o h274.o
+ OBJS-$(CONFIG_H264_AMF_ENCODER)        += amfenc_h264.o
+ OBJS-$(CONFIG_H264_CUVID_DECODER)      += cuviddec.o
++OBJS-$(CONFIG_H264_NVV4L2_DECODER)     += nvv4l2_dec.o
+ OBJS-$(CONFIG_H264_MEDIACODEC_DECODER) += mediacodecdec.o
+ OBJS-$(CONFIG_H264_MEDIACODEC_ENCODER) += mediacodecenc.o
  OBJS-$(CONFIG_H264_MF_ENCODER)         += mfenc.o mf_utils.o
  OBJS-$(CONFIG_H264_MMAL_DECODER)       += mmaldec.o
- OBJS-$(CONFIG_H264_NVENC_ENCODER)      += nvenc_h264.o nvenc.o
+-OBJS-$(CONFIG_H264_NVENC_ENCODER)      += nvenc_h264.o nvenc.o
++OBJS-$(CONFIG_H264_NVENC_ENCODER)      += nvenc_h264.o
++OBJS-$(CONFIG_NVENC_ENCODER)           += nvenc_h264.o
++OBJS-$(CONFIG_NVENC_H264_ENCODER)      += nvenc_h264.o
 +OBJS-$(CONFIG_H264_NVV4L2_ENCODER)     += nvv4l2_enc.o
  OBJS-$(CONFIG_H264_OMX_ENCODER)        += omx.o
  OBJS-$(CONFIG_H264_QSV_DECODER)        += qsvdec.o
  OBJS-$(CONFIG_H264_QSV_ENCODER)        += qsvenc_h264.o
-@@ -430,6 +432,7 @@
+@@ -430,6 +436,7 @@ OBJS-$(CONFIG_HEVC_DECODER)            += hevcdec.o hevc_mvs.o \
                                            h274.o
  OBJS-$(CONFIG_HEVC_AMF_ENCODER)        += amfenc_hevc.o
  OBJS-$(CONFIG_HEVC_CUVID_DECODER)      += cuviddec.o
@@ -171,7 +201,7 @@ diff -Naur ffmpeg-6.0/libavcodec/Makefile ffmpeg-6.0-2/libavcodec/Makefile
  OBJS-$(CONFIG_HEVC_MEDIACODEC_DECODER) += mediacodecdec.o
  OBJS-$(CONFIG_HEVC_MEDIACODEC_ENCODER) += mediacodecenc.o
  OBJS-$(CONFIG_HEVC_MF_ENCODER)         += mfenc.o mf_utils.o
-@@ -441,6 +444,7 @@
+@@ -441,6 +448,7 @@ OBJS-$(CONFIG_HEVC_RKMPP_DECODER)      += rkmppdec.o
  OBJS-$(CONFIG_HEVC_VAAPI_ENCODER)      += vaapi_encode_h265.o h265_profile_level.o \
                                            h2645data.o
  OBJS-$(CONFIG_HEVC_V4L2M2M_DECODER)    += v4l2_m2m_dec.o
@@ -179,7 +209,7 @@ diff -Naur ffmpeg-6.0/libavcodec/Makefile ffmpeg-6.0-2/libavcodec/Makefile
  OBJS-$(CONFIG_HEVC_V4L2M2M_ENCODER)    += v4l2_m2m_enc.o
  OBJS-$(CONFIG_HEVC_VIDEOTOOLBOX_ENCODER) += videotoolboxenc.o
  OBJS-$(CONFIG_HNM4_VIDEO_DECODER)      += hnm4video.o
-@@ -535,12 +539,14 @@
+@@ -535,12 +543,14 @@ OBJS-$(CONFIG_MPEG2_QSV_ENCODER)       += qsvenc_mpeg2.o
  OBJS-$(CONFIG_MPEG2VIDEO_DECODER)      += mpeg12dec.o mpeg12.o mpeg12data.o
  OBJS-$(CONFIG_MPEG2VIDEO_ENCODER)      += mpeg12enc.o mpeg12.o
  OBJS-$(CONFIG_MPEG2_CUVID_DECODER)     += cuviddec.o
@@ -194,7 +224,7 @@ diff -Naur ffmpeg-6.0/libavcodec/Makefile ffmpeg-6.0-2/libavcodec/Makefile
  OBJS-$(CONFIG_MPEG4_MEDIACODEC_DECODER) += mediacodecdec.o
  OBJS-$(CONFIG_MPEG4_OMX_ENCODER)       += omx.o
  OBJS-$(CONFIG_MPEG4_V4L2M2M_DECODER)   += v4l2_m2m_dec.o
-@@ -763,6 +769,7 @@
+@@ -763,6 +773,7 @@ OBJS-$(CONFIG_VP6_DECODER)             += vp6.o vp56.o vp56data.o \
  OBJS-$(CONFIG_VP7_DECODER)             += vp8.o vpx_rac.o
  OBJS-$(CONFIG_VP8_DECODER)             += vp8.o vpx_rac.o
  OBJS-$(CONFIG_VP8_CUVID_DECODER)       += cuviddec.o
@@ -202,7 +232,7 @@ diff -Naur ffmpeg-6.0/libavcodec/Makefile ffmpeg-6.0-2/libavcodec/Makefile
  OBJS-$(CONFIG_VP8_MEDIACODEC_DECODER)  += mediacodecdec.o
  OBJS-$(CONFIG_VP8_QSV_DECODER)         += qsvdec.o
  OBJS-$(CONFIG_VP8_RKMPP_DECODER)       += rkmppdec.o
-@@ -773,6 +780,7 @@
+@@ -773,6 +784,7 @@ OBJS-$(CONFIG_VP9_DECODER)             += vp9.o vp9data.o vp9dsp.o vp9lpf.o vp9r
                                            vp9block.o vp9prob.o vp9mvs.o vpx_rac.o \
                                            vp9dsp_8bpp.o vp9dsp_10bpp.o vp9dsp_12bpp.o
  OBJS-$(CONFIG_VP9_CUVID_DECODER)       += cuviddec.o
@@ -210,9 +240,56 @@ diff -Naur ffmpeg-6.0/libavcodec/Makefile ffmpeg-6.0-2/libavcodec/Makefile
  OBJS-$(CONFIG_VP9_MEDIACODEC_DECODER)  += mediacodecdec.o
  OBJS-$(CONFIG_VP9_RKMPP_DECODER)       += rkmppdec.o
  OBJS-$(CONFIG_VP9_VAAPI_ENCODER)       += vaapi_encode_vp9.o
-diff -Naur ffmpeg-6.0/libavcodec/nvv4l2.c ffmpeg-6.0-2/libavcodec/nvv4l2.c
---- ffmpeg-6.0/libavcodec/nvv4l2.c	1970-01-01 01:00:00.000000000 +0100
-+++ ffmpeg-6.0-2/libavcodec/nvv4l2.c	2023-06-04 19:38:13.741210367 +0200
+diff --git a/libavcodec/allcodecs.c b/libavcodec/allcodecs.c
+index e593ad19af..8eb911eec2 100644
+--- a/libavcodec/allcodecs.c
++++ b/libavcodec/allcodecs.c
+@@ -150,6 +150,8 @@ extern const FFCodec ff_h263i_decoder;
+ extern const FFCodec ff_h263p_encoder;
+ extern const FFCodec ff_h263p_decoder;
+ extern const FFCodec ff_h263_v4l2m2m_decoder;
++extern const FFCodec ff_h264_nvv4l2_encoder;
++extern const FFCodec ff_h264_nvv4l2_decoder;
+ extern const FFCodec ff_h264_decoder;
+ extern const FFCodec ff_h264_crystalhd_decoder;
+ extern const FFCodec ff_h264_v4l2m2m_decoder;
+@@ -160,6 +162,8 @@ extern const FFCodec ff_h264_qsv_decoder;
+ extern const FFCodec ff_h264_rkmpp_decoder;
+ extern const FFCodec ff_hap_encoder;
+ extern const FFCodec ff_hap_decoder;
++extern const FFCodec ff_hevc_nvv4l2_encoder;
++extern const FFCodec ff_hevc_nvv4l2_decoder;
+ extern const FFCodec ff_hevc_decoder;
+ extern const FFCodec ff_hevc_qsv_decoder;
+ extern const FFCodec ff_hevc_rkmpp_decoder;
+@@ -205,8 +209,10 @@ extern const FFCodec ff_mobiclip_decoder;
+ extern const FFCodec ff_motionpixels_decoder;
+ extern const FFCodec ff_mpeg1video_encoder;
+ extern const FFCodec ff_mpeg1video_decoder;
++extern const FFCodec ff_mpeg2_nvv4l2_decoder;
+ extern const FFCodec ff_mpeg2video_encoder;
+ extern const FFCodec ff_mpeg2video_decoder;
++extern const FFCodec ff_mpeg4_nvv4l2_decoder;
+ extern const FFCodec ff_mpeg4_encoder;
+ extern const FFCodec ff_mpeg4_decoder;
+ extern const FFCodec ff_mpeg4_crystalhd_decoder;
+@@ -376,9 +382,11 @@ extern const FFCodec ff_vp6_decoder;
+ extern const FFCodec ff_vp6a_decoder;
+ extern const FFCodec ff_vp6f_decoder;
+ extern const FFCodec ff_vp7_decoder;
++extern const FFCodec ff_vp8_nvv4l2_decoder;
+ extern const FFCodec ff_vp8_decoder;
+ extern const FFCodec ff_vp8_rkmpp_decoder;
+ extern const FFCodec ff_vp8_v4l2m2m_decoder;
++extern const FFCodec ff_vp9_nvv4l2_decoder;
+ extern const FFCodec ff_vp9_decoder;
+ extern const FFCodec ff_vp9_rkmpp_decoder;
+ extern const FFCodec ff_vp9_v4l2m2m_decoder;
+diff --git a/libavcodec/nvv4l2.c b/libavcodec/nvv4l2.c
+new file mode 100644
+index 0000000000..b3e4a27823
+--- /dev/null
++++ b/libavcodec/nvv4l2.c
 @@ -0,0 +1,820 @@
 +/*
 + * Copyright (c) 2021-2022, CTCaer <ctcaer@gmail.com>
@@ -1034,9 +1111,341 @@ diff -Naur ffmpeg-6.0/libavcodec/nvv4l2.c ffmpeg-6.0-2/libavcodec/nvv4l2.c
 +        fdesc.index++;
 +    }
 +}
-diff -Naur ffmpeg-6.0/libavcodec/nvv4l2_dec.c ffmpeg-6.0-2/libavcodec/nvv4l2_dec.c
---- ffmpeg-6.0/libavcodec/nvv4l2_dec.c	1970-01-01 01:00:00.000000000 +0100
-+++ ffmpeg-6.0-2/libavcodec/nvv4l2_dec.c	2023-06-04 19:38:13.741210367 +0200
+diff --git a/libavcodec/nvv4l2.h b/libavcodec/nvv4l2.h
+new file mode 100644
+index 0000000000..5c65e2bec7
+--- /dev/null
++++ b/libavcodec/nvv4l2.h
+@@ -0,0 +1,324 @@
++/*
++ * Copyright (c) 2021-2022, CTCaer <ctcaer@gmail.com>
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
++ * DEALINGS IN THE SOFTWARE.
++ */
++
++/**
++ * Specifies the decoder device node.
++ */
++#ifndef __nvv4l2_H__
++#define __nvv4l2_H__
++
++#include <stdlib.h>
++#include <stdint.h>
++#include <stdbool.h>
++#include <libv4l2.h>
++#include <linux/videodev2.h>
++#include "avcodec.h"
++
++#include "nvbuf_utils.h"
++#include "v4l2_nv_extensions.h"
++
++#define NV_MAX_BUFFERS 32
++
++/**
++ * Specifies the maximum number of planes a buffer can contain.
++ */
++#define NV_MAX_PLANES 3
++#define NVMIN(a,b) (((a) < (b)) ? (a) : (b))
++#define NVMAX(a, b) ((a) > (b) ? (a) : (b))
++
++/* Use app malloc/free implementation */
++#define NVMALLOC(size) (av_malloc((size)))
++#define NVCALLOC(num, size) (av_mallocz((num) * (size)))
++#define NVFREE(ptr) (av_free((ptr)))
++
++typedef struct _queue {
++    uint32_t capacity;
++    uint32_t front;
++    uint32_t back;
++} NvQueues;
++
++typedef enum {
++    NV_PIX_NV12,
++    NV_PIX_YUV420
++} NvPixFormat;
++
++typedef struct _NVPACKET {
++    uint32_t flags;
++    uint32_t payload_size;
++    uint8_t *payload;
++    uint32_t width;
++    uint32_t height;
++    uint64_t pts;
++} NvPacket;
++
++typedef struct _NVFRAME {
++    uint32_t flags;
++    uint32_t payload_size[3];
++    uint8_t *payload[3];
++    uint32_t width;
++    uint32_t height;
++    uint64_t pts;
++} NvFrame;
++
++typedef enum {
++    NvVideoCodec_H264,              /**< H.264 */
++    NvVideoCodec_MPEG4,             /**< MPEG-4 */
++    NvVideoCodec_MPEG2,             /**< MPEG-2 */
++    NvVideoCodec_VP8,               /**< VP8 */
++    NvVideoCodec_VP9,               /**< VP9 */
++    NvVideoCodec_HEVC,              /**< H.265/HEVC */
++    NvVideoCodec_UNDEFINED,
++} NvCodingType;
++
++typedef struct {
++    uint32_t width;                 /**< Holds the width of the plane in pixels. */
++    uint32_t height;                /**< Holds the height of the plane in pixels. */
++
++    uint32_t bytesperpixel;         /**< Holds the bytes used to represent one
++                                         pixel in the plane. */
++    uint32_t stride;                /**< Holds the stride of the plane in bytes. */
++    uint32_t sizeimage;             /**< Holds the size of the plane in bytes. */
++} NvBufferPlaneFormat;
++
++    /**
++     * Holds the buffer plane parameters.
++     */
++
++typedef struct {
++    NvBufferPlaneFormat fmt;        /**< Holds the format of the plane. */
++    uint8_t *data;                  /**< Holds a pointer to the plane memory. */
++    uint32_t bytesused;             /**< Holds the number of valid bytes in the plane. */
++    int fd;                         /**< Holds the file descriptor (FD) of the plane of the
++                                     exported buffer, in the case of V4L2 MMAP buffers. */
++    uint32_t mem_offset;            /**< Holds the offset of the first valid byte
++                                         from the data pointer. */
++    uint32_t length;                /**< Holds the size of the buffer in bytes. */
++} NvBufferPlane;
++
++typedef struct {
++    enum v4l2_buf_type buf_type;    /**< Type of the buffer. */
++    enum v4l2_memory memory_type;   /**< Type of memory associated with the buffer. */
++    uint32_t index;                 /**< Holds the buffer index. */
++    uint32_t n_planes;              /**< Holds the number of planes in the buffer. */
++    NvBufferPlane planes[NV_MAX_PLANES];
++    bool mapped;
++} NvBuffer;
++
++typedef struct {
++    uint32_t width;
++    uint32_t height;
++    bool low_latency;
++    uint32_t profile;
++    uint32_t bitrate;
++    uint32_t level;
++    uint32_t tier;
++    uint32_t preset_type;
++    uint32_t lossless;
++    uint32_t iframe_interval;
++    uint32_t idr_interval;
++    uint32_t fps_n;
++    uint32_t fps_d;
++    int qmin;
++    int qmax;
++    int num_b_frames;
++    uint32_t num_ref;
++    bool sps_pps_at_idr;
++    uint32_t ratecontrol;
++} NvEncoder;
++
++/**
++ * @brief Struct defining the decoder context.
++ * The video decoder device node is `/dev/nvhost-nvdec`. The category name
++ * for the decoder is \c "NVDEC".
++ *
++ * The context stores the information for decoding.
++ * Refer to [V4L2 Video Decoder](group__V4L2Dec.html) for more information on the decoder.
++ */
++
++typedef struct {
++    uint32_t codec_width;
++    uint32_t codec_height;
++
++    uint32_t op_pixfmt;
++    uint32_t cp_pixfmt;
++    enum v4l2_memory op_mem_type;
++    enum v4l2_memory cp_mem_type;
++    enum v4l2_buf_type op_buf_type;
++    enum v4l2_buf_type cp_buf_type;
++    NvBufferPlaneFormat op_planefmts[NV_MAX_PLANES];
++    NvBufferPlaneFormat cp_planefmts[NV_MAX_PLANES];
++    uint32_t cp_num_planes;
++    uint32_t op_num_planes;
++    uint32_t cp_num_buffers;
++    uint32_t op_num_buffers;
++    NvQueues *export_pool;
++    NvBuffer **op_buffers;
++    NvBuffer **cp_buffers;
++    uint32_t num_active_op_buffers;
++    uint32_t num_queued_op_buffers;
++    uint32_t num_queued_cp_buffers;
++
++    pthread_mutex_t queue_lock;
++    pthread_cond_t queue_cond;
++    pthread_mutex_t frame_lock;
++    pthread_cond_t frame_cond;
++    pthread_mutex_t pool_lock;
++    pthread_t capture_thread;
++
++    bool in_error;
++    bool eos;
++    bool op_streamon;
++    bool cp_streamon;
++    bool draining_event;
++    bool low_latency;
++
++    int fd;
++    int out_dma_fd;
++    int dmabuff_fd[NV_MAX_BUFFERS];
++
++    int      plane_dma_fd[NV_MAX_BUFFERS];
++    uint32_t plane_width[MAX_NUM_PLANES];
++    uint32_t plane_height[MAX_NUM_PLANES];
++    uint64_t frame_pts[NV_MAX_BUFFERS];
++
++    uint8_t *packet[NV_MAX_BUFFERS];
++    uint32_t packet_buf_size[NV_MAX_BUFFERS];
++    uint32_t packet_size[NV_MAX_BUFFERS];
++    bool packet_keyflag[NV_MAX_BUFFERS];
++
++    NvEncoder *enc;
++    AVCodecContext *avctx;
++} nvv4l2_ctx_t;
++
++/* NVV4L2 common functions */
++uint32_t nvv4l2_map_nvcodec_type(NvCodingType nv_codec_type);
++int
++nvv4l2_pool_idx_next(nvv4l2_ctx_t *ctx, NvQueues *q);
++void
++nvv4l2_pool_push(nvv4l2_ctx_t *ctx, NvQueues *q);
++int
++nvv4l2_pool_pop(nvv4l2_ctx_t *ctx, NvQueues *q);
++int
++nvv4l2_create_bufferfmt(NvBuffer *buffer, enum v4l2_buf_type buf_type,
++                     enum v4l2_memory memory_type, uint32_t n_planes,
++                     NvBufferPlaneFormat *fmt, uint32_t index);
++int
++nvv4l2_map_out(nvv4l2_ctx_t *ctx, struct v4l2_buffer *v4l2_buf,
++               enum v4l2_buf_type buf_type, enum v4l2_memory mem_type,
++               int dma_fd);
++int
++nvv4l2_unmap_out(nvv4l2_ctx_t *ctx, int index, enum v4l2_buf_type buf_type,
++                 enum v4l2_memory mem_type, int dma_fd);
++void
++nvv4l2_destroyBuffer(nvv4l2_ctx_t *ctx, NvBuffer *buffer);
++int
++nvv4l2_allocate_memory(nvv4l2_ctx_t *ctx, NvBuffer *buffer);
++int
++nvv4l2_map(nvv4l2_ctx_t *ctx, NvBuffer *buffer);
++void
++nvv4l2_unmap(nvv4l2_ctx_t *ctx, NvBuffer *buffer);
++int
++nvv4l2_query_buffer(nvv4l2_ctx_t *ctx, enum v4l2_buf_type buf_type,
++                    enum v4l2_memory memory_type, uint32_t num_planes,
++                    uint32_t index);
++int
++nvv4l2_export_buffer(nvv4l2_ctx_t *ctx, enum v4l2_buf_type buf_type,
++                     uint32_t num_planes, uint32_t index);
++int
++nvv4l2_fill_buffer_plane_format(nvv4l2_ctx_t *ctx,
++                                uint32_t *num_planes,
++                                NvBufferPlaneFormat *planefmts,
++                                uint32_t width, uint32_t height,
++                                uint32_t pixfmt);
++int
++nvv4l2_dq_event(nvv4l2_ctx_t *ctx, struct v4l2_event *event,
++                uint32_t max_wait_ms);
++int
++nvv4l2_dq_buffer(nvv4l2_ctx_t *ctx, struct v4l2_buffer *v4l2_buf,
++                 NvBuffer **buffer, enum v4l2_buf_type buf_type,
++                 enum v4l2_memory memory_type, uint32_t num_retries);
++int
++nvv4l2_q_buffer(nvv4l2_ctx_t *ctx, struct v4l2_buffer *v4l2_buf,
++                NvBuffer *buffer, enum v4l2_buf_type buf_type,
++                enum v4l2_memory memory_type, int num_planes);
++int
++nvv4l2_req_buffers_on_capture_plane(nvv4l2_ctx_t *ctx,
++                                    enum v4l2_buf_type buf_type,
++                                    enum v4l2_memory mem_type,
++                                    int num_buffers);
++int
++nvv4l2_req_buffers_on_output_plane(nvv4l2_ctx_t *ctx,
++                                   enum v4l2_buf_type buf_type,
++                                   enum v4l2_memory mem_type,
++                                   int num_buffers);
++int
++nvv4l2_set_ext_controls(int fd, uint32_t id,
++                        uint32_t class, uint32_t value);
++int
++nvv4l2_set_ext_control_qp_range(int fd, uint32_t qpmin,
++                                uint32_t qpmax);
++int
++nvv4l2_set_ext_control_constant_qp(int fd, uint32_t qpval);
++int
++nvv4l2_get_ext_control_metadata(int fd, uint32_t buffer_index,
++                    v4l2_ctrl_videoenc_outputbuf_metadata *enc_metadata);
++int
++nvv4l2_set_stream_control_framerate(int fd,  uint32_t buf_type,
++                                    uint32_t framerate_num,
++                                    uint32_t framerate_den);
++int
++nvv4l2_subscribe_event(int fd, uint32_t type, uint32_t id,
++                       uint32_t flags);
++
++/* NVV4L2 debug functions */
++void
++nvv4l2_dbg_plane_supported_formats(nvv4l2_ctx_t *ctx,
++                                   uint32_t buf_type);
++
++/* NVV4L2 decoder functions */
++nvv4l2_ctx_t *nvv4l2_create_decoder(AVCodecContext *avctx,
++                                    NvCodingType nv_codec_type,
++                                    int pix_fmt);
++int
++nvv4l2_decoder_put_packet(AVCodecContext *avctx, nvv4l2_ctx_t *ctx,
++                          NvPacket *packet);
++int
++nvv4l2_decoder_get_frame(AVCodecContext *avctx, nvv4l2_ctx_t *ctx,
++                         int *buf_index, NvFrame *frame);
++int nvv4l2_decoder_close(AVCodecContext *avctx, nvv4l2_ctx_t *ctx);
++
++/* NVV4L2 encoder functions */
++nvv4l2_ctx_t *nvv4l2_create_encoder(AVCodecContext *avctx,
++                                    NvEncoder *enc,
++                                    NvCodingType codingType,
++                                    int pix_fmt);
++int
++nvv4l2_encoder_put_frame(AVCodecContext *avctx, nvv4l2_ctx_t *ctx,
++                         NvFrame *frame);
++int
++nvv4l2_encoder_get_packet(AVCodecContext *avctx,
++                          nvv4l2_ctx_t *ctx,
++                          NvPacket *packet);
++int
++nvv4l2_encoder_close(AVCodecContext *avctx, nvv4l2_ctx_t *ctx);
++
++#endif
+diff --git a/libavcodec/nvv4l2_dec.c b/libavcodec/nvv4l2_dec.c
+new file mode 100644
+index 0000000000..ab7f0ee45e
+--- /dev/null
++++ b/libavcodec/nvv4l2_dec.c
 @@ -0,0 +1,1101 @@
 +/*
 + * Copyright (c) 2021-2022, CTCaer <ctcaer@gmail.com>
@@ -2139,9 +2548,11 @@ diff -Naur ffmpeg-6.0/libavcodec/nvv4l2_dec.c ffmpeg-6.0-2/libavcodec/nvv4l2_dec
 +NVV4L2_DEC(mpeg4, AV_CODEC_ID_MPEG4,      NULL);
 +NVV4L2_DEC(vp9,   AV_CODEC_ID_VP9,        NULL);
 +NVV4L2_DEC(vp8,   AV_CODEC_ID_VP8,        NULL);
-diff -Naur ffmpeg-6.0/libavcodec/nvv4l2_enc.c ffmpeg-6.0-2/libavcodec/nvv4l2_enc.c
---- ffmpeg-6.0/libavcodec/nvv4l2_enc.c	1970-01-01 01:00:00.000000000 +0100
-+++ ffmpeg-6.0-2/libavcodec/nvv4l2_enc.c	2023-06-04 19:38:13.745210441 +0200
+diff --git a/libavcodec/nvv4l2_enc.c b/libavcodec/nvv4l2_enc.c
+new file mode 100644
+index 0000000000..e85d20dfda
+--- /dev/null
++++ b/libavcodec/nvv4l2_enc.c
 @@ -0,0 +1,1389 @@
 +/*
 + * Copyright (c) 2021-2022, CTCaer <ctcaer@gmail.com>
@@ -3532,331 +3943,6 @@ diff -Naur ffmpeg-6.0/libavcodec/nvv4l2_enc.c ffmpeg-6.0-2/libavcodec/nvv4l2_enc
 +
 +NVV4L2_ENC(h264, AV_CODEC_ID_H264);
 +NVV4L2_ENC(hevc, AV_CODEC_ID_HEVC);
-diff -Naur ffmpeg-6.0/libavcodec/nvv4l2.h ffmpeg-6.0-2/libavcodec/nvv4l2.h
---- ffmpeg-6.0/libavcodec/nvv4l2.h	1970-01-01 01:00:00.000000000 +0100
-+++ ffmpeg-6.0-2/libavcodec/nvv4l2.h	2023-06-04 19:38:13.741210367 +0200
-@@ -0,0 +1,324 @@
-+/*
-+ * Copyright (c) 2021-2022, CTCaer <ctcaer@gmail.com>
-+ *
-+ * Permission is hereby granted, free of charge, to any person obtaining a
-+ * copy of this software and associated documentation files (the "Software"),
-+ * to deal in the Software without restriction, including without limitation
-+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
-+ * and/or sell copies of the Software, and to permit persons to whom the
-+ * Software is furnished to do so, subject to the following conditions:
-+ *
-+ * The above copyright notice and this permission notice shall be included in
-+ * all copies or substantial portions of the Software.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-+ * DEALINGS IN THE SOFTWARE.
-+ */
-+
-+/**
-+ * Specifies the decoder device node.
-+ */
-+#ifndef __nvv4l2_H__
-+#define __nvv4l2_H__
-+
-+#include <stdlib.h>
-+#include <stdint.h>
-+#include <stdbool.h>
-+#include <libv4l2.h>
-+#include <linux/videodev2.h>
-+#include "avcodec.h"
-+
-+#include "nvbuf_utils.h"
-+#include "v4l2_nv_extensions.h"
-+
-+#define NV_MAX_BUFFERS 32
-+
-+/**
-+ * Specifies the maximum number of planes a buffer can contain.
-+ */
-+#define NV_MAX_PLANES 3
-+#define NVMIN(a,b) (((a) < (b)) ? (a) : (b))
-+#define NVMAX(a, b) ((a) > (b) ? (a) : (b))
-+
-+/* Use app malloc/free implementation */
-+#define NVMALLOC(size) (av_malloc((size)))
-+#define NVCALLOC(num, size) (av_mallocz((num) * (size)))
-+#define NVFREE(ptr) (av_free((ptr)))
-+
-+typedef struct _queue {
-+    uint32_t capacity;
-+    uint32_t front;
-+    uint32_t back;
-+} NvQueues;
-+
-+typedef enum {
-+    NV_PIX_NV12,
-+    NV_PIX_YUV420
-+} NvPixFormat;
-+
-+typedef struct _NVPACKET {
-+    uint32_t flags;
-+    uint32_t payload_size;
-+    uint8_t *payload;
-+    uint32_t width;
-+    uint32_t height;
-+    uint64_t pts;
-+} NvPacket;
-+
-+typedef struct _NVFRAME {
-+    uint32_t flags;
-+    uint32_t payload_size[3];
-+    uint8_t *payload[3];
-+    uint32_t width;
-+    uint32_t height;
-+    uint64_t pts;
-+} NvFrame;
-+
-+typedef enum {
-+    NvVideoCodec_H264,              /**< H.264 */
-+    NvVideoCodec_MPEG4,             /**< MPEG-4 */
-+    NvVideoCodec_MPEG2,             /**< MPEG-2 */
-+    NvVideoCodec_VP8,               /**< VP8 */
-+    NvVideoCodec_VP9,               /**< VP9 */
-+    NvVideoCodec_HEVC,              /**< H.265/HEVC */
-+    NvVideoCodec_UNDEFINED,
-+} NvCodingType;
-+
-+typedef struct {
-+    uint32_t width;                 /**< Holds the width of the plane in pixels. */
-+    uint32_t height;                /**< Holds the height of the plane in pixels. */
-+
-+    uint32_t bytesperpixel;         /**< Holds the bytes used to represent one
-+                                         pixel in the plane. */
-+    uint32_t stride;                /**< Holds the stride of the plane in bytes. */
-+    uint32_t sizeimage;             /**< Holds the size of the plane in bytes. */
-+} NvBufferPlaneFormat;
-+
-+    /**
-+     * Holds the buffer plane parameters.
-+     */
-+
-+typedef struct {
-+    NvBufferPlaneFormat fmt;        /**< Holds the format of the plane. */
-+    uint8_t *data;                  /**< Holds a pointer to the plane memory. */
-+    uint32_t bytesused;             /**< Holds the number of valid bytes in the plane. */
-+    int fd;                         /**< Holds the file descriptor (FD) of the plane of the
-+                                     exported buffer, in the case of V4L2 MMAP buffers. */
-+    uint32_t mem_offset;            /**< Holds the offset of the first valid byte
-+                                         from the data pointer. */
-+    uint32_t length;                /**< Holds the size of the buffer in bytes. */
-+} NvBufferPlane;
-+
-+typedef struct {
-+    enum v4l2_buf_type buf_type;    /**< Type of the buffer. */
-+    enum v4l2_memory memory_type;   /**< Type of memory associated with the buffer. */
-+    uint32_t index;                 /**< Holds the buffer index. */
-+    uint32_t n_planes;              /**< Holds the number of planes in the buffer. */
-+    NvBufferPlane planes[NV_MAX_PLANES];
-+    bool mapped;
-+} NvBuffer;
-+
-+typedef struct {
-+    uint32_t width;
-+    uint32_t height;
-+    bool low_latency;
-+    uint32_t profile;
-+    uint32_t bitrate;
-+    uint32_t level;
-+    uint32_t tier;
-+    uint32_t preset_type;
-+    uint32_t lossless;
-+    uint32_t iframe_interval;
-+    uint32_t idr_interval;
-+    uint32_t fps_n;
-+    uint32_t fps_d;
-+    int qmin;
-+    int qmax;
-+    int num_b_frames;
-+    uint32_t num_ref;
-+    bool sps_pps_at_idr;
-+    uint32_t ratecontrol;
-+} NvEncoder;
-+
-+/**
-+ * @brief Struct defining the decoder context.
-+ * The video decoder device node is `/dev/nvhost-nvdec`. The category name
-+ * for the decoder is \c "NVDEC".
-+ *
-+ * The context stores the information for decoding.
-+ * Refer to [V4L2 Video Decoder](group__V4L2Dec.html) for more information on the decoder.
-+ */
-+
-+typedef struct {
-+    uint32_t codec_width;
-+    uint32_t codec_height;
-+
-+    uint32_t op_pixfmt;
-+    uint32_t cp_pixfmt;
-+    enum v4l2_memory op_mem_type;
-+    enum v4l2_memory cp_mem_type;
-+    enum v4l2_buf_type op_buf_type;
-+    enum v4l2_buf_type cp_buf_type;
-+    NvBufferPlaneFormat op_planefmts[NV_MAX_PLANES];
-+    NvBufferPlaneFormat cp_planefmts[NV_MAX_PLANES];
-+    uint32_t cp_num_planes;
-+    uint32_t op_num_planes;
-+    uint32_t cp_num_buffers;
-+    uint32_t op_num_buffers;
-+    NvQueues *export_pool;
-+    NvBuffer **op_buffers;
-+    NvBuffer **cp_buffers;
-+    uint32_t num_active_op_buffers;
-+    uint32_t num_queued_op_buffers;
-+    uint32_t num_queued_cp_buffers;
-+
-+    pthread_mutex_t queue_lock;
-+    pthread_cond_t queue_cond;
-+    pthread_mutex_t frame_lock;
-+    pthread_cond_t frame_cond;
-+    pthread_mutex_t pool_lock;
-+    pthread_t capture_thread;
-+
-+    bool in_error;
-+    bool eos;
-+    bool op_streamon;
-+    bool cp_streamon;
-+    bool draining_event;
-+    bool low_latency;
-+
-+    int fd;
-+    int out_dma_fd;
-+    int dmabuff_fd[NV_MAX_BUFFERS];
-+
-+    int      plane_dma_fd[NV_MAX_BUFFERS];
-+    uint32_t plane_width[MAX_NUM_PLANES];
-+    uint32_t plane_height[MAX_NUM_PLANES];
-+    uint64_t frame_pts[NV_MAX_BUFFERS];
-+
-+    uint8_t *packet[NV_MAX_BUFFERS];
-+    uint32_t packet_buf_size[NV_MAX_BUFFERS];
-+    uint32_t packet_size[NV_MAX_BUFFERS];
-+    bool packet_keyflag[NV_MAX_BUFFERS];
-+
-+    NvEncoder *enc;
-+    AVCodecContext *avctx;
-+} nvv4l2_ctx_t;
-+
-+/* NVV4L2 common functions */
-+uint32_t nvv4l2_map_nvcodec_type(NvCodingType nv_codec_type);
-+int
-+nvv4l2_pool_idx_next(nvv4l2_ctx_t *ctx, NvQueues *q);
-+void
-+nvv4l2_pool_push(nvv4l2_ctx_t *ctx, NvQueues *q);
-+int
-+nvv4l2_pool_pop(nvv4l2_ctx_t *ctx, NvQueues *q);
-+int
-+nvv4l2_create_bufferfmt(NvBuffer *buffer, enum v4l2_buf_type buf_type,
-+                     enum v4l2_memory memory_type, uint32_t n_planes,
-+                     NvBufferPlaneFormat *fmt, uint32_t index);
-+int
-+nvv4l2_map_out(nvv4l2_ctx_t *ctx, struct v4l2_buffer *v4l2_buf,
-+               enum v4l2_buf_type buf_type, enum v4l2_memory mem_type,
-+               int dma_fd);
-+int
-+nvv4l2_unmap_out(nvv4l2_ctx_t *ctx, int index, enum v4l2_buf_type buf_type,
-+                 enum v4l2_memory mem_type, int dma_fd);
-+void
-+nvv4l2_destroyBuffer(nvv4l2_ctx_t *ctx, NvBuffer *buffer);
-+int
-+nvv4l2_allocate_memory(nvv4l2_ctx_t *ctx, NvBuffer *buffer);
-+int
-+nvv4l2_map(nvv4l2_ctx_t *ctx, NvBuffer *buffer);
-+void
-+nvv4l2_unmap(nvv4l2_ctx_t *ctx, NvBuffer *buffer);
-+int
-+nvv4l2_query_buffer(nvv4l2_ctx_t *ctx, enum v4l2_buf_type buf_type,
-+                    enum v4l2_memory memory_type, uint32_t num_planes,
-+                    uint32_t index);
-+int
-+nvv4l2_export_buffer(nvv4l2_ctx_t *ctx, enum v4l2_buf_type buf_type,
-+                     uint32_t num_planes, uint32_t index);
-+int
-+nvv4l2_fill_buffer_plane_format(nvv4l2_ctx_t *ctx,
-+                                uint32_t *num_planes,
-+                                NvBufferPlaneFormat *planefmts,
-+                                uint32_t width, uint32_t height,
-+                                uint32_t pixfmt);
-+int
-+nvv4l2_dq_event(nvv4l2_ctx_t *ctx, struct v4l2_event *event,
-+                uint32_t max_wait_ms);
-+int
-+nvv4l2_dq_buffer(nvv4l2_ctx_t *ctx, struct v4l2_buffer *v4l2_buf,
-+                 NvBuffer **buffer, enum v4l2_buf_type buf_type,
-+                 enum v4l2_memory memory_type, uint32_t num_retries);
-+int
-+nvv4l2_q_buffer(nvv4l2_ctx_t *ctx, struct v4l2_buffer *v4l2_buf,
-+                NvBuffer *buffer, enum v4l2_buf_type buf_type,
-+                enum v4l2_memory memory_type, int num_planes);
-+int
-+nvv4l2_req_buffers_on_capture_plane(nvv4l2_ctx_t *ctx,
-+                                    enum v4l2_buf_type buf_type,
-+                                    enum v4l2_memory mem_type,
-+                                    int num_buffers);
-+int
-+nvv4l2_req_buffers_on_output_plane(nvv4l2_ctx_t *ctx,
-+                                   enum v4l2_buf_type buf_type,
-+                                   enum v4l2_memory mem_type,
-+                                   int num_buffers);
-+int
-+nvv4l2_set_ext_controls(int fd, uint32_t id,
-+                        uint32_t class, uint32_t value);
-+int
-+nvv4l2_set_ext_control_qp_range(int fd, uint32_t qpmin,
-+                                uint32_t qpmax);
-+int
-+nvv4l2_set_ext_control_constant_qp(int fd, uint32_t qpval);
-+int
-+nvv4l2_get_ext_control_metadata(int fd, uint32_t buffer_index,
-+                    v4l2_ctrl_videoenc_outputbuf_metadata *enc_metadata);
-+int
-+nvv4l2_set_stream_control_framerate(int fd,  uint32_t buf_type,
-+                                    uint32_t framerate_num,
-+                                    uint32_t framerate_den);
-+int
-+nvv4l2_subscribe_event(int fd, uint32_t type, uint32_t id,
-+                       uint32_t flags);
-+
-+/* NVV4L2 debug functions */
-+void
-+nvv4l2_dbg_plane_supported_formats(nvv4l2_ctx_t *ctx,
-+                                   uint32_t buf_type);
-+
-+/* NVV4L2 decoder functions */
-+nvv4l2_ctx_t *nvv4l2_create_decoder(AVCodecContext *avctx,
-+                                    NvCodingType nv_codec_type,
-+                                    int pix_fmt);
-+int
-+nvv4l2_decoder_put_packet(AVCodecContext *avctx, nvv4l2_ctx_t *ctx,
-+                          NvPacket *packet);
-+int
-+nvv4l2_decoder_get_frame(AVCodecContext *avctx, nvv4l2_ctx_t *ctx,
-+                         int *buf_index, NvFrame *frame);
-+int nvv4l2_decoder_close(AVCodecContext *avctx, nvv4l2_ctx_t *ctx);
-+
-+/* NVV4L2 encoder functions */
-+nvv4l2_ctx_t *nvv4l2_create_encoder(AVCodecContext *avctx,
-+                                    NvEncoder *enc,
-+                                    NvCodingType codingType,
-+                                    int pix_fmt);
-+int
-+nvv4l2_encoder_put_frame(AVCodecContext *avctx, nvv4l2_ctx_t *ctx,
-+                         NvFrame *frame);
-+int
-+nvv4l2_encoder_get_packet(AVCodecContext *avctx,
-+                          nvv4l2_ctx_t *ctx,
-+                          NvPacket *packet);
-+int
-+nvv4l2_encoder_close(AVCodecContext *avctx, nvv4l2_ctx_t *ctx);
-+
-+#endif
+-- 
+2.25.1
+

@@ -1,0 +1,99 @@
+From 4896ff0afcdccbb5521dee948c233dccb6616d7a Mon Sep 17 00:00:00 2001
+From: CTCaer <ctcaer@gmail.com>
+Date: Fri, 18 Mar 2022 21:20:48 +0000
+Subject: [PATCH 06/39] codecs: nvv4l2: use atomics for pool
+
+Do not lock with mutexes until we need to do more in pools. Use atomics for now to lower latency.
+---
+ libavcodec/nvv4l2.c     | 12 ++++--------
+ libavcodec/nvv4l2_dec.c |  2 --
+ libavcodec/nvv4l2_enc.c |  2 --
+ 3 files changed, 4 insertions(+), 12 deletions(-)
+
+diff --git a/libavcodec/nvv4l2.c b/libavcodec/nvv4l2.c
+index b3e4a27823..cd8a67ed98 100644
+--- a/libavcodec/nvv4l2.c
++++ b/libavcodec/nvv4l2.c
+@@ -20,6 +20,7 @@
+  * DEALINGS IN THE SOFTWARE.
+  */
+ 
++#include <stdatomic.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <stdint.h>
+@@ -77,28 +78,23 @@ int nvv4l2_pool_idx_next(nvv4l2_ctx_t *ctx, NvQueues *q)
+ 
+ void nvv4l2_pool_push(nvv4l2_ctx_t *ctx, NvQueues *q)
+ {
+-    pthread_mutex_lock(&ctx->pool_lock);
+     if (q->capacity < NV_MAX_BUFFERS) {
+         q->back = (q->back + 1) % NV_MAX_BUFFERS;
+-        q->capacity++;
++        atomic_fetch_add(&q->capacity, 1);
+     } else {
+         av_log(ctx->avctx, AV_LOG_ERROR, "Queue already full!\n");
+     }
+-    pthread_mutex_unlock(&ctx->pool_lock);
+ }
+ 
+ int nvv4l2_pool_pop(nvv4l2_ctx_t *ctx, NvQueues *q)
+ {
+-    int index;
+-    pthread_mutex_lock(&ctx->pool_lock);
+-    index = q->front;
++    int index = q->front;
+     if (q->capacity != 0) {
+         q->front = (q->front + 1) % NV_MAX_BUFFERS;
+-        q->capacity--;
++        atomic_fetch_sub(&q->capacity, 1);
+     } else {
+         av_log(ctx->avctx, AV_LOG_ERROR, "Queue already empty!");
+     }
+-    pthread_mutex_unlock(&ctx->pool_lock);
+     return index;
+ }
+ 
+diff --git a/libavcodec/nvv4l2_dec.c b/libavcodec/nvv4l2_dec.c
+index edceebddf8..f21a108429 100644
+--- a/libavcodec/nvv4l2_dec.c
++++ b/libavcodec/nvv4l2_dec.c
+@@ -682,7 +682,6 @@ nvv4l2_ctx_t *nvv4l2_create_decoder(AVCodecContext *avctx,
+     ctx->export_pool = (NvQueues *)NVCALLOC(1, sizeof(NvQueues));
+ 
+     /* Initialize mutexes */
+-    pthread_mutex_init(&ctx->pool_lock, NULL);
+     pthread_mutex_init(&ctx->queue_lock, NULL);
+     pthread_mutex_init(&ctx->frame_lock, NULL);
+     pthread_cond_init(&ctx->queue_cond, NULL);
+@@ -825,7 +824,6 @@ int nvv4l2_decoder_close(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+         }
+ 
+         /* Free mutexes */
+-        pthread_mutex_destroy(&ctx->pool_lock);
+         pthread_mutex_destroy(&ctx->queue_lock);
+         pthread_mutex_destroy(&ctx->frame_lock);
+         pthread_cond_destroy(&ctx->queue_cond);
+diff --git a/libavcodec/nvv4l2_enc.c b/libavcodec/nvv4l2_enc.c
+index e85d20dfda..f6c27afd6f 100644
+--- a/libavcodec/nvv4l2_enc.c
++++ b/libavcodec/nvv4l2_enc.c
+@@ -290,7 +290,6 @@ nvv4l2_ctx_t *nvv4l2_create_encoder(AVCodecContext *avctx,
+     }
+ 
+     /* Initialize mutexes */
+-    pthread_mutex_init(&ctx->pool_lock, NULL);
+     pthread_mutex_init(&ctx->queue_lock, NULL);
+     pthread_cond_init(&ctx->queue_cond, NULL);
+ 
+@@ -766,7 +765,6 @@ int nvv4l2_encoder_close(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+         }
+ 
+         /* Free mutexes */
+-        pthread_mutex_destroy(&ctx->pool_lock);
+         pthread_mutex_destroy(&ctx->queue_lock);
+         pthread_cond_destroy(&ctx->queue_cond);
+     }
+-- 
+2.25.1
+

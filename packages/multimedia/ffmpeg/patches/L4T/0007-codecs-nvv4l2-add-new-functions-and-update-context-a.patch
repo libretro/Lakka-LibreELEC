@@ -1,0 +1,205 @@
+From 607f6a8e40b495ecb887fc046bf8cf6030036c3a Mon Sep 17 00:00:00 2001
+From: CTCaer <ctcaer@gmail.com>
+Date: Fri, 18 Mar 2022 21:23:33 +0000
+Subject: [PATCH 07/39] codecs: nvv4l2: add new functions and update context as
+ prep
+
+---
+ libavcodec/nvv4l2.c | 56 ++++++++++++++++++++++++++++++++++++++++++---
+ libavcodec/nvv4l2.h | 39 +++++++++++++++++++++----------
+ 2 files changed, 80 insertions(+), 15 deletions(-)
+
+diff --git a/libavcodec/nvv4l2.c b/libavcodec/nvv4l2.c
+index cd8a67ed98..9c63a88fed 100644
+--- a/libavcodec/nvv4l2.c
++++ b/libavcodec/nvv4l2.c
+@@ -513,9 +513,9 @@ nvv4l2_q_buffer(nvv4l2_ctx_t *ctx, struct v4l2_buffer *v4l2_buf,
+ 
+     pthread_mutex_lock(&ctx->queue_lock);
+ 
+-    if (buf_type == ctx->op_buf_type)
++    if (!buffer && buf_type == ctx->op_buf_type)
+         buffer = ctx->op_buffers[v4l2_buf->index];
+-    else if (buf_type == ctx->cp_buf_type)
++    else if (!buffer && buf_type == ctx->cp_buf_type)
+         buffer = ctx->cp_buffers[v4l2_buf->index];
+ 
+     v4l2_buf->type = buf_type;
+@@ -810,7 +810,57 @@ nvv4l2_dbg_plane_supported_formats(nvv4l2_ctx_t *ctx,
+             break;
+ 
+         memcpy(fourcc, &fdesc.pixelformat, 4);
+-        av_log(ctx->avctx, AV_LOG_INFO, "%d: %s (%s)\n", fdesc.index, fourcc, fdesc.description);
++        av_log(ctx->avctx, AV_LOG_INFO, "%d: %s (%s)\n",
++               fdesc.index, fourcc, fdesc.description);
+         fdesc.index++;
+     }
+ }
++
++NvBufferPixFmtVersion
++nvv4l2_get_pixfmt_list_version(nvv4l2_ctx_t *ctx)
++{
++    NvBufferParams params;
++    NvBufferCreateParams iParams;
++    NvBufferPixFmtVersion version;
++    int dma_fd = -1;
++    int ret;
++
++    memset(&params, 0, sizeof(params));
++    memset(&iParams, 0, sizeof(NvBufferCreateParams));
++
++    iParams.width = 1280;
++    iParams.height = 720;
++    iParams.layout = NvBufferLayout_BlockLinear;
++    iParams.payloadType = NvBufferPayload_SurfArray;
++    iParams.nvbuf_tag = NvBufferTag_NONE;
++    iParams.colorFormat = NvBufferColorFormat_NV12;
++
++    /* Create assumed NV12 buffer */
++    ret = NvBufferCreateEx(&dma_fd, &iParams);
++    if (ret || dma_fd == -1) {
++        av_log(ctx->avctx, AV_LOG_ERROR,
++               "Error getting NvBuffer Pixel Format list version!\n");
++        return NvBufferPixFmtVersion_New; /* Fallback to new */
++    }
++
++    /* Query created buffer parameters */
++    ret = NvBufferGetParams(dma_fd, &params);
++    if (ret) {
++        av_log(ctx->avctx, AV_LOG_ERROR,
++               "Error getting NvBuffer Pixel Format list version!\n");
++        return NvBufferPixFmtVersion_New; /* Fallback to new */
++    }
++
++    /* Check if returned parameters match NV12 in old BSP. */
++    if (params.num_planes == 2 && params.pitch[1] == iParams.width) {
++        av_log(ctx->avctx, AV_LOG_VERBOSE, "Old NvBuffer Utils version\n");
++        version = NvBufferPixFmtVersion_Legacy;
++    } else {
++        av_log(ctx->avctx, AV_LOG_VERBOSE, "New NvBuffer Utils version\n");
++        version = NvBufferPixFmtVersion_New;
++    }
++
++    NvBufferDestroy(dma_fd);
++
++    return version;
++}
+diff --git a/libavcodec/nvv4l2.h b/libavcodec/nvv4l2.h
+index 5c65e2bec7..11353bf63f 100644
+--- a/libavcodec/nvv4l2.h
++++ b/libavcodec/nvv4l2.h
+@@ -23,8 +23,8 @@
+ /**
+  * Specifies the decoder device node.
+  */
+-#ifndef __nvv4l2_H__
+-#define __nvv4l2_H__
++#ifndef __NVV4L2_H__
++#define __NVV4L2_H__
+ 
+ #include <stdlib.h>
+ #include <stdint.h>
+@@ -33,15 +33,18 @@
+ #include <linux/videodev2.h>
+ #include "avcodec.h"
+ 
+-#include "nvbuf_utils.h"
+-#include "v4l2_nv_extensions.h"
++#include "nvv4l2_ext_utils.h"
+ 
+ #define NV_MAX_BUFFERS 32
+-
+-/**
+- * Specifies the maximum number of planes a buffer can contain.
+- */
+ #define NV_MAX_PLANES 3
++
++/* Max timestamp accepted by NVV4L2 */
++#define NV_V4L2_TIMESTAMP_MAX_SEC ((int64_t)UINT64_C(0x1AD7F29ABCA))
++
++/* Custom values/flags to pass over info into capture plane */
++#define NV_V4L2_NOPTS_VALUE NV_V4L2_TIMESTAMP_MAX_SEC
++#define NV_V4L2_REORDERED_OPAQUE_FLAG ((int64_t)UINT64_C(0x10000000000))
++
+ #define NVMIN(a,b) (((a) < (b)) ? (a) : (b))
+ #define NVMAX(a, b) ((a) > (b) ? (a) : (b))
+ 
+@@ -50,6 +53,8 @@
+ #define NVCALLOC(num, size) (av_mallocz((num) * (size)))
+ #define NVFREE(ptr) (av_free((ptr)))
+ 
++#define NVALIGN(x, a) (((x) + (a) - 1) & ~((a) - 1))
++
+ typedef struct _queue {
+     uint32_t capacity;
+     uint32_t front;
+@@ -67,7 +72,8 @@ typedef struct _NVPACKET {
+     uint8_t *payload;
+     uint32_t width;
+     uint32_t height;
+-    uint64_t pts;
++    int64_t  pts;
++    int64_t  user_pts;
+ } NvPacket;
+ 
+ typedef struct _NVFRAME {
+@@ -76,7 +82,8 @@ typedef struct _NVFRAME {
+     uint8_t *payload[3];
+     uint32_t width;
+     uint32_t height;
+-    uint64_t pts;
++    int64_t  pts;
++    int64_t  user_pts;
+ } NvFrame;
+ 
+ typedef enum {
+@@ -133,6 +140,7 @@ typedef struct {
+     uint32_t tier;
+     uint32_t preset_type;
+     uint32_t lossless;
++    uint32_t twopass;
+     uint32_t iframe_interval;
+     uint32_t idr_interval;
+     uint32_t fps_n;
+@@ -158,6 +166,9 @@ typedef struct {
+     uint32_t codec_width;
+     uint32_t codec_height;
+ 
++    NvBufferSession buf_session;
++    NvBufferPixFmtVersion pixfmt_list_ver;
++
+     uint32_t op_pixfmt;
+     uint32_t cp_pixfmt;
+     enum v4l2_memory op_mem_type;
+@@ -181,7 +192,6 @@ typedef struct {
+     pthread_cond_t queue_cond;
+     pthread_mutex_t frame_lock;
+     pthread_cond_t frame_cond;
+-    pthread_mutex_t pool_lock;
+     pthread_t capture_thread;
+ 
+     bool in_error;
+@@ -198,7 +208,9 @@ typedef struct {
+     int      plane_dma_fd[NV_MAX_BUFFERS];
+     uint32_t plane_width[MAX_NUM_PLANES];
+     uint32_t plane_height[MAX_NUM_PLANES];
+-    uint64_t frame_pts[NV_MAX_BUFFERS];
++    uint32_t plane_width_aligned;
++    int64_t  frame_pts[NV_MAX_BUFFERS];
++    int64_t  frame_user_pts[NV_MAX_BUFFERS];
+ 
+     uint8_t *packet[NV_MAX_BUFFERS];
+     uint32_t packet_buf_size[NV_MAX_BUFFERS];
+@@ -289,6 +301,9 @@ int
+ nvv4l2_subscribe_event(int fd, uint32_t type, uint32_t id,
+                        uint32_t flags);
+ 
++NvBufferPixFmtVersion
++nvv4l2_get_pixfmt_list_version(nvv4l2_ctx_t *ctx);
++
+ /* NVV4L2 debug functions */
+ void
+ nvv4l2_dbg_plane_supported_formats(nvv4l2_ctx_t *ctx,
+-- 
+2.25.1
+
