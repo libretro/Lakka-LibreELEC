@@ -5,8 +5,8 @@ PKG_DEPENDS_TARGET="joycond rewritefs xdotool alsa-lib alsa-ucm-conf usb-gadget-
 PKG_SECTION="virtual"
 PKG_LONGDESC="LibreELEC Nintendo Switch Board Support"
 
-if [ ! ${PROJECT} = "LibreELEC" ]; then
-  PKG_DEPENDS_TARGET="v4l-utils" # We use this for CEC in lakka, in libreELEC kodi handles that via libCEC.
+if [ ! "${DISTRO}" = "LibreELEC" ]; then
+  PKG_DEPENDS_TARGET+=" v4l-utils" # We use this for CEC in lakka, in libreELEC kodi handles that via libCEC.
 fi
 
 post_install() {
