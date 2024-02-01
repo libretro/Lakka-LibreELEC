@@ -68,6 +68,10 @@ PKG_MAKE_OPTS_TARGET="storagedir=/storage/.cache/connman \
                       vpn_storagedir=/storage/.config/wireguard \
                       statedir=/run/connman"
 
+pre_configure_target() {
+  sed -i -e "s|<policy user=\"%DISTRO%\">|<policy user=\"${DISTRO}\">|" ${PKG_BUILD}/src/connman-dbus.conf
+}
+
 post_configure_target() {
   libtool_remove_rpath libtool
 }
