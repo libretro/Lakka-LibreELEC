@@ -6,7 +6,7 @@ PKG_SECTION="virtual"
 PKG_LONGDESC="LibreELEC Nintendo Switch Board Support"
 
 if [ ! "${DISTRO}" = "LibreELEC" ]; then
-  PKG_DEPENDS_TARGET+=" v4l-utils" # We use this for CEC in lakka, in libreELEC kodi handles that via libCEC.
+  PKG_DEPENDS_TARGET+=" mergerfs v4l-utils" # We use this for CEC in lakka, in libreELEC kodi handles that via libCEC.
 fi
 
 post_install() {
