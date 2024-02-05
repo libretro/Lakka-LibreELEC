@@ -18,3 +18,10 @@ PKG_BUILD_FLAGS="+lto"
 
 PKG_IS_ADDON="embedded"
 PKG_ADDON_TYPE="kodi.peripheral"
+
+post_install() {
+  if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
+    # Set UDEV controller driver as active
+    sed -i -e 's|<default>0</default>|<default>1</default>|' ${INSTALL}/usr/share/kodi/addons/peripheral.joystick/resources/settings.xml
+  fi
+}
