@@ -73,7 +73,7 @@ else
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-x11"
 fi
 
-if [ "${DISPLAYSERVER}" = "weston" ]; then
+if [ "${DISPLAYSERVER}" = "wl" ]; then
   PKG_DEPENDS_TARGET+=" wayland wayland-protocols"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-wayland"
 else
