@@ -27,9 +27,13 @@ fi
 
 if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
-  PKG_CMAKE_OPTS_TARGET+=" -DUSING_GLES2=ON"
 fi
 
+if [ "${GRAPHIC_DRIVER}" = panfrost ] && !listcontains "${MALI_FAMILY}" "(t720)"; then
+  PKG_CMAKE_OPTS_TARGET+=" -DBUILD_GLES3=ON -DBUILD_GLES2=OFF"
+elif [ "${GRAPHIC_DRIVER}" = lima ] || listcontains "${MALI_FAMILY}" "4[0-9]+|t720"; then
+  PKG_CMAKE_OPTS_TARGET+=" -DBUILD_GLES3=OFF -DBUILD_GLES2=ON"
+fi
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
