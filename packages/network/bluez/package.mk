@@ -49,7 +49,7 @@ pre_configure_target() {
 # bluez fails to build in subdirs
   cd ${PKG_BUILD}
     rm -rf .${TARGET_NAME}
-
+  sed -i -e "s|<policy user=\"%DISTRO%\">|<policy user=\"${DISTRO}\">|" src/bluetooth.conf
   export LIBS="-lncurses"
 }
 
