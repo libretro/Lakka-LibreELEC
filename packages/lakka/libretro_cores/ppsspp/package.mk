@@ -34,6 +34,8 @@ if [ "${VULKAN_SUPPORT}" = "yes" ]; then
   else
     PKG_CMAKE_OPTS_TARGET+=" -DUSE_VULKAN_DISPLAY_KHR=ON -DUSING_X11_VULKAN=OFF"
   fi
+else
+  PKG_CMAKE_OPTS_TARGET+=" -DVULKAN=OFF"
 fi
 
 if [ "${OPENGL_SUPPORT}" = "no" -a "${OPENGLES_SUPPORT}" = "yes" ]; then
