@@ -1,9 +1,13 @@
 PKG_NAME="switch-bsp"
-PKG_VERSION="1.1"
+PKG_VERSION="1.2"
 PKG_LICENSE="GPL"
-PKG_DEPENDS_TARGET="joycond rewritefs xdotool alsa-lib alsa-ucm-conf usb-gadget-scripts v4l-utils"
+PKG_DEPENDS_TARGET="joycond rewritefs xdotool alsa-lib alsa-ucm-conf usb-gadget-scripts"
 PKG_SECTION="virtual"
 PKG_LONGDESC="LibreELEC Nintendo Switch Board Support"
+
+if [ ! "${DISTRO}" = "LibreELEC" ]; then
+  PKG_DEPENDS_TARGET+=" mergerfs v4l-utils" # We use this for CEC in lakka, in libreELEC kodi handles that via libCEC.
+fi
 
 post_install() {
   enable_service xorg-configure-switch.service

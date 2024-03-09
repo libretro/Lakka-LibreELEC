@@ -1,0 +1,68 @@
+From b2f78477cf1cca514a91a4a5ecd6f93fee289f2a Mon Sep 17 00:00:00 2001
+From: Azkali Manad <a.ffcc7@gmail.com>
+Date: Wed, 25 Jan 2023 03:32:12 +0100
+Subject: [PATCH 24/39] codecs: nvv4l2: More API related changes
+
+	decoder: add internal.h header needed for ff_get_buffer
+	encoder: Rename AVCodecDefault to FFCodecDefault
+	*: use callback defines for encode/decode struct members
+---
+ libavcodec/nvv4l2_dec.c | 3 ++-
+ libavcodec/nvv4l2_enc.c | 6 +++---
+ 2 files changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/libavcodec/nvv4l2_dec.c b/libavcodec/nvv4l2_dec.c
+index b56d35cf82..26e7363823 100644
+--- a/libavcodec/nvv4l2_dec.c
++++ b/libavcodec/nvv4l2_dec.c
+@@ -30,6 +30,7 @@
+ #include <fcntl.h>
+ #include <errno.h>
+ #include "codec_internal.h"
++#include "internal.h"
+ #include "libavutil/log.h"
+ 
+ #include "nvv4l2.h"
+@@ -1211,7 +1212,7 @@ nvv4l2dec_decode(AVCodecContext *avctx, void *data, int *got_frame,
+         .priv_data_size = sizeof(nvv4l2DecodeContext),                                \
+         .init           = nvv4l2dec_init,                                             \
+         .close          = nvv4l2dec_close,                                            \
+-        .decode         = nvv4l2dec_decode,                                           \
++	FF_CODEC_DECODE_CB(nvv4l2dec_decode)					      \
+         .flush          = nvv4l2dec_flush,                                            \
+         .p.priv_class     = &nvv4l2_##NAME##_dec_class,                                 \
+         .p.capabilities   = AV_CODEC_CAP_DELAY | AV_CODEC_CAP_HARDWARE |                \
+diff --git a/libavcodec/nvv4l2_enc.c b/libavcodec/nvv4l2_enc.c
+index fad54868e3..7f1aad1b32 100644
+--- a/libavcodec/nvv4l2_enc.c
++++ b/libavcodec/nvv4l2_enc.c
+@@ -1265,7 +1265,7 @@ nvv4l2enc_encode(AVCodecContext *avctx, AVPacket *pkt,
+     if (nvv4l2_encoder_get_packet(avctx, ctx, &packet))
+         return 0;
+ 
+-    ff_alloc_packet2(avctx, pkt, packet.payload_size, packet.payload_size);
++    ff_alloc_packet(avctx, pkt, packet.payload_size, packet.payload_size);
+ 
+     memcpy(pkt->data, packet.payload, packet.payload_size);
+     pkt->dts = pkt->pts = packet.pts;
+@@ -1286,7 +1286,7 @@ static av_cold int nvv4l2enc_close(AVCodecContext *avctx)
+     return 0;
+ }
+ 
+-static const AVCodecDefault defaults[] = {
++static const FFCodecDefault defaults[] = {
+     { "b",     "5M" },
+     { "qmin",  "-1" },
+     { "qmax",  "-1" },
+@@ -1463,7 +1463,7 @@ static const AVOption options_hevc[] = {
+         .priv_data_size = sizeof(nvv4l2EncodeContext),                                \
+         .init           = nvv4l2enc_init,                                             \
+         .close          = nvv4l2enc_close,                                            \
+-        .encode2        = nvv4l2enc_encode,                                           \
++        FF_CODEC_ENCODE_CB(nvv4l2enc_encode),                                           \
+         .p.priv_class     = &nvv4l2_##NAME##_enc_class,                                 \
+         .p.capabilities   = AV_CODEC_CAP_DELAY | AV_CODEC_CAP_HARDWARE,                 \
+         .defaults       = defaults,                                                   \
+-- 
+2.25.1
+

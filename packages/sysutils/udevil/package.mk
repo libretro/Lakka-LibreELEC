@@ -23,6 +23,7 @@ makeinstall_target() {
 post_makeinstall_target() {
   mkdir -p ${INSTALL}/etc/udevil
     cp ${PKG_DIR}/config/udevil.conf ${INSTALL}/etc/udevil
+    ln -sf /storage/.config/udevil.conf ${INSTALL}/etc/udevil/udevil-user-root.conf
 
   if [ "$DISTRO" = "Lakka" ]; then
     sed -i $INSTALL/etc/udevil/udevil.conf -e "s|^allowed_media_dirs =.*$|allowed_media_dirs = /storage/roms|"

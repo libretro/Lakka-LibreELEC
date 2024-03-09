@@ -40,8 +40,8 @@ post_makeinstall_target() {
 
 post_install() {
   add_user dbus x 81 81 "System message bus" "/" "/bin/sh"
-  add_group dbus 81
-  add_group netdev 497
+  add_group dbus 81 ${DISTRO}
+  add_group netdev 497 ${DISTRO}
 
   echo "chmod 4750 ${INSTALL}/usr/lib/dbus/dbus-daemon-launch-helper" >> ${FAKEROOT_SCRIPT}
   echo "chown 0:81 ${INSTALL}/usr/lib/dbus/dbus-daemon-launch-helper" >> ${FAKEROOT_SCRIPT}

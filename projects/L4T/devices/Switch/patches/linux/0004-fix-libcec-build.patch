@@ -1,0 +1,304 @@
+From 0dbacebede1e4e44bf500f94d692fad05eb2c293 Mon Sep 17 00:00:00 2001
+From: Hans Verkuil <hans.verkuil@cisco.com>
+Date: Wed, 2 Nov 2016 08:25:28 -0200
+Subject: [PATCH] [media] cec: move the CEC framework out of staging and to
+ media
+
+The last open issues have been addressed, so it is time to move
+this out of staging and into the mainline and to move the public
+cec headers to include/uapi/linux.
+
+Signed-off-by: Hans Verkuil <hans.verkuil@cisco.com>
+Signed-off-by: Mauro Carvalho Chehab <mchehab@s-opensource.com>
+---
+ Documentation/media/Makefile               |  2 +-
+ drivers/media/Kconfig                      | 16 ++++++++++++++++
+ drivers/media/Makefile                     |  4 ++++
+ drivers/{staging => }/media/cec/Makefile   |  2 +-
+ drivers/{staging => }/media/cec/cec-adap.c |  0
+ drivers/{staging => }/media/cec/cec-api.c  |  0
+ drivers/{staging => }/media/cec/cec-core.c |  0
+ drivers/{staging => }/media/cec/cec-priv.h |  0
+ drivers/media/i2c/Kconfig                  |  6 +++---
+ drivers/media/platform/vivid/Kconfig       |  2 +-
+ drivers/staging/media/Kconfig              |  2 --
+ drivers/staging/media/Makefile             |  1 -
+ drivers/staging/media/cec/Kconfig          | 12 ------------
+ drivers/staging/media/cec/TODO             |  9 ---------
+ drivers/staging/media/pulse8-cec/Kconfig   |  2 +-
+ drivers/staging/media/s5p-cec/Kconfig      |  2 +-
+ drivers/staging/media/st-cec/Kconfig       |  2 +-
+ include/media/cec.h                        |  2 +-
+ include/uapi/linux/Kbuild                  |  2 ++
+ include/{ => uapi}/linux/cec-funcs.h       |  6 ------
+ include/{ => uapi}/linux/cec.h             |  6 ------
+ 21 files changed, 32 insertions(+), 46 deletions(-)
+ rename drivers/{staging => }/media/cec/Makefile (70%)
+ rename drivers/{staging => }/media/cec/cec-adap.c (100%)
+ rename drivers/{staging => }/media/cec/cec-api.c (100%)
+ rename drivers/{staging => }/media/cec/cec-core.c (100%)
+ rename drivers/{staging => }/media/cec/cec-priv.h (100%)
+ delete mode 100644 drivers/staging/media/cec/Kconfig
+ delete mode 100644 drivers/staging/media/cec/TODO
+ rename include/{ => uapi}/linux/cec-funcs.h (99%)
+ rename include/{ => uapi}/linux/cec.h (99%)
+
+diff --git a/Documentation/media/Makefile b/Documentation/media/Makefile
+index a7fb35291f6c61..61afa052c501a1 100644
+--- a/Documentation/media/Makefile
++++ b/Documentation/media/Makefile
+@@ -51,7 +51,7 @@ $(BUILDDIR)/videodev2.h.rst: ${UAPI}/videodev2.h ${PARSER} $(SRC_DIR)/videodev2.
+ $(BUILDDIR)/media.h.rst: ${UAPI}/media.h ${PARSER} $(SRC_DIR)/media.h.rst.exceptions
+ 	@$($(quiet)gen_rst)
+ 
+-$(BUILDDIR)/cec.h.rst: ${KAPI}/cec.h ${PARSER} $(SRC_DIR)/cec.h.rst.exceptions
++$(BUILDDIR)/cec.h.rst: ${UAPI}/cec.h ${PARSER} $(SRC_DIR)/cec.h.rst.exceptions
+ 	@$($(quiet)gen_rst)
+ 
+ $(BUILDDIR)/lirc.h.rst: ${UAPI}/lirc.h ${PARSER} $(SRC_DIR)/lirc.h.rst.exceptions
+diff --git a/drivers/media/Kconfig b/drivers/media/Kconfig
+index 7b854029121731..bc643cbf813ef8 100644
+--- a/drivers/media/Kconfig
++++ b/drivers/media/Kconfig
+@@ -80,6 +80,22 @@ config MEDIA_RC_SUPPORT
+ 
+ 	  Say Y when you have a TV or an IR device.
+ 
++config MEDIA_CEC_SUPPORT
++	bool "HDMI CEC support"
++	select MEDIA_CEC_EDID
++	---help---
++	  Enable support for HDMI CEC (Consumer Electronics Control),
++	  which is an optional HDMI feature.
++
++	  Say Y when you have an HDMI receiver, transmitter or a USB CEC
++	  adapter that supports HDMI CEC.
++
++config MEDIA_CEC_DEBUG
++	bool "HDMI CEC debugfs interface"
++	depends on MEDIA_CEC_SUPPORT && DEBUG_FS
++	---help---
++	  Turns on the DebugFS interface for CEC devices.
++
+ config MEDIA_CEC_EDID
+ 	bool
+ 
+diff --git a/drivers/media/Makefile b/drivers/media/Makefile
+index 0deaa93efdee61..d87ccb8eeabe6b 100644
+--- a/drivers/media/Makefile
++++ b/drivers/media/Makefile
+@@ -6,6 +6,10 @@ ifeq ($(CONFIG_MEDIA_CEC_EDID),y)
+   obj-$(CONFIG_MEDIA_SUPPORT) += cec-edid.o
+ endif
+ 
++ifeq ($(CONFIG_MEDIA_CEC_SUPPORT),y)
++  obj-$(CONFIG_MEDIA_SUPPORT) += cec/
++endif
++
+ media-objs	:= media-device.o media-devnode.o media-entity.o
+ 
+ #
+diff --git a/drivers/staging/media/cec/Makefile b/drivers/media/cec/Makefile
+similarity index 70%
+rename from drivers/staging/media/cec/Makefile
+rename to drivers/media/cec/Makefile
+index bd7f3c5934680b..d6686337275ff8 100644
+--- a/drivers/staging/media/cec/Makefile
++++ b/drivers/media/cec/Makefile
+@@ -1,5 +1,5 @@
+ cec-objs := cec-core.o cec-adap.o cec-api.o
+ 
+-ifeq ($(CONFIG_MEDIA_CEC),y)
++ifeq ($(CONFIG_MEDIA_CEC_SUPPORT),y)
+   obj-$(CONFIG_MEDIA_SUPPORT) += cec.o
+ endif
+diff --git a/drivers/staging/media/cec/cec-adap.c b/drivers/media/cec/cec-adap.c
+similarity index 100%
+rename from drivers/staging/media/cec/cec-adap.c
+rename to drivers/media/cec/cec-adap.c
+diff --git a/drivers/staging/media/cec/cec-api.c b/drivers/media/cec/cec-api.c
+similarity index 100%
+rename from drivers/staging/media/cec/cec-api.c
+rename to drivers/media/cec/cec-api.c
+diff --git a/drivers/staging/media/cec/cec-core.c b/drivers/media/cec/cec-core.c
+similarity index 100%
+rename from drivers/staging/media/cec/cec-core.c
+rename to drivers/media/cec/cec-core.c
+diff --git a/drivers/staging/media/cec/cec-priv.h b/drivers/media/cec/cec-priv.h
+similarity index 100%
+rename from drivers/staging/media/cec/cec-priv.h
+rename to drivers/media/cec/cec-priv.h
+diff --git a/drivers/media/i2c/Kconfig b/drivers/media/i2c/Kconfig
+index 2669b4bad91068..b31fa6fae00917 100644
+--- a/drivers/media/i2c/Kconfig
++++ b/drivers/media/i2c/Kconfig
+@@ -221,7 +221,7 @@ config VIDEO_ADV7604
+ 
+ config VIDEO_ADV7604_CEC
+ 	bool "Enable Analog Devices ADV7604 CEC support"
+-	depends on VIDEO_ADV7604 && MEDIA_CEC
++	depends on VIDEO_ADV7604 && MEDIA_CEC_SUPPORT
+ 	---help---
+ 	  When selected the adv7604 will support the optional
+ 	  HDMI CEC feature.
+@@ -242,7 +242,7 @@ config VIDEO_ADV7842
+ 
+ config VIDEO_ADV7842_CEC
+ 	bool "Enable Analog Devices ADV7842 CEC support"
+-	depends on VIDEO_ADV7842 && MEDIA_CEC
++	depends on VIDEO_ADV7842 && MEDIA_CEC_SUPPORT
+ 	---help---
+ 	  When selected the adv7842 will support the optional
+ 	  HDMI CEC feature.
+@@ -481,7 +481,7 @@ config VIDEO_ADV7511
+ 
+ config VIDEO_ADV7511_CEC
+ 	bool "Enable Analog Devices ADV7511 CEC support"
+-	depends on VIDEO_ADV7511 && MEDIA_CEC
++	depends on VIDEO_ADV7511 && MEDIA_CEC_SUPPORT
+ 	---help---
+ 	  When selected the adv7511 will support the optional
+ 	  HDMI CEC feature.
+diff --git a/drivers/media/platform/vivid/Kconfig b/drivers/media/platform/vivid/Kconfig
+index 8e6918c5c87c5d..db0dd19d227acc 100644
+--- a/drivers/media/platform/vivid/Kconfig
++++ b/drivers/media/platform/vivid/Kconfig
+@@ -25,7 +25,7 @@ config VIDEO_VIVID
+ 
+ config VIDEO_VIVID_CEC
+ 	bool "Enable CEC emulation support"
+-	depends on VIDEO_VIVID && MEDIA_CEC
++	depends on VIDEO_VIVID && MEDIA_CEC_SUPPORT
+ 	---help---
+ 	  When selected the vivid module will emulate the optional
+ 	  HDMI CEC feature.
+diff --git a/drivers/staging/media/Kconfig b/drivers/staging/media/Kconfig
+index 6620d96ee44d2f..0abe5ffb49346d 100644
+--- a/drivers/staging/media/Kconfig
++++ b/drivers/staging/media/Kconfig
+@@ -21,8 +21,6 @@ if STAGING_MEDIA && MEDIA_SUPPORT
+ # Please keep them in alphabetic order
+ source "drivers/staging/media/bcm2048/Kconfig"
+ 
+-source "drivers/staging/media/cec/Kconfig"
+-
+ source "drivers/staging/media/cxd2099/Kconfig"
+ 
+ source "drivers/staging/media/davinci_vpfe/Kconfig"
+diff --git a/drivers/staging/media/Makefile b/drivers/staging/media/Makefile
+index 906257e94dda89..246299eff80dc3 100644
+--- a/drivers/staging/media/Makefile
++++ b/drivers/staging/media/Makefile
+@@ -1,5 +1,4 @@
+ obj-$(CONFIG_I2C_BCM2048)	+= bcm2048/
+-obj-$(CONFIG_MEDIA_CEC)		+= cec/
+ obj-$(CONFIG_VIDEO_SAMSUNG_S5P_CEC) += s5p-cec/
+ obj-$(CONFIG_DVB_CXD2099)	+= cxd2099/
+ obj-$(CONFIG_LIRC_STAGING)	+= lirc/
+diff --git a/drivers/staging/media/cec/Kconfig b/drivers/staging/media/cec/Kconfig
+deleted file mode 100644
+index 6e12d41b1f86a7..00000000000000
+--- a/drivers/staging/media/cec/Kconfig
++++ /dev/null
+@@ -1,12 +0,0 @@
+-config MEDIA_CEC
+-	bool "CEC API (EXPERIMENTAL)"
+-	depends on MEDIA_SUPPORT
+-	select MEDIA_CEC_EDID
+-	---help---
+-	  Enable the CEC API.
+-
+-config MEDIA_CEC_DEBUG
+-	bool "CEC debugfs interface (EXPERIMENTAL)"
+-	depends on MEDIA_CEC && DEBUG_FS
+-	---help---
+-	  Turns on the DebugFS interface for CEC devices.
+diff --git a/drivers/staging/media/pulse8-cec/Kconfig b/drivers/staging/media/pulse8-cec/Kconfig
+index c6aa2d1c9df0ad..6ffc407de62fbd 100644
+--- a/drivers/staging/media/pulse8-cec/Kconfig
++++ b/drivers/staging/media/pulse8-cec/Kconfig
+@@ -1,6 +1,6 @@
+ config USB_PULSE8_CEC
+ 	tristate "Pulse Eight HDMI CEC"
+-	depends on USB_ACM && MEDIA_CEC
++	depends on USB_ACM && MEDIA_CEC_SUPPORT
+ 	select SERIO
+ 	select SERIO_SERPORT
+ 	---help---
+diff --git a/drivers/staging/media/s5p-cec/Kconfig b/drivers/staging/media/s5p-cec/Kconfig
+index 0315fd7ad0f1bd..ddfd955da0d40d 100644
+--- a/drivers/staging/media/s5p-cec/Kconfig
++++ b/drivers/staging/media/s5p-cec/Kconfig
+@@ -1,6 +1,6 @@
+ config VIDEO_SAMSUNG_S5P_CEC
+        tristate "Samsung S5P CEC driver"
+-       depends on VIDEO_DEV && MEDIA_CEC && (PLAT_S5P || ARCH_EXYNOS || COMPILE_TEST)
++       depends on VIDEO_DEV && MEDIA_CEC_SUPPORT && (PLAT_S5P || ARCH_EXYNOS || COMPILE_TEST)
+        ---help---
+          This is a driver for Samsung S5P HDMI CEC interface. It uses the
+          generic CEC framework interface.
+diff --git a/drivers/staging/media/st-cec/Kconfig b/drivers/staging/media/st-cec/Kconfig
+index 784d2c600aca10..c04283db58d6d1 100644
+--- a/drivers/staging/media/st-cec/Kconfig
++++ b/drivers/staging/media/st-cec/Kconfig
+@@ -1,6 +1,6 @@
+ config VIDEO_STI_HDMI_CEC
+        tristate "STMicroelectronics STiH4xx HDMI CEC driver"
+-       depends on VIDEO_DEV && MEDIA_CEC && (ARCH_STI || COMPILE_TEST)
++       depends on VIDEO_DEV && MEDIA_CEC_SUPPORT && (ARCH_STI || COMPILE_TEST)
+        ---help---
+          This is a driver for STIH4xx HDMI CEC interface. It uses the
+          generic CEC framework interface.
+diff --git a/include/media/cec.h b/include/media/cec.h
+index fdb5d600e4bb98..717eaf552f3d0c 100644
+--- a/include/media/cec.h
++++ b/include/media/cec.h
+@@ -196,7 +196,7 @@ static inline bool cec_is_sink(const struct cec_adapter *adap)
+ 	return adap->phys_addr == 0;
+ }
+ 
+-#if IS_ENABLED(CONFIG_MEDIA_CEC)
++#if IS_ENABLED(CONFIG_MEDIA_CEC_SUPPORT)
+ struct cec_adapter *cec_allocate_adapter(const struct cec_adap_ops *ops,
+ 		void *priv, const char *name, u32 caps, u8 available_las,
+ 		struct device *parent);
+diff --git a/include/linux/cec-funcs.h b/include/uapi/linux/cec-funcs.h
+similarity index 99%
+rename from include/linux/cec-funcs.h
+rename to include/uapi/linux/cec-funcs.h
+index 138bbf721e70ca..1a1de2169f4891 100644
+--- a/include/linux/cec-funcs.h
++++ b/include/uapi/linux/cec-funcs.h
+@@ -33,12 +33,6 @@
+  * SOFTWARE.
+  */
+ 
+-/*
+- * Note: this framework is still in staging and it is likely the API
+- * will change before it goes out of staging.
+- *
+- * Once it is moved out of staging this header will move to uapi.
+- */
+ #ifndef _CEC_UAPI_FUNCS_H
+ #define _CEC_UAPI_FUNCS_H
+ 
+diff --git a/include/linux/cec.h b/include/uapi/linux/cec.h
+similarity index 99%
+rename from include/linux/cec.h
+rename to include/uapi/linux/cec.h
+index 9c87711c0e1c0b..f4ec0af67707aa 100644
+--- a/include/linux/cec.h
++++ b/include/uapi/linux/cec.h
+@@ -33,12 +33,6 @@
+  * SOFTWARE.
+  */
+ 
+-/*
+- * Note: this framework is still in staging and it is likely the API
+- * will change before it goes out of staging.
+- *
+- * Once it is moved out of staging this header will move to uapi.
+- */
+ #ifndef _CEC_UAPI_H
+ #define _CEC_UAPI_H
+ 

@@ -1,0 +1,83 @@
+From c5751e2bb1faeb0fd8e4442461bbbcd9448c3960 Mon Sep 17 00:00:00 2001
+From: CTCaer <ctcaer@gmail.com>
+Date: Wed, 29 Jun 2022 06:38:26 +0000
+Subject: [PATCH 19/39] codecs: nvv4l2: align enc plane width per format/plane
+
+Take two on creating a heuristic of the needed alignment.
+
+Unlike in VIC/NVDEC, in encoding the conversion is from Pitch to Block linear.
+That needs precise alignments for each plane, per format.
+
+This supports way more resolutions than before, but still lacks support for non-standard ones.
+
+For example, 854 width needs 32B alignment (instead of 64!) for yuv420 on main plane.
+And the other 2 planes need 64B.
+
+As usual, TRM is not helpful on that (only has 64/256B alignments for block/pitch)
+and there's probably an algorithm on the drivers that causes that issue by aligning
+sizes for NVENC without notifying user.
+---
+ libavcodec/nvv4l2_enc.c | 38 ++++++++++++++++++++++++++++++++------
+ 1 file changed, 32 insertions(+), 6 deletions(-)
+
+diff --git a/libavcodec/nvv4l2_enc.c b/libavcodec/nvv4l2_enc.c
+index 7bd8e84227..6fc74472ef 100644
+--- a/libavcodec/nvv4l2_enc.c
++++ b/libavcodec/nvv4l2_enc.c
+@@ -646,6 +646,7 @@ int nvv4l2_encoder_put_frame(AVCodecContext *avctx, nvv4l2_ctx_t *ctx,
+                              NvFrame *frame)
+ {
+     int ret;
++    int alignment;
+     struct v4l2_buffer v4l2_buf_op;
+     struct v4l2_plane queue_op_planes[NV_MAX_PLANES];
+     NvBuffer *buffer;
+@@ -685,14 +686,39 @@ int nvv4l2_encoder_put_frame(AVCodecContext *avctx, nvv4l2_ctx_t *ctx,
+         }
+     }
+ 
++    /*
++     ** Due to NvMap/VIC stride conversion constrains, the transformation
++     ** must be aligned per format/plane. Otherwise the frame might be
++     ** produced as scrambled.
++     **
++     ** !TODO: Have a proper algorithm to calculate needed alignements.
++     */
++    switch (ctx->op_pixfmt) {
++    case V4L2_PIX_FMT_NV12M:
++        alignment = 16;
++        break;
++    case V4L2_PIX_FMT_YUV420M:
++        alignment = 64;
++        break;
++    case V4L2_PIX_FMT_YUV444M:
++        alignment = 32;
++        break;
++    case V4L2_PIX_FMT_P010M:
++    default:
++        alignment = 1;
++        break;
++    }
++
+     /* Import frame into output plane */
+     for (uint32_t i = 0; i < buffer->n_planes; i++) {
+-        /*
+-         ** Due to VIC constrains the transformation from Block Linear to Pitch
+-         ** must have aligned widths to 64B. Otherwise the frame might be
+-         ** produced as scrambled.
+-         */
+-        int aligned_plane_width = NVALIGN(ctx->op_planefmts[i].width, 64);
++        int aligned_plane_width = NVALIGN(ctx->op_planefmts[i].width, alignment);
++
++        /* If plane is reduced, use alignment of main plane */
++        if (ctx->op_planefmts[i].width == ctx->op_planefmts[0].width / 2)
++            aligned_plane_width = NVALIGN(ctx->op_planefmts[0].width, alignment) / 2;
++
++        av_log(avctx, AV_LOG_VERBOSE, "Plane %d: width %d -> %d\n",
++               i, ctx->op_planefmts[i].width, aligned_plane_width);
+ 
+         Raw2NvBuffer(frame->payload[i], i, aligned_plane_width,
+                      ctx->op_planefmts[i].height, buffer->planes[i].fd);
+-- 
+2.25.1
+

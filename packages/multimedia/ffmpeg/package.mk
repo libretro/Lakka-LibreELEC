@@ -27,12 +27,10 @@ case "${PROJECT}" in
     PKG_PATCH_DIRS+=" rpi"
     ;;
   L4T)
-    if [ ! "${DISTRO}" = "LibreELEC" ]; then 
       PKG_DEPENDS_TARGET+=" tegra-bsp:host"
       PKG_PATCH_DIRS+=" L4T"
       PKG_FFMPEG_NVV4L2="--enable-nvv4l2"
       EXTRA_CFLAGS="-I${SYSROOT_PREFIX}/usr/src/jetson_multimedia_api/include"
-    fi
    ;;
   *)
    if [ "${DISPLAYSERVER}" = "x11" ]; then

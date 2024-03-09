@@ -1,0 +1,39 @@
+From 24b397a75e4a737c845b91771274ad1104edd54f Mon Sep 17 00:00:00 2001
+From: CTCaer <ctcaer@gmail.com>
+Date: Wed, 28 Dec 2022 14:22:13 +0000
+Subject: [PATCH 21/39] codecs: nvv4l2: fix use after free
+
+---
+ libavcodec/nvv4l2_enc.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/libavcodec/nvv4l2_enc.c b/libavcodec/nvv4l2_enc.c
+index 3af728aade..dc09236e0a 100644
+--- a/libavcodec/nvv4l2_enc.c
++++ b/libavcodec/nvv4l2_enc.c
+@@ -795,6 +795,13 @@ int nvv4l2_encoder_close(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+             nvv4l2_destroyBuffer(ctx, ctx->cp_buffers[i]);
+         }
+ 
++        for (uint32_t i = 0; i < ctx->op_num_buffers; i++) {
++            if (ctx->plane_dma_fd[i] != -1) {
++                nvv4l2_unmap_out(ctx, i, ctx->op_buf_type,
++                                 ctx->op_mem_type, ctx->plane_dma_fd[i]);
++            }
++        }
++
+         /* Request 0 buffers on both planes. */
+         op_num_old_buffers = ctx->op_num_buffers;
+         ret = nvv4l2_req_buffers_on_output_plane(ctx,
+@@ -808,8 +815,6 @@ int nvv4l2_encoder_close(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+         /* Unmap and destroy all allocated DMA buffers. */
+         for (uint32_t i = 0; i < op_num_old_buffers; i++) {
+             if (ctx->plane_dma_fd[i] != -1) {
+-                nvv4l2_unmap_out(ctx, i, ctx->op_buf_type,
+-                                 ctx->op_mem_type, ctx->plane_dma_fd[i]);
+                 ret = NvBufferDestroy(ctx->plane_dma_fd[i]);
+                 ctx->plane_dma_fd[i] = -1;
+                 if (ret) {
+-- 
+2.25.1
+

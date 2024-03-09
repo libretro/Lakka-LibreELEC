@@ -1,5 +1,5 @@
 PKG_NAME="yabasanshiro"
-PKG_VERSION="7513c8459034a0fe415d3cae4d692a54d0f90296"
+PKG_VERSION="4e65871ec0a2582fa2dbe055fccb6573dbd68d4f"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/yabause"
 PKG_URL="${PKG_SITE}.git"
@@ -25,6 +25,10 @@ fi
 if [ "${ARCH}" = "aarch64" ]; then
   if [ "${PROJECT}" = "Amlogic" ]; then
     PKG_MAKE_OPTS_TARGET+=" platform=arm64_cortex_a53_gles3"
+  elif [ "${PROJECT}" = "RPi" -a "${DEVICE:0:4}" = "RPi4" ]; then
+    PKG_MAKE_OPTS_TARGET+=" platform=rpi4"
+  elif [ "${PROJECT}" = "RPi" -a "${DEVICE}" = "RPi5" ]; then
+    PKG_MAKE_OPTS_TARGET+=" platform=rpi5"
   else
     PKG_MAKE_OPTS_TARGET+=" platform=arm64"
   fi

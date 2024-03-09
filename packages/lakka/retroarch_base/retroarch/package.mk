@@ -1,5 +1,5 @@
 PKG_NAME="retroarch"
-PKG_VERSION="d9b90e218238b183d6fbaad2c8bfc9fcd8cb0190"
+PKG_VERSION="ad8975cb5a0fe45be43438bdbd6c3d745653dd02"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
 PKG_URL="${PKG_SITE}.git"
@@ -22,6 +22,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
 
 PKG_MAKE_OPTS_TARGET="V=1 \
                       HAVE_LAKKA=1 \
+                      HAVE_CHEEVOS=1 \
                       HAVE_HAVE_ZARCH=0 \
                       HAVE_WIFI=1 \
                       HAVE_BLUETOOTH=1 \
@@ -48,9 +49,8 @@ fi
 
 if [ "${VULKAN_SUPPORT}" = yes ]; then
   PKG_DEPENDS_TARGET+=" ${VULKAN}"
+  PKG_MAKE_OPTS_TARGET+=" HAVE_VULKAN=1"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-vulkan"
-else
-  PKG_CONFIGURE_OPTS_TARGET+=" --disable-vulkan"
 fi
 
 if [ "${SAMBA_SUPPORT}" = yes ]; then
@@ -72,11 +72,10 @@ else
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-x11"
 fi
 
-if [ "${DISPLAYSERVER}" = "weston" ]; then
+if [ "${DISPLAYSERVER}" = "wl" ]; then
   PKG_DEPENDS_TARGET+=" wayland wayland-protocols"
+  PKG_MAKE_OPTS_TARGET+=" HAVE_WAYLAND=1"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-wayland"
-else
-  PKG_CONFIGURE_OPTS_TARGET+=" --disable-wayland"
 fi
 
 if [ "${PULSEAUDIO_SUPPORT}" = yes ]; then
@@ -224,7 +223,7 @@ makeinstall_target() {
   echo 'audio_driver = "alsathread"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'audio_filter_dir = "/usr/share/audio_filters"' >> ${INSTALL}/etc/retroarch.cfg
 
-  if [ "${PROJECT}" = "OdroidXU3" ]; then # workaround the 55fps bug
+  if [ "${PROJECT}" = "Samsung" ]; then # workaround the 55fps bug
     echo 'audio_out_rate = "44100"' >> ${INSTALL}/etc/retroarch.cfg
   fi
 
