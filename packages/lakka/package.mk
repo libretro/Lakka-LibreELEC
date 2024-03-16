@@ -29,6 +29,9 @@ if [ "${PROJECT}" = "RPi" ]; then
   
   if [ "${DEVICE}" = "GPICase" -o "${DEVICE}" = "Pi02GPi" -o "${DEVICE}" = "RPi4-GPICase2" ]; then
     PKG_DEPENDS_TARGET+=" gpicase_safeshutdown"
+    if [ "${DEVICE}" = "GPICase" -o "${DEVICE}" = "Pi02GPi" ]; then
+      PKG_DEPENDS_TARGET+=" gpicase_change_audio_device"
+    fi
   fi
 fi
 
