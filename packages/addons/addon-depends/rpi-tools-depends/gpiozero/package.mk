@@ -12,6 +12,10 @@ PKG_DEPENDS_TARGET="toolchain colorzero"
 PKG_LONGDESC="A simple interface to everyday GPIO components used with Raspberry Pi."
 PKG_TOOLCHAIN="manual"
 
+if [ "${DISTRO}" = "Lakka" ]; then
+  PKG_ARCH+=" aarch64"
+fi
+
 pre_make_target() {
   if [ "${DISTRO}" = "Lakka" ]; then
     export PYTHONXCPREFIX="${SYSROOT_PREFIX}/usr"

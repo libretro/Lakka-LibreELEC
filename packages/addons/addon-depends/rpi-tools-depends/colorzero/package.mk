@@ -14,6 +14,10 @@ PKG_TOOLCHAIN="manual"
 
 [ "${DISTRO}" = "Lakka" ] && PKG_DEPENDS_TARGET+=" Python3 distutilscross:host" || true
 
+if [ "${DISTRO}" = "Lakka" ]; then
+  PKG_ARCH+=" aarch64"
+fi
+
 pre_make_target() {
   if [ "${DISTRO}" = "Lakka" ]; then
     export PYTHONXCPREFIX="${SYSROOT_PREFIX}/usr"

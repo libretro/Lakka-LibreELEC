@@ -2,7 +2,7 @@ PKG_NAME="gpicase_safeshutdown"
 PKG_VERSION="1.0"
 PKG_ARCH="arm aarch64"
 if [ "${DEVICE}" != "RPi4-GPICase2" ]; then
-  # for GPICase & Pi02GPi
+  # for GPICase & Pi02GPi & RPiZero2-GPiCASE2W
   PKG_DEPENDS_TARGET="Python3 gpiozero colorzero"
 else
   # for RPi4-GPICase2
@@ -19,7 +19,7 @@ makeinstall_target() {
 
 post_install() {
   if [ "${DEVICE}" != "RPi4-GPICase2" ]; then
-    # for GPICase & Pi02GPi
+    # for GPICase & Pi02GPi & RPiZero2-GPiCASE2W
     enable_service gpicase-safeshutdown.service
     rm -v ${INSTALL}/usr/bin/safeshutdown_gpicase2.py
     rm -v ${INSTALL}/usr/lib/systemd/system/gpicase2-safeshutdown.service

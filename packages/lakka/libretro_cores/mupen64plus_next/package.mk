@@ -47,6 +47,9 @@ pre_make_target() {
     Pi02GPi)
       PKG_MAKE_OPTS_TARGET+=" platform=rpi3"
       ;;
+    RPiZero2-GPiCASE2W)
+      PKG_MAKE_OPTS_TARGET+=" platform=rpi3_64-mesa"
+      ;;
     RPi4*)
       PKG_MAKE_OPTS_TARGET+=" platform=rpi4_64-mesa FORCE_GLES3=1"
       ;;
