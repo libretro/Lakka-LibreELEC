@@ -1,5 +1,5 @@
 PKG_NAME="switch-u-boot"
-PKG_VERSION="69c0501a638f535424a4d045355f45c028110f82"
+PKG_VERSION="2606ef5dfa14faedca16f2dcdea59719c7c963f7"
 PKG_GIT_CLONE_BRANCH="linux-hekatf"
 PKG_DEPENDS_HOST="toolchain Python3:host gcc:host swig:host"
 PKG_DEPENDS_TARGET="toolchain Python3 gcc:target swig:host"
