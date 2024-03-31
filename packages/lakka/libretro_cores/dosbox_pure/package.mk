@@ -7,9 +7,11 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="DOSBox Pure is a fork of DOSBox, an emulator for DOS games, built for RetroArch/Libretro aiming for simplicity and ease of use."
 PKG_TOOLCHAIN="make"
 
-if [ "${DEVICE}" = "RPi5" ]; then
-  CFLAGS+=" -DPAGESIZE=16384"
-fi
+pre_make_target() {
+  if [ "${DEVICE}" = "RPi5" ]; then
+    CFLAGS+=" -DPAGESIZE=16384"
+  fi
+}
 
 make_target() {
   # remove optimization from CFLAGS, set via Makefile
