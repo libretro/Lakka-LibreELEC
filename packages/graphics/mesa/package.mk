@@ -116,6 +116,11 @@ else
   PKG_MESON_OPTS_TARGET+=" -Dvulkan-drivers="
 fi
 
+if [ "${ARCH}" = "i386" ]; then
+  TARGET_ARCH="x86"
+  TARGET_SUBARCH="x86"
+fi
+
 post_makeinstall_target() {
   if [ "${PROJECT}" = "L4T" ]; then
     safe_remove ${INSTALL}/usr/lib/libgbm.so.1
