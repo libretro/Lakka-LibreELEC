@@ -91,10 +91,6 @@ makeinstall_target() {
       cp -P libnvidia-glvkspirv.so.${PKG_VERSION}  ${INSTALL}/usr/lib
       ln -sf libnvidia-glvkspirv.so.${PKG_VERSION} ${INSTALL}/usr/lib/libnvidia-glvkspirv.so
 
-      cp -p libnvidia-vulkan-producer.so.${PKG_VERSION}  ${INSTALL}/usr/lib
-      ln -sf libnvidia-vulkan-producer.so.${PKG_VERSION} ${INSTALL}/usr/lib/libnvidia-vulkan-producer.so.1
-      ln -sf libnvidia-vulkan-producer.so.1              ${INSTALL}/usr/lib/libnvidia-vulkan-producer.so
-
     mkdir -p ${INSTALL}/usr/share/vulkan/implicit_layer.d
       sed "s#libGLX_nvidia.so.0#libEGL_nvidia.so.0#" nvidia_layers.json > ${INSTALL}/usr/share/vulkan/implicit_layer.d/nvidia_layers.json
     mkdir -p ${INSTALL}/usr/share/vulkan/icd.d
