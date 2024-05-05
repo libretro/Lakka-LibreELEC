@@ -189,7 +189,7 @@ makeinstall_target() {
   echo 'rgui_show_start_screen = "false"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'assets_directory = "/tmp/assets"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'overlay_directory = "/tmp/overlays"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'cheat_database_path = "/tmp/cheats"' >> ${INSTALL}/etc/retroarch.cfg
+  echo 'cheat_database_path = "/tmp/database/cht"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'cursor_directory = "/tmp/database/cursors"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'log_dir = "/storage/logfiles"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'recording_output_directory = "/storage/recordings"' >> ${INSTALL}/etc/retroarch.cfg
