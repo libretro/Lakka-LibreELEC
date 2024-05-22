@@ -32,7 +32,7 @@ addon() {
 
     # podman
     cp -P $(get_build_dir podman-bin)/bin/podman ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
-    patchelf --add-rpath '$ORIGIN/../lib.private' ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/podman
+    patchelf --add-rpath '${ORIGIN}/../lib.private' ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/podman
     cp -P $(get_build_dir podman-bin)/bin/podman-remote ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/podman-remote
 
     # runc

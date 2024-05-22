@@ -52,9 +52,22 @@ else
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-wireguard"
 fi
 
+if [ "${WIRELESS_DAEMON}" = "wpa_supplicant" ]; then
+  PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET//--disable-wifi/}"
+  PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET//--enable-iwd/}"
+  PKG_CONFIGURE_OPTS_TARGET+=" --enable-wifi --disable-iwd WPASUPPLICANT=/usr/bin/wpa_supplicant"
+
+  PKG_DEPENDS_TARGET="${PKG_DEPENDS_TARGET//iwd/}"
+  PKG_DEPENDS_TARGET+=" wpa_supplicant"
+fi
+
 PKG_MAKE_OPTS_TARGET="storagedir=/storage/.cache/connman \
                       vpn_storagedir=/storage/.config/wireguard \
                       statedir=/run/connman"
+
+pre_configure_target() {
+  sed -i -e "s|<policy user=\"%DISTRO%\">|<policy user=\"${DISTRO}\">|" ${PKG_BUILD}/src/connman-dbus.conf
+}
 
 post_configure_target() {
   libtool_remove_rpath libtool
@@ -89,10 +102,14 @@ post_makeinstall_target() {
 
 post_install() {
   add_user system x 430 430 "service" "/var/run/connman" "/bin/sh"
-  add_group system 430
+  add_group system 430 ${DISTRO}
 
   enable_service connman.service
   if [ "${WIREGUARD_SUPPORT}" = "yes" ]; then
     enable_service connman-vpn.service
+  fi
+
+  if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
+    echo chmod u+s ${BUILD}/image/system/usr/bin/connmanctl >> ${FAKEROOT_SCRIPT}
   fi
 }

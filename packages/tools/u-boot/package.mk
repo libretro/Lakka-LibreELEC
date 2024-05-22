@@ -3,8 +3,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="u-boot"
-PKG_VERSION="2024.01"
-PKG_SHA256="b99611f1ed237bf3541bdc8434b68c96a6e05967061f992443cb30aabebef5b3"
+PKG_VERSION="2024.04"
+PKG_SHA256="18a853fe39fad7ad03a90cc2d4275aeaed6da69735defac3492b80508843dd4a"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://www.denx.de/wiki/U-Boot"

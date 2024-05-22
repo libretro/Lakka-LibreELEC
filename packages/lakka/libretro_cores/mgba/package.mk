@@ -30,7 +30,7 @@ if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
 
   get_graphicdrivers
 
-  if listcontains "${GRAPHIC_DRIVERS}" "(panfrost|vc4)" && ! listcontains "${MALI_FAMILY}" "(t720)"; then
+  if listcontains "${GRAPHIC_DRIVERS}" "(panfrost|vc4)" && ! listcontains "${MALI_FAMILY}" "t720"; then
     PKG_CMAKE_OPTS_TARGET+=" -DBUILD_GLES3=ON -DBUILD_GLES2=OFF"
   else
     PKG_CMAKE_OPTS_TARGET+=" -DBUILD_GLES3=OFF -DBUILD_GLES2=ON"

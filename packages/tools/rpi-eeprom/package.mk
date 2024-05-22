@@ -12,7 +12,7 @@ PKG_LONGDESC="rpi-eeprom: firmware, config and scripts to update RPi4 SPI bootlo
 PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
-  
+
   if [ "${DEVICE}" = "RPi4" ]; then
     _variant="2711"
   else

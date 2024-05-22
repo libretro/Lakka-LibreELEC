@@ -1,0 +1,127 @@
+From ded4a192fa894768db5d1ab0e90256f28a87b834 Mon Sep 17 00:00:00 2001
+From: CTCaer <ctcaer@gmail.com>
+Date: Sun, 2 Jul 2023 03:49:48 +0000
+Subject: [PATCH 31/39] nvv4l2: handle unsupported pixel formats NVDEC only
+ supports YUV420 and NV12 formats.
+
+If a consumer starting nvv4l2 decoder with unsupported pixel format force
+software decoding.
+
+If consumer does not probe info of the media, the pixel format will be empty.
+If the actual pixel format is not supported it will result in no image.
+Since the normal procedure of using libavcodec is to just open a codec via id,
+without passing extra info or data, except if on purpose, there's no way to
+mitigate that issue in a non-invasive way.
+---
+ libavcodec/avcodec.c    |  2 --
+ libavcodec/nvv4l2_dec.c | 58 ++++++++++++++++++++++++++++++++++++++---
+ 2 files changed, 54 insertions(+), 6 deletions(-)
+
+diff --git a/libavcodec/avcodec.c b/libavcodec/avcodec.c
+index fb1362290f..773d0457b3 100644
+--- a/libavcodec/avcodec.c
++++ b/libavcodec/avcodec.c
+@@ -355,8 +355,6 @@ FF_ENABLE_DEPRECATION_WARNINGS
+             goto free_and_end;
+         }
+     }
+-    if (codec->priv_class)
+-        av_assert0(*(const AVClass **)avctx->priv_data == codec->priv_class);
+ 
+ end:
+ 
+diff --git a/libavcodec/nvv4l2_dec.c b/libavcodec/nvv4l2_dec.c
+index fe54883522..0b91cf0eba 100644
+--- a/libavcodec/nvv4l2_dec.c
++++ b/libavcodec/nvv4l2_dec.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2021-2022, CTCaer <ctcaer@gmail.com>
++ * Copyright (c) 2021-2023, CTCaer <ctcaer@gmail.com>
+  *
+  * Permission is hereby granted, free of charge, to any person obtaining a
+  * copy of this software and associated documentation files (the "Software"),
+@@ -31,10 +31,18 @@
+ #include <errno.h>
+ #include "codec_internal.h"
+ #include "internal.h"
++#include "decode.h"
++#include "thread.h"
+ #include "libavutil/log.h"
++#include "libavutil/pixdesc.h"
++#include "libavutil/opt.h"
+ 
+ #include "nvv4l2.h"
+ 
++extern AVCodec ff_h264_decoder;
++extern AVCodec ff_hevc_decoder;
++extern AVCodec ff_vp9_decoder;
++
+ /*
+  ** Output plane format support:
+  **  S264 (H264  Encoded Slice bitstream)
+@@ -978,6 +986,48 @@ static NvCodingType map_avcodec_id(enum AVCodecID id)
+     return NvVideoCodec_UNDEFINED;
+ }
+ 
++static int nvv4l2dec_codec_fallback(AVCodecContext *avctx)
++{
++    av_log(avctx, AV_LOG_WARNING, "Falling back to software decoding.\n");
++
++    switch (avctx->codec_id) {
++    case AV_CODEC_ID_H264:
++        avctx->codec = &ff_h264_decoder;
++        break;
++    case AV_CODEC_ID_HEVC:
++        avctx->codec = &ff_hevc_decoder;
++        break;
++    case AV_CODEC_ID_VP9:
++        avctx->codec = &ff_vp9_decoder;
++        break;
++    default:
++        av_log(avctx, AV_LOG_ERROR, "Unsupported codec fallback!\n");
++        return AVERROR_BUG;
++    }
++
++    av_opt_free(avctx->priv_data);
++
++    if (avctx->codec->priv_data_size > 0) {
++        avctx->priv_data = av_mallocz(avctx->codec->priv_data_size);
++        if (!avctx->priv_data)
++            return AVERROR(ENOMEM);
++    }
++
++    if (HAVE_THREADS
++        && !(avctx->internal->frame_thread_encoder && (avctx->active_thread_type&FF_THREAD_FRAME))) {
++        ff_thread_init(avctx);
++    }
++    if (!HAVE_THREADS && !(avctx->codec->caps_internal & FF_CODEC_CAP_AUTO_THREADS))
++        avctx->thread_count = 1;
++
++    if (avctx->codec->priv_class) {
++        *(const AVClass **)avctx->priv_data = avctx->codec->priv_class;
++        av_opt_set_defaults(avctx->priv_data);
++    }
++
++    return avctx->codec->init(avctx);
++}
++
+ static int nvv4l2dec_init(AVCodecContext *avctx)
+ {
+     nvv4l2DecodeContext *nvv4l2_ctx = avctx->priv_data;
+@@ -1000,9 +1050,9 @@ static int nvv4l2dec_init(AVCodecContext *avctx)
+         pix_fmt = V4L2_PIX_FMT_NV12M;
+         break;
+     default:
+-        av_log(avctx, AV_LOG_ERROR, "Unsupported pixel format %d!\n",
+-               avctx->pix_fmt);
+-        return AVERROR_BUG;
++        av_log(avctx, AV_LOG_WARNING, "Unsupported pixel format %s!\n",
++               av_get_pix_fmt_name(avctx->pix_fmt));
++        return nvv4l2dec_codec_fallback(avctx);
+     }
+ 
+     nvv4l2_ctx->ctx = nvv4l2_create_decoder(avctx, nv_codec_type, pix_fmt);
+-- 
+2.25.1
+

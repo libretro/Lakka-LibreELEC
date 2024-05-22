@@ -12,6 +12,11 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A CD-ROM reading and control library."
 PKG_BUILD_FLAGS="+pic"
 
+#workaround gcc-14 erroring with lseek64
+if [ "${ARCH}" = "arm" ]; then
+  TARGET_CFLAGS+=" -Wno-implicit-function-declaration"
+fi
+
 # package specific configure options
 PKG_CONFIGURE_OPTS_TARGET="--enable-cxx \
                            --disable-cpp-progs \

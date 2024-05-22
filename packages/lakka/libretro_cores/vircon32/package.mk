@@ -15,11 +15,14 @@ fi
 
 if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
-  if [ "${GRAPHIC_DRIVER}" = "panfrost" ] && !listcontains "${MALI_FAMILY}" "t720|t620"; then
+
+  get_graphicdrivers
+
+  if listcontains "${GRAPHIC_DRIVERS}" "panfrost" && ! listcontains "${MALI_FAMILY}" "(t720|t620)"; then
     PKG_CMAKE_OPTS_TARGET+=" -DENABLE_OPENGLES3=ON"
-  elif [ "${GRAPHIC_DRIVER}" = "lima" ] || listcontains "${MALI_FAMILY}" "4[0-9]+|t720"; then
+  elif listcontains "${GRAPHIC_DRIVERS}" "lima" || listcontains "${MALI_FAMILY}" "(400|450|t720)"; then
     PKG_CMAKE_OPTS_TARGET+=" -DENABLE_OPENGLES2=ON"
-  elif [ "${GRAPHIC_DRIVER}" = "vc4" ] && listcontains "${DEVICE}" "RPi4|RPi5"; then
+  elif listcontains "${GRAPHIC_DRIVERS}" "vc4" && [ "${DEVICE:0:4}" = "RPi4" -o "${DEVICE}" = "RPi5" ]; then
     PKG_CMAKE_OPTS_TARGET+=" -DENABLE_OPENGLES3=ON"
   elif [ "${DISPLAYSERVER}" = "wl" ]; then
     PKG_CMAKE_OPTS_TARGET+=" -DENABLE_OPENGLES3=ON"

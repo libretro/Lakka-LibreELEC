@@ -1,0 +1,95 @@
+#!/bin/sh
+
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2021-present Team LibreELEC (https://libreelec.tv)
+
+EDID_DIR="/storage/.config/firmware/edid"
+EDID_CPIO="/flash/edid.cpio"
+CONFIG_TXT="/flash/config.txt"
+CMDLINE_TXT="/flash/cmdline.txt"
+
+usage() {
+  echo "$0 set CONNECTOR... | delete | help"
+}
+
+check_args() {
+  if [ $# -eq 0 ]; then
+    echo "error: no connector(s) specified!"
+    exit 1
+  fi
+  if [ ! -f "${EDID_CPIO}" ]; then
+    echo "error: ${EDID_CPIO} not present"
+    exit 1
+  fi
+  for conn in "$@"; do
+    if [ ! -f "${EDID_DIR}/edid-${conn}.bin" ]; then
+      echo "error: ${EDID_DIR}/edid-${conn}.bin not present"
+      exit 1
+    fi
+  done
+}
+
+cleanup_config_txt() {
+  sed -i "/^initramfs edid\.cpio/d" ${CONFIG_TXT}
+}
+
+get_cleaned_cmdline_txt() {
+  sed \
+    -e 's| drm\.edid_firmware=[^ ]*||g' \
+    -e 's| video=[^ ]*||g' \
+    ${CMDLINE_TXT}
+}
+
+add_initramfs() {
+  # make sure config.txt ends with a newline
+  if [ "$(tail -c 1 ${CONFIG_TXT} | tr -c -d '\n' | tr '\n' 'X')" != "X" ]; then
+    echo "" >> ${CONFIG_TXT}
+  fi
+  echo "initramfs edid.cpio" >> ${CONFIG_TXT}
+}
+
+add_cmdline() {
+  CMDLINE=$(get_cleaned_cmdline_txt)
+  FIRMWARE="" 
+  VIDEO=""
+  for conn in "$@"; do
+    VIDEO="${VIDEO} video=${conn}:D"
+    [ -n "${FIRMWARE}" ] && FIRMWARE="${FIRMWARE},"
+    FIRMWARE="${FIRMWARE}${conn}:edid/edid-${conn}.bin"
+  done
+  echo "${CMDLINE} drm.edid_firmware=${FIRMWARE}${VIDEO}" > ${CMDLINE_TXT}
+}
+
+set_edids() {
+  check_args "$@"
+  mount -o remount,rw /flash
+  cleanup_config_txt
+  add_initramfs
+  add_cmdline "$@"
+  mount -o remount,ro /flash
+}
+
+delete_edids() {
+  mount -o remount,rw /flash
+  cleanup_config_txt
+  CMDLINE=$(get_cleaned_cmdline_txt)
+  echo "${CMDLINE}" > ${CMDLINE_TXT}
+  mount -o remount,ro /flash
+}
+
+case $1 in
+  set)
+    shift
+    set_edids "$@"
+    ;;
+  delete)
+    delete_edids
+    ;;
+  help)
+    usage
+    ;;
+  *)
+    usage
+    exit 1
+    ;;
+esac

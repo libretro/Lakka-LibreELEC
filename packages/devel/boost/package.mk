@@ -3,8 +3,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="boost"
-PKG_VERSION="1.84.0"
-PKG_SHA256="cc4b893acf645c9d4b698e9a0f08ca8846aa5d6c68275c14c3e7949c24109454"
+PKG_VERSION="1.85.0"
+PKG_SHA256="7009fe1faa1697476bdc7027703a2badb84e849b7b0baad5086b087b971f8617"
 PKG_LICENSE="OSS"
 PKG_SITE="https://www.boost.org/"
 PKG_URL="https://boostorg.jfrog.io/artifactory/main/release/${PKG_VERSION}/source/${PKG_NAME}_${PKG_VERSION//./_}.tar.bz2"

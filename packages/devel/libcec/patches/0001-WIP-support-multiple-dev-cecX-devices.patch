@@ -1,0 +1,290 @@
+From 6239ae1b092d85e54530e95bbefbdc4fa520dba1 Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Thu, 16 Jul 2020 15:20:07 +0000
+Subject: [PATCH] WIP: support multiple /dev/cecX devices
+
+Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
+---
+ include/cectypes.h                            |  10 --
+ src/libcec/adapter/AdapterFactory.cpp         |  14 +--
+ .../Linux/LinuxCECAdapterCommunication.cpp    |  11 +-
+ .../Linux/LinuxCECAdapterCommunication.h      |   3 +-
+ .../Linux/LinuxCECAdapterDetection.cpp        | 116 +++++++++++++++++-
+ .../adapter/Linux/LinuxCECAdapterDetection.h  |   7 +-
+ 6 files changed, 130 insertions(+), 31 deletions(-)
+
+diff --git a/include/cectypes.h b/include/cectypes.h
+index e585f2f..c80a1ec 100644
+--- a/include/cectypes.h
++++ b/include/cectypes.h
+@@ -281,16 +281,6 @@ namespace CEC {
+  */
+ #define CEC_MAX_DATA_PACKET_SIZE (16 * 4)
+ 
+-/*!
+- * the path to use for the Linux CEC device
+- */
+-#define CEC_LINUX_PATH		"/dev/cec0"
+-
+-/*!
+- * the name of the virtual COM port to use for the Linux' CEC wire
+- */
+-#define CEC_LINUX_VIRTUAL_COM		"Linux"
+-
+ /*!
+  * the path to use for the AOCEC HDMI CEC device
+  */
+diff --git a/src/libcec/adapter/AdapterFactory.cpp b/src/libcec/adapter/AdapterFactory.cpp
+index ede5f37..d784e5e 100644
+--- a/src/libcec/adapter/AdapterFactory.cpp
++++ b/src/libcec/adapter/AdapterFactory.cpp
+@@ -142,15 +142,7 @@ int8_t CAdapterFactory::DetectAdapters(cec_adapter_descriptor *deviceList, uint8
+ #endif
+ 
+ #if defined(HAVE_LINUX_API)
+-  if (iAdaptersFound < iBufSize && CLinuxCECAdapterDetection::FindAdapter())
+-  {
+-    snprintf(deviceList[iAdaptersFound].strComPath, sizeof(deviceList[iAdaptersFound].strComPath), CEC_LINUX_PATH);
+-    snprintf(deviceList[iAdaptersFound].strComName, sizeof(deviceList[iAdaptersFound].strComName), CEC_LINUX_VIRTUAL_COM);
+-    deviceList[iAdaptersFound].iVendorId = 0;
+-    deviceList[iAdaptersFound].iProductId = 0;
+-    deviceList[iAdaptersFound].adapterType = ADAPTERTYPE_LINUX;
+-    iAdaptersFound++;
+-  }
++  iAdaptersFound += CLinuxCECAdapterDetection::FindAdapters(deviceList, iBufSize, strDevicePath);
+ #endif
+ 
+ #if defined(HAVE_AOCEC_API)
+@@ -198,8 +190,8 @@ IAdapterCommunication *CAdapterFactory::GetInstance(const char *strPort, uint16_
+ #endif
+ 
+ #if defined(HAVE_LINUX_API)
+-  if (!strcmp(strPort, CEC_LINUX_VIRTUAL_COM))
+-    return new CLinuxCECAdapterCommunication(m_lib->m_cec);
++  if (CLinuxCECAdapterDetection::IsAdapter(strPort))
++    return new CLinuxCECAdapterCommunication(m_lib->m_cec, strPort);
+ #endif
+ 
+ #if defined(HAVE_AOCEC_API)
+diff --git a/src/libcec/adapter/Linux/LinuxCECAdapterCommunication.cpp b/src/libcec/adapter/Linux/LinuxCECAdapterCommunication.cpp
+index 6a28835..41e4cc6 100644
+--- a/src/libcec/adapter/Linux/LinuxCECAdapterCommunication.cpp
++++ b/src/libcec/adapter/Linux/LinuxCECAdapterCommunication.cpp
+@@ -53,9 +53,10 @@ using namespace P8PLATFORM;
+ // Required capabilities
+ #define CEC_LINUX_CAPABILITIES (CEC_CAP_LOG_ADDRS | CEC_CAP_TRANSMIT | CEC_CAP_PASSTHROUGH)
+ 
+-CLinuxCECAdapterCommunication::CLinuxCECAdapterCommunication(IAdapterCommunicationCallback *callback)
++CLinuxCECAdapterCommunication::CLinuxCECAdapterCommunication(IAdapterCommunicationCallback *callback, const char *strPort)
+   : IAdapterCommunication(callback)
+ {
++  m_path = strPort;
+   m_fd = INVALID_SOCKET_VALUE;
+ }
+ 
+@@ -69,9 +70,9 @@ bool CLinuxCECAdapterCommunication::Open(uint32_t UNUSED(iTimeoutMs), bool UNUSE
+   if (IsOpen())
+     Close();
+ 
+-  if ((m_fd = open(CEC_LINUX_PATH, O_RDWR)) >= 0)
++  if ((m_fd = open(m_path, O_RDWR)) >= 0)
+   {
+-    LIB_CEC->AddLog(CEC_LOG_DEBUG, "CLinuxCECAdapterCommunication::Open - m_fd=%d bStartListening=%d", m_fd, bStartListening);
++    LIB_CEC->AddLog(CEC_LOG_DEBUG, "CLinuxCECAdapterCommunication::Open - m_path=%s m_fd=%d bStartListening=%d", m_path, m_fd, bStartListening);
+ 
+     // Ensure the CEC device supports required capabilities
+     struct cec_caps caps = {};
+@@ -153,7 +154,7 @@ void CLinuxCECAdapterCommunication::Close(void)
+ {
+   StopThread(0);
+ 
+-  LIB_CEC->AddLog(CEC_LOG_DEBUG, "CLinuxCECAdapterCommunication::Close - m_fd=%d", m_fd);
++  LIB_CEC->AddLog(CEC_LOG_DEBUG, "CLinuxCECAdapterCommunication::Close - m_path=%s m_fd=%d", m_path, m_fd);
+ 
+   close(m_fd);
+   m_fd = INVALID_SOCKET_VALUE;
+@@ -431,7 +432,7 @@ void *CLinuxCECAdapterCommunication::Process(void)
+       Sleep(5);
+   }
+ 
+-  LIB_CEC->AddLog(CEC_LOG_DEBUG, "CLinuxCECAdapterCommunication::Process - stopped - m_fd=%d", m_fd);
++  LIB_CEC->AddLog(CEC_LOG_DEBUG, "CLinuxCECAdapterCommunication::Process - stopped - m_path=%s m_fd=%d", m_path, m_fd);
+   return 0;
+ }
+ 
+diff --git a/src/libcec/adapter/Linux/LinuxCECAdapterCommunication.h b/src/libcec/adapter/Linux/LinuxCECAdapterCommunication.h
+index 57c5e26..ec1e98d 100644
+--- a/src/libcec/adapter/Linux/LinuxCECAdapterCommunication.h
++++ b/src/libcec/adapter/Linux/LinuxCECAdapterCommunication.h
+@@ -50,7 +50,7 @@ namespace CEC
+      * @brief Create a new Linux CEC communication handler.
+      * @param callback The callback to use for incoming CEC commands.
+      */
+-    CLinuxCECAdapterCommunication(IAdapterCommunicationCallback *callback);
++    CLinuxCECAdapterCommunication(IAdapterCommunicationCallback *callback, const char *strPort);
+     virtual ~CLinuxCECAdapterCommunication(void);
+ 
+     /** @name IAdapterCommunication implementation */
+@@ -92,6 +92,7 @@ namespace CEC
+ 
+   private:
+     int m_fd;
++    const char *m_path;
+   };
+ };
+ 
+diff --git a/src/libcec/adapter/Linux/LinuxCECAdapterDetection.cpp b/src/libcec/adapter/Linux/LinuxCECAdapterDetection.cpp
+index 7b72238..0099367 100644
+--- a/src/libcec/adapter/Linux/LinuxCECAdapterDetection.cpp
++++ b/src/libcec/adapter/Linux/LinuxCECAdapterDetection.cpp
+@@ -35,16 +35,126 @@
+  */
+ 
+ #include "env.h"
+-#include <stdio.h>
+ 
+ #if defined(HAVE_LINUX_API)
+ #include "LinuxCECAdapterDetection.h"
+ 
++#include <dirent.h>
++#include "p8-platform/util/StringUtils.h"
++
++#if defined(HAVE_LIBUDEV)
++extern "C" {
++#include <libudev.h>
++}
++#endif
++
+ using namespace CEC;
+ 
+-bool CLinuxCECAdapterDetection::FindAdapter(void)
++bool CLinuxCECAdapterDetection::IsAdapter(const char *strPort)
++{
++  return !strncmp(strPort, "/dev/cec", 8);
++}
++
++uint8_t CLinuxCECAdapterDetection::FindAdaptersUdev(cec_adapter_descriptor *deviceList, uint8_t iBufSize, const char *strDevicePath /* = NULL */)
++{
++  uint8_t iFound(0);
++
++#if defined(HAVE_LIBUDEV)
++  struct udev *udev;
++  if (!(udev = udev_new()))
++    return 0;
++
++  struct udev_enumerate *enumerate;
++  struct udev_list_entry *devices, *dev_list_entry;
++  struct udev_device *dev;
++  enumerate = udev_enumerate_new(udev);
++
++  udev_enumerate_add_match_subsystem(enumerate, "cec");
++  udev_enumerate_scan_devices(enumerate);
++  devices = udev_enumerate_get_list_entry(enumerate);
++  udev_list_entry_foreach(dev_list_entry, devices)
++  {
++    const char *strPath;
++    strPath = udev_list_entry_get_name(dev_list_entry);
++
++    dev = udev_device_new_from_syspath(udev, strPath);
++    if (!dev)
++      continue;
++
++    const char *strPort;
++    strPort = udev_device_get_devnode(dev);
++
++    if (!strDevicePath || !strcmp(strPath, strDevicePath))
++    {
++      snprintf(deviceList[iFound].strComPath, sizeof(deviceList[iFound].strComPath), "%s", strPath);
++      snprintf(deviceList[iFound].strComName, sizeof(deviceList[iFound].strComName), "%s", strPort);
++      deviceList[iFound].iVendorId = 0;
++      deviceList[iFound].iProductId = 0;
++      deviceList[iFound].adapterType = ADAPTERTYPE_LINUX;
++      iFound++;
++    }
++    udev_device_unref(dev);
++
++    if (iFound >= iBufSize)
++      break;
++  }
++
++  udev_enumerate_unref(enumerate);
++  udev_unref(udev);
++#else
++  (void)deviceList;
++  (void)iBufSize;
++  (void)strDevicePath;
++#endif
++
++  return iFound;
++}
++
++uint8_t CLinuxCECAdapterDetection::FindAdaptersLinux(cec_adapter_descriptor *deviceList, uint8_t iBufSize, const char *strDevicePath /* = NULL */)
++{
++  uint8_t iFound(0);
++
++  std::string strSysfsPath("/sys/bus/cec/devices");
++  DIR *dir;
++
++  if ((dir = opendir(strSysfsPath.c_str())) != NULL)
++  {
++    struct dirent *dent;
++
++    while ((dent = readdir(dir)) != NULL)
++    {
++      std::string strDevice = StringUtils::Format("%s/%s", strSysfsPath.c_str(), dent->d_name);
++
++      if (strncmp(dent->d_name, "cec", 3))
++        continue;
++
++      if (strDevicePath && strcmp(strDevice.c_str(), strDevicePath))
++        continue;
++
++      snprintf(deviceList[iFound].strComPath, sizeof(deviceList[iFound].strComPath), "%s", strDevice.c_str());
++      snprintf(deviceList[iFound].strComName, sizeof(deviceList[iFound].strComName), "/dev/%s", dent->d_name);
++      deviceList[iFound].iVendorId = 0;
++      deviceList[iFound].iProductId = 0;
++      deviceList[iFound].adapterType = ADAPTERTYPE_LINUX;
++      iFound++;
++
++      if (iFound >= iBufSize)
++        break;
++    }
++
++    closedir(dir);
++  }
++
++  return iFound;
++}
++
++uint8_t CLinuxCECAdapterDetection::FindAdapters(cec_adapter_descriptor *deviceList, uint8_t iBufSize, const char *strDevicePath /* = NULL */)
+ {
+-  return access(CEC_LINUX_PATH, 0) == 0;
++  uint8_t iFound(0);
++  iFound = FindAdaptersUdev(deviceList, iBufSize, strDevicePath);
++  if (iFound == 0)
++    iFound = FindAdaptersLinux(deviceList, iBufSize, strDevicePath);
++  return iFound;
+ }
+ 
+ #endif
+diff --git a/src/libcec/adapter/Linux/LinuxCECAdapterDetection.h b/src/libcec/adapter/Linux/LinuxCECAdapterDetection.h
+index f5ea2c4..d3a5314 100644
+--- a/src/libcec/adapter/Linux/LinuxCECAdapterDetection.h
++++ b/src/libcec/adapter/Linux/LinuxCECAdapterDetection.h
+@@ -44,7 +44,12 @@ namespace CEC
+   class CLinuxCECAdapterDetection
+   {
+   public:
+-    static bool FindAdapter(void);
++    static uint8_t FindAdapters(cec_adapter_descriptor *deviceList, uint8_t iBufSize, const char *strDevicePath = NULL);
++    static bool IsAdapter(const char *strPort);
++
++  private:
++    static uint8_t FindAdaptersUdev(cec_adapter_descriptor *deviceList, uint8_t iBufSize, const char *strDevicePath = NULL);
++    static uint8_t FindAdaptersLinux(cec_adapter_descriptor *deviceList, uint8_t iBufSize, const char *strDevicePath = NULL);
+   };
+ };
+ 
+-- 
+2.34.1
+

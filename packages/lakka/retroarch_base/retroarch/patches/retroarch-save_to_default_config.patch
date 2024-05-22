@@ -1,0 +1,224 @@
+diff --git a/command.c b/command.c
+index 708c3cd29f..965782859e 100644
+--- a/command.c
++++ b/command.c
+@@ -43,6 +43,9 @@
+ 
+ #ifdef HAVE_MENU
+ #include "menu/menu_driver.h"
++#ifdef HAVE_LAKKA
++#include "file_path_special.h"
++#endif
+ #endif
+ 
+ #ifdef HAVE_NETWORKING
+@@ -1856,6 +1859,40 @@ void command_event_save_current_config(enum override_type type)
+             }
+          }
+          break;
++#ifdef HAVE_LAKKA
++      case OVERRIDE_DEFAULT_RARCH_CFG:
++         {
++            char msg[256];
++            msg[0] = '\0';
++            char conf_path[PATH_MAX_LENGTH];
++            char application_data[PATH_MAX_LENGTH] = {0};
++
++            if(!fill_pathname_application_data(application_data,
++                  sizeof(application_data)))
++               goto error_saving_to_default_config;
++
++            if(!fill_pathname_join_special(conf_path, application_data,
++                  FILE_PATH_MAIN_CONFIG, sizeof(conf_path)))
++               goto error_saving_to_default_config;
++
++            path_set(RARCH_PATH_CONFIG, conf_path);
++
++            if (path_is_empty(RARCH_PATH_CONFIG))
++               goto error_saving_to_default_config;
++
++            if (runloop_st->flags & RUNLOOP_FLAG_OVERRIDES_ACTIVE)
++               strlcpy(msg, msg_hash_to_str(MSG_OVERRIDES_ACTIVE_NOT_SAVING), sizeof(msg));
++            else
++               command_event_save_config(path_get(RARCH_PATH_CONFIG), msg, sizeof(msg));
++
++            runloop_msg_queue_push(msg, 1, 180, true, NULL, MESSAGE_QUEUE_ICON_DEFAULT, MESSAGE_QUEUE_CATEGORY_INFO);
++            break;
++error_saving_to_default_config:
++            strlcpy(msg, "Error saving to default configuration file.", sizeof(msg));
++            runloop_msg_queue_push(msg, 1, 180, true, NULL, MESSAGE_QUEUE_ICON_DEFAULT, MESSAGE_QUEUE_CATEGORY_ERROR);
++         }
++         break;
++#endif /* HAVE_LAKKA */
+       case OVERRIDE_GAME:
+       case OVERRIDE_CORE:
+       case OVERRIDE_CONTENT_DIR:
+diff --git a/command.h b/command.h
+index 677ae6dee9..92d185b05f 100644
+--- a/command.h
++++ b/command.h
+@@ -168,6 +168,9 @@ enum event_command
+    CMD_EVENT_MENU_RESET_TO_DEFAULT_CONFIG,
+    CMD_EVENT_MENU_SAVE_CONFIG,
+    CMD_EVENT_MENU_SAVE_CURRENT_CONFIG,
++#ifdef HAVE_LAKKA
++   CMD_EVENT_MENU_SAVE_DEFAULT_CONFIG,
++#endif
+    CMD_EVENT_MENU_SAVE_CURRENT_CONFIG_OVERRIDE_CORE,
+    CMD_EVENT_MENU_SAVE_CURRENT_CONFIG_OVERRIDE_CONTENT_DIR,
+    CMD_EVENT_MENU_SAVE_CURRENT_CONFIG_OVERRIDE_GAME,
+diff --git a/configuration.h b/configuration.h
+index 71d194f828..3b15a83e8a 100644
+--- a/configuration.h
++++ b/configuration.h
+@@ -85,7 +85,12 @@ enum override_type
+    OVERRIDE_AS,
+    OVERRIDE_CORE,
+    OVERRIDE_CONTENT_DIR,
++#ifndef HAVE_LAKKA
+    OVERRIDE_GAME
++#else
++   OVERRIDE_GAME,
++   OVERRIDE_DEFAULT_RARCH_CFG
++#endif
+ };
+ 
+ typedef struct settings
+diff --git a/intl/msg_hash_lbl.h b/intl/msg_hash_lbl.h
+index 2a77316899..926c5c26a1 100644
+--- a/intl/msg_hash_lbl.h
++++ b/intl/msg_hash_lbl.h
+@@ -3548,6 +3548,12 @@ MSG_HASH(
+    MENU_ENUM_LABEL_SAVE_CURRENT_CONFIG,
+    "save_current_config"
+    )
++#ifdef HAVE_LAKKA
++MSG_HASH(
++   MENU_ENUM_LABEL_SAVE_DEFAULT_CONFIG,
++   "save_default_config"
++   )
++#endif
+ MSG_HASH(
+    MENU_ENUM_LABEL_OVERRIDE_FILE_LOAD,
+    "override_file_load"
+diff --git a/intl/msg_hash_us.h b/intl/msg_hash_us.h
+index 887a643c01..4ce46c6aa3 100644
+--- a/intl/msg_hash_us.h
++++ b/intl/msg_hash_us.h
+@@ -1099,6 +1099,16 @@ MSG_HASH(
+    MENU_ENUM_SUBLABEL_SAVE_CURRENT_CONFIG,
+    "Overwrite current configuration file."
+    )
++#ifdef HAVE_LAKKA
++MSG_HASH(
++   MENU_ENUM_LABEL_VALUE_SAVE_DEFAULT_CONFIG,
++   "Save To Default Configuration File"
++   )
++MSG_HASH(
++   MENU_ENUM_SUBLABEL_SAVE_DEFAULT_CONFIG,
++   "Overwrite default configuration file."
++   )
++#endif
+ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_SAVE_NEW_CONFIG,
+    "Save New Configuration"
+diff --git a/menu/cbs/menu_cbs_sublabel.c b/menu/cbs/menu_cbs_sublabel.c
+index a2a3a7f9b0..846fb8b82a 100644
+--- a/menu/cbs/menu_cbs_sublabel.c
++++ b/menu/cbs/menu_cbs_sublabel.c
+@@ -231,6 +231,9 @@ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_accessibility_narrator_speech_speed,
+ 
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_load_config,                      MENU_ENUM_SUBLABEL_CONFIGURATIONS)
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_save_current_config,              MENU_ENUM_SUBLABEL_SAVE_CURRENT_CONFIG)
++#ifdef HAVE_LAKKA
++DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_save_default_config,              MENU_ENUM_SUBLABEL_SAVE_DEFAULT_CONFIG)
++#endif
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_save_new_config,                  MENU_ENUM_SUBLABEL_SAVE_NEW_CONFIG)
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_reset_to_default_config,          MENU_ENUM_SUBLABEL_RESET_TO_DEFAULT_CONFIG)
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_quick_menu_override_options,             MENU_ENUM_SUBLABEL_QUICK_MENU_OVERRIDE_OPTIONS)
+@@ -3354,6 +3357,11 @@ int menu_cbs_init_bind_sublabel(menu_file_list_cbs_t *cbs,
+          case MENU_ENUM_LABEL_SAVE_CURRENT_CONFIG:
+             BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_save_current_config);
+             break;
++#ifdef HAVE_LAKKA
++         case MENU_ENUM_LABEL_SAVE_DEFAULT_CONFIG:
++            BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_save_default_config);
++            break;
++#endif
+          case MENU_ENUM_LABEL_SAVE_NEW_CONFIG:
+             BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_save_new_config);
+             break;
+diff --git a/menu/menu_displaylist.c b/menu/menu_displaylist.c
+index e2fac7b8f1..e6909f6528 100644
+--- a/menu/menu_displaylist.c
++++ b/menu/menu_displaylist.c
+@@ -10501,6 +10501,14 @@ unsigned menu_displaylist_build_list(
+                   MENU_ENUM_LABEL_SAVE_CURRENT_CONFIG,
+                   MENU_SETTING_ACTION, 0, 0, NULL))
+             count++;
++#ifdef HAVE_LAKKA
++         if (menu_entries_append(list,
++                  msg_hash_to_str(MENU_ENUM_LABEL_VALUE_SAVE_DEFAULT_CONFIG),
++                  msg_hash_to_str(MENU_ENUM_LABEL_SAVE_DEFAULT_CONFIG),
++                  MENU_ENUM_LABEL_SAVE_DEFAULT_CONFIG,
++                  MENU_SETTING_ACTION, 0, 0, NULL))
++            count++;
++#endif
+          if (menu_entries_append(list,
+                   msg_hash_to_str(MENU_ENUM_LABEL_VALUE_SAVE_NEW_CONFIG),
+                   msg_hash_to_str(MENU_ENUM_LABEL_SAVE_NEW_CONFIG),
+diff --git a/menu/menu_setting.c b/menu/menu_setting.c
+index 33bd9a7733..8a1b60ff1a 100644
+--- a/menu/menu_setting.c
++++ b/menu/menu_setting.c
+@@ -10073,6 +10073,18 @@ static bool setting_append_list(
+          MENU_SETTINGS_LIST_CURRENT_ADD_CMD(list, list_info, CMD_EVENT_MENU_SAVE_CURRENT_CONFIG);
+          SETTINGS_DATA_LIST_CURRENT_ADD_FLAGS(list, list_info, SD_FLAG_LAKKA_ADVANCED);
+ 
++#ifdef HAVE_LAKKA
++	 CONFIG_ACTION(
++               list, list_info,
++               MENU_ENUM_LABEL_SAVE_DEFAULT_CONFIG,
++               MENU_ENUM_LABEL_VALUE_SAVE_DEFAULT_CONFIG,
++               &group_info,
++               &subgroup_info,
++               parent_group);
++         MENU_SETTINGS_LIST_CURRENT_ADD_CMD(list, list_info, CMD_EVENT_MENU_SAVE_DEFAULT_CONFIG);
++         SETTINGS_DATA_LIST_CURRENT_ADD_FLAGS(list, list_info, SD_FLAG_LAKKA_ADVANCED);
++#endif
++
+          CONFIG_ACTION(
+                list, list_info,
+                MENU_ENUM_LABEL_SAVE_NEW_CONFIG,
+diff --git a/msg_hash.h b/msg_hash.h
+index 9b12f46e1c..ec69973daf 100644
+--- a/msg_hash.h
++++ b/msg_hash.h
+@@ -3646,6 +3646,9 @@ enum msg_hash_enums
+ 
+    MENU_LABEL(RESET_TO_DEFAULT_CONFIG),
+    MENU_LABEL(SAVE_CURRENT_CONFIG),
++#ifdef HAVE_LAKKA
++   MENU_LABEL(SAVE_DEFAULT_CONFIG),
++#endif
+    MENU_LABEL(SAVE_CURRENT_CONFIG_OVERRIDE_CORE),
+    MENU_LABEL(SAVE_CURRENT_CONFIG_OVERRIDE_CONTENT_DIR),
+    MENU_LABEL(SAVE_CURRENT_CONFIG_OVERRIDE_GAME),
+diff --git a/retroarch.c b/retroarch.c
+index 1551e7cf77..8137c2e358 100644
+--- a/retroarch.c
++++ b/retroarch.c
+@@ -4578,6 +4578,13 @@ bool command_event(enum event_command cmd, void *data)
+          command_event_save_current_config(OVERRIDE_NONE);
+ #endif
+          break;
++#ifdef HAVE_LAKKA
++      case CMD_EVENT_MENU_SAVE_DEFAULT_CONFIG:
++#ifdef HAVE_CONFIGFILE
++         command_event_save_current_config(OVERRIDE_DEFAULT_RARCH_CFG);
++#endif
++         break;
++#endif
+       case CMD_EVENT_MENU_SAVE_CURRENT_CONFIG_OVERRIDE_CORE:
+ #ifdef HAVE_CONFIGFILE
+          command_event_save_current_config(OVERRIDE_CORE);

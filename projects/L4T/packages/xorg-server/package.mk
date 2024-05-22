@@ -125,7 +125,7 @@ pre_configure_target() {
   CFLAGS=$(echo ${CFLAGS} | sed -e "s|-O3|-O2|" -e "s|-Ofast|-O2|")
   LDFLAGS=$(echo ${LDFLAGS} | sed -e "s|-O3|-O2|" -e "s|-Ofast|-O2|")
   if [ "${PROJECT}" = "L4T" ]; then
-    CFLAGS+=" -g"
+    CFLAGS+=" -g -Wno-error=array-bounds"
   fi
 }
 

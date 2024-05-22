@@ -23,23 +23,28 @@ case "${LINUX}" in
     PKG_PATCH_DIRS="default"
     ;;
   raspberrypi)
-    PKG_VERSION="8d40b03821362d445a03dc23475fc4dff3ba88a7" # 6.6.28
-    PKG_SHA256="47c36bb4e3e470f02b6be72afd0743d85bb1d7e0207d5e44bcf4522655fa5196"
+    PKG_VERSION="dda85fda5b2dda7c4e2ba18770bd2033313006d2" # 6.6.30
+    PKG_SHA256="55de2075e2b4d21b3d4f3159bc686dcbd938f6d61e56b21c51b58ef6919f1ac2"
     PKG_URL="https://github.com/raspberrypi/linux/archive/${PKG_VERSION}.tar.gz"
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
     ;;
   L4T)
     if [ -z "${L4T_KERNEL_VERSION}" ]; then
-      echo "${PROJECT}: ${KERNEL} - you must set L4T_KERNEL_VERSION in projects/${PROJECT}/device/${DEVICE}/options"
+      echo -n "${DEVICE:-${PROJECT}}: ${KERNEL} - you must set L4T_KERNEL_VERSION in projects/${PROJECT}/"
+        if [ -z "${DEVICE}" ]; then
+          echo "options"
+        else
+          echo "device/${DEVICE}/options"
+        fi
       exit 1
     fi
-    PKG_VERSION=${DEVICE}-${L4T_KERNEL_VERSION}
+    PKG_VERSION=${DEVICE:-${PROJECT}}-${L4T_KERNEL_VERSION}
     PKG_URL="l4t-kernel-sources"
     GET_HANDLER_SUPPORT="l4t-kernel-sources"
     PKG_PATCH_DIRS="${PROJECT} ${PROJECT}/${DEVICE}"
-    PKG_SOURCE_NAME="linux-$DEVICE.tar.gz"
+    PKG_SOURCE_NAME="${PKG_NAME}-${PKG_VERSION}.tar.gz"
     #Need to find a better way to do this for l4t platforms!
-    PKG_SHA256=$L4T_COMBINED_KERNEL_SHA256
+    PKG_SHA256=${L4T_COMBINED_KERNEL_SHA256}
     ;;
   ayn-odin)
    PKG_SHA256="9aa25bf492928bc7a4542e87d28919c9ac36d27c"
@@ -49,8 +54,8 @@ case "${LINUX}" in
    PKG_GIT_CLONE_BRANCH="sdm845-5.19.16"
    ;;
   *)
-    PKG_VERSION="6.6.28"
-    PKG_SHA256="818716ed13e7dba6aaeae24e3073993e260812ed128d10272e94b922ee6d3394"
+    PKG_VERSION="6.6.30"
+    PKG_SHA256="b66a5b863b0f8669448b74ca83bd641a856f164b29956e539bbcb5fdeeab9cc6"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
     PKG_PATCH_DIRS="default"
     ;;

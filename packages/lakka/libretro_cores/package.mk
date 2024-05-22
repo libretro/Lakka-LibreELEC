@@ -220,11 +220,10 @@ elif [ "${PROJECT}" = "Amlogic" -o "${PROJECT}" = "Rockchip" -o "${PROJECT}" = "
   EXCLUDE_LIBRETRO_CORES+=" yabasanshiro"
 elif [ "${PROJECT}" = "Generic" -a "${ARCH}" = "i386" ]; then
   EXCLUDE_LIBRETRO_CORES+=" fake_08 openlara"
-elif [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
-  #Remove xpadneo from L4T builds
-  ADDITIONAL_PACKAGES="${ADDITIONAL_PACKAGES//xpadneo/}"
 elif [ "${PROJECT}" = "Ayn" -a "${DEVICE}" = "Odin" ]; then
   EXCLUDE_LIBRETRO_CORES+=" lr_moonlight"
+elif [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
+  EXCLUDE_LIBRETRO_CORES+=" stella"
 fi
 
 # disable cores that are only for specific targets

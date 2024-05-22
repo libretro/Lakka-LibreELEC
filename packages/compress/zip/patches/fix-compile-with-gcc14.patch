@@ -1,0 +1,121 @@
+--- a/timezone.c	2004-11-13 08:35:12.000000000 +0000
++++ b/timezone.c	2024-05-01 09:22:13.780112533 +0000
+@@ -39,6 +39,7 @@
+ 
+ #include "zip.h"
+ #include "timezone.h"
++#include <time.h>
+ #include <ctype.h>
+ #include <errno.h>
+ 
+--- a/unix/configure	2008-06-20 03:32:20.000000000 +0000
++++ b/unix/configure	2024-05-01 09:27:12.149292690 +0000
+@@ -509,17 +509,68 @@
+ # Check for missing functions
+ # add NO_'function_name' to flags if missing
+ 
+-for func in rmdir strchr strrchr rename mktemp mktime mkstemp
+-do
+-  echo Check for $func
+-  echo "int main(){ $func(); return 0; }" > conftest.c
+-  $CC $BFLAG -o conftest conftest.c >/dev/null 2>/dev/null
+-  [ $? -ne 0 ] && CFLAGS="${CFLAGS} -DNO_`echo $func | tr '[a-z]' '[A-Z]'`"
+-done
++echo Check for rmdir
++cat > conftest.c << _EOF_
++#include <unistd.h>
++int main() { rmdir(""); return 0; }
++_EOF_
++$CC -o conftest conftest.c >/dev/null 2>/dev/null
++[ $? -ne 0 ] && CFLAGS="${CFLAGS} -DNO_RMDIR"
++
++echo Check for strchr
++cat > conftest.c << _EOF_
++#include <string.h>
++int main() { strchr("", 0); return 0; }
++_EOF_
++$CC -o conftest conftest.c >/dev/null 2>/dev/null
++[ $? -ne 0 ] && CFLAGS="${CFLAGS} -DNO_STRCHR"
++
++echo Check for strrchr
++cat > conftest.c << _EOF_
++#include <string.h>
++int main() { strrchr("",0); return 0; }
++_EOF_
++$CC -o conftest conftest.c >/dev/null 2>/dev/null
++[ $? -ne 0 ] && CFLAGS="${CFLAGS} -DNO_STRRCHR"
++
++echo Check for rename
++cat > conftest.c << _EOF_
++#include <stdio.h>
++int main() { rename("",""); return 0; }
++_EOF_
++$CC -o conftest conftest.c >/dev/null 2>/dev/null
++[ $? -ne 0 ] && CFLAGS="${CFLAGS} -DNO_RENAME"
++
++echo Check for mktemp
++cat > conftest.c << _EOF_
++#include <stdlib.h>
++int main() { mktemp(""); return 0; }
++_EOF_
++$CC -o conftest conftest.c >/dev/null 2>/dev/null
++[ $? -ne 0 ] && CFLAGS="${CFLAGS} -DNO_MKTEMP"
++
++echo Check for mktime
++cat > conftest.c << _EOF_
++#include <time.h>
++int main() { struct tm *t; mktime(t); return 0; }
++_EOF_
++$CC -o conftest conftest.c >/dev/null 2>/dev/null
++[ $? -ne 0 ] && CFLAGS="${CFLAGS} -DNO_MKTIME"
++
++echo Check for mkstemp
++cat > conftest.c << _EOF_
++#include <stdlib.h>
++int main() { mkstemp(""); return 0; }
++_EOF_
++$CC -o conftest conftest.c >/dev/null 2>/dev/null
++[ $? -ne 0 ] && CFLAGS="${CFLAGS} -DNO_MKSTEMP"
+ 
+ 
+ echo Check for memset
+-echo "int main(){ char k; memset(&k,0,0); return 0; }" > conftest.c
++cat > conftest.c << _EOF_
++#include <string.h>
++int main() { char k; memset(&k,0,0); return 0; }
++_EOF_
+ $CC -o conftest conftest.c >/dev/null 2>/dev/null
+ [ $? -ne 0 ] && CFLAGS="${CFLAGS} -DZMEM"
+ 
+@@ -544,7 +595,7 @@
+ echo Check for errno declaration
+ cat > conftest.c << _EOF_
+ #include <errno.h>
+-main()
++int main()
+ {
+   errno = 0;
+   return 0;
+@@ -556,6 +607,7 @@
+ 
+ echo Check for directory libraries
+ cat > conftest.c << _EOF_
++#include <dirent.h>
+ int main() { return closedir(opendir(".")); }
+ _EOF_
+ 
+@@ -621,11 +673,13 @@
+ 
+ echo Check for valloc
+ cat > conftest.c << _EOF_
+-main()
++#include <stdlib.h>
++int main()
+ {
+ #ifdef MMAP
+     valloc();
+ #endif
++    return 0;
+ }
+ _EOF_
+ $CC ${CFLAGS} -c conftest.c > /dev/null 2>/dev/null

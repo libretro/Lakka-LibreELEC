@@ -20,7 +20,7 @@ PKG_MAKE_OPTS_TARGET="-f Makefile.libretro"
 
 if [ "${ARCH}" = "aarch64" ]; then
   PKG_MAKE_OPTS_TARGET+=" platform=unix-aarch64"
-elif target_has_feature neon ; then
+elif target_has_feature neon; then
   PKG_MAKE_OPTS_TARGET+=" platform=unix-neon"
 else
   PKG_MAKE_OPTS_TARGET+=" platform=unix"

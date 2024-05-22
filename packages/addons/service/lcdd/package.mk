@@ -42,7 +42,7 @@ addon() {
 
   cp -PR ${PKG_INSTALL}/etc/LCDd.conf ${ADDON_BUILD}/${PKG_ADDON_ID}/config/
   cp -PR ${PKG_INSTALL}/usr/lib       ${ADDON_BUILD}/${PKG_ADDON_ID}/lib/
-  patchelf --add-rpath '$ORIGIN/../../lib.private' ${ADDON_BUILD}/${PKG_ADDON_ID}/lib/lcdproc/glcd.so
+  patchelf --add-rpath '${ORIGIN}/../../lib.private' ${ADDON_BUILD}/${PKG_ADDON_ID}/lib/lcdproc/glcd.so
   cp -PR ${PKG_INSTALL}/usr/sbin      ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/
 
   mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/lib.private

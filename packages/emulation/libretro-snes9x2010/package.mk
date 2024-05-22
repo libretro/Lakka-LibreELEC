@@ -19,7 +19,7 @@ PKG_LIBVAR="SNES9X2010_LIB"
 
 PKG_MAKE_OPTS_TARGET="-f Makefile.libretro"
 
-if [ "${PROJECT}" = "Rockchip" -a "${DEVICE}" = "OdroidGoAdvance" ];then 
+if [ "${PROJECT}" = "Rockchip" -a "${DEVICE}" = "OdroidGoAdvance" ]; then
   PKG_MAKE_OPTS_TARGET+=" platform=goa_armv8_a35"
 fi
 

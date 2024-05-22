@@ -17,7 +17,7 @@ make_host() {
   (cd dictsource; ln -s ../../dictsource/* .)
   (cd phsource; ln -s ../../phsource/* .)
   cp -aP ../espeak-ng-data .
-  make DESTDIR=`pwd` -j1
+  make DESTDIR=$(pwd) -j1
 }
 
 make_target() {

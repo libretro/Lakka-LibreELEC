@@ -1,0 +1,64 @@
+From 667f3fc30ab8e4cabedb03cf13ba5729858b2211 Mon Sep 17 00:00:00 2001
+From: Rudi Heitbaum <rudi@heitbaum.com>
+Date: Sat, 4 May 2024 11:10:47 +0000
+Subject: [PATCH] fix build with gcc-14
+
+---
+ tools/dsmcc-receive/carousel.c | 1 +
+ tools/mpe2sec/mpe.c            | 2 +-
+ tools/sec2ts/sec2ts.c          | 4 +++-
+ tools/tsdiscont/tsdiscont.c    | 1 +
+ 4 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/tools/dsmcc-receive/carousel.c b/tools/dsmcc-receive/carousel.c
+index 40547ef..44da078 100644
+--- a/tools/dsmcc-receive/carousel.c
++++ b/tools/dsmcc-receive/carousel.c
+@@ -32,6 +32,7 @@
+ #include "dsmcc.h"
+ #include "biop.h"
+ #include "utils.h"
++#include "filter.h"
+ 
+ 
+ int
+diff --git a/tools/mpe2sec/mpe.c b/tools/mpe2sec/mpe.c
+index 18417af..3d30fd7 100644
+--- a/tools/mpe2sec/mpe.c
++++ b/tools/mpe2sec/mpe.c
+@@ -29,7 +29,7 @@ static char padding[184];
+ static char ip_device[IFNAMSIZ];
+ static char s[180];
+ static const char *Id = "$Id: mpe.c 25 2011-10-13 15:35:18Z jfbcable $";
+-const MPE_HEADER_LEN=12;
++const int MPE_HEADER_LEN=12;
+ int tun_fd = -1;
+ 
+ #ifdef IFF_TUN
+diff --git a/tools/sec2ts/sec2ts.c b/tools/sec2ts/sec2ts.c
+index b97fff4..7b8c884 100644
+--- a/tools/sec2ts/sec2ts.c
++++ b/tools/sec2ts/sec2ts.c
+@@ -154,7 +154,9 @@ int main(int argc, char *argv[])
+ 	/* Start to process sections */
+ 	not_finished = 1;
+ 	if(stuff){
+-		section_next = 1;
++		// this is bad code as it is used as a flag in the below while loop
++		// cast the 1 to pointer to allow compile with gcc-14
++		section_next = (unsigned char *) 1;
+ 	} else {
+ 		section_next = get_section(&section_size_next, fd_in);
+ 	}
+diff --git a/tools/tsdiscont/tsdiscont.c b/tools/tsdiscont/tsdiscont.c
+index e6f6cd1..19e3398 100644
+--- a/tools/tsdiscont/tsdiscont.c
++++ b/tools/tsdiscont/tsdiscont.c
+@@ -24,6 +24,7 @@
+ #include <stdlib.h>
+ #include <sys/types.h>
+ #include <inttypes.h>
++#include <arpa/inet.h>
+ 
+ #define TS_HEADER_SIZE 4
+ #define TS_PACKET_SIZE 188

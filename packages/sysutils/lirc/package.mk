@@ -32,6 +32,9 @@ pre_configure_target() {
 
 post_configure_target() {
   libtool_remove_rpath libtool
+
+  nodots=$(grep "#define VERSION_NODOTS" ../lib/lirc/config.h)
+  sed -i "s/^#define VERSION_NODOTS.*/${nodots}/" config.h
 }
 
 post_makeinstall_target() {

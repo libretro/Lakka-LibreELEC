@@ -17,7 +17,7 @@ PKG_LIBVAR="MRBOOM_LIB"
 
 PKG_MAKE_OPTS_TARGET=""
 
-if target_has_feature neon ; then
+if target_has_feature neon; then
   PKG_MAKE_OPTS_TARGET+=" HAVE_NEON=1"
 fi
 

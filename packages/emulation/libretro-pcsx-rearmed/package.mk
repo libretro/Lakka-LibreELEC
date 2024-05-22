@@ -31,7 +31,7 @@ fi
 
 if [ "${ARCH}" = "arm" ]; then
   PKG_MAKE_OPTS_TARGET+=" DYNAREC=ari64"
-  if target_has_feature neon ; then
+  if target_has_feature neon; then
     PKG_MAKE_OPTS_TARGET+=" HAVE_NEON_ASM=1 BUILTIN_GPU=neon"
   else
     PKG_MAKE_OPTS_TARGET+=" HAVE_NEON_ASM=0 BUILTIN_GPU=unai"

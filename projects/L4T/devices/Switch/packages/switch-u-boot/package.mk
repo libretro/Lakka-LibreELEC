@@ -1,9 +1,9 @@
 PKG_NAME="switch-u-boot"
-PKG_VERSION="f6ee487cdf2a2efaf0cac8d1b3b003ea90fb1ef3"
+PKG_VERSION="2606ef5dfa14faedca16f2dcdea59719c7c963f7"
 PKG_GIT_CLONE_BRANCH="linux-hekatf"
 PKG_DEPENDS_HOST="toolchain Python3:host gcc:host swig:host"
 PKG_DEPENDS_TARGET="toolchain Python3 gcc:target swig:host"
-PKG_SITE="https://gitlab.com/switchroot/switch-uboot"
+PKG_SITE="https://github.com/CTCaer/switch-l4t-uboot"
 PKG_URL="${PKG_SITE}.git"
 PKG_TOOLCHAIN="make"
 

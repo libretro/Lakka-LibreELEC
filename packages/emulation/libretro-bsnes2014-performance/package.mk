@@ -16,7 +16,7 @@ PKG_LIBPATH="${PKG_LIBNAME}"
 PKG_LIBVAR="BSNES2014-PERFORMANCE_LIB"
 
 pre_make_target() {
-  if [ "${ARCH}" = "aarch64" ];then
+  if [ "${ARCH}" = "aarch64" ]; then
     LDFLAGS+=" -lgcc"
   fi
 }

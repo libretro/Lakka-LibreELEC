@@ -45,10 +45,8 @@ listcontains "${GRAPHIC_DRIVERS}" "freedreno" &&
 listcontains "${GRAPHIC_DRIVERS}" "etnaviv" &&
   PKG_MESON_OPTS_TARGET+=" -Detnaviv=enabled" || PKG_MESON_OPTS_TARGET+=" -Detnaviv=disabled"
 
-if [ "${DISTRO}" = "Lakka" ]; then
-  listcontains "${GRAPHIC_DRIVERS}" "nouveau" &&
-    PKG_MESON_OPTS_TARGET="${PKG_MESON_OPTS_TARGET//-Dnouveau=disabled/-Dnouveau=enabled}"
-fi
+listcontains "${GRAPHIC_DRIVERS}" "nouveau" &&
+  PKG_MESON_OPTS_TARGET="${PKG_MESON_OPTS_TARGET//-Dnouveau=disabled/-Dnouveau=enabled}"
 
 post_makeinstall_target() {
   # Remove all test programs installed by install-test-programs=true except modetest

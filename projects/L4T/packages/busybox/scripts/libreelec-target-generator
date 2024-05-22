@@ -1,0 +1,49 @@
+#!/bin/sh
+
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2020-present Matthias Reichl <hias@horus.com>
+# Copyright (C) 2020-present Team LibreELEC (https://libreelec.tv)
+
+EARLY_DIR="$2"
+
+log() {
+  echo "libreelec-target-generator: $@" > /dev/kmsg
+}
+
+if [ -z "$EARLY_DIR" ]; then
+  log "error: generator directory missing"
+  exit 1
+fi
+
+TARGET=""
+
+for arg in $(cat /proc/cmdline); do
+  case "$arg" in
+    textmode)
+      TARGET="textmode.target"
+      ;;
+    installer)
+      TARGET="installer.target"
+      ;;
+  esac
+done
+
+BACKUP_EXTENSION_LIST=".tar .tar.gz .tar.bz2 .tar.xz"
+for extension in $BACKUP_EXTENSION_LIST; do
+  BACKUP_FILE=$(ls -1 /storage/.restore/*${EXTENSION} 2>/dev/null | head -n 1)
+  [ -n "${BACKUP_FILE}" ] && break
+done
+
+if [ -f /storage/.please_resize_me ]; then
+  TARGET="fs-resize.target"
+elif [ -f /storage/.cache/reset_hard -o -f /storage/.cache/reset_soft ]; then
+  TARGET="factory-reset.target"
+elif [ -f "$BACKUP_FILE" ]; then
+  TARGET="backup-restore.target"
+elif [ -f /storage/.rpi_flash_firmware ]; then
+  TARGET="rpi-flash-firmware.target"
+fi
+
+if [ -n "$TARGET" ]; then
+  ln -sT "/usr/lib/systemd/system/$TARGET" "$EARLY_DIR/default.target" 2>/dev/kmsg || log "error creating symlink to $TARGET: $?"
+fi

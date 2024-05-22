@@ -47,10 +47,13 @@ if [ -e /storage/.please_resize_me ] ; then
   rm -f /storage/.please_resize_me
   sync
 
-  echo "DISK: $DISK  PART: $PART" >>$LOG
+  LABEL=$(blkid -o value -s LABEL $PART)
+  UUID=$(blkid -o value -s UUID $PART)
+
+  echo "DISK: $DISK  PART: $PART  LABEL: $LABEL  UUID: $UUID" >>$LOG
 
   # just in case
-  if [ ! -z "$DISK" -a ! -z "$PART" ] ; then
+  if [ ! -z "$DISK" -a ! -z "$PART" -a ! -z "$UUID" ] ; then
     umount $PART
 
     echo "PARTITION RESIZING IN PROGRESS"
@@ -58,12 +61,15 @@ if [ -e /storage/.please_resize_me ] ; then
     echo "Please do not reboot or turn off your @DISTRONAME@ device!"
     echo ""
 
-    StartProgressLog spinner "Resizing partition...     " "parted -s -f -m $DISK resizepart 2 100% >>$LOG 2>&1"
-    StartProgressLog spinner "Checking file system...   " "e2fsck -f -p $PART >>$LOG 2>&1"
-    StartProgressLog spinner "Mounting file system...   " "mount $PART /storage >>$LOG 2>&1"
-    StartProgressLog spinner "Resizing file system...   " "resize2fs $PART >>$LOG 2>&1"
-    StartProgressLog spinner "Unmounting file system... " "umount /storage >>$LOG 2>&1"
-    StartProgress countdown "Rebooting in 15s...       " 15 "NOW"
+    StartProgressLog spinner "Resizing partition...   " "parted -s -f -m $DISK resizepart 2 100% >>$LOG 2>&1"
+    StartProgressLog spinner "Creating file system... " "mke2fs -F -q -t ext4 -m 0 -L \"$LABEL\" -U \"$UUID\" $PART >>$LOG 2>&1"
+    StartProgressLog spinner "Checking file system... " "e2fsck -f -p $PART >>$LOG 2>&1"
+    if [ -f /flash/firstboot.sh ]; then
+      StartProgressLog spinner "Mounting storage...     " "mount $PART /storage >>$LOG 2>&1"
+      StartProgressLog spinner "Setting up...           " "sh /flash/firstboot.sh >>$LOG 2>&1"
+      StartProgressLog spinner "Unmounting storage...   " "umount /storage >>$LOG 2>&1"
+    fi
+    StartProgress countdown "Rebooting in 15s...     " 15 "NOW"
   else
     echo "Partition was not detected - resizing aborted."
     StartProgress countdown "Rebooting in 15s... " 15 "NOW"

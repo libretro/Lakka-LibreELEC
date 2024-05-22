@@ -3,8 +3,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="bluez"
-PKG_VERSION="5.75"
-PKG_SHA256="988cb3c4551f6e3a667708a578f5ca9f93fc896508f98f08709be4f8ab033c2f"
+PKG_VERSION="5.76"
+PKG_SHA256="55e2c645909ad82d833c42ce85ec20434e0ef0070941b1eab73facdd240bbd63"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.bluez.org/"
 PKG_URL="https://www.kernel.org/pub/linux/bluetooth/${PKG_NAME}-${PKG_VERSION}.tar.xz"
@@ -49,7 +49,7 @@ pre_configure_target() {
 # bluez fails to build in subdirs
   cd ${PKG_BUILD}
     rm -rf .${TARGET_NAME}
-
+  sed -i -e "s|<policy user=\"%DISTRO%\">|<policy user=\"${DISTRO}\">|" src/bluetooth.conf
   export LIBS="-lncurses"
 }
 
@@ -71,7 +71,7 @@ post_makeinstall_target() {
     echo "[General]" > ${INSTALL}/etc/bluetooth/input.conf
     echo "ClassicBondedOnly=false" >> ${INSTALL}/etc/bluetooth/input.conf
 
-    if [ "${DISTRO}" = "Lakka" ]; then
+    if [ "${DISTRO}" = "Lakka" ] || [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
       sed -i $INSTALL/etc/bluetooth/main.conf \
           -e "s|^#FastConnectable.*|FastConnectable=true|g" \
           -e "s|^# Privacy =.*|Privacy = device|g"

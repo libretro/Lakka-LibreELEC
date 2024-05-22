@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="nasm"
-PKG_VERSION="2.16.01"
-PKG_SHA256="c77745f4802375efeee2ec5c0ad6b7f037ea9c87c92b149a9637ff099f162558"
+PKG_VERSION="2.16.03"
+PKG_SHA256="1412a1c760bbd05db026b6c0d1657affd6631cd0a63cddb6f73cc6d4aa616148"
 PKG_ARCH="x86_64"
 [ "${DISTRO}" = "Lakka" ] && PKG_ARCH+=" i386" || true
 PKG_LICENSE="BSD"

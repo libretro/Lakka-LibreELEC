@@ -2,8 +2,8 @@
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 
 PKG_NAME="mtdev"
-PKG_VERSION="1.1.6"
-PKG_SHA256="15d7b28da8ac71d8bc8c9287c2045fd174267bc740bec10cfda332dc1204e0e0"
+PKG_VERSION="1.1.7"
+PKG_SHA256="a107adad2101fecac54ac7f9f0e0a0dd155d954193da55c2340c97f2ff1d814e"
 PKG_LICENSE="MIT"
 PKG_SITE="http://bitmath.org"
 PKG_URL="http://bitmath.org/code/mtdev/${PKG_NAME}-${PKG_VERSION}.tar.bz2"

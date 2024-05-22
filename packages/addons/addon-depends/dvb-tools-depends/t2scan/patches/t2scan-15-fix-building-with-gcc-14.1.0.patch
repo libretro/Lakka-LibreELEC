@@ -1,0 +1,104 @@
+From 40f5e11bf9977f5daf48c15a899d17814557fc5b Mon Sep 17 00:00:00 2001
+From: Rudi Heitbaum <rudi@heitbaum.com>
+Date: Tue, 7 May 2024 17:34:47 +1000
+Subject: [PATCH 1/3] fix building with gcc-14.1
+
+../countries.c: In function 'choose_country':
+../countries.c:121:84: error: assignment to 'int *' from 'int' makes pointer from integer without a cast [-Wint-conversion]
+  121 |                    plplist[0] = -1; plplist[1] = 1; plplist[2] = 0; plplist_length = 3;
+      |
+---
+ countries.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/countries.c b/countries.c
+index b61d86d..6295cd5 100644
+--- a/countries.c
++++ b/countries.c
+@@ -118,7 +118,8 @@ int choose_country (const char * country,
+ 
+                 case    AT:     //      AUSTRIA
+                 case    IT:     //      ITALY
+-                   plplist[0] = -1; plplist[1] = 1; plplist[2] = 0; plplist_length = 3;
++                   plplist[0] = -1; plplist[1] = 1; plplist[2] = 0;
++                   *plplist_length = 3;
+                 case    BE:     //      BELGIUM
+                 case    CH:     //      SWITZERLAND
+                 case    CO:     //      COLOMBIA, DVB-C + DVB-T2
+
+From b3e1a2b588134f3c546ba0e9a15511da38a8fdc6 Mon Sep 17 00:00:00 2001
+From: Rudi Heitbaum <rudi@heitbaum.com>
+Date: Tue, 7 May 2024 17:40:25 +1000
+Subject: [PATCH 2/3] fix calloc warnings
+
+warning: 'calloc' sizes specified with 'sizeof' in the earlier argument and not in the later argument [-Wcalloc-transposed-args]
+---
+ parse-dvbscan.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/parse-dvbscan.c b/parse-dvbscan.c
+index 72f1cb8..11950b9 100644
+--- a/parse-dvbscan.c
++++ b/parse-dvbscan.c
+@@ -128,7 +128,7 @@ void parse_t2scan_flags(const char * input_buffer, struct t2scan_flags * flags)
+ 
+ int dvbscan_parse_tuningdata(const char * tuningdata, struct t2scan_flags * flags) {
+         FILE * initdata = NULL;
+-        char * buf = (char *) calloc(sizeof(char), MAX_LINE_LENGTH);
++        char * buf = (char *) calloc(MAX_LINE_LENGTH, sizeof(char));
+         enum __dvbscan_args arg;
+         struct transponder * tn;
+         int count = 0;
+@@ -147,7 +147,7 @@ int dvbscan_parse_tuningdata(const char * tuningdata, struct t2scan_flags * flag
+                 }
+ 
+         while (fgets(buf, MAX_LINE_LENGTH, initdata) != NULL) {
+-                char * copy = (char *) calloc(sizeof(char), strlen(buf) + 1);
++                char * copy = (char *) calloc(strlen(buf) + 1, sizeof(char));
+                 char * token;
+ 
+                 if (copy == NULL) {
+
+From d5071e9fdb3f14194f72ead51d1353b6c05caa80 Mon Sep 17 00:00:00 2001
+From: Rudi Heitbaum <rudi@heitbaum.com>
+Date: Wed, 8 May 2024 08:19:11 +1000
+Subject: [PATCH 3/3] fix building with gcc-14.1
+
+fixes:
+
+../scan.c: In function 'network_scan':
+../scan.c:2413:29: error: assignment to 'int *' from incompatible pointer type 'int (*)[256]' [-Wincompatible-pointer-types]
+ 2413 |                  my_plplist = &plplist;
+      |                             ^
+../scan.c:2417:29: error: assignment to 'int *' from incompatible pointer type 'int (*)[256]' [-Wincompatible-pointer-types]
+ 2417 |                  my_plplist = &user_plplist;
+      |                             ^
+../scan.c:2420:29: error: assignment to 'int *' from incompatible pointer type 'int (*)[256]' [-Wincompatible-pointer-types]
+ 2420 |                  my_plplist = &plplist;
+      |                             ^
+---
+ scan.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/scan.c b/scan.c
+index 17fdb3c..5341a1a 100644
+--- a/scan.c
++++ b/scan.c
+@@ -2410,14 +2410,14 @@ static void network_scan(int frontend_fd, int tuning_data) {
+               // plp loop
+               if (delsys == SYS_DVBT2 && (!multistream)) {
+                  // multistream is not supported, so use plp id -1 ("autodetection") as only value to scan
+-                 my_plplist = &plplist;
++                 my_plplist = plplist;
+                  my_plplist[0] = -1;
+                  my_plplist_length = 1;
+               } else if (delsys == SYS_DVBT2 && use_user_plplist) {
+-                 my_plplist = &user_plplist;
++                 my_plplist = user_plplist;
+                  my_plplist_length = user_plplist_length;
+               } else if (delsys == SYS_DVBT2) {
+-                 my_plplist = &plplist;
++                 my_plplist = plplist;
+                  my_plplist_length = plplist_length;
+               } else {
+                  // for legacy DVB-T (or ATSC) there is nothing such as PLPs

@@ -18,7 +18,10 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_header_librtmp_rtmp_h=yes \
             --without-curses"
 
 pre_configure_target() {
-  export CFLAGS="${CFLAGS} -I../"
+  export CFLAGS="${CFLAGS} -I../ -DHAVE_STDLIB_H=1"
+
+  #workaround gcc-14 erroring with incompatible pointer type
+  CFLAGS+=" -Wno-incompatible-pointer-types"
 }
 
 pre_build_target() {

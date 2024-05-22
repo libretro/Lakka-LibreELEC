@@ -22,7 +22,7 @@ addon() {
 
   cp $(get_install_dir snapcast)/usr/bin/snapclient \
      ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
-  patchelf --add-rpath '$ORIGIN/../lib.private' ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/snapclient
+  patchelf --add-rpath '${ORIGIN}/../lib.private' ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/snapclient
 
   cp $(get_install_dir alsa-plugins)/usr/lib/alsa/*.so \
      ${ADDON_BUILD}/${PKG_ADDON_ID}/lib.private

@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="systemd"
-PKG_VERSION="255.4"
-PKG_SHA256="96e75bd08c57ad401677456fb88ef54a9f05bb1695693013bc6ecce839640fd5"
+PKG_VERSION="255.6"
+PKG_SHA256="7efc8ce8272a64ff32dc4a27cdc7179973d01e7c63d7b2a66df7ed9795574c04"
 PKG_LICENSE="LGPL2.1+"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/systemd"
 PKG_URL="https://github.com/systemd/systemd-stable/archive/v${PKG_VERSION}.tar.gz"
@@ -159,6 +159,9 @@ post_makeinstall_target() {
   safe_remove ${INSTALL}/usr/bin/systemd-nspawn
   safe_remove ${INSTALL}/usr/lib/systemd/system/systemd-nspawn@.service
 
+  # remove timedatectl
+  safe_remove ${INSTALL}/usr/bin/timedatectl
+
   # remove unneeded generators
   for gen in ${INSTALL}/usr/lib/systemd/system-generators/*; do
     case "${gen}" in
@@ -243,6 +246,8 @@ post_makeinstall_target() {
   ln -sf /usr/bin/systemctl ${INSTALL}/usr/sbin/shutdown
   ln -sf /usr/bin/systemctl ${INSTALL}/usr/sbin/telinit
 
+  chmod u+s ${INSTALL}/usr/bin/systemctl
+
   # strip
   debug_strip ${INSTALL}/usr
 
@@ -277,26 +282,20 @@ post_install() {
   add_group systemd-network 193
   add_user systemd-network x 193 193 "systemd-network" "/" "/bin/sh"
 
-  add_group systemd-oom 194
-  add_user systemd-oom x 194 194 "systemd Userspace OOM Killer" "/" "/bin/false"
-
-  add_group adm 4
-  add_group tty 5
-  add_group disk 6
-  add_group lp 7
+  add_group audio 63 pipewire,${DISTRO}
+  add_group cdrom 11 ${DISTRO}
+  add_group dialout 18 ${DISTRO}
+  add_group disk 6 ${DISTRO}
+  add_group floppy 19 ${DISTRO}
   add_group kmem 9
-  add_group wheel 10
-  add_group cdrom 11
-  add_group dialout 18
-  add_group floppy 19
-  add_group utmp 22
+  add_group kvm 10
+  add_group lp 7
+  add_group render 12
   add_group tape 33
-  add_group kvm 36
-  add_group video 39 pipewire
-  add_group audio 63 pipewire
-  add_group input 104
-  add_group render 105
-  add_group sgx 106
+  add_group tty 5
+  add_group video 39 pipewire,${DISTRO}
+  add_group utmp 22
+  add_group input 199 ${DISTRO}
 
   enable_service machine-id.service
   enable_service debugconfig.service
@@ -307,4 +306,11 @@ post_install() {
   enable_service network-base.service
   enable_service systemd-timesyncd.service
   enable_service systemd-timesyncd-setup.service
+  #Add service to properly remount flash partition when using fat32-boot kernel command line option.
+  enable_service remount_flash_ro.service
+
+  if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
+    echo chmod u+s ${BUILD}/image/system/usr/bin/systemctl >> ${FAKEROOT_SCRIPT}
+  fi
 }
+

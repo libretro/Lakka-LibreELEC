@@ -297,26 +297,20 @@ do
 		else
 			good_jobs+=1
 		fi
+
 		cd target
 		mkdir -p ${target_name}
-		# add md5 checksums to system and kernel files
-		[ "${DASHBOARD_MODE}" = "yes" ] && echo -n "Creating md5 checksums for kernel and system..."
-		for file in Lakka-${target_name}-*.{kernel,system}
-		do
-			[ -f "${file}" ] && md5sum ${file} > ${file}.md5
-		done
-		[ "${DASHBOARD_MODE}" = "yes" ] && echo "done!"
 
 		# move release files to the folder
-		[ "${DASHBOARD_MODE}" = "yes" ] && echo -n "Moving release files (.img.gz, .kernel, .system, .tar) to subfolder..."
-		for file in Lakka-${target_name}-*{.img.gz,.kernel,.system,.tar}*
+		[ "${DASHBOARD_MODE}" = "yes" ] && echo -n "Moving release files (.img.gz, .tar) to subfolder..."
+		for file in Lakka-${target_name}-*{.img.gz,.tar}*
 		do
 			[ -f "${file}" ] && mv ${v} ${file} ${target_name}/
 		done
 		[ "${DASHBOARD_MODE}" = "yes" ] && echo "done!"
 		# remove files we do not use
-		[ "${DASHBOARD_MODE}" = "yes" ] && echo -n "Removing unused files (.ova)..."
-		rm -f ${v} Lakka-${target_name}-*.{ova}*
+		[ "${DASHBOARD_MODE}" = "yes" ] && echo -n "Removing unused files (.ova,kernel,system)..."
+		rm -f ${v} Lakka-${target_name}-*.{ova,kernel,system}*
 		[ "${DASHBOARD_MODE}" = "yes" ] && echo "done!"
 		if [ "${target_name}" = "Switch.aarch64" ]
 		then

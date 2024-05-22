@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ccache"
-PKG_VERSION="4.8.3"
-PKG_SHA256="e47374c810b248cfca3665ee1d86c7c763ffd68d9944bc422d9c1872611f2b11"
+PKG_VERSION="4.9.1"
+PKG_SHA256="4c03bc840699127d16c3f0e6112e3f40ce6a230d5873daa78c60a59c7ef59d25"
 PKG_LICENSE="GPL"
 PKG_SITE="https://ccache.dev/download.html"
 PKG_URL="https://github.com/ccache/ccache/releases/download/v${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
@@ -18,8 +18,8 @@ configure_host() {
   # custom cmake build to override the LOCAL_CC/CXX
   cp ${CMAKE_CONF} cmake-ccache.conf
 
-  echo "SET(CMAKE_C_COMPILER   $CC)"  >> cmake-ccache.conf
-  echo "SET(CMAKE_CXX_COMPILER $CXX)" >> cmake-ccache.conf
+  echo "SET(CMAKE_C_COMPILER   ${CC})"  >> cmake-ccache.conf
+  echo "SET(CMAKE_CXX_COMPILER ${CXX})" >> cmake-ccache.conf
 
   cmake -DCMAKE_TOOLCHAIN_FILE=cmake-ccache.conf \
         -DCMAKE_INSTALL_PREFIX=${TOOLCHAIN} \

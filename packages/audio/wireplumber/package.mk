@@ -2,8 +2,8 @@
 # Copyright (C) 2022-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="wireplumber"
-PKG_VERSION="0.4.17"
-PKG_SHA256="a12534fd9c1ecf9fbc09f79192d9d57c9ab7bf01da82615ab4103b2f8e2e91a7"
+PKG_VERSION="0.5.2"
+PKG_SHA256="24ecc2323f7c39fe577b50903c324cfcbb77b9ea2da01baffd3467c9dbad1d8a"
 PKG_LICENSE="MIT"
 PKG_SITE="https://gitlab.freedesktop.org/pipewire/wireplumber"
 PKG_URL="https://gitlab.freedesktop.org/pipewire/wireplumber/-/archive/${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.gz"
@@ -25,21 +25,30 @@ post_makeinstall_target() {
   sed '/^\[Service\]/a Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/dbus/system_bus_socket' -i ${INSTALL}/usr/lib/systemd/system/wireplumber.service
 
   # ref https://gitlab.freedesktop.org/pipewire/wireplumber/-/commit/0da29f38181e391160fa8702623050b8544ec775
-  cat > ${INSTALL}/usr/share/wireplumber/main.lua.d/89-disable-session-dbus-dependent-features.lua << EOF
-alsa_monitor.properties["alsa.reserve"] = false
-default_access.properties["enable-flatpak-portal"] = false
+  # ref https://github.com/PipeWire/wireplumber/blob/master/docs/rst/daemon/configuration/migration.rst
+  # ref https://github.com/PipeWire/wireplumber/blob/master/docs/rst/daemon/configuration/features.rst
+  cat > ${INSTALL}/usr/share/wireplumber/wireplumber.conf.d/89-disable-session-dbus-dependent-features.conf << EOF
+wireplumber.profiles = {
+  main = {
+    monitor.alsa.reserve-device = disabled
+    monitor.bluez.seat-monitoring = disabled
+    support.portal-permissionstore = disabled
+  }
+}
 EOF
 
-  cat > ${INSTALL}/usr/share/wireplumber/main.lua.d/89-disable-v4l2.lua << EOF
-v4l2_monitor.enabled = false
+  cat > ${INSTALL}/usr/share/wireplumber/wireplumber.conf.d/89-disable-v4l2.conf << EOF
+wireplumber.profiles = {
+  main = {
+    monitor.v4l2 = disabled
+  }
+}
 EOF
 
-  cat > ${INSTALL}/usr/share/wireplumber/bluetooth.lua.d/89-disable-session-dbus-dependent-features.lua << EOF
-bluez_monitor.properties["with-logind"] = false
-EOF
-
-  cat > ${INSTALL}/usr/share/wireplumber/bluetooth.lua.d/89-disable-bluez-hfphsp-backend.lua << EOF
-bluez_monitor.properties["bluez5.hfphsp-backend"] = "none"
+  cat > ${INSTALL}/usr/share/wireplumber/wireplumber.conf.d/89-disable-bluez-hfphsp-backend.conf << EOF
+monitor.bluez.properties = {
+  bluez5.hfphsp-backend = "none"
+}
 EOF
 }
 

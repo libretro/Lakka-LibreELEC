@@ -1,0 +1,92 @@
+From 9e860a0aeab0b955e627de763e9494457942222d Mon Sep 17 00:00:00 2001
+From: CTCaer <ctcaer@gmail.com>
+Date: Mon, 3 Jul 2023 14:19:46 +0000
+Subject: [PATCH 32/39] nvv4l2: allow 10-bit HEVC The only hw support for
+ 10-bit on NVDEC 2nd/3rd gen is on HEVC. H264 does not support it on main
+ spec, so as per previous changes it fallbacks to software decoding. VP8 codec
+ does not support it at all. The only out of spec non-support on hw decoding
+ is on VP9.
+
+---
+ fftools/ffmpeg_demux.c        | 4 ++++
+ fftools/ffplay.c              | 4 ++++
+ libavcodec/nvv4l2_dec.c       | 9 ++++++++-
+ libavcodec/nvv4l2_ext_utils.h | 6 ++++++
+ 4 files changed, 22 insertions(+), 1 deletion(-)
+
+diff --git a/fftools/ffmpeg_demux.c b/fftools/ffmpeg_demux.c
+index 3b58c18f3d..f791c3a898 100644
+--- a/fftools/ffmpeg_demux.c
++++ b/fftools/ffmpeg_demux.c
+@@ -510,6 +510,10 @@ static const AVCodec *choose_decoder(const OptionsContext *o, AVFormatContext *s
+     nvv4l2_pix_fmt_ok = st->codecpar->format == AV_PIX_FMT_NONE ||
+                         st->codecpar->format == AV_PIX_FMT_NV12 ||
+                         st->codecpar->format == AV_PIX_FMT_YUV420P;
++    if (st->codecpar->codec_id == AV_CODEC_ID_HEVC)
++        nvv4l2_pix_fmt_ok = st->codecpar->format == AV_PIX_FMT_YUV420P10LE ||
++                            st->codecpar->format == AV_PIX_FMT_P010 ||
++                            nvv4l2_pix_fmt_ok;
+ 
+     /* Force software decoding if codec name not defined and pixel format not supported. */
+     if (!codec_name && !nvv4l2_pix_fmt_ok) {
+diff --git a/fftools/ffplay.c b/fftools/ffplay.c
+index a02f2a06a7..bbd5761115 100644
+--- a/fftools/ffplay.c
++++ b/fftools/ffplay.c
+@@ -2599,6 +2599,10 @@ static int stream_component_open(VideoState *is, int stream_index)
+     nvv4l2_pix_fmt_ok = avctx->pix_fmt == AV_PIX_FMT_NONE ||
+                         avctx->pix_fmt == AV_PIX_FMT_NV12 ||
+                         avctx->pix_fmt == AV_PIX_FMT_YUV420P;
++    if (avctx->codec_id == AV_CODEC_ID_HEVC)
++        nvv4l2_pix_fmt_ok = avctx->pix_fmt == AV_PIX_FMT_YUV420P10LE ||
++                            avctx->pix_fmt == AV_PIX_FMT_P010 ||
++                            nvv4l2_pix_fmt_ok;
+ 
+     if (avctx->codec_type == AVMEDIA_TYPE_VIDEO && forced_codec_name) {
+         if (nvv4l2_pix_fmt_ok) {
+diff --git a/libavcodec/nvv4l2_dec.c b/libavcodec/nvv4l2_dec.c
+index 0b91cf0eba..79116ec858 100644
+--- a/libavcodec/nvv4l2_dec.c
++++ b/libavcodec/nvv4l2_dec.c
+@@ -1042,13 +1042,20 @@ static int nvv4l2dec_init(AVCodecContext *avctx)
+ 
+     switch (avctx->pix_fmt) {
+     case AV_PIX_FMT_NONE:
+-        avctx->pix_fmt = AV_PIX_FMT_YUV420P;
+     case AV_PIX_FMT_YUV420P:
++        avctx->pix_fmt = AV_PIX_FMT_YUV420P;
+         pix_fmt = V4L2_PIX_FMT_YUV420M;
+         break;
+     case AV_PIX_FMT_NV12:
+         pix_fmt = V4L2_PIX_FMT_NV12M;
+         break;
++    case AV_PIX_FMT_YUV420P10LE:
++    case AV_PIX_FMT_P010:
++        if (avctx->codec_id == AV_CODEC_ID_HEVC) {
++            avctx->pix_fmt = AV_PIX_FMT_YUV420P;
++            pix_fmt = V4L2_PIX_FMT_YUV420M;
++            break;
++        }
+     default:
+         av_log(avctx, AV_LOG_WARNING, "Unsupported pixel format %s!\n",
+                av_get_pix_fmt_name(avctx->pix_fmt));
+diff --git a/libavcodec/nvv4l2_ext_utils.h b/libavcodec/nvv4l2_ext_utils.h
+index 4fb66583de..142b429336 100644
+--- a/libavcodec/nvv4l2_ext_utils.h
++++ b/libavcodec/nvv4l2_ext_utils.h
+@@ -2144,6 +2144,12 @@ typedef enum
+   NvBufferColorFormat_ARGB32      = 18, /* BSP 32.5.0 and up: 19 */
+   /** BT.601 colorspace - Y/CbCr 4:2:0 10-bit multi-planar. */
+   NvBufferColorFormat_NV12_10LE   = 19, /* BSP 32.5.0 and up: 20 */
++  /** BT.709 colorspace - Y/CbCr 4:2:0 10-bit multi-planar. */
++  NvBufferColorFormat_NV12_10LE_709    = 20, /* BSP 32.5.0 and up: 21 */
++  /** BT.709_ER colorspace - Y/CbCr 4:2:0 10-bit multi-planar. */
++  NvBufferColorFormat_NV12_10LE_709_ER = 21, /* BSP 32.5.0 and up: 22 */
++  /** BT.2020 colorspace - Y/CbCr 4:2:0 10-bit multi-planar. */
++  NvBufferColorFormat_NV12_10LE_2020   = 22, /* BSP 32.5.0 and up: 23 */
+   /** BT.709 colorspace - Y/CbCr 4:2:0 multi-planar. */
+   NvBufferColorFormat_NV12_709    = 29, /* BSP 32.5.0 and up: 30 */
+   /** BT.709 colorspace - Y/CbCr ER 4:2:0 multi-planar. */
+-- 
+2.25.1
+

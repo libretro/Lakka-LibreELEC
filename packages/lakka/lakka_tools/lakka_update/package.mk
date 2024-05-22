@@ -13,7 +13,7 @@ makeinstall_target() {
     sed -e 's|^MIRROR=.*$|MIRROR=https://nightly.builds.lakka.tv/.updater|' \
         -i ${INSTALL}/usr/bin/lakka-update
   elif [ "${LAKKA_DEVBUILD}" = yes ]; then
-    sed -e 's|^MIRROR=.*$|MIRROR=https://nightly.builds.lakka.tv/.devbuilds|' \
+    sed -e 's|^MIRROR=.*$|MIRROR=https://nightly.builds.lakka.tv/.devbuild|' \
         -i ${INSTALL}/usr/bin/lakka-update
   fi
 }

@@ -18,6 +18,11 @@ PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON \
                        -DUSE_DISCORD=OFF \
                        -DUSE_MINIUPNPC=OFF"
 
+# for future compatibility - in case other platforms will use system ffmpeg
+if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
+  PKG_CMAKE_OPTS_TARGET=${PKG_CMAKE_OPTS_TARGET//-DUSE_SYSTEM_FFMPEG=ON/-DUSE_SYSTEM_FFMPEG=OFF}
+fi
+
 if [ "${OPENGL_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL}"
 fi

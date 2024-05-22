@@ -1,7 +1,7 @@
-From 3368013773dbc2def4b3a33748dc656dc13f3e25 Mon Sep 17 00:00:00 2001
+From 7df787ecf3260cbb9f370290afc13b77de740c4c Mon Sep 17 00:00:00 2001
 From: CTCaer <ctcaer@gmail.com>
 Date: Sat, 5 Mar 2022 03:27:27 +0000
-Subject: [PATCH 01/20] codecs: add nvv4l2 codec for Nvidia Tegra SOCs
+Subject: [PATCH 01/39] codecs: add nvv4l2 codec for Nvidia Tegra SOCs
 
 Use `--enable-nvv4l2` to enable it.
 
@@ -46,24 +46,24 @@ FPS are halved.
 Some formats are supported from Tegra X1 and up.
 For more, check the NVDEC/NVENC version support matrix.
 ---
- configure               |   22 +
- libavcodec/Makefile     |    9 +
+ configure               |   23 +
+ libavcodec/Makefile     |   14 +-
  libavcodec/allcodecs.c  |    8 +
  libavcodec/nvv4l2.c     |  820 +++++++++++++++++++++++
  libavcodec/nvv4l2.h     |  324 +++++++++
  libavcodec/nvv4l2_dec.c | 1101 +++++++++++++++++++++++++++++++
  libavcodec/nvv4l2_enc.c | 1389 +++++++++++++++++++++++++++++++++++++++
- 7 files changed, 3673 insertions(+)
+ 7 files changed, 3678 insertions(+), 1 deletion(-)
  create mode 100644 libavcodec/nvv4l2.c
  create mode 100644 libavcodec/nvv4l2.h
  create mode 100644 libavcodec/nvv4l2_dec.c
  create mode 100644 libavcodec/nvv4l2_enc.c
 
 diff --git a/configure b/configure
-index 98113c95fd..29a6d96575 100755
+index 3cd3bdfb44..889b547071 100755
 --- a/configure
 +++ b/configure
-@@ -333,6 +333,7 @@ External library support:
+@@ -336,6 +336,7 @@ External library support:
    --enable-cuda-nvcc       enable Nvidia CUDA compiler [no]
    --disable-cuda-llvm      disable CUDA compilation using clang [autodetect]
    --disable-cuvid          disable Nvidia CUVID support [autodetect]
@@ -71,7 +71,7 @@ index 98113c95fd..29a6d96575 100755
    --disable-d3d11va        disable Microsoft Direct3D 11 video acceleration code [autodetect]
    --disable-dxva2          disable Microsoft DirectX 9 video acceleration code [autodetect]
    --disable-ffnvcodec      disable dynamically linked Nvidia code [autodetect]
-@@ -1843,6 +1844,7 @@ HWACCEL_AUTODETECT_LIBRARY_LIST="
+@@ -1887,6 +1888,7 @@ HWACCEL_AUTODETECT_LIBRARY_LIST="
      ffnvcodec
      nvdec
      nvenc
@@ -79,27 +79,28 @@ index 98113c95fd..29a6d96575 100755
      vaapi
      vdpau
      videotoolbox
-@@ -3051,6 +3053,8 @@ qsvenc_select="qsv"
+@@ -3129,6 +3131,8 @@ qsvenc_select="qsv"
  qsvvpp_select="qsv"
  vaapi_encode_deps="vaapi"
  v4l2_m2m_deps="linux_videodev2_h sem_timedwait"
 +nvv4l2_deps="libv4l2 pthreads linux_videodev2_h nvbuf_utils_h v4l2_nv_extensions_h"
 +nvv4l2_extralibs="-lnvbuf_utils"
  
- hwupload_cuda_filter_deps="ffnvcodec"
- scale_npp_filter_deps="ffnvcodec libnpp"
-@@ -3066,6 +3070,9 @@ amf_deps_any="libdl LoadLibrary"
+ bilateral_cuda_filter_deps="ffnvcodec"
+ bilateral_cuda_filter_deps_any="cuda_nvcc cuda_llvm"
+@@ -3153,6 +3157,10 @@ ddagrab_filter_deps="d3d11va IDXGIOutput1 DXGI_OUTDUPL_FRAME_INFO"
+ amf_deps_any="libdl LoadLibrary"
  nvenc_deps="ffnvcodec"
  nvenc_deps_any="libdl LoadLibrary"
- nvenc_encoder_deps="nvenc"
++nvenc_encoder_deps="nvenc"
 +h264_nvv4l2_encoder_deps="nvv4l2"
 +h264_nvv4l2_decoder_deps="nvv4l2"
 +h264_nvv4l2_decoder_select="h264_mp4toannexb_bsf"
  
  aac_mf_encoder_deps="mediafoundation"
  ac3_mf_encoder_deps="mediafoundation"
-@@ -3098,6 +3105,9 @@ hevc_mediacodec_decoder_deps="mediacodec"
- hevc_mediacodec_decoder_select="hevc_mp4toannexb_bsf hevc_parser"
+@@ -3197,6 +3205,9 @@ hevc_mediacodec_encoder_extralibs="-landroid"
+ hevc_mediacodec_encoder_select="hevc_metadata"
  hevc_mf_encoder_deps="mediafoundation"
  hevc_nvenc_encoder_deps="nvenc"
 +hevc_nvv4l2_encoder_deps="nvv4l2"
@@ -108,7 +109,7 @@ index 98113c95fd..29a6d96575 100755
  hevc_nvenc_encoder_select="atsc_a53"
  hevc_qsv_decoder_select="hevc_mp4toannexb_bsf qsvdec"
  hevc_qsv_encoder_select="hevcparse qsvenc"
-@@ -3121,6 +3131,7 @@ mpeg2_crystalhd_decoder_select="crystalhd"
+@@ -3220,6 +3231,7 @@ mpeg2_crystalhd_decoder_select="crystalhd"
  mpeg2_cuvid_decoder_deps="cuvid"
  mpeg2_mmal_decoder_deps="mmal"
  mpeg2_mediacodec_decoder_deps="mediacodec"
@@ -116,7 +117,7 @@ index 98113c95fd..29a6d96575 100755
  mpeg2_qsv_decoder_select="qsvdec"
  mpeg2_qsv_encoder_select="qsvenc"
  mpeg2_vaapi_encoder_select="cbs_mpeg2 vaapi_encode"
-@@ -3129,6 +3140,7 @@ mpeg4_crystalhd_decoder_select="crystalhd"
+@@ -3228,6 +3240,7 @@ mpeg4_crystalhd_decoder_select="crystalhd"
  mpeg4_cuvid_decoder_deps="cuvid"
  mpeg4_mediacodec_decoder_deps="mediacodec"
  mpeg4_mmal_decoder_deps="mmal"
@@ -124,7 +125,7 @@ index 98113c95fd..29a6d96575 100755
  mpeg4_omx_encoder_deps="omx"
  mpeg4_v4l2m2m_decoder_deps="v4l2_m2m mpeg4_v4l2_m2m"
  mpeg4_v4l2m2m_encoder_deps="v4l2_m2m mpeg4_v4l2_m2m"
-@@ -3142,6 +3154,7 @@ vc1_qsv_decoder_select="qsvdec"
+@@ -3239,6 +3252,7 @@ vc1_qsv_decoder_select="qsvdec"
  vc1_v4l2m2m_decoder_deps="v4l2_m2m vc1_v4l2_m2m"
  vp8_cuvid_decoder_deps="cuvid"
  vp8_mediacodec_decoder_deps="mediacodec"
@@ -132,7 +133,7 @@ index 98113c95fd..29a6d96575 100755
  vp8_qsv_decoder_select="qsvdec"
  vp8_rkmpp_decoder_deps="rkmpp"
  vp8_vaapi_encoder_deps="VAEncPictureParameterBufferVP8"
-@@ -3150,6 +3163,7 @@ vp8_v4l2m2m_decoder_deps="v4l2_m2m vp8_v4l2_m2m"
+@@ -3247,6 +3261,7 @@ vp8_v4l2m2m_decoder_deps="v4l2_m2m vp8_v4l2_m2m"
  vp8_v4l2m2m_encoder_deps="v4l2_m2m vp8_v4l2_m2m"
  vp9_cuvid_decoder_deps="cuvid"
  vp9_mediacodec_decoder_deps="mediacodec"
@@ -140,7 +141,7 @@ index 98113c95fd..29a6d96575 100755
  vp9_qsv_decoder_select="qsvdec"
  vp9_rkmpp_decoder_deps="rkmpp"
  vp9_vaapi_encoder_deps="VAEncPictureParameterBufferVP9"
-@@ -3426,6 +3440,7 @@ kmsgrab_indev_deps="libdrm"
+@@ -3537,6 +3552,7 @@ kmsgrab_indev_deps="libdrm"
  lavfi_indev_deps="avfilter"
  libcdio_indev_deps="libcdio"
  libdc1394_indev_deps="libdc1394"
@@ -148,7 +149,7 @@ index 98113c95fd..29a6d96575 100755
  openal_indev_deps="openal"
  opengl_outdev_deps="opengl"
  opengl_outdev_suggest="sdl2"
-@@ -6783,6 +6798,13 @@ if enabled_any nvdec cuvid; then
+@@ -7054,6 +7070,13 @@ if enabled_any nvdec cuvid; then
      check_type "ffnvcodec/dynlink_cuda.h ffnvcodec/dynlink_cuviddec.h" "CUVIDAV1PICPARAMS"
  fi
  
@@ -161,51 +162,54 @@ index 98113c95fd..29a6d96575 100755
 +
  enabled amf &&
      check_cpp_condition amf "AMF/core/Version.h" \
-         "(AMF_VERSION_MAJOR << 48 | AMF_VERSION_MINOR << 32 | AMF_VERSION_RELEASE << 16 | AMF_VERSION_BUILD_NUM) >= 0x0001000400090000"
+         "(AMF_VERSION_MAJOR << 48 | AMF_VERSION_MINOR << 32 | AMF_VERSION_RELEASE << 16 | AMF_VERSION_BUILD_NUM) >= 0x00010004001c0000"
 diff --git a/libavcodec/Makefile b/libavcodec/Makefile
-index 33a280cf69..31400f3f2d 100644
+index 389253f5d0..78f43ca9a1 100644
 --- a/libavcodec/Makefile
 +++ b/libavcodec/Makefile
-@@ -133,6 +133,7 @@ OBJS-$(CONFIG_MPEGVIDEOENC)            += mpegvideo_enc.o mpeg12data.o  \
-                                           mpegvideoencdsp.o
- OBJS-$(CONFIG_MSS34DSP)                += mss34dsp.o
- OBJS-$(CONFIG_NVENC)                   += nvenc.o
+@@ -148,6 +148,8 @@ OBJS-$(CONFIG_MSMPEG4DEC)              += msmpeg4dec.o msmpeg4.o msmpeg4data.o \
+ OBJS-$(CONFIG_MSMPEG4ENC)              += msmpeg4enc.o msmpeg4.o msmpeg4data.o \
+                                           msmpeg4_vc1_data.o
+ OBJS-$(CONFIG_MSS34DSP)                += mss34dsp.o jpegquanttables.o
++OBJS-$(CONFIG_NVENC)                   += nvenc.o
 +OBJS-$(CONFIG_NVV4L2)                  += nvv4l2.o
  OBJS-$(CONFIG_PIXBLOCKDSP)             += pixblockdsp.o
  OBJS-$(CONFIG_QPELDSP)                 += qpeldsp.o
  OBJS-$(CONFIG_QSV)                     += qsv.o
-@@ -372,12 +373,14 @@ OBJS-$(CONFIG_H264_DECODER)            += h264dec.o h264_cabac.o h264_cavlc.o \
-                                           h264_slice.o h264data.o
+@@ -404,11 +406,15 @@ OBJS-$(CONFIG_H264_DECODER)            += h264dec.o h264_cabac.o h264_cavlc.o \
+                                           h264_slice.o h264data.o h274.o
  OBJS-$(CONFIG_H264_AMF_ENCODER)        += amfenc_h264.o
  OBJS-$(CONFIG_H264_CUVID_DECODER)      += cuviddec.o
 +OBJS-$(CONFIG_H264_NVV4L2_DECODER)     += nvv4l2_dec.o
  OBJS-$(CONFIG_H264_MEDIACODEC_DECODER) += mediacodecdec.o
+ OBJS-$(CONFIG_H264_MEDIACODEC_ENCODER) += mediacodecenc.o
  OBJS-$(CONFIG_H264_MF_ENCODER)         += mfenc.o mf_utils.o
  OBJS-$(CONFIG_H264_MMAL_DECODER)       += mmaldec.o
- OBJS-$(CONFIG_H264_NVENC_ENCODER)      += nvenc_h264.o
- OBJS-$(CONFIG_NVENC_ENCODER)           += nvenc_h264.o
- OBJS-$(CONFIG_NVENC_H264_ENCODER)      += nvenc_h264.o
+-OBJS-$(CONFIG_H264_NVENC_ENCODER)      += nvenc_h264.o nvenc.o
++OBJS-$(CONFIG_H264_NVENC_ENCODER)      += nvenc_h264.o
++OBJS-$(CONFIG_NVENC_ENCODER)           += nvenc_h264.o
++OBJS-$(CONFIG_NVENC_H264_ENCODER)      += nvenc_h264.o
 +OBJS-$(CONFIG_H264_NVV4L2_ENCODER)     += nvv4l2_enc.o
  OBJS-$(CONFIG_H264_OMX_ENCODER)        += omx.o
  OBJS-$(CONFIG_H264_QSV_DECODER)        += qsvdec.o
  OBJS-$(CONFIG_H264_QSV_ENCODER)        += qsvenc_h264.o
-@@ -395,6 +398,7 @@ OBJS-$(CONFIG_HEVC_DECODER)            += hevcdec.o hevc_mvs.o \
-                                           hevcdsp.o hevc_filter.o hevc_data.o
+@@ -430,6 +436,7 @@ OBJS-$(CONFIG_HEVC_DECODER)            += hevcdec.o hevc_mvs.o \
+                                           h274.o
  OBJS-$(CONFIG_HEVC_AMF_ENCODER)        += amfenc_hevc.o
  OBJS-$(CONFIG_HEVC_CUVID_DECODER)      += cuviddec.o
 +OBJS-$(CONFIG_HEVC_NVV4L2_DECODER)     += nvv4l2_dec.o
  OBJS-$(CONFIG_HEVC_MEDIACODEC_DECODER) += mediacodecdec.o
+ OBJS-$(CONFIG_HEVC_MEDIACODEC_ENCODER) += mediacodecenc.o
  OBJS-$(CONFIG_HEVC_MF_ENCODER)         += mfenc.o mf_utils.o
- OBJS-$(CONFIG_HEVC_NVENC_ENCODER)      += nvenc_hevc.o
-@@ -405,6 +409,7 @@ OBJS-$(CONFIG_HEVC_QSV_ENCODER)        += qsvenc_hevc.o hevc_ps_enc.o       \
- OBJS-$(CONFIG_HEVC_RKMPP_DECODER)      += rkmppdec.o
- OBJS-$(CONFIG_HEVC_VAAPI_ENCODER)      += vaapi_encode_h265.o h265_profile_level.o
+@@ -441,6 +448,7 @@ OBJS-$(CONFIG_HEVC_RKMPP_DECODER)      += rkmppdec.o
+ OBJS-$(CONFIG_HEVC_VAAPI_ENCODER)      += vaapi_encode_h265.o h265_profile_level.o \
+                                           h2645data.o
  OBJS-$(CONFIG_HEVC_V4L2M2M_DECODER)    += v4l2_m2m_dec.o
 +OBJS-$(CONFIG_HEVC_NVV4L2_ENCODER)     += nvv4l2_enc.o
  OBJS-$(CONFIG_HEVC_V4L2M2M_ENCODER)    += v4l2_m2m_enc.o
+ OBJS-$(CONFIG_HEVC_VIDEOTOOLBOX_ENCODER) += videotoolboxenc.o
  OBJS-$(CONFIG_HNM4_VIDEO_DECODER)      += hnm4video.o
- OBJS-$(CONFIG_HQ_HQA_DECODER)          += hq_hqa.o hq_hqadata.o hq_hqadsp.o \
-@@ -495,12 +500,14 @@ OBJS-$(CONFIG_MPEG2_QSV_ENCODER)       += qsvenc_mpeg2.o
+@@ -535,12 +543,14 @@ OBJS-$(CONFIG_MPEG2_QSV_ENCODER)       += qsvenc_mpeg2.o
  OBJS-$(CONFIG_MPEG2VIDEO_DECODER)      += mpeg12dec.o mpeg12.o mpeg12data.o
  OBJS-$(CONFIG_MPEG2VIDEO_ENCODER)      += mpeg12enc.o mpeg12.o
  OBJS-$(CONFIG_MPEG2_CUVID_DECODER)     += cuviddec.o
@@ -213,23 +217,23 @@ index 33a280cf69..31400f3f2d 100644
  OBJS-$(CONFIG_MPEG2_MEDIACODEC_DECODER) += mediacodecdec.o
  OBJS-$(CONFIG_MPEG2_VAAPI_ENCODER)     += vaapi_encode_mpeg2.o
  OBJS-$(CONFIG_MPEG2_V4L2M2M_DECODER)   += v4l2_m2m_dec.o
- OBJS-$(CONFIG_MPEG4_DECODER)           += xvididct.o
+ OBJS-$(CONFIG_MPEG4_DECODER)           += mpeg4videodsp.o xvididct.o
  OBJS-$(CONFIG_MPEG4_ENCODER)           += mpeg4videoenc.o
  OBJS-$(CONFIG_MPEG4_CUVID_DECODER)     += cuviddec.o
 +OBJS-$(CONFIG_MPEG4_NVV4L2_DECODER)    += nvv4l2_dec.o
  OBJS-$(CONFIG_MPEG4_MEDIACODEC_DECODER) += mediacodecdec.o
  OBJS-$(CONFIG_MPEG4_OMX_ENCODER)       += omx.o
  OBJS-$(CONFIG_MPEG4_V4L2M2M_DECODER)   += v4l2_m2m_dec.o
-@@ -715,6 +722,7 @@ OBJS-$(CONFIG_VP6_DECODER)             += vp6.o vp56.o vp56data.o \
- OBJS-$(CONFIG_VP7_DECODER)             += vp8.o vp56rac.o
- OBJS-$(CONFIG_VP8_DECODER)             += vp8.o vp56rac.o
+@@ -763,6 +773,7 @@ OBJS-$(CONFIG_VP6_DECODER)             += vp6.o vp56.o vp56data.o \
+ OBJS-$(CONFIG_VP7_DECODER)             += vp8.o vpx_rac.o
+ OBJS-$(CONFIG_VP8_DECODER)             += vp8.o vpx_rac.o
  OBJS-$(CONFIG_VP8_CUVID_DECODER)       += cuviddec.o
 +OBJS-$(CONFIG_VP8_NVV4L2_DECODER)      += nvv4l2_dec.o
  OBJS-$(CONFIG_VP8_MEDIACODEC_DECODER)  += mediacodecdec.o
  OBJS-$(CONFIG_VP8_QSV_DECODER)         += qsvdec.o
  OBJS-$(CONFIG_VP8_RKMPP_DECODER)       += rkmppdec.o
-@@ -725,6 +733,7 @@ OBJS-$(CONFIG_VP9_DECODER)             += vp9.o vp9data.o vp9dsp.o vp9lpf.o vp9r
-                                           vp9block.o vp9prob.o vp9mvs.o vp56rac.o \
+@@ -773,6 +784,7 @@ OBJS-$(CONFIG_VP9_DECODER)             += vp9.o vp9data.o vp9dsp.o vp9lpf.o vp9r
+                                           vp9block.o vp9prob.o vp9mvs.o vpx_rac.o \
                                            vp9dsp_8bpp.o vp9dsp_10bpp.o vp9dsp_12bpp.o
  OBJS-$(CONFIG_VP9_CUVID_DECODER)       += cuviddec.o
 +OBJS-$(CONFIG_VP9_NVV4L2_DECODER)      += nvv4l2_dec.o
@@ -237,50 +241,50 @@ index 33a280cf69..31400f3f2d 100644
  OBJS-$(CONFIG_VP9_RKMPP_DECODER)       += rkmppdec.o
  OBJS-$(CONFIG_VP9_VAAPI_ENCODER)       += vaapi_encode_vp9.o
 diff --git a/libavcodec/allcodecs.c b/libavcodec/allcodecs.c
-index 2e9a3581de..a828e43cfd 100644
+index e593ad19af..8eb911eec2 100644
 --- a/libavcodec/allcodecs.c
 +++ b/libavcodec/allcodecs.c
-@@ -141,6 +141,8 @@ extern AVCodec ff_h263i_decoder;
- extern AVCodec ff_h263p_encoder;
- extern AVCodec ff_h263p_decoder;
- extern AVCodec ff_h263_v4l2m2m_decoder;
-+extern AVCodec ff_h264_nvv4l2_encoder;
-+extern AVCodec ff_h264_nvv4l2_decoder;
- extern AVCodec ff_h264_decoder;
- extern AVCodec ff_h264_crystalhd_decoder;
- extern AVCodec ff_h264_v4l2m2m_decoder;
-@@ -150,6 +152,8 @@ extern AVCodec ff_h264_qsv_decoder;
- extern AVCodec ff_h264_rkmpp_decoder;
- extern AVCodec ff_hap_encoder;
- extern AVCodec ff_hap_decoder;
-+extern AVCodec ff_hevc_nvv4l2_encoder;
-+extern AVCodec ff_hevc_nvv4l2_decoder;
- extern AVCodec ff_hevc_decoder;
- extern AVCodec ff_hevc_qsv_decoder;
- extern AVCodec ff_hevc_rkmpp_decoder;
-@@ -194,8 +198,10 @@ extern AVCodec ff_mobiclip_decoder;
- extern AVCodec ff_motionpixels_decoder;
- extern AVCodec ff_mpeg1video_encoder;
- extern AVCodec ff_mpeg1video_decoder;
-+extern AVCodec ff_mpeg2_nvv4l2_decoder;
- extern AVCodec ff_mpeg2video_encoder;
- extern AVCodec ff_mpeg2video_decoder;
-+extern AVCodec ff_mpeg4_nvv4l2_decoder;
- extern AVCodec ff_mpeg4_encoder;
- extern AVCodec ff_mpeg4_decoder;
- extern AVCodec ff_mpeg4_crystalhd_decoder;
-@@ -356,9 +362,11 @@ extern AVCodec ff_vp6_decoder;
- extern AVCodec ff_vp6a_decoder;
- extern AVCodec ff_vp6f_decoder;
- extern AVCodec ff_vp7_decoder;
-+extern AVCodec ff_vp8_nvv4l2_decoder;
- extern AVCodec ff_vp8_decoder;
- extern AVCodec ff_vp8_rkmpp_decoder;
- extern AVCodec ff_vp8_v4l2m2m_decoder;
-+extern AVCodec ff_vp9_nvv4l2_decoder;
- extern AVCodec ff_vp9_decoder;
- extern AVCodec ff_vp9_rkmpp_decoder;
- extern AVCodec ff_vp9_v4l2m2m_decoder;
+@@ -150,6 +150,8 @@ extern const FFCodec ff_h263i_decoder;
+ extern const FFCodec ff_h263p_encoder;
+ extern const FFCodec ff_h263p_decoder;
+ extern const FFCodec ff_h263_v4l2m2m_decoder;
++extern const FFCodec ff_h264_nvv4l2_encoder;
++extern const FFCodec ff_h264_nvv4l2_decoder;
+ extern const FFCodec ff_h264_decoder;
+ extern const FFCodec ff_h264_crystalhd_decoder;
+ extern const FFCodec ff_h264_v4l2m2m_decoder;
+@@ -160,6 +162,8 @@ extern const FFCodec ff_h264_qsv_decoder;
+ extern const FFCodec ff_h264_rkmpp_decoder;
+ extern const FFCodec ff_hap_encoder;
+ extern const FFCodec ff_hap_decoder;
++extern const FFCodec ff_hevc_nvv4l2_encoder;
++extern const FFCodec ff_hevc_nvv4l2_decoder;
+ extern const FFCodec ff_hevc_decoder;
+ extern const FFCodec ff_hevc_qsv_decoder;
+ extern const FFCodec ff_hevc_rkmpp_decoder;
+@@ -205,8 +209,10 @@ extern const FFCodec ff_mobiclip_decoder;
+ extern const FFCodec ff_motionpixels_decoder;
+ extern const FFCodec ff_mpeg1video_encoder;
+ extern const FFCodec ff_mpeg1video_decoder;
++extern const FFCodec ff_mpeg2_nvv4l2_decoder;
+ extern const FFCodec ff_mpeg2video_encoder;
+ extern const FFCodec ff_mpeg2video_decoder;
++extern const FFCodec ff_mpeg4_nvv4l2_decoder;
+ extern const FFCodec ff_mpeg4_encoder;
+ extern const FFCodec ff_mpeg4_decoder;
+ extern const FFCodec ff_mpeg4_crystalhd_decoder;
+@@ -376,9 +382,11 @@ extern const FFCodec ff_vp6_decoder;
+ extern const FFCodec ff_vp6a_decoder;
+ extern const FFCodec ff_vp6f_decoder;
+ extern const FFCodec ff_vp7_decoder;
++extern const FFCodec ff_vp8_nvv4l2_decoder;
+ extern const FFCodec ff_vp8_decoder;
+ extern const FFCodec ff_vp8_rkmpp_decoder;
+ extern const FFCodec ff_vp8_v4l2m2m_decoder;
++extern const FFCodec ff_vp9_nvv4l2_decoder;
+ extern const FFCodec ff_vp9_decoder;
+ extern const FFCodec ff_vp9_rkmpp_decoder;
+ extern const FFCodec ff_vp9_v4l2m2m_decoder;
 diff --git a/libavcodec/nvv4l2.c b/libavcodec/nvv4l2.c
 new file mode 100644
 index 0000000000..b3e4a27823

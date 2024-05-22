@@ -3,8 +3,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="util-macros"
-PKG_VERSION="1.20.0"
-PKG_SHA256="0b86b262dbe971edb4ff233bc370dfad9f241d09f078a3f6d5b7f4b8ea4430db"
+PKG_VERSION="1.20.1"
+PKG_SHA256="0b308f62dce78ac0f4d9de6888234bf170f276b64ac7c96e99779bb4319bcef5"
 PKG_LICENSE="OSS"
 PKG_SITE="https://www.X.org"
 PKG_URL="https://xorg.freedesktop.org/archive/individual/util/${PKG_NAME}-${PKG_VERSION}.tar.xz"
