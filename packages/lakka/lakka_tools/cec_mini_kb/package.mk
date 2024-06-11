@@ -2,7 +2,7 @@
 # 2021 Giovanni Cascione
 
 PKG_NAME="cec_mini_kb"
-PKG_VERSION="be4289751bd80470c33847073a790b83356696db"
+PKG_VERSION="fea75efa52e73b1fc70750e308b153cfba84696f"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/spleen1981/cec-mini-kb"
 PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
