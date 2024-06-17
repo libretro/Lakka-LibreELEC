@@ -25,7 +25,7 @@ fi
 
 pre_make_target() {
   if [ "${OPENGLES}" = "libmali" ]; then
-    CLAGS+=" -DGL_USE_DLSYM"
+    CFLAGS+=" -DGL_USE_DLSYM"
     CXXFLAGS+=" -DGL_USE_DLSYM"
     LDFLAGS+=" -ldl"
   elif [ "${OPENGLES}" = "bcm2835-driver" ]; then
@@ -33,6 +33,10 @@ pre_make_target() {
               -I${SYSROOT_PREFIX}/usr/include/interface/vmcs_host/linux"
     CXXFLAGS+=" -I${SYSROOT_PREFIX}/usr/include/interface/vcos/pthreads \
                 -I${SYSROOT_PREFIX}/usr/include/interface/vmcs_host/linux"
+  fi
+
+  if [ "${DEVICE}" = "RPi5" ]; then
+    CFLAGS+=" -DPAGESIZE=16384 -mcpu=cortex-a76 -mtune=cortex-a76"
   fi
 
   case ${DEVICE:-$PROJECT} in
@@ -53,6 +57,9 @@ pre_make_target() {
       ;;
     RPi4*)
       PKG_MAKE_OPTS_TARGET+=" platform=rpi4_64-mesa FORCE_GLES3=1"
+      ;;
+    RPi5)
+      PKG_MAKE_OPTS_TARGET+=" platform=rpi-mesa FORCE_GLES3=1"
       ;;
     Exynos)
       PKG_MAKE_OPTS_TARGET+=" platform=odroid BOARD=ODROID-XU"
