@@ -35,10 +35,6 @@ pre_make_target() {
                 -I${SYSROOT_PREFIX}/usr/include/interface/vmcs_host/linux"
   fi
 
-  if [ "${DEVICE}" = "RPi5" ]; then
-    CFLAGS+=" -DPAGESIZE=16384 -mcpu=cortex-a76 -mtune=cortex-a76"
-  fi
-
   case ${DEVICE:-$PROJECT} in
     RPi)
       PKG_MAKE_OPTS_TARGET+=" platform=rpi-mesa"
@@ -59,7 +55,7 @@ pre_make_target() {
       PKG_MAKE_OPTS_TARGET+=" platform=rpi4_64-mesa FORCE_GLES3=1"
       ;;
     RPi5)
-      PKG_MAKE_OPTS_TARGET+=" platform=rpi-mesa FORCE_GLES3=1"
+      PKG_MAKE_OPTS_TARGET+=" platform=rpi-mesa FORCE_GLES3=1 CPUFLAGS+=-DPAGESIZE=16384 CPUFLAGS+=-mcpu=${TARGET_CPU}"
       ;;
     Exynos)
       PKG_MAKE_OPTS_TARGET+=" platform=odroid BOARD=ODROID-XU"
