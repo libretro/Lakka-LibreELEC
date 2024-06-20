@@ -5,67 +5,47 @@
 # And, Pull Request #4 "lakka patch & safe shutdown script & audio fix"
 # https://github.com/RetroFlag/GPiCase2-Script/pull/4
 #
-# Currently, lcdrun() and audiofix() are disabled.
+# Replace from RPI.GPIO to lgpio.
 
-import RPi.GPIO as GPIO
 import os
+os.environ["LG_WD"] = "/tmp"
+import lgpio as sbc
 import time
-from multiprocessing import Process
 
-#initialize pins
-#powerPin = 26 #pin 5
-#ledPin = 14 #TXD
-#resetPin = 2 #pin 13
-#powerenPin = 27 #pin 5
-
+handle=-1
 powerPin = 26
 powerenPin = 27
 
-#initialize GPIO settings
-def init():
-	GPIO.setmode(GPIO.BCM)
-	GPIO.setup(powerPin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-	GPIO.setup(powerenPin, GPIO.OUT, initial=GPIO.HIGH)
-	GPIO.output(powerenPin, GPIO.HIGH)
-	GPIO.setwarnings(False)
+def poweroff(chip, gpio, level, timestamp):
 
-#waits for user to hold button up to 1 second before issuing poweroff command
-def poweroff():
-	while True:
-		#self.assertEqual(GPIO.input(powerPin), GPIO.LOW)
-		GPIO.wait_for_edge(powerPin, GPIO.FALLING)
-		#start = time.time()
-		#while GPIO.input(powerPin) == GPIO.HIGH:
-		#	time.sleep(0.5)
-		os.system("systemctl stop retroarch")
-		time.sleep(1)
-		os.system("systemctl poweroff")
+	# Stop retroarch.service.
+	os.system("systemctl stop retroarch")
 
-#def lcdrun():
-#	while True:
-#		os.system("sh /opt/RetroFlag/lcdnext.sh")
-#		time.sleep(1)
+	# Wait 1 sec.
+	time.sleep(1)
 
-#def audiofix():
-#	while True:
-#		time.sleep(0.5)
-#		os.system("systemctl restart retroarch")
-#		break
+	# LED off.
+	sbc.gpio_write(handle, powerenPin, 0)
 
-if __name__ == "__main__":
-	#initialize GPIO settings
-	init()
-	#create a multiprocessing.Process instance for each function to enable parallelism 
-	powerProcess = Process(target = poweroff)
-	powerProcess.start()
-#	lcdrunProcess = Process(target = lcdrun)
-#	lcdrunProcess.start()
-#	audiofixProcess = Process(target = audiofix)
-#	audiofixProcess.start()
+	# Close GPIO handle.
+	sbc.gpiochip_close(handle)
 
-	powerProcess.join()
-#	lcdrunProcess.join()
-#	audiofixProcess.join()
+	# Shutdown system.
+	os.system("systemctl poweroff")
 
-	GPIO.cleanup()
+
+# Open GPIO handle.
+handle = sbc.gpiochip_open(0)
+
+# LED on.
+sbc.gpio_claim_output(handle, powerenPin, level=1)
+sbc.gpio_write(handle, powerenPin, 1)
+
+# Add poweroff() callback.
+sbc.gpio_claim_alert(handle, powerPin, sbc.FALLING_EDGE, lFlags=sbc.SET_PULL_UP)
+sbc.callback(handle, powerPin, sbc.FALLING_EDGE, poweroff)
+
+# Loop & sleep
+while True:
+	time.sleep(1)
 
