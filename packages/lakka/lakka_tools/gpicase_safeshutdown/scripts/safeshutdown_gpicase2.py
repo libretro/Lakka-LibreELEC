@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 
-# This script has been created using the following as a reference:
-# https://github.com/RetroFlag/GPiCase2-Script
-# And, Pull Request #4 "lakka patch & safe shutdown script & audio fix"
-# https://github.com/RetroFlag/GPiCase2-Script/pull/4
 #
-# Replace from RPI.GPIO to lgpio.
+# The safe shutdown script for Retroflag GPiCase2 (lg-gpio version)
+# https://abyz.me.uk/lg/
+# https://abyz.me.uk/lg/py_lgpio.html
+#
 
 import os
 os.environ["LG_WD"] = "/tmp"
@@ -24,9 +23,6 @@ def poweroff(chip, gpio, level, timestamp):
 	# Wait 1 sec.
 	time.sleep(1)
 
-	# LED off.
-	sbc.gpio_write(handle, powerenPin, 0)
-
 	# Close GPIO handle.
 	sbc.gpiochip_close(handle)
 
@@ -37,7 +33,7 @@ def poweroff(chip, gpio, level, timestamp):
 # Open GPIO handle.
 handle = sbc.gpiochip_open(0)
 
-# LED on.
+# Activate PowerEn Pin for enable PowerSwitch.
 sbc.gpio_claim_output(handle, powerenPin, level=1)
 sbc.gpio_write(handle, powerenPin, 1)
 
