@@ -1,0 +1,38 @@
+From c30411266fd67ea3c02a05c157231654d5a3bdc9 Mon Sep 17 00:00:00 2001
+From: Zhang Shurong <zhang_shurong@foxmail.com>
+Date: Sun, 9 Jul 2023 00:02:20 +0800
+Subject: [PATCH] media: anysee: fix null-ptr-deref in anysee_master_xfer
+
+In anysee_master_xfer, msg is controlled by user. When msg[i].buf
+is null and msg[i].len is zero, former checks on msg[i].buf would be
+passed. Malicious data finally reach anysee_master_xfer. If accessing
+msg[i].buf[0] without sanity check, null ptr deref would happen.
+We add check on msg[i].len to prevent crash.
+
+Similar commit:
+commit 0ed554fd769a
+("media: dvb-usb: az6027: fix null-ptr-deref in az6027_i2c_xfer()")
+
+Signed-off-by: Zhang Shurong <zhang_shurong@foxmail.com>
+Signed-off-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
+[hverkuil: add spaces around +]
+---
+ drivers/media/usb/dvb-usb-v2/anysee.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/media/usb/dvb-usb-v2/anysee.c b/drivers/media/usb/dvb-usb-v2/anysee.c
+index aa45b5d263f6..a1235d0cce92 100644
+--- a/drivers/media/usb/dvb-usb-v2/anysee.c
++++ b/drivers/media/usb/dvb-usb-v2/anysee.c
+@@ -202,7 +202,7 @@ static int anysee_master_xfer(struct i2c_adapter *adap, struct i2c_msg *msg,
+ 
+ 	while (i < num) {
+ 		if (num > i + 1 && (msg[i+1].flags & I2C_M_RD)) {
+-			if (msg[i].len > 2 || msg[i+1].len > 60) {
++			if (msg[i].len != 2 || msg[i + 1].len > 60) {
+ 				ret = -EOPNOTSUPP;
+ 				break;
+ 			}
+-- 
+2.34.1
+
