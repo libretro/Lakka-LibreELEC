@@ -8,14 +8,6 @@ PKG_SHA256="d59a3e788ab7e012ab2c4baed1b376da6366883ee20d7a5fc426816e3d7b1193"
 PKG_LICENSE="OSS"
 PKG_SITE="https://pypi.org/project/setuptools"
 PKG_URL="https://files.pythonhosted.org/packages/source/${PKG_NAME:0:1}/${PKG_NAME}/${PKG_NAME,,}-${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_HOST="Python3:host"
+PKG_DEPENDS_HOST="pybuild:host"
 PKG_LONGDESC="Replaces Setuptools as the standard method for working with Python module distributions."
-PKG_TOOLCHAIN="manual"
-
-make_host() {
-  python3 setup.py build
-}
-
-makeinstall_host() {
-  exec_thread_safe python3 setup.py install --prefix=${TOOLCHAIN}
-}
+PKG_TOOLCHAIN="python"
