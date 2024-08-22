@@ -1,0 +1,82 @@
+From 4628ef70e1159d3cbab58d395f647c3dff887650 Mon Sep 17 00:00:00 2001
+From: Carl Smedstad <carl.smedstad@protonmail.com>
+Date: Tue, 13 Feb 2024 21:10:22 +0100
+Subject: [PATCH] Add --overwrite-existing option that overwrites existing
+ files
+
+Implement the --overwrite-existing option that, if supplied, will make
+installer overwrite any already existing package files instead of
+failing. With this flag, installer can be used in an idempotent manner,
+i.e. the same command can be executed multiple times with the same
+result:
+
+    python -m installer --overwrite-existing --destdir=tmp dist/*.whl
+    python -m installer --overwrite-existing --destdir=tmp dist/*.whl
+    python -m installer --overwrite-existing --destdir=tmp dist/*.whl
+---
+ src/installer/__main__.py     |  6 ++++++
+ src/installer/destinations.py |  5 ++++-
+ tests/test_destinations.py    | 22 ++++++++++++++++++++++
+ 3 files changed, 32 insertions(+), 1 deletion(-)
+
+diff --git a/src/installer/__main__.py b/src/installer/__main__.py
+index 7ece8d213fe4..b587232912f9 100644
+--- a/src/installer/__main__.py
++++ b/src/installer/__main__.py
+@@ -51,6 +51,11 @@ def _get_main_parser() -> argparse.ArgumentParser:
+         choices=["all", "entries", "none"],
+         help="validate the wheel against certain part of its record (default=none)",
+     )
++    parser.add_argument(
++        "--overwrite-existing",
++        action="store_true",
++        help="silently overwrite existing files",
++    )
+     return parser
+ 
+ 
+@@ -95,6 +100,7 @@ def _main(cli_args: Sequence[str], program: Optional[str] = None) -> None:
+             script_kind=get_launcher_kind(),
+             bytecode_optimization_levels=bytecode_levels,
+             destdir=args.destdir,
++            overwrite_existing=args.overwrite_existing,
+         )
+         installer.install(source, destination, {})
+ 
+diff --git a/src/installer/destinations.py b/src/installer/destinations.py
+index 31a254c387be..982e6adfc218 100644
+--- a/src/installer/destinations.py
++++ b/src/installer/destinations.py
+@@ -111,6 +111,7 @@ class SchemeDictionaryDestination(WheelDestination):
+         hash_algorithm: str = "sha256",
+         bytecode_optimization_levels: Collection[int] = (),
+         destdir: Optional[str] = None,
++        overwrite_existing: bool = False,
+     ) -> None:
+         """Construct a ``SchemeDictionaryDestination`` object.
+ 
+@@ -127,6 +128,7 @@ class SchemeDictionaryDestination(WheelDestination):
+         :param destdir: A staging directory in which to write all files. This
+             is expected to be the filesystem root at runtime, so embedded paths
+             will be written as though this was the root.
++        :param overwrite_existing: silently overwrite existing files.
+         """
+         self.scheme_dict = scheme_dict
+         self.interpreter = interpreter
+@@ -134,6 +136,7 @@ class SchemeDictionaryDestination(WheelDestination):
+         self.hash_algorithm = hash_algorithm
+         self.bytecode_optimization_levels = bytecode_optimization_levels
+         self.destdir = destdir
++        self.overwrite_existing = overwrite_existing
+ 
+     def _path_with_destdir(self, scheme: Scheme, path: str) -> str:
+         file = os.path.join(self.scheme_dict[scheme], path)
+@@ -161,7 +164,7 @@ class SchemeDictionaryDestination(WheelDestination):
+         - Hashes the written content, to determine the entry in the ``RECORD`` file.
+         """
+         target_path = self._path_with_destdir(scheme, path)
+-        if os.path.exists(target_path):
++        if not self.overwrite_existing and os.path.exists(target_path):
+             message = f"File already exists: {target_path}"
+             raise FileExistsError(message)
+ 
