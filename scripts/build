@@ -111,7 +111,7 @@ if [ -z "${PKG_TOOLCHAIN}" -o "${PKG_TOOLCHAIN}" = "auto" ]; then
   fi
   _auto_toolchain=" (auto-detect)"
 fi
-if ! listcontains "meson cmake cmake-make configure ninja make autotools manual" "${PKG_TOOLCHAIN}"; then
+if ! listcontains "meson cmake cmake-make configure ninja make autotools manual python-flit python" "${PKG_TOOLCHAIN}"; then
   die "$(print_color "CLR_ERROR" "ERROR:") unknown toolchain ${PKG_TOOLCHAIN}"
 fi
 build_msg "CLR_TOOLCHAIN" "TOOLCHAIN" "${PKG_TOOLCHAIN}${_auto_toolchain}"
@@ -403,6 +403,23 @@ else
       echo "Executing (bootstrap): make ${PKG_MAKE_OPTS_BOOTSTRAP}" | tr -s " "
       make ${PKG_MAKE_OPTS_BOOTSTRAP}
       ;;
+
+    # python builds
+    "python-flit:target")
+      die "$(print_color "CLR_ERROR" "ERROR:") toolchain python-flit should not be used for target!"
+      ;;
+    "python-flit:host")
+      echo "Executing (host): python3 -m flit_core.wheel"
+      DONT_BUILD_LEGACY_PYC=1 python3 -m flit_core.wheel
+      ;;
+    "python:target")
+      echo "Executing (target): python3 -m build -n -w -x ${PKG_PYTHON_OPTS_TARGET}" | tr -s " "
+      python_target_env python3 -m build -n -w -x ${PKG_PYTHON_OPTS_TARGET}
+      ;;
+    "python:host")
+      echo "Executing (host): python3 -m build -n -w -x ${PKG_PYTHON_OPTS_HOST}" | tr -s " "
+      DONT_BUILD_LEGACY_PYC=1 python3 -m build -n -w -x ${PKG_PYTHON_OPTS_HOST}
+      ;;
   esac
 fi
 
@@ -461,6 +478,17 @@ else
       ;;
     "configure:bootstrap"|"cmake-make:bootstrap"|"autotools:bootstrap"|"make:bootstrap")
       make install ${PKG_MAKEINSTALL_OPTS_BOOTSTRAP}
+      ;;
+
+    # python builds
+    "python-flit:target")
+      die "$(print_color "CLR_ERROR" "ERROR:") toolchain python-flit should not be used for target!"
+      ;;
+    "python:target")
+      python3 -m installer --overwrite-existing dist/*.whl -d ${INSTALL} -p /usr
+      ;;
+    "python-flit:host" | "python:host")
+      python3 -m installer --overwrite-existing dist/*.whl
       ;;
   esac
 fi
