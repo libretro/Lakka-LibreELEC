@@ -54,7 +54,7 @@ if [ "${DISPLAYSERVER}" = "x11" ]; then
   fi
   if [ "${PROJECT}" = "L4T" ]; then
     PKG_DEPENDS_TARGET+=" libglvnd"
-    PKG_MESON_OPTS_TARGET+=" -Dglvnd=true"
+    PKG_MESON_OPTS_TARGET+=" -Dglvnd=enabled"
   fi
 elif [ "${DISPLAYSERVER}" = "wl" ]; then
   PKG_DEPENDS_TARGET+=" wayland wayland-protocols"
@@ -62,7 +62,7 @@ elif [ "${DISPLAYSERVER}" = "wl" ]; then
                            -Dglx=disabled"
 elif [ "${DISTRO}" = "Lakka" -o "${PROJECT}" = "L4T" ]; then
   PKG_DEPENDS_TARGET+=" libglvnd"
-  PKG_MESON_OPTS_TARGET+=" -Dplatforms="" -Ddri3=enabled -Dglx=disabled -Dglvnd=true"
+  PKG_MESON_OPTS_TARGET+=" -Dplatforms="" -Dglx=disabled -Dglvnd=enabled"
 else
   PKG_MESON_OPTS_TARGET+=" -Dplatforms="" \
                            -Dglx=disabled"
@@ -135,6 +135,7 @@ fi
 makeinstall_host() {
   mkdir -p "${TOOLCHAIN}/bin"
     cp -a src/intel/compiler/intel_clc "${TOOLCHAIN}/bin"
+}
 
 post_makeinstall_target() {
   if [ "${PROJECT}" = "L4T" ]; then
