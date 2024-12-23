@@ -293,7 +293,7 @@ makeinstall_target() {
   fi
 
   # RPiZero2 + GPiCase2W (3rd Gen Retroflag GPiCase)
-  if [ "${DEVICE}" = "RPiZero2-GPiCaseW" ]; then
+  if [ "${DEVICE}" = "RPiZero2-GPiCase2W" ]; then
     echo 'audio_device = "default:CARD=Headphones"' >> ${INSTALL}/etc/retroarch.cfg
     echo 'audio_out_rate = "44100"' >> ${INSTALL}/etc/retroarch.cfg
     echo 'xmb_layout = "2"' >> ${INSTALL}/etc/retroarch.cfg
