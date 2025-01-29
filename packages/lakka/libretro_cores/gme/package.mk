@@ -1,5 +1,5 @@
 PKG_NAME="gme"
-PKG_VERSION="40d8b3bf4f0bd4f713f65e08c62d30b1ae8b2282"
+PKG_VERSION="de22a26ae9ed8f0eb739bce8990fe175677edcf8"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/libretro-gme"
 PKG_URL="${PKG_SITE}.git"

@@ -1,5 +1,5 @@
 PKG_NAME="81"
-PKG_VERSION="525d5c18f1ff3fc54c37e083a475225d9179d59d"
+PKG_VERSION="ffc99f27f092addc9ddd34dd0e3a3d4d1c053cbf"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/81-libretro"
 PKG_URL="${PKG_SITE}.git"

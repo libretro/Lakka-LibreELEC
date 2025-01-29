@@ -1,5 +1,5 @@
 PKG_NAME="bsnes_hd"
-PKG_VERSION="f46b6d6368ea93943a30b5d4e79e8ed51c2da5e8"
+PKG_VERSION="0bb7b8645e22ea2476cabd58f32e987b14686601"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/DerKoun/bsnes-hd"
 PKG_URL="${PKG_SITE}.git"

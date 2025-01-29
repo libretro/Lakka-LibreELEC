@@ -1,5 +1,5 @@
 PKG_NAME="retroarch"
-PKG_VERSION="00b8a5f15c7d671cdf107c3d01e71a729581d1cd"
+PKG_VERSION="ab3b175848fa6cd8b2340809631e30bc0fe1d136"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
 PKG_URL="${PKG_SITE}.git"
@@ -73,7 +73,7 @@ if [ "${DISPLAYSERVER}" != "no" ]; then
 fi
 
 if [ "${DISPLAYSERVER}" = "x11" ]; then
-  PKG_DEPENDS_TARGET+=" libXxf86vm libXv"
+  PKG_DEPENDS_TARGET+=" libXxf86vm"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-x11 --enable-xinerama"
 else
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-x11"

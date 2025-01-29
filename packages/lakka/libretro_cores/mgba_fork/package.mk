@@ -1,5 +1,5 @@
 PKG_NAME="mgba_fork"
-PKG_VERSION="b2564482c86378581a7a43ef4e254b2a75167bc7"
+PKG_VERSION="0f39405ece52cc8b3c20b941ae2a48625865f92d"
 PKG_LICENSE="MPLv2.0"
 PKG_SITE="https://github.com/libretro/mgba"
 PKG_URL="${PKG_SITE}.git"

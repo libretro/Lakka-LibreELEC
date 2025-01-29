@@ -156,7 +156,6 @@ LIBRETRO_CORES="\
 
 # disable cores based on PROJECT/DEVICE
 if [ "${PROJECT}" = "RPi" ]; then
-  EXCLUDE_LIBRETRO_CORES+=" yabasanshiro"
   if [ "${DEVICE}" = "RPi" -o "${DEVICE}" = "RPiZero-GPiCase" ]; then
     EXCLUDE_LIBRETRO_CORES+="\
                              beetle_bsnes \
@@ -207,17 +206,14 @@ if [ "${PROJECT}" = "RPi" ]; then
                              virtualjaguar \
                              vircon32 \
                              vitaquake2 \
+                             yabasanshiro \
                              yabause \
                             "
   elif [ "${DEVICE}" = "RPi2" ]; then
     EXCLUDE_LIBRETRO_CORES+=" play"
   elif [ "${DEVICE}" = "RPiZero2-GPiCase" ]; then
     EXCLUDE_LIBRETRO_CORES+=" kronos openlara play ppsspp vircon32 swanstation"
-  elif [ "${DEVICE}" = "RPi3" ]; then
-    EXCLUDE_LIBRETRO_CORES+=" yabasanshiro"
   fi
-elif [ "${PROJECT}" = "Amlogic" -o "${PROJECT}" = "Rockchip" -o "${PROJECT}" = "Allwinner" ]; then
-  EXCLUDE_LIBRETRO_CORES+=" yabasanshiro"
 elif [ "${PROJECT}" = "Generic" -a "${ARCH}" = "i386" ]; then
   EXCLUDE_LIBRETRO_CORES+=" fake_08 openlara"
 elif [ "${PROJECT}" = "Ayn" -a "${DEVICE}" = "Odin" ]; then

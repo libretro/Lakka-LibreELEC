@@ -1,5 +1,5 @@
 PKG_NAME="same_cdi"
-PKG_VERSION="54cf493c2dee4c46666059c452f8aaaa0bd7c8e0"
+PKG_VERSION="4d8d7d782362ad4d3fab24b8d851e5169762ab35"
 PKG_LICENSE="MAME"
 PKG_SITE="https://github.com/libretro/same_cdi"
 PKG_URL="${PKG_SITE}.git"

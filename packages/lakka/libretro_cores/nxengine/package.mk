@@ -1,5 +1,5 @@
 PKG_NAME="nxengine"
-PKG_VERSION="1f371e51c7a19049e00f4364cbe9c68ca08b303a"
+PKG_VERSION="9adc032a5f6aa913d71d22042bb72cb11cf0f4a2"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/nxengine-libretro"
 PKG_URL="${PKG_SITE}.git"
