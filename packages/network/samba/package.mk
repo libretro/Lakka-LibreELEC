@@ -12,6 +12,10 @@ PKG_DEPENDS_TARGET="autotools:host gcc:host heimdal:host attr connman e2fsprogs 
 PKG_NEED_UNPACK="$(get_pkg_directory heimdal) $(get_pkg_directory e2fsprogs)"
 PKG_LONGDESC="A free SMB / CIFS fileserver and client."
 
+if [ "${ARCH}" = "i386" ]; then
+  PKG_PATCH_DIRS+=" i386"
+fi
+
 configure_package() {
   #PKG_WAF_VERBOSE="-v"
 
