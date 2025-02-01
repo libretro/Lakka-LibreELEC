@@ -30,4 +30,6 @@ pre_configure_target() {
 
 post_makeinstall_host() {
   cp ${TOOLCHAIN}/lib/pkgconfig/wayland-scanner.pc ${SYSROOT_PREFIX}/usr/lib/pkgconfig/
+  mkdir -p ${SYSROOT_PREFIX}/usr/share/wayland
+    cp ${TOOLCHAIN}/share/wayland/wayland.xml ${SYSROOT_PREFIX}/usr/share/wayland/
 }
