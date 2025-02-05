@@ -1,0 +1,317 @@
+From 234cfe71ba316c9666ecd501b7df1a4b5bdb7c03 Mon Sep 17 00:00:00 2001
+From: Mateusz Kwiatkowski <kfyatek+publicgit@gmail.com>
+Date: Mon, 11 Oct 2021 23:34:25 +0200
+Subject: [PATCH 1/2] drm/vc4: Add vertically scaled progressive modes for VEC
+
+The Raspberry Pi firmware, when configured to output progressive
+composite video, scales 720x480/720x576 framebuffer into a
+720x240/720x288 physical video mode.
+
+This commit adds support for replicating such behavior, as this provides
+square-ish virtual pixels, and some userland software rely on this.
+
+Signed-off-by: Mateusz Kwiatkowski <kfyatek+publicgit@gmail.com>
+---
+ drivers/gpu/drm/vc4/vc4_plane.c | 40 +++++++++++++++++++++
+ drivers/gpu/drm/vc4/vc4_vec.c   | 63 ++++++++++++++++++++++++++++++---
+ 2 files changed, 98 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/vc4/vc4_plane.c b/drivers/gpu/drm/vc4/vc4_plane.c
+index 7947cf47b6e13..96b60fb245982 100644
+--- a/drivers/gpu/drm/vc4/vc4_plane.c
++++ b/drivers/gpu/drm/vc4/vc4_plane.c
+@@ -334,6 +334,42 @@ static int vc4_plane_margins_adj(struct drm_plane_state *pstate)
+ 	return 0;
+ }
+ 
++static int vc4_plane_scaling_adj(struct drm_plane_state *pstate)
++{
++	struct vc4_plane_state *vc4_pstate = to_vc4_plane_state(pstate);
++	struct drm_crtc_state *crtc_state;
++
++	crtc_state = drm_atomic_get_new_crtc_state(pstate->state,
++						   pstate->crtc);
++
++	if (crtc_state->mode.hdisplay != crtc_state->adjusted_mode.hdisplay) {
++		vc4_pstate->crtc_x =
++			DIV_ROUND_CLOSEST(vc4_pstate->crtc_x *
++					  crtc_state->adjusted_mode.hdisplay,
++					  crtc_state->mode.hdisplay);
++		vc4_pstate->crtc_w =
++			DIV_ROUND_CLOSEST(vc4_pstate->crtc_w *
++					  crtc_state->adjusted_mode.hdisplay,
++					  crtc_state->mode.hdisplay);
++	}
++
++	if (crtc_state->mode.vdisplay != crtc_state->adjusted_mode.vdisplay) {
++		vc4_pstate->crtc_y =
++			DIV_ROUND_CLOSEST(vc4_pstate->crtc_y *
++					  crtc_state->adjusted_mode.vdisplay,
++					  crtc_state->mode.vdisplay);
++		vc4_pstate->crtc_h =
++			DIV_ROUND_CLOSEST(vc4_pstate->crtc_h *
++					  crtc_state->adjusted_mode.vdisplay,
++					  crtc_state->mode.vdisplay);
++	}
++
++	if (!vc4_pstate->crtc_w || !vc4_pstate->crtc_h)
++		return -EINVAL;
++
++	return 0;
++}
++
+ static int vc4_plane_setup_clipping_and_scaling(struct drm_plane_state *state)
+ {
+ 	struct vc4_plane_state *vc4_state = to_vc4_plane_state(state);
+@@ -378,6 +414,10 @@ static int vc4_plane_setup_clipping_and_scaling(struct drm_plane_state *state)
+ 	if (ret)
+ 		return ret;
+ 
++	ret = vc4_plane_scaling_adj(state);
++	if (ret)
++		return ret;
++
+ 	vc4_state->x_scaling[0] = vc4_get_scaling_mode(vc4_state->src_w[0],
+ 						       vc4_state->crtc_w);
+ 	vc4_state->y_scaling[0] = vc4_get_scaling_mode(vc4_state->src_h[0],
+diff --git a/drivers/gpu/drm/vc4/vc4_vec.c b/drivers/gpu/drm/vc4/vc4_vec.c
+index 255e5c6c48e04..14eb28c859eb4 100644
+--- a/drivers/gpu/drm/vc4/vc4_vec.c
++++ b/drivers/gpu/drm/vc4/vc4_vec.c
+@@ -253,6 +253,7 @@ enum vc4_vec_tv_mode_id {
+ struct vc4_vec_tv_mode {
+ 	const struct drm_display_mode *interlaced_mode;
+ 	const struct drm_display_mode *progressive_mode;
++	const struct drm_display_mode *scaled_progressive_mode;
+ 	u32 config0;
+ 	u32 config1;
+ 	u32 custom_freq;
+@@ -298,6 +299,12 @@ static const struct drm_display_mode drm_mode_240p = {
+ 		 240, 240 + 3, 240 + 3 + 3, 262, 0, 0)
+ };
+ 
++static const struct drm_display_mode drm_mode_scaled_480p = {
++	DRM_MODE("720x480 (scaled)", DRM_MODE_TYPE_DRIVER, 2 * 13500,
++		 720, 720 + 14, 720 + 14 + 64, 720 + 14 + 64 + 60, 0,
++		 2 * 240, 2 * (240 + 3), 2 * (240 + 3 + 3), 2 * 262, 0, 0)
++};
++
+ static const struct drm_display_mode drm_mode_576i = {
+ 	DRM_MODE("720x576i", DRM_MODE_TYPE_DRIVER, 13500,
+ 		 720, 720 + 20, 720 + 20 + 64, 720 + 20 + 64 + 60, 0,
+@@ -311,16 +318,24 @@ static const struct drm_display_mode drm_mode_288p = {
+ 		 288, 288 + 2, 288 + 2 + 3, 312, 0, 0)
+ };
+ 
++static const struct drm_display_mode drm_mode_scaled_576p = {
++	DRM_MODE("720x576 (scaled)", DRM_MODE_TYPE_DRIVER, 2 * 13500,
++		 720, 720 + 20, 720 + 20 + 64, 720 + 20 + 64 + 60, 0,
++		 2 * 288, 2 * (288 + 2), 2 * (288 + 2 + 3), 2 * 312, 0, 0)
++};
++
+ static const struct vc4_vec_tv_mode vc4_vec_tv_modes[] = {
+ 	[VC4_VEC_TV_MODE_NTSC] = {
+ 		.interlaced_mode = &drm_mode_480i,
+ 		.progressive_mode = &drm_mode_240p,
++		.scaled_progressive_mode = &drm_mode_scaled_480p,
+ 		.config0 = VEC_CONFIG0_NTSC_STD | VEC_CONFIG0_PDEN,
+ 		.config1 = VEC_CONFIG1_C_CVBS_CVBS,
+ 	},
+ 	[VC4_VEC_TV_MODE_NTSC_J] = {
+ 		.interlaced_mode = &drm_mode_480i,
+ 		.progressive_mode = &drm_mode_240p,
++		.scaled_progressive_mode = &drm_mode_scaled_480p,
+ 		.config0 = VEC_CONFIG0_NTSC_STD,
+ 		.config1 = VEC_CONFIG1_C_CVBS_CVBS,
+ 	},
+@@ -328,6 +343,7 @@ static const struct vc4_vec_tv_mode vc4_vec_tv_modes[] = {
+ 		/* NTSC with PAL chroma frequency */
+ 		.interlaced_mode = &drm_mode_480i,
+ 		.progressive_mode = &drm_mode_240p,
++		.scaled_progressive_mode = &drm_mode_scaled_480p,
+ 		.config0 = VEC_CONFIG0_NTSC_STD,
+ 		.config1 = VEC_CONFIG1_C_CVBS_CVBS | VEC_CONFIG1_CUSTOM_FREQ,
+ 		.custom_freq = 0x2a098acb,
+@@ -335,18 +351,21 @@ static const struct vc4_vec_tv_mode vc4_vec_tv_modes[] = {
+ 	[VC4_VEC_TV_MODE_PAL] = {
+ 		.interlaced_mode = &drm_mode_576i,
+ 		.progressive_mode = &drm_mode_288p,
++		.scaled_progressive_mode = &drm_mode_scaled_576p,
+ 		.config0 = VEC_CONFIG0_PAL_BDGHI_STD,
+ 		.config1 = VEC_CONFIG1_C_CVBS_CVBS,
+ 	},
+ 	[VC4_VEC_TV_MODE_PAL_M] = {
+ 		.interlaced_mode = &drm_mode_480i,
+ 		.progressive_mode = &drm_mode_240p,
++		.scaled_progressive_mode = &drm_mode_scaled_480p,
+ 		.config0 = VEC_CONFIG0_PAL_M_STD,
+ 		.config1 = VEC_CONFIG1_C_CVBS_CVBS,
+ 	},
+ 	[VC4_VEC_TV_MODE_PAL_N] = {
+ 		.interlaced_mode = &drm_mode_576i,
+ 		.progressive_mode = &drm_mode_288p,
++		.scaled_progressive_mode = &drm_mode_scaled_576p,
+ 		.config0 = VEC_CONFIG0_PAL_N_STD,
+ 		.config1 = VEC_CONFIG1_C_CVBS_CVBS,
+ 	},
+@@ -354,6 +373,7 @@ static const struct vc4_vec_tv_mode vc4_vec_tv_modes[] = {
+ 		/* PAL-M with chroma frequency of regular PAL */
+ 		.interlaced_mode = &drm_mode_480i,
+ 		.progressive_mode = &drm_mode_240p,
++		.scaled_progressive_mode = &drm_mode_scaled_480p,
+ 		.config0 = VEC_CONFIG0_PAL_M_STD,
+ 		.config1 = VEC_CONFIG1_C_CVBS_CVBS | VEC_CONFIG1_CUSTOM_FREQ,
+ 		.custom_freq = 0x2a098acb,
+@@ -361,6 +381,7 @@ static const struct vc4_vec_tv_mode vc4_vec_tv_modes[] = {
+ 	[VC4_VEC_TV_MODE_SECAM] = {
+ 		.interlaced_mode = &drm_mode_576i,
+ 		.progressive_mode = &drm_mode_288p,
++		.scaled_progressive_mode = &drm_mode_scaled_576p,
+ 		.config0 = VEC_CONFIG0_SECAM_STD,
+ 		.config1 = VEC_CONFIG1_C_CVBS_CVBS,
+ 		.custom_freq = 0x29c71c72,
+@@ -420,7 +441,9 @@ static void vc4_vec_connector_destroy(struct drm_connector *connector)
+ static int vc4_vec_connector_get_modes(struct drm_connector *connector)
+ {
+ 	struct drm_connector_state *state = connector->state;
+-	struct drm_display_mode *interlaced_mode, *progressive_mode;
++	struct drm_display_mode *interlaced_mode;
++	struct drm_display_mode *progressive_mode;
++	struct drm_display_mode *scaled_progressive_mode;
+ 
+ 	interlaced_mode =
+ 		drm_mode_duplicate(connector->dev,
+@@ -428,24 +451,33 @@ static int vc4_vec_connector_get_modes(struct drm_connector *connector)
+ 	progressive_mode =
+ 		drm_mode_duplicate(connector->dev,
+ 				   vc4_vec_tv_modes[state->tv.mode].progressive_mode);
+-	if (!interlaced_mode || !progressive_mode) {
++	scaled_progressive_mode =
++		drm_mode_duplicate(connector->dev,
++				   vc4_vec_tv_modes[state->tv.mode].scaled_progressive_mode);
++	if (!interlaced_mode || !progressive_mode || !scaled_progressive_mode) {
+ 		DRM_ERROR("Failed to create a new display mode\n");
+ 		drm_mode_destroy(connector->dev, interlaced_mode);
+ 		drm_mode_destroy(connector->dev, progressive_mode);
++		drm_mode_destroy(connector->dev, scaled_progressive_mode);
+ 		return -ENOMEM;
+ 	}
+ 
+ 	if (connector->cmdline_mode.specified &&
+ 	    connector->cmdline_mode.refresh_specified &&
+-	    !connector->cmdline_mode.interlace)
++	    !connector->cmdline_mode.interlace) {
+ 		/* progressive mode set at boot, let's make it preferred */
+-		progressive_mode->type |= DRM_MODE_TYPE_PREFERRED;
+-	else
++		if (connector->cmdline_mode.yres > 300)
++			scaled_progressive_mode->type |= DRM_MODE_TYPE_PREFERRED;
++		else
++			progressive_mode->type |= DRM_MODE_TYPE_PREFERRED;
++	} else {
+ 		/* otherwise, interlaced mode is preferred */
+ 		interlaced_mode->type |= DRM_MODE_TYPE_PREFERRED;
++	}
+ 
+ 	drm_mode_probed_add(connector, interlaced_mode);
+ 	drm_mode_probed_add(connector, progressive_mode);
++	drm_mode_probed_add(connector, scaled_progressive_mode);
+ 
+ 	return 1;
+ }
+@@ -628,6 +660,27 @@ static int vc4_vec_encoder_atomic_check(struct drm_encoder *encoder,
+ 	const struct drm_display_mode *reference_mode =
+ 		vc4_vec_tv_modes[conn_state->tv.mode].interlaced_mode;
+ 
++	if (!(crtc_state->adjusted_mode.flags & DRM_MODE_FLAG_INTERLACE) &&
++	    crtc_state->adjusted_mode.vtotal > 312) {
++		/* vertically scaled progressive mode */
++		if (crtc_state->adjusted_mode.crtc_vdisplay % 2 != 0 ||
++		    crtc_state->adjusted_mode.crtc_vsync_start % 2 != 0 ||
++		    crtc_state->adjusted_mode.crtc_vsync_end % 2 != 0 ||
++		    crtc_state->adjusted_mode.crtc_vtotal % 2 != 0)
++			return -EINVAL;
++
++		crtc_state->adjusted_mode.clock /= 2;
++		crtc_state->adjusted_mode.crtc_clock /= 2;
++		crtc_state->adjusted_mode.vdisplay /= 2;
++		crtc_state->adjusted_mode.crtc_vdisplay /= 2;
++		crtc_state->adjusted_mode.vsync_start /= 2;
++		crtc_state->adjusted_mode.crtc_vsync_start /= 2;
++		crtc_state->adjusted_mode.vsync_end /= 2;
++		crtc_state->adjusted_mode.crtc_vsync_end /= 2;
++		crtc_state->adjusted_mode.vtotal /= 2;
++		crtc_state->adjusted_mode.crtc_vtotal /= 2;
++	}
++
+ 	if (crtc_state->adjusted_mode.crtc_clock != reference_mode->clock ||
+ 	    crtc_state->adjusted_mode.crtc_htotal != reference_mode->htotal ||
+ 	    crtc_state->adjusted_mode.crtc_hdisplay % 4 != 0 ||
+
+From 3c08549f11d5fb031661d8b1d1b2325ea6153656 Mon Sep 17 00:00:00 2001
+From: Mateusz Kwiatkowski <kfyatek+publicgit@gmail.com>
+Date: Tue, 12 Oct 2021 00:30:02 +0200
+Subject: [PATCH 2/2] drm/vc4: Add support for horizontally caled VEC modes
+
+Composite output uses non-square pixels. By allowing horizontally scaled
+modes, we can simulate a different pixel clock and thus make it possible
+to simulate square pixels at either 4:3 or 16:9 target aspect ratio.
+
+Signed-off-by: Mateusz Kwiatkowski <kfyatek+publicgit@gmail.com>
+---
+ drivers/gpu/drm/vc4/vc4_vec.c | 40 ++++++++++++++++++++++++++++++-----
+ 1 file changed, 35 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/vc4/vc4_vec.c b/drivers/gpu/drm/vc4/vc4_vec.c
+index 14eb28c859eb4..e60a5c1e01472 100644
+--- a/drivers/gpu/drm/vc4/vc4_vec.c
++++ b/drivers/gpu/drm/vc4/vc4_vec.c
+@@ -681,13 +681,43 @@ static int vc4_vec_encoder_atomic_check(struct drm_encoder *encoder,
+ 		crtc_state->adjusted_mode.crtc_vtotal /= 2;
+ 	}
+ 
+-	if (crtc_state->adjusted_mode.crtc_clock != reference_mode->clock ||
+-	    crtc_state->adjusted_mode.crtc_htotal != reference_mode->htotal ||
+-	    crtc_state->adjusted_mode.crtc_hdisplay % 4 != 0 ||
+-	    crtc_state->adjusted_mode.crtc_hsync_end -
+-		    crtc_state->adjusted_mode.crtc_hsync_start < 1)
++	if (crtc_state->adjusted_mode.hdisplay % 4 != 0 ||
++	    crtc_state->adjusted_mode.hsync_end -
++		    crtc_state->adjusted_mode.hsync_start < 1)
+ 		return -EINVAL;
+ 
++	crtc_state->adjusted_mode.hdisplay =
++		DIV_ROUND_CLOSEST(crtc_state->adjusted_mode.hdisplay *
++				  reference_mode->clock,
++				  crtc_state->adjusted_mode.clock);
++	crtc_state->adjusted_mode.hsync_start =
++		DIV_ROUND_CLOSEST(crtc_state->adjusted_mode.hsync_start *
++				  reference_mode->clock,
++				  crtc_state->adjusted_mode.clock);
++	crtc_state->adjusted_mode.hsync_end =
++		DIV_ROUND_CLOSEST(crtc_state->adjusted_mode.hsync_end *
++				  reference_mode->clock,
++				  crtc_state->adjusted_mode.clock);
++	crtc_state->adjusted_mode.htotal =
++		DIV_ROUND_CLOSEST(crtc_state->adjusted_mode.htotal *
++				  reference_mode->clock,
++				  crtc_state->adjusted_mode.clock);
++	crtc_state->adjusted_mode.clock = reference_mode->clock;
++
++	if (crtc_state->adjusted_mode.htotal != reference_mode->htotal)
++		return -EINVAL;
++
++	if (crtc_state->adjusted_mode.hsync_end -
++	    crtc_state->adjusted_mode.hsync_start < 1)
++		crtc_state->adjusted_mode.hsync_end =
++			crtc_state->adjusted_mode.hsync_start + 1;
++
++	crtc_state->adjusted_mode.crtc_clock = crtc_state->adjusted_mode.clock;
++	crtc_state->adjusted_mode.crtc_hdisplay = crtc_state->adjusted_mode.hdisplay;
++	crtc_state->adjusted_mode.crtc_hsync_start = crtc_state->adjusted_mode.hsync_start;
++	crtc_state->adjusted_mode.crtc_hsync_end = crtc_state->adjusted_mode.hsync_end;
++	crtc_state->adjusted_mode.crtc_htotal = crtc_state->adjusted_mode.htotal;
++
+ 	switch (reference_mode->vtotal) {
+ 	case 525:
+ 		if (crtc_state->adjusted_mode.crtc_vdisplay < 1 ||

@@ -95,11 +95,14 @@ targets="\
 	RPi|RPi|arm|image \
 	RPi|RPi2|arm|image \
 	RPi|RPi3|aarch64|image \
+	RPi|RPi3-Composite|aarch64|image \
+	RPi|RPi4|aarch64|image \
+	RPi|RPi4-Composite|aarch64|image \
 	RPi|RPi4-GPiCase2|aarch64|image \
 	RPi|RPi4-PiBoyDmg|aarch64|image \
 	RPi|RPi4-RetroDreamer|aarch64|image \
-	RPi|RPi4|aarch64|image \
 	RPi|RPi5|aarch64|image \
+	RPi|RPi5-Composite|aarch64|image \
 	RPi|RPiZero-GPiCase|arm|image \
 	RPi|RPiZero2-GPiCase|arm|image \
 	RPi|RPiZero2-GPiCase2W|aarch64|image \

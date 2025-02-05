@@ -8,7 +8,7 @@ PKG_LONGDESC="DOSBox Pure is a fork of DOSBox, an emulator for DOS games, built 
 PKG_TOOLCHAIN="make"
 
 pre_make_target() {
-  if [ "${DEVICE}" = "RPi5" ]; then
+  if [ "${DEVICE:0:4}" = "RPi5" ]; then
     CFLAGS+=" -DPAGESIZE=16384"
   fi
 }

@@ -53,11 +53,14 @@ targets="\
 	RPi|RPi|arm| \
 	RPi|RPi2|arm| \
 	RPi|RPi3|aarch64| \
+	RPi|RPi3-Composite|aarch64| \
+	RPi|RPi4|aarch64| \
+	RPi|RPi4-Composite|aarch64| \
 	RPi|RPi4-GPiCase2|aarch64| \
 	RPi|RPi4-PiBoyDmg|aarch64| \
 	RPi|RPi4-RetroDreamer|aarch64| \
-	RPi|RPi4|aarch64| \
 	RPi|RPi5|aarch64| \
+	RPi|RPi5-Composite|aarch64| \
 	RPi|RPiZero-GPiCase|arm| \
 	RPi|RPiZero2-GPiCase|arm| \
 	RPi|RPiZero2-GPiCase2W|aarch64| \

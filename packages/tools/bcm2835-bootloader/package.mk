@@ -21,7 +21,7 @@ makeinstall_target() {
         cp -PRv fixup4x.dat ${INSTALL}/usr/share/bootloader/fixup.dat
         cp -PRv start4x.elf ${INSTALL}/usr/share/bootloader/start.elf
         ;;
-      RPi5) ;;
+      RPi5*) ;;
       *)
         cp -PRv bootcode.bin ${INSTALL}/usr/share/bootloader
         cp -PRv fixup_x.dat ${INSTALL}/usr/share/bootloader/fixup.dat

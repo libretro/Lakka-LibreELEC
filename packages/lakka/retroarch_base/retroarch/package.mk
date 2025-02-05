@@ -36,7 +36,7 @@ PKG_MAKE_OPTS_TARGET="V=1 \
                       HAVE_FREETYPE=1"
 
 if [ "${PROJECT}" = "RPi" ]; then
-  if [ "${DEVICE}" = "RPi3" -o "${DEVICE}" = "RPi4" -o "${DEVICE}" = "RPi5" ]; then
+  if [ "${DEVICE}" = "RPi3" -o "${DEVICE}" = "RPi4" -o "${DEVICE}" = "RPi5" -o "${DEVICE: -10}" = "-Composite" ]; then
     PKG_MAKE_OPTS_TARGET+=" HAVE_RETROFLAG=1"
   fi
 fi
@@ -176,180 +176,197 @@ makeinstall_target() {
     touch ${INSTALL}/usr/share/retroarch/system/.placeholder
 
   # General configuration
+  local ra_config=${INSTALL}/etc/retroarch.cfg
   mkdir -p ${INSTALL}/etc
-  echo 'libretro_directory = "/tmp/cores"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'libretro_info_path = "/tmp/cores"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'rgui_browser_directory = "/storage/roms"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'content_database_path = "/tmp/database/rdb"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'playlist_directory = "/storage/playlists"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'savefile_directory = "/storage/savefiles"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'savestate_directory = "/storage/savestates"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'system_directory = "/tmp/system"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'screenshot_directory = "/storage/screenshots"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'video_shader_dir = "/tmp/shaders"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'rgui_show_start_screen = "false"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'assets_directory = "/tmp/assets"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'overlay_directory = "/tmp/overlays"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'cheat_database_path = "/tmp/database/chts"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'cursor_directory = "/tmp/database/cursors"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'log_dir = "/storage/logfiles"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'recording_output_directory = "/storage/recordings"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'menu_driver = "xmb"' >> ${INSTALL}/etc/retroarch.cfg
+    cp ${PKG_DIR}/config/retroarch.cfg ${ra_config}
 
   # Power settings
   # Use ondemand for all RPi devices (for backwards compatibility?)
   # and any battery powered device (OGA and RPi case)
   if [ "${PROJECT}" = "RPi" ] || [ "${DEVICE}" = "OdroidGoAdvance" ]; then
-    echo 'cpu_main_gov = "ondemand"' >> ${INSTALL}/etc/retroarch.cfg
-    echo 'cpu_menu_gov = "ondemand"' >> ${INSTALL}/etc/retroarch.cfg
-    echo 'cpu_scaling_mode = "1"' >> ${INSTALL}/etc/retroarch.cfg
+    sed -i ${ra_config} -e 's|^cpu_main_gov = .*|cpu_main_gov = "ondemand"|'
+    sed -i ${ra_config} -e 's|^cpu_menu_gov = .*|cpu_menu_gov = "ondemand"|'
+    sed -i ${ra_config} -e 's|^cpu_scaling_mode = .*|cpu_scaling_mode = "1"|'
   fi
-
-  # Quick menu
-  echo 'core_assets_directory = "/storage/roms/downloads"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'quick_menu_show_undo_save_load_state = "false"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'quick_menu_show_save_core_overrides = "false"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'quick_menu_show_save_game_overrides = "false"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'quick_menu_show_cheats = "false"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'quick_menu_show_overlays = "false"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'quick_menu_show_rewind = "false"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'quick_menu_show_latency = "false"' >> ${INSTALL}/etc/retroarch.cfg
-
-  # Video
-  echo 'video_windowed_fullscreen = "false"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'video_smooth = "false"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'video_aspect_ratio_auto = "true"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'video_threaded = "true"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'video_font_path = "/tmp/assets/xmb/monochrome/font.ttf"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'video_font_size = "32"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'video_filter_dir = "/usr/share/video_filters"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'video_gpu_screenshot = "false"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'video_fullscreen = "true"' >> ${INSTALL}/etc/retroarch.cfg
-
-  # Audio
-  echo 'audio_driver = "alsathread"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'audio_filter_dir = "/usr/share/audio_filters"' >> ${INSTALL}/etc/retroarch.cfg
 
   if [ "${PROJECT}" = "Samsung" -a "${DEVICE}" = "Exynos" ]; then
     # workaround the 55fps bug
-    echo 'audio_out_rate = "44100"' >> ${INSTALL}/etc/retroarch.cfg
+    sed -i ${ra_config} -e 's|^audio_out_rate = .*|audio_out_rate = "44100"|'
   fi
-
-  # Saving
-  echo 'savestate_thumbnail_enable = "false"' >> ${INSTALL}/etc/retroarch.cfg
-
-  # Input
-  echo 'input_driver = "udev"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'input_max_users = "8"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'input_autodetect_enable = "true"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'joypad_autoconfig_dir = "/tmp/joypads"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'input_remapping_directory = "/storage/remappings"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'input_menu_toggle_gamepad_combo = "2"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'all_users_control_menu = "true"' >> ${INSTALL}/etc/retroarch.cfg
-
-  # Menu
-  echo 'menu_core_enable = "false"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'thumbnails_directory = "/storage/thumbnails"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'menu_show_advanced_settings = "false"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'menu_wallpaper_opacity = "1.0"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'content_show_images = "false"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'content_show_music = "false"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'content_show_video = "false"' >> ${INSTALL}/etc/retroarch.cfg
-
-  # Playlists
-  echo 'playlist_entry_rename = "false"' >> ${INSTALL}/etc/retroarch.cfg
-  echo 'playlist_entry_remove = "false"' >> ${INSTALL}/etc/retroarch.cfg
 
   # OdroidGoAdvance
   if [ "${DEVICE}" = "OdroidGoAdvance" ]; then
-    echo 'xmb_layout = "2"' >> ${INSTALL}/etc/retroarch.cfg
-    echo 'menu_widget_scale_auto = "false"' >> ${INSTALL}/etc/retroarch.cfg
-    echo 'menu_widget_scale_factor = "2.25"' >> ${INSTALL}/etc/retroarch.cfg
+    sed -i ${ra_config} -e 's|^xmb_layout = .*|xmb_layout = "2"|'
+    sed -i ${ra_config} -e 's|^menu_widget_scale_auto = .*|menu_widget_scale_auto = "false"|'
+    sed -i ${ra_config} -e 's|^menu_widget_scale_factor = .*|menu_widget_scale_factor = "2.250000"|'
   fi
 
   # RPiZero/RPiZero2 + GPiCase (1st Gen Retroflag GPiCase)
   if [ "${DEVICE}" = "RPiZero-GPiCase" -o "${DEVICE}" = "RPiZero2-GPiCase" ]; then
-    sed -i -e 's|^input_menu_toggle_gamepad_combo =.*|input_menu_toggle_gamepad_combo = "4"|' ${INSTALL}/etc/retroarch.cfg
-    sed -i -e 's|^menu_driver =.*|menu_driver = "rgui"|' ${INSTALL}/etc/retroarch.cfg
-    echo 'aspect_ratio_index = "21"' >> ${INSTALL}/etc/retroarch.cfg
-    echo 'audio_device = "default:CARD=Headphones"' >> ${INSTALL}/etc/retroarch.cfg
-    echo 'audio_out_rate = "44100"' >> ${INSTALL}/etc/retroarch.cfg
-    echo 'menu_enable_widgets = "false"' >> ${INSTALL}/etc/retroarch.cfg
-    echo 'menu_timedate_enable = "false"' >> ${INSTALL}/etc/retroarch.cfg
-    echo 'video_font_size = "16"' >> ${INSTALL}/etc/retroarch.cfg
+    sed -i ${ra_config} -e 's|^input_menu_toggle_gamepad_combo = .*|input_menu_toggle_gamepad_combo = "4"|'
+    sed -i ${ra_config} -e 's|^menu_driver = .*|menu_driver = "rgui"|'
+    sed -i ${ra_config} -e 's|^aspect_ratio_index = .*|aspect_ratio_index = "21"|'
+    sed -i ${ra_config} -e 's|^audio_device = .*|audio_device = "default:CARD=Headphones"|'
+    sed -i ${ra_config} -e 's|^audio_out_rate = .*|audio_out_rate = "44100"|'
+    sed -i ${ra_config} -e 's|^menu_enable_widgets = .*|menu_enable_widgets = "false"|'
+    sed -i ${ra_config} -e 's|^menu_timedate_enable = .*|menu_timedate_enable = "false"|'
+    sed -i ${ra_config} -e 's|^video_font_size = .*|video_font_size = "16.000000"|'
+    sed -i ${ra_config} -e 's|^menu_widget_scale_auto = .*|menu_widget_scale_auto = "false"|'
+    sed -i ${ra_config} -e 's|^menu_widget_scale_factor = .*|menu_widget_scale_factor = "1.750000"|'
 
     if [ "${DEVICE}" = "RPiZero-GPiCase" ]; then
-      sed -i -e 's|^video_threaded =.*|video_threaded = "false"|' ${INSTALL}/etc/retroarch.cfg
-      echo 'video_scale_integer = "true"' >> ${INSTALL}/etc/retroarch.cfg
+      sed -i ${ra_config} -e 's|^video_threaded = .*|video_threaded = "false"|'
+      sed -i ${ra_config} -e 's|^video_scale_integer = .*|video_scale_integer = "true"|'
     fi
 
     if [ "${DEVICE}" = "RPiZero2-GPiCase" ]; then
-      echo 'input_player1_analog_dpad_mode = "3"' >> ${INSTALL}/etc/retroarch.cfg
+      sed -i ${ra_config} -e 's|^input_player1_analog_dpad_mode = .*|input_player1_analog_dpad_mode = "3"|'
     fi
   fi
 
   # RPi Compute Module 4 + GPiCase2 (2nd Gen Retroflag GPiCase)
   if [ "${DEVICE}" = "RPi4-GPiCase2" ]; then
-    echo 'audio_device = "default:CARD=Device"' >> ${INSTALL}/etc/retroarch.cfg
-    echo 'audio_out_rate = "44100"' >> ${INSTALL}/etc/retroarch.cfg
-    echo 'xmb_layout = "2"' >> ${INSTALL}/etc/retroarch.cfg
+    sed -i ${ra_config} -e 's|^audio_device = .*|audio_device = "default:CARD=Device"|'
+    sed -i ${ra_config} -e 's|^audio_out_rate = .*|audio_out_rate = "44100"|'
+    sed -i ${ra_config} -e 's|^xmb_layout = .*|xmb_layout = "2"|'
+    sed -i ${ra_config} -e 's|^menu_widget_scale_auto = .*|menu_widget_scale_auto = "false"|'
+    sed -i ${ra_config} -e 's|^menu_widget_scale_factor = .*|menu_widget_scale_factor = "1.750000"|'
   fi
 
   # RPiZero2 + GPiCase2W (3rd Gen Retroflag GPiCase)
   if [ "${DEVICE}" = "RPiZero2-GPiCase2W" ]; then
-    echo 'audio_device = "default:CARD=Headphones"' >> ${INSTALL}/etc/retroarch.cfg
-    echo 'audio_out_rate = "44100"' >> ${INSTALL}/etc/retroarch.cfg
-    echo 'xmb_layout = "2"' >> ${INSTALL}/etc/retroarch.cfg
+    sed -i ${ra_config} -e 's|^audio_device = .*|audio_device = "default:CARD=Headphone"|'
+    sed -i ${ra_config} -e 's|^audio_out_rate = .*|audio_out_rate = "44100"|'
+    sed -i ${ra_config} -e 's|^xmb_layout = .*|xmb_layout = "2"|'
+    sed -i ${ra_config} -e 's|^menu_widget_scale_auto = .*|menu_widget_scale_auto = "false"|'
+    sed -i ${ra_config} -e 's|^menu_widget_scale_factor = .*|menu_widget_scale_factor = "1.750000"|'
   fi
 
   # PiBoy DMG / RetroDreamer
   if [ "${DEVICE}" = "RPi4-PiBoyDmg" -o "${DEVICE}" = "RPi4-RetroDreamer" ]; then
-    echo 'menu_timedate_enable = "false"' >> ${INSTALL}/etc/retroarch.cfg
-    echo 'menu_scale_factor = "1.44"' >> ${INSTALL}/etc/retroarch.cfg
-    sed -i -e 's|^input_menu_toggle_gamepad_combo =.*|input_menu_toggle_gamepad_combo = "4"|' ${INSTALL}/etc/retroarch.cfg
-    sed -i -e 's|^menu_driver =.*|menu_driver = "ozone"|' ${INSTALL}/etc/retroarch.cfg
+    sed -i ${ra_config} -e 's|^menu_timedate_enable = .*|menu_timedate_enable = "false"|'
+    sed -i ${ra_config} -e 's|^menu_scale_factor = .*|menu_scale_factor = "1.440000"|'
+    sed -i ${ra_config} -e 's|^input_menu_toggle_gamepad_combo = .*|input_menu_toggle_gamepad_combo = "4"|'
+    sed -i ${ra_config} -e 's|^menu_driver = .*|menu_driver = "ozone"|'
+  fi
+
+  # RPi-Composite
+  if [ "${PROJECT}" = "RPi" -a "${DEVICE: -10}" = "-Composite" ]; then
+    # copy font
+    mkdir -p ${INSTALL}/usr/share/retroarch/assets
+      cp -rv ${PKG_DIR}/files-composite/assets/* ${INSTALL}/usr/share/retroarch/assets
+    # copy shaders
+    mkdir -p ${INSTALL}/usr/share/retroarch/shaders
+      cp -rv ${PKG_DIR}/files-composite/shaders/* ${INSTALL}/usr/share/retroarch/shaders
+      # keep only relevant shader presets and shaders
+      if [ "${DEVICE:0:4}" = "RPi5" ]; then
+        rm -v ${INSTALL}/usr/share/retroarch/shaders/RPi-Composite/rpi3-4.{glslp,slangp}
+        rm -v ${INSTALL}/usr/share/retroarch/shaders/RPi-Composite/shaders/rpi3-4-composite-mmgb-vudiq.{glsl,slang}
+      else
+        rm -v ${INSTALL}/usr/share/retroarch/shaders/RPi-Composite/rpi5.{glslp,slangp}
+        rm -v ${INSTALL}/usr/share/retroarch/shaders/RPi-Composite/shaders/rpi5-composite-mmgb-vudiq.{glsl,slang}
+      fi
+    # copy global shader presets
+    mkdir -p ${INSTALL}/etc/retroarch/config
+    if [ "${DEVICE:0:4}" = "RPi5" ]; then
+      cp -v ${PKG_DIR}/files-composite/global-rpi5.glslp ${INSTALL}/etc/retroarch/config/global.glslp
+      cp -v ${PKG_DIR}/files-composite/global-rpi5.slangp ${INSTALL}/etc/retroarch/config/global.slangp
+    else
+      cp -v ${PKG_DIR}/files-composite/global-rpi34.glslp ${INSTALL}/etc/retroarch/config/global.glslp
+      cp -v ${PKG_DIR}/files-composite/global-rpi34.slangp ${INSTALL}/etc/retroarch/config/global.slangp
+    fi
+    # extract core configs
+    unzip ${PKG_DIR}/files-composite/config/core_configs.zip -d ${INSTALL}/etc/retroarch/config
+    # set dynamic recompiler on RPi3/4 for Mupen64plus-next
+    if [ "${DEVICE:0:4}" != "RPi5" ]; then
+      sed -i ${INSTALL}/etc/retroarch/config/Mupen64Plus-Next/Mupen64Plus-Next.opt \
+          -e 's|^mupen64plus-cpucore = .*|mupen64plus-cpucore = "dynamic_recompiler"|'
+    fi
+    # use specific font for composite
+    sed -i ${ra_config} -e 's|^xmb_font = .*|xmb_font = "/tmp/assets/xmb/xmb_pixel_mmgb.ttf"|'
+    sed -i ${ra_config} -e 's|^video_font_path = .*|video_font_path = "/tmp/assets/xmb/xmb_pixel_mmgb.ttf"|'
+    # offset the xmb title to be within visible screen area
+    sed -i ${ra_config} -e 's|^menu_xmb_title_margin = .*|menu_xmb_title_margin = "8"|'
+    sed -i ${ra_config} -e 's|^menu_xmb_title_margin_horizontal_offset = .*|menu_xmb_title_margin_horizontal_offset = "3"|'
+    # show advanced settings
+    sed -i ${ra_config} -e 's|^menu_show_advanced_settings = .*|menu_show_advanced_settings = "true"|'
+    # show save core/game overrides menu
+    sed -i ${ra_config} -e 's|^quick_menu_show_save_core_overrides = .*|quick_menu_show_save_core_overrides = "true"|'
+    sed -i ${ra_config} -e 's|^quick_menu_show_save_game_overrides = .*|quick_menu_show_save_game_overrides = "true"|'
+    # hide menu sublabels - they are not legible anyway
+    sed -i ${ra_config} -e 's|^menu_show_sublabels = .*|menu_show_sublabels = "false"|'
+    # enable shaders
+    sed -i ${ra_config} -e 's|^video_shader_enable = .*|video_shader_enable = "true"|'
+    # turn on integer scaling
+    sed -i ${ra_config} -e 's|^video_scale_integer = .*|video_scale_integer = "true"|'
+    # rgui options
+    sed -i ${ra_config} -e 's|^rgui_aspect_ratio_lock = .*|rgui_aspect_ratio_lock = "2"|'
+    sed -i ${ra_config} -e 's|^menu_linear_filter = .*|menu_linear_filter = "true"|'
+    # hide RetroArch version - core name in bottom right corner
+    sed -i ${ra_config} -e 's|^menu_core_enable = .*|menu_core_enable = "false"|'
+    # set widget scale / disable auto scaling
+    sed -i ${ra_config} -e 's|^menu_widget_scale_auto = .*|menu_widget_scale_auto = "false"|'
+    sed -i ${ra_config} -e 's|^menu_widget_scale_factor = .*|menu_widget_scale_factor = "1.150000"|'
+    # turn off some distracting notifications
+    sed -i ${ra_config} -e 's|^notification_show_cheats_applied = .*|notification_show_cheats_applied = "false"|'
+    sed -i ${ra_config} -e 's|^notification_show_config_override_load = .*|notification_show_config_override_load = "false"|'
+    sed -i ${ra_config} -e 's|^notification_show_disk_control = .*|notification_show_disk_control = "false"|'
+    sed -i ${ra_config} -e 's|^notification_show_patch_applied = .*|notification_show_patch_applied = "false"|'
+    sed -i ${ra_config} -e 's|^notification_show_refresh_rate = .*|notification_show_refresh_rate = "false"|'
+    sed -i ${ra_config} -e 's|^notification_show_remap_load = .*|notification_show_remap_load = "false"|'
+    # Set audio to headphone jack for Pi3/4, Pi 5 must use USB soundcard for analog audio out
+    if listcontains "${DEVICE:0:4}" "(RPi3|RPi4)"; then
+      sed -i ${ra_config} -e 's|^audio_device = .*|audio_device = "default:CARD=Headphones"|'
+    fi
+    # Force this resolution for RPi5 to start in the right one
+    if [ "${DEVICE:0:4}" = "RPi5" ]; then
+      sed -i ${ra_config} -e 's|^video_fullscreen_x = .*|video_fullscreen_x = "721"|'
+      sed -i ${ra_config} -e 's|^video_fullscreen_y = .*|video_fullscreen_y = 480""|'
+    fi
+    # disable threaded video on RPi4 and RPi5
+    if [ "${DEVICE:0:4}" = "RPi4" -o "${DEVICE:0:4}" = "RPi5" ]; then
+      sed -i ${ra_config} -e 's|^video_threaded = .*|video_threaded = "false"|'
+    fi
+    # set video driver to glcore on RPi4/5
+    if listcontains "${DEVICE:0:4}" "(RPi4|RPi5)"; then
+      sed -i ${ra_config} -e 's|^video_driver = .*|video_driver = "glcore"|'
+    fi
   fi
 
   # iMX6
   if [ "${PROJECT}" = "NXP" -a "${DEVICE}" = "iMX6" ]; then
-    echo 'audio_device = "default:CARD=DWHDMI"' >> ${INSTALL}/etc/retroarch.cfg
-    echo 'audio_enable_menu = "true"' >> ${INSTALL}/etc/retroarch.cfg
-    echo 'audio_enable_menu_ok = "true"' >> ${INSTALL}/etc/retroarch.cfg
-    echo 'audio_enable_menu_cancel = "true"' >> ${INSTALL}/etc/retroarch.cfg
-    echo 'audio_enable_menu_notice = "true"' >> ${INSTALL}/etc/retroarch.cfg
+    sed -i ${ra_config} -e 's|^audio_device = .*|audio_device = "default:CARD=DWHDMI"|'
+    sed -i ${ra_config} -e 's|^audio_enable_menu = .*|audio_enable_menu = "true"|'
+    sed -i ${ra_config} -e 's|^audio_enable_menu_ok = .*|audio_enable_menu_ok = "true"|'
+    sed -i ${ra_config} -e 's|^audio_enable_menu_cancel = .*|audio_enable_menu_cancel = "true"|'
+    sed -i ${ra_config} -e 's|^audio_enable_menu_notice = .*|audio_enable_menu_notice = "true"|'
   fi
 
   # Switch
   if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ] || [ "${PROJECT}" = "Ayn" -a "${DEVICE}" = "Odin" ]; then
-    echo 'menu_mouse_enable = "false"' >> ${INSTALL}/etc/retroarch.cfg
-    echo 'menu_pointer_enable = "true"'>> ${INSTALL}/etc/retroarch.cfg
-    echo 'video_crop_overscan = "false"' >> ${INSTALL}/etc/retroarch.cfg
+    sed -i ${ra_config} -e 's|^menu_pointer_enable = .*|menu_pointer_enable = "true"|'
+    sed -i ${ra_config} -e 's|^video_crop_overscan = .*|video_crop_overscan = "false"|'
 
     if [ ! "${PROJECT}" = "Ayn" -a ! "${DEVICE}" = "Odin" ]; then
-      echo 'input_joypad_driver = "udev"' >> ${INSTALL}/etc/retroarch.cfg
-      echo 'video_hard_sync = "true"' >> ${INSTALL}/etc/retroarch.cfg
+      sed -i ${ra_config} -e 's|^video_hard_sync = .*|video_hard_sync = "true"|'
     fi
 
-    sed -i -e 's|^input_driver =.*|input_driver= "x"|' ${INSTALL}/etc/retroarch.cfg
-    sed -i -e 's|^video_smooth =.*|video_smooth = "true"|' ${INSTALL}/etc/retroarch.cfg
-    sed -i -e 's|^menu_driver =.*|menu_driver = "ozone"|' ${INSTALL}/etc/retroarch.cfg
+    sed -i ${ra_config} -e 's|^input_driver = .*|input_driver = "x"|'
+    sed -i ${ra_config} -e 's|^video_smooth = .*|video_smooth = "true"|'
+    sed -i ${ra_config} -e 's|^menu_driver = .*|menu_driver = "ozone"|'
 
     if [ ! "${PROJECT}" = "Ayn" -a ! "${DEVICE}" = "Odin" ]; then
       #Set Joypad as joypad with analog
-      echo 'input_libretro_device_p1 = "5"' >> ${INSTALL}/etc/retroarch.cfg
+      sed -i ${ra_config} -e 's|^input_device_p1 = .*|input_device_p1 = "5"|'
     else
-      echo 'video_driver = "glcore"' >> ${INSTALL}/etc/retroarch.cfg
-      sed -i -e 's|^audio_driver =.*|audio_driver = "pulse"|' ${INSTALL}/etc/retroarch.cfg
-      echo video_vsync = "false" >> ${INSTALL}/etc/retroarch.cfg
+      sed -i ${ra_config} -e 's|^video_river = .*|video_driver = "glcore"|'
+      sed -i ${ra_config} -e 's|^audio_driver = .*|audio_driver = "pulse"|'
+      sed -i ${ra_config} -e 's|^video_vsync = .*|video_vsync = "false"|'
     fi
 
     #HACK: Temporary hack for touchscreen
-    sed -i -e 's|^video_windowed_fullscreen =.*|video_windowed_fullscreen = "true"|' ${INSTALL}/etc/retroarch.cfg
+    sed -i ${ra_config} -e 's|^video_windowed_fullscreen = .*|video_windowed_fullscreen = "true"|'
   fi
-
-  # sort the options in config file
-  sort ${INSTALL}/etc/retroarch.cfg > ${INSTALL}/etc/retroarch-sorted.cfg
-  mv ${INSTALL}/etc/retroarch-sorted.cfg ${INSTALL}/etc/retroarch.cfg
 
   # create default environment file
   echo "HOME=/storage" >> ${INSTALL}/usr/lib/retroarch/retroarch-env.conf

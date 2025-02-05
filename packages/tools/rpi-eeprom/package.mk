@@ -13,7 +13,7 @@ PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
 
-  if [ "${DEVICE}" = "RPi4" ]; then
+  if [ "${DEVICE:0:4}" = "RPi4" ]; then
     _variant="2711"
   else
     _variant="2712"
@@ -37,7 +37,7 @@ makeinstall_target() {
           PKG_FW_FILE="$(ls -1 /${_dir}/pieeprom-* 2>/dev/null | tail -1)"
           [ -n "${PKG_FW_FILE}" ] && cp -PRv "${PKG_FW_FILE}" ${DESTDIR}/${_basedir}
 
-          if [ "${DEVICE}" = "RPi4" ]; then
+          if [ "${DEVICE:0:4}" = "RPi4" ]; then
             # VIA USB3
             PKG_FW_FILE="$(ls -1 ${_dir}/vl805-*.bin 2>/dev/null | tail -1)"
             [ -n "${PKG_FW_FILE}" ] && cp -PRv "${PKG_FW_FILE}" ${DESTDIR}/${_basedir}

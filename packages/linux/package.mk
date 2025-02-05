@@ -35,6 +35,12 @@ case "${LINUX}" in
     PKG_URL="https://github.com/raspberrypi/linux/archive/${PKG_VERSION}.tar.gz"
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
     ;;
+  raspberrypi-5.10.y)
+    PKG_VERSION="8e1110a580887f4b82303b9354c25d7e2ff5860e" # 5.10.110
+    PKG_SHA256="e3244061e44426eafe97541633b87a71b8be1828d1bc48a18ec4c83fddb2f4c5"
+    PKG_URL="https://github.com/raspberrypi/linux/archive/${PKG_VERSION}.tar.gz"
+    PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
+    ;;
   L4T)
     if [ -z "${L4T_KERNEL_VERSION}" ]; then
       echo -n "${DEVICE:-${PROJECT}}: ${KERNEL} - you must set L4T_KERNEL_VERSION in projects/${PROJECT}/"

@@ -35,7 +35,7 @@ if [ "${PROJECT}" = "RPi" ]; then
     PKG_DEPENDS_TARGET+=" gpicase_safeshutdown"
   fi
   
-  if [ "${DEVICE}" = "RPi3" -o "${DEVICE}" = "RPi4" -o "${DEVICE}" = "RPi5" ]; then
+  if [ "${DEVICE:0:4}" = "RPi3" -o "${DEVICE:0:4}" = "RPi4" -o "${DEVICE:0:4}" = "RPi5" ]; then
     PKG_DEPENDS_TARGET+=" retroflag_picase_safeshutdown"
   fi
 fi

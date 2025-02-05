@@ -17,7 +17,7 @@ fi
 
 if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
-  if [ "${DEVICE}" = "RPi3" -o "${DEVICE:0:4}" = "RPi4" -o "${DEVICE}" = "RPi5" -o "${DEVICE}" = "RK3288" -o "${DEVICE}" = "RK3399" ]; then
+  if [ "${DEVICE:0:4}" = "RPi3" -o "${DEVICE:0:4}" = "RPi4" -o "${DEVICE:0:4}" = "RPi5" -o "${DEVICE}" = "RK3288" -o "${DEVICE}" = "RK3399" ]; then
     # enable GLES3
     PKG_CMAKE_OPTS_TARGET+=" -DUSE_GLES=ON -DUSE_GLES2=OFF"
   else

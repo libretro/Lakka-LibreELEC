@@ -22,7 +22,7 @@ if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
     PKG_CMAKE_OPTS_TARGET+=" -DENABLE_OPENGLES3=ON"
   elif listcontains "${GRAPHIC_DRIVERS}" "lima" || listcontains "${MALI_FAMILY}" "(400|450|t720)"; then
     PKG_CMAKE_OPTS_TARGET+=" -DENABLE_OPENGLES2=ON"
-  elif listcontains "${GRAPHIC_DRIVERS}" "vc4" && [ "${DEVICE:0:4}" = "RPi4" -o "${DEVICE}" = "RPi5" ]; then
+  elif listcontains "${GRAPHIC_DRIVERS}" "vc4" && [ "${DEVICE:0:4}" = "RPi4" -o "${DEVICE:0:4}" = "RPi5" ]; then
     PKG_CMAKE_OPTS_TARGET+=" -DENABLE_OPENGLES3=ON"
   elif [ "${DISPLAYSERVER}" = "wl" ]; then
     PKG_CMAKE_OPTS_TARGET+=" -DENABLE_OPENGLES3=ON"
