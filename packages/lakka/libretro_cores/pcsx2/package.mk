@@ -12,19 +12,19 @@ PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON \
                        -DENABLE_QT=OFF \
                        -DCMAKE_BUILD_TYPE=Release"
 
-if [ "${OPENGL_SUPPORT}" = yes ]; then
+if [ "${OPENGL_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL}"
 fi
 
-if [ "${OPENGLES_SUPPORT}" = yes ]; then
+if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
 fi
 
-if [ "${VULKAN_SUPPORT}" = yes ]; then
+if [ "${VULKAN_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${VULKAN}"
-  if [ "${DISPLAYSERVER}" = x11 ]; then
+  if [ "${DISPLAYSERVER}" = "x11" ]; then
     PKG_CMAKE_OPTS_TARGET="-DVULKAN_USE_X11=ON"
-  elif [ "${DISPLAYSERVER}" = wl ]; then
+  elif [ "${DISPLAYSERVER}" = "wl" ]; then
     PKG_CMAKE_OPTS_TARGET="-DVULKAN_USE_WAYLAND=ON"
   fi
 fi

@@ -9,6 +9,8 @@ LIBRETRO_CORES="\
                 2048 \
                 81 \
                 a5200 \
+                anarch \
+                ardens \
                 atari800 \
                 beetle_bsnes \
                 beetle_lynx \
@@ -46,6 +48,7 @@ LIBRETRO_CORES="\
                 dosbox_core \
                 dosbox_pure \
                 dosbox_svn \
+                doukutsu_rs \
                 easyrpg \
                 emux_sms\
                 ecwolf \
@@ -78,13 +81,16 @@ LIBRETRO_CORES="\
                 kronos \
                 lowres_nx \
                 lr_moonlight \
+                lrps2 \
                 lutro \
+                m2000 \
                 mame \
                 mame2000 \
                 mame2003_plus \
                 mame2010 \
                 mame2015 \
                 melonds \
+                melondsds \
                 meowpc98 \
                 mesen \
                 mesen_s \
@@ -96,6 +102,7 @@ LIBRETRO_CORES="\
                 mupen64plus_next \
                 neocd \
                 nestopia \
+                noods \
                 np2kai \
                 numero \
                 nxengine \
@@ -103,7 +110,6 @@ LIBRETRO_CORES="\
                 openlara \
                 opera \
                 parallel_n64 \
-                pcsx2 \
                 pcsx_rearmed \
                 picodrive \
                 play \
@@ -116,6 +122,7 @@ LIBRETRO_CORES="\
                 puae \
                 puae2021 \
                 px68k \
+                pzretro \
                 quasi88 \
                 quicknes \
                 race \
@@ -134,6 +141,7 @@ LIBRETRO_CORES="\
                 stella2014 \
                 superbroswar \
                 swanstation \
+                tamalibretro \
                 tgbdual \
                 theodore \
                 thepowdertoy \
@@ -188,6 +196,7 @@ if [ "${PROJECT}" = "RPi" ]; then
                              mame2010 \
                              mame2015 \
                              melonds \
+                             melondsds \
                              meowpc98 \
                              mesen \
                              mesen_s \
@@ -237,6 +246,7 @@ if [ "${PROJECT}" != "RPi" ]; then
 elif [ "${DEVICE}" != "RPi" -a "${DEVICE}" != "RPiZero-GPiCase" ]; then
   EXCLUDE_LIBRETRO_CORES+=" fbalpha2012 mame2000"
 fi
+
 # lr_moonlight, boom3, and vitaquake for now only for Switch
 if [ "${PROJECT}" != "L4T" -a "${DEVICE}" != "Switch" ]; then
   EXCLUDE_LIBRETRO_CORES+=" boom3 vitaquake3 lr_moonlight"
@@ -245,11 +255,6 @@ fi
 # disable cores that do not build for OPENGLES
 if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
   EXCLUDE_LIBRETRO_CORES+=" kronos"
-fi
-
-# disable holani core for other archs than x86_64
-if [ ! "${ARCH}" = "x86_64" ]; then
-  EXCLUDE_LIBRETRO_CORES+=" holani"
 fi
 
 # exclude some cores at build time via env EXCLUDE_LIBRETRO_CORES="..." passed to make
@@ -265,7 +270,7 @@ if [ -n "${CUSTOM_LIBRETRO_CORES}" ]; then
 fi
 
 # temporary disabled due to build errors for all targets
-for core in citra pcsx2 ; do
+for core in citra ; do
   LIBRETRO_CORES="${LIBRETRO_CORES// ${core} /}"
 done
 

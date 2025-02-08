@@ -1,5 +1,5 @@
 PKG_NAME="2048"
-PKG_VERSION="331c1de588ed8f8c370dcbc488e5434a3c09f0f2"
+PKG_VERSION="86e02d3c2dd76858db7370f5df1ccfc33b3abee1"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/libretro-2048"
 PKG_URL="${PKG_SITE}.git"

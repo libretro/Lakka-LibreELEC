@@ -1,5 +1,5 @@
 PKG_NAME="retroarch_joypad_autoconfig"
-PKG_VERSION="b64b14be7d5a5da4000fe2db03fd1ba67f7adca3"
+PKG_VERSION="e7881a84d9a5fc1569f6d50f675dce7fdd7a0480"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/libretro/retroarch-joypad-autoconfig"
 PKG_URL="${PKG_SITE}.git"

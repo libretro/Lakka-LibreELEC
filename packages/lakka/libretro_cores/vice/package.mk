@@ -1,5 +1,5 @@
 PKG_NAME="vice"
-PKG_VERSION="ffa3cc48b8f159a6ae88594f8b1ca67f22e3044c"
+PKG_VERSION="67b18766e5911ed413ee999aefebc224adb6956a"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/vice-libretro"
 PKG_URL="${PKG_SITE}.git"
@@ -8,7 +8,7 @@ PKG_LONGDESC="Versatile Commodore 8-bit Emulator version"
 PKG_TOOLCHAIN="manual"
 
 make_target() {
-  for LRCORE in x64 x128 xpet xplus4 xvic ; do
+  for LRCORE in x64 x128 xpet xplus4 xvic x64dtv x64sc xcbm2 xscpu64 ; do
     make EMUTYPE=${LRCORE}
     make objectclean
   done

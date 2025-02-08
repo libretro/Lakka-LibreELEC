@@ -1,5 +1,5 @@
 PKG_NAME="mrboom"
-PKG_VERSION="a7af125dc9ef65c9a1b43136a75374bbac5458ee"
+PKG_VERSION="d011acfbdb2d93ed38bd684ccfa0db79bda1c932"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/mrboom-libretro"
 PKG_URL="${PKG_SITE}.git"
