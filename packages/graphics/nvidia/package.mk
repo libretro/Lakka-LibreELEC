@@ -92,9 +92,9 @@ makeinstall_target() {
       ln -sf libnvidia-glvkspirv.so.${PKG_VERSION} ${INSTALL}/usr/lib/libnvidia-glvkspirv.so
 
     mkdir -p ${INSTALL}/usr/share/vulkan/implicit_layer.d
-      sed "s#libGLX_nvidia.so.0#libEGL_nvidia.so.0#" nvidia_layers.json >${INSTALL}/usr/share/vulkan/implicit_layer.d/nvidia_layers.json
+      sed "s#libGLX_nvidia.so.0#libEGL_nvidia.so.0#" nvidia_layers.json > ${INSTALL}/usr/share/vulkan/implicit_layer.d/nvidia_layers.json
     mkdir -p ${INSTALL}/usr/share/vulkan/icd.d
-      sed "s#libGLX_nvidia.so.0#libEGL_nvidia.so.0#" nvidia_icd.json >${INSTALL}/usr/share/vulkan/icd.d/nvidia_icd.json
+      sed "s#libGLX_nvidia.so.0#libEGL_nvidia.so.0#" nvidia_icd.json > ${INSTALL}/usr/share/vulkan/icd.d/nvidia_icd.json
   fi
 
   # CUDA

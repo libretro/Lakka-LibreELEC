@@ -2,12 +2,12 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="wayland"
-PKG_VERSION="1.23.1"
-PKG_SHA256="864fb2a8399e2d0ec39d56e9d9b753c093775beadc6022ce81f441929a81e5ed"
+PKG_VERSION="1.22.0"
+PKG_SHA256="1540af1ea698a471c2d8e9d288332c7e0fd360c8f1d12936ebb7e7cbc2425842"
 PKG_LICENSE="OSS"
 PKG_SITE="https://wayland.freedesktop.org/"
 PKG_URL="https://gitlab.freedesktop.org/wayland/wayland/-/releases/${PKG_VERSION}/downloads/${PKG_NAME}-${PKG_VERSION}.tar.xz"
-PKG_DEPENDS_HOST="libffi:host expat:host libxml2:host meson:host"
+PKG_DEPENDS_HOST="libffi:host expat:host libxml2:host"
 PKG_DEPENDS_TARGET="toolchain wayland:host libffi expat libxml2"
 PKG_LONGDESC="a display server protocol"
 

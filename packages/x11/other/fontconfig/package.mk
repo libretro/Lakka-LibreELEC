@@ -21,7 +21,7 @@ PKG_CONFIGURE_OPTS_TARGET="--with-arch=${TARGET_ARCH} \
                            --disable-rpath"
 
 pre_configure_target() {
-  # ensure we dont use '-O3' optimization.
+# ensure we dont use '-O3' optimization.
   CFLAGS=$(echo ${CFLAGS} | sed -e "s|-O3|-O2|")
   CXXFLAGS=$(echo ${CXXFLAGS} | sed -e "s|-O3|-O2|")
   CFLAGS+=" -I${PKG_BUILD}"

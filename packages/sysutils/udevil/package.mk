@@ -18,7 +18,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-systemd \
                            --with-setfacl-prog=/usr/bin/setfacl"
 
 makeinstall_target() {
-  : # nothing to install
+ : # nothing to install
 }
 
 post_makeinstall_target() {
@@ -34,7 +34,7 @@ post_makeinstall_target() {
     cp -PR src/udevil ${INSTALL}/usr/bin
 
   mkdir -p ${INSTALL}/usr/sbin
-  echo -e '#!/bin/sh\nexec /usr/bin/mount -t ntfs3 "$@"' >${INSTALL}/usr/sbin/mount.ntfs
+  echo -e '#!/bin/sh\nexec /usr/bin/mount -t ntfs3 "$@"' > ${INSTALL}/usr/sbin/mount.ntfs
   chmod 755 ${INSTALL}/usr/sbin/mount.ntfs
 }
 

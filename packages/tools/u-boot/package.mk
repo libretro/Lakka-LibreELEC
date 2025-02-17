@@ -28,7 +28,7 @@ post_patch() {
   if [ -n "${UBOOT_SYSTEM}" ] && find_file_path bootloader/config; then
     PKG_CONFIG_FILE="${PKG_BUILD}/configs/$(${ROOT}/${SCRIPTS}/uboot_helper ${PROJECT} ${DEVICE} ${UBOOT_SYSTEM} config)"
     if [ -f "${PKG_CONFIG_FILE}" ]; then
-      cat ${FOUND_PATH} >>"${PKG_CONFIG_FILE}"
+      cat ${FOUND_PATH} >> "${PKG_CONFIG_FILE}"
     fi
   fi
 }

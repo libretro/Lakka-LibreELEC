@@ -16,14 +16,14 @@ PKG_CONFIGURE_OPTS_TARGET="--without-pcre \
                            --without-onig"
 
 pre_configure_target() {
-  # slang fails to build in subdirs
-  cd ${PKG_BUILD}
-  sed -i 's|RPATH=".*"|RPATH=""|' configure
-  rm -rf .${TARGET_NAME}
+ # slang fails to build in subdirs
+ cd ${PKG_BUILD}
+ sed -i 's|RPATH=".*"|RPATH=""|' configure
+ rm -rf .${TARGET_NAME}
 }
 
 pre_configure_host() {
-  # slang fails to build in subdirs
-  cd ${PKG_BUILD}
-  rm -rf .${HOST_NAME}
+ # slang fails to build in subdirs
+ cd ${PKG_BUILD}
+ rm -rf .${HOST_NAME}
 }

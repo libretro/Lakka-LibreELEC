@@ -14,9 +14,9 @@ PKG_LONGDESC="autoconf-archive is an package of m4 macros"
 PKG_CONFIGURE_OPTS_HOST="--target=${TARGET_NAME} --prefix=${TOOLCHAIN}"
 
 makeinstall_host() {
-  # make install
+# make install
   make prefix=${SYSROOT_PREFIX}/usr install
 
-  # remove problematic m4 file
+# remove problematic m4 file
   rm -rf ${SYSROOT_PREFIX}/usr/share/aclocal/ax_prog_cc_for_build.m4
 }

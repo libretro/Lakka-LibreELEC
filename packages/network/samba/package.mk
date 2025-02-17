@@ -82,14 +82,14 @@ configure_package() {
 }
 
 pre_configure_target() {
-  # samba uses its own build directory
+# samba uses its own build directory
   cd ${PKG_BUILD}
     rm -rf .${TARGET_NAME}
 
-  # work around link issues
+# work around link issues
   export LDFLAGS="${LDFLAGS} -lreadline -lncurses"
 
-  # support 64-bit offsets and seeks on 32-bit platforms
+# support 64-bit offsets and seeks on 32-bit platforms
   if [ "${TARGET_ARCH}" = "arm" ]; then
     export CFLAGS+=" -D_FILE_OFFSET_BITS=64 -D_OFF_T_DEFINED_ -Doff_t=off64_t -Dlseek=lseek64"
   fi
@@ -97,7 +97,7 @@ pre_configure_target() {
 
 configure_target() {
   cp ${PKG_DIR}/config/samba4-cache.txt ${PKG_BUILD}/cache.txt
-    echo "Checking uname machine type: \"${TARGET_ARCH}\"" >>${PKG_BUILD}/cache.txt
+    echo "Checking uname machine type: \"${TARGET_ARCH}\"" >> ${PKG_BUILD}/cache.txt
 
   export COMPILE_ET=${TOOLCHAIN}/bin/heimdal_compile_et
   export ASN1_COMPILE=${TOOLCHAIN}/bin/heimdal_asn1_compile

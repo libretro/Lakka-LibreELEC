@@ -55,7 +55,7 @@ post_unpack() {
 }
 
 pre_configure_target() {
-  # Filter out some problematic *FLAGS
+# Filter out some problematic *FLAGS
   export CFLAGS=$(echo ${CFLAGS} | sed -e "s|-ffast-math||g")
   export CFLAGS=$(echo ${CFLAGS} | sed -e "s|-Ofast|-O2|g")
   export CFLAGS=$(echo ${CFLAGS} | sed -e "s|-O.|-O2|g")
@@ -107,8 +107,8 @@ post_makeinstall_target() {
     cp -a ${INSTALL}/usr/share/i18n/locales ${INSTALL}/.noinstall
     mv ${INSTALL}/usr/share/i18n/charmaps ${INSTALL}/.noinstall
 
-  # cleanup
-  # remove any programs we don't want/need, keeping only those we want
+# cleanup
+# remove any programs we don't want/need, keeping only those we want
   for f in $(find ${INSTALL}/usr/bin -type f); do
     listcontains "${GLIBC_INCLUDE_BIN}" "$(basename "${f}")" || safe_remove "${f}"
   done
@@ -118,7 +118,7 @@ post_makeinstall_target() {
   safe_remove ${INSTALL}/usr/lib/*.o
   safe_remove ${INSTALL}/var
 
-  # add UTF-8 charmap
+# add UTF-8 charmap
   mkdir -p ${INSTALL}/usr/share/i18n/charmaps
     cp -PR ${INSTALL}/.noinstall/charmaps/UTF-8.gz ${INSTALL}/usr/share/i18n/charmaps
 
@@ -129,7 +129,7 @@ post_makeinstall_target() {
       cp -PR ${PKG_BUILD}/localedata/locales/POSIX ${INSTALL}/usr/share/i18n/locales
   fi
 
-  # create default configs
+# create default configs
   mkdir -p ${INSTALL}/etc
     cp ${PKG_DIR}/config/nsswitch-target.conf ${INSTALL}/etc/nsswitch.conf
     cp ${PKG_DIR}/config/host.conf ${INSTALL}/etc
@@ -157,7 +157,7 @@ makeinstall_init() {
 }
 
 post_makeinstall_init() {
-  # create default configs
+# create default configs
   mkdir -p ${INSTALL}/etc
     cp ${PKG_DIR}/config/nsswitch-init.conf ${INSTALL}/etc/nsswitch.conf
 }

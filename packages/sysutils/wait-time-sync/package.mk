@@ -9,6 +9,7 @@ PKG_URL=""
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A simple tool and systemd service to wait until NTP time is synced"
 
+
 post_install() {
   enable_service wait-time-sync.service
 }

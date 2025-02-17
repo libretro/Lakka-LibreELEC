@@ -188,10 +188,11 @@ pre_configure_target() {
 post_makeinstall_target() {
   # clean up
   safe_remove ${INSTALL}/usr/bin
-  PKG_GST_PLUGINS_BAD_LIST="libgstadaptivedemux libgstbadaudio libgstbasecamerabinsrc libgstcodecs \
-                            libgstinsertbin libgstisoff libgstmpegts libgstphotography libgstplayer \
-                            libgstsctp libgsttranscoder libgsturidownloader libgstwebrtc"
-  for PKG_GST_PLUGINS_BAD in ${PKG_GST_PLUGINS_BAD_LIST}; do
+  for PKG_GST_PLUGINS_BAD in \
+    libgstadaptivedemux libgstbadaudio libgstbasecamerabinsrc libgstcodecs \
+    libgstinsertbin libgstisoff libgstmpegts libgstphotography libgstplayer \
+    libgstsctp libgsttranscoder libgsturidownloader libgstwebrtc
+  do
     safe_remove ${INSTALL}/usr/lib/${PKG_GST_PLUGINS_BAD}-1.0*
   done
   safe_remove ${INSTALL}/usr/share

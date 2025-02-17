@@ -16,7 +16,7 @@ PKG_CONFIGURE_OPTS_TARGET="--with-udev-dir=/usr/lib/udev \
                            --with-lircd-socket=/run/lirc/lircd"
 
 post_makeinstall_target() {
-  # install our own evmap files and udev rules
+# install our own evmap files and udev rules
   rm -rf ${INSTALL}/etc/eventlircd.d
   rm -rf ${INSTALL}/usr/lib/udev/rules.d
   rm -rf ${INSTALL}/usr/lib/udev/lircd_helper

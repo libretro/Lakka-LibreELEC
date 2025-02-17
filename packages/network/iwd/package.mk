@@ -39,3 +39,4 @@ post_makeinstall_target() {
 post_install() {
   enable_service iwd.service
 }
+

@@ -9,3 +9,4 @@ PKG_SITE="https://github.com/HiassofT/evrepeat"
 PKG_URL="https://github.com/HiassofT/evrepeat/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Tool to view and change linux input device repeat settings"
+

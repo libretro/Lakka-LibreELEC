@@ -79,7 +79,7 @@ makeinstall_target() {
 
     sed -i -e "s:= /sbin/iscsid:= /usr/sbin/iscsid:" ${INSTALL}/etc/iscsi/iscsid.conf
 
-    echo "InitiatorName=$(${TOOLCHAIN}/bin/iscsi-iname)" >${INSTALL}/etc/iscsi/initiatorname.iscsi
+    echo "InitiatorName=$(${TOOLCHAIN}/bin/iscsi-iname)" > ${INSTALL}/etc/iscsi/initiatorname.iscsi
 }
 
 post_install() {

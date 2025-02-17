@@ -35,7 +35,7 @@ makeinstall_target() {
     cp -P ${PKG_LIB_ARM_MEM} ${INSTALL}/usr/lib
 
   mkdir -p ${INSTALL}/etc
-    echo "/usr/lib/${PKG_LIB_ARM_MEM}" >>${INSTALL}/etc/ld.so.preload
+    echo "/usr/lib/${PKG_LIB_ARM_MEM}" >> ${INSTALL}/etc/ld.so.preload
 }
 
 makeinstall_init() {
@@ -43,5 +43,5 @@ makeinstall_init() {
     cp -P ${PKG_LIB_ARM_MEM} ${INSTALL}/usr/lib
 
   mkdir -p ${INSTALL}/etc
-    echo "/usr/lib/${PKG_LIB_ARM_MEM}" >>${INSTALL}/etc/ld.so.preload
+    echo "/usr/lib/${PKG_LIB_ARM_MEM}" >> ${INSTALL}/etc/ld.so.preload
 }

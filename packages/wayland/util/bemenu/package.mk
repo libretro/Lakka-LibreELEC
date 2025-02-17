@@ -12,10 +12,10 @@ PKG_LONGDESC="Dynamic menu library and client program inspired by dmenu"
 
 PKG_MAKE_OPTS_TARGET="PREFIX=/usr clients wayland"
 
-makeinstall_target() {
+makeinstall_target(){
   make DESTDIR=${INSTALL} PREFIX=/usr install-libs install-bins install-wayland install-pkgconfig
 }
 
-post_makeinstall_target() {
+post_makeinstall_target(){
   ln -sf libbemenu.so.${PKG_VERSION} ${INSTALL}/usr/lib/libbemenu.so.0
 }

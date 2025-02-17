@@ -16,11 +16,13 @@ configure_package() {
   fi
 }
 
-pre_configure_target() {
-  PKG_MESON_OPTS_TARGET="-Dgles1=false"
+pre_configure_target(){
+  if [ ! "${PROJECT}" = "L4T" -a "${PROJECT}" = "Ayn" ]; then
+    PKG_MESON_OPTS_TARGET="-Dgles1=false"
 
     if [ "${OPENGLES_SUPPORT}" = "no" ]; then
       PKG_MESON_OPTS_TARGET+=" -Dgles2=false"
+    fi
   else
     PKG_MESON_OPTS_TARGET="-Dheaders=true \
                            -Dx11=enabled \

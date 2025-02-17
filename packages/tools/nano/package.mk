@@ -23,9 +23,17 @@ post_makeinstall_target() {
   cp -a ${PKG_DIR}/config/* ${INSTALL}/etc/
 
   mkdir -p ${INSTALL}/usr/share/nano
-
-  PKG_FILE_LIST="css html java javascript json php python sh xml"
-  for PKG_FILE_TYPES in ${PKG_FILE_LIST}; do
-    cp -a ${PKG_BUILD}/syntax/${PKG_FILE_TYPES}.nanorc ${INSTALL}/usr/share/nano/
+  for FILE_TYPES in \
+    css \
+    html \
+    java \
+    javascript \
+    json \
+    php \
+    python \
+    sh \
+    xml
+  do
+    cp -a ${PKG_BUILD}/syntax/${FILE_TYPES}.nanorc ${INSTALL}/usr/share/nano/
   done
 }

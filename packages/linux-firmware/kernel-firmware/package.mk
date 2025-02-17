@@ -57,15 +57,15 @@ makeinstall_target() {
           echo "ERROR: Firmware file ${fwfile} does not exist - aborting"
           exit 1
         fi
-      done <<<"$(cd ${PKG_FW_SOURCE} && eval "find "${fwline}"")"
-    done <"${fwlist}"
+      done <<< "$(cd ${PKG_FW_SOURCE} && eval "find "${fwline}"")"
+    done < "${fwlist}"
   done
 
   PKG_KERNEL_CFG_FILE=$(kernel_config_path) || die
 
   # The following files are RPi specific and installed by brcmfmac_sdio-firmware-rpi instead.
   # They are also not required at all if the kernel is not suitably configured.
-  if listcontains "${FIRMWARE}" "brcmfmac_sdio-firmware-rpi" ||
+  if listcontains "${FIRMWARE}" "brcmfmac_sdio-firmware-rpi" || \
      ! grep -q "^CONFIG_BRCMFMAC_SDIO=y" ${PKG_KERNEL_CFG_FILE}; then
     rm -fr ${FW_TARGET_DIR}/brcm/brcmfmac43430*-sdio.*
     rm -fr ${FW_TARGET_DIR}/brcm/brcmfmac43455*-sdio.*

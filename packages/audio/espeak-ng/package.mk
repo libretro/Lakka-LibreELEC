@@ -14,14 +14,8 @@ PKG_TOOLCHAIN="autotools"
 
 make_host() {
   mkdir phsource dictsource
-  (
-    cd dictsource
-    ln -s ../../dictsource/* .
-  )
-  (
-    cd phsource
-    ln -s ../../phsource/* .
-  )
+  (cd dictsource; ln -s ../../dictsource/* .)
+  (cd phsource; ln -s ../../phsource/* .)
   cp -aP ../espeak-ng-data .
   make DESTDIR=`pwd` -j1
 }

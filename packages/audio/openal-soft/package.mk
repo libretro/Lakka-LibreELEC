@@ -15,3 +15,4 @@ PKG_CMAKE_OPTS_TARGET="-DALSOFT_BACKEND_OSS=off \
                        -DALSOFT_BACKEND_WAVE=off \
                        -DALSOFT_EXAMPLES=off \
                        -DALSOFT_UTILS=off"
+

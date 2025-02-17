@@ -180,10 +180,10 @@ post_makeinstall_target() {
 
   # distro preset policy
   safe_remove ${INSTALL}/usr/lib/systemd/system-preset/*
-  echo "disable *" >${INSTALL}/usr/lib/systemd/system-preset/99-default.preset
+  echo "disable *" > ${INSTALL}/usr/lib/systemd/system-preset/99-default.preset
 
   safe_remove ${INSTALL}/usr/lib/systemd/user-preset/*
-  echo "disable *" >${INSTALL}/usr/lib/systemd/user-preset/90-systemd.preset
+  echo "disable *" > ${INSTALL}/usr/lib/systemd/user-preset/90-systemd.preset
 
   # remove networkd
   safe_remove ${INSTALL}/usr/lib/systemd/network

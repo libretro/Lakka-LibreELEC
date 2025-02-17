@@ -17,7 +17,7 @@ PKG_MESON_OPTS_TARGET="-Ddocs=disabled \
                        -Dterminfo=disabled \
                        -Ddefault-terminfo=xterm"
 
-post_makeinstall_target() {
+post_makeinstall_target(){
   # clean up
   safe_remove ${INSTALL}/usr/share/*
 

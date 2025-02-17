@@ -11,7 +11,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="hwdata contains various hardware identification and configuration data, such as the pci.ids and usb.ids databases"
 
 pre_configure_target() {
-  # hwdata fails to build in subdirs
+# hwdata fails to build in subdirs
   cd ${PKG_BUILD}
     rm -rf .${TARGET_NAME}
 

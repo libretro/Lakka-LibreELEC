@@ -35,14 +35,14 @@ make_target() {
 
   make distclean
   if [ "${BUILD_WITH_DEBUG}" = "yes" ]; then
-    echo "CONFIG_DEBUG_LOG=y" >>configs/${CRUST_CONFIG}
+    echo "CONFIG_DEBUG_LOG=y" >> configs/${CRUST_CONFIG}
   else
-    echo "CONFIG_SERIAL=n" >>configs/${CRUST_CONFIG}
+    echo "CONFIG_SERIAL=n" >> configs/${CRUST_CONFIG}
   fi
   # Boards with a PMIC need to disable CONFIG_PMIC_SHUTDOWN to get CIR wakeup from suspend
-  echo "CONFIG_PMIC_SHUTDOWN=n" >>configs/${CRUST_CONFIG}
-  echo "CONFIG_CIR=y" >>configs/${CRUST_CONFIG}
-  echo "CONFIG_CEC=y" >>configs/${CRUST_CONFIG}
+  echo "CONFIG_PMIC_SHUTDOWN=n" >> configs/${CRUST_CONFIG}
+  echo "CONFIG_CIR=y" >> configs/${CRUST_CONFIG}
+  echo "CONFIG_CEC=y" >> configs/${CRUST_CONFIG}
   make ${CRUST_CONFIG} BUILDCC=host-gcc
   make scp
 }

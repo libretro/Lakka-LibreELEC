@@ -12,11 +12,11 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="The popt library exists essentially for parsing command-line options."
 
 pre_configure_target() {
-  cd ${PKG_BUILD}
-  rm -rf .${TARGET_NAME}
+ cd ${PKG_BUILD}
+ rm -rf .${TARGET_NAME}
 }
 
 pre_configure_host() {
-  cd ${PKG_BUILD}
-  rm -rf .${HOST_NAME}
+ cd ${PKG_BUILD}
+ rm -rf .${HOST_NAME}
 }

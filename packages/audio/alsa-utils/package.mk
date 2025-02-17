@@ -31,8 +31,8 @@ post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/share/sounds
   rm -rf ${INSTALL}/usr/lib/systemd/system
 
-  # remove default udev rule to restore mixer configs, we install our own.
-  # so we avoid resetting our soundconfig
+# remove default udev rule to restore mixer configs, we install our own.
+# so we avoid resetting our soundconfig
   rm -rf ${INSTALL}/usr/lib/udev/rules.d/90-alsa-restore.rules
 
   if [ "${DISTRO}" != "Lakka" ]; then # keep the utils for Lakka

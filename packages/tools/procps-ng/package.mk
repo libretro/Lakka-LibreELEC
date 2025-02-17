@@ -35,5 +35,5 @@ makeinstall_target() {
 
   sed 's@proc/misc.h@procps/misc.h@' \
     ${PKG_BUILD}/library/include/readproc.h \
-    >${SYSROOT_PREFIX}/usr/include/libproc2/readproc.h
+    > ${SYSROOT_PREFIX}/usr/include/libproc2/readproc.h
 }

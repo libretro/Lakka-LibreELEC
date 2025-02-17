@@ -17,7 +17,7 @@ PKG_LONGDESC="The SYSLINUX project covers lightweight linux bootloaders."
 pre_configure_target() {
   PKG_MAKE_OPTS_TARGET="CC=${CC} AR=${AR} RANLIB=${RANLIB} installer"
 
-  # Unset all compiler FLAGS
+# Unset all compiler FLAGS
   unset CFLAGS
   unset CPPFLAGS
   unset CXXFLAGS

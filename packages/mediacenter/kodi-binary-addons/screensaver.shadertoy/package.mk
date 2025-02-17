@@ -19,11 +19,11 @@ PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="xbmc.ui.screensaver"
 
 if [ ! "${OPENGL}" = "no" ]; then
-  # for OpenGL (GLX) support
+# for OpenGL (GLX) support
   PKG_DEPENDS_TARGET+=" ${OPENGL} glew"
 fi
 
 if [ "${OPENGLES_SUPPORT}" = yes ]; then
-  # for OpenGL-ES support
+# for OpenGL-ES support
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
 fi

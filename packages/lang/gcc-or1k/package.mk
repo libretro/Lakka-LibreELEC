@@ -65,7 +65,7 @@ post_makeinstall_host() {
 
   rm -f ${PKG_GCC_PREFIX}gcc
 
-  cat >${PKG_GCC_PREFIX}gcc <<EOF
+cat > ${PKG_GCC_PREFIX}gcc <<EOF
 #!/bin/sh
 ${TOOLCHAIN}/bin/ccache ${CROSS_CC} "\$@"
 EOF

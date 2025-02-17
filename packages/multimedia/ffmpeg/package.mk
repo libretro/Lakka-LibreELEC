@@ -35,9 +35,8 @@ case "${PROJECT}" in
   *)
     PKG_PATCH_DIRS+=" v4l2-request v4l2-drmprime"
     case "${PROJECT}" in
-      Allwinner | Rockchip)
+      Allwinner|Rockchip)
         PKG_PATCH_DIRS+=" vf-deinterlace-v4l2m2m"
-        ;;
     esac
     ;;
 esac
@@ -45,9 +44,9 @@ esac
 post_unpack() {
   # Fix FFmpeg version
   if [ "${PROJECT}" = "Amlogic" ]; then
-    echo "${PKG_FFMPEG_BRANCH}-${PKG_VERSION:0:7}" >${PKG_BUILD}/VERSION
+    echo "${PKG_FFMPEG_BRANCH}-${PKG_VERSION:0:7}" > ${PKG_BUILD}/VERSION
   else
-    echo "${PKG_VERSION}" >${PKG_BUILD}/RELEASE
+    echo "${PKG_VERSION}" > ${PKG_BUILD}/RELEASE
   fi
 }
 

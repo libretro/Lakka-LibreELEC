@@ -36,7 +36,7 @@ post_makeinstall_target() {
           exit 1
         fi
       done
-    done <${fwlist}
+    done < ${fwlist}
   done
 
   mkdir -p ${INSTALL}/usr/bin

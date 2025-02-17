@@ -24,7 +24,7 @@ fi
 if [ "${PROJECT}" = "RPi" ]; then
   PKG_DEPENDS_TARGET+=" rpi_disable_hdmi_service disable_wifi_powersave lg-gpio"
   if [ "${DEVICE}" != "RPiZero-GPiCase" -a "${DEVICE}" != "RPiZero2-GPiCase" ] ; then
-    PKG_DEPENDS_TARGET+=" wii-u-gc-adapter mk_arcade_joystick_rpi joycond"
+    PKG_DEPENDS_TARGET+=" wii-u-gc-adapter wiringPi mk_arcade_joystick_rpi joycond"
   fi
   
   if [ "${DEVICE}" = "RPiZero-GPiCase" -o "${DEVICE}" = "RPiZero2-GPiCase" -o "${DEVICE}" = "RPi4-GPiCase2" -o "${DEVICE}" = "RPiZero2-GPiCase2W" ]; then

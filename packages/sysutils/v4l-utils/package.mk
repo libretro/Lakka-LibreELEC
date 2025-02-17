@@ -29,7 +29,7 @@ create_multi_keymap() {
       map="${INSTALL}/usr/lib/udev/rc_keymaps/${f}.toml"
       [ -e "${map}" ] && cat "${map}"
     done
-  ) >${INSTALL}/usr/lib/udev/rc_keymaps/${name}.toml
+  ) > ${INSTALL}/usr/lib/udev/rc_keymaps/${name}.toml
 }
 
 post_makeinstall_target() {
@@ -62,7 +62,7 @@ post_makeinstall_target() {
     for f in ${PKG_DIR}/keymaps/*; do
       if [ -e ${f} ]; then
         keymap=$(basename ${f})
-        cat ${f} >${INSTALL}/usr/lib/udev/rc_keymaps/${keymap}
+        cat ${f} > ${INSTALL}/usr/lib/udev/rc_keymaps/${keymap}
       fi
     done
   )
@@ -74,7 +74,7 @@ post_makeinstall_target() {
     # use multi-keymap instead of default one
     sed -i '/^\*\s*rc-rc6-mce\s*rc6_mce/d' ${INSTALL}/etc/rc_maps.cfg
 
-    cat <<EOF  >>${INSTALL}/etc/rc_maps.cfg
+    cat << EOF >> ${INSTALL}/etc/rc_maps.cfg
 #
 # Custom LibreELEC configuration starts here
 #

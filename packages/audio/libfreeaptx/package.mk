@@ -25,7 +25,7 @@ makeinstall_target() {
     cp -a ${PKG_NAME##*lib}.h ${SYSROOT_PREFIX}/usr/include/
 
   mkdir -p ${SYSROOT_PREFIX}/usr/lib/pkgconfig
-    cat >${SYSROOT_PREFIX}/usr/lib/pkgconfig/${PKG_NAME}.pc <<EOF
+    cat > ${SYSROOT_PREFIX}/usr/lib/pkgconfig/${PKG_NAME}.pc << EOF
 prefix=/usr
 exec_prefix=\${prefix}
 libdir=\${exec_prefix}/lib

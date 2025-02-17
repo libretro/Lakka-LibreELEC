@@ -20,7 +20,7 @@ PKG_CMAKE_OPTS_TARGET="-DBUILD_SHARED_LIBS=OFF \
                        -DWITH_INTERNAL_DOC=OFF"
 
 makeinstall_target() {
-  # install static library only
+# install static library only
   mkdir -p ${SYSROOT_PREFIX}/usr/lib
     cp ${PKG_BUILD}/.${TARGET_NAME}/src/libssh.a ${SYSROOT_PREFIX}/usr/lib
 
