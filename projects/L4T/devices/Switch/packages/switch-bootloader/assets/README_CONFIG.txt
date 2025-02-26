@@ -42,8 +42,8 @@ Below you can find all supported keys and their defaults.
  3: Enable serial logging on UART-C [Left Joycon Rail]
  4: Enable serial logging on USB
 
-[fbconsole=1]
- 0: Enable kernel logging on built-in display.
+[fbconsole=9]
+ 0: Enable kernel logging on built-in display, and disable splash screen
  1: Enable kernel logging on DP/HDMI/VGA.
  9: Or removed, disables kernel logging on any display.
 
@@ -80,6 +80,15 @@ Below you can find all supported keys and their defaults.
  1: Set GPU clock hard limit to 1075 MHz. T210B01 only.
  Helps when `gpu_dvfsc` is enabled and GPU can't handle the higher frequencies
  in such low voltages.
+
+[enable_ipv6=0]
+ 0: IPv6 Disabled (default)
+ 1: IPv6 Enabled
+
+[enable_upfs = 0]
+ 0: upfs storage is disabled
+ 1: upfs storage is enabled(experimental): Keep FS permissions in ext4 partition image(Easier to clean)
+ 2: upfsps storage is enabled(experimental) Keep FS permission in storage dir in hidden files
 ================================================================================
 
 

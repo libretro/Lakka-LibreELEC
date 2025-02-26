@@ -1,7 +1,8 @@
 PKG_NAME="switch-bootloader"
-PKG_VERSION="2.8"
+PKG_VERSION="3.0"
 PKG_ARCH="any"
-PKG_DEPENDS_TARGET="switch-u-boot:host switch-u-boot:target switch-atf:target"
+PKG_DEPENDS_INIT="upFS:init"
+PKG_DEPENDS_TARGET="switch-u-boot:host switch-u-boot:target switch-atf:target upFS:target bindfs:target"
 PKG_TOOLCHAIN="manual"
 
 make_target() {

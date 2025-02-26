@@ -19,6 +19,8 @@ test -n ${performance_mode}              || setenv performance_mode 0
 test -n ${dock_freq_switch_enabled}      || setenv dock_freq_switch_enabled 0
 test -n ${touch_skip_tuning}             || setenv touch_skip_tuning 0
 test -n ${wifi_disable_vht80}            || setenv wifi_disable_vht80 0
+test -n ${enable_ipv6}                   || setenv enable_ipv6 0
+test -n ${enable_upfs}                   || setenv enable_upfs 0
 
 # Built-in IMU.
 test -n ${acc_cal_off_x}        || setenv acc_cal_off_x 0x0
@@ -358,9 +360,22 @@ fi
 # Set default wifi mac. initramfs will/can change it.
 if test -n ${device_wifi_mac}; then fdt set /chosen nvidia,wifi-mac ${device_wifi_mac}; fi
 
+if test ${enable_ipv6} = 0; then
+        setenv bootargs_extra ${bootargs_extra} ipv6.disable=1
+fi
+
+if test ${enable_upfs} = 1; then
+         setenv bootargs_extra ${bootargs_extra} upfs-storage
+elif test ${enable_upfs} = 2; then
+         setenv bootargs_extra ${bootargs_extra} upfsps-storage
+fi
+
+if test ${fbconsole} = 0; then
+        setenv bootargs_extra ${bootargs_extra} fbcon=rotate:3 nosplash
+fi
 
 # Set kernel cmdline.
-setenv bootargs ${bootargs_extra} "boot=/dev/mmcblk0p1 BOOT_IMAGE=@DISTRO_PATH@/KERNEL SYSTEM_IMAGE=@DISTRO_PATH@/SYSTEM nofsck fat32-boot \
+setenv bootargs ${bootargs_extra} "boot=/dev/mmcblk0p1 BOOT_IMAGE=@DISTRO_PATH@/KERNEL SYSTEM_IMAGE=@DISTRO_PATH@/SYSTEM nofsck device-has-user fat32-boot \
  dock_freq_switch_enabled=${dock_freq_switch_enabled} performance_mode=${performance_mode} \
  firmware_class.path=/usr/lib/firmware access=m2 \
  pmc_r2p.enabled=1 pmc_r2p.action=${r2p_action} \
