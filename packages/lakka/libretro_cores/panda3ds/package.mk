@@ -20,6 +20,10 @@ PKG_CMAKE_OPTS_TARGET="-DBUILD_LIBRETRO_CORE=ON \
                        -DENABLE_LTO=ON \
                        -DENABLE_USER_BUILD=ON"
 
+if [ "${ARCH}" = "aarch64" ]; then
+  PKG_CMAKE_OPTS_TARGET+=" -DCRYPTOPP_OPT_DISABLE_ASM=ON"
+fi
+
 if [ "${OPENGL_SUPPORT}" = yes ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL}"
   PKG_CMAKE_OPTS_TARGET+=" -DENABLE_OPENGL=ON"

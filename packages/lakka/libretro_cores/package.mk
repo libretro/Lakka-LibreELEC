@@ -268,6 +268,7 @@ elif [ "${PROJECT}" = "RPi" ]; then
                               mupen64plus_next \
                               openlara \
                               opera \
+                              panda3ds \
                               parallel_n64 \
                               play \
                               ppsspp \
@@ -287,12 +288,14 @@ elif [ "${PROJECT}" = "RPi" ]; then
                               yabause"
 
   elif [ "${DEVICE}" = "RPi2" ]; then
-    EXCLUDE_LIBRETRO_CORES+=" play"
+    EXCLUDE_LIBRETRO_CORES+=" panda3ds \
+                              play"
 
   elif [ "${DEVICE}" = "RPiZero2-GPiCase" ]; then
     EXCLUDE_LIBRETRO_CORES+=" boom3 \
                               flycast \
                               openlara \
+                              panda3ds \
                               play \
                               ppsspp \
                               vircon32 \
@@ -300,10 +303,9 @@ elif [ "${PROJECT}" = "RPi" ]; then
                               swanstation \
                               yabasanshiro"
 
-  fi
-
-  if [ "${DEVICE}" != "RPi5" ]; then
+  elif [ "${DEVICE}" = "RPi3" -o "${DEVICE}" = "RPiZero2-GPiCase2W" ]; then
     EXCLUDE_LIBRETRO_CORES+=" panda3ds"
+
   fi
 
 elif [ "${PROJECT}" = "Samsung" ]; then
