@@ -34,6 +34,10 @@ if [ "${PROJECT}" = "RPi" ]; then
   if [ "${DEVICE}" = "RPiZero-GPiCase" -o "${DEVICE}" = "RPiZero2-GPiCase" -o "${DEVICE}" = "RPi4-GPiCase2" -o "${DEVICE}" = "RPiZero2-GPiCase2W" ]; then
     PKG_DEPENDS_TARGET+=" gpicase_safeshutdown"
   fi
+  
+  if [ "${DEVICE}" = "RPi3" -o "${DEVICE}" = "RPi4" -o "${DEVICE}" = "RPi5" ]; then
+    PKG_DEPENDS_TARGET+=" retroflag_picase_safeshutdown"
+  fi
 fi
 
 if [ "${DEVICE}" != "Switch" -a "${DEVICE}" != "RPiZero-GPiCase" -a "${DEVICE}" != "RPiZero2-GPiCase" -a "${DEVICE}" != "RPiZero2-GPiCase2W" ]; then
