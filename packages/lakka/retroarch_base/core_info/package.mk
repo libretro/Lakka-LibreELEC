@@ -1,5 +1,5 @@
 PKG_NAME="core_info"
-PKG_VERSION="60d03476d002c92fe3d5dfffb548e5247a5a78a8"
+PKG_VERSION="7d18381b0e0fade81050315ce260a72307e55280"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/libretro/libretro-core-info"
 PKG_URL="${PKG_SITE}.git"
