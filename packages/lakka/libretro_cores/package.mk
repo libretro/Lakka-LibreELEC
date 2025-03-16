@@ -41,6 +41,7 @@ LIBRETRO_CORES="\
                 daphne \
                 desmume \
                 desmume_2015 \
+                dice \
                 dinothawr \
                 dirksimple \
                 dolphin \
@@ -250,6 +251,7 @@ elif [ "${PROJECT}" = "RPi" ]; then
                               bsnes_mercury \
                               desmume \
                               desmume_2015 \
+                              dice \
                               dolphin \
                               dosbox \
                               dosbox_core \
