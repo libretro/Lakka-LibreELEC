@@ -5,6 +5,7 @@
 * Update raspberry kernel to 6.6.28
 * Update amlogic kernel to 6.8.0
 * Add support for setup script (`firstboot.sh`) for Wi-Fi setup and RetroArch configuration
+* Add new libretro core: `dice`
 
 # v5.0
 * Update buildsystem to LibreELEC 11.0
