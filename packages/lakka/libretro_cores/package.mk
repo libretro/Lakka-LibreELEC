@@ -156,6 +156,7 @@ LIBRETRO_CORES="\
                 vice \
                 vircon32 \
                 virtualjaguar \
+                virtualxt \
                 vitaquake2 \
                 vitaquake3 \
                 wasm4 \
