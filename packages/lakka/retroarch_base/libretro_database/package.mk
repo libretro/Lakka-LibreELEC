@@ -1,5 +1,5 @@
 PKG_NAME="libretro_database"
-PKG_VERSION="1cefb4efff91a76bdc92afd79e46ae3cd60627ad"
+PKG_VERSION="97ca969d058f5401ee06fb8e36a9b6ad7ef82bf2"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/libretro/libretro-database"
 PKG_URL="${PKG_SITE}.git"
