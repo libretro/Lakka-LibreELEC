@@ -3,13 +3,13 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="openssl"
-PKG_VERSION="3.2.5"
-PKG_SHA256="b36347d024a0f5bd09fefcd6af7a58bb30946080eb8ce8f7be78562190d09879"
+PKG_VERSION="3.5.1"
+PKG_SHA256="529043b15cffa5f36077a4d0af83f3de399807181d607441d734196d889b641f"
 PKG_LICENSE="Apache-2.0"
 PKG_SITE="https://openssl-library.org"
 PKG_URL="https://github.com/openssl/openssl/releases/download/${PKG_NAME}-${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_HOST="ccache:host"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="autotools:host gcc:host"
 PKG_LONGDESC="The Open Source toolkit for Secure Sockets Layer and Transport Layer Security"
 PKG_TOOLCHAIN="configure"
 
@@ -50,6 +50,8 @@ configure_host() {
 
 makeinstall_host() {
   make install_sw
+  mkdir -p ${TOOLCHAIN}/etc/ssl
+  cp ${PKG_DIR}/cert/cacert.pem ${TOOLCHAIN}/etc/ssl/cert.pem
 }
 
 pre_configure_target() {
@@ -66,9 +68,6 @@ pre_configure_target() {
       ;;
     aarch64)
       OPENSSL_TARGET=linux-aarch64
-      ;;
-    i386)
-      OPENSSL_TARGET=linux-generic32
       ;;
   esac
 }
@@ -99,7 +98,7 @@ post_makeinstall_target() {
     ln -sf /run/libreelec/cacert.pem ${INSTALL}/etc/ssl/cacert.pem
     ln -sf /run/libreelec/cacert.pem ${INSTALL}/etc/ssl/cert.pem
 
-  # backwards comatibility
+  # backwards compatibility
   mkdir -p ${INSTALL}/etc/pki/tls
     ln -sf /run/libreelec/cacert.pem ${INSTALL}/etc/pki/tls/cacert.pem
   mkdir -p ${INSTALL}/etc/pki/tls/certs
