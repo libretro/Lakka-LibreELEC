@@ -95,6 +95,7 @@ post_makeinstall_target() {
   # give user the chance to include their own CA
   mkdir -p ${INSTALL}/usr/bin
     cp ${PKG_DIR}/scripts/openssl-config ${INSTALL}/usr/bin
+    chmod +x ${INSTALL}/usr/bin/openssl-config
     ln -sf /run/libreelec/cacert.pem ${INSTALL}/etc/ssl/cacert.pem
     ln -sf /run/libreelec/cacert.pem ${INSTALL}/etc/ssl/cert.pem
 
