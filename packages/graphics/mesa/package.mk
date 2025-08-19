@@ -59,7 +59,7 @@ elif [ "${DISPLAYSERVER}" = "wl" ]; then
                            -Dglx=disabled"
 elif [ "${DISTRO}" = "Lakka" -o "${PROJECT}" = "L4T" ]; then
   PKG_DEPENDS_TARGET+=" libglvnd"
-  PKG_MESON_OPTS_TARGET+=" -Dplatforms="" -Ddri3=enabled -Dglx=disabled -Dglvnd=true"
+  PKG_MESON_OPTS_TARGET+=" -Dplatforms="" -Dglx=disabled -Dglvnd=true"
 else
   PKG_MESON_OPTS_TARGET+=" -Dplatforms="" \
                            -Dglx=disabled"
@@ -135,11 +135,6 @@ if [ "${ARCH}" = "i386" ]; then
   TARGET_SUBARCH="x86"
 fi
 
-post_makeinstall_target() {
-  if [ "${PROJECT}" = "L4T" ]; then
-    safe_remove ${INSTALL}/usr/lib/libgbm.so.1
-  fi
-
 makeinstall_host() {
   host_files="src/compiler/clc/mesa_clc src/compiler/spirv/vtn_bindgen2 src/panfrost/clc/panfrost_compile"
 
@@ -168,4 +163,10 @@ makeinstall_host() {
 
   mkdir -p "${TOOLCHAIN}/bin"
     cp -a ${host_files} "${TOOLCHAIN}/bin"
+}
+
+post_makeinstall_target() {
+  if [ "${PROJECT}" = "L4T" ]; then
+    safe_remove ${INSTALL}/usr/lib/libgbm.so.1
+  fi
 }
