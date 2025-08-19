@@ -9,4 +9,8 @@ PKG_SITE="https://pypi.org/project/ply"
 PKG_URL="https://files.pythonhosted.org/packages/source/${PKG_NAME:0:1}/${PKG_NAME}/${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_HOST="Python3:host setuptools:host"
 PKG_LONGDESC="PLY is yet another implementation of lex and yacc for Python."
-PKG_TOOLCHAIN="python"
+PKG_TOOLCHAIN="manual"
+
+makeinstall_host() {
+  exec_thread_safe python3 setup.py install --prefix=${TOOLCHAIN}
+}
