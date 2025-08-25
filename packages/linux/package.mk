@@ -226,7 +226,7 @@ pre_make_target() {
   fi
 
   # enable Dualsense on default and raspberrypi kernels for Lakka
-  if [ "${DISTRO}" = "Lakka" ] && [ "${LINUX}" = "default" -o "${LINUX}" = "raspberrypi" ]; then
+  if [ "${DISTRO}" = "Lakka" ] && [ "${LINUX}" = "default" -o "${LINUX:0:11}" = "raspberrypi" ]; then
     ${PKG_BUILD}/scripts/config \
                                 --enable CONFIG_HID_PLAYSTATION \
                                 --enable CONFIG_PLAYSTATION_FF
