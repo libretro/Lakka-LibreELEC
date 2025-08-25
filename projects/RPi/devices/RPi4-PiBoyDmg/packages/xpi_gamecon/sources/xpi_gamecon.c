@@ -1,6 +1,6 @@
 #include <linux/delay.h>
 #include <linux/input.h>
-#include <linux/of_device.h>
+#include <linux/of.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 
@@ -120,7 +120,7 @@ struct kobj_attribute per = __ATTR(percent, 0660, percent_show, percent_store);
 struct kobj_attribute stat = __ATTR(status, 0660, stat_show, stat_store);
 struct kobj_attribute vol = __ATTR(volume, 0660, vol_show, vol_store);
 
-void gpio_func(int pin, int state)
+static void gpio_func(int pin, int state)
 {
 	volatile unsigned *tgpio = gpio;
 	tgpio += (pin/10);
@@ -128,7 +128,7 @@ void gpio_func(int pin, int state)
 	else{*tgpio |= (0x1<<(pin%10)*3);}
 }
 
-uint16_t check_crc16(uint8_t data[])
+static uint16_t check_crc16(uint8_t data[])
 {
 	int len = GC_LENGTH-2;
 	uint16_t crc=0;
@@ -147,7 +147,7 @@ uint16_t check_crc16(uint8_t data[])
 }
 
 uint16_t crc=0;
-void calc_crc16(uint8_t *data, uint8_t len)
+static void calc_crc16(uint8_t *data, uint8_t len)
 {
 	int i,j;
 
@@ -412,7 +412,7 @@ static u32 __init gc_bcm_peri_base_probe(void) {
 	return base_address == 1 ? 0x02000000 : base_address;
 }
 
-void osd(void)
+static void osd(void)
 {
 	char *envp[] = {
 	    "SHELL=/bin/bash",
