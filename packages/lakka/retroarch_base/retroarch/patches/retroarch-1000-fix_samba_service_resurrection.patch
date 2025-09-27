@@ -1,0 +1,110 @@
+diff --git a/configuration.c b/configuration.c
+index 7eb6c08e1e..c0b74c355f 100644
+--- a/configuration.c
++++ b/configuration.c
+@@ -2931,7 +2931,7 @@ void config_set_defaults(void *data)
+    configuration_set_bool(settings,
+          settings->bools.ssh_enable, filestream_exists(LAKKA_SSH_PATH));
+    configuration_set_bool(settings,
+-         settings->bools.samba_enable, filestream_exists(LAKKA_SAMBA_PATH));
++         settings->bools.samba_enable, !filestream_exists(LAKKA_SAMBA_DISABLED_FILE_PATH));
+    configuration_set_bool(settings,
+          settings->bools.bluetooth_enable, filestream_exists(LAKKA_BLUETOOTH_PATH));
+    configuration_set_bool(settings, settings->bools.localap_enable, false);
+@@ -4138,7 +4138,7 @@ static bool config_load_file(global_t *global,
+    configuration_set_bool(settings,
+          settings->bools.ssh_enable, filestream_exists(LAKKA_SSH_PATH));
+    configuration_set_bool(settings,
+-         settings->bools.samba_enable, filestream_exists(LAKKA_SAMBA_PATH));
++         settings->bools.samba_enable, !filestream_exists(LAKKA_SAMBA_DISABLED_FILE_PATH));
+    configuration_set_bool(settings,
+          settings->bools.bluetooth_enable, filestream_exists(LAKKA_BLUETOOTH_PATH));
+ #endif
+@@ -5403,11 +5403,11 @@ bool config_save_file(const char *path)
+    else
+       filestream_delete(LAKKA_SSH_PATH);
+    if (settings->bools.samba_enable)
+-      filestream_close(filestream_open(LAKKA_SAMBA_PATH,
++      filestream_delete(LAKKA_SAMBA_DISABLED_FILE_PATH);
++   else
++      filestream_close(filestream_open(LAKKA_SAMBA_DISABLED_FILE_PATH,
+                RETRO_VFS_FILE_ACCESS_WRITE,
+                RETRO_VFS_FILE_ACCESS_HINT_NONE));
+-   else
+-      filestream_delete(LAKKA_SAMBA_PATH);
+    if (settings->bools.bluetooth_enable)
+       filestream_close(filestream_open(LAKKA_BLUETOOTH_PATH,
+                RETRO_VFS_FILE_ACCESS_WRITE,
+diff --git a/lakka.h b/lakka.h
+index 625a7ab946..941403e202 100644
+--- a/lakka.h
++++ b/lakka.h
+@@ -18,13 +18,14 @@
+ #ifndef __RARCH_LAKKA_H
+ #define __RARCH_LAKKA_H
+ 
+-#define LAKKA_SSH_PATH       "/storage/.cache/services/sshd.conf"
+-#define LAKKA_SAMBA_PATH     "/storage/.cache/services/samba.conf"
+-#define LAKKA_BLUETOOTH_PATH "/storage/.cache/services/bluez.conf"
+-#define LAKKA_UPDATE_DIR     "/storage/.update/"
+-#define LAKKA_CONNMAN_DIR    "/storage/.cache/connman/"
+-#define LAKKA_LOCALAP_PATH   "/storage/.cache/services/localap.conf"
+-#define LAKKA_TIMEZONE_PATH  "/storage/.cache/timezone"
++#define LAKKA_SSH_PATH                 "/storage/.cache/services/sshd.conf"
++#define LAKKA_SAMBA_PATH               "/storage/.cache/services/samba.conf"
++#define LAKKA_SAMBA_DISABLED_FILE_PATH "/storage/.cache/services/samba.disabled"
++#define LAKKA_BLUETOOTH_PATH           "/storage/.cache/services/bluez.conf"
++#define LAKKA_UPDATE_DIR               "/storage/.update/"
++#define LAKKA_CONNMAN_DIR              "/storage/.cache/connman/"
++#define LAKKA_LOCALAP_PATH             "/storage/.cache/services/localap.conf"
++#define LAKKA_TIMEZONE_PATH            "/storage/.cache/timezone"
+ 
+ #define DEFAULT_TIMEZONE "UTC"
+ #define TIMEZONE_LENGTH 255
+diff --git a/menu/menu_setting.c b/menu/menu_setting.c
+index 589cbe7f49..cd07c766a7 100644
+--- a/menu/menu_setting.c
++++ b/menu/menu_setting.c
+@@ -9508,6 +9508,33 @@ static void systemd_service_toggle(const char *path, char *unit, bool enable)
+    }
+ }
+ 
++static void systemd_samba_service_toggle(const char *path, char *unit, bool enable)
++{
++   /* There is difference between samba and ssh/bluetooth.
++    * - samba.service is disabled if "/storage/.cache/services/samba.disabled" file is exist.
++    * - ssh.service is enabled if "/storage/.cache/services/sshd.conf" file is exist.
++    * - bluetooth.service is enabled if "/storage/.cache/services/bluez.conf" file is exist.
++    * So it separates the systemd_service_toggle for samba.service. */
++
++   pid_t pid    = fork();
++   char* args[] = {(char*)"systemctl",
++                   enable ? (char*)"start" : (char*)"stop",
++                   unit,
++                   NULL};
++
++   if (pid == 0)
++   {
++      if (enable)
++         filestream_delete(path);
++      else
++         filestream_close(filestream_open(path,
++                  RETRO_VFS_FILE_ACCESS_WRITE,
++                  RETRO_VFS_FILE_ACCESS_HINT_NONE));
++
++      execvp(args[0], args);
++   }
++}
++
+ #ifdef HAVE_LAKKA_SWITCH
+ static void switch_oc_enable_toggle_change_handler(rarch_setting_t *setting)
+ {
+@@ -9556,7 +9583,7 @@ static void ssh_enable_toggle_change_handler(rarch_setting_t *setting)
+ 
+ static void samba_enable_toggle_change_handler(rarch_setting_t *setting)
+ {
+-   systemd_service_toggle(LAKKA_SAMBA_PATH, (char*)"smbd.service",
++   systemd_samba_service_toggle(LAKKA_SAMBA_DISABLED_FILE_PATH, (char*)"smbd.service",
+          *setting->value.target.boolean);
+ }
+ 
