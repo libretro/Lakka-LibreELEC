@@ -1,0 +1,77 @@
+From 2d3866c34093c5f3744487281761eda9e411fb3e Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@gmail.com>
+Date: Thu, 25 Sep 2025 20:20:16 +0200
+Subject: [PATCH 69/84] drm/sun4i: ui_layer: Change index meaning
+
+Before, it meant index of UI layer, but it's better to represent logic
+index. For display engined before DE33, this is not such big deal.
+However, DE33 can simply remap planes, so it will matter later.
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
+---
+ drivers/gpu/drm/sun4i/sun8i_mixer.c    | 5 +++--
+ drivers/gpu/drm/sun4i/sun8i_ui_layer.c | 5 ++---
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/sun4i/sun8i_mixer.c b/drivers/gpu/drm/sun4i/sun8i_mixer.c
+index 72f3d164265c..d98d7d465be3 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_mixer.c
++++ b/drivers/gpu/drm/sun4i/sun8i_mixer.c
+@@ -343,6 +343,7 @@ static struct drm_plane **sun8i_layers_init(struct drm_device *drm,
+ 	}
+ 
+ 	for (i = 0; i < mixer->cfg->ui_num; i++) {
++		unsigned int index = mixer->cfg->vi_num + i;
+ 		struct sun8i_layer *layer;
+ 
+ 		if (i == 0)
+@@ -350,14 +351,14 @@ static struct drm_plane **sun8i_layers_init(struct drm_device *drm,
+ 		else
+ 			type = DRM_PLANE_TYPE_OVERLAY;
+ 
+-		layer = sun8i_ui_layer_init_one(drm, mixer, type, i);
++		layer = sun8i_ui_layer_init_one(drm, mixer, type, index);
+ 		if (IS_ERR(layer)) {
+ 			dev_err(drm->dev, "Couldn't initialize %s plane\n",
+ 				i ? "overlay" : "primary");
+ 			return ERR_CAST(layer);
+ 		}
+ 
+-		planes[mixer->cfg->vi_num + i] = &layer->plane;
++		planes[index] = &layer->plane;
+ 	}
+ 
+ 	return planes;
+diff --git a/drivers/gpu/drm/sun4i/sun8i_ui_layer.c b/drivers/gpu/drm/sun4i/sun8i_ui_layer.c
+index 170304140b27..036dfa6f4485 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_ui_layer.c
++++ b/drivers/gpu/drm/sun4i/sun8i_ui_layer.c
+@@ -264,7 +264,6 @@ struct sun8i_layer *sun8i_ui_layer_init_one(struct drm_device *drm,
+ 					    enum drm_plane_type type,
+ 					    int index)
+ {
+-	int channel = mixer->cfg->vi_num + index;
+ 	struct sun8i_layer *layer;
+ 	unsigned int plane_cnt;
+ 	int ret;
+@@ -275,7 +274,7 @@ struct sun8i_layer *sun8i_ui_layer_init_one(struct drm_device *drm,
+ 
+ 	layer->mixer = mixer;
+ 	layer->type = SUN8I_LAYER_TYPE_UI;
+-	layer->channel = channel;
++	layer->channel = index;
+ 	layer->overlay = 0;
+ 
+ 	/* possible crtcs are set later */
+@@ -297,7 +296,7 @@ struct sun8i_layer *sun8i_ui_layer_init_one(struct drm_device *drm,
+ 		return ERR_PTR(ret);
+ 	}
+ 
+-	ret = drm_plane_create_zpos_property(&layer->plane, channel,
++	ret = drm_plane_create_zpos_property(&layer->plane, index,
+ 					     0, plane_cnt - 1);
+ 	if (ret) {
+ 		dev_err(drm->dev, "Couldn't add zpos property\n");
+-- 
+2.43.0
+

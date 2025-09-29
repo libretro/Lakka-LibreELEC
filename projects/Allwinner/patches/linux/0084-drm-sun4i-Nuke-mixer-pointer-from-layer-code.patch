@@ -1,0 +1,130 @@
+From db88c5a762509c259dace7b76e3089c1ca334834 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@gmail.com>
+Date: Fri, 26 Sep 2025 21:13:01 +0200
+Subject: [PATCH 84/84] drm/sun4i: Nuke mixer pointer from layer code
+
+It's not used anymore, so remove it. This allows trully independent
+layer state from mixer.
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
+---
+ drivers/gpu/drm/sun4i/sun8i_mixer.c    | 8 +++-----
+ drivers/gpu/drm/sun4i/sun8i_mixer.h    | 1 -
+ drivers/gpu/drm/sun4i/sun8i_ui_layer.c | 2 --
+ drivers/gpu/drm/sun4i/sun8i_ui_layer.h | 1 -
+ drivers/gpu/drm/sun4i/sun8i_vi_layer.c | 2 --
+ drivers/gpu/drm/sun4i/sun8i_vi_layer.h | 1 -
+ 6 files changed, 3 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/gpu/drm/sun4i/sun8i_mixer.c b/drivers/gpu/drm/sun4i/sun8i_mixer.c
+index 96e08cf5e8b1..21ba1ba8504c 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_mixer.c
++++ b/drivers/gpu/drm/sun4i/sun8i_mixer.c
+@@ -268,7 +268,7 @@ static void sun8i_mixer_commit(struct sunxi_engine *engine,
+ 		int w, h, x, y, zpos;
+ 		bool enable;
+ 
+-		if (!(plane->possible_crtcs & drm_crtc_mask(crtc)) || layer->mixer != mixer)
++		if (!(plane->possible_crtcs & drm_crtc_mask(crtc)))
+ 			continue;
+ 
+ 		plane_state = drm_atomic_get_new_plane_state(state, plane);
+@@ -337,8 +337,7 @@ static struct drm_plane **sun8i_layers_init(struct drm_device *drm,
+ 		if (mixer->cfg->de_type == SUN8I_MIXER_DE33)
+ 			phy_index = mixer->cfg->map[i];
+ 
+-		layer = sun8i_vi_layer_init_one(drm, mixer, type,
+-						mixer->engine.regs,
++		layer = sun8i_vi_layer_init_one(drm, type, mixer->engine.regs,
+ 						i, phy_index,
+ 						&mixer->cfg->lay_cfg);
+ 		if (IS_ERR(layer)) {
+@@ -363,8 +362,7 @@ static struct drm_plane **sun8i_layers_init(struct drm_device *drm,
+ 		if (mixer->cfg->de_type == SUN8I_MIXER_DE33)
+ 			phy_index = mixer->cfg->map[index];
+ 
+-		layer = sun8i_ui_layer_init_one(drm, mixer, type,
+-						mixer->engine.regs,
++		layer = sun8i_ui_layer_init_one(drm, type, mixer->engine.regs,
+ 						index, phy_index,
+ 						&mixer->cfg->lay_cfg);
+ 		if (IS_ERR(layer)) {
+diff --git a/drivers/gpu/drm/sun4i/sun8i_mixer.h b/drivers/gpu/drm/sun4i/sun8i_mixer.h
+index 1e9f52da9299..f49836466e0c 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_mixer.h
++++ b/drivers/gpu/drm/sun4i/sun8i_mixer.h
+@@ -222,7 +222,6 @@ enum {
+ 
+ struct sun8i_layer {
+ 	struct drm_plane		plane;
+-	struct sun8i_mixer		*mixer;
+ 	unsigned int			type;
+ 	unsigned int			channel;
+ 	unsigned int			overlay;
+diff --git a/drivers/gpu/drm/sun4i/sun8i_ui_layer.c b/drivers/gpu/drm/sun4i/sun8i_ui_layer.c
+index 14fa3aec94bf..3d8f30ef4475 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_ui_layer.c
++++ b/drivers/gpu/drm/sun4i/sun8i_ui_layer.c
+@@ -254,7 +254,6 @@ static const uint64_t sun8i_layer_modifiers[] = {
+ };
+ 
+ struct sun8i_layer *sun8i_ui_layer_init_one(struct drm_device *drm,
+-					    struct sun8i_mixer *mixer,
+ 					    enum drm_plane_type type,
+ 					    struct regmap *regs,
+ 					    unsigned int index,
+@@ -269,7 +268,6 @@ struct sun8i_layer *sun8i_ui_layer_init_one(struct drm_device *drm,
+ 	if (!layer)
+ 		return ERR_PTR(-ENOMEM);
+ 
+-	layer->mixer = mixer;
+ 	layer->type = SUN8I_LAYER_TYPE_UI;
+ 	layer->channel = phy_index;
+ 	layer->overlay = 0;
+diff --git a/drivers/gpu/drm/sun4i/sun8i_ui_layer.h b/drivers/gpu/drm/sun4i/sun8i_ui_layer.h
+index c64deea5a641..869eb3523d2a 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_ui_layer.h
++++ b/drivers/gpu/drm/sun4i/sun8i_ui_layer.h
+@@ -50,7 +50,6 @@ struct sun8i_mixer;
+ struct sun8i_layer;
+ 
+ struct sun8i_layer *sun8i_ui_layer_init_one(struct drm_device *drm,
+-					    struct sun8i_mixer *mixer,
+ 					    enum drm_plane_type type,
+ 					    struct regmap *regs,
+ 					    unsigned int index,
+diff --git a/drivers/gpu/drm/sun4i/sun8i_vi_layer.c b/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
+index 138ca6aced61..730fb05b667c 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
++++ b/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
+@@ -403,7 +403,6 @@ static const uint64_t sun8i_layer_modifiers[] = {
+ };
+ 
+ struct sun8i_layer *sun8i_vi_layer_init_one(struct drm_device *drm,
+-					    struct sun8i_mixer *mixer,
+ 					    enum drm_plane_type type,
+ 					    struct regmap *regs,
+ 					    unsigned int index,
+@@ -420,7 +419,6 @@ struct sun8i_layer *sun8i_vi_layer_init_one(struct drm_device *drm,
+ 	if (!layer)
+ 		return ERR_PTR(-ENOMEM);
+ 
+-	layer->mixer = mixer;
+ 	layer->type = SUN8I_LAYER_TYPE_VI;
+ 	layer->channel = phy_index;
+ 	layer->overlay = 0;
+diff --git a/drivers/gpu/drm/sun4i/sun8i_vi_layer.h b/drivers/gpu/drm/sun4i/sun8i_vi_layer.h
+index 730cdde08209..292e8ffa7ccf 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_vi_layer.h
++++ b/drivers/gpu/drm/sun4i/sun8i_vi_layer.h
+@@ -55,7 +55,6 @@ struct sun8i_mixer;
+ struct sun8i_layer;
+ 
+ struct sun8i_layer *sun8i_vi_layer_init_one(struct drm_device *drm,
+-					    struct sun8i_mixer *mixer,
+ 					    enum drm_plane_type type,
+ 					    struct regmap *regs,
+ 					    unsigned int index,
+-- 
+2.43.0
+

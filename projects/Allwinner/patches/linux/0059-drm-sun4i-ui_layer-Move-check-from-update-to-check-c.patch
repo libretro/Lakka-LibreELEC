@@ -1,0 +1,57 @@
+From 40122518ce831127e7e9d57bfc0e189f6243ccad Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@gmail.com>
+Date: Tue, 23 Sep 2025 22:08:30 +0200
+Subject: [PATCH 59/84] drm/sun4i: ui_layer: Move check from update to check
+ callback
+
+By DRM concept, all check must be done in atomic_check callback. Move
+one check from atomic_commit to atomic_update callback.
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
+---
+ drivers/gpu/drm/sun4i/sun8i_ui_layer.c | 18 +++++++++++-------
+ 1 file changed, 11 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/sun4i/sun8i_ui_layer.c b/drivers/gpu/drm/sun4i/sun8i_ui_layer.c
+index 9b786e5c7f3c..f4f33770b272 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_ui_layer.c
++++ b/drivers/gpu/drm/sun4i/sun8i_ui_layer.c
+@@ -134,16 +134,11 @@ static int sun8i_ui_layer_update_formats(struct sun8i_mixer *mixer, int channel,
+ 	struct drm_plane_state *state = plane->state;
+ 	const struct drm_format_info *fmt;
+ 	u32 val, ch_base, hw_fmt;
+-	int ret;
+ 
+ 	ch_base = sun8i_channel_base(mixer, channel);
+ 
+ 	fmt = state->fb->format;
+-	ret = sun8i_mixer_drm_format_to_hw(fmt->format, &hw_fmt);
+-	if (ret || fmt->is_yuv) {
+-		DRM_DEBUG_DRIVER("Invalid format\n");
+-		return -EINVAL;
+-	}
++	sun8i_mixer_drm_format_to_hw(fmt->format, &hw_fmt);
+ 
+ 	val = hw_fmt << SUN8I_MIXER_CHAN_UI_LAYER_ATTR_FBFMT_OFFSET;
+ 	regmap_update_bits(mixer->engine.regs,
+@@ -201,7 +196,16 @@ static int sun8i_ui_layer_atomic_check(struct drm_plane *plane,
+ 	struct sun8i_layer *layer = plane_to_sun8i_layer(plane);
+ 	struct drm_crtc *crtc = new_plane_state->crtc;
+ 	struct drm_crtc_state *crtc_state;
+-	int min_scale, max_scale;
++	const struct drm_format_info *fmt;
++	int min_scale, max_scale, ret;
++	u32 hw_fmt;
++
++	fmt = new_plane_state->fb->format;
++	ret = sun8i_mixer_drm_format_to_hw(fmt->format, &hw_fmt);
++	if (ret || fmt->is_yuv) {
++		DRM_DEBUG_DRIVER("Invalid plane format\n");
++		return -EINVAL;
++	}
+ 
+ 	if (!crtc)
+ 		return 0;
+-- 
+2.43.0
+

@@ -1,13 +1,12 @@
-From 9a4784752427c56839353f09446c5344a3b84641 Mon Sep 17 00:00:00 2001
-From: Jernej Skrabec <jernej.skrabec@siol.net>
+From 65c4aab13ca8761ab66f6310ba0da5c38c074dd3 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@gmail.com>
 Date: Tue, 18 Feb 2020 23:19:48 +0100
-Subject: [PATCH 08/23] drm/sun4i: de2/de3: Merge CSC functions into one
+Subject: [PATCH 66/84] drm/sun4i: de2/de3: Simplify CSC config interface
 
 Merging both function into one lets this one decide on it's own if CSC
 should be enabled or not. Currently heuristics for that is pretty simple
-- enable it for YUV formats and disable for RGB. However, DE3 can have
-whole pipeline in RGB or YUV format. YUV pipeline will be supported in
-later commits.
+- enable it for YUV formats and disable for RGB. DE3 and newer allows
+YUV pipeline, which will be easier to implement these way.
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
 ---
@@ -17,7 +16,7 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
  3 files changed, 40 insertions(+), 69 deletions(-)
 
 diff --git a/drivers/gpu/drm/sun4i/sun8i_csc.c b/drivers/gpu/drm/sun4i/sun8i_csc.c
-index 6ebd1c3aa3ab..0dcbc0866ae8 100644
+index c100d29b1a89..cf0c5121661b 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_csc.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_csc.c
 @@ -107,23 +107,28 @@ static const u32 yuv2rgb_de3[2][3][12] = {
@@ -25,11 +24,11 @@ index 6ebd1c3aa3ab..0dcbc0866ae8 100644
  };
  
 -static void sun8i_csc_set_coefficients(struct regmap *map, u32 base,
--				       enum format_type fmt_type,
+-				       enum sun8i_csc_mode mode,
 -				       enum drm_color_encoding encoding,
 -				       enum drm_color_range range)
 +static void sun8i_csc_setup(struct regmap *map, u32 base,
-+			    enum format_type fmt_type,
++			    enum sun8i_csc_mode mode,
 +			    enum drm_color_encoding encoding,
 +			    enum drm_color_range range)
  {
@@ -40,16 +39,16 @@ index 6ebd1c3aa3ab..0dcbc0866ae8 100644
  
  	table = yuv2rgb[range][encoding];
  
- 	switch (fmt_type) {
-+	case FORMAT_TYPE_RGB:
+ 	switch (mode) {
++	case SUN8I_CSC_MODE_OFF:
 +		val = 0;
 +		break;
- 	case FORMAT_TYPE_YUV:
+ 	case SUN8I_CSC_MODE_YUV2RGB:
 +		val = SUN8I_CSC_CTRL_EN;
  		base_reg = SUN8I_CSC_COEFF(base, 0);
  		regmap_bulk_write(map, base_reg, table, 12);
  		break;
- 	case FORMAT_TYPE_YVU:
+ 	case SUN8I_CSC_MODE_YVU2RGB:
 +		val = SUN8I_CSC_CTRL_EN;
  		for (i = 0; i < 12; i++) {
  			if ((i & 3) == 1)
@@ -67,11 +66,11 @@ index 6ebd1c3aa3ab..0dcbc0866ae8 100644
  }
  
 -static void sun8i_de3_ccsc_set_coefficients(struct regmap *map, int layer,
--					    enum format_type fmt_type,
+-					    enum sun8i_csc_mode mode,
 -					    enum drm_color_encoding encoding,
 -					    enum drm_color_range range)
 +static void sun8i_de3_ccsc_setup(struct regmap *map, int layer,
-+				 enum format_type fmt_type,
++				 enum sun8i_csc_mode mode,
 +				 enum drm_color_encoding encoding,
 +				 enum drm_color_range range)
  {
@@ -83,16 +82,16 @@ index 6ebd1c3aa3ab..0dcbc0866ae8 100644
 +	mask = SUN50I_MIXER_BLEND_CSC_CTL_EN(layer);
  	table = yuv2rgb_de3[range][encoding];
  
- 	switch (fmt_type) {
-+	case FORMAT_TYPE_RGB:
+ 	switch (mode) {
++	case SUN8I_CSC_MODE_OFF:
 +		val = 0;
 +		break;
- 	case FORMAT_TYPE_YUV:
+ 	case SUN8I_CSC_MODE_YUV2RGB:
 +		val = mask;
  		addr = SUN50I_MIXER_BLEND_CSC_COEFF(DE3_BLD_BASE, layer, 0);
  		regmap_bulk_write(map, addr, table, 12);
  		break;
- 	case FORMAT_TYPE_YVU:
+ 	case SUN8I_CSC_MODE_YVU2RGB:
 +		val = mask;
  		for (i = 0; i < 12; i++) {
  			if ((i & 3) == 1)
@@ -135,86 +134,86 @@ index 6ebd1c3aa3ab..0dcbc0866ae8 100644
  }
  
 -void sun8i_csc_set_ccsc_coefficients(struct sun8i_mixer *mixer, int layer,
--				     enum format_type fmt_type,
+-				     enum sun8i_csc_mode mode,
 -				     enum drm_color_encoding encoding,
 -				     enum drm_color_range range)
-+void sun8i_csc_set_ccsc(struct sun8i_mixer *mixer, int layer,
-+			enum format_type fmt_type,
-+			enum drm_color_encoding encoding,
-+			enum drm_color_range range)
- {
- 	u32 base;
- 
- 	if (mixer->cfg->is_de3) {
--		sun8i_de3_ccsc_set_coefficients(mixer->engine.regs, layer,
--						fmt_type, encoding, range);
-+		sun8i_de3_ccsc_setup(mixer->engine.regs, layer,
-+				     fmt_type, encoding, range);
- 		return;
- 	}
- 
- 	base = ccsc_base[mixer->cfg->ccsc][layer];
- 
--	sun8i_csc_set_coefficients(mixer->engine.regs, base,
--				   fmt_type, encoding, range);
--}
--
--void sun8i_csc_enable_ccsc(struct sun8i_mixer *mixer, int layer, bool enable)
 -{
 -	u32 base;
 -
--	if (mixer->cfg->is_de3) {
--		sun8i_de3_ccsc_enable(mixer->engine.regs, layer, enable);
+-	if (mixer->cfg->de_type == SUN8I_MIXER_DE3) {
+-		sun8i_de3_ccsc_set_coefficients(mixer->engine.regs, layer,
+-						mode, encoding, range);
 -		return;
 -	}
 -
 -	base = ccsc_base[mixer->cfg->ccsc][layer];
 -
+-	sun8i_csc_set_coefficients(mixer->engine.regs, base,
+-				   mode, encoding, range);
+-}
+-
+-void sun8i_csc_enable_ccsc(struct sun8i_mixer *mixer, int layer, bool enable)
++void sun8i_csc_config(struct sun8i_mixer *mixer, int layer,
++		      enum sun8i_csc_mode mode,
++		      enum drm_color_encoding encoding,
++		      enum drm_color_range range)
+ {
+ 	u32 base;
+ 
+ 	if (mixer->cfg->de_type == SUN8I_MIXER_DE3) {
+-		sun8i_de3_ccsc_enable(mixer->engine.regs, layer, enable);
++		sun8i_de3_ccsc_setup(mixer->engine.regs, layer,
++				     mode, encoding, range);
+ 		return;
+ 	}
+ 
+ 	base = ccsc_base[mixer->cfg->ccsc][layer];
+ 
 -	sun8i_csc_enable(mixer->engine.regs, base, enable);
 +	sun8i_csc_setup(mixer->engine.regs, base,
-+			fmt_type, encoding, range);
++			mode, encoding, range);
  }
 diff --git a/drivers/gpu/drm/sun4i/sun8i_csc.h b/drivers/gpu/drm/sun4i/sun8i_csc.h
-index 7322770f39f0..b7546e06e315 100644
+index 828b86fd0cab..27b6807fc786 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_csc.h
 +++ b/drivers/gpu/drm/sun4i/sun8i_csc.h
-@@ -28,10 +28,9 @@ enum format_type {
- 	FORMAT_TYPE_YVU,
+@@ -28,10 +28,9 @@ enum sun8i_csc_mode {
+ 	SUN8I_CSC_MODE_YVU2RGB,
  };
  
 -void sun8i_csc_set_ccsc_coefficients(struct sun8i_mixer *mixer, int layer,
--				     enum format_type fmt_type,
+-				     enum sun8i_csc_mode mode,
 -				     enum drm_color_encoding encoding,
 -				     enum drm_color_range range);
 -void sun8i_csc_enable_ccsc(struct sun8i_mixer *mixer, int layer, bool enable);
-+void sun8i_csc_set_ccsc(struct sun8i_mixer *mixer, int layer,
-+			enum format_type fmt_type,
-+			enum drm_color_encoding encoding,
-+			enum drm_color_range range);
++void sun8i_csc_config(struct sun8i_mixer *mixer, int layer,
++		      enum sun8i_csc_mode mode,
++		      enum drm_color_encoding encoding,
++		      enum drm_color_range range);
  
  #endif
 diff --git a/drivers/gpu/drm/sun4i/sun8i_vi_layer.c b/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
-index 76e2d3ec0a78..6ee3790a2a81 100644
+index 36b02438c30f..805b55c41a0c 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
-@@ -281,14 +281,9 @@ static int sun8i_vi_layer_update_formats(struct sun8i_mixer *mixer, int channel,
- 			   SUN8I_MIXER_CHAN_VI_LAYER_ATTR_FBFMT_MASK, val);
+@@ -206,14 +206,9 @@ static void sun8i_vi_layer_update_colors(struct sun8i_mixer *mixer, int channel,
  
- 	fmt_type = sun8i_vi_layer_get_format_type(fmt);
--	if (fmt_type != FORMAT_TYPE_RGB) {
--		sun8i_csc_set_ccsc_coefficients(mixer, channel, fmt_type,
+ 	fmt = state->fb->format;
+ 	csc_mode = sun8i_vi_layer_get_csc_mode(fmt);
+-	if (csc_mode != SUN8I_CSC_MODE_OFF) {
+-		sun8i_csc_set_ccsc_coefficients(mixer, channel, csc_mode,
 -						state->color_encoding,
 -						state->color_range);
 -		sun8i_csc_enable_ccsc(mixer, channel, true);
 -	} else {
 -		sun8i_csc_enable_ccsc(mixer, channel, false);
 -	}
-+	sun8i_csc_set_ccsc(mixer, channel, fmt_type,
-+			   state->color_encoding,
-+			   state->color_range);
++	sun8i_csc_config(mixer, channel, csc_mode,
++			 state->color_encoding,
++			 state->color_range);
+ }
  
- 	if (!fmt->is_yuv)
- 		val = SUN8I_MIXER_CHAN_VI_LAYER_ATTR_RGB_MODE;
+ static void sun8i_vi_layer_update_buffer(struct sun8i_mixer *mixer, int channel,
 -- 
-2.42.0
+2.43.0
 
