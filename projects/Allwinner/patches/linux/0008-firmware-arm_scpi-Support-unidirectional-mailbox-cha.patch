@@ -1,7 +1,8 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From 0b43549ee2145aa5772a2ff1fc1d663041dba559 Mon Sep 17 00:00:00 2001
 From: Samuel Holland <samuel@sholland.org>
 Date: Tue, 5 Mar 2019 22:02:41 -0600
-Subject: [PATCH] firmware: arm_scpi: Support unidirectional mailbox channels
+Subject: [PATCH 08/84] firmware: arm_scpi: Support unidirectional mailbox
+ channels
 
 Some mailbox controllers have only unidirectional channels, so we need a
 pair of them for each SCPI channel. If a mbox-names property is present,
@@ -17,9 +18,11 @@ Signed-off-by: Samuel Holland <samuel@sholland.org>
  drivers/firmware/arm_scpi.c | 58 +++++++++++++++++++++++++++++--------
  1 file changed, 46 insertions(+), 12 deletions(-)
 
+diff --git a/drivers/firmware/arm_scpi.c b/drivers/firmware/arm_scpi.c
+index 87c323de17b9..331260fbd929 100644
 --- a/drivers/firmware/arm_scpi.c
 +++ b/drivers/firmware/arm_scpi.c
-@@ -231,7 +231,8 @@ struct scpi_xfer {
+@@ -234,7 +234,8 @@ struct scpi_xfer {
  
  struct scpi_chan {
  	struct mbox_client cl;
@@ -29,7 +32,7 @@ Signed-off-by: Samuel Holland <samuel@sholland.org>
  	void __iomem *tx_payload;
  	void __iomem *rx_payload;
  	struct list_head rx_pending;
-@@ -505,7 +506,7 @@ static int scpi_send_message(u8 idx, voi
+@@ -508,7 +509,7 @@ static int scpi_send_message(u8 idx, void *tx_buf, unsigned int tx_len,
  	msg->rx_len = rx_len;
  	reinit_completion(&msg->done);
  
@@ -38,7 +41,7 @@ Signed-off-by: Samuel Holland <samuel@sholland.org>
  	if (ret < 0 || !rx_buf)
  		goto out;
  
-@@ -856,8 +857,13 @@ static void scpi_free_channels(void *dat
+@@ -862,8 +863,13 @@ static void scpi_free_channels(void *data)
  	struct scpi_drvinfo *info = data;
  	int i;
  
@@ -53,8 +56,8 @@ Signed-off-by: Samuel Holland <samuel@sholland.org>
 +	}
  }
  
- static int scpi_remove(struct platform_device *pdev)
-@@ -913,6 +919,7 @@ static int scpi_probe(struct platform_de
+ static void scpi_remove(struct platform_device *pdev)
+@@ -913,6 +919,7 @@ static int scpi_probe(struct platform_device *pdev)
  	struct device *dev = &pdev->dev;
  	struct device_node *np = dev->of_node;
  	struct scpi_drvinfo *scpi_drvinfo;
@@ -62,7 +65,7 @@ Signed-off-by: Samuel Holland <samuel@sholland.org>
  
  	scpi_drvinfo = devm_kzalloc(dev, sizeof(*scpi_drvinfo), GFP_KERNEL);
  	if (!scpi_drvinfo)
-@@ -926,6 +933,14 @@ static int scpi_probe(struct platform_de
+@@ -925,6 +932,14 @@ static int scpi_probe(struct platform_device *pdev)
  		dev_err(dev, "no mboxes property in '%pOF'\n", np);
  		return -ENODEV;
  	}
@@ -75,9 +78,9 @@ Signed-off-by: Samuel Holland <samuel@sholland.org>
 +		count /= 2;
 +	}
  
- 	scpi_info->channels = devm_kcalloc(dev, count, sizeof(struct scpi_chan),
- 					   GFP_KERNEL);
-@@ -974,15 +989,34 @@ static int scpi_probe(struct platform_de
+ 	scpi_drvinfo->channels =
+ 		devm_kcalloc(dev, count, sizeof(struct scpi_chan), GFP_KERNEL);
+@@ -973,15 +988,34 @@ static int scpi_probe(struct platform_device *pdev)
  		mutex_init(&pchan->xfers_lock);
  
  		ret = scpi_alloc_xfer_list(dev, pchan);
@@ -120,3 +123,6 @@ Signed-off-by: Samuel Holland <samuel@sholland.org>
  		return ret;
  	}
  
+-- 
+2.43.0
+

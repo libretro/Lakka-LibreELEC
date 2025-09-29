@@ -1,7 +1,8 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From 0f0b0b1c2dbb3517e93268fcd418ef31e88ec03b Mon Sep 17 00:00:00 2001
 From: Samuel Holland <samuel@sholland.org>
 Date: Sun, 29 Dec 2019 20:23:28 -0600
-Subject: [PATCH] clk: Implement protected-clocks for all OF clock providers
+Subject: [PATCH 02/84] clk: Implement protected-clocks for all OF clock
+ providers
 
 This is a generic implementation of the "protected-clocks" property from
 the common clock binding. It allows firmware to inform the OS about
@@ -63,15 +64,17 @@ again for each clock, which is part of why I didn't do it that way.
 Signed-off-by: Samuel Holland <samuel@sholland.org>
 ---
  drivers/clk/clk-conf.c | 56 ++++++++++++++++++++++++++++++++++++++++++
- drivers/clk/clk.c      | 31 ++++++++++++++++++++++++
+ drivers/clk/clk.c      | 31 +++++++++++++++++++++++
  drivers/clk/clk.h      |  2 ++
- 3 files changed, 87 insertions(+)
+ 3 files changed, 89 insertions(+)
 
+diff --git a/drivers/clk/clk-conf.c b/drivers/clk/clk-conf.c
+index 303a0bb26e54..4640c274bec0 100644
 --- a/drivers/clk/clk-conf.c
 +++ b/drivers/clk/clk-conf.c
-@@ -11,6 +11,56 @@
- #include <linux/of.h>
+@@ -12,6 +12,56 @@
  #include <linux/printk.h>
+ #include <linux/slab.h>
  
 +#include "clk.h"
 +
@@ -126,7 +129,7 @@ Signed-off-by: Samuel Holland <samuel@sholland.org>
  static int __set_clk_parents(struct device_node *node, bool clk_supplier)
  {
  	struct of_phandle_args clkspec;
-@@ -135,6 +183,12 @@ int of_clk_set_defaults(struct device_no
+@@ -174,6 +224,12 @@ int of_clk_set_defaults(struct device_node *node, bool clk_supplier)
  	if (!node)
  		return 0;
  
@@ -139,12 +142,15 @@ Signed-off-by: Samuel Holland <samuel@sholland.org>
  	rc = __set_clk_parents(node, clk_supplier);
  	if (rc < 0)
  		return rc;
+diff --git a/drivers/clk/clk.c b/drivers/clk/clk.c
+index b821b2cdb155..45ceb92119bc 100644
 --- a/drivers/clk/clk.c
 +++ b/drivers/clk/clk.c
-@@ -4271,6 +4271,37 @@ struct clk *devm_clk_hw_get_clk(struct d
+@@ -4750,6 +4750,37 @@ struct clk *devm_clk_hw_get_clk(struct device *dev, struct clk_hw *hw,
+ }
  EXPORT_SYMBOL_GPL(devm_clk_hw_get_clk);
  
- /*
++/*
 + * clk-conf helpers
 + */
 +
@@ -175,13 +181,14 @@ Signed-off-by: Samuel Holland <samuel@sholland.org>
 +	return ret;
 +}
 +
-+/*
+ /*
   * clkdev helpers
   */
- 
+diff --git a/drivers/clk/clk.h b/drivers/clk/clk.h
+index 2d801900cad5..367a0f036b13 100644
 --- a/drivers/clk/clk.h
 +++ b/drivers/clk/clk.h
-@@ -24,6 +24,7 @@ struct clk_hw *clk_find_hw(const char *d
+@@ -24,6 +24,7 @@ struct clk_hw *clk_find_hw(const char *dev_id, const char *con_id);
  #ifdef CONFIG_COMMON_CLK
  struct clk *clk_hw_create_clk(struct device *dev, struct clk_hw *hw,
  			      const char *dev_id, const char *con_id);
@@ -189,7 +196,7 @@ Signed-off-by: Samuel Holland <samuel@sholland.org>
  void __clk_put(struct clk *clk);
  #else
  /* All these casts to avoid ifdefs in clkdev... */
-@@ -33,6 +34,7 @@ clk_hw_create_clk(struct device *dev, st
+@@ -33,6 +34,7 @@ clk_hw_create_clk(struct device *dev, struct clk_hw *hw, const char *dev_id,
  {
  	return (struct clk *)hw;
  }
@@ -197,3 +204,6 @@ Signed-off-by: Samuel Holland <samuel@sholland.org>
  static inline void __clk_put(struct clk *clk) { }
  
  #endif
+-- 
+2.43.0
+
