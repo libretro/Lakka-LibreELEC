@@ -9,9 +9,15 @@
 HDHR_LOCKFILE="/var/lock/userspace-driver-hdhomerun.lck"
 HDHR_LOCKFD=99
 # obtain an exclusive lock
-exlock() { eval "exec $HDHR_LOCKFD>\"$HDHR_LOCKFILE\""; flock -x $HDHR_LOCKFD; }
+exlock() {
+  eval "exec $HDHR_LOCKFD>\"$HDHR_LOCKFILE\""
+  flock -x $HDHR_LOCKFD
+}
 # drop a lock
-unlock() { flock -u $HDHR_LOCKFD; flock -xn $HDHR_LOCKFD && rm -f "$HDHR_LOCKFILE"; }
+unlock() {
+  flock -u $HDHR_LOCKFD
+  flock -xn $HDHR_LOCKFD && rm -f "$HDHR_LOCKFILE"
+}
 # end locking mechanism
 
 # exclusive lock
@@ -40,9 +46,9 @@ mkdir -p /var/config
 # check settings version
 XML_SETTINGS_VER="$(xmlstarlet sel -t -m settings -v @version $HDHR_ADDON_SETTINGS)"
 if [ "$XML_SETTINGS_VER" = "2" ]; then
-  xmlstarlet sel -t -m settings/setting -v @id -o "=\"" -v . -o "\"" -n "$HDHR_ADDON_SETTINGS" > /var/config/hdhomerun-addon.conf
+  xmlstarlet sel -t -m settings/setting -v @id -o "=\"" -v . -o "\"" -n "$HDHR_ADDON_SETTINGS" >/var/config/hdhomerun-addon.conf
 else
-  xmlstarlet sel -t -m settings -m setting -v @id -o "=\"" -v @value -o "\"" -n "$HDHR_ADDON_SETTINGS" > /var/config/hdhomerun-addon.conf
+  xmlstarlet sel -t -m settings -m setting -v @id -o "=\"" -v @value -o "\"" -n "$HDHR_ADDON_SETTINGS" >/var/config/hdhomerun-addon.conf
 fi
 
 . /var/config/hdhomerun-addon.conf
@@ -63,8 +69,8 @@ if [ -z "$(pidof userhdhomerun)" ]; then
       DISABLE=$(eval echo \$ATTACHED_TUNER_${SERIAL_UNIQ}_DISABLE)
       NUMBERS=$(eval echo \$ATTACHED_TUNER_${SERIAL_UNIQ}_NUMBERS)
 
-      NUMBERS=$(( $NUMBERS -1 ))
-      NUMBERS=$(( $NUMBERS *1 ))
+      NUMBERS=$(($NUMBERS - 1))
+      NUMBERS=$(($NUMBERS * 1))
 
       for i in $(seq 0 $NUMBERS); do
         SERIAL="$SERIAL_UNIQ-$i"
@@ -104,7 +110,7 @@ if [ -z "$(pidof userhdhomerun)" ]; then
     sed -i -e ':a' -e '/^\n*$/{$d;N;};/\n$/ba' $DVBHDHOMERUN_CONF_TMP
 
     if [ "$LIBHDHOMERUN_LOG" = "true" ]; then
-      cat >>$DVBHDHOMERUN_CONF_TMP << EOF
+      cat >>$DVBHDHOMERUN_CONF_TMP <<EOF
 
 [libhdhomerun]
 enable=true
@@ -127,9 +133,9 @@ EOF
   fi
 
   [ -z "$PRE_WAIT" ] && PRE_WAIT=0
-  PRE_WAIT=$(( $PRE_WAIT *1 ))
+  PRE_WAIT=$(($PRE_WAIT * 1))
   [ -z "$POST_WAIT" ] && POST_WAIT=0
-  POST_WAIT=$(( $POST_WAIT *1 ))
+  POST_WAIT=$(($POST_WAIT * 1))
 
   logger -t HDHomeRun "### Pre wait for $PRE_WAIT sec ###"
   sleep $PRE_WAIT
@@ -146,15 +152,15 @@ EOF
   logger -t HDHomeRun "### Post wait for $POST_WAIT sec ###"
   sleep $POST_WAIT
 
-# save adapter names in background
-(
-  sleep 4
-  sn_old=$(cat $HDHR_ADDON_HOME/adapters.txt 2>/dev/null)
-  sn_new=$(grep "Name of device: " /var/log/dvbhdhomerun.log)
-  if [ "$sn_old" != "$sn_new" ]; then
-    echo -n $sn_new >$HDHR_ADDON_HOME/adapters.txt
-  fi
-)&
+  # save adapter names in background
+  (
+    sleep 4
+    sn_old=$(cat $HDHR_ADDON_HOME/adapters.txt 2>/dev/null)
+    sn_new=$(grep "Name of device: " /var/log/dvbhdhomerun.log)
+    if [ "$sn_old" != "$sn_new" ]; then
+      echo -n $sn_new >$HDHR_ADDON_HOME/adapters.txt
+    fi
+  ) &
 fi
 
 logger -t HDHomeRun "### HDHomeRun ready ###"

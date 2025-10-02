@@ -3,7 +3,7 @@
 
 PKG_NAME="system-tools"
 PKG_VERSION="1.0"
-PKG_REV="2"
+PKG_REV="5"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://libreelec.tv"
@@ -197,6 +197,6 @@ addon() {
     cp -P $(get_install_dir vim)/usr/bin/vim ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
     cp -Pa $(get_install_dir vim)/storage/.kodi/addons/virtual.system-tools/data/vim/ ${ADDON_BUILD}/${PKG_ADDON_ID}/data
 
-    scanelf -EET_EXEC -RBF %F ${ADDON_BUILD}/${PKG_ADDON_ID}/bin | \
-      xargs patchelf --add-rpath '$ORIGIN/../lib.private'
+    scanelf -EET_EXEC -RBF %F ${ADDON_BUILD}/${PKG_ADDON_ID}/bin |
+      xargs patchelf --add-rpath '${ORIGIN}/../lib.private'
 }

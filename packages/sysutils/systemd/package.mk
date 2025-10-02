@@ -158,6 +158,7 @@ post_makeinstall_target() {
   # remove systemd-creds
   safe_remove ${INSTALL}/usr/bin/systemd-creds
   safe_remove ${INSTALL}/usr/lib/tmpfiles.d/credstore.conf
+  safe_remove ${INSTALL}/usr/lib/tmpfiles.d/provision.conf
 
   # remove nspawn
   safe_remove ${INSTALL}/usr/bin/systemd-nspawn

@@ -48,8 +48,8 @@ pre_makeinstall_target() {
 
 post_makeinstall_target() {
   (
-  cd ${INSTALL}/storage/.kodi/addons/virtual.system-tools/data/vim
-  rm -r doc tutor gvimrc_example.vim
-  mv vimrc_example.vim vimrc
+    cd ${INSTALL}/storage/.kodi/addons/virtual.system-tools/data/vim
+    rm -r doc tutor gvimrc_example.vim
+    mv vimrc_example.vim vimrc
   )
 }

@@ -101,6 +101,6 @@ addon() {
     ln -s iwconfig ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/iwspy
     ln -s iwconfig ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/iwpriv
 
-    find ${ADDON_BUILD}/${PKG_ADDON_ID}/bin -type f | \
-      xargs patchelf --add-rpath '$ORIGIN/../lib.private'
+    find ${ADDON_BUILD}/${PKG_ADDON_ID}/bin -type f |
+      xargs patchelf --add-rpath '${ORIGIN}/../lib.private'
 }

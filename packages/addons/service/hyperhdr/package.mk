@@ -64,7 +64,7 @@ addon() {
   mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
   cp ${PKG_INSTALL}/usr/share/hyperhdr/bin/hyperhdr ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
-  patchelf --add-rpath '$ORIGIN/../lib.private' ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/hyperhdr
+  patchelf --add-rpath '${ORIGIN}/../lib.private' ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/hyperhdr
 
   mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/lib.private
   cp -p $(get_install_dir zstd)/usr/lib/libzstd.so.1 ${ADDON_BUILD}/${PKG_ADDON_ID}/lib.private

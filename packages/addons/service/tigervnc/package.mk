@@ -33,8 +33,8 @@ _pkg_copy_lib() {
 addon() {
   mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/{bin,lib.private}
 
-  cp ${PKG_BUILD}/.${TARGET_NAME}/unix/vncconfig/vncconfig     \
-     ${PKG_BUILD}/.${TARGET_NAME}/unix/vncpasswd/vncpasswd     \
+  cp ${PKG_BUILD}/.${TARGET_NAME}/unix/vncconfig/vncconfig \
+     ${PKG_BUILD}/.${TARGET_NAME}/unix/vncpasswd/vncpasswd \
      ${PKG_BUILD}/.${TARGET_NAME}/unix/x0vncserver/x0vncserver \
      ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/
 

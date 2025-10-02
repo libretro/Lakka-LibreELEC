@@ -1,7 +1,7 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From f17202a6531a100aaddc67dd8f9dba365bf0c231 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Sat, 23 May 2020 15:17:45 +0000
-Subject: [PATCH] WIP: media: rkvdec: add HEVC backend
+Subject: [PATCH 48/59] WIP/2000: media: rkvdec: add HEVC backend
 
 NOTE: cabac table and scailing list code is copied 1:1 from mpp
 TODO: fix lowdelay flag and rework the scaling list part
@@ -10,11 +10,11 @@ Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
 Signed-off-by: Alex Bee <knaerzche@gmail.com>
 ---
  drivers/staging/media/rkvdec/Makefile      |    2 +-
- drivers/staging/media/rkvdec/rkvdec-hevc.c | 2572 ++++++++++++++++++++
+ drivers/staging/media/rkvdec/rkvdec-hevc.c | 2585 ++++++++++++++++++++
  drivers/staging/media/rkvdec/rkvdec-regs.h |    1 +
- drivers/staging/media/rkvdec/rkvdec.c      |   73 +-
+ drivers/staging/media/rkvdec/rkvdec.c      |   77 +
  drivers/staging/media/rkvdec/rkvdec.h      |    1 +
- 5 files changed, 2647 insertions(+), 2 deletions(-)
+ 5 files changed, 2665 insertions(+), 1 deletion(-)
  create mode 100644 drivers/staging/media/rkvdec/rkvdec-hevc.c
 
 diff --git a/drivers/staging/media/rkvdec/Makefile b/drivers/staging/media/rkvdec/Makefile
@@ -28,10 +28,10 @@ index cb86b429cfaa..a77122641d14 100644
 +rockchip-vdec-y += rkvdec.o rkvdec-h264.o rkvdec-hevc.o rkvdec-vp9.o
 diff --git a/drivers/staging/media/rkvdec/rkvdec-hevc.c b/drivers/staging/media/rkvdec/rkvdec-hevc.c
 new file mode 100644
-index 000000000000..7a375a23eaf1
+index 000000000000..5454d2d5e147
 --- /dev/null
 +++ b/drivers/staging/media/rkvdec/rkvdec-hevc.c
-@@ -0,0 +1,2571 @@
+@@ -0,0 +1,2585 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Rockchip Video Decoder HEVC backend
@@ -2448,6 +2448,29 @@ index 000000000000..7a375a23eaf1
 +	return 0;
 +}
 +
++static enum rkvdec_image_fmt rkvdec_hevc_get_image_fmt(struct rkvdec_ctx *ctx,
++						       struct v4l2_ctrl *ctrl)
++{
++	const struct v4l2_ctrl_hevc_sps *sps = ctrl->p_new.p_hevc_sps;
++
++	if (ctrl->id != V4L2_CID_STATELESS_HEVC_SPS)
++		return RKVDEC_IMG_FMT_ANY;
++
++	if (sps->bit_depth_luma_minus8 == 0) {
++		if (sps->chroma_format_idc == 2)
++			return RKVDEC_IMG_FMT_422_8BIT;
++		else
++			return RKVDEC_IMG_FMT_420_8BIT;
++	} else if (sps->bit_depth_luma_minus8 == 2) {
++		if (sps->chroma_format_idc == 2)
++			return RKVDEC_IMG_FMT_422_10BIT;
++		else
++			return RKVDEC_IMG_FMT_420_10BIT;
++	}
++
++	return RKVDEC_IMG_FMT_ANY;
++}
++
 +static int rkvdec_hevc_validate_sps(struct rkvdec_ctx *ctx,
 +				    const struct v4l2_ctrl_hevc_sps *sps)
 +{
@@ -2466,16 +2489,6 @@ index 000000000000..7a375a23eaf1
 +		return -EINVAL;
 +
 +	return 0;
-+}
-+
-+static u32 rkvdec_hevc_valid_fmt(struct rkvdec_ctx *ctx, struct v4l2_ctrl *ctrl)
-+{
-+	const struct v4l2_ctrl_hevc_sps *sps = ctrl->p_new.p_hevc_sps;
-+
-+	if (sps->bit_depth_luma_minus8 == 2)
-+		return V4L2_PIX_FMT_NV15;
-+	else
-+		return V4L2_PIX_FMT_NV12;
 +}
 +
 +static int rkvdec_hevc_start(struct rkvdec_ctx *ctx)
@@ -2602,6 +2615,7 @@ index 000000000000..7a375a23eaf1
 +	.stop = rkvdec_hevc_stop,
 +	.run = rkvdec_hevc_run,
 +	.try_ctrl = rkvdec_hevc_try_ctrl,
++	.get_image_fmt = rkvdec_hevc_get_image_fmt,
 +};
 diff --git a/drivers/staging/media/rkvdec/rkvdec-regs.h b/drivers/staging/media/rkvdec/rkvdec-regs.h
 index 265f5234f4eb..4319ee3ccbbc 100644
@@ -2616,10 +2630,10 @@ index 265f5234f4eb..4319ee3ccbbc 100644
  #define RKVDEC_MODE_VP9					2
  #define RKVDEC_RPS_MODE					BIT(24)
 diff --git a/drivers/staging/media/rkvdec/rkvdec.c b/drivers/staging/media/rkvdec/rkvdec.c
-index f55abb7c377f..00a9bf583596 100644
+index c9c59d090bb3..1f4693cbc330 100644
 --- a/drivers/staging/media/rkvdec/rkvdec.c
 +++ b/drivers/staging/media/rkvdec/rkvdec.c
-@@ -134,6 +134,68 @@ static const struct rkvdec_ctrl_desc rkvdec_h264_ctrl_descs[] = {
+@@ -202,6 +202,68 @@ static const struct rkvdec_ctrl_desc rkvdec_h264_ctrl_descs[] = {
  	},
  };
  
@@ -2688,7 +2702,7 @@ index f55abb7c377f..00a9bf583596 100644
  static const struct rkvdec_ctrls rkvdec_h264_ctrls = {
  	.ctrls = rkvdec_h264_ctrl_descs,
  	.num_ctrls = ARRAY_SIZE(rkvdec_h264_ctrl_descs),
-@@ -187,6 +243,21 @@ static const struct rkvdec_coded_fmt_desc rkvdec_coded_fmts[] = {
+@@ -270,6 +332,21 @@ static const struct rkvdec_coded_fmt_desc rkvdec_coded_fmts[] = {
  		.decoded_fmts = rkvdec_h264_decoded_fmts,
  		.subsystem_flags = VB2_V4L2_FL_SUPPORTS_M2M_HOLD_CAPTURE_BUF,
  	},
@@ -2711,10 +2725,10 @@ index f55abb7c377f..00a9bf583596 100644
  		.fourcc = V4L2_PIX_FMT_VP9_FRAME,
  		.frmsize = {
 diff --git a/drivers/staging/media/rkvdec/rkvdec.h b/drivers/staging/media/rkvdec/rkvdec.h
-index f02f79c405f0..d6222a2588be 100644
+index 101dfb4ec389..6afbd40450b2 100644
 --- a/drivers/staging/media/rkvdec/rkvdec.h
 +++ b/drivers/staging/media/rkvdec/rkvdec.h
-@@ -133,6 +133,7 @@ void rkvdec_run_preamble(struct rkvdec_ctx *ctx, struct rkvdec_run *run);
+@@ -147,6 +147,7 @@ void rkvdec_run_preamble(struct rkvdec_ctx *ctx, struct rkvdec_run *run);
  void rkvdec_run_postamble(struct rkvdec_ctx *ctx, struct rkvdec_run *run);
  
  extern const struct rkvdec_coded_fmt_ops rkvdec_h264_fmt_ops;
@@ -2722,501 +2736,6 @@ index f02f79c405f0..d6222a2588be 100644
  extern const struct rkvdec_coded_fmt_ops rkvdec_vp9_fmt_ops;
  
  #endif /* RKVDEC_H_ */
+-- 
+2.34.1
 
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: Alex Bee <knaerzche@gmail.com>
-Date: Sat, 30 Jan 2021 18:16:39 +0100
-Subject: [PATCH] media: rkvdec: add variants support
-
-rkvdec IP has different versions which among others differ in
-the supported decoding formats.
-This adds an variant implementation in order support other
-than the currently supported RK3399 version.
-
-Note: Since matching of supported codecs is index-based the
-available codec options have been reordered here: from
-supported by all versions to not commonly supported. This seems
-the better soultion than duplicatiing code for every newly added IP.
-
-Signed-off-by: Alex Bee <knaerzche@gmail.com>
----
- drivers/staging/media/rkvdec/rkvdec.c | 105 ++++++++++++++++++--------
- drivers/staging/media/rkvdec/rkvdec.h |  10 +++
- 2 files changed, 85 insertions(+), 30 deletions(-)
-
-diff --git a/drivers/staging/media/rkvdec/rkvdec.c b/drivers/staging/media/rkvdec/rkvdec.c
-index 00a9bf583596..955c53afe20f 100644
---- a/drivers/staging/media/rkvdec/rkvdec.c
-+++ b/drivers/staging/media/rkvdec/rkvdec.c
-@@ -14,6 +14,7 @@
- #include <linux/interrupt.h>
- #include <linux/module.h>
- #include <linux/of.h>
-+#include <linux/of_device.h>
- #include <linux/platform_device.h>
- #include <linux/pm.h>
- #include <linux/pm_runtime.h>
-@@ -227,6 +228,22 @@ static const u32 rkvdec_vp9_decoded_fmts[] = {
- };
- 
- static const struct rkvdec_coded_fmt_desc rkvdec_coded_fmts[] = {
-+	{
-+		.fourcc = V4L2_PIX_FMT_HEVC_SLICE,
-+		.frmsize = {
-+			.min_width = 64,
-+			.max_width = 4096,
-+			.step_width = 64,
-+			.min_height = 64,
-+			.max_height = 2304,
-+			.step_height = 16,
-+		},
-+		.ctrls = &rkvdec_hevc_ctrls,
-+		.ops = &rkvdec_hevc_fmt_ops,
-+		.num_decoded_fmts = ARRAY_SIZE(rkvdec_hevc_decoded_fmts),
-+		.decoded_fmts = rkvdec_hevc_decoded_fmts,
-+		.capability = RKVDEC_CAPABILITY_HEVC,
-+	},
- 	{
- 		.fourcc = V4L2_PIX_FMT_H264_SLICE,
- 		.frmsize = {
-@@ -242,21 +259,7 @@ static const struct rkvdec_coded_fmt_desc rkvdec_coded_fmts[] = {
- 		.num_decoded_fmts = ARRAY_SIZE(rkvdec_h264_decoded_fmts),
- 		.decoded_fmts = rkvdec_h264_decoded_fmts,
- 		.subsystem_flags = VB2_V4L2_FL_SUPPORTS_M2M_HOLD_CAPTURE_BUF,
--	},
--	{
--		.fourcc = V4L2_PIX_FMT_HEVC_SLICE,
--		.frmsize = {
--			.min_width = 64,
--			.max_width = 4096,
--			.step_width = 64,
--			.min_height = 64,
--			.max_height = 2304,
--			.step_height = 16,
--		},
--		.ctrls = &rkvdec_hevc_ctrls,
--		.ops = &rkvdec_hevc_fmt_ops,
--		.num_decoded_fmts = ARRAY_SIZE(rkvdec_hevc_decoded_fmts),
--		.decoded_fmts = rkvdec_hevc_decoded_fmts,
-+		.capability = RKVDEC_CAPABILITY_H264,
- 	},
- 	{
- 		.fourcc = V4L2_PIX_FMT_VP9_FRAME,
-@@ -272,16 +275,31 @@ static const struct rkvdec_coded_fmt_desc rkvdec_coded_fmts[] = {
- 		.ops = &rkvdec_vp9_fmt_ops,
- 		.num_decoded_fmts = ARRAY_SIZE(rkvdec_vp9_decoded_fmts),
- 		.decoded_fmts = rkvdec_vp9_decoded_fmts,
--	}
-+		.capability = RKVDEC_CAPABILITY_VP9,
-+	},
- };
- 
- static const struct rkvdec_coded_fmt_desc *
--rkvdec_find_coded_fmt_desc(u32 fourcc)
-+rkvdec_default_coded_fmt_desc(unsigned int capabilities)
-+{
-+	unsigned int i;
-+
-+	for (i = 0; i < ARRAY_SIZE(rkvdec_coded_fmts); i++) {
-+		if (rkvdec_coded_fmts[i].capability & capabilities)
-+			return &rkvdec_coded_fmts[i];
-+	}
-+
-+	return NULL;
-+}
-+
-+static const struct rkvdec_coded_fmt_desc *
-+rkvdec_find_coded_fmt_desc(u32 fourcc, unsigned int capabilities)
- {
- 	unsigned int i;
- 
- 	for (i = 0; i < ARRAY_SIZE(rkvdec_coded_fmts); i++) {
--		if (rkvdec_coded_fmts[i].fourcc == fourcc)
-+		if (rkvdec_coded_fmts[i].fourcc == fourcc &&
-+		    (rkvdec_coded_fmts[i].capability & capabilities))
- 			return &rkvdec_coded_fmts[i];
- 	}
- 
-@@ -304,7 +322,7 @@ static void rkvdec_reset_coded_fmt(struct rkvdec_ctx *ctx)
- {
- 	struct v4l2_format *f = &ctx->coded_fmt;
- 
--	ctx->coded_fmt_desc = &rkvdec_coded_fmts[0];
-+	ctx->coded_fmt_desc = rkvdec_default_coded_fmt_desc(ctx->dev->capabilities);
- 	rkvdec_reset_fmt(ctx, f, ctx->coded_fmt_desc->fourcc);
- 
- 	f->type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-@@ -331,11 +349,13 @@ static int rkvdec_enum_framesizes(struct file *file, void *priv,
- 				  struct v4l2_frmsizeenum *fsize)
- {
- 	const struct rkvdec_coded_fmt_desc *fmt;
-+	struct rkvdec_dev *rkvdec = video_drvdata(file);
- 
- 	if (fsize->index != 0)
- 		return -EINVAL;
- 
--	fmt = rkvdec_find_coded_fmt_desc(fsize->pixel_format);
-+	fmt = rkvdec_find_coded_fmt_desc(fsize->pixel_format,
-+					 rkvdec->capabilities);
- 	if (!fmt)
- 		return -EINVAL;
- 
-@@ -406,10 +426,11 @@ static int rkvdec_try_output_fmt(struct file *file, void *priv,
- 	struct rkvdec_ctx *ctx = fh_to_rkvdec_ctx(priv);
- 	const struct rkvdec_coded_fmt_desc *desc;
- 
--	desc = rkvdec_find_coded_fmt_desc(pix_mp->pixelformat);
-+	desc = rkvdec_find_coded_fmt_desc(pix_mp->pixelformat,
-+					  ctx->dev->capabilities);
- 	if (!desc) {
--		pix_mp->pixelformat = rkvdec_coded_fmts[0].fourcc;
--		desc = &rkvdec_coded_fmts[0];
-+		desc = rkvdec_default_coded_fmt_desc(ctx->dev->capabilities);
-+		pix_mp->pixelformat = desc->fourcc;
- 	}
- 
- 	v4l2_apply_frmsize_constraints(&pix_mp->width,
-@@ -487,7 +508,8 @@ static int rkvdec_s_output_fmt(struct file *file, void *priv,
- 	if (ret)
- 		return ret;
- 
--	desc = rkvdec_find_coded_fmt_desc(f->fmt.pix_mp.pixelformat);
-+	desc = rkvdec_find_coded_fmt_desc(f->fmt.pix_mp.pixelformat,
-+					  ctx->dev->capabilities);
- 	if (!desc)
- 		return -EINVAL;
- 	ctx->coded_fmt_desc = desc;
-@@ -538,7 +560,10 @@ static int rkvdec_g_capture_fmt(struct file *file, void *priv,
- static int rkvdec_enum_output_fmt(struct file *file, void *priv,
- 				  struct v4l2_fmtdesc *f)
- {
--	if (f->index >= ARRAY_SIZE(rkvdec_coded_fmts))
-+	struct rkvdec_ctx *ctx = fh_to_rkvdec_ctx(priv);
-+
-+	if (f->index >= ARRAY_SIZE(rkvdec_coded_fmts) ||
-+	    !(ctx->dev->capabilities & rkvdec_coded_fmts[f->index].capability))
- 		return -EINVAL;
- 
- 	f->pixelformat = rkvdec_coded_fmts[f->index].fourcc;
-@@ -946,14 +971,17 @@ static int rkvdec_init_ctrls(struct rkvdec_ctx *ctx)
- 	int ret;
- 
- 	for (i = 0; i < ARRAY_SIZE(rkvdec_coded_fmts); i++)
--		nctrls += rkvdec_coded_fmts[i].ctrls->num_ctrls;
-+		if (rkvdec_coded_fmts[i].capability & ctx->dev->capabilities)
-+			nctrls += rkvdec_coded_fmts[i].ctrls->num_ctrls;
- 
- 	v4l2_ctrl_handler_init(&ctx->ctrl_hdl, nctrls);
- 
- 	for (i = 0; i < ARRAY_SIZE(rkvdec_coded_fmts); i++) {
--		ret = rkvdec_add_ctrls(ctx, rkvdec_coded_fmts[i].ctrls);
--		if (ret)
--			goto err_free_handler;
-+		if (rkvdec_coded_fmts[i].capability & ctx->dev->capabilities) {
-+			ret = rkvdec_add_ctrls(ctx, rkvdec_coded_fmts[i].ctrls);
-+			if (ret)
-+				goto err_free_handler;
-+		}
- 	}
- 
- 	ret = v4l2_ctrl_handler_setup(&ctx->ctrl_hdl);
-@@ -1155,8 +1183,17 @@ static void rkvdec_watchdog_func(struct work_struct *work)
- 	}
- }
- 
-+static const struct rkvdec_variant rk3399_rkvdec_variant = {
-+        .capabilities   = RKVDEC_CAPABILITY_H264 |
-+		           RKVDEC_CAPABILITY_HEVC |
-+			   RKVDEC_CAPABILITY_VP9
-+};
-+
- static const struct of_device_id of_rkvdec_match[] = {
--	{ .compatible = "rockchip,rk3399-vdec" },
-+	{
-+		.compatible = "rockchip,rk3399-vdec",
-+		.data = &rk3399_rkvdec_variant,
-+	},
- 	{ /* sentinel */ }
- };
- MODULE_DEVICE_TABLE(of, of_rkvdec_match);
-@@ -1168,6 +1205,7 @@ static const char * const rkvdec_clk_names[] = {
- static int rkvdec_probe(struct platform_device *pdev)
- {
- 	struct rkvdec_dev *rkvdec;
-+	const struct rkvdec_variant *variant;
- 	unsigned int i;
- 	int ret, irq;
- 
-@@ -1193,6 +1231,13 @@ static int rkvdec_probe(struct platform_device *pdev)
- 	if (ret)
- 		return ret;
- 
-+	variant = of_device_get_match_data(rkvdec->dev);
-+	if (!variant)
-+		return -EINVAL;
-+
-+	rkvdec->capabilities = variant->capabilities;
-+
-+
- 	rkvdec->regs = devm_platform_ioremap_resource(pdev, 0);
- 	if (IS_ERR(rkvdec->regs))
- 		return PTR_ERR(rkvdec->regs);
-diff --git a/drivers/staging/media/rkvdec/rkvdec.h b/drivers/staging/media/rkvdec/rkvdec.h
-index d6222a2588be..ad8e83884121 100644
---- a/drivers/staging/media/rkvdec/rkvdec.h
-+++ b/drivers/staging/media/rkvdec/rkvdec.h
-@@ -29,6 +29,10 @@
- 
- #define RKVDEC_RESET_DELAY	5
- 
-+#define RKVDEC_CAPABILITY_H264	BIT(0)
-+#define RKVDEC_CAPABILITY_HEVC	BIT(1)
-+#define RKVDEC_CAPABILITY_VP9	BIT(2)
-+
- struct rkvdec_ctx;
- 
- struct rkvdec_ctrl_desc {
-@@ -70,6 +74,10 @@ vb2_to_rkvdec_decoded_buf(struct vb2_buffer *buf)
- 			    base.vb.vb2_buf);
- }
- 
-+struct rkvdec_variant {
-+        unsigned int capabilities;
-+};
-+
- struct rkvdec_coded_fmt_ops {
- 	int (*adjust_fmt)(struct rkvdec_ctx *ctx,
- 			  struct v4l2_format *f);
-@@ -91,6 +99,7 @@ struct rkvdec_coded_fmt_desc {
- 	unsigned int num_decoded_fmts;
- 	const u32 *decoded_fmts;
- 	u32 subsystem_flags;
-+	unsigned int capability;
- };
- 
- struct rkvdec_dev {
-@@ -105,6 +114,7 @@ struct rkvdec_dev {
- 	struct delayed_work watchdog_work;
- 	struct reset_control *rstc;
- 	u8 reset_mask;
-+	unsigned int capabilities;
- };
- 
- struct rkvdec_ctx {
-
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: Alex Bee <knaerzche@gmail.com>
-Date: Sat, 30 Jan 2021 18:21:59 +0100
-Subject: [PATCH] media: rkvdec: add RK3288 variant
-
-This adds RK3288 variant to rkvdec driver. In this earlier version
-of the IP only HEVC decoding is supported.
-
-Signed-off-by: Alex Bee <knaerzche@gmail.com>
----
- drivers/staging/media/rkvdec/rkvdec.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
-
-diff --git a/drivers/staging/media/rkvdec/rkvdec.c b/drivers/staging/media/rkvdec/rkvdec.c
-index 955c53afe20f..4e228cd82f21 100644
---- a/drivers/staging/media/rkvdec/rkvdec.c
-+++ b/drivers/staging/media/rkvdec/rkvdec.c
-@@ -1189,11 +1189,19 @@ static const struct rkvdec_variant rk3399_rkvdec_variant = {
- 			   RKVDEC_CAPABILITY_VP9
- };
- 
-+static const struct rkvdec_variant rk3288_hevc_variant = {
-+        .capabilities   = RKVDEC_CAPABILITY_HEVC
-+};
-+
- static const struct of_device_id of_rkvdec_match[] = {
- 	{
- 		.compatible = "rockchip,rk3399-vdec",
- 		.data = &rk3399_rkvdec_variant,
- 	},
-+	{
-+		.compatible = "rockchip,rk3288-hevc",
-+		.data = &rk3288_hevc_variant,
-+	},
- 	{ /* sentinel */ }
- };
- MODULE_DEVICE_TABLE(of, of_rkvdec_match);
-
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: Alex Bee <knaerzche@gmail.com>
-Date: Sat, 30 Jan 2021 18:27:30 +0100
-Subject: [PATCH] ARM: dts: RK3288: add hevc node
-
-Signed-off-by: Alex Bee <knaerzche@gmail.com>
----
- arch/arm/boot/dts/rockchip/rk3288.dtsi | 21 ++++++++++++++++++++-
- 1 file changed, 20 insertions(+), 1 deletion(-)
-
-diff --git a/arch/arm/boot/dts/rockchip/rk3288.dtsi b/arch/arm/boot/dts/rockchip/rk3288.dtsi
-index 7b2cde230b87..59fba3ac6aae 100644
---- a/arch/arm/boot/dts/rockchip/rk3288.dtsi
-+++ b/arch/arm/boot/dts/rockchip/rk3288.dtsi
-@@ -1248,6 +1248,25 @@ vpu_mmu: iommu@ff9a0800 {
- 		power-domains = <&power RK3288_PD_VIDEO>;
- 	};
- 
-+	hevc: hevc@ff9c0000 {
-+		compatible = "rockchip,rk3288-hevc";
-+		reg = <0x0 0xff9c0000 0x0 0x400>;
-+		interrupts = <GIC_SPI 12 IRQ_TYPE_LEVEL_HIGH>;
-+		interrupt-names = "irq_dec";
-+		clocks = <&cru ACLK_HEVC>, <&cru HCLK_HEVC>, <&cru SCLK_HEVC_CABAC>,
-+			 <&cru SCLK_HEVC_CORE>;
-+		clock-names = "axi", "ahb", "cabac", "core";
-+		assigned-clocks = <&cru ACLK_HEVC>, <&cru HCLK_HEVC>,
-+				   <&cru SCLK_HEVC_CORE>,
-+				   <&cru SCLK_HEVC_CABAC>;
-+		assigned-clock-rates = <400000000>, <100000000>,
-+				       <300000000>, <300000000>;
-+		iommus = <&hevc_mmu>;
-+		power-domains = <&power RK3288_PD_HEVC>;
-+		resets =  <&cru SRST_HEVC>;
-+		reset-names = "video_core";
-+	};
-+
- 	hevc_mmu: iommu@ff9c0440 {
- 		compatible = "rockchip,iommu";
- 		reg = <0x0 0xff9c0440 0x0 0x40>, <0x0 0xff9c0480 0x0 0x40>;
-@@ -1255,7 +1274,7 @@ hevc_mmu: iommu@ff9c0440 {
- 		clocks = <&cru ACLK_HEVC>, <&cru HCLK_HEVC>;
- 		clock-names = "aclk", "iface";
- 		#iommu-cells = <0>;
--		status = "disabled";
-+		power-domains = <&power RK3288_PD_HEVC>;
- 	};
- 
- 	gpu: gpu@ffa30000 {
-
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: Nicolas Dufresne <nicolas.dufresne@collabora.com>
-Date: Tue, 10 May 2022 14:37:29 -0400
-Subject: [PATCH] media: rkvdec: Fix HEVC RPS bit offsets
-
-The offsets from the uAPI need to be extended to include some bits
-that can be calculated from the parameters. This has been compared
-to match with the vendor bit sizes (which simply parse again the
-data to calcualte it).
-
-Fixed by this change:
-- LTRPSPS_A_Qualcomm_1
-- RPS_C_ericsson_5
-- RPS_D_ericsson_6
-- RPS_E_qualcomm_5
-
-Signed-off-by: Nicolas Dufresne <nicolas.dufresne@collabora.com>
----
- drivers/staging/media/rkvdec/rkvdec-hevc.c | 26 +++++++++++++++++++---
- 1 file changed, 23 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/staging/media/rkvdec/rkvdec-hevc.c b/drivers/staging/media/rkvdec/rkvdec-hevc.c
-index 7a375a23eaf1..580073d49b6a 100644
---- a/drivers/staging/media/rkvdec/rkvdec-hevc.c
-+++ b/drivers/staging/media/rkvdec/rkvdec-hevc.c
-@@ -10,6 +10,7 @@
-  */
- 
- #include <media/v4l2-mem2mem.h>
-+#include <linux/bitops.h>
- 
- #include "rkvdec.h"
- #include "rkvdec-regs.h"
-@@ -2175,6 +2176,7 @@ static void assemble_hw_rps(struct rkvdec_ctx *ctx,
- 			    struct rkvdec_hevc_run *run)
- {
- 	const struct v4l2_ctrl_hevc_decode_params *decode_params = run->decode_params;
-+	const struct v4l2_ctrl_hevc_sps *sps = run->sps;
- 	const struct v4l2_ctrl_hevc_slice_params *sl_params;
- 	const struct v4l2_hevc_dpb_entry *dpb;
- 	struct rkvdec_hevc_ctx *hevc_ctx = ctx->priv;
-@@ -2196,9 +2198,21 @@ static void assemble_hw_rps(struct rkvdec_ctx *ctx,
- #define NUM_RPS_POC				PS_FIELD(202, 4)
- 
- 	for (j = 0; j < run->num_slices; j++) {
-+		uint st_bit_offset = 0;
-+
- 		sl_params = &run->slices_params[j];
- 		dpb = decode_params->dpb;
--		lowdelay = (sl_params->slice_type == V4L2_HEVC_SLICE_TYPE_I) ? 0 : 1;
-+
-+		if (sl_params->slice_type != V4L2_HEVC_SLICE_TYPE_I) {
-+			num_l0_refs = sl_params->num_ref_idx_l0_active_minus1 + 1;
-+
-+			if (sl_params->slice_type == V4L2_HEVC_SLICE_TYPE_B)
-+				num_l1_refs = sl_params->num_ref_idx_l1_active_minus1 + 1;
-+
-+			lowdelay = 1;
-+		} else {
-+			lowdelay = 0;
-+		}
- 
- 		hw_ps = &priv_tbl->rps[j];
- 		memset(hw_ps, 0, sizeof(*hw_ps));
-@@ -2224,8 +2238,14 @@ static void assemble_hw_rps(struct rkvdec_ctx *ctx,
- 
- 		WRITE_RPS(lowdelay, LOWDELAY);
- 
--		WRITE_RPS(sl_params->long_term_ref_pic_set_size +
--			  sl_params->short_term_ref_pic_set_size,
-+		if (!(decode_params->flags & V4L2_HEVC_DECODE_PARAM_FLAG_IDR_PIC)) {
-+			if (sl_params->short_term_ref_pic_set_size)
-+				st_bit_offset = sl_params->short_term_ref_pic_set_size;
-+			else if (sps->num_short_term_ref_pic_sets > 1)
-+				st_bit_offset = fls(sps->num_short_term_ref_pic_sets - 1);
-+		}
-+
-+		WRITE_RPS(st_bit_offset + sl_params->long_term_ref_pic_set_size,
- 			  LONG_TERM_RPS_BIT_OFFSET);
- 		WRITE_RPS(sl_params->short_term_ref_pic_set_size,
- 			  SHORT_TERM_RPS_BIT_OFFSET);
-
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: Nicolas Dufresne <nicolas.dufresne@collabora.com>
-Date: Tue, 10 May 2022 15:12:03 -0400
-Subject: [PATCH] media: rkvdec: Fix number of HEVC references being set in RPS
-
-The numbers from the bitstream are values between 1 - 16 (as they are
-the number - 1). The difference between 0 and 1 needs to be determined
-base on the slice type. I frames have no reference, P frames only have
-L0 reference, and B frames have both.
-
-Signed-off-by: Nicolas Dufresne <nicolas.dufresne@collabora.com>
----
- drivers/staging/media/rkvdec/rkvdec-hevc.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/staging/media/rkvdec/rkvdec-hevc.c b/drivers/staging/media/rkvdec/rkvdec-hevc.c
-index 580073d49b6a..ce15028918b2 100644
---- a/drivers/staging/media/rkvdec/rkvdec-hevc.c
-+++ b/drivers/staging/media/rkvdec/rkvdec-hevc.c
-@@ -2199,6 +2199,8 @@ static void assemble_hw_rps(struct rkvdec_ctx *ctx,
- 
- 	for (j = 0; j < run->num_slices; j++) {
- 		uint st_bit_offset = 0;
-+		uint num_l0_refs = 0;
-+		uint num_l1_refs = 0;
- 
- 		sl_params = &run->slices_params[j];
- 		dpb = decode_params->dpb;
-@@ -2217,7 +2219,7 @@ static void assemble_hw_rps(struct rkvdec_ctx *ctx,
- 		hw_ps = &priv_tbl->rps[j];
- 		memset(hw_ps, 0, sizeof(*hw_ps));
- 
--		for (i = 0; i <= sl_params->num_ref_idx_l0_active_minus1; i++) {
-+		for (i = 0; i < num_l0_refs; i++) {
- 			WRITE_RPS(!!(dpb[sl_params->ref_idx_l0[i]].flags & V4L2_HEVC_DPB_ENTRY_LONG_TERM_REFERENCE),
- 				  REF_PIC_LONG_TERM_L0(i));
- 			WRITE_RPS(sl_params->ref_idx_l0[i], REF_PIC_IDX_L0(i));
-@@ -2227,7 +2229,7 @@ static void assemble_hw_rps(struct rkvdec_ctx *ctx,
- 
- 		}
- 
--		for (i = 0; i <= sl_params->num_ref_idx_l1_active_minus1; i++) {
-+		for (i = 0; i < num_l1_refs; i++) {
- 			WRITE_RPS(!!(dpb[sl_params->ref_idx_l1[i]].flags & V4L2_HEVC_DPB_ENTRY_LONG_TERM_REFERENCE),
- 				  REF_PIC_LONG_TERM_L1(i));
- 			WRITE_RPS(sl_params->ref_idx_l1[i], REF_PIC_IDX_L1(i));

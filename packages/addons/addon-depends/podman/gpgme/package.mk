@@ -25,6 +25,6 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-languages=cl \
                            --with-libassuan-prefix=$(get_install_dir libassuan)/usr"
 
 pre_configure_target() {
-  CFLAGS="${CFLAGS} -I$(get_install_dir libassuan)/usr/include"
-  LDFLAGS="${LDFLAGS} -L$(get_install_dir libassuan)/usr/lib"
+  CFLAGS+=" -I$(get_install_dir libassuan)/usr/include"
+  LDFLAGS+=" -L$(get_install_dir libassuan)/usr/lib"
 }

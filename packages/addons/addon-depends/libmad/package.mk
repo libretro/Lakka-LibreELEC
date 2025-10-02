@@ -19,7 +19,7 @@ fi
 
 post_makeinstall_target() {
   mkdir -p ${SYSROOT_PREFIX}/usr/lib/pkgconfig
-  cat > ${SYSROOT_PREFIX}/usr/lib/pkgconfig/mad.pc << "EOF"
+  cat >${SYSROOT_PREFIX}/usr/lib/pkgconfig/mad.pc  <<"EOF"
 prefix=/usr
 exec_prefix=${prefix}
 libdir=${exec_prefix}/lib

@@ -23,7 +23,7 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --with-zenmap=no"
 
 pre_configure_target() {
-# nmap fails to build in subdirs
+  # nmap fails to build in subdirs
   cd ${PKG_BUILD}
     rm -rf .${TARGET_NAME}
 

@@ -2,10 +2,10 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="tvheadend43"
-PKG_VERSION="f1c460feba34491d473c60216bd35eccc73c178e"
-PKG_SHA256="1715ab016e5934908d71c486c50b5ecfc3009f55bacea8f73c87c3ee8e574457"
-PKG_VERSION_NUMBER="4.3-2433"
-PKG_REV="0"
+PKG_VERSION="7cbe50c6e646e0d2443ef5bd73ba3c49c3c632c3"
+PKG_SHA256="803276477ec580250c2203c1bcf2b75de1ae8758693b279aa21b0aea3c094384"
+PKG_VERSION_NUMBER="4.3-2466"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.tvheadend.org"
@@ -86,15 +86,15 @@ pre_configure_target() {
                              --disable-bintray_cache \
                              --python=${TOOLCHAIN}/bin/python"
 
-# fails to build in subdirs
+  # fails to build in subdirs
   cd ${PKG_BUILD}
   rm -rf .${TARGET_NAME}
 
-# pass ffmpegx to build
+  # pass ffmpegx to build
   CFLAGS+=" -I$(get_install_dir ffmpegx)/usr/local/include"
   LDFLAGS+=" -L$(get_install_dir ffmpegx)/usr/local/lib"
 
-# pass libhdhomerun to build
+  # pass libhdhomerun to build
   CFLAGS+=" -I${SYSROOT_PREFIX}/usr/include/hdhomerun"
 
   export CROSS_COMPILE="${TARGET_PREFIX}"

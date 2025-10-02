@@ -1,0 +1,103 @@
+From patchwork Sat Jul 19 07:08:36 2025
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: James Hutchinson <jahutchinson99@googlemail.com>
+X-Patchwork-Id: 56391
+Return-Path: <ffmpeg-devel-bounces@ffmpeg.org>
+X-Original-To: ffmpeg-patchwork@ffmpeg.org
+Delivered-To: ffmpeg-patchwork@ffmpeg.org
+Received: from [127.0.1.1] (localhost [127.0.0.1])
+	by ffbox0-bg.ffmpeg.org (Postfix) with ESMTP id DE79168C231;
+	Sat, 19 Jul 2025 10:09:04 +0300 (EEST)
+X-Original-To: ffmpeg-devel@ffmpeg.org
+Delivered-To: ffmpeg-devel@ffmpeg.org
+Received: from mail-ej1-f52.google.com (mail-ej1-f52.google.com
+ [209.85.218.52])
+ by ffbox0-bg.ffmpeg.org (Postfix) with ESMTPS id 9A95468BDD6
+ for <ffmpeg-devel@ffmpeg.org>; Sat, 19 Jul 2025 10:08:58 +0300 (EEST)
+Received: by mail-ej1-f52.google.com with SMTP id
+ a640c23a62f3a-ae0b2ead33cso479703566b.0
+ for <ffmpeg-devel@ffmpeg.org>; Sat, 19 Jul 2025 00:08:58 -0700 (PDT)
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+ d=1e100.net; s=20230601; t=1752908937; x=1753513737;
+ h=content-transfer-encoding:mime-version:message-id:date:subject:cc
+ :to:from:x-gm-message-state:from:to:cc:subject:date:message-id
+ :reply-to;
+ bh=2dgePZ7nkFD/l9ba1w+iqvJ6bPcp8CnRMMdiL89sQjs=;
+ b=fxolVU0f6lC0bG62RAIWwzdNb0Ppc0I5FcIyXCD5S/BUbkyRidOe9gUQMdM6tyeQke
+ EYPR6GppfEhkNYOrO09L7D8eFUpmaVPXsDt24HP3SAl1bDoEZNzV6N+emcefHoAtedUR
+ 59bMG7xU/DrhH1zVncryNMzReTZMTzkkFg1rK3jpcSpXRjsUHd3Eeyp5a05TMZDQhjYk
+ Gs1Qp3ceFgKX7Awinhu7EtqpCSmjwsJkkqPKberRQO5UWXdBTU9n4lwKKbq8pE3tDRk9
+ 4jOwcrm1q4MGkB651KZO9uqJ4d926eUoyNgg1+5dMVI6WM0NXDWTd/SGUzNev1XHi95e
+ EG8w==
+X-Gm-Message-State: AOJu0YwfLUWzpx354L+DikUVlulayk7JaPxt4+5IcAk7h+4Tw0vmjQJj
+ pR04G7AQ7uHdjZfFDelg2ysc2vqWfZGi7nquGv95cEtNvVSmgvUloWiGZms7lQ==
+X-Gm-Gg: ASbGncveUGNDyMLnqtJmHj5HXzox/EZLHd4frYqSlTnViB3dlI326N2JlbHOMaJSntE
+ wBoDnCvmXESMt/FG7vsvHl6qfLXdF80ZJUbMrVDMtvz2iSMl5vpXCM7EQFNEgreGEUclG11RZ4B
+ nHBYO+swzV/yx293i5VqeEfmQGq4XChY8OjQZG8hwtowYnsvgqut0/G7kLtnaty2BEWklG/s5iW
+ Q4GZyJ7cfmiqfWGejZsD24Q1sFGQFd9iWef3tW0XNeotu3G2pWFP/BiGr07HgR2Motb5c+HnVFw
+ 1xgoKFUUa30G1lRjBTQqhIudGa2UWAhiaPFhHjvkbxG9TKV+cCblsVuq1hZKEXeYN9hahIw0jRp
+ qWIXTuzp8PjqqIKiscruZb7CIC6eTzEoO4EYPCk/hNqA=
+X-Google-Smtp-Source: 
+ AGHT+IFBbNh6HR778NSqbSozK3zA6zgI09LiaJY3EpoIFGzahtWIAa16h5k79lnzQGZqPjn8qMYedg==
+X-Received: by 2002:a17:906:d7c7:b0:ae0:7e95:fb with SMTP id
+ a640c23a62f3a-aec65abd4a4mr609160766b.5.1752908937148;
+ Sat, 19 Jul 2025 00:08:57 -0700 (PDT)
+Received: from mediapc.localdomain ([193.28.38.52])
+ by smtp.gmail.com with ESMTPSA id
+ a640c23a62f3a-aec6c79cd11sm252704466b.16.2025.07.19.00.08.56
+ (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+ Sat, 19 Jul 2025 00:08:56 -0700 (PDT)
+To: ffmpeg-devel@ffmpeg.org
+Date: Sat, 19 Jul 2025 08:08:36 +0100
+Message-ID: <20250719070836.283597-1-jahutchinson99@googlemail.com>
+X-Mailer: git-send-email 2.50.1
+MIME-Version: 1.0
+Subject: [FFmpeg-devel] [PATCH] avcodec/hw_base_encode: fix NULL dereference
+ if no frames before end-of-stream
+X-BeenThere: ffmpeg-devel@ffmpeg.org
+X-Mailman-Version: 2.1.29
+Precedence: list
+List-Id: FFmpeg development discussions and patches <ffmpeg-devel.ffmpeg.org>
+List-Unsubscribe: <https://ffmpeg.org/mailman/options/ffmpeg-devel>,
+ <mailto:ffmpeg-devel-request@ffmpeg.org?subject=unsubscribe>
+List-Archive: <https://ffmpeg.org/pipermail/ffmpeg-devel>
+List-Post: <mailto:ffmpeg-devel@ffmpeg.org>
+List-Help: <mailto:ffmpeg-devel-request@ffmpeg.org?subject=help>
+List-Subscribe: <https://ffmpeg.org/mailman/listinfo/ffmpeg-devel>,
+ <mailto:ffmpeg-devel-request@ffmpeg.org?subject=subscribe>
+X-Patchwork-Original-From: James Hutchinson via ffmpeg-devel
+ <ffmpeg-devel@ffmpeg.org>
+From: James Hutchinson <jahutchinson99@googlemail.com>
+Reply-To: FFmpeg development discussions and patches <ffmpeg-devel@ffmpeg.org>
+Cc: James Hutchinson <jahutchinson99@googlemail.com>
+Errors-To: ffmpeg-devel-bounces@ffmpeg.org
+Sender: "ffmpeg-devel" <ffmpeg-devel-bounces@ffmpeg.org>
+
+If hw_base_encode_send_frame() is called with frame == NULL before any
+input frames are submitted, ctx->pic_end is NULL and dereferencing it
+causes a crash. This can occur in hardware encoding pipelines that flush
+before receiving any input frames.
+
+Fix by checking ctx->pic_end before accessing its pts field.
+
+Link: https://github.com/tvheadend/tvheadend/issues/1833
+Signed-off-by: James Hutchinson <jahutchinson99@googlemail.com>
+---
+ libavcodec/hw_base_encode.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/libavcodec/hw_base_encode.c b/libavcodec/hw_base_encode.c
+index 33a30c8d10..7aa8aeedb1 100644
+--- a/libavcodec/hw_base_encode.c
++++ b/libavcodec/hw_base_encode.c
+@@ -504,7 +504,7 @@ static int hw_base_encode_send_frame(AVCodecContext *avctx, FFHWBaseEncodeContex
+ 
+         // Fix timestamps if we hit end-of-stream before the initial decode
+         // delay has elapsed.
+-        if (ctx->input_order <= ctx->decode_delay)
++        if (ctx->input_order <= ctx->decode_delay && ctx->pic_end)
+             ctx->dts_pts_diff = ctx->pic_end->pts - ctx->first_pts;
+     }
+ 

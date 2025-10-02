@@ -19,12 +19,11 @@ PKG_ADDON_NAME="Raspberry Pi Tools"
 PKG_ADDON_TYPE="xbmc.python.module"
 PKG_ADDON_PROJECTS="RPi ARM"
 
-
 addon() {
   mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/lib/
     cp -PR $(get_build_dir lg-gpio)/liblgpio.so* ${ADDON_BUILD}/${PKG_ADDON_ID}/lib/
     cp -PR $(get_build_dir lg-gpio)/PY_LGPIO/build/lib.linux*/* ${ADDON_BUILD}/${PKG_ADDON_ID}/lib/
-    patchelf --add-rpath '$ORIGIN' ${ADDON_BUILD}/${PKG_ADDON_ID}/lib/_lgpio*.so
+    patchelf --add-rpath '${ORIGIN}' ${ADDON_BUILD}/${PKG_ADDON_ID}/lib/_lgpio*.so
     cp -PR $(get_build_dir gpiozero)/gpiozero ${ADDON_BUILD}/${PKG_ADDON_ID}/lib/
     cp -PR $(get_build_dir colorzero)/colorzero ${ADDON_BUILD}/${PKG_ADDON_ID}/lib/
 

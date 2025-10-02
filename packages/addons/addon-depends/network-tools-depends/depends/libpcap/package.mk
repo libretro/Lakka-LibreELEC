@@ -21,8 +21,8 @@ PKG_CONFIGURE_OPTS_TARGET="LIBS=-lpthread \
                            --disable-dbus"
 
 pre_configure_target() {
-# When cross-compiling, configure can't set linux version
-# forcing it
+  # When cross-compiling, configure can't set linux version
+  # forcing it
   sed -i -e 's/ac_cv_linux_vers=unknown/ac_cv_linux_vers=2/' ../configure
 }
 

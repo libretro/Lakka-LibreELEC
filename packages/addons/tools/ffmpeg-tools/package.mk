@@ -3,7 +3,7 @@
 
 PKG_NAME="ffmpeg-tools"
 PKG_VERSION="1.0"
-PKG_REV="0"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://libreelec.tv"
@@ -22,7 +22,7 @@ addon() {
   mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/{bin,lib.private}
 
   cp -L $(get_install_dir ffmpegx)/usr/local/bin/* ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
-  patchelf --add-rpath '$ORIGIN/../lib.private' ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/*
+  patchelf --add-rpath '${ORIGIN}/../lib.private' ${ADDON_BUILD}/${PKG_ADDON_ID}/bin/*
 
   # libs
   if [ "${TARGET_ARCH}" = "x86_64" ]; then
