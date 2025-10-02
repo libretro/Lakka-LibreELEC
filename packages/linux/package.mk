@@ -61,12 +61,12 @@ case "${LINUX}" in
     PKG_SHA256=${L4T_COMBINED_KERNEL_SHA256}
     ;;
   ayn-odin)
-   PKG_SHA256="9aa25bf492928bc7a4542e87d28919c9ac36d27c"
-   PKG_VERSION="${PKG_SHA256}"
-   PKG_URL="https://gitlab.com/sdm845-mainline/linux.git"
-   PKG_PATCH_DIRS="ayn-odin"
-   PKG_GIT_CLONE_BRANCH="sdm845-5.19.16"
-   ;;
+    PKG_SHA256="9aa25bf492928bc7a4542e87d28919c9ac36d27c"
+    PKG_VERSION="${PKG_SHA256}"
+    PKG_URL="https://gitlab.com/sdm845-mainline/linux.git"
+    PKG_PATCH_DIRS="ayn-odin"
+    PKG_GIT_CLONE_BRANCH="sdm845-5.19.16"
+    ;;
   *)
     PKG_VERSION="6.18.4"
     PKG_SHA256="f850139ca5f79c1bf6bb8b32f92e212aadca97bdaef8a83a7cf4ac4d6a525fab"
@@ -445,27 +445,52 @@ make_target() {
             ;;
         esac
 
-        WERROR=0 \
-        NO_LIBPERL=1 \
-        NO_LIBPYTHON=1 \
-        NO_SLANG=1 \
-        NO_GTK2=1 \
-        NO_LIBNUMA=1 \
-        NO_LIBAUDIT=1 \
-        NO_LIBTRACEEVENT=1 \
-        NO_LZMA=1 \
-        NO_SDT=1 \
-        NO_LIBDEBUGINFOD=1 \
-        NO_JVMTI=1 \
-        NO_LIBLLVM=1 \
-        NO_LIBPFM4=1 \
-        NO_LIBBABELTRACE=1 \
-        NO_CAPSTONE=1 \
-        NO_LIBPFM4=1 \
-        BUILD_BPF_SKEL=0 \
-        CROSS_COMPILE="${TARGET_PREFIX}" \
-        JOBS="${CONCURRENCY_MAKE_LEVEL}" \
-          make ${PERF_BUILD_ARGS}
+        if [ "${LINUX}" = "ayn-odin" ]; then
+          # Removed "BUILD_BPF_SKEL=0" from make parameters.
+          WERROR=0 \
+          NO_LIBPERL=1 \
+          NO_LIBPYTHON=1 \
+          NO_SLANG=1 \
+          NO_GTK2=1 \
+          NO_LIBNUMA=1 \
+          NO_LIBAUDIT=1 \
+          NO_LIBTRACEEVENT=1 \
+          NO_LZMA=1 \
+          NO_SDT=1 \
+          NO_LIBDEBUGINFOD=1 \
+          NO_JVMTI=1 \
+          NO_LIBLLVM=1 \
+          NO_LIBPFM4=1 \
+          NO_LIBBABELTRACE=1 \
+          NO_CAPSTONE=1 \
+          NO_LIBPFM4=1 \
+          CROSS_COMPILE="${TARGET_PREFIX}" \
+          JOBS="${CONCURRENCY_MAKE_LEVEL}" \
+            make ${PERF_BUILD_ARGS}
+        else
+          WERROR=0 \
+          NO_LIBPERL=1 \
+          NO_LIBPYTHON=1 \
+          NO_SLANG=1 \
+          NO_GTK2=1 \
+          NO_LIBNUMA=1 \
+          NO_LIBAUDIT=1 \
+          NO_LIBTRACEEVENT=1 \
+          NO_LZMA=1 \
+          NO_SDT=1 \
+          NO_LIBDEBUGINFOD=1 \
+          NO_JVMTI=1 \
+          NO_LIBLLVM=1 \
+          NO_LIBPFM4=1 \
+          NO_LIBBABELTRACE=1 \
+          NO_CAPSTONE=1 \
+          NO_LIBPFM4=1 \
+          BUILD_BPF_SKEL=0 \
+          CROSS_COMPILE="${TARGET_PREFIX}" \
+          JOBS="${CONCURRENCY_MAKE_LEVEL}" \
+            make ${PERF_BUILD_ARGS}
+        fi
+
         mkdir -p ${INSTALL}/usr/bin
           cp perf ${INSTALL}/usr/bin
       )
