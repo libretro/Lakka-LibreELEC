@@ -1,5 +1,5 @@
 PKG_NAME="pzretro"
-PKG_VERSION="1f2aea81d39dc9dd598a83d4693fb88ea763239f"
+PKG_VERSION="18b527180939775734a433fb8e96f7666c140416"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/nwhitehead/pzretro"
 PKG_URL="${PKG_SITE}.git"

@@ -1,5 +1,5 @@
 PKG_NAME="ardens"
-PKG_VERSION="1e3231322494059e0979ceadff644aaf3a850921"
+PKG_VERSION="66058b7be2ab85ddfc7b03c3251b01a4574a2911"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/tiberiusbrown/Ardens"
 PKG_URL="${PKG_SITE}.git"

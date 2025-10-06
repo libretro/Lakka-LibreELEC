@@ -1,5 +1,5 @@
 PKG_NAME="beetle_pce"
-PKG_VERSION="af28fb0385d00e0292c4703b3aa7e72762b564d2"
+PKG_VERSION="9a301c0773c53702a882bbaa42ee9cbc6d523787"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-pce-libretro"
 PKG_URL="${PKG_SITE}.git"

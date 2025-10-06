@@ -1,5 +1,5 @@
 PKG_NAME="parallel_n64"
-PKG_VERSION="a1e6d69f819cd25a30c701d244315f648818a163"
+PKG_VERSION="50d3ddd55b5774da643d90d7ad1e3cbd2c618883"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/parallel-n64"
 PKG_URL="${PKG_SITE}.git"

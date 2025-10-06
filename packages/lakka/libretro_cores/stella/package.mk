@@ -1,5 +1,5 @@
 PKG_NAME="stella"
-PKG_VERSION="e85ca9b47983e03436c07f0211b790d8b426a8b1"
+PKG_VERSION="749a21f653cf85fcedf4fe514ac8df1ad308be8e"
 PKG_LICENSE="GPL2"
 PKG_SITE="https://github.com/stella-emu/stella"
 PKG_URL="${PKG_SITE}.git"

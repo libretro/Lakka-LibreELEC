@@ -1,5 +1,5 @@
 PKG_NAME="citra"
-PKG_VERSION="8e634afee9e870620b40efedaef77478cd1f3c99"
+PKG_VERSION="5263fae3344e5e9af43036e0e38bec2d10fb2407"
 PKG_ARCH="x86_64 aarch64"
 PKG_LICENSE="GPLv2+"
 PKG_SITE="https://github.com/libretro/citra"

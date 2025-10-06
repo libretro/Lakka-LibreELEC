@@ -1,5 +1,5 @@
 PKG_NAME="mojozork"
-PKG_VERSION="5c8d81f8db53c206ace6952472e7a7e68bd8e752"
+PKG_VERSION="1aab1f23625cf073e978f9f613b02fbb6ebc426e"
 PKG_LICENSE="zlib"
 PKG_SITE="https://github.com/icculus/mojozork"
 PKG_URL="${PKG_SITE}.git"
