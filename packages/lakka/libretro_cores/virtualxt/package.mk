@@ -5,7 +5,7 @@ PKG_LICENSE="zlib"
 # https://github.com/virtualxt/virtualxt/issues/97
 # please enable (remove "!arm" in PKG_ARCH ) when build failure is fixed.
 PKG_ARCH="any !arm"
-PKG_SITE="https://github.com/virtualxt/virtualxt"
+PKG_SITE="https://codeberg.org/virtualxt/virtualxt"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Lightweight Turbo PC/XT emulator."
