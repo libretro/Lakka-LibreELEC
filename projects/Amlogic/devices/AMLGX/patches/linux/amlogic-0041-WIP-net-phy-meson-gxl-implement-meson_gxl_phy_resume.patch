@@ -1,0 +1,64 @@
+From 00516a87cdca3990c3bba3f423da3b8393b85ae0 Mon Sep 17 00:00:00 2001
+From: Da Xue <da@libre.computer>
+Date: Tue, 8 Aug 2023 01:00:15 -0400
+Subject: [PATCH 41/52] WIP: net: phy: meson-gxl: implement
+ meson_gxl_phy_resume()
+
+While testing the suspend/resume functionality, we found the ethernet
+is broken if internal PHY of the Amlogic meson GXL SoC is used.
+After system resume back, the ethernet is down, no carrier can be found.
+
+	eth0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state
+		DOWN group default qlen 1000
+
+In this patch, the internal PHY is re-initialized to fix this problem.
+
+	eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP
+		group default qlen 1000
+
+Cc: stable@vger.kernel.org # v5.10+
+Fixes: 7334b3e47aee ("net: phy: Add Meson GXL Internal PHY driver")
+Signed-off-by: Da Xue <da@libre.computer>
+Signed-off-by: Luke Lu <luke.lu@libre.computer>
+---
+ drivers/net/phy/meson-gxl.c | 17 ++++++++++++++++-
+ 1 file changed, 16 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/phy/meson-gxl.c b/drivers/net/phy/meson-gxl.c
+index 962ebbbc1348..55f281202fd4 100644
+--- a/drivers/net/phy/meson-gxl.c
++++ b/drivers/net/phy/meson-gxl.c
+@@ -132,6 +132,21 @@ static int meson_gxl_config_init(struct phy_device *phydev)
+ 	return 0;
+ }
+ 
++static int meson_gxl_phy_resume(struct phy_device *phydev)
++{
++	int ret;
++
++	ret = genphy_resume(phydev);
++	if (ret)
++		return ret;
++
++	ret = meson_gxl_config_init(phydev);
++	if (ret)
++		return ret;
++
++	return 0;
++}
++
+ /* This function is provided to cope with the possible failures of this phy
+  * during aneg process. When aneg fails, the PHY reports that aneg is done
+  * but the value found in MII_LPA is wrong:
+@@ -196,7 +211,7 @@ static struct phy_driver meson_gxl_phy[] = {
+ 		.config_intr	= smsc_phy_config_intr,
+ 		.handle_interrupt = smsc_phy_handle_interrupt,
+ 		.suspend        = genphy_suspend,
+-		.resume         = genphy_resume,
++		.resume         = meson_gxl_phy_resume,
+ 		.read_mmd	= genphy_read_mmd_unsupported,
+ 		.write_mmd	= genphy_write_mmd_unsupported,
+ 	}, {
+-- 
+2.34.1
+

@@ -1,0 +1,73 @@
+From 072d4f4983ebca72e8f8d0801e1899aeb73212bd Mon Sep 17 00:00:00 2001
+From: Christian Hewitt <christianshewitt@gmail.com>
+Date: Mon, 31 Mar 2025 08:44:37 +0000
+Subject: [PATCH 19/52] FROMLIST(v3): media: si2168: increase cmd execution
+ timeout value
+
+Testing with a MyGica T230C v2 USB device (0572:c68a) shows occasional
+cmd timeouts that cause Tvheadend services to fail:
+
+Jan 28 12:23:46.788180 kernel: si2168 1-0060: cmd execution took 0 ms
+Jan 28 12:23:46.790799 kernel: si2168 1-0060: cmd execution took 0 ms
+Jan 28 12:23:46.878158 kernel: si2168 1-0060: cmd execution took 80 ms
+Jan 28 12:23:46.879158 kernel: si2168 1-0060: failed=-110
+Jan 28 12:23:46.879908 kernel: si2168 1-0060: failed=-110
+Jan 28 12:23:46.948234 kernel: si2168 1-0060: cmd execution took 60 ms
+Jan 28 12:23:46.949121 kernel: si2168 1-0060: cmd execution took 0 ms
+Jan 28 12:23:46.949940 kernel: si2168 1-0060: cmd execution took 10 ms
+..
+Jan 28 12:23:57.457216 tvheadend[3126]: subscription: 009B: service
+instance is bad, reason: No input detected
+Jan 28 12:23:57.457392 tvheadend[3126]: linuxdvb: Silicon Labs Si2168 #0
+DVB-T #0 - stopping 778MHz in DVB-T Network
+..
+Jan 28 12:23:57.457584 tvheadend[3126]: subscription: 009B: No input
+source available for subscription "127.0.0.1 [ | Kodi Media Centre]"
+to channel "XXXXXXX"
+
+The original timeout of 50ms was extended to 70ms in commit 551c33e729f6
+("[media] Si2168: increase timeout to fix firmware loading") but testing
+shows there are other demux commands that take longer. The largest value
+observed from user reports/logs is 150ms so increase timeout to 200ms.
+
+Signed-off-by: Christian Hewitt <christianshewitt@gmail.com>
+Reviewed-by: Wolfram Sang <wsa+renesas@sang-engineering.com>
+---
+ drivers/media/dvb-frontends/si2168.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/media/dvb-frontends/si2168.c b/drivers/media/dvb-frontends/si2168.c
+index d6b6b8bc7d4e..843f1e01318e 100644
+--- a/drivers/media/dvb-frontends/si2168.c
++++ b/drivers/media/dvb-frontends/si2168.c
+@@ -9,6 +9,8 @@
+ 
+ #include "si2168_priv.h"
+ 
++#define CMD_TIMEOUT 200
++
+ static const struct dvb_frontend_ops si2168_ops;
+ 
+ static void cmd_init(struct si2168_cmd *cmd, const u8 *buf, int wlen, int rlen)
+@@ -40,8 +42,7 @@ static int si2168_cmd_execute(struct i2c_client *client, struct si2168_cmd *cmd)
+ 
+ 	if (cmd->rlen) {
+ 		/* wait cmd execution terminate */
+-		#define TIMEOUT 70
+-		timeout = jiffies + msecs_to_jiffies(TIMEOUT);
++		timeout = jiffies + msecs_to_jiffies(CMD_TIMEOUT);
+ 		while (!time_after(jiffies, timeout)) {
+ 			ret = i2c_master_recv(client, cmd->args, cmd->rlen);
+ 			if (ret < 0) {
+@@ -58,7 +59,7 @@ static int si2168_cmd_execute(struct i2c_client *client, struct si2168_cmd *cmd)
+ 
+ 		dev_dbg(&client->dev, "cmd execution took %d ms\n",
+ 				jiffies_to_msecs(jiffies) -
+-				(jiffies_to_msecs(timeout) - TIMEOUT));
++				(jiffies_to_msecs(timeout) - CMD_TIMEOUT));
+ 
+ 		/* error bit set? */
+ 		if ((cmd->args[0] >> 6) & 0x01) {
+-- 
+2.34.1
+

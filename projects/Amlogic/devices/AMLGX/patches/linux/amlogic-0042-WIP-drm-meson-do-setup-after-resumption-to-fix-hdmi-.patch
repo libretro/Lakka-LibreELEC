@@ -1,0 +1,89 @@
+From 8a42205aa412cde47a2c6b313ee4feffac8b77a9 Mon Sep 17 00:00:00 2001
+From: Luke Lu <luke.lu@libre.computer>
+Date: Mon, 21 Aug 2023 10:50:04 +0000
+Subject: [PATCH 42/52] WIP: drm/meson: do setup after resumption to fix hdmi
+ output
+
+Some HDMI displays connected to gxl-based boards go black after
+resumption, but recover after disconnecting and reconnecting.
+
+Redoing setup by calling dw_hdmi_poweron() fixes the problem, which
+requires a call of dw_hdmi_poweroff() to maintain the internal state.
+
+Signed-off-by: Luke Lu <luke.lu@libre.computer>
+---
+ drivers/gpu/drm/bridge/synopsys/dw-hdmi.c | 6 ++++--
+ drivers/gpu/drm/meson/meson_dw_hdmi.c     | 3 +++
+ include/drm/bridge/dw_hdmi.h              | 3 ++-
+ 3 files changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
+index 206b099a35e9..9b963122e609 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
+@@ -2379,7 +2379,7 @@ static void initialize_hdmi_ih_mutes(struct dw_hdmi *hdmi)
+ 	hdmi_writeb(hdmi, ih_mute, HDMI_IH_MUTE);
+ }
+ 
+-static void dw_hdmi_poweron(struct dw_hdmi *hdmi)
++void dw_hdmi_poweron(struct dw_hdmi *hdmi)
+ {
+ 	hdmi->bridge_is_on = true;
+ 
+@@ -2389,8 +2389,9 @@ static void dw_hdmi_poweron(struct dw_hdmi *hdmi)
+ 	 */
+ 	dw_hdmi_setup(hdmi, hdmi->curr_conn, &hdmi->previous_mode);
+ }
++EXPORT_SYMBOL_GPL(dw_hdmi_poweron);
+ 
+-static void dw_hdmi_poweroff(struct dw_hdmi *hdmi)
++void dw_hdmi_poweroff(struct dw_hdmi *hdmi)
+ {
+ 	if (hdmi->phy.enabled) {
+ 		hdmi->phy.ops->disable(hdmi, hdmi->phy.data);
+@@ -2399,6 +2400,7 @@ static void dw_hdmi_poweroff(struct dw_hdmi *hdmi)
+ 
+ 	hdmi->bridge_is_on = false;
+ }
++EXPORT_SYMBOL_GPL(dw_hdmi_poweroff);
+ 
+ static void dw_hdmi_update_power(struct dw_hdmi *hdmi)
+ {
+diff --git a/drivers/gpu/drm/meson/meson_dw_hdmi.c b/drivers/gpu/drm/meson/meson_dw_hdmi.c
+index 0d7c68b29dff..8460c93d74cb 100644
+--- a/drivers/gpu/drm/meson/meson_dw_hdmi.c
++++ b/drivers/gpu/drm/meson/meson_dw_hdmi.c
+@@ -809,6 +809,8 @@ static int __maybe_unused meson_dw_hdmi_pm_suspend(struct device *dev)
+ 	meson_dw_hdmi->data->top_write(meson_dw_hdmi,
+ 				       HDMITX_TOP_SW_RESET, 0);
+ 
++	dw_hdmi_poweroff(meson_dw_hdmi->hdmi);
++
+ 	return 0;
+ }
+ 
+@@ -821,6 +823,7 @@ static int __maybe_unused meson_dw_hdmi_pm_resume(struct device *dev)
+ 
+ 	meson_dw_hdmi_init(meson_dw_hdmi);
+ 
++	dw_hdmi_poweron(meson_dw_hdmi->hdmi);
+ 	dw_hdmi_resume(meson_dw_hdmi->hdmi);
+ 
+ 	return 0;
+diff --git a/include/drm/bridge/dw_hdmi.h b/include/drm/bridge/dw_hdmi.h
+index 6a46baa0737c..5eac26a51245 100644
+--- a/include/drm/bridge/dw_hdmi.h
++++ b/include/drm/bridge/dw_hdmi.h
+@@ -171,7 +171,8 @@ void dw_hdmi_unbind(struct dw_hdmi *hdmi);
+ struct dw_hdmi *dw_hdmi_bind(struct platform_device *pdev,
+ 			     struct drm_encoder *encoder,
+ 			     const struct dw_hdmi_plat_data *plat_data);
+-
++void dw_hdmi_poweron(struct dw_hdmi *hdmi);
++void dw_hdmi_poweroff(struct dw_hdmi *hdmi);
+ void dw_hdmi_resume(struct dw_hdmi *hdmi);
+ 
+ void dw_hdmi_setup_rx_sense(struct dw_hdmi *hdmi, bool hpd, bool rx_sense);
+-- 
+2.34.1
+

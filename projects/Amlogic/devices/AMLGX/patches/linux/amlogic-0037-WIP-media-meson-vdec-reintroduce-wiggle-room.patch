@@ -1,0 +1,50 @@
+From 5eea96109776c897a844aa92e878879806188227 Mon Sep 17 00:00:00 2001
+From: Andreas Baierl <ichgeh@imkreisrum.de>
+Date: Tue, 2 Apr 2024 14:22:52 +0000
+Subject: [PATCH 37/52] WIP: media: meson: vdec: reintroduce wiggle room
+
+Without the wiggle room, it happens that matching offsets can't be found.
+This results in non-matches and afterwards in frame drops in userspace apps.
+Reintroduce this wiggle room again.
+
+Signed-off-by: Andreas Baierl <ichgeh@imkreisrum.de>
+---
+ drivers/staging/media/meson/vdec/vdec_helpers.c | 14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/staging/media/meson/vdec/vdec_helpers.c b/drivers/staging/media/meson/vdec/vdec_helpers.c
+index fef76142f0c5..fbfdbf3ec19d 100644
+--- a/drivers/staging/media/meson/vdec/vdec_helpers.c
++++ b/drivers/staging/media/meson/vdec/vdec_helpers.c
+@@ -378,7 +378,16 @@ void amvdec_dst_buf_done_offset(struct amvdec_session *sess,
+ 
+ 	/* Look for our vififo offset to get the corresponding timestamp. */
+ 	list_for_each_entry_safe(tmp, n, &sess->timestamps, list) {
+-		if (tmp->offset > offset) {
++		s64 delta = (s64)offset - tmp->offset;
++
++		/* Offsets reported by codecs usually differ slightly,
++		 * so we need some wiggle room.
++		 * 4KiB being the minimum packet size, there is no risk here.
++		 */
++		if (delta > (-1 * (s32)SZ_4K) && delta < SZ_4K) {
++			match = tmp;
++			break;
++		} else {
+ 			/*
+ 			 * Delete any record that remained unused for 32 match
+ 			 * checks
+@@ -387,10 +396,7 @@ void amvdec_dst_buf_done_offset(struct amvdec_session *sess,
+ 				list_del(&tmp->list);
+ 				kfree(tmp);
+ 			}
+-			break;
+ 		}
+-
+-		match = tmp;
+ 	}
+ 
+ 	if (!match) {
+-- 
+2.34.1
+
