@@ -1,7 +1,7 @@
-From 52a8f50af27113fbc35b1d8b8842f542fdcb2352 Mon Sep 17 00:00:00 2001
+From 3b1ebccbc802ac2c40a24167a7a0703e5c0b263c Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
 Date: Wed, 24 Sep 2025 00:16:34 +0200
-Subject: [PATCH 64/84] drm/sun4i: vi layer: Write attributes in one go
+Subject: [PATCH 64/87] drm/sun4i: vi layer: Write attributes in one go
 
 It turns out that none of the VI channel registers were meant to be
 read. Mostly it works fine but sometimes it returns incorrect values.
@@ -13,14 +13,14 @@ This rework will allow proper code separation.
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
 ---
- drivers/gpu/drm/sun4i/sun8i_vi_layer.c | 80 +++++++++++---------------
- 1 file changed, 35 insertions(+), 45 deletions(-)
+ drivers/gpu/drm/sun4i/sun8i_vi_layer.c | 71 ++++++++++----------------
+ 1 file changed, 27 insertions(+), 44 deletions(-)
 
 diff --git a/drivers/gpu/drm/sun4i/sun8i_vi_layer.c b/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
-index 872ce6582161..36b02438c30f 100644
+index 1f4fa63ef153..dcc4429368d6 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
-@@ -18,34 +18,37 @@
+@@ -18,34 +18,35 @@
  #include "sun8i_vi_layer.h"
  #include "sun8i_vi_scaler.h"
  
@@ -28,8 +28,7 @@ index 872ce6582161..36b02438c30f 100644
 -					int overlay, struct drm_plane *plane)
 +static void sun8i_vi_layer_update_attributes(struct sun8i_mixer *mixer,
 +					     int channel, int overlay,
-+					     struct drm_plane *plane,
-+					     bool enabled)
++					     struct drm_plane *plane)
  {
 -	u32 mask, val, ch_base;
 +	struct drm_plane_state *state = plane->state;
@@ -43,8 +42,7 @@ index 872ce6582161..36b02438c30f 100644
 +	val = hw_fmt << SUN8I_MIXER_CHAN_VI_LAYER_ATTR_FBFMT_OFFSET;
 +	if (!fmt->is_yuv)
 +		val |= SUN8I_MIXER_CHAN_VI_LAYER_ATTR_RGB_MODE;
-+	if (enabled)
-+		val |= SUN8I_MIXER_CHAN_VI_LAYER_ATTR_EN;
++	val |= SUN8I_MIXER_CHAN_VI_LAYER_ATTR_EN;
  	if (mixer->cfg->de_type >= SUN8I_MIXER_DE3) {
 -		mask = SUN50I_MIXER_CHAN_VI_LAYER_ATTR_ALPHA_MASK |
 -		       SUN50I_MIXER_CHAN_VI_LAYER_ATTR_ALPHA_MODE_MASK;
@@ -77,7 +75,7 @@ index 872ce6582161..36b02438c30f 100644
  }
  
  static void sun8i_vi_layer_update_coord(struct sun8i_mixer *mixer, int channel,
-@@ -194,23 +197,14 @@ static u32 sun8i_vi_layer_get_csc_mode(const struct drm_format_info *format)
+@@ -194,23 +195,14 @@ static u32 sun8i_vi_layer_get_csc_mode(const struct drm_format_info *format)
  	}
  }
  
@@ -104,7 +102,7 @@ index 872ce6582161..36b02438c30f 100644
  	csc_mode = sun8i_vi_layer_get_csc_mode(fmt);
  	if (csc_mode != SUN8I_CSC_MODE_OFF) {
  		sun8i_csc_set_ccsc_coefficients(mixer, channel, csc_mode,
-@@ -220,15 +214,6 @@ static void sun8i_vi_layer_update_formats(struct sun8i_mixer *mixer, int channel
+@@ -220,15 +212,6 @@ static void sun8i_vi_layer_update_formats(struct sun8i_mixer *mixer, int channel
  	} else {
  		sun8i_csc_enable_ccsc(mixer, channel, false);
  	}
@@ -120,22 +118,12 @@ index 872ce6582161..36b02438c30f 100644
  }
  
  static void sun8i_vi_layer_update_buffer(struct sun8i_mixer *mixer, int channel,
-@@ -336,16 +321,21 @@ static void sun8i_vi_layer_atomic_update(struct drm_plane *plane,
- 									   plane);
- 	struct sun8i_layer *layer = plane_to_sun8i_layer(plane);
- 	struct sun8i_mixer *mixer = layer->mixer;
-+	bool enabled;
-+
-+	enabled = new_state->crtc && new_state->visible;
- 
--	if (!new_state->crtc || !new_state->visible)
-+	sun8i_vi_layer_update_attributes(mixer, layer->channel,
-+					 layer->overlay, plane,
-+					 enabled);
-+
-+	if (!enabled)
+@@ -340,12 +323,12 @@ static void sun8i_vi_layer_atomic_update(struct drm_plane *plane,
+ 	if (!new_state->crtc || !new_state->visible)
  		return;
  
++	sun8i_vi_layer_update_attributes(mixer, layer->channel,
++					 layer->overlay, plane);
  	sun8i_vi_layer_update_coord(mixer, layer->channel,
  				    layer->overlay, plane);
 -	sun8i_vi_layer_update_alpha(mixer, layer->channel,
@@ -148,5 +136,5 @@ index 872ce6582161..36b02438c30f 100644
  				     layer->overlay, plane);
  }
 -- 
-2.43.0
+2.52.0
 

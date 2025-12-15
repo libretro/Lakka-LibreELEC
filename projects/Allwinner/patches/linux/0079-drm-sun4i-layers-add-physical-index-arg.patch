@@ -1,7 +1,7 @@
-From 4e704f674f664edd7f7d7de0abff2c32eeee5f18 Mon Sep 17 00:00:00 2001
+From 4c1b4aadf5342381afe201134e41caaad45b3064 Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
 Date: Thu, 25 Sep 2025 23:42:11 +0200
-Subject: [PATCH 79/84] drm/sun4i: layers: add physical index arg
+Subject: [PATCH 79/87] drm/sun4i: layers: add physical index arg
 
 This avoids plane mapping in layers code, which allows future
 refactoring, when layer code will move away from accessing mixer
@@ -9,27 +9,44 @@ structure.
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
 ---
- drivers/gpu/drm/sun4i/sun8i_mixer.c    | 15 +++++++++++++--
- drivers/gpu/drm/sun4i/sun8i_mixer.h    |  2 +-
+ drivers/gpu/drm/sun4i/sun8i_mixer.c    | 17 +++++++++++++----
+ drivers/gpu/drm/sun4i/sun8i_mixer.h    |  3 ++-
  drivers/gpu/drm/sun4i/sun8i_ui_layer.c |  5 +++--
- drivers/gpu/drm/sun4i/sun8i_ui_layer.h |  3 ++-
+ drivers/gpu/drm/sun4i/sun8i_ui_layer.h |  2 +-
  drivers/gpu/drm/sun4i/sun8i_vi_layer.c |  5 +++--
- drivers/gpu/drm/sun4i/sun8i_vi_layer.h |  3 ++-
- 6 files changed, 24 insertions(+), 9 deletions(-)
+ drivers/gpu/drm/sun4i/sun8i_vi_layer.h |  2 +-
+ 6 files changed, 23 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/gpu/drm/sun4i/sun8i_mixer.c b/drivers/gpu/drm/sun4i/sun8i_mixer.c
-index b20c03d34c9b..1e3c13ad98a5 100644
+index d2b7fc552a76..267a6f75feb2 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_mixer.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_mixer.c
-@@ -316,6 +316,7 @@ static struct drm_plane **sun8i_layers_init(struct drm_device *drm,
- 	struct drm_plane **planes;
+@@ -283,14 +283,14 @@ static void sun8i_mixer_commit(struct sunxi_engine *engine,
+ 		h = drm_rect_height(&plane_state->dst);
+ 
+ 		DRM_DEBUG_DRIVER("  plane %d: chan=%d ovl=%d en=%d zpos=%d x=%d y=%d w=%d h=%d\n",
+-				 plane->base.id, layer->channel, layer->overlay,
++				 plane->base.id, layer->index, layer->overlay,
+ 				 enable, zpos, x, y, w, h);
+ 
+ 		if (!enable)
+ 			continue;
+ 
+ 		/* Route layer to pipe based on zpos */
+-		route |= layer->channel << SUN8I_MIXER_BLEND_ROUTE_PIPE_SHIFT(zpos);
++		route |= layer->index << SUN8I_MIXER_BLEND_ROUTE_PIPE_SHIFT(zpos);
+ 		pipe_en |= SUN8I_MIXER_BLEND_PIPE_CTL_EN(zpos);
+ 
+ 		regmap_write(bld_regs,
+@@ -317,6 +317,7 @@ static struct drm_plane **sun8i_layers_init(struct drm_device *drm,
  	struct sun8i_mixer *mixer = engine_to_sun8i_mixer(engine);
+ 	int plane_cnt = mixer->cfg->ui_num + mixer->cfg->vi_num;
  	enum drm_plane_type type;
 +	unsigned int phy_index;
  	int i;
  
- 	planes = devm_kcalloc(drm->dev,
-@@ -332,8 +333,13 @@ static struct drm_plane **sun8i_layers_init(struct drm_device *drm,
+ 	planes = devm_kcalloc(drm->dev, plane_cnt, sizeof(*planes), GFP_KERNEL);
+@@ -331,9 +332,13 @@ static struct drm_plane **sun8i_layers_init(struct drm_device *drm,
  		else
  			type = DRM_PLANE_TYPE_OVERLAY;
  
@@ -38,13 +55,13 @@ index b20c03d34c9b..1e3c13ad98a5 100644
 +			phy_index = mixer->cfg->map[i];
 +
  		layer = sun8i_vi_layer_init_one(drm, mixer, type,
--						mixer->engine.regs, i);
-+						mixer->engine.regs,
-+						i, phy_index);
+ 						mixer->engine.regs, i,
+-						plane_cnt);
++						phy_index, plane_cnt);
  		if (IS_ERR(layer)) {
  			dev_err(drm->dev,
  				"Couldn't initialize overlay plane\n");
-@@ -352,8 +358,13 @@ static struct drm_plane **sun8i_layers_init(struct drm_device *drm,
+@@ -352,9 +357,13 @@ static struct drm_plane **sun8i_layers_init(struct drm_device *drm,
  		else
  			type = DRM_PLANE_TYPE_OVERLAY;
  
@@ -53,18 +70,26 @@ index b20c03d34c9b..1e3c13ad98a5 100644
 +			phy_index = mixer->cfg->map[index];
 +
  		layer = sun8i_ui_layer_init_one(drm, mixer, type,
--						mixer->engine.regs, index);
-+						mixer->engine.regs,
-+						index, phy_index);
+ 						mixer->engine.regs, index,
+-						plane_cnt);
++						phy_index, plane_cnt);
  		if (IS_ERR(layer)) {
  			dev_err(drm->dev, "Couldn't initialize %s plane\n",
  				i ? "overlay" : "primary");
 diff --git a/drivers/gpu/drm/sun4i/sun8i_mixer.h b/drivers/gpu/drm/sun4i/sun8i_mixer.h
-index 8a5c06f0e351..c4049dd2c9da 100644
+index 2e3689008b50..d14188cdfab3 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_mixer.h
 +++ b/drivers/gpu/drm/sun4i/sun8i_mixer.h
-@@ -246,7 +246,7 @@ static inline u32
- sun8i_channel_base(struct sun8i_mixer *mixer, unsigned int channel)
+@@ -212,6 +212,7 @@ struct sun8i_layer {
+ 	struct drm_plane	plane;
+ 	struct sun8i_mixer	*mixer;
+ 	int			type;
++	int			index;
+ 	int			channel;
+ 	int			overlay;
+ 	struct regmap		*regs;
+@@ -246,7 +247,7 @@ static inline u32
+ sun8i_channel_base(struct sun8i_mixer *mixer, int channel)
  {
  	if (mixer->cfg->de_type == SUN8I_MIXER_DE33)
 -		return DE33_CH_BASE + mixer->cfg->map[channel] * DE33_CH_SIZE;
@@ -73,75 +98,75 @@ index 8a5c06f0e351..c4049dd2c9da 100644
  		return DE3_CH_BASE + channel * DE3_CH_SIZE;
  	else
 diff --git a/drivers/gpu/drm/sun4i/sun8i_ui_layer.c b/drivers/gpu/drm/sun4i/sun8i_ui_layer.c
-index 32a336286c7a..2bd583f1af2d 100644
+index dd6cb09c2c01..e65dc313c87d 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_ui_layer.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_ui_layer.c
-@@ -260,7 +260,8 @@ struct sun8i_layer *sun8i_ui_layer_init_one(struct drm_device *drm,
+@@ -265,7 +265,7 @@ struct sun8i_layer *sun8i_ui_layer_init_one(struct drm_device *drm,
  					    struct sun8i_mixer *mixer,
  					    enum drm_plane_type type,
  					    struct regmap *regs,
--					    unsigned int index)
-+					    unsigned int index,
-+					    unsigned int phy_index)
+-					    int index,
++					    int index, int phy_index,
+ 					    int plane_cnt)
  {
  	struct sun8i_layer *layer;
- 	unsigned int plane_cnt;
-@@ -272,7 +273,7 @@ struct sun8i_layer *sun8i_ui_layer_init_one(struct drm_device *drm,
+@@ -277,7 +277,8 @@ struct sun8i_layer *sun8i_ui_layer_init_one(struct drm_device *drm,
  
  	layer->mixer = mixer;
  	layer->type = SUN8I_LAYER_TYPE_UI;
 -	layer->channel = index;
++	layer->index = index;
 +	layer->channel = phy_index;
  	layer->overlay = 0;
  	layer->regs = regs;
  
 diff --git a/drivers/gpu/drm/sun4i/sun8i_ui_layer.h b/drivers/gpu/drm/sun4i/sun8i_ui_layer.h
-index a96c370a386d..070d42bba780 100644
+index e0b2cfa02749..9383c3364df3 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_ui_layer.h
 +++ b/drivers/gpu/drm/sun4i/sun8i_ui_layer.h
-@@ -53,5 +53,6 @@ struct sun8i_layer *sun8i_ui_layer_init_one(struct drm_device *drm,
+@@ -53,6 +53,6 @@ struct sun8i_layer *sun8i_ui_layer_init_one(struct drm_device *drm,
  					    struct sun8i_mixer *mixer,
  					    enum drm_plane_type type,
  					    struct regmap *regs,
--					    unsigned int index);
-+					    unsigned int index,
-+					    unsigned int phy_index);
+-					    int index,
++					    int index, int phy_index,
+ 					    int plane_cnt);
  #endif /* _SUN8I_UI_LAYER_H_ */
 diff --git a/drivers/gpu/drm/sun4i/sun8i_vi_layer.c b/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
-index fa8648b4c609..551e68eec3a2 100644
+index 4f0c929faf36..44e699910b70 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
-@@ -406,7 +406,8 @@ struct sun8i_layer *sun8i_vi_layer_init_one(struct drm_device *drm,
+@@ -411,7 +411,7 @@ struct sun8i_layer *sun8i_vi_layer_init_one(struct drm_device *drm,
  					    struct sun8i_mixer *mixer,
  					    enum drm_plane_type type,
  					    struct regmap *regs,
--					    unsigned int index)
-+					    unsigned int index,
-+					    unsigned int phy_index)
+-					    int index,
++					    int index, int phy_index,
+ 					    int plane_cnt)
  {
  	u32 supported_encodings, supported_ranges;
- 	unsigned int plane_cnt, format_count;
-@@ -420,7 +421,7 @@ struct sun8i_layer *sun8i_vi_layer_init_one(struct drm_device *drm,
+@@ -426,7 +426,8 @@ struct sun8i_layer *sun8i_vi_layer_init_one(struct drm_device *drm,
  
  	layer->mixer = mixer;
  	layer->type = SUN8I_LAYER_TYPE_VI;
 -	layer->channel = index;
++	layer->index = index;
 +	layer->channel = phy_index;
  	layer->overlay = 0;
  	layer->regs = regs;
  
 diff --git a/drivers/gpu/drm/sun4i/sun8i_vi_layer.h b/drivers/gpu/drm/sun4i/sun8i_vi_layer.h
-index 13ebc193cfb6..b2380c8e75ff 100644
+index 70766d752fa6..89d0c32e63cf 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_vi_layer.h
 +++ b/drivers/gpu/drm/sun4i/sun8i_vi_layer.h
-@@ -58,5 +58,6 @@ struct sun8i_layer *sun8i_vi_layer_init_one(struct drm_device *drm,
+@@ -58,6 +58,6 @@ struct sun8i_layer *sun8i_vi_layer_init_one(struct drm_device *drm,
  					    struct sun8i_mixer *mixer,
  					    enum drm_plane_type type,
  					    struct regmap *regs,
--					    unsigned int index);
-+					    unsigned int index,
-+					    unsigned int phy_index);
+-					    int index,
++					    int index, int phy_index,
+ 					    int plane_cnt);
  #endif /* _SUN8I_VI_LAYER_H_ */
 -- 
-2.43.0
+2.52.0
 

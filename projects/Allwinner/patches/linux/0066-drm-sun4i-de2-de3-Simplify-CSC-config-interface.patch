@@ -1,7 +1,7 @@
-From 65c4aab13ca8761ab66f6310ba0da5c38c074dd3 Mon Sep 17 00:00:00 2001
+From 3385b3c9e685f16769e9ec1db4c8f205432de7f4 Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
 Date: Tue, 18 Feb 2020 23:19:48 +0100
-Subject: [PATCH 66/84] drm/sun4i: de2/de3: Simplify CSC config interface
+Subject: [PATCH 66/87] drm/sun4i: de2/de3: Simplify CSC config interface
 
 Merging both function into one lets this one decide on it's own if CSC
 should be enabled or not. Currently heuristics for that is pretty simple
@@ -137,22 +137,6 @@ index c100d29b1a89..cf0c5121661b 100644
 -				     enum sun8i_csc_mode mode,
 -				     enum drm_color_encoding encoding,
 -				     enum drm_color_range range)
--{
--	u32 base;
--
--	if (mixer->cfg->de_type == SUN8I_MIXER_DE3) {
--		sun8i_de3_ccsc_set_coefficients(mixer->engine.regs, layer,
--						mode, encoding, range);
--		return;
--	}
--
--	base = ccsc_base[mixer->cfg->ccsc][layer];
--
--	sun8i_csc_set_coefficients(mixer->engine.regs, base,
--				   mode, encoding, range);
--}
--
--void sun8i_csc_enable_ccsc(struct sun8i_mixer *mixer, int layer, bool enable)
 +void sun8i_csc_config(struct sun8i_mixer *mixer, int layer,
 +		      enum sun8i_csc_mode mode,
 +		      enum drm_color_encoding encoding,
@@ -161,7 +145,8 @@ index c100d29b1a89..cf0c5121661b 100644
  	u32 base;
  
  	if (mixer->cfg->de_type == SUN8I_MIXER_DE3) {
--		sun8i_de3_ccsc_enable(mixer->engine.regs, layer, enable);
+-		sun8i_de3_ccsc_set_coefficients(mixer->engine.regs, layer,
+-						mode, encoding, range);
 +		sun8i_de3_ccsc_setup(mixer->engine.regs, layer,
 +				     mode, encoding, range);
  		return;
@@ -169,6 +154,21 @@ index c100d29b1a89..cf0c5121661b 100644
  
  	base = ccsc_base[mixer->cfg->ccsc][layer];
  
+-	sun8i_csc_set_coefficients(mixer->engine.regs, base,
+-				   mode, encoding, range);
+-}
+-
+-void sun8i_csc_enable_ccsc(struct sun8i_mixer *mixer, int layer, bool enable)
+-{
+-	u32 base;
+-
+-	if (mixer->cfg->de_type == SUN8I_MIXER_DE3) {
+-		sun8i_de3_ccsc_enable(mixer->engine.regs, layer, enable);
+-		return;
+-	}
+-
+-	base = ccsc_base[mixer->cfg->ccsc][layer];
+-
 -	sun8i_csc_enable(mixer->engine.regs, base, enable);
 +	sun8i_csc_setup(mixer->engine.regs, base,
 +			mode, encoding, range);
@@ -193,10 +193,10 @@ index 828b86fd0cab..27b6807fc786 100644
  
  #endif
 diff --git a/drivers/gpu/drm/sun4i/sun8i_vi_layer.c b/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
-index 36b02438c30f..805b55c41a0c 100644
+index 727117658c6c..adcd05acba1b 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
-@@ -206,14 +206,9 @@ static void sun8i_vi_layer_update_colors(struct sun8i_mixer *mixer, int channel,
+@@ -213,14 +213,9 @@ static void sun8i_vi_layer_update_colors(struct sun8i_mixer *mixer, int channel,
  
  	fmt = state->fb->format;
  	csc_mode = sun8i_vi_layer_get_csc_mode(fmt);
@@ -215,5 +215,5 @@ index 36b02438c30f..805b55c41a0c 100644
  
  static void sun8i_vi_layer_update_buffer(struct sun8i_mixer *mixer, int channel,
 -- 
-2.43.0
+2.52.0
 
