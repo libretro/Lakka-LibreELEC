@@ -1,0 +1,41 @@
+From 88ce8182c183864501f0699e136e681c7c9fac54 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@gmail.com>
+Date: Tue, 16 Dec 2025 17:53:09 +0100
+Subject: [PATCH 90/92] drm/sun4i: de2/de3: call csc setup also for UI layer
+
+Currently, only VI layer calls CSC setup function. This comes from DE2
+limitation, which doesn't have CSC unit for UI layers. However, DE3 has
+separate CSC units for each layer. This allows display pipeline to make
+output signal in different color spaces. To support both use cases, add
+a call to CSC setup function also in UI layer code. For DE2, this will
+be a no-op, but it will allow DE3 to output signal in multiple formats.
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
+---
+ drivers/gpu/drm/sun4i/sun8i_ui_layer.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/sun4i/sun8i_ui_layer.c b/drivers/gpu/drm/sun4i/sun8i_ui_layer.c
+index f08f6da55dd0..41129eb58923 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_ui_layer.c
++++ b/drivers/gpu/drm/sun4i/sun8i_ui_layer.c
+@@ -21,6 +21,7 @@
+ #include <drm/drm_print.h>
+ #include <drm/drm_probe_helper.h>
+ 
++#include "sun8i_csc.h"
+ #include "sun8i_mixer.h"
+ #include "sun8i_ui_layer.h"
+ #include "sun8i_ui_scaler.h"
+@@ -213,6 +214,8 @@ static void sun8i_ui_layer_atomic_update(struct drm_plane *plane,
+ 	sun8i_ui_layer_update_attributes(layer, plane);
+ 	sun8i_ui_layer_update_coord(layer, plane);
+ 	sun8i_ui_layer_update_buffer(layer, plane);
++	if (layer->cfg->de_type >= SUN8I_MIXER_DE3)
++		sun8i_csc_config(layer, new_state);
+ }
+ 
+ static const struct drm_plane_helper_funcs sun8i_ui_layer_helper_funcs = {
+-- 
+2.52.0
+

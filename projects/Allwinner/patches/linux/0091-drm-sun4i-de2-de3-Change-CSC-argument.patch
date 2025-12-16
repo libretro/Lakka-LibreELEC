@@ -1,0 +1,124 @@
+From b785d40d6ca937b50d479b9c36acce75f2475e28 Mon Sep 17 00:00:00 2001
+From: Jernej Skrabec <jernej.skrabec@gmail.com>
+Date: Tue, 16 Dec 2025 17:45:06 +0100
+Subject: [PATCH 91/92] drm/sun4i: de2/de3: Change CSC argument
+
+Currently, CSC module takes care only for converting YUV to RGB.
+However, DE3 is more suited to work in YUV color space. Change CSC mode
+argument to format type to be more neutral. New argument only tells
+layer format type and doesn't imply output type.
+
+This commit doesn't make any functional change.
+
+Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
+---
+ drivers/gpu/drm/sun4i/sun8i_csc.c | 36 +++++++++++++++----------------
+ 1 file changed, 18 insertions(+), 18 deletions(-)
+
+diff --git a/drivers/gpu/drm/sun4i/sun8i_csc.c b/drivers/gpu/drm/sun4i/sun8i_csc.c
+index ce81c12f511d..82b39f4a9877 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_csc.c
++++ b/drivers/gpu/drm/sun4i/sun8i_csc.c
+@@ -11,10 +11,10 @@
+ #include "sun8i_csc.h"
+ #include "sun8i_mixer.h"
+ 
+-enum sun8i_csc_mode {
+-	SUN8I_CSC_MODE_OFF,
+-	SUN8I_CSC_MODE_YUV2RGB,
+-	SUN8I_CSC_MODE_YVU2RGB,
++enum format_type {
++	FORMAT_TYPE_RGB,
++	FORMAT_TYPE_YUV,
++	FORMAT_TYPE_YVU,
+ };
+ 
+ static const u32 ccsc_base[][2] = {
+@@ -117,7 +117,7 @@ static const u32 yuv2rgb_de3[2][3][12] = {
+ };
+ 
+ static void sun8i_csc_setup(struct regmap *map, u32 base,
+-			    enum sun8i_csc_mode mode,
++			    enum format_type fmt_type,
+ 			    enum drm_color_encoding encoding,
+ 			    enum drm_color_range range)
+ {
+@@ -127,16 +127,16 @@ static void sun8i_csc_setup(struct regmap *map, u32 base,
+ 
+ 	table = yuv2rgb[range][encoding];
+ 
+-	switch (mode) {
+-	case SUN8I_CSC_MODE_OFF:
++	switch (fmt_type) {
++	case FORMAT_TYPE_RGB:
+ 		val = 0;
+ 		break;
+-	case SUN8I_CSC_MODE_YUV2RGB:
++	case FORMAT_TYPE_YUV:
+ 		val = SUN8I_CSC_CTRL_EN;
+ 		base_reg = SUN8I_CSC_COEFF(base, 0);
+ 		regmap_bulk_write(map, base_reg, table, 12);
+ 		break;
+-	case SUN8I_CSC_MODE_YVU2RGB:
++	case FORMAT_TYPE_YVU:
+ 		val = SUN8I_CSC_CTRL_EN;
+ 		for (i = 0; i < 12; i++) {
+ 			if ((i & 3) == 1)
+@@ -158,7 +158,7 @@ static void sun8i_csc_setup(struct regmap *map, u32 base,
+ }
+ 
+ static void sun8i_de3_ccsc_setup(struct regmap *map, int layer,
+-				 enum sun8i_csc_mode mode,
++				 enum format_type fmt_type,
+ 				 enum drm_color_encoding encoding,
+ 				 enum drm_color_range range)
+ {
+@@ -169,16 +169,16 @@ static void sun8i_de3_ccsc_setup(struct regmap *map, int layer,
+ 	mask = SUN50I_MIXER_BLEND_CSC_CTL_EN(layer);
+ 	table = yuv2rgb_de3[range][encoding];
+ 
+-	switch (mode) {
+-	case SUN8I_CSC_MODE_OFF:
++	switch (fmt_type) {
++	case FORMAT_TYPE_RGB:
+ 		val = 0;
+ 		break;
+-	case SUN8I_CSC_MODE_YUV2RGB:
++	case FORMAT_TYPE_YUV:
+ 		val = mask;
+ 		addr = SUN50I_MIXER_BLEND_CSC_COEFF(DE3_BLD_BASE, layer, 0);
+ 		regmap_bulk_write(map, addr, table, 12);
+ 		break;
+-	case SUN8I_CSC_MODE_YVU2RGB:
++	case FORMAT_TYPE_YVU:
+ 		val = mask;
+ 		for (i = 0; i < 12; i++) {
+ 			if ((i & 3) == 1)
+@@ -210,20 +210,20 @@ static u32 sun8i_csc_get_mode(struct drm_plane_state *state)
+ 	const struct drm_format_info *format;
+ 
+ 	if (!state->crtc || !state->visible)
+-		return SUN8I_CSC_MODE_OFF;
++		return FORMAT_TYPE_RGB;
+ 
+ 	format = state->fb->format;
+ 	if (!format->is_yuv)
+-		return SUN8I_CSC_MODE_OFF;
++		return FORMAT_TYPE_RGB;
+ 
+ 	switch (format->format) {
+ 	case DRM_FORMAT_YVU411:
+ 	case DRM_FORMAT_YVU420:
+ 	case DRM_FORMAT_YVU422:
+ 	case DRM_FORMAT_YVU444:
+-		return SUN8I_CSC_MODE_YVU2RGB;
++		return FORMAT_TYPE_YVU;
+ 	default:
+-		return SUN8I_CSC_MODE_YUV2RGB;
++		return FORMAT_TYPE_YUV;
+ 	}
+ }
+ 
+-- 
+2.52.0
+
