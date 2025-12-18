@@ -2,8 +2,8 @@
 # Copyright (C) 2023-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="polkit"
-PKG_VERSION="126"
-PKG_SHA256="2814a7281989f6baa9e57bd33bbc5e148827e2721ccef22aaf28ab2b376068e8"
+PKG_VERSION="127"
+PKG_SHA256="9b7bc16f086479dcc626c575976568ba4a85d34297a750d8ab3d2e57f6d8b988"
 PKG_LICENSE="GPL"
 PKG_SITE="https://polkit.pages.freedesktop.org/polkit"
 PKG_URL="https://github.com/polkit-org/polkit/archive/${PKG_VERSION}.tar.gz"
