@@ -18,6 +18,11 @@ else
   PKG_MAKE_OPTS_TARGET+=" platform=unix"
 fi
 
+pre_configure_target() {
+  sed -e "s|LDFLAGS := -lz -lpthread -lFLAC -lmpg123 -ldl|& -L$(get_install_dir mpg123)/usr/lib|" \
+    -i ${PKG_BUILD}/Makefile.libretro
+}
+
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
     cp -v uae4arm_libretro.so ${INSTALL}/usr/lib/libretro/
