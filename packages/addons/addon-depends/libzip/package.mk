@@ -23,6 +23,10 @@ PKG_CMAKE_OPTS_TARGET="-DENABLE_COMMONCRYPTO=OFF \
                        -DBUILD_DOC=OFF \
                        -DBUILD_SHARED_LIBS=OFF"
 
+if [ "${DISTRO}" = "Lakka" ]; then
+  PKG_BUILD_FLAGS="+pic"
+fi
+
 post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/lib
 }
