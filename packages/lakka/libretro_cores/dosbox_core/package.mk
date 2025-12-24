@@ -20,6 +20,10 @@ elif [ "${ARCH}" = "i386" ]; then
   PKG_MAKE_OPTS_TARGET+=" WITH_DYNAREC=x86"
 fi
 
+pre_configure_target() {
+  export PKG_CONFIG_PATH="$(get_install_dir mpg123)/usr/lib/pkgconfig:${PKG_CONFIG_PATH}"
+}
+
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
     cp -v ${PKG_BUILD}/libretro/dosbox_core_libretro.so ${INSTALL}/usr/lib/libretro
