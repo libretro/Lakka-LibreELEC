@@ -22,18 +22,12 @@ case "${LINUX}" in
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
 	PKG_PATCH_DIRS="default rtlwifi/6.18"
     ;;
- raspberrypi)
+  raspberrypi)
     PKG_VERSION="21b410140c47ffab5668399f6f143c7d7b935c8b" # 6.12.61
     PKG_SHA256="7c31df8061aae748a6e72417bfe743a54198fb5bdc96e229ecc605dc621d32ef"
     PKG_URL="https://github.com/raspberrypi/linux/archive/${PKG_VERSION}.tar.gz"
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
     PKG_PATCH_DIRS="raspberrypi rtlwifi/6.13 rtlwifi/6.14 rtlwifi/6.15 rtlwifi/6.18"
-    ;;
-  *)
-    PKG_VERSION="6.16.12"
-    PKG_SHA256="7ca4debc5ca912ebb8a76944a5c118afd5d09e31ef43c494adb14273da29a26e"
-    PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
-    PKG_PATCH_DIRS="default rtlwifi/6.18"
     ;;
   L4T)
     if [ -z "${L4T_KERNEL_VERSION}" ]; then
@@ -59,6 +53,12 @@ case "${LINUX}" in
     PKG_URL="https://gitlab.com/sdm845-mainline/linux.git"
     PKG_PATCH_DIRS="ayn-odin"
     PKG_GIT_CLONE_BRANCH="sdm845-5.19.16"
+    ;;
+  *)
+    PKG_VERSION="6.16.12"
+    PKG_SHA256="7ca4debc5ca912ebb8a76944a5c118afd5d09e31ef43c494adb14273da29a26e"
+    PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+    PKG_PATCH_DIRS="default rtlwifi/6.18"
     ;;
 esac
 
