@@ -3,7 +3,7 @@
 
 PKG_NAME="libraw"
 PKG_VERSION="0.21.5"
-PKG_SHA256="20ecfa6aad943d383ab3f66d303727ef542b042cbba2bb7ddaeff0bb2e9ff916"
+PKG_SHA256="a74a2e68303d3b9219f82318f935b28c5c4abd7f2c9f7dbf8faa4997c9038305"
 PKG_LICENSE="LGPL"
 PKG_SITE="https://www.libraw.org/"
 PKG_URL="https://www.libraw.org/data/LibRaw-${PKG_VERSION}.tar.gz"
