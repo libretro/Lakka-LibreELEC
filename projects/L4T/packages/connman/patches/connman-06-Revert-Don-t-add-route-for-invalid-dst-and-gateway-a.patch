@@ -1,0 +1,63 @@
+From a6346cd08b5b83a60395e611c6193d7f78f6caaa Mon Sep 17 00:00:00 2001
+From: Christian Hewitt <christianshewitt@gmail.com>
+Date: Wed, 22 Nov 2023 14:29:48 +0000
+Subject: [PATCH] Revert "Don't add route for invalid dst and gateway address
+ combinations"
+
+This reverts commit 9eb1772d31b6fcf78e8711976696491aec9ff5df.
+---
+ src/inet.c | 24 ------------------------
+ 1 file changed, 24 deletions(-)
+
+diff --git a/src/inet.c b/src/inet.c
+index 3465d50c..4039a73c 100644
+--- a/src/inet.c
++++ b/src/inet.c
+@@ -611,16 +611,6 @@ int connman_inet_add_network_route(int index, const char *host,
+ 	addr.sin_addr.s_addr = inet_addr(host);
+ 	memcpy(&rt.rt_dst, &addr, sizeof(rt.rt_dst));
+ 
+-	/*
+-	 * Don't add a routes for link-local or unspecified
+-	 * destination address coupled with unspecified gateway.
+-	 */
+-	if ((!host || is_addr_ll(AF_INET, (struct sockaddr *)&addr) || __connman_inet_is_any_addr(host, AF_INET))
+-			&& (!gateway || __connman_inet_is_any_addr(gateway, AF_INET))) {
+-		close(sk);
+-		return -EINVAL;
+-	}
+-
+ 	memset(&addr, 0, sizeof(addr));
+ 	addr.sin_family = AF_INET;
+ 	if (gateway)
+@@ -755,7 +745,6 @@ int connman_inet_add_ipv6_network_route(int index, const char *host,
+ 					const char *gateway,
+ 					unsigned char prefix_len)
+ {
+-	struct sockaddr_in6 addr;
+ 	struct in6_rtmsg rt;
+ 	int sk, err = 0;
+ 
+@@ -764,19 +753,6 @@ int connman_inet_add_ipv6_network_route(int index, const char *host,
+ 	if (!host)
+ 		return -EINVAL;
+ 
+-	if (inet_pton(AF_INET6, host, &addr.sin6_addr) != 1) {
+-		err = -errno;
+-		goto out;
+-	}
+-
+-	/*
+-	 * Don't add a route for link-local or unspecified
+-	 * destination address coupled with unspecified gateway.
+-	 */
+-	if ((!host || is_addr_ll(AF_INET6, (struct sockaddr *)&addr) || __connman_inet_is_any_addr(host, AF_INET6))
+-			&& (!gateway || __connman_inet_is_any_addr(gateway, AF_INET6)))
+-		return -EINVAL;
+-
+ 	memset(&rt, 0, sizeof(rt));
+ 
+ 	rt.rtmsg_dst_len = prefix_len;
+-- 
+2.34.1
+
