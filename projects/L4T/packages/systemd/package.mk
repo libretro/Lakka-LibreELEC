@@ -102,6 +102,11 @@ PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
                        -Ddebug-tty=${DEBUG_TTY} \
                        -Dversion-tag=${PKG_VERSION}"
 
+if [ "${DISTRO}" = "LibreELEC" -a "${DEVICE}" = "Switch" ]; then
+  PKG_MESON_OPTS_TARGET=${PKG_MESON_OPTS_TARGET//-Dpolkit=false/-Dpolkit=true}
+fi
+
+
 pre_configure_target() {
   export TARGET_CFLAGS="${TARGET_CFLAGS} -fno-schedule-insns -fno-schedule-insns2 -Wno-format-truncation"
   export LC_ALL=en_US.UTF-8

@@ -97,7 +97,7 @@ configure_package() {
     KODI_PIPEWIRE="-DENABLE_PIPEWIRE=OFF"
   fi
 
-  if [ "${CEC_SUPPORT}" = yes ]; then
+  if [ "${CEC_SUPPORT}" = "yes" -o "${CEC_FRAMEWORK_SUPPORT}" = "yes" ]; then
     PKG_DEPENDS_TARGET+=" libcec"
     KODI_CEC="-DENABLE_CEC=ON"
   else
