@@ -557,7 +557,13 @@ mount_flash() {
   if [ ! "$FAT32_BOOT" = "yes" ]; then
     mount_part "$boot" "/flash" "ro,noatime"
   else
-    mount_part "$boot" "/flash" "rw,noatime,umask=0000"
+    mount_part "$boot" "/flash" "rw,noatime,umask=0000,shortname=winnt"
+    if [ "$RUN_FSCK" = "no" ]; then
+      #make sure flash is writable
+      FLASH_STATUS=$(/usr/bin/busybox cat /proc/mounts | /usr/busybox grep fat | /usr/bin/busybox grep ro,)
+      if [ ! "$FLASH_STATUS" = "" ]; then
+        FAT32_MOUNT_ERROR="yes"
+      fi
   fi
 
   if [ -f /flash/post-flash.sh ]; then
@@ -582,7 +588,7 @@ cleanup_flash() {
 mount_storage() {
   progress "Mounting storage"
 
-  if [ "$LIVE" = "yes" ]; then
+  if [ "$LIVE" = "yes" -a ! "$DEVICE_HAS_USER" = "yes" ]; then
     # mount tmpfs and exit early. disk=xx is not allowed in live mode
     mount -t tmpfs none /storage
     return
@@ -591,9 +597,56 @@ mount_storage() {
   wakeonlan
 
   if [ "$FAT32_BOOT" = "yes" ]; then
+    if [ "$FAT32_MOUNT_ERROR" = "yes" ]; then
+      LIVE="yes"
+    fi
     DISTRO=${IMAGE_SYSTEM%'/'*}
     mkdir -p /flash/$DISTRO/storage
-    mount --bind /flash/$DISTRO/storage /storage
+
+    #Handle upfs stuff
+    if [ "$DEVICE_HAS_USER" = "yes" ]; then
+      UPFS_STORAGE_PATH="/run/upfs_storage"
+    else
+      UPFS_STORAGE_PATH="/storage"
+    fi
+
+    if [ ! -d $UPFS_STORAGE_PATH -a "$UPFS_STORAGE" = "yes" -a ! "$UPFS_STORAGE_PATH" = "/storage" ]; then
+      mkdir -p $UPFS_STORAGE_PATH
+    fi
+
+    if [ "$UPFS_STORAGE" = "yes" -a "$UPFS_PERMISSIONS_IN_STORE" = "yes" ]; then
+      if [ ! -f $UPFS_STORAGE_PATH/.upfs_store_created ]; then
+        echo "" > $UPFS_STORAGE_PATH/.upfs_store_created
+        CREATE_PERMISSIONS="yes"
+        rm -rf /flash/$DISTRO/storage/*.upfs*
+      fi
+      /usr/sbin/mount.upfsps /flash/$DISTRO/storage $UPFS_STORAGE_PATH
+    elif [ "$UPFS_STORAGE" = "yes" ]; then
+      mkdir -p "$UPFS_STORAGE_PATH"_p
+      if [ ! -f /flash/$DISTRO/storage_p.img ]; then
+        dd if=/dev/zero of=/flash/$DISTRO/storage_p.img bs=1024 count=10240
+        mkfs.ext4 /flash/$DISTRO/storage_p.img
+        CREATE_PERMISSIONS="yes"
+      fi
+      /usr/bin/busybox mount -o loop /flash/$DISTRO/storage_p.img /run/upfs_storage_p
+      /usr/sbin/mount.upfs "$UPFS_STORAGE_PATH"_p:/flash/$DISTRO/storage $UPFS_STORAGE_PATH
+    fi
+
+    #Actually mount something to storage.
+    if [ "$UPFS_STORAGE" = "yes" ]; then
+      #Create initial permission store.
+      if [ "$CREATE_PERMISSIONS" = "yes" ]; then
+        /usr/bin/busybox chown -R 0:0 $UPFS_STORAGE_PATH/*
+      fi
+
+      #For now bind mount to ensure updater works without more modifications,
+      #We will handle this in prepare_sysroot
+      if [ ! "$LIVE" = "yes" ]; then
+        mount --bind $UPFS_STORAGE_PATH /storage
+      fi
+    elif [ ! "$LIVE" = "yes" ]; then
+      mount --bind /flash/$DISTRO/storage /storage
+    fi
   elif [ -n "$disk" ]; then
     if [ -n "$OVERLAY" ]; then
       OVERLAY_DIR=$(cat /sys/class/net/eth0/address | tr -d :)
@@ -969,7 +1022,20 @@ prepare_sysroot() {
   progress "Preparing system"
 
   mount --move /flash /sysroot/flash
-  mount --move /storage /sysroot/storage
+  if [ "$DEVICE_HAS_USER" = "yes" ]; then
+    if [ ! "$UPFS_STORAGE" = "yes" ]; then
+      if [ ! "$LIVE" = "yes" ]; then
+        mount --move /storage /sysroot/storage
+      fi
+    else
+      #properly mount via chroot before switch_root
+      if [ ! "$LIVE" = "yes" ]; then
+        umount /storage
+      fi
+    fi
+  else
+   mount --move /storage /sysroot/storage
+  fi
 
   if [ ! "$FAT32_BOOT" = "yes" ]; then
     if [ ! -d "/sysroot/usr/lib/kernel-overlays/base/lib/modules/$(uname -r)/" -a -f "/sysroot/usr/lib/systemd/systemd" ]; then
@@ -988,8 +1054,9 @@ prepare_sysroot() {
 # Do init tasks to bring up system
 
 # hide kernel log messages on console
-echo '1 4 1 7' > /proc/sys/kernel/printk
-
+if [ ! "$SPLASH" = "no" ] ;then
+  echo '1 4 1 7' > /proc/sys/kernel/printk
+fi
 # run platform_init script if exists
 if [ -f "./platform_init" ]; then
   ./platform_init
@@ -1090,6 +1157,17 @@ for arg in $(cat /proc/cmdline); do
       ;;
     fat32-boot)
       FAT32_BOOT="yes"
+      FAT32_MOUNT_ERROR="no"
+      ;;
+    upfs-storage)
+      UPFS_STORAGE="yes"
+      ;;
+    upfsps-storage)
+      UPFS_STORAGE="yes"
+      UPFS_PERMISSIONS_IN_STORE="yes"
+      ;;
+    device-has-user)
+      DEVICE_HAS_USER="yes"
       ;;
   esac
 done
@@ -1152,6 +1230,15 @@ done
 
 # setup kernel overlays
 /usr/bin/busybox chroot /sysroot /usr/sbin/kernel-overlays-setup
+
+#Deal with user permissions
+
+if [ "$DEVICE_HAS_USER" = "yes" -a "$UPFS_STORAGE" = "yes" ]; then
+  /usr/bin/busybox chroot /sysroot /usr/bin/bindfs --map=0/1000:@0/@1000 /run/upfs_storage /storage
+elif [ "$DEVICE_HAS_USER" = "yes" -a "$LIVE" = "yes" ]; then
+  mkdir -p /sysroot/run/tmp_storage
+  /usr/bin/busybox chroot /sysroot /usr/bin/bindfs --map=0/1000:@0/@1000 /run/tmp_storage /storage
+fi
 
 # tell OE settings addon to disable updates
 if [ "$UPDATE_DISABLED" = "yes" ]; then
