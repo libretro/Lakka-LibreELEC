@@ -61,8 +61,8 @@ case "${LINUX}" in
     PKG_GIT_CLONE_BRANCH="sdm845-5.19.16"
     ;;
   *)
-    PKG_VERSION="6.18.2"
-    PKG_SHA256="558c6bbab749492b34f99827fe807b0039a744693c21d3a7e03b3a48edaab96a"
+    PKG_VERSION="6.18.3"
+    PKG_SHA256="7a8879167b89c4bae077d6f39c4f2130769f05dbdad2aad914adab9afb7d7f9a"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
     PKG_PATCH_DIRS="default rtlwifi/6.18"
     ;;
