@@ -1,0 +1,67 @@
+From db91cdbf8954d6dbaa6e3a37c70bf4b323a7ca51 Mon Sep 17 00:00:00 2001
+From: Craig <1188869+cscd98@users.noreply.github.com>
+Date: Sun, 23 Nov 2025 17:44:41 +0000
+Subject: [PATCH] Fix crash when requesting GLES 3.2 context, or when core
+ requests GLES 2 when GLES 3 is available (#18436)
+
+---
+ gfx/drivers/gl2.c                 | 19 +++++++++++--------
+ gfx/drivers_context/wayland_ctx.c |  4 ++--
+ 2 files changed, 13 insertions(+), 10 deletions(-)
+
+diff --git a/gfx/drivers/gl2.c b/gfx/drivers/gl2.c
+index d39eb1567f..4d008eb40c 100644
+--- a/gfx/drivers/gl2.c
++++ b/gfx/drivers/gl2.c
+@@ -4031,15 +4031,18 @@ static const gfx_ctx_driver_t *gl2_get_context(gl2_t *gl)
+    bool video_shared_context            = settings->bools.video_shared_context;
+ #ifdef HAVE_OPENGLES
+    enum gfx_ctx_api api                 = GFX_CTX_OPENGL_ES_API;
+-   if (hwr->context_type == RETRO_HW_CONTEXT_OPENGLES3)
++   switch(hwr->context_type)
+    {
+-      major                             = 3;
+-      minor                             = 0;
+-   }
+-   else
+-   {
+-      major                             = 2;
+-      minor                             = 0;
++      case RETRO_HW_CONTEXT_OPENGLES3:
++         major = 3;
++         minor = 0;
++         break;
++      case RETRO_HW_CONTEXT_OPENGLES_VERSION:
++         // passthrough version_major / version_minor unchanged
++         break;
++      default:
++         major = 2;
++         minor = 0;
+    }
+ #else
+    enum gfx_ctx_api api                 = GFX_CTX_OPENGL_API;
+diff --git a/gfx/drivers_context/wayland_ctx.c b/gfx/drivers_context/wayland_ctx.c
+index ea95ad80e0..7b4ddebd33 100644
+--- a/gfx/drivers_context/wayland_ctx.c
++++ b/gfx/drivers_context/wayland_ctx.c
+@@ -175,7 +175,7 @@ static bool gfx_ctx_wl_egl_init_context(gfx_ctx_wayland_data_t *wl)
+    };
+ 
+ #ifdef HAVE_OPENGLES
+-#ifdef HAVE_OPENGLES2
++#if defined(HAVE_OPENGLES2) || defined(HAVE_OPENGLES3)
+    static const EGLint egl_attribs_gles[] = {
+       WL_EGL_ATTRIBS_BASE,
+       EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+@@ -221,7 +221,7 @@ static bool gfx_ctx_wl_egl_init_context(gfx_ctx_wayland_data_t *wl)
+          else
+ #endif
+ #endif
+-#ifdef HAVE_OPENGLES2
++#if defined(HAVE_OPENGLES2) || defined(HAVE_OPENGLES3)
+             attrib_ptr = egl_attribs_gles;
+ #endif
+ #endif
+-- 
+2.43.0
+
