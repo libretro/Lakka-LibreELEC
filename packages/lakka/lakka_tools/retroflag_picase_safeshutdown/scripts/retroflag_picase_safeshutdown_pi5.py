@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 #
-# For RPi3 and RPi4
+# For RPi5
 # The safe shutdown script for RETROFLAG Pi CASE series for Lakka-v6 (lg-gpio version)
 # https://abyz.me.uk/lg/
 # https://abyz.me.uk/lg/py_lgpio.html
@@ -40,28 +40,30 @@ def init():
 	LED_status = 1
 	sbc.gpio_claim_output(handle, ledPin, level=LED_status)
 
+	# RPi5 safeshutdown is supported by OS
 	# Add poweroff() callback.
-	sbc.gpio_claim_alert(handle, powerPin, sbc.FALLING_EDGE, lFlags=sbc.SET_PULL_UP)
-	sbc.callback(handle, powerPin, sbc.FALLING_EDGE, poweroff)
+	# sbc.gpio_claim_alert(handle, powerPin, sbc.FALLING_EDGE, lFlags=sbc.SET_PULL_UP)
+	# sbc.callback(handle, powerPin, sbc.FALLING_EDGE, poweroff)
 
         # Add reset() callback.
 	sbc.gpio_claim_alert(handle, resetPin, sbc.FALLING_EDGE, lFlags=sbc.SET_PULL_UP)
 	sbc.callback(handle, resetPin, sbc.FALLING_EDGE, reset)
 
 
-def poweroff(chip, gpio, level, timestamp):
-
-	# Start LED blink.
-	signal.setitimer(signal.ITIMER_REAL, 0.2, 0.2)
-
-	# Stop retroarch.service.
-	os.system("systemctl stop retroarch")
-
-	# Wait 1 sec.
-	time.sleep(1)
-
-	# Shutdown system.
-	os.system("systemctl poweroff")
+# RPi5 safeshutdown is supported by OS
+# def poweroff(chip, gpio, level, timestamp):
+#
+#	# Start LED blink.
+#	signal.setitimer(signal.ITIMER_REAL, 0.2, 0.2)
+#
+#	# Stop retroarch.service.
+#	os.system("systemctl stop retroarch")
+#
+#	# Wait 1 sec.
+#	time.sleep(1)
+#
+#	# Shutdown system.
+#	os.system("systemctl poweroff")
 
 
 def reset(chip, gpio, level, timestamp):
