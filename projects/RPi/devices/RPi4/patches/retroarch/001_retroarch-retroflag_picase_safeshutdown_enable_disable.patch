@@ -1,0 +1,247 @@
+diff --git a/Makefile.common b/Makefile.common
+index 1aa3c74cce..e48ae7da51 100644
+--- a/Makefile.common
++++ b/Makefile.common
+@@ -1094,6 +1094,9 @@ endif
+ 
+ ifeq ($(HAVE_LAKKA), 1)
+    DEFINES += -DHAVE_LAKKA
++   ifeq ($(HAVE_RETROFLAG), 1)
++      DEFINES += -DHAVE_RETROFLAG
++   endif
+    ifneq ($(HAVE_LAKKA_PROJECT),)
+       DEFINES += -DHAVE_LAKKA_PROJECT=\"${HAVE_LAKKA_PROJECT}\"
+    else
+diff --git a/configuration.c b/configuration.c
+index 885c4f9135..3492ab6827 100644
+--- a/configuration.c
++++ b/configuration.c
+@@ -2968,6 +2968,10 @@ void config_set_defaults(void *data)
+          settings->bools.bluetooth_enable, filestream_exists(LAKKA_BLUETOOTH_PATH));
+    configuration_set_bool(settings, settings->bools.localap_enable, false);
+    load_timezone(settings->arrays.timezone, TIMEZONE_LENGTH);
++#ifdef HAVE_RETROFLAG
++   configuration_set_bool(settings,
++         settings->bools.safeshutdown_enable, filestream_exists(LAKKA_SAFESHUTDOWN_PATH));
++#endif
+ #endif
+ 
+ #if __APPLE__
+@@ -4233,6 +4237,10 @@ static bool config_load_file(global_t *global,
+          settings->bools.samba_enable, filestream_exists(LAKKA_SAMBA_PATH));
+    configuration_set_bool(settings,
+          settings->bools.bluetooth_enable, filestream_exists(LAKKA_BLUETOOTH_PATH));
++#ifdef HAVE_RETROFLAG
++   configuration_set_bool(settings,
++         settings->bools.safeshutdown_enable, filestream_exists(LAKKA_SAFESHUTDOWN_PATH));
++#endif
+ #endif
+ 
+    if (    !retroarch_override_setting_is_set(RARCH_OVERRIDE_SETTING_SAVE_PATH, NULL)
+@@ -5494,6 +5502,14 @@ bool config_save_file(const char *path)
+                RETRO_VFS_FILE_ACCESS_HINT_NONE));
+    else
+       filestream_delete(LAKKA_BLUETOOTH_PATH);
++#ifdef HAVE_RETROFLAG
++   if (settings->bools.safeshutdown_enable)
++      filestream_close(filestream_open(LAKKA_SAFESHUTDOWN_PATH,
++               RETRO_VFS_FILE_ACCESS_WRITE,
++               RETRO_VFS_FILE_ACCESS_HINT_NONE));
++   else
++      filestream_delete(LAKKA_SAFESHUTDOWN_PATH);
++#endif
+ #endif
+ 
+    for (i = 0; i < MAX_USERS; i++)
+diff --git a/configuration.h b/configuration.h
+index 112dcc1039..c974f1b08c 100644
+--- a/configuration.h
++++ b/configuration.h
+@@ -1043,15 +1043,20 @@ typedef struct settings
+       bool savestates_in_content_dir;
+       bool screenshots_in_content_dir;
+       bool systemfiles_in_content_dir;
+-      bool ssh_enable;
+ #ifdef HAVE_LAKKA_SWITCH
+       bool switch_oc;
+       bool switch_cec;
+       bool bluetooth_ertm_disable;
+ #endif
++#ifdef HAVE_LAKKA
++      bool ssh_enable;
+       bool samba_enable;
+       bool bluetooth_enable;
++#ifdef HAVE_RETROFLAG
++      bool safeshutdown_enable;
++#endif
+       bool localap_enable;
++#endif
+ 
+       bool video_window_show_decorations;
+       bool video_window_save_positions;
+diff --git a/intl/msg_hash_lbl.h b/intl/msg_hash_lbl.h
+index df6a0e149e..24ba632d83 100644
+--- a/intl/msg_hash_lbl.h
++++ b/intl/msg_hash_lbl.h
+@@ -3849,6 +3849,12 @@ MSG_HASH(
+    MENU_ENUM_LABEL_SSH_ENABLE,
+    "ssh_enable"
+    )
++#ifdef HAVE_RETROFLAG
++MSG_HASH(
++   MENU_ENUM_LABEL_SAFESHUTDOWN_ENABLE,
++   "safeshutdown_enable"
++   )
++#endif
+ #endif
+ 
+ #ifdef HAVE_LAKKA_SWITCH
+diff --git a/intl/msg_hash_us.h b/intl/msg_hash_us.h
+index 9639f05802..49f31ee8c4 100644
+--- a/intl/msg_hash_us.h
++++ b/intl/msg_hash_us.h
+@@ -16391,6 +16391,16 @@ MSG_HASH(
+    MENU_ENUM_SUBLABEL_TIMEZONE,
+    "Select your time zone to adjust the date and time to your location."
+    )
++#ifdef HAVE_RETROFLAG
++MSG_HASH(
++   MENU_ENUM_LABEL_VALUE_SAFESHUTDOWN_ENABLE,
++   "Retroflag Safe Shutdown"
++   )
++MSG_HASH(
++   MENU_ENUM_SUBLABEL_SAFESHUTDOWN_ENABLE,
++   "For use with compatible Retroflag case."
++   )
++#endif
+ MSG_HASH(
+    MENU_ENUM_LABEL_HELP_TIMEZONE,
+    "Displays a list of available timezones. After selecting a time zone, time and date is adjusted to the selected time zone. It assumes, that system/hardware clock is set to UTC."
+diff --git a/lakka.h b/lakka.h
+index 625a7ab946..f149c344be 100644
+--- a/lakka.h
++++ b/lakka.h
+@@ -18,13 +18,16 @@
+ #ifndef __RARCH_LAKKA_H
+ #define __RARCH_LAKKA_H
+ 
+-#define LAKKA_SSH_PATH                 "/storage/.cache/services/sshd.conf"
+-#define LAKKA_SAMBA_PATH               "/storage/.cache/services/samba.conf"
+-#define LAKKA_SAMBA_DISABLED_FILE_PATH "/storage/.cache/services/samba.disabled"
+-#define LAKKA_BLUETOOTH_PATH           "/storage/.cache/services/bluez.conf"
+-#define LAKKA_UPDATE_DIR               "/storage/.update/"
+-#define LAKKA_CONNMAN_DIR              "/storage/.cache/connman/"
+-#define LAKKA_LOCALAP_PATH             "/storage/.cache/services/localap.conf"
+-#define LAKKA_TIMEZONE_PATH            "/storage/.cache/timezone"
++#define LAKKA_SSH_PATH                 "/storage/.cache/services/sshd.conf"
++#define LAKKA_SAMBA_PATH               "/storage/.cache/services/samba.conf"
++#define LAKKA_SAMBA_DISABLED_FILE_PATH "/storage/.cache/services/samba.disabled"
++#define LAKKA_BLUETOOTH_PATH           "/storage/.cache/services/bluez.conf"
++#ifdef HAVE_RETROFLAG
++#define LAKKA_SAFESHUTDOWN_PATH        "/storage/.cache/services/safeshutdown.conf"
++#endif
++#define LAKKA_UPDATE_DIR               "/storage/.update/"
++#define LAKKA_CONNMAN_DIR              "/storage/.cache/connman/"
++#define LAKKA_LOCALAP_PATH             "/storage/.cache/services/localap.conf"
++#define LAKKA_TIMEZONE_PATH            "/storage/.cache/timezone"
+ 
+ #define DEFAULT_TIMEZONE "UTC"
+ #define TIMEZONE_LENGTH 255
+diff --git a/menu/cbs/menu_cbs_sublabel.c b/menu/cbs/menu_cbs_sublabel.c
+index 162a14c852..a08ed8f12c 100644
+--- a/menu/cbs/menu_cbs_sublabel.c
++++ b/menu/cbs/menu_cbs_sublabel.c
+@@ -385,6 +385,9 @@ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_samba_enable,                  MENU_
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_bluetooth_enable,              MENU_ENUM_SUBLABEL_BLUETOOTH_ENABLE )
+ #endif
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_localap_enable,                MENU_ENUM_SUBLABEL_LOCALAP_ENABLE )
++#ifdef HAVE_RETROFLAG
++DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_safeshutdown_enable,           MENU_ENUM_SUBLABEL_SAFESHUTDOWN_ENABLE)
++#endif
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_timezone,                      MENU_ENUM_SUBLABEL_TIMEZONE)
+ #endif
+ #ifdef HAVE_LAKKA_SWITCH
+@@ -5314,6 +5317,11 @@ int menu_cbs_init_bind_sublabel(menu_file_list_cbs_t *cbs,
+          case MENU_ENUM_LABEL_LOCALAP_ENABLE:
+             BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_localap_enable);
+             break;
++#ifdef HAVE_RETROFLAG
++         case MENU_ENUM_LABEL_SAFESHUTDOWN_ENABLE:
++            BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_safeshutdown_enable);
++            break;
++#endif
+          case MENU_ENUM_LABEL_TIMEZONE:
+             BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_timezone);
+             break;
+diff --git a/menu/menu_displaylist.c b/menu/menu_displaylist.c
+index 58fa628db9..5a78d490d2 100644
+--- a/menu/menu_displaylist.c
++++ b/menu/menu_displaylist.c
+@@ -10028,6 +10028,9 @@ unsigned menu_displaylist_build_list(
+                {MENU_ENUM_LABEL_SAMBA_ENABLE,                                          PARSE_ONLY_BOOL},
+                {MENU_ENUM_LABEL_BLUETOOTH_ENABLE,                                      PARSE_ONLY_BOOL},
+                {MENU_ENUM_LABEL_LOCALAP_ENABLE,                                        PARSE_ONLY_BOOL},
++#ifdef HAVE_RETROFLAG
++               {MENU_ENUM_LABEL_SAFESHUTDOWN_ENABLE,                                   PARSE_ONLY_BOOL},
++#endif
+                {MENU_ENUM_LABEL_TIMEZONE,                                              PARSE_ONLY_STRING_OPTIONS},
+             };
+ 
+diff --git a/menu/menu_setting.c b/menu/menu_setting.c
+index 3696fd7e24..13218d4e13 100644
+--- a/menu/menu_setting.c
++++ b/menu/menu_setting.c
+@@ -9214,6 +9214,14 @@ static void samba_enable_toggle_change_handler(rarch_setting_t *setting)
+          *setting->value.target.boolean);
+ }
+ 
++#ifdef HAVE_RETROFLAG
++static void safeshutdown_enable_toggle_change_handler(rarch_setting_t *setting)
++{
++   systemd_service_toggle(LAKKA_SAFESHUTDOWN_PATH, (char*)"retroflag_picase_safeshutdown.service",
++         *setting->value.target.boolean);
++}
++#endif
++
+ #ifdef HAVE_BLUETOOTH
+ static void bluetooth_enable_toggle_change_handler(
+       rarch_setting_t *setting)
+@@ -23170,6 +23178,24 @@ static bool setting_append_list(
+             (*list)[list_info->index - 1].change_handler = localap_enable_toggle_change_handler;
+ #endif
+ 
++#ifdef HAVE_RETROFLAG
++            CONFIG_BOOL(
++                  list, list_info,
++                  &settings->bools.safeshutdown_enable,
++                  MENU_ENUM_LABEL_SAFESHUTDOWN_ENABLE,
++                  MENU_ENUM_LABEL_VALUE_SAFESHUTDOWN_ENABLE,
++                  true,
++                  MENU_ENUM_LABEL_VALUE_OFF,
++                  MENU_ENUM_LABEL_VALUE_ON,
++                  &group_info,
++                  &subgroup_info,
++                  parent_group,
++                  general_write_handler,
++                  general_read_handler,
++                  SD_FLAG_NONE);
++            (*list)[list_info->index - 1].change_handler = safeshutdown_enable_toggle_change_handler;
++#endif
++
+             CONFIG_STRING_OPTIONS(
+                   list, list_info,
+                   settings->arrays.timezone,
+diff --git a/msg_hash.h b/msg_hash.h
+index e4be9553e0..36c02fb207 100644
+--- a/msg_hash.h
++++ b/msg_hash.h
+@@ -2507,6 +2507,9 @@ enum msg_hash_enums
+    MENU_LABEL(SAMBA_ENABLE),
+    MENU_LABEL(BLUETOOTH_ENABLE),
+    MENU_LABEL(LOCALAP_ENABLE),
++#ifdef HAVE_RETROFLAG
++   MENU_LABEL(SAFESHUTDOWN_ENABLE),
++#endif
+    MENU_LBL_H(TIMEZONE),
+ #endif
+ #ifdef HAVE_LAKKA_SWITCH
