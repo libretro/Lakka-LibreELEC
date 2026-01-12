@@ -3,8 +3,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="vdr-plugin-iptv"
-PKG_VERSION="2.6.11"
-PKG_SHA256="7c98f8d5c416a45477183e5d3783338bb367f6c27e70a12fad13820b7650c751"
+PKG_VERSION="2.6.12"
+PKG_SHA256="3a00bac781d7a19ce804c472f6be2792952440a3dfa3de0fcd7840e8c2421f30"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.saunalahti.fi/~rahrenbe/vdr/iptv/"
 PKG_URL="https://github.com/Zabrimus/vdr-plugin-iptv/archive/v${PKG_VERSION}.tar.gz"
