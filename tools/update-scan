@@ -11,6 +11,9 @@ set -e
 command -v curl >/dev/null 2>&1 || die "please install curl"
 command -v jq >/dev/null 2>&1 || die "please install jq"
 
+# check for autoupdate argument
+[[ "${AUTO_UPDATE}" == "yes" ]] && echo "running as auto update" >&2
+
 # global vars
 PACKAGES_CURRENT=""
 PACKAGES_IGNORED=""
@@ -74,23 +77,29 @@ check_for_update() {
   upstream_version=""
 
   if [[ "${github_api}" = "yes" ]]; then
-    case ${PKG_NAME} in
-      aspnet6-runtime)
-        upstream_version="$(curl -m 5 -sL ${github_api_token} https://api.github.com/repos/dotnet/runtime/releases | jq -r '[.[] | select(.prerelease==false) | select(.tag_name | match("v6.0")) | .tag_name][0] | sub("v";"")')"
-        ;;
-      aspnet8-runtime)
-        upstream_version="$(curl -m 5 -sL ${github_api_token} https://api.github.com/repos/dotnet/runtime/releases | jq -r '[.[] | select(.tag_name | match("v8.0")) | .tag_name][0] | sub("v";"")')"
-        ;;
-    esac
+    # get aspnet??-runtime version from github (not Anitya)
+    aspnet_ver=$(echo ${PKG_NAME} | sed -n 's/aspnet\(.*\)-runtime/\1/p')
+    if [[ ! -z "${aspnet_ver}" ]]; then
+      page_num=1
+      while [ ${page_num} -le 10 ]; do
+        curl_output="$(curl -m 5 -sL ${github_api_token} https://api.github.com/repos/dotnet/runtime/releases?per_page=100\&page=${page_num})"
+        upstream_version="$(echo ${curl_output} | jq -r "[.[] | select(.prerelease==false) | select(.tag_name | match(\"v${aspnet_ver}.0\")) | .tag_name][0] | sub(\"v\";\"\")?")"
+        [[ $(echo "${curl_output}" | jq 'length == 0') ]] && break
+        [[ -z "${upstream_version}" ]] && ((page_num++)) || break
+      done
+    fi
   fi
 
   if [ -z "${upstream_version}" ]; then
     # check if package exists at tracker
-    RMO_API_RESPONSE=$(curl -m 5 -sL "https://release-monitoring.org/api/project/LibreELEC/${PKG_NAME}" || true)
-    upstream_version=$(echo "${RMO_API_RESPONSE}" | jq -r '.version' || true)
+    RMO_API_RESPONSE=$(curl -m 5 -sL "https://release-monitoring.org/api/v2/packages/?name=${PKG_NAME}&distribution=LibreELEC" || true)
+    upstream_version=$(echo "${RMO_API_RESPONSE}" | jq -r '.items[0].version' || true)
 
     # special handling based on release-monitoring formatting
     case ${PKG_NAME} in
+      krb5)
+        upstream_version=${upstream_version//-final/}
+        ;;
       lm_sensors)
         upstream_version=${upstream_version//-/.}
         ;;
@@ -127,7 +136,7 @@ check_for_update() {
       upstream_version="${upstream_latest_commit##*/}"
     fi
   elif [ "${upstream_version}" = "null" ]; then
-    if [[ $(echo "${RMO_API_RESPONSE}" | jq -r '.error') =~ "No package" ]]; then
+    if [[ $(echo "${RMO_API_RESPONSE}" | jq -r '.total_items') =~ "0" ]]; then
       # package is not on tracker or github
       PACKAGES_NOT_REGISTERED+="${PKG_NAME} "
       return
@@ -138,7 +147,9 @@ check_for_update() {
   fi
 
   # print version output line
-  if [ ! -z "${API}" ]; then
+  if [[ "${AUTO_UPDATE}" == "yes" ]] && [ "${PKG_VERSION}" != "${upstream_version}" ]; then
+    echo "${PKG_NAME} ${PKG_VERSION} ${upstream_version}"
+  elif [ ! -z "${API}" ]; then
     printf "%s %s %s" "${PKG_NAME}" "${PKG_VERSION}" "${upstream_version}"
     printf '\n'
   elif [ "${PKG_VERSION}" != "${upstream_version}" ]; then
@@ -150,10 +161,16 @@ check_for_update() {
 }
 
 # create list of packages
-if [ -n "${1}" ]; then
-  PACKAGE_LIST="$(find packages/ -type d -name ${1})/package.mk"
-  if [ ! -f "${PACKAGE_LIST}" ]; then
-    die "Package not found: ${1}"
+if [ $# -gt 0 ]; then
+  for pkg in $*; do
+    for dir in $(find packages/ -type d -name ${pkg}); do
+      if [ -f "${dir}/package.mk" ]; then
+        PACKAGE_LIST+=" ${dir}/package.mk"
+      fi
+    done
+  done
+  if [ -z "${PACKAGE_LIST}" ]; then
+    die "Packages not found: $*"
   fi
 else
   PACKAGE_LIST="$(
@@ -166,7 +183,11 @@ else
   )"
 fi
 
-if [ -z "${API}" ]; then
+if [[ "${AUTO_UPDATE}" == "yes" ]]; then
+  for check_version in ${PACKAGE_LIST}; do
+    check_for_update "${check_version}"
+  done
+elif [ -z "${API}" ]; then
   # test github api availability
   test_github_api
 

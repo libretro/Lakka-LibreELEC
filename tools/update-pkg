@@ -1,0 +1,144 @@
+#!/bin/bash
+
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2023-present Team LibreELEC (https://libreelec.tv)
+
+. config/options ""
+
+# main code
+progname=${0}
+pkgname=${1}
+pkgver=${2}
+
+[ $# -lt 1 ] && {
+  echo "Usage: $0 PKG_NAME [PKG_VERSION]"
+  exit 1
+}
+
+# update a package.mk file with the multiple sha
+function update_multiple_sha() {
+  file=$1
+  sha1=$2
+  sha2=$3
+  sha3=$4
+
+  sed -i '
+# by default - do not print anything
+/^  "aarch64")$/ {
+  # append a line
+  N
+  # if PKG_SHA256= found, print the first line
+  /\n    PKG_SHA256="/  {
+    s/\(PKG_SHA256="\).*"/\1'${sha1}'"/
+    P
+    D
+  }
+}
+/^  "arm")$/ {
+  # append a line
+  N
+  # if PKG_SHA256= found, print the first line
+  /\n    PKG_SHA256="/  {
+    s/\(PKG_SHA256="\).*"/\1'${sha2}'"/
+    P
+    D
+  }
+}
+/^  "x86_64")$/ {
+  # append a line
+  N
+  # if PKG_SHA256= found, print the first line
+  /\n    PKG_SHA256="/  {
+    s/\(PKG_SHA256="\).*"/\1'${sha3}'"/
+    P
+    D
+  }
+}' ${file}
+}
+
+function get_sha() {
+  t=$(mktemp) &&
+    curl -q --location --max-redirs 5 --output "$t" "$1" &&
+    set -- $(sha256sum "$t")
+  echo $1
+  rm "$t"
+}
+
+[ -f tools/update-functions/${pkgname} ] && . tools/update-functions/${pkgname}
+
+[[ $(type -t is_sub_package) == function ]] && is_sub_package
+if [[ ! -v run_sub_package && $(type -t is_sub_package) == function ]]; then
+  printf "Error: %s can not be updated individually. Update %s instead.\nUsage: $0 PKG_NAME PKG_VERSION\n" ${pkgname} ${parentpkg}
+  exit 1
+fi
+
+if [[ $(type -t get_pkg_ver) == function ]]; then
+  get_pkg_ver
+  [ $# -eq 2 ] && {
+    printf "Error: %s does not allow for specification of version\nUsage: $0 PKG_NAME\n" ${pkgname}
+    exit 1
+  }
+else
+  [ $# -ne 2 ] && {
+    echo "Usage: $0 PKG_NAME PKG_VERSION"
+    exit 1
+  }
+fi
+
+PACKAGE_LIST="$(get_pkg_directory ${pkgname})/package.mk"
+if [ ! -f "${PACKAGE_LIST}" ]; then
+  die "Package not found: ${pkgname}"
+fi
+
+#https://stackoverflow.com/questions/8063228/check-if-a-variable-exists-in-a-list-in-bash
+for pkgmk in ${PACKAGE_LIST}; do
+  prevpkgver=$(grep "^PKG_VERSION=" "${pkgmk}" | sed 's/PKG_VERSION="//' | sed 's/"//')
+  if [[ $(type -t update_package) == function ]]; then
+    update_package
+  elif [[ ! $(grep "^PKG_VERSION=.*get_pkg_version" "${pkgmk}") ]]; then
+    # PKG_VERSION does not contain code, proceed
+    sed -e "s|^PKG_VERSION=.*|PKG_VERSION=\"${pkgver}\"|" -i "${pkgmk}"
+    CHANGE_HASH=yes scripts/get ${pkgname} || {
+      sed -e "s|^PKG_VERSION=.*|PKG_VERSION=\"${prevpkgver}\"|" -i "${pkgmk}"
+      die "Package version not found: ${pkgname}"
+    }
+  fi
+  fullhash=${pkgver}
+  [ ${#pkgver} -eq 40 ] && pkgver="githash ${pkgver:0:7}"
+
+  # update PKG_GIT_COMMIT
+  if [[ $(type -t pkg_git_commit) == function ]]; then
+    pkg_git_commit
+    tag_object_url=$(curl -m 5 -sL "https://api.github.com/repos/${github_repos}/git/refs/tags/${prefix}v${pkgver}" | jq -r '.object.url')
+    pkggitcommit=$(curl -m 5 -sL "${tag_object_url}" | jq -r '.object.sha')
+    [[ "${pkggitcommit}" = "null" ]] &&
+      pkggitcommit=$(curl -m 5 -sL "${tag_object_url}" | jq -r '.sha')
+    sed -e "s|^export PKG_GIT_COMMIT=.*|export PKG_GIT_COMMIT=\"${pkggitcommit}\"|" -i "${pkgmk}"
+  fi
+
+  [[ $(type -t custom_post_script) == function ]] && custom_post_script
+
+  isaddon=$(grep "^PKG_REV=" "${pkgmk}" | tr -d '"')
+  if [[ ! -z "${isaddon}" ]]; then
+    export ${isaddon}
+    new_pkg_rev=$(($PKG_REV + 1))
+    sed -e "s|^PKG_REV=.*|PKG_REV=\"${new_pkg_rev}\"|" -i "${pkgmk}"
+    addon=" and addon (${new_pkg_rev})"
+  else
+    addon=""
+  fi
+
+  [[ $(type -t custom_commit_msg) == function ]] && custom_commit_msg
+  [[ ! -v commit_msg ]] && commit_msg="${pkgname}: update to ${pkgver}"
+  commit_msg+="${addon}"
+
+  [[ $(type -t custom_commit_body) == function ]] && custom_commit_body
+  commit_msg+="${commit_body}"
+
+  [ -f tools/update-functions/extra_commit_body ] && . tools/update-functions/extra_commit_body
+  [[ $(type -t extra_commit_body) == function ]] && extra_commit_body || true
+
+  printf "${commit_msg}" | git commit -F - ${pkgmk}
+
+  [[ ! -v parentpkg && $(type -t custom_post_commit) == function ]] && custom_post_commit || true
+done
