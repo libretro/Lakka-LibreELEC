@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0-only
-# Copyright (C) 2025-present Team LibreELEC (https://libreelec.tv)
+# Copyright (C) 2022-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="aspnet9-runtime"
-PKG_VERSION="9.0.11"
+PKG_VERSION="9.0.12"
 PKG_LICENSE="MIT"
 PKG_SITE="https://dotnet.microsoft.com/"
 PKG_DEPENDS_TARGET="toolchain"
@@ -11,16 +11,16 @@ PKG_TOOLCHAIN="manual"
 
 case "${ARCH}" in
   "aarch64")
-    PKG_SHA256="d039cbb3ef822aad0226857c1d89763c9c2a4bf339015bb11c99a7f6e62d3062"
-    PKG_URL="https://builds.dotnet.microsoft.com/dotnet/aspnetcore/Runtime/9.0.11/aspnetcore-runtime-9.0.11-linux-arm64.tar.gz"
+    PKG_SHA256="b0ce7bc0ab002c8f4852991ec3d29ca55f46142168325a4767405a709c3363bd"
+    PKG_URL="https://builds.dotnet.microsoft.com/dotnet/aspnetcore/Runtime/9.0.12/aspnetcore-runtime-9.0.12-linux-arm64.tar.gz"
     ;;
   "arm")
-    PKG_SHA256="6ef6521e262d05302f3e52026d59b8464ae881fc983671c20e3a9e4034d7a99c"
-    PKG_URL="https://builds.dotnet.microsoft.com/dotnet/aspnetcore/Runtime/9.0.11/aspnetcore-runtime-9.0.11-linux-arm.tar.gz"
+    PKG_SHA256="75b83e5245713470e581b238299c3f6125f16b5c5c625f7c04c7d9ce85e068be"
+    PKG_URL="https://builds.dotnet.microsoft.com/dotnet/aspnetcore/Runtime/9.0.12/aspnetcore-runtime-9.0.12-linux-arm.tar.gz"
     ;;
   "x86_64")
-    PKG_SHA256="9c72253df8cbdbc775c76d6dcefc057aabb0bf7c978e5c3f24ab0afed839fd1f"
-    PKG_URL="https://builds.dotnet.microsoft.com/dotnet/aspnetcore/Runtime/9.0.11/aspnetcore-runtime-9.0.11-linux-x64.tar.gz"
+    PKG_SHA256="e691ad6b028fc8f4c2128ecd6a38bf13b217cff9c034d97cdc3df8ee30e688ec"
+    PKG_URL="https://builds.dotnet.microsoft.com/dotnet/aspnetcore/Runtime/9.0.12/aspnetcore-runtime-9.0.12-linux-x64.tar.gz"
     ;;
 esac
 PKG_SOURCE_NAME="aspnetcore-runtime_${PKG_VERSION}_${ARCH}.tar.gz"
