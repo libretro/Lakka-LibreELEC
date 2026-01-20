@@ -1,0 +1,50 @@
+From 133830885ca540f604bf38016c5269e729debb9e Mon Sep 17 00:00:00 2001
+From: Luca Carlon <carlon.luca@gmail.com>
+Date: Wed, 19 Jun 2024 10:08:41 +0200
+Subject: [PATCH 8/8] drm/vc4: Fix gpu reset
+
+---
+ drivers/gpu/drm/vc4/vc4_v3d.c | 17 ++++++++++-------
+ 1 file changed, 10 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/vc4/vc4_v3d.c b/drivers/gpu/drm/vc4/vc4_v3d.c
+index 9f1b83755a35..f2654d3d44a0 100644
+--- a/drivers/gpu/drm/vc4/vc4_v3d.c
++++ b/drivers/gpu/drm/vc4/vc4_v3d.c
+@@ -472,10 +472,19 @@ static int vc4_v3d_bind(struct device *dev, struct device *master, void *data)
+ 	if (ret)
+ 		return ret;
+ 
+-	ret = pm_runtime_resume_and_get(dev);
++	ret = clk_prepare_enable(v3d->clk);
+ 	if (ret)
+ 		return ret;
+ 
++	/* Reset the binner overflow address/size at setup, to be sure
++	 * we don't reuse an old one.
++	 */
++	V3D_WRITE(V3D_BPOA, 0);
++	V3D_WRITE(V3D_BPOS, 0);
++
++	vc4_v3d_init_hw(drm);
++	vc4_irq_enable(&vc4->base);
++
+ 	if (V3D_READ(V3D_IDENT0) != V3D_EXPECTED_IDENT0) {
+ 		DRM_ERROR("V3D_IDENT0 read 0x%08x instead of 0x%08x\n",
+ 			  V3D_READ(V3D_IDENT0), V3D_EXPECTED_IDENT0);
+@@ -483,12 +492,6 @@ static int vc4_v3d_bind(struct device *dev, struct device *master, void *data)
+ 		goto err_put_runtime_pm;
+ 	}
+ 
+-	/* Reset the binner overflow address/size at setup, to be sure
+-	 * we don't reuse an old one.
+-	 */
+-	V3D_WRITE(V3D_BPOA, 0);
+-	V3D_WRITE(V3D_BPOS, 0);
+-
+ 	ret = vc4_irq_install(drm, vc4->irq);
+ 	if (ret) {
+ 		DRM_ERROR("Failed to install IRQ handler\n");
+-- 
+2.45.2
+
