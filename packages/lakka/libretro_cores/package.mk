@@ -41,6 +41,7 @@ LIBRETRO_CORES="\
                 daphne \
                 desmume \
                 desmume_2015 \
+                dice \
                 dinothawr \
                 dirksimple \
                 dolphin \
