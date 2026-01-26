@@ -5,11 +5,10 @@
 
 PKG_NAME="vdr"
 PKG_VERSION="2.7.8"
-PKG_SHA256="7ac5fec93114c193caff697d37c50c7dd4d7fe2c35e57114a2551c5f008caf7f"
+PKG_SHA256="c1417b486b99356856764ad51d67d7ae157dd7d82398487f9776269c99973c88"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.tvdr.de"
-PKG_URL="http://git.tvdr.de/?p=vdr.git;a=snapshot;h=refs/tags/${PKG_VERSION};sf=tbz2"
-PKG_SOURCE_NAME="${PKG_NAME}-${PKG_VERSION}.tar.bz2"
+PKG_URL="https://github.com/vdr-projects/vdr/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain bzip2 fontconfig freetype libcap libiconv libjpeg-turbo"
 PKG_LONGDESC="A DVB TV server application."
 PKG_TOOLCHAIN="manual"
