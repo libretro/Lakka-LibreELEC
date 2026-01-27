@@ -53,8 +53,8 @@ makeinstall_target() {
 
   mkdir -p ${INSTALL}/usr/share/egl/egl_external_platform.d
     cp -p 15_nvidia_gbm.json          ${INSTALL}/usr/share/egl/egl_external_platform.d
-    cp -p libnvidia-egl-gbm.so.1.1.2  ${INSTALL}/usr/lib
-    ln -sf libnvidia-egl-gbm.so.1.1.2 ${INSTALL}/usr/lib/libnvidia-egl-gbm.so.1
+    cp -p libnvidia-egl-gbm.so.1.1.3  ${INSTALL}/usr/lib
+    ln -sf libnvidia-egl-gbm.so.1.1.3 ${INSTALL}/usr/lib/libnvidia-egl-gbm.so.1
     ln -sf libnvidia-egl-gbm.so.1     ${INSTALL}/usr/lib/libnvidia-egl-gbm.so
 
   # GLVND
