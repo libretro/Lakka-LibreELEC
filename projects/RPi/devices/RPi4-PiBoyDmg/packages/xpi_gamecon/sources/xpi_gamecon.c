@@ -3,6 +3,7 @@
 #include <linux/of.h>
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/version.h>
 
 #include <asm/io.h>
 
@@ -41,6 +42,14 @@ volatile int stat_val = 0;
 volatile int vol_val = 0;
 
 struct kobject *kobj_ref;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
+#define del_timer timer_delete
+#endif
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0)
+#define from_timer timer_container_of
+#endif
 
 #define GC_LENGTH 12
 
