@@ -5,7 +5,7 @@
 
 PKG_NAME="pcscd"
 PKG_VERSION="1.0"
-PKG_REV="5"
+PKG_REV="6"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://libreelec.tv"
