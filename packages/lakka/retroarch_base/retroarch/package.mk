@@ -42,7 +42,7 @@ fi
 if [ "${OPENGLES_SUPPORT}" = yes ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles"
-  if [ "${DEVICE:0:4}" =  "RPi4" ] || [ "${DEVICE:0:4}" = "RPi5" ] || [ "${DEVICE}" = "RK3288" ] || [ "${DEVICE}" = "RK3399" ] || [ "${PROJECT}" = "Generic" ] || [ "${DEVICE}" = "Odin" ]; then
+  if [ "${DEVICE:0:4}" =  "RPi4" ] || [ "${DEVICE:0:4}" = "RPi5" ] || [ "${DEVICE}" = "RK3288" ] || [ "${DEVICE}" = "RK3399" ] || [ "${DEVICE:0:4}" = "RK35" ] || [ "${PROJECT}" = "Generic" ] || [ "${DEVICE}" = "Odin" ]; then
     PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles3 \
                                  --enable-opengles3_1"
     if [ "${PROJECT}" = "Generic" ]; then
