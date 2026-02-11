@@ -2,7 +2,7 @@
 # Copyright (C) 2022-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="aspnet8-runtime"
-PKG_VERSION="8.0.23"
+PKG_VERSION="8.0.24"
 PKG_LICENSE="MIT"
 PKG_SITE="https://dotnet.microsoft.com/"
 PKG_DEPENDS_TARGET="toolchain"
@@ -11,16 +11,16 @@ PKG_TOOLCHAIN="manual"
 
 case "${ARCH}" in
   "aarch64")
-    PKG_SHA256="b7b0ce6b3cb802aee04ac03ccc978b12a1b1d22a1b66a40d701ed43d35724a81"
-    PKG_URL="https://builds.dotnet.microsoft.com/dotnet/aspnetcore/Runtime/8.0.23/aspnetcore-runtime-8.0.23-linux-arm64.tar.gz"
+    PKG_SHA256="c2aa016ceb675b4c4c4f76e97803912eee9443aae13ba62b7993248be8da20d2"
+    PKG_URL="https://builds.dotnet.microsoft.com/dotnet/aspnetcore/Runtime/8.0.24/aspnetcore-runtime-8.0.24-linux-arm64.tar.gz"
     ;;
   "arm")
-    PKG_SHA256="c4b3b74abafc2e2e0a41fbc46ca4673dca1cd1ceea4c786e8fb14c13d9bd9d5a"
-    PKG_URL="https://builds.dotnet.microsoft.com/dotnet/aspnetcore/Runtime/8.0.23/aspnetcore-runtime-8.0.23-linux-arm.tar.gz"
+    PKG_SHA256="0c88c1e201612897c0ee472008175d3b3af5e7f019e648a45f2e984cfd4ab217"
+    PKG_URL="https://builds.dotnet.microsoft.com/dotnet/aspnetcore/Runtime/8.0.24/aspnetcore-runtime-8.0.24-linux-arm.tar.gz"
     ;;
   "x86_64")
-    PKG_SHA256="c456d2166defbf3c13372c54b0f2a6934da98279474ea7410115d7a5090f2204"
-    PKG_URL="https://builds.dotnet.microsoft.com/dotnet/aspnetcore/Runtime/8.0.23/aspnetcore-runtime-8.0.23-linux-x64.tar.gz"
+    PKG_SHA256="de0b93f2022478badc02d5cfdc733f15cb5334954605fadaddb30d5edbec51ce"
+    PKG_URL="https://builds.dotnet.microsoft.com/dotnet/aspnetcore/Runtime/8.0.24/aspnetcore-runtime-8.0.24-linux-x64.tar.gz"
     ;;
 esac
 PKG_SOURCE_NAME="aspnetcore-runtime_${PKG_VERSION}_${ARCH}.tar.gz"
