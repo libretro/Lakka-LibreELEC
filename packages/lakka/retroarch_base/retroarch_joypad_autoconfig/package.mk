@@ -19,5 +19,11 @@ makeinstall_target() {
   #Place Working configs
   cp -Prv ${PKG_DIR}/joypad_configs/* ${INSTALL}/etc/retroarch-joypad-autoconfig/
 
+  if [ "${DEVICE}" = "RK3326" ]; then
+    # remove upstream OLD configs for ODROID-GO Advance Black Edition
+    rm -v "${INSTALL}/etc/retroarch-joypad-autoconfig/udev/go_advance_gamepad_v11.cfg"
+    # remove upstream OLD configs for ODROID-GO Super
+    rm -v "${INSTALL}/etc/retroarch-joypad-autoconfig/udev/go_super_gamepad.cfg"
+  fi
 }
 

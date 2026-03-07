@@ -9,10 +9,6 @@ PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="-C libretro/"
 
-if [ "${DEVICE}" = "OdroidGoAdvance" ]; then
-  PKG_MAKE_OPTS_TARGET+=" platform=classic_armv8_a35"
-fi
-
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
     cp -v libretro/snes9x_libretro.so ${INSTALL}/usr/lib/libretro/

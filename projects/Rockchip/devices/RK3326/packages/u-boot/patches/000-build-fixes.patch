@@ -1,0 +1,102 @@
+diff -rupN u-boot.orig/Makefile u-boot/Makefile
+--- u-boot.orig/Makefile	2023-12-28 14:42:41.202046205 +0000
++++ u-boot/Makefile	2023-12-28 14:42:25.021569301 +0000
+@@ -605,6 +605,11 @@ ifeq ($(shell $(CONFIG_SHELL) $(srctree)
+ endif
+ 
+ KBUILD_CFLAGS += $(call cc-option,-Wno-format-nonliteral)
++KBUILD_CFLAGS += $(call cc-disable-warning, address-of-packed-member)
++KBUILD_CFLAGS += $(call cc-disable-warning, dangling-pointer)
++KBUILD_CFLAGS += $(call cc-disable-warning, address)
++KBUILD_CFLAGS += $(call cc-disable-warning, maybe-uninitialized)
++KBUILD_CFLAGS += $(call cc-disable-warning, enum-int-mismatch)
+ 
+ # turn jbsr into jsr for m68k
+ ifeq ($(ARCH),m68k)
+diff -rupN u-boot.orig/arch/arm/dts/Makefile u-boot/arch/arm/dts/Makefile
+--- u-boot.orig/arch/arm/dts/Makefile	2023-12-28 14:42:41.210046441 +0000
++++ u-boot/arch/arm/dts/Makefile	2023-12-28 14:39:14.956037945 +0000
+@@ -28,11 +28,9 @@ dtb-$(CONFIG_EXYNOS5) += exynos5250-arnd
+ 	exynos5422-odroidxu3.dtb
+ dtb-$(CONFIG_EXYNOS7420) += exynos7420-espresso7420.dtb
+ dtb-$(CONFIG_ARCH_ROCKCHIP) += \
+-	rk3036-sdk.dtb \
+ 	rk3066a-mk808.dtb \
+ 	rk3126-evb.dtb \
+ 	rk3128-evb.dtb \
+-	rk3188-radxarock.dtb \
+ 	rk3288-evb.dtb \
+ 	rk3288-fennec.dtb \
+ 	rk3288-firefly.dtb \
+@@ -46,11 +44,6 @@ dtb-$(CONFIG_ARCH_ROCKCHIP) += \
+ 	rk3288-veyron-minnie.dtb \
+ 	rk3288-vyasa.dtb \
+ 	rk3308-evb.dtb \
+-	rk3328-evb.dtb \
+-	rk3368-lion.dtb \
+-	rk3368-sheep.dtb \
+-	rk3368-geekbox.dtb \
+-	rk3368-px5-evb.dtb \
+ 	rk3399-evb.dtb \
+ 	rk3399-firefly.dtb \
+ 	rk3399-puma-ddr1333.dtb \
+diff -rupN u-boot.orig/board/rockchip/odroidgoa/odroidgoa.c u-boot/board/rockchip/odroidgoa/odroidgoa.c
+--- u-boot.orig/board/rockchip/odroidgoa/odroidgoa.c	2023-12-28 14:42:41.306049273 +0000
++++ u-boot/board/rockchip/odroidgoa/odroidgoa.c	2023-12-28 14:39:14.956037945 +0000
+@@ -21,6 +21,8 @@
+ 
+ DECLARE_GLOBAL_DATA_PTR;
+ 
++#define RUMBLE_GPIO	15 /* GPIO0_B7 */
++
+ #define ALIVE_LED_GPIO	17 /* GPIO0_C1 */
+ #define WIFI_EN_GPIO	110 /* GPIO3_B6 */
+ 
+@@ -36,6 +38,14 @@ bool is_odroidgo3(void)
+ 		return false;
+ }
+ 
++void board_rumble(void)
++{
++	gpio_request(RUMBLE_GPIO, "rumble");
++	gpio_direction_output(RUMBLE_GPIO, 0);
++	gpio_free(RUMBLE_GPIO);
++}
++
++
+ void board_alive_led(void)
+ {
+ 	gpio_request(ALIVE_LED_GPIO, "alive_led");
+@@ -160,8 +170,9 @@ int rk_board_late_init(void)
+ 	if (is_odroidgo3())
+ 		disp_offs = 9;
+ 
++	board_rumble();
+ 	/* turn on blue led */
+-	board_alive_led();
++	//board_alive_led();
+ 
+ 	/* set wifi_en as default high */
+ 	if (!is_odroidgo3())
+diff -rupN u-boot.orig/scripts/dtc/dtc-lexer.l u-boot/scripts/dtc/dtc-lexer.l
+--- u-boot.orig/scripts/dtc/dtc-lexer.l	2023-12-28 14:42:41.414052459 +0000
++++ u-boot/scripts/dtc/dtc-lexer.l	2023-12-28 14:39:14.956037945 +0000
+@@ -38,7 +38,6 @@ LINECOMMENT	"//".*\n
+ #include "srcpos.h"
+ #include "dtc-parser.tab.h"
+ 
+-YYLTYPE yylloc;
+ extern bool treesource_error;
+ 
+ /* CAUTION: this will stop working if we ever use yyless() or yyunput() */
+diff -rupN u-boot.orig/scripts/dtc/dtc-lexer.lex.c_shipped u-boot/scripts/dtc/dtc-lexer.lex.c_shipped
+--- u-boot.orig/scripts/dtc/dtc-lexer.lex.c_shipped	2023-12-28 14:42:41.414052459 +0000
++++ u-boot/scripts/dtc/dtc-lexer.lex.c_shipped	2023-12-28 14:39:14.956037945 +0000
+@@ -631,7 +631,6 @@ char *yytext;
+ #include "srcpos.h"
+ #include "dtc-parser.tab.h"
+ 
+-YYLTYPE yylloc;
+ extern bool treesource_error;
+ 
+ /* CAUTION: this will stop working if we ever use yyless() or yyunput() */

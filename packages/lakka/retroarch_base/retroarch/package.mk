@@ -42,7 +42,7 @@ fi
 if [ "${OPENGLES_SUPPORT}" = yes ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles"
-  if [ "${DEVICE:0:4}" =  "RPi4" ] || [ "${DEVICE:0:4}" = "RPi5" ] || [ "${DEVICE}" = "RK3288" ] || [ "${DEVICE}" = "RK3399" ] || [ "${DEVICE:0:4}" = "RK35" ] || [ "${PROJECT}" = "Generic" ] || [ "${DEVICE}" = "Odin" ]; then
+  if [ "${DEVICE:0:4}" =  "RPi4" ] || [ "${DEVICE:0:4}" = "RPi5" ] || [ "${DEVICE}" = "RK3288" ] || [ "${DEVICE}" = "RK3326" ] || [ "${DEVICE}" = "RK3399" ] || [ "${DEVICE:0:4}" = "RK35" ] || [ "${PROJECT}" = "Generic" ] || [ "${DEVICE}" = "Odin" ]; then
     PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles3 \
                                  --enable-opengles3_1"
     if [ "${PROJECT}" = "Generic" ]; then
@@ -108,7 +108,7 @@ if [[ "${TARGET_FPU}" =~ "neon" ]]; then
   fi
 fi
 
-if [ "${DEVICE}" = "OdroidGoAdvance" ]; then
+if [ "${DEVICE}" = "RK3326" ]; then
   PKG_DEPENDS_TARGET+=" librga"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-odroidgo2"
 fi
@@ -183,7 +183,7 @@ makeinstall_target() {
   # Power settings
   # Use ondemand for all RPi devices (for backwards compatibility?)
   # and any battery powered device (OGA and RPi case)
-  if [ "${PROJECT}" = "RPi" ] || [ "${DEVICE}" = "OdroidGoAdvance" ]; then
+  if [ "${PROJECT}" = "RPi" ] || [ "${DEVICE}" = "RK3326" ]; then
     sed -i ${ra_config} -e 's|^cpu_main_gov = .*|cpu_main_gov = "ondemand"|'
     sed -i ${ra_config} -e 's|^cpu_menu_gov = .*|cpu_menu_gov = "ondemand"|'
     sed -i ${ra_config} -e 's|^cpu_scaling_mode = .*|cpu_scaling_mode = "1"|'
@@ -194,9 +194,10 @@ makeinstall_target() {
     sed -i ${ra_config} -e 's|^audio_out_rate = .*|audio_out_rate = "44100"|'
   fi
 
-  # OdroidGoAdvance
-  if [ "${DEVICE}" = "OdroidGoAdvance" ]; then
+  # RK3326 - HARDKERNEL OdroidGoAdvance or compatible devices
+  if [ "${DEVICE}" = "RK3326" ]; then
     sed -i ${ra_config} -e 's|^xmb_layout = .*|xmb_layout = "2"|'
+    sed -i ${ra_config} -e 's|^input_menu_toggle_gamepad_combo = .*|input_menu_toggle_gamepad_combo = "4"|'
     sed -i ${ra_config} -e 's|^menu_widget_scale_auto = .*|menu_widget_scale_auto = "false"|'
     sed -i ${ra_config} -e 's|^menu_widget_scale_factor = .*|menu_widget_scale_factor = "2.250000"|'
   fi

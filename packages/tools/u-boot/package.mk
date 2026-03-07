@@ -24,6 +24,10 @@ fi
 PKG_NEED_UNPACK="${PROJECT_DIR}/${PROJECT}/bootloader"
 [ -n "${DEVICE}" ] && PKG_NEED_UNPACK+=" ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/bootloader"
 
+if [ "${PROJECT}" = "Rockchip" -a "${DEVICE}" != "RK3326" ]; then
+  PKG_PATCH_DIRS="default"
+fi
+
 post_patch() {
   if [ -n "${UBOOT_SYSTEM}" ] && find_file_path bootloader/config; then
     PKG_CONFIG_FILE="${PKG_BUILD}/configs/$(${ROOT}/${SCRIPTS}/uboot_helper ${PROJECT} ${DEVICE} ${UBOOT_SYSTEM} config)"

@@ -56,7 +56,7 @@ elif [ "${DISPLAYSERVER}" = "wl" ]; then
   PKG_MESON_OPTS_TARGET+=" -Dplatforms=wayland \
                            -Dglx=disabled"
   # melonds, vircon32 and vitaquake2 cores on wayland need opengl headers that is contained in libglvnd
-  if [ "${DISTRO}" = "Lakka" -a "${DEVICE:0:4}" = "RK35" ]; then
+  if [ "${DISTRO}" = "Lakka" ] && [ "${DEVICE}" = "RK3326" -o "${DEVICE:0:4}" = "RK35" ]; then
     PKG_DEPENDS_TARGET+=" libglvnd"
     PKG_MESON_OPTS_TARGET+=" -Dglvnd=true"
   fi

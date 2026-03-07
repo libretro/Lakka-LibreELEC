@@ -3,6 +3,9 @@
 
 PKG_RKBIN="$(get_build_dir rkbin)"
 PKG_SOC="${DEVICE/RK/rk}"
+if [ "${DEVICE}" = "RK3326" ]; then
+  PKG_SOC="px30"
+fi
 
 if [ "$(uname -m)" != "x86_64" ]; then
   QEMU="qemu-x86_64 -L /usr/x86_64-linux-gnu/"
@@ -24,8 +27,17 @@ if [ "${ROCKCHIP_LEGACY_BOOT}" = "1" ]; then
 
   PKG_MINILOADER="${PKG_RKBIN}"/$(sed -n "/FlashBoot/s/FlashBoot=//p" "${PKG_BOOT_INI}")
   PKG_LOAD_ADDR=$(sed -n "/CONFIG_TEXT_BASE/s/#define CONFIG_TEXT_BASE //p" u-boot.cfg)
+  if [ "${DEVICE}" = "RK3326" ]; then
+    PKG_LOAD_ADDR="0x00200000"
+  fi
 
-  tools/mkimage -n "${PKG_SOC}" -T rksd -d "${ROCKCHIP_TPL}:${PKG_MINILOADER}" idbloader.img.rk || exit 1
+  if [ "${DEVICE}" = "RK3326" ]; then
+    PKG_DATAFILE="${PKG_RKBIN}"/$(sed -n "/FlashData/s/FlashData=//p" "${PKG_BOOT_INI}")
+    tools/mkimage -n "${PKG_SOC}" -T rksd -d "${PKG_DATAFILE}" idbloader.img.rk || exit 1
+    cat "${PKG_MINILOADER}" >> idbloader.img.rk
+  else
+    tools/mkimage -n "${PKG_SOC}" -T rksd -d "${ROCKCHIP_TPL}:${PKG_MINILOADER}" idbloader.img.rk || exit 1
+  fi
   ${QEMU} ${PKG_RKBIN}/tools/loaderimage --pack --uboot u-boot-dtb.bin uboot.img.rk "${PKG_LOAD_ADDR}" || exit 1
 
   dd if=idbloader.img.rk of="${UBOOT_FIT_IMAGE}" seek=0 conv=fsync,notrunc > /dev/null 2>&1 || exit 1
@@ -36,6 +48,10 @@ if [ "${ROCKCHIP_LEGACY_BOOT}" = "1" ]; then
     if [ ! -f "${PKG_ATF_INI}" ]; then
       echo "install: ${PKG_ATF_INI} does not exist"
       exit 1
+    fi
+    if [ "${DEVICE}" = "RK3326" ]; then
+      sed -e 's|ADDR=0x00040000|ADDR=0x00010000|' \
+          -i "${PKG_ATF_INI}"
     fi
 
     ${QEMU} "${PKG_RKBIN}/tools/trust_merger" --ignore-bl32 --prepath "${PKG_RKBIN}/" "${PKG_ATF_INI}" || exit 1
@@ -48,4 +64,11 @@ if [ -f "${UBOOT_FIT_IMAGE}" ]; then
 else
   echo "install: bootloader ${UBOOT_FIT_IMAGE} was not built."
   exit 1
+fi
+
+if [ "${DEVICE}" = "RK3326" ]; then
+  # Install boot.ini if it exists
+  if find_file_path "bootloader/boot.ini"; then
+    cp -av "${FOUND_PATH}" "${INSTALL}/usr/share/bootloader/boot.ini"
+  fi
 fi
