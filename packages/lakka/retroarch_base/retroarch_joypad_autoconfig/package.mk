@@ -20,10 +20,23 @@ makeinstall_target() {
   cp -Prv ${PKG_DIR}/joypad_configs/* ${INSTALL}/etc/retroarch-joypad-autoconfig/
 
   if [ "${DEVICE}" = "RK3326" ]; then
+    # remove upstream OLD configs for ODROID-GO Advance
+    rm -v "${INSTALL}/etc/retroarch-joypad-autoconfig/udev/go_advance_gamepad.cfg"
+    rm -v "${INSTALL}/etc/retroarch-joypad-autoconfig/udev/odroidgo2_joypad.cfg"
     # remove upstream OLD configs for ODROID-GO Advance Black Edition
     rm -v "${INSTALL}/etc/retroarch-joypad-autoconfig/udev/go_advance_gamepad_v11.cfg"
+    rm -v "${INSTALL}/etc/retroarch-joypad-autoconfig/udev/odroidgo2_joypad_v11.cfg"
     # remove upstream OLD configs for ODROID-GO Super
     rm -v "${INSTALL}/etc/retroarch-joypad-autoconfig/udev/go_super_gamepad.cfg"
+    rm -v "${INSTALL}/etc/retroarch-joypad-autoconfig/udev/odroidgo3_joypad.cfg"
+
+    # workaround sha256sum warnings
+    mv -v "${INSTALL}/etc/retroarch-joypad-autoconfig/udev/GO-Advance_Gamepad.cfg" \
+          "${INSTALL}/etc/retroarch-joypad-autoconfig/udev/GO-Advance Gamepad.cfg"
+    mv -v "${INSTALL}/etc/retroarch-joypad-autoconfig/udev/GO-Advance_Gamepad_(rev_1.1).cfg" \
+          "${INSTALL}/etc/retroarch-joypad-autoconfig/udev/GO-Advance Gamepad (rev 1.1).cfg"
+    mv -v "${INSTALL}/etc/retroarch-joypad-autoconfig/udev/GO-Super_Gamepad.cfg" \
+          "${INSTALL}/etc/retroarch-joypad-autoconfig/udev/GO-Super Gamepad.cfg"
   fi
 }
 
