@@ -29,5 +29,9 @@ fi
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
-    cp -v bin/Release/azahar_libretro.so ${INSTALL}/usr/lib/libretro/
+    if [ "${DEBUG}" = "yes" ]; then
+      cp -v bin/Debug/azahar_libretro.so ${INSTALL}/usr/lib/libretro/
+    else
+      cp -v bin/Release/azahar_libretro.so ${INSTALL}/usr/lib/libretro/
+    fi
 }
