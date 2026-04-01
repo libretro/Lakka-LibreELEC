@@ -1,5 +1,5 @@
 PKG_NAME="freeintv"
-PKG_VERSION="d29846b67e948e7e2bfe33fe3580cd12e71871c6"
+PKG_VERSION="9b66d2b3c3406659b2fdfaade7a80f3e62772815"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/FreeIntv"
 PKG_URL="${PKG_SITE}.git"
@@ -9,5 +9,5 @@ PKG_TOOLCHAIN="make"
 
 makeinstall_target() {
   mkdir -p "${INSTALL}/usr/lib/libretro"
-    cp -v FreeIntv_libretro.so "${INSTALL}/usr/lib/libretro/"
+    cp -v freeintv_libretro.so "${INSTALL}/usr/lib/libretro/"
 }
