@@ -1,5 +1,5 @@
 PKG_NAME="gam4980"
-PKG_VERSION="3527822a6bb73bfd336a5f91ee7a772e4e8140a7"
+PKG_VERSION="2fbed643f61c6bde758f179c93d6f0595ef0a7e6"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://codeberg.org/iyzsong/gam4980"
 PKG_URL="${PKG_SITE}.git"
