@@ -1,5 +1,5 @@
 PKG_NAME="genesis_plus_gx_wide"
-PKG_VERSION="b7d314220d755537aebb7bc1750ac21f764365c4"
+PKG_VERSION="e0f70e15c22223a0a763ff08a576d453005f0b94"
 PKG_LICENSE="Non-commercial"
 PKG_SITE="https://github.com/libretro/Genesis-Plus-GX-Wide"
 PKG_URL="${PKG_SITE}.git"
