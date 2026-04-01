@@ -1,5 +1,5 @@
 PKG_NAME="jollycv"
-PKG_VERSION="5b01c1e43f9040bfae25cc9f9dfb14d73951ec3c"
+PKG_VERSION="86f8e8607e0e36f596b911c59b04e48052953756"
 PKG_LICENSE="BSD-3-Clause"
 PKG_SITE="https://github.com/libretro/jollycv"
 PKG_URL="${PKG_SITE}.git"
