@@ -1,5 +1,5 @@
 PKG_NAME="dirksimple"
-PKG_VERSION="a5b0ebca483cd10babe930a57e75b0e6094686fb"
+PKG_VERSION="5aea3e2951ed641908a7bd2ca09019614003b5e3"
 PKG_LICENSE="Zlib"
 PKG_SITE="https://github.com/icculus/DirkSimple"
 PKG_URL="${PKG_SITE}.git"
