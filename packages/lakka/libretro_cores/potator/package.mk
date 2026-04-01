@@ -1,5 +1,5 @@
 PKG_NAME="potator"
-PKG_VERSION="ad87bc6068ef126e48339b440465fb0bf5a2794f"
+PKG_VERSION="ea88aa8c1df764d28bc13822d161a045b3747efc"
 PKG_LICENSE="GPL3"
 PKG_SITE="https://github.com/libretro/potator"
 PKG_URL="${PKG_SITE}.git"
