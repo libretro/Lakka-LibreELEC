@@ -1,5 +1,5 @@
 PKG_NAME="fbalpha2012"
-PKG_VERSION="c547d8cf3f7748f4094cee658a5d31ec1b79ece4"
+PKG_VERSION="15af60bf24e3dc2267a38e3c8532450ebec86317"
 PKG_LICENSE="Non-commercial"
 PKG_SITE="https://github.com/libretro/fbalpha2012"
 PKG_URL="${PKG_SITE}.git"
