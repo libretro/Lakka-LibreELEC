@@ -1,5 +1,5 @@
 PKG_NAME="noods"
-PKG_VERSION="b0f658cca2f3a6a6a6166a8c893020432f79f971"
+PKG_VERSION="aae9dc6e5ae0d9187e8dea4b74e529a8e9c8b1d3"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/jonian/libretro-noods"
 PKG_URL="${PKG_SITE}.git"
