@@ -1,5 +1,5 @@
 PKG_NAME="puae2021"
-PKG_VERSION="58527ce9e8cc5f19faae9e6010d2f06fc70b10de"
+PKG_VERSION="e172ed7927c19a06d6626800d6ec82db2b853e4c"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/libretro/libretro-uae"
 PKG_URL="${PKG_SITE}.git"
