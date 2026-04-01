@@ -1,5 +1,5 @@
 PKG_NAME="doukutsu_rs"
-PKG_VERSION="9eca63d36dda3d28ad731092ce3507e42f88275b"
+PKG_VERSION="2e6504e46179561869e976a22f73d8ebb65a7d5c"
 PKG_LICENSE="MIT"
 PKG_ARCH="any !i386"
 PKG_SITE="https://github.com/DrGlaucous/doukutsu-rs-libretro"
