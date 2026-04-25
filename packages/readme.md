@@ -59,7 +59,7 @@ To control the build behaviour of your package, use variables in the top-down or
 #### Make Options
 | Variable    | Default | Required |Description |
 |-------------|---------|----------|------------|
-| PKG_MAKE_OPTS<br>PKG_MAKE_OPTS_BOOTSTRP<br>PKG_MAKE_OPTS_HOST<br>PKG_MAKE_OPTS_INIT<br> PKG_MAKE_OPTS_TARGET | - | no | Options directly passed to make in the build step
+| PKG_MAKE_OPTS<br>PKG_MAKE_OPTS_BOOTSTRAP<br>PKG_MAKE_OPTS_HOST<br>PKG_MAKE_OPTS_INIT<br> PKG_MAKE_OPTS_TARGET | - | no | Options directly passed to make in the build step
 | PKG_MAKEINSTALL_OPTS_HOST<br>PKG_MAKEINSTALL_OPTS_TARGET | - | no | Options directly passed to make in the install step
 
 #### Addons
@@ -128,7 +128,7 @@ Set the variable `PKG_BUILD_FLAGS` in the `package.mk` to enable/disable the sin
 | lto-off  | disabled | target, init      | explicitly disable LTO in the compiler and linker |
 | bfd      | - | target, init | `+bfd` prefers bfd linker over default linker, `-bfd` disables using bfd |
 | gold     | - | target, init | `+gold` prefers gold linker over default linker, `-gold` disables using gold |
-| mold     | - | target, init | `+mold` prefers mold linker over default linker, `-mold` disables using gold |
+| mold     | - | target, init | `+mold` prefers mold linker over default linker, `-mold` disables using mold |
 | parallel | enabled  | all | `make` or `ninja` builds with multiple threads/processes (or not) |
 | strip    | enabled  | target | strips executables (or not) |
 | sysroot  | enabled  | target | installs the package to the sysroot folder (or not) |
@@ -144,11 +144,11 @@ PKG_BUILD_FLAGS="-parallel"
 All build steps in the LibreELEC build system are done by shell function.
 These functions can be overwritten in the `package.mk`. However, this raises problems when the build system is updated. To reduce the impact, most functions are extended by `pre_` and `post_` scripts to use instead.
 
-When it is nesseary to replace configure, make and makeinstall, please use `PKG_TOOLCHAIN="manual"`.
+When it is necessary to replace configure, make and makeinstall, please use `PKG_TOOLCHAIN="manual"`.
 
 Some of the build steps needs to be run once, like `unpack`. Other steps needs to be run multiple times, to create the toolchain (stage bootstrap & host) or to create the LE image (stage init & target). These stage specific functions have the stage as suffix, like `make_target`.
 
-Full list of overwrittable functions.
+Full list of overwritable functions.
 
 | function                | stages specific | description |
 |-------------------------|--------|-------------|
@@ -271,7 +271,7 @@ Issue | Level | Meaning |
     * new kernel driver
     * ...
 2. Find a place in the packages tree
-    * look into the package tree structure, which is generally self explanitory.
+    * look into the package tree structure, which is generally self explanatory.
     * do not place it in an existing package (directory that includes a `package.mk`)
     * when you found a place, create a directory with the name of your package (use same value for `PKG_NAME`!!)
 3. Create an initial `package.mk`

@@ -10,7 +10,7 @@ import sys
 
 try:
   from lxml import html
-except:
+except Exception:
   print('lxml module not installed.\n\nOn Ubuntu, use "sudo apt install python3-lxml"')
   sys.exit(1)
 

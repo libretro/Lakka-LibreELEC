@@ -23,7 +23,7 @@ if __name__ == "__main__":
       try:
          ADDON.openSettings(id)
          ADDON.setSetting('RSYSLOG_WIZARD', 'false')
-      except:
+      except Exception:
          pass
 
    Monitor().waitForAbort()
