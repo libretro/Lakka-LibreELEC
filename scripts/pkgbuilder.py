@@ -44,7 +44,7 @@ def rusage_run(*popenargs, parent=None, timeout=None, **kwargs):
             process.kill()
             process.wait()
             raise
-        except:
+        except Exception:
             process.kill()
             raise
         retcode = process.poll()
@@ -273,7 +273,7 @@ class BuildProcess(threading.Thread):
             try:
                 os.killpg(os.getpgid(self.child.pid), signal.SIGTERM)
                 self.child.wait()
-            except:
+            except Exception:
                 pass
 
     def isActive(self):
