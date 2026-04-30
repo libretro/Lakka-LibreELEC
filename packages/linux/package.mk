@@ -60,6 +60,12 @@ case "${LINUX}" in
     PKG_PATCH_DIRS="ayn-odin"
     PKG_GIT_CLONE_BRANCH="sdm845-5.19.16"
     ;;
+  samsung)
+    PKG_VERSION="6.15.11"
+    PKG_SHA256="89ab469fc35bd9cbc6c5bf4e5cb802581806d5cbc14fb47e5c9edcc477e65d93"
+    PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+    PKG_PATCH_DIRS="default"
+    ;;
   *)
     PKG_VERSION="6.18.19"
     PKG_SHA256="eaaf78271cd07c68ad9c4c9a70c72718b33abbd716239d82bac96b1751eb090c"
