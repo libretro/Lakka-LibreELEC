@@ -12,8 +12,10 @@ LIBRETRO_CORES="\
                 amiarcadia \
                 amiberry \
                 anarch \
+                applewin \
                 ardens \
                 atari800 \
+                azahar \
                 b2 \
                 beetle_bsnes \
                 beetle_lynx \
@@ -31,6 +33,7 @@ LIBRETRO_CORES="\
                 bluemsx \
                 bnes \
                 boom3 \
+                boytacean \
                 bsnes \
                 bsnes2014 \
                 bsnes_hd \
@@ -87,6 +90,7 @@ LIBRETRO_CORES="\
                 higan_sfc \
                 higan_sfc_balanced \
                 jaxe \
+                jollycv \
                 jumpnbump \
                 kronos \
                 lowres_nx \
@@ -140,6 +144,7 @@ LIBRETRO_CORES="\
                 race \
                 reminiscence \
                 retro8 \
+                rustation_ng \
                 same_cdi \
                 sameboy \
                 sameduck \
