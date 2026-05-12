@@ -21,11 +21,6 @@ Below you can find all supported keys and their defaults.
 
 ================================================================================
 
-[r2p_action=self]
- self:       Reboots to self. [Default]
- bootloader: Reboots to bootloader menu.
- normal:     Reboots with no config. Allows default auto boot to be used. 
-
 [usb3_enable=0]
  1: Enable  USB3 support.
  Enabling it can dramatically decrease WiFi 2.4GHz and Bluetooth signal quality.
