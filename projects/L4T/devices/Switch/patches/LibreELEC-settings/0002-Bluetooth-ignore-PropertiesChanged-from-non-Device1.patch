@@ -1,0 +1,105 @@
+From 9cac8d08ccdc2e6de4fb181a32271a7170fa8613 Mon Sep 17 00:00:00 2001
+From: p <p@l>
+Date: Fri, 15 May 2026 19:20:28 +0000
+Subject: [PATCH 2/2] Bluetooth: ignore PropertiesChanged from non-Device1
+ interfaces
+
+BlueZ emits PropertiesChanged at every object under /org/bluez and on
+every interface that object hosts. For a paired audio device that is
+currently streaming, the busiest emitters are:
+
+  - org.bluez.MediaTransport1 on /org/bluez/.../fdN (or sepN/fdN)
+    -- Volume, Delay, State updates from the audio server. PulseAudio
+    and PipeWire poke these multiple times per second.
+  - org.bluez.MediaPlayer1 on /org/bluez/.../playerN
+    -- track/position/status metadata.
+  - org.bluez.MediaControl1, GattCharacteristic1, Battery1, ...
+
+The settings UI only renders org.bluez.Device1 properties (Paired,
+Connected, etc.), so signals from any other interface are pure noise.
+Worse, transport / player / GATT / battery paths are never present in
+self.parent.listItems (which is keyed by device path), so every such
+signal previously hit the else branch and called discover_devices() --
+a full BlueZ ObjectManager.GetManagedObjects re-enumeration plus a UI
+list rebuild. Under active audio the addon issued these enumerations
+several times per second, which froze the settings window.
+
+Filter on interface == org.bluez.Device1 at the top of the handler.
+The defensive discover_devices() fallback is kept for the rare case
+of a Device1 PropertiesChanged arriving before InterfacesAdded for
+that path.
+
+Combined with the earlier dbus_bluez Listener scoping fix
+(path_namespace='/org/bluez' instead of '/'), the addon now does
+zero work for every signal source that isn't directly relevant to
+the UI it's rendering.
+---
+ resources/lib/modules/bluetooth.py | 52 +++++++++++++++++++++---------
+ 1 file changed, 36 insertions(+), 16 deletions(-)
+
+diff --git a/resources/lib/modules/bluetooth.py b/resources/lib/modules/bluetooth.py
+index 0c3e632..ec53083 100644
+--- a/resources/lib/modules/bluetooth.py
++++ b/resources/lib/modules/bluetooth.py
+@@ -508,22 +508,42 @@ class Bluez_Listener(dbus_bluez.Listener):
+ 
+     @log.log_function()
+     def on_properties_changed(self, interface, changed, invalidated, path):
+-        if self.parent.visible:
+-            properties = [
+-                'Paired',
+-                'Adapter',
+-                'Connected',
+-                'Address',
+-                'Class',
+-                'Trusted',
+-                'Icon',
+-                ]
+-            if path in self.parent.listItems:
+-                for prop in changed:
+-                    if prop in properties:
+-                        self.parent.listItems[path].setProperty(str(prop), str(changed[prop]))
+-            else:
+-                self.parent.discover_devices()
++        if not self.parent.visible:
++            return
++
++        # BlueZ emits PropertiesChanged for every interface on every object
++        # under /org/bluez: org.bluez.Device1, org.bluez.Adapter1,
++        # org.bluez.MediaTransport1 (on /org/bluez/.../fdN), MediaControl1,
++        # MediaPlayer1, GattCharacteristic1, Battery1, ... The settings UI
++        # only renders org.bluez.Device1 properties, so signals from any
++        # other interface are noise. Filter them out here -- this matters
++        # because audio servers (PulseAudio, PipeWire) emit MediaTransport1
++        # Volume/Delay/State updates many times per second while audio is
++        # streaming, and without this filter every burst caused a full
++        # BlueZ ObjectManager.GetManagedObjects re-enumeration in the
++        # discover_devices() fallback below.
++        if interface != dbus_bluez.INTERFACE_DEVICE:
++            return
++
++        properties = [
++            'Paired',
++            'Adapter',
++            'Connected',
++            'Address',
++            'Class',
++            'Trusted',
++            'Icon',
++            ]
++        if path in self.parent.listItems:
++            for prop in changed:
++                if prop in properties:
++                    self.parent.listItems[path].setProperty(str(prop), str(changed[prop]))
++        else:
++            # Unknown Device1 path -- new devices normally arrive via
++            # on_interfaces_added, this is a defensive fallback for the
++            # rare race where a Device1 PropertiesChanged is dispatched
++            # before the corresponding InterfacesAdded.
++            self.parent.discover_devices()
+ 
+ 
+ ####################################################################
+-- 
+2.43.0
+
