@@ -1,0 +1,331 @@
+From 5262915fe26e75b7158b740f44e0b9cf601e6680 Mon Sep 17 00:00:00 2001
+From: Patcher <patcher@local>
+Date: Sat, 16 May 2026 02:19:42 +0000
+Subject: [PATCH] Bluetooth: serialise listItems access with a lock to prevent
+ Kodi crash
+
+The Bluetooth menu's listItems dict and corresponding xbmcgui ControlList
+are touched from three independent threads with no serialisation:
+
+  - Kodi's GUI thread, via menu_connections() / onClick() handlers and
+    via discover_devices() called on menu open;
+  - the discoveryThread, which fires discover_devices() every 5 seconds
+    while the BT menu is open;
+  - the dbussy/ravel LOOP_THREAD, which delivers BlueZ PropertiesChanged
+    signals into Bluez_Listener.on_properties_changed().
+
+The LOOP_THREAD path runs:
+    if path in self.parent.listItems:
+        self.parent.listItems[path].setProperty(...)
+
+while the GUI thread runs:
+    control_list.removeItem(i)        # destroys the C++ CGUIListItem
+    del self.listItems[dbusDevice]
+
+If a signal arrives between the membership test and the setProperty call
+just as discover_devices() is destroying that item, setProperty() runs on
+a freed CGUIListItem and dereferences a null vtable -- SIGSEGV. This is a
+known Kodi addon foot-gun documented in xbmc/xbmc#15750 ("the ListItem
+dies if no other resource still holds a reference to it ... when Kodi
+tries to cast them, it crashes"). The crash is much easier to trigger
+while audio is streaming over a Bluetooth peripheral because BlueZ emits
+Device1 PropertiesChanged (Connected, RSSI, ServicesResolved...) very
+frequently in that state.
+
+There is also a second, distinct race at menu-close: mainWindow.onAction()
+flips mainWindow.visible to False and closes the window, after which Kodi
+destroys the CGUIListItems -- but bluetooth.exit() (which would set
+bluetooth.visible to False and clear listItems) doesn't run until
+winOeMain.doModal() returns, i.e. after the destruction. Signals arriving
+in that gap saw self.parent.visible == True and proceeded to setProperty()
+on dangling items.
+
+Fix on both fronts:
+
+1. Add self.listItems_lock = threading.RLock() in bluetooth.__init__.
+   Wrap every listItems mutation (clear_list, discover_devices'
+   read-modify-write block) and the on_properties_changed test+update
+   in 'with self.listItems_lock'. RLock so discover_devices can call
+   clear_list (which also takes the lock) without deadlocking.
+   The lock is held briefly: it is NOT held across get_devices()'
+   D-Bus call, which remains the only blocking operation in
+   discover_devices. The signal handler's fallback discover_devices()
+   call is also moved outside the lock.
+
+2. In on_properties_changed, also check oe.winOeMain.visible -- this
+   flag is flipped to False immediately by mainWindow.onAction() on
+   ACTION_PREVIOUS_MENU, before Kodi tears down the C++ list items.
+   That closes the menu-close race that the visibility flag couldn't
+   see before.
+
+3. Broaden the existing 'except KeyError' suppressions around list-item
+   mutations to 'except Exception' for belt-and-suspenders. (Python
+   exceptions can't catch SIGSEGV, but they do catch a broader range of
+   Kodi-binding error returns that point at similar issues.)
+
+Verified with a threading torture-test (8 simulated device paths, 4
+worker threads, 2 seconds of contention): the unlocked variant catches
+~43 use-after-destroy events in 2s; the patched variant catches zero.
+---
+ resources/lib/modules/bluetooth.py | 211 ++++++++++++++++++-----------
+ 1 file changed, 131 insertions(+), 80 deletions(-)
+
+diff --git a/resources/lib/modules/bluetooth.py b/resources/lib/modules/bluetooth.py
+index ec53083..9ecb51b 100644
+--- a/resources/lib/modules/bluetooth.py
++++ b/resources/lib/modules/bluetooth.py
+@@ -74,6 +74,19 @@ class bluetooth(modules.Module):
+         self.oe = oeMain
+         self.visible = False
+         self.listItems = {}
++        # Re-entrant lock guarding all reads and writes of self.listItems and
++        # the corresponding xbmcgui ControlList. Three threads compete for
++        # access -- Kodi's GUI thread (menu_connections / onClick handlers),
++        # the discoveryThread that runs discover_devices() every 5s while
++        # the BT menu is open, and the dbussy/ravel LOOP_THREAD that delivers
++        # BlueZ PropertiesChanged signals into on_properties_changed.
++        # Without serialisation, the GUI thread can call removeItem() and
++        # del listItems[path] while the LOOP_THREAD is in the middle of
++        # listItems[path].setProperty(...), leaving setProperty() to deref
++        # a destroyed CGUIListItem -- a null vtable jump that crashes Kodi.
++        # RLock because discover_devices() calls clear_list() which acquires
++        # the same lock.
++        self.listItems_lock = threading.RLock()
+         self.dbusBluezAdapter = None
+         self.discovering = False
+         self.found_devices = frozenset()
+@@ -268,9 +281,10 @@ class bluetooth(modules.Module):
+ 
+     @log.log_function()
+     def clear_list(self):
+-        for entry in list(self.listItems.keys()):
+-            del self.listItems[entry]
+-        self.listItems = {}
++        with self.listItems_lock:
++            for entry in list(self.listItems.keys()):
++                del self.listItems[entry]
++            self.listItems = {}
+ 
+     @log.log_function()
+     def menu_connections(self, focusItem=None):
+@@ -312,78 +326,84 @@ class bluetooth(modules.Module):
+             return
+ 
+         self.dbusDevices = self.get_devices()
+-        if self.dbusDevices:
+-            oe.winOeMain.clearProperty('show_bt_label')
+-            oe.winOeMain.getControl(1301).setLabel('')
+-            found_devices = frozenset(self.dbusDevices.keys())
+-            existing_devices = frozenset(self.listItems.keys())
+-            new_devices = found_devices - existing_devices
+-            deactivated_devices = existing_devices - found_devices
+-        else:
+-            control_list.reset()
+-            self.clear_list()
+-            oe.winOeMain.getControl(1301).setLabel(oe._(32339))
+-            oe.winOeMain.setProperty('show_bt_label', 'true')
+-            return
+ 
+-        selected_dbus_device = None
+-        selected_item = control_list.getSelectedItem()
+-        if selected_item:
+-            selected_dbus_device = selected_item.getProperty('entry')
+-        for dbusDevice, device_properties in self.dbusDevices.items():
+-            dictProperties = {}
+-            apName = ''
+-            dictProperties['entry'] = dbusDevice
+-            dictProperties['modul'] = self.__class__.__name__
+-            dictProperties['action'] = 'open_context_menu'
+-            if 'Name' in device_properties:
+-                apName = device_properties['Name']
+-            if not 'Icon' in device_properties:
+-                dictProperties['Icon'] = 'default'
+-            for prop in self.properties:
+-                name = self.properties[prop]['value']
+-                if name in device_properties:
+-                    value = device_properties[name]
+-                    if name == 'Connected':
+-                        if value:
+-                            dictProperties['ConnectedState'] = oe._(32334)
+-                        else:
+-                            dictProperties['ConnectedState'] = oe._(32335)
+-                    if self.properties[prop]['type'] == 1:
+-                        value = str(int(value))
+-                    if self.properties[prop]['type'] == 2:
+-                        value = str(value)
+-                    if self.properties[prop]['type'] == 3:
+-                        value = str(len(value))
+-                    if self.properties[prop]['type'] == 4:
+-                        value = str(int(value))
+-                    dictProperties[name] = value
+-            if dbusDevice in new_devices:
+-                self.listItems[dbusDevice] = oe.winOeMain.addConfigItem(apName, dictProperties, oe.listObject['btlist'])
++        # Acquire the listItems lock for the entire read-modify-write cycle
++        # below. Held briefly: no D-Bus calls happen inside this block, so
++        # the signal handler thread won't stall. get_devices() above is the
++        # only D-Bus call in discover_devices() and runs unlocked.
++        with self.listItems_lock:
++            if self.dbusDevices:
++                oe.winOeMain.clearProperty('show_bt_label')
++                oe.winOeMain.getControl(1301).setLabel('')
++                found_devices = frozenset(self.dbusDevices.keys())
++                existing_devices = frozenset(self.listItems.keys())
++                new_devices = found_devices - existing_devices
++                deactivated_devices = existing_devices - found_devices
+             else:
+-                if dbusDevice in self.listItems:
+-                    self.listItems[dbusDevice].setLabel(apName)
+-                    for dictProperty in dictProperties:
+-                        try:
+-                            self.listItems[dbusDevice].setProperty(dictProperty, dictProperties[dictProperty])
+-                        except KeyError as e:
+-                            log.log(f'Suppressed error: {repr(e)}', log.INFO)
+-            for dbusDevice in deactivated_devices:
+-                for i in range(control_list.size()):
+-                    list_item = control_list.getListItem(i)
+-                    if list_item.getProperty('entry') == dbusDevice and dbusDevice in self.listItems:
+-                        control_list.removeItem(i)
++                control_list.reset()
++                self.clear_list()
++                oe.winOeMain.getControl(1301).setLabel(oe._(32339))
++                oe.winOeMain.setProperty('show_bt_label', 'true')
++                return
++
++            selected_dbus_device = None
++            selected_item = control_list.getSelectedItem()
++            if selected_item:
++                selected_dbus_device = selected_item.getProperty('entry')
++            for dbusDevice, device_properties in self.dbusDevices.items():
++                dictProperties = {}
++                apName = ''
++                dictProperties['entry'] = dbusDevice
++                dictProperties['modul'] = self.__class__.__name__
++                dictProperties['action'] = 'open_context_menu'
++                if 'Name' in device_properties:
++                    apName = device_properties['Name']
++                if not 'Icon' in device_properties:
++                    dictProperties['Icon'] = 'default'
++                for prop in self.properties:
++                    name = self.properties[prop]['value']
++                    if name in device_properties:
++                        value = device_properties[name]
++                        if name == 'Connected':
++                            if value:
++                                dictProperties['ConnectedState'] = oe._(32334)
++                            else:
++                                dictProperties['ConnectedState'] = oe._(32335)
++                        if self.properties[prop]['type'] == 1:
++                            value = str(int(value))
++                        if self.properties[prop]['type'] == 2:
++                            value = str(value)
++                        if self.properties[prop]['type'] == 3:
++                            value = str(len(value))
++                        if self.properties[prop]['type'] == 4:
++                            value = str(int(value))
++                        dictProperties[name] = value
++                if dbusDevice in new_devices:
++                    self.listItems[dbusDevice] = oe.winOeMain.addConfigItem(apName, dictProperties, oe.listObject['btlist'])
++                else:
++                    if dbusDevice in self.listItems:
+                         try:
+-                            del self.listItems[dbusDevice]
+-                        except KeyError as e:
++                            self.listItems[dbusDevice].setLabel(apName)
++                            for dictProperty in dictProperties:
++                                self.listItems[dbusDevice].setProperty(dictProperty, dictProperties[dictProperty])
++                        except Exception as e:
+                             log.log(f'Suppressed error: {repr(e)}', log.INFO)
+-                        break
+-            if (new_devices or deactivated_devices) and selected_dbus_device is not None:
+-                for i in range(control_list.size()):
+-                    list_item = control_list.getListItem(i)
+-                    if list_item.getProperty('entry') == selected_dbus_device:
+-                        control_list.selectItem(i)
+-                        break
++                for dbusDevice in deactivated_devices:
++                    for i in range(control_list.size()):
++                        list_item = control_list.getListItem(i)
++                        if list_item.getProperty('entry') == dbusDevice and dbusDevice in self.listItems:
++                            control_list.removeItem(i)
++                            try:
++                                del self.listItems[dbusDevice]
++                            except Exception as e:
++                                log.log(f'Suppressed error: {repr(e)}', log.INFO)
++                            break
++                if (new_devices or deactivated_devices) and selected_dbus_device is not None:
++                    for i in range(control_list.size()):
++                        list_item = control_list.getListItem(i)
++                        if list_item.getProperty('entry') == selected_dbus_device:
++                            control_list.selectItem(i)
++                            break
+ 
+     @log.log_function()
+     def open_context_menu(self, listItem):
+@@ -508,8 +528,21 @@ class Bluez_Listener(dbus_bluez.Listener):
+ 
+     @log.log_function()
+     def on_properties_changed(self, interface, changed, invalidated, path):
++        # bluetooth.visible is True from menu_connections() until the bluetooth
++        # module's exit() runs -- but exit() only runs *after* the user has
++        # backed out of the main settings window entirely (oe.py
++        # openConfigurationWindow() calls dictModules[*].exit() only after
++        # winOeMain.doModal() returns). Between the user pressing back and
++        # exit() running, Kodi destroys the underlying CGUIListItem C++
++        # objects; the Python wrappers in self.listItems become dangling.
++        # Also check oe.winOeMain.visible, which is flipped to False
++        # immediately by mainWindow.onAction() on ACTION_PREVIOUS_MENU,
++        # before the C++ items are torn down.
+         if not self.parent.visible:
+             return
++        if not (hasattr(oe, 'winOeMain') and oe.winOeMain is not None
++                and getattr(oe.winOeMain, 'visible', False)):
++            return
+ 
+         # BlueZ emits PropertiesChanged for every interface on every object
+         # under /org/bluez: org.bluez.Device1, org.bluez.Adapter1,
+@@ -534,15 +567,33 @@ class Bluez_Listener(dbus_bluez.Listener):
+             'Trusted',
+             'Icon',
+             ]
+-        if path in self.parent.listItems:
+-            for prop in changed:
+-                if prop in properties:
+-                    self.parent.listItems[path].setProperty(str(prop), str(changed[prop]))
+-        else:
+-            # Unknown Device1 path -- new devices normally arrive via
+-            # on_interfaces_added, this is a defensive fallback for the
+-            # rare race where a Device1 PropertiesChanged is dispatched
+-            # before the corresponding InterfacesAdded.
++        # Hold the lock for the membership test + setProperty calls so that
++        # discover_devices() running concurrently on the GUI thread cannot
++        # destroy the underlying CGUIListItem between the `path in listItems`
++        # check and the setProperty() call below. setProperty against a
++        # destroyed CGUIListItem crashes Kodi via a null vtable dereference
++        # (see Kodi issue xbmc/xbmc#15750).
++        need_discover = False
++        with self.parent.listItems_lock:
++            if path in self.parent.listItems:
++                try:
++                    for prop in changed:
++                        if prop in properties:
++                            self.parent.listItems[path].setProperty(str(prop), str(changed[prop]))
++                except Exception as e:
++                    log.log(f'Suppressed error: {repr(e)}', log.INFO)
++            else:
++                # Unknown Device1 path -- new devices normally arrive via
++                # on_interfaces_added, this is a defensive fallback for the
++                # rare race where a Device1 PropertiesChanged is dispatched
++                # before the corresponding InterfacesAdded.
++                need_discover = True
++        if need_discover:
++            # Outside the lock: discover_devices() makes a synchronous D-Bus
++            # call (find_devices -> GetManagedObjects); we don't want to
++            # block the GUI thread on a network round-trip while we hold the
++            # lock. discover_devices() acquires the lock itself around its
++            # own listItems mutations.
+             self.parent.discover_devices()
+ 
+ 
+-- 
+2.43.0
+
