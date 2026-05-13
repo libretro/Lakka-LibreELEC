@@ -473,6 +473,7 @@ makeinstall_target() {
       cp -P ${PKG_DIR}/assets/xorg.conf ${INSTALL}/etc/X11/
       cat ${PKG_DIR}/assets/10-monitor.conf >> ${INSTALL}/etc/X11/xorg.conf
       cat ${PKG_DIR}/assets/50-joysticks.conf >> ${INSTALL}/etc/X11/xorg.conf
+      cat ${PKG_DIR}/assets/20-touchscreen.conf >> ${INSTALL}/etc/X11/xorg.conf
     fi
   fi
 }
