@@ -1,0 +1,189 @@
+From 7ac23ea457bc0ce91ff7f13c160a345864ca0fc7 Mon Sep 17 00:00:00 2001
+From: Claude <claude@local>
+Date: Fri, 22 May 2026 19:57:51 +0000
+Subject: [PATCH] sys-clk: hide GPU menu entries and disable driver when no
+ device is found
+
+On builds where sys-clk cannot resolve a usable sysfs device for a
+given domain - a Mesa-based non-Switch Lakka build that has no
+devfreq node, a virtualised target, or any host where the GPU
+hardware path is simply absent - the GPU performance menu would
+still appear, and selecting it would land on an empty list. Worse,
+sys_clk_driver_init would call sys_clk_set_mode unconditionally,
+which persists the (default) mode back into settings_t and would
+overwrite a user's saved gpu_scaling_mode the first time the user
+booted on hardware without a usable GPU.
+
+This commit makes the GPU domain self-disable cleanly:
+
+  * sys_clk_driver_init no longer calls sys_clk_set_mode when the
+    post-probe driver list is NULL. The user's saved settings are
+    left intact in settings_t so they keep their meaning if the
+    user later boots the same install on hardware that does have a
+    GPU.
+
+  * A new sys_clk_domain_available() predicate exposes the
+    post-init result. It is cheap (no sysfs touch) and returns
+    true iff at least one per-policy driver was populated.
+
+  * sys_clk_set_signal and sys_clk_set_mode bail out at the top
+    when the domain has no drivers. steer_all already does this
+    indirectly, but a leaf-level guard keeps the focus-event hot
+    path off the slow path entirely and prevents accidental
+    settings persistence.
+
+  * The menu hides the GPU performance entry on the Power
+    Management submenu and on the parent settings page when
+    sys_clk_domain_available(SYS_CLK_DOMAIN_GPU) is false, so the
+    user is not offered a navigation target that would lead to an
+    empty list.
+
+The CPU domain is not gated similarly because cpufreq is standard
+on every Linux build where HAVE_LAKKA is meaningful; adding a
+predicate there would be defensive-coding overhead with no
+realistic benefit.
+---
+ menu/menu_displaylist.c |  7 +++++++
+ menu/menu_setting.c     | 20 +++++++++++++-------
+ misc/sys-clk/sys-clk.c  | 32 +++++++++++++++++++++++++++++++-
+ misc/sys-clk/sys-clk.h  |  7 +++++++
+ 4 files changed, 58 insertions(+), 8 deletions(-)
+
+diff --git a/menu/menu_displaylist.c b/menu/menu_displaylist.c
+index 84415dc..dd74e6c 100644
+--- a/menu/menu_displaylist.c
++++ b/menu/menu_displaylist.c
+@@ -11522,6 +11522,13 @@ unsigned menu_displaylist_build_list(
+ 
+             for (i = 0; i < ARRAY_SIZE(build_list); i++)
+             {
++#ifdef HAVE_LAKKA
++               /* Skip the GPU performance entry if the sys-clk
++                * driver did not find a usable GPU on this device. */
++               if (build_list[i].enum_idx == MENU_ENUM_LABEL_GPU_PERFPOWER
++                     && !sys_clk_domain_available(SYS_CLK_DOMAIN_GPU))
++                  continue;
++#endif
+                if (MENU_DISPLAYLIST_PARSE_SETTINGS_ENUM(list,
+                         build_list[i].enum_idx,  build_list[i].parse_type,
+                         false) == 0)
+diff --git a/menu/menu_setting.c b/menu/menu_setting.c
+index 68afeb0..9fe9798 100644
+--- a/menu/menu_setting.c
++++ b/menu/menu_setting.c
+@@ -106,6 +106,9 @@
+ #include "../performance_counters.h"
+ #include "../setting_list.h"
+ #include "../lakka.h"
++#ifdef HAVE_LAKKA
++#include "../misc/sys-clk/sys-clk.h"
++#endif
+ #ifdef HAVE_LAKKA_SWITCH
+ #include "../lakka-switch.h"
+ #endif
+@@ -21367,13 +21370,16 @@ static bool setting_append_list(
+                parent_group);
+ #endif
+ #ifdef HAVE_LAKKA
+-         CONFIG_ACTION(
+-               list, list_info,
+-               MENU_ENUM_LABEL_GPU_PERFPOWER,
+-               MENU_ENUM_LABEL_VALUE_GPU_PERFPOWER,
+-               &group_info,
+-               &subgroup_info,
+-               parent_group);
++         /* Only expose the GPU performance entry if the sys-clk
++          * backend found a usable GPU device on this build/host. */
++         if (sys_clk_domain_available(SYS_CLK_DOMAIN_GPU))
++            CONFIG_ACTION(
++                  list, list_info,
++                  MENU_ENUM_LABEL_GPU_PERFPOWER,
++                  MENU_ENUM_LABEL_VALUE_GPU_PERFPOWER,
++                  &group_info,
++                  &subgroup_info,
++                  parent_group);
+ #endif
+ #ifndef HAVE_LAKKA
+          if (frontend_driver_has_gamemode())
+diff --git a/misc/sys-clk/sys-clk.c b/misc/sys-clk/sys-clk.c
+index 6bae3bb..3ce3f19 100644
+--- a/misc/sys-clk/sys-clk.c
++++ b/misc/sys-clk/sys-clk.c
+@@ -659,6 +659,11 @@ void sys_clk_set_signal(enum sys_clk_domain dom, enum sys_clk_event event)
+    if (dom >= SYS_CLK_DOMAIN_COUNT)
+       return;
+    st = &g_state[dom];
++   /* Bail out fast if the domain was never initialised with a real
++    * device. steer_all also checks this, but a leaf-level guard
++    * keeps the focus-event hot path cheap. */
++   if (!st->drivers)
++      return;
+ 
+    switch (st->cur_mode)
+    {
+@@ -758,6 +763,12 @@ void sys_clk_set_mode(enum sys_clk_domain dom,
+    if (dom >= SYS_CLK_DOMAIN_COUNT)
+       return;
+    st           = &g_state[dom];
++   /* If the domain has no usable driver (e.g. sys_clk_driver_init
++    * could not resolve a sysfs device), skip all work. This keeps
++    * the user's persisted settings intact instead of overwriting
++    * them with whatever default we'd otherwise produce. */
++   if (!st->drivers)
++      return;
+    st->cur_mode = mode;
+    if (opts)
+       st->cur_opts = *opts;
+@@ -845,11 +856,30 @@ void sys_clk_driver_init(enum sys_clk_domain dom)
+             settings->uints.gpu_scaling_mode);
+    }
+ 
+-   /* Populate the driver tree, then enforce the mode. */
++   /* Populate the driver tree. If no usable device exists for this
++    * domain (no CPU cpufreq directories, no devfreq node, etc.),
++    * leave the state as-is: the user's saved settings stay in
++    * settings_t so they survive across boots that may include
++    * different hardware, and any subsequent sys_clk_* call is a
++    * no-op courtesy of sys_clk_domain_available checks at the
++    * call sites and the early-out in sys_clk_set_mode. */
+    sys_clk_get_drivers(dom, true);
++   if (!st->drivers)
++   {
++      RARCH_LOG("[sys-clk]: domain %u has no usable device; disabling.\n",
++            (unsigned)dom);
++      return;
++   }
+    sys_clk_set_mode(dom, st->cur_mode, NULL);
+ }
+ 
++bool sys_clk_domain_available(enum sys_clk_domain dom)
++{
++   if (dom >= SYS_CLK_DOMAIN_COUNT)
++      return false;
++   return g_state[dom].drivers != NULL;
++}
++
+ void sys_clk_driver_free(enum sys_clk_domain dom)
+ {
+    sys_clk_state_t *st;
+diff --git a/misc/sys-clk/sys-clk.h b/misc/sys-clk/sys-clk.h
+index 44c6abf..13a2ea4 100644
+--- a/misc/sys-clk/sys-clk.h
++++ b/misc/sys-clk/sys-clk.h
+@@ -117,6 +117,13 @@ typedef struct sys_clk_driver
+ void sys_clk_driver_init(enum sys_clk_domain dom);
+ void sys_clk_driver_free(enum sys_clk_domain dom);
+ 
++/* Returns true iff sys_clk_driver_init successfully resolved a
++ * sysfs device for this domain and at least one driver was
++ * populated. The menu uses this to hide UI entries for domains
++ * that no usable hardware backs (e.g. a desktop build with no
++ * devfreq node for the GPU). Cheap: no sysfs access. */
++bool sys_clk_domain_available(enum sys_clk_domain dom);
++
+ /* Get the (NULL-terminated) list of per-policy drivers for a
+  * domain. Pass can_update=true to refresh from sysfs (rate-limited
+  * internally). */
+-- 
+2.43.0
+

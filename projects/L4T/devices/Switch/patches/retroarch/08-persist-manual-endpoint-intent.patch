@@ -1,0 +1,377 @@
+From 5e3c8fdab49b9cd728ffb0815b0766b7b2ccc4e1 Mon Sep 17 00:00:00 2001
+From: Claude <claude@local>
+Date: Fri, 22 May 2026 23:27:48 +0000
+Subject: [PATCH] sys-clk: persist manual-mode endpoint sentinel intent across
+ refreshes
+
+Patch 08 made sys_clk_set_min_frequency / sys_clk_set_max_frequency
+stash the sentinel value (1 / ~0U) in driver->min_policy_freq /
+->max_policy_freq so the manual-mode per-policy label callback
+(menu_cbs_get_value.c::menu_action_cpu_freq_label) could render
+'Min.' / 'Max.' after a step. That worked for ~2 seconds, until
+sys_clk_get_drivers(dom, true) refreshed the driver list from
+sysfs and overwrote the sentinel with whatever concrete frequency
+the kernel reports. After the refresh - including on every fresh
+launch - the slider would show '102 MHz' (or whatever min_hw_freq
+happens to be) instead of 'Min.', even though no menu action had
+moved the slider off the endpoint.
+
+The fix is to store the endpoint-sentinel 'intent' separately from
+the per-driver sysfs-mirrored fields, keyed by policy_id, so the
+intent survives the periodic free_drivers / re-allocate cycle.
+
+  * sys_clk_state_t grows two small arrays (min_intent[],
+    max_intent[]) sized for up to SYS_CLK_MAX_POLICIES (=16). A
+    non-zero entry is the sentinel value the user last set on
+    that slider. The arrays live in the state, not in the driver
+    struct, so a refresh that frees and reallocates drivers
+    leaves them untouched.
+
+  * sys_clk_set_min_frequency / sys_clk_set_max_frequency now
+    record (or clear) the intent based on the value they were
+    called with: a sentinel records itself in the intent array
+    and writes the per-driver hardware bound to sysfs (same as
+    patch 08); a concrete frequency writes it through and clears
+    the intent. driver->min_policy_freq / ->max_policy_freq are
+    now always concrete frequencies, matching sysfs.
+
+  * sys_clk_get_min_intent / sys_clk_get_max_intent expose the
+    arrays for the menu label callback to consult before falling
+    back to the per-driver field. cpu_policy_freq_tweak in both
+    menu_cbs_left.c and menu_cbs_right.c also feeds the intent
+    into sys_clk_get_next_frequency so that pressing left at
+    'Min.' stays at 'Min.' and pressing right at 'Max.' stays at
+    'Max.' (clamped at the endpoints), matching the behaviour
+    users see in the managed-mode sliders.
+
+  * read_one_driver infers the intent at load time: when a
+    policy's currently-loaded min/max freq from sysfs already
+    matches the hardware bound, the slider is treated as parked
+    at the endpoint. This makes 'Min.' / 'Max.' persist across
+    program launches without needing to add new fields to
+    settings_t; the kernel persists scaling_min_freq /
+    scaling_max_freq across reboots on Lakka, and the inference
+    re-derives the intent from there. A subsequent manual step
+    onto a concrete frequency goes through sys_clk_set_*
+    _frequency, which clears the intent immediately. Managed-mode
+    set_mode / set_signal calls also clear the intent via
+    steer_all's pre-translation, so a user switching out of MANUAL
+    mode and back will see the actual frequency until they put
+    the slider back at an endpoint themselves.
+---
+ menu/cbs/menu_cbs_get_value.c | 10 ++++-
+ menu/cbs/menu_cbs_left.c      | 34 +++++++++-------
+ menu/cbs/menu_cbs_right.c     | 38 ++++++++++--------
+ misc/sys-clk/sys-clk.c        | 75 ++++++++++++++++++++++++++++++++---
+ misc/sys-clk/sys-clk.h        | 12 ++++++
+ 5 files changed, 131 insertions(+), 38 deletions(-)
+
+diff --git a/menu/cbs/menu_cbs_get_value.c b/menu/cbs/menu_cbs_get_value.c
+index 1f6d4b8..b299813 100644
+--- a/menu/cbs/menu_cbs_get_value.c
++++ b/menu/cbs/menu_cbs_get_value.c
+@@ -675,13 +675,18 @@ static size_t menu_action_cpu_freq_label(
+    sys_clk_driver_t **drivers = sys_clk_get_drivers(SYS_CLK_DOMAIN_CPU, false);
+    sys_clk_driver_t  *d       = drivers[policyid];
+    uint32_t           freq;
++   uint32_t           intent;
+ 
+    switch (type)
+    {
+       case MENU_SETTINGS_CPU_POLICY_SET_MINFREQ:
+          strlcpy(s2, msg_hash_to_str(
+                   MENU_ENUM_LABEL_VALUE_CPU_POLICY_MIN_FREQ), len2);
+-         freq = d->min_policy_freq;
++         /* If the user parked this slider at an endpoint, display
++          * the sentinel persistently even though the underlying
++          * sysfs value has been refreshed to a concrete frequency. */
++         intent = sys_clk_get_min_intent(SYS_CLK_DOMAIN_CPU, d);
++         freq   = intent ? intent : d->min_policy_freq;
+          if (freq == 1)
+             return strlcpy(s, "Min.", len);
+          if (freq == ~0U)
+@@ -690,7 +695,8 @@ static size_t menu_action_cpu_freq_label(
+       case MENU_SETTINGS_CPU_POLICY_SET_MAXFREQ:
+          strlcpy(s2, msg_hash_to_str(
+                   MENU_ENUM_LABEL_VALUE_CPU_POLICY_MAX_FREQ), len2);
+-         freq = d->max_policy_freq;
++         intent = sys_clk_get_max_intent(SYS_CLK_DOMAIN_CPU, d);
++         freq   = intent ? intent : d->max_policy_freq;
+          if (freq == 1)
+             return strlcpy(s, "Min.", len);
+          if (freq == ~0U)
+diff --git a/menu/cbs/menu_cbs_left.c b/menu/cbs/menu_cbs_left.c
+index ce5f965..14c3f96 100644
+--- a/menu/cbs/menu_cbs_left.c
++++ b/menu/cbs/menu_cbs_left.c
+@@ -931,35 +931,41 @@ static int cpu_policy_freq_tweak(unsigned type, const char *label,
+ {
+    sys_clk_driver_t **drivers = sys_clk_get_drivers(SYS_CLK_DOMAIN_CPU, false);
+    unsigned           policyid = atoi(label);
+-   uint32_t           next_freq;
++   uint32_t           cur, next_freq, intent;
++   sys_clk_driver_t  *d;
+    if (!drivers)
+       return 0;
++   d = drivers[policyid];
+ 
+    switch (type)
+    {
+       case MENU_SETTINGS_CPU_POLICY_SET_MINFREQ:
++         /* If we are sitting on an endpoint sentinel, feed the
++          * sentinel back into the stepper so it stays put (left
++          * from "Min." remains "Min.") or steps off correctly
++          * (left from "Max." returns the next concrete value
++          * below abs_max_freq). */
++         intent    = sys_clk_get_min_intent(SYS_CLK_DOMAIN_CPU, d);
++         cur       = intent ? intent : d->min_policy_freq;
+          next_freq = sys_clk_get_next_frequency(SYS_CLK_DOMAIN_CPU,
+-               drivers[policyid],
+-               drivers[policyid]->min_policy_freq, -1);
+-         sys_clk_set_min_frequency(SYS_CLK_DOMAIN_CPU,
+-               drivers[policyid], next_freq);
++               d, cur, -1);
++         sys_clk_set_min_frequency(SYS_CLK_DOMAIN_CPU, d, next_freq);
+          break;
+       case MENU_SETTINGS_CPU_POLICY_SET_MAXFREQ:
++         intent    = sys_clk_get_max_intent(SYS_CLK_DOMAIN_CPU, d);
++         cur       = intent ? intent : d->max_policy_freq;
+          next_freq = sys_clk_get_next_frequency(SYS_CLK_DOMAIN_CPU,
+-               drivers[policyid],
+-               drivers[policyid]->max_policy_freq, -1);
+-         sys_clk_set_max_frequency(SYS_CLK_DOMAIN_CPU,
+-               drivers[policyid], next_freq);
++               d, cur, -1);
++         sys_clk_set_max_frequency(SYS_CLK_DOMAIN_CPU, d, next_freq);
+          break;
+       case MENU_SETTINGS_CPU_POLICY_SET_GOVERNOR:
+          {
+-            int pidx = string_list_find_elem(drivers[policyid]->available_governors,
+-                  drivers[policyid]->scaling_governor);
++            int pidx = string_list_find_elem(d->available_governors,
++                  d->scaling_governor);
+             if (pidx > 1)
+             {
+-               sys_clk_set_governor(SYS_CLK_DOMAIN_CPU,
+-                     drivers[policyid],
+-                     drivers[policyid]->available_governors->elems[pidx-2].data);
++               sys_clk_set_governor(SYS_CLK_DOMAIN_CPU, d,
++                     d->available_governors->elems[pidx-2].data);
+             }
+             break;
+          }
+diff --git a/menu/cbs/menu_cbs_right.c b/menu/cbs/menu_cbs_right.c
+index b026364..9c59f13 100644
+--- a/menu/cbs/menu_cbs_right.c
++++ b/menu/cbs/menu_cbs_right.c
+@@ -1089,35 +1089,41 @@ static int cpu_policy_freq_tweak(unsigned type, const char *label,
+ 
+    if (drivers)
+    {
+-      uint32_t next_freq;
+-      unsigned policyid = atoi(label);
++      uint32_t          next_freq;
++      uint32_t          cur;
++      uint32_t          intent;
++      unsigned          policyid = atoi(label);
++      sys_clk_driver_t *d        = drivers[policyid];
+       switch (type)
+       {
+          case MENU_SETTINGS_CPU_POLICY_SET_MINFREQ:
++            /* Mirror the left-action treatment: when sitting on an
++             * endpoint sentinel, feed it back into the stepper so
++             * "Min." stays "Min." on a right press (clamped) and a
++             * right press from "Max." returns ~0U as expected. */
++            intent    = sys_clk_get_min_intent(SYS_CLK_DOMAIN_CPU, d);
++            cur       = intent ? intent : d->min_policy_freq;
+             next_freq = sys_clk_get_next_frequency(SYS_CLK_DOMAIN_CPU,
+-                  drivers[policyid],
+-                  drivers[policyid]->min_policy_freq, 1);
+-            sys_clk_set_min_frequency(SYS_CLK_DOMAIN_CPU,
+-                  drivers[policyid], next_freq);
++                  d, cur, 1);
++            sys_clk_set_min_frequency(SYS_CLK_DOMAIN_CPU, d, next_freq);
+             break;
+          case MENU_SETTINGS_CPU_POLICY_SET_MAXFREQ:
++            intent    = sys_clk_get_max_intent(SYS_CLK_DOMAIN_CPU, d);
++            cur       = intent ? intent : d->max_policy_freq;
+             next_freq = sys_clk_get_next_frequency(SYS_CLK_DOMAIN_CPU,
+-                  drivers[policyid],
+-                  drivers[policyid]->max_policy_freq, 1);
+-            sys_clk_set_max_frequency(SYS_CLK_DOMAIN_CPU,
+-                  drivers[policyid], next_freq);
++                  d, cur, 1);
++            sys_clk_set_max_frequency(SYS_CLK_DOMAIN_CPU, d, next_freq);
+             break;
+          case MENU_SETTINGS_CPU_POLICY_SET_GOVERNOR:
+             {
+-               int pidx = string_list_find_elem(drivers[policyid]->available_governors,
+-                     drivers[policyid]->scaling_governor);
++               int pidx = string_list_find_elem(d->available_governors,
++                     d->scaling_governor);
+                /* See cpu_policy_freq_managed_gov above for the
+                 * 1-based vs 0-based reasoning. */
+-               if (pidx && pidx < (int)drivers[policyid]->available_governors->size)
++               if (pidx && pidx < (int)d->available_governors->size)
+                {
+-                  sys_clk_set_governor(SYS_CLK_DOMAIN_CPU,
+-                        drivers[policyid],
+-                        drivers[policyid]->available_governors->elems[pidx].data);
++                  sys_clk_set_governor(SYS_CLK_DOMAIN_CPU, d,
++                        d->available_governors->elems[pidx].data);
+                }
+                break;
+             }
+diff --git a/misc/sys-clk/sys-clk.c b/misc/sys-clk/sys-clk.c
+index 3ce3f19..5a17c47 100644
+--- a/misc/sys-clk/sys-clk.c
++++ b/misc/sys-clk/sys-clk.c
+@@ -71,6 +71,12 @@ typedef struct sys_clk_backend
+    const char *gov_powersave;
+ } sys_clk_backend_t;
+ 
++/* Maximum policy_id we keep per-policy "intent" overrides for. The
++ * cpufreq layer numbers policies 0..N-1; 16 is more than any
++ * RetroArch-relevant host. Policies above this index simply don't
++ * get sentinel overrides (they'll always display the actual freq). */
++#define SYS_CLK_MAX_POLICIES 16
++
+ /* Per-domain state. Holds the live driver list, current user-selected
+  * mode and options, and a precomputed absolute frequency range
+  * across all drivers in the domain. */
+@@ -83,6 +89,18 @@ typedef struct sys_clk_state
+    sys_clk_opts_t           cur_opts;
+    uint32_t                 abs_min_freq;
+    uint32_t                 abs_max_freq;
++   /* Per-policy endpoint-sentinel "intent" overrides. A non-zero
++    * value (1 = "Min.", ~0U = "Max.") means the user dragged this
++    * slider to a scale endpoint; the menu label callbacks consult
++    * these and display the sentinel even after the per-driver
++    * min_policy_freq / max_policy_freq fields have been refreshed
++    * from sysfs (which always returns a concrete frequency, never
++    * a sentinel). Set by sys_clk_set_min_frequency /
++    * sys_clk_set_max_frequency, cleared the moment the user steps
++    * off the endpoint. Survives driver-list refresh because it
++    * lives in the state, not in the per-driver struct. */
++   uint32_t                 min_intent[SYS_CLK_MAX_POLICIES];
++   uint32_t                 max_intent[SYS_CLK_MAX_POLICIES];
+ } sys_clk_state_t;
+ 
+ /* CPU backend: standard Linux cpufreq sysfs. */
+@@ -249,6 +267,22 @@ static sys_clk_driver_t *read_one_driver(sys_clk_state_t *st,
+    else
+       drv->max_hw_freq = drv->max_policy_freq;
+ 
++   /* Infer the endpoint-sentinel intent from the loaded policy:
++    * if the policy bound matches the hardware bound, treat the
++    * slider as parked at the endpoint. This is what makes "Min."
++    * / "Max." persist across launches without storing the intent
++    * in settings, and across the in-process sysfs cache refresh
++    * (which frees and re-reads the driver list). A subsequent
++    * sys_clk_set_min_frequency / sys_clk_set_max_frequency call
++    * with a concrete frequency will clear the intent. */
++   if (drv->policy_id < SYS_CLK_MAX_POLICIES)
++   {
++      if (drv->min_policy_freq && drv->min_policy_freq == drv->min_hw_freq)
++         st->min_intent[drv->policy_id] = 1;
++      if (drv->max_policy_freq && drv->max_policy_freq == drv->max_hw_freq)
++         st->max_intent[drv->policy_id] = ~0U;
++   }
++
+    /* Track the absolute range across all drivers in the domain. */
+    if (drv->min_hw_freq &&
+          (st->abs_min_freq == 1 || drv->min_hw_freq < st->abs_min_freq))
+@@ -483,17 +517,25 @@ bool sys_clk_set_min_frequency(enum sys_clk_domain dom,
+     * "this driver's hardware minimum" and 'Max.' (~0U) means "this
+     * driver's hardware maximum". The kernel would otherwise reject
+     * or silently clamp these literal values, so we write the
+-    * hardware bound. We keep the sentinel in driver->min_policy_freq
+-    * so the menu label callbacks can continue to render 'Min.' /
+-    * 'Max.' at the endpoints of the scale; the next sysfs refresh
+-    * will replace it with the actual reported value. */
++    * hardware bound. The sentinel itself is recorded in the
++    * per-policy intent table below so the menu label callbacks can
++    * keep rendering 'Min.' / 'Max.' at the endpoints of the scale
++    * even after sys_clk_get_drivers refreshes driver->min_policy_freq
++    * from sysfs (sysfs only ever reports concrete frequencies). */
+    if (min_freq == 1)
+       to_write = driver->min_hw_freq;
+    else if (min_freq == ~0U)
+       to_write = driver->max_hw_freq;
+    if (!write_uint32_leaf(dom, driver, st->be->file_min_policy, to_write))
+       return false;
+-   driver->min_policy_freq = min_freq;
++   driver->min_policy_freq = to_write;
++   /* Record (or clear) the endpoint intent so the display layer
++    * survives subsequent sysfs cache refreshes. Stepping off an
++    * endpoint passes a concrete frequency here, which clears the
++    * intent and restores normal "%u MHz" display. */
++   if (driver->policy_id < SYS_CLK_MAX_POLICIES)
++      st->min_intent[driver->policy_id] =
++         (min_freq == 1 || min_freq == ~0U) ? min_freq : 0;
+    return true;
+ }
+ 
+@@ -508,7 +550,10 @@ bool sys_clk_set_max_frequency(enum sys_clk_domain dom,
+       to_write = driver->max_hw_freq;
+    if (!write_uint32_leaf(dom, driver, st->be->file_max_policy, to_write))
+       return false;
+-   driver->max_policy_freq = max_freq;
++   driver->max_policy_freq = to_write;
++   if (driver->policy_id < SYS_CLK_MAX_POLICIES)
++      st->max_intent[driver->policy_id] =
++         (max_freq == 1 || max_freq == ~0U) ? max_freq : 0;
+    return true;
+ }
+ 
+@@ -532,6 +577,24 @@ bool sys_clk_set_governor(enum sys_clk_domain dom,
+    return true;
+ }
+ 
++uint32_t sys_clk_get_min_intent(enum sys_clk_domain dom,
++      const sys_clk_driver_t *driver)
++{
++   if (dom >= SYS_CLK_DOMAIN_COUNT || !driver
++         || driver->policy_id >= SYS_CLK_MAX_POLICIES)
++      return 0;
++   return g_state[dom].min_intent[driver->policy_id];
++}
++
++uint32_t sys_clk_get_max_intent(enum sys_clk_domain dom,
++      const sys_clk_driver_t *driver)
++{
++   if (dom >= SYS_CLK_DOMAIN_COUNT || !driver
++         || driver->policy_id >= SYS_CLK_MAX_POLICIES)
++      return 0;
++   return g_state[dom].max_intent[driver->policy_id];
++}
++
+ /* ------------------------------------------------------------------ */
+ /* Frequency stepping                                                 */
+ /* ------------------------------------------------------------------ */
+diff --git a/misc/sys-clk/sys-clk.h b/misc/sys-clk/sys-clk.h
+index 13a2ea4..c328d2d 100644
+--- a/misc/sys-clk/sys-clk.h
++++ b/misc/sys-clk/sys-clk.h
+@@ -139,6 +139,18 @@ bool sys_clk_set_max_frequency(enum sys_clk_domain dom,
+ bool sys_clk_set_governor(enum sys_clk_domain dom,
+       sys_clk_driver_t *driver, const char *governor);
+ 
++/* Return the user's last-set endpoint-sentinel intent for a given
++ * driver's min/max policy frequency, or 0 if the user has not
++ * parked the slider at an endpoint. The menu uses this so a
++ * slider sitting at 'Min.' / 'Max.' keeps rendering that label
++ * across sysfs cache refreshes (which always report a concrete
++ * frequency, never a sentinel). The return value is one of
++ * 0, 1 (= 'Min.'), or ~0U (= 'Max.'). */
++uint32_t sys_clk_get_min_intent(enum sys_clk_domain dom,
++      const sys_clk_driver_t *driver);
++uint32_t sys_clk_get_max_intent(enum sys_clk_domain dom,
++      const sys_clk_driver_t *driver);
++
+ /* Step to the next/previous frequency. The "table" variant uses
+  * driver->available_freqs when present and produces sentinel values
+  * (1, ~0U) for "Min." / "Max." so the UI can render them. The
+-- 
+2.43.0
+

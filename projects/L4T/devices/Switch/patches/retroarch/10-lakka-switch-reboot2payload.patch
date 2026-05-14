@@ -1,0 +1,1300 @@
+From 3a08c1480d554a0e712e0f44e5d6330f46b142ac Mon Sep 17 00:00:00 2001
+From: Claude <claude@local>
+Date: Sat, 23 May 2026 00:52:55 +0000
+Subject: [PATCH 13/13] Lakka: Switch: reboot2payload integration
+
+Adds a small misc/reboot2payload module that drives the Tegra pmc_r2p
+sysfs interface so RetroArch can reboot directly into a chosen Hekate
+payload (a hekate_ipl.ini launch entry, a bootloader/ini/<name>.ini
+config, or the Hekate menu itself), and threads it through the menu:
+
+  * New CMD_EVENT_REBOOT2PAYLOAD command. The Reboot menu entry now
+    routes through this handler on Lakka Switch; vanilla Lakka still
+    uses CMD_EVENT_REBOOT.
+
+  * Switch Options gets a new 'Reboot Payload' entry. Left/Right
+    cycle through parsed entries and mirror the selection into
+    settings (uints.reboot_payload_kind +
+    arrays.reboot_payload_name) so it survives across launches.
+
+  * A new 'Force Reboot to Lakka if Update Exists' toggle. When on
+    (the default) and an update tarball is staged in
+    /storage/.update, the payload selection is overridden so the
+    initramfs picks up the update on the way back into Lakka.
+
+  * menu_action_setting_disp_reboot in menu_cbs_get_value.c is
+    extended to render the selected payload name in the value
+    column of the main Reboot entry on Switch (or 'Install Update'
+    when the update toggle would override the selection).
+
+  * On startup, retroarch.c parses /flash/bootloader/* and restores
+    the persisted selection by name (falling back to the cmdline
+    self entry when the saved name is gone).
+
+Rebased on top of the sys-clk merge:
+
+  * Module include lines that used to sit alongside cpufreq.h /
+    gpufreq.h now sit in dedicated HAVE_LAKKA_SWITCH blocks next
+    to the unified sys-clk.h include.
+
+  * The Makefile.common HAVE_LAKKA_SWITCH section was deleted by
+    sys-clk; it is re-created here just for the reboot2payload
+    object.
+
+  * BIND_ACTION cases for MENU_ENUM_LABEL_REBOOT_PAYLOAD live in
+    their own HAVE_LAKKA_SWITCH blocks rather than being folded
+    into the GPU HAVE_LAKKA_SWITCH block that no longer exists.
+
+  * The retroarch.c init site for r2p_refresh_payloads /
+    r2p_restore_persisted_selection sits in a new HAVE_LAKKA_SWITCH
+    block after the unified sys-clk init, instead of inside the
+    deleted gpu_scaling_driver_init block.
+
+No behaviour changes outside Lakka Switch builds.
+---
+ Makefile.common                      |   4 +
+ command.h                            |   2 +
+ config.def.h                         |   1 +
+ configuration.c                      |   8 +-
+ configuration.h                      |  13 +
+ intl/msg_hash_lbl.h                  |   8 +
+ intl/msg_hash_us.h                   |  16 +
+ menu/cbs/menu_cbs_get_value.c        |  65 +++-
+ menu/cbs/menu_cbs_left.c             |  35 ++
+ menu/cbs/menu_cbs_ok.c               |   8 +
+ menu/cbs/menu_cbs_right.c            |  34 ++
+ menu/cbs/menu_cbs_sublabel.c         |   8 +
+ menu/menu_displaylist.c              |  37 +-
+ menu/menu_setting.c                  |  20 ++
+ misc/reboot2payload/reboot2payload.c | 494 +++++++++++++++++++++++++++
+ misc/reboot2payload/reboot2payload.h |  76 +++++
+ msg_hash.h                           |   2 +
+ retroarch.c                          |  61 ++++
+ 18 files changed, 865 insertions(+), 27 deletions(-)
+ create mode 100644 misc/reboot2payload/reboot2payload.c
+ create mode 100644 misc/reboot2payload/reboot2payload.h
+
+diff --git a/Makefile.common b/Makefile.common
+index 6e427f2..a8b44c2 100644
+--- a/Makefile.common
++++ b/Makefile.common
+@@ -801,6 +801,10 @@ ifeq ($(HAVE_LAKKA), 1)
+    LIBS += -lsystemd
+ endif
+ 
++ifeq ($(HAVE_LAKKA_SWITCH), 1)
++   OBJ += misc/reboot2payload/reboot2payload.o
++endif
++
+ ifeq ($(HAVE_WIFI), 1)
+    OBJ += network/wifi_driver.o
+    OBJ += tasks/task_wifi.o
+diff --git a/command.h b/command.h
+index 7c41d38..0abd8fc 100644
+--- a/command.h
++++ b/command.h
+@@ -165,6 +165,8 @@ enum event_command
+    CMD_EVENT_SHUTDOWN,
+    /* Reboot the OS */
+    CMD_EVENT_REBOOT,
++   /* Reboot the OS into a specific Hekate payload (Switchroot/Lakka Switch). */
++   CMD_EVENT_REBOOT2PAYLOAD,
+    /* Resume RetroArch when in menu. */
+    CMD_EVENT_RESUME,
+    /* Add a playlist entry to favorites. */
+diff --git a/config.def.h b/config.def.h
+index c851c08..69a5723 100644
+--- a/config.def.h
++++ b/config.def.h
+@@ -198,6 +198,7 @@
+ #define DEFAULT_SWITCH_OC false
+ #define DEFAULT_SWITCH_CEC true
+ #define DEFAULT_BLUETOOTH_ERTM false
++#define DEFAULT_REBOOT_FORCE_SELF_ON_UPDATE true
+ #endif
+ 
+ #if (defined(_WIN32) && !defined(_XBOX)) || (defined(__linux) && !defined(ANDROID) && !defined(HAVE_LAKKA)) || (defined(__MACH__) && !defined(IOS)) || defined(EMSCRIPTEN)
+diff --git a/configuration.c b/configuration.c
+index fbcb92c..1588055 100644
+--- a/configuration.c
++++ b/configuration.c
+@@ -1656,6 +1656,10 @@ static struct config_array_setting *populate_settings_array(
+    SETTING_ARRAY("cpu_menu_gov",                 settings->arrays.cpu_menu_gov, false, NULL, true);
+ #endif
+ 
++#ifdef HAVE_LAKKA_SWITCH
++   SETTING_ARRAY("reboot_payload_name",          settings->arrays.reboot_payload_name, false, NULL, true);
++#endif
++
+    *size = count;
+ 
+    return tmp;
+@@ -1903,6 +1907,7 @@ static struct config_bool_setting *populate_settings_bool(
+    SETTING_BOOL("switch_oc",                     &settings->bools.switch_oc, true, DEFAULT_SWITCH_OC, false);
+    SETTING_BOOL("switch_cec",                    &settings->bools.switch_cec, true, DEFAULT_SWITCH_CEC, false);
+    SETTING_BOOL("bluetooth_ertm_disable",        &settings->bools.bluetooth_ertm_disable, true, DEFAULT_BLUETOOTH_ERTM, false);
++   SETTING_BOOL("reboot_force_self_on_update",   &settings->bools.reboot_force_self_on_update, true, DEFAULT_REBOOT_FORCE_SELF_ON_UPDATE, false);
+ #endif
+    SETTING_BOOL("audio_enable",                  &settings->bools.audio_enable, true, DEFAULT_AUDIO_ENABLE, false);
+    SETTING_BOOL("audio_sync",                    &settings->bools.audio_sync, true, DEFAULT_AUDIO_SYNC, false);
+@@ -2727,12 +2732,13 @@ static struct config_uint_setting *populate_settings_uint(
+    SETTING_UINT("cpu_min_freq",                  &settings->uints.cpu_min_freq,        true,   1, false);
+    SETTING_UINT("cpu_max_freq",                  &settings->uints.cpu_max_freq,        true, ~0U, false);
+ 
+-#ifdef HAVE_LAKKA
+    SETTING_UINT("gpu_scaling_mode",              &settings->uints.gpu_scaling_mode,    true,   0, false);
+    SETTING_UINT("gpu_min_freq",                  &settings->uints.gpu_min_freq,        true,   1, false);
+    SETTING_UINT("gpu_max_freq",                  &settings->uints.gpu_max_freq,        true, ~0U, false);
+ #endif
+ 
++#ifdef HAVE_LAKKA_SWITCH
++   SETTING_UINT("reboot_payload_kind",           &settings->uints.reboot_payload_kind, true,   0, false);
+ #endif
+ 
+ #ifdef HAVE_MIST
+diff --git a/configuration.h b/configuration.h
+index 88245a6..24115ac 100644
+--- a/configuration.h
++++ b/configuration.h
+@@ -405,6 +405,11 @@ typedef struct settings
+       unsigned gpu_max_freq;
+ #endif
+ 
++#ifdef HAVE_LAKKA_SWITCH
++      /* Persists with arrays.reboot_payload_name. */
++      unsigned reboot_payload_kind;
++#endif
++
+ #ifdef HAVE_MIST
+       unsigned steam_rich_presence_format;
+ #endif
+@@ -531,6 +536,10 @@ typedef struct settings
+       char cpu_main_gov[32];
+       char cpu_menu_gov[32];
+ #endif
++#ifdef HAVE_LAKKA_SWITCH
++      /* 64 == R2P_NAME_MAXLEN. */
++      char reboot_payload_name[64];
++#endif
+ #ifdef HAVE_MICROPHONE
+       char microphone_driver[32];
+       char microphone_resampler[32];
+@@ -1125,6 +1134,10 @@ typedef struct settings
+       bool switch_oc;
+       bool switch_cec;
+       bool bluetooth_ertm_disable;
++      /* When true and an update is staged in /storage/.update, force
++       * a reboot back into the current Lakka entry instead of the
++       * selected payload, so the initramfs picks the tarball up. */
++      bool reboot_force_self_on_update;
+ #endif
+ #ifdef HAVE_LAKKA
+       bool ssh_enable;
+diff --git a/intl/msg_hash_lbl.h b/intl/msg_hash_lbl.h
+index ca65321..8122e6d 100644
+--- a/intl/msg_hash_lbl.h
++++ b/intl/msg_hash_lbl.h
+@@ -3177,6 +3177,14 @@ MSG_HASH(
+    MENU_ENUM_LABEL_REBOOT,
+    MENU_ENUM_LABEL_REBOOT_STR
+    )
++MSG_HASH(
++   MENU_ENUM_LABEL_REBOOT_PAYLOAD,
++   "reboot_payload"
++   )
++MSG_HASH(
++   MENU_ENUM_LABEL_REBOOT_FORCE_SELF_ON_UPDATE,
++   "reboot_force_self_on_update"
++   )
+ MSG_HASH(
+    MENU_ENUM_LABEL_RECORDING_CONFIG_DIRECTORY,
+    MENU_ENUM_LABEL_RECORDING_CONFIG_DIRECTORY_STR
+diff --git a/intl/msg_hash_us.h b/intl/msg_hash_us.h
+index 942cc94..e8fe1c6 100644
+--- a/intl/msg_hash_us.h
++++ b/intl/msg_hash_us.h
+@@ -15887,6 +15887,22 @@ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_REBOOT,
+    "Reboot"
+    )
++MSG_HASH(
++   MENU_ENUM_LABEL_VALUE_REBOOT_PAYLOAD,
++   "Reboot Payload"
++   )
++MSG_HASH(
++   MENU_ENUM_SUBLABEL_REBOOT_PAYLOAD,
++   "Choose which Hekate payload the system reboots into. Use Left/Right to cycle through entries from hekate_ipl.ini and bootloader/ini/[name].ini. This entry only sets the selection - to actually reboot, press 'Reboot' in the Main Menu. Defaults to the entry currently running."
++   )
++MSG_HASH(
++   MENU_ENUM_LABEL_VALUE_REBOOT_FORCE_SELF_ON_UPDATE,
++   "Force Reboot to Lakka if Update Exists"
++   )
++MSG_HASH(
++   MENU_ENUM_SUBLABEL_REBOOT_FORCE_SELF_ON_UPDATE,
++   "When a Lakka update tarball is staged in /storage/.update, reboot back into Lakka instead of the selected payload so the update is installed on the way back in. Turn off to honour your payload selection even when an update is pending."
++   )
+ 
+ /* Environment Specific Settings */
+ 
+diff --git a/menu/cbs/menu_cbs_get_value.c b/menu/cbs/menu_cbs_get_value.c
+index 565f134..57fc77b 100644
+--- a/menu/cbs/menu_cbs_get_value.c
++++ b/menu/cbs/menu_cbs_get_value.c
+@@ -52,6 +52,9 @@
+ #include <lists/dir_list.h>
+ #include <file/file_path.h>
+ #endif
++#ifdef HAVE_LAKKA_SWITCH
++#include "../../misc/reboot2payload/reboot2payload.h"
++#endif
+ 
+ #include "../../audio/audio_driver.h"
+ 
+@@ -814,6 +817,27 @@ static void menu_action_gpu_managed_freq_label(
+ }
+ #endif
+ 
++#ifdef HAVE_LAKKA_SWITCH
++static size_t menu_action_setting_disp_reboot_payload(
++      file_list_t* list,
++      unsigned *w, unsigned type, unsigned i,
++      const char *label,
++      char *s, size_t len,
++      const char *path,
++      char *s2, size_t len2)
++{
++   size_t _len;
++
++   if (path && *path)
++      strlcpy(s2, path, len2);
++
++   _len = strlcpy(s, r2p_get_destination_name(), len);
++
++   *w = (unsigned)_len;
++   return _len;
++}
++#endif
++
+ #if defined(HAVE_LAKKA)
+ /* Checks /storage/.update for any of the tarball / image patterns the
+  * Lakka initramfs's check_update step looks for (*.tar, *.img.gz,
+@@ -841,15 +865,11 @@ static bool lakka_update_pending(void)
+    return false;
+ }
+ 
+-/* Renders the value column for the main "Reboot" menu entry on Lakka
+- * builds, reflecting the destination:
+- *
+- *   - "Install Update"   when a tarball is staged in /storage/.update
+- *   - empty              otherwise
+- *
+- * On Lakka Switch the cbs binding is overridden by the reboot2payload
+- * patch with a richer renderer that can also show the selected payload
+- * name; this baseline handler covers vanilla (non-Switch) Lakka. */
++/* Value column for the main "Reboot" entry:
++ *   "Install Update"   when a tarball is staged in /storage/.update
++ *                      (on Switch, gated on reboot_force_self_on_update)
++ *   <payload name>     on HAVE_LAKKA_SWITCH, the selected payload
++ *   empty              vanilla Lakka, no update */
+ static size_t menu_action_setting_disp_reboot(
+       file_list_t* list,
+       unsigned *w, unsigned type, unsigned i,
+@@ -858,15 +878,29 @@ static size_t menu_action_setting_disp_reboot(
+       const char *path,
+       char *s2, size_t len2)
+ {
+-   size_t _len = 0;
++   size_t      _len     = 0;
++   settings_t *settings = config_get_ptr();
+ 
+    if (path && *path)
+       strlcpy(s2, path, len2);
+ 
++#ifdef HAVE_LAKKA_SWITCH
++   {
++      const bool install_update = r2p_update_pending()
++            && settings
++            && settings->bools.reboot_force_self_on_update;
++      if (install_update)
++         _len = strlcpy(s, "Install Update", len);
++      else
++         _len = strlcpy(s, r2p_get_destination_name(), len);
++   }
++#else
++   (void)settings;
+    if (lakka_update_pending())
+       _len = strlcpy(s, "Install Update", len);
+    else
+       s[0] = '\0';
++#endif
+ 
+    *w = (unsigned)_len;
+    return _len;
+@@ -2274,6 +2308,11 @@ static int menu_cbs_init_bind_get_string_representation_compare_label(
+             BIND_ACTION_GET_VALUE(cbs, menu_action_gpu_managed_freq_label);
+             break;
+ #endif
++#ifdef HAVE_LAKKA_SWITCH
++         case MENU_ENUM_LABEL_REBOOT_PAYLOAD:
++            BIND_ACTION_GET_VALUE(cbs, menu_action_setting_disp_reboot_payload);
++            break;
++#endif
+ #ifdef HAVE_NETWORKING
+          case MENU_ENUM_LABEL_CORE_UPDATER_ENTRY:
+             BIND_ACTION_GET_VALUE(cbs,
+@@ -2575,10 +2614,8 @@ int menu_cbs_init_bind_get_string_representation(menu_file_list_cbs_t *cbs,
+          case MENU_ENUM_LABEL_QUIT_RETROARCH:
+          case MENU_ENUM_LABEL_SWITCH_GPU_PROFILE:
+ #ifndef HAVE_LAKKA
+-         /* On Lakka builds the Reboot entry's value column reflects
+-          * the destination ("Install Update", and on Switch the
+-          * selected payload). Don't short-circuit binding here; fall
+-          * through to compare_label so the dedicated handler runs. */
++         /* On Lakka, fall through to compare_label so
++          * menu_action_setting_disp_reboot can render the destination. */
+          case MENU_ENUM_LABEL_REBOOT:
+ #endif
+          case MENU_ENUM_LABEL_SHUTDOWN:
+diff --git a/menu/cbs/menu_cbs_left.c b/menu/cbs/menu_cbs_left.c
+index 14c3f96..5015b8d 100644
+--- a/menu/cbs/menu_cbs_left.c
++++ b/menu/cbs/menu_cbs_left.c
+@@ -50,6 +50,9 @@
+ #ifdef HAVE_LAKKA
+ #include "../misc/sys-clk/sys-clk.h"
+ #endif
++#ifdef HAVE_LAKKA_SWITCH
++#include "../../misc/reboot2payload/reboot2payload.h"
++#endif
+ #ifndef BIND_ACTION_LEFT
+ #define BIND_ACTION_LEFT(cbs, name) (cbs)->action_left = (name)
+ #endif
+@@ -1006,6 +1009,33 @@ static int gpu_policy_freq_managed_tweak(unsigned type, const char *label,
+          MENU_SETTINGS_GPU_MANAGED_SET_MAXFREQ);
+ }
+ #endif
++
++#ifdef HAVE_LAKKA_SWITCH
++/* Cycle backward and mirror the new selection into settings so the
++ * config-save-on-exit pipeline persists it. */
++static int reboot_payload_left(unsigned type, const char *label,
++      bool wraparound)
++{
++   struct menu_state *menu_st = menu_state_get_ptr();
++   settings_t       *settings = config_get_ptr();
++   unsigned          kind;
++   const char       *name;
++
++   r2p_cycle_selection(false);
++
++   r2p_get_selected_persistable(&kind, &name);
++   if (settings)
++   {
++      settings->uints.reboot_payload_kind = kind;
++      strlcpy(settings->arrays.reboot_payload_name, name,
++            sizeof(settings->arrays.reboot_payload_name));
++   }
++
++   menu_st->flags |= MENU_ST_FLAG_ENTRIES_NEED_REFRESH;
++   return 0;
++}
++#endif
++
+ static int core_setting_left(unsigned type, const char *label,
+       bool wraparound)
+ {
+@@ -1362,6 +1392,11 @@ static int menu_cbs_init_bind_left_compare_label(menu_file_list_cbs_t *cbs,
+                BIND_ACTION_LEFT(cbs, gpu_policy_freq_managed_tweak);
+                break;
+             #endif
++            #ifdef HAVE_LAKKA_SWITCH
++            case MENU_ENUM_LABEL_REBOOT_PAYLOAD:
++               BIND_ACTION_LEFT(cbs, reboot_payload_left);
++               break;
++            #endif
+             default:
+                return -1;
+          }
+diff --git a/menu/cbs/menu_cbs_ok.c b/menu/cbs/menu_cbs_ok.c
+index 1e89859..ff388a3 100644
+--- a/menu/cbs/menu_cbs_ok.c
++++ b/menu/cbs/menu_cbs_ok.c
+@@ -6654,6 +6654,13 @@ STATIC_DEFAULT_ACTION_OK_FUNC(action_ok_updater_list, ACTION_OK_DL_UPDATER_SETTI
+ STATIC_DEFAULT_ACTION_OK_FUNC(action_ok_lakka_services, ACTION_OK_DL_LAKKA_SERVICES_LIST)
+ #ifdef HAVE_LAKKA_SWITCH
+ STATIC_DEFAULT_ACTION_OK_FUNC(action_ok_lakka_switch_options, ACTION_OK_DL_LAKKA_SWITCH_OPTIONS_LIST)
++
++/* No-op: Left/Right cycles the selection, OK does nothing here. */
++static int action_ok_reboot_payload(const char *path, const char *label,
++      unsigned type, size_t idx, size_t entry_idx)
++{
++   return 0;
++}
+ #endif
+ STATIC_DEFAULT_ACTION_OK_FUNC(action_ok_user_list, ACTION_OK_DL_USER_SETTINGS_LIST)
+ STATIC_DEFAULT_ACTION_OK_FUNC(action_ok_directory_list, ACTION_OK_DL_DIRECTORY_SETTINGS_LIST)
+@@ -9527,6 +9534,7 @@ static int menu_cbs_init_bind_ok_compare_label(menu_file_list_cbs_t *cbs,
+          {MENU_ENUM_LABEL_LAKKA_SERVICES,                      action_ok_lakka_services},
+ #ifdef HAVE_LAKKA_SWITCH
+          {MENU_ENUM_LABEL_LAKKA_SWITCH_OPTIONS,                action_ok_lakka_switch_options},
++         {MENU_ENUM_LABEL_REBOOT_PAYLOAD,                      action_ok_reboot_payload},
+ #endif
+          {MENU_ENUM_LABEL_USER_SETTINGS,                       action_ok_user_list},
+          {MENU_ENUM_LABEL_DIRECTORY_SETTINGS,                  action_ok_directory_list},
+diff --git a/menu/cbs/menu_cbs_right.c b/menu/cbs/menu_cbs_right.c
+index 9c59f13..b3d4efe 100644
+--- a/menu/cbs/menu_cbs_right.c
++++ b/menu/cbs/menu_cbs_right.c
+@@ -51,6 +51,9 @@
+ #ifdef HAVE_LAKKA
+ #include "../misc/sys-clk/sys-clk.h"
+ #endif
++#ifdef HAVE_LAKKA_SWITCH
++#include "../../misc/reboot2payload/reboot2payload.h"
++#endif
+ #ifndef BIND_ACTION_RIGHT
+ #define BIND_ACTION_RIGHT(cbs, name) (cbs)->action_right = (name)
+ #endif
+@@ -1166,6 +1169,32 @@ static int gpu_policy_freq_managed_tweak(unsigned type, const char *label,
+ }
+ #endif
+ 
++#ifdef HAVE_LAKKA_SWITCH
++/* Cycle forward and mirror the new selection into settings so the
++ * config-save-on-exit pipeline persists it. */
++static int reboot_payload_right(unsigned type, const char *label,
++      bool wraparound)
++{
++   struct menu_state *menu_st = menu_state_get_ptr();
++   settings_t       *settings = config_get_ptr();
++   unsigned          kind;
++   const char       *name;
++
++   r2p_cycle_selection(true);
++
++   r2p_get_selected_persistable(&kind, &name);
++   if (settings)
++   {
++      settings->uints.reboot_payload_kind = kind;
++      strlcpy(settings->arrays.reboot_payload_name, name,
++            sizeof(settings->arrays.reboot_payload_name));
++   }
++
++   menu_st->flags |= MENU_ST_FLAG_ENTRIES_NEED_REFRESH;
++   return 0;
++}
++#endif
++
+ static int core_setting_right(unsigned type, const char *label,
+       bool wraparound)
+ {
+@@ -1517,6 +1546,11 @@ static int menu_cbs_init_bind_right_compare_label(menu_file_list_cbs_t *cbs,
+                BIND_ACTION_RIGHT(cbs, gpu_policy_freq_managed_tweak);
+                break;
+             #endif
++            #ifdef HAVE_LAKKA_SWITCH
++            case MENU_ENUM_LABEL_REBOOT_PAYLOAD:
++               BIND_ACTION_RIGHT(cbs, reboot_payload_right);
++               break;
++            #endif
+             default:
+                return -1;
+          }
+diff --git a/menu/cbs/menu_cbs_sublabel.c b/menu/cbs/menu_cbs_sublabel.c
+index 1bde4db..3170cb4 100644
+--- a/menu/cbs/menu_cbs_sublabel.c
++++ b/menu/cbs/menu_cbs_sublabel.c
+@@ -405,6 +405,8 @@ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_switch_options,                MENU_
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_switch_oc_enable,              MENU_ENUM_SUBLABEL_SWITCH_OC_ENABLE)
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_switch_cec_enable,             MENU_ENUM_SUBLABEL_SWITCH_CEC_ENABLE)
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_bluetooth_ertm_disable,        MENU_ENUM_SUBLABEL_BLUETOOTH_ERTM_DISABLE)
++DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_reboot_payload,                MENU_ENUM_SUBLABEL_REBOOT_PAYLOAD)
++DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_reboot_force_self_on_update,   MENU_ENUM_SUBLABEL_REBOOT_FORCE_SELF_ON_UPDATE)
+ #endif
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_user_language,                 MENU_ENUM_SUBLABEL_USER_LANGUAGE)
+ DEFAULT_SUBLABEL_MACRO(action_bind_sublabel_max_swapchain_images,          MENU_ENUM_SUBLABEL_VIDEO_MAX_SWAPCHAIN_IMAGES)
+@@ -5537,6 +5539,12 @@ int menu_cbs_init_bind_sublabel(menu_file_list_cbs_t *cbs,
+          case MENU_ENUM_LABEL_BLUETOOTH_ERTM_DISABLE:
+             BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_bluetooth_ertm_disable);
+             break;
++         case MENU_ENUM_LABEL_REBOOT_PAYLOAD:
++            BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_reboot_payload);
++            break;
++         case MENU_ENUM_LABEL_REBOOT_FORCE_SELF_ON_UPDATE:
++            BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_reboot_force_self_on_update);
++            break;
+ #endif
+ #ifdef HAVE_LAKKA
+          case MENU_ENUM_LABEL_GPU_PERF_MODE:
+diff --git a/menu/menu_displaylist.c b/menu/menu_displaylist.c
+index dd74e6c..2f57b6c 100644
+--- a/menu/menu_displaylist.c
++++ b/menu/menu_displaylist.c
+@@ -10471,19 +10471,32 @@ unsigned menu_displaylist_build_list(
+ #ifdef HAVE_LAKKA_SWITCH
+       case DISPLAYLIST_LAKKA_SWITCH_OPTIONS_LIST:
+          {
+-            static const menu_displaylist_build_info_t build_list[] = {
+-               {MENU_ENUM_LABEL_SWITCH_OC_ENABLE,                                            PARSE_ONLY_BOOL},
+-               {MENU_ENUM_LABEL_SWITCH_CEC_ENABLE,                                           PARSE_ONLY_BOOL},
+-               {MENU_ENUM_LABEL_BLUETOOTH_ERTM_DISABLE,                                      PARSE_ONLY_BOOL},
+-            };
++            if (MENU_DISPLAYLIST_PARSE_SETTINGS_ENUM(list,
++                     MENU_ENUM_LABEL_SWITCH_OC_ENABLE,
++                     PARSE_ONLY_BOOL, false) == 0)
++               count++;
+ 
+-            for (i = 0; i < ARRAY_SIZE(build_list); i++)
+-            {
+-               if (MENU_DISPLAYLIST_PARSE_SETTINGS_ENUM(list,
+-                        build_list[i].enum_idx,  build_list[i].parse_type,
+-                        false) == 0)
+-                  count++;
+-            }
++            /* No backing rarch_setting_t; Left/Right/OK callbacks
++             * live in menu/cbs/menu_cbs_*.c. */
++            menu_entries_append(list,
++                  msg_hash_to_str(MENU_ENUM_LABEL_VALUE_REBOOT_PAYLOAD),
++                  msg_hash_to_str(MENU_ENUM_LABEL_REBOOT_PAYLOAD),
++                  MENU_ENUM_LABEL_REBOOT_PAYLOAD,
++                  MENU_SETTING_ACTION, 0, 0, NULL);
++            count++;
++
++            if (MENU_DISPLAYLIST_PARSE_SETTINGS_ENUM(list,
++                     MENU_ENUM_LABEL_REBOOT_FORCE_SELF_ON_UPDATE,
++                     PARSE_ONLY_BOOL, false) == 0)
++               count++;
++            if (MENU_DISPLAYLIST_PARSE_SETTINGS_ENUM(list,
++                     MENU_ENUM_LABEL_SWITCH_CEC_ENABLE,
++                     PARSE_ONLY_BOOL, false) == 0)
++               count++;
++            if (MENU_DISPLAYLIST_PARSE_SETTINGS_ENUM(list,
++                     MENU_ENUM_LABEL_BLUETOOTH_ERTM_DISABLE,
++                     PARSE_ONLY_BOOL, false) == 0)
++               count++;
+          }
+          break;
+ #endif
+diff --git a/menu/menu_setting.c b/menu/menu_setting.c
+index 68afeb0..4044ad9 100644
+--- a/menu/menu_setting.c
++++ b/menu/menu_setting.c
+@@ -10799,7 +10799,12 @@ static bool setting_append_list(
+                &subgroup_info,
+                parent_group);
+ 
++#ifdef HAVE_LAKKA_SWITCH
++         /* Route through the payload-aware reboot handler. */
++         MENU_SETTINGS_LIST_CURRENT_ADD_CMD(list, list_info, CMD_EVENT_REBOOT2PAYLOAD);
++#else
+          MENU_SETTINGS_LIST_CURRENT_ADD_CMD(list, list_info, CMD_EVENT_REBOOT);
++#endif
+ 
+          CONFIG_ACTION(
+                list, list_info,
+@@ -24467,6 +24472,21 @@ static bool setting_append_list(
+                   general_read_handler,
+                   SD_FLAG_NONE);
+             (*list)[list_info->index - 1].change_handler = bluetooth_ertm_disable_toggle_change_handler;
++
++            CONFIG_BOOL(
++                  list, list_info,
++                  &settings->bools.reboot_force_self_on_update,
++                  MENU_ENUM_LABEL_REBOOT_FORCE_SELF_ON_UPDATE,
++                  MENU_ENUM_LABEL_VALUE_REBOOT_FORCE_SELF_ON_UPDATE,
++                  DEFAULT_REBOOT_FORCE_SELF_ON_UPDATE,
++                  MENU_ENUM_LABEL_VALUE_OFF,
++                  MENU_ENUM_LABEL_VALUE_ON,
++                  &group_info,
++                  &subgroup_info,
++                  parent_group,
++                  general_write_handler,
++                  general_read_handler,
++                  SD_FLAG_NONE);
+             END_SUB_GROUP(list, list_info, parent_group);
+             END_GROUP(list, list_info, parent_group);
+          }
+diff --git a/misc/reboot2payload/reboot2payload.c b/misc/reboot2payload/reboot2payload.c
+new file mode 100644
+index 0000000..0df1011
+--- /dev/null
++++ b/misc/reboot2payload/reboot2payload.c
+@@ -0,0 +1,494 @@
++/*  RetroArch - A frontend for libretro.
++ *
++ *  RetroArch is free software: you can redistribute it and/or modify it under
++ *  the terms of the GNU General Public License as published by the Free
++ *  Software Foundation, either version 3 of the License, or (at your option)
++ *  any later version.
++ *
++ *  RetroArch is distributed in the hope that it will be useful, but WITHOUT
++ *  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ *  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ *  more details.
++ *
++ *  You should have received a copy of the GNU General Public License along
++ *  with RetroArch. If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <ctype.h>
++
++#include <boolean.h>
++#include <retro_common_api.h>
++#include <retro_miscellaneous.h>
++
++#include <file/file_path.h>
++#include <lists/dir_list.h>
++#include <lists/string_list.h>
++#include <streams/file_stream.h>
++#include <string/stdstring.h>
++
++#include "reboot2payload.h"
++#include "../../verbosity.h"
++
++#define R2P_SYSFS_DIR     "/sys/devices/r2p"
++#define R2P_SYSFS_ACTION  R2P_SYSFS_DIR "/action"
++#define R2P_SYSFS_PARAM1  R2P_SYSFS_DIR "/param1"
++#define R2P_SYSFS_PARAM2  R2P_SYSFS_DIR "/param2"
++
++/* Lakka's initramfs always mounts the FAT boot partition at /flash. */
++#define R2P_BOOT_ROOT     "/flash"
++#define R2P_HEKATE_IPL    R2P_BOOT_ROOT "/bootloader/hekate_ipl.ini"
++#define R2P_HEKATE_INIDIR R2P_BOOT_ROOT "/bootloader/ini"
++
++/* Matches the patterns the Lakka initramfs check_update step scans. */
++#define R2P_UPDATE_DIR    "/storage/.update"
++
++#define R2P_CMDLINE_PATH  "/proc/cmdline"
++#define R2P_DEFAULT_ACTION "self"
++#define R2P_SELF_SUFFIX   " (self)"
++
++static r2p_payload_t *r2p_list             = NULL;
++static size_t         r2p_list_count       = 0;
++static size_t         r2p_list_capacity    = 0;
++static size_t         r2p_selected         = 0;
++static bool           r2p_list_initialized = false;
++
++/* Parsed copy of pmc_r2p.* from /proc/cmdline; seeds default selection
++ * and feeds r2p_arm_self(). */
++static char     r2p_self_action[16] = R2P_DEFAULT_ACTION;
++static unsigned r2p_self_param1     = 0;
++static unsigned r2p_self_param2     = 0;
++
++static bool r2p_append_payload(const char *name,
++      enum r2p_payload_kind kind, unsigned index)
++{
++   r2p_payload_t *slot;
++
++   if (string_is_empty(name))
++      return false;
++
++   if (r2p_list_count >= r2p_list_capacity)
++   {
++      size_t new_cap       = (r2p_list_capacity == 0)
++            ? 8 : r2p_list_capacity * 2;
++      r2p_payload_t *grown = (r2p_payload_t *)realloc(r2p_list,
++            new_cap * sizeof(*grown));
++      if (!grown)
++         return false;
++      r2p_list             = grown;
++      r2p_list_capacity    = new_cap;
++   }
++
++   slot        = &r2p_list[r2p_list_count];
++   strlcpy(slot->name, name, sizeof(slot->name));
++   slot->kind  = kind;
++   slot->index = index;
++   r2p_list_count++;
++   return true;
++}
++
++static char *r2p_trim(char *s)
++{
++   char *end;
++   if (!s)
++      return s;
++   while (*s && isspace((unsigned char)*s))
++      s++;
++   end = s + strlen(s);
++   while (end > s && isspace((unsigned char)end[-1]))
++      end--;
++   *end = '\0';
++   return s;
++}
++
++static void r2p_parse_cmdline(void)
++{
++   RFILE *fp;
++   char   line[1024];
++   char  *tok;
++   char  *saveptr = NULL;
++
++   strlcpy(r2p_self_action, R2P_DEFAULT_ACTION, sizeof(r2p_self_action));
++   r2p_self_param1 = 0;
++   r2p_self_param2 = 0;
++
++   if (!(fp = filestream_open(R2P_CMDLINE_PATH,
++               RETRO_VFS_FILE_ACCESS_READ,
++               RETRO_VFS_FILE_ACCESS_HINT_NONE)))
++      return;
++
++   if (!filestream_gets(fp, line, sizeof(line)))
++   {
++      filestream_close(fp);
++      return;
++   }
++   filestream_close(fp);
++
++   for (tok = strtok_r(line, " \t\r\n", &saveptr);
++         tok;
++         tok = strtok_r(NULL, " \t\r\n", &saveptr))
++   {
++      const char *eq = strchr(tok, '=');
++      if (!eq)
++         continue;
++      if (!strncmp(tok, "pmc_r2p.action=", 15))
++         strlcpy(r2p_self_action, eq + 1, sizeof(r2p_self_action));
++      else if (!strncmp(tok, "pmc_r2p.param1=", 15))
++         r2p_self_param1 = (unsigned)strtoul(eq + 1, NULL, 0);
++      else if (!strncmp(tok, "pmc_r2p.param2=", 15))
++         r2p_self_param2 = (unsigned)strtoul(eq + 1, NULL, 0);
++   }
++}
++
++static void r2p_parse_ini_file(const char *ini_path,
++      enum r2p_payload_kind kind, unsigned *index_inout)
++{
++   RFILE *fp = filestream_open(ini_path,
++         RETRO_VFS_FILE_ACCESS_READ,
++         RETRO_VFS_FILE_ACCESS_HINT_NONE);
++   char   line[256];
++
++   if (!fp)
++      return;
++
++   while (filestream_gets(fp, line, sizeof(line)))
++   {
++      char  *trimmed = r2p_trim(line);
++      size_t tlen;
++
++      if (string_is_empty(trimmed))
++         continue;
++      if (trimmed[0] != '[')
++         continue;
++
++      tlen = strlen(trimmed);
++      if (tlen < 2 || trimmed[tlen - 1] != ']')
++         continue;
++
++      trimmed[tlen - 1] = '\0';
++      trimmed++;
++      trimmed           = r2p_trim(trimmed);
++
++      if (string_is_empty(trimmed))
++         continue;
++      /* hekate's [config] is global options, not a launch entry. */
++      if (string_is_equal_case_insensitive(trimmed, "config"))
++         continue;
++
++      r2p_append_payload(trimmed, kind, *index_inout);
++      (*index_inout)++;
++   }
++
++   filestream_close(fp);
++}
++
++static void r2p_clear_payloads(void)
++{
++   if (r2p_list)
++      free(r2p_list);
++   r2p_list          = NULL;
++   r2p_list_count    = 0;
++   r2p_list_capacity = 0;
++}
++
++/* Returns the list index that matches the kernel cmdline values, or
++ * 0 (Hekate Menu) when no parsed entry does. */
++static size_t r2p_index_for_self(void)
++{
++   size_t i;
++
++   if (string_is_equal_case_insensitive(r2p_self_action, "bootloader"))
++      return 0;
++
++   if (string_is_equal_case_insensitive(r2p_self_action, "self"))
++   {
++      enum r2p_payload_kind want_kind = (r2p_self_param2 == 1)
++            ? R2P_KIND_INI_CONFIG
++            : R2P_KIND_LAUNCH;
++
++      for (i = 0; i < r2p_list_count; i++)
++      {
++         const r2p_payload_t *p = &r2p_list[i];
++         if (p->kind == want_kind && p->index == r2p_self_param1)
++            return i;
++      }
++   }
++   return 0;
++}
++
++bool r2p_is_supported(void)
++{
++   return path_is_directory(R2P_SYSFS_DIR);
++}
++
++size_t r2p_refresh_payloads(void)
++{
++   unsigned launch_index = 1;
++   unsigned cfg_index    = 1;
++
++   r2p_clear_payloads();
++   r2p_parse_cmdline();
++
++   r2p_append_payload("Hekate Menu", R2P_KIND_BOOTLOADER, 0);
++
++   if (path_is_valid(R2P_HEKATE_IPL))
++      r2p_parse_ini_file(R2P_HEKATE_IPL, R2P_KIND_LAUNCH, &launch_index);
++
++   if (path_is_directory(R2P_HEKATE_INIDIR))
++   {
++      struct string_list *ini_files = dir_list_new(R2P_HEKATE_INIDIR,
++            "ini", false, false, false, false);
++      if (ini_files)
++      {
++         size_t i;
++         dir_list_sort(ini_files, true);
++         for (i = 0; i < ini_files->size; i++)
++            r2p_parse_ini_file(ini_files->elems[i].data,
++                  R2P_KIND_INI_CONFIG, &cfg_index);
++         string_list_free(ini_files);
++      }
++   }
++
++   r2p_selected         = r2p_index_for_self();
++   r2p_list_initialized = true;
++
++   RARCH_LOG("[R2P] %u entries loaded; cmdline action=%s "
++         "param1=%u param2=%u, default idx=%u\n",
++         (unsigned)r2p_list_count, r2p_self_action,
++         r2p_self_param1, r2p_self_param2,
++         (unsigned)r2p_selected);
++
++   return r2p_list_count;
++}
++
++size_t r2p_get_payload_count(void)
++{
++   if (!r2p_list_initialized)
++      r2p_refresh_payloads();
++   return r2p_list_count;
++}
++
++const r2p_payload_t *r2p_get_payload(size_t index)
++{
++   if (!r2p_list_initialized)
++      r2p_refresh_payloads();
++   if (index >= r2p_list_count)
++      return NULL;
++   return &r2p_list[index];
++}
++
++size_t r2p_get_selected_index(void)
++{
++   if (!r2p_list_initialized)
++      r2p_refresh_payloads();
++   return r2p_selected;
++}
++
++size_t r2p_set_selected_index(size_t index)
++{
++   if (!r2p_list_initialized)
++      r2p_refresh_payloads();
++   if (r2p_list_count == 0)
++      return 0;
++   if (index >= r2p_list_count)
++      index = r2p_list_count - 1;
++   r2p_selected = index;
++   return r2p_selected;
++}
++
++size_t r2p_cycle_selection(bool forward)
++{
++   if (!r2p_list_initialized)
++      r2p_refresh_payloads();
++   if (r2p_list_count == 0)
++      return 0;
++
++   if (forward)
++   {
++      r2p_selected++;
++      if (r2p_selected >= r2p_list_count)
++         r2p_selected = 0;
++   }
++   else
++   {
++      if (r2p_selected == 0)
++         r2p_selected = r2p_list_count - 1;
++      else
++         r2p_selected--;
++   }
++   return r2p_selected;
++}
++
++void r2p_get_selected_persistable(unsigned *out_kind,
++      const char **out_name)
++{
++   const r2p_payload_t *p;
++
++   if (!r2p_list_initialized)
++      r2p_refresh_payloads();
++
++   p = (r2p_selected < r2p_list_count) ? &r2p_list[r2p_selected] : NULL;
++   if (out_kind)
++      *out_kind = p ? (unsigned)p->kind : (unsigned)R2P_KIND_BOOTLOADER;
++   if (out_name)
++      *out_name = (p && p->name[0]) ? p->name : "";
++}
++
++size_t r2p_restore_persisted_selection(unsigned saved_kind,
++      const char *saved_name)
++{
++   size_t i;
++
++   if (!r2p_list_initialized)
++      r2p_refresh_payloads();
++   if (!saved_name || !saved_name[0])
++      return r2p_selected;
++
++   /* Match by name so the restore survives INI reordering between
++    * sessions. */
++   for (i = 0; i < r2p_list_count; i++)
++   {
++      const r2p_payload_t *p = &r2p_list[i];
++      if (   (unsigned)p->kind == saved_kind
++          && string_is_equal(p->name, saved_name))
++      {
++         r2p_selected = i;
++         return r2p_selected;
++      }
++   }
++
++   r2p_selected = r2p_index_for_self();
++   RARCH_WARN("[R2P] Persisted payload \"%s\" not found; "
++         "falling back to cmdline self (idx=%u)\n",
++         saved_name, (unsigned)r2p_selected);
++   return r2p_selected;
++}
++
++static bool r2p_write_sysfs(const char *action,
++      const char *param1, const char *param2)
++{
++   if (!filestream_write_file(R2P_SYSFS_ACTION, action, strlen(action)))
++   {
++      RARCH_ERR("[R2P] Failed to write %s.\n", R2P_SYSFS_ACTION);
++      return false;
++   }
++   if (!filestream_write_file(R2P_SYSFS_PARAM1, param1, strlen(param1)))
++   {
++      RARCH_ERR("[R2P] Failed to write %s.\n", R2P_SYSFS_PARAM1);
++      return false;
++   }
++   if (!filestream_write_file(R2P_SYSFS_PARAM2, param2, strlen(param2)))
++   {
++      RARCH_ERR("[R2P] Failed to write %s.\n", R2P_SYSFS_PARAM2);
++      return false;
++   }
++   return true;
++}
++
++bool r2p_arm_selected(void)
++{
++   const r2p_payload_t *p = r2p_get_payload(r2p_selected);
++   const char          *action;
++   char                 param1_str[16];
++   char                 param2_str[4];
++
++   if (!p)
++      return false;
++
++   switch (p->kind)
++   {
++      case R2P_KIND_BOOTLOADER:
++         action = "bootloader";
++         strlcpy(param1_str, "0", sizeof(param1_str));
++         strlcpy(param2_str, "0", sizeof(param2_str));
++         break;
++      case R2P_KIND_LAUNCH:
++         action = "self";
++         snprintf(param1_str, sizeof(param1_str), "%u", p->index);
++         strlcpy(param2_str, "0", sizeof(param2_str));
++         break;
++      case R2P_KIND_INI_CONFIG:
++         action = "self";
++         snprintf(param1_str, sizeof(param1_str), "%u", p->index);
++         strlcpy(param2_str, "1", sizeof(param2_str));
++         break;
++      default:
++         return false;
++   }
++
++   if (!r2p_write_sysfs(action, param1_str, param2_str))
++      return false;
++
++   RARCH_LOG("[R2P] Armed action=%s param1=%s param2=%s (\"%s\")\n",
++         action, param1_str, param2_str, p->name);
++   return true;
++}
++
++bool r2p_arm_self(void)
++{
++   char param1_str[16];
++   char param2_str[16];
++
++   if (!r2p_list_initialized)
++      r2p_refresh_payloads();
++
++   snprintf(param1_str, sizeof(param1_str), "%u", r2p_self_param1);
++   snprintf(param2_str, sizeof(param2_str), "%u", r2p_self_param2);
++
++   if (!r2p_write_sysfs(r2p_self_action, param1_str, param2_str))
++      return false;
++
++   RARCH_LOG("[R2P] Armed self action=%s param1=%s param2=%s\n",
++         r2p_self_action, param1_str, param2_str);
++   return true;
++}
++
++bool r2p_update_pending(void)
++{
++   /* Matches the *.tar / *.img.gz / *.img patterns the Lakka
++    * initramfs check_update step looks for. */
++   static const char *patterns[] = { "tar", "img.gz", "img", NULL };
++   size_t i;
++
++   if (!path_is_directory(R2P_UPDATE_DIR))
++      return false;
++
++   for (i = 0; patterns[i]; i++)
++   {
++      struct string_list *list = dir_list_new(R2P_UPDATE_DIR,
++            patterns[i], false, false, false, false);
++      bool found = (list && list->size > 0);
++      if (list)
++         string_list_free(list);
++      if (found)
++         return true;
++   }
++   return false;
++}
++
++const char *r2p_get_destination_name(void)
++{
++   static char buf[R2P_NAME_MAXLEN + sizeof(R2P_SELF_SUFFIX)];
++   const r2p_payload_t *p = r2p_get_payload(r2p_get_selected_index());
++   const char          *name;
++
++   if (!p || !p->name[0])
++      return "Hekate Menu";
++
++   name = p->name;
++   if (r2p_get_selected_index() == r2p_index_for_self())
++   {
++      snprintf(buf, sizeof(buf), "%s%s", name, R2P_SELF_SUFFIX);
++      return buf;
++   }
++   return name;
++}
++
++void r2p_deinit(void)
++{
++   r2p_clear_payloads();
++   r2p_selected         = 0;
++   r2p_list_initialized = false;
++}
+diff --git a/misc/reboot2payload/reboot2payload.h b/misc/reboot2payload/reboot2payload.h
+new file mode 100644
+index 0000000..2973e06
+--- /dev/null
++++ b/misc/reboot2payload/reboot2payload.h
+@@ -0,0 +1,76 @@
++/*  RetroArch - A frontend for libretro.
++ *
++ *  RetroArch is free software: you can redistribute it and/or modify it under
++ *  the terms of the GNU General Public License as published by the Free
++ *  Software Foundation, either version 3 of the License, or (at your option)
++ *  any later version.
++ *
++ *  RetroArch is distributed in the hope that it will be useful, but WITHOUT
++ *  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ *  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ *  more details.
++ *
++ *  You should have received a copy of the GNU General Public License along
++ *  with RetroArch. If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#ifndef _MISC_REBOOT2PAYLOAD_H
++#define _MISC_REBOOT2PAYLOAD_H
++
++#include <stddef.h>
++#include <stdint.h>
++
++#include <boolean.h>
++#include <retro_common_api.h>
++
++RETRO_BEGIN_DECLS
++
++#define R2P_NAME_MAXLEN 64
++
++/* pmc_r2p sysfs protocol:
++ *    action=self,       param2=0  -> hekate_ipl.ini launch entry
++ *    action=self,       param2=1  -> bootloader/ini/[name].ini entry
++ *    action=bootloader, param2=0  -> drop into the Hekate menu  */
++enum r2p_payload_kind
++{
++   R2P_KIND_BOOTLOADER = 0,
++   R2P_KIND_LAUNCH,
++   R2P_KIND_INI_CONFIG
++};
++
++typedef struct r2p_payload
++{
++   char name[R2P_NAME_MAXLEN];
++   enum r2p_payload_kind kind;
++   unsigned index;
++} r2p_payload_t;
++
++bool                 r2p_is_supported(void);
++size_t               r2p_refresh_payloads(void);
++size_t               r2p_get_payload_count(void);
++const r2p_payload_t *r2p_get_payload(size_t index);
++size_t               r2p_get_selected_index(void);
++size_t               r2p_set_selected_index(size_t index);
++size_t               r2p_cycle_selection(bool forward);
++
++/* Persist / restore. Pair with settings->uints.reboot_payload_kind +
++ * settings->arrays.reboot_payload_name. Restore matches by name; falls
++ * back to the cmdline-self entry when no match is found. */
++void                 r2p_get_selected_persistable(unsigned *out_kind,
++                           const char **out_name);
++size_t               r2p_restore_persisted_selection(unsigned saved_kind,
++                           const char *saved_name);
++
++bool                 r2p_arm_selected(void);
++/* Replays /proc/cmdline pmc_r2p.* values verbatim, ignoring the user's
++ * selection. Used by the update-install path. */
++bool                 r2p_arm_self(void);
++
++bool                 r2p_update_pending(void);
++const char          *r2p_get_destination_name(void);
++
++void                 r2p_deinit(void);
++
++RETRO_END_DECLS
++
++#endif
+diff --git a/msg_hash.h b/msg_hash.h
+index de8be7a..c2905f6 100644
+--- a/msg_hash.h
++++ b/msg_hash.h
+@@ -3012,6 +3012,8 @@ enum msg_hash_enums
+    MENU_LABEL(RESTART_RETROARCH),
+    MENU_LABEL(SHUTDOWN),
+    MENU_LABEL(REBOOT),
++   MENU_LABEL(REBOOT_PAYLOAD),
++   MENU_LABEL(REBOOT_FORCE_SELF_ON_UPDATE),
+    MENU_LABEL(DISK_IMAGE_APPEND),
+ 
+    MENU_LABEL(SUBSYSTEM_ADD),
+diff --git a/retroarch.c b/retroarch.c
+index 679880f..dfbc13a 100644
+--- a/retroarch.c
++++ b/retroarch.c
+@@ -203,6 +203,9 @@
+ #ifdef HAVE_LAKKA
+ #include "misc/sys-clk/sys-clk.h"
+ #endif
++#ifdef HAVE_LAKKA_SWITCH
++#include "misc/reboot2payload/reboot2payload.h"
++#endif
+ #include "led/led_driver.h"
+ #include "midi_driver.h"
+ #include "core.h"
+@@ -1807,6 +1810,31 @@ void drivers_init(
+    sys_clk_driver_init(SYS_CLK_DOMAIN_GPU);
+ #endif
+ 
++#ifdef HAVE_LAKKA_SWITCH
++   {
++      /* Parse /flash/bootloader contents, then restore the saved
++       * selection. Falls back to the cmdline self entry when the
++       * saved entry is gone. Local settings pointer keeps the block
++       * independent of drivers_init's parameter list. */
++      settings_t *r2p_settings = config_get_ptr();
++      size_t      restored;
++
++      r2p_refresh_payloads();
++      if (r2p_settings)
++      {
++         restored = r2p_restore_persisted_selection(
++               r2p_settings->uints.reboot_payload_kind,
++               r2p_settings->arrays.reboot_payload_name);
++         RARCH_LOG("[R2P] Persisted selection: kind=%u name=\"%s\" "
++               "-> idx=%u (\"%s\")\n",
++               r2p_settings->uints.reboot_payload_kind,
++               r2p_settings->arrays.reboot_payload_name,
++               (unsigned)restored,
++               r2p_get_destination_name());
++      }
++   }
++#endif
++
+ #ifdef HAVE_MENU
+    srand((unsigned)time(NULL));
+ #endif
+@@ -4658,6 +4686,39 @@ bool command_event(enum event_command cmd, void *data)
+ #endif
+          }
+          break;
++#ifdef HAVE_LAKKA_SWITCH
++      case CMD_EVENT_REBOOT2PAYLOAD:
++         {
++            /* With the toggle on, a staged update overrides the user's
++             * payload choice and reboots back into the same Lakka entry
++             * so the initramfs picks the tarball up. */
++            const bool install_update = r2p_update_pending()
++                  && settings->bools.reboot_force_self_on_update;
++            bool       armed;
++
++            if (install_update)
++               armed = r2p_arm_self();
++            else
++               armed = r2p_arm_selected();
++
++            if (!armed)
++            {
++               command_event(CMD_EVENT_REBOOT, NULL);
++               break;
++            }
++            if (settings->bools.config_save_on_exit)
++               command_event(CMD_EVENT_MENU_SAVE_CURRENT_CONFIG, NULL);
++
++            {
++               const char *_msg = msg_hash_to_str(MSG_VALUE_REBOOTING);
++               runloop_msg_queue_push(_msg, strlen(_msg), 1, 180, true,
++                     NULL, MESSAGE_QUEUE_ICON_DEFAULT,
++                     MESSAGE_QUEUE_CATEGORY_INFO);
++            }
++            system("nohup /usr/bin/lakka-reboot.sh 2>&1 >/dev/null & exit");
++         }
++         break;
++#endif
+       case CMD_EVENT_RESUME:
+ #ifdef HAVE_MENU
+          retroarch_menu_running_finished(false);
+-- 
+2.43.0
+

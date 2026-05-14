@@ -1,0 +1,86 @@
+From 8221422eec8fd6427dd547a7f913f25a87d1b444 Mon Sep 17 00:00:00 2001
+From: Claude <claude@local>
+Date: Fri, 22 May 2026 19:49:11 +0000
+Subject: [PATCH] sys-clk: translate frequency sentinels at the sysfs write
+ boundary
+
+sys_clk_get_next_frequency returns the sentinel values 1 ('Min.')
+and ~0U ('Max.') so the menu can render those labels at the
+endpoints of the scale. These sentinels were correctly handled by
+steer_all() in the managed code paths (which pre-translates them
+to a per-driver hardware bound before calling the setter), but the
+manual-mode path through cpu_policy_freq_tweak passed them straight
+into sys_clk_set_min_frequency / sys_clk_set_max_frequency, which
+wrote the literal sentinel to sysfs. The kernel rejects or silently
+clamps values like 4294967295, and driver->min_policy_freq /
+->max_policy_freq cached the bogus value until the next sysfs
+refresh.
+
+This commit moves the sentinel-to-hardware-bound translation down
+into the setters themselves. Any caller that hands the setter a
+sentinel now writes the per-driver hw bound (driver->min_hw_freq or
+->max_hw_freq, which can differ between policies on heterogeneous
+CPUs) instead of the literal sentinel. The cached
+driver->min_policy_freq / ->max_policy_freq still holds the sentinel
+so the label callbacks added in the previous commit continue to
+render 'Min.' / 'Max.' at the endpoints; the next sysfs refresh
+(within REFRESH_TIMEOUT) will replace it with the actual reported
+frequency. Net effect: no more bogus values in sysfs, and the menu
+display behaves identically to managed mode at the scale endpoints
+immediately after a step.
+
+steer_all() still pre-translates sentinels itself, which is now
+redundant but harmless (the setter would translate them the same
+way). Leaving steer_all unchanged keeps the diff small and avoids
+disturbing managed-mode behavior.
+---
+ misc/sys-clk/sys-clk.c | 26 ++++++++++++++++++++++----
+ 1 file changed, 22 insertions(+), 4 deletions(-)
+
+diff --git a/misc/sys-clk/sys-clk.c b/misc/sys-clk/sys-clk.c
+index 6b98eaa..6bae3bb 100644
+--- a/misc/sys-clk/sys-clk.c
++++ b/misc/sys-clk/sys-clk.c
+@@ -477,8 +477,21 @@ static bool write_uint32_leaf(enum sys_clk_domain dom,
+ bool sys_clk_set_min_frequency(enum sys_clk_domain dom,
+       sys_clk_driver_t *driver, uint32_t min_freq)
+ {
+-   sys_clk_state_t *st = &g_state[dom];
+-   if (!write_uint32_leaf(dom, driver, st->be->file_min_policy, min_freq))
++   sys_clk_state_t *st       = &g_state[dom];
++   uint32_t         to_write = min_freq;
++   /* Translate UI sentinels at the sysfs boundary: 'Min.' (1) means
++    * "this driver's hardware minimum" and 'Max.' (~0U) means "this
++    * driver's hardware maximum". The kernel would otherwise reject
++    * or silently clamp these literal values, so we write the
++    * hardware bound. We keep the sentinel in driver->min_policy_freq
++    * so the menu label callbacks can continue to render 'Min.' /
++    * 'Max.' at the endpoints of the scale; the next sysfs refresh
++    * will replace it with the actual reported value. */
++   if (min_freq == 1)
++      to_write = driver->min_hw_freq;
++   else if (min_freq == ~0U)
++      to_write = driver->max_hw_freq;
++   if (!write_uint32_leaf(dom, driver, st->be->file_min_policy, to_write))
+       return false;
+    driver->min_policy_freq = min_freq;
+    return true;
+@@ -487,8 +500,13 @@ bool sys_clk_set_min_frequency(enum sys_clk_domain dom,
+ bool sys_clk_set_max_frequency(enum sys_clk_domain dom,
+       sys_clk_driver_t *driver, uint32_t max_freq)
+ {
+-   sys_clk_state_t *st = &g_state[dom];
+-   if (!write_uint32_leaf(dom, driver, st->be->file_max_policy, max_freq))
++   sys_clk_state_t *st       = &g_state[dom];
++   uint32_t         to_write = max_freq;
++   if (max_freq == 1)
++      to_write = driver->min_hw_freq;
++   else if (max_freq == ~0U)
++      to_write = driver->max_hw_freq;
++   if (!write_uint32_leaf(dom, driver, st->be->file_max_policy, to_write))
+       return false;
+    driver->max_policy_freq = max_freq;
+    return true;
+-- 
+2.43.0
+

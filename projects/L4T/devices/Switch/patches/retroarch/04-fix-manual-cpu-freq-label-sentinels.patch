@@ -1,0 +1,66 @@
+From f67f90916e8adbaefd5c0dd3d5ee8bed7027008e Mon Sep 17 00:00:00 2001
+From: Claude <claude@local>
+Date: Fri, 22 May 2026 19:45:44 +0000
+Subject: [PATCH] menu: render Min./Max. sentinels in manual CPU policy
+ frequency labels
+
+The manual-mode per-policy frequency stepper (cpu_policy_freq_tweak)
+calls sys_clk_get_next_frequency, which returns the 'Min.' sentinel
+1 when stepping below the lowest available frequency and the 'Max.'
+sentinel ~0U when stepping above the highest. cpu_policy_freq_tweak
+then writes that sentinel to sysfs and caches it in driver
+->min_policy_freq / ->max_policy_freq.
+
+menu_action_cpu_freq_label, the label callback for the manual-mode
+MENU_ENUM_LABEL_CPU_POLICY_MIN_FREQ and MENU_ENUM_LABEL_CPU_POLICY_MAX_FREQ
+entries, was dividing whatever value was cached by 1000 and printing
+'%u MHz'. At the scale endpoints this produced visibly broken output:
+'0 MHz' (sentinel 1 / 1000) and '4294967 MHz' (~0U / 1000).
+
+The managed-mode equivalent menu_action_cpu_managed_freq_label
+already special-cased the two sentinels and rendered 'Min.' / 'Max.'.
+This commit applies the same treatment to the manual-mode label so
+both modes display consistently at the endpoints of the frequency
+scale.
+---
+ menu/cbs/menu_cbs_get_value.c | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/menu/cbs/menu_cbs_get_value.c b/menu/cbs/menu_cbs_get_value.c
+index d108ea6..1f6d4b8 100644
+--- a/menu/cbs/menu_cbs_get_value.c
++++ b/menu/cbs/menu_cbs_get_value.c
+@@ -674,17 +674,28 @@ static size_t menu_action_cpu_freq_label(
+    unsigned          policyid = atoi(path);
+    sys_clk_driver_t **drivers = sys_clk_get_drivers(SYS_CLK_DOMAIN_CPU, false);
+    sys_clk_driver_t  *d       = drivers[policyid];
++   uint32_t           freq;
+ 
+    switch (type)
+    {
+       case MENU_SETTINGS_CPU_POLICY_SET_MINFREQ:
+          strlcpy(s2, msg_hash_to_str(
+                   MENU_ENUM_LABEL_VALUE_CPU_POLICY_MIN_FREQ), len2);
+-         return snprintf(s, len, "%u MHz", d->min_policy_freq / 1000);
++         freq = d->min_policy_freq;
++         if (freq == 1)
++            return strlcpy(s, "Min.", len);
++         if (freq == ~0U)
++            return strlcpy(s, "Max.", len);
++         return snprintf(s, len, "%u MHz", freq / 1000);
+       case MENU_SETTINGS_CPU_POLICY_SET_MAXFREQ:
+          strlcpy(s2, msg_hash_to_str(
+                   MENU_ENUM_LABEL_VALUE_CPU_POLICY_MAX_FREQ), len2);
+-         return snprintf(s, len, "%u MHz", d->max_policy_freq / 1000);
++         freq = d->max_policy_freq;
++         if (freq == 1)
++            return strlcpy(s, "Min.", len);
++         if (freq == ~0U)
++            return strlcpy(s, "Max.", len);
++         return snprintf(s, len, "%u MHz", freq / 1000);
+       case MENU_SETTINGS_CPU_POLICY_SET_GOVERNOR:
+          strlcpy(s2, msg_hash_to_str(
+                   MENU_ENUM_LABEL_VALUE_CPU_POLICY_GOVERNOR), len2);
+-- 
+2.43.0
+

@@ -1,0 +1,1482 @@
+From a7b37308fb35415508634f8fda5c4f201cc44369 Mon Sep 17 00:00:00 2001
+From: Ronald Brown <rbrown4014&yahoo.com>
+Date: Wed, 15 Apr 2026 14:07:35 -0700
+Subject: [PATCH] Lakka: Switch: Initial GPU clock speed menu
+
+---
+ Makefile.common                   |   4 +
+ configuration.c                   |   7 +
+ configuration.h                   |   6 +
+ intl/msg_hash_lbl.h               |  17 ++
+ intl/msg_hash_us.h                |  48 ++++
+ lakka-switch.h                    |   5 -
+ menu/cbs/menu_cbs_deferred_push.c |   7 +
+ menu/cbs/menu_cbs_get_value.c     |  81 ++++++
+ menu/cbs/menu_cbs_left.c          |  58 +++-
+ menu/cbs/menu_cbs_ok.c            |  13 +
+ menu/cbs/menu_cbs_right.c         |  61 ++++-
+ menu/cbs/menu_cbs_sublabel.c      |  24 +-
+ menu/cbs/menu_cbs_title.c         |   6 +
+ menu/menu_cbs.h                   |   3 +
+ menu/menu_displaylist.c           |  59 ++++
+ menu/menu_displaylist.h           |   3 +
+ menu/menu_driver.c                |  12 +
+ menu/menu_driver.h                |   5 +-
+ menu/menu_setting.c               |   9 +
+ misc/gpufreq/gpufreq.c            | 434 ++++++++++++++++++++++++++++++
+ misc/gpufreq/gpufreq.h            |  98 +++++++
+ msg_hash.h                        |  22 +-
+ retroarch.c                       |  15 ++
+ runloop.c                         |  15 ++
+ 24 files changed, 1000 insertions(+), 12 deletions(-)
+ create mode 100644 misc/gpufreq/gpufreq.c
+ create mode 100644 misc/gpufreq/gpufreq.h
+
+diff --git a/Makefile.common b/Makefile.common
+index 5de6926d997..7101b81b054 100644
+--- a/Makefile.common
++++ b/Makefile.common
+@@ -801,6 +801,10 @@ ifeq ($(HAVE_LAKKA), 1)
+    LIBS += -lsystemd
+ endif
+ 
++ifeq ($(HAVE_LAKKA_SWITCH), 1)
++      OBJ += misc/gpufreq/gpufreq.o
++endif
++
+ ifeq ($(HAVE_WIFI), 1)
+    OBJ += network/wifi_driver.o
+    OBJ += tasks/task_wifi.o
+diff --git a/configuration.c b/configuration.c
+index eaebc5c5697..aa6f14e91c4 100644
+--- a/configuration.c
++++ b/configuration.c
+@@ -2725,6 +2725,13 @@ static struct config_uint_setting *populate_settings_uint(
+    SETTING_UINT("cpu_scaling_mode",              &settings->uints.cpu_scaling_mode,    true,   0, false);
+    SETTING_UINT("cpu_min_freq",                  &settings->uints.cpu_min_freq,        true,   1, false);
+    SETTING_UINT("cpu_max_freq",                  &settings->uints.cpu_max_freq,        true, ~0U, false);
++
++#ifdef HAVE_LAKKA_SWITCH
++   SETTING_UINT("gpu_scaling_mode",              &settings->uints.gpu_scaling_mode,    true,   0, false);
++   SETTING_UINT("gpu_min_freq",                  &settings->uints.gpu_min_freq,        true,   1, false);
++   SETTING_UINT("gpu_max_freq",                  &settings->uints.gpu_max_freq,        true, ~0U, false);
++#endif
++
+ #endif
+ 
+ #ifdef HAVE_MIST
+diff --git a/configuration.h b/configuration.h
+index bc1bd92c0ce..e0cc9683884 100644
+--- a/configuration.h
++++ b/configuration.h
+@@ -399,6 +399,12 @@ typedef struct settings
+       unsigned cpu_max_freq;
+ #endif
+ 
++#ifdef HAVE_LAKKA_SWITCH
++      unsigned gpu_scaling_mode;
++      unsigned gpu_min_freq;
++      unsigned gpu_max_freq;
++#endif
++
+ #ifdef HAVE_MIST
+       unsigned steam_rich_presence_format;
+ #endif
+diff --git a/intl/msg_hash_lbl.h b/intl/msg_hash_lbl.h
+index 1e3d0100691..9486a9d6532 100644
+--- a/intl/msg_hash_lbl.h
++++ b/intl/msg_hash_lbl.h
+@@ -1298,6 +1298,17 @@ MSG_HASH(
+    MENU_ENUM_LABEL_DEFERRED_QUICK_MENU_VIEWS_SETTINGS_LIST,
+    MENU_ENUM_LABEL_DEFERRED_QUICK_MENU_VIEWS_SETTINGS_LIST_STR
+    )
++
++#ifdef HAVE_LAKKA_SWITCH
++MSG_HASH(
++   MENU_ENUM_LABEL_DEFERRED_GPU_PERFPOWER_LIST,
++   "deferred_gpu_perfpower_list"
++   )
++MSG_HASH(
++   MENU_ENUM_LABEL_DEFERRED_GPU_POLICY_ENTRY,
++   "deferred_gpu_policy_list"
++   )
++#endif
+ MSG_HASH(
+    MENU_ENUM_LABEL_DEFERRED_SETTINGS_VIEWS_SETTINGS_LIST,
+    MENU_ENUM_LABEL_DEFERRED_SETTINGS_VIEWS_SETTINGS_LIST_STR
+@@ -6369,6 +6380,12 @@ MSG_HASH(
+    MENU_ENUM_LABEL_DEFERRED_AUDIO_OUTPUT_SETTINGS_LIST,
+    MENU_ENUM_LABEL_DEFERRED_AUDIO_OUTPUT_SETTINGS_LIST_STR
+    )
++#ifdef HAVE_LAKKA_SWITCH
++MSG_HASH(
++   MENU_ENUM_LABEL_GPU_PERFPOWER,
++   "gpu_perfpower_list"
++   )
++#endif
+ MSG_HASH(
+    MENU_ENUM_LABEL_DEFERRED_AUDIO_SYNCHRONIZATION_SETTINGS_LIST,
+    MENU_ENUM_LABEL_DEFERRED_AUDIO_SYNCHRONIZATION_SETTINGS_LIST_STR
+diff --git a/intl/msg_hash_us.h b/intl/msg_hash_us.h
+index c36f0073a09..80346c04078 100644
+--- a/intl/msg_hash_us.h
++++ b/intl/msg_hash_us.h
+@@ -16315,6 +16315,54 @@ MSG_HASH(
+    "Displays a list of available timezones. After selecting a time zone, time and date is adjusted to the selected time zone. It assumes, that system/hardware clock is set to UTC."
+    )
+ #ifdef HAVE_LAKKA_SWITCH
++MSG_HASH(
++   MENU_ENUM_LABEL_VALUE_GPU_PERFPOWER,
++   "GPU Performance and Power"
++   )
++MSG_HASH(
++   MENU_ENUM_LABEL_VALUE_GPU_PERF_MODE,
++   "Governing Mode"
++   )
++MSG_HASH(
++   MENU_ENUM_LABEL_VALUE_GPU_PERF_MODE_MANAGED_PERF,
++   "Performance (Managed)"
++   )
++MSG_HASH(
++   MENU_ENUM_SUBLABEL_VALUE_GPU_PERF_MODE_MANAGED_PERF,
++   "Default and recommended mode. Maximum performance while playing, while saving power when paused or browsing menus."
++   )
++MSG_HASH(
++   MENU_ENUM_LABEL_VALUE_GPU_PERF_MODE_MAX_PERF,
++   "Maximum Performance"
++   )
++MSG_HASH(
++   MENU_ENUM_SUBLABEL_VALUE_GPU_PERF_MODE_MAX_PERF,
++   "Always maximum performance: highest frequencies for best experience."
++   )
++MSG_HASH(
++   MENU_ENUM_LABEL_VALUE_GPU_PERF_MODE_MIN_POWER,
++   "Minimum Power"
++   )
++MSG_HASH(
++   MENU_ENUM_SUBLABEL_VALUE_GPU_PERF_MODE_MIN_POWER,
++   "Use the lowest frequency available to save power. Useful on battery powered devices but performance will be significantly reduced."
++   )
++MSG_HASH(
++   MENU_ENUM_LABEL_VALUE_GPU_PERF_MODE_BALANCED,
++   "Balanced"
++   )
++MSG_HASH(
++   MENU_ENUM_SUBLABEL_VALUE_GPU_PERF_MODE_BALANCED,
++   "Adapts to the current workload. Works well with most devices and emulators and helps to save power. Demanding games and cores might suffer a performance drop on some devices."
++   )
++MSG_HASH(
++   MENU_ENUM_LABEL_VALUE_GPU_MANAGED_MIN_FREQ,
++   "Minimum Core Frequency"
++   )
++MSG_HASH(
++   MENU_ENUM_LABEL_VALUE_GPU_MANAGED_MAX_FREQ,
++   "Maximum Core Frequency"
++   )
+ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_LAKKA_SWITCH_OPTIONS,
+    "Nintendo Switch Options"
+diff --git a/lakka-switch.h b/lakka-switch.h
+index 2100199a8cc..1c58415c5e9 100644
+--- a/lakka-switch.h
++++ b/lakka-switch.h
+@@ -18,11 +18,6 @@
+ 
+ #define SWITCH_OC_TOGGLE_PATH "/sys/kernel/tegra_cpufreq/overclock"
+ #define SWITCH_CEC_TOGGLE_PATH "/tmp/.CEC"
+-#define SWITCH_GPU_PROFILE_FILE_MAX_PATH  "/sys/devices/57000000.gpu/devfreq/57000000.gpu/max_freq"
+-#define SWITCH_GPU_PROFILE_FILE_MIN_PATH  "/sys/devices/57000000.gpu/devfreq/57000000.gpu/min_freq"
+-#define SWITCH_GPU_PROFILE_FILE_GOVERNOR_PATH "/sys/devices/57000000.gpu/devfreq/57000000.gpu/governor"
+-#define SWITCH_GPU_PROFILE_FILE_AVAILABLE_GOVERNORS_PATH "/sys/devices/57000000.gpu/devfreq/57000000.gpu/available_governors"
+-#define SWITCH_GPU_PROFILE_FILE_AVAILABLE_FREQ_PATH "/sys/devices/57000000.gpu/devfreq/57000000.gpu/available_governors"
+ 
+ #define BLUETOOTH_ERTM_TOGGLE_PATH "/sys/module/bluetooth/parameters/disable_ertm"
+ 
+diff --git a/menu/cbs/menu_cbs_deferred_push.c b/menu/cbs/menu_cbs_deferred_push.c
+index 51ca3b601da..df0854eafb0 100644
+--- a/menu/cbs/menu_cbs_deferred_push.c
++++ b/menu/cbs/menu_cbs_deferred_push.c
+@@ -270,6 +270,10 @@ GENERIC_DEFERRED_PUSH(deferred_push_cpu_perfpower,                  DISPLAYLIST_
+ GENERIC_DEFERRED_PUSH(deferred_push_cpu_policy,                     DISPLAYLIST_CPU_POLICY_LIST)
+ #endif
+ 
++#ifdef HAVE_LAKKA_SWITCH
++GENERIC_DEFERRED_PUSH(deferred_push_gpu_perfpower,                  DISPLAYLIST_GPU_PERFPOWER_LIST)
++#endif
++
+ GENERIC_DEFERRED_PUSH(deferred_push_manual_content_scan_list,       DISPLAYLIST_MANUAL_CONTENT_SCAN_LIST)
+ GENERIC_DEFERRED_PUSH(deferred_push_manual_content_scan_dat_file,   DISPLAYLIST_MANUAL_CONTENT_SCAN_DAT_FILES)
+ 
+@@ -664,6 +668,9 @@ static int menu_cbs_init_bind_deferred_push_compare_label(
+ #if defined(HAVE_LAKKA)
+       {MENU_ENUM_LABEL_DEFERRED_CPU_PERFPOWER_LIST, deferred_push_cpu_perfpower},
+       {MENU_ENUM_LABEL_DEFERRED_CPU_POLICY_ENTRY, deferred_push_cpu_policy},
++#endif
++#ifdef HAVE_LAKKA_SWITCH
++      {MENU_ENUM_LABEL_DEFERRED_GPU_PERFPOWER_LIST, deferred_push_gpu_perfpower},
+ #endif
+       {MENU_ENUM_LABEL_DEFERRED_REMAPPINGS_PORT_LIST, deferred_push_remappings_port},
+       {MENU_ENUM_LABEL_DEFERRED_ACCOUNTS_LIST, deferred_push_accounts_list},
+diff --git a/menu/cbs/menu_cbs_get_value.c b/menu/cbs/menu_cbs_get_value.c
+index 3b88e0b3374..cfc5c2a6ad2 100644
+--- a/menu/cbs/menu_cbs_get_value.c
++++ b/menu/cbs/menu_cbs_get_value.c
+@@ -47,6 +47,11 @@
+ #include "../../playlist.h"
+ #include "../../manual_content_scan.h"
+ #include "../misc/cpufreq/cpufreq.h"
++
++#ifdef HAVE_LAKKA_SWITCH
++#include "../misc/gpufreq/gpufreq.h"
++#endif
++
+ #include "../../audio/audio_driver.h"
+ 
+ #ifdef HAVE_NETWORKING
+@@ -707,7 +712,73 @@ static size_t menu_action_cpu_governor_label(
+    return strlcpy(s, d->scaling_governor, len);
+ }
+ #endif
++#ifdef HAVE_LAKKA_SWITCH
++static void menu_action_setting_disp_gpu_gov_mode(
++      file_list_t* list,
++      unsigned *w, unsigned type, unsigned i,
++      const char *label,
++      char *s, size_t len,
++      const char *path,
++      char *s2, size_t len2)
++{
++   const char *alt        = list->list[i].alt
++         ? list->list[i].alt
++         : list->list[i].path;
++   enum gpu_scaling_mode mode = get_gpu_scaling_mode(NULL);
+ 
++   if (alt)
++      strlcpy(s2, alt, len2);
++
++   strlcpy(s, msg_hash_to_str(
++      MENU_ENUM_LABEL_VALUE_GPU_PERF_MODE_MANAGED_PERF + (int)mode), len);
++}
++
++static void menu_action_gpu_managed_freq_label(
++      file_list_t* list,
++      unsigned *w, unsigned type, unsigned i,
++      const char *label,
++      char *s, size_t len,
++      const char *path,
++      char *s2, size_t len2)
++{
++   gpu_scaling_opts_t opts;
++   uint32_t freq              = 0;
++   enum gpu_scaling_mode mode = get_gpu_scaling_mode(&opts);
++
++   switch (type)
++   {
++      case MENU_SETTINGS_GPU_MANAGED_SET_MINFREQ:
++         strlcpy(s2, msg_hash_to_str(
++                  MENU_ENUM_LABEL_VALUE_GPU_MANAGED_MIN_FREQ), len2);
++         freq = opts.min_freq;
++         break;
++      case MENU_SETTINGS_GPU_MANAGED_SET_MAXFREQ:
++         strlcpy(s2, msg_hash_to_str(
++                  MENU_ENUM_LABEL_VALUE_GPU_MANAGED_MAX_FREQ), len2);
++         freq = opts.max_freq;
++         break;
++   };
++
++   if (freq == 1)
++   {
++      s[0] = 'M';
++      s[1] = 'i';
++      s[2] = 'n';
++      s[3] = '.';
++      s[4] = '\0';
++   }
++   else if (freq == ~0U)
++   {
++      s[0] = 'M';
++      s[1] = 'a';
++      s[2] = 'x';
++      s[3] = '.';
++      s[4] = '\0';
++   }
++   else
++      snprintf(s, len, "%u MHz", freq / 1000000);
++}
++#endif
+ static size_t menu_action_setting_disp_set_label_core_lock(
+       file_list_t* list,
+       unsigned *w, unsigned type, unsigned i,
+@@ -2100,6 +2171,16 @@ static int menu_cbs_init_bind_get_string_representation_compare_label(
+                   menu_action_setting_disp_set_label_manual_content_scan_core_name);
+             break;
+ #ifdef HAVE_NETWORKING
++         #ifdef HAVE_LAKKA_SWITCH
++         case MENU_ENUM_LABEL_GPU_PERF_MODE:
++            BIND_ACTION_GET_VALUE(cbs,
++                  menu_action_setting_disp_gpu_gov_mode);
++            break;
++         case MENU_ENUM_LABEL_GPU_MANAGED_MIN_FREQ:
++         case MENU_ENUM_LABEL_GPU_MANAGED_MAX_FREQ:
++            BIND_ACTION_GET_VALUE(cbs, menu_action_gpu_managed_freq_label);
++            break;
++         #endif
+          case MENU_ENUM_LABEL_CORE_UPDATER_ENTRY:
+             BIND_ACTION_GET_VALUE(cbs,
+                   menu_action_setting_disp_set_label_core_updater_entry);
+diff --git a/menu/cbs/menu_cbs_left.c b/menu/cbs/menu_cbs_left.c
+index a77c665f71b..207162cc624 100644
+--- a/menu/cbs/menu_cbs_left.c
++++ b/menu/cbs/menu_cbs_left.c
+@@ -48,7 +48,9 @@
+ #include "../../playlist.h"
+ #include "../../manual_content_scan.h"
+ #include "../misc/cpufreq/cpufreq.h"
+-
++#ifdef HAVE_LAKKA_SWITCH
++#include "../misc/gpufreq/gpufreq.h"
++#endif
+ #ifndef BIND_ACTION_LEFT
+ #define BIND_ACTION_LEFT(cbs, name) (cbs)->action_left = (name)
+ #endif
+@@ -936,7 +938,52 @@ static int cpu_policy_freq_tweak(unsigned type, const char *label,
+    return 0;
+ }
+ #endif
++#ifdef HAVE_LAKKA_SWITCH
++static int gpu_policy_mode_change(unsigned type, const char *label,
++      bool wraparound)
++{
++   struct menu_state *menu_st = menu_state_get_ptr();
++   gpu_scaling_opts_t opts;
++   enum gpu_scaling_mode mode = get_gpu_scaling_mode(&opts);
++   if (mode != GPUSCALING_MANAGED_PERFORMANCE)
++      mode--;
++   set_gpu_scaling_mode(mode, &opts);
++   menu_st->flags |=  MENU_ST_FLAG_ENTRIES_NEED_REFRESH;
++   return 0;
++}
++
++static int gpu_policy_freq_managed_tweak(unsigned type, const char *label,
++      bool wraparound)
++{
++   bool refresh = false;
++   gpu_scaling_opts_t opts;
++   gpu_scaling_driver_t **drivers = get_gpu_scaling_drivers(false);
++   unsigned policyid = atoi(label);
++   enum gpu_scaling_mode mode = get_gpu_scaling_mode(&opts);
++
++   if (!drivers)
++     return 0;
++
++   switch (type) {
++   case MENU_SETTINGS_GPU_MANAGED_SET_MINFREQ:
++      if((*drivers)->available_freqs)
++       opts.min_freq = get_gpu_scaling_next_frequency(drivers[policyid], opts.min_freq, -1);
++      else
++        opts.min_freq = get_gpu_scaling_next_frequency_limit(opts.min_freq, -1);
++      set_gpu_scaling_mode(mode, &opts);
++      break;
++   case MENU_SETTINGS_GPU_MANAGED_SET_MAXFREQ:
++      if((*drivers)->available_freqs)
++        opts.max_freq = get_gpu_scaling_next_frequency(drivers[policyid], opts.max_freq, -1);
++      else
++        opts.max_freq = get_gpu_scaling_next_frequency_limit(opts.max_freq, -1);
++      set_gpu_scaling_mode(mode, &opts);
++      break;
++   };
+ 
++   return 0;
++}
++#endif
+ static int core_setting_left(unsigned type, const char *label,
+       bool wraparound)
+ {
+@@ -1284,6 +1331,15 @@ static int menu_cbs_init_bind_left_compare_label(menu_file_list_cbs_t *cbs,
+                BIND_ACTION_LEFT(cbs, cpu_policy_freq_managed_gov);
+                break;
+             #endif
++            #ifdef HAVE_LAKKA_SWITCH
++            case MENU_ENUM_LABEL_GPU_PERF_MODE:
++               BIND_ACTION_LEFT(cbs, gpu_policy_mode_change);
++               break;
++            case MENU_ENUM_LABEL_GPU_MANAGED_MIN_FREQ:
++            case MENU_ENUM_LABEL_GPU_MANAGED_MAX_FREQ:
++               BIND_ACTION_LEFT(cbs, gpu_policy_freq_managed_tweak);
++               break;
++            #endif
+             default:
+                return -1;
+          }
+diff --git a/menu/cbs/menu_cbs_ok.c b/menu/cbs/menu_cbs_ok.c
+index 394980cc4be..6944b8ce2e2 100644
+--- a/menu/cbs/menu_cbs_ok.c
++++ b/menu/cbs/menu_cbs_ok.c
+@@ -428,6 +428,10 @@ static enum msg_hash_enums action_ok_dl_to_enum(unsigned lbl)
+          return MENU_ENUM_LABEL_DEFERRED_CPU_PERFPOWER_LIST;
+       case ACTION_OK_DL_CPU_POLICY_SETTINGS_LIST:
+          return MENU_ENUM_LABEL_DEFERRED_CPU_POLICY_ENTRY;
++#ifdef HAVE_LAKKA_SWITCH
++      case ACTION_OK_DL_GPU_PERFPOWER_SETTINGS_LIST:
++         return MENU_ENUM_LABEL_DEFERRED_GPU_PERFPOWER_LIST;
++#endif
+       case ACTION_OK_DL_MENU_SOUNDS_LIST:
+          return MENU_ENUM_LABEL_DEFERRED_MENU_SOUNDS_LIST;
+       case ACTION_OK_DL_MENU_FILE_BROWSER_SETTINGS_LIST:
+@@ -1807,6 +1811,9 @@ int generic_action_ok_displaylist_push(
+       case ACTION_OK_DL_POWER_MANAGEMENT_SETTINGS_LIST:
+       case ACTION_OK_DL_CPU_PERFPOWER_SETTINGS_LIST:
+       case ACTION_OK_DL_CPU_POLICY_SETTINGS_LIST:
++#ifdef HAVE_LAKKA_SWITCH
++      case ACTION_OK_DL_GPU_PERFPOWER_SETTINGS_LIST:
++#endif
+       case ACTION_OK_DL_MENU_SOUNDS_LIST:
+       case ACTION_OK_DL_MENU_FILE_BROWSER_SETTINGS_LIST:
+       case ACTION_OK_DL_RETRO_ACHIEVEMENTS_SETTINGS_LIST:
+@@ -6632,6 +6639,9 @@ STATIC_DEFAULT_ACTION_OK_FUNC(action_ok_quick_menu_views_list, ACTION_OK_DL_QUIC
+ STATIC_DEFAULT_ACTION_OK_FUNC(action_ok_power_management_list, ACTION_OK_DL_POWER_MANAGEMENT_SETTINGS_LIST)
+ STATIC_DEFAULT_ACTION_OK_FUNC(action_ok_cpu_perfpower_list, ACTION_OK_DL_CPU_PERFPOWER_SETTINGS_LIST)
+ STATIC_DEFAULT_ACTION_OK_FUNC(action_ok_cpu_policy_entry, ACTION_OK_DL_CPU_POLICY_SETTINGS_LIST)
++#ifdef HAVE_LAKKA_SWITCH
++DEFAULT_ACTION_OK_FUNC(action_ok_gpu_perfpower_list, ACTION_OK_DL_GPU_PERFPOWER_SETTINGS_LIST)
++#endif
+ STATIC_DEFAULT_ACTION_OK_FUNC(action_ok_menu_sounds_list, ACTION_OK_DL_MENU_SOUNDS_LIST)
+ STATIC_DEFAULT_ACTION_OK_FUNC(action_ok_user_interface_list, ACTION_OK_DL_USER_INTERFACE_SETTINGS_LIST)
+ STATIC_DEFAULT_ACTION_OK_FUNC(action_ok_menu_file_browser_list, ACTION_OK_DL_MENU_FILE_BROWSER_SETTINGS_LIST)
+@@ -9484,6 +9494,9 @@ static int menu_cbs_init_bind_ok_compare_label(menu_file_list_cbs_t *cbs,
+          {MENU_ENUM_LABEL_POWER_MANAGEMENT_SETTINGS,           action_ok_power_management_list},
+          {MENU_ENUM_LABEL_CPU_PERFPOWER,                       action_ok_cpu_perfpower_list},
+          {MENU_ENUM_LABEL_CPU_POLICY_ENTRY,                    action_ok_cpu_policy_entry},
++#ifdef HAVE_LAKKA_SWITCH
++         {MENU_ENUM_LABEL_GPU_PERFPOWER,                       action_ok_gpu_perfpower_list},
++#endif
+          {MENU_ENUM_LABEL_MENU_SOUNDS,                         action_ok_menu_sounds_list},
+          {MENU_ENUM_LABEL_MENU_FILE_BROWSER_SETTINGS,          action_ok_menu_file_browser_list},
+          {MENU_ENUM_LABEL_FILE_BROWSER_OPEN_UWP_PERMISSIONS,   action_ok_open_uwp_permission_settings},
+diff --git a/menu/cbs/menu_cbs_right.c b/menu/cbs/menu_cbs_right.c
+index d7fb7ed830f..fcf628151fe 100644
+--- a/menu/cbs/menu_cbs_right.c
++++ b/menu/cbs/menu_cbs_right.c
+@@ -49,7 +49,9 @@
+ #include "../../playlist.h"
+ #include "../../manual_content_scan.h"
+ #include "../misc/cpufreq/cpufreq.h"
+-
++#ifdef HAVE_LAKKA_SWITCH
++#include "../misc/gpufreq/gpufreq.h"
++#endif
+ #ifndef BIND_ACTION_RIGHT
+ #define BIND_ACTION_RIGHT(cbs, name) (cbs)->action_right = (name)
+ #endif
+@@ -1091,6 +1093,54 @@ static int cpu_policy_freq_tweak(unsigned type, const char *label,
+    return 0;
+ }
+ #endif
++#ifdef HAVE_LAKKA_SWITCH
++static int gpu_policy_mode_change(unsigned type, const char *label,
++      bool wraparound)
++{
++   struct menu_state *menu_st = menu_state_get_ptr();
++   gpu_scaling_opts_t opts;
++   enum gpu_scaling_mode mode = get_gpu_scaling_mode(&opts);
++   if (mode != GPUSCALING_BALANCED)
++      mode++;
++   set_gpu_scaling_mode(mode, &opts);
++   menu_st->flags |= MENU_ST_FLAG_ENTRIES_NEED_REFRESH;
++   return 0;
++}
++
++static int gpu_policy_freq_managed_tweak(unsigned type, const char *label,
++      bool wraparound)
++{
++   bool refresh = false;
++   gpu_scaling_opts_t opts;
++   gpu_scaling_driver_t **drivers = get_gpu_scaling_drivers(false);
++   unsigned policyid = atoi(label);
++   enum gpu_scaling_mode mode = get_gpu_scaling_mode(&opts);
++
++   if (!drivers)
++     return 0 ;
++
++   switch (type)
++   {
++      case MENU_SETTINGS_GPU_MANAGED_SET_MINFREQ:
++        if((*drivers)->available_freqs)
++            opts.min_freq = get_gpu_scaling_next_frequency(drivers[policyid], opts.min_freq, 1);
++        else
++          opts.min_freq = get_gpu_scaling_next_frequency_limit(opts.min_freq, 1);
++         set_gpu_scaling_mode(mode, &opts);
++         break;
++      case MENU_SETTINGS_GPU_MANAGED_SET_MAXFREQ:
++        if((*drivers)->available_freqs) {
++           opts.max_freq = get_gpu_scaling_next_frequency(drivers[policyid], opts.max_freq, 1);
++        }
++        else
++           opts.max_freq = get_gpu_scaling_next_frequency_limit(opts.max_freq, 1);
++         set_gpu_scaling_mode(mode, &opts);
++         break;
++   }
++
++   return 0;
++}
++#endif
+ 
+ static int core_setting_right(unsigned type, const char *label,
+       bool wraparound)
+@@ -1434,6 +1484,15 @@ static int menu_cbs_init_bind_right_compare_label(menu_file_list_cbs_t *cbs,
+                BIND_ACTION_RIGHT(cbs, cpu_policy_freq_managed_gov);
+                break;
+             #endif
++            #ifdef HAVE_LAKKA_SWITCH
++            case MENU_ENUM_LABEL_GPU_PERF_MODE:
++               BIND_ACTION_RIGHT(cbs, gpu_policy_mode_change);
++               break;
++            case MENU_ENUM_LABEL_GPU_MANAGED_MIN_FREQ:
++            case MENU_ENUM_LABEL_GPU_MANAGED_MAX_FREQ:
++               BIND_ACTION_RIGHT(cbs, gpu_policy_freq_managed_tweak);
++               break;
++            #endif
+             default:
+                return -1;
+          }
+diff --git a/menu/cbs/menu_cbs_sublabel.c b/menu/cbs/menu_cbs_sublabel.c
+index d6507005ace..d9ded58562e 100644
+--- a/menu/cbs/menu_cbs_sublabel.c
++++ b/menu/cbs/menu_cbs_sublabel.c
+@@ -40,7 +40,9 @@
+ #include "../../bluetooth/bluetooth_driver.h"
+ #endif
+ #include "../../misc/cpufreq/cpufreq.h"
+-
++#ifdef HAVE_LAKKA_SWITCH
++#include "../../misc/gpufreq/gpufreq.h"
++#endif
+ #ifdef HAVE_NETWORKING
+ #include "../../network/netplay/netplay.h"
+ #endif
+@@ -1551,7 +1553,7 @@ static int action_bind_sublabel_cpu_policy_entry_list(
+       int idx     = atoi(path);
+       size_t _len = strlcpy(s, drivers[idx]->scaling_governor, len);
+       snprintf(s + _len, len - _len, " | Freq: %u MHz\n",
+-            drivers[idx]->current_frequency / 1000);
++            drivers[idx]->current_frequency / 1000000);
+       return 0;
+    }
+ 
+@@ -1570,7 +1572,20 @@ static int action_bind_sublabel_cpu_perf_mode(
+    return 0;
+ }
+ #endif
+-
++#ifdef HAVE_LAKKA_SWITCH
++static int action_bind_sublabel_gpu_perf_mode(
++      file_list_t *list,
++      unsigned type, unsigned i,
++      const char *label, const char *path,
++      char *s, size_t len)
++{
++   /* Displays info about the mode selected */
++   enum gpu_scaling_mode mode = get_gpu_scaling_mode(NULL);
++   strlcpy(s, msg_hash_to_str(
++      MENU_ENUM_SUBLABEL_VALUE_GPU_PERF_MODE_MANAGED_PERF + (int)mode), len);
++   return 0;
++}
++#endif
+ #ifdef HAVE_CHEEVOS
+ static int action_bind_sublabel_cheevos_entry(
+       file_list_t *list,
+@@ -5488,6 +5503,9 @@ int menu_cbs_init_bind_sublabel(menu_file_list_cbs_t *cbs,
+          case MENU_ENUM_LABEL_BLUETOOTH_ERTM_DISABLE:
+             BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_bluetooth_ertm_disable);
+             break;
++         case MENU_ENUM_LABEL_GPU_PERF_MODE:
++            BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_gpu_perf_mode);
++            break;
+ #endif
+          case MENU_ENUM_LABEL_USER_LANGUAGE:
+             BIND_ACTION_SUBLABEL(cbs, action_bind_sublabel_user_language);
+diff --git a/menu/cbs/menu_cbs_title.c b/menu/cbs/menu_cbs_title.c
+index f9365d9d177..da31af8c279 100644
+--- a/menu/cbs/menu_cbs_title.c
++++ b/menu/cbs/menu_cbs_title.c
+@@ -654,6 +654,9 @@ DEFAULT_TITLE_MACRO(action_get_accessibility_settings_list,     MENU_ENUM_LABEL_
+ DEFAULT_TITLE_MACRO(action_get_power_management_settings_list,  MENU_ENUM_LABEL_VALUE_POWER_MANAGEMENT_SETTINGS)
+ DEFAULT_TITLE_MACRO(action_get_cpu_perfpower_settings_list,     MENU_ENUM_LABEL_VALUE_CPU_PERFPOWER)
+ DEFAULT_TITLE_MACRO(action_get_cpu_policy_entry_list,           MENU_ENUM_LABEL_VALUE_CPU_POLICY_ENTRY)
++#ifdef HAVE_LAKKA_SWITCH
++DEFAULT_TITLE_MACRO(action_get_gpu_perfpower_settings_list,     MENU_ENUM_LABEL_VALUE_GPU_PERFPOWER)
++#endif
+ DEFAULT_TITLE_MACRO(action_get_menu_sounds_list,                MENU_ENUM_LABEL_VALUE_MENU_SOUNDS)
+ DEFAULT_TITLE_MACRO(action_get_menu_file_browser_settings_list, MENU_ENUM_LABEL_VALUE_MENU_FILE_BROWSER_SETTINGS)
+ DEFAULT_TITLE_MACRO(action_get_retro_achievements_settings_list,MENU_ENUM_LABEL_VALUE_RETRO_ACHIEVEMENTS_SETTINGS)
+@@ -1015,6 +1018,9 @@ static int menu_cbs_init_bind_title_compare_label(menu_file_list_cbs_t *cbs,
+       {MENU_ENUM_LABEL_DEFERRED_POWER_MANAGEMENT_SETTINGS_LIST,       action_get_power_management_settings_list},
+       {MENU_ENUM_LABEL_DEFERRED_CPU_PERFPOWER_LIST,                   action_get_cpu_perfpower_settings_list},
+       {MENU_ENUM_LABEL_DEFERRED_CPU_POLICY_ENTRY,                     action_get_cpu_policy_entry_list},
++#ifdef HAVE_LAKKA_SWITCH
++      {MENU_ENUM_LABEL_DEFERRED_GPU_PERFPOWER_LIST,                   action_get_gpu_perfpower_settings_list},
++#endif
+       {MENU_ENUM_LABEL_DEFERRED_MENU_SOUNDS_LIST,                     action_get_menu_sounds_list},
+       {MENU_ENUM_LABEL_DEFERRED_MENU_FILE_BROWSER_SETTINGS_LIST,      action_get_menu_file_browser_settings_list},
+       {MENU_ENUM_LABEL_DEFERRED_RETRO_ACHIEVEMENTS_SETTINGS_LIST,     action_get_retro_achievements_settings_list},
+diff --git a/menu/menu_cbs.h b/menu/menu_cbs.h
+index e5d67984138..f59963960ca 100644
+--- a/menu/menu_cbs.h
++++ b/menu/menu_cbs.h
+@@ -213,6 +213,9 @@ enum
+    ACTION_OK_DL_POWER_MANAGEMENT_SETTINGS_LIST,
+    ACTION_OK_DL_CPU_PERFPOWER_SETTINGS_LIST,
+    ACTION_OK_DL_CPU_POLICY_SETTINGS_LIST,
++#ifdef HAVE_LAKKA_SWITCH
++   ACTION_OK_DL_GPU_PERFPOWER_SETTINGS_LIST,
++#endif
+    ACTION_OK_DL_MENU_SOUNDS_LIST,
+    ACTION_OK_DL_MENU_FILE_BROWSER_SETTINGS_LIST,
+    ACTION_OK_DL_RETRO_ACHIEVEMENTS_SETTINGS_LIST,
+diff --git a/menu/menu_displaylist.c b/menu/menu_displaylist.c
+index cfe7f528d84..3d1d947ea5a 100644
+--- a/menu/menu_displaylist.c
++++ b/menu/menu_displaylist.c
+@@ -134,7 +134,14 @@
+ #include "../runtime_file.h"
+ #include "../manual_content_scan.h"
+ #include "../core_backup.h"
++#ifdef HAVE_LAKKA
+ #include "../misc/cpufreq/cpufreq.h"
++
++#ifdef HAVE_LAKKA_SWITCH
++#include "../misc/gpufreq/gpufreq.h"
++#endif
++
++#endif
+ #include "../input/input_remapping.h"
+ 
+ #ifdef HAVE_MICROPHONE
+@@ -11524,6 +11531,10 @@ unsigned menu_displaylist_build_list(
+                {MENU_ENUM_LABEL_FASTFORWARD_FRAMESKIP,      PARSE_ONLY_BOOL},
+                {MENU_ENUM_LABEL_SUSTAINED_PERFORMANCE_MODE, PARSE_ONLY_BOOL},
+                {MENU_ENUM_LABEL_CPU_PERFPOWER,              PARSE_ACTION},
++
++#ifdef HAVE_LAKKA_SWITCH
++               {MENU_ENUM_LABEL_GPU_PERFPOWER,              PARSE_ACTION},
++#endif
+ #ifdef HAVE_LAKKA
+                {MENU_ENUM_LABEL_GAMEMODE_ENABLE,            PARSE_ONLY_BOOL},
+ #endif /*HAVE_LAKKA*/
+@@ -13225,6 +13236,54 @@ bool menu_displaylist_ctl(enum menu_displaylist_ctl_state type,
+                break;
+             }
+ #endif
++#ifdef HAVE_LAKKA_SWITCH
++      case DISPLAYLIST_GPU_PERFPOWER_LIST:
++      {
++         gpu_scaling_driver_t **drivers = get_gpu_scaling_drivers(true);
++         menu_entries_clear(info->list);
++         if (drivers)
++         {
++            int count = 0;
++
++            menu_entries_append(info->list,
++               msg_hash_to_str(MENU_ENUM_LABEL_VALUE_GPU_PERF_MODE),
++               msg_hash_to_str(MENU_ENUM_LABEL_GPU_PERF_MODE),
++               MENU_ENUM_LABEL_GPU_PERF_MODE,
++               0, 0, 0, NULL);
++
++            switch (get_gpu_scaling_mode(NULL))
++            {
++               case GPUSCALING_MANAGED_PERFORMANCE:
++                  /* Allow users to choose max/min frequencies */
++                  menu_entries_append(info->list,
++                        "0",
++                        "0",
++                        MENU_ENUM_LABEL_GPU_MANAGED_MIN_FREQ,
++                        MENU_SETTINGS_GPU_MANAGED_SET_MINFREQ,
++                        0, 0, NULL);
++
++                  menu_entries_append(info->list,
++                        "1",
++                        "1",
++                        MENU_ENUM_LABEL_GPU_MANAGED_MAX_FREQ,
++                        MENU_SETTINGS_GPU_MANAGED_SET_MAXFREQ,
++                        0, 0, NULL);
++
++                  break;
++               case GPUSCALING_MAX_PERFORMANCE:
++               case GPUSCALING_MIN_POWER:
++               case GPUSCALING_BALANCED:
++                  /* No settings for these modes */
++                  break;
++            };
++         }
++
++         info->flags       |= MD_FLAG_NEED_REFRESH
++                            | MD_FLAG_NEED_PUSH
++                            | MD_FLAG_NEED_CLEAR;
++         break;
++      }
++#endif
+ #if defined(HAVE_LIBNX)
+          case DISPLAYLIST_SWITCH_CPU_PROFILE:
+             {
+diff --git a/menu/menu_displaylist.h b/menu/menu_displaylist.h
+index 1f65c6b8abc..c940ba60731 100644
+--- a/menu/menu_displaylist.h
++++ b/menu/menu_displaylist.h
+@@ -301,6 +301,9 @@ enum menu_displaylist_ctl_state
+    DISPLAYLIST_CPU_PERFPOWER_LIST,
+    DISPLAYLIST_CPU_POLICY_LIST,
+ #endif
++#ifdef HAVE_LAKKA_SWITCH
++   DISPLAYLIST_GPU_PERFPOWER_LIST,
++#endif
+ #ifdef HAVE_GAME_AI
+    DISPLAYLIST_OPTIONS_GAME_AI,
+ #endif
+diff --git a/menu/menu_driver.c b/menu/menu_driver.c
+index 38c160647e6..2460ce85359 100644
+--- a/menu/menu_driver.c
++++ b/menu/menu_driver.c
+@@ -72,8 +72,14 @@
+ #include "../input/input_remapping.h"
+ #include "../performance_counters.h"
+ #include "../version.h"
++#ifdef HAVE_LAKKA
+ #include "../misc/cpufreq/cpufreq.h"
+ 
++#ifdef HAVE_LAKKA_SWITCH
++#include "../misc/gpufreq/gpufreq.h"
++#endif
++
++#endif
+ #ifdef HAVE_LIBNX
+ #include <switch.h>
+ #include "../switch_performance_profiles.h"
+@@ -6396,6 +6402,9 @@ void menu_driver_toggle(
+    {
+ #ifdef HAVE_LAKKA
+       set_cpu_scaling_signal(CPUSCALING_EVENT_FOCUS_MENU);
++#ifdef HAVE_LAKKA_SWITCH
++      set_gpu_scaling_signal(GPUSCALING_EVENT_FOCUS_MENU);
++#endif
+ #endif
+ #ifdef HAVE_OVERLAY
+       /* If an overlay was displayed before the toggle
+@@ -6417,6 +6426,9 @@ void menu_driver_toggle(
+    {
+ #ifdef HAVE_LAKKA
+       set_cpu_scaling_signal(CPUSCALING_EVENT_FOCUS_CORE);
++#ifdef HAVE_LAKKA_SWITCH
++      set_gpu_scaling_signal(GPUSCALING_EVENT_FOCUS_CORE);
++#endif
+ #endif
+ #ifdef HAVE_OVERLAY
+       /* Inhibits pointer 'select' and 'cancel' actions
+diff --git a/menu/menu_driver.h b/menu/menu_driver.h
+index 9ec0f5d33fa..7538a99aa5b 100644
+--- a/menu/menu_driver.h
++++ b/menu/menu_driver.h
+@@ -274,7 +274,10 @@ enum menu_settings_type
+    MENU_SETTINGS_CPU_POLICY_SET_GOVERNOR,
+    MENU_SETTINGS_CPU_MANAGED_SET_MINFREQ,
+    MENU_SETTINGS_CPU_MANAGED_SET_MAXFREQ,
+-
++#ifdef HAVE_LAKKA_SWITCH
++   MENU_SETTINGS_GPU_MANAGED_SET_MINFREQ,
++   MENU_SETTINGS_GPU_MANAGED_SET_MAXFREQ,
++#endif
+    MENU_SET_CDROM_LIST,
+    MENU_SET_LOAD_CDROM_LIST,
+    MENU_SET_EJECT_DISC,
+diff --git a/menu/menu_setting.c b/menu/menu_setting.c
+index 00b45d9cae1..25a5d786ed8 100644
+--- a/menu/menu_setting.c
++++ b/menu/menu_setting.c
+@@ -21348,6 +21348,15 @@ static bool setting_append_list(
+                &subgroup_info,
+                parent_group);
+ #endif
++#ifdef HAVE_LAKKA_SWITCH
++         CONFIG_ACTION(
++               list, list_info,
++               MENU_ENUM_LABEL_GPU_PERFPOWER,
++               MENU_ENUM_LABEL_VALUE_GPU_PERFPOWER,
++               &group_info,
++               &subgroup_info,
++               parent_group);
++#endif
+ #ifndef HAVE_LAKKA
+          if (frontend_driver_has_gamemode())
+             CONFIG_BOOL(
+diff --git a/misc/gpufreq/gpufreq.c b/misc/gpufreq/gpufreq.c
+new file mode 100644
+index 00000000000..70bdd6d130a
+--- /dev/null
++++ b/misc/gpufreq/gpufreq.c
+@@ -0,0 +1,434 @@
++/*  RetroArch - A frontend for libretro.
++ *  Copyright (C) 2021 - David Guillen Fandos
++ *
++ *  RetroArch is free software: you can redistribute it and/or modify it under the terms
++ *  of the GNU General Public License as published by the Free Software Found-
++ *  ation, either version 3 of the License, or (at your option) any later version.
++ *
++ *  RetroArch is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
++ *  without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
++ *  PURPOSE.  See the GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License along with RetroArch.
++ *  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#include <stdio.h>
++#include <time.h>
++#include <string.h>
++#include <file/file_path.h>
++#include <lists/string_list.h>
++#include <lists/dir_list.h>
++#include <streams/file_stream.h>
++#include <string/stdstring.h>
++#include <retro_miscellaneous.h>
++
++#include "gpufreq.h"
++#include "../../configuration.h"
++
++#define GPU_DEBUG 1
++
++#define REFRESH_TIMEOUT  2
++#ifdef HAVE_LAKKA_SWITCH
++#define GPU_POLICIES_DIR "/sys/devices/gpu.0/devfreq/57000000.gpu/"
++/*
++else
++ * #define GPU_POLICIES_DIR "Proper/path/for/board/" // WIP  
++*/
++#endif
++/*
++ * Available Switch gpu governors.
++ * wmark_active nvhost_podgov(Default) userspace simple_ondemand
++ */
++
++static time_t last_update = 0;
++static gpu_scaling_driver_t **scaling_drivers = NULL;
++/* Mode state and its options */
++static enum gpu_scaling_mode cur_smode = GPUSCALING_MANAGED_PERFORMANCE;
++#ifdef HAVE_LAKKA_SWITCH
++static gpu_scaling_opts_t cur_smode_opts = { 1, ~0U };
++/*
++
++#else
++ * static gpu_scaling_opts_t cur_smode_opts = { 1, ~0U, "nvhost_podgov", "simple_ondemand" };
++ * //needs to be set properly for each GPU that we decide to add support for. */
++#endif
++
++/* Precalculate and store the absolute max and min frequencies */
++static uint32_t abs_min_freq = 1, abs_max_freq = ~0U;
++
++static bool readparse_uint32(const char *path, uint32_t *value)
++{
++   char *tmpbuf;
++   if (!filestream_read_file(path, (void**)&tmpbuf, NULL))
++      return false;
++   string_remove_all_chars(tmpbuf, '\n');
++   if (sscanf(tmpbuf, "%" PRIu32, value) != 1)
++   {
++      free(tmpbuf);
++      return false;
++   }
++   free(tmpbuf);
++   return true;
++}
++
++static struct string_list* readparse_list(const char *path)
++{
++   char *tmpbuf;
++   struct string_list* ret;
++   if (!filestream_read_file(path, (void**)&tmpbuf, NULL))
++      return NULL;
++   string_remove_all_chars(tmpbuf, '\n');
++   ret = string_split(tmpbuf, " ");
++   free(tmpbuf);
++   return ret;
++}
++
++static void free_drivers(gpu_scaling_driver_t **d)
++{
++   if (d)
++   {
++      gpu_scaling_driver_t **it = d;
++      while (*it)
++      {
++         gpu_scaling_driver_t *drv = *it++;
++         if (drv->available_freqs)
++            free(drv->available_freqs);
++         free(drv);
++      }
++      free(d);
++   }
++}
++
++gpu_scaling_driver_t **get_gpu_scaling_drivers(bool can_update)
++{
++   if (can_update && (time(NULL) > last_update + REFRESH_TIMEOUT ||
++       !scaling_drivers))
++   {
++      /* Parse /sys/devices/system/cpu/cpufreq/ policies */
++      int i, j, pc;
++      struct string_list *policy_dir = dir_list_new(GPU_POLICIES_DIR, NULL,
++        true, false, false, false);
++      if (!policy_dir)
++         return NULL;
++      dir_list_sort(policy_dir, false);
++
++      /* Delete the previous list of drivers */
++      free_drivers(scaling_drivers);
++
++      scaling_drivers = (gpu_scaling_driver_t**)calloc(
++         (policy_dir->size + 1), sizeof(gpu_scaling_driver_t*));
++      for (i = 0, pc = 0; i < policy_dir->size; i++)
++      {
++         uint32_t polid;
++         gpu_scaling_driver_t *drv;
++         struct string_list *tmplst;
++         char fpath[PATH_MAX_LENGTH];
++         const char *fname = strrchr(policy_dir->elems[i].data, '/');
++
++         if (!fname)
++            continue;
++
++         drv = calloc(1, sizeof(gpu_scaling_driver_t));
++         drv->policy_id = pc;
++
++         /* Read all nodes with freq info */
++         fill_pathname_join(fpath, GPU_POLICIES_DIR,
++            "cur_freq", sizeof(fpath));
++         readparse_uint32(fpath, &drv->current_frequency);
++
++         fill_pathname_join(fpath, GPU_POLICIES_DIR,
++            "max_freq", sizeof(fpath));
++         readparse_uint32(fpath, &drv->max_policy_freq);
++
++         /* This is not available in many platforms! */
++         fill_pathname_join(fpath, /*policy_dir->elems[i].data*/ GPU_POLICIES_DIR,
++            "available_frequencies", sizeof(fpath));
++         tmplst = readparse_list(fpath);
++         if (tmplst)
++         {
++            drv->available_freqs = calloc(tmplst->size + 1, sizeof(uint32_t));
++            int freq_count = 0;
++            for (j = 0; j < tmplst->size; j++)
++            {
++               uint32_t freq = (uint32_t)atol(tmplst->elems[j].data);
++               drv->available_freqs[j] = freq;
++               #if 0//def GPU_DEBUG
++               RARCH_LOG("[GPU_DEBUG] Available Freq (%i): %u\n", j, drv->available_freqs[j]);
++               #endif
++               if (abs_min_freq > freq || abs_min_freq == 1)
++                  abs_min_freq = freq;
++               if (abs_max_freq < freq || abs_max_freq == ~0U)
++                  abs_max_freq = freq;
++            }
++            freq_count = tmplst->size;
++            string_list_free(tmplst);
++            int a, b;
++            for (a =0; a < freq_count -1; a++)
++            {
++               for (b=0; b < freq_count - 1 - a; b++)
++               {
++                  if (drv->available_freqs[b] > drv->available_freqs[b + 1])
++                  {
++                    uint32_t tmp = drv->available_freqs[b];
++                    drv->available_freqs[b] = drv->available_freqs[b + 1];
++                    drv->available_freqs[b + 1 ] = tmp;
++                  }
++               }
++            }
++         }
++
++         /* Move to the list */
++         scaling_drivers[pc++] = drv;
++      }
++      dir_list_free(policy_dir);
++      last_update = time(NULL);
++   }
++   return scaling_drivers;
++}
++
++bool set_gpu_scaling_min_frequency(
++   gpu_scaling_driver_t *driver,
++   uint32_t min_freq)
++{
++   char fpath[PATH_MAX_LENGTH];
++   char value[16];
++   snprintf(fpath, sizeof(fpath), GPU_POLICIES_DIR "min_freq");
++   snprintf(value, sizeof(value), "%" PRIu32 "\n", min_freq);
++   if (filestream_write_file(fpath, value, strlen(value)))
++   {
++      driver->min_policy_freq = min_freq;
++      last_update = 0;   /* Force reload */
++      return true;
++   }
++   return false;
++}
++
++bool set_gpu_scaling_max_frequency(
++   gpu_scaling_driver_t *driver,
++   uint32_t max_freq)
++{
++   char fpath[PATH_MAX_LENGTH];
++   char value[16];
++   snprintf(fpath, sizeof(fpath), GPU_POLICIES_DIR "max_freq");
++   snprintf(value, sizeof(value), "%" PRIu32 "\n", max_freq);
++   if (filestream_write_file(fpath, value, strlen(value)))
++   {
++      driver->max_policy_freq = max_freq;
++      last_update = 0;   /* Force reload */
++      return true;
++   }
++   return false;
++}
++
++uint32_t get_gpu_scaling_next_frequency(
++   gpu_scaling_driver_t *driver,
++   uint32_t freq,
++   int step)
++{
++   /* If the driver does not have a list of available frequencies */
++   if (driver->available_freqs)
++   {
++
++      if (freq <= driver->available_freqs[0] && step < 0)
++         return 1;   /* Means "minimum frequency" */
++
++      if (freq >= abs_max_freq && step > 0)
++         return ~0U;   /* Means "maximum frequency" */
++
++      if (freq < abs_min_freq && step > 0)
++         freq = abs_min_freq;
++
++      if (freq == ~0U && step < 0)
++        freq = abs_max_freq;
++
++      uint32_t *fr = driver->available_freqs;
++      while (*fr)
++      {
++         if (fr[0]  <= freq && fr[1] > freq && step > 0)
++         {
++            if (fr[1] != abs_max_freq)
++              freq = fr[1];
++            else
++              freq = ~0U;
++            break;
++         }
++         else if (fr[0] < freq && fr[1] >= freq && step < 0)
++         {
++            if (fr[0] != abs_min_freq)
++              freq = fr[0];
++            else
++              freq = 1;
++            break;
++         }
++         fr++;
++      }
++      if (!(*fr))
++      {
++         if (step > 0)
++            freq = abs_max_freq;
++         else
++            freq = abs_min_freq;
++      }
++  }
++   else {
++      /* Just do small steps towards the max/min, arbitrary 100MHz */
++      freq = freq + step * 100000;
++      freq = MIN(freq, abs_max_freq);
++      freq = MAX(freq, abs_min_freq);
++   }
++   return freq;
++}
++
++uint32_t get_gpu_scaling_next_frequency_limit(uint32_t freq, int step)
++{
++   /* Tune step, if it's smaller than 100MHz */
++   unsigned fstep = 100000;
++   if ((abs_max_freq - abs_min_freq) / 20 < fstep)
++      fstep = 50000;
++
++   if (freq <= abs_min_freq && step < 0)
++      return 1;   /* Means "minimum frequency" */
++
++   if (freq >= abs_max_freq && step > 0)
++      return ~0U;   /* Means "maximum frequency" */
++
++   /* Just do small steps towards the max/min */
++   freq = freq + step * fstep;
++
++   freq = MIN(freq, abs_max_freq);
++   freq = MAX(freq, abs_min_freq);
++
++   return freq;
++}
++
++static void steer_all_drivers(uint32_t minfreq, uint32_t maxfreq)
++{
++   gpu_scaling_driver_t **drivers = get_gpu_scaling_drivers(false);
++   if (!drivers)
++      return;
++   while (*drivers)
++   {
++      gpu_scaling_driver_t *d = *drivers++;
++      if (minfreq){
++        if  (d->available_freqs){
++         if (minfreq == 1)
++           set_gpu_scaling_min_frequency(d, abs_min_freq);
++         else{
++           RARCH_LOG("[GPU_DEBUG]: Min Freq: %u\n", minfreq);
++           set_gpu_scaling_min_frequency(d,minfreq);
++         }
++        }
++        else
++         set_gpu_scaling_min_frequency(d, MAX(minfreq, abs_min_freq));
++      }
++      if (maxfreq) {
++        if (d->available_freqs) {
++          if (maxfreq == ~0U)
++            set_gpu_scaling_max_frequency(d, abs_max_freq);
++          else{
++            RARCH_LOG("[GPU_DEBUG]: Max Freq: %u\n", maxfreq);
++            set_gpu_scaling_max_frequency(d, maxfreq);
++          }
++        }
++        else
++          set_gpu_scaling_max_frequency(d, MIN(maxfreq, abs_max_freq));
++      }
++   }
++}
++
++void set_gpu_scaling_signal(enum gpu_scaling_event event)
++{
++   switch (cur_smode) {
++   case GPUSCALING_MANAGED_PERFORMANCE:
++      /* Change clocks based upon retroarch state, minimum for menu, user defined for core */
++      if (event == GPUSCALING_EVENT_FOCUS_CORE)
++         steer_all_drivers(cur_smode_opts.min_freq,
++            cur_smode_opts.max_freq);
++      else
++         steer_all_drivers(abs_min_freq, abs_min_freq);
++      break;
++   default:
++      break;
++   };
++}
++
++enum gpu_scaling_mode get_gpu_scaling_mode(gpu_scaling_opts_t *opts)
++{
++   if (opts)
++      *opts = cur_smode_opts;
++   return cur_smode;
++}
++
++void set_gpu_scaling_mode(
++   enum gpu_scaling_mode mode,
++   const gpu_scaling_opts_t *opts)
++{
++   settings_t *settings = config_get_ptr();
++
++   /* Store current state */
++   cur_smode = mode;
++   if (opts)
++      cur_smode_opts = *opts;
++
++   switch (mode)
++   {
++   case GPUSCALING_MANAGED_PERFORMANCE:
++      /* Simulate a state change to enforce the policy */
++      set_gpu_scaling_signal(GPUSCALING_EVENT_FOCUS_MENU);
++      break;
++   case GPUSCALING_MAX_PERFORMANCE:
++      // bump frequencies to max/max
++      steer_all_drivers(abs_max_freq, abs_max_freq);
++      break;
++   case GPUSCALING_MIN_POWER:
++      // Set frequencies to min/min
++      steer_all_drivers(abs_min_freq, abs_min_freq);
++      break;
++   case GPUSCALING_BALANCED:
++      // Set ondemand and bump frequencies to min/max
++      steer_all_drivers(abs_min_freq, abs_max_freq);
++      break;
++   };
++
++   if (settings)
++   {
++      /* Store current settings */
++      settings->uints.gpu_scaling_mode = (int)cur_smode;
++      settings->uints.gpu_min_freq = cur_smode_opts.min_freq;
++      settings->uints.gpu_max_freq = cur_smode_opts.max_freq;
++   }
++};
++
++void gpu_scaling_driver_free()
++{
++   if (scaling_drivers)
++      free_drivers(scaling_drivers);
++
++   scaling_drivers = NULL;
++   last_update = 0;
++}
++
++void gpu_scaling_driver_init(void)
++{
++   /* Read the default settings */
++   settings_t *settings = config_get_ptr();
++   unsigned mode = settings->uints.gpu_scaling_mode;
++   gpu_scaling_opts_t loaded_opts;
++
++   loaded_opts.min_freq = settings->uints.gpu_min_freq;
++   loaded_opts.max_freq = settings->uints.gpu_max_freq;
++
++   cur_smode_opts.min_freq = settings->uints.gpu_min_freq;
++   cur_smode_opts.max_freq = settings->uints.gpu_max_freq;
++
++   if (mode <= (unsigned)GPUSCALING_BALANCED)
++      cur_smode = (enum gpu_scaling_mode)mode;
++
++   /* Force update the policy tree */
++   get_gpu_scaling_drivers(true);
++
++   /* Force enforce these settings */
++   set_gpu_scaling_mode(cur_smode, &loaded_opts);
++}
++
+diff --git a/misc/gpufreq/gpufreq.h b/misc/gpufreq/gpufreq.h
+new file mode 100644
+index 00000000000..8d79d7327ae
+--- /dev/null
++++ b/misc/gpufreq/gpufreq.h
+@@ -0,0 +1,98 @@
++/*  RetroArch - A frontend for libretro.
++ *  Copyright (C) 2021 - David Guillen Fandos
++ *
++ *  RetroArch is free software: you can redistribute it and/or modify it under the terms
++ *  of the GNU General Public License as published by the Free Software Found-
++ *  ation, either version 3 of the License, or (at your option) any later version.
++ *
++ *  RetroArch is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
++ *  without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
++ *  PURPOSE.  See the GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License along with RetroArch.
++ *  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#ifndef _MISC_GPUFREQ_H
++#define _MISC_GPUFREQ_H
++
++#include <stdint.h>
++
++RETRO_BEGIN_DECLS
++
++#define MAX_GOV_STRLEN   32
++
++/* Events from Frontend to the driver to drive policies */
++enum gpu_scaling_event
++{
++   GPUSCALING_EVENT_FOCUS_CORE,
++   GPUSCALING_EVENT_FOCUS_MENU,
++   GPUSCALING_EVENT_FOCUS_SCREENSAVER
++};
++
++/* Scaling mode selected by the user */
++enum gpu_scaling_mode
++{
++   GPUSCALING_MANAGED_PERFORMANCE = 0, /* Performance while running core     */
++   GPUSCALING_MAX_PERFORMANCE,         /* Performance (Max Freq)             */
++   GPUSCALING_MIN_POWER,               /* Use Powersave governor             */
++   GPUSCALING_BALANCED,                /* Uses schedutil/ondemand            */
++};
++
++typedef struct gpu_scaling_opts
++{
++   /* Max/Min frequencies */
++   uint32_t min_freq, max_freq;
++   /* Options for GPUSCALING_POLICY_PER_CONTEXT */
++} gpu_scaling_opts_t;
++
++typedef struct gpu_scaling_driver
++{
++   /* Policy number in the sysfs tree */
++   unsigned int policy_id;
++   /* Which GPUs this scaling driver will affect */
++   char *affected_gpus;
++   struct string_list *available_governors;
++   /* Current frequency (value might be slightly old) */
++   uint32_t current_frequency;
++   /* Max and min frequencies, for the hardware and policy */
++   uint32_t min_gpu_freq, max_gpu_freq;
++   uint32_t min_policy_freq, max_policy_freq;
++   /* Available frequencies table (can be NULL), ends with zero */
++   uint32_t *available_freqs;
++} gpu_scaling_driver_t;
++
++/* Safely free all memory used by the driver */
++void gpu_scaling_driver_free(void);
++
++/* Signal the initialization */
++void gpu_scaling_driver_init(void);
++
++/* Get a list of the available cpu scaling drivers */
++gpu_scaling_driver_t **get_gpu_scaling_drivers(bool can_update);
++
++/* Set max and min policy cpu frequency */
++bool set_gpu_scaling_min_frequency(
++   gpu_scaling_driver_t *driver, uint32_t min_freq);
++bool set_gpu_scaling_max_frequency(
++   gpu_scaling_driver_t *driver, uint32_t max_freq);
++
++/* Calculate next/previous frequencies */
++uint32_t get_gpu_scaling_next_frequency(gpu_scaling_driver_t *driver,
++   uint32_t freq, int step);
++uint32_t get_gpu_scaling_next_frequency_limit(uint32_t freq, int step);
++
++/* Signal certain events that are of interest of this driver */
++void set_gpu_scaling_signal(enum gpu_scaling_event);
++
++/* Set the base cpufreq policy mode */
++void set_gpu_scaling_mode(enum gpu_scaling_mode mode,
++                          const gpu_scaling_opts_t *opts);
++
++/* Get the base cpufreq policy mode */
++enum gpu_scaling_mode get_gpu_scaling_mode(gpu_scaling_opts_t *opts);
++
++RETRO_END_DECLS
++
++#endif
++
+diff --git a/msg_hash.h b/msg_hash.h
+index 0d66aaa546d..78a7f87db77 100644
+--- a/msg_hash.h
++++ b/msg_hash.h
+@@ -2108,6 +2108,10 @@ enum msg_hash_enums
+    MENU_ENUM_LABEL_DEFERRED_POWER_MANAGEMENT_SETTINGS_LIST,
+    MENU_ENUM_LABEL_DEFERRED_CPU_PERFPOWER_LIST,
+    MENU_ENUM_LABEL_DEFERRED_CPU_POLICY_ENTRY,
++#ifdef HAVE_LAKKA_SWITCH
++   MENU_ENUM_LABEL_DEFERRED_GPU_PERFPOWER_LIST,
++   MENU_ENUM_LABEL_DEFERRED_GPU_POLICY_ENTRY,
++#endif
+    MENU_ENUM_LABEL_DEFERRED_MENU_SOUNDS_LIST,
+    MENU_ENUM_LABEL_DEFERRED_MENU_FILE_BROWSER_SETTINGS_LIST,
+    MENU_ENUM_LABEL_DEFERRED_RETRO_ACHIEVEMENTS_SETTINGS_LIST,
+@@ -3853,6 +3857,12 @@ enum msg_hash_enums
+    MENU_LABEL(CPU_POLICY_MENU_GOVERNOR),
+    MENU_LABEL(CPU_MANAGED_MIN_FREQ),
+    MENU_LABEL(CPU_MANAGED_MAX_FREQ),
++#ifdef HAVE_LAKKA_SWITCH
++   MENU_LABEL(GPU_PERF_MODE),
++   MENU_LABEL(GPU_PERFPOWER),
++   MENU_LABEL(GPU_MANAGED_MIN_FREQ),
++   MENU_LABEL(GPU_MANAGED_MAX_FREQ),
++#endif
+    MENU_LBL_H(GAMEMODE_ENABLE),
+    MENU_ENUM_SUBLABEL_GAMEMODE_ENABLE_LINUX,
+ 
+@@ -3869,7 +3879,17 @@ enum msg_hash_enums
+    MENU_ENUM_SUBLABEL_VALUE_CPU_PERF_MODE_MIN_POWER,
+    MENU_ENUM_SUBLABEL_VALUE_CPU_PERF_MODE_BALANCED,
+    MENU_ENUM_SUBLABEL_VALUE_CPU_PERF_MODE_MANUAL,
+-
++#ifdef HAVE_LAKKA_SWITCH
++   MENU_ENUM_LABEL_VALUE_GPU_PERF_MODE_MANAGED_PERF,
++   MENU_ENUM_LABEL_VALUE_GPU_PERF_MODE_MAX_PERF,
++   MENU_ENUM_LABEL_VALUE_GPU_PERF_MODE_MIN_POWER,
++   MENU_ENUM_LABEL_VALUE_GPU_PERF_MODE_BALANCED,
++
++   MENU_ENUM_SUBLABEL_VALUE_GPU_PERF_MODE_MANAGED_PERF,
++   MENU_ENUM_SUBLABEL_VALUE_GPU_PERF_MODE_MAX_PERF,
++   MENU_ENUM_SUBLABEL_VALUE_GPU_PERF_MODE_MIN_POWER,
++   MENU_ENUM_SUBLABEL_VALUE_GPU_PERF_MODE_BALANCED,
++#endif
+    MENU_ENUM_LABEL_CHEAT_HANDLER_TYPE_EMU,
+    MENU_ENUM_LABEL_CHEAT_HANDLER_TYPE_RETRO,
+    MENU_ENUM_LABEL_CHEAT_TYPE_DISABLED,
+diff --git a/retroarch.c b/retroarch.c
+index 5c3b5957c63..db06f0f841b 100644
+--- a/retroarch.c
++++ b/retroarch.c
+@@ -200,7 +200,12 @@
+ #ifdef HAVE_BLUETOOTH
+ #include "bluetooth/bluetooth_driver.h"
+ #endif
++#ifdef HAVE_LAKKA
+ #include "misc/cpufreq/cpufreq.h"
++#ifdef HAVE_LAKKA_SWITCH
++#include "misc/gpufreq/gpufreq.h"
++#endif
++#endif
+ #include "led/led_driver.h"
+ #include "midi_driver.h"
+ #include "core.h"
+@@ -1802,6 +1807,11 @@ void drivers_init(
+ 
+ #ifdef HAVE_LAKKA
+    cpu_scaling_driver_init();
++
++#ifdef HAVE_LAKKA_SWITCH
++   gpu_scaling_driver_init();
++#endif
++
+ #endif
+ 
+ #ifdef HAVE_MENU
+@@ -1927,6 +1937,11 @@ void driver_uninit(int flags, enum driver_lifetime_flags lifetime_flags)
+ 
+ #ifdef HAVE_LAKKA
+    cpu_scaling_driver_free();
++
++#ifdef HAVE_LAKKA_SWITCH
++   gpu_scaling_driver_free();
++#endif
++
+ #endif
+ }
+ 
+diff --git a/runloop.c b/runloop.c
+index cf5cd589655..b49ea635728 100644
+--- a/runloop.c
++++ b/runloop.c
+@@ -201,7 +201,12 @@
+ #ifdef HAVE_BLUETOOTH
+ #include "bluetooth/bluetooth_driver.h"
+ #endif
++#ifdef HAVE_LAKKA
+ #include "misc/cpufreq/cpufreq.h"
++#ifdef HAVE_LAKKA_SWITCH
++#include "misc/gpufreq/gpufreq.h"
++#endif
++#endif
+ #include "led/led_driver.h"
+ #include "midi_driver.h"
+ #include "location_driver.h"
+@@ -4912,6 +4917,11 @@ void runloop_pause_checks(void)
+ 
+ #ifdef HAVE_LAKKA
+       set_cpu_scaling_signal(CPUSCALING_EVENT_FOCUS_MENU);
++
++#ifdef HAVE_LAKKA_SWITCH
++      set_gpu_scaling_signal(GPUSCALING_EVENT_FOCUS_MENU);
++#endif
++
+ #endif
+ 
+       /* Limit paused frames to video refresh. */
+@@ -4924,6 +4934,11 @@ void runloop_pause_checks(void)
+    {
+ #ifdef HAVE_LAKKA
+       set_cpu_scaling_signal(CPUSCALING_EVENT_FOCUS_CORE);
++
++#ifdef HAVE_LAKKA_SWITCH
++      set_gpu_scaling_signal(GPUSCALING_EVENT_FOCUS_CORE);
++#endif
++
+ #endif
+ 
+       /* Restore frame limit. */

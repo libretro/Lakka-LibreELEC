@@ -1,0 +1,144 @@
+From 404ab452670fa855e456f3d8d49b35c1c0a40388 Mon Sep 17 00:00:00 2001
+From: Claude <claude@local>
+Date: Sat, 23 May 2026 00:46:00 +0000
+Subject: [PATCH 12/13] menu: show 'Install Update' on the Reboot entry when an
+ update is staged
+
+When a tarball or image is staged in /storage/.update, the Lakka
+initramfs's check_update step will install it on the next boot.
+Surface that on the menu side so the user has a one-glance hint
+that the next press of 'Reboot' won't just reboot.
+
+  * Adds lakka_update_pending() in menu_cbs_get_value.c, gated by
+    HAVE_LAKKA. It mirrors the patterns the initramfs scans for
+    (*.tar, *.img.gz, *.img).
+
+  * Adds menu_action_setting_disp_reboot() to render the value
+    column for MENU_ENUM_LABEL_REBOOT. On vanilla Lakka it shows
+    'Install Update' when a tarball is present and is empty
+    otherwise. On Lakka Switch the reboot2payload patch (next
+    commit) overrides the binding with a richer handler that can
+    also display the selected payload.
+
+  * Stops short-circuiting the MENU_ENUM_LABEL_REBOOT binding in
+    the compare_label fast path on Lakka builds, so the dedicated
+    callback actually runs.
+
+Rebased on top of the sys-clk merge: the new includes (lakka.h,
+dir_list.h, file_path.h) are folded into the HAVE_LAKKA include
+block alongside sys-clk.h instead of next to the now-deleted
+cpufreq.h.
+---
+ menu/cbs/menu_cbs_get_value.c | 74 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 74 insertions(+)
+
+diff --git a/menu/cbs/menu_cbs_get_value.c b/menu/cbs/menu_cbs_get_value.c
+index b299813..565f134 100644
+--- a/menu/cbs/menu_cbs_get_value.c
++++ b/menu/cbs/menu_cbs_get_value.c
+@@ -48,6 +48,9 @@
+ #include "../../manual_content_scan.h"
+ #ifdef HAVE_LAKKA
+ #include "../misc/sys-clk/sys-clk.h"
++#include "../../lakka.h"
++#include <lists/dir_list.h>
++#include <file/file_path.h>
+ #endif
+ 
+ #include "../../audio/audio_driver.h"
+@@ -810,6 +813,66 @@ static void menu_action_gpu_managed_freq_label(
+       snprintf(s, len, "%u MHz", freq / 1000000);
+ }
+ #endif
++
++#if defined(HAVE_LAKKA)
++/* Checks /storage/.update for any of the tarball / image patterns the
++ * Lakka initramfs's check_update step looks for (*.tar, *.img.gz,
++ * *.img). Used by the value-column renderer for the main "Reboot"
++ * menu entry so the user can see at a glance that pressing Reboot
++ * will trigger an update install. */
++static bool lakka_update_pending(void)
++{
++   static const char *patterns[] = { "tar", "img.gz", "img", NULL };
++   size_t i;
++
++   if (!path_is_directory(LAKKA_UPDATE_DIR))
++      return false;
++
++   for (i = 0; patterns[i]; i++)
++   {
++      struct string_list *list = dir_list_new(LAKKA_UPDATE_DIR,
++            patterns[i], false, false, false, false);
++      bool found = (list && list->size > 0);
++      if (list)
++         string_list_free(list);
++      if (found)
++         return true;
++   }
++   return false;
++}
++
++/* Renders the value column for the main "Reboot" menu entry on Lakka
++ * builds, reflecting the destination:
++ *
++ *   - "Install Update"   when a tarball is staged in /storage/.update
++ *   - empty              otherwise
++ *
++ * On Lakka Switch the cbs binding is overridden by the reboot2payload
++ * patch with a richer renderer that can also show the selected payload
++ * name; this baseline handler covers vanilla (non-Switch) Lakka. */
++static size_t menu_action_setting_disp_reboot(
++      file_list_t* list,
++      unsigned *w, unsigned type, unsigned i,
++      const char *label,
++      char *s, size_t len,
++      const char *path,
++      char *s2, size_t len2)
++{
++   size_t _len = 0;
++
++   if (path && *path)
++      strlcpy(s2, path, len2);
++
++   if (lakka_update_pending())
++      _len = strlcpy(s, "Install Update", len);
++   else
++      s[0] = '\0';
++
++   *w = (unsigned)_len;
++   return _len;
++}
++#endif
++
+ static size_t menu_action_setting_disp_set_label_core_lock(
+       file_list_t* list,
+       unsigned *w, unsigned type, unsigned i,
+@@ -2216,6 +2279,11 @@ static int menu_cbs_init_bind_get_string_representation_compare_label(
+             BIND_ACTION_GET_VALUE(cbs,
+                   menu_action_setting_disp_set_label_core_updater_entry);
+             break;
++#endif
++#if defined(HAVE_LAKKA)
++         case MENU_ENUM_LABEL_REBOOT:
++            BIND_ACTION_GET_VALUE(cbs, menu_action_setting_disp_reboot);
++            break;
+ #endif
+          case MENU_ENUM_LABEL_CORE_MANAGER_ENTRY:
+             BIND_ACTION_GET_VALUE(cbs,
+@@ -2506,7 +2574,13 @@ int menu_cbs_init_bind_get_string_representation(menu_file_list_cbs_t *cbs,
+          case MENU_ENUM_LABEL_RESTART_RETROARCH:
+          case MENU_ENUM_LABEL_QUIT_RETROARCH:
+          case MENU_ENUM_LABEL_SWITCH_GPU_PROFILE:
++#ifndef HAVE_LAKKA
++         /* On Lakka builds the Reboot entry's value column reflects
++          * the destination ("Install Update", and on Switch the
++          * selected payload). Don't short-circuit binding here; fall
++          * through to compare_label so the dedicated handler runs. */
+          case MENU_ENUM_LABEL_REBOOT:
++#endif
+          case MENU_ENUM_LABEL_SHUTDOWN:
+          case MENU_ENUM_LABEL_SAVE_CURRENT_CONFIG:
+          case MENU_ENUM_LABEL_SAVE_NEW_CONFIG:
+-- 
+2.43.0
+

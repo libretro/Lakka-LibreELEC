@@ -1,0 +1,73 @@
+From 6cd905ec13d9afb380afa4862b3b75b8c364815a Mon Sep 17 00:00:00 2001
+From: Ronald Brown <rbrown4014@yahoo.com>
+Date: Sat, 23 May 2026 18:38:42 +0200
+Subject: [PATCH] reboot2payload fix
+
+---
+ retroarch.c | 43 ++++++++++++++++++-------------------------
+ 1 file changed, 18 insertions(+), 25 deletions(-)
+
+diff --git a/retroarch.c b/retroarch.c
+index 2b4ba60..225385e 100644
+--- a/retroarch.c
++++ b/retroarch.c
+@@ -1779,6 +1779,24 @@ void drivers_init(
+    sys_clk_driver_init(SYS_CLK_DOMAIN_GPU);
+ #endif
+ 
++#ifdef HAVE_LAKKA_SWITCH
++   {
++      /* Parse /flash/bootloader contents, then restore the saved
++       * selection. Falls back to the cmdline self entry when the
++       * saved entry is gone. Local settings pointer keeps the block
++       * independent of drivers_init's parameter list. */
++      settings_t *r2p_settings = config_get_ptr();
++      size_t      restored;
++
++      r2p_refresh_payloads();
++      if (r2p_settings)
++      {
++         restored = r2p_restore_persisted_selection(
++               r2p_settings->uints.reboot_payload_kind,
++               r2p_settings->arrays.reboot_payload_name);
++      }                                                                    }
++#endif
++
+ #ifdef HAVE_MENU
+    srand(time(NULL));
+ #endif
+@@ -1807,31 +1825,6 @@ void driver_uninit(int flags, enum driver_lifetime_flags lifetime_flags)
+    }
+ #endif
+ 
+-#ifdef HAVE_LAKKA_SWITCH
+-   {
+-      /* Parse /flash/bootloader contents, then restore the saved
+-       * selection. Falls back to the cmdline self entry when the
+-       * saved entry is gone. Local settings pointer keeps the block
+-       * independent of drivers_init's parameter list. */
+-      settings_t *r2p_settings = config_get_ptr();
+-      size_t      restored;
+-
+-      r2p_refresh_payloads();
+-      if (r2p_settings)
+-      {
+-         restored = r2p_restore_persisted_selection(
+-               r2p_settings->uints.reboot_payload_kind,
+-               r2p_settings->arrays.reboot_payload_name);
+-         RARCH_LOG("[R2P] Persisted selection: kind=%u name=\"%s\" "
+-               "-> idx=%u (\"%s\")\n",
+-               r2p_settings->uints.reboot_payload_kind,
+-               r2p_settings->arrays.reboot_payload_name,
+-               (unsigned)restored,
+-               r2p_get_destination_name());
+-      }
+-   }
+-#endif
+-
+ #ifdef HAVE_MENU
+    if (flags & DRIVER_MENU_MASK)
+    {
+-- 
+2.43.0
+
