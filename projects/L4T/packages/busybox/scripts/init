@@ -48,8 +48,6 @@ LIVE="no"
 
 BREAK_TRIPPED="no"
 
-BIGFONT="1080"
-
 # Get a serial number if present (eg. RPi) otherwise use MAC address from eth0
 MACHINE_UID="$(awk '/^Serial/{s='0000000' $3; print substr(s, length(s) - 7)}' /proc/cpuinfo)"
 [ -z "$MACHINE_UID" ] && MACHINE_UID="$(cat /sys/class/net/eth0/address 2>/dev/null | tr -d :)"
@@ -362,18 +360,6 @@ update_bootloader() {
   fi
 }
 
-set_consolefont() {
-  local vres
-
-  progress "Set console font"
-  if [ -e /dev/fb0 ]; then
-    vres="$(fbset 2>/dev/null | awk '/geometry/ { print $3 }')"
-    if [ $vres -gt "$BIGFONT" ]; then
-      setfont -C /dev/tty0 ter-v32b.psf
-    fi
-  fi
-}
-
 load_splash() {
   local set_default_res=no
   local vres
@@ -440,12 +426,20 @@ do_reboot() {
   sync
 
   # unmount filesystems
-  if /usr/bin/busybox mountpoint -q /flash ; then
-    /usr/bin/busybox umount /flash
-  fi
 
   if /usr/bin/busybox mountpoint -q /storage ; then
     /usr/bin/busybox umount /storage
+  fi
+  if [ "$UPFS_STORAGE" = "yes" ]; then
+    if /usr/bin/busybox mountpoint -q /run/upfs_storage ; then
+      /usr/bin/busybox umount /run/upfs_storage
+    fi
+    if /usr/bin/busybox mountpoint -q /run/upfs_storage_p ; then
+      /usr/bin/busybox umount /run/upfs_storage_p
+    fi
+  fi
+  if /usr/bin/busybox mountpoint -q /flash ; then 
+    /usr/bin/busybox umount /flash 
   fi
 
   usleep 2000000
@@ -1116,9 +1110,6 @@ for arg in $(cat /proc/cmdline); do
     break=*)
       BREAK="${arg#*=}"
       ;;
-    bigfont=*)
-      BIGFONT="${arg#*=}"
-      ;;
     ip=*)
       KERNEL_IPCONFIG="yes"
       ;;
@@ -1160,7 +1151,6 @@ debug_msg "Unique identifier for this client: ${MACHINE_UID:-NOT AVAILABLE}"
 
 # main boot sequence
 for BOOT_STEP in \
-    set_consolefont \
     check_disks \
     mount_flash \
     cleanup_flash \

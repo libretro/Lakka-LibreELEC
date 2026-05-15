@@ -37,7 +37,7 @@ Below you can find all supported keys and their defaults.
  3: Enable serial logging on UART-C [Left Joycon Rail]
  4: Enable serial logging on USB
 
-[fbconsole=9]
+[fbconsole=0]
  0: Enable kernel logging on built-in display, and disable splash screen
  1: Enable kernel logging on DP/HDMI/VGA.
  9: Or removed, disables kernel logging on any display.
@@ -80,10 +80,15 @@ Below you can find all supported keys and their defaults.
  0: IPv6 Disabled (default)
  1: IPv6 Enabled
 
-[enable_upfs = 0]
+[enable_upfs=0]
  0: upfs storage is disabled
  1: upfs storage is enabled(experimental): Keep FS permissions in ext4 partition image(Easier to clean)
  2: upfsps storage is enabled(experimental) Keep FS permission in storage dir in hidden files
+
+[debug_fbconsole=0]
+ 0:Show Splash, hide boot logs
+ 1:Hide Splash and show onscreen boot logs
+
 ================================================================================
 
 
