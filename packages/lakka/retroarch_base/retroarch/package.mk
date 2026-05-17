@@ -122,6 +122,11 @@ fi
 
 if [ "${PROJECT}" = "L4T" ]; then
   PKG_CONFIGURE_OPTS_TARGET=${PKG_CONFIGURE_OPTS_TARGET//--enable-kms/--disable-kms}
+
+  #SDL2 Renderer is broken on Switch, and I dont care to look into it currently.
+  PKG_DEPENDS_TARGET=${PKG_DEPENDS_TARGET//SDL2_input/}
+  PKG_CONFIGURE_OPTS_TARGET=${PKG_CONFIGURE_OPTS_TARGET//--enable-sdl2/--disable-sdl2}
+
   #EGL break gl1 support so if opengl enabled, force disable egl/gles
   if [ "${OPENGL_SUPPORT}" = yes ]; then
     PKG_CONFIGURE_OPTS_TARGET=${PKG_CONFIGURE_OPTS_TARGET//--enable-egl/--disable-egl}
