@@ -52,5 +52,9 @@ makeinstall_target() {
       echo "hdmi_max_pixel_freq:0=200000000" >> ${INSTALL}/usr/share/bootloader/distroconfig.txt
       echo "hdmi_max_pixel_freq:1=200000000" >> ${INSTALL}/usr/share/bootloader/distroconfig.txt
       echo "force_turbo=0" >> ${INSTALL}/usr/share/bootloader/config.txt
+      if [ "${DEVICE:0:4}" = "RPi5" ]; then
+        echo "#usb_max_current_enable=1" >> "${INSTALL}/usr/share/bootloader/distroconfig.txt"
+        echo "#usb_max_current_enable=1" >> "${INSTALL}/usr/share/bootloader/distroconfig-composite.txt"
+      fi
     fi
 }
