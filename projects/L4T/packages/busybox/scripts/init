@@ -52,6 +52,8 @@ BREAK_TRIPPED="no"
 MACHINE_UID="$(awk '/^Serial/{s='0000000' $3; print substr(s, length(s) - 7)}' /proc/cpuinfo)"
 [ -z "$MACHINE_UID" ] && MACHINE_UID="$(cat /sys/class/net/eth0/address 2>/dev/null | tr -d :)"
 
+FLASH_RW="/run/flash_rw"
+
 # common functions
 . /functions
 
@@ -345,10 +347,18 @@ update_partition() {
   fi
 }
 
+flash_w() {
+  if /usr/bin/busybox mountpoint -q "$FLASH_RW" 2>/dev/null; then
+    echo "$FLASH_RW"
+  else
+    echo /flash
+  fi
+}
+
 update_bootloader() {
   local result
 
-  export BOOT_ROOT="/flash"
+  export BOOT_ROOT="$(flash_w)"      # was /flash; bootloader update.sh writes here
   export SYSTEM_ROOT="/update"
 
   if [ -f $SYSTEM_ROOT/usr/share/bootloader/update.sh ]; then
@@ -551,7 +561,14 @@ mount_flash() {
   if [ ! "$FAT32_BOOT" = "yes" ]; then
     mount_part "$boot" "/flash" "ro,noatime"
   else
-    mount_part "$boot" "/flash" "rw,noatime,umask=0000,shortname=winnt"
+    # RW mount at a private spot FIRST: this sets the shared vfat superblock RW.
+    /usr/bin/busybox mkdir -p "$FLASH_RW"
+    mount_part "$boot" "$FLASH_RW" "rw,noatime,umask=0000,shortname=winnt"
+    # Expose /flash as a READ-ONLY VIEW of the same device (per-mount MNT_RDONLY,
+    # superblock stays RW). The squashfs loops from here; /flash never carries
+    # our dirty writes, so an unclean unmount at shutdown can't corrupt the FAT.
+    /usr/bin/busybox mount --bind "$FLASH_RW" /flash
+    /usr/bin/busybox mount -o remount,ro,bind /flash
   fi
 
   if [ -f /flash/post-flash.sh ]; then
@@ -561,15 +578,13 @@ mount_flash() {
 
 cleanup_flash() {
   progress "Cleaning up flash (if required)"
-
-  if [ -f /flash/pieeprom.bin -o -f /flash/pieeprom.upd -o -f /flash/vl805.bin ]; then
-    mount -o remount,rw /flash
-
-    rm -f /flash/pieeprom.bin /flash/pieeprom.upd /flash/pieeprom.sig
-    rm -f /flash/vl805.bin /flash/vl805.sig
-    rm -f /flash/recovery.bin /flash/recovery.[0-9][0-9][0-9] /flash/RECOVERY.[0-9][0-9][0-9]
-
-    mount -o remount,ro /flash
+  fw="$(flash_w)"
+  if [ -f $fw/pieeprom.bin -o -f $fw/pieeprom.upd -o -f $fw/vl805.bin ]; then
+    [ "$fw" = "/flash" ] && mount -o remount,rw /flash
+    rm -f $fw/pieeprom.bin $fw/pieeprom.upd $fw/pieeprom.sig
+    rm -f $fw/vl805.bin $fw/vl805.sig
+    rm -f $fw/recovery.bin $fw/recovery.[0-9][0-9][0-9] $fw/RECOVERY.[0-9][0-9][0-9]
+    [ "$fw" = "/flash" ] && mount -o remount,ro /flash
   fi
 }
 
@@ -577,7 +592,6 @@ mount_storage() {
   progress "Mounting storage"
 
   if [ "$LIVE" = "yes" ]; then
-    # mount tmpfs and exit early. disk=xx is not allowed in live mode
     mount -t tmpfs none /storage
     return
   fi
@@ -586,45 +600,46 @@ mount_storage() {
 
   if [ "$FAT32_BOOT" = "yes" ]; then
     DISTRO=${IMAGE_SYSTEM%'/'*}
-    mkdir -p /flash/$DISTRO/storage
+
+    # Writable, pure-vfat path (the RW view). Fall back to /flash only if the RW
+    # mount is somehow absent (keeps old behaviour rather than failing to boot).
+    FLASH_DATA="$FLASH_RW/$DISTRO"
+    /usr/bin/busybox mountpoint -q "$FLASH_RW" || FLASH_DATA="/flash/$DISTRO"
+
+    mkdir -p "$FLASH_DATA/storage"
     UPFS_STORAGE_PATH="/run/upfs_storage"
     if [ ! -d $UPFS_STORAGE_PATH -a "$UPFS_STORAGE" = "yes" -a ! "$UPFS_STORAGE_PATH" = "/storage" ]; then
       mkdir -p $UPFS_STORAGE_PATH
     fi
-    if [ "$UPFS_STORAGE" = "yes" -a "$UPFS_PERMISSIONS_IN_STORE" = "yes" ]; then
 
-      /usr/sbin/mount.upfsps /flash/$DISTRO/storage $UPFS_STORAGE_PATH
+    if [ "$UPFS_STORAGE" = "yes" -a "$UPFS_PERMISSIONS_IN_STORE" = "yes" ]; then
+      /usr/sbin/mount.upfsps "$FLASH_DATA/storage" $UPFS_STORAGE_PATH
       if [ ! -f $UPFS_STORAGE_PATH/.upfs_store_created ]; then
         /usr/bin/busybox chown -R 0:0 $UPFS_STORAGE_PATH
         echo "" > $UPFS_STORAGE_PATH/.upfs_store_created
       fi
     elif [ "$UPFS_STORAGE" = "yes" ]; then
       mkdir -p "$UPFS_STORAGE_PATH"_p
-      if [ ! -f /flash/$DISTRO/storage_p.img ]; then
-        dd if=/dev/zero of=/flash/$DISTRO/storage_p.img bs=1M count=30
-        mkfs.ext4 -i 1024 /flash/$DISTRO/storage_p.img
+      if [ ! -f "$FLASH_DATA/storage_p.img" ]; then
+        dd if=/dev/zero of="$FLASH_DATA/storage_p.img" bs=1M count=30
+        mkfs.ext4 -i 1024 "$FLASH_DATA/storage_p.img"
         CREATE_PERMISSIONS=1
       fi
-      /usr/bin/busybox mount -o loop /flash/$DISTRO/storage_p.img /run/upfs_storage_p
-      /usr/sbin/mount.upfs "$UPFS_STORAGE_PATH"_p:/flash/$DISTRO/storage $UPFS_STORAGE_PATH
+      /usr/bin/busybox mount -o loop "$FLASH_DATA/storage_p.img" /run/upfs_storage_p
+      /usr/sbin/mount.upfs "$UPFS_STORAGE_PATH"_p:"$FLASH_DATA/storage" $UPFS_STORAGE_PATH
       if [ "$CREATE_PERMISSIONS" = "1" ]; then
-        /usr/bin/busybox/chown -R 0:0 $UPFS_STORAGE_PATH
+        /usr/bin/busybox chown -R 0:0 $UPFS_STORAGE_PATH
       fi
-      #For now bind mount to ensure updater works without more modifications,
-      #We will handle this in prepare_sysroot
       /usr/bin/busybox mount --bind $UPFS_STORAGE_PATH /storage
     else
-      /usr/bin/busybox mount --bind /flash/$DISTRO/storage /storage
+      /usr/bin/busybox mount --bind "$FLASH_DATA/storage" /storage
     fi
   elif [ -n "$disk" ]; then
     if [ -n "$OVERLAY" ]; then
       OVERLAY_DIR=$(cat /sys/class/net/eth0/address | tr -d :)
-
       mount_part "$disk" "/storage" "rw,noatime"
       mkdir -p /storage/$OVERLAY_DIR
       umount /storage
-
-      # split $disk into $target,$options so we can append $OVERLAY_DIR
       options="${disk#*,}"
       target="${disk%%,*}"
       if [ "$options" = "$disk" ]; then
@@ -633,47 +648,45 @@ mount_storage() {
         disk="$target/$OVERLAY_DIR,$options"
       fi
     fi
-
     if [ -f /flash/mount-storage.sh ]; then
       . /flash/mount-storage.sh
     else
       mount_part "$disk" "/storage" "rw,noatime"
     fi
   else
-    # /storage should always be writable
     mount -t tmpfs none /storage
   fi
 }
 
 # Make last bootloader label (installer, live, run etc.) as the new default
+
 update_bootmenu() {
-  local crnt_default
+  local crnt_default fw
+  fw="$(flash_w)"
 
-  if [ -n "$SYSLINUX_DEFAULT" -a -f /flash/syslinux.cfg ]; then
-    if grep -q "^LABEL $SYSLINUX_DEFAULT\$" /flash/syslinux.cfg; then
-      crnt_default="$(awk '/^DEFAULT/ {print $2}' /flash/syslinux.cfg)"
+  if [ -n "$SYSLINUX_DEFAULT" -a -f $fw/syslinux.cfg ]; then
+    if grep -q "^LABEL $SYSLINUX_DEFAULT\$" $fw/syslinux.cfg; then
+      crnt_default="$(awk '/^DEFAULT/ {print $2}' $fw/syslinux.cfg)"
       if [ ! "$crnt_default" = "$SYSLINUX_DEFAULT" ]; then
-        progress "Updating /flash/syslinux.cfg [$crnt_default -> $SYSLINUX_DEFAULT]"
-
-        mount -o remount,rw /flash
-        sed -e "s/^SAY Wait for .* mode/SAY Wait for ${SYSLINUX_DEFAULT} mode/" -i /flash/syslinux.cfg
-        sed -e "s/^DEFAULT .*/DEFAULT $SYSLINUX_DEFAULT/" -i /flash/syslinux.cfg
-        rm -f /flash/EFI/BOOT/syslinux.cfg
-        mount -o remount,ro /flash
+        progress "Updating $fw/syslinux.cfg [$crnt_default -> $SYSLINUX_DEFAULT]"
+        [ "$fw" = "/flash" ] && mount -o remount,rw /flash
+        sed -e "s/^SAY Wait for .* mode/SAY Wait for ${SYSLINUX_DEFAULT} mode/" -i $fw/syslinux.cfg
+        sed -e "s/^DEFAULT .*/DEFAULT $SYSLINUX_DEFAULT/" -i $fw/syslinux.cfg
+        rm -f $fw/EFI/BOOT/syslinux.cfg
+        [ "$fw" = "/flash" ] && mount -o remount,ro /flash
       fi
     fi
   fi
 
-  if [ -n "$GRUB_DEFAULT" -a -f /flash/EFI/BOOT/grub.cfg ]; then
-    if grep -q "^menuentry \"$GRUB_DEFAULT\"" /flash/EFI/BOOT/grub.cfg; then
-      crnt_default="$(awk '/^set default/ {print substr($2,9,19)}' /flash/EFI/BOOT/grub.cfg)"
+  if [ -n "$GRUB_DEFAULT" -a -f $fw/EFI/BOOT/grub.cfg ]; then
+    if grep -q "^menuentry \"$GRUB_DEFAULT\"" $fw/EFI/BOOT/grub.cfg; then
+      crnt_default="$(awk '/^set default/ {print substr($2,9,19)}' $fw/EFI/BOOT/grub.cfg)"
       if [ ! "$crnt_default" = "\"$GRUB_DEFAULT\"" ]; then
-        progress "Updating /flash/EFI/BOOT/grub.cfg [$crnt_default -> \"$GRUB_DEFAULT\"]"
-
-        mount -o remount,rw /flash
-        sed -e "s/^set default=.*/set default=\"$GRUB_DEFAULT\"/" -i /flash/EFI/BOOT/grub.cfg
-        rm -f /flash/grub.cfg
-        mount -o remount,ro /flash
+        progress "Updating $fw/EFI/BOOT/grub.cfg [$crnt_default -> \"$GRUB_DEFAULT\"]"
+        [ "$fw" = "/flash" ] && mount -o remount,rw /flash
+        sed -e "s/^set default=.*/set default=\"$GRUB_DEFAULT\"/" -i $fw/EFI/BOOT/grub.cfg
+        rm -f $fw/grub.cfg
+        [ "$fw" = "/flash" ] && mount -o remount,ro /flash
       fi
     fi
   fi
@@ -978,10 +991,10 @@ check_update() {
   if [ -b "/$IMAGE_KERNEL" ]; then
     update_partition "Kernel" "$UPDATE_KERNEL" "/$IMAGE_KERNEL"
   else
-    update_file "Kernel" "$UPDATE_KERNEL" "/flash/$IMAGE_KERNEL"
+    update_file "Kernel" "$UPDATE_KERNEL" "$(flash_w)/$IMAGE_KERNEL"
   fi
   umount /sysroot
-  update_file "System" "$UPDATE_SYSTEM" "/flash/$IMAGE_SYSTEM"
+  update_file "System" "$UPDATE_SYSTEM" "$(flash_w)/$IMAGE_SYSTEM"
   update_bootloader
   do_cleanup
   do_reboot
@@ -1018,6 +1031,7 @@ prepare_sysroot() {
 if [ ! "$SPLASH" = "no" ] ;then
   echo '1 4 1 7' > /proc/sys/kernel/printk
 fi
+
 # run platform_init script if exists
 if [ -f "./platform_init" ]; then
   ./platform_init
