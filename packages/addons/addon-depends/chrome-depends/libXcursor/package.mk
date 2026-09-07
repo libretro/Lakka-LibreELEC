@@ -10,7 +10,14 @@ PKG_SITE="http://www.X.org"
 PKG_URL="https://xorg.freedesktop.org/archive/individual/lib/libXcursor-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain libX11 libXfixes libXrender"
 PKG_LONGDESC="X11 Cursor management library.s"
-PKG_BUILD_FLAGS="+pic -sysroot"
+
+if [ "${DISTRO}" = "Lakka" ]; then
+  # Lakka has no Chrome addon, but libXcursor is required by SDL3 on
+  # X11 as a shared library, so build it without -sysroot isolation.
+  PKG_BUILD_FLAGS="+pic"
+else
+  PKG_BUILD_FLAGS="+pic -sysroot"
+fi
 
 post_configure_target() {
   libtool_remove_rpath libtool
