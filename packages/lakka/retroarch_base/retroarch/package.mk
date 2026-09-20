@@ -354,10 +354,6 @@ makeinstall_target() {
     sed -i ${ra_config} -e 's|^menu_pointer_enable = .*|menu_pointer_enable = "true"|'
     sed -i ${ra_config} -e 's|^video_crop_overscan = .*|video_crop_overscan = "false"|'
 
-    if [ ! "${PROJECT}" = "Ayn" -a ! "${DEVICE}" = "Odin" ]; then
-      sed -i ${ra_config} -e 's|^video_hard_sync = .*|video_hard_sync = "true"|'
-    fi
-
     sed -i ${ra_config} -e 's|^input_driver = .*|input_driver = "x"|'
     sed -i ${ra_config} -e 's|^video_smooth = .*|video_smooth = "true"|'
     sed -i ${ra_config} -e 's|^menu_driver = .*|menu_driver = "ozone"|'
@@ -365,6 +361,7 @@ makeinstall_target() {
     if [ ! "${PROJECT}" = "Ayn" -a ! "${DEVICE}" = "Odin" ]; then
       #Set Joypad as joypad with analog
       sed -i ${ra_config} -e 's|^input_device_p1 = .*|input_device_p1 = "5"|'
+      sed -i ${ra_config} -e 's|^video_threaded = .*|video_threaded = "false"|'
     else
       sed -i ${ra_config} -e 's|^video_river = .*|video_driver = "glcore"|'
       sed -i ${ra_config} -e 's|^audio_driver = .*|audio_driver = "pulse"|'
