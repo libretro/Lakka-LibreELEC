@@ -1,5 +1,5 @@
 PKG_NAME="switch-bsp"
-PKG_VERSION="1.3"
+PKG_VERSION="1.4"
 PKG_LICENSE="GPL"
 PKG_DEPENDS_TARGET="joycond rewritefs xdotool alsa-lib alsa-ucm-conf usb-gadget-scripts"
 PKG_SECTION="virtual"
@@ -14,6 +14,7 @@ fi
 post_install() {
   enable_service xorg-configure-switch.service
   enable_service var-bluetoothconfig.mount
+  enable_service var-locked\\x2dbluetoothconfig.mount
   enable_service pair-joycon.service
   enable_service fix-permissions.service
   enable_service alsa-init.service

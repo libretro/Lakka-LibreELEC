@@ -1,0 +1,232 @@
+From 59aa6e0a57f4d3724fe3f4d298baf8308ef02395 Mon Sep 17 00:00:00 2001
+From: a <a@b.c>
+Date: Sun, 30 Aug 2026 18:41:48 +0000
+Subject: [PATCH] HID: nintendo: wire up the nintendo-tera MCU core
+
+Provide the nintendo-tera transport interface from hid-nintendo so the
+MCU and its features (IR camera, NFC) work over Bluetooth/USB: implement
+->send_subcmd (arming content-based ack matching for MCU config replies)
+and ->send_raw (filling packet_num + rumble passthrough), bring the core
+up in probe via joycon_tera_probe(), feed it MCU input reports (0x31)
+from the read handler, and tear it down in remove. Gated by the new
+HID_NINTENDO_TERA option, which selects NINTENDO_TERA.
+---
+ drivers/hid/Kconfig        |  12 ++++
+ drivers/hid/hid-nintendo.c | 139 +++++++++++++++++++++++++++++++++++++
+ 2 files changed, 151 insertions(+)
+
+diff --git a/drivers/hid/Kconfig b/drivers/hid/Kconfig
+index 2ef2d85..6f7767b 100644
+--- a/drivers/hid/Kconfig
++++ b/drivers/hid/Kconfig
+@@ -587,6 +587,18 @@ config HID_NINTENDO
+ 	To compile this driver as a module, choose M here: the
+ 	module will be called hid-nintendo.
+ 
++config HID_NINTENDO_TERA
++	bool "MCU features (IR camera, NFC) for hid-nintendo"
++	depends on HID_NINTENDO
++	select MISC_NINTENDO_TERA
++	help
++	Enable the controller MCU features -- the IR/NIR camera and the NFC
++	tag reader -- for the Bluetooth/USB Joy-Cons and Pro Controllers
++	handled by hid-nintendo, via the shared nintendo-tera module. Turn the
++	individual features on under NINTENDO_TERA_IR / NINTENDO_TERA_NFC.
++
++	If unsure, say N.
++
+ config NINTENDO_FF
+ 	bool "Nintendo Switch controller force feedback support"
+ 	depends on HID_NINTENDO
+diff --git a/drivers/hid/hid-nintendo.c b/drivers/hid/hid-nintendo.c
+index 6fcdacb..c7073f9 100644
+--- a/drivers/hid/hid-nintendo.c
++++ b/drivers/hid/hid-nintendo.c
+@@ -24,6 +24,9 @@
+  */
+ 
+ #include "hid-ids.h"
++#if IS_ENABLED(CONFIG_HID_NINTENDO_TERA)
++#include <linux/nintendo-tera.h>
++#endif
+ #include <asm/unaligned.h>
+ #include <linux/delay.h>
+ #include <linux/device.h>
+@@ -454,6 +457,13 @@ struct joycon_ctlr {
+ 	bool received_resp;
+ 	u8 usb_ack_match;
+ 	u8 subcmd_ack_match;
++#if IS_ENABLED(CONFIG_HID_NINTENDO_TERA)
++	/* content-based subcmd ack matching for MCU config replies */
++	u8 subcmd_ack_data0;
++	u8 subcmd_ack_data0_alt;
++	u16 subcmd_ack_data12;
++	struct joycon_tera *tera;
++#endif
+ 	bool received_input_report;
+ 
+ 	/* factory calibration data */
+@@ -652,6 +662,109 @@ static int joycon_send_subcmd(struct joycon_ctlr *ctlr,
+ 	return ret;
+ }
+ 
++#if IS_ENABLED(CONFIG_HID_NINTENDO_TERA)
++/*
++ * nintendo-tera MCU core integration. The MCU and the features built on it
++ * (IR camera, NFC) live in the transport-agnostic nintendo-tera module;
++ * hid-nintendo supplies the two transport primitives it needs and feeds it
++ * MCU input reports.
++ */
++static int hid_joycon_tera_send_subcmd(void *drv,
++				       struct joycon_subcmd_request *subcmd,
++				       size_t data_len,
++				       const struct joycon_ack_match *match,
++				       u32 timeout)
++{
++	struct joycon_ctlr *ctlr = drv;
++	int ret;
++
++	/*
++	 * Arm content-based ack matching for MCU config replies (whose subcmd
++	 * id is generic); joycon_ctlr_handle_event() consults these. NULL means
++	 * ordinary id-only matching.
++	 */
++	if (match) {
++		ctlr->subcmd_ack_data0 = match->data0;
++		ctlr->subcmd_ack_data0_alt = match->data0_alt;
++		ctlr->subcmd_ack_data12 = match->data12;
++	}
++	ret = joycon_send_subcmd(ctlr, subcmd, data_len, timeout);
++	ctlr->subcmd_ack_data0 = 0;
++	ctlr->subcmd_ack_data0_alt = 0;
++	ctlr->subcmd_ack_data12 = 0;
++	return ret;
++}
++
++static int hid_joycon_tera_send_raw(void *drv, u8 *data, size_t len)
++{
++	struct joycon_ctlr *ctlr = drv;
++	unsigned long flags;
++
++	spin_lock_irqsave(&ctlr->lock, flags);
++	if (ctlr->ctlr_state == JOYCON_CTLR_STATE_REMOVED) {
++		spin_unlock_irqrestore(&ctlr->lock, flags);
++		return -ENODEV;
++	}
++	/* Fill packet_num + rumble passthrough, as joycon_send_subcmd() does. */
++	data[1] = ctlr->subcmd_num;
++	if (++ctlr->subcmd_num > 0xF)
++		ctlr->subcmd_num = 0;
++	memcpy(&data[2], ctlr->rumble_data[ctlr->rumble_queue_tail],
++	       JC_RUMBLE_DATA_SIZE);
++	spin_unlock_irqrestore(&ctlr->lock, flags);
++
++	return __joycon_hid_send(ctlr->hdev, data, len);
++}
++
++static const struct joycon_tera_ops hid_joycon_tera_ops = {
++	.send_subcmd = hid_joycon_tera_send_subcmd,
++	.send_raw = hid_joycon_tera_send_raw,
++};
++
++static enum joycon_tera_ctlr_type
++hid_joycon_tera_type(struct joycon_ctlr *ctlr)
++{
++	switch (ctlr->ctlr_type) {
++	case JOYCON_CTLR_TYPE_JCL:
++		return JOYCON_TERA_TYPE_LEFT;
++	case JOYCON_CTLR_TYPE_JCR:
++		return JOYCON_TERA_TYPE_RIGHT;
++	case JOYCON_CTLR_TYPE_PRO:
++		return JOYCON_TERA_TYPE_PRO;
++	default:
++		return JOYCON_TERA_TYPE_UNKNOWN;
++	}
++}
++
++static void hid_joycon_tera_probe(struct joycon_ctlr *ctlr)
++{
++	struct joycon_tera_config cfg = {
++		.dev = &ctlr->hdev->dev,
++		.output_mutex = &ctlr->output_mutex,
++		.ctlr_type = hid_joycon_tera_type(ctlr),
++		.ops = &hid_joycon_tera_ops,
++		.drv = ctlr,
++	};
++	struct joycon_tera *tera = joycon_tera_create(&cfg);
++
++	if (IS_ERR(tera)) {
++		hid_warn(ctlr->hdev, "tera MCU alloc failed; ret=%ld\n",
++			 PTR_ERR(tera));
++		ctlr->tera = NULL;
++		return;
++	}
++
++	/* Assign before starting so MCU status replies route back during probe. */
++	ctlr->tera = tera;
++	if (joycon_tera_start(tera)) {
++		joycon_tera_remove(tera);
++		ctlr->tera = NULL;
++	}
++}
++#else
++static inline void hid_joycon_tera_probe(struct joycon_ctlr *ctlr) { }
++#endif
++
+ /* Supply nibbles for flash and on. Ones correspond to active */
+ static int joycon_set_player_leds(struct joycon_ctlr *ctlr, u8 flash, u8 on)
+ {
+@@ -2134,6 +2247,11 @@ static int joycon_ctlr_read_handler(struct joycon_ctlr *ctlr, u8 *data,
+ 					    (struct joycon_input_report *)data);
+ 	}
+ 
++#if IS_ENABLED(CONFIG_HID_NINTENDO_TERA)
++	if (data[0] == JC_INPUT_MCU_DATA)
++		joycon_tera_handle_input(ctlr->tera, data, size);
++#endif
++
+ 	return 0;
+ }
+ 
+@@ -2159,6 +2277,20 @@ static int joycon_ctlr_handle_event(struct joycon_ctlr *ctlr, u8 *data,
+ 			    data[0] != JC_INPUT_SUBCMD_REPLY)
+ 				break;
+ 			report = (struct joycon_input_report *)data;
++#if IS_ENABLED(CONFIG_HID_NINTENDO_TERA)
++			if (ctlr->subcmd_ack_data0) {
++				u8 d0 = report->subcmd_reply.data[0];
++
++				if ((d0 == ctlr->subcmd_ack_data0 ||
++				     (ctlr->subcmd_ack_data0_alt &&
++				      d0 == ctlr->subcmd_ack_data0_alt)) &&
++				    (!ctlr->subcmd_ack_data12 ||
++				     get_unaligned_le16(&report->subcmd_reply.data[1]) ==
++				     ctlr->subcmd_ack_data12))
++					match = true;
++				break;
++			}
++#endif
+ 			if (report->subcmd_reply.id == ctlr->subcmd_ack_match)
+ 				match = true;
+ 			break;
+@@ -2367,6 +2499,8 @@ static int nintendo_hid_probe(struct hid_device *hdev,
+ 
+ 	ctlr->ctlr_state = JOYCON_CTLR_STATE_READ;
+ 
++	hid_joycon_tera_probe(ctlr);
++
+ 	hid_dbg(hdev, "probe - success\n");
+ 	return 0;
+ 
+@@ -2412,6 +2546,11 @@ static void nintendo_hid_remove(struct hid_device *hdev)
+ 
+ 	hid_dbg(hdev, "remove\n");
+ 
++#if IS_ENABLED(CONFIG_HID_NINTENDO_TERA)
++	joycon_tera_remove(ctlr->tera);
++	ctlr->tera = NULL;
++#endif
++
+ 	/* Prevent further attempts at sending subcommands. */
+ 	spin_lock_irqsave(&ctlr->lock, flags);
+ 	if (ctlr->ctlr_state == JOYCON_CTLR_STATE_REMOVED) {

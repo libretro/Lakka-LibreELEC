@@ -1,0 +1,106 @@
+From dd3945631bf596aa7ec0dc7f34aa8edf900352f2 Mon Sep 17 00:00:00 2001
+From: Gavin <gavin@localhost>
+Date: Sat, 3 Oct 2026 19:50:15 +0000
+Subject: [PATCH 44/45] codecs: nvv4l2: don't drop in-flight frames when
+ draining the encoder
+
+Encoded packets are dequeued by enc_capture_thread() and handed out of
+the export pool by nvv4l2enc_encode(). On a flush (frame == NULL) the
+encode callback returned got_packet = 0 as soon as the pool happened to
+be empty, which lavc takes as end of stream, so the last frames still
+being encoded in hardware never came out. Every recording lost its
+tail.
+
+Count frames queued on the output plane and packets dequeued from the
+capture plane, and when draining wait until they match before giving
+up, bounded by NVV4L2_DRAIN_TIMEOUT_MS (2 s) in case the hardware
+never returns a frame.
+
+This relies on the encoder returning every queued frame without an
+explicit V4L2 EOS (true with B-frames off, the default here). If it
+holds frames back, the wait times out and behaviour is as before.
+---
+ libavcodec/nvv4l2.h     |  6 ++++++
+ libavcodec/nvv4l2_enc.c | 21 +++++++++++++++++++++
+ 2 files changed, 27 insertions(+)
+
+diff --git a/libavcodec/nvv4l2.h b/libavcodec/nvv4l2.h
+index a7c7b79..8d57ce8 100644
+--- a/libavcodec/nvv4l2.h
++++ b/libavcodec/nvv4l2.h
+@@ -213,6 +213,12 @@ typedef struct {
+     int64_t  frame_pts[NV_MAX_BUFFERS];
+     int64_t  frame_user_pts[NV_MAX_BUFFERS];
+ 
++    /* Encoder drain accounting: frames queued on the output plane by
++     ** the caller, and packets dequeued from the capture plane by the
++     ** capture thread (updated atomically). */
++    uint32_t frames_queued;
++    uint32_t packets_dequeued;
++
+     /* Scratch for repacking input planes whose linesize differs from
+      * the stride Raw2NvBuffer() is given. */
+     uint8_t *repack_buf;
+diff --git a/libavcodec/nvv4l2_enc.c b/libavcodec/nvv4l2_enc.c
+index 11b3df9..a3aaf89 100644
+--- a/libavcodec/nvv4l2_enc.c
++++ b/libavcodec/nvv4l2_enc.c
+@@ -28,6 +28,7 @@
+ #include <string.h>
+ #include <fcntl.h>
+ #include <errno.h>
++#include <stdatomic.h>
+ #include "codec_internal.h"
+ #include "encode.h"
+ #include "libavutil/imgutils.h"
+@@ -36,6 +37,9 @@
+ 
+ #include "nvv4l2.h"
+ 
++/* Upper bound on waiting for in-flight packets when draining. */
++#define NVV4L2_DRAIN_TIMEOUT_MS 2000
++
+ #define ENCODER_DEV "/dev/nvhost-msenc"
+ #define PACKET_DEFAULT_SIZE (2*1024*1024)
+ 
+@@ -227,6 +231,7 @@ static void *enc_capture_thread(void *arg)
+         }
+ 
+         nvv4l2_pool_push(ctx, ctx->export_pool);
++        atomic_fetch_add(&ctx->packets_dequeued, 1);
+ 
+         /* Queue the buffer. */
+         ret = nvv4l2_q_buffer(ctx, &v4l2_cp_buf, cp_buffer, ctx->cp_buf_type,
+@@ -778,6 +783,7 @@ int nvv4l2_encoder_put_frame(AVCodecContext *avctx, nvv4l2_ctx_t *ctx,
+     if (ctx->num_active_op_buffers < ctx->op_num_buffers) {
+         ctx->num_active_op_buffers++;
+     }
++    ctx->frames_queued++;
+ 
+     return 0;
+ }
+@@ -1302,6 +1308,21 @@ nvv4l2enc_encode(AVCodecContext *avctx, AVPacket *pkt,
+ 
+         if (nvv4l2_encoder_put_frame(avctx, ctx, &_nvframe))
+             return AVERROR_UNKNOWN;
++    } else {
++        /*
++         ** Draining. Packets come back asynchronously on the capture
++         ** thread, so an empty export pool doesn't mean the encoder is
++         ** done: returning no packet here makes lavc treat the stream
++         ** as finished and the frames still in flight are lost. Wait
++         ** until every queued frame has come back (bounded, in case the
++         ** hardware never returns one).
++         */
++        for (int waited_ms = 0;
++             !ctx->in_error && ctx->export_pool->capacity == 0 &&
++             atomic_load(&ctx->packets_dequeued) < ctx->frames_queued &&
++             waited_ms < NVV4L2_DRAIN_TIMEOUT_MS;
++             waited_ms++)
++            usleep(1000);
+     }
+ 
+     if (nvv4l2_encoder_get_packet(avctx, ctx, &packet))
+-- 
+2.43.0
+
