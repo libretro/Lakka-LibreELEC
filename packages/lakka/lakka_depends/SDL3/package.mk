@@ -49,7 +49,7 @@ fi
 
 # Video
 if [ "${DISPLAYSERVER}" = "x11" ]; then
-  PKG_DEPENDS_TARGET+=" libX11 libXcursor_lakka libXext libXfixes libXi libXrandr libXrender libXtst"
+  PKG_DEPENDS_TARGET+=" libX11 libXcursor libXext libXfixes libXi libXrandr libXrender libXtst"
   # Xscrnsaver, fribidi and libthai default on with X11 but are not deps here
   PKG_CMAKE_OPTS_TARGET+=" -DSDL_X11_XSCRNSAVER=OFF \
                            -DSDL_FRIBIDI=OFF \
