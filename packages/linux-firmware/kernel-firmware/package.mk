@@ -8,6 +8,16 @@ PKG_LICENSE="other"
 PKG_SITE="https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/"
 PKG_URL="https://cdn.kernel.org/pub/linux/kernel/firmware/linux-firmware-${PKG_VERSION}.tar.xz"
 PKG_NEED_UNPACK="${PROJECT_DIR}/${PROJECT}/packages/${PKG_NAME} ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/packages/${PKG_NAME}"
+# makeinstall_target() selects firmware from these lists, so a change to one
+# has to invalidate the stamp - they live outside the paths calculate_stamp()
+# already covers.
+PKG_NEED_UNPACK+=" ${PROJECT_DIR}/${PROJECT}/config/kernel-firmware.dat"
+PKG_NEED_UNPACK+=" ${PROJECT_DIR}/${PROJECT}/config/kernel-firmware-any.dat"
+PKG_NEED_UNPACK+=" ${PROJECT_DIR}/${PROJECT}/config/kernel-firmware-${TARGET_ARCH}.dat"
+if [ -n "${DEVICE}" ]; then
+  PKG_NEED_UNPACK+=" ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/config/kernel-firmware-any.dat"
+  PKG_NEED_UNPACK+=" ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/config/kernel-firmware-${TARGET_ARCH}.dat"
+fi
 PKG_LONGDESC="kernel-firmware: kernel related firmware"
 PKG_TOOLCHAIN="manual"
 
