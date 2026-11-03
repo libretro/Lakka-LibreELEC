@@ -1,0 +1,57 @@
+Backport of upstream RetroArch commit fda5e257b8 (2026-10-06)
+"video_thread_hw: an OpenGL core that keeps its framebuffer stays on its slot"
+to b6f5b2d (hand-ported: the publish signature differs there). gfx/ only.
+Fixes the strobe flicker of mupen64plus-next (glsm caches the FBO) under threaded video, RetroArch #19727.
+
+diff --git a/gfx/video_thread_hw.c b/gfx/video_thread_hw.c
+index d74481e85d..0b6d21c36f 100644
+--- a/gfx/video_thread_hw.c
++++ b/gfx/video_thread_hw.c
+@@ -136,6 +136,12 @@ typedef struct
+    /* The core's current sync index: the slot it is rendering into.
+     * Main thread only between pushes; the push moves it. */
+    unsigned  index;
++   /* OpenGL: the slot whose framebuffer the core last asked for, and
++    * whether it asked since the last publish. A core that caches the
++    * framebuffer from context_reset renders into that slot whatever
++    * index says, so the ring stays on it (#19727). */
++   unsigned  gl_fbo_slot;
++   bool      gl_queried;
+    enum hw_api api;
+    thread_video_t *thr;
+ } hw_ring_t;
+@@ -730,6 +736,8 @@ uintptr_t video_thread_hw_get_current_framebuffer(void *data)
+    hw_ring_t *ring     = hw_ring_of(data);
+    if (!ring || ring->api != HW_API_GL || !thr->poke->hw_ring_framebuffer)
+       return 0;
++   ring->gl_fbo_slot = ring->index;
++   ring->gl_queried  = true;
+    return thr->poke->hw_ring_framebuffer(thr->driver_data, ring->index);
+ }
+ 
+@@ -737,8 +745,15 @@ int video_thread_hw_publish(thread_video_t *thr)
+ {
+    hw_ring_t *ring = (hw_ring_t*)thr->frame.hw_ring;
+    unsigned published;
++   bool stay;
+    if (!ring)
+       return -1;
++   /* A core that did not ask for its framebuffer rendered into the one
++    * it has: that slot is the frame, and the ring stays on it */
++   stay = (ring->api == HW_API_GL && !ring->gl_queried);
++   if (stay)
++      ring->index = ring->gl_fbo_slot;
++   ring->gl_queried = false;
+    published = ring->index;
+ #ifdef HAVE_D3D11
+    if (ring->api == HW_API_D3D11)
+@@ -794,7 +809,8 @@ int video_thread_hw_publish(thread_video_t *thr)
+          return -1;
+    }
+ #endif
+-   ring->index = (ring->index + 1) % VIDEO_THREAD_HW_RING;
++   if (!stay)
++      ring->index = (ring->index + 1) % VIDEO_THREAD_HW_RING;
+    /* The slot the core fills next was last driven two frames ago;
+     * normally long done, and if not this is where the core waits. */
+ #ifdef HAVE_D3D12

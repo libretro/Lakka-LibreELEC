@@ -1,0 +1,267 @@
+Backport of upstream RetroArch commit 666d9901b3 (2026-10-03)
+"egl: a hardware core's context is bound off the window surface on the main thread"
+to b6f5b2d. Only gfx/ sources; samples/ and CI files dropped, and the unrelated
+EGL_PRESENT_OPAQUE context lines from a later wayland commit left out.
+
+diff --git a/gfx/common/egl_common.c b/gfx/common/egl_common.c
+index 2cd62961bb..80205f5efe 100644
+--- a/gfx/common/egl_common.c
++++ b/gfx/common/egl_common.c
+@@ -86,6 +86,10 @@ typedef EGLBoolean(*PFN_EGL_GET_CONFIG_ATTRIB) (EGLDisplay dpy,
+ 					EGLint attribute, EGLint * value);
+ typedef EGLBoolean(*PFN_EGL_SWAP_BUFFERS) (EGLDisplay dpy, EGLSurface surface);
+ typedef EGLBoolean(*PFN_EGL_SWAP_INTERVAL) (EGLDisplay dpy, EGLint interval);
++typedef EGLSurface(*PFN_EGL_GET_CURRENT_SURFACE) (EGLint readdraw);
++typedef EGLSurface(*PFN_EGL_CREATE_PBUFFER_SURFACE) (EGLDisplay dpy,
++					     EGLConfig config,
++					     const EGLint * attrib_list);
+ 
+ static PFN_EGL_QUERY_SURFACE             _egl_query_surface;
+ static PFN_EGL_GET_PROC_ADDRESS          _egl_get_proc_address;
+@@ -106,6 +110,8 @@ static PFN_EGL_QUERY_STRING              _egl_query_string;
+ static PFN_EGL_GET_CONFIG_ATTRIB         _egl_get_config_attrib;
+ static PFN_EGL_SWAP_BUFFERS              _egl_swap_buffers;
+ static PFN_EGL_SWAP_INTERVAL             _egl_swap_interval;
++static PFN_EGL_GET_CURRENT_SURFACE       _egl_get_current_surface;
++static PFN_EGL_CREATE_PBUFFER_SURFACE    _egl_create_pbuffer_surface;
+ 
+ #else
+ #define _egl_query_surface(a, b, c, d) eglQuerySurface(a, b, c, d)
+@@ -127,6 +133,8 @@ static PFN_EGL_SWAP_INTERVAL             _egl_swap_interval;
+ #define _egl_get_config_attrib(a, b, c, d) eglGetConfigAttrib(a, b, c, d)
+ #define _egl_swap_buffers(a, b) eglSwapBuffers(a, b)
+ #define _egl_swap_interval(a, b) eglSwapInterval(a, b)
++#define _egl_get_current_surface(a) eglGetCurrentSurface(a)
++#define _egl_create_pbuffer_surface(a, b, c) eglCreatePbufferSurface(a, b, c)
+ #endif
+ 
+ bool egl_init_dll(void)
+@@ -176,6 +184,10 @@ bool egl_init_dll(void)
+                egl_dll, "eglSwapBuffers");
+          _egl_swap_interval         = (PFN_EGL_SWAP_INTERVAL)dylib_proc(
+                egl_dll, "eglSwapInterval");
++         _egl_get_current_surface   = (PFN_EGL_GET_CURRENT_SURFACE)dylib_proc(
++               egl_dll, "eglGetCurrentSurface");
++         _egl_create_pbuffer_surface = (PFN_EGL_CREATE_PBUFFER_SURFACE)dylib_proc(
++               egl_dll, "eglCreatePbufferSurface");
+       }
+    }
+ 
+@@ -338,6 +350,9 @@ void egl_destroy(egl_ctx_data_t *egl)
+       if (egl->hw_ctx != EGL_NO_CONTEXT)
+          _egl_destroy_context(egl->dpy, egl->hw_ctx);
+ 
++      if (egl->hw_surf != EGL_NO_SURFACE)
++         _egl_destroy_surface(egl->dpy, egl->hw_surf);
++
+       if (egl->surf != EGL_NO_SURFACE)
+          _egl_destroy_surface(egl->dpy, egl->surf);
+       egl_terminate(egl->dpy);
+@@ -351,6 +366,7 @@ void egl_destroy(egl_ctx_data_t *egl)
+ 
+    egl->ctx      = EGL_NO_CONTEXT;
+    egl->hw_ctx   = EGL_NO_CONTEXT;
++   egl->hw_surf  = EGL_NO_SURFACE;
+    egl->surf     = EGL_NO_SURFACE;
+    egl->dpy      = EGL_NO_DISPLAY;
+    egl->config   = 0;
+@@ -359,6 +375,93 @@ void egl_destroy(egl_ctx_data_t *egl)
+    frontend_driver_destroy_signal_handler_state();
+ }
+ 
++static bool egl_display_has_extension(EGLDisplay dpy, const char *ext)
++{
++   const char *exts = _egl_query_string(dpy, EGL_EXTENSIONS);
++   return exts && strstr(exts, ext);
++}
++
++#ifndef __EMSCRIPTEN__
++/* A 1x1 pbuffer the core's context can be made current with: on the
++ * context's own config where that config has pbuffers, else on one
++ * with the same buffers, which is what eglMakeCurrent asks of a
++ * surface and a context. */
++static EGLSurface egl_create_hw_pbuffer(egl_ctx_data_t *egl)
++{
++   static const EGLint keys[] = {
++      EGL_RED_SIZE, EGL_GREEN_SIZE, EGL_BLUE_SIZE, EGL_ALPHA_SIZE,
++      EGL_DEPTH_SIZE, EGL_STENCIL_SIZE, EGL_RENDERABLE_TYPE
++   };
++   static const EGLint pbuffer_attribs[] = {
++      EGL_WIDTH, 1, EGL_HEIGHT, 1, EGL_NONE
++   };
++   EGLConfig configs[64];
++   EGLint want[7];
++   EGLint attribs[17];
++   EGLint surface_type = 0;
++   EGLint count        = 0;
++   EGLint i;
++   unsigned k;
++
++   if (     _egl_get_config_attrib(egl->dpy, egl->config,
++               EGL_SURFACE_TYPE, &surface_type)
++         && (surface_type & EGL_PBUFFER_BIT))
++      return _egl_create_pbuffer_surface(egl->dpy, egl->config,
++            pbuffer_attribs);
++
++   for (k = 0; k < 7; k++)
++   {
++      want[k] = 0;
++      _egl_get_config_attrib(egl->dpy, egl->config, keys[k], &want[k]);
++      attribs[k * 2]     = keys[k];
++      attribs[k * 2 + 1] = want[k];
++   }
++   attribs[14] = EGL_SURFACE_TYPE;
++   attribs[15] = EGL_PBUFFER_BIT;
++   attribs[16] = EGL_NONE;
++
++   if (!_egl_choose_config(egl->dpy, attribs, configs, 64, &count))
++      return EGL_NO_SURFACE;
++
++   /* The sizes asked for are minimums; the buffers have to match. */
++   for (i = 0; i < count; i++)
++   {
++      for (k = 0; k < 6; k++)
++      {
++         EGLint have = 0;
++         if (     !_egl_get_config_attrib(egl->dpy, configs[i], keys[k], &have)
++               || have != want[k])
++            break;
++      }
++      if (k == 6)
++         return _egl_create_pbuffer_surface(egl->dpy, configs[i],
++               pbuffer_attribs);
++   }
++   return EGL_NO_SURFACE;
++}
++#endif
++
++/* The core's context, current on a thread that does not hold the
++ * window surface. No surface at all where the display allows it - a
++ * hardware core renders into the framebuffer objects the driver hands
++ * it - and a pbuffer of its own where it does not. */
++static bool egl_bind_hw_offscreen(egl_ctx_data_t *egl)
++{
++   if (     egl_display_has_extension(egl->dpy, "EGL_KHR_surfaceless_context")
++         && _egl_make_current(egl->dpy, EGL_NO_SURFACE, EGL_NO_SURFACE,
++               egl->hw_ctx))
++      return true;
++#ifndef __EMSCRIPTEN__
++   if (egl->hw_surf == EGL_NO_SURFACE)
++      egl->hw_surf = egl_create_hw_pbuffer(egl);
++   if (     egl->hw_surf != EGL_NO_SURFACE
++         && _egl_make_current(egl->dpy, egl->hw_surf, egl->hw_surf,
++               egl->hw_ctx))
++      return true;
++#endif
++   return false;
++}
++
+ void egl_bind_hw_render(egl_ctx_data_t *egl, bool enable)
+ {
+    egl->use_hw_ctx     = enable;
+@@ -367,6 +470,26 @@ void egl_bind_hw_render(egl_ctx_data_t *egl, bool enable)
+       return;
+    if (egl->surf == EGL_NO_SURFACE)
+       return;
++
++   /* The threaded wrapper's hardware ring takes the core's context on
++    * the main thread while the driver's own holds the window surface
++    * on the video thread. GLX and WGL bind one drawable on two threads;
++    * EGL does not - eglMakeCurrent fails with EGL_BAD_ACCESS, the core
++    * is left with no context, and its first glGetString returns NULL.
++    * So a thread that does not hold the window surface gets the core's
++    * context without it. */
++   if (     enable
++         && egl->hw_ctx != EGL_NO_CONTEXT
++         && _egl_get_current_surface(EGL_DRAW) != egl->surf)
++   {
++      if (!egl_bind_hw_offscreen(egl))
++      {
++         RARCH_ERR("[EGL] The core's context could not be made current off the window surface.\n");
++         egl_report_error();
++      }
++      return;
++   }
++
+    _egl_make_current(egl->dpy, egl->surf,
+          egl->surf,
+          enable ? egl->hw_ctx : egl->ctx);
+@@ -678,8 +801,9 @@ bool egl_create_context(egl_ctx_data_t *egl, const EGLint *egl_attribs)
+    if (ctx == EGL_NO_CONTEXT)
+       return false;
+ 
+-   egl->ctx    = ctx;
+-   egl->hw_ctx = NULL;
++   egl->ctx     = ctx;
++   egl->hw_ctx  = NULL;
++   egl->hw_surf = EGL_NO_SURFACE;
+ 
+    if (egl->use_hw_ctx)
+    {
+diff --git a/gfx/common/egl_common.h b/gfx/common/egl_common.h
+index ee4d6267fe..3c448d5e93 100644
+--- a/gfx/common/egl_common.h
++++ b/gfx/common/egl_common.h
+@@ -56,6 +56,10 @@ typedef struct
+    EGLContext ctx;
+    EGLContext hw_ctx;
+    EGLSurface surf;
++   /* The core's context is current with this, on a thread that does
++    * not hold the window surface, where the display has no surfaceless
++    * contexts; see egl_bind_hw_render(). */
++   EGLSurface hw_surf;
+    EGLDisplay dpy;
+    EGLConfig config;
+    int interval;
+diff --git a/gfx/drivers_context/android_ctx.c b/gfx/drivers_context/android_ctx.c
+index 292ace55ac..bf5496248b 100644
+--- a/gfx/drivers_context/android_ctx.c
++++ b/gfx/drivers_context/android_ctx.c
+@@ -272,6 +272,15 @@ static void android_gfx_ctx_bind_hw_render(void *data, bool enable)
+ #endif
+ }
+ 
++static void android_gfx_ctx_release_current(void *data)
++{
++#ifdef HAVE_EGL
++   android_ctx_data_t *and  = (android_ctx_data_t*)data;
++   if (and)
++      egl_release_current(&and->egl);
++#endif
++}
++
+ static uint32_t android_gfx_ctx_get_flags(void *data)
+ {
+    uint32_t flags = 0;
+@@ -343,5 +352,8 @@ const gfx_ctx_driver_t gfx_ctx_android = {
+    NULL,
+    NULL,
+    android_gfx_ctx_create_surface,
+-   android_gfx_ctx_destroy_surface
++   android_gfx_ctx_destroy_surface,
++   NULL, /* presentable */
++   NULL, /* last_present_time */
++   android_gfx_ctx_release_current
+ };
+diff --git a/gfx/drivers_context/vc_egl_ctx.c b/gfx/drivers_context/vc_egl_ctx.c
+index cc0c8ad893..aea1c0cbad 100644
+--- a/gfx/drivers_context/vc_egl_ctx.c
++++ b/gfx/drivers_context/vc_egl_ctx.c
+@@ -207,6 +207,9 @@ static void gfx_ctx_vc_destroy(void *data)
+       if (vc->egl.hw_ctx)
+          eglDestroyContext(vc->egl.dpy, vc->egl.hw_ctx);
+ 
++      if (vc->egl.hw_surf)
++         eglDestroySurface(vc->egl.dpy, vc->egl.hw_surf);
++
+       if (vc->eglimage_ctx)
+       {
+          egl_bind_api(EGL_OPENVG_API);
+@@ -242,6 +245,7 @@ static void gfx_ctx_vc_destroy(void *data)
+ 
+    vc->egl.ctx      = NULL;
+    vc->egl.hw_ctx   = NULL;
++   vc->egl.hw_surf  = NULL;
+    vc->eglimage_ctx = NULL;
+    vc->egl.surf     = NULL;
+    vc->pbuff_surf   = NULL;
