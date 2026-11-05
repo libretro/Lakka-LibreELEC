@@ -16,6 +16,10 @@ dock_hotplug_handle() {
     else
         export DP_SETTINGS="--primary --mode "$DP_SETTINGS" --panning "$DP_SETTINGS"+0+0 --pos 0x0"
     fi
+
+    # The DC rotates the panel in hardware, so X sees it as a landscape display at its native size.
+    DSI_MODE=$(xrandr -q | awk '$1 == "DSI-0" {f=1; next} /^[^[:space:]]/ {f=0} f && $1 ~ /^[0-9]+x[0-9]+$/ {print $1; exit}')
+    export DSI_SETTINGS="--primary --mode ${DSI_MODE:-1280x720} --pos 0x0 --dpi 237"
     while [ "$DISPLAY" = "" ]
     do
         cd /tmp/.X11-unix && for x in X*;
@@ -38,7 +42,7 @@ dock_hotplug_handle() {
                 sleep 0.2
                 xrandr --output DSI-0 --off --output DP-0 $DP_SETTINGS
             else
-                xrandr --output DSI-0 --primary --mode 720x1280 --rotate left --panning 1280x720+0+0 --pos 0x0 --dpi 237  --output DP-0 --off
+                xrandr --output DSI-0 $DSI_SETTINGS --output DP-0 --off
                 pactl set-card-profile 1 HiFi
                 pactl set-card-profile 0 off
                 #Fix volume if needed(Pulseaudio sink volume's should not change ever in libreelec builds
@@ -47,7 +51,7 @@ dock_hotplug_handle() {
                 fi
                 # Reapply config to avoid X stubbornness.
                 sleep 0.2
-                xrandr --output DP-0 --off --output DSI-0 --primary --mode 720x1280 --rotate left --panning 1280x720+0+0 --pos 0x0 --dpi 237
+                xrandr --output DP-0 --off --output DSI-0 $DSI_SETTINGS
            fi
         done
 
