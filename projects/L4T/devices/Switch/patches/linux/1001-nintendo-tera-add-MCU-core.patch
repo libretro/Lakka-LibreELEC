@@ -1,0 +1,1114 @@
+From 27b45236d779f92913045af5c3e13a4d40e95f5a Mon Sep 17 00:00:00 2001
+From: a <a@b.c>
+Date: Sun, 30 Aug 2026 18:41:15 +0000
+Subject: [PATCH] nintendo-tera: add MCU core
+
+Add the transport-agnostic Nintendo Switch controller MCU core as a new
+module. It implements the MCU protocol -- mode/state control, config and
+data packets, status polling, and the 0x31 MCU-input dispatch that feeds
+the IR and NFC sub-features -- entirely through a small transport
+interface (nintendo-tera.h): ->send_subcmd (output 0x01 with ack, taking
+an optional content-based ack matcher), ->send_raw (MCU data packets and
+raw output reports; the transport fills packet_num and the rumble
+passthrough), a struct device for logging, and the transport's output
+mutex.
+
+The IR (nintendo-tera-ir) and NFC (nintendo-tera-nfc) feature files are
+added in the following commits; joycon_tera_probe() brings them up when
+their config options are enabled. The hid-nintendo and joycon-serdev
+transport drivers are wired to this core in later commits.
+---
+ drivers/misc/Kconfig              |  12 +
+ drivers/misc/Makefile             |   4 +-
+ drivers/misc/nintendo-tera-core.c | 729 ++++++++++++++++++++++++++++++
+ drivers/misc/nintendo-tera-priv.h | 185 ++++++++
+ include/linux/nintendo-tera.h     | 118 +++++
+ 5 files changed, 1047 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/misc/nintendo-tera-core.c
+ create mode 100644 drivers/misc/nintendo-tera-priv.h
+ create mode 100644 include/linux/nintendo-tera.h
+
+diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
+index 0bf5741..390af28 100644
+--- a/drivers/misc/Kconfig
++++ b/drivers/misc/Kconfig
+@@ -830,4 +830,16 @@ source "drivers/misc/genwqe/Kconfig"
+ source "drivers/misc/echo/Kconfig"
+ source "drivers/misc/cxl/Kconfig"
+ source "drivers/misc/inter-tegra/Kconfig"
++config MISC_NINTENDO_TERA
++	tristate "Nintendo Switch controller MCU core (IR camera, NFC)"
++	help
++	Transport-agnostic support for the Nintendo Switch controller MCU and
++	the features built on it (IR/NIR camera, NFC tag reader), shared by the
++	hid-nintendo (Bluetooth/USB) and joycon-serdev (UART) transport
++	drivers. It is selected automatically by those drivers; there is
++	normally no need to enable it directly.
++
++	To compile this as a module, choose M here: the module will be called
++	nintendo-tera.
++
+ endmenu
+diff --git a/drivers/misc/Makefile b/drivers/misc/Makefile
+index e7d9d12..b407482 100644
+--- a/drivers/misc/Makefile
++++ b/drivers/misc/Makefile
+@@ -81,4 +81,6 @@ $(obj)/lkdtm_rodata_objcopy.o: $(obj)/lkdtm_rodata.o FORCE
+ 	$(call if_changed,objcopy)
+ obj-$(CONFIG_CPULOAD_MONITOR)	+= cpuload.o
+ obj-y				+= inter-tegra/
+-obj-$(CONFIG_BM92TXX)		+= bm92txx.o
+\ No newline at end of file
++obj-$(CONFIG_BM92TXX)		+= bm92txx.o
++obj-$(CONFIG_MISC_NINTENDO_TERA)	+= nintendo-tera.o
++nintendo-tera-y			:= nintendo-tera-core.o
+diff --git a/drivers/misc/nintendo-tera-core.c b/drivers/misc/nintendo-tera-core.c
+new file mode 100644
+index 0000000..36c5385
+--- /dev/null
++++ b/drivers/misc/nintendo-tera-core.c
+@@ -0,0 +1,729 @@
++// SPDX-License-Identifier: GPL-2.0+
++/*
++ * Nintendo Switch controller "tera" MCU core.
++ *
++ * Transport-agnostic MCU protocol: mode/state control, config and data
++ * packets, status polling and the 0x31 MCU-input dispatch that feeds the
++ * IR and NFC sub-features. A transport driver (hid-nintendo, joycon-serdev)
++ * provides send_subcmd/send_raw and a device via joycon_tera_probe(); see
++ * nintendo-tera.h.
++ */
++#include <linux/delay.h>
++#include <linux/device.h>
++#include <linux/err.h>
++#include <linux/jiffies.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/slab.h>
++#include <linux/string.h>
++#include <linux/wait.h>
++
++#include "nintendo-tera-priv.h"
++
++/* ---- transport helpers ------------------------------------------------ */
++
++int joycon_tera_send_subcmd(struct joycon_tera *tera,
++			    struct joycon_subcmd_request *subcmd,
++			    size_t data_len,
++			    const struct joycon_ack_match *match, u32 timeout)
++{
++	return tera->ops->send_subcmd(tera->drv, subcmd, data_len, match,
++				      timeout);
++}
++
++int joycon_tera_send_raw(struct joycon_tera *tera, u8 *data, size_t len)
++{
++	return tera->ops->send_raw(tera->drv, data, len);
++}
++
++static const u8 __maybe_unused joycon_mcu_crc8_table[256] = {
++	0x00, 0x07, 0x0E, 0x09, 0x1C, 0x1B, 0x12, 0x15,
++	0x38, 0x3F, 0x36, 0x31, 0x24, 0x23, 0x2A, 0x2D,
++	0x70, 0x77, 0x7E, 0x79, 0x6C, 0x6B, 0x62, 0x65,
++	0x48, 0x4F, 0x46, 0x41, 0x54, 0x53, 0x5A, 0x5D,
++	0xE0, 0xE7, 0xEE, 0xE9, 0xFC, 0xFB, 0xF2, 0xF5,
++	0xD8, 0xDF, 0xD6, 0xD1, 0xC4, 0xC3, 0xCA, 0xCD,
++	0x90, 0x97, 0x9E, 0x99, 0x8C, 0x8B, 0x82, 0x85,
++	0xA8, 0xAF, 0xA6, 0xA1, 0xB4, 0xB3, 0xBA, 0xBD,
++	0xC7, 0xC0, 0xC9, 0xCE, 0xDB, 0xDC, 0xD5, 0xD2,
++	0xFF, 0xF8, 0xF1, 0xF6, 0xE3, 0xE4, 0xED, 0xEA,
++	0xB7, 0xB0, 0xB9, 0xBE, 0xAB, 0xAC, 0xA5, 0xA2,
++	0x8F, 0x88, 0x81, 0x86, 0x93, 0x94, 0x9D, 0x9A,
++	0x27, 0x20, 0x29, 0x2E, 0x3B, 0x3C, 0x35, 0x32,
++	0x1F, 0x18, 0x11, 0x16, 0x03, 0x04, 0x0D, 0x0A,
++	0x57, 0x50, 0x59, 0x5E, 0x4B, 0x4C, 0x45, 0x42,
++	0x6F, 0x68, 0x61, 0x66, 0x73, 0x74, 0x7D, 0x7A,
++	0x89, 0x8E, 0x87, 0x80, 0x95, 0x92, 0x9B, 0x9C,
++	0xB1, 0xB6, 0xBF, 0xB8, 0xAD, 0xAA, 0xA3, 0xA4,
++	0xF9, 0xFE, 0xF7, 0xF0, 0xE5, 0xE2, 0xEB, 0xEC,
++	0xC1, 0xC6, 0xCF, 0xC8, 0xDD, 0xDA, 0xD3, 0xD4,
++	0x69, 0x6E, 0x67, 0x60, 0x75, 0x72, 0x7B, 0x7C,
++	0x51, 0x56, 0x5F, 0x58, 0x4D, 0x4A, 0x43, 0x44,
++	0x19, 0x1E, 0x17, 0x10, 0x05, 0x02, 0x0B, 0x0C,
++	0x21, 0x26, 0x2F, 0x28, 0x3D, 0x3A, 0x33, 0x34,
++	0x4E, 0x49, 0x40, 0x47, 0x52, 0x55, 0x5C, 0x5B,
++	0x76, 0x71, 0x78, 0x7F, 0x6A, 0x6D, 0x64, 0x63,
++	0x3E, 0x39, 0x30, 0x37, 0x22, 0x25, 0x2C, 0x2B,
++	0x06, 0x01, 0x08, 0x0F, 0x1A, 0x1D, 0x14, 0x13,
++	0xAE, 0xA9, 0xA0, 0xA7, 0xB2, 0xB5, 0xBC, 0xBB,
++	0x96, 0x91, 0x98, 0x9F, 0x8A, 0x8D, 0x84, 0x83,
++	0xDE, 0xD9, 0xD0, 0xD7, 0xC2, 0xC5, 0xCC, 0xCB,
++	0xE6, 0xE1, 0xE8, 0xEF, 0xFA, 0xFD, 0xF4, 0xF3,
++};
++
++u8 joycon_mcu_crc8(const u8 *buf, size_t len)
++{
++	u8 crc = 0;
++
++	while (len--)
++		crc = joycon_mcu_crc8_table[crc ^ *buf++];
++	return crc;
++}
++
++/*
++ * Send an MCU output-report 0x11 "data" packet (48-byte wire form).
++ * Used by NFC verbs and IR fragment ACKs. Caller fills mcu_subcmd
++ * and payload; we patch in packet_num, rumble passthrough and CRC.
++ *
++ * Note: does NOT go through joycon_hid_send_sync -- the 0x11 output
++ * report is not acknowledged by a paired subcommand-reply input
++ * report; responses come as separate 0x31 input reports and are
++ * dispatched via joycon_mcu_handle_input().
++ */
++int
++joycon_mcu_send_data_pkt(struct joycon_tera *tera,
++			 struct joycon_mcu_data_pkt *pkt)
++{
++	int ret;
++
++	pkt->output_id = JC_OUTPUT_MCU_DATA;
++	/* packet_num + rumble_data are filled in by the transport (send_raw). */
++
++	/* CRC over pkt bytes 11..46 == 36 bytes; result at buf[47]. */
++	pkt->crc = joycon_mcu_crc8(((u8 *)pkt) + 11, JC_MCU_CRC_LEN);
++	pkt->pad = 0xFF;
++
++	ret = joycon_tera_send_raw(tera, (u8 *)pkt,
++				sizeof(struct joycon_mcu_data_pkt));
++	if (ret < 0)
++		dev_dbg(tera->dev, "mcu data pkt send failed: %d\n", ret);
++	return ret;
++}
++
++/*
++ * Send an MCU output-report 0x01 / SET_MCU_CONFIG subcmd config packet.
++ * These carry mode-set (JC_MCU_CMD_SET_MODE) and IR-mode / IR-regs
++ * (JC_MCU_CMD_SET_IR_MODE) commands.
++ *
++ * Wire layout (49 bytes total):
++ *   [0]      output_id  = 0x01
++ *   [1]      packet_num
++ *   [2..9]   rumble_data
++ *   [10]     subcmd_id  = 0x21 (SET_MCU_CONFIG)
++ *   [11]     mcu_cmd    (JC_MCU_CMD_*)
++ *   [12]     mcu_subcmd (JC_MCU_SUBCMD_*)
++ *   [13..47] payload
++ *   [48]     CRC8 over buf[12..47] (36 bytes)
++ *
++ * NOTE: jc_toolkit (jctool.cpp:2372) computes the CRC starting from
++ * buf[12] (mcu_subcmd) -- the mcu_cmd byte at buf[11] is NOT part of
++ * the CRC input. This asymmetry cost a lot of time to find.
++ *
++ * Rides on the transport's send_subcmd path so ack matching works.
++ *
++ * For MCU op replies where the ack lives inside subcmd_reply.data (buf[15]
++ * and often buf[16..17]) rather than in subcmd_reply.id, the caller sets
++ * ack_data0 nonzero (and optionally ack_data12) with the expected inner
++ * bytes; the matcher then ignores subcmd_reply.id.
++ *
++ * For MCU ops that echo back subcmd_reply.id normally (the outer mode-set
++ * mcu_cmd=0x21/subcmd=0x00 is one), pass ack_data0=0 and the matcher
++ * uses the standard subcmd_ack_match path.
++ */
++int
++joycon_mcu_send_cfg_pkt(struct joycon_tera *tera,
++			u8 mcu_cmd, u8 mcu_subcmd,
++			const u8 *payload, size_t payload_len,
++			u8 ack_data0, u16 ack_data12,
++			u32 timeout)
++{
++	u8 buffer[sizeof(struct joycon_subcmd_request) + 38] = { 0 };
++	struct joycon_subcmd_request *req =
++		(struct joycon_subcmd_request *)buffer;
++
++	if (payload_len > 35)
++		return -EINVAL;
++
++	req->subcmd_id = JC_SUBCMD_SET_MCU_CONFIG;
++	req->data[0] = mcu_cmd;			/* buf[11] */
++	req->data[1] = mcu_subcmd;		/* buf[12] */
++	if (payload_len)
++		memcpy(&req->data[2], payload, payload_len);
++
++	/*
++	 * CRC input starts at buf[12] (== &req->data[1]), 36 bytes,
++	 * so covers buf[12..47]. Result stored at buf[48] (== data[37]).
++	 */
++	req->data[37] = joycon_mcu_crc8(&req->data[1], JC_MCU_CRC_LEN);
++
++	/*
++	 * Arm the extended ack matcher. When ack_data0 is nonzero the
++	 * matcher skips the subcmd_reply.id check and matches on the
++	 * inner data bytes instead.
++	 */
++	{
++		const struct joycon_ack_match match = {
++			.data0 = ack_data0,
++			.data12 = ack_data12,
++		};
++
++		/* The transport arms/clears the matcher around the send. */
++		return joycon_tera_send_subcmd(tera, req, 38, &match, timeout);
++	}
++}
++
++/* Toggle MCU power (0=suspend, 1=resume). */
++static int __maybe_unused
++joycon_mcu_set_state(struct joycon_tera *tera, u8 state)
++{
++	struct joycon_subcmd_request *req;
++	u8 buffer[sizeof(*req) + 1] = { 0 };
++
++	req = (struct joycon_subcmd_request *)buffer;
++	req->subcmd_id = JC_SUBCMD_SET_MCU_STATE;
++	req->data[0] = state;
++
++	dev_dbg(tera->dev, "MCU set state %u\n", state);
++	return joycon_tera_send_subcmd(tera, req, 1, NULL, HZ);
++}
++
++/*
++ * Send MCU_POLLING_ENABLE (0x24) or MCU_POLLING_DISABLE (0x25).
++ * Per switchbrew.org/wiki/Joy-Con, these are dedicated HidCommand
++ * subcmds for toggling MCU polling. Semantics undocumented beyond
++ * the name.
++ *
++ * The subcmd payload is a single zero byte for now, since none of
++ * the public references describe an argument. If it needs one,
++ * we'll find out from the ack shape.
++ */
++int
++joycon_mcu_polling_enable(struct joycon_tera *tera, bool enable)
++{
++	struct joycon_subcmd_request *req;
++	u8 buffer[sizeof(*req) + 1] = { 0 };
++
++	req = (struct joycon_subcmd_request *)buffer;
++	req->subcmd_id = enable ? JC_SUBCMD_MCU_POLLING_ENABLE
++				: JC_SUBCMD_MCU_POLLING_DISABLE;
++	req->data[0] = 0;
++
++	dev_info(tera->dev, "MCU polling %s (subcmd 0x%02x)\n",
++		 enable ? "enable" : "disable", req->subcmd_id);
++	return joycon_tera_send_subcmd(tera, req, 1, NULL, HZ);
++}
++
++/*
++ * Set input-report mode. We use JC_INPUT_MCU_DATA (0x31) while MCU
++ * work is in progress, and switch back to JC_INPUT_BUTTON_EVENT
++ * (0x3f) afterwards.
++ */
++static int __maybe_unused
++joycon_mcu_set_input_report_mode(struct joycon_tera *tera, u8 mode)
++{
++	struct joycon_subcmd_request *req;
++	u8 buffer[sizeof(*req) + 1] = { 0 };
++
++	req = (struct joycon_subcmd_request *)buffer;
++	req->subcmd_id = JC_SUBCMD_SET_REPORT_MODE;
++	req->data[0] = mode;
++	return joycon_tera_send_subcmd(tera, req, 1, NULL, HZ);
++}
++
++/*
++ * Fire-and-forget input-report-mode restore for error paths. Sends the
++ * SET_REPORT_MODE subcmd via the raw output pipe without waiting for
++ * an ack. Used when the MCU may be wedged after a failed streamon /
++ * NFC poll -- if we tried to use the normal (synchronous) path, the
++ * ack wait times out (2s per HZ retry) and the input mode STAYS at
++ * MCU_DATA, leaving the controller bricked from userspace's view
++ * until BT reconnect.
++ *
++ * The MCU still processes the packet even if it can't ack, so this
++ * usually restores functional input. Worst case it's a no-op, which
++ * is no worse than the synchronous version failing.
++ *
++ * Caller may or may not hold tera->output_mutex; this function
++ * doesn't take it.
++ */
++static int __maybe_unused
++joycon_mcu_set_input_report_mode_nowait(struct joycon_tera *tera, u8 mode)
++{
++	u8 buffer[sizeof(struct joycon_subcmd_request) + 1] = { 0 };
++	struct joycon_subcmd_request *req =
++		(struct joycon_subcmd_request *)buffer;
++
++	req->output_id = JC_OUTPUT_RUMBLE_AND_SUBCMD;
++	req->subcmd_id = JC_SUBCMD_SET_REPORT_MODE;
++	req->data[0] = mode;
++	/* packet_num + rumble_data are filled in by the transport (send_raw). */
++
++	return joycon_tera_send_raw(tera, (u8 *)req, sizeof(*req) + 1);
++}
++
++/* Set MCU mode (standby/NFC/IR). Does not wait for the mode to come up. */
++static int __maybe_unused
++joycon_mcu_set_mode(struct joycon_tera *tera, u8 mode)
++{
++	u8 payload[1] = { mode };
++	int ret;
++
++	dev_dbg(tera->dev, "MCU set mode %u\n", mode);
++	ret = joycon_mcu_send_cfg_pkt(tera, JC_MCU_CMD_SET_MODE,
++				      JC_MCU_SUBCMD_SET_MODE,
++				      payload, sizeof(payload),
++				      0, 0, HZ);
++	if (!ret)
++		tera->mcu.mode = mode;
++	return ret;
++}
++
++/*
++ * Ask the MCU to emit a 0x31/0x01 status input report. This is the
++ * only way to get one -- the MCU does not spontaneously report status
++ * on mode changes. Response comes via the raw_event path and lands
++ * in tera->mcu.last_mode via joycon_mcu_handle_input().
++ *
++ * Wire shape: output_report 0x11, byte 10 (subcmd) = 0x01, rest zeroed.
++ * We use the raw send_raw() path (not send_subcmd) to avoid the
++ * subcmd-reply matcher: the status "reply" is a 0x31 report, not a 0x21 ack.
++ *
++ * IMPORTANT: sent with wire length 49, not 48, to match jc_toolkit's
++ * output_buffer_length exactly (jctool.cpp line 1675). The BT-HID
++ * transport is size-sensitive: a 48-byte output-report 0x11 gets
++ * accepted but reportedly does not elicit a status reply on some FW
++ * revisions. Use a 49-byte stack buffer rather than the 48-byte
++ * struct so the trailing byte is a real zero rather than uninitialized
++ * memory.
++ *
++ * Caller may hold tera->output_mutex; this function doesn't take it.
++ */
++static int joycon_mcu_request_status(struct joycon_tera *tera)
++{
++	u8 buf[49] = { 0 };
++
++	buf[0] = JC_OUTPUT_MCU_DATA;			/* 0x11 */
++	buf[10] = 0x01;					/* poll status */
++	/* packet_num + rumble_data are filled in by the transport (send_raw). */
++
++	return joycon_tera_send_raw(tera, buf, sizeof(buf));
++}
++
++/*
++ * Wait for the MCU to report itself in expected_mode. Actively polls
++ * MCU status by emitting a 0x11/0x01 request every ~64 ms; the MCU
++ * responds with a 0x31/0x01 input report which the dispatcher
++ * (joycon_mcu_handle_input) caches into tera->mcu.last_mode and wakes
++ * tera->mcu.status_wait for. We loop so that a status arriving with
++ * the wrong mode (e.g. the "initializing" state 0x06) does not
++ * terminate the wait early.
++ *
++ * Caller may hold tera->output_mutex; joycon_mcu_request_status()
++ * doesn't take it, and the raw_event dispatcher also doesn't take it,
++ * so the wakeup path works regardless of who holds what.
++ *
++ * Matches jc_toolkit's step2/step4 polling loops (jctool.cpp:1736,
++ * 1810, 2323, 2395), which use the same 64 ms retry cadence.
++ */
++static int __maybe_unused
++joycon_mcu_wait_mode(struct joycon_tera *tera, u8 expected_mode,
++		     unsigned int timeout_ms)
++{
++	unsigned long deadline = jiffies + msecs_to_jiffies(timeout_ms);
++	int ret;
++	int poll_count = 0;
++	int wake_count = 0;
++
++	while (time_before(jiffies, deadline)) {
++		unsigned long remaining = deadline - jiffies;
++		unsigned long tick = min_t(unsigned long, remaining,
++					   msecs_to_jiffies(64));
++
++		/*
++		 * Kick a fresh status request. If the send fails we still
++		 * wait for the tick to elapse before retrying, to avoid
++		 * spinning on a persistent transport error.
++		 */
++		tera->mcu.status_valid = false;
++		ret = joycon_mcu_request_status(tera);
++		if (ret < 0 && poll_count == 0)
++			dev_warn(tera->dev,
++				 "MCU status poll send failed: %d\n", ret);
++		poll_count++;
++
++		ret = wait_event_timeout(tera->mcu.status_wait,
++					 tera->mcu.status_valid, tick);
++		if (ret > 0) {
++			wake_count++;
++			if (tera->mcu.last_mode == expected_mode) {
++				dev_dbg(tera->dev,
++					"MCU reached mode %u after %d polls\n",
++					expected_mode, poll_count);
++				return 0;
++			}
++		}
++		/* Timed out this tick, or wrong mode: keep polling. */
++	}
++	dev_warn(tera->dev,
++		 "MCU wait_mode(%u) timeout: %d polls sent, %d status replies, last mode=%u\n",
++		 expected_mode, poll_count, wake_count, tera->mcu.last_mode);
++	return -ETIMEDOUT;
++}
++
++/*
++ * Bring the MCU out of suspend and into a target mode. Caller must
++ * NOT hold tera->output_mutex.
++ */
++int
++joycon_mcu_enable(struct joycon_tera *tera, u8 target_mode)
++{
++	int ret;
++	bool resumed = false;
++
++	mutex_lock(tera->output_mutex);
++
++	if (tera->mcu.enabled) {
++		/*
++		 * The MCU is left enabled between NFC operations (we no longer
++		 * suspend it per-op -- suspending a busy MCU wedged the next
++		 * enable). Verify it is still responsive at the target mode;
++		 * if so, skip the full RESUME/STANDBY/set_mode handshake
++		 * (~350ms) entirely. If the check fails, fall through to a
++		 * clean full re-enable.
++		 */
++		ret = joycon_mcu_wait_mode(tera, target_mode, 300);
++		if (!ret) {
++			dev_info(tera->dev,
++				 "mcu_enable: already enabled at mode %u, skipping handshake\n",
++				 target_mode);
++			mutex_unlock(tera->output_mutex);
++			return 0;
++		}
++		dev_info(tera->dev,
++			 "mcu_enable: enabled but mode %u check failed (%d), full re-enable\n",
++			 target_mode, ret);
++		tera->mcu.enabled = false;
++	}
++
++	dev_info(tera->dev, "mcu_enable(%u): step 1 set_input_report_mode(MCU_DATA)\n",
++		 target_mode);
++	ret = joycon_mcu_set_input_report_mode(tera, JC_INPUT_MCU_DATA);
++	if (ret) {
++		dev_warn(tera->dev,
++			 "mcu_enable: set_input_report_mode failed: %d\n", ret);
++		goto out;
++	}
++	dev_info(tera->dev, "mcu_enable: step 2 set_state(RESUME)\n");
++	ret = joycon_mcu_set_state(tera, JC_MCU_STATE_RESUME);
++	if (ret) {
++		dev_warn(tera->dev,
++			 "mcu_enable: set_state(RESUME) failed: %d\n", ret);
++		goto restore_input_mode;
++	}
++	resumed = true;
++	/*
++	 * The MCU takes ~500ms to come out of suspend and reach STANDBY
++	 * on a cold power-up (jc_toolkit uses 8 x 64ms retries here).
++	 * Give it a full second.
++	 */
++	dev_info(tera->dev, "mcu_enable: step 3 wait_mode(STANDBY)\n");
++	ret = joycon_mcu_wait_mode(tera, JC_MCU_MODE_STANDBY, 1000);
++	if (ret) {
++		dev_warn(tera->dev,
++			 "mcu_enable: wait_mode(STANDBY) failed: %d\n", ret);
++		goto suspend_and_restore;
++	}
++	dev_info(tera->dev, "mcu_enable: step 4 set_mode(%u)\n", target_mode);
++	ret = joycon_mcu_set_mode(tera, target_mode);
++	if (ret) {
++		dev_warn(tera->dev,
++			 "mcu_enable: set_mode(%u) failed: %d\n",
++			 target_mode, ret);
++		goto suspend_and_restore;
++	}
++	dev_info(tera->dev, "mcu_enable: step 5 wait_mode(%u)\n", target_mode);
++	ret = joycon_mcu_wait_mode(tera, target_mode, 1000);
++	if (ret) {
++		dev_warn(tera->dev,
++			 "mcu_enable: wait_mode(%u) failed: %d\n",
++			 target_mode, ret);
++		goto suspend_and_restore;
++	}
++	dev_info(tera->dev, "mcu_enable: ok\n");
++
++	tera->mcu.enabled = true;
++	mutex_unlock(tera->output_mutex);
++	return 0;
++
++suspend_and_restore:
++	/*
++	 * Roll back to a known state so a later retry starts clean.
++	 * Errors from these are logged but don't override the original
++	 * failure code.
++	 */
++	if (resumed) {
++		int u;
++
++		u = joycon_mcu_set_state(tera, JC_MCU_STATE_SUSPEND);
++		if (u)
++			dev_warn(tera->dev,
++				 "MCU suspend during error unwind failed: %d\n",
++				 u);
++	}
++restore_input_mode:
++	/*
++	 * Fire-and-forget: MCU is probably in a wedged state (we're on
++	 * the error unwind), so waiting for an ack would hang for
++	 * HZ * 2 and leave the input mode stuck at MCU_DATA anyway.
++	 *
++	 * Restore to 0x30 (IMU_DATA / standard full mode), the mode
++	 * the driver used on probe. 0x3F (BUTTON_EVENT) has a totally
++	 * different layout and would not be parsed by our read path.
++	 */
++	(void)joycon_mcu_set_input_report_mode_nowait(tera,
++						      JC_INPUT_IMU_DATA);
++	tera->mcu.enabled = false;
++	tera->mcu.mode = 0;
++out:
++	mutex_unlock(tera->output_mutex);
++	return ret;
++}
++
++/*
++ * Return MCU to suspend. Both operations are always attempted, even
++ * if one fails, because leaving the input-report mode as MCU-DATA
++ * when the MCU is off produces bogus reports. Returns the errno of
++ * the first failure, or 0 on complete success.
++ *
++ * Caller must NOT hold tera->output_mutex.
++ */
++int
++joycon_mcu_disable(struct joycon_tera *tera)
++{
++	int ret_suspend;
++
++	dev_info(tera->dev, "mcu_disable: entered\n");
++	mutex_lock(tera->output_mutex);
++	ret_suspend = joycon_mcu_set_state(tera, JC_MCU_STATE_SUSPEND);
++	dev_info(tera->dev, "mcu_disable: SUSPEND ret=%d\n", ret_suspend);
++	/*
++	 * For the input-report-mode restore we use the fire-and-forget
++	 * path. If the MCU is in a wedged state (which is likely on any
++	 * error unwind), the synchronous variant would hang for HZ * 2
++	 * waiting for an ack that never comes, and if it timed out the
++	 * user is left with a bricked-looking controller until BT
++	 * reconnect. The nowait path at least gets the packet out on
++	 * the wire; the MCU processes it whether or not it can ack.
++	 *
++	 * Restore to JC_INPUT_IMU_DATA (0x30) rather than
++	 * JC_INPUT_BUTTON_EVENT (0x3F). The driver puts the controller
++	 * in 0x30 mode on probe (see joycon_set_report_mode); that is
++	 * the mode our read_handler and joycon_parse_report expect.
++	 * 0x3F reports use a different byte layout entirely and are
++	 * not parsed by our read path -- restoring to that mode would
++	 * silently drop all subsequent button/stick reports.
++	 */
++	(void)joycon_mcu_set_input_report_mode_nowait(tera,
++						      JC_INPUT_IMU_DATA);
++	tera->mcu.enabled = false;
++	tera->mcu.mode = 0;
++	mutex_unlock(tera->output_mutex);
++
++	if (ret_suspend)
++		dev_warn(tera->dev, "MCU suspend failed: %d\n", ret_suspend);
++	return ret_suspend;
++}
++
++/*
++ * Test whether the MCU is actually functional.
++ *
++ * Third-party controllers with spoofed Nintendo VID/PID (0x057e/0x2007
++ * for right Joy-Con, or 0x057e/0x2009 for Pro Controller) that lack a
++ * working NFC/IR MCU otherwise pass jc_supports_nfc() / jc_supports_ir()
++ * and would then hang the userspace nfcN or /dev/videoN device the
++ * first time somebody polls. Detect them here by driving the MCU
++ * through a full enable-to-mode transition and then back down. If the
++ * probe succeeds we've proven the MCU accepts our subcommands and
++ * status polls; if it times out at any step we skip publishing the
++ * feature devices so userspace never sees a broken interface.
++ *
++ * Non-fatal: on failure the controller still works as an input device.
++ *
++ * Design choice: exercise the full mcu_enable(NFC)/mcu_disable path
++ * rather than a lightweight status-only probe, because a broken clone
++ * could plausibly answer 0x01 status polls but fail on the 0x22 or
++ * 0x21 subcommands the real feature code needs. Total cost on a genuine
++ * controller is ~150 ms; on a broken clone we spend ~1 s waiting for
++ * STANDBY before giving up.
++ *
++ * Caller must NOT hold tera->output_mutex.
++ */
++static int __maybe_unused
++joycon_mcu_probe(struct joycon_tera *tera)
++{
++	int ret;
++
++	dev_info(tera->dev, "mcu_probe: verifying MCU is responsive\n");
++
++	ret = joycon_mcu_enable(tera, JC_MCU_MODE_NFC);
++	if (ret) {
++		dev_warn(tera->dev,
++			 "mcu_probe: MCU did not respond (%d); NFC/IR "
++			 "features disabled for this controller\n", ret);
++		return ret;
++	}
++
++	/*
++	 * Immediately tear down: we don't want to leave the MCU in NFC
++	 * mode consuming battery/bandwidth for a controller nobody has
++	 * asked to use NFC on yet. joycon_nfc_start_poll and
++	 * joycon_ir_streamon each call mcu_enable again with their own
++	 * target mode when needed.
++	 */
++	(void)joycon_mcu_disable(tera);
++
++	tera->mcu.responsive = true;
++	dev_info(tera->dev, "mcu_probe: MCU is responsive\n");
++	return 0;
++}
++
++/*
++ * Dispatch a MCU-input 0x31 report to the IR fragment consumer or
++ * the NFC consumer, if either is registered. Called from
++ * joycon_ctlr_read_handler() before the normal parse-report path.
++ *
++ * Also snapshots status reports (buf[49]==0x01) into mcu.last_mode
++ * and wakes mcu.status_wait so joycon_mcu_wait_mode() can proceed.
++ *
++ * The 0x31 report also carries buttons and IMU samples in its first
++ * 12 bytes, so this hook does not consume the report -- the existing
++ * parse path still runs.
++ */
++static void joycon_mcu_handle_input(struct joycon_tera *tera,
++				    const u8 *data, int size)
++{
++	if (size < 57)
++		return;
++
++	switch (data[49]) {
++	case JC_MCU_INPUT_ID_STATUS:
++		/* buf[56] is the mode byte (see jc_toolkit step2/step4). */
++		tera->mcu.last_mode = data[56];
++		tera->mcu.status_valid = true;
++		wake_up(&tera->mcu.status_wait);
++		break;
++	case JC_MCU_INPUT_ID_IR_FRAG:
++		if (tera->mcu.ir.recv_frag && tera->mcu.ir.streaming)
++			tera->mcu.ir.recv_frag(tera, data, size);
++		break;
++	case JC_MCU_INPUT_ID_IR_REGS:	/* 0x13 -- registers set */
++	case 0x23:			/* mcu mode config write ack */
++		/*
++		 * Delayed acks for our IR register writes, arriving on
++		 * the 0x31 input channel after write_regs already
++		 * returned. Just consume them silently.
++		 */
++		break;
++	case JC_MCU_INPUT_ID_NFC_INFO:
++	case JC_MCU_INPUT_ID_NFC_DATA:
++		if (tera->mcu.nfc.recv && tera->mcu.nfc.polling)
++			tera->mcu.nfc.recv(tera, data, size);
++		break;
++	default:
++		break;
++	}
++}
++
++/* ---- module lifecycle (called by the transport driver) --------------- */
++
++struct joycon_tera *joycon_tera_create(const struct joycon_tera_config *cfg)
++{
++	struct joycon_tera *tera;
++
++	if (!cfg || !cfg->ops || !cfg->ops->send_subcmd || !cfg->ops->send_raw)
++		return ERR_PTR(-EINVAL);
++
++	tera = kzalloc(sizeof(*tera), GFP_KERNEL);
++	if (!tera)
++		return ERR_PTR(-ENOMEM);
++
++	tera->dev = cfg->dev;
++	tera->ops = cfg->ops;
++	tera->drv = cfg->drv;
++	tera->output_mutex = cfg->output_mutex;
++	tera->ctlr_type = cfg->ctlr_type;
++	init_waitqueue_head(&tera->mcu.status_wait);
++
++	return tera;
++}
++EXPORT_SYMBOL_GPL(joycon_tera_create);
++
++int joycon_tera_start(struct joycon_tera *tera)
++{
++	int ret;
++
++	if (!tera)
++		return -EINVAL;
++
++	/*
++	 * Only the right Joy-Con and the Pro Controller carry an MCU. Probing
++	 * one on a left Joy-Con (or any other controller) makes it choke on the
++	 * MCU handshake -- so skip it entirely; the transport keeps working
++	 * without MCU features.
++	 */
++	if (tera->ctlr_type != JOYCON_TERA_TYPE_RIGHT &&
++	    tera->ctlr_type != JOYCON_TERA_TYPE_PRO)
++		return -ENODEV;
++
++	/*
++	 * The transport must already have stored this instance where its RX
++	 * path can find it before calling this: joycon_mcu_probe() sends MCU
++	 * commands and needs the 0x31 status replies routed straight back
++	 * through joycon_tera_handle_input() while we wait.
++	 */
++	ret = joycon_mcu_probe(tera);
++	if (ret)
++		return ret;
++
++	ret = joycon_ir_register(tera);
++	if (ret)
++		dev_warn(tera->dev, "IR camera registration failed: %d\n", ret);
++	ret = joycon_nfc_register(tera);
++	if (ret)
++		dev_warn(tera->dev, "NFC registration failed: %d\n", ret);
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(joycon_tera_start);
++
++void joycon_tera_remove(struct joycon_tera *tera)
++{
++	if (IS_ERR_OR_NULL(tera))
++		return;
++	joycon_ir_unregister(tera);
++	joycon_nfc_unregister(tera);
++	kfree(tera);
++}
++EXPORT_SYMBOL_GPL(joycon_tera_remove);
++
++void joycon_tera_handle_input(struct joycon_tera *tera, u8 *data, int size)
++{
++	if (!tera)
++		return;
++	joycon_mcu_handle_input(tera, data, size);
++}
++EXPORT_SYMBOL_GPL(joycon_tera_handle_input);
++
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("Nintendo Switch controller MCU core (IR camera, NFC)");
+diff --git a/drivers/misc/nintendo-tera-priv.h b/drivers/misc/nintendo-tera-priv.h
+new file mode 100644
+index 0000000..c6672b3
+--- /dev/null
++++ b/drivers/misc/nintendo-tera-priv.h
+@@ -0,0 +1,185 @@
++/* SPDX-License-Identifier: GPL-2.0+ */
++/*
++ * Nintendo Switch "tera" MCU core -- private, module-internal definitions.
++ *
++ * Shared between the files that make up the nintendo-tera module:
++ *   nintendo-tera-core.c  (MCU protocol + dispatch)
++ *   nintendo-tera-nfc.c   (NFC, CONFIG_MISC_NINTENDO_TERA_NFC)
++ *   nintendo-tera-ir.c    (IR/NIR camera, CONFIG_MISC_NINTENDO_TERA_IR)
++ *
++ * Transport drivers must NOT include this; they see only the opaque
++ * struct joycon_tera via nintendo-tera.h.
++ */
++#ifndef __NINTENDO_TERA_PRIV_H
++#define __NINTENDO_TERA_PRIV_H
++
++#include <linux/mutex.h>
++#include <linux/types.h>
++#include <linux/wait.h>
++
++#include <linux/nintendo-tera.h>
++
++/* ---- MCU wire constants ---------------------------------------------- */
++
++#define JC_INPUT_MCU_DATA		0x31
++
++/* Output report ids the MCU core emits (transport frames them as needed). */
++#define JC_OUTPUT_RUMBLE_AND_SUBCMD	0x01
++#define JC_OUTPUT_MCU_DATA		0x11
++#define JC_INPUT_IMU_DATA		0x30
++#define JC_INPUT_BUTTON_EVENT		0x3f
++
++/* base subcommand ids the MCU core issues (output 0x01) */
++#define JC_SUBCMD_SET_REPORT_MODE	0x03
++#define JC_SUBCMD_SET_MCU_CONFIG	0x21
++#define JC_SUBCMD_SET_MCU_STATE		0x22
++#define JC_SUBCMD_MCU_POLLING_ENABLE	0x24
++#define JC_SUBCMD_MCU_POLLING_DISABLE	0x25
++
++#define JC_MCU_CMD_SET_MODE		0x21
++#define JC_MCU_CMD_SET_IR_MODE		0x23
++#define JC_MCU_SUBCMD_SET_MODE		0x00
++#define JC_MCU_SUBCMD_SET_IR_MODE	0x01
++#define JC_MCU_SUBCMD_WRITE_IR_REGS	0x04
++
++#define JC_MCU_STATE_SUSPEND		0x00
++#define JC_MCU_STATE_RESUME		0x01
++
++#define JC_MCU_MODE_STANDBY		0x01
++#define JC_MCU_MODE_NFC			0x04
++#define JC_MCU_MODE_IR			0x05
++#define JC_MCU_MODE_FW_UPDATE		0x06
++
++#define JC_MCU_INPUT_ID_STATUS		0x01
++#define JC_MCU_INPUT_ID_IR_FRAG		0x03
++#define JC_MCU_INPUT_ID_IR_REGS		0x13
++#define JC_MCU_INPUT_ID_NFC_INFO	0x2a
++#define JC_MCU_INPUT_ID_NFC_DATA	0x3a
++
++#define JC_MCU_CRC_LEN			36
++
++/*
++ * Subcommand request (output 0x01). Full definition (the public header only
++ * forward-declares it). Layout must match the transport driver's copy.
++ */
++struct joycon_subcmd_request {
++	u8 output_id;
++	u8 packet_num;
++	u8 rumble_data[8];
++	u8 subcmd_id;
++	u8 data[];
++} __packed;
++
++/* MCU data packet (output 0x11). packet_num + rumble_data are filled by the
++ * transport's ->send_raw; the core fills the rest and the CRC. */
++struct joycon_mcu_data_pkt {
++	u8 output_id;			/* JC_OUTPUT_MCU_DATA == 0x11 */
++	u8 packet_num;
++	u8 rumble_data[8];
++	u8 mcu_subcmd;
++	u8 arg1;
++	u8 arg2;
++	u8 mcu_payload[34];
++	u8 crc;				/* CRC8 at buf[47], over buf[11..46] */
++	u8 pad;				/* buf[48] = 0xFF */
++} __packed;
++
++/* ---- per-feature MCU-side state (heavy priv hangs off ->priv) --------- */
++
++/*
++ * MCU's view of the IR sub-feature. The V4L2 machinery lives in
++ * nintendo-tera-ir.c behind @priv; the core only touches the fields it needs
++ * for fragment dispatch and calls @recv_frag for image/metadata reports.
++ */
++struct joycon_mcu_ir_state {
++	void *priv;			/* struct joycon_ir_priv, owned by -ir.c */
++	u8 max_frag;
++	u8 prev_frag;
++	u8 missed_frag;
++	bool missed_pending;
++	bool streaming;
++	u8 mode;			/* current IR mode: JC_IR_MODE_* (0 = off) */
++	void (*recv_frag)(struct joycon_tera *tera,
++			  const u8 *report, int size);
++};
++
++/* MCU's view of the NFC sub-feature; heavy state behind @priv in -nfc.c. */
++struct joycon_mcu_nfc_state {
++	void *priv;			/* owned by -nfc.c */
++	bool polling;
++	bool target_present;
++	bool target_present_reported;
++	u8 state;			/* cached buf[56] from the last INFO report */
++	u8 uid[10];
++	u8 uid_len;
++	u8 tag_ic;
++	u8 ntag_pages;
++	void (*recv)(struct joycon_tera *tera,
++		     const u8 *report, int size);
++};
++
++struct joycon_mcu_state {
++	bool enabled;
++	bool responsive;		/* joycon_mcu_probe() succeeded */
++	u8 mode;			/* JC_MCU_MODE_* */
++	struct joycon_mcu_ir_state ir;
++	struct joycon_mcu_nfc_state nfc;
++
++	/* async MCU status report (0x31/buf[49]==0x01) rendezvous */
++	wait_queue_head_t status_wait;
++	bool status_valid;
++	u8 last_mode;
++};
++
++/* ---- the core instance ----------------------------------------------- */
++
++struct joycon_tera {
++	/* transport binding (from joycon_tera_config) */
++	struct device *dev;
++	const struct joycon_tera_ops *ops;
++	void *drv;
++	struct mutex *output_mutex;
++	enum joycon_tera_ctlr_type ctlr_type;
++
++	struct joycon_mcu_state mcu;
++};
++
++/* ---- transport helpers (thin wrappers over ->ops) -------------------- */
++
++int joycon_tera_send_subcmd(struct joycon_tera *tera,
++			    struct joycon_subcmd_request *subcmd,
++			    size_t data_len,
++			    const struct joycon_ack_match *match, u32 timeout);
++int joycon_tera_send_raw(struct joycon_tera *tera, u8 *data, size_t len);
++
++/* ---- MCU core API used by the -ir.c / -nfc.c feature files ------------ */
++
++int joycon_mcu_enable(struct joycon_tera *tera, u8 mode);
++int joycon_mcu_disable(struct joycon_tera *tera);
++int joycon_mcu_polling_enable(struct joycon_tera *tera, bool enable);
++u8 joycon_mcu_crc8(const u8 *buf, size_t len);
++int joycon_mcu_send_data_pkt(struct joycon_tera *tera,
++			     struct joycon_mcu_data_pkt *pkt);
++int joycon_mcu_send_cfg_pkt(struct joycon_tera *tera, u8 mcu_cmd, u8 mcu_subcmd,
++			    const u8 *payload, size_t payload_len,
++			    u8 ack_data0, u16 ack_data12, u32 timeout);
++
++/* ---- feature bring-up, called by the core at probe/remove ------------- */
++
++#if IS_ENABLED(CONFIG_MISC_NINTENDO_TERA_IR)
++int joycon_ir_register(struct joycon_tera *tera);
++void joycon_ir_unregister(struct joycon_tera *tera);
++#else
++static inline int joycon_ir_register(struct joycon_tera *tera) { return 0; }
++static inline void joycon_ir_unregister(struct joycon_tera *tera) { }
++#endif
++
++#if IS_ENABLED(CONFIG_MISC_NINTENDO_TERA_NFC)
++int joycon_nfc_register(struct joycon_tera *tera);
++void joycon_nfc_unregister(struct joycon_tera *tera);
++#else
++static inline int joycon_nfc_register(struct joycon_tera *tera) { return 0; }
++static inline void joycon_nfc_unregister(struct joycon_tera *tera) { }
++#endif
++
++#endif /* __NINTENDO_TERA_PRIV_H */
+diff --git a/include/linux/nintendo-tera.h b/include/linux/nintendo-tera.h
+new file mode 100644
+index 0000000..447a7db
+--- /dev/null
++++ b/include/linux/nintendo-tera.h
+@@ -0,0 +1,118 @@
++/* SPDX-License-Identifier: GPL-2.0+ */
++/*
++ * Nintendo Switch controller "tera" MCU core.
++ *
++ * Transport-agnostic support for the controller MCU and the features that
++ * ride on it (IR/NIR camera, NFC). This core is shared by the transport
++ * drivers:
++ *
++ *   - hid-nintendo   : Bluetooth / USB HID transport
++ *   - joycon-serdev  : UART / SIO transport (built-in Joy-Cons)
++ *
++ * A transport driver owns the wire (framing, TX, the RX/ack path, the input
++ * device, rumble, IMU, calibration) and hands the MCU core a small set of
++ * hooks plus a device for logging. The core owns the MCU protocol and its
++ * sub-features and never touches the wire directly.
++ *
++ * Cut point: the core sits ABOVE the subcommand/output layer. Both transports
++ * already implement an identical joycon_send_subcmd(); the core reuses it via
++ * ->send_subcmd, and uses ->send_raw for MCU data packets (output 0x11) and
++ * the IR/NFC raw writes. The core needs no other transport helpers.
++ */
++#ifndef __NINTENDO_TERA_H
++#define __NINTENDO_TERA_H
++
++#include <linux/device.h>
++#include <linux/mutex.h>
++#include <linux/types.h>
++
++/*
++ * Canonical controller type. Each transport maps its own internal enum onto
++ * this when populating joycon_tera_config (hid-nintendo's JOYCON_CTLR_TYPE_*
++ * and serdev's JOYCON_TYPE_* use different names/values, so neither can be the
++ * shared one). The core mainly cares about left-vs-right (the NIR camera and
++ * NFC live on the right Joy-Con / Pro Controller).
++ */
++enum joycon_tera_ctlr_type {
++	JOYCON_TERA_TYPE_UNKNOWN = 0,
++	JOYCON_TERA_TYPE_LEFT,
++	JOYCON_TERA_TYPE_RIGHT,
++	JOYCON_TERA_TYPE_PRO,
++};
++
++/*
++ * Subcommand request (output 0x01). The full definition lives in the base
++ * transport driver and in nintendo-tera-priv.h (identical layout); the ops
++ * below only take a pointer, so a forward declaration is enough here and it
++ * avoids clashing with a transport driver that defines its own.
++ */
++struct joycon_subcmd_request;
++
++/*
++ * Optional content-based ack match for a subcommand reply. Some MCU config
++ * subcommands return a generic reply id and must be matched on their inner
++ * data instead: when @data0 is nonzero the transport matches reply.data[0]
++ * (== @data0, or == @data0_alt when that is nonzero) rather than the subcmd
++ * id, and additionally reply.data[1..2] (== @data12) when @data12 is nonzero.
++ * Pass NULL for ordinary id-only matching.
++ */
++struct joycon_ack_match {
++	u8  data0;
++	u8  data0_alt;
++	u16 data12;
++};
++
++/* Opaque core instance; full definition lives in nintendo-tera.c. */
++struct joycon_tera;
++
++/*
++ * Hooks a transport driver provides to the core. @drv is the transport's own
++ * controller context, handed back opaque on every call.
++ */
++struct joycon_tera_ops {
++	/*
++	 * Send a subcommand (output 0x01) and wait up to @timeout jiffies for
++	 * its ack. Returns 0 on ack, <0 on error. The transport owns ack
++	 * matching in its RX path.
++	 */
++	int (*send_subcmd)(void *drv, struct joycon_subcmd_request *subcmd,
++			   size_t data_len,
++			   const struct joycon_ack_match *match, u32 timeout);
++	/*
++	 * Send a raw output report (e.g. an MCU data packet, output 0x11).
++	 * Fire-and-forget; any reply arrives asynchronously via
++	 * joycon_tera_handle_input(). The transport applies its own framing.
++	 */
++	int (*send_raw)(void *drv, u8 *data, size_t len);
++};
++
++struct joycon_tera_config {
++	struct device *dev;		/* transport device: logging + v4l2/nfc parent */
++	struct mutex *output_mutex;	/* transport's output lock; the core holds it
++					 * across multi-send MCU sequences to stay
++					 * atomic against transport traffic */
++	enum joycon_tera_ctlr_type ctlr_type;
++	const struct joycon_tera_ops *ops;
++	void *drv;			/* opaque transport context for the ops */
++};
++
++/*
++ * Lifecycle. joycon_tera_create() allocates the instance (assign it where your RX
++ * path can reach it, then call joycon_tera_start(), which verifies the MCU and brings up
++ * the configured sub-features (IR, NFC). Call once the transport's own probe
++ * has the controller ready to accept subcommands. Returns ERR_PTR on failure;
++ * a non-fatal "no functional MCU" (third-party controllers) returns NULL so
++ * the transport can continue without MCU features.
++ */
++struct joycon_tera *joycon_tera_create(const struct joycon_tera_config *cfg);
++int joycon_tera_start(struct joycon_tera *tera);
++void joycon_tera_remove(struct joycon_tera *tera);
++
++/*
++ * Feed one MCU input report (report 0x31 whose MCU-data subtype the transport
++ * has already identified) into the core, from the transport's RX path. Safe to
++ * call from the transport's input/softirq context. Ignored if @tera is NULL.
++ */
++void joycon_tera_handle_input(struct joycon_tera *tera, u8 *data, int size);
++
++#endif /* __NINTENDO_TERA_H */

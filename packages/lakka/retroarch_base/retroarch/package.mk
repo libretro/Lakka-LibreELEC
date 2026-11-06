@@ -123,6 +123,11 @@ fi
 
 if [ "${PROJECT}" = "L4T" ]; then
   PKG_CONFIGURE_OPTS_TARGET=${PKG_CONFIGURE_OPTS_TARGET//--enable-kms/--disable-kms}
+
+  #SDL2 Renderer is broken on Switch, and I dont care to look into it currently.
+  PKG_DEPENDS_TARGET=${PKG_DEPENDS_TARGET//SDL2_input/}
+  PKG_CONFIGURE_OPTS_TARGET=${PKG_CONFIGURE_OPTS_TARGET//--enable-sdl2/--disable-sdl2}
+
   #EGL break gl1 support so if opengl enabled, force disable egl/gles
   if [ "${OPENGL_SUPPORT}" = yes ]; then
     PKG_CONFIGURE_OPTS_TARGET=${PKG_CONFIGURE_OPTS_TARGET//--enable-egl/--disable-egl}
@@ -349,10 +354,6 @@ makeinstall_target() {
     sed -i ${ra_config} -e 's|^menu_pointer_enable = .*|menu_pointer_enable = "true"|'
     sed -i ${ra_config} -e 's|^video_crop_overscan = .*|video_crop_overscan = "false"|'
 
-    if [ ! "${PROJECT}" = "Ayn" -a ! "${DEVICE}" = "Odin" ]; then
-      sed -i ${ra_config} -e 's|^video_hard_sync = .*|video_hard_sync = "true"|'
-    fi
-
     sed -i ${ra_config} -e 's|^input_driver = .*|input_driver = "x"|'
     sed -i ${ra_config} -e 's|^video_smooth = .*|video_smooth = "true"|'
     sed -i ${ra_config} -e 's|^menu_driver = .*|menu_driver = "ozone"|'
@@ -360,6 +361,7 @@ makeinstall_target() {
     if [ ! "${PROJECT}" = "Ayn" -a ! "${DEVICE}" = "Odin" ]; then
       #Set Joypad as joypad with analog
       sed -i ${ra_config} -e 's|^input_device_p1 = .*|input_device_p1 = "5"|'
+      sed -i ${ra_config} -e 's|^video_threaded = .*|video_threaded = "false"|'
     else
       sed -i ${ra_config} -e 's|^video_river = .*|video_driver = "glcore"|'
       sed -i ${ra_config} -e 's|^audio_driver = .*|audio_driver = "pulse"|'

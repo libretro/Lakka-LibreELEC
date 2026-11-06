@@ -1,0 +1,2115 @@
+From 48fab0a12fc90ff32e0e43c942fe3302a09e8a88 Mon Sep 17 00:00:00 2001
+From: a <a@b.c>
+Date: Sun, 30 Aug 2026 18:41:47 +0000
+Subject: [PATCH] nintendo-tera: add NFC tag reader
+
+Add the MCU NFC verb protocol and a bare net/nfc device (NTAG21x /
+MIFARE, e.g. Amiibo) as nintendo-tera-nfc.c, gated by the new
+NINTENDO_TERA_NFC option. It drives the MCU only through the core's
+joycon_mcu_* helpers, sends NFC command packets via
+joycon_mcu_send_data_pkt(), and receives NFC input reports through the
+tera->mcu.nfc.recv callback that joycon_nfc_register() installs.
+
+Moved out of hid-nintendo.c and refactored onto the transport-agnostic
+tera interface so joycon-serdev can use it too.
+---
+ drivers/misc/Kconfig             |   13 +
+ drivers/misc/Makefile            |    1 +
+ drivers/misc/nintendo-tera-nfc.c | 1866 ++++++++++++++++++++++++++++++
+ 3 files changed, 1880 insertions(+)
+ create mode 100644 drivers/misc/nintendo-tera-nfc.c
+
+diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
+index 390af28..bec52eb 100644
+--- a/drivers/misc/Kconfig
++++ b/drivers/misc/Kconfig
+@@ -842,4 +842,17 @@ config MISC_NINTENDO_TERA
+ 	To compile this as a module, choose M here: the module will be called
+ 	nintendo-tera.
+ 
++config MISC_NINTENDO_TERA_NFC
++	bool "Nintendo Switch controller NFC tag reader support"
++	depends on MISC_NINTENDO_TERA
++	depends on NFC
++	help
++	Adds the NFC tag reader built into the right Joy-Con / Pro Controller
++	to the nintendo-tera core. When enabled, it registers an NFC adapter
++	that userspace can use via the netlink NFC uapi (libnfc, neard, etc.)
++	to poll and read NTAG21x and Mifare Ultralight tags -- for example,
++	Amiibo figures.
++
++	To use this you must also enable NFC (CONFIG_NFC).
++
+ endmenu
+diff --git a/drivers/misc/Makefile b/drivers/misc/Makefile
+index b407482..2f2e165 100644
+--- a/drivers/misc/Makefile
++++ b/drivers/misc/Makefile
+@@ -84,3 +84,4 @@ obj-y				+= inter-tegra/
+ obj-$(CONFIG_BM92TXX)		+= bm92txx.o
+ obj-$(CONFIG_MISC_NINTENDO_TERA)	+= nintendo-tera.o
+ nintendo-tera-y			:= nintendo-tera-core.o
++nintendo-tera-$(CONFIG_MISC_NINTENDO_TERA_NFC)	+= nintendo-tera-nfc.o
+diff --git a/drivers/misc/nintendo-tera-nfc.c b/drivers/misc/nintendo-tera-nfc.c
+new file mode 100644
+index 0000000..bd8c148
+--- /dev/null
++++ b/drivers/misc/nintendo-tera-nfc.c
+@@ -0,0 +1,2055 @@
++// SPDX-License-Identifier: GPL-2.0+
++/*
++ * Nintendo Switch controller MCU -- NFC tag reader.
++ *
++ * Part of the nintendo-tera module. Drives the MCU's NFC verb protocol and
++ * exposes a bare net/nfc device (NTAG21x / MIFARE, e.g. Amiibo). Talks to the
++ * MCU only through the core's joycon_mcu_* helpers and receives NFC input via
++ * the tera->mcu.nfc.recv callback installed by joycon_nfc_register().
++ */
++#include <linux/delay.h>
++#include <linux/device.h>
++#include <linux/err.h>
++#include <linux/kernel.h>
++#include <linux/mutex.h>
++#include <linux/nfc.h>
++#include <linux/slab.h>
++#include <linux/string.h>
++#include <linux/workqueue.h>
++#include <net/nfc/nfc.h>
++
++#include "nintendo-tera-priv.h"
++
++/*
++ * NFC lives on the right Joy-Con and the Pro Controller. The transport driver
++ * already vetted the physical device; here we key off the canonical type.
++ */
++#define jc_supports_nfc(tera) \
++	((tera)->ctlr_type == JOYCON_TERA_TYPE_RIGHT || \
++	 (tera)->ctlr_type == JOYCON_TERA_TYPE_PRO)
++
++/* MCU NFC verb ids (buf[11] of an NFC data packet). */
++#define JC_NFC_VERB_CANCEL		0x00
++#define JC_NFC_VERB_START_POLLING	0x01
++#define JC_NFC_VERB_STOP_POLLING	0x02
++#define JC_NFC_VERB_START_WAITING	0x04
++#define JC_NFC_VERB_READ_NTAG		0x06
++#define JC_NFC_VERB_WRITE_NTAG		0x08
++#define JC_NFC_VERB_SEND_RAW_DATA	0x09
++#define JC_NFC_VERB_READ_MIFARE		0x0f
++
++
++#include <linux/nfc.h>
++#include <net/nfc/nfc.h>
++
++/* Private state hanging off tera->mcu.nfc.priv. */
++struct joycon_nfc_priv {
++	struct nfc_dev *ndev;
++
++	struct workqueue_struct *poll_wq;
++	struct work_struct poll_work;
++	bool stop_requested;
++
++	/*
++	 * Dedicated waitqueue for the poll worker. Previously the worker
++	 * shared the transport's waitqueue with its send_subcmd() ack path; that
++	 * worked because our ack matching filters by response type, but
++	 * it made reasoning about wakeups messy. The dedicated wait
++	 * fires only on tag-detect events and stop_requested transitions.
++	 */
++	wait_queue_head_t poll_wait;
++	bool tag_event;
++
++	/*
++	 * NTAG read reassembly. The MCU emits multiple 0x31/0x3a fragments
++	 * per read; we accumulate here and signal read_done when the
++	 * companion 0x31/0x2a finish message arrives.
++	 */
++	struct mutex read_lock;
++	wait_queue_head_t read_wait;
++	bool read_done;
++	int read_err;
++	u8 read_buf[924];		/* max NTAG216: 231 pages * 4B */
++	u16 read_pos;
++	u16 read_want;		/* bytes a range read wants before completing */
++
++	/*
++	 * Set while im_transceive() is driving a read cycle. The
++	 * tag-present keep-alive loop in poll_work checks this and
++	 * skips its WAIT+POLL cycle when the reader is active --
++	 * sending WAIT during a READ sequence is a Sequence Error.
++	 */
++	bool reading;
++
++	/*
++	 * NTAG write signalling. joycon_nfc_recv() routes INFO state
++	 * transitions and DATA/status reports to these while writing is true.
++	 */
++	bool writing;
++	wait_queue_head_t write_wait;
++	bool write_done;
++	int write_status;
++
++	/*
++	 * Response capture for the generic verb-0x09 raw transceive
++	 * (joycon_nfc_raw_cmd()). While a read-type raw command is in
++	 * flight, xcv_resp points at the caller's buffer and recv() copies
++	 * the tag's DATA-report payload into it. NULL for write/ACK-only
++	 * commands, which complete via the INFO 0x05 path with xcv_len == 0.
++	 */
++	u8 *xcv_resp;
++	size_t xcv_cap;
++	size_t xcv_len;
++
++	/*
++	 * Set when a Mifare read is attempted. Any Mifare auth (whether it
++	 * completes or fails) can leave the tag in a stuck/secured state that
++	 * a plaintext re-AUTH won't recover from, so dev_down RF-resets the
++	 * MCU when this is set. NTAG reads never touch it and skip the costly
++	 * MCU suspend/resume.
++	 */
++	bool mifare_authed;
++
++	/*
++	 * True while a Mifare WRITE (verb 0x0f, mode 0x07) is in flight.
++	 * Its completion is the MCU state reaching 0x10 (write-done), not a
++	 * buf[51]==0x10 data report (those carry the PRE-write block content).
++	 */
++	bool mifare_write;
++
++	/*
++	 * Set when a tag is activated (a transceive session begins). A tag
++	 * left selected (state 0x04) after a session is not re-detectable by
++	 * the next poll (REQA won't wake an already-selected/HALTed tag), so
++	 * before the next detection we power-cycle the RF (MCU disable/enable)
++	 * to return the tag to idle. This is the standard "deactivate releases
++	 * the tag" behaviour, deferred into poll_work's context.
++	 */
++	bool needs_field_reset;
++
++	/* Populated by parse_info() on tag-detect. */
++	struct nfc_target target;
++};
++
++/*
++ * Interval between MCU status polls used for tag-loss detection.
++ * 500 ms is a compromise: fast enough that a user pulling the tag
++ * gets an nfc_target_lost within a reasonable time, but slow enough
++ * that we don't hammer the MCU with subcommand traffic.
++ */
++#define JC_NFC_KEEPALIVE_MS	30	/* WAIT cadence holding a tag (~HOS 15ms) */
++#define JC_NFC_REPOLL_MS	1000	/* re-arm the scan this often to spot removal */
++#define JC_NFC_REPOLL_SETTLE_MS	400	/* drive WAIT this long for the re-scan to re-find the tag */
++
++/*
++ * Send an NFC verb with an explicit seq_no in the 4-byte verb header.
++ *
++ * The verb header layout on the wire (buf[12..15]) is:
++ *   [12] seq_no      -- packet sequence number in a multi-packet stream.
++ *                       For single-packet READ verbs, seq_no=0 works
++ *                       (all real read captures show 0). For verb 0x08
++ *                       WRITE chunks, the Switch uses seq_no starting
++ *                       at 1 and incrementing (per Poohl's captures).
++ *   [13] ack_seq_no  -- always 0 in Switch captures. Purpose unclear.
++ *   [14] eot_flag    -- 0x08 on the LAST packet of a stream, 0x00 on
++ *                       non-last chunks. Even single-packet verbs
++ *                       (like reads) set this to 0x08.
++ *   [15] body_len    -- number of body bytes that follow.
++ *   [16..]           -- body (up to 31 bytes).
++ *
++ * Caller must hold tera->output_mutex.
++ */
++static int joycon_nfc_send_verb_ex(struct joycon_tera *tera, u8 verb,
++				   u8 seq_no, bool is_last,
++				   const u8 *body, size_t body_len)
++{
++	struct joycon_mcu_data_pkt pkt = { 0 };
++	int ret;
++
++	if (body_len > 31)
++		return -EINVAL;
++
++	pkt.mcu_subcmd = 0x02;			/* buf[10] */
++	pkt.arg1 = verb;			/* buf[11] */
++	pkt.arg2 = seq_no;			/* buf[12] = seq_no */
++	pkt.mcu_payload[0] = 0x00;		/* buf[13] = ack_seq_no */
++	pkt.mcu_payload[1] = is_last ? 0x08 : 0x00;	/* buf[14] = EOT */
++	pkt.mcu_payload[2] = (u8)body_len;	/* buf[15] = body_len */
++	if (body_len)
++		memcpy(&pkt.mcu_payload[3], body, body_len);
++
++	/* output_id, packet_num, rumble, CRC and pad are handled by
++	 * joycon_mcu_send_data_pkt() + the transport's send_raw. */
++	ret = joycon_mcu_send_data_pkt(tera, &pkt);
++	if (ret < 0)
++		dev_dbg(tera->dev,
++			"NFC verb %#x seq=%u last=%d send failed: %d\n",
++			verb, seq_no, is_last, ret);
++	return ret;
++}
++
++/*
++ * Send a single-packet NFC verb (seq_no=0, EOT=0x08). Used by all read
++ * paths where a single request suffices. See joycon_nfc_send_verb_ex()
++ * for the wire layout.
++ */
++static int joycon_nfc_send_verb(struct joycon_tera *tera, u8 verb,
++				const u8 *body, size_t body_len)
++{
++	return joycon_nfc_send_verb_ex(tera, verb, 0, true, body, body_len);
++}
++
++/*
++ * Structure describing one page write for the batch API.
++ * page:   target NTAG page number (>= 4 for user memory on NTAG21x)
++ * data:   4 bytes to write to that page (NTAG native page size)
++ */
++struct joycon_nfc_write_page {
++	u8 page;
++	u8 data[4];
++};
++
++/*
++ * NTAG write via the Joy-Con MCU (verb 0x09 = SendNfcRawData, raw transceive).
++ *
++ * Confirmed by capturing HOS's own nfc:user passthrough on the wire (Mission
++ * Control btdrv-mitm): HOS writes a blank NTAG215 with a single verb-0x09 raw
++ * transceive of the ISO14443-3 Type-2 WRITE command A2 <page> <d0..d3>. Its
++ * output report (0x11) after the mcu_cmd/verb bytes 02 09 is:
++ *
++ *   [12] seq_no = 0x01
++ *   [13] 0x00   [14] 0x08 (EOT)   [15] body_len
++ *   body: e8 03            timeout 0x03e8 = 1000 ms (LE)
++ *         <UID 7 bytes>
++ *         <len u16 LE>     raw command length
++ *         <raw command>    A2 <page> <d0..d3>   (WRITE), or 30 <page> (READ)
++ *
++ * Our earlier verb-9 sent seq_no=0 and a 2-byte "d0 07" where HOS sends the
++ * 6-byte "e8 03 ..." timeout, so the MCU returned status (2a..05) instead of
++ * transceiving. Matching HOS byte-for-byte (seq_no=1, e8 03 timeout) makes the
++ * MCU put the command on the RF. No mount / read-modify-write is needed -- HOS
++ * just polls (verb 0x04) and transceives; the tag is already selected by the
++ * NFC core's target activation before im_transceive.
++ */
++
++#define JC_NFC_T2T_WRITE	0xA2	/* ISO14443-3 Type-2 WRITE opcode */
++#define JC_NFC_RAW_TIMEOUT_LO	0xe8	/* transceive timeout 0x03e8 = 1000 ms */
++#define JC_NFC_RAW_TIMEOUT_HI	0x03
++#define JC_NFC_RAW_SEQ		0x01	/* buf[12] for verb-9 transceives */
++#define JC_NFC_WRITE_SETTLE_MS	250
++/* Read priming: HOS interleaves 30-reads into a running WAIT (0x04) stream;
++ * a 30 sent cold (right after activate, tag at 0x09 but not read-ready) is
++ * answered with only the target echo. Pump a few WAITs first to advance the
++ * PICC into read-ready before the raw command. */
++#define JC_NFC_READ_PRIME_WAITS	8
++#define JC_NFC_READ_WAIT_MS	15	/* HOS WAIT cadence */
++#define JC_NFC_READ_ATTEMPT_MS	150	/* per-30 wait for DATA (HOS ~85ms) */
++#define JC_NFC_READ_TOTAL_MS	1200	/* total read window incl. retries */
++
++/*
++ * joycon_nfc_raw_cmd - transceive one ISO14443-3 Type-2 command to the
++ * currently selected tag via the MCU's raw-transceive verb (0x09) and,
++ * optionally, capture the tag's response.
++ *
++ * Frames the verb-0x09 body exactly as HOS's nfc:user passthrough does
++ * (confirmed byte-for-byte against a Mission Control btdrv-mitm capture for
++ * WRITE/READ):
++ *   [0..1]   e8 03            transceive timeout 0x03e8 = 1000 ms (LE)
++ *   [2..8]   <UID 7 bytes>    the selected target
++ *   [9..10]  <len u16 LE>     raw command length
++ *   [11..]   <raw command>    e.g. A2 <page> <d0..d3> (WRITE), 30 <page>
++ *                             (READ), 60 (GET_VERSION), 3A <s> <e>
++ *                             (FAST_READ), 1B <pwd*4> (PWD_AUTH), ...
++ * The MCU appends CRC_A and puts the command on the RF.
++ *
++ * If @resp is non-NULL the tag's DATA-report payload is copied into it (up to
++ * @resp_cap bytes) and *@resp_len is set; recv() then waits for that DATA
++ * report rather than completing on the ACK-only INFO 0x05. A command that
++ * only ACKs (Type-2 WRITE) is called with @resp == NULL and completes via
++ * the INFO 0x05 path with *@resp_len == 0.
++ *
++ * Caller must hold priv->read_lock (poll-worker exclusion) -- both
++ * joycon_nfc_batch_write() and im_transceive()'s generic path do.
++ */
++static int joycon_nfc_raw_cmd(struct joycon_tera *tera, const u8 *uid,
++			      const u8 *cmd, size_t cmd_len,
++			      u8 *resp, size_t resp_cap, size_t *resp_len)
++{
++	struct joycon_nfc_priv *priv = tera->mcu.nfc.priv;
++	u8 body[31];		/* verb body caps at 31: 11 header + cmd */
++	size_t body_len;
++	int ret;
++
++	if (!priv)
++		return -ENODEV;
++	/* body = e8 03 + UID(7) + len(2) + cmd; leaves room for cmd <= 20. */
++	if (cmd_len < 1 || cmd_len > sizeof(body) - 11)
++		return -EINVAL;
++
++	body[0]  = JC_NFC_RAW_TIMEOUT_LO;		/* e8 */
++	body[1]  = JC_NFC_RAW_TIMEOUT_HI;		/* 03 -> 1000 ms */
++	memcpy(&body[2], uid, 7);			/* selected tag UID */
++	body[9]  = (u8)(cmd_len & 0xff);		/* raw cmd length LE */
++	body[10] = (u8)(cmd_len >> 8);
++	memcpy(&body[11], cmd, cmd_len);
++	body_len = 11 + cmd_len;
++
++	priv->writing = true;
++	priv->write_done = false;
++	priv->write_status = 0;
++	priv->xcv_resp = resp;
++	priv->xcv_cap = resp ? resp_cap : 0;
++	priv->xcv_len = 0;
++
++	if (resp) {
++		/*
++		 * READ: HOS interleaves 30-reads into a running WAIT stream and
++		 * its read DATA lands ~85ms after the 30. Prime with WAITs, then
++		 * send 30 / wait / keep-warm-with-WAIT / retry across a generous
++		 * window, so a late- or retry-needing DATA report is not cut off
++		 * by an early teardown. recv() ends the wait when the reply lands.
++		 */
++		unsigned long deadline =
++			jiffies + msecs_to_jiffies(JC_NFC_READ_TOTAL_MS);
++		int i;
++
++		for (i = 0; i < JC_NFC_READ_PRIME_WAITS; i++) {
++			mutex_lock(tera->output_mutex);
++			(void)joycon_nfc_send_verb(tera,
++					JC_NFC_VERB_START_WAITING, NULL, 0);
++			mutex_unlock(tera->output_mutex);
++			msleep(JC_NFC_READ_WAIT_MS);
++		}
++
++
++		/*
++		 * Send the 30 ONCE, then pump WAIT (0x04). The MCU runs the
++		 * transceive asynchronously and delivers the read result on a
++		 * WAIT response ~5 WAITs (~75ms) after the 30 -- exactly what an
++		 * HOS passthrough capture of this tag shows. Passively waiting
++		 * after the 30 (sending no WAITs) never pumps the MCU, so the
++		 * DATA report never comes and only the 2a/05 status echo is seen.
++		 * recv() ends the loop when it captures the reply.
++		 */
++		mutex_lock(tera->output_mutex);
++		ret = joycon_nfc_send_verb_ex(tera, JC_NFC_VERB_SEND_RAW_DATA,
++					      JC_NFC_RAW_SEQ, true,
++					      body, body_len);
++		mutex_unlock(tera->output_mutex);
++		while (ret >= 0 && !priv->write_done &&
++		       time_before(jiffies, deadline)) {
++			mutex_lock(tera->output_mutex);
++			(void)joycon_nfc_send_verb(tera,
++					JC_NFC_VERB_START_WAITING, NULL, 0);
++			mutex_unlock(tera->output_mutex);
++			wait_event_timeout(priv->write_wait, priv->write_done,
++					   msecs_to_jiffies(JC_NFC_READ_WAIT_MS));
++		}
++
++		priv->writing = false;
++		priv->xcv_resp = NULL;
++		if (!priv->write_done)
++			return -ETIMEDOUT;
++		if (resp_len)
++			*resp_len = priv->xcv_len;
++		return priv->write_status;
++	}
++
++	/* WRITE: single raw transceive + settle (verified path, unchanged). */
++	mutex_lock(tera->output_mutex);
++	/* seq_no = 1 (buf[12]) and is_last, exactly as HOS frames it. */
++	ret = joycon_nfc_send_verb_ex(tera, JC_NFC_VERB_SEND_RAW_DATA,
++				      JC_NFC_RAW_SEQ, true, body, body_len);
++	mutex_unlock(tera->output_mutex);
++	if (ret < 0) {
++		priv->writing = false;
++		priv->xcv_resp = NULL;
++		return ret;
++	}
++
++	wait_event_timeout(priv->write_wait, priv->write_done,
++			   msecs_to_jiffies(JC_NFC_WRITE_SETTLE_MS));
++	priv->writing = false;
++	priv->xcv_resp = NULL;
++
++	if (!priv->write_done)
++		return -ETIMEDOUT;
++	if (resp_len)
++		*resp_len = priv->xcv_len;
++	return priv->write_status;
++}
++
++static int joycon_nfc_batch_write(struct joycon_tera *tera,
++				  const u8 *uid,
++				  const struct joycon_nfc_write_page *writes,
++				  int n_writes)
++{
++	struct joycon_nfc_priv *priv = tera->mcu.nfc.priv;
++	int i, ret = 0;
++
++	if (!priv)
++		return -ENODEV;
++	if (n_writes < 1)
++		return -EINVAL;
++
++	mutex_lock(&priv->read_lock);
++
++	for (i = 0; i < n_writes; i++) {
++		u8 cmd[6];			/* A2 <page> <d0..d3> */
++
++		cmd[0] = JC_NFC_T2T_WRITE;	/* A2 */
++		cmd[1] = writes[i].page;
++		memcpy(&cmd[2], writes[i].data, 4);
++
++		dev_dbg(tera->dev,
++			"NFC write (verb 0x09 raw): page %u = %02x %02x %02x %02x\n",
++			writes[i].page, writes[i].data[0], writes[i].data[1],
++			writes[i].data[2], writes[i].data[3]);
++
++		/* WRITE only ACKs -- no response payload to capture. */
++		ret = joycon_nfc_raw_cmd(tera, uid, cmd, sizeof(cmd),
++					 NULL, 0, NULL);
++		if (ret) {
++			dev_info(tera->dev,
++				 "NFC write (raw): page %u failed: %d (state=0x%02x)\n",
++				 writes[i].page, ret, tera->mcu.nfc.state);
++			break;
++		}
++	}
++
++	mutex_unlock(&priv->read_lock);
++
++	if (ret == 0)
++		dev_info(tera->dev,
++			 "NFC write (raw A2): %d page(s) sent; verify with a read\n",
++			 n_writes);
++	return ret;
++}
++
++
++
++/*
++ * Parse a 0x31/0x2a NFC info report. Returns true and populates
++ * priv->target if a tag was detected (buf[56] == 0x09).
++ *
++ * Reference: jc_toolkit step6.
++ *   buf[62] = tag IC     (0x02 = NTAG/Ultralight, 0x04 = Mifare Classic)
++ *   buf[64] = UID length (jc_toolkit copies uid_len-1 bytes, an off-by-
++ *                         one that matches the wire truth)
++ *   buf[65..] = UID
++ */
++static bool joycon_nfc_parse_info(struct joycon_tera *tera,
++				  const u8 *buf, int size)
++{
++	struct joycon_nfc_priv *priv = tera->mcu.nfc.priv;
++	u8 uid_len, copy_len;
++
++	if (!priv)
++		return false;
++	if (size < 80)
++		return false;
++	/*
++	 * jc_toolkit checks *(u16*)&buf[50] == 0x0500 (little-endian),
++	 * which on the wire is buf[50]=0x00, buf[51]=0x05. An earlier
++	 * version of this driver had these byte-swapped and rejected all
++	 * legitimate INFO reports.
++	 */
++	if (buf[50] != 0x00 || buf[51] != 0x05)
++		return false;
++	if (buf[55] != 0x31)
++		return false;
++	if (buf[56] != 0x09)		/* not tag-detected */
++		return false;
++
++	uid_len = buf[64];
++	if (uid_len == 0 || uid_len > NFC_NFCID1_MAXSIZE)
++		return false;
++
++	/*
++	 * jc_toolkit's step6 loop displays all uid_len bytes but only saves
++	 * uid_len-1 (a bug in its "no trailing colon on last byte" formatting
++	 * that also skipped the save). Earlier versions of this driver
++	 * inherited that off-by-one, which dropped the last byte of the 7-byte
++	 * NTAG UID and made batch NFC writes impossible (Poohl's write buffer
++	 * expects the full 7-byte UID at bytes [2..8]).
++	 * Copy the full uid_len bytes.
++	 */
++	copy_len = uid_len;
++	if (copy_len > NFC_NFCID1_MAXSIZE)
++		copy_len = NFC_NFCID1_MAXSIZE;
++
++	/*
++	 * If we've already reported this target to the NFC core, do NOT
++	 * touch priv->target. In particular, priv->target.idx has been
++	 * overwritten by nfc_targets_found() with the core-assigned idx
++	 * (which we need to pass back to nfc_target_lost() when the tag
++	 * leaves); resetting it here would break the target_idx lookup
++	 * in dev->targets[] and the netlink event would be dropped with
++	 * -EINVAL. Just update the "target present" cache and return.
++	 */
++	if (tera->mcu.nfc.target_present_reported) {
++		tera->mcu.nfc.target_present = true;
++		return true;
++	}
++
++	memset(&priv->target, 0, sizeof(priv->target));
++	priv->target.idx = 0;
++	priv->target.supported_protocols = NFC_PROTO_MIFARE_MASK;
++	priv->target.nfcid1_len = copy_len;
++	memcpy(priv->target.nfcid1, &buf[65], copy_len);
++
++	/*
++	 * Populate the ISO14443-A ATQA/SAK so a kernel-NFC stack (neard) can
++	 * tell tag families apart. buf[62] classifies the tag IC (0x02 =
++	 * NTAG/Ultralight; 0x04 = Mifare Classic; magic Classic clones report
++	 * 0x90), but the MCU INFO report carries no SAK, so key Classic off
++	 * the 4-byte NFCID1 (a Classic cascade level 1 UID; NTAG is 7-byte) --
++	 * the same reliable marker the Mifare read/write paths gate on.
++	 */
++	if (buf[62] == 0x02) {			/* NTAG21x / Ultralight */
++		priv->target.sens_res = 0x0044;
++		priv->target.sel_res  = 0x00;
++	} else if (copy_len == 4) {		/* Mifare Classic (4-byte NFCID1) */
++		/*
++		 * Report 1K (SAK 0x08 / ATQA 0x0004): the common case for
++		 * blank/magic cards, and there's no SAK in the INFO report to
++		 * distinguish 1K from 4K (0x18). neard keys off "Classic", not
++		 * the exact capacity, so this lets it classify + drive the tag.
++		 */
++		priv->target.sens_res = 0x0004;
++		priv->target.sel_res  = 0x08;
++	}
++
++	tera->mcu.nfc.tag_ic = buf[62];
++	memcpy(tera->mcu.nfc.uid, &buf[65], copy_len);
++	tera->mcu.nfc.uid_len = copy_len;
++	tera->mcu.nfc.target_present = true;
++	return true;
++}
++
++/*
++ * MCU input callback: dispatched by joycon_mcu_handle_input() when a
++ * 0x31/0x2a (info) or 0x31/0x3a (data) report arrives.
++ *
++ * On info: parse tag detect, push target up to net/nfc via
++ *          nfc_targets_found() and signal the poll worker.
++ * On data: append the read fragment to priv->read_buf and, on the
++ *          completion sentinel, signal read_wait.
++ */
++static void joycon_nfc_recv(struct joycon_tera *tera,
++			    const u8 *buf, int size)
++{
++	struct joycon_nfc_priv *priv = tera->mcu.nfc.priv;
++
++	if (!priv)
++		return;
++
++	/*
++	 * TEMP DIAGNOSTIC (remove once verb-0x09 read capture is wired):
++	 * while a read-type raw command (30 <page> via verb 0x09) is in
++	 * flight, dump the raw NFC report in DRIVER offsets so we can see
++	 * exactly where the 16 page bytes land and which report id/sub-id
++	 * carries them. The btdrv-mitm capture can't be trusted for this --
++	 * its offsets include transport framing the driver never sees.
++	 */
++	if (priv->writing && priv->xcv_resp && size >= 96)
++		print_hex_dump(KERN_INFO, "nfc-rd-resp: ", DUMP_PREFIX_OFFSET,
++			       16, 1, buf + 40, 56, false);
++
++	if (buf[49] == JC_MCU_INPUT_ID_NFC_INFO) {
++		bool has_tag;
++		u8 old_state;
++
++		/*
++		 * Mifare read data response (verb 0x0f): comes back as a 0x2a
++		 * report with buf[51]==0x10 (not a 0x3a DATA report), carrying
++		 * the 16-byte block at buf[62]. Capture it for the waiting
++		 * im_transceive Mifare path. Confirmed vs an HOS nfcMfReadMifare
++		 * btdrv-mitm capture.
++		 */
++		/*
++		 * Mifare WRITE completion: the MCU state (buf[56]) reaches 0x10
++		 * (write-done) after the auth+write. HOS-confirmed. During a
++		 * write the MCU also emits buf[51]==0x10 reports carrying the
++		 * PRE-write block content -- those are ignored (the read-capture
++		 * below is gated on !mifare_write).
++		 */
++		if (priv->writing && priv->mifare_write && buf[56] == 0x10) {
++			priv->write_status = 0;
++			priv->write_done = true;
++			wake_up(&priv->write_wait);
++			return;
++		}
++
++		if (priv->writing && priv->xcv_resp && buf[51] == 0x10 &&
++		    !priv->mifare_write) {
++			unsigned int rcnt = buf[60];
++			size_t clen;
++
++			if (rcnt < 1)
++				rcnt = 1;
++			clen = 1 + rcnt * 17;	/* count + rcnt*(idx + 16 data) */
++			if (clen > priv->xcv_cap)
++				clen = priv->xcv_cap;
++			memcpy(priv->xcv_resp, &buf[60], clen);
++			priv->xcv_len = clen;
++			priv->write_status = 0;
++			priv->write_done = true;
++			wake_up(&priv->write_wait);
++			return;
++		}
++
++		has_tag = joycon_nfc_parse_info(tera, buf, size);
++		old_state = tera->mcu.nfc.state;
++
++		/*
++		 * Cache the raw NFC MCU state byte for the poll worker.
++		 * State map (from CTCaer packet capture on real hardware):
++		 *   0x00                AwaitingCmd (no scan active)
++		 *   0x01                TagPollingActive (RF scanner running)
++		 *   0x07 + buf[50]=0x4a SequenceError (bad verb for state)
++		 *   0x09                TagDetected
++		 *   0x0b                Busy / Initializing
++		 */
++		tera->mcu.nfc.state = buf[56];
++
++		dev_info(tera->dev,
++			 "NFC recv INFO: state %02x->%02x has_tag=%d present=%d reported=%d reading=%d\n",
++			 old_state, buf[56], has_tag,
++			 tera->mcu.nfc.target_present,
++			 tera->mcu.nfc.target_present_reported,
++			 priv->reading);
++
++		if (has_tag && !tera->mcu.nfc.target_present_reported) {
++			tera->mcu.nfc.target_present_reported = true;
++			dev_info(tera->dev,
++				 "NFC recv: firing nfc_targets_found\n");
++			nfc_targets_found(priv->ndev, &priv->target, 1);
++		}
++		/*
++		 * We don't fire nfc_target_lost() here on non-0x09 states.
++		 * The keep-alive loop in poll_work sends WAIT+POLL and
++		 * inspects the resulting state -- transient INFO reports
++		 * carrying buf[56]=0x00 (AwaitingCmd) or 0x01 (Polling) are
++		 * normal verb acknowledgements during that cycle. Only
++		 * poll_work owns the loss decision.
++		 */
++
++		if (priv->writing) {
++			if (buf[56] == 0x07) {
++				/* SequenceError: bad verb/framing for the state. */
++				priv->write_status = -EPROTO;
++				priv->write_done = true;
++			} else if (buf[51] == 0x05 && !priv->xcv_resp) {
++				/*
++				 * ACK-only completion (e.g. Type-2 WRITE): the raw
++				 * command reached the tag and it responded. Complete
++				 * now instead of waiting out the settle timeout
++				 * (~250ms -> ~40ms). When a response is expected
++				 * (xcv_resp set, a read-type raw command) we do NOT
++				 * complete here -- the payload arrives in the DATA
++				 * report below, which finishes the transceive.
++				 */
++				priv->write_status = 0;
++				priv->write_done = true;
++			}
++			wake_up(&priv->write_wait);
++		}
++
++		/* Any INFO report is a signal to the worker either way. */
++		priv->tag_event = true;
++		wake_up(&priv->poll_wait);
++		return;
++	}
++
++	if (buf[49] == JC_MCU_INPUT_ID_NFC_DATA) {
++		/*
++		 * NTAG data report. jc_toolkit step7:
++		 *   buf[51]     : payload sub-id (0x07 valid, 0x2a end)
++		 *   buf[52]     : continuation flag (0x01 = continued)
++		 *   buf[54..55] : BE payload size (top bit reserved)
++		 *   buf[56..]   : payload
++		 */
++		u16 payload_size;
++		const u8 *src;
++		size_t copy;
++
++		if (priv->writing) {
++			/*
++			 * verb-0x09 transceive reply arriving as a DATA report.
++			 * For a read-type raw command (im_transceive's generic
++			 * path registered priv->xcv_resp) capture the tag's
++			 * response payload here; a WRITE only ACKs and has
++			 * xcv_resp == NULL. Single-fragment only -- a payload
++			 * split across fragments (buf[52]==0x01, e.g. a large
++			 * FAST_READ) is not reassembled and yields xcv_len 0.
++			 */
++			if (priv->xcv_resp && buf[52] != 0x01) {
++				u16 psize = ((buf[54] << 8) | buf[55]) & 0x7FF;
++				size_t clen = psize;
++
++				if (clen > priv->xcv_cap)
++					clen = priv->xcv_cap;
++				memcpy(priv->xcv_resp, &buf[56], clen);
++				priv->xcv_len = clen;
++			}
++			priv->write_status = 0;
++			priv->write_done = true;
++			wake_up(&priv->write_wait);
++			return;
++		}
++
++		if (buf[51] != 0x07)
++			return;
++
++		payload_size = ((buf[54] << 8) | buf[55]) & 0x7FF;
++
++		if (buf[52] == 0x01) {
++			/* Continuation: payload at buf[116], (size - 60) bytes. */
++			src = &buf[116];
++			copy = payload_size > 60 ? payload_size - 60 : 0;
++		} else {
++			src = &buf[56];
++			copy = payload_size;
++		}
++
++		if (priv->read_pos + copy > sizeof(priv->read_buf))
++			copy = sizeof(priv->read_buf) - priv->read_pos;
++
++		memcpy(&priv->read_buf[priv->read_pos], src, copy);
++		priv->read_pos += copy;
++
++		/*
++		 * We don't have a clean end-of-read sentinel here; the
++		 * caller in im_transceive knows how many bytes it wants
++		 * and wakes early once it has them.
++		 */
++		if (priv->read_pos >= (priv->read_want ? priv->read_want : 16)) {
++			priv->read_done = true;
++			wake_up(&priv->read_wait);
++		}
++		return;
++	}
++}
++
++/*
++ * Poll worker: mirror jc_toolkit step5/step6 exactly.
++ *
++ * step5: send WAIT, read INFOs, break on state=0x0b (continue outer),
++ *        goto step6 on state=0x00.
++ * step6: send POLL, read INFOs, break on state=0x09 (tag found).
++ *
++ * jc_toolkit does no msleep between commands and no retries within
++ * step6 -- it just resends POLL every ~5 * 64ms via the outer while.
++ * We add hid_info tracing of every send and every state so we can
++ * see exactly what path we take.
++ */
++/*
++ * Race-free keep-alive verb send. poll_work's keep-alive emits WAIT/POLL to
++ * hold the tag, but an NFC read/write op also talks to the MCU. If a keep-alive
++ * WAIT lands right after an op's verb (READ-then-WAIT), the MCU wedges into
++ * Sequence Error (state 0x07). The op sets priv->reading / priv->writing before
++ * its sends, but checking that flag and then sending as two steps leaves a
++ * window: the op can set the flag and fire its verb in between. Re-check the
++ * flag *inside* output_mutex, atomically with the send -- once an op's verb has
++ * gone out under the mutex, the next keep-alive acquisition sees the flag and
++ * skips, so no keep-alive verb can ever follow an op's verb out of sequence.
++ * Returns true if the verb was actually sent.
++ */
++static bool joycon_nfc_keepalive_verb(struct joycon_tera *tera,
++				      struct joycon_nfc_priv *priv,
++				      u8 verb, const u8 *body, size_t body_len)
++{
++	bool sent = false;
++
++	mutex_lock(tera->output_mutex);
++	if (!priv->reading && !priv->writing) {
++		(void)joycon_nfc_send_verb(tera, verb, body, body_len);
++		sent = true;
++	}
++	mutex_unlock(tera->output_mutex);
++	return sent;
++}
++
++static void joycon_nfc_poll_work(struct work_struct *w)
++{
++	struct joycon_nfc_priv *priv =
++		container_of(w, struct joycon_nfc_priv, poll_work);
++	struct joycon_tera *tera = nfc_get_drvdata(priv->ndev);
++	int ret;
++	int gone_count = 0;
++	unsigned long last_poll = 0;
++
++	dev_info(tera->dev, "NFC poll_work: entering\n");
++	ret = joycon_mcu_enable(tera, JC_MCU_MODE_NFC);
++	if (ret) {
++		dev_warn(tera->dev, "NFC: MCU enable failed: %d\n", ret);
++		return;
++	}
++	dev_info(tera->dev, "NFC poll_work: MCU enabled\n");
++
++	tera->mcu.nfc.polling = true;
++
++	/*
++	 * Send polling_enable ONCE at session start. Empirically, sending
++	 * it multiple times (once per detection loop iteration) seems to
++	 * reset the RF scanner state and keeps the MCU stuck at 0x0b.
++	 */
++	mutex_lock(tera->output_mutex);
++	ret = joycon_mcu_polling_enable(tera, true);
++	mutex_unlock(tera->output_mutex);
++	dev_info(tera->dev,
++		 "NFC poll_work: initial polling_enable ret=%d\n", ret);
++	if (ret) {
++		dev_warn(tera->dev,
++			 "NFC initial polling_enable failed: %d\n", ret);
++		goto out;
++	}
++
++	/*
++	 * Outer session loop: after each detection cycle (tag found and
++	 * later removed), we come back here to arm the next detection.
++	 */
++	while (!priv->stop_requested) {
++		static const u8 poll_body[5] = { 0x01, 0x00, 0x00, 0x2c, 0x01 };
++		int iterations = 0;
++
++		dev_info(tera->dev,
++			 "NFC poll_work: (re)entering detection loop, state=%02x present=%d\n",
++			 tera->mcu.nfc.state, tera->mcu.nfc.target_present);
++
++		/*
++		 * If the MCU is in Sequence Error state (0x07), it stays
++		 * there indefinitely. WAIT doesn't reset it, and neither
++		 * does bouncing the MCU_POLLING_ENABLE subcommand (that
++		 * operates at a higher level, above the NFC state machine).
++		 *
++		 * Recovery ladder, cheapest first:
++		 *   1. STOP_POLLING (verb 0x02): the "designed" way to end
++		 *      a polling session. In testing on right Joy-Con FW
++		 *      4.00 with a wedged state 07, this did NOT clear the
++		 *      error state.
++		 *   2. CANCEL (verb 0x00): another candidate; also did not
++		 *      clear state 07 in the same test.
++		 *   3. Full MCU cycle: mcu_disable + mcu_enable(NFC) +
++		 *      polling_enable(true). This DOES work but takes
++		 *      ~500ms in the best case and up to several seconds
++		 *      if the MCU has to time out on subcommands.
++		 *
++		 * We try all three because (a) the first two are cheap
++		 * when they fail (~100ms each), and (b) different firmware
++		 * versions may behave differently.
++		 *
++		 * We enter state 07 after tag removal when a keep-alive
++		 * POLL races the tag leaving the field.
++		 */
++		if (tera->mcu.nfc.state == 0x07) {
++			dev_info(tera->dev,
++				 "NFC poll_work: state 07 (Sequence Error), resetting polling session\n");
++			mutex_lock(tera->output_mutex);
++			(void)joycon_nfc_send_verb(tera,
++						   JC_NFC_VERB_STOP_POLLING,
++						   NULL, 0);
++			mutex_unlock(tera->output_mutex);
++			msleep(50);
++			if (priv->stop_requested)
++				goto out;
++
++			if (tera->mcu.nfc.state == 0x07) {
++				dev_info(tera->dev,
++					 "NFC poll_work: STOP_POLLING didn't clear 07, trying CANCEL\n");
++				mutex_lock(tera->output_mutex);
++				(void)joycon_nfc_send_verb(tera,
++							   JC_NFC_VERB_CANCEL,
++							   NULL, 0);
++				mutex_unlock(tera->output_mutex);
++				msleep(50);
++				if (priv->stop_requested)
++					goto out;
++			}
++
++			if (tera->mcu.nfc.state == 0x07) {
++				dev_info(tera->dev,
++					 "NFC poll_work: neither verb cleared 07, full MCU cycle\n");
++				/*
++				 * joycon_mcu_disable() and joycon_mcu_enable()
++				 * both take output_mutex internally -- we must
++				 * NOT hold it here or we'll deadlock.
++				 *
++				 * These calls don't check stop_requested and
++				 * can take 5-10 seconds if the MCU is wedged.
++				 * If userspace closes the netlink socket during
++				 * that window, dev_down will call flush_work
++				 * and block until we complete this ladder. The
++				 * bail-outs above and below don't help mid-call
++				 * but they do bound the delay to one full cycle.
++				 */
++				joycon_mcu_disable(tera);
++				if (priv->stop_requested)
++					goto out;
++				msleep(50);
++				ret = joycon_mcu_enable(tera, JC_MCU_MODE_NFC);
++				if (ret < 0) {
++					dev_info(tera->dev,
++						 "NFC poll_work: MCU re-enable failed: %d\n",
++						 ret);
++					goto out;
++				}
++				if (priv->stop_requested)
++					goto out;
++				mutex_lock(tera->output_mutex);
++				(void)joycon_mcu_polling_enable(tera, true);
++				mutex_unlock(tera->output_mutex);
++			}
++		}
++
++		/*
++		 * Release a tag left selected by a previous transceive session.
++		 * A selected tag (state 0x04) is not re-detectable by a plain
++		 * re-poll, so power-cycle the RF (MCU disable/enable) to force it
++		 * back to idle before we scan. Runs once per activation (only
++		 * when needs_field_reset is set), so idle polling is unaffected.
++		 */
++		if (priv->needs_field_reset) {
++			dev_info(tera->dev,
++				 "NFC poll_work: releasing selected tag (RF reset)\n");
++			priv->needs_field_reset = false;
++			/*
++			 * Tell the NFC core the old target is gone BEFORE we
++			 * re-detect. The core silently drops an nfc_targets_found()
++			 * for a target it still holds (the re-report's netlink event
++			 * never reaches userspace), so after a read session -- where
++			 * the same tag is still physically present -- every
++			 * re-detection was lost and consumers stayed on SCANNING
++			 * until a STOP_POLL/START_POLL reset the core's target list.
++			 * Dropping it here makes the re-detection a clean new target
++			 * the core will emit: the standard lost -> found contract.
++			 */
++			if (tera->mcu.nfc.target_present_reported) {
++				(void)nfc_target_lost(priv->ndev,
++						      priv->target.idx);
++				tera->mcu.nfc.target_present_reported = false;
++				tera->mcu.nfc.target_present = false;
++			}
++			/* Release a tag left selected by the previous session via a
++			 * full MCU power-cycle (disable/enable). A lighter HOS-style
++			 * SET_MCU_STATE toggle was tried and reliably times out (-110)
++			 * on this link, so the full cycle -- which is itself fast
++			 * (~250ms) -- is the correct release. The wedge fix lives in
++			 * the keep-alive (WAIT-then-POLL separation), not here. */
++			joycon_mcu_disable(tera);
++			if (priv->stop_requested)
++				goto out;
++			msleep(50);
++			ret = joycon_mcu_enable(tera, JC_MCU_MODE_NFC);
++			if (ret < 0) {
++				dev_info(tera->dev,
++					 "NFC poll_work: RF reset failed: %d\n",
++					 ret);
++				goto out;
++			}
++			if (priv->stop_requested)
++				goto out;
++			mutex_lock(tera->output_mutex);
++			(void)joycon_mcu_polling_enable(tera, true);
++			mutex_unlock(tera->output_mutex);
++		}
++
++		/*
++		 * Inner detection loop -- mirrors jc_toolkit step5/step6.
++		 * Send WAIT, wait for state to settle, send POLL, wait for
++		 * tag detect or scan close. Break out when a tag is found;
++		 * bail after 100 iterations if not.
++		 */
++		while (!priv->stop_requested &&
++		       !tera->mcu.nfc.target_present &&
++		       iterations++ < 100) {
++			unsigned long deadline;
++
++			mutex_lock(tera->output_mutex);
++			ret = joycon_nfc_send_verb(tera,
++						   JC_NFC_VERB_START_WAITING,
++						   NULL, 0);
++			mutex_unlock(tera->output_mutex);
++			if (ret < 0) {
++				msleep(200);
++				continue;
++			}
++
++			/*
++			 * Wait for the MCU to report state=0x00 (AwaitingCmd)
++			 * OR state=0x0b (still busy from a prior transition).
++			 * jc_toolkit accepts both and then falls through --
++			 * on 0x0b it re-issues WAIT via the outer loop, on
++			 * 0x00 it proceeds to POLL.
++			 */
++			deadline = jiffies + 2 * HZ;
++			while (!priv->stop_requested &&
++			       !tera->mcu.nfc.target_present &&
++			       time_before(jiffies, deadline)) {
++				priv->tag_event = false;
++				wait_event_timeout(priv->poll_wait,
++					priv->stop_requested || priv->tag_event ||
++					tera->mcu.nfc.target_present,
++					msecs_to_jiffies(30));
++				/* proceed on settle (0x00/0x0b) or a tag (0x09) */
++				if (tera->mcu.nfc.state == 0x00 ||
++				    tera->mcu.nfc.state == 0x0b ||
++				    tera->mcu.nfc.state == 0x09)
++					break;
++			}
++			if (priv->stop_requested)
++				break;
++			if (tera->mcu.nfc.state != 0x00)
++				continue;	/* still 0x0b, re-send WAIT */
++
++			mutex_lock(tera->output_mutex);
++			ret = joycon_nfc_send_verb(tera,
++						   JC_NFC_VERB_START_POLLING,
++						   poll_body, sizeof(poll_body));
++			mutex_unlock(tera->output_mutex);
++			if (ret < 0) {
++				msleep(200);
++				continue;
++			}
++
++			/*
++			 * Wait for tag detect (state=0x09), scan window close
++			 * (state=0x00 => re-arm), or SequenceError. 2s upper
++			 * bound as safety.
++			 */
++			/*
++			 * Drive detection like HOS: after POLL starts the scan,
++			 * poll with WAIT (verb 0x04) at ~16ms until the tag is
++			 * seen (0x09); if the scan window closes (state 0x00)
++			 * re-issue POLL to re-arm it. A single POLL followed by a
++			 * passive wait lets the scan lapse and the next POLL is
++			 * ~2s away -- the root cause of the multi-second detection
++			 * latency. Wire capture shows HOS never goes quiet here.
++			 */
++			deadline = jiffies + 3 * HZ;
++			while (!priv->stop_requested &&
++			       !tera->mcu.nfc.target_present &&
++			       time_before(jiffies, deadline)) {
++				u8 st = tera->mcu.nfc.state;
++
++				if (st == 0x09 || st == 0x07)
++					break;
++
++				mutex_lock(tera->output_mutex);
++				if (st == 0x00)
++					/*
++					 * Idle -- (re)start the RF scan on every
++					 * idle sample, not just the edge into
++					 * 0x00: a POLL that doesn't take (state
++					 * falls 0x0b->0x00 without scanning) must
++					 * be retried or the scan never runs and
++					 * the tag is never detected.
++					 */
++					(void)joycon_nfc_send_verb(tera,
++						JC_NFC_VERB_START_POLLING,
++						poll_body, sizeof(poll_body));
++				else
++					/* scanning/busy -- drive with WAIT */
++					(void)joycon_nfc_send_verb(tera,
++						JC_NFC_VERB_START_WAITING,
++						NULL, 0);
++				mutex_unlock(tera->output_mutex);
++
++				priv->tag_event = false;
++				wait_event_timeout(priv->poll_wait,
++					priv->stop_requested ||
++					tera->mcu.nfc.target_present ||
++					priv->tag_event ||
++					tera->mcu.nfc.state == 0x09,
++					msecs_to_jiffies(16));
++			}
++		}
++
++		if (priv->stop_requested)
++			break;
++
++		if (!tera->mcu.nfc.target_present) {
++			dev_info(tera->dev,
++				 "NFC poll_work: 100 iters no tag, backing off\n");
++			msleep(200);
++			continue;
++		}
++
++		dev_info(tera->dev,
++			 "NFC poll_work: tag detected, entering keep-alive loop\n");
++
++		/*
++		 * Tag-present keep-alive, matching HOS (mitm capture): keep the
++		 * fast WAIT scan loop running to hold the tag, and re-arm the scan
++		 * with POLL periodically to notice removal. HOS sends WAIT (verb
++		 * 0x04, frame 02 04 00 00 08 00 -- identical to ours) every ~15ms
++		 * continuously, punctuated by a POLL (verb 0x01) every few seconds.
++		 * WAIT alone latches 0x09 and never reports removal; the periodic
++		 * POLL re-scans, and if it no longer finds the tag the field is
++		 * empty. The recv does not re-fire targets_found across a re-scan
++		 * (it fires only on the first has_tag while !reported, and reported
++		 * stays set), so bouncing the tag 0x09->0x0b->0x09 is invisible.
++		 */
++		gone_count = 0;
++		last_poll = jiffies;
++
++		while (!priv->stop_requested &&
++		       tera->mcu.nfc.target_present) {
++			/* Fast WAIT cadence to maintain the tag (~HOS 15ms). */
++			priv->tag_event = false;
++			wait_event_timeout(priv->poll_wait,
++				priv->stop_requested ||
++				!tera->mcu.nfc.target_present ||
++				priv->tag_event,
++				msecs_to_jiffies(JC_NFC_KEEPALIVE_MS));
++
++			if (priv->stop_requested ||
++			    !tera->mcu.nfc.target_present)
++				break;
++
++			if (priv->reading || priv->writing) {
++				/*
++				 * Reader active -- don't interfere (WAIT after a
++				 * READ is a Sequence Error). Defer the next
++				 * re-scan so it doesn't land on top of a read.
++				 */
++				gone_count = 0;
++				last_poll = jiffies;
++				continue;
++			}
++
++			/*
++			 * On an ordinary iteration, just hold the tag with WAIT.
++			 * On a re-scan iteration, send POLL WITHOUT a WAIT
++			 * immediately before it: a maintenance WAIT followed
++			 * back-to-back by POLL (POLL issued before the WAIT's
++			 * reply has landed) is an out-of-sequence pair that
++			 * wedges the MCU into Sequence Error 0x07 -- this is the
++			 * ~1-in-4 idle 09->07 wedge. Separating them removes it.
++			 */
++			if (time_before(jiffies,
++					last_poll +
++					msecs_to_jiffies(JC_NFC_REPOLL_MS))) {
++				/* Maintain: WAIT, exactly as HOS does. Guarded so
++				 * it is never emitted after an op's verb. */
++				if (!joycon_nfc_keepalive_verb(tera, priv,
++						JC_NFC_VERB_START_WAITING,
++						NULL, 0))
++					continue;	/* op started -- yield */
++				continue;		/* not time to re-scan */
++			}
++			last_poll = jiffies;
++
++			/*
++			 * Re-scan: POLL re-arms the scan (briefly bouncing the
++			 * tag off 0x09), then drive WAIT until it settles back to
++			 * 0x09 (present) or the window elapses (gone).
++			 */
++			if (!joycon_nfc_keepalive_verb(tera, priv,
++					JC_NFC_VERB_START_POLLING,
++					poll_body, sizeof(poll_body))) {
++				/* op started between WAIT and re-scan: defer the
++				 * re-scan rather than POLL on top of the op. */
++				gone_count = 0;
++				last_poll = jiffies;
++				continue;
++			}
++			{
++				unsigned long sdl = jiffies +
++					msecs_to_jiffies(JC_NFC_REPOLL_SETTLE_MS);
++
++				while (time_before(jiffies, sdl) &&
++				       !priv->stop_requested &&
++				       tera->mcu.nfc.state != 0x09) {
++					if (!joycon_nfc_keepalive_verb(tera, priv,
++						JC_NFC_VERB_START_WAITING,
++						NULL, 0))
++						break;	/* op started -- stop settling */
++					priv->tag_event = false;
++					wait_event_timeout(priv->poll_wait,
++						priv->stop_requested ||
++						priv->tag_event,
++						msecs_to_jiffies(JC_NFC_KEEPALIVE_MS));
++				}
++			}
++			if (priv->stop_requested)
++				break;
++
++			if (tera->mcu.nfc.state == 0x09) {
++				gone_count = 0;
++				dev_dbg(tera->dev,
++					"NFC keep-alive: re-scan ok (state=09)\n");
++				continue;
++			}
++			dev_dbg(tera->dev,
++				"NFC keep-alive: re-scan miss %d (state=%02x)\n",
++				gone_count + 1, tera->mcu.nfc.state);
++			if (++gone_count < 2)
++				continue;
++			{
++				u32 idx = priv->target.idx;
++
++				dev_info(tera->dev,
++					 "NFC keep-alive: tag gone (re-scan failed), target_lost idx=%u\n",
++					 idx);
++				tera->mcu.nfc.target_present = false;
++				tera->mcu.nfc.target_present_reported = false;
++				(void)nfc_target_lost(priv->ndev, idx);
++				break;
++			}
++		}
++
++		if (priv->stop_requested)
++			break;
++
++		dev_info(tera->dev, "NFC poll_work: tag gone, re-arming\n");
++
++		tera->mcu.nfc.target_present_reported = false;
++		/* Loop back to inner detection loop. */
++	}
++
++out:
++
++
++	tera->mcu.nfc.polling = false;
++	tera->mcu.nfc.target_present = false;
++	tera->mcu.nfc.target_present_reported = false;
++
++	/*
++	 * Stop the NFC scan but LEAVE THE MCU ENABLED. We do not suspend the
++	 * MCU between NFC operations: suspending it while busy wedges the next
++	 * mcu_enable (the MCU stops answering status for seconds, and a quick
++	 * SUSPEND->RESUME does not recover it). Keeping it up at mode 4 across
++	 * ops removes the wedge entirely and lets the next start_poll skip the
++	 * ~350ms enable handshake (see joycon_mcu_enable). STOP_POLLING (verb
++	 * 0x02) + polling-disable idle the scanner; the MCU is fully disabled
++	 * only when the controller is torn down.
++	 */
++	mutex_lock(tera->output_mutex);
++	(void)joycon_nfc_send_verb(tera, JC_NFC_VERB_STOP_POLLING, NULL, 0);
++	(void)joycon_mcu_polling_enable(tera, false);
++	mutex_unlock(tera->output_mutex);
++	dev_info(tera->dev, "NFC poll_work: exiting, MCU left enabled\n");
++}
++
++
++/* ---- nfc_ops vtable ---- */
++
++static int joycon_nfc_dev_up(struct nfc_dev *dev)
++{
++	struct joycon_tera *tera = nfc_get_drvdata(dev);
++
++	dev_info(tera->dev, "NFC: dev_up called\n");
++	return 0;
++}
++
++static int joycon_nfc_dev_down(struct nfc_dev *dev)
++{
++	struct joycon_tera *tera = nfc_get_drvdata(dev);
++	struct joycon_nfc_priv *priv = tera->mcu.nfc.priv;
++
++	dev_info(tera->dev, "NFC: dev_down called\n");
++
++	/*
++	 * Some userspace apps close their netlink socket without an
++	 * explicit stop_poll (e.g. nfc-probe on exit). The kernel NFC
++	 * layer invokes dev_down on socket close but not stop_poll.
++	 * Treat dev_down as an implicit stop so the poll worker doesn't
++	 * sit forever waiting on target_present.
++	 */
++	if (priv) {
++		priv->stop_requested = true;
++		wake_up(&priv->poll_wait);
++		flush_work(&priv->poll_work);
++	}
++
++	/*
++	 * Drop the RF field (MCU suspend) if a Mifare read was attempted this
++	 * session -- Mifare auth can leave the tag stuck/secured, and only an
++	 * RF power-cycle recovers it (the driver's subcmd-0x25 poll-disable
++	 * does NOT drop the field). The next dev_up's enable handshake brings
++	 * up a fresh tag. HOS does the same (subcmd 0x22 off/on) between
++	 * reads. Skipped for NTAG-only sessions so they keep the fast path.
++	 */
++	if (priv && priv->mifare_authed) {
++		(void)joycon_mcu_disable(tera);
++		priv->mifare_authed = false;
++	}
++
++	return 0;
++}
++
++static int joycon_nfc_start_poll(struct nfc_dev *dev,
++				 u32 im_protocols, u32 tm_protocols)
++{
++	struct joycon_tera *tera = nfc_get_drvdata(dev);
++	struct joycon_nfc_priv *priv = tera->mcu.nfc.priv;
++
++	dev_info(tera->dev, "NFC: start_poll(im=0x%x, tm=0x%x)\n",
++		 im_protocols, tm_protocols);
++
++	if (!priv)
++		return -ENODEV;
++	if (!(im_protocols & NFC_PROTO_MIFARE_MASK))
++		return -EOPNOTSUPP;
++
++	priv->stop_requested = false;
++	queue_work(priv->poll_wq, &priv->poll_work);
++	return 0;
++}
++
++static void joycon_nfc_stop_poll(struct nfc_dev *dev)
++{
++	struct joycon_tera *tera = nfc_get_drvdata(dev);
++	struct joycon_nfc_priv *priv = tera->mcu.nfc.priv;
++
++	dev_info(tera->dev, "NFC: stop_poll called\n");
++
++	if (!priv)
++		return;
++
++	priv->stop_requested = true;
++	wake_up(&priv->poll_wait);
++	flush_work(&priv->poll_work);
++	dev_info(tera->dev, "NFC: stop_poll returning\n");
++}
++
++static int joycon_nfc_activate_target(struct nfc_dev *dev,
++				      struct nfc_target *target, u32 protocol)
++{
++	struct joycon_tera *tera = nfc_get_drvdata(dev);
++
++	dev_info(tera->dev, "NFC: activate_target(protocol=0x%x)\n", protocol);
++	/* MCU has already activated during poll. Mark that a tag is now
++	 * selected so the next detection releases it before re-polling. */
++	if (tera->mcu.nfc.priv)
++		((struct joycon_nfc_priv *)tera->mcu.nfc.priv)->needs_field_reset = true;
++	return 0;
++}
++
++static void joycon_nfc_deactivate_target(struct nfc_dev *dev,
++					 struct nfc_target *target, u8 mode)
++{
++	struct joycon_tera *tera = nfc_get_drvdata(dev);
++
++	dev_info(tera->dev, "NFC: deactivate_target(mode=%u)\n", mode);
++	tera->mcu.nfc.target_present = false;
++}
++
++/*
++ * im_transceive: run one ISO14443-3 Type-2 command against the selected tag.
++ *
++ *  - 0x30 (READ) uses the MCU's optimized read verb (0x06) and returns 16
++ *    bytes (4 NTAG pages) via cb -- the fast path neard's NDEF walk relies on.
++ *  - 0xa8 is our nfc-probe tool's custom batch-write opcode.
++ *  - Everything else (0xA2 WRITE, 0x60 GET_VERSION, 0x3A FAST_READ, 0x1B
++ *    PWD_AUTH, ...) is sent verbatim through the MCU raw-transceive verb
++ *    (0x09), which appends CRC_A; the tag's response is returned via cb. This
++ *    gives neard and other AF_NFC apps standard Type-2 read AND write.
++ *
++ * Mifare Classic auth (CRYPTO1) is not handled here -- the reader-side cipher
++ * would have to run on the MCU; that's future work.
++ */
++static int joycon_nfc_im_transceive(struct nfc_dev *dev,
++				    struct nfc_target *target,
++				    struct sk_buff *skb,
++				    data_exchange_cb_t cb, void *cb_context)
++{
++	struct joycon_tera *tera = nfc_get_drvdata(dev);
++	struct joycon_nfc_priv *priv = tera->mcu.nfc.priv;
++	struct sk_buff *resp;
++	u8 verb_body[19] = { 0 };
++	u8 cmd, page;
++	int ret;
++
++	if (!priv) {
++		ret = -ENODEV;
++		goto out_free;
++	}
++	if (skb->len < 2) {
++		ret = -EINVAL;
++		goto out_free;
++	}
++	cmd = skb->data[0];
++	page = skb->data[1];
++
++	if (cmd == 0xa8) {
++		/*
++		 * Batch NTAG WRITE. Non-standard opcode consumed by our
++		 * nfc-probe tool. Wire format from userspace:
++		 *   [0]      : 0xa8
++		 *   [1]      : UID length (must be 0x07)
++		 *   [2..8]   : 7-byte target UID
++		 *   [9]      : num_pages (N, 1..32)
++		 *   [10..]   : N * [page(1)][data(4)]  (5 bytes each)
++		 * Total length = 10 + 5*N bytes.
++		 */
++		struct joycon_nfc_write_page writes[32];
++		u8 uid[7];
++		int n_writes;
++		int i;
++
++		if (skb->len < 10 || skb->data[1] != 0x07) {
++			ret = -EINVAL;
++			goto out_free;
++		}
++		memcpy(uid, &skb->data[2], 7);
++		n_writes = skb->data[9];
++		if (n_writes < 1 || n_writes > 32 ||
++		    skb->len < 10 + 5 * n_writes) {
++			ret = -EINVAL;
++			goto out_free;
++		}
++		for (i = 0; i < n_writes; i++) {
++			writes[i].page = skb->data[10 + 5 * i];
++			memcpy(writes[i].data, &skb->data[10 + 5 * i + 1], 4);
++		}
++
++		mutex_lock(&priv->read_lock);
++		priv->reading = true;	/* keep poll_work out of our way */
++		mutex_unlock(&priv->read_lock);
++
++		ret = joycon_nfc_batch_write(tera, uid, writes, n_writes);
++
++		mutex_lock(&priv->read_lock);
++		priv->reading = false;
++		mutex_unlock(&priv->read_lock);
++
++		if (ret == 0) {
++			/*
++			 * Return a single OK byte via nfc_alloc_recv_skb() (not
++			 * alloc_skb): the rawsock completion prepends a 1-byte NFC
++			 * header via skb_push(), which panics on zero headroom.
++			 */
++			resp = nfc_alloc_recv_skb(1, GFP_KERNEL);
++			if (!resp) {
++				ret = -ENOMEM;
++				goto out_free;
++			}
++			*(u8 *)skb_put(resp, 1) = 0x00;
++			cb(cb_context, resp, 0);
++			kfree_skb(skb);
++			return 0;
++		}
++		goto out_free;
++	}
++
++	if (cmd == 0xa0 &&
++	    (tera->mcu.nfc.tag_ic == 0x04 || priv->target.nfcid1_len == 4)) {
++		/*
++		 * Mifare Classic single-block WRITE via MCU verb 0x0f, mode
++		 * 0x07 (read is 0x06; mode = 4*count + 2 read / +3 write). The
++		 * MCU issues the actual 0xA0 write internally.
++		 *
++		 * Userspace command (three layouts):
++		 *   len 18:  a0 <block> <data16>                    (Key A, default key)
++		 *   len 24:  a0 <block> <data16> <key6>             (Key A)
++		 *   len 25:  a0 <block> <data16> <0x60|0x61> <key6> (explicit A/B)
++		 *     [0]      0xa0
++		 *     [1]      block number
++		 *     [2..17]  16 data bytes
++		 *     [18]     auth opcode 0x60 (Key A) / 0x61 (Key B)   (len 25 only)
++		 *     [19..24] 6-byte key                               (len 25)
++		 *     [18..23] 6-byte key                               (len 24)
++		 *
++		 * Key type rides as the standard Mifare auth opcode (0x60/0x61) --
++		 * the same values the read path (cmd 0x60/0x61) uses -- rather than
++		 * a bespoke write opcode, so a Key-B write is "auth B, then write"
++		 * exactly as on the wire, and the byte stays meaningful to any
++		 * standard reader.
++		 *
++		 * Wire (HOS-confirmed, read-back verified):
++		 *   d0 07 07 <UID> <0x60|0x61> <key6> <block> <16 data>
++		 * Completion = MCU state reaches 0x10 (captured in recv). WAIT-
++		 * pumped like a read. Returns a 1-byte ACK (0x00 ok / 0xff miss).
++		 *
++		 * Any block is writable (full-card imaging/cloning needs block 0
++		 * and sector trailers too). Trailer safety -- a bad access-bit
++		 * write can permanently lock a sector -- is the caller's
++		 * responsibility, not the driver's.
++		 */
++		static const u8 key_ff[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
++		const u8 *key, *wdata;
++		u8 body[64], block, auth;
++		size_t n = 0, uidlen;
++		bool ok;
++		int i;
++
++		if (skb->len != 18 && skb->len != 24 && skb->len != 25) {
++			ret = -EINVAL;
++			goto out_free;
++		}
++		block = skb->data[1];
++		wdata = &skb->data[2];
++		if (skb->len == 25) {
++			auth = skb->data[18];		/* 0x60 Key A / 0x61 Key B */
++			key  = &skb->data[19];
++			if (auth != 0x60 && auth != 0x61) {
++				ret = -EINVAL;
++				goto out_free;
++			}
++		} else {
++			auth = 0x60;			/* Key A */
++			key  = (skb->len == 24) ? &skb->data[18] : key_ff;
++		}
++		uidlen = priv->target.nfcid1_len;
++		if (uidlen == 0 || uidlen > 7) {
++			ret = -EINVAL;
++			goto out_free;
++		}
++
++		body[n++] = 0xd0;	/* transceive timeout 0x07d0 = 2000 ms */
++		body[n++] = 0x07;
++		body[n++] = 0x07;	/* single-block WRITE mode (4*1+3) */
++		memcpy(&body[n], priv->target.nfcid1, uidlen);
++		n += uidlen;
++		body[n++] = auth;	/* 0x60 Key A / 0x61 Key B */
++		memcpy(&body[n], key, 6);
++		n += 6;
++		body[n++] = block;
++		memcpy(&body[n], wdata, 16);
++		n += 16;
++
++		mutex_lock(&priv->read_lock);
++		priv->reading = true;
++		priv->writing = true;
++		priv->mifare_write = true;
++		priv->mifare_authed = true;	/* RF-reset on dev_down even if aborted */
++		priv->write_done = false;
++		priv->write_status = 0;
++		priv->xcv_resp = NULL;		/* write returns an ACK, no data */
++		priv->xcv_len = 0;
++
++		mutex_lock(tera->output_mutex);
++		ret = joycon_nfc_send_verb_ex(tera, JC_NFC_VERB_READ_MIFARE,
++					      0x01, true, body, n);
++		mutex_unlock(tera->output_mutex);
++
++		if (ret >= 0) {
++			for (i = 0; i < 45 && !priv->write_done; i++) {
++				wait_event_timeout(priv->write_wait,
++						   priv->write_done,
++						   msecs_to_jiffies(15));
++				if (priv->write_done)
++					break;
++				mutex_lock(tera->output_mutex);
++				joycon_nfc_send_verb(tera,
++						JC_NFC_VERB_START_WAITING,
++						NULL, 0);
++				mutex_unlock(tera->output_mutex);
++			}
++		}
++		ok = priv->write_done;
++		priv->writing = false;
++		priv->mifare_write = false;
++		priv->reading = false;
++		mutex_unlock(&priv->read_lock);
++		if (ret < 0) {
++			dev_dbg(tera->dev,
++				"NFC mifare write blk %u: send failed %d\n",
++				block, ret);
++			goto out_free;
++		}
++
++		resp = nfc_alloc_recv_skb(1, GFP_KERNEL);
++		if (!resp) {
++			ret = -ENOMEM;
++			goto out_free;
++		}
++		*(u8 *)skb_put(resp, 1) = ok ? 0x00 : 0xff;	/* ACK / miss */
++		cb(cb_context, resp, 0);
++		kfree_skb(skb);
++		return 0;
++	}
++
++	if ((cmd == 0x60 || cmd == 0x61) &&
++	    (tera->mcu.nfc.tag_ic == 0x04 || priv->target.nfcid1_len == 4)) {
++		/*
++		 * Mifare Classic auth+read of one block via MCU verb 0x0f,
++		 * driven over the same AF_NFC transceive path nfc-probe/neard
++		 * use for NTAG reads. Gated on a Mifare target (4-byte UID, or
++		 * the MCU's tag_ic 0x04); on a 7-byte NTAG the byte 0x60 is
++		 * GET_VERSION and falls through to the raw path below.
++		 *
++		 * Userspace command (like a 0x30 read):
++		 *   [0]    0x60 (auth Key A) / 0x61 (Key B)
++		 *   [1]    block number
++		 *   [2..7] 6-byte key (optional; default FFFFFFFFFFFF)
++		 *
++		 * Wire, confirmed against an HOS nfcMfReadMifare btdrv-mitm
++		 * capture (single verb-0x0f packet):
++		 *   d0 07 06 <UID> <0x60|0x61> <key6> <block>
++		 * (the 0x06 byte is 4*nblocks+2). The MCU only completes the
++		 * auth+read while being polled, so we pump WAIT (verb 0x04)
++		 * after a settle gap, exactly as HOS does. The 16-byte block
++		 * returns in a 0x2a report with buf[51]==0x10 (not a 0x3a DATA
++		 * report), captured in recv(). A wrong key / no reply yields a
++		 * 1-byte 0x00 sentinel (delivered as success) so the AF_NFC
++		 * socket survives for a subsequent attempt.
++		 */
++		static const u8 key_ff[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
++		const u8 *key;
++		u8 body[160], xcv[256], block;
++		size_t n = 0, uidlen, xcv_len, off, seq;
++		unsigned int count, k;
++		int i;
++
++		/*
++		 * Command: [0]=0x60/0x61 [1]=block  (+optional [2]=count,
++		 * +optional 6-byte key). Layouts: len2 blk / len3 blk+count /
++		 * len8 blk+key6 / len9 blk+count+key6. Reads @count consecutive
++		 * blocks from @block with one key. WIP: only single-block is
++		 * capture-confirmed; count>1 layout is pending on-device check.
++		 */
++		count = 1;
++		key = key_ff;
++		block = skb->data[1];
++		if (skb->len == 2) {
++			/* defaults */
++		} else if (skb->len == 3) {
++			count = skb->data[2];
++		} else if (skb->len == 8) {
++			key = &skb->data[2];
++		} else if (skb->len == 9) {
++			count = skb->data[2];
++			key = &skb->data[3];
++		} else {
++			ret = -EINVAL;
++			goto out_free;
++		}
++		if (count < 1)
++			count = 1;
++		if (count > 15)			/* keep body + one response report bounded */
++			count = 15;
++		uidlen = priv->target.nfcid1_len;
++		if (uidlen == 0 || uidlen > 7) {
++			ret = -EINVAL;
++			goto out_free;
++		}
++
++		/* Header: d0 07 <mode=4*count+2> <UID>, then count auth entries. */
++		body[n++] = 0xd0;
++		body[n++] = 0x07;
++		body[n++] = (u8)(4 * count + 2);
++		memcpy(&body[n], priv->target.nfcid1, uidlen);
++		n += uidlen;
++		for (k = 0; k < count; k++) {
++			body[n++] = cmd;		/* 0x60 / 0x61 */
++			memcpy(&body[n], key, 6);
++			n += 6;
++			body[n++] = (u8)(block + k);
++		}
++
++		mutex_lock(&priv->read_lock);
++		priv->reading = true;
++		priv->mifare_authed = true;	/* mark now: dev_down must RF-reset even if this read is aborted mid-pump */
++		priv->writing = true;
++		priv->write_done = false;
++		priv->write_status = 0;
++		priv->xcv_resp = xcv;
++		priv->xcv_cap = sizeof(xcv);
++		priv->xcv_len = 0;
++
++		/*
++		 * Fragment the body across verb-0f packets (<=31 body bytes
++		 * each), seq 1,2,3..., EOT flag only on the final packet --
++		 * exactly how HOS sends a multi-block Mifare read.
++		 */
++		ret = 0;
++		for (off = 0, seq = 1; off < n && ret >= 0; seq++) {
++			size_t chunk = n - off;
++			bool last;
++
++			if (chunk > 31)
++				chunk = 31;
++			last = (off + chunk >= n);
++			mutex_lock(tera->output_mutex);
++			ret = joycon_nfc_send_verb_ex(tera,
++					JC_NFC_VERB_READ_MIFARE,
++					(u8)seq, last, &body[off], chunk);
++			mutex_unlock(tera->output_mutex);
++			off += chunk;
++		}
++
++		/*
++		 * Pump WAIT (verb 0x04) to drive the read to completion, as
++		 * HOS does -- wait-FIRST so verb-0f gets a ~15 ms settle before
++		 * the first WAIT (an immediate WAIT clobbers the read and the
++		 * state never leaves 0x09). A successful send returns the byte
++		 * count (>= 0); keep ret so a tag-level miss returns the
++		 * sentinel below instead of tearing down the AF_NFC socket.
++		 */
++		if (ret >= 0) {
++			/*
++			 * A valid read completes in ~12-20 pumps (~0.5s); cap
++			 * well above that but far below the old 140 so a miss
++			 * fails fast instead of holding the transceive ~2.8s
++			 * (long enough that userspace gave up and tore the
++			 * session down before the reset flag mattered).
++			 */
++			for (i = 0; i < 45 && !priv->write_done; i++) {
++				wait_event_timeout(priv->write_wait,
++						   priv->write_done,
++						   msecs_to_jiffies(15));
++				if (priv->write_done)
++					break;
++				mutex_lock(tera->output_mutex);
++				joycon_nfc_send_verb(tera,
++						JC_NFC_VERB_START_WAITING,
++						NULL, 0);
++				mutex_unlock(tera->output_mutex);
++			}
++		}
++		xcv_len = priv->xcv_len;
++		priv->writing = false;
++		priv->xcv_resp = NULL;
++		priv->reading = false;
++		mutex_unlock(&priv->read_lock);
++		if (ret < 0) {
++			dev_dbg(tera->dev,
++				"NFC mifare %#04x blk %u: send failed %d\n",
++				cmd, block, ret);
++			goto out_free;
++		}
++
++		/*
++		 * Response captured in recv() from buf[60]: xcv[0] = block
++		 * count, then per block a 1-byte index + 16 data bytes. Return
++		 * the concatenated 16-byte blocks. A miss (no reply / auth fail,
++		 * xcv_len==0) returns a 1-byte 0x00 sentinel as success so the
++		 * AF_NFC socket survives.
++		 */
++		if (xcv_len == 0) {
++			resp = nfc_alloc_recv_skb(1, GFP_KERNEL);
++			if (!resp) {
++				ret = -ENOMEM;
++				goto out_free;
++			}
++			*(u8 *)skb_put(resp, 1) = 0x00;
++		} else {
++			unsigned int rcnt = xcv[0];
++
++			if (rcnt < 1)
++				rcnt = 1;
++			if (rcnt > count)
++				rcnt = count;
++			resp = nfc_alloc_recv_skb(rcnt * 16, GFP_KERNEL);
++			if (!resp) {
++				ret = -ENOMEM;
++				goto out_free;
++			}
++			for (k = 0; k < rcnt; k++) {
++				size_t rec = 2 + k * 17;	/* skip count + idx */
++
++				if (rec + 16 > xcv_len)
++					break;
++				memcpy(skb_put(resp, 16), &xcv[rec], 16);
++			}
++		}
++		cb(cb_context, resp, 0);
++		kfree_skb(skb);
++		return 0;
++	}
++
++	if (cmd == 0x30 || cmd == 0x3a) {
++		/*
++		 * NTAG READ (0x30 <page> -> one 4-page block) and FAST_READ
++		 * (0x3a <start> <end> -> one page range) via the MCU verb-0x06
++		 * range read. Stateless, like pn533: ONE transceive returns
++		 * exactly the requested range; the caller (neard / the AF_NFC
++		 * backend) decides how to chunk a whole-tag read. poll_work
++		 * keep-alives the tag between calls -- no internal loop or cache
++		 * (holding reading=true across many reads starves keep-alive and
++		 * wedges the MCU; one huge range also wedges, so the caller picks
++		 * a safe chunk and we just execute it).
++		 */
++		u8 start, end;
++		unsigned int nbytes;
++		unsigned long deadline;
++		u16 last_pos;
++
++		if (cmd == 0x3a) {
++			if (skb->len < 3) {
++				ret = -EINVAL;
++				goto out_free;
++			}
++			start = skb->data[1];
++			end   = skb->data[2];
++		} else {
++			start = page;
++			end   = page + 3;
++		}
++		if (end < start) {
++			ret = -EINVAL;
++			goto out_free;
++		}
++		nbytes = (unsigned int)(end - start + 1) * 4;
++		if (nbytes > sizeof(priv->read_buf))
++			nbytes = sizeof(priv->read_buf);
++
++		verb_body[0]  = 0xd0;
++		verb_body[1]  = 0x07;
++		verb_body[9]  = 0x00;
++		verb_body[10] = 0x01;
++		verb_body[11] = start;
++		verb_body[12] = end;
++
++		mutex_lock(&priv->read_lock);
++		priv->read_pos = 0;
++		priv->read_done = false;
++		priv->read_want = nbytes;
++		priv->reading = true;
++		deadline = jiffies + 2 * HZ;
++
++		mutex_lock(tera->output_mutex);
++		ret = joycon_nfc_send_verb(tera, JC_NFC_VERB_READ_NTAG,
++					   verb_body, 19);
++		mutex_unlock(tera->output_mutex);
++		last_pos = 0;
++		while (ret >= 0 && !priv->read_done &&
++		       time_before(jiffies, deadline)) {
++			wait_event_timeout(priv->read_wait, priv->read_done,
++					   msecs_to_jiffies(200));
++			if (priv->read_done)
++				break;
++			if (priv->read_pos == last_pos) {	/* stalled: re-send */
++				mutex_lock(tera->output_mutex);
++				ret = joycon_nfc_send_verb(tera,
++						JC_NFC_VERB_READ_NTAG,
++						verb_body, 19);
++				mutex_unlock(tera->output_mutex);
++			}
++			last_pos = priv->read_pos;
++		}
++
++		priv->reading = false;
++		priv->read_want = 0;
++		if (priv->read_pos < nbytes)
++			nbytes = priv->read_pos;	/* short read -> return what we got */
++		mutex_unlock(&priv->read_lock);
++
++		if (nbytes == 0) {
++			ret = -ETIMEDOUT;
++			goto out_free;
++		}
++		resp = nfc_alloc_recv_skb(nbytes, GFP_KERNEL);
++		if (!resp) {
++			ret = -ENOMEM;
++			goto out_free;
++		}
++		memcpy(skb_put(resp, nbytes), priv->read_buf, nbytes);
++		cb(cb_context, resp, 0);
++		kfree_skb(skb);
++		return 0;
++	}
++
++	{
++		/*
++		 * Generic ISO14443-3 Type-2 passthrough via the MCU raw
++		 * transceive verb (0x09) -- byte-for-byte what HOS's own
++		 * nfc:user passthrough sends. Covers READ (0x30), WRITE
++		 * (0xA2), GET_VERSION (0x60), FAST_READ (0x3A), PWD_AUTH
++		 * (0x1B) and anything else a kernel-NFC stack (neard, ...)
++		 * issues over the AF_NFC raw socket.
++		 *
++		 * READ is routed here too now: HOS reads with verb 0x09
++		 * (30 <page>), not the verb-0x06 READ_NTAG pump this driver
++		 * inherited from jc_toolkit. That pump wedges the MCU into
++		 * state 0x04/0x07 after ~30 pages; the raw 30 <page> read
++		 * (confirmed against an HOS full-card capture) does not, so
++		 * a whole card reads in one activation. The 0xa8 batch write
++		 * keeps its dedicated path above.
++		 */
++		u8 xcv[64];
++		size_t xcv_len = 0;
++
++		/* verb-0x09 body = e8 03 + UID(7) + len(2) + cmd (<= 20). */
++		if (skb->len > 20) {
++			dev_info(tera->dev,
++				 "NFC im_transceive: cmd %#04x len %u too long for raw transceive\n",
++				 cmd, skb->len);
++			ret = -EINVAL;
++			goto out_free;
++		}
++
++		mutex_lock(&priv->read_lock);
++		priv->reading = true;	/* keep poll_work out of our way */
++		ret = joycon_nfc_raw_cmd(tera, priv->target.nfcid1,
++					 skb->data, skb->len,
++					 xcv, sizeof(xcv), &xcv_len);
++		priv->reading = false;
++		mutex_unlock(&priv->read_lock);
++		if (ret) {
++			dev_info(tera->dev,
++				 "NFC im_transceive: raw cmd %#04x failed: %d (state=0x%02x)\n",
++				 cmd, ret, tera->mcu.nfc.state);
++			goto out_free;
++		}
++
++		/*
++		 * Return whatever the tag replied. A command that only ACKs
++		 * (WRITE) captures no payload; hand back a single 0x00 OK byte
++		 * so the write reports success (matching the 0xa8 path), since
++		 * rawsock's completion skb_push()es a 1-byte NFC header and
++		 * cannot take a zero-length payload.
++		 */
++		if (xcv_len == 0) {
++			resp = nfc_alloc_recv_skb(1, GFP_KERNEL);
++			if (!resp) {
++				ret = -ENOMEM;
++				goto out_free;
++			}
++			*(u8 *)skb_put(resp, 1) = 0x00;
++		} else {
++			resp = nfc_alloc_recv_skb(xcv_len, GFP_KERNEL);
++			if (!resp) {
++				ret = -ENOMEM;
++				goto out_free;
++			}
++			memcpy(skb_put(resp, xcv_len), xcv, xcv_len);
++		}
++		cb(cb_context, resp, 0);
++		kfree_skb(skb);
++		return 0;
++	}
++
++out_free:
++	kfree_skb(skb);
++	return ret;
++}
++
++static struct nfc_ops joycon_nfc_ops = {
++	.dev_up            = joycon_nfc_dev_up,
++	.dev_down          = joycon_nfc_dev_down,
++	.start_poll        = joycon_nfc_start_poll,
++	.stop_poll         = joycon_nfc_stop_poll,
++	.activate_target   = joycon_nfc_activate_target,
++	.deactivate_target = joycon_nfc_deactivate_target,
++	.im_transceive     = joycon_nfc_im_transceive,
++};
++
++int joycon_nfc_register(struct joycon_tera *tera)
++{
++	struct joycon_nfc_priv *priv;
++	struct nfc_dev *ndev;
++	int ret;
++
++	dev_info(tera->dev, "NFC register: entered, ctlr_type=%d\n",
++		 tera->ctlr_type);
++
++	/*
++	 * The NFC reader lives in two Nintendo controllers: the right
++	 * Joy-Con (0x2007), under the right analog stick, and the Pro
++	 * Controller (0x2009), under the Switch logo. Skip everything
++	 * else -- left Joy-Con, Charging Grip left-half, third-party
++	 * clones that don't advertise a supported product ID -- so
++	 * userspace never sees a non-functional nfcN device.
++	 *
++	 * jc_supports_nfc() covers both the USB product ID and the MCU
++	 * self-reported controller type. The MCU-responsive gate below
++	 * is the separate belt-and-suspenders check that catches clones
++	 * with spoofed Nintendo VID/PID but no working MCU.
++	 */
++	if (!jc_supports_nfc(tera)) {
++		dev_info(tera->dev,
++			 "NFC register: skipping (product/type doesn't support NFC)\n");
++		return 0;
++	}
++	if (!tera->mcu.responsive) {
++		dev_info(tera->dev,
++			 "NFC register: skipping (MCU probe failed at .probe time)\n");
++		return 0;
++	}
++
++	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
++	if (!priv)
++		return -ENOMEM;
++
++	mutex_init(&priv->read_lock);
++	init_waitqueue_head(&priv->read_wait);
++	init_waitqueue_head(&priv->write_wait);
++	init_waitqueue_head(&priv->poll_wait);
++	INIT_WORK(&priv->poll_work, joycon_nfc_poll_work);
++	priv->poll_wq = alloc_workqueue("joycon-nfc",
++					WQ_UNBOUND | WQ_MEM_RECLAIM, 0);
++	if (!priv->poll_wq) {
++		ret = -ENOMEM;
++		goto err_priv;
++	}
++
++	ndev = nfc_allocate_device(&joycon_nfc_ops,
++				   NFC_PROTO_MIFARE_MASK, 0, 0);
++	if (!ndev) {
++		dev_warn(tera->dev,
++			 "NFC register: nfc_allocate_device failed\n");
++		ret = -ENOMEM;
++		goto err_wq;
++	}
++	nfc_set_drvdata(ndev, tera);
++	nfc_set_parent_dev(ndev, tera->dev);
++
++	ret = nfc_register_device(ndev);
++	if (ret) {
++		dev_warn(tera->dev,
++			 "NFC register: nfc_register_device failed: %d\n",
++			 ret);
++		nfc_free_device(ndev);
++		goto err_wq;
++	}
++
++	priv->ndev = ndev;
++	tera->mcu.nfc.priv = priv;
++	tera->mcu.nfc.recv = joycon_nfc_recv;
++	dev_info(tera->dev, "NFC register: ok, nfc device idx=%u\n",
++		 ndev->idx);
++	return 0;
++
++err_wq:
++	destroy_workqueue(priv->poll_wq);
++err_priv:
++	kfree(priv);
++	return ret;
++}
++
++void joycon_nfc_unregister(struct joycon_tera *tera)
++{
++	struct joycon_nfc_priv *priv = tera->mcu.nfc.priv;
++
++	dev_info(tera->dev, "NFC unregister: entered, priv=%p\n", priv);
++
++	if (!priv)
++		return;
++
++	priv->stop_requested = true;
++	wake_up(&priv->poll_wait);
++	flush_work(&priv->poll_work);
++	destroy_workqueue(priv->poll_wq);
++
++	/*
++	 * If a tag was reported to the core, tell it the tag is gone before we
++	 * unregister -- the controller (and its RF field) is going away, so any
++	 * active session is dead. This prompts userspace to drop its target and
++	 * close the raw socket that would otherwise pin nfc_dev past free.
++	 */
++	if (tera->mcu.nfc.target_present_reported)
++		nfc_target_lost(priv->ndev, priv->target.idx);
++
++	dev_info(tera->dev, "NFC unregister: calling nfc_unregister_device idx=%u\n",
++		 priv->ndev->idx);
++	nfc_unregister_device(priv->ndev);
++
++	/*
++	 * Drop the parent-device link so the NFC class device is fully
++	 * released; otherwise a ghost nfcN interface lingers after disconnect
++	 * even with no userspace holder.
++	 */
++	nfc_set_parent_dev(priv->ndev, NULL);
++
++	nfc_free_device(priv->ndev);
++
++	tera->mcu.nfc.recv = NULL;
++	tera->mcu.nfc.priv = NULL;
++	kfree(priv);
++	dev_info(tera->dev, "NFC unregister: done\n");
++}
+-- 
+2.43.0

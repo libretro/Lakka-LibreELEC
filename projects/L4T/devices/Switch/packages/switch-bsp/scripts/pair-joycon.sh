@@ -1,4 +1,12 @@
 #!/bin/bash
+#add fix for usps bluetooth
+if [ "$(cat /proc/cmdline | grep upfs)" != "" ]; then
+  /bin/bindfs --map=1000/0:@1000/@0 /var/locked-bluetoothconfig /var/bluetoothconfig
+fi
+
+if [ "$(mount | grep /var/bluetoothconfig)" = "" ]; then
+  exit 1
+fi
 
 if [[ -f /flash/switchroot/joycon_mac.ini ]]; then
 	# Collect joycon_00 info from ini

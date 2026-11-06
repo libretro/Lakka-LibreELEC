@@ -1,0 +1,2129 @@
+From eed08e3ecba3a81a5f98c9fa17d19cdfc63d3237 Mon Sep 17 00:00:00 2001
+From: a <a@b.c>
+Date: Sun, 30 Aug 2026 18:41:47 +0000
+Subject: [PATCH] nintendo-tera: add IR (NIR) camera
+
+Add the controller's near-infrared camera as nintendo-tera-ir.c, gated by
+the new NINTENDO_TERA_IR option. It exposes two V4L2 nodes -- an image
+node (8bpp greyscale image transfer at 320x240/160x120/80x60/40x30) and a
+metadata node for the MCU's on-sensor moment, clustering and DPD analysis
+modes -- driving the MCU only through the core's joycon_mcu_* helpers and
+receiving IR fragments via the tera->mcu.ir.recv_frag callback that
+joycon_ir_register() installs.
+
+The metadata node depends on the V4L2 metadata-capture backport. Moved out
+of hid-nintendo.c and refactored onto the transport-agnostic tera
+interface so joycon-serdev can use it too.
+---
+ drivers/misc/Kconfig            |   16 +
+ drivers/misc/Makefile           |    1 +
+ drivers/misc/nintendo-tera-ir.c | 2066 +++++++++++++++++++++++++++++++
+ 3 files changed, 2083 insertions(+)
+ create mode 100644 drivers/misc/nintendo-tera-ir.c
+
+diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
+index bec52eb..094e5ca 100644
+--- a/drivers/misc/Kconfig
++++ b/drivers/misc/Kconfig
+@@ -855,4 +855,20 @@ config MISC_NINTENDO_TERA_NFC
+ 
+ 	To use this you must also enable NFC (CONFIG_NFC).
+ 
++config MISC_NINTENDO_TERA_IR
++	bool "Nintendo Switch controller IR (NIR) camera support"
++	depends on MISC_NINTENDO_TERA
++	depends on VIDEO_V4L2
++	select VIDEOBUF2_VMALLOC
++	help
++	Adds the near-infrared camera in the right Joy-Con to the
++	nintendo-tera core. When enabled it registers two V4L2 devices: an
++	image node streaming 8bpp greyscale frames (320x240 / 160x120 /
++	80x60 / 40x30) and a metadata node exposing the MCU's on-sensor
++	moment, clustering and DPD analysis modes.
++
++	To use this you must also enable Video For Linux 2 (CONFIG_VIDEO_V4L2)
++	and it will pull in videobuf2-vmalloc. The V4L2 metadata-capture
++	backport is required for the metadata node.
++
+ endmenu
+diff --git a/drivers/misc/Makefile b/drivers/misc/Makefile
+index 2f2e165..21cd972 100644
+--- a/drivers/misc/Makefile
++++ b/drivers/misc/Makefile
+@@ -85,3 +85,4 @@ obj-$(CONFIG_BM92TXX)		+= bm92txx.o
+ obj-$(CONFIG_MISC_NINTENDO_TERA)	+= nintendo-tera.o
+ nintendo-tera-y			:= nintendo-tera-core.o
+ nintendo-tera-$(CONFIG_MISC_NINTENDO_TERA_NFC)	+= nintendo-tera-nfc.o
++nintendo-tera-$(CONFIG_MISC_NINTENDO_TERA_IR)	+= nintendo-tera-ir.o
+diff --git a/drivers/misc/nintendo-tera-ir.c b/drivers/misc/nintendo-tera-ir.c
+new file mode 100644
+index 0000000..cb8d94e
+--- /dev/null
++++ b/drivers/misc/nintendo-tera-ir.c
+@@ -0,0 +1,2066 @@
++// SPDX-License-Identifier: GPL-2.0+
++/*
++ * Nintendo Switch controller MCU -- IR/NIR camera.
++ *
++ * Part of the nintendo-tera module. Exposes the controller's near-infrared
++ * camera as two V4L2 nodes: an image node (grayscale image transfer) and a
++ * metadata node (the MCU's on-sensor moment/cluster/DPD analysis modes). Talks
++ * to the MCU only through the core's joycon_mcu_* helpers and receives IR
++ * fragments via the tera->mcu.ir.recv_frag callback installed by
++ * joycon_ir_register().
++ */
++#include <linux/delay.h>
++#include <linux/device.h>
++#include <linux/kernel.h>
++#include <linux/mutex.h>
++#include <linux/slab.h>
++#include <linux/string.h>
++#include <asm/unaligned.h>
++#include <linux/videodev2.h>
++#include <linux/workqueue.h>
++
++#include <media/v4l2-common.h>
++#include <media/v4l2-ctrls.h>
++#include <media/v4l2-dev.h>
++#include <media/v4l2-device.h>
++#include <media/v4l2-ioctl.h>
++#include <media/videobuf2-v4l2.h>
++#include <media/videobuf2-vmalloc.h>
++
++#include "nintendo-tera-priv.h"
++
++/* The NIR camera lives on the right Joy-Con only. */
++#define jc_supports_ir(tera) \
++	((tera)->ctlr_type == JOYCON_TERA_TYPE_RIGHT)
++
++/* IR sensor modes (SET_IR_MODE mode byte); two historical name spellings. */
++#define JC_IR_MODE_DISABLE		0x02
++#define JC_IR_MODE_MOMENT		0x03
++#define JC_IR_MODE_DPD			0x04
++#define JC_IR_MODE_CLUSTERING		0x06
++#define JC_IR_MODE_CLUSTER		0x06
++#define JC_IR_MODE_IMAGE_TRANSFER	0x07
++#define JC_IR_MODE_IMAGE		0x07
++
++/* Packed resolution/binning values for JC_IR_REG_RESOLUTION. */
++#define JC_IR_RES_320x240		0x00	/* max_frag 0xff */
++#define JC_IR_RES_160x120		0x50	/* max_frag 0x3f */
++#define JC_IR_RES_80x60			0x64	/* max_frag 0x0f */
++#define JC_IR_RES_40x30			0x69	/* max_frag 0x03 */
++
++
++#include <media/v4l2-common.h>
++#include <media/v4l2-ctrls.h>
++#include <media/v4l2-dev.h>
++#include <media/v4l2-device.h>
++#include <media/v4l2-ioctl.h>
++#include <media/videobuf2-v4l2.h>
++#include <media/videobuf2-vmalloc.h>
++
++/*
++ * VFL_TYPE_GRABBER was renamed to VFL_TYPE_VIDEO in Linux 5.14. We
++ * target 4.9 where the old name is used, but supply a compat shim so
++ * out-of-tree syntax-checks against newer headers still compile.
++ */
++#ifndef VFL_TYPE_GRABBER
++#define VFL_TYPE_GRABBER VFL_TYPE_VIDEO
++#endif
++
++/*
++ * IR sensor register addresses.
++ *
++ * Definitively verified against Nintendo's hid sysmodule (FUN_71000a4ee0
++ * base config helper, FUN_71000a59f8 image-transfer mode config).
++ *
++ * NOTES on previously-wrong assumptions:
++ *   - JC_IR_REG_EXPOSURE_HIH (was named _AUTO 0x0132): this is the HIGH
++ *     byte of a 24-bit exposure register, NOT an auto/manual switch.
++ *     Nintendo writes all three of 0x0130, 0x0131, 0x0132 with the
++ *     exposure value.
++ *   - JC_IR_REG_DGAIN_LO/HI: Nintendo's helper uses a 16-entry lookup
++ *     table at rodata 0x1c200c indexed by gain_index. Effectively:
++ *     reg 0x012e = gain_index<<4 (0x00, 0x10, ..., 0xf0), reg 0x012f = 0.
++ *   - JC_IR_REG_FLIP (was 0x002d, "HFLIP/VFLIP suspected"): none of the
++ *     5 mode-configure functions in the sysmodule write 0x002d directly.
++ *     Orientation appears baked into the resolution register 0x002e
++ *     (packed from rodata 0x1c202e per resolution index). The 0x002d
++ *     register may not exist as documented in jc_toolkit.
++ *   - JC_IR_REG_LEDSxx_INT (0x0011, 0x0012): unconfirmed. Nintendo's
++ *     base helper doesn't touch these; LED intensity may be part of the
++ *     0x0010 packed value or set elsewhere.
++ */
++#define JC_IR_REG_RESOLUTION       0x002e   /* packed resolution/binning */
++#define JC_IR_REG_EXPOSURE_LO      0x0130   /* 24-bit exposure LO byte */
++#define JC_IR_REG_EXPOSURE_MID     0x0131   /* 24-bit exposure MID byte */
++#define JC_IR_REG_EXPOSURE_HI      0x0132   /* 24-bit exposure HI byte */
++#define JC_IR_REG_LEDS             0x0010   /* LED enable pattern */
++#define JC_IR_REG_DGAIN_LO         0x012e   /* dgain index << 4 */
++#define JC_IR_REG_DGAIN_HI         0x012f   /* always 0 for Nintendo */
++#define JC_IR_REG_EXLF             0x000e   /* ExLF: bit0-1=en, bit2=denoise */
++#define JC_IR_REG_EXLF_THRESH      0x0143   /* fixed 0xc8 */
++#define JC_IR_REG_LEDS12_INT       0x0011   /* UNCONFIRMED */
++#define JC_IR_REG_LEDS34_INT       0x0012   /* UNCONFIRMED */
++#define JC_IR_REG_FLIP             0x002d   /* UNCONFIRMED, likely unused */
++#define JC_IR_REG_DENOISE_EN       0x0167
++#define JC_IR_REG_DENOISE_EDGE     0x0168
++#define JC_IR_REG_DENOISE_COLOR    0x0169
++#define JC_IR_REG_BUF_UPDATE_LSB   0x0004
++#define JC_IR_REG_FINALIZE         0x0007
++
++/* backward-compat aliases so untouched code still builds */
++#define JC_IR_REG_RES_BIN          JC_IR_REG_RESOLUTION
++#define JC_IR_REG_EXPOSURE_AUTO    JC_IR_REG_EXPOSURE_HI
++
++/*
++ * The three sensor resolutions the MCU supports directly. Fragment
++ * count is max_frag + 1; each fragment carries 300 payload bytes.
++ * Frame size = (max_frag+1) * 300 (which equals width*height for the
++ * 320x240 mode = 256*300 = 76800; other modes are stored padded to
++ * their fragment layout).
++ */
++static const struct {
++	u8 res_reg;	/* IR reg 0x002e (resolution/binning) */
++	u8 woi_reg;	/* IR reg 0x0014 (window/scan)        */
++	u8 bin_reg;	/* IR reg 0x0003 (binning high)       */
++	u8 max_frag;
++	u32 width;
++	u32 height;
++} joycon_ir_resolutions[] = {
++	/* res_reg/woi/bin values are HOS wire truth (mcu-capture per resolution). */
++	{ JC_IR_RES_320x240, 0x00, 0x00, 0xff, 320, 240 },
++	{ JC_IR_RES_160x120, 0x00, 0x00, 0x3f, 160, 120 },
++	{ JC_IR_RES_80x60,   0x02, 0x00, 0x0f,  80,  60 },
++	{ JC_IR_RES_40x30,   0x02, 0x80, 0x03,  40,  30 },
++};
++
++/*
++ * Driver-side buffer wrapper. vb2 allocates one of these per QBUF
++ * because we set vbq.buf_struct_size = sizeof(struct joycon_ir_buffer);
++ * to_ir_buf(vb) upcasts a vb2_buffer * back to us. The `list` field is
++ * used to chain buffers on our own queue (priv->buf_queue) *without*
++ * touching vb2_buffer.queued_entry, which is owned by vb2 core -- an
++ * earlier version of this driver used queued_entry directly and
++ * corrupted vb2's list, causing a NULL-deref in __enqueue_in_driver()
++ * during the second streamon.
++ */
++struct joycon_ir_buffer {
++	struct vb2_v4l2_buffer vb;	/* MUST be first */
++	struct list_head list;
++};
++
++static inline struct joycon_ir_buffer *to_ir_buf(struct vb2_buffer *vb)
++{
++	return container_of(to_vb2_v4l2_buffer(vb),
++			    struct joycon_ir_buffer, vb);
++}
++
++/*
++ * Per-controller V4L2 / IR state, hanging off tera->mcu.ir.priv.
++ */
++/* ---- IR metadata results (moment / clustering / DPD) --------------------
++ * Filled from the RX path (one 0x31 report per frame); scratch that
++ * feeds the per-frame V4L2 metadata buffer.
++ * Fields are stored raw; scale to real units as noted (kernel avoids float).
++ */
++#define JC_IR_MOMENT_CELLS	48
++#define JC_IR_CLUSTER_OBJS	16
++#define JC_IR_DPD_MARKERS	3
++
++/* One 8x6-grid cell (moment mode). */
++struct joycon_ir_moment_cell {
++	u32 intensity;	/* 19-bit sum; average = intensity / 1600 */
++	u16 cx;		/* centroid_x = cx / 128 (pixels) */
++	u16 cy;		/* centroid_y = cy / 128 (pixels) */
++} __packed;
++
++/* One clustering object OR one DPD marker -- identical 16-byte wire layout. */
++struct joycon_ir_object {
++	u16 intensity;	/* average = intensity / 256 */
++	u16 pixel_count;
++	u16 cx;		/* centroid_x = cx / 64 (pixels) */
++	u16 cy;		/* centroid_y = cy / 64 (pixels) */
++	u16 x_min;
++	u16 x_max;	/* width  = x_max - x_min + 1 */
++	u16 y_min;
++	u16 y_max;	/* height = y_max - y_min + 1 */
++} __packed;
++
++/*
++ * V4L2 metadata buffer formats (V4L2_BUF_TYPE_META_CAPTURE). One buffer is
++ * produced per IR frame; the fourcc chosen via VIDIOC_S_FMT selects the MCU
++ * metadata mode. The record structs above are the on-buffer layout.
++ */
++#define V4L2_META_FMT_JC_MOMENT		v4l2_fourcc('J', 'C', 'M', 'M')
++#define V4L2_META_FMT_JC_CLUSTER	v4l2_fourcc('J', 'C', 'C', 'L')
++#define V4L2_META_FMT_JC_DPD		v4l2_fourcc('J', 'C', 'D', 'P')
++
++struct joycon_ir_moment_buf {
++	u8 frame;			/* frame counter (report byte 52) */
++	u8 reserved[3];
++	struct joycon_ir_moment_cell cells[JC_IR_MOMENT_CELLS];
++} __packed;				/* 4 + 48*8 = 388 bytes */
++
++struct joycon_ir_cluster_buf {
++	u8 frame;
++	u8 object_count;		/* number of FRESH objects this frame */
++	u8 reserved[2];
++	struct joycon_ir_object objects[JC_IR_CLUSTER_OBJS];
++} __packed;				/* 4 + 16*16 = 260 bytes */
++
++struct joycon_ir_dpd_buf {
++	u8 frame;
++	u8 marker_valid;		/* bit N = marker N valid */
++	u8 reserved[2];
++	struct joycon_ir_object markers[JC_IR_DPD_MARKERS];
++} __packed;				/* 4 + 3*16 = 52 bytes */
++
++/* Latest parsed metadata frame. */
++struct joycon_ir_meta {
++	spinlock_t lock;
++	u8 mode;		/* JC_IR_MODE_* of the last frame (0 = none) */
++	u8 frame_counter;	/* report byte[52] */
++	u32 frames;		/* total metadata frames parsed */
++	struct joycon_ir_moment_cell moment[JC_IR_MOMENT_CELLS];
++	u8 object_count;
++	struct joycon_ir_object object[JC_IR_CLUSTER_OBJS];
++	u8 marker_valid;	/* bit N set = DPD marker N valid */
++	struct joycon_ir_object marker[JC_IR_DPD_MARKERS];
++};
++
++struct joycon_ir_priv {
++	struct v4l2_device v4l2_dev;
++	struct video_device vdev;
++	struct vb2_queue vbq;
++	struct v4l2_ctrl_handler ctrl_handler;
++	struct mutex vb_lock;
++
++	/* Chosen via VIDIOC_S_FMT. Index into joycon_ir_resolutions[]. */
++	unsigned int res_idx;
++
++	/*
++	 * Buffer flow. cur_buf is the buffer being filled by incoming
++	 * fragments; buf_queue holds all further QBUF'd buffers waiting
++	 * their turn. Both are protected by buf_lock.
++	 *
++	 * IMPORTANT: buf_lock is held across memcpy() of fragment payload
++	 * into the buffer, because stop_streaming may run concurrently
++	 * from userspace and it walks + frees these lists.
++	 */
++	struct joycon_ir_buffer *cur_buf;
++	struct list_head buf_queue;
++	spinlock_t buf_lock;
++
++	/* IR metadata (moment/clustering/DPD) V4L2 META_CAPTURE node. Shares
++	 * priv->v4l2_dev with the image node but has its own video device,
++	 * vb2 queue and control handler. One buffer is produced per frame. */
++	struct video_device meta_vdev;
++	struct vb2_queue meta_vbq;
++	struct v4l2_ctrl_handler meta_ctrl_handler;
++	struct mutex meta_vb_lock;
++	struct list_head meta_bufs;	/* QBUF'd meta buffers awaiting a frame */
++	spinlock_t meta_buf_lock;
++	struct joycon_ir_meta meta;	/* scratch: last parsed frame */
++	u32 meta_fourcc;		/* selected metadata format == mode */
++	unsigned int meta_sequence;
++	bool meta_led_on;		/* illuminate scene in metadata modes */
++
++	unsigned int sequence;
++
++	/*
++	 * v4l2_ctrl-driven sensor settings, applied on streamon.
++	 *
++	 * exposure: 24-bit value, reg 0x0130 (LO), 0x0131 (MID), 0x0132 (HI).
++	 *           Nintendo's sysmodule stores exposure_us * 31200 / 1000
++	 *           (31.2 MHz clock). Max ~537 sec.
++	 * digital_gain: 4-bit lookup-table INDEX (0..15). Written to reg
++	 *           0x012e as index<<4 (0x00, 0x10, ..., 0xf0). reg 0x012f
++	 *           always 0. Not a nibble-split byte.
++	 * leds: 2-bit mode index 0..3, mapped via packed constant
++	 *           0x30102000 -> reg 0x0010 values 0x00, 0x20, 0x10, 0x30.
++	 * ext_light_filter: bit0 = filter enable, bit2 = denoise. Written
++	 *           to reg 0x000e as bits (0..1: 3 if enable else 0) |
++	 *           (bit2: from denoise flag).
++	 */
++	u32 exposure;                   /* 24-bit register value */
++	u8 digital_gain;                /* 0..15 index */
++	u8 ext_light_filter;
++	u8 flip;         /* bit0 V, bit1 H (JC_IR_REG_FLIP encoding) */
++	u8 leds;                        /* 0..3 mode index */
++	u16 leds_intensity;
++
++	/*
++	 * Continuous fragment-stream keep-alive. HOS drives image transfer by
++	 * sending a 0x11/0x03 poke every ~15ms (one BT connection interval),
++	 * decoupled from fragment arrival, and lets the MCU stream fragments
++	 * freely. The old per-fragment synchronous ACK (from raw_event) gated
++	 * the MCU to ~3 intervals per fragment (~50ms); this work replaces it.
++	 * tera is a backpointer so the work can reach the controller.
++	 */
++	struct joycon_tera *tera;
++	struct delayed_work poke_work;
++
++	/*
++	 * HOS selective-repeat reassembly. frag_need is the 24-bit bitmap of
++	 * still-missing fragments, sent in every poke; bit N == fragment N, but
++	 * only fragments 0..23 are tracked -- HOS never widens or windows it, so
++	 * for frames with more than 24 fragments (160/320) the remainder stream
++	 * open-loop. A frame ends when its last fragment (== max_frag) arrives;
++	 * frame_active guards the between-frame keep-alive (a repeat of the last
++	 * fragment) from re-publishing.
++	 */
++	u32 frag_need;			/* 24-bit needed bitmap (frags 0..23) */
++	bool frame_active;		/* seen a non-last fragment this frame */
++	unsigned long last_frag_jiffies;	/* for the silence watchdog */
++};
++
++static void joycon_ir_recv_frag(struct joycon_tera *tera,
++				const u8 *report, int size);
++
++/*
++ * Assemble and send an IR register-write packet.
++ * subcmd 0x21 / mcu_cmd 0x23 / mcu_subcmd 0x04 (WRITE_IR_REGS).
++ * Payload: [count][addr_lo addr_hi val] * count, max 9 entries.
++ *
++ * Caller must NOT hold tera->output_mutex.
++ */
++/*
++ * Emit a 0x11 output-report with subcmd=0x03, arg1=0x02. This is the
++ * "request IR mode status" poke jc_toolkit uses to make the MCU
++ * acknowledge a preceding SET_MCU_CONFIG for IR register writes
++ * (jctool.cpp:1957). Without it, the MCU never sends a 0x21 ack for
++ * the 0x23/0x04 register-write subcmd, and joycon_send_subcmd() times
++ * out at HZ (~1s), which surfaces as -ETIMEDOUT from streamon.
++ *
++ * The poke doesn't itself expect a reply -- it just tickles the MCU
++ * into producing the ack for the previously sent config packet.
++ *
++ * Caller may hold tera->output_mutex; this function doesn't take it.
++ */
++static int __maybe_unused joycon_ir_send_status_poke(struct joycon_tera *tera)
++{
++	u8 buf[49] = { 0 };
++
++	buf[0] = JC_OUTPUT_MCU_DATA;			/* 0x11 */
++	/* buf[1] packet_num + rumble filled by the transport (send_raw). */
++	buf[10] = 0x03;					/* IR subcmd */
++	buf[11] = 0x02;					/* arg1: status request */
++	buf[47] = joycon_mcu_crc8(&buf[11], JC_MCU_CRC_LEN);
++	buf[48] = 0xFF;
++
++	return joycon_tera_send_raw(tera, buf, sizeof(buf));
++}
++
++static int joycon_ir_write_regs(struct joycon_tera *tera,
++				const u16 *addrs, const u8 *vals, int n)
++{
++	u8 buffer[sizeof(struct joycon_subcmd_request) + 38] = { 0 };
++	struct joycon_subcmd_request *req =
++		(struct joycon_subcmd_request *)buffer;
++	int i, ret;
++
++	if (n < 1 || n > 9)
++		return -EINVAL;
++
++	req->subcmd_id = JC_SUBCMD_SET_MCU_CONFIG;
++	req->data[0] = JC_MCU_CMD_SET_IR_MODE;		/* buf[11] */
++	req->data[1] = JC_MCU_SUBCMD_WRITE_IR_REGS;	/* buf[12] */
++	req->data[2] = (u8)n;				/* buf[13] */
++	for (i = 0; i < n; i++) {
++		/*
++		 * Register address bytes are big-endian on the wire.
++		 * jc_toolkit stores them as u16 constants like 0x3001
++		 * for register 0x0130 -- the natural little-endian u16
++		 * layout in memory happens to land as bytes '01 30' on
++		 * the wire, which is 0x0130 read big-endian. Match that
++		 * ordering explicitly: hi byte first, then lo byte.
++		 */
++		req->data[3 + i * 3 + 0] = (u8)((addrs[i] >> 8) & 0xff);
++		req->data[3 + i * 3 + 1] = (u8)(addrs[i] & 0xff);
++		req->data[3 + i * 3 + 2] = vals[i];
++	}
++	/* CRC over data[1..36] == buf[12..47]. */
++	req->data[37] = joycon_mcu_crc8(&req->data[1], JC_MCU_CRC_LEN);
++
++	/*
++	 * Prepare wire header + rumble passthrough + subcmd metadata
++	 * exactly like joycon_send_subcmd() does.
++	 */
++	req->output_id = JC_OUTPUT_RUMBLE_AND_SUBCMD;
++	/* packet_num + rumble_data are filled by the transport (send_raw). */
++
++	/*
++	 * HOS writes the IR register blocks OPEN-LOOP: it fires each
++	 * SET_MCU_CONFIG/WRITE_IR_REGS ~50 ms apart and does NOT wait for a
++	 * per-block ack (bidirectional capture: blocks 43-60 ms apart, no
++	 * status poke, no retry). This is what makes the register-before-
++	 * SET_IR_MODE ordering work: the MCU only emits the 0x13/0x23
++	 * config-write ack once SET_IR_MODE(image) is active, so in HOS order
++	 * that ack does not exist yet and there is nothing to wait for. The
++	 * old jc_toolkit-style poke+wait+retry only succeeded because the
++	 * driver used to run SET_IR_MODE first; two on-device tests confirmed
++	 * that with regs-first no amount of polling produces the ack. So we
++	 * fire and settle, exactly like HOS, and let stream success confirm
++	 * the config took. (The continuous 0x11/03/02 poll is a streaming
++	 * keep-alive, not a config-ack mechanism.)
++	 */
++	ret = joycon_tera_send_raw(tera, (u8 *)req, sizeof(*req) + 38);
++	if (ret < 0)
++		return ret;
++	msleep(50);
++	ret = 0;
++
++	/* The transport owns received_resp / ack state around its own
++	 * send_subcmd; nothing to reset here after an open-loop write. */
++	return ret;
++}
++
++/*
++ * Set IR streaming mode (mode 7 image-transfer) with a chosen
++ * fragment count. Corresponds to jc_toolkit ir_sensor() step 5.
++ */
++static int joycon_ir_set_mode(struct joycon_tera *tera,
++			      u8 mode, u8 max_frag)
++{
++	u8 payload[6] = {
++		mode,
++		max_frag,
++		0x00, 0x06,	/* required MCU FW major (HOS wire: 0006.001a) */
++		0x00, 0x1a,	/* required MCU FW minor. TODO: query per-controller */
++	};
++
++	return joycon_mcu_send_cfg_pkt(tera,
++				       JC_MCU_CMD_SET_IR_MODE,
++				       JC_MCU_SUBCMD_SET_IR_MODE,
++				       payload, sizeof(payload),
++				       0x0b, 0, HZ);
++}
++
++/*
++ * Apply the two register-write blocks from ir_sensor() steps 7 and 8,
++ * parameterised by the current v4l2_ctrl values in priv.
++ */
++/*
++ * IR sensor "base config" register block. Definitively reverse engineered
++ * from Nintendo's hid sysmodule FUN_71000a4ee0 (VA 0x71000a4ee0).
++ *
++ * Block 1 (base config, 8 regs):
++ *   0x0130 = exposure_ticks & 0xff              -- 24-bit exposure LO
++ *   0x0131 = (exposure_ticks >> 8) & 0xff       -- 24-bit exposure MID
++ *   0x0132 = (exposure_ticks >> 16) & 0xff      -- 24-bit exposure HI
++ *   0x0010 = LED enable pattern                 -- packed from 0x30102000
++ *                                                  by 2-bit mode index
++ *   0x012e = dgain_index << 4                   -- lookup value (0x00..0xf0)
++ *   0x012f = 0                                  -- always 0
++ *   0x000e = ExLF bits: 3 if enable, |4 if denoise
++ *   0x0143 = 0xc8                               -- ExLF threshold constant
++ *
++ * Notes:
++ *   - Exposure is 24-bit, not 16-bit as the prior driver assumed.
++ *     Nintendo's helper converts microseconds via:
++ *         reg_val = exposure_us * 0x79e0 / 1000     (31.2 MHz clock)
++ *   - DGAIN is a 16-entry lookup at rodata 0x1c200c. Effectively:
++ *     reg 0x012e = index<<4, reg 0x012f = 0.
++ *   - Register 0x0132 is NOT "auto/manual exposure" -- it's the HIGH
++ *     BYTE of a 24-bit exposure. Prior driver comment was wrong.
++ *   - Block 2 (regs 0x0015..0x001c "verbatim from CTCaer's dump") does
++ *     not appear in Nintendo's actual mode config. Left in place for
++ *     safety; may or may not be needed.
++ */
++
++/* LED mode index -> reg 0x0010 value, packed as 0x30102000 in Nintendo. */
++/*
++ * IR LED group select, reg 0x0010. The high nibble is a DISABLE mask,
++ * confirmed on-device: reg 0x00 (nothing disabled) floods both groups and
++ * saturates the sensor (frame mean ~244), while reg 0x30 (both disabled)
++ * yields a dark frame (~42) -- i.e. it is OFF, not "both on". So the menu
++ * maps Off->0x30 (disable both), Group 1->0x20 (disable group 2),
++ * Group 2->0x10 (disable group 1), Both->0x00 (disable none). The two
++ * single-group values follow the standard bit4=grp1 / bit5=grp2 layout;
++ * only the Off/Both endpoints are directly wire-verified.
++ */
++static const u8 joycon_ir_led_map[4] = { 0x30, 0x20, 0x10, 0x00 };
++
++static int joycon_ir_apply_settings(struct joycon_tera *tera)
++{
++	struct joycon_ir_priv *priv = tera->mcu.ir.priv;
++	u8 dgain_idx = priv->digital_gain & 0x0f;
++	u8 led_idx = priv->leds & 0x03;
++	u8 exlf_val = 0;
++	int ret;
++
++	/*
++	 * Nintendo's ExLF register bit-packing (reg 0x000e):
++	 *   bits 0..1 = 3 if filter enabled, else 0
++	 *   bit 2     = 1 if denoise flag set
++	 * We treat priv->ext_light_filter bit0 as "enable" and bit1 as
++	 * "denoise" for the closest reasonable mapping.
++	 */
++	if (priv->ext_light_filter & 0x01)
++		exlf_val = 0x03;
++	if (priv->ext_light_filter & 0x02)
++		exlf_val |= 0x04;
++
++	{
++		const u16 addrs[9] = {
++			JC_IR_REG_EXPOSURE_LO, JC_IR_REG_EXPOSURE_MID,
++			JC_IR_REG_EXPOSURE_HI,
++			JC_IR_REG_LEDS,
++			JC_IR_REG_DGAIN_LO, JC_IR_REG_DGAIN_HI,
++			JC_IR_REG_EXLF,
++			JC_IR_REG_EXLF_THRESH,
++			JC_IR_REG_BUF_UPDATE_LSB,	/* 0x0004 -- HOS writes this */
++		};
++		const u8 vals[9] = {
++			(u8)(priv->exposure & 0xff),
++			(u8)((priv->exposure >> 8) & 0xff),
++			(u8)((priv->exposure >> 16) & 0xff),
++			joycon_ir_led_map[led_idx],
++			(u8)(dgain_idx << 4),
++			0x00,
++			exlf_val,
++			0xc8,
++			0x47,	/* buffer-update value observed on the wire */
++		};
++
++		dev_info(tera->dev,
++			 "apply_settings: base config -- exposure=0x%06x dgain_idx=%u leds_idx=%u exlf=0x%02x\n",
++			 priv->exposure & 0xffffff,
++			 dgain_idx, led_idx, exlf_val);
++		ret = joycon_ir_write_regs(tera, addrs, vals, 9);
++		if (ret) {
++			dev_warn(tera->dev,
++				 "apply_settings: base config failed: %d\n", ret);
++			return ret;
++		}
++	}
++
++	{
++		/*
++		 * Scan-window + resolution block. HOS's actual image-mode block 2
++		 * (wire capture); the prior contents (0x2a/0x2b/0x2c/0x20 =
++		 * 28,28,00,50) were MOMENT-mode tracking registers mis-copied from
++		 * CTCaer's dump and do not belong in image mode. Resolution is
++		 * programmed here via reg 0x002e (+ 0x0014, 0x0003), which the
++		 * driver previously never wrote -- so non-320x240 was mis-framed.
++		 */
++		unsigned int ridx = priv->res_idx;
++		const u16 addrs[7] = {
++			0x0014,			/* window/scan (resolution-dependent) */
++			0x0015, 0x0016, 0x0017, 0x0018,
++			JC_IR_REG_RESOLUTION,	/* 0x002e (resolution-dependent)  */
++			0x0003,			/* binning high (resolution-dependent) */
++		};
++		const u8 vals[7] = {
++			joycon_ir_resolutions[ridx].woi_reg,
++			0x00, 0x3f, 0xef, 0x01,
++			joycon_ir_resolutions[ridx].res_reg,
++			joycon_ir_resolutions[ridx].bin_reg,
++		};
++
++		dev_info(tera->dev,
++			 "apply_settings: block2 %ux%u woi=0x%02x res_reg=0x%02x bin=0x%02x\n",
++			 joycon_ir_resolutions[ridx].width,
++			 joycon_ir_resolutions[ridx].height,
++			 joycon_ir_resolutions[ridx].woi_reg,
++			 joycon_ir_resolutions[ridx].res_reg,
++			 joycon_ir_resolutions[ridx].bin_reg);
++		ret = joycon_ir_write_regs(tera, addrs, vals, 7);
++		if (ret) {
++			dev_warn(tera->dev,
++				 "apply_settings: block2 failed: %d\n", ret);
++			return ret;
++		}
++	}
++
++	/*
++	 * Block 3 (3 regs): LED intensity + FINALIZE.
++	 * CTCaer's init sequence doesn't include LED intensity because
++	 * his test had LEDs disabled (0x0010 = 0x00). We want LEDs ON
++	 * for indoor / low-light use, so we need to also set their
++	 * intensity -- otherwise LEDs turn on at whatever the sensor's
++	 * default intensity is (probably 0), and the scene stays dark.
++	 *
++	 * Values come from priv->leds_intensity: MSByte -> LEDs 1/2
++	 * intensity (max 0x0f), LSByte -> LEDs 3/4 intensity (max 0x10).
++	 * Wire format matches jc_toolkit ir_sensor_config_live().
++	 *
++	 * FINALIZE (0x0007 = 0x01) MUST come last: it commits all
++	 * pending register writes. If FINALIZE were in block 2, the
++	 * LED intensity writes in block 3 would land after the
++	 * commit and might not take effect for this stream session.
++	 */
++	{
++		const u16 addrs[3] = {
++			JC_IR_REG_LEDS12_INT,	/* 0x0011 */
++			JC_IR_REG_LEDS34_INT,	/* 0x0012 */
++			JC_IR_REG_FINALIZE,	/* 0x0007 */
++		};
++		const u8 vals[3] = {
++			(u8)((priv->leds_intensity >> 8) & 0xff),
++			(u8)(priv->leds_intensity & 0xff),
++			0x01,	/* finalize / apply */
++		};
++
++		dev_info(tera->dev, "apply_settings: block3 write 3 regs (LEDs int + finalize)\n");
++		ret = joycon_ir_write_regs(tera, addrs, vals, 3);
++		if (ret) {
++			dev_warn(tera->dev,
++				 "apply_settings: block3 failed: %d\n", ret);
++			return ret;
++		}
++	}
++
++	dev_info(tera->dev, "apply_settings: ok\n");
++	return 0;
++}
++
++/*
++ * Streaming keep-alive poke. Replicates HOS's steady-state image-transfer
++ * poke (report 0x11 / mcu_subcmd 0x03, buf[15] = 0x0c, everything else 0),
++ * sent on a ~15ms cadence to keep the MCU emitting fragments. Unlike the old
++ * per-fragment ACK, this does NOT depend on a fragment having arrived, so the
++ * MCU streams at ~1 fragment per BT connection interval instead of stalling a
++ * round-trip on each one. Sent from work context, so the sleeping
++ * send_raw() is safe here (the old ACK ran from raw_event).
++ */
++/*
++ * Streaming poke carrying HOS's selective-repeat ACK bitmap. buf[15]:buf[16] is
++ * a 16-bit little-endian bitmap of the fragments in the current window that are
++ * still needed (1 = need, 0 = have). The MCU (re)sends exactly the set bits, so
++ * this both drives the stream forward and requests retransmits, and re-arming
++ * the bitmap to all-ones at frame end requests the next frame. Wire-verified
++ * against HOS (irs sysmodule) image transfer.
++ */
++static int joycon_ir_send_stream_poke(struct joycon_tera *tera)
++{
++	struct joycon_ir_priv *priv = tera->mcu.ir.priv;
++	struct joycon_mcu_data_pkt pkt = { 0 };
++	u32 need = priv ? priv->frag_need : 0xffffff;
++
++	pkt.output_id = JC_OUTPUT_MCU_DATA;
++	/* packet_num + rumble_data are filled by the transport (send_raw). */
++	pkt.mcu_subcmd = 0x03;			/* IR, buf[10] */
++	pkt.mcu_payload[2] = need & 0xff;	/* buf[15] = bitmap  0..7  */
++	pkt.mcu_payload[3] = (need >> 8) & 0xff;/* buf[16] = bitmap  8..15 */
++	pkt.mcu_payload[4] = (need >> 16) & 0xff;/* buf[17] = bitmap 16..23 */
++	pkt.mcu_payload[5] = 0xff;		/* buf[18] = HOS padding */
++
++	pkt.crc = joycon_mcu_crc8(((u8 *)&pkt) + 11, JC_MCU_CRC_LEN);
++	pkt.pad = 0xFF;
++
++	return joycon_tera_send_raw(tera, (u8 *)&pkt,
++				 sizeof(struct joycon_mcu_data_pkt));
++}
++
++/*
++ * Per-frame re-trigger. When a frame completes, HOS emits one
++ * SET_MCU_CONFIG (report 0x01 / subcmd 0x21) carrying
++ * 03 00 00 00 <max_frag> <bitmap_lo> <bitmap_hi> -- in addition to
++ * re-arming the streaming poke's bitmap to all-ones. This was seen once
++ * per frame boundary in the bidirectional wire capture. On-device,
++ * re-arming the poke bitmap ALONE was not enough: after frame 0 the MCU
++ * parks re-sending only the last fragment as a keep-alive and never
++ * restarts the frame, so every streamon yielded a single frame. This
++ * subcmd is the missing kick that asks the MCU to stream the next full
++ * frame. Fired open-loop from the fragment (raw_event) path, no ack
++ * wait -- same wire format as joycon_ir_write_regs().
++ */
++static int joycon_ir_send_frame_trigger(struct joycon_tera *tera)
++{
++	struct joycon_mcu_ir_state *ir = &tera->mcu.ir;
++	u8 buffer[sizeof(struct joycon_subcmd_request) + 38] = { 0 };
++	struct joycon_subcmd_request *req =
++		(struct joycon_subcmd_request *)buffer;
++
++	req->subcmd_id = JC_SUBCMD_SET_MCU_CONFIG;	/* buf[10] = 0x21 */
++	req->data[0] = 0x03;		/* buf[11]: IR frame-restart command */
++	req->data[1] = 0x00;		/* buf[12] */
++	req->data[2] = 0x00;		/* buf[13] */
++	req->data[3] = 0x00;		/* buf[14] */
++	req->data[4] = ir->max_frag;	/* buf[15]: max_frag (ff/3f/0f/03) */
++	req->data[5] = 0xff;		/* buf[16]: "send whole frame" bitmap */
++	req->data[6] = 0xff;		/* buf[17] */
++	req->data[7] = 0xff;		/* buf[18] */
++	req->data[8] = 0xff;		/* buf[19] */
++	/* CRC over buf[12..47] == req->data[1..36], stored at buf[48]. */
++	req->data[37] = joycon_mcu_crc8(&req->data[1], JC_MCU_CRC_LEN);
++
++	req->output_id = JC_OUTPUT_RUMBLE_AND_SUBCMD;
++	/* packet_num + rumble_data are filled by the transport (send_raw). */
++
++	return joycon_tera_send_raw(tera, (u8 *)req, sizeof(*req) + 38);
++}
++
++/*
++ * Stream start / stop, mirroring HOS. 0x24 (polling-enable) kicks off the
++ * first frame; 0x25 (polling-disable) tears it down. HOS pairs them around a
++ * streaming session, and sending 0x25 on stop is what cleanly ends the polling
++ * that 0x24 began -- without it a subsequent SET_IR_MODE on re-enable can time
++ * out (-110). Both are open-loop, same wire format as the frame trigger.
++ * 0x24 = `24 03 00 00 00 00 ff ff ff ff`; 0x25 = `25 00 ...` (all-zero data).
++ */
++static int __maybe_unused joycon_ir_send_stream_start(struct joycon_tera *tera)
++{
++	u8 buffer[sizeof(struct joycon_subcmd_request) + 38] = { 0 };
++	struct joycon_subcmd_request *req =
++		(struct joycon_subcmd_request *)buffer;
++
++	req->subcmd_id = 0x24;		/* buf[10]: MCU polling / stream start */
++	req->data[0] = 0x03;		/* buf[11]: mcu_cmd */
++	req->data[5] = 0xff;		/* buf[16..19]: "send everything" mask */
++	req->data[6] = 0xff;
++	req->data[7] = 0xff;
++	req->data[8] = 0xff;
++	req->data[37] = joycon_mcu_crc8(&req->data[1], JC_MCU_CRC_LEN);
++
++	req->output_id = JC_OUTPUT_RUMBLE_AND_SUBCMD;
++	/* packet_num + rumble_data are filled by the transport (send_raw). */
++
++	return joycon_tera_send_raw(tera, (u8 *)req, sizeof(*req) + 38);
++}
++
++static int __maybe_unused joycon_ir_send_polling_disable(struct joycon_tera *tera)
++{
++	u8 buffer[sizeof(struct joycon_subcmd_request) + 38] = { 0 };
++	struct joycon_subcmd_request *req =
++		(struct joycon_subcmd_request *)buffer;
++
++	req->subcmd_id = 0x25;		/* buf[10]: MCU polling disable */
++	/* data all-zero, per HOS */
++	req->data[37] = joycon_mcu_crc8(&req->data[1], JC_MCU_CRC_LEN);
++
++	req->output_id = JC_OUTPUT_RUMBLE_AND_SUBCMD;
++	/* packet_num + rumble_data are filled by the transport (send_raw). */
++
++	return joycon_tera_send_raw(tera, (u8 *)req, sizeof(*req) + 38);
++}
++
++static void joycon_ir_poke_work(struct work_struct *work)
++{
++	struct joycon_ir_priv *priv =
++		container_of(to_delayed_work(work),
++			     struct joycon_ir_priv, poke_work);
++	struct joycon_tera *tera = priv->tera;
++
++	if (!tera || !tera->mcu.ir.streaming)
++		return;
++
++	joycon_ir_send_stream_poke(tera);
++
++	/*
++	 * Silence watchdog (image mode only). recv_frag() pokes per fragment
++	 * and fires the per-frame trigger on completion; if the stream goes
++	 * fully silent (a dropped trigger, or a lost last-fragment so no
++	 * completion fires) nothing restarts it, so re-send the trigger. It
++	 * only fires on real silence. Metadata modes are one-report-per-frame
++	 * with no fragment trigger, so this is skipped for them -- the poke
++	 * above is their keep-alive.
++	 */
++	if (tera->mcu.ir.streaming && tera->mcu.ir.mode == JC_IR_MODE_IMAGE &&
++	    time_after(jiffies, priv->last_frag_jiffies + msecs_to_jiffies(300))) {
++		joycon_ir_send_frame_trigger(tera);
++		priv->last_frag_jiffies = jiffies;	/* rate-limit re-fires */
++	}
++
++	schedule_delayed_work(&priv->poke_work, msecs_to_jiffies(40));
++}
++
++/*
++ * Send a fragment ACK (or missed-fragment request) via output-report
++ * 0x11 / mcu_subcmd 0x03. Called from the raw_event context by
++ * joycon_ir_recv_frag(), so we bypass output_mutex and hit
++ * send_raw() directly. This is safe because during IR
++ * streaming, the MCU is in a "constantly emit fragments" state and
++ * no other subcommand traffic should be interleaved.
++ */
++static int __maybe_unused joycon_ir_ack_frag(struct joycon_tera *tera, u8 ack_frag,
++			      bool req_missed, u8 missed_next_frag)
++{
++	struct joycon_mcu_data_pkt pkt = { 0 };
++
++	pkt.output_id = JC_OUTPUT_MCU_DATA;
++	/* packet_num + rumble_data are filled by the transport (send_raw). */
++	pkt.mcu_subcmd = 0x03;		/* IR subcmd group,  buf[10] */
++
++	/*
++	 * jc_toolkit (jctool.cpp:1450, 1537) writes:
++	 *   normal ack:     buf[14] = ack_frag
++	 *   missed request: buf[12] = 0x01, buf[13] = next, buf[14] = 0
++	 *
++	 * Our struct's mcu_payload[0] is at buf[13], so:
++	 *   buf[12] == pkt.arg2
++	 *   buf[13] == pkt.mcu_payload[0]
++	 *   buf[14] == pkt.mcu_payload[1]
++	 */
++	if (req_missed) {
++		pkt.arg2 = 0x01;			/* buf[12] */
++		pkt.mcu_payload[0] = missed_next_frag;	/* buf[13] */
++		pkt.mcu_payload[1] = 0;			/* buf[14] */
++	} else {
++		pkt.mcu_payload[1] = ack_frag;		/* buf[14] */
++	}
++
++	pkt.crc = joycon_mcu_crc8(((u8 *)&pkt) + 11, JC_MCU_CRC_LEN);
++	pkt.pad = 0xFF;
++
++	return joycon_tera_send_raw(tera, (u8 *)&pkt,
++				 sizeof(struct joycon_mcu_data_pkt));
++}
++
++/*
++ * Consumer for 0x31/0x03 IR fragment reports. Runs from the HID raw_event
++ * path -- keep short: copy 300 bytes into the current vb2 buffer, ack,
++ * and when the last fragment arrives, publish the frame.
++ *
++ * See get_raw_ir_image() in jc_toolkit for the reference reassembly.
++ *
++ * Locking: buf_lock is held across the memcpy into the current buffer,
++ * because stop_streaming can run concurrently from userspace (holding
++ * vq->lock but not buf_lock) and will free the buffers we hold. We
++ * publish the completed buffer *after* releasing buf_lock -- the
++ * vb2_buffer_done() call itself is safe against concurrent stop.
++ */
++/*
++ * IR metadata parsers. One 0x31 report == one complete metadata frame (no
++ * reassembly). Layouts + fixed-point scales were recovered from the HOS hid
++ * sysmodule (nn::xcd::Irsensor{Moment,Clustering,Dpd}Processor).
++ */
++
++/* Read n bits (LSB-first) from a byte stream at *bitpos, advancing it. */
++static u32 joycon_ir_read_bits(const u8 *buf, int buflen,
++			       unsigned int *bitpos, unsigned int n)
++{
++	u32 val = 0;
++	unsigned int i;
++
++	for (i = 0; i < n; i++) {
++		unsigned int b = *bitpos + i;
++
++		if ((int)(b >> 3) < buflen && (buf[b >> 3] & (1u << (b & 7))))
++			val |= 1u << i;
++	}
++	*bitpos += n;
++	return val;
++}
++
++/*
++ * MOMENT: 48 cells packed as a contiguous LSB-first bitstream from byte 59,
++ * 50 bits per cell: intensity[19], centroid_x[16], centroid_y[15].
++ */
++static void joycon_ir_parse_moment(struct joycon_ir_meta *m,
++				   const u8 *data, int size)
++{
++	const u8 *bs = data + 59;
++	int bslen = size - 59;
++	unsigned int pos = 0, i;
++
++	if (bslen <= 0)
++		return;
++	for (i = 0; i < JC_IR_MOMENT_CELLS; i++) {
++		m->moment[i].intensity =
++			joycon_ir_read_bits(bs, bslen, &pos, 19);
++		m->moment[i].cx = joycon_ir_read_bits(bs, bslen, &pos, 16);
++		m->moment[i].cy = joycon_ir_read_bits(bs, bslen, &pos, 15);
++	}
++}
++
++/* Shared 16-byte object/marker layout (8x u16 LE). */
++static void joycon_ir_read_object(struct joycon_ir_object *o, const u8 *r)
++{
++	o->intensity   = get_unaligned_le16(r + 0);
++	o->pixel_count = get_unaligned_le16(r + 2);
++	o->cx          = get_unaligned_le16(r + 4);
++	o->cy          = get_unaligned_le16(r + 6);
++	o->x_min       = get_unaligned_le16(r + 8);
++	o->x_max       = get_unaligned_le16(r + 10);
++	o->y_min       = get_unaligned_le16(r + 12);
++	o->y_max       = get_unaligned_le16(r + 14);
++}
++
++/* CLUSTERING: object_count @59, then 16 x 16-byte object records @61. */
++static void joycon_ir_parse_cluster(struct joycon_ir_meta *m,
++				    const u8 *data, int size)
++{
++	unsigned int i;
++
++	if (size < 61 + JC_IR_CLUSTER_OBJS * 16)
++		return;
++	m->object_count = min_t(u8, data[59], JC_IR_CLUSTER_OBJS);
++	for (i = 0; i < JC_IR_CLUSTER_OBJS; i++)
++		joycon_ir_read_object(&m->object[i], data + 61 + i * 16);
++}
++
++/*
++ * DPD: 3 x 16-byte markers @61, same record layout as a clustering object.
++ * There is no status bitmask in the report -- an invalid marker's record is
++ * zeroed, so validity is simply "has data" (pixel_count > 0). (An earlier
++ * guess read byte 59 as a status mask; on-device captures showed byte 59 is a
++ * framing field that echoes ~fw and does not track which markers are present.)
++ */
++static void joycon_ir_parse_dpd(struct joycon_ir_meta *m,
++				const u8 *data, int size)
++{
++	unsigned int i;
++
++	if (size < 61 + JC_IR_DPD_MARKERS * 16)
++		return;
++	m->marker_valid = 0;
++	for (i = 0; i < JC_IR_DPD_MARKERS; i++) {
++		joycon_ir_read_object(&m->marker[i], data + 61 + i * 16);
++		if (m->marker[i].pixel_count)
++			m->marker_valid |= 1 << i;
++	}
++}
++
++static u8 joycon_ir_fourcc_mode(u32 fourcc)
++{
++	switch (fourcc) {
++	case V4L2_META_FMT_JC_MOMENT:	return JC_IR_MODE_MOMENT;
++	case V4L2_META_FMT_JC_CLUSTER:	return JC_IR_MODE_CLUSTER;
++	case V4L2_META_FMT_JC_DPD:	return JC_IR_MODE_DPD;
++	default:			return 0;
++	}
++}
++
++static unsigned int joycon_ir_meta_bufsize(u32 fourcc)
++{
++	switch (fourcc) {
++	case V4L2_META_FMT_JC_MOMENT:	return sizeof(struct joycon_ir_moment_buf);
++	case V4L2_META_FMT_JC_DPD:	return sizeof(struct joycon_ir_dpd_buf);
++	case V4L2_META_FMT_JC_CLUSTER:
++	default:			return sizeof(struct joycon_ir_cluster_buf);
++	}
++}
++
++/* Metadata RX entry: parse one 0x31 report and deliver it as a V4L2 buffer. */
++static void joycon_ir_recv_meta(struct joycon_tera *tera,
++				const u8 *report, int size)
++{
++	struct joycon_ir_priv *priv = tera->mcu.ir.priv;
++	struct joycon_ir_meta *m;
++	struct joycon_ir_buffer *mbuf = NULL;
++	unsigned long flags;
++	void *vaddr;
++	unsigned int fill = 0;
++	u8 mode;
++
++	if (!priv || size < 60 || report[49] != 0x03)
++		return;
++	mode = report[51];
++	m = &priv->meta;
++
++	spin_lock_irqsave(&m->lock, flags);
++	m->mode = mode;
++	m->frame_counter = report[52];
++	m->frames++;
++	priv->last_frag_jiffies = jiffies;	/* activity for poke keep-alive */
++	switch (mode) {
++	case JC_IR_MODE_MOMENT:
++		joycon_ir_parse_moment(m, report, size);
++		break;
++	case JC_IR_MODE_CLUSTER:
++		joycon_ir_parse_cluster(m, report, size);
++		break;
++	case JC_IR_MODE_DPD:
++		joycon_ir_parse_dpd(m, report, size);
++		break;
++	default:
++		spin_unlock_irqrestore(&m->lock, flags);
++		return;
++	}
++	spin_unlock_irqrestore(&m->lock, flags);
++
++	/* Hand this frame to a queued V4L2 buffer, if userspace provided one. */
++	spin_lock_irqsave(&priv->meta_buf_lock, flags);
++	if (!list_empty(&priv->meta_bufs)) {
++		mbuf = list_first_entry(&priv->meta_bufs,
++					struct joycon_ir_buffer, list);
++		list_del(&mbuf->list);
++	}
++	spin_unlock_irqrestore(&priv->meta_buf_lock, flags);
++	if (!mbuf)
++		return;			/* no consumer -> drop the frame */
++
++	vaddr = vb2_plane_vaddr(&mbuf->vb.vb2_buf, 0);
++	if (mode == JC_IR_MODE_MOMENT) {
++		struct joycon_ir_moment_buf *b = vaddr;
++
++		b->frame = m->frame_counter;
++		memset(b->reserved, 0, sizeof(b->reserved));
++		memcpy(b->cells, m->moment, sizeof(b->cells));
++		fill = sizeof(*b);
++	} else if (mode == JC_IR_MODE_CLUSTER) {
++		struct joycon_ir_cluster_buf *b = vaddr;
++
++		b->frame = m->frame_counter;
++		b->object_count = m->object_count;
++		b->reserved[0] = b->reserved[1] = 0;
++		memcpy(b->objects, m->object, sizeof(b->objects));
++		fill = sizeof(*b);
++	} else {
++		struct joycon_ir_dpd_buf *b = vaddr;
++
++		b->frame = m->frame_counter;
++		b->marker_valid = m->marker_valid;
++		b->reserved[0] = b->reserved[1] = 0;
++		memcpy(b->markers, m->marker, sizeof(b->markers));
++		fill = sizeof(*b);
++	}
++
++	mbuf->vb.sequence = priv->meta_sequence++;
++	mbuf->vb.field = V4L2_FIELD_NONE;
++	mbuf->vb.vb2_buf.timestamp = ktime_get_ns();
++	vb2_set_plane_payload(&mbuf->vb.vb2_buf, 0, fill);
++	vb2_buffer_done(&mbuf->vb.vb2_buf, VB2_BUF_STATE_DONE);
++}
++
++static void joycon_ir_recv_frag(struct joycon_tera *tera,
++				const u8 *report, int size)
++{
++	struct joycon_ir_priv *priv = tera->mcu.ir.priv;
++	struct joycon_mcu_ir_state *ir = &tera->mcu.ir;
++	struct joycon_ir_buffer *done_buf = NULL;
++	unsigned int done_seq = 0;
++	bool frame_done = false;
++	u8 frag_no;
++
++	/* Metadata modes deliver one report per frame -- route them away from
++	 * the image reassembly path. */
++	if (ir->mode && ir->mode != JC_IR_MODE_IMAGE) {
++		joycon_ir_recv_meta(tera, report, size);
++		return;
++	}
++
++	if (!priv || !ir->streaming || size < 360)
++		return;
++
++	/*
++	 * Only 0x03 reports carry real image fragments. The MCU also emits
++	 * status/handshake reports on 0x31 (byte[49] = 0xff/0x01/0x23/0x13/0x0b)
++	 * during config and between frames; ignore those for reassembly.
++	 */
++	if (report[49] != 0x03)
++		return;
++
++	frag_no = report[52];
++	priv->last_frag_jiffies = jiffies;
++
++	spin_lock(&priv->buf_lock);
++
++	/* Drop the fragment into its slot in the buffer being assembled. */
++	if (priv->cur_buf) {
++		void *vaddr = vb2_plane_vaddr(&priv->cur_buf->vb.vb2_buf, 0);
++		size_t off = (size_t)frag_no * 300;
++		size_t sz = vb2_plane_size(&priv->cur_buf->vb.vb2_buf, 0);
++
++		if (vaddr && off + 300 <= sz)
++			memcpy((u8 *)vaddr + off, &report[59], 300);
++	}
++
++	/*
++	 * Selective-repeat: the 24-bit poke bitmap tracks fragments 0..23 only
++	 * (bit N == fragment N). Clearing a bit stops the MCU resending that
++	 * fragment. HOS never widens or windows the bitmap, so for frames with
++	 * more than 24 fragments the rest stream open-loop.
++	 */
++	if (frag_no < 24)
++		priv->frag_need &= ~(1u << frag_no);
++
++	/*
++	 * Frame boundary. HOS ends a frame when its last fragment (== max_frag)
++	 * arrives, then triggers the next; the fragment number wraps back toward
++	 * 0. frame_active is set only by a non-last fragment, so the between-
++	 * frame keep-alive (a bare repeat of max_frag) can't re-publish, and a
++	 * dropped frag 0 just leaves a stale band -- the frame still completes.
++	 */
++	if (frag_no < ir->max_frag) {
++		priv->frame_active = true;
++	} else if (frag_no == ir->max_frag && priv->frame_active) {
++		frame_done = true;
++		priv->frame_active = false;
++		priv->frag_need = 0xffffff;	/* re-arm for the next frame */
++		if (priv->cur_buf) {
++			done_buf = priv->cur_buf;
++			done_seq = priv->sequence++;
++			priv->cur_buf = NULL;
++			if (!list_empty(&priv->buf_queue)) {
++				struct joycon_ir_buffer *nbuf =
++					list_first_entry(&priv->buf_queue,
++						struct joycon_ir_buffer,
++						list);
++				list_del(&nbuf->list);
++				priv->cur_buf = nbuf;
++			}
++		}
++	}
++	spin_unlock(&priv->buf_lock);
++
++	ir->prev_frag = frag_no;
++
++	/* Poke the MCU with the updated bitmap (drives + retransmits). */
++	joycon_ir_send_stream_poke(tera);
++
++	/*
++	 * On a completed frame, the poke's re-armed bitmap alone does not
++	 * restart streaming (the MCU parks on last-fragment keep-alives), so
++	 * also send HOS's per-frame SET_MCU_CONFIG trigger to request the
++	 * next full frame. Open-loop, like the poke.
++	 */
++	if (frame_done)
++		joycon_ir_send_frame_trigger(tera);
++
++	if (done_buf) {
++		done_buf->vb.vb2_buf.timestamp = ktime_get_ns();
++		done_buf->vb.sequence = done_seq;
++		done_buf->vb.field = V4L2_FIELD_NONE;
++		vb2_set_plane_payload(&done_buf->vb.vb2_buf, 0,
++				      (size_t)(ir->max_frag + 1) * 300);
++		vb2_buffer_done(&done_buf->vb.vb2_buf, VB2_BUF_STATE_DONE);
++	}
++}
++
++/* ---- vb2 ops ---- */
++
++static int joycon_ir_queue_setup(struct vb2_queue *vq, unsigned int *nbuffers,
++				 unsigned int *nplanes, unsigned int sizes[],
++				 struct device *alloc_devs[])
++{
++	struct joycon_tera *tera = vb2_get_drv_priv(vq);
++	struct joycon_ir_priv *priv = tera->mcu.ir.priv;
++	unsigned int frame_bytes =
++		((unsigned int)joycon_ir_resolutions[priv->res_idx].max_frag
++		 + 1) * 300;
++
++	if (*nplanes) {
++		if (sizes[0] < frame_bytes)
++			return -EINVAL;
++		return 0;
++	}
++
++	*nplanes = 1;
++	sizes[0] = frame_bytes;
++	if (*nbuffers < 2)
++		*nbuffers = 2;
++	return 0;
++}
++
++static int joycon_ir_buf_prepare(struct vb2_buffer *vb)
++{
++	struct joycon_tera *tera = vb2_get_drv_priv(vb->vb2_queue);
++	struct joycon_ir_priv *priv = tera->mcu.ir.priv;
++	unsigned int frame_bytes =
++		((unsigned int)joycon_ir_resolutions[priv->res_idx].max_frag
++		 + 1) * 300;
++
++	if (vb2_plane_size(vb, 0) < frame_bytes)
++		return -EINVAL;
++	vb2_set_plane_payload(vb, 0, frame_bytes);
++	return 0;
++}
++
++static void joycon_ir_buf_queue(struct vb2_buffer *vb)
++{
++	struct joycon_tera *tera = vb2_get_drv_priv(vb->vb2_queue);
++	struct joycon_ir_priv *priv = tera->mcu.ir.priv;
++	struct joycon_ir_buffer *ibuf = to_ir_buf(vb);
++
++	spin_lock(&priv->buf_lock);
++	if (!priv->cur_buf)
++		priv->cur_buf = ibuf;
++	else
++		list_add_tail(&ibuf->list, &priv->buf_queue);
++	spin_unlock(&priv->buf_lock);
++}
++
++static int joycon_ir_start_streaming(struct vb2_queue *vq, unsigned int count)
++{
++	struct joycon_tera *tera = vb2_get_drv_priv(vq);
++	struct joycon_ir_priv *priv = tera->mcu.ir.priv;
++	int ret;
++
++	priv->sequence = 0;
++	tera->mcu.ir.prev_frag = 0;
++	tera->mcu.ir.missed_pending = false;
++	tera->mcu.ir.max_frag =
++		joycon_ir_resolutions[priv->res_idx].max_frag;
++
++	dev_info(tera->dev, "IR streamon: entering (max_frag=%u)\n",
++		 tera->mcu.ir.max_frag);
++
++	dev_info(tera->dev, "IR streamon: step 1 mcu_enable(IR)\n");
++	ret = joycon_mcu_enable(tera, JC_MCU_MODE_IR);
++	if (ret) {
++		dev_warn(tera->dev,
++			 "IR streamon: mcu_enable failed: %d\n", ret);
++		goto err;
++	}
++
++	/*
++	 * HOS order: write the IR registers BEFORE SET_IR_MODE(image).
++	 * The Nintendo irs sysmodule programs the sensor while the MCU is
++	 * still in bare IR mode and only then flips it to image transfer.
++	 * joycon_ir_write_regs() acks each block via its own continuous
++	 * status poll (0x11/03/02), so this works without SET_IR_MODE
++	 * active -- see the comment there.
++	 *
++	 * Steps 2-4 all send subcmds whose acks arrive via the ack
++	 * matcher in joycon_ctlr_handle_event(). The matcher only
++	 * runs when output_mutex is held. Take it here.
++	 */
++	mutex_lock(tera->output_mutex);
++
++	dev_info(tera->dev, "IR streamon: step 2 apply_settings\n");
++	ret = joycon_ir_apply_settings(tera);
++	if (ret) {
++		mutex_unlock(tera->output_mutex);
++		dev_warn(tera->dev,
++			 "IR streamon: apply_settings failed: %d\n", ret);
++		goto err_dis;
++	}
++
++	dev_info(tera->dev,
++		 "IR streamon: step 3 set_mode(mode=7, max_frag=%u)\n",
++		 tera->mcu.ir.max_frag);
++	ret = joycon_ir_set_mode(tera, JC_IR_MODE_IMAGE_TRANSFER,
++				 tera->mcu.ir.max_frag);
++	if (ret) {
++		mutex_unlock(tera->output_mutex);
++		dev_warn(tera->dev, "IR streamon: set_mode failed: %d\n", ret);
++		goto err_dis;
++	}
++
++	/*
++	 * Settle: after apply_settings returns, the MCU still emits
++	 * delayed 0x13 / 0x23 config-write acks on the 0x31 input
++	 * channel for a few tens of ms. Give it time to quiet down
++	 * before we start the streaming ACK cycle -- if the initial
++	 * frag ACK arrives while the MCU is still emitting register
++	 * acks, it appears to be misinterpreted.
++	 */
++	msleep(100);
++
++	/*
++	 * Start streaming: mark active, then hand the MCU over to the
++	 * continuous keep-alive poke. The poke work sends the first poke
++	 * immediately (delay 0), which kicks the MCU into emitting fragments,
++	 * and re-arms every ~15ms. Fragments arrive on the raw_event path and
++	 * are reassembled by joycon_ir_recv_frag() without any per-fragment
++	 * ACK -- that per-fragment round-trip was the ~50ms/fragment bottleneck.
++	 *
++	 * streaming must be true before scheduling so the work doesn't bail on
++	 * its own guard, and so recv_frag processes the first fragment.
++	 */
++	tera->mcu.ir.streaming = true;
++	tera->mcu.ir.mode = JC_IR_MODE_IMAGE;
++	/* Arm the 24-bit selective-repeat bitmap for the next frame. */
++	priv->frag_need = 0xffffff;
++	priv->frame_active = false;
++	priv->last_frag_jiffies = jiffies;
++	mutex_unlock(tera->output_mutex);
++
++	dev_info(tera->dev, "IR streamon: step 4 start keep-alive poke\n");
++	schedule_delayed_work(&priv->poke_work, 0);
++
++	dev_info(tera->dev, "IR streamon: ok\n");
++	return 0;
++
++err_dis:
++	joycon_mcu_disable(tera);
++err:
++	{
++		struct joycon_ir_buffer *ibuf, *nbuf;
++
++		spin_lock(&priv->buf_lock);
++		if (priv->cur_buf) {
++			vb2_buffer_done(&priv->cur_buf->vb.vb2_buf,
++					VB2_BUF_STATE_QUEUED);
++			priv->cur_buf = NULL;
++		}
++		list_for_each_entry_safe(ibuf, nbuf, &priv->buf_queue, list) {
++			list_del(&ibuf->list);
++			vb2_buffer_done(&ibuf->vb.vb2_buf,
++					VB2_BUF_STATE_QUEUED);
++		}
++		spin_unlock(&priv->buf_lock);
++	}
++	return ret;
++}
++
++static void joycon_ir_stop_streaming(struct vb2_queue *vq)
++{
++	struct joycon_tera *tera = vb2_get_drv_priv(vq);
++	struct joycon_ir_priv *priv = tera->mcu.ir.priv;
++	struct joycon_ir_buffer *ibuf, *nbuf;
++
++	dev_info(tera->dev, "IR stop_streaming: entered\n");
++	tera->mcu.ir.streaming = false;
++	/*
++	 * Stop the keep-alive poke and wait for any in-flight poke to finish
++	 * before tearing the MCU down. Safe to sleep here (vb2 stop_streaming
++	 * runs in process context); the poke work takes no lock we hold.
++	 */
++	cancel_delayed_work_sync(&priv->poke_work);
++	joycon_mcu_disable(tera);
++	dev_info(tera->dev, "IR stop_streaming: mcu_disable done\n");
++
++	spin_lock(&priv->buf_lock);
++	if (priv->cur_buf) {
++		vb2_buffer_done(&priv->cur_buf->vb.vb2_buf,
++				VB2_BUF_STATE_ERROR);
++		priv->cur_buf = NULL;
++	}
++	list_for_each_entry_safe(ibuf, nbuf, &priv->buf_queue, list) {
++		list_del(&ibuf->list);
++		vb2_buffer_done(&ibuf->vb.vb2_buf, VB2_BUF_STATE_ERROR);
++	}
++	spin_unlock(&priv->buf_lock);
++	dev_info(tera->dev, "IR stop_streaming: done\n");
++}
++
++/*
++ * Apply the register blocks for a metadata mode. Reuses the base config block
++ * (exposure/LEDs/gain/ExLF), then writes the per-mode scan + tracking blocks
++ * exactly as captured from HOS. All open-loop, like the image path.
++ */
++static int joycon_ir_apply_meta_settings(struct joycon_tera *tera, u8 mode)
++{
++	struct joycon_ir_priv *priv = tera->mcu.ir.priv;
++	u8 dgain_idx = priv->digital_gain & 0x0f;
++	u8 led_idx = priv->leds & 0x03;
++	u8 exlf_val = 0;
++	int ret;
++
++	if (priv->ext_light_filter & 0x01)
++		exlf_val = 0x03;
++	if (priv->ext_light_filter & 0x02)
++		exlf_val |= 0x04;
++
++	{	/* base config block (same 9 regs as image mode) */
++		const u16 addrs[9] = {
++			JC_IR_REG_EXPOSURE_LO, JC_IR_REG_EXPOSURE_MID,
++			JC_IR_REG_EXPOSURE_HI, JC_IR_REG_LEDS,
++			JC_IR_REG_DGAIN_LO, JC_IR_REG_DGAIN_HI,
++			JC_IR_REG_EXLF, JC_IR_REG_EXLF_THRESH,
++			JC_IR_REG_BUF_UPDATE_LSB,
++		};
++		const u8 vals[9] = {
++			(u8)(priv->exposure & 0xff),
++			(u8)((priv->exposure >> 8) & 0xff),
++			(u8)((priv->exposure >> 16) & 0xff),
++			/*
++			 * HOS runs metadata with both LED groups on (0x00) to
++			 * illuminate the scene; without it only ambient IR is
++			 * seen. Default on, toggleable via the "IR Illuminator"
++			 * control, since moment mode can saturate under light.
++			 */
++			priv->meta_led_on ? 0x00 : joycon_ir_led_map[led_idx],
++			(u8)(dgain_idx << 4), 0x00,
++			exlf_val, 0xc8, 0x47,
++		};
++
++		/* DPD carries no base exposure block on the wire; skip it. */
++		if (mode != JC_IR_MODE_DPD) {
++			ret = joycon_ir_write_regs(tera, addrs, vals, 9);
++			if (ret)
++				return ret;
++		}
++	}
++
++	{	/* scan-window block (mode-specific, from the wire captures) */
++		if (mode == JC_IR_MODE_MOMENT) {
++			const u16 a[5] = { 0x0015, 0x0016, 0x0017, 0x0018,
++					   0x001a };
++			const u8 v[5] = { 0x00, 0x3f, 0xef, 0x01, 0x01 };
++
++			ret = joycon_ir_write_regs(tera, a, v, 5);
++		} else {
++			const u16 a[5] = { 0x0014, 0x0015, 0x0016, 0x0017,
++					   0x0018 };
++			const u8 v[5] = { 0x00, 0x00, 0x3f, 0xef, 0x01 };
++
++			ret = joycon_ir_write_regs(tera, a, v, 5);
++		}
++		if (ret)
++			return ret;
++	}
++
++	/* per-mode tracking block */
++	if (mode == JC_IR_MODE_MOMENT) {
++		const u16 a[5] = { 0x001f, 0x002b, 0x002c, 0x002a, 0x0020 };
++		const u8 v[5] = { 0x01, 0x28, 0x28, 0x01, 0x00 };
++
++		ret = joycon_ir_write_regs(tera, a, v, 5);
++	} else if (mode == JC_IR_MODE_CLUSTER) {
++		const u16 a[6] = { 0x001e, 0x001f, 0x0021, 0x0022, 0x0023,
++				   JC_IR_REG_FINALIZE };
++		const u8 v[6] = { 0xef, 0x01, 0x03, 0x00, 0x00, 0x01 };
++
++		ret = joycon_ir_write_regs(tera, a, v, 6);
++	} else {	/* DPD */
++		const u16 a[3] = { 0x001e, 0x001f, JC_IR_REG_FINALIZE };
++		const u8 v[3] = { 0xef, 0x01, 0x01 };
++
++		ret = joycon_ir_write_regs(tera, a, v, 3);
++	}
++	return ret;
++}
++
++/*
++ * Start a metadata mode (moment/clustering/DPD). Mirrors the image streamon
++ * path (heavy mcu_enable + poke-start, both proven), but applies the metadata
++ * config and routes RX to the metadata parsers via ir->mode. Caller holds
++ * output_mutex is NOT required -- this takes it like streamon does.
++ */
++static int joycon_ir_meta_start(struct joycon_tera *tera, u8 mode)
++{
++	struct joycon_ir_priv *priv = tera->mcu.ir.priv;
++	int ret;
++
++	/* mcu_enable takes output_mutex itself -- must NOT hold it here. */
++	ret = joycon_mcu_enable(tera, JC_MCU_MODE_IR);
++	if (ret) {
++		dev_warn(tera->dev,
++			 "IR meta start: mcu_enable failed: %d\n", ret);
++		return ret;
++	}
++
++	/* apply_meta_settings + set_mode do NOT lock -- caller must hold it. */
++	mutex_lock(tera->output_mutex);
++	ret = joycon_ir_apply_meta_settings(tera, mode);
++	if (ret) {
++		mutex_unlock(tera->output_mutex);
++		goto err_dis;
++	}
++	ret = joycon_ir_set_mode(tera, mode, 0);
++	if (ret) {
++		mutex_unlock(tera->output_mutex);
++		goto err_dis;
++	}
++	priv->last_frag_jiffies = jiffies;
++	tera->mcu.ir.mode = mode;
++	tera->mcu.ir.streaming = true;
++	mutex_unlock(tera->output_mutex);
++
++	schedule_delayed_work(&priv->poke_work, 0);
++	dev_info(tera->dev, "IR meta start: mode=0x%02x ok\n", mode);
++	return 0;
++
++err_dis:
++	joycon_mcu_disable(tera);	/* takes output_mutex itself */
++	dev_warn(tera->dev, "IR meta start: mode=0x%02x failed: %d\n",
++		 mode, ret);
++	return ret;
++}
++
++static void joycon_ir_meta_stop(struct joycon_tera *tera)
++{
++	struct joycon_ir_priv *priv = tera->mcu.ir.priv;
++
++	if (!tera->mcu.ir.streaming)
++		return;
++	tera->mcu.ir.streaming = false;
++	tera->mcu.ir.mode = 0;
++	cancel_delayed_work_sync(&priv->poke_work);
++	/* mcu_disable takes output_mutex itself -- must NOT hold it here. */
++	joycon_mcu_disable(tera);
++	dev_info(tera->dev, "IR meta stop\n");
++}
++
++/* ---- IR metadata V4L2 capture node (moment / clustering / DPD) ---------- */
++
++#define JOYCON_CID_IR_META_ILLUM	(V4L2_CID_USER_BASE + 0x1002)
++
++static int joycon_ir_meta_queue_setup(struct vb2_queue *vq,
++				      unsigned int *nbuffers,
++				      unsigned int *nplanes,
++				      unsigned int sizes[],
++				      struct device *alloc_devs[])
++{
++	struct joycon_tera *tera = vb2_get_drv_priv(vq);
++	struct joycon_ir_priv *priv = tera->mcu.ir.priv;
++	unsigned int sz = joycon_ir_meta_bufsize(priv->meta_fourcc);
++
++	if (*nplanes) {
++		if (sizes[0] < sz)
++			return -EINVAL;
++		return 0;
++	}
++	*nplanes = 1;
++	sizes[0] = sz;
++	if (*nbuffers < 2)
++		*nbuffers = 2;
++	return 0;
++}
++
++static int joycon_ir_meta_buf_prepare(struct vb2_buffer *vb)
++{
++	struct joycon_tera *tera = vb2_get_drv_priv(vb->vb2_queue);
++	struct joycon_ir_priv *priv = tera->mcu.ir.priv;
++	unsigned int sz = joycon_ir_meta_bufsize(priv->meta_fourcc);
++
++	if (vb2_plane_size(vb, 0) < sz)
++		return -EINVAL;
++	vb2_set_plane_payload(vb, 0, sz);
++	return 0;
++}
++
++static void joycon_ir_meta_buf_queue(struct vb2_buffer *vb)
++{
++	struct joycon_tera *tera = vb2_get_drv_priv(vb->vb2_queue);
++	struct joycon_ir_priv *priv = tera->mcu.ir.priv;
++	struct joycon_ir_buffer *mbuf = to_ir_buf(vb);
++	unsigned long flags;
++
++	spin_lock_irqsave(&priv->meta_buf_lock, flags);
++	list_add_tail(&mbuf->list, &priv->meta_bufs);
++	spin_unlock_irqrestore(&priv->meta_buf_lock, flags);
++}
++
++/* Return every queued buffer to userspace in the given state. */
++static void joycon_ir_meta_return_bufs(struct joycon_ir_priv *priv,
++				       enum vb2_buffer_state state)
++{
++	struct joycon_ir_buffer *mbuf, *n;
++	unsigned long flags;
++
++	spin_lock_irqsave(&priv->meta_buf_lock, flags);
++	list_for_each_entry_safe(mbuf, n, &priv->meta_bufs, list) {
++		list_del(&mbuf->list);
++		vb2_buffer_done(&mbuf->vb.vb2_buf, state);
++	}
++	spin_unlock_irqrestore(&priv->meta_buf_lock, flags);
++}
++
++static int joycon_ir_meta_start_streaming(struct vb2_queue *vq,
++					  unsigned int count)
++{
++	struct joycon_tera *tera = vb2_get_drv_priv(vq);
++	struct joycon_ir_priv *priv = tera->mcu.ir.priv;
++	u8 mode = joycon_ir_fourcc_mode(priv->meta_fourcc);
++	int ret;
++
++	priv->meta_sequence = 0;
++	ret = joycon_ir_meta_start(tera, mode);
++	if (ret)
++		joycon_ir_meta_return_bufs(priv, VB2_BUF_STATE_QUEUED);
++	return ret;
++}
++
++static void joycon_ir_meta_stop_streaming(struct vb2_queue *vq)
++{
++	struct joycon_tera *tera = vb2_get_drv_priv(vq);
++	struct joycon_ir_priv *priv = tera->mcu.ir.priv;
++
++	joycon_ir_meta_stop(tera);
++	joycon_ir_meta_return_bufs(priv, VB2_BUF_STATE_ERROR);
++}
++
++static const struct vb2_ops joycon_ir_meta_vb2_ops = {
++	.queue_setup     = joycon_ir_meta_queue_setup,
++	.buf_prepare     = joycon_ir_meta_buf_prepare,
++	.buf_queue       = joycon_ir_meta_buf_queue,
++	.start_streaming = joycon_ir_meta_start_streaming,
++	.stop_streaming  = joycon_ir_meta_stop_streaming,
++	.wait_prepare    = vb2_ops_wait_prepare,
++	.wait_finish     = vb2_ops_wait_finish,
++};
++
++/* ---- meta ioctl ops ---- */
++
++static const u32 joycon_ir_meta_fmts[] = {
++	V4L2_META_FMT_JC_CLUSTER,
++	V4L2_META_FMT_JC_MOMENT,
++	V4L2_META_FMT_JC_DPD,
++};
++
++static int joycon_ir_meta_querycap(struct file *file, void *fh,
++				   struct v4l2_capability *cap)
++{
++	strscpy((char *)cap->driver, "hid_nintendo", sizeof(cap->driver));
++	strscpy((char *)cap->card, "Joy-Con NIR metadata", sizeof(cap->card));
++	cap->device_caps = V4L2_CAP_META_CAPTURE | V4L2_CAP_STREAMING;
++	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
++	return 0;
++}
++
++static int joycon_ir_meta_enum_fmt(struct file *file, void *fh,
++				   struct v4l2_fmtdesc *f)
++{
++	if (f->index >= ARRAY_SIZE(joycon_ir_meta_fmts))
++		return -EINVAL;
++	f->pixelformat = joycon_ir_meta_fmts[f->index];
++	return 0;
++}
++
++static int joycon_ir_meta_g_fmt(struct file *file, void *fh,
++				struct v4l2_format *f)
++{
++	struct joycon_tera *tera = video_drvdata(file);
++	struct joycon_ir_priv *priv = tera->mcu.ir.priv;
++
++	f->fmt.meta.dataformat = priv->meta_fourcc;
++	f->fmt.meta.buffersize = joycon_ir_meta_bufsize(priv->meta_fourcc);
++	return 0;
++}
++
++static int joycon_ir_meta_try_fmt(struct file *file, void *fh,
++				  struct v4l2_format *f)
++{
++	if (!joycon_ir_fourcc_mode(f->fmt.meta.dataformat))
++		f->fmt.meta.dataformat = V4L2_META_FMT_JC_CLUSTER;
++	f->fmt.meta.buffersize = joycon_ir_meta_bufsize(f->fmt.meta.dataformat);
++	return 0;
++}
++
++static int joycon_ir_meta_s_fmt(struct file *file, void *fh,
++				struct v4l2_format *f)
++{
++	struct joycon_tera *tera = video_drvdata(file);
++	struct joycon_ir_priv *priv = tera->mcu.ir.priv;
++
++	if (vb2_is_busy(&priv->meta_vbq))
++		return -EBUSY;
++	joycon_ir_meta_try_fmt(file, fh, f);
++	priv->meta_fourcc = f->fmt.meta.dataformat;
++	return 0;
++}
++
++static const struct v4l2_ioctl_ops joycon_ir_meta_ioctl_ops = {
++	.vidioc_querycap          = joycon_ir_meta_querycap,
++	.vidioc_enum_fmt_meta_cap = joycon_ir_meta_enum_fmt,
++	.vidioc_g_fmt_meta_cap    = joycon_ir_meta_g_fmt,
++	.vidioc_s_fmt_meta_cap    = joycon_ir_meta_s_fmt,
++	.vidioc_try_fmt_meta_cap  = joycon_ir_meta_try_fmt,
++	.vidioc_reqbufs           = vb2_ioctl_reqbufs,
++	.vidioc_querybuf          = vb2_ioctl_querybuf,
++	.vidioc_qbuf              = vb2_ioctl_qbuf,
++	.vidioc_dqbuf             = vb2_ioctl_dqbuf,
++	.vidioc_streamon          = vb2_ioctl_streamon,
++	.vidioc_streamoff         = vb2_ioctl_streamoff,
++};
++
++/* IR illuminator control for the metadata node (default on, unlike the image
++ * node which defaults off: clustering/DPD need active light). */
++static int joycon_ir_meta_s_ctrl(struct v4l2_ctrl *ctrl)
++{
++	struct joycon_ir_priv *priv = container_of(ctrl->handler,
++			struct joycon_ir_priv, meta_ctrl_handler);
++
++	if (ctrl->id == JOYCON_CID_IR_META_ILLUM) {
++		priv->meta_led_on = ctrl->val;
++		return 0;
++	}
++	return -EINVAL;
++}
++
++static const struct v4l2_ctrl_ops joycon_ir_meta_ctrl_ops = {
++	.s_ctrl = joycon_ir_meta_s_ctrl,
++};
++
++static const struct v4l2_ctrl_config joycon_ir_ctrl_meta_illum = {
++	.ops  = &joycon_ir_meta_ctrl_ops,
++	.id   = JOYCON_CID_IR_META_ILLUM,
++	.name = "IR Illuminator",
++	.type = V4L2_CTRL_TYPE_BOOLEAN,
++	.min  = 0,
++	.max  = 1,
++	.step = 1,
++	.def  = 1,
++};
++
++static const struct vb2_ops joycon_ir_vb2_ops = {
++	.queue_setup     = joycon_ir_queue_setup,
++	.buf_prepare     = joycon_ir_buf_prepare,
++	.buf_queue       = joycon_ir_buf_queue,
++	.start_streaming = joycon_ir_start_streaming,
++	.stop_streaming  = joycon_ir_stop_streaming,
++	.wait_prepare    = vb2_ops_wait_prepare,
++	.wait_finish     = vb2_ops_wait_finish,
++};
++
++/* ---- v4l2 ioctl ops ---- */
++
++static int joycon_ir_querycap(struct file *file, void *fh,
++			      struct v4l2_capability *cap)
++{
++	strscpy((char *)cap->driver, "hid_nintendo", sizeof(cap->driver));
++	strscpy((char *)cap->card,   "Joy-Con NIR",  sizeof(cap->card));
++	cap->device_caps = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_STREAMING |
++			   V4L2_CAP_READWRITE;
++	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
++	return 0;
++}
++
++static int joycon_ir_enum_fmt(struct file *file, void *fh,
++			      struct v4l2_fmtdesc *f)
++{
++	if (f->index > 0)
++		return -EINVAL;
++	f->pixelformat = V4L2_PIX_FMT_GREY;
++	strscpy((char *)f->description, "8bpp greyscale",
++		sizeof(f->description));
++	return 0;
++}
++
++static int joycon_ir_g_fmt(struct file *file, void *fh,
++			   struct v4l2_format *f)
++{
++	struct joycon_tera *tera = video_drvdata(file);
++	struct joycon_ir_priv *priv = tera->mcu.ir.priv;
++	unsigned int idx = priv->res_idx;
++
++	f->fmt.pix.pixelformat = V4L2_PIX_FMT_GREY;
++	f->fmt.pix.width       = joycon_ir_resolutions[idx].width;
++	f->fmt.pix.height      = joycon_ir_resolutions[idx].height;
++	f->fmt.pix.field       = V4L2_FIELD_NONE;
++	f->fmt.pix.bytesperline = joycon_ir_resolutions[idx].width;
++	f->fmt.pix.sizeimage   =
++		((unsigned int)joycon_ir_resolutions[idx].max_frag + 1) * 300;
++	f->fmt.pix.colorspace  = V4L2_COLORSPACE_RAW;
++	return 0;
++}
++
++static int joycon_ir_try_fmt(struct file *file, void *fh,
++			     struct v4l2_format *f)
++{
++	int i, idx = ARRAY_SIZE(joycon_ir_resolutions) - 1;
++
++	/*
++	 * The table is ordered largest-first. Pick the largest entry
++	 * that fits inside the caller's requested dimensions; if
++	 * nothing fits, fall back to the smallest (idx set above).
++	 */
++	for (i = 0; i < (int)ARRAY_SIZE(joycon_ir_resolutions); i++) {
++		if (f->fmt.pix.width  >= joycon_ir_resolutions[i].width &&
++		    f->fmt.pix.height >= joycon_ir_resolutions[i].height) {
++			idx = i;
++			break;
++		}
++	}
++
++	f->fmt.pix.pixelformat = V4L2_PIX_FMT_GREY;
++	f->fmt.pix.width       = joycon_ir_resolutions[idx].width;
++	f->fmt.pix.height      = joycon_ir_resolutions[idx].height;
++	f->fmt.pix.field       = V4L2_FIELD_NONE;
++	f->fmt.pix.bytesperline = joycon_ir_resolutions[idx].width;
++	f->fmt.pix.sizeimage   =
++		((unsigned int)joycon_ir_resolutions[idx].max_frag + 1) * 300;
++	f->fmt.pix.colorspace  = V4L2_COLORSPACE_RAW;
++	return 0;
++}
++
++static int joycon_ir_s_fmt(struct file *file, void *fh,
++			   struct v4l2_format *f)
++{
++	struct joycon_tera *tera = video_drvdata(file);
++	struct joycon_ir_priv *priv = tera->mcu.ir.priv;
++	int i;
++
++	if (vb2_is_busy(&priv->vbq))
++		return -EBUSY;
++
++	joycon_ir_try_fmt(file, fh, f);
++	for (i = 0; i < (int)ARRAY_SIZE(joycon_ir_resolutions); i++) {
++		if (f->fmt.pix.width == joycon_ir_resolutions[i].width) {
++			priv->res_idx = i;
++			break;
++		}
++	}
++	return 0;
++}
++
++static const struct v4l2_ioctl_ops joycon_ir_ioctl_ops = {
++	.vidioc_querycap         = joycon_ir_querycap,
++	.vidioc_enum_fmt_vid_cap = joycon_ir_enum_fmt,
++	.vidioc_g_fmt_vid_cap    = joycon_ir_g_fmt,
++	.vidioc_s_fmt_vid_cap    = joycon_ir_s_fmt,
++	.vidioc_try_fmt_vid_cap  = joycon_ir_try_fmt,
++	.vidioc_reqbufs          = vb2_ioctl_reqbufs,
++	.vidioc_querybuf         = vb2_ioctl_querybuf,
++	.vidioc_qbuf             = vb2_ioctl_qbuf,
++	.vidioc_dqbuf            = vb2_ioctl_dqbuf,
++	.vidioc_streamon         = vb2_ioctl_streamon,
++	.vidioc_streamoff        = vb2_ioctl_streamoff,
++};
++
++static const struct v4l2_file_operations joycon_ir_fops = {
++	.owner          = THIS_MODULE,
++	.open           = v4l2_fh_open,
++	.release        = vb2_fop_release,
++	.read           = vb2_fop_read,
++	.poll           = vb2_fop_poll,
++	.mmap           = vb2_fop_mmap,
++	.unlocked_ioctl = video_ioctl2,
++};
++
++/* ---- v4l2 controls ---- */
++
++/* IR illuminator custom control IDs (see joycon_ir_ctrl_leds below). */
++#define JOYCON_CID_IR_LEDS		(V4L2_CID_USER_BASE + 0x1000)
++#define JOYCON_CID_IR_LED_INTENSITY	(V4L2_CID_USER_BASE + 0x1001)
++
++static int joycon_ir_s_ctrl(struct v4l2_ctrl *ctrl)
++{
++	struct joycon_ir_priv *priv =
++		container_of(ctrl->handler, struct joycon_ir_priv,
++			     ctrl_handler);
++
++	pr_info("joycon_ir_s_ctrl: id=0x%08x val=%d\n", ctrl->id, ctrl->val);
++
++	switch (ctrl->id) {
++	case V4L2_CID_EXPOSURE:
++		/*
++		 * 24-bit exposure register. Max ~537 sec at 31.2 MHz.
++		 * We cap at 0x00ffff (~2.1 sec) by default to avoid
++		 * pathologically long exposures freezing streaming.
++		 */
++		priv->exposure = clamp_val(ctrl->val, 0, 0xffff);
++		break;
++	case V4L2_CID_GAIN:
++		/*
++		 * 4-bit dgain lookup index (0..15). Nintendo's sysmodule
++		 * uses a table at rodata 0x1c200c; effectively the value
++		 * written to reg 0x012e is (index << 4).
++		 */
++		priv->digital_gain = clamp_val(ctrl->val, 0, 15);
++		break;
++	case V4L2_CID_HFLIP:
++		priv->flip = (priv->flip & ~0x02) | (ctrl->val ? 0x02 : 0);
++		break;
++	case V4L2_CID_VFLIP:
++		priv->flip = (priv->flip & ~0x01) | (ctrl->val ? 0x01 : 0);
++		break;
++	case JOYCON_CID_IR_LEDS:
++		/* LED-group select -> reg 0x0010 via joycon_ir_led_map[]. */
++		priv->leds = ctrl->val & 0x03;
++		break;
++	case JOYCON_CID_IR_LED_INTENSITY:
++		/* -> regs 0x0011 (hi) / 0x0012 (lo). */
++		priv->leds_intensity = ctrl->val & 0xffff;
++		break;
++	default:
++		return -EINVAL;
++	}
++	return 0;
++}
++
++static const struct v4l2_ctrl_ops joycon_ir_ctrl_ops = {
++	.s_ctrl = joycon_ir_s_ctrl,
++};
++
++/*
++ * IR illumination controls. The near-IR LEDs are a flood illuminator for the
++ * camera; expose which LED group(s) are lit (reg 0x0010 via joycon_ir_led_map)
++ * and their intensity (regs 0x0011/0x0012). Like exposure/gain these are latched
++ * into the register block at the next STREAMON, not applied live.
++ */
++static const char * const joycon_ir_led_menu[] = {
++	"Off", "Group 1", "Group 2", "Both",
++};
++
++static const struct v4l2_ctrl_config joycon_ir_ctrl_leds = {
++	.ops	= &joycon_ir_ctrl_ops,
++	.id	= JOYCON_CID_IR_LEDS,
++	.name	= "IR Illuminator",
++	.type	= V4L2_CTRL_TYPE_MENU,
++	.min	= 0,
++	.max	= ARRAY_SIZE(joycon_ir_led_menu) - 1,
++	.def	= 0,			/* Off (reg 0x30); "Both"=0x00 floods */
++	.qmenu	= joycon_ir_led_menu,
++};
++
++static const struct v4l2_ctrl_config joycon_ir_ctrl_led_intensity = {
++	.ops	= &joycon_ir_ctrl_ops,
++	.id	= JOYCON_CID_IR_LED_INTENSITY,
++	.name	= "IR Illuminator Intensity",
++	.type	= V4L2_CTRL_TYPE_INTEGER,
++	.min	= 0,
++	.max	= 0xffff,
++	.step	= 1,
++	.def	= 0x0f10,
++};
++
++/* ---- register / unregister ---- */
++
++int joycon_ir_register(struct joycon_tera *tera)
++{
++	struct joycon_ir_priv *priv;
++	struct video_device *vdev;
++	struct vb2_queue *q;
++	int ret;
++
++	/*
++	 * The NIR camera lives only in the right Joy-Con (0x2007). Pro
++	 * Controller has NFC but not a camera; left Joy-Con and Charging
++	 * Grip left-half have neither. Skip publication for anything
++	 * else -- including third-party clones with spoofed VID/PID --
++	 * so userspace never sees a non-functional /dev/videoN.
++	 *
++	 * jc_supports_ir() covers both the USB product ID and the MCU
++	 * self-reported controller type. The MCU-responsive gate is the
++	 * separate belt-and-suspenders check that catches clones with
++	 * spoofed Nintendo VID/PID but no working MCU.
++	 */
++	if (!jc_supports_ir(tera))
++		return 0;
++	if (!tera->mcu.responsive) {
++		dev_info(tera->dev,
++			 "IR register: skipping (MCU probe failed at .probe time)\n");
++		return 0;
++	}
++
++	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
++	if (!priv)
++		return -ENOMEM;
++
++	mutex_init(&priv->vb_lock);
++	spin_lock_init(&priv->buf_lock);
++	INIT_LIST_HEAD(&priv->buf_queue);
++	spin_lock_init(&priv->meta.lock);
++	priv->meta_led_on = true;	/* illuminate scene in metadata modes */
++	priv->tera = tera;
++	INIT_DELAYED_WORK(&priv->poke_work, joycon_ir_poke_work);
++
++	priv->res_idx          = 0;
++	priv->exposure         = 0x2490;	/* ~300us in encoded units */
++	priv->digital_gain     = 8;		/* mid dgain (index 8 -> 0x80) */
++	priv->ext_light_filter = 0x00;		/* ExLF off */
++	priv->flip             = 0;
++	priv->leds             = 0x00;		/* menu "Off" -> reg 0x0010 = 0x30 */
++	priv->leds_intensity   = 0x0F10;
++
++	ret = v4l2_device_register(tera->dev, &priv->v4l2_dev);
++	if (ret)
++		goto err_priv;
++
++	v4l2_ctrl_handler_init(&priv->ctrl_handler, 6);
++	v4l2_ctrl_new_std(&priv->ctrl_handler, &joycon_ir_ctrl_ops,
++			  V4L2_CID_EXPOSURE, 0, 0xffff, 1, priv->exposure);
++	v4l2_ctrl_new_std(&priv->ctrl_handler, &joycon_ir_ctrl_ops,
++			  V4L2_CID_GAIN, 0, 15, 1, priv->digital_gain);
++	v4l2_ctrl_new_std(&priv->ctrl_handler, &joycon_ir_ctrl_ops,
++			  V4L2_CID_HFLIP, 0, 1, 1, 0);
++	v4l2_ctrl_new_std(&priv->ctrl_handler, &joycon_ir_ctrl_ops,
++			  V4L2_CID_VFLIP, 0, 1, 1, 0);
++	v4l2_ctrl_new_custom(&priv->ctrl_handler, &joycon_ir_ctrl_leds, NULL);
++	v4l2_ctrl_new_custom(&priv->ctrl_handler,
++			     &joycon_ir_ctrl_led_intensity, NULL);
++	if (priv->ctrl_handler.error) {
++		ret = priv->ctrl_handler.error;
++		goto err_ctrl;
++	}
++	priv->v4l2_dev.ctrl_handler = &priv->ctrl_handler;
++
++	q = &priv->vbq;
++	q->type            = V4L2_BUF_TYPE_VIDEO_CAPTURE;
++	q->io_modes        = VB2_MMAP | VB2_USERPTR | VB2_READ;
++	q->buf_struct_size = sizeof(struct joycon_ir_buffer);
++	q->ops             = &joycon_ir_vb2_ops;
++	q->mem_ops         = &vb2_vmalloc_memops;
++	q->drv_priv        = tera;
++	q->lock            = &priv->vb_lock;
++	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
++	ret = vb2_queue_init(q);
++	if (ret)
++		goto err_ctrl;
++
++	vdev = &priv->vdev;
++	strscpy(vdev->name, "Joy-Con NIR", sizeof(vdev->name));
++	vdev->v4l2_dev    = &priv->v4l2_dev;
++	vdev->fops        = &joycon_ir_fops;
++	vdev->ioctl_ops   = &joycon_ir_ioctl_ops;
++	vdev->release     = video_device_release_empty;
++	vdev->lock        = &priv->vb_lock;
++	vdev->queue       = q;
++	vdev->device_caps = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_STREAMING |
++			    V4L2_CAP_READWRITE;
++	video_set_drvdata(vdev, tera);
++
++	ret = video_register_device(vdev, VFL_TYPE_GRABBER, -1);
++	if (ret)
++		goto err_ctrl;
++
++	tera->mcu.ir.priv = priv;
++	tera->mcu.ir.recv_frag = joycon_ir_recv_frag;
++
++	/* Second node: IR metadata (moment/clustering/DPD) capture. Shares
++	 * priv->v4l2_dev with the image node above. */
++	mutex_init(&priv->meta_vb_lock);
++	spin_lock_init(&priv->meta_buf_lock);
++	INIT_LIST_HEAD(&priv->meta_bufs);
++	priv->meta_fourcc = V4L2_META_FMT_JC_CLUSTER;
++
++	v4l2_ctrl_handler_init(&priv->meta_ctrl_handler, 1);
++	v4l2_ctrl_new_custom(&priv->meta_ctrl_handler,
++			     &joycon_ir_ctrl_meta_illum, NULL);
++	if (priv->meta_ctrl_handler.error) {
++		ret = priv->meta_ctrl_handler.error;
++		goto err_meta;
++	}
++
++	q = &priv->meta_vbq;
++	q->type            = V4L2_BUF_TYPE_META_CAPTURE;
++	q->io_modes        = VB2_MMAP | VB2_READ;
++	q->buf_struct_size = sizeof(struct joycon_ir_buffer);
++	q->ops             = &joycon_ir_meta_vb2_ops;
++	q->mem_ops         = &vb2_vmalloc_memops;
++	q->drv_priv        = tera;
++	q->lock            = &priv->meta_vb_lock;
++	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
++	ret = vb2_queue_init(q);
++	if (ret)
++		goto err_meta;
++
++	vdev = &priv->meta_vdev;
++	strscpy(vdev->name, "Joy-Con NIR metadata", sizeof(vdev->name));
++	vdev->v4l2_dev     = &priv->v4l2_dev;
++	vdev->fops         = &joycon_ir_fops;
++	vdev->ioctl_ops    = &joycon_ir_meta_ioctl_ops;
++	vdev->release      = video_device_release_empty;
++	vdev->lock         = &priv->meta_vb_lock;
++	vdev->queue        = q;
++	vdev->device_caps  = V4L2_CAP_META_CAPTURE | V4L2_CAP_STREAMING;
++	vdev->ctrl_handler = &priv->meta_ctrl_handler;
++	video_set_drvdata(vdev, tera);
++
++	ret = video_register_device(vdev, VFL_TYPE_GRABBER, -1);
++	if (ret)
++		goto err_meta;
++
++	return 0;
++
++err_meta:
++	v4l2_ctrl_handler_free(&priv->meta_ctrl_handler);
++	video_unregister_device(&priv->vdev);
++	tera->mcu.ir.recv_frag = NULL;
++	tera->mcu.ir.priv = NULL;
++
++err_ctrl:
++	v4l2_ctrl_handler_free(&priv->ctrl_handler);
++	v4l2_device_unregister(&priv->v4l2_dev);
++err_priv:
++	kfree(priv);
++	return ret;
++}
++
++void joycon_ir_unregister(struct joycon_tera *tera)
++{
++	struct joycon_ir_priv *priv = tera->mcu.ir.priv;
++
++	if (!priv)
++		return;
++
++	tera->mcu.ir.streaming = false;
++	cancel_delayed_work_sync(&priv->poke_work);
++
++	video_unregister_device(&priv->meta_vdev);
++	v4l2_ctrl_handler_free(&priv->meta_ctrl_handler);
++	video_unregister_device(&priv->vdev);
++	v4l2_ctrl_handler_free(&priv->ctrl_handler);
++	v4l2_device_unregister(&priv->v4l2_dev);
++
++	tera->mcu.ir.recv_frag = NULL;
++	tera->mcu.ir.priv = NULL;
++	kfree(priv);
++}
++
