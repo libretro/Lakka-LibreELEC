@@ -1,0 +1,47 @@
+From 9f7ecfbad4c7559c2f6c1e731694b89679371c90 Mon Sep 17 00:00:00 2001
+From: Gavin <gavin@localhost>
+Date: Sun, 4 Oct 2026 02:39:47 +0000
+Subject: [PATCH 46/46] codecs: nvv4l2: honour forced keyframes
+
+The encoder ignored AVFrame.pict_type, so a caller asking for a
+keyframe (AV_PICTURE_TYPE_I) got whatever the IDR interval produced.
+That breaks a keyframe cadence kept in time rather than frames, which
+RetroArch needs for RTMP ingest (2 s) when frames are dropped or a
+core delivers video at half its tick rate.
+
+Before queueing a frame marked AV_PICTURE_TYPE_I, set
+V4L2_CID_MPEG_MFC51_VIDEO_FORCE_FRAME_TYPE, the runtime control
+NVIDIA's encoder samples use to force an IDR on the next output
+buffer. A failure is logged and encoding continues.
+---
+ libavcodec/nvv4l2_enc.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/libavcodec/nvv4l2_enc.c b/libavcodec/nvv4l2_enc.c
+index a152335..3375f2a 100644
+--- a/libavcodec/nvv4l2_enc.c
++++ b/libavcodec/nvv4l2_enc.c
+@@ -1311,6 +1311,20 @@ nvv4l2enc_encode(AVCodecContext *avctx, AVPacket *pkt,
+ 
+         _nvframe.pts = frame->pts;
+ 
++#ifdef V4L2_CID_MPEG_MFC51_VIDEO_FORCE_FRAME_TYPE
++        /*
++         ** Honour forced keyframes (AV_PICTURE_TYPE_I), e.g. a caller
++         ** keeping a keyframe cadence in time rather than frames. This
++         ** is the runtime control NVIDIA's own encoder samples use to
++         ** force an IDR on the next queued output buffer.
++         */
++        if (frame->pict_type == AV_PICTURE_TYPE_I &&
++            nvv4l2_set_ext_controls(ctx->fd,
++                                    V4L2_CID_MPEG_MFC51_VIDEO_FORCE_FRAME_TYPE,
++                                    0, 1))
++            av_log(avctx, AV_LOG_WARNING, "Failed to force IDR frame\n");
++#endif
++
+         if (nvv4l2_encoder_put_frame(avctx, ctx, &_nvframe))
+             return AVERROR_UNKNOWN;
+     } else {
+-- 
+2.43.0
+
