@@ -1,0 +1,279 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kaimrdzt <kaimrdzt@users.noreply.github.com>
+Date: Thu, 12 Nov 2026 14:30:00 +0800
+Subject: [PATCH 54/54] LOCAL: arm64: dts: meson-gxl: add S905L3-B TV boxes
+
+Add device trees for two common Amlogic S905L3-B (GXLX2) set-top boxes so
+Lakka AMLGX box images can boot them from SD/USB:
+
+- Skyworth E900V22E (1 GiB RAM, MT7668 SDIO WiFi)
+- MBH M302A (2 GiB RAM, MT7668 SDIO WiFi)
+
+Both boards are based on the community device trees maintained by ophub
+for mainline-based Armbian builds (GPL-2.0+ OR MIT), adapted for the
+Lakka 6.18 kernel and extended with:
+
+- a GXLX2 hdmi_tx node using the new amlogic,meson-gxlx2-dw-hdmi
+  compatible (directly mapped DesignWare/TOP registers at 0xda800000,
+  GXL PHY values) instead of the incorrect meson-g12a-dw-hdmi fallback
+- 24 MHz assigned rates for the SD/eMMC input clocks
+- MT7668 SDIO WiFi child nodes
+- disabled top GPU OPPs the fixed regulators on these boxes cannot reach
+
+S905L3-B boards ship with 1 GiB RAM on several variants; the AMLGX
+kernel enlarges the GX CMA pool to 896 MB which does not fit comfortably
+in 1 GiB. The Amlogic boot scripts gained an optional cma= uEnv variable
+to shrink the pool at boot time for such boards (see
+projects/Amlogic/README.md).
+
+Based-on-work-by: ophub <68696949+ophub@users.noreply.github.com>
+---
+ arch/arm64/boot/dts/amlogic/Makefile          |   3 +
+ .../boot/dts/amlogic/meson-gxl-s905l2-x7-5g.dts  |  31 ++
+ .../meson-gxl-s905l3b-e900v22e.dts            |  76 +++
+ .../amlogic/meson-gxl-s905l3b-m302a.dts       | 105 +++
+ 4 files changed, 215 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/amlogic/Makefile b/arch/arm64/boot/dts/amlogic/Makefile
+--- a/arch/arm64/boot/dts/amlogic/Makefile
++++ b/arch/arm64/boot/dts/amlogic/Makefile
+@@ -60,6 +60,9 @@ dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905d-p231.dtb
+ dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905d-phicomm-n1.dtb
+ dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905d-sml5442tw.dtb
+ dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905d-vero4k-plus.dtb
++dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905l2-x7-5g.dtb
++dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905l3b-e900v22e.dtb
++dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905l3b-m302a.dtb
+ dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905w-jethome-jethub-j80.dtb
+ dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905w-p281.dtb
+ dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905w-tx3-mini.dtb
+diff --git a/arch/arm64/boot/dts/amlogic/meson-gxl-s905l2-x7-5g.dts b/arch/arm64/boot/dts/amlogic/meson-gxl-s905l2-x7-5g.dts
+new file mode 100644
+index 000000000..95aeb1876
+--- /dev/null
++++ b/arch/arm64/boot/dts/amlogic/meson-gxl-s905l2-x7-5g.dts
+@@ -0,0 +1,31 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++/*
++ * Copyright (c) 2016 Endless Computers, Inc.
++ * Author: Carlo Caione <carlo@endlessm.com>
++ */
++
++/dts-v1/;
++
++#include "meson-gxl-s905w-p281.dts"
++
++/ {
++	compatible = "amlogic,x7-5g", "amlogic,s905l2", "amlogic,meson-gxl";
++	model = "Amlogic Meson GXL (S905L2) X7 5G Tv Box";
++};
++
++/*
++ * The GPU in the S905L2/S905L3 has one PP core less (i.e. only two in
++ * total) than the one in other S905X/W SoCs.
++ */
++&mali {
++	interrupts = <GIC_SPI 160 IRQ_TYPE_LEVEL_HIGH>,
++		<GIC_SPI 161 IRQ_TYPE_LEVEL_HIGH>,
++		<GIC_SPI 162 IRQ_TYPE_LEVEL_HIGH>,
++		<GIC_SPI 163 IRQ_TYPE_LEVEL_HIGH>,
++		<GIC_SPI 164 IRQ_TYPE_LEVEL_HIGH>,
++		<GIC_SPI 165 IRQ_TYPE_LEVEL_HIGH>,
++		<GIC_SPI 166 IRQ_TYPE_LEVEL_HIGH>,
++		<GIC_SPI 167 IRQ_TYPE_LEVEL_HIGH>;
++	interrupt-names = "gp", "gpmmu", "pp", "pmu",
++		"pp0", "ppmmu0", "pp1", "ppmmu1";
++};
+diff --git a/arch/arm64/boot/dts/amlogic/meson-gxl-s905l3b-e900v22e.dts b/arch/arm64/boot/dts/amlogic/meson-gxl-s905l3b-e900v22e.dts
+new file mode 100644
+index 000000000..ffd5b0226
+--- /dev/null
++++ b/arch/arm64/boot/dts/amlogic/meson-gxl-s905l3b-e900v22e.dts
+@@ -0,0 +1,76 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++/*
++ * Copyright (c) 2016 Endless Computers, Inc.
++ * Author: Carlo Caione <carlo@endlessm.com>
++ * Copyright (c) flippy
++ */
++
++/dts-v1/;
++
++#include "meson-gxl-s905l2-x7-5g.dts"
++
++/ {
++	compatible = "amlogic,s905l3b", "amlogic,meson-gxl";
++	model = "Skyworth E900V22E";
++};
++
++/* eMMC */
++&sd_emmc_c {
++	status = "okay";
++	max-frequency = <50000000>;
++	assigned-clocks = <&clkc CLKID_SD_EMMC_C_CLK0>;
++	assigned-clock-rates = <24000000>;
++};
++
++/* The GPU regulator on these boxes cannot reach the top two OPPs */
++&gpu_opp_table {
++	opp-666666666 {
++		status = "disabled";
++	};
++
++	opp-744000000 {
++		status = "disabled";
++	};
++};
++
++/* SDIO WiFi (MediaTek MT7668) */
++&sd_emmc_a {
++	assigned-clocks = <&clkc CLKID_SD_EMMC_A_CLK0>;
++	assigned-clock-rates = <24000000>;
++
++	wifi@1 {
++		compatible = "mediatek,mt7668";
++		reg = <1>;
++	};
++};
++
++/* SD card */
++&sd_emmc_b {
++	assigned-clocks = <&clkc CLKID_SD_EMMC_B_CLK0>;
++	assigned-clock-rates = <24000000>;
++};
++
++/*
++ * GXLX2 (S905L3-B) combines a GXL-like display pipeline and HDMI PHY with
++ * directly mapped DesignWare and TOP registers like G12A, mapped as one
++ * contiguous window at 0xda800000. The G12A compatible cannot be used
++ * because it selects incompatible G12A PHY initialization values.
++ */
++&hdmi_tx {
++	compatible = "amlogic,meson-gxlx2-dw-hdmi";
++	reg = <0x0 0xda800000 0x0 0x10000>;
++
++	clocks = <&clkc CLKID_HDMI>,
++		 <&clkc CLKID_HDMI_PCLK>,
++		 <&clkc CLKID_GCLK_VENCI_INT0>;
++	clock-names = "isfr", "iahb", "venci";
++	resets = <&reset RESET_HDMITX_CAPB3>,
++		 <&reset RESET_HDMI_SYSTEM_RESET>,
++		 <&reset RESET_HDMI_TX>;
++	reset-names = "hdmitx_apb", "hdmitx", "hdmitx_phy";
++	assigned-clocks = <&clkc CLKID_HDMI_SEL>, <&clkc CLKID_HDMI>;
++	assigned-clock-parents = <&xtal>, <0>;
++	assigned-clock-rates = <0>, <24000000>;
++
++	status = "okay";
++};
+diff --git a/arch/arm64/boot/dts/amlogic/meson-gxl-s905l3b-m302a.dts b/arch/arm64/boot/dts/amlogic/meson-gxl-s905l3b-m302a.dts
+new file mode 100644
+index 000000000..6addce5c9
+--- /dev/null
++++ b/arch/arm64/boot/dts/amlogic/meson-gxl-s905l3b-m302a.dts
+@@ -0,0 +1,105 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++/*
++ * Copyright (c) 2016 Endless Computers, Inc.
++ * Author: Carlo Caione <carlo@endlessm.com>
++ */
++
++/dts-v1/;
++
++#include "meson-gxl-s905w-p281.dts"
++
++/ {
++	compatible = "amlogic,m302a", "amlogic,s905l3b", "amlogic,meson-gxl";
++	model = "Amlogic Meson GXL (S905L3-B) MBH-M302A Box";
++
++	memory@0 {
++		device_type = "memory";
++		reg = <0x0 0x0 0x0 0x80000000>;
++	};
++};
++
++/*
++ * The GPU in the S905L2/S905L3 has one PP core less (i.e. only two in
++ * total) than the one in other S905X/W SoCs.
++ */
++&mali {
++	interrupts = <GIC_SPI 160 IRQ_TYPE_LEVEL_HIGH>,
++		<GIC_SPI 161 IRQ_TYPE_LEVEL_HIGH>,
++		<GIC_SPI 162 IRQ_TYPE_LEVEL_HIGH>,
++		<GIC_SPI 163 IRQ_TYPE_LEVEL_HIGH>,
++		<GIC_SPI 164 IRQ_TYPE_LEVEL_HIGH>,
++		<GIC_SPI 165 IRQ_TYPE_LEVEL_HIGH>,
++		<GIC_SPI 166 IRQ_TYPE_LEVEL_HIGH>,
++		<GIC_SPI 167 IRQ_TYPE_LEVEL_HIGH>;
++	interrupt-names = "gp", "gpmmu", "pp", "pmu",
++		"pp0", "ppmmu0", "pp1", "ppmmu1";
++};
++
++&sd_emmc_c {
++	status = "okay";
++	bus-width = <8>;
++	cap-mmc-highspeed;
++	mmc-ddr-1_8v;
++	mmc-hs200-1_8v;
++	/* Conservative cap matching community-proven configs for this box */
++	max-frequency = <25000000>;
++	assigned-clocks = <&clkc CLKID_SD_EMMC_C_CLK0>;
++	assigned-clock-rates = <24000000>;
++};
++
++/* SDIO WiFi (MediaTek MT7668) */
++&sd_emmc_a {
++	assigned-clocks = <&clkc CLKID_SD_EMMC_A_CLK0>;
++	assigned-clock-rates = <24000000>;
++
++	wifi@1 {
++		compatible = "mediatek,mt7668";
++		reg = <1>;
++	};
++};
++
++/* SD card */
++&sd_emmc_b {
++	assigned-clocks = <&clkc CLKID_SD_EMMC_B_CLK0>;
++	assigned-clock-rates = <24000000>;
++};
++
++/* The GPU regulator on these boxes cannot reach the top two OPPs */
++&gpu_opp_table {
++	opp-666666666 {
++		status = "disabled";
++	};
++
++	opp-744000000 {
++		status = "disabled";
++	};
++};
++
++&internal_phy {
++	max-speed = <100>;
++};
++
++/*
++ * GXLX2 (S905L3-B) combines a GXL-like display pipeline and HDMI PHY with
++ * directly mapped DesignWare and TOP registers like G12A, mapped as one
++ * contiguous window at 0xda800000. The G12A compatible cannot be used
++ * because it selects incompatible G12A PHY initialization values.
++ */
++&hdmi_tx {
++	compatible = "amlogic,meson-gxlx2-dw-hdmi";
++	reg = <0x0 0xda800000 0x0 0x10000>;
++
++	clocks = <&clkc CLKID_HDMI>,
++		 <&clkc CLKID_HDMI_PCLK>,
++		 <&clkc CLKID_GCLK_VENCI_INT0>;
++	clock-names = "isfr", "iahb", "venci";
++	resets = <&reset RESET_HDMITX_CAPB3>,
++		 <&reset RESET_HDMI_SYSTEM_RESET>,
++		 <&reset RESET_HDMI_TX>;
++	reset-names = "hdmitx_apb", "hdmitx", "hdmitx_phy";
++	assigned-clocks = <&clkc CLKID_HDMI_SEL>, <&clkc CLKID_HDMI>;
++	assigned-clock-parents = <&xtal>, <0>;
++	assigned-clock-rates = <0>, <24000000>;
++
++	status = "okay";
++};
