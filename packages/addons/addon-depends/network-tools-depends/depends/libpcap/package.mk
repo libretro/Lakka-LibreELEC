@@ -24,6 +24,10 @@ pre_configure_target() {
   # When cross-compiling, configure can't set linux version
   # forcing it
   sed -i -e 's/ac_cv_linux_vers=unknown/ac_cv_linux_vers=2/' ../configure
+
+  # libpcap adds -fpic (small GOT model); use -fPIC so the static lib can be
+  # linked into large shared objects (e.g. armsx2_libretro.so) on aarch64
+  CFLAGS+=" -fPIC"
 }
 
 post_makeinstall_target() {
