@@ -17,12 +17,12 @@ if [ "${OPENGLES_SUPPORT}" = yes ]; then
 fi
 
 if [ "${OPENGL_SUPPORT}" = yes -o "${OPENGLES_SUPPORT}" = yes ]; then
-  PKG_CMAKE_OPTS+=" -DUSE_OPENGL=ON"
+  PKG_CMAKE_OPTS_TARGET+=" -DUSE_OPENGL=ON"
 fi
 
 if [ "${VULKAN_SUPPORT}" = yes ]; then
   PKG_DEPENDS_TARGET+=" ${VULKAN}"
-  PKG_CMAKE_OPTS+=" -DUSE_VULKAN=ON"
+  PKG_CMAKE_OPTS_TARGET+=" -DUSE_VULKAN=ON"
 fi
 
 makeinstall_target() {
