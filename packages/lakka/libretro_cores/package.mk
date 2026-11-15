@@ -327,6 +327,13 @@ elif [ "${PROJECT}" = "Samsung" ]; then
   EXCLUDE_LIBRETRO_CORES+=" lr_moonlight"
 fi
 
+# lrps2 on aarch64 needs Vulkan
+if [ "${ARCH}" = "aarch64" ]; then
+  if [ "${VULKAN_SUPPORT}" != yes ]; then
+    EXCLUDE_LIBRETRO_CORES+=" lrps2"
+  fi
+fi
+
 # exclude some cores at build time via env EXCLUDE_LIBRETRO_CORES="core1 core2"
 # passed to make and cores added to the env above
 if [ -n "${EXCLUDE_LIBRETRO_CORES}" ]; then

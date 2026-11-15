@@ -1,0 +1,26 @@
+Subject: [PATCH] Pcsx2Defs: allow 16KB host pages on Linux aarch64
+
+The aarch64 host page size is fixed at compile time: 16KB for Apple
+Silicon, 4KB for everything else. A Linux kernel built with 16KB pages
+(Raspberry Pi 5) then runs a core whose vtlb page protection is built
+for 4KB pages, and the mprotect calls behind it fail or cover the
+wrong range without any error being reported.
+
+Let a build select the 16KB layout that Apple Silicon already uses by
+defining PCSX2_HOST_PAGE_16K. Without the define nothing changes.
+
+--- a/common/Pcsx2Defs.h
++++ b/common/Pcsx2Defs.h
+@@ -55,8 +55,10 @@
+ 	#error Unsupported architecture
+ #endif
+ 
+-#if (defined(_M_ARM64) || defined(__aarch64__)) && defined(__APPLE__)
+-/* Apple Silicon uses 16KB pages and 128 byte cache lines. */
++#if (defined(_M_ARM64) || defined(__aarch64__)) && (defined(__APPLE__) || defined(PCSX2_HOST_PAGE_16K))
++/* Apple Silicon uses 16KB pages and 128 byte cache lines. So does a Linux
++   aarch64 kernel built for 16KB pages (Raspberry Pi 5): build with
++   PCSX2_HOST_PAGE_16K there. The page size has to match the kernel's. */
+ #define __pagesize 0x4000
+ #define __pageshift 14
+ #define __cachelinesize 128
