@@ -14,6 +14,7 @@ LIBRETRO_CORES="\
                 anarch \
                 applewin \
                 ardens \
+                armsx2 \
                 atari800 \
                 azahar \
                 b2 \
@@ -325,6 +326,10 @@ elif [ "${PROJECT}" = "RPi" ]; then
 
 elif [ "${PROJECT}" = "Samsung" ]; then
   EXCLUDE_LIBRETRO_CORES+=" lr_moonlight"
+fi
+
+if [ "${VULKAN_SUPPORT}" != "yes" ]; then
+  EXCLUDE_LIBRETRO_CORES+=" armsx2"
 fi
 
 # exclude some cores at build time via env EXCLUDE_LIBRETRO_CORES="core1 core2"

@@ -1,0 +1,36 @@
+--- a/pcsx2/IopThread/IopThread.cpp
++++ b/pcsx2/IopThread/IopThread.cpp
+@@ -41,6 +41,12 @@
+ 		}
+ 
+ #if defined(__linux__)
++		// Kernel ABI values from include/uapi/linux/membarrier.h (Linux 4.14+), spelled out so
++		// the build also works against older kernel headers such as L4T 4.9. Support is still
++		// checked at runtime with MEMBARRIER_CMD_QUERY.
++		static constexpr int kMembarrierCmdPrivateExpedited = 1 << 3;
++		static constexpr int kMembarrierCmdRegisterPrivateExpedited = 1 << 4;
++
+ 		long Membarrier(int cmd)
+ 		{
+ 			return syscall(__NR_membarrier, cmd, 0, 0);
+@@ -52,9 +58,9 @@
+ 		{
+ 			static const bool s_ok = [] {
+ 				const long cmds = Membarrier(MEMBARRIER_CMD_QUERY);
+-				if (cmds < 0 || !(cmds & MEMBARRIER_CMD_PRIVATE_EXPEDITED))
++				if (cmds < 0 || !(cmds & kMembarrierCmdPrivateExpedited))
+ 					return false;
+-				return Membarrier(MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED) == 0;
++				return Membarrier(kMembarrierCmdRegisterPrivateExpedited) == 0;
+ 			}();
+ 			return s_ok;
+ 		}
+@@ -269,7 +275,7 @@
+ 	{
+ #if defined(__linux__)
+ 		if (m_use_membarrier)
+-			return Membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED) == 0;
++			return Membarrier(kMembarrierCmdPrivateExpedited) == 0;
+ #endif
+ 		std::atomic_thread_fence(std::memory_order_seq_cst);
+ 		return true;
