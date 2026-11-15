@@ -14,6 +14,7 @@ LIBRETRO_CORES="\
                 anarch \
                 applewin \
                 ardens \
+                armsx2 \
                 atari800 \
                 azahar \
                 b2 \
@@ -329,9 +330,12 @@ fi
 
 # lrps2 on aarch64 needs Vulkan
 if [ "${ARCH}" = "aarch64" ]; then
-  if [ "${VULKAN_SUPPORT}" != yes ]; then
-    EXCLUDE_LIBRETRO_CORES+=" lrps2"
-  fi
+    if [ "${VULKAN_SUPPORT}" != "yes" ]; then
+        EXCLUDE_LIBRETRO_CORES+=" lrps2 armsx2"
+    fi
+else
+    # armsx2 is ARM64-only and cannot run on other architectures
+    EXCLUDE_LIBRETRO_CORES+=" armsx2"
 fi
 
 # exclude some cores at build time via env EXCLUDE_LIBRETRO_CORES="core1 core2"
