@@ -13,6 +13,9 @@ PKG_DEPENDS_TARGET="toolchain zlib libpng libjpeg-turbo zstd lz4 libwebp plutovg
 PKG_LONGDESC="ARMSX2 is a free and open-source PlayStation 2 (PS2) emulator based on PCSX2."
 PKG_TOOLCHAIN="cmake"
 
+# pcsx2_patches revision bundled as resources/patches.zip
+PCSX2_PATCHES_VERSION="c3791a265370fc6b596f1215f1b89ec9a77198de"
+
 PKG_CMAKE_OPTS_TARGET="-DENABLE_QT_UI=OFF \
                        -DENABLE_SDL_FRONTEND=OFF \
                        -DENABLE_LIBRETRO=ON \
@@ -31,7 +34,8 @@ PKG_CMAKE_OPTS_TARGET="-DENABLE_QT_UI=OFF \
                        -DCMAKE_CXX_COMPILER_TARGET=aarch64-libreelec-linux-gnu \
                        -DCMAKE_SYSROOT=${SYSROOT_PREFIX} \
                        -DCMAKE_C_FLAGS_INIT=\"--gcc-toolchain=${TOOLCHAIN}\" \
-                       -DCMAKE_CXX_FLAGS_INIT=\"--gcc-toolchain=${TOOLCHAIN}\""
+                       -DCMAKE_CXX_FLAGS_INIT=\"--gcc-toolchain=${TOOLCHAIN}\" \
+                       -DARMSX2_EMBED_PATCHES=OFF"
 
 if [ "${OPENGL_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL}"
@@ -76,6 +80,19 @@ pre_configure_target() {
   CXXFLAGS="$(echo "${CXXFLAGS}" | sed -E 's/(-mtune=[^ .]+)\.[^ ]+/\1/')"
   TARGET_CFLAGS="$(echo "${TARGET_CFLAGS}" | sed -E 's/(-mtune=[^ .]+)\.[^ ]+/\1/')"
   TARGET_CXXFLAGS="$(echo "${TARGET_CXXFLAGS}" | sed -E 's/(-mtune=[^ .]+)\.[^ ]+/\1/')"
+}
+
+post_unpack() {
+  # patches.zip is not in the ARMSX2 tree and the core's own CMake download
+  # fails (the host cmake has no https). Build it from a pinned revision of
+  # pcsx2_patches, with the .pnach files at the root like upstream's release.
+  local src="${PKG_BUILD}/.pcsx2_patches"
+  mkdir -p "${src}"
+  wget -O "${src}/patches.tar.gz" \
+       "https://github.com/isztldav/pcsx2_patches/archive/${PCSX2_PATCHES_VERSION}.tar.gz"
+  tar -xzf "${src}/patches.tar.gz" -C "${src}"
+  (cd "${src}/pcsx2_patches-${PCSX2_PATCHES_VERSION}/patches" && \
+     cmake -E tar cf "${PKG_BUILD}/bin/resources/patches.zip" --format=zip -- *.pnach)
 }
 
 makeinstall_target() {
