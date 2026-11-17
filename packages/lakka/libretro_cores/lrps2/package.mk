@@ -41,8 +41,4 @@ pre_configure_target() {
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
     cp -v ${PKG_BUILD}/.${TARGET_NAME}/bin/pcsx2_libretro.so ${INSTALL}/usr/lib/libretro/
-
-  # copy per-game hacks database
-  mkdir -p ${INSTALL}/usr/share/retroarch/system/pcsx2/resources
-    cp -rv ${PKG_BUILD}/bin/resources/GameIndex.yaml ${INSTALL}/usr/share/retroarch/system/pcsx2/resources
 }
