@@ -212,7 +212,10 @@ if test ${sku} = 2; then
 	fi
 fi
 
-# Get display panel handle.
+# Set default tegra_fbmem.
+setenv tegra_fbmem 0x400000
+
+# Get display panel handle. Ids come from env_set_hex(): lowercase and unpadded, ie 0x0FE1 is fe1.
 if   test ${display_id} = f20;  then echo Display is INN 6.2; fdt get value DHANDLE /host1x/dsi/panel-i-720p-6-2 phandle
 elif test ${display_id} = f30;  then echo Display is AUO 6.2; fdt get value DHANDLE /host1x/dsi/panel-a-720p-6-2 phandle
 elif test ${display_id} = 10;   then echo Display is JDI 6.2; fdt get value DHANDLE /host1x/dsi/panel-j-720p-6-2 phandle
@@ -220,10 +223,26 @@ elif test ${display_id} = 1020; then echo Display is INN 5.5; fdt get value DHAN
 elif test ${display_id} = 1030; then echo Display is AUO 5.5; fdt get value DHANDLE /host1x/dsi/panel-a-720p-5-5 phandle
 elif test ${display_id} = 1040; then echo Display is SHP 5.5; fdt get value DHANDLE /host1x/dsi/panel-s-720p-5-5 phandle
 elif test ${display_id} = 2050; then echo Display is SAM 7.0
+elif test ${display_id} = 10e0; then echo Display is RR 5.5 720p; fdt get value DHANDLE /host1x/dsi/panel-rr-720p-5-5 phandle
+elif test ${display_id} = 10e1; then echo Display is RR 5.5 1080p; fdt get value DHANDLE /host1x/dsi/panel-rr-1080p-5-5 phandle
+# RR SUPER7 on Icosa/Iowa: IPS (model 01) and OLED (model 11) share the id and DT node for now.
+elif test ${display_id} = fe0;  then echo Display is RR 7.0 720p model ${display_model}; fdt get value DHANDLE /host1x/dsi/panel-rr-ips-720p-7-0 phandle
+elif test ${display_id} = fe1;  then echo Display is RR 7.0 1080p model ${display_model}; fdt get value DHANDLE /host1x/dsi/panel-rr-ips-1080p-7-0 phandle
+elif test ${display_id} = 20e0; then echo Display is RR OLED 7.0 720p; fdt get value DHANDLE /host1x/dsi/panel-rr-720p-7-0 phandle
+elif test ${display_id} = 20e1; then echo Display is RR OLED 7.0 1080p; fdt get value DHANDLE /host1x/dsi/panel-rr-1080p-7-0 phandle
 else echoe Unknown Display ID: ${display_id}!; fi
 
 # Set new active display panel handle.
-if test -n "${DHANDLE}" -a ${sku} != 3; then echo Setting Display panel; fdt set /host1x/dsi nvidia,active-panel <$DHANDLE>; fi
+# No sku gating: the stock Aula panel (2050) never sets DHANDLE, and RR panels
+# on Aula (20e0/20e1) need their handle applied like on any other sku.
+if test -n "${DHANDLE}"; then echo Setting Display panel; fdt set /host1x/dsi nvidia,active-panel <$DHANDLE>; fi
+
+# Increase fbmem-size for 1080p displays.
+if test ${display_id} = 10e1 -o ${display_id} = fe1 -o ${display_id} = 20e1; then
+	echoe 1080p display detected with ID: ${display_id} increasing fbmem size to 8 MiB
+	fdt set /host1x/dc@54200000 nvidia,fbmem-size <0x800000>
+	setenv tegra_fbmem 0x800000
+fi
 
 # Disable USB3.
 if test ${usb3_enable} = 0; then
@@ -371,17 +390,18 @@ elif test ${enable_upfs} = 2; then
 fi
 
 if test ${fbconsole} = 0; then
-        setenv bootargs_extra ${bootargs_extra} fbcon=rotate:3 nosplash
+        setenv bootargs_extra ${bootargs_extra} nosplash
 fi
 
 # Set kernel cmdline.
 setenv bootargs ${bootargs_extra} "boot=/dev/mmcblk0p1 BOOT_IMAGE=@DISTRO_PATH@/KERNEL SYSTEM_IMAGE=@DISTRO_PATH@/SYSTEM nofsck device-has-user fat32-boot \
  dock_freq_switch_enabled=${dock_freq_switch_enabled} performance_mode=${performance_mode} \
+ display_id=${display_id} display_model=${display_model} \
  firmware_class.path=/usr/lib/firmware access=m2 \
  pmc_r2p.enabled=1 pmc_r2p.action=${r2p_action} \
  pmc_r2p.param1=${autoboot} pmc_r2p.param2=${autoboot_list} \
  fbcon=map:${fbconsole} consoleblank=0 \
- nvdec_enabled=0 tegra_fbmem=0x400000@0xf5a00000 "
+ nvdec_enabled=0 tegra_fbmem=${tegra_fbmem}@0xf5a00000 "
 
 # Boot kernel.
 echo Launching Kernel!
