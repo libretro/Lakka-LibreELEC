@@ -1,0 +1,30 @@
+From 33aac1ea2c302c36a3226ac7cd528e5cfb1402c5 Mon Sep 17 00:00:00 2001
+From: a <a@b.c>
+Date: Wed, 2 Sep 2026 23:06:42 +0000
+Subject: [PATCH] NFC: fix device refcount leak in nfc_genl_stop_poll
+
+nfc_genl_stop_poll() takes an nfc_get_device() reference but returns
+-EINVAL without dropping it when the device is not currently polling.
+nfc_targets_found() clears dev->polling as soon as a tag is detected, so
+any STOP_POLL issued after a tag has been found (e.g. userspace tearing
+down after a read/write) leaks one reference. The nfc_dev then never
+reaches refcount 0 on unregister, so its class device and IDA index are
+never released and each such controller reappears at a higher nfcN index.
+
+Drop the reference on the early-return path.
+---
+ net/nfc/netlink.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/nfc/netlink.c b/net/nfc/netlink.c
+index dbf74af..8db21c0 100644
+--- a/net/nfc/netlink.c
++++ b/net/nfc/netlink.c
+@@ -884,6 +884,7 @@ static int nfc_genl_stop_poll(struct sk_buff *skb, struct genl_info *info)
+ 
+ 	if (!dev->polling) {
+ 		device_unlock(&dev->dev);
++		nfc_put_device(dev);
+ 		return -EINVAL;
+ 	}
+ 

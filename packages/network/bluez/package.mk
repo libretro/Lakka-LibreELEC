@@ -54,7 +54,7 @@ pre_configure_target() {
 }
 
 post_configure_target() {
-  libtool_remove_rpath libtool
+	  libtool_remove_rpath libtool
 }
 
 post_makeinstall_target() {
@@ -79,7 +79,11 @@ post_makeinstall_target() {
 
   mkdir -p ${INSTALL}/usr/share/services
     cp -P ${PKG_DIR}/default.d/*.conf ${INSTALL}/usr/share/services
-
+  if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
+    mkdir -p ${INSTALL}/usr/lib/systemd/system-sleep/
+    cp -p ${PKG_DIR}/scripts/10-bluetooth ${INSTALL}/usr/lib/systemd/system-sleep/
+    chmod +x ${INSTALL}/usr/lib/systemd/system-sleep/10-bluetooth
+  fi
   # bluez looks in /etc/firmware/
     ln -sf /usr/lib/firmware ${INSTALL}/etc/firmware
 
@@ -92,4 +96,7 @@ post_install() {
   enable_service bluetooth-defaults.service
   enable_service bluetooth.service
   enable_service obex.service
+  if [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
+    enable_service "bluetooth-shutdown.service"
+  fi
 }

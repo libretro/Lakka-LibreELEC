@@ -9,9 +9,8 @@
 /usr/bin/busybox chmod 766 /sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq
 
 #GPU
-/usr/bin/busybox chmod 766 /sys/devices/57000000.gpu/devfreq/57000000.gpu/governor
-/usr/bin/busybox chmod 766 /sys/devices/57000000.gpu/devfreq/57000000.gpu/max_freq
-/usr/bin/busybox chmod 766 /sys/devices/57000000.gpu/devfreq/57000000.gpu/min_freq
+/usr/bin/busybox chmod 766 /sys/class/devfreq/57000000.gpu/max_freq
+/usr/bin/busybox chmod 766 /sys/class/devfreq/57000000.gpu/min_freq
 
 #Bluetooth ERTM disable toggle
 /usr/bin/busybox chmod 766 /sys/module/bluetooth/parameters/disable_ertm
@@ -22,6 +21,11 @@
 /usr/bin/busybox chmod 766 /sys/module/pmc_r2p/parameters/entry_id
 /usr/bin/busybox chmod 766 /sys/module/pmc_r2p/parameters/param1
 /usr/bin/busybox chmod 766 /sys/module/pmc_r2p/parameters/param2
+
+/usr/bin/busybox chmod 766 /sys/devices/r2p/action
+/usr/bin/busybox chmod 766 /sys/devices/r2p/entry_id
+/usr/bin/busybox chmod 766 /sys/devices/r2p/param1
+/usr/bin/busybox chmod 766 /sys/devices/r2p/param2
 
 #Brightness
 /usr/bin/busybox chmod 766 /sys/class/backlight/backlight/brightness

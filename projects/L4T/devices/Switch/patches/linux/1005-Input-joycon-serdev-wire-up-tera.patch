@@ -1,0 +1,265 @@
+From d29db168b4d112f1056468cdb6c2a6e48f5131d0 Mon Sep 17 00:00:00 2001
+From: a <a@b.c>
+Date: Sun, 30 Aug 2026 18:41:48 +0000
+Subject: [PATCH] Input: joycon-serdev: wire up the nintendo-tera MCU core
+
+Provide the nintendo-tera transport interface from joycon-serdev so the
+MCU and its features (IR camera, NFC) work over the UART/SIO transport,
+for the one serdev controller that has a usable MCU -- the official right
+Joy-Con. Implement ->send_subcmd (arming content-based ack matching for
+MCU config replies) and ->send_raw (filling packet_num + rumble, framed
+as a JC_CMD_EXTRET UART packet), create the core once the controller is
+detected and READ, assign it before joycon_tera_start() so 0x31 status
+replies route back during the MCU handshake, feed it MCU input reports
+from receive_buf, and tear it down in remove.
+
+SIO (Switch Lite) and left Joy-Cons map to no MCU. Gated by the new
+JOYCON_SERDEV_TERA option, which selects NINTENDO_TERA.
+---
+ drivers/input/joystick/Kconfig         |  13 +++
+ drivers/input/joystick/joycon-serdev.c | 159 +++++++++++++++++++++++++
+ 2 files changed, 172 insertions(+)
+
+diff --git a/drivers/input/joystick/Kconfig b/drivers/input/joystick/Kconfig
+index 49fb172..a702fc1 100644
+--- a/drivers/input/joystick/Kconfig
++++ b/drivers/input/joystick/Kconfig
+@@ -131,6 +131,19 @@ config JOYCON_SERDEV_FF
+ 	Say Y here if you have Nintendo Switch joy-cons and want to enable force
+ 	feedback support for them over their serial interface.
+ 
++config JOYCON_SERDEV_TERA
++	bool "MCU features (IR camera, NFC) for serial Nintendo Switch joy-cons"
++	depends on JOYSTICK_JOYCON_SERDEV
++	select MISC_NINTENDO_TERA
++	help
++	Enable the controller MCU features -- the IR/NIR camera and the NFC
++	tag reader -- for a UART-attached official right Joy-Con, via the
++	shared nintendo-tera module. SIO / Switch Lite controllers have no
++	usable MCU and are unaffected. Turn the individual features on under
++	NINTENDO_TERA_IR / NINTENDO_TERA_NFC.
++
++	If unsure, say N.
++
+ config JOYSTICK_SIDEWINDER
+ 	tristate "Microsoft SideWinder digital joysticks and gamepads"
+ 	select GAMEPORT
+diff --git a/drivers/input/joystick/joycon-serdev.c b/drivers/input/joystick/joycon-serdev.c
+index fe06e44..5602c39 100644
+--- a/drivers/input/joystick/joycon-serdev.c
++++ b/drivers/input/joystick/joycon-serdev.c
+@@ -25,6 +25,9 @@
+  */
+ 
+ #include <asm/unaligned.h>
++#if IS_ENABLED(CONFIG_JOYCON_SERDEV_TERA)
++#include <linux/nintendo-tera.h>
++#endif
+ #include <linux/clk.h>
+ #include <linux/crc8.h>
+ #include <linux/delay.h>
+@@ -515,6 +518,13 @@ struct joycon_ctlr {
+ 	wait_queue_head_t wait;
+ 	bool received_resp;
+ 	u8 subcmd_ack_match;
++#if IS_ENABLED(CONFIG_JOYCON_SERDEV_TERA)
++	/* content-based subcmd ack matching for MCU config replies */
++	u8 subcmd_ack_data0;
++	u8 subcmd_ack_data0_alt;
++	u16 subcmd_ack_data12;
++	struct joycon_tera *tera;
++#endif
+ 	u8 uart_cmd_match;
+ 	bool received_input_report;
+ 	bool ctlr_removed;
+@@ -814,6 +824,120 @@ static int joycon_send_subcmd(struct joycon_ctlr *ctlr,
+ 	return ret;
+ }
+ 
++#if IS_ENABLED(CONFIG_JOYCON_SERDEV_TERA)
++/*
++ * nintendo-tera MCU core integration. The MCU and the features built on it
++ * (IR camera, NFC) live in the transport-agnostic nintendo-tera module. Over
++ * serdev only the official right Joy-Con has a usable MCU (SIO / Switch Lite
++ * controllers do not), which joycon_tera keys off the RIGHT controller type.
++ */
++static int serdev_joycon_tera_send_subcmd(void *drv,
++					  struct joycon_subcmd_request *subcmd,
++					  size_t data_len,
++					  const struct joycon_ack_match *match,
++					  u32 timeout)
++{
++	struct joycon_ctlr *ctlr = drv;
++	int ret;
++
++	if (match) {
++		ctlr->subcmd_ack_data0 = match->data0;
++		ctlr->subcmd_ack_data0_alt = match->data0_alt;
++		ctlr->subcmd_ack_data12 = match->data12;
++	}
++	ret = joycon_send_subcmd(ctlr, subcmd, data_len, timeout);
++	ctlr->subcmd_ack_data0 = 0;
++	ctlr->subcmd_ack_data0_alt = 0;
++	ctlr->subcmd_ack_data12 = 0;
++	return ret;
++}
++
++static int serdev_joycon_tera_send_raw(void *drv, u8 *data, size_t len)
++{
++	struct joycon_ctlr *ctlr = drv;
++	unsigned long flags;
++	__be16 size;
++
++	spin_lock_irqsave(&ctlr->lock, flags);
++	/* Fill packet_num + rumble passthrough, as joycon_send_subcmd() does. */
++	data[1] = ctlr->subcmd_num;
++	if (++ctlr->subcmd_num > 0xF)
++		ctlr->subcmd_num = 0;
++	memcpy(&data[2], ctlr->rumble_data[ctlr->rumble_queue_tail],
++	       JC_RUMBLE_DATA_SIZE);
++	spin_unlock_irqrestore(&ctlr->lock, flags);
++
++	/*
++	 * HOS sends the rumble region [2..9] as all-zero in MCU/NFC command
++	 * frames (0x11); our rumble passthrough leaves the neutral (non-zero)
++	 * rumble there -- the one byte-region of the frame that differs from
++	 * HOS on the wire, and the same on every transport. Log it once, then
++	 * zero it to match HOS. (TEMP: drop the dump once confirmed.)
++	 */
++	print_hex_dump(KERN_INFO, "tera-mcu-rumble: ", DUMP_PREFIX_NONE,
++		       8, 1, &data[2], JC_RUMBLE_DATA_SIZE, false);
++	memset(&data[2], 0, JC_RUMBLE_DATA_SIZE);
++
++	/*
++	 * MCU output reports go out framed like a subcommand: a JC_CMD_EXTRET
++	 * UART packet with a big-endian size header. Fire-and-forget (sync ==
++	 * false); any MCU reply arrives asynchronously as a 0x31 input report.
++	 */
++	size = cpu_to_be16(len);
++	return joycon_send_packet(ctlr, JC_CMD_EXTRET,
++				  (u8 *)&size, sizeof(size),
++				  data, len, HZ / 4, false);
++}
++
++static const struct joycon_tera_ops serdev_joycon_tera_ops = {
++	.send_subcmd = serdev_joycon_tera_send_subcmd,
++	.send_raw = serdev_joycon_tera_send_raw,
++};
++
++static enum joycon_tera_ctlr_type
++serdev_joycon_tera_type(struct joycon_ctlr *ctlr)
++{
++	switch (ctlr->ctlr_type) {
++	case JOYCON_TYPE_LEFT:
++		return JOYCON_TERA_TYPE_LEFT;
++	case JOYCON_TYPE_RIGHT:
++		return JOYCON_TERA_TYPE_RIGHT;
++	default:
++		/* SIO (Switch Lite) and anything else: no usable MCU. */
++		return JOYCON_TERA_TYPE_UNKNOWN;
++	}
++}
++
++static void serdev_joycon_tera_probe(struct joycon_ctlr *ctlr)
++{
++	struct joycon_tera_config cfg = {
++		.dev = &ctlr->sdev->dev,
++		.output_mutex = &ctlr->output_mutex,
++		.ctlr_type = serdev_joycon_tera_type(ctlr),
++		.ops = &serdev_joycon_tera_ops,
++		.drv = ctlr,
++	};
++	struct joycon_tera *tera = joycon_tera_create(&cfg);
++
++	if (IS_ERR(tera)) {
++		dev_warn(&ctlr->sdev->dev, "tera MCU alloc failed; ret=%ld\n",
++			 PTR_ERR(tera));
++		ctlr->tera = NULL;
++		return;
++	}
++
++	/* Assign before starting so MCU status replies route back during probe. */
++	ctlr->tera = tera;
++	if (joycon_tera_start(tera)) {
++		joycon_tera_remove(tera);
++		ctlr->tera = NULL;
++	}
++}
++#else
++static inline void serdev_joycon_tera_probe(struct joycon_ctlr *ctlr) { }
++#endif
++
++
+ static int joycon_set_hci_state(struct joycon_ctlr *ctlr, u8 state)
+ {
+ 	struct joycon_subcmd_request *req;
+@@ -1594,6 +1718,16 @@ static void joycon_disconnect(struct joycon_ctlr *ctlr)
+ 	ctlr->ctlr_state = JOYCON_CTLR_STATE_INIT;
+ 	spin_unlock_irqrestore(&ctlr->lock, flags);
+ 
++#if IS_ENABLED(CONFIG_JOYCON_SERDEV_TERA)
++	/*
++	 * A Joy-Con detach leaves the serdev device (the rail) in place, so
++	 * .remove never runs -- tear the MCU core down here or its NFC and
++	 * V4L2 nodes leak and reappear at a new index on reattach.
++	 */
++	joycon_tera_remove(ctlr->tera);
++	ctlr->tera = NULL;
++#endif
++
+ 	dev_info(dev, "Removing input device\n");
+ 	/* Remove input imu device */
+ 	if (ctlr->imu_input) {
+@@ -2954,6 +3088,8 @@ static int joycon_post_handshake(struct joycon_ctlr *ctlr)
+ 	ctlr->ctlr_removed = false;
+ 	queue_delayed_work(ctlr->input_queue, &ctlr->input_worker, 0);
+ 
++	serdev_joycon_tera_probe(ctlr);
++
+ 	dev_info(dev, "Post detect - success\n");
+ 	return 0;
+ 
+@@ -3100,6 +3236,19 @@ static int joycon_serdev_receive_buf(struct serdev_device *serdev,
+ 			if (packet->command == JC_CMD_EXTRET &&
+ 			    packet->data[0] == JC_INPUT_SUBCMD_REPLY) {
+ 				r = (struct joycon_input_report *)packet->data;
++#if IS_ENABLED(CONFIG_JOYCON_SERDEV_TERA)
++				if (ctlr->subcmd_ack_data0) {
++					u8 d0 = r->reply.data[0];
++
++					if (!((d0 == ctlr->subcmd_ack_data0 ||
++					       (ctlr->subcmd_ack_data0_alt &&
++						d0 == ctlr->subcmd_ack_data0_alt)) &&
++					      (!ctlr->subcmd_ack_data12 ||
++					       get_unaligned_le16(&r->reply.data[1]) ==
++					       ctlr->subcmd_ack_data12)))
++						break;
++				} else
++#endif
+ 				if (r->reply.id != ctlr->subcmd_ack_match)
+ 					break;
+ 				memcpy(ctlr->input_buf, (u8 *)r,
+@@ -3124,6 +3273,11 @@ static int joycon_serdev_receive_buf(struct serdev_device *serdev,
+ 			    r->id == JC_INPUT_IMU_DATA ||
+ 			    r->id == JC_INPUT_MCU_DATA)
+ 				joycon_parse_report(ctlr, r);
++#if IS_ENABLED(CONFIG_JOYCON_SERDEV_TERA)
++			if (r->id == JC_INPUT_MCU_DATA)
++				joycon_tera_handle_input(ctlr->tera, (u8 *)r,
++							 len - sizeof(*packet));
++#endif
+ 		} else if (packet->command == JC_CMD_INITRET) {
+ 			dev_dbg(dev, "JC_CMD_INITRET\n");
+ 		} else if (packet->command == JC_CMD_HANDSHAKE) {
+@@ -3579,6 +3733,11 @@ static void joycon_serdev_remove(struct serdev_device *serdev)
+ 
+ 	dev_info(&serdev->dev, "Remove\n");
+ 
++#if IS_ENABLED(CONFIG_JOYCON_SERDEV_TERA)
++	joycon_tera_remove(ctlr->tera);
++	ctlr->tera = NULL;
++#endif
++
+ 	if (ctlr->detect_en_req) {
+ 		disable_irq(ctlr->detect_irq);
+ 		gpio_free(ctlr->detect_en_gpio);
