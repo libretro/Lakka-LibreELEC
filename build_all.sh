@@ -81,7 +81,6 @@ targets="\
 	Allwinner|H3|arm|image \
 	Allwinner|H5|aarch64|image \
 	Allwinner|H6|aarch64|image \
-	Allwinner|H616|aarch64|image \
 	Allwinner|R40|arm|image \
 	Amlogic|AMLGX|aarch64|image \
 	Ayn|Odin|aarch64|image \
