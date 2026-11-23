@@ -1,0 +1,80 @@
+From c5435a1b69a21246fb138255743e6545bc5a2e39 Mon Sep 17 00:00:00 2001
+From: Gavin <gavin@localhost>
+Date: Sat, 3 Oct 2026 21:40:01 +0000
+Subject: [PATCH 42/45] codecs: nvv4l2: don't munmap uninitialised plane
+ pointers
+
+nvv4l2_create_bufferfmt() cleared only planes[0] of an NvBuffer
+(memset of sizeof(NvBufferPlane), not of the planes array), and the
+NvBuffers themselves come from av_malloc(), so planes[1..] start out
+with whatever was on the heap.
+
+Encoder output buffers are mapped lazily, the first time
+nvv4l2_encoder_put_frame() uses each one. nvv4l2_encoder_close() then
+calls nvv4l2_unmap_out() on every output buffer that has a dmabuf,
+mapped or not, and NvBufferMemUnMap() munmap()s the pointer it is
+given. For each never-used buffer that is munmap() of two garbage
+pointers (the chroma planes), which can unmap pages belonging to
+anything else in the process. The SPS/PPS sampling encoder that
+nvv4l2enc_init() opens and closes for global-header muxers (MKV, FLV,
+MP4) uses one of its six output buffers, so every such encode starts
+by doing this. In RetroArch it unmapped part of the running core,
+which then faulted (SEGV_MAPERR) in retro_run() as soon as the game
+resumed.
+
+- clear the whole planes array in nvv4l2_create_bufferfmt()
+- allocate NvBuffers zeroed
+- in nvv4l2_unmap_out(), skip planes that were never mapped and NULL
+  the pointer after unmapping
+---
+ libavcodec/nvv4l2.c | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/libavcodec/nvv4l2.c b/libavcodec/nvv4l2.c
+index 44a825c..0431682 100644
+--- a/libavcodec/nvv4l2.c
++++ b/libavcodec/nvv4l2.c
+@@ -109,7 +109,7 @@ nvv4l2_create_bufferfmt(NvBuffer *buffer, enum v4l2_buf_type buf_type,
+     buffer->index = index;
+     buffer->n_planes = n_planes;
+ 
+-    memset(buffer->planes, 0, sizeof(NvBufferPlane));
++    memset(buffer->planes, 0, sizeof(buffer->planes));
+     for (uint32_t i = 0; i < buffer->n_planes; i++) {
+         buffer->planes[i].fd = -1;
+         buffer->planes[i].fmt = fmt[i];
+@@ -182,7 +182,13 @@ nvv4l2_unmap_out(nvv4l2_ctx_t *ctx, int index, enum v4l2_buf_type buf_type,
+     switch (mem_type) {
+     case V4L2_MEMORY_DMABUF:
+         for (uint32_t i = 0; i < buffer->n_planes; i++) {
++            /* Output buffers are only mapped once first used, so on close
++             ** some were never mapped. NvBufferMemUnMap() munmap()s
++             ** whatever pointer it's given; skip unmapped planes. */
++            if (!buffer->planes[i].data)
++                continue;
+             ret = NvBufferMemUnMap(dma_fd, i, (void **)&buffer->planes[i].data);
++            buffer->planes[i].data = NULL;
+             if (ret) {
+                 ctx->in_error = true;
+                 av_log(ctx->avctx, AV_LOG_ERROR,
+@@ -581,7 +587,7 @@ nvv4l2_req_buffers_on_capture_plane(nvv4l2_ctx_t *ctx,
+         ctx->cp_buffers =
+             (NvBuffer **)NVMALLOC(reqbufs.count * sizeof(NvBuffer *));
+         for (uint32_t i = 0; i < reqbufs.count; ++i) {
+-            ctx->cp_buffers[i] = (NvBuffer *)NVMALLOC(sizeof(NvBuffer));
++            ctx->cp_buffers[i] = (NvBuffer *)NVCALLOC(1, sizeof(NvBuffer));
+             nvv4l2_create_bufferfmt(ctx->cp_buffers[i], buf_type, mem_type,
+                              ctx->cp_num_planes, ctx->cp_planefmts, i);
+         }
+@@ -623,7 +629,7 @@ nvv4l2_req_buffers_on_output_plane(nvv4l2_ctx_t *ctx,
+         ctx->op_buffers =
+             (NvBuffer **)NVMALLOC(reqbufs.count * sizeof(NvBuffer *));
+         for (uint32_t i = 0; i < reqbufs.count; ++i) {
+-            ctx->op_buffers[i] = (NvBuffer *)NVMALLOC(sizeof(NvBuffer));
++            ctx->op_buffers[i] = (NvBuffer *)NVCALLOC(1, sizeof(NvBuffer));
+             nvv4l2_create_bufferfmt(ctx->op_buffers[i], buf_type, mem_type,
+                              ctx->op_num_planes, ctx->op_planefmts, i);
+         }
+-- 
+2.43.0
+

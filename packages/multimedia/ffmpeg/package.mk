@@ -30,11 +30,13 @@ case "${PROJECT}" in
     PKG_PATCH_DIRS+=" rpi"
     ;;
   L4T)
-      PKG_DEPENDS_TARGET+=" tegra-bsp:host"
-      PKG_PATCH_DIRS+=" L4T"
-      PKG_FFMPEG_NVV4L2="--enable-nvv4l2"
-      EXTRA_CFLAGS="-I${SYSROOT_PREFIX}/usr/src/jetson_multimedia_api/include"
-   ;;
+    PKG_DEPENDS_TARGET+=" tegra-bsp:host"
+    PKG_PATCH_DIRS+=" L4T"
+    # NVDEC/NVENC through nvv4l2 (patches/L4T), the only hardware codec
+    # path here; hwaccels are off below.
+    PKG_FFMPEG_NVV4L2="--enable-nvv4l2"
+    PKG_FFMPEG_EXTRA_CFLAGS="-I${SYSROOT_PREFIX}/usr/src/jetson_multimedia_api/include"
+    ;;
   *)
     PKG_PATCH_DIRS+=" v4l2-request v4l2-drmprime"
     case "${PROJECT}" in
@@ -56,7 +58,11 @@ post_unpack() {
 # Dependencies
 get_graphicdrivers
 
-PKG_FFMPEG_HWACCEL="--enable-hwaccels"
+if [ "${PROJECT}" = "L4T" ]; then
+  PKG_FFMPEG_HWACCEL="--disable-hwaccels"
+else
+  PKG_FFMPEG_HWACCEL="--enable-hwaccels"
+fi
 
 if [ "${V4L2_SUPPORT}" = "yes" -a ! "${DEVICE}" = "Switch" ]; then
   PKG_DEPENDS_TARGET+=" libdrm"
@@ -93,7 +99,7 @@ fi
 if [ "${DISPLAYSERVER}" != "x11" ]; then
   PKG_DEPENDS_TARGET+=" libdrm"
   PKG_NEED_UNPACK+=" $(get_pkg_directory libdrm)"
-  PKG_FFMPEG_VAAPI=" --enable-libdrm"
+  PKG_FFMPEG_DRM="--enable-libdrm"
 fi
 
 if [ "${VDPAU_SUPPORT}" = "yes" -a "${DISPLAYSERVER}" = "x11" ]; then
@@ -126,6 +132,92 @@ if target_has_feature "(neon|sse)"; then
   PKG_FFMPEG_AV1="--enable-libdav1d"
 else
   PKG_FFMPEG_AV1="--disable-libdav1d"
+fi
+
+# v4l2m2m (stateful V4L2) codecs FFmpeg 6.0 has.
+V4L2M2M_ENCODERS="h263 h264 hevc mpeg4 vp8"
+V4L2M2M_DECODERS="h263 h264 hevc mpeg1 mpeg2 mpeg4 vc1 vp8 vp9"
+
+# $1: encoder|decoder, rest: codecs. Prints --disable-$1=<codec>_v4l2m2m.
+ffmpeg_no_v4l2m2m() {
+  local type=${1} i
+  shift
+  for i in "$@"; do
+    echo -n " --disable-${type}=${i}_v4l2m2m"
+  done
+}
+
+if [ "${DISTRO}" = "Lakka" ]; then
+  # Every software encoder and muxer: custom recording configs can ask
+  # for any of them. All software decoders are built for both distros.
+  PKG_FFMPEG_COMPONENTS="--enable-encoders --enable-muxers"
+  PKG_FFMPEG_LIBS_OPTS="--enable-libx264 --enable-libmp3lame --enable-librtmp"
+
+  # Hardware video codecs: build only what the board has, every codec
+  # of it. Boards whose decoders are stateless use v4l2-request (above).
+  case "${PROJECT}:${DEVICE}" in
+    L4T:*)
+      # nvv4l2 only. v4l2_m2m stays enabled: nvv4l2 needs its
+      # videodev2 check, but Tegra has no node for its codecs.
+      PKG_FFMPEG_HW_CODECS="$(ffmpeg_no_v4l2m2m encoder ${V4L2M2M_ENCODERS})"
+      PKG_FFMPEG_HW_CODECS+="$(ffmpeg_no_v4l2m2m decoder ${V4L2M2M_DECODERS})"
+      ;;
+    # Stateful decoders and encoders: bcm2835-codec (VideoCore IV),
+    # coda (i.MX6), venus (Snapdragon), MFC (Exynos). The generic ARM
+    # images run on unknown SoCs, so they keep both.
+    RPi:RPi5*)
+      # No stateful codecs; HEVC is decoded through v4l2-request.
+      PKG_FFMPEG_HW_CODECS="$(ffmpeg_no_v4l2m2m encoder ${V4L2M2M_ENCODERS})"
+      PKG_FFMPEG_HW_CODECS+="$(ffmpeg_no_v4l2m2m decoder ${V4L2M2M_DECODERS})"
+      ;;
+    RPi:*|NXP:iMX6|Qualcomm:*|Ayn:*|Samsung:*|ARM:*)
+      ;;
+    Amlogic:*)
+      # Stateful decoders (meson vdec), no encoder.
+      PKG_FFMPEG_HW_CODECS="$(ffmpeg_no_v4l2m2m encoder ${V4L2M2M_ENCODERS})"
+      ;;
+    Allwinner:*|Rockchip:*|NXP:iMX8)
+      # Stateless decoders only (cedrus, hantro, rkvdec), no encoder.
+      PKG_FFMPEG_HW_CODECS="$(ffmpeg_no_v4l2m2m encoder ${V4L2M2M_ENCODERS})"
+      PKG_FFMPEG_HW_CODECS+="$(ffmpeg_no_v4l2m2m decoder ${V4L2M2M_DECODERS})"
+      ;;
+    Generic:*)
+      # NVDEC/NVENC on the images that ship the NVIDIA driver; they load
+      # the driver's libraries at runtime and fail to open elsewhere.
+      if [ "${TARGET_ARCH}" = "x86_64" ] && \
+         { listcontains "${GRAPHIC_DRIVERS}" "nvidia" || listcontains "${GRAPHIC_DRIVERS}" "nvidia-ng"; }; then
+        PKG_DEPENDS_TARGET+=" nv-codec-headers"
+        PKG_FFMPEG_HW_CODECS="--enable-ffnvcodec --enable-nvenc --enable-nvdec --enable-cuvid"
+      fi
+      ;;
+  esac
+  # Otherwise ffnvcodec is autodetected from whatever headers another
+  # package left in the sysroot.
+  if [[ ! "${PKG_FFMPEG_HW_CODECS}" =~ ffnvcodec ]]; then
+    PKG_FFMPEG_HW_CODECS+=" --disable-ffnvcodec"
+  fi
+
+  # WebM (VP8/VP9 + Opus) only where the CPU can encode VP8 in real
+  # time; libvpx has no i686 or ARMv6 build here anyway.
+  case "${PROJECT}:${DEVICE}" in
+    Generic:*|L4T:*|Ayn:*|RPi:RPi4*|RPi:RPi5*|Rockchip:RK3399)
+      if [ "${TARGET_ARCH}" = "x86_64" -o "${TARGET_ARCH}" = "aarch64" ]; then
+        PKG_DEPENDS_TARGET+=" libvpx opus"
+        PKG_FFMPEG_LIBS_OPTS+=" --enable-libvpx --enable-libopus"
+      fi
+      ;;
+  esac
+else
+  # What Kodi needs: passthrough, thumbnails, PVR.
+  PKG_FFMPEG_COMPONENTS="--disable-encoders"
+  for i in ac3 aac wmav2 mjpeg png; do
+    PKG_FFMPEG_COMPONENTS+=" --enable-encoder=${i}"
+  done
+  PKG_FFMPEG_COMPONENTS+=" --disable-muxers"
+  for i in spdif adts asf ipod mpegts; do
+    PKG_FFMPEG_COMPONENTS+=" --enable-muxer=${i}"
+  done
+  PKG_FFMPEG_LIBS_OPTS="--disable-libx264 --disable-libmp3lame --disable-librtmp"
 fi
 
 pre_configure_target() {
@@ -174,24 +266,14 @@ configure_target() {
                               --enable-rdft \
                               --disable-crystalhd \
                               ${PKG_FFMPEG_V4L2} \
+                              ${PKG_FFMPEG_DRM} \
                               ${PKG_FFMPEG_VAAPI} \
                               ${PKG_FFMPEG_VDPAU} \
                               ${PKG_FFMPEG_RPI} \
                               --enable-runtime-cpudetect \
                               --disable-hardcoded-tables \
-                              --disable-encoders \
-                              --enable-encoder=ac3 \
-                              --enable-encoder=aac \
-                              --enable-encoder=wmav2 \
-                              --enable-encoder=mjpeg \
-                              --enable-encoder=png \
+                              ${PKG_FFMPEG_COMPONENTS} \
                               ${PKG_FFMPEG_HWACCEL} \
-                              --disable-muxers \
-                              --enable-muxer=spdif \
-                              --enable-muxer=adts \
-                              --enable-muxer=asf \
-                              --enable-muxer=ipod \
-                              --enable-muxer=mpegts \
                               --enable-demuxers \
                               --enable-parsers \
                               --enable-bsfs \
@@ -210,16 +292,12 @@ configure_target() {
                               --disable-libdc1394 \
                               --disable-libfreetype \
                               --disable-libgsm \
-                              --disable-libmp3lame \
                               --disable-libopenjpeg \
-                              --disable-librtmp \
                               ${PKG_FFMPEG_AV1} \
                               --enable-libspeex \
                               --disable-libtheora \
                               --disable-libvo-amrwbenc \
                               --disable-libvorbis \
-                              --disable-libvpx \
-                              --disable-libx264 \
                               --disable-libxavs \
                               --enable-libxml2 \
                               --disable-libxvid \
@@ -228,26 +306,10 @@ configure_target() {
                               --disable-altivec \
                               ${PKG_FFMPEG_FPU} \
                               --disable-symver \
+                              ${PKG_FFMPEG_LIBS_OPTS} \
+                              ${PKG_FFMPEG_HW_CODECS} \
                               ${PKG_FFMPEG_TESTING} \
                               ${PKG_FFMPEG_NVV4L2}"
-
-  if [ "${DISTRO}" = "Lakka" ]; then
-    PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET/--disable-encoders /--enable-encoders }"
-    PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET/--enable-encoder=ac3 / }"
-    PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET/--enable-encoder=aac / }"
-    PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET/--enable-encoder=wmav2 / }"
-    PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET/--enable-encoder=mjpeg / }"
-    PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET/--enable-encoder=png / }"
-    PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET/--disable-muxers /--enable-muxers }"
-    PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET/--enable-muxer=spdif / }"
-    PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET/--enable-muxer=adts / }"
-    PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET/--enable-muxer=asf / }"
-    PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET/--enable-muxer=ipod / }"
-    PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET/--enable-muxer=mpegts / }"
-    PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET/--disable-libmp3lame /--enable-libmp3lame }"
-    PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET/--disable-librtmp /--enable-librtmp }"
-    PKG_CONFIGURE_OPTS_TARGET="${PKG_CONFIGURE_OPTS_TARGET/--disable-libx264 /--enable-libx264 }"
-  fi
 
   ./configure --prefix="/usr" \
               --cpu="${TARGET_CPU}" \
@@ -265,7 +327,7 @@ configure_target() {
               --host-cc="${HOST_CC}" \
               --host-cflags="${HOST_CFLAGS}" \
               --host-ldflags="${HOST_LDFLAGS}" \
-              --extra-cflags="${CFLAGS} ${EXTRA_CFLAGS}" \
+              --extra-cflags="${CFLAGS} ${PKG_FFMPEG_EXTRA_CFLAGS}" \
               --extra-ldflags="${LDFLAGS}" \
               --extra-libs="${PKG_FFMPEG_LIBS}" \
               --pkg-config="${TOOLCHAIN}/bin/pkg-config" \

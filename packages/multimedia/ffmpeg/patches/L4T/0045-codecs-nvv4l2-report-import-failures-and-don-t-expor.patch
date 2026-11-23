@@ -1,0 +1,52 @@
+From c643c91d2508c76d4d08cdec9f146578d4125c06 Mon Sep 17 00:00:00 2001
+From: Gavin <gavin@localhost>
+Date: Sat, 3 Oct 2026 22:03:46 +0000
+Subject: [PATCH 45/45] codecs: nvv4l2: report import failures and don't export
+ unfilled packets
+
+- Raw2NvBuffer()'s return value was ignored, so a failed plane import
+  silently encoded a stale or garbage frame. Log it.
+- When the export pool was full, the capture thread skipped copying
+  the packet but still pushed the slot, so the next get_packet()
+  handed out whatever that slot held before. Only push filled slots
+  and log the drop. The drain accounting still counts the packet as
+  returned, so a drop can't stall a flush.
+---
+ libavcodec/nvv4l2_enc.c | 13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/libavcodec/nvv4l2_enc.c b/libavcodec/nvv4l2_enc.c
+index a3aaf89..a152335 100644
+--- a/libavcodec/nvv4l2_enc.c
++++ b/libavcodec/nvv4l2_enc.c
+@@ -228,9 +228,11 @@ static void *enc_capture_thread(void *arg)
+             }
+             ctx->packet_keyflag[buf_index] =
+                                     enc_metadata.KeyFrame ? true : false;
++            nvv4l2_pool_push(ctx, ctx->export_pool);
++        } else {
++            av_log(ctx->avctx, AV_LOG_ERROR,
++                   "Export pool full, dropping encoded packet!\n");
+         }
+-
+-        nvv4l2_pool_push(ctx, ctx->export_pool);
+         atomic_fetch_add(&ctx->packets_dequeued, 1);
+ 
+         /* Queue the buffer. */
+@@ -758,8 +760,11 @@ int nvv4l2_encoder_put_frame(AVCodecContext *avctx, nvv4l2_ctx_t *ctx,
+             src = ctx->repack_buf;
+         }
+ 
+-        Raw2NvBuffer(src, i, aligned_plane_width, height,
+-                     buffer->planes[i].fd);
++        ret = Raw2NvBuffer(src, i, aligned_plane_width, height,
++                           buffer->planes[i].fd);
++        if (ret)
++            av_log(avctx, AV_LOG_ERROR,
++                   "Raw2NvBuffer failed on plane %u (%d)!\n", i, ret);
+         buffer->planes[i].bytesused = ctx->op_planefmts[i].width *
+                                       ctx->op_planefmts[i].height *
+                                       ctx->op_planefmts[i].bytesperpixel;
+-- 
+2.43.0
+

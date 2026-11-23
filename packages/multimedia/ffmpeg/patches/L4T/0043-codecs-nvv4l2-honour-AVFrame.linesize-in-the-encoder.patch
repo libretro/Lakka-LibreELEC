@@ -1,0 +1,136 @@
+From 50847ecb4f6bcf3497a6e4bbdc1c33a4ca1c92a4 Mon Sep 17 00:00:00 2001
+From: Gavin <gavin@localhost>
+Date: Sat, 3 Oct 2026 19:49:48 +0000
+Subject: [PATCH 43/45] codecs: nvv4l2: honour AVFrame.linesize in the encoder
+
+nvv4l2_encoder_put_frame() hands each plane to Raw2NvBuffer() as
+tightly packed rows of the luma width rounded up to 64 (YUV420M; half
+that for chroma), 16 (NV12M) or 32 (YUV444M), and never looks at the
+frame's linesize. Any input whose linesize differs is imported sheared,
+and when the real stride is smaller (a packed frame whose width isn't
+a multiple of the alignment, e.g. 160, 240 or 368) the copy also reads
+past the end of each plane.
+
+Carry the linesizes in NvFrame and, when they don't match the stride
+Raw2NvBuffer() is given, repack the rows into a per-context scratch
+buffer first. Frames that already match (the common FFmpeg-allocated
+case at 64-aligned widths) take the same path as before with no extra
+copy.
+
+The SPS/PPS sampling frame in nvv4l2enc_init() is allocated with
+av_image_alloc(..., 1) and had the same over-read; it now passes its
+linesizes too.
+---
+ libavcodec/nvv4l2.h     |  6 ++++++
+ libavcodec/nvv4l2_enc.c | 43 +++++++++++++++++++++++++++++++++++++++--
+ 2 files changed, 47 insertions(+), 2 deletions(-)
+
+diff --git a/libavcodec/nvv4l2.h b/libavcodec/nvv4l2.h
+index 11353bf..a7c7b79 100644
+--- a/libavcodec/nvv4l2.h
++++ b/libavcodec/nvv4l2.h
+@@ -80,6 +80,7 @@ typedef struct _NVFRAME {
+     uint32_t flags;
+     uint32_t payload_size[3];
+     uint8_t *payload[3];
++    int linesize[3];
+     uint32_t width;
+     uint32_t height;
+     int64_t  pts;
+@@ -212,6 +213,11 @@ typedef struct {
+     int64_t  frame_pts[NV_MAX_BUFFERS];
+     int64_t  frame_user_pts[NV_MAX_BUFFERS];
+ 
++    /* Scratch for repacking input planes whose linesize differs from
++     * the stride Raw2NvBuffer() is given. */
++    uint8_t *repack_buf;
++    size_t repack_buf_size;
++
+     uint8_t *packet[NV_MAX_BUFFERS];
+     uint32_t packet_buf_size[NV_MAX_BUFFERS];
+     uint32_t packet_size[NV_MAX_BUFFERS];
+diff --git a/libavcodec/nvv4l2_enc.c b/libavcodec/nvv4l2_enc.c
+index b979c93..11b3df9 100644
+--- a/libavcodec/nvv4l2_enc.c
++++ b/libavcodec/nvv4l2_enc.c
+@@ -713,6 +713,10 @@ int nvv4l2_encoder_put_frame(AVCodecContext *avctx, nvv4l2_ctx_t *ctx,
+     /* Import frame into output plane */
+     for (uint32_t i = 0; i < buffer->n_planes; i++) {
+         int aligned_plane_width = NVALIGN(ctx->op_planefmts[i].width, alignment);
++        uint32_t bpp    = ctx->op_planefmts[i].bytesperpixel;
++        uint32_t height = ctx->op_planefmts[i].height;
++        size_t stride;
++        uint8_t *src = frame->payload[i];
+ 
+         /* If plane is reduced, use alignment of main plane */
+         if (ctx->op_planefmts[i].width == ctx->op_planefmts[0].width / 2)
+@@ -721,8 +725,36 @@ int nvv4l2_encoder_put_frame(AVCodecContext *avctx, nvv4l2_ctx_t *ctx,
+         av_log(avctx, AV_LOG_VERBOSE, "Plane %d: width %d -> %d\n",
+                i, ctx->op_planefmts[i].width, aligned_plane_width);
+ 
+-        Raw2NvBuffer(frame->payload[i], i, aligned_plane_width,
+-                     ctx->op_planefmts[i].height, buffer->planes[i].fd);
++        /*
++         ** Raw2NvBuffer() reads the source as tightly packed rows of
++         ** aligned_plane_width pixels. If the caller's linesize differs
++         ** (any packed frame whose width isn't a multiple of the
++         ** alignment, or a padded one), repack the rows first; otherwise
++         ** the image is sheared and the copy reads past the plane.
++         */
++        stride = (size_t)aligned_plane_width * bpp;
++        if (frame->linesize[i] > 0 && (size_t)frame->linesize[i] != stride) {
++            size_t row  = FFMIN((size_t)ctx->op_planefmts[i].width * bpp,
++                                (size_t)frame->linesize[i]);
++            size_t need = stride * height;
++
++            if (ctx->repack_buf_size < need) {
++                NVFREE(ctx->repack_buf);
++                ctx->repack_buf = (uint8_t *)NVMALLOC(need);
++                ctx->repack_buf_size = ctx->repack_buf ? need : 0;
++                if (!ctx->repack_buf) {
++                    ctx->in_error = true;
++                    return -1;
++                }
++            }
++            for (uint32_t y = 0; y < height; y++)
++                memcpy(ctx->repack_buf + y * stride,
++                       src + (size_t)y * frame->linesize[i], row);
++            src = ctx->repack_buf;
++        }
++
++        Raw2NvBuffer(src, i, aligned_plane_width, height,
++                     buffer->planes[i].fd);
+         buffer->planes[i].bytesused = ctx->op_planefmts[i].width *
+                                       ctx->op_planefmts[i].height *
+                                       ctx->op_planefmts[i].bytesperpixel;
+@@ -844,6 +876,7 @@ int nvv4l2_encoder_close(AVCodecContext *avctx, nvv4l2_ctx_t *ctx)
+ 
+     /* Free encoder parameters */
+     NVFREE(ctx->enc);
++    NVFREE(ctx->repack_buf);
+ 
+     /* Report application run status on exit. */
+     if (ctx->in_error) {
+@@ -1176,6 +1209,9 @@ static int nvv4l2enc_init(AVCodecContext *avctx)
+             _nvframe.payload[0] = dst[0];
+             _nvframe.payload[1] = dst[1];
+             _nvframe.payload[2] = dst[2];
++            _nvframe.linesize[0] = linesize[0];
++            _nvframe.linesize[1] = linesize[1];
++            _nvframe.linesize[2] = linesize[2];
+ 
+             ret = nvv4l2_encoder_put_frame(avctx, nvv4l2_ctx->ctx, &_nvframe);
+             if (ret)
+@@ -1258,6 +1294,9 @@ nvv4l2enc_encode(AVCodecContext *avctx, AVPacket *pkt,
+         _nvframe.payload[0] = frame->data[0];
+         _nvframe.payload[1] = frame->data[1];
+         _nvframe.payload[2] = frame->data[2];
++        _nvframe.linesize[0] = frame->linesize[0];
++        _nvframe.linesize[1] = frame->linesize[1];
++        _nvframe.linesize[2] = frame->linesize[2];
+ 
+         _nvframe.pts = frame->pts;
+ 
+-- 
+2.43.0
+
